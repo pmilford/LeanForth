@@ -113,11 +113,13 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 : ea ( -- addr ) ea-acts slab-last ;
 : ea-cut ( first slab -- ) tuck slab-count - swap slab-commit ;
 : ea-fill ( f expected addr -- )
-  dup /ea erase tuck ea-expected ! tuck ea-f ! -1 over ea-outparam ! true over ea-support !
-  -1 over ea-head ! -1 over ea-stx ! ea-args slab-count over ea-fargs !
+  dup /ea erase tuck ea-expected ! tuck ea-f ! -1 over ea-outparam !
+  true over ea-support ! -1 over ea-head ! -1 over ea-stx !
+  ea-args slab-count over ea-fargs !
   ea-insts slab-count over ea-inst0 ! ea-xargs slab-count swap ea-xs ! ;
 : lf-elab-app-new ( f expected -- outcome )
-  1 ea-acts slab-claim ok-then? 0= if nip nip exit then ea-acts slab-at ea-fill outcome-ok ;
+  1 ea-acts slab-claim ok-then? 0= if nip nip exit then
+  ea-acts slab-at ea-fill outcome-ok ;
 : lf-elab-app-syntax! ( app -- ) ea ea-stx ! ;
 : lf-elab-app-term+ ( term -- outcome ) ea-xargs slab-push ;
 : lf-elab-app-plain ( -- ) false ea ea-support ! ;
@@ -149,12 +151,14 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
   ea-rev slab-clear ea-paramidx ['] ea-rev+ ok-each
   0 ea-rev slab-at ea-rev slab-count rot ;
 : ea-inst-args ( e -- e' outcome )
-  ea-reversed ok-then2? if lf-meta-instantiate-rev-beta else nip no-result then lf-elab-meta ;
+  ea-reversed ok-then2? if lf-meta-instantiate-rev-beta else nip no-result then
+  lf-elab-meta ;
 : ea-kind-of ( k -- kind true | false )
   ea ea-head @ dup 0< if 2drop false exit then
   lf-menv-kinds rot tuck > if cells + @ true else 2drop false then ;
 : ea-kind ( -- kind true | false ) ea-paramidx ea-kind-of ;
-: ea-closed? ( t -- flag outcome ) lf-meta-loose lf-elab-meta ok-then? if 0= outcome-ok then ;
+: ea-closed? ( t -- flag outcome )
+  lf-meta-loose lf-elab-meta ok-then? if 0= outcome-ok then ;
 : lf-elab-const-name ( c -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
 : ea-named? ( c c-addr u -- flag ) lfa-intern swap lf-elab-const-name = ;
 
@@ -164,7 +168,8 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
   lf-libdec-stage 0= if 2drop false outcome-unsupported exit then
   over lf-libdec-count u< 0= if 2drop false outcome-ok exit then
   ea-data? if elab-tagged? outcome-ok else 2drop false outcome-unsupported then ;
-: ea-or-tag ( flag d tag -- flag' outcome ) ea-tagged? ok-then? if or outcome-ok else nip false swap then ;
+: ea-or-tag ( flag d tag -- flag' outcome )
+  ea-tagged? ok-then? if or outcome-ok else nip false swap then ;
 : ea-elim-tags? ( d -- flag outcome )
   false over elab-tag-as-elim ea-or-tag ok-then? 0= if nip false swap exit then
   over elab-tag-cases-on ea-or-tag ok-then? 0= if nip false swap exit then
@@ -202,7 +207,8 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 
 \ ---- addNewArg.
 : ea-arg. ( arg -- arg )
-  s"  arg " lf-elab-note ea-paramidx lf-elab-n. s" : " lf-elab-note dup lf-elab-term. lf-elab-nl ;
+  s"  arg " lf-elab-note ea-paramidx lf-elab-n. s" : " lf-elab-note dup lf-elab-term.
+  lf-elab-nl ;
 : ea-add ( arg -- outcome )
   ea-arg. ea ea-f @ over lf-term-app 0= if drop outcome-full exit then ea ea-f !
   ea-args slab-push dup ok? if ea ea-ftype @ lf-term-second@ ea ea-ftype ! then ;
@@ -221,7 +227,8 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
   ea-whnf dup ok? if drop ea-pi? else false swap then ;
 
 \ ---- ensureHasType.
-: ea-coerced ( e flag -- e outcome ) if outcome-ok else lfa-e-elab-coercion lf-elab-fail then ;
+: ea-coerced ( e flag -- e outcome )
+  if outcome-ok else lfa-e-elab-coercion lf-elab-fail then ;
 : ea-against ( e expected -- e outcome )
   over lf-infer lf-elab-meta ok-then? 0= if nip exit then
   swap lf-elab-defeq lf-elab-meta ok-then? if ea-coerced then ;
@@ -265,7 +272,8 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 : ea-result? ( type -- flag )
   0 begin over lf-term-pi? while 1+ swap lf-term-second@ swap repeat lf-term-bvar-is? ;
 : ea-pos-hit? ( j p -- j flag )
-  dup ea-spine slab-count < if ea-spine lf-meta-arg over lf-term-bvar-is? else drop false then ;
+  dup ea-spine slab-count < 0= if drop false exit then
+  ea-spine lf-meta-arg over lf-term-bvar-is? ;
 : ea-outs-hit? ( j addr n -- j flag )
   0 ?do dup i cells + @ rot swap ea-pos-hit? if nip true unloop exit then swap loop
   drop false ;
@@ -274,15 +282,17 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
   dup lf-term-const? 0= if 2drop false outcome-ok exit then
   ea-class-outs 0= if drop false outcome-ok exit then ea-outs-hit? nip outcome-ok ;
 : ea-binder-out? ( type j -- flag outcome )
-  dup ea-paramidx + 1+ ea-kind-of 0= if 2drop false lfa-e-elab-binder lf-elab-fail exit then
-  lf-binder-instance = if swap lf-term-first@ swap ea-dom-hit? else 2drop false outcome-ok then ;
+  dup ea-paramidx + 1+ ea-kind-of 0= if 2drop false lfa-e-elab-binder lf-elab-fail exit
+  then lf-binder-instance <> if 2drop false outcome-ok exit then
+  swap lf-term-first@ swap ea-dom-hit? ;
 : ea-out-walk ( type -- flag outcome )
   0 begin over lf-term-pi? while
     2dup ea-binder-out? lf-elab-settled? if 2swap 2drop exit then 2drop
     1+ swap lf-term-second@ swap repeat 2drop false outcome-ok ;
 : ea-next-out? ( -- flag outcome )
   ea ea-support @ ea ea-outparam @ 0< and 0= if false outcome-ok exit then
-  ea ea-ftype @ lf-term-second@ dup ea-result? if ea-out-walk else drop false outcome-ok then ;
+  ea ea-ftype @ lf-term-second@ dup ea-result? if ea-out-walk exit then
+  drop false outcome-ok ;
 
 \ ---- The binders' kinds: implicit (addImplicitArg), instance
 \ (processInstImplicitArg).
@@ -306,12 +316,18 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 : ea-opt-auto? ( t -- flag )
   ea-app2-head 0= if false exit then dup lf-term-const? 0= if drop false exit then
   dup s" optParam" ea-named? swap s" autoParam" ea-named? or ;
-: ea-opt-step ( t -- t' found? more? outcome )
-  dup lf-term-pi? if dup lf-term-first@ ea-opt-auto? if true false outcome-ok exit then
-    lf-term-second@ false true outcome-ok exit then
-  dup ea-closed? ok-then? 0= if false false rot exit then 0= if false false outcome-ok exit then
+\ One step: a pi's domain an optParam or autoParam (found), else its
+\ body (more); no pi: whnf where nothing is loose (more when a pi comes).
+: ea-opt-pi ( pi -- t' found? more? outcome )
+  dup lf-term-first@ ea-opt-auto? if true false outcome-ok exit then
+  lf-term-second@ false true outcome-ok ;
+: ea-opt-whnf ( t -- t' found? more? outcome )
   lf-meta-whnf-forall lf-elab-meta ok-then? 0= if -1 false false rot exit then
   false over lf-term-pi? outcome-ok ;
+: ea-opt-step ( t -- t' found? more? outcome )
+  dup lf-term-pi? if ea-opt-pi exit then
+  dup ea-closed? ok-then? 0= if false false rot exit then
+  if ea-opt-whnf else false false outcome-ok then ;
 : ea-opt-walk ( type -- flag outcome )
   begin ea-opt-step dup ok? 0= if >r 2drop drop false r> exit then drop while drop repeat
   nip outcome-ok ;
@@ -324,7 +340,8 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 : ea-r-some ( -- false outcome )
   ea ea-rt @ dup ea-closed? ok-then? 0= if nip false swap exit then
   if ea-r-stop else drop ea-r-none then ;
-: ea-r-go ( t' -- true outcome ) lf-term-second@ ea ea-rt ! 1 ea ea-rk +! true outcome-ok ;
+: ea-r-go ( t' -- true outcome )
+  lf-term-second@ ea ea-rt ! 1 ea ea-rk +! true outcome-ok ;
 : ea-r-last ( t' -- false outcome )
   dup ea-closed? ok-then? 0= if nip false swap exit then
   0= if drop ea-r-none exit then ea-opt-walk ok-then? 0= if false swap exit then
@@ -341,7 +358,7 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 : ea-r-step ( -- more? outcome )
   ea-r-reduced ok-then? 0= if false swap exit then
   dup lf-term-pi? 0= if drop ea ea-rn @ if ea-r-none else ea-r-some then exit then
-  ea ea-rk @ ea-kind-of 0= if drop false lfa-e-elab-binder lf-elab-fail exit then ea-r-pi ;
+  ea ea-rk @ ea-kind-of if ea-r-pi else drop false lfa-e-elab-binder lf-elab-fail then ;
 : ea-r-start ( -- outcome )
   ea ea-ftype @ ea-inst-args ok-then? 0= if exit then lf-instantiate-mvars lf-elab-meta
   ok-then? 0= if exit then dup ea ea-ftype ! ea ea-rt !
@@ -360,7 +377,8 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
   lf-elab-defeq lf-elab-meta ok-then? if if ea-prop-off else outcome-ok then then ;
 : ea-prop-with ( expected -- outcome )
   dup ea-prop? if drop ea-prop-off exit then
-  ea-resulting ok-then? 0= if nip exit then dup 0< if 2drop outcome-ok else ea-prop-try then ;
+  ea-resulting ok-then? 0= if nip exit then
+  dup 0< if 2drop outcome-ok else ea-prop-try then ;
 : ea-propagate-arg ( -- outcome )
   ea ea-propagate @ ea ea-expected @ 0< 0= and 0= if outcome-ok exit then
   ea ea-expected @ lf-instantiate-mvars lf-elab-meta ok-then? if ea-prop-with then ;
@@ -373,12 +391,14 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
   if lf-elab-synthesize-default else outcome-ok then ;
 : ea-expected-done ( etype -- outcome )
   ea-try-synthesize dup ok? 0= if nip exit then drop
-  s"  expect " lf-elab-note ea ea-expected @ dup lf-elab-term. s"  =?= " lf-elab-note over lf-elab-term. lf-elab-nl swap lf-elab-defeq lf-elab-meta nip dup ok? if drop ea-synthesize then ;
+  ea ea-expected @ swap lf-elab-defeq lf-elab-meta nip
+  dup ok? if drop ea-synthesize then ;
 : ea-finalized ( etype -- outcome )
   ea ea-outparam @ 0< 0= if ea-out-done exit then
   ea ea-expected @ 0< if drop ea-synthesize else ea-expected-done then ;
 : ea-finalize ( frames -- term outcome frames 0 )
-  >r ea-final. ea ea-f @ lf-infer lf-elab-meta ok-then? if ea-finalized then r> ea-result ;
+  >r ea-final. ea ea-f @ lf-infer lf-elab-meta ok-then? if ea-finalized then
+  r> ea-result ;
 
 \ ---- The loop (main, App.lean:926), one binder a step.
 defer ea-main ( frames -- ... frames next )
@@ -392,12 +412,14 @@ defer ea-main ( frames -- ... frames next )
   ok-then? 0= if r> ea-fail exit then
   if lfa-e-elab-opt-param r> ea-error else r> ea-finalize then ;
 : ea-explicit ( frames -- ... frames next )
-  ea-left? 0= if ea-no-arg exit then ea-syntax? 0= if ea-take-term outcome-ok rot ea-added exit then
+  ea-left? 0= if ea-no-arg exit then
+  ea-syntax? 0= if ea-take-term outcome-ok rot ea-added exit then
   >r ea-propagate-arg dup ok? 0= if r> ea-fail exit then drop
   ea-take-syntax ea ea-dom @ r> ['] ea-added lf-elab-term-call ;
 : ea-implicit-step ( frames -- ... frames next ) >r ea-implicit r> ea-step-done ;
 : ea-instance-step ( frames -- ... frames next ) >r ea-instance r> ea-step-done ;
-: ea-strict ( frames -- ... frames next ) ea-left? if ea-implicit-step else ea-finalize then ;
+: ea-strict ( frames -- ... frames next )
+  ea-left? if ea-implicit-step else ea-finalize then ;
 : ea-binder ( frames -- ... frames next )
   ea-kind 0= if lfa-e-elab-binder swap ea-error exit then
   case lf-binder-default of ea-explicit endof lf-binder-instance of ea-instance-step endof
@@ -405,7 +427,8 @@ defer ea-main ( frames -- ... frames next )
 \ synthesizePendingAndNormalizeFunType: no pi with arguments left.
 : ea-synth-yes ( -- outcome ) lf-postpone-yes lf-elab-synthesize ;
 : ea-normalized ( -- flag outcome )
-  ea-try-synthesize ['] ea-synth-yes ok-and dup ok? if drop ea-forall? else false swap then ;
+  ea-try-synthesize ['] ea-synth-yes ok-and dup ok? 0= if false swap exit then
+  drop ea-forall? ;
 : ea-normalize ( frames -- ... frames next )
   >r ea-normalized ok-then? 0= if r> ea-fail exit then
   if r> ea-binder else lfa-e-elab-coercion r> ea-error then ;

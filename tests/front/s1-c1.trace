@@ -1,6 +1,5 @@
 app Nat
  finalize
- expect  =?= Type
 binrel Eq
 binop HAdd.hAdd
 num 0

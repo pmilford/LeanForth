@@ -195,6 +195,10 @@ defer lf-elab-default-instances ( class -- addr n outcome )
 : lf-elab-holes? ( term -- flag outcome )
   lf-reach-open 0= if drop false outcome-full exit then
   lf-reach-term lf-reach-sweep lf-reach-holes? lf-reach-close outcome-ok ;
+\ The term kept when it reaches no metavariable, else the error code.
+: lf-elab-closed ( term code -- term outcome )
+  >r dup lf-elab-holes? ok-then? 0= if r> drop exit then
+  if r> lf-elab-fail else r> drop outcome-ok then ;
 
 \ ---- The Meta layer seen from the elaborator: its outcomes made sane.
 : lf-elab-defeq ( t s -- flag outcome ) lf-meta-defeq outcome-sane ;
@@ -481,7 +485,8 @@ is ep-c-some
 is ep-c-loop
 : ep-c-visit ( first x frames -- ... frames next )
   >r drop ep-c-new dup ok? 0= if false swap r> 0 exit then drop r> ['] ep-c-loop ;
-:noname ( first x frames cont -- ... frames next ) ['] ep-c-visit lf-elab-open ; is ep-c-call
+:noname ( first x frames cont -- ... frames next ) ['] ep-c-visit lf-elab-open ;
+is ep-c-call
 
 \ ---- synthesizeUsingDefault over the window: for each priority, the
 \ first entry, oldest first, that a default instance of it fills (B as a
@@ -522,7 +527,8 @@ is ep-c-loop
 \ synthesizeUsingDefaultLoop, synthesizeSyntheticMVarsUsingDefault.
 : ep-default-loop ( -- outcome )
   begin ep-using-default dup ok? 0= if nip exit then drop
-  while lf-postpone-yes lf-elab-synthesize dup ok? 0= if exit then drop repeat outcome-ok ;
+  while lf-postpone-yes lf-elab-synthesize dup ok? 0= if exit then drop repeat
+  outcome-ok ;
 : lf-elab-synthesize-default ( -- outcome )
   lf-postpone-yes lf-elab-synthesize ['] ep-default-loop ok-and ;
 \ withSynthesize (SyntheticMVars.lean:662): lf-elab-synth{ sets the list

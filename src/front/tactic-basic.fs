@@ -245,7 +245,8 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 
 \ ---- t by-exact.
 : lfb-opaque-free ( t -- ) ['] lfb-opaque? lfb-holds? if lfa-e-tac-meta lf-tac-fail then ;
-: lfb-elaborated ( i -- ) lfb-arg tb tb-want @ false lf-tac-elab lf-tac-must tb tb-term ! ;
+: lfb-elaborated ( i -- )
+  lfb-arg tb tb-want @ false lf-tac-elab lf-tac-must tb tb-term ! ;
 : lfb-typed ( -- ) tb tb-term @ lf-infer lf-tac-must tb tb-type ! ;
 : lfb-guarded ( -- ) tb tb-type @ lfb-opaque-free tb tb-want @ lfb-opaque-free ;
 \ Lean's throwTypeMismatchError: the term, its type, the type expected.

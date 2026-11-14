@@ -106,13 +106,19 @@ end-structure
 /am context-record: et-am
 
 : et-at! ( node -- ) syn-at@ lf-elab-at! ;
-: et-app1 ( f a -- t outcome ) lf-term-app if outcome-ok else outcome-full no-result then ;
-: et-app2 ( f a b -- t outcome ) >r et-app1 ok-then? if r> et-app1 else r> drop no-result then ;
+: et-app1 ( f a -- t outcome )
+  lf-term-app if outcome-ok else outcome-full no-result then ;
+: et-app2 ( f a b -- t outcome )
+  -rot et-app1 ok-then? if swap et-app1 else nip no-result then ;
 : et-resolve ( name -- d outcome )
   lf-menv-find dup outcome-invalid = if drop lfa-e-unknown-constant lf-elab-fail exit then
   lf-elab-meta ;
 : et-const-at ( level c-addr u -- c outcome )
   lfa-intern et-resolve ok-then? if swap lf-elab-const-at else nip no-result then ;
+\ Every visit here runs on the elaborator's frames (elab-app.fs): a step
+\ drops the record it is given and names it again where it hands it on.
+: et-fr ( -- frames ) lf-elab-frames ;
+: et-failed ( outcome -- -1 outcome frames 0 ) no-result et-fr 0 ;
 
 \ ---- The declaration's variables.
 : lf-elab-vars-reset ( -- ) et-vars slab-clear ;
@@ -122,16 +128,14 @@ end-structure
 : et-const ( decl -- f outcome )
   lfa-decl-name et-resolve ok-then? if lf-elab-const else no-result then ;
 : et-var ( slot -- f outcome )
-  dup et-vars slab-count < if et-vars slab-at @ outcome-ok else drop -1 outcome-invalid then ;
+  dup et-vars slab-count < 0= if drop -1 outcome-invalid exit then
+  et-vars slab-at @ outcome-ok ;
 : et-hyp ( name -- f outcome )
   lf-mctx-view swap lf-view-named 0= if -1 outcome-invalid exit then
   lf-mctx-view swap lf-view-local lf-local-fvar outcome-ok ;
 : et-head ( node -- f outcome )
-  dup syn-kind@ case
-    syn-k-const of syn-a@ et-const endof
-    syn-k-var of syn-a@ et-var endof
-    syn-k-hyp of syn-a@ et-hyp endof
-    >r drop -1 outcome-invalid r> endcase ;
+  dup syn-a@ swap syn-kind@ case syn-k-const of et-const endof syn-k-var of et-var endof
+    syn-k-hyp of et-hyp endof nip -1 outcome-invalid rot endcase ;
 
 \ ---- elabNumLit.
 : et-type-mvar ( -- T outcome )   \ mkFreshTypeMVar synthetic
@@ -146,9 +150,10 @@ end-structure
   lf-meta-is-prop lf-elab-meta ok-then? 0= if exit then
   if lfa-e-elab-numeral else lfa-e-elab-numeral-u then lf-elab-fail ;
 : et-dec-level ( T expected -- u outcome )
-  >r lf-meta-dec-level dup outcome-invalid = if 2drop r> et-numeral-error no-result exit then
-  r> drop lf-elab-meta ;
-: et-lit ( n -- lit outcome ) lf-hterm-cell if drop outcome-ok else outcome-full no-result then ;
+  swap lf-meta-dec-level dup outcome-invalid = 0= if rot drop lf-elab-meta exit then
+  2drop et-numeral-error no-result ;
+: et-lit ( n -- lit outcome )
+  lf-hterm-cell if drop outcome-ok else outcome-full no-result then ;
 : et-two-consts ( u -- c1 c2 outcome )   \ OfNat.{u} and OfNat.ofNat.{u}
   dup s" OfNat" et-const-at ok-then? 0= if nip -1 -1 rot exit then
   swap s" OfNat.ofNat" et-const-at ;
@@ -170,33 +175,29 @@ end-structure
 \ back at its end; the implicit-lambda test; the elaborator by kind.
 : et-at-back ( result outcome frames -- result outcome frames 0 )
   dup frame-restore lf-elab-at! 0 ;
-: et-at-scope ( node frames -- node frames )
-  lf-elab-at over frame-save ['] et-at-back over frame-save over et-at! ;
+: et-at-scope ( node -- node )
+  lf-elab-at et-fr frame-save ['] et-at-back et-fr frame-save dup et-at! ;
 : et-lambda? ( expected -- outcome )
-  dup 0< if drop outcome-ok exit then lf-meta-whnf-forall lf-elab-meta ok-then? 0= if exit then
+  dup 0< if drop outcome-ok exit then
+  lf-meta-whnf-forall lf-elab-meta ok-then? 0= if exit then
   lf-term-pi? if lfa-e-elab-lambda lf-elab-fail else outcome-ok then ;
-: et-failed ( outcome frames -- -1 outcome frames 0 ) >r no-result r> 0 ;
-: et-num ( node expected frames -- term outcome frames 0 ) >r et-numeral r> 0 ;
-: et-atom ( node expected frames -- ... frames next )
-  >r swap et-head dup ok? 0= if nip nip r> et-failed exit then drop
-  swap lf-elab-app-new dup ok? 0= if r> et-failed exit then drop
-  0 0 r> ['] frame-return lf-elab-app-call ;
-: et-app ( node expected frames -- ... frames next )
-  >r swap dup syn-a@ et-head ok-then? 0= if nip nip r> et-failed exit then
-  rot lf-elab-app-new dup ok? 0= if nip r> et-failed exit then drop
-  lf-elab-app-syntax! 0 0 r> ['] frame-return lf-elab-app-call ;
-defer et-op ( node expected frames -- ... frames next )
-defer et-rel ( node expected frames -- ... frames next )
-: et-dispatch ( node expected frames -- ... frames next )
-  >r over syn-kind@ r> swap case
-    syn-k-num of et-num endof
-    syn-k-app of et-app endof
-    syn-k-binop of et-op endof
-    syn-k-binrel of et-rel endof
-    >r et-atom r> endcase ;
+: et-app-call ( -- ... frames next ) 0 0 et-fr ['] frame-return lf-elab-app-call ;
+: et-num ( node expected -- term outcome frames 0 ) et-numeral et-fr 0 ;
+: et-atom ( node expected -- ... frames next )
+  swap et-head dup ok? 0= if nip nip et-failed exit then drop
+  swap lf-elab-app-new dup ok? 0= if et-failed exit then drop et-app-call ;
+: et-app ( node expected -- ... frames next )
+  swap dup syn-a@ et-head ok-then? 0= if nip nip et-failed exit then
+  rot lf-elab-app-new dup ok? 0= if nip et-failed exit then drop
+  lf-elab-app-syntax! et-app-call ;
+defer et-op ( node expected -- ... frames next )
+defer et-rel ( node expected -- ... frames next )
+: et-dispatch ( node expected -- ... frames next )
+  over syn-kind@ case syn-k-num of et-num endof syn-k-app of et-app endof
+    syn-k-binop of et-op endof syn-k-binrel of et-rel endof >r et-atom r> endcase ;
 : et-visit ( node expected frames -- ... frames next )
-  >r swap r> et-at-scope >r swap dup et-lambda? dup ok? 0= if nip nip r> et-failed exit then
-  drop r> et-dispatch ;
+  drop swap et-at-scope swap dup et-lambda? dup ok? 0= if nip nip et-failed exit then
+  drop et-dispatch ;
 :noname ( node expected frames cont -- ... frames next ) ['] et-visit lf-elab-open ;
 is lf-elab-term-call
 : et-term-call ( node expected frames cont -- ... frames next ) lf-elab-term-call ;
@@ -205,41 +206,43 @@ is lf-elab-term-call
 \ ---- binop% trees: toTree's go, a node per operator (pre-order) and per
 \ leaf (its term elaborated with no expected type).
 : tn ( i -- addr ) et-tree slab-at ;
+: et-tn-fill ( node f addr -- ) dup /tn erase tuck tn-f ! tuck tn-node ! -1 swap tn-up ! ;
 : et-tn-new ( node f -- i outcome )
   1 et-tree slab-claim ok-then? 0= if nip nip no-result exit then
-  dup >r tn dup /tn erase tuck tn-f ! tuck tn-node ! -1 swap tn-up ! r> outcome-ok ;
+  dup >r tn et-tn-fill r> outcome-ok ;
 : et-leaf? ( i -- flag ) tn tn-f @ 0< ;
 : et-leaf. ( term -- term ) s" leaf " lf-elab-note dup lf-elab-term. lf-elab-nl ;
 : et-leaf-new ( term node -- i outcome )
   -1 et-tn-new ok-then? if tuck tn tn-val ! outcome-ok else nip no-result then ;
 : et-leafed ( term outcome frames -- i outcome frames 0 )
-  dup frame-restore swap >r over ok? if nip swap et-leaf. swap et-leaf-new
-  else drop nip no-result then r> 0 ;
-: et-go-leaf ( node frames -- ... frames next )
-  2dup frame-save -1 swap ['] et-leafed lf-elab-term-call ;
+  frame-restore over ok? 0= if drop nip et-failed exit then
+  nip swap et-leaf. swap et-leaf-new et-fr 0 ;
+: et-go-leaf ( node -- ... frames next )
+  dup et-fr frame-save -1 et-fr ['] et-leafed lf-elab-term-call ;
 : et-up! ( child parent -- ) tn tn-f @ swap tn tn-up ! ;
 : et-lhs! ( child parent -- ) 2dup tn tn-lhs ! over tn true swap tn-left ! et-up! ;
 : et-rhs! ( child parent -- ) 2dup tn tn-rhs ! et-up! ;
-: et-op-fail ( x outcome frames -- -1 outcome frames 0 ) 1 over frame-drop >r nip no-result r> 0 ;
+: et-op-fail ( x outcome frames -- -1 outcome frames 0 ) 1 swap frame-drop nip et-failed ;
+: et-parent ( -- i ) 0 et-fr frame-pick ;
 defer et-go-call ( node x frames cont -- ... frames next )
 : et-op-rhs ( i outcome frames -- i outcome frames 0 )
-  over ok? 0= if et-op-fail exit then nip dup frame-restore rot over et-rhs!
-  swap outcome-ok swap 0 ;
+  over ok? 0= if et-op-fail exit then frame-restore rot over et-rhs! swap et-fr 0 ;
 : et-op-lhs ( i outcome frames -- ... frames next )
-  over ok? 0= if et-op-fail exit then nip 0 over frame-pick rot swap et-lhs!
-  0 over frame-pick tn tn-node @ syn-c@ 0 rot ['] et-op-rhs et-go-call ;
+  over ok? 0= if et-op-fail exit then 2drop et-parent et-lhs!
+  et-parent tn tn-node @ syn-c@ 0 et-fr ['] et-op-rhs et-go-call ;
 : et-op. ( f -- f ) s" binop " lf-elab-note dup lf-elab-term. lf-elab-nl ;
-: et-op-f ( node -- f outcome ) syn-a@ et-resolve ok-then? if lf-elab-const else no-result then ;
-: et-go-op ( node frames -- ... frames next )
-  >r dup et-op-f ok-then? 0= if nip r> et-failed exit then et-op.
-  over swap et-tn-new ok-then? 0= if nip r> et-failed exit then
-  r> tuck frame-save swap syn-b@ 0 rot ['] et-op-lhs et-go-call ;
+: et-op-f ( node -- f outcome )
+  syn-a@ et-resolve ok-then? if lf-elab-const else no-result then ;
+: et-go-op ( node -- ... frames next )
+  dup et-op-f ok-then? 0= if nip et-failed exit then et-op.
+  over swap et-tn-new ok-then? 0= if nip et-failed exit then
+  et-fr frame-save syn-b@ 0 et-fr ['] et-op-lhs et-go-call ;
 : et-go ( node x frames -- ... frames next )
-  nip over syn-kind@ syn-k-binop = if et-go-op else et-go-leaf then ;
+  2drop dup syn-kind@ syn-k-binop = if et-go-op else et-go-leaf then ;
 :noname ( node x frames cont -- ... frames next ) ['] et-go lf-elab-open ; is et-go-call
 \ toTree: go, then synthesizeSyntheticMVars (postponing).
 : et-tree-end ( i outcome frames -- i outcome frames 0 )
-  >r dup ok? if drop lf-postpone-yes lf-elab-synthesize then r> 0 ;
+  drop dup ok? if drop lf-postpone-yes lf-elab-synthesize then et-fr 0 ;
 : et-tree-call ( node x frames cont -- ... frames next )
   over frame-save ['] et-tree-end et-go-call ;
 
@@ -247,17 +250,19 @@ defer et-go-call ( node x frames cont -- ... frames next )
 : eo ( -- addr ) et-ops slab-last ;
 : et-unknown? ( t -- flag ) begin dup lf-term-app? while lf-term-first@ repeat lf-mvar? ;
 : et-leaf-type ( i -- type outcome )
-  tn tn-val @ lf-infer lf-elab-meta ok-then? if lf-instantiate-mvars lf-elab-meta
-  else no-result then ;
+  tn tn-val @ lf-infer lf-elab-meta ok-then? 0= if no-result exit then
+  lf-instantiate-mvars lf-elab-meta ;
+: et-max! ( type -- ) dup et-unknown? if drop else eo eo-max ! then ;
 : et-max-start ( expected -- outcome )
   -1 eo eo-max ! false eo eo-unknown ! false eo eo-uncomp !
-  dup 0< if drop outcome-ok exit then lf-instantiate-mvars lf-elab-meta ok-then? 0= if exit then
-  dup et-unknown? if drop else eo eo-max ! then outcome-ok ;
+  dup 0< if drop outcome-ok exit then
+  lf-instantiate-mvars lf-elab-meta ok-then? if et-max! outcome-ok then ;
 : et-stuck-guarded ( t s -- flag outcome )
-  lf-defeq-flags dup >r lf-defeq-stuck or lf-defeq-flags! lf-elab-guarded r> lf-defeq-flags! ;
+  lf-defeq-flags dup >r lf-defeq-stuck or lf-defeq-flags! lf-elab-guarded
+  r> lf-defeq-flags! ;
 : et-deep-guarded ( t s -- flag outcome )
   false lf-mctx-depth{ ok-then? 0= if nip nip false swap exit then
-  >r et-stuck-guarded r> }lf-mctx-depth outcome-and lf-elab-meta ;
+  -rot et-stuck-guarded rot }lf-mctx-depth outcome-and lf-elab-meta ;
 : et-coe-t? ( -- flag ) s" CoeT" lfa-intern lf-menv-find nip ok? ;
 : et-uncomparable ( -- outcome )
   et-coe-t? if lfa-e-elab-coercion lf-elab-fail else true eo eo-uncomp ! outcome-ok then ;
@@ -268,11 +273,12 @@ defer et-go-call ( node x frames cont -- ... frames next )
   et-leaf-type ok-then? 0= if exit then
   dup et-unknown? if drop true eo eo-unknown ! outcome-ok exit then
   eo eo-max @ 0< if eo eo-max ! outcome-ok else et-compared then ;
-: et-analyze-at ( i -- outcome ) dup et-leaf? if et-analyze-leaf else drop outcome-ok then ;
+: et-analyze-at ( i -- outcome )
+  dup et-leaf? if et-analyze-leaf else drop outcome-ok then ;
 : et-analyzing? ( i -- flag ) et-tree slab-count < eo eo-uncomp @ 0= and ;
-: et-analyze. ( -- )
-  s" analyze max " lf-elab-note eo eo-max @ dup 0< if drop s" none" lf-elab-note
-  else lf-elab-term. then lf-elab-nl ;
+: et-max. ( -- )
+  eo eo-max @ dup 0< if drop s" none" lf-elab-note else lf-elab-term. then ;
+: et-analyze. ( -- ) s" analyze max " lf-elab-note et-max. lf-elab-nl ;
 : et-analyze ( expected -- outcome )
   et-max-start dup ok? 0= if exit then drop
   eo eo-root @ begin dup et-analyzing? while
@@ -288,11 +294,14 @@ defer et-go-call ( node x frames cont -- ... frames next )
 \ only for those of the new depth) are 139.
 : et-am-dom ( -- dom ) et-am am-type @ lf-term-first@ ;
 : et-am-none ( -- outcome ) -1 et-am am-app ! outcome-ok ;
-: et-am-put ( x -- outcome )
-  et-am am-app @ over lf-term-app 0= if drop outcome-full exit then et-am am-app !
+: et-am-enter ( x -- outcome )
   et-am am-type @ lf-term-second@ swap lf-meta-instantiate1 lf-elab-meta
   ok-then? if et-am am-type ! 1 et-am am-k +! outcome-ok then ;
-: et-am-hole ( kind -- outcome ) et-am-dom swap lf-mvar-new lf-elab-meta ok-then? if et-am-put then ;
+: et-am-put ( x -- outcome )
+  et-am am-app @ over lf-term-app 0= if drop outcome-full exit then
+  et-am am-app ! et-am-enter ;
+: et-am-hole ( kind -- outcome )
+  et-am-dom swap lf-mvar-new lf-elab-meta ok-then? if et-am-put then ;
 : et-am-fits ( flag -- outcome )
   if 1 et-am am-xs +! et-am am-max @ et-am-put else et-am-none then ;
 : et-am-explicit ( -- outcome )
@@ -311,11 +320,10 @@ defer et-go-call ( node x frames cont -- ... frames next )
   et-am am-type @ lf-term-pi? 0= if et-am-reduce exit then
   et-am-kind if et-am-binder else lfa-e-elab-binder lf-elab-fail then ;
 : et-am-going? ( -- flag ) et-am am-xs @ 3 < et-am am-app @ 0< 0= and ;
-: et-am-closed ( t -- t outcome )
-  dup lf-elab-holes? ok-then? 0= if exit then if lfa-e-elab-step lf-elab-fail else outcome-ok then ;
 : et-am-final ( -- type outcome )
   et-am am-app @ dup 0< if outcome-ok exit then lf-instantiate-mvars lf-elab-meta
-  ok-then? if et-am-closed dup ok? 0= if nip no-result then else no-result then ;
+  ok-then? 0= if no-result exit then lfa-e-elab-step lf-elab-closed
+  dup ok? 0= if nip no-result then ;
 : et-am-start ( d max -- outcome )
   et-am /am erase et-am am-max ! dup et-am am-d ! lf-elab-const ok-then? 0= if exit then
   dup et-am am-app ! lf-infer lf-elab-meta ok-then? if et-am am-type ! outcome-ok then ;
@@ -325,13 +333,14 @@ defer et-go-call ( node x frames cont -- ... frames next )
   et-am-final ;
 : et-app-m ( d max -- type outcome )
   false lf-mctx-depth{ ok-then? 0= if nip nip no-result exit then
-  >r et-am-run r> }lf-mctx-depth outcome-and ;
+  -rot et-am-run rot }lf-mctx-depth outcome-and ;
 
 \ ---- hasHomogeneousInstance (Extra.lean:387): the operator's class (its
 \ name's prefix; none: false) at the max type, synthesized.
 : et-class-of ( f -- d true outcome | false outcome )
   lf-elab-const-name lf-name-prefix@ lf-menv-find dup outcome-invalid =
-  if 2drop false outcome-ok exit then lf-elab-meta ok-then? if true outcome-ok else false swap then ;
+  if 2drop false outcome-ok exit then
+  lf-elab-meta ok-then? if true outcome-ok else false swap then ;
 : et-synthesized ( type -- flag outcome )
   dup 0< if drop false outcome-ok exit then
   lf-elab-try-synth ok-then2? if nip 1 = outcome-ok else false swap then ;
@@ -351,17 +360,20 @@ defer et-go-call ( node x frames cont -- ... frames next )
   dup lf-term-app? 0= if drop false exit then lf-term-first@
   dup lf-term-app? 0= if drop false exit then dup lf-term-second@ swap lf-term-first@
   dup lf-term-app? 0= if 2drop false exit then lf-term-second@ swap true ;
+: et-side ( a b left? -- t ) if nip else drop then ;
 : et-def-hit? ( name left? v -- flag )
   elab-default@ drop nip lf-menv-type et-body et-args3 0= if 2drop false exit then
-  rot if nip else drop then et-head-name if = else drop false then ;
+  rot et-side et-head-name if = else drop false then ;
 : et-scan-one ( name left? v -- name left? flag outcome )
-  dup 0< if drop false lfa-e-elab-step lf-elab-fail exit then >r 2dup r> et-def-hit? outcome-ok ;
+  dup 0< if drop false lfa-e-elab-step lf-elab-fail exit then
+  >r 2dup r> et-def-hit? outcome-ok ;
 : et-hetero-scan ( name left? addr n -- flag outcome )
   dup 2 < if 2drop 2drop false outcome-ok exit then cells over + swap ?do
     i @ et-scan-one lf-elab-settled? if 2swap 2drop unloop exit then 2drop
   cell +loop 2drop false outcome-ok ;
 : et-hetero-of ( name left? f -- flag outcome )
-  et-class-of ok-then? 0= if nip nip false swap exit then 0= if 2drop false outcome-ok exit then
+  et-class-of ok-then? 0= if nip nip false swap exit then
+  0= if 2drop false outcome-ok exit then
   lf-elab-default-instances ok-then2? if et-hetero-scan else nip nip false swap then ;
 : et-hetero ( i -- flag outcome )
   eo eo-max @ et-head-name 0= if drop false outcome-ok exit then
@@ -373,7 +385,8 @@ defer et-go-call ( node x frames cont -- ... frames next )
 \ (else a coercion, 131).
 : et-pred? ( i -- flag ) eo eo-root @ = eo eo-rel @ and ;
 : et-coe-op ( i -- outcome )
-  dup et-pred? if drop outcome-ok exit then tn tn-f @ et-homogeneous ok-then? 0= if exit then
+  dup et-pred? if drop outcome-ok exit then
+  tn tn-f @ et-homogeneous ok-then? 0= if exit then
   if outcome-ok else lfa-e-elab-step lf-elab-fail then ;
 : et-fits ( flag outcome -- outcome )
   ok-then? if if outcome-ok else lfa-e-elab-coercion lf-elab-fail then then ;
@@ -382,7 +395,8 @@ defer et-go-call ( node x frames cont -- ... frames next )
   et-unknown? 0= if drop false outcome-ok exit then
   dup tn tn-up @ 0< if drop false outcome-ok else et-hetero then ;
 : et-coe-leaf ( i -- outcome )
-  dup et-leaf-type ok-then? 0= if nip exit then 2dup et-kept? ok-then? 0= if nip nip exit then
+  dup et-leaf-type ok-then? 0= if nip exit then
+  2dup et-kept? ok-then? 0= if nip nip exit then
   if 2drop outcome-ok else nip et-coe-check then ;
 : et-coe-at ( i -- outcome ) dup et-leaf? if et-coe-leaf else et-coe-op then ;
 : et-apply-coe ( -- outcome )
@@ -395,82 +409,87 @@ defer et-x-call ( i x frames cont -- ... frames next )
 : et-binop-new ( lhs rhs f -- outcome )
   -1 lf-elab-app-new dup ok? 0= if nip nip exit then drop lf-elab-app-plain
   swap lf-elab-app-term+ dup ok? 0= if nip exit then drop lf-elab-app-term+ ;
-: et-x-operands ( rhs frames -- lhs rhs f frames )
-  dup frame-restore swap dup frame-restore tn tn-f @ swap >r >r swap r> r> ;
 : et-x-rhs ( term outcome frames -- ... frames next )
-  over ok? 0= if 2 over frame-drop >r nip r> et-failed exit then
-  nip et-x-operands >r et-binop-new dup ok? 0= if r> et-failed exit then drop
-  0 0 r> ['] frame-return lf-elab-app-call ;
+  over ok? 0= if 2 swap frame-drop nip et-failed exit then 2drop
+  et-fr frame-restore swap et-fr frame-restore tn tn-f @ et-binop-new
+  dup ok? 0= if et-failed exit then drop et-app-call ;
 : et-x-lhs ( term outcome frames -- ... frames next )
-  over ok? 0= if et-op-fail exit then nip tuck frame-save
-  1 over frame-pick tn tn-rhs @ 0 rot ['] et-x-rhs et-x-call ;
+  over ok? 0= if et-op-fail exit then nip frame-save
+  1 et-fr frame-pick tn tn-rhs @ 0 et-fr ['] et-x-rhs et-x-call ;
 : et-x-visit ( i x frames -- ... frames next )
-  nip over et-leaf? if >r tn tn-val @ outcome-ok r> 0 exit then
-  2dup frame-save swap tn tn-lhs @ 0 rot ['] et-x-lhs et-x-call ;
+  2drop dup et-leaf? if tn tn-val @ outcome-ok et-fr 0 exit then
+  dup et-fr frame-save tn tn-lhs @ 0 et-fr ['] et-x-lhs et-x-call ;
 :noname ( i x frames cont -- ... frames next ) ['] et-x-visit lf-elab-open ; is et-x-call
 
 \ ---- elabOp and elabBinRelCore, a record each on et-ops.
 : et-tree-cut ( first -- ) et-tree slab-count - et-tree slab-commit ;
+: et-eo-fill ( expected rel? addr -- )
+  dup /eo erase tuck eo-rel ! tuck eo-expected ! et-tree slab-count swap eo-root ! ;
 : et-eo-new ( expected rel? -- outcome )
-  1 et-ops slab-claim ok-then? 0= if nip nip exit then et-ops slab-at dup /eo erase
-  tuck eo-rel ! tuck eo-expected ! et-tree slab-count swap eo-root ! outcome-ok ;
-: et-eo-end ( term outcome frames -- term outcome frames 0 )
-  eo eo-root @ et-tree-cut et-ops slab-drop 0 ;
-: et-eo-fail ( outcome frames -- -1 outcome frames 0 ) >r no-result r> et-eo-end ;
+  1 et-ops slab-claim ok-then? 0= if nip nip exit then
+  et-ops slab-at et-eo-fill outcome-ok ;
+: et-eo-end ( term outcome -- term outcome frames 0 )
+  eo eo-root @ et-tree-cut et-ops slab-drop et-fr 0 ;
+: et-eo-fail ( outcome -- -1 outcome frames 0 ) no-result et-eo-end ;
 : et-record-max ( term -- term outcome )
-  eo eo-unknown @ if outcome-ok exit then dup lf-infer lf-elab-meta ok-then? 0= if exit then
+  eo eo-unknown @ if outcome-ok exit then
+  dup lf-infer lf-elab-meta ok-then? 0= if exit then
   eo eo-max @ lf-elab-guarded lf-elab-meta nip ;
+: et-expected ( term -- term outcome ) eo eo-expected @ lf-elab-ensure ;
 : et-op-finish ( term -- term outcome )
-  et-record-max ok-then? if eo eo-expected @ lf-elab-ensure else no-result then ;
+  et-record-max ok-then? if et-expected else no-result then ;
 : et-op-maxed ( term outcome frames -- term outcome frames 0 )
-  >r ok-then? if et-op-finish else no-result then r> et-eo-end ;
+  drop ok-then? if et-op-finish else no-result then et-eo-end ;
 : et-op-ensure ( term outcome frames -- term outcome frames 0 )
-  >r ok-then? if eo eo-expected @ lf-elab-ensure else no-result then r> et-eo-end ;
+  drop ok-then? if et-expected else no-result then et-eo-end ;
+: et-root-call ( cont -- ... frames next ) >r eo eo-root @ 0 et-fr r> et-x-call ;
 : et-op-tree ( i outcome frames -- ... frames next )
-  over ok? 0= if rot drop et-eo-fail exit then nip >r drop eo eo-expected @ et-analyze
-  dup ok? 0= if r> et-eo-fail exit then drop
-  et-no-max? if eo eo-root @ 0 r> ['] et-op-ensure et-x-call exit then
-  et-apply-coe dup ok? 0= if r> et-eo-fail exit then drop
-  eo eo-root @ 0 r> ['] et-op-maxed et-x-call ;
-:noname ( node expected frames -- ... frames next )
-  >r false et-eo-new dup ok? 0= if nip r> et-failed exit then drop
-  0 r> ['] et-op-tree et-tree-call ;
+  drop nip dup ok? 0= if et-eo-fail exit then drop eo eo-expected @ et-analyze
+  dup ok? 0= if et-eo-fail exit then drop et-no-max? if ['] et-op-ensure et-root-call exit
+  then et-apply-coe dup ok? 0= if et-eo-fail exit then drop ['] et-op-maxed et-root-call ;
+:noname ( node expected -- ... frames next )
+  false et-eo-new dup ok? 0= if nip et-failed exit then drop
+  0 et-fr ['] et-op-tree et-tree-call ;
 is et-op
 \ binrel%: the root an operator node of the relation; both sides' trees
 \ inside withSynthesizeLight (the pending list set aside, back at the end).
+: et-window-back ( -- ) eo eo-saved @ }lf-elab-window ;
 : et-rel-fail ( x outcome frames -- -1 outcome frames 0 )
-  eo eo-saved @ }lf-elab-window >r nip r> et-eo-fail ;
+  drop nip et-window-back et-eo-fail ;
 : et-rel-done ( term outcome frames -- term outcome frames 0 )
-  >r dup ok? if drop lf-postpone-yes lf-elab-synthesize then eo eo-saved @ }lf-elab-window
-  dup ok? 0= if nip no-result then r> et-eo-end ;
+  drop dup ok? if drop lf-postpone-yes lf-elab-synthesize then et-window-back
+  dup ok? 0= if nip no-result then et-eo-end ;
 : et-rel-ensure ( rhs -- rhs' outcome )
   eo eo-lhs @ lf-infer lf-elab-meta ok-then? if lf-elab-ensure else nip no-result then ;
 : et-rel-app ( rhs -- outcome )
-  eo eo-root @ tn tn-f @ eo eo-expected @ lf-elab-app-new dup ok? 0= if nip exit then drop
-  lf-elab-app-plain eo eo-lhs @ lf-elab-app-term+ dup ok? 0= if nip exit then drop
+  eo eo-root @ tn tn-f @ eo eo-expected @ lf-elab-app-new dup ok? 0= if nip exit then
+  drop lf-elab-app-plain eo eo-lhs @ lf-elab-app-term+ dup ok? 0= if nip exit then drop
   lf-elab-app-term+ ;
+: et-rel-failing ( outcome -- -1 outcome frames 0 ) 0 swap et-fr et-rel-fail ;
 : et-rel-r ( term outcome frames -- ... frames next )
-  over ok? 0= if et-rel-fail exit then nip >r et-rel-ensure ok-then? if et-rel-app then
-  dup ok? 0= if 0 swap r> et-rel-fail exit then drop 0 0 r> ['] et-rel-done lf-elab-app-call ;
+  over ok? 0= if et-rel-fail exit then 2drop et-rel-ensure ok-then? if et-rel-app then
+  dup ok? 0= if et-rel-failing exit then drop 0 0 et-fr ['] et-rel-done lf-elab-app-call ;
 : et-rel-l ( term outcome frames -- ... frames next )
-  over ok? 0= if et-rel-fail exit then nip >r eo eo-lhs !
-  eo eo-root @ tn tn-rhs @ 0 r> ['] et-rel-r et-x-call ;
+  over ok? 0= if et-rel-fail exit then 2drop eo eo-lhs !
+  eo eo-root @ tn tn-rhs @ 0 et-fr ['] et-rel-r et-x-call ;
+: et-rel-lhs-call ( -- ... frames next )
+  eo eo-root @ tn tn-lhs @ 0 et-fr ['] et-rel-l et-x-call ;
+: et-rel-maxed ( -- ... frames next )
+  et-apply-coe dup ok? 0= if et-rel-failing exit then drop ['] et-rel-done et-root-call ;
 : et-rel-rhs ( i outcome frames -- ... frames next )
-  over ok? 0= if et-rel-fail exit then nip >r eo eo-root @ et-rhs!
-  -1 et-analyze dup ok? 0= if 0 swap r> et-rel-fail exit then drop
-  et-no-max? if eo eo-root @ tn tn-lhs @ 0 r> ['] et-rel-l et-x-call exit then
-  et-apply-coe dup ok? 0= if 0 swap r> et-rel-fail exit then drop
-  eo eo-root @ 0 r> ['] et-rel-done et-x-call ;
+  over ok? 0= if et-rel-fail exit then 2drop eo eo-root @ et-rhs!
+  -1 et-analyze dup ok? 0= if et-rel-failing exit then drop
+  et-no-max? if et-rel-lhs-call else et-rel-maxed then ;
 : et-rel-lhs ( i outcome frames -- ... frames next )
-  over ok? 0= if et-rel-fail exit then nip >r eo eo-root @ et-lhs!
-  eo eo-root @ tn tn-node @ syn-c@ 0 r> ['] et-rel-rhs et-tree-call ;
+  over ok? 0= if et-rel-fail exit then 2drop eo eo-root @ et-lhs!
+  eo eo-root @ tn tn-node @ syn-c@ 0 et-fr ['] et-rel-rhs et-tree-call ;
 : et-rel. ( f -- f ) s" binrel " lf-elab-note dup lf-elab-term. lf-elab-nl ;
 : et-rel-root ( node -- outcome )
   dup et-op-f ok-then? 0= if nip exit then et-rel. et-tn-new nip ;
-:noname ( node expected frames -- ... frames next )
-  >r true et-eo-new dup ok? 0= if nip r> et-failed exit then drop
-  dup et-rel-root dup ok? 0= if nip r> et-eo-fail exit then drop
-  lf-elab-window{ eo eo-saved ! syn-b@ 0 r> ['] et-rel-lhs et-tree-call ;
+:noname ( node expected -- ... frames next )
+  true et-eo-new dup ok? 0= if nip et-failed exit then drop
+  dup et-rel-root dup ok? 0= if nip et-eo-fail exit then drop
+  lf-elab-window{ eo eo-saved ! syn-b@ 0 et-fr ['] et-rel-lhs et-tree-call ;
 is et-rel
 
 \ ---- elabType, ensureType, elabTermEnsuringType.
@@ -484,7 +503,8 @@ is et-rel
   s" CoeSort" lfa-intern lf-menv-find nip ok?
   if lfa-e-elab-coercion else lfa-e-elab-type then lf-elab-fail ;
 : et-sorted ( e -- e outcome )
-  dup lf-infer lf-elab-meta ok-then? 0= if exit then et-sort-mvar ok-then? 0= if nip exit then
+  dup lf-infer lf-elab-meta ok-then? 0= if exit then
+  et-sort-mvar ok-then? 0= if nip exit then
   lf-elab-defeq lf-elab-meta ok-then? if if outcome-ok else et-not-sort then then ;
 : et-ensure-type ( e -- e outcome )
   dup et-is-type? ok-then? 0= if exit then if outcome-ok else et-sorted then ;
@@ -492,8 +512,7 @@ is et-rel
   dup et-at! et-sort-mvar ok-then? 0= if nip no-result exit then
   lf-elab-term ok-then? if et-ensure-type else no-result then ;
 : lf-elab-ensuring ( node expected -- term outcome )
-  dup >r lf-elab-term ok-then? if r> lf-elab-ensure else r> drop no-result then ;
+  tuck lf-elab-term ok-then? if swap lf-elab-ensure else nip no-result then ;
 : lf-elab-term-reset ( -- ) et-tree slab-clear et-ops slab-clear ;
 
 base !   \ the BASE this file was loaded with
-

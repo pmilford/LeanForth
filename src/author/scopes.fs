@@ -74,7 +74,8 @@ end-structure
 \ (natural text between declarations, where a command such as #check
 \ takes a term: plan S1) the run's floor.
 : lfa-outer ( -- depth ) lfa-base dup 0< if drop lfa-floor then ;
-: lfa-frame ( -- depth ) lfa-depth if lfa-innermost lfa-binder-mark @ else lfa-outer then ;
+: lfa-frame ( -- depth )
+  lfa-depth if lfa-innermost lfa-binder-mark @ else lfa-outer then ;
 \ Terms stand inside a declaration, or in natural text anywhere.
 : lfa-terms? ( -- flag ) lfa-inside? lfa-kernel-form? 0= or ;
 \ Stop unless n values are above the frame, where terms may stand. Called

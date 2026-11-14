@@ -94,7 +94,8 @@ action-of lfa-run-fresh constant edc-run-before
   catch 2r> lf-meta-config! throw ;
 
 \ ---- Errors: the run stops at the current token (end NAME, #check).
-: edc-fail ( outcome -- ) lf-elab-code dup 0< if drop lfa-fail else swap lfa-fail-see then ;
+: edc-fail ( outcome -- )
+  lf-elab-code dup 0< if drop lfa-fail else swap lfa-fail-see then ;
 : edc-must ( outcome -- ) dup ok? if drop else edc-fail then ;
 
 \ ---- The header: parameters and statement.
@@ -111,8 +112,7 @@ action-of lfa-run-fresh constant edc-run-before
 \ binders open at end).
 : edc-params ( -- n ) lfa-params dup 0< if drop lfa-depth then ;
 : edc-binders ( -- outcome ) edc-params ['] edc-binder ok-each ;
-: edc-holes ( type -- type outcome )
-  dup lf-elab-holes? ok-then? 0= if exit then if lfa-e-elab-step lf-elab-fail else outcome-ok then ;
+: edc-holes ( type -- type outcome ) lfa-e-elab-step lf-elab-closed ;
 : edc-statement ( -- type outcome )
   lf-front-statement lf-elab-type ok-then? 0= if no-result exit then
   lf-postpone-no lf-elab-synthesize dup ok? 0= if nip no-result exit then drop
@@ -152,14 +152,14 @@ action-of lfa-run-fresh constant edc-run-before
   ['] edc-print catch r> lf-print-notation! 2r> lf-print-setup throw ;
 : edc-check-line ( term type -- ) swap edc-printed drop ."  : " edc-printed drop cr ;
 : edc-signature? ( node -- flag ) syn-kind@ syn-k-const = ;
-: edc-printable ( term -- term outcome )
-  dup lf-elab-holes? ok-then? 0= if exit then if lfa-e-elab-print lf-elab-fail else outcome-ok then ;
+: edc-printable ( term -- term outcome ) lfa-e-elab-print lf-elab-closed ;
 : edc-check-term ( node -- term outcome )
   -1 lf-elab-term ok-then? 0= if no-result exit then
   lf-postpone-check lf-elab-synthesize dup ok? 0= if nip no-result exit then drop
   lf-instantiate-mvars lf-elab-meta ok-then? if edc-printable else no-result then ;
 : edc-check-type ( term -- term type outcome )
-  dup lf-infer lf-elab-meta ok-then? if lf-instantiate-mvars lf-elab-meta else no-result then ;
+  dup lf-infer lf-elab-meta ok-then? 0= if no-result exit then
+  lf-instantiate-mvars lf-elab-meta ;
 : edc-checked ( node -- )
   dup edc-signature? if syn-at@ lfa-e-elab-print lfa-fail-see exit then
   dup syn-at@ lf-elab-at! edc-check-term edc-must edc-check-type edc-must edc-check-line ;

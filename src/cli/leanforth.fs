@@ -177,7 +177,7 @@ begin-structure /cli-run
                                 \ (--memory-per-check); 0: no limit
   2 cells +field opt-env        \ the library export of a LeanForth text (--env), or 0 0
   2 cells +field opt-elab       \ the library's elaboration data (--elab-data), or 0 0
-  field: opt-elab-fuel          \ steps each declaration's elaboration may take (--elab-fuel)
+  field: opt-elab-fuel          \ elaboration steps of a declaration (--elab-fuel)
   field: opt-elab-fuel-given    \ true: --elab-fuel was given
 end-structure
 /cli-run context-record: cli-state
@@ -1050,7 +1050,8 @@ variable cli-info#
   lfc-failed? lf-author-code lfa-e-nothing = and lf-elab-checks 0> and ;
 : cli-checks-only ( -- ) ." nothing checked by the kernel" cr ;
 : cli-text-report ( -- )
-  lfc-elab-failed? if cli-elab-error exit then cli-checks-only? if cli-checks-only exit then
+  lfc-elab-failed? if cli-elab-error exit then
+  cli-checks-only? if cli-checks-only exit then
   lfc-failed? if cli-text-error exit then lfc-refused? if cli-records-error exit then
   cli-fed-tally cli-fed-report cli-open-parts ;
 \ --jobs N with a text: no worker can share the run's input (the words'

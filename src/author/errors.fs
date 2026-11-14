@@ -157,13 +157,13 @@ require ./source.fs
 125 constant lfa-e-elab-synth     \ failed to synthesize an instance (synthInstanceFailed)
 126 constant lfa-e-elab-stuck     \ typeclass instance problem is stuck
 127 constant lfa-e-elab-numeral   \ numerals are data: the expected type is a proposition
-128 constant lfa-e-elab-numeral-u \ numerals are data: the expected type may be a proposition
-129 constant lfa-e-elab-instance  \ a synthesized instance that does not fit its metavariable
+128 constant lfa-e-elab-numeral-u \ numerals are data: the type may be a proposition
+129 constant lfa-e-elab-instance  \ a synthesized instance unlike its metavariable
 130 constant lfa-e-elab-type      \ type expected (Lean's ensureType)
 131 constant lfa-e-elab-coercion  \ unsupported: a coercion (FE4)
 132 constant lfa-e-elab-postpone  \ unsupported: postponing an elaboration (FE2)
 133 constant lfa-e-elab-lambda    \ unsupported: an implicit lambda (FE2)
-134 constant lfa-e-elab-opt-param \ unsupported: an optParam, autoParam or eta argument (FE2)
+134 constant lfa-e-elab-opt-param \ unsupported: optParam, autoParam, eta arguments (FE2)
 135 constant lfa-e-elab-elim      \ unsupported: elaborating as an eliminator (FE5)
 136 constant lfa-e-elab-binder    \ unsupported: a binder whose kind cannot be read (S5)
 137 constant lfa-e-elab-print     \ unsupported: a #check this form cannot print (FE2)
@@ -372,13 +372,13 @@ create lfa-catalogue
   lfa-e-elab-postpone s" not supported yet: postponing an elaboration (plan FE2)"
   lfa-unsupported,
   lfa-e-elab-lambda s" not supported yet: an implicit lambda (plan FE2)" lfa-unsupported,
-  lfa-e-elab-opt-param
-  s" not supported yet: an optParam, autoParam or eta argument (plan FE2)" lfa-unsupported,
+  here lfa-e-elab-opt-param s" not supported yet: an optParam, autoParam or eta argument"
+  lfa-unsupported, s"  (plan FE2)" lfa-more,
   lfa-e-elab-elim s" not supported yet: elaborating as an eliminator (plan FE5)"
   lfa-unsupported,
-  lfa-e-elab-binder
-  s" not supported yet: a binder whose kind the declaration's type does not give (plan S5)"
-  lfa-unsupported,
+  here lfa-e-elab-binder
+  s" not supported yet: a binder whose kind the declaration's type does not give"
+  lfa-unsupported, s"  (plan S5)" lfa-more,
   lfa-e-elab-print s" not supported yet: #check of this form (plan FE2)" lfa-unsupported,
   lfa-e-elab-fuel s" out of fuel: the front end's work limit (--elab-fuel N gives more)"
   lfa-exhausted,
