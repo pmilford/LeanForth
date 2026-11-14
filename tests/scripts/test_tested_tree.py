@@ -217,7 +217,7 @@ class Tier(Base):
         self.repo.write("src/lib/free.fs", ": free-word 1 ;\n")
         self.repo.commit("library")
         summary = self.repo.path.parent / "summary.txt"
-        self.assertRan(self.tier("--summary", str(summary)))
+        self.assertRan(self.tier("--with-073", "--summary", str(summary)))
         log = self.repo.logged()
         self.assertIn("gforth10 coverage-focus src/lib/free.fs over smoke test-lib test-front", log)
         self.assertIn("gforth073 tests/lib/a.fs", log)
@@ -228,6 +228,18 @@ class Tier(Base):
         self.assertIn("tier library of base...HEAD", line)
         self.assertIn("coverage-focus ran: exit 0", line)
         self.assertEqual(len(line.splitlines()), 1)
+
+    def test_branch_tier_leaves_073_to_the_push(self):
+        # Owner, 2026-11-14: Gforth 0.7.3 runs at the push and in the daily run, not on a branch.
+        self.repo.write("src/lib/free.fs", ": free-word 1 ;\n")
+        self.repo.commit("library")
+        out = self.assertRan(self.tier())
+        self.assertNotIn("gforth073", " ".join(self.repo.logged()))
+        self.assertIn("not run on a branch (Gforth 0.7.3 runs at the push and in the daily run): targets073", out)
+        self.assertNotIn("targets073 ran", out)
+        out = self.assertRan(self.tier("--with-073"))
+        self.assertIn("targets073 ran: exit 0", out)
+        self.assertIn("gforth073 tests/lib/a.fs", self.repo.logged())
 
     def test_partly_covered_suite_runs_the_rest(self):
         self.repo.write("tests/lib/a.fs", "require ../../src/lib/free.fs\n\\ more\n")
@@ -254,17 +266,17 @@ class Tier(Base):
     def test_daily_full_run(self):
         self.repo.write("./docs/A.md", "# docs\n")
         self.repo.commit("docs")
-        out = self.assertRan(self.tier("--daily", "--dry-run"))
+        out = self.assertRan(self.tier("--daily", "--with-073", "--dry-run"))
         self.assertIn("daily full run: none recorded today (2026-11-13)", out)
         self.assertIn("coverage-check would run: make coverage-check JOBS=2 LEAN_CACHE=0", out)
         self.assertIn("check-rest would run: make check-rest JOBS=2 LEAN_CACHE=0", out)
         self.assertIn("test073 would run: make test JOBS=2 LEAN_CACHE=0 GFORTH=", out)
         gforth073 = str(self.repo.path / ".tools/gforth073")
         self.daily(["coverage-check"], ["check-rest", "LEAN_CACHE=1"], ["test", f"GFORTH={gforth073}"])
-        out = self.assertRan(self.tier("--daily", "--dry-run"))
+        out = self.assertRan(self.tier("--daily", "--with-073", "--dry-run"))
         self.assertIn("of make check-rest with LEAN_CACHE=0", out, "a cached check-rest is no daily run")
         self.daily(["check", "LEAN_CACHE=0"])
-        out = self.assertRan(self.tier("--daily", "--dry-run"))
+        out = self.assertRan(self.tier("--daily", "--with-073", "--dry-run"))
         self.assertNotIn("daily full run", out)
         self.assertIn("tier docs", out)
 
@@ -298,20 +310,20 @@ class Tier(Base):
         self.repo.write("./docs/A.md", "# the review log, after the merge\n")
         self.repo.commit("docs")
         before = len(self.repo.logged())
-        out = self.assertRan(self.tier())
+        out = self.assertRan(self.tier("--with-073"))
         self.assertIn("tier full", out)
         self.assertIn("coverage-check ran: exit 0", out)
         self.assertIn("make check-docs JOBS=2 LEAN_CACHE=1; the rest reused: ", out)
         self.assertIn("changes since are tier docs", out)
         self.assertIn("check-rest reused", out)
         self.assertEqual(self.repo.logged()[before:], ["check-docs", "check-docs"])
-        self.assertIn("reused", self.assertRan(self.tier()))
+        self.assertIn("reused", self.assertRan(self.tier("--with-073")))
 
     def test_full_tier_reuses_a_make_check(self):
         self.repo.write("Makefile", self.repo.path.joinpath("Makefile").read_text() + "\n")
         self.repo.commit("Makefile")
         self.assertRan(self.records_tool("record", "--", "make", "check"))
-        out = self.assertRan(self.tier("--dry-run"))
+        out = self.assertRan(self.tier("--with-073", "--dry-run"))
         self.assertIn("check-rest reused", out)
         self.assertIn("coverage-check would run", out)
         self.assertIn("test073 would run", out)

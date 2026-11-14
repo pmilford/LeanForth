@@ -1355,3 +1355,15 @@ levels alone), after a Forth review and two re-checks of each
 ([s2-unfold](../development/forth-reviews/2026-11-13-s2-unfold-a.md),
 [s1-synth-b](../development/forth-reviews/2026-11-13-s1-synth-b.md)); the last re-check's remaining copies of the new
 `ok-store`, the `slab-scoped` word and the unchecked pair count are plan 9.4.8k items for the front pass.
+
+### Gforth 0.7.3 at the push only; fewer full-tier repeats (2026-11-14)
+
+The owner asked why the same suites ran so often (about 30 full-tier runs since 2026-11-13 noon, each 30-40 minutes:
+every review-fix round and every merge of main into a branch made a new tree, and the coordinator's briefs asked for
+the tier each time) and decided: a branch's tier no longer runs Gforth 0.7.3, which runs at the push
+(`scripts/push.sh`, `tested-tree.py tier --with-073`) and in the daily full run. The coordinator also returns to
+`AGENTS.md`'s rule: a branch runs its full tier once, when first handed to review; fix rounds and merges of main into
+a branch run the focused tests and faults of what they touch; main runs the full tier once per batch of merges, at the
+push; at most two suites run at once. `make coverage-check` already stands for `make test` on Gforth 1.0 in the full
+tier (plan 9.4.6); only `test-cli` runs in both, on purpose, for its `gforth-fast` runs.
+
