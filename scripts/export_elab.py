@@ -12,8 +12,8 @@ scripts/export-elab.sh runs this after scripts/export_elab.lean, with pinned
 Lean, has written RAW for the modules of the Lean export EXPORT (made by
 scripts/export.sh, so with its manifest beside it). It writes OUTPUT, the
 elaboration data LeanForth reads (`leanforth check --elab-data OUTPUT`;
-src/front/elab-data.fs), format version 2, documented in
-docs/programming/ELABORATION_DATA.md and schemas/elab-data-2.schema.json:
+src/front/elab-data.fs), format version 3, documented in
+docs/programming/ELABORATION_DATA.md and schemas/elab-data-3.schema.json:
 
   line 1    {"elab_data": {...}}: the format and its version, the export's
             SHA-256 (as its manifest records it), the Lean version and
@@ -21,7 +21,7 @@ docs/programming/ELABORATION_DATA.md and schemas/elab-data-2.schema.json:
             SHA-256 of every line after this one, each with its line feed
   then      one record per line, sorted by kind (class, instance,
             instance_left_out, default_instance, reducibility, eliminator,
-            tag) and then by text
+            tag, matcher, projection, sunfold) and then by text
 
 Only records whose every name is a declaration of EXPORT are kept, so that
 a slice of a library (scripts/export.sh MODULE -- NAMES) gets the data of
@@ -32,7 +32,11 @@ rank, priority and why), so that the ranks under each kept root stay
 0, 1, 2, ... without a gap; a root whose own names the export lacks is
 left out with all its values (no query of the export can reach it). The
 records left out, by kind, are printed (for a whole module: those of the
-internal and unsafe declarations leanexport does not write). A record whose
+internal and unsafe declarations leanexport does not write). A smart-unfolding
+record (sunfold) is kept when its definition is in the export, whatever its
+body names: a body naming a constant the export lacks is counted and
+printed ("bodies naming what the export lacks"), and LeanForth answers
+unsupported when it would use one. A record whose
 names are all there but of the wrong kind (a class that is not an inductive
 type, an instance, eliminator or tagged declaration that is one), or an
 instance of the export whose class or keys name what the export lacks, is
@@ -54,19 +58,19 @@ import re
 import sys
 
 FORMAT = "leanforth-elab-data"
-VERSION = 2
+VERSION = 3
 LEAN_VERSION = "4.35.0"
 LEAN_GITHASH = "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"
-# The kinds of records, in the order of the file. sunfold (smart-unfolding
-# bodies, plan row FE1d2) is in format 2 but not written yet: always 0.
+# The kinds of records, in the order of the file; sunfold (smart-unfolding
+# bodies, plan S2) is written from format 3 on, every one of the modules.
 KINDS = ("class", "instance", "instance_left_out", "default_instance", "reducibility",
          "eliminator", "tag", "matcher", "projection", "sunfold")
 RAW_KINDS = ("class", "instance", "default_instance", "reducibility", "eliminator", "tag",
-             "matcher", "projection")
+             "matcher", "projection", "sunfold")
 STATUSES = ("reducible", "irreducible", "implicit_reducible", "instance_reducible")
 ELIMINATOR_KINDS = ("induction", "cases")
 TAGS = ("elab_as_elim", "elab_without_expected_type", "aux_recursor", "no_confusion",
-        "cases_on", "rec_on", "brec_on")
+        "cases_on", "rec_on", "brec_on", "match_pattern")
 REASONS = ("erased", "not_exported")
 # The record's name members and which kind each name must be ("type": an
 # inductive type; "not-type": a declaration that is not one; "def": a
@@ -85,7 +89,8 @@ NAMES = {"class": {"name": "type"},
          "eliminator": {"name": "not-type"},
          "tag": {"name": "not-type"},
          "matcher": {"name": "def"},
-         "projection": {"name": "not-type", "ctor": "ctor"}}
+         "projection": {"name": "not-type", "ctor": "ctor"},
+         "sunfold": {"name": "def"}}
 MEMBERS = {"class": {"name", "out_params", "out_level_params"},
            "instance": {"name", "class", "priority", "synth_order", "keys", "rank"},
            "instance_left_out": {"name", "keys", "priority", "rank", "reason"},
@@ -95,7 +100,8 @@ MEMBERS = {"class": {"name", "out_params", "out_level_params"},
            "tag": {"name", "tag"},
            "matcher": {"name", "num_params", "num_discrs", "u_elim_pos", "alt_infos",
                        "discr_names"},
-           "projection": {"name", "ctor", "num_params", "idx", "from_class"}}
+           "projection": {"name", "ctor", "num_params", "idx", "from_class"},
+           "sunfold": {"name", "level_params", "levels", "nodes", "value", "rec_arg"}}
 ALT_MEMBERS = {"num_fields", "num_overlaps", "has_unit_thunk"}
 RAW_MEMBERS = dict(MEMBERS, instance=MEMBERS["instance"] | {"erased"})
 DECLS = {b'{"axiom":': "axiom", b'{"def":': "def", b'{"thm":': "thm",
@@ -229,6 +235,93 @@ def check_matcher(body):
             name_of(name)
 
 
+# ---- Smart-unfolding bodies: a table of levels and one of nodes, each
+# entry referring only to earlier entries (export_elab.lean's forms).
+LEVEL_FORMS = {"succ": 1, "max": 2, "imax": 2}
+BINDER_MEMBERS = {"name", "info", "type", "body"}
+LET_MEMBERS = {"name", "type", "value", "body", "non_dep"}
+INFOS = ("default", "implicit", "strict", "inst")
+ANNOTATIONS = (["sunfoldMatch"], ["sunfoldMatchAlt"], ["borrowed"])
+
+
+def below(value, limit):
+    return natural(value) and value < limit
+
+
+def check_level(level, i, params):
+    """Fail unless the level is one of the forms, its parts earlier levels."""
+    if level == "zero":
+        return
+    if isinstance(level, dict) and len(level) == 1:
+        (form, part), = level.items()
+        if form == "param" and name_of(part) in params:
+            return
+        parts = part if LEVEL_FORMS.get(form) == 2 else [part]
+        if (form in LEVEL_FORMS and isinstance(parts, list)
+                and len(parts) == LEVEL_FORMS[form] and all(below(k, i) for k in parts)):
+            return
+    raise ElabError(f"sunfold: not a level of the table: {text(level)}")
+
+
+def node_names(node, i, levels):
+    """The constants a node names, after checking its form: (name, kind
+    wanted) pairs, a projection's structure an inductive type."""
+    if isinstance(node, dict) and set(node) == {"const", "levels"}:
+        if isinstance(node["levels"], list) and all(below(k, levels) for k in node["levels"]):
+            return [(name_of(node["const"]), None)]
+    elif isinstance(node, dict) and len(node) == 1:
+        (form, part), = node.items()
+        refs = None
+        if form == "bvar" and natural(part):
+            refs = []
+        elif form == "sort" and below(part, levels):
+            refs = []
+        elif form == "app" and isinstance(part, list) and len(part) == 2:
+            refs = part
+        elif form in ("lam", "forall") and isinstance(part, dict) and set(part) == BINDER_MEMBERS:
+            name_of(part["name"])
+            refs = [part["type"], part["body"]] if part["info"] in INFOS else None
+        elif form == "let" and isinstance(part, dict) and set(part) == LET_MEMBERS:
+            name_of(part["name"])
+            ok = isinstance(part["non_dep"], bool)
+            refs = [part["type"], part["value"], part["body"]] if ok else None
+        elif form == "lit" and isinstance(part, str) and DIGITS.fullmatch(part):
+            refs = []
+        elif form == "str" and isinstance(part, str):
+            refs = []
+        elif form == "proj" and isinstance(part, dict) and set(part) == {"struct", "idx", "expr"}:
+            refs = [part["expr"]] if natural(part["idx"]) else None
+        elif form == "mdata" and isinstance(part, dict) and set(part) == {"entries", "expr"}:
+            entries = part["entries"]
+            ok = (isinstance(entries, list) and len(entries) == 1 and isinstance(entries[0], list)
+                  and len(entries[0]) == 2 and entries[0][0] in ANNOTATIONS
+                  and entries[0][1] == {"bool": True} and entries[0][1]["bool"] is True)
+            refs = [part["expr"]] if ok else None
+        if refs is not None and all(below(k, i) for k in refs):
+            return [(name_of(part["struct"]), "type")] if form == "proj" else []
+    raise ElabError(f"sunfold: not a node of the table: {text(node)[:200]}")
+
+
+def sunfold_names(body):
+    """The constants a smart-unfolding body names, after checking its
+    tables: forms, each entry referring only to earlier entries, the
+    root a node, the recursion argument a natural number or null."""
+    params = [name_of(p) for p in body["level_params"]] if isinstance(
+        body["level_params"], list) else None
+    levels, nodes = body["levels"], body["nodes"]
+    if params is None or not isinstance(levels, list) or not isinstance(nodes, list):
+        raise ElabError("sunfold: level_params, levels and nodes are not lists")
+    for i, level in enumerate(levels):
+        check_level(level, i, params)
+    names = []
+    for i, node in enumerate(nodes):
+        names += node_names(node, i, len(levels))
+    if not below(body["value"], len(nodes)) or not (
+            body["rec_arg"] is None or natural(body["rec_arg"])):
+        raise ElabError("sunfold: value is not a node, or rec_arg not a natural number or null")
+    return names
+
+
 def check_shape(kind, body, members=MEMBERS):
     """Fail unless the record's members are exactly its kind's, each well typed."""
     if not isinstance(body, dict) or set(body) != members[kind]:
@@ -253,6 +346,8 @@ def check_shape(kind, body, members=MEMBERS):
         name_of(body["name"])
     if kind == "matcher":
         check_matcher(body)
+    if kind == "sunfold":
+        sunfold_names(body)
     if kind == "eliminator":
         if body["kind"] not in ELIMINATOR_KINDS:
             raise ElabError(f"eliminator: unknown kind {text(body['kind'])}")
@@ -348,18 +443,30 @@ def read_raw(path):
     return head["modules"], records
 
 
+def foreign_body(body, decls):
+    """Whether a kept smart-unfolding body names a constant the export
+    lacks (LeanForth answers unsupported at its use); ElabError when one it
+    has is of the wrong kind."""
+    names = sunfold_names(body)
+    kind_checked("sunfold", names, decls)
+    return not all(name in decls for name, _ in names)
+
+
 def finish(raw, export):
-    """The text of the elaboration data, and the records left out of each kind."""
+    """The text of the elaboration data, the records left out of each kind
+    and the smart-unfolding bodies kept that name what the export lacks."""
     modules, records = read_raw(raw)
     decls, digest = export_decls(export)
     if manifest_sha(export) != digest:
         raise ElabError(f"{export} differs from its manifest's SHA-256")
     keep = []
+    foreign = 0
     for kind, body in records:
         if kind == "instance":
             keep += [r for r in [tree_record(body, decls)] if r is not None]
         elif kept(kind, body, decls):
             keep.append((kind, body))
+            foreign += kind == "sunfold" and foreign_body(body, decls)
     left = {k: sum(1 for x, _ in records if x == k) for k in RAW_KINDS}
     for kind, _ in keep:
         left[kind if kind != "instance_left_out" else "instance"] -= 1
@@ -370,7 +477,7 @@ def finish(raw, export):
                           "modules": modules,
                           "records": {k: sum(1 for x, _ in keep if x == k) for k in KINDS},
                           "records_sha256": hashlib.sha256(body.encode()).hexdigest()}}
-    return text(head) + "\n" + body, left
+    return text(head) + "\n" + body, left, foreign
 
 
 def write(path, data):
@@ -398,7 +505,7 @@ def main(argv=None):
                         help="also name the data's records SHA-256 in EXPORT's manifest")
     args = parser.parse_args(argv)
     try:
-        data, left_out_counts = finish(args.raw, args.export)
+        data, left_out_counts, foreign = finish(args.raw, args.export)
     except (ElabError, OSError, ValueError, KeyError, TypeError) as error:
         print(f"export_elab.py: {error}", file=sys.stderr)
         return 1
@@ -408,7 +515,8 @@ def main(argv=None):
     counts = json.loads(data.split("\n", 1)[0])["elab_data"]["records"]
     print(f"{args.output}: " + ", ".join(f"{counts[k]} {k}" for k in KINDS)
           + "; left out (not declarations of the export): "
-          + ", ".join(f"{left_out_counts[k]} {k}" for k in RAW_KINDS))
+          + ", ".join(f"{left_out_counts[k]} {k}" for k in RAW_KINDS)
+          + f"; {foreign} sunfold bodies naming what the export lacks")
     return 0
 
 

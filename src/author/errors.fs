@@ -44,7 +44,11 @@ require ./source.fs
 \            FE1E 2.7's other unsupported rows (S1, branch s1-elab)
 \   140-199  elaboration in FE2: one per Lean error and unsupported
 \            condition, structures, notation, commands (S5, S6)
-\   200-249  tactics after FE1g-4 (FE1g-5 to FE1g-8, FE5's; S2 on)
+\   200-249  tactics after FE1g-4 (FE1g-5 to FE1g-8, FE5's; S2 on;
+\            docs/design/S2_INTERFACE.md §8): 200-204 branch s2-unfold
+\            (200 a smart-unfolding marker reached a declaration, merge
+\            B), 205-224 branch s2-tactics (induction, alternatives,
+\            case, rewriting), 225-229 branch s2-steps, 230-249 FE5
 \   250-269  decide (S3)
 \   270-299  omega and its opt-in flag (S4)
 \   300-     free

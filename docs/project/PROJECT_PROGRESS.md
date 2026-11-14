@@ -84,7 +84,10 @@ status changes when this date is older than them. Stages are those of the
 - Priority (owner, 2026-11-13 midday): the front end's slices in order, S1 then S2 ($0 + n = n$ by `by-induction` and
   `by-rw`) then S3 onwards. S2's design ([S2_INTERFACE.md](../design/S2_INTERFACE.md)) reviewed and approved by the
   owner 2026-11-13, both FE1 forms; its first branch (`s2-unfold` merge A, Lean's unfolding) merges before S1's last
-  branch, which needs it (S1's order amended). No automatic
+  branch, which needs it (S1's order amended). Merge A is tested alone on `s2-unfold` (2026-11-13; not merged: Forth
+  review and the [import] gate pending): `unfoldDefinition?` and lazy delta, elaboration data format 3 with every
+  smart-unfolding body and the `match_pattern` tag (formats 1 and 2 refused), and refused library decodes passed on;
+  `check_defeq.py` 122 of 138 cases equal to pinned Lean's (main: 102 of 120). No automatic
   Mathlib run until changes need one.
 - The design stage (plan 9.4.7, owner 2026-11-13): every design reviewed before code and approved by the owner as a
   one-page summary; the plan re-cut into slices S1-S6, V1-V4 and SC1 (PLAN_DRAFT "Slices"); the reviews of the existing

@@ -3,7 +3,8 @@
 \ pinned Lean's Init export (scripts/export-slice.py: Nat.add, HAdd.hAdd,
 \ instHAdd, id, Nat.div, Nat.zero_add, Quot.lift, Eq.ndrec, ... and their
 \ closure), staged with its manifest, its elaboration data
-\ (tests/front/whnf-slice.elab.ndjson, scripts/export_elab.py) read
+\ (tests/front/whnf-slice.elab.ndjson, scripts/export-elab.sh: format 3,
+\ with the smart-unfolding bodies of the slice's definitions) read
 \ against the stage, sealed and fed to this context. menv-load does it
 \ all and names the stage to meta-env.fs; menv-name ( c-addr u -- name )
 \ gives the name of a dotted text, string parts only, looked up through
@@ -33,3 +34,4 @@ defer menv-data ( -- c-addr u )
 : menv-name ( c-addr u -- name )
   0 -rot begin dup while menv-split 2>r menv-part 2r> repeat 2drop ;
 : menv-decl ( c-addr u -- d ) menv-name lf-menv-find menv-must ;
+

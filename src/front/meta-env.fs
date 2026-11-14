@@ -30,9 +30,12 @@
 \   answer, or unsupported without data read against the stage; Eq.ndrec,
 \   Eq.ndrec_symm and Eq.ndrecOn, which isAuxRecursor names itself, are
 \   auxiliary recursors. Whether a definition has a smart-unfolding
-\   `_sunfold` definition is not available yet (the export leaves those
-\   out and no exporter writes format 2's sunfold records; plan S2): a
-\   definition answers unsupported.
+\   `_sunfold` definition (Lean's find? (mkSmartUnfoldingNameFor f),
+\   WHNF.lean:854) is format 3's sunfold record of it (plan S2 merge A:
+\   the export leaves the `_sunfold` definitions out, and the data has a
+\   record for every one of the export's modules, so none means none),
+\   unsupported without data; a text definition has none (LeanForth
+\   elaborates no structural recursion, which alone makes them).
 \
 \ Transparency modes (meta-config.fs, numbered as Lean's TransparencyMode
 \ constructors): lf-tr-all, lf-tr-default, lf-tr-reducible,
@@ -69,9 +72,8 @@
 \ lf-decl-theorem .. lf-decl-stub; lf-menv-find ( name -- d outcome ) the
 \ declaration of a name, invalid when none has it (Lean: unknown
 \ constant), full or unsupported when a library declaration cannot be
-\ decoded (d -1 whenever the outcome is not ok); lf-menv-newest ( name --
-\ d|-1 ) the same without the outcome, -1 for every failure;
-\ lf-menv-name, lf-menv-kind, lf-menv-type, lf-menv-params ( d -- addr n ),
+\ decoded (d -1 whenever the outcome is not ok); lf-menv-name,
+\ lf-menv-kind, lf-menv-type, lf-menv-params ( d -- addr n ),
 \ lf-menv-value ( d -- term true | false ), lf-menv-hint ( d -- hint
 \ height ), lf-menv-data ( d -- addr|0 ) its inductive data (core/input.fs's
 \ layout), unchecked: d from lf-menv-find; lf-menv-kinds ( d -- addr n )
@@ -87,8 +89,16 @@
 \ flag true when the name is a definition that mode unfolds (a theorem
 \ or any other kind: false); lf-menv-matcher?, lf-menv-proj-fn?,
 \ lf-menv-aux-recursor?, lf-menv-smart? ( d -- flag outcome ) as above;
+\ lf-menv-proj-class? ( d -- flag outcome ) whether d is a class's
+\ projection function (Lean's isProjInst: getProjectionFnInfo?'s
+\ fromClass), from format 2's projection records as lf-menv-proj-fn?;
+\ lf-menv-reducible? ( d -- flag outcome ) Lean's isReducible (status
+\ reducible); lf-menv-hint-known? ( d -- flag ) whether lf-menv-hint is
+\ Lean's: false for a text declaration, whose height is not recorded;
 \ lf-menv-nat-succ? ( name -- flag ) whether a name is Nat.succ,
-\ lf-menv-nat-name? ( name -- flag ) whether it is in Nat's namespace.
+\ lf-menv-nat-name? ( name -- flag ) whether it is in Nat's namespace,
+\ lf-menv-wf-rec? ( name -- flag ) whether it is Acc.rec or
+\ WellFounded.rec (reduceRec's isWFRec).
 \ Outcomes: ok; invalid for a declaration number beyond the input, a
 \ mode beyond the six, a name that is not valid or that no declaration
 \ has, or a declaration the stage does not hold; unsupported as above.
@@ -166,7 +176,6 @@ end-structure
 : lf-menv-find ( name -- d outcome )
   dup lf-name-valid? 0= if drop -1 outcome-invalid exit then
   me-run? if me-run-find else lf-input-newest me-found then ;
-: lf-menv-newest ( name -- d|-1 ) lf-menv-find ok? 0= if drop -1 then ;
 : me-fed-kind ( d -- kind ) lf-input-decl lf-idecl-kind @ ;
 : me-fed-type ( d -- term ) lf-input-decl lf-idecl-type @ ;
 : me-fed-value ( d -- term ) lf-input-decl lf-idecl-value @ ;
@@ -254,11 +263,10 @@ end-structure
   dup lf-tr-modes u< 0= if 2drop -1 false outcome-invalid exit then
   swap lf-menv-find ok-then? if swap me-unfoldable else nip -1 false rot then ;
 
-\ ---- Facts of a definition from format 2: the stage's declaration of
-\ the same name asked with xt ( d -- x true | false ); unsupported
-\ without data, false for any other kind; Eq.ndrec, Eq.ndrec_symm and
-\ Eq.ndrecOn are auxiliary recursors by name. Smart unfolding: unsupported
-\ for a definition (no data has it yet).
+\ ---- Facts of a definition from the data (format 3): the stage's
+\ declaration of the same name asked with xt ( d -- x true | false );
+\ unsupported without data, false for any other kind; Eq.ndrec,
+\ Eq.ndrec_symm and Eq.ndrecOn are auxiliary recursors by name.
 : me-data-fact ( d xt -- flag outcome )
   swap me-staged 0= if drop false outcome-invalid exit then
   swap execute dup if nip then outcome-ok ;
@@ -277,9 +285,14 @@ end-structure
   elab-tag-aux-recursor elab-tagged? dup if 0 swap then ;
 : lf-menv-matcher? ( d -- flag outcome ) ['] elab-matcher-of me-defn-fact ;
 : lf-menv-proj-fn? ( d -- flag outcome ) ['] elab-projection-of me-defn-fact ;
-: lf-menv-smart? ( d -- flag outcome )
-  dup me-decl? 0= if drop false outcome-invalid exit then
-  me-defn? if false outcome-unsupported else false outcome-ok then ;
+: lf-menv-smart? ( d -- flag outcome ) ['] elab-sunfold-of me-defn-fact ;
+: me-text-decl? ( d -- flag ) me-run? if me-lib# u< 0= else drop false then ;
+: me-class-proj ( d -- 0 true | false )
+  elab-projection-of if elab-projection-class? dup if 0 swap then else false then ;
+: lf-menv-proj-class? ( d -- flag outcome ) ['] me-class-proj me-defn-fact ;
+: lf-menv-reducible? ( d -- flag outcome )
+  lf-menv-status ok-then? if elab-reducible = outcome-ok else false swap then ;
+: lf-menv-hint-known? ( d -- flag ) me-text-decl? 0= ;
 : me-text? ( name -- flag ) lf-name-tag@ lf-name-tag-str = ;
 : me-str? ( name c-addr u -- flag )
   rot dup me-text? if lf-name-text compare 0= else drop 2drop false then ;
@@ -352,5 +365,9 @@ create me-text-kinds-of   \ per lf-decl-* kind (present/print-forth.fs); 0: none
 \ Whether a name is in Nat's namespace, Nat.x (whnf's reduceNat?).
 : lf-menv-nat-name? ( name -- flag )
   lf-name-prefix@ dup if s" Nat" me-top? else drop false then ;
+\ Whether a name is Acc.rec or WellFounded.rec (reduceRec's isWFRec).
+: me-wf? ( prefix -- flag ) dup s" Acc" me-top? swap s" WellFounded" me-top? or ;
+: lf-menv-wf-rec? ( name -- flag )
+  dup s" rec" me-str? if lf-name-prefix@ me-wf? else drop false then ;
 
 base !   \ the BASE this file was loaded with

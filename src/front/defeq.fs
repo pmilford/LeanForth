@@ -180,6 +180,11 @@ end-structure
 defer de-solve-x ( -- )   \ isExprDefEqAux
 defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-solve ( t s k -- ) de-then ['] de-solve-x de-invoke ;
+\ The step entry on the registers t and s, its answer to the continuation
+\ k; and a continuation's answer r: undef goes on with the step xt, any
+\ other is returned.
+: de-call ( k entry -- ) swap de-then de-t swap de-s swap de-invoke ;
+: de-undef-do ( r xt -- ) over lf-lb-undef = if nip execute else drop de-return then ;
 \ The callee of the last call runs at implicit transparency or above,
 \ or one depth deeper (withNewMCtxDepth: a depth scope, its handle in the
 \ frame's fr-scope, closed when the callee returns or the call fails).
@@ -234,8 +239,11 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-const? ( t -- flag ) lf-tag-constant lf-meta-tag? ;
 : de-lam? ( t -- flag ) lf-tag-lam lf-meta-tag? ;
 : de-pi? ( t -- flag ) lf-tag-pi lf-meta-tag? ;
-: de-const-name ( const -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
-: de-decl ( const -- d true | false ) lf-meta-const-decl ;
+\ A constant's declaration: none for an unknown name; a declaration that
+\ could not be decoded (full, unsupported) aborts with its outcome.
+: de-decl ( const -- d true | false )
+  lf-meta-const-decl dup outcome-invalid = if 2drop false exit then
+  de-must dup 0= if nip then ;
 : de-kind? ( head kind -- flag )
   over de-const? if swap de-decl if lf-menv-kind = else drop false then
   else 2drop false then ;
@@ -246,17 +254,25 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-eqv-of ( a b -- flag ) lf-meta-eqv dup ok? if drop else de-abort drop false then ;
 : de-eqv? ( -- flag ) de-t de-s de-eqv-of ;
 : de-inst ( t -- t' ) lf-instantiate-mvars de-must drop ;
-: de-whnf ( t -- t' flag ) lf-whnf-core de-must ;
-\ inferType; a literal's type is Nat (infer.fs has no literal case).
+\ A Meta call at the activation's transparency (Lean's withTransparency,
+\ meta-config.fs's lf-meta-at), the configured one restored after.
+: de-mode-at ( i*x xt -- j*x ) df df-mode @ lf-meta-at ;
+\ whnfCoreAtDefEq, whnfCore and whnf at the activation's transparency,
+\ whnfD at default (whnf.fs).
+: de-whnf ( t -- t' flag ) ['] lf-whnf-core-at-defeq de-mode-at de-must ;
+: de-whnf-c ( t -- t' flag ) ['] lf-whnf-core de-mode-at de-must ;
+: de-whnf-m ( t -- t' flag ) ['] lf-meta-whnf de-mode-at de-must ;
+\ inferType, at default transparency or above (withInferTypeConfig); a
+\ literal's type is Nat (infer.fs has no literal case).
+: de-infer-mode ( -- mode )
+  df df-mode @ lf-tr-all = if lf-tr-all else lf-tr-default then ;
 : de-infer ( t -- type flag )
-  dup lf-term-tag@ lf-tag-lit = if drop lf-meta-nat de-must exit then lf-infer de-must ;
+  dup lf-term-tag@ lf-tag-lit = if drop lf-meta-nat de-must exit then
+  ['] lf-infer de-infer-mode lf-meta-at de-must ;
 : de-free-mvar? ( t -- flag )
   dup lf-mvar? 0= if drop false exit then
   dup lf-mvar-assignable? swap lf-meta-unassigned? and ;
-\ whnfD: a pi, or what whnf would leave (abort when whnf would do more).
-: de-whnf-d ( type -- type' flag )
-  dup de-pi? if true exit then de-whnf 0= if false exit then dup de-pi? if true exit then
-  dup lf-meta-whnf-final? if true else outcome-unsupported de-abort false then ;
+: de-whnf-d ( type -- type' flag ) lf-meta-whnf-d de-must ;
 
 \ ---- Level lists (isListLevelDefEqAux): pairwise, Lean's way with no
 \ checkpoint of its own; a false pair that held an assignable level
@@ -268,19 +284,18 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-level-defeq? ( l r -- flag )
   2dup lf-meta-level-defeq dup ok? 0= if de-abort drop 2drop false exit then drop
   dup if nip nip exit then drop de-level-taint false ;
-: de-level@ ( const i -- level ) swap lf-term-first@ lf-cref-slot lf-cref-pairs drop swap
-  lf-cref-pair@ drop ;
-: de-levels# ( const -- n ) lf-term-first@ lf-cref-slot lf-cref-pairs nip ;
+: de-level@ ( const i -- level )
+  swap lf-const-slot lf-cref-pairs drop swap lf-cref-pair@ drop ;
 : de-level-pair ( c1 c2 i -- flag ) tuck de-level@ >r de-level@ r> de-level-defeq? ;
 \ isListLevelDefEqAux: pair by pair while both lists last; false when one
 \ ends first.
-: de-levels-min ( c1 c2 -- n ) de-levels# swap de-levels# min ;
-: de-levels= ( c1 c2 -- flag ) de-levels# swap de-levels# = ;
+: de-levels-min ( c1 c2 -- n ) lf-const-levels# swap lf-const-levels# min ;
+: de-levels= ( c1 c2 -- flag ) lf-const-levels# swap lf-const-levels# = ;
 : de-levels ( c1 c2 -- lbool )
   2dup de-levels-min 0 ?do 2dup i de-level-pair 0=
   if 2drop unloop lf-lb-false exit then loop de-levels= lf-lb ;
 : de-same-const? ( h1 h2 -- flag )
-  over de-const? over de-const? and if de-const-name swap de-const-name lf-name-same?
+  over de-const? over de-const? and if lf-const-name swap lf-const-name lf-name-same?
   else 2drop false then ;
 
 \ ---- isDefEqProofIrrel.
@@ -463,10 +478,10 @@ defer de-args-post ( -- )
   else lf-lb-false then de-close-k ;
 : de-app-f ( r -- )
   lf-lb-true = 0= if lf-lb-false de-close-k exit then
-  ['] de-close-k de-then de-t de-s ['] de-args de-invoke ;
+  ['] de-close-k ['] de-args de-call ;
 : de-app ( -- )
   de-mark? 0= if exit then de-t lf-meta-head de-s lf-meta-head 2dup de-same-const?
-  if 2drop ['] de-app-c de-then de-t de-s ['] de-args de-invoke
+  if 2drop ['] de-app-c ['] de-args de-call
   else ['] de-app-f de-solve then ;
 
 \ ---- checkTypesAndAssign (t := ?m, s := v): the types compared at
@@ -568,9 +583,9 @@ defer de-args-post ( -- )
   df df-taint @ if drop outcome-unsupported de-abort exit then
   de-t swap ['] de-pass de-then ['] de-assign de-invoke ;
 : de-pa2-k ( r -- )
-  dup lf-lb-true = if de-return exit then drop de-s de-whnf 0= if drop exit then
-  dup lf-meta-whnf-final? if de-pa2-retry else drop outcome-unsupported de-abort then ;
-: de-assign2 ( -- ) ['] de-pa2-k de-then de-t de-s ['] de-assign de-invoke ;
+  dup lf-lb-true = if de-return exit then
+  drop de-s de-whnf-m if de-pa2-retry else drop then ;
+: de-assign2 ( -- ) ['] de-pa2-k ['] de-assign de-call ;
 
 \ ---- isDefEqMVarSelf and isDefEqQuickMVarMVar.
 : de-ms-k ( r -- )
@@ -580,12 +595,11 @@ defer de-args-post ( -- )
   else lf-lb-false de-return then ;
 : de-mvar-self ( -- )
   de-t lf-meta-args# de-s lf-meta-args# <> if lf-lb-false de-return exit then
-  ['] de-ms-k de-then de-t de-s ['] de-args de-invoke ;
+  ['] de-ms-k ['] de-args de-call ;
 : de-ckpt-assign ( -- )
-  de-mark? if ['] de-close-k de-then de-t de-s ['] de-assign de-invoke then ;
+  de-mark? if ['] de-close-k ['] de-assign de-call then ;
 : de-mm-st ( r -- )
-  dup lf-lb-true = if de-return exit then drop ['] de-pass de-then de-t
-  de-s ['] de-assign de-invoke ;
+  dup lf-lb-true = if de-return exit then drop ['] de-pass ['] de-assign de-call ;
 : de-mm-ts ( r -- )
   dup lf-lb-true = if de-return exit then drop ['] de-pass de-then de-s
   de-t ['] de-assign de-invoke ;
@@ -659,9 +673,7 @@ defer de-args-post ( -- )
   lf-meta-head dup lf-kind-inductive de-kind? if de-decl drop de-data de-unit-data?
   else drop false then ;
 : de-late-u ( r -- ) lf-lb-true = if lf-lb-true else lf-lb-undef then de-return ;
-: de-late-type ( -- type flag )
-  de-t de-infer 0= if false exit then de-whnf 0= if false exit then
-  dup lf-meta-whnf-final? if true else outcome-unsupported de-abort false then ;
+: de-late-type ( -- type flag ) de-t de-infer if de-whnf-m else false then ;
 : de-proj-inst? ( -- flag ) de-mode-inst? de-t de-head-defn? de-s de-head-defn? or and ;
 : de-late-unit ( type -- ) de-s de-infer 0= if 2drop exit then ['] de-late-u de-solve ;
 : de-late ( -- )
@@ -672,8 +684,8 @@ defer de-args-post ( -- )
 \ ---- Delta candidates, isDefEqNat, isDefEqEtaStruct.
 : de-delta? ( t -- flag )
   lf-meta-head dup de-const? 0= if drop false exit then
-  de-const-name df df-mode @ lf-menv-unfoldable de-must if nip else 2drop true then ;
-: de-nat-name? ( const -- flag ) de-const-name lf-name-prefix@ s" Nat" rot lf-meta-name? ;
+  lf-const-name df df-mode @ lf-menv-unfoldable de-must if nip else 2drop true then ;
+: de-nat-name? ( const -- flag ) lf-const-name lf-menv-nat-name? ;
 : de-nat-op? ( t -- flag )
   dup lf-meta-args# 1 3 within 0= if drop false exit then
   lf-meta-head dup de-const? if de-nat-name? else drop false then ;
@@ -719,7 +731,7 @@ defer de-quick-x ( -- )
   de-live? 0= if outcome-invalid de-abort exit then  de-t de-s =
   if lf-lb-true de-return exit then
   de-t lf-fvar-let? de-s lf-fvar-let? or if lf-lb-undef de-return exit then
-  ['] de-pass de-then de-t de-s ['] de-pirrel de-invoke ;
+  ['] de-pass ['] de-pirrel de-call ;
 : de-assigned? ( head -- flag )
   dup lf-mvar? if lf-meta-unassigned? 0= else drop false then ;
 : de-delayed? ( head -- flag ) dup lf-mvar? if lf-meta-delayed? else drop false then ;
@@ -748,7 +760,7 @@ defer de-quick-x ( -- )
   de-s de-expand if de-t swap de-requick else drop false then ;
 : de-quick-heads ( -- )
   de-heads-again? if exit then de-same-mvar? 0= if de-assignables exit then
-  ['] de-pass de-then de-t de-s ['] de-mvar-self de-invoke ;
+  ['] de-pass ['] de-mvar-self de-call ;
 : de-eta1 ( a b -- flag )
   swap lf-meta-eta-expanded dup ok? 0= if de-abort 2drop drop false exit then drop
   if de-eqv-of else 2drop false then ;
@@ -770,7 +782,7 @@ defer de-quick-x ( -- )
 
 \ ---- isExprDefEqExpensive and isExprDefEqAuxImpl.
 : de-consts ( -- )
-  de-t de-const-name de-s de-const-name lf-name-same? 0=
+  de-t lf-const-name de-s lf-const-name lf-name-same? 0=
   if lf-lb-false de-return exit then
   de-t de-s de-levels de-return ;
 \ isDefEqAppFallback: the late cases after isDefEqOnFailure; its stuck
@@ -787,48 +799,61 @@ defer de-quick-x ( -- )
 : de-exp-shape ( -- )
   de-t de-const? de-s de-const? and if de-consts exit then
   de-t lf-meta-app? de-s lf-meta-app? and
-  if ['] de-exp-app de-then de-t de-s ['] de-app de-invoke exit then
-  ['] de-exp-late de-then de-t de-s ['] de-late de-invoke ;
+  if ['] de-exp-app ['] de-app de-call exit then
+  ['] de-exp-late ['] de-late de-call ;
 \ Structure eta both ways (each a checkpointed isDefEq of the types).
 : de-es-types ( a b -- )
   de-infer 0= if 2drop exit then swap de-infer 0= if 2drop drop exit then
   swap ['] de-top-x de-invoke ;
+\ isDefEqEtaStruct a b: the types compared, their answer to k; a pair that
+\ is no such case gives k false at once.
+: de-es-try ( a b k -- )
+  -rot 2dup de-eta-struct if rot de-then de-es-types exit then
+  2drop lf-lb-false swap execute ;
 : de-es-k2 ( r -- ) lf-lb-true = if lf-lb-true de-return else de-exp-shape then ;
-: de-exp-es2 ( -- )
-  de-s de-t de-eta-struct if ['] de-es-k2 de-then de-s de-t de-es-types
-  else de-exp-shape then ;
+: de-exp-es2 ( -- ) de-s de-t ['] de-es-k2 de-es-try ;
 : de-es-k1 ( r -- ) lf-lb-true = if lf-lb-true de-return else de-exp-es2 then ;
-: de-exp-delta ( -- )
-  de-t de-delta? de-s de-delta? or if outcome-unsupported de-abort exit then
-  de-t de-s de-eta-struct if ['] de-es-k1 de-then de-t de-s de-es-types
-  else de-exp-es2 then ;
-: de-exp-o ( r -- ) dup lf-lb-undef = if drop de-exp-delta else de-return then ;
+: de-exp-es ( -- ) de-t de-s ['] de-es-k1 de-es-try ;
+\ isDefEqDelta, an activation (defeq-delta.fs sets de-delta-x; without it
+\ an unfoldable head answers unsupported, as before plan S2), then
+\ structure eta.
+: de-delta-none ( -- )
+  de-t de-delta? de-s de-delta? or
+  if outcome-unsupported de-abort else lf-lb-undef de-return then ;
+defer de-delta-x ( -- )
+' de-delta-none is de-delta-x
+: de-delta-k ( r -- ) ['] de-exp-es de-undef-do ;
+: de-exp-delta ( -- ) ['] de-delta-k ['] de-delta-x de-call ;
+: de-exp-o ( r -- ) ['] de-exp-delta de-undef-do ;
 : de-exp-nat ( -- )
   de-nat-unported? if outcome-unsupported de-abort exit then
-  ['] de-exp-o de-then de-t de-s ['] de-offset de-invoke ;
+  ['] de-exp-o ['] de-offset de-call ;
 : de-changed? ( t' s' -- t' s' flag ) over de-t de-eqv-of 0= over de-s de-eqv-of 0= or ;
-\ whnfCore of both sides: when either changes, isExprDefEqAux again;
-\ else the step xt.
-: de-rewhnf ( xt -- )
-  de-t de-whnf 0= if 2drop exit then de-s de-whnf 0= if 2drop drop exit then
-  de-changed? if rot drop ['] de-solve-x de-goto else 2drop execute then ;
+\ Both sides by whnf ( t -- t' flag ): when either changes,
+\ isExprDefEqAux again; else the step xt. isExprDefEqAuxImpl uses
+\ whnfCoreAtDefEq (de-solve-p), isExprDefEqExpensive whnfCore, whose
+\ projections reduce their structure with whnf (ExprDefEq.lean:2414).
+: de-rewhnf ( xt whnf -- )
+  dup de-t swap execute 0= if 2drop drop exit then
+  swap de-s swap execute 0= if 2drop drop exit then
+  de-changed? if ['] de-solve-x de-goto drop else 2drop execute then ;
 : de-exp-proj ( -- )
   de-t lf-proj? de-s lf-proj? or if outcome-unsupported de-abort
-  else ['] de-exp-nat de-rewhnf then ;
-: de-exp-e2 ( r -- ) dup lf-lb-undef = if drop de-exp-proj else de-return then ;
+  else ['] de-exp-nat ['] de-whnf-c de-rewhnf then ;
+: de-exp-e2 ( r -- ) ['] de-exp-proj de-undef-do ;
 : de-exp-e1 ( r -- )
   dup lf-lb-undef <> if de-return exit then drop
   ['] de-exp-e2 de-then de-s de-t ['] de-eta de-invoke ;
-: de-expensive ( -- ) ['] de-exp-e1 de-then de-t de-s ['] de-eta de-invoke ;
+: de-expensive ( -- ) ['] de-exp-e1 ['] de-eta de-call ;
 : de-solve-inst ( -- )
   de-t de-inst de-t! de-s de-inst de-s! de-aborted? 0= if de-expensive then ;
 : de-solve-p ( r -- )
-  dup lf-lb-undef = if drop ['] de-solve-inst de-rewhnf else de-return then ;
+  dup lf-lb-undef = if drop ['] de-solve-inst ['] de-whnf de-rewhnf else de-return then ;
 : de-solve-q ( r -- )
   dup lf-lb-undef <> if de-return exit then drop
-  ['] de-solve-p de-then de-t de-s ['] de-pirrel de-invoke ;
+  ['] de-solve-p ['] de-pirrel de-call ;
 : de-solve-entry ( -- )
-  de-spend? if ['] de-solve-q de-then de-t de-s ['] de-quick de-invoke then ;
+  de-spend? if ['] de-solve-q ['] de-quick de-call then ;
 ' de-solve-entry is de-solve-x
 
 \ ---- isDefEq: checkpointDefEq of isExprDefEqAux.

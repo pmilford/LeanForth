@@ -4,7 +4,7 @@ FE1e1; ADR 0021 D10; docs/programming/ELABORATION_DATA.md). A development
 tool, run with pinned Lean 4.35.0 when a library is exported (owner
 decision of 2026-11-12, "Front-end syntax", answer 8); scripts/export-elab.sh
 runs it and scripts/export_elab.py turns its output into the file LeanForth
-reads (format version 2).
+reads (format version 3).
 
 Usage: lean --run scripts/export_elab.lean MODULE...
 
@@ -41,7 +41,8 @@ holds them after the import (global entries; nothing scoped is active):
                     elab_without_expected_type (tag attributes),
                     aux_recursor (isAuxRecursor), no_confusion
                     (isNoConfusion), cases_on, rec_on, brec_on (Lean's
-                    isCasesOnRecursor, isRecOnRecursor, isBRecOnRecursor)
+                    isCasesOnRecursor, isRecOnRecursor, isBRecOnRecursor),
+                    match_pattern (hasMatchPatternAttribute)
   matcher           a matcher (Meta.getMatcherInfoCore?): numbers of
                     parameters and discriminants, the elimination
                     universe's position or null, each alternative's
@@ -52,13 +53,35 @@ holds them after the import (global entries; nothing scoped is active):
   projection        a projection function (getProjectionFnInfo?): the
                     constructor, the structure's parameters, the field's
                     index and whether the structure is a class
+  sunfold           every smart-unfolding definition f._sunfold
+                    (mkSmartUnfoldingNameFor, Meta/WHNF.lean:50): the
+                    name f, f._sunfold's universe parameters, its value
+                    as a table of levels and one of nodes, each entry
+                    referring only to earlier ones (shared subterms
+                    written once, the root last),
+                    and f's structural recursion argument
+                    (getStructuralRecArgPos?, Meta/WHNF.lean:46, which is
+                    getStructuralRecArgPosImp?, Structural/Eqns.lean:191)
+                    or null
 
 A name is a JSON array of its parts, strings and natural numbers, root
 first (`Nat.add` is ["Nat","add"]). A key is "star", "other", "arrow",
 {"const": NAME, "arity": N}, {"lit": DIGITS} (the decimal digits as a
 text, as lean4export writes natVal), {"lit_str": S} or
 {"proj": NAME, "idx": I, "arity": N}; an fvar key, which no global
-instance has, stops the program. It also stops (exit status 1) when the
+instance has, stops the program. A node is {"bvar": I}, {"sort": L},
+{"const": NAME, "levels": [L...]} (L the place of a level in the record's
+level table), {"app": [F, A]}, {"lam": BINDER} or
+{"forall": BINDER} with BINDER {"name", "info", "type", "body"} (info
+default, implicit, strict or inst), {"let": {"name", "type", "value",
+"body", "non_dep"}}, {"lit": DIGITS}, {"str": S}, {"proj": {"struct",
+"idx", "expr"}} or {"mdata": {"entries": [[KEY, VALUE]...], "expr"}}, the
+numbers in it the indices of earlier nodes; a VALUE is {"bool": B},
+{"nat": DIGITS}, {"string": S} or {"name": NAME}; a level of the table
+is "zero", {"succ": L}, {"max": [L, L]}, {"imax": [L, L]} or {"param":
+NAME}, each L the place of an earlier level. A
+free variable, a metavariable, a level metavariable or another kind of
+mdata value stops the program. It also stops (exit status 1) when the
 tree and Lean's table of instance names disagree: a value without a name,
 an instance twice in the tree, a value whose first key is not its root,
 a priority, synthesis order or key list that differs from the table's,
@@ -186,7 +209,9 @@ def tagsOf (env : Environment) (name : Name) : List String :=
    ("elab_without_expected_type", Elab.Term.elabWithoutExpectedTypeAttr.hasTag env name),
    ("aux_recursor", isAuxRecursor env name), ("no_confusion", isNoConfusion env name),
    ("cases_on", isCasesOnRecursor env name), ("rec_on", isRecOnRecursor env name),
-   ("brec_on", isBRecOnRecursor env name)].filterMap fun (t, b) => if b then some t else none
+   ("brec_on", isBRecOnRecursor env name),
+   ("match_pattern", hasMatchPatternAttribute env name)].filterMap fun (t, b) =>
+    if b then some t else none
 
 def optJson : Option Nat → Json
   | some n => toJson n
@@ -218,11 +243,126 @@ def constantRecords (env : Environment) : Array Json := Id.run do
       out := out.push (projectionJson name p)
   return out
 
+def binderText : BinderInfo → String
+  | .default => "default"
+  | .implicit => "implicit"
+  | .strictImplicit => "strict"
+  | .instImplicit => "inst"
+
+def dataValueJson : DataValue → MetaM Json
+  | .ofBool b => pure <| Json.mkObj [("bool", toJson b)]
+  | .ofNat n => pure <| Json.mkObj [("nat", Json.str (toString n))]
+  | .ofString s => pure <| Json.mkObj [("string", Json.str s)]
+  | .ofName n => pure <| Json.mkObj [("name", nameJson n)]
+  | v => throwError "an mdata value {v} in a smart-unfolding body"
+
+/-- A subterm as a key of the node table, compared by `Expr.equal`:
+Lean's `Expr ==` ignores binder names and binder info, so two binders that
+differ only there would share one node, which then carries the first one's
+name and info (18 of Init's 389 bodies did, review s2-unfold-a M2). The
+hash is Lean's, which ignores them too, so equal keys hash alike. -/
+structure ExprKey where
+  e : Expr
+
+instance : BEq ExprKey := ⟨fun a b => a.e.equal b.e⟩
+instance : Hashable ExprKey := ⟨fun a => a.e.hash⟩
+
+/-- The tables of a term: each level and each subterm written once, after
+its parts. -/
+structure Nodes where
+  levels : Array Json := #[]
+  levelIndex : Std.HashMap Level Nat := {}
+  nodes : Array Json := #[]
+  index : Std.HashMap ExprKey Nat := {}
+
+abbrev NodesM := StateT Nodes MetaM
+
+/-- A universe level's place in the level table; a level metavariable is an error. -/
+partial def levelOf (l : Level) : NodesM Nat := do
+  if let some i := (← get).levelIndex[l]? then return i
+  let entry ← match l with
+    | .zero => pure (Json.str "zero")
+    | .succ a => do pure <| Json.mkObj [("succ", toJson (← levelOf a))]
+    | .max a b => do
+      let a ← levelOf a; let b ← levelOf b
+      pure <| Json.mkObj [("max", Json.arr #[toJson a, toJson b])]
+    | .imax a b => do
+      let a ← levelOf a; let b ← levelOf b
+      pure <| Json.mkObj [("imax", Json.arr #[toJson a, toJson b])]
+    | .param n => pure <| Json.mkObj [("param", nameJson n)]
+    | .mvar _ => throwError "a level metavariable in a smart-unfolding body"
+  let s ← get
+  set { s with levels := s.levels.push entry, levelIndex := s.levelIndex.insert l s.levels.size }
+  return s.levels.size
+
+def binderJson (n : Name) (bi : BinderInfo) (ty body : Nat) : Json :=
+  Json.mkObj [("name", nameJson n), ("info", Json.str (binderText bi)), ("type", toJson ty),
+              ("body", toJson body)]
+
+partial def nodeOf (e : Expr) : NodesM Nat := do
+  if let some i := (← get).index[(⟨e⟩ : ExprKey)]? then return i
+  let node ← match e with
+    | .bvar i => pure <| Json.mkObj [("bvar", toJson i)]
+    | .sort l => do pure <| Json.mkObj [("sort", toJson (← levelOf l))]
+    | .const n ls => do
+      let ls ← ls.toArray.mapM levelOf
+      pure <| Json.mkObj [("const", nameJson n), ("levels", toJson ls)]
+    | .app f a => do
+      let f ← nodeOf f; let a ← nodeOf a
+      pure <| Json.mkObj [("app", Json.arr #[toJson f, toJson a])]
+    | .lam n ty b bi => do
+      let ty ← nodeOf ty; let b ← nodeOf b
+      pure <| Json.mkObj [("lam", binderJson n bi ty b)]
+    | .forallE n ty b bi => do
+      let ty ← nodeOf ty; let b ← nodeOf b
+      pure <| Json.mkObj [("forall", binderJson n bi ty b)]
+    | .letE n ty v b nonDep => do
+      let ty ← nodeOf ty; let v ← nodeOf v; let b ← nodeOf b
+      pure <| Json.mkObj [("let", Json.mkObj [("name", nameJson n), ("type", toJson ty),
+        ("value", toJson v), ("body", toJson b), ("non_dep", toJson nonDep)])]
+    | .lit (.natVal k) => pure <| Json.mkObj [("lit", Json.str (toString k))]
+    | .lit (.strVal s) => pure <| Json.mkObj [("str", Json.str s)]
+    | .proj s i x => do
+      let x ← nodeOf x
+      pure <| Json.mkObj [("proj", Json.mkObj [("struct", nameJson s), ("idx", toJson i),
+        ("expr", toJson x)])]
+    | .mdata m x => do
+      let x ← nodeOf x
+      let entries ← (m.entries.toArray.mapM fun (k, v) => do
+        return Json.arr #[nameJson k, ← dataValueJson v] : MetaM (Array Json))
+      pure <| Json.mkObj [("mdata", Json.mkObj [("entries", Json.arr entries), ("expr", toJson x)])]
+    | .fvar _ | .mvar _ => throwError "a free variable or metavariable in a smart-unfolding body"
+  let s ← get
+  set { s with nodes := s.nodes.push node, index := s.index.insert ⟨e⟩ s.nodes.size }
+  return s.nodes.size
+
+/-- The record of f's smart-unfolding definition f._sunfold (a definition). -/
+def sunfoldRecord (f : Name) (info : ConstantInfo) : MetaM Json := do
+  let some value := info.value? | throwError "{info.name} has no value"
+  let (root, table) ← (nodeOf value).run {}
+  let recArg ← getStructuralRecArgPos? f
+  return record "sunfold"
+    [("name", nameJson f), ("level_params", Json.arr (info.levelParams.toArray.map nameJson)),
+     ("levels", Json.arr table.levels), ("nodes", Json.arr table.nodes), ("value", toJson root),
+     ("rec_arg", optJson recArg)]
+
+/-- Every f._sunfold of the environment, as Lean's find? of
+mkSmartUnfoldingNameFor f sees it: a definition. -/
+def sunfoldRecords (env : Environment) : MetaM (Array Json) := do
+  let mut out := #[]
+  for (name, info) in env.constants.toList do
+    if let .str f s := name then
+      if s == smartUnfoldingSuffix then
+        unless info matches .defnInfo _ do throwError "{name} is not a definition"
+        out := out.push (← sunfoldRecord f info)
+  return out
+
 def allRecords : MetaM (Array Json) := do
   let env ← getEnv
   let insts ← instanceRecords
   return insts ++ defaultInstanceRecords env ++ reducibilityRecords env
     ++ eliminatorRecords env ++ classRecords env ++ constantRecords env
+    ++ (← sunfoldRecords env)
 
 def main (args : List String) : IO UInt32 := do
   if args.isEmpty then

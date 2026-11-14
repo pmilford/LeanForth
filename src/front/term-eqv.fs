@@ -57,7 +57,6 @@ require ./meta-spine.fs
 
 \ Leaves by content: names by their parts, constants with their levels.
 : eq-name= ( a b -- flag ) 2dup = if 2drop true else lf-name-same? then ;
-: eq-slot ( const -- slot ) lf-term-first@ lf-cref-slot ;
 : eq-level@ ( addr i -- level ) lf-cref-pair@ drop ;
 : eq-arity= ( s1 s2 -- flag ) lf-cref-pairs nip swap lf-cref-pairs nip = ;
 : eq-names= ( s1 s2 -- flag ) lf-cref-name@ drop swap lf-cref-name@ drop eq-name= ;
@@ -68,7 +67,7 @@ require ./meta-spine.fs
 : eq-levels ( s1 s2 -- flag outcome )
   over lf-cref-pairs nip ['] eq-level-at ok-all? 2swap 2drop ;
 : eq-const ( a b -- flag outcome )
-  eq-slot swap eq-slot 2dup eq-arity= 0= if 2drop false outcome-ok exit then
+  lf-const-slot swap lf-const-slot 2dup eq-arity= 0= if 2drop false outcome-ok exit then
   2dup eq-names= if eq-levels else 2drop false outcome-ok then ;
 : eq-fields ( a b -- flag )
   over lf-term-first@ over lf-term-first@ = if lf-term-second@ swap lf-term-second@ =
@@ -109,7 +108,7 @@ require ./meta-spine.fs
 : lf-meta-name? ( c-addr u name -- flag ) -rot lf-name-dotted? ;
 \ A term that is the constant of that name (Lean's isConstOf).
 : lf-meta-const-named? ( t c-addr u -- flag )
-  rot dup lf-term-const? if eq-slot lf-cref-name@ drop lf-meta-name?
+  rot dup lf-term-const? if lf-const-name lf-meta-name?
   else drop 2drop false then ;
 : lf-meta-head ( t -- head ) begin dup lf-term-app? while lf-term-first@ repeat ;
 \ Shapes: n arguments and a constant of the name at the head (Lean's

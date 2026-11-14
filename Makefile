@@ -1018,11 +1018,13 @@ test-front:
 	  src/front/level-simp.fs src/front/level-params.fs src/front/level-normalize.fs \
 	  src/front/level-map.fs src/front/expr-remap.fs src/front/constructions.fs src/front/ctor-idx.fs \
 	  src/front/cases-several.fs \
-	  src/front/lib-decode.fs src/front/meta-env.fs src/front/meta-spine.fs src/front/whnf.fs src/front/beta-inst.fs \
+	  src/front/lib-decode.fs src/front/meta-env.fs src/front/meta-spine.fs src/front/unfold.fs \
+	  src/front/whnf.fs src/front/beta-inst.fs \
 	  src/front/infer.fs src/front/tactic-syntax.fs \
 	  src/front/lctx-views.fs src/front/goals.fs src/front/goal-print.fs \
 	  src/front/term-eqv.fs src/front/prop-quick.fs \
 	  src/front/assign-check.fs src/front/nat-offset.fs src/front/fun-info.fs src/front/defeq.fs \
+	  src/front/defeq-delta.fs \
 	  src/front/tactic-run.fs src/front/tactic-basic.fs src/front/elab-pending.fs \
 	  src/front/elab-app.fs src/front/elab-term.fs src/front/elab-decl.fs; do \
 	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \

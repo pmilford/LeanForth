@@ -13,7 +13,7 @@ plus the values left out), and LeanForth read exactly the records
 written; when the reducibility statuses LeanForth found equal the file's,
 and Lean's add up to its count; when Lean's samples equal LeanForth's
 line for line; when every line of DATA is valid under
-schemas/elab-data-2.schema.json; and when, for every goal of ORDER, the
+schemas/elab-data-3.schema.json; and when, for every goal of ORDER, the
 data's ranks give Lean's getUnify order (the values under the goal's root
 key in rank order, kept to the ones getUnify found) and the data's
 priorities give Lean's getInstances order from it (a stable sort by
@@ -34,7 +34,7 @@ from schema_subset import Validator, load_strict  # noqa: E402
 LEAN_KINDS = {"class": ("class",), "instance": ("instance", "instance_left_out"),
               "default_instance": ("default_instance",), "reducibility": ("reducibility",),
               "eliminator": ("eliminator",), "tag": ("tag",), "matcher": ("matcher",),
-              "projection": ("projection",)}
+              "projection": ("projection",), "sunfold": ("sunfold",)}
 KINDS = ("class", "instance", "instance_left_out", "default_instance", "reducibility",
          "eliminator", "tag", "matcher", "projection", "sunfold")
 
@@ -91,7 +91,7 @@ def order_problems(order, data):
 def main(finish, lean, forth, data, order):
     summary = open(finish).read()
     written = {k: int(n) for n, k in re.findall(r"(\d+) (\w+)", summary.split(";")[0])}
-    left = {k: int(n) for n, k in re.findall(r"(\d+) (\w+)", summary.split(":")[-1])}
+    left = {k: int(n) for n, k in re.findall(r"(\d+) (\w+)", summary.split(":")[-1].split(";")[0])}
     lean_text, forth_text = open(lean).read(), open(forth).read()
     lean_counts, forth_counts = pairs(lean_text), pairs(forth_text)
     statuses = collections.Counter(json.loads(line)["reducibility"]["status"]
@@ -118,7 +118,7 @@ def main(finish, lean, forth, data, order):
     forth_samples = sorted(line for line in forth_text.splitlines() if line.startswith("sample"))
     if lean_samples != forth_samples or len(lean_samples) < 19:
         problems.append(f"samples differ: Lean {lean_samples}, LeanForth {forth_samples}")
-    validator = Validator(load_strict((ROOT / "schemas/elab-data-2.schema.json").read_text()))
+    validator = Validator(load_strict((ROOT / "schemas/elab-data-3.schema.json").read_text()))
     for number, line in enumerate(open(data, encoding="utf-8"), 1):
         problems += [f"line {number}: {e}" for e in validator.errors(load_strict(line))]
     order_found, goals = order_problems(order, data)

@@ -75,17 +75,19 @@ T{ s" Nat.add" menv-name lf-tr-all lf-menv-unfoldable nip nip s" Nat.add" menv-d
 T{ 0 s" motive" menv-part lf-tr-all lf-menv-unfoldable -> -1 false outcome-invalid }T
 T{ s" Nat.add" menv-name lf-tr-modes lf-menv-unfoldable -> -1 false outcome-invalid }T
 
-\ ---- Facts of format 2 (S1 appendix D): a definition's from the data, a
-\ definition no record names none of them, other kinds false, the three
-\ Eq.ndrec names auxiliary recursors; smart unfolding still unsupported
-\ for a definition (no data has it).
+\ ---- Facts of the data (S1 appendix D; format 3): a definition's from
+\ the data, a definition no record names none of them (a smart-unfolding
+\ body included: every `_sunfold` of the modules has a record), other
+\ kinds false, the three Eq.ndrec names auxiliary recursors.
 : fact ( c-addr u xt -- flag outcome ) >r menv-decl r> execute ;
 T{ s" Nat.add.match_1" ' lf-menv-matcher? fact s" Nat.rec" ' lf-menv-matcher? fact
    s" Nat.add" ' lf-menv-matcher? fact -> true outcome-ok false outcome-ok false outcome-ok }T
 T{ s" HAdd.hAdd" ' lf-menv-proj-fn? fact s" HAdd.mk" ' lf-menv-proj-fn? fact
    s" instHAdd" ' lf-menv-proj-fn? fact -> true outcome-ok false outcome-ok false outcome-ok }T
 T{ s" Nat.add" ' lf-menv-smart? fact s" Nat.zero_add" ' lf-menv-smart? fact
-   -> false outcome-unsupported false outcome-ok }T
+   -> true outcome-ok false outcome-ok }T
+T{ s" Nat.div.go" ' lf-menv-smart? fact s" HAdd.hAdd" ' lf-menv-smart? fact
+   s" Nat.div" ' lf-menv-smart? fact -> true outcome-ok false outcome-ok false outcome-ok }T
 T{ s" Nat.casesOn" ' lf-menv-aux-recursor? fact s" Eq.ndrec" ' lf-menv-aux-recursor? fact
    s" Nat.add" ' lf-menv-aux-recursor? fact -> true outcome-ok true outcome-ok false outcome-ok }T
 T{ s" Eq.refl" ' lf-menv-aux-recursor? fact s" Nat.succ" ' lf-menv-aux-recursor? fact
@@ -110,7 +112,11 @@ T{ s" Nat.add.match_1" ' lf-menv-matcher? fact s" HAdd.hAdd" ' lf-menv-proj-fn? 
    s" Nat.casesOn" ' lf-menv-aux-recursor? fact s" Nat.rec" ' lf-menv-matcher? fact
    -> false outcome-unsupported false outcome-unsupported false outcome-unsupported
       false outcome-ok }T
-T{ s" Eq.ndrec" ' lf-menv-aux-recursor? fact -> true outcome-ok }T
+T{ s" Nat.add" ' lf-menv-smart? fact s" Nat.zero_add" ' lf-menv-smart? fact
+   -> false outcome-unsupported false outcome-ok }T
+\ isAuxRecursor's three names by name, which the data also tags: without it.
+T{ s" Eq.ndrec" ' lf-menv-aux-recursor? fact s" Eq.ndrec_symm" ' lf-menv-aux-recursor? fact
+   s" Eq.ndrecOn" ' lf-menv-aux-recursor? fact -> true outcome-ok true outcome-ok true outcome-ok }T
 menv-lib lf-menv-stage!
 
 \ ---- The queries allocate nothing.

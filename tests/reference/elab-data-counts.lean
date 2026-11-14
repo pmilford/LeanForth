@@ -10,8 +10,9 @@ getCustomEliminator? on a variable of each type former (an inductive type
 or a definition of one: Lean keys an eliminator by the head of its
 target's type), the tag predicates (hasTag of elab_as_elim and
 elab_without_expected_type, isAuxRecursor, isNoConfusion,
-isCasesOnRecursor, isRecOnRecursor, isBRecOnRecursor), getMatcherInfo?
-and getProjectionFnInfo?; and samples: the instances synthInstance finds
+isCasesOnRecursor, isRecOnRecursor, isBRecOnRecursor,
+hasMatchPatternAttribute), getMatcherInfo?, getProjectionFnInfo? and
+hasSmartUnfoldingDecl (a definition with a `_sunfold`); and samples: the instances synthInstance finds
 for `Add Nat` and `OfNat Nat 0`, their priorities and classes, the keys
 Lean's table of instances holds for six instances (a natural literal of
 2^64, a string literal, a projection, arrows, other), the default
@@ -60,7 +61,9 @@ def tagsOf (env : Environment) (name : Name) : List String :=
    ("elab_without_expected_type", Elab.Term.elabWithoutExpectedTypeAttr.hasTag env name),
    ("aux_recursor", isAuxRecursor env name), ("no_confusion", isNoConfusion env name),
    ("cases_on", isCasesOnRecursor env name), ("rec_on", isRecOnRecursor env name),
-   ("brec_on", isBRecOnRecursor env name)].filterMap fun (t, b) => if b then some t else none
+   ("brec_on", isBRecOnRecursor env name),
+   ("match_pattern", hasMatchPatternAttribute env name)].filterMap fun (t, b) =>
+    if b then some t else none
 
 def counts : MetaM (Array String) := do
   let env ← getEnv
@@ -72,6 +75,7 @@ def counts : MetaM (Array String) := do
   let mut tags := 0
   let mut matchers := 0
   let mut projections := 0
+  let mut sunfolds := 0
   for (name, info) in env.constants.toList do
     if (← getInstancePriority? name).isSome then instances := instances + 1
     if isClass env name then
@@ -85,10 +89,12 @@ def counts : MetaM (Array String) := do
     tags := tags + (tagsOf env name).length
     if (← getMatcherInfo? name).isSome then matchers := matchers + 1
     if (← getProjectionFnInfo? name).isSome then projections := projections + 1
+    if hasSmartUnfoldingDecl env name then sunfolds := sunfolds + 1
   let mut lines := #[s!"instance {instances}", s!"class {classes}",
     s!"default_instance {defaults}", s!"eliminator {eliminators}",
     s!"reducibility {env.constants.toList.length - statuses.getD "semireducible" 0}",
-    s!"tag {tags}", s!"matcher {matchers}", s!"projection {projections}"]
+    s!"tag {tags}", s!"matcher {matchers}", s!"projection {projections}",
+    s!"sunfold {sunfolds}"]
   for (status, n) in statuses.toList do
     unless status == "semireducible" do lines := lines.push s!"status {status} {n}"
   return lines

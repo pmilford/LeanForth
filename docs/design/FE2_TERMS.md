@@ -454,7 +454,7 @@ Nat Nat.succ l`); on a
 function type, `Function.NAME`. This needs data the kernel export lacks:
 which inductive types are structures, their fields, parents and
 projection functions, and the resolution order. They come from the
-elaboration data, format 3 (§6).
+elaboration data, format 4 (§6; format 3 is S2's smart-unfolding bodies).
 
 ### 3.8 Holes, `sorry` and literals
 
@@ -607,7 +607,7 @@ exit 2):
 | FE1a reader (`src/front/reader.fs`, `syntax.fs`), the name groups and scopes of `src/author/` | every word of §2; new node kinds (below); binder frames and `DEPTH` checks; positions on every node |
 | FE1b metavariables (`mvars.fs`) and FE1g-1's undo trail | holes, postponed and synthetic metavariables; the saved state of the arity count (§2.1) and of the auto-bound restarts |
 | FE1c `whnf`, `inferType`, `isDefEq`, `instantiate`, level unification | `whnfForall` for propagation and implicit lambdas; arity through unfolding; `let` values (`nondep`); `mkLambdaFVars`, `mkForallFVars`, `mkLetFVars` |
-| FE1d/FE1e elaboration data | instances, default instances, reducibility, `elab_without_expected_type`; format 3 adds structures (§6) |
+| FE1d/FE1e elaboration data | instances, default instances, reducibility, `elab_without_expected_type`; format 4 adds structures (§6) |
 | FE1e `elabAppArgs`, `elabTerm`, `ensureHasType`, `elabType`, pending list, instance search | every application; explicit mode, named arguments and eta arguments are new states of the same machine; local instances added to `getInstances` |
 | FE1f header and hand-over | declarations with natural binders; auto-bound loop and universe parameters wrap it |
 | FE1g context views, goals, tactic runner, `kabstract` | binders' local declarations; nested `by` blocks; `▸` |
@@ -641,7 +641,7 @@ block: its kept source span, as FE1g keeps blocks).
 | Postponement | `tryPostpone*`, `postponeElabTerm`, `resumePostponed`, `synthesizeSyntheticMVarsStep` with `postponeOnError` | a saved elaboration context per postponed metavariable; resumed in creation order |
 | Implicit lambdas | `useImplicitLambda`, `elabImplicitLambda`, `blockImplicitLambda` | part of `elabTerm`'s main loop |
 | Application states | `explicit`, `namedArgs`, `etaArgs`, `optParam`, `findNamedArgDependsOnCurrent?` | extensions of FE1e's `elab-app.fs` |
-| Field notation | `elabAppLValsAux`, `resolveLValAux`, `resolveLValLoop` (`consumeImplicits`, postponement, unfolding of the object's type), `findMethod?`, `addLValArg`, `mkBaseProjections`, `mkProjAndCheck` | needs format 3 of the elaboration data |
+| Field notation | `elabAppLValsAux`, `resolveLValAux`, `resolveLValLoop` (`consumeImplicits`, postponement, unfolding of the object's type), `findMethod?`, `addLValArg`, `mkBaseProjections`, `mkProjAndCheck` | needs format 4 of the elaboration data |
 | Notations | `elabAnonymousCtor`, `elabShow`, `elabTypeAscription`, `elabSorry`/`mkLabeledSorry`, `elabSubst`, literals, `unop%` and the other `Extra.lean` macros | `▸` with FE1g's `kabstract` |
 | Header | `withAutoBoundImplicit`, `addAutoBoundImplicits`, `collectUnassignedMVars`, `levelMVarToParam`, `sortDeclLevelParams`, section variables (`withHeaderSecVars`, `removeUnusedVars`) | the restart loop uses the undo trail |
 | Commands | `variable`, `section`, `universe`, `set_option` (two options), `#check` with holes and the signature form | scopes in `author/namespaces.fs`' frames |
@@ -655,10 +655,10 @@ block: its kept source span, as FE1g keeps blocks).
 | `elab-binders.fs` | binders, `∀`, `→`, `fun`, `let`, `have`, local instances | elab-app, mvars, FE1g-1 views |
 | `elab-postpone.fs` | postponed metavariables, saved contexts, resumption, implicit lambdas | elab-pending (FE1e) |
 | `elab-app.fs` (FE1e, extended) | explicit mode, named and eta arguments, `optParam` | — |
-| `elab-field.fs` | field notation | elab-app, elab-data format 3 |
+| `elab-field.fs` | field notation | elab-app, elab-data format 4 |
 | `elab-notation.fs` | `⟨⟩`, `show`, `:`, `sorry`, `▸`, literals, the macro kinds of §2.3 | elab-app, FE1g `kabstract` |
 | `elab-header.fs` | auto-bound loop, universe parameters, section variables, commands | FE1f |
-| `elab-data.fs` (FE1d, format 3) and `scripts/export-elab.sh` | structures: fields, parents, projection functions, resolution order | lib/json.fs |
+| `elab-data.fs` (FE1d, format 4) and `scripts/export-elab.sh` | structures: fields, parents, projection functions, resolution order | lib/json.fs |
 | `src/present/print-natural.fs` | the printer's natural mode (§5.4) | present/, notation table v2 |
 | `src/present/notation-table.fs` (version 2) | the macro column and the new rows of §2.3 | — |
 
@@ -710,7 +710,7 @@ Lean error of §4's table and per unsupported condition, each naming the
 row that lifts it; error 52 (holes) and 73 (arity needs unfolding) are
 retired.
 
-## 6. Elaboration data, format 3
+## 6. Elaboration data, format 4
 
 FE1d's records (instances, default instances, reducibility, eliminators)
 and FE1e's format 2 (keys, ranks, classes, tags) gain: for each structure,
@@ -753,7 +753,7 @@ Init statements (`Nat.succ_le_succ`, `List.length_append`,
    a field token with nothing below it, `.0` (Lean: "Index must be
    greater than 0"), `'ab'`, an unterminated `s"`, a scientific literal
    Forth reads otherwise, `set_option` of an unknown option, `variable`
-   inside a declaration, values left at a command word; format 3's
+   inside a declaration, values left at a command word; format 4's
    damaged records.
 3. **Interfaces:** stack effects of every new word under
    `tests/support/checks.fs`' `run-case`; each error code in the
@@ -811,7 +811,7 @@ review; sizes are the plan's S (under a day), M (days) and L.
 | FE2c | Postponement and implicit lambdas; `#check` with holes; A2, A4, A23, A29, A35, E1 | M | FE2b |
 | FE2d | Applications in full: `@`, `@ '`, `named:`, eta arguments, `optParam`; A7–A10, A31, A40, E5 | M | FE1e (`elab-app.fs`), FE2a |
 | FE2e | `let`, `have`, `show`, `:`, `sorry` (with Amendment 1's report), literals (strings, characters, scientific, big numerals, `nat_lit`), `▸`; A11–A15, A20, A24, A27, A34, E6, E9, E10 | M | FE2b, FE1g (`kabstract`) |
-| FE2f | Elaboration data format 3 (structures) in the exporter and reader; field notation; anonymous constructors; A16–A19, E2–E4 | M | FE1d, FE2d |
+| FE2f | Elaboration data format 4 (structures; format 3 is S2's) in the exporter and reader; field notation; anonymous constructors; A16–A19, E2–E4 | M | FE1d, FE2d |
 | FE2g | Notation table version 2: the macro column, the rows Init needs, `unop%`, `rightact%`, `leftact%`, `binop_lazy%`, `binrel_no_prop%`; A36, A39 | S–M | FE1e7 |
 | FE2h | Declarations and commands: auto-bound loop, universe parameters, `variable`, `section`, `universe`, `set_option`, the signature form of `#check`, nested `by … by-end`; A21, A22, A28, A30, A33, E8 | M | FE1f, FE2b |
 | FE2i | The printer's natural mode; `print --lf` natural by default | M | FE2a–FE2h |

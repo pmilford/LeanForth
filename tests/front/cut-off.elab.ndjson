@@ -1,4 +1,4 @@
-{"elab_data":{"export_sha256":"5f906a8ec01e477612c5a3df525c0b70e7aa486162c9d1f1cb5ea2936356543e","format":"leanforth-elab-data","format_version":2,"lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"class":3,"default_instance":2,"eliminator":4,"instance":3,"instance_left_out":54,"matcher":4,"projection":3,"reducibility":18,"sunfold":0,"tag":5},"records_sha256":"b3c731aaf8be3cc3569f75133a8af498161b6c4b60991f78d1fba55fcfa8c39a"}}
+{"elab_data":{"export_sha256":"5f906a8ec01e477612c5a3df525c0b70e7aa486162c9d1f1cb5ea2936356543e","format":"leanforth-elab-data","format_version":3,"lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"class":3,"default_instance":2,"eliminator":4,"instance":3,"instance_left_out":54,"matcher":4,"projection":3,"reducibility":18,"sunfold":1,"tag":10},"records_sha256":"b00a9d1f28a7c40f1a22dc9c7ddb9512e7ddc25a16d79b74a892a8bc3a8a5f5d"}}
 {"class":{"name":["Add"],"out_level_params":[],"out_params":[]}}
 {"class":{"name":["HAdd"],"out_level_params":[2],"out_params":[2]}}
 {"class":{"name":["OfNat"],"out_level_params":[],"out_params":[]}}
@@ -79,11 +79,16 @@
 {"reducibility":{"name":["instHAdd"],"status":"instance_reducible"}}
 {"reducibility":{"name":["instOfNatNat"],"status":"instance_reducible"}}
 {"reducibility":{"name":["outParam"],"status":"reducible"}}
+{"tag":{"name":["Add","add"],"tag":"match_pattern"}}
+{"tag":{"name":["HAdd","hAdd"],"tag":"match_pattern"}}
+{"tag":{"name":["Nat","add"],"tag":"match_pattern"}}
 {"tag":{"name":["Nat","below"],"tag":"aux_recursor"}}
 {"tag":{"name":["Nat","brecOn"],"tag":"aux_recursor"}}
 {"tag":{"name":["Nat","brecOn"],"tag":"brec_on"}}
 {"tag":{"name":["Nat","casesOn"],"tag":"aux_recursor"}}
 {"tag":{"name":["Nat","casesOn"],"tag":"cases_on"}}
+{"tag":{"name":["Unit","unit"],"tag":"match_pattern"}}
+{"tag":{"name":["rfl"],"tag":"match_pattern"}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0}],"discr_names":[null,null],"name":["Nat","add","match_1"],"num_discrs":2,"num_params":0,"u_elim_pos":0}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0}],"discr_names":[null,null],"name":["_private","Init","Data","Nat","Basic",0,"Nat","add_comm","match_1_1"],"num_discrs":2,"num_params":0,"u_elim_pos":null}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0}],"discr_names":[null,null],"name":["_private","Init","Data","Nat","Basic",0,"Nat","succ_add","match_1_1"],"num_discrs":2,"num_params":0,"u_elim_pos":null}}
@@ -91,6 +96,7 @@
 {"projection":{"ctor":["Add","mk"],"from_class":true,"idx":0,"name":["Add","add"],"num_params":1}}
 {"projection":{"ctor":["HAdd","mk"],"from_class":true,"idx":0,"name":["HAdd","hAdd"],"num_params":3}}
 {"projection":{"ctor":["OfNat","mk"],"from_class":true,"idx":0,"name":["OfNat","ofNat"],"num_params":2}}
+{"sunfold":{"level_params":[],"levels":["zero",{"succ":0},{"max":[0,1]},{"imax":[1,0]}],"name":["Nat","add"],"nodes":[{"const":["Nat"],"levels":[]},{"const":["Nat","add","match_1"],"levels":[1]},{"lam":{"body":0,"info":"default","name":["x","_@","Init","Prelude",2314059840,"_hygCtx",14,"Init","Prelude",2314059840,"_hygCtx","_hyg",35],"type":0}},{"lam":{"body":2,"info":"default","name":["x","_@","Init","Prelude",2314059840,"_hygCtx",13,"Init","Prelude",2314059840,"_hygCtx","_hyg",32],"type":0}},{"app":[1,3]},{"bvar":1},{"app":[4,5]},{"bvar":0},{"app":[6,7]},{"mdata":{"entries":[[["sunfoldMatchAlt"],{"bool":true}]],"expr":7}},{"lam":{"body":9,"info":"default","name":["a"],"type":0}},{"app":[8,10]},{"const":["Nat","succ"],"levels":[]},{"const":["Nat","add"],"levels":[]},{"app":[13,5]},{"app":[14,7]},{"app":[12,15]},{"mdata":{"entries":[[["sunfoldMatchAlt"],{"bool":true}]],"expr":16}},{"lam":{"body":17,"info":"default","name":["b"],"type":0}},{"lam":{"body":18,"info":"default","name":["a"],"type":0}},{"app":[11,19]},{"mdata":{"entries":[[["sunfoldMatch"],{"bool":true}]],"expr":20}},{"lam":{"body":21,"info":"default","name":["x","_@","Init","Prelude",2314059840,"_hygCtx","_hyg",14],"type":0}},{"lam":{"body":22,"info":"default","name":["x","_@","Init","Prelude",2314059840,"_hygCtx","_hyg",13],"type":0}},{"sort":1},{"forall":{"body":0,"info":"inst","name":[],"type":24}},{"let":{"body":5,"name":["y"],"non_dep":true,"type":0,"value":7}},{"lit":"18446744073709551616"},{"str":"ab"},{"proj":{"expr":0,"idx":1,"struct":["Prod"]}},{"mdata":{"entries":[[["borrowed"],{"bool":true}]],"expr":27}},{"let":{"body":0,"name":["z"],"non_dep":false,"type":0,"value":0}},{"proj":{"expr":26,"idx":0,"struct":["Nat"]}},{"sort":2},{"sort":3}],"rec_arg":1,"value":23}}
 {"eliminator":{"kind":"induction","name":["Nat","rec"],"types":[["Nat"]]}}
 {"eliminator":{"kind":"cases","name":["Nat","casesOn"],"types":[["Nat"]]}}
 {"eliminator":{"kind":"induction","name":["And","rec"],"types":[["And"]]}}

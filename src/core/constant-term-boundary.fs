@@ -49,6 +49,12 @@ require ./terms.fs
 7 constant lf-tag-constant
 \ Whether a node is a constant, unchecked as lf-term-tag@.
 : lf-term-const? ( index -- flag ) lf-tag-constant lf-term-tag? ;
+\ A constant node's reference record (constant-references.fs), the name
+\ it refers to and its number of universe arguments; unchecked: const is
+\ a live constant node.
+: lf-const-slot ( const -- slot ) lf-term-first@ lf-cref-slot ;
+: lf-const-name ( const -- name ) lf-const-slot lf-cref-name@ drop ;
+: lf-const-levels# ( const -- n ) lf-const-slot lf-cref-pairs nip ;
 \ An input constant of a term view (terms.fs) has its reference in the
 \ leaf table.
 lf-tag-constant tag-const lf-term-input-leaf-tag

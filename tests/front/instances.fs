@@ -425,10 +425,10 @@ T{ elab-keys# text-refusals-ok? elab-keys# rot - -> true 0 }T
 
 \ ---- lf-meta-at runs a word at a transparency and gives the configured
 \ one back; whnfD is whnf at default whatever the mode (instHAdd unfolds
-\ there: unsupported, S2).
+\ there to HAdd.mk applied to four arguments, S2 merge A).
 T{ ' lf-defeq-mode lf-tr-all lf-meta-at lf-defeq-mode -> lf-tr-all lf-tr-default }T
-T{ inst-hadd ' lf-meta-whnf-d lf-tr-reducible lf-meta-at nip lf-defeq-mode
-   -> outcome-unsupported lf-tr-default }T
+T{ inst-hadd ' lf-meta-whnf-d lf-tr-reducible lf-meta-at swap lf-meta-args# swap
+   lf-defeq-mode -> 4 outcome-ok lf-tr-default }T
 \ forallMetaTelescopeReducing's metavariables: synthetic for an
 \ instance-implicit binder of the declared type (Decidable.decide's
 \ [h : Decidable p]), natural for another, a store pi or none.

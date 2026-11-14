@@ -87,6 +87,20 @@ def lam(body, dom=NAT):
     return (LAM, dom, body)
 
 
+ADD_ADD = apps(c("Add.add", 0), NAT, c("instAddNat"))
+HADD_MK = apps(c("HAdd.mk", 0, 0, 0), NAT, NAT, NAT,
+               (LAM, NAT, (LAM, NAT, apps(ADD_ADD, "#1", "#0"))))
+SMART = "S2 merge B smart unfolding (Nat.add._sunfold)"
+SMART_MUL = "S2 merge B smart unfolding (Nat.mul._sunfold, the greater height unfolded first)"
+ID1, FST, MUL, PRED = c("id", 1), c("Prod.fst", 0, 0), c("Nat.mul"), c("Nat.pred")
+UNIT_TYPE, DEC_LT = c("Unit"), c("Nat.decLt")
+PROJ_TYPE = "FE1c inferType of a projection (proof irrelevance)"
+PROD_F = apps(c("Prod", 0, 0), NAT2, NAT)
+
+
+def mk_f(f, n):
+    return apps(PROD_MK, NAT2, NAT, f, n)
+
 EQAB = apps(c("Eq", 1), NAT, "a", "b")
 REFL_A = apps(c("Eq.refl", 1), NAT, "a")
 MOTIVE, STEP = lam(NAT), lam(lam("#0"))
@@ -147,7 +161,7 @@ CASES = [
     ("eq", apps("?y", "k", "k"), apps(ADD, "k", "k"), None),
     ("eq", apps("?y", "j", "j"), apps(ADD, "j", "j"), None),
     ("eq", apps("?y", "j", "k"), apps(ADD, "k", "j"),
-     "FE1d2 unfoldDefinition? in first-order approximation"),
+     "S2 unfoldDefinition? in first-order approximation (Nat.add's smart unfolding, merge B)"),
     ("eq", apps("?t", "k"), apps("?t", "k"), None),
     ("eq", apps("?t", "k"), apps("?t", "x"), None),
     ("eq", apps("?t", (LIT, 2)), succ("k"), None),
@@ -178,7 +192,7 @@ CASES = [
     # Nat offsets and values.
     ("eq", succ("?h"), succ(succ("k")), None),
     ("eq", succ("?h"), succ(succ("?r")), None),
-    ("eq", succ(succ("?h")), succ("k"), "FE1d2 whnfCore of an instance-headed term"),
+    ("eq", succ(succ("?h")), succ("k"), SMART),
     ("eq", succ("k"), succ("x"), None),
     ("eq", succ("?h"), (LIT, 3), None),
     ("eq", succ("k"), (LIT, 0), None),
@@ -186,30 +200,106 @@ CASES = [
     ("eq", (LIT, 1), ZERO, None),
     ("eq", (LIT, 3), succ(succ(succ(ZERO))), "FE1c reduceNat? (isDefEqNat)"),
     ("eq", succ("?h"), hadd(ofnat(0), hadd("k", ofnat(1))),
-     "FE1d2 lazy delta reduction (FE1's acceptance case)"),
+     SMART + " after lazy delta (FE1's acceptance case)"),
     ("eq", hadd("k", ofnat(1)), succ("k"), None),
     # Depth: a metavariable of the outer depth is read-only.
     ("deep", "?n", "k", None),
     ("deep", apps("u", "?n"), apps("u", "k"), None),
     # Transparency: what may be unfolded.
     ("red", ADD, c("Nat.mul"), None),
-    ("eq", ADD, c("Nat.mul"), "FE1d2 lazy delta reduction"),
+    ("eq", ADD, c("Nat.mul"), None),
     ("red", apps(ADD, "k", "x"), apps(ADD, "k", "x"), None),
-    ("red", apps(ADD, "k", "x"), apps(ADD, "x", "k"), "FE1d2 whnfCore's matcher facts"),
-    ("eq", apps(ADD, "k", "x"), apps(ADD, "x", "k"), "FE1d2 whnfCore's matcher facts"),
+    ("red", apps(ADD, "k", "x"), apps(ADD, "x", "k"), "FE1c unification hints (the hint table)"),
+    ("eq", apps(ADD, "k", "x"), apps(ADD, "x", "k"), SMART),
     # Instances and implicit transparency, with arguments; at reducible,
     # an assignment's types compared at implicit (id Nat unfolds there).
     ("inst", apps("u", "k"), apps("u", "x"), None),
-    ("inst", apps(ADD, "k", "x"), apps(ADD, "k", "?n"),
-     "FE1e instance facts (getUnfoldableConst? at instances)"),
+    ("inst", apps(ADD, "k", "x"), apps(ADD, "k", "?n"), None),
     ("impl", apps("u", "?n"), apps("u", "k"), None),
-    ("red", "?t", lam("#0", apps(c("id", 2), (SORT, 1), NAT)), "FE1d2 lazy delta reduction"),
-    ("red", apps(c("Eq.refl", 1), ADD, "a"), apps(c("Eq.refl", 1), c("Nat.mul"), "a"),
-     "FE1d2 lazy delta reduction"),
+    ("red", "?t", lam("#0", apps(c("id", 2), (SORT, 1), NAT)), None),
+    ("red", apps(c("Eq.refl", 1), ADD, "a"), apps(c("Eq.refl", 1), c("Nat.mul"), "a"), None),
     ("red", ADD, "k", "FE1c unification hints (the hint table)"),
-    ("eq", "?n", apps(ADD, "?n", "k"), "FE1d2 whnf's delta (processAssignment')"),
+    ("eq", "?n", apps(ADD, "?n", "k"), "S2 merge B reduceNat?'s guard (whnf of Nat.add ?n k)"),
+    # Lazy delta (S2 merge A, ExprDefEq.lean:1544-1849): one side unfolds
+    # (outParam, Lean's p4b and p4f; at implicit with a level
+    # metavariable); a reducible side first; class projections unpacked
+    # to the other side's head (packedInstanceOf?), on either side, with an
+    # assignment; one name at two levels (both unfolded).
+    ("eq", apps(c("outParam", 2), (SORT, 1)), (SORT, 1), None),
+    ("impl", apps(c("outParam", 2), (SORT, "u1")), (SORT, 1), None),
+    ("eq", apps(c("outParam", 1), NAT), NAT, None),
+    ("red", NAT, apps(c("outParam", 1), NAT), None),
+    ("eq", apps(c("outParam", 1), NAT), apps(c("id", 2), (SORT, 1), NAT), None),
+    ("eq", apps(c("id", 1), NAT, "k"), "k", None),
+    ("eq", hadd("k", "x"), apps(ADD_ADD, "k", "x"), None),
+    ("eq", apps(ADD_ADD, "k", "x"), hadd("k", "x"), None),
+    ("eq", hadd("k", "x"), apps(ADD, "k", "x"), None),
+    ("eq", hadd("?n", "x"), apps(ADD_ADD, "k", "x"), None),
+    ("eq", hadd("k", "x"), hadd("x", "k"), SMART),
+    ("eq", c("id", 1), c("id", 2), None),
+    ("eq", apps(c("outParam", 1), "?n"), apps(ADD, "k", "x"), None),
+    ("eq", apps(c("outParam", 1), "?n"), NAT, None),
+    ("eq", apps(c("id", 1), NAT, apps(ADD, "?n", "x")), apps(ADD, "k", "x"), None),
+    ("eq", apps(ADD, "?n", "x"), apps(ADD, "k", "x"), None),
+    # An instance argument at reducible is compared at implicit, where
+    # instHAdd unfolds to its constructor.
+    ("red", hadd("k", "x"), apps(c("HAdd.hAdd", 0, 0, 0), NAT, NAT, NAT, HADD_MK, "k", "x"),
+     None),
+    ("inst", hadd("k", "x"), apps(ADD_ADD, "k", "x"),
+     "S2 merge B isDefEqProjInst (ExprDefEq.lean:2356)"),
     ("impl", pair("a", "b"), pair("a", "?n"), None),
     ("inst", ADD, "k", "FE1c isDefEqProjInst (projection facts, FE1d2)"),
+    # Lazy delta's choices (review s2-unfold-a H1): a projection function
+    # on one side only unfolds the other side (?n := Prod.fst ..., not a);
+    # without metavariables the side of the greater height unfolds first
+    # (Nat.mul, 2, before id, 1; its smart unfolding a gap); after both
+    # sides unfold, the side whose head the other's unfolding reached is
+    # compared as it is (id against Function.comp's unfolding); tryHeuristic
+    # compares a non-trivial definition's arguments first (Nat.pred: height
+    # 2, a value that is not simple).
+    ("meta", apps(ID1, NAT, "?n"), apps(FST, NAT, NAT, pair("a", "b")), None),
+    ("meta", apps(FST, NAT, NAT, pair("a", "b")), apps(ID1, NAT, "?n"), None),
+    ("eq", apps(ID1, NAT, apps(MUL, "k", "x")), apps(MUL, "k", "x"), SMART_MUL),
+    ("eq", apps(MUL, "k", "x"), apps(ID1, NAT, apps(MUL, "k", "x")),
+     "S3 evalNat's Nat.mul (isDefEqOffsetNat, nat-offset.fs; folding literals)"),
+    ("eq", apps(ID1, NAT, apps(ADD, "k", "x")),
+     apps(c("Function.comp", 1, 1, 1), NAT, NAT, NAT, apps(ID1, NAT), apps(ADD, "k"), "x"), None),
+    ("eq", apps(PRED, "x"), apps(PRED, apps(ID1, NAT, "x")), None),
+    # The other branches of these steps (review s2-unfold-a's coverage):
+    # the left side unfolded to a head the right side lacks, which does not
+    # unfold (Nat.add alone has a smart-unfolding body); an abbreviation
+    # ranked above a regular definition, at reducible and at default
+    # transparency (Unit, outParam); a reducible right side alone first;
+    # packedInstanceOf? reaching a head that is no constant (u k: a gap
+    # before lazy delta today); id's
+    # value simple, so id is trivial; a non-trivial definition by height
+    # (Nat.decLt, 3); a class projection's abbreviation at default; one
+    # name with universe arguments that do not fit it; a constant against
+    # an application of it.
+    ("eq", apps(ID1, (PI, NAT, NAT2), MUL), ADD, None),
+    ("red", UNIT_TYPE, apps(c("outParam", 1), UNIT_TYPE), None),
+    ("eq", UNIT_TYPE, apps(c("outParam", 1), UNIT_TYPE), None),
+    ("eq", apps(c("id", 2), (SORT, 1), NAT), apps(c("outParam", 1), NAT), None),
+    ("eq", apps(c("HAdd.hAdd", 0, 0, 0), NAT, NAT, NAT,
+                apps(c("HAdd.mk", 0, 0, 0), NAT, NAT, NAT, lam(lam(apps("u", "#1")))), "k", "x"),
+     apps(ID1, NAT, apps("u", "k")),
+     "FE1c isDefEqOffsetNat's instance test (HAdd.hAdd of an instance other than Nat's: Lean"
+     " asks isDefEq at instances)"),
+    ("eq", apps(ID1, NAT, "x"), apps(ID1, NAT, apps(ID1, NAT, "x")), None),
+    ("eq", apps(DEC_LT, "k", "x"), apps(DEC_LT, "k", apps(ID1, NAT, "x")), None),
+    ("eq", hadd("k", "x"), hadd("k", apps(ID1, NAT, "x")), PROJ_TYPE),
+    ("eq", c("id", 1, 1), c("id", 2), None),
+    ("eq", ID1, apps(ID1, NAT), None),
+    # isExprDefEqExpensive's whnfCore reduces a projection's structure by
+    # whnf (proj := yesWithDelta: id unfolds at default), where
+    # isExprDefEqAux's whnfCoreAtDefEq does not (review s2-unfold-a M1).
+    ("meta", "k", apps((PROJ, 0, apps(ID1, PROD_F, mk_f(lam("#0"), (LIT, 0)))), "k"), None),
+    ("meta", apps((PROJ, 0, apps(ID1, PROD_F, mk_f(lam("#0"), (LIT, 0)))), "k"), "k", PROJ_TYPE),
+    # isExprDefEqAux's whnfCoreAtDefEq leaves the projection (id stays at
+    # instances); Lean then reduces it in isExprDefEqExpensive, after
+    # isDefEqProj.
+    ("meta", "a", (PROJ, 0, apps(ID1, apps(c("Prod", 0, 0), NAT, NAT), pair("a", "b"))),
+     "FE1c projections (isDefEqProj)"),
     # Offsets and values are unsigned cells (review B1).
     ("eq", succ("?h"), (LIT, 2**63), None),
     ("eq", succ(hadd("?h", ofnat(2**63))), (LIT, 5), None),
@@ -244,8 +334,9 @@ CASES = [
 ]
 
 
-LEAN_LEVELS = {0: "Level.zero", 1: "Level.one", 2: "(mkLevelSucc Level.one)", "u": "lu"}
-FORTH_LEVELS = {0: "l0", 1: "lv1", 2: "lv2", "u": "lvu"}
+LEAN_LEVELS = {0: "Level.zero", 1: "Level.one", 2: "(mkLevelSucc Level.one)", "u": "lu",
+               "u1": "(mkLevelSucc lu)"}
+FORTH_LEVELS = {0: "l0", 1: "lv1", 2: "lv2", "u": "lvu", "u1": "lvu1"}
 
 
 class Failure(Exception):
