@@ -259,8 +259,8 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
   then ;
 : lf-synth-key ( type -- key outcome ) dup sy-scan ok-then? if sy-key-made else
   no-result then ;
-: sy-key-for ( mvar -- key outcome ) lf-mvar-type-instantiated ok-then? if lf-synth-key else no-result
-  then ;
+: sy-key-for ( mvar -- key outcome )
+  lf-mvar-type-instantiated ok-then? if lf-synth-key else no-result then ;
 
 \ ---- The table: this search's entries (Lean's tableEntries), each a
 \ goal's key with its waiters and answers as runs (lib/runs.fs), found by
