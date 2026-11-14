@@ -70,12 +70,16 @@ end-structure
 \ A node's bit; a number outside the table is never marked or reached.
 : lr-terms ( -- a-addr ) lf-reach lf-reach-terms @ ;
 : lr-levels ( -- a-addr ) lf-reach lf-reach-levels @ ;
-: lr-term? ( term -- flag ) lf-reach lf-reach-term# @ index? ;
-: lr-level? ( level -- flag ) lf-reach lf-reach-level# @ index? ;
-: lf-reach-term ( term -- ) dup lr-term? if lr-terms bit-on else drop then ;
-: lr-level! ( level -- ) dup lr-level? if lr-levels bit-on else drop then ;
-: lf-reached? ( term -- flag ) dup lr-term? if lr-terms bit@ else drop false then ;
-: lf-level-reached? ( level -- flag ) dup lr-level? if lr-levels bit@ else drop false then ;
+\ Node i of a table of n bits: marked, or whether it is marked.
+: lr-mark ( i n bits -- ) >r over swap index? if r> bit-on else r> 2drop then ;
+: lr-marked? ( i n bits -- flag )
+  >r over swap index? if r> bit@ else r> 2drop false then ;
+: lr-term# ( -- n ) lf-reach lf-reach-term# @ ;
+: lr-level# ( -- n ) lf-reach lf-reach-level# @ ;
+: lf-reach-term ( term -- ) lr-term# lr-terms lr-mark ;
+: lr-level! ( level -- ) lr-level# lr-levels lr-mark ;
+: lf-reached? ( term -- flag ) lr-term# lr-terms lr-marked? ;
+: lf-level-reached? ( level -- flag ) lr-level# lr-levels lr-marked? ;
 
 \ A reached term's parts.
 : lr-pair ( term -- ) dup lf-term-first@ lf-reach-term lf-term-second@ lf-reach-term ;

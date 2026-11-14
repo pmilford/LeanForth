@@ -243,9 +243,8 @@ lf-level-walk-room context-walk: lf-lsubst-walker
   0 lf-lsubst-reached-cells slab-at lf-lsubst-reached @ lf-lsubst-sorter sort-records
   dup outcome-full = if lf-lsubst-reached @ lf-lsubst-crowded drop then ;
 : lf-lsubst-build-at ( i -- outcome ) lf-lsubst-node lf-lsubst-build-node ;
-: lf-lsubst-build ( -- outcome )
-  lf-lsubst-sorted dup ok? 0= if exit then drop
-  lf-lsubst-reached @ ['] lf-lsubst-build-at ok-each ;
+: lf-lsubst-build-all ( -- outcome ) lf-lsubst-reached @ ['] lf-lsubst-build-at ok-each ;
+: lf-lsubst-build ( -- outcome ) lf-lsubst-sorted ['] lf-lsubst-build-all ok-and ;
 : lf-lsubst-setup ( -- ) ['] sort-signed lf-lsubst-sorter sorter-cells drop ;
 ' lf-lsubst-setup context-setup
 

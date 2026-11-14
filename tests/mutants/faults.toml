@@ -7375,8 +7375,8 @@ reason = "S0: any earlier walk's stamp is read as fresh, so reached levels are n
 [[fault]]
 id = "s0-lsubst-build-unsorted"
 file = "src/kernel/level-substitute.fs"
-old = '''  lf-lsubst-sorted dup ok? 0= if exit then drop'''
-new = '''  outcome-ok dup ok? 0= if exit then drop'''
+old = ''': lf-lsubst-build ( -- outcome ) lf-lsubst-sorted ['] lf-lsubst-build-all ok-and ;'''
+new = ''': lf-lsubst-build ( -- outcome ) outcome-ok ['] lf-lsubst-build-all ok-and ;'''
 test = "$GFORTH tests/core/level-substitute.fs"
 reason = "S0: the build follows the walk's order, so a parent is built before its children"
 
@@ -16641,8 +16641,8 @@ reason = "reuse-k1: a merge whose scratch the heap refuses leaves the arguments 
 [[fault]]
 id = "s0-lsubst-sort-full-ignored"
 file = "src/kernel/level-substitute.fs"
-old = '''  lf-lsubst-sorted dup ok? 0= if exit then drop'''
-new = '''  lf-lsubst-sorted drop'''
+old = ''': lf-lsubst-build ( -- outcome ) lf-lsubst-sorted ['] lf-lsubst-build-all ok-and ;'''
+new = ''': lf-lsubst-build ( -- outcome ) lf-lsubst-sorted drop outcome-ok ['] lf-lsubst-build-all ok-and ;'''
 test = "$GFORTH tests/core/level-substitute.fs"
 reason = "reuse-k1: a build whose sort the heap refused goes on over the unsorted list, ok where it is full"
 

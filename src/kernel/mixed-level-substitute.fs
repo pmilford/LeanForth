@@ -310,9 +310,8 @@ create lf-mls-set-hooks /htab-hooks allot
     lf-mls-reached @ lf-mls-image-cells slab-capacity lf-mls-site
     lf-diag-work-stack-full lf-diag-note then ;
 : lf-mls-ready ( -- outcome ) lf-mls-image-room dup ok? if drop lf-mls-sorted then ;
-: lf-mls-build ( -- outcome )
-  lf-mls-ready dup ok? 0= if exit then drop
-  lf-mls-reached @ ['] lf-mls-build-at ok-each ;
+: lf-mls-build-all ( -- outcome ) lf-mls-reached @ ['] lf-mls-build-at ok-each ;
+: lf-mls-build ( -- outcome ) lf-mls-ready ['] lf-mls-build-all ok-and ;
 
 \ The passes in order: the root handle and stores, the replacements (live,
 \ and in level scope), the whole graph (lf-cterm-check), the source audit,

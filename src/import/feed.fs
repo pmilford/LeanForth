@@ -177,7 +177,8 @@ here feed-settings - /feed-setting / constant feed-settings#
 : feed-block ( cells addr -- outcome ) swap cells swap block-zeroed ;
 \ The expressions need no map (see "In place" below), only a bit each,
 \ set for the ones copied.
-: feed-expr-map ( feed -- outcome ) dup feed-exprs# bits>cells swap feed-dirty feed-block ;
+: feed-expr-map ( feed -- outcome )
+  dup feed-exprs# bits>cells swap feed-dirty feed-block ;
 : feed-maps ( feed -- outcome )
   dup feed-levels# over feed-levels feed-block dup ok? 0= if nip exit then
   drop feed-expr-map ;
@@ -217,7 +218,8 @@ end-structure
 \ Binary search (lib/bits.fs): the first copy whose expression is not
 \ below e.
 : feed-copy-below? ( e feed k -- e feed flag ) over feed-copy-e 2 pick < ;
-: feed-seek ( e feed -- e feed k ) 0 over feed-copies# @ ['] feed-copy-below? lower-bound ;
+: feed-seek ( e feed -- e feed k )
+  0 over feed-copies# @ ['] feed-copy-below? lower-bound ;
 \ Copy k when it is expression e's, else 0.
 : feed-copy-of ( e feed k -- addr|0 )
   2dup swap feed-copies# @ < 0= if 2drop drop 0 exit then

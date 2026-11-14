@@ -3,7 +3,8 @@
 \ 32 bits and characters of 8 bits; it needs only portability.fs, which
 \ supplies -rot and the Forth-2012 structure words where a host lacks
 \ them, bits.fs (cell-bits, a cell's width), and module.fs, which keeps
-\ its helpers in a private word list (ADR 0010). LeanForth uses it to check its exports (src/import/manifest.fs).
+\ its helpers in a private word list (ADR 0010). LeanForth uses it to
+\ check its exports (src/import/manifest.fs).
 \ Untrusted until reviewed; the program track's plan is to prove it equal
 \ to FIPS 180-4 (docs/project/PLAN_DRAFT.md, "Flagship program target").
 \

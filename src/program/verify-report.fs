@@ -245,7 +245,8 @@ end-structure
 : pv-written ( -- c-addr u ) pv-written-at @ pv-written# @ ;
 : pv-new-size ( u -- u' ) pv-written-size @ 2* max pv-written-start max ;
 : pv-resized? ( size -- flag )
-  dup chars pv-written-at block-resize ok? if pv-written-size ! true else drop false then ;
+  dup chars pv-written-at block-resize ok?
+  if pv-written-size ! true else drop false then ;
 : pv-room-for? ( u -- flag )
   pv-written# @ + dup pv-written-size @ > if pv-new-size pv-resized? else drop true then ;
 : pv-written-end ( -- c-addr ) pv-written chars + ;
