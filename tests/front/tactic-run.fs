@@ -358,7 +358,7 @@ T{ 0 lf-tac-commit lf-tac-forget max-n /tsv / saves-most lfr-saves -> outcome-ok
 \ throws (review fe1g3 L10).
 2variable settings
 : throws ( x -- outcome ) drop -78 throw ;
-T{ lf-print-settings settings 2! 0 ' throws ' 2drop ' lfr-printed catch nip nip nip -> -78 }T
+T{ lf-print-settings settings 2! 0 ' throws ' 2drop ' lf-print-with catch nip nip nip -> -78 }T
 T{ lf-print-settings settings 2@ d= -> true }T
 
 \ ---- 5. Room for an open part's text or an error's detail used up (a

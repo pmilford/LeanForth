@@ -132,8 +132,7 @@ end-structure
 \ A constant head's kinds as meta-env records them (S1 4: the tier's
 \ binder tags, a text declaration's binder words), parameter by parameter.
 : fi-decl-kind ( -- kind true | false )
-  fi-state fi-decl @ dup 0< if drop false exit then
-  lf-menv-kinds fi-params slab-count tuck > if cells + @ true else 2drop false then ;
+  fi-state fi-decl @ dup 0< if drop false exit then fi-params slab-count lf-menv-kind@ ;
 : fi-kind ( -- kind true | false ) fi-decl-kind if true else fi-source-kind then ;
 : fi-next-src ( -- )
   fi-src @ dup 0< 0= if
@@ -176,16 +175,15 @@ end-structure
   swap begin dup lf-term-app? while
     2dup lf-term-second@ swap fi-ho-arg? ok-then? 0= if nip nip false swap exit then
     if 2drop true outcome-ok exit then lf-term-first@ repeat 2drop false outcome-ok ;
-: fi-strip ( T -- body ) begin dup lf-term-pi? while lf-term-second@ repeat ;
 \ isClassQuick? answers none for these heads: no class.
 : fi-not-class? ( head -- flag )
   dup lf-mvar? if lf-meta-unassigned? exit then
   lf-term-tag@ dup lf-tag-fvar = over lf-tag-symbolic-sort = or over lf-tag-sort = or
   over lf-tag-lit = or swap lf-tag-bvar = or ;
-: lf-meta-class-none? ( type -- flag ) fi-strip lf-meta-head fi-not-class? ;
+: lf-meta-class-none? ( type -- flag ) lf-meta-forall-body lf-meta-head fi-not-class? ;
 : fi-ho? ( i -- flag outcome )
   dup lf-meta-param drop lf-binder-default = if drop false outcome-ok exit then
-  dup fi-x lf-fvar-type fi-strip dup lf-meta-head fi-not-class?
+  dup fi-x lf-fvar-type lf-meta-forall-body dup lf-meta-head fi-not-class?
   if 2drop false outcome-ok exit then swap fi-ho-args? ;
 
 \ ---- getFunInfoNArgs.

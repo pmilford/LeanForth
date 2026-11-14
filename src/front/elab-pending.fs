@@ -18,27 +18,31 @@
 \   otherwise Lean's further rounds, the step again, default instances,
 \   the step twice more (the same for instance problems), and with
 \   lf-postpone-no an entry still left is Lean's "typeclass instance
-\   problem is stuck" (126), at the newest; lf-postpone-check leaves it
-\   (#check's ignoreStuckTC). Default instances (synthesizeUsingDefault):
+\   problem is stuck" (126), at the oldest (Lean reports the smallest
+\   syntax range, the earliest first: of S1's problems the first made);
+\   lf-postpone-check leaves it (#check's ignoreStuckTC). Default instances (synthesizeUsingDefault):
 \   for each priority a default instance has (elab-data.fs's records),
 \   highest first, the first entry of the window that one of its class's
 \   default instances of that priority fills, in Lean's list order (the
 \   most recent first), each tried under a mark (commitWhen): the instance
 \   at new universe metavariables applied to a new metavariable per binder
 \   (forallMetaTelescopeReducing: synthetic for an instance binder,
-\   natural otherwise, kinds from the declared type, lf-menv-kinds; a pi
+\   natural otherwise, kinds from the declared type, lf-menv-kind@; a pi
 \   that only whnf shows is 136), isDefEqGuarded with synthetic opaque
-\   metavariables assignable, then its instance binders filled
-\   (synthesizePending: by instances while that fills one, else one by a
-\   default instance of any priority, again). Without elaboration data
-\   default instances are unknown (139). The recursion runs as
-\   lib/frame.fs steps on heap stacks, no host recursion.
+\   metavariables assignable, then its instance binders filled, the last
+\   binder first as Lean prepends them (synthesizePending: by instances
+\   while that fills one, else one by a default instance of any priority,
+\   again). Without elaboration data default instances are unknown (139).
+\   The recursion runs as lib/frame.fs steps on heap stacks, no host
+\   recursion.
 \ - lf-elab-synth-core ( mvar -- flag outcome ), synthesizeInstMVarCore:
-\   the type instantiated, trySynthInstance through defeq.fs's hook
-\   lf-meta-synth (its stuck signal is Lean's undef: false, try later);
-\   found: assigned by isDefEq (false: 129), or, already assigned,
-\   compared with the value (false is 139: Lean's containsPendingMVar test
-\   is not ported); none: Lean's "failed to synthesize" (125).
+\   the type instantiated, trySynthInstance (synth.fs's lf-try-synth,
+\   through defeq.fs's hook lf-meta-synth; undef, the stuck signal, is
+\   false: try later); found: assigned by isDefEq (false: 129, "failed to
+\   assign"), or, already assigned, compared with the value (false is
+\   139: Lean's containsPendingMVar test is not ported); none: Lean's
+\   "failed to synthesize" (125); a search that fails with a code of its
+\   own (synth.fs's 110-121) records that code.
 \   lf-elab-inst-mvar ( type -- mvar outcome ), mkInstMVar: a new
 \   synthetic metavariable, pending when it cannot be filled yet.
 \ - Errors (Lean's throwError at the current ref): lf-elab-at! ( pos -- ),
@@ -47,18 +51,23 @@
 \   (author/errors.fs); lf-elab-error ( -- code pos ) (0 -1: none);
 \   lf-elab-error-reset; lf-elab-meta ( outcome -- outcome ) records a
 \   Meta step's failure: no room 60, fuel 138, unsupported 139, else 76.
-\   A Lean error that commitWhen's try catches is forgotten.
+\   lf-elab-catch ( outcome -- flag ), Lean's try ... catch _ (commitWhen,
+\   trySynthesizeAppInstMVars): true for a Lean error (invalid with a
+\   recorded code other than 76), which is forgotten; false for anything
+\   else, which goes on: malformed or corrupt state, unsupported,
+\   exhausted (Lean's runtime limits are not caught either), full.
 \ - The trace (FE1E 1.6, for tests): lf-elab-trace! ( flag -- ),
 \   lf-elab-trace ( -- c-addr u ), one event a line; lf-elab-note
 \   ( c-addr u -- ), lf-elab-term. ( term -- ) and lf-elab-n. ( n -- )
 \   write while it is on (lf-elab-nl ends a line).
-\ - Shared words of the elaborator: lf-elab-const ( d -- term outcome ),
-\   declaration d's constant at new universe metavariables
-\   (mkConstWithFreshMVarLevels); lf-elab-const-at ( d level -- term
-\   outcome ), at one given level; lf-elab-defeq, lf-elab-guarded ( t s --
-\   flag outcome ): isDefEq, isDefEqGuarded, made sane (the stuck signal
-\   never leaves the Meta layer); lf-elab-spend ( -- outcome ): one step
-\   of the budget (meta-config.fs), exhausted when none is left.
+\ - Shared words of the elaborator: lf-elab-defeq, lf-elab-guarded ( t s
+\   -- flag outcome ): isDefEq, isDefEqGuarded, made sane (the stuck
+\   signal never leaves the Meta layer); lf-elab-spend ( -- outcome ): one
+\   step of the budget (meta-config.fs), exhausted when none is left;
+\   lf-elab-frames-ready ( frames -- frames ): an idle frame record reset
+\   for a pass, a busy one (a nested pass) left as it is. Constants come
+\   from mvars.fs's lf-meta-const-fresh and meta-env.fs's
+\   lf-meta-const-at.
 \ - The instance tables (front/instances.fs) through deferred words a
 \   test may stand in for: lf-elab-class? ( type -- class true outcome |
 \   false outcome ), isClass? (lf-class?), and lf-elab-default-instances
@@ -70,9 +79,8 @@
 \ the kernel's check of a finished term decides anything.
 \ State: the record ep (window, position, first error, trace switch, the
 \ priorities' sorter), the frames ep-frames and the slabs ep-pending,
-\ ep-scratch, ep-pairs, ep-prios, ep-defs, ep-goals, ep-bs, ep-cs and
-\ ep-trace, in the checker context (ADR 0009); lf-elab-pending-reset
-\ empties them. Loads in decimal whatever BASE is, then restores it.
+\ ep-scratch, ep-prios, ep-defs, ep-goals, ep-bs, ep-cs and ep-trace, in
+\ the checker context (ADR 0009); lf-elab-pending-reset empties them. Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -96,11 +104,11 @@ require ./whnf.fs
 require ./infer.fs
 require ./defeq.fs
 require ./instances.fs
+require ./synth.fs
 require ../lib/decimal.fs
 
 0 constant lf-postpone-yes   1 constant lf-postpone-partial   2 constant lf-postpone-no
 3 constant lf-postpone-check   \ no, a stuck problem left (#check's ignoreStuckTC)
-100000 constant ep-print-fuel   \ printer fuel for each term of the trace
 
 begin-structure /ep
   field: ep-base      \ the window's first pending entry
@@ -113,7 +121,6 @@ end-structure
 /ep context-record: ep
 2 cells context-slab: ep-pending   \ (mvar, position) by 2!, oldest first
 2 cells context-slab: ep-scratch   \ a step's entries, then those it keeps
-2 cells context-slab: ep-pairs     \ a constant's universe arguments being made
 1 cells context-slab: ep-prios     \ the default instances' priorities, highest first
 1 cells context-slab: ep-defs      \ default-instance records, a range per attempt
 1 cells context-slab: ep-goals     \ synthesizePending's lists, a range each
@@ -166,21 +173,16 @@ end-structure
 : lf-elab-code ( outcome -- code pos )
   lf-elab-error over if rot drop else 2drop ep-meta-code -1 then ;
 \ A Lean error that a caller's try ... catch takes (commitWhen): forgotten.
-: ep-caught? ( outcome -- flag )
-  outcome-invalid = dup if lf-elab-error-reset then ;
+: ep-lean-error? ( outcome -- flag )
+  outcome-invalid = ep ep-code @ dup 0<> swap lfa-e-malformed <> and and ;
+: lf-elab-catch ( outcome -- flag ) ep-lean-error? dup if lf-elab-error-reset then ;
 : lf-elab-spend ( -- outcome )
   lf-meta-spend? if outcome-ok else lfa-e-elab-fuel lf-elab-fail then ;
 
-\ ---- The trace's terms.
-\ Printed plain to the trace's sink; the printer's sink, options and
-\ notation flag put back however printing ends.
-: ep-printing ( term -- outcome )
-  ['] ep-chars lf-print-unicode lf-print-setup
-  false lf-print-notation! ep-print-fuel lf-print-term ;
-: ep-printed ( term -- )
-  lf-print-notation? >r lf-print-settings 2>r ['] ep-printing catch
-  2r> lf-print-setup r> lf-print-notation! throw drop ;
-: lf-elab-term. ( term -- ) ep-tracing? if ep-printed else drop then ;
+\ ---- The trace's terms, printed plain to the trace's text (a print that
+\ fails leaves its part there: the trace is for tests).
+: lf-elab-term. ( term -- )
+  ep-tracing? if ['] ep-chars false lf-print-to drop else drop then ;
 : ep-mvar. ( mvar -- ) s" ?" lf-elab-note lf-term-first@ lf-elab-n. ;
 
 \ ---- The instance tables (front/instances.fs): isClass? and
@@ -204,45 +206,26 @@ defer lf-elab-default-instances ( class -- addr n outcome )
 : lf-elab-defeq ( t s -- flag outcome ) lf-meta-defeq outcome-sane ;
 : lf-elab-guarded ( t s -- flag outcome ) lf-meta-defeq-guarded outcome-sane ;
 
-\ ---- Constants at universe levels: (identity, level) pairs on ep-pairs.
-: ep-pair+ ( level -- outcome )
-  dup lf-level-identity 0= if drop outcome-full exit then swap ep-pairs slab-2push ;
-: ep-fresh+ ( k -- outcome ) drop lf-level-mvar-new ok-then? if ep-pair+ then ;
-: ep-pairs-at ( first -- addr n ) dup ep-pairs slab-at ep-pairs slab-count rot - ;
-: ep-pairs-cut ( first -- ) ep-pairs slab-count - ep-pairs slab-commit ;
-: ep-cref ( d addr n -- cref identity true | false )
-  2>r lf-menv-name lf-name-generation @ 2r> lf-cref-new ;
-: ep-named ( d addr n -- term outcome )
-  ep-cref 0= if outcome-full no-result exit then
-  lf-cterm-new if drop outcome-ok else outcome-full no-result then ;
-: ep-made ( d first -- term outcome ) dup >r ep-pairs-at ep-named r> ep-pairs-cut ;
-: ep-unmade ( d outcome first -- -1 outcome ) ep-pairs-cut nip no-result ;
-: lf-elab-const ( d -- term outcome )
-  ep-pairs slab-count >r dup lf-menv-params nip ['] ep-fresh+ ok-each
-  dup ok? if drop r> ep-made else r> ep-unmade then ;
-: lf-elab-const-at ( d level -- term outcome )
-  ep-pairs slab-count >r ep-pair+ dup ok? if drop r> ep-made else r> ep-unmade then ;
-
 \ ---- The pending list and its window.
 : ep-count ( -- n ) ep-pending slab-count ;
 : lf-elab-pending# ( -- n ) ep-count ep ep-base @ - ;
 : ep-window-at ( k -- addr ) ep ep-base @ + ep-pending slab-at ;
 : lf-elab-window{ ( -- saved ) ep ep-base @ ep-count ep ep-base ! ;
 : }lf-elab-window ( saved -- ) ep ep-base ! ;
-: ep-window-cut ( -- ) ep ep-base @ ep-count - ep-pending slab-commit ;
+: ep-window-cut ( -- ) ep ep-base @ ep-pending slab-cut ;
 : lf-elab-pend ( mvar -- outcome )
   s" pending " lf-elab-note dup ep-mvar. lf-elab-nl lf-elab-at ep-pending slab-2push ;
 \ Entry k of the window taken out, the later ones moved down.
-: ep-unit ( -- u ) 2 cells ;
-: ep-remove ( k -- )
-  ep-window-at dup ep-unit + swap over ep-pending slab-top swap - move
-  -1 ep-pending slab-commit ;
+: ep-remove ( k -- ) ep ep-base @ + ep-pending slab-remove ;
 
-\ ---- synthesizeInstMVarCore. trySynthInstance's codes: 1 some, 0 none,
-\ -1 undef (the stuck signal).
-: lf-elab-try-synth ( type -- inst code outcome )
-  lf-meta-synth dup lf-meta-stuck = if drop 2drop -1 -1 outcome-ok exit then
-  outcome-sane dup ok? 0= if nip nip -1 0 rot exit then drop if 1 else 0 then outcome-ok ;
+\ ---- synthesizeInstMVarCore over trySynthInstance's answer (synth.fs's
+\ lf-synth-some, lf-synth-none, lf-synth-undef: the stuck signal). A
+\ failed search records its own code when it set one of that outcome.
+: ep-synth-code? ( outcome -- code true | false )
+  lf-synth-error dup 0= if 2drop false exit then
+  tuck lf-author-outcome = if true else drop false then ;
+: ep-synth-failed ( outcome -- outcome )
+  dup ep-synth-code? if ep-record else lf-elab-meta then ;
 : ep-synth-type ( mvar -- type outcome )
   lf-mvar-type 0= if -1 outcome-invalid exit then lf-instantiate-mvars ;
 : ep-assigned? ( mvar -- flag ) lf-mvar-value dup if nip then ;
@@ -256,15 +239,17 @@ defer lf-elab-default-instances ( class -- addr n outcome )
   over ep-assigned? if ep-again else lf-elab-defeq lfa-e-elab-instance ep-judged then ;
 : ep-none ( mvar -- flag outcome ) drop false lfa-e-elab-synth lf-elab-fail ;
 : ep-answer-text ( code -- c-addr u )
-  case 1 of s" : found" endof 0 of s" : none" endof >r s" : stuck" r> endcase ;
+  case lf-synth-some of s" : found" endof lf-synth-none of s" : none" endof
+    >r s" : stuck" r> endcase ;
 : ep-synth. ( type inst code -- inst code )
   ep-tracing? 0= if rot drop exit then s" synth " lf-elab-note rot lf-elab-term.
   dup ep-answer-text lf-elab-note lf-elab-nl ;
 : ep-answered ( mvar inst code -- flag outcome )
-  case 1 of ep-found endof 0 of drop ep-none endof >r 2drop false outcome-ok r> endcase ;
+  case lf-synth-some of ep-found endof lf-synth-none of drop ep-none endof
+    >r 2drop false outcome-ok r> endcase ;
 : lf-elab-synth-core ( mvar -- flag outcome )
   dup ep-synth-type ok-then? 0= if nip false swap lf-elab-meta exit then
-  dup lf-elab-try-synth ok-then2? 0= if nip nip false swap lf-elab-meta exit then
+  dup lf-try-synth ok-then2? 0= if nip nip false swap ep-synth-failed exit then
   ep-synth. ep-answered ;
 
 \ ---- mkInstMVar.
@@ -278,18 +263,21 @@ defer lf-elab-default-instances ( class -- addr n outcome )
 \ window emptied; each resumed; those not filled, then the entries made
 \ meanwhile, back in the window.
 : ep-scratch-at ( i -- addr ) ep-scratch slab-at ;
-: ep-scratch-cut ( first -- ) ep-scratch slab-count - ep-scratch slab-commit ;
+: ep-scratch-cut ( first -- ) ep-scratch slab-cut ;
 : ep-to-scratch ( k -- outcome ) ep-window-at 2@ ep-scratch slab-2push ;
 : ep-take ( -- first n outcome )
   ep-scratch slab-count lf-elab-pending# dup ['] ep-to-scratch ok-each
   dup ok? if ep-window-cut then ;
-: ep-resumed. ( mvar flag -- mvar flag )
-  ep-tracing? 0= if exit then s" resume " lf-elab-note over ep-mvar.
+: ep-resumed. ( mvar flag -- flag )
+  ep-tracing? 0= if nip exit then s" resume " lf-elab-note swap ep-mvar.
   dup if s" : succeeded" else s" : not ready" then lf-elab-note lf-elab-nl ;
-: ep-resume ( first k -- first outcome )
-  over + ep-scratch-at 2@ dup lf-elab-at! over lf-elab-synth-core
-  dup ok? 0= if nip nip nip exit then drop >r over r> ep-resumed. nip
+\ An entry resumed (at its syntax's position): kept when not filled.
+: ep-keep ( mvar pos filled? -- outcome )
   if 2drop outcome-ok else ep-scratch slab-2push then ;
+: ep-try-entry ( mvar pos -- outcome )
+  dup lf-elab-at! over lf-elab-synth-core ok-then? 0= if nip nip exit then
+  >r over r> ep-resumed. ep-keep ;
+: ep-resume ( first k -- first outcome ) over + ep-scratch-at 2@ ep-try-entry ;
 : ep-resume-all ( first n -- first n outcome ) 2dup ['] ep-resume ok-each nip ;
 : ep-kept ( first n -- from m ) + ep-scratch slab-count over - ;
 : ep-to-window ( i -- outcome ) ep-scratch-at 2@ ep-pending slab-2push ;
@@ -304,23 +292,21 @@ defer lf-elab-default-instances ( class -- addr n outcome )
   ep-resume-all dup ok? 0= if nip ep-abandon exit then drop
   2dup ep-kept nip over <> >r over >r ep-merge r> ep-scratch-cut r> swap ;
 
-\ ---- Default instances: the priorities any default instance has,
-\ highest first (Lean's getDefaultInstancesPriorities), from the data.
+\ ---- Default instances: the priorities any default instance has, each
+\ once, highest first (Lean's getDefaultInstancesPriorities, a set), from
+\ the data.
 : ep-prio@ ( i -- p ) ep-prios slab-at @ ;
-: ep-prio+ ( i -- outcome ) elab-default@ nip nip ep-prios slab-push ;
+: ep-prio-new? ( p -- flag ) ep-prios slab-base ep-prios slab-count cells-has? 0= ;
+: ep-prio+ ( i -- outcome )
+  elab-default@ nip nip dup ep-prio-new? if ep-prios slab-push else drop outcome-ok then ;
 : ep-desc ( p1 p2 -- n ) swap sort-signed ;
 : ep-prios-sort ( -- outcome )
   ['] ep-desc ep ep-sorter sorter-cells dup ok? 0= if exit then
   drop ep-prios slab-base ep-prios slab-count ep ep-sorter sort-records ;
-: ep-unique ( w i -- w' )
-  ep-prio@ over 1- ep-prio@ over = if drop exit then over ep-prios slab-at ! 1+ ;
-: ep-prios-unique ( -- )
-  ep-prios slab-count dup 2 < if drop exit then
-  1 swap 1 ?do i ep-unique loop ep-prios slab-count - ep-prios slab-commit ;
 : ep-prios-ready ( -- outcome )
   elab-loaded? 0= if lfa-e-elab-step lf-elab-fail exit then
   ep-prios slab-clear elab-default elab-count ['] ep-prio+ ok-each
-  ['] ep-prios-sort ok-and dup ok? if ep-prios-unique then ;
+  ['] ep-prios-sort ok-and ;
 
 \ ---- The frames: a visit takes two cells (a b) and gives (result
 \ outcome); one step of the budget each.
@@ -332,14 +318,18 @@ defer lf-elab-default-instances ( class -- addr n outcome )
   >r over ep-admit dup ok? if drop r> frame-open else r> drop ep-refuse then ;
 : ep-visit-none ( x frames -- x frames 0 ) 0 ;
 ' ep-visit-none context-frames: ep-frames
+\ A pass's frames: reset when idle; a busy record (a step running a
+\ nested pass) goes on from the cells in use.
+: lf-elab-frames-ready ( frames -- frames )
+  dup frame-busy? 0= if dup frame-reset max-n over frame-budget drop then ;
 defer ep-c-call ( first x frames cont -- ... frames next )
 
 \ ---- B: synthesizeUsingDefault (each priority) or synthesizeUsingDefaultPrio
 \ (only one) on a metavariable: its class's default instances, the
 \ attempts in Lean's order, each under a mark.
 : epb ( -- addr ) ep-bs slab-last ;
-: ep-defs-cut ( first -- ) ep-defs slab-count - ep-defs slab-commit ;
-: ep-goals-cut ( first -- ) ep-goals slab-count - ep-goals slab-commit ;
+: ep-defs-cut ( first -- ) ep-defs slab-cut ;
+: ep-goals-cut ( first -- ) ep-goals slab-cut ;
 : ep-b-fill ( m only addr -- )
   dup /epb erase tuck epb-only ! tuck epb-mvar ! ep-defs slab-count swap epb-defs ! ;
 : ep-b-new ( m only -- outcome )
@@ -372,8 +362,7 @@ defer ep-c-call ( first x frames cont -- ... frames next )
 \ forallMetaTelescopeReducing over the attempt's type, the binders' kinds
 \ from its declared type; its instance binders' metavariables pushed on
 \ ep-goals.
-: ep-t-kind ( -- kind true | false )
-  epb epb-d @ lf-menv-kinds epb epb-k @ tuck > if cells + @ true else 2drop false then ;
+: ep-t-kind ( -- kind true | false ) epb epb-d @ epb epb-k @ lf-menv-kind@ ;
 : ep-t-mvar ( kind -- mvar outcome )
   lf-binder-instance = if mv-synthetic else mv-natural then
   epb epb-type @ lf-term-first@ swap lf-mvar-new lf-elab-meta ;
@@ -395,29 +384,31 @@ defer ep-c-call ( first x frames cont -- ... frames next )
   begin epb epb-type @ lf-term-pi? while ep-t-binder dup ok? 0= if exit then drop repeat
   ep-t-end ;
 : ep-b-start ( v -- outcome )
-  elab-default@ drop nip dup epb epb-d ! lf-elab-const ok-then? 0= if exit then
+  elab-default@ drop nip lf-menv-of-data ok-then? 0= if exit then
+  dup epb epb-d ! lf-meta-const-fresh ok-then? 0= if exit then
   dup epb epb-app ! lf-infer lf-elab-meta ok-then? 0= if exit then
   epb epb-type ! 0 epb epb-k ! ep-telescope ;
 \ isDefEqGuarded with synthetic opaque metavariables assignable
 \ (withAssignableSyntheticOpaque).
-: ep-guarded-opaque ( t s -- flag outcome )
-  lf-defeq-flags dup >r lf-defeq-opaque or lf-defeq-flags! lf-elab-guarded
-  r> lf-defeq-flags! ;
+: ep-opaque ( -- flags mode ) lf-defeq-flags lf-defeq-opaque or lf-defeq-mode ;
 : ep-b-unify ( -- flag outcome )
-  epb epb-mvar @ epb epb-app @ ep-guarded-opaque lf-elab-meta ;
+  epb epb-mvar @ epb epb-app @ ['] lf-elab-guarded ep-opaque lf-meta-with lf-elab-meta ;
 : ep-b-attempt ( v -- flag outcome )
   ep-b-start dup ok? if drop ep-b-unify else false swap then ;
-: ep-b-undo ( -- ) epb epb-mark @ lf-mctx-rollback drop epb epb-goals @ ep-goals-cut ;
+: ep-b-undo ( -- outcome ) epb epb-goals @ ep-goals-cut epb epb-mark @ lf-mctx-rollback ;
 : ep-b-default. ( flag -- flag )
   ep-tracing? 0= if exit then s" default " lf-elab-note epb epb-mvar @ ep-mvar.
   s"  " lf-elab-note epb epb-d @ lf-menv-name lf-name-text lf-elab-note
   dup if s" : ok" else s" : rolled back" then lf-elab-note lf-elab-nl ;
-: ep-b-failed ( flag outcome frames -- flag outcome frames 0 ) ep-b-undo ep-b-end ;
+: ep-b-failed ( flag outcome frames -- flag outcome frames 0 )
+  >r ep-b-undo outcome-and r> ep-b-end ;
 : ep-b-won ( frames -- flag outcome frames 0 )
   true ep-b-default. drop epb epb-goals @ ep-goals-cut epb epb-mark @ lf-mctx-commit
   true swap rot ep-b-end ;
 defer ep-b-next ( frames -- ... frames next )
-: ep-b-lost ( frames -- frames next ) false ep-b-default. drop ep-b-undo ['] ep-b-next ;
+: ep-b-lost ( frames -- frames next | flag outcome frames 0 )
+  false ep-b-default. drop ep-b-undo dup ok? 0= if false swap rot ep-b-end exit then
+  drop ['] ep-b-next ;
 : ep-goals# ( -- n ) ep-goals slab-count epb epb-goals @ - ;
 : ep-b-after ( flag outcome frames -- ... frames next )
   over ok? 0= if ep-b-failed exit then rot if nip ep-b-won else nip ep-b-lost then ;
@@ -448,15 +439,14 @@ is ep-b-next
 : epc ( -- addr ) ep-cs slab-last ;
 : ep-c-first ( -- first ) epc epc-first @ ;
 : ep-c# ( -- n ) ep-goals slab-count ep-c-first - ;
-: ep-c-goal ( k -- mvar ) ep-c-first + ep-goals slab-at @ ;
-: ep-c-remove ( k -- )
-  ep-c-first + ep-goals slab-at dup cell+ swap over ep-goals slab-top swap - move
-  -1 ep-goals slab-commit ;
-: ep-undo-to ( mark -- ) lf-mctx-rollback drop ;
+: ep-c-at ( k -- i ) ep-goals slab-count 1- swap - ;   \ Lean's list: the newest first
+: ep-c-goal ( k -- mvar ) ep-c-at ep-goals slab-at @ ;
+: ep-c-remove ( k -- ) ep-c-at ep-goals slab-remove ;
 : ep-when-ok ( mark flag -- flag outcome )
-  if lf-mctx-commit true swap else ep-undo-to false outcome-ok then ;
+  if lf-mctx-commit true swap else lf-mctx-rollback false swap then ;
 : ep-when-failed ( mark flag outcome -- flag outcome )
-  nip swap ep-undo-to dup ep-caught? if drop false outcome-ok else false swap then ;
+  nip swap lf-mctx-rollback ok-then? 0= if nip false swap exit then
+  dup lf-elab-catch if drop false outcome-ok else false swap then ;
 : ep-commit-when ( mark flag outcome -- flag outcome )
   dup ok? if drop ep-when-ok else ep-when-failed then ;
 : ep-c-inst ( k -- filled? outcome )
@@ -496,7 +486,7 @@ is ep-c-call
 \ ---- synthesizeUsingDefault over the window: for each priority, the
 \ first entry, oldest first, that a default instance of it fills (B as a
 \ pass of its own on ep-frames), taken out of the window.
-: ep-frames-ready ( -- frames ) ep-frames dup frame-reset max-n over frame-budget drop ;
+: ep-frames-ready ( -- frames ) ep-frames lf-elab-frames-ready ;
 : ep-pass ( m only -- flag outcome ) ep-frames-ready ['] ep-b-call frame-through drop ;
 : ep-default-entry ( prio k -- flag outcome ) ep-window-at 2@ lf-elab-at! swap ep-pass ;
 : lf-elab-settled? ( flag outcome -- flag outcome stop? ) 2dup ok? 0= or ;
@@ -521,9 +511,9 @@ is ep-c-call
 : ep-rounds ( mode -- progress outcome )
   ep-step lf-elab-settled? if rot drop exit then 2drop
   lf-postpone-yes = if false outcome-ok else ep-later then ;
-: ep-newest-at ( -- ) lf-elab-pending# 1- ep-window-at @ lf-elab-at! ;
+: ep-oldest-at ( -- ) 0 ep-window-at @ lf-elab-at! ;
 : ep-stuck ( mode -- outcome )
-  lf-postpone-no = if ep-newest-at lfa-e-elab-stuck lf-elab-fail else outcome-ok then ;
+  lf-postpone-no = if ep-oldest-at lfa-e-elab-stuck lf-elab-fail else outcome-ok then ;
 : ep-loop ( mode -- outcome )
   begin lf-elab-pending# while
     dup ep-rounds dup ok? 0= if nip nip exit then drop 0= if ep-stuck exit then
@@ -547,7 +537,7 @@ is ep-c-call
 
 \ ---- The reset.
 : lf-elab-pending-reset ( -- )
-  ep-pending slab-clear ep-scratch slab-clear ep-pairs slab-clear ep-defs slab-clear
+  ep-pending slab-clear ep-scratch slab-clear ep-defs slab-clear
   ep-goals slab-clear ep-bs slab-clear ep-cs slab-clear ep-trace slab-clear
   0 ep ep-base ! -1 lf-elab-at! lf-elab-error-reset ;
 ' lf-elab-pending-reset context-setup

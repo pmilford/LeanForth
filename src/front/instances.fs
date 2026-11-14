@@ -225,9 +225,8 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
     lf-tag-mvar of iq-head endof  lf-tag-let of iq-undef endof
     lf-tag-let-nondep of iq-undef endof  lf-tag-projection of iq-undef endof
     iq-none swap endcase ;
-: it-past-pis ( e -- e' ) begin dup lf-term-pi? while lf-term-second@ repeat ;
 : lf-class? ( type -- class true outcome | false outcome )
-  it-past-pis dup lf-term-tag@ it-quick-kind case
+  lf-meta-forall-body dup lf-term-tag@ it-quick-kind case
     iq-none of drop false outcome-ok endof
     iq-undef of drop false outcome-unsupported endof
     >r lf-meta-head it-quick-head r> endcase ;

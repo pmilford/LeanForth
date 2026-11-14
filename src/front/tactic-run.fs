@@ -98,6 +98,7 @@ require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../present/binder-table.fs
 require ../present/print-job.fs
+require ../present/term-printer.fs
 require ../author/errors.fs
 require ../author/declarations.fs
 require ./mvars.fs
@@ -204,15 +205,12 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ block's place; a tactic's error also shows the goals, kept as the
 \ error's detail (for the first error only: a later one is not kept).
 : lf-tac-step ( -- i ) trun trun-step @ ;
-\ xt ( x -- outcome ) printing with the term printer's sink set to sink
-\ for the while, the printer's settings put back however xt ends (a THROW
-\ passes on); lf-tac-detail prints into the error's detail, unless an
-\ error is recorded already.
-: lfr-printed ( x xt sink -- outcome )
-  lf-print-settings 2>r lf-print-unicode lf-print-setup catch 2r> lf-print-setup throw ;
+\ lf-tac-detail ( x xt -- ): xt ( x -- outcome ) prints into the error's
+\ detail (present/term-printer.fs's lf-print-with: the printer's settings
+\ put back however xt ends), unless an error is recorded already.
 : lf-tac-detail ( x xt -- )
   lf-author-code if 2drop exit then
-  ['] lfa-detail+ lfr-printed ok? 0= if lfa-detail-cut then ;
+  ['] lfa-detail+ lf-print-with ok? 0= if lfa-detail-cut then ;
 : lfr-goals-of ( x -- outcome ) drop lf-goals-text ;
 : lfr-with-goals ( -- ) 0 ['] lfr-goals-of lf-tac-detail ;
 : lfr-at-step ( code -- ) >r lf-tac-step dup lfr-spelling rot lfr-at r> lfa-fail-at ;
@@ -327,7 +325,7 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-text-cut ( c-addr u i -- ) 2drop drop true trun trun-cut ! ;
 : lfr-text+ ( c-addr u -- )
   dup trun-text slab-claim ok? if trun-text slab-at swap move else lfr-text-cut then ;
-: lfr-goal-text ( goal -- outcome ) ['] lf-goal-print ['] lfr-text+ lfr-printed ;
+: lfr-goal-text ( goal -- outcome ) ['] lf-goal-print ['] lfr-text+ lf-print-with ;
 : lfr-part ( -- addr ) trun-parts slab-last ;
 \ A span of trun-text: where it begins, then its length once written.
 : lfr-span-end ( first addr -- length ) tuck ! lfr-text# swap @ - ;

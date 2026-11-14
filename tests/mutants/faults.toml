@@ -14558,6 +14558,32 @@ test = "$GFORTH tests/lib/slab.fs"
 reason = "review s1-synth-b B2: a cut keeps the mark entries above it, so a mark the cut went below is accepted again once the count passes it"
 
 [[fault]]
+id = "lib-slab-remove-unchecked"
+file = "src/lib/slab.fs"
+old = '''  2dup slab-valid? 0= if slab-bad-cut throw then
+  tuck slab-close-up dup slab-count 1- swap slab-cut ;'''
+new = '''  tuck slab-close-up dup slab-count 1- swap slab-cut ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-elab B2: slab-remove past the last unit moves a negative length (and below 0 reads before the block) instead of throwing slab-bad-cut"
+quick = true
+
+[[fault]]
+id = "lib-slab-remove-no-shift"
+file = "src/lib/slab.fs"
+old = '''  tuck slab-close-up dup slab-count 1- swap slab-cut ;'''
+new = '''  nip dup slab-count 1- swap slab-cut ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-elab B2: the units after the one taken out are not moved down, so the last unit is lost and the taken one stays"
+
+[[fault]]
+id = "lib-slab-remove-marks-kept"
+file = "src/lib/slab.fs"
+old = '''  tuck slab-close-up dup slab-count 1- swap slab-cut ;'''
+new = '''  tuck slab-close-up -1 swap slab-commit ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-elab B2: a removal keeps the mark entries above the new count, so a mark of a count that no longer exists is accepted"
+
+[[fault]]
 id = "lib-slab-cut-edge"
 file = "src/lib/slab.fs"
 old = ''': slab-cut? ( n slab -- flag ) dup slab-live? if slab-count upto? else 2drop false then ;'''
@@ -15446,7 +15472,7 @@ reason = "FE1g-3 review fe1g3 L8: by-sorry records its open part before the term
 
 [[fault]]
 id = "fe-run-printer-kept"
-file = "src/front/tactic-run.fs"
+file = "src/present/term-printer.fs"
 old = '''  lf-print-settings 2>r lf-print-unicode lf-print-setup catch 2r> lf-print-setup throw ;'''
 new = '''  lf-print-settings 2>r lf-print-unicode lf-print-setup execute 2r> lf-print-setup ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
@@ -15624,9 +15650,9 @@ reason = "FE1g-4 review fe1g3 L10: a step that fails leaves its goal's context c
 
 [[fault]]
 id = "fe-print-notation-kept"
-file = "src/front/tactic-basic.fs"
-old = '''  lf-print-notation? >r ['] lfb-noting catch r> lf-print-notation! throw ;'''
-new = '''  lf-print-notation? >r lfb-noting r> lf-print-notation! ;'''
+file = "src/present/term-printer.fs"
+old = '''  lf-print-notation? >r ['] lf-pp-to catch r> lf-print-notation! throw ;'''
+new = '''  lf-print-notation? >r lf-pp-to r> lf-print-notation! ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L10: a message's printing that throws leaves the printer's notation flag on"
 

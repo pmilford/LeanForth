@@ -29,8 +29,8 @@
 \ - lf-elab-ensure ( e expected -- e outcome ), ensureHasType: isDefEq of
 \   e's type and the expected type (-1: none, ok); false is a coercion
 \   Lean would insert, not ported: 131 (plan FE4).
-\ - Not ported, unsupported: postponing at a function whose type is a
-\   metavariable (132), an optParam or autoParam binder or eta argument
+\ - Not ported, unsupported: postponing at a function whose type's whnfR
+\   has a metavariable at its head (isMVarApp, 132), an optParam or autoParam binder or eta argument
 \   (134), a recursor, casesOn, recOn, brecOn or elab_as_elim head (135),
 \   a function that is no pi even after synthesis (a coercion to a
 \   function, 131). getResultingType? and hasOptAutoParams put whnf only
@@ -47,14 +47,16 @@
 \ State: the frames ea-frames and the slabs ea-acts (activations),
 \ ea-args (their arguments), ea-insts (their instance metavariables),
 \ ea-xargs (their elaborated arguments), a range of each per open
-\ activation, and ea-spine, in the checker context (ADR 0009). Loads in
-\ decimal whatever BASE is, then restores it.
+\ activation, ea-spine and ea-rev, in the checker context (ADR 0009);
+\ ea-elim-tags is a read-only table. Loads in decimal whatever BASE is,
+\ then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../core/terms.fs
 require ../core/input.fs
 require ../core/constant-references.fs
+require ../core/constant-term-boundary.fs
 require ../present/binder-table.fs
 require ../author/errors.fs
 require ../author/declarations.fs
@@ -62,6 +64,7 @@ require ./syntax.fs
 require ./mvars.fs
 require ./meta-env.fs
 require ./meta-spine.fs
+require ./term-eqv.fs
 require ./lib-decode.fs
 require ./elab-data.fs
 require ./beta-inst.fs
@@ -100,9 +103,8 @@ end-structure
 : ea-visit-none ( x frames -- x frames 0 ) 0 ;
 ' ea-visit-none context-frames: ea-frames
 : lf-elab-frames ( -- frames ) ea-frames ;
-: ea-pass-ready ( -- frames )
-  ea-frames dup frame-busy? 0= if dup frame-reset max-n over frame-budget drop then ;
-: lf-elab-visit ( a b xt -- result outcome ) >r ea-pass-ready r> frame-through drop ;
+: lf-elab-visit ( a b xt -- result outcome )
+  >r ea-frames lf-elab-frames-ready r> frame-through drop ;
 \ For a new declaration: no activation open, the frames idle.
 : lf-elab-app-reset ( -- )
   ea-acts slab-clear ea-args slab-clear ea-insts slab-clear ea-xargs slab-clear
@@ -111,7 +113,6 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 
 \ ---- Activations.
 : ea ( -- addr ) ea-acts slab-last ;
-: ea-cut ( first slab -- ) tuck slab-count - swap slab-commit ;
 : ea-fill ( f expected addr -- )
   dup /ea erase tuck ea-expected ! tuck ea-f ! -1 over ea-outparam !
   true over ea-support ! -1 over ea-head ! -1 over ea-stx !
@@ -124,8 +125,8 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 : lf-elab-app-term+ ( term -- outcome ) ea-xargs slab-push ;
 : lf-elab-app-plain ( -- ) false ea ea-support ! ;
 : ea-end ( term outcome frames -- term outcome frames 0 )
-  ea ea-fargs @ ea-args ea-cut ea ea-inst0 @ ea-insts ea-cut
-  ea ea-xs @ ea-xargs ea-cut ea-acts slab-drop 0 ;
+  ea ea-fargs @ ea-args slab-cut ea ea-inst0 @ ea-insts slab-cut
+  ea ea-xs @ ea-xargs slab-cut ea-acts slab-drop 0 ;
 : ea-fail ( outcome frames -- -1 outcome frames 0 ) >r no-result r> ea-end ;
 : ea-error ( code frames -- -1 outcome frames 0 ) >r lf-elab-fail r> ea-fail ;
 : ea-result ( outcome frames -- term outcome frames 0 )
@@ -154,13 +155,10 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
   ea-reversed ok-then2? if lf-meta-instantiate-rev-beta else nip no-result then
   lf-elab-meta ;
 : ea-kind-of ( k -- kind true | false )
-  ea ea-head @ dup 0< if 2drop false exit then
-  lf-menv-kinds rot tuck > if cells + @ true else 2drop false then ;
+  ea ea-head @ dup 0< if 2drop false exit then swap lf-menv-kind@ ;
 : ea-kind ( -- kind true | false ) ea-paramidx ea-kind-of ;
 : ea-closed? ( t -- flag outcome )
   lf-meta-loose lf-elab-meta ok-then? if 0= outcome-ok then ;
-: lf-elab-const-name ( c -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
-: ea-named? ( c c-addr u -- flag ) lfa-intern swap lf-elab-const-name = ;
 
 \ ---- Format 2 facts of the head: the run mode's library declarations.
 : ea-data? ( -- flag ) lf-libdec-stage dup if elab-read-against? then ;
@@ -168,13 +166,10 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
   lf-libdec-stage 0= if 2drop false outcome-unsupported exit then
   over lf-libdec-count u< 0= if 2drop false outcome-ok exit then
   ea-data? if elab-tagged? outcome-ok else 2drop false outcome-unsupported then ;
-: ea-or-tag ( flag d tag -- flag' outcome )
-  ea-tagged? ok-then? if or outcome-ok else nip false swap then ;
-: ea-elim-tags? ( d -- flag outcome )
-  false over elab-tag-as-elim ea-or-tag ok-then? 0= if nip false swap exit then
-  over elab-tag-cases-on ea-or-tag ok-then? 0= if nip false swap exit then
-  over elab-tag-rec-on ea-or-tag ok-then? 0= if nip false swap exit then
-  swap elab-tag-brec-on ea-or-tag ;
+create ea-elim-tags   \ shouldElabAsElim's tags: elab_as_elim, casesOn, recOn, brecOn
+  elab-tag-as-elim , elab-tag-cases-on , elab-tag-rec-on , elab-tag-brec-on ,
+: ea-elim-tag? ( d k -- d flag outcome ) cells ea-elim-tags + @ over swap ea-tagged? ;
+: ea-elim-tags? ( d -- flag outcome ) 4 ['] ea-elim-tag? ok-any? rot drop ;
 \ shouldElabAsElim: a recursor, or casesOn, recOn, brecOn or elab_as_elim.
 : ea-elim? ( d -- flag outcome )
   dup lf-menv-kind lf-kind-recursor = if drop true outcome-ok else ea-elim-tags? then ;
@@ -192,8 +187,13 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 : ea-type ( -- outcome )
   ea ea-f @ lf-infer lf-elab-meta ok-then? 0= if exit then
   lf-instantiate-mvars lf-elab-meta ok-then? if ea ea-ftype ! outcome-ok then ;
-: ea-postpone? ( -- flag )
-  ea-left? ea ea-ftype @ dup lf-mvar? swap lf-meta-unassigned? and and ;
+\ tryPostponeIfMVar (TermElabM.lean:1379): with arguments left, whnfR of
+\ f's type headed by a metavariable (isMVarApp).
+: ea-mvar-app? ( t -- flag ) lf-meta-head dup lf-mvar? swap lf-meta-unassigned? and ;
+: ea-postpone? ( -- flag outcome )
+  ea-left? 0= if false outcome-ok exit then
+  ea ea-ftype @ lf-meta-whnf-r lf-elab-meta ok-then? if ea-mvar-app? outcome-ok
+  else false swap then ;
 : ea-facts ( -- outcome )
   ea ea-head @ dup 0< if drop outcome-ok exit then
   dup ea-elim? ok-then? 0= if nip exit then if drop lfa-e-elab-elim lf-elab-fail exit then
@@ -202,7 +202,7 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 : ea-app. ( -- ) s" app " lf-elab-note ea ea-f @ lf-elab-term. lf-elab-nl ;
 : ea-started ( -- outcome )
   ea-app. true ea ea-propagate ! ea-head! ea-type dup ok? 0= if exit then drop
-  ea-postpone? if lfa-e-elab-postpone lf-elab-fail exit then
+  ea-postpone? ok-then? 0= if exit then if lfa-e-elab-postpone lf-elab-fail exit then
   ea-facts dup ok? if ea-support! then ;
 
 \ ---- addNewArg.
@@ -238,26 +238,25 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 \ ---- The instance metavariables (Lean's instMVars).
 : ea-insts# ( -- n ) ea-insts slab-count ea ea-inst0 @ - ;
 : ea-inst ( k -- mvar ) ea ea-inst0 @ + ea-insts slab-at @ ;
-: ea-inst-drop ( k -- )
-  ea ea-inst0 @ + ea-insts slab-at dup cell+ swap over ea-insts slab-top swap - move
-  -1 ea-insts slab-commit ;
+: ea-inst-drop ( k -- ) ea ea-inst0 @ + ea-insts slab-remove ;
 \ synthesizeAppInstMVars: each by synthesizeInstMVarCore, those not
 \ filled made pending; then none is left.
 : ea-pend ( k -- outcome )
   ea-inst dup lf-elab-synth-core ok-then? 0= if nip exit then
   if drop outcome-ok else lf-elab-pend then ;
 : ea-synthesize ( -- outcome )
-  ea-insts# ['] ea-pend ok-each dup ok? if ea ea-inst0 @ ea-insts ea-cut then ;
-\ trySynthesizeAppInstMVars: those whose type is no metavariable, by
-\ synthesizeInstMVarCore under Lean's try (an error keeps it); the
-\ filled ones taken out.
+  ea-insts# ['] ea-pend ok-each dup ok? if ea ea-inst0 @ ea-insts slab-cut then ;
+\ trySynthesizeAppInstMVars (App.lean:355): those whose type,
+\ instantiated, is no metavariable (Lean's isMVar of the type itself,
+\ not of its head), by synthesizeInstMVarCore under Lean's try (a Lean
+\ error keeps it); the filled ones taken out.
 : ea-mvar-typed? ( mvar -- flag outcome )
   lf-mvar-type 0= if false outcome-invalid exit then
   lf-instantiate-mvars lf-elab-meta ok-then? if lf-mvar? outcome-ok else false swap then ;
 : ea-try-one ( k -- filled? outcome )
   dup ea-inst ea-mvar-typed? ok-then? 0= if nip false swap exit then
   if drop false outcome-ok exit then ea-inst lf-elab-synth-core
-  dup ep-caught? if 2drop false outcome-ok then ;
+  dup lf-elab-catch if 2drop false outcome-ok then ;
 : ea-try-at ( k -- k' outcome )
   dup ea-try-one ok-then? 0= if exit then if dup ea-inst-drop else 1+ then outcome-ok ;
 : ea-try-synthesize ( -- outcome )
@@ -310,12 +309,8 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 
 \ ---- optParam, autoParam (Lean's getOptParamDefault?, getAutoParamTactic?,
 \ hasOptAutoParams).
-: ea-app2-head ( t -- head true | false )
-  dup lf-term-app? 0= if drop false exit then lf-term-first@
-  dup lf-term-app? 0= if drop false exit then lf-term-first@ true ;
 : ea-opt-auto? ( t -- flag )
-  ea-app2-head 0= if false exit then dup lf-term-const? 0= if drop false exit then
-  dup s" optParam" ea-named? swap s" autoParam" ea-named? or ;
+  dup 2 s" optParam" lf-meta-app-of? swap 2 s" autoParam" lf-meta-app-of? or ;
 \ One step: a pi's domain an optParam or autoParam (found), else its
 \ body (more); no pi: whnf where nothing is loose (more when a pi comes).
 : ea-opt-pi ( pi -- t' found? more? outcome )

@@ -21,17 +21,21 @@
 \   value is -1).
 \ - lf-tac-elab ( node expected postpone? -- term outcome )
 \   (tactic-basic.fs's hook, S2_INTERFACE 7): Lean's Tactic.elabTerm,
-\   elabTerm against expected (0 or -1: none), then
+\   elabTerm against expected (-1: none; any other value is a term), then
 \   synthesizeSyntheticMVars, postponing when postpone? is true (Lean's
 \   mayPostpone) else not, the term instantiated. A failure stops the run
 \   at the tactic's word with the elaboration error (its position as the
 \   second one). Term.withSynthesize's end, which S2's rewriting needs,
 \   is elab-pending.fs's }lf-elab-synth.
-\ - #check (BuiltinCommand.lean:434), a natural word outside declarations:
-\   TERM #check elaborates TERM with no expected type,
+\ - #check (BuiltinCommand.lean:434), a natural word outside declarations
+\   (Lean has #check only as a command, Parser/Command.lean: inside a
+\   declaration or a tactic block it is error 140, Lean's "unexpected
+\   token '#check'; expected term"): TERM #check elaborates TERM with no
+\   expected type,
 \   synthesizeSyntheticMVarsNoPostponing leaving stuck instance problems,
 \   instantiates, and prints "TERM : TYPE" on a line, as the goals print
-\   terms. Not supported yet: a constant alone (Lean prints its
+\   terms (a print that fails stops the run as a Meta step's failure).
+\   Not supported yet: a constant alone (Lean prints its
 \   signature), a term with a metavariable left (137); Lean's Meta.check
 \   of the term is not ported (plan S2's meta-check.fs), the kernel never
 \   sees the term. lf-elab-checks ( -- n ) counts the #check lines of the
@@ -70,7 +74,6 @@ require ./elab-pending.fs
 require ./elab-app.fs
 require ./elab-term.fs
 
-100000 constant edc-print-fuel   \ printer fuel for each term #check prints
 begin-structure /edc
   field: edc-checks      \ #check lines run in this run
 end-structure
@@ -89,9 +92,7 @@ action-of lfa-run-fresh constant edc-run-before
 ' edc-run-fresh is lfa-run-fresh
 
 \ ---- The elaborator's configuration while xt runs, given back after.
-: edc-configured ( i*x xt -- j*x )
-  lf-meta-config 2>r lf-defeq-elab lf-tr-default lf-meta-config!
-  catch 2r> lf-meta-config! throw ;
+: edc-configured ( i*x xt -- j*x ) lf-defeq-elab lf-tr-default lf-meta-with ;
 
 \ ---- Errors: the run stops at the current token (end NAME, #check).
 : edc-fail ( outcome -- )
@@ -135,9 +136,8 @@ action-of lfa-run-fresh constant edc-run-before
 
 \ ---- The tactics' hook (Tactic.elabTerm).
 : edc-mode ( postpone? -- mode ) if lf-postpone-yes else lf-postpone-no then ;
-: edc-expected ( expected -- expected' ) dup 0= if drop -1 then ;
 : edc-tac-run ( node expected postpone? -- term outcome )
-  >r edc-expected lf-elab-term ok-then? 0= if r> drop no-result exit then
+  >r lf-elab-term ok-then? 0= if r> drop no-result exit then
   r> edc-mode lf-elab-synthesize dup ok? 0= if nip no-result exit then drop
   lf-instantiate-mvars lf-elab-meta ;
 : edc-tac-fail ( outcome -- ) lf-elab-code dup 0< if drop else lfa-see! then lf-tac-stop ;
@@ -146,11 +146,9 @@ action-of lfa-run-fresh constant edc-run-before
 ' edc-tac-elab is lf-tac-elab
 
 \ ---- #check.
-: edc-print ( term -- outcome ) true lf-print-notation! edc-print-fuel lf-print-term ;
-: edc-printed ( term -- outcome )
-  lf-print-settings 2>r ['] type lf-print-unicode lf-print-setup lf-print-notation? >r
-  ['] edc-print catch r> lf-print-notation! 2r> lf-print-setup throw ;
-: edc-check-line ( term type -- ) swap edc-printed drop ."  : " edc-printed drop cr ;
+: edc-printed ( term -- outcome ) ['] type true lf-print-to ;
+: edc-check-line ( term type -- )
+  swap edc-printed edc-must ."  : " edc-printed edc-must cr ;
 : edc-signature? ( node -- flag ) syn-kind@ syn-k-const = ;
 : edc-printable ( term -- term outcome ) lfa-e-elab-print lf-elab-closed ;
 : edc-check-term ( node -- term outcome )
@@ -165,7 +163,8 @@ action-of lfa-run-fresh constant edc-run-before
   dup syn-at@ lf-elab-at! edc-check-term edc-must edc-check-type edc-must edc-check-line ;
 : edc-w-check ( value -- )
   lf-elab-reset 1 edc edc-checks +! lfn>syntax ['] edc-checked edc-configured ;
-: edc-w-check-natural ( -- ) 1 lfa-args edc-w-check ;
+: edc-w-check-natural ( -- )
+  lfa-inside? 0= lfa-e-check-here lfa-must 1 lfa-args edc-w-check ;
 ' edc-w-check-natural lfa-natural! #check
 
 base !   \ the BASE this file was loaded with

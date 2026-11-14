@@ -94,7 +94,6 @@ require ./defeq-delta.fs
 require ./tactic-syntax.fs
 require ./tactic-run.fs
 
-100000 constant lfb-print-fuel     \ printer fuel for each term of a message
 begin-structure /tb
   field: tb-goal        \ the goal the step works on
   field: tb-view        \ its context
@@ -177,9 +176,8 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 \ ---- Messages: terms printed as goals print them (notation on, the
 \ printer's flag put back however printing ends), indented as Lean's
 \ indentExpr; a tactic error's goal after a blank line.
-: lfb-noting ( term -- outcome ) true lf-print-notation! lfb-print-fuel lf-print-term ;
-: lfb-noted ( term -- outcome )
-  lf-print-notation? >r ['] lfb-noting catch r> lf-print-notation! throw ;
+\ A term of a message, in Lean's notation, to the message's sink.
+: lfb-noted ( term -- outcome ) lf-print-settings drop true lf-print-to ;
 : lfb-term. ( term -- outcome ) lf-instantiate-mvars ok-then? if lfb-noted then ;
 : lfb-indented. ( term -- outcome ) s"   " lf-pp-emit lfb-term. ;
 : lfb-line. ( c-addr u term -- outcome ) >r lf-pp-emit r> lfb-indented. ;
