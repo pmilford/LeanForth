@@ -283,7 +283,7 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
 : pool-advance ( len tf -- ) tf-pos +! ;
 : name-span@ ( names -- offset len ) dup cand-b swap cand-head head-payload ;
 : name-text ( names -- c-addr u ) dup name-span@ >r swap cons-bytes slab-at r> ;
-: name-keyed ( names -- x ) dup name-text rot >r 2dup r> cons-key! hash-bytes ;
+: name-keyed ( names -- x ) dup name-text rot 2dup-under cons-key! hash-bytes ;
 : name-hash-same? ( x stage -- flag )
   stage-tier dup tier-names cand-data >r tuck name-hash! tier-names cand-data r> = ;
 : name-prefix-ok? ( stage -- flag ) tf-names-of dup cand-a swap cons-in? ;
@@ -391,7 +391,7 @@ create kind-flags
 : more-item ( i stage -- u ) draft-d staged-item ;
 : item-name? ( i t stage -- flag )
   dup >r stage-tuples tuple-item r> stage-tier name-valid? ;
-: name-at? ( t stage k -- t stage flag ) >r 2dup r> -rot item-name? ;
+: name-at? ( t stage k -- t stage flag ) 2dup-under -rot item-name? ;
 : names-tuple? ( t stage -- flag )
   2dup tuple-ok? 0= if 2drop false exit then
   2dup stage-tuples tuple-length ['] name-at? all? nip nip ;
@@ -410,7 +410,7 @@ create kind-flags
 : rule-rhs? ( k t stage -- flag )
   >r swap rule-rhs-item + swap r@ tuple-at r> stage-tier expr-valid? ;
 : rule? ( k t stage -- flag ) >r 2dup r@ rule-ctor? -rot r> rule-rhs? and ;
-: rule-at? ( t stage k -- t stage flag ) /rule-items * >r 2dup r> -rot rule? ;
+: rule-at? ( t stage k -- t stage flag ) /rule-items * 2dup-under -rot rule? ;
 \ Unchecked: the tuple's length is a multiple of /rule-items (rules?).
 : rules-each? ( t stage -- flag )
   2dup stage-tuples tuple-length /rule-items / ['] rule-at? all? nip nip ;
@@ -459,7 +459,7 @@ create kind-flags
 : line-ok? ( addr i stage -- flag )
   >r tuck tier-line-pair dup staged-none = if 2drop r> 2drop false exit then
   2dup = if 2drop r> staged-kind@ member-kind? exit then u< nip r> drop ;
-: line-after? ( addr stage k -- addr stage flag ) 1+ >r 2dup r> swap line-ok? ;
+: line-after? ( addr stage k -- addr stage flag ) 1+ 2dup-under swap line-ok? ;
 : lines-ok? ( addr n stage -- flag )
   swap dup 0= if 2drop drop true exit then
   2 pick u32@ staged-none = if 2drop drop false exit then

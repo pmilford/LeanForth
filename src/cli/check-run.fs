@@ -103,6 +103,8 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../lib/lib.fs
 require ../lib/slab.fs
 require ../lib/bytes.fs
+require ../lib/decimal.fs
+require ../lib/bits.fs
 require ../lib/sha256.fs
 require ../core/input.fs
 require ../core/diagnostics.fs
@@ -406,8 +408,7 @@ create ck-line ck-line-room 2 + allot
   r/o bin open-file if drop 0 0 exit then
   dup >r file-size r> close-file drop if 2drop 0 0 then ;
 : ck-slots ( ud -- u ) if drop max-n else 0 ck-bytes-per-slot um/mod nip then ;
-: ck-log2 ( u -- log2 )
-  ck-log2-least begin 2dup 1 swap lshift u> over ck-log2-most < and while 1+ repeat nip ;
+: ck-log2 ( u -- log2 ) 1 max log2-ceiling ck-log2-least max ck-log2-most min ;
 : ck-read ( c-addr u checked? -- outcome )
   if ck-stage stage-load else ck-stage stage-load-unchecked then ;
 \ Whether the export may be of any Lean version, only its format pinned
@@ -735,7 +736,7 @@ create ck-line ck-line-room 2 + allot
 : ck-pl+ ( c-addr u -- )
   dup ck-pl-room? 0= if 2drop exit then
   >r ck-state ck-pline ck-state ck-pline# @ + r@ move r> ck-state ck-pline# +! ;
-: ck-n+ ( u -- ) base @ >r decimal 0 <# #s #> r> base ! ck-pl+ ;
+: ck-n+ ( u -- ) u>decimal ck-pl+ ;
 : ck-elapsed-s ( -- s )
   ck-wall-now ck-state ck-run-mark clock-wall ck-since 1000000 um/mod nip ;
 : ck-percent ( -- n ) ck-done 100 * lf-input-count 1 max / ;

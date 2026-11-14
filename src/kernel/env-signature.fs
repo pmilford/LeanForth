@@ -82,9 +82,7 @@ end-structure
   lf-envsig-fuel @ lf-env-level-scope swap lf-envsig-fuel ! ;
 : lf-envsig-argument ( k -- outcome )
   lf-envsig-request lf-esreq-pairs @ swap lf-cref-pair@ drop lf-envsig-level ;
-: lf-envsig-arguments ( -- outcome )
-  lf-envsig-count 0 ?do i lf-envsig-argument dup ok? 0= if unloop exit then drop loop
-  outcome-ok ;
+: lf-envsig-arguments ( -- outcome ) lf-envsig-count ['] lf-envsig-argument ok-each ;
 : lf-envsig-scoped ( d -- d outcome )
   lf-envsig-deciding? if lf-envsig-arguments else outcome-ok then ;
 : lf-envsig-record ( d -- d outcome )

@@ -1,6 +1,7 @@
 \ Fail-closed JSON reader (RFC 8259) for one JSON text at a time, such as
 \ one NDJSON line. A general tool with no Lean knowledge. Untrusted.
-\ Requires: bytes.fs (UTF-8 checks, heap, line feed and carriage return).
+\ Requires: bytes.fs (UTF-8 checks, heap, line feed and carriage return),
+\ decimal.fs (digits>u: numbers read by hand, so BASE never matters).
 \ State: none of its own. Every word takes a view record made by json:, so
 \ separate views are independent; one view is single-threaded. The byte
 \ tables below are constant after loading.
@@ -35,6 +36,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./bytes.fs
+require ./decimal.fs
 
 \ Token kinds.
 0 constant json-object
@@ -441,21 +443,6 @@ create json-steps   \ indexed by state
 \ The digits of the natural number at index.
 : json-natural ( index view -- addr u true | false )
   2dup json-kind@ json-integer <> if 2drop false exit then json-text@ natural-text ;
-\ Decimal digits of the largest cell, computed once.
-: decimal-width ( u -- n ) 0 swap begin swap 1+ swap 10 / dup 0= until drop ;
-max-n decimal-width constant cell-digits
-\ Decimal numbers, read by hand, so that BASE never matters. Unchecked:
-\ addr u holds only decimal digits, as json-natural returns.
-\ decimal>u is the value modulo the cell size, exact whenever it fits in
-\ an unsigned cell, which is always so for fewer digits than max-n has.
-: decimal>u ( addr u -- u ) 0 -rot over + swap ?do 10 * i c@ [char] 0 - + loop ;
-\ Ten times u plus the digit c, when that fits in a nonnegative cell.
-: digit+ ( u c -- u' true | false )
-  [char] 0 - 2dup max-n swap - 10 / > if 2drop false exit then swap 10 * + true ;
-\ The value of decimal digits that fit in a nonnegative cell; false when larger.
-: digits>u ( addr u -- u true | false )
-  dup cell-digits < if decimal>u true exit then dup cell-digits > if 2drop false exit then
-  1- 2dup decimal>u -rot + c@ digit+ ;
 \ The natural number at index as a cell; false when it is not a natural
 \ number or does not fit.
 : json-u ( index view -- u true | false ) json-natural if digits>u else false then ;

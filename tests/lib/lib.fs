@@ -89,6 +89,29 @@ T{ 9 some-cells 5 ' cells-index rs-checked -> 2 true }T
 T{ 9 some-cells 5 cells-has? 7 some-cells 5 cells-has? 4 some-cells 0 cells-has? -> true false false }T
 T{ 0 some-cells 5 cells-has? 0 some-cells 4 cells-has? 4 some-cells -1 cells-has? -> true false false }T
 T{ -1 some-cells 2 ' cells-has? rs-checked -> true }T
+\ cells=: n cells compared cell by cell (review reuse-k1 B1); equal for
+\ n <= 0; a difference in the first or the last cell, or in the sign.
+create other-cells 4 , -1 , 9 , -1 , 1 ,
+T{ some-cells other-cells 4 cells= some-cells other-cells 5 cells= -> true false }T
+T{ some-cells some-cells 5 cells= some-cells other-cells 0 cells= -> true true }T
+T{ some-cells other-cells -3 cells= some-cells 4 + other-cells 1 cells= -> true false }T
+T{ some-cells cell+ some-cells 3 cells + 1 cells= some-cells some-cells cell+ 1 cells=
+   -> true false }T
+T{ some-cells other-cells 5 ' cells= rs-checked -> false }T
+\ The header's example.
+create primes 2 , 3 , 5 , 7 ,   create odds 3 , 5 , 7 ,
+T{ primes cell+ odds 3 cells=  primes odds 3 cells= -> true false }T
+\ in-ranges?: x within one of n (lo, hi) pairs, both ends included; none
+\ for n <= 0; an empty pair (lo > hi) holds nothing; the header's example.
+create digits 48 , 57 ,  65 , 70 ,
+T{ char 7 digits 2 in-ranges?  char G digits 2 in-ranges?  char A digits 2 in-ranges? -> true false true }T
+T{ 48 digits 2 in-ranges? 57 digits 2 in-ranges? 47 digits 2 in-ranges? 58 digits 2 in-ranges?
+   -> true true false false }T
+T{ 70 digits 2 in-ranges? 70 digits 1 in-ranges? 50 digits 0 in-ranges? 50 digits -2 in-ranges?
+   -> true false false false }T
+create odd-ranges 5 , 3 ,  -9 , -7 ,  max-n , max-n ,
+T{ 4 odd-ranges 1 in-ranges? -8 odd-ranges 2 in-ranges? max-n odd-ranges 3 in-ranges? -> false true true }T
+T{ digits 1 range-at char 5 digits 2 ' in-ranges? rs-checked -> 65 70 true }T
 
 \ cells-zero?: any nonzero cell in range makes it false.
 create zero-cells 3 cells allot
@@ -406,6 +429,28 @@ T{ 6 7 8 outcome-ok ' ok-keep2? rs-checked 7 8 outcome-unknown ' ok-keep? rs-che
   6 7 8 true 8 outcome-unknown false }T
 T{ outcome-exhausted no-result outcome-ok no-result ->
   -1 outcome-exhausted -1 outcome-ok }T
+\ ok-or-none: the result kept on ok, -1 in its place on every other
+\ outcome, a value outside the vocabulary too.
+T{ 7 outcome-ok ok-or-none 7 outcome-full ok-or-none 7 outcome-invalid ok-or-none
+   -> 7 outcome-ok -1 outcome-full -1 outcome-invalid }T
+T{ 7 outcome-exhausted ok-or-none 7 outcome-unknown ok-or-none 7 outcome-rejected ok-or-none
+   -> -1 outcome-exhausted -1 outcome-unknown -1 outcome-rejected }T
+T{ 7 outcome-unsupported ok-or-none 7 99 ok-or-none -1 outcome-ok ok-or-none
+   -> -1 outcome-unsupported -1 99 -1 outcome-ok }T
+T{ 5 6 outcome-ok ' ok-or-none rs-checked 5 6 outcome-full ' ok-or-none rs-checked
+   -> 5 6 outcome-ok 5 -1 outcome-full }T
+\ room-result: a store's x true is x and ok, its false is -1 and full;
+\ any nonzero flag counts as true (IF's reading), the values below untouched.
+T{ 5 7 true room-result 5 false room-result -> 5 7 outcome-ok 5 -1 outcome-full }T
+T{ 0 true room-result 7 1 room-result -1 true room-result -> 0 outcome-ok 7 outcome-ok -1 outcome-ok }T
+T{ 7 true ' room-result rs-checked false ' room-result rs-checked
+   -> 7 outcome-ok -1 outcome-full }T
+\ 2dup-under: the two values under the top copied above them, under it
+\ (review reuse-out S1), and the header's example as a step of any?.
+T{ 1 2 3 2dup-under 4 5 6 ' 2dup-under rs-checked -> 1 2 1 2 3 4 5 4 5 6 }T
+: cell-is? ( x addr k -- x addr flag ) 2dup-under cells + @ = ;
+create three-cells 4 , 7 , 9 ,
+T{ 9 three-cells 3 ' cell-is? any? nip nip 8 three-cells 3 ' cell-is? any? nip nip -> true false }T
 \ ok-then3? keeps three values only on ok (review FRI B6).
 T{ 5 6 7 outcome-ok ok-then3? -> 5 6 7 true }T
 T{ 5 6 7 outcome-full ok-then3? -> outcome-full false }T
@@ -527,6 +572,25 @@ T{ 4 ' all-below? all? 5 ' all-below? all? -> true false }T
 \ A test that uses the return stack.
 : test-r ( x k -- x flag ) >r dup r> > ;
 T{ 5 5 ' test-r all? 5 6 ' test-r all? -> 5 true 5 false }T
+\ any?: the test ( i*x k -- i*x flag ) for k = 0 .. n-1 until true; n <=
+\ 0 gives false. test-k is true for every k but 3: it stops at k = 0;
+\ test-3 holds only at k = 3.
+: test-3 ( x k -- x flag ) dup step-trail @ 10 * + 1+ step-trail ! 3 = ;
+: anyed ( x n xt -- x flag trail ) 0 step-trail ! any? step-trail @ ;
+T{ 7 3 ' test-3 anyed 7 6 ' test-3 anyed 7 6 ' test-k anyed -> 7 false 123 7 true 1234 7 true 1 }T
+T{ 7 0 ' test-3 anyed 7 -5 ' test-3 anyed 7 max-n invert ' test-3 anyed
+   -> 7 false 0 7 false 0 7 false 0 }T
+T{ 7 6 ' test-3 ' anyed rs-checked -> 7 true 1234 }T
+create neg-cells 3 , 1 , 9 , -2 , 4 ,
+: cell-neg? ( table k -- table flag ) cells over + @ 0< ;
+T{ neg-cells 3 ' cell-neg? any? nip neg-cells 4 ' cell-neg? any? nip -> false true }T
+\ A true flag other than -1 counts as true; the answer is a well-formed flag.
+T{ 4 ' test-one any? 0 ' test-one any? -> true false }T
+\ Nested: whether some k < n has some j < k at 3 or above, and with all?.
+: above-3? ( j -- flag ) 3 < 0= ;
+: any-above? ( k -- flag ) ['] above-3? any? ;
+T{ 4 ' any-above? any? 5 ' any-above? any? 5 ' any-above? all? -> false true false }T
+T{ 5 5 ' test-r any? 5 6 ' test-r any? 5 0 ' test-r any? -> 5 true 5 true 5 false }T
 \ ok-all?: the test ( i*x k -- i*x flag outcome ) while true and ok:
 \ true and ok; false and ok at the first false; false and the outcome at
 \ the first failure, true flag or not. n <= 0: true and ok.
@@ -545,6 +609,37 @@ T{ 0 6 ' test-ko ' ok-alled rs-checked -> 0 false outcome-full 12345 }T
 : test-fail ( k -- flag outcome ) drop false outcome-exhausted ;
 : test-odd ( k -- flag outcome ) drop true 99 ;
 T{ 3 ' test-fail ok-all? 3 ' test-odd ok-all? -> false outcome-exhausted false 99 }T
+
+\ ok-found?: stop at true and ok, or at any failure; go on after false and ok.
+T{ true outcome-ok ok-found? 1 outcome-ok ok-found? false outcome-ok ok-found?
+   -> true outcome-ok true true outcome-ok true false }T
+T{ true outcome-full ok-found? false outcome-unknown ok-found? 7 99 ok-found?
+   -> false outcome-full true false outcome-unknown true false 99 true }T
+\ ok-any?: the test ( i*x k -- i*x flag outcome ) until a true and ok
+\ answer or a failure: true and ok; false and the failure's outcome;
+\ false and ok when none holds. test-ka is true at 3, fails at 4.
+: test-ka ( x k -- x flag outcome )
+  dup step-trail @ 10 * + 1+ step-trail ! case
+    3 of true outcome-ok endof  4 of true outcome-full endof  false outcome-ok rot
+  endcase ;
+: ok-anyed ( x n xt -- x flag outcome trail ) 0 step-trail ! ok-any? step-trail @ ;
+T{ 1 3 ' test-ka ok-anyed 1 6 ' test-ka ok-anyed -> 1 false outcome-ok 123 1 true outcome-ok 1234 }T
+: test-k4 ( x k -- x flag outcome ) dup 3 = if drop false outcome-ok else test-ka then ;
+T{ 0 6 ' test-k4 ok-anyed -> 0 false outcome-full 1235 }T
+T{ 0 0 ' test-ka ok-anyed 0 -3 ' test-ka ok-anyed 0 max-n invert ' test-ka ok-anyed
+   -> 0 false outcome-ok 0 0 false outcome-ok 0 0 false outcome-ok 0 }T
+T{ 0 6 ' test-ka ' ok-anyed rs-checked -> 0 true outcome-ok 1234 }T
+\ A failing test's true flag never reads as found; an outcome outside the
+\ vocabulary stops the loop as a failure; a true other than -1 is true.
+: test-full ( k -- flag outcome ) drop true outcome-full ;
+: test-one-ok ( k -- flag outcome ) drop 1 outcome-ok ;
+T{ 3 ' test-full ok-any? 3 ' test-odd ok-any? 3 ' test-one-ok ok-any?
+   -> false outcome-full false 99 true outcome-ok }T
+\ Nested in ok-all?: every k < n has some j < k at 2 or above.
+: above-2? ( j -- flag outcome ) 2 > outcome-ok ;
+: some-above-2? ( k -- flag outcome ) ['] above-2? ok-any? ;
+T{ 3 ' some-above-2? ok-all? 5 ' some-above-2? ok-all? -> false outcome-ok false outcome-ok }T
+T{ 5 ' some-above-2? ok-any? -> true outcome-ok }T
 
 \ walk: refuses a capacity below 1.
 : bad-walk? ( addr u -- flag ) ['] evaluate catch dup if nip nip then 0<> ;

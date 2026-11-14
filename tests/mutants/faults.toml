@@ -113,8 +113,8 @@ reason = "CD: step 3 (L3) skipped; repeated universe parameters are accepted"
 [[fault]]
 id = "cd-last-step-skipped"
 file = "src/kernel/check-declaration.fs"
-old = '''  lf-check-table dup @ 0 ?do'''
-new = '''  lf-check-table dup @ 1- 0 ?do'''
+old = '''  lf-check-table dup @ ['] lf-check-do-at ok-each nip'''
+new = '''  lf-check-table dup @ 1- ['] lf-check-do-at ok-each nip'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "CD: the step loop stops one short and never compares the value's type"
 
@@ -284,10 +284,10 @@ reason = "CD/L2: a universe name that is no parameter of the declaration is acce
 [[fault]]
 id = "env-repeated-param-pair"
 file = "src/kernel/environment.fs"
-old = '''  1 max 1 ?do dup i lf-param-repeated? if drop false unloop exit then loop drop true ;'''
-new = '''  1 max 2 ?do dup i lf-param-repeated? if drop false unloop exit then loop drop true ;'''
+old = ''': lf-param-repeated? ( params k -- flag ) 2dup lf-param@ -rot lf-params-has? ;'''
+new = ''': lf-param-repeated? ( params k -- flag ) 2dup lf-param@ -rot 1- lf-params-has? ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
-reason = "CD/L3: the second parameter is never compared with the first, so u u passes"
+reason = "CD/L3: a parameter is never compared with the one just before it, so u u passes"
 
 [[fault]]
 id = "env-redeclared-ok"
@@ -651,8 +651,8 @@ reason = "an argument rejected by D1-D5 is no longer recorded with its rules (ap
 [[fault]]
 id = "infer-imax-zero"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-sort-cell @ swap lf-level-mk-imax if outcome-ok else -1 outcome-full then ;'''
-new = '''  lf-minfer-sort-cell @ swap lf-level-imax if outcome-ok else -1 outcome-full then ;'''
+old = '''  lf-minfer-sort-cell @ swap lf-level-mk-imax room-result ;'''
+new = '''  lf-minfer-sort-cell @ swap lf-level-imax room-result ;'''
 test = "$GFORTH tests/core/mixed-infer-coverage.fs"
 reason = "a Pi's sort is a raw imax, not Lean's mk_imax: a Pi into Prop gets Sort (imax u 0), not Sort 0 (re-targeted at Amendment 1's lf-minfer-pi-sort, then at plan task 4.2.2a's lf-minfer-imax)"
 
@@ -889,8 +889,8 @@ reason = "nodes of different kinds are compared as if they had the left one's ki
 [[fault]]
 id = "cmp-universe-args-skipped"
 file = "src/kernel/mixed-compare.fs"
-old = '''  lf-mcompare-arrays 0 ?do 2dup i lf-mcompare-arg lf-mcompare-level'''
-new = '''  lf-mcompare-arrays 0 ?do 2dup i lf-mcompare-arg 2drop outcome-ok'''
+old = '''  2dup-under lf-mcompare-arg lf-mcompare-level ;'''
+new = '''  2dup-under lf-mcompare-arg 2drop outcome-ok ;'''
 test = "$GFORTH tests/core/mixed-compare.fs"
 reason = "constants with different universe arguments compare equal"
 
@@ -1107,8 +1107,8 @@ reason = "6.5.5: an open source node is keyed by its own skeleton, not its close
 [[fault]]
 id = "cache-identity-unchecked"
 file = "src/kernel/caches.fs"
-old = '''  lf-cent-values over lf-term-identity if = else drop false then dup 0= if nip then ;'''
-new = '''  lf-cent-values drop true ;'''
+old = '''  dup lf-cache-vcells 2 <> if drop exit then'''
+new = '''  drop exit'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "a cached value whose node was discarded is used"
 
@@ -1530,10 +1530,10 @@ reason = "6.2.0: normalize opens a visit without making room on its frames, so a
 [[fault]]
 id = "lnorm-merge-unsorted"
 file = "src/kernel/level-normalize.fs"
-old = '''    lf-lnorm-right-first? if lf-lnorm-j else lf-lnorm-i then lf-lnorm-take repeat'''
-new = '''    lf-lnorm-right-first? drop lf-lnorm-i lf-lnorm-take repeat'''
+old = '''  2dup lf-lnorm-scratch ok? if lf-lnorm-sorted exit then'''
+new = '''  2dup lf-lnorm-scratch ok? if 2drop exit then'''
 test = "$GFORTH tests/core/level-compare.fs"
-reason = "plan task 6.2.0: the merge of a long argument list never takes the right run first, so a max of 40 parameters is not sorted"
+reason = "plan task 6.2.0: a long argument list (a max of 40 parameters), sorted by lib/sort.fs's merge, is left unsorted"
 
 [[fault]]
 id = "ndjson-self-reference"
@@ -1554,9 +1554,9 @@ reason = "a sparse index is taken as its ordinal: a reference to it then names n
 
 [[fault]]
 id = "ndjson-index-repeat-ignored"
-file = "src/import/ndjson.fs"
-old = '''  >r over r@ imap-pair if rot drop r> ordinal! outcome-ok else r> pair-add then ;'''
-new = '''  >r over r@ imap-pair if 2drop drop r> drop outcome-ok else r> pair-add then ;'''
+file = "src/lib/memo.fs"
+old = '''  2dup memo-look if rot drop swap memo-value-at outcome-ok else swap memo-add then ;'''
+new = '''  2dup memo-look if drop nip memo-probe outcome-ok else swap memo-add then ;'''
 test = "$GFORTH tests/core/ndjson.fs"
 reason = "an index given again keeps naming the first record, where Lean's Export.Parse takes the later one"
 
@@ -2271,8 +2271,8 @@ reason = "rvIR3 L3: 'ab, 'a- and '>x are read as numbers, though both Gforths re
 [[fault]]
 id = "rv-collision-skips-first"
 file = "src/program/verify-semantics.fs"
-old = '''  pv-defs store-count @ 1- 0 ?do dup i pv-same-name? if drop true unloop exit then loop'''
-new = '''  pv-defs store-count @ 1- 1 max 1 ?do dup i pv-same-name? if drop true unloop exit then loop'''
+old = ''': pv-same-name-at? ( def index -- def flag ) over swap pv-same-name? ;'''
+new = ''': pv-same-name-at? ( def index -- def flag ) dup 0= if drop false exit then over swap pv-same-name? ;'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "rvIR3: the collision check ignores the file's first definition (: x'1 ; : x ; : X ;)"
 
@@ -3115,8 +3115,8 @@ reason = "a declaration holding an mdata expression is not marked, so the checke
 [[fault]]
 id = "stage-mark-rules-skipped"
 file = "src/import/stage.fs"
-old = '''    if 2drop true unloop exit then'''
-new = '''    if 2drop false unloop exit then'''
+old = '''  ['] rule-reach? any? nip nip ;'''
+new = '''  drop 0 ['] rule-reach? any? nip nip ;'''
 test = "$GFORTH tests/core/stage.fs"
 reason = "an mdata record reached only through a recursor rule's right-hand side leaves the recursor unmarked (review of the stage)"
 
@@ -3999,8 +3999,8 @@ reason = "a test log keeps the last check's published slot, so a printer can tak
 [[fault]]
 id = "printer-rebuilds-only-the-top"
 file = "src/present/log-view.fs"
-old = '''  swap 1+ 0 ?do i over lf-lv-ready 0= if drop false unloop exit then loop drop true ;'''
-new = '''  lf-lv-ready ;'''
+old = ''': lf-lv-built? ( k kind -- flag ) swap 1+ ['] lf-lv-ready-at all? nip ;'''
+new = ''': lf-lv-built? ( k kind -- flag ) lf-lv-ready ;'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "the rebuild of a copy (plan task 6.2.0) builds only the copy asked for, not the copies below it that its walk marked, so a copy with copied children prints as ?"
 
@@ -4290,8 +4290,8 @@ reason = "B0 skipped: a constructor naming another type is checked as if it name
 [[fault]]
 id = "ind-skip-uniform"
 file = "src/kernel/inductive-block.fs"
-old = '''  lf-ind-ctors@ 0 ?do i lf-c1-ctor dup ok? 0= if unloop exit then drop loop outcome-ok ;'''
-new = '''  outcome-ok ;'''
+old = ''': lf-ind-c1 ( -- outcome ) lf-ind-ctors@ ['] lf-c1-ctor ok-each ;'''
+new = ''': lf-ind-c1 ( -- outcome ) outcome-ok ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "C1 skipped: a constructor returning T Nat is not rejected as Lean's nonUniformOccurrence"
 
@@ -4372,13 +4372,8 @@ reason = "rvI21 M1: consume_type_annotations skipped; An's recursor keeps optPar
 [[fault]]
 id = "ind-t0-skip"
 file = "src/kernel/inductive-block.fs"
-old = '''  lf-ind-types@ 0 ?do
-    i lf-ind-type-at lf-idecl-type @ lf-ind-t0-term dup ok? 0= if unloop exit then drop
-'''
-new = '''  outcome-ok exit
-  lf-ind-types@ 0 ?do
-    i lf-ind-type-at lf-idecl-type @ lf-ind-t0-term dup ok? 0= if unloop exit then drop
-'''
+old = '''  lf-ind-types@ ['] lf-ind-t0-type ok-each ['] lf-ind-t0-ctors ok-and ;'''
+new = '''  outcome-ok ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 M1: T0 skipped; a constructor using the declared constant _nested.X is accepted where Lean rejects the reserved prefix"
 
@@ -4411,10 +4406,8 @@ reason = "rvI21 M1: B3 field 4 (all) never compared; a recursor whose all names 
 [[fault]]
 id = "ind-step11-skip"
 file = "src/kernel/check-block.fs"
-old = ''': lf-blk-rec-name ( -- outcome )
-'''
-new = ''': lf-blk-rec-name ( -- outcome ) outcome-ok exit
-'''
+old = ''': lf-blk-rec-name ( -- outcome ) lf-ind-types@ ['] lf-blk-rec-name-of ok-each ;'''
+new = ''': lf-blk-rec-name ( -- outcome ) outcome-ok ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 M1: step 11 skipped; a block whose constructor is named rec is accepted where Lean finds the recursor's name taken"
 
@@ -4465,9 +4458,8 @@ reason = "rvI21 B1: the constructors' cells are not grown for the block, which w
 [[fault]]
 id = "ind-t1-ctors-unchecked"
 file = "src/kernel/inductive-block.fs"
-old = '''  lf-ind-ctors@ 0 ?do i lf-ind-ctor-type lf-ind-enough dup ok? 0= if unloop exit then drop
-  loop outcome-ok ;'''
-new = '''  outcome-ok ;'''
+old = '''  lf-ind-type lf-idecl-type @ lf-ind-enough ['] lf-ind-ctors-enough ok-and ;'''
+new = '''  lf-ind-type lf-idecl-type @ lf-ind-enough ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 L1: T1 counts the type's binders only; a constructor with fewer than numParams is rejected later, for another rule"
 
@@ -4506,8 +4498,8 @@ reason = "rvI21 B2: T.rec_1 held by an accepted non-nested T, for which Lean gen
 [[fault]]
 id = "env-aux-digits-any"
 file = "src/kernel/environment.fs"
-old = '''  dup 0> >r base @ >r decimal lf-env-number-rest r> base ! 0= r> and ;'''
-new = '''  2drop true ;'''
+old = '''  2dup 4 min s" rec_" compare if 2drop false else 4 /string decimal-digits? then ;'''
+new = '''  2dup 4 min s" rec_" compare if 2drop false else 4 /string 2drop true then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 round 2: any rec_<text> counts as an auxiliary recursor; IE.N.rec_x is held by the unsupported IE.N"
 
@@ -7345,8 +7337,8 @@ reason = "S0/S3: a listed term is never entered in the set, so a term is listed 
 [[fault]]
 id = "s0-mls-build-unsorted"
 file = "src/kernel/mixed-level-substitute.fs"
-old = '''  lf-mls-sorted lf-mls-reached @ 0 ?do'''
-new = '''  lf-mls-reached @ 0 ?do'''
+old = ''': lf-mls-ready ( -- outcome ) lf-mls-image-room dup ok? if drop lf-mls-sorted then ;'''
+new = ''': lf-mls-ready ( -- outcome ) lf-mls-image-room ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
 reason = "S0: the build follows the audit's order, so a parent is built before its children"
 
@@ -7377,18 +7369,18 @@ reason = "S0: any earlier walk's stamp is read as fresh, so reached levels are n
 [[fault]]
 id = "s0-lsubst-build-unsorted"
 file = "src/kernel/level-substitute.fs"
-old = '''  lf-lsubst-sorted lf-lsubst-reached @ 0 ?do'''
-new = '''  lf-lsubst-reached @ 0 ?do'''
+old = ''': lf-lsubst-build ( -- outcome ) lf-lsubst-sorted ['] lf-lsubst-build-all ok-and ;'''
+new = ''': lf-lsubst-build ( -- outcome ) outcome-ok ['] lf-lsubst-build-all ok-and ;'''
 test = "$GFORTH tests/core/level-substitute.fs"
 reason = "S0: the build follows the walk's order, so a parent is built before its children"
 
 [[fault]]
-id = "s0-heap-left-child-only"
+id = "s0-lsubst-sort-full-unrecorded"
 file = "src/kernel/level-substitute.fs"
-old = '''  2* 1+ 2dup 1+ > if dup dup 1+ 4 pick lf-cells-less? - then ;'''
-new = '''  2* 1+ ;'''
+old = '''  dup outcome-full = if lf-lsubst-reached @ lf-lsubst-crowded drop then ;'''
+new = '''  ;'''
 test = "$GFORTH tests/core/level-substitute.fs"
-reason = "S0: the heapsort's sift ignores a larger right child, so some arrangements come out unsorted"
+reason = "reuse-k1: a sort of the reached nodes refused its scratch by the heap is full without a diagnostic (the heapsort it replaced needed none)"
 
 [[fault]]
 id = "s0-lnorm-stamp-not-bumped"
@@ -7929,8 +7921,8 @@ reason = "S3: the reached set keeps its entries after an audit"
 [[fault]]
 id = "s3-mls-search-past"
 file = "src/kernel/mixed-level-substitute.fs"
-old = '''    2dup lf-mls-half dup lf-mls-node 4 pick < if 1+ rot drop swap else nip then'''
-new = '''    2dup lf-mls-half dup lf-mls-node 4 pick <= if 1+ rot drop swap else nip then'''
+old = ''': lf-mls-below? ( node i -- node flag ) lf-mls-node over < ;'''
+new = ''': lf-mls-below? ( node i -- node flag ) lf-mls-node over <= ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
 reason = "S3: a child's image is read one place past it in the sorted list"
 
@@ -8050,8 +8042,8 @@ reason = "6.5.5: the memo keyed without the call's stamp gives a closing under o
 [[fault]]
 id = "s6a-memo-identity-unchecked"
 file = "src/kernel/replace-memo.fs"
-old = '''  3 cells + dup @ swap cell+ @ over lf-term-identity if = else drop false then'''
-new = '''  3 cells + dup @ swap cell+ @ over lf-term-identity if 2drop true else drop false then'''
+old = '''  dup @ lf-term-identity if swap cell+ @ = else drop false then ;'''
+new = '''  dup @ lf-term-identity if 2drop true else drop false then ;'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
 reason = "6.5.5: a kept result is given back after it was discarded and its index taken by another node"
 
@@ -8694,8 +8686,8 @@ reason = "S5B: a projection is no binary node, so the passes treat it as an unkn
 [[fault]]
 id = "s5b-proj-of-swapped"
 file = "src/core/projections.fs"
-old = '''  drop swap lf-tag-projection lf-term-binary if outcome-ok else -1 outcome-full then ;'''
-new = '''  drop lf-tag-projection lf-term-binary if outcome-ok else -1 outcome-full then ;'''
+old = '''  drop swap lf-tag-projection lf-term-binary room-result ;'''
+new = '''  drop lf-tag-projection lf-term-binary room-result ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "S5B: mk_proj puts the term first and the leaf second, a malformed projection"
 
@@ -8949,10 +8941,10 @@ reason = "FX10 M3: declarations past the stop left in the ready heap make a run 
 id = "frk-sched-add-pushes-first"
 file = "src/kernel/env-schedule.fs"
 old = '''  lf-sch-worker-room dup ok? 0= if nip exit then drop
-  lf-sched lf-sch-ctxs lf-sch-push 0 lf-sched lf-sch-jobs lf-sch-push outcome-and
-  -1 lf-sched lf-sch-ats lf-sch-push outcome-and ;'''
-new = '''  lf-sched lf-sch-ctxs lf-sch-push dup ok? 0= if exit then drop
-  0 lf-sched lf-sch-jobs lf-sch-push -1 lf-sched lf-sch-ats lf-sch-push or
+  lf-sched lf-sch-ctxs slab-push 0 lf-sched lf-sch-jobs slab-push outcome-and
+  -1 lf-sched lf-sch-ats slab-push outcome-and ;'''
+new = '''  lf-sched lf-sch-ctxs slab-push dup ok? 0= if exit then drop
+  0 lf-sched lf-sch-jobs slab-push -1 lf-sched lf-sch-ats slab-push or
   ok? room>outcome ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "FRK F1: the context is pushed before the jobs list is known to have room, so a full add keeps a context the caller frees"
@@ -9632,8 +9624,8 @@ reason = "SN5: a check that made names beyond its input (a nested block) is publ
 [[fault]]
 id = "det-information-jobs"
 file = "src/cli/leanforth.fs"
-old = '''  s\" ,\"cellBits\":" cli-info+ 1 cells 8 * cli-number-text cli-info+'''
-new = '''  s\" ,\"cellBits\":" cli-info+ 1 cells 8 * cli-jobs 1 > - cli-number-text cli-info+'''
+old = '''  s\" ,\"cellBits\":" cli-info+ cell-bits u>decimal cli-info+'''
+new = '''  s\" ,\"cellBits\":" cli-info+ cell-bits cli-jobs 1 > - u>decimal cli-info+'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_same_bytes"
 reason = "DET (2026-11-13): the information section holds a figure of the run (here --jobs), so --jobs 4 writes other bytes than --jobs 1; test_same_bytes pins the commit, not the information, and compares every byte"
 
@@ -9649,8 +9641,8 @@ gap = "no fixture yet has one slot whose names beyond the input a parallel run m
 [[fault]]
 id = "sn5-outer-unsorted"
 file = "src/kernel/env-snapshot.fs"
-old = '''  swap slot-env looks-put nip nip r> r> r> if look-sort else 2drop then ;'''
-new = '''  swap slot-env looks-put nip nip r> r> r> drop 2drop ;'''
+old = '''  if r> look-sort outcome-and else r> drop 2drop then ;'''
+new = '''  r> drop drop 2drop ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
 reason = "SN5: a list with names beyond the input written unsorted after their keys are made the written names', which the loader refuses"
 
@@ -9673,7 +9665,7 @@ reason = "SN4: what two sibling layers both hold is entered twice, so its name h
 [[fault]]
 id = "sn4-layer-deps-unsorted"
 file = "src/kernel/env-snapshot.fs"
-old = '''  loop 2drop 2r> swap dep-sort ;'''
+old = '''  loop drop snap-sorter 2r> swap rot dep-sort ;'''
 new = '''  loop 2drop 2r> 2drop ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
 reason = "SN4: a layer's dependencies written in the order of the run's slots, not ascending as numbered in the layer"
@@ -11976,7 +11968,7 @@ reason = "the caches' hook answers 'closed' for a node without a data word inste
 [[fault]]
 id = "cov2-str-app-refusal-unknown"
 file = "src/kernel/string-literals.fs"
-old = ''': lf-sx-app ( f a -- node outcome ) lf-term-app if outcome-ok else -1 outcome-full then ;'''
+old = ''': lf-sx-app ( f a -- node outcome ) lf-term-app room-result ;'''
 new = ''': lf-sx-app ( f a -- node outcome ) lf-term-app if outcome-ok else -1 outcome-unknown then ;'''
 test = "$GFORTH tests/core/string-literals.fs"
 reason = "a full term store while a string literal is expanded reads as undecided, not out of room"
@@ -14297,6 +14289,42 @@ reason = "index? as `0 n within`: for a negative n every i >= 0 is an index"
 quick = true
 
 [[fault]]
+id = "lib-bounds-cells-eq-last-unread"
+file = "src/lib/bounds.fs"
+old = '''  0 max 0 ?do over i cells + @ over i cells + @ <> if 2drop false unloop exit then loop
+  2drop true ;'''
+new = '''  1- 0 max 0 ?do over i cells + @ over i cells + @ <> if 2drop false unloop exit then loop
+  2drop true ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "review reuse-k1 B1: cells= skips the last cell, so arrays differing only there read as equal"
+
+[[fault]]
+id = "lib-bounds-cells-eq-negative"
+file = "src/lib/bounds.fs"
+old = '''  0 max 0 ?do over i cells + @ over i cells + @ <> if 2drop false unloop exit then loop
+  2drop true ;'''
+new = '''  0 ?do over i cells + @ over i cells + @ <> if 2drop false unloop exit then loop
+  2drop true ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cells= with a negative count runs ?do from 0 to a negative limit: reads far past the arrays"
+
+[[fault]]
+id = "lib-bounds-in-ranges-hi-open"
+file = "src/lib/bounds.fs"
+old = ''': in-range-at? ( x a-addr k -- x a-addr flag ) 2dup-under range-at between? ;'''
+new = ''': in-range-at? ( x a-addr k -- x a-addr flag ) 2dup-under range-at within ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a range's last code is left out: the name and text rules would refuse 9 and accept nothing at a class's end"
+
+[[fault]]
+id = "lib-bounds-in-ranges-first-only"
+file = "src/lib/bounds.fs"
+old = ''': in-ranges? ( x a-addr n -- flag ) ['] in-range-at? any? nip nip ;'''
+new = ''': in-ranges? ( x a-addr n -- flag ) 1 min ['] in-range-at? any? nip nip ;'''
+test = "$GFORTH tests/lib/text-rule.fs"
+reason = "only a table's first range is searched: text-rule's banned and unseen tables lose every later range"
+
+[[fault]]
 id = "lib-bounds-cells-has-negated"
 file = "src/lib/bounds.fs"
 old = ''': cells-has? ( x addr n -- flag ) cells-index dup if nip then ;'''
@@ -14419,6 +14447,63 @@ old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute 0= if false unloop unloop exi
 new = '''  dup 1+ swap ?do 0 ?do i j execute 0= if false unloop unloop exit then'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "all? with a negative count runs tests (?DO wraps round) instead of none"
+
+[[fault]]
+id = "lib-outcome-any-past-true"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute if true unloop unloop exit then'''
+new = '''  dup 1+ swap ?do 0 max 0 ?do i j execute drop'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "any? runs every test and answers false whatever they gave"
+quick = true
+
+[[fault]]
+id = "lib-outcome-any-negative"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute if true unloop unloop exit then'''
+new = '''  dup 1+ swap ?do 0 ?do i j execute if true unloop unloop exit then'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "any? with a negative count runs tests (?DO wraps round) instead of none"
+
+[[fault]]
+id = "lib-outcome-any-flag-passed"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute if true unloop unloop exit then'''
+new = '''  dup 1+ swap ?do 0 max 0 ?do i j execute ?dup if unloop unloop exit then'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "any? answers the test's own true value, not a well-formed flag"
+
+[[fault]]
+id = "lib-outcome-or-none-kept"
+file = "src/lib/outcome.fs"
+old = ''': ok-or-none ( x outcome -- x outcome | -1 outcome ) dup ok? 0= if nip no-result then ;'''
+new = ''': ok-or-none ( x outcome -- x outcome | -1 outcome ) dup outcome-full = if nip no-result then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "ok-or-none hands on the half-made value of every failure but full"
+
+[[fault]]
+id = "lib-outcome-room-result-invalid"
+file = "src/lib/outcome.fs"
+old = '''  if outcome-ok else outcome-full no-result then ;'''
+new = '''  if outcome-ok else outcome-invalid no-result then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a store out of room reads as invalid input, not full"
+
+[[fault]]
+id = "lib-outcome-ok-any-failure-found"
+file = "src/lib/outcome.fs"
+old = '''  dup ok? 0= if nip false swap true exit then drop 0<> dup if outcome-ok true then ;'''
+new = '''  dup ok? 0= if true exit then drop 0<> dup if outcome-ok true then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "ok-any? hands a failing test's flag on: a refused check's true reads as found"
+
+[[fault]]
+id = "lib-outcome-ok-any-past-answer"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute ok-found? if unloop unloop exit then'''
+new = '''  dup 1+ swap ?do 0 max 0 ?do i j execute 2drop'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "ok-any? runs every test and answers false and ok whatever they gave"
 
 [[fault]]
 id = "lib-outcome-ok-all-past-answer"
@@ -16802,3 +16887,624 @@ old = '''  lfc-failed? lf-author-code lfa-e-nothing = and lf-elab-checks 0> and 
 new = '''  false ;'''
 test = "python3 tests/front/check_elab.py"
 reason = "a text of only #check lines ends with error 49 (exit 4), not Lean's exit 0"
+
+# --- reuse-k1 (2026-11-13): lib/memo.fs, lib/pqueue.fs and the kernel's
+# sorts, memos and queues moved onto the libraries -----------------------
+
+[[fault]]
+id = "lib-memo-high-bits-ignored"
+file = "src/lib/memo.fs"
+old = ''': memo-mix ( h x -- h' ) tuck hash-step swap 16 rshift 16 rshift ?dup if hash-step then ;'''
+new = ''': memo-mix ( h x -- h' ) hash-step ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "keys that differ only above bit 31 all hash alike: found, but one long probe run (the compared count on a 64-bit host)"
+
+[[fault]]
+id = "lib-memo-key-short"
+file = "src/lib/memo.fs"
+old = ''': memo-same ( n key htab -- flag ) >r swap r@ memo-entry r> memo-kcells @ cells= ;'''
+new = ''': memo-same ( n key htab -- flag ) >r swap r@ memo-entry r> memo-kcells @ 1- cells= ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "the last key cell is not compared: keys differing only there are one entry"
+
+[[fault]]
+id = "lib-memo-check-skipped"
+file = "src/lib/memo.fs"
+old = '''  tuck memo-value-at tuck swap memo-valid? 0= if drop 0 then ;'''
+new = '''  memo-value-at ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "a value the check hook refuses (stale) is found"
+
+[[fault]]
+id = "lib-memo-overwrite-lost"
+file = "src/lib/memo.fs"
+old = '''  2dup memo-look if rot drop swap memo-value-at outcome-ok else swap memo-add then ;'''
+new = '''  2dup memo-look if drop nip memo-probe outcome-ok else swap memo-add then ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "a put of a key present writes beside the entry: the old value stays"
+
+[[fault]]
+id = "lib-memo-admit-skipped"
+file = "src/lib/memo.fs"
+old = '''  dup memo-admitted? 0= if drop 2drop 0 outcome-full exit then'''
+new = '''  \ admit not asked'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "the admit hook is never asked: a refused entry (a check's memory limit) is added"
+
+[[fault]]
+id = "lib-memo-value-not-zeroed"
+file = "src/lib/memo.fs"
+old = '''  >r tuck swap r@ memo-table htab-put dup r@ memo-blank tuck r@ memo-key!'''
+new = '''  >r tuck swap r@ memo-table htab-put tuck r@ memo-key!'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "a new entry's value cells keep what a cut entry left there"
+
+[[fault]]
+id = "lib-memo-cut-one-short"
+file = "src/lib/memo.fs"
+old = '''  swap 0 max swap begin 2dup memo-count < while dup memo-drop-last repeat 2drop ;'''
+new = '''  swap 1+ 0 max swap begin 2dup memo-count < while dup memo-drop-last repeat 2drop ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "memo-cut keeps the n-th entry"
+
+[[fault]]
+id = "lib-memo-cut-table-kept"
+file = "src/lib/memo.fs"
+old = '''  dup memo-last swap 2dup memo-rehash swap >r r@ memo-table htab-remove drop'''
+new = '''  dup memo-last swap 2dup memo-rehash swap >r 2drop'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "a cut entry stays in the table: found again from memory past the count"
+
+[[fault]]
+id = "lib-memo-empty-never-shrinks"
+file = "src/lib/memo.fs"
+old = '''  dup memo-small? if memo-clear else memo-remake then ;'''
+new = '''  memo-clear ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "memo-empty keeps a large table's memory"
+
+[[fault]]
+id = "lib-memo-free-leaks"
+file = "src/lib/memo.fs"
+old = ''': memo-free ( memo -- ) dup memo-release /memo erase ;'''
+new = ''': memo-free ( memo -- ) /memo erase ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "memo-free gives back no block"
+
+[[fault]]
+id = "lib-memo-shape-zero-key"
+file = "src/lib/memo.fs"
+old = '''  over 1 max-n cell / between? if swap max-n cell / swap - upto? else 2drop false then ;'''
+new = '''  over 0 max-n cell / between? if swap max-n cell / swap - upto? else 2drop false then ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "a memo of keys of no cells is accepted"
+
+[[fault]]
+id = "lib-memo-wide-key-probe"
+file = "src/lib/memo.fs"
+old = '''  dup memo-kcells @ 3 < if memo-probe! true else drop 2drop false then ;'''
+new = '''  dup memo-kcells @ 4 < if memo-probe! true else drop 2drop false then ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "review reuse-k1 L3: a memo of three key cells probed by memo-at reads the cell after the two-cell probe as its third"
+
+[[fault]]
+id = "lib-pq-tie-left"
+file = "src/lib/pqueue.fs"
+old = '''  over 1+ over pq-in? if >r dup 1+ swap r> pq-cells-after? 0= else 2drop false then ;'''
+new = '''  over 1+ over pq-in? if >r dup 1+ r> pq-cells-after? else 2drop false then ;'''
+test = "$GFORTH tests/lib/pqueue.fs"
+reason = "a tie between children takes the left one: cells come out in order, but the heap is not the scheduler's former one cell for cell"
+
+[[fault]]
+id = "lib-pq-up-stops"
+file = "src/lib/pqueue.fs"
+old = '''  dup pq-hole @ 0> if dup pq-parent swap pq-cell-after? else drop false then ;'''
+new = '''  dup false if dup pq-parent swap pq-cell-after? else drop false then ;'''
+test = "$GFORTH tests/lib/pqueue.fs"
+reason = "a pushed cell never moves up: the smallest is not at the root"
+
+[[fault]]
+id = "lib-pq-down-left-only"
+file = "src/lib/pqueue.fs"
+old = ''': pq-child ( pq -- c ) dup pq-hole @ 2* 1+ tuck swap pq-right? if 1+ then ;'''
+new = ''': pq-child ( pq -- c ) dup pq-hole @ 2* 1+ tuck swap pq-right? drop ;'''
+test = "$GFORTH tests/lib/pqueue.fs"
+reason = "a cell moving down follows the left child only: cells come out out of order"
+
+[[fault]]
+id = "lib-pq-pop-no-sift"
+file = "src/lib/pqueue.fs"
+old = '''  dup pq-cells slab-top @ over pq-held ! 0 over pq-hole ! pq-down ;'''
+new = '''  dup pq-cells slab-top @ over pq-held ! 0 over pq-hole ! pq-settle ;'''
+test = "$GFORTH tests/lib/pqueue.fs"
+reason = "after a pop the last cell stays at the root"
+
+[[fault]]
+id = "lib-pq-settle-lost"
+file = "src/lib/pqueue.fs"
+old = ''': pq-up ( pq -- ) begin dup pq-rises? while dup pq-parent over pq-fill repeat pq-settle ;'''
+new = ''': pq-up ( pq -- ) begin dup pq-rises? while dup pq-parent over pq-fill repeat drop ;'''
+test = "$GFORTH tests/lib/pqueue.fs"
+reason = "a pushed cell is never stored: its place keeps garbage"
+
+[[fault]]
+id = "lib-pq-order-unchecked"
+file = "src/lib/pqueue.fs"
+old = '''  dup pq-order @ 0= if 2drop outcome-invalid exit then'''
+new = '''  \ the order is not checked'''
+test = "$GFORTH tests/lib/pqueue.fs"
+reason = "a queue refused for an order of 0 takes cells"
+
+[[fault]]
+id = "lnorm-after-reversed"
+file = "src/kernel/level-normalize.fs"
+old = '''  lf-lnorm-spend lf-lnorm-ok? if swap lf-lnorm-lt negate else 2drop 0 then ;'''
+new = '''  lf-lnorm-spend lf-lnorm-ok? if lf-lnorm-lt negate else 2drop 0 then ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "reuse-k1: the arguments' order given to lib/sort.fs reversed: normal forms sorted descending, not by is_norm_lt"
+
+[[fault]]
+id = "cache-admit-skipped"
+file = "src/kernel/caches.fs"
+old = '''  ['] lf-cache-admit over lf-cache-table memo-admit! lf-cache-checked ;'''
+new = '''  lf-cache-checked ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "reuse-k1: new cache entries are not charged to a check's memory limit"
+
+[[fault]]
+id = "sn-dep-sort-skipped"
+file = "src/kernel/env-snapshot.fs"
+old = ''': dep-sort ( addr n sorter -- outcome ) /snap-dep swap le-sorter sort-records ;'''
+new = ''': dep-sort ( addr n sorter -- outcome ) drop 2drop outcome-ok ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "reuse-k1: a list of dependencies is written and merged unsorted"
+
+[[fault]]
+id = "lnorm-scratch-refusal-ignored"
+file = "src/kernel/level-normalize.fs"
+old = '''  drop lf-lnorm-arg @ lf-lnorm-crowded ;'''
+new = '''  2drop ;'''
+test = "$GFORTH tests/core/level-deep.fs"
+reason = "reuse-k1: a merge whose scratch the heap refuses leaves the arguments unsorted and the call ok, where it is full"
+
+[[fault]]
+id = "s0-lsubst-sort-full-ignored"
+file = "src/kernel/level-substitute.fs"
+old = ''': lf-lsubst-build ( -- outcome ) lf-lsubst-sorted ['] lf-lsubst-build-all ok-and ;'''
+new = ''': lf-lsubst-build ( -- outcome ) lf-lsubst-sorted drop outcome-ok ['] lf-lsubst-build-all ok-and ;'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "reuse-k1: a build whose sort the heap refused goes on over the unsorted list, ok where it is full"
+
+# --- decimal numbers (src/lib/decimal.fs, plan 9.4.8d) -------------------
+
+[[fault]]
+id = "lib-decimal-base-lost-on-throw"
+file = "src/lib/decimal.fs"
+old = ''': in-base ( i*x xt base -- j*x ) base @ >r base ! catch r> base ! throw ;'''
+new = ''': in-base ( i*x xt base -- j*x ) base @ >r base ! execute r> base ! ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "a THROW out of the word leaves BASE decimal: the hand-written copies' bug"
+
+[[fault]]
+id = "lib-decimal-sign-lost"
+file = "src/lib/decimal.fs"
+old = ''': d>text ( d -- c-addr u ) dup >r dabs <# #s r> sign #> ;'''
+new = ''': d>text ( d -- c-addr u ) dabs <# #s #> ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "a negative number is written without its minus sign"
+
+[[fault]]
+id = "lib-decimal-u-signed"
+file = "src/lib/decimal.fs"
+old = ''': u>decimal ( u -- c-addr u ) 0 ud>decimal ;'''
+new = ''': u>decimal ( u -- c-addr u ) s>d ud>decimal ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "an unsigned cell with its top bit set is widened as negative: -1 becomes a 39-digit number"
+
+[[fault]]
+id = "lib-decimal-digits-width-unchecked"
+file = "src/lib/decimal.fs"
+old = '''  dup cell-digits < if decimal>u true exit then dup cell-digits > if 2drop false exit then'''
+new = '''  dup cell-digits 1+ < if decimal>u true exit then dup cell-digits > if 2drop false exit then'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "digits as wide as max-n's are read modulo the cell: one past max-n reads as a small number"
+
+[[fault]]
+id = "lib-decimal-digits-empty"
+file = "src/lib/decimal.fs"
+old = ''': decimal-digits? ( c-addr u -- flag ) dup 0> >r decimal>number nip nip nip 0= r> and ;'''
+new = ''': decimal-digits? ( c-addr u -- flag ) true >r decimal>number nip nip nip 0= r> and ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "empty text counts as digits: the kernel's rec_ test (environment.fs) and the stage's would take `rec_` as an auxiliary recursor"
+
+[[fault]]
+id = "lib-decimal-number-base"
+file = "src/lib/decimal.fs"
+old = ''': decimal>number ( c-addr u -- ud c-addr' u' ) 0 0 2swap ['] >number in-decimal ;'''
+new = ''': decimal>number ( c-addr u -- ud c-addr' u' ) 0 0 2swap >number ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "digits read in the caller's BASE: under HEX, 19af reads as one number"
+
+# --- snapshot tier: every list name and recursor rule (review reuse-1a re-check H)
+
+[[fault]]
+id = "snap-tier-names-first-only"
+file = "src/import/snapshot-tier.fs"
+old = '''  2dup stage-tuples tuple-length ['] name-at? all? nip nip ;'''
+new = '''  2dup stage-tuples tuple-length 1 min ['] name-at? all? nip nip ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "only a list's first name is checked: a forged second constructor name loads"
+
+[[fault]]
+id = "snap-tier-rules-last-unchecked"
+file = "src/import/snapshot-tier.fs"
+old = '''  2dup stage-tuples tuple-length /rule-items / ['] rule-at? all? nip nip ;'''
+new = '''  2dup stage-tuples tuple-length /rule-items / 1- ['] rule-at? all? nip nip ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "a recursor's last rule is never checked: its forged constructor name or right-hand side loads"
+
+[[fault]]
+id = "snap-tier-rules-unchecked"
+file = "src/import/snapshot-tier.fs"
+old = '''  2dup stage-tuples tuple-length /rule-items mod if 2drop false exit then rules-each? ;'''
+new = '''  2dup stage-tuples tuple-length /rule-items mod if 2drop false exit then 2drop true ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "no recursor rule is checked when a snapshot is read"
+
+# --- bits and blocks (src/lib/bits.fs, blocks.fs; plan 9.4.8b, 9.4.8d) ---
+
+[[fault]]
+id = "lib-bits-log2-floor"
+file = "src/lib/bits.fs"
+old = ''': log2-ceiling ( u -- log2 ) 1- 0 swap begin ?dup while 1 rshift swap 1+ swap repeat ;'''
+new = ''': log2-ceiling ( u -- log2 ) 0 swap begin ?dup while 1 rshift swap 1+ swap repeat ;'''
+test = "$GFORTH tests/lib/bits.fs"
+reason = "log2-ceiling one too large at every power of two: a table presized for 1024 entries doubles"
+
+[[fault]]
+id = "lib-bits-cells-floor"
+file = "src/lib/bits.fs"
+old = ''': bits>cells ( n -- cells ) cell-bits 1- + cell-bits / ;'''
+new = ''': bits>cells ( n -- cells ) cell-bits / ;'''
+test = "$GFORTH tests/lib/bits.fs"
+reason = "a bit set one cell short: the reach tables and the feed's map write past their blocks"
+
+[[fault]]
+id = "lib-bits-bit-cell-off"
+file = "src/lib/bits.fs"
+old = '''  over cell-bits / cells + swap cell-bits mod 1 swap lshift ;'''
+new = '''  over cell-bits 1- / cells + swap cell-bits mod 1 swap lshift ;'''
+test = "$GFORTH tests/lib/bits.fs"
+reason = "bits past the first cell land in the wrong cell"
+
+[[fault]]
+id = "lib-bits-lower-bound-short"
+file = "src/lib/bits.fs"
+old = '''  >r 2>r begin 2r@ < while'''
+new = '''  >r 2>r begin 2r@ 1- < while'''
+test = "$GFORTH tests/lib/bits.fs"
+reason = "the search stops with two candidates left: the mls image and the feed's copies found one off"
+
+[[fault]]
+id = "lib-blocks-zeroed-dirty"
+file = "src/lib/blocks.fs"
+old = '''  tuck swap erase swap ! outcome-ok ;'''
+new = '''  nip swap ! outcome-ok ;'''
+test = "$GFORTH tests/lib/blocks.fs"
+reason = "block-zeroed's block is not erased: a reach table or a map starts with stale bits"
+
+[[fault]]
+id = "lib-blocks-resize-full-ok"
+file = "src/lib/blocks.fs"
+old = '''  if drop r> drop outcome-full else r> ! outcome-ok then ;'''
+new = '''  if drop r> drop outcome-ok else r> ! outcome-ok then ;'''
+test = "$GFORTH tests/lib/blocks.fs"
+reason = "a refused resize reads as done: the feed and the re-exporter would write past the old block"
+
+[[fault]]
+id = "lib-blocks-release-kept"
+file = "src/lib/blocks.fs"
+old = ''': heap-release ( a-addr -- ) dup @ ?dup if free drop then 0 swap ! ;'''
+new = ''': heap-release ( a-addr -- ) dup @ ?dup if free drop then drop ;'''
+test = "$GFORTH tests/lib/blocks.fs"
+reason = "the cell keeps the freed address: a second release frees it again"
+
+[[fault]]
+id = "core-expr-pi-explicit-only"
+file = "src/core/compact-exprs.fs"
+old = ''': expr-pi? ( e tier -- flag ) expr-tag@ tag-pi tag-let within ;'''
+new = ''': expr-pi? ( e tier -- flag ) expr-tag@ tag-pi = ;'''
+test = "$GFORTH tests/core/compact.fs"
+reason = "only an explicit Pi counts: a library constant's telescope stops at its first implicit binder"
+
+# --- the snapshot's sorts that need heap scratch (review reuse-k1 H1) ----
+
+[[fault]]
+id = "sn-put-deps-full-lost"
+file = "src/kernel/env-snapshot.fs"
+old = '''  loop drop snap-sorter 2r> swap rot dep-sort ;'''
+new = '''  loop drop snap-sorter 2r> swap rot dep-sort drop outcome-ok ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "a save whose dependency sort the heap refuses writes the list unsorted and reports ok"
+
+[[fault]]
+id = "sn-canon-sort-full-lost"
+file = "src/kernel/env-snapshot.fs"
+old = '''  snap-outers outers-list @ swap outers-of 2dup o-sort -rot canon-names outcome-and ;'''
+new = '''  snap-outers outers-list @ swap outers-of 2dup o-sort drop outcome-ok -rot canon-names outcome-and ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "a save whose canon-name sort the heap refuses writes the list unsorted and reports ok"
+gap = "o-sort needs heap scratch only above 32 names beyond the input in one slot; no fixture has one (Init's largest is 9): a crafted export with 33 generated names looked up by one declaration would catch it"
+
+[[fault]]
+id = "lay-deps-full-lost"
+file = "src/kernel/env-layers.fs"
+old = '''  dup lay-dep-at over lay-sorter rot r@ swap lay-base @ snap-dk +! r> swap dep-sort ;'''
+new = '''  dup lay-dep-at over lay-sorter rot r@ swap lay-base @ snap-dk +! r> swap dep-sort drop outcome-ok ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "a layer whose merged dependency sort the heap refuses is loaded unsorted and reported ok"
+gap = "a layer's merge is tested with every heap refusal only by the command line (tests/cli/test_leanforth.py Layers), which cannot refuse one allocation; a Forth layer-load refusal sweep with wide60 as the layer would catch it"
+
+[[fault]]
+id = "lay-all-new-full-lost"
+file = "src/kernel/env-layers.fs"
+old = '''  dup lay-all-new dup ok? if over lay-count! then nip ;'''
+new = '''  dup lay-all-new drop outcome-ok dup ok? if over lay-count! then nip ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "a layer's appended slots whose sorts fail are counted as loaded"
+gap = "as lay-deps-full-lost: no Forth test refuses an allocation inside a layer's merge"
+
+[[fault]]
+id = "sch-ready-highest-first"
+file = "src/kernel/env-schedule.fs"
+old = '''  ['] sort-signed lf-sched lf-sch-ready pq-init'''
+new = '''  ['] > lf-sched lf-sch-ready pq-init'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review reuse-k1 M4: the ready queue hands out the highest declaration first, not the order of dispatch the heap gave"
+
+[[fault]]
+id = "sch-laters-highest-first"
+file = "src/kernel/env-schedule.fs"
+old = '''  ['] sort-signed lf-sched lf-sch-laters pq-init outcome-and ;'''
+new = '''  ['] > lf-sched lf-sch-laters pq-init outcome-and ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review reuse-k1 M4: the later queue hands out the highest declaration first"
+
+# --- review reuse-out (2026-11-13): the reviewer's caught faults (M1), the
+# scheduler's name lists (M2), BASE in the kernel's names (L3), the loops
+# converted after the review (B1), the libraries' new words (B2, L1, L2,
+# S1) and the sorter's signed order on 64-bit hosts (L4) -------------------
+
+[[fault]]
+id = "dq-level-pairs-last-skipped"
+file = "src/kernel/defeq.fs"
+old = ''': lf-dq-level-pairs ( ta sa n -- flag outcome ) ['] lf-dq-level-pair ok-all? 2swap 2drop ;'''
+new = ''': lf-dq-level-pairs ( ta sa n -- flag outcome ) 1- ['] lf-dq-level-pair ok-all? 2swap 2drop ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "review reuse-out M1: two constants differing only in their last universe argument are taken as equal"
+
+[[fault]]
+id = "whnf-arg-at-shifted"
+file = "src/kernel/whnf.fs"
+old = '''  over + swap >r lf-whnf-arg-open? r> -rot ;'''
+new = '''  over + 1+ swap >r lf-whnf-arg-open? r> -rot ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "review reuse-out M1: the open-argument test reads each argument's right-hand neighbour"
+
+[[fault]]
+id = "mls-below-upper-bound"
+file = "src/kernel/mixed-level-substitute.fs"
+old = ''': lf-mls-below? ( node i -- node flag ) lf-mls-node over < ;'''
+new = ''': lf-mls-below? ( node i -- node flag ) lf-mls-node over 1+ < ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "review reuse-out M1: the search finds the first reached term above the node, so a reached term's image is never found"
+
+[[fault]]
+id = "axd-bit-next"
+file = "src/kernel/environment.fs"
+old = ''': lf-axd-bit! ( k -- ) lf-axd-top bit-on ;'''
+new = ''': lf-axd-bit! ( k -- ) 1+ lf-axd-top bit-on ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out M1: a declaration's axiom row marks the next axiom, so its dependencies are misreported"
+
+[[fault]]
+id = "blk-indices-last-skipped"
+file = "src/kernel/check-block.fs"
+old = '''  lf-blk-arity lf-ind-nparams - ['] lf-blk-index-at? ok-all? 2swap 2drop ;'''
+new = '''  lf-blk-arity lf-ind-nparams - 1- ['] lf-blk-index-at? ok-all? 2swap 2drop ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out M1: a recursive argument's last index is not checked to be free of the block's types"
+
+[[fault]]
+id = "ind-some-arg-last-skipped"
+file = "src/kernel/inductive-block.fs"
+old = '''  ['] lf-ind-arg-mentions? ok-any? 2swap 2drop ;'''
+new = '''  1- ['] lf-ind-arg-mentions? ok-any? 2swap 2drop ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out M1: a nested occurrence in an application's last argument is missed"
+
+[[fault]]
+id = "sch-list-last-dropped"
+file = "src/kernel/env-schedule.fs"
+old = ''': lf-sch-list ( items n -- outcome ) ['] lf-sch-item ok-each nip ;'''
+new = ''': lf-sch-list ( items n -- outcome ) 1- ['] lf-sch-item ok-each nip ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review reuse-out M2: a type's last all name and constructor, a recursor's last all name, are left out of the plan's names"
+
+[[fault]]
+id = "sch-rules-last-dropped"
+file = "src/kernel/env-schedule.fs"
+old = ''': lf-sch-rules ( data -- outcome ) lf-irc-rules@ ['] lf-sch-rule-at ok-each nip ;'''
+new = ''': lf-sch-rules ( data -- outcome ) lf-irc-rules@ 1- ['] lf-sch-rule-at ok-each nip ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review reuse-out M2: a recursor's last rule's constructor and right-hand side are left out of the plan's names"
+
+[[fault]]
+id = "blk-u-base"
+file = "src/kernel/check-block.fs"
+old = ''': lf-blk-u ( i -- c-addr u ) ?dup if ['] lf-blk-u-text in-decimal else s" u" then ;'''
+new = ''': lf-blk-u ( i -- c-addr u ) ?dup if lf-blk-u-text else s" u" then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out L3: the motive's universe u_k is written in the caller's BASE (u_1A under HEX)"
+
+[[fault]]
+id = "nest-digits-base"
+file = "src/kernel/inductive-nested.fs"
+old = ''': lf-nest-digits ( n -- c-addr u ) ['] lf-nest-underscored in-decimal ;'''
+new = ''': lf-nest-digits ( n -- c-addr u ) lf-nest-underscored ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out L3: an auxiliary recursor's suffix _k is written in the caller's BASE"
+
+[[fault]]
+id = "env-aux-k-base"
+file = "src/kernel/environment.fs"
+old = '''  decimal>number 2drop if drop 0 then ;'''
+new = '''  0 0 2swap >number 2drop if drop 0 then ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "review reuse-out L3: rec_k's k is read in the caller's BASE (rec_26 as 38 under HEX)"
+
+[[fault]]
+id = "nest-rec-names-last"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-ind-types@ lf-ind-in-types@ - ['] lf-nest-rec-name-k ok-each ;'''
+new = '''  lf-ind-types@ lf-ind-in-types@ - 1- ['] lf-nest-rec-name-k ok-each ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out B1: the last auxiliary type's recursor gets no name T.rec_k"
+
+[[fault]]
+id = "nest-type-last-ctor"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-ind-ty dup lf-ty-ctor @ swap lf-ty-ctors @ ['] lf-nest-ctor-at ok-each nip ;'''
+new = '''  lf-ind-ty dup lf-ty-ctor @ swap lf-ty-ctors @ 1- ['] lf-nest-ctor-at ok-each nip ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out B1: a type's last constructor is not translated, its nested occurrences kept"
+
+[[fault]]
+id = "ind-t0-types-last"
+file = "src/kernel/inductive-block.fs"
+old = '''  lf-ind-types@ ['] lf-ind-t0-type ok-each ['] lf-ind-t0-ctors ok-and ;'''
+new = '''  lf-ind-types@ 1- ['] lf-ind-t0-type ok-each ['] lf-ind-t0-ctors ok-and ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out B1: T0 skips the block's last type, whose reserved prefix is then accepted"
+
+[[fault]]
+id = "ind-t0-ctors-last"
+file = "src/kernel/inductive-block.fs"
+old = ''': lf-ind-t0-ctors ( -- outcome ) lf-ind-ctors@ ['] lf-ind-t0-ctor ok-each ;'''
+new = ''': lf-ind-t0-ctors ( -- outcome ) lf-ind-ctors@ 1- ['] lf-ind-t0-ctor ok-each ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out B1: T0 skips the block's last constructor, whose reserved prefix is then accepted"
+
+[[fault]]
+id = "ind-t1-ctors-last"
+file = "src/kernel/inductive-block.fs"
+old = ''': lf-ind-ctors-enough ( -- outcome ) lf-ind-ctors@ ['] lf-ind-ctor-enough ok-each ;'''
+new = ''': lf-ind-ctors-enough ( -- outcome ) lf-ind-ctors@ 1- ['] lf-ind-ctor-enough ok-each ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out B1: T1 does not count the last constructor's binders"
+
+[[fault]]
+id = "ind-names-last-unchecked"
+file = "src/kernel/inductive-block.fs"
+old = '''  rot over <> if drop 2drop false exit then ['] lf-ind-same-at? all? nip nip ;'''
+new = '''  rot over <> if drop 2drop false exit then 1- ['] lf-ind-same-at? all? nip nip ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out B1: two name lists differing only in their last name are equal"
+
+[[fault]]
+id = "env-params-has-last"
+file = "src/kernel/environment.fs"
+old = ''': lf-params-has? ( name params n -- flag ) ['] lf-param-is? any? nip nip ;'''
+new = ''': lf-params-has? ( name params n -- flag ) 1- ['] lf-param-is? any? nip nip ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "review reuse-out B1: a declaration's last universe parameter is not found, so a term using it is refused"
+
+[[fault]]
+id = "snap-adds-last"
+file = "src/kernel/env-snapshot.fs"
+old = '''  snap-sections# tier-sections# - ['] snap-add-at ok-each nip ;'''
+new = '''  snap-sections# tier-sections# - 1- ['] snap-add-at ok-each nip ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "review reuse-out B1: the snapshot's last environment section is never written"
+
+[[fault]]
+id = "snap-loads-last"
+file = "src/kernel/env-snapshot.fs"
+old = ''': snap-loads ( snap -- outcome ) snap-sections# ss-slots - ['] snap-load-at ok-each nip ;'''
+new = ''': snap-loads ( snap -- outcome ) snap-sections# ss-slots - 1- ['] snap-load-at ok-each nip ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "review reuse-out B1: the snapshot's last environment section is never loaded"
+
+[[fault]]
+id = "canon-names-last"
+file = "src/kernel/env-snapshot.fs"
+old = ''': canon-names ( addr n -- outcome ) ['] canon-at ok-each nip ;'''
+new = ''': canon-names ( addr n -- outcome ) 1- ['] canon-at ok-each nip ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "review reuse-out B1: a slot's last name beyond the input is not made canon's when a snapshot is written"
+
+[[fault]]
+id = "lay-looks-last"
+file = "src/kernel/env-layers.fs"
+old = '''  dup lay-own-count ['] lay-own-in-at? all? nip ;'''
+new = '''  dup lay-own-count 1- ['] lay-own-in-at? all? nip ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers.test_twin_lookups"
+reason = "review reuse-out B1: a layer's slot whose last lookup differs from its twin's counts as the same"
+gap = "the twins of Layers.test_twin_lookups (R's block, _nested.List_1 answered apart) differ before their last lookup in key order; a layer unit differing from its twin only in its largest key would catch it (plan 9.4.8k follow-up)"
+
+[[fault]]
+id = "imp-pass-last"
+file = "src/kernel/env-import.fs"
+old = ''': imp-pass ( imp -- outcome ) dup imp-n @ ['] imp-pass-at ok-each nip ;'''
+new = ''': imp-pass ( imp -- outcome ) dup imp-n @ 1- ['] imp-pass-at ok-each nip ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review reuse-out B1: the import pass never tries the input's last declaration"
+
+[[fault]]
+id = "lib-bits-lower-bound-overflow"
+file = "src/lib/bits.fs"
+old = ''': lb-mid ( lo hi -- mid ) over - 1 rshift + ;'''
+new = ''': lb-mid ( lo hi -- mid ) over - 2/ + ;'''
+test = "$GFORTH tests/lib/bits.fs"
+reason = "review reuse-out L1: hi - lo beyond max-n halves to a negative step, and the search never ends"
+
+[[fault]]
+id = "lib-decimal-hex-base"
+file = "src/lib/decimal.fs"
+old = ''': u>hex ( u -- c-addr u ) 0 ['] ud>text 16 in-base ;'''
+new = ''': u>hex ( u -- c-addr u ) 0 ud>text ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "review reuse-out B2: hexadecimal text in the caller's BASE: 255 as 255, the escapes of name-text.fs and the LaTeX printers decimal"
+
+[[fault]]
+id = "lib-decimal-zeros-kept"
+file = "src/lib/decimal.fs"
+old = '''  dup cell-digits < if decimal>u true exit then skip-zeros unpadded>u ;'''
+new = '''  dup cell-digits < if decimal>u true exit then unpadded>u ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "review reuse-out L2: digits that fit are refused when leading zeros make the text longer than cell-digits"
+
+[[fault]]
+id = "lib-decimal-skip-one-zero"
+file = "src/lib/decimal.fs"
+old = '''  begin dup if over c@ [char] 0 = else false then while 1 /string repeat ;'''
+new = '''  dup if over c@ [char] 0 = if 1 /string then then ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "review reuse-out L2: skip-zeros drops one zero only; bignum.fs and ir-run.fs then read 007 as 07"
+
+[[fault]]
+id = "lib-outcome-2dup-under-swapped"
+file = "src/lib/outcome.fs"
+old = ''': 2dup-under ( x1 x2 k -- x1 x2 x1 x2 k ) >r 2dup r> ;'''
+new = ''': 2dup-under ( x1 x2 k -- x1 x2 x1 x2 k ) >r 2dup swap r> ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "review reuse-out S1: the copies come swapped, so every step on 2dup-under reads its two values the wrong way round"
+
+[[fault]]
+id = "sn-le-sorter-signed"
+file = "src/kernel/env-snapshot.fs"
+old = '''  tuck ['] sort-unsigned swap sorter-init drop ['] u32-le@ over sorter-key! ;'''
+new = '''  tuck ['] sort-signed swap sorter-init drop ['] u32-le@ over sorter-key! ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review reuse-k1 L7 and reuse-out L4: the dependency and lookup lists sorted by signed keys"
+equivalent = "on 64-bit hosts u32-le@ gives keys below 2^32, all positive as signed cells, so the signed and unsigned orders agree; only a 32-bit host, where the test's $80000000 key is negative, separates them"

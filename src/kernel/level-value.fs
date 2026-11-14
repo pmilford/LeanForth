@@ -78,8 +78,7 @@ end-structure
   if swap lf-lassign-in? 0= else 2drop false then ;
 : lf-lassign-entry? ( i -- flag )
   dup lf-lassign-value@ 0< if drop false else lf-lassign-id-ok? then ;
-: lf-lassign-entries? ( -- flag )
-  lf-lassign-count @ 0 ?do i lf-lassign-entry? 0= if false unloop exit then loop true ;
+: lf-lassign-entries? ( -- flag ) lf-lassign-count @ ['] lf-lassign-entry? all? ;
 : lf-lassign-current? ( -- flag )
   lf-level-generation @ lf-lvalue-state lf-lvrec-levels @ =
   lf-lscope-generation @ lf-lvalue-state lf-lvrec-context @ = and ;

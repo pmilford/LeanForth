@@ -16,12 +16,10 @@
   "tokens": 9
  },
  "03ddd755d471": {
-  "copies": 4,
+  "copies": 2,
   "members": [
-   "src/author/export.fs:lfx-digits",
    "src/front/ctor-idx.fs:digits",
-   "src/front/discr-keys.fs:dk-digits",
-   "src/present/print-job.fs:lf-pp-digits"
+   "src/front/discr-keys.fs:dk-digits"
   ],
   "tokens": 11
  },
@@ -152,14 +150,6 @@
   ],
   "tokens": 16
  },
- "16c594fc2f0a": {
-  "copies": 2,
-  "members": [
-   "src/kernel/level-normalize.fs:lf-lnorm-swap",
-   "src/lib/bignum.fs:exchange"
-  ],
-  "tokens": 8
- },
  "16ef53f91e89": {
   "copies": 2,
   "members": [
@@ -192,14 +182,6 @@
   ],
   "tokens": 21
  },
- "1d664efb3c24": {
-  "copies": 2,
-  "members": [
-   "src/kernel/env-snapshot.fs:look-sort",
-   "src/kernel/env-snapshot.fs:o-sort"
-  ],
-  "tokens": 9
- },
  "1ed0c1a81df1": {
   "copies": 2,
   "members": [
@@ -215,14 +197,6 @@
    "src/front/instantiate.fs:in-closed?"
   ],
   "tokens": 9
- },
- "1f5ee9ef8958": {
-  "copies": 2,
-  "members": [
-   "src/import/run-record.fs:rr-cell-bits",
-   "src/lib/sha256.fs:sha-count-bits"
-  ],
-  "tokens": 11
  },
  "20086de961a5": {
   "copies": 2,
@@ -361,27 +335,11 @@
   ],
   "tokens": 14
  },
- "344531dcbf86": {
-  "copies": 2,
-  "members": [
-   "src/front/mvars.fs:mv-app-pending",
-   "src/kernel/caches.fs:lf-cache-node@"
-  ],
-  "tokens": 8
- },
  "3555000a639a": {
   "copies": 2,
   "members": [
    "src/import/ndjson.fs:slot-check:",
    "src/import/ndjson.fs:text-check:"
-  ],
-  "tokens": 9
- },
- "3642d6a01a3a": {
-  "copies": 2,
-  "members": [
-   "src/core/reach.fs:lf-reached?",
-   "src/core/reach.fs:lf-level-reached?"
   ],
   "tokens": 9
  },
@@ -457,14 +415,6 @@
    "src/kernel/env-schedule.fs:lf-sch-root"
   ],
   "tokens": 8
- },
- "4330ad78e178": {
-  "copies": 2,
-  "members": [
-   "src/kernel/check-block.fs:lf-blk-aux-fresh",
-   "src/kernel/inductive-nested.fs:lf-nest-rec-names"
-  ],
-  "tokens": 15
  },
  "443723561ac6": {
   "copies": 2,
@@ -564,14 +514,6 @@
    "src/front/elab-data.fs:ed-proj-fact"
   ],
   "tokens": 13
- },
- "50ac08b3bcf0": {
-  "copies": 2,
-  "members": [
-   "src/program/ir-reader.fs:ir-decimal-text",
-   "src/program/verify-report.fs:pv-decimal"
-  ],
-  "tokens": 15
  },
  "50c4f8f07dd3": {
   "copies": 2,
@@ -738,15 +680,6 @@
   ],
   "tokens": 14
  },
- "69a789f3679a": {
-  "copies": 3,
-  "members": [
-   "src/kernel/check-block.fs:lf-blk-types",
-   "src/kernel/check-block.fs:lf-blk-rec-name",
-   "src/kernel/generated-recursor.fs:lf-genrec-types"
-  ],
-  "tokens": 15
- },
  "6a44becdbbb5": {
   "copies": 2,
   "members": [
@@ -786,14 +719,6 @@
    "src/core/generation-handles.fs:lf-hlevel-id?"
   ],
   "tokens": 8
- },
- "6daf5d742bf4": {
-  "copies": 2,
-  "members": [
-   "src/core/reach.fs:lf-reach-term",
-   "src/core/reach.fs:lr-level!"
-  ],
-  "tokens": 10
  },
  "75695dedbb1b": {
   "copies": 4,
@@ -1139,22 +1064,6 @@
   ],
   "tokens": 9
  },
- "ac587a0c8a82": {
-  "copies": 2,
-  "members": [
-   "src/kernel/environment.fs:lf-axd-cell-bits",
-   "src/lib/htab.fs:cell-bits"
-  ],
-  "tokens": 12
- },
- "ae4c5d1115c3": {
-  "copies": 2,
-  "members": [
-   "src/program/ir-reader.fs:ir-convert",
-   "src/program/ir-run.fs:irx-convert"
-  ],
-  "tokens": 11
- },
  "b3ce5130f54c": {
   "copies": 2,
   "members": [
@@ -1170,14 +1079,6 @@
    "src/kernel/mixed-level-substitute.fs:lf-mls-children"
   ],
   "tokens": 17
- },
- "b5d18ba692bd": {
-  "copies": 2,
-  "members": [
-   "src/cli/leanforth.fs:cli-byte.",
-   "src/import/ndjson-count.fs:.json-offset"
-  ],
-  "tokens": 11
  },
  "b6f4f28ce792": {
   "copies": 2,
@@ -1308,11 +1209,10 @@
   "tokens": 15
  },
  "c415ad239134": {
-  "copies": 3,
+  "copies": 2,
   "members": [
    "src/front/lib-decode.fs:lbd-push",
-   "src/front/meta-env.fs:me-push",
-   "src/kernel/env-schedule.fs:lf-sch-push"
+   "src/front/meta-env.fs:me-push"
   ],
   "tokens": 13
  },
@@ -1426,15 +1326,6 @@
   ],
   "tokens": 15
  },
- "d13a4b1b39ec": {
-  "copies": 3,
-  "members": [
-   "src/kernel/env-signature.fs:lf-envsig-arguments",
-   "src/kernel/inductive-block.fs:lf-ind-ctors-scoped",
-   "src/kernel/inductive-block.fs:lf-ind-c1"
-  ],
-  "tokens": 15
- },
  "d29897903fa2": {
   "copies": 2,
   "members": [
@@ -1458,15 +1349,6 @@
    "src/front/prop-quick.fs:pq-proof-arrow"
   ],
   "tokens": 9
- },
- "d4b3aece1631": {
-  "copies": 3,
-  "members": [
-   "src/author/export.fs:lfx-block",
-   "src/core/reach.fs:lr-block",
-   "src/front/dag-walk.fs:dw-block"
-  ],
-  "tokens": 12
  },
  "d650e72345a6": {
   "copies": 2,
@@ -1548,15 +1430,6 @@
    "src/program/verify-report.fs:pv-copy"
   ],
   "tokens": 11
- },
- "de2e57f92beb": {
-  "copies": 3,
-  "members": [
-   "src/kernel/mixed-level-substitute.fs:lf-mls-actuals!",
-   "src/kernel/mixed-signature-audit.fs:lf-msa-formals?",
-   "src/present/log-view.fs:lf-lv-args"
-  ],
-  "tokens": 15
  },
  "e157cf97cdef": {
   "copies": 2,
@@ -1668,14 +1541,6 @@
   ],
   "tokens": 8
  },
- "ec2078d2189f": {
-  "copies": 2,
-  "members": [
-   "src/author/errors.fs:lfa-.n",
-   "src/import/ndjson-emit.fs:.count"
-  ],
-  "tokens": 9
- },
  "ed50786bcc2e": {
   "copies": 2,
   "members": [
@@ -1725,14 +1590,6 @@
    "src/front/elab-data.fs:ed-proj-decl!"
   ],
   "tokens": 16
- },
- "f18ec9eba35c": {
-  "copies": 2,
-  "members": [
-   "src/kernel/env-import.fs:ua-new",
-   "src/kernel/env-layers.fs:lay-zeros"
-  ],
-  "tokens": 19
  },
  "f2e0f3bc4eaa": {
   "copies": 2,
@@ -1791,14 +1648,6 @@
    "src/kernel/mixed-shift.fs:lf-mshift-leaf"
   ],
   "tokens": 33
- },
- "f99daf532c4b": {
-  "copies": 2,
-  "members": [
-   "src/cli/name-text.fs:nt-range",
-   "src/lib/text-rule.fs:tr-range"
-  ],
-  "tokens": 8
  },
  "f9de3c1d0146": {
   "copies": 2,

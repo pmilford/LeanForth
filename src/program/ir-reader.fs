@@ -79,6 +79,7 @@
 
 decimal
 require ../lib/lib.fs
+require ../lib/decimal.fs
 
 \ Classes of the words the reader knows.
 0 constant ir-prim        \ an IR primitive on the data stack: dup, +, max, ...
@@ -128,7 +129,7 @@ end-structure
   drop 2drop false ;
 \ The same, but keeping the text when it is not there.
 : ir-look ( c-addr u store -- index true | c-addr u false )
-  >r 2dup r> ir-find dup if 2swap 2drop then ;
+  2dup-under ir-find dup if 2swap 2drop then ;
 
 \ The vocabulary, spelled in lower case.
 80 /ir-slot 0 store: lf-ir-vocabulary
@@ -374,9 +375,7 @@ end-structure
 : ir-flush ( -- ) ir-ok? if ir-send else 0 ir-out# ! then ;
 
 \ Pieces of a line. Numbers are written in decimal whatever BASE is.
-: ir-decimal-text ( n -- c-addr u )
-  base @ >r decimal dup abs 0 <# #s rot sign #> r> base ! ;
-: ir-number ( n -- ) ir-decimal-text ir-append ;
+: ir-number ( n -- ) n>decimal ir-append ;
 : ir-indent ( depth -- ) 1+ 2* s"                     " drop swap ir-append ;
 : ir-location ( line column -- )
   s"  @" ir-append swap ir-number s" :" ir-append ir-number ;
@@ -430,11 +429,10 @@ end-structure
 10 constant ir-digits-max
 : ir-negative ( c-addr u -- c-addr' u' flag )
   dup if over c@ [char] - = if 1 /string true exit then then false ;
-: ir-convert ( c-addr u -- ud c-addr' u' ) 0 0 2swap base @ >r decimal >number r> base ! ;
 : ir-fits? ( u -- u true | false ) dup ir-literal-max u> if drop false else true then ;
 : ir-whole? ( c-addr u -- u true | false )
   dup 1 ir-digits-max 1+ within 0= if 2drop false exit then
-  ir-convert nip 0= swap 0= and if ir-fits? else drop false then ;
+  decimal>number nip 0= swap 0= and if ir-fits? else drop false then ;
 : ir-signed ( u negative -- n ) if negate then ;
 : ir-literal? ( c-addr u -- n true | false )
   ir-negative >r ir-whole? if r> ir-signed true else r> drop false then ;
@@ -479,8 +477,7 @@ end-structure
 \ does not matter; loading stops if a slot is left empty.
 : ir-table ( n "name" -- ) create 0 ?do 0 , loop ;
 : ir-act! ( xt index table -- ) ir-cell ! ;
-: ir-filled? ( table n -- flag )
-  0 ?do dup @ 0= if drop false unloop exit then cell+ loop drop true ;
+: ir-filled? ( table n -- flag ) 0 -rot cells-has? 0= ;
 \ Refuse the word of vocabulary index as unsupported, for reason.
 : ir-refuse ( index reason -- ) nip ir-unsupported ;
 

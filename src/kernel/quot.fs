@@ -128,7 +128,7 @@ create lf-quot-entries lf-quot-type , lf-quot-mk , lf-quot-lift , lf-quot-ind ,
   dup lf-quot-eq-text lf-quot-typed lf-quot-matched
   dup ok? if drop lf-quot-refl else nip then ;
 : lf-quot-eq-name ( -- name outcome )
-  0 s" Eq" lf-name-str if outcome-ok else -1 outcome-full then ;
+  0 s" Eq" lf-name-str room-result ;
 : lf-quot-eq ( -- outcome )
   lf-quot-eq-name ok-then? 0= if exit then
   lf-quot-slot ok-then? if lf-quot-eq-shape then ;

@@ -106,6 +106,7 @@ require ../lib/lib.fs
 require ../lib/u32.fs
 require ../lib/hash32.fs
 require ../lib/htab.fs
+require ../lib/bits.fs
 require ../lib/slab.fs
 require ../lib/cons.fs
 require ./diagnostics.fs
@@ -579,8 +580,7 @@ create lf-term-hooks /htab-hooks allot
 \ Room in the table for n entries without doubling (the feed sizes it
 \ from the stage's counts, ADR 0016 C9); a table the heap cannot make
 \ that large only costs time.
-: lf-term-log2 ( n -- log2 ) 0 swap 1- begin ?dup while 1 rshift swap 1+ swap repeat ;
-: lf-term-table-room ( n -- ) 4 * 3 / 1+ lf-term-log2 lf-term-table htab-presize drop ;
+: lf-term-table-room ( n -- ) 4 * 3 / 1+ log2-ceiling lf-term-table htab-presize drop ;
 
 \ Taking records out of the table: entry index, if it is there (a record
 \ made while sharing was off, or that the table could not take, is not),

@@ -96,7 +96,7 @@ require ./whnf.fs
 require ./infer.fs
 require ./defeq.fs
 require ./instances.fs
-require ../import/manifest.fs
+require ../lib/decimal.fs
 
 0 constant lf-postpone-yes   1 constant lf-postpone-partial   2 constant lf-postpone-no
 3 constant lf-postpone-check   \ no, a stuck problem left (#check's ignoreStuckTC)
@@ -146,7 +146,7 @@ end-structure
   dup ep-trace slab-claim ok? if ep-trace slab-at swap move else 2drop drop then ;
 : lf-elab-note ( c-addr u -- ) ep-tracing? if ep-chars else 2drop then ;
 : lf-elab-nl ( -- ) s\" \n" lf-elab-note ;
-: lf-elab-n. ( n -- ) ep-tracing? if 0 decimal-text ep-chars else drop then ;
+: lf-elab-n. ( n -- ) ep-tracing? if u>decimal ep-chars else drop then ;
 
 \ ---- Errors and the position (Lean's ref and throwError).
 : lf-elab-at! ( pos -- ) ep ep-at ! ;

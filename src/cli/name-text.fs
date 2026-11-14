@@ -44,6 +44,7 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../lib/lib.fs
 require ../lib/slab.fs
 require ../lib/bytes.fs
+require ../lib/decimal.fs
 require ../lib/text-rule.fs
 require ../core/names.fs
 
@@ -69,11 +70,9 @@ create nt-state /nt allot  nt-state /nt erase
   dup nt-out slab-claim ok? if nt-out slab-at swap move exit then
   drop 2drop true nt-short ! ;
 : nt-text@ ( -- c-addr u flag ) 0 nt-out slab-at nt-out slab-count nt-short @ 0= ;
-: nt-digits ( u -- ) 0 <# #s #> nt-put ;
-: nt-decimal ( u -- ) base @ >r decimal nt-digits r> base ! ;
-: nt-hex ( u -- ) base @ >r hex nt-digits r> base ! ;
+: nt-decimal ( u -- ) u>decimal nt-put ;
 \ An escape: its prefix, the number in hexadecimal, then }.
-: nt-escape ( u c-addr u -- ) nt-put nt-hex s" }" nt-put ;
+: nt-escape ( u c-addr u -- ) nt-put u>hex nt-put s" }" nt-put ;
 
 \ ---- Characters. The first character of a text: its code point and
 \ length, or the byte and 0 when it does not start a UTF-8 sequence.
@@ -94,12 +93,9 @@ create nt-rest
   $21 , $21 ,  $27 , $27 ,  $30 , $39 ,  $3f , $3f ,
   $2080 , $2089 ,  $2090 , $209c ,  $1d62 , $1d6a ,  $2c7c , $2c7c ,
 here nt-rest - 2 cells / constant nt-rest#
-: nt-range ( table k -- lo hi ) 2* cells + dup @ swap cell+ @ ;
-: nt-among? ( code table n -- flag )
-  0 ?do 2dup i nt-range between? if 2drop true unloop exit then loop 2drop false ;
-: nt-first? ( code -- flag ) nt-first nt-first# nt-among? ;
+: nt-first? ( code -- flag ) nt-first nt-first# in-ranges? ;
 : nt-rest? ( code -- flag )
-  dup nt-first? if drop true else nt-rest nt-rest# nt-among? then ;
+  dup nt-first? if drop true else nt-rest nt-rest# in-ranges? then ;
 \ Whether every character of c-addr u is valid UTF-8 and satisfies xt
 \ ( code -- flag ).
 : nt-all? ( c-addr u xt -- flag )

@@ -508,6 +508,28 @@ T{ nested 3 facts-of drop rot drop -> 0 0 }T
 \ nested export's later declarations wait on earlier ones (COV2).
 : edges-of ( c-addr u jobs -- n ) fresh >r run-with lf-sched-edges ck-release r> back ;
 T{ nested 3 edges-of 0> -> true }T
+\ The names a declaration's inductive data gives the plan (lf-sch-data;
+\ review reuse-out M2): a type's all list and constructors, a recursor's
+\ all list and each rule's constructor, the last of each included. In a
+\ block these are the block's own members, whose own names the plan takes
+\ as well and whose slots no readiness set holds (none lies below the
+\ block), so the data's names are read alone: a fresh stamp, the names
+\ and the walk's stack emptied. RvNest.A and RvNest.B are mutual; A's
+\ constructors a0 a1, A.rec's rules a0 a1; B.rec's one rule b0, whose
+\ constructor no other part of B.rec's data names (A.rec's later rules'
+\ right-hand sides, lambdas over the minor premises' types, name every
+\ constructor, so only a recursor of one rule shows a rule left out).
+: sch-name ( c-addr u -- name ) lf-stmt-intern 0= throw ;
+: sch-names ( -- addr n ) 0 lf-sched lf-sch-names slab-at lf-sched lf-sch-names slab-count ;
+: data-names ( c-addr u -- outcome )
+  sch-name lf-input-newest lf-input-decl lf-sched lf-sch-stamp lf-sch-count+
+  lf-sched lf-sch-names lf-sch-empty lf-sched lf-sch-stack lf-sch-empty lf-sch-data ;
+: named? ( c-addr u -- flag ) sch-name sch-names cells-has? ;
+: type-names ( -- outcome a1? b? ) s" RvNest.A" data-names s" RvNest.A.a1" named? s" RvNest.B" named? ;
+: rec-names ( -- outcome b0? b? ) s" RvNest.B.rec" data-names s" RvNest.B.b0" named? s" RvNest.B" named? ;
+: last-names ( -- outcome a1? b? outcome b0? b? )
+  fresh >r nested 3 run-with type-names rec-names ck-release r> back ;
+T{ last-names -> outcome-ok true true outcome-ok true true }T
 nested 1 facts-of 2drop drop constant serial-nested
 \ A stress run: the nested export, many small interleaved checks, at 8
 \ workers five times, each time the serial run's facts.
@@ -799,6 +821,16 @@ T{ fl-none s" ?" reason -1 s" ?" reason fl-reasons 1+ s" ?" reason -> true true 
 ck-marks!
 T{ max-n ck-state ck-prog-mark ck-after? 0 ck-state ck-prog-mark ck-after? -> false true }T
 T{ depth -> 0 }T
+
+\ The scheduler's two queues hand out the lowest declaration first (review
+\ reuse-k1 M4): lf-sch-queues-init gives them lib/sort.fs's signed order,
+\ as the binary heap it replaced compared them.
+: queue-out ( queue -- d1 d2 d3 ) dup pq-pop over pq-pop rot pq-pop ;
+: queue-in ( queue -- ) >r 9 r@ pq-push drop 2 r@ pq-push drop 5 r> pq-push drop ;
+T{ lf-sch-queues-init -> outcome-ok }T
+lf-sched lf-sch-ready queue-in  lf-sched lf-sch-laters queue-in
+T{ lf-sched lf-sch-ready queue-out lf-sched lf-sch-laters queue-out -> 2 5 9 2 5 9 }T
+lf-sched lf-sch-ready pq-free  lf-sched lf-sch-laters pq-free
 
 cases-done
 bye

@@ -106,13 +106,10 @@ end-structure
 
 \ ---- The arrays: per layer slot its slot as loaded and whether it is
 \ new; per declaration loaded before, its slot + 1.
-: lay-zeros ( n addr -- outcome )
-  >r u32s 1 max dup allocate if 2drop r> drop outcome-full exit then
-  dup rot erase r> ! outcome-ok ;
-: lay-map-room ( lay -- outcome ) dup lay-n @ swap lay-map lay-zeros ;
-: lay-new-room ( lay -- outcome ) dup lay-n @ swap lay-new lay-zeros ;
+: lay-map-room ( lay -- outcome ) dup lay-n @ swap lay-map ua-new ;
+: lay-new-room ( lay -- outcome ) dup lay-n @ swap lay-new ua-new ;
 : lay-old-room ( lay -- outcome )
-  dup lay-stage @ stage-decls 2dup swap lay-old ! swap lay-slots lay-zeros ;
+  dup lay-stage @ stage-decls 2dup swap lay-old ! swap lay-slots ua-new ;
 : lay-arrays ( lay -- outcome )
   outcome-ok ['] lay-map-room ok-with ['] lay-new-room ok-with ['] lay-old-room ok-with
   nip ;
@@ -243,10 +240,10 @@ end-structure
   dup lay-at-j @ over lay-from nip rot + swap lay-entry ;
 : lay-has? ( key answer lay -- flag ) dup lay-twin-list swap lay-twin-count look-in? ;
 : lay-own-in? ( i lay -- flag ) tuck lay-entry-j rot lay-has? ;
+: lay-own-in-at? ( lay i -- lay flag ) over lay-own-in? ;
 : lay-looks-same? ( lay -- flag )
   dup lay-twin-count over lay-own-count <> if drop false exit then
-  dup lay-own-count 0 ?do i over lay-own-in? 0= if drop false unloop exit then loop
-  drop true ;
+  dup lay-own-count ['] lay-own-in-at? all? nip ;
 : lay-twin-same? ( s i lay -- flag )
   >r tuck + swap r@ lay-uj @ + swap r@ lay-pair! r> lay-looks-same? ;
 : unit-looks-same? ( s lay -- flag )
@@ -291,8 +288,7 @@ end-structure
   if drop 2drop r> drop r> drop outcome-full exit then
   r> rot r> snap-block! drop outcome-ok ;
 : starts-grow ( n lay -- outcome )
-  lay-base @ >r 2* cells 1 max r@ snap-starts @ swap resize
-  if drop r> drop outcome-full exit then r> snap-starts ! outcome-ok ;
+  swap 2* cells swap lay-base @ snap-starts block-resize ;
 \ The counts the new slots add, from their records in the layer.
 : lay-adds ( k lay -- n )
   0 over lay-n @ 0 ?do
@@ -324,29 +320,40 @@ end-structure
   lay-base @ dup ss-deps swap snap-block swap snap-dk @ u32s + ;
 : lay-look-at ( lay -- addr )
   lay-base @ dup ss-looks swap snap-block swap snap-lk @ /snap-look * + ;
+\ The layer's own sorter (its snapshot record's; review reuse-k1 M2).
+: lay-sorter ( lay -- sorter ) lay-snap snap-sorter ;
 \ Dependency i and lookup i of j, numbered as loaded, into s's list.
 : lay-dep! ( i lay -- )
   2dup dup lay-j swap lay-from drop + over lay-snap dep@ over lay-slot#
   -rot lay-dep-at swap u32s + u32-le! ;
 : lay-look! ( i lay -- )
   2dup dup lay-j swap lay-from nip + over lay-entry 2swap lay-look-at swap entry! ;
-: lay-deps ( lay -- )
+\ Each list sorted again in the base record, then passed (ok, or full:
+\ env-snapshot.fs).
+: lay-deps ( lay -- outcome )
   sl-deps over lay-count-of dup >r 0 ?do i over lay-dep! loop
-  dup lay-dep-at r@ dep-sort r> swap lay-base @ snap-dk +! ;
-: lay-looks ( lay -- )
+  dup lay-dep-at over lay-sorter rot r@ swap lay-base @ snap-dk +! r> swap dep-sort ;
+: lay-looks ( lay -- outcome )
   sl-looks over lay-count-of dup >r 0 ?do i over lay-look! loop
-  dup lay-look-at r@ look-sort r> swap lay-base @ snap-lk +! ;
+  dup lay-look-at over lay-sorter rot r@ swap lay-base @ snap-lk +! r> swap look-sort ;
 : lay-site ( s lay -- )
   tuck base-slot sl-site over fld@ ?dup
   if rot lay-site0 @ + sl-site rot fld! else 2drop then ;
-: lay-append ( j lay -- )
+: lay-append ( j lay -- outcome )
   tuck lay-cursor! dup lay-j over lay-slot over lay-s 2 pick base-slot
   sl-fields# u32s move
-  dup lay-s over lay-site dup lay-s over lay-base @ start! dup lay-deps lay-looks ;
+  dup lay-s over lay-site dup lay-s over lay-base @ start!
+  dup lay-deps swap lay-looks outcome-and ;
+: lay-append-new ( i lay -- outcome )
+  2dup lay-new @ ly@ if lay-append else 2drop outcome-ok then ;
+\ Every new slot appended (each list sorted again: ok, or full, the first
+\ failure kept), then the base's slots counted (only when all are ok).
+: lay-count! ( lay -- ) dup lay-cur @ swap lay-base @ snap-n ! ;
+: lay-all-new ( lay -- outcome )
+  outcome-ok over lay-n @ 0 ?do over i swap lay-append-new outcome-and loop nip ;
 : lay-appends ( lay -- outcome )
   dup lay-room dup ok? 0= if nip exit then drop
-  dup lay-n @ 0 ?do i over lay-new @ ly@ if i over lay-append then loop
-  dup lay-cur @ swap lay-base @ snap-n ! outcome-ok ;
+  dup lay-all-new dup ok? if over lay-count! then nip ;
 \ The site texts appended after the base's.
 : lay-sites ( lay -- )
   dup lay-snap ss-sites swap snap-block over lay-base @ ss-sites swap snap-block

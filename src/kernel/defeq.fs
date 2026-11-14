@@ -251,11 +251,9 @@ defer lf-dq-known-same? ( t s -- flag )
 \ is_def_eq(levels, levels) (789-799): the same number, each pair
 \ equivalent, the first that is not ends it. Unchecked: the arrays are
 \ two constants' reference pairs, which no level comparison moves.
-: lf-dq-level-pairs ( ta sa n -- flag outcome )
-  0 ?do over i lf-cref-pair@ drop over i lf-cref-pair@ drop lf-dq-level-eq
-    ok-then? 0= if nip nip false swap unloop exit then
-    0= if 2drop false outcome-ok unloop exit then
-  loop 2drop true outcome-ok ;
+: lf-dq-level-pair ( ta sa i -- ta sa flag outcome )
+  >r over r@ lf-cref-pair@ drop over r> lf-cref-pair@ drop lf-dq-level-eq ;
+: lf-dq-level-pairs ( ta sa n -- flag outcome ) ['] lf-dq-level-pair ok-all? 2swap 2drop ;
 : lf-dq-level-lists ( t s -- flag outcome )
   lf-whnf-cref lf-cref-pairs rot lf-whnf-cref lf-cref-pairs
   rot over <> if 2drop drop false outcome-ok exit then

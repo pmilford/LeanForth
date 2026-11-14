@@ -98,6 +98,8 @@
 \ env-snapshot.fs, writes chosen fields in a fixed byte order).
 
 require ../lib/lib.fs
+require ../lib/decimal.fs
+require ../lib/bits.fs
 require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/names.fs
@@ -739,11 +741,8 @@ end-structure
 \ accepted (or added) type only when it is its block's first and the
 \ block has an auxiliary type for that number (k from 1, no leading
 \ zero; the recipe, plan task 5.2.5b).
-: lf-env-number-rest ( c-addr u -- u' ) 0 0 2swap >number >r 2drop drop r> ;
-: lf-env-digits? ( c-addr u -- flag )
-  dup 0> >r base @ >r decimal lf-env-number-rest r> base ! 0= r> and ;
 : lf-env-aux-rec? ( c-addr u -- flag )
-  2dup 4 min s" rec_" compare if 2drop false else 4 /string lf-env-digits? then ;
+  2dup 4 min s" rec_" compare if 2drop false else 4 /string decimal-digits? then ;
 \ The kind of name's last part: lf-rec-main (rec), lf-rec-aux
 \ (rec_<digits>), 0 any other.
 1 constant lf-rec-main
@@ -783,7 +782,7 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 : lf-env-aux-k ( name -- k )
   lf-name-text 4 /string 2dup 1 min s" 0" compare 0= if 2drop 0 exit then
   dup lf-env-k-digits > if 2drop 0 exit then
-  base @ >r decimal 0 0 2swap >number 2drop r> base ! if drop 0 then ;
+  decimal>number 2drop if drop 0 then ;
 : lf-env-first-type? ( d -- flag )
   dup lf-input-decl lf-idecl-header ?dup
   if lf-hdr-first lf-more-field = else drop false then ;
@@ -1050,7 +1049,7 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
   dup ['] lf-slot-type? = if drop lf-look-type exit then
   ['] lf-slot-any = if lf-look-any else lf-look-other then ;
 : lf-env-first ( name test limit -- d|-1 )
-  >r 2dup r> lf-env-earliest -rot lf-look-test lf-look-first ;
+  2dup-under lf-env-earliest -rot lf-look-test lf-look-first ;
 : lf-env-quot-held ( limit -- d class ) lf-env-quot-held-pass 0 lf-look-quot lf-look-noted
   ;
 
@@ -1152,12 +1151,13 @@ create lf-replays   \ by kind; 0 for lf-look-other
 
 \ Universe parameters (E2; ADR 0011 rules L1–L3). Names compare
 \ structurally. Unchecked: the names are valid in an audited name store.
-: lf-params-has? ( name params n -- flag )
-  0 ?do 2dup i lf-param@ lf-name-same? if 2drop true unloop exit then loop
-  2drop false ;
+: lf-param-is? ( name params i -- name params flag ) 2dup-under lf-param@ lf-name-same? ;
+: lf-params-has? ( name params n -- flag ) ['] lf-param-is? any? nip nip ;
+\ Whether parameter k repeats one of the k before it, and the opposite as
+\ a step of all?.
 : lf-param-repeated? ( params k -- flag ) 2dup lf-param@ -rot lf-params-has? ;
-: lf-params-distinct? ( params n -- flag )
-  1 max 1 ?do dup i lf-param-repeated? if drop false unloop exit then loop drop true ;
+: lf-param-new? ( params k -- params flag ) over swap lf-param-repeated? 0= ;
+: lf-params-distinct? ( params n -- flag ) ['] lf-param-new? all? nip ;
 \ The parameters of accepted slot d, readable in this context's snapshot:
 \ (params n ok), else (0 0 invalid). The address is the slot's own.
 : lf-env-params ( d -- params n outcome )
@@ -1303,8 +1303,6 @@ end-structure
 1 cells context-slab: lf-axd-row-of    \ per slot: its row's number
 1 cells context-slab: lf-axd-number    \ per axiom slot: its number
 1 cells context-slab: lf-axd-axioms    \ per number: the axiom's slot
-: lf-axd-cell-bits ( -- n ) 0 max-n begin ?dup while 1 rshift swap 1+ swap repeat 1+ ;
-lf-axd-cell-bits constant lf-axd-bits   \ bits per cell
 : lf-axd-width@ ( -- n ) lf-axd-state lf-axd-width @ ;
 : lf-axd-row ( r -- addr ) lf-axd-width@ * lf-axd-rows slab-at ;
 : lf-axd-top ( -- addr ) lf-axd-rows slab-top ;
@@ -1336,7 +1334,7 @@ lf-axd-cell-bits constant lf-axd-bits   \ bits per cell
   lf-env-limit lf-axd-row-of slab-hold dup ok? 0= if exit then drop
   lf-env-limit lf-axd-number slab-hold dup ok? if lf-axd-unset then ;
 : lf-axd-width! ( -- )
-  lf-axd-axioms slab-count lf-axd-bits /mod swap 0<> - 1 max lf-axd-state lf-axd-width ! ;
+  lf-axd-axioms slab-count bits>cells 1 max lf-axd-state lf-axd-width ! ;
 : lf-axd-empty ( -- outcome )
   lf-axd-width! lf-axd-width@ lf-axd-rows slab-claim nip
   dup ok? if 0 lf-axd-row lf-axd-width@ cells erase then ;
@@ -1360,8 +1358,7 @@ lf-axd-cell-bits constant lf-axd-bits   \ bits per cell
   lf-axd-row lf-axd-top lf-axd-width@ cells bounds ?do
     dup @ i @ or i ! cell+
   1 cells +loop drop ;
-: lf-axd-bit! ( k -- )
-  lf-axd-bits /mod cells lf-axd-top + swap 1 swap lshift over @ or swap ! ;
+: lf-axd-bit! ( k -- ) lf-axd-top bit-on ;
 : lf-axd-deps-or ( slot -- )
   dup lf-slot-count @ 0 ?do i over lf-dep-at lf-axd-row-of@ lf-axd-or loop drop ;
 : lf-axd-join ( slot j -- )
@@ -1407,7 +1404,7 @@ lf-axd-cell-bits constant lf-axd-bits   \ bits per cell
   repeat drop ;
 : lf-axd-give ( d xt -- )
   swap lf-axd-row-of@ lf-axd-width@ 0 ?do
-    dup lf-axd-row i cells + @ ?dup if rot swap i lf-axd-bits * lf-axd-cell swap then
+    dup lf-axd-row i cells + @ ?dup if rot swap i cell-bits * lf-axd-cell swap then
   loop 2drop ;
 : lf-env-axiom-deps ( d xt -- outcome )
   over lf-env-accepted nip ok? 0= if 2drop outcome-invalid exit then

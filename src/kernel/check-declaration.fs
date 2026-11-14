@@ -276,10 +276,10 @@ lf-check-steps# 1+ constant lf-step-done
     lf-check-steps swap endcase ;
 : lf-check-step! ( step -- ) lf-check-state lf-chk-step ! ;
 : lf-check-do ( steps k -- outcome ) dup 1+ lf-check-step! 1+ cells + @ execute ;
+: lf-check-do-at ( table i -- table outcome ) over swap lf-check-do ;
 : lf-check-steps-run ( -- outcome )
-  lf-check-table dup @ 0 ?do
-    dup i lf-check-do dup ok? 0= if nip unloop exit then drop
-  loop drop lf-step-done lf-check-step! outcome-ok ;
+  lf-check-table dup @ ['] lf-check-do-at ok-each nip
+  dup ok? if lf-step-done lf-check-step! then ;
 \ The derivation log (ADR 0013): with it on, the steps are one declaration
 \ step of the claim and the value (none for an axiom or a quotient),
 \ closed with the check's outcome (and any rule left open by a step that

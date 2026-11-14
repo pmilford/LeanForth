@@ -38,6 +38,7 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../lib/outcome.fs
 require ../lib/u32.fs
 require ../lib/bytes.fs
+require ../lib/blocks.fs
 require ../lib/slab.fs
 require ../lib/cons.fs
 require ../lib/pools.fs
@@ -110,11 +111,9 @@ end-structure
   dup ly-fam-alloc ok-then? 0= if nip exit then over ly-fam-load ok-then? 0= if exit then
   dup ly-fam-pos @ ly-field? if ly-fam-pack else drop then outcome-ok ;
 \ The maps: per own record of each family, zeroed.
-: ly-zeros ( n addr -- outcome )
-  swap u32s 1 max dup allocate if 2drop drop outcome-full exit then
-  dup rot erase swap ! outcome-ok ;
 : ly-fam-section ( fam -- outcome )
-  dup ly-fam-read ok-then? 0= if exit then dup ly-fam-units swap ly-fam-map ly-zeros ;
+  dup ly-fam-read ok-then? 0= if exit then
+  dup ly-fam-units u32s swap ly-fam-map block-zeroed ;
 \ Section k + 1 (section 0 is the information).
 : ly-section-next ( ly k -- ly outcome ) 1+ over ly-fam ly-fam-section ;
 : ly-sections ( ly -- outcome ) tier-sections# 1- ['] ly-section-next ok-each nip ;

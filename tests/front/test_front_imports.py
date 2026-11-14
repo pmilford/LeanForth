@@ -71,8 +71,6 @@ ALLOWED = {
     "hex-text?": "whether a text is n hex digits",
     "pinned-lean-version": "a constant text",
     "pinned-lean-githash": "a constant text",
-    # The elaborator's test trace (front/elab-pending.fs) writes numbers.
-    "decimal-text": "a number's decimal digits, a function of its argument",
 }
 # The tier's readers a file reading the stage may name (core/compact-*.fs,
 # lib/cons.fs, lib/pools.fs), with what each reads.
