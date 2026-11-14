@@ -43,11 +43,13 @@
 \ incomplete.
 
 require ../lib/bounds.fs
+require ../lib/bytes.fs
 require ../lib/decimal.fs
 require ../lib/xt-table.fs
 require ./term-printer.fs
 require ./note-table.fs
 require ../lib/text-rule.fs
+require ../lib/text-run.fs
 require ../core/input.fs
 
 \ Declarations, as the authoring program records them.
@@ -98,9 +100,10 @@ lf-pf-reserve by-intro: by-induction-with by-end by-rw[ by-rewrite[ ] | => by-so
 \ control character, is not all digits and is not [anonymous]: then its
 \ text reads back as the same part. A name can be referred to when, in
 \ addition, it is no syntax word and cannot start a Forth number.
-: lf-pf-odd-char? ( char -- flag ) dup bl 1+ < swap [char] . = or ;
-: lf-pf-odd? ( c-addr u -- flag )
-  false -rot chars over + swap ?do i c@ lf-pf-odd-char? or loop ;
+\ A blank or control character; one of those or a dot.
+: lf-pf-blank? ( char -- flag ) bl 1+ < ;
+: lf-pf-odd-char? ( char -- flag ) dup lf-pf-blank? swap [char] . = or ;
+: lf-pf-odd? ( c-addr u -- flag ) ['] lf-pf-odd-char? text-any? ;
 : lf-pf-anonymous ( -- c-addr u ) s" [anonymous]" ;
 : lf-pf-open-quote ( -- c-addr u ) s\" \xC2\xAB" ;
 : lf-pf-close-quote ( -- c-addr u ) s\" \xC2\xBB" ;
@@ -129,8 +132,7 @@ lf-pf-reserve by-intro: by-induction-with by-end by-rw[ by-rewrite[ ] | => by-so
   dup 0= if drop false exit then
   begin dup while dup lf-pf-part? 0= if drop false exit then lf-name-prefix@ repeat
   drop true ;
-: lf-pf-among? ( c-addr u char -- flag )
-  false 2swap chars over + swap ?do over i c@ = or loop nip ;
+: lf-pf-among? ( c-addr u char -- flag ) byte-scan nip 0<> ;
 : lf-pf-number-start? ( char -- flag )
   dup decimal-digit? swap s\" -+$#%&'\"." rot lf-pf-among? or ;
 : lf-pf-token? ( c-addr u -- flag )
@@ -192,15 +194,13 @@ create lf-pf-eol 10 c,
 \ has no " and no line end, which would end it early. Both pass the text
 \ rule (lib/text-rule.fs), as the reader applies it to a line. Any other text
 \ would print as live words: unsupported.
-: lf-pf-blank-in? ( c-addr u -- flag )
-  false -rot chars over + swap ?do i c@ bl 1+ < or loop ;
+: lf-pf-blank-in? ( c-addr u -- flag ) ['] lf-pf-blank? text-any? ;
 : lf-pf-label? ( c-addr u -- flag )
   dup 0= if 2drop false exit then 2dup tr-rule? 0= if 2drop false exit then
   lf-pf-blank-in? 0= ;
 : lf-pf-note-end? ( char -- flag ) dup [char] " = over 10 = or swap 13 = or ;
 : lf-pf-note? ( c-addr u -- flag )
-  2dup tr-rule? invert if 2drop false exit then
-  true -rot chars over + swap ?do i c@ lf-pf-note-end? 0= and loop ;
+  2dup tr-rule? invert if 2drop false exit then ['] lf-pf-note-end? text-any? 0= ;
 : lf-pf-spellable-note? ( i -- flag )
   dup lf-note-text@ rot lf-note-kind@ lf-note-label =
   if lf-pf-label? else lf-pf-note? then ;

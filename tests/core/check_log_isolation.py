@@ -110,7 +110,11 @@ STORES = {
     "all?", "[']",
     # lib/outcome.fs's 2dup-under (review reuse-out S1), a pure stack word
     # for that loop's step: no state, no name looked up while running.
-    "2dup-under", "lf-tag-sort", "lf-tag-symbolic-sort", "lf-tag-bvar", "lf-tag-constant",
+    "2dup-under",
+    # lib/bounds.fs's cell-counted, and cell-count (review reuse-out-2 rc3
+    # B1): the rule table's names, laid down while loading and read back;
+    # dictionary and stack words only, no state, no name looked up.
+    "cell-counted,", "cell-count", "lf-tag-sort", "lf-tag-symbolic-sort", "lf-tag-bvar", "lf-tag-constant",
     "lf-tag-app", "lf-tag-lam", "lf-tag-pi", "lf-log-preset-level", "lf-log-preset-records",
     "lf-log-preset-marks", "lf-log-preset-terms", "lf-log-preset-levels",
     # The local context's (plan task 4.2.2a), read only, values: a free

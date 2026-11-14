@@ -255,7 +255,7 @@ defer lf-dq-known-same? ( t s -- flag )
   >r over r@ lf-cref-pair@ drop over r> lf-cref-pair@ drop lf-dq-level-eq ;
 : lf-dq-level-pairs ( ta sa n -- flag outcome ) ['] lf-dq-level-pair ok-all? 2swap 2drop ;
 : lf-dq-level-lists ( t s -- flag outcome )
-  lf-whnf-cref lf-cref-pairs rot lf-whnf-cref lf-cref-pairs
+  lf-const-slot lf-cref-pairs rot lf-const-slot lf-cref-pairs
   rot over <> if 2drop drop false outcome-ok exit then
   >r swap r> lf-dq-level-pairs ;
 
@@ -277,7 +277,7 @@ defer lf-dq-known-same? ( t s -- flag )
 \ Step 6 (1170-1172): two constants of the same name whose universe
 \ arguments are equivalent; on level-compare's fuel.
 : lf-dq-names? ( t s -- flag )
-  lf-whnf-cref lf-crec-name @ swap lf-whnf-cref lf-crec-name @ lf-name-same? ;
+  lf-const-name swap lf-const-name lf-name-same? ;
 : lf-dq-consts ( t s frames -- flag outcome )
   >r 2dup lf-tag-constant lf-dq-both? 0= if 2drop r> drop false outcome-ok exit then
   2dup lf-dq-names? 0= if 2drop r> drop false outcome-ok exit then
@@ -482,7 +482,7 @@ defer lf-ap-arg ( frames -- ... frames next )
   dup s" true" lf-name-str-is? 0= if drop false exit then
   lf-name-prefix@ s" Bool" lf-name-top? ;
 : lf-dq-true? ( node -- flag )
-  dup lf-whnf-const? if lf-whnf-cref lf-crec-name @ lf-dq-bool-true? else drop false then ;
+  dup lf-whnf-const? if lf-const-name lf-dq-bool-true? else drop false then ;
 : lf-dq-succ? ( node -- flag ) dup lf-dq-count 1 = if lf-whnf-k7? else drop false then ;
 \ is_def_eq_offset's is_nat_zero and is_nat_succ: the literal 0 or
 \ Nat.zero; a literal above 0 or Nat.succ x, and its predecessor (x, or
@@ -560,7 +560,7 @@ defer lf-ap-arg ( frames -- ... frames next )
 \ constant; (0 ok) when the head is no constant.
 : lf-dq-head-by ( node xt -- decl outcome )
   >r lf-whnf-head dup lf-whnf-const? 0= if r> 2drop 0 outcome-ok exit then
-  lf-whnf-cref lf-crec-name @ r> execute ;
+  lf-const-name r> execute ;
 : lf-dq-head-named ( node -- decl outcome ) ['] lf-dq-named lf-dq-head-by ;
 \ is_non_rec_structure (inductive.cpp 28-33) of the type named name, with
 \ the numIndices and is_rec LeanForth's block check computed, never the

@@ -6,6 +6,7 @@
 include ../support/heap-watch.fs
 require ./build.fs
 require ../support/store-faults.fs
+require ../../src/present/statement-forms.fs
 
 variable t1   variable t2   variable t3
 
@@ -412,4 +413,13 @@ T{ lit-wide 2 t-lit s" (literal of 2 limbs)" shows -> }T
 fresh 0 mode
 T{ args{ s" p" t-const s" Prod" 0 t-proj s" Prod.1 p" shows -> }T
 T{ args{ s" f" t-const s" Prod" 1 t-proj args{ s" a" t-const t-app s" Prod.2 f a" shows -> }T
+
+\ LaTeX's text mode (statement-forms.fs: a declaration's Lean form in
+\ \ttfamily) writes the math mode's escapes of a banned character and of a
+\ byte that starts no character (lf-tex-ident above) after
+\ \textbackslash{}, as it writes a backslash itself (review reuse-out-2
+\ rc3 M1).
+: tex-text ( c-addr u -- ) ['] cap-sink 100 lf-lv-setup must cap-reset lf-sf-tex lf-lv-done ;
+T{ s\" a\xe2\x80\xaeb\xffc\\" tex-text
+   s" a\textbackslash{}u\{202E\}b\textbackslash{}x\{FF\}c\textbackslash{}" expect-text -> }T
 bye

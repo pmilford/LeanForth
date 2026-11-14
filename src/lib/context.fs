@@ -92,6 +92,7 @@
 \ tasks start. Untrusted. The layout is host-specific and must never be
 \ serialized.
 
+require ./blocks.fs
 require ./bounds.fs
 require ./portability.fs
 require ./module.fs

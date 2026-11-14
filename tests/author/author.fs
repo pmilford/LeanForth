@@ -614,6 +614,13 @@ T{ s\" \xc2\xabab\xc2\xbb" lf-pf-plain? -> false }T
 T{ s\" \xc2\xab\xc2\xbb" lf-pf-plain? -> true }T
 T{ s\" \xc2\xabab" lf-pf-plain? -> true }T
 T{ s\" a\xc2\xa0b" lf-pf-plain? -> true }T
+\ A token that could start a Forth number (a digit, or any of - + $ # % &
+\ ' " .) is no word the printer writes: each of them, not only the first
+\ (review reuse-out-2 rc3 B2); after the first character they are fine.
+: token-starts ( -- n )
+  0 s\" 7-+$#%&'\"." bounds ?do i c@ pad c! [char] x pad 1+ c! pad 2 lf-pf-token? 0= - loop ;
+T{ token-starts -> 10 }T
+T{ s" x+" lf-pf-token? s" x'" lf-pf-token? -> true true }T
 
 \ The export of a run's declarations (export.fs, plan task 8.2.1c): one
 \ export record a line to a sink, the metadata first; theorem t makes its

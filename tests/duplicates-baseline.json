@@ -204,16 +204,6 @@
   "reason": "false positive: two fields of a record passed to the shared lf-name-current? (names.fs), a term's and a declaration's binder record",
   "tokens": 7
  },
- "16ef53f91e89": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/import/snapshot-tier.fs:metas-take",
-   "src/import/snapshot-tier.fs:metas-pinned?"
-  ],
-  "reason": "accepted: metas-take takes every meta record whatever the earlier ones gave; all? would stop early",
-  "tokens": 11
- },
  "17169c9b91a8": {
   "copies": 6,
   "kind": "shape",
@@ -633,7 +623,7 @@
    "src/kernel/defeq.fs:lf-lz-unknown",
    "src/present/log-check.fs:lf-lc-declaration?"
   ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "reason": "false positive: a two-way choice on a test of the top item (dup X if Y else Z then), each with its own test and words; a word taking three xts would be no shorter",
   "tokens": 7
  },
  "46add6576f0e": {
@@ -1782,7 +1772,7 @@
    "src/core/names.fs:lf-name-query-room?",
    "src/present/log-view.fs:lf-lv-scope-room?"
   ],
-  "reason": "planned: 9.4.8k follow-up 6, slab.fs (in flight in s1-synth-b) refusing a negative count in slab-hold, which these two guard by hand",
+  "reason": "planned: 9.4.8k follow-up 6, slab.fs (in flight in s1-elab) refusing a negative count in slab-hold, which these two guard by hand",
   "tokens": 10
  },
  "ad03bd508825": {
@@ -2088,7 +2078,7 @@
    "src/author/export.fs:lfx-wanted?",
    "src/author/export.fs:lfx-level-wanted?"
   ],
-  "reason": "false positive: the guarded test `x? if a else drop true then` of a term's and a level's reach, different tests",
+  "reason": "accepted: one family, a term's and a level's reach (each true when no reach is recorded); a word taking the reach test as an xt would be no shorter than these two lines",
   "tokens": 7
  },
  "c5df28d2b77a": {
@@ -2291,7 +2281,7 @@
    "src/lib/slab.fs:slab-epoch+",
    "src/lib/store.fs:epoch+"
   ],
-  "reason": "planned: 9.4.8k follow-up 6, after s1-synth-b merges (lib/slab.fs is in flight there): slab.fs and store.fs share one epoch step",
+  "reason": "planned: 9.4.8k follow-up 6, after s1-elab merges (lib/slab.fs is in flight there): slab.fs and store.fs share one epoch step",
   "tokens": 14
  },
  "d3f40f96a6ee": {
@@ -2710,7 +2700,7 @@
    "src/kernel/level-value.fs:lf-lassign-grown?",
    "src/kernel/mixed-infer.fs:lf-minfer-scope-room?"
   ],
-  "reason": "planned: 9.4.8k follow-up 6, a slab.fs word holding two slabs to one count (slab.fs is in flight in s1-synth-b)",
+  "reason": "planned: 9.4.8k follow-up 6, a slab.fs word holding two slabs to one count (slab.fs is in flight in s1-elab)",
   "tokens": 12
  },
  "f2b65c0aa60a": {

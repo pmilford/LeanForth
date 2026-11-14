@@ -114,6 +114,7 @@ require ../lib/bytes.fs
 require ../lib/blocks.fs
 require ../lib/decimal.fs
 require ../lib/bits.fs
+require ../lib/text-run.fs
 require ../core/diagnostics.fs
 require ../core/input.fs
 require ../kernel/environment.fs
@@ -725,21 +726,19 @@ create cli-hex 64 allot
   else ." snapshot: written to " cli-state opt-save 2@ nt-text if type else cli-unshown
   then cr
   then ;
-\ Whether a text is plain: letters, digits, ".", "-", "_", " " only.
+\ Whether a text is plain: letters, digits, ".", "-", "_", " " only (no
+\ character odd, outside those ranges).
 create cli-plain-chars
   char a , char z ,  char A , char Z ,  char 0 , char 9 ,
   char . , char . ,  char - , char - ,  char _ , char _ ,  bl , bl ,
 here cli-plain-chars - 2 cells / constant cli-plain-chars#
-: cli-plain-at? ( c-addr k -- c-addr flag )
-  over + count nip cli-plain-chars cli-plain-chars# in-ranges? ;
-: cli-plain? ( c-addr u -- flag ) ['] cli-plain-at? all? nip ;
+: cli-odd? ( char -- flag ) cli-plain-chars cli-plain-chars# in-ranges? 0= ;
+: cli-plain? ( c-addr u -- flag ) ['] cli-odd? text-any? 0= ;
 \ The commit the snapshot's information names, or "unknown", also for a
 \ text that is not plain (a line feed in it could forge a report line;
 \ review rvSN3 m1).
 : cli-commit-key ( -- c-addr u ) s\" \"commit\":\"" ;
-: cli-quote-at ( c-addr u -- n )
-  dup >r 0 ?do dup i + count nip [char] " = if drop i unloop r> drop exit then loop drop
-  r> ;
+: cli-quote-at ( c-addr u -- n ) tuck [char] " byte-scan nip - ;
 : cli-shown-commit ( c-addr u -- c-addr' u' )
   2dup cli-plain? over 0<> and 0= if 2drop s" unknown" then ;
 : cli-written-by ( -- c-addr u )

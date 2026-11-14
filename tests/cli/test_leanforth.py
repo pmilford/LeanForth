@@ -2400,6 +2400,29 @@ class Snapshots(unittest.TestCase):
         tampered.write_bytes(bytes(resealed(data, table, SLOTS)))
         self.assertNotEqual(self.apart_from_build(tampered)[0], kept)
 
+    def test_commit_not_plain(self):
+        """Review reuse-out-2 rc3 M1: cli-info-text writes a commit text into
+        the information's JSON as it is, so it keeps only a plain one: with a
+        quote or a backslash the commit is null, the information stays JSON
+        and check --snapshot names the build unknown; a text of every kind
+        of plain character (cli-plain-chars) is kept and shown. Gforth runs
+        directly: bin/leanforth sets LEANFORTH_COMMIT from git."""
+        for k, (commit, kept) in enumerate([('x"y', None), ("x\\y", None),
+                                            ("aZ09.-_ b", "aZ09.-_ b")]):
+            path = self.dir / f"c{k}.lfsnap"
+            result = subprocess.run(
+                [GFORTH, str(ROOT / "src" / "main.fs"), "-e", "cli-main", "check",
+                 "--save-snapshot", str(path), FIXTURE], cwd=ROOT,
+                env=dict(os.environ, LEANFORTH_COMMIT=commit, LEANFORTH_MODIFIED="false"),
+                stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT)
+            self.assertEqual(result.returncode, 100, (commit, result.stderr))
+            data, table = sectioned(path)
+            _, _, _, offset, length = table[self.INFO]
+            info = json.loads(bytes(data[offset:offset + length]))
+            self.assertEqual(info["commit"], kept, commit)
+            _, out, _ = run("check", "--snapshot", str(path))
+            self.assertIn(f"written by LeanForth {kept or 'unknown'}: ", out)
+
     def refused(self, path, status, text, *args):
         got, out, _ = run("check", "--snapshot", str(path), *args)
         self.assertEqual((got, out.splitlines()[0]),

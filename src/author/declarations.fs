@@ -33,11 +33,11 @@ require ./namespaces.fs
 \ the guillemets print-forth.fs writes and tests (lf-pf-guillemets?).
 : lfa-unquote ( c-addr u -- c-addr' u' ) 4 - swap 2 + swap ;
 : lfa-quoted-part ( prefix c-addr u -- name )
-  lfa-unquote 2dup lfa-digits? lfa-e-bad-name lfa-must lf-name-str
+  lfa-unquote 2dup decimal-digits? lfa-e-bad-name lfa-must lf-name-str
   lfa-e-names-full lfa-must ;
 : lfa-intern-part ( prefix c-addr u -- name )
   dup 0<> lfa-e-bad-name lfa-must 2dup lf-pf-guillemets? if lfa-quoted-part exit then
-  2dup lfa-digits? if lfa-numeric else lf-name-str lfa-e-names-full lfa-must then ;
+  2dup decimal-digits? if lfa-numeric else lf-name-str lfa-e-names-full lfa-must then ;
 : lfa-intern-step ( prefix c-addr u -- prefix' c-addr' u' )
   2dup lfa-dot >r rot 2 pick r@ lfa-intern-part -rot r> 1+ over min /string ;
 \ The name a token spells: no part may be empty.

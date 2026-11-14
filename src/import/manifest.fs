@@ -40,6 +40,7 @@ require ../lib/bytes.fs
 require ../lib/json.fs
 require ../lib/decimal.fs
 require ../lib/sha256.fs
+require ../lib/text-run.fs
 require ./ndjson.fs
 
 4096 constant manifest-name-room     \ longest manifest file name, in characters
@@ -150,11 +151,12 @@ end-structure
 : natural-at ( value view -- c-addr u true | false )
   2dup json-kind-at json-integer <> if 2drop false exit then
   json-text@ 2dup canonical-natural? if true else 2drop false then ;
-: hex-char? ( c -- flag )
-  dup [char] 0 [char] 9 between? swap [char] a [char] f between? or ;
+\ Whether c is no lowercase hexadecimal digit.
+: hex-odd? ( c -- flag )
+  dup [char] 0 [char] 9 between? swap [char] a [char] f between? or 0= ;
 \ Exactly n lowercase hexadecimal digits.
 : hex-text? ( c-addr u n -- flag )
-  over <> if 2drop false exit then true -rot over + swap ?do i c@ hex-char? and loop ;
+  over <> if 2drop false exit then ['] hex-odd? text-any? 0= ;
 
 \ The members of format version 1, and the members of its records
 \ object: the record kinds, in the order of their numbers.

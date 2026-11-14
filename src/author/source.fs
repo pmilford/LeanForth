@@ -123,10 +123,8 @@ end-structure
 \ where a number is meant, and every number-like token that is no plain
 \ decimal is refused (groups.fs).
 9 constant lfa-digits-max
-: lfa-digits? ( c-addr u -- flag )
-  true -rot chars over + swap ?do i c@ decimal-digit? and loop ;
 : lfa-plain-decimal? ( c-addr u -- flag )
-  dup 1 lfa-digits-max 1+ within if lfa-digits? else 2drop false then ;
+  dup 1 lfa-digits-max 1+ within if decimal-digits? else 2drop false then ;
 : lfa-prefix-char? ( char -- flag )
   dup [char] # [char] ' 1+ within over [char] + = or swap [char] - = or ;
 : lfa-number-like? ( c-addr u -- flag )

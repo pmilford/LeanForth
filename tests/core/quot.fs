@@ -26,7 +26,7 @@ require ../support/case-sweeps.fs
 variable binders
 : equation ( -- eq ) cs-type binders @ under ;
 : redex ( -- node ) equation lhs ;
-: name-in ( const -- name ) lf-whnf-cref lf-crec-name @ ;
+: name-in ( const -- name ) lf-const-name ;
 : head-name ( node -- name ) lf-whnf-head name-in ;
 : decl-named ( name -- decl|0 )
   lf-input-count 0 ?do

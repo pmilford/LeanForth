@@ -25,7 +25,7 @@
 \
 \ Interface (lf-lib): /run-settings, run-settings-order-max,
 \ run-settings-save, run-settings-restore, text-file-slurp, text-scan,
-\ text-line-end, text-cr-drop, text-plain-at, floats-depth, floats-drop-to.
+\ text-any?, text-line-end, text-cr-drop, text-plain-at, floats-depth, floats-drop-to.
 \ src/program/verify-runner.fs
 \ is a complete user. Offsets into a text count characters (/STRING).
 \ State: none; every word takes its record or buffer. Loads in decimal
@@ -99,13 +99,21 @@ lf-lib set-current
   2swap text-file-open ?dup if 2drop 2drop 0 outcome-invalid exit then
   over >r dup >r ['] text-file-read catch r> close-file drop throw r> text-file-outcome ;
 
+lf-lib-private set-current
+\ The rest of c-addr u from its first character for which xt ( char --
+\ flag ) is true, empty when there is none.
+: text-from ( c-addr u xt -- c-addr' u' )
+  >r begin dup while over c@ r@ execute 0= while 1 /string repeat then r> drop ;
+
+lf-lib set-current
 \ The offset, in characters, of the first character of c-addr u for which
 \ xt ( char -- flag ) is true, or u when there is none. It is u less the
 \ length that /STRING leaves, both counted in characters, so it never
 \ depends on how many address units a character takes.
-: text-scan ( c-addr u xt -- n )
-  over >r >r begin dup while over c@ r@ execute 0= while 1 /string repeat then
-  nip r> drop r> swap - ;
+: text-scan ( c-addr u xt -- n ) over >r text-from nip r> swap - ;
+\ Whether xt ( char -- flag ) is true for any character of c-addr u
+\ (false for an empty text); text-any? 0= says it is true for none.
+: text-any? ( c-addr u xt -- flag ) text-from nip 0<> ;
 
 lf-lib-private set-current
 10 constant text-lf

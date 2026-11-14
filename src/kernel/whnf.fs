@@ -293,6 +293,8 @@ defer lf-whnf-known ( node visit -- flag true | false )
 \ normal form, one contraction at a time.
 : lf-whnf-arg-open? ( frames i -- frames flag outcome )
   lf-whnf-arg @ over lf-whnf-loose? ;
+\ Argument k+j's test, ok-any? over j: an offset adapter, as outcome.fs
+\ has no ok-any-in? (this would be its only caller, and no shorter).
 : lf-whnf-arg-at? ( frames k j -- frames k flag outcome )
   over + swap >r lf-whnf-arg-open? r> -rot ;
 : lf-whnf-open-args? ( k m frames -- flag outcome )
@@ -325,12 +327,11 @@ defer lf-whnf-known ( node visit -- flag true | false )
 \ The answer "none" of is_delta, unfold_definition and the iota hook, in
 \ the place of a declaration or a node (review rvU4, style point 2).
 -1 constant lf-whnf-none
-: lf-whnf-cref ( const -- slot ) lf-term-first@ lf-cref-slot ;
 : lf-whnf-find ( name -- d outcome )
   >r lf-diag@ r> lf-env-lookup-pass dup outcome-rejected =
   if 2drop lf-diag! lf-whnf-absent outcome-ok else 2>r 2drop 2drop 2r> then ;
 : lf-whnf-lookup ( const -- d outcome )
-  lf-whnf-cref lf-crec-name @ dup lf-envsig-local
+  lf-const-name dup lf-envsig-local
   if 2drop lf-whnf-absent outcome-ok else lf-whnf-find then ;
 \ A found slot's input declaration.
 : lf-whnf-decl ( d -- decl outcome )
@@ -348,7 +349,7 @@ defer lf-whnf-known ( node visit -- flag true | false )
 : lf-whnf-slot-delta ( const d -- decl outcome )
   dup 0< if 2drop lf-whnf-none outcome-ok exit then
   lf-whnf-decl ok-then? 0= if nip no-result exit then
-  swap lf-whnf-cref lf-crec-arity @ over swap lf-whnf-valued?
+  swap lf-const-levels# over swap lf-whnf-valued?
   if outcome-ok else drop lf-whnf-none outcome-ok then ;
 : lf-whnf-delta-of ( const -- decl outcome )
   lf-whnf-env? 0= if lf-whnf-k1 exit then
@@ -371,7 +372,7 @@ defer lf-whnf-known ( node visit -- flag true | false )
   r@ frame-fuel @ lf-mixed-level-substitute lf-whnf-substituted
   lf-mls-fuel @ r> frame-fuel ! ;
 : lf-whnf-value ( decl const frames -- value outcome )
-  >r lf-whnf-cref lf-cref-pairs
+  >r lf-const-slot lf-cref-pairs
   dup 0= if 2drop lf-idecl-value @ r> drop outcome-ok exit then
   lf-whnf-pairs! ok-then? 0= if nip nip r> drop no-result exit then
   rot dup lf-idecl-value @ swap 2swap r> lf-whnf-substitute ;
@@ -424,18 +425,18 @@ create lf-whnf-nat-binary
     swap 1+ swap cell-count + aligned
   repeat 2drop drop -1 ;
 : lf-whnf-binary? ( name -- flag ) lf-whnf-binary 0< 0= ;
-: lf-whnf-op ( node -- i ) lf-whnf-head lf-whnf-cref lf-crec-name @ lf-whnf-binary ;
+: lf-whnf-op ( node -- i ) lf-whnf-head lf-const-name lf-whnf-binary ;
 : lf-whnf-matched? ( name n -- flag )
   over lf-whnf-nat? 0= if 2drop false exit then
   case 1 of s" succ" lf-name-str-is? endof  2 of lf-whnf-binary? endof
     nip false swap endcase ;
 : lf-whnf-k7? ( node -- flag )
   lf-mhead-spine over lf-whnf-const? 0= if 2drop false exit then
-  swap lf-whnf-cref dup lf-crec-arity @ if 2drop false exit then
+  swap lf-const-slot dup lf-crec-arity @ if 2drop false exit then
   lf-crec-name @ swap lf-whnf-matched? ;
 : lf-whnf-zero? ( node -- flag )
   dup lf-whnf-const? 0= if drop false exit then
-  lf-whnf-cref dup lf-crec-arity @ if drop false exit then
+  lf-const-slot dup lf-crec-arity @ if drop false exit then
   lf-crec-name @ dup s" zero" lf-name-str-is? if lf-whnf-nat? else drop false then ;
 
 \ ---------------------------------------------------------------------------

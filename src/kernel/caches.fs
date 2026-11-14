@@ -404,7 +404,7 @@ create lf-cache-values 2 , 2 , 2 , 2 , 2 , 0 , 0 , 1 ,
 
 \ m_unfold: only for a constant with universe arguments, as Lean (573).
 : lf-cu-cacheable? ( const -- flag )
-  lf-caches-on? if lf-whnf-cref lf-cref-pairs nip 0<> else drop false then ;
+  lf-caches-on? if lf-const-levels# 0<> else drop false then ;
 : lf-cu-value ( decl const frames -- value outcome )
   over lf-cu-cacheable? 0= if lf-whnf-value exit then
   over lf-cache-unfold lf-cache-node@ if >r drop 2drop r> outcome-ok exit then

@@ -206,7 +206,7 @@ create lf-quot-entries lf-quot-type , lf-quot-mk , lf-quot-lift , lf-quot-ind ,
 : lf-quot-n ( app -- n ) lf-mhead-spine nip ;
 : lf-quot-applied ( app mk -- mk|-1 ) swap lf-quot-n over > 0= if drop -1 then ;
 : lf-quot-headed ( app const -- mk outcome )
-  dup lf-whnf-cref lf-crec-name @ lf-quot-pos dup 0< if nip nip outcome-ok exit then
+  dup lf-const-name lf-quot-pos dup 0< if nip nip outcome-ok exit then
   swap lf-quot-held ok-then? 0= if nip nip -1 swap exit then
   if lf-quot-applied else 2drop -1 then outcome-ok ;
 : lf-quot-rule ( app -- mk outcome )
@@ -219,7 +219,7 @@ create lf-quot-entries lf-quot-type , lf-quot-mk , lf-quot-lift , lf-quot-ind ,
 : lf-quot-mk? ( node -- flag )
   dup lf-quot-n 3 = 0= if drop false exit then
   lf-whnf-head dup lf-whnf-const? 0= if drop false exit then
-  lf-whnf-cref lf-crec-name @ s" Quot.mk" lf-stmt-name? ;
+  lf-const-name s" Quot.mk" lf-stmt-name? ;
 \ f, app's argument 3, applied to mk's last argument, then to app's k
 \ arguments after mk_pos; a full store is full.
 : lf-quot-made ( mk' app mk -- reduct outcome )

@@ -113,6 +113,17 @@ T{ stage-another save-a load-b both-free -> 0 0 outcome-unsupported }T
 T{ stage-another save-a load-b-any sb stage-seal file-b sb tf tier-save stages= files=
    sb stage-other? 0 s" otherexport" meta-is? 3 s" 4.99.0" meta-is? both-free
    -> 0 0 0 0 0 true true true true true }T
+\ Pinned in all but Lean's githash, the last of the five texts: another
+\ version too, kept, never a malformed "other" (review reuse-out-2 rc3 L3).
+: meta-githash ( -- c-addr u )
+  s\" {\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":\"3.1.0\"},\"format\":{\"version\":\"3.1.0\"},\"lean\":{\"githash\":\"abc\",\"version\":\"4.35.0\"}}}\n" ;
+: write-meta ( c-addr u -- )
+  s" tests/reference/identity.ndjson" slurp over >r skip-line 2swap
+  other-file w/o bin create-file throw >r r@ write-file throw r@ write-file throw
+  r> close-file throw r> free throw ;
+meta-githash write-meta
+T{ stage-another save-a load-b-any sb stage-other? 4 s" abc" meta-is? both-free
+   -> 0 0 0 true true }T
 T{ live-blocks @ blocks-at-start - -> 0 }T
 
 \ ---- Both ways: the verdict and fuel of every declaration, the stage fed
@@ -213,6 +224,9 @@ T{ fresh-img 7 0 0 peek 1+ 7 0 0 poke 0 forged attempted -> outcome-invalid true
 T{ fresh-img 2 0 0 peek 1+ 2 0 0 poke 0 forged attempted -> outcome-invalid true }T
 T{ fresh-img 2 0 0 peek 1- 2 0 0 poke 0 forged attempted -> outcome-invalid true }T
 T{ fresh-img 2 0 0 0 poke 0 forged attempted -> outcome-unsupported true }T
+\ A tier of the pinned versions holds no metadata: its five texts all 0,
+\ the last too (review reuse-out-2 rc3 L3; information fields 10-14).
+T{ fresh-img 1 14 0 0 poke 0 forged attempted -> outcome-invalid true }T
 \ A level equal to an earlier one; a letE's body record; the first name;
 \ the first line after the last.
 : level-copy ( from to -- ) swap 3 rec swap 3 rec 16 move ;

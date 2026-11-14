@@ -74,6 +74,18 @@ T{ s\" ab\r" text-cr-drop nip -> 2 }T
 T{ s\" ab\r\r" text-cr-drop nip -> 3 }T
 T{ s" " text-cr-drop nip -> 0 }T
 
+\ text-any? (review reuse-out-2 rc3 B2): whether any character passes the
+\ test, in the first place, the last or none; false for an empty text; it
+\ stops at the first that passes; items below its inputs stay.
+variable tests-run
+: numeral? ( char -- flag ) 1 tests-run +! [char] 0 [char] 9 1+ within ;
+T{ s" ab3" ' numeral? text-any? -> true }T
+T{ s" 3ab" ' numeral? text-any? -> true }T
+T{ s" abc" ' numeral? text-any? -> false }T
+T{ s" " ' numeral? text-any? -> false }T
+T{ 0 tests-run ! s" a1b2" ' numeral? text-any? tests-run @ -> true 2 }T
+T{ 7 s" 1" ' numeral? text-any? -> 7 true }T
+
 \ Plain text: printable ASCII, spaces and tabs only.
 T{ s\" a b\tc~" text-plain-at -> 6 }T
 T{ s\" ab\x7f" text-plain-at -> 2 }T

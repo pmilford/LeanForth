@@ -19,7 +19,7 @@
 require ../support/case-sweeps.fs
 
 \ The constant node's name, universe arguments and their number.
-: request ( const -- name pairs count ) lf-whnf-cref dup lf-crec-name @ swap lf-cref-pairs ;
+: request ( const -- name pairs count ) lf-const-slot dup lf-crec-name @ swap lf-cref-pairs ;
 : answer ( root identity fuel' 0 | status -- root|-1 outcome )
   dup ok? if drop drop drop outcome-ok else -1 swap then ;
 \ Deciding, in a job of its own (whose mark the pass's rollback uses).

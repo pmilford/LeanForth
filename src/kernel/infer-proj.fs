@@ -95,11 +95,11 @@ require ./whnf.fs
   dup lf-idecl-kind @ lf-kind-inductive =
   if lf-iproj-fits else 2drop drop lf-iproj-bad then ;
 : lf-iproj-named? ( leaf const -- flag )
-  lf-whnf-cref lf-crec-name @ swap lf-proj-name lf-name-same? ;
+  lf-const-name swap lf-proj-name lf-name-same? ;
 \ Lean's env().get (259): no such constant is unknownConstant, the
 \ lookup's rejection (N1); one the check declares itself stays absent.
 : lf-iproj-get ( const -- d outcome )
-  lf-whnf-cref lf-crec-name @ dup lf-envsig-local
+  lf-const-name dup lf-envsig-local
   if 2drop lf-whnf-absent outcome-ok else lf-env-lookup-pass then ;
 : lf-iproj-struct ( leaf n Ty -- decl outcome )
   lf-iproj-head dup lf-whnf-const? 0= if 2drop lf-iproj-bad exit then
@@ -113,7 +113,7 @@ require ./whnf.fs
   lf-idecl-data lf-ity-ctors@ drop @ lf-whnf-find ok-then? 0= if no-result exit then
   dup 0< if drop lf-iproj-unknown exit then lf-whnf-decl ;
 : lf-iproj-at ( ctor Ty -- r outcome )
-  lf-iproj-head lf-whnf-cref lf-cref-pairs
+  lf-iproj-head lf-const-slot lf-cref-pairs
   dup 0= if 2drop lf-idecl-type @ outcome-ok exit then
   lf-whnf-pairs! ok-then? 0= if nip nip no-result exit then
   rot dup lf-idecl-type @ swap 2swap lf-minfer-frames lf-whnf-substitute ;

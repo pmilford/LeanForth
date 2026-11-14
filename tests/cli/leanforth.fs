@@ -542,6 +542,12 @@ T{ serial-thrown serial-nested <> -> true }T
 -1 throw-at !
 lf-fault-hasty lf-sched-faults !
 T{ nested 3 facts-of 2drop 0> swap serial-nested = -> true true }T
+\ Those the readiness test refused wait on the later heap until the
+\ frontier passes them, and none is forced out (review reuse-out-2 rc3 M1:
+\ one put on the ready heap instead is dropped there as no longer queued,
+\ and only the stuck frontier hands it out, counted as forced).
+: forced-of ( c-addr u jobs -- n ) fresh >r run-with lf-sched-forced ck-release r> back ;
+T{ nested 3 forced-of -> 0 }T
 lf-fault-hasty lf-fault-trusting or lf-sched-faults !
 T{ nested 3 facts-of drop nip 0> swap serial-nested = -> true true }T
 lf-fault-hasty lf-fault-trusting or lf-fault-careless or lf-sched-faults !

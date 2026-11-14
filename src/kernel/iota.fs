@@ -86,7 +86,7 @@ require ./quot.fs
 : lf-iota-arg ( app n i -- arg ) - 1- lf-iota-peel lf-term-second@ ;
 \ The major premise e of app, whose recursor's record is decl.
 : lf-iota-major ( app decl -- e ) lf-iota-major-idx >r dup lf-iota-n r> lf-iota-arg ;
-: lf-iota-head-name ( node -- name ) lf-whnf-head lf-whnf-cref lf-crec-name @ ;
+: lf-iota-head-name ( node -- name ) lf-whnf-head lf-const-name ;
 
 \ The recursor app's head names: its record (decl ok); (-1 ok) when no
 \ rule can apply (no constant, no recursor, or a constant Lean's
@@ -126,7 +126,7 @@ require ./quot.fs
   loop
   dup lf-iota-pi? 0= if drop 0 exit then
   lf-term-first@ lf-whnf-head dup lf-whnf-const? 0= if drop 0 exit then
-  lf-whnf-cref lf-crec-name @ ;
+  lf-const-name ;
 : lf-iota-not-ported ( app -- -1 outcome ) lf-whnf-head lf-whnf-pending ;
 \ Whether inference can type e where whnf meets it: e closed, or met by
 \ a whnf on the inference job's frames, whose terms are read under the
@@ -171,11 +171,11 @@ require ./quot.fs
   dup outcome-unknown = if drop lf-iota-not-ported else nip no-result then ;
 : lf-iota-of-struct? ( sdecl Ty -- flag )
   lf-whnf-head dup lf-whnf-const? 0= if 2drop false exit then
-  lf-whnf-cref lf-crec-name @ swap lf-idecl-name @ lf-name-same? ;
+  lf-const-name swap lf-idecl-name @ lf-name-same? ;
 \ The constructor named name at Ty's head's universe arguments, a new
 \ constant node (its pairs copied first, as a reference needs).
 : lf-iota-ctor-const ( name Ty -- node outcome )
-  lf-whnf-head lf-whnf-cref lf-cref-pairs lf-whnf-pairs!
+  lf-whnf-head lf-const-slot lf-cref-pairs lf-whnf-pairs!
   ok-then? 0= if nip nip no-result exit then
   >r >r lf-name-generation @ r> r> lf-cref-new 0= if -1 outcome-full exit then
   lf-cterm-new if drop outcome-ok else -1 outcome-full then ;
@@ -234,7 +234,7 @@ require ./quot.fs
 \ The rule applies when the constructor has its fields and the recursor
 \ as many universe arguments as parameters (inductive.h 104-105).
 : lf-iota-levels? ( app decl -- flag )
-  swap lf-whnf-head lf-whnf-cref lf-crec-arity @ swap lf-idecl-arity @ = ;
+  swap lf-whnf-head lf-const-levels# swap lf-idecl-arity @ = ;
 : lf-iota-applies? ( app decl major rule -- flag )
   lf-irule-nfields swap lf-iota-n > 0= >r lf-iota-levels? r> and ;
 
@@ -244,7 +244,7 @@ require ./quot.fs
 \ last nfields arguments, and to the k arguments after the major premise
 \ (inductive.h 106-115).
 : lf-iota-rhs ( rhs decl const frames -- rhs' outcome )
-  >r lf-whnf-cref lf-cref-pairs
+  >r lf-const-slot lf-cref-pairs
   dup 0= if 2drop drop r> drop outcome-ok exit then
   lf-whnf-pairs! ok-then? 0= if nip nip nip r> drop no-result exit then
   r> lf-whnf-substitute ;
@@ -351,7 +351,7 @@ require ./quot.fs
 : lf-iota-k-induct ( Ty decl -- name|0 outcome )
   lf-iota-induct ?dup 0= if drop 0 outcome-unknown exit then
   swap lf-whnf-head dup lf-whnf-const? 0= if 2drop 0 outcome-ok exit then
-  lf-whnf-cref lf-crec-name @ over lf-name-same? 0= if drop 0 then outcome-ok ;
+  lf-const-name over lf-name-same? 0= if drop 0 then outcome-ok ;
 \ get_first_cnstr (inductive.cpp 80-86): the first constructor's name of
 \ the type named name, 0 for no inductive type or none.
 : lf-iota-first-ctor ( name -- ctor|0 outcome )

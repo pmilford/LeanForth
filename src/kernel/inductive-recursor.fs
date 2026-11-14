@@ -131,8 +131,7 @@ end-structure
 \ consume_type_annotations, by name at the head of an application spine.
 : lf-rcr-named? ( node c-addr u -- flag )
   rot dup lf-tag-constant lf-ind-tag? 0= if drop 2drop false exit then
-  lf-ind-const-name dup lf-name-prefix@ if drop 2drop false exit then
-  -rot lf-name-str-is? ;
+  lf-const-name -rot lf-name-top? ;
 : lf-rcr-gadget? ( head n -- flag )
   dup 1 = if
     drop dup s" outParam" lf-rcr-named? swap s" semiOutParam" lf-rcr-named? or exit

@@ -167,7 +167,7 @@ end-structure
 : lf-sx-string-app? ( s -- flag )
   dup lf-term-tag@ lf-tag-app <> if drop false exit then
   lf-term-first@ dup lf-whnf-const? 0= if drop false exit then
-  lf-whnf-cref dup lf-crec-arity @ if drop false exit then lf-crec-name @ lf-sx-of-list? ;
+  dup lf-const-levels# if drop false exit then lf-const-name lf-sx-of-list? ;
 \ try_string_lit_expansion_core(t, s) applies.
 : lf-sx-applies? ( t s -- flag ) lf-sx-string-app? swap lf-str-leaf? and ;
 : lf-sx-compared ( flag outcome frames -- ... frames next )

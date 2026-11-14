@@ -2634,8 +2634,8 @@ reason = "another format version is read as version 1"
 [[fault]]
 id = "manifest-hex-length"
 file = "src/import/manifest.fs"
-old = '''over <> if 2drop false exit then true -rot'''
-new = '''drop true -rot'''
+old = '''  over <> if 2drop false exit then ['] hex-odd? text-any? 0= ;'''
+new = '''  drop ['] hex-odd? text-any? 0= ;'''
 test = "python3 tests/core/test_export_manifest.py"
 reason = "a digest's length is not checked: a short sha256 is not malformed"
 
@@ -6260,8 +6260,8 @@ reason = "5.2.3 L4: step 13 skipped for a string literal on the left; primitive.
 [[fault]]
 id = "str-of-list-any-levels"
 file = "src/kernel/string-literals.fs"
-old = '''  lf-whnf-cref dup lf-crec-arity @ if drop false exit then lf-crec-name @ lf-sx-of-list? ;'''
-new = '''  lf-whnf-cref lf-crec-name @ lf-sx-of-list? ;'''
+old = '''  dup lf-const-levels# if drop false exit then lf-const-name lf-sx-of-list? ;'''
+new = '''  lf-const-name lf-sx-of-list? ;'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "5.2.3 L4: step 13 takes String.ofList.{u} x for Lean's String.ofList x"
 
@@ -10009,8 +10009,8 @@ reason = "is_constructor_app true for any declaration: an application of Bool.re
 [[fault]]
 id = "cov-iota-k-induct-any-head"
 file = "src/kernel/iota.fs"
-old = '''  lf-whnf-cref lf-crec-name @ over lf-name-same? 0= if drop 0 then outcome-ok ;'''
-new = '''  lf-whnf-cref lf-crec-name @ nip outcome-ok ;'''
+old = '''  lf-const-name over lf-name-same? 0= if drop 0 then outcome-ok ;'''
+new = '''  lf-const-name nip outcome-ok ;'''
 test = "$GFORTH tests/core/iota.fs"
 reason = "K takes any constant head as the major inductive type, not only the recursor's"
 
@@ -18968,3 +18968,99 @@ old = '''  dup uf-field? if nip lf-unfold-ask-none outcome-ok else drop uf-none-
 new = '''  nip lf-unfold-ask-none outcome-ok ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "review s2-unfold-a: unfoldProjInst? asks reduceProj? of a result with no projection at its head (HAdd.hAdd Nat Nat Nat unfolds to a lambda), where Lean gives none"
+
+[[fault]]
+id = "r4-cli-plain-table"
+file = "src/cli/leanforth.fs"
+old = '''  char . , char . ,  char - , char - ,  char _ , char _ ,  bl , bl ,'''
+new = '''  char . , char . ,  char - , char - ,  char _ , char _ ,  bl , char / ,'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_commit_not_plain"
+reason = "review reuse-out-2 rc3 M1: characters 32-47 count as plain, so a commit text with a quote is written unescaped into the snapshot's information JSON"
+
+[[fault]]
+id = "r4-tex-text-backslash"
+file = "src/present/statement-forms.fs"
+old = ''': lf-sf-backslash ( -- c-addr u ) s" \textbackslash{}" ;'''
+new = ''': lf-sf-backslash ( -- c-addr u ) s" \backslash{}" ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "review reuse-out-2 rc3 M1: LaTeX's text mode writes a banned character's or a bad byte's code after the math mode's \\backslash{}, which text mode does not accept"
+
+[[fault]]
+id = "r4-sched-later-ready"
+file = "src/kernel/env-schedule.fs"
+old = ''': lf-sch-later! ( d -- ) lf-sch-later lf-sched lf-sch-laters lf-sch-enqueue ;'''
+new = ''': lf-sch-later! ( d -- ) lf-sch-later lf-sched lf-sch-ready lf-sch-enqueue ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review reuse-out-2 rc3 M1: a declaration that must wait for every slot below it goes on the ready heap, where it is dropped as no longer queued and only the stuck frontier forces it out"
+
+[[fault]]
+id = "r4-text-any-last"
+file = "src/lib/text-run.fs"
+old = ''': text-any? ( c-addr u xt -- flag ) text-from nip 0<> ;'''
+new = ''': text-any? ( c-addr u xt -- flag ) text-from nip 1 > ;'''
+test = "$GFORTH tests/lib/text-run.fs"
+reason = "review reuse-out-2 rc3 B2: text-any? misses a match in the last character"
+
+[[fault]]
+id = "r4-hex-text-any"
+file = "src/import/manifest.fs"
+old = '''  over <> if 2drop false exit then ['] hex-odd? text-any? 0= ;'''
+new = '''  over <> if 2drop false exit then 2drop true ;'''
+test = "$GFORTH tests/core/manifest.fs"
+reason = "review reuse-out-2 rc3 B2: a digest or commit of the right length passes with any characters"
+
+[[fault]]
+id = "r4-plain-decimal-any"
+file = "src/author/source.fs"
+old = '''  dup 1 lfa-digits-max 1+ within if decimal-digits? else 2drop false then ;'''
+new = '''  dup 1 lfa-digits-max 1+ within if 2drop true else 2drop false then ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "review reuse-out-2 rc3 B2: any token of one to nine characters reads as a LeanForth number"
+
+[[fault]]
+id = "r4-pf-note-any"
+file = "src/present/print-forth.fs"
+old = '''  2dup tr-rule? invert if 2drop false exit then ['] lf-pf-note-end? text-any? 0= ;'''
+new = '''  2dup tr-rule? invert if 2drop false exit then 2drop true ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "review reuse-out-2 rc3 B2: a note holding a quote or a line end is written, which ends it early when read back"
+
+[[fault]]
+id = "r4-pf-among-first"
+file = "src/present/print-forth.fs"
+old = ''': lf-pf-among? ( c-addr u char -- flag ) byte-scan nip 0<> ;'''
+new = ''': lf-pf-among? ( c-addr u char -- flag ) >r drop c@ r> = ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "review reuse-out-2 rc3 B2: only the first of the number-start characters is looked at, so a name starting with + or a quote is written plainly"
+
+[[fault]]
+id = "r4-cli-quote-at-past"
+file = "src/cli/leanforth.fs"
+old = ''': cli-quote-at ( c-addr u -- n ) tuck [char] " byte-scan nip - ;'''
+new = ''': cli-quote-at ( c-addr u -- n ) tuck [char] " byte-scan nip - 1+ ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_commit_not_plain"
+reason = "review reuse-out-2 rc3 B2: the commit read back from a snapshot's information takes its closing quote too, so a plain commit shows as unknown"
+
+[[fault]]
+id = "r4-metas-pinned-short"
+file = "src/import/snapshot-tier.fs"
+old = ''': metas-pinned? ( stage -- flag ) #meta ['] meta-pinned-at? all? nip ;'''
+new = ''': metas-pinned? ( stage -- flag ) #meta 1- ['] meta-pinned-at? all? nip ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "review reuse-out-2 rc3 L3: the last metadata text is not compared, so a tier that says other while differing only there reads as all pinned (malformed)"
+
+[[fault]]
+id = "r4-metas-zero-short"
+file = "src/import/snapshot-tier.fs"
+old = ''': metas-zero? ( tf -- flag ) #meta ['] meta-zero-at? all? nip ;'''
+new = ''': metas-zero? ( tf -- flag ) #meta 1- ['] meta-zero-at? all? nip ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "review reuse-out-2 rc3 L3: a tier whose metadata is zero but for the last field reads as having none"
+
+[[fault]]
+id = "r4-text-scan-short"
+file = "src/lib/text-run.fs"
+old = ''': text-scan ( c-addr u xt -- n ) over >r text-from nip r> swap - ;'''
+new = ''': text-scan ( c-addr u xt -- n ) over >r text-from nip r> swap - 1 max ;'''
+test = "$GFORTH tests/lib/text-run.fs"
+reason = "review reuse-out-2 rc3 B2 (text-scan on the private text-from): a match in the first character is reported one character on"

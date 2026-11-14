@@ -508,7 +508,8 @@ create tf-loads   \ by position, from 1
 
 \ The metadata: none (every field 0), or five texts of the tier.
 : tf-meta@ ( k tf -- u ) swap ti-meta + swap ti@ ;
-: metas-zero? ( tf -- flag ) true #meta 0 do over i swap tf-meta@ 0= and loop nip ;
+: meta-zero-at? ( tf k -- tf flag ) over tf-meta@ 0= ;
+: metas-zero? ( tf -- flag ) #meta ['] meta-zero-at? all? nip ;
 : meta-take ( k tf -- flag )
   2dup tf-meta@ swap tf-stage@ 2dup stage-tier tier-texts cons-entry?
   if rot swap meta-slot ! true else 2drop drop false then ;
@@ -519,7 +520,8 @@ create tf-loads   \ by position, from 1
 \ (a file that says other for the pinned versions is malformed).
 : meta-pinned? ( k stage -- flag )
   over >r stage-meta-text r> cells pinned-meta + @ execute compare 0= ;
-: metas-pinned? ( stage -- flag ) true #meta 0 do over i swap meta-pinned? and loop nip ;
+: meta-pinned-at? ( stage k -- stage flag ) over meta-pinned? ;
+: metas-pinned? ( stage -- flag ) #meta ['] meta-pinned-at? all? nip ;
 : metas-taken ( stage -- outcome )
   dup metas-pinned? if drop outcome-invalid exit then
   dup stage-export export-any-version? 0= if drop outcome-unsupported exit then

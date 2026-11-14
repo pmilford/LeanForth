@@ -289,7 +289,7 @@ end-structure
 \ Its type at I's universe levels (instantiate_lparams, 1106): the
 \ occurrence's head's levels for the declaration's own parameters; N3
 \ when their numbers differ.
-: lf-nest-levels ( -- pairs n ) lf-nest-head lf-term-first@ lf-cref-slot lf-cref-pairs ;
+: lf-nest-levels ( -- pairs n ) lf-nest-head lf-const-slot lf-cref-pairs ;
 : lf-nest-subst ( root formals pairs n -- root' outcome )
   >r >r >r lf-term-handle r> r> r> lf-ind-fuel @ lf-mixed-level-substitute
   lf-mls-fuel @ lf-ind-fuel ! dup ok? if 2drop outcome-ok else no-result then ;
@@ -369,7 +369,7 @@ end-structure
 : lf-nest-all ( -- items n )
   lf-nest-state lf-nest-slot @ lf-input-decl lf-idecl-data lf-ity-all@ ;
 : lf-nest-own ( -- i )
-  lf-nest-head lf-ind-const-name lf-nest-all 0 ?do
+  lf-nest-head lf-const-name lf-nest-all 0 ?do
     2dup i cells + @ lf-name-same? if 2drop i unloop exit then
   loop 2drop -1 ;
 : lf-nest-new ( -- a outcome )
@@ -442,7 +442,7 @@ end-structure
   lf-nest-head lf-tag-constant lf-ind-tag? 0= if false outcome-ok exit then
   lf-nest-node@ lf-nest-n@ dup lf-nest-mentions? ;
 : lf-nest-is-type? ( -- flag outcome )
-  lf-nest-head lf-ind-const-name lf-nest-inductive ok-then? 0= if false swap exit then
+  lf-nest-head lf-const-name lf-nest-inductive ok-then? 0= if false swap exit then
   dup 0< if drop false outcome-ok exit then
   lf-nest-k! 0= if false outcome-ok exit then
   lf-nest-node@ lf-nest-n@ lf-nest-k@ lf-nest-mentions? ;
@@ -511,7 +511,7 @@ end-structure
 \ which auxiliary constructor (j, or -1).
 : lf-nest-aux-type ( head -- a ) lf-ind-which dup lf-ind-in-types@ < if drop -1 then ;
 : lf-nest-aux-ctor ( head -- j )
-  dup lf-tag-constant lf-ind-tag? 0= if drop -1 exit then lf-ind-const-name
+  dup lf-tag-constant lf-ind-tag? 0= if drop -1 exit then lf-const-name
   lf-ind-ctors@ lf-ind-in-ctors@ ?do
     dup i lf-ind-ctor lf-idecl-name @ lf-name-same? if drop i unloop exit then
   loop drop -1 ;
@@ -527,7 +527,7 @@ end-structure
   drop ;
 \ Constructor j's restored name at the levels of K's head.
 : lf-nest-ctor-head ( j K -- head )
-  lf-ind-spine drop lf-term-first@ lf-cref-slot lf-cref-pairs rot
+  lf-ind-spine drop lf-const-slot lf-cref-pairs rot
   lf-ind-ctor-cells slab-at lf-ictor-name @ -rot lf-nest-const ;
 \ Fewer arguments than parameters is N3; a node above the parameters is
 \ invalid (no generated term has one).
@@ -556,7 +556,7 @@ end-structure
 \ (restore_constructor_name: its prefix, its type's name, replaced by
 \ the name of its key's head), any other its own.
 : lf-nest-key-name ( a -- name )
-  lf-ind-ty lf-ty-key @ lf-ind-spine drop lf-ind-const-name ;
+  lf-ind-ty lf-ty-key @ lf-ind-spine drop lf-const-name ;
 : lf-nest-restored ( j -- name true | false )
   dup lf-ind-ctor lf-idecl-name @ swap dup lf-ind-in-ctors@ < if drop true exit then
   lf-ind-owner dup lf-ind-tname swap lf-nest-key-name lf-nest-replace-prefix ;

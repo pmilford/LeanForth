@@ -184,15 +184,14 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-ind-arg ( node n i -- arg ) - 1- 0 ?do lf-term-first@ loop lf-term-second@ ;
 : lf-ind-bvar? ( node index -- flag )
   over lf-tag-bvar lf-ind-tag? if swap lf-term-first@ = else 2drop false then ;
-\ A constant node's name; which type of the block a node is, unapplied:
-\ d, or -1 for none; whether it is one.
-: lf-ind-const-name ( node -- name ) lf-term-first@ lf-cref-slot lf-crec-name @ ;
+\ Which type of the block a node is, unapplied: d, or -1 for none;
+\ whether it is one.
 : lf-ind-which-name ( name -- d )
   lf-ind-types@ 0 ?do dup i lf-ind-tname lf-name-same? if drop i unloop exit then loop
   drop -1 ;
 : lf-ind-which ( node -- d )
   dup lf-tag-constant lf-ind-tag? 0= if drop -1 exit then
-  lf-ind-const-name lf-ind-which-name ;
+  lf-const-name lf-ind-which-name ;
 : lf-ind-type-node? ( node -- flag ) lf-ind-which 0< 0= ;
 \ Whether a spine's head is a type of the block.
 : lf-ind-headed? ( node -- flag ) lf-ind-spine drop lf-ind-type-node? ;
@@ -445,7 +444,7 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-ind-nested? ( node -- flag outcome )
   dup lf-ind-spine over lf-tag-constant lf-ind-tag? 0= if 2drop lf-ind-no-nest exit then
   over lf-ind-type-node? if 2drop lf-ind-no-nest exit then
-  swap lf-ind-const-name lf-ind-earlier dup 0< if 2drop lf-ind-no-nest exit then
+  swap lf-const-name lf-ind-earlier dup 0< if 2drop lf-ind-no-nest exit then
   over swap lf-ind-parametric lf-ind-some-arg? ;
 \ The walk: at an application node that may be a nested occurrence, the
 \ block is noted and the node's children are not visited; every other
@@ -582,7 +581,7 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 \ The name a leaf names, as T0 reads it: a constant's, a projection
 \ leaf's structure's (its first field), else 0.
 : lf-ind-leaf-name ( first walk tag -- name|0 )
-  case lf-tag-constant of nip walk-node @ lf-ind-const-name endof
+  case lf-tag-constant of nip walk-node @ lf-const-name endof
     lf-tag-proj of drop endof  >r 2drop 0 r> endcase ;
 : lf-ind-prefix ( first second walk tag -- outcome )
   rot drop lf-ind-leaf-name ?dup 0= if outcome-ok exit then

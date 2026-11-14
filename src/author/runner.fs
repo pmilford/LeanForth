@@ -77,7 +77,7 @@ end-structure
 \ the words then refuse each number that is no plain decimal (groups.fs).
 [defined] rec-forth [if]
 : lfa-decimal ( c-addr u -- translation )
-  2dup dup 0<> -rot lfa-digits? and if rec-number else 2drop translate-none then ;
+  2dup decimal-digits? if rec-number else 2drop translate-none then ;
 : lfa-recognize ( c-addr u -- translation )
   2dup rec-name dup translate-none = if drop lfa-decimal else 2swap 2drop then ;
 : lfa-recognizer! ( -- )

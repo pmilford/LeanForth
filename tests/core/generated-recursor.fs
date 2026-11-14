@@ -24,7 +24,7 @@ require ../support/case-sweeps.fs
 : unlam ( node -- node' )
   begin dup lf-term-tag@ lf-tag-lam = while lf-term-second@ repeat ;
 : the-value ( -- const ) cs cs-target @ cs-value-of unlam lf-whnf-head ;
-: request ( const -- name pairs count ) lf-whnf-cref dup lf-crec-name @ swap lf-cref-pairs ;
+: request ( const -- name pairs count ) lf-const-slot dup lf-crec-name @ swap lf-cref-pairs ;
 : answer ( root identity fuel' 0 | status -- root|-1 outcome )
   dup ok? if drop drop drop outcome-ok else -1 swap then ;
 : signature ( const fuel -- root|-1 outcome )

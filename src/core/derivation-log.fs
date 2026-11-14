@@ -178,13 +178,12 @@ lf-log-none 1+ constant lf-log-unkept
 43 constant lf-rule-type
 44 constant lf-rule-inductive-block   \ an inductive block's check, as one step
 
-\ Each entry: the code, the kinds, the name's length and its characters,
-\ aligned; the last entry, code 0, names every code not listed.
-: lf-log-entry, ( code kinds c-addr u -- )
-  2swap swap , , dup , here swap dup allot move align ;
+\ Each entry: the code, the kinds, then the name as a cell-counted text
+\ (lib/bounds.fs); the last entry, code 0, names every code not listed.
+: lf-log-entry, ( code kinds c-addr u -- ) 2swap swap , , cell-counted, ;
 : lf-log-entry-code ( entry -- code ) @ ;
 : lf-log-entry-kinds ( entry -- kinds ) cell+ @ ;
-: lf-log-entry-name ( entry -- c-addr u ) 2 cells + dup cell+ swap @ ;
+: lf-log-entry-name ( entry -- c-addr u ) 2 cells + cell-count ;
 : lf-log-entry-next ( entry -- entry' ) lf-log-entry-name + aligned ;
 lf-ref-term lf-ref-none lf-ref-term lf-ref-kinds constant lf-kinds-infer
 lf-ref-term lf-ref-term lf-ref-term lf-ref-kinds constant lf-kinds-terms
