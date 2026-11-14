@@ -73,7 +73,7 @@
  },
  "src/author/runner.fs": {
   "globals": 1,
-  "long lines": 1,
+  "long lines": 0,
   "long words": 0,
   "rstack": 10,
   "shuffles": 4,
@@ -125,23 +125,23 @@
   "long words": 0,
   "rstack": 2,
   "shuffles": 1,
-  "words": 62
+  "words": 61
  },
  "src/cli/check-run.fs": {
   "globals": 19,
-  "long lines": 6,
+  "long lines": 5,
   "long words": 0,
   "rstack": 67,
   "shuffles": 13,
   "words": 310
  },
  "src/cli/leanforth.fs": {
-  "globals": 8,
-  "long lines": 11,
-  "long words": 17,
-  "rstack": 21,
-  "shuffles": 10,
-  "words": 409
+  "globals": 9,
+  "long lines": 9,
+  "long words": 16,
+  "rstack": 24,
+  "shuffles": 9,
+  "words": 412
  },
  "src/cli/name-text.fs": {
   "globals": 3,
@@ -149,11 +149,11 @@
   "long words": 0,
   "rstack": 10,
   "shuffles": 0,
-  "words": 30
+  "words": 29
  },
  "src/cli/print-lf.fs": {
   "globals": 1,
-  "long lines": 3,
+  "long lines": 2,
   "long words": 1,
   "rstack": 3,
   "shuffles": 2,
@@ -187,9 +187,9 @@
   "globals": 2,
   "long lines": 0,
   "long words": 0,
-  "rstack": 108,
+  "rstack": 98,
   "shuffles": 16,
-  "words": 88
+  "words": 89
  },
  "src/core/compact-levels.fs": {
   "globals": 2,
@@ -211,9 +211,9 @@
   "globals": 1,
   "long lines": 0,
   "long words": 0,
-  "rstack": 19,
-  "shuffles": 7,
-  "words": 34
+  "rstack": 17,
+  "shuffles": 8,
+  "words": 35
  },
  "src/core/compact.fs": {
   "globals": 1,
@@ -225,7 +225,7 @@
  },
  "src/core/constant-references.fs": {
   "globals": 1,
-  "long lines": 1,
+  "long lines": 0,
   "long words": 4,
   "rstack": 41,
   "shuffles": 21,
@@ -236,8 +236,8 @@
   "long lines": 0,
   "long words": 2,
   "rstack": 28,
-  "shuffles": 15,
-  "words": 125
+  "shuffles": 13,
+  "words": 123
  },
  "src/core/constant-term-scope.fs": {
   "globals": 0,
@@ -259,13 +259,13 @@
   "globals": 1,
   "long lines": 1,
   "long words": 0,
-  "rstack": 22,
+  "rstack": 28,
   "shuffles": 4,
-  "words": 30
+  "words": 33
  },
  "src/core/generation-handles.fs": {
   "globals": 1,
-  "long lines": 8,
+  "long lines": 1,
   "long words": 0,
   "rstack": 16,
   "shuffles": 2,
@@ -289,15 +289,15 @@
  },
  "src/core/level-scope.fs": {
   "globals": 0,
-  "long lines": 2,
+  "long lines": 1,
   "long words": 0,
   "rstack": 0,
-  "shuffles": 2,
-  "words": 52
+  "shuffles": 3,
+  "words": 53
  },
  "src/core/levels.fs": {
   "globals": 2,
-  "long lines": 2,
+  "long lines": 1,
   "long words": 1,
   "rstack": 11,
   "shuffles": 5,
@@ -309,7 +309,7 @@
   "long words": 0,
   "rstack": 24,
   "shuffles": 3,
-  "words": 23
+  "words": 24
  },
  "src/core/local-context.fs": {
   "globals": 0,
@@ -337,11 +337,11 @@
  },
  "src/core/names.fs": {
   "globals": 2,
-  "long lines": 10,
+  "long lines": 3,
   "long words": 0,
-  "rstack": 21,
-  "shuffles": 3,
-  "words": 90
+  "rstack": 23,
+  "shuffles": 4,
+  "words": 98
  },
  "src/core/projections.fs": {
   "globals": 0,
@@ -393,7 +393,7 @@
  },
  "src/core/symbolic-session.fs": {
   "globals": 0,
-  "long lines": 3,
+  "long lines": 2,
   "long words": 0,
   "rstack": 0,
   "shuffles": 0,
@@ -401,11 +401,11 @@
  },
  "src/core/tagged-sort-boundary.fs": {
   "globals": 0,
-  "long lines": 1,
+  "long lines": 0,
   "long words": 0,
   "rstack": 0,
   "shuffles": 1,
-  "words": 16
+  "words": 17
  },
  "src/core/terms.fs": {
   "globals": 8,
@@ -479,13 +479,21 @@
   "shuffles": 5,
   "words": 265
  },
+ "src/front/discr-keys.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 19,
+  "shuffles": 14,
+  "words": 106
+ },
  "src/front/elab-data.fs": {
   "globals": 37,
   "long lines": 0,
   "long words": 0,
   "rstack": 23,
   "shuffles": 27,
-  "words": 299
+  "words": 307
  },
  "src/front/elab-keys.fs": {
   "globals": 0,
@@ -493,7 +501,7 @@
   "long words": 0,
   "rstack": 0,
   "shuffles": 2,
-  "words": 27
+  "words": 31
  },
  "src/front/expr-remap.fs": {
   "globals": 0,
@@ -509,7 +517,7 @@
   "long words": 0,
   "rstack": 10,
   "shuffles": 1,
-  "words": 41
+  "words": 40
  },
  "src/front/goal-print.fs": {
   "globals": 0,
@@ -542,6 +550,14 @@
   "rstack": 10,
   "shuffles": 2,
   "words": 67
+ },
+ "src/front/instances.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 28,
+  "shuffles": 15,
+  "words": 161
  },
  "src/front/instantiate.fs": {
   "globals": 0,
@@ -613,7 +629,7 @@
   "long words": 0,
   "rstack": 2,
   "shuffles": 0,
-  "words": 11
+  "words": 12
  },
  "src/front/meta-env.fs": {
   "globals": 10,
@@ -645,7 +661,7 @@
   "long words": 0,
   "rstack": 9,
   "shuffles": 2,
-  "words": 64
+  "words": 62
  },
  "src/front/prop-quick.fs": {
   "globals": 0,
@@ -653,7 +669,7 @@
   "long words": 0,
   "rstack": 8,
   "shuffles": 1,
-  "words": 36
+  "words": 35
  },
  "src/front/reader.fs": {
   "globals": 0,
@@ -701,15 +717,15 @@
   "long words": 0,
   "rstack": 6,
   "shuffles": 3,
-  "words": 29
+  "words": 31
  },
  "src/front/whnf.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 0,
   "rstack": 12,
-  "shuffles": 4,
-  "words": 133
+  "shuffles": 3,
+  "words": 134
  },
  "src/import/checker-input.fs": {
   "globals": 5,
@@ -721,7 +737,7 @@
  },
  "src/import/feed.fs": {
   "globals": 6,
-  "long lines": 2,
+  "long lines": 0,
   "long words": 3,
   "rstack": 154,
   "shuffles": 42,
@@ -739,17 +755,17 @@
   "globals": 4,
   "long lines": 0,
   "long words": 0,
-  "rstack": 98,
-  "shuffles": 19,
-  "words": 90
+  "rstack": 94,
+  "shuffles": 21,
+  "words": 91
  },
  "src/import/ndjson-count.fs": {
   "globals": 4,
   "long lines": 0,
   "long words": 0,
-  "rstack": 20,
+  "rstack": 18,
   "shuffles": 3,
-  "words": 57
+  "words": 58
  },
  "src/import/ndjson-emit.fs": {
   "globals": 33,
@@ -763,13 +779,13 @@
   "globals": 79,
   "long lines": 0,
   "long words": 0,
-  "rstack": 242,
-  "shuffles": 41,
-  "words": 241
+  "rstack": 244,
+  "shuffles": 40,
+  "words": 243
  },
  "src/import/run-record.fs": {
   "globals": 1,
-  "long lines": 1,
+  "long lines": 0,
   "long words": 0,
   "rstack": 37,
   "shuffles": 11,
@@ -793,19 +809,19 @@
  },
  "src/import/snapshot-tier.fs": {
   "globals": 7,
-  "long lines": 3,
+  "long lines": 2,
   "long words": 2,
-  "rstack": 131,
-  "shuffles": 35,
-  "words": 190
+  "rstack": 126,
+  "shuffles": 38,
+  "words": 193
  },
  "src/import/stage-records.fs": {
   "globals": 12,
   "long lines": 0,
   "long words": 4,
-  "rstack": 143,
+  "rstack": 136,
   "shuffles": 37,
-  "words": 141
+  "words": 142
  },
  "src/import/stage.fs": {
   "globals": 2,
@@ -813,7 +829,7 @@
   "long words": 1,
   "rstack": 28,
   "shuffles": 14,
-  "words": 83
+  "words": 85
  },
  "src/kernel/caches.fs": {
   "globals": 1,
@@ -841,9 +857,9 @@
  },
  "src/kernel/defeq.fs": {
   "globals": 0,
-  "long lines": 7,
+  "long lines": 4,
   "long words": 5,
-  "rstack": 461,
+  "rstack": 458,
   "shuffles": 30,
   "words": 235
  },
@@ -851,17 +867,17 @@
   "globals": 1,
   "long lines": 0,
   "long words": 2,
-  "rstack": 62,
-  "shuffles": 50,
-  "words": 153
+  "rstack": 74,
+  "shuffles": 52,
+  "words": 162
  },
  "src/kernel/env-layers.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 3,
-  "rstack": 81,
-  "shuffles": 64,
-  "words": 96
+  "rstack": 79,
+  "shuffles": 57,
+  "words": 97
  },
  "src/kernel/env-publish.fs": {
   "globals": 1,
@@ -875,9 +891,9 @@
   "globals": 3,
   "long lines": 3,
   "long words": 1,
-  "rstack": 16,
+  "rstack": 18,
   "shuffles": 12,
-  "words": 182
+  "words": 183
  },
  "src/kernel/env-signature.fs": {
   "globals": 0,
@@ -891,9 +907,9 @@
   "globals": 6,
   "long lines": 0,
   "long words": 2,
-  "rstack": 181,
+  "rstack": 184,
   "shuffles": 101,
-  "words": 249
+  "words": 250
  },
  "src/kernel/environment.fs": {
   "globals": 5,
@@ -901,7 +917,7 @@
   "long words": 3,
   "rstack": 85,
   "shuffles": 25,
-  "words": 328
+  "words": 331
  },
  "src/kernel/generated-recursor.fs": {
   "globals": 0,
@@ -917,23 +933,23 @@
   "long words": 4,
   "rstack": 18,
   "shuffles": 9,
-  "words": 179
+  "words": 178
  },
  "src/kernel/inductive-nested.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 6,
   "rstack": 56,
-  "shuffles": 21,
-  "words": 140
+  "shuffles": 19,
+  "words": 138
  },
  "src/kernel/inductive-recursor.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 2,
-  "rstack": 27,
-  "shuffles": 16,
-  "words": 111
+  "rstack": 30,
+  "shuffles": 21,
+  "words": 112
  },
  "src/kernel/infer-proj.fs": {
   "globals": 0,
@@ -981,7 +997,7 @@
   "long words": 0,
   "rstack": 56,
   "shuffles": 20,
-  "words": 95
+  "words": 92
  },
  "src/kernel/level-substitute.fs": {
   "globals": 0,
@@ -993,7 +1009,7 @@
  },
  "src/kernel/level-value.fs": {
   "globals": 0,
-  "long lines": 3,
+  "long lines": 1,
   "long words": 1,
   "rstack": 27,
   "shuffles": 5,
@@ -1011,9 +1027,9 @@
   "globals": 1,
   "long lines": 0,
   "long words": 1,
-  "rstack": 68,
-  "shuffles": 9,
-  "words": 74
+  "rstack": 70,
+  "shuffles": 8,
+  "words": 71
  },
  "src/kernel/mixed-convert.fs": {
   "globals": 0,
@@ -1041,7 +1057,7 @@
  },
  "src/kernel/mixed-infer.fs": {
   "globals": 0,
-  "long lines": 9,
+  "long lines": 6,
   "long words": 2,
   "rstack": 185,
   "shuffles": 47,
@@ -1049,7 +1065,7 @@
  },
  "src/kernel/mixed-instantiate.fs": {
   "globals": 0,
-  "long lines": 1,
+  "long lines": 0,
   "long words": 1,
   "rstack": 8,
   "shuffles": 6,
@@ -1073,7 +1089,7 @@
  },
  "src/kernel/mixed-rebuild.fs": {
   "globals": 0,
-  "long lines": 1,
+  "long lines": 0,
   "long words": 0,
   "rstack": 25,
   "shuffles": 6,
@@ -1081,7 +1097,7 @@
  },
  "src/kernel/mixed-shift.fs": {
   "globals": 0,
-  "long lines": 1,
+  "long lines": 0,
   "long words": 0,
   "rstack": 11,
   "shuffles": 3,
@@ -1113,11 +1129,11 @@
  },
  "src/kernel/reduce-nat.fs": {
   "globals": 1,
-  "long lines": 5,
+  "long lines": 1,
   "long words": 0,
-  "rstack": 29,
-  "shuffles": 4,
-  "words": 49
+  "rstack": 27,
+  "shuffles": 5,
+  "words": 50
  },
  "src/kernel/replace-memo.fs": {
   "globals": 0,
@@ -1145,11 +1161,11 @@
  },
  "src/kernel/whnf.fs": {
   "globals": 1,
-  "long lines": 3,
+  "long lines": 2,
   "long words": 3,
-  "rstack": 123,
+  "rstack": 120,
   "shuffles": 28,
-  "words": 130
+  "words": 129
  },
  "src/lib/bigint.fs": {
   "globals": 0,
@@ -1180,16 +1196,16 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 4,
-  "shuffles": 0,
-  "words": 6
+  "shuffles": 1,
+  "words": 7
  },
  "src/lib/bounds.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 0,
-  "shuffles": 2,
-  "words": 11
+  "rstack": 3,
+  "shuffles": 3,
+  "words": 14
  },
  "src/lib/bytes.fs": {
   "globals": 2,
@@ -1197,7 +1213,7 @@
   "long words": 0,
   "rstack": 31,
   "shuffles": 13,
-  "words": 59
+  "words": 58
  },
  "src/lib/cons.fs": {
   "globals": 0,
@@ -1219,17 +1235,17 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 6,
+  "rstack": 8,
   "shuffles": 2,
-  "words": 22
+  "words": 23
  },
  "src/lib/frame.fs": {
   "globals": 0,
-  "long lines": 4,
+  "long lines": 2,
   "long words": 0,
-  "rstack": 14,
+  "rstack": 17,
   "shuffles": 5,
-  "words": 37
+  "words": 38
  },
  "src/lib/hash32.fs": {
   "globals": 0,
@@ -1244,7 +1260,7 @@
   "long lines": 0,
   "long words": 1,
   "rstack": 48,
-  "shuffles": 9,
+  "shuffles": 7,
   "words": 41
  },
  "src/lib/json-write.fs": {
@@ -1301,7 +1317,7 @@
   "long words": 1,
   "rstack": 2,
   "shuffles": 3,
-  "words": 30
+  "words": 31
  },
  "src/lib/pools.fs": {
   "globals": 2,
@@ -1377,11 +1393,11 @@
  },
  "src/lib/store.fs": {
   "globals": 0,
-  "long lines": 3,
+  "long lines": 0,
   "long words": 0,
   "rstack": 69,
-  "shuffles": 18,
-  "words": 87
+  "shuffles": 17,
+  "words": 86
  },
  "src/lib/task.fs": {
   "globals": 6,
@@ -1419,7 +1435,7 @@
   "globals": 0,
   "long lines": 1,
   "long words": 0,
-  "rstack": 35,
+  "rstack": 34,
   "shuffles": 15,
   "words": 54
  },
@@ -1429,7 +1445,7 @@
   "long words": 0,
   "rstack": 2,
   "shuffles": 0,
-  "words": 7
+  "words": 8
  },
  "src/main.fs": {
   "globals": 0,
@@ -1448,12 +1464,12 @@
   "words": 44
  },
  "src/present/latex-text.fs": {
-  "globals": 0,
+  "globals": 1,
   "long lines": 0,
   "long words": 0,
-  "rstack": 37,
+  "rstack": 53,
   "shuffles": 3,
-  "words": 38
+  "words": 41
  },
  "src/present/log-check.fs": {
   "globals": 1,
@@ -1483,33 +1499,33 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 4,
+  "rstack": 2,
   "shuffles": 2,
-  "words": 24
+  "words": 23
  },
  "src/present/print-analysis.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 3,
-  "rstack": 89,
-  "shuffles": 7,
-  "words": 86
+  "rstack": 83,
+  "shuffles": 8,
+  "words": 89
  },
  "src/present/print-forth.fs": {
   "globals": 4,
   "long lines": 0,
   "long words": 2,
-  "rstack": 156,
-  "shuffles": 24,
-  "words": 151
+  "rstack": 141,
+  "shuffles": 20,
+  "words": 150
  },
  "src/present/print-job.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 30,
+  "rstack": 39,
   "shuffles": 6,
-  "words": 59
+  "words": 62
  },
  "src/present/print-levels.fs": {
   "globals": 0,
@@ -1523,8 +1539,8 @@
   "globals": 0,
   "long lines": 1,
   "long words": 0,
-  "rstack": 19,
-  "shuffles": 11,
+  "rstack": 17,
+  "shuffles": 12,
   "words": 41
  },
  "src/present/print-notation.fs": {
@@ -1560,20 +1576,20 @@
   "words": 172
  },
  "src/present/statement-forms.fs": {
-  "globals": 0,
+  "globals": 1,
   "long lines": 1,
   "long words": 4,
   "rstack": 4,
   "shuffles": 6,
-  "words": 36
+  "words": 34
  },
  "src/present/term-printer.fs": {
   "globals": 1,
   "long lines": 0,
   "long words": 1,
-  "rstack": 187,
-  "shuffles": 8,
-  "words": 127
+  "rstack": 174,
+  "shuffles": 9,
+  "words": 128
  },
  "src/program/clamp.fs": {
   "globals": 0,
@@ -1603,9 +1619,9 @@
   "globals": 9,
   "long lines": 0,
   "long words": 0,
-  "rstack": 58,
+  "rstack": 63,
   "shuffles": 9,
-  "words": 253
+  "words": 254
  },
  "src/program/program-depth.fs": {
   "globals": 0,
