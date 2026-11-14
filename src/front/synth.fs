@@ -271,7 +271,6 @@ begin-structure /sche  field: sk-type  field: sk-depth  field: sk-result  end-st
 \ xt ( x k run -- x outcome ) for each element k of the run, in order,
 \ while ok.
 : sy-run-each ( x run xt -- outcome ) >r dup run-count swap r> ok-fold nip ;
-: sy-answered? ( e -- flag ) sen@ se-answers @ run-count 0<> ;
 
 \ ---- Nodes.
 : sgn@ ( g -- addr ) sy-gens slab-at ;

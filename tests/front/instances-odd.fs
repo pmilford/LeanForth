@@ -18,7 +18,7 @@
 include ../support/tester.fs
 \ Every module first: a context member declared after menv-load would
 \ move the context under the loaded slice.
-require ../../src/front/instances.fs
+require ../../src/front/synth.fs
 require ./menv-slice.fs
 :noname ( -- c-addr u ) s" tests/front/odd-keys.elab.ndjson" ; is menv-data
 require ./whnf-cases.fs
@@ -40,6 +40,10 @@ T{ nat s" Add" c1 lf-inst-candidates 2drop cell+ @ s" instAddNat" named? -> true
 T{ sub-shape -> true true outcome-ok }T
 T{ s" instSubNat" inst-named lf-inst-verified? lf-inst-unverified# lf-inst-error -> false 1 114 }T
 T{ nat s" Sub" c1 lf-inst-candidates nip nip lf-inst-unverified# -> outcome-ok 1 }T
+\ A search that tries it answers unsupported (S1 §9; src/front/synth.fs,
+\ error 120), having tried it first, the last candidate.
+T{ nat s" Sub" c1 lf-synth-instance lf-synth-error lf-synth-tried nip
+   -> -1 false outcome-unsupported 120 1 }T
 \ The 114 an unverified record leaves is no refusal: an invalid answer
 \ with no code of its own after it is the query's alone (s1-synth second
 \ re-check, L1); only 112, 113, 115 and 116 refuse the data.

@@ -66,6 +66,42 @@ T{ nat 0 ofnat0 synth s" instOfNatNat" c0 0 num app same? -> true true outcome-o
 T{ le-and-lt dec synth and-answer same? -> true true outcome-ok }T
 T{ tried# 0 s" instDecidableAnd" tried? 1 s" Nat.decLe" tried? 2 s" Nat.decLt" tried?
    clean? -> 3 true true true true }T
+\ A known goal: Decidable (2 <= 3 /\ 2 <= 3)'s second subgoal has the
+\ first one's key; the consumer waits on its entry and takes its answer
+\ (Nat.decLe tried once).
+: le-twice ( -- t ) 2 num 3 num le 2 num 3 num le p-and ;
+: twice-answer ( -- t )
+  s" instDecidableAnd" c0 2 num 3 num le app 2 num 3 num le app
+  2 num 3 num dec-le app 2 num 3 num dec-le app ;
+T{ le-twice dec synth twice-answer same? tried# clean? -> true true outcome-ok 2 true }T
+\ An answer with free variables: Decidable (a <= b) is Nat.decLe a b,
+\ checkMayHaveSideEffects following a and b to their types.
+T{ fa fb le dec synth fa fb dec-le same? -> true true outcome-ok }T
+\ The let variable g (whnf-cases.fs's) in the answer: its value followed
+\ too.
+T{ fg 3 num le dec synth fg 3 num dec-le same? -> true true outcome-ok }T
+\ A candidate whose type does not unify: Add.{1} Nat against instAddNat's
+\ Add.{0} Nat (keys equal, levels not) fails, and the next, left out,
+\ is tried: 119.
+T{ lv1 1 s" Add" cn nat app synth tried# 0 s" instAddNat" tried?
+   -> -1 false outcome-unsupported 2 true }T
+\ mkConstWithFreshMVarLevels: instHAdd.{?u}.
+: hadd-level ( -- level ) s" instHAdd" menv-name lf-menv-find drop lf-synth-const drop
+  lf-term-first@ lf-cref-slot lf-cref-pairs drop 0 lf-cref-pair@ drop ;
+T{ hadd-level lf-level-mvar? -> true }T
+\ The scan follows a Sort's level and max and imax levels: Sort (max ?u
+\ 1), Sort (imax 1 ?u); a level metavariable of the search's depth is
+\ what abstractMVars would keep (sy-deep-mvar?), an outer one not.
+T{ ?lv lv1 lf-level-max must sort sy-scan sy-found slab-count 0 sy-found@ nip
+   -> outcome-ok 1 sy-lmvar }T
+T{ lv1 ?lv lf-level-imax must sort sy-scan sy-found slab-count -> outcome-ok 1 }T
+: deep-sorts ( -- inner? outcome outer? outcome )   \ one depth deeper
+  ?lv true lf-mctx-depth{ made >r ?lv sort sy-deep-mvar? rot sort sy-deep-mvar?
+  r> }lf-mctx-depth drop ;
+T{ deep-sorts -> true outcome-ok false outcome-ok }T
+\ A goal that whnf makes a pi (a beta redex): 117.
+: beta-pi ( -- t ) lv1 sort 0 bv lam nat nat add0 tpi app ;
+T{ beta-pi synth lf-synth-error -> -1 false outcome-unsupported 117 }T
 \ None: Decidable (p /\ q) of propositions p, q: its subgoal Decidable p
 \ has no candidate, so no generator, and the search ends.
 l0 sort char P local constant fp'   l0 sort char Q local constant fq'
@@ -127,6 +163,11 @@ T{ sy-cache slab-count 0> lf-mctx-epoch 1+ sy sy-epoch ! nat add0 synth nip nip 
   lf-mctx-view dup nat add0 lf-lctx-local made 0 0 lf-local-new made
   s" Add" menv-name lf-local-instance made lf-view-push made lf-mctx-view! ;
 T{ add-local sy-cache-ok? swap lf-mctx-view! sy-cache-ok? -> false true }T
+\ A search with a local instance in the context: no cache, and
+\ instances.fs's rule (unsupported).
+T{ add-local nat add0 synth rot drop rot lf-mctx-view! -> false outcome-unsupported }T
+\ synthPending passes on a failure that is not the stuck signal.
+T{ add? mv-synthetic lf-mvar-new made lf-synth-pending -> false outcome-unsupported }T
 
 \ ---- preprocessOutParam: HAdd Nat Nat Nat's out-parameter (its third
 \ argument) and out-level made new metavariables; the cache key's made
@@ -188,6 +229,10 @@ T{ sy-enter false canon-gen dup sgn@ sg-key @ sy-root sy-entry-new swap sy-canon
    -> outcome-ok outcome-ok false outcome-ok }T
 T{ 0 sen@ se-answers dup @ 0 run-push drop swap ! false canon-gen sy-canon?
    true canon-gen sy-canon? -> true outcome-ok false outcome-ok }T
+\ A goal no entry has (Mul Nat) is not popped.
+: mul-gen ( -- g ) l0 1 s" Mul" cn nat app lf-synth-key drop nat 0 sy-gen-open made
+  false over sgn@ sg-open ! ;
+T{ mul-gen sy-canon? -> false outcome-ok }T
 T{ sy-leave clean? -> true }T
 
 \ ---- synthPending (synthPendingImp): a synthetic opaque metavariable,
@@ -248,6 +293,31 @@ T{ other-cache ' via-k in-scopes tried# clean? -> true outcome-ok true true true
 : via-fx ( -- ok? ) nat add0 inst-typed dup fx lf-meta-defeq never-true swap assigned?
   0= and ;
 T{ other-cache ' via-fx in-scopes tried# clean? -> true true 1 true }T
+\ spineMVarsAdmissible: a value whose spine ends in a read-only (outer)
+\ metavariable, through an application or a lambda, or in a pi node, is
+\ admissible: the types compared, assigned, nothing synthesized.
+nat nat add0 tpi mv-natural pending constant ?g     \ outer: read-only in the scopes
+nat add0 mv-natural pending constant ?o
+l0 ?tv constant ?ty
+: tried-none? ( -- flag ) tried# 0= ;
+: via-app ( -- flag outcome assigned? )
+  sy-tried slab-clear nat add0 inst-typed dup ?g fa app lf-meta-defeq rot assigned? ;
+T{ ' via-app in-scopes tried-none? -> true outcome-ok true true true }T
+: via-lam ( -- flag outcome assigned? )
+  nat nat add0 tpi inst-typed dup nat ?o lam lf-meta-defeq rot assigned? ;
+T{ ' via-lam in-scopes -> true outcome-ok true true }T
+: via-pi ( -- flag outcome assigned? )
+  lv1 sort inst-typed dup nat ?ty tpi lf-meta-defeq rot assigned? ;
+T{ ' via-pi in-scopes -> true outcome-ok true true }T
+\ Not admissible, and synthPending finds nothing (Decidable (p /\ q)):
+\ false; types that differ where the metavariable's type is a pi:
+\ unsupported (Lean compares them at implicit transparency first).
+: via-none ( -- flag outcome assigned? )
+  fp' fq' p-and dec inst-typed dup k-hole lf-meta-defeq rot assigned? ;
+T{ other-cache ' via-none in-scopes -> false outcome-ok false true }T
+: via-pi-type ( -- flag outcome )
+  nat nat add0 tpi inst-typed fx lf-meta-defeq ;
+T{ ' via-pi-type in-scopes -> false outcome-unsupported true }T
 
 \ ---- Exhausted: each budget from 0 answers exhausted or the answer, and
 \ nothing is left behind (Decidable (2 <= 3 /\ 1 < 2): two levels).
