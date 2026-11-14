@@ -30,8 +30,11 @@
 \   metavariable, a Sort, a literal or a bound variable (false: it might
 \   be a class, which only class facts decide, plan FE1e1).
 \ - lf-meta-unassigned? ( mvar -- flag ): no plain assignment.
-\ Binder kinds: from the head's declared type (a constant's input type,
-\ else the type itself), never from a copy: an input binder's from its
+\ Binder kinds: a constant head's from meta-env's record of its declared
+\ type (lf-menv-kinds, S1 4: the run mode's library and text declarations,
+\ branch s1-elab), as far as it gives them; else from the head's declared
+\ type (a constant's input type, else the type itself), never from a
+\ copy: an input binder's from its
 \ record; a store binder named in the binder table answers unsupported,
 \ since the store shares equal nodes and the name may be another
 \ binder's; one not named is explicit. Unsupported too where whnf makes
@@ -64,6 +67,7 @@ require ./prop-quick.fs
 3 cells context-slab: fi-params
 begin-structure /fi
   field: fi-source   \ the declared type's pi of the next parameter, or -1
+  field: fi-decl     \ the head constant's declaration, or -1
 end-structure
 /fi context-record: fi-state
 
@@ -116,10 +120,16 @@ end-structure
 : fi-src ( -- addr ) fi-state fi-source ;
 : fi-store-kind ( pi -- kind true | false )
   lf-pres-binder@ if 2drop false else lf-binder-default true then ;
-: fi-kind ( -- kind true | false )
+: fi-source-kind ( -- kind true | false )
   fi-src @ dup 0< if drop false exit then
   dup lf-term-input? if lf-term-input-binder@ if nip true else false then exit then
   fi-store-kind ;
+\ A constant head's kinds as meta-env records them (S1 4: the tier's
+\ binder tags, a text declaration's binder words), parameter by parameter.
+: fi-decl-kind ( -- kind true | false )
+  fi-state fi-decl @ dup 0< if drop false exit then
+  lf-menv-kinds fi-params slab-count tuck > if cells + @ true else 2drop false then ;
+: fi-kind ( -- kind true | false ) fi-decl-kind if true else fi-source-kind then ;
 : fi-next-src ( -- )
   fi-src @ dup 0< 0= if
     dup lf-term-pi? if lf-term-second@ else drop -1 then then
@@ -183,8 +193,10 @@ end-structure
 : fi-prop-at ( i -- outcome ) dup fi-prop! ['] fi-ho-free ok-with nip ;
 : fi-props ( -- outcome ) fi-params slab-count ['] fi-prop-at ok-each ;
 \ The kinds' source: a constant's declared (input) type, else the type.
+: fi-head-decl ( f -- ) dup lf-term-const? if lf-meta-const-decl 0= if -1 then
+  else drop -1 then fi-state fi-decl ! ;
 : fi-declared ( f type -- )
-  swap dup lf-term-const?
+  over fi-head-decl swap dup lf-term-const?
   if nip lf-meta-const-decl if lf-menv-type else -1 then else drop then fi-src ! ;
 : fi-run ( f n -- m outcome )
   fi-params slab-clear over lf-infer ok-then? 0= if nip nip no-result exit then

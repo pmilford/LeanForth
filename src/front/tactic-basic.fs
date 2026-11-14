@@ -27,7 +27,7 @@
 \   explicit is not made a local instance either (plan FE3).
 \ - t by-exact, Lean's exact t: in the main goal's context (its view
 \   current), t elaborated against the goal's type (lf-tac-elab, Lean's
-\   Tactic.elabTerm, plan FE1e: until then error 71), its type inferred
+\   Tactic.elabTerm, front/elab-decl.fs, with no postponing), its type inferred
 \   (infer.fs) and compared with the goal's by isDefEq (defeq.fs, the
 \   elaborator's configuration, default transparency): false is error 96
 \   with Lean's text (the term and both types). Lean compares with
@@ -52,9 +52,12 @@
 \ addPPExplicitToExposeDiff (explicit arguments where the two would
 \ print alike) and its line breaks past width 120 are not ported (plan
 \ 8.6).
-\ Words: lf-tac-elab ( node expected -- term outcome ), a deferred word
-\ plan FE1e sets (its Tactic.elabTerm: Term.elabTerm, the synthetic
-\ metavariables synthesized with no postponing, the result instantiated);
+\ Words: lf-tac-elab ( node expected postpone? -- term outcome ), a
+\ deferred word front/elab-decl.fs sets (Lean's Tactic.elabTerm:
+\ Term.elabTerm against expected, 0 or -1 for none, the synthetic
+\ metavariables synthesized, postponing when postpone? is true, Lean's
+\ mayPostpone, the result instantiated; exact passes false); until then
+\ error 71;
 \ lf-tac-defeq ( t s -- flag outcome ), the tactics' isDefEq;
 \ lf-tac-holds? ( term xt -- flag outcome ), whether a term holds a leaf
 \ xt ( leaf -- flag ) accepts (heap stacks of dag-walk.fs).
@@ -112,9 +115,9 @@ end-structure
 /tb context-record: tb
 
 \ ---- Hooks.
-defer lf-tac-elab ( node expected -- term outcome )
-: lfb-unelaborated ( node expected -- term outcome )
-  2drop lfa-e-elaborate lf-tac-fail -1 outcome-unsupported ;
+defer lf-tac-elab ( node expected postpone? -- term outcome )
+: lfb-unelaborated ( node expected postpone? -- term outcome )
+  2drop drop lfa-e-elaborate lf-tac-fail -1 outcome-unsupported ;
 ' lfb-unelaborated is lf-tac-elab
 \ isDefEq in the elaborator's configuration at default transparency;
 \ defeq's own configuration and mode put back however it ends, and an
@@ -242,7 +245,7 @@ defer lf-tac-elab ( node expected -- term outcome )
 
 \ ---- t by-exact.
 : lfb-opaque-free ( t -- ) ['] lfb-opaque? lfb-holds? if lfa-e-tac-meta lf-tac-fail then ;
-: lfb-elaborated ( i -- ) lfb-arg tb tb-want @ lf-tac-elab lf-tac-must tb tb-term ! ;
+: lfb-elaborated ( i -- ) lfb-arg tb tb-want @ false lf-tac-elab lf-tac-must tb tb-term ! ;
 : lfb-typed ( -- ) tb tb-term @ lf-infer lf-tac-must tb tb-type ! ;
 : lfb-guarded ( -- ) tb tb-type @ lfb-opaque-free tb tb-want @ lfb-opaque-free ;
 \ Lean's throwTypeMismatchError: the term, its type, the type expected.

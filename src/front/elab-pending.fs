@@ -84,6 +84,7 @@ require ../core/names.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/mvar-leaves.fs
+require ../core/reach.fs
 require ../present/print-job.fs
 require ../present/term-printer.fs
 require ../author/errors.fs
@@ -137,24 +138,6 @@ begin-structure /epc   \ synthesizePending on a list of metavariables
 end-structure
 /epc context-slab: ep-cs
 
-\ ---- Errors and the position (Lean's ref and throwError).
-: lf-elab-at! ( pos -- ) ep ep-at ! ;
-: lf-elab-at ( -- pos ) ep ep-at @ ;
-: lf-elab-error ( -- code pos ) ep ep-code @ ep ep-where @ ;
-: lf-elab-error-reset ( -- ) 0 ep ep-code ! -1 ep ep-where ! ;
-: ep-record ( code -- )
-  ep ep-code @ if drop exit then ep ep-code ! lf-elab-at ep ep-where ! ;
-: lf-elab-fail ( code -- outcome ) dup ep-record lf-author-outcome ;
-: ep-meta-code ( outcome -- code )
-  case outcome-full of lfa-e-terms-full endof outcome-exhausted of lfa-e-elab-fuel endof
-    outcome-unsupported of lfa-e-elab-step endof lfa-e-malformed swap endcase ;
-: lf-elab-meta ( outcome -- outcome ) dup ok? if exit then dup ep-meta-code ep-record ;
-\ A Lean error that a caller's try ... catch takes (commitWhen): forgotten.
-: ep-caught? ( outcome -- flag )
-  outcome-invalid = dup if lf-elab-error-reset then ;
-: lf-elab-spend ( -- outcome )
-  lf-meta-spend? if outcome-ok else lfa-e-elab-fuel lf-elab-fail then ;
-
 \ ---- The trace.
 : lf-elab-trace! ( flag -- ) ep ep-tracing ! ;
 : lf-elab-trace ( -- c-addr u ) 0 ep-trace slab-at ep-trace slab-count ;
@@ -164,6 +147,31 @@ end-structure
 : lf-elab-note ( c-addr u -- ) ep-tracing? if ep-chars else 2drop then ;
 : lf-elab-nl ( -- ) s\" \n" lf-elab-note ;
 : lf-elab-n. ( n -- ) ep-tracing? if 0 decimal-text ep-chars else drop then ;
+
+\ ---- Errors and the position (Lean's ref and throwError).
+: lf-elab-at! ( pos -- ) ep ep-at ! ;
+: lf-elab-at ( -- pos ) ep ep-at @ ;
+: lf-elab-error ( -- code pos ) ep ep-code @ ep ep-where @ ;
+: lf-elab-error-reset ( -- ) 0 ep ep-code ! -1 ep ep-where ! ;
+: ep-error. ( code -- code ) s" error " lf-elab-note dup lf-elab-n. lf-elab-nl ;
+: ep-record ( code -- )
+  ep ep-code @ if drop exit then ep-error. ep ep-code ! lf-elab-at ep ep-where ! ;
+: lf-elab-fail ( code -- outcome ) dup ep-record lf-author-outcome ;
+: ep-meta-code ( outcome -- code )
+  case outcome-full of lfa-e-terms-full endof outcome-exhausted of lfa-e-elab-fuel endof
+    outcome-unsupported of lfa-e-elab-step endof lfa-e-malformed swap endcase ;
+: lf-elab-meta ( outcome -- outcome ) dup ok? if exit then dup ep-meta-code ep-record ;
+\ A failure's error: the one recorded with its position, else the
+\ outcome's code at no position (-1).
+: lf-elab-code ( outcome -- code pos )
+  lf-elab-error over if rot drop else 2drop ep-meta-code -1 then ;
+\ A Lean error that a caller's try ... catch takes (commitWhen): forgotten.
+: ep-caught? ( outcome -- flag )
+  outcome-invalid = dup if lf-elab-error-reset then ;
+: lf-elab-spend ( -- outcome )
+  lf-meta-spend? if outcome-ok else lfa-e-elab-fuel lf-elab-fail then ;
+
+\ ---- The trace's terms.
 : ep-printing ( term -- outcome ) false lf-print-notation! ep-print-fuel lf-print-term ;
 : ep-printed ( term -- )
   lf-print-settings 2>r ['] ep-chars lf-print-unicode lf-print-setup
@@ -181,6 +189,12 @@ defer lf-elab-class? ( type -- class true outcome | false outcome )
 : ep-no-defaults ( class -- addr n outcome ) drop 0 0 lfa-e-elab-step lf-elab-fail ;
 defer lf-elab-default-instances ( class -- addr n outcome )
 ' ep-no-defaults is lf-elab-default-instances
+
+\ ---- Whether a term reaches a metavariable, term or level
+\ (core/reach.fs's tables, made for the question and freed).
+: lf-elab-holes? ( term -- flag outcome )
+  lf-reach-open 0= if drop false outcome-full exit then
+  lf-reach-term lf-reach-sweep lf-reach-holes? lf-reach-close outcome-ok ;
 
 \ ---- The Meta layer seen from the elaborator: its outcomes made sane.
 : lf-elab-defeq ( t s -- flag outcome ) lf-meta-defeq outcome-sane ;
@@ -222,7 +236,7 @@ defer lf-elab-default-instances ( class -- addr n outcome )
 
 \ ---- synthesizeInstMVarCore. trySynthInstance's codes: 1 some, 0 none,
 \ -1 undef (the stuck signal).
-: ep-try-synth ( type -- inst code outcome )
+: lf-elab-try-synth ( type -- inst code outcome )
   lf-meta-synth dup lf-meta-stuck = if drop 2drop -1 -1 outcome-ok exit then
   outcome-sane dup ok? 0= if nip nip -1 0 rot exit then drop if 1 else 0 then outcome-ok ;
 : ep-synth-type ( mvar -- type outcome )
@@ -245,7 +259,7 @@ defer lf-elab-default-instances ( class -- addr n outcome )
   case 1 of ep-found endof 0 of drop ep-none endof >r 2drop false outcome-ok r> endcase ;
 : lf-elab-synth-core ( mvar -- flag outcome )
   dup ep-synth-type ok-then? 0= if nip false swap lf-elab-meta exit then
-  dup ep-try-synth ok-then2? 0= if nip nip false swap lf-elab-meta exit then
+  dup lf-elab-try-synth ok-then2? 0= if nip nip false swap lf-elab-meta exit then
   rot drop ep-synth. ep-answered ;
 
 \ ---- mkInstMVar.

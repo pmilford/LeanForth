@@ -188,6 +188,7 @@ require ./library.fs
 ' lfa-w-natural-only lfa-word =
 ' lfa-w-natural-only lfa-word *
 ' lfa-w-natural-only lfa-word ≤
+' lfa-w-natural-only lfa-word #check
 ' lfa-w-tactic lfa-word-both by-induction
 ' lfa-w-tactic lfa-word-both by-case:
 ' lfa-w-tactic lfa-word-both by-rfl

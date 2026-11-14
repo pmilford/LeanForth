@@ -441,6 +441,11 @@ defer lf-front-by-statement ( -- type )
 ' lfr-unelaborated is lf-front-by-statement
 : lfr-assemble ( type goal -- type' value )
   ['] lf-term-lam lfr-close >r ['] lf-term-pi lfr-close r> ;
+\ For a term proof or an axiom (front/elab-decl.fs): the type and value,
+\ or the type alone, closed over the current view's binders in the same
+\ way.
+: lf-front-close ( type value -- type' value' ) lfr-xs lfr-assemble ;
+: lf-front-close-type ( type -- type' ) lfr-xs ['] lf-term-pi lfr-close ;
 : lfr-proof-end ( -- )
   lf-front-by-statement lfr-xs dup lf-tactic-by lfr-assemble lf-front-hand-over
   lfa-declared ;

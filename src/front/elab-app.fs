@@ -96,12 +96,17 @@ end-structure
 1 cells context-slab: ea-insts
 1 cells context-slab: ea-xargs
 1 cells context-slab: ea-spine
+1 cells context-slab: ea-rev
 : ea-visit-none ( x frames -- x frames 0 ) 0 ;
 ' ea-visit-none context-frames: ea-frames
 : lf-elab-frames ( -- frames ) ea-frames ;
 : ea-pass-ready ( -- frames )
   ea-frames dup frame-busy? 0= if dup frame-reset max-n over frame-budget drop then ;
 : lf-elab-visit ( a b xt -- result outcome ) >r ea-pass-ready r> frame-through drop ;
+\ For a new declaration: no activation open, the frames idle.
+: lf-elab-app-reset ( -- )
+  ea-acts slab-clear ea-args slab-clear ea-insts slab-clear ea-xargs slab-clear
+  ea-frames frame-reset ;
 defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 
 \ ---- Activations.
@@ -136,14 +141,22 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 \ ---- The arguments so far (getFType), binders' kinds by index.
 : ea-paramidx ( -- k ) ea-args slab-count ea ea-fargs @ - ;
 : ea-fargs-at ( -- addr n ) ea ea-fargs @ ea-args slab-at ea-paramidx ;
-: ea-inst-args ( e -- e' outcome ) ea-fargs-at lf-meta-instantiate-rev-beta lf-elab-meta ;
+\ instantiateBetaRevRange: the last argument for #0 (beta-inst.fs takes
+\ #k from cell k: the arguments reversed into ea-rev first).
+: ea-rev+ ( k -- outcome )
+  ea-paramidx 1- swap - ea ea-fargs @ + ea-args slab-at @ ea-rev slab-push ;
+: ea-reversed ( -- addr n outcome )
+  ea-rev slab-clear ea-paramidx ['] ea-rev+ ok-each
+  0 ea-rev slab-at ea-rev slab-count rot ;
+: ea-inst-args ( e -- e' outcome )
+  ea-reversed ok-then2? if lf-meta-instantiate-rev-beta else nip no-result then lf-elab-meta ;
 : ea-kind-of ( k -- kind true | false )
   ea ea-head @ dup 0< if 2drop false exit then
   lf-menv-kinds rot tuck > if cells + @ true else 2drop false then ;
 : ea-kind ( -- kind true | false ) ea-paramidx ea-kind-of ;
 : ea-closed? ( t -- flag outcome ) lf-meta-loose lf-elab-meta ok-then? if 0= outcome-ok then ;
-: ea-const-name ( c -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
-: ea-named? ( c c-addr u -- flag ) lfa-intern swap ea-const-name = ;
+: lf-elab-const-name ( c -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
+: ea-named? ( c c-addr u -- flag ) lfa-intern swap lf-elab-const-name = ;
 
 \ ---- Format 2 facts of the head: the run mode's library declarations.
 : ea-data? ( -- flag ) lf-libdec-stage dup if elab-read-against? then ;
@@ -360,7 +373,7 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
   if lf-elab-synthesize-default else outcome-ok then ;
 : ea-expected-done ( etype -- outcome )
   ea-try-synthesize dup ok? 0= if nip exit then drop
-  ea ea-expected @ swap lf-elab-defeq lf-elab-meta nip dup ok? if drop ea-synthesize then ;
+  s"  expect " lf-elab-note ea ea-expected @ dup lf-elab-term. s"  =?= " lf-elab-note over lf-elab-term. lf-elab-nl swap lf-elab-defeq lf-elab-meta nip dup ok? if drop ea-synthesize then ;
 : ea-finalized ( etype -- outcome )
   ea ea-outparam @ 0< 0= if ea-out-done exit then
   ea ea-expected @ 0< if drop ea-synthesize else ea-expected-done then ;
