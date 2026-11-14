@@ -321,6 +321,8 @@ end-structure
   lay-base @ dup ss-deps swap snap-block swap snap-dk @ u32s + ;
 : lay-look-at ( lay -- addr )
   lay-base @ dup ss-looks swap snap-block swap snap-lk @ /snap-look * + ;
+\ The layer's own sorter (its snapshot record's; review reuse-k1 M2).
+: lay-sorter ( lay -- sorter ) lay-snap snap-sorter ;
 \ Dependency i and lookup i of j, numbered as loaded, into s's list.
 : lay-dep! ( i lay -- )
   2dup dup lay-j swap lay-from drop + over lay-snap dep@ over lay-slot#
@@ -331,10 +333,10 @@ end-structure
 \ env-snapshot.fs).
 : lay-deps ( lay -- outcome )
   sl-deps over lay-count-of dup >r 0 ?do i over lay-dep! loop
-  dup lay-dep-at swap r@ swap lay-base @ snap-dk +! r> dep-sort ;
+  dup lay-dep-at over lay-sorter rot r@ swap lay-base @ snap-dk +! r> swap dep-sort ;
 : lay-looks ( lay -- outcome )
   sl-looks over lay-count-of dup >r 0 ?do i over lay-look! loop
-  dup lay-look-at swap r@ swap lay-base @ snap-lk +! r> look-sort ;
+  dup lay-look-at over lay-sorter rot r@ swap lay-base @ snap-lk +! r> swap look-sort ;
 : lay-site ( s lay -- )
   tuck base-slot sl-site over fld@ ?dup
   if rot lay-site0 @ + sl-site rot fld! else 2drop then ;

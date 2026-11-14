@@ -69,6 +69,11 @@ status changes when this date is older than them. Stages are those of the
   running; then one library per branch beside the S slices, every copy replaced. The kernel's first batch (9.4.8e,
   branch `reuse-k1`): written and tested alone, `lib/sort.fs` in the kernel's six sorts and the new `lib/memo.fs` and
   `lib/pqueue.fs` in its memos and scheduler queues; awaiting the Forth review and the owner's [kernel] approval.
+  The outside-the-front-end batch (9.4.8k, branch `reuse-out`, on `reuse-k1`, 2026-11-13): written and tested alone
+  (unit tests, faults, identity on Init, the tier), not merged: new `lib/decimal.fs`, `lib/bits.fs`, `lib/blocks.fs`;
+  `cells=`, `in-ranges?`, `any?`, `ok-any?`, `ok-or-none`, `room-result`, `expr-pi?`; about 45 kernel loops and the
+  copies outside `src/front` replaced; reuse-k1's review findings B1, H1, M1, M2, M4, L3, L6, L7; awaiting the Forth
+  review and the owner's [kernel] approval.
 - Priority (owner, 2026-11-13 midday): the front end's slices in order, S1 then S2 ($0 + n = n$ by `by-induction` and
   `by-rw`) then S3 onwards. S2's design ([S2_INTERFACE.md](../design/S2_INTERFACE.md)) reviewed and approved by the
   owner 2026-11-13, both FE1 forms; its first branch (`s2-unfold` merge A, Lean's unfolding) merges before S1's last

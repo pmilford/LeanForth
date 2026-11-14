@@ -26,7 +26,7 @@ T{ [defined] /pqueue [defined] pq-init [defined] pq-free [defined] pq-count
    -> true true true true }T
 T{ [defined] pq-push [defined] pq-pop [defined] pq-min [defined] pq-clear
    -> true true true true }T
-T{ [defined] pq-cells [defined] pq-order [defined] pq-up [defined] pq-down [defined] pq-after?
+T{ [defined] pq-cells [defined] pq-order [defined] pq-up [defined] pq-down [defined] pq-cells-after?
    -> false false false false false }T
 
 \ ---- The header's example.

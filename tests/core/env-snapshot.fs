@@ -246,6 +246,14 @@ ck-release
   true ['] load-at made 1+ 1 ?do i load-at drop kept? and loop ;
 T{ ' load-at made 0> load-kept? 1 load-at 0 load-at
    -> true true outcome-full 0 outcome-ok 0 }T
+\ The same save for a slot of more than 32 dependencies (review reuse-k1
+\ H1): tests/cli/jobs/fan40.ndjson's last declaration depends on 40
+\ others (gen.py fan 40), so the save sorts its list through heap scratch
+\ (lib/sort.fs above its cut-over of 32); each refusal, that scratch's
+\ too, is full, never an unsorted list reported ok.
+s" tests/cli/jobs/fan40.ndjson" false fresh
+T{ ' save-at made 0> ' save-at all-full? save -> true true outcome-ok }T
+ck-release
 
 \ ---- The header's checks in order (review FRK C3), on a record in
 \ memory: each refusal with its outcome and reason, the first only; an

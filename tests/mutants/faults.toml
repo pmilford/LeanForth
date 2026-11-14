@@ -9647,8 +9647,8 @@ gap = "no fixture yet has one slot whose names beyond the input a parallel run m
 [[fault]]
 id = "sn5-outer-unsorted"
 file = "src/kernel/env-snapshot.fs"
-old = '''  swap slot-env looks-put nip nip r> r> r> if look-sort outcome-and else 2drop then ;'''
-new = '''  swap slot-env looks-put nip nip r> r> r> drop 2drop ;'''
+old = '''  if r> look-sort outcome-and else r> drop 2drop then ;'''
+new = '''  r> drop drop 2drop ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
 reason = "SN5: a list with names beyond the input written unsorted after their keys are made the written names', which the loader refuses"
 
@@ -9671,7 +9671,7 @@ reason = "SN4: what two sibling layers both hold is entered twice, so its name h
 [[fault]]
 id = "sn4-layer-deps-unsorted"
 file = "src/kernel/env-snapshot.fs"
-old = '''  loop 2drop 2r> swap dep-sort ;'''
+old = '''  loop drop snap-sorter 2r> swap rot dep-sort ;'''
 new = '''  loop 2drop 2r> 2drop ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
 reason = "SN4: a layer's dependencies written in the order of the run's slots, not ascending as numbered in the layer"
@@ -16625,8 +16625,8 @@ reason = "reuse-k1: new cache entries are not charged to a check's memory limit"
 [[fault]]
 id = "sn-dep-sort-skipped"
 file = "src/kernel/env-snapshot.fs"
-old = ''': dep-sort ( addr n -- outcome ) /snap-dep le-sort ;'''
-new = ''': dep-sort ( addr n -- outcome ) 2drop outcome-ok ;'''
+old = ''': dep-sort ( addr n sorter -- outcome ) /snap-dep swap le-sorter sort-records ;'''
+new = ''': dep-sort ( addr n sorter -- outcome ) drop 2drop outcome-ok ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "reuse-k1: a list of dependencies is written and merged unsorted"
 
@@ -16787,3 +16787,56 @@ old = ''': expr-pi? ( e tier -- flag ) expr-tag@ tag-pi tag-let within ;'''
 new = ''': expr-pi? ( e tier -- flag ) expr-tag@ tag-pi = ;'''
 test = "$GFORTH tests/core/compact.fs"
 reason = "only an explicit Pi counts: a library constant's telescope stops at its first implicit binder"
+
+# --- the snapshot's sorts that need heap scratch (review reuse-k1 H1) ----
+
+[[fault]]
+id = "sn-put-deps-full-lost"
+file = "src/kernel/env-snapshot.fs"
+old = '''  loop drop snap-sorter 2r> swap rot dep-sort ;'''
+new = '''  loop drop snap-sorter 2r> swap rot dep-sort drop outcome-ok ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "a save whose dependency sort the heap refuses writes the list unsorted and reports ok"
+
+[[fault]]
+id = "sn-canon-sort-full-lost"
+file = "src/kernel/env-snapshot.fs"
+old = '''  snap-outers outers-list @ swap outers-of 2dup o-sort -rot canon-names outcome-and ;'''
+new = '''  snap-outers outers-list @ swap outers-of 2dup o-sort drop outcome-ok -rot canon-names outcome-and ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "a save whose canon-name sort the heap refuses writes the list unsorted and reports ok"
+gap = "o-sort needs heap scratch only above 32 names beyond the input in one slot; no fixture has one (Init's largest is 9): a crafted export with 33 generated names looked up by one declaration would catch it"
+
+[[fault]]
+id = "lay-deps-full-lost"
+file = "src/kernel/env-layers.fs"
+old = '''  dup lay-dep-at over lay-sorter rot r@ swap lay-base @ snap-dk +! r> swap dep-sort ;'''
+new = '''  dup lay-dep-at over lay-sorter rot r@ swap lay-base @ snap-dk +! r> swap dep-sort drop outcome-ok ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "a layer whose merged dependency sort the heap refuses is loaded unsorted and reported ok"
+gap = "a layer's merge is tested with every heap refusal only by the command line (tests/cli/test_leanforth.py Layers), which cannot refuse one allocation; a Forth layer-load refusal sweep with wide60 as the layer would catch it"
+
+[[fault]]
+id = "lay-all-new-full-lost"
+file = "src/kernel/env-layers.fs"
+old = '''  dup lay-all-new dup ok? if over lay-count! then nip ;'''
+new = '''  dup lay-all-new drop outcome-ok dup ok? if over lay-count! then nip ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "a layer's appended slots whose sorts fail are counted as loaded"
+gap = "as lay-deps-full-lost: no Forth test refuses an allocation inside a layer's merge"
+
+[[fault]]
+id = "sch-ready-highest-first"
+file = "src/kernel/env-schedule.fs"
+old = '''  ['] sort-signed lf-sched lf-sch-ready pq-init'''
+new = '''  ['] > lf-sched lf-sch-ready pq-init'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review reuse-k1 M4: the ready queue hands out the highest declaration first, not the order of dispatch the heap gave"
+
+[[fault]]
+id = "sch-laters-highest-first"
+file = "src/kernel/env-schedule.fs"
+old = '''  ['] sort-signed lf-sched lf-sch-laters pq-init outcome-and ;'''
+new = '''  ['] > lf-sched lf-sch-laters pq-init outcome-and ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review reuse-k1 M4: the later queue hands out the highest declaration first"

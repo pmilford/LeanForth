@@ -166,6 +166,7 @@ begin-structure /snap
   field: snap-expect-firsts             \ and the base's tier counts (8 cells)
   field: snap-stale                     \ reading: true for an older verdict version
   field: snap-carry                     \ reading a base: older, in the window
+  /sorter +field snap-sorter            \ its lists sorted (a save's; a layer's merge)
 end-structure
 variable snap-loading   \ the record snap-fill reads
 \ A development flag (owner, 2026-11-11; ADR 0020 amendment 3): true lets
@@ -377,19 +378,21 @@ create snap-outers /outers allot  snap-outers /outers erase
     3 pick 2 pick i o-level 3 pick 2 pick i o-level
     i if part-order else u-order then ?dup if >r 2drop 2drop r> unloop exit then
   loop u-order nip nip ;
-\ The lists sorted (lib/sort.fs, stable; in the driving task, one at a
-\ time, by the writer and env-layers.fs): n cells at addr by o-order
-\ (equal content is the same name); n lookups, or n dependencies, by their
+\ The lists sorted (lib/sort.fs, stable): n cells at addr by o-order
+\ (equal content is the same name), by the writer's sorter in
+\ snap-outers (one save at a time); n lookups, or n dependencies, by their
 \ little-endian keys or slot numbers, unsigned (a list holds distinct
-\ ones). Each ok, or full when more than 32 need scratch the heap refuses.
+\ ones), by the sorter of the record written or merged into (snap-sorter:
+\ a save's, or a layer's own, so two layers loading at once never share
+\ one; review reuse-k1 M2). Each ok, or full when more than 32 need
+\ scratch the heap refuses.
 : o-sorter ( -- sorter ) snap-outers outers-sorter ;
 : o-sort ( addr n -- outcome )
   ['] o-order o-sorter sorter-cells drop o-sorter sort-records ;
-: le-sort ( addr n size -- outcome )
-  o-sorter tuck ['] sort-unsigned swap sorter-init drop ['] u32-le@ over sorter-key!
-  sort-records ;
-: look-sort ( addr n -- outcome ) /snap-look le-sort ;
-: dep-sort ( addr n -- outcome ) /snap-dep le-sort ;
+: le-sorter ( size sorter -- sorter )
+  tuck ['] sort-unsigned swap sorter-init drop ['] u32-le@ over sorter-key! ;
+: look-sort ( addr n sorter -- outcome ) /snap-look swap le-sorter sort-records ;
+: dep-sort ( addr n sorter -- outcome ) /snap-dep swap le-sorter sort-records ;
 \ Slot's names beyond into the list (room for its every lookup), sorted,
 \ and made in canon: ok or full.
 : outers-hold ( n -- outcome )
@@ -397,7 +400,7 @@ create snap-outers /outers allot  snap-outers /outers erase
   snap-outers outers-list heap-release
   dup cells allocate if 2drop outcome-full exit then
   snap-outers outers-list ! snap-outers outers-room ! outcome-ok ;
-: outer-put ( addr n name -- addr n' ) 2 pick 2 pick cells + ! 1+ ;
+: outer-put ( addr n name -- addr n' ) >r 2dup cells + r> swap ! 1+ ;
 : outer-key ( addr n slot key -- addr n' slot )
   dup key-beyond? if lf-look-name swap >r outer-put r> else drop then ;
 : outers-of ( addr slot -- addr n )
@@ -487,15 +490,16 @@ create snap-outers /outers allot  snap-outers /outers erase
 \ A slot's lookups, sorted again when it has names beyond the input (their
 \ keys were written as canon's).
 : put-looks ( addr d snap -- addr' outcome )
-  over slot-env dup slot-outer? >r lf-slot-looked @ >r 2 pick >r
-  swap slot-env looks-put nip nip r> r> r> if look-sort outcome-and else 2drop then ;
+  dup snap-sorter >r over slot-env dup slot-outer? >r lf-slot-looked @ >r 2 pick >r
+  swap slot-env looks-put nip nip r> r> r>
+  if r> look-sort outcome-and else r> drop 2drop then ;
 \ A slot's dependencies, sorted again (a layer's are numbered again, so
 \ their order may change).
 : put-deps ( addr d snap -- addr' outcome )
   over slot-env lf-slot-count @ 3 pick 2>r
   swap slot-env dup lf-slot-count @ 0 ?do
     i over lf-dep-at 2 pick snap-s 3 pick u32-le! rot /snap-dep + -rot
-  loop 2drop 2r> swap dep-sort ;
+  loop drop snap-sorter 2r> swap rot dep-sort ;
 \ Slot d's dependencies and lookups, after the lists' ends so far; the
 \ first failure.
 : put-pair ( dblk snap lblk d -- dblk' snap lblk' outcome )

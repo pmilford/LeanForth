@@ -199,8 +199,7 @@ create lf-cache-values 2 , 2 , 2 , 2 , 2 , 0 , 0 , 1 ,
 \ table back (lib/memo.fs's memo-empty), so that an emptying costs little
 \ whatever an earlier check needed.
 : lf-cache-make ( cache -- )
-  lf-cache-kcells over lf-cache-vcells 2 pick lf-cache-table memo-init drop
-  lf-cache-hooks! ;
+  >r lf-cache-kcells r@ lf-cache-vcells r@ lf-cache-table memo-init drop r> lf-cache-hooks! ;
 : lf-cache-release ( cache -- ) lf-cache-table memo-free ;
 : lf-caches-some ( xt n -- )
   0 lf-cache-nth swap 0 ?do 2dup swap execute /lf-cache + loop 2drop ;

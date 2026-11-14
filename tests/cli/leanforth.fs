@@ -800,5 +800,15 @@ ck-marks!
 T{ max-n ck-state ck-prog-mark ck-after? 0 ck-state ck-prog-mark ck-after? -> false true }T
 T{ depth -> 0 }T
 
+\ The scheduler's two queues hand out the lowest declaration first (review
+\ reuse-k1 M4): lf-sch-queues-init gives them lib/sort.fs's signed order,
+\ as the binary heap it replaced compared them.
+: queue-out ( queue -- d1 d2 d3 ) dup pq-pop over pq-pop rot pq-pop ;
+: queue-in ( queue -- ) >r 9 r@ pq-push drop 2 r@ pq-push drop 5 r> pq-push drop ;
+T{ lf-sch-queues-init -> outcome-ok }T
+lf-sched lf-sch-ready queue-in  lf-sched lf-sch-laters queue-in
+T{ lf-sched lf-sch-ready queue-out lf-sched lf-sch-laters queue-out -> 2 5 9 2 5 9 }T
+lf-sched lf-sch-ready pq-free  lf-sched lf-sch-laters pq-free
+
 cases-done
 bye
