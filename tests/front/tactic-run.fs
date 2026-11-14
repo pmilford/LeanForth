@@ -15,9 +15,9 @@
 \    checks the depth) and the public words directly: focus, done,
 \    blocks, saved states; 4. through the command line (cli-check, the
 \    path of every text): tests/front/05-unsolved.lf exits 4 with error
-\    89, tests/front/06-sorry.lf exits 2 with error 93 with its own
-\    statement and 0 with the stand-in p : Prop, the kernel accepting it
-\    NOT PROVED; 5. resources: fuel at every step, the heap refusing each
+\    89, tests/front/06-sorry.lf exits 0 with its own statement (the
+\    library's constants in view, S1 merge B) and with the stand-in
+\    p : Prop, the kernel accepting it NOT PROVED; 5. resources: fuel at every step, the heap refusing each
 \    allocation of a run, 1,000 nested blocks (heap frames); 6. state:
 \    rollback at choice points field by field, the same verdict after a
 \    failed run, the open parts reset with each run, none kept by a
@@ -187,12 +187,12 @@ T{ error-text s" (plan FE1g-6)" search nip nip -> true }T
 T{ s" by-sorry by-sorry end t" proof nrun err -> outcome-invalid 90 1 52 }T
 T{ token s" by-sorry" compare detail nip -> 0 0 }T
 
-\ ---- 1. A level type inference cannot find (93, not supported yet): the
-\ constants of 0 + n = n are not in the Meta layer's input while a text
-\ runs (plan FE1e).
+\ ---- 1. The constants of 0 + n = n in the Meta layer's view while the
+\ text runs (S1 merge B, the library's route): the goal's level is
+\ inferred and by-sorry closes it, the goal kept as Lean shows it.
 ' zero-add stating
-T{ s" by-sorry end t" proof nrun err lf-open-parts -> outcome-unsupported 93 1 43 0 }T
-T{ detail lean-goals compare -> 0 }T
+T{ s" by-sorry end t" proof nrun lf-author-code lf-open-parts -> outcome-ok 0 1 }T
+T{ 0 part-goal lean-goals compare -> 0 }T
 \ A let among the binders: not supported yet when the value is closed.
 ' let-x stating
 T{ s" by-sorry end t" proof nrun err -> outcome-unsupported 93 1 52 }T
@@ -394,7 +394,7 @@ T{ s" tests/front/06-sorry.lf" check lf-author-code -> 2 71 }T
 ' zero-add stating
 T{ s" tests/front/05-unsolved.lf" check err -> 4 89 14 4 }T
 T{ detail lean-goals compare -> 0 }T
-T{ s" tests/front/06-sorry.lf" check err lf-open-parts -> 2 93 17 3 0 }T
+T{ s" tests/front/06-sorry.lf" check outcome-ok tally cli-not-proved @ lf-open-parts -> 0 49 2 1 }T
 \ The stand-in p : Prop: the kernel accepts the term, NOT PROVED, sorryAx
 \ named; the open part outlives the stores the run emptied.
 \ The slice's 48 declarations and the text's are accepted; NOT PROVED are

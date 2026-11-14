@@ -235,7 +235,7 @@ end-structure
 : wc-levels-fill ( const -- outcome )
   lf-term-first@ lf-cref-slot wc-levels lf-meta-levels-fill ;
 : wc-levels-at ( -- addr ) 0 wc-levels slab-at ;
-: wc-rec-params ( -- names n ) wc wc-head @ lf-meta-const-decl drop lf-input-params ;
+: wc-rec-params ( -- names n ) wc wc-head @ lf-meta-const-decl drop lf-menv-params ;
 : wc-levels-ok? ( -- flag ) wc-rec-params nip wc wc-head @ wc-levels# = ;
 : wc-rhs-levels ( rhs -- rhs' outcome )
   wc wc-head @ wc-levels-fill dup ok? 0= if nip no-result exit then drop
@@ -262,14 +262,14 @@ end-structure
 \ a major premise that is not a constructor applied to exactly its
 \ parameters and fields is eta-expanded with its inferred type.
 : wc-induct-data ( -- data|0 )
-  wc wc-data @ lf-irc-all@ drop @ lf-input-newest dup 0< if drop 0 exit then
-  lf-input-decl lf-idecl-data ;
+  wc wc-data @ lf-irc-all@ drop @ lf-menv-newest dup 0< if drop 0 exit then
+  lf-menv-data ;
 : wc-structure-like? ( data -- flag )
   dup lf-ity-indices lf-more-field 0= over lf-ity-ctors@ nip 1 = and
   swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0= and ;
 : wc-ctor? ( mhead -- flag ) wc-kind lf-kind-constructor = ;
 : wc-ctor-arity ( mhead -- n )
-  lf-meta-const-decl drop lf-input-decl lf-idecl-data dup lf-ict-params lf-more-field
+  lf-meta-const-decl drop lf-menv-data dup lf-ict-params lf-more-field
   swap lf-ict-fields lf-more-field + ;
 : wc-exact? ( mhead -- flag )
   dup wc-ctor? if wc-ctor-arity wc-margs slab-count = else drop false then ;
@@ -293,12 +293,12 @@ end-structure
   wc-k? wc-single? 0= or if outcome-unsupported wc-fail exit then
   wc-major wc-rec-kind wc-term wc wc-aux @ wc-frame wc-go ;
 : wc-iota ( e head d -- e' flag outcome )
-  dup wc wc-aux ! lf-input-decl lf-idecl-data wc wc-data ! wc wc-head ! wc wc-e !
+  dup wc wc-aux ! lf-menv-data wc wc-data ! wc wc-head ! wc wc-e !
   wc-reduce-rec ;
 \ Resumed with the major premise's whnf r: the step's state again, then
 \ r's head decides.
 : wc-rec-frame ( -- outcome )
-  wc wc-aux @ lf-input-decl lf-idecl-data wc wc-data !
+  wc wc-aux @ lf-menv-data wc wc-data !
   wc-term wc-args lf-meta-spine ok-then? if wc wc-head ! outcome-ok then ;
 : wc-rec-resume ( r -- e' flag outcome )
   wc-rec-frame dup ok? 0= if wc-drop-fail exit then drop
@@ -315,7 +315,7 @@ end-structure
 : wc-unfinal? ( rhead -- flag ) dup wc-const? if wc-const-unfinal? else wc-lit? then ;
 : wc-proj-at ( p -- k ) lf-proj-leaf lf-proj-idx ;
 : wc-ctor-params ( ctor -- n )
-  lf-meta-const-decl drop lf-input-decl lf-idecl-data lf-ict-params lf-more-field ;
+  lf-meta-const-decl drop lf-menv-data lf-ict-params lf-more-field ;
 : wc-field ( rhead p -- x true | false )
   wc-proj-at swap wc-ctor-params + dup wc-margs slab-count <
   if wc-margs lf-meta-arg true else drop false then ;
@@ -339,7 +339,8 @@ end-structure
 \ auxiliary recursor stays (Lean's whnfCore returns e).
 : wc-fact-no? ( d xt -- flag ) execute ok? swap 0= and ;
 : wc-inert-defn? ( d -- flag )
-  wc wc-facts @ 0= if drop false exit then
+  wc wc-facts @ 0= if drop false exit then dup lf-menv-kind lf-kind-definition <>
+  if drop false exit then
   dup ['] lf-menv-matcher? wc-fact-no? swap ['] lf-menv-aux-recursor? wc-fact-no? and ;
 : wc-decl-head ( e head d -- e' flag outcome )
   dup wc-inert-defn? if 2drop wc-done exit then
@@ -378,7 +379,7 @@ end-structure
 : wc-core ( term facts -- term' outcome )
   wc wc-facts ! dup lf-term-root? 0= if drop -1 outcome-invalid exit then
   wc-start wc-loop ;
-: lf-whnf-core ( term -- term' outcome ) false wc-core ;
+: lf-whnf-core ( term -- term' outcome ) true wc-core ;
 
 \ ---- whnf (lf-meta-whnf): what whnfCore leaves, unless reduceNat? or
 \ unfoldDefinition? would act on it (unsupported).
@@ -455,7 +456,7 @@ end-structure
   wc-k? wc-short? or if false outcome-ok exit then
   wc-major wc-margs lf-meta-spine ok-then? if ws-major-head else false swap then ;
 : ws-rec ( head d -- mvar true outcome | false outcome )
-  lf-input-decl lf-idecl-data wc wc-data ! drop ws-major ;
+  lf-menv-data wc wc-data ! drop ws-major ;
 \ A binary node's data word is known only when no metavariable is in it
 \ (core/terms.fs): Lean's hasExprMVar is false.
 : ws-kind ( e d -- false outcome )

@@ -97,7 +97,8 @@ max-n abort" allocate free throw
 """.split())
 CONTEXT = {"context-in-job?", "context-record:", "context-setup", "context-teardown"}
 STORES = {
-    "lf-term-read", "lf-term-identity", "lf-term-binary-tag?", "lf-level-read",
+    "lf-term-read", "lf-term-identity", "lf-term-binary-tag?", "lf-term-binder-tag?",
+    "lf-level-read",
     "lf-level-identity", "lf-level-binary-tag?", "lf-level-tag-succ", "lf-level-tag-zero",
     "lf-level-tag-param", "lf-cref-read", "lf-cref-level", "lf-cref-current",
     "lf-input-intact?",

@@ -443,7 +443,7 @@ rr-power 2constant rr-exact
 : rr-key ( c-addr u -- ) rr-w jw-key ;
 : rr-null ( -- ) rr-w jw-null ;
 \ The first failure rr-write finds itself.
-: rr-fail ( outcome -- ) run-record rr-fault dup @ ok? if ! else 2drop then ;
+: rr-fail ( outcome -- ) run-record rr-fault outcome-first! ;
 \ Values. A string that breaks the text rule, a shown one that is blank or
 \ longer than its room, and a number outside I-JSON's range fail the text
 \ as invalid (full for the length): the record never holds what its

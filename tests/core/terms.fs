@@ -28,6 +28,18 @@ T{ -1 lf-term-read -> false }T
 T{ 5 lf-term-read -> false }T
 T{ 100000 lf-term-read -> false }T
 T{ lf-term-count @ -> 5 }T
+\ A node's kind by its tag (plan 9.4.8a): application, lambda, Pi, bound
+\ variable, binary (two children), binder (lambda or Pi), the bound
+\ variable #n, any tag.
+T{ 2 lf-term-app? 3 lf-term-app? 0 lf-term-app? 1 lf-term-app? -> true false false false }T
+T{ 3 lf-term-lam? 4 lf-term-lam? 4 lf-term-pi? 3 lf-term-pi? -> true false true false }T
+T{ 1 lf-term-bvar? 0 lf-term-bvar? 2 lf-term-bvar? -> true false false }T
+T{ 2 lf-term-binary? 3 lf-term-binary? 4 lf-term-binary? -> true true true }T
+T{ 0 lf-term-binary? 1 lf-term-binary? -> false false }T
+T{ 3 lf-term-binder? 4 lf-term-binder? 2 lf-term-binder? 1 lf-term-binder? -> true true false false }T
+T{ 2 lf-tag-app lf-term-tag? 2 lf-tag-lam lf-term-tag? 0 lf-tag-sort lf-term-tag? -> true false true }T
+T{ 1 1 lf-term-bvar-is? 1 0 lf-term-bvar-is? 1 2 lf-term-bvar-is? -> true false false }T
+T{ 0 0 lf-term-bvar-is? 2 1 lf-term-bvar-is? 0 1 lf-term-bvar-is? -> false false false }T
 T{ 2 lf-term-read -> lf-tag-app 0 1 true }T
 
 \ Fill all remaining slots to exercise failure at the allocation boundary,

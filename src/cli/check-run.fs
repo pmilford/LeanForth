@@ -496,8 +496,8 @@ create ck-line ck-line-room 2 + allot
 \ session's main context; bin/leanforth's never was) -- are all freed,
 \ and the run checks one declaration at a time (ck-jobs-run?), as the
 \ resource report then says: the same output, only slower.
-: ck-workers-made ( -- outcome )
-  outcome-ok ck-jobs 0 ?do dup ok? 0= if unloop exit then drop ck-worker-add loop ;
+: ck-worker-next ( k -- outcome ) drop ck-worker-add ;
+: ck-workers-made ( -- outcome ) ck-jobs ['] ck-worker-next ok-each ;
 \ The workers read this context's references in place; so that none reads
 \ a block given back, this context's references as the workers began to
 \ read them are kept (core/constant-references.fs's lf-cref-lending) and,
@@ -1062,12 +1062,11 @@ end-structure
 : ck-lay-ids-made ( -- outcome )
   ck-layer-names 2@ nip /ck-layer-id * 1 max allocate if drop outcome-full exit then
   ck-state ck-lay-ids ! outcome-ok ;
+: ck-layer-loaded ( k -- outcome ) ck-layer dup ok? if 1 ck-state ck-layers +! then ;
 : ck-layers-load ( -- outcome )
   ck-lay-ids-made dup ok? 0= if exit then drop
   ck-snap snap-n @ ck-stage stage-tier tier-names cons-numbers
-  ck-layer-names 2@ nip 0 ?do
-    i ck-layer dup ok? 0= if nip nip unloop exit then drop 1 ck-state ck-layers +!
-  loop 2drop outcome-ok ;
+  ck-layer-names 2@ nip ['] ck-layer-loaded ok-each nip nip ;
 \ A base of an older verdict version inside the window is carried alone
 \ or with an export; with layers (plan step 6.2.5c7), or with an export
 \ and --snapshot-stale-ok, it is stale when that flag is given (every

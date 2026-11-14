@@ -440,6 +440,20 @@ create lf-tbind-hooks /htab-hooks allot
   dup lf-term-input? if lf-tin-first@ else lf-term-slot lf-term-first-at + u32@ then ;
 : lf-term-second@ ( index -- second )
   dup lf-term-input? if lf-tin-second@ else lf-term-slot lf-term-second-at + u32@ then ;
+\ The node's kind, by its tag, unchecked as lf-term-tag@: a tag; an
+\ application, lambda, Pi or bound variable; a binary node (two
+\ children) or a binder (lambda or Pi). A constant's is
+\ constant-term-boundary.fs's lf-term-const?, beside its tag.
+: lf-term-tag? ( index tag -- flag ) swap lf-term-tag@ = ;
+: lf-term-app? ( index -- flag ) lf-tag-app lf-term-tag? ;
+: lf-term-lam? ( index -- flag ) lf-tag-lam lf-term-tag? ;
+: lf-term-pi? ( index -- flag ) lf-tag-pi lf-term-tag? ;
+: lf-term-bvar? ( index -- flag ) lf-tag-bvar lf-term-tag? ;
+: lf-term-binary? ( index -- flag ) lf-term-tag@ lf-term-binary-tag? ;
+: lf-term-binder? ( index -- flag ) lf-term-tag@ lf-term-binder-tag? ;
+\ Whether the node is the bound variable #n.
+: lf-term-bvar-is? ( index n -- flag )
+  over lf-term-bvar? if swap lf-term-first@ = else 2drop false then ;
 \ The end of a store mark as a term number: the nodes below it (input
 \ nodes included) are older than the mark.
 : lf-term-mark-end ( mark -- n ) mark-count @ lf-term-base + ;
@@ -712,7 +726,7 @@ defer lf-term-view-hook ( -- outcome )
 \ uses instead: import/feed.fs, ADR 0014 Amendment 7).
 : lf-tin-binder? ( index -- flag )
   dup lf-term-input? 0= if drop false exit then
-  lf-tin-tag@ dup lf-tag-lam = swap lf-tag-pi = or ;
+  lf-tin-tag@ lf-term-binder-tag? ;
 : lf-tbind-new? ( index -- flag )
   dup lf-tbind-fields lf-tin-key! lf-term-view lf-tview-binders htab-find
   if 2drop false else lf-term-view lf-tview-binders htab-put true then ;

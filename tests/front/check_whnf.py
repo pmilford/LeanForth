@@ -89,7 +89,7 @@ CASES = [
     ("whnf", apps("g", "k"), None),
     ("whnf", "g", None),
     ("whnf", "?f", None),
-    ("whnf", apps(ADD, "k", "k"), "FE1d2 matcher and auxiliary-recursor facts"),
+    ("whnf", apps(ADD, "k", "k"), None),
     ("whnf", apps(SUCC, "k"), None),
     ("whnf", apps(c("Classical.choice", 1), NAT, "x"), None),
     ("whnf", apps(c("Eq.rec", 1, 1), NAT, "a", "m", "x", "a", apps(c("Eq.refl", 1), NAT, "a")),

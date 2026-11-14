@@ -125,9 +125,8 @@ end-structure
 : gl-kept ( new list i -- new' list outcome )
   over swap run@ rot swap gl-keep >r swap r> ;
 : gl-unsolved ( list -- list' outcome )
-  0 swap dup run-count 0 ?do
-    i gl-kept ok-then? 0= if nip no-result unloop exit then loop
-  drop outcome-ok ;
+  0 swap dup run-count ['] gl-kept ok-each
+  ok-then? if drop outcome-ok else nip no-result then ;
 : lf-goals-unsolved ( -- list outcome )
   lf-goals gl-unsolved ok-then? if dup gl-set outcome-ok else no-result then ;
 \ The place of the first goal not assigned, or the count.

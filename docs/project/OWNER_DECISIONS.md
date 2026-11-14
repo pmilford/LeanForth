@@ -1300,3 +1300,13 @@ that `lib/sort.fs` copied from it.
 The kernel's first batch under this decision is branch `reuse-k1` (plan 9.4.8e: `lib/sort.fs` in the kernel's sorts,
 the new `lib/memo.fs` and `lib/pqueue.fs` in its memos and scheduler queues); it waits for the [kernel] gate (this
 records no new decision).
+
+### [import]: S1's library route (2026-11-13, afternoon)
+
+The owner approved the [import] gate for branch `s1-meta-b` (S1 merge B; ADR 0021 Amendment 2, D13): while a
+LeanForth file runs, the front end reads the library's declarations read-only from the importer's stage, decoding
+them into scratch thrown away before the stage is sealed; only the finished declaration reaches the kernel. Evidence
+shown: the stand-in `0 + 0 = 0` accepted and `0 + 0 = 1` refused with Lean's message; binder kinds equal Lean's on
+S1's 16 declarations; the Forth review's two memory-corruption bugs and its trust-test gap fixed (a test asserts the
+stage's tables are unchanged by decoding); 35 new planted faults caught; the tier passed; the coordinator's probe of
+the key faults. The merge follows the independent re-check of the fix commits (AGENTS.md: every Forth change).

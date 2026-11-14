@@ -449,6 +449,7 @@ below it).
 | 97 | invalid | Tactic `rfl` failed: The left-hand side |
 | 98 | invalid | Tactic `exact` failed: attempting to close the goal using |
 | 99 | unsupported | not supported yet: this case of the tactic (FE1G_TACTICS.md 5 names its step) |
+| 100 | invalid | invalid universe level: not greater than 0 |
 
 Codes come in ranges (`src/author/errors.fs`): 1 to 73 the words, the
 runner, the stores and natural text read (FE1a); 74 to 79 elaboration and

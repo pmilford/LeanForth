@@ -133,22 +133,22 @@ end-structure
 \ ---- A let value's depth: Lean's approxDepth, a leaf 0, a node one more
 \ than its deepest part, at most 255; a let (its value, then a lambda of
 \ its type and body) counts its type and body at the lambda's depth.
-: gp-binary? ( node -- flag ) lf-term-tag@ lf-term-binary-tag? ;
 : gp-undone ( child walk -- child true | false )
   over swap dw-done? if drop false else true then ;
 : gp-child ( node walk -- child true | false )
-  over gp-binary? 0= if 2drop false exit then
+  over lf-term-binary? 0= if 2drop false exit then
   over lf-term-first@ over gp-undone if nip nip true exit then
   swap lf-term-second@ swap gp-undone ;
 : gp-images ( node walk -- i1 i2 )
   over lf-term-first@ over dw-image >r swap lf-term-second@ swap dw-image r> swap ;
 : gp-deeper ( node walk -- depth )
   over >r gp-images r> lf-let? if 1- 0 max then max 1+ gp-depth-most min ;
-: gp-depth-build ( node walk -- depth ) over gp-binary? if gp-deeper else 2drop 0 then ;
+: gp-depth-build ( node walk -- depth )
+  over lf-term-binary? if gp-deeper else 2drop 0 then ;
 : gp-depth ( term -- depth outcome )
   gp gp-walk ['] gp-depth-build over dw-build ! ['] gp-child over dw-pending !
   lf-term-base lf-term-count @ + over dw-size ! dw-run ;
-: gp-atomic? ( term -- flag ) gp-binary? 0= ;
+: gp-atomic? ( term -- flag ) lf-term-binary? 0= ;
 : gp-shown? ( value -- flag outcome )
   dup gp-atomic? if drop true outcome-ok exit then
   gp gp-opaque @ 0= if drop false outcome-ok exit then
@@ -167,8 +167,7 @@ end-structure
 : gp-flush ( -- outcome )
   gp-names slab-count 0= if outcome-ok exit then
   gp-line gp-group-names s"  : " gp-emit gp gp-prev @ gp-group-reset gp-term ;
-: gp-join ( i -- outcome )
-  1 gp-names slab-claim ok-then? if gp-names slab-at ! outcome-ok else nip then ;
+: gp-join ( i -- outcome ) gp-names slab-push ;
 : gp-same-type? ( type -- flag outcome )
   gp gp-prev @ dup 0< if 2drop true outcome-ok else gp-fuel lf-print-same? then ;
 : gp-grouped ( flag -- outcome ) if outcome-ok else gp-flush then ;
@@ -191,8 +190,7 @@ end-structure
 : gp-at ( i -- outcome )
   dup gp-visible? 0= if drop outcome-ok exit then
   dup gp-fvar-at lf-fvar-let? if gp-let else gp-cdecl then ;
-: gp-hyps ( -- outcome )
-  gp-view@ lf-view-count 0 ?do i gp-at dup ok? 0= if unloop exit then drop loop gp-flush ;
+: gp-hyps ( -- outcome ) gp-view@ lf-view-count ['] gp-at ok-each ['] gp-flush ok-and ;
 
 \ ---- A goal: its tag line, its hypotheses, the turnstile and its type.
 : gp-case ( goal -- ) lf-mvar-tag drop ?dup if gp-line s" case " gp-emit lf-pp-name then ;
@@ -213,10 +211,9 @@ end-structure
 \ The unsolved goals, a blank line between two (Lean's goalsToMessageData,
 \ what a tactic's error shows under its message); trace_state then ends
 \ the line.
-: gp-nth ( list i -- outcome ) dup if s\" \n\n" gp-emit then run@ lf-goal-print ;
-: gp-all ( list -- outcome )
-  dup run-count 0 ?do dup i gp-nth dup ok? 0= if nip unloop exit then drop loop
-  drop outcome-ok ;
+: gp-nth ( list i -- list outcome )
+  dup if s\" \n\n" gp-emit then over swap run@ lf-goal-print ;
+: gp-all ( list -- outcome ) dup run-count ['] gp-nth ok-each nip ;
 : lf-goals-text ( -- outcome ) lf-goals-unsolved ok-then? if gp-all then ;
 : lf-goals-print ( -- outcome ) lf-goals-text dup ok? if s\" \n" gp-emit then ;
 base !   \ the BASE this file was loaded with

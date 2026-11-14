@@ -117,20 +117,16 @@ create tier-family-xts ' tier-names , ' tier-levels , ' tier-tuples , ' tier-tex
 \ is not sealed (or is itself a sealed scratch tier: there are at most
 \ two tiers, cons.fs), or full. Stops at the first failure; tier-free then
 \ frees what was made. The record must not hold memory: tier-free first.
-: tier-extend-family ( input tier i -- outcome )
-  tuck swap tier-family >r swap tier-family tier-scratch-log2 swap r> cons-extend ;
+: tier-extend-family ( input i tier -- input outcome )
+  over swap tier-family >r over tier-family tier-scratch-log2 swap r> cons-extend ;
 : tier-extend ( input tier -- outcome )
-  dup /tier erase tier-families 0 do
-    2dup i tier-extend-family ok-then2? 0= if unloop exit then
-  loop 2drop outcome-ok ;
+  dup /tier erase tier-families swap ['] tier-extend-family ok-fold nip ;
 
 \ Seal an input tier: every family read-only, its tables frozen. ok, or
 \ invalid for a tier that is not open (sealed already, or a family
 \ missing). A sealed scratch tier is read-only too but cannot be extended.
-: tier-seal ( tier -- outcome )
-  tier-families 0 do
-    i over tier-family cons-seal ok-then? 0= if unloop exit then
-  loop drop outcome-ok ;
+: tier-seal-family ( tier i -- tier outcome ) over tier-family cons-seal ;
+: tier-seal ( tier -- outcome ) tier-families ['] tier-seal-family ok-each nip ;
 : tier-free ( tier -- )
   tier-families 0 do i over tier-family cons-free loop drop ;
 

@@ -33,8 +33,11 @@
 \ lf-stmt-met@ ( -- n ) and lf-stmt-id ( k -- addr ) give the names of
 \ the constants it met, in the text's order (the allowlist checks that
 \ they are Lean's own).
-\ lf-stmt-name? ( id c-addr u -- flag ): whether name id is the dotted
-\ text (an audited name).
+\ lf-name-dotted? ( id c-addr u -- flag ): whether name id is the dotted
+\ text (an audited name; string parts only), the comparison of Lean's
+\ isConstOf and match_expr with a literal name, shared with the front
+\ end (front/term-eqv.fs); lf-stmt-name? is the kernel's name for it
+\ until the kernel's reuse batch (plan 9.4.8e).
 \ Entries: lf-stmt: ( code arity "name" -- ) makes a statement entry,
 \ followed by its constant's name, kept with lf-text, ( c-addr u -- ), and
 \ its statement, kept with lf-statement: ( "tokens end-statement" -- )
@@ -107,11 +110,12 @@ end-structure
 : lf-stmt-part? ( id c-addr u -- flag )
   rot dup lf-name-tag@ lf-name-tag-str =
   if lf-name-text compare 0= else drop 2drop false then ;
-: lf-stmt-name? ( id c-addr u -- flag )
+: lf-name-dotted? ( id c-addr u -- flag )
   begin dup while
     lf-stmt-split 2>r 2 pick 2r> lf-stmt-part? 0= if 2drop drop false exit then
     rot lf-name-prefix@ -rot
   repeat 2drop 0= ;
+: lf-stmt-name? ( id c-addr u -- flag ) lf-name-dotted? ;
 
 \ Pending nodes: pushed in the reverse of the text's order.
 : lf-stmt-item ( k -- addr ) 2* cells lf-stmt-state lf-stmt-items + ;
@@ -124,16 +128,14 @@ end-structure
 : lf-stmt-lpush ( level -- flag ) lf-stmt-level lf-stmt-push ;
 
 \ A term token for node: whether they agree, the node's children pushed.
-: lf-stmt-tag? ( node tag -- flag ) swap lf-term-tag@ = ;
 : lf-stmt-children ( node -- flag )
   dup lf-term-second@ lf-stmt-term lf-stmt-push
   swap lf-term-first@ lf-stmt-term lf-stmt-push and ;
 : lf-stmt-binary ( node tag -- flag )
-  over swap lf-stmt-tag? if lf-stmt-children else drop false then ;
-: lf-stmt-bvar? ( node n -- flag )
-  over lf-tag-bvar lf-stmt-tag? if swap lf-term-first@ = else 2drop false then ;
+  over swap lf-term-tag? if lf-stmt-children else drop false then ;
+
 : lf-stmt-sort ( node -- flag )
-  dup lf-tag-symbolic-sort lf-stmt-tag? 0= if drop false exit then
+  dup lf-tag-symbolic-sort lf-term-tag? 0= if drop false exit then
   lf-term-first@ lf-stmt-lpush ;
 \ A constant: its name, then its number of universe arguments, each then
 \ pushed, the first matched first.
@@ -149,12 +151,12 @@ end-structure
   lf-stmt-met@ dup lf-stmt-room < 0= if 2drop exit then
   tuck lf-stmt-id ! 1+ lf-stmt-state lf-stmt-met ! ;
 : lf-stmt-const ( slot -- flag )
-  lf-stmt-token 2 pick lf-crec-name @ -rot lf-stmt-name? 0= if drop false exit then
+  lf-stmt-token 2 pick lf-crec-name @ -rot lf-name-dotted? 0= if drop false exit then
   dup lf-crec-name @ lf-stmt-meet
   lf-stmt-token lf-stmt-number 0= if 2drop false exit then
   over lf-crec-arity @ = if lf-stmt-args else drop false then ;
 : lf-stmt-const? ( node -- flag )
-  dup lf-tag-constant lf-stmt-tag? if lf-term-first@ lf-cref-slot lf-stmt-const
+  dup lf-term-const? if lf-term-first@ lf-cref-slot lf-stmt-const
   else drop false then ;
 \ Whether a token (not empty) starts with the text given.
 : lf-stmt-prefix? ( c-addr u c-addr2 u2 -- c-addr u flag )
@@ -170,7 +172,7 @@ end-structure
     3 of lf-tag-app lf-stmt-binary endof  4 of lf-stmt-sort endof
     5 of lf-stmt-const? endof  nip false swap endcase ;
 : lf-stmt-bvar-token ( node c-addr u -- flag )
-  1 /string lf-stmt-number if lf-stmt-bvar? else 2drop false then ;
+  1 /string lf-stmt-number if lf-term-bvar-is? else 2drop false then ;
 : lf-stmt-term-token ( node c-addr u -- flag )
   dup 0= if 2drop drop false exit then
   s" #" lf-stmt-prefix? if lf-stmt-bvar-token else lf-stmt-letter then ;
@@ -247,7 +249,7 @@ end-structure
 \ Whether decl is the entry's constant: name, universe parameters, statement.
 : lf-stmt-own? ( decl entry -- flag )
   2dup lf-stmt-arity swap lf-idecl-arity @ =
-  >r lf-stmt-named rot lf-idecl-name @ -rot lf-stmt-name? r> and ;
+  >r lf-stmt-named rot lf-idecl-name @ -rot lf-name-dotted? r> and ;
 : lf-stmt-is? ( decl entry -- flag outcome )
   2dup lf-stmt-own? 0= if 2drop false outcome-ok exit then
   >r dup lf-idecl-type @ swap r> lf-stmt-statement lf-stmt-match ;

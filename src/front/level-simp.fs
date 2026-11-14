@@ -37,10 +37,8 @@ require ../core/levels.fs
   2dup = if 2drop true exit then >r ld-record r> ld-record compare 0= ;
 
 2 cells context-slab: ls-pairs
-: ls-push ( a b -- outcome )
-  1 ls-pairs slab-claim dup ok?
-  if drop ls-pairs slab-at 2! outcome-ok else nip nip nip then ;
-: ls-pop ( -- a b ) ls-pairs dup slab-count 1- swap slab-at 2@ -1 ls-pairs slab-commit ;
+: ls-push ( a b -- outcome ) ls-pairs slab-2push ;
+: ls-pop ( -- a b ) ls-pairs slab-2pop ;
 : ls-more? ( -- flag ) ls-pairs slab-count 0> ;
 : ls-start ( a b -- outcome ) ls-pairs slab-clear ls-push ;
 : ls-tag ( level -- tag ) lf-level-tag@ ;
@@ -60,12 +58,11 @@ require ../core/levels.fs
   2dup = if 2drop true outcome-ok exit then
   over ls-tag over ls-tag <> if 2drop false outcome-ok exit then
   over ls-leaf? if ld-same? outcome-ok else ls-parts then ;
-: ls-round ( -- same? outcome ) ls-pop ls-step ;
-: ls-run ( -- flag outcome )
-  begin ls-more? while ls-round dup ok? 0= if nip false swap exit then drop
-  0= if false outcome-ok exit then repeat true outcome-ok ;
+\ The pairs compared off ls-pairs by slab.fs's slab-2all? (term-eqv.fs's
+\ by the same word): until none is left (true), a pair differs (false)
+\ or a step fails (false and its outcome).
 : lf-meta-level= ( a b -- flag outcome )
-  ls-start dup ok? if drop ls-run else false swap then ;
+  ls-start dup ok? if drop ls-pairs ['] ls-step slab-2all? else false swap then ;
 
 \ isNeverZero: a successor reached through max's sides or imax's second.
 : ls-push1 ( level -- outcome ) 0 ls-push ;

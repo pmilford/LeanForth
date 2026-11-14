@@ -44,12 +44,10 @@ require ./compact-exprs.fs
 \ The classes of the five families, in tier order (compact-tier.fs).
 create tier-classes name-class , level-class , tuple-class , text-class , expr-class ,
 : tier-class ( i -- class ) cells tier-classes + @ ;
-: tier-init-family ( log2 tier i -- outcome )
-  tuck swap tier-family >r tier-class r> cons-init ;
+: tier-init-family ( log2 i tier -- log2 outcome )
+  over swap tier-family >r tier-class over swap r> cons-init ;
 : tier-families-init ( log2 tier -- outcome )
-  tier-families 0 do
-    2dup i tier-init-family dup ok? 0= if nip nip unloop exit then drop
-  loop 2drop outcome-ok ;
+  tier-families swap ['] tier-init-family ok-fold nip ;
 \ An empty input tier with tables of 2^log2 slots and its two first
 \ records: ok, or full (tier-free then frees what was made). The record
 \ must not hold memory: tier-free first.

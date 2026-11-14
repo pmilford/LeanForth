@@ -94,7 +94,7 @@ create lf-lean-types
   lf-lean-nonempty , lf-lean-nonempty-intro , 1 ,
 3 constant lf-lean-types#
 : lf-lean-type ( k -- spec ) 3 * cells lf-lean-types + ;
-: lf-lean-named? ( id k -- flag ) lf-lean-type @ lf-stmt-named lf-stmt-name? ;
+: lf-lean-named? ( id k -- flag ) lf-lean-type @ lf-stmt-named lf-name-dotted? ;
 : lf-lean-spec ( id -- spec|0 )
   lf-lean-types# 0 ?do
     dup i lf-lean-named? if drop i lf-lean-type unloop exit then
@@ -134,11 +134,8 @@ end-structure
 /lf-allow context-record: lf-allow-state
 : lf-allow-id ( k -- addr ) cells lf-allow-state lf-allow-ids + ;
 : lf-allow-keep ( -- n ) lf-stmt-met@ dup 0 ?do i lf-stmt-id @ i lf-allow-id ! loop ;
-: lf-allow-lean? ( -- flag outcome )
-  lf-allow-keep 0 ?do
-    i lf-allow-id @ lf-lean-own? ok-then? 0= if false swap unloop exit then
-    0= if false outcome-ok unloop exit then
-  loop true outcome-ok ;
+: lf-allow-own? ( k -- flag outcome ) lf-allow-id @ lf-lean-own? ;
+: lf-allow-lean? ( -- flag outcome ) lf-allow-keep ['] lf-allow-own? ok-all? ;
 \ A listed bit stays when its statement's constants are Lean's own.
 : lf-allow-checked ( bit -- bit' outcome )
   lf-allow-lean? ok-then? 0= if nip -1 swap exit then

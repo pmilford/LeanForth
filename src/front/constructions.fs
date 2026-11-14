@@ -84,7 +84,6 @@ begin-structure /aux
   field: aux-mtype
   field: aux-fields             \ its fields
   field: aux-span               \ binders a minor premise's fold wraps
-  field: aux-step-xt            \ the fold's step ( x i job -- x' outcome )
   field: aux-arg                \ the recursor's arguments ( j job -- e outcome )
   field: aux-body               \ the value's body ( job -- e outcome )
   field: aux-ctor               \ the constructor being read (ctorIdx)
@@ -204,27 +203,16 @@ end-structure
   over 2* cells over aux-block @ ?dup if swap resize else allocate then
   if 2drop drop outcome-full exit then over aux-block ! aux-room ! outcome-ok ;
 : binder, ( head dom job -- ) dup >r aux-count @ r@ aux-slot 2! 1 r> aux-count +! ;
-\ Run xt ( i job -- outcome ) for i from 0 below n, to the first failure.
-: aux-each ( n job xt -- outcome )
-  rot 0 ?do 2dup i -rot execute dup ok? 0= if nip nip unloop exit then drop loop
-  2drop outcome-ok ;
-\ Steps ( job -- outcome ) that run while ok.
-: aux-then ( job outcome xt -- job outcome )
-  over ok? if nip over swap execute else drop then ;
-\ x := step ( x i job -- x' outcome ) for i from 0 below n, the step in
-\ aux-step-xt; to the first failure.
-: aux-step ( x i job -- x' outcome ) dup aux-step-xt @ execute ;
-: aux-fold ( x n job -- x' outcome )
-  swap 0 ?do tuck i swap aux-step ok-keep? 0= if unloop exit then swap loop
-  drop outcome-ok ;
-: fold-with ( x n job xt -- x' outcome ) over aux-step-xt ! aux-fold ;
+\ Loops over a job (lib/outcome.fs): steps ( job -- outcome ) chained by
+\ ok-with, steps ( job i -- job outcome ) by ok-each, folds ( x i job --
+\ x' outcome ) by ok-fold.
 \ The block's binders wrapped around body, from the inside: Pi or fun.
 : aux-last ( i job -- i' ) aux-count @ 1- swap - ;
 : block-pi ( body i job -- e outcome ) tuck aux-last over binder@ make-binder ;
 : block-lam ( body i job -- e outcome )
   tuck aux-last over binder@ swap pi>lam swap make-binder ;
-: aux-pis ( body job -- e outcome ) dup aux-count @ swap ['] block-pi fold-with ;
-: aux-lams ( body job -- e outcome ) dup aux-count @ swap ['] block-lam fold-with ;
+: aux-pis ( body job -- e outcome ) dup aux-count @ swap ['] block-pi ok-fold ;
+: aux-lams ( body job -- e outcome ) dup aux-count @ swap ['] block-lam ok-fold ;
 
 \ ---- Renumbering (front/expr-remap.fs).
 : run-remap ( e job -- e' outcome ) aux-remap remap-run ;
@@ -241,14 +229,14 @@ end-structure
   tuck run-remap ok-keep? 0= if nip nip exit then
   swap >r swap r@ rec-head swap r> binder, outcome-ok ;
 : rec-binder ( j job -- head dom ) tuck rec-pi swap pi-parts ;
-: copy-binder ( j job -- outcome ) tuck rec-binder rot binder, outcome-ok ;
-: index-binder ( j job -- outcome )
-  2dup lowering tuck first-index + swap with-domain moved ;
-: minor-binder ( i job -- outcome )
-  2dup lifting tuck first-minor + swap with-domain moved ;
-: front-binders ( job -- outcome ) dup first-minor swap ['] copy-binder aux-each ;
-: index-binders ( job -- outcome ) dup aux-indices @ 1+ swap ['] index-binder aux-each ;
-: minor-binders ( job -- outcome ) dup aux-minors @ swap ['] minor-binder aux-each ;
+: copy-binder ( job j -- job outcome ) over tuck rec-binder rot binder, outcome-ok ;
+: index-binder ( job j -- job outcome )
+  over 2dup lowering tuck first-index + swap with-domain moved ;
+: minor-binder ( job i -- job outcome )
+  over 2dup lifting tuck first-minor + swap with-domain moved ;
+: front-binders ( job -- outcome ) dup first-minor ['] copy-binder ok-each nip ;
+: index-binders ( job -- outcome ) dup aux-indices @ 1+ ['] index-binder ok-each nip ;
+: minor-binders ( job -- outcome ) dup aux-minors @ ['] minor-binder ok-each nip ;
 \ The type: the block around the conclusion.
 : conclusion ( job -- e outcome ) dup swapping dup rec-end swap run-remap ;
 \ The type: the block's Pis around the conclusion given.
@@ -262,11 +250,11 @@ end-structure
 \ holds, as levels, after any levels already added.
 : name-param ( i job -- name ) dup aux-names @ swap aux-tuples tuple-item ;
 : param-level ( i job -- l outcome ) tuck name-param swap aux-tier level-param ;
-: level-add ( i job -- outcome )
-  tuck param-level ok-keep? if swap aux-tuples tuple-add else nip then ;
+: level-add ( job i -- job outcome )
+  over tuck param-level ok-keep? if swap aux-tuples tuple-add else nip then ;
 : names-count ( job -- n ) dup aux-names @ swap aux-tuples tuple-length ;
 : levels-add ( t job -- outcome )
-  tuck aux-names ! dup names-count swap ['] level-add aux-each ;
+  tuck aux-names ! dup names-count ['] level-add ok-each nip ;
 : level-one, ( job -- outcome )
   level-zero over aux-tier level-succ
   ok-keep? if swap aux-tuples tuple-add else nip then ;
@@ -276,9 +264,9 @@ end-structure
 : type-names ( job -- t ) dup aux-type @ swap decl-of staged-params@ ;
 : rec-levels-add ( job -- outcome ) dup rec-params swap levels-add ;
 : type-levels-add ( job -- outcome ) dup type-names swap levels-add ;
-: rec-levels ( job -- t outcome ) dup tuple-begin ['] rec-levels-add aux-then tuple-done ;
+: rec-levels ( job -- t outcome ) dup tuple-begin ['] rec-levels-add ok-with tuple-done ;
 : type-levels ( job -- t outcome )
-  dup tuple-begin ['] type-levels-add aux-then tuple-done ;
+  dup tuple-begin ['] type-levels-add ok-with tuple-done ;
 : rec-const ( job -- e outcome )
   dup rec-levels ok-keep? if swap dup >r recursor-name swap r> aux-tier expr-const then ;
 \ Argument j of the recursor: its variable, renumbered as the conclusion's.
@@ -286,10 +274,9 @@ end-structure
   tuck rec-total 1- swap - over aux-var ok-keep? if swap dup swapping run-remap then ;
 : apply-arg ( f j job -- e outcome )
   tuck dup aux-arg @ execute ok-keep? if swap aux-tier expr-app else failed-past then ;
-\ Not a fold: casesOn's arguments fold minor premises of their own.
-: rec-apply ( f job -- e outcome )
-  dup rec-total 0 ?do tuck i swap apply-arg ok-keep? 0= if unloop exit then swap loop
-  drop outcome-ok ;
+\ The recursor applied to its arguments (casesOn's fold minor premises of
+\ their own inside this fold).
+: rec-apply ( f job -- e outcome ) dup rec-total swap ['] apply-arg ok-fold ;
 : generic-body ( job -- e outcome ) dup rec-const ok-keep? if swap rec-apply then ;
 : built-value! ( job -- outcome )
   dup dup aux-body @ execute ok-keep? 0= if nip exit then
@@ -323,7 +310,7 @@ end-structure
 : m-binder ( i job -- head dom ) tuck m-last over m-pi swap pi-parts ;
 : m-pi-step ( body i job -- e outcome ) tuck m-binder make-binder ;
 : m-lam-step ( body i job -- e outcome ) tuck m-binder swap pi>lam swap make-binder ;
-: m-fold ( body job xt -- e outcome ) >r dup aux-span @ swap r> fold-with ;
+: m-fold ( body job xt -- e outcome ) >r dup aux-span @ swap r> ok-fold ;
 \ casesOn's minor premise: the fields only, the conclusion moved past the
 \ hypotheses it never names (in the recursor's context).
 : m-dropping ( n job -- )
@@ -334,10 +321,10 @@ end-structure
   tuck m-open 0= if drop interleaved no-result exit then
   2dup swap aux-fields @ = if drop aux-mtype @ outcome-ok exit then
   over span-fields over m-conclusion ok-keep? if swap ['] m-pi-step m-fold then ;
-: case-binder ( i job -- outcome )
-  2dup stripped ok-keep? 0= if nip nip exit then
+: case-binder ( job i -- job outcome )
+  over 2dup stripped ok-keep? 0= if nip nip exit then
   >r 2dup lifting tuck first-minor + swap r> swap moved ;
-: case-minors ( job -- outcome ) dup aux-minors @ swap ['] case-binder aux-each ;
+: case-minors ( job -- outcome ) dup aux-minors @ ['] case-binder ok-each nip ;
 \ casesOn's argument for minor i: fun fields hyps => minor' fields, its
 \ binders moved from the recursor's context into the value's.
 : m-moving ( i job -- )
@@ -351,7 +338,7 @@ end-structure
 \ Variable b applied to the fields.
 : m-body-at ( b job -- e outcome )
   tuck aux-var ok-keep? 0= if exit then
-  swap dup aux-fields @ swap ['] field-arg fold-with ;
+  swap dup aux-fields @ swap ['] field-arg ok-fold ;
 : m-body ( job -- e outcome ) dup m-head-var swap m-body-at ;
 : minor-lambda ( i job -- e outcome )
   tuck m-ready ok-then? 0= if no-result exit then
@@ -378,7 +365,7 @@ end-structure
   tuck field-proj ok-keep? if swap aux-tier expr-app else failed-past then ;
 : projs-body ( job -- e outcome )
   0 over aux-var ok-keep? 0= if exit then
-  swap dup one-rule-fields swap ['] apply-proj fold-with ;
+  swap dup one-rule-fields swap ['] apply-proj ok-fold ;
 : cases-name ( job -- n true | false )
   >r r@ type-name s" casesOn" r> aux-tier name-find-str ;
 : no-cases ( job -- -1 outcome ) c" no casesOn to unfold to" swap aux-refuse no-result ;
@@ -405,29 +392,29 @@ end-structure
   dup type-end over aux-tier expr-tag@ tag-sort <> if no-sort exit then drop outcome-ok ;
 \ recOn (mkRecOn; mkRecOnViaCasesOn? for the structure case).
 : recon-binders ( job -- outcome )
-  dup front-binders ['] index-binders aux-then ['] minor-binders aux-then nip ;
+  dup front-binders ['] index-binders ok-with ['] minor-binders ok-with nip ;
 : recon-body ( job -- e outcome ) ['] rec-arg over aux-arg ! generic-body ;
 : recon-value ( job -- outcome )
   dup via-projs? 0= if ['] recon-body over aux-body ! built-value! exit then
   dup cases-const ok-keep? if swap aux-built-value ! outcome-ok else nip then ;
 : recon ( job -- outcome )
-  dup sort-ready ['] recon-binders aux-then ['] built-type! aux-then
-  ['] recon-value aux-then nip ;
-: aux-rec-on ( d job -- outcome ) tuck aux-begin ['] recon aux-then swap aux-because ;
+  dup sort-ready ['] recon-binders ok-with ['] built-type! ok-with
+  ['] recon-value ok-with nip ;
+: aux-rec-on ( d job -- outcome ) tuck aux-begin ['] recon ok-with swap aux-because ;
 \ casesOn (mk_cases_on; mkCasesOnViaProjs? for the structure case).
 : several-motives ( job -- outcome )
   c" several motives (a mutual or nested type)" swap aux-refuse ;
 : cases-ready ( job -- outcome )
   dup aux-motives @ 1 <> if several-motives exit then sort-ready ;
 : cases-binders ( job -- outcome )
-  dup front-binders ['] index-binders aux-then ['] case-minors aux-then nip ;
+  dup front-binders ['] index-binders ok-with ['] case-minors ok-with nip ;
 : cases-body ( job -- e outcome )
   dup via-projs? if projs-body exit then ['] case-arg over aux-arg ! generic-body ;
 : cases-value ( job -- outcome ) ['] cases-body over aux-body ! built-value! ;
 : cases ( job -- outcome )
-  dup cases-ready ['] cases-binders aux-then ['] built-type! aux-then
-  ['] cases-value aux-then nip ;
-: aux-cases-on ( d job -- outcome ) tuck aux-begin ['] cases aux-then swap aux-because ;
+  dup cases-ready ['] cases-binders ok-with ['] built-type! ok-with
+  ['] cases-value ok-with nip ;
+: aux-cases-on ( d job -- outcome ) tuck aux-begin ['] cases ok-with swap aux-because ;
 
 \ ---- Comparing with Lean's declaration d of the same name: type, value
 \ and universe parameters, each one number (hash-consing).

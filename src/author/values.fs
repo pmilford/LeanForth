@@ -108,7 +108,7 @@ lfa-item-capacity /lfa-item 0 context-store: lfa-items
 \ A projection's leaf is a term only as the function of $ (lfa>function),
 \ which applies it to the term it projects; anywhere else it stops the run
 \ (error 56), so no node and no record ever refers to a bare leaf.
-: lfa-whole ( term fresh -- term fresh ) over lfa-leaf? 0= lfa-e-leaf lfa-must ;
+: lfa-whole ( term fresh -- term fresh ) over lf-proj-leaf? 0= lfa-e-leaf lfa-must ;
 : lfa>term+ ( value -- term fresh ) lfa>any+ lfa-whole ;
 : lfa>term ( value -- term ) lfa>term+ drop ;
 : lfa>function ( value -- term ) lfa>any+ drop ;

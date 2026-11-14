@@ -128,18 +128,17 @@ defer lf-tac-elab ( node expected -- term outcome )
 
 \ ---- Leaves: a bottom-up walk (dag-walk.fs) whose image is 1 where a
 \ leaf passes the test.
-: lfb-binary? ( node -- flag ) lf-term-tag@ lf-term-binary-tag? ;
 : lfb-undone ( child walk -- child true | false )
   over swap dw-done? if drop false else true then ;
 : lfb-pending ( node walk -- child true | false )
-  over lfb-binary? 0= if 2drop false exit then
+  over lf-term-binary? 0= if 2drop false exit then
   over lf-term-first@ over lfb-undone if nip nip true exit then
   swap lf-term-second@ swap lfb-undone ;
 : lfb-images ( node walk -- i1 i2 )
   over lf-term-first@ over dw-image >r swap lf-term-second@ swap dw-image r> swap ;
 : lfb-leaf ( leaf -- 0|1 ) tb tb-test @ execute 1 and ;
 : lfb-build ( node walk -- 0|1 )
-  over lfb-binary? if lfb-images or else drop lfb-leaf then ;
+  over lf-term-binary? if lfb-images or else drop lfb-leaf then ;
 : lfb-walk ( -- walk )
   tb tb-walk ['] lfb-build over dw-build ! ['] lfb-pending over dw-pending !
   lf-term-base lf-term-count @ + over dw-size ! ;
@@ -185,13 +184,12 @@ defer lf-tac-elab ( node expected -- term outcome )
 : lfb-failed ( xt code -- ) >r 0 swap lf-tac-detail r> lf-tac-stop ;
 
 \ ---- by-intro: NAME.
-: lfb-pi? ( t -- flag ) lf-term-tag@ lf-tag-pi = ;
-: lfb-binding? ( t -- flag ) dup lfb-pi? swap lf-let? or ;
+: lfb-binding? ( t -- flag ) dup lf-term-pi? swap lf-let? or ;
 : lfb-no-binder ( t -- )
   lf-whnf-firm? if ['] lfb-blank-goal. lfa-e-tac-no-intro lfb-failed then
   lfa-e-tac-meta lf-tac-fail ;
 : lfb-reduced ( t -- t' )
-  lf-whnf-core lf-tac-must dup lfb-pi? if exit then dup lfb-no-binder ;
+  lf-whnf-core lf-tac-must dup lf-term-pi? if exit then dup lfb-no-binder ;
 : lfb-binder ( t -- t' )
   dup lfb-binding? if exit then lf-instantiate-mvars lf-tac-must
   dup lfb-binding? if exit then lfb-reduced ;
@@ -293,12 +291,11 @@ defer lf-tac-elab ( node expected -- term outcome )
 : lfb-w-exact ( i -- ) ['] lfb-exact lfb-step ;
 
 \ ---- by-rfl.
-: lfb-app? ( t -- flag ) lf-term-tag@ lf-tag-app = ;
 : lfb-spine ( t -- head n )
-  0 swap begin dup lfb-app? while lf-term-first@ swap 1+ swap repeat swap ;
+  0 swap begin dup lf-term-app? while lf-term-first@ swap 1+ swap repeat swap ;
 : lfb-const-name ( c -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
 : lfb-eq-head? ( head -- flag )
-  dup lf-term-tag@ lf-tag-constant = 0= if drop false exit then
+  dup lf-term-const? 0= if drop false exit then
   lfb-const-name s" Eq" lfa-intern = ;
 : lfb-eq? ( t -- flag ) lfb-spine 3 = swap lfb-eq-head? and ;
 : lfb-target ( -- t )

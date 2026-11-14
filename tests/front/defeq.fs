@@ -171,6 +171,11 @@ T{ nat fu 0 bv app lam lf-meta-eta-expanded -> fu true outcome-ok }T
 T{ nat 0 bv lam lf-meta-eta-expanded rot drop -> false outcome-ok }T
 T{ succ s" Nat.succ" lf-meta-const-named? succ s" Nat" lf-meta-const-named? -> true false }T
 T{ fk s" Nat" lf-meta-const-named? succ s" succ" lf-meta-const-named? -> false false }T
+\ Names of any number of parts (core/statement-match.fs's lf-name-dotted?).
+: abc ( -- id )
+  0 s" A" lf-name-str drop s" B" lf-name-str drop s" C" lf-name-str drop ;
+T{ s" A.B.C" abc lf-meta-name? s" B.C" abc lf-meta-name? s" X.A.B.C" abc lf-meta-name?
+   -> true false false }T
 T{ fu fk app fx app lf-meta-head lf-lb-undef lf-lb-true lf-lb-false -> fu 2 1 0 }T
 \ isPropQuick, isProofQuick, isAlwaysZero.
 T{ fe lf-meta-proof-quick fk lf-meta-proof-quick 0 bv lf-meta-proof-quick
@@ -223,6 +228,18 @@ T{ fs 1 lf-meta-fun-info ?t 1 lf-meta-fun-info fp 0 proj 1 lf-meta-fun-info
 : hadd3 ( -- f ) l0 l0 l0 3 s" HAdd.hAdd" cn ;
 T{ hadd3 6 lf-meta-fun-info 0 lf-meta-param 3 lf-meta-param 5 lf-meta-param
    -> 6 outcome-ok lf-binder-implicit false lf-binder-instance false lf-binder-default false }T
+\ A higher-order out-parameter is unsupported (review reuse-1a M2): no
+\ constant of the slice has one (Init's Functor.map would: [Functor f],
+\ f : Type u -> Type v), so the telescope's records are filled by hand:
+\ fu : Nat -> Nat explicit, then an implicit h : Eq fu fu, whose type's
+\ head might be a class and has fu, a function, as an argument; h leaves
+\ the local context at the end.
+: ho-params ( h -- )
+  fi-params slab-clear fu lf-binder-default 0 fi-push drop lf-binder-implicit 0 fi-push drop ;
+: ho-run ( -- outcome outcome outcome )
+  fi-mark >r lv1 1 s" Eq" cn nat>nat app fu app fu app lf-lctx-local made ho-params
+  0 fi-ho-free 1 fi-ho-free fi-props r> lf-lctx-drop ;
+T{ ho-run lf-lctx-count @ -> outcome-ok outcome-unsupported outcome-unsupported lctx0 }T
 \ isProofQuick through a head's arguments: Eq.refl's type ends in Prop,
 \ id's in its type argument (Nat, never zero), HAdd.hAdd's in an outParam.
 : id-k ( -- t ) lv1 1 s" id" cn nat app fk app ;
@@ -293,6 +310,10 @@ T{ ?n ?n fk nat-add dq ?n free? -> false outcome-unsupported true }T
 \ checkAssignment: ?n in an xi's type, in a metavariable's type, through
 \ a delayed assignment; ?z's context less j is a prefix of ?n's.
 T{ ?n xq 1 fk chk -> fk false outcome-ok }T
+\ Each xi's answer counts, not only the last's (review reuse-1a M2).
+create xqk 2 cells allot  fq xqk !  fk xqk cell+ !
+create xkq 2 cells allot  fk xkq !  fq xkq cell+ !
+T{ ?n xqk 2 fk chk ?n xkq 2 fk chk -> fk false outcome-ok fk false outcome-ok }T
 T{ ?n xs 0 ?w chk rot drop -> false outcome-ok }T
 T{ own-mark ?d ?n 0 lf-mvar-delay ?n xs 0 ?d chk rot drop own-back
    -> outcome-ok false outcome-ok }T
@@ -337,6 +358,18 @@ T{ lf-tr-reducible lf-defeq-mode! 0 s" Nat.add" cn fk dq lf-tr-default lf-defeq-
   rot with-flags shallower lf-tr-default lf-defeq-mode! ;
 T{ lf-defeq-elab lf-defeq-stuck or hint-twin lf-defeq-elab hint-twin
    -> false lf-meta-stuck false outcome-unsupported }T
+\ synthPending's hook (S1 appendix D; branch s1-synth sets it) on the
+\ natural ?r : Nat, whose type might be a class, stuck in the same twin
+\ under isDefEqStuckEx: a hook that fills it asks for Lean's retry, not
+\ ported (unsupported); one that does not leaves the stuck signal.
+: synth-yes ( mvar -- flag outcome ) drop true outcome-ok ;
+: synth-no ( mvar -- flag outcome ) drop false outcome-ok ;
+: synth-twin ( xt -- flag outcome )
+  is lf-meta-synth-pending lf-tr-reducible lf-defeq-mode! deeper ?r rec-major
+  0 s" Nat.add" cn lf-defeq-elab lf-defeq-stuck or with-flags shallower
+  lf-tr-default lf-defeq-mode! ['] de-synth-later is lf-meta-synth-pending ;
+T{ ' synth-yes synth-twin ' synth-no synth-twin
+   -> false outcome-unsupported false lf-meta-stuck }T
 \ getFunInfo's kinds come from the declared type: a store binder that
 \ the binder table names may be another binder's (the store shares equal
 \ nodes), so unsupported, here and through isDefEqArgs.
@@ -400,5 +433,7 @@ T{ 0 refused-inst drop implicit? 0 refused-i1 drop implicit? clean? -> true true
 T{ own-mark offset-pair dq ?h free? own-back -> true outcome-ok false }T
 \ A call frees what it allocates (its slabs keep their room).
 T{ own-mark live-blocks @ offset-pair dq 2drop live-blocks @ = own-back clean? -> true true }T
+\ The fed input as loading left it (S1 §1, trust point 3).
+T{ lf-input-intact? -> true }T
 
 bye

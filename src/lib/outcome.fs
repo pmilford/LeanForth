@@ -4,7 +4,11 @@
 \ ok? or compare it with a named outcome, never with IF directly. Running
 \ out of fuel (exhausted: more time would help) and running out of room
 \ (full: more memory or a larger limit would help) are distinct, and
-\ neither is ever ok.
+\ neither is ever ok. Chains of steps that stop at the first failure:
+\ outcome-and, outcome-steps, ok-and, ok-with, the ok-then and ok-keep
+\ words, and the loops ok-each and ok-fold; the tests over every index,
+\ all? (a flag) and ok-all? (a flag and an outcome), with ok-true? their
+\ stop test; outcome-first! keeps a first failure in a cell.
 \ No state, no dependencies.
 
 0 constant outcome-ok           \ succeeded; for a comparison, shown equal
@@ -65,6 +69,52 @@
   dup ok? if drop true else 2swap 2drop false then ;
 \ A failure that has no result: -1 in the result's place.
 : no-result ( outcome -- -1 outcome ) -1 swap ;
+\ Run the step xt ( i*x k -- i*x outcome ) for k = 0, 1, ... n-1 while it
+\ gives ok: ok, or the first outcome that is not ok, after which no step
+\ runs. The values below k are the steps' to read and replace, keeping
+\ their number (a step that changes them makes a fold). n <= 0 runs
+\ nothing. The xt is the index of an outer loop run once and read with J,
+\ so each step finds i*x and k alone on the data stack. Example, a check
+\ of each cell of a table: `table 3 ' cell-ok ok-each nip` with
+\ `: cell-ok ( table k -- table outcome ) cells over + @ checked ;`.
+: ok-each ( i*x n xt -- i*x outcome )
+  dup 1+ swap ?do 0 max 0 ?do i j execute dup ok? 0= if unloop unloop exit then drop
+  loop loop outcome-ok ;
+\ A fold with a context: x := xt ( x k y -- x' outcome ) for k = 0, 1,
+\ ... n-1, y given to every step, while ok: the last x' and ok, or the
+\ failing step's x' (-1 when it has none) and its outcome. n <= 0 gives x
+\ and ok. Example, applying f to each argument of a job: `f n job
+\ ['] apply-arg ok-fold` with apply-arg ( f k job -- f' outcome ).
+: ok-fold ( x n y xt -- x' outcome )
+  dup 1+ swap ?do swap 0 max 0 ?do tuck i swap j execute ok-keep? 0= if
+  unloop unloop exit then swap loop loop drop outcome-ok ;
+\ Go on only after a true answer that is ok: true; else false, the
+\ outcome (ok after a plain false) and false, so a failing step never
+\ reads as a plain false. The stop test of ok-all? and slab.fs's
+\ slab-all?.
+: ok-true? ( flag outcome -- true | false outcome false )
+  over 0<> over ok? and if 2drop true else nip false swap false then ;
+\ Whether the test xt ( i*x k -- i*x flag ) holds for k = 0, 1, ... n-1:
+\ true, or false at the first k it fails, after which none runs. n <= 0
+\ gives true. The values below k are the tests' to read, as ok-each's,
+\ and the xt is kept the same way. Example, whether the first three
+\ cells of a table are positive: `table 3 ' cell-pos? all? nip` with
+\ `: cell-pos? ( table k -- table flag ) cells over + @ 0> ;`.
+: all? ( i*x n xt -- i*x flag )
+  dup 1+ swap ?do 0 max 0 ?do i j execute 0= if false unloop unloop exit then
+  loop loop true ;
+\ The same for a test that may fail, xt ( i*x k -- i*x flag outcome ):
+\ true and ok when every test gives true and ok; else false beside the
+\ first answer's outcome that stops the loop, ok for a plain false. n <=
+\ 0 gives true and ok. Example, Level.beq of a constant's universe
+\ arguments: `s1 s2 n ' level-at ok-all? 2swap 2drop` with level-at
+\ ( s1 s2 k -- s1 s2 flag outcome ).
+: ok-all? ( i*x n xt -- i*x flag outcome )
+  dup 1+ swap ?do 0 max 0 ?do i j execute ok-true? 0= if unloop unloop exit then
+  loop loop true outcome-ok ;
+\ Keep the first failure in a cell: store the outcome only while the cell
+\ holds ok, so a later outcome, ok or not, never hides an earlier failure.
+: outcome-first! ( outcome a-addr -- ) dup @ ok? if ! else 2drop then ;
 \ The outcome's name, as diagnostics write it. A value outside the
 \ vocabulary is named "invalid", as outcome-sane reads it, and so is any
 \ value the CASE does not list. One arm per outcome, two to a line: seven

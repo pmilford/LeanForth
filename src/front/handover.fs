@@ -31,7 +31,9 @@
 \   a refusal: error 74 for a hole left, 75 for an unused universe
 \   parameter, 76 for terms that are malformed (no node, a value unfit for
 \   the kind), 77 for an instantiation step not ported yet, 60 for no
-\   room. The run's records then go to the kernel by the path of every
+\   room. A declaration handed over is made visible to the next, as
+\   Lean's addDecl makes it (front/meta-env.fs, lf-menv-add; no room:
+\   60). The run's records then go to the kernel by the path of every
 \   text (cli/check-lf.fs: author/export.fs's lf-author-export-reached,
 \   the importer stage's stage-produce, the feed, check-declaration), and
 \   the export writer refuses a metavariable it would write whatever this
@@ -48,6 +50,7 @@ require ../author/errors.fs
 require ../author/form.fs
 require ../author/declarations.fs
 require ./mvars.fs
+require ./meta-env.fs
 
 begin-structure /lfh
   /lf-scratch +field lfh-scratch   \ the stores as they stood at the start
@@ -125,6 +128,7 @@ defer lf-front-elaborate ( -- type value )
 : lfh-code ( outcome -- code )
   case outcome-invalid of lfh lfh-why @ endof outcome-full of lfa-e-terms-full endof
     lfa-e-instantiate swap endcase ;
+: lfh-visible ( -- ) lfh-decl@ lf-menv-add ok? 0= if lfa-e-terms-full lfa-fail then ;
 : lf-front-hand-over ( type value -- )
   lf-front-header -rot lf-handover dup ok? 0= if lfh-code lfa-fail then
-  drop lfa-front-made! ;
+  drop lfh-visible lfa-front-made! ;

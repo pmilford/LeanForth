@@ -94,6 +94,39 @@ T{ v u lmax lf-meta-level-normalize nip -> outcome-ok }T
 : norm-op ( -- level outcome ) nmax lf-meta-level-normalize ;
 T{ ' norm-op refusing 0> swap ok? rot dup lf-level-first@ 500 lfirsts swap
    lf-level-second@ 1000 lfirsts -> true true u v }T
+\ Level.beq and Expr.eqv whose pair stack cannot grow (review reuse-1a
+\ H1): a refused push, of the first pair or in a step (slab.fs's
+\ slab-2all?), answers false and full, never a definite "different".
+\ max v (max v .. (max v u)) and x applied to x 100 times, each made
+\ twice apart, leave one pair waiting per level; Sorts of the two levels
+\ compare the levels inside Expr.eqv. First the stacks' limits lowered
+\ to 0 and 8 pairs, then every allocation refused in turn.
+: vmaxes ( n -- l ) u swap 0 ?do v swap lmax loop ;
+100 vmaxes constant vm1  100 vmaxes constant vm2
+x 100 apps constant xa1  x 100 apps constant xa2
+vm1 lf-term-symbolic-sort must constant vs1  vm2 lf-term-symbolic-sort must constant vs2
+: leq-deep ( -- flag outcome ) vm1 vm2 lf-meta-level= ;
+: eqv-deep ( -- flag outcome ) xa1 xa2 lf-meta-eqv ;
+: eqv-sorts ( -- flag outcome ) vs1 vs2 lf-meta-eqv ;
+T{ leq-deep eqv-deep eqv-sorts -> true outcome-ok true outcome-ok true outcome-ok }T
+ls-pairs slab-limit constant ls-limit   eq-pairs slab-limit constant eq-limit
+: slab-made ( outcome -- ) ok? 0= abort" meta-heap: no slab" ;
+: pairs-room! ( n slab -- ) dup slab-free 2 cells -rot slab-init slab-made ;
+: ls-room ( n -- ) ls-pairs pairs-room! ;
+: eq-room ( n -- ) eq-pairs pairs-room! ;
+T{ 0 ls-room leq-deep 8 ls-room leq-deep eqv-sorts
+   -> false outcome-full false outcome-full false outcome-full }T
+T{ 0 eq-room eqv-deep 8 eq-room eqv-deep -> false outcome-full false outcome-full }T
+\ Fresh slabs: a small run gives each its first block, then each
+\ allocation refused in turn (the pair stacks' RESIZEs) answers false
+\ and full.
+: ls-fresh ( -- flag outcome ) ls-limit ls-room tall1 tall2 lf-meta-level= ;
+: x-x ( -- t ) x x lf-term-app must ;
+: eq-fresh ( -- flag outcome ) eq-limit eq-room x-x x-x lf-meta-eqv ;
+false none !
+T{ ls-fresh ' leq-deep refusing 0> -> true outcome-ok true outcome-ok true }T
+T{ eq-fresh ' eqv-deep refusing 0> -> true outcome-ok true outcome-ok true }T
+T{ ls-fresh ' eqv-sorts refusing 0> -> true outcome-ok true outcome-ok true }T
 \ Level unification (level-defeq.fs): 0 =?= max ?1 .. ?20, true through
 \ normalization, a conjunction of 20 pairs (19 waiting on ld-pairs),
 \ occurs checks and 20 assignments noted on the trail under a mark;
@@ -109,6 +142,13 @@ T{ 0 mw mx lmax lf-meta-level-defeq -> true outcome-ok }T
 : free? ( level -- flag ) lf-level-mvar-value dup if nip then 0= ;
 variable newest
 : wide ( n -- l ) lnew swap 1 ?do lnew dup newest ! lmax loop ;
+\ Level.normalize of a max of 40 metavariables: lib/sort.fs merges more
+\ than 32 arguments through a scratch the heap may refuse; sorted oldest
+\ first, the newest last.
+40 wide constant w40  newest @ constant w40-newest
+: wide-norm-op ( -- level outcome ) w40 lf-meta-level-normalize ;
+-1 none !
+T{ ' wide-norm-op refusing 0> swap ok? rot lf-level-second@ w40-newest = -> true true true }T
 20 wide constant w20
 : conj-op ( -- flag outcome ) 0 w20 lf-meta-level-defeq ;
 : stuck-op ( -- flag outcome ) u md lmax u v lmax lf-meta-level-defeq ;
