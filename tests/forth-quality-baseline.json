@@ -611,9 +611,9 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 2,
+  "rstack": 4,
   "shuffles": 0,
-  "words": 11
+  "words": 12
  },
  "src/front/meta-env.fs": {
   "globals": 10,

@@ -268,6 +268,9 @@ begin-structure /sche  field: sk-type  field: sk-depth  field: sk-result  end-st
 : sy-run+ ( x addr -- outcome )   \ x at the end of the run at addr
   tuck @ swap run-push ok-then? if swap ! outcome-ok else nip then ;
 : sy-wait ( waiter e -- outcome ) sen@ se-waiters sy-run+ ;
+\ xt ( x k run -- x outcome ) for each element k of the run, in order,
+\ while ok.
+: sy-run-each ( x run xt -- outcome ) >r dup run-count swap r> ok-fold nip ;
 : sy-answered? ( e -- flag ) sen@ se-answers @ run-count 0<> ;
 
 \ ---- Nodes.
@@ -302,9 +305,11 @@ begin-structure /sche  field: sk-type  field: sk-depth  field: sk-result  end-st
   dup sgn@ sg-mvar @ sy-type-of ok-then? 0= if no-result exit then
   dup sy-mvar? ok-then? 0= if nip no-result exit then >r over r> swap sgn@ sg-open !
   outcome-ok ;
+: sy-inst-code ( addr n outcome -- addr n outcome )   \ the table's code, when it set one
+  dup ok? 0= lf-inst-error 0<> and if lf-inst-error sy sy-error ! then ;
 : sy-gen-fill ( g -- outcome )
   sy-gen-goal ok-then? 0= if nip exit then dup sy-pi-free ok-then? 0= if nip exit then
-  lf-inst-candidates ok-then? if sy-gen-cands else nip nip then ;
+  lf-inst-candidates sy-inst-code ok-then? if sy-gen-cands else nip nip then ;
 : sy-gen-entry ( g waiter -- outcome )   \ when the goal had candidates, else dropped
   over sgn@ sg-idx @ if swap sgn@ sg-key @ swap sy-entry-new exit then
   2drop sy-gens slab-drop outcome-ok ;
@@ -336,7 +341,7 @@ begin-structure /sche  field: sk-type  field: sk-depth  field: sk-result  end-st
   swap sy-resume slab-2push ;
 : sy-wake-one ( a k waiters -- a outcome ) swap run@ over swap sy-wake ;
 : sy-wake-all ( a e -- outcome )
-  sen@ se-waiters @ dup run-count swap ['] sy-wake-one ok-fold nip ;
+  sen@ se-waiters @ ['] sy-wake-one sy-run-each ;
 : sy-add-new ( a e -- outcome )
   2dup sen@ se-answers sy-run+ ok-then? if sy-wake-all else nip nip then ;
 : sy-add-checked ( a e -- outcome )
@@ -360,7 +365,7 @@ begin-structure /sche  field: sk-type  field: sk-depth  field: sk-result  end-st
   ok-then? if swap scn@ sc-goals ! outcome-ok else nip then ;
 : sy-queue-one ( c k answers -- c outcome ) swap run@ over swap sy-resume slab-2push ;
 : sy-queue ( c e -- outcome )   \ every answer of e, in order, for the consumer
-  sen@ se-answers @ dup run-count swap ['] sy-queue-one ok-fold nip ;
+  sen@ se-answers @ ['] sy-queue-one sy-run-each ;
 : sy-known ( c e -- outcome ) 2dup sy-wait ok-then? if sy-queue else nip nip then ;
 : sy-first ( c -- mvar ) scn@ sc-goals @ 0 run@ ;
 : sy-unknown ( c key -- outcome )
@@ -455,7 +460,7 @@ begin-structure /sche  field: sk-type  field: sk-depth  field: sk-result  end-st
   sg-key @ sy-find ok-then? 0= if sy-false exit then
   if sen@ se-answers @ run-count 0<> else drop false then outcome-ok ;
 : sy-candidate-at ( g -- v ) sgn@ dup sg-first @ swap sg-idx @ + sy-cands slab-at @ ;
-: sy-cnode-of ( g -- c outcome ) sgn@ dup sg-key @ swap sg-mvar @ sy-cnode-open ;
+: sy-cnode-of ( g -- c outcome ) dup sgn@ sg-key @ swap sgn@ sg-mvar @ sy-cnode-open ;
 : sy-snap! ( c -- outcome ) lf-mctx-snapshot ok-then? if swap scn@ sc-snap ! outcome-ok
   else nip
   then ;

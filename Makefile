@@ -950,13 +950,16 @@ test: test-elab-data
 test-differential: reference-elab-data
 
 # The instance table (plans FE1e2 and FE1e3; S1_INTERFACE.md §9): keys,
-# isClass?, getUnify and getInstances over the Init slice, Gforth only;
-# with pinned Lean, every Init instance's class and keys recomputed and
-# getInstances compared with pinned Lean's #synth traces (a few minutes).
+# isClass?, getUnify and getInstances over the Init slice, and instance
+# search (FE1e5, tests/front/synth.fs), Gforth only; with pinned Lean,
+# every Init instance's class and keys recomputed, getInstances and 30
+# searches (answers and the candidates tried) compared with pinned Lean's
+# #synth traces (a few minutes).
 test-instances:
 	$(RUN) $(GFORTH) tests/front/instances.fs
 	$(RUN) $(GFORTH) tests/front/instances-bad.fs
 	$(RUN) $(GFORTH) tests/front/instances-odd.fs
+	$(RUN) $(GFORTH) tests/front/synth.fs
 reference-synth: RUN := timeout 3000
 reference-synth:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/front/synth-init.sh
