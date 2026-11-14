@@ -112,15 +112,12 @@ require ./term-eqv.fs
 \ pq-bvar + k; each binder passed on the way back turns #0 into its
 \ type's checkProp and #k+1 into #k.
 3 constant pq-bvar
-: pq-outparam? ( t -- flag )
-  dup lf-term-app? if lf-term-first@ s" outParam" lf-meta-const-named?
-  else drop false then ;
 : pq-zero? ( level -- flag ) lf-level-tag@ lf-level-tag-zero = ;
 : pq-sort-prop ( sort -- r outcome )
   lf-term-first@ dup lf-meta-never-zero? ok-then? 0= if nip lf-lb-undef swap exit then
   if drop lf-lb-false else pq-zero? if lf-lb-true else lf-lb-undef then then outcome-ok ;
 : pq-check-prop ( type -- r outcome )
-  begin dup pq-outparam? while lf-term-second@ repeat
+  begin dup 1 s" outParam" lf-meta-app-of? while lf-term-second@ repeat
   dup lf-tag-symbolic-sort lf-term-tag?
   if pq-sort-prop else drop lf-lb-undef outcome-ok then ;
 : pq-process ( r type -- r' outcome )

@@ -450,6 +450,12 @@ below it).
 | 98 | invalid | Tactic `exact` failed: attempting to close the goal using |
 | 99 | unsupported | not supported yet: this case of the tactic (FE1G_TACTICS.md 5 names its step) |
 | 100 | invalid | invalid universe level: not greater than 0 |
+| 110 | invalid | type class instance expected |
+| 112 | invalid | elaboration data refused: an instance is recorded under a class its type is not of |
+| 113 | invalid | elaboration data refused: an instance's recorded keys differ from its type's |
+| 114 | unsupported | not supported yet: an instance's recorded keys are wider than its type's (no_index) |
+| 115 | invalid | elaboration data refused: an instance is filed under another root key than its class |
+| 116 | invalid | elaboration data refused: a default instance's type is not of its recorded class |
 | 125 | invalid | failed to synthesize instance of type class |
 | 126 | invalid | typeclass instance problem is stuck |
 | 127 | invalid | numerals are data in Lean, but the expected type is a proposition |
@@ -469,7 +475,11 @@ below it).
 Codes come in ranges (`src/author/errors.fs`): 1 to 73 the words, the
 runner, the stores and natural text read (FE1a); 74 to 79 elaboration and
 the hand-over (FE1c, FE1e, FE1f; 74 to 77 used); 80 to 99 tactic proofs
-(FE1g; all used); 100 on free. Codes 81 to 88 are the reading of
+(FE1g; all used); 110 to 124 instances (S1: 110 and 112 to 116 are
+the instance table's, `src/front/instances.fs`, plan FE1e3; 112, 113,
+115 and 116 refuse the elaboration data at the first instance problem,
+as FE1E_APPLICATIONS.md §4 says); the rest of 100 on free. Codes 81 to
+88 are the reading of
 tactic proofs (`src/front/tactic-syntax.fs`, plan FE1g-2): 82 names the
 word and the open block's (by-induction-with for an alternative, by-rw[
 for a word inside the brackets). Codes 80 and 89 to 93 are the runner's

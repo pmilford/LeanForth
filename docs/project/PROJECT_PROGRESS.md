@@ -51,13 +51,17 @@ status changes when this date is older than them. Stages are those of the
   equal to pinned Lean). On main since 2026-11-13, approved by the owner: FE1e1 (elaboration data format 2,
   [import]/[format]) and the job pool failing closed when threads are refused ([runtime]). FE1c's term unification (Lean's `isDefEq`: 87 of 107 cases equal to pinned Lean, 20 answer unsupported) tested alone.
   Library: `lib/sort.fs` (a stable sort the kernel's sorts can adopt, FRK C2) tested alone. Designed:
-  FE1e, FE1g, FE1i, FE2. S1's last branch `s1-elab` (2026-11-13, not merged): the elaborator FE1e6-7
-  (applications with hidden arguments, `binrel%`/`binop%`, numerals, default instances, the declaration glue,
-  `#check`, `--elab-fuel`) written and tested alone: `bin/leanforth check ... tests/front/s1-now.lf` has
-  LeanForth elaborate five statements and proofs needing no instance (node for node equal to pinned Lean's) and
-  the kernel accept them; numerals and `+` wait for instance search (FE1e5) and lazy unfolding (S2 merge A), so
-  S1's midpoint and `0 + 0 = 0` stop with error 139 ([ELABORATION.md](../user/ELABORATION.md)). Nothing is
-  proved by LeanForth yet. Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
+  FE1e, FE1g, FE1i, FE2. On main since 2026-11-13, [parser] and [import] approved by the owner
+  (branch `s1-synth`): FE1e2 (discrimination-tree keys) and FE1e3 (the instance table, getInstances, every record's class and
+  root key checked at the first query) tested alone, `make reference-synth` 2,321 of 2,938 Init instances recomputed
+  equal, 0 refused, 617 unverified; FE1E §4 step 4 (out-parameters) is plan row FE1e3b, not started. S1's last
+  branch `s1-elab` (2026-11-13, not merged): the elaborator FE1e6-7 (applications with hidden arguments,
+  `binrel%`/`binop%`, numerals, default instances, the declaration glue, `#check`, `--elab-fuel`) written and
+  tested alone: `bin/leanforth check ... tests/front/s1-now.lf` has LeanForth elaborate five statements and proofs
+  needing no instance (node for node equal to pinned Lean's) and the kernel accept them; numerals and `+` wait for
+  instance search (FE1e5) and lazy unfolding (S2 merge A), so S1's midpoint and `0 + 0 = 0` stop with error 139
+  ([ELABORATION.md](../user/ELABORATION.md)). Nothing is proved by LeanForth yet. Natural statements (8.6.10) are
+  FE2, `add_comm` natively (8.6.11) FE5.
 - Program track, restarted 2026-11-12 after being parked since 2026-11-04: LeanForth re-checks Lean's proofs of
   the clamp word's obligations (plan 5.5.1): works end to end (done check docs/development/done-checks/2026-11-12-program-track.md); owner gates [bypass] and [runtime] approved 2026-11-12, merged.
   `python3 scripts/program_receipt.py export OUT.ndjson` has pinned Lean export the contract theorem and its two

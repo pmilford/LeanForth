@@ -33,7 +33,9 @@
 \ that export's 32-byte SHA-256. The first line must be the header: this
 \ format and version, the pinned Lean, the export's SHA-256 equal to sha,
 \ the number of records of each kind and the SHA-256 of every later line
-\ with its line feed. Every later line is one record of a known kind with
+\ with its line feed, which must be the one elab-bind! named, if any
+\ (error 39: the export's manifest names other data). Every later line
+\ is one record of a known kind with
 \ exactly its members; every name in it (a JSON array of string and
 \ natural-number parts, root first) is the name of exactly one
 \ declaration of the stage, of the right kind: a class an inductive type;
@@ -53,8 +55,9 @@
 \
 \ Outcomes (ADR 0008): ok; invalid for anything malformed, unknown,
 \ duplicated, of the wrong kind or differing from the header or from the
-\ export, an unreadable file, a sealed stage, or a call while a read is in
-\ progress; unsupported for another format version or Lean version, a
+\ export, a default instance's rank beyond elab-default-rank-most
+\ (65,535: error 40), an unreadable file, a sealed stage, or a call while
+\ a read is in progress; unsupported for another format version or Lean version, a
 \ number beyond 2^32 - 1 (no Lean library has one; plan row FE3 lifts it
 \ if one appears) and a smart-unfolding record (format 2 has the kind;
 \ plan row FE1d2 reads it); full when the heap has no room or a line
@@ -62,7 +65,7 @@
 \ table is empty afterwards, as after elab-reset.
 \ elab-error ( -- line c-addr u ) gives the line of the failure (1 the
 \ header; after the last line, the number of lines read; 0 before the
-\ file is open) and why: elab-error-line, elab-error-code (stable, 1-38)
+\ file is open) and why: elab-error-line, elab-error-code (stable, 1-40)
 \ and elab-error-why apart. elab-unhashed ( outcome -- outcome ) refuses
 \ for a caller that could not hash the export (error 26).
 \
@@ -85,8 +88,13 @@
 \ ( a -- fields overlaps thunk? ); elab-projection-of ( d -- p true |
 \ false ), elab-projection@ ( p -- ctor params idx ), elab-projection-decl
 \ ( p -- d ), elab-projection-class? ( p -- flag ). elab-loaded? says
-\ whether the last read was ok; elab-read-against? ( stage -- flag )
-\ whether it was, against that stage. Unchecked: the words that take a
+\ whether the last read was ok; elab-generation ( -- n ) changes with
+\ every read and every reset, so a user that keeps results about the
+\ data (front/instances.fs) can tell they are of another read;
+\ elab-read-against? ( stage -- flag )
+\ whether it was, against that stage; elab-decl-of ( name -- d true |
+\ false ) a name's declaration in that stage, elab-decl-name ( d -- name )
+\ the name of one. Unchecked: the words that take a
 \ record number read that record whatever it is; it must be below
 \ elab-count of its kind (an alternative a below the sum of the matchers'
 \ alternatives). The elab-* words are the interface; helpers, fields and
@@ -209,12 +217,15 @@ begin-structure /elab
   field: elab-loaded                 \ true: the last read was ok
   field: elab-foreign                \ true: keys being read may name foreign constants
   field: elab-code                   \ why it failed: an error code, or 0
+  field: elab-gen                    \ resets so far (each read starts with one)
   field: elab-at                     \ the line it failed at
   elab-kinds cells +field elab-counts     \ records read of each kind
   elab-kinds cells +field elab-expected   \ the header's numbers
   sha-digest-bytes chars +field elab-digest
   sha-digest-bytes 2* chars +field elab-hex       \ a SHA-256 as text
   sha-digest-bytes 2* chars +field elab-records   \ the header's records_sha256
+  sha-digest-bytes 2* chars +field elab-bound     \ the records_sha256 elab-bind! named
+  field: elab-bound-length           \ its length: 0 when none is named
 end-structure
 /elab context-record: elab
 /ed-fact context-slab: elab-facts
@@ -234,6 +245,10 @@ end-structure
 : elab-count ( kind -- n ) cells elab elab-counts + @ ;
 : elab-loaded? ( -- flag ) elab elab-loaded @ ;
 : elab-read-against? ( stage -- flag ) elab elab-stage @ = elab-loaded? and ;
+\ The declaration of a name (of the stage tier's names, which a fed
+\ context's input shares) in the stage the data was read against.
+: elab-decl-of ( name -- d true | false ) ed-stage stage-find ;
+: elab-decl-name ( d -- name ) ed-stage staged-name@ ;
 
 \ Failing: an error code, stable (docs/programming/ELABORATION_DATA.md,
 \ "Errors"; ed-messages holds each one's text, 0 none), at the current
@@ -251,6 +266,7 @@ end-structure
 30 constant ed-e-term   31 constant ed-e-rank   32 constant ed-e-gap
 33 constant ed-e-default-rank   34 constant ed-e-left-out   35 constant ed-e-matcher
 36 constant ed-e-projection   37 constant ed-e-unfit   38 constant ed-e-later
+39 constant ed-e-bound   40 constant ed-e-dflt-most
 create ed-messages
   s" none" counted,
   s" file missing or unreadable" counted,
@@ -291,6 +307,8 @@ create ed-messages
   s" a projection named twice" counted,
   s" numbers that do not fit the declaration's type" counted,
   s" a record kind this reader does not read yet" counted,
+  s" other records than the export's manifest names" counted,
+  s" a default instance's rank beyond 65535" counted,
   0 0 counted,
 : ed-message ( code -- c-addr u ) ed-messages swap 0 ?do key-next loop count ;
 : ed-line ( -- n ) elab elab-reader reader-position nip nip ;
@@ -426,7 +444,8 @@ create ed-rank-hooks /htab-hooks allot
   ed-ranks dup htab-live? if htab-clear else drop then ;
 : elab-reset ( -- )
   ed-slabs-clear elab-keys-clear ed-tables-clear false elab elab-loaded !
-  elab elab-counts elab-kinds cells erase ;
+  elab elab-counts elab-kinds cells erase 1 elab elab-gen +! ;
+: elab-generation ( -- n ) elab elab-gen @ ;
 \ A caller that could not compute the export's SHA-256 refuses the data
 \ with error 26 at line 0, its outcome kept; nothing is loaded.
 : elab-unhashed ( outcome -- outcome ) elab-reset ed-e-hash swap ed-fail ;
@@ -752,8 +771,14 @@ create ed-dflt-keys
   ed-dflt swap c" class" ed-member ed-a-class ['] ed-dflt-class ed-put ;
 : ed-dflt-priority! ( value i -- outcome )
   ed-dflt swap c" priority" ed-member ed-u32 ['] ed-dflt-priority ed-put ;
+\ A default instance's rank is at most elab-default-rank-most, so that
+\ FE1e3's answer, a cell per rank, stays small (ELABORATION_DATA.md; no
+\ Lean library has a class with that many default instances).
+65535 constant elab-default-rank-most
+: ed-rank-most ( u outcome -- u outcome )
+  over elab-default-rank-most u> over ok? and if drop ed-e-dflt-most ed-bad then ;
 : ed-dflt-rank! ( value i -- outcome )
-  ed-dflt swap c" rank" ed-member ed-u32 ['] ed-dflt-rank ed-put ;
+  ed-dflt swap c" rank" ed-member ed-u32 ed-rank-most ['] ed-dflt-rank ed-put ;
 \ Default instances are few (34 in Init): each is compared with those before.
 : ed-dflt-key ( i -- class rank ) ed-dflt dup ed-dflt-class @ swap ed-dflt-rank @ ;
 : ed-dflt-same? ( i j -- flag ) ed-dflt-key rot ed-dflt-key d= ;
@@ -988,10 +1013,17 @@ create ed-head-keys
   drop c" records" ed-member dup ed-kind-names ed-shape? 0= if drop ed-malformed exit then
   elab-kinds 0 do dup i ed-expect dup ok? 0= if nip unloop exit then drop loop
   drop outcome-ok ;
+\ M6 (S1 note): the records SHA-256 the export's manifest names, if any,
+\ must be the header's (the records are then checked against it).
+: ed-bound ( -- c-addr u ) elab elab-bound elab elab-bound-length @ ;
+: ed-bound-same? ( c-addr u -- flag )
+  ed-bound dup if compare 0= else 2drop 2drop true then ;
+: ed-records-keep ( c-addr u -- outcome )
+  2dup ed-bound-same? 0= if 2drop ed-e-bound ed-bad exit then
+  elab elab-records swap move outcome-ok ;
 : ed-head-hash ( value i -- outcome )
   drop c" records_sha256" ed-member ed-text 0= if ed-malformed exit then
-  2dup sha-digest-bytes 2* hex-text? 0= if 2drop ed-malformed exit then
-  elab elab-records swap move outcome-ok ;
+  2dup sha-digest-bytes 2* hex-text? 0= if 2drop ed-malformed exit then ed-records-keep ;
 : ed-module-item ( item -- outcome )
   ed-view json-kind@ json-string = if outcome-ok else ed-malformed then ;
 : ed-head-modules ( value i -- outcome )
@@ -1071,11 +1103,17 @@ create ed-head-steps
   elab elab-sha sha256-init dup stage-sealed? if ed-sealed exit then
   stage-decls ed-facts-made ['] ed-tables-ready ed-then ['] ed-views ed-then ;
 : ed-close ( outcome -- outcome )
+  0 elab elab-bound-length !
   elab elab-reader dup reader-close drop reader-free ed-view json-free
   false elab elab-reading ! dup ok? dup elab elab-loaded ! 0= if elab-reset then ;
 : ed-caught ( c-addr u -- outcome code )
   ['] ed-steps-all catch dup if nip nip outcome-invalid swap then ;
 : ed-busy ( c-addr u stage sha -- outcome ) 2drop 2drop ed-e-busy ed-bad ;
+\ Name the records SHA-256 (64 hexadecimal digits, as text) the next
+\ elab-read must find in the header, or 0 0 for none: the export
+\ manifest's elab_records_sha256 (manifest-elab-sha). Used by that read only.
+: elab-bind! ( c-addr u -- )
+  sha-digest-bytes 2* min dup elab elab-bound-length ! elab elab-bound swap move ;
 : elab-read ( c-addr u stage sha -- outcome )
   elab elab-reading @ if ed-busy exit then
   ed-start ok-then2? if true elab elab-reading ! ed-caught else 0 then

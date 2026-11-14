@@ -59,13 +59,12 @@
 \   flag outcome ): isDefEq, isDefEqGuarded, made sane (the stuck signal
 \   never leaves the Meta layer); lf-elab-spend ( -- outcome ): one step
 \   of the budget (meta-config.fs), exhausted when none is left.
-\ - Hooks for the instance tables (s1-synth's front/instances.fs, not on
-\   this branch): lf-elab-class? ( type -- class true outcome | false
-\   outcome ), isClass?, and lf-elab-default-instances ( class -- addr n
-\   outcome ), getDefaultInstances (default-instance record numbers by
-\   rank, a negative cell a gap: unsupported when a search reaches it);
-\   both answer unsupported (139) until set, and instances.fs's lf-class?
-\   and lf-default-instances fit them as they are.
+\ - The instance tables (front/instances.fs) through deferred words a
+\   test may stand in for: lf-elab-class? ( type -- class true outcome |
+\   false outcome ), isClass? (lf-class?), and lf-elab-default-instances
+\   ( class -- addr n outcome ), getDefaultInstances (lf-default-instances:
+\   default-instance record numbers by rank, a negative cell a gap,
+\   unsupported when a search reaches it).
 \ Outcomes: ok; invalid for Lean's errors (recorded with their codes);
 \ unsupported; exhausted; full when a slab cannot grow. Untrusted: only
 \ the kernel's check of a finished term decides anything.
@@ -96,6 +95,7 @@ require ./instantiate.fs
 require ./whnf.fs
 require ./infer.fs
 require ./defeq.fs
+require ./instances.fs
 require ../import/manifest.fs
 
 0 constant lf-postpone-yes   1 constant lf-postpone-partial   2 constant lf-postpone-no
@@ -181,14 +181,12 @@ end-structure
 : lf-elab-term. ( term -- ) ep-tracing? if ep-noted else drop then ;
 : ep-mvar. ( mvar -- ) s" ?" lf-elab-note lf-term-first@ lf-elab-n. ;
 
-\ ---- The instance tables' hooks (s1-synth's instances.fs), unsupported
-\ until set.
-: ep-no-class ( type -- false outcome ) drop false lfa-e-elab-step lf-elab-fail ;
+\ ---- The instance tables (front/instances.fs): isClass? and
+\ getDefaultInstances, deferred so that a test can stand in for them.
 defer lf-elab-class? ( type -- class true outcome | false outcome )
-' ep-no-class is lf-elab-class?
-: ep-no-defaults ( class -- addr n outcome ) drop 0 0 lfa-e-elab-step lf-elab-fail ;
+' lf-class? is lf-elab-class?
 defer lf-elab-default-instances ( class -- addr n outcome )
-' ep-no-defaults is lf-elab-default-instances
+' lf-default-instances is lf-elab-default-instances
 
 \ ---- Whether a term reaches a metavariable, term or level
 \ (core/reach.fs's tables, made for the question and freed).
