@@ -144,9 +144,10 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
   lf-cref-pairs >r swap lf-cref-pairs drop swap r> ;
 : lf-mcompare-arg ( addr addr i -- level level )
   tuck lf-cref-pair@ drop >r lf-cref-pair@ drop r> ;
+: lf-mcompare-arg-at ( slot slot i -- slot slot outcome )
+  2dup-under lf-mcompare-arg lf-mcompare-level ;
 : lf-mcompare-args ( slot slot -- outcome )
-  lf-mcompare-arrays 0 ?do 2dup i lf-mcompare-arg lf-mcompare-level
-    dup ok? 0= if nip nip unloop exit then drop loop 2drop outcome-ok ;
+  lf-mcompare-arrays ['] lf-mcompare-arg-at ok-each nip nip ;
 : lf-mcompare-constant ( a b walk -- outcome )
   >r lf-mcompare-crefs r> lf-mcompare-heads if lf-mcompare-args then ;
 

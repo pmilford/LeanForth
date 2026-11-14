@@ -20,6 +20,10 @@ lets K:      (review rvRS F2) d0 : Prop -> Prop := let x0 : Prop -> Prop := fun 
              fun A => A; xk) B, whose lets are equal to d0's up to their names: the
              importer makes them one node, so the applications above them are new
              copies, which a worker must make as the source did.
+fan K:       (review reuse-k1 H1) K definitions eI : Prop -> Prop := fun A => A,
+             then def fan : Prop -> Prop := fun A => e(K-1) (... (e0 A)), whose
+             check looks up all K: one slot with K dependencies, which above 32
+             the snapshot's sort orders through heap scratch.
 refs N:      (review rvRS F1, its probe gen_refs.py) 20 universe parameters vs =
              v1..v20; for i < N D_i.{vs} : Sort v1 -> Sort 1 := fun a => (Prop ->
              Prop) and f_i.{vs} : (a : Sort v1) -> D_i.{vs} a := fun a p => p; K :
@@ -156,6 +160,14 @@ def double(k, copies=1):
     for i in range(4): x.thm(f"small{i}", ty, val)
     return x
 
+def fan(k):
+    x = Ex(); P = x.sort0(); T = p2p(x)
+    for i in range(k): x.defn(f"e{i}", T, x.lam("A", P, x.bvar(0)))
+    acc = x.bvar(0)
+    for i in range(k): acc = x.app(x.const(f"e{i}"), acc)
+    x.defn("fan", T, x.lam("A", P, acc))
+    return x
+
 def lets(k):
     x = Ex(); P = x.sort0(); PP = p2p(x); idf = x.lam("A", P, x.bvar(0))
     x.defn("d0", PP, x.let("x0", PP, idf, x.bvar(0)))
@@ -188,6 +200,6 @@ if __name__ == "__main__":
     kind, k = sys.argv[1], int(sys.argv[2])
     gens = {"wide": wide, "chain": chain, "dupl": dupl,
             "renamed": renamed, "double": double,
-            "double2": lambda k: double(k, 2), "refs": refs, "lets": lets,
+            "double2": lambda k: double(k, 2), "refs": refs, "lets": lets, "fan": fan,
             "refsz": lambda n: refs(n, False, True), "refsbz": lambda n: refs(n, True, True)}
     sys.stdout.write(gens[kind](k).out())

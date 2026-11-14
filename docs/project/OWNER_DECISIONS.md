@@ -1297,6 +1297,10 @@ declaration on Init, explained, and shown at the [kernel] gate. Of the eight sor
 normalization charges fuel (one unit per comparison), and it already uses the same insertion-then-merge split at 32
 that `lib/sort.fs` copied from it.
 
+The kernel's first batch under this decision is branch `reuse-k1` (plan 9.4.8e: `lib/sort.fs` in the kernel's sorts,
+the new `lib/memo.fs` and `lib/pqueue.fs` in its memos and scheduler queues); it waits for the [kernel] gate (this
+records no new decision).
+
 ### [import]: S1's library route (2026-11-13, afternoon)
 
 The owner approved the [import] gate for branch `s1-meta-b` (S1 merge B; ADR 0021 Amendment 2, D13): while a
@@ -1316,3 +1320,12 @@ candidate lists equal pinned Lean's on 13 of 13 problems) and the [import] gate 
 the export's manifest; other data refused, error 39) for branch `s1-synth`, after two review rounds whose findings
 were fixed ([review](../development/forth-reviews/2026-11-13-s1-synth.md)). The second re-check's three minor items
 are the first step of FE1e5 (`synth.fs`).
+
+### [kernel]: the reuse batch outside the front end (2026-11-13, evening)
+
+The owner approved the [kernel] gate for branches `reuse-k1` and `reuse-out` (one merge): the kernel's six sorts,
+three caches, scheduler queue and about 58 loops on shared library words (`sort.fs`, new `memo.fs`, `pqueue.fs`,
+`decimal.fs`, `bits.fs`, `blocks.fs`, the loop words of `outcome.fs`); the checker's rules unchanged. Evidence: all of
+Init checked with the old and the new code, the same 59,349 declarations accepted with the same fuel (654,719,715) and
+byte-identical snapshot files, confirmed independently twice; two kernel reviews and a re-check read every rewritten
+loop against the old one ([review](../development/forth-reviews/2026-11-13-reuse-out.md)); the full tier passed.

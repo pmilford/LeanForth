@@ -81,6 +81,7 @@ require ./outcome.fs
 require ./u32.fs
 require ./slab.fs
 require ./htab.fs
+require ./bits.fs
 require ./module.fs
 
 lf-lib-private module-open

@@ -134,8 +134,7 @@ here lf-msp-arrays - 1 cells / constant lf-msp-arrays#
 
 \ Searching. lf-msp-cell-index is generic: the first of n cells at addr
 \ equal to x. The caller has validated n.
-: lf-msp-cell-index ( x addr n -- i | -1 )
-  0 ?do 2dup i cells + @ = if 2drop i unloop exit then loop 2drop -1 ;
+: lf-msp-cell-index ( x addr n -- i | -1 ) cells-index 0= if -1 then ;
 : lf-msp-find ( name n -- position | -1 ) lf-msp-names swap lf-msp-cell-index ;
 : lf-msp-position ( name -- position | -1 ) lf-msp-count @ lf-msp-find ;
 

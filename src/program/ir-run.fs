@@ -46,6 +46,8 @@
 \ each context. A program loaded in one context can be run only there.
 
 require ../lib/lib.fs
+require ../lib/decimal.fs
+require ../lib/bits.fs
 require ../lib/text-run.fs
 decimal
 
@@ -179,15 +181,12 @@ end-structure
 : irx-row-returns ( rin rout -- ) irx-last-row tuck irx-prim-rout ! irx-prim-rin ! ;
 : irx-partial ( xt -- ) irx-last-row irx-prim-domain ! ;
 
-\ The cell width, counted, for RSHIFT's domain.
-: irx-bits ( -- u ) 0 -1 begin dup while 1 rshift swap 1+ swap repeat drop ;
-irx-bits constant irx-cell-bits
 
 : irx-noop ( -- ) ;
 : irx-times ( n1 n2 -- n3 ) um* drop ;
 : irx-abs ( n -- n' ) dup 0< if negate then ;
 : irx-divisible? ( n1 n2 -- n1 n2 flag ) over 0< 0= over 0> and ;
-: irx-shiftable? ( x u -- x u flag ) dup 0< 0= over irx-cell-bits < and ;
+: irx-shiftable? ( x u -- x u flag ) dup 0< 0= over cell-bits < and ;
 
 \ The 40 primitives of IR 0.2, in the order of Prim in program-ir.lean:
 \ IR 0.1's 38, then LSHIFT and -ROT.
@@ -383,9 +382,7 @@ end-structure
 : irx-tokens ( c-addr u -- ) begin irx-split irx-keep dup while 1 /string repeat 2drop ;
 
 \ Numbers: decimal digits at the start of c-addr u, read into a double cell.
-: irx-convert ( c-addr u -- ud c-addr' u' )
-  0 0 2swap base @ >r decimal >number r> base ! ;
-: irx-count ( c-addr u -- n c-addr' u' flag ) dup >r irx-convert rot drop dup r> < ;
+: irx-count ( c-addr u -- n c-addr' u' flag ) dup >r decimal>number rot drop dup r> < ;
 : irx-colon? ( c-addr u -- c-addr' u' flag )
   2dup 1 min s" :" compare if false else 1 /string true then ;
 \ A location "@line:column"; anything else after the @ is malformed.
@@ -407,22 +404,15 @@ end-structure
 \ so leading zeros change nothing. The model gives a literal outside the
 \ cell no meaning, so one that does not fit a host cell loads as unfit and
 \ runs as the failure unmodeled. Without its leading zeros, a magnitude
-\ of more digits than max-n 1+ has (irx-cell-digits) fits no cell; one of
-\ at most that many is below 10 * (max-n + 1), so a double cell holds it
-\ exactly for any cell width of 4 bits or more.
-: irx-width ( u -- n ) 0 <# #s #> nip ;
-max-n 1+ irx-width constant irx-cell-digits
+\ of more digits than max-n has (cell-digits, as many as max-n 1+ has:
+\ 2^k is never a power of ten) fits no cell; one of at most that many is
+\ below 10 * (max-n + 1), so a double cell holds it exactly for any cell
+\ width of 4 bits or more.
 : irx-sign ( c-addr u -- c-addr' u' negative? )
   2dup 1 min s" -" compare 0= dup if >r 1 /string r> then ;
-: irx-digits? ( c-addr u -- flag )
-  dup if irx-convert nip nip nip 0= else 2drop false then ;
-\ A zero before another digit.
-: irx-padded? ( c-addr u -- flag )
-  dup 1 > if 1 min s" 0" compare 0= else 2drop false then ;
-: irx-unpadded ( c-addr u -- c-addr' u' ) begin 2dup irx-padded? while 1 /string repeat ;
 \ The digits' value, or 0 1 (beyond every cell) when there are too many.
 : irx-unsigned ( c-addr u -- ud )
-  irx-unpadded dup irx-cell-digits > if 2drop 0 1 else irx-convert 2drop then ;
+  skip-zeros dup cell-digits > if 2drop 0 1 else decimal>number 2drop then ;
 \ The largest magnitude that fits, unsigned: max-n 1+ is the smallest cell's.
 : irx-limit ( negative? -- u ) if max-n 1+ else max-n then ;
 \ The low cell of ud, and whether ud is at most the limit.
@@ -431,7 +421,7 @@ max-n 1+ irx-width constant irx-cell-digits
 : irx-magnitude ( c-addr u negative? -- n fits? )
   >r irx-unsigned r@ irx-within swap r> irx-signed swap ;
 : irx-literal ( c-addr u -- n fits? true | false )
-  irx-sign >r 2dup irx-digits? if r> irx-magnitude true exit then
+  irx-sign >r 2dup decimal-digits? if r> irx-magnitude true exit then
   2drop r> drop irx-malformed false ;
 
 \ Names. A definition's header names a fresh or only-called name.
@@ -772,14 +762,11 @@ max-n 1+ irx-width constant irx-cell-digits
 : irx-say ( c-addr u -- ) irx-sink @ execute ;
 : irx-say-blank ( -- ) s"  " irx-say ;
 : irx-say-byte ( x -- ) irx-output irx-output-char tuck c! 1 irx-say ;
-: irx-in-decimal ( xt -- ) base @ >r decimal catch r> base ! throw ;
-: irx-signed-text ( n -- ) dup abs 0 <# #s rot sign #> irx-say ;
-: irx-unsigned-text ( u -- ) 0 <# #s #> irx-say ;
-: irx-say-number ( n -- ) ['] irx-signed-text irx-in-decimal irx-say-blank ;
-: irx-say-unsigned ( u -- ) ['] irx-unsigned-text irx-in-decimal irx-say-blank ;
+: irx-say-number ( n -- ) n>decimal irx-say irx-say-blank ;
+: irx-say-unsigned ( u -- ) u>decimal irx-say irx-say-blank ;
 : irx-say-blanks ( n -- ) 0 max 0 ?do irx-say-blank loop ;
 : irx-say-depth ( n -- )
-  s" <" irx-say ['] irx-unsigned-text irx-in-decimal s" > " irx-say ;
+  s" <" irx-say u>decimal irx-say s" > " irx-say ;
 \ .s: the number of the current word's items (those above its frame),
 \ then the top ones, at most nine, the deepest first: cells held - k up to
 \ held of the whole stack, k = min(items, 9).

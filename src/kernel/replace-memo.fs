@@ -25,12 +25,14 @@
 \ result: a pass's result for a node and offset is a function of them.
 \ The memo costs no fuel (Lean's hash lookups cost no steps either).
 \
-\ The table and its entries are made when first needed (a context that
-\ never substitutes holds no heap block) and freed with the context; a
-\ table the heap cannot make or grow keeps nothing more: a miss. Stamped
-\ entries are emptied with lf-rmemo-empty (inference does when a job
-\ starts) and when a stamped call begins with more than lf-rmemo-cap
-\ entries, which bounds the memory (about 60 bytes an entry).
+\ The table is a memo of lib/memo.fs (keys of three cells, values of two,
+\ whose check hook gives a value only while its result has the identity
+\ kept with it), made when first needed (a context that never substitutes
+\ holds no heap block) and freed with the context; a table the heap
+\ cannot make or grow keeps nothing more: a miss. Stamped entries are
+\ emptied with lf-rmemo-empty (inference does when a job starts) and when
+\ a stamped call begins with more than lf-rmemo-cap entries, which bounds
+\ the memory (about 50 bytes an entry).
 \
 \ Interface: /lf-rmemo, lf-rmemo-begin ( stamp memo -- ), lf-rmemo@ ( node
 \ offset memo -- result true | false ), lf-rmemo! ( result node offset
@@ -42,55 +44,39 @@
 \ lf-rmemo@ before a visit, result node offset lf-open-memo lf-rmemo!
 \ after it, and outcome lf-open-memo lf-rmemo-end when the pass ends.
 \ State: none of its own; every word takes a memo record, a member of
-\ the checker context that its pass declares. The hooks are shared and
-\ read-only.
+\ the checker context that its pass declares.
 
 require ../lib/lib.fs
-require ../lib/hash32.fs
-require ../lib/htab.fs
-require ../lib/slab.fs
+require ../lib/memo.fs
 require ../core/terms.fs
 require ./mixed-rebuild.fs
 
-\ The table comes first, so that its hooks find the memo at its address.
-\ The record also holds the entry being found or kept: its key (three
-\ cells), then its value (two cells), as an entry holds them.
-5 cells constant /lf-rment
+\ The memo, the key being found or kept (built and used by one word), the
+\ call's stamp and the entries before the call.
+3 constant lf-rmemo-kcells
 begin-structure /lf-rmemo
-  /htab +field lf-rmemo-table
-  /slab +field lf-rmemo-entries
-  /lf-rment +field lf-rmemo-key   \ the entry being found or kept
-  field: lf-rmemo-stamp           \ the call's stamp
-  field: lf-rmemo-base            \ the entries before the call
+  /memo +field lf-rmemo-table
+  lf-rmemo-kcells cells +field lf-rmemo-key
+  field: lf-rmemo-stamp
+  field: lf-rmemo-base
 end-structure
 1 20 lshift constant lf-rmemo-cap
 
-\ Entries and their hashes (a hash is only a hint: lib/htab.fs).
-: lf-rment ( n memo -- addr ) lf-rmemo-entries slab-at ;
-: lf-rment-hash ( addr -- h )
-  0 over @ hash-step over cell+ @ hash-step swap 2 cells + @ hash-step ;
-: lf-rmemo-rehash ( n htab -- h ) lf-rment lf-rment-hash ;
-: lf-rmemo-same ( n key htab -- flag ) rot swap lf-rment 3 cells tuck compare 0= ;
-create lf-rmemo-hooks /htab-hooks allot
-' lf-rmemo-rehash ' lf-rmemo-same lf-rmemo-hooks htab-hooks!
+\ A kept value, a node and its identity (two cells at a-addr), holds while
+\ the node has that identity (also caches.fs's check of its results).
+: lf-kept-node? ( a-addr -- flag )
+  dup @ lf-term-identity if swap cell+ @ = else drop false then ;
 
-\ Making, emptying and freeing. A large table goes back to a small one
-\ when emptied, so an emptying costs little whatever a call needed.
-1024 constant lf-rmemo-small
-: lf-rmemo-live? ( memo -- flag ) lf-rmemo-table htab-live? ;
-: lf-rmemo-count ( memo -- n )
-  dup lf-rmemo-live? if lf-rmemo-entries slab-count else drop 0 then ;
+\ Making, emptying and freeing (lib/memo.fs: a large table goes back to a
+\ small one when emptied, so an emptying costs little whatever a call
+\ needed).
+: lf-rmemo-live? ( memo -- flag ) lf-rmemo-table memo-live? ;
+: lf-rmemo-count ( memo -- n ) lf-rmemo-table memo-count ;
 : lf-rmemo-make ( memo -- )
-  dup 4 lf-rmemo-hooks rot lf-rmemo-table htab-init ok? 0= if drop exit then
-  /lf-rment dup slab-limit-max rot lf-rmemo-entries slab-init drop ;
-: lf-rmemo-release ( memo -- )
-  dup lf-rmemo-table htab-free lf-rmemo-entries slab-free ;
-: lf-rmemo-small? ( memo -- flag ) lf-rmemo-table htab-slots lf-rmemo-small <= ;
-: lf-rmemo-clear ( memo -- ) dup lf-rmemo-table htab-clear lf-rmemo-entries slab-clear ;
-: lf-rmemo-empty ( memo -- )
-  dup lf-rmemo-live? 0= if drop exit then
-  dup lf-rmemo-small? if lf-rmemo-clear exit then
-  dup lf-rmemo-release lf-rmemo-make ;
+  lf-rmemo-table >r lf-rmemo-kcells 2 r@ memo-init drop
+  ['] lf-kept-node? r> memo-check! ;
+: lf-rmemo-release ( memo -- ) lf-rmemo-table memo-free ;
+: lf-rmemo-empty ( memo -- ) lf-rmemo-table memo-empty ;
 
 \ A call. Its entries are those from the base on.
 : lf-rmemo-crowded? ( stamp memo -- flag ) lf-rmemo-count lf-rmemo-cap > swap 0<> and ;
@@ -100,16 +86,10 @@ create lf-rmemo-hooks /htab-hooks allot
 : lf-rmemo-begin ( stamp memo -- )
   2dup lf-rmemo-ready tuck lf-rmemo-stamp !
   dup lf-rmemo-count swap lf-rmemo-base ! ;
-\ Taking out the entries from the base on, newest first.
-: lf-rmemo-forget ( n memo -- )
-  2dup lf-rment lf-rment-hash swap lf-rmemo-table htab-remove drop ;
-: lf-rmemo-pop ( memo -- )
-  dup lf-rmemo-count 1- over lf-rmemo-forget -1 swap lf-rmemo-entries slab-commit ;
-: lf-rmemo-above? ( memo -- flag ) dup lf-rmemo-count swap lf-rmemo-base @ > ;
-: lf-rmemo-drop ( memo -- ) begin dup lf-rmemo-above? while dup lf-rmemo-pop repeat drop ;
 \ The end of a call with its outcome: a stamped call that succeeded keeps
-\ its entries; any other call's are taken out.
+\ its entries; any other call's are taken out, newest first.
 : lf-rmemo-keeps? ( outcome memo -- flag ) lf-rmemo-stamp @ 0<> swap ok? and ;
+: lf-rmemo-drop ( memo -- ) dup lf-rmemo-base @ swap lf-rmemo-table memo-cut ;
 : lf-rmemo-end ( outcome memo -- )
   dup lf-rmemo-live? 0= if 2drop exit then
   tuck lf-rmemo-keeps? if drop else lf-rmemo-drop then ;
@@ -120,37 +100,17 @@ create lf-rmemo-hooks /htab-hooks allot
 : lf-rmemo-key! ( node offset memo -- flag )
   >r swap lf-term-identity 0= if drop r> drop false exit then
   r@ lf-rmemo-key ! r> lf-rmemo-place true ;
-: lf-rmemo-find ( memo -- n true | i false )
-  dup >r lf-rmemo-key dup lf-rment-hash r> lf-rmemo-table htab-find ;
-\ An entry's result while it has the identity kept with it.
-: lf-rment-result ( addr -- result true | false )
-  3 cells + dup @ swap cell+ @ over lf-term-identity if = else drop false then
-  dup 0= if nip then ;
+: lf-rmemo-entry ( memo -- key memo' ) dup lf-rmemo-key swap lf-rmemo-table ;
 : lf-rmemo@ ( node offset memo -- result true | false )
-  dup lf-rmemo-live? 0= if drop 2drop false exit then
   dup >r lf-rmemo-key! 0= if r> drop false exit then
-  r@ lf-rmemo-find if r> lf-rment lf-rment-result else r> 2drop false then ;
+  r> lf-rmemo-entry memo-find dup if @ true then ;
 
-\ Keeping: the value into the record beside the key (a result without an
-\ identity is not kept), then into the entry found, else into a new entry
-\ put at the empty slot the find gave (nothing changes the table in
-\ between).
-: lf-rmemo-value! ( result memo -- flag )
-  >r dup lf-term-identity 0= if r> 2drop false exit then
-  r@ lf-rmemo-key 4 cells + ! r> lf-rmemo-key 3 cells + ! true ;
-: lf-rmemo-update ( memo n -- )
-  over lf-rmemo-key 3 cells + swap rot lf-rment 3 cells + 2 cells move ;
-: lf-rmemo-copy ( memo n -- ) swap dup lf-rmemo-key -rot lf-rment /lf-rment move ;
-: lf-rmemo-add ( i memo -- )
-  1 over lf-rmemo-entries slab-claim ok-then? 0= if drop 2drop exit then
-  2dup lf-rmemo-copy -rot lf-rmemo-table htab-put ;
-: lf-rmemo-put ( memo -- )
-  dup lf-rmemo-table htab-ready ok? 0= if drop exit then
-  dup lf-rmemo-find if lf-rmemo-update else swap lf-rmemo-add then ;
+\ Keeping: a result with an identity, into the entry found or a new one.
+: lf-rmemo-kept ( result id memo -- )
+  lf-rmemo-entry memo-put ok-then? if tuck cell+ ! ! else drop 2drop then ;
 : lf-rmemo! ( result node offset memo -- )
-  dup lf-rmemo-live? 0= if 2drop 2drop exit then
   dup >r lf-rmemo-key! 0= if r> 2drop exit then
-  r@ lf-rmemo-value! if r> lf-rmemo-put else r> drop then ;
+  dup lf-term-identity if r> lf-rmemo-kept else r> 2drop then ;
 
 \ Lean's update_app and update_binding (expr.cpp): the node itself when
 \ both children came back unchanged, otherwise a new node of its tag (a

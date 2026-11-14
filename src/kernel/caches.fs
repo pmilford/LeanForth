@@ -129,16 +129,14 @@
 \ lf-cache-unfold, lf-cache-success and lf-cache-failure ( -- cache ).
 \ Loading this module sets the hooks of whnf.fs, defeq.fs, mixed-infer.fs,
 \ mixed-convert.fs and mixed-open.fs.
-\ State: one record, lf-caches (the switch, the key being looked up, a
-\ stack's depth, and eight tables: each a hash table of lib/htab.fs over
-\ a slab of entries), and a growable stack (lf-caches-stack), members of
-\ the checker context (lib/context.fs), freed with it. The tables' hooks
-\ are shared and read-only.
+\ State: one record, lf-caches (the switch, a stack's depth, and eight
+\ tables: each a memo of lib/memo.fs with its counts), and a growable
+\ stack (lf-caches-stack), members of the checker context (lib/context.fs),
+\ freed with it. The table of value cells is read-only.
 
 require ../lib/lib.fs
-require ../lib/hash32.fs
-require ../lib/htab.fs
 require ../lib/slab.fs
+require ../lib/memo.fs
 require ../core/derivation-log.fs
 require ../core/local-context.fs
 require ../core/terms.fs
@@ -148,14 +146,19 @@ require ./defeq.fs
 require ./mixed-convert.fs
 require ./mixed-infer.fs
 require ./mixed-open.fs
+require ./replace-memo.fs
 
 \ ---------------------------------------------------------------------------
-\ A cache: a hash table first (its hooks find the cache at its address),
-\ over a slab of entries of four key cells and two value cells.
-6 cells constant /lf-cent
+\ A cache: a memo of lib/memo.fs, keys of two cells (a node's identity and
+\ 0, a pair of identities, or a node and its identity), and its counts.
+\ Values: a node and its identity for the result caches (given only while
+\ the node has it, replace-memo.fs's lf-kept-node?), a flag for the
+\ free-variable memo, none for the pair caches. An entry is at most four
+\ cells (/lf-cent; core/scratch-meter.fs charges more for each).
+2 constant lf-cache-kcells
+4 cells constant /lf-cent
 begin-structure /lf-cache
-  /htab +field lf-cache-table
-  /slab +field lf-cache-entries
+  /memo +field lf-cache-table
   field: lf-cache-hits
   field: lf-cache-misses
 end-structure
@@ -163,7 +166,6 @@ end-structure
 begin-structure /lf-caches
   field: lf-caches-off            \ true when a test turned the caches off
   field: lf-caches-sp             \ cells on lf-caches-stack
-  4 cells +field lf-caches-key    \ the key being looked up or kept
   /lf-cache lf-caches# * +field lf-caches-tables
 end-structure
 /lf-caches context-record: lf-caches
@@ -179,49 +181,38 @@ end-structure
 : lf-cache-memo ( -- cache ) 7 lf-cache-nth ;         \ node -> free variables live
 : lf-cache-stats ( cache -- hits misses ) dup lf-cache-hits @ swap lf-cache-misses @ ;
 
-\ Entries and the key.
-: lf-cent ( n cache -- addr ) lf-cache-entries slab-at ;
-: lf-cent-hash ( addr -- h )
-  0 over @ hash-step over cell+ @ hash-step over 2 cells + @ hash-step
-  swap 3 cells + @ hash-step ;
-: lf-cache-key ( -- addr ) lf-caches lf-caches-key ;
-: lf-key! ( k1 k2 k3 k4 -- )
-  lf-cache-key 3 cells + ! lf-cache-key 2 cells + ! lf-cache-key cell+ ! lf-cache-key ! ;
-: lf-cache-rehash ( n htab -- h ) lf-cent lf-cent-hash ;
-: lf-cache-same ( n key htab -- flag ) rot swap lf-cent 4 cells tuck compare 0= ;
-create lf-cache-hooks /htab-hooks allot
-' lf-cache-rehash ' lf-cache-same lf-cache-hooks htab-hooks!
+\ Each cache's value cells, by its number.
+create lf-cache-values 2 , 2 , 2 , 2 , 2 , 0 , 0 , 1 ,
+: lf-cache-vcells ( cache -- n ) 0 lf-cache-nth - /lf-cache / cells lf-cache-values + @ ;
+\ A new entry within a check's memory limit (core/scratch-meter.fs): a
+\ refused one is a miss, and the check then ends full (check-declaration.fs).
+: lf-cache-admit ( memo -- flag ) drop lf-meter-entry? ;
+: lf-cache-checked ( cache -- )
+  dup lf-cache-vcells 2 <> if drop exit then
+  ['] lf-kept-node? swap lf-cache-table memo-check! ;
+: lf-cache-hooks! ( cache -- )
+  ['] lf-cache-admit over lf-cache-table memo-admit! lf-cache-checked ;
 
 \ Each context's tables: made when first emptied, so a new context holds
 \ no heap block until it checks (a table the heap refuses is not live: it
-\ then keeps nothing), and freed with the context.
-: lf-cache-table-init ( cache -- ) 4 lf-cache-hooks rot lf-cache-table htab-init drop ;
+\ then keeps nothing), and freed with the context. Emptying gives a large
+\ table back (lib/memo.fs's memo-empty), so that an emptying costs little
+\ whatever an earlier check needed.
 : lf-cache-make ( cache -- )
-  dup lf-cache-table-init
-  /lf-cent dup slab-limit-max rot lf-cache-entries slab-init drop ;
-: lf-cache-release ( cache -- ) dup lf-cache-table htab-free lf-cache-entries slab-free ;
+  >r lf-cache-kcells r@ lf-cache-vcells r@ lf-cache-table memo-init drop
+  r> lf-cache-hooks! ;
+: lf-cache-release ( cache -- ) lf-cache-table memo-free ;
 : lf-caches-some ( xt n -- )
   0 lf-cache-nth swap 0 ?do 2dup swap execute /lf-cache + loop 2drop ;
 : lf-caches-each ( xt -- ) lf-caches# lf-caches-some ;
 :noname ( -- ) ['] lf-cache-release lf-caches-each ; context-teardown
-
-\ Emptying: a large table or slab goes back to a small one, so that an
-\ emptying costs little whatever an earlier check needed.
-1024 constant lf-cache-small
-: lf-cache-small? ( cache -- flag )
-  lf-cache-table dup htab-live? if htab-slots lf-cache-small <= else drop false then ;
-: lf-cache-trim ( slab -- )
-  dup slab-capacity lf-cache-small > if dup slab-trim drop then drop ;
 : lf-cache-empty ( cache -- )
-  dup lf-cache-table htab-live? 0= if lf-cache-make exit then
-  dup lf-cache-entries dup slab-clear lf-cache-trim
-  dup lf-cache-small? if lf-cache-table htab-clear exit then
-  dup lf-cache-table htab-free lf-cache-table-init ;
+  dup lf-cache-table memo-live? if lf-cache-table memo-empty else lf-cache-make then ;
 \ Empty every table (a check begins, an inference job starts).
 : lf-caches-clear ( -- ) ['] lf-cache-empty lf-caches-each ;
 \ The entries the tables hold now, for a check's memory limit.
 : lf-caches-entries ( -- n )
-  0 lf-caches# 0 ?do i lf-cache-nth lf-cache-entries slab-count + loop ;
+  0 lf-caches# 0 ?do i lf-cache-nth lf-cache-table memo-count + loop ;
 
 \ The switch, and whether the caches are on now (see the header).
 : lf-caches-enable ( flag -- ) 0= lf-caches lf-caches-off ! ;
@@ -229,29 +220,6 @@ create lf-cache-hooks /htab-hooks allot
   lf-caches lf-caches-off @ if false exit then
   lf-log? if false exit then lf-whnf-env? ;
 
-\ ---------------------------------------------------------------------------
-\ Finding and keeping, with the key in lf-cache-key.
-: lf-cache-find ( cache -- n true | i false )
-  >r lf-cache-key dup lf-cent-hash r> lf-cache-table htab-find ;
-\ The entry's address, or 0.
-: lf-cache-entry ( cache -- addr|0 )
-  dup lf-cache-table htab-live? 0= if drop 0 exit then
-  dup lf-cache-find if swap lf-cent else 2drop 0 then ;
-: lf-cent-value! ( v1 v2 addr -- ) tuck 5 cells + ! 4 cells + ! ;
-: lf-cent-values ( addr -- v1 v2 ) dup 4 cells + @ swap 5 cells + @ ;
-: lf-cent-fill ( v1 v2 addr -- ) lf-cache-key over 4 cells move lf-cent-value! ;
-\ A new entry, within a check's memory limit (core/scratch-meter.fs): a
-\ refused one is a miss, and the check then ends full (check-declaration.fs).
-: lf-cache-add ( v1 v2 i cache -- flag )
-  lf-meter-entry? 0= if 2drop 2drop false exit then
-  1 over lf-cache-entries slab-claim ok-then? 0= if 2drop 2drop drop false exit then
-  2dup swap lf-cent >r -rot lf-cache-table htab-put r> lf-cent-fill true ;
-\ Keep the key with v1 v2, replacing an entry's values: true, or false
-\ when the table cannot grow (nothing kept).
-: lf-cache-put ( v1 v2 cache -- flag )
-  dup lf-cache-table htab-live? 0= if drop 2drop false exit then
-  dup lf-cache-table htab-ready ok? 0= if drop 2drop false exit then
-  dup lf-cache-find if swap lf-cent lf-cent-value! true else swap lf-cache-add then ;
 
 \ ---------------------------------------------------------------------------
 \ Keys (see the header): a node is its own key, by its identity
@@ -292,15 +260,15 @@ create lf-cache-hooks /htab-hooks allot
 \ none; a free-variable leaf is live when its own entry is
 \ (local-context.fs). Within a job an entry goes only with its node (a
 \ scratch rollback), so a live node's answer stays.
-: lf-fvmemo-key ( node -- flag )
-  dup lf-term-identity if >r 1 swap r> 0 lf-key! true else drop false then ;
+: lf-fvmemo-key ( node -- node id true | false )
+  dup lf-term-identity if true else drop false then ;
 : lf-live@ ( node -- flag true | false )
-  lf-fvmemo-key 0= if false exit then
-  lf-cache-memo lf-cache-entry ?dup if lf-cent-values drop true else false then ;
+  lf-fvmemo-key if lf-cache-memo lf-cache-table memo@ else false then ;
 \ Keep node's answer, then take it off the stack: false when the memo
 \ cannot keep it (no heap), which ends the walk.
 : lf-live! ( node flag -- flag )
-  swap lf-fvmemo-key if 0 lf-cache-memo lf-cache-put else drop false then lf-ts-pop ;
+  swap lf-fvmemo-key if lf-cache-memo lf-cache-table memo! ok? else drop false then
+  lf-ts-pop ;
 : lf-fv-known ( child -- flag true | false )
   dup lf-term-data-word lf-data-fvar? 0= if drop true true exit then lf-live@ ;
 : lf-fv-binary ( node -- flag )
@@ -366,20 +334,23 @@ create lf-cache-hooks /htab-hooks allot
   over lf-bits-params 0<> rot lf-bits-fvar 0<> lf-data true ;
 \ ---------------------------------------------------------------------------
 \ Nodes as keys (by identity) and values (a live node and its identity).
-: lf-node-key ( node -- flag ) lf-term-facts if drop 0 0 0 lf-key! true else false then ;
+: lf-node-key ( node -- id 0 true | false ) lf-term-facts if drop 0 true else false then ;
 : lf-cache-count ( flag cache -- flag )
   over if lf-cache-hits else lf-cache-misses then 1 swap +! ;
-\ An entry's value node when it still has the identity kept with it.
-: lf-cent-node ( addr -- r true | false )
-  lf-cent-values over lf-term-identity if = else drop false then dup 0= if nip then ;
-: lf-cache-found ( cache -- r true | false )
-  dup >r lf-cache-entry ?dup if lf-cent-node else false then r> lf-cache-count ;
+\ The value node of key (k1 k2) while it has the identity kept with it.
+: lf-cache-found ( k1 k2 cache -- r true | false )
+  dup >r lf-cache-table memo@ r> lf-cache-count ;
 : lf-cache-node@ ( node cache -- r true | false )
-  swap lf-node-key if lf-cache-found else drop false then ;
-: lf-cache-value! ( r cache -- )
-  over lf-term-identity if swap lf-cache-put drop else 2drop then ;
+  swap lf-node-key if rot lf-cache-found else drop false then ;
+\ Keep r with its identity under key (k1 k2), into the entry found or a new
+\ one; nothing for a node without an identity, or when the table cannot
+\ grow or the check's memory limit refuses (a miss).
+: lf-cent! ( r id a-addr -- ) tuck cell+ ! ! ;
+: lf-cache-value! ( r k1 k2 cache -- )
+  3 pick lf-term-identity 0= if 2drop 2drop exit then
+  >r lf-cache-table memo-claim ok-then? if r> swap lf-cent! else r> 2drop drop then ;
 : lf-cache-node! ( node r cache -- )
-  rot lf-node-key if lf-cache-value! else 2drop then ;
+  rot lf-node-key if rot lf-cache-value! else 2drop then ;
 
 \ ---------------------------------------------------------------------------
 \ The steps around the passes. A hit ends the visit with the value; a miss
@@ -447,13 +418,14 @@ create lf-cache-hooks /htab-hooks allot
 : lf-cp-on? ( -- flag ) lf-caches-on? if lf-dq-typer @ 0<> else false then ;
 : lf-closed-id ( node -- id true | false )
   lf-term-facts if lf-bits-loose if drop false else true then else false then ;
-: lf-pair-key ( t s -- flag )
+: lf-pair-key ( t s -- k1 k2 true | false )
   lf-closed-id 0= if drop false exit then
   swap lf-closed-id 0= if drop false exit then
-  2dup > if swap then 0 0 lf-key! true ;
+  2dup > if swap then true ;
 : lf-pair@ ( t s cache -- flag )
-  >r lf-pair-key if r@ lf-cache-entry 0<> else false then r> lf-cache-count ;
-: lf-pair! ( t s cache -- ) >r lf-pair-key if 0 0 r@ lf-cache-put drop then r> drop ;
+  >r lf-pair-key if r@ lf-cache-table memo-at 0<> else false then r> lf-cache-count ;
+: lf-pair! ( t s cache -- )
+  >r lf-pair-key if r@ lf-cache-table memo-claim 2drop then r> drop ;
 
 \ is_def_eq: a yes is kept (1211-1212); the visit keeps t and s.
 : lf-cq-store ( flag outcome frames -- flag outcome frames 0 )
@@ -541,11 +513,10 @@ defer lf-ci-room? ( -- flag )
   lf-ci-skeleton if 0 true else false then ;
 : lf-ci-table ( -- cache )
   lf-minfer-aside @ if lf-cache-infer-only else lf-cache-infer then ;
-: lf-ci-key ( id scope -- ) 0 0 lf-key! ;
-\ The visit keeps the scope and the key.
+\ The visit keeps the scope and the key's identity.
 : lf-ci-store ( type status frames -- type status frames 0 )
   >r r@ frame-restore r@ frame-restore 2 pick ok?
-  if lf-ci-key over lf-ci-table lf-cache-value! else 2drop then r> 0 ;
+  if 2>r over 2r> lf-ci-table lf-cache-value! else 2drop then r> 0 ;
 : lf-ci-open ( node frames cont xt -- ... frames next )
   >r over lf-minfer-room dup ok? if drop r> frame-open else r> drop frame-refuse then ;
 : lf-ci-miss ( node frames id scope -- ... frames next )
@@ -556,7 +527,7 @@ defer lf-ci-room? ( -- flag )
   dup ok? if drop lf-minfer-visit-step else lf-ci-fail then ;
 : lf-ci-visit ( node frames -- ... frames next )
   over lf-ci-ready? 0= if lf-ci-uncached exit then
-  2dup lf-ci-key lf-ci-table lf-cache-found if >r 2drop r> lf-cache-hit exit then
+  2dup lf-ci-table lf-cache-found if >r 2drop r> lf-cache-hit exit then
   lf-ci-miss ;
 ' lf-ci-visit is lf-minfer-entry
 

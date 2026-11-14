@@ -34,6 +34,8 @@
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
+require ../lib/blocks.fs
+require ../lib/bits.fs
 require ./terms.fs
 require ./levels.fs
 require ./constant-references.fs
@@ -42,17 +44,15 @@ require ./tagged-sort-boundary.fs
 require ./mvar-leaves.fs
 
 begin-structure /lf-reach
-  field: lf-reach-terms     \ heap: a cell per term node, true when reached
-  field: lf-reach-levels    \ heap: a cell per level, true when reached
+  field: lf-reach-terms     \ heap: a bit per term node, set when reached
+  field: lf-reach-levels    \ heap: a bit per level, set when reached
   field: lf-reach-term#     \ term nodes the table holds
   field: lf-reach-level#    \ levels the table holds
 end-structure
 /lf-reach context-record: lf-reach
 
-\ The tables: a cell per node, erased.
-: lr-block ( u addr -- flag ) swap 1 max allocate if drop 0 then dup rot ! 0<> ;
-: lr-erased ( n addr -- flag ) over cells over lr-block if @ swap cells erase true
-  else 2drop false then ;
+\ The tables: a bit per node (lib/bits.fs), erased (lib/blocks.fs).
+: lr-erased ( n addr -- flag ) swap bits>cells cells swap block-zeroed ok? ;
 \ A store's count, a corrupted negative one taken as none (review fe1f L4).
 : lr-count ( addr -- n ) @ 0 max ;
 \ Every term number: under an input view the store's own nodes start
@@ -67,16 +67,19 @@ end-structure
   lf-reach lf-reach-level# @ lf-reach lf-reach-levels lr-erased and
   dup 0= if lf-reach-close then ;
 
-\ A node's cell; a number outside the table is never marked or reached.
-: lr-in? ( i n -- flag ) index? ;
-: lr-term ( term -- addr ) cells lf-reach lf-reach-terms @ + ;
-: lr-level ( level -- addr ) cells lf-reach lf-reach-levels @ + ;
-: lr-term? ( term -- flag ) lf-reach lf-reach-term# @ lr-in? ;
-: lr-level? ( level -- flag ) lf-reach lf-reach-level# @ lr-in? ;
-: lf-reach-term ( term -- ) dup lr-term? if true swap lr-term ! else drop then ;
-: lr-level! ( level -- ) dup lr-level? if true swap lr-level ! else drop then ;
-: lf-reached? ( term -- flag ) dup lr-term? if lr-term @ else drop false then ;
-: lf-level-reached? ( level -- flag ) dup lr-level? if lr-level @ else drop false then ;
+\ A node's bit; a number outside the table is never marked or reached.
+: lr-terms ( -- a-addr ) lf-reach lf-reach-terms @ ;
+: lr-levels ( -- a-addr ) lf-reach lf-reach-levels @ ;
+\ Node i of a table of n bits: marked, or whether it is marked.
+: lr-mark ( i n bits -- ) >r over swap index? if r> bit-on else r> 2drop then ;
+: lr-marked? ( i n bits -- flag )
+  >r over swap index? if r> bit@ else r> 2drop false then ;
+: lr-term# ( -- n ) lf-reach lf-reach-term# @ ;
+: lr-level# ( -- n ) lf-reach lf-reach-level# @ ;
+: lf-reach-term ( term -- ) lr-term# lr-terms lr-mark ;
+: lr-level! ( level -- ) lr-level# lr-levels lr-mark ;
+: lf-reached? ( term -- flag ) lr-term# lr-terms lr-marked? ;
+: lf-level-reached? ( level -- flag ) lr-level# lr-levels lr-marked? ;
 
 \ A reached term's parts.
 : lr-pair ( term -- ) dup lf-term-first@ lf-reach-term lf-term-second@ lf-reach-term ;

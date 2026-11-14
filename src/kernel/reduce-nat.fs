@@ -41,7 +41,7 @@ require ../core/terms.fs
 : lf-rn-handle ( node -- node identity ) dup lf-term-identity 0= if 0 then ;
 
 \ Constants without universe arguments, by name.
-: lf-rn-name ( prefix c-addr u -- id outcome ) lf-name-str if outcome-ok else -1 outcome-full then ;
+: lf-rn-name ( prefix c-addr u -- id outcome ) lf-name-str room-result ;
 : lf-rn-const ( id -- node outcome )
   lf-name-generation @ 0 0 lf-cref-new 0= if -1 outcome-full exit then lf-cterm-new lf-rn-node ;
 : lf-rn-named ( prefix c-addr u -- node outcome )

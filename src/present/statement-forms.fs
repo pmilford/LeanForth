@@ -50,6 +50,7 @@
 require ./log-view.fs
 require ./print-forth.fs
 require ./print-notation.fs
+require ../lib/decimal.fs
 require ../lib/text-rule.fs
 
 1 constant lf-form-lean
@@ -86,7 +87,7 @@ end-structure
 \ Text a character at a time: a character the text rule bans and a byte that
 \ starts no UTF-8 character are written as \textbackslash{}u\{X\} and
 \ \textbackslash{}x\{X\}, so that no name can end a line or reorder the text.
-: lf-sf-code ( u c-addr u2 -- ) lf-lv-out lf-lv-hex s" \}" lf-lv-out ;
+: lf-sf-code ( u c-addr u2 -- ) lf-lv-out u>hex lf-lv-out s" \}" lf-lv-out ;
 : lf-sf-bad ( c-addr -- ) c@ s" \textbackslash{}x\{" lf-sf-code ;
 : lf-sf-step ( c-addr u -- n )
   2dup utf8-length dup 0= if 2drop lf-sf-bad 1 exit then nip

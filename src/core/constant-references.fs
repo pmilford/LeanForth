@@ -249,9 +249,8 @@ create lf-cref-hooks /htab-hooks allot
   lf-name-generation @ = swap lf-name-valid? and lf-name-storage-valid? and ;
 \ count level pairs at addr are all live; count is not negative.
 : lf-cref-arity? ( count -- flag ) 0< 0= ;
-: lf-cref-levels-valid? ( addr count -- flag )
-  0 ?do dup i lf-cref-pair@ lf-hlevel-valid? 0= if drop false unloop exit then
-  loop drop true ;
+: lf-cref-level-ok? ( addr k -- addr flag ) over swap lf-cref-pair@ lf-hlevel-valid? ;
+: lf-cref-levels-valid? ( addr count -- flag ) ['] lf-cref-level-ok? all? nip ;
 : lf-cref-input-ok? ( addr count -- flag )
   dup lf-cref-arity? if lf-cref-levels-valid? else 2drop false then ;
 

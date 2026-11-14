@@ -14,7 +14,7 @@ hex require ../../src/lib/sha256.fs base @ decimal constant base-after-load
 lf-lib-private order+   \ the helpers: the round, the schedule, padding, fields
 
 T{ base-after-load -> 16 }T
-T{ sha-cell-bits 32 >= sha-mask 1+ sha-mask and -> true 0 }T
+T{ cell-bits 32 >= sha-mask 1+ sha-mask and -> true 0 }T
 
 sha256: hasher
 create digest 32 allot

@@ -84,6 +84,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
+require ../lib/blocks.fs
 require ../lib/u32.fs
 require ../lib/bytes.fs
 require ../import/stage.fs
@@ -135,9 +136,7 @@ variable imp-current
 : ua@ ( i addr -- u ) swap u32s + u32@ ;
 : ua! ( u i addr -- ) swap u32s + u32! ;
 \ A zeroed array of n numbers at the cell addr: ok, or full.
-: ua-new ( n addr -- outcome )
-  >r u32s 1 max dup allocate if 2drop r> drop outcome-full exit then
-  dup rot erase r> ! outcome-ok ;
+: ua-new ( n addr -- outcome ) swap u32s swap block-zeroed ;
 \ The carry pass's blocks (plan step 6.2.5c3-c4).
 : carry-free ( imp -- imp )
   dup imp-sd-of heap-release dup imp-why heap-release dup imp-cand heap-release
@@ -446,10 +445,9 @@ kind-quot kind-axiom - 1+ constant reach-kinds#
   r> if dup imp-seen @ 0= if 1 over imp-other +! then then 2drop outcome-ok ;
 \ Take what can be taken (see the header), in a current environment over
 \ the input imp-input read, before any check: ok, or the first failure.
-: imp-pass ( imp -- outcome )
-  dup imp-n @ 0 ?do
-    i e-final? 0= if i over imp-unit dup ok? 0= if nip unloop exit then drop then
-  loop drop outcome-ok ;
+: imp-pass-at ( imp k -- imp outcome )
+  dup e-final? if drop outcome-ok else over imp-unit then ;
+: imp-pass ( imp -- outcome ) dup imp-n @ ['] imp-pass-at ok-each nip ;
 
 \ ---- What the run reads afterwards.
 : imp-taken# ( imp -- n ) imp-taken @ ;
@@ -552,12 +550,9 @@ kind-quot kind-axiom - 1+ constant reach-kinds#
 : layer-decls ( imp -- outcome )
   0 over e-count 0 ?do i 2 pick lstep dup ok? 0= if nip nip unloop exit then drop loop
   2drop outcome-ok ;
-: imp-block ( u addr -- outcome )
-  >r 1 max dup allocate if 2drop r> drop outcome-full exit then
-  tuck swap erase r> ! outcome-ok ;
 : imp-renum-room ( imp -- outcome ) dup imp-n @ swap imp-renum ua-new ;
 : imp-lslots-room ( imp -- outcome ) dup imp-n @ swap imp-lslots ua-new ;
-: imp-ldecls-room ( imp -- outcome ) dup e-count /staged * swap imp-ldecls imp-block ;
+: imp-ldecls-room ( imp -- outcome ) dup e-count /staged * swap imp-ldecls block-zeroed ;
 : imp-llines-room ( imp -- outcome ) dup e-count swap imp-llines ua-new ;
 : imp-lnewest-room ( imp -- outcome )
   dup imp-stage @ stage-tier tier-names cons-numbers swap imp-lnewest ua-new ;

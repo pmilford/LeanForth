@@ -690,6 +690,15 @@ T{ ' ctor-renamed 10 block-verdict -> outcome-rejected lf-diag-invalid-recursor 
 T{ ' rules-swapped 10 block-verdict -> outcome-rejected lf-diag-invalid-recursor 9 }T
 : rec-type ( -- ) 9 lf-input-decl lf-idecl-type @ 6 lf-input-decl lf-idecl-type ! ;
 T{ ' rec-type 4 block-verdict -> outcome-rejected lf-diag-invalid-recursor 3 }T
+\ Name lists equal name by name, the last included (review reuse-out B1,
+\ lf-ind-names=): Even.rec's (24) all list Even, Odd made Even, Even
+\ (field 4); List.cons's (27) one universe parameter u read from
+\ List.rec's (28) list, its first, u_1 (the constructor's field 1).
+: all-last-first ( -- ) 24 data lf-irc-all@ drop dup @ swap cell+ ! ;
+T{ ' all-last-first 18 block-verdict -> outcome-rejected lf-diag-invalid-recursor 4 }T
+: param-at ( d -- addr ) lf-input-decl lf-idecl-param-at ;
+: cons-param-renamed ( -- ) 28 param-at @ 27 param-at ! ;
+T{ ' cons-param-renamed 25 block-verdict -> outcome-rejected lf-diag-invalid-constructor 1 }T
 \ The recursive N (0 N, 1 zero, 2 succ, 3 N.rec): its rules swapped (the
 \ recursive call given to zero), its type replaced by Both.rec's.
 : n-rules-swapped ( -- ) 3 0 rhs 3 1 rhs over @ over @ >r swap ! r> swap ! ;
@@ -1283,6 +1292,28 @@ T{ 6 used-exactly? 10 used-exactly? 15 used-exactly? -> true true true }T
 T{ 6 short-step 10 short-step 15 short-step -> 7 7 7 }T
 T{ 11 used-exactly? 12 used-exactly? 13 used-exactly? 14 used-exactly?
   -> true true true true }T
+
+\ 10. The names a block makes are written in decimal whatever BASE is
+\ (review reuse-out L3): the motive's universe u_k (lf-blk-u) and an
+\ auxiliary recursor's suffix _k (lf-nest-digits), under HEX for k = 26
+\ (1A), where a hexadecimal copy would differ; BASE is left as it was.
+hex
+T{ 1A lf-blk-u s" u_26" compare 1A lf-nest-digits s" _26" compare 0 lf-blk-u s" u" compare
+  -> 0 0 0 }T
+T{ base @ 1A lf-blk-u 2drop base @ = -> true }T
+decimal
+
+\ 11. T0 walks every type's own type too, not only the constructors'
+\ (review reuse-out B1): the reserved name moved from IE.T0.mk's type into
+\ IE.T0's, its type made (x : _nested.X) -> IE.T0 and the constructor's
+\ IE.T0, so that only the type's walk can find it.
+: reserved-in-type ( -- )
+  2 lf-input-decl lf-idecl-type @ dup 1 lf-input-decl lf-idecl-type !
+  lf-term-second@ 2 lf-input-decl lf-idecl-type ! ;
+: tampered-verdict ( xt c-addr u -- outcome code step )
+  case-path staged ok? must execute fuel checked final-decl result finish ;
+T{ ' reserved-in-type s" names.reserved-nested-prefix-declared" tampered-verdict
+   -> outcome-rejected lf-diag-reserved-prefix 2 }T
 
 cases-done
 bye

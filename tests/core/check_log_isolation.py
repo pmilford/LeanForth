@@ -103,7 +103,14 @@ STORES = {
     "lf-level-tag-param", "lf-cref-read", "lf-cref-level", "lf-cref-current",
     "lf-input-intact?",
     "lf-input-mark-count", "lf-input-fingerprint", "/node", "node!", "node@", "ok?",
-    "upto?", "lf-tag-sort", "lf-tag-symbolic-sort", "lf-tag-bvar", "lf-tag-constant",
+    "upto?",
+    # lib/outcome.fs's loop over every index (review reuse-1a re-check): no
+    # state; its test is the log's own word, given by ['] (a compile-time
+    # reference, no name looked up while running).
+    "all?", "[']",
+    # lib/outcome.fs's 2dup-under (review reuse-out S1), a pure stack word
+    # for that loop's step: no state, no name looked up while running.
+    "2dup-under", "lf-tag-sort", "lf-tag-symbolic-sort", "lf-tag-bvar", "lf-tag-constant",
     "lf-tag-app", "lf-tag-lam", "lf-tag-pi", "lf-log-preset-level", "lf-log-preset-records",
     "lf-log-preset-marks", "lf-log-preset-terms", "lf-log-preset-levels",
     # The local context's (plan task 4.2.2a), read only, values: a free
