@@ -990,13 +990,13 @@
   },
   "src/front/defeq-delta.fs": {
    "blocks": 262,
-   "never_run": 48,
-   "reason": "new file (plan S2 merge A, branch s2-unfold, 2026-11-13; measured over make test): never run are lazy-delta branches that no case of check_defeq.py's slice reaches yet: unfoldDefEq by definitional height (the keys of an abbreviation and an opaque side, either side first), unfoldComparingHeadsDefEq's step on both sides, unfoldReducibleDefEq's choice of a reducible side, packedInstanceOf? on the right, a projection function on one side only, unfoldBothDefEq's two constants of equal levels and an aborted heuristic, isSimple's projection and rejected leaves, tryHeuristic's height and abbreviation tests; and the aborts for a missing fact (a text declaration's height, a definition without its value). Cases with definitions of distinct heights come with S2 merge B (plan S2 row)"
+   "never_run": 20,
+   "reason": "new file (plan S2 merge A, branch s2-unfold, 2026-11-13; after review s2-unfold-a, measured over make test-front, check_defeq.py --golden's 157 cases): never run are the refusals for a fact meta-env.fs does not have (a text declaration's height in dd-key and tryHeuristic's test, a reducibility, projection or unfoldable answer, the aborted branches after them, a definition without its value) and isSimple's walk refused (room or fuel); and decision branches no case reaches today: the opaque key and tryHeuristic's opaque hint (only a theorem has one, at transparency all, and proof irrelevance compares proofs first), packedInstanceOf? reaching a head that is no constant (the slice's class projections HAdd.hAdd and Add.add meet isDefEqOffsetNat's instance test first, a FE1c gap), an unknown constant inside that loop (values name declarations), isSimple's projection and unknown leaves (no regular definition of height at most 2 in the slice has a projection in its value), an abbreviation that is no projection function at tryHeuristic (the slice's are auxiliary recursors, which whnfCore answers unsupported first, S2 merge B), two constants of one name with equal levels (isDefEqQuick decides them) and one whose left side does not unfold (a universe-polymorphic smart-unfolding constant: none in the slice)"
   },
   "src/front/unfold.fs": {
-   "blocks": 162,
-   "never_run": 15,
-   "reason": "new file (plan S2 merge A, branch s2-unfold, 2026-11-13; measured over make test): never run are the failure branches of the facts unfoldDefinition? asks (a class projection, a matcher, a smart-unfolding body: unsupported without data or a refused decode) and of room (a level list, a spine, mkAppN), a definition without its value, unfoldProjInst?'s universe-count mismatch, its result whose head is no projection, and a bare constant whose value cannot be instantiated"
+   "blocks": 159,
+   "never_run": 13,
+   "reason": "new file (plan S2 merge A, branch s2-unfold, 2026-11-13; after review s2-unfold-a, measured over make test-front): never run are the refusals of the facts unfoldDefinition? asks (a declaration's lookup, a class projection, a matcher, a smart-unfolding body: unsupported without data or a refused decode) and of room (a level list, a spine, mkAppN), a definition without its value, and two decision branches no slice case reaches: a value that is no lambda applied to arguments, and a reducible class projection function at reducible transparency (Init's class projections are semireducible)"
   }
  },
  "runs": 2523

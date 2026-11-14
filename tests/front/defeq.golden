@@ -121,6 +121,16 @@ true (app (app id.{1} Nat.{}) (app (app Nat.mul.{} k) x)) (app (app Nat.mul.{} k
 true (app (app Nat.mul.{} k) x) (app (app id.{1} Nat.{}) (app (app Nat.mul.{} k) x))
 true (app (app id.{1} Nat.{}) (app (app Nat.add.{} k) x)) (app (app (app (app (app (app Function.comp.{1,1,1} Nat.{}) Nat.{}) Nat.{}) (app id.{1} Nat.{})) (app Nat.add.{} k)) x)
 true (app Nat.pred.{} x) (app Nat.pred.{} (app (app id.{1} Nat.{}) x))
+false
+true Unit.{} (app outParam.{1} Unit.{})
+true Unit.{} (app outParam.{1} Unit.{})
+true (app (app id.{2} Sort 1) Nat.{}) (app outParam.{1} Nat.{})
+true (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app (app (app HAdd.mk.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (lam Nat.{} (lam Nat.{} (app u #1))))) k) x) (app (app id.{1} Nat.{}) (app u k))
+true (app (app id.{1} Nat.{}) x) (app (app id.{1} Nat.{}) (app (app id.{1} Nat.{}) x))
+true (app (app Nat.decLt.{} k) x) (app (app Nat.decLt.{} k) (app (app id.{1} Nat.{}) x))
+true (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) x) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) (app (app id.{1} Nat.{}) x))
+error
+false
 true k (app (proj 0 (app (app id.{1} (app (app Prod.{0,0} (pi Nat.{} Nat.{})) Nat.{})) (app (app (app (app Prod.mk.{0,0} (pi Nat.{} Nat.{})) Nat.{}) (lam Nat.{} #0)) 0))) k)
 true (app (proj 0 (app (app id.{1} (app (app Prod.{0,0} (pi Nat.{} Nat.{})) Nat.{})) (app (app (app (app Prod.mk.{0,0} (pi Nat.{} Nat.{})) Nat.{}) (lam Nat.{} #0)) 0))) k) k
 true a (proj 0 (app (app id.{1} (app (app Prod.{0,0} Nat.{}) Nat.{})) (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b)))

@@ -93,6 +93,8 @@ HADD_MK = apps(c("HAdd.mk", 0, 0, 0), NAT, NAT, NAT,
 SMART = "S2 merge B smart unfolding (Nat.add._sunfold)"
 SMART_MUL = "S2 merge B smart unfolding (Nat.mul._sunfold, the greater height unfolded first)"
 ID1, FST, MUL, PRED = c("id", 1), c("Prod.fst", 0, 0), c("Nat.mul"), c("Nat.pred")
+UNIT_TYPE, DEC_LT = c("Unit"), c("Nat.decLt")
+PROJ_TYPE = "FE1c inferType of a projection (proof irrelevance)"
 PROD_F = apps(c("Prod", 0, 0), NAT2, NAT)
 
 
@@ -258,16 +260,41 @@ CASES = [
     ("meta", apps(ID1, NAT, "?n"), apps(FST, NAT, NAT, pair("a", "b")), None),
     ("meta", apps(FST, NAT, NAT, pair("a", "b")), apps(ID1, NAT, "?n"), None),
     ("eq", apps(ID1, NAT, apps(MUL, "k", "x")), apps(MUL, "k", "x"), SMART_MUL),
-    ("eq", apps(MUL, "k", "x"), apps(ID1, NAT, apps(MUL, "k", "x")), SMART_MUL),
+    ("eq", apps(MUL, "k", "x"), apps(ID1, NAT, apps(MUL, "k", "x")),
+     "S3 evalNat's Nat.mul (isDefEqOffsetNat, nat-offset.fs; folding literals)"),
     ("eq", apps(ID1, NAT, apps(ADD, "k", "x")),
      apps(c("Function.comp", 1, 1, 1), NAT, NAT, NAT, apps(ID1, NAT), apps(ADD, "k"), "x"), None),
     ("eq", apps(PRED, "x"), apps(PRED, apps(ID1, NAT, "x")), None),
+    # The other branches of these steps (review s2-unfold-a's coverage):
+    # the left side unfolded to a head the right side lacks, which does not
+    # unfold (Nat.add alone has a smart-unfolding body); an abbreviation
+    # ranked above a regular definition, at reducible and at default
+    # transparency (Unit, outParam); a reducible right side alone first;
+    # packedInstanceOf? reaching a head that is no constant (u k: a gap
+    # before lazy delta today); id's
+    # value simple, so id is trivial; a non-trivial definition by height
+    # (Nat.decLt, 3); a class projection's abbreviation at default; one
+    # name with universe arguments that do not fit it; a constant against
+    # an application of it.
+    ("eq", apps(ID1, (PI, NAT, NAT2), MUL), ADD, None),
+    ("red", UNIT_TYPE, apps(c("outParam", 1), UNIT_TYPE), None),
+    ("eq", UNIT_TYPE, apps(c("outParam", 1), UNIT_TYPE), None),
+    ("eq", apps(c("id", 2), (SORT, 1), NAT), apps(c("outParam", 1), NAT), None),
+    ("eq", apps(c("HAdd.hAdd", 0, 0, 0), NAT, NAT, NAT,
+                apps(c("HAdd.mk", 0, 0, 0), NAT, NAT, NAT, lam(lam(apps("u", "#1")))), "k", "x"),
+     apps(ID1, NAT, apps("u", "k")),
+     "FE1c isDefEqOffsetNat's instance test (HAdd.hAdd of an instance other than Nat's: Lean"
+     " asks isDefEq at instances)"),
+    ("eq", apps(ID1, NAT, "x"), apps(ID1, NAT, apps(ID1, NAT, "x")), None),
+    ("eq", apps(DEC_LT, "k", "x"), apps(DEC_LT, "k", apps(ID1, NAT, "x")), None),
+    ("eq", hadd("k", "x"), hadd("k", apps(ID1, NAT, "x")), PROJ_TYPE),
+    ("eq", c("id", 1, 1), c("id", 2), None),
+    ("eq", ID1, apps(ID1, NAT), None),
     # isExprDefEqExpensive's whnfCore reduces a projection's structure by
     # whnf (proj := yesWithDelta: id unfolds at default), where
     # isExprDefEqAux's whnfCoreAtDefEq does not (review s2-unfold-a M1).
     ("meta", "k", apps((PROJ, 0, apps(ID1, PROD_F, mk_f(lam("#0"), (LIT, 0)))), "k"), None),
-    ("meta", apps((PROJ, 0, apps(ID1, PROD_F, mk_f(lam("#0"), (LIT, 0)))), "k"), "k",
-     "FE1c inferType of a projection (proof irrelevance)"),
+    ("meta", apps((PROJ, 0, apps(ID1, PROD_F, mk_f(lam("#0"), (LIT, 0)))), "k"), "k", PROJ_TYPE),
     # isExprDefEqAux's whnfCoreAtDefEq leaves the projection (id stays at
     # instances); Lean then reduces it in isExprDefEqExpensive, after
     # isDefEqProj.
