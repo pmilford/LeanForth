@@ -56,12 +56,13 @@ status changes when this date is older than them. Stages are those of the
   root key checked at the first query) tested alone, `make reference-synth` 2,321 of 2,938 Init instances recomputed
   equal, 0 refused, 617 unverified; FE1E §4 step 4 (out-parameters) is plan row FE1e3b, not started. FE1e5 (instance
   search, `src/front/synth.fs`: Lean's synthInstance? as tabled resolution, trySynthInstance and synthPending, which
-  set the unifier's hooks) tested alone on branch `s1-synth-b` (2026-11-13, not merged, Forth review pending): over
+  set the unifier's hooks) integrated (`s1-synth-b` merged to main 2026-11-14 after a Forth review and two
+  re-checks, [parser] approved by the owner; the re-checks' remaining reuse items planned in 9.4.8k): over
   Init, `make reference-synth` gives pinned Lean's `#synth` answer after the same candidates for 24 of 30 problems
   (S1's three stuck ones stuck after Lean's one candidate, `OfNat Nat 0`, `Add Nat`); the five with an out-parameter
-  (`HAdd Nat Nat ?c`, ...) answer unsupported until S2 merge A's lazy delta (equal to Lean's on a trial merge with
-  it), `BEq Nat` until FE1e5b (a goal that is a pi). S1's last
-  branch `s1-elab` (review fixes 2026-11-14, not merged; built on `s2-unfold` and `s1-synth-b`, which it merges):
+  (`HAdd Nat Nat ?c`, ...) answered unsupported before S2 merge A's lazy delta (equal to Lean's on a trial merge with
+  it; both now on main), `BEq Nat` until FE1e5b (a goal that is a pi). S1's last
+  branch `s1-elab` (review fixes 2026-11-14, not merged; built on `s2-unfold` and `s1-synth-b`, now on main):
   the elaborator FE1e6-7 (applications with hidden arguments, `binrel%`/`binop%`, numerals, default instances, the
   declaration glue, `#check`, `--elab-fuel`) written and tested alone, instance search running in the command
   line's run mode: on the S1 slice `bin/leanforth check ... tests/front/s1-rfl.lf` has LeanForth elaborate
@@ -89,12 +90,14 @@ status changes when this date is older than them. Stages are those of the
   byte-identical snapshots). Duplicate groups 219 → 201. Next: the duplicate report as the work list (each group merged,
   table-driven or accepted with a reason): outside the front end now, the front end after S2's merge A.
 - Priority (owner, 2026-11-13 midday): the front end's slices in order, S1 then S2 ($0 + n = n$ by `by-induction` and
-  `by-rw`) then S3 onwards. S2's design ([S2_INTERFACE.md](../design/S2_INTERFACE.md)) reviewed and approved by the
+  `by-rw`) then S3 onwards; S2's acceptance includes the owner's proof set ($x + 0 = x$, $0 + n = n$, $n + m = m + n$,
+  associativity, distributivity, list append length; S3 `2 + 2 = 4`, S4 `n < n + 1`; 2026-11-13). S2's design ([S2_INTERFACE.md](../design/S2_INTERFACE.md)) reviewed and approved by the
   owner 2026-11-13, both FE1 forms; its first branch (`s2-unfold` merge A, Lean's unfolding) merges before S1's last
-  branch, which needs it (S1's order amended). Merge A is tested alone on `s2-unfold` (2026-11-13; not merged: Forth
-  review and the [import] gate pending): `unfoldDefinition?` and lazy delta, elaboration data format 3 with every
-  smart-unfolding body and the `match_pattern` tag (formats 1 and 2 refused), and refused library decodes passed on;
-  `check_defeq.py` 122 of 138 cases equal to pinned Lean's (main: 102 of 120). No automatic
+  branch, which needs it (S1's order amended). Merge A is integrated (`s2-unfold` merged to main 2026-11-14 after a Forth
+  review and two re-checks, [import] approved by the owner for data format 3):
+  `unfoldDefinition?` and lazy delta, elaboration data format 3 with every smart-unfolding body and the
+  `match_pattern` tag (formats 1 and 2 refused), and refused library decodes passed on; `check_defeq.py` 137 of 162
+  cases equal to pinned Lean's, 25 listed gaps answering unsupported (main: 102 of 120). No automatic
   Mathlib run until changes need one.
 - The design stage (plan 9.4.7, owner 2026-11-13): every design reviewed before code and approved by the owner as a
   one-page summary; the plan re-cut into slices S1-S6, V1-V4 and SC1 (PLAN_DRAFT "Slices"); the reviews of the existing

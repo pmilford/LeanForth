@@ -16933,10 +16933,26 @@ reason = "review s1-synth-b B3: a constant the stores have no room for reads as 
 [[fault]]
 id = "fe-meta-const-no-levels"
 file = "src/front/meta-env.fs"
-old = '''  me-pairs slab-clear over lf-menv-params nip ['] me-level-by ok-each nip'''
-new = '''  me-pairs slab-clear 0 ['] me-level-by ok-each nip'''
+old = '''  over lf-menv-params nip ['] me-level-by ok-each nip'''
+new = '''  0 ['] me-level-by ok-each nip'''
 test = "$GFORTH tests/front/synth.fs"
 reason = "review s1-synth-b B3: mkConstWithFreshMVarLevels makes the constant at no level"
+
+[[fault]]
+id = "fe-meta-const-pairs-cleared"
+file = "src/front/meta-env.fs"
+old = '''  me-pairs slab-count >r execute r> me-pairs slab-cut ;'''
+new = '''  me-pairs slab-clear execute ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b re-check L-c: a constant made inside a level word clears the outer constant's levels made so far, which then takes the inner's"
+
+[[fault]]
+id = "fe-meta-const-bad-level-full"
+file = "src/front/meta-env.fs"
+old = '''  dup lf-level-identity 0= if drop outcome-invalid exit then swap me-pairs slab-2push ;'''
+new = '''  dup lf-level-identity 0= if drop outcome-full exit then swap me-pairs slab-2push ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b re-check L-c: a level that names none (invalid input) reads as no room (full)"
 
 [[fault]]
 id = "fe-meta-with-throw-lost"
@@ -16975,8 +16991,8 @@ quick = true
 [[fault]]
 id = "lib-runs-filter-inverted"
 file = "src/lib/runs.fs"
-old = '''  2dup swap execute if rn-put else drop outcome-ok then ;'''
-new = '''  2dup swap execute 0= if rn-put else drop outcome-ok then ;'''
+old = '''  2dup rn-test 0= if 2drop outcome-invalid exit then if rn-put else drop outcome-ok then ;'''
+new = '''  2dup rn-test 0= if 2drop outcome-invalid exit then 0= if rn-put else drop outcome-ok then ;'''
 test = "$GFORTH tests/lib/runs.fs"
 reason = "review s1-synth-b B1: run-filter keeps the cells its test refuses"
 
@@ -16987,6 +17003,14 @@ old = '''  rn-cells slab-count -rot swap ['] rn-kept run-each nip'''
 new = '''  rn-cells slab-count -rot swap ['] rn-kept run-each'''
 test = "$GFORTH tests/lib/runs.fs"
 reason = "review s1-synth-b B1: run-filter leaves its test's xt behind (a stack effect off by one cell)"
+
+[[fault]]
+id = "lib-runs-filter-rule-unchecked"
+file = "src/lib/runs.fs"
+old = '''  2dup rn-test 0= if 2drop outcome-invalid exit then if rn-put else drop outcome-ok then ;'''
+new = '''  2dup rn-test drop if rn-put else drop outcome-ok then ;'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "review s1-synth-b re-check L-b: a filter whose test appends cells makes a run with the test's cells among the kept ones"
 
 [[fault]]
 id = "fe-goals-print-separator-first"
@@ -17139,6 +17163,22 @@ old = '''  de-aside dup ok? 0= if nip nip false swap exit then drop catch de-bac
 new = '''  de-aside dup ok? 0= if nip nip false swap exit then drop catch throw ;'''
 test = "$GFORTH tests/front/synth.fs"
 reason = "the unification that called a synthesis hook is not brought back: it goes on with the nested search's machine"
+
+[[fault]]
+id = "fe-defeq-aside-kept-on-refusal"
+file = "src/front/defeq.fs"
+old = '''  dup ok? if nip exit then swap de-saved slab-cut ;'''
+new = '''  dup ok? if nip exit then nip ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b re-check M-a: a refused set-aside leaves its partial copy on de-saved, which an outer de-back would restore"
+
+[[fault]]
+id = "fe-defeq-aside-cut-to-zero"
+file = "src/front/defeq.fs"
+old = '''  dup ok? if nip exit then swap de-saved slab-cut ;'''
+new = '''  dup ok? if nip exit then nip 0 de-saved slab-cut ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b FIXA re-check M1: a refused set-aside cut back to zero, not to its base, drops the machines outer searches set aside"
 
 [[fault]]
 id = "fe-defeq-inst-typed-unchecked"
@@ -18458,7 +18498,7 @@ reason = "review s2-unfold-a M1: isExprDefEqAux reduces a projection's structure
 [[fault]]
 id = "fe-ed3-const-arity-unchecked"
 file = "src/front/elab-data.fs"
-old = ''': ed-nd-fits ( -- outcome ) ed-nd-arity? if outcome-ok else ed-e-unfit ed-bad then ;'''
+old = ''': ed-nd-fits ( -- outcome ) ed-nd-arity? ed-e-unfit ed-or-bad ;'''
 new = ''': ed-nd-fits ( -- outcome ) outcome-ok ;'''
 test = "GFORTH=$GFORTH python3 tests/front/test_elab_data.py"
 reason = "review s2-unfold-a L1: a smart-unfolding body's constant with other universe arguments than its declaration's parameters (Nat.{0}) is read, never refused"
@@ -18474,10 +18514,34 @@ reason = "review s2-unfold-a L1: a body's constant that the library lacks (forei
 [[fault]]
 id = "fe-ed3-field-stored-on-failure"
 file = "src/front/elab-data.fs"
-old = '''  swap ok-then? if ! outcome-ok else nip then ;'''
-new = '''  swap drop ! outcome-ok ;'''
+old = ''': ed-nd-put ( x outcome xt -- outcome ) ed-nd swap execute swap ok-store ;'''
+new = ''': ed-nd-put ( x outcome xt -- outcome ) ed-nd swap execute nip ! outcome-ok ;'''
 test = "GFORTH=$GFORTH python3 tests/front/test_elab_data.py"
 reason = "review s2-unfold-a L4: a node field's refused value (a negative bound variable, an unknown binder info) is stored and the node read as ok"
+
+[[fault]]
+id = "outcome-ok-store-on-failure"
+file = "src/lib/outcome.fs"
+old = ''': ok-store ( x a-addr outcome -- outcome ) ok-then? if ! outcome-ok else nip then ;'''
+new = ''': ok-store ( x a-addr outcome -- outcome ) >r ! r> ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "review s2-unfold-a re-check L1: a failing step's half-made result is stored (a memo entry, a slab cell, a node field) though the outcome is passed on"
+
+[[fault]]
+id = "fe-ed3-entry-below-absolute"
+file = "src/front/elab-data.fs"
+old = '''  over - rot ed-u32 ok-then? 0= if nip nip no-result exit then'''
+new = '''  rot ed-u32 ok-then? 0= if nip nip no-result exit then'''
+test = "GFORTH=$GFORTH python3 tests/front/test_elab_data.py"
+reason = "review s2-unfold-a re-check M2-new: an index of a second smart-unfolding body is checked against the whole table, not the room past the body's first entry, so a root beyond its nodes, a node naming itself or a level beyond its table is read"
+
+[[fault]]
+id = "fe-defeq-whnf-c-default"
+file = "src/front/defeq.fs"
+old = ''': de-whnf-c ( t -- t' flag ) ['] lf-whnf-core de-mode-at de-must ;'''
+new = ''': de-whnf-c ( t -- t' flag ) ['] lf-whnf-core lf-tr-default lf-meta-at de-must ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review s2-unfold-a re-check M1-new: isExprDefEqExpensive's whnfCore runs at default whatever the call's transparency, so at reducible and instances k =?= (id P (Prod.mk (fun x => x) 0)).1 k unfolds id and answers true (pinned Lean: false)"
 
 [[fault]]
 id = "fe-fi-defn-decode-flag"

@@ -96,10 +96,17 @@ ID1, FST, MUL, PRED = c("id", 1), c("Prod.fst", 0, 0), c("Nat.mul"), c("Nat.pred
 UNIT_TYPE, DEC_LT = c("Unit"), c("Nat.decLt")
 PROJ_TYPE = "FE1c inferType of a projection (proof irrelevance)"
 PROD_F = apps(c("Prod", 0, 0), NAT2, NAT)
+STUCK_PROJ = "FE1c getStuckMVar? of a projection whose structure needs whnf (isDefEqOnFailure)"
 
 
 def mk_f(f, n):
     return apps(PROD_MK, NAT2, NAT, f, n)
+
+
+# (id P (Prod.mk (fun x => x) 0)).1 k: whnf of the structure unfolds id.
+ID_FST_K = apps((PROJ, 0, apps(ID1, PROD_F, mk_f(lam("#0"), (LIT, 0)))), "k")
+HMUL_U = apps(c("HMul.hMul", 0, 0, 0), NAT, NAT, NAT,
+              apps(c("HMul.mk", 0, 0, 0), NAT, NAT, NAT, lam(lam(apps("u", "#1")))), "k", "x")
 
 EQAB = apps(c("Eq", 1), NAT, "a", "b")
 REFL_A = apps(c("Eq.refl", 1), NAT, "a")
@@ -290,11 +297,25 @@ CASES = [
     ("eq", hadd("k", "x"), hadd("k", apps(ID1, NAT, "x")), PROJ_TYPE),
     ("eq", c("id", 1, 1), c("id", 2), None),
     ("eq", ID1, apps(ID1, NAT), None),
+    # (review s2-unfold-a re-check M3-new) packedInstanceOf? reaching a
+    # head that is no constant (u k), id on the left; two constants of one
+    # name whose levels unify; an abbreviation that is no projection
+    # function at tryHeuristic (Nat.isValidChar, whose unfolding then asks
+    # a projection's type).
+    ("eq", apps(ID1, NAT, apps("u", "k")), HMUL_U, None),
+    ("eq", c("id", "u"), ID1, None),
+    ("eq", apps(c("Nat.isValidChar"), "k"), apps(c("Nat.isValidChar"), apps(ID1, NAT, "k")),
+     PROJ_TYPE),
     # isExprDefEqExpensive's whnfCore reduces a projection's structure by
     # whnf (proj := yesWithDelta: id unfolds at default), where
     # isExprDefEqAux's whnfCoreAtDefEq does not (review s2-unfold-a M1).
-    ("meta", "k", apps((PROJ, 0, apps(ID1, PROD_F, mk_f(lam("#0"), (LIT, 0)))), "k"), None),
-    ("meta", apps((PROJ, 0, apps(ID1, PROD_F, mk_f(lam("#0"), (LIT, 0)))), "k"), "k", PROJ_TYPE),
+    ("meta", "k", ID_FST_K, None),
+    ("meta", ID_FST_K, "k", PROJ_TYPE),
+    # At reducible and instances id stays: whnfCore leaves the projection
+    # stuck (Lean: false), where a whnfCore at default would unfold it
+    # (review s2-unfold-a re-check M1-new).
+    ("red", "k", ID_FST_K, STUCK_PROJ),
+    ("inst", "k", ID_FST_K, STUCK_PROJ),
     # isExprDefEqAux's whnfCoreAtDefEq leaves the projection (id stays at
     # instances); Lean then reduces it in isExprDefEqExpensive, after
     # isDefEqProj.

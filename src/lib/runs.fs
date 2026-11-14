@@ -24,8 +24,9 @@
 \   may make runs (the run it walks stays as it was).
 \ - run-filter ( run xt -- run' outcome ): a new run of the cells x for
 \   which xt ( x -- keep? ) is true, in order (the empty run when none),
-\   the kept cells appended once and one record made; the test makes no
-\   runs.
+\   the kept cells appended once and one record made. The test appends no
+\   cells (a run it pushed or copied would join the new run's): one that
+\   does makes run-filter answer invalid.
 \ - runs-reset ( -- ): every run is gone (and its handle means nothing
 \   afterwards); runs-epoch ( -- n ) changes with each reset, so a holder
 \   of a run can tell; runs-cells ( -- n ) the cells in use.
@@ -156,14 +157,17 @@ lf-lib set-current
   loop loop outcome-ok ;
 lf-lib-private set-current
 \ A filter appends the cells it keeps at the top of rn-cells, from cell
-\ number first on, and makes one run of them at the end.
+\ number first on, and makes one run of them at the end; rn-test runs
+\ the test and tells whether it left the cells as they were.
+: rn-test ( xt x -- keep? same? ) runs-cells >r swap execute runs-cells r> = ;
 : rn-kept ( first xt x -- first xt outcome )
-  2dup swap execute if rn-put else drop outcome-ok then ;
+  2dup rn-test 0= if 2drop outcome-invalid exit then if rn-put else drop outcome-ok then ;
 : rn-from ( first -- run outcome ) rn-cells slab-count over - rn-new ;
 lf-lib set-current
 \ A new run of the cells the test xt ( x -- keep? ) keeps, in order; -1
-\ and the outcome when none is made (invalid, or full). The test makes
-\ no runs (its cells would join the new run's).
+\ and the outcome when none is made (full; invalid for a handle that
+\ names no run, or a test that appended cells, which would join the new
+\ run's).
 : run-filter ( run xt -- run' outcome )
   rn-cells slab-count -rot swap ['] rn-kept run-each nip
   ok-then? if rn-from else no-result then ;

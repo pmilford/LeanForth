@@ -675,9 +675,9 @@
   "globals": 10,
   "long lines": 0,
   "long words": 0,
-  "rstack": 7,
+  "rstack": 9,
   "shuffles": 8,
-  "words": 127
+  "words": 133
  },
  "src/front/meta-spine.fs": {
   "globals": 0,
@@ -1403,7 +1403,7 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 10,
+  "rstack": 12,
   "shuffles": 5,
   "words": 37
  },

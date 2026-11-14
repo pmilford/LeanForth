@@ -702,6 +702,14 @@ def format3_cases():
                                    sun_line), 4, "malformed"),
         case("root beyond the nodes", c('"value":23}}', '"value":24}}'), 4,
              "an index to no earlier"),
+        # The same checks in a second body, whose node and level tables
+        # start past the first's (review s2-unfold-a re-check M2-new).
+        case("second body's root beyond its nodes", poly(POLY.replace('"value":0}}', '"value":1}}')),
+             4, "an index to no earlier"),
+        case("second body's node naming itself", poly(POLY.replace('{"sort":0}', '{"app":[0,0]}')),
+             4, "an index to no earlier"),
+        case("second body's level beyond its table", poly(POLY.replace('{"sort":0}', '{"sort":1}')),
+             4, "an index to no earlier"),
         # 37: a constant node with other than its declaration's number of
         # universe arguments (review s2-unfold-a L1).
         case("constant with a universe argument too many",
