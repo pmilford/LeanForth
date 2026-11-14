@@ -1,5 +1,6 @@
 {
-  "bytes": 826217,
+  "bytes": 812120,
+  "elab_records_sha256": "83bbae893949a3f02593b760357a253fc67fdcb1947d44652e394945eb56a821",
   "export_format": "3.1.0",
   "exporter": "lean4export",
   "exporter_version": "3.1.0",
@@ -38,5 +39,5 @@
     "name.num": 743,
     "name.str": 1560
   },
-  "sha256": "1d9d4df1b7409cc991123a74628d884822755b33552115416b1974f1c0297b7d"
+  "sha256": "8b3999e26ab9233789770482733c9f0e2b24452a643923d69137a58e94f4b9af"
 }
