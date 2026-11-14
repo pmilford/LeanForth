@@ -37,7 +37,7 @@ require ./source.fs
 \            signal's and the undo trail's refusals (S1, branch s1-meta)
 \   110-124  instances: failed to synthesize, the instance codes, one per
 \            unsupported instance rule (S1, branch s1-synth; 110 and 112-116
-\            are front/instances.fs's)
+\            are front/instances.fs's, 111 and 117-121 front/synth.fs's)
 \   125-139  elaboration: numerals, applications, binop%/binrel%, default
 \            instances, the declaration glue, #check, the front end's fuel,
 \            FE1E 2.7's other unsupported rows (S1, branch s1-elab)
@@ -158,6 +158,14 @@ require ./source.fs
 114 constant lfa-e-inst-wide     \ unsupported: recorded keys wider than the type's
 115 constant lfa-e-inst-root     \ an instance filed under another class's root key
 116 constant lfa-e-default-class \ a default instance whose type is not of its class
+\ Instance search (src/front/synth.fs, plan FE1e5; 117-121 each a rule not
+\ ported yet, with the plan row that ports it).
+111 constant lfa-e-synth-args      \ an out-parameter past the class's arguments
+117 constant lfa-e-synth-pi        \ unsupported: a goal that is a pi (FE1e5b)
+118 constant lfa-e-synth-mvars     \ unsupported: an answer keeping holes (FE1e5b)
+119 constant lfa-e-synth-left-out  \ unsupported: a tried instance not exported
+120 constant lfa-e-synth-unchecked \ unsupported: a tried instance not verified (S2)
+121 constant lfa-e-synth-check     \ unsupported: check of a result with holes (FE1e5b)
 
 \ The catalogue: one message record per code, in order, each followed by
 \ its text and aligned; a record with code 0 closes it.
@@ -347,6 +355,8 @@ create lfa-catalogue
   lfa-unsupported,
   lfa-e-universe-level s" invalid universe level: not greater than 0" lfa-invalid,
   lfa-e-not-class s" type class instance expected" lfa-invalid,
+  lfa-e-synth-args
+  s" type class resolution failed, insufficient number of arguments" lfa-invalid,
   lfa-e-inst-class
   s" elaboration data refused: an instance is recorded under a class its type is not of"
   lfa-invalid,
@@ -362,6 +372,20 @@ create lfa-catalogue
   lfa-e-default-class
   s" elaboration data refused: a default instance's type is not of its recorded class"
   lfa-invalid,
+  lfa-e-synth-pi
+  s" not supported yet: an instance problem whose type is a function type (plan FE1e5b)"
+  lfa-unsupported,
+  lfa-e-synth-mvars
+  s" not supported yet: an instance answer that keeps the search's metavariables (FE1e5b)"
+  lfa-unsupported,
+  lfa-e-synth-left-out
+  s" not supported yet: the search tries an instance the export left out" lfa-unsupported,
+  lfa-e-synth-unchecked
+  s" not supported yet: the search tries an instance whose keys could not be checked (S2)"
+  lfa-unsupported,
+  lfa-e-synth-check
+  s" not supported yet: Lean's check of an instance that holds metavariables (FE1e5b)"
+  lfa-unsupported,
   0 outcome-invalid s" " lfa-message,
 
 \ The catalogue record of a code; an unknown code gives the closing record.

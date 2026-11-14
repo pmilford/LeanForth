@@ -127,7 +127,7 @@ end-structure
 : fi-open ( pi -- body outcome )
   dup lf-term-first@ lf-lctx-local ok-then? 0= if nip no-result exit then
   2dup fi-record dup ok? 0= if nip nip no-result exit then drop
-  swap lf-term-second@ swap lf-meta-instantiate1 ;
+  lf-meta-open ;
 : fi-pi ( type n -- type' n' go? outcome ) >r fi-open r> 1- swap true swap ;
 \ A type that is no pi: whnfCore's pi, or the end when whnf would leave
 \ it; anything else would need whnf's delta.

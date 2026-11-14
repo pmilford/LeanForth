@@ -84,7 +84,8 @@
 \ - lf-depends-on? ( term fvar -- flag outcome ): Lean's exprDependsOn,
 \   whether the term, its metavariables instantiated, holds the free
 \   variable or an unassigned metavariable whose context holds it.
-\ Words: lf-mctx-reset, lf-mctx-depth, lf-mctx-level-depth ( -- n );
+\ Words: lf-mctx-reset, lf-mctx-depth, lf-mctx-level-depth, lf-mctx-epoch
+\ ( -- n );
 \ lf-mctx-view ( -- view ), lf-mctx-view! ( view -- );
 \ lf-mctx-mark ( -- mark outcome ), lf-mctx-rollback ( mark -- outcome ),
 \ lf-mctx-commit ( mark -- outcome ), lf-mctx-marks ( -- n ), lf-mctx-latest
@@ -213,6 +214,9 @@ end-structure
 : mctx-epoch@ ( -- n ) mctx mctx-epoch @ ;
 : lf-mctx-depth ( -- n ) mctx mctx-depth @ ;
 : lf-mctx-level-depth ( -- n ) mctx mctx-ldepth @ ;
+\ The context's epoch, new at each lf-mctx-reset: a holder of results
+\ about this context's terms (synth.fs's cache) can tell they are stale.
+: lf-mctx-epoch ( -- n ) mctx-epoch@ ;
 : mv-depths! ( depth ldepth -- ) mctx mctx-ldepth ! mctx mctx-depth ! ;
 : mv-at ( -- i ) mctx mctx-at @ ;
 : mv-at! ( i -- ) mctx mctx-at ! ;

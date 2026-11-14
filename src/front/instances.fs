@@ -177,10 +177,9 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
   it-binder lf-binder-instance = if mv-synthetic else mv-natural then ;
 : it-mvar-for ( pi src -- pi mvar outcome )
   it-mv-kind over lf-term-first@ swap lf-mvar-new ;
-: it-open ( pi mvar -- body outcome ) swap lf-term-second@ swap lf-meta-instantiate1 ;
 : it-src-body ( src -- src' ) dup 0< 0= if lf-term-second@ then ;
 : it-enter ( pi src -- body src' outcome )
-  tuck it-mvar-for ok-then? if it-open else nip no-result then rot it-src-body swap ;
+  tuck it-mvar-for ok-then? if lf-meta-open else nip no-result then rot it-src-body swap ;
 : it-whnf-pi ( e -- e' more? outcome )
   dup lf-meta-whnf ok-then? 0= if nip -1 false rot exit then
   dup lf-term-pi? if nip true outcome-ok else drop false outcome-ok then ;
@@ -240,8 +239,7 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
   false lf-mctx-depth{ ok-then? 0= if nip nip nip exit then
   >r ['] it-on-type lf-dt-scoped r> }lf-mctx-depth outcome-and ;
 : it-at-default ( r d xt -- outcome )
-  lf-meta-config 2>r lf-meta-default lf-tr-default lf-meta-config! it-deeper
-  2r> lf-meta-config! ;
+  ['] it-deeper lf-meta-default lf-tr-default lf-meta-with ;
 : it-decl ( i -- d outcome ) elab-instance@ 2drop elab-decl-name lf-menv-find ;
 : it-record-class ( i -- class ) elab-instance@ drop nip ;
 : it-checked-by ( i xt -- outcome )

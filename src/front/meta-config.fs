@@ -22,7 +22,9 @@
 \   withTransparency) saves lf-meta-config ( -- flags mode ) and gives it
 \   back with lf-meta-config! ( flags mode -- ); lf-meta-at ( i*x xt mode
 \   -- j*x ) runs xt at another transparency and gives the configured one
-\   back (withTransparency alone).
+\   back (withTransparency alone); lf-meta-with ( i*x xt flags mode --
+\   j*x ) runs xt in another configuration, flags and transparency, and
+\   gives both back (withConfig).
 \ - The budget (S1 §8, Lean's maxHeartbeats): the steps of elaboration,
 \   synthesis, unification and whnf one context may take (per context
 \   until s1-elab resets it per declaration), default
@@ -77,6 +79,10 @@ end-structure
 : lf-meta-config! ( flags mode -- ) lf-defeq-mode! lf-defeq-flags! ;
 : lf-meta-at ( i*x xt mode -- j*x )
   lf-defeq-mode >r lf-defeq-mode! execute r> lf-defeq-mode! ;
+\ withConfig and withTransparency at once: xt run with these flags and
+\ this transparency, the configured ones given back after.
+: lf-meta-with ( i*x xt flags mode -- j*x )
+  lf-meta-config 2>r lf-meta-config! execute 2r> lf-meta-config! ;
 : lf-meta-budget ( -- n ) mcfg mcfg-budget @ ;
 : lf-meta-spend? ( -- flag )
   lf-meta-budget dup 0> if 1- lf-meta-budget! true else drop false then ;
