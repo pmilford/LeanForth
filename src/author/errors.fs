@@ -150,6 +150,26 @@ require ./source.fs
 \ The Meta layer's errors a user sees (S1, branch s1-meta; 101-109 free).
 100 constant lfa-e-universe-level \ getDecLevel: a level that is not greater than 0
 
+\ Elaboration (S1, branch s1-elab; src/front/elab-pending.fs, elab-app.fs,
+\ elab-term.fs, elab-decl.fs; FE1E_APPLICATIONS.md 2). 125-130 are Lean's
+\ errors, 131-137 each a form not ported yet (with the plan row that ports
+\ it), 138 the front end's fuel, 139 any other step not ported yet.
+125 constant lfa-e-elab-synth     \ failed to synthesize an instance (synthInstanceFailed)
+126 constant lfa-e-elab-stuck     \ typeclass instance problem is stuck
+127 constant lfa-e-elab-numeral   \ numerals are data: the expected type is a proposition
+128 constant lfa-e-elab-numeral-u \ numerals are data: the expected type may be a proposition
+129 constant lfa-e-elab-instance  \ a synthesized instance that does not fit its metavariable
+130 constant lfa-e-elab-type      \ type expected (Lean's ensureType)
+131 constant lfa-e-elab-coercion  \ unsupported: a coercion (FE4)
+132 constant lfa-e-elab-postpone  \ unsupported: postponing an elaboration (FE2)
+133 constant lfa-e-elab-lambda    \ unsupported: an implicit lambda (FE2)
+134 constant lfa-e-elab-opt-param \ unsupported: an optParam, autoParam or eta argument (FE2)
+135 constant lfa-e-elab-elim      \ unsupported: elaborating as an eliminator (FE5)
+136 constant lfa-e-elab-binder    \ unsupported: a binder whose kind cannot be read (S5)
+137 constant lfa-e-elab-print     \ unsupported: a #check this form cannot print (FE2)
+138 constant lfa-e-elab-fuel      \ exhausted: the front end's fuel (--elab-fuel)
+139 constant lfa-e-elab-step      \ unsupported: another elaboration step not ported yet
+
 \ The catalogue: one message record per code, in order, each followed by
 \ its text and aligned; a record with code 0 closes it.
 begin-structure /lfa-message
@@ -337,6 +357,33 @@ create lfa-catalogue
   s" not supported yet: this case of the tactic (FE1G_TACTICS.md 5 names its step)"
   lfa-unsupported,
   lfa-e-universe-level s" invalid universe level: not greater than 0" lfa-invalid,
+  lfa-e-elab-synth s" failed to synthesize instance of type class" lfa-invalid,
+  lfa-e-elab-stuck s" typeclass instance problem is stuck" lfa-invalid,
+  lfa-e-elab-numeral
+  s" numerals are data in Lean, but the expected type is a proposition" lfa-invalid,
+  here lfa-e-elab-numeral-u
+  s" numerals are data in Lean, but the expected type is universe polymorphic and may be "
+  lfa-invalid, s" a proposition" lfa-more,
+  lfa-e-elab-instance
+  s" synthesized type class instance is not definitionally equal to its metavariable"
+  lfa-invalid,
+  lfa-e-elab-type s" type expected" lfa-invalid,
+  lfa-e-elab-coercion s" not supported yet: a coercion (plan FE4)" lfa-unsupported,
+  lfa-e-elab-postpone s" not supported yet: postponing an elaboration (plan FE2)"
+  lfa-unsupported,
+  lfa-e-elab-lambda s" not supported yet: an implicit lambda (plan FE2)" lfa-unsupported,
+  lfa-e-elab-opt-param
+  s" not supported yet: an optParam, autoParam or eta argument (plan FE2)" lfa-unsupported,
+  lfa-e-elab-elim s" not supported yet: elaborating as an eliminator (plan FE5)"
+  lfa-unsupported,
+  lfa-e-elab-binder
+  s" not supported yet: a binder whose kind the declaration's type does not give (plan S5)"
+  lfa-unsupported,
+  lfa-e-elab-print s" not supported yet: #check of this form (plan FE2)" lfa-unsupported,
+  lfa-e-elab-fuel s" out of fuel: the front end's work limit (--elab-fuel N gives more)"
+  lfa-exhausted,
+  lfa-e-elab-step s" not supported yet: an elaboration step (plans FE2-FE5, S2)"
+  lfa-unsupported,
   0 outcome-invalid s" " lfa-message,
 
 \ The catalogue record of a code; an unknown code gives the closing record.
