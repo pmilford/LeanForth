@@ -270,18 +270,20 @@ T{ fresh lf-name-default lf-name-capacity! -> outcome-ok }T
 
 \ Numbers print in decimal whatever BASE is, and BASE is kept: a Sort, a
 \ numeric name component, a binder suffix and a LaTeX subscript.
-: in-base ( i*x xt n -- j*x n' ) base @ >r base ! execute base @ r> base ! ;
+\ (Not in-base, lib/decimal.fs's word, which the library's word list finds
+\ first.)
+: base-after ( i*x xt n -- j*x n' ) base @ >r base ! execute base @ r> base ! ;
 fresh 0 mode
 T{ 12 t-sort t1 ! s" x" nm 10 nm# t2 ! -> }T
-T{ cap-reset t1 @ fuel ' lf-print-term 16 in-base -> outcome-ok 16 }T
+T{ cap-reset t1 @ fuel ' lf-print-term 16 base-after -> outcome-ok 16 }T
 T{ s" Type 11" expect-text -> }T
-T{ cap-reset t2 @ ' lf-print-name 16 in-base -> outcome-ok 16 }T
+T{ cap-reset t2 @ ' lf-print-name 16 base-after -> outcome-ok 16 }T
 T{ s" x.10" expect-text -> }T
 T{ P P P 2 t-var 1 t-var t-app 0 t-var t-app t-pi s" x" ex. t-pi s" x" ex. t-pi s" x" ex.
   t3 ! -> }T
-T{ cap-reset t3 @ fuel ' lf-print-term 2 in-base -> outcome-ok 2 }T
+T{ cap-reset t3 @ fuel ' lf-print-term 2 base-after -> outcome-ok 2 }T
 T{ s" (x x_1 x_2 : Prop) → @x x_1 x_2" expect-text -> }T
-T{ lf-print-latex mode cap-reset s" proof₁₂" ' lf-tex-ident 16 in-base -> 16 }T
+T{ lf-print-latex mode cap-reset s" proof₁₂" ' lf-tex-ident 16 base-after -> 16 }T
 T{ s" \mathit{proof}_{12}" expect-text -> }T
 
 \ LaTeX spelling takes a Greek letter or a subscript digit only as a whole
