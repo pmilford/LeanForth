@@ -36,8 +36,8 @@ is added). The library audit of 2026-11-13 (plan 9.4.8) lists which libraries la
 | Wordlist modules | `src/lib/module.fs` | The two library wordlists of [ADR 0010](../adr/0010-wordlists.md) (accepted), `lf-lib` (public, pushed onto the search order once) and `lf-lib-private` (helpers), and its four words `order+`, `order-`, `module-open`, `module-close` | New 2026-11-03; used by the compact store's library modules below, `sha256.fs`, `text-rule.fs`, `text-run.fs` and, since 2026-11-12, `context.fs` (the ADR's migration converts the others); tests reach helpers with `lf-lib-private order+` |
 | Tables of execution tokens | `src/lib/xt-table.fs` | `xt-table: ( n default "name" -- )` makes a table of n execution tokens, each the default; `xt-table! ( xt i table -- )` sets entry i and aborts outside the table, so a table filled while loading never writes beside it; `xt-table@ ( i table -- xt )` gives entry i, or the default for any other index, so an index read from data (a node's tag, a log step's rule) needs no check of its own. Helpers private (ADR 0010); no state of its own | New 2026-11-13 (plan task 9.4.5, the item-2 Forth review's L5); the printers' and the step list's tag and rule tables (`src/present/term-printer.fs`, `print-forth.fs`, `log-view.fs`); tested in `tests/lib/lib.fs` |
 | Portable 32-bit hashing | `src/lib/hash32.fs` | `hash-fmix` (Murmur3's finaliser), `hash-step ( h x -- h' )` and `hash-bytes ( addr u -- h )` (FNV-1a), every product masked to 32 bits, so 32- and 64-bit hosts give the same values ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/hash32.fs` against values computed in Python |
-| Growable heap stores | `src/lib/slab.fs` | Plan task 1.1.5. `slab-init ( unit limit slab -- outcome )`: units of any size in one heap block that doubles by `RESIZE` up to a limit; `slab-room`, `slab-claim`, `slab-commit`, `slab-at`, `slab-top`, `slab-trim`, `slab-clear`; marks `slab-mark`, `slab-rollback`, `slab-mark-valid?` with `store.fs`'s refusals ([below](#the-compact-store)); a slab as a stack: `slab-push`, `slab-pop`, `slab-2push`, `slab-2pop`, `slab-last`, `slab-drop`, a pop of an empty slab throwing `slab-underflow`; worklists `slab-all?` and `slab-2all? ( slab xt -- flag outcome )` ([below](#stacks-outcome-loops-and-index-checks)) | New 2026-11-03; stacks 2026-11-13 (plan 9.4.8a) in place of 21 hand-written pushes, pops and tops, and 4 more after review reuse-1a (B1); the worklists 2026-11-13 (B2) in place of `lf-meta-pairs-all` and `pq-lrun`; `tests/lib/slab.fs` |
-| Runs (sequences that never change) | `src/lib/runs.fs` | A run is a handle (0 the empty run) to a stretch of a slab of cells, which are only appended, never changed, so runs share cells and a saved run is its handle: `run-push ( run x -- run' outcome )` (in place when the run ends at the top of the cells, else after a copy of it), `run-take` and `run-after ( run n -- run' outcome )` (no copy), `run-cat ( run1 run2 -- run outcome )` (in place when run2 begins where run1 ends), `run-count`, `run@ ( run i -- x )`, `run-valid?`, `runs-reset`, `runs-epoch` (changes with each reset), `runs-cells`; invalid for a handle that names no run or a count out of range, full when a slab cannot grow (no run made); its two slabs are members of the checker context (`context.fs`), so each context has its own runs | New 2026-11-13 (plan FE1g-1; the front end's local contexts and goal lists, `src/front/lctx-views.fs`, `goals.fs`); `tests/lib/runs.fs` (its example, every refusal, every heap refusal inside an operation, 400 random operations against a model), planted fault `fe-goal-run-no-copy` caught |
+| Growable heap stores | `src/lib/slab.fs` | Plan task 1.1.5. `slab-init ( unit limit slab -- outcome )`: units of any size in one heap block that doubles by `RESIZE` up to a limit; `slab-room`, `slab-claim`, `slab-commit`, `slab-at`, `slab-top`, `slab-trim`, `slab-clear`; `slab-cut ( n slab -- )`, back to a count kept earlier (0 ≤ n ≤ count, else it throws `slab-bad-cut`, -4133) ([below](#stacks-outcome-loops-and-index-checks)); marks `slab-mark`, `slab-rollback`, `slab-mark-valid?` with `store.fs`'s refusals ([below](#the-compact-store)); a slab as a stack: `slab-push`, `slab-pop`, `slab-2push`, `slab-2pop`, `slab-last`, `slab-drop`, a pop of an empty slab throwing `slab-underflow`; worklists `slab-all?` and `slab-2all? ( slab xt -- flag outcome )` ([below](#stacks-outcome-loops-and-index-checks)) | New 2026-11-03; stacks 2026-11-13 (plan 9.4.8a) in place of 21 hand-written pushes, pops and tops, and 4 more after review reuse-1a (B1); the worklists 2026-11-13 (B2) in place of `lf-meta-pairs-all` and `pq-lrun`; `slab-cut` 2026-11-13 (review s1-synth-b B2) in place of 10 hand-written negative `slab-commit`s in 8 front-end files (the kernel's `env-schedule.fs` copy waits for its [kernel] batch); `tests/lib/slab.fs` |
+| Runs (sequences that never change) | `src/lib/runs.fs` | A run is a handle (0 the empty run) to a stretch of a slab of cells, which are only appended, never changed, so runs share cells and a saved run is its handle: `run-push ( run x -- run' outcome )` (in place when the run ends at the top of the cells, else after a copy of it), `run-take` and `run-after ( run n -- run' outcome )` (no copy), `run-cat ( run1 run2 -- run outcome )` (in place when run2 begins where run1 ends), `run-count`, `run@ ( run i -- x )`, `run-valid?`, `run-each ( i*x run xt -- i*x outcome )` (a step on each cell, in order, to the first failure), `run-filter ( run xt -- run' outcome )` (the cells a test keeps, as a new run; invalid when the test appends cells), `runs-reset`, `runs-epoch` (changes with each reset), `runs-cells`; invalid for a handle that names no run or a count out of range, full when a slab cannot grow (no run made); its two slabs are members of the checker context (`context.fs`), so each context has its own runs | New 2026-11-13 (plan FE1g-1; the front end's local contexts and goal lists, `src/front/lctx-views.fs`, `goals.fs`); `run-each` and `run-filter` 2026-11-13 (review s1-synth-b B1) in place of instance search's walks of waiters, answers and subgoals (`synth.fs`), `goals.fs`'s unsolved-goals filter and `goal-print.fs`'s goal list ([profile](#runs)); `tests/lib/runs.fs` (its example, every refusal, every heap refusal inside an operation, 400 random operations against a model, filters among them), planted faults `fe-goal-run-no-copy` and four `lib-runs-…` caught |
 | Stable sorting | `src/lib/sort.fs` | `sort-records ( a-addr n sorter -- outcome )` sorts n records of any size in place by the caller's order `( a-addr1 a-addr2 -- n )`, or by their keys (`sorter-key!`; `sorter-cells` and `sorter-u32s` order values); stable: insertion up to `sorter-short` (32) records, above that a bottom-up merge from runs of one record through a scratch (the caller's, `sorter-buffer!`, or the heap's: full when refused, nothing changed), its comparisons call for call those of `level-normalize.fs`'s `lf-lnorm-sort`; no recursion; invalid for a bad count, a sorter not accepted or busy, and an order or key word that changes the stack depth; a THROW out of the order is passed on, the scratch freed ([below](#sorting)) | New 2026-11-12 (the kernel refactor's batch C2 waited for it); used since 2026-11-13 (plan 9.4.8a) by the front end's `Level.normalize` (`src/front/level-normalize.fs`), the re-exporter's mdata members (`src/import/ndjson-emit.fs`) and getInstances' priority sort (`src/front/instances.fs`, branch `s1-synth`); since branch `reuse-k1` (2026-11-13, awaiting the owner's [kernel] approval) the kernel's six sorts use it: the snapshot's three lists, Level.normalize's arguments and both level substitutions' reached nodes ([below](#sorting)); `tests/lib/sort.fs`, 23 planted faults each caught |
 | Keyed memo tables | `src/lib/memo.fs` | `memo-init ( kcells vcells memo -- outcome )`: keys and values of fixed numbers of cells, entries in a slab found by an `htab.fs` table; `memo-find`/`memo-put` (keys by address), `memo-at`/`memo-claim`/`memo@`/`memo!` (keys of one or two cells), `memo-clear`, `memo-empty` (a large table made small again), `memo-cut` (newest first), a check hook (a stale value is a miss) and an admit hook (an entry may be refused); every memo's table shares one read-only hooks record (review reuse-k1 M1) ([below](#keyed-memo-tables)) | New 2026-11-13 (branch `reuse-k1`); the checker's result caches (`caches.fs`), Lean's replace memo (`replace-memo.fs`) and the NDJSON reader's index maps use it; `tests/lib/memo.fs`, 12 planted faults each caught |
 | Decimal numbers | `src/lib/decimal.fs` | `in-base ( i*x xt base -- j*x )` and `in-decimal ( i*x xt -- j*x )` (BASE set, restored after a `THROW` too); `u>decimal`, `n>decimal`, `ud>decimal`, `d>decimal ( … -- c-addr u )`, `.decimal`, `u>hex`; `decimal>number ( c-addr u -- ud c-addr' u' )`, `decimal-digits?`; `digits>u` (leading zeros skipped), `decimal>u` and `cell-digits` moved from `json.fs`, `skip-zeros` from `bignum.fs` ([below](#decimal-numbers-bits-and-heap-blocks)) | New 2026-11-13 (batch `reuse-out`, plan 9.4.8d) in place of 23 hand-written BASE switches and number readers in 15 modules, kernel included; after review reuse-out (B2) also of the three hexadecimal copies (`name-text.fs`, `log-view.fs`, `latex-text.fs`) and `ir-run.fs`'s digit count and number text; `tests/lib/decimal.fs`, 9 planted faults each caught |
@@ -911,6 +911,28 @@ constants). The kernel's 4 all-while-ok loops and 3 any-while-ok loops
 `inductive-nested.fs` `lf-nest-mentions?`, `whnf.fs`
 `lf-whnf-open-args?`) wait for the [kernel] batch 9.4.8e.
 
+**Cutting back** (`slab.fs`; review s1-synth-b B2, 2026-11-13).
+*Algorithm*: `slab-cut ( n slab -- )` sets the count back to n, a count
+the caller kept at a scope's start, and drops the mark-stack entries
+above n, so their marks are refused from then on, as after a rollback
+below them; it is a rollback without a mark. A slab that is not live, or
+an n outside 0 … count, throws `slab-bad-cut` (-4133) with nothing
+changed: the caller saved n, so this is a fault in the caller, never an
+outcome (the hand-written `slab-count - slab-commit` it replaces could
+set a count past the units claimed). *Genericity*: any slab; the units
+above n keep their contents until the next claim. *Scaling*: constant
+time apart from the mark entries it drops (none in today's callers);
+no recursion. *Speed* (as for runs, [below](#runs)): a cut back by 50
+units and the claim of 50 again together 122–134 ns. *Callers* (2026-11-13): the
+metavariable context's trail and snapshots at a scope's end
+(`mvars.fs`), the tactic runner's restore of blocks, parts and text
+(`tactic-run.fs`), the discrimination tree's list cells, keys and texts
+(`discr-keys.fs`, `elab-keys.fs`), the instance tree's nodes and values
+and the filtered candidates (`instances.fs`), isDefEq's cells and saved
+machines (`defeq.fs`), and instance search's seven scoped slabs at each
+search's end (`synth.fs`). The kernel's `lf-sch-empty`
+(`env-schedule.fs`, a cut to 0) waits for its [kernel] batch.
+
 **Index checks** (`bounds.fs`). *Algorithm*: `index? ( i n -- flag )` is
 0 ≤ i < n by signed comparison, false for every i when n ≤ 0;
 `cells-index ( x addr n -- i true | false )` a linear search for the first
@@ -940,6 +962,69 @@ a Sort's levels). 35 planted faults (`lib-slab-…`, `lib-outcome-…`,
 `fe-pairs-all-…`, `fe-eq-push-…`, `fe-level-seconds-…`,
 `fe-rec-apply-…`, `imp-emit-…`, and for the review's other findings
 `fe-assign-…`, `fe-fun-info-…`, `fe-dag-walk-…`), each caught.
+
+## Runs
+
+`src/lib/runs.fs` (plan FE1g-1; `run-each` and `run-filter` after review
+s1-synth-b B1, 2026-11-13): sequences of cells that never change, the
+persistent values Lean keeps a local context's declarations and a goal
+list as.
+
+```forth
+0 7 run-push drop  dup 8 run-push drop   \ [7] and [7 8], one cell shared
+over 9 run-push drop  rot drop           \ [7 9]: [7] copied to the top
+run-cat drop                             \ [7 8 7 9]
+: sum ( n x -- n' outcome ) + outcome-ok ;
+: odd? ( x -- flag ) 1 and 0<> ;
+0 over ' sum run-each drop .             \ 31
+' odd? run-filter drop run-count .       \ [7 7 9]: 3
+```
+
+*Algorithm*: a run is a handle to a record (its first cell and count) of
+one slab of cells that is only appended to, so a run never changes and
+runs share cells: `run-push` appends in place when the run ends at the
+top of the cells, else after a copy of it; `run-take` and `run-after`
+make a record without copying; `run-cat` joins in place when the second
+run begins where the first ends. `run-each ( i*x run xt -- i*x outcome
+)` walks the run's cell numbers with `?DO`, the step `xt ( i*x x -- i*x
+outcome )` kept as the index of an outer loop run once and read with `J`
+(as `ok-each`), so a step sees only its own values, and stops at the
+first outcome that is not ok. `run-filter ( run xt -- run' outcome )` is
+a `run-each` whose step appends each cell the test `xt ( x -- keep? )`
+keeps at the top of the cells, from the count it noted at the start, and
+makes one record of them at the end (one run, not a push per cell). Its
+rule: the test appends no cells, or they would join the new run's; the
+step compares `runs-cells` before and after each test and answers
+invalid, no run made, when they differ (review s1-synth-b re-check L-b).
+*Genericity*: any cells; a step of `run-each` may make runs (cells are
+only appended, so the numbers it walks stay valid) but must not reset
+them; a filter's test may make runs of no new cells (`run-take`,
+`run-after`) but no cells; a filter's run is new even when every cell is
+kept. *Scaling*: `run-each` is constant time per cell; `run-filter` adds
+one append per kept cell and two reads of the count per cell (the slab
+doubles, amortised constant) and its cells stay until
+`runs-reset`, as every run's do; no recursion, two loop frames on the
+return stack. *Speed* (this machine, Gforth 1.0 `gforth`, 2026-11-13,
+load average about 4; `bench.fs` in `.claude/work/SYB/`, two runs): `run-each` with a
+step that adds 31–34 ns a cell at n = 10 and 16–19 ns at n = 10^6,
+against 34 and 30–39 ns for `ok-fold` over `run@` (the walks it
+replaces); `run-filter` keeping half the cells 102 ns a cell at n = 10
+and 75 ns at n = 10^6 (an append per kept cell and one record), with its
+rule checked 105–108 and 87 ns (2026-11-14, load average about 1.3).
+*Callers and their sizes* (2026-11-13): instance search (`synth.fs`):
+the waiters an answer wakes and the answers a waiting consumer is given
+(`run-each`), the older answers a new one is compared with (`run-each`,
+isNewAnswer) and a consumer's subgoals not yet assigned (`run-filter`,
+consume); the tactic framework's unsolved goals (`goals.fs`,
+`run-filter`) and the goal printer's list (`goal-print.fs`,
+`run-each`); the local contexts (`lctx-views.fs`) and goal lists
+(`goals.fs`) push, take and join. On Init's 30 searches of `make
+reference-synth` (`runsize.fs` in `.claude/work/SYB/`, a wrapper that
+counts the runs walked): 53 `run-each` calls over 21 cells in all (32 of
+an empty run, 21 of one cell) and 59 `run-filter` calls over 38 cells
+(21 empty, 38 of one cell): Init's searches have at most one waiter, one
+answer and one subgoal left at a time. Goal lists hold the open goals of
+a tactic proof (the tests' longest: a handful).
 
 ## Big natural numbers
 

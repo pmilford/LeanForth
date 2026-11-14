@@ -34,7 +34,8 @@
 \ metavariable) has its loose range computed by a walk of dag-walk.fs.
 \ Outcomes: ok; invalid for a term that is not in the store; unsupported
 \ as above; full when a store or the heap has no room. Untrusted.
-\ Words: lf-meta-instantiate1, lf-meta-abstract, lf-meta-head-beta,
+\ Words: lf-meta-instantiate1, lf-meta-open ( binder x -- body outcome )
+\ (a binder's body, its variable x), lf-meta-abstract, lf-meta-head-beta,
 \ lf-meta-loose ( term --
 \ range outcome ): 1 + the largest loose bound variable index, or 0.
 \ State: the record in-state (with the memo's hash table and the loose
@@ -196,6 +197,10 @@ end-structure
   2dup lf-term-pair-valid? 0= if 2drop -1 outcome-invalid exit then
   dup in-value-ok ok-then? 0= if nip no-result exit then
   false in-start ok-then? if in-run else no-result then ;
+\ A binder's body opened with x for its variable (Lean's
+\ bindingBody!.instantiate1 x, the step of every telescope).
+: lf-meta-open ( binder x -- body outcome )
+  swap lf-term-second@ swap lf-meta-instantiate1 ;
 : in-xs! ( addr n -- ) in-state tuck in-xs# ! in-xs ! ;
 : lf-meta-abstract ( term addr n -- term' outcome )
   dup 0< if 2drop drop -1 outcome-invalid exit then

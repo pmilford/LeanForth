@@ -102,13 +102,25 @@
 \ Outcomes: ok; invalid for a declaration number beyond the input, a
 \ mode beyond the six, a name that is not valid or that no declaration
 \ has, or a declaration the stage does not hold; unsupported as above.
+\ Constants for the Meta layer: lf-meta-const-at ( name gen addr n -- term
+\ outcome ) a name's constant at the n levels at addr, one cell each;
+\ lf-meta-const-with ( d xt -- term outcome ) declaration d's constant at
+\ a level xt ( -- level outcome ) makes for each universe parameter, in
+\ order (mvars.fs's lf-meta-const-fresh, Lean's
+\ mkConstWithFreshMVarLevels, passes lf-level-mvar-new); full when a
+\ store has no room, invalid for a level that names none, else the xt's
+\ outcome (-1 then).
 \ State: one context record, menv (the fed stage, the mode, the text
-\ list's stamp), and the slabs me-texts, me-tparams, me-tkinds and
-\ me-kinds. Loads in decimal whatever BASE is, then restores it.
+\ list's stamp), and the slabs me-texts, me-tparams, me-tkinds,
+\ me-kinds and me-pairs. Loads in decimal whatever BASE is, then
+\ restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../core/names.fs
+require ../core/levels.fs
+require ../core/constant-references.fs
+require ../core/constant-term-boundary.fs
 require ../core/input.fs
 require ../import/stage.fs
 require ./elab-data.fs
@@ -136,6 +148,7 @@ end-structure
 1 cells context-slab: me-tparams
 1 cells context-slab: me-tkinds
 1 cells context-slab: me-kinds      \ lf-menv-kinds' answer
+2 cells context-slab: me-pairs      \ a constant's levels, made for it
 : lf-menv-stage! ( stage -- ) menv menv-stage ! ;
 : me-stage ( -- stage ) menv menv-stage @ ;
 : me-run? ( -- flag ) menv menv-run @ ;
@@ -213,6 +226,32 @@ end-structure
 : lf-menv-hint ( d -- hint height ) me-hints me-ask ;
 : lf-menv-data ( d -- addr|0 ) me-datas me-ask ;
 : me-defn? ( d -- flag ) lf-menv-kind lf-kind-definition = ;
+
+\ ---- Constants: a name at levels, the (level, identity) pairs
+\ constant-references.fs takes pushed on me-pairs and read at once. Each
+\ call cuts me-pairs back to its count on entry (me-scope), so a level
+\ xt that makes a constant of its own leaves the outer pairs as they were.
+: me-pair+ ( level -- outcome )
+  dup lf-level-identity 0= if drop outcome-invalid exit then swap me-pairs slab-2push ;
+: me-level-at ( addr k -- addr outcome ) over swap cells + @ me-pair+ ;
+: me-level-by ( xt k -- xt outcome ) drop dup execute ok-then? if me-pair+ then ;
+: me-newest ( n -- addr n ) me-pairs slab-count over - me-pairs slab-at swap ;
+: me-made ( name gen n -- term outcome )   \ at me-pairs' newest n levels
+  me-newest lf-cref-new
+  if lf-cterm-new if drop outcome-ok exit then then -1 outcome-full ;
+: me-finish ( name gen n outcome -- term outcome )
+  ok-then? if me-made else nip nip no-result then ;
+: me-scope ( i*x xt -- term outcome )
+  me-pairs slab-count >r execute r> me-pairs slab-cut ;
+: me-at ( name gen addr n -- term outcome )   \ n < 0: no levels, as ok-each runs none
+  0 max tuck ['] me-level-at ok-each nip me-finish ;
+: lf-meta-const-at ( name gen addr n -- term outcome ) ['] me-at me-scope ;
+: me-named ( d -- name gen n )
+  dup lf-menv-name swap lf-menv-params nip lf-name-generation @ swap ;
+: me-with ( d xt -- term outcome )
+  over lf-menv-params nip ['] me-level-by ok-each nip
+  ok-then? if me-named me-made else no-result then ;
+: lf-meta-const-with ( d xt -- term outcome ) ['] me-with me-scope ;
 
 \ ---- Reducibility status: the elaboration data's record of the stage's
 \ declaration of the same name (the feed keeps the stage's name numbers).

@@ -184,7 +184,7 @@ end-structure
   dup if-lams lf-meta-push ok-then? 0= if no-result exit then
   dup lf-term-first@ lf-lctx-local ok-then? 0= if if-fail exit then
   dup if-xs lf-meta-push ok-then? 0= if if-fail exit then
-  swap lf-term-second@ swap lf-meta-instantiate1 ;
+  lf-meta-open ;
 : if-telescope ( term -- body outcome )
   if-xs slab-clear if-lams slab-clear
   begin dup if-lam? while if-open ok-then? 0= if no-result exit then repeat outcome-ok ;

@@ -10825,6 +10825,14 @@ test = "$GFORTH tests/front/front.fs"
 reason = "FE1b: ?u := succ ?u is assigned"
 
 [[fault]]
+id = "fe-assign-occurs-two-cells"
+file = "src/front/assign-check.fs"
+old = '''  ac-m swap lf-mvar-occurs? dup ok? if drop else nip ac-refuse-with then ;'''
+new = '''  ac-m swap lf-mvar-occurs? dup ok? if drop else ac-refuse-with drop false then ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b H1: a refused occurs check leaves two cells, and the walk then stores through a garbage address (the heap-refusal sweep over OfNat Nat ?k)"
+
+[[fault]]
 id = "fe-assign-twice"
 file = "src/front/mvars.fs"
 old = ''': mv-free? ( mvar -- flag ) mv-of if mv-unassigned? else false then ;'''
@@ -14533,6 +14541,31 @@ test = "$GFORTH tests/lib/slab.fs"
 reason = "slab-2all? pops one cell, not a pair: the test reads the slab beneath as its first value"
 
 [[fault]]
+id = "lib-slab-cut-unchecked"
+file = "src/lib/slab.fs"
+old = '''  2dup slab-cut? 0= if slab-bad-cut throw then 2dup slab-unmark-above slab-used ! ;'''
+new = '''  2dup slab-unmark-above slab-used ! ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-synth-b B2: a cut above the count (or below 0) sets the count past the units claimed, as the hand-written negative slab-commit could, instead of throwing slab-bad-cut"
+quick = true
+
+[[fault]]
+id = "lib-slab-cut-marks-kept"
+file = "src/lib/slab.fs"
+old = '''  2dup slab-cut? 0= if slab-bad-cut throw then 2dup slab-unmark-above slab-used ! ;'''
+new = '''  2dup slab-cut? 0= if slab-bad-cut throw then slab-used ! ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-synth-b B2: a cut keeps the mark entries above it, so a mark the cut went below is accepted again once the count passes it"
+
+[[fault]]
+id = "lib-slab-cut-edge"
+file = "src/lib/slab.fs"
+old = ''': slab-cut? ( n slab -- flag ) dup slab-live? if slab-count upto? else 2drop false then ;'''
+new = ''': slab-cut? ( n slab -- flag ) dup slab-live? if slab-count 1- upto? else 2drop false then ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-synth-b B2: a cut to the count itself (a scope that claimed nothing) throws"
+
+[[fault]]
 id = "fe-pairs-all-outcome-lost"
 file = "src/lib/slab.fs"
 old = '''  >r begin slab-more? while r@ execute ok-true? 0= if r> drop slab-stop exit then'''
@@ -15715,7 +15748,7 @@ reason = "S1 §3: a switch keeps the current branch's changes and adds the targe
 [[fault]]
 id = "fe-trail-snaps-kept"
 file = "src/front/mvars.fs"
-old = '''  mv-latest mvs-snaps @ mv-snaps mv-cut -1 mv-marks slab-commit'''
+old = '''  mv-latest mvs-snaps @ mv-snaps slab-cut mv-marks slab-drop'''
 new = '''  -1 mv-marks slab-commit'''
 test = "$GFORTH tests/front/front.fs"
 reason = "S1 §3: a closed scope's snapshots stay valid targets (stale snapshots must be refused)"
@@ -15844,7 +15877,7 @@ reason = "S1 appendix D: Nat.succ 2 is whnf's result (reduceNat? folds it to 3)"
 [[fault]]
 id = "fe-whnf-mode-kept"
 file = "src/front/meta-config.fs"
-old = '''  lf-defeq-mode >r lf-defeq-mode! execute r> lf-defeq-mode! ;'''
+old = '''  lf-defeq-mode >r lf-defeq-mode! catch r> lf-defeq-mode! throw ;'''
 new = '''  lf-defeq-mode! execute ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S1 appendix D: whnfR (lf-meta-at) leaves the transparency reducible (Lean's withTransparency restores it)"
@@ -15964,8 +15997,8 @@ reason = "ignoreArg: an instance-implicit argument is indexed, not a star (Nat.d
 [[fault]]
 id = "fe-keys-succ-uncounted"
 file = "src/front/discr-keys.fs"
-old = '''  dup dk-succ? if dk-last swap 1+ swap true exit then'''
-new = '''  dup dk-succ? if dk-last true exit then'''
+old = '''  dup lf-meta-succ? if dk-last swap 1+ swap true exit then'''
+new = '''  dup lf-meta-succ? if dk-last true exit then'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "toNatLit?: Nat.succ adds nothing to the numeral's value"
 
@@ -16076,7 +16109,8 @@ reason = "s1-synth review M4: an erased instance is a candidate"
 [[fault]]
 id = "fe-inst-verified-always"
 file = "src/front/instances.fs"
-old = '''  dup it-status slab-count index? if it-status@ it-verified = else drop false then ;'''
+old = '''  it-same-data dup it-status slab-count index? if it-status@ it-verified = else drop false
+  then ;'''
 new = '''  drop true ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "s1-synth review M4: every value reads as verified, a left-out one and an unchecked one too"
@@ -16421,9 +16455,8 @@ equivalent = "getDecLevel normalizes first, as Lean's does: an imax whose right 
 [[fault]]
 id = "fe-defeq-synth-flag"
 file = "src/front/defeq.fs"
-old = '''  lf-meta-synth-pending ok-then? 0= if de-abort exit then if outcome-unsupported de-abort
-    then ;'''
-new = '''  lf-meta-synth-pending ok-then? 0= if de-abort exit then drop ;'''
+old = ''': de-synth-pending ( mvar -- ) de-synth-try if outcome-unsupported de-abort then ;'''
+new = ''': de-synth-pending ( mvar -- ) de-synth-try drop ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "review s1-meta-b M3 (F17): a synthPending hook that fills the metavariable is ignored, so the retry Lean makes is skipped"
 
@@ -16544,9 +16577,9 @@ reason = "getDecLevel's assignment refused room still answers the fresh ?w, not 
 [[fault]]
 id = "fe-inst-branch"
 file = "src/front/defeq.fs"
-old = '''  de-t lf-mvar-inst? if outcome-unsupported de-abort exit then'''
+old = '''  de-t lf-mvar-inst? if de-check-inst exit then'''
 new = ''''''
-test = "$GFORTH tests/front/menv-run.fs"
+test = "$GFORTH tests/front/synth.fs"
 reason = "S1 appendix D: an instance-typed metavariable assigned without Lean's check"
 
 # The design review of leanforth verify (2026-11-13): B1's rest and M1-M3 in the driver.
@@ -16702,6 +16735,440 @@ old = '''  ok-then? if it-ranked slab-count = flag>outcome then ;'''
 new = '''  ok-then? if drop outcome-ok then ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "s1-synth re-check L2': a root whose values leave a rank empty is built, the hole read as left-out 0"
+
+[[fault]]
+id = "fe-inst-refusal-any-code"
+file = "src/front/instances.fs"
+old = '''  dup lfa-e-inst-wide <> swap lfa-e-inst-class lfa-e-default-class 1+ within and ;'''
+new = '''  0<> ;'''
+test = "$GFORTH tests/front/instances-odd.fs"
+reason = "s1-synth second re-check L1: the 114 an unverified record left turns a later code-less invalid into a permanent refusal of the data"
+
+[[fault]]
+id = "fe-inst-verified-other-read"
+file = "src/front/instances.fs"
+old = '''  it-same-data dup it-status slab-count index? if it-status@ it-verified = else drop false'''
+new = '''  dup it-status slab-count index? if it-status@ it-verified = else drop false'''
+test = "$GFORTH tests/front/instances-odd.fs"
+reason = "s1-synth second re-check L2: after a new read of the data an instance still answers verified until the next query"
+
+[[fault]]
+id = "fe-inst-counts-other-read"
+file = "src/front/instances.fs"
+old = ''': lf-inst-checked# ( -- n ) it-same-data it it-checked @ ;'''
+new = ''': lf-inst-checked# ( -- n ) it it-checked @ ;'''
+test = "$GFORTH tests/front/instances-odd.fs"
+reason = "s1-synth second re-check L2: the checked count of an earlier read of the data is reported for the new one"
+
+[[fault]]
+id = "fe-meta-succ-none"
+file = "src/front/term-eqv.fs"
+old = ''': lf-meta-succ? ( t -- flag ) 1 s" Nat.succ" lf-meta-app-of? ;'''
+new = ''': lf-meta-succ? ( t -- flag ) drop false ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth second re-check L3: Nat.succ x no longer read as a numeral or an offset (its keys and isDefEqOffset change)"
+
+[[fault]]
+id = "fe-synth-generate-first"
+file = "src/front/synth.fs"
+old = '''  sy-resume sy-c syc-resume @ sy-above? if sy-resume-one true swap exit then'''
+new = '''  sy-gens sy-c syc-gens @ sy-above? if sy-generate true swap exit then'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M1 (F1): step generates before it resumes (Lean resumes first, SynthInstance.lean:656)"
+
+[[fault]]
+id = "fe-synth-resume-size"
+file = "src/front/synth.fs"
+old = '''  san@ sa-size @ over scn@ sc-size @ + over scn@ dup sc-key @ swap sc-mvar @ sy-cnode-open'''
+new = '''  san@ sa-size @ over scn@ sc-size @ nip over scn@ dup sc-key @ swap sc-mvar @ sy-cnode-open'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M1 (F2): resume's new node keeps the consumer's size, the answer's not added (maxSize counts wrongly)"
+
+[[fault]]
+id = "fe-synth-cache-any-depth"
+file = "src/front/synth.fs"
+old = '''  skn@ dup sk-depth @ sy sy-pending @ = if sk-type @ over lf-meta-eqv else drop false'''
+new = '''  skn@ dup sk-depth @ drop true if sk-type @ over lf-meta-eqv else drop false'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M1 (F3): the cache ignores synthPendingDepth, so an entry made at one depth answers at another"
+
+[[fault]]
+id = "fe-synth-key-outer-levels"
+file = "src/front/synth.fs"
+old = '''  dup lf-level-mvar-depth lf-mctx-depth <> if drop outcome-ok exit then'''
+new = ''''''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M1 (F4): mkTableKey makes an outer level metavariable a placeholder (Lean keeps one it cannot assign)"
+
+[[fault]]
+id = "fe-synth-open-expr-only"
+file = "src/front/synth.fs"
+old = '''  dup sy-mvar? ok-then? 0= if nip no-result exit then >r over r> swap sgn@ sg-open !'''
+new = '''  dup sy-expr-mvar? ok-then? 0= if nip no-result exit then >r over r> swap sgn@ sg-open !'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M1 (F10): a generator is open only for term metavariables, so canonInstances pops one whose goal holds a level metavariable (Lean: hasMVar)"
+
+[[fault]]
+id = "fe-synth-pending-current-view"
+file = "src/front/synth.fs"
+old = '''  lf-mctx-view >r lf-mctx-view! lf-synth-instance r> lf-mctx-view! ;'''
+new = '''  drop lf-synth-instance ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M1 (F12): synthPending searches in the current local context, not the metavariable's (its local instances ignored)"
+
+[[fault]]
+id = "fe-synth-counts-from-one"
+file = "src/front/synth.fs"
+old = '''  sy-scoped# 0 do i sy-scoped@ slab-count over i syc-count ! loop drop ;'''
+new = '''  sy-scoped# 1 do i sy-scoped@ slab-count over i syc-count ! loop drop ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M2: a search's start count of sy-gens is not saved, so a nested search gives back the outer one's generators"
+
+[[fault]]
+id = "fe-synth-find-all-tables"
+file = "src/front/synth.fs"
+old = '''  sy-c syc-entries @ sy-entries slab-count ['] sy-entry-hit? sy-hit ;'''
+new = '''  0 sy-entries slab-count ['] sy-entry-hit? sy-hit ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b L4: a nested search finds the outer search's table entries (Lean's table is per search)"
+
+[[fault]]
+id = "fe-synth-hit-index"
+file = "src/front/synth.fs"
+old = '''    exit then if drop i true outcome-ok unloop unloop exit then'''
+new = '''    exit then if drop i 1+ true outcome-ok unloop unloop exit then'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b L4: sy-hit gives the index after the entry found"
+
+[[fault]]
+id = "fe-synth-goals-left-all"
+file = "src/front/synth.fs"
+old = '''  dup scn@ sc-goals @ ['] lf-goal-unassigned? run-filter'''
+new = '''  dup scn@ sc-goals @ ['] lf-mvar-live? run-filter'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b B1: consume keeps the subgoals already assigned"
+
+[[fault]]
+id = "fe-synth-wake-none"
+file = "src/front/synth.fs"
+old = '''sen@ se-waiters @ ['] sy-wake1 run-each nip ;'''
+new = '''2drop outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b B1: a new answer wakes no waiter, so neither the root nor a consumer takes it"
+
+[[fault]]
+id = "fe-synth-queue-none"
+file = "src/front/synth.fs"
+old = '''  sen@ se-answers @ ['] sy-queue1 run-each nip ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b B1: a consumer that waits on a known goal is not given its answers"
+
+[[fault]]
+id = "fe-synth-new-answer-last"
+file = "src/front/synth.fs"
+old = '''  swap if sy-other-type else drop false outcome-ok then ;'''
+new = '''  nip sy-other-type ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b B1: isNewAnswer reads only the last older answer's type (an equal earlier one forgotten)"
+
+[[fault]]
+id = "fe-defeq-proj-admissible"
+file = "src/front/defeq.fs"
+old = '''    lf-tag-projection of lf-proj-struct lf-lb-undef endof'''
+new = '''    lf-tag-projection of lf-lb-true endof'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M1 (F6): spineMVarsAdmissible takes a projection as admissible without following its structure"
+
+[[fault]]
+id = "fe-defeq-opaque-not-read-only"
+file = "src/front/defeq.fs"
+old = '''  lf-mvar-kind drop mv-opaque = lf-defeq-opaque de-flag? 0= and ;'''
+new = '''  drop false ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M1 (F9): isReadOnlyOrSyntheticOpaque forgets the synthetic opaque metavariables of the current depth"
+
+[[fault]]
+id = "fe-meta-const-at-first"
+file = "src/front/meta-env.fs"
+old = ''': me-level-at ( addr k -- addr outcome ) over swap cells + @ me-pair+ ;'''
+new = ''': me-level-at ( addr k -- addr outcome ) drop dup @ me-pair+ ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b B3: lf-meta-const-at puts the first level at every place (preprocessOutParam's out-level lost)"
+
+[[fault]]
+id = "fe-meta-const-full-as-ok"
+file = "src/front/meta-env.fs"
+old = '''  if lf-cterm-new if drop outcome-ok exit then then -1 outcome-full ;'''
+new = '''  if lf-cterm-new if drop outcome-ok exit then then -1 outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b B3: a constant the stores have no room for reads as made (-1 beside ok)"
+
+[[fault]]
+id = "fe-meta-const-no-levels"
+file = "src/front/meta-env.fs"
+old = '''  over lf-menv-params nip ['] me-level-by ok-each nip'''
+new = '''  0 ['] me-level-by ok-each nip'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b B3: mkConstWithFreshMVarLevels makes the constant at no level"
+
+[[fault]]
+id = "fe-meta-const-pairs-cleared"
+file = "src/front/meta-env.fs"
+old = '''  me-pairs slab-count >r execute r> me-pairs slab-cut ;'''
+new = '''  me-pairs slab-clear execute ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b re-check L-c: a constant made inside a level word clears the outer constant's levels made so far, which then takes the inner's"
+
+[[fault]]
+id = "fe-meta-const-bad-level-full"
+file = "src/front/meta-env.fs"
+old = '''  dup lf-level-identity 0= if drop outcome-invalid exit then swap me-pairs slab-2push ;'''
+new = '''  dup lf-level-identity 0= if drop outcome-full exit then swap me-pairs slab-2push ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b re-check L-c: a level that names none (invalid input) reads as no room (full)"
+
+[[fault]]
+id = "fe-meta-with-throw-lost"
+file = "src/front/meta-config.fs"
+old = '''  lf-meta-config 2>r lf-meta-config! catch 2r> lf-meta-config! throw ;'''
+new = '''  lf-meta-config 2>r lf-meta-config! execute 2r> lf-meta-config! ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "review s1-synth-b L3: withConfig's configuration stays changed after a THROW out of its word"
+
+[[fault]]
+id = "fe-meta-at-throw-lost"
+file = "src/front/meta-config.fs"
+old = '''  lf-defeq-mode >r lf-defeq-mode! catch r> lf-defeq-mode! throw ;'''
+new = '''  lf-defeq-mode >r lf-defeq-mode! execute r> lf-defeq-mode! ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "review s1-synth-b L3: withTransparency's mode stays changed after a THROW out of its word"
+
+[[fault]]
+id = "lib-runs-each-no-stop"
+file = "src/lib/runs.fs"
+old = '''  execute dup ok? if drop true else false then ;'''
+new = '''  execute drop true ;'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "review s1-synth-b B1: run-each runs on after a step fails and answers ok"
+quick = true
+
+[[fault]]
+id = "lib-runs-each-skips-first"
+file = "src/lib/runs.fs"
+old = '''  dup 1+ swap ?do rn-span ?do i rn-cell @ j rn-step 0= if unloop unloop exit then'''
+new = '''  dup 1+ swap ?do rn-span 1+ ?do i rn-cell @ j rn-step 0= if unloop unloop exit then'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "review s1-synth-b B1: run-each skips the run's first cell"
+quick = true
+
+[[fault]]
+id = "lib-runs-filter-inverted"
+file = "src/lib/runs.fs"
+old = '''  2dup rn-test 0= if 2drop outcome-invalid exit then if rn-put else drop outcome-ok then ;'''
+new = '''  2dup rn-test 0= if 2drop outcome-invalid exit then 0= if rn-put else drop outcome-ok then ;'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "review s1-synth-b B1: run-filter keeps the cells its test refuses"
+
+[[fault]]
+id = "lib-runs-filter-xt-left"
+file = "src/lib/runs.fs"
+old = '''  rn-cells slab-count -rot swap ['] rn-kept run-each nip'''
+new = '''  rn-cells slab-count -rot swap ['] rn-kept run-each'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "review s1-synth-b B1: run-filter leaves its test's xt behind (a stack effect off by one cell)"
+
+[[fault]]
+id = "lib-runs-filter-rule-unchecked"
+file = "src/lib/runs.fs"
+old = '''  2dup rn-test 0= if 2drop outcome-invalid exit then if rn-put else drop outcome-ok then ;'''
+new = '''  2dup rn-test drop if rn-put else drop outcome-ok then ;'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "review s1-synth-b re-check L-b: a filter whose test appends cells makes a run with the test's cells among the kept ones"
+
+[[fault]]
+id = "fe-goals-print-separator-first"
+file = "src/front/goal-print.fs"
+old = '''  swap 0= if s\" \n\n" gp-emit then lf-goal-print false swap ;'''
+new = '''  swap if s\" \n\n" gp-emit then lf-goal-print false swap ;'''
+test = "python3 tests/front/check_goals.py"
+reason = "review s1-synth-b B1: the goals' blank line comes before the first goal instead of between two"
+
+[[fault]]
+id = "fe-instance-try-order"
+file = "src/front/synth.fs"
+old = ''': sy-candidate-at ( g -- v ) sgn@ dup sg-first @ swap sg-idx @ + sy-cands slab-at @ ;'''
+new = ''': sy-candidate-at ( g -- v ) sgn@ sg-first @ sy-cands slab-at @ ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "FE1E 6.3: candidates tried from the front, not from the last (Add Nat tries a left-out one first)"
+
+[[fault]]
+id = "fe-stuck-as-failure"
+file = "src/front/synth.fs"
+old = '''  lf-synth-instance dup lf-meta-stuck = if drop 2drop -1 lf-synth-undef outcome-ok exit'''
+new = '''  lf-synth-instance dup lf-meta-stuck = if drop 2drop -1 lf-synth-none outcome-ok exit'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "FE1E 6.3: trySynthInstance reads the stuck signal as no instance (the elaborator would report failed to synthesize)"
+
+[[fault]]
+id = "fe-outparam-kept"
+file = "src/front/synth.fs"
+old = '''  dup sy-outs? if sy-out-type else drop outcome-ok then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "FE1E 6.3: preprocessOutParam keeps the out-parameter (HAdd Nat Nat ?c would stay stuck on it)"
+
+[[fault]]
+id = "fe-cache-key-no-wildcard"
+file = "src/front/synth.fs"
+old = '''  sy-wild ok-then? if swap sy-arg-addr ! outcome-ok else nip then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "FE1E 6.3: the cache key keeps the out-parameter argument, so a later goal with another one misses the cache entry Lean finds"
+
+[[fault]]
+id = "fe-max-size-off-by-one"
+file = "src/front/synth.fs"
+old = '''  dup scn@ sc-size @ lf-synth-max-size < 0= if drop outcome-ok exit then'''
+new = '''  dup scn@ sc-size @ lf-synth-max-size 1+ < 0= if drop outcome-ok exit then'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "FE1E 6.3: an answer of size synthInstance.maxSize (128) kept; Lean drops it"
+
+[[fault]]
+id = "fe-synth-every-answer-new"
+file = "src/front/synth.fs"
+old = '''  2dup sy-new-answer? ok-then? 0= if nip nip exit then if sy-add-new else 2drop'''
+new = '''  2dup sy-new-answer? ok-then? 0= if nip nip exit then drop sy-add-new exit if 2drop'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "isNewAnswer skipped: an answer of a type already answered is kept and wakes the waiters again"
+
+[[fault]]
+id = "fe-synth-canon-off"
+file = "src/front/synth.fs"
+old = '''  sgn@ dup sg-open @ if drop false outcome-ok exit then'''
+new = '''  drop false outcome-ok exit'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "canonInstances off: a goal without metavariables that has an answer keeps trying its other candidates"
+
+[[fault]]
+id = "fe-synth-pending-depth"
+file = "src/front/synth.fs"
+old = '''  sy-class-type? ok-then? if sy sy-pending @ lf-synth-max-pending > 0= and outcome-ok else'''
+new = '''  sy-class-type? ok-then? if outcome-ok else'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "maxSynthPendingDepth ignored: synthPending nests without limit"
+
+[[fault]]
+id = "fe-synth-pending-opaque"
+file = "src/front/synth.fs"
+old = '''  dup sy-opaque? ok-then? 0= if sy-false exit then if drop false outcome-ok exit then'''
+new = '''  dup sy-opaque? ok-then? 0= if sy-false exit then drop'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "synthPendingImp fills a synthetic opaque metavariable (a goal only tactics may assign)"
+
+[[fault]]
+id = "fe-synth-cache-other-context"
+file = "src/front/synth.fs"
+old = '''  mctx-epoch@ sy sy-epoch @ <> if sy-cache slab-clear mctx-epoch@ sy sy-epoch ! then ;'''
+new = '''  mctx-epoch@ sy sy-epoch ! ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "the cache outlives its metavariable context: a reset context reads another context's terms"
+
+[[fault]]
+id = "fe-synth-answer-keeps-holes"
+file = "src/front/synth.fs"
+old = '''  if drop lfa-e-synth-mvars sy-refuse else outcome-ok then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "an answer that keeps a metavariable of the search's depth leaves the search (abstractMVars is not ported: 118)"
+
+[[fault]]
+id = "fe-synth-check-skipped"
+file = "src/front/synth.fs"
+old = '''  if drop lfa-e-synth-check sy-refuse false swap else true outcome-ok then ;'''
+new = '''  drop true outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "Lean's check of a result that holds a metavariable skipped, its universe constraints lost (121)"
+
+[[fault]]
+id = "fe-synth-left-out-tried"
+file = "src/front/synth.fs"
+old = '''  dup lf-inst-left-out? if drop lfa-e-synth-left-out sy-refuse nip exit then'''
+new = ''''''
+test = "$GFORTH tests/front/synth.fs"
+reason = "S1 9: a tried left-out candidate is not refused (its record number read as an instance's)"
+
+[[fault]]
+id = "fe-synth-tried-kept"
+file = "src/front/synth.fs"
+old = '''  sy-calls slab-count 0= if sy-tried slab-clear then'''
+new = ''''''
+test = "$GFORTH tests/front/synth.fs"
+reason = "the tried list of an earlier search is kept by the next"
+
+[[fault]]
+id = "fe-synth-nodes-kept"
+file = "src/front/synth.fs"
+old = '''  sy-c sy-scoped# 0 do dup i syc-count @ i sy-scoped@ slab-cut loop drop'''
+new = '''  sy-c sy-scoped# 1 do dup i syc-count @ i sy-scoped@ slab-cut loop drop'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "a search's generators outlive it, so the next one reads them"
+
+[[fault]]
+id = "fe-synth-key-no-rename"
+file = "src/front/synth.fs"
+old = '''  dup lf-mvar-assignable? 0= if drop outcome-ok exit then'''
+new = '''  drop outcome-ok exit'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "mkTableKey keeps each metavariable: two goals equal up to their metavariables get two entries"
+
+[[fault]]
+id = "fe-synth-key-assignments-kept"
+file = "src/front/synth.fs"
+old = ''': sy-key-marked ( t mark -- key outcome ) >r sy-placed r> lf-mctx-rollback outcome-and ;'''
+new = ''': sy-key-marked ( t mark -- key outcome ) >r sy-placed r> lf-mctx-commit outcome-and ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "a table key's placeholder assignments are kept: the goal's metavariables end up assigned to placeholders"
+
+[[fault]]
+id = "fe-defeq-nested-not-restored"
+file = "src/front/defeq.fs"
+old = '''  de-aside dup ok? 0= if nip nip false swap exit then drop catch de-back throw ;'''
+new = '''  de-aside dup ok? 0= if nip nip false swap exit then drop catch throw ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "the unification that called a synthesis hook is not brought back: it goes on with the nested search's machine"
+
+[[fault]]
+id = "fe-defeq-aside-kept-on-refusal"
+file = "src/front/defeq.fs"
+old = '''  dup ok? if nip exit then swap de-saved slab-cut ;'''
+new = '''  dup ok? if nip exit then nip ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b re-check M-a: a refused set-aside leaves its partial copy on de-saved, which an outer de-back would restore"
+
+[[fault]]
+id = "fe-defeq-aside-cut-to-zero"
+file = "src/front/defeq.fs"
+old = '''  dup ok? if nip exit then swap de-saved slab-cut ;'''
+new = '''  dup ok? if nip exit then nip 0 de-saved slab-cut ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b FIXA re-check M1: a refused set-aside cut back to zero, not to its base, drops the machines outer searches set aside"
+
+[[fault]]
+id = "fe-defeq-inst-typed-unchecked"
+file = "src/front/defeq.fs"
+old = '''  de-t lf-mvar-inst? if de-check-inst exit then'''
+new = '''  de-t lf-mvar-inst? if de-s de-inst de-s! de-assign-now exit then'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "an instance-typed metavariable assigned without comparing the types at instances transparency (fx accepted as an Add Nat instance)"
+
+[[fault]]
+id = "fe-defeq-inst-typed-no-synth"
+file = "src/front/defeq.fs"
+old = '''  de-s de-admissible? de-aborted? if drop exit then if de-inst-types else de-inst-synth'''
+new = '''  de-s de-admissible? de-aborted? if drop exit then if de-inst-types else lf-lb-false de-return'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "synthInstanceTypedMVarAndUnify skipped: a value that is not admissible is refused without synthesizing the instance"
 
 [[fault]]
 id = "fe-elab-default-rank-unbounded"

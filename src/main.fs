@@ -88,6 +88,8 @@ require ./front/infer.fs
 require ./front/defeq-delta.fs
 require ./front/goal-print.fs
 require ./front/instances.fs
+\ Instance search (plan FE1e5), which sets defeq.fs's synthesis hooks.
+require ./front/synth.fs
 
 \ The command line: check, replay, print, count, reexport, version,
 \ capabilities. It loads the staging of exports into the checker's input,

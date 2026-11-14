@@ -1,8 +1,9 @@
 \ Unit tests of src/lib/slab.fs, growable heap stores (plan task 1.1.5):
 \ shapes, room and claims, the limit at and one past its bound, growth
 \ keeping the contents, trimming, clearing and poisoning, every sealed
-\ field corrupted, marks and every refusal of a rollback, and a
-\ randomized model of claims, marks, rollbacks and clears. Loaded under
+\ field corrupted, marks and every refusal of a rollback, cutting back
+\ (slab-cut) and its refusals, and a randomized model of claims, marks,
+\ rollbacks, cuts and clears. Loaded under
 \ HEX. T{ }T checks results and data-stack depth; rs-checked the return
 \ stack.
 include ../support/tester.fs
@@ -109,6 +110,27 @@ T{ s1 slab-clear mark-all s1 slab-depth @ s1 slab-count -> true 100 100 }T
 : valid-all ( -- n ) 0 100 0 do i mark# s1 slab-mark-valid? if 1+ then loop ;
 T{ valid-all 50 mark# s1 slab-rollback s1 slab-depth @ valid-all s1 slab-count -> 100 outcome-ok 51 51 50 }T
 s1 slab-free s2 slab-free
+
+\ Cutting back to a count kept earlier (slab-cut): the units above it
+\ given back, those below unchanged; marks above it refused from then on,
+\ marks at or below it kept. A count outside 0 .. count, or a slab that
+\ is not live, throws slab-bad-cut, the slab unchanged.
+T{ slab-bad-cut -> -4133 }T
+: cut-throws? ( n slab -- flag ) ['] slab-cut catch dup if nip nip then slab-bad-cut = ;
+1 cells 100 s1 slab-init drop  6 s1 fill-cells
+T{ 4 s1 ' slab-cut rs-checked s1 slab-count 4 s1 filled? -> 4 true }T
+T{ 4 s1 slab-cut s1 slab-count 0 s1 slab-cut s1 slab-count -> 4 0 }T
+3 s1 fill-cells
+T{ 4 s1 cut-throws? -1 s1 cut-throws? s1 slab-count 3 s1 filled? -> true true 3 true }T
+T{ 3 s1 cut-throws? 0 s2 cut-throws? -> false true }T
+T{ m0 s1 slab-mark 2 s1 slab-claim nip m1 s1 slab-mark 2 s1 slab-claim nip
+   -> outcome-ok outcome-ok outcome-ok outcome-ok }T
+T{ 4 s1 slab-cut m1 s1 slab-mark-valid? m0 s1 slab-mark-valid? s1 slab-depth @ -> false true 1 }T
+\ The mark at 5 stays refused when the count passes 5 again.
+T{ 3 s1 slab-claim nip m1 s1 slab-rollback m0 s1 slab-rollback s1 slab-count
+   -> outcome-ok outcome-invalid outcome-ok 3 }T
+T{ 2 s1 slab-claim nip 3 s1 slab-cut m0 s1 slab-mark-valid? s1 slab-count -> outcome-ok true 3 }T
+s1 slab-free
 
 \ Stacks. Cells: pushed, read with slab-last, popped newest first.
 T{ slab-underflow -> -4132 }T
@@ -263,12 +285,14 @@ variable model-n   variable model-seed   variable model-bad
   #model-marks model-rnd dup mark# s1 slab-rollback ok? over alive @ <> if bad then
   dup alive @ if at @ dup model-n ! model-kill-above else drop then ;
 : model-clear ( -- ) s1 slab-clear 0 model-n ! model-alive #model-marks cells erase ;
+: model-cut ( -- ) model-n @ 1+ model-rnd dup s1 slab-cut dup model-n ! model-kill-above ;
 : model-check ( -- )
   s1 slab-count model-n @ <> if bad then
   #model-marks 0 do i mark# s1 slab-mark-valid? i alive @ <> if bad then loop ;
 : model-step ( -- )
-  20 model-rnd dup 8 < if drop model-claim else dup 13 < if drop model-mark else
-  19 < if model-rollback else model-clear then then then model-check ;
+  22 model-rnd dup 8 < if drop model-claim else dup 13 < if drop model-mark else
+  dup 19 < if drop model-rollback else 21 < if model-cut else model-clear then then then
+  then model-check ;
 : model-run ( seed steps -- bad )
   swap model-seed ! 0 model-bad ! 0 model-n ! model-alive #model-marks cells erase
   1 cells 60 s1 slab-init drop 0 ?do model-step loop s1 slab-free model-bad @ ;

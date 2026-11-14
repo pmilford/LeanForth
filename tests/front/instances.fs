@@ -429,6 +429,15 @@ T{ elab-keys# text-refusals-ok? elab-keys# rot - -> true 0 }T
 T{ ' lf-defeq-mode lf-tr-all lf-meta-at lf-defeq-mode -> lf-tr-all lf-tr-default }T
 T{ inst-hadd ' lf-meta-whnf-d lf-tr-reducible lf-meta-at swap lf-meta-args# swap
    lf-defeq-mode -> 4 outcome-ok lf-tr-default }T
+\ A THROW out of the word: lf-meta-at and lf-meta-with give the configured
+\ transparency and flags back and pass the THROW on (review s1-synth-b L3).
+: throw-77 ( -- ) 77 throw ;
+: meta-at-throw ( -- ior ) ['] throw-77 lf-tr-all ['] lf-meta-at catch nip nip ;
+: meta-with-throw ( -- ior )
+  ['] throw-77 lf-defeq-opaque lf-tr-all ['] lf-meta-with catch nip nip nip ;
+: same-config? ( flags mode -- flag ) lf-meta-config d= ;
+: config-kept? ( xt -- ior flag ) lf-meta-config rot execute -rot same-config? ;
+T{ ' meta-at-throw config-kept? ' meta-with-throw config-kept? -> 77 true 77 true }T
 \ forallMetaTelescopeReducing's metavariables: synthetic for an
 \ instance-implicit binder of the declared type (Decidable.decide's
 \ [h : Decidable p]), natural for another, a store pi or none.

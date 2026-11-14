@@ -378,11 +378,11 @@ s" by-sorry" tac-k-sorry lfr-spell
   1 trun-saves slab-claim ok-then? 0= if lfr-unmark exit then
   tuck lfr-save lfr-fill outcome-ok ;
 : lfr-drop-save ( -- ) trun-saves slab-drop ;
-\ A slab's count back to n (blocks, parts and text only grow in a try).
-: lfr-cut-to ( n slab -- ) tuck slab-count - swap slab-commit ;
+\ The slabs' counts back to the save's (blocks, parts and text only grow
+\ in a try).
 : lfr-back ( addr -- )
-  dup tsv-frames @ trun-frames lfr-cut-to dup tsv-parts @ trun-parts lfr-cut-to
-  dup tsv-text @ trun-text lfr-cut-to tsv-goals @ lf-goals! drop ;
+  dup tsv-frames @ trun-frames slab-cut dup tsv-parts @ trun-parts slab-cut
+  dup tsv-text @ trun-text slab-cut tsv-goals @ lf-goals! drop ;
 : lfr-rolled ( addr -- outcome )
   dup lfr-back dup tsv-view @ lf-mctx-view! tsv-mark @ lfr-trail-undo ;
 : lf-tac-restore ( save -- outcome )

@@ -89,7 +89,7 @@ end-structure
   dup lf-term-tag@ lf-tag-fvar = if lf-fvar-let? 0= exit then
   dup lf-mvar? if lf-meta-unassigned? else drop false then ;
 : lf-meta-whnf-final? ( e -- flag outcome )
-  dup 1 s" Nat.succ" lf-meta-app-of? if lf-term-second@ fi-inert? outcome-ok exit then
+  dup lf-meta-succ? if lf-term-second@ fi-inert? outcome-ok exit then
   lf-meta-head fi-head-final? ;
 
 \ ---- isProp.
@@ -134,7 +134,7 @@ end-structure
 : fi-open ( pi -- body outcome )
   dup lf-term-first@ lf-lctx-local ok-then? 0= if nip no-result exit then
   2dup fi-record dup ok? 0= if nip nip no-result exit then drop
-  swap lf-term-second@ swap lf-meta-instantiate1 ;
+  lf-meta-open ;
 : fi-pi ( type n -- type' n' go? outcome ) >r fi-open r> 1- swap true swap ;
 \ A type that is no pi: whnfCore's pi, or the end when whnf would leave
 \ it; anything else would need whnf's delta.

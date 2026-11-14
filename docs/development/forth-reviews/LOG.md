@@ -94,6 +94,9 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-13 | `cbc7cc36..3f7315d1` | s2-unfold: S2 merge A, Lean's unfolding, elaboration data format 3 | forth-reviewer (Opus), style and gate [import] | [report](2026-11-13-s2-unfold-a.md) | B1, H1, M1-M2, L1-L5 | 0: fixed in 3f7315d1..ecf53e50 |
 | 2026-11-13 | `3f7315d1..ecf53e50` | s2-unfold review fixes | forth-reviewer (Opus), re-check | [report](2026-11-13-s2-unfold-a.md), section "Re-check of the review fixes" | M1-new to M3-new, L1 | 0: fixed in ecf53e50..fa11a180 |
 | 2026-11-14 | `ecf53e50..fa11a180` | s2-unfold FIXA fixes (`ok-store`, tests) | forth-reviewer (Opus), re-check | [report](2026-11-13-s2-unfold-a.md), section "Re-check of FIXA" | B1 (reuse), L1 | 0: both planned in 9.4.8k (front pass) |
+| 2026-11-13 | `cbc7cc36..3bb44150` | s1-synth-b: FE1e5, the instance search (synth.fs), run-each/run-filter, slab-cut, lf-meta-const-fresh | forth-reviewer (Opus), style and gate [parser] | [report](2026-11-13-s1-synth-b.md) | 3 B (reuse), 1 H, 3 M, 4 L | 0: fixed in 3bb44150..bab12e5b |
+| 2026-11-13 | `3bb44150..bab12e5b` | s1-synth-b review fixes | forth-reviewer (Opus), re-check | [report](2026-11-13-s1-synth-b.md), section "Re-check of the fixes" | 1 B (find? words), M-a, M-b, L-a to L-c | 0: B and M-b planned (9.4.8k, S2 row); M-a, L-a to L-c fixed in bab12e5b..9422c1c3 |
+| 2026-11-14 | `bab12e5b..ada23cb5` | s1-synth-b FIXA fixes and the coordinator's rollback test (tests only in ada23cb5) | forth-reviewer (Opus), re-check | [report](2026-11-13-s1-synth-b.md), section "Re-check of FIXA" | B1 (`slab-scoped`), M1, L1; return-stack baseline +2 meta-env.fs, +2 runs.fs accepted | 0: M1 fixed in ada23cb5 (fault caught); B1, L1 planned in 9.4.8k |
 
 ## Backlog
 
