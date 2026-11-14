@@ -17183,3 +17183,242 @@ old = '''  ['] sort-signed lf-sched lf-sch-laters pq-init outcome-and ;'''
 new = '''  ['] > lf-sched lf-sch-laters pq-init outcome-and ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "review reuse-k1 M4: the later queue hands out the highest declaration first"
+
+# --- review reuse-out (2026-11-13): the reviewer's caught faults (M1), the
+# scheduler's name lists (M2), BASE in the kernel's names (L3), the loops
+# converted after the review (B1), the libraries' new words (B2, L1, L2,
+# S1) and the sorter's signed order on 64-bit hosts (L4) -------------------
+
+[[fault]]
+id = "dq-level-pairs-last-skipped"
+file = "src/kernel/defeq.fs"
+old = ''': lf-dq-level-pairs ( ta sa n -- flag outcome ) ['] lf-dq-level-pair ok-all? 2swap 2drop ;'''
+new = ''': lf-dq-level-pairs ( ta sa n -- flag outcome ) 1- ['] lf-dq-level-pair ok-all? 2swap 2drop ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "review reuse-out M1: two constants differing only in their last universe argument are taken as equal"
+
+[[fault]]
+id = "whnf-arg-at-shifted"
+file = "src/kernel/whnf.fs"
+old = '''  over + swap >r lf-whnf-arg-open? r> -rot ;'''
+new = '''  over + 1+ swap >r lf-whnf-arg-open? r> -rot ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "review reuse-out M1: the open-argument test reads each argument's right-hand neighbour"
+
+[[fault]]
+id = "mls-below-upper-bound"
+file = "src/kernel/mixed-level-substitute.fs"
+old = ''': lf-mls-below? ( node i -- node flag ) lf-mls-node over < ;'''
+new = ''': lf-mls-below? ( node i -- node flag ) lf-mls-node over 1+ < ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "review reuse-out M1: the search finds the first reached term above the node, so a reached term's image is never found"
+
+[[fault]]
+id = "axd-bit-next"
+file = "src/kernel/environment.fs"
+old = ''': lf-axd-bit! ( k -- ) lf-axd-top bit-on ;'''
+new = ''': lf-axd-bit! ( k -- ) 1+ lf-axd-top bit-on ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out M1: a declaration's axiom row marks the next axiom, so its dependencies are misreported"
+
+[[fault]]
+id = "blk-indices-last-skipped"
+file = "src/kernel/check-block.fs"
+old = '''  lf-blk-arity lf-ind-nparams - ['] lf-blk-index-at? ok-all? 2swap 2drop ;'''
+new = '''  lf-blk-arity lf-ind-nparams - 1- ['] lf-blk-index-at? ok-all? 2swap 2drop ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out M1: a recursive argument's last index is not checked to be free of the block's types"
+
+[[fault]]
+id = "ind-some-arg-last-skipped"
+file = "src/kernel/inductive-block.fs"
+old = '''  ['] lf-ind-arg-mentions? ok-any? 2swap 2drop ;'''
+new = '''  1- ['] lf-ind-arg-mentions? ok-any? 2swap 2drop ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out M1: a nested occurrence in an application's last argument is missed"
+
+[[fault]]
+id = "sch-list-last-dropped"
+file = "src/kernel/env-schedule.fs"
+old = ''': lf-sch-list ( items n -- outcome ) ['] lf-sch-item ok-each nip ;'''
+new = ''': lf-sch-list ( items n -- outcome ) 1- ['] lf-sch-item ok-each nip ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review reuse-out M2: a type's last all name and constructor, a recursor's last all name, are left out of the plan's names"
+
+[[fault]]
+id = "sch-rules-last-dropped"
+file = "src/kernel/env-schedule.fs"
+old = ''': lf-sch-rules ( data -- outcome ) lf-irc-rules@ ['] lf-sch-rule-at ok-each nip ;'''
+new = ''': lf-sch-rules ( data -- outcome ) lf-irc-rules@ 1- ['] lf-sch-rule-at ok-each nip ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review reuse-out M2: a recursor's last rule's constructor and right-hand side are left out of the plan's names"
+
+[[fault]]
+id = "blk-u-base"
+file = "src/kernel/check-block.fs"
+old = ''': lf-blk-u ( i -- c-addr u ) ?dup if ['] lf-blk-u-text in-decimal else s" u" then ;'''
+new = ''': lf-blk-u ( i -- c-addr u ) ?dup if lf-blk-u-text else s" u" then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out L3: the motive's universe u_k is written in the caller's BASE (u_1A under HEX)"
+
+[[fault]]
+id = "nest-digits-base"
+file = "src/kernel/inductive-nested.fs"
+old = ''': lf-nest-digits ( n -- c-addr u ) ['] lf-nest-underscored in-decimal ;'''
+new = ''': lf-nest-digits ( n -- c-addr u ) lf-nest-underscored ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out L3: an auxiliary recursor's suffix _k is written in the caller's BASE"
+
+[[fault]]
+id = "env-aux-k-base"
+file = "src/kernel/environment.fs"
+old = '''  decimal>number 2drop if drop 0 then ;'''
+new = '''  0 0 2swap >number 2drop if drop 0 then ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "review reuse-out L3: rec_k's k is read in the caller's BASE (rec_26 as 38 under HEX)"
+
+[[fault]]
+id = "nest-rec-names-last"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-ind-types@ lf-ind-in-types@ - ['] lf-nest-rec-name-k ok-each ;'''
+new = '''  lf-ind-types@ lf-ind-in-types@ - 1- ['] lf-nest-rec-name-k ok-each ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out B1: the last auxiliary type's recursor gets no name T.rec_k"
+
+[[fault]]
+id = "nest-type-last-ctor"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-ind-ty dup lf-ty-ctor @ swap lf-ty-ctors @ ['] lf-nest-ctor-at ok-each nip ;'''
+new = '''  lf-ind-ty dup lf-ty-ctor @ swap lf-ty-ctors @ 1- ['] lf-nest-ctor-at ok-each nip ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out B1: a type's last constructor is not translated, its nested occurrences kept"
+
+[[fault]]
+id = "ind-t0-types-last"
+file = "src/kernel/inductive-block.fs"
+old = '''  lf-ind-types@ ['] lf-ind-t0-type ok-each ['] lf-ind-t0-ctors ok-and ;'''
+new = '''  lf-ind-types@ 1- ['] lf-ind-t0-type ok-each ['] lf-ind-t0-ctors ok-and ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out B1: T0 skips the block's last type, whose reserved prefix is then accepted"
+
+[[fault]]
+id = "ind-t0-ctors-last"
+file = "src/kernel/inductive-block.fs"
+old = ''': lf-ind-t0-ctors ( -- outcome ) lf-ind-ctors@ ['] lf-ind-t0-ctor ok-each ;'''
+new = ''': lf-ind-t0-ctors ( -- outcome ) lf-ind-ctors@ 1- ['] lf-ind-t0-ctor ok-each ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out B1: T0 skips the block's last constructor, whose reserved prefix is then accepted"
+
+[[fault]]
+id = "ind-t1-ctors-last"
+file = "src/kernel/inductive-block.fs"
+old = ''': lf-ind-ctors-enough ( -- outcome ) lf-ind-ctors@ ['] lf-ind-ctor-enough ok-each ;'''
+new = ''': lf-ind-ctors-enough ( -- outcome ) lf-ind-ctors@ 1- ['] lf-ind-ctor-enough ok-each ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out B1: T1 does not count the last constructor's binders"
+
+[[fault]]
+id = "ind-names-last-unchecked"
+file = "src/kernel/inductive-block.fs"
+old = '''  rot over <> if drop 2drop false exit then ['] lf-ind-same-at? all? nip nip ;'''
+new = '''  rot over <> if drop 2drop false exit then 1- ['] lf-ind-same-at? all? nip nip ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "review reuse-out B1: two name lists differing only in their last name are equal"
+
+[[fault]]
+id = "env-params-has-last"
+file = "src/kernel/environment.fs"
+old = ''': lf-params-has? ( name params n -- flag ) ['] lf-param-is? any? nip nip ;'''
+new = ''': lf-params-has? ( name params n -- flag ) 1- ['] lf-param-is? any? nip nip ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "review reuse-out B1: a declaration's last universe parameter is not found, so a term using it is refused"
+
+[[fault]]
+id = "snap-adds-last"
+file = "src/kernel/env-snapshot.fs"
+old = ''': snap-adds ( snap -- outcome ) snap-sections# tier-sections# - ['] snap-add-at ok-each nip ;'''
+new = ''': snap-adds ( snap -- outcome ) snap-sections# tier-sections# - 1- ['] snap-add-at ok-each nip ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "review reuse-out B1: the snapshot's last environment section is never written"
+
+[[fault]]
+id = "snap-loads-last"
+file = "src/kernel/env-snapshot.fs"
+old = ''': snap-loads ( snap -- outcome ) snap-sections# ss-slots - ['] snap-load-at ok-each nip ;'''
+new = ''': snap-loads ( snap -- outcome ) snap-sections# ss-slots - 1- ['] snap-load-at ok-each nip ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "review reuse-out B1: the snapshot's last environment section is never loaded"
+
+[[fault]]
+id = "canon-names-last"
+file = "src/kernel/env-snapshot.fs"
+old = ''': canon-names ( addr n -- outcome ) ['] canon-at ok-each nip ;'''
+new = ''': canon-names ( addr n -- outcome ) 1- ['] canon-at ok-each nip ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "review reuse-out B1: a slot's last name beyond the input is not made canon's when a snapshot is written"
+
+[[fault]]
+id = "lay-looks-last"
+file = "src/kernel/env-layers.fs"
+old = '''  dup lay-own-count ['] lay-own-in-at? all? nip ;'''
+new = '''  dup lay-own-count 1- ['] lay-own-in-at? all? nip ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers.test_twin_lookups"
+reason = "review reuse-out B1: a layer's slot whose last lookup differs from its twin's counts as the same"
+gap = "the twins of Layers.test_twin_lookups (R's block, _nested.List_1 answered apart) differ before their last lookup in key order; a layer unit differing from its twin only in its largest key would catch it (plan 9.4.8k follow-up)"
+
+[[fault]]
+id = "imp-pass-last"
+file = "src/kernel/env-import.fs"
+old = ''': imp-pass ( imp -- outcome ) dup imp-n @ ['] imp-pass-at ok-each nip ;'''
+new = ''': imp-pass ( imp -- outcome ) dup imp-n @ 1- ['] imp-pass-at ok-each nip ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review reuse-out B1: the import pass never tries the input's last declaration"
+
+[[fault]]
+id = "lib-bits-lower-bound-overflow"
+file = "src/lib/bits.fs"
+old = ''': lb-mid ( lo hi -- mid ) over - 1 rshift + ;'''
+new = ''': lb-mid ( lo hi -- mid ) over - 2/ + ;'''
+test = "$GFORTH tests/lib/bits.fs"
+reason = "review reuse-out L1: hi - lo beyond max-n halves to a negative step, and the search never ends"
+
+[[fault]]
+id = "lib-decimal-hex-base"
+file = "src/lib/decimal.fs"
+old = ''': u>hex ( u -- c-addr u ) 0 ['] ud>text 16 in-base ;'''
+new = ''': u>hex ( u -- c-addr u ) 0 ud>text ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "review reuse-out B2: hexadecimal text in the caller's BASE: 255 as 255, the escapes of name-text.fs and the LaTeX printers decimal"
+
+[[fault]]
+id = "lib-decimal-zeros-kept"
+file = "src/lib/decimal.fs"
+old = '''  dup cell-digits < if decimal>u true exit then skip-zeros unpadded>u ;'''
+new = '''  dup cell-digits < if decimal>u true exit then unpadded>u ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "review reuse-out L2: digits that fit are refused when leading zeros make the text longer than cell-digits"
+
+[[fault]]
+id = "lib-decimal-skip-one-zero"
+file = "src/lib/decimal.fs"
+old = '''  begin dup if over c@ [char] 0 = else false then while 1 /string repeat ;'''
+new = '''  dup if over c@ [char] 0 = if 1 /string then then ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "review reuse-out L2: skip-zeros drops one zero only; bignum.fs and ir-run.fs then read 007 as 07"
+
+[[fault]]
+id = "lib-outcome-2dup-under-swapped"
+file = "src/lib/outcome.fs"
+old = ''': 2dup-under ( x1 x2 k -- x1 x2 x1 x2 k ) >r 2dup r> ;'''
+new = ''': 2dup-under ( x1 x2 k -- x1 x2 x1 x2 k ) >r 2dup swap r> ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "review reuse-out S1: the copies come swapped, so every step on 2dup-under reads its two values the wrong way round"
+
+[[fault]]
+id = "sn-le-sorter-signed"
+file = "src/kernel/env-snapshot.fs"
+old = '''  tuck ['] sort-unsigned swap sorter-init drop ['] u32-le@ over sorter-key! ;'''
+new = '''  tuck ['] sort-signed swap sorter-init drop ['] u32-le@ over sorter-key! ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review reuse-k1 L7 and reuse-out L4: the dependency and lookup lists sorted by signed keys"
+equivalent = "on 64-bit hosts u32-le@ gives keys below 2^32, all positive as signed cells, so the signed and unsigned orders agree; only a 32-bit host, where the test's $80000000 key is negative, separates them"

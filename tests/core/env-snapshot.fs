@@ -104,9 +104,12 @@ create kept-then 4096 cells allot
   snap-file s" {}" ck-snapshot-save ok? s" save" must ck-release
   20000000 ck-start snap-file -1 ck-snapshot-load ok? s" snapshot load" must ck-check
   ck-outcome ok? s" snapshot run" must ck-verdicts? s" snapshot view" must ;
+\ Every section is loaded, the last (the information) included: its text
+\ is the one saved (review reuse-out B1, snap-loads).
+: info-kept? ( -- flag ) ck-snap snap-info s" {}" compare 0= ;
 : round-trip ( c-addr u checked? -- )
-  fresh keep-then reloaded
-  true lf-input-count 0 ?do i same-now? and loop s" round trip" must ck-release ;
+  fresh keep-then reloaded info-kept?
+  lf-input-count 0 ?do i same-now? and loop s" round trip" must ck-release ;
 
 : each-export ( xt -- )
   checked# 0 ?do i checked-exports export@ true 3 pick execute loop

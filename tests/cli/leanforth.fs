@@ -515,18 +515,20 @@ T{ nested 3 edges-of 0> -> true }T
 \ as well and whose slots no readiness set holds (none lies below the
 \ block), so the data's names are read alone: a fresh stamp, the names
 \ and the walk's stack emptied. RvNest.A and RvNest.B are mutual; A's
-\ constructors a0 a1, A.rec's rules a0 a1.
+\ constructors a0 a1, A.rec's rules a0 a1; B.rec's one rule b0, whose
+\ constructor no other part of B.rec's data names (A.rec's later rules'
+\ right-hand sides, lambdas over the minor premises' types, name every
+\ constructor, so only a recursor of one rule shows a rule left out).
 : sch-name ( c-addr u -- name ) lf-stmt-intern 0= throw ;
 : sch-names ( -- addr n ) 0 lf-sched lf-sch-names slab-at lf-sched lf-sch-names slab-count ;
 : data-names ( c-addr u -- outcome )
   sch-name lf-input-newest lf-input-decl lf-sched lf-sch-stamp lf-sch-count+
   lf-sched lf-sch-names lf-sch-empty lf-sched lf-sch-stack lf-sch-empty lf-sch-data ;
 : named? ( c-addr u -- flag ) sch-name sch-names cells-has? ;
-: last-names ( -- outcome a-last b-last outcome rule-last b-last )
-  fresh >r nested 3 run-with
-  s" RvNest.A" data-names s" RvNest.A.a1" named? s" RvNest.B" named?
-  s" RvNest.A.rec" data-names s" RvNest.A.a1" named? s" RvNest.B" named?
-  ck-release r> back ;
+: type-names ( -- outcome a1? b? ) s" RvNest.A" data-names s" RvNest.A.a1" named? s" RvNest.B" named? ;
+: rec-names ( -- outcome b0? b? ) s" RvNest.B.rec" data-names s" RvNest.B.b0" named? s" RvNest.B" named? ;
+: last-names ( -- outcome a1? b? outcome b0? b? )
+  fresh >r nested 3 run-with type-names rec-names ck-release r> back ;
 T{ last-names -> outcome-ok true true outcome-ok true true }T
 nested 1 facts-of 2drop drop constant serial-nested
 \ A stress run: the nested export, many small interleaved checks, at 8

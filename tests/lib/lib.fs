@@ -445,6 +445,12 @@ T{ 5 7 true room-result 5 false room-result -> 5 7 outcome-ok 5 -1 outcome-full 
 T{ 0 true room-result 7 1 room-result -1 true room-result -> 0 outcome-ok 7 outcome-ok -1 outcome-ok }T
 T{ 7 true ' room-result rs-checked false ' room-result rs-checked
    -> 7 outcome-ok -1 outcome-full }T
+\ 2dup-under: the two values under the top copied above them, under it
+\ (review reuse-out S1), and the header's example as a step of any?.
+T{ 1 2 3 2dup-under 4 5 6 ' 2dup-under rs-checked -> 1 2 1 2 3 4 5 4 5 6 }T
+: cell-is? ( x addr k -- x addr flag ) 2dup-under cells + @ = ;
+create three-cells 4 , 7 , 9 ,
+T{ 9 three-cells 3 ' cell-is? any? nip nip 8 three-cells 3 ' cell-is? any? nip nip -> true false }T
 \ ok-then3? keeps three values only on ok (review FRI B6).
 T{ 5 6 7 outcome-ok ok-then3? -> 5 6 7 true }T
 T{ 5 6 7 outcome-full ok-then3? -> outcome-full false }T
