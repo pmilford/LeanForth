@@ -74,6 +74,13 @@ T{ r78 r79 run-cat made ' odd? run-filter made cells. -> 7 7 9 }T
 T{ r79 ' true? run-filter made cells. r79 ' none? run-filter 0 ' true? run-filter
    -> 7 9 0 outcome-ok 0 outcome-ok }T
 T{ 99 ' true? run-filter -> -1 outcome-invalid }T
+\ One record for the new run, its cells appended once.
+lf-lib-private order+
+: growth ( xt -- cells records )   \ what xt ( -- ) adds to the two slabs
+  runs-cells rn-recs slab-count 2>r execute runs-cells rn-recs slab-count 2r> d- ;
+: cat-filter ( -- ) r78 r79 run-cat made ['] odd? run-filter made drop ;
+T{ ' cat-filter growth -> 3 2 }T   \ the join in place, the filter's 3 cells and 1 record
+order-
 
 \ ---- The heap refusing. room ( n slab -- ) leaves exactly n free units
 \ in a slab (claiming the rest, which no run names), so the operation's
@@ -101,6 +108,8 @@ T{ 2 rn-cells room 4 rn-recs room refused r79 r78 run-cat refusal-done? -> -1 ou
 \ A filter that cannot make its run: full, no run; in a step of run-each,
 \ the step's outcome.
 T{ 0 rn-cells room 4 rn-recs room refused r79 ' true? run-filter refusal-done?
+   -> -1 outcome-full true }T
+T{ 4 rn-cells room 0 rn-recs room refused r79 ' true? run-filter refusal-done?
    -> -1 outcome-full true }T
 T{ 0 rn-cells room 4 rn-recs room refused r78 r79 ' push-each run-each refusal-done?
    -> -1 outcome-full true }T

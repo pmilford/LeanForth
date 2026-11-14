@@ -23,7 +23,9 @@
 \   are the steps' to read and replace, as outcome.fs's ok-each; a step
 \   may make runs (the run it walks stays as it was).
 \ - run-filter ( run xt -- run' outcome ): a new run of the cells x for
-\   which xt ( x -- keep? ) is true, in order (the empty run when none).
+\   which xt ( x -- keep? ) is true, in order (the empty run when none),
+\   the kept cells appended once and one record made; the test makes no
+\   runs.
 \ - runs-reset ( -- ): every run is gone (and its handle means nothing
 \   afterwards); runs-epoch ( -- n ) changes with each reset, so a holder
 \   of a run can tell; runs-cells ( -- n ) the cells in use.
@@ -146,18 +148,25 @@ lf-lib-private set-current
 : rn-step ( i*x x xt -- i*x true | i*x outcome false )
   execute dup ok? if drop true else false then ;
 lf-lib set-current
+\ The step xt ( i*x x -- i*x outcome ) on each cell, in order, to the
+\ first failure (the header); invalid for a handle that names no run.
 : run-each ( i*x run xt -- i*x outcome )
   over run-valid? 0= if 2drop outcome-invalid exit then
   dup 1+ swap ?do rn-span ?do i rn-cell @ j rn-step 0= if unloop unloop exit then
   loop loop outcome-ok ;
 lf-lib-private set-current
-\ A filter's step: x pushed on the new run when the test keeps it.
-: rn-keep ( new xt x -- new' xt outcome ) swap >r run-push r> swap ;
-: rn-kept ( new xt x -- new' xt outcome )
-  2dup swap execute if rn-keep else drop outcome-ok then ;
+\ A filter appends the cells it keeps at the top of rn-cells, from cell
+\ number first on, and makes one run of them at the end.
+: rn-kept ( first xt x -- first xt outcome )
+  2dup swap execute if rn-put else drop outcome-ok then ;
+: rn-from ( first -- run outcome ) rn-cells slab-count over - rn-new ;
 lf-lib set-current
+\ A new run of the cells the test xt ( x -- keep? ) keeps, in order; -1
+\ and the outcome when none is made (invalid, or full). The test makes
+\ no runs (its cells would join the new run's).
 : run-filter ( run xt -- run' outcome )
-  0 swap rot ['] rn-kept run-each nip ok-or-none ;
+  rn-cells slab-count -rot swap ['] rn-kept run-each nip
+  ok-then? if rn-from else no-result then ;
 lf-lib-private set-current
 
 module-close

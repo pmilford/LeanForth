@@ -16947,18 +16947,18 @@ quick = true
 [[fault]]
 id = "lib-runs-filter-inverted"
 file = "src/lib/runs.fs"
-old = '''  2dup swap execute if rn-keep else drop outcome-ok then ;'''
-new = '''  2dup swap execute 0= if rn-keep else drop outcome-ok then ;'''
+old = '''  2dup swap execute if rn-put else drop outcome-ok then ;'''
+new = '''  2dup swap execute 0= if rn-put else drop outcome-ok then ;'''
 test = "$GFORTH tests/lib/runs.fs"
 reason = "review s1-synth-b B1: run-filter keeps the cells its test refuses"
 
 [[fault]]
-id = "lib-runs-filter-invalid-empty"
+id = "lib-runs-filter-xt-left"
 file = "src/lib/runs.fs"
-old = '''  0 swap rot ['] rn-kept run-each nip ok-or-none ;'''
-new = '''  0 swap rot ['] rn-kept run-each nip ;'''
+old = '''  rn-cells slab-count -rot swap ['] rn-kept run-each nip'''
+new = '''  rn-cells slab-count -rot swap ['] rn-kept run-each'''
 test = "$GFORTH tests/lib/runs.fs"
-reason = "review s1-synth-b B1: run-filter of a handle that names no run gives the empty run beside invalid, a run where none was made"
+reason = "review s1-synth-b B1: run-filter leaves its test's xt behind (a stack effect off by one cell)"
 
 [[fault]]
 id = "fe-goals-print-separator-first"

@@ -14,10 +14,13 @@
 \ new answers by type; synthPending's tests and its depth limit; the
 \ hooks inside isDefEq (isDefEqArgs' postponed instance argument filled
 \ by synthPending with the machine set aside, and the instance-typed
-\ assignment and its synthesis fallback); and that a search leaves no
-\ depth, mark, call or node behind. Pinned Lean's own answers on all of
-\ Init are tests/front/check_synth.py's (make reference-synth). Every
-\ T{ }T checks the data stack's depth.
+\ assignment and its synthesis fallback, the admissible spines); step's
+\ order (resume first), resume's sizes, consume's filter, nested searches'
+\ own tables, the cache's synthPendingDepth, outer level metavariables in
+\ a key; budget and heap-refusal sweeps over three goals; and that a
+\ search leaves no depth, mark, call or node behind. Pinned Lean's own
+\ answers on all of Init are tests/front/check_synth.py's (make
+\ reference-synth). Every T{ }T checks the data stack's depth.
 include ../support/tester.fs
 include ../support/heap-watch.fs
 \ Every module first: a context member declared after menv-load would
@@ -456,4 +459,29 @@ T{ refusals-ok? 800 fired? -> true false }T
   true 1000 1 do i hole-ok? -rot and swap 0= if leave then loop ;
 : hole-fired? ( k -- flag ) hole-refused >r 2drop drop r> ;
 T{ hole-refusals-ok? 1000 hole-fired? -> true false }T
+\ The same for each budget and each refusal of a known goal's search
+\ (Decidable (2 <= 3 /\ 2 <= 3): its second subgoal waits on the first's
+\ entry), and for each budget of OfNat Nat ?k: exhausted or full with
+\ nothing left behind, else the search's own end.
+variable sweep-goal   variable sweep-end
+: swept ( inst flag outcome -- flag )
+  dup outcome-full = over outcome-exhausted = or if drop 2drop clean? exit then
+  sweep-end @ execute clean? and ;
+: sweep! ( goal-xt end-xt -- ) sweep-end ! sweep-goal ! ;
+: refused-run ( k -- flag fired? )
+  sweep-goal @ execute swap fresh heap-refusals ! synth
+  heap-refusals @ 0= 0 heap-refusals ! >r swept r> ;
+: refusal-sweep ( -- flag )
+  true 1000 1 do i refused-run -rot and swap 0= if leave then loop ;
+: budget-swept ( k -- flag exhausted? )
+  lf-meta-budget! other-cache sweep-goal @ execute synth
+  lf-meta-default-budget lf-meta-budget! dup outcome-exhausted = >r swept r> ;
+: budget-sweep ( -- flag steps )   \ every 3rd budget until one is enough: that budget
+  true -1 20000 0 do drop i budget-swept -rot and swap 0= if i leave then -1 3 +loop ;
+: twice-goal ( -- t ) le-twice dec ;
+: twice-end ( inst flag outcome -- flag ) twice-answer same? swap rot and swap ok? and ;
+: hole-end ( inst flag outcome -- flag )
+  outcome-unsupported = lf-synth-error 121 = and nip nip ;
+T{ ' twice-goal ' twice-end sweep! refusal-sweep budget-sweep 0> -> true true true }T
+T{ ' ofnat-hole ' hole-end sweep! budget-sweep 0> -> true true }T
 bye
