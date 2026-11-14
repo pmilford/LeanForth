@@ -76,8 +76,8 @@ lf-level-walk-room context-walk: lf-lsubst-walker
 : lf-lsubst-use ( formals actuals count -- )
   lf-lsubst-count ! lf-lsubst-actuals ! lf-lsubst-formals ! ;
 
-\ Entries of the substitution; the position is in 0..count-1.
-: lf-lsubst-formal@ ( position -- id ) cells lf-lsubst-formals @ + @ ;
+\ Entries of the substitution; the position is in 0..count-1 (a formal
+\ is read by level-scope.fs's lf-lscope-fresh?, below).
 : lf-lsubst-actual@ ( position -- root ) cells lf-lsubst-actuals @ + @ ;
 \ Position of a formal ID among the first n formals.
 : lf-lsubst-position ( id n -- position true | false )

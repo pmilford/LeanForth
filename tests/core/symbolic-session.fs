@@ -43,4 +43,11 @@ T{ lf-term-generation @ -> -1 }T
 T{ 0 lf-term-symbolic-sort -> false }T
 T{ 0 100 lf-ssession-check -> outcome-invalid }T
 T{ lf-ssession-begin -> false }T
+\ The dispatch both symbolic audits share (tagged-sort-boundary.fs's
+\ lf-symbolic-dispatch, ROUT3): a bound variable is fine, a symbolic Sort
+\ goes to the step, any other tag is invalid, whatever the step.
+: sort-step ( first second walk -- outcome ) 2drop drop 77 ;
+T{ 1 2 3 lf-tag-bvar ' sort-step lf-symbolic-dispatch -> outcome-ok }T
+T{ 1 2 3 lf-tag-symbolic-sort ' sort-step lf-symbolic-dispatch -> 77 }T
+T{ 1 2 3 lf-tag-sort ' sort-step lf-symbolic-dispatch -> outcome-invalid }T
 bye
