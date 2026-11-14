@@ -4,8 +4,8 @@
 \ Lean: theorem t : 0 + 0 = 0 := by rfl (tests/front/s1-rfl.lean).
 \   bin/leanforth check --env tests/front/s1-slice.ndjson
 \     --elab-data tests/front/s1-slice.elab.ndjson tests/front/s1-rfl.lf
-\ Pending (tests/front/check_elab.py): instance search (plan FE1e5) and
-\ lazy delta (S2 merge A); until then it stops at end with error 139.
+\ Accepted; its type and value equal pinned Lean's node for node
+\ (tests/front/check_elab.py, the t lines of tests/front/s1-now.golden).
 theorem t
   0 0 + 0 =
 := by

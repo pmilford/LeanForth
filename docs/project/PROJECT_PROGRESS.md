@@ -21,7 +21,7 @@ speed before parallelism adds more.
 
 **What LeanForth is and is not (2026-11-12).** LeanForth today is only the checking half of Lean (the kernel): it re-checks proof terms that Lean produced and exported (NDJSON), including all of Lean's `Init`. It has none of Lean's front end, the larger half: no elaborator (implicit arguments, numerals, unification), no type classes or coercions, no tactics, no pattern matching or recursion compilation, no evaluation. So it cannot yet turn a written theorem into a proof; Lean does all of that before the export. LeanForth text is checked by the kernel since 2026-11-12 (plan 8.2.1a, c, d); there is no program verifier: for the clamp word LeanForth re-checks the proofs Lean wrote (plan 5.5.1, branch `program-551`). The front end is plan phase 8 ([PLAN_DRAFT.md](PLAN_DRAFT.md)), being re-planned from 2026-11-12.
 
-## Now, next, later (updated 2026-11-13)
+## Now, next, later (updated 2026-11-14)
 
 The single list of what is being worked on (owner, 2026-11-12; replaces the near-term queue of
 [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md), stale since 2026-11-03). `scripts/push.sh` refuses to push plan
@@ -61,12 +61,14 @@ status changes when this date is older than them. Stages are those of the
   (S1's three stuck ones stuck after Lean's one candidate, `OfNat Nat 0`, `Add Nat`); the five with an out-parameter
   (`HAdd Nat Nat ?c`, ...) answer unsupported until S2 merge A's lazy delta (equal to Lean's on a trial merge with
   it), `BEq Nat` until FE1e5b (a goal that is a pi). S1's last
-  branch `s1-elab` (2026-11-13, not merged): the elaborator FE1e6-7 (applications with hidden arguments,
-  `binrel%`/`binop%`, numerals, default instances, the declaration glue, `#check`, `--elab-fuel`) written and
-  tested alone: `bin/leanforth check ... tests/front/s1-now.lf` has LeanForth elaborate five statements and proofs
-  needing no instance (node for node equal to pinned Lean's) and the kernel accept them; numerals and `+` wait for
-  instance search (FE1e5) and lazy unfolding (S2 merge A), so S1's midpoint and `0 + 0 = 0` stop with error 139
-  ([ELABORATION.md](../user/ELABORATION.md)). Nothing is proved by LeanForth yet. Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
+  branch `s1-elab` (review fixes 2026-11-14, not merged; built on `s2-unfold` and `s1-synth-b`, which it merges):
+  the elaborator FE1e6-7 (applications with hidden arguments, `binrel%`/`binop%`, numerals, default instances, the
+  declaration glue, `#check`, `--elab-fuel`) written and tested alone, instance search running in the command
+  line's run mode: on the S1 slice `bin/leanforth check ... tests/front/s1-rfl.lf` has LeanForth elaborate
+  `theorem t : 0 + 0 = 0 := by rfl` (node for node pinned Lean's) and the kernel accept it, `s1-check.lf` prints
+  `0 + 0 = 0 : Prop`, the wrong twin fails with Lean's rfl message (`tests/front/check_elab.py`;
+  [ELABORATION.md](../user/ELABORATION.md)); its Forth re-check, the [parser] and [bypass] gates and S1's done
+  check on all of `Init` are owed. LeanForth re-checks; it has not proved a theorem of its own. Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
 - Program track, restarted 2026-11-12 after being parked since 2026-11-04: LeanForth re-checks Lean's proofs of
   the clamp word's obligations (plan 5.5.1): works end to end (done check docs/development/done-checks/2026-11-12-program-track.md); owner gates [bypass] and [runtime] approved 2026-11-12, merged.
   `python3 scripts/program_receipt.py export OUT.ndjson` has pinned Lean export the contract theorem and its two
