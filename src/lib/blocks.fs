@@ -58,4 +58,4 @@ require ./outcome.fs
 \ Free the cell's block, if any, and zero the cell: 0, or FREE's ior
 \ with the cell unchanged, so that a later call tries again.
 : block-free ( a-addr -- ior )
-  dup @ ?dup 0= if drop 0 exit then free dup if nip else tuck swap ! then ;
+  dup @ ?dup 0= if drop 0 exit then free dup 0= if over 0 swap ! then nip ;

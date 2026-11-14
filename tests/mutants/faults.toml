@@ -17478,7 +17478,7 @@ reason = "a module's block reused without erasing it: the last run's state survi
 [[fault]]
 id = "r2-block-free-kept"
 file = "src/lib/blocks.fs"
-old = '''  dup @ ?dup 0= if drop 0 exit then free dup if nip else tuck swap ! then ;'''
+old = '''  dup @ ?dup 0= if drop 0 exit then free dup 0= if over 0 swap ! then nip ;'''
 new = '''  dup @ ?dup 0= if drop 0 exit then free nip ;'''
 test = "$GFORTH tests/lib/blocks.fs"
 reason = "the cell keeps a freed block's address, so a later open erases freed memory"

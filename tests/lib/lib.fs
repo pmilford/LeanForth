@@ -753,6 +753,8 @@ T{ s9-reset 4 6 s9 ' odd-node? walk-children-unless s9 walk-pop s9 walk-pop -> o
 T{ s9-reset 3 5 s9 ' odd-node? walk-children-unless s9 walk-pending @ -> outcome-ok 0 }T
 T{ s9-reset 12 4 s9 ' odd-node? walk-children-unless s9 walk-pending @ -> outcome-invalid 0 }T
 T{ s9-reset 4 s9 walk-push drop 6 8 s9 ' odd-node? walk-children-unless -> outcome-full }T
+T{ s9-reset 4 s9 walk-push drop 5 s9 walk-push drop 6 8 s9 ' odd-node? walk-children-unless
+   s9 walk-pending @ -> outcome-full 2 }T
 T{ s9-reset 3 4 s9 ' odd-node? ' walk-children-unless rs-checked -> outcome-ok }T
 T{ s" 0 walk2: pbad0" bad-walk? s" -1 walk2: pbad1" bad-walk? s" 1 walk2: pone" bad-walk? -> true true false }T
 
