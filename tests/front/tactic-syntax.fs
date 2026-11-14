@@ -39,9 +39,11 @@ create text 32768 allot  variable text#
   text0 s" theorem t Nat explicit: n 0 n + n = := by " text+ text+ text$ ;
 
 \ ---- 1. Pass: well-formed proofs are read whole and go to the runner,
-\ which stops at end until plan FE1e elaborates the statement (71); never
+\ which stops at end when no statement elaborator is set (71; the reader
+\ alone here: src/front/elab-decl.fs's is tests/front/elab.fs's); never
 \ ok. Without the runner (the hook's own default), end stops with 80 and
 \ by as the second place.
+' lfr-unelaborated is lf-front-by-statement
 T{ s" n by-induction end t" proof nfails -> 71 1 58 }T
 T{ outcome -> outcome-unsupported }T
 T{ ' lft-unrun is lf-tactic-proof-end s" n by-induction end t" proof nfails see-at

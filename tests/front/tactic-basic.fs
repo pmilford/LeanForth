@@ -89,8 +89,8 @@ variable chosen
 : hyp-node? ( node -- flag ) syn-kind@ syn-k-hyp = ;
 : hyp-fvar ( node -- fvar ) syn-a@ lf-mctx-view swap lf-view-named 0= abort" hyp"
   lf-mctx-view swap lf-view-local lf-local-fvar ;
-: stand-in ( node expected -- term outcome )
-  drop dup hyp-node? if hyp-fvar else drop chosen @ execute then outcome-ok ;
+: stand-in ( node expected postpone? -- term outcome )
+  2drop dup hyp-node? if hyp-fvar else drop chosen @ execute then outcome-ok ;
 ' stand-in is lf-tac-elab
 : decl0 ( -- decl ) lf-author-count begin 1- dup lfa-library? 0= until lf-author-decl ;
 : ty ( -- t ) decl0 lf-fdecl-type @ ;

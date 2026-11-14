@@ -1010,8 +1010,10 @@ test: test-author
 # also through leanforth check) and run (FE1g-3: blocks, fuel, saved
 # states, by-sorry through the kernel, with stand-in statements until
 # FE1e; its output is long, so only its tail on a failure), and the first
-# tactics (FE1g-4: by-intro:, by-exact, by-rfl, through the kernel too). Its modules
-# load alone, printing nothing.
+# tactics (FE1g-4: by-intro:, by-exact, by-rfl, through the kernel too), and
+# the elaborator (plan S1, FE1e6-7: tests/front/elab.fs with stand-ins for
+# instance search; tests/front/check_elab.py against pinned Lean's golden
+# terms through leanforth check). Its modules load alone, printing nothing.
 test-front:
 	@for m in src/front/syntax.fs src/front/dag-walk.fs src/front/reader.fs src/front/mvars.fs \
 	  src/front/handover.fs src/core/mvar-leaves.fs src/core/reach.fs \
@@ -1026,7 +1028,8 @@ test-front:
 	  src/front/term-eqv.fs src/front/prop-quick.fs \
 	  src/front/assign-check.fs src/front/nat-offset.fs src/front/fun-info.fs src/front/defeq.fs \
 	  src/front/defeq-delta.fs \
-	  src/front/tactic-run.fs src/front/tactic-basic.fs; do \
+	  src/front/tactic-run.fs src/front/tactic-basic.fs src/front/elab-pending.fs \
+	  src/front/elab-app.fs src/front/elab-term.fs src/front/elab-decl.fs; do \
 	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	  if [ -n "$$out" ]; then printf '%s printed while loading:\n%s\n' "$$m" "$$out" >&2; exit 1; fi; \
 	done
@@ -1052,6 +1055,9 @@ test-front:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_tactics.py
 	$(RUN) $(GFORTH) tests/front/goals.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_goals.py
+	@out=$$($(RUN) $(GFORTH) tests/front/elab.fs 2>&1) || \
+	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "elab.fs: all tests passed"
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_elab.py
 
 # The natural reader's trees against pinned Lean's macro expansion of the
 # same statements (tests/front/operators.lean); the Meta layer's answers
@@ -1069,6 +1075,7 @@ reference-front:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_defeq.py
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_tactics.py --lean
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_goals.py --lean
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_elab.py --lean
 
 # Lean's generated definitions (casesOn, recOn, ctorIdx; plan FE6) built by
 # src/front/constructions.fs and ctor-idx.fs for every inductive type of Init, against

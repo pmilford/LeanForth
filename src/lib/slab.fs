@@ -23,21 +23,24 @@
 \ candidate record there (slab-top) after slab-room and then either keep
 \ it with slab-commit or leave it. RESIZE keeps their contents.
 \
-\ Marks work as store.fs's store-mark and store-rollback: slab-rollback to
-\ a mark gives back every unit claimed since, and refuses, with invalid
-\ and nothing changed, a mark of another slab, of another generation (a
-\ slab-clear since), of a poisoned slab, or one that is stale because an
-\ earlier rollback went below it. slab-cut ( n slab -- ) is a rollback
-\ to a count n the caller kept (a scope's start), with no mark: 0 <= n
-\ <= count, else it throws slab-bad-cut (-4133), a fault in the caller,
-\ as slab-underflow is. A slab has no per-unit identities;
-\ instead it keeps a stack of marked counts (ADR 0016 C3), strictly
-\ increasing, each with a serial that never repeats: a mark is valid
-\ exactly while its entry is on the stack. A rollback pops the entries
-\ above its own; marks taken at the same count share one entry, so the
-\ stack never holds more entries than distinct counts. The generation
-\ grows by one per slab-clear and saturates to -1, poisoned, as store.fs's
-\ does; a spent mark serial makes slab-mark full.
+\ Marks work as store.fs's store-mark and store-rollback: slab-rollback
+\ to a mark gives back every unit claimed since, and refuses, with
+\ invalid and nothing changed, a mark of another slab, of another
+\ generation (a slab-clear since), of a poisoned slab, or one that is
+\ stale because an earlier rollback went below it. slab-cut
+\ ( n slab -- ) is a rollback to a count n the caller kept (a scope's
+\ start), with no mark: 0 <= n <= count, else it throws slab-bad-cut (-4133), a fault
+\ in the caller, as slab-underflow is; slab-remove ( i slab -- ) takes
+\ unit i out of the middle, the later units moved down one and the marks
+\ above i refused from then on, with the same refusal. A slab has no
+\ per-unit identities; instead it keeps a stack of marked counts (ADR
+\ 0016 C3), strictly increasing, each with a
+\ serial that never repeats: a mark is valid exactly while its entry is
+\ on the stack. A rollback pops the entries above its own; marks taken
+\ at the same count share one entry, so the stack never holds more
+\ entries than distinct counts. The generation grows by one per
+\ slab-clear and saturates to -1, poisoned, as store.fs's does; a spent
+\ mark serial makes slab-mark full.
 \
 \ Stacks: a slab used as a stack keeps one value (units of a cell) or one
 \ pair (two cells) per unit, the newest on top: slab-push and slab-pop,
@@ -68,7 +71,7 @@
 \
 \ Interface: /slab slab-init slab-free slab-live? slab-valid? slab-count
 \ slab-capacity slab-limit slab-unit slab-at slab-top slab-room
-\ slab-reserve slab-claim slab-commit slab-cut slab-bad-cut slab-trim
+\ slab-reserve slab-claim slab-commit slab-cut slab-remove slab-bad-cut slab-trim
 \ slab-clear slab-bytes slab-used-bytes slab-limit-max slab-offset
 \ slab-push slab-pop slab-2push slab-2pop slab-last slab-drop
 \ slab-underflow slab-all? slab-2all?
@@ -399,6 +402,24 @@ lf-lib set-current
 \ caller kept, so this is a fault in the caller, never an outcome.
 : slab-cut ( n slab -- )
   2dup slab-cut? 0= if slab-bad-cut throw then 2dup slab-unmark-above slab-used ! ;
+lf-lib-private set-current
+
+\ Taking a unit out of the middle: the units after unit i move down one
+\ (to unit i's address from the next unit's, the bytes of those after).
+: slab-hole ( i slab -- from to ) tuck slab-at tuck swap slab-unit + swap ;
+: slab-rest ( i slab -- u ) tuck slab-count swap - 1- swap slab-unit * ;
+: slab-close-up ( i slab -- ) 2dup slab-rest >r slab-hole r> move ;
+
+lf-lib set-current
+\ Unit i taken out, the units after it moved down one (their numbers
+\ drop by one), the count one less. The mark entries above i go (a
+\ rollback to one would keep units that moved, or cut below them); a mark
+\ at i or below stays. A slab that is not live, or i outside 0 .. count -
+\ 1, throws slab-bad-cut (-4133), nothing changed: i is a number the
+\ caller holds, so this is a fault in the caller.
+: slab-remove ( i slab -- )
+  2dup slab-valid? 0= if slab-bad-cut throw then
+  2dup slab-unmark-above tuck slab-close-up dup slab-count 1- swap slab-cut ;
 
 module-close
 base !   \ the BASE this file was loaded with

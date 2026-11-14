@@ -462,6 +462,23 @@ below it).
 | 119 | unsupported | not supported yet: the search tries an instance the export left out |
 | 120 | unsupported | not supported yet: the search tries an instance whose keys could not be checked (S2) |
 | 121 | unsupported | not supported yet: Lean's check of an instance that holds metavariables (FE1e5b) |
+| 125 | invalid | failed to synthesize instance of type class |
+| 126 | invalid | typeclass instance problem is stuck |
+| 127 | invalid | numerals are data in Lean, but the expected type is a proposition |
+| 128 | invalid | numerals are data in Lean, but the expected type is universe polymorphic and may be a proposition |
+| 129 | invalid | failed to assign synthesized type class instance |
+| 130 | invalid | type expected |
+| 131 | unsupported | not supported yet: a coercion (plan FE4) |
+| 132 | unsupported | not supported yet: postponing an elaboration (plan FE2) |
+| 133 | unsupported | not supported yet: an implicit lambda (plan FE2) |
+| 134 | unsupported | not supported yet: an optParam, autoParam or eta argument (plan FE2) |
+| 135 | unsupported | not supported yet: elaborating as an eliminator (plan FE5) |
+| 136 | unsupported | not supported yet: a binder whose kind the declaration's type does not give (plan S5) |
+| 137 | unsupported | not supported yet: #check of this form (plan FE2) |
+| 138 | exhausted | out of fuel: the front end's work limit (--elab-fuel N gives more) |
+| 139 | unsupported | not supported yet: an elaboration step (plans FE2-FE5, S2) |
+| 140 | invalid | unexpected token '#check'; expected term |
+| 141 | invalid | #check is a command: Lean would end the tactic block here; put it after end |
 
 Codes come in ranges (`src/author/errors.fs`): 1 to 73 the words, the
 runner, the stores and natural text read (FE1a); 74 to 79 elaboration and
@@ -469,7 +486,10 @@ the hand-over (FE1c, FE1e, FE1f; 74 to 77 used); 80 to 99 tactic proofs
 (FE1g; all used); 110 to 124 instances (S1: 110 and 112 to 116 are
 the instance table's, `src/front/instances.fs`, plan FE1e3; 112, 113,
 115 and 116 refuse the elaboration data at the first instance problem,
-as FE1E_APPLICATIONS.md §4 says); the rest of 100 on free. Codes 81 to
+as FE1E_APPLICATIONS.md §4 says); 125 to 139 the elaborator's (S1,
+`src/front/elab-*.fs`) and 140 and 141 `#check` inside a declaration, in
+a term position (Lean's parser error) or in a tactic block (where Lean
+would end the block before it; the first of FE2's command codes); the rest of 100 on free. Codes 81 to
 88 are the reading of
 tactic proofs (`src/front/tactic-syntax.fs`, plan FE1g-2): 82 names the
 word and the open block's (by-induction-with for an alternative, by-rw[

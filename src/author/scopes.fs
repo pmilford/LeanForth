@@ -15,6 +15,7 @@
 require ../lib/lib.fs
 require ../core/terms.fs
 require ./errors.fs
+require ./form.fs
 
 begin-structure /lfa-binder
   field: lfa-binder-name      \ name ID
@@ -69,12 +70,18 @@ end-structure
 \ open binder may be closed.
 : lfa-closable ( -- n ) lfa-depth lfa-params 0 max - ;
 
-\ The frame: the innermost binder's depth, else the declaration's.
-: lfa-frame ( -- depth ) lfa-depth if lfa-innermost lfa-binder-mark @ else lfa-base then ;
-\ Stop unless n values are above the frame, inside a declaration. Called
+\ The frame: the innermost binder's depth, else the declaration's, else
+\ (natural text between declarations, where a command such as #check
+\ takes a term: plan S1) the run's floor.
+: lfa-outer ( -- depth ) lfa-base dup 0< if drop lfa-floor then ;
+: lfa-frame ( -- depth )
+  lfa-depth if lfa-innermost lfa-binder-mark @ else lfa-outer then ;
+\ Terms stand inside a declaration, or in natural text anywhere.
+: lfa-terms? ( -- flag ) lfa-inside? lfa-kernel-form? 0= or ;
+\ Stop unless n values are above the frame, where terms may stand. Called
 \ first thing by a word that takes n values, with nothing else pushed.
 : lfa-args ( n -- )
-  lfa-inside? lfa-e-outside lfa-must depth 1- over - lfa-frame < 0= lfa-e-missing lfa-must
+  lfa-terms? lfa-e-outside lfa-must depth 1- over - lfa-frame < 0= lfa-e-missing lfa-must
   drop ;
 \ Stop unless exactly n values are above the frame.
 : lfa-exactly ( n code -- ) >r depth 1- lfa-frame - = r> lfa-must ;

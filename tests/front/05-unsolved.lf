@@ -4,8 +4,8 @@
 \   unsolved goals
 \   n : Nat
 \   ⊢ 0 + n = n
-\ (tests/front/tactic-run.lean). Today the statement is not elaborated
-\ (plan FE1e): the text stops at end with error 71, exit 2;
+\ (tests/front/tactic-run.lean). Today 0 and + wait for plans FE1e5 and
+\ S2: the text stops at end with error 139, exit 2;
 \ tests/front/tactic-run.fs runs it with a stand-in elaborator that builds
 \ this statement and gets error 89 at by with Lean's goals, exit 4.
 theorem zero_add_open

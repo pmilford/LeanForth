@@ -227,7 +227,7 @@ record `tb` becomes a step record on a slab stack (fe1g3 review M2), since `by-r
 | s1-meta A (main) | the trail (§3), `lf-meta-whnf`, `-whnf-forall`, `-instantiate-forall`, `lf-meta-defeq-guarded`, `meta-config.fs` | telescopes, `setMotiveArg`, fields |
 | s1-meta-b (in flight; committed 28dbeba4) | the library route, `lib-decode.fs`, `lf-menv-kinds`, `lf-menv-add`; stubs `lf-menv-smart?` (always unsupported), `lf-menv-matcher?`, `lf-menv-aux-recursor?` (meta-env.fs:274-304), which merge A fills | library constants, kinds |
 | s1-synth (in flight) | the data's manifest binding (M6), data code 39 | trust of the `sunfold` records |
-| s1-elab (not started) | `lf-tac-elab ( node expected postpone? -- term outcome )` taking expected 0 for none and Lean's `mayPostpone` flag (`elabTerm stx none true`), and a word for `Term.withSynthesize`'s end (synthesize with no postponing); the statement glue; `--elab-fuel` | targets, rules, statements |
+| s1-elab (not started) | `lf-tac-elab ( node expected postpone? -- term outcome )` taking expected -1 for none (0 is a term: review s1-elab M4) and Lean's `mayPostpone` flag (`elabTerm stx none true`), and a word for `Term.withSynthesize`'s end (synthesize with no postponing); the statement glue; `--elab-fuel` | targets, rules, statements |
 
 **Blocks.** Merge A edits `defeq.fs`, `whnf.fs`, `meta-env.fs` (s1-meta-b's files) and `elab-data.fs` and the export
 scripts (s1-synth's): it starts when both have merged. It shares no file with s1-elab except `meta-config.fs` and the

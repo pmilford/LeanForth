@@ -5529,8 +5529,8 @@ reason = "L4: the refused records' message is lost (caught on Gforth 1.0, where 
 [[fault]]
 id = "lf-text-flags-stale"
 file = "src/cli/leanforth.fs"
-old = '''  lfc-fresh cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check then'''
-new = '''  cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check then'''
+old = '''  cli-elab-fuel-set lfc-fresh cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check'''
+new = '''  cli-elab-fuel-set cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "N3: an earlier text's failure flag stays for the next run of the session, which then reports that text's error instead of its own (a snapshot that does not open)"
 
@@ -14558,6 +14558,32 @@ test = "$GFORTH tests/lib/slab.fs"
 reason = "review s1-synth-b B2: a cut keeps the mark entries above it, so a mark the cut went below is accepted again once the count passes it"
 
 [[fault]]
+id = "lib-slab-remove-unchecked"
+file = "src/lib/slab.fs"
+old = '''  2dup slab-valid? 0= if slab-bad-cut throw then
+  2dup slab-unmark-above tuck slab-close-up dup slab-count 1- swap slab-cut ;'''
+new = '''  2dup slab-unmark-above tuck slab-close-up dup slab-count 1- swap slab-cut ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-elab B2: slab-remove past the last unit moves a negative length (and below 0 reads before the block) instead of throwing slab-bad-cut"
+quick = true
+
+[[fault]]
+id = "lib-slab-remove-no-shift"
+file = "src/lib/slab.fs"
+old = '''  2dup slab-unmark-above tuck slab-close-up dup slab-count 1- swap slab-cut ;'''
+new = '''  2dup slab-unmark-above nip dup slab-count 1- swap slab-cut ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-elab B2: the units after the one taken out are not moved down, so the last unit is lost and the taken one stays"
+
+[[fault]]
+id = "lib-slab-remove-marks-kept"
+file = "src/lib/slab.fs"
+old = '''  2dup slab-unmark-above tuck slab-close-up dup slab-count 1- swap slab-cut ;'''
+new = '''  tuck slab-close-up -1 swap slab-commit ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-elab B2: a removal keeps the mark entries above the new count, so a mark of a count that no longer exists is accepted"
+
+[[fault]]
 id = "lib-slab-cut-edge"
 file = "src/lib/slab.fs"
 old = ''': slab-cut? ( n slab -- flag ) dup slab-live? if slab-count upto? else 2drop false then ;'''
@@ -15319,7 +15345,7 @@ reason = "FE1g-3: a block (or the proof) ends with goals left and no unsolved-go
 [[fault]]
 id = "fe-run-fuel-free"
 file = "src/front/tactic-run.fs"
-old = '''  lf-tactic-fuel-left dup 0> if 1- trun trun-fuel ! true else drop false then ;'''
+old = '''  lf-tactic-fuel-left dup 0> if 1- trun trun-fuel ! lf-meta-spend? else drop false then ;'''
 new = '''  true ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "FE1g-3: a step spends no fuel, so a run never ends exhausted"
@@ -15446,7 +15472,7 @@ reason = "FE1g-3 review fe1g3 L8: by-sorry records its open part before the term
 
 [[fault]]
 id = "fe-run-printer-kept"
-file = "src/front/tactic-run.fs"
+file = "src/present/term-printer.fs"
 old = '''  lf-print-settings 2>r lf-print-unicode lf-print-setup catch 2r> lf-print-setup throw ;'''
 new = '''  lf-print-settings 2>r lf-print-unicode lf-print-setup execute 2r> lf-print-setup ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
@@ -15624,17 +15650,17 @@ reason = "FE1g-4 review fe1g3 L10: a step that fails leaves its goal's context c
 
 [[fault]]
 id = "fe-print-notation-kept"
-file = "src/front/tactic-basic.fs"
-old = '''  lf-print-notation? >r ['] lfb-noting catch r> lf-print-notation! throw ;'''
-new = '''  lf-print-notation? >r lfb-noting r> lf-print-notation! ;'''
+file = "src/present/term-printer.fs"
+old = '''  lf-print-notation? >r ['] lf-pp-to catch r> lf-print-notation! throw ;'''
+new = '''  lf-print-notation? >r lf-pp-to r> lf-print-notation! ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L10: a message's printing that throws leaves the printer's notation flag on"
 
 [[fault]]
 id = "fe-tac-defeq-settings-kept"
 file = "src/front/tactic-basic.fs"
-old = '''  lf-defeq-flags lf-defeq-mode 2>r ['] lfb-elab-defeq catch 2r> lfb-defeq-set! throw'''
-new = '''  lfb-elab-defeq'''
+old = '''  ['] lf-meta-defeq lf-defeq-elab lf-tr-default lf-meta-with outcome-sane ;'''
+new = '''  lf-defeq-elab lf-defeq-flags! lf-tr-default lf-defeq-mode! lf-meta-defeq outcome-sane ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L10: the tactics' isDefEq leaves defeq's configuration and mode set to the elaborator's"
 
@@ -16174,8 +16200,8 @@ reason = "FE1E 4 step 3: a default instance recorded under another class than it
 [[fault]]
 id = "fe-inst-view-fails-open"
 file = "src/front/instances.fs"
-old = '''  elab-decl-name lf-mctx-view dup lf-view-valid? 0= if 2drop outcome-invalid exit then'''
-new = '''  elab-decl-name lf-mctx-view dup lf-view-valid? 0= if 2drop outcome-ok exit then'''
+old = '''  lf-mctx-view dup lf-view-valid? 0= if 2drop outcome-invalid exit then'''
+new = '''  lf-mctx-view dup lf-view-valid? 0= if 2drop outcome-ok exit then'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "s1-synth review L4: a context view that is not live reads as one without local instances"
 
@@ -17005,8 +17031,8 @@ reason = "FE1E 6.3: candidates tried from the front, not from the last (Add Nat 
 [[fault]]
 id = "fe-stuck-as-failure"
 file = "src/front/synth.fs"
-old = '''  lf-synth-instance dup lf-meta-stuck = if drop 2drop -1 lf-synth-undef outcome-ok exit'''
-new = '''  lf-synth-instance dup lf-meta-stuck = if drop 2drop -1 lf-synth-none outcome-ok exit'''
+old = '''  lf-meta-synth dup lf-meta-stuck = if drop 2drop -1 lf-synth-undef outcome-ok exit then'''
+new = '''  lf-meta-synth dup lf-meta-stuck = if drop 2drop -1 lf-synth-none outcome-ok exit then'''
 test = "$GFORTH tests/front/synth.fs"
 reason = "FE1E 6.3: trySynthInstance reads the stuck signal as no instance (the elaborator would report failed to synthesize)"
 
@@ -17262,6 +17288,444 @@ new = ''''''
 test = "python3 tests/program/test_program_verify.py WriteIr.test_write_ir_never_overwrites_other_files"
 reason = "review R3: --write-ir overwrites any checkout file the contract's ir line names (src/main.fs)"
 quick = true
+
+# ---- The elaborator (plan S1, branch s1-elab; src/front/elab-*.fs).
+[[fault]]
+id = "fe-no-default-instance"
+file = "src/front/elab-pending.fs"
+old = '''  lf-elab-pending# 0= if false outcome-ok exit then'''
+new = '''  true if false outcome-ok exit then'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "synthesizeUsingDefault never fires: 0 = 0's numerals stay stuck (126)"
+
+[[fault]]
+id = "fe-implicit-not-inserted"
+file = "src/front/elab-app.fs"
+old = '''    lf-binder-strict of ea-strict endof >r ea-implicit-step r> endcase ;'''
+new = '''    lf-binder-strict of ea-strict endof >r ea-explicit r> endcase ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "an implicit binder taken as explicit: Eq's α gets the first operand, the statements differ from Lean's"
+quick = true
+
+[[fault]]
+id = "fe-defeq-arg-order"
+file = "src/front/elab-app.fs"
+old = '''  swap lf-elab-defeq lf-elab-meta ok-then? if ea-coerced then ;'''
+new = '''  lf-elab-defeq lf-elab-meta ok-then? if ea-coerced then ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "ensureHasType asks isDefEq expected type instead of Lean's isDefEq type expected: the metavariable assigned changes, C17's golden trace differs"
+
+[[fault]]
+id = "fe-fargs-not-reversed"
+file = "src/front/elab-app.fs"
+old = '''  ea-paramidx 1- swap - ea ea-fargs @ + ea-args slab-at @ ea-rev slab-push ;'''
+new = '''  ea ea-fargs @ + ea-args slab-at @ ea-rev slab-push ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "getFType's arguments in the wrong order (instantiateBetaRevRange puts the last for #0): Eq's second operand is checked against the first's value"
+quick = true
+
+[[fault]]
+id = "fe-numeral-prop-error"
+file = "src/front/elab-term.fs"
+old = '''  if lfa-e-elab-numeral else lfa-e-elab-numeral-u then lf-elab-fail ;'''
+new = '''  drop lfa-e-elab-numeral-u lf-elab-fail ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "a numeral against a proposition reported as the universe-polymorphic case (128), not Lean's 127"
+
+[[fault]]
+id = "fe-tag-failure-stack"
+file = "src/front/elab-app.fs"
+old = ''': ea-elim-tags? ( d -- flag outcome ) 4 ['] ea-elim-tag? ok-any? rot drop ;'''
+new = ''': ea-elim-tags? ( d -- flag outcome ) 4 ['] ea-elim-tag? ok-any? nip ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed' && $GFORTH tests/front/handover.fs >/dev/null 2>&1"
+reason = "shouldElabAsElim's tag table answers with the declaration in place of its flag: every constant head reads as an eliminator (135)"
+
+[[fault]]
+id = "fe-kinds-from-store"
+file = "src/front/fun-info.fs"
+old = ''': fi-kind ( -- kind true | false ) fi-decl-kind if true else fi-source-kind then ;'''
+new = ''': fi-kind ( -- kind true | false ) fi-source-kind ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "getFunInfoNArgs reads a decoded library type's binder kinds from shared store nodes: isDefEqArgs on Eq answers unsupported, by-exact's finalize fails"
+quick = true
+
+[[fault]]
+id = "fe-budget-not-reset"
+file = "src/front/elab-decl.fs"
+old = '''  lf-elab-pending-reset lf-elab-app-reset lf-elab-term-reset lf-elab-vars-reset
+  lf-meta-budget-start ;'''
+new = '''  lf-elab-pending-reset lf-elab-app-reset lf-elab-term-reset lf-elab-vars-reset ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "the budget is not given back per declaration (S1 8): after a declaration out of fuel the next one is too"
+
+[[fault]]
+id = "fe-check-only-exit"
+file = "src/cli/leanforth.fs"
+old = '''  lfc-failed? lf-author-code lfa-e-nothing = and lf-elab-checks 0> and ;'''
+new = '''  false ;'''
+test = "python3 tests/front/check_elab.py"
+reason = "a text of only #check lines ends with error 49 (exit 4), not Lean's exit 0"
+
+
+# ---- s1-elab review fixes (H1's surviving faults F1-F9, M1-M3, L; the
+# run mode, slab-remove's callers, the delta trace hook).
+
+[[fault]]
+id = "fe-elab-holes-ignored"
+file = "src/front/elab-decl.fs"
+old = ''': edc-holes ( type -- type outcome ) lfa-e-elab-step lf-elab-closed ;'''
+new = ''': edc-holes ( type -- type outcome ) outcome-ok ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab H1 F1: a statement left with a level metavariable (PUnit) is handed over instead of stopping at its statement with 139 (S1 7's statement-alone rule)"
+
+[[fault]]
+id = "fe-elab-catch-never"
+file = "src/front/elab-pending.fs"
+old = ''': lf-elab-catch ( outcome -- flag ) ep-lean-error? dup if lf-elab-error-reset then ;'''
+new = ''': lf-elab-catch ( outcome -- flag ) drop false ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab H1 F2: commitWhen's try never catches: a failed to synthesize inside a default instance's attempt stops the run"
+
+[[fault]]
+id = "fe-elab-catch-malformed"
+file = "src/front/elab-pending.fs"
+old = '''  outcome-invalid = ep ep-code @ dup 0<> swap lfa-e-malformed <> and and ;'''
+new = '''  outcome-invalid = ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab M3: commitWhen's try also forgets malformed or corrupt state (76), which then reads as a plain failure"
+
+[[fault]]
+id = "fe-elab-assigned-trusted"
+file = "src/front/elab-pending.fs"
+old = '''  over ep-assigned? if ep-again else ep-assign then ;'''
+new = '''  over ep-assigned? if 2drop true outcome-ok else ep-assign then ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab H1 F3: an instance metavariable assigned already is taken as filled whatever the search found"
+
+[[fault]]
+id = "fe-elab-postpone-ignored"
+file = "src/front/elab-decl.fs"
+old = ''': edc-mode ( postpone? -- mode ) if lf-postpone-yes else lf-postpone-no then ;'''
+new = ''': edc-mode ( postpone? -- mode ) drop lf-postpone-no ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab H1 F4: lf-tac-elab ignores Lean's mayPostpone: S2's rewriting would see default instances fire before kabstract"
+
+[[fault]]
+id = "fe-elab-spend-free"
+file = "src/front/elab-pending.fs"
+old = ''': lf-elab-spend ( -- outcome )
+  lf-meta-spend? if outcome-ok else lfa-e-elab-fuel lf-elab-fail then ;'''
+new = ''': lf-elab-spend ( -- outcome ) outcome-ok ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab H1 F5: the elaborator's own visits spend no fuel, so --elab-fuel undercounts (S1 8)"
+
+[[fault]]
+id = "fe-elab-one-pass"
+file = "src/front/elab-pending.fs"
+old = '''  begin ep-c-pass dup ok? 0= if nip exit then drop 0= until outcome-ok ;'''
+new = '''  ep-c-pass nip ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab H1 F6: synthesizeUsingInstances makes one pass: a problem another one's answer unblocks is left to default instances"
+
+[[fault]]
+id = "fe-elab-side-swapped"
+file = "src/front/elab-term.fs"
+old = ''': et-side ( a b left? -- t ) if nip else drop then ;'''
+new = ''': et-side ( a b left? -- t ) if drop else nip then ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab H1 F7: hasHeterogeneousDefaultInstances tests the wrong side of C a b c for a left or right leaf"
+
+[[fault]]
+id = "fe-elab-synth-end-no-default"
+file = "src/front/elab-pending.fs"
+old = '''  dup lf-elab-synthesize swap lf-postpone-yes = if ['] ep-default-loop ok-and then ;'''
+new = '''  lf-elab-synthesize ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab H1 F8: withSynthesize's end with postponing skips synthesizeUsingDefaultLoop"
+
+[[fault]]
+id = "fe-elab-window-kept"
+file = "src/front/elab-pending.fs"
+old = ''': }lf-elab-window ( saved -- ) ep ep-base ! ;'''
+new = ''': }lf-elab-window ( saved -- ) drop ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab H1 F9: withSynthesize does not put the pending list back: the problems before it are hidden from then on"
+
+[[fault]]
+id = "fe-elab-binders-first-first"
+file = "src/front/elab-pending.fs"
+old = ''': ep-c-at ( k -- i ) ep-goals slab-count 1- swap - ;   \ Lean's list: the newest first'''
+new = ''': ep-c-at ( k -- i ) ep-c-first + ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab M2: a default instance's instance binders tried first to last, where Lean prepends them"
+
+[[fault]]
+id = "fe-elab-stuck-at-newest"
+file = "src/front/elab-pending.fs"
+old = ''': ep-oldest-at ( -- ) 0 ep-window-at @ lf-elab-at! ;'''
+new = ''': ep-oldest-at ( -- ) lf-elab-pending# 1- ep-window-at @ lf-elab-at! ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab L: the stuck error at the newest pending problem, not the oldest (Lean's column 12 in e2, the smallest range first)"
+
+[[fault]]
+id = "fe-elab-check-inside"
+file = "src/front/elab-decl.fs"
+old = '''  lfa-inside? 0= edc-check-here lfa-must 1 lfa-args edc-w-check ;'''
+new = '''  1 lfa-args edc-w-check ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab M1: #check runs inside a declaration or a tactic block, where Lean refuses it"
+
+[[fault]]
+id = "fe-elab-annotations-kept"
+file = "src/front/elab-app.fs"
+old = '''  if lf-meta-consume-annotations ea ea-dom ! outcome-ok then ;'''
+new = '''  if ea ea-dom ! outcome-ok then ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "getArgExpectedType's consumeTypeAnnotations dropped: HAdd's ?gamma is made at outParam (Type ?u), and lazy delta unfolds outParam where Lean does not (C17's golden trace)"
+
+[[fault]]
+id = "fe-elab-ensure-position"
+file = "src/front/elab-term.fs"
+old = '''  over et-at! tuck lf-elab-term ok-then? if swap lf-elab-ensure else nip no-result then ;'''
+new = '''  tuck lf-elab-term ok-then? if swap lf-elab-ensure else nip no-result then ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "elabTermEnsuringType's ensureHasType reported at the statement, not at the proof term (Lean's withRef stx)"
+
+[[fault]]
+id = "fe-elab-synth-code-lost"
+file = "src/front/elab-pending.fs"
+old = '''  dup ep-synth-code? if ep-record else lf-elab-meta then ;'''
+new = '''  lf-elab-meta ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "a search's own refusal (119, a tried instance left out) reported as the generic 139"
+
+[[fault]]
+id = "fe-elab-empty-defaults"
+file = "src/front/elab-pending.fs"
+old = '''  ep-defs# 0= if false exit then
+'''
+new = ''''''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "a class with no default instance: the attempts read past their list (an invalid address under Gforth)"
+
+[[fault]]
+id = "fe-delta-unfold-unnoted"
+file = "src/front/defeq-delta.fs"
+old = ''': dd-noted ( e e' flag -- e' flag ) rot over if lf-delta-unfolded else drop then ;'''
+new = ''': dd-noted ( e e' flag -- e' flag ) rot drop ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "lazy delta's unfolding not reported to the trace: C1's golden trace loses pinned Lean's three outParam lines"
+
+[[fault]]
+id = "fe-menv-data-decl-fed-only"
+file = "src/front/meta-env.fs"
+old = '''  me-run? if me-run-data-decl else elab-decl-of then ;'''
+new = '''  elab-decl-of ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "the run mode's names looked up as the stage tier's: isClass? and the keys miss every class, so leanforth check finds no instance"
+
+[[fault]]
+id = "fe-menv-kind-past-end"
+file = "src/front/meta-env.fs"
+old = '''  tuck swap index? if cells + @ true else 2drop false then ;'''
+new = '''  drop cells + @ true ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "lf-menv-kind@ reads past the kinds it has: a binder whose kind is unknown reads a stale cell instead of answering 136"
+
+# ---- s1-elab re-check fixes (2026-11-14; H1, H2, M1, B1, B2, L1, L2, L4,
+# L5 of the re-check of d34dbc4e..d2b0197c).
+
+[[fault]]
+id = "fe-elab-refused-not-recorded"
+file = "src/front/elab-pending.fs"
+old = ''': ep-refused ( outcome -- false outcome ) lf-elab-error-reset lf-elab-meta false swap ;'''
+new = ''': ep-refused ( outcome -- false outcome ) false swap ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab re-check H1: a rollback the context refuses keeps the Lean error recorded before, so an outer catch forgets corrupt state"
+
+[[fault]]
+id = "fe-elab-refused-eats-cell"
+file = "src/front/elab-pending.fs"
+old = '''  nip swap lf-mctx-rollback ok-then? 0= if ep-refused exit then'''
+new = '''  nip swap lf-mctx-rollback ok-then? 0= if nip false swap exit then'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab re-check H1: ep-when-failed's refused rollback eats a caller cell"
+
+[[fault]]
+id = "fe-elab-try-one-no-catch"
+file = "src/front/elab-app.fs"
+old = '''  dup lf-elab-catch if 2drop false outcome-ok then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab re-check H2 (rv-try-one-no-catch): trySynthesizeAppInstMVars without Lean's try ... catch: a failed to synthesize at finalize stops the run"
+
+[[fault]]
+id = "fe-elab-c-remove-first"
+file = "src/front/elab-pending.fs"
+old = ''': ep-c-remove ( k -- ) ep-c-at ep-goals slab-remove ;'''
+new = ''': ep-c-remove ( k -- ) ep-c-first + ep-goals slab-remove ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab re-check H2 (rv-c-remove-first): synthesizePending removes the binder counted from the oldest while it tried the newest"
+
+[[fault]]
+id = "fe-elab-catch-not-forgotten"
+file = "src/front/elab-pending.fs"
+old = ''': lf-elab-catch ( outcome -- flag ) ep-lean-error? dup if lf-elab-error-reset then ;'''
+new = ''': lf-elab-catch ( outcome -- flag ) ep-lean-error? ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab re-check H2 (rv-catch-not-forgotten): a caught Lean error stays recorded, so a later error is reported with the stale code"
+
+[[fault]]
+id = "fe-meta-consume-opt-default"
+file = "src/front/term-eqv.fs"
+old = '''  dup lf-meta-opt-auto? if lf-term-first@ lf-term-second@ true exit then'''
+new = '''  dup lf-meta-opt-auto? if lf-term-second@ true exit then'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab re-check H2 (rv-consume-opt-default): consumeTypeAnnotations of optParam a b gives b (the default), not a"
+
+[[fault]]
+id = "fe-meta-consume-once"
+file = "src/front/term-eqv.fs"
+old = ''': lf-meta-consume-annotations ( t -- t' ) begin eq-unwrapped 0= until ;'''
+new = ''': lf-meta-consume-annotations ( t -- t' ) eq-unwrapped drop ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab re-check H2: consumeTypeAnnotations takes one annotation off, where Lean goes on while one is at the top"
+
+[[fault]]
+id = "fe-meta-out-param-any-arity"
+file = "src/front/term-eqv.fs"
+old = '''  dup 1 s" outParam" lf-meta-app-of? swap 1 s" semiOutParam" lf-meta-app-of? or ;'''
+new = '''  dup lf-meta-head s" outParam" lf-meta-const-named? swap 1 s" semiOutParam" lf-meta-app-of? or ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab re-check H2: outParam with no argument or two taken for an annotation (Lean's isOutParam needs isAppOfArity 1)"
+
+[[fault]]
+id = "fe-meta-forall-body-one"
+file = "src/front/meta-spine.fs"
+old = '''  begin dup lf-term-pi? while lf-term-second@ repeat ;'''
+new = '''  dup lf-term-pi? if lf-term-second@ then ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab re-check H2: getForallBody under one pi only: Nat -> Nat -> Bool gives Nat -> Bool"
+
+[[fault]]
+id = "fe-menv-kind-negative"
+file = "src/front/meta-env.fs"
+old = '''  tuck swap index? if cells + @ true else 2drop false then ;'''
+new = '''  tuck > if cells + @ true else 2drop false then ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab re-check H2: lf-menv-kind@ of a negative binder index reads the cell before the kinds"
+
+[[fault]]
+id = "fe-menv-of-data-undecoded"
+file = "src/front/meta-env.fs"
+old = '''  me-run? if me-decoded else elab-decl-name lf-menv-find then ;'''
+new = '''  me-run? if outcome-ok else elab-decl-name lf-menv-find then ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab re-check H2: lf-menv-of-data in the run mode answers a number outside the library as a declaration"
+
+[[fault]]
+id = "fe-elab-prios-first-only"
+file = "src/front/elab-pending.fs"
+old = ''': ep-try-prios ( -- flag outcome ) ep-prios slab-count ['] ep-prio-try ok-any? ;'''
+new = ''': ep-try-prios ( -- flag outcome ) ep-prios slab-count 1 min ['] ep-prio-try ok-any? ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab re-check B1: synthesizeUsingDefault tries the highest priority only (instOfNatNat, priority 100, never)"
+
+[[fault]]
+id = "fe-elab-check-in-by-code"
+file = "src/front/elab-decl.fs"
+old = '''  lf-front-by 0< if lfa-e-check-here else lfa-e-check-in-by then ;'''
+new = '''  lfa-e-check-here ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab re-check L1: #check in a tactic block reported with the term position's text, where Lean would end the block"
+
+[[fault]]
+id = "fe-elab-129-no-detail"
+file = "src/front/elab-decl.fs"
+old = ''': edc-fail ( outcome -- ) edc-detail lf-elab-code swap lfa-fail-see ;'''
+new = ''': edc-fail ( outcome -- ) lf-elab-code swap lfa-fail-see ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab re-check L2: 129 without Lean's indentExpr of the instance"
+
+[[fault]]
+id = "fe-elab-129-tactic-no-detail"
+file = "src/front/elab-decl.fs"
+old = ''': edc-tac-fail ( outcome -- ) edc-detail lf-elab-code lfa-see! lf-tac-stop ;'''
+new = ''': edc-tac-fail ( outcome -- ) lf-elab-code lfa-see! lf-tac-stop ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab re-check L2: 129 in a tactic's term without Lean's indentExpr of the instance"
+
+[[fault]]
+id = "fe-elab-error-term-kept"
+file = "src/front/elab-pending.fs"
+old = ''': lf-elab-error-reset ( -- ) 0 ep ep-code ! -1 ep ep-where ! -1 ep ep-term ! ;'''
+new = ''': lf-elab-error-reset ( -- ) 0 ep ep-code ! -1 ep ep-where ! ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review s1-elab re-check L2: a forgotten error's term shown under a later error"
+
+[[fault]]
+id = "pr-print-sink-type"
+file = "src/present/print-job.fs"
+old = ''': lf-print-sink ( -- sink ) lf-pjob lf-pjob-sink @ ;'''
+new = ''': lf-print-sink ( -- sink ) ['] type ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "review s1-elab re-check L4: a message's term printed to TYPE instead of the message's sink"
+
+[[fault]]
+id = "pr-print-with-kept"
+file = "src/present/term-printer.fs"
+old = '''  lf-print-settings 2>r lf-print-unicode lf-print-setup catch 2r> lf-print-setup throw ;'''
+new = '''  lf-print-settings 2>r lf-print-unicode lf-print-setup execute 2r> lf-print-setup ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "review s1-elab re-check L5: lf-print-with leaves its sink and Unicode set after a THROW"
+
+[[fault]]
+id = "pr-print-with-mode-kept"
+file = "src/present/term-printer.fs"
+old = '''  lf-print-settings 2>r lf-print-unicode lf-print-setup catch 2r> lf-print-setup throw ;'''
+new = '''  lf-print-settings 2>r lf-print-settings nip lf-print-setup catch 2r> lf-print-setup throw ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "review s1-elab re-check L5: lf-print-with prints in the caller's mode, not Unicode (a message in ASCII or LaTeX)"
+
+[[fault]]
+id = "pr-print-to-notation-kept"
+file = "src/present/term-printer.fs"
+old = '''  lf-print-notation? >r ['] lf-pp-to catch r> lf-print-notation! throw ;'''
+new = '''  ['] lf-pp-to catch throw ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "review s1-elab re-check L5: lf-print-to leaves the notation flag as it set it"
+
+[[fault]]
+id = "lib-slab-remove-unmark-at-i"
+file = "src/lib/slab.fs"
+old = '''  2dup slab-unmark-above tuck slab-close-up dup slab-count 1- swap slab-cut ;'''
+new = '''  tuck slab-close-up dup slab-count 1- swap slab-cut ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-elab re-check M1: slab-remove keeps the marks between i and the new count, so a rollback keeps a unit claimed after the mark"
+
+[[fault]]
+id = "lib-slab-remove-unmark-below"
+file = "src/lib/slab.fs"
+old = '''  2dup slab-unmark-above tuck slab-close-up dup slab-count 1- swap slab-cut ;'''
+new = '''  over 1- over slab-unmark-above tuck slab-close-up dup slab-count 1- swap slab-cut ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-elab re-check M1: slab-remove also refuses a mark at i, whose units did not move"
+
+[[fault]]
+id = "lib-slab-remove-unmark-above-next"
+file = "src/lib/slab.fs"
+old = '''  2dup slab-unmark-above tuck slab-close-up dup slab-count 1- swap slab-cut ;'''
+new = '''  over 1+ over slab-unmark-above tuck slab-close-up dup slab-count 1- swap slab-cut ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-elab re-check 2 M: slab-remove keeps a mark at exactly i + 1, below the new count, which then names other units"
+
+[[fault]]
+id = "fe-elab-fail-term-always-stored"
+file = "src/front/elab-pending.fs"
+old = '''  ep ep-code @ if nip else swap ep ep-term ! then lf-elab-fail ;'''
+new = '''  swap ep ep-term ! lf-elab-fail ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "review s1-elab re-check 2 L1: a later error's term replaces the first error's, so the message shows a term of another error"
 
 # --- S2 merge A: unfoldDefinition? (src/front/unfold.fs), whnf's delta
 # and parts (src/front/whnf.fs), lazy delta (src/front/defeq-delta.fs);

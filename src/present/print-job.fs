@@ -89,6 +89,9 @@ end-structure
 \ a while and then sets them back.
 : lf-print-settings ( -- sink options )
   lf-pjob dup lf-pjob-sink @ swap lf-pjob-options @ ;
+\ The sink alone, for a caller that prints a part of its text through it
+\ (a message's term, to the message's sink).
+: lf-print-sink ( -- sink ) lf-pjob lf-pjob-sink @ ;
 \ Notation (print-notation.fs): off until the caller turns it on; it
 \ survives lf-print-setup, which sets only the sink and the options.
 : lf-print-notation! ( flag -- ) lf-pjob lf-pjob-notation ! ;

@@ -408,6 +408,14 @@
   ],
   "tokens": 22
  },
+ "41c780bc6e5c": {
+  "copies": 2,
+  "members": [
+   "src/front/elab-app.fs:lf-elab-ensure",
+   "src/kernel/env-schedule.fs:lf-sch-root"
+  ],
+  "tokens": 8
+ },
  "443723561ac6": {
   "copies": 2,
   "members": [

@@ -5,7 +5,7 @@ tactic record 1: 6 steps
 3 rfl 14:19 in 2 text 14:12-14:25
 4 alt 15:3 in 1 text 14:25-15:45 tag succ => 15:15 inner 1 k@15:10 ih@15:12
 5 rw 15:19 in 4 text 15:17-15:45 inner 0 Nat.add_succ@15:28 ih#2@15:41
-error 71 at line:col 17:1 (token `end`): not supported yet: elaborating natural LeanForth (plan FE1e-f)
+error 139 at line:col 17:1 (token `end`): not supported yet: an elaboration step (plans FE2-FE5, S2)
 tactic record 1: 6 steps
 0 by 13:4 in - text 13:4-17:14 inner 3
 1 induction 14:5 in 0 text 13:6-14:17 v0@14:3
@@ -13,15 +13,15 @@ tactic record 1: 6 steps
 3 rfl 15:26 in 2 text 15:19-15:32
 4 case 16:3 in 0 text 15:65-16:65 tag succ => 16:22 inner 1 k@16:17 ih@16:19
 5 exact 16:49 in 4 text 16:24-16:57 ( congrArg Nat.succ ih#2 )@16:40
-error 71 at line:col 17:1 (token `end`): not supported yet: elaborating natural LeanForth (plan FE1e-f)
+error 139 at line:col 17:1 (token `end`): not supported yet: an elaboration step (plans FE2-FE5, S2)
 tactic record 1: 2 steps
 0 by 5:54 in - text 5:54-5:80 inner 1
 1 rfl 5:58 in 0 text 5:56-5:64
-error 71 at line:col 5:67 (token `end`): not supported yet: elaborating natural LeanForth (plan FE1e-f)
+error 139 at line:col 5:67 (token `end`): not supported yet: an elaboration step (plans FE2-FE5, S2)
 tactic record 1: 2 steps
 0 by 5:54 in - text 5:54-5:99 inner 1
 1 exact 5:73 in 0 text 5:56-5:81 ( Nat.zero_add v0 )@5:60
-error 71 at line:col 5:84 (token `end`): not supported yet: elaborating natural LeanForth (plan FE1e-f)
+error 139 at line:col 5:84 (token `end`): not supported yet: an elaboration step (plans FE2-FE5, S2)
 tactic record 1: 10 steps
 0 by 16:4 in - text 16:4-25:20 inner 1
 1 induction-with 17:5 in 0 text 16:6-24:9 inner 0 v0@17:3
@@ -33,4 +33,4 @@ tactic record 1: 10 steps
 7 rw 21:21 in 6 text 21:14-21:47 inner 0 Nat.add_succ@21:30 ih#2@21:43
 8 alt 22:5 in 5 text 21:47-22:32 tag succ => 22:17 inner 1 j@22:12 ih@22:14
 9 exact 22:24 in 8 text 22:19-22:32 ih#7@22:21
-error 71 at line:col 25:1 (token `end`): not supported yet: elaborating natural LeanForth (plan FE1e-f)
+error 139 at line:col 25:1 (token `end`): not supported yet: an elaboration step (plans FE2-FE5, S2)

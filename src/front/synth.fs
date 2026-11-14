@@ -55,7 +55,9 @@
 \   (mctx-epoch@). Lean's __wild__ wildcards are the loose bound
 \   variable sy-tc-base - 1 and the level parameter named __wild__.
 \ - lf-try-synth ( type -- inst code outcome ): trySynthInstance (1018):
-\   lf-synth-some, lf-synth-none, or lf-synth-undef for the stuck signal.
+\   lf-synth-some, lf-synth-none, or lf-synth-undef for the stuck signal;
+\   it searches through defeq.fs's hook lf-meta-synth (this file's
+\   lf-synth-instance), so a test can stand in for the search.
 \ - lf-synth-pending ( mvar -- flag outcome ): synthPendingImp (1037):
 \   false for a synthetic opaque metavariable, one whose type is no class
 \   and past maxSynthPendingDepth (lf-synth-max-pending) nested calls;
@@ -257,10 +259,8 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
   then ;
 : lf-synth-key ( type -- key outcome ) dup sy-scan ok-then? if sy-key-made else
   no-result then ;
-: sy-type-of ( mvar -- type outcome )
-  lf-mvar-type 0= if -1 outcome-invalid exit then lf-instantiate-mvars ;
-: sy-key-for ( mvar -- key outcome ) sy-type-of ok-then? if lf-synth-key else no-result
-  then ;
+: sy-key-for ( mvar -- key outcome )
+  lf-mvar-type-instantiated ok-then? if lf-synth-key else no-result then ;
 
 \ ---- The table: this search's entries (Lean's tableEntries), each a
 \ goal's key with its waiters and answers as runs (lib/runs.fs), found by
@@ -313,7 +313,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
   dup >r sy-cands-copy ok-then? 0= if nip r> drop exit then
   over sgn@ sg-first ! r> swap sgn@ sg-idx ! outcome-ok ;
 : sy-gen-goal ( g -- g type outcome )   \ instantiated, its metavariables noted
-  dup sgn@ sg-mvar @ sy-type-of ok-then? 0= if no-result exit then
+  dup sgn@ sg-mvar @ lf-mvar-type-instantiated ok-then? 0= if no-result exit then
   dup sy-mvar? ok-then? 0= if nip no-result exit then >r over r> swap sgn@ sg-open !
   outcome-ok ;
 : sy-inst-code ( addr n outcome -- addr n outcome )   \ the table's code, when it set one
@@ -415,8 +415,8 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
 : sy-telescope ( val type -- val' body outcome )
   begin sy-inst-step ok-then? 0= if exit then while repeat outcome-ok ;
 : sy-inst-val ( i -- val outcome )
-  elab-instance@ 2drop elab-decl-name lf-menv-find ok-then? if lf-meta-const-fresh else
-  no-result then ;
+  elab-instance@ 2drop lf-menv-of-data ok-then? if lf-meta-const-fresh else no-result
+  then ;
 : sy-inst-type ( i -- val type outcome ) sy-inst-val ok-then? if dup lf-infer else
   sy-no2 then ;
 : sy-val! ( val body c -- ) scn@ tuck sc-ibody ! sc-val ! ;
@@ -685,8 +685,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
 
 \ ---- trySynthInstance and synthPendingImp.
 : lf-try-synth ( type -- inst code outcome )
-  lf-synth-instance dup lf-meta-stuck = if drop 2drop -1 lf-synth-undef outcome-ok exit
-  then
+  lf-meta-synth dup lf-meta-stuck = if drop 2drop -1 lf-synth-undef outcome-ok exit then
   dup ok? 0= if nip lf-synth-none swap exit then drop
   if lf-synth-some else lf-synth-none then outcome-ok ;
 : sy-opaque? ( mvar -- flag outcome )

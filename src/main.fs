@@ -90,6 +90,14 @@ require ./front/goal-print.fs
 require ./front/instances.fs
 \ Instance search (plan FE1e5), which sets defeq.fs's synthesis hooks.
 require ./front/synth.fs
+\ The elaborator (plan S1, FE1e6-7): pending instance problems and default
+\ instances, applications, terms, and the glue that elaborates natural
+\ declarations, by-exact's terms and #check (front/elab-decl.fs sets the
+\ reader's, the hand-over's and the tactics' hooks).
+require ./front/elab-pending.fs
+require ./front/elab-app.fs
+require ./front/elab-term.fs
+require ./front/elab-decl.fs
 
 \ The command line: check, replay, print, count, reexport, version,
 \ capabilities. It loads the staging of exports into the checker's input,

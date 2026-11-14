@@ -61,7 +61,15 @@ status changes when this date is older than them. Stages are those of the
   Init, `make reference-synth` gives pinned Lean's `#synth` answer after the same candidates for 24 of 30 problems
   (S1's three stuck ones stuck after Lean's one candidate, `OfNat Nat 0`, `Add Nat`); the five with an out-parameter
   (`HAdd Nat Nat ?c`, ...) answered unsupported before S2 merge A's lazy delta (equal to Lean's on a trial merge with
-  it; both now on main), `BEq Nat` until FE1e5b (a goal that is a pi). Nothing is proved by LeanForth yet. Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
+  it; both now on main), `BEq Nat` until FE1e5b (a goal that is a pi). S1's last
+  branch `s1-elab` (integrated: merged to main 2026-11-14 after a Forth review, two fix rounds and three re-checks,
+  [parser] and [bypass] approved by the owner):
+  the elaborator FE1e6-7 (applications with hidden arguments, `binrel%`/`binop%`, numerals, default instances, the
+  declaration glue, `#check`, `--elab-fuel`) written and tested alone, instance search running in the command
+  line's run mode: on the S1 slice `bin/leanforth check ... tests/front/s1-rfl.lf` has LeanForth elaborate
+  `theorem t : 0 + 0 = 0 := by rfl` (node for node pinned Lean's) and the kernel accept it, `s1-check.lf` prints
+  `0 + 0 = 0 : Prop`, the wrong twin fails with Lean's rfl message (`tests/front/check_elab.py`;
+  [ELABORATION.md](../user/ELABORATION.md)); S1's done check on all of `Init` is owed. LeanForth re-checks; it has not proved a theorem of its own. Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
 - Program track, restarted 2026-11-12 after being parked since 2026-11-04: LeanForth re-checks Lean's proofs of
   the clamp word's obligations (plan 5.5.1): works end to end (done check docs/development/done-checks/2026-11-12-program-track.md); owner gates [bypass] and [runtime] approved 2026-11-12, merged.
   `python3 scripts/program_receipt.py export OUT.ndjson` has pinned Lean export the contract theorem and its two

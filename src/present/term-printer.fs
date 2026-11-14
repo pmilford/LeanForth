@@ -18,6 +18,8 @@
 \   lf-print-setup ( sink options -- )   sink xt ( c-addr u -- ); a mode
 \     (lf-print-unicode, lf-print-ascii or lf-print-latex) plus option bits
 \     (lf-print-universes shows universe arguments, c.{u}).
+\   lf-print-settings ( -- sink options ), lf-print-sink ( -- sink )  the
+\     settings lf-print-setup made, both or the sink alone
 \   lf-print-term ( term fuel -- outcome )       a closed term
 \   lf-print-statement ( term fuel -- outcome )  a theorem's statement: its
 \     Pi spine is printed as a proposition (∀) whatever the quick test says
@@ -33,6 +35,13 @@
 \     terms (the comparison that groups binders), for the goal printer
 \   lf-pp-open-leaf ( term -- outcome )  deferred: prints a free variable
 \     or metavariable (front/goal-print.fs installs it); unset, invalid
+\   lf-print-with ( i*x xt sink -- j*x )  xt run with the printer's sink
+\     set to sink, in Unicode; the sink and options before it given back
+\     after, on a THROW too (passed on)
+\   lf-print-to ( term sink notation? -- outcome )  a closed term printed
+\     so, the notation flag set as given (and given back after), with
+\     lf-print-fuel-each units of fuel: the front end's messages, traces
+\     and #check lines
 \ ok: printed. invalid: malformed input (bad index, stale reference,
 \ unknown tag, a variable outside the term's binders, a corrupted name
 \ store), a busy printer, negative fuel, or a print during which the sink
@@ -504,3 +513,15 @@ lf-pp-steps-applied
   lf-pp-busy? if 2drop 2drop outcome-invalid else lf-pp-math-run then ;
 : lf-print-inline ( term fuel -- outcome ) s" $" lf-pp-math ;
 : lf-print-display ( term fuel -- outcome ) s" $$" lf-pp-math ;
+
+\ A print to another sink for a while (the front end's messages, traces
+\ and #check): the settings, and lf-print-to's notation flag, given back
+\ however it ends.
+100000 constant lf-print-fuel-each   \ fuel of each term lf-print-to prints
+: lf-print-with ( i*x xt sink -- j*x )
+  lf-print-settings 2>r lf-print-unicode lf-print-setup catch 2r> lf-print-setup throw ;
+: lf-pp-to ( term notation? -- outcome )
+  lf-print-notation! lf-print-fuel-each lf-print-term ;
+: lf-pp-noted ( term notation? -- outcome )
+  lf-print-notation? >r ['] lf-pp-to catch r> lf-print-notation! throw ;
+: lf-print-to ( term sink notation? -- outcome ) ['] lf-pp-noted rot lf-print-with ;

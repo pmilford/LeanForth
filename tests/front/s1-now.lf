@@ -1,0 +1,61 @@
+\ What LeanForth's elaborator does (plan S1; src/front/elab-decl.fs):
+\ #check lines and theorems, with numerals, + and the default instances
+\ (S1's own: #check 0 + 0 = 0 and theorem t, tests/front/s1-rfl.lf),
+\ each elaborated by LeanForth, the theorems checked by the kernel. Lean:
+\ tests/front/s1-now.lean; the #check lines print as Lean's, the
+\ theorems' types and values equal Lean's node for node
+\ (tests/front/check_elab.py, tests/front/s1-now.golden).
+\   bin/leanforth check --env tests/front/s1-slice.ndjson
+\     --elab-data tests/front/s1-slice.elab.ndjson tests/front/s1-now.lf
+Nat.zero Nat.zero = #check
+Nat.zero Eq.refl #check
+0 0 + 0 = #check
+theorem zero_eq
+  Nat.zero Nat.zero =
+:= by
+  by-rfl
+end zero_eq
+theorem zero_eq_term
+  Nat.zero Nat.zero =
+:=
+  Nat.zero Eq.refl
+end zero_eq_term
+theorem self_eq
+  Nat explicit: n
+  n n =
+:=
+  n Eq.refl
+end self_eq
+theorem succ_eq
+  Nat explicit: n
+  n Nat.succ n Nat.succ =
+:= by
+  by-rfl
+end succ_eq
+theorem succ_eq_exact
+  Nat explicit: n
+  n Nat.succ n Nat.succ =
+:= by
+  n Nat.succ Eq.refl by-exact
+end succ_eq_exact
+theorem t
+  0 0 + 0 =
+:= by
+  by-rfl
+end t
+theorem zero_eq_zero
+  0 0 =
+:=
+  0 Eq.refl
+end zero_eq_zero
+theorem two_add_two
+  2 2 + 4 =
+:= by
+  by-rfl
+end two_add_two
+theorem add_self
+  Nat explicit: n
+  n n + n n + =
+:=
+  n n + Eq.refl
+end add_self

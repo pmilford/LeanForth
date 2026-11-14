@@ -1367,3 +1367,16 @@ a branch run the focused tests and faults of what they touch; main runs the full
 push; at most two suites run at once. `make coverage-check` already stands for `make test` on Gforth 1.0 in the full
 tier (plan 9.4.6); only `test-cli` runs in both, on purpose, for its `gforth-fast` runs.
 
+### [parser] and [bypass]: S1's elaborator (2026-11-14)
+
+The owner approved the [bypass] and [parser] gates for branch `s1-elab` (FE1e6-7: LeanForth text such as
+`theorem t 0 0 + 0 = := by by-rfl end t` is elaborated with Lean's hidden arguments, instances and default numerals and
+the finished terms are checked by the kernel as an export's are; `#check` between declarations; `--elab-fuel`). [bypass]:
+nothing the elaborator builds is accepted without the kernel (a planted wrong term is rejected by the kernel; switching
+off the kernel's comparison fails the tests; all 4,276 out-of-memory points of S1's theorem end in a refusal or the
+identical accepted theorem). [parser]: `#check` inside a declaration is refused, in a term position with Lean's parser
+message (140), inside a `by` block with a message saying Lean would end the tactic block there (141), both checked
+against pinned Lean. After a Forth review, two fix rounds and three re-checks
+([review](../development/forth-reviews/2026-11-13-s1-elab.md)); the last re-check's minor items are plan 9.4.8k
+items for the front pass. S1 is called done only after the done checker runs it on all of `Init`.
+

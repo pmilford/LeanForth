@@ -1,0 +1,13 @@
+\ S1's end (docs/design/S1_INTERFACE.md, the owner's page): 0 + 0 = 0 by
+\ rfl, its statement elaborated by LeanForth, the proof term
+\ @Eq.refl.{1} Nat (0 + 0) built by by-rfl and checked by the kernel.
+\ Lean: theorem t : 0 + 0 = 0 := by rfl (tests/front/s1-rfl.lean).
+\   bin/leanforth check --env tests/front/s1-slice.ndjson
+\     --elab-data tests/front/s1-slice.elab.ndjson tests/front/s1-rfl.lf
+\ Accepted; its type and value equal pinned Lean's node for node
+\ (tests/front/check_elab.py, the t lines of tests/front/s1-now.golden).
+theorem t
+  0 0 + 0 =
+:= by
+  by-rfl
+end t

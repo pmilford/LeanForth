@@ -26,8 +26,8 @@
 \   step not ported yet (the beta step and delayed assignments, plan
 \   FE1c); full for no room.
 \ - In natural text, end NAME runs the elaborator (lf-front-elaborate, a
-\   deferred word plan FE1e sets; until then error 71, not supported yet,
-\   as before), then lf-front-hand-over, which stops the run at end NAME on
+\   deferred word front/elab-decl.fs sets; error 71, not supported yet,
+\   without it), then lf-front-hand-over, which stops the run at end NAME on
 \   a refusal: error 74 for a hole left, 75 for an unused universe
 \   parameter, 76 for terms that are malformed (no node, a value unfit for
 \   the kind), 77 for an instantiation step not ported yet, 60 for no

@@ -30,8 +30,11 @@
 \   metavariable, a Sort, a literal or a bound variable (false: it might
 \   be a class, which only class facts decide, plan FE1e1).
 \ - lf-meta-unassigned? ( mvar -- flag ): no plain assignment.
-\ Binder kinds: from the head's declared type (a constant's input type,
-\ else the type itself), never from a copy: an input binder's from its
+\ Binder kinds: a constant head's from meta-env's record of its declared
+\ type (lf-menv-kinds, S1 4: the run mode's library and text declarations,
+\ branch s1-elab), as far as it gives them; else from the head's declared
+\ type (a constant's input type, else the type itself), never from a
+\ copy: an input binder's from its
 \ record; a store binder named in the binder table answers unsupported,
 \ since the store shares equal nodes and the name may be another
 \ binder's; one not named is explicit. Unsupported too where whnf makes
@@ -64,6 +67,7 @@ require ./prop-quick.fs
 3 cells context-slab: fi-params
 begin-structure /fi
   field: fi-source   \ the declared type's pi of the next parameter, or -1
+  field: fi-decl     \ the head constant's declaration, or -1
 end-structure
 /fi context-record: fi-state
 
@@ -121,10 +125,15 @@ end-structure
 : fi-src ( -- addr ) fi-state fi-source ;
 : fi-store-kind ( pi -- kind true | false )
   lf-pres-binder@ if 2drop false else lf-binder-default true then ;
-: fi-kind ( -- kind true | false )
+: fi-source-kind ( -- kind true | false )
   fi-src @ dup 0< if drop false exit then
   dup lf-term-input? if lf-term-input-binder@ if nip true else false then exit then
   fi-store-kind ;
+\ A constant head's kinds as meta-env records them (S1 4: the tier's
+\ binder tags, a text declaration's binder words), parameter by parameter.
+: fi-decl-kind ( -- kind true | false )
+  fi-state fi-decl @ dup 0< if drop false exit then fi-params slab-count lf-menv-kind@ ;
+: fi-kind ( -- kind true | false ) fi-decl-kind if true else fi-source-kind then ;
 : fi-next-src ( -- )
   fi-src @ dup 0< 0= if
     dup lf-term-pi? if lf-term-second@ else drop -1 then then
@@ -151,10 +160,7 @@ end-structure
 \ ---- Higher-order out-parameters (see the header).
 \ outParam T and semiOutParam T are T (Init's reducible definitions
 \ outParam (α : Sort u) := α, which whnf unfolds at any transparency).
-: fi-param-wrapper? ( t -- flag )
-  dup lf-term-app? 0= if drop false exit then lf-term-first@
-  dup s" outParam" lf-meta-const-named? swap s" semiOutParam" lf-meta-const-named? or ;
-: fi-unwrap ( t -- t' ) begin dup fi-param-wrapper? while lf-term-second@ repeat ;
+: fi-unwrap ( t -- t' ) begin dup lf-meta-out-param? while lf-term-second@ repeat ;
 : fi-maybe-pi? ( type -- flag outcome )
   fi-unwrap dup lf-term-pi? if drop true outcome-ok exit then
   lf-whnf-core ok-then? 0= if false swap exit then
@@ -166,16 +172,15 @@ end-structure
   swap begin dup lf-term-app? while
     2dup lf-term-second@ swap fi-ho-arg? ok-then? 0= if nip nip false swap exit then
     if 2drop true outcome-ok exit then lf-term-first@ repeat 2drop false outcome-ok ;
-: fi-strip ( T -- body ) begin dup lf-term-pi? while lf-term-second@ repeat ;
 \ isClassQuick? answers none for these heads: no class.
 : fi-not-class? ( head -- flag )
   dup lf-mvar? if lf-meta-unassigned? exit then
   lf-term-tag@ dup lf-tag-fvar = over lf-tag-symbolic-sort = or over lf-tag-sort = or
   over lf-tag-lit = or swap lf-tag-bvar = or ;
-: lf-meta-class-none? ( type -- flag ) fi-strip lf-meta-head fi-not-class? ;
+: lf-meta-class-none? ( type -- flag ) lf-meta-forall-body lf-meta-head fi-not-class? ;
 : fi-ho? ( i -- flag outcome )
   dup lf-meta-param drop lf-binder-default = if drop false outcome-ok exit then
-  dup fi-x lf-fvar-type fi-strip dup lf-meta-head fi-not-class?
+  dup fi-x lf-fvar-type lf-meta-forall-body dup lf-meta-head fi-not-class?
   if 2drop false outcome-ok exit then swap fi-ho-args? ;
 
 \ ---- getFunInfoNArgs.
@@ -189,11 +194,13 @@ end-structure
 : fi-props ( -- outcome ) fi-params slab-count ['] fi-prop-at ok-each ;
 \ The kinds' source: a constant's declared (input) type, else the type.
 \ fi-run's inferType has just found f's declaration (a refused decode
-\ ends there, passed on), so this lookup of it is ok.
+\ ends there, passed on), so this lookup of it is ok; -1 when f is no
+\ constant.
+: fi-head-decl ( f -- )
+  dup lf-term-const? if lf-meta-const-decl drop else drop -1 then fi-state fi-decl ! ;
 : fi-declared ( f type -- )
-  swap dup lf-term-const?
-  if nip lf-meta-const-decl ok? if lf-menv-type else drop -1 then else drop then
-  fi-src ! ;
+  over fi-head-decl swap lf-term-const?
+  if drop fi-state fi-decl @ dup 0< 0= if lf-menv-type then then fi-src ! ;
 : fi-run ( f n -- m outcome )
   fi-params slab-clear over lf-infer ok-then? 0= if nip nip no-result exit then
   rot over fi-declared swap fi-telescope dup ok? if drop fi-props then

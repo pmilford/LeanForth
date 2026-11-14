@@ -31,6 +31,10 @@
 \   ReducibilityHints.lt), then unfoldComparingHeadsDefEq (1726: a side
 \   whose unfolding has the other's head symbol alone, else both).
 \ Each fallback runs where Lean's does when a side does not unfold.
+\ lf-delta-unfolded ( e -- ) is called with each term a step of this
+\ file unfolds, before it unfolds (Meta's delta trace, for the
+\ elaborator's tests: front/elab-pending.fs's trace sets it); by default
+\ it does nothing.
 \ Untrusted and fail-closed: a fact meta-env.fs does not have
 \ (reducibility, projection, matcher, a text declaration's height) or a
 \ step whnf.fs answers unsupported aborts the comparison unsupported,
@@ -63,7 +67,11 @@ require ./defeq.fs
 lf-walk-room context-walk: dd-walker
 
 \ ---- Unfolding and comparing.
-: dd-unfold ( e -- e' flag ) ['] lf-meta-unfold de-mode-at de-must and ;
+defer lf-delta-unfolded ( e -- )   \ a trace's hook; nothing by default
+' drop is lf-delta-unfolded
+: dd-noted ( e e' flag -- e' flag ) rot over if lf-delta-unfolded else drop then ;
+: dd-unfold ( e -- e' flag )
+  dup ['] lf-meta-unfold de-mode-at de-must and dd-noted ;
 : dd-core ( e -- e' flag ) ['] lf-whnf-core de-mode-at de-must ;
 : dd-compare ( t s -- ) ['] de-pass de-solve ;
 : dd-undef ( -- ) lf-lb-undef de-return ;
