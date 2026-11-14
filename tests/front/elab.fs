@@ -152,11 +152,15 @@ T{ s" axiom z6 Nat.zero 0 = end z6" nrun ty zero 0 num eq-nat same? va -> outcom
 \ instance instHAdd and then Add Nat; @Eq.refl.{1} Nat (0 + 0).
 T{ s" theorem t 0 0 + 0 = := by by-rfl end t" nrun -> outcome-ok }T
 T{ ty 0 num 0 num hadd 0 num eq-nat same? va 0 num 0 num hadd refl-nat same? -> true true }T
-\ HAdd.hAdd applied by name with an expected type: finalize's
-\ trySynthesizeAppInstMVars fills its instance (HAdd Nat Nat ?c) and
+\ HAdd.hAdd applied by name (Lean.Internal.coeM is in the slice, so its
+\ result is the out-parameter of its local instance: finalize
+\ synthesizes, as Lean's resultIsOutParamSupport); @OfNat.ofNat ?a 0 ?i
+\ against Nat.succ's Nat (pinned Lean: axiom p2 : Nat.succ (OfNat.ofNat
+\ 0) = ...): finalize's trySynthesizeAppInstMVars fills OfNat Nat 0 and
 \ takes it out of the list.
 T{ s" theorem q4 Nat.zero Nat.zero HAdd.hAdd Nat.zero Nat.zero HAdd.hAdd = := Nat.zero Nat.zero HAdd.hAdd Eq.refl end q4"
    nrun ty zero zero hadd zero zero hadd eq-nat same? -> outcome-ok true }T
+T{ s" axiom p2 0 OfNat.ofNat Nat.succ Nat.zero Nat.succ = end p2" nrun -> outcome-ok }T
 \ A leaf of unknown type under +, with two default instances of HAdd
 \ (a stand-in list): hasHeterogeneousDefaultInstances scans them, finds
 \ neither heterogeneous, and the leaf is made the max type's.
@@ -249,7 +253,9 @@ T{ 6 lf-elab-fuel! s" axiom a7 Nat end a7" nfails -> 138 1 14 }T
 lf-meta-default-budget lf-elab-fuel!
 
 \ ---- 2. Malformed and unknown: a variable no parameter gives; a name
-\ the library lacks is the reader's (error 1, before elaboration).
+\ the library lacks is the reader's (error 1, before elaboration); the
+\ type of a term that is no live metavariable (mvars.fs).
+T{ zero lf-mvar-type-instantiated -> -1 outcome-invalid }T
 T{ lf-elab-reset 7 syn-k-var 0 syn-new drop swap syn-a! -1 lf-elab-term
    -> -1 outcome-invalid }T
 

@@ -285,20 +285,25 @@
    "never_run": 0,
    "reason": "new file (plan FE1a-b, 2026-11-12; tightened at the merge, review fe1ab re-check): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded and the reader default finder before cli/check-lf.fs sets it are never run"
   },
-  "src/front/discr-keys.fs": {
-   "blocks": 468,
-   "never_run": 22,
-   "reason": "plan FE1e2, branch s1-synth (lowered at the review fix, 2026-11-13; measured over make test-instances): never run are getUnifyKeyArgs' stuck tests that reduceDT never lets a key reach today: a reducible constant (reduceDT unfolds it first, unsupported until plan S2's delta) and a matcher with a metavariable discriminant (whnfCore refuses a matcher head until plan S3), with their status and matcher lookups; and two refusals of Meta lookups of a constant the data's stage has (lf-meta-const-decl, dk-declared after whnf found it): the stage and the context are one library; plan S2 merge A: the refusal of dk-decl's lookup now reaches its caller (lf-meta-const-decl passes the lookup's outcome on)"
+  "src/front/defeq-delta.fs": {
+   "blocks": 262,
+   "never_run": 20,
+   "reason": "new file (plan S2 merge A, branch s2-unfold, 2026-11-13; after review s2-unfold-a, measured over make test-front, check_defeq.py --golden's 157 cases): never run are the refusals for a fact meta-env.fs does not have (a text declaration's height in dd-key and tryHeuristic's test, a reducibility, projection or unfoldable answer, the aborted branches after them, a definition without its value) and isSimple's walk refused (room or fuel); and decision branches no case reaches today: the opaque key and tryHeuristic's opaque hint (only a theorem has one, at transparency all, and proof irrelevance compares proofs first), packedInstanceOf? reaching a head that is no constant (the slice's class projections HAdd.hAdd and Add.add meet isDefEqOffsetNat's instance test first, a FE1c gap), an unknown constant inside that loop (values name declarations), isSimple's projection and unknown leaves (no regular definition of height at most 2 in the slice has a projection in its value), an abbreviation that is no projection function at tryHeuristic (the slice's are auxiliary recursors, which whnfCore answers unsupported first, S2 merge B), two constants of one name with equal levels (isDefEqQuick decides them) and one whose left side does not unfold (a universe-polymorphic smart-unfolding constant: none in the slice)"
   },
   "src/front/defeq.fs": {
    "blocks": 1285,
    "never_run": 153,
    "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front, with tests/front/defeq.fs and check_defeq.py --golden's 90 cases): never run are failure branches inside the machine's steps that the two allocation-refusal scans do not reach (a frame, cell, mark or new term refused, an eqv, whnfCore, inferType or instantiation failing midway), the steps after an earlier abort (aborts are sticky, the step only returns), the stalled-step guard (a broken step), and Lean paths the slice's fixtures do not meet: instance-implicit arguments with a stuck metavariable (trySynthPending), eta-unassigned implicit arguments, a first-order approximation whose lhs cannot be built, quasi-pattern arguments (isTypeCorrect), processAssignment' retrying after a tainted level comparison"
   },
+  "src/front/discr-keys.fs": {
+   "blocks": 468,
+   "never_run": 22,
+   "reason": "plan FE1e2, branch s1-synth (lowered at the review fix, 2026-11-13; measured over make test-instances): never run are getUnifyKeyArgs' stuck tests that reduceDT never lets a key reach today: a reducible constant (reduceDT unfolds it first, unsupported until plan S2's delta) and a matcher with a metavariable discriminant (whnfCore refuses a matcher head until plan S3), with their status and matcher lookups; and two refusals of Meta lookups of a constant the data's stage has (lf-meta-const-decl, dk-declared after whnf found it): the stage and the context are one library; plan S2 merge A: the refusal of dk-decl's lookup now reaches its caller (lf-meta-const-decl passes the lookup's outcome on)"
+  },
   "src/front/elab-app.fs": {
    "blocks": 618,
-   "never_run": 235,
-   "reason": "new file (plan S1, branch s1-elab, 2026-11-13), not yet reviewed; scripts/coverage.py --uncovered lists the blocks. elabAppArgs' paths no S1 input reaches before instance search (synth.fs, FE1e5) and S2 merge A's lazy delta let numerals and + finish: the out-parameter walk (isNextOutParam, a class's out-parameters, as HAdd's), trySynthesizeAppInstMVars (ea-try-*), propagateExpectedType's resulting type (ea-r-*), optional and auto parameters (ea-opt-*; no slice declaration has one), strict-implicit binders, an explicit binder left without an argument (ea-no-arg; the reader gives every explicit binder one), a function type normalized by synthesis (ea-normalize), and refusals of the Meta layer and the heap inside these steps"
+   "never_run": 142,
+   "reason": "plan S1, branch s1-elab, after review s1-elab H2 (2026-11-14; measured over make test): never run are (a) refusals of the heap and the Meta layer at each step (lf-elab-app-new, ea-type, ea-add, ea-inst-args, ea-whnf, ea-against, ea-instance, ea-implicit, ea-pend, ea-r-start, ea-r-reduced, ea-resulting, ea-prop-*, ea-expected-done, ea-out-done, ea-try-*, ea-step-done, ea-explicit, ea-result, the frames' unused visitor); (b) optional and auto parameters, which no slice declaration has (ea-opt-*, ea-r-last, the optParam branches of ea-r-pi and ea-no-arg: 134), an explicit binder left without an argument (ea-no-arg: the reader gives every explicit binder one), a strict-implicit binder (ea-strict, ea-r-pi), a function type that only synthesis or a coercion makes a pi (ea-normalize, ea-normalized, ea-synth-yes: 131), postponing (ea-postpone?'s 132 through syntax: a head whose type is a metavariable is tested directly); (c) the out-parameter walk's corners (ea-class-outs, ea-dom-hit?, ea-outs-hit?, ea-pos-hit?, ea-binder-out?: an instance binder of a class without data or with no out-parameter at the result, a binder of unknown kind, 136), the data's tag test without a stage (ea-tagged?: every S1 run has the library), and a binder index no kind covers (ea-binder, 136)"
   },
   "src/front/elab-data.fs": {
    "blocks": 1055,
@@ -307,8 +312,8 @@
   },
   "src/front/elab-decl.fs": {
    "blocks": 126,
-   "never_run": 18,
-   "reason": "new file (plan S1, branch s1-elab, 2026-11-13), not yet reviewed; scripts/coverage.py --uncovered lists the blocks. failure paths of the declaration glue: a tactic's term elaboration that fails (edc-tac-fail, edc-tac-run; reached once by-exact elaborates terms with instances), #check of a term or type the elaborator refuses (edc-check-term, edc-check-type), and the heap refusing a binder's local or free variable (edc-local, edc-fvar)"
+   "never_run": 6,
+   "reason": "plan S1, branch s1-elab, after review s1-elab H2 (2026-11-14; measured over make test): never run are only refusals of the heap and the Meta layer: a binder's local declaration or its view refused (edc-local, edc-fvar, edc-binder), the statement's instantiation refused (edc-statement), #check's instantiation and inferType refused (edc-check-term, edc-check-type)"
   },
   "src/front/elab-keys.fs": {
    "blocks": 56,
@@ -316,13 +321,13 @@
   },
   "src/front/elab-pending.fs": {
    "blocks": 645,
-   "never_run": 185,
-   "reason": "new file (plan S1, branch s1-elab, 2026-11-13), not yet reviewed; scripts/coverage.py --uncovered lists the blocks. the synthetic-mvar loop's rounds after a postponed instance resumes (ep-again, ep-when-ok, ep-when-failed, ep-commit-when), the default-instance visits beyond one default (priorities, several candidates, a default undone, the C visit's resumption; ep-b-*, ep-c-*, ep-default-loop), Meta errors caught under Lean's try (ep-caught?, ep-meta-code), the trace's default-instance lines, withSynthesize's bracket for S2 (lf-elab-synth{ }lf-elab-synth, no caller yet), and heap refusals; all wait for synth.fs (FE1e5) and S2 merge A"
+   "never_run": 50,
+   "reason": "plan S1, branch s1-elab, after review s1-elab H2 (2026-11-14; measured over make test): never run are (a) refusals of the heap and the Meta layer inside the steps (ep-chars, ep-b-new, ep-defs+, ep-c-new, ep-b-start's const and inferType, ep-t-apply, ep-telescope, lf-elab-holes?, lf-elab-closed, lf-elab-inst-mvar, lf-elab-synth-core's type, ep-again's instantiation, ep-judged's Meta failure, ep-step, ep-merge, ep-back, ep-prios-sort, ep-when-failed's rollback refused, ep-c-inst's mark refused, ep-b-try's mark refused, the frames' unused visitor); (b) what Init's default instances never ask: a gap in a class's default list (ep-b-hit?, the 139 in ep-b-next), a default instance whose type has a binder of unknown kind or a pi only whnf shows (ep-t-binder, ep-t-end, 136), a subgoal of no class (ep-b-class), synthesizePending's default instance for a subgoal whose class has default instances of its own (ep-prio, ep-prios#, ep-c-after's success: Init's instHPow [Pow a b] with instPowNat, and no natural word writes ^), elaboration data not loaded (ep-prios-ready's 139: every S1 run reads it); (c) a second error while one is recorded (ep-record keeps the first), the trace's none line, ep-synth-code?'s code of another outcome, and synthesizeSyntheticMVarsUsingDefault (lf-elab-synthesize-default, ep-default-loop's refusals), which only finalize's out-parameter path calls (elab-app.fs ea-out-done) when the result's out-parameter is still open after synthesis"
   },
   "src/front/elab-term.fs": {
    "blocks": 759,
-   "never_run": 235,
-   "reason": "new file (plan S1, branch s1-elab, 2026-11-13), not yet reviewed; scripts/coverage.py --uncovered lists the blocks. binop%'s finish (toExprCore's mkBinOp, applyCoe, the max type recorded: et-op-*, et-coe-*, et-record-max) and binrel%'s after analyze, mkAppM (et-am-*), hasHeterogeneousDefaultInstances (et-hetero-*), numerals' error paths, lambdas and sorts not yet in natural LeanForth (plan FE2), and refusals inside these steps: every binop% stops at the out-parameter unfolding of S2 merge A (error 139) and numerals need synth.fs (FE1e5)"
+   "never_run": 137,
+   "reason": "plan S1, branch s1-elab, after review s1-elab H2 (2026-11-14; measured over make test): never run are (a) refusals of the heap and the Meta layer at each step (the et-*-fail and et-failed branches of et-atom, et-app, et-visit, et-go-op, et-op-*, et-rel-*, et-x-*, et-numeral, et-of-nat*, et-type-mvar, et-sort-mvar, et-leaf-*, et-analyze*, et-is-type?, et-sorted, lf-elab-type); (b) forms natural LeanForth cannot write yet (plan S5): a hypothesis a tactic introduced named in a term (et-hyp: needs -> or a binder the reader does not take, error 70), an expected type that is a pi (et-lambda?, 133), a universe-polymorphic expected type for a numeral (128), a syntax kind the reader never makes (et-head); (c) what Init's arithmetic classes never meet in mkAppM (et-am-*: an implicit or instance binder in the class's type, an argument whose type does not fit, a type no pi after whnf, a result with metavariables left) and hasHomogeneousInstance's refusals; (d) binop% corners: an uncomparable pair with no CoeT (the slice has CoeT), an operator below a predicate root with no homogeneous instance (139) and a leaf that is not the max type's (131: et-coe-op, et-fits), a leaf kept by a heterogeneous default instance (et-kept?, et-coe-leaf: Init's data has no class with two default instances; et-def-hit? is tested directly) and the default-instance shapes et-args3 refuses; (e) ensureType's quick yes and its coercion to a sort (CoeSort is not in the slice)"
   },
   "src/front/expr-remap.fs": {
    "blocks": 152,
@@ -356,8 +361,8 @@
   },
   "src/front/instances.fs": {
    "blocks": 665,
-   "never_run": 4,
-   "reason": "plan FE1e3, branch s1-synth (lowered at the review fix, 2026-11-13; measured over make test-instances): never run are only refusals inside Meta calls: lf-mvar-new (a telescope's metavariable) and lf-mctx-depth{ (a check's depth scope) finding no heap room, and lf-menv-find of an instance's or default instance's declaration, which the data names in the library itself (found in a fed context; S1 merge B's library route can refuse a declaration it cannot decode)"
+   "never_run": 5,
+   "reason": "plan FE1e3, branch s1-synth (lowered at the review fix, 2026-11-13; measured over make test-instances): never run are only refusals inside Meta calls: lf-mvar-new (a telescope's metavariable) and lf-mctx-depth{ (a check's depth scope) finding no heap room, and lf-menv-find of an instance's or default instance's declaration, which the data names in the library itself (found in a fed context; S1 merge B's library route can refuse a declaration it cannot decode); and (branch s1-elab, 2026-11-14) the class's declaration refused while the local-instance test looks its name up in the run mode (it-class-name)"
   },
   "src/front/instantiate.fs": {
    "blocks": 286,
@@ -409,7 +414,7 @@
   },
   "src/front/meta-spine.fs": {
    "blocks": 61,
-   "never_run": 2,
+   "never_run": 1,
    "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-13): never run is the branch where a slab refuses a cell (full) while a universe-argument list is filled; the spine refusal is tested through whnf.fs; and (plan S2 merge A) mkApp's refusal when the term store has no room for the node (the tests' stores are sized ahead)"
   },
   "src/front/mvars.fs": {
@@ -459,8 +464,13 @@
   },
   "src/front/term-eqv.fs": {
    "blocks": 193,
-   "never_run": 15,
+   "never_run": 4,
    "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front): never run are the pair stack refused (full), level comparisons failing for room, two equal leaves of distinct nodes that only an unshared store makes (constants with levels, literals, projection leaves, other leaves), and etaExpanded?'s loose-range walk refused"
+  },
+  "src/front/unfold.fs": {
+   "blocks": 159,
+   "never_run": 13,
+   "reason": "new file (plan S2 merge A, branch s2-unfold, 2026-11-13; after review s2-unfold-a, measured over make test-front): never run are the refusals of the facts unfoldDefinition? asks (a declaration's lookup, a class projection, a matcher, a smart-unfolding body: unsupported without data or a refused decode) and of room (a level list, a spine, mkAppN), a definition without its value, and two decision branches no slice case reaches: a value that is no lambda applied to arguments, and a reducible class projection function at reducible transparency (Init's class projections are semireducible)"
   },
   "src/front/whnf.fs": {
    "blocks": 613,
@@ -834,7 +844,7 @@
   },
   "src/lib/slab.fs": {
    "blocks": 176,
-   "never_run": 3,
+   "never_run": 2,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/lib/sort.fs": {
@@ -1012,16 +1022,6 @@
    "blocks": 28,
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
-  },
-  "src/front/defeq-delta.fs": {
-   "blocks": 262,
-   "never_run": 20,
-   "reason": "new file (plan S2 merge A, branch s2-unfold, 2026-11-13; after review s2-unfold-a, measured over make test-front, check_defeq.py --golden's 157 cases): never run are the refusals for a fact meta-env.fs does not have (a text declaration's height in dd-key and tryHeuristic's test, a reducibility, projection or unfoldable answer, the aborted branches after them, a definition without its value) and isSimple's walk refused (room or fuel); and decision branches no case reaches today: the opaque key and tryHeuristic's opaque hint (only a theorem has one, at transparency all, and proof irrelevance compares proofs first), packedInstanceOf? reaching a head that is no constant (the slice's class projections HAdd.hAdd and Add.add meet isDefEqOffsetNat's instance test first, a FE1c gap), an unknown constant inside that loop (values name declarations), isSimple's projection and unknown leaves (no regular definition of height at most 2 in the slice has a projection in its value), an abbreviation that is no projection function at tryHeuristic (the slice's are auxiliary recursors, which whnfCore answers unsupported first, S2 merge B), two constants of one name with equal levels (isDefEqQuick decides them) and one whose left side does not unfold (a universe-polymorphic smart-unfolding constant: none in the slice)"
-  },
-  "src/front/unfold.fs": {
-   "blocks": 159,
-   "never_run": 13,
-   "reason": "new file (plan S2 merge A, branch s2-unfold, 2026-11-13; after review s2-unfold-a, measured over make test-front): never run are the refusals of the facts unfoldDefinition? asks (a declaration's lookup, a class projection, a matcher, a smart-unfolding body: unsupported without data or a refused decode) and of room (a level list, a spine, mkAppN), a definition without its value, and two decision branches no slice case reaches: a value that is no lambda applied to arguments, and a reducible class projection function at reducible transparency (Init's class projections are semireducible)"
   }
  },
  "runs": 2523
