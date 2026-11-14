@@ -234,8 +234,6 @@ defer lf-elab-default-instances ( class -- addr n outcome )
   tuck lf-author-outcome = if true else drop false then ;
 : ep-synth-failed ( outcome -- outcome )
   dup ep-synth-code? if ep-record else lf-elab-meta then ;
-: ep-synth-type ( mvar -- type outcome )
-  lf-mvar-type 0= if -1 outcome-invalid exit then lf-instantiate-mvars ;
 : ep-assigned? ( mvar -- flag ) lf-mvar-value dup if nip then ;
 : ep-judged ( flag outcome code -- flag outcome )
   >r dup ok? 0= if r> drop lf-elab-meta exit then drop
@@ -256,7 +254,7 @@ defer lf-elab-default-instances ( class -- addr n outcome )
   case lf-synth-some of ep-found endof lf-synth-none of drop ep-none endof
     >r 2drop false outcome-ok r> endcase ;
 : lf-elab-synth-core ( mvar -- flag outcome )
-  dup ep-synth-type ok-then? 0= if nip false swap lf-elab-meta exit then
+  dup lf-mvar-type-instantiated ok-then? 0= if nip false swap lf-elab-meta exit then
   dup lf-try-synth ok-then2? 0= if nip nip false swap ep-synth-failed exit then
   ep-synth. ep-answered ;
 

@@ -259,9 +259,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
   then ;
 : lf-synth-key ( type -- key outcome ) dup sy-scan ok-then? if sy-key-made else
   no-result then ;
-: sy-type-of ( mvar -- type outcome )
-  lf-mvar-type 0= if -1 outcome-invalid exit then lf-instantiate-mvars ;
-: sy-key-for ( mvar -- key outcome ) sy-type-of ok-then? if lf-synth-key else no-result
+: sy-key-for ( mvar -- key outcome ) lf-mvar-type-instantiated ok-then? if lf-synth-key else no-result
   then ;
 
 \ ---- The table: this search's entries (Lean's tableEntries), each a
@@ -315,7 +313,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
   dup >r sy-cands-copy ok-then? 0= if nip r> drop exit then
   over sgn@ sg-first ! r> swap sgn@ sg-idx ! outcome-ok ;
 : sy-gen-goal ( g -- g type outcome )   \ instantiated, its metavariables noted
-  dup sgn@ sg-mvar @ sy-type-of ok-then? 0= if no-result exit then
+  dup sgn@ sg-mvar @ lf-mvar-type-instantiated ok-then? 0= if no-result exit then
   dup sy-mvar? ok-then? 0= if nip no-result exit then >r over r> swap sgn@ sg-open !
   outcome-ok ;
 : sy-inst-code ( addr n outcome -- addr n outcome )   \ the table's code, when it set one

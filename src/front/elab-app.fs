@@ -257,8 +257,7 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 \ not of its head), by synthesizeInstMVarCore under Lean's try (a Lean
 \ error keeps it); the filled ones taken out.
 : ea-mvar-typed? ( mvar -- flag outcome )
-  lf-mvar-type 0= if false outcome-invalid exit then
-  lf-instantiate-mvars lf-elab-meta ok-then? if lf-mvar? outcome-ok else false swap then ;
+  lf-mvar-type-instantiated lf-elab-meta ok-then? if lf-mvar? outcome-ok else false swap then ;
 : ea-try-one ( k -- filled? outcome )
   dup ea-inst ea-mvar-typed? ok-then? 0= if nip false swap exit then
   if drop false outcome-ok exit then ea-inst lf-elab-synth-core
