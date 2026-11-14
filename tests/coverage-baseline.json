@@ -287,8 +287,8 @@
   },
   "src/front/discr-keys.fs": {
    "blocks": 468,
-   "never_run": 21,
-   "reason": "plan FE1e2, branch s1-synth (lowered at the review fix, 2026-11-13; measured over make test-instances): never run are getUnifyKeyArgs' stuck tests that reduceDT never lets a key reach today: a reducible constant (reduceDT unfolds it first, unsupported until plan S2's delta) and a matcher with a metavariable discriminant (whnfCore refuses a matcher head until plan S3), with their status and matcher lookups; and two refusals of Meta lookups of a constant the data's stage has (lf-meta-const-decl, dk-declared after whnf found it): the stage and the context are one library"
+   "never_run": 22,
+   "reason": "plan FE1e2, branch s1-synth (lowered at the review fix, 2026-11-13; measured over make test-instances): never run are getUnifyKeyArgs' stuck tests that reduceDT never lets a key reach today: a reducible constant (reduceDT unfolds it first, unsupported until plan S2's delta) and a matcher with a metavariable discriminant (whnfCore refuses a matcher head until plan S3), with their status and matcher lookups; and two refusals of Meta lookups of a constant the data's stage has (lf-meta-const-decl, dk-declared after whnf found it): the stage and the context are one library; plan S2 merge A: the refusal of dk-decl's lookup now reaches its caller (lf-meta-const-decl passes the lookup's outcome on)"
   },
   "src/front/defeq.fs": {
    "blocks": 1285,
@@ -389,8 +389,8 @@
   },
   "src/front/meta-spine.fs": {
    "blocks": 61,
-   "never_run": 1,
-   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-13): never run is the branch where a slab refuses a cell (full) while a universe-argument list is filled; the spine refusal is tested through whnf.fs"
+   "never_run": 2,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-13): never run is the branch where a slab refuses a cell (full) while a universe-argument list is filled; the spine refusal is tested through whnf.fs; and (plan S2 merge A) mkApp's refusal when the term store has no room for the node (the tests' stores are sized ahead)"
   },
   "src/front/mvars.fs": {
    "blocks": 882,
@@ -417,6 +417,11 @@
    "never_run": 3,
    "reason": "new file (plan FE1a-b, branch fe1, 2026-11-12): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded, a child beyond the walk memo and the reader default finder before cli/check-lf.fs sets it are never run"
   },
+  "src/front/synth.fs": {
+   "blocks": 1005,
+   "never_run": 86,
+   "reason": "new file (plan FE1e5, branch s1-synth-b, 2026-11-13; measured over make test-instances and test-front after review s1-synth-b H1 and M3 and its re-check's M-a and L-a: heap-refusal sweeps over four goals, budget sweeps over three, term-store room sweeps over two): never run are (a) what plan S2 merge A reaches: preprocessOutParam's and the cache key's paths for a class with an out-parameter (on main its searches stop at unification's lazy delta; make reference-synth gives them with S2), cacheResult's answer for one (sy-cache-value), assignOutParams answering false, and error 111 (a class type with fewer binders than arguments); (b) failure branches no sweep reaches: a level store, metavariable, snapshot, switch, instantiation, inferType or whnf refused midway (the heap sweeps refuse blocks while the stores have room; the room sweeps limit only the term store, whose refusals they reach), a dead metavariable's type, a table entry missing or its test failing (sy-hit), an instance type that only whnf makes a pi, and canonInstances popping a generator inside a search"
+  },
   "src/front/tactic-basic.fs": {
    "blocks": 271,
    "never_run": 11,
@@ -439,8 +444,8 @@
   },
   "src/front/whnf.fs": {
    "blocks": 613,
-   "never_run": 18,
-   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) inside a rebuild, a level list, a spine, a rule's application or a frame, defensive defaults no well-formed input reaches (a recursor whose block names no declaration), and the recursive-type test of a structure-like type, which no inductive type of Init has"
+   "never_run": 27,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) inside a rebuild, a level list, a spine, a rule's application or a frame, defensive defaults no well-formed input reaches (a recursor whose block names no declaration), and the recursive-type test of a structure-like type, which no inductive type of Init has; and (plan S2 merge A, branch s2-unfold, 2026-11-13) the frame machine's refusals (a frame or a spine refused room while a recursor's major premise, a projection's structure or a class field's structure is reduced), a recursor whose inductive type no declaration has, the class field's failures (a literal structure, a refused rebuild, a kept unfolding whose structure is no constructor), and the whnf loop's fault check, which the part's delta always reaches first (its fault fe-whnf-fault-dropped is a known equivalent)"
   },
   "src/import/checker-input.fs": {
    "blocks": 294,
@@ -987,6 +992,16 @@
    "blocks": 28,
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/front/defeq-delta.fs": {
+   "blocks": 262,
+   "never_run": 17,
+   "reason": "new file (plan S2 merge A, branch s2-unfold, 2026-11-13; after review s2-unfold-a and its re-check, measured over make test-front, check_defeq.py --golden's 162 cases): never run are the refusals for a fact meta-env.fs does not have (a text declaration's height in dd-key and tryHeuristic's test, a reducibility, projection or unfoldable answer, the aborted branches after them, a definition without its value) and isSimple's walk refused (room or fuel); and decision branches no case reaches today: the opaque key and tryHeuristic's opaque hint (only a theorem has one, at transparency all, and proof irrelevance compares proofs first), an unknown constant inside packedInstanceOf?'s loop (values name declarations), isSimple's projection and unknown leaves (no regular definition of height at most 2 in the slice has a projection in its value), and two constants of one name with other levels whose left side does not unfold (a universe-polymorphic smart-unfolding constant: none in the slice)"
+  },
+  "src/front/unfold.fs": {
+   "blocks": 159,
+   "never_run": 13,
+   "reason": "new file (plan S2 merge A, branch s2-unfold, 2026-11-13; after review s2-unfold-a, measured over make test-front): never run are the refusals of the facts unfoldDefinition? asks (a declaration's lookup, a class projection, a matcher, a smart-unfolding body: unsupported without data or a refused decode) and of room (a level list, a spine, mkAppN), a definition without its value, and two decision branches no slice case reaches: a value that is no lambda applied to arguments, and a reducible class projection function at reducible transparency (Init's class projections are semireducible)"
   }
  },
  "runs": 2523

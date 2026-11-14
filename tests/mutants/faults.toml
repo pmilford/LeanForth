@@ -10829,6 +10829,14 @@ test = "$GFORTH tests/front/front.fs"
 reason = "FE1b: ?u := succ ?u is assigned"
 
 [[fault]]
+id = "fe-assign-occurs-two-cells"
+file = "src/front/assign-check.fs"
+old = '''  ac-m swap lf-mvar-occurs? dup ok? if drop else nip ac-refuse-with then ;'''
+new = '''  ac-m swap lf-mvar-occurs? dup ok? if drop else ac-refuse-with drop false then ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b H1: a refused occurs check leaves two cells, and the walk then stores through a garbage address (the heap-refusal sweep over OfNat Nat ?k)"
+
+[[fault]]
 id = "fe-assign-twice"
 file = "src/front/mvars.fs"
 old = ''': mv-free? ( mvar -- flag ) mv-of if mv-unassigned? else false then ;'''
@@ -10937,8 +10945,8 @@ reason = "review fe1ab L2: a value given back after its assignment is read from 
 [[fault]]
 id = "fe-elab-unknown-name-accepted"
 file = "src/front/elab-data.fs"
-old = '''  ed-decls 0= if 0 ed-e-unknown ed-bad exit then'''
-new = '''  ed-decls 0= if 0 outcome-ok exit then'''
+old = '''  ed-decls if ed-one-decl else 0 ed-e-unknown ed-bad then ;'''
+new = '''  ed-decls if ed-one-decl else 0 outcome-ok then ;'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "a name no declaration has is taken as declaration 0: the unknown-name files are accepted"
 
@@ -11037,10 +11045,11 @@ reason = "review fe1d L3: a class that is no inductive type (or an instance name
 [[fault]]
 id = "fe-elab-instance-twice"
 file = "src/front/elab-data.fs"
-old = '''  over elab-instance-of if 2drop drop ed-e-instance ed-bad exit then'''
+old = '''  over ed-own ed-own-fact @ ed-fact@ if 2drop ed-own ed-own-why @ ed-bad exit then
+'''
 new = ''''''
 test = "python3 tests/front/test_elab_data.py"
-reason = "review fe1d L3: two instance records of one declaration are read, their numbers mixed"
+reason = "review fe1d L3, S2: a record kind's own declaration named by two records is read, their numbers mixed (the shared check of instances, classes, matchers, projections and smart-unfolding bodies skipped)"
 
 [[fault]]
 id = "fe-elab-default-twice"
@@ -11151,10 +11160,10 @@ reason = "an instance or default instance whose class has no class record is rea
 [[fault]]
 id = "fe-ed2-class-twice"
 file = "src/front/elab-data.fs"
-old = '''  over elab-class-of if 2drop drop ed-e-class ed-bad exit then'''
-new = ''''''
+old = '''  ' ed-a-type , ' ed-fact-class , ed-e-class , ' ed-class , ' ed-class-decl ,'''
+new = '''  ' ed-a-type , ' ed-fact-class , ed-e-instance , ' ed-class , ' ed-class-decl ,'''
 test = "python3 tests/front/test_elab_data.py"
-reason = "a class given twice is read, the second record replacing the first (error 28 never given)"
+reason = "a class given twice is refused with another kind's error (error 28 never given)"
 
 [[fault]]
 id = "fe-ed2-tag-twice"
@@ -11209,18 +11218,18 @@ reason = "a not_exported left-out instance that the library has is read (error 3
 [[fault]]
 id = "fe-ed2-matcher-twice"
 file = "src/front/elab-data.fs"
-old = '''  over elab-matcher-of if 2drop drop ed-e-matcher ed-bad exit then'''
-new = ''''''
+old = '''  ' ed-a-def , ' ed-fact-matcher , ed-e-matcher , ' ed-match , ' ed-match-decl ,'''
+new = '''  ' ed-a-def , ' ed-fact-matcher , ed-e-projection , ' ed-match , ' ed-match-decl ,'''
 test = "python3 tests/front/test_elab_data.py"
-reason = "a matcher given twice is read, the second replacing the first (error 35 never given)"
+reason = "a matcher given twice is refused with another kind's error (error 35 never given)"
 
 [[fault]]
 id = "fe-ed2-projection-twice"
 file = "src/front/elab-data.fs"
-old = '''  over elab-projection-of if 2drop drop ed-e-projection ed-bad exit then'''
-new = ''''''
+old = '''  ' ed-no-type , ' ed-fact-proj , ed-e-projection , ' ed-proj , ' ed-proj-decl ,'''
+new = '''  ' ed-no-type , ' ed-fact-proj , ed-e-matcher , ' ed-proj , ' ed-proj-decl ,'''
 test = "python3 tests/front/test_elab_data.py"
-reason = "a projection given twice is read, the second replacing the first (error 36 never given)"
+reason = "a projection given twice is refused with another kind's error (error 36 never given)"
 
 [[fault]]
 id = "fe-ed2-matcher-unfit"
@@ -11241,10 +11250,10 @@ reason = "a projection whose field or parameters its types cannot have is read (
 [[fault]]
 id = "fe-ed2-sunfold-read"
 file = "src/front/elab-data.fs"
-old = ''': ed-on-sunfold ( value -- outcome ) drop ed-e-later outcome-unsupported ed-fail ;'''
-new = ''': ed-on-sunfold ( value -- outcome ) drop outcome-ok ;'''
+old = '''  drop c" format_version" ed-member ed-view natural-at if s" 3" compare 0= else false then'''
+new = '''  drop c" format_version" ed-member ed-view natural-at if 2drop true else false then'''
 test = "python3 tests/front/test_elab_data.py"
-reason = "a smart-unfolding record is taken as read though nothing reads it (error 38 never given)"
+reason = "S2 B1: a format-2 file is read as format 3: its \"sunfold\":0 says no definition has a smart-unfolding body, so Nat.add would unfold by its brecOn value"
 
 [[fault]]
 id = "fe-ed2-foreign-in-instance"
@@ -12947,10 +12956,10 @@ reason = "FE1c: without elaboration data the status is guessed as Lean's default
 [[fault]]
 id = "fe-env-missing-fact-guessed"
 file = "src/front/meta-env.fs"
-old = '''  me-defn? if false outcome-unsupported else false outcome-ok then ;'''
-new = '''  drop false outcome-ok ;'''
+old = ''': lf-menv-smart? ( d -- flag outcome ) ['] elab-sunfold-of me-defn-fact ;'''
+new = ''': lf-menv-smart? ( d -- flag outcome ) drop false outcome-ok ;'''
 test = "$GFORTH tests/front/meta-env.fs"
-reason = "FE1c: a definition's matcher, projection, auxiliary-recursor or smart-unfolding fact, which LeanForth lacks, is answered false (Lean: true for Nat.add.match_1, HAdd.hAdd, Nat.casesOn, Nat.add)"
+reason = "S2 merge A: a definition's smart-unfolding fact answered false whatever the data says (Lean: true for Nat.add), so Nat.add would unfold by its brecOn value"
 
 [[fault]]
 id = "fe-env-theorem-unfoldable"
@@ -12995,7 +13004,8 @@ reason = "FE1c: a stuck major premise of a structure is left stuck, where Lean e
 [[fault]]
 id = "fe-whnf-succ-fold-ignored"
 file = "src/front/whnf.fs"
-old = '''  wc-succ? if 0 wc-margs lf-meta-arg dup wc-inert? swap wc-lit? or 0= else false then ;'''
+old = '''  wc-succ? 0= if false exit then
+  0 wc-margs lf-meta-arg dup wc-inert? swap lf-lit-leaf? or 0= ;'''
 new = '''  drop false ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "FE1c: Nat.succ of a term whnf may fold or offset (Nat.succ (Nat.succ k)) reduces by the rule, where Lean's field differs"
@@ -13051,16 +13061,16 @@ reason = "FE1c: a reduced part (a major premise, a projection's structure) is gi
 [[fault]]
 id = "fe-whnf-frame-term-lost"
 file = "src/front/whnf.fs"
-old = '''  wc-top dup wcf-aux @ wc wc-aux ! dup wcf-term @ wc wc-e ! wcf-kind @'''
-new = '''  wc-top dup wcf-aux @ wc wc-aux ! wcf-kind @'''
+old = '''  wc-top dup wc-restore dup wcf-aux @ wc wc-aux ! dup wcf-term @ wc wc-e ! wcf-kind @'''
+new = '''  wc-top dup wc-restore dup wcf-aux @ wc wc-aux ! wcf-kind @'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "FE1c: a resumed frame works on the term of the step that ran last, not its own (a nested recursor)"
 
 [[fault]]
 id = "fe-infer-levels-unchecked"
 file = "src/front/infer.fs"
-old = ''': if-levels-ok? ( slot d -- flag ) lf-menv-params nip swap lf-cref-pairs nip = ;'''
-new = ''': if-levels-ok? ( slot d -- flag ) 2drop true ;'''
+old = '''  2dup swap lf-meta-arity? 0= if 2drop -1 outcome-invalid exit then'''
+new = '''  2dup 2drop'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a constant with the wrong number of universe levels gets a type, where Lean throws"
 
@@ -13117,8 +13127,8 @@ reason = "FE1c: a function type that is no pi (a let variable, a metavariable) i
 [[fault]]
 id = "fe-infer-no-pi-accepted"
 file = "src/front/infer.fs"
-old = '''  if-head if-firm? if outcome-invalid else outcome-unsupported then ;'''
-new = '''  drop outcome-unsupported ;'''
+old = ''': if-no-pi ( type -- outcome ) if-head if-firm-or ;'''
+new = ''': if-no-pi ( type -- outcome ) drop outcome-unsupported ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a function expected (Lean throws) answers unsupported instead of invalid"
 
@@ -13165,8 +13175,8 @@ reason = "FE1c: a domain whose type is no sort, where Lean throws type expected,
 [[fault]]
 id = "fe-whnf-succ-name-unchecked"
 file = "src/front/whnf.fs"
-old = '''  dup wc-const? if wc-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
-new = '''  dup dup if wc-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
+old = '''  dup lf-term-const? if lf-const-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
+new = '''  dup dup if lf-const-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "review fe1c-2 M2: a major premise's head that is no constant is read as a constant reference (an unchecked store read; a free variable with Nat.succ's reference number answers unsupported)"
 
@@ -13181,18 +13191,19 @@ reason = "review fe1c-2 M1: getStuckMVar? of a projection applied to arguments a
 [[fault]]
 id = "fe-whnf-proj-literal-final"
 file = "src/front/whnf.fs"
-old = ''': wc-unfinal? ( rhead -- flag ) dup wc-const? if wc-const-unfinal? else wc-lit? then ;'''
-new = ''': wc-unfinal? ( rhead -- flag ) dup wc-const? if wc-const-unfinal? else drop false then ;'''
+old = '''  dup lf-lit-leaf? if drop outcome-unsupported wc-fail exit then
+  wc-proj-frame'''
+new = '''  wc-proj-frame'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "review fe1c-2 L1: a projection of a literal stays, where Lean's toCtorIfLit turns the literal into Nat's constructors first"
 
 [[fault]]
 id = "fe-whnf-proj-unknown-final"
-file = "src/front/whnf.fs"
-old = '''  dup wc-kind dup lf-kind-definition = swap 0= or swap wc-foldable? or ;'''
-new = '''  dup wc-kind lf-kind-definition = swap wc-foldable? or ;'''
+file = "src/front/unfold.fs"
+old = '''  dup outcome-invalid = if 2drop false outcome-ok then ;'''
+new = '''  ;'''
 test = "$GFORTH tests/front/whnf.fs"
-reason = "review fe1c-2 L1: a projection of a constant no declaration has stays, where Lean's whnf throws unknown constant"
+reason = "review fe1c-2 L1, re-targeted by S2: a constant no declaration has is looked up with getUnfoldableConst? (Lean throws) where Lean's getUnfoldableConstNoEx? leaves it, so whnf of it and of a projection of it is invalid, not the term"
 
 [[fault]]
 id = "fe-whnf-fields-no-max"
@@ -14524,6 +14535,31 @@ test = "$GFORTH tests/lib/slab.fs"
 reason = "slab-2all? pops one cell, not a pair: the test reads the slab beneath as its first value"
 
 [[fault]]
+id = "lib-slab-cut-unchecked"
+file = "src/lib/slab.fs"
+old = '''  2dup slab-cut? 0= if slab-bad-cut throw then 2dup slab-unmark-above slab-used ! ;'''
+new = '''  2dup slab-unmark-above slab-used ! ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-synth-b B2: a cut above the count (or below 0) sets the count past the units claimed, as the hand-written negative slab-commit could, instead of throwing slab-bad-cut"
+quick = true
+
+[[fault]]
+id = "lib-slab-cut-marks-kept"
+file = "src/lib/slab.fs"
+old = '''  2dup slab-cut? 0= if slab-bad-cut throw then 2dup slab-unmark-above slab-used ! ;'''
+new = '''  2dup slab-cut? 0= if slab-bad-cut throw then slab-used ! ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-synth-b B2: a cut keeps the mark entries above it, so a mark the cut went below is accepted again once the count passes it"
+
+[[fault]]
+id = "lib-slab-cut-edge"
+file = "src/lib/slab.fs"
+old = ''': slab-cut? ( n slab -- flag ) dup slab-live? if slab-count upto? else 2drop false then ;'''
+new = ''': slab-cut? ( n slab -- flag ) dup slab-live? if slab-count 1- upto? else 2drop false then ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-synth-b B2: a cut to the count itself (a scope that claimed nothing) throws"
+
+[[fault]]
 id = "fe-pairs-all-outcome-lost"
 file = "src/lib/slab.fs"
 old = '''  >r begin slab-more? while r@ execute ok-true? 0= if r> drop slab-stop exit then'''
@@ -15706,7 +15742,7 @@ reason = "S1 §3: a switch keeps the current branch's changes and adds the targe
 [[fault]]
 id = "fe-trail-snaps-kept"
 file = "src/front/mvars.fs"
-old = '''  mv-latest mvs-snaps @ mv-snaps mv-cut -1 mv-marks slab-commit'''
+old = '''  mv-latest mvs-snaps @ mv-snaps slab-cut mv-marks slab-drop'''
 new = '''  -1 mv-marks slab-commit'''
 test = "$GFORTH tests/front/front.fs"
 reason = "S1 §3: a closed scope's snapshots stay valid targets (stale snapshots must be refused)"
@@ -15819,10 +15855,10 @@ reason = "S1 merge B: whnfCore stops asking the facts Lean's asks (reduceMatcher
 [[fault]]
 id = "fe-whnf-no-delta-check"
 file = "src/front/whnf.fs"
-old = '''  if 2drop outcome-unsupported else wm-firm then ;'''
-new = '''  if 2drop outcome-ok else wm-firm then ;'''
+old = '''  drop wc-full? if wc-delta else false outcome-ok then ;'''
+new = '''  drop false outcome-ok ;'''
 test = "$GFORTH tests/front/whnf.fs"
-reason = "S1 appendix D: a definition the transparency unfolds is answered as whnf's result (a guess: unfoldDefinition? would act)"
+reason = "S1 appendix D, S2: whnf ends at whnfCore's result, never asking unfoldDefinition? (instHAdd Nat instAddNat stays at default)"
 
 [[fault]]
 id = "fe-whnf-nat-folded"
@@ -15835,7 +15871,7 @@ reason = "S1 appendix D: Nat.succ 2 is whnf's result (reduceNat? folds it to 3)"
 [[fault]]
 id = "fe-whnf-mode-kept"
 file = "src/front/meta-config.fs"
-old = '''  lf-defeq-mode >r lf-defeq-mode! execute r> lf-defeq-mode! ;'''
+old = '''  lf-defeq-mode >r lf-defeq-mode! catch r> lf-defeq-mode! throw ;'''
 new = '''  lf-defeq-mode! execute ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S1 appendix D: whnfR (lf-meta-at) leaves the transparency reducible (Lean's withTransparency restores it)"
@@ -15843,7 +15879,7 @@ reason = "S1 appendix D: whnfR (lf-meta-at) leaves the transparency reducible (L
 [[fault]]
 id = "fe-whnf-forall-no-whnf"
 file = "src/front/whnf.fs"
-old = '''  dup wm-pi? if outcome-ok exit then
+old = '''  dup lf-term-pi? if outcome-ok exit then
   lf-meta-whnf ok-then? if wm-to-pi else no-result then ;'''
 new = '''  wm-to-pi ;'''
 test = "$GFORTH tests/front/whnf.fs"
@@ -15852,10 +15888,10 @@ reason = "S1 appendix D: instantiateForall refuses a type that is a pi only afte
 [[fault]]
 id = "fe-whnf-budget-free"
 file = "src/front/whnf.fs"
-old = '''  lf-meta-spend? 0= if drop -1 outcome-exhausted exit then'''
-new = ''''''
+old = '''  lf-meta-spend? if wc-unfold else outcome-exhausted wc-drop-fail then ;'''
+new = '''  wc-unfold ;'''
 test = "$GFORTH tests/front/whnf.fs"
-reason = "S1 §8: whnf spends none of the declaration's budget"
+reason = "S1 §8, S2: whnf and unfoldDefinition? spend none of the declaration's budget"
 
 # --- s1-meta merge A review (2026-11-13): the reviewer's surviving faults
 
@@ -15955,8 +15991,8 @@ reason = "ignoreArg: an instance-implicit argument is indexed, not a star (Nat.d
 [[fault]]
 id = "fe-keys-succ-uncounted"
 file = "src/front/discr-keys.fs"
-old = '''  dup dk-succ? if dk-last swap 1+ swap true exit then'''
-new = '''  dup dk-succ? if dk-last true exit then'''
+old = '''  dup lf-meta-succ? if dk-last swap 1+ swap true exit then'''
+new = '''  dup lf-meta-succ? if dk-last true exit then'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "toNatLit?: Nat.succ adds nothing to the numeral's value"
 
@@ -16067,7 +16103,8 @@ reason = "s1-synth review M4: an erased instance is a candidate"
 [[fault]]
 id = "fe-inst-verified-always"
 file = "src/front/instances.fs"
-old = '''  dup it-status slab-count index? if it-status@ it-verified = else drop false then ;'''
+old = '''  it-same-data dup it-status slab-count index? if it-status@ it-verified = else drop false
+  then ;'''
 new = '''  drop true ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "s1-synth review M4: every value reads as verified, a left-out one and an unchecked one too"
@@ -16289,15 +16326,6 @@ test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b H2: a refused decode gives its handle with full, which callers read as a decoded declaration"
 
 [[fault]]
-id = "fe-env-newest-unchecked"
-file = "src/front/meta-env.fs"
-old = ''': lf-menv-newest ( name -- d|-1 ) lf-menv-find ok? 0= if drop -1 then ;'''
-new = ''': lf-menv-newest ( name -- d|-1 ) lf-menv-find drop ;'''
-test = "$GFORTH tests/front/menv-run.fs"
-reason = "review s1-meta-b H2: lf-menv-newest keeps a handle whose find failed"
-equivalent = "lf-menv-find gives -1 with every failing outcome in both modes (me-found, no-result, me-decoded), so the guard only restates that contract"
-
-[[fault]]
 id = "fe-defeq-named-unguarded"
 file = "src/front/defeq.fs"
 old = '''  lf-menv-find de-must if de-data true else drop false then ;'''
@@ -16421,9 +16449,8 @@ equivalent = "getDecLevel normalizes first, as Lean's does: an imax whose right 
 [[fault]]
 id = "fe-defeq-synth-flag"
 file = "src/front/defeq.fs"
-old = '''  lf-meta-synth-pending ok-then? 0= if de-abort exit then if outcome-unsupported de-abort
-    then ;'''
-new = '''  lf-meta-synth-pending ok-then? 0= if de-abort exit then drop ;'''
+old = ''': de-synth-pending ( mvar -- ) de-synth-try if outcome-unsupported de-abort then ;'''
+new = ''': de-synth-pending ( mvar -- ) de-synth-try drop ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "review s1-meta-b M3 (F17): a synthPending hook that fills the metavariable is ignored, so the retry Lean makes is skipped"
 
@@ -16544,9 +16571,9 @@ reason = "getDecLevel's assignment refused room still answers the fresh ?w, not 
 [[fault]]
 id = "fe-inst-branch"
 file = "src/front/defeq.fs"
-old = '''  de-t lf-mvar-inst? if outcome-unsupported de-abort exit then'''
+old = '''  de-t lf-mvar-inst? if de-check-inst exit then'''
 new = ''''''
-test = "$GFORTH tests/front/menv-run.fs"
+test = "$GFORTH tests/front/synth.fs"
 reason = "S1 appendix D: an instance-typed metavariable assigned without Lean's check"
 
 # The design review of leanforth verify (2026-11-13): B1's rest and M1-M3 in the driver.
@@ -16704,6 +16731,440 @@ test = "$GFORTH tests/front/instances.fs"
 reason = "s1-synth re-check L2': a root whose values leave a rank empty is built, the hole read as left-out 0"
 
 [[fault]]
+id = "fe-inst-refusal-any-code"
+file = "src/front/instances.fs"
+old = '''  dup lfa-e-inst-wide <> swap lfa-e-inst-class lfa-e-default-class 1+ within and ;'''
+new = '''  0<> ;'''
+test = "$GFORTH tests/front/instances-odd.fs"
+reason = "s1-synth second re-check L1: the 114 an unverified record left turns a later code-less invalid into a permanent refusal of the data"
+
+[[fault]]
+id = "fe-inst-verified-other-read"
+file = "src/front/instances.fs"
+old = '''  it-same-data dup it-status slab-count index? if it-status@ it-verified = else drop false'''
+new = '''  dup it-status slab-count index? if it-status@ it-verified = else drop false'''
+test = "$GFORTH tests/front/instances-odd.fs"
+reason = "s1-synth second re-check L2: after a new read of the data an instance still answers verified until the next query"
+
+[[fault]]
+id = "fe-inst-counts-other-read"
+file = "src/front/instances.fs"
+old = ''': lf-inst-checked# ( -- n ) it-same-data it it-checked @ ;'''
+new = ''': lf-inst-checked# ( -- n ) it it-checked @ ;'''
+test = "$GFORTH tests/front/instances-odd.fs"
+reason = "s1-synth second re-check L2: the checked count of an earlier read of the data is reported for the new one"
+
+[[fault]]
+id = "fe-meta-succ-none"
+file = "src/front/term-eqv.fs"
+old = ''': lf-meta-succ? ( t -- flag ) 1 s" Nat.succ" lf-meta-app-of? ;'''
+new = ''': lf-meta-succ? ( t -- flag ) drop false ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth second re-check L3: Nat.succ x no longer read as a numeral or an offset (its keys and isDefEqOffset change)"
+
+[[fault]]
+id = "fe-synth-generate-first"
+file = "src/front/synth.fs"
+old = '''  sy-resume sy-c syc-resume @ sy-above? if sy-resume-one true swap exit then'''
+new = '''  sy-gens sy-c syc-gens @ sy-above? if sy-generate true swap exit then'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M1 (F1): step generates before it resumes (Lean resumes first, SynthInstance.lean:656)"
+
+[[fault]]
+id = "fe-synth-resume-size"
+file = "src/front/synth.fs"
+old = '''  san@ sa-size @ over scn@ sc-size @ + over scn@ dup sc-key @ swap sc-mvar @ sy-cnode-open'''
+new = '''  san@ sa-size @ over scn@ sc-size @ nip over scn@ dup sc-key @ swap sc-mvar @ sy-cnode-open'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M1 (F2): resume's new node keeps the consumer's size, the answer's not added (maxSize counts wrongly)"
+
+[[fault]]
+id = "fe-synth-cache-any-depth"
+file = "src/front/synth.fs"
+old = '''  skn@ dup sk-depth @ sy sy-pending @ = if sk-type @ over lf-meta-eqv else drop false'''
+new = '''  skn@ dup sk-depth @ drop true if sk-type @ over lf-meta-eqv else drop false'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M1 (F3): the cache ignores synthPendingDepth, so an entry made at one depth answers at another"
+
+[[fault]]
+id = "fe-synth-key-outer-levels"
+file = "src/front/synth.fs"
+old = '''  dup lf-level-mvar-depth lf-mctx-depth <> if drop outcome-ok exit then'''
+new = ''''''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M1 (F4): mkTableKey makes an outer level metavariable a placeholder (Lean keeps one it cannot assign)"
+
+[[fault]]
+id = "fe-synth-open-expr-only"
+file = "src/front/synth.fs"
+old = '''  dup sy-mvar? ok-then? 0= if nip no-result exit then >r over r> swap sgn@ sg-open !'''
+new = '''  dup sy-expr-mvar? ok-then? 0= if nip no-result exit then >r over r> swap sgn@ sg-open !'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M1 (F10): a generator is open only for term metavariables, so canonInstances pops one whose goal holds a level metavariable (Lean: hasMVar)"
+
+[[fault]]
+id = "fe-synth-pending-current-view"
+file = "src/front/synth.fs"
+old = '''  lf-mctx-view >r lf-mctx-view! lf-synth-instance r> lf-mctx-view! ;'''
+new = '''  drop lf-synth-instance ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M1 (F12): synthPending searches in the current local context, not the metavariable's (its local instances ignored)"
+
+[[fault]]
+id = "fe-synth-counts-from-one"
+file = "src/front/synth.fs"
+old = '''  sy-scoped# 0 do i sy-scoped@ slab-count over i syc-count ! loop drop ;'''
+new = '''  sy-scoped# 1 do i sy-scoped@ slab-count over i syc-count ! loop drop ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M2: a search's start count of sy-gens is not saved, so a nested search gives back the outer one's generators"
+
+[[fault]]
+id = "fe-synth-find-all-tables"
+file = "src/front/synth.fs"
+old = '''  sy-c syc-entries @ sy-entries slab-count ['] sy-entry-hit? sy-hit ;'''
+new = '''  0 sy-entries slab-count ['] sy-entry-hit? sy-hit ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b L4: a nested search finds the outer search's table entries (Lean's table is per search)"
+
+[[fault]]
+id = "fe-synth-hit-index"
+file = "src/front/synth.fs"
+old = '''    exit then if drop i true outcome-ok unloop unloop exit then'''
+new = '''    exit then if drop i 1+ true outcome-ok unloop unloop exit then'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b L4: sy-hit gives the index after the entry found"
+
+[[fault]]
+id = "fe-synth-goals-left-all"
+file = "src/front/synth.fs"
+old = '''  dup scn@ sc-goals @ ['] lf-goal-unassigned? run-filter'''
+new = '''  dup scn@ sc-goals @ ['] lf-mvar-live? run-filter'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b B1: consume keeps the subgoals already assigned"
+
+[[fault]]
+id = "fe-synth-wake-none"
+file = "src/front/synth.fs"
+old = '''sen@ se-waiters @ ['] sy-wake1 run-each nip ;'''
+new = '''2drop outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b B1: a new answer wakes no waiter, so neither the root nor a consumer takes it"
+
+[[fault]]
+id = "fe-synth-queue-none"
+file = "src/front/synth.fs"
+old = '''  sen@ se-answers @ ['] sy-queue1 run-each nip ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b B1: a consumer that waits on a known goal is not given its answers"
+
+[[fault]]
+id = "fe-synth-new-answer-last"
+file = "src/front/synth.fs"
+old = '''  swap if sy-other-type else drop false outcome-ok then ;'''
+new = '''  nip sy-other-type ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b B1: isNewAnswer reads only the last older answer's type (an equal earlier one forgotten)"
+
+[[fault]]
+id = "fe-defeq-proj-admissible"
+file = "src/front/defeq.fs"
+old = '''    lf-tag-projection of lf-proj-struct lf-lb-undef endof'''
+new = '''    lf-tag-projection of lf-lb-true endof'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M1 (F6): spineMVarsAdmissible takes a projection as admissible without following its structure"
+
+[[fault]]
+id = "fe-defeq-opaque-not-read-only"
+file = "src/front/defeq.fs"
+old = '''  lf-mvar-kind drop mv-opaque = lf-defeq-opaque de-flag? 0= and ;'''
+new = '''  drop false ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b M1 (F9): isReadOnlyOrSyntheticOpaque forgets the synthetic opaque metavariables of the current depth"
+
+[[fault]]
+id = "fe-meta-const-at-first"
+file = "src/front/meta-env.fs"
+old = ''': me-level-at ( addr k -- addr outcome ) over swap cells + @ me-pair+ ;'''
+new = ''': me-level-at ( addr k -- addr outcome ) drop dup @ me-pair+ ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b B3: lf-meta-const-at puts the first level at every place (preprocessOutParam's out-level lost)"
+
+[[fault]]
+id = "fe-meta-const-full-as-ok"
+file = "src/front/meta-env.fs"
+old = '''  if lf-cterm-new if drop outcome-ok exit then then -1 outcome-full ;'''
+new = '''  if lf-cterm-new if drop outcome-ok exit then then -1 outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b B3: a constant the stores have no room for reads as made (-1 beside ok)"
+
+[[fault]]
+id = "fe-meta-const-no-levels"
+file = "src/front/meta-env.fs"
+old = '''  over lf-menv-params nip ['] me-level-by ok-each nip'''
+new = '''  0 ['] me-level-by ok-each nip'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b B3: mkConstWithFreshMVarLevels makes the constant at no level"
+
+[[fault]]
+id = "fe-meta-const-pairs-cleared"
+file = "src/front/meta-env.fs"
+old = '''  me-pairs slab-count >r execute r> me-pairs slab-cut ;'''
+new = '''  me-pairs slab-clear execute ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b re-check L-c: a constant made inside a level word clears the outer constant's levels made so far, which then takes the inner's"
+
+[[fault]]
+id = "fe-meta-const-bad-level-full"
+file = "src/front/meta-env.fs"
+old = '''  dup lf-level-identity 0= if drop outcome-invalid exit then swap me-pairs slab-2push ;'''
+new = '''  dup lf-level-identity 0= if drop outcome-full exit then swap me-pairs slab-2push ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b re-check L-c: a level that names none (invalid input) reads as no room (full)"
+
+[[fault]]
+id = "fe-meta-with-throw-lost"
+file = "src/front/meta-config.fs"
+old = '''  lf-meta-config 2>r lf-meta-config! catch 2r> lf-meta-config! throw ;'''
+new = '''  lf-meta-config 2>r lf-meta-config! execute 2r> lf-meta-config! ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "review s1-synth-b L3: withConfig's configuration stays changed after a THROW out of its word"
+
+[[fault]]
+id = "fe-meta-at-throw-lost"
+file = "src/front/meta-config.fs"
+old = '''  lf-defeq-mode >r lf-defeq-mode! catch r> lf-defeq-mode! throw ;'''
+new = '''  lf-defeq-mode >r lf-defeq-mode! execute r> lf-defeq-mode! ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "review s1-synth-b L3: withTransparency's mode stays changed after a THROW out of its word"
+
+[[fault]]
+id = "lib-runs-each-no-stop"
+file = "src/lib/runs.fs"
+old = '''  execute dup ok? if drop true else false then ;'''
+new = '''  execute drop true ;'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "review s1-synth-b B1: run-each runs on after a step fails and answers ok"
+quick = true
+
+[[fault]]
+id = "lib-runs-each-skips-first"
+file = "src/lib/runs.fs"
+old = '''  dup 1+ swap ?do rn-span ?do i rn-cell @ j rn-step 0= if unloop unloop exit then'''
+new = '''  dup 1+ swap ?do rn-span 1+ ?do i rn-cell @ j rn-step 0= if unloop unloop exit then'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "review s1-synth-b B1: run-each skips the run's first cell"
+quick = true
+
+[[fault]]
+id = "lib-runs-filter-inverted"
+file = "src/lib/runs.fs"
+old = '''  2dup rn-test 0= if 2drop outcome-invalid exit then if rn-put else drop outcome-ok then ;'''
+new = '''  2dup rn-test 0= if 2drop outcome-invalid exit then 0= if rn-put else drop outcome-ok then ;'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "review s1-synth-b B1: run-filter keeps the cells its test refuses"
+
+[[fault]]
+id = "lib-runs-filter-xt-left"
+file = "src/lib/runs.fs"
+old = '''  rn-cells slab-count -rot swap ['] rn-kept run-each nip'''
+new = '''  rn-cells slab-count -rot swap ['] rn-kept run-each'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "review s1-synth-b B1: run-filter leaves its test's xt behind (a stack effect off by one cell)"
+
+[[fault]]
+id = "lib-runs-filter-rule-unchecked"
+file = "src/lib/runs.fs"
+old = '''  2dup rn-test 0= if 2drop outcome-invalid exit then if rn-put else drop outcome-ok then ;'''
+new = '''  2dup rn-test drop if rn-put else drop outcome-ok then ;'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "review s1-synth-b re-check L-b: a filter whose test appends cells makes a run with the test's cells among the kept ones"
+
+[[fault]]
+id = "fe-goals-print-separator-first"
+file = "src/front/goal-print.fs"
+old = '''  swap 0= if s\" \n\n" gp-emit then lf-goal-print false swap ;'''
+new = '''  swap if s\" \n\n" gp-emit then lf-goal-print false swap ;'''
+test = "python3 tests/front/check_goals.py"
+reason = "review s1-synth-b B1: the goals' blank line comes before the first goal instead of between two"
+
+[[fault]]
+id = "fe-instance-try-order"
+file = "src/front/synth.fs"
+old = ''': sy-candidate-at ( g -- v ) sgn@ dup sg-first @ swap sg-idx @ + sy-cands slab-at @ ;'''
+new = ''': sy-candidate-at ( g -- v ) sgn@ sg-first @ sy-cands slab-at @ ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "FE1E 6.3: candidates tried from the front, not from the last (Add Nat tries a left-out one first)"
+
+[[fault]]
+id = "fe-stuck-as-failure"
+file = "src/front/synth.fs"
+old = '''  lf-synth-instance dup lf-meta-stuck = if drop 2drop -1 lf-synth-undef outcome-ok exit'''
+new = '''  lf-synth-instance dup lf-meta-stuck = if drop 2drop -1 lf-synth-none outcome-ok exit'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "FE1E 6.3: trySynthInstance reads the stuck signal as no instance (the elaborator would report failed to synthesize)"
+
+[[fault]]
+id = "fe-outparam-kept"
+file = "src/front/synth.fs"
+old = '''  dup sy-outs? if sy-out-type else drop outcome-ok then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "FE1E 6.3: preprocessOutParam keeps the out-parameter (HAdd Nat Nat ?c would stay stuck on it)"
+
+[[fault]]
+id = "fe-cache-key-no-wildcard"
+file = "src/front/synth.fs"
+old = '''  sy-wild ok-then? if swap sy-arg-addr ! outcome-ok else nip then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "FE1E 6.3: the cache key keeps the out-parameter argument, so a later goal with another one misses the cache entry Lean finds"
+
+[[fault]]
+id = "fe-max-size-off-by-one"
+file = "src/front/synth.fs"
+old = '''  dup scn@ sc-size @ lf-synth-max-size < 0= if drop outcome-ok exit then'''
+new = '''  dup scn@ sc-size @ lf-synth-max-size 1+ < 0= if drop outcome-ok exit then'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "FE1E 6.3: an answer of size synthInstance.maxSize (128) kept; Lean drops it"
+
+[[fault]]
+id = "fe-synth-every-answer-new"
+file = "src/front/synth.fs"
+old = '''  2dup sy-new-answer? ok-then? 0= if nip nip exit then if sy-add-new else 2drop'''
+new = '''  2dup sy-new-answer? ok-then? 0= if nip nip exit then drop sy-add-new exit if 2drop'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "isNewAnswer skipped: an answer of a type already answered is kept and wakes the waiters again"
+
+[[fault]]
+id = "fe-synth-canon-off"
+file = "src/front/synth.fs"
+old = '''  sgn@ dup sg-open @ if drop false outcome-ok exit then'''
+new = '''  drop false outcome-ok exit'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "canonInstances off: a goal without metavariables that has an answer keeps trying its other candidates"
+
+[[fault]]
+id = "fe-synth-pending-depth"
+file = "src/front/synth.fs"
+old = '''  sy-class-type? ok-then? if sy sy-pending @ lf-synth-max-pending > 0= and outcome-ok else'''
+new = '''  sy-class-type? ok-then? if outcome-ok else'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "maxSynthPendingDepth ignored: synthPending nests without limit"
+
+[[fault]]
+id = "fe-synth-pending-opaque"
+file = "src/front/synth.fs"
+old = '''  dup sy-opaque? ok-then? 0= if sy-false exit then if drop false outcome-ok exit then'''
+new = '''  dup sy-opaque? ok-then? 0= if sy-false exit then drop'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "synthPendingImp fills a synthetic opaque metavariable (a goal only tactics may assign)"
+
+[[fault]]
+id = "fe-synth-cache-other-context"
+file = "src/front/synth.fs"
+old = '''  mctx-epoch@ sy sy-epoch @ <> if sy-cache slab-clear mctx-epoch@ sy sy-epoch ! then ;'''
+new = '''  mctx-epoch@ sy sy-epoch ! ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "the cache outlives its metavariable context: a reset context reads another context's terms"
+
+[[fault]]
+id = "fe-synth-answer-keeps-holes"
+file = "src/front/synth.fs"
+old = '''  if drop lfa-e-synth-mvars sy-refuse else outcome-ok then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "an answer that keeps a metavariable of the search's depth leaves the search (abstractMVars is not ported: 118)"
+
+[[fault]]
+id = "fe-synth-check-skipped"
+file = "src/front/synth.fs"
+old = '''  if drop lfa-e-synth-check sy-refuse false swap else true outcome-ok then ;'''
+new = '''  drop true outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "Lean's check of a result that holds a metavariable skipped, its universe constraints lost (121)"
+
+[[fault]]
+id = "fe-synth-left-out-tried"
+file = "src/front/synth.fs"
+old = '''  dup lf-inst-left-out? if drop lfa-e-synth-left-out sy-refuse nip exit then'''
+new = ''''''
+test = "$GFORTH tests/front/synth.fs"
+reason = "S1 9: a tried left-out candidate is not refused (its record number read as an instance's)"
+
+[[fault]]
+id = "fe-synth-tried-kept"
+file = "src/front/synth.fs"
+old = '''  sy-calls slab-count 0= if sy-tried slab-clear then'''
+new = ''''''
+test = "$GFORTH tests/front/synth.fs"
+reason = "the tried list of an earlier search is kept by the next"
+
+[[fault]]
+id = "fe-synth-nodes-kept"
+file = "src/front/synth.fs"
+old = '''  sy-c sy-scoped# 0 do dup i syc-count @ i sy-scoped@ slab-cut loop drop'''
+new = '''  sy-c sy-scoped# 1 do dup i syc-count @ i sy-scoped@ slab-cut loop drop'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "a search's generators outlive it, so the next one reads them"
+
+[[fault]]
+id = "fe-synth-key-no-rename"
+file = "src/front/synth.fs"
+old = '''  dup lf-mvar-assignable? 0= if drop outcome-ok exit then'''
+new = '''  drop outcome-ok exit'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "mkTableKey keeps each metavariable: two goals equal up to their metavariables get two entries"
+
+[[fault]]
+id = "fe-synth-key-assignments-kept"
+file = "src/front/synth.fs"
+old = ''': sy-key-marked ( t mark -- key outcome ) >r sy-placed r> lf-mctx-rollback outcome-and ;'''
+new = ''': sy-key-marked ( t mark -- key outcome ) >r sy-placed r> lf-mctx-commit outcome-and ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "a table key's placeholder assignments are kept: the goal's metavariables end up assigned to placeholders"
+
+[[fault]]
+id = "fe-defeq-nested-not-restored"
+file = "src/front/defeq.fs"
+old = '''  de-aside dup ok? 0= if nip nip false swap exit then drop catch de-back throw ;'''
+new = '''  de-aside dup ok? 0= if nip nip false swap exit then drop catch throw ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "the unification that called a synthesis hook is not brought back: it goes on with the nested search's machine"
+
+[[fault]]
+id = "fe-defeq-aside-kept-on-refusal"
+file = "src/front/defeq.fs"
+old = '''  dup ok? if nip exit then swap de-saved slab-cut ;'''
+new = '''  dup ok? if nip exit then nip ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b re-check M-a: a refused set-aside leaves its partial copy on de-saved, which an outer de-back would restore"
+
+[[fault]]
+id = "fe-defeq-aside-cut-to-zero"
+file = "src/front/defeq.fs"
+old = '''  dup ok? if nip exit then swap de-saved slab-cut ;'''
+new = '''  dup ok? if nip exit then nip 0 de-saved slab-cut ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b FIXA re-check M1: a refused set-aside cut back to zero, not to its base, drops the machines outer searches set aside"
+
+[[fault]]
+id = "fe-defeq-inst-typed-unchecked"
+file = "src/front/defeq.fs"
+old = '''  de-t lf-mvar-inst? if de-check-inst exit then'''
+new = '''  de-t lf-mvar-inst? if de-s de-inst de-s! de-assign-now exit then'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "an instance-typed metavariable assigned without comparing the types at instances transparency (fx accepted as an Add Nat instance)"
+
+[[fault]]
+id = "fe-defeq-inst-typed-no-synth"
+file = "src/front/defeq.fs"
+old = '''  de-s de-admissible? de-aborted? if drop exit then if de-inst-types else de-inst-synth'''
+new = '''  de-s de-admissible? de-aborted? if drop exit then if de-inst-types else lf-lb-false de-return'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "synthInstanceTypedMVarAndUnify skipped: a value that is not admissible is refused without synthesizing the instance"
+
+[[fault]]
 id = "fe-elab-default-rank-unbounded"
 file = "src/front/elab-data.fs"
 old = '''  ed-dflt swap c" rank" ed-member ed-u32 ed-rank-most ['] ed-dflt-rank ed-put ;'''
@@ -16795,6 +17256,278 @@ new = ''''''
 test = "python3 tests/program/test_program_verify.py WriteIr.test_write_ir_never_overwrites_other_files"
 reason = "review R3: --write-ir overwrites any checkout file the contract's ir line names (src/main.fs)"
 quick = true
+
+# --- S2 merge A: unfoldDefinition? (src/front/unfold.fs), whnf's delta
+# and parts (src/front/whnf.fs), lazy delta (src/front/defeq-delta.fs);
+# docs/design/S2_INTERFACE.md §2, §9.
+
+[[fault]]
+id = "fe-delta-both-sides"
+file = "src/front/defeq-delta.fs"
+old = '''  dup de-s dd-same-head? if de-s dd-compare exit then
+  de-s dd-unfold if dd-heads-both'''
+new = '''  de-s dd-unfold if dd-heads-both'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "S2 §9: unfoldComparingHeadsDefEq unfolds both sides where Lean unfolds one (id Nat (Nat.add ?n x) against Nat.add k x then unfolds Nat.add)"
+
+[[fault]]
+id = "fe-delta-no-sunfold"
+file = "src/front/unfold.fs"
+old = '''  lf-menv-smart? ok-then? if if outcome-unsupported else outcome-ok then then ;'''
+new = '''  lf-menv-smart? ok-then? if drop outcome-ok then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2 §9: a definition with a `_sunfold` (Nat.add) unfolds by its brecOn value, where Lean takes the smart path"
+
+[[fault]]
+id = "fe-unfold-matcher"
+file = "src/front/unfold.fs"
+old = '''  lf-menv-matcher? ok-then? if 0= outcome-ok else false swap then ;'''
+new = '''  lf-menv-matcher? ok-then? if drop true outcome-ok else false swap then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2: unfoldDefinition? unfolds a matcher (Nat.add.match_1), which Lean leaves to whnfCore"
+
+[[fault]]
+id = "fe-unfold-arity-ignored"
+file = "src/front/unfold.fs"
+old = '''  2dup lf-meta-arity? 0= if 2drop uf-none-of exit then
+  over uf-gate'''
+new = '''  over uf-gate'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2: a constant with more universe arguments than parameters unfolds (Lean's deltaDefinition gives none)"
+
+[[fault]]
+id = "fe-unfold-proj-inst-any-mode"
+file = "src/front/unfold.fs"
+old = ''': uf-inst-mode? ( -- flag ) lf-defeq-mode dup lf-tr-instances = swap lf-tr-implicit = or ;'''
+new = ''': uf-inst-mode? ( -- flag ) true ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2: unfoldProjInst? runs at reducible transparency (HAdd.hAdd becomes Add.add), where Lean's unfoldProjInstWhenInstances? runs only at instances and implicit"
+
+[[fault]]
+id = "fe-unfold-field-none-kept"
+file = "src/front/whnf.fs"
+old = '''  lf-unfold-ask-keep = if wc wc-aux @ wc-advance else wc-stay then ;'''
+new = '''  drop wc wc-aux @ wc-advance ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2: unfoldProjInst? whose instance does not project (HAdd.hAdd k k x at instances) unfolds anyway, where Lean gives none"
+
+[[fault]]
+id = "fe-unfold-class-any-projection"
+file = "src/front/meta-env.fs"
+old = '''  elab-projection-of if elab-projection-class? dup if 0 swap then else false then ;'''
+new = '''  elab-projection-of if drop 0 true else false then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2: a structure's projection (Prod.fst) counts as a class's (isProjInst), so unfoldDefault at reducible reduces its field too"
+
+[[fault]]
+id = "fe-whnf-proj-core-only"
+file = "src/front/whnf.fs"
+old = '''  wc-full-act wc wc-act ! outcome-ok ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2 §2: a projection's structure is reduced by whnfCore alone, where Lean's whnfCore uses whnf (proj := yesWithDelta): (instHAdd Nat instAddNat).1 stays"
+
+[[fault]]
+id = "fe-whnf-mode-leaks"
+file = "src/front/whnf.fs"
+old = ''': wc-leave ( -- ) wc wc-mode0 @ lf-defeq-mode! ;'''
+new = ''': wc-leave ( -- ) ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2: a call leaves the transparency its last part ran at (instances after whnfAtMostI), not the caller's"
+
+[[fault]]
+id = "fe-delta-heuristic-skipped"
+file = "src/front/defeq-delta.fs"
+old = '''  dd-mvars? if true exit then de-x dd-nontrivial? dup de-aborted? or if exit then'''
+new = '''  false exit de-x dd-nontrivial? dup de-aborted? or if exit then'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "S2: tryHeuristic never compares the arguments first, so Nat.add ?n x against Nat.add k x unfolds Nat.add (its `_sunfold`)"
+
+[[fault]]
+id = "fe-delta-packed-skipped"
+file = "src/front/defeq-delta.fs"
+old = '''  de-t de-s dd-packed if de-s dd-compare exit then de-aborted? if exit then'''
+new = '''  de-aborted? if exit then'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "S2: unfoldNonProjFnDefEq never unpacks a class projection toward the other side's head (k + x against Nat.add k x then unfolds Nat.add)"
+
+[[fault]]
+id = "fe-delta-levels-ignored"
+file = "src/front/defeq-delta.fs"
+old = '''  de-t de-s de-levels lf-lb-true = if lf-lb-true de-return exit then'''
+new = '''  lf-lb-true de-return exit'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "S2: two constants of one name are equal whatever their universe levels (id.{1} against id.{2})"
+
+[[fault]]
+id = "fe-delta-reducible-first-skipped"
+file = "src/front/defeq-delta.fs"
+old = '''  df df-mode @ lf-tr-reducible = if dd-defeq exit then
+  de-x dd-red? de-y dd-red? dd-one-of ;'''
+new = '''  dd-defeq ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "S2: unfoldReducibleDefEq never unfolds the reducible side first (outParam ?n against Nat.add k x then unfolds Nat.add)"
+
+[[fault]]
+id = "fe-ed3-sunfold-twice-error"
+file = "src/front/elab-data.fs"
+old = '''create ed-sun-own  ' ed-a-def , ' ed-fact-sun , ed-e-sunfold , ' ed-sun , ' ed-sun-decl ,'''
+new = '''create ed-sun-own  ' ed-a-def , ' ed-fact-sun , ed-e-matcher , ' ed-sun , ' ed-sun-decl ,'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "S2: a smart-unfolding body given twice is refused with another kind's error (error 41 never given)"
+
+[[fault]]
+id = "fe-ed3-order-unchecked"
+file = "src/front/elab-data.fs"
+old = '''  tuck swap index? if + outcome-ok else drop ed-e-order ed-bad then ;'''
+new = '''  nip + outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "S2: a body's level or node may name itself or a later entry (error 42 never given): a decoder would loop or read a later record"
+
+[[fault]]
+id = "fe-ed3-loose-root"
+file = "src/front/elab-data.fs"
+old = '''  ed-sun-closed? ed-e-loose ed-or-bad ;'''
+new = '''  drop outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "S2: a smart-unfolding body with a loose bound variable at its root is read (error 43 never given)"
+
+[[fault]]
+id = "fe-ed3-loose-binder"
+file = "src/front/elab-data.fs"
+old = ''': ed-lo-binder ( addr -- k ) dup ed-node-b @ ed-loose swap ed-node-c @ ed-under max ;'''
+new = ''': ed-lo-binder ( addr -- k ) dup ed-node-b @ ed-loose swap ed-node-c @ ed-loose max ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "S2: a binder's body counted without its binder: every closed body (Nat.add's) refused as loose"
+
+[[fault]]
+id = "fe-ed3-params-count"
+file = "src/front/elab-data.fs"
+old = '''  nip ed-sun dup ed-sun-all-params? 0= if drop ed-e-params ed-bad exit then'''
+new = '''  nip ed-sun'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "S2: a body of a universe-polymorphic definition with fewer universe parameters than it is read (error 44 never given)"
+
+[[fault]]
+id = "fe-ed3-param-name"
+file = "src/front/elab-data.fs"
+old = '''  ed-params-read dup ed-sun-decl@ ed-levels < if ed-f-param = else 2drop false then ;'''
+new = '''  ed-params-read ed-sun-decl@ ed-levels < nip ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "S2: a body's universe parameters other than its definition's, as many, are read (error 44 never given)"
+
+[[fault]]
+id = "fe-ed3-annotation-any"
+file = "src/front/elab-data.fs"
+old = '''  if ed-annotation-names ed-key-index else false then ;'''
+new = '''  if 2drop 0 true else false then ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "S2: an mdata entry other than Lean's three annotations is read as sunfoldMatch (error 45 never given)"
+
+[[fault]]
+id = "fe-ed3-foreign-unmarked"
+file = "src/front/elab-data.fs"
+old = '''  ed-decls if ed-one-decl else true ed-sun-now ed-sun-foreign ! -1 outcome-ok then ;'''
+new = '''  ed-decls if ed-one-decl else -1 outcome-ok then ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "S2: a body naming a constant the library lacks is not marked foreign, so its use would decode a missing constant"
+
+[[fault]]
+id = "fe-ed3-foreign-refused"
+file = "src/front/elab-data.fs"
+old = '''  ed-decls if ed-one-decl else true ed-sun-now ed-sun-foreign ! -1 outcome-ok then ;'''
+new = '''  ed-decls if ed-one-decl else 0 ed-e-unknown ed-bad then ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "S2: a body naming a constant the export lacks refuses the whole file (25 of Init's 387 bodies name a _proof_ lemma lean4export leaves out)"
+
+[[fault]]
+id = "fe-ed3-struct-kind"
+file = "src/front/elab-data.fs"
+old = '''  dup 0< if outcome-ok exit then dup ed-type? if outcome-ok else ed-kind-bad then ;'''
+new = '''  outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "S2: a body's projection of a constructor (no structure) is read (error 14 never given)"
+
+[[fault]]
+id = "fe-ed3-have-as-let"
+file = "src/front/elab-data.fs"
+old = '''  c" non_dep" ed-member ed-bool ok-then? if if elab-node-have ed-nd-kind! then'''
+new = '''  c" non_dep" ed-member ed-bool ok-then? if if elab-node-let ed-nd-kind! then'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "S2: a have (non_dep let) read as a let: decoding would zeta-reduce where Lean keeps it"
+
+[[fault]]
+id = "fe-ed3-match-pattern-tag"
+file = "src/front/elab-data.fs"
+old = '''  s" rec_on" counted, s" brec_on" counted, s" match_pattern" counted, 0 0 counted,'''
+new = '''  s" rec_on" counted, s" brec_on" counted, s" match_patterns" counted, 0 0 counted,'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "S2: the match_pattern tag (S3's whnfMatcher reads it) is not one the reader knows: every format-3 file refused"
+
+[[fault]]
+id = "fe-meta-const-decl-unknown"
+file = "src/front/meta-spine.fs"
+old = '''  lf-const-name lf-menv-find ;'''
+new = '''  lf-const-name lf-menv-find dup ok? 0= if drop outcome-invalid then ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "s1-meta-b re-check (plan S2): a library declaration that could not be decoded reads as an unknown constant, so whnfCore leaves Nat.add 1 2 as it is, ok"
+
+[[fault]]
+id = "fe-whnf-fault-dropped"
+file = "src/front/whnf.fs"
+old = '''  wc-faulted dup ok? if drop else nip nip nip wc-fail then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "s1-meta-b re-check (plan S2): a major premise's head that could not be decoded reads as no constructor: the recursor stays, ok"
+equivalent = "in whnf every part runs as a whnf activation, whose delta step looks the part's head constant up before wc-kind does, and a declaration's decode is kept, so wc-kind's lookup never fails first there; wc-checked is the defence, fe-whnf-stuck-fault-dropped plants the reachable one (getStuckMVar?)"
+
+[[fault]]
+id = "fe-whnf-stuck-fault-dropped"
+file = "src/front/whnf.fs"
+old = '''  outcome-ok wc wc-fault ! ws-run ws-checked ;'''
+new = '''  outcome-ok wc wc-fault ! ws-run ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "s1-meta-b re-check (plan S2): getStuckMVar? of a recursor whose major premise's head could not be decoded answers none, ok, as though it were no constructor"
+
+[[fault]]
+id = "fe-whnf-induct-full-as-unsupported"
+file = "src/front/whnf.fs"
+old = '''  dup outcome-invalid = if drop outcome-unsupported then 0 swap ;'''
+new = '''  drop outcome-unsupported 0 swap ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "s1-meta-b re-check (plan S2): a refused decode of the recursor's inductive type (full) reported as unsupported"
+
+[[fault]]
+id = "fe-whnf-wf-bump-skipped"
+file = "src/front/whnf.fs"
+old = '''  if lf-tr-all lf-defeq-mode! then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "reduceRec's isWFRec: Acc.rec and WellFounded.rec reduce their major premise at the configured transparency, not all"
+
+[[fault]]
+id = "fe-defeq-undef-swapped"
+file = "src/front/defeq.fs"
+old = ''': de-undef-do ( r xt -- ) over lf-lb-undef = if nip execute else drop de-return then ;'''
+new = ''': de-undef-do ( r xt -- ) over lf-lb-false = if nip execute else drop de-return then ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "S2 reuse: a continuation goes on after false and returns undef: isDefEq's later steps (lazy delta, eta) are skipped or run after an answer"
+
+[[fault]]
+id = "fe-defeq-eta-struct-skipped"
+file = "src/front/defeq.fs"
+old = '''  -rot 2dup de-eta-struct if rot de-then de-es-types exit then'''
+new = '''  -rot 2dup 2drop false if rot de-then de-es-types exit then'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "S2 reuse: structure eta (isDefEqEtaStruct) never compares the types of a unit-like structure's constructor and a variable"
+
+[[fault]]
+id = "fe-dd-fallback-swapped"
+file = "src/front/defeq-delta.fs"
+old = ''': dd-t-or ( xt -- ) de-t dd-unfold if nip de-s dd-compare else drop execute then ;'''
+new = ''': dd-t-or ( xt -- ) de-s dd-unfold if nip de-t dd-compare else drop execute then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "S2 lazy delta: the left side's unfolding unfolds the right one instead (isDefEqLeft)"
 
 # --- reuse-k1 (2026-11-13): lib/memo.fs, lib/pqueue.fs and the kernel's
 # sorts, memos and queues moved onto the libraries -----------------------
@@ -18076,3 +18809,162 @@ old = '''  if 2swap >r execute r> r> swap ['] frame-return swap execute else nip
 new = '''  if 2swap >r drop r> r> swap ['] frame-return swap execute else nip nip r> 0 then ;'''
 test = "$GFORTH tests/present/term-printer.fs"
 reason = "the second parts compared as the first parts again: binder groups and implicit levels misjudged"
+
+# --- Review s2-unfold-a (2026-11-13): lazy delta's choices against pinned
+# Lean (H1), whnfCore at isExprDefEqExpensive (M1), a body constant's
+# universe arguments (L1), the node fields (L4), refused decodes passed on
+# (L5), the shared arity test (B1), unfoldProjInst?'s none cases.
+
+[[fault]]
+id = "fe-dd-keys-swapped"
+file = "src/front/defeq-delta.fs"
+old = '''  2dup > if 2drop dd-first-t exit then < if dd-first-s else dd-heads then ;'''
+new = '''  2dup < if 2drop dd-first-t exit then > if dd-first-s else dd-heads then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review s2-unfold-a H1: unfoldDefEq unfolds the side of the smaller height first (id before Nat.mul), so id Nat (Nat.mul k x) =?= Nat.mul k x answers true where Lean's order reaches Nat.mul's smart unfolding (a gap: unsupported)"
+
+[[fault]]
+id = "fe-dd-abbrev-rank-opaque"
+file = "src/front/defeq-delta.fs"
+old = '''drop lf-hint-abbrev = if max-n else -1 then ;'''
+new = '''drop lf-hint-abbrev = if -1 else -1 then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review s2-unfold-a H1: an abbreviation ranks as opaque in unfoldDefEq's ReducibilityHints.lt, so a regular definition unfolds before it"
+equivalent = "an abbreviation's key decides only against a definition of the same reducibility, without metavariables, that is no projection function (projection functions go by dd-proj-cases first); in Init those abbreviations are reducible ones (Unit, inferInstance, autoParam, the casesOn and below definitions) meeting outParam, semiOutParam, optParam, GT.gt, GE.ge or Ne, which unfold to an argument or one constant application, so either order reaches the same comparison, or instance-reducible matchers, which whnfCore answers unsupported before lazy delta runs; no Init case tells the two orders apart"
+
+[[fault]]
+id = "fe-dd-proj-cases-swapped"
+file = "src/front/defeq-delta.fs"
+old = '''2dup = if 2drop dd-reducible exit then drop if dd-unfold-s else dd-unfold-t then ;'''
+new = '''2dup = if 2drop dd-reducible exit then drop if dd-unfold-t else dd-unfold-s then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review s2-unfold-a H1: a projection function on one side unfolds itself instead of the other side, so id Nat ?n =?= Prod.fst Nat Nat (a, b) assigns ?n := a, not Lean's Prod.fst ... (a, b)"
+
+[[fault]]
+id = "fe-dd-heads-both-unchecked"
+file = "src/front/defeq-delta.fs"
+old = '''  de-t over dd-same-head? if nip de-t swap then dd-compare ;'''
+new = '''  dd-compare ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review s2-unfold-a H1: after both sides unfold, the unfolded left side is compared where Lean keeps it (sameHeadSymbol t sNew), so id Nat (Nat.add k x) =?= Function.comp (id Nat) (Nat.add k) x reaches Nat.add's smart unfolding: unsupported, not true"
+
+[[fault]]
+id = "fe-dd-simple-always"
+file = "src/front/defeq-delta.fs"
+old = '''  dup outcome-rejected = if drop false exit then'''
+new = '''  dup outcome-rejected = if drop true exit then'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review s2-unfold-a H1: every value counts as simple, so Nat.pred (height 2) is trivial, tryHeuristic skips its arguments and Nat.pred x =?= Nat.pred (id Nat x) unfolds both into a matcher: unsupported, not true"
+
+[[fault]]
+id = "fe-whnf-at-most-i-implicit"
+file = "src/front/whnf.fs"
+old = '''  dup lf-tr-all = over lf-tr-default = or over lf-tr-implicit = or'''
+new = '''  dup lf-tr-all = over lf-tr-default = or'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-unfold-a H1: whnfAtMostI keeps implicit transparency, so whnfCoreAtDefEq at implicit unfolds id under a projection (Lean lowers implicit to instances)"
+
+[[fault]]
+id = "fe-defeq-expensive-at-defeq"
+file = "src/front/defeq.fs"
+old = '''  else ['] de-exp-nat ['] de-whnf-c de-rewhnf then ;'''
+new = '''  else ['] de-exp-nat ['] de-whnf de-rewhnf then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review s2-unfold-a M1: isExprDefEqExpensive's whnfCore reduces a projection's structure by whnfAtMostI, so k =?= (id P (Prod.mk (fun x => x) 0)).1 k answers unsupported where Lean's whnfCore (proj := yesWithDelta) gives true"
+
+[[fault]]
+id = "fe-defeq-aux-whnf-core"
+file = "src/front/defeq.fs"
+old = '''  dup lf-lb-undef = if drop ['] de-solve-inst ['] de-whnf de-rewhnf else de-return then ;'''
+new = '''  dup lf-lb-undef = if drop ['] de-solve-inst ['] de-whnf-c de-rewhnf else de-return then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review s2-unfold-a M1: isExprDefEqAux reduces a projection's structure with whnf at the call's transparency, where Lean's whnfCoreAtDefEq lowers it to instances"
+
+[[fault]]
+id = "fe-ed3-const-arity-unchecked"
+file = "src/front/elab-data.fs"
+old = ''': ed-nd-fits ( -- outcome ) ed-nd-arity? ed-e-unfit ed-or-bad ;'''
+new = ''': ed-nd-fits ( -- outcome ) outcome-ok ;'''
+test = "GFORTH=$GFORTH python3 tests/front/test_elab_data.py"
+reason = "review s2-unfold-a L1: a smart-unfolding body's constant with other universe arguments than its declaration's parameters (Nat.{0}) is read, never refused"
+
+[[fault]]
+id = "fe-ed3-foreign-arity"
+file = "src/front/elab-data.fs"
+old = '''  ed-nd ed-node-a @ dup 0< if drop true else ed-levels ed-nd-levels# = then ;'''
+new = '''  ed-nd ed-node-a @ dup 0< if drop false else ed-levels ed-nd-levels# = then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/test_elab_data.py"
+reason = "review s2-unfold-a L1: a body's constant that the library lacks (foreign) is refused for its universe arguments, which only a declaration's parameters can bound"
+
+[[fault]]
+id = "fe-ed3-field-stored-on-failure"
+file = "src/front/elab-data.fs"
+old = ''': ed-nd-put ( x outcome xt -- outcome ) ed-nd swap execute swap ok-store ;'''
+new = ''': ed-nd-put ( x outcome xt -- outcome ) ed-nd swap execute nip ! outcome-ok ;'''
+test = "GFORTH=$GFORTH python3 tests/front/test_elab_data.py"
+reason = "review s2-unfold-a L4: a node field's refused value (a negative bound variable, an unknown binder info) is stored and the node read as ok"
+
+[[fault]]
+id = "outcome-ok-store-on-failure"
+file = "src/lib/outcome.fs"
+old = ''': ok-store ( x a-addr outcome -- outcome ) ok-then? if ! outcome-ok else nip then ;'''
+new = ''': ok-store ( x a-addr outcome -- outcome ) >r ! r> ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "review s2-unfold-a re-check L1: a failing step's half-made result is stored (a memo entry, a slab cell, a node field) though the outcome is passed on"
+
+[[fault]]
+id = "fe-ed3-entry-below-absolute"
+file = "src/front/elab-data.fs"
+old = '''  over - rot ed-u32 ok-then? 0= if nip nip no-result exit then'''
+new = '''  rot ed-u32 ok-then? 0= if nip nip no-result exit then'''
+test = "GFORTH=$GFORTH python3 tests/front/test_elab_data.py"
+reason = "review s2-unfold-a re-check M2-new: an index of a second smart-unfolding body is checked against the whole table, not the room past the body's first entry, so a root beyond its nodes, a node naming itself or a level beyond its table is read"
+
+[[fault]]
+id = "fe-defeq-whnf-c-default"
+file = "src/front/defeq.fs"
+old = ''': de-whnf-c ( t -- t' flag ) ['] lf-whnf-core de-mode-at de-must ;'''
+new = ''': de-whnf-c ( t -- t' flag ) ['] lf-whnf-core lf-tr-default lf-meta-at de-must ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review s2-unfold-a re-check M1-new: isExprDefEqExpensive's whnfCore runs at default whatever the call's transparency, so at reducible and instances k =?= (id P (Prod.mk (fun x => x) 0)).1 k unfolds id and answers true (pinned Lean: false)"
+
+[[fault]]
+id = "fe-fi-defn-decode-flag"
+file = "src/front/fun-info.fs"
+old = '''  ok-then? if lf-menv-kind lf-kind-definition = outcome-ok else true swap then ;'''
+new = '''  ok-then? if lf-menv-kind lf-kind-definition = outcome-ok else drop true outcome-ok then ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s2-unfold-a L5: a declaration whose decode was refused room reads as a definition (callers answer unsupported) instead of passing full on"
+
+[[fault]]
+id = "fe-if-firm-decode-flag"
+file = "src/front/infer.fs"
+old = '''  ok-then? if lf-menv-kind lf-kind-definition <> outcome-ok else false swap then ;'''
+new = '''  ok-then? if lf-menv-kind lf-kind-definition <> outcome-ok else drop false outcome-ok then ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s2-unfold-a L5: inferType of v 0 with v : Nat.add, Nat.add's decode refused room, answers unsupported instead of full"
+
+[[fault]]
+id = "fe-meta-arity-ignored"
+file = "src/front/meta-spine.fs"
+old = ''': lf-meta-arity? ( d const -- flag ) lf-const-levels# swap lf-menv-params nip = ;'''
+new = ''': lf-meta-arity? ( d const -- flag ) 2drop true ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-unfold-a B1: the shared universe-argument count passes any constant, so outParam.{1,1} Nat unfolds (Lean's deltaDefinition gives none)"
+
+[[fault]]
+id = "fe-unfold-proj-inst-arity"
+file = "src/front/unfold.fs"
+old = '''  2dup lf-meta-arity? 0= if 2drop uf-none-of exit then
+  uf-delta-beta'''
+new = '''  uf-delta-beta'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-unfold-a: unfoldProjInst? delta-reduces HAdd.hAdd.{0,0} (two universe arguments for three parameters), where Lean's deltaBetaDefinition gives none"
+
+[[fault]]
+id = "fe-unfold-proj-inst-no-proj"
+file = "src/front/unfold.fs"
+old = '''  dup uf-field? if nip lf-unfold-ask-none outcome-ok else drop uf-none-of then ;'''
+new = '''  nip lf-unfold-ask-none outcome-ok ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-unfold-a: unfoldProjInst? asks reduceProj? of a result with no projection at its head (HAdd.hAdd Nat Nat Nat unfolds to a lambda), where Lean gives none"

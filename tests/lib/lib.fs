@@ -560,6 +560,19 @@ T{ outcome-full first-cell outcome-first! first-cell @ -> outcome-full }T
 T{ outcome-invalid first-cell outcome-first! outcome-ok first-cell outcome-first! first-cell @
    -> outcome-full }T
 T{ outcome-unknown first-cell ' outcome-first! rs-checked first-cell @ -> outcome-full }T
+\ ok-store: x stored only on ok; every other outcome, a value outside the
+\ vocabulary too, is given back with x dropped and the cell as it was; the
+\ values below untouched (review s2-unfold-a re-check L1).
+variable kept-cell
+T{ 5 kept-cell ! 7 kept-cell outcome-ok ok-store kept-cell @ -> outcome-ok 7 }T
+T{ 8 kept-cell outcome-invalid ok-store 8 kept-cell outcome-exhausted ok-store kept-cell @
+   -> outcome-invalid outcome-exhausted 7 }T
+T{ 8 kept-cell outcome-unknown ok-store 8 kept-cell outcome-rejected ok-store kept-cell @
+   -> outcome-unknown outcome-rejected 7 }T
+T{ 8 kept-cell outcome-unsupported ok-store 8 kept-cell outcome-full ok-store 8 kept-cell 99
+   ok-store kept-cell @ -> outcome-unsupported outcome-full 99 7 }T
+T{ 1 -1 kept-cell outcome-ok ' ok-store rs-checked 2 0 kept-cell outcome-full ' ok-store
+   rs-checked kept-cell @ -> 1 outcome-ok 2 outcome-full -1 }T
 \ ok-true?: go on (true) only after true and ok; else false, the outcome
 \ and false: a failure keeps its outcome whatever the flag.
 T{ true outcome-ok ok-true? 1 outcome-ok ok-true? -> true true }T

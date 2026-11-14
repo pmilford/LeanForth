@@ -11,8 +11,8 @@
 \ stop test, and over some index, any? and ok-any? (ok-found? its stop
 \ test); 2dup-under gives a step of these loops a copy of its two values;
 \ outcome-first! keeps a first
-\ failure in a cell; no-result, ok-or-none and room-result give a step's
-\ result with its outcome.
+\ failure in a cell and ok-store a step's result only on ok; no-result,
+\ ok-or-none and room-result give a step's result with its outcome.
 \ No state, no dependencies.
 
 0 constant outcome-ok           \ succeeded; for a comparison, shown equal
@@ -159,6 +159,11 @@
 \ Keep the first failure in a cell: store the outcome only while the cell
 \ holds ok, so a later outcome, ok or not, never hides an earlier failure.
 : outcome-first! ( outcome a-addr -- ) dup @ ok? if ! else 2drop then ;
+\ Store a step's result x at a-addr only on ok, and give the outcome: on
+\ any other outcome x is dropped and the cell left as it was, so a failure
+\ never stores a half-made value. Example, a field set from a reader:
+\ `json read-size rec size-field swap ok-store`.
+: ok-store ( x a-addr outcome -- outcome ) ok-then? if ! outcome-ok else nip then ;
 \ The outcome's name, as diagnostics write it. A value outside the
 \ vocabulary is named "invalid", as outcome-sane reads it, and so is any
 \ value the CASE does not list. One arm per outcome, two to a line: seven

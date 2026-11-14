@@ -102,16 +102,14 @@ end-structure
 : lf-dt-cons ( term list -- list' outcome )
   1 dk-cells slab-claim ok-then? 0= if nip nip no-result exit then
   tuck dk-at tuck tc-rest ! rot swap tc-term ! outcome-ok ;
-: dk-cells-back ( cells -- ) dk-cells slab-count - dk-cells slab-commit ;
 : lf-dt-mark ( -- keys texts cells ) elab-keys-mark dk-cells slab-count ;
-: lf-dt-release ( keys texts cells -- ) dk-cells-back elab-keys-drop ;
+: lf-dt-release ( keys texts cells -- ) dk-cells slab-cut elab-keys-drop ;
 : lf-dt-scoped ( i*x xt -- j*x ) lf-dt-mark 2>r >r execute r> 2r> lf-dt-release ;
 
 \ ---- Names and shapes (Lean's constant names, by text).
 : dk-head ( -- head ) dk dk-h @ ;
 : dk-e ( -- e ) dk dk-term @ ;
-: dk-name ( const -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
-: lf-dt-const-decl ( const -- d true | false ) dk-name elab-decl-of ;
+: lf-dt-const-decl ( const -- d true | false ) lf-const-name elab-decl-of ;
 : lf-dt-const? ( head -- const true | false )
   dup lf-term-const? if true else drop false then ;
 : dk-last ( e -- a ) lf-term-second@ ;
@@ -121,13 +119,12 @@ end-structure
 \ OfNat.ofNat _ x _ of a numeral x; its value, flag false for none.
 : dk-lit-small ( leaf -- u outcome )
   dup lf-lit-small? if lf-lit-cell outcome-ok else drop -1 outcome-unsupported then ;
-: dk-succ? ( e -- flag ) 1 s" Nat.succ" lf-meta-app-of? ;
 : dk-ofnat? ( e -- flag ) 3 s" OfNat.ofNat" lf-meta-app-of? ;
 : dk-zero? ( e -- flag ) 0 s" Nat.zero" lf-meta-app-of? ;
 : dk-end? ( e -- flag ) dup lf-lit-leaf? swap dk-zero? or ;
 \ One step down a numeral: ( acc e -- acc' e' more? ).
 : dk-nat-step ( acc e -- acc' e' more? )
-  dup dk-succ? if dk-last swap 1+ swap true exit then
+  dup lf-meta-succ? if dk-last swap 1+ swap true exit then
   dup dk-ofnat? if 1 dk-arg true exit then false ;
 : dk-numeral? ( e -- flag )
   begin dup dk-end? if drop true exit then 0 swap dk-nat-step rot drop while repeat
@@ -159,7 +156,7 @@ end-structure
   dk-new ok-then? 0= if nip nip no-result exit then
   tuck elab-key-arity! tuck elab-key-ref! outcome-ok ;
 : dk-const-key ( const n -- k outcome )
-  swap dk-name dk-declared ok-then? if swap elab-key-const dk-ref-key else nip
+  swap lf-const-name dk-declared ok-then? if swap elab-key-const dk-ref-key else nip
   no-result then ;
 : dk-fvar-key ( fvar n -- k outcome ) elab-key-fvar dk-ref-key ;
 : dk-idx! ( leaf k -- k ) tuck swap lf-proj-idx swap elab-key-idx! ;
@@ -213,7 +210,7 @@ end-structure
 : dk-const-head ( e -- const true | false ) lf-meta-head lf-dt-const? ;
 : dk-unfolds? ( e -- flag outcome )
   dk-const-head 0= if false outcome-ok exit then
-  dk-name lf-defeq-mode lf-menv-unfoldable ok-then? if nip outcome-ok else nip false
+  lf-const-name lf-defeq-mode lf-menv-unfoldable ok-then? if nip outcome-ok else nip false
   swap then ;
 : dk-unfold-check ( e -- outcome )   \ a definition it would unfold: unsupported
   dk-unfolds? ok-true? if outcome-unsupported else nip then ;
@@ -237,7 +234,7 @@ end-structure
   dup 2 s" Nat.add" lf-meta-app-of? if dk-numeral-last? outcome-ok exit then
   dup 4 s" Add.add" lf-meta-app-of? if 0 dk-typed-offset exit then
   dup 6 s" HAdd.hAdd" lf-meta-app-of? if 1 dk-typed-offset exit then
-  dk-succ? outcome-ok ;
+  lf-meta-succ? outcome-ok ;
 
 \ ---- The keys of each head.
 : dk-star ( -- k outcome ) elab-key-star dk-new ;
@@ -269,10 +266,7 @@ end-structure
 
 \ A constant: mkPath's nested numerals and offsets, getUnifyKeyArgs'
 \ stuck tests, then the key and its arguments.
-: dk-decl ( -- d outcome ) dk-head lf-meta-const-decl if outcome-ok else -1
-  outcome-invalid then ;
-: dk-reducible? ( d -- flag outcome )
-  lf-menv-status ok-then? if elab-reducible = outcome-ok else false swap then ;
+: dk-decl ( -- d outcome ) dk-head lf-meta-const-decl ;
 : dk-mvar-in? ( from to -- flag ) swap false -rot ?do dk-e i dk-arg lf-meta-mvar-free?
   0= or loop ;
 : dk-match-span ( m -- from to ) elab-matcher@ rot drop swap 1+ tuck + ;
@@ -284,7 +278,7 @@ end-structure
   dup dk-match-arity dk dk-n @ > if drop false else dk-match-span dk-mvar-in? then ;
 : dk-rec? ( d -- flag ) lf-menv-kind lf-kind-recursor = ;
 : dk-stuck-const? ( d -- flag outcome )
-  dup dk-reducible? ok-then? 0= if nip false swap exit then
+  dup lf-menv-reducible? ok-then? 0= if nip false swap exit then
   if drop true outcome-ok exit then
   dup dk-matcher-stuck? if drop true else dk-rec? then outcome-ok ;
 : dk-unify-stuck ( -- outcome )
@@ -342,7 +336,7 @@ end-structure
   2drop outcome-ok ;
 : dk-path-count ( k0 outcome -- k n outcome ) elab-keys# rot tuck - rot ;
 : dk-path-run ( type -- k n outcome )   \ the list cells it made forgotten
-  elab-keys# swap dk-cells slab-count >r dk-path-loop r> dk-cells-back dk-path-count ;
+  elab-keys# swap dk-cells slab-count >r dk-path-loop r> dk-cells slab-cut dk-path-count ;
 : lf-dt-path ( type -- k n outcome ) ['] dk-path-run lf-tr-reducible lf-meta-at ;
 
 base !   \ the BASE this file was loaded with

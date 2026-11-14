@@ -37,8 +37,9 @@
 \ lf-get-level ( type -- level outcome ): Lean's getLevel, the level u of
 \ the type's inferred type once whnfCore makes it Sort u, with the same
 \ outcomes (FE1g-3's by-sorry uses it, as Lean's mkSorry does);
-\ lf-whnf-firm? ( term -- flag ): whether whnf's delta could go further
-\ than whnfCore's result (FE1g-4's by-intro: asks).
+\ lf-whnf-firm? ( term -- flag outcome ): whether whnf's delta could go
+\ further than whnfCore's result (FE1g-4's by-intro asks); a refused
+\ decode of the head's declaration passed on.
 \ lf-meta-dec-level ( type -- level outcome ): Lean's getDecLevel
 \ (Meta/DecLevel.lean:57-76): the type's level (getLevel), its level
 \ metavariables instantiated and normalized (normalizeLevel), then
@@ -93,16 +94,13 @@ end-structure
 : if-fail ( x outcome -- -1 outcome ) nip no-result ;
 
 \ ---- Leaves.
-: if-levels-fill ( slot -- outcome ) if-levels lf-meta-levels-fill ;
-: if-levels-ok? ( slot d -- flag ) lf-menv-params nip swap lf-cref-pairs nip = ;
-: if-const-type ( slot d -- type outcome )
-  over if-levels-fill dup ok? 0= if nip if-fail exit then drop nip
+: if-const-type ( const d -- type outcome )
+  swap if-levels lf-meta-levels-fill ok-then? 0= if no-result exit then
   dup lf-menv-type swap lf-menv-params >r 0 if-levels slab-at r>
   lf-meta-instantiate-level-params ;
-: if-slot ( const -- slot ) lf-term-first@ lf-cref-slot ;
 : if-const ( const -- type outcome )
-  dup lf-meta-const-decl 0= if outcome-invalid if-fail exit then
-  swap if-slot swap 2dup if-levels-ok? 0= if 2drop -1 outcome-invalid exit then
+  dup lf-meta-const-decl ok-then? 0= if if-fail exit then
+  2dup swap lf-meta-arity? 0= if 2drop -1 outcome-invalid exit then
   if-const-type ;
 : if-fvar ( fvar -- type outcome )
   dup lf-fvar-live? if lf-fvar-type outcome-ok else outcome-invalid if-fail then ;
@@ -137,12 +135,18 @@ end-structure
   over lf-tag-symbolic-sort = or swap lf-tag-lam = or ;
 : if-inert? ( term -- flag ) if-tag if-inert-tag? ;
 : if-head ( term -- head ) begin dup lf-meta-app? while lf-term-first@ repeat ;
-: if-firm-const? ( const -- flag )
-  lf-meta-const-decl if lf-menv-kind lf-kind-definition <> else false then ;
-: if-firm? ( head -- flag )
-  dup if-tag lf-tag-constant = if if-firm-const? else if-inert? then ;
-: if-no-pi ( type -- outcome )
-  if-head if-firm? if outcome-invalid else outcome-unsupported then ;
+\ A constant no declaration has is not firm; one whose declaration could
+\ not be decoded passes that outcome on (full as full).
+: if-firm-const ( const -- flag outcome )
+  lf-meta-const-decl dup outcome-invalid = if 2drop false outcome-ok exit then
+  ok-then? if lf-menv-kind lf-kind-definition <> outcome-ok else false swap then ;
+: if-firm ( head -- flag outcome )
+  dup if-tag lf-tag-constant = if if-firm-const else if-inert? outcome-ok then ;
+\ Invalid where whnf leaves the head (Lean throws), unsupported where its
+\ delta might go on, a refused decode passed on.
+: if-firm-or ( head -- outcome )
+  if-firm ok-then? if if outcome-invalid else outcome-unsupported then then ;
+: if-no-pi ( type -- outcome ) if-head if-firm-or ;
 : if-to-pi ( type -- pi outcome )
   lf-whnf-core ok-then? 0= if no-result exit then
   dup if-pi? if outcome-ok else dup if-no-pi if-fail then ;
@@ -180,7 +184,7 @@ end-structure
   dup if-lams lf-meta-push ok-then? 0= if no-result exit then
   dup lf-term-first@ lf-lctx-local ok-then? 0= if if-fail exit then
   dup if-xs lf-meta-push ok-then? 0= if if-fail exit then
-  swap lf-term-second@ swap lf-meta-instantiate1 ;
+  lf-meta-open ;
 : if-telescope ( term -- body outcome )
   if-xs slab-clear if-lams slab-clear
   begin dup if-lam? while if-open ok-then? 0= if no-result exit then repeat outcome-ok ;
@@ -211,8 +215,7 @@ end-structure
 \ metavariable Sort ?u.
 : if-sort? ( term -- flag ) if-tag lf-tag-symbolic-sort = ;
 : if-no-sort ( type -- outcome )
-  if-head dup if-tag lf-tag-mvar = if drop outcome-unsupported exit then
-  if-firm? if outcome-invalid else outcome-unsupported then ;
+  if-head dup if-tag lf-tag-mvar = if drop outcome-unsupported exit then if-firm-or ;
 : if-sort-level ( T -- level outcome )
   dup if-sort? if lf-term-first@ outcome-ok exit then
   lf-whnf-core ok-then? 0= if no-result exit then
@@ -242,8 +245,9 @@ end-structure
 \ Whether Lean's whnf would leave a term whnfCore made as it is: its head
 \ inert (a free variable, metavariable, sort or lambda) or a constant of
 \ the input that is no definition; false where delta might go on (a
-\ definition, or a constant the input does not hold).
-: lf-whnf-firm? ( term -- flag ) if-head if-firm? ;
+\ definition, or a constant the input does not hold); a head whose
+\ declaration could not be decoded passes that outcome on.
+: lf-whnf-firm? ( term -- flag outcome ) if-head if-firm ;
 \ Lean's getLevel (Meta/InferType.lean): the level u of a type's type,
 \ which whnf must make Sort u; the cases as inferForallType's above.
 : lf-get-level ( type -- level outcome )

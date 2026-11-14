@@ -462,7 +462,7 @@ time, as `scripts/export.sh` builds `export_manifest.py`'s, is not seen).
 | `src/program/` | `test-program`, `test-program-ir`, `test-program-ir-run` |
 | `src/present/` | `test-present`; `test-printer-differential` |
 | `src/author/` | `test-author`; `reference-author` |
-| `src/front/`, `src/core/mvar-leaves.fs` | `test-front`; `test-author` (the export writer's refusal, the marker); `reference-front` (pinned Lean's macro expansion); `reference-constructions` (`casesOn`, `recOn` and `ctorIdx` built for every type of Init and compared with Lean's export, and their binder names and information with pinned Lean's environment; plan FE6); `test-instances` and `reference-synth` (the instance keys and table, plans FE1e2-FE1e3: every Init instance recomputed, getInstances against pinned Lean) |
+| `src/front/`, `src/core/mvar-leaves.fs` | `test-front`; `test-author` (the export writer's refusal, the marker); `reference-front` (pinned Lean's macro expansion); `reference-constructions` (`casesOn`, `recOn` and `ctorIdx` built for every type of Init and compared with Lean's export, and their binder names and information with pinned Lean's environment; plan FE6); `test-instances` and `reference-synth` (the instance keys and table and instance search, plans FE1e2-FE1e3 and FE1e5: every Init instance recomputed, getInstances and 30 searches against pinned Lean) |
 | `tests/reference/*.lean` | the target that runs the file (`make check-changed` finds it) |
 | `scripts/lean-cache.py`, the Makefile | `test-lean-cache`, then the full tier (`make tier`) |
 | `docs/` | `check-docs`, `check-doc-examples` |
@@ -482,11 +482,19 @@ and gives the range its largest file tier (`python3 scripts/test-tier.py
 | Tier | Files | Suites |
 | --- | --- | --- |
 | docs | Markdown anywhere, `docs/`, `.claude/`, `.codex/`, `prompts/`, `LICENSE`, `.gitignore` | `check-docs`, the targets that read the file (a page whose examples run, a catalogue a test compares), the progress check |
-| tests | any other file under `tests/` | the targets that use it, also on Gforth 0.7.3; its planted faults; the block coverage of the source files the changed tests drive (`make coverage-check` when `src/main.fs` loads one of them) |
-| library | a Forth file of `src/lib/` that `src/main.fs` does not load | the targets that use it on both Gforths, its faults, its coverage |
+| tests | any other file under `tests/` | the targets that use it (also on Gforth 0.7.3 at the push); its planted faults; the block coverage of the source files the changed tests drive (`make coverage-check` when `src/main.fs` loads one of them) |
+| library | a Forth file of `src/lib/` that `src/main.fs` does not load | the targets that use it (on Gforth 0.7.3 too at the push), its faults, its coverage |
 | front | a Forth file of `src/front/` that `src/main.fs` does not load | the same, and `test-front`, `reference-front` |
-| full | any Forth file `src/main.fs` loads (at HEAD or at the base, so a library that becomes loaded is full), `src/main.fs`, `src/kernel`, `core`, `import`, `cli` and every other folder of `src/`, the Makefile, `scripts/`, `bin/`, `schemas/`, `lean-toolchain`, `.github/`, anything else | `make coverage-check`, `make check-rest`, `make test` on Gforth 0.7.3 |
+| full | any Forth file `src/main.fs` loads (at HEAD or at the base, so a library that becomes loaded is full), `src/main.fs`, `src/kernel`, `core`, `import`, `cli` and every other folder of `src/`, the Makefile, `scripts/`, `bin/`, `schemas/`, `lean-toolchain`, `.github/`, anything else | `make coverage-check`, `make check-rest`; `make test` on Gforth 0.7.3 at the push |
 
+- Gforth 0.7.3 (owner, 2026-11-14): a branch's tier (`make tier`) leaves
+  its 0.7.3 suites to the push, which runs them (`tested-tree.py tier
+  --with-073`), and to the daily full run; a portability slip is then caught
+  at the push instead of on the branch, and each branch's full tier is about
+  9 minutes shorter. `make coverage-check` is `make test` instrumented, so
+  the full tier never runs `make test` on Gforth 1.0 a second time; only
+  `test-cli` runs in both, on purpose (COVERAGE_ENGINE_DIFFERS: its
+  `gforth-fast` runs, which coverage replaces by the counting Gforth).
 - "Loads" is the `require`/`include`/`needs` graph from `src/main.fs`,
   comments included (more is loaded, never less). Since FE1g-1 it holds 180
   of the 192 Forth files: every front-end file but `cases-several.fs`,

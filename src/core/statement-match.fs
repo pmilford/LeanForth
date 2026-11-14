@@ -153,7 +153,7 @@ end-structure
   lf-stmt-token lf-stmt-number 0= if 2drop false exit then
   over lf-crec-arity @ = if lf-stmt-args else drop false then ;
 : lf-stmt-const? ( node -- flag )
-  dup lf-term-const? if lf-term-first@ lf-cref-slot lf-stmt-const
+  dup lf-term-const? if lf-const-slot lf-stmt-const
   else drop false then ;
 \ Whether a token (not empty) starts with the text given.
 : lf-stmt-prefix? ( c-addr u c-addr2 u2 -- c-addr u flag )

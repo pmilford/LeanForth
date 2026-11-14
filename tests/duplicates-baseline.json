@@ -215,11 +215,14 @@
   "tokens": 11
  },
  "17169c9b91a8": {
-  "copies": 3,
+  "copies": 6,
   "kind": "shape",
   "members": [
+   "src/front/elab-data.fs:ed-body-name",
    "src/front/infer.fs:if-get-level",
    "src/front/infer.fs:lf-get-level",
+   "src/front/synth.fs:sy-key-for",
+   "src/front/unfold.fs:uf-delta-beta",
    "src/kernel/reduce-nat.fs:lf-rn-named"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
@@ -303,6 +306,16 @@
    "src/front/assign-check.fs:ac-types-deps?"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "tokens": 7
+ },
+ "26dd46e981f2": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/synth.fs:sy-wake-all",
+   "src/front/synth.fs:sy-queue"
+  ],
+  "reason": "planned: 9.4.8k front batch (reuse-front, after the front branches merge; came with main's s2-unfold and s1-synth-b)",
   "tokens": 7
  },
  "27ce43656ca0": {
@@ -521,6 +534,16 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 22
  },
+ "3a1dbea59edb": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/unfold.fs:uf-when-instances",
+   "src/present/log-view.fs:lf-lv-formula"
+  ],
+  "reason": "false positive: `x? if a else drop b then` with unrelated tests and branches (unfold.fs's instance-mode choice, log-view.fs's formula printing)",
+  "tokens": 7
+ },
  "3a7e8de14c92": {
   "copies": 3,
   "kind": "shape",
@@ -603,11 +626,10 @@
   "tokens": 17
  },
  "465b1376b48b": {
-  "copies": 4,
+  "copies": 3,
   "kind": "shape",
   "members": [
    "src/cli/check-run.fs:ck-left",
-   "src/front/whnf.fs:wc-unfinal?",
    "src/kernel/defeq.fs:lf-lz-unknown",
    "src/present/log-check.fs:lf-lc-declaration?"
   ],
@@ -706,28 +728,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 9
- },
- "50026c52a315": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/defeq.fs:de-exp-o",
-   "src/front/defeq.fs:de-exp-e2"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 9
- },
- "50aa5e7dcd17": {
-  "copies": 4,
-  "kind": "shape",
-  "members": [
-   "src/front/elab-data.fs:ed-inst-fact",
-   "src/front/elab-data.fs:ed-class-fact",
-   "src/front/elab-data.fs:ed-match-fact",
-   "src/front/elab-data.fs:ed-proj-fact"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 13
  },
  "50c4f8f07dd3": {
   "copies": 2,
@@ -842,16 +842,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 17
  },
- "57d4e4bc9241": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/defeq.fs:de-frame",
-   "src/front/whnf.fs:wc-top"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 6
- },
  "5861f8e38f7b": {
   "copies": 2,
   "kind": "shape",
@@ -903,11 +893,12 @@
   "tokens": 7
  },
  "5bb24e92fac6": {
-  "copies": 3,
+  "copies": 4,
   "kind": "shape",
   "members": [
    "src/front/elab-data.fs:ed-number-item",
    "src/front/elab-data.fs:ed-type-item",
+   "src/front/elab-data.fs:ed-node-level",
    "src/kernel/mixed-level-substitute.fs:lf-mls-audit-from"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
@@ -1158,16 +1149,6 @@
   "reason": "false positive: a two-way choice on a flag or a field between two different words",
   "tokens": 7
  },
- "780f6c6fde34": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/infer.fs:if-head",
-   "src/front/whnf.fs:wm-head"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 6
- },
  "795cc9910c62": {
   "copies": 2,
   "kind": "shape",
@@ -1199,14 +1180,13 @@
   "tokens": 6
  },
  "7c11570642a7": {
-  "copies": 8,
+  "copies": 7,
   "kind": "shape",
   "members": [
    "src/cli/check-lf.fs:lfc-library-ready",
    "src/cli/check-lf.fs:lfc-made",
    "src/front/elab-data.fs:ed-decl",
    "src/front/handover.fs:lfh-made",
-   "src/front/whnf.fs:wc-turn",
    "src/kernel/mixed-infer.fs:lf-minfer-domain",
    "src/kernel/mixed-infer.fs:lf-minfer-preflight",
    "src/kernel/mixed-level-substitute.fs:lf-mls-ready"
@@ -1279,7 +1259,7 @@
   "tokens": 12
  },
  "8085ebdd787c": {
-  "copies": 17,
+  "copies": 18,
   "kind": "shape",
   "members": [
    "src/author/runner.fs:lfa-rest",
@@ -1292,6 +1272,7 @@
    "src/front/elab-data.fs:ed-dflt-key",
    "src/front/lib-decode.fs:lf-libdec-hint",
    "src/front/lib-decode.fs:lf-libdec-params",
+   "src/front/synth.fs:sy-goal-val",
    "src/import/run-replay.fs:rp-saved",
    "src/present/print-job.fs:lf-print-settings",
    "src/present/proof-outline.fs:lf-ol-source-name",
@@ -1346,16 +1327,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
  },
- "877b2fdbbd4b": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/defeq.fs:de-assign2",
-   "src/front/defeq.fs:de-expensive"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 8
- },
  "87fc6aa43754": {
   "copies": 2,
   "kind": "shape",
@@ -1377,7 +1348,7 @@
   "tokens": 7
  },
  "894e2526d85d": {
-  "copies": 17,
+  "copies": 18,
   "kind": "shape",
   "members": [
    "src/author/runner.fs:lfa-rest!",
@@ -1388,6 +1359,7 @@
    "src/front/beta-inst.fs:ib-xs!",
    "src/front/instantiate.fs:in-xs!",
    "src/front/lctx-views.fs:lv-except!",
+   "src/front/synth.fs:sy-val!",
    "src/front/tactic-run.fs:lfr-set",
    "src/import/run-replay.fs:rp-restore",
    "src/present/print-job.fs:lf-print-setup",
@@ -1688,16 +1660,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
  },
- "9fe570e50ece": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/defeq.fs:de-ckpt-assign",
-   "src/front/defeq.fs:de-solve-entry"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 11
- },
  "a1f608f0bfb2": {
   "copies": 2,
   "kind": "shape",
@@ -1797,10 +1759,11 @@
   "tokens": 6
  },
  "aca78af72b77": {
-  "copies": 8,
+  "copies": 9,
   "kind": "shape",
   "members": [
    "src/core/level-scope.fs:lf-lscope-context-valid?",
+   "src/front/defeq-delta.fs:dd-packed-step",
    "src/front/defeq.fs:de-induct-nonrec?",
    "src/front/elab-data.fs:ed-wrapped?",
    "src/front/mvars.fs:mv-free?",
@@ -1927,16 +1890,6 @@
   "reason": "family, table-driven later: the term, level and constant-reference stores (terms.fs, levels.fs, constant-references.fs) keep parallel interfaces over their own store, table and columns; one store-family record would serve them (9.4.8k follow-up 4)",
   "tokens": 11
  },
- "b6f4f28ce792": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/defeq.fs:de-mm-st",
-   "src/front/defeq.fs:de-mm-ts"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 16
- },
  "bb31b2c77ac3": {
   "copies": 2,
   "kind": "shape",
@@ -1989,11 +1942,12 @@
   "tokens": 7
  },
  "bf4463f5c079": {
-  "copies": 2,
+  "copies": 3,
   "kind": "shape",
   "members": [
    "src/front/level-simp.fs:lm-made",
-   "src/front/lib-decode.fs:lbd-made"
+   "src/front/lib-decode.fs:lbd-made",
+   "src/front/synth.fs:sy-made"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
@@ -2177,6 +2131,16 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
  },
+ "c74b946a2627": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/elab-data.fs:ed-lv-object",
+   "src/front/tactic-run.fs:lfr-advance"
+  ],
+  "reason": "planned: 9.4.8k front batch (reuse-front, after the front branches merge; came with main's s2-unfold and s1-synth-b)",
+  "tokens": 7
+ },
  "c7f1814e616e": {
   "copies": 2,
   "kind": "shape",
@@ -2280,12 +2244,11 @@
   "tokens": 22
  },
  "ce076b492da2": {
-  "copies": 3,
+  "copies": 2,
   "kind": "copy",
   "members": [
    "src/front/infer.fs:if-head",
-   "src/front/mvars.fs:mv-spine-head",
-   "src/front/whnf.fs:wm-head"
+   "src/front/mvars.fs:mv-spine-head"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
@@ -2320,16 +2283,6 @@
   ],
   "reason": "accepted: program/ir-reader.fs (today's IR reader) and the program-words verifier (verify-*.fs) are kept independent on purpose: tests/program/verify_check.py cross-checks the two designs, which a shared word would weaken",
   "tokens": 15
- },
- "d29897903fa2": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/defeq.fs:de-exp-e1",
-   "src/front/defeq.fs:de-solve-q"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 16
  },
  "d3eb1ff6ac5e": {
   "copies": 2,
@@ -2569,6 +2522,17 @@
   "reason": "false positive: the guarded test `dup a? if b else drop false then` (or with 2dup/2drop) of two different words",
   "tokens": 10
  },
+ "e58539dd3124": {
+  "copies": 3,
+  "kind": "shape",
+  "members": [
+   "src/front/synth.fs:sy-mvar?",
+   "src/front/synth.fs:sy-expr-mvar?",
+   "src/front/synth.fs:sy-deep-mvar?"
+  ],
+  "reason": "planned: 9.4.8k front batch (reuse-front, after the front branches merge; came with main's s2-unfold and s1-synth-b)",
+  "tokens": 6
+ },
  "e5d964117b30": {
   "copies": 2,
   "kind": "shape",
@@ -2585,6 +2549,16 @@
   "members": [
    "src/front/beta-inst.fs:ib-busy?",
    "src/front/instantiate.fs:in-busy?"
+  ],
+  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "tokens": 8
+ },
+ "e60a6daee8de": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/defeq.fs:de-ckpt-assign",
+   "src/front/defeq.fs:de-solve-entry"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 8
@@ -2693,18 +2667,6 @@
    "src/import/snapshot-tier.fs:tf-plain"
   ],
   "reason": "accepted: the two section loaders differ in two steps (room, then read); a word taking both as xts would keep them and the record on the return stack around the read",
-  "tokens": 16
- },
- "ef39288f04e1": {
-  "copies": 4,
-  "kind": "shape",
-  "members": [
-   "src/front/elab-data.fs:ed-inst-decl!",
-   "src/front/elab-data.fs:ed-class-decl!",
-   "src/front/elab-data.fs:ed-match-decl!",
-   "src/front/elab-data.fs:ed-proj-decl!"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 16
  },
  "ef634fdf6af8": {

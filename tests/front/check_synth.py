@@ -16,6 +16,14 @@ Usage: python3 tests/front/check_synth.py EXPORT DATA
    goal's `[Meta.synthInstance.instances]` trace of `#synth`) equals
    LeanForth's lf-inst-candidates, name for name, in order: the stuck
    problems too, whose lists Lean prints before its stuck exit.
+3. For each search below (plan FE1e5, src/front/synth.fs), LeanForth's
+   lf-synth-instance gives pinned Lean's #synth answer, node for node
+   (pp.all without @), "none" for Lean's failure, "stuck" for its stuck
+   exit, and tries Lean's candidates in Lean's order (the `apply` trace
+   lines of the root search). A search LeanForth answers unsupported is
+   a temporary gap only when GAPS names it with the plan row that closes
+   it, and then the candidates it tried must begin Lean's list; any
+   other difference fails.
 Exit status 0 when all agree, 1 otherwise.
 """
 import os
@@ -44,6 +52,24 @@ PROBLEMS = [  # (LeanForth's label, Lean's #synth argument)
 TRIED = ["Lean.Grind.CommRing.OfCommSemiring.instOfNatQ", "instOfNatNat",
          "String.instHAddCharRaw", "instHAdd", "Lean.Grind.CommRing.OfCommSemiring.instAddQ",
          "instAddNat"]
+SEARCHES = PROBLEMS[:6] + [  # S1's six problems, then Init's answered in a few levels
+    ("Mul Nat", "Mul Nat"), ("Sub Nat", "Sub Nat"), ("LE Nat", "LE Nat"), ("LT Nat", "LT Nat"),
+    ("Inhabited Nat", "Inhabited Nat"), ("BEq Nat", "BEq Nat"),
+    ("HMul Nat Nat ?c", "HMul Nat Nat _"), ("HSub Nat Nat ?c", "HSub Nat Nat _"),
+    ("HPow Nat Nat ?c", "HPow Nat Nat _"), ("OfNat Nat 5", "OfNat Nat (nat_lit 5)"),
+    ("Add Prop", "Add Prop"), ("OfNat Bool 0", "OfNat Bool (nat_lit 0)"),
+    ("Nonempty Nat", "Nonempty Nat"), ("Mod Nat", "Mod Nat"), ("Div Nat", "Div Nat"),
+    ("HMod Nat Nat ?c", "HMod Nat Nat _"), ("Max Nat", "Max Nat"), ("Min Nat", "Min Nat"),
+    ("Inhabited Prop", "Inhabited Prop"), ("Inhabited Bool", "Inhabited Bool"),
+    ("Pow Nat Nat", "Pow Nat Nat"), ("NatPow Nat", "NatPow Nat"), ("Neg Int", "Neg Int"),
+    ("Add Int", "Add Int"),
+]
+OUT_PARAM = "plan S2 merge A: lazy delta (unification unfolds the out-parameter's outParam)"
+GAPS = {  # search: the plan row that closes the gap (LeanForth answers unsupported until then)
+    "HAdd Nat Nat ?c": OUT_PARAM, "HMul Nat Nat ?c": OUT_PARAM, "HSub Nat Nat ?c": OUT_PARAM,
+    "HPow Nat Nat ?c": OUT_PARAM, "HMod Nat Nat ?c": OUT_PARAM,
+    "BEq Nat": "plan S2 (whnf unfolds DecidableEq), then FE1e5b (a goal that is a pi: error 117)",
+}
 LIMIT = 1800
 
 
@@ -71,6 +97,70 @@ def lean_lists():
             taking = False
             lists[-1] = [n.strip().lstrip("@") for n in text.split("]", 1)[0].split(",")]
     return lists + [None] * (len(PROBLEMS) - len(lists))
+
+
+def lean_name(text):
+    """The instance an apply trace line names: no @, no universe arguments."""
+    return text.split(".{", 1)[0].split()[0].lstrip("@")
+
+
+def lean_searches():
+    """Pinned Lean's answer and tried candidates for each search, by #synth."""
+    lean = os.environ.get("LEAN", str(ROOT / ".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean"))
+    text = "set_option pp.all true\nset_option trace.Meta.synthInstance true\n" + "".join(
+        f"#synth {arg}\n" for _, arg in SEARCHES)
+    with tempfile.TemporaryDirectory() as work:
+        source = Path(work) / "searches.lean"
+        source.write_text(text)
+        done = subprocess.run([lean, "-j", "2", str(source)], capture_output=True, text=True,
+                              stdin=subprocess.DEVNULL, timeout=LIMIT)
+    # Each #synth's root search is a trace node at column 0 (its first line
+    # marks a stuck exit); its own lines are indented by exactly two spaces.
+    found, result = [], None
+    for row in done.stdout.splitlines():
+        if row.startswith("[Meta.synthInstance] "):
+            found.append({"result": "stuck" if "💥" in row else None, "tried": []})
+            result = None
+        elif not found:
+            continue
+        elif row.startswith("  [Meta.synthInstance.apply] "):
+            found[-1]["tried"].append(lean_name(row.split(" apply ", 1)[1]))
+            result = None
+        elif row.startswith("  [Meta.synthInstance] result "):
+            result = row.split(" result ", 1)[1].strip()
+            found[-1]["result"] = "none" if result == "<not-available>" else result.replace("@", "")
+        elif result is not None and row.startswith("   ") and "[Meta." not in row:
+            found[-1]["result"] += " " + row.strip().replace("@", "")
+        else:
+            result = None
+    return found + [None] * (len(SEARCHES) - len(found))
+
+
+def compare_searches(rows, failures):
+    ours = {}
+    for r in rows:
+        m = re.match(r"(synth|tried) (.*?): (.*)$", r)
+        if m:
+            ours.setdefault(m.group(2), {})[m.group(1)] = m.group(3).strip()
+    same, gaps = 0, []
+    for (label, _), theirs in zip(SEARCHES, lean_searches()):
+        mine = ours.get(label, {})
+        tried = [x.strip() for x in mine.get("tried", "").split(",") if x.strip()]
+        result = mine.get("synth")
+        if theirs is None:
+            failures.append(f"{label}: no trace from pinned Lean")
+        elif result == theirs["result"] and tried == theirs["tried"]:
+            same += 1
+        elif (result or "").startswith("unsupported") and label in GAPS \
+                and theirs["tried"][:len(tried)] == tried:
+            gaps.append(f"{label}: {result}, Lean {theirs['result']} ({GAPS[label]})")
+        else:
+            failures.append(f"search {label}: Lean {theirs['result']} after {theirs['tried']}; "
+                            f"LeanForth {result} after {tried}")
+    print(f"synthInstance: {same} of {len(SEARCHES)} searches give pinned Lean's answer "
+          f"after the same candidates, {len(gaps)} known gaps")
+    for g in gaps:
+        print(f"  gap: {g}")
 
 
 def forth_report(export, data):
@@ -116,6 +206,7 @@ def main(argv):
         else:
             same += 1
     print(f"getInstances: {same} of {len(PROBLEMS)} problems give pinned Lean's candidates in order")
+    compare_searches(rows, failures)
     for f in failures:
         print(f"FAIL: {f}")
     return 1 if failures else 0

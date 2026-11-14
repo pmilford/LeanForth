@@ -71,7 +71,7 @@ require ./constructions.fs
 \ The binder x, as a fun and as a Pi, with domain dom around body; its
 \ name made once per build (x-ready).
 : x-ready ( job -- outcome )
-  >r s" x" r@ top-name ok-then? if r> aux-x ! outcome-ok else r> drop then ;
+  >r s" x" r@ top-name r> aux-x swap ok-store ;
 : x-lam ( dom body job -- e outcome )
   >r r@ aux-x @ 0 lam-head -rot r> aux-tier expr-make ;
 : x-pi ( dom body job -- e outcome ) >r r@ aux-x @ 0 pi-head -rot r> aux-tier expr-make ;

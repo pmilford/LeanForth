@@ -30,9 +30,12 @@
 \   answer, or unsupported without data read against the stage; Eq.ndrec,
 \   Eq.ndrec_symm and Eq.ndrecOn, which isAuxRecursor names itself, are
 \   auxiliary recursors. Whether a definition has a smart-unfolding
-\   `_sunfold` definition is not available yet (the export leaves those
-\   out and no exporter writes format 2's sunfold records; plan S2): a
-\   definition answers unsupported.
+\   `_sunfold` definition (Lean's find? (mkSmartUnfoldingNameFor f),
+\   WHNF.lean:854) is format 3's sunfold record of it (plan S2 merge A:
+\   the export leaves the `_sunfold` definitions out, and the data has a
+\   record for every one of the export's modules, so none means none),
+\   unsupported without data; a text definition has none (LeanForth
+\   elaborates no structural recursion, which alone makes them).
 \
 \ Transparency modes (meta-config.fs, numbered as Lean's TransparencyMode
 \ constructors): lf-tr-all, lf-tr-default, lf-tr-reducible,
@@ -69,9 +72,8 @@
 \ lf-decl-theorem .. lf-decl-stub; lf-menv-find ( name -- d outcome ) the
 \ declaration of a name, invalid when none has it (Lean: unknown
 \ constant), full or unsupported when a library declaration cannot be
-\ decoded (d -1 whenever the outcome is not ok); lf-menv-newest ( name --
-\ d|-1 ) the same without the outcome, -1 for every failure;
-\ lf-menv-name, lf-menv-kind, lf-menv-type, lf-menv-params ( d -- addr n ),
+\ decoded (d -1 whenever the outcome is not ok); lf-menv-name,
+\ lf-menv-kind, lf-menv-type, lf-menv-params ( d -- addr n ),
 \ lf-menv-value ( d -- term true | false ), lf-menv-hint ( d -- hint
 \ height ), lf-menv-data ( d -- addr|0 ) its inductive data (core/input.fs's
 \ layout), unchecked: d from lf-menv-find; lf-menv-kinds ( d -- addr n )
@@ -87,18 +89,38 @@
 \ flag true when the name is a definition that mode unfolds (a theorem
 \ or any other kind: false); lf-menv-matcher?, lf-menv-proj-fn?,
 \ lf-menv-aux-recursor?, lf-menv-smart? ( d -- flag outcome ) as above;
+\ lf-menv-proj-class? ( d -- flag outcome ) whether d is a class's
+\ projection function (Lean's isProjInst: getProjectionFnInfo?'s
+\ fromClass), from format 2's projection records as lf-menv-proj-fn?;
+\ lf-menv-reducible? ( d -- flag outcome ) Lean's isReducible (status
+\ reducible); lf-menv-hint-known? ( d -- flag ) whether lf-menv-hint is
+\ Lean's: false for a text declaration, whose height is not recorded;
 \ lf-menv-nat-succ? ( name -- flag ) whether a name is Nat.succ,
-\ lf-menv-nat-name? ( name -- flag ) whether it is in Nat's namespace.
+\ lf-menv-nat-name? ( name -- flag ) whether it is in Nat's namespace,
+\ lf-menv-wf-rec? ( name -- flag ) whether it is Acc.rec or
+\ WellFounded.rec (reduceRec's isWFRec).
 \ Outcomes: ok; invalid for a declaration number beyond the input, a
 \ mode beyond the six, a name that is not valid or that no declaration
 \ has, or a declaration the stage does not hold; unsupported as above.
+\ Constants for the Meta layer: lf-meta-const-at ( name gen addr n -- term
+\ outcome ) a name's constant at the n levels at addr, one cell each;
+\ lf-meta-const-with ( d xt -- term outcome ) declaration d's constant at
+\ a level xt ( -- level outcome ) makes for each universe parameter, in
+\ order (mvars.fs's lf-meta-const-fresh, Lean's
+\ mkConstWithFreshMVarLevels, passes lf-level-mvar-new); full when a
+\ store has no room, invalid for a level that names none, else the xt's
+\ outcome (-1 then).
 \ State: one context record, menv (the fed stage, the mode, the text
-\ list's stamp), and the slabs me-texts, me-tparams, me-tkinds and
-\ me-kinds. Loads in decimal whatever BASE is, then restores it.
+\ list's stamp), and the slabs me-texts, me-tparams, me-tkinds,
+\ me-kinds and me-pairs. Loads in decimal whatever BASE is, then
+\ restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../core/names.fs
+require ../core/levels.fs
+require ../core/constant-references.fs
+require ../core/constant-term-boundary.fs
 require ../core/input.fs
 require ../import/stage.fs
 require ./elab-data.fs
@@ -126,6 +148,7 @@ end-structure
 1 cells context-slab: me-tparams
 1 cells context-slab: me-tkinds
 1 cells context-slab: me-kinds      \ lf-menv-kinds' answer
+2 cells context-slab: me-pairs      \ a constant's levels, made for it
 : lf-menv-stage! ( stage -- ) menv menv-stage ! ;
 : me-stage ( -- stage ) menv menv-stage @ ;
 : me-run? ( -- flag ) menv menv-run @ ;
@@ -166,7 +189,6 @@ end-structure
 : lf-menv-find ( name -- d outcome )
   dup lf-name-valid? 0= if drop -1 outcome-invalid exit then
   me-run? if me-run-find else lf-input-newest me-found then ;
-: lf-menv-newest ( name -- d|-1 ) lf-menv-find ok? 0= if drop -1 then ;
 : me-fed-kind ( d -- kind ) lf-input-decl lf-idecl-kind @ ;
 : me-fed-type ( d -- term ) lf-input-decl lf-idecl-type @ ;
 : me-fed-value ( d -- term ) lf-input-decl lf-idecl-value @ ;
@@ -204,6 +226,32 @@ end-structure
 : lf-menv-hint ( d -- hint height ) me-hints me-ask ;
 : lf-menv-data ( d -- addr|0 ) me-datas me-ask ;
 : me-defn? ( d -- flag ) lf-menv-kind lf-kind-definition = ;
+
+\ ---- Constants: a name at levels, the (level, identity) pairs
+\ constant-references.fs takes pushed on me-pairs and read at once. Each
+\ call cuts me-pairs back to its count on entry (me-scope), so a level
+\ xt that makes a constant of its own leaves the outer pairs as they were.
+: me-pair+ ( level -- outcome )
+  dup lf-level-identity 0= if drop outcome-invalid exit then swap me-pairs slab-2push ;
+: me-level-at ( addr k -- addr outcome ) over swap cells + @ me-pair+ ;
+: me-level-by ( xt k -- xt outcome ) drop dup execute ok-then? if me-pair+ then ;
+: me-newest ( n -- addr n ) me-pairs slab-count over - me-pairs slab-at swap ;
+: me-made ( name gen n -- term outcome )   \ at me-pairs' newest n levels
+  me-newest lf-cref-new
+  if lf-cterm-new if drop outcome-ok exit then then -1 outcome-full ;
+: me-finish ( name gen n outcome -- term outcome )
+  ok-then? if me-made else nip nip no-result then ;
+: me-scope ( i*x xt -- term outcome )
+  me-pairs slab-count >r execute r> me-pairs slab-cut ;
+: me-at ( name gen addr n -- term outcome )   \ n < 0: no levels, as ok-each runs none
+  0 max tuck ['] me-level-at ok-each nip me-finish ;
+: lf-meta-const-at ( name gen addr n -- term outcome ) ['] me-at me-scope ;
+: me-named ( d -- name gen n )
+  dup lf-menv-name swap lf-menv-params nip lf-name-generation @ swap ;
+: me-with ( d xt -- term outcome )
+  over lf-menv-params nip ['] me-level-by ok-each nip
+  ok-then? if me-named me-made else no-result then ;
+: lf-meta-const-with ( d xt -- term outcome ) ['] me-with me-scope ;
 
 \ ---- Reducibility status: the elaboration data's record of the stage's
 \ declaration of the same name (the feed keeps the stage's name numbers).
@@ -254,11 +302,10 @@ end-structure
   dup lf-tr-modes u< 0= if 2drop -1 false outcome-invalid exit then
   swap lf-menv-find ok-then? if swap me-unfoldable else nip -1 false rot then ;
 
-\ ---- Facts of a definition from format 2: the stage's declaration of
-\ the same name asked with xt ( d -- x true | false ); unsupported
-\ without data, false for any other kind; Eq.ndrec, Eq.ndrec_symm and
-\ Eq.ndrecOn are auxiliary recursors by name. Smart unfolding: unsupported
-\ for a definition (no data has it yet).
+\ ---- Facts of a definition from the data (format 3): the stage's
+\ declaration of the same name asked with xt ( d -- x true | false );
+\ unsupported without data, false for any other kind; Eq.ndrec,
+\ Eq.ndrec_symm and Eq.ndrecOn are auxiliary recursors by name.
 : me-data-fact ( d xt -- flag outcome )
   swap me-staged 0= if drop false outcome-invalid exit then
   swap execute dup if nip then outcome-ok ;
@@ -277,9 +324,14 @@ end-structure
   elab-tag-aux-recursor elab-tagged? dup if 0 swap then ;
 : lf-menv-matcher? ( d -- flag outcome ) ['] elab-matcher-of me-defn-fact ;
 : lf-menv-proj-fn? ( d -- flag outcome ) ['] elab-projection-of me-defn-fact ;
-: lf-menv-smart? ( d -- flag outcome )
-  dup me-decl? 0= if drop false outcome-invalid exit then
-  me-defn? if false outcome-unsupported else false outcome-ok then ;
+: lf-menv-smart? ( d -- flag outcome ) ['] elab-sunfold-of me-defn-fact ;
+: me-text-decl? ( d -- flag ) me-run? if me-lib# u< 0= else drop false then ;
+: me-class-proj ( d -- 0 true | false )
+  elab-projection-of if elab-projection-class? dup if 0 swap then else false then ;
+: lf-menv-proj-class? ( d -- flag outcome ) ['] me-class-proj me-defn-fact ;
+: lf-menv-reducible? ( d -- flag outcome )
+  lf-menv-status ok-then? if elab-reducible = outcome-ok else false swap then ;
+: lf-menv-hint-known? ( d -- flag ) me-text-decl? 0= ;
 : me-text? ( name -- flag ) lf-name-tag@ lf-name-tag-str = ;
 : me-str? ( name c-addr u -- flag )
   rot dup me-text? if lf-name-text compare 0= else drop 2drop false then ;
@@ -352,5 +404,9 @@ create me-text-kinds-of   \ per lf-decl-* kind (present/print-forth.fs); 0: none
 \ Whether a name is in Nat's namespace, Nat.x (whnf's reduceNat?).
 : lf-menv-nat-name? ( name -- flag )
   lf-name-prefix@ dup if s" Nat" me-top? else drop false then ;
+\ Whether a name is Acc.rec or WellFounded.rec (reduceRec's isWFRec).
+: me-wf? ( prefix -- flag ) dup s" Acc" me-top? swap s" WellFounded" me-top? or ;
+: lf-menv-wf-rec? ( name -- flag )
+  dup s" rec" me-str? if lf-name-prefix@ me-wf? else drop false then ;
 
 base !   \ the BASE this file was loaded with

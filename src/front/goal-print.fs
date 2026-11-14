@@ -45,6 +45,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
+require ../lib/runs.fs
 require ../core/let-terms.fs
 require ../present/term-printer.fs
 require ../present/print-notation.fs
@@ -211,9 +212,9 @@ end-structure
 \ The unsolved goals, a blank line between two (Lean's goalsToMessageData,
 \ what a tactic's error shows under its message); trace_state then ends
 \ the line.
-: gp-nth ( list i -- list outcome )
-  dup if s\" \n\n" gp-emit then over swap run@ lf-goal-print ;
-: gp-all ( list -- outcome ) dup run-count ['] gp-nth ok-each nip ;
+: gp-one ( first? goal -- false outcome )
+  swap 0= if s\" \n\n" gp-emit then lf-goal-print false swap ;
+: gp-all ( list -- outcome ) true swap ['] gp-one run-each nip ;
 : lf-goals-text ( -- outcome ) lf-goals-unsolved ok-then? if gp-all then ;
 : lf-goals-print ( -- outcome ) lf-goals-text dup ok? if s\" \n" gp-emit then ;
 base !   \ the BASE this file was loaded with

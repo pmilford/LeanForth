@@ -199,7 +199,7 @@ lf-lib set-current
   memo-probe? if memo-put else 0 outcome-invalid then ;
 \ A memo with at least one value cell: the first value cell of (k1 k2).
 : memo@ ( k1 k2 memo -- x true | false ) memo-at dup if @ true then ;
-: memo! ( x k1 k2 memo -- outcome ) memo-claim ok-then? if ! outcome-ok else nip then ;
+: memo! ( x k1 k2 memo -- outcome ) memo-claim ok-store ;
 lf-lib-private set-current
 
 \ ---- Emptying. The newest entry out of the table and the slab.

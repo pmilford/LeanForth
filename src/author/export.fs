@@ -231,7 +231,7 @@ end-structure
   s" us" lfx-key lfx-w jw-open-array
   0 ?do dup i lf-cref-pair@ drop lfx-level-ref lfx-u loop drop lfx-w jw-close-array ;
 : lfx-const ( term -- )
-  s" const" lfx-inner lf-term-first@ lf-cref-slot
+  s" const" lfx-inner lf-const-slot
   dup lf-cref-name@ drop s" name" lfx-member lf-cref-pairs lfx-levels-of lfx-close ;
 : lfx-lit ( term -- ) lf-lit-cell u>decimal s" natVal" lfx-text ;
 : lfx-proj ( term -- )
@@ -276,7 +276,7 @@ lf-tag-app lf-tag-bit lf-tag-bvar lf-tag-bit or lf-tag-constant lf-tag-bit or
   dup lfa-decl-kind lf-decl-def = if lfx-height@ else drop 0 then ;
 : lfx-named-height ( name -- h ) lfa-decl-find if lfx-decl-height else 0 then ;
 : lfx-const-height ( term -- h )
-  lf-term-first@ lf-cref-slot lf-cref-name@ drop lfx-named-height ;
+  lf-const-name lfx-named-height ;
 : lfx-binary? ( term -- flag ) lf-term-tag@ lf-tag-bit lf-binary-tags and 0<> ;
 : lfx-visit ( h term -- h' )
   dup lfx-binary? if dup lf-term-first@ lfx-mark lf-term-second@ lfx-mark exit then

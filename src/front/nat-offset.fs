@@ -162,7 +162,7 @@ end-structure
   dup 6 s" HAdd.hAdd" lf-meta-app-of? if no-hadd-step exit then
   no-unported? if 0 outcome-unsupported else 1 outcome-ok then ;
 : no-app-step ( t -- code outcome )
-  dup 1 s" Nat.succ" lf-meta-app-of? if no-succ-step exit then
+  dup lf-meta-succ? if no-succ-step exit then
   dup 2 s" Nat.add" lf-meta-app-of? if no-push-sides exit then
   dup 3 s" OfNat.ofNat" lf-meta-app-of? if no-ofnat-step else no-sum-step then ;
 : no-step ( t -- code outcome )
@@ -191,7 +191,7 @@ end-structure
   over swap no-inst-ok? dup ok? 0= if nip nip no-fail exit then drop
   if no-sides no-sum-at else drop 0 0 no-foreign then ;
 : no-layer ( e -- a b code )
-  dup 1 s" Nat.succ" lf-meta-app-of? if 0 1 lf-meta-nth-arg 0 no-succ-at exit then
+  dup lf-meta-succ? if 0 1 lf-meta-nth-arg 0 no-succ-at exit then
   dup 2 s" Nat.add" lf-meta-app-of? if no-sides no-sum-at exit then
   dup 4 s" Add.add" lf-meta-app-of? if 4 no-inst-layer exit then
   dup 6 s" HAdd.hAdd" lf-meta-app-of? if 6 no-inst-layer else 0 no-plain then ;

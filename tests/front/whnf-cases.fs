@@ -91,6 +91,15 @@ create rxs-buf 8 cells allot
 : rxs ( x0 .. xn-1 n -- addr n ) dup 0 ?do dup 1- i - cells rxs-buf + rot swap ! loop rxs-buf swap ;
 : ibeta-run ( body addr m -- )
   lf-meta-instantiate-rev-beta dup ok? if drop .t else nip .outcome then cr ;
+\ tests/front/check_unfold.py's term cases: unfoldDefinition?
+\ (lf-meta-unfold: "1" and the term, or "0" for none) and whnf
+\ (lf-meta-whnf) at a transparency.
+: at-mode ( x mode xt -- i*x ) lf-defeq-mode >r swap lf-defeq-mode! execute r> lf-defeq-mode! ;
+: unfold-run ( term mode -- )
+  ['] lf-meta-unfold at-mode dup ok? 0= if nip nip .outcome cr exit then drop
+  if ." 1 " .t else drop ." 0" then cr ;
+: mwhnf-run ( term mode -- )
+  ['] lf-meta-whnf at-mode dup ok? if drop .t else nip .outcome then cr ;
 : stuck-run ( term -- )
   lf-whnf-stuck dup ok? 0= if nip .outcome cr exit then
   drop if .t else ." none" then cr ;

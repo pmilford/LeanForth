@@ -87,6 +87,7 @@ require ./meta-env.fs
 require ./whnf.fs
 require ./infer.fs
 require ./defeq.fs
+require ./defeq-delta.fs
 require ./tactic-syntax.fs
 require ./tactic-run.fs
 
@@ -186,7 +187,7 @@ defer lf-tac-elab ( node expected -- term outcome )
 \ ---- by-intro: NAME.
 : lfb-binding? ( t -- flag ) dup lf-term-pi? swap lf-let? or ;
 : lfb-no-binder ( t -- )
-  lf-whnf-firm? if ['] lfb-blank-goal. lfa-e-tac-no-intro lfb-failed then
+  lf-whnf-firm? lf-tac-must if ['] lfb-blank-goal. lfa-e-tac-no-intro lfb-failed then
   lfa-e-tac-meta lf-tac-fail ;
 : lfb-reduced ( t -- t' )
   lf-whnf-core lf-tac-must dup lf-term-pi? if exit then dup lfb-no-binder ;
@@ -293,10 +294,9 @@ defer lf-tac-elab ( node expected -- term outcome )
 \ ---- by-rfl.
 : lfb-spine ( t -- head n )
   0 swap begin dup lf-term-app? while lf-term-first@ swap 1+ swap repeat swap ;
-: lfb-const-name ( c -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
 : lfb-eq-head? ( head -- flag )
   dup lf-term-const? 0= if drop false exit then
-  lfb-const-name s" Eq" lfa-intern = ;
+  lf-const-name s" Eq" lfa-intern = ;
 : lfb-eq? ( t -- flag ) lfb-spine 3 = swap lfb-eq-head? and ;
 : lfb-target ( -- t )
   tb tb-want @ lf-instantiate-mvars lf-tac-must lf-whnf-core lf-tac-must ;
@@ -313,7 +313,7 @@ defer lf-tac-elab ( node expected -- term outcome )
   lfb-sides-hold? if lfa-e-tac-meta lf-tac-fail then
   ['] lfb-rfl. lfa-e-tac-rfl lfb-failed ;
 \ @Eq.refl.{u} α lhs, u and α those of the goal's Eq.
-: lfb-level ( t -- level ) lfb-spine drop lf-term-first@ lf-cref-slot lf-cref-pairs drop
+: lfb-level ( t -- level ) lfb-spine drop lf-const-slot lf-cref-pairs drop
   0 lf-cref-pair@ drop ;
 : lfb-alpha ( t -- α ) lf-term-first@ lf-term-first@ lf-term-second@ ;
 : lfb-refl ( t -- term )

@@ -187,10 +187,14 @@ in this run"). `--env` and `--snapshot` do not go together.
 **The library's elaboration data** (`--elab-data DATA`, plan row FE1d).
 Several facts are not in an export: Lean's classes, its instances (with
 their order in Lean's instance tree), default instances, reducibility, the
-eliminators of `induction` and `cases`, and the tags, matchers and
-projection functions that Meta's whnf reads. `scripts/export-elab.sh`
-writes them for the export's modules with pinned Lean, beside the export
-([ELABORATION_DATA.md](../programming/ELABORATION_DATA.md), format 2).
+eliminators of `induction` and `cases`, and the tags, matchers,
+projection functions and smart-unfolding bodies (the `f._sunfold`
+definitions, by which Lean's whnf unfolds a recursive definition such as
+`Nat.add`) that Meta's whnf reads. `scripts/export-elab.sh` writes them
+for the export's modules with pinned Lean, beside the export
+([ELABORATION_DATA.md](../programming/ELABORATION_DATA.md), format 3;
+formats 1 and 2 are refused as another format version: export the data
+again).
 With `--elab-data DATA` and a library (`--env` or `--snapshot`), DATA is
 read after the library and before the text runs, and checked against the
 library:
@@ -201,6 +205,8 @@ library:
 - instance keys are well formed;
 - ranks have no gap;
 - matchers and projections fit their types;
+- each smart-unfolding body is a closed term of its definition's universe
+  parameters, written as Lean writes it;
 - nothing is missing, added or changed.
 
 The values themselves (which class an instance serves, ranks, priorities,
@@ -212,7 +218,7 @@ FE1e and FE1g will):
 
 ```console
 $ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data tests/front/init-slice.elab.ndjson tests/author/19-add-zero.lf | head -1
-elaboration data: 3 instances, 2 default instances, 18 reducibility statuses, 0 eliminators, 54 instances left out, 3 classes, 5 tags, 4 matchers, 3 projections
+elaboration data: 3 instances, 2 default instances, 18 reducibility statuses, 0 eliminators, 54 instances left out, 3 classes, 10 tags, 4 matchers, 3 projections, 1 smart-unfolding bodies
 ```
 
 Refused data stops the run before the text runs, with the line, the
@@ -223,7 +229,7 @@ test file `tests/front/cut-off.elab.ndjson` lacks its last record:
 
 ```console
 $ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data tests/front/cut-off.elab.ndjson tests/author/19-add-zero.lf
-error: invalid: the elaboration data was refused at line 96 (error 20): records differ in number from the header; the LeanForth text was not checked
+error: invalid: the elaboration data was refused at line 102 (error 20): records differ in number from the header; the LeanForth text was not checked
 ```
 
 `--elab-data` without `--env` or `--snapshot`, with an export instead of

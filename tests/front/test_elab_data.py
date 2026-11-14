@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests of the elaboration data (plan rows FE1d and FE1e1; docs/programming/ELABORATION_DATA.md).
+"""Tests of the elaboration data (plan rows FE1d, FE1e1 and S2; docs/programming/ELABORATION_DATA.md).
 
 Usage: python3 tests/front/test_elab_data.py   (from the repository root;
 GFORTH names the Forth engine bin/leanforth runs, as make sets it)
@@ -15,11 +15,15 @@ GFORTH names the Forth engine bin/leanforth runs, as make sets it)
    nothing written.
 2. The synthetic eliminators fixture (tests/front/eliminators.elab.ndjson:
    records written here by hand, of real declarations of the slice, so
-   that the eliminator path is used; no Lean attribute says them) is what
-   this file's generator writes, and so is tests/front/cut-off.elab.ndjson
-   (its last line cut off). Every line of the two good fixtures is valid
-   under schemas/elab-data-2.schema.json, and lines the schema can judge
-   alone (a wrong member, status, kind, part, key or number) are invalid.
+   that the eliminator path is used; no Lean attribute says them; and the
+   slice's smart-unfolding body of Nat.add with nodes of every other form
+   added after its root, one a projection of a structure the slice lacks,
+   so that tests/front/elab-data.fs reads each form back) is what this
+   file's generator writes, and so is tests/front/cut-off.elab.ndjson (its
+   last line cut off). Every line of the two good fixtures is valid under
+   schemas/elab-data-3.schema.json, and lines the schema can judge alone (a
+   wrong member, status, kind, part, key, node, level or number) are
+   invalid.
 3. `leanforth check --env SLICE --elab-data DATA TEXT.lf` with the good
    data (exit 0, the counts line, the verdicts exactly those of the run
    without it), with a snapshot of the slice in place of the export, and
@@ -27,7 +31,9 @@ GFORTH names the Forth engine bin/leanforth runs, as make sets it)
    (4 invalid, 2 unsupported, 3 full), the line and the reason, the text
    never run. Every damaged file but the ones about the header's numbers
    gets a header recomputed, so that the one check it is about is reached.
-   A format-1 file is refused as another format version.
+   Format-1 and format-2 files are refused as another format version (a
+   format-2 file says "sunfold":0, which would read as "no definition has
+   a smart-unfolding body").
 """
 import concurrent.futures
 import hashlib
@@ -96,17 +102,38 @@ BITVEC_CONST = '{"arity":1,"const":["BitVec"]},"star"],"name":["BitVec","instAdd
 BITVEC_PROJ = '{"arity":0,"idx":0,"proj":["BitVec"]},"star"],"name":["BitVec","instAdd"]'
 
 
+SUN = '"name":["Nat","add"],"nodes":['
+SUN_END = '],"rec_arg":1,"value":23}}'
+# Nodes of every other form, after the root of Nat.add's body: a sort, an
+# anonymous instance-implicit pi, a have and a let, literals, a projection
+# of a structure the slice lacks (the record foreign) and of Nat, a
+# borrowed mark, and sorts of the levels max and imax (MORE_LEVELS).
+MORE_NODES = ('{"sort":1}',
+              '{"forall":{"body":0,"info":"inst","name":[],"type":24}}',
+              '{"let":{"body":5,"name":["y"],"non_dep":true,"type":0,"value":7}}',
+              '{"lit":"18446744073709551616"}', '{"str":"ab"}',
+              '{"proj":{"expr":0,"idx":1,"struct":["Prod"]}}',
+              '{"mdata":{"entries":[[["borrowed"],{"bool":true}]],"expr":27}}',
+              '{"let":{"body":0,"name":["z"],"non_dep":false,"type":0,"value":0}}',
+              '{"proj":{"expr":26,"idx":0,"struct":["Nat"]}}', '{"sort":2}', '{"sort":3}')
+MORE_LEVELS = ('"levels":["zero",{"succ":0}]', '"levels":["zero",{"succ":0},{"max":[0,1]},{"imax":[1,0]}]')
+
+
 def eliminators_text():
-    """The synthetic fixture: the slice's data with four eliminators, and
+    """The synthetic fixture: the slice's data with four eliminators,
     BitVec.instAdd's key BitVec (a constant the slice lacks) made a
     projection of BitVec, so that a foreign projection is read back
-    (tests/front/elab-data.fs) beside BitVec.instOfNat's foreign constant."""
+    (tests/front/elab-data.fs) beside BitVec.instOfNat's foreign constant,
+    and Nat.add's smart-unfolding body with MORE_NODES after its root."""
     elims = [text({"eliminator": {"kind": k, "name": n, "types": t}}) for k, n, t in (
         ("induction", ["Nat", "rec"], [["Nat"]]),
         ("cases", ["Nat", "casesOn"], [["Nat"]]),
         ("induction", ["And", "rec"], [["And"]]),
         ("induction", ["Eq", "rec"], [["Eq"], ["Nat"]]))]
-    return assemble(swap(BITVEC_CONST, BITVEC_PROJ) + elims)
+    records = swap(MORE_LEVELS[0] + ',"name":["Nat","add"]', MORE_LEVELS[1] + ',"name":["Nat","add"]',
+                   swap(SUN_END, "," + ",".join(MORE_NODES) + SUN_END,
+                        swap(BITVEC_CONST, BITVEC_PROJ)))
+    return assemble(records + elims)
 
 
 def cut_off_text():
@@ -182,7 +209,8 @@ def finisher_cases(work):
               '{"tag":{"name":["Nat","casesOn"],"tag":"cases_on"}}',
               '{"projection":{"ctor":["Add","mk"],"from_class":true,"idx":0,"name":["Add","add"],'
               '"num_params":1}}',
-              outside, '{"reducibility":{"name":["Nat","add"],"status":"reducible"}}']
+              outside, '{"reducibility":{"name":["Nat","add"],"status":"reducible"}}',
+              first(SUN), first(SUN).replace('["Nat","add"],"nodes"', '["Nat","noSuchDef"],"nodes"')]
     raw = work / "raw.ndjson"
     out = work / "out.ndjson"
 
@@ -194,7 +222,8 @@ def finisher_cases(work):
                               timeout=LIMIT)
     done = run(raw_ok)
     want = ("left out (not declarations of the export): 1 class, 1 instance, 0 default_instance, "
-            "1 reducibility, 0 eliminator, 0 tag, 0 matcher, 0 projection")
+            "1 reducibility, 0 eliminator, 0 tag, 0 matcher, 0 projection, 1 sunfold; "
+            "0 sunfold bodies naming what the export lacks")
     if done.returncode != 0 or want not in done.stdout:
         fail(f"finisher on a good RAW: {done.returncode} {done.stdout} {done.stderr}")
     first_bytes = out.read_bytes()
@@ -209,6 +238,9 @@ def finisher_cases(work):
             != [("instAdd", "erased", 2), ("instAddInt", "not_exported", 0)]
             or json.loads(lines[0])["elab_data"]["records"]["reducibility"] != 1):
         fail(f"finisher: unexpected output {lines[:5]}")
+    done = run([RAW_HEAD, first(SUN).replace('{"const":["Nat","succ"]', '{"const":["Nat","noSuch"]')])
+    if done.returncode != 0 or "1 sunfold bodies naming what the export lacks" not in done.stdout:
+        fail(f"finisher on a body naming what the export lacks: {done.returncode} {done.stdout}")
     # One instance alone, rank 0: each change below is the only thing wrong.
     base = raw_instance(["instAddNat"], ["Add"], [ADD, NAT], 0)
     bad = {
@@ -239,6 +271,12 @@ def finisher_cases(work):
         "a matcher's alternative malformed": '{"matcher":{"alt_infos":[{"num_fields":1}],'
                                              '"discr_names":[],"name":["Nat","add","match_1"],'
                                              '"num_discrs":0,"num_params":0,"u_elim_pos":0}}',
+        "a body of a theorem": first(SUN).replace('["Nat","add"],"nodes"', '["Nat","zero_add"],"nodes"'),
+        "a body naming a later node": first(SUN).replace('{"app":[1,3]}', '{"app":[1,4]}'),
+        "a body's level naming a later one": first(SUN).replace('{"succ":0}', '{"succ":1}'),
+        "a body's unknown annotation": first(SUN).replace('"sunfoldMatch"]', '"noIndex"]'),
+        "a body's root beyond its nodes": first(SUN).replace('"value":23', '"value":24'),
+        "a body's binder info": first(SUN).replace('"default"', '"explicit"', 1),
     }
     for what, line in bad.items():
         done = run([RAW_HEAD, line])
@@ -291,7 +329,10 @@ ERRORS = ["file missing or unreadable", "no line, or a line without its line fee
           "a projection named twice", "numbers that do not fit the declaration's type",
           "a record kind this reader does not read yet",
           "other records than the export's manifest names",
-          "a default instance's rank beyond 65535"]
+          "a default instance's rank beyond 65535", "a smart-unfolding body named twice",
+          "an index to no earlier entry", "a loose bound variable",
+          "universe parameters other than the definition's",
+          "an annotation this reader does not know"]
 
 
 def refusal(line, reason):
@@ -320,6 +361,14 @@ DYADIC = '"name":["Dyadic","instAdd"]'
 def case(name, pair, code, reason):
     content, line = pair
     return name, content, code, line, reason
+
+
+def format2_text():
+    """A format-2 file: the header of version 2 (sunfold 0) over the records
+    format 2 had: no smart-unfolding body, no match_pattern tag."""
+    records = [r for r in GOOD_RECORDS
+               if not r.startswith('{"sunfold"') and '"match_pattern"' not in r]
+    return assemble(records, format_version=2)
 
 
 def format1_text():
@@ -411,9 +460,10 @@ def format1_cases():
         ("no header", "\n".join(GOOD.read_text().split("\n")[1:]), 4, 1, "no header"),
         ("another format", assemble(GOOD_RECORDS, format="lean-elab"), 4, 1,
          "not elaboration data"),
-        ("another format version", assemble(GOOD_RECORDS, format_version=3, extra=1), 2, 1,
+        ("another format version", assemble(GOOD_RECORDS, format_version=4, extra=1), 2, 1,
          "another format version"),
         ("format version 1", format1_text(), 2, 1, "another format version"),
+        ("format version 2", format2_text(), 2, 1, "another format version"),
         ("another Lean", assemble(GOOD_RECORDS, lean_version="4.34.0"), 2, 1,
          "another Lean version"),
         ("another Lean revision", assemble(GOOD_RECORDS, lean_githash="0" * 40), 2, 1,
@@ -523,9 +573,6 @@ def format2_cases():
         case("projection with too many parameters",
              c('"name":["Add","add"],"num_params":1', '"name":["Add","add"],"num_params":2'),
              4, "numbers that do not fit"),
-        # 38: a smart-unfolding record, a kind of format 2 not read yet.
-        ("a smart-unfolding record", assemble(GOOD_RECORDS + [text({"sunfold": {
-            "name": ["Nat", "add"]}})]), 2, n + 2, "a record kind this reader"),
         # 14: wrong kinds.
         case("class no type", c('{"class":{"name":["Add"]', '{"class":{"name":["instAddNat"]'),
              4, "a declaration of the wrong kind"),
@@ -619,6 +666,143 @@ def format2_cases():
     ]
 
 
+# A body of a universe-polymorphic definition: instHAdd.{u_1}, Sort u_1.
+POLY = ('{"sunfold":{"level_params":[["u_1"]],"levels":[{"param":["u_1"]}],"name":["instHAdd"],'
+        '"nodes":[{"sort":0}],"rec_arg":null,"value":0}}')
+NAT_NODE = '{"const":["Nat"],"levels":[]}'
+
+
+def poly(record):
+    """The good records and a second body, record: (text, line of record)."""
+    return assemble(GOOD_RECORDS + [record]), len(GOOD_RECORDS) + 2
+
+
+def format3_cases():
+    """Damaged files of the checks format 3 adds (plan S2): the
+    smart-unfolding bodies."""
+    c = changed
+    sun = '"levels":["zero",{"succ":0}],' + SUN
+    more = swap(MORE_LEVELS[0] + ',"name":["Nat","add"]', MORE_LEVELS[1] + ',"name":["Nat","add"]',
+                swap(SUN_END, "," + ",".join(MORE_NODES) + SUN_END))
+    sun_line = line_of(SUN, GOOD_RECORDS)
+    return [
+        # 41: named twice.
+        case("smart-unfolding body twice", twice(SUN), 4, "a smart-unfolding body named twice"),
+        # 42: an index to no earlier entry.
+        case("node naming itself", c('{"app":[1,3]}', '{"app":[1,4]}'), 4, "an index to no earlier"),
+        case("level naming itself", c(sun, sun.replace('{"succ":0}', '{"succ":1}')), 4,
+             "an index to no earlier"),
+        case("constant's level beyond the table", c('"levels":[1]}', '"levels":[2]}'), 4,
+             "an index to no earlier"),
+        case("sort's level beyond the table", (assemble(swap('{"sort":1}', '{"sort":4}', more)),
+                                               sun_line), 4, "an index to no earlier"),
+        case("max naming a later level", (assemble(swap('{"max":[0,1]}', '{"max":[0,2]}', more)),
+                                          sun_line), 4, "an index to no earlier"),
+        case("imax of one level", (assemble(swap('{"imax":[1,0]}', '{"imax":[1]}', more)),
+                                   sun_line), 4, "malformed"),
+        case("root beyond the nodes", c('"value":23}}', '"value":24}}'), 4,
+             "an index to no earlier"),
+        # The same checks in a second body, whose node and level tables
+        # start past the first's (review s2-unfold-a re-check M2-new).
+        case("second body's root beyond its nodes", poly(POLY.replace('"value":0}}', '"value":1}}')),
+             4, "an index to no earlier"),
+        case("second body's node naming itself", poly(POLY.replace('{"sort":0}', '{"app":[0,0]}')),
+             4, "an index to no earlier"),
+        case("second body's level beyond its table", poly(POLY.replace('{"sort":0}', '{"sort":1}')),
+             4, "an index to no earlier"),
+        # 37: a constant node with other than its declaration's number of
+        # universe arguments (review s2-unfold-a L1).
+        case("constant with a universe argument too many",
+             c('{"const":["Nat"],"levels":[]}', '{"const":["Nat"],"levels":[0]}'), 4,
+             "numbers that do not fit"),
+        case("constant with a universe argument too few", c('"levels":[1]}', '"levels":[]}'), 4,
+             "numbers that do not fit"),
+        # 43: a loose bound variable at the root.
+        case("loose root", c('"value":23}}', '"value":21}}'), 4, "a loose bound variable"),
+        # 44: universe parameters.
+        case("a universe parameter too many", c('{"sunfold":{"level_params":[]',
+                                                '{"sunfold":{"level_params":[["u"]]'),
+             4, "universe parameters other than"),
+        case("a level naming no parameter", c(sun, sun.replace('"zero",', '{"param":["u"]},"zero",')
+                                              .replace('{"succ":0}', '{"succ":1}')
+                                              .replace('"levels":[1]}', '"levels":[2]}')),
+             4, "universe parameters other than"),
+        # 45: an annotation not Lean's three.
+        case("unknown annotation", c('[["sunfoldMatch"],{"bool":true}]',
+                                     '[["noImplicitLambda"],{"bool":true}]'), 2,
+             "an annotation this reader"),
+        case("annotation false", c('[["sunfoldMatch"],{"bool":true}]',
+                                   '[["sunfoldMatch"],{"bool":false}]'), 2, "an annotation this reader"),
+        # 12 and 14: the definition.
+        case("body of an unknown definition", c(SUN, SUN.replace('"add"', '"adder"')), 4,
+             "unknown name"),
+        case("body of a theorem", c(SUN, SUN.replace('["Nat","add"]', '["Nat","zero_add"]')), 4,
+             "a declaration of the wrong kind"),
+        case("projection of a constructor", (assemble(swap('"struct":["Nat"]', '"struct":["Nat","succ"]',
+                                                           more)), sun_line), 4,
+             "a declaration of the wrong kind"),
+        # 10: malformed nodes and levels.
+        case("negative bound variable", c('{"bvar":1}', '{"bvar":-1}'), 4, "malformed"),
+        case("binder without its info", c('"info":"default","name":["a"]', '"name":["a"]'), 4,
+             "malformed"),
+        case("unknown binder info", c('"info":"default","name":["a"]', '"info":"explicit","name":["a"]'),
+             4, "malformed"),
+        case("application of one", c('{"app":[1,3]}', '{"app":[1]}'), 4, "malformed"),
+        case("unknown node", c('{"bvar":1}', '{"fvar":1}'), 4, "malformed"),
+        case("constant without levels", c('{"const":["Nat"],"levels":[]}', '{"const":["Nat"]}'), 4,
+             "malformed"),
+        case("unknown level", c(sun, sun.replace('"zero"', '"one"')), 4, "malformed"),
+        case("literal with a leading zero", (assemble(swap('"18446744073709551616"', '"01"', more)),
+                                             sun_line), 4, "malformed"),
+        case("annotation of two entries", c('[["sunfoldMatch"],{"bool":true}]',
+                                            '[["sunfoldMatch"],{"bool":true}],[["borrowed"],'
+                                            '{"bool":true}]'), 4, "malformed"),
+        case("body with another member", c('"rec_arg":1,', '"rec_arg":1,"x":1,'), 4, "malformed"),
+        case("rec_arg a text", c('"rec_arg":1,', '"rec_arg":"1",'), 4, "malformed"),
+        # 44 for instHAdd.{u_1}: no universe parameter, or another one.
+        case("polymorphic body without its parameter",
+             poly(POLY.replace('"level_params":[["u_1"]],"levels":[{"param":["u_1"]}]',
+                               '"level_params":[],"levels":[]').replace('{"sort":0}', NAT_NODE)),
+             4, "universe parameters other than"),
+        case("polymorphic body with another parameter",
+             poly(POLY.replace('"level_params":[["u_1"]],"levels":[{"param":["u_1"]}]',
+                               '"level_params":[["v"]],"levels":[]').replace('{"sort":0}', NAT_NODE)),
+             4, "universe parameters other than"),
+        case("rec_arg beyond 32 bits", c('"rec_arg":1,', '"rec_arg":4294967296,'), 2,
+             "a number beyond"),
+        case("unknown tag", c('"tag":"match_pattern"', '"tag":"match_patterns"'), 4, "malformed"),
+        # Each reader's other refusals (malformed unless said).
+        case("application not an array", c('{"app":[1,3]}', '{"app":5}'), 4, "malformed"),
+        case("application's function later", c('{"app":[1,3]}', '{"app":[4,3]}'), 4,
+             "an index to no earlier"),
+        case("reference not a natural", c('{"app":[1,3]}', '{"app":[1,-1]}'), 4, "malformed"),
+        case("node a number", c('{"bvar":1}', '5'), 4, "malformed"),
+        case("level a number", c(sun, sun.replace('"zero"', '7')), 4, "malformed"),
+        case("unknown level form", c(sun, sun.replace('{"succ":0}', '{"plus":0}')), 4, "malformed"),
+        case("parameter level of no name", c(sun, sun.replace('{"succ":0}', '{"param":[1.5]}')), 4,
+             "malformed"),
+        case("universe parameter of no name", c('{"sunfold":{"level_params":[]',
+                                                '{"sunfold":{"level_params":[[1.5]]'), 4, "malformed"),
+        case("string node a number", (assemble(swap('{"str":"ab"}', '{"str":5}', more)), sun_line), 4,
+             "malformed"),
+        case("constant of no name", c('{"const":["Nat"],"levels":[]}', '{"const":[1.5],"levels":[]}'),
+             4, "malformed"),
+        case("projection of no name", (assemble(swap('"struct":["Nat"]', '"struct":[1.5]', more)),
+                                       sun_line), 4, "malformed"),
+        case("annotation value not an object", c('[["sunfoldMatch"],{"bool":true}]',
+                                                 '[["sunfoldMatch"],5]'), 2, "an annotation this reader"),
+        case("annotation value a number", c('[["sunfoldMatch"],{"bool":true}]',
+                                            '[["sunfoldMatch"],{"bool":1}]'), 2, "an annotation this reader"),
+        case("annotation key of two parts", c('[["sunfoldMatch"],{"bool":true}]',
+                                              '[["sunfold","Match"],{"bool":true}]'), 2,
+             "an annotation this reader"),
+        case("annotation key a number", c('[["sunfoldMatch"],{"bool":true}]', '[[5],{"bool":true}]'), 2,
+             "an annotation this reader"),
+        case("annotation entry of one item", c('[["sunfoldMatch"],{"bool":true}]', '[["sunfoldMatch"]]'),
+             4, "malformed"),
+    ]
+
+
 def run_case(work, item):
     name, content, code, line, reason = item
     data = work / (re.sub(r"\W+", "-", name) + ".ndjson")
@@ -632,7 +816,8 @@ def run_case(work, item):
 
 
 COUNTS = ("elaboration data: 3 instances, 2 default instances, 18 reducibility statuses, "
-          "0 eliminators, 54 instances left out, 3 classes, 5 tags, 4 matchers, 3 projections")
+          "0 eliminators, 54 instances left out, 3 classes, 10 tags, 4 matchers, 3 projections, "
+          "1 smart-unfolding bodies")
 
 
 def command_line(work):
@@ -679,6 +864,16 @@ def command_line(work):
                                             DFLT_RANK0.replace('"rank":0', '"rank":65535')),
         "a string literal key": swap('"star",{"lit":"0"}],"name":["Zero","toOfNat0"]',
                                      '"star",{"lit_str":"0"}],"name":["Zero","toOfNat0"]'),
+        "a body naming a constant the slice lacks": swap('{"const":["Nat","succ"]',
+                                                         '{"const":["Nat","noSuch"]'),
+        "a constant the slice lacks, with universe arguments": swap(
+            '{"const":["Nat","succ"],"levels":[]', '{"const":["Nat","noSuch"],"levels":[1,0]'),
+        "a body with a node of every form": swap(
+            MORE_LEVELS[0] + ',"name":["Nat","add"]', MORE_LEVELS[1] + ',"name":["Nat","add"]',
+            swap(SUN_END, "," + ",".join(MORE_NODES) + SUN_END)),
+        "a body with no recursion argument": swap('"rec_arg":1,', '"rec_arg":null,'),
+        "a recursion argument beyond the type's binders": swap('"rec_arg":1,', '"rec_arg":7,'),
+        "a body of a universe-polymorphic definition": list(GOOD_RECORDS) + [POLY],
     }
     for what, records in accepted.items():
         path = work / (re.sub(r"\W+", "-", what) + ".ndjson")
@@ -715,7 +910,7 @@ def command_line(work):
                               capture_output=True, text=True, timeout=LIMIT)
         if done.returncode != 4 or message not in done.stdout:
             fail(f"misuse {args}: exit {done.returncode}: {done.stdout}")
-    cases = format1_cases() + format2_cases()
+    cases = format1_cases() + format2_cases() + format3_cases()
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         for problem in pool.map(lambda c: run_case(work, c), cases):
             if problem:
@@ -764,7 +959,7 @@ def bound_cases(work):
 
 
 def schema_cases():
-    validator = Validator(load_strict((ROOT / "schemas/elab-data-2.schema.json").read_text()))
+    validator = Validator(load_strict((ROOT / "schemas/elab-data-3.schema.json").read_text()))
     lines = GOOD.read_text().splitlines() + ELIMINATORS.read_text().splitlines()
     for line in lines:
         for error in validator.errors(load_strict(line)):
@@ -783,11 +978,19 @@ def schema_cases():
              '{"eliminator":{"kind":"recursion","name":["Nat","rec"],"types":[["Nat"]]}}',
              '{"simp":{"name":["id"]}}', ONE[:-1] + ',"x":{}}',
              first('"reason"').replace('"not_exported"', '"private"'),
-             first('"tag"').replace('"aux_recursor"', '"simp"'),
+             first('"aux_recursor"').replace('"aux_recursor"', '"simp"'),
              proj.replace('"from_class":true', '"from_class":1'),
              match.replace('"u_elim_pos":0', '"u_elim_pos":"0"'),
              '{"class":{"name":["Add"],"out_params":[]}}',
-             lines[0].replace('"format_version":2', '"format_version":1')]
+             lines[0].replace('"format_version":3', '"format_version":2')]
+    sun = first(SUN)
+    wrong += [sun.replace('{"bvar":1}', '{"bvar":-1}'), sun.replace('{"bvar":1}', '{"fvar":1}'),
+              sun.replace('"info":"default","name":["a"]', '"info":"explicit","name":["a"]'),
+              sun.replace('{"app":[1,3]}', '{"app":[1]}'), sun.replace('"zero"', '"one"'),
+              sun.replace('[["sunfoldMatch"],{"bool":true}]', '[["noIndex"],{"bool":true}]'),
+              sun.replace('{"bool":true}', '{"bool":false}', 1), sun.replace('"rec_arg":1', '"rec_arg":"1"'),
+              sun.replace('"value":23', '"value":-1'), sun.replace(',"rec_arg":1', ''),
+              first('"match_pattern"').replace('"match_pattern"', '"match_patterns"')]
     for line in wrong:
         if not validator.errors(load_strict(line)):
             fail(f"schema accepts {line[:80]}")

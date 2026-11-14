@@ -15,12 +15,25 @@ definition, counted and listed as gaps with Lean's answer (plan row FE1d2
 closes them). A harness self-test first checks that a wrong line is told
 apart.
 
+Then unfoldDefinition? and whnf themselves (plan S2 merge A): for each term
+case below, over the same slice and the variables of tests/front/check_whnf.py,
+pinned Lean (tests/front/unfold-terms.lean, written with --write) prints
+withTransparency m (unfoldDefinition? e) ("1" and the result, or "0") or
+withTransparency m (whnf e), and LeanForth (tests/front/whnf-cases.fs:
+lf-meta-unfold, lf-meta-whnf) its own; the lines must be equal (Lean's
+error is LeanForth's invalid), except for the gaps listed, where LeanForth
+answers unsupported and Lean's answer is shown (plan S2 merge B: smart
+unfolding and reduceNat?'s guard).
+
 Usage: LEAN=... GFORTH=... python3 tests/front/check_unfold.py [--write]
 """
 import os
 import pathlib
 import subprocess
 import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import check_whnf as cw  # noqa: E402  (the term notation and the Lean setup)
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 LEAN = os.environ.get("LEAN", ".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean")
@@ -78,6 +91,121 @@ def unfoldCase (n : Name) : MetaM Unit := do
 
 class Failure(Exception):
     pass
+
+
+# ---- unfoldDefinition? and whnf on terms (plan S2 merge A).
+c, apps, NAT = cw.c, cw.apps, cw.NAT
+OUTP = c("outParam", 1)
+INST = apps(c("instHAdd", 0), NAT, c("instAddNat"))
+HADD3 = apps(c("HAdd.hAdd", 0, 0, 0), NAT, NAT, NAT, INST)
+ADD_ADD = apps(c("Add.add", 0), NAT, c("instAddNat"))
+SMART = "S2 merge B smart unfolding (Nat.add._sunfold)"
+NAT_GUARD = "S2 merge B reduceNat?'s guard (Nat.add k x)"
+MODES = {"all": "all", "default": "default", "reducible": "reducible",
+         "instances": "instances", "none": "none", "implicit": "implicit"}
+
+# (kind, mode, term, gap): kind "unfold" (unfoldDefinition?) or "mwhnf"
+# (whnf); gap None or the plan item that closes it.
+TERMS = [
+    ("unfold", "default", apps(OUTP, NAT), None),
+    ("unfold", "reducible", apps(OUTP, NAT), None),
+    ("unfold", "none", apps(OUTP, NAT), None),
+    ("unfold", "default", OUTP, None),
+    ("unfold", "all", apps(HADD3, "k", "x"), None),
+    ("unfold", "default", apps(HADD3, "k", "x"), None),
+    ("unfold", "reducible", apps(HADD3, "k", "x"), None),
+    ("unfold", "instances", apps(HADD3, "k", "x"), None),
+    ("unfold", "implicit", apps(HADD3, "k", "x"), None),
+    ("unfold", "instances", HADD3, None),
+    # unfoldProjInst?'s result with no projection at its head (the
+    # instance argument missing: a lambda), and with universe arguments
+    # other than the declaration's parameters: none (review s2-unfold-a).
+    ("unfold", "instances", apps(c("HAdd.hAdd", 0, 0, 0), NAT, NAT, NAT), None),
+    ("unfold", "instances", apps(c("HAdd.hAdd", 0, 0), NAT, NAT, NAT, INST, "k", "x"), None),
+    ("unfold", "instances", apps(c("HAdd.hAdd", 0, 0, 0), NAT, NAT, NAT, "k", "k", "x"), None),
+    ("unfold", "default", apps(c("HAdd.hAdd", 0, 0, 0), NAT, NAT, NAT, "k", "k", "x"), None),
+    ("unfold", "reducible", apps(c("Prod.fst", 0, 0), NAT, NAT, cw.pair("a", "b")), None),
+    ("unfold", "default", apps(c("outParam", 1, 1), NAT), None),
+    ("unfold", "default", INST, None),
+    ("unfold", "reducible", INST, None),
+    ("unfold", "instances", INST, None),
+    ("unfold", "default", apps(ADD_ADD, "k", "x"), None),
+    ("unfold", "reducible", apps(ADD_ADD, "k", "x"), None),
+    ("unfold", "instances", apps(ADD_ADD, "k", "x"), None),
+    ("unfold", "default", c("instAddNat"), None),
+    ("unfold", "default", apps(cw.ADD, "k", "x"), SMART),
+    ("unfold", "default", cw.ADD, None),
+    ("unfold", "default", apps(c("Nat.add.match_1", 1), "k"), None),
+    ("unfold", "all", c("Nat.zero_add"), None),
+    ("unfold", "default", c("Nat.div"), None),
+    ("unfold", "default", apps(c("id", 1), NAT, "k"), None),
+    ("unfold", "reducible", apps(c("id", 1), NAT, "k"), None),
+    ("unfold", "default", "k", None),
+    ("unfold", "default", (cw.LAM, NAT, "#0"), None),
+    ("unfold", "default", c("motive"), None),
+    ("unfold", "default", apps(c("motive"), "k"), None),
+    ("mwhnf", "default", apps(OUTP, NAT), None),
+    ("mwhnf", "default", INST, None),
+    ("mwhnf", "reducible", INST, None),
+    ("mwhnf", "instances", INST, None),
+    ("mwhnf", "default", (cw.PROJ, 0, INST), None),
+    ("mwhnf", "default", apps(c("id", 1), NAT, "k"), None),
+    ("mwhnf", "default", apps(HADD3, "k", "x"), NAT_GUARD),
+    ("mwhnf", "instances", apps(HADD3, "k", "x"), NAT_GUARD),
+    ("mwhnf", "all", c("Nat.zero_add"), None),
+]
+
+TERMS_FILE = ROOT / "tests/front/unfold-terms.lean"
+TERMS_HEAD = """
+def unfoldCase (m : TransparencyMode) (e : Expr) : MetaM Unit := do
+  try
+    match ← withTransparency m (unfoldDefinition? e) with
+    | some e' => IO.println s!"1 {← sx e'}"
+    | none => IO.println "0"
+  catch _ => IO.println "error"
+
+def mwhnfCase (m : TransparencyMode) (e : Expr) : MetaM Unit := do
+  try IO.println (← sx (← withTransparency m (whnf e)))
+  catch _ => IO.println "error"
+"""
+
+
+def terms_source():
+    calls = "\n".join(f"    {kind}Case .{MODES[mode]} {cw.lean(t)}" for kind, mode, t, _ in TERMS)
+    used = "    let _ := (m, z, s, k, x, a, b, p, g, n, h, f, q)\n"
+    return cw.LEAN_HEAD + TERMS_HEAD + "\n" + cw.LEAN_SETUP + used + calls + "\n"
+
+
+def terms_lines(command, source=None):
+    if source is not None and TERMS_FILE.read_text(encoding="utf-8") != source:
+        raise Failure(f"{TERMS_FILE.relative_to(ROOT)} differs from the cases: "
+                      "python3 tests/front/check_unfold.py --write")
+    result = subprocess.run(command, cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True,
+                            text=True, timeout=LIMIT)
+    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if result.returncode != 0 or len(lines) != len(TERMS):
+        raise Failure(f"{command[0]}: exit {result.returncode}\n{result.stdout}{result.stderr}")
+    return lines
+
+
+def terms_compare():
+    """The term cases: a list of the gaps' texts; raise on a difference."""
+    want = terms_lines([LEAN, "-DwarningAsError=true", str(TERMS_FILE.relative_to(ROOT))],
+                       terms_source())
+    calls = " ".join(f"{cw.forth(t)} lf-tr-{MODES[mode]} {kind}-run"
+                     for kind, mode, t, _ in TERMS)
+    got = terms_lines([GFORTH, "tests/front/whnf-cases.fs", "-e", calls + " bye"])
+    gaps = []
+    for (kind, mode, t, gap), w, g in zip(TERMS, want, got):
+        w = w.replace("<md>", "")
+        name = f"{kind} {mode} {cw.forth(t)}"
+        if gap:
+            if g != "unsupported":
+                raise Failure(f"{name}: a listed gap answers {g!r} (Lean: {w!r})")
+            gaps.append(f"{name[:50]} (Lean: {w[:60]}; {gap})")
+        elif w != g and not (w == "error" and g == "invalid"):
+            raise Failure(f"{name}:\n  Lean:      {w}\n  LeanForth: {g}")
+    return gaps
 
 
 def lean_source():
@@ -143,12 +271,14 @@ def self_test():
 def main():
     if sys.argv[1:] == ["--write"]:
         LEAN_FILE.write_text(lean_source(), encoding="utf-8")
+        TERMS_FILE.write_text(terms_source(), encoding="utf-8")
         return 0
     try:
         self_test()
         gaps = []
         for lean, forth in zip(lean_lines(), forth_lines()):
             gaps += compare(lean, forth)
+        term_gaps = terms_compare()
     except Failure as error:
         print(f"check_unfold: {error}")
         return 1
@@ -156,7 +286,10 @@ def main():
           f"{len(NAMES) * 12} unfolding answers (getUnfoldableConst? and canUnfold, six "
           f"transparency modes) equal to pinned Lean's; {len(NAMES) * 4 - len(gaps)} of "
           f"{len(NAMES) * 4} facts equal; {len(gaps)} answer unsupported (plan FE1d2), "
-          f"by fact: {gap_summary(gaps)}; harness self-test passed")
+          f"by fact: {gap_summary(gaps)}; unfoldDefinition? and whnf: "
+          f"{len(TERMS) - len(term_gaps)} of {len(TERMS)} term cases equal to pinned Lean's, "
+          f"{len(term_gaps)} gaps answer unsupported: {'; '.join(term_gaps)}; "
+          f"harness self-test passed")
     return 0
 
 

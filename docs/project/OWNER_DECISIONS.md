@@ -1343,3 +1343,27 @@ the length of a list append (or in S5 if its notation needs natural statements),
 node for node with pinned Lean's term and checked by LeanForth's kernel, its forms confirmed with pinned Lean to lie
 within S2's tactics first; S3 gains `2 + 2 = 4` by `by-decide`, S4 `n < n + 1` by `by-omega`. The weekly token budget
 resets Tuesday 2026-11-17 at 5 pm (Pacific).
+
+### [import] S2's merge A and [parser] the instance search (2026-11-14, morning)
+
+The owner approved the [import] gate for branch `s2-unfold` (S2's merge A: elaboration data format 3 carries Lean's 389
+smart-unfolding bodies for Init and their `match_pattern` markers; the front end unfolds in Lean's order; the data stays
+untrusted and the kernel re-checks every finished term; damaged or forged data is refused, errors 41-45), and the
+[parser] gate for branch `s1-synth-b` (FE1e5, the instance search: a nested search that runs out of memory leaves
+nothing behind, a malformed universe level answers invalid, a constant made inside another leaves the outer one's
+levels alone), after a Forth review and two re-checks of each
+([s2-unfold](../development/forth-reviews/2026-11-13-s2-unfold-a.md),
+[s1-synth-b](../development/forth-reviews/2026-11-13-s1-synth-b.md)); the last re-check's remaining copies of the new
+`ok-store`, the `slab-scoped` word and the unchecked pair count are plan 9.4.8k items for the front pass.
+
+### Gforth 0.7.3 at the push only; fewer full-tier repeats (2026-11-14)
+
+The owner asked why the same suites ran so often (about 30 full-tier runs since 2026-11-13 noon, each 30-40 minutes:
+every review-fix round and every merge of main into a branch made a new tree, and the coordinator's briefs asked for
+the tier each time) and decided: a branch's tier no longer runs Gforth 0.7.3, which runs at the push
+(`scripts/push.sh`, `tested-tree.py tier --with-073`) and in the daily full run. The coordinator also returns to
+`AGENTS.md`'s rule: a branch runs its full tier once, when first handed to review; fix rounds and merges of main into
+a branch run the focused tests and faults of what they touch; main runs the full tier once per batch of merges, at the
+push; at most two suites run at once. `make coverage-check` already stands for `make test` on Gforth 1.0 in the full
+tier (plan 9.4.6); only `test-cli` runs in both, on purpose, for its `gforth-fast` runs.
+

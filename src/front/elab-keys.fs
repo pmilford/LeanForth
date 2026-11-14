@@ -123,6 +123,6 @@ end-structure
 \ mark of the keys and texts so far, and forgetting all made after it.
 : elab-keys-mark ( -- keys texts ) elab-keys# ek-texts# ;
 : elab-keys-drop ( keys texts -- )
-  ek-texts# - elab-texts slab-commit elab-keys# - elab-keys slab-commit ;
+  elab-texts slab-cut elab-keys slab-cut ;
 
 base !   \ the BASE this file was loaded with

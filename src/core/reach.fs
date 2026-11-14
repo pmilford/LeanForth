@@ -84,7 +84,7 @@ end-structure
 \ A reached term's parts.
 : lr-pair ( term -- ) dup lf-term-first@ lf-reach-term lf-term-second@ lf-reach-term ;
 : lr-universes ( term -- )
-  lf-term-first@ lf-cref-slot lf-cref-pairs 0 ?do dup i lf-cref-pair@ drop lr-level! loop
+  lf-const-slot lf-cref-pairs 0 ?do dup i lf-cref-pair@ drop lr-level! loop
   drop ;
 \ A CASE with one arm per kind of term that has parts outside the binary tags.
 : lr-leaf ( term tag -- )

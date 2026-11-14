@@ -211,16 +211,17 @@ T{ one-side lf-lctx-local made lf-meta-dec-level -> -1 outcome-invalid }T
 T{ lfa-e-universe-level lf-author-outcome -> outcome-invalid }T
 
 \ ---- 2. The instance-typed flag: set, rolled back with its scope; an
-\ assignment to an instance-typed metavariable is unsupported (S1
-\ appendix D, until s1-synth); the hooks answer unsupported.
+\ assignment to an instance-typed metavariable compares the types at
+\ instances transparency (S1 appendix D; synth.fs's tests have the other
+\ cases); the hooks, which src/main.fs's synth.fs sets: Nat is no class.
 variable im
 T{ nat mv-natural lf-mvar-new made dup im ! lf-mvar-inst? -> false }T
 T{ lf-mctx-mark made im @ lf-mvar-mark-inst swap lf-mctx-rollback im @ lf-mvar-inst?
    -> outcome-ok outcome-ok false }T
 T{ im @ lf-mvar-mark-inst im @ lf-mvar-inst? 0 lf-mvar-mark-inst -> outcome-ok true outcome-invalid }T
-T{ im @ 0 num lf-meta-defeq -> false outcome-unsupported }T
+T{ im @ 0 num lf-meta-defeq im @ lf-mvar-value nip -> true outcome-ok true }T
 T{ im @ lf-meta-synth-pending nat lf-meta-synth
-   -> false outcome-unsupported -1 false outcome-unsupported }T
+   -> false outcome-ok -1 false outcome-invalid }T
 
 \ ---- 4. lf-menv-reset leaves the run mode: nothing found.
 T{ lf-menv-reset s" Nat.add" nm lf-menv-find nip lf-libdec-count -> outcome-invalid 0 }T
@@ -256,6 +257,37 @@ punit lf-lctx-local made constant fv  punit lf-lctx-local made constant fw
 : unit-note ( flag outcome -- outcome ) tuck unit-ok? 0= if dup worst ! then ;
 : unit-refused ( -- k ) 0 begin 1+ dup unit-at unit-note ok? until ;
 T{ outcome-ok worst ! unit-refused 1 > worst @ -> true outcome-ok }T
+\ getStuckMVar? of Nat.rec over the constant Nat.add, the library's
+\ decodes forgotten and each allocation refused in turn: full whenever a
+\ refusal fired (Nat.add's decode among them, which whnf.fs keeps as its
+\ fault), else unsupported (Nat.add is no constructor), never another.
+: rec-on ( major -- t ) >r level1 0 u! s" Nat.rec" 1 cst nat app nat app nat app r> app ;
+s" Nat.add" 0 cst rec-on constant stuck-term
+: stuck-at ( k -- flag outcome fired? )
+  ck-stage lf-menv-library! heap-refusals ! stuck-term lf-whnf-stuck heap-refusals @ 0=
+  0 heap-refusals ! ;
+: stuck-ok? ( flag outcome fired? -- flag )
+  if outcome-full = else outcome-unsupported = then swap 0= and ;
+: stuck-refused ( -- k ) 0 begin 1+ dup stuck-at 2dup >r >r stuck-ok? 0= if 1 worst ! then
+  r> r> 0= swap outcome-unsupported = and until ;
+T{ outcome-ok worst ! stuck-refused 2 > worst @ -> true outcome-ok }T
+\ The same with Nat.rec decoded first and the records' slab trimmed to
+\ it: Nat.add's decode is the one that needs room, refused: full.
+: stuck-full ( -- flag outcome )
+  ck-stage lf-menv-library! s" Nat.rec" d-of drop lbd-records slab-trim drop
+  1 heap-refusals ! stuck-term lf-whnf-stuck 0 heap-refusals ! ;
+T{ stuck-full -> false outcome-full }T
+\ The same refusal through whnf's fixed-point test of Nat.add and
+\ inferType of v 0 with v : Nat.add (whnfCore leaves the constant as it
+\ is, unread): full, never a flag read as unsupported (review
+\ s2-unfold-a L5).
+: add-refused ( t xt -- x outcome )
+  ck-stage lf-menv-library! s" Nat.rec" d-of drop lbd-records slab-trim drop
+  1 heap-refusals ! execute 0 heap-refusals ! ;
+s" Nat.add" 0 cst constant nat-add
+nat-add lf-lctx-local made 0 nlit app constant v-applied
+T{ nat-add ' lf-meta-whnf-final? add-refused nip -> outcome-full }T
+T{ v-applied ' lf-infer add-refused nip -> outcome-full }T
 \ A name's parts on a slab with room for one: the second part's room
 \ refused, a find answers full and keeps the cell below it, as does a
 \ tier name's run name.
@@ -298,6 +330,28 @@ T{ s" ReexportKinds.Wide" d-of lf-menv-data lf-ity-flags lf-more-field
 : valued? ( c-addr u -- flag ) d-of lf-menv-value nip ;
 T{ s" ReexportKinds.kept" valued? s" ReexportKinds.twice" valued? s" ReexportKinds.big" valued?
    -> true true true }T
+\ A declaration that cannot be decoded is no unknown constant (plan S2):
+\ whnfCore of Nat.add 1 2, getStuckMVar? of it and inferType of Nat.add
+\ pass unsupported on, as do whnfCore of a recursor whose major premise
+\ is the constant Nat.add alone (the premise's unfolding asks first) and
+\ getStuckMVar? of it (the premise's kind asked: whnf.fs's fault).
+: add-12 ( -- t ) s" Nat.add" 0 cst 1 nlit app 2 nlit app ;
+T{ add-12 lf-whnf-core add-12 lf-whnf-stuck s" Nat.add" 0 cst lf-infer nip
+   -> -1 outcome-unsupported false outcome-unsupported outcome-unsupported }T
+T{ s" Nat.add" 0 cst rec-on dup lf-whnf-core rot lf-whnf-stuck
+   -> -1 outcome-unsupported false outcome-unsupported }T
+\ Nat.rec over Nat.zero (iota) with each allocation refused in turn, the
+\ library's decodes forgotten first: full or the minor premise (the
+\ constant Nat), never unsupported (wc-induct-data passes a refused
+\ decode of Nat on as full).
+s" Nat.zero" 0 cst rec-on constant iota-term
+: iota-at ( k -- e outcome )
+  ck-stage lf-menv-library! heap-refusals ! iota-term lf-whnf-core 0 heap-refusals ! ;
+: iota-ok? ( e outcome -- flag ) dup ok? if 2drop true else nip outcome-full = then ;
+: iota-note ( e outcome -- outcome ) 2dup iota-ok? 0= if dup worst ! then nip ;
+: iota-refused ( -- k ) 0 begin 1+ dup iota-at iota-note ok? until ;
+T{ outcome-ok worst ! iota-refused 1 > worst @ iota-term lf-whnf-core swap lf-term-const?
+   -> true outcome-ok outcome-ok true }T
 
 \ ---- 4. lfc-library-close leaves the run mode; a failed re-open leaves
 \ none bound to the stage it freed.

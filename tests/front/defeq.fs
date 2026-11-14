@@ -116,10 +116,12 @@ T{ own-mark succ ?h app 3 nlit dq ?h inst 2 ofnat same own-back clean? -> true o
 T{ 3 nlit succ succ succ zero app app app dq -> false outcome-unsupported }T
 T{ succ ?h app 0 ofnat fk 1 ofnat hadd hadd dq ?h free? -> false outcome-unsupported true }T
 
-\ ---- Transparency: a definition is a delta candidate at default only.
+\ ---- Transparency: a definition is a delta candidate at default only;
+\ there lazy delta (S2 merge A) finds that neither constant unfolds (each
+\ has a `_sunfold`, so a constant alone stays) and they differ.
 T{ lf-tr-reducible lf-defeq-mode! 0 s" Nat.add" cn 0 s" Nat.mul" cn dq
    lf-tr-default lf-defeq-mode! -> false outcome-ok }T
-T{ 0 s" Nat.add" cn 0 s" Nat.mul" cn dq -> false outcome-unsupported }T
+T{ 0 s" Nat.add" cn 0 s" Nat.mul" cn dq -> false outcome-ok }T
 \ isDefEqProjInst at instances transparency might unfold a definition.
 T{ lf-tr-instances lf-defeq-mode! 0 s" Nat.add" cn fk dq lf-tr-default lf-defeq-mode!
    -> false outcome-unsupported }T
@@ -216,8 +218,9 @@ T{ fk fx s" Nat.add" nat-op dup succ swap app off-sk rot rot = -> 1 true }T
 T{ fx fk 2 nlit hadd-by lf-meta-offset 2swap 2drop -> false outcome-unsupported }T
 \ whnf's fixed points, isProp, getFunInfoNArgs, isClassQuick?.
 T{ fk lf-meta-whnf-final? succ fk app lf-meta-whnf-final? succ 2 nlit app lf-meta-whnf-final?
-   -> true true false }T
-T{ fk fk nat-add lf-meta-whnf-final? l0 sort lf-meta-whnf-final? -> false true }T
+   -> true outcome-ok true outcome-ok false outcome-ok }T
+T{ fk fk nat-add lf-meta-whnf-final? l0 sort lf-meta-whnf-final?
+   -> false outcome-ok true outcome-ok }T
 T{ eqab lf-meta-is-prop nat lf-meta-is-prop -> true outcome-ok false outcome-ok }T
 T{ succ 1 lf-meta-fun-info 0 lf-meta-param -> 1 outcome-ok lf-binder-default false }T
 T{ nat l0 sort lf-meta-class-none? fk lf-meta-class-none? -> nat true true }T
@@ -291,14 +294,17 @@ T{ succ fk app -1 nlit nat-add lf-meta-offset nip nip nip -> outcome-unsupported
 : inst-x ( -- inst ) l0 1 s" instHAdd" cn nat app fx app ;
 T{ inst-x 2 nlit 3 nlit hadd-by lf-meta-eval-nat -> 0 false outcome-ok }T
 \ Universe lists: == compares every level; isDefEq pair by pair, false
-\ when one list ends first; a definition whose levels differ is unfolded
-\ on both sides (lazy delta: unsupported).
+\ when one list ends first. HAdd.hAdd at two levels stops at proof
+\ irrelevance (isProp of its type: fun-info.fs, unsupported); a
+\ definition with one list too long is unfolded on one side only (lazy
+\ delta, S2 merge A: deltaDefinition's level count), then its levels
+\ differ: false, as Lean.
 : hadd-c ( l -- t ) >r l0 l0 r> 3 s" HAdd.hAdd" cn ;
 T{ l0 hadd-c lv1 hadd-c lf-meta-eqv l0 hadd-c lv1 hadd-c dq
    -> false outcome-ok false outcome-unsupported }T
 : prod-c ( l -- t ) >r l0 r> 2 s" Prod.mk" cn ;
 T{ l0 prod-c lv1 prod-c dq l0 prod-c l0 1 s" Prod.mk" cn dq -> false outcome-ok false outcome-ok }T
-T{ l0 1 s" OfNat.ofNat" cn l0 l0 2 s" OfNat.ofNat" cn dq -> false outcome-unsupported }T
+T{ l0 1 s" OfNat.ofNat" cn l0 l0 2 s" OfNat.ofNat" cn dq -> false outcome-ok }T
 \ String literals by their text.
 : slit ( c-addr u -- t ) lf-str-new made drop ;
 T{ s" ab" slit s" ab" slit dq s" ab" slit s" ac" slit dq -> true outcome-ok false outcome-ok }T
@@ -335,11 +341,21 @@ T{ ?t fk app succ fk app lf-defeq-elab lf-defeq-quasi or with-flags
 T{ ?M rec-prop dq ?M free? -> false outcome-unsupported true }T
 \ At reducible transparency an implicit argument is compared at implicit
 \ (withImplicitConfig), where Nat.add and Nat.mul are delta candidates
-\ (lazy delta: unsupported, FE1d2); at reducible they are not (false).
+\ (lazy delta, S2 merge A: neither constant unfolds, false); at reducible
+\ they are not (false).
 : refl-of ( name u -- t ) 0 -rot cn refl ;
 T{ lf-tr-reducible lf-defeq-mode! s" Nat.add" refl-of s" Nat.mul" refl-of dq
    0 s" Nat.add" cn 0 s" Nat.mul" cn dq lf-tr-default lf-defeq-mode!
-   -> false outcome-unsupported false outcome-ok }T
+   -> false outcome-ok false outcome-ok }T
+\ The instance argument of k + x compared at implicit: instHAdd Nat
+\ instAddNat unfolds there to its constructor (true); at reducible alone
+\ the two instances differ with a definition at the head (the hint table:
+\ unsupported).
+: hadd-mk ( -- inst ) l0 l0 l0 3 s" HAdd.mk" cn nat app nat app nat app
+  nat nat l0 1 s" Add.add" cn nat app 0 s" instAddNat" cn app 1 bv app 0 bv app lam lam app ;
+: inst-nat ( -- inst ) l0 1 s" instHAdd" cn nat app 0 s" instAddNat" cn app ;
+T{ lf-tr-reducible lf-defeq-mode! inst-nat fk fx hadd-by hadd-mk fk fx hadd-by dq
+   inst-nat hadd-mk dq lf-tr-default lf-defeq-mode! -> true outcome-ok false outcome-unsupported }T
 \ isDefEqMVarSelf: a read-only ?t (one depth deeper) is false even under
 \ constApprox.
 T{ deeper ?t fk app ?t fx app lf-defeq-elab lf-defeq-const or with-flags
@@ -382,6 +398,42 @@ T{ ?imp 1 lf-meta-fun-info nip ?imp fk app ?imp fx app dq
 T{ fp 0 0 2 s" Prod.mk" cn nat app nat app fa app dq -> false outcome-ok }T
 T{ fi fe app fi fp 0 proj app dq -> true outcome-ok }T
 
+\ ---- Lazy delta (S2 merge A, defeq-delta.fs; check_defeq.py compares the
+\ same cases with pinned Lean). One side unfolds (outParam Type, either
+\ side); a reducible side first (outParam ?n against Nat.add k x assigns
+\ ?n, never unfolding Nat.add, which has a `_sunfold`); two names: class
+\ projections unpacked to the other side's head (packedInstanceOf?),
+\ either side, through two of them, with an assignment; one name: two
+\ applications by their arguments first (tryHeuristic: Nat.add ?n x
+\ against Nat.add k x), two constants at other levels both unfolded
+\ (false); the side whose unfolding has the other's head alone (id Nat
+\ (Nat.add ?n x) against Nat.add k x); a false answer leaves nothing
+\ assigned; Nat.add's `_sunfold` reached: unsupported (merge B).
+: outp ( t -- t' ) >r lv1 1 s" outParam" cn r> app ;
+: outp2 ( t -- t' ) >r lv2 1 s" outParam" cn r> app ;
+: add-add ( a b -- t ) >r >r l0 1 s" Add.add" cn nat app 0 s" instAddNat" cn app r> app r> app ;
+: id1 ( t -- t' ) >r lv1 1 s" id" cn nat app r> app ;
+: assigns? ( flag outcome mvar t -- flag outcome same? ) >r inst r> same ;
+T{ lv1 sort outp2 lv1 sort dq lv1 sort lv1 sort outp2 dq -> true outcome-ok true outcome-ok }T
+T{ own-mark ?n outp fk fx nat-add dq ?n fk fx nat-add assigns? own-back clean?
+   -> true outcome-ok true true }T
+T{ fk fx hadd fk fx add-add dq fk fx add-add fk fx hadd dq fk fx hadd fk fx nat-add dq
+   -> true outcome-ok true outcome-ok true outcome-ok }T
+T{ own-mark ?n fx hadd fk fx add-add dq ?n fk assigns? own-back clean? -> true outcome-ok true true }T
+T{ own-mark ?n fx nat-add fk fx nat-add dq ?n fk assigns? own-back clean?
+   -> true outcome-ok true true }T
+T{ lv1 1 s" id" cn lv2 1 s" id" cn dq -> false outcome-ok }T
+T{ own-mark ?n fx nat-add id1 fk fx nat-add dq ?n fk assigns? own-back clean?
+   -> true outcome-ok true true }T
+T{ ?n outp nat dq ?n free? clean? nat outp fk dq -> false outcome-ok true true false outcome-ok }T
+T{ fk fx hadd fx fk hadd dq clean? -> false outcome-unsupported true }T
+\ Fuel: too few steps is exhausted, nothing left assigned; the
+\ transparency of the call is back after it.
+T{ 4 lf-defeq-fuel! ?n fx hadd fk fx add-add dq ?n free? clean? 0 lf-defeq-fuel!
+   -> false outcome-exhausted true true }T
+T{ lf-tr-implicit lf-defeq-mode! lv1 sort outp2 lv1 sort dq lf-defeq-mode
+   lf-tr-default lf-defeq-mode! -> true outcome-ok lf-tr-implicit }T
+
 \ ---- Resources: each allocation refused in turn gives full or the
 \ answer, and leaves nothing behind.
 : refused ( t s k -- flag outcome ) heap-refusals ! dq 0 heap-refusals ! ;
@@ -407,6 +459,9 @@ T{ ' eta-pair refusals-sound? fulls @ 0> -> true true }T
 T{ ' args-pair refusals-sound? fulls @ 0> -> true true }T
 T{ ' lam-pair refusals-sound? fulls @ 0> -> true true }T
 T{ ' abs-pair refusals-sound? fulls @ 0> -> true true }T
+\ Through lazy delta: unfolding, whnfCore and the unpacked instance.
+: delta-pair ( -- t s ) ?h fx hadd fk fx add-add ;
+T{ ' delta-pair refusals-sound? fulls @ 0> -> true true }T
 T{ own-mark args-pair dq own-back own-mark lam-pair dq own-back own-mark abs-pair dq own-back
    -> true outcome-ok true outcome-ok true outcome-ok }T
 \ A rebuilt binder keeps its name and kind, or the call answers full

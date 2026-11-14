@@ -84,7 +84,8 @@
 \ - lf-depends-on? ( term fvar -- flag outcome ): Lean's exprDependsOn,
 \   whether the term, its metavariables instantiated, holds the free
 \   variable or an unassigned metavariable whose context holds it.
-\ Words: lf-mctx-reset, lf-mctx-depth, lf-mctx-level-depth ( -- n );
+\ Words: lf-mctx-reset, lf-mctx-depth, lf-mctx-level-depth, mctx-epoch@
+\ ( -- n );
 \ lf-mctx-view ( -- view ), lf-mctx-view! ( view -- );
 \ lf-mctx-mark ( -- mark outcome ), lf-mctx-rollback ( mark -- outcome ),
 \ lf-mctx-commit ( mark -- outcome ), lf-mctx-marks ( -- n ), lf-mctx-latest
@@ -99,8 +100,9 @@
 \ lf-mvar-assign ( mvar value -- outcome ), lf-delay-fvar ( fvar --
 \ outcome ), lf-mvar-delay ( mvar pending n -- outcome ), lf-mvar-delayed
 \ ( mvar -- pending addr n true | false ), lf-level-mvar-new ( -- level
-\ outcome ), lf-level-mvar-live?, lf-level-mvar-value, lf-level-mvar-depth
-\ ( level -- depth ), lf-level-mvar-assign
+\ outcome ), lf-meta-const-fresh ( d -- term outcome )
+\ (mkConstWithFreshMVarLevels), lf-level-mvar-live?, lf-level-mvar-value,
+\ lf-level-mvar-depth ( level -- depth ), lf-level-mvar-assign
 \ ( level value -- outcome ), lf-mvar-occurs? ( mvar term -- flag outcome ),
 \ lf-level-mvar-occurs?, lf-level-assignable-mvar? ( level -- flag
 \ outcome ), lf-level-stale-mvar?, lf-level-instantiate-mvars ( level -- level'
@@ -210,6 +212,8 @@ end-structure
 
 \ The context: emptied, with a new epoch, at depth 0, no scope open, the
 \ empty local context current (every view gone).
+\ The context's epoch, new at each lf-mctx-reset: a holder of results
+\ about this context's terms (synth.fs's cache) can tell they are stale.
 : mctx-epoch@ ( -- n ) mctx mctx-epoch @ ;
 : lf-mctx-depth ( -- n ) mctx mctx-depth @ ;
 : lf-mctx-level-depth ( -- n ) mctx mctx-ldepth @ ;
@@ -308,6 +312,10 @@ end-structure
   tuck swap mvl-fill outcome-ok ;
 : lf-level-mvar-new ( -- level outcome )
   mv-levels mv-slot if mvl-leafed else -1 outcome-full then ;
+\ Lean's mkConstWithFreshMVarLevels: declaration d's constant at a new
+\ level metavariable for each of its universe parameters (here, not in
+\ meta-env.fs, which this file's walks load first).
+: lf-meta-const-fresh ( d -- term outcome ) ['] lf-level-mvar-new lf-meta-const-with ;
 
 \ ---- Walks (dag-walk.fs). A term's children are its two parts
 \ (application, binders, let, projection) and, for an assigned
@@ -482,11 +490,11 @@ end-structure
 : mv-open ( kind -- mark outcome )
   1 mv-marks slab-claim ok-then? 0= if nip 0 swap exit then
   mv-marks slab-at mv-scope-fill outcome-ok ;
-: mv-cut ( n slab -- ) tuck slab-count - swap slab-commit ;
 : mv-back-to ( i -- ) begin dup mv-at <> while mv-at mv-undo repeat drop ;
-: mv-undo-scope ( -- ) mv-latest dup mvs-entry @ mv-back-to mvs-length @ mv-trail mv-cut ;
+: mv-undo-scope ( -- )
+  mv-latest dup mvs-entry @ mv-back-to mvs-length @ mv-trail slab-cut ;
 : mv-close ( -- )
-  mv-latest mvs-snaps @ mv-snaps mv-cut -1 mv-marks slab-commit
+  mv-latest mvs-snaps @ mv-snaps slab-cut mv-marks slab-drop
   lf-mctx-marks 0= if mv-trail slab-clear -1 mv-at! then ;
 : lf-mctx-mark ( -- mark outcome ) mv-plain mv-open ;
 : lf-mctx-rollback ( mark -- outcome )

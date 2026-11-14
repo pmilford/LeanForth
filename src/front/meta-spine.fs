@@ -9,13 +9,17 @@
 \   f a1 .. an into the slab, emptied first, an first; the head f. A
 \   refused cell gives -1 and full.
 \ - lf-meta-arg ( i slab -- term ): argument i, a0 the first, of a spine.
-\ - lf-meta-const-decl ( const -- d true | false ): the declaration of a
+\ - lf-meta-const-decl ( const -- d outcome ): the declaration of a
 \   constant's name (Lean's find?), through front/meta-env.fs in either
-\   mode; false also when a library declaration could not be decoded
-\   (full, unsupported): the constant then reads as unknown (plan S2:
-\   the outcome passed on).
-\ - lf-meta-levels-fill ( slot slab -- outcome ): a constant reference's
-\   universe arguments, as levels, into the slab, emptied first.
+\   mode: ok; invalid when no declaration has the name (an unknown
+\   constant); full or unsupported, passed on, when a library
+\   declaration could not be decoded (never read as an unknown constant,
+\   plan S2); -1 for d when not ok.
+\ - lf-meta-levels-fill ( const slab -- outcome ): a constant's universe
+\   arguments, as levels, into the slab, emptied first.
+\ - lf-meta-arity? ( d const -- flag ): the constant has as many universe
+\   arguments as the declaration d has universe parameters (the test of
+\   Lean's deltaDefinition, inferConstant and reduceRec).
 \ - lf-meta-named ( new old -- new outcome ): a rebuilt binder gets the
 \   old one's name and kind (present/binder-table.fs), when it has them;
 \   full when the table has no room for them (a rebuilt node that is an
@@ -30,6 +34,10 @@
 \   lf-meta-fvar? ( term -- flag ): a free variable.
 \ - lf-meta-args# ( term -- n ): the number of arguments of its spine.
 \ - lf-meta-pop ( slab -- x ): the slab's last cell, taken off.
+\ - lf-meta-app ( f a -- f' outcome ): the application f a (Lean's
+\   mkApp); full, with -1, when the term store has no room.
+\ - lf-meta-apply-all ( f slab -- f' outcome ): f applied to a spine's
+\   arguments, a0 first (Lean's mkAppN f args); full as above.
 \ Unchecked: the terms are live, the constant is one, the slab is a cell
 \ slab (not empty for lf-meta-pop). State: none of its own; every word
 \ takes its slab. Loads in decimal whatever BASE is, then restores it.
@@ -39,6 +47,7 @@ require ../lib/lib.fs
 require ../lib/slab.fs
 require ../core/terms.fs
 require ../core/constant-references.fs
+require ../core/constant-term-boundary.fs
 require ./meta-env.fs
 require ../core/local-context.fs
 require ../core/mvar-leaves.fs
@@ -54,12 +63,12 @@ require ../present/binder-table.fs
     over ms-peel ok-then? 0= if nip -1 swap exit then
   repeat nip outcome-ok ;
 : lf-meta-arg ( i slab -- term ) tuck slab-count 1- swap - swap slab-at @ ;
-: lf-meta-const-decl ( const -- d true | false )
-  lf-term-first@ lf-cref-slot lf-cref-name@ drop lf-menv-find
-  ok? if true else drop false then ;
+: lf-meta-const-decl ( const -- d outcome )
+  lf-const-name lf-menv-find ;
+: lf-meta-arity? ( d const -- flag ) lf-const-levels# swap lf-menv-params nip = ;
 : ms-level ( slot i -- level ) swap lf-cref-pairs drop swap lf-cref-pair@ drop ;
-: lf-meta-levels-fill ( slot slab -- outcome )
-  dup slab-clear swap dup lf-cref-pairs nip 0 ?do
+: lf-meta-levels-fill ( const slab -- outcome )
+  dup slab-clear swap lf-const-slot dup lf-cref-pairs nip 0 ?do
     2dup i ms-level swap lf-meta-push dup ok? 0= if nip nip unloop exit then drop
   loop 2drop outcome-ok ;
 : ms-full ( outcome -- outcome' ) outcome-full = if outcome-full else outcome-ok then ;
@@ -74,5 +83,9 @@ require ../present/binder-table.fs
 : lf-meta-args# ( term -- n )
   0 swap begin dup lf-meta-app? while lf-term-first@ swap 1+ swap repeat drop ;
 : lf-meta-pop ( slab -- x ) dup slab-count 1- over slab-at @ -1 rot slab-commit ;
+: lf-meta-app ( f a -- f' outcome ) lf-term-app if outcome-ok else -1 outcome-full then ;
+: ms-apply-at ( f i slab -- f' outcome ) lf-meta-arg lf-meta-app ;
+: lf-meta-apply-all ( f slab -- f' outcome )
+  dup slab-count swap ['] ms-apply-at ok-fold ;
 
 base !   \ the BASE this file was loaded with

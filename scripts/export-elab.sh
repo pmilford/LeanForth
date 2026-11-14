@@ -3,7 +3,8 @@
 # docs/programming/ELABORATION_DATA.md): for the modules of a Lean export,
 # run scripts/export_elab.lean with the pinned toolchain, then
 # scripts/export_elab.py, which keeps the records of the export's own
-# declarations and writes the file `leanforth check --elab-data` reads.
+# declarations and writes the file `leanforth check --elab-data` reads
+# (format 3: with every smart-unfolding body and the match_pattern tag).
 # A development tool, run when a library is exported, like scripts/export.sh
 # (owner decision of 2026-11-12, "Front-end syntax", answer 8); a user who
 # only checks LeanForth text needs no Lean.
