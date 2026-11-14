@@ -97,6 +97,7 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-13 | `cbc7cc36..3bb44150` | s1-synth-b: FE1e5, the instance search (synth.fs), run-each/run-filter, slab-cut, lf-meta-const-fresh | forth-reviewer (Opus), style and gate [parser] | [report](2026-11-13-s1-synth-b.md) | 3 B (reuse), 1 H, 3 M, 4 L | 0: fixed in 3bb44150..bab12e5b |
 | 2026-11-13 | `3bb44150..bab12e5b` | s1-synth-b review fixes | forth-reviewer (Opus), re-check | [report](2026-11-13-s1-synth-b.md), section "Re-check of the fixes" | 1 B (find? words), M-a, M-b, L-a to L-c | 0: B and M-b planned (9.4.8k, S2 row); M-a, L-a to L-c fixed in bab12e5b..9422c1c3 |
 | 2026-11-14 | `bab12e5b..ada23cb5` | s1-synth-b FIXA fixes and the coordinator's rollback test (tests only in ada23cb5) | forth-reviewer (Opus), re-check | [report](2026-11-13-s1-synth-b.md), section "Re-check of FIXA" | B1 (`slab-scoped`), M1, L1; return-stack baseline +2 meta-env.fs, +2 runs.fs accepted | 0: M1 fixed in ada23cb5 (fault caught); B1, L1 planned in 9.4.8k |
+| 2026-11-14 | `2760dd12..39a2ec7c` | merge of s1-synth-b into main: conflict resolution in fun-info.fs and synth.fs (`sy-new-head` passes the constant to merge A's `lf-meta-levels-fill`) | coordinator (Opus); the same resolution as s1-elab's 670ab290, which s1-elab's re-check reads | this row | merge resolution only | 0 |
 
 ## Backlog
 
