@@ -462,7 +462,7 @@ time, as `scripts/export.sh` builds `export_manifest.py`'s, is not seen).
 | `src/program/` | `test-program`, `test-program-ir`, `test-program-ir-run` |
 | `src/present/` | `test-present`; `test-printer-differential` |
 | `src/author/` | `test-author`; `reference-author` |
-| `src/front/`, `src/core/mvar-leaves.fs` | `test-front`; `test-author` (the export writer's refusal, the marker); `reference-front` (pinned Lean's macro expansion); `reference-constructions` (`casesOn`, `recOn` and `ctorIdx` built for every type of Init and compared with Lean's export, and their binder names and information with pinned Lean's environment; plan FE6) |
+| `src/front/`, `src/core/mvar-leaves.fs` | `test-front`; `test-author` (the export writer's refusal, the marker); `reference-front` (pinned Lean's macro expansion); `reference-constructions` (`casesOn`, `recOn` and `ctorIdx` built for every type of Init and compared with Lean's export, and their binder names and information with pinned Lean's environment; plan FE6); `test-instances` and `reference-synth` (the instance keys and table, plans FE1e2-FE1e3: every Init instance recomputed, getInstances against pinned Lean) |
 | `tests/reference/*.lean` | the target that runs the file (`make check-changed` finds it) |
 | `scripts/lean-cache.py`, the Makefile | `test-lean-cache`, then the full tier (`make tier`) |
 | `docs/` | `check-docs`, `check-doc-examples` |

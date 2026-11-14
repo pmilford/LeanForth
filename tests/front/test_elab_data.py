@@ -289,7 +289,9 @@ ERRORS = ["file missing or unreadable", "no line, or a line without its line fee
           "two default instances of one class with one rank",
           "a left-out instance the library has", "a matcher named twice",
           "a projection named twice", "numbers that do not fit the declaration's type",
-          "a record kind this reader does not read yet"]
+          "a record kind this reader does not read yet",
+          "other records than the export's manifest names",
+          "a default instance's rank beyond 65535"]
 
 
 def refusal(line, reason):
@@ -308,6 +310,7 @@ def errors_documented():
 
 INST_NAT = '"name":["instAddNat"]'
 DFLT_OFNAT = '{"default_instance":{"class":["OfNat"]'
+DFLT_RANK0 = '"name":["instOfNatNat"],"priority":100,"rank":0}'
 MATCH = '"discr_names":[null,null],"name":["Nat","add","match_1"]'
 PROJ = '"idx":0,"name":["Add","add"]'
 LEFT0 = '"name":["Lean","Grind","AddCommMonoid","toAdd"]'
@@ -492,6 +495,10 @@ def format2_cases():
         # 33: default ranks.
         ("two default instances with one rank", assemble(GOOD_RECORDS + [dflt]), 4, n + 2,
          "two default instances"),
+        # 40: a default rank beyond 65535 (FE1e3 answers a cell per rank).
+        case("default rank beyond the limit",
+             c(DFLT_RANK0, DFLT_RANK0.replace('"rank":0', '"rank":65536')), 4,
+             "a default instance's rank beyond 65535"),
         # 34: a left-out instance the library has (an erased one may be).
         case("left out but in the library", c(LEFT0, INST_NAT), 4, "a left-out instance"),
         # 37: numbers that do not fit the type.
@@ -668,6 +675,8 @@ def command_line(work):
         "a left-out projection of a structure the slice lacks": swap(BITVEC_CONST, BITVEC_PROJ),
         "a projection of a structure of the slice": swap(
             BITVEC_CONST, BITVEC_PROJ.replace('"proj":["BitVec"]', '"proj":["Nat"]')),
+        "a default rank at the limit": swap(DFLT_RANK0,
+                                            DFLT_RANK0.replace('"rank":0', '"rank":65535')),
         "a string literal key": swap('"star",{"lit":"0"}],"name":["Zero","toOfNat0"]',
                                      '"star",{"lit_str":"0"}],"name":["Zero","toOfNat0"]'),
     }
@@ -716,6 +725,44 @@ def command_line(work):
           "files refused")
 
 
+def bound_cases(work):
+    """M6 (S1 note): export_elab.py --bind names the data's records SHA-256
+    in a copy of the slice's manifest; leanforth check then reads that data
+    and refuses other data (error 39) and a malformed member."""
+    copy = work / "bound.ndjson"
+    copy.write_bytes(SLICE.read_bytes())
+    manifest = work / "bound.ndjson.manifest.json"
+    plain = (ROOT / "tests/author/init-slice.ndjson.manifest.json").read_text()
+    manifest.write_text(plain)
+    raw = work / "bound-raw.ndjson"
+    raw.write_text("\n".join([RAW_HEAD, '{"class":{"name":["Add"],"out_level_params":[],"out_params":[]}}',
+                              raw_instance(["instAddNat"], ["Add"], [ADD, NAT], 0)]) + "\n")
+    out = work / "bound.elab.ndjson"
+    done = subprocess.run([sys.executable, str(ROOT / "scripts/export_elab.py"), str(raw), str(copy),
+                           str(out), "--bind"], capture_output=True, text=True, timeout=LIMIT)
+    records = json.loads(out.read_text().split("\n", 1)[0])["elab_data"]["records_sha256"]
+    bound = json.loads(manifest.read_text())
+    if (done.returncode != 0 or bound.pop("elab_records_sha256", None) != records
+            or bound != json.loads(plain)):
+        fail(f"finisher --bind: {done.returncode} {done.stderr} {manifest.read_text()[:200]}")
+    library = ("--env", str(copy))
+    code, said = check(out, library)
+    if code != 0:
+        fail(f"bound data refused: {code} {said}")
+    code, said = check(GOOD, library)
+    if code != 4 or refusal(1, "other records than") not in said:
+        fail(f"other data accepted for a bound export: {code} {said}")
+    manifest.write_text(manifest.read_text().replace(records, records[:-1] + "G"))
+    code, said = check(out, library)
+    if code != 4 or "manifest malformed" not in said:
+        fail(f"a malformed elab_records_sha256 accepted: {code} {said}")
+    code, said = check(GOOD, ("--no-manifest", "--env", str(copy)))
+    if code != 0:
+        fail(f"--no-manifest binds by the export's SHA-256 alone: {code} {said}")
+    print("binding (M6): --bind names the records; that data read, other data and a malformed "
+          "member refused")
+
+
 def schema_cases():
     validator = Validator(load_strict((ROOT / "schemas/elab-data-2.schema.json").read_text()))
     lines = GOOD.read_text().splitlines() + ELIMINATORS.read_text().splitlines()
@@ -757,6 +804,7 @@ def main():
         work = pathlib.Path(work)
         finisher_cases(work)
         command_line(work)
+        bound_cases(work)
     if failures:
         print(f"{len(failures)} failure(s)")
         return 1

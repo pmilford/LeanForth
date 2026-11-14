@@ -64,7 +64,9 @@
 \ not yet: S2, with lazy delta), and at instances transparency a
 \ projection function (unfoldProjInst?). The library route of merge B
 \ (S1 §1) widens the environment, not these rules. Each call spends one
-\ step of meta-config.fs's budget. lf-meta-whnf-r is whnfR (reducible);
+\ step of meta-config.fs's budget. lf-meta-whnf-r is whnfR (reducible),
+\ lf-meta-whnf-d whnfD (default), each at its transparency whatever the
+\ configured one, which it gives back;
 \ lf-meta-whnf-forall ( e -- e' outcome ) whnfForall (whnf's result when
 \ it is a pi, else e); lf-meta-instantiate-forall ( e addr n -- e'
 \ outcome ) instantiateForall (Basic.lean:2186): e's first n pis, each
@@ -416,10 +418,11 @@ end-structure
 : lf-meta-whnf ( e -- e' outcome )
   lf-meta-spend? 0= if drop -1 outcome-exhausted exit then
   true wc-core ok-then? if wm-final else no-result then ;
-\ whnfR: whnf at reducible transparency, the configured one restored.
-: wm-at ( e mode -- e' outcome )
-  lf-defeq-mode swap lf-defeq-mode! swap lf-meta-whnf rot lf-defeq-mode! ;
+\ whnfR and whnfD: whnf at reducible or default transparency, the
+\ configured one restored.
+: wm-at ( e mode -- e' outcome ) ['] lf-meta-whnf swap lf-meta-at ;
 : lf-meta-whnf-r ( e -- e' outcome ) lf-tr-reducible wm-at ;
+: lf-meta-whnf-d ( e -- e' outcome ) lf-tr-default wm-at ;
 : lf-meta-whnf-forall ( e -- e' outcome )
   dup lf-meta-whnf ok-then? 0= if nip no-result exit then
   dup wm-pi? if nip else drop then outcome-ok ;

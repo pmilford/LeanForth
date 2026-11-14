@@ -22,7 +22,10 @@
 \   took at most two parts, and no caller passes more; defeq.fs tests
 \   three);
 \   lf-meta-const-named? ( t c-addr u -- flag ): t is that constant
-\   (isConstOf); lf-meta-head ( t -- head ): getAppFn.
+\   (isConstOf); lf-meta-head ( t -- head ): getAppFn;
+\   lf-meta-app-of? ( t n c-addr u -- flag ): t has n arguments and the
+\   constant of the dotted name at its head (Lean's match_expr shapes);
+\   lf-meta-nth-arg ( t i n -- a ): argument i, the first 0, of such a t.
 \ The pairs still to compare wait on a heap stack (plan task 6.2.0).
 \ Outcomes: ok; full when the heap has no room; invalid for a term that
 \ is not live. Untrusted front-end code.
@@ -44,6 +47,7 @@ require ../core/mvar-leaves.fs
 require ../core/statement-match.fs
 require ./level-simp.fs
 require ./instantiate.fs
+require ./meta-spine.fs
 
 0 constant lf-lb-false  1 constant lf-lb-true  2 constant lf-lb-undef
 : lf-lb ( flag -- lbool ) if lf-lb-true else lf-lb-false then ;
@@ -108,6 +112,12 @@ require ./instantiate.fs
   rot dup lf-term-const? if eq-slot lf-cref-name@ drop lf-meta-name?
   else drop 2drop false then ;
 : lf-meta-head ( t -- head ) begin dup lf-term-app? while lf-term-first@ repeat ;
+\ Shapes: n arguments and a constant of the name at the head (Lean's
+\ match_expr); argument i, the first 0, of t with n arguments.
+: lf-meta-app-of? ( t n c-addr u -- flag )
+  2>r over lf-meta-args# = if lf-meta-head 2r> lf-meta-const-named?
+  else drop 2r> 2drop false then ;
+: lf-meta-nth-arg ( t i n -- a ) swap - 1- 0 ?do lf-term-first@ loop lf-term-second@ ;
 
 
 \ etaExpanded?: the lambdas taken off, then the body's arguments, from the

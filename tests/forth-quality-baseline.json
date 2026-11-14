@@ -611,7 +611,7 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 0,
+  "rstack": 2,
   "shuffles": 0,
   "words": 11
  },
@@ -643,7 +643,7 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 12,
+  "rstack": 9,
   "shuffles": 2,
   "words": 64
  },
@@ -699,7 +699,7 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 3,
+  "rstack": 6,
   "shuffles": 3,
   "words": 29
  },

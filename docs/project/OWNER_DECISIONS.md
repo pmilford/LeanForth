@@ -1306,3 +1306,13 @@ shown: the stand-in `0 + 0 = 0` accepted and `0 + 0 = 1` refused with Lean's mes
 S1's 16 declarations; the Forth review's two memory-corruption bugs and its trust-test gap fixed (a test asserts the
 stage's tables are unchanged by decoding); 35 new planted faults caught; the tier passed; the coordinator's probe of
 the key faults. The merge follows the independent re-check of the fix commits (AGENTS.md: every Forth change).
+
+### [parser] and [import]: S1's instance tables (2026-11-13, evening)
+
+The owner approved the [parser] gate (LeanForth rebuilds Lean's instance keys and instance order from the
+elaboration data and checks every instance against its type: 2,321 of Init's 2,938 instances recomputed equal, 0
+differing, 617 not checkable until S2's unfolding and answering "not supported" only when a search tries one;
+candidate lists equal pinned Lean's on 13 of 13 problems) and the [import] gate for M6 (the elaboration data bound to
+the export's manifest; other data refused, error 39) for branch `s1-synth`, after two review rounds whose findings
+were fixed ([review](../development/forth-reviews/2026-11-13-s1-synth.md)). The second re-check's three minor items
+are the first step of FE1e5 (`synth.fs`).

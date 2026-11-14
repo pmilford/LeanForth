@@ -78,6 +78,21 @@ T{ other-format checks manifest-use identity checks manifest-read another?
    failed-field s" export_format" compare -> outcome-invalid true 0 }T
 T{ false ex export-any-version! identity checks manifest-read -> outcome-ok }T
 
+\ The optional member elab_records_sha256 (S1 note M6): kept after the
+\ read, 0 0 without it and after manifest-init; malformed when it is not
+\ 64 lowercase hexadecimal digits. Both manifests are identity's plus it.
+: elab-ok ( -- c-addr u ) s" tests/core/manifest-elab.json" ;
+: elab-bad ( -- c-addr u ) s" tests/core/manifest-elab-bad.json" ;
+: elab-want ( -- c-addr u )
+  s" 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" ;
+: elab-same? ( -- flag ) checks manifest-elab-sha elab-want compare 0= ;
+T{ elab-ok checks manifest-use identity checks manifest-read elab-same? -> outcome-ok true }T
+T{ identity checks manifest-read checks manifest-elab-sha nip -> outcome-ok 0 }T
+T{ elab-bad checks manifest-use identity checks manifest-read why s" manifest malformed" compare
+   failed-field s" elab_records_sha256" compare -> outcome-invalid 0 0 }T
+T{ elab-ok checks manifest-use identity checks manifest-read drop
+   ex checks manifest-init checks manifest-elab-sha nip -> outcome-ok 0 }T
+
 \ A missing manifest, and an export name too long for the default name
 \ (4,096 characters with the suffix): invalid at line 0, nothing read.
 create long-name 4096 allot  long-name 4096 char x fill

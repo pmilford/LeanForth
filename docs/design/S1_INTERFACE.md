@@ -201,6 +201,20 @@ answer or its stuck exit (`trace.Meta.synthInstance`). If a tried candidate is l
 and reports it: the fix is the exporter's, at the [import] gate. An unverified instance's key is trusted from the data,
 so a wrong key could pick a different instance: a question of meaning, guarded by M6 and the [parser] comparisons.
 
+**Measured (s1-synth, 2026-11-13; `tests/front/synth-tried.lean`).** Init's data (export `c1b2071a`, records
+`b31ba2cf`): roots `OfNat` 24, `HAdd` 7, `Add` 26 candidates, none left out (Init's 31 `not_exported` are other
+classes). Pinned Lean tries one candidate per problem: `OfNat ?T 0` `instOfNatQ` (stuck), `OfNat Nat 0` `instOfNatNat`,
+`HAdd ?α ?β ?γ` `String.instHAddCharRaw` (stuck), `HAdd Nat Nat ?γ` `instHAdd` then `instAddNat`, `Add ?α` `instAddQ`
+(stuck), `Add Nat` `instAddNat`. On Init none of them is left out; on `tests/front/init-slice.elab.ndjson` `instOfNatQ`,
+`String.instHAddCharRaw` and `instAddQ` are (`not_exported`), so S1's slice must export them (reported to the
+coordinator). Unverified among them: none. `make reference-synth` (`check_synth.py`) recomputes all 2,938 Init
+instances: 2,321 equal, 0 refused, 617 unverified (616 need a definition unfolded, S2's delta; 1,
+`Int.instNeZeroOfNatOfNat`, has a recorded star where its type gives a term, a `no_index` the export drops: error 114,
+an exporter task); getInstances gives pinned Lean's candidates in order on all 13 problems compared. Re-run after the
+s1-synth review's fixes (2026-11-13: every record's class and root key and every default instance's class checked at
+the first query, FE1E §4 "When"; a literal under an implicit binder a star): unchanged, 2,321 equal, 0 refused, 617
+unverified, 13 of 13 problems in Lean's order.
+
 ## 10. `by-exact` (M1)
 
 `by-exact` stays fe1g3's code: Lean's `evalExact` (Elab/Tactic/ElabTerm.lean:100) through
