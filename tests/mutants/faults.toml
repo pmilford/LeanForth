@@ -17397,8 +17397,8 @@ reason = "review s1-elab M3: commitWhen's try also forgets malformed or corrupt 
 [[fault]]
 id = "fe-elab-assigned-trusted"
 file = "src/front/elab-pending.fs"
-old = ''': ep-found ( mvar inst -- flag outcome ) over ep-assigned? if ep-again else ep-assign then ;'''
-new = ''': ep-found ( mvar inst -- flag outcome ) over ep-assigned? if 2drop true outcome-ok else ep-assign then ;'''
+old = '''  over ep-assigned? if ep-again else ep-assign then ;'''
+new = '''  over ep-assigned? if 2drop true outcome-ok else ep-assign then ;'''
 test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
 reason = "review s1-elab H1 F3: an instance metavariable assigned already is taken as filled whatever the search found"
 
@@ -17634,8 +17634,8 @@ reason = "review s1-elab re-check B1: synthesizeUsingDefault tries the highest p
 [[fault]]
 id = "fe-elab-check-in-by-code"
 file = "src/front/elab-decl.fs"
-old = ''': edc-check-here ( -- code ) lf-front-by 0< if lfa-e-check-here else lfa-e-check-in-by then ;'''
-new = ''': edc-check-here ( -- code ) lfa-e-check-here ;'''
+old = '''  lf-front-by 0< if lfa-e-check-here else lfa-e-check-in-by then ;'''
+new = '''  lfa-e-check-here ;'''
 test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
 reason = "review s1-elab re-check L1: #check in a tactic block reported with the term position's text, where Lean would end the block"
 

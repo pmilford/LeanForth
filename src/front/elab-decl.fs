@@ -171,7 +171,8 @@ action-of lfa-run-fresh constant edc-run-before
 : edc-w-check ( value -- )
   lf-elab-reset 1 edc edc-checks +! lfn>syntax ['] edc-checked edc-configured ;
 \ Inside a declaration: in its tactic block (after by) 141, else 140.
-: edc-check-here ( -- code ) lf-front-by 0< if lfa-e-check-here else lfa-e-check-in-by then ;
+: edc-check-here ( -- code )
+  lf-front-by 0< if lfa-e-check-here else lfa-e-check-in-by then ;
 : edc-w-check-natural ( -- )
   lfa-inside? 0= edc-check-here lfa-must 1 lfa-args edc-w-check ;
 ' edc-w-check-natural lfa-natural! #check

@@ -32,8 +32,9 @@
 \ start), with no mark: 0 <= n <= count, else it throws slab-bad-cut (-4133), a fault
 \ in the caller, as slab-underflow is; slab-remove ( i slab -- ) takes
 \ unit i out of the middle, the later units moved down one and the marks
-\ above i refused from then on, with the same refusal. A slab has no per-unit identities; instead it keeps a
-\ stack of marked counts (ADR 0016 C3), strictly increasing, each with a
+\ above i refused from then on, with the same refusal. A slab has no
+\ per-unit identities; instead it keeps a stack of marked counts (ADR
+\ 0016 C3), strictly increasing, each with a
 \ serial that never repeats: a mark is valid exactly while its entry is
 \ on the stack. A rollback pops the entries above its own; marks taken
 \ at the same count share one entry, so the stack never holds more

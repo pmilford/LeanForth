@@ -252,7 +252,8 @@ defer lf-elab-default-instances ( class -- addr n outcome )
 : ep-assign ( mvar inst -- flag outcome )
   tuck lf-elab-defeq ok-then? 0= if nip false swap lf-elab-meta exit then
   if drop true outcome-ok else lfa-e-elab-instance lf-elab-fail-term false swap then ;
-: ep-found ( mvar inst -- flag outcome ) over ep-assigned? if ep-again else ep-assign then ;
+: ep-found ( mvar inst -- flag outcome )
+  over ep-assigned? if ep-again else ep-assign then ;
 : ep-none ( mvar -- flag outcome ) drop false lfa-e-elab-synth lf-elab-fail ;
 : ep-answer-text ( code -- c-addr u )
   case lf-synth-some of s" : found" endof lf-synth-none of s" : none" endof

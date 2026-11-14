@@ -408,7 +408,8 @@ T{ s" 0 #check" nfails detail s"   Nat.zero" compare -> 129 1 3 0 }T
 T{ s" theorem w2 Nat := by 0 by-exact end w2" nfails detail s"   Nat.zero" compare
    -> 129 1 24 0 }T
 real-synth
-T{ s" 0 0 + #check" nrun detail nip -> outcome-ok 0 }T
+\ The term goes with its error: a later error shows none.
+T{ s" Nat.zero Bool.true = #check" nfails 2drop detail nip lfa-error lfa-err-cut @ -> 131 0 0 }T
 
 \ ---- 1. Type annotations (Expr.lean:1716-1745; review s1-elab re-check
 \ H2): optParam a b and autoParam a b, outParam a, each with that many
