@@ -361,8 +361,12 @@ defer ep-c-call ( first x frames cont -- ... frames next )
   epb epb-j @ ep-defs# < if exit then 0 epb epb-j ! 1 epb epb-p +! ;
 : ep-b-done? ( -- flag ) epb epb-p @ ep-prios# < 0= ;
 : ep-b-taken ( -- v ) epb epb-j @ epb epb-defs @ + ep-defs slab-at @ 1 epb epb-j +! ;
-: ep-b-hit? ( v -- v flag ) dup 0< if true exit then dup elab-default@ nip nip ep-prio = ;
+: ep-b-hit? ( v -- v flag )
+  dup lf-default-gap? if true exit then dup elab-default@ nip nip ep-prio = ;
+\ The next default instance of the priority tried, or a gap; false when
+\ none is left (a class with none: at once).
 : ep-b-find ( -- v true | false )
+  ep-defs# 0= if false exit then
   begin ep-b-wrap ep-b-done? if false exit then ep-b-taken ep-b-hit? 0= while drop repeat
   true ;
 \ forallMetaTelescopeReducing over the attempt's type, the binders' kinds
@@ -427,7 +431,8 @@ defer ep-b-next ( frames -- ... frames next )
   epb epb-mark ! ep-goals slab-count epb epb-goals ! ep-b-attempt r> ep-b-tried ;
 :noname ( frames -- ... frames next )
   >r ep-b-find 0= if false outcome-ok r> ep-b-end exit then
-  dup 0< if drop false lfa-e-elab-step lf-elab-fail r> ep-b-end exit then r> ep-b-try ;
+  dup lf-default-gap? if drop false lfa-e-elab-step lf-elab-fail r> ep-b-end exit then
+  r> ep-b-try ;
 is ep-b-next
 : ep-b-class ( frames -- ... frames next )
   >r ep-b-type lf-elab-class? ok-then? 0= if false swap r> ep-b-end exit then

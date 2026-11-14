@@ -95,6 +95,15 @@
 \ lf-menv-reducible? ( d -- flag outcome ) Lean's isReducible (status
 \ reducible); lf-menv-hint-known? ( d -- flag ) whether lf-menv-hint is
 \ Lean's: false for a text declaration, whose height is not recorded;
+\ lf-menv-kind@ ( d k -- kind true | false ) the kind of its type's
+\ binder k (from 0) as lf-menv-kinds gives it, false where that gives
+\ none; lf-menv-data-decl ( name -- d' true | false ) the elaboration
+\ data's declaration (elab-data.fs's numbers, of the stage it was read
+\ against) of a name of this context: fed, the stage's of the same name;
+\ run, a library declaration's own number (a text declaration, or no
+\ data read against the library, has none); lf-menv-of-data ( d' -- d
+\ outcome ) the converse, as lf-menv-find (fed: the input's newest of
+\ that name; run: d', decoded);
 \ lf-menv-nat-succ? ( name -- flag ) whether a name is Nat.succ,
 \ lf-menv-nat-name? ( name -- flag ) whether it is in Nat's namespace,
 \ lf-menv-wf-rec? ( name -- flag ) whether it is Acc.rec or
@@ -349,6 +358,21 @@ end-structure
 : me-text-kinds ( d -- ) me-text me-kinds-span me-kinds-copy ;
 ' me-fed-kinds ' me-lib-kinds ' me-text-kinds me-table me-binders
 : lf-menv-kinds ( d -- addr n ) me-binders me-ask me-kinds-out ;
+: me-cell@ ( addr n k -- x true | false )
+  tuck swap index? if cells + @ true else 2drop false then ;
+: lf-menv-kind@ ( d k -- kind true | false ) swap lf-menv-kinds rot me-cell@ ;
+
+\ ---- The elaboration data's declarations and this context's: fed, by
+\ the name the input shares with the stage; run, a library declaration
+\ is the stage's own (with the data read against it), a text one has
+\ none.
+: me-lib-decl? ( d -- flag ) me-lib# u< me-run-data? and ;
+: me-run-data-decl ( name -- d true | false )
+  lf-menv-find ok? if dup me-lib-decl? if true exit then then drop false ;
+: lf-menv-data-decl ( name -- d' true | false )
+  me-run? if me-run-data-decl else elab-decl-of then ;
+: lf-menv-of-data ( d' -- d outcome )
+  me-run? if me-decoded else elab-decl-name lf-menv-find then ;
 
 \ ---- A text declaration made visible (lf-menv-add): its name, kind,
 \ type, value, universe parameters and the kinds of its type's leading Pi

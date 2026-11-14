@@ -181,14 +181,14 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 : ea-coe-m? ( -- flag ) s" Lean.Internal.coeM" lfa-intern lf-menv-find nip ok? ;
 \ A class constant's out-parameter positions, when the data has them.
 : ea-class-outs ( c -- addr n true | false )
-  lf-meta-const-decl 0= if false exit then
+  lf-meta-const-decl ok? 0= if drop false exit then
   dup lf-libdec-count u< ea-data? and 0= if drop false exit then
   elab-class-of 0= if false exit then elab-class-out-params true ;
 
 \ ---- elabAppArgs's start: f's type instantiated, the head's facts.
 : ea-head! ( -- )
   ea ea-f @ dup lf-term-const? 0= if drop exit then
-  lf-meta-const-decl 0= if -1 then ea ea-head ! ;
+  lf-meta-const-decl drop ea ea-head ! ;
 : ea-type ( -- outcome )
   ea ea-f @ lf-infer lf-elab-meta ok-then? 0= if exit then
   lf-instantiate-mvars lf-elab-meta ok-then? if ea ea-ftype ! outcome-ok then ;

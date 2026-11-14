@@ -243,7 +243,7 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
   >r ['] it-on-type lf-dt-scoped r> }lf-mctx-depth outcome-and ;
 : it-at-default ( r d xt -- outcome )
   ['] it-deeper lf-meta-default lf-tr-default lf-meta-with ;
-: it-decl ( i -- d outcome ) elab-instance@ 2drop elab-decl-name lf-menv-find ;
+: it-decl ( i -- d outcome ) elab-instance@ 2drop lf-menv-of-data ;
 : it-record-class ( i -- class ) elab-instance@ drop nip ;
 : it-checked-by ( i xt -- outcome )
   over it-decl ok-then? 0= if nip nip exit then swap it-at-default ;
@@ -293,7 +293,7 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
   swap lf-meta-head lf-dt-const? if lf-dt-const-decl if = exit then then drop false ;
 : it-default-verdict ( body j -- outcome )
   it-default-class it-head-class? if outcome-ok else lfa-e-default-class it-fail then ;
-: it-default-decl ( j -- d outcome ) elab-default@ drop nip elab-decl-name lf-menv-find ;
+: it-default-decl ( j -- d outcome ) elab-default@ drop nip lf-menv-of-data ;
 : lf-default-check ( j -- outcome )
   it-no-error dup it-default-decl ok-then? 0= if nip exit then
   ['] it-default-verdict it-at-default ;
@@ -512,8 +512,12 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
   lf-term-pi? if drop -1 outcome-unsupported else outcome-ok then ;
 : it-local? ( name view i -- flag ) lf-view-local lf-local-class = ;
 \ Unsupported when the context has a local instance of the class.
+\ The class's name in the context's names (fed or run mode).
+: it-class-name ( class -- name outcome )
+  lf-menv-of-data ok-then? if lf-menv-name outcome-ok then ;
 : it-local-free ( class -- outcome )
-  elab-decl-name lf-mctx-view dup lf-view-valid? 0= if 2drop outcome-invalid exit then
+  it-class-name ok-then? 0= if exit then
+  lf-mctx-view dup lf-view-valid? 0= if 2drop outcome-invalid exit then
   dup lf-view-count 0 ?do 2dup i it-local? if 2drop outcome-unsupported unloop exit then
   loop 2drop outcome-ok ;
 \ Lean's insertionSort by priority (SynthInstance.lean:214), ascending:

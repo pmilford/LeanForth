@@ -415,8 +415,8 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
 : sy-telescope ( val type -- val' body outcome )
   begin sy-inst-step ok-then? 0= if exit then while repeat outcome-ok ;
 : sy-inst-val ( i -- val outcome )
-  elab-instance@ 2drop elab-decl-name lf-menv-find ok-then? if lf-meta-const-fresh else
-  no-result then ;
+  elab-instance@ 2drop lf-menv-of-data ok-then? if lf-meta-const-fresh else no-result
+  then ;
 : sy-inst-type ( i -- val type outcome ) sy-inst-val ok-then? if dup lf-infer else
   sy-no2 then ;
 : sy-val! ( val body c -- ) scn@ tuck sc-ibody ! sc-val ! ;
