@@ -295,14 +295,34 @@
    "never_run": 153,
    "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front, with tests/front/defeq.fs and check_defeq.py --golden's 90 cases): never run are failure branches inside the machine's steps that the two allocation-refusal scans do not reach (a frame, cell, mark or new term refused, an eqv, whnfCore, inferType or instantiation failing midway), the steps after an earlier abort (aborts are sticky, the step only returns), the stalled-step guard (a broken step), and Lean paths the slice's fixtures do not meet: instance-implicit arguments with a stuck metavariable (trySynthPending), eta-unassigned implicit arguments, a first-order approximation whose lhs cannot be built, quasi-pattern arguments (isTypeCorrect), processAssignment' retrying after a tainted level comparison"
   },
+  "src/front/elab-app.fs": {
+   "blocks": 618,
+   "never_run": 235,
+   "reason": "new file (plan S1, branch s1-elab, 2026-11-13), not yet reviewed; scripts/coverage.py --uncovered lists the blocks. elabAppArgs' paths no S1 input reaches before instance search (synth.fs, FE1e5) and S2 merge A's lazy delta let numerals and + finish: the out-parameter walk (isNextOutParam, a class's out-parameters, as HAdd's), trySynthesizeAppInstMVars (ea-try-*), propagateExpectedType's resulting type (ea-r-*), optional and auto parameters (ea-opt-*; no slice declaration has one), strict-implicit binders, an explicit binder left without an argument (ea-no-arg; the reader gives every explicit binder one), a function type normalized by synthesis (ea-normalize), and refusals of the Meta layer and the heap inside these steps"
+  },
   "src/front/elab-data.fs": {
    "blocks": 1055,
    "never_run": 9,
    "reason": "new file (plan FE1d, 2026-11-12): four refusals no test input reaches: a name lookup that fails in an open tier (ed-looked, error 23), a tier name beyond the stage's name-to-declaration array (ed-decls), no room while the eliminators' table grows (the allocation-refusal test reads 4 eliminators), and a THROW inside a read (ed-caught). Format 2 (plan FE1e1, 2026-11-13): five more: a let among a matcher's parameters (ed-binder; 13 of Init's matchers, read by make reference-elab-data, none in a slice), no room for a foreign key or a texted key or its text (ed-foreign-proj, ed-proj-text, ed-text-key: the allocation-refusal test refuses each allocation in turn but none falls on these claims), and a name lookup that fails after a left-out instance's name had a valid form (ed-left-name, as error 23)"
   },
+  "src/front/elab-decl.fs": {
+   "blocks": 126,
+   "never_run": 18,
+   "reason": "new file (plan S1, branch s1-elab, 2026-11-13), not yet reviewed; scripts/coverage.py --uncovered lists the blocks. failure paths of the declaration glue: a tactic's term elaboration that fails (edc-tac-fail, edc-tac-run; reached once by-exact elaborates terms with instances), #check of a term or type the elaborator refuses (edc-check-term, edc-check-type), and the heap refusing a binder's local or free variable (edc-local, edc-fvar)"
+  },
   "src/front/elab-keys.fs": {
    "blocks": 56,
    "never_run": 0
+  },
+  "src/front/elab-pending.fs": {
+   "blocks": 645,
+   "never_run": 185,
+   "reason": "new file (plan S1, branch s1-elab, 2026-11-13), not yet reviewed; scripts/coverage.py --uncovered lists the blocks. the synthetic-mvar loop's rounds after a postponed instance resumes (ep-again, ep-when-ok, ep-when-failed, ep-commit-when), the default-instance visits beyond one default (priorities, several candidates, a default undone, the C visit's resumption; ep-b-*, ep-c-*, ep-default-loop), Meta errors caught under Lean's try (ep-caught?, ep-meta-code), the trace's default-instance lines, withSynthesize's bracket for S2 (lf-elab-synth{ }lf-elab-synth, no caller yet), and heap refusals; all wait for synth.fs (FE1e5) and S2 merge A"
+  },
+  "src/front/elab-term.fs": {
+   "blocks": 759,
+   "never_run": 235,
+   "reason": "new file (plan S1, branch s1-elab, 2026-11-13), not yet reviewed; scripts/coverage.py --uncovered lists the blocks. binop%'s finish (toExprCore's mkBinOp, applyCoe, the max type recorded: et-op-*, et-coe-*, et-record-max) and binrel%'s after analyze, mkAppM (et-am-*), hasHeterogeneousDefaultInstances (et-hetero-*), numerals' error paths, lambdas and sorts not yet in natural LeanForth (plan FE2), and refusals inside these steps: every binop% stops at the out-parameter unfolding of S2 merge A (error 139) and numerals need synth.fs (FE1e5)"
   },
   "src/front/expr-remap.fs": {
    "blocks": 152,
