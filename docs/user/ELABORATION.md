@@ -79,10 +79,12 @@ search tries an instance the slice leaves out answers 119 (not supported) where 
 ## `#check`, the work limit, errors
 
 - `TERM #check` (a natural word, between declarations) elaborates TERM with no expected type and prints
-  `TERM : TYPE`. Inside a declaration or a tactic block it is error 140, Lean's "unexpected token '#check';
-  expected term". A text of only `#check` lines checks nothing: it ends with `nothing checked by the kernel` and
-  exit 0, as Lean. A constant alone (`Nat.zero #check`, where Lean prints a signature) and a term with a hole
-  left are not supported yet (137).
+  `TERM : TYPE`. Inside a declaration in a term position it is error 140, Lean's "unexpected token '#check';
+  expected term". Inside a tactic block it is error 141: Lean's parser ends the block at `#check` (a command),
+  reports the goals left unsolved or accepts the proof as far as it goes, then runs `#check`; in LeanForth the
+  block runs to `end NAME`, so put `#check` after it. A text of only `#check` lines checks nothing: it ends with
+  `nothing checked by the kernel` and exit 0, as Lean. A constant alone (`Nat.zero #check`, where Lean prints a
+  signature) and a term with a hole left are not supported yet (137).
 - `--elab-fuel N` limits the elaborator's steps per declaration (elaboration, instance problems, unification,
   reduction and tactic steps), default 100,000,000; out of them is error 138, exit 3. `--fuel N` stays the
   kernel's.

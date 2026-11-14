@@ -18,6 +18,8 @@
 \   lf-print-setup ( sink options -- )   sink xt ( c-addr u -- ); a mode
 \     (lf-print-unicode, lf-print-ascii or lf-print-latex) plus option bits
 \     (lf-print-universes shows universe arguments, c.{u}).
+\   lf-print-settings ( -- sink options ), lf-print-sink ( -- sink )  the
+\     settings lf-print-setup made, both or the sink alone
 \   lf-print-term ( term fuel -- outcome )       a closed term
 \   lf-print-statement ( term fuel -- outcome )  a theorem's statement: its
 \     Pi spine is printed as a proposition (∀) whatever the quick test says

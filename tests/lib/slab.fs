@@ -134,7 +134,7 @@ s1 slab-free
 
 \ Taking a unit out (slab-remove): the units after it move down one, the
 \ count is one less; the first, a middle and the last unit; the marks
-\ above the new count refused, those at or below it kept; an i outside
+\ above i refused, those at i or below kept; an i outside
 \ 0 .. count - 1, or a slab that is not live, throws slab-bad-cut, the
 \ slab unchanged. Units of two cells move whole.
 : cell@ ( i slab -- x ) slab-at @ ;
@@ -149,10 +149,22 @@ T{ 2 s1 remove-throws? -1 s1 remove-throws? s1 cells@ -> true true 7 21 }T
 T{ 0 s2 remove-throws? -> true }T
 T{ m0 s1 slab-mark 1 s1 slab-claim nip m1 s1 slab-mark 0 s1 slab-remove
    -> outcome-ok outcome-ok outcome-ok }T
-T{ m1 s1 slab-mark-valid? m0 s1 slab-mark-valid? s1 slab-count -> false true 2 }T
+T{ m1 s1 slab-mark-valid? m0 s1 slab-mark-valid? s1 slab-count -> false false 2 }T
 \ The mark at 3 stays refused when the count passes 3 again.
 T{ 1 s1 slab-claim nip m1 s1 slab-mark-valid? 2 s1 slab-cut -> outcome-ok false }T
 T{ 0 s1 slab-remove 0 s1 slab-remove s1 slab-count 0 s1 remove-throws? -> 0 true }T
+s1 slab-free
+\ Review s1-elab re-check M1: [7 21], a mark at 2, 99 claimed after it,
+\ unit 0 taken out: the mark is refused (a rollback to 2 would keep 99);
+\ a mark at 1 stays when unit 1 is taken out, and rolls back to [21].
+1 cells 100 s1 slab-init drop
+T{ 7 s1 slab-push 21 s1 slab-push m0 s1 slab-mark 99 s1 slab-push
+   -> outcome-ok outcome-ok outcome-ok outcome-ok }T
+T{ 0 s1 slab-remove m0 s1 slab-mark-valid? m0 s1 slab-rollback s1 cells@
+   -> false outcome-invalid 21 99 }T
+T{ 1 s1 slab-cut m1 s1 slab-mark 5 s1 slab-push 6 s1 slab-push 1 s1 slab-remove
+   m1 s1 slab-mark-valid? s1 cells@ -> outcome-ok outcome-ok outcome-ok true 21 6 }T
+T{ m1 s1 slab-rollback s1 cells@ -> outcome-ok 21 }T
 s1 slab-free
 2 cells 10 s1 slab-init drop
 : pair+ ( x1 x2 -- ) s1 slab-2push drop ;

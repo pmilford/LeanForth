@@ -191,9 +191,13 @@ require ./source.fs
 137 constant lfa-e-elab-print     \ unsupported: a #check this form cannot print (FE2)
 138 constant lfa-e-elab-fuel      \ exhausted: the front end's fuel (--elab-fuel)
 139 constant lfa-e-elab-step      \ unsupported: another elaboration step not ported yet
-\ 140, the first of FE2's command codes (S1_INTERFACE 5), is #check's
-\ (review s1-elab M1): Lean has #check only as a command.
-140 constant lfa-e-check-here     \ #check inside a declaration or a tactic block
+\ 140 and 141, the first of FE2's command codes (S1_INTERFACE 5), are
+\ #check's (review s1-elab M1): Lean has #check only as a command. In a
+\ term position Lean's parser reports 140's text; in a tactic block it
+\ ends the block at #check instead (unsolved goals, or the proof as far as
+\ it goes), then runs #check as a command: 141 says so.
+140 constant lfa-e-check-here     \ #check inside a declaration, in a term position
+141 constant lfa-e-check-in-by    \ #check inside a tactic block
 
 \ The catalogue: one message record per code, in order, each followed by
 \ its text and aligned; a record with code 0 closes it.
@@ -440,6 +444,8 @@ create lfa-catalogue
   lfa-e-elab-step s" not supported yet: an elaboration step (plans FE2-FE5, S2)"
   lfa-unsupported,
   lfa-e-check-here s" unexpected token '#check'; expected term" lfa-invalid,
+  here lfa-e-check-in-by s" #check is a command: Lean would end the tactic block here; "
+  lfa-invalid, s" put it after end" lfa-more,
   0 outcome-invalid s" " lfa-message,
 
 \ The catalogue record of a code; an unknown code gives the closing record.

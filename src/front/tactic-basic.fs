@@ -54,7 +54,7 @@
 \ 8.6).
 \ Words: lf-tac-elab ( node expected postpone? -- term outcome ), a
 \ deferred word front/elab-decl.fs sets (Lean's Tactic.elabTerm:
-\ Term.elabTerm against expected, 0 or -1 for none, the synthetic
+\ Term.elabTerm against expected, a negative one for none, the synthetic
 \ metavariables synthesized, postponing when postpone? is true, Lean's
 \ mayPostpone, the result instantiated; exact passes false); error 71
 \ without front/elab-decl.fs;
@@ -119,15 +119,12 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 : lfb-unelaborated ( node expected postpone? -- term outcome )
   2drop drop lfa-e-elaborate lf-tac-fail -1 outcome-unsupported ;
 ' lfb-unelaborated is lf-tac-elab
-\ isDefEq in the elaborator's configuration at default transparency;
-\ defeq's own configuration and mode put back however it ends, and an
-\ internal code such as the stuck signal made invalid (outcome-sane).
-: lfb-elab-defeq ( t s -- flag outcome )
-  lf-defeq-elab lf-defeq-flags! lf-tr-default lf-defeq-mode! lf-meta-defeq ;
-: lfb-defeq-set! ( flags mode -- ) lf-defeq-mode! lf-defeq-flags! ;
+\ isDefEq in the elaborator's configuration at default transparency
+\ (lf-meta-with: defeq's own configuration and mode put back however it
+\ ends), an internal code such as the stuck signal made invalid
+\ (outcome-sane).
 : lf-tac-defeq ( t s -- flag outcome )
-  lf-defeq-flags lf-defeq-mode 2>r ['] lfb-elab-defeq catch 2r> lfb-defeq-set! throw
-  outcome-sane ;
+  ['] lf-meta-defeq lf-defeq-elab lf-tr-default lf-meta-with outcome-sane ;
 
 \ ---- Leaves: a bottom-up walk (dag-walk.fs) whose image is 1 where a
 \ leaf passes the test.
@@ -177,7 +174,7 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 \ printer's flag put back however printing ends), indented as Lean's
 \ indentExpr; a tactic error's goal after a blank line.
 \ A term of a message, in Lean's notation, to the message's sink.
-: lfb-noted ( term -- outcome ) lf-print-settings drop true lf-print-to ;
+: lfb-noted ( term -- outcome ) lf-print-sink true lf-print-to ;
 : lfb-term. ( term -- outcome ) lf-instantiate-mvars ok-then? if lfb-noted then ;
 : lfb-indented. ( term -- outcome ) s"   " lf-pp-emit lfb-term. ;
 : lfb-line. ( c-addr u term -- outcome ) >r lf-pp-emit r> lfb-indented. ;

@@ -48,8 +48,11 @@
 \ - Errors (Lean's throwError at the current ref): lf-elab-at! ( pos -- ),
 \   lf-elab-at ( -- pos ); lf-elab-fail ( code -- outcome ) records the
 \   first error at the position and gives the code's outcome
-\   (author/errors.fs); lf-elab-error ( -- code pos ) (0 -1: none);
-\   lf-elab-error-reset; lf-elab-meta ( outcome -- outcome ) records a
+\   (author/errors.fs); lf-elab-fail-term ( term code -- outcome ) the
+\   same for an error whose message shows a term (129's instance, Lean's
+\   indentExpr), kept with the first error; lf-elab-error ( -- code pos )
+\   (0 -1: none); lf-elab-error-term ( -- term ) the first error's term
+\   (-1: none); lf-elab-error-reset; lf-elab-meta ( outcome -- outcome ) records a
 \   Meta step's failure: no room 60, fuel 138, unsupported 139, else 76.
 \   lf-elab-catch ( outcome -- flag ), Lean's try ... catch _ (commitWhen,
 \   trySynthesizeAppInstMVars): true for a Lean error (invalid with a
@@ -119,6 +122,7 @@ begin-structure /ep
   field: ep-at        \ the position elaboration works at (Lean's ref)
   field: ep-code      \ the first error's code, 0: none
   field: ep-where     \ and its position
+  field: ep-term      \ and the term its message shows, -1: none
   field: ep-tracing   \ true: events go to ep-trace
   /sorter +field ep-sorter   \ the priorities, highest first
 end-structure
@@ -163,11 +167,14 @@ end-structure
 : lf-elab-at! ( pos -- ) ep ep-at ! ;
 : lf-elab-at ( -- pos ) ep ep-at @ ;
 : lf-elab-error ( -- code pos ) ep ep-code @ ep ep-where @ ;
-: lf-elab-error-reset ( -- ) 0 ep ep-code ! -1 ep ep-where ! ;
+: lf-elab-error-reset ( -- ) 0 ep ep-code ! -1 ep ep-where ! -1 ep ep-term ! ;
+: lf-elab-error-term ( -- term ) ep ep-term @ ;
 : ep-error. ( code -- code ) s" error " lf-elab-note dup lf-elab-n. lf-elab-nl ;
 : ep-record ( code -- )
   ep ep-code @ if drop exit then ep-error. ep ep-code ! lf-elab-at ep ep-where ! ;
 : lf-elab-fail ( code -- outcome ) dup ep-record lf-author-outcome ;
+: lf-elab-fail-term ( term code -- outcome )
+  ep ep-code @ if nip else swap ep ep-term ! then lf-elab-fail ;
 : ep-meta-code ( outcome -- code )
   case outcome-full of lfa-e-terms-full endof outcome-exhausted of lfa-e-elab-fuel endof
     outcome-unsupported of lfa-e-elab-step endof lfa-e-malformed swap endcase ;
@@ -241,8 +248,11 @@ defer lf-elab-default-instances ( class -- addr n outcome )
 : ep-again ( mvar inst -- flag outcome )
   swap lf-instantiate-mvars ok-then? 0= if nip false swap lf-elab-meta exit then
   swap lf-elab-defeq lfa-e-elab-step ep-judged ;
-: ep-found ( mvar inst -- flag outcome )
-  over ep-assigned? if ep-again else lf-elab-defeq lfa-e-elab-instance ep-judged then ;
+\ isDefEq ?inst val, false Lean's 129 with val shown (indentExpr).
+: ep-assign ( mvar inst -- flag outcome )
+  tuck lf-elab-defeq ok-then? 0= if nip false swap lf-elab-meta exit then
+  if drop true outcome-ok else lfa-e-elab-instance lf-elab-fail-term false swap then ;
+: ep-found ( mvar inst -- flag outcome ) over ep-assigned? if ep-again else ep-assign then ;
 : ep-none ( mvar -- flag outcome ) drop false lfa-e-elab-synth lf-elab-fail ;
 : ep-answer-text ( code -- c-addr u )
   case lf-synth-some of s" : found" endof lf-synth-none of s" : none" endof
@@ -450,8 +460,11 @@ is ep-b-next
 : ep-c-remove ( k -- ) ep-c-at ep-goals slab-remove ;
 : ep-when-ok ( mark flag -- flag outcome )
   if lf-mctx-commit true swap else lf-mctx-rollback false swap then ;
+\ A rollback the context refuses: its failure (76 for corrupt state)
+\ replaces any Lean error recorded before, so no caller's catch forgets it.
+: ep-refused ( outcome -- false outcome ) lf-elab-error-reset lf-elab-meta false swap ;
 : ep-when-failed ( mark flag outcome -- flag outcome )
-  nip swap lf-mctx-rollback ok-then? 0= if nip false swap exit then
+  nip swap lf-mctx-rollback ok-then? 0= if ep-refused exit then
   dup lf-elab-catch if drop false outcome-ok else false swap then ;
 : ep-commit-when ( mark flag outcome -- flag outcome )
   dup ok? if drop ep-when-ok else ep-when-failed then ;
@@ -501,10 +514,8 @@ is ep-c-call
     2dup ep-default-entry dup ok? 0= if 2swap 2drop exit then drop
     if nip ep-remove true outcome-ok exit then 1+
   repeat 2drop false outcome-ok ;
-: ep-try-prios ( -- flag outcome )
-  ep-prios slab-count 0 ?do
-    i ep-prio@ ep-some-prio lf-elab-settled? if unloop exit then 2drop
-  loop false outcome-ok ;
+: ep-prio-try ( k -- flag outcome ) ep-prio@ ep-some-prio ;
+: ep-try-prios ( -- flag outcome ) ep-prios slab-count ['] ep-prio-try ok-any? ;
 : ep-using-default ( -- flag outcome )
   lf-elab-pending# 0= if false outcome-ok exit then
   ep-prios-ready dup ok? 0= if false swap exit then drop ep-try-prios ;

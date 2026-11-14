@@ -31,8 +31,8 @@
 \ ( n slab -- ) is a rollback to a count n the caller kept (a scope's
 \ start), with no mark: 0 <= n <= count, else it throws slab-bad-cut (-4133), a fault
 \ in the caller, as slab-underflow is; slab-remove ( i slab -- ) takes
-\ unit i out of the middle, the later units moved down one, with the
-\ same refusal. A slab has no per-unit identities; instead it keeps a
+\ unit i out of the middle, the later units moved down one and the marks
+\ above i refused from then on, with the same refusal. A slab has no per-unit identities; instead it keeps a
 \ stack of marked counts (ADR 0016 C3), strictly increasing, each with a
 \ serial that never repeats: a mark is valid exactly while its entry is
 \ on the stack. A rollback pops the entries above its own; marks taken
@@ -411,13 +411,14 @@ lf-lib-private set-current
 
 lf-lib set-current
 \ Unit i taken out, the units after it moved down one (their numbers
-\ drop by one), the count one less; as slab-cut to count - 1, the mark
-\ entries above the new count go. A slab that is not live, or i outside
-\ 0 .. count - 1, throws slab-bad-cut (-4133), nothing changed: i is a
-\ number the caller holds, so this is a fault in the caller.
+\ drop by one), the count one less. The mark entries above i go (a
+\ rollback to one would keep units that moved, or cut below them); a mark
+\ at i or below stays. A slab that is not live, or i outside 0 .. count -
+\ 1, throws slab-bad-cut (-4133), nothing changed: i is a number the
+\ caller holds, so this is a fault in the caller.
 : slab-remove ( i slab -- )
   2dup slab-valid? 0= if slab-bad-cut throw then
-  tuck slab-close-up dup slab-count 1- swap slab-cut ;
+  2dup slab-unmark-above tuck slab-close-up dup slab-count 1- swap slab-cut ;
 
 module-close
 base !   \ the BASE this file was loaded with

@@ -11,8 +11,9 @@
 \ 1. Every outcome: terms (numerals through default instances, 0 + 0 = 0
 \    and 2 + 2 = 4, term and tactic proofs, applications with implicit
 \    arguments, binrel% with and with no max type), Lean's errors 125,
-\    126, 127, 131 (twice: analyze and ensureHasType), 140 (#check inside
-\    a declaration or a tactic block), the search's own refusal 119 (a
+\    126, 127, 129, 131 (twice: analyze and ensureHasType), 140 and 141
+\    (#check inside a declaration or a tactic block), the search's own
+\    refusal 119 (a
 \    tried instance the slice leaves out), unsupported 132, 135, 136,
 \    137, 139 (a level metavariable left in a statement), exhausted 138
 \    at a declaration and at a tactic step;
@@ -122,6 +123,25 @@ T{ s" axiom c1 Nat explicit: n 0 n + n = end c1" nrun -> outcome-ok }T
 T{ lf-elab-trace s" tests/front/s1-c1.trace" golden compare -> 0 }T
 false lf-elab-trace!
 
+\ ---- 5. No room, at theorem t's allocations in turn (review s1-elab
+\ re-check M2): the k-th from its start refused, for every 61st k from 1
+\ (t makes about 4,300; all of them would take 20 s), t stops with no
+\ room for terms (60), or, where only a cache could not grow (core's
+\ stamps), is made as without the refusal; past the last, it is made.
+: t-text ( -- c-addr u ) s" theorem t 0 0 + 0 = := by by-rfl end t" ;
+: t-made? ( -- flag )
+  ty 0 num 0 num hadd 0 num eq-nat same? va 0 num 0 num hadd refl-nat same? and ;
+: t-refused ( k -- outcome refused? )
+  heap-refusals ! t-text nrun heap-refusals @ 0= 0 heap-refusals ! ;
+: t-good? ( outcome refused? -- flag )
+  swap ok? if drop t-made? else lf-author-code 60 = and then ;
+variable sweep-good
+: sweep-step ( k -- k' more? )
+  61 + dup t-refused dup >r t-good? sweep-good @ and sweep-good ! r> ;
+: sweep ( -- k flag ) true sweep-good ! -60 begin sweep-step 0= until sweep-good @ ;
+T{ sweep swap 1000 > -> true true }T
+T{ t-text nrun t-made? -> outcome-ok true }T
+
 \ ---- 1. Terms. 0 = 0: binrel% with no max type, both numerals pending,
 \ then default instances in the statement's synthesis (instOfNatNat,
 \ priority 100, after 1000 and 500 found none); by-rfl closes it.
@@ -227,14 +247,16 @@ T{ s" theorem x1 Nat.zero Nat.zero = := by 0 by-exact end x1" nfails see-at
 T{ s" theorem x2 Nat := by 0 by-exact end x2" nfails see-at -> 126 1 24 1 22 }T
 T{ s" theorem x3 Nat := 0 end x3" nfails see-at -> 126 1 21 1 19 }T
 real-synth real-defaults
-\ #check is a command (review s1-elab M1): inside a declaration, of a
-\ binder's variable and inside a tactic block it is error 140, Lean's
-\ "unexpected token '#check'; expected term".
+\ #check is a command (review s1-elab M1): inside a declaration and of a
+\ binder's variable it is error 140, Lean's "unexpected token '#check';
+\ expected term"; inside a tactic block, which Lean would end there, 141.
 T{ s" theorem m1 Nat.zero Nat.zero = #check Nat.zero Nat.zero = := by by-rfl end m1"
    nfails -> 140 1 32 }T
 T{ s" theorem m2 Nat explicit: n n #check n n = := n Eq.refl end m2" nfails -> 140 1 30 }T
 T{ s" theorem m3 Nat.zero Nat.zero = := by Nat.zero #check by-rfl end m3" nfails
-   -> 140 1 47 }T
+   -> 141 1 47 }T
+T{ s" theorem m4 Nat.zero Nat.zero = := Nat.zero #check Eq.refl end m4" nfails
+   -> 140 1 44 }T
 \ A statement left with a level metavariable (PUnit.{?u}): Lean's
 \ levelMVarToParam (pinned Lean: h3.{u_1} : PUnit.{u_1}), not supported
 \ yet (139, S5), at the statement; never handed over.
@@ -292,12 +314,19 @@ T{ lf-elab-reset inst-mvar dup mk1 lf-mvar-assign swap lf-elab-synth-core
 \ synthesize, caught) and is rolled back; the numerals' default instance
 \ then makes HAdd Nat Nat ?c, which the search answers.
 ' add-none is lf-meta-synth
-T{ s" 0 0 + #check" nrun lf-author-code -> outcome-ok 0 }T
+T{ s" 0 0 + #check" nrun lf-author-code lf-elab-error -> outcome-ok 0 0 -1 }T
 \ A failure that is no Lean error (malformed state, 76) is not caught
 \ (review s1-elab M3): the run stops there.
 ' add-broken is lf-meta-synth
 T{ s" 0 0 + #check" nfails -> 76 1 7 }T
 real-synth
+\ A rollback the context refuses (a mark it never gave) after a failed
+\ attempt: false and the refusal, the caller's cells kept, and the
+\ refusal recorded as 76 in place of the Lean error before it (review
+\ s1-elab re-check H1), so an outer catch never forgets it.
+T{ lf-elab-reset 125 lf-elab-fail drop 12345 -77 false outcome-invalid ep-when-failed
+   lf-elab-error drop -> 12345 false outcome-invalid 76 }T
+T{ outcome-invalid lf-elab-catch -> false }T
 \ synthesizePending on a list of two instance problems (a default
 \ instance's binders), the newest first as Lean prepends them: OfNat ?g 0
 \ is stuck until HAdd Nat Nat ?g, answered, makes ?g Nat; a second pass
@@ -314,6 +343,8 @@ T{ g @ hadd-nat-nat inst-of i1 !  g @ ofnat-of inst-of i2 !  ep-goals slab-count
 ' no-defaults is lf-elab-default-instances
 true lf-elab-trace!
 T{ first-goal @ c-run g @ lf-instantiate-mvars drop nat same? -> true outcome-ok true }T
+\ Both filled: the one removed is the one tried (review s1-elab re-check H2).
+T{ i1 @ lf-instantiate-mvars drop lf-mvar? i2 @ lf-instantiate-mvars drop lf-mvar? -> false false }T
 \ The first problem tried is OfNat's, the newest.
 T{ lf-elab-trace s" synth @OfNat ?m." search nip swap lf-elab-trace drop - -> true 0 }T
 false lf-elab-trace!
@@ -352,6 +383,70 @@ T{ outer-saved @ lf-postpone-yes }lf-elab-synth t2 @ open-type? t1 @ open-type? 
 : hetero ( -- t ) 0 0 u! 0 1 u! 0 2 u! s" HAdd" 3 cst nat app bool app bool app ;
 T{ s" Nat" lfa-intern true hetero et-def-hit? s" Nat" lfa-intern false hetero et-def-hit?
    -> false true }T
+
+\ ---- 6. trySynthesizeAppInstMVars's try ... catch (review s1-elab
+\ re-check H2): OfNat.ofNat Nat.zero against Nat, its instance problem
+\ tried at finalize; a search that answers none once (Lean's failed to
+\ synthesize, caught there) leaves it to synthesizeAppInstMVars, whose
+\ search fills it.
+variable armed
+: none-once ( type -- inst flag outcome )
+  armed @ over s" OfNat" head-named? and if 0 armed ! drop -1 false outcome-ok
+  else lf-synth-instance then ;
+' none-once is lf-meta-synth  true armed !
+T{ s" axiom p3 Nat.zero OfNat.ofNat Nat.succ Nat.zero Nat.succ = end p3" nrun armed @
+   -> outcome-ok 0 }T
+real-synth
+\ A search answer isDefEq cannot assign (review s1-elab re-check L2):
+\ Lean's 129, the instance on the next line (indentExpr), at #check and
+\ in a tactic's term.
+: wrong-found ( type -- inst flag outcome )
+  dup s" OfNat" head-named? if drop zero true outcome-ok else lf-synth-instance then ;
+: detail ( -- c-addr u ) 0 lfa-detail slab-at lfa-detail slab-count ;
+' wrong-found is lf-meta-synth
+T{ s" 0 #check" nfails detail s"   Nat.zero" compare -> 129 1 3 0 }T
+T{ s" theorem w2 Nat := by 0 by-exact end w2" nfails detail s"   Nat.zero" compare
+   -> 129 1 24 0 }T
+real-synth
+T{ s" 0 0 + #check" nrun detail nip -> outcome-ok 0 }T
+
+\ ---- 1. Type annotations (Expr.lean:1716-1745; review s1-elab re-check
+\ H2): optParam a b and autoParam a b, outParam a, each with that many
+\ arguments only; consumeTypeAnnotations gives a, again while one is at
+\ the top, and leaves one inside a term as it is.
+: opt ( a b -- t ) >r >r level1 0 u! s" optParam" 1 cst r> app r> app ;
+: auto ( a b -- t ) >r >r level1 0 u! s" autoParam" 1 cst r> app r> app ;
+: outp ( a -- t ) >r level1 0 u! s" outParam" 1 cst r> app ;
+: annot? ( t -- opt-auto? out? ) dup lf-meta-opt-auto? swap lf-meta-out-param? ;
+: consumed ( t -- t' ) lf-meta-consume-annotations ;
+T{ nat zero opt annot? nat zero auto annot? nat outp annot? -> true false true false false true }T
+T{ nat zero opt consumed nat same? nat zero auto consumed nat same? nat outp consumed nat same?
+   -> true true true }T
+T{ nat outp zero opt outp consumed nat same? nat zero opt outp consumed nat same? -> true true }T
+: opt1 ( -- t ) level1 0 u! s" optParam" 1 cst nat app ;
+: out2 ( -- t ) nat outp nat app ;
+: out0 ( -- t ) level1 0 u! s" outParam" 1 cst ;
+T{ opt1 annot? out2 annot? out0 annot? nat annot? -> false false false false false false false false }T
+T{ opt1 dup consumed = out2 dup consumed = nat dup consumed = -> true true true }T
+T{ nat outp nat lf-term-pi drop dup consumed = -> true }T
+\ The body under every leading pi (lf-meta-forall-body): Nat → Nat →
+\ Bool gives Bool, a body's annotation kept; no pi, the term itself.
+: pi2 ( -- t ) nat nat bool lf-term-pi drop lf-term-pi drop ;
+T{ pi2 lf-meta-forall-body bool same? nat dup lf-meta-forall-body = -> true true }T
+T{ nat nat outp lf-term-pi drop lf-meta-forall-body nat outp same? -> true }T
+\ Binder kinds by index (lf-menv-kind@): HAdd.hAdd {α β γ} [self] (a b);
+\ k = n, a negative k and a declaration with no binder give none.
+: decl-of ( c-addr u -- d ) lfa-intern lf-menv-find ok? 0= abort" decl" ;
+: hadd-d ( -- d ) s" HAdd.hAdd" decl-of ;
+T{ hadd-d 0 lf-menv-kind@ hadd-d 3 lf-menv-kind@ hadd-d 5 lf-menv-kind@
+   -> lf-binder-implicit true lf-binder-instance true lf-binder-default true }T
+T{ hadd-d 6 lf-menv-kind@ hadd-d -1 lf-menv-kind@ s" Nat" decl-of 0 lf-menv-kind@
+   -> false false false }T
+\ The elaboration data's declaration and back (lf-menv-of-data, the run
+\ mode: the library's own number, decoded); none outside the library.
+T{ s" HAdd.hAdd" lfa-intern lf-menv-data-decl drop lf-menv-of-data swap hadd-d =
+   -> outcome-ok true }T
+T{ -1 lf-menv-of-data lf-libdec-count lf-menv-of-data -> -1 outcome-invalid -1 outcome-invalid }T
 
 
 \ ---- 6. After every failure above, a fresh declaration elaborates as in

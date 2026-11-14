@@ -939,8 +939,9 @@ a `binop%` tree (`elab-term.fs`).
 
 **Taking a unit out** (`slab.fs`; review s1-elab B2, 2026-11-14).
 *Algorithm*: `slab-remove ( i slab -- )` moves the units after unit i
-down one with `MOVE` and sets the count one less as `slab-cut` does, so
-the mark entries above the new count go; the order of the other units
+down one with `MOVE` and sets the count one less as `slab-cut` does; the
+mark entries above i go (review s1-elab re-check M1: a rollback to one
+would keep units that moved), a mark at i or below stays; the order of the other units
 stays (a stable removal, as Lean's `List.erase` of a pending
 metavariable). A slab that is not live, or an i outside 0 … count − 1,
 throws `slab-bad-cut` (-4133) with nothing changed. *Genericity*: units

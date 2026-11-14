@@ -29,9 +29,10 @@
 \   is elab-pending.fs's }lf-elab-synth.
 \ - #check (BuiltinCommand.lean:434), a natural word outside declarations
 \   (Lean has #check only as a command, Parser/Command.lean: inside a
-\   declaration or a tactic block it is error 140, Lean's "unexpected
-\   token '#check'; expected term"): TERM #check elaborates TERM with no
-\   expected type,
+\   declaration in a term position it is error 140, Lean's "unexpected
+\   token '#check'; expected term"; in a tactic block, where Lean's parser
+\   would end the block before it, error 141): TERM #check elaborates
+\   TERM with no expected type,
 \   synthesizeSyntheticMVarsNoPostponing leaving stuck instance problems,
 \   instantiates, and prints "TERM : TYPE" on a line, as the goals print
 \   terms (a print that fails stops the run as a Meta step's failure).
@@ -96,7 +97,13 @@ action-of lfa-run-fresh constant edc-run-before
 
 \ ---- Errors: the run stops at the current token (end NAME, #check).
 \ (A failure no step recorded, a print's, has no second position: -1.)
-: edc-fail ( outcome -- ) lf-elab-code swap lfa-fail-see ;
+\ An error whose message shows a term (129): the term, instantiated,
+\ indented on the next line (Lean's indentExpr), as the error's detail.
+: edc-shown ( term -- outcome )
+  lf-instantiate-mvars ok-then? if s"   " lf-pp-emit lf-print-sink true lf-print-to then ;
+: edc-detail ( -- )
+  lf-elab-error-term dup 0< if drop else ['] edc-shown lf-tac-detail then ;
+: edc-fail ( outcome -- ) edc-detail lf-elab-code swap lfa-fail-see ;
 : edc-must ( outcome -- ) dup ok? if drop else edc-fail then ;
 
 \ ---- The header: parameters and statement.
@@ -140,7 +147,7 @@ action-of lfa-run-fresh constant edc-run-before
   >r lf-elab-term ok-then? 0= if r> drop no-result exit then
   r> edc-mode lf-elab-synthesize dup ok? 0= if nip no-result exit then drop
   lf-instantiate-mvars lf-elab-meta ;
-: edc-tac-fail ( outcome -- ) lf-elab-code lfa-see! lf-tac-stop ;
+: edc-tac-fail ( outcome -- ) edc-detail lf-elab-code lfa-see! lf-tac-stop ;
 : edc-tac-elab ( node expected postpone? -- term outcome )
   ['] edc-tac-run edc-configured dup ok? 0= if edc-tac-fail then ;
 ' edc-tac-elab is lf-tac-elab
@@ -163,8 +170,10 @@ action-of lfa-run-fresh constant edc-run-before
   dup syn-at@ lf-elab-at! edc-check-term edc-must edc-check-type edc-must edc-check-line ;
 : edc-w-check ( value -- )
   lf-elab-reset 1 edc edc-checks +! lfn>syntax ['] edc-checked edc-configured ;
+\ Inside a declaration: in its tactic block (after by) 141, else 140.
+: edc-check-here ( -- code ) lf-front-by 0< if lfa-e-check-here else lfa-e-check-in-by then ;
 : edc-w-check-natural ( -- )
-  lfa-inside? 0= lfa-e-check-here lfa-must 1 lfa-args edc-w-check ;
+  lfa-inside? 0= edc-check-here lfa-must 1 lfa-args edc-w-check ;
 ' edc-w-check-natural lfa-natural! #check
 
 base !   \ the BASE this file was loaded with
