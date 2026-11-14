@@ -29,13 +29,13 @@
 \ - lf-elab-ensure ( e expected -- e outcome ), ensureHasType: isDefEq of
 \   e's type and the expected type (-1: none, ok); false is a coercion
 \   Lean would insert, not ported: 131 (plan FE4).
-\ - Not ported, unsupported: postponing at a function whose type's whnfR
-\   has a metavariable at its head (isMVarApp, 132), an optParam or autoParam binder or eta argument
-\   (134), a recursor, casesOn, recOn, brecOn or elab_as_elim head (135),
-\   a function that is no pi even after synthesis (a coercion to a
-\   function, 131). getResultingType? and hasOptAutoParams put whnf only
-\   on a rest with no loose bound variable (Lean's forallTelescopeReducing
-\   would enter the binders first).
+\ - Not ported, unsupported: postponing at a function whose type's whnfR has
+\   a metavariable at its head (isMVarApp, 132), an optParam or autoParam
+\   binder or eta argument (134), a recursor, casesOn, recOn, brecOn or
+\   elab_as_elim head (135), a function that is no pi even after synthesis
+\   (a coercion to a function, 131). getResultingType? and hasOptAutoParams
+\   put whnf only on a rest with no loose bound variable (Lean's
+\   forallTelescopeReducing would enter the binders first).
 \ - The frames (lib/frame.fs, no host recursion): ea-frames, shared with
 \   elab-term.fs; lf-elab-frames ( -- frames ); lf-elab-visit ( a b xt --
 \   result outcome ) runs one visit, xt ( a b frames cont -- ... ) its
@@ -47,9 +47,8 @@
 \ State: the frames ea-frames and the slabs ea-acts (activations),
 \ ea-args (their arguments), ea-insts (their instance metavariables),
 \ ea-xargs (their elaborated arguments), a range of each per open
-\ activation, ea-spine and ea-rev, in the checker context (ADR 0009);
-\ ea-elim-tags is a read-only table. Loads in decimal whatever BASE is,
-\ then restores it.
+\ activation, ea-spine and ea-rev, in the checker context (ADR 0009).
+\ Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -166,9 +165,11 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
   lf-libdec-stage 0= if 2drop false outcome-unsupported exit then
   over lf-libdec-count u< 0= if 2drop false outcome-ok exit then
   ea-data? if elab-tagged? outcome-ok else 2drop false outcome-unsupported then ;
-create ea-elim-tags   \ shouldElabAsElim's tags: elab_as_elim, casesOn, recOn, brecOn
-  elab-tag-as-elim , elab-tag-cases-on , elab-tag-rec-on , elab-tag-brec-on ,
-: ea-elim-tag? ( d k -- d flag outcome ) cells ea-elim-tags + @ over swap ea-tagged? ;
+\ shouldElabAsElim's tags, the k-th: elab_as_elim, casesOn, recOn, brecOn.
+: ea-elim-tag ( k -- tag )
+  case 0 of elab-tag-as-elim endof 1 of elab-tag-cases-on endof
+    2 of elab-tag-rec-on endof elab-tag-brec-on swap endcase ;
+: ea-elim-tag? ( d k -- d flag outcome ) ea-elim-tag over swap ea-tagged? ;
 : ea-elim-tags? ( d -- flag outcome ) 4 ['] ea-elim-tag? ok-any? rot drop ;
 \ shouldElabAsElim: a recursor, or casesOn, recOn, brecOn or elab_as_elim.
 : ea-elim? ( d -- flag outcome )

@@ -122,7 +122,8 @@ end-structure
 : et-name-gen ( d -- name gen ) lf-menv-name lf-name-generation @ ;
 \ The constant of that name at the numeral's level (Lean's mkConst n [u]).
 : et-at-u ( c-addr u -- c outcome )
-  lfa-intern et-resolve ok-then? if et-name-gen et-u 1 lf-meta-const-at else no-result then ;
+  lfa-intern et-resolve ok-then? 0= if no-result exit then
+  et-name-gen et-u 1 lf-meta-const-at ;
 \ Every visit here runs on the elaborator's frames (elab-app.fs): a step
 \ drops the record it is given and names it again where it hands it on.
 : et-fr ( -- frames ) lf-elab-frames ;
@@ -331,7 +332,8 @@ defer et-go-call ( node x frames cont -- ... frames next )
   ok-then? 0= if no-result exit then lfa-e-elab-step lf-elab-closed
   dup ok? 0= if nip no-result then ;
 : et-am-start ( d max -- outcome )
-  et-am /am erase et-am am-max ! dup et-am am-d ! lf-meta-const-fresh ok-then? 0= if exit then
+  et-am /am erase et-am am-max ! dup et-am am-d !
+  lf-meta-const-fresh ok-then? 0= if exit then
   dup et-am am-app ! lf-infer lf-elab-meta ok-then? if et-am am-type ! outcome-ok then ;
 : et-am-run ( d max -- type outcome )
   et-am-start dup ok? 0= if no-result exit then drop

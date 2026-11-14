@@ -476,8 +476,8 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 3,
-  "shuffles": 0,
-  "words": 54
+  "shuffles": 1,
+  "words": 55
  },
  "src/front/defeq.fs": {
   "globals": 0,
@@ -495,6 +495,14 @@
   "shuffles": 14,
   "words": 106
  },
+ "src/front/elab-app.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 39,
+  "shuffles": 7,
+  "words": 112
+ },
  "src/front/elab-data.fs": {
   "globals": 62,
   "long lines": 0,
@@ -503,6 +511,14 @@
   "shuffles": 28,
   "words": 405
  },
+ "src/front/elab-decl.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 3,
+  "shuffles": 0,
+  "words": 33
+ },
  "src/front/elab-keys.fs": {
   "globals": 0,
   "long lines": 0,
@@ -510,6 +526,22 @@
   "rstack": 0,
   "shuffles": 2,
   "words": 31
+ },
+ "src/front/elab-pending.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 52,
+  "shuffles": 14,
+  "words": 158
+ },
+ "src/front/elab-term.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 10,
+  "shuffles": 14,
+  "words": 155
  },
  "src/front/expr-remap.fs": {
   "globals": 0,
@@ -644,8 +676,8 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 7,
-  "shuffles": 7,
-  "words": 115
+  "shuffles": 8,
+  "words": 127
  },
  "src/front/meta-spine.fs": {
   "globals": 0,
@@ -707,15 +739,15 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 16,
+  "rstack": 14,
   "shuffles": 0,
-  "words": 107
+  "words": 105
  },
  "src/front/tactic-run.fs": {
   "globals": 1,
   "long lines": 0,
   "long words": 0,
-  "rstack": 23,
+  "rstack": 21,
   "shuffles": 3,
   "words": 145
  },
@@ -1395,9 +1427,9 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 36,
+  "rstack": 38,
   "shuffles": 5,
-  "words": 75
+  "words": 83
  },
  "src/lib/sort.fs": {
   "globals": 0,
@@ -1611,9 +1643,9 @@
   "globals": 1,
   "long lines": 0,
   "long words": 1,
-  "rstack": 187,
-  "shuffles": 8,
-  "words": 127
+  "rstack": 191,
+  "shuffles": 9,
+  "words": 131
  },
  "src/program/clamp.fs": {
   "globals": 0,

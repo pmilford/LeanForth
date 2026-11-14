@@ -1,5 +1,6 @@
 Nat.zero = Nat.zero : Prop
 Eq.refl Nat.zero : Nat.zero = Nat.zero
+0 + 0 = 0 : Prop
 zero_eq type (app (app (app Eq.{1} Nat.{}) Nat.zero.{}) Nat.zero.{})
 zero_eq value (app (app Eq.refl.{1} Nat.{}) Nat.zero.{})
 zero_eq_term type (app (app (app Eq.{1} Nat.{}) Nat.zero.{}) Nat.zero.{})
@@ -10,3 +11,11 @@ succ_eq type (pi Nat.{} (app (app (app Eq.{1} Nat.{}) (app Nat.succ.{} #0)) (app
 succ_eq value (lam Nat.{} (app (app Eq.refl.{1} Nat.{}) (app Nat.succ.{} #0)))
 succ_eq_exact type (pi Nat.{} (app (app (app Eq.{1} Nat.{}) (app Nat.succ.{} #0)) (app Nat.succ.{} #0)))
 succ_eq_exact value (lam Nat.{} (app (app Eq.refl.{1} Nat.{}) (app Nat.succ.{} #0)))
+t type (app (app (app Eq.{1} Nat.{}) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0))) (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0)))) (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0)))
+t value (app (app Eq.refl.{1} Nat.{}) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0))) (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0))))
+zero_eq_zero type (app (app (app Eq.{1} Nat.{}) (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0))) (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0)))
+zero_eq_zero value (app (app Eq.refl.{1} Nat.{}) (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0)))
+two_add_two type (app (app (app Eq.{1} Nat.{}) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) (app (app (app OfNat.ofNat.{0} Nat.{}) 2) (app instOfNatNat.{} 2))) (app (app (app OfNat.ofNat.{0} Nat.{}) 2) (app instOfNatNat.{} 2)))) (app (app (app OfNat.ofNat.{0} Nat.{}) 4) (app instOfNatNat.{} 4)))
+two_add_two value (app (app Eq.refl.{1} Nat.{}) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) (app (app (app OfNat.ofNat.{0} Nat.{}) 2) (app instOfNatNat.{} 2))) (app (app (app OfNat.ofNat.{0} Nat.{}) 2) (app instOfNatNat.{} 2))))
+add_self type (pi Nat.{} (app (app (app Eq.{1} Nat.{}) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) #0) #0)) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) #0) #0)))
+add_self value (lam Nat.{} (app (app Eq.refl.{1} Nat.{}) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) #0) #0)))

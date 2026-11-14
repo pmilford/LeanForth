@@ -71,6 +71,10 @@ create us 4 2* cells allot
 \ would): invalid, recorded as 76, never caught.
 : add-broken ( type -- inst flag outcome )
   dup s" Add" head-named? if drop -1 false outcome-invalid else lf-synth-instance then ;
+\ OfNat problems always stuck (Lean's undef), for synthesis that fails
+\ only when nothing may wait any more.
+: of-nat-stuck ( type -- inst flag outcome )
+  dup s" OfNat" head-named? if drop -1 false lf-meta-stuck else lf-synth-instance then ;
 \ No instance of OfNat at all: failed to synthesize.
 : no-of-nat ( type -- inst flag outcome )
   dup s" OfNat" head-named? if drop -1 false outcome-ok else lf-synth-instance then ;
@@ -81,6 +85,11 @@ create us 4 2* cells allot
   elab-default elab-count 0 ?do i elab-default@ drop nip over = if drop i unloop exit then
   loop true abort" no default" ;
 create two-defaults 2 cells allot
+\ HAdd's default instances twice: hasHeterogeneousDefaultInstances
+\ scans them (two or more), neither heterogeneous.
+: two-hadd ( class -- addr n outcome )
+  drop s" instHAdd" dflt-named dup two-defaults ! two-defaults cell+ ! two-defaults 2
+  outcome-ok ;
 : wrong-first ( class -- addr n outcome )
   drop s" instHAdd" dflt-named two-defaults ! s" instOfNatNat" dflt-named two-defaults cell+ !
   two-defaults 2 outcome-ok ;
@@ -143,6 +152,17 @@ T{ s" axiom z6 Nat.zero 0 = end z6" nrun ty zero 0 num eq-nat same? va -> outcom
 \ instance instHAdd and then Add Nat; @Eq.refl.{1} Nat (0 + 0).
 T{ s" theorem t 0 0 + 0 = := by by-rfl end t" nrun -> outcome-ok }T
 T{ ty 0 num 0 num hadd 0 num eq-nat same? va 0 num 0 num hadd refl-nat same? -> true true }T
+\ HAdd.hAdd applied by name with an expected type: finalize's
+\ trySynthesizeAppInstMVars fills its instance (HAdd Nat Nat ?c) and
+\ takes it out of the list.
+T{ s" theorem q4 Nat.zero Nat.zero HAdd.hAdd Nat.zero Nat.zero HAdd.hAdd = := Nat.zero Nat.zero HAdd.hAdd Eq.refl end q4"
+   nrun ty zero zero hadd zero zero hadd eq-nat same? -> outcome-ok true }T
+\ A leaf of unknown type under +, with two default instances of HAdd
+\ (a stand-in list): hasHeterogeneousDefaultInstances scans them, finds
+\ neither heterogeneous, and the leaf is made the max type's.
+' two-hadd is lf-elab-default-instances
+T{ s" axiom c1h Nat explicit: n 0 n + n = end c1h" nrun -> outcome-ok }T
+real-defaults
 \ C16, 2 + 2 = 4, by rfl (Nat literals in isDefEq).
 T{ s" theorem z7 2 2 + 4 = := by by-rfl end z7" nrun ty 2 num 2 num hadd 4 num eq-nat same?
    -> outcome-ok true }T
@@ -173,6 +193,16 @@ T{ s" theorem e4 Nat.zero Bool.true = := by by-sorry end e4" nfails see-at
    -> 131 1 48 1 31 }T
 T{ s" theorem e4b Nat.zero Nat.zero = := Bool.true end e4b" nfails see-at
    -> 131 1 46 1 36 }T
+\ type expected (ensureType): Nat.zero as a statement (pinned Lean: "type
+\ expected, got (Nat.zero : Nat)").
+T{ s" axiom q3 Nat.zero end q3" nfails see-at -> 130 1 19 1 10 }T
+\ #check of a term the elaborator refuses (131), and a #check line whose
+\ printing fails (the printer limited to one nested visit: no room, 60;
+\ review s1-elab L, the printer's outcome passed on).
+T{ s" Nat.zero Bool.true = #check" nfails see-at -> 131 1 22 1 20 }T
+1 lf-print-limit! drop
+T{ s" 0 0 + 0 = #check" nfails lfa-error lfa-err-see @ -> 60 1 11 -1 }T
+lf-print-default-limit lf-print-limit! drop
 \ A recursor applied: elaborating as an eliminator (FE5).
 T{ s" Nat.zero ' Nat.rec Nat.zero $ #check" nfails see-at -> 135 1 31 1 12 }T
 \ #check of a constant alone: Lean prints its signature (FE2).
@@ -183,6 +213,16 @@ T{ s" 0 #check" nrun -> outcome-ok }T
 ' no-defaults is lf-elab-default-instances
 T{ s" 0 #check" nfails see-at -> 137 1 3 1 1 }T
 real-defaults
+\ The tactics' term (by-exact through lf-tac-elab, review s1-elab H2):
+\ its elaboration fails, numerals are data (127 at by-exact); its
+\ synthesis with no postponing finds a problem stuck (126). The same for
+\ a term proof's synthesis after elabTermEnsuringType (126 at end).
+T{ s" theorem x1 Nat.zero Nat.zero = := by 0 by-exact end x1" nfails see-at
+   -> 127 1 40 1 38 }T
+' of-nat-stuck is lf-meta-synth  ' no-defaults is lf-elab-default-instances
+T{ s" theorem x2 Nat := by 0 by-exact end x2" nfails see-at -> 126 1 24 1 22 }T
+T{ s" theorem x3 Nat := 0 end x3" nfails see-at -> 126 1 21 1 19 }T
+real-synth real-defaults
 \ #check is a command (review s1-elab M1): inside a declaration, of a
 \ binder's variable and inside a tactic block it is error 140, Lean's
 \ "unexpected token '#check'; expected term".

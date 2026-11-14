@@ -15,25 +15,25 @@
 \   step (each entry of the window, oldest first, through
 \   synthesizeInstMVarCore; those not filled stay, before any made
 \   meanwhile) while it fills one; with lf-postpone-yes nothing more;
-\   otherwise Lean's further rounds, the step again, default instances,
-\   the step twice more (the same for instance problems), and with
-\   lf-postpone-no an entry still left is Lean's "typeclass instance
-\   problem is stuck" (126), at the oldest (Lean reports the smallest
-\   syntax range, the earliest first: of S1's problems the first made);
-\   lf-postpone-check leaves it (#check's ignoreStuckTC). Default instances (synthesizeUsingDefault):
-\   for each priority a default instance has (elab-data.fs's records),
-\   highest first, the first entry of the window that one of its class's
-\   default instances of that priority fills, in Lean's list order (the
-\   most recent first), each tried under a mark (commitWhen): the instance
-\   at new universe metavariables applied to a new metavariable per binder
-\   (forallMetaTelescopeReducing: synthetic for an instance binder,
-\   natural otherwise, kinds from the declared type, lf-menv-kind@; a pi
-\   that only whnf shows is 136), isDefEqGuarded with synthetic opaque
-\   metavariables assignable, then its instance binders filled, the last
-\   binder first as Lean prepends them (synthesizePending: by instances
-\   while that fills one, else one by a default instance of any priority,
-\   again). Without elaboration data default instances are unknown (139).
-\   The recursion runs as lib/frame.fs steps on heap stacks, no host
+\   otherwise Lean's further rounds, the step again, default instances, the
+\   step twice more (the same for instance problems), and with
+\   lf-postpone-no an entry still left is Lean's "typeclass instance problem
+\   is stuck" (126), at the oldest (Lean reports the smallest syntax range,
+\   the earliest first: of S1's problems the first made); lf-postpone-check
+\   leaves it (#check's ignoreStuckTC). Default instances
+\   (synthesizeUsingDefault): for each priority a default instance has
+\   (elab-data.fs's records), highest first, the first entry of the window
+\   that one of its class's default instances of that priority fills, in
+\   Lean's list order (the most recent first), each tried under a mark
+\   (commitWhen): the instance at new universe metavariables applied to a
+\   new metavariable per binder (forallMetaTelescopeReducing: synthetic for
+\   an instance binder, natural otherwise, kinds from the declared type,
+\   lf-menv-kind@; a pi that only whnf shows is 136), isDefEqGuarded with
+\   synthetic opaque metavariables assignable, then its instance binders
+\   filled, the last binder first as Lean prepends them (synthesizePending:
+\   by instances while that fills one, else one by a default instance of any
+\   priority, again). Without elaboration data default instances are unknown
+\   (139). The recursion runs as lib/frame.fs steps on heap stacks, no host
 \   recursion.
 \ - lf-elab-synth-core ( mvar -- flag outcome ), synthesizeInstMVarCore:
 \   the type instantiated, trySynthInstance (synth.fs's lf-try-synth,
@@ -82,7 +82,8 @@
 \ State: the record ep (window, position, first error, trace switch, the
 \ priorities' sorter), the frames ep-frames and the slabs ep-pending,
 \ ep-scratch, ep-prios, ep-defs, ep-goals, ep-bs, ep-cs and ep-trace, in
-\ the checker context (ADR 0009); lf-elab-pending-reset empties them. Loads in decimal whatever BASE is, then restores it.
+\ the checker context (ADR 0009); lf-elab-pending-reset empties them.
+\ Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs

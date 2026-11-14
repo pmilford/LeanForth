@@ -150,6 +150,8 @@ T{ 0 s2 remove-throws? -> true }T
 T{ m0 s1 slab-mark 1 s1 slab-claim nip m1 s1 slab-mark 0 s1 slab-remove
    -> outcome-ok outcome-ok outcome-ok }T
 T{ m1 s1 slab-mark-valid? m0 s1 slab-mark-valid? s1 slab-count -> false true 2 }T
+\ The mark at 3 stays refused when the count passes 3 again.
+T{ 1 s1 slab-claim nip m1 s1 slab-mark-valid? 2 s1 slab-cut -> outcome-ok false }T
 T{ 0 s1 slab-remove 0 s1 slab-remove s1 slab-count 0 s1 remove-throws? -> 0 true }T
 s1 slab-free
 2 cells 10 s1 slab-init drop

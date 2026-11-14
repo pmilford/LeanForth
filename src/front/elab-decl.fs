@@ -95,8 +95,8 @@ action-of lfa-run-fresh constant edc-run-before
 : edc-configured ( i*x xt -- j*x ) lf-defeq-elab lf-tr-default lf-meta-with ;
 
 \ ---- Errors: the run stops at the current token (end NAME, #check).
-: edc-fail ( outcome -- )
-  lf-elab-code dup 0< if drop lfa-fail else swap lfa-fail-see then ;
+\ (A failure no step recorded, a print's, has no second position: -1.)
+: edc-fail ( outcome -- ) lf-elab-code swap lfa-fail-see ;
 : edc-must ( outcome -- ) dup ok? if drop else edc-fail then ;
 
 \ ---- The header: parameters and statement.
@@ -140,7 +140,7 @@ action-of lfa-run-fresh constant edc-run-before
   >r lf-elab-term ok-then? 0= if r> drop no-result exit then
   r> edc-mode lf-elab-synthesize dup ok? 0= if nip no-result exit then drop
   lf-instantiate-mvars lf-elab-meta ;
-: edc-tac-fail ( outcome -- ) lf-elab-code dup 0< if drop else lfa-see! then lf-tac-stop ;
+: edc-tac-fail ( outcome -- ) lf-elab-code lfa-see! lf-tac-stop ;
 : edc-tac-elab ( node expected postpone? -- term outcome )
   ['] edc-tac-run edc-configured dup ok? 0= if edc-tac-fail then ;
 ' edc-tac-elab is lf-tac-elab
