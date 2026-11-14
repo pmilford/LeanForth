@@ -89,6 +89,8 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../lib/lib.fs
 require ../lib/u32.fs
 require ../lib/sections.fs
+require ../lib/sort.fs
+require ../lib/blocks.fs
 require ../lib/sha256.fs
 require ../core/axiom-allowlist.fs
 require ../import/stage.fs
@@ -164,6 +166,7 @@ begin-structure /snap
   field: snap-expect-firsts             \ and the base's tier counts (8 cells)
   field: snap-stale                     \ reading: true for an older verdict version
   field: snap-carry                     \ reading a base: older, in the window
+  /sorter +field snap-sorter            \ its lists sorted (a save's; a layer's merge)
 end-structure
 variable snap-loading   \ the record snap-fill reads
 \ A development flag (owner, 2026-11-11; ADR 0020 amendment 3): true lets
@@ -213,21 +216,10 @@ variable snap-stale-allowed  false snap-stale-allowed !
 : id-sha! ( c-addr k snap -- ) id-sha 32 move ;
 : snap-slot ( d snap -- addr ) ss-slots swap snap-block swap sl-fields# u32s * + ;
 : slot-env ( d -- slot ) lf-env lf-env-slot ;
-\ The (key, answer) pairs of a list as written, little-endian; a list
-\ sorted by key again (ascending, unsigned), by insertion.
+\ The (key, answer) pairs of a list as written, little-endian (sorted
+\ again by look-sort, below).
 : entry@ ( addr k -- key answer ) /snap-look * + dup u32-le@ swap /snap-key + u32-le@ ;
 : entry! ( key answer addr k -- ) /snap-look * + tuck /snap-key + u32-le! u32-le! ;
-: u32-swap ( a1 a2 -- ) 2dup u32-le@ swap u32-le@ rot u32-le! swap u32-le! ;
-: entry-swap ( addr -- )
-  dup dup /snap-look + u32-swap /snap-key + dup /snap-look + u32-swap ;
-\ Entry k sunk below every earlier entry of a greater key.
-: entry-sink ( addr k -- )
-  begin dup while
-    2dup 1- /snap-look * + dup u32-le@ over /snap-look + u32-le@ u> 0=
-    if drop 2drop exit then
-    entry-swap 1-
-  repeat 2drop ;
-: look-sort ( addr n -- ) 1 max 1 ?do dup i entry-sink loop drop ;
 
 \ ---- Writing.
 \ A zeroed block of u bytes for section i, owned: ok or full.
@@ -330,29 +322,13 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 : put-slot ( j snap -- outcome )
   2dup snap-slot -rot tuck snap-e swap >r tuck slot-env put-env swap
   r> snap-facts @ execute >r sl-fuel 2 pick fld2! r@ put-step r> put-site nip ;
-: put-slots ( snap -- outcome )
-  dup snap-wn@ 0 ?do
-    i over put-slot dup ok? 0= if nip unloop exit then drop
-  loop drop outcome-ok ;
+: put-slot-at ( snap i -- snap outcome ) over put-slot ;
+: put-slots ( snap -- outcome ) dup snap-wn@ ['] put-slot-at ok-each nip ;
 \ The dependencies and lookups, each slot's in turn, slots numbered as
 \ written (snap-s): an answer's slot + 1 field.
 : answer-renum ( answer snap -- answer' )
   over lf-look-slot+1 ?dup 0= if drop exit then
   1- swap snap-s 1+ lf-look-reslot ;
-\ n slot numbers as little-endian fields at addr sorted ascending (a
-\ layer's are numbered again, so their order may change).
-: dep-sort ( addr n -- )
-  dup 2 < if 2drop exit then 1 ?do
-    dup i /snap-dep * + u32-le@ i
-    begin dup 0> if 2 pick over 1- /snap-dep * + u32-le@ 2 pick u> else false then while
-      2 pick over 1- /snap-dep * + u32-le@ 3 pick 2 pick /snap-dep * + u32-le! 1-
-    repeat /snap-dep * 2 pick + u32-le!
-  loop drop ;
-: put-deps ( addr d snap -- addr' )
-  over slot-env lf-slot-count @ 3 pick 2>r
-  swap slot-env dup lf-slot-count @ 0 ?do
-    i over lf-dep-at 2 pick snap-s 3 pick u32-le! rot /snap-dep + -rot
-  loop 2drop 2r> swap dep-sort ;
 \ Names beyond the input (environment.fs, the seal; plan step SN5): the
 \ names a check made that its input tier does not hold, kept in the
 \ environment's own tier (lf-env-outer), are written after the tier's
@@ -373,15 +349,15 @@ begin-structure /outers
   field: outers-names   \ the names section joined with canon's (a block), or 0
   field: outers-bytes   \ and the name bytes section
   field: outers-unit    \ joining: a unit's bytes
+  /sorter +field outers-sorter  \ every list sorted (lib/sort.fs), one at a time
 end-structure
 create snap-outers /outers allot  snap-outers /outers erase
 : outers-in# ( -- n ) snap-outers outers-in @ ;
 : canon ( -- tier ) snap-outers outers-canon @ ;
 : outer ( -- tier ) lf-env-outer ;
-: block-free ( addr -- ) @ ?dup if free drop then ;
 : outers-free ( -- )
-  canon ?dup if dup tier-free free drop then snap-outers outers-list block-free
-  snap-outers outers-names block-free snap-outers outers-bytes block-free
+  canon ?dup if dup tier-free free drop then snap-outers outers-list heap-release
+  snap-outers outers-names heap-release snap-outers outers-bytes heap-release
   snap-outers /outers erase ;
 : key-beyond? ( key -- flag ) lf-look-name outers-in# u< 0= ;
 \ Whether slot's list ends with a name beyond (such keys are its last).
@@ -402,18 +378,26 @@ create snap-outers /outers allot  snap-outers /outers erase
     3 pick 2 pick i o-level 3 pick 2 pick i o-level
     i if part-order else u-order then ?dup if >r 2drop 2drop r> unloop exit then
   loop u-order nip nip ;
-\ Cells at addr: sorted by o-order, by insertion.
-: cell-swap ( addr -- ) dup 2@ swap rot 2! ;
-: o-sink ( addr j -- )
-  begin dup while
-    2dup 1- cells + dup 2@ swap o-order 0> 0= if drop 2drop exit then cell-swap 1-
-  repeat 2drop ;
-: o-sort ( addr n -- ) 1 max 1 ?do dup i o-sink loop drop ;
+\ The lists sorted (lib/sort.fs, stable): n cells at addr by o-order
+\ (equal content is the same name), by the writer's sorter in
+\ snap-outers (one save at a time); n lookups, or n dependencies, by their
+\ little-endian keys or slot numbers, unsigned (a list holds distinct
+\ ones), by the sorter of the record written or merged into (snap-sorter:
+\ a save's, or a layer's own, so two layers loading at once never share
+\ one; review reuse-k1 M2). Each ok, or full when more than 32 need
+\ scratch the heap refuses.
+: o-sorter ( -- sorter ) snap-outers outers-sorter ;
+: o-sort ( addr n -- outcome )
+  ['] o-order o-sorter sorter-cells drop o-sorter sort-records ;
+: le-sorter ( size sorter -- sorter )
+  tuck ['] sort-unsigned swap sorter-init drop ['] u32-le@ over sorter-key! ;
+: look-sort ( addr n sorter -- outcome ) /snap-look swap le-sorter sort-records ;
+: dep-sort ( addr n sorter -- outcome ) /snap-dep swap le-sorter sort-records ;
 \ Slot's names beyond into the list (room for its every lookup), sorted,
 \ and made in canon: ok or full.
 : outers-hold ( n -- outcome )
   dup snap-outers outers-room @ > 0= if drop outcome-ok exit then
-  snap-outers outers-list block-free 0 snap-outers outers-list !
+  snap-outers outers-list heap-release
   dup cells allocate if 2drop outcome-full exit then
   snap-outers outers-list ! snap-outers outers-room ! outcome-ok ;
 : outer-put ( addr n name -- addr n' ) >r 2dup cells + r> swap ! 1+ ;
@@ -430,11 +414,13 @@ create snap-outers /outers allot  snap-outers /outers erase
 : canon-copy ( name -- name' outcome )
   dup canon-name? if outer canon name-copy else drop -1 outcome-invalid then ;
 : canon-made ( name -- outcome ) canon-copy nip ;
+: canon-at ( addr k -- addr outcome ) cells over + @ canon-made ;
+: canon-names ( addr n -- outcome ) ['] canon-at ok-each nip ;
+\ The names sorted, then made (in the order they have, should the sort
+\ fail: the save fails then with the sort's outcome).
 : canon-slot ( slot -- outcome )
   dup lf-slot-looked @ outers-hold ok-then? 0= if exit then
-  snap-outers outers-list @ swap outers-of 2dup o-sort
-  cells bounds ?do i @ canon-made dup ok? 0= if unloop exit then drop 1 cells +loop
-  outcome-ok ;
+  snap-outers outers-list @ swap outers-of 2dup o-sort -rot canon-names outcome-and ;
 : canon-slots ( snap -- outcome )
   dup snap-wn@ 0 ?do
     i over snap-e slot-env dup slot-outer? if canon-slot else drop outcome-ok then
@@ -500,12 +486,23 @@ create snap-outers /outers allot  snap-outers /outers erase
   outcome-ok over lf-slot-looked @ 0 ?do
     drop i put-look dup ok? 0= if unloop exit then
   loop ;
+\ A slot's lookups, sorted again when it has names beyond the input (their
+\ keys were written as canon's).
 : put-looks ( addr d snap -- addr' outcome )
-  over slot-env dup slot-outer? >r lf-slot-looked @ >r 2 pick >r
-  swap slot-env looks-put nip nip r> r> r> if look-sort else 2drop then ;
-\ Slot d's dependencies and lookups, after the lists' ends so far.
+  dup snap-sorter >r over slot-env dup slot-outer? >r lf-slot-looked @ >r 2 pick >r
+  swap slot-env looks-put nip nip r> r> r>
+  if r> look-sort outcome-and else r> drop 2drop then ;
+\ A slot's dependencies, sorted again (a layer's are numbered again, so
+\ their order may change).
+: put-deps ( addr d snap -- addr' outcome )
+  over slot-env lf-slot-count @ 3 pick 2>r
+  swap slot-env dup lf-slot-count @ 0 ?do
+    i over lf-dep-at 2 pick snap-s 3 pick u32-le! rot /snap-dep + -rot
+  loop drop snap-sorter 2r> swap rot dep-sort ;
+\ Slot d's dependencies and lookups, after the lists' ends so far; the
+\ first failure.
 : put-pair ( dblk snap lblk d -- dblk' snap lblk' outcome )
-  >r rot r@ 3 pick put-deps -rot r> 2 pick put-looks ;
+  >r rot r@ 3 pick put-deps r> swap >r 2swap rot 2 pick put-looks r> swap outcome-and ;
 : put-lists ( snap -- outcome )
   dup ss-deps swap snap-block swap dup ss-looks swap snap-block
   over snap-wn@ outcome-ok swap 0 ?do
@@ -549,10 +546,9 @@ create snap-outers /outers allot  snap-outers /outers erase
   2dup snap-block >r 2dup snap-count >r drop snap-unit r> r> -rot ;
 : snap-add ( i snap -- outcome )
   2dup snap-shape 2>r >r over 1+ swap snap-sf r> -rot 2r> 2swap sections-add nip ;
+: snap-add-at ( snap k -- snap outcome ) tier-sections# + over snap-add ;
 : snap-adds ( snap -- outcome )
-  snap-sections# tier-sections# do
-    i over snap-add dup ok? 0= if nip unloop exit then drop
-  loop drop outcome-ok ;
+  snap-sections# tier-sections# - ['] snap-add-at ok-each nip ;
 \ A sealed stage, and the current environment valid over this context's
 \ input (which the caller fed from that stage: one slot per input
 \ declaration, in the feed's order), every slot final.
@@ -715,10 +711,8 @@ create snap-outers /outers allot  snap-outers /outers erase
 
 \ ---- Loading: the environment's sections, every field in range.
 : sec-units ( i snap -- n ) snap-sf sections-info drop nip nip ;
-: snap-loads ( snap -- outcome )
-  snap-sections# ss-slots do
-    i over snap-load dup ok? 0= if nip unloop exit then drop
-  loop drop outcome-ok ;
+: snap-load-at ( snap k -- snap outcome ) ss-slots + over snap-load ;
+: snap-loads ( snap -- outcome ) snap-sections# ss-slots - ['] snap-load-at ok-each nip ;
 \ The identity's counts against the sections, and the slots against n.
 : id-units? ( snap k i -- flag ) rot tuck sec-units >r id@ r> = ;
 : snap-counts? ( n snap -- flag )

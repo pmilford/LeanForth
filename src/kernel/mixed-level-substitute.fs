@@ -8,7 +8,7 @@
 \ roll back to a scratch mark, but identities never rewind.
 \ State: one walk record, lf-mls-walker (the source audit and the fuel left,
 \ shared by every pass), one job record, lf-mls-job (the substitution, the
-\ mark to roll back to and the count of reached terms), the replacement
+\ mark to roll back to, the count of reached terms and their sorter), the replacement
 \ levels, new level pairs, reached terms and their images
 \ (lf-mls-actual-cells, lf-mls-arg-pairs, lf-mls-reached-cells,
 \ lf-mls-image-cells), and the set of reached terms, a hash table
@@ -27,9 +27,11 @@
 \ has_param_univ test, lf-mls-closed?).
 
 require ../lib/lib.fs
+require ../lib/bits.fs
 require ../lib/slab.fs
 require ../lib/hash32.fs
 require ../lib/htab.fs
+require ../lib/sort.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/derivation-log.fs
@@ -46,6 +48,7 @@ begin-structure /lf-mlsrec
   field: lf-mlsrec-count       \ number of formals
   /lf-scratch +field lf-mlsrec-mark  \ the stores to roll back to
   field: lf-mlsrec-reached     \ terms it reached (lf-mls-reached-cells)
+  /sorter +field lf-mlsrec-sorter  \ their sort (lib/sort.fs)
 end-structure
 lf-walk-room context-walk: lf-mls-walker
 /lf-mlsrec context-record: lf-mls-job
@@ -68,6 +71,8 @@ create lf-mls-set-hooks /htab-hooks allot
 ' lf-mls-set-rehash ' lf-mls-set-same lf-mls-set-hooks htab-hooks!
 : lf-mls-set-make ( -- ) 4 lf-mls-set-hooks lf-mls-set htab-init drop ;
 ' lf-mls-set-make context-setup
+: lf-mls-sorter ( -- sorter ) lf-mls-job lf-mlsrec-sorter ;
+:noname ( -- ) ['] sort-signed lf-mls-sorter sorter-cells drop ; context-setup
 :noname ( -- ) lf-mls-set htab-free ; context-teardown
 
 \ Fuel left after a call; the signature probe continues with it, and tests
@@ -240,14 +245,9 @@ create lf-mls-set-hooks /htab-hooks allot
 : lf-mls-arg ( addr position -- outcome )
   tuck lf-cref-pair@ drop lf-mls-pair ok-then?
   if rot lf-mls-arg! outcome-ok else nip nip then ;
-: lf-mls-args! ( addr count -- outcome )
-  0 ?do dup i lf-mls-arg dup ok? 0= if nip unloop exit then drop loop
-  drop outcome-ok ;
-\ Cell arrays compared cell by cell (never as bytes); n <= 0 is equal.
-: lf-mls-cell= ( addr addr' i -- flag ) cells tuck + @ -rot + @ = ;
-: lf-mls-cells= ( addr addr' n -- flag )
-  0 max 0 ?do 2dup i lf-mls-cell= 0= if 2drop false unloop exit then loop 2drop true ;
-: lf-mls-changed? ( addr count -- flag ) 2* lf-mls-args swap lf-mls-cells= 0= ;
+: lf-mls-arg-at ( addr i -- addr outcome ) over swap lf-mls-arg ;
+: lf-mls-args! ( addr count -- outcome ) ['] lf-mls-arg-at ok-each nip ;
+: lf-mls-changed? ( addr count -- flag ) 2* lf-mls-args swap cells= 0= ;
 : lf-mls-arg-room ( addr count -- addr count outcome )
   dup lf-mls-arg-pairs slab-hold ;
 : lf-mls-substituted ( slot -- changed outcome )
@@ -266,11 +266,8 @@ create lf-mls-set-hooks /htab-hooks allot
 \ of a reached term is reached, so it is in the sorted list: found by
 \ binary search, its image at the same place.
 : lf-mls-image-cell ( i -- addr ) lf-mls-image-cells slab-at ;
-: lf-mls-half ( lo hi -- mid ) over - 2/ + ;
-: lf-mls-search ( node lo hi -- i )
-  begin 2dup < while
-    2dup lf-mls-half dup lf-mls-node 4 pick < if 1+ rot drop swap else nip then
-  repeat drop nip ;
+: lf-mls-below? ( node i -- node flag ) lf-mls-node over < ;
+: lf-mls-search ( node lo hi -- i ) ['] lf-mls-below? lower-bound nip ;
 \ A reached term's image, or the term itself when the audit did not list
 \ it (no universe parameter, lf-mls-closed?).
 : lf-mls-listed? ( node i -- flag )
@@ -299,17 +296,22 @@ create lf-mls-set-hooks /htab-hooks allot
   if swap lf-mls-image-cell ! outcome-ok else nip then ;
 \ The reached terms, sorted: the order of every index up to the root,
 \ skipping the terms not reached, at a cost of the terms reached. Room
-\ for their images first (none is full).
-: lf-mls-sorted ( -- ) 0 lf-mls-reached-cells slab-at lf-mls-reached @ lf-cells-sort ;
+\ for their images first (none is full). The audit listed each term once,
+\ so the indices are distinct and any sort gives the one ascending order;
+\ lib/sort.fs sorts up to 32 of them by insertion, more by a merge whose
+\ scratch is the images' cells, not written yet (so never full).
+: lf-mls-sort-buffer! ( -- )
+  0 lf-mls-image-cells slab-at lf-mls-reached @ cells lf-mls-sorter sorter-buffer! ;
+: lf-mls-sorted ( -- outcome )
+  lf-mls-sort-buffer! 0 lf-mls-reached-cells slab-at lf-mls-reached @ lf-mls-sorter
+  sort-records ;
 : lf-mls-image-room ( -- outcome )
   lf-mls-reached @ lf-mls-image-cells slab-hold dup outcome-full = if
     lf-mls-reached @ lf-mls-image-cells slab-capacity lf-mls-site
     lf-diag-work-stack-full lf-diag-note then ;
-: lf-mls-build ( -- outcome )
-  lf-mls-image-room dup ok? 0= if exit then drop
-  lf-mls-sorted lf-mls-reached @ 0 ?do
-    i lf-mls-build-at dup ok? 0= if unloop exit then drop
-  loop outcome-ok ;
+: lf-mls-ready ( -- outcome ) lf-mls-image-room dup ok? if drop lf-mls-sorted then ;
+: lf-mls-build-all ( -- outcome ) lf-mls-reached @ ['] lf-mls-build-at ok-each ;
+: lf-mls-build ( -- outcome ) lf-mls-ready ['] lf-mls-build-all ok-and ;
 
 \ The passes in order: the root handle and stores, the replacements (live,
 \ and in level scope), the whole graph (lf-cterm-check), the source audit,
@@ -320,8 +322,8 @@ create lf-mls-set-hooks /htab-hooks allot
 : lf-mls-actual ( pairs position -- flag )
   tuck lf-cref-pair@ 2dup lf-hlevel-valid?
   if drop swap cells lf-mls-actuals + ! true else 2drop drop false then ;
-: lf-mls-actuals! ( pairs count -- flag )
-  0 ?do dup i lf-mls-actual 0= if drop false unloop exit then loop drop true ;
+: lf-mls-actual-at ( pairs i -- pairs flag ) over swap lf-mls-actual ;
+: lf-mls-actuals! ( pairs count -- flag ) ['] lf-mls-actual-at all? nip ;
 : lf-mls-graph ( index id -- outcome )
   lf-mls-fuel @ lf-cterm-check lf-cterm-fuel @ lf-mls-fuel ! ;
 : lf-mls-checks ( index id -- index id outcome )

@@ -47,8 +47,8 @@ end-structure
   + lf-msp-formal-pool slab-capacity > 0= ;
 : lf-msa-formal? ( addr i -- flag )
   2dup cells + @ dup 0> if -rot lf-msp-cell-index 0< else drop 2drop false then ;
-: lf-msa-formals? ( addr count -- flag )
-  0 ?do dup i lf-msa-formal? 0= if drop false unloop exit then loop drop true ;
+: lf-msa-formal-at? ( addr i -- addr flag ) over swap lf-msa-formal? ;
+: lf-msa-formals? ( addr count -- flag ) ['] lf-msa-formal-at? all? nip ;
 : lf-msa-formal-list ( position -- formals count )
   dup lf-msp-formals-at swap lf-msp-arity@ ;
 : lf-msa-metadata? ( position -- flag )
@@ -72,9 +72,8 @@ end-structure
   over swap lf-msa-scope dup ok? if drop lf-msa-levels else rot drop then ;
 : lf-msa-record ( position fuel -- fuel' status )
   over lf-msa-metadata? if lf-msa-checked else nip outcome-invalid then ;
-: lf-msa-records ( fuel -- fuel' status )
-  lf-msp-count @ 0 ?do i swap lf-msa-record dup ok? 0= if unloop exit then drop loop
-  outcome-ok ;
+: lf-msa-record-at ( fuel i -- fuel' status ) swap lf-msa-record ;
+: lf-msa-records ( fuel -- fuel' status ) lf-msp-count @ ['] lf-msa-record-at ok-each ;
 : lf-msa-site ( -- site ) c" mixed-signature-audit lf-mixed-signature-audit" ;
 \ Zero fuel is exhausted and negative fuel invalid; both are recorded as
 \ diagnostics.

@@ -147,15 +147,12 @@ end-structure
 : lfa-ref-pairs ( ref -- addr ) drop 0 lfa-ref-pair-cells slab-at ;
 
 : lfa-cref-at ( i -- index identity ) dup lf-cref-slot lf-crec-identity @ ;
-: lfa-pairs= ( addr1 addr2 count -- flag )
-  2* 0 ?do over i cells + @ over i cells + @ <> if 2drop false unloop exit then loop
-  2drop true ;
 : lfa-ref-head? ( ref i -- flag )
   lfa-cref-at lf-cref-read 0= if drop false exit then
   nip >r over lfa-ref-name @ = swap lfa-ref-count @ r> = and ;
 : lfa-ref-levels? ( ref i -- flag )
   lfa-cref-at lf-cref-levels 0= if drop false exit then rot lfa-ref-pairs swap
-    lfa-pairs= ;
+    2* cells= ;
 : lfa-ref-match? ( ref i -- flag ) 2dup lfa-ref-head? if lfa-ref-levels? else 2drop false
   then ;
 : lfa-ref-find ( ref -- index identity true | false )

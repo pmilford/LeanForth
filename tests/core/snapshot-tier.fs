@@ -221,6 +221,43 @@ T{ fresh-img tag-app a-let 1+ 7 0 poke 7 forged attempted -> outcome-invalid tru
 T{ fresh-img 1 0 2 12 poke 2 forged attempted -> outcome-invalid true }T
 T{ fresh-img sa stage-decls 1- 9 0 peek 1+ 0 9 0 poke 9 forged attempted
    -> outcome-invalid true }T
+\ Review reuse-1a's re-check (H): every name of a list and every rule of
+\ a recursor is checked, not only the first. A type's second constructor
+\ name, a two-rule recursor's last constructor name and its last
+\ right-hand side, each forged out of range in the lists section (4).
+: tuple-of ( item d -- t ) sa staged-item ;
+: tuple-len ( t -- n ) sa stage-tuples tuple-length ;
+\ The first declaration of a kind whose list item has at least n entries
+\ (-1 for none): an any? over the declarations, the wanted kind, item and
+\ length in a record the test reads, the one found kept in it.
+begin-structure /wanted
+  field: wanted-kind  field: wanted-item  field: wanted-n  field: wanted-d
+end-structure
+create wanted /wanted allot
+: wanted! ( kind item n w -- w )
+  tuck wanted-n ! tuck wanted-item ! tuck wanted-kind ! -1 over wanted-d ! ;
+: kind-of? ( w d -- flag ) sa staged-kind@ swap wanted-kind @ = ;
+: long-enough? ( w d -- flag ) over wanted-item @ swap tuple-of tuple-len swap wanted-n @ < 0= ;
+: list-wide? ( w d -- w flag )
+  2dup kind-of? 0= if drop false exit then
+  2dup long-enough? if over wanted-d ! true else drop false then ;
+: first-wide ( kind item n -- d )
+  wanted wanted! sa stage-decls ['] list-wide? any? drop wanted-d @ ;
+kind-type more-type-ctors 2 first-wide constant a-type2
+kind-recursor more-rec-rules 2 /rule-items * first-wide constant a-rec2
+T{ a-type2 0< a-rec2 0< -> false false }T
+: tuple-off ( t -- u ) sa stage-tuples cons-at 0 4 sa tier-slab slab-at - ;
+: list-item! ( u j t -- ) tuple-off 4 sec-off + img + swap 1+ u32s + u32-le! ;
+$7ffffff constant far-off
+T{ fresh-img far-off 1 more-type-ctors a-type2 tuple-of list-item! 4 forged attempted
+   -> outcome-invalid true }T
+T{ fresh-img far-off /rule-items rule-ctor-item + more-rec-rules a-rec2 tuple-of list-item!
+   4 forged attempted -> outcome-invalid true }T
+T{ fresh-img far-off /rule-items rule-rhs-item + more-rec-rules a-rec2 tuple-of list-item!
+   4 forged attempted -> outcome-invalid true }T
+\ The same items left as they are load (the forging itself is sound).
+T{ fresh-img more-type-ctors a-type2 tuple-of tuple-off 4 sec-off + img + 1 u32s + u32-le@
+   0 more-type-ctors a-type2 tuple-of list-item! 4 forged attempted -> outcome-ok false }T
 \ Review rvSN2's findings, each a record the reader would refuse: a
 \ natural literal's text not canonical decimal (m1: a leading zero); a
 \ name's text not UTF-8 (m3: a byte $FF, its data word made again); a

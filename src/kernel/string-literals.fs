@@ -72,14 +72,14 @@ end-structure
 \ that name at the first n universe arguments of the pair array, and an
 \ application; full without room.
 : lf-sx-name ( prefix c-addr u -- id outcome )
-  lf-name-str if outcome-ok else -1 outcome-full then ;
+  lf-name-str room-result ;
 : lf-sx-dotted ( c-addr u prefix-addr prefix-u -- id outcome )
   0 -rot lf-sx-name ok-then? 0= if >r 2drop r> no-result exit then -rot lf-sx-name ;
 : lf-sx-const ( id n -- node outcome )
   >r lf-name-generation @ 0 lf-sx-pairs slab-at r> lf-cref-new
   0= if -1 outcome-full exit then
   lf-cterm-new if drop outcome-ok else -1 outcome-full then ;
-: lf-sx-app ( f a -- node outcome ) lf-term-app if outcome-ok else -1 outcome-full then ;
+: lf-sx-app ( f a -- node outcome ) lf-term-app room-result ;
 \ prefix.part without universe arguments.
 : lf-sx-plain ( c-addr u prefix-addr prefix-u -- node outcome )
   lf-sx-dotted ok-then? if 0 lf-sx-const else no-result then ;

@@ -98,6 +98,11 @@ u-name 1 lam-head prop succ-b0 input expr-make ex constant lam
 u-name 3 pi-head prop b1 input expr-make ex constant pi1
 T{ lam range@ lam depth@ pi1 range@ pi1 depth@ -> 0 2 1 1 }T
 T{ lam input expr-tag@ pi1 input expr-tag@ lam input expr-payload@ -> tag-lam 1 + tag-pi 3 + u-name }T
+\ expr-pi?: a Pi of any binder info (review s1-meta-b B4), never a lambda,
+\ an application or a constant.
+u-name 0 pi-head prop b1 input expr-make ex constant pi0
+T{ pi0 input expr-pi? pi1 input expr-pi? lam input expr-pi? succ-b0 input expr-pi? c-succ input expr-pi?
+   -> true true false false false }T
 T{ u-name 1 lam-head prop succ-b0 input expr-make u-name 2 lam-head prop succ-b0 input expr-make nip -> lam 0 0 }T
 \ letE: a second record holds the body; the range is the body's lowered.
 u-name false let-head prop b0 b1 input expr-let ex constant let1

@@ -65,7 +65,9 @@
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
+require ../lib/blocks.fs
 require ../lib/json-write.fs
+require ../lib/decimal.fs
 require ../core/terms.fs
 require ../core/levels.fs
 require ../core/names.fs
@@ -138,12 +140,11 @@ end-structure
 : lfx-level! ( n level -- ) lfx lfx-level-table lfx-cell ! ;
 : lfx-height@ ( i -- h ) lfx lfx-height-table lfx-cell @ ;
 : lfx-height! ( h i -- ) lfx lfx-height-table lfx-cell ! ;
-: lfx-block ( u addr -- flag ) swap 1 max allocate if drop 0 then dup rot ! 0<> ;
 : lfx-tables ( -- flag )
-  lf-term-count @ cells dup lfx lfx-expr-table lfx-block
-  lf-level-count @ cells lfx lfx-level-table lfx-block and
-  lfa-decl-count cells lfx lfx-height-table lfx-block and
-  swap lfx lfx-mark-table lfx-block and ;
+  lf-term-count @ cells dup lfx lfx-expr-table block-zeroed
+  lf-level-count @ cells lfx lfx-level-table block-zeroed outcome-and
+  lfa-decl-count cells lfx lfx-height-table block-zeroed outcome-and
+  swap lfx lfx-mark-table block-zeroed outcome-and ok? ;
 : lfx-free ( -- )
   lfx lfx-expr-table heap-release lfx lfx-level-table heap-release
   lfx lfx-height-table heap-release lfx lfx-mark-table heap-release ;
@@ -233,8 +234,7 @@ end-structure
 : lfx-const ( term -- )
   s" const" lfx-inner lf-term-first@ lf-cref-slot
   dup lf-cref-name@ drop s" name" lfx-member lf-cref-pairs lfx-levels-of lfx-close ;
-: lfx-digits ( u -- c-addr u ) base @ >r decimal 0 <# #s #> r> base ! ;
-: lfx-lit ( term -- ) lf-lit-cell lfx-digits s" natVal" lfx-text ;
+: lfx-lit ( term -- ) lf-lit-cell u>decimal s" natVal" lfx-text ;
 : lfx-proj ( term -- )
   s" proj" lfx-inner dup lf-proj-leaf lf-proj-idx s" idx" lfx-member
   dup lf-proj-struct s" struct" lfx-ref lf-proj-leaf lf-proj-name s" typeName" lfx-member

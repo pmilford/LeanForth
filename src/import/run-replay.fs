@@ -176,7 +176,7 @@ rp-depth 0 run-replay rp-writer jw-init 0= [if] .( run-replay.fs: writer) cr abo
 : rp-saved ( -- size code ) run-replay dup rp-path-size @ swap rp-code @ ;
 : rp-restore ( size code -- ) run-replay tuck rp-code ! rp-path-size ! ;
 : rp-key+ ( c-addr u -- ) s" ." rp-path+ rp-path+ ;
-: rp-index+ ( n -- ) s" [" rp-path+ 0 decimal-text rp-path+ s" ]" rp-path+ ;
+: rp-index+ ( n -- ) s" [" rp-path+ 0 ud>decimal rp-path+ s" ]" rp-path+ ;
 
 \ Findings.
 : rp-finding ( k -- finding ) /rp-finding * run-replay rp-findings + ;

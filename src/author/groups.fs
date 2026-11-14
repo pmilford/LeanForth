@@ -238,7 +238,7 @@ set-current
 \ in wid's group.
 : lfa-entry-set ( kind value entry -- ) tuck lfa-entry-value ! lfa-entry-kind ! ;
 : lfa-entry-new ( c-addr u wid -- entry )
-  >r 2dup r> lfa-group >r lfa-entries store-new-slot lfa-e-entries-full lfa-must drop
+  2dup-under lfa-group >r lfa-entries store-new-slot lfa-e-entries-full lfa-must drop
   dup /lfa-entry erase r> over lfa-entry-group ! dup >r lfa-spell! r> ;
 
 \ The constant whose full name is c-addr u, if there is one: the text's

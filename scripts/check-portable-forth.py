@@ -62,6 +62,7 @@ BYTE_WORDS = {
 BYTE_MODULES = {
     "src/lib/bytes.fs": "line reader and UTF-8 checks read and write text bytes",
     "src/lib/json.fs": "JSON tokenizer reads text bytes and decodes escapes in place",
+    "src/lib/decimal.fs": "decimal digits are read character by character, so BASE never matters",
     "src/lib/json-write.fs":
         "JSON writer reads string bytes to escape them and builds digits and escapes as text",
     "src/lib/u32.fs":

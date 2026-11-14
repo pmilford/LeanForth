@@ -38,6 +38,7 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../lib/lib.fs
 require ../lib/bytes.fs
 require ../lib/json.fs
+require ../lib/decimal.fs
 require ../lib/sha256.fs
 require ./ndjson.fs
 
@@ -298,14 +299,13 @@ create version-checks
 \ After an ok read: compare the file with the manifest. Numbers are
 \ compared as canonical decimal text, so that counts beyond a 32-bit cell
 \ compare exactly.
-: decimal-text ( ud -- c-addr u ) base @ >r decimal <# #s #> r> base ! ;
 : differs ( key m -- outcome ) c" export differs from its manifest" swap manifest-bad ;
 : number= ( ud key m -- flag )
   tuck member swap manifest-json natural-at 0= if 2drop false exit then
-  2>r decimal-text 2r> compare 0= ;
+  2>r ud>decimal 2r> compare 0= ;
 : number-check ( ud key m -- outcome )
   2dup 2>r number= if 2r> 2drop outcome-ok else 2r> differs then ;
-: tallied ( kind m -- c-addr u ) manifest-export @ export-kind-count 0 decimal-text ;
+: tallied ( kind m -- c-addr u ) manifest-export @ export-kind-count 0 ud>decimal ;
 : kind-same? ( kind index m -- flag )
   >r over swap r@ manifest-json recorded 0= if drop r> drop false exit then
   rot r> tallied compare 0= ;

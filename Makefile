@@ -287,9 +287,16 @@ test-harness:
 # runs.fs tests the runs library (sequences of cells that never change)
 # against a model, outside the checker.
 # sort.fs tests the sorting library against reference sorts (and the
-# snapshot's insertion sorts, copied) on both Gforths.
+# snapshot's insertion sorts, copied) on both Gforths. memo.fs and
+# pqueue.fs test the keyed memo tables and the priority queues against
+# models (pqueue.fs also against the scheduler's former heap, copied).
 test-lib:
 	$(RUN) $(GFORTH) tests/lib/sort.fs
+	$(RUN) $(GFORTH) tests/lib/memo.fs
+	$(RUN) $(GFORTH) tests/lib/pqueue.fs
+	$(RUN) $(GFORTH) tests/lib/decimal.fs
+	$(RUN) $(GFORTH) tests/lib/bits.fs
+	$(RUN) $(GFORTH) tests/lib/blocks.fs
 	$(RUN) $(GFORTH) tests/lib/runs.fs
 	$(RUN) $(GFORTH) tests/lib/lib.fs
 	$(RUN) $(GFORTH) tests/lib/lib-model.fs

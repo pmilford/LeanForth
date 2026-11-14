@@ -677,9 +677,10 @@ T{ s" axiom a 0 Type end a def b 0 Type := a end b" exported
 T{ s" def a 0 Type := Prop end a def b 0 Type := a end b" run -> outcome-ok }T
 T{ 0 s" zz" lf-name-str drop 0 lfa-decl lf-fdecl-name ! export-now -> outcome-ok }T
 T{ s\" \"hints\":{\"regular\":2}" holds? -> false }T
-\ A numbering table the heap cannot give: false, the cell 0.
-variable no-block
-T{ max-n no-block lfx-block no-block @ -> false 0 }T
+\ A numbering table the heap cannot give (lfx-tables's lib/blocks.fs):
+\ full, the cell left 0.
+variable no-block  0 no-block !
+T{ max-n no-block block-zeroed no-block @ -> outcome-full 0 }T
 \ A reference to a projection's leaf is refused, never written (review M2).
 T{ s" theorem t Prop explicit: p p := p end t" exported -> outcome-ok }T
 T{ 1 0 lf-hterm-proj drop drop 0 swap lf-tag-app lf-term-binary nip export-now

@@ -51,7 +51,7 @@ require ./check-run.fs
 : cj-key ( c-addr u -- ) cj-writer jw-key ;
 : cj-string ( c-addr u -- ) cj-writer jw-string ;
 : cj-n ( n -- ) cj-writer jw-n ;
-: cj-ud ( ud -- ) decimal-text cj-writer jw-digits ;
+: cj-ud ( ud -- ) ud>decimal cj-writer jw-digits ;
 : cj-null ( -- ) cj-writer jw-null ;
 : cj-object ( -- ) cj-writer jw-open-object ;
 : cj-end-object ( -- ) cj-writer jw-close-object ;

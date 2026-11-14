@@ -82,10 +82,10 @@ end-structure
   lf-scratch-families ['] lf-scratch-mark-one ok-each
   ok? if drop outcome-ok else lf-scratch-refused then ;
 \ Whether every family's mark is valid now (a rollback would accept it).
+: lf-scratch-valid-at? ( scratch k -- scratch flag )
+  over swap lf-scratch-pair store-mark-valid? ;
 : lf-scratch-valid? ( scratch -- flag )
-  lf-scratch-families 0 do
-    dup i lf-scratch-pair store-mark-valid? 0= if drop false unloop exit then
-  loop drop true ;
+  lf-scratch-families ['] lf-scratch-valid-at? all? nip ;
 \ The term count marked: the terms below it are older than the mark.
 : lf-scratch-terms ( scratch -- n ) 0 lf-scratch-part lf-term-mark-end ;
 

@@ -608,8 +608,8 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 \ Cells i .. i+n-1 closed in place with the scope's free variables.
 : lf-minfer-close-cell ( i -- status )
   lf-minfer-spine-cell dup @ lf-minfer-close ok-then? if swap ! outcome-ok else nip then ;
-: lf-minfer-close-cells ( i n -- status )
-  bounds ?do i lf-minfer-close-cell dup ok? 0= if unloop exit then drop loop outcome-ok ;
+: lf-minfer-close-at ( i k -- i status ) over + lf-minfer-close-cell ;
+: lf-minfer-close-cells ( i n -- status ) ['] lf-minfer-close-at ok-each nip ;
 : lf-minfer-spine-subst ( T i k -- T' status )
   swap lf-minfer-spine-cell swap lf-minfer-lend lf-instantiate-rev lf-minfer-repay
   outcome-sane ;
@@ -708,7 +708,7 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 : lf-minfer-abstract ( type top -- type' status )
   lf-minfer-lend lf-minfer-opened lf-abstract lf-minfer-repay outcome-sane ;
 : lf-minfer-lam-type ( domain type status -- type status )
-  lf-minfer-good? if lf-term-pi if outcome-ok else -1 outcome-full then
+  lf-minfer-good? if lf-term-pi room-result
   else rot drop then ;
 : lf-minfer-lam-close ( base top type status -- type status )
   2swap over = >r lf-minfer-unbind r>
@@ -763,7 +763,7 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 : lf-minfer-body-sort ( type -- level status )
   lf-minfer-site lf-diag-body-type lf-minfer-sort-rule ;
 : lf-minfer-imax ( v base -- level status )
-  lf-minfer-sort-cell @ swap lf-level-mk-imax if outcome-ok else -1 outcome-full then ;
+  lf-minfer-sort-cell @ swap lf-level-mk-imax room-result ;
 : lf-minfer-pi-level ( base type -- base level status )
   lf-minfer-body-sort lf-minfer-good? if over lf-minfer-imax then ;
 : lf-minfer-pi-end ( mark base level status -- type status )
@@ -830,7 +830,7 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 \ in cell i): the term itself, or let x : T := v; r' with r' r abstracted.
 : lf-minfer-let-wrap ( r' x -- let status )
   tuck lf-fvar-type swap lf-term-lam 0= if drop -1 outcome-full exit then
-  swap lf-fvar-value swap 0 lf-let-make if outcome-ok else -1 outcome-full then ;
+  swap lf-fvar-value swap 0 lf-let-make room-result ;
 : lf-minfer-let-abstract ( r i -- r' status )
   lf-minfer-fvar-cell 1 lf-minfer-lend lf-abstract lf-minfer-repay outcome-sane ;
 : lf-minfer-let-close1 ( r i -- r' status )
