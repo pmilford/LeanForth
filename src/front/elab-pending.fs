@@ -172,13 +172,15 @@ end-structure
   lf-meta-spend? if outcome-ok else lfa-e-elab-fuel lf-elab-fail then ;
 
 \ ---- The trace's terms.
-: ep-printing ( term -- outcome ) false lf-print-notation! ep-print-fuel lf-print-term ;
+\ Printed plain to the trace's sink; the printer's sink, options and
+\ notation flag put back however printing ends.
+: ep-printing ( term -- outcome )
+  ['] ep-chars lf-print-unicode lf-print-setup
+  false lf-print-notation! ep-print-fuel lf-print-term ;
 : ep-printed ( term -- )
-  lf-print-settings 2>r ['] ep-chars lf-print-unicode lf-print-setup
-  ['] ep-printing catch 2r> lf-print-setup throw drop ;
-: ep-noted ( term -- )
-  lf-print-notation? >r ['] ep-printed catch r> lf-print-notation! throw ;
-: lf-elab-term. ( term -- ) ep-tracing? if ep-noted else drop then ;
+  lf-print-notation? >r lf-print-settings 2>r ['] ep-printing catch
+  2r> lf-print-setup r> lf-print-notation! throw drop ;
+: lf-elab-term. ( term -- ) ep-tracing? if ep-printed else drop then ;
 : ep-mvar. ( mvar -- ) s" ?" lf-elab-note lf-term-first@ lf-elab-n. ;
 
 \ ---- The instance tables (front/instances.fs): isClass? and

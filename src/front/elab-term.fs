@@ -431,22 +431,24 @@ defer et-x-call ( i x frames cont -- ... frames next )
 : et-eo-end ( term outcome -- term outcome frames 0 )
   eo eo-root @ et-tree-cut et-ops slab-drop et-fr 0 ;
 : et-eo-fail ( outcome -- -1 outcome frames 0 ) no-result et-eo-end ;
+\ The max type is recorded only when analyze found one, comparable and
+\ with every leaf's type known (elabOp's `unless r.hasUnknown`).
 : et-record-max ( term -- term outcome )
-  eo eo-unknown @ if outcome-ok exit then
+  eo eo-unknown @ et-no-max? or if outcome-ok exit then
   dup lf-infer lf-elab-meta ok-then? 0= if exit then
   eo eo-max @ lf-elab-guarded lf-elab-meta nip ;
 : et-expected ( term -- term outcome ) eo eo-expected @ lf-elab-ensure ;
 : et-op-finish ( term -- term outcome )
   et-record-max ok-then? if et-expected else no-result then ;
-: et-op-maxed ( term outcome frames -- term outcome frames 0 )
+: et-op-done ( term outcome frames -- term outcome frames 0 )
   drop ok-then? if et-op-finish else no-result then et-eo-end ;
-: et-op-ensure ( term outcome frames -- term outcome frames 0 )
-  drop ok-then? if et-expected else no-result then et-eo-end ;
 : et-root-call ( cont -- ... frames next ) >r eo eo-root @ 0 et-fr r> et-x-call ;
+\ applyCoe only with a max type and nothing uncomparable.
+: et-coerced ( -- outcome ) et-no-max? if outcome-ok else et-apply-coe then ;
 : et-op-tree ( i outcome frames -- ... frames next )
   drop nip dup ok? 0= if et-eo-fail exit then drop eo eo-expected @ et-analyze
-  dup ok? 0= if et-eo-fail exit then drop et-no-max? if ['] et-op-ensure et-root-call exit
-  then et-apply-coe dup ok? 0= if et-eo-fail exit then drop ['] et-op-maxed et-root-call ;
+  dup ok? 0= if et-eo-fail exit then drop
+  et-coerced dup ok? 0= if et-eo-fail exit then drop ['] et-op-done et-root-call ;
 :noname ( node expected -- ... frames next )
   false et-eo-new dup ok? 0= if nip et-failed exit then drop
   0 et-fr ['] et-op-tree et-tree-call ;

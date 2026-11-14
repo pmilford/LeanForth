@@ -8,9 +8,9 @@
 \ 1. lf-front-by-statement ( -- type ), the hook FE1e's := by fills: it
 \    elaborates the declaration's binders, each a free variable whose
 \    local it pushes on the current view (mvars.fs, lf-mctx-view), and
-\    gives the statement's type in their context. Until plan FE1e it stops
-\    the run, not supported yet (error 71), as a term proof's end does;
-\    tests set a stand-in that builds the type directly.
+\    gives the statement's type in their context (front/elab-decl.fs; without
+\    it the run stops, not supported yet, error 71, as a term proof's end
+\    does); tests set a stand-in that builds the type directly.
 \ 2. lf-tactic-by ( type -- goal ), Lean's runTactic: the type
 \    instantiated, a new goal of it (synthetic opaque, untagged, in the
 \    current view), the goal list [goal], the steps run in order, and at

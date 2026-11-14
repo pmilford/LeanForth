@@ -57,27 +57,34 @@ variable `n` and the words `+` and `=` (Lean's `+` and `=`, which in
 theorem text are LeanForth words, never Forth's) build Lean's
 `binrel% Eq (binop% HAdd.hAdd 0 n) n`; a name takes as many arguments as
 its type has explicit binders (`n Eq.refl` is `Eq.refl n`), `' NAME` is
-the function itself, and `f a $` applies once more. Elaboration and
-tactics come next (plan FE1c-g): `end NAME` of a natural declaration
-stops with error 71, and so does a tactic proof, read whole, whose
-tactics run only once the statement is elaborated ([tactic proofs](#tactic-proofs-read-and-run-once-statements-are-elaborated));
-a kernel-form word used without the marker (such as `Prop`) stops with
-error 70; all "not supported yet", and nothing is checked.
+the function itself, and `f a $` applies once more. At `end NAME` the
+elaborator (plan S1, branch `s1-elab`: written and tested alone; see
+[the elaborator](ELABORATION.md)) builds the declaration's terms as
+Lean's elaborator does, and the checker checks them. Given the library's
+elaboration data (`--elab-data`; without it every natural declaration
+stops with error 139), names, applications
+with their hidden arguments, `=`, binders, term proofs and tactic proofs
+([tactic proofs](#tactic-proofs-read-and-run-once-statements-are-elaborated))
+work today; numerals and `+` stop with error 139 at the step that is not
+there yet (instance search, plan FE1e5; unfolding, plan S2). A
+kernel-form word used without the marker (such as `Prop`) stops with
+error 70. Both are "not supported yet", and nothing is checked.
 
 ## Tactic proofs (read, and run once statements are elaborated)
 
 **Status (2026-11-13): read (plan FE1g-2); the runner written and tested
-alone (plan FE1g-3, branch `fe1g3`), waiting for the statement's
-elaboration (plan FE1e).** A proof can be a
+alone (plan FE1g-3); it runs on statements the elaborator builds (plan
+S1, branch `s1-elab`), which do not have numerals or `+` yet.** A proof can be a
 list of instructions, *tactics*, as in Lean: `:= by` and then tactic
 words, each named with the prefix `by-`. LeanForth reads such a proof
 whole, checks its shape (every block closed, each word given the values
 it takes, each case header well formed, every mistake at its line and
 column) and keeps a record of the steps. At `end NAME` the runner
-(plan FE1g-3) would take the statement, once plan FE1e elaborates it, and
-run the steps in order on its goal; until then every tactic proof stops
-at its `end NAME` with error 71, "not supported yet", as a term proof
-does, and nothing is checked. A tactic never makes a theorem accepted,
+(plan FE1g-3) takes the statement the elaborator built and runs the
+steps in order on its goal (`by-rfl` and `by-exact` on
+`tests/front/s1-now.lf`, see [the elaborator](ELABORATION.md)); a
+statement with numerals or `+`, as below, stops with error 139, "not
+supported yet", and nothing is checked. A tactic never makes a theorem accepted,
 now or later: only the checker's check of the term does.
 
 *Mathematics:* $0 + n = n$ for every natural number $n$, by induction on
@@ -117,7 +124,7 @@ uses):
 
 ```console
 $ bin/leanforth check --env tests/front/tactic-slice.ndjson tests/front/01-zero-add-rw.lf; echo "exit status $?"
-error: unsupported: the LeanForth text was not checked: error 71 at line:col 17:1 (token `end`): not supported yet: elaborating natural LeanForth (plan FE1e-f)
+error: unsupported: the LeanForth text was not checked: error 139 at line:col 17:1 (token `end`): not supported yet: an elaboration step (plans FE2-FE5, S2)
 exit status 2
 ```
 

@@ -2,8 +2,8 @@
 \ Lean: theorem self_imp (p : Prop) : p → p := by intro h; exact h
 \ gives fun (p : Prop) (h : p) => h (tests/front/tactic-run.lean, t4).
 \ Natural LeanForth cannot write Prop and -> yet (plan FE2), and the
-\ statement is not elaborated yet (plan FE1e): the text stops at end with
-\ error 71, exit 2. tests/front/tactic-basic.fs runs it with stand-ins
+\ statement's numeral and + are not elaborated yet (plans FE1e5, S2): the
+\ text stops at end with error 139, exit 2. tests/front/tactic-basic.fs runs it with stand-ins
 \ that give the statement forall (p : Prop), p -> p (whatever the words
 \ below say) and elaborate h as the hypothesis; the kernel accepts it.
 theorem self_imp

@@ -56,8 +56,8 @@
 \ deferred word front/elab-decl.fs sets (Lean's Tactic.elabTerm:
 \ Term.elabTerm against expected, 0 or -1 for none, the synthetic
 \ metavariables synthesized, postponing when postpone? is true, Lean's
-\ mayPostpone, the result instantiated; exact passes false); until then
-\ error 71;
+\ mayPostpone, the result instantiated; exact passes false); error 71
+\ without front/elab-decl.fs;
 \ lf-tac-defeq ( t s -- flag outcome ), the tactics' isDefEq;
 \ lf-tac-holds? ( term xt -- flag outcome ), whether a term holds a leaf
 \ xt ( leaf -- flag ) accepts (heap stacks of dag-walk.fs).

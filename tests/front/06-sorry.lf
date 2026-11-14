@@ -1,8 +1,8 @@
 \ A tactic proof closed by by-sorry, Lean's sorry tactic (plan FE1g-3;
 \ ADR 0021 Amendment 1). Lean: theorem zero_add_sorry (n : Nat) : 0 + n = n
 \ := by sorry is accepted with the warning "declaration uses `sorry`" and
-\ depends on sorryAx (tests/front/tactic-run.lean). Today the statement is
-\ not elaborated (plan FE1e): the text stops at end with error 71, exit 2.
+\ depends on sorryAx (tests/front/tactic-run.lean). Today 0 and + wait for
+\ plans FE1e5 and S2: the text stops at end with error 139, exit 2.
 \ tests/front/tactic-run.fs runs it with stand-in elaborators: with this
 \ statement, by-sorry needs the level of 0 + n = n, which type inference
 \ cannot find while a text runs, before the library is fed (error 93,
