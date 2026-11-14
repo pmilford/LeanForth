@@ -97,6 +97,19 @@ class Groups(unittest.TestCase):
         self.assertFalse(cd.definer(":"))
         self.assertTrue(cd.definer("walk2:"))
 
+    def test_a_string_ending_in_a_colon_defines_nothing(self):
+        """Review reuse-out-2 M2: `." fuel:"` is one token ending in `:`; the word after it is no definition."""
+        for text in ('." fuel:"', 's" key:"', 'c" x:"', 'abort" bad:"', '.( note:)'):
+            with self.subTest(text=text):
+                token = cd.tokens(text)[0][0]
+                self.assertFalse(cd.definer(token), token)
+        a = ': in-x ." fuel:" cr over + swap execute drop ;\n'
+        b = ': ib-y cr over + swap execute drop ;\n'
+        _, names = cd.definitions_of_text(a)
+        self.assertEqual(names, {"in-x"})
+        found = groups({"src/a.fs": a + ": in-z cr over + swap execute drop ;\n", "src/b.fs": b})
+        self.assertEqual([sorted(m[2] for m in g["members"]) for g in found.values()], [["ib-y", "in-z"]])
+
     def test_within_a_file_group(self):
         found = groups({"src/a.fs": LONG % "one" + LONG % "two"})
         group = next(iter(found.values()))
@@ -191,19 +204,43 @@ class Ratchet(unittest.TestCase):
 
     def test_grown_group_fails(self):
         problems = cd.ratchet(self.group(3), self.based(2))
-        self.assertIn("grew from 2", problems[0])
+        self.assertIn("members its record does not list", problems[0])
+        self.assertEqual(problems[1:], ["    src/f2.fs:2 w"])
+
+    def test_a_copy_moved_elsewhere_fails(self):
+        """Review reuse-out-2 L1: one copy removed and another added keeps the count but not the members."""
+        moved = {"k1": {"tokens": 9, "kind": "shape",
+                        "members": [("src/f0.fs", 0, "w"), ("src/g.fs", 7, "w")]}}
+        problems = cd.ratchet(moved, self.based(2))
+        self.assertIn("members its record does not list", problems[0])
+        self.assertEqual(problems[1:], ["    src/g.fs:7 w"])
+        renamed = {"k1": {"tokens": 9, "kind": "shape",
+                          "members": [("src/f0.fs", 0, "w"), ("src/f1.fs", 1, "v")]}}
+        self.assertEqual(len(cd.ratchet(renamed, self.based(2))), 2)
 
     def test_a_group_without_a_reason_fails(self):
         problems = cd.ratchet(self.group(2), cd.baseline_of(self.group(2)))
         self.assertIn("group without a reason", problems[0])
 
     def test_every_reason_kind_passes_and_others_fail(self):
-        for reason in ("false positive: x", "family, table-driven later: x", "accepted: x", "planned: 9.4.8k"):
+        for reason in ("false positive: x", "family, table-driven later: 9.4.8k follow-up 8, x", "accepted: x",
+                       "planned: 9.4.8k", "planned: FE1i-4 the instance root", "planned: S2 slice"):
             with self.subTest(reason=reason):
                 self.assertEqual(cd.ratchet(self.group(2), self.based(2, reason)), [])
         for reason in ("", "fine", "todo: later"):
             with self.subTest(reason=reason):
-                self.assertEqual(len(cd.ratchet(self.group(2), self.based(2, reason))), 1)
+                problems = cd.ratchet(self.group(2), self.based(2, reason))
+                self.assertEqual(len(problems), 1)
+                self.assertIn("group without a reason", problems[0])
+
+    def test_a_planned_reason_names_a_plan_row(self):
+        """Review reuse-out-2 B2: `planned:` and `family…:` reasons carry a plan row id, as PLAN_ID reads one."""
+        for reason in ("family, table-driven later: x", "planned: a later pass", "planned: version 9"):
+            with self.subTest(reason=reason):
+                problems = cd.ratchet(self.group(2), self.based(2, reason))
+                self.assertEqual(len(problems), 1)
+                self.assertIn("without a plan row id", problems[0])
+        self.assertEqual(cd.PLAN_ID.pattern, cd.plan_id().pattern)
 
     def test_update_keeps_reasons_by_key_and_by_members(self):
         old = self.based(2, "accepted: kept")

@@ -2489,13 +2489,12 @@
   "tokens": 8
  },
  "bf88a9b691e8": {
-  "copies": 4,
+  "copies": 3,
   "kind": "shape",
   "members": [
    "src/author/build.fs:lfa-ref-match?",
    "src/core/name-equal.fs:lf-name-equal?",
-   "src/kernel/env-snapshot.fs:slot-fine?",
-   "src/kernel/mixed-compare.fs:lf-mcompare-components?"
+   "src/kernel/env-snapshot.fs:slot-fine?"
   ],
   "reason": "false positive: the guarded test `dup a? if b else drop false then` (or with 2dup/2drop) of two different words",
   "tokens": 8

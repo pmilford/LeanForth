@@ -9,7 +9,8 @@ defined in src/lib/ are shared vocabulary and stay literal everywhere. Each body
 
 - The shape form alpha-renames every word defined in the same file (by `:`, `constant`, `variable`, `create`,
   `value`, `defer`, `+field`, `begin-structure`, `synonym` or any defining word whose name ends in `:`, such as
-  `field:`, `context-slab:` or `store:`) to a placeholder numbered by first appearance in the body. Copies whose
+  `field:`, `context-slab:` or `store:`, but never a string literal that ends in `:`, such as `." fuel:"`) to a
+  placeholder numbered by first appearance in the body. Copies whose
   helpers were renamed (`in-foo`, `ib-foo`) have one shape; so do parallel words that differ only in which local
   helper or field they use (a family: `lf-x-first@` and `lf-x-second@`).
 - The copy form replaces every call of a colon word defined outside lib/ by that word's role: the hash of its own
@@ -30,17 +31,20 @@ copies (merged in reuse-out-2, or accepted with a reason) or families, and 28 fa
 the guarded test `dup a? if b else drop false then`), so the minimum is six. At five the groups are mostly
 accessor pairs and idioms. (Stack comments do not count: they are dropped like all comments.)
 
-Ratchet: tests/duplicates-baseline.json holds today's groups, keyed by a hash of the normal form, each with a
-`reason` saying why it stays: `false positive: ...` (equal text, unrelated meaning), `family, table-driven later:
-...`, `accepted: ...` (a merge would make the code worse; say why) or `planned: <plan row> ...` (a named pass
-merges it). The check fails when a group appears that is not in the baseline, a baseline group has more members
-than recorded, or a baseline group has no reason. Fixing a group (fewer members) never fails. Rewrite the
+Ratchet: tests/duplicates-baseline.json holds today's groups, keyed by a hash of the normal form, each with its
+members (file:word) and a `reason` saying why it stays: `false positive: ...` (equal text, unrelated meaning; say
+why it is not a copy), `accepted: ...` (a merge would make the code worse; say why), or `planned: <plan row> ...`
+and `family, table-driven later: <plan row> ...` (a named pass merges it), whose text must name a plan row id
+(as check-forth-quality.py's PLAN_ID reads one: 9.4.8k, FE1i-4, S2). The check fails when a group appears that is
+not in the baseline, a baseline group has a member its record does not list (a copy added, even where another
+went), or a group has no reason or a planned one without a plan row. Fixing a group (fewer members) never fails. Rewrite the
 baseline with --update-baseline only in a reviewed commit, as for tests/forth-quality-baseline.json; it keeps the
 reason of every group whose key or member list is unchanged, and leaves new ones without, so the check then fails
 until each has a reason. --report prints every group, cross-file groups first; --counts the groups by folder.
 """
 import collections
 import hashlib
+import importlib.util
 import json
 import pathlib
 import re
@@ -54,6 +58,18 @@ DEFINERS = {"constant", "variable", "2constant", "2variable", "value", "2value",
             "fvariable", "fconstant", "buffer:", "+field", "begin-structure", "synonym"}
 NOT_DEFINERS = {"{:", "[:"}
 REASONS = ("false positive:", "family, table-driven later:", "accepted:", "planned:")
+PLANNED = ("family, table-driven later:", "planned:")
+
+
+def plan_id():
+    """check-forth-quality.py's PLAN_ID, the one reading of a plan row id."""
+    spec = importlib.util.spec_from_file_location("cfq", pathlib.Path(__file__).with_name("check-forth-quality.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.PLAN_ID
+
+
+PLAN_ID = plan_id()
 
 
 def tokens(text):
@@ -92,8 +108,10 @@ def tokens(text):
 
 
 def definer(word):
-    """True for a word that defines the next word of the input: a standard one or a name ending in `:`."""
-    return word in DEFINERS or (word.endswith(":") and len(word) > 1 and word not in NOT_DEFINERS)
+    """True for a word that defines the next word of the input: a standard one or a name ending in `:`; never a
+    string literal (one token with a space, such as `." fuel:"`)."""
+    return word in DEFINERS or (word.endswith(":") and len(word) > 1 and word not in NOT_DEFINERS
+                                and " " not in word)
 
 
 NUMBER = re.compile(r"-?(\$[0-9a-f]+|#?[0-9]+|%[01]+)")
@@ -102,7 +120,12 @@ NUMBER = re.compile(r"-?(\$[0-9a-f]+|#?[0-9]+|%[01]+)")
 def definitions(path, values=None):
     """[(name, line, body tokens)] of the colon definitions of a file, and its set of defined names; fills
     values {name: literal} for each `<number> constant <name>`."""
-    toks = tokens(path.read_text(encoding="utf-8", errors="replace"))
+    return definitions_of_text(path.read_text(encoding="utf-8", errors="replace"), values)
+
+
+def definitions_of_text(text, values=None):
+    """definitions() of a file's text."""
+    toks = tokens(text)
     defs, names, i = [], set(), 0
     values = {} if values is None else values
     while i < len(toks):
@@ -232,16 +255,35 @@ def names_of(group):
     return sorted(f"{f}:{name}" for f, _, name in group["members"])
 
 
+def reason_problem(reason):
+    """Why a baseline reason does not hold, or None: it must start with one of REASONS, and a planned one must
+    name a plan row."""
+    reason = str(reason or "")
+    if not reason.startswith(REASONS):
+        return f"group without a reason ({' | '.join(REASONS)})"
+    if reason.startswith(PLANNED) and not PLAN_ID.search(reason):
+        return "planned group without a plan row id (such as 9.4.8k)"
+    return None
+
+
+def added_members(group, old):
+    """The members of group that the baseline record old does not list (as many times as it lists them)."""
+    extra = collections.Counter(names_of(group)) - collections.Counter(old.get("members", []))
+    return sorted(extra.elements())
+
+
 def ratchet(now, base):
     problems = []
     for key, group in sorted(now.items()):
         old = base.get(key)
-        if old is None or len(group["members"]) > old["copies"]:
-            what = "new duplicate group" if old is None else f"group grew from {old['copies']} copies"
+        added = added_members(group, old) if old is not None else None
+        if old is None or added:
+            what = "new duplicate group" if old is None else "group has members its record does not list"
             problems.append(f"{what}: {label(key, group)}")
-            problems += [f"    {f}:{line} {name}" for f, line, name in group["members"]]
-        elif not str(old.get("reason", "")).startswith(REASONS):
-            problems.append(f"group without a reason ({' | '.join(REASONS)}): {label(key, group)}")
+            problems += [f"    {f}:{line} {name}" for f, line, name in group["members"]
+                         if old is None or f"{f}:{name}" in added]
+        elif reason_problem(old.get("reason")):
+            problems.append(f"{reason_problem(old.get('reason'))}: {label(key, group)}")
     return problems
 
 
@@ -292,8 +334,8 @@ def main(argv):
     if "--update-baseline" in argv:
         new = baseline_of(now, base)
         path.write_text(json.dumps(new, indent=1, sort_keys=True) + "\n")
-        missing = sum(1 for v in new.values() if "reason" not in v)
-        print(f"wrote {path.relative_to(root)}: {len(now)} groups, {missing} without a reason")
+        missing = sum(1 for v in new.values() if reason_problem(v.get("reason")))
+        print(f"wrote {path.relative_to(root)}: {len(now)} groups, {missing} without a reason that holds")
         return 0
     if "--report" in argv:
         report(now, base)
