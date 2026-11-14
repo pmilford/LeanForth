@@ -127,6 +127,9 @@ variable level-calls
   dup 0 level-of over 1 level-of rot 2 level-of r> level-calls @ ;
 T{ me-pairs slab-count nested-levels me-pairs slab-count
    -> 0 lv1 lv1 lv1 outcome-ok 3 0 }T
+\ A count below zero makes the constant at no level, as zero does.
+T{ s" instHAdd" menv-name lf-name-generation @ no-such-level -1 lf-meta-const-at
+   swap lf-term-first@ lf-cref-slot lf-cref-pairs nip -> outcome-ok 0 }T
 \ The scan follows a Sort's level and max and imax levels: Sort (max ?u
 \ 1), Sort (imax 1 ?u); a level metavariable of the search's depth is
 \ what abstractMVars would keep (sy-deep-mvar?), an outer one not.

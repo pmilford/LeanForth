@@ -234,7 +234,8 @@ end-structure
   ok-then? if me-made else nip nip no-result then ;
 : me-scope ( i*x xt -- term outcome )
   me-pairs slab-count >r execute r> me-pairs slab-cut ;
-: me-at ( name gen addr n -- term outcome ) tuck ['] me-level-at ok-each nip me-finish ;
+: me-at ( name gen addr n -- term outcome )   \ n < 0: no levels, as ok-each runs none
+  0 max tuck ['] me-level-at ok-each nip me-finish ;
 : lf-meta-const-at ( name gen addr n -- term outcome ) ['] me-at me-scope ;
 : me-named ( d -- name gen n )
   dup lf-menv-name swap lf-menv-params nip lf-name-generation @ swap ;
