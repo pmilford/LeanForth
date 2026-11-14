@@ -5537,8 +5537,8 @@ reason = "L4: the refused records' message is lost (caught on Gforth 1.0, where 
 [[fault]]
 id = "lf-text-flags-stale"
 file = "src/cli/leanforth.fs"
-old = '''  lfc-fresh cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check then'''
-new = '''  cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check then'''
+old = '''  cli-elab-fuel-set lfc-fresh cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check'''
+new = '''  cli-elab-fuel-set cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "N3: an earlier text's failure flag stays for the next run of the session, which then reports that text's error instead of its own (a snapshot that does not open)"
 
@@ -15198,7 +15198,7 @@ reason = "FE1g-3: a block (or the proof) ends with goals left and no unsolved-go
 [[fault]]
 id = "fe-run-fuel-free"
 file = "src/front/tactic-run.fs"
-old = '''  lf-tactic-fuel-left dup 0> if 1- trun trun-fuel ! true else drop false then ;'''
+old = '''  lf-tactic-fuel-left dup 0> if 1- trun trun-fuel ! lf-meta-spend? else drop false then ;'''
 new = '''  true ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "FE1g-3: a step spends no fuel, so a run never ends exhausted"
@@ -16367,3 +16367,89 @@ new = ''''''
 test = "python3 tests/program/test_program_verify.py WriteIr.test_write_ir_never_overwrites_other_files"
 reason = "review R3: --write-ir overwrites any checkout file the contract's ir line names (src/main.fs)"
 quick = true
+
+# ---- The elaborator (plan S1, branch s1-elab; src/front/elab-*.fs).
+[[fault]]
+id = "fe-stuck-as-failure"
+file = "src/front/elab-pending.fs"
+old = '''  lf-meta-synth dup lf-meta-stuck = if drop 2drop -1 -1 outcome-ok exit then'''
+new = '''  lf-meta-synth dup lf-meta-stuck = if drop 2drop -1 0 outcome-ok exit then'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "trySynthInstance's undef read as none: 0 = 0's numerals fail to synthesize instead of waiting for the default instance"
+quick = true
+
+[[fault]]
+id = "fe-no-default-instance"
+file = "src/front/elab-pending.fs"
+old = '''  lf-elab-pending# 0= if false outcome-ok exit then'''
+new = '''  true if false outcome-ok exit then'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "synthesizeUsingDefault never fires: 0 = 0's numerals stay stuck (126)"
+
+[[fault]]
+id = "fe-implicit-not-inserted"
+file = "src/front/elab-app.fs"
+old = '''    lf-binder-strict of ea-strict endof >r ea-implicit-step r> endcase ;'''
+new = '''    lf-binder-strict of ea-strict endof >r ea-explicit r> endcase ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "an implicit binder taken as explicit: Eq's α gets the first operand, the statements differ from Lean's"
+quick = true
+
+[[fault]]
+id = "fe-defeq-arg-order"
+file = "src/front/elab-app.fs"
+old = '''  swap lf-elab-defeq lf-elab-meta ok-then? if ea-coerced then ;'''
+new = '''  lf-elab-defeq lf-elab-meta ok-then? if ea-coerced then ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "ensureHasType asks isDefEq expected type instead of Lean's isDefEq type expected: the metavariable assigned changes, C17's golden trace differs"
+
+[[fault]]
+id = "fe-fargs-not-reversed"
+file = "src/front/elab-app.fs"
+old = '''  ea-paramidx 1- swap - ea ea-fargs @ + ea-args slab-at @ ea-rev slab-push ;'''
+new = '''  ea ea-fargs @ + ea-args slab-at @ ea-rev slab-push ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "getFType's arguments in the wrong order (instantiateBetaRevRange puts the last for #0): Eq's second operand is checked against the first's value"
+quick = true
+
+[[fault]]
+id = "fe-numeral-prop-error"
+file = "src/front/elab-term.fs"
+old = '''  if lfa-e-elab-numeral else lfa-e-elab-numeral-u then lf-elab-fail ;'''
+new = '''  drop lfa-e-elab-numeral-u lf-elab-fail ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "a numeral against a proposition reported as the universe-polymorphic case (128), not Lean's 127"
+
+[[fault]]
+id = "fe-tag-failure-stack"
+file = "src/front/elab-app.fs"
+old = '''ea-tagged? ok-then? if or outcome-ok else nip false swap then ;'''
+new = '''ea-tagged? ok-then? if or outcome-ok else nip then ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed' && $GFORTH tests/front/handover.fs >/dev/null 2>&1"
+reason = "the elab_as_elim test's failure path loses a cell: with no elaboration data the run breaks instead of answering 139"
+
+[[fault]]
+id = "fe-kinds-from-store"
+file = "src/front/fun-info.fs"
+old = ''': fi-kind ( -- kind true | false ) fi-decl-kind if true else fi-source-kind then ;'''
+new = ''': fi-kind ( -- kind true | false ) fi-source-kind ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "getFunInfoNArgs reads a decoded library type's binder kinds from shared store nodes: isDefEqArgs on Eq answers unsupported, by-exact's finalize fails"
+quick = true
+
+[[fault]]
+id = "fe-budget-not-reset"
+file = "src/front/elab-decl.fs"
+old = '''  lf-elab-pending-reset lf-elab-app-reset lf-elab-term-reset lf-elab-vars-reset
+  lf-meta-budget-start ;'''
+new = '''  lf-elab-pending-reset lf-elab-app-reset lf-elab-term-reset lf-elab-vars-reset ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "the budget is not given back per declaration (S1 8): after a declaration out of fuel the next one is too"
+
+[[fault]]
+id = "fe-check-only-exit"
+file = "src/cli/leanforth.fs"
+old = '''  lfc-failed? lf-author-code lfa-e-nothing = and lf-elab-checks 0> and ;'''
+new = '''  false ;'''
+test = "python3 tests/front/check_elab.py"
+reason = "a text of only #check lines ends with error 49 (exit 4), not Lean's exit 0"

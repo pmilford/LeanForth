@@ -450,6 +450,21 @@ below it).
 | 98 | invalid | Tactic `exact` failed: attempting to close the goal using |
 | 99 | unsupported | not supported yet: this case of the tactic (FE1G_TACTICS.md 5 names its step) |
 | 100 | invalid | invalid universe level: not greater than 0 |
+| 125 | invalid | failed to synthesize instance of type class |
+| 126 | invalid | typeclass instance problem is stuck |
+| 127 | invalid | numerals are data in Lean, but the expected type is a proposition |
+| 128 | invalid | numerals are data in Lean, but the expected type is universe polymorphic and may be a proposition |
+| 129 | invalid | synthesized type class instance is not definitionally equal to its metavariable |
+| 130 | invalid | type expected |
+| 131 | unsupported | not supported yet: a coercion (plan FE4) |
+| 132 | unsupported | not supported yet: postponing an elaboration (plan FE2) |
+| 133 | unsupported | not supported yet: an implicit lambda (plan FE2) |
+| 134 | unsupported | not supported yet: an optParam, autoParam or eta argument (plan FE2) |
+| 135 | unsupported | not supported yet: elaborating as an eliminator (plan FE5) |
+| 136 | unsupported | not supported yet: a binder whose kind the declaration's type does not give (plan S5) |
+| 137 | unsupported | not supported yet: #check of this form (plan FE2) |
+| 138 | exhausted | out of fuel: the front end's work limit (--elab-fuel N gives more) |
+| 139 | unsupported | not supported yet: an elaboration step (plans FE2-FE5, S2) |
 
 Codes come in ranges (`src/author/errors.fs`): 1 to 73 the words, the
 runner, the stores and natural text read (FE1a); 74 to 79 elaboration and

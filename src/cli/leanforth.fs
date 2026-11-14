@@ -131,6 +131,8 @@ require ./name-text.fs
 require ./check-run.fs
 require ./check-lf.fs
 require ./check-json.fs
+require ../front/meta-config.fs
+require ../front/elab-decl.fs
 
 100000000 constant cli-default-fuel   \ fuel of each declaration's check
 : cli-version-text ( -- c-addr u ) s" 0.1.0-dev" ;   \ LeanForth's version
