@@ -15932,8 +15932,8 @@ reason = "the §4 check accepts an instance whose recorded keys differ from its 
 [[fault]]
 id = "fe-inst-class-unchecked"
 file = "src/front/instances.fs"
-old = '''  if outcome-ok else lfa-e-inst-class it-fail then ;'''
-new = '''  drop outcome-ok ;'''
+old = '''  0= if 2drop lfa-e-inst-class it-fail exit then'''
+new = '''  drop'''
 test = "$GFORTH tests/front/instances-bad.fs"
 reason = "the §4 check accepts an instance recorded under another class"
 
@@ -15988,7 +15988,7 @@ reason = "s1-synth review M4: an erased instance is a candidate"
 [[fault]]
 id = "fe-inst-verified-always"
 file = "src/front/instances.fs"
-old = '''  dup it-status slab-count u< if it-status@ it-verified = else drop false then ;'''
+old = '''  dup it-status slab-count index? if it-status@ it-verified = else drop false then ;'''
 new = '''  drop true ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "s1-synth review M4: every value reads as verified, a left-out one and an unchecked one too"
@@ -16036,8 +16036,8 @@ reason = "s1-synth review H2: an instance filed under another class's root key i
 [[fault]]
 id = "fe-inst-pass-skipped"
 file = "src/front/instances.fs"
-old = '''  it it-pass @ ?dup 0= if it-pass-run it-pass-keep exit then'''
-new = '''  it it-pass @ ?dup 0= if outcome-ok exit then'''
+old = '''  it-query it it-pass @ ?dup 0= if it-pass-run it-pass-keep exit then'''
+new = '''  it-query it it-pass @ ?dup 0= if outcome-ok exit then'''
 test = "$GFORTH tests/front/instances-bad.fs"
 reason = "s1-synth review H2: the first query does not check every record (FE1E 4, When): misfiled data answers"
 
@@ -16583,6 +16583,94 @@ old = '''    *) printf 'error: internal: leanforth verify ended with status %s\n
 new = '''    *) exit "$status" ;;'''
 test = "python3 tests/program/test_program_verify.py Command"
 reason = "8.4.1c: an interpreter's own status (Python missing, a crash) passes through bin/leanforth verify and can read as a verdict"
+
+[[fault]]
+id = "fe-inst-root-arity-unchecked"
+file = "src/front/instances.fs"
+old = '''  it-root-arity? if outcome-ok else lfa-e-inst-root it-fail then ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/front/instances-bad.fs && $GFORTH tests/front/instances.fs"
+reason = "s1-synth re-check H1': an instance filed under its class's root key with another arity is accepted, and every query of the class silently misses it"
+
+[[fault]]
+id = "fe-inst-key-refusal-forgotten"
+file = "src/front/instances.fs"
+old = '''  dup it-root-key@ dup it-prepared it-refused ok-then? 0= if nip no-result exit then'''
+new = '''  dup it-root-key@ dup it-prepared ok-then? 0= if nip no-result exit then'''
+test = "$GFORTH tests/front/instances-odd.fs"
+reason = "s1-synth re-check M1': a key difference (113) refuses only its own root, and queries of other roots still answer"
+
+[[fault]]
+id = "fe-inst-error-stale"
+file = "src/front/instances.fs"
+old = ''': it-query ( -- ) it-same-data it-no-error ;'''
+new = ''': it-query ( -- ) it-same-data ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth re-check L1': an invalid answer that sets no code leaves the last query's code in lf-inst-error"
+
+[[fault]]
+id = "fe-inst-other-read-kept"
+file = "src/front/instances.fs"
+old = ''': it-same-data ( -- ) elab-generation it it-data @ <> if lf-inst-reset then ;'''
+new = ''': it-same-data ( -- ) ;'''
+test = "$GFORTH tests/front/instances-odd.fs"
+reason = "s1-synth re-check L3': the checks, trees and refusal of one read of the data are kept for the next"
+
+[[fault]]
+id = "fe-inst-rank-gap-read"
+file = "src/front/instances.fs"
+old = '''  ok-then? if it-ranked slab-count = flag>outcome then ;'''
+new = '''  ok-then? if drop outcome-ok then ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth re-check L2': a root whose values leave a rank empty is built, the hole read as left-out 0"
+
+[[fault]]
+id = "fe-elab-default-rank-unbounded"
+file = "src/front/elab-data.fs"
+old = '''  ed-dflt swap c" rank" ed-member ed-u32 ed-rank-most ['] ed-dflt-rank ed-put ;'''
+new = '''  ed-dflt swap c" rank" ed-member ed-u32 ['] ed-dflt-rank ed-put ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "s1-synth re-check M2': a default instance's rank of up to 2^32 - 1 is read, and getDefaultInstances then asks for a cell per rank (32 GiB)"
+
+[[fault]]
+id = "rc-tree-no-rollback"
+file = "src/front/instances.fs"
+old = '''  it-tree-mark 2>r it-filled dup ok? if 2r> 2drop else 2r> it-tree-back then ;'''
+new = '''  it-tree-mark 2drop it-filled ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth re-check M3' (reviewer's fault): a failed build keeps its nodes and value cells"
+
+[[fault]]
+id = "rc-tally-every-outcome"
+file = "src/front/instances.fs"
+old = '''  r> over ok? if it-status@ it-tally else drop then ;'''
+new = '''  r> it-status@ it-tally ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth re-check M3' (reviewer's fault): an exhausted or refused step 1 counts its instance as checked, once per re-run"
+
+[[fault]]
+id = "rc-roots-instances-only"
+file = "src/front/instances.fs"
+old = ''': it-value-root ( k -- outcome ) it-value it-root-key it-root-add ;'''
+new = ''': it-value-root ( k -- outcome ) it-value dup 0< if drop outcome-ok exit then it-root-key it-root-add ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth re-check M3' (reviewer's fault): a root only left-out values have is unknown, its query answers no values"
+
+[[fault]]
+id = "rc-strict-literal-kept"
+file = "src/front/discr-keys.fs"
+old = ''': dk-implicit? ( kind -- flag ) dup lf-binder-implicit = swap lf-binder-strict = or ;'''
+new = ''': dk-implicit? ( kind -- flag ) lf-binder-implicit = ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth re-check M3' (reviewer's fault): a strict-implicit literal or non-type is indexed, not a star"
+
+[[fault]]
+id = "fe-elab-generation-fixed"
+file = "src/front/elab-data.fs"
+old = '''  elab elab-counts elab-kinds cells erase 1 elab elab-gen +! ;'''
+new = '''  elab elab-counts elab-kinds cells erase ;'''
+test = "$GFORTH tests/front/elab-data.fs && $GFORTH tests/front/instances-odd.fs"
+reason = "s1-synth re-check L3': a reset or a new read leaves elab-generation as it was, so the instance table keeps another read's checks"
 
 # --- capabilities and help list verify (plan 8.4.1c; src/cli/leanforth.fs) --
 

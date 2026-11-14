@@ -1,4 +1,4 @@
-{"elab_data":{"export_sha256":"cce94815643216bbc67bd58e181d51a247b07ffb533b7ed921d6b2435b06306f","format":"leanforth-elab-data","format_version":2,"lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"class":18,"default_instance":8,"eliminator":0,"instance":20,"instance_left_out":476,"matcher":50,"projection":26,"reducibility":146,"sunfold":0,"tag":33},"records_sha256":"40db5ddc79df287f89f1354ebae2e2631eaaf4339909e1e8bbd4284dcd6c5411"}}
+{"elab_data":{"export_sha256":"cce94815643216bbc67bd58e181d51a247b07ffb533b7ed921d6b2435b06306f","format":"leanforth-elab-data","format_version":2,"lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"class":18,"default_instance":8,"eliminator":0,"instance":20,"instance_left_out":476,"matcher":50,"projection":26,"reducibility":146,"sunfold":0,"tag":33},"records_sha256":"351d08950d8525db43f5aa62a373c67e8f24c05d1f4619792a1097fe5225af16"}}
 {"class":{"name":["Add"],"out_level_params":[],"out_params":[]}}
 {"class":{"name":["Decidable"],"out_level_params":[],"out_params":[]}}
 {"class":{"name":["Div"],"out_level_params":[],"out_params":[]}}
@@ -24,7 +24,7 @@
 {"instance":{"class":["Decidable"],"keys":[{"arity":1,"const":["Decidable"]},{"arity":4,"const":["LT","lt"]},{"arity":0,"const":["Nat"]},"star","star","star"],"name":["Nat","decLt"],"priority":1000,"rank":102,"synth_order":[]}}
 {"instance":{"class":["Div"],"keys":[{"arity":1,"const":["Div"]},{"arity":0,"const":["Nat"]}],"name":["Nat","instDiv"],"priority":1000,"rank":12,"synth_order":[]}}
 {"instance":{"class":["HAdd"],"keys":[{"arity":3,"const":["HAdd"]},"star","star","star"],"name":["instHAdd"],"priority":1000,"rank":0,"synth_order":[1]}}
-{"instance":{"class":["HDiv"],"keys":[{"arity":3,"const":["HDiv"]},"star","star","star"],"name":["instHDiv"],"priority":1000,"rank":0,"synth_order":[1]}}
+{"instance":{"class":["HDiv"],"keys":[{"arity":4,"const":["HDiv"]},"star","star","star","star"],"name":["instHDiv"],"priority":1000,"rank":0,"synth_order":[1]}}
 {"instance":{"class":["HMod"],"keys":[{"arity":3,"const":["HMod"]},"star","star","star"],"name":["instHMod"],"priority":1000,"rank":0,"synth_order":[1]}}
 {"instance":{"class":["HMul"],"keys":[{"arity":3,"const":["HMul"]},"star","star","star"],"name":["instHMul"],"priority":1000,"rank":0,"synth_order":[1]}}
 {"instance":{"class":["HPow"],"keys":[{"arity":3,"const":["HPow"]},"star","star","star"],"name":["instHPow"],"priority":1000,"rank":0,"synth_order":[2]}}
@@ -498,7 +498,7 @@
 {"instance_left_out":{"keys":[{"arity":3,"const":["HAdd"]},{"arity":0,"const":["String","Pos","Raw"]},{"arity":0,"const":["String"]},{"arity":0,"const":["String","Pos","Raw"]}],"name":["String","instHAddRaw_1"],"priority":1000,"rank":3,"reason":"not_exported"}}
 {"instance_left_out":{"keys":[{"arity":3,"const":["HAdd"]},{"arity":0,"const":["String","Slice"]},{"arity":0,"const":["String","Pos","Raw"]},{"arity":0,"const":["String","Pos","Raw"]}],"name":["String","instHAddSliceRaw"],"priority":1000,"rank":2,"reason":"not_exported"}}
 {"instance_left_out":{"keys":[{"arity":3,"const":["HAdd"]},{"arity":0,"const":["String"]},{"arity":0,"const":["String","Pos","Raw"]},{"arity":0,"const":["String","Pos","Raw"]}],"name":["String","instHAddRaw"],"priority":1000,"rank":1,"reason":"not_exported"}}
-{"instance_left_out":{"keys":[{"arity":3,"const":["HDiv"]},{"arity":0,"const":["System","FilePath"]},{"arity":0,"const":["String"]},{"arity":0,"const":["System","FilePath"]}],"name":["System","FilePath","instHDivString"],"priority":1000,"rank":1,"reason":"not_exported"}}
+{"instance_left_out":{"keys":[{"arity":3,"const":["HDiv"]},{"arity":0,"const":["System","FilePath"]},{"arity":0,"const":["String"]},{"arity":0,"const":["System","FilePath"]}],"name":["System","FilePath","instHDivString"],"priority":1000,"rank":0,"reason":"not_exported"}}
 {"instance_left_out":{"keys":[{"arity":3,"const":["HMod"]},{"arity":0,"const":["UInt16"]},{"arity":0,"const":["Nat"]},{"arity":0,"const":["UInt16"]}],"name":["instHModUInt16Nat"],"priority":1000,"rank":2,"reason":"not_exported"}}
 {"instance_left_out":{"keys":[{"arity":3,"const":["HMod"]},{"arity":0,"const":["UInt32"]},{"arity":0,"const":["Nat"]},{"arity":0,"const":["UInt32"]}],"name":["instHModUInt32Nat"],"priority":1000,"rank":3,"reason":"not_exported"}}
 {"instance_left_out":{"keys":[{"arity":3,"const":["HMod"]},{"arity":0,"const":["UInt64"]},{"arity":0,"const":["Nat"]},{"arity":0,"const":["UInt64"]}],"name":["instHModUInt64Nat"],"priority":1000,"rank":1,"reason":"not_exported"}}

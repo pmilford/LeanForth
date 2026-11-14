@@ -13,7 +13,8 @@
 \ declarations of the stage have (error 13) refused; every allocation
 \ that fails gives full or ok, never anything else, and leaks no heap
 \ block; the reader and its JSON view give back their blocks after every
-\ read. Loaded under HEX: loading must not depend on BASE, and must leave
+\ read; the default-rank limit; each read and reset a new generation.
+\ Loaded under HEX: loading must not depend on BASE, and must leave
 \ BASE as it found it.
 include ../support/tester.fs
 include ../support/heap-watch.fs
@@ -291,5 +292,15 @@ T{ elims lib digest elab-read counts -> outcome-ok 3 2 18 4 54 3 5 4 3 0 }T
 \ not; the data's slabs and tables keep theirs until the context goes.
 T{ blocks good lib digest elab-read drop blocks = -> true }T
 T{ blocks elims lib zero-sha elab-read drop blocks = -> true }T
+
+\ A default instance's rank is at most 65535 (error 40, invalid; every
+\ refused file is in test_elab_data.py), an earlier failure passed on.
+T{ 65535 outcome-ok ed-rank-most 65536 outcome-ok ed-rank-most elab-error-code
+   99999 outcome-full ed-rank-most
+   -> 65535 outcome-ok 65536 outcome-invalid 40 99999 outcome-full }T
+\ Every read and every reset gives the data a new generation.
+T{ elab-generation elab-reset elab-generation swap -
+   elab-generation good lib digest elab-read drop elab-generation swap - 0>
+   -> 1 true }T
 T{ lib stage-free sealed stage-free -> }T
 bye

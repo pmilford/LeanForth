@@ -1,4 +1,4 @@
-{"elab_data":{"export_sha256":"cce94815643216bbc67bd58e181d51a247b07ffb533b7ed921d6b2435b06306f","format":"leanforth-elab-data","format_version":2,"lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"class":18,"default_instance":8,"eliminator":0,"instance":20,"instance_left_out":476,"matcher":50,"projection":26,"reducibility":146,"sunfold":0,"tag":33},"records_sha256":"6dca86a15816e72896531071a78c43611a4e8417e44e211ecafe0675e575c705"}}
+{"elab_data":{"export_sha256":"cce94815643216bbc67bd58e181d51a247b07ffb533b7ed921d6b2435b06306f","format":"leanforth-elab-data","format_version":2,"lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"class":18,"default_instance":8,"eliminator":0,"instance":20,"instance_left_out":476,"matcher":50,"projection":26,"reducibility":146,"sunfold":0,"tag":33},"records_sha256":"eb89072b1fd5a2f599715df89d66691ecf043b31de0f48ba30b982ed129b88ef"}}
 {"class":{"name":["Add"],"out_level_params":[],"out_params":[]}}
 {"class":{"name":["Decidable"],"out_level_params":[],"out_params":[]}}
 {"class":{"name":["Div"],"out_level_params":[],"out_params":[]}}
@@ -32,7 +32,7 @@
 {"instance":{"class":["LE"],"keys":[{"arity":1,"const":["LE"]},{"arity":0,"const":["Nat"]}],"name":["instLENat"],"priority":1000,"rank":23,"synth_order":[]}}
 {"instance":{"class":["LT"],"keys":[{"arity":1,"const":["LT"]},{"arity":0,"const":["Nat"]}],"name":["instLTNat"],"priority":1000,"rank":23,"synth_order":[]}}
 {"instance":{"class":["Mod"],"keys":[{"arity":1,"const":["Mod"]},{"arity":0,"const":["Nat"]}],"name":["Nat","instMod"],"priority":1000,"rank":7,"synth_order":[]}}
-{"instance":{"class":["Mul"],"keys":[{"arity":1,"const":["Mul"]},{"arity":0,"const":["Nat"]}],"name":["instMulNat"],"priority":1000,"rank":14,"synth_order":[]}}
+{"instance":{"class":["Mul"],"keys":[{"arity":1,"const":["Mul"]},{"arity":0,"const":["Add"]}],"name":["instMulNat"],"priority":1000,"rank":14,"synth_order":[]}}
 {"instance":{"class":["NatPow"],"keys":[{"arity":1,"const":["NatPow"]},{"arity":0,"const":["Nat"]}],"name":["instNatPowNat"],"priority":1000,"rank":1,"synth_order":[]}}
 {"instance":{"class":["OfNat"],"keys":[{"arity":2,"const":["OfNat"]},{"arity":0,"const":["Nat"]},"star"],"name":["instOfNatNat"],"priority":1000,"rank":15,"synth_order":[]}}
 {"instance":{"class":["Pow"],"keys":[{"arity":2,"const":["Pow"]},"star",{"arity":0,"const":["Nat"]}],"name":["instPowNat"],"priority":1000,"rank":1,"synth_order":[1]}}

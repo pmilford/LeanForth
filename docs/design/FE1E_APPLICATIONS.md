@@ -712,10 +712,12 @@ exhausted and full as always.
 Built (branch `s1-synth`, 2026-11-13, `src/front/instances.fs`,
 `lf-inst-classes`): at the first instance problem or default-instance
 query, every instance record's root key must be the constant of its
-recorded class (error 115), step 1 runs over every instance (error 112)
-and step 3 over every default instance (error 116); step 2 runs for a
-root's instances when the root is first queried (error 113). A refusal
-is kept: every later query answers it. Step 4 is plan row FE1e3b, not
+recorded class with the type's number of arguments (error 115), step 1
+runs over every instance (error 112) and step 3 over every default
+instance (error 116); step 2 runs for a root's instances when the root
+is first queried (error 113). A refusal, by any of the four, is kept:
+every later query answers it, whatever its root, until the data is read
+again. Step 4 is plan row FE1e3b, not
 built: until then the out-parameters rest on pinned Lean. S1 note §9
 replaced the rule above for unverified records: one answers unsupported
 only when a search tries it.

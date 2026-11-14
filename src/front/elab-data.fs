@@ -55,8 +55,9 @@
 \
 \ Outcomes (ADR 0008): ok; invalid for anything malformed, unknown,
 \ duplicated, of the wrong kind or differing from the header or from the
-\ export, an unreadable file, a sealed stage, or a call while a read is in
-\ progress; unsupported for another format version or Lean version, a
+\ export, a default instance's rank beyond elab-default-rank-most
+\ (65,535: error 40), an unreadable file, a sealed stage, or a call while
+\ a read is in progress; unsupported for another format version or Lean version, a
 \ number beyond 2^32 - 1 (no Lean library has one; plan row FE3 lifts it
 \ if one appears) and a smart-unfolding record (format 2 has the kind;
 \ plan row FE1d2 reads it); full when the heap has no room or a line
@@ -64,7 +65,7 @@
 \ table is empty afterwards, as after elab-reset.
 \ elab-error ( -- line c-addr u ) gives the line of the failure (1 the
 \ header; after the last line, the number of lines read; 0 before the
-\ file is open) and why: elab-error-line, elab-error-code (stable, 1-39)
+\ file is open) and why: elab-error-line, elab-error-code (stable, 1-40)
 \ and elab-error-why apart. elab-unhashed ( outcome -- outcome ) refuses
 \ for a caller that could not hash the export (error 26).
 \
@@ -87,7 +88,10 @@
 \ ( a -- fields overlaps thunk? ); elab-projection-of ( d -- p true |
 \ false ), elab-projection@ ( p -- ctor params idx ), elab-projection-decl
 \ ( p -- d ), elab-projection-class? ( p -- flag ). elab-loaded? says
-\ whether the last read was ok; elab-read-against? ( stage -- flag )
+\ whether the last read was ok; elab-generation ( -- n ) changes with
+\ every read and every reset, so a user that keeps results about the
+\ data (front/instances.fs) can tell they are of another read;
+\ elab-read-against? ( stage -- flag )
 \ whether it was, against that stage; elab-decl-of ( name -- d true |
 \ false ) a name's declaration in that stage, elab-decl-name ( d -- name )
 \ the name of one. Unchecked: the words that take a
@@ -213,6 +217,7 @@ begin-structure /elab
   field: elab-loaded                 \ true: the last read was ok
   field: elab-foreign                \ true: keys being read may name foreign constants
   field: elab-code                   \ why it failed: an error code, or 0
+  field: elab-gen                    \ resets so far (each read starts with one)
   field: elab-at                     \ the line it failed at
   elab-kinds cells +field elab-counts     \ records read of each kind
   elab-kinds cells +field elab-expected   \ the header's numbers
@@ -261,7 +266,7 @@ end-structure
 30 constant ed-e-term   31 constant ed-e-rank   32 constant ed-e-gap
 33 constant ed-e-default-rank   34 constant ed-e-left-out   35 constant ed-e-matcher
 36 constant ed-e-projection   37 constant ed-e-unfit   38 constant ed-e-later
-39 constant ed-e-bound
+39 constant ed-e-bound   40 constant ed-e-dflt-most
 create ed-messages
   s" none" counted,
   s" file missing or unreadable" counted,
@@ -303,6 +308,7 @@ create ed-messages
   s" numbers that do not fit the declaration's type" counted,
   s" a record kind this reader does not read yet" counted,
   s" other records than the export's manifest names" counted,
+  s" a default instance's rank beyond 65535" counted,
   0 0 counted,
 : ed-message ( code -- c-addr u ) ed-messages swap 0 ?do key-next loop count ;
 : ed-line ( -- n ) elab elab-reader reader-position nip nip ;
@@ -438,7 +444,8 @@ create ed-rank-hooks /htab-hooks allot
   ed-ranks dup htab-live? if htab-clear else drop then ;
 : elab-reset ( -- )
   ed-slabs-clear elab-keys-clear ed-tables-clear false elab elab-loaded !
-  elab elab-counts elab-kinds cells erase ;
+  elab elab-counts elab-kinds cells erase 1 elab elab-gen +! ;
+: elab-generation ( -- n ) elab elab-gen @ ;
 \ A caller that could not compute the export's SHA-256 refuses the data
 \ with error 26 at line 0, its outcome kept; nothing is loaded.
 : elab-unhashed ( outcome -- outcome ) elab-reset ed-e-hash swap ed-fail ;
@@ -764,8 +771,14 @@ create ed-dflt-keys
   ed-dflt swap c" class" ed-member ed-a-class ['] ed-dflt-class ed-put ;
 : ed-dflt-priority! ( value i -- outcome )
   ed-dflt swap c" priority" ed-member ed-u32 ['] ed-dflt-priority ed-put ;
+\ A default instance's rank is at most elab-default-rank-most, so that
+\ FE1e3's answer, a cell per rank, stays small (ELABORATION_DATA.md; no
+\ Lean library has a class with that many default instances).
+65535 constant elab-default-rank-most
+: ed-rank-most ( u outcome -- u outcome )
+  over elab-default-rank-most u> over ok? and if drop ed-e-dflt-most ed-bad then ;
 : ed-dflt-rank! ( value i -- outcome )
-  ed-dflt swap c" rank" ed-member ed-u32 ['] ed-dflt-rank ed-put ;
+  ed-dflt swap c" rank" ed-member ed-u32 ed-rank-most ['] ed-dflt-rank ed-put ;
 \ Default instances are few (34 in Init): each is compared with those before.
 : ed-dflt-key ( i -- class rank ) ed-dflt dup ed-dflt-class @ swap ed-dflt-rank @ ;
 : ed-dflt-same? ( i j -- flag ) ed-dflt-key rot ed-dflt-key d= ;

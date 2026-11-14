@@ -72,7 +72,6 @@ require ./term-eqv.fs
 require ./mvars.fs
 require ./whnf.fs
 require ./infer.fs
-require ./nat-offset.fs
 require ./fun-info.fs
 require ./elab-keys.fs
 require ./elab-data.fs
@@ -114,7 +113,7 @@ end-structure
 : dk-name ( const -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
 : lf-dt-const-decl ( const -- d true | false ) dk-name elab-decl-of ;
 : lf-dt-const? ( head -- const true | false )
-  dup lf-term-tag@ lf-tag-constant = if true else drop false then ;
+  dup lf-term-const? if true else drop false then ;
 : dk-last ( e -- a ) lf-term-second@ ;
 : dk-arg ( e i -- a ) over lf-meta-args# lf-meta-nth-arg ;
 
@@ -173,14 +172,12 @@ end-structure
 : dk-push ( term -- outcome )
   dk dk-list @ lf-dt-cons ok-then? if dk dk-list ! outcome-ok then ;
 : dk-arg@ ( j -- a ) dk-args slab-at @ ;
-: dk-push-all ( -- outcome )
-  dk-args slab-count 0 ?do i dk-arg@ dk-push dup ok? 0= if unloop exit then drop loop
-  outcome-ok ;
+: dk-push-at ( j -- outcome ) dk-arg@ dk-push ;
+: dk-push-all ( -- outcome ) dk-args slab-count ['] dk-push-at ok-each ;
 
 \ ---- ignoreArg (Main.lean:77-92), with getFunInfoNArgs' binder kinds.
-: dk-kinds-copy ( m -- outcome )
-  dk-kinds slab-clear 0 ?do i lf-meta-param drop dk-kinds lf-meta-push
-    dup ok? 0= if unloop exit then drop loop outcome-ok ;
+: dk-kind-copy ( i -- outcome ) lf-meta-param drop dk-kinds slab-push ;
+: dk-kinds-copy ( m -- outcome ) dk-kinds slab-clear ['] dk-kind-copy ok-each ;
 : dk-kinds-make ( head n -- outcome ) lf-meta-fun-info ok-then? if dk-kinds-copy then ;
 : dk-kind ( i -- kind|-1 ) dup dk-kinds slab-count < if dk-kinds slab-at @ else drop -1
   then ;
@@ -205,9 +202,8 @@ end-structure
 : dk-indexed ( j -- term outcome )
   dup dk-arg@ swap dk-param over swap dk-ignore? ok-then? 0= if nip no-result exit then
   if drop lf-dt-star then outcome-ok ;
-: dk-push-indexed ( -- outcome )
-  dk-args slab-count 0 ?do i dk-indexed ok-then? if dk-push then
-    dup ok? 0= if unloop exit then drop loop outcome-ok ;
+: dk-push-arg ( j -- outcome ) dk-indexed ok-then? if dk-push then ;
+: dk-push-indexed ( -- outcome ) dk-args slab-count ['] dk-push-arg ok-each ;
 : dk-push-args ( head -- outcome )
   dk dk-path @ 0= if drop dk-push-all exit then
   dk dk-n @ dk-kinds-make dup ok? if drop dk-push-indexed then ;
@@ -219,11 +215,10 @@ end-structure
   dk-const-head 0= if false outcome-ok exit then
   dk-name lf-defeq-mode lf-menv-unfoldable ok-then? if nip outcome-ok else nip false
   swap then ;
-: dk-unfold-check ( e -- outcome )
-  dk-unfolds? ok-then? if if outcome-unsupported else outcome-ok then then ;
-: dk-lam? ( e -- flag ) lf-term-tag@ lf-tag-lam = ;
+: dk-unfold-check ( e -- outcome )   \ a definition it would unfold: unsupported
+  dk-unfolds? ok-true? if outcome-unsupported else nip then ;
 : dk-eta ( e -- e' flag outcome )
-  dup dk-lam? if lf-meta-eta-expanded else false outcome-ok then ;
+  dup lf-term-lam? if lf-meta-eta-expanded else false outcome-ok then ;
 : dk-reduce-step ( e -- e' again? outcome )
   lf-whnf-core ok-then? 0= if -1 false rot exit then
   dup dk-unfold-check ok-then? if dk-eta else -1 false rot then ;
@@ -251,7 +246,7 @@ end-structure
 : dk-args-key ( k outcome -- k outcome ) dup ok? if drop dk-head dk-push-args then ;
 : dk-fvar ( -- k outcome ) dk-head dk dk-n @ dk-fvar-key dk-args-key ;
 : dk-lit ( leaf -- k outcome )
-  dup lf-term-tag@ lf-tag-str = if drop -1 outcome-unsupported exit then
+  dup lf-tag-str lf-term-tag? if drop -1 outcome-unsupported exit then
   dk-lit-small ok-then? if dk-lit-key else no-result then ;
 \ A projection (Main.lean:290-299): its structure goes on before the
 \ arguments; under mkPath a class's structure is no_index, a star.

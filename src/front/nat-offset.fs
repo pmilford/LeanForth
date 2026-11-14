@@ -15,9 +15,8 @@
 \   Nat Nat Nat (instHAdd.{0} Nat instAddNat) e k); a literal k is
 \   OfNat.ofNat.{0} Nat k (instOfNatNat k) (lf-meta-nat-lit, mkNatLit).
 \ - lf-meta-nat ( -- term outcome ): the constant Nat.
-\ - lf-meta-app-of? ( t n c-addr u -- flag ): t has n arguments and the
-\   constant of the dotted name at its head (Lean's match_expr shapes);
-\   lf-meta-nth-arg ( t i n -- a ): argument i, the first 0, of such a t.
+\ The shapes it matches use term-eqv.fs's lf-meta-app-of? and
+\ lf-meta-nth-arg.
 \ Values are unsigned cells (below 2^64 on a 64-bit host), added and
 \ compared unsigned. Never a guess: unsupported for a literal, a sum or
 \ an offset beyond a cell, an operation Lean's evalNat also evaluates that is not
@@ -108,13 +107,7 @@ end-structure
   swap no-hadd-inst ok-then? 0= if nip nip no-result exit then
   swap outcome-ok no-app ok-then? 0= if nip no-result exit then swap outcome-ok no-app ;
 
-\ ---- Shapes: n arguments and a constant of the name at the head
-\ (Lean's match_expr).
-: lf-meta-app-of? ( t n c-addr u -- flag )
-  2>r over lf-meta-args# = if lf-meta-head 2r> lf-meta-const-named?
-  else drop 2r> 2drop false then ;
-\ Argument i, the first 0, of t with n arguments.
-: lf-meta-nth-arg ( t i n -- a ) swap - 1- 0 ?do lf-term-first@ loop lf-term-second@ ;
+\ ---- Shapes (Lean's match_expr), by term-eqv.fs's lf-meta-app-of?.
 : no-inst-addnat? ( t -- flag ) 0 s" instAddNat" lf-meta-app-of? ;
 : no-inst-hadd? ( t -- flag )
   dup 2 s" instHAdd" lf-meta-app-of?

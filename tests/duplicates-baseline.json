@@ -1734,6 +1734,14 @@
   ],
   "tokens": 10
  },
+ "f4a29a77cc49": {
+  "copies": 2,
+  "members": [
+   "src/front/instances.fs:it-pass-run",
+   "src/front/tactic-basic.fs:lfb-sorted."
+  ],
+  "tokens": 10
+ },
  "f54006ecbaef": {
   "copies": 2,
   "members": [

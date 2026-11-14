@@ -4,14 +4,17 @@
 \ 476 left out, 18 classes, 8 default instances): every instance's class
 \ and keys recomputed equal to the data's (§4); the first-use pass;
 \ each heap request and each budget refused in turn, the same query then
-\ answering in full (no part of a tree or check kept); isClass? at every
+\ answering in full (no part of a tree or check kept, each instance
+\ counted once); isClass? at every
 \ head; getUnify and getInstances on S1's problems, in pinned Lean's
 \ order (its lists in tests/front/synth-tried.lean's trace, here by name
 \ and rank); the outcomes: unsupported (a pi goal, a definition at a key,
 \ a star root, a local instance, a string literal), invalid (no class, a
-\ dead context view), stuck (a reducible head or a recursor with a
+\ dead context view with no stale error code, a root arity other than
+\ the type's, values short of their ranks), stuck (a reducible head or a recursor with a
 \ metavariable under isDefEqStuckEx), exhausted (the budget) and full;
-\ the keys of numerals, offsets, projections and an implicit literal;
+\ the keys of numerals, offsets, projections and an implicit or
+\ strict-implicit literal; a root only left-out values have;
 \ default instances by rank with their gaps; and that no check leaves a
 \ depth or a mark open. Every T{ }T checks the data stack's depth.
 include ../support/tester.fs
@@ -75,9 +78,18 @@ lf-defeq-elab lf-defeq-stuck or lf-defeq-flags!
   heap-refusals @ 0= 0 heap-refusals ! ;
 : requery-ok? ( -- flag ) full-goal lf-inst-candidates ok? swap 23 = and nip ;
 : full-or-ok? ( outcome -- flag ) dup ok? swap outcome-full = or ;
+\ A failed build keeps no node and no value cell: no root's tree is
+\ built, or the slabs hold one (each run starts with them empty).
+: unbuilt? ( r -- flag ) it-root@ tr-node @ 0< ;
+: no-cells? ( -- flag ) it-nodes slab-count it-vals slab-count or 0= ;
+: nothing-kept? ( -- flag ) it-roots slab-count ['] unbuilt? all? 0= no-cells? or ;
+\ Answered, nothing of a failure kept; then in full, instOfNatNat (OfNat's
+\ one instance) the one check counted.
+: one-checked? ( -- flag ) lf-inst-checked# 1 = ;
+: refusal-ok? ( k -- flag fired? )
+  refused swap full-or-ok? nothing-kept? and requery-ok? and one-checked? and swap ;
 : refusals-ok? ( -- flag )   \ k = 1, 2, ... until a run meets no refusal
-  true 500 1 do i refused swap full-or-ok? requery-ok? and rot and swap 0= if leave then
-  loop ;
+  true 500 1 do i refusal-ok? -rot and swap 0= if leave then loop ;
 T{ refusals-ok? 500 refused nip -> true false }T
 : budget-run ( k -- outcome )
   nat add swap lf-inst-reset lf-meta-budget! lf-inst-candidates nip nip
@@ -85,8 +97,10 @@ T{ refusals-ok? 500 refused nip -> true false }T
 : add-nat-ok? ( -- flag )
   nat add lf-inst-candidates ok? swap 3 = and nip
   s" instAddNat" inst-named lf-inst-verified? and ;
+\ instAddNat, Add's one instance, the one check counted: none that ran
+\ out of budget counts.
 : budget-ok? ( k -- flag )
-  budget-run dup ok? swap outcome-exhausted = or add-nat-ok? and ;
+  budget-run dup ok? swap outcome-exhausted = or add-nat-ok? and one-checked? and ;
 : budgets-ok? ( -- flag ) true 60 0 do i budget-ok? and loop ;
 T{ budgets-ok? 0 budget-run 60 budget-run -> true outcome-exhausted outcome-ok }T
 lf-meta-default lf-defeq-flags!
@@ -133,6 +147,10 @@ T{ fx nat app lf-class? nat zero 0 bv nondep-let lf-class? ghost lf-class?
 \ stage lacks, refuses (error 116).
 T{ id-nat 0 it-class-verdict nat 0 it-class-verdict lf-inst-error
    -> outcome-unsupported outcome-invalid 112 }T
+\ A root key of another arity than the body's: filed under another root
+\ (Add Nat Nat for instAddNat, whose root key is Add of one argument).
+T{ nat add0 nat app s" instAddNat" inst-named it-class-verdict lf-inst-error
+   -> outcome-invalid 115 }T
 T{ fx 0 it-default-verdict ghost 0 it-default-verdict lf-inst-error
    -> outcome-invalid outcome-invalid 116 }T
 \ forallMetaTelescopeReducing enters a pi that whnf makes (a let's body:
@@ -162,6 +180,12 @@ T{ s" instAddNat" inst-named lf-inst-verified? s" instMulNat" inst-named lf-inst
 \ has answers no values at once.
 T{ ?n lf-inst-unify nip nip nat lf-inst-unify rot drop
    -> outcome-unsupported 0 outcome-ok }T
+\ A root only left-out values have is a root: Nonempty Nat finds the two
+\ whose key below the root is a star (instNonemptyOfInhabited, rank 0,
+\ and instNonemptyOfMonad, rank 1).
+: nonempty-nat ( -- t ) lv1 1 s" Nonempty" cn nat app ;
+T{ nonempty-nat lf-inst-unify rot dup @ invert elab-left-out@ drop nip
+   swap cell+ @ invert elab-left-out@ drop nip -> 2 outcome-ok 0 1 }T
 \ A local instance of the class in the context is unsupported (FE1E
 \ §2.7); a context view that is not live is invalid, never read as none.
 : add-local ( -- view )
@@ -219,6 +243,14 @@ T{ nat add cands drop dup @ invert elab-left-out@ drop nip swap cell+ @ invert e
 \ class is error 110; a sort's key is other.
 T{ nat nat add0 tpi lf-inst-candidates nip nip -> outcome-unsupported }T
 T{ nat lf-inst-candidates nip nip lf-inst-error -> outcome-invalid 110 }T
+\ Each query starts with no code: an invalid from below the table (a
+\ context view that is not live) leaves 0, not the last query's 110.
+T{ lf-mctx-view 999999 lf-mctx-view! nat add lf-inst-candidates nip nip swap lf-mctx-view!
+   lf-inst-error -> outcome-invalid 0 }T
+\ A root's values fill its ranks, else invalid (a gap the reader
+\ refuses; it would read as left-out 0): checked on the last root built.
+T{ it-ranked slab-count dup 1- outcome-ok it-gapless swap outcome-ok it-gapless
+   5 outcome-full it-gapless -> outcome-invalid outcome-ok outcome-full }T
 : first-tag ( k n outcome -- tag outcome ) nip swap elab-key-tag swap ;
 T{ l0 sort lf-dt-path first-tag -> elab-key-other outcome-ok }T
 \ Exhausted: the budget spent before the first key.
@@ -266,6 +298,13 @@ T{ succ fx app lf-dt-nat-lit -> 0 false outcome-ok }T
   elab-key-tag ;
 T{ lv1 1 s" Eq" cn 5 num app 0 num app 0 num app keys-of tags4
    -> elab-key-const elab-key-star elab-key-lit elab-key-lit }T
+\ ignoreArg: a literal and a term that is no type are ignored under a
+\ strict-implicit binder too (no constant of the slice has one: the
+\ binder kind given directly); under an explicit one kept, being no
+\ proof.
+T{ 5 num lf-binder-strict dk-ignore? fx lf-binder-strict dk-ignore?
+   5 num lf-binder-default dk-ignore?
+   -> true outcome-ok true outcome-ok false outcome-ok }T
 \ getUnifyKeyArgs: a numeral below the root is a literal key; at the
 \ root, its constant.
 : key-tag ( t root? -- tag ) lf-dt-nil lf-dt-key drop drop elab-key-tag ;

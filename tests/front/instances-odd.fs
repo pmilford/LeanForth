@@ -8,7 +8,10 @@
 \ Add Nat has two, the other left-out one (rank 1) first. instSubNat's
 \ keys are wider than its type's: unverified (error 114), kept as such
 \ and still a candidate (a search that tries it answers unsupported, S1
-\ §9). Every T{ }T checks the data stack's depth.
+\ §9). Its one difference, instMulNat's Nat key recorded as Add, refuses
+\ the data at the first query of Mul's root (error 113), and every
+\ later query by each word, until a new read (here a reset of the data).
+\ Every T{ }T checks the data stack's depth.
 include ../support/tester.fs
 \ Every module first: a context member declared after menv-load would
 \ move the context under the loaded slice.
@@ -34,4 +37,14 @@ T{ nat s" Add" c1 lf-inst-candidates 2drop cell+ @ s" instAddNat" named? -> true
 T{ sub-shape -> true true outcome-ok }T
 T{ s" instSubNat" inst-named lf-inst-verified? lf-inst-unverified# lf-inst-error -> false 1 114 }T
 T{ nat s" Sub" c1 lf-inst-candidates nip nip lf-inst-unverified# -> outcome-ok 1 }T
+\ A key difference refuses the data, for every later query.
+: class-d ( c-addr u -- d ) menv-name elab-decl-of drop ;
+T{ nat s" Mul" c1 lf-inst-candidates nip nip lf-inst-error -> outcome-invalid 113 }T
+T{ nat s" Add" c1 lf-inst-candidates nip nip lf-inst-error -> outcome-invalid 113 }T
+T{ nat s" Sub" c1 lf-inst-unify nip nip lf-inst-error -> outcome-invalid 113 }T
+T{ s" HAdd" class-d lf-default-instances nip nip lf-inst-error -> outcome-invalid 113 }T
+T{ lf-inst-classes lf-inst-checked# lf-inst-unverified# -> outcome-invalid 2 1 }T
+\ A new read, or a reset of the data, forgets the refusal, the trees and
+\ the counts (elab-generation).
+T{ elab-reset lf-inst-classes lf-inst-checked# lf-inst-unverified# -> outcome-ok 0 0 }T
 bye

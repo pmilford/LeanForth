@@ -290,7 +290,8 @@ ERRORS = ["file missing or unreadable", "no line, or a line without its line fee
           "a left-out instance the library has", "a matcher named twice",
           "a projection named twice", "numbers that do not fit the declaration's type",
           "a record kind this reader does not read yet",
-          "other records than the export's manifest names"]
+          "other records than the export's manifest names",
+          "a default instance's rank beyond 65535"]
 
 
 def refusal(line, reason):
@@ -309,6 +310,7 @@ def errors_documented():
 
 INST_NAT = '"name":["instAddNat"]'
 DFLT_OFNAT = '{"default_instance":{"class":["OfNat"]'
+DFLT_RANK0 = '"name":["instOfNatNat"],"priority":100,"rank":0}'
 MATCH = '"discr_names":[null,null],"name":["Nat","add","match_1"]'
 PROJ = '"idx":0,"name":["Add","add"]'
 LEFT0 = '"name":["Lean","Grind","AddCommMonoid","toAdd"]'
@@ -493,6 +495,10 @@ def format2_cases():
         # 33: default ranks.
         ("two default instances with one rank", assemble(GOOD_RECORDS + [dflt]), 4, n + 2,
          "two default instances"),
+        # 40: a default rank beyond 65535 (FE1e3 answers a cell per rank).
+        case("default rank beyond the limit",
+             c(DFLT_RANK0, DFLT_RANK0.replace('"rank":0', '"rank":65536')), 4,
+             "a default instance's rank beyond 65535"),
         # 34: a left-out instance the library has (an erased one may be).
         case("left out but in the library", c(LEFT0, INST_NAT), 4, "a left-out instance"),
         # 37: numbers that do not fit the type.
@@ -669,6 +675,8 @@ def command_line(work):
         "a left-out projection of a structure the slice lacks": swap(BITVEC_CONST, BITVEC_PROJ),
         "a projection of a structure of the slice": swap(
             BITVEC_CONST, BITVEC_PROJ.replace('"proj":["BitVec"]', '"proj":["Nat"]')),
+        "a default rank at the limit": swap(DFLT_RANK0,
+                                            DFLT_RANK0.replace('"rank":0', '"rank":65535')),
         "a string literal key": swap('"star",{"lit":"0"}],"name":["Zero","toOfNat0"]',
                                      '"star",{"lit_str":"0"}],"name":["Zero","toOfNat0"]'),
     }

@@ -131,7 +131,7 @@
           "name": {"$ref": "#/$defs/name"},
           "class": {"$ref": "#/$defs/name"},
           "priority": {"$ref": "#/$defs/u32"},
-          "rank": {"$ref": "#/$defs/u32"}
+          "rank": {"type": "integer", "minimum": 0, "maximum": 65535}
         }
       }}
     },

@@ -81,11 +81,9 @@ end-structure
 : fi-inert? ( t -- flag )
   dup lf-term-tag@ lf-tag-fvar = if lf-fvar-let? 0= exit then
   dup lf-mvar? if lf-meta-unassigned? else drop false then ;
-: fi-succ-app? ( e -- flag )
-  dup lf-term-app? if lf-term-first@ s" Nat.succ" lf-meta-const-named?
-  else drop false then ;
 : lf-meta-whnf-final? ( e -- flag )
-  dup fi-succ-app? if lf-term-second@ fi-inert? else lf-meta-head fi-head-final? then ;
+  dup 1 s" Nat.succ" lf-meta-app-of? if lf-term-second@ fi-inert? exit then
+  lf-meta-head fi-head-final? ;
 
 \ ---- isProp.
 : fi-zero-sort? ( sort -- flag outcome )
