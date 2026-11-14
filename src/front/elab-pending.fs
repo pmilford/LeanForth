@@ -59,7 +59,9 @@
 \ - The trace (FE1E 1.6, for tests): lf-elab-trace! ( flag -- ),
 \   lf-elab-trace ( -- c-addr u ), one event a line; lf-elab-note
 \   ( c-addr u -- ), lf-elab-term. ( term -- ) and lf-elab-n. ( n -- )
-\   write while it is on (lf-elab-nl ends a line).
+\   write while it is on (lf-elab-nl ends a line). Lazy delta's unfolding
+\   (defeq-delta.fs's hook lf-delta-unfolded, set here) is a line
+\   "unfold HEAD", Lean's trace.Meta.isDefEq.delta.
 \ - Shared words of the elaborator: lf-elab-defeq, lf-elab-guarded ( t s
 \   -- flag outcome ): isDefEq, isDefEqGuarded, made sane (the stuck
 \   signal never leaves the Meta layer); lf-elab-spend ( -- outcome ): one
@@ -103,6 +105,7 @@ require ./instantiate.fs
 require ./whnf.fs
 require ./infer.fs
 require ./defeq.fs
+require ./defeq-delta.fs
 require ./instances.fs
 require ./synth.fs
 require ../lib/decimal.fs
@@ -184,6 +187,10 @@ end-structure
 : lf-elab-term. ( term -- )
   ep-tracing? if ['] ep-chars false lf-print-to drop else drop then ;
 : ep-mvar. ( mvar -- ) s" ?" lf-elab-note lf-term-first@ lf-elab-n. ;
+: ep-unfold. ( e -- )
+  ep-tracing? if s" unfold " lf-elab-note lf-meta-head lf-elab-term. lf-elab-nl
+  else drop then ;
+' ep-unfold. is lf-delta-unfolded
 
 \ ---- The instance tables (front/instances.fs): isClass? and
 \ getDefaultInstances, deferred so that a test can stand in for them.

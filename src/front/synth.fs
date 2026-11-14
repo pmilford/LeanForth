@@ -55,7 +55,9 @@
 \   (mctx-epoch@). Lean's __wild__ wildcards are the loose bound
 \   variable sy-tc-base - 1 and the level parameter named __wild__.
 \ - lf-try-synth ( type -- inst code outcome ): trySynthInstance (1018):
-\   lf-synth-some, lf-synth-none, or lf-synth-undef for the stuck signal.
+\   lf-synth-some, lf-synth-none, or lf-synth-undef for the stuck signal;
+\   it searches through defeq.fs's hook lf-meta-synth (this file's
+\   lf-synth-instance), so a test can stand in for the search.
 \ - lf-synth-pending ( mvar -- flag outcome ): synthPendingImp (1037):
 \   false for a synthetic opaque metavariable, one whose type is no class
 \   and past maxSynthPendingDepth (lf-synth-max-pending) nested calls;
@@ -685,8 +687,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
 
 \ ---- trySynthInstance and synthPendingImp.
 : lf-try-synth ( type -- inst code outcome )
-  lf-synth-instance dup lf-meta-stuck = if drop 2drop -1 lf-synth-undef outcome-ok exit
-  then
+  lf-meta-synth dup lf-meta-stuck = if drop 2drop -1 lf-synth-undef outcome-ok exit then
   dup ok? 0= if nip lf-synth-none swap exit then drop
   if lf-synth-some else lf-synth-none then outcome-ok ;
 : sy-opaque? ( mvar -- flag outcome )

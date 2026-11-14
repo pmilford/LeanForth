@@ -27,6 +27,12 @@
 \   constant of the dotted name at its head (Lean's match_expr shapes);
 \   lf-meta-nth-arg ( t i n -- a ): argument i, the first 0, of such a t;
 \   lf-meta-succ? ( t -- flag ): t is Nat.succ x.
+\ - Type annotations (Expr.lean:1716-1745): lf-meta-opt-auto? ( t -- flag )
+\   t is optParam a b or autoParam a b (isOptParam, isAutoParam);
+\   lf-meta-out-param? ( t -- flag ) t is outParam a or semiOutParam a;
+\   lf-meta-consume-annotations ( t -- t' ) consumeTypeAnnotations: from
+\   optParam a b and autoParam a b a, from outParam a and semiOutParam a
+\   a, again while one is at the top (nested ones stay).
 \ The pairs still to compare wait on a heap stack (plan task 6.2.0).
 \ Outcomes: ok; full when the heap has no room; invalid for a term that
 \ is not live. Untrusted front-end code.
@@ -121,6 +127,14 @@ require ./meta-spine.fs
 \ Nat.succ x (Lean's match_expr Nat.succ _): toNatLit?, isOffset,
 \ evalNat and getFunInfo's shapes.
 : lf-meta-succ? ( t -- flag ) 1 s" Nat.succ" lf-meta-app-of? ;
+: lf-meta-opt-auto? ( t -- flag )
+  dup 2 s" optParam" lf-meta-app-of? swap 2 s" autoParam" lf-meta-app-of? or ;
+: lf-meta-out-param? ( t -- flag )
+  dup 1 s" outParam" lf-meta-app-of? swap 1 s" semiOutParam" lf-meta-app-of? or ;
+: eq-unwrapped ( t -- t' more? )
+  dup lf-meta-opt-auto? if lf-term-first@ lf-term-second@ true exit then
+  dup lf-meta-out-param? if lf-term-second@ true else false then ;
+: lf-meta-consume-annotations ( t -- t' ) begin eq-unwrapped 0= until ;
 
 
 \ etaExpanded?: the lambdas taken off, then the body's arguments, from the

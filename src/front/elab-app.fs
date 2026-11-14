@@ -213,10 +213,15 @@ create ea-elim-tags   \ shouldElabAsElim's tags: elab_as_elim, casesOn, recOn, b
   ea-arg. ea ea-f @ over lf-term-app 0= if drop outcome-full exit then ea ea-f !
   ea-args slab-push dup ok? if ea ea-ftype @ lf-term-second@ ea ea-ftype ! then ;
 
-\ ---- fTypeIsForall: a pi, its domain instantiated; else whnfForall of
-\ the type instantiated (getFType), kept.
+\ ---- fTypeIsForall: a pi, its domain instantiated, with its outParam,
+\ semiOutParam, optParam and autoParam annotations consumed (Lean's
+\ getArgExpectedType, App.lean:273: the metavariables and the argument's
+\ expected type have the plain type); else whnfForall of the type
+\ instantiated (getFType), kept. getParamType's raw domain is the pi's.
 : ea-domain ( -- outcome )
-  ea ea-ftype @ lf-term-first@ ea-inst-args ok-then? if ea ea-dom ! outcome-ok then ;
+  ea ea-ftype @ lf-term-first@ ea-inst-args ok-then?
+  if lf-meta-consume-annotations ea ea-dom ! outcome-ok then ;
+: ea-param-type ( -- t ) ea ea-ftype @ lf-term-first@ ;
 : ea-whnf ( -- outcome )
   ea ea-ftype @ ea-inst-args ok-then? 0= if exit then
   lf-meta-whnf-forall lf-elab-meta ok-then? if ea ea-ftype ! outcome-ok then ;
@@ -309,12 +314,10 @@ create ea-elim-tags   \ shouldElabAsElim's tags: elab_as_elim, casesOn, recOn, b
 
 \ ---- optParam, autoParam (Lean's getOptParamDefault?, getAutoParamTactic?,
 \ hasOptAutoParams).
-: ea-opt-auto? ( t -- flag )
-  dup 2 s" optParam" lf-meta-app-of? swap 2 s" autoParam" lf-meta-app-of? or ;
 \ One step: a pi's domain an optParam or autoParam (found), else its
 \ body (more); no pi: whnf where nothing is loose (more when a pi comes).
 : ea-opt-pi ( pi -- t' found? more? outcome )
-  dup lf-term-first@ ea-opt-auto? if true false outcome-ok exit then
+  dup lf-term-first@ lf-meta-opt-auto? if true false outcome-ok exit then
   lf-term-second@ false true outcome-ok ;
 : ea-opt-whnf ( t -- t' found? more? outcome )
   lf-meta-whnf-forall lf-elab-meta ok-then? 0= if -1 false false rot exit then
@@ -345,7 +348,7 @@ create ea-elim-tags   \ shouldElabAsElim's tags: elab_as_elim, casesOn, recOn, b
   dup lf-binder-strict = ea ea-rn @ 0= and if 2drop ea-r-some exit then
   lf-binder-default <> if ea-r-go exit then
   ea ea-rn @ if -1 ea ea-rn +! ea-r-go exit then
-  dup lf-term-first@ ea-opt-auto? if ea-r-go else ea-r-last then ;
+  dup lf-term-first@ lf-meta-opt-auto? if ea-r-go else ea-r-last then ;
 : ea-r-reduced ( -- t' outcome )
   ea ea-rt @ dup lf-term-pi? if outcome-ok exit then
   dup ea-closed? ok-then? 0= if nip no-result exit then
@@ -402,7 +405,7 @@ defer ea-main ( frames -- ... frames next )
 : ea-added ( e outcome frames -- ... frames next )
   >r ok-then? if ea ea-dom @ lf-elab-ensure ok-then? if ea-add then then r> ea-step-done ;
 : ea-no-arg ( frames -- ... frames next )
-  ea ea-dom @ ea-opt-auto? if lfa-e-elab-opt-param swap ea-error exit then
+  ea-param-type lf-meta-opt-auto? if lfa-e-elab-opt-param swap ea-error exit then
   >r ea ea-ftype @ ea-inst-args ok-then? if ea-opt-walk else false swap then
   ok-then? 0= if r> ea-fail exit then
   if lfa-e-elab-opt-param r> ea-error else r> ea-finalize then ;

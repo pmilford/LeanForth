@@ -526,8 +526,9 @@ is et-rel
 : lf-elab-type ( node -- type outcome )
   dup et-at! et-sort-mvar ok-then? 0= if nip no-result exit then
   lf-elab-term ok-then? if et-ensure-type else no-result then ;
+\ The ensureHasType at the term's own syntax (Lean's withRef stx).
 : lf-elab-ensuring ( node expected -- term outcome )
-  tuck lf-elab-term ok-then? if swap lf-elab-ensure else nip no-result then ;
+  over et-at! tuck lf-elab-term ok-then? if swap lf-elab-ensure else nip no-result then ;
 : lf-elab-term-reset ( -- ) et-tree slab-clear et-ops slab-clear ;
 
 base !   \ the BASE this file was loaded with

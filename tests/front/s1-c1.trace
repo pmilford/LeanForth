@@ -17,4 +17,27 @@ leaf n
 synth @OfNat ?m.1 0: stuck
 resume ?1: not ready
 analyze max Nat
-error 139
+unfold outParam
+unfold outParam
+app HAdd.hAdd
+ implicit ?21
+ arg 0: ?m.22
+ implicit ?22
+ arg 1: ?m.23
+ implicit ?23
+ arg 2: ?m.24
+ instance ?24
+ arg 3: ?m.25
+ arg 4: @OfNat.ofNat ?m.1 0 ?m.2
+ arg 5: n
+ finalize
+unfold outParam
+synth @HAdd Nat Nat ?m.24: found
+app Eq
+ implicit ?29
+ arg 0: ?m.30
+ arg 1: @HAdd.hAdd ?m.22 ?m.23 ?m.24 ?m.25 (@OfNat.ofNat ?m.1 0 ?m.2) n
+ arg 2: n
+ finalize
+synth @OfNat Nat 0: found
+resume ?1: succeeded

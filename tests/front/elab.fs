@@ -1,26 +1,31 @@
 \ The elaborator (plan S1, FE1e6-7; src/front/elab-pending.fs,
 \ elab-app.fs, elab-term.fs, elab-decl.fs) over the S1 slice and its
-\ elaboration data (tests/front/s1-slice.ndjson), by the classes of
-\ docs/development/TEST_COVERAGE_REVIEW.md. Instance search (plan FE1e5,
-\ synth.fs) and the instance tables' default instances (s1-synth's
-\ instances.fs) are not on this branch: stand-ins answer the S1 problems
-\ as pinned Lean does (tests/front/synth-tried.lean on s1-synth: OfNat ?T
-\ 0 stuck, OfNat Nat n instOfNatNat n, anything else none) and read the
-\ default instances from the data; tests/front/check_elab.py runs the same
-\ cases through bin/leanforth against pinned Lean where no stand-in is
-\ needed. SWITCH (when synth.fs and instances.fs land): drop the stand-ins
-\ below and set the hooks to the real words; the expected terms stay.
-\ 1. Every outcome: terms (numerals through default instances, a term
-\    proof, applications with implicit arguments, binrel% with and with
-\    no max type), Lean's errors 125, 126, 127, 131 (and 130's twin),
-\    unsupported 132, 135, 136, 137, 139 (the C16 path, until lazy
-\    delta: S2 merge A), exhausted 138 at a declaration and at a
-\    tactic step (91);
-\ 2. malformed: a variable slot no binder has; an unknown constant;
+\ elaboration data (tests/front/s1-slice.ndjson, format 3), in the
+\ command line's run mode, with Lean's instance search (synth.fs) and the
+\ data's default instances, by the classes of
+\ docs/development/TEST_COVERAGE_REVIEW.md. Stand-ins replace the search
+\ (defeq.fs's hook lf-meta-synth) or the default instances
+\ (lf-elab-default-instances) only where a test says so, and are put
+\ back after it. tests/front/check_elab.py runs the S1 files through
+\ bin/leanforth against pinned Lean.
+\ 1. Every outcome: terms (numerals through default instances, 0 + 0 = 0
+\    and 2 + 2 = 4, term and tactic proofs, applications with implicit
+\    arguments, binrel% with and with no max type), Lean's errors 125,
+\    126, 127, 131 (twice: analyze and ensureHasType), 140 (#check inside
+\    a declaration or a tactic block), the search's own refusal 119 (a
+\    tried instance the slice leaves out), unsupported 132, 135, 136,
+\    137, 139 (a level metavariable left in a statement), exhausted 138
+\    at a declaration and at a tactic step;
+\ 2. malformed: a variable slot no binder has;
 \ 3. stack effects (every T{ }T checks the depth);
 \ 4. whole runs: declarations in a row, a failure, then a fresh one;
-\ 5. resources: the budget per declaration;
-\ 6. state: after a failure the next declaration is as in a fresh run.
+\ 5. resources: the budget per declaration, and the elaborator's own
+\    visits spending it;
+\ 6. state: after a failure the next declaration is as in a fresh run;
+\    the default instances' rollback; the pending list's window around
+\    lf-elab-synth{ }lf-elab-synth; a Lean error caught by commitWhen;
+\ 7. regression pins: the golden traces of C17 and C1 (with lazy delta's
+\    unfolding of outParam, as pinned Lean's isDefEq.delta trace).
 include ../support/heap-watch.fs
 require ../support/tester.fs
 require ../../src/main.fs
@@ -47,48 +52,38 @@ create us 4 2* cells allot
 : eq-nat ( a b -- t ) >r >r level1 0 u! s" Eq" 1 cst nat app r> app r> app ;
 : refl-nat ( a -- t ) >r level1 0 u! s" Eq.refl" 1 cst nat app r> app ;
 : zero ( -- t ) s" Nat.zero" 0 cst ;
+: nat3 ( c-addr u -- t ) 3 >r 0 0 u! 0 1 u! 0 2 u! r> cst nat app nat app nat app ;
+: hadd ( a b -- t )   \ @HAdd.hAdd.{0,0,0} Nat Nat Nat (@instHAdd.{0} Nat instAddNat) a b
+  >r >r s" HAdd.hAdd" nat3 0 0 u! s" instHAdd" 1 cst nat app s" instAddNat" 0 cst app app
+  r> app r> app ;
 : same? ( a b -- flag ) lf-meta-eqv drop ;
 
-\ ---- Stand-ins for synth.fs and instances.fs (see the header).
-create spine 8 cells allot
-: head-args ( t -- head n )   \ the spine's arguments into spine, last first
-  0 begin over lf-term-app? while
-    over lf-term-second@ over cells spine + ! 1+ swap lf-term-first@ swap repeat ;
-: arg@ ( n i -- t ) - 1- cells spine + @ ;   \ argument i of n (from 0)
-: cname ( c -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
-: named? ( t c-addr u -- flag )
-  rot dup lf-term-const? if cname -rot lfa-intern = else drop 2drop false then ;
-: of-nat-answer ( n -- inst flag outcome )
-  dup 0 arg@ lf-instantiate-mvars drop dup lf-mvar? if 2drop -1 false lf-meta-stuck exit then
-  nat lf-meta-eqv drop 0= if drop -1 false outcome-ok exit then
-  1 arg@ s" instOfNatNat" 0 cst swap app true outcome-ok ;
-\ HAdd a b c: stuck while a or b is a metavariable; for Nat Nat the
-\ instance, the out-parameter c made Nat by isDefEq (assignOutParams).
-: nat? ( t -- flag ) lf-instantiate-mvars drop nat lf-meta-eqv drop ;
-: mvar-arg? ( n i -- flag ) arg@ lf-instantiate-mvars drop lf-mvar? ;
-: inst-hadd ( -- t ) 0 0 u! s" instHAdd" 1 cst nat app s" instAddNat" 0 cst app ;
-: out-nat ( n -- inst flag outcome )
-  2 arg@ nat lf-elab-defeq dup ok? 0= if nip -1 false rot exit then
-  drop if inst-hadd true else -1 false then outcome-ok ;
-: hadd-answer ( n -- inst flag outcome )
-  dup 0 mvar-arg? over 1 mvar-arg? or if drop -1 false lf-meta-stuck exit then
-  dup 0 arg@ nat? over 1 arg@ nat? and 0= if drop -1 false outcome-ok exit then out-nat ;
-: stand-synth ( type -- inst flag outcome )
-  head-args swap dup s" OfNat" named? if drop of-nat-answer exit then
-  s" HAdd" named? if hadd-answer else drop -1 false outcome-ok then ;
-' stand-synth is lf-meta-synth
-: stand-class? ( type -- class true outcome | false outcome )
-  head-args drop dup lf-term-const? 0= if drop false outcome-ok exit then
-  lf-meta-const-decl 0= if false outcome-ok exit then
-  dup elab-class-of if drop true outcome-ok else drop false outcome-ok then ;
-' stand-class? is lf-elab-class?
-create defs 16 cells allot  variable defs#
-: def+ ( class j -- class ) 2dup elab-default@ 2drop = if defs#  @ cells defs + ! 1 defs# +!
-  else drop then ;
-: stand-defaults ( class -- addr n outcome )
-  0 defs# ! elab-default elab-count 0 ?do i def+ loop drop defs defs# @ outcome-ok ;
-' stand-defaults is lf-elab-default-instances
-: no-defaults ( class -- addr n outcome ) drop defs 0 outcome-ok ;
+\ ---- Stand-ins (each test that sets one puts the real word back).
+: real-synth ( -- ) ['] lf-synth-instance is lf-meta-synth ;
+: real-defaults ( -- ) ['] lf-default-instances is lf-elab-default-instances ;
+: no-defaults ( class -- addr n outcome ) drop 0 0 outcome-ok ;
+: head-named? ( t c-addr u -- flag ) rot lf-meta-head -rot lf-meta-const-named? ;
+\ No instance of Add (Lean's failed to synthesize, inside commitWhen);
+\ any other problem to the search.
+: add-none ( type -- inst flag outcome )
+  dup s" Add" head-named? if drop -1 false outcome-ok else lf-synth-instance then ;
+\ A search that fails with no Lean error for Add (as a corrupt state
+\ would): invalid, recorded as 76, never caught.
+: add-broken ( type -- inst flag outcome )
+  dup s" Add" head-named? if drop -1 false outcome-invalid else lf-synth-instance then ;
+\ No instance of OfNat at all: failed to synthesize.
+: no-of-nat ( type -- inst flag outcome )
+  dup s" OfNat" head-named? if drop -1 false outcome-ok else lf-synth-instance then ;
+\ OfNat's default instances: first HAdd's instHAdd, which fails to unify
+\ and is rolled back, then instOfNatNat.
+: dflt-named ( c-addr u -- v )
+  lfa-intern lf-menv-data-decl 0= abort" decl"
+  elab-default elab-count 0 ?do i elab-default@ drop nip over = if drop i unloop exit then
+  loop true abort" no default" ;
+create two-defaults 2 cells allot
+: wrong-first ( class -- addr n outcome )
+  drop s" instHAdd" dflt-named two-defaults ! s" instOfNatNat" dflt-named two-defaults cell+ !
+  two-defaults 2 outcome-ok ;
 
 \ ---- Running texts.
 : nrun ( c-addr u -- outcome ) lf-author-begin lf-author-text ;
@@ -99,16 +94,34 @@ create defs 16 cells allot  variable defs#
 : ty ( -- t ) decl0 lf-fdecl-type @ ;
 : va ( -- t ) decl0 lf-fdecl-value @ ;
 
+\ ---- 7. Golden traces (FE1E 1.6) of C17, 0 + 0 = 0, and C1, 0 + n = n,
+\ first, as in a fresh run (the metavariables' numbers are a fresh run's):
+\ pinned Lean's order of events (tests/front/s1-c17.lean's trace: the
+\ three numerals' instance problems stuck and resumed in each tree's
+\ round, elabAppArgs of HAdd.hAdd with ?α ?β ?γ ?self and the two
+\ operands, finalize's HAdd problem stuck, then the default instances:
+\ instHAdd rolled back while ?α is open, instOfNatNat, instHAdd again;
+\ C1: analyze's max type Nat, hasHomogeneousInstance's mkAppM, finalize).
+\ Lazy delta unfolds outParam where pinned Lean's isDefEq.delta trace
+\ does: never for C17's statement, three times for C1's (mkAppM at
+\ default transparency, the search's assignOutParams at instances).
+: golden ( c-addr u -- c-addr' u' ) slurp-file ;
+true lf-elab-trace!
+T{ s" axiom c17 0 0 + 0 = end c17" nrun -> outcome-ok }T
+T{ lf-elab-trace s" tests/front/s1-c17.trace" golden compare -> 0 }T
+T{ s" axiom c1 Nat explicit: n 0 n + n = end c1" nrun -> outcome-ok }T
+T{ lf-elab-trace s" tests/front/s1-c1.trace" golden compare -> 0 }T
+false lf-elab-trace!
+
 \ ---- 1. Terms. 0 = 0: binrel% with no max type, both numerals pending,
 \ then default instances in the statement's synthesis (instOfNatNat,
 \ priority 100, after 1000 and 500 found none); by-rfl closes it.
 T{ s" theorem z0 0 0 = := by by-rfl end z0" nrun -> outcome-ok }T
 T{ ty 0 num 0 num eq-nat same? va lf-term-app? -> true true }T
 \ The term proof 0 Eq.refl: finalize compares @Eq Nat (OfNat.ofNat ..)
-\ with @Eq ?α (OfNat.ofNat ?T ..), a definition at both heads, which
-\ needs lazy delta (S2 merge A; SWITCH: then ok, the value
-\ @Eq.refl.{1} Nat (OfNat 0)): not supported yet, never another term.
-T{ s" theorem z0b 0 0 = := 0 Eq.refl end z0b" nfails -> 139 1 32 }T
+\ with @Eq ?α (OfNat.ofNat ?T ..) by lazy delta (S2 merge A).
+T{ s" theorem z0b 0 0 = := 0 Eq.refl end z0b" nrun ty 0 num 0 num eq-nat same?
+   va 0 num refl-nat same? -> outcome-ok true true }T
 \ Nat.zero = 0: max type Nat, the numeral's ?T unified with it (applyCoe).
 T{ s" axiom z1 Nat.zero 0 = end z1" nrun -> outcome-ok }T
 T{ ty zero 0 num eq-nat same? -> true }T
@@ -126,41 +139,74 @@ T{ s" theorem z5 Nat.zero Nat.zero = := by Nat.zero Eq.refl by-exact end z5" nru
 T{ va zero refl-nat same? -> true }T
 \ An axiom's statement alone.
 T{ s" axiom z6 Nat.zero 0 = end z6" nrun ty zero 0 num eq-nat same? va -> outcome-ok true -1 }T
+\ S1's end: 0 + 0 = 0 by rfl, binop% under binrel%, HAdd's default
+\ instance instHAdd and then Add Nat; @Eq.refl.{1} Nat (0 + 0).
+T{ s" theorem t 0 0 + 0 = := by by-rfl end t" nrun -> outcome-ok }T
+T{ ty 0 num 0 num hadd 0 num eq-nat same? va 0 num 0 num hadd refl-nat same? -> true true }T
+\ C16, 2 + 2 = 4, by rfl (Nat literals in isDefEq).
+T{ s" theorem z7 2 2 + 4 = := by by-rfl end z7" nrun ty 2 num 2 num hadd 4 num eq-nat same?
+   -> outcome-ok true }T
 
 \ ---- 1. Lean's errors, each at end (or the tactic's word) with the
 \ syntax's place as the second position.
-\ failed to synthesize OfNat Bool 0 (the numeral at Bool, the max type).
+\ OfNat Bool 0 (the numeral at Bool, the max type): on the slice the
+\ search tries an instance the slice leaves out (119, synth.fs's code);
+\ with no OfNat instance at all, Lean's failed to synthesize (125).
+T{ s" theorem e1 Bool.true 0 = := Bool.true Eq.refl end e1" nfails see-at
+   -> 119 1 47 1 22 }T
+' no-of-nat is lf-meta-synth
 T{ s" theorem e1 Bool.true 0 = := Bool.true Eq.refl end e1" nfails see-at
    -> 125 1 47 1 22 }T
+real-synth
 \ typeclass instance problem is stuck: no default instance to fire; at
-\ the newest pending numeral.
+\ the oldest pending numeral, column 12 as pinned Lean's (the smallest
+\ syntax range, the earliest first).
 ' no-defaults is lf-elab-default-instances
-T{ s" theorem e2 0 0 = := 0 Eq.refl end e2" nfails see-at -> 126 1 31 1 14 }T
-' stand-defaults is lf-elab-default-instances
+T{ s" theorem e2 0 0 = := 0 Eq.refl end e2" nfails see-at -> 126 1 31 1 12 }T
+real-defaults
 \ numerals are data: 0 against the proposition Nat.zero = Nat.zero.
 T{ s" theorem e3 Nat.zero Nat.zero = := 0 end e3" nfails see-at -> 127 1 37 1 35 }T
-\ A coercion Lean would look for: Nat.zero = Bool.true (uncomparable,
-\ CoeT not in the slice), then ensureHasType Nat Bool.true.
+\ A coercion Lean would look for: Nat.zero = Bool.true is uncomparable in
+\ analyze and CoeT is in the slice (131 there); Bool.true as a proof of
+\ Nat.zero = Nat.zero is ensureHasType's coercion (131 at end).
 T{ s" theorem e4 Nat.zero Bool.true = := by by-sorry end e4" nfails see-at
    -> 131 1 48 1 31 }T
+T{ s" theorem e4b Nat.zero Nat.zero = := Bool.true end e4b" nfails see-at
+   -> 131 1 46 1 36 }T
 \ A recursor applied: elaborating as an eliminator (FE5).
 T{ s" Nat.zero ' Nat.rec Nat.zero $ #check" nfails see-at -> 135 1 31 1 12 }T
 \ #check of a constant alone: Lean prints its signature (FE2).
 T{ s" Nat.zero #check" nfails see-at -> 137 1 10 1 1 }T
-\ #check of a numeral with no default instance: a hole left (FE2).
+\ #check of a numeral: 0 : Nat by the default instance; with none, a
+\ hole left (FE2).
+T{ s" 0 #check" nrun -> outcome-ok }T
 ' no-defaults is lf-elab-default-instances
 T{ s" 0 #check" nfails see-at -> 137 1 3 1 1 }T
-' stand-defaults is lf-elab-default-instances
-\ 2 + 2 = 4 (C16): HAdd.hAdd's out-parameter ?γ := Nat needs outParam
-\ unfolded (lazy delta, S2 merge A; SWITCH: then the term of C16): not
-\ supported yet, never another term.
-T{ s" theorem e5 2 2 + 4 = := by by-sorry end e5" nfails see-at -> 139 1 37 1 20 }T
+real-defaults
+\ #check is a command (review s1-elab M1): inside a declaration, of a
+\ binder's variable and inside a tactic block it is error 140, Lean's
+\ "unexpected token '#check'; expected term".
+T{ s" theorem m1 Nat.zero Nat.zero = #check Nat.zero Nat.zero = := by by-rfl end m1"
+   nfails -> 140 1 32 }T
+T{ s" theorem m2 Nat explicit: n n #check n n = := n Eq.refl end m2" nfails -> 140 1 30 }T
+T{ s" theorem m3 Nat.zero Nat.zero = := by Nat.zero #check by-rfl end m3" nfails
+   -> 140 1 47 }T
+\ A statement left with a level metavariable (PUnit.{?u}): Lean's
+\ levelMVarToParam (pinned Lean: h3.{u_1} : PUnit.{u_1}), not supported
+\ yet (139, S5), at the statement; never handed over.
+T{ s" axiom h3 PUnit end h3" nfails see-at -> 139 1 16 1 10 }T
 \ The budget: three steps are not enough for a declaration (138), the
 \ next declaration has the whole budget again.
 T{ 3 lf-elab-fuel! s" theorem e6 Nat.zero Nat.zero = := by by-rfl end e6" nfails
    -> 138 1 45 }T
 T{ lf-meta-default-budget lf-elab-fuel!
    s" theorem e7 Nat.zero Nat.zero = := by by-rfl end e7" nrun -> outcome-ok }T
+\ The elaborator's own visits spend the budget too (Lean's
+\ maxHeartbeats counts them): axiom a6 Nat takes seven steps, two of
+\ them the elaborator's visits; six are not enough.
+T{ 7 lf-elab-fuel! s" axiom a6 Nat end a6" nrun -> outcome-ok }T
+T{ 6 lf-elab-fuel! s" axiom a7 Nat end a7" nfails -> 138 1 14 }T
+lf-meta-default-budget lf-elab-fuel!
 
 \ ---- 2. Malformed and unknown: a variable no parameter gives; a name
 \ the library lacks is the reader's (error 1, before elaboration).
@@ -182,25 +228,89 @@ T{ lf-elab-error drop -> 132 }T
 T{ lf-elab-reset nat nat lf-term-pi drop fvar-of app-run nip lf-elab-error drop
    -> outcome-unsupported 136 }T
 
-\ ---- 7. Golden traces (FE1E 1.6) of C17, 0 + 0 = 0, and C1, 0 + n = n,
-\ as far as they run before lazy delta (S2 merge A: SWITCH, then to their
-\ ends, with synth.fs's own synthesis lines): pinned Lean's order of
-\ events (tests/front/s1-c17.lean's trace: the three numerals' instance
-\ problems stuck and resumed in each tree's round, then elabAppArgs of
-\ HAdd.hAdd with ?α ?β ?γ ?self and the two operands, finalize's HAdd
-\ problem stuck; C1: analyze's max type Nat, then hasHomogeneousInstance's
-\ mkAppM, where outParam must unfold), each event a line.
-: golden ( c-addr u -- c-addr' u' ) slurp-file ;
+\ ---- 6. synthesizeInstMVarCore on an instance metavariable assigned
+\ already: the search's instOfNatNat 0 compared with the value; equal,
+\ filled; @OfNat.mk Nat 0 1, not defeq, is Lean's containsPendingMVar
+\ case, not ported (139).
+: of-nat0 ( -- t ) 0 0 u! s" OfNat" 1 cst nat app 0 nlit app ;
+: inst-mvar ( -- mvar ) of-nat0 mv-synthetic lf-mvar-new drop ;
+: inst0 ( -- t ) s" instOfNatNat" 0 cst 0 nlit app ;
+: mk1 ( -- t ) 0 0 u! s" OfNat.mk" 1 cst nat app 0 nlit app 1 nlit app ;
+T{ lf-elab-reset inst-mvar dup inst0 lf-mvar-assign swap lf-elab-synth-core
+   -> outcome-ok true outcome-ok }T
+T{ lf-elab-reset inst-mvar dup mk1 lf-mvar-assign swap lf-elab-synth-core
+   lf-elab-error drop -> outcome-ok false outcome-unsupported 139 }T
+
+\ ---- 6. A Lean error inside commitWhen is caught: with no Add instance,
+\ instHAdd's attempt for HAdd ?a ?b ?c fails ([Add ?a]: failed to
+\ synthesize, caught) and is rolled back; the numerals' default instance
+\ then makes HAdd Nat Nat ?c, which the search answers.
+' add-none is lf-meta-synth
+T{ s" 0 0 + #check" nrun lf-author-code -> outcome-ok 0 }T
+\ A failure that is no Lean error (malformed state, 76) is not caught
+\ (review s1-elab M3): the run stops there.
+' add-broken is lf-meta-synth
+T{ s" 0 0 + #check" nfails -> 76 1 7 }T
+real-synth
+\ synthesizePending on a list of two instance problems (a default
+\ instance's binders), the newest first as Lean prepends them: OfNat ?g 0
+\ is stuck until HAdd Nat Nat ?g, answered, makes ?g Nat; a second pass
+\ (synthesizeUsingInstances' loop) fills it, with no default instance.
+: type0 ( -- t ) 0 lf-level-succ drop lf-term-symbolic-sort drop ;
+: ofnat-of ( t -- t' ) 0 0 u! s" OfNat" 1 cst swap app 0 nlit app ;
+: hadd-nat-nat ( g -- t ) >r 0 0 u! 0 1 u! 0 2 u! s" HAdd" 3 cst nat app nat app r> app ;
+: inst-of ( type -- mvar ) mv-synthetic lf-mvar-new drop ;
+: c-run ( first -- flag outcome ) 0 ep-frames-ready ['] ep-c-call frame-through drop ;
+variable g  variable i1  variable i2  variable first-goal
+T{ lf-elab-reset type0 mv-natural lf-mvar-new swap g ! -> outcome-ok }T
+T{ g @ hadd-nat-nat inst-of i1 !  g @ ofnat-of inst-of i2 !  ep-goals slab-count first-goal !
+   i1 @ ep-goals slab-push i2 @ ep-goals slab-push -> outcome-ok outcome-ok }T
+' no-defaults is lf-elab-default-instances
 true lf-elab-trace!
-T{ s" axiom c17 0 0 + 0 = end c17" nfails see-at -> 139 1 21 1 19 }T
-T{ lf-elab-trace s" tests/front/s1-c17.trace" golden compare -> 0 }T
-T{ s" axiom c1 Nat explicit: n 0 n + n = end c1" nfails see-at -> 139 1 36 1 34 }T
-T{ lf-elab-trace s" tests/front/s1-c1.trace" golden compare -> 0 }T
+T{ first-goal @ c-run g @ lf-instantiate-mvars drop nat same? -> true outcome-ok true }T
+\ The first problem tried is OfNat's, the newest.
+T{ lf-elab-trace s" synth @OfNat ?m." search nip swap lf-elab-trace drop - -> true 0 }T
 false lf-elab-trace!
+real-defaults
+\ A default instance that fails to unify is rolled back, and the next one
+\ is tried.
+' wrong-first is lf-elab-default-instances
+true lf-elab-trace!
+T{ s" theorem w1 0 0 = := by by-rfl end w1" nrun ty 0 num 0 num eq-nat same?
+   -> outcome-ok true }T
+: trace-has? ( c-addr u -- flag ) lf-elab-trace 2swap search nip nip ;
+T{ s" instHAdd: rolled back" trace-has? s" instOfNatNat: ok" trace-has? -> true true }T
+false lf-elab-trace!
+real-defaults
+
+\ ---- 6. The tactics' hook (Tactic.elabTerm) and withSynthesize's end:
+\ postponing (Lean's mayPostpone) leaves 0's OfNat problem pending, its
+\ type ?T open; }lf-elab-synth with postponing still runs the default
+\ loop, then the pending list outside the bracket is back.
+: zero-node ( -- node ) syn-k-num 0 syn-new drop 0 syn-a! ;
+: open-type? ( term -- flag ) lf-infer drop lf-instantiate-mvars drop lf-mvar? ;
+T{ lf-elab-reset zero-node -1 true lf-tac-elab swap open-type? lf-elab-pending#
+   -> outcome-ok true 1 }T
+T{ lf-elab-reset zero-node -1 false lf-tac-elab swap open-type? lf-elab-pending#
+   -> outcome-ok false 0 }T
+variable t1  variable t2  variable outer-saved
+T{ lf-elab-reset zero-node -1 true lf-tac-elab swap t1 ! lf-elab-pending# -> outcome-ok 1 }T
+T{ lf-elab-synth{ outer-saved ! lf-elab-pending# zero-node -1 true lf-tac-elab swap t2 !
+   lf-elab-pending# -> 0 outcome-ok 1 }T
+T{ outer-saved @ lf-postpone-yes }lf-elab-synth t2 @ open-type? t1 @ open-type? lf-elab-pending#
+   -> outcome-ok false true 1 }T
+\ hasHeterogeneousDefaultInstances' test of one default instance's type:
+\ C a b c with b (a left leaf's side) or a (a right one's) headed by the
+\ max type's constant: HAdd Nat Bool Bool has Nat on the left only.
+: bool ( -- t ) s" Bool" 0 cst ;
+: hetero ( -- t ) 0 0 u! 0 1 u! 0 2 u! s" HAdd" 3 cst nat app bool app bool app ;
+T{ s" Nat" lfa-intern true hetero et-def-hit? s" Nat" lfa-intern false hetero et-def-hit?
+   -> false true }T
+
 
 \ ---- 6. After every failure above, a fresh declaration elaborates as in
 \ a fresh run; the stack is as it was.
-T{ s" theorem z7 0 0 = := by by-rfl end z7" nrun ty 0 num 0 num eq-nat same?
+T{ s" theorem z8 0 0 = := by by-rfl end z8" nrun ty 0 num 0 num eq-nat same?
    -> outcome-ok true }T
 T{ depth -> 0 }T
 cr .( elab.fs: all tests passed) cr

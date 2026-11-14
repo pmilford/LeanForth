@@ -160,10 +160,7 @@ end-structure
 \ ---- Higher-order out-parameters (see the header).
 \ outParam T and semiOutParam T are T (Init's reducible definitions
 \ outParam (α : Sort u) := α, which whnf unfolds at any transparency).
-: fi-param-wrapper? ( t -- flag )
-  dup lf-term-app? 0= if drop false exit then lf-term-first@
-  dup s" outParam" lf-meta-const-named? swap s" semiOutParam" lf-meta-const-named? or ;
-: fi-unwrap ( t -- t' ) begin dup fi-param-wrapper? while lf-term-second@ repeat ;
+: fi-unwrap ( t -- t' ) begin dup lf-meta-out-param? while lf-term-second@ repeat ;
 : fi-maybe-pi? ( type -- flag outcome )
   fi-unwrap dup lf-term-pi? if drop true outcome-ok exit then
   lf-whnf-core ok-then? 0= if false swap exit then
