@@ -1740,7 +1740,7 @@
    "src/front/elab-term.fs:et-coerced",
    "src/kernel/environment.fs:lf-axd-ready"
   ],
-  "reason": "false positive: `x? if outcome-ok else y then`, a guarded step with unrelated tests and steps (the elaborator's coercion, the kernel's axiom-row reset)",
+  "reason": "accepted: the same `x? if outcome-ok else y then` step with unrelated tests and steps (the elaborator's coercion, the kernel's axiom-row reset); a shared word would be no shorter",
   "tokens": 6
  },
  "a53c96283e2c": {

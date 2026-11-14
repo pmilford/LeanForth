@@ -2640,6 +2640,14 @@ test = "python3 tests/core/test_export_manifest.py"
 reason = "a digest's length is not checked: a short sha256 is not malformed"
 
 [[fault]]
+id = "manifest-hex-length-longer"
+file = "src/import/manifest.fs"
+old = '''  over <> if 2drop false exit then ['] hex-odd? text-any? 0= ;'''
+new = '''  over > if 2drop false exit then ['] hex-odd? text-any? 0= ;'''
+test = "python3 tests/core/test_export_manifest.py"
+reason = "review reuse-out-2 rc4 M2: a digest longer than its length (a 65-character sha256, a 41-character Mathlib commit) is not malformed"
+
+[[fault]]
 id = "manifest-size-limit"
 file = "src/import/manifest.fs"
 old = '''manifest-size-limit 1+ u<'''
