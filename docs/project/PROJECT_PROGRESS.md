@@ -79,7 +79,8 @@ status changes when this date is older than them. Stages are those of the
   `src/front` 231 → 172, each kept one with a reason; the full tier runs the faults a change touches), the front end
   after S2's merge A.
 - Priority (owner, 2026-11-13 midday): the front end's slices in order, S1 then S2 ($0 + n = n$ by `by-induction` and
-  `by-rw`) then S3 onwards. S2's design ([S2_INTERFACE.md](../design/S2_INTERFACE.md)) reviewed and approved by the
+  `by-rw`) then S3 onwards; S2's acceptance includes the owner's proof set ($x + 0 = x$, $0 + n = n$, $n + m = m + n$,
+  associativity, distributivity, list append length; S3 `2 + 2 = 4`, S4 `n < n + 1`; 2026-11-13). S2's design ([S2_INTERFACE.md](../design/S2_INTERFACE.md)) reviewed and approved by the
   owner 2026-11-13, both FE1 forms; its first branch (`s2-unfold` merge A, Lean's unfolding) merges before S1's last
   branch, which needs it (S1's order amended). No automatic
   Mathlib run until changes need one.

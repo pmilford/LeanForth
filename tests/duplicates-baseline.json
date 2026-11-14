@@ -1142,7 +1142,7 @@
    "src/core/names.fs:lf-name-find-num",
    "src/core/names.fs:lf-name-find-str"
   ],
-  "reason": "accepted: one linear search per component kind; one word would pass the match test into a ?do loop, whose return stack holds the loop, with more shuffling than the copy costs",
+  "reason": "planned: 9.4.8k, lib/outcome.fs's find? from the s1-synth-b re-check (one search with the match test as its xt)",
   "tokens": 18
  },
  "63b55fabdfc5": {
