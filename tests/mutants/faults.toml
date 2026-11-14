@@ -16928,10 +16928,19 @@ reason = "s1-meta-b re-check (plan S2): a library declaration that could not be 
 [[fault]]
 id = "fe-whnf-fault-dropped"
 file = "src/front/whnf.fs"
-old = '''  dup ok? 0= if exit then wc-faulted dup ok? if drop else nip nip nip wc-fail then ;'''
+old = '''  wc-faulted dup ok? if drop else nip nip nip wc-fail then ;'''
 new = '''  ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "s1-meta-b re-check (plan S2): a major premise's head that could not be decoded reads as no constructor: the recursor stays, ok"
+equivalent = "in whnf every part runs as a whnf activation, whose delta step looks the part's head constant up before wc-kind does, and a declaration's decode is kept, so wc-kind's lookup never fails first there; wc-checked is the defence, fe-whnf-stuck-fault-dropped plants the reachable one (getStuckMVar?)"
+
+[[fault]]
+id = "fe-whnf-stuck-fault-dropped"
+file = "src/front/whnf.fs"
+old = '''  outcome-ok wc wc-fault ! ws-run ws-checked ;'''
+new = '''  outcome-ok wc wc-fault ! ws-run ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "s1-meta-b re-check (plan S2): getStuckMVar? of a recursor whose major premise's head could not be decoded answers none, ok, as though it were no constructor"
 
 [[fault]]
 id = "fe-whnf-induct-full-as-unsupported"

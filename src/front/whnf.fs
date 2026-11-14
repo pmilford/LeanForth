@@ -480,9 +480,10 @@ end-structure
 : wc-next ( e flag -- e' flag' outcome )
   begin dup 0= wc-framed? and while drop wc-resume dup ok? 0= if exit then drop repeat
   outcome-ok ;
-\ After a step, a fault (wc-kind's) ends the call with its outcome.
+\ After a step, a fault (wc-kind's, the first failure) ends the call with
+\ its outcome, whatever the step gave.
 : wc-checked ( e flag outcome -- e' flag outcome )
-  dup ok? 0= if exit then wc-faulted dup ok? if drop else nip nip nip wc-fail then ;
+  wc-faulted dup ok? if drop else nip nip nip wc-fail then ;
 : wc-turn ( e -- e' flag outcome ) wc-step dup ok? if drop wc-next then wc-checked ;
 : wc-loop ( e -- e' outcome )
   begin wc-spend 0= if drop -1 outcome-exhausted exit then
@@ -571,10 +572,9 @@ end-structure
   dup lf-term-tag@ case
     lf-tag-mvar of nip ws-mvar endof  lf-tag-constant of ws-const endof
     lf-tag-projection of nip ws-proj endof  >r 2drop false outcome-ok r> endcase ;
-\ A fault (wc-kind's) replaces the answer.
+\ A fault (wc-kind's, the first failure) replaces the answer.
 : ws-checked ( mvar true outcome | false outcome -- mvar true outcome | false outcome )
-  dup ok? 0= if exit then wc-faulted dup ok? if drop exit then
-  nip swap if nip then false swap ;
+  wc-faulted dup ok? if drop exit then nip swap if nip then false swap ;
 : ws-run ( term -- mvar true outcome | false outcome )
   dup lf-term-tag@ case lf-tag-mvar of ws-mvar endof  lf-tag-app of ws-app endof
     lf-tag-projection of ws-proj endof  >r drop true ws-none? r> endcase ;
