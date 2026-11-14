@@ -44,7 +44,7 @@
 \ Machine: an activation is whnfCore (lf-whnf-core's), whnf (every part:
 \ a projection's structure, a recursor's major premise, a class field's
 \ structure; lf-meta-whnf's) or unfoldDefinition? (lf-meta-unfold's).
-\ Where Lean calls whnf on a part, the step keeps (kind, term, aux, the
+\ Where Lean calls whnf on a part, the step keeps (term, aux, kind, the
 \ activation, the transparency) on the heap stack wc-frames and goes on
 \ with the part in a whnf activation; when the part is done the frame
 \ resumes with it, its activation and transparency restored. No host
@@ -158,27 +158,27 @@ end-structure
 \ ---- Spines: the arguments of f a1 .. an in a slab, an first.
 : wc-nth ( i -- term ) wc wc-src @ lf-meta-arg ;
 \ f applied to arguments from to to-1 of the slab wc-src names.
-: wc-apply ( f from to -- f' outcome )
-  swap ?do i wc-nth lf-meta-app ok-then? 0= if -1 swap unloop exit then loop outcome-ok ;
+: wc-app-at ( f k from -- f' outcome ) + wc-nth lf-meta-app ;
+: wc-apply ( f from to -- f' outcome ) over - swap ['] wc-app-at ok-fold ;
 : wc-from ( slab -- ) wc wc-src ! ;
 : wc-rebuild ( head -- term outcome ) wc-args lf-meta-apply-all ;
 
-\ ---- Frames: a step that needs the whnf of a part keeps (kind, term,
-\ aux, activation, transparency) on wc-frames and goes on with the part
+\ ---- Frames: a step that needs the whnf of a part keeps (term, aux,
+\ kind, activation, transparency) on wc-frames and goes on with the part
 \ in a whnf activation; when the part is done, the frame resumes with it
 \ (wc-resume), as Lean's call of whnf returns.
 0 constant wc-proj-kind   1 constant wc-rec-kind
-: wc-top ( -- frame ) wc-frames dup slab-count 1- swap slab-at ;
+: wc-top ( -- frame ) wc-frames slab-last ;
 : wc-keep ( frame -- ) wc wc-act @ over wcf-act ! lf-defeq-mode swap wcf-mode ! ;
 \ One frame claimed whole, or none (full); the part's activation is whnf.
-: wc-frame ( kind e aux -- outcome )
-  1 wc-frames slab-claim nip dup ok? 0= if >r 2drop drop r> exit then drop
-  wc-top tuck wcf-aux ! tuck wcf-term ! tuck wcf-kind ! wc-keep
+: wc-frame ( e aux kind -- outcome )
+  1 wc-frames slab-claim nip dup ok? 0= if nip nip nip exit then drop
+  wc-top tuck wcf-kind ! tuck wcf-aux ! tuck wcf-term ! wc-keep
   wc-full-act wc wc-act ! outcome-ok ;
 : wc-restore ( frame -- ) dup wcf-act @ wc wc-act ! wcf-mode @ lf-defeq-mode! ;
 : wc-pop ( -- kind )
   wc-top dup wc-restore dup wcf-aux @ wc wc-aux ! dup wcf-term @ wc wc-e ! wcf-kind @
-  -1 wc-frames slab-commit ;
+  wc-frames slab-drop ;
 : wc-framed? ( -- flag ) wc-frames slab-count 0> ;
 
 \ ---- Leaves: metavariables, let variables, lets.
@@ -245,19 +245,17 @@ end-structure
   dup wc-unassigned? if wc-delayed? 0= else drop false then ;
 : wc-plain-fvar? ( term -- flag )
   dup lf-fvar-live? if lf-fvar-let? 0= else drop false then ;
-: wc-binder? ( term -- flag ) lf-term-tag@ lf-term-binder-tag? ;
 : wc-sort? ( term -- flag )
   lf-term-tag@ dup lf-tag-sort = swap lf-tag-symbolic-sort = or ;
 : wc-inert? ( term -- flag )
-  dup wc-plain-fvar? over wc-plain-mvar? or over wc-binder? or swap wc-sort? or ;
-: wc-lit? ( term -- flag ) lf-term-tag@ lf-tag-lit = ;
+  dup wc-plain-fvar? over wc-plain-mvar? or over lf-term-binder? or swap wc-sort? or ;
 \ Nat.succ applied to one argument that whnf might fold (reduceNat?).
-: wc-const? ( term -- flag ) lf-term-tag@ lf-tag-constant = ;
 : wc-succ? ( head -- flag )
-  dup wc-const? if wc-name lf-menv-nat-succ? wc-margs slab-count 1 = and
+  dup lf-term-const? if wc-name lf-menv-nat-succ? wc-margs slab-count 1 = and
   else drop false then ;
 : wc-foldable? ( head -- flag )
-  wc-succ? if 0 wc-margs lf-meta-arg dup wc-inert? swap wc-lit? or 0= else false then ;
+  wc-succ? 0= if false exit then
+  0 wc-margs lf-meta-arg dup wc-inert? swap lf-lit-leaf? or 0= ;
 
 \ The universe arguments of the recursor's constant, as levels.
 : wc-levels-fill ( const -- outcome )
@@ -307,7 +305,7 @@ end-structure
 : wc-head-inert? ( mhead -- flag )
   dup wc-plain-fvar? over wc-plain-mvar? or swap wc-sort? or ;
 : wc-leaf-inert? ( mhead -- flag )
-  wc-margs slab-count 0= if wc-binder? else drop false then ;
+  wc-margs slab-count 0= if lf-term-binder? else drop false then ;
 : wc-const-inert? ( mhead -- flag )
   wc-kind dup lf-kind-inductive = over lf-kind-axiom = or swap lf-kind-theorem = or ;
 : wc-inert-major? ( mhead -- flag )
@@ -318,7 +316,7 @@ end-structure
   wc-induct-data dup 0= if 2drop outcome-unsupported wc-fail exit then
   over swap wc-eta? if drop outcome-unsupported wc-fail exit then
   dup wc-ctor? if wc-ctor-major exit then
-  wc-lit? if outcome-unsupported wc-fail else wc-stay then ;
+  lf-lit-leaf? if outcome-unsupported wc-fail else wc-stay then ;
 \ isWFRec: Acc.rec and WellFounded.rec reduce their major premise at
 \ transparency all when it is default.
 : wc-wf-bump ( -- )
@@ -327,7 +325,7 @@ end-structure
 : wc-reduce-rec ( -- e' flag outcome )
   wc-short? if wc-stay exit then
   wc-k? wc-single? 0= or if outcome-unsupported wc-fail exit then
-  wc-major wc-rec-kind wc-term wc wc-aux @ wc-frame ok-then? 0= if wc-fail exit then
+  wc-major wc-term wc wc-aux @ wc-rec-kind wc-frame ok-then? 0= if wc-fail exit then
   wc-wf-bump true outcome-ok ;
 : wc-iota ( e head d -- e' flag outcome )
   dup wc wc-aux ! lf-menv-data wc wc-data ! wc wc-head ! wc wc-e !
@@ -362,11 +360,11 @@ end-structure
 : wc-proj-frame ( -- p outcome ) wc-term wc-args lf-meta-spine ;
 : wc-proj-resume ( r -- e' flag outcome )
   wc-margs lf-meta-spine ok-then? 0= if wc-fail exit then
-  dup wc-lit? if drop outcome-unsupported wc-fail exit then
+  dup lf-lit-leaf? if drop outcome-unsupported wc-fail exit then
   wc-proj-frame ok-then? 0= if wc-drop-fail exit then
   wc-project if wc-rebuild wc-go else wc-stay then ;
 : wc-proj-head ( e head -- e' flag outcome )
-  lf-proj-struct wc-proj-kind rot 0 wc-frame ok-then? 0= if wc-fail exit then
+  lf-proj-struct swap 0 wc-proj-kind wc-frame ok-then? 0= if wc-fail exit then
   wc-lower true outcome-ok ;
 
 : wc-blocked? ( d -- flag )
@@ -391,9 +389,8 @@ end-structure
   case lf-tag-mvar of wc-mvar-head endof  lf-tag-fvar of wc-fvar-head endof
     lf-tag-constant of wc-const-head endof  lf-tag-projection of wc-proj-head endof
     lf-tag-bvar of wc-invalid endof  >r drop wc-done r> endcase ;
-: wc-lam? ( term -- flag ) lf-term-tag@ lf-tag-lam = ;
 : wc-head-step ( e head -- e' flag outcome )
-  dup wc-lam? if drop lf-meta-head-beta wc-go exit then
+  dup lf-term-lam? if drop lf-meta-head-beta wc-go exit then
   dup lf-let? if wc-let-head else dup lf-term-tag@ wc-head-tag then ;
 : wc-app ( e -- e' flag outcome )
   dup wc-args lf-meta-spine ok-then? if wc-head-step else wc-drop-fail then ;
@@ -407,9 +404,8 @@ end-structure
 
 \ ---- reduceNat?: a constant of Nat's namespace with one or two arguments
 \ (Lean's list, taken widely), except Nat.succ of a term whnf leaves.
-: wm-pi? ( e -- flag ) lf-term-tag@ lf-tag-pi = ;
 : wm-head-named? ( e xt -- flag )
-  swap lf-meta-head dup wc-const? if wc-name swap execute else 2drop false then ;
+  swap lf-meta-head dup lf-term-const? if wc-name swap execute else 2drop false then ;
 : wm-succ-inert? ( e -- flag )
   dup ['] lf-menv-nat-succ? wm-head-named?
   if lf-term-second@ wc-inert? else drop false then ;
@@ -425,7 +421,7 @@ end-structure
   wc-full? if true else true wc wc-unfolded ! false then outcome-ok ;
 : wc-field-of ( -- s ) wc-top wcf-aux @ lf-meta-head lf-proj-struct ;
 : wc-ask ( e e' code -- s flag outcome )
-  -rot wc-frame dup ok? 0= if wc-fail exit then drop
+  wc-frame dup ok? 0= if wc-fail exit then drop
   lf-tr-instances lf-defeq-mode! wc-field-of true outcome-ok ;
 : wc-unfold-code ( e e' code -- e'' flag outcome )
   dup lf-unfold-none = if 2drop wc-done exit then
@@ -445,18 +441,19 @@ end-structure
 \ applied to the unfolded term's arguments with head beta, else the
 \ unfolded term (ask-keep) or nothing (ask-none).
 : wc-field-arg ( r -- x flag outcome )
-  wc-margs lf-meta-spine ok-then? 0= if -1 false rot exit then
-  dup wc-lit? if drop -1 false outcome-unsupported exit then
+  wc-margs lf-meta-spine ok-then? 0= if wc-fail exit then
+  dup lf-lit-leaf? if drop outcome-unsupported wc-fail exit then
   wc wc-aux @ lf-meta-head wc-project if true else -1 false then outcome-ok ;
 : wc-field-apply ( x -- y outcome )
   wc wc-aux @ wc-args lf-meta-spine ok-then? 0= if nip no-result exit then drop
   wc-rebuild ok-then? if lf-meta-head-beta else no-result then ;
 : wc-field-none ( kind -- e' flag outcome )
   lf-unfold-ask-keep = if wc wc-aux @ wc-advance else wc-stay then ;
+: wc-field-got ( kind x flag -- e' flag outcome )
+  if nip wc-field-apply ok-then? if wc-advance else wc-fail then
+  else drop wc-field-none then ;
 : wc-field-resume ( r kind -- e' flag outcome )
-  >r wc-field-arg ok-then2? 0= if r> drop wc-fail exit then
-  if r> drop wc-field-apply ok-then? if wc-advance else wc-fail then
-  else drop r> wc-field-none then ;
+  swap wc-field-arg ok-then2? if wc-field-got else nip wc-fail then ;
 : wc-core-resume ( r kind -- e' flag outcome )
   wc-rec-kind = if wc-rec-resume else wc-proj-resume then wc-then-delta ;
 : wc-resume ( r -- e' flag outcome )
@@ -500,22 +497,21 @@ end-structure
 : lf-meta-whnf-d ( e -- e' outcome ) lf-tr-default wm-at ;
 : lf-meta-whnf-forall ( e -- e' outcome )
   dup lf-meta-whnf ok-then? 0= if nip no-result exit then
-  dup wm-pi? if nip else drop then outcome-ok ;
+  dup lf-term-pi? if nip else drop then outcome-ok ;
 \ instantiateForall's step: e made a pi (whnf when it is none), its body
 \ instantiated with p.
 : wm-to-pi ( e -- pi outcome )
-  dup wm-pi? if outcome-ok else drop -1 outcome-invalid then ;
+  dup lf-term-pi? if outcome-ok else drop -1 outcome-invalid then ;
 : wm-pi ( e -- pi outcome )
-  dup wm-pi? if outcome-ok exit then
+  dup lf-term-pi? if outcome-ok exit then
   lf-meta-whnf ok-then? if wm-to-pi else no-result then ;
 : wm-inst ( e p -- e' outcome )
   swap wm-pi ok-then? 0= if nip no-result exit then
   lf-term-second@ swap lf-meta-instantiate1 ;
+: wm-inst-at ( e k addr -- e' outcome ) swap cells + @ wm-inst ;
 : lf-meta-instantiate-forall ( e addr n -- e' outcome )
   dup 0< if drop 2drop outcome-invalid no-result exit then
-  cells over + swap ?do
-    i @ wm-inst ok-then? 0= if no-result unloop exit then
-  1 cells +loop outcome-ok ;
+  swap ['] wm-inst-at ok-fold ok-then? if outcome-ok else no-result then ;
 
 \ ---- getStuckMVar?: the unassigned metavariable at the head, or one
 \ that is a recursor's major premise (isRecStuck?: none for a K-like

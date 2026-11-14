@@ -13009,7 +13009,8 @@ reason = "FE1c: a stuck major premise of a structure is left stuck, where Lean e
 [[fault]]
 id = "fe-whnf-succ-fold-ignored"
 file = "src/front/whnf.fs"
-old = '''  wc-succ? if 0 wc-margs lf-meta-arg dup wc-inert? swap wc-lit? or 0= else false then ;'''
+old = '''  wc-succ? 0= if false exit then
+  0 wc-margs lf-meta-arg dup wc-inert? swap lf-lit-leaf? or 0= ;'''
 new = '''  drop false ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "FE1c: Nat.succ of a term whnf may fold or offset (Nat.succ (Nat.succ k)) reduces by the rule, where Lean's field differs"
@@ -13179,7 +13180,7 @@ reason = "FE1c: a domain whose type is no sort, where Lean throws type expected,
 [[fault]]
 id = "fe-whnf-succ-name-unchecked"
 file = "src/front/whnf.fs"
-old = '''  dup wc-const? if wc-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
+old = '''  dup lf-term-const? if wc-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
 new = '''  dup dup if wc-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "review fe1c-2 M2: a major premise's head that is no constant is read as a constant reference (an unchecked store read; a free variable with Nat.succ's reference number answers unsupported)"
@@ -13195,7 +13196,7 @@ reason = "review fe1c-2 M1: getStuckMVar? of a projection applied to arguments a
 [[fault]]
 id = "fe-whnf-proj-literal-final"
 file = "src/front/whnf.fs"
-old = '''  dup wc-lit? if drop outcome-unsupported wc-fail exit then
+old = '''  dup lf-lit-leaf? if drop outcome-unsupported wc-fail exit then
   wc-proj-frame'''
 new = '''  wc-proj-frame'''
 test = "$GFORTH tests/front/whnf.fs"
@@ -15765,7 +15766,7 @@ reason = "S1 appendix D: whnfR (lf-meta-at) leaves the transparency reducible (L
 [[fault]]
 id = "fe-whnf-forall-no-whnf"
 file = "src/front/whnf.fs"
-old = '''  dup wm-pi? if outcome-ok exit then
+old = '''  dup lf-term-pi? if outcome-ok exit then
   lf-meta-whnf ok-then? if wm-to-pi else no-result then ;'''
 new = '''  wm-to-pi ;'''
 test = "$GFORTH tests/front/whnf.fs"

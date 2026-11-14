@@ -63,8 +63,8 @@ require ./defeq.fs
 lf-walk-room context-walk: dd-walker
 
 \ ---- Unfolding and comparing.
-: dd-unfold ( e -- e' flag ) df df-mode @ ['] lf-meta-unfold de-at de-must and ;
-: dd-core ( e -- e' flag ) df df-mode @ ['] lf-whnf-core de-at de-must ;
+: dd-unfold ( e -- e' flag ) ['] lf-meta-unfold de-mode-at de-must and ;
+: dd-core ( e -- e' flag ) ['] lf-whnf-core de-mode-at de-must ;
 : dd-compare ( t s -- ) ['] de-pass de-solve ;
 : dd-undef ( -- ) lf-lb-undef de-return ;
 : dd-flag ( flag outcome -- flag ) de-must and ;
@@ -78,9 +78,12 @@ lf-walk-room context-walk: dd-walker
 : dd-t? ( -- flag ) de-x 0< 0= ;
 : dd-s? ( -- flag ) de-y 0< 0= ;
 
-\ ---- One side unfolds.
-: dd-left ( -- ) de-t dd-unfold if de-s dd-compare else drop dd-undef then ;
-: dd-right ( -- ) de-s dd-unfold if de-t swap dd-compare else drop dd-undef then ;
+\ ---- One side unfolds and is compared with the other; when it does not
+\ unfold, the step xt (Lean's fallback at that place).
+: dd-t-or ( xt -- ) de-t dd-unfold if nip de-s dd-compare else drop execute then ;
+: dd-s-or ( xt -- ) de-s dd-unfold if nip de-t swap dd-compare else drop execute then ;
+: dd-left ( -- ) ['] dd-undef dd-t-or ;
+: dd-right ( -- ) ['] dd-undef dd-s-or ;
 
 \ ---- unfoldComparingHeadsDefEq.
 : dd-heads-both ( tNew sNew -- )
@@ -99,8 +102,8 @@ lf-walk-room context-walk: dd-walker
 : dd-key ( d -- key )
   dup lf-menv-hint-known? if lf-menv-hint dd-rank exit then
   drop outcome-unsupported de-abort 0 ;
-: dd-first-t ( -- ) de-t dd-unfold if de-s dd-compare else drop dd-heads then ;
-: dd-first-s ( -- ) de-s dd-unfold if de-t swap dd-compare else drop dd-heads then ;
+: dd-first-t ( -- ) ['] dd-heads dd-t-or ;
+: dd-first-s ( -- ) ['] dd-heads dd-s-or ;
 : dd-mvars? ( -- flag ) de-t lf-meta-mvar-free? de-s lf-meta-mvar-free? and 0= ;
 : dd-by-keys ( kt ks -- )
   2dup > if 2drop dd-first-t exit then < if dd-first-s else dd-heads then ;
@@ -110,8 +113,8 @@ lf-walk-room context-walk: dd-walker
 
 \ ---- unfoldReducibleDefEq: above reducible transparency a reducible side
 \ alone unfolds first.
-: dd-unfold-t ( -- ) de-t dd-unfold if de-s dd-compare else drop dd-defeq then ;
-: dd-unfold-s ( -- ) de-s dd-unfold if de-t swap dd-compare else drop dd-defeq then ;
+: dd-unfold-t ( -- ) ['] dd-defeq dd-t-or ;
+: dd-unfold-s ( -- ) ['] dd-defeq dd-s-or ;
 : dd-red? ( d -- flag ) lf-menv-reducible? dd-flag ;
 : dd-one-of ( t? s? -- )
   de-aborted? if 2drop exit then
@@ -151,12 +154,12 @@ lf-walk-room context-walk: dd-walker
 \ parts; a simple leaf is ok; a binder, let or constant is rejected (not
 \ simple); any other tag (an unsupported form) unsupported. The walk
 \ spends the call's fuel.
-: dd-leaf? ( tag -- flag )
-  dup lf-tag-bvar = over lf-tag-fvar = or over lf-tag-mvar = or over lf-tag-sort = or
-  over lf-tag-symbolic-sort = or over lf-tag-lit = or swap lf-tag-str = or ;
+lf-tag-bvar lf-tag-bit lf-tag-fvar lf-tag-bit or lf-tag-mvar lf-tag-bit or
+  lf-tag-sort lf-tag-bit or lf-tag-symbolic-sort lf-tag-bit or lf-tag-lit lf-tag-bit or
+  lf-tag-str lf-tag-bit or constant dd-simple-tags   \ isSimple's leaves
+: dd-leaf? ( tag -- flag ) lf-tag-bit dd-simple-tags and 0<> ;
 : dd-false? ( tag -- flag )
-  dup lf-tag-lam = over lf-tag-pi = or over lf-tag-let = or over lf-tag-let-nondep = or
-  swap lf-tag-constant = or ;
+  dup lf-term-binder-tag? over lf-term-let-tag? or swap lf-tag-constant = or ;
 : dd-other ( tag -- outcome )
   dup dd-leaf? if drop outcome-ok exit then
   dd-false? if outcome-rejected else outcome-unsupported then ;
@@ -194,7 +197,7 @@ lf-walk-room context-walk: dd-walker
 : dd-heur-k ( r -- ) lf-lb-true = if lf-lb-true de-return else dd-pair then ;
 : dd-apps ( -- )
   dd-heuristic? de-aborted? if drop exit then
-  if ['] dd-heur-k de-then de-t de-s ['] de-app de-invoke else dd-pair then ;
+  if ['] dd-heur-k ['] de-app de-call else dd-pair then ;
 : dd-consts ( -- )
   de-t de-s de-levels lf-lb-true = if lf-lb-true de-return exit then
   de-t dd-unfold if de-s dd-unfold if dd-compare else 2drop dd-undef then

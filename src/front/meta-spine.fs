@@ -79,10 +79,8 @@ require ../present/binder-table.fs
   0 swap begin dup lf-meta-app? while lf-term-first@ swap 1+ swap repeat drop ;
 : lf-meta-pop ( slab -- x ) dup slab-count 1- over slab-at @ -1 rot slab-commit ;
 : lf-meta-app ( f a -- f' outcome ) lf-term-app if outcome-ok else -1 outcome-full then ;
-: ms-apply-at ( f slab i -- slab f' outcome ) over lf-meta-arg rot swap lf-meta-app ;
+: ms-apply-at ( f i slab -- f' outcome ) lf-meta-arg lf-meta-app ;
 : lf-meta-apply-all ( f slab -- f' outcome )
-  dup slab-count 0 ?do
-    i ms-apply-at ok-then? 0= if nip no-result unloop exit then swap
-  loop drop outcome-ok ;
+  dup slab-count swap ['] ms-apply-at ok-fold ;
 
 base !   \ the BASE this file was loaded with
