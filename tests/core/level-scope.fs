@@ -15,6 +15,9 @@ T{ 1 lf-level-succ -> 2 true }T
 T{ 0 2 lf-level-imax -> 3 true }T
 T{ 3 4 lf-lscope-check -> outcome-ok }T
 T{ 3 3 lf-lscope-check -> outcome-exhausted }T
+\ The walk's failure is recorded (core/diagnostics.fs's lf-diag-run):
+\ out of fuel, at fuel 0.
+T{ lf-diag-clear 3 3 lf-lscope-check lf-diag-code@ -> outcome-exhausted lf-diag-fuel }T
 T{ 3 -1 lf-lscope-check -> outcome-invalid }T
 T{ -1 10 lf-lscope-check -> outcome-invalid }T
 T{ 4 10 lf-lscope-check -> outcome-invalid }T

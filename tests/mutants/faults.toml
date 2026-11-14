@@ -17512,7 +17512,7 @@ id = "r2-floats-drop-none"
 file = "src/lib/text-run.fs"
 old = ''': floats-drop-to ( n -- ) begin fdepth over > while fdrop repeat drop ;'''
 new = ''': floats-drop-to ( n -- ) drop ;'''
-test = "$GFORTH tests/author/author.fs && $GFORTH tests/program/verify.fs"
+test = "$GFORTH tests/lib/text-run.fs"
 reason = "numbers a failed run left on the floating-point stack stay for the next run"
 
 [[fault]]
@@ -17552,7 +17552,7 @@ id = "r2-diag-run-unnoted"
 file = "src/core/diagnostics.fs"
 old = ''': lf-diag-run ( root xt walk site -- outcome ) 2dup 2>r drop walk-run 2r> lf-diag-walk ;'''
 new = ''': lf-diag-run ( root xt walk site -- outcome ) drop walk-run ;'''
-test = "$GFORTH tests/core/check-declaration.fs && $GFORTH tests/core/level-substitute.fs"
+test = "$GFORTH tests/core/level-scope.fs"
 reason = "a walk that runs out of fuel or room records no diagnostic"
 
 [[fault]]
