@@ -131,8 +131,13 @@ true (app (app Nat.decLt.{} k) x) (app (app Nat.decLt.{} k) (app (app id.{1} Nat
 true (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) x) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) (app (app id.{1} Nat.{}) x))
 error
 false
+true (app (app id.{1} Nat.{}) (app u k)) (app (app (app (app (app (app HMul.hMul.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app (app (app HMul.mk.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (lam Nat.{} (lam Nat.{} (app u #1))))) k) x)
+true id.{1} id.{1}
+true (app Nat.isValidChar.{} k) (app Nat.isValidChar.{} (app (app id.{1} Nat.{}) k))
 true k (app (proj 0 (app (app id.{1} (app (app Prod.{0,0} (pi Nat.{} Nat.{})) Nat.{})) (app (app (app (app Prod.mk.{0,0} (pi Nat.{} Nat.{})) Nat.{}) (lam Nat.{} #0)) 0))) k)
 true (app (proj 0 (app (app id.{1} (app (app Prod.{0,0} (pi Nat.{} Nat.{})) Nat.{})) (app (app (app (app Prod.mk.{0,0} (pi Nat.{} Nat.{})) Nat.{}) (lam Nat.{} #0)) 0))) k) k
+false
+false
 true a (proj 0 (app (app id.{1} (app (app Prod.{0,0} Nat.{}) Nat.{})) (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b)))
 true (app Nat.succ.{} (app (app (app OfNat.ofNat.{0} Nat.{}) 9223372036854775807) (app instOfNatNat.{} 9223372036854775807))) 9223372036854775808
 false

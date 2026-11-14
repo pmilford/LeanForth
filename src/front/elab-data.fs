@@ -1151,12 +1151,10 @@ create ed-level-readers  ' ed-lv-succ , ' ed-lv-pair , ' ed-lv-pair , ' ed-lv-pa
   ed-sun ed-sun-levels dup elab-levels ed-span-open swap c" levels" ed-member
   ['] ed-level-item ed-array-items swap elab-levels ed-span-close ;
 
-\ The nodes' fields (the table at elab-node-bvar). ed-field! stores x at
-\ faddr when ok; ed-nd-put in the field xt of the newest node; ed-nd-ref!
-\ there the place of an earlier node, member key of value.
-: ed-field! ( x outcome faddr -- outcome )
-  swap ok-then? if ! outcome-ok else nip then ;
-: ed-nd-put ( x outcome xt -- outcome ) ed-nd swap execute ed-field! ;
+\ The nodes' fields (the table at elab-node-bvar). ed-nd-put stores x,
+\ when ok, in the field xt of the newest node; ed-nd-ref! there the place
+\ of an earlier node, member key of value.
+: ed-nd-put ( x outcome xt -- outcome ) ed-nd swap execute swap ok-store ;
 : ed-nd-ref! ( value key xt -- outcome ) >r ed-member ed-node-ref r> ed-nd-put ;
 : ed-nd-bvar ( value -- outcome ) ed-u32 ['] ed-node-a ed-nd-put ;
 : ed-nd-sort ( value -- outcome ) ed-level-all ['] ed-node-a ed-nd-put ;
@@ -1245,7 +1243,7 @@ create ed-mdata-form  ed-mdata-members , ' ed-nd-entries , ' ed-nd-expr , 0 ,
 : ed-nd-levels# ( -- n ) ed-nd ed-node-b ed-span@ nip ;
 : ed-nd-arity? ( -- flag )
   ed-nd ed-node-a @ dup 0< if drop true else ed-levels ed-nd-levels# = then ;
-: ed-nd-fits ( -- outcome ) ed-nd-arity? if outcome-ok else ed-e-unfit ed-bad then ;
+: ed-nd-fits ( -- outcome ) ed-nd-arity? ed-e-unfit ed-or-bad ;
 : ed-nd-const ( value -- outcome )
   dup c" const" ed-member ed-body-name ['] ed-node-a ed-nd-put
   ok-then? if ed-nd-levels dup ok? if drop ed-nd-fits then then ;

@@ -258,7 +258,7 @@ lf-lib set-current
 \ ok; full when the slab cannot grow; invalid, nothing changed, for a
 \ slab that is not live or whose units are narrower than a cell (two).
 : slab-push ( x slab -- outcome )
-  cell swap slab-claim-wide ok-then? if ! outcome-ok else nip then ;
+  cell swap slab-claim-wide ok-store ;
 : slab-2push ( x1 x2 slab -- outcome )
   2 cells swap slab-claim-wide ok-then? if 2! outcome-ok else nip nip then ;
 \ Pop the newest cell or pair; slab-drop gives the newest unit back and
