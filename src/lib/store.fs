@@ -153,9 +153,9 @@ dup set-current
   r@ store-capacity @ r@ store-limit @ store-upto? and
   r@ store-count @ r@ store-base @ r> store-capacity @ between? and ;
 : store-valid? ( index store -- flag )
-  dup store-count-valid? if store-count @ 0 swap within else 2drop false then ;
+  dup store-count-valid? if store-count @ index? else 2drop false then ;
 \ One check of the store for both indices.
-: store-in-count? ( index count -- flag ) 0 swap within ;
+: store-in-count? ( index count -- flag ) index? ;
 \ The read check of a store whose header was checked at the root of the
 \ pass (store-count-valid?): index < count <= capacity, unsigned, from
 \ two header fields, without the seal, shape or generation. A count

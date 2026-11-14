@@ -23,8 +23,8 @@ is added). The library audit of 2026-11-13 (plan 9.4.8) lists which libraries la
 | --- | --- | --- | --- |
 | Bounded record stores | `src/lib/store.fs` | `store:` defining word: a fixed number of fixed-width records with an allocation count, a reset generation that saturates to a poisoned state, an identity per record that never repeats, and a sealed shape so header corruption fails closed. `store-size` and `store-init` make the same store in memory obtained at run time (`ALLOCATE`, or a region of a context); `store-plan?` also refuses a size that would not fit in a cell. **Marks** (plan task 1.1.3): `store-mark ( mark store -- outcome )` records the store, its generation, serial and count in a `/store-mark` record the caller provides (fields `mark-store`, `mark-generation`, `mark-serial`, `mark-count`); `store-rollback ( mark store -- outcome )` restores the count, giving back every record allocated since, and never rewinds identities; `store-mark-valid? ( mark store -- flag )` tells whether it would. A rollback is refused, invalid with nothing changed, for a mark of another store, from another generation (a reset since), above the current count, of an invalid or poisoned store, or stale: records below its count must be older than the mark and the one at its count newer, so a mark below which an earlier rollback went and records were allocated again is refused. Marks are not capabilities: a forged record that passes these checks is accepted. **Heap stores** (plan task 1.1.5, ADR 0016 C9 step 3, 2026-11-03): `store-heap-init ( capacity width base store -- outcome )` puts the header in the caller's memory (it may move, as a context member does) and the block of identities and records on the heap; `store-grow ( store -- outcome )` doubles the block, at least 16 more records, up to the limit, when every record is in use (full at the limit, with no heap, or when the test hook refuses; nothing changed then); `store-limit! ( limit store -- outcome )` sets the limit (at least the count; a larger block shrinks); `store-heap-free`. The block and the limit are sealed shape fields; marks stay valid while the block grows; an address from `store-slot` is valid only until the next growth | New 2026-11-02; used by the term, level and name stores; heap stores (the checker's five stores) tested in `tests/lib/lib.fs` (growth, limit, marks across growth, shrinking, freeing); unit-tested in `tests/lib/lib.fs`, run-time stores in `tests/lib/context.fs`; marks 2026-11-02 in `tests/lib/store-mark.fs` (every refusal, and 20,000 random operations against a model that kills a mark when the count drops below it or the store is reset), used by the checked environment's input (`src/core/input.fs`); the hand-written count saving in the existing modules is not converted yet |
 | Tagged nodes | `src/lib/node.fs` | `BEGIN-STRUCTURE` record of tag and two fields, with whole-node `node!`/`node@` and `node-new`/`node-read` on a store | New 2026-11-02; terms and levels |
-| Range checks | `src/lib/bounds.fs` | `between?` and `upto?` (inclusive, signed, never wrapping) and `cells-zero?` | New 2026-11-02 |
-| Outcome vocabulary | `src/lib/outcome.fs` | ok, invalid, exhausted (out of fuel), unknown, rejected, unsupported and full (out of room: a store, work stack, frame, depth or size limit) (ADR 0008), with `ok?`, `outcome-sane`, `flag>outcome` and `room>outcome` (a validity or room flag as ok, else invalid or full), `visit-outcome` (the one rule for a visit bounded by fuel and room: no fuel is exhausted whatever the room, then no room is full), the continue-on-ok steps `ok-then?`, `ok-then2?`, `ok-then3?`, `ok-keep?` and `ok-keep2?`, `outcome-and` (two outcomes as one, the first failure), `outcome-steps` (a 0-ended list of steps run to the first failure; review FRI B6), `ok-and` and `ok-with` (a step run only while the outcome so far is ok, on the values below or on a value kept below; review FRK A), `no-result`, and `outcome-text` (each outcome's name, for reports) | New 2026-11-02; every core and kernel module uses it; the per-module status aliases were removed |
+| Range checks | `src/lib/bounds.fs` | `between?` and `upto?` (inclusive, signed, never wrapping) and `cells-zero?`; `index? ( i n -- flag )` (0 ≤ i < n, false for every i when n ≤ 0, where `0 n within` takes any i ≥ 0), `cells-index ( x addr n -- i true \| false )` and `cells-has? ( x addr n -- flag )` (the first of n cells holding x) ([below](#stacks-outcome-loops-and-index-checks)) | New 2026-11-02; `index?`, `cells-index`, `cells-has?` 2026-11-13 (plan 9.4.8a) in place of 9 `0 n within` checks and 5 cell searches; `tests/lib/lib.fs` |
+| Outcome vocabulary | `src/lib/outcome.fs` | ok, invalid, exhausted (out of fuel), unknown, rejected, unsupported and full (out of room: a store, work stack, frame, depth or size limit) (ADR 0008), with `ok?`, `outcome-sane`, `flag>outcome` and `room>outcome` (a validity or room flag as ok, else invalid or full), `visit-outcome` (the one rule for a visit bounded by fuel and room: no fuel is exhausted whatever the room, then no room is full), the continue-on-ok steps `ok-then?`, `ok-then2?`, `ok-then3?`, `ok-keep?` and `ok-keep2?`, `outcome-and` (two outcomes as one, the first failure), `outcome-steps` (a 0-ended list of steps run to the first failure; review FRI B6), `ok-and` and `ok-with` (a step run only while the outcome so far is ok, on the values below or on a value kept below; review FRK A), `no-result`, `outcome-text` (each outcome's name, for reports), the loops `ok-each ( i*x n xt -- i*x outcome )` and `ok-fold ( x n y xt -- x' outcome )` (a step for k = 0 … n-1 to the first failure), the tests over every index `all? ( i*x n xt -- i*x flag )` and `ok-all? ( i*x n xt -- i*x flag outcome )` (to the first false or failure) with their stop test `ok-true? ( flag outcome -- true | false outcome false )`, and `outcome-first! ( outcome a-addr -- )` (a first failure kept in a cell) ([below](#stacks-outcome-loops-and-index-checks)) | New 2026-11-02; every core and kernel module uses it; the per-module status aliases were removed; the loops and `outcome-first!` 2026-11-13 (plan 9.4.8a) in place of 30 hand-written loops, the combinators `aux-each`, `aux-fold` (`fold-with`), `aux-then` and `and-then`, and 7 first-failure cells outside `src/kernel/`; `all?`, `ok-all?` and `ok-true?` 2026-11-13 (review reuse-1a B2) in place of 8 flag loops and 2 all-while-ok loops outside `src/kernel/` |
 | DAG walks | `src/lib/walk.fs` | `walk:` defining word: fuel, current node, one visitor cell and a bounded work stack in one record; `walk-run` drives a visitor and `walk-visit` reads and dispatches a node. A push without room is full whatever fuel is left (checked where the push happens), and a root that cannot be pushed means a corrupted capacity, which is invalid. `walk-size`/`walk-init` and `walk2-size`/`walk2-init` make the same records at run time. The walk words keep no state of their own; each module's walk records are members of the checker context, one set per context | New 2026-11-02; level scope, Sort representation, session and handle audits use it |
 | Passes on an explicit stack | `src/lib/frame.fs` | A frames record: fuel, visits in progress, the visitor (set once), a context cell (such as a binder depth), a job cell, and the pass's stack, a heap block that grows by doubling (plan task 6.2.0). A visit is a chain of steps `( ... frames -- ... frames next )` run by a loop (`frame-run`, `frame-loop`, `frame-steps`), never nested on the host's stacks: a step either asks for a child's visit with `frame-call` or `frame-under` (one context level deeper), naming the step that continues with the child's `( result outcome )`, or returns `( result outcome frames 0 )`; values kept across a child's visit go on the pass's stack (`frame-save`, `frame-restore`, `frame-pick`, `frame-drop`; up to `frame-spare` cells a visit, all its steps together; a save past the block throws `frame-overrun`, -4111, instead of writing outside it, for 0.5% more instructions on the trial workload). `frame-admit` says why a visit cannot open: an unsound stack is invalid, then no fuel left is exhausted, then a stack the heap cannot grow full (the fuel decides first); `frame-under` is full at context `max-n`. `frame-open` opens a visit of another kind (mixed-infer.fs: inference and the rejection analysis share one record), and a step may run a loop of its own on the same record. A busy record refuses a new budget or pass; `frame-reset` recovers after a THROW; `frame-free` gives the stack back. Host-stack use is a constant whatever the depth | New 2026-11-02, explicit stack 2026-11-04; the kernel's shift, instantiate, beta and opening passes, inference and the analysis, normalize, is_geq and level evaluation use it; unit tests and a randomized model test |
 | Checker contexts | `src/lib/context.fs` | One `ALLOCATE`d record per worker for all of a check's mutable state ([ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md)), reached through the `USER` variable `lf-context` (a plain variable on hosts without Gforth's `USER`). Modules declare members while they load: `context-record:`, `context-store:`, `context-walk:`, `context-walk2:`, `context-frames:` (a frames record, set up with `frame-init`), and `context-setup` for set-up words; a refused declaration changes nothing. Each member's name is a colon definition that adds its offset, a literal, to `lf-context @`. Modules also state how deep their checks nest on the host stacks (`context-need`), which the job pool checks. `context-new`, `context-use` and `context-free` make, select and free contexts. Each context is idle or owned by one job; each task has an owner token `lf-owner` and may select only contexts it owns (the main task: idle ones); owned contexts cannot be freed. `context-in-job?` says whether the current task runs a job or a check; the checked environment's serial driver gives a check the token `context-check-owner`, so every in-job guard refuses it too. `context-claim` and `context-release` (the job pool's) are refused there as well. `call-balanced ( x xt -- )` runs a word above a cell and throws `context-unbalanced` (-4096) when the word changed the stack depth or that cell (the checked environment's serial driver uses it; `task.fs`'s `job-call` still has its own copy); `context-catch ( i*x xt -- j*x ior )` is `CATCH` that restores the current context afterwards. `context-slab:` declares a growable array member and `context-teardown` a word that frees a member's heap blocks with its context. The header lists the interface and gives an example; every other word is private (`lf-lib-private`, since 2026-11-12) | New 2026-11-02; ownership, frames members and atomic declarations 2026-11-02 after an independent review; every module of `src/core/` and `src/kernel/` keeps its state in it since 2026-11-02 (see the design below); tested in `tests/lib/context.fs`, including a randomized model with context switches at every step, and with real checker work in `tests/core/contexts.fs` |
@@ -36,9 +36,9 @@ is added). The library audit of 2026-11-13 (plan 9.4.8) lists which libraries la
 | Wordlist modules | `src/lib/module.fs` | The two library wordlists of [ADR 0010](../adr/0010-wordlists.md) (accepted), `lf-lib` (public, pushed onto the search order once) and `lf-lib-private` (helpers), and its four words `order+`, `order-`, `module-open`, `module-close` | New 2026-11-03; used by the compact store's library modules below, `sha256.fs`, `text-rule.fs`, `text-run.fs` and, since 2026-11-12, `context.fs` (the ADR's migration converts the others); tests reach helpers with `lf-lib-private order+` |
 | Tables of execution tokens | `src/lib/xt-table.fs` | `xt-table: ( n default "name" -- )` makes a table of n execution tokens, each the default; `xt-table! ( xt i table -- )` sets entry i and aborts outside the table, so a table filled while loading never writes beside it; `xt-table@ ( i table -- xt )` gives entry i, or the default for any other index, so an index read from data (a node's tag, a log step's rule) needs no check of its own. Helpers private (ADR 0010); no state of its own | New 2026-11-13 (plan task 9.4.5, the item-2 Forth review's L5); the printers' and the step list's tag and rule tables (`src/present/term-printer.fs`, `print-forth.fs`, `log-view.fs`); tested in `tests/lib/lib.fs` |
 | Portable 32-bit hashing | `src/lib/hash32.fs` | `hash-fmix` (Murmur3's finaliser), `hash-step ( h x -- h' )` and `hash-bytes ( addr u -- h )` (FNV-1a), every product masked to 32 bits, so 32- and 64-bit hosts give the same values ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/hash32.fs` against values computed in Python |
-| Growable heap stores | `src/lib/slab.fs` | Plan task 1.1.5. `slab-init ( unit limit slab -- outcome )`: units of any size in one heap block that doubles by `RESIZE` up to a limit; `slab-room`, `slab-claim`, `slab-commit`, `slab-at`, `slab-top`, `slab-trim`, `slab-clear`; marks `slab-mark`, `slab-rollback`, `slab-mark-valid?` with `store.fs`'s refusals ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/slab.fs` |
+| Growable heap stores | `src/lib/slab.fs` | Plan task 1.1.5. `slab-init ( unit limit slab -- outcome )`: units of any size in one heap block that doubles by `RESIZE` up to a limit; `slab-room`, `slab-claim`, `slab-commit`, `slab-at`, `slab-top`, `slab-trim`, `slab-clear`; marks `slab-mark`, `slab-rollback`, `slab-mark-valid?` with `store.fs`'s refusals ([below](#the-compact-store)); a slab as a stack: `slab-push`, `slab-pop`, `slab-2push`, `slab-2pop`, `slab-last`, `slab-drop`, a pop of an empty slab throwing `slab-underflow`; worklists `slab-all?` and `slab-2all? ( slab xt -- flag outcome )` ([below](#stacks-outcome-loops-and-index-checks)) | New 2026-11-03; stacks 2026-11-13 (plan 9.4.8a) in place of 21 hand-written pushes, pops and tops, and 4 more after review reuse-1a (B1); the worklists 2026-11-13 (B2) in place of `lf-meta-pairs-all` and `pq-lrun`; `tests/lib/slab.fs` |
 | Runs (sequences that never change) | `src/lib/runs.fs` | A run is a handle (0 the empty run) to a stretch of a slab of cells, which are only appended, never changed, so runs share cells and a saved run is its handle: `run-push ( run x -- run' outcome )` (in place when the run ends at the top of the cells, else after a copy of it), `run-take` and `run-after ( run n -- run' outcome )` (no copy), `run-cat ( run1 run2 -- run outcome )` (in place when run2 begins where run1 ends), `run-count`, `run@ ( run i -- x )`, `run-valid?`, `runs-reset`, `runs-epoch` (changes with each reset), `runs-cells`; invalid for a handle that names no run or a count out of range, full when a slab cannot grow (no run made); its two slabs are members of the checker context (`context.fs`), so each context has its own runs | New 2026-11-13 (plan FE1g-1; the front end's local contexts and goal lists, `src/front/lctx-views.fs`, `goals.fs`); `tests/lib/runs.fs` (its example, every refusal, every heap refusal inside an operation, 400 random operations against a model), planted fault `fe-goal-run-no-copy` caught |
-| Stable sorting | `src/lib/sort.fs` | `sort-records ( a-addr n sorter -- outcome )` sorts n records of any size in place by the caller's order `( a-addr1 a-addr2 -- n )`, or by their keys (`sorter-key!`; `sorter-cells` and `sorter-u32s` order values); stable: insertion up to `sorter-short` (32) records, above that a bottom-up merge from runs of one record through a scratch (the caller's, `sorter-buffer!`, or the heap's: full when refused, nothing changed), its comparisons call for call those of `level-normalize.fs`'s `lf-lnorm-sort`; no recursion; invalid for a bad count, a sorter not accepted or busy, and an order or key word that changes the stack depth; a THROW out of the order is passed on, the scratch freed ([below](#sorting)) | New 2026-11-12 (the kernel refactor's batch C2 waited for it); not yet used by any module (the snapshot's three insertion sorts wait for the owner's approval of the kernel change); `tests/lib/sort.fs`, 23 planted faults each caught |
+| Stable sorting | `src/lib/sort.fs` | `sort-records ( a-addr n sorter -- outcome )` sorts n records of any size in place by the caller's order `( a-addr1 a-addr2 -- n )`, or by their keys (`sorter-key!`; `sorter-cells` and `sorter-u32s` order values); stable: insertion up to `sorter-short` (32) records, above that a bottom-up merge from runs of one record through a scratch (the caller's, `sorter-buffer!`, or the heap's: full when refused, nothing changed), its comparisons call for call those of `level-normalize.fs`'s `lf-lnorm-sort`; no recursion; invalid for a bad count, a sorter not accepted or busy, and an order or key word that changes the stack depth; a THROW out of the order is passed on, the scratch freed ([below](#sorting)) | New 2026-11-12 (the kernel refactor's batch C2 waited for it); used since 2026-11-13 (plan 9.4.8a) by the front end's `Level.normalize` (`src/front/level-normalize.fs`) and the re-exporter's mdata members (`src/import/ndjson-emit.fs`); the snapshot's three insertion sorts wait for the owner's approval of the kernel change (9.4.8e); `tests/lib/sort.fs`, 23 planted faults each caught |
 | Hash tables | `src/lib/htab.fs` | Open addressing over 32-bit slots, hooks for rehashing and comparing, growth at 3/4, removal by Algorithm R, `htab-spread` and `htab-presize` ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/htab.fs` |
 | Hash-consed sets in two tiers | `src/lib/cons.fs`, `src/lib/pools.fs` | Each distinct record once, named by a number; a sealed input set shared read-only and scratch sets over it whose numbers continue; marks, resets, sealing; interned lists of 32-bit numbers (tuples, no fixed length) and texts ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/cons.fs` |
 | Compact store | `src/core/compact.fs` and `compact-tier.fs`, `compact-names.fs`, `compact-levels.fs`, `compact-exprs.fs` | ADR 0016's Lean layer: names, levels, universe lists, literals and 16-byte expression records in input and scratch tiers ([below](#the-compact-store)) | New 2026-11-03; not yet used by the kernel; `tests/core/compact.fs`, round trips of the reference exports and of `Init` |
@@ -434,8 +434,22 @@ the count's check, a zero order, the key word skipped, `sorter-u32s`
 reading a cell, a swallowed `THROW`, `sort-unsigned` signed), each
 caught.
 
+**Callers** (2026-11-13, plan 9.4.8a): `src/front/level-normalize.fs`
+(`ln-sort`, a max's arguments by `normLt`, through a sorter in its
+context record; the heap's scratch above 32, full when refused) and
+`src/import/ndjson-emit.fs` (`members-sort`, mdata's key tokens by their
+text, the scratch of data-most cells in its module record, so never
+full). Sizes met: the front end's tests sort 2 to 200 arguments
+(`tests/front/meta.fs`'s max of 200 metavariables, `meta-heap.fs`'s of
+40 with every heap refusal); `leanforth check` never runs the front end
+on Init. Init's export (lean4export 3.1.0 of Lean 4.35.0) has no mdata
+record, so the re-exporter sorts members only in its tests (up to
+data-most, 256, in reverse order). Mathlib's sizes are not measured
+yet (plan 9.4.8g).
+
 **Sorts in `src/` that could use it** (2026-11-12; changing them is
-kernel work under the owner's approval, or another agent's front end):
+kernel work under the owner's approval, or another agent's front end;
+the last two rows converted 2026-11-13):
 
 | Where | Kind | Equal keys |
 | --- | --- | --- |
@@ -446,6 +460,193 @@ kernel work under the owner's approval, or another agent's front end):
 | `src/kernel/level-substitute.fs` `lf-cells-sort` (65–85; used at 256 and by `mixed-level-substitute.fs` 303) | heapsort of signed cells, no scratch, not stable | the reached node indices are distinct; the library would need scratch above 32 |
 | `src/front/level-normalize.fs` `ln-insert`, `ln-sort` (121–137) | insertion by shifting; levels by `normLt` | only structurally equal levels tie |
 | `src/import/ndjson-emit.fs` `member-insert`, `members-sort` (216–225) | insertion; mdata's key tokens by their text | two equal keys are refused as invalid |
+
+## Stacks, outcome loops and index checks
+
+Plan 9.4.8a (2026-11-13; the [library audit](forth-reviews/2026-11-13-library-audit.md)'s
+actions 1, 4 and 10): words that dozens of modules had written by hand,
+now in `src/lib/slab.fs`, `outcome.fs` and `bounds.fs`. Copies left in
+files that in-flight branches edit go in 9.4.8a's part b, the kernel's in
+the [kernel] batch 9.4.8e.
+
+```forth
+create todo /slab allot   1 cells 1000 todo slab-init drop
+7 todo slab-push drop  8 todo slab-push drop
+todo slab-pop todo slab-pop todo slab-count      \ 8 7 0
+: cell-ok ( addr k -- addr outcome ) cells over + @ 0< 0= flag>outcome ;
+create counts 3 , 0 , -1 ,
+counts 2 ' cell-ok ok-each nip .                 \ 0 (ok): cells 0 and 1 checked
+counts 3 ' cell-ok ok-each nip .                 \ 1 (invalid): cell 2 is negative
+3 4 index?  0 -1 index?  9 counts 3 cells-has?   \ true false false
+: cell-pos? ( addr k -- addr flag ) cells over + @ 0> ;
+counts 1 ' cell-pos? all? nip  counts 2 ' cell-pos? all? nip   \ true false
+: small? ( n -- flag outcome ) dup 100 < swap 2/ ?dup if todo slab-push else outcome-ok then ;
+40 todo slab-push drop  todo ' small? slab-all?    \ true 0: 40 20 10 5 2 1, all below 100
+```
+
+**Stacks on a slab** (`slab.fs`). *Algorithm*: the newest unit of a slab
+is the top; `slab-push ( x slab -- outcome )` claims one unit
+(`slab-claim`, so the block doubles as it fills) and stores a cell,
+`slab-2push ( x1 x2 slab -- outcome )` a pair by `2!`; `slab-pop`,
+`slab-2pop` read the newest unit and give it back, `slab-last` is its
+address, `slab-drop` gives it back unread. A push is ok, full as
+`slab-claim`, or invalid with nothing changed for a slab that is not
+live or whose units are narrower than a cell (two); a pop, drop or
+`slab-last` of an empty slab, of one whose count is past its capacity
+or of one too narrow throws `slab-underflow` (-4132), nothing changed:
+every caller tests `slab-count` first, so an empty pop is a fault in
+the caller, which must neither read before the block nor leave a count
+of -1 (the hand-written pops did both). A pop checks the unit's width
+and 1 ≤ count ≤ capacity, which keeps the address inside the block, but
+not the seal and generation again: the push that made the unit checked
+them, and pops are on the hot path of every walk (review reuse-1a M1). *Genericity*: any slab whose unit holds the value (wider
+units hold it at their start); a slab may mix pushes with `slab-claim`d
+records, and marks and rollbacks see pushes as claims. *Scaling*: a push
+or pop is constant time; growth doubles the block (amortised constant,
+`RESIZE` may move it, so an address from `slab-last` is valid only until
+the next push); no recursion. *Speed* (this machine, Gforth 1.0 `gforth`,
+2026-11-13, load average about 6; the review's benchmarks
+`.claude/work/rv-reuse1/probe/bench*.fs`, copied to
+`.claude/work/reuse-1b/`): a push, a read of the top (`slab-last 2@`)
+and a pop of a pair together 178 ns, against 95 ns for the unchecked
+copies they replace and 223 ns while every pop checked the seal again
+(before M1); the rest of the difference is the push's checks (liveness,
+room, width: a push alone about 100 ns). On whole walks of the front end
+(`bench-walks.fs`; median of three runs, alternated): 20,000 `Expr.eqv`
+over two different 1000-binder terms 12.4 s, against 10.9 s with the
+copies (+14%) and 13.7 s before M1 (+26%); 800 instantiate1 and 800
+abstract over 1000 binders and 3,000 headBeta of 300 arguments within
+the noise (3.3–3.9 s, 3.3–3.8 s and 0.67–0.76 s for all three trees).
+Gforth 0.7.3 about twice as slow.
+*Callers* (2026-11-13): the front end's level equality and unification
+(`level-simp.fs`, `level-defeq.fs`: pairs still to compare), `Expr.eqv`
+(`term-eqv.fs`), `Level.normalize`'s flattening (`level-normalize.fs`),
+instantiate and its beta (`instantiate.fs`, `beta-inst.fs`: the walks'
+pending (node, depth) pairs), `isPropQuick` (`prop-quick.fs`), the goal
+printer's groups (`goal-print.fs`), the tactic runner's blocks, parts and
+saves (`tactic-run.fs`), and the input's inductive cells
+(`core/input.fs`, one push per cell of every inductive block an import
+loads: Init's 604 blocks). The front end runs on authored text only, so
+its stacks' depths come from the tests (up to 10,000 nested nodes in
+`tests/front/meta.fs`), not from an Init check.
+
+**Worklists on a slab** (`slab.fs`; review reuse-1a B2). *Algorithm*:
+`slab-all? ( slab xt -- flag outcome )` pops the newest value and runs
+the test `xt ( x -- flag outcome )` on it, which may push more onto the
+slab, until the slab is empty (true and ok), a test answers false (false
+and ok) or one fails (false and its outcome, whatever its flag:
+`ok-true?`); `slab-2all?` does the same with pairs and `xt ( x1 x2 --
+flag outcome )`. The values not yet tested stay on the slab (the callers
+clear it before the next run). A slab that is not live answers false and
+invalid, no test run; one too narrow for a pair throws as `slab-2pop`.
+*Genericity*: any test with that stack effect; it finds its value (pair)
+on top, the slab and the xt below, which it must leave, and may push
+onto the same slab or use the return stack. *Scaling*: one pop and one
+test per value, newest first (depth first); the pending work lies in the
+heap, so no depth needs the host's stacks; constant overhead per value.
+*Speed* (as above, `bench-loops.fs`): 50–65 ns a value, the pop
+included, against 45–55 ns for the hand-written loop. *Callers*
+(2026-11-13): Level.beq (`level-simp.fs`'s `lf-meta-level=`, pairs of
+levels), Expr.eqv (`term-eqv.fs`, pairs of terms, a constant's levels
+through Level.beq) and isAlwaysZero (`prop-quick.fs`, levels); depths
+from authored text (the meta tests compare 1,000-deep terms and levels
+and hold 100 pairs waiting; `tests/front/meta-heap.fs` refuses every
+allocation of the two pair stacks in turn).
+
+**Loops over outcomes** (`outcome.fs`). *Algorithm*: `ok-each ( i*x n xt
+-- i*x outcome )` runs `xt ( i*x k -- i*x outcome )` for k = 0 … n-1 and
+stops at the first outcome that is not ok, which it gives; the values
+below k are the steps' to read and replace (keeping their number), so
+it serves a loop over a table, over a record kept below, and a fold of
+several values. `ok-fold ( x n y xt -- x' outcome )` is a fold with a
+context: x := `xt ( x k y -- x' outcome )` with the same y each time, the
+failing step's x' (often -1) kept beside its outcome, so the front end's
+`apply-arg`-style steps run unchanged and folds nest (the job-held step
+`aux-step-xt` they replace could not). `outcome-first! ( outcome a-addr
+-- )` stores an outcome only while the cell holds ok. Both loops keep the
+xt as the index of an outer `DO` loop run once and read it with `J`, so
+a step sees only its own values on the data stack, with no `>R`
+juggling around it (Forth-2012 locals are not on Gforth 0.7.3). *Genericity*:
+any step with the stated stack effect; n ≤ 0 runs nothing (`?DO` would
+wrap round on a negative count); any value outside the vocabulary stops
+the loop as a failure. *Scaling*: constant overhead per step, no
+recursion; nesting costs two loop frames on the return stack per level.
+*Speed* (as above): `ok-each` 6 ns a step at n = 10 and 5 ns at
+n = 10^6, against 8 ns for the hand-written `?DO … ok? 0= IF UNLOOP
+EXIT` loop; `ok-fold` 12 and 8 ns. *Callers* (2026-11-13): the feed of an
+import into the checker (`import/feed.fs`: Init's 577 levels and about
+58,000 declarations in one `ok-each` each, the 10 feed steps and 5
+shares), the stage and snapshot (`stage-records.fs`, `snapshot-tier.fs`,
+`snapshot-layer.fs`: sections and items), the compact store's tiers (5
+families each), the scratch marks, the input's parameters, the front
+end's generated definitions (`constructions.fs`, `cases-several.fs`,
+`ctor-idx.fs`: per binder and argument; Init's inductive types have 0 to
+19 constructors, 491 of the 604 one), goals and their printing, the
+function information and assignment checks, the printers (notes,
+universes, scopes), the author's printing and the CLI's workers and
+layers. `outcome-first!`: the front end's walks (`instantiate.fs`,
+`beta-inst.fs`, `dag-walk.fs`), the run record, the JSON writer, the
+author's export and the re-exporter.
+
+**Tests over every index** (`outcome.fs`; review reuse-1a B2).
+*Algorithm*: `all? ( i*x n xt -- i*x flag )` runs the test `xt ( i*x k
+-- i*x flag )` for k = 0 … n-1 and answers false at the first false
+(none runs after it), else true; `ok-all? ( i*x n xt -- i*x flag
+outcome )` runs a test that may fail, `xt ( i*x k -- i*x flag outcome
+)`, and answers true and ok, false and ok at the first false, or false
+and the outcome at the first failure, through `ok-true? ( flag outcome
+-- true | false outcome false )`, which never lets a failure read as a
+plain false. Both keep the xt as `ok-each` does (`J`). *Genericity*:
+any test with the stated effect, the values below k its context to read
+(a table, a record, a pair of keys) and keep; a test that starts at 1
+adds it to k (`lf-names-ok?`, `lfr-steps-ok?`, `lines-ok?` pass n − 1).
+n ≤ 0 gives true (and ok). *Scaling*: constant overhead per index, no
+recursion. *Speed* (as above, `bench-loops.fs`): `all?` 6 ns a step at
+n = 10 and 3–4 ns at n = 10^6, against 6–7 and 5 ns for the hand-written
+`?DO … 0= IF FALSE UNLOOP EXIT` loop; `ok-all?` 11–12 and 10 ns against
+12 and 11 ns. *Callers* (2026-11-13): the audits of the name store
+(every entry), of a level scope (its universe parameters, pairwise or
+hashed) and of a tactic record (each step), the input's universe
+parameters (each declaration's), the snapshot's name tuples and
+recursor rules (each declaration's) and lines (one per declaration of a
+loaded snapshot: Init's about 58,000, in one `all?`), Expr.eqv's
+universe arguments (`ok-all?`, each constant's) and the axiom allowlist's names (`ok-all?`, a statement's
+constants). The kernel's 4 all-while-ok loops and 3 any-while-ok loops
+(`check-block.fs` `lf-blk-indices-free?`, `defeq.fs`
+`lf-dq-level-pairs`, `inductive-block.fs` `lf-ind-args-free?` and
+`lf-ind-ctors-plain?`; `inductive-block.fs` `lf-ind-some-arg?`,
+`inductive-nested.fs` `lf-nest-mentions?`, `whnf.fs`
+`lf-whnf-open-args?`) wait for the [kernel] batch 9.4.8e.
+
+**Index checks** (`bounds.fs`). *Algorithm*: `index? ( i n -- flag )` is
+0 ≤ i < n by signed comparison, false for every i when n ≤ 0;
+`cells-index ( x addr n -- i true | false )` a linear search for the first
+cell equal to x, `cells-has?` its flag. *Genericity*: any cells; equality
+by `=`. *Scaling*: `cells-index` is linear (the callers' tables hold at
+most 32 entries: a declaration's universe parameters, an outline line's
+sets, `exceptFVars`); a sorted or hashed set is `htab.fs`'s job.
+*Speed* (as above): `index?` 3 ns; `cells-index` 51 ns for a miss in 8
+cells, 35 µs for a miss in 10,000. *Callers*: `store.fs`, `walk.fs`,
+`slab.fs`, `xt-table.fs` (their index checks), `core/reach.fs`,
+`front/dag-walk.fs`, `present/log-check.fs`; searches in
+`front/lctx-views.fs`, `core/level-scope.fs`, `author/declarations.fs`,
+`present/print-forth.fs` and `proof-outline.fs`.
+
+**Tests**: `tests/lib/slab.fs` (every push, pop and refusal, narrow and
+dead slabs, a corrupted count, marks over pushes, 40,000 random
+operations against a model array; worklists: order, empty, false,
+failure with either flag, a full push inside a test, pairs, a dead
+slab, too narrow units, return-stack use), `tests/lib/lib.fs` (each
+loop's stopping, negative counts, nesting, folds, return-stack use;
+`all?`, `ok-all?` and `ok-true?` with every answer; `index?` at its
+edges against `within`; searches, `cells-has?`); core and front tests
+of their callers (`tests/front/meta-heap.fs`: Level.beq and Expr.eqv
+whose pair stacks are refused, at the first pair, in a step and inside
+a Sort's levels). 35 planted faults (`lib-slab-…`, `lib-outcome-…`,
+`lib-bounds-…`, `core-term-…`, `core-names-…`, `fe-lnorm-…`,
+`fe-pairs-all-…`, `fe-eq-push-…`, `fe-level-seconds-…`,
+`fe-rec-apply-…`, `imp-emit-…`, and for the review's other findings
+`fe-assign-…`, `fe-fun-info-…`, `fe-dag-walk-…`), each caught.
 
 ## Big natural numbers
 

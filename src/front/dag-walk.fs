@@ -40,8 +40,8 @@ begin-structure /dw
 end-structure
 
 16 constant dw-first-room
-: dw-refuse ( outcome walk -- )
-  dup dw-outcome @ ok? if dw-outcome ! else 2drop then ;
+\ The first refusal stays; refusing with ok changes nothing.
+: dw-refuse ( outcome walk -- ) dw-outcome outcome-first! ;
 : dw-ok? ( walk -- flag ) dw-outcome @ ok? ;
 
 \ The memo: one cell per node, 0 unseen, 1 under way, image + 2 made. A
@@ -51,7 +51,7 @@ end-structure
 \ since it was assigned) is never done; its visit ends the walk invalid.
 : dw-cell ( node walk -- addr ) dw-memo @ swap cells + ;
 : dw-state ( node walk -- n ) dw-cell @ ;
-: dw-in? ( node walk -- flag ) dw-size @ 0 swap within ;
+: dw-in? ( node walk -- flag ) dw-size @ index? ;
 : dw-done? ( node walk -- flag ) 2dup dw-in? if dw-state 1 > else 2drop false then ;
 \ A pending word's test of one child: the child and true when its image
 \ is not made yet, else false.

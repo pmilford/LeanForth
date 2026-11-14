@@ -140,8 +140,9 @@ end-structure
 \ entries (lf-name-part-ok? is the word for either mode).
 : lf-name-entry-ok? ( id -- flag )
   lf-name-viewed? if drop false else lf-name-entry-checked? then ;
-: lf-names-ok? ( -- flag )
-  lf-name-count @ 1 ?do i lf-name-entry-checked? 0= if false unloop exit then loop true ;
+\ Entries 1 .. count - 1 (0 is the root, checked as zero below).
+: lf-name-entry-after? ( k -- flag ) 1+ lf-name-entry-checked? ;
+: lf-names-ok? ( -- flag ) lf-name-count @ 1- ['] lf-name-entry-after? all? ;
 : lf-name-entries-valid? ( -- flag )
   lf-name-state-valid? 0= if false exit then
   0 lf-name-slot lf-name-slot-cells cells-zero? lf-names-ok? and ;

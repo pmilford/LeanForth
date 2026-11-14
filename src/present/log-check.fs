@@ -34,13 +34,14 @@
 \ nothing but whether a log may be printed from.
 \ State: none.
 
+require ../lib/bounds.fs
 require ../core/derivation-log.fs
 require ../core/input.fs
 
 \ Rules: a known code (the catalogue's last entry has code 0).
 : lf-lc-known? ( s -- flag ) lf-log-rule@ lf-log-entry lf-log-entry-code 0<> ;
 \ Start: 0 <= start < s.
-: lf-lc-start? ( s -- flag ) dup lf-log-premise swap 0 swap within ;
+: lf-lc-start? ( s -- flag ) dup lf-log-premise swap index? ;
 \ Nesting: every record t in (start, s) has its own start >= start
 \ (start < s, part 2).
 : lf-lc-nested? ( s -- flag )

@@ -70,23 +70,21 @@ end-structure
 1 cells context-slab: in-args      \ head-beta's arguments, last first
 :noname ( -- ) in-state in-table htab-free ; context-teardown
 
-: in-fail ( outcome -- ) in-state in-outcome dup @ ok? if ! else 2drop then ;
-: in-binary? ( node -- flag ) lf-term-tag@ lf-term-binary-tag? ;
-: in-binder? ( node -- flag ) lf-term-tag@ lf-term-binder-tag? ;
-: in-bvar? ( node -- flag ) lf-term-tag@ lf-tag-bvar = ;
+: in-fail ( outcome -- ) in-state in-outcome outcome-first! ;
 
 \ Loose ranges (Lean's looseBVarRange): a leaf's from itself, a node's
 \ from its data word when known.
-: in-leaf-range ( leaf -- range ) dup in-bvar? if lf-term-first@ 1+ else drop 0 then ;
+: in-leaf-range ( leaf -- range )
+  dup lf-term-bvar? if lf-term-first@ 1+ else drop 0 then ;
 : in-range ( node -- range true | false )
-  dup in-binary? 0= if in-leaf-range true exit then
+  dup lf-term-binary? 0= if in-leaf-range true exit then
   lf-term-data@ if lf-data-loose true else false then ;
 : in-closed? ( node depth -- flag ) swap in-range if < 0= else drop false then ;
 \ For abstract: a node known to hold no free variable or metavariable
 \ (a metavariable makes a data word unknown).
 : in-hole? ( leaf -- flag ) lf-term-tag@ dup lf-tag-fvar = swap lf-tag-mvar = or ;
 : in-solid? ( node -- flag )
-  dup in-binary? 0= if in-hole? 0= exit then
+  dup lf-term-binary? 0= if in-hole? 0= exit then
   lf-term-data@ if lf-data-fvar? 0= else false then ;
 : in-abstracting? ( -- flag ) in-state in-abstracting @ ;
 : in-kept? ( node depth -- flag ) in-abstracting? if drop in-solid? else in-closed? then ;
@@ -95,14 +93,14 @@ end-structure
 : in-undone ( child walk -- child true | false )
   over swap dw-done? if drop false else true then ;
 : in-loose-pending ( node walk -- child true | false )
-  over in-binary? 0= if 2drop false exit then
+  over lf-term-binary? 0= if 2drop false exit then
   over lf-term-first@ over in-undone if nip nip true exit then
   swap lf-term-second@ swap in-undone ;
 : in-loose-pair ( node walk -- range )
   over lf-term-first@ over dw-image >r swap dup lf-term-second@ rot dw-image
-  swap in-binder? + 0 max r> max ;
+  swap lf-term-binder? + 0 max r> max ;
 : in-loose-build ( node walk -- range )
-  over in-binary? if in-loose-pair else drop in-leaf-range then ;
+  over lf-term-binary? if in-loose-pair else drop in-leaf-range then ;
 : in-loose-walk ( -- walk )
   in-state in-walk ['] in-loose-build over dw-build !
   ['] in-loose-pending over dw-pending ! lf-term-base lf-term-count @ + over dw-size ! ;
@@ -136,11 +134,9 @@ end-structure
   in-claim dup in-entry 2@ in-find drop in-tab htab-put outcome-ok ;
 
 \ The stack.
-: in-top ( -- node depth ) in-pending dup slab-count 1- swap slab-at 2@ ;
-: in-pop ( -- ) -1 in-pending slab-commit ;
-: in-push ( node depth -- )
-  1 in-pending slab-claim dup ok?
-  if drop in-pending slab-at 2! else in-fail drop 2drop then ;
+: in-top ( -- node depth ) in-pending slab-last 2@ ;
+: in-pop ( -- ) in-pending slab-drop ;
+: in-push ( node depth -- ) in-pending slab-2push in-fail ;
 : in-push-if ( node depth -- pushed? )
   2dup in-ready? if 2drop false else in-push true then ;
 
@@ -161,11 +157,13 @@ end-structure
 : in-index ( depth i -- k ) in-count swap - 1- + ;
 : in-abstract-leaf ( node depth -- image )
   over in-xs-index if in-index nip lf-term-bvar in-made else drop then ;
-: in-instantiate-leaf ( node depth -- image ) over in-bvar? if in-bvar else drop then ;
+: in-instantiate-leaf ( node depth -- image )
+  over lf-term-bvar? if in-bvar else drop then ;
 : in-leaf ( node depth -- image )
   in-abstracting? if in-abstract-leaf else in-instantiate-leaf then ;
 : in-first ( node depth -- child depth ) swap lf-term-first@ swap ;
-: in-second ( node depth -- child depth' ) over in-binder? - swap lf-term-second@ swap ;
+: in-second ( node depth -- child depth' )
+  over lf-term-binder? - swap lf-term-second@ swap ;
 : in-images ( node depth -- i1 i2 )
   2dup in-first in-image >r in-second in-image r> swap ;
 : in-same-pair? ( i1 i2 node -- i1 i2 flag )
@@ -184,7 +182,7 @@ end-structure
   2dup in-second in-push-if if 2drop exit then 2dup in-pair-image in-done ;
 : in-step ( -- )
   in-top 2dup in-ready? if 2drop in-pop exit then
-  over in-binary? if in-step-pair else 2dup in-leaf in-done then ;
+  over lf-term-binary? if in-step-pair else 2dup in-leaf in-done then ;
 : in-busy? ( -- flag ) in-pending slab-count 0> in-state in-outcome @ ok? and ;
 : in-start ( value abstracting? -- outcome )
   in-state tuck in-abstracting ! tuck in-value ! outcome-ok swap in-outcome !
@@ -206,23 +204,15 @@ end-structure
 
 \ Head beta: the arguments of f a1 .. an, last first, in in-args; each
 \ lambda of f takes the next one; the rest are applied.
-: hb-app? ( term -- flag ) lf-term-tag@ lf-tag-app = ;
-: hb-lam? ( term -- flag ) lf-term-tag@ lf-tag-lam = ;
-: hb-push ( arg -- outcome )
-  1 in-args slab-claim dup ok? if drop in-args slab-at ! outcome-ok else nip nip then ;
-: hb-peel ( term -- f outcome ) dup lf-term-second@ hb-push swap lf-term-first@ swap ;
-: hb-more? ( term outcome -- term outcome flag ) over hb-app? over ok? and ;
-: hb-spine ( term -- head outcome )
-  in-args slab-clear outcome-ok begin hb-more? while drop hb-peel repeat ;
 : hb-arg ( i -- arg ) in-args slab-at @ ;
 : hb-beta ( f i -- f' i' outcome )
   >r lf-term-second@ r@ hb-arg lf-meta-instantiate1 r> 1- swap ;
 \ The lambdas f opens with, at most n: betaRev's go counts them on f
 \ itself, never on what an instantiation makes.
 : hb-depth ( f n -- m )
-  0 swap 0 ?do over hb-lam? 0= if leave then 1+ swap lf-term-second@ swap loop nip ;
-: hb-lams ( f i m -- f' i' outcome )
-  0 ?do hb-beta dup ok? 0= if unloop exit then drop loop outcome-ok ;
+  0 swap 0 ?do over lf-term-lam? 0= if leave then 1+ swap lf-term-second@ swap loop nip ;
+: hb-beta-k ( f i k -- f' i' outcome ) drop hb-beta ;
+: hb-lams ( f i m -- f' i' outcome ) ['] hb-beta-k ok-each ;
 : hb-apply ( f i -- f' outcome )
   begin dup 0< 0= while >r r@ hb-arg lf-term-app 0= if r> drop -1 outcome-full exit then
   r> 1- repeat drop outcome-ok ;
@@ -230,7 +220,7 @@ end-structure
   dup in-args slab-count hb-depth >r in-args slab-count 1- r> hb-lams
   ok-then2? if hb-apply else no-result then ;
 : hb-target ( term -- term' outcome )
-  dup hb-spine ok-then? 0= if nip no-result exit then
-  dup hb-lam? if nip hb-reduce else drop outcome-ok then ;
+  dup in-args lf-meta-spine ok-then? 0= if nip no-result exit then
+  dup lf-term-lam? if nip hb-reduce else drop outcome-ok then ;
 : lf-meta-head-beta ( term -- term' outcome )
   dup lf-term-root? if hb-target else drop -1 outcome-invalid then ;

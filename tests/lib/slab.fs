@@ -110,6 +110,135 @@ T{ s1 slab-clear mark-all s1 slab-depth @ s1 slab-count -> true 100 100 }T
 T{ valid-all 50 mark# s1 slab-rollback s1 slab-depth @ valid-all s1 slab-count -> 100 outcome-ok 51 51 50 }T
 s1 slab-free s2 slab-free
 
+\ Stacks. Cells: pushed, read with slab-last, popped newest first.
+T{ slab-underflow -> -4132 }T
+1 cells 3 s1 slab-init drop
+T{ 7 s1 ' slab-push rs-checked 8 s1 slab-push s1 slab-count -> outcome-ok outcome-ok 2 }T
+T{ s1 slab-last @ s1 slab-last 1 s1 slab-at = -> 8 true }T
+T{ s1 ' slab-pop rs-checked s1 slab-count s1 slab-pop s1 slab-count -> 8 1 7 0 }T
+\ Full at the limit, nothing changed; the slab grows under pushes.
+T{ 1 s1 slab-push 2 s1 slab-push 3 s1 slab-push 4 s1 slab-push s1 slab-count
+   -> outcome-ok outcome-ok outcome-ok outcome-full 3 }T
+T{ s1 slab-pop s1 slab-pop s1 slab-pop -> 3 2 1 }T
+s1 slab-free
+1 cells 1000 s1 slab-init drop
+: push-all ( n -- outcome ) outcome-ok swap 0 ?do i 3 * s1 slab-push outcome-and loop ;
+: pop-all? ( n -- flag ) true swap 0 ?do s1 slab-pop 999 i - 3 * = and loop ;
+T{ 1000 push-all s1 slab-count s1 slab-capacity -> outcome-ok 1000 1000 }T
+T{ 999 pop-all? s1 slab-count s1 slab-pop -> true 1 0 }T
+\ slab-drop gives the newest unit back; its contents stay until a claim.
+T{ 5 s1 slab-push 6 s1 slab-push s1 slab-drop s1 slab-count s1 slab-pop -> 0 0 1 5 }T
+\ Pairs keep 2!'s order: slab-2pop gives back what slab-2push took.
+2 cells 10 s2 slab-init drop
+T{ 1 2 s2 ' slab-2push rs-checked 3 4 s2 slab-2push s2 slab-count -> outcome-ok outcome-ok 2 }T
+T{ s2 slab-last 2@ s2 ' slab-2pop rs-checked s2 slab-2pop s2 slab-count -> 3 4 3 4 1 2 0 }T
+\ Units of two cells hold a cell too, from the unit's start.
+T{ 9 s2 slab-push s2 slab-pop s2 slab-count -> outcome-ok 9 0 }T
+\ Units too narrow for what is pushed: invalid, nothing changed.
+1 cells 1- 10 s3 slab-init drop
+T{ 1 s3 slab-push 1 2 s1 slab-2push s1 slab-count s3 slab-count
+   -> outcome-invalid outcome-invalid 0 0 }T
+\ An empty slab, one too narrow for what is popped, and one not live
+\ throw slab-underflow, the stack and the slab unchanged.
+: underflow? ( slab xt -- flag ) catch dup if nip then slab-underflow = ;
+T{ s1 ' slab-pop underflow? s1 ' slab-2pop underflow? s1 slab-count -> true true 0 }T
+T{ s1 ' slab-drop underflow? s1 ' slab-last underflow? -> true true }T
+7 s1 slab-push drop
+T{ s1 ' slab-2pop underflow? s1 slab-count s1 slab-pop -> true 1 7 }T
+T{ 0 s3 slab-claim 2drop s3 ' slab-pop underflow? -> true }T
+1 s3 slab-claim 2drop
+T{ s3 ' slab-pop underflow? s3 slab-count s3 slab-last s3 slab-base = -> true 1 true }T
+T{ s3 ' slab-drop rs-checked s3 slab-count -> 0 }T
+s2 slab-free
+T{ 1 s2 slab-push s2 ' slab-pop underflow? s2 ' slab-last underflow? -> outcome-invalid true true }T
+\ A corrupted count is refused: nothing pushed or popped.
+1 cells 10 s2 slab-init drop  4 s2 slab-push drop
+50 s2 slab-used !
+T{ 1 s2 slab-push s2 ' slab-pop underflow? -> outcome-invalid true }T
+1 s2 slab-used !
+T{ s2 slab-pop s2 slab-count -> 4 0 }T
+\ Marks see a stack's pushes: a rollback takes them back.
+T{ m0 s2 slab-mark 1 s2 slab-push 2 s2 slab-push m0 s2 slab-rollback s2 slab-count
+   -> outcome-ok outcome-ok outcome-ok outcome-ok 0 }T
+s1 slab-free s2 slab-free s3 slab-free
+
+\ Worklists: slab-all? pops a value and tests it, the test pushing more,
+\ until the slab is empty (true ok), a test says false (false ok) or one
+\ fails (false and its outcome), the values not yet tested left; the
+\ trail shows the order, newest first. down? n: n < 5, n - 2 pushed when
+\ positive.
+1 cells 100 s1 slab-init drop  2 cells 100 s2 slab-init drop
+variable all-trail
+: trail+ ( n -- ) all-trail @ 10 * + all-trail ! ;
+: all-run ( slab xt -- flag outcome trail ) 0 all-trail ! slab-all? all-trail @ ;
+: step-push ( n -- outcome ) dup 0> if s1 slab-push else drop outcome-ok then ;
+: down? ( n -- flag outcome ) dup trail+ dup 5 < swap 2 - step-push ;
+T{ 3 s1 slab-push 4 s1 slab-push s1 ' down? all-run s1 slab-count
+   -> outcome-ok outcome-ok true outcome-ok 4231 0 }T
+T{ 7 s1 slab-push s1 ' down? all-run s1 slab-count s1 slab-pop
+   -> outcome-ok false outcome-ok 7 1 5 }T
+\ Empty: true and ok, no test run; a step that uses the return stack.
+T{ s1 ' down? all-run -> true outcome-ok 0 }T
+: down-r? ( n -- flag outcome ) >r r@ trail+ r@ 5 < r> 2 - step-push ;
+T{ 4 s1 slab-push s1 ' down-r? ' all-run rs-checked -> outcome-ok true outcome-ok 42 }T
+\ A failing test stops the run with false and its outcome, true flag or
+\ not; the values below stay.
+: fail-at-2 ( n -- flag outcome ) dup trail+ 2 = if true outcome-full else true outcome-ok then ;
+T{ 1 s1 slab-push 2 s1 slab-push 3 s1 slab-push 2drop drop s1 ' fail-at-2 all-run
+   s1 slab-count s1 slab-pop -> false outcome-full 32 1 1 }T
+: fail-odd ( n -- flag outcome ) trail+ false 99 ;
+T{ 5 s1 slab-push s1 ' fail-odd all-run s1 slab-count -> outcome-ok false 99 5 0 }T
+\ A push the test makes that the slab refuses: full, through the test.
+s3 slab-free 1 cells 1 s3 slab-init drop
+: two? ( n -- flag outcome ) trail+ true 1 s3 slab-push 2 s3 slab-push outcome-and ;
+T{ 9 s3 slab-push s3 ' two? all-run s3 slab-count -> outcome-ok false outcome-full 9 1 }T
+\ Pairs: slab-2all? pops x1 x2 in slab-2push's order. pair? a b: a + b
+\ < 9, a - 1 b pushed while a > 0; the trail holds each a.
+: pair? ( a b -- flag outcome )
+  over trail+ over 0> if over 1- over s2 slab-2push else outcome-ok then >r + 9 < r> ;
+: all2-run ( slab xt -- flag outcome trail ) 0 all-trail ! slab-2all? all-trail @ ;
+T{ 3 2 s2 slab-2push s2 ' pair? all2-run s2 slab-count -> outcome-ok true outcome-ok 3210 0 }T
+T{ 8 3 s2 slab-2push s2 ' pair? all2-run s2 slab-2pop -> outcome-ok false outcome-ok 8 7 3 }T
+T{ 2 2 s2 slab-2push s2 ' pair? ' all2-run rs-checked -> outcome-ok true outcome-ok 210 }T
+\ A slab that is not live: false and invalid, no test run, nothing
+\ popped; units too narrow for a pair throw slab-underflow, nothing
+\ popped.
+2 1 s2 slab-2push drop  s2 slab-seal @ 1+ s2 slab-seal !
+T{ s2 ' pair? all2-run s2 slab-count -> false outcome-invalid 0 1 }T
+s2 slab-seal @ 1- s2 slab-seal !
+T{ s2 slab-2pop s1 slab-free s1 ' down? all-run -> 2 1 false outcome-invalid 0 }T
+1 cells 100 s1 slab-init drop
+T{ 5 s1 slab-push s1 ' pair? ' slab-2all? catch nip nip s1 slab-count s1 slab-pop
+   -> outcome-ok -4132 1 5 }T
+s1 slab-free s2 slab-free s3 slab-free
+
+\ A randomized stack: pushes, pair pushes and pops against a model array,
+\ the slab's limit reached now and then (full, nothing changed).
+create stack-model 64 cells allot
+variable stack-n   variable stack-seed   variable stack-bad
+: stack-rnd ( n -- u ) stack-seed @ 1103515245 * 12345 + $7FFFFFFF and dup stack-seed ! 7 rshift swap mod ;
+: stack-fail ( -- ) 1 stack-bad +! ;
+: model@ ( k -- x ) cells stack-model + @ ;
+: model-push ( x -- ) stack-n @ cells stack-model + ! 1 stack-n +! ;
+: stack-push ( -- )
+  1000 stack-rnd dup s1 slab-push stack-n @ 40 < if ok? 0= if stack-fail then model-push
+  else outcome-full <> if stack-fail then drop then ;
+: stack-2push ( -- )   \ a cell slab: refused as too narrow
+  1 2 s1 slab-2push outcome-invalid <> if stack-fail then ;
+: stack-pop ( -- )
+  stack-n @ 0= if s1 ['] slab-pop underflow? 0= if stack-fail then exit then
+  s1 slab-pop -1 stack-n +! stack-n @ model@ <> if stack-fail then ;
+: stack-check ( -- )
+  s1 slab-count stack-n @ <> if stack-fail then
+  stack-n @ if s1 slab-last @ stack-n @ 1- model@ <> if stack-fail then then ;
+: stack-step ( -- )
+  10 stack-rnd dup 5 < if drop stack-push else 6 < if stack-2push else stack-pop then then
+  stack-check ;
+: stack-run ( seed steps -- bad )
+  swap stack-seed ! 0 stack-bad ! 0 stack-n ! 1 cells 40 s1 slab-init drop
+  0 ?do stack-step loop s1 slab-free stack-bad @ ;
+T{ 1 20000 stack-run 2 20000 stack-run -> 0 0 }T
+
 \ A randomized model: claims, marks into eight records, rollbacks and
 \ clears, compared at every step with a model that keeps the count and,
 \ per mark, whether it lives (a mark dies when a rollback goes below its

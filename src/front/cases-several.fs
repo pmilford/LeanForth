@@ -72,7 +72,7 @@ require ./constructions.fs
 
 \ ---- The type's binders: parameters, T's motive, indices and major
 \ premise, T's minor premises without hypotheses.
-: params-copy ( job -- outcome ) dup aux-params @ swap ['] copy-binder aux-each ;
+: params-copy ( job -- outcome ) dup aux-params @ ['] copy-binder ok-each nip ;
 : motive-shift ( job -- job )
   dup aux-remap >r 0 r@ remap-cutoff! dup aux-main @ 0 r> remap-shift! ;
 : main-motive-binder ( job -- outcome )
@@ -80,16 +80,15 @@ require ./constructions.fs
 : index-drop ( j job -- )
   tuck at-cutoff dup aux-minors @ over aux-motives @ +
   1 rot aux-remap remap-shift! ;
-: several-index ( j job -- outcome )
-  2dup index-drop tuck first-index + swap with-domain moved ;
-: several-indices ( job -- outcome )
-  dup aux-indices @ 1+ swap ['] several-index aux-each ;
+: several-index ( job j -- job outcome )
+  over 2dup index-drop tuck first-index + swap with-domain moved ;
+: several-indices ( job -- outcome ) dup aux-indices @ 1+ ['] several-index ok-each nip ;
 : kept-table ( i job -- ) 2dup kept-before over aux-indices @ 1+ + swap motive-table ;
-: several-minor ( i job -- outcome )
-  2dup minor-main? 0= if 2drop outcome-ok exit then
+: several-minor ( job i -- job outcome )
+  over 2dup minor-main? 0= if 2drop outcome-ok exit then
   2dup stripped ok-keep? 0= if nip nip exit then
   >r 2dup kept-table tuck first-minor + swap r> swap moved ;
-: several-minors ( job -- outcome ) dup aux-minors @ swap ['] several-minor aux-each ;
+: several-minors ( job -- outcome ) dup aux-minors @ ['] several-minor ok-each nip ;
 \ The conclusion: indices and major past the kept minors, T's motive.
 : conclusion-lead ( job -- n ) dup aux-indices @ 1+ swap aux-minors @ + ;
 : index-cells ( job -- )
@@ -109,7 +108,7 @@ require ./constructions.fs
 : elim-add ( job -- outcome )
   dup rec-params over aux-names ! 0 over param-level
   ok-keep? if swap aux-tuples tuple-add else nip then ;
-: elim-levels ( job -- t outcome ) dup tuple-begin ['] elim-add aux-then tuple-done ;
+: elim-levels ( job -- t outcome ) dup tuple-begin ['] elim-add ok-with tuple-done ;
 : elim-const ( n job -- e outcome )
   tuck elim-levels ok-keep? if rot aux-tier expr-const else failed-past then ;
 : punit ( job -- e outcome ) dup punit-name ok-keep? if swap elim-const then ;
@@ -125,11 +124,8 @@ require ./constructions.fs
 : ih-pi ( q job -- e ) >r r@ aux-ih @ swap r> nth-pi ;
 : ih-step ( body i job -- e outcome )
   tuck ih-last over ih-pi over pi-parts make-binder ;
-\ Not a fold: it runs inside the fold over the minor premise's binders.
-: ih-wrap ( body job -- e outcome )
-  dup aux-ih-span @ 0 ?do
-    tuck i swap ih-step ok-keep? 0= if unloop exit then swap
-  loop drop outcome-ok ;
+\ A fold inside the fold over the minor premise's binders.
+: ih-wrap ( body job -- e outcome ) dup aux-ih-span @ swap ['] ih-step ok-fold ;
 : unit-ih ( dom job -- e outcome )
   tuck aux-ih ! dup aux-ih @ over pi-count over aux-ih-span !
   dup punit ok-keep? if swap ih-wrap then ;
@@ -142,7 +138,7 @@ require ./constructions.fs
 : unit-step ( body i job -- e outcome ) tuck m-before swap minor-step ;
 : mtype! ( job e outcome -- outcome )
   ok-keep? if swap aux-mtype ! outcome-ok else nip then ;
-: unit-fold ( e job -- e' outcome ) dup m-count swap ['] unit-step fold-with ;
+: unit-fold ( e job -- e' outcome ) dup m-count swap ['] unit-step ok-fold ;
 \ The conclusion, which may name another motive, becomes Prop: only the
 \ binders are used.
 : closed-end ( job -- e outcome ) level-zero swap aux-tier expr-sort ;
@@ -195,9 +191,9 @@ require ./constructions.fs
   dup large? 0= if prop-only exit then
   dup kept-count over aux-kept ! dup rec-total swap table-reserve ;
 : several-cases ( job -- outcome )
-  dup several-check ['] params-copy aux-then ['] main-motive-binder aux-then
-  ['] several-indices aux-then ['] several-minors aux-then
-  ['] several-type! aux-then ['] several-value! aux-then nip ;
+  dup several-check ['] params-copy ok-with ['] main-motive-binder ok-with
+  ['] several-indices ok-with ['] several-minors ok-with
+  ['] several-type! ok-with ['] several-value! ok-with nip ;
 : cases-any ( job -- outcome ) dup aux-motives @ 1 = if cases else several-cases then ;
 : aux-cases-on-any ( d job -- outcome )
-  tuck aux-begin ['] cases-any aux-then swap aux-because ;
+  tuck aux-begin ['] cases-any ok-with swap aux-because ;

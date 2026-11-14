@@ -2996,8 +2996,8 @@ reason = "a backslash in a name is not escaped, so a name can show the text of a
 [[fault]]
 id = "cli-name-no-root"
 file = "src/cli/name-text.fs"
-old = '''    over swap nt-parts slab-at ! lf-name-prefix@'''
-new = '''    over swap nt-parts slab-at ! drop 0'''
+old = '''    dup nt-parts slab-push ok? 0= if drop outcome-full exit then lf-name-prefix@'''
+new = '''    dup nt-parts slab-push ok? 0= if drop outcome-full exit then drop 0'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "only a name's last component is shown, not the walk to its root"
 
@@ -5436,8 +5436,8 @@ reason = "8.2.1d: the look-ahead makes group words for the tokens of a \\ commen
 [[fault]]
 id = "lf-extend-drops-library"
 file = "src/import/stage.fs"
-old = '''  dup maps-again ['] tier-marked and-then staging-empty stage-state! ;'''
-new = '''  dup own-clear ['] tier-marked and-then staging-empty stage-state! ;'''
+old = '''  dup maps-again ['] tier-marked ok-with staging-empty stage-state! ;'''
+new = '''  dup own-clear ['] tier-marked ok-with staging-empty stage-state! ;'''
 test = "$GFORTH tests/core/stage.fs"
 reason = "8.2.1d: extending a stage drops the library's declarations, so the text's constants resolve to nothing"
 
@@ -8760,7 +8760,7 @@ gap = "no table row has a let in a constructor's type that hides a nonuniform oc
 [[fault]]
 id = "s5b-author-proj-as-app"
 file = "src/author/build.fs"
-old = ''': lfa-app-tag ( f -- tag ) lfa-leaf? if lf-tag-projection else lf-tag-app then ;'''
+old = ''': lfa-app-tag ( f -- tag ) lf-proj-leaf? if lf-tag-projection else lf-tag-app then ;'''
 new = ''': lfa-app-tag ( f -- tag ) drop lf-tag-app ;'''
 test = "python3 tests/author/check_author.py"
 reason = "S5B: the authors' $ applies a projection leaf as a function instead of making a projection"
@@ -10581,8 +10581,8 @@ reason = "FE1c: instantiate1 keeps a loose index above the value instead of lowe
 [[fault]]
 id = "fe-inst-binder-depth-lost"
 file = "src/front/instantiate.fs"
-old = ''': in-second ( node depth -- child depth' ) over in-binder? - swap lf-term-second@ swap ;'''
-new = ''': in-second ( node depth -- child depth' ) swap lf-term-second@ swap ;'''
+old = '''  over lf-term-binder? - swap lf-term-second@ swap ;'''
+new = '''  swap lf-term-second@ swap ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: instantiate1 does not count a binder, so it replaces a variable that binder binds"
 
@@ -12134,16 +12134,16 @@ reason = "FE1c review L3: max (u+1) 1 stays a max, where Lean's mkLevelMax' subs
 [[fault]]
 id = "fe-inst-let-deeper"
 file = "src/front/instantiate.fs"
-old = ''': in-binder? ( node -- flag ) lf-term-tag@ lf-term-binder-tag? ;'''
-new = ''': in-binder? ( node -- flag ) lf-term-tag@ dup lf-term-binder-tag? swap lf-tag-let = or ;'''
+old = '''  over lf-term-binder? - swap lf-term-second@ swap ;'''
+new = '''  over lf-term-tag@ dup lf-term-binder-tag? swap lf-tag-let = or - swap lf-term-second@ swap ;'''
 test = "python3 tests/front/check_meta.py"
 reason = "FE1c review L2: a let's second child (its lambda) is taken one binder deeper, so let's type and body shift their bound variables, unlike Lean's instantiate1"
 
 [[fault]]
 id = "fe-lsimp-push-full-ignored"
 file = "src/front/level-simp.fs"
-old = '''  if drop ls-pairs slab-at 2! outcome-ok else nip nip nip then ;'''
-new = '''  if drop ls-pairs slab-at 2! outcome-ok else nip nip nip drop outcome-ok then ;'''
+old = ''': ls-push ( a b -- outcome ) ls-pairs slab-2push ;'''
+new = ''': ls-push ( a b -- outcome ) ls-pairs slab-2push drop outcome-ok ;'''
 test = "$GFORTH tests/front/meta-heap.fs"
 reason = "FE1c review L4: level equality whose pair stack the heap cannot grow answers as if the pair were equal, instead of full"
 
@@ -14208,6 +14208,299 @@ new = ''': sort-unsigned ( u1 u2 -- n ) 2dup = if 2drop 0 else < 2* 1+ then ;'''
 test = "$GFORTH tests/lib/sort.fs"
 reason = "sort-unsigned compares signed: a value with the top bit set sorts first"
 
+# --- stacks on slabs, loops over outcomes, index checks (src/lib/slab.fs,
+# outcome.fs, bounds.fs; plan 9.4.8a, the library audit's actions 1, 4, 10)
+
+[[fault]]
+id = "lib-slab-push-narrow"
+file = "src/lib/slab.fs"
+old = '''  tuck slab-unit u> if drop outcome-invalid no-result else slab-claim-one then ;'''
+new = '''  nip slab-claim-one ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "a push into units narrower than a cell (two) writes past its unit instead of being invalid"
+quick = true
+
+[[fault]]
+id = "lib-slab-pop-empty"
+file = "src/lib/slab.fs"
+old = '''  tuck slab-unit u<= swap dup slab-count swap slab-capacity 1 swap between? and ;'''
+new = '''  tuck slab-unit u<= swap dup slab-count swap slab-capacity 0 swap between? and ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "a pop of an empty slab reads before its block and leaves the count -1 instead of throwing slab-underflow"
+quick = true
+
+[[fault]]
+id = "lib-slab-pop-kept"
+file = "src/lib/slab.fs"
+old = ''': slab-shed ( slab -- ) -1 swap slab-used +! ;'''
+new = ''': slab-shed ( slab -- ) drop ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "a pop reads the newest unit but keeps it: the same value comes back again"
+
+[[fault]]
+id = "lib-slab-2push-swapped"
+file = "src/lib/slab.fs"
+old = '''  2 cells swap slab-claim-wide ok-then? if 2! outcome-ok else nip nip then ;'''
+new = '''  2 cells swap slab-claim-wide ok-then? if >r swap r> 2! outcome-ok else nip nip then ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "a pair is stored swapped, so slab-2pop (and slab-last's 2@) give x2 x1"
+
+[[fault]]
+id = "lib-slab-last-oldest"
+file = "src/lib/slab.fs"
+old = '''  tuck slab-has-top? 0= if slab-underflow throw then dup slab-count 1- swap slab-at ;'''
+new = '''  tuck slab-has-top? 0= if slab-underflow throw then 0 swap slab-at ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "the stack's top is the oldest unit: pops come back first in, first out"
+
+[[fault]]
+id = "lib-outcome-each-past-failure"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute dup ok? 0= if unloop unloop exit then drop'''
+new = '''  dup 1+ swap ?do 0 max 0 ?do i j execute drop'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "ok-each runs every step and reports ok whatever they gave: a failure is lost"
+quick = true
+
+[[fault]]
+id = "lib-outcome-each-negative"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute dup ok? 0= if unloop unloop exit then drop'''
+new = '''  dup 1+ swap ?do 0 ?do i j execute dup ok? 0= if unloop unloop exit then drop'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "ok-each with a negative count runs steps (?DO wraps round) instead of none"
+
+[[fault]]
+id = "lib-outcome-fold-result-lost"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do swap 0 max 0 ?do tuck i swap j execute ok-keep? 0= if'''
+new = '''  dup 1+ swap ?do swap 0 max 0 ?do tuck i swap j execute ok-then? 0= if'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a failing ok-fold step's result is replaced by the context y: the caller reads y as the result"
+
+[[fault]]
+id = "lib-outcome-first-overwritten"
+file = "src/lib/outcome.fs"
+old = ''': outcome-first! ( outcome a-addr -- ) dup @ ok? if ! else 2drop then ;'''
+new = ''': outcome-first! ( outcome a-addr -- ) ! ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a later outcome, ok among them, overwrites the first failure"
+quick = true
+
+[[fault]]
+id = "lib-bounds-index-within"
+file = "src/lib/bounds.fs"
+old = ''': index? ( i n -- flag ) over 0< if 2drop false else < then ;'''
+new = ''': index? ( i n -- flag ) 0 swap within ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "index? as `0 n within`: for a negative n every i >= 0 is an index"
+quick = true
+
+[[fault]]
+id = "lib-bounds-cells-has-negated"
+file = "src/lib/bounds.fs"
+old = ''': cells-has? ( x addr n -- flag ) cells-index dup if nip then ;'''
+new = ''': cells-has? ( x addr n -- flag ) cells-index dup if nip then 0= ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "cells-has? answers the opposite: lctx-views's isSubPrefixOf skips the free variables it must keep"
+
+[[fault]]
+id = "core-term-binary-as-binder"
+file = "src/core/terms.fs"
+old = ''': lf-term-binary? ( index -- flag ) lf-term-tag@ lf-term-binary-tag? ;'''
+new = ''': lf-term-binary? ( index -- flag ) lf-term-tag@ lf-term-binder-tag? ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "an application is not binary: walks that use the shared test skip its children"
+
+[[fault]]
+id = "core-term-bvar-is-any"
+file = "src/core/terms.fs"
+old = '''  over lf-term-bvar? if swap lf-term-first@ = else 2drop false then ;'''
+new = '''  drop lf-term-bvar? ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "lf-term-bvar-is? takes any bound variable for #n: etaExpanded? and statements accept the wrong index"
+
+[[fault]]
+id = "core-term-const-any-leaf"
+file = "src/core/constant-term-boundary.fs"
+old = ''': lf-term-const? ( index -- flag ) lf-tag-constant lf-term-tag? ;'''
+new = ''': lf-term-const? ( index -- flag ) lf-term-binary? 0= ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "every leaf reads as a constant (a bound variable among them)"
+
+[[fault]]
+id = "fe-lnorm-order-reversed"
+file = "src/front/level-normalize.fs"
+old = ''': ln-order ( earlier later -- n ) swap ln-lt? 1 and ;'''
+new = ''': ln-order ( earlier later -- n ) ln-lt? 1 and ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "Level.normalize sorts a max's arguments by normLt reversed (sort.fs's order is given the earlier record first)"
+quick = true
+
+[[fault]]
+id = "fe-lnorm-sort-refusal-lost"
+file = "src/front/level-normalize.fs"
+old = '''  ['] ln-order ln-sorter sorter-cells ['] ln-sorted ok-and ln-refuse ;'''
+new = '''  ['] ln-order ln-sorter sorter-cells ['] ln-sorted ok-and drop ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "a merge whose scratch the heap refuses leaves the arguments unsorted and the normal form wrong, not full"
+
+[[fault]]
+id = "fe-pairs-all-past-difference"
+file = "src/lib/outcome.fs"
+old = '''  over 0<> over ok? and if 2drop true else nip false swap false then ;'''
+new = '''  dup ok? if 2drop true else nip false swap false then ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "a comparison of pairs goes on past a pair that differs: Level.beq and Expr.eqv answer true for different levels and terms"
+quick = true
+
+[[fault]]
+id = "fe-rec-apply-one-short"
+file = "src/front/constructions.fs"
+old = ''': rec-apply ( f job -- e outcome ) dup rec-total swap ['] apply-arg ok-fold ;'''
+new = ''': rec-apply ( f job -- e outcome ) dup rec-total 1- swap ['] apply-arg ok-fold ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "the recursor of casesOn and recOn misses its last argument (the major premise)"
+
+[[fault]]
+id = "imp-emit-members-reversed"
+file = "src/import/ndjson-emit.fs"
+old = ''': member-order ( key-earlier key-later -- n ) swap emit-view @ key< 1 and ;'''
+new = ''': member-order ( key-earlier key-later -- n ) emit-view @ key< 1 and ;'''
+test = "$GFORTH tests/core/ndjson-emit.fs"
+reason = "mdata's members are re-exported in reverse key order, not the exporter's bytes"
+
+[[fault]]
+id = "lib-bounds-cells-index-off"
+file = "src/lib/bounds.fs"
+old = '''  0 max 0 ?do 2dup i cells + @ = if 2drop i true unloop exit then loop 2drop false ;'''
+new = '''  0 max 0 ?do 2dup i cells + @ = if 2drop i 1+ true unloop exit then loop 2drop false ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cells-index gives the index after the match"
+
+[[fault]]
+id = "lib-slab-pop-past-capacity"
+file = "src/lib/slab.fs"
+old = '''  tuck slab-unit u<= swap dup slab-count swap slab-capacity 1 swap between? and ;'''
+new = '''  tuck slab-unit u<= swap slab-count 0> and ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review reuse-1a M1: a pop of a slab whose count is corrupted past its capacity reads past the block instead of throwing slab-underflow"
+
+[[fault]]
+id = "lib-slab-pop-narrow"
+file = "src/lib/slab.fs"
+old = '''  tuck slab-unit u<= swap dup slab-count swap slab-capacity 1 swap between? and ;'''
+new = '''  nip dup slab-count swap slab-capacity 1 swap between? ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review reuse-1a M1: a pair popped from units of one cell reads past its unit instead of throwing slab-underflow"
+
+[[fault]]
+id = "lib-outcome-ok-true-failure-lost"
+file = "src/lib/outcome.fs"
+old = '''  over 0<> over ok? and if 2drop true else nip false swap false then ;'''
+new = '''  over 0<> over ok? and if 2drop true else 2drop false outcome-ok false then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "ok-true? stops a failing step as a plain false: ok-all? and slab-all? read a refusal as a definite no"
+quick = true
+
+[[fault]]
+id = "lib-outcome-all-past-false"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute 0= if false unloop unloop exit then'''
+new = '''  dup 1+ swap ?do 0 max 0 ?do i j execute drop'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "all? runs every test and answers true whatever they gave"
+quick = true
+
+[[fault]]
+id = "lib-outcome-all-negative"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute 0= if false unloop unloop exit then'''
+new = '''  dup 1+ swap ?do 0 ?do i j execute 0= if false unloop unloop exit then'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "all? with a negative count runs tests (?DO wraps round) instead of none"
+
+[[fault]]
+id = "lib-outcome-ok-all-past-answer"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute ok-true? 0= if unloop unloop exit then'''
+new = '''  dup 1+ swap ?do 0 max 0 ?do i j execute 2drop'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "ok-all? runs every test and answers true and ok whatever they gave"
+
+[[fault]]
+id = "lib-slab-all-unchecked"
+file = "src/lib/slab.fs"
+old = '''  over slab-live? if ['] slab-step slab-drained else slab-dead then ;'''
+new = '''  ['] slab-step slab-drained ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "slab-all? drains a slab that is not live (a freed slab) instead of answering false and invalid"
+
+[[fault]]
+id = "lib-slab-2all-one-cell"
+file = "src/lib/slab.fs"
+old = ''': slab-2step ( slab xt -- slab xt flag outcome ) >r dup slab-2pop r@ execute r> -rot ;'''
+new = ''': slab-2step ( slab xt -- slab xt flag outcome ) >r dup slab-pop r@ execute r> -rot ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "slab-2all? pops one cell, not a pair: the test reads the slab beneath as its first value"
+
+[[fault]]
+id = "fe-pairs-all-outcome-lost"
+file = "src/lib/slab.fs"
+old = '''  >r begin slab-more? while r@ execute ok-true? 0= if r> drop slab-stop exit then'''
+new = '''  >r begin slab-more? while r@ execute ok-true? 0= if r> drop slab-stop drop outcome-ok exit then'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "review reuse-1a H1: a failing pair step reads as different and ok, so a refused push in Level.beq or Expr.eqv is a definite not equal"
+quick = true
+
+[[fault]]
+id = "fe-eq-push-full-lost"
+file = "src/front/term-eqv.fs"
+old = ''': eq-push ( a b -- outcome ) eq-pairs slab-2push ;'''
+new = ''': eq-push ( a b -- outcome ) eq-pairs slab-2push drop outcome-ok ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "review reuse-1a H1: Expr.eqv ignores a refused push and answers for the pairs it kept"
+
+[[fault]]
+id = "fe-level-seconds-push-lost"
+file = "src/front/level-simp.fs"
+old = '''  lf-level-second@ swap lf-level-second@ ls-push true swap ;'''
+new = '''  lf-level-second@ swap lf-level-second@ ls-push drop true outcome-ok ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "review reuse-1a H1: Level.beq drops a max's second parts when the pair stack is full and answers true for parts it never compared"
+
+[[fault]]
+id = "fe-assign-or-last-only"
+file = "src/front/assign-check.fs"
+old = '''  ok-then? if or outcome-ok else nip false swap then ;'''
+new = '''  ok-then? if nip outcome-ok else nip false swap then ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review reuse-1a M2: checkAssignment's occurs check counts only the last pattern variable's type"
+
+[[fault]]
+id = "fe-fun-info-ho-free-ignored"
+file = "src/front/fun-info.fs"
+old = '''  fi-ho? ok-then? if if outcome-unsupported else outcome-ok then then ;'''
+new = '''  fi-ho? ok-then? if drop outcome-ok then ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review reuse-1a M2: getFunInfoNArgs takes a higher-order out-parameter as an ordinary one instead of unsupported"
+
+[[fault]]
+id = "fe-dag-walk-in-negative"
+file = "src/front/dag-walk.fs"
+old = ''': dw-in? ( node walk -- flag ) dw-size @ index? ;'''
+new = ''': dw-in? ( node walk -- flag ) dw-size @ < ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "review reuse-1a L1: a negative node is inside the walk's memo, which it then reads before its block"
+
+[[fault]]
+id = "core-names-entry-after-root"
+file = "src/core/names.fs"
+old = ''': lf-name-entry-after? ( k -- flag ) 1+ lf-name-entry-checked? ;'''
+new = ''': lf-name-entry-after? ( k -- flag ) lf-name-entry-checked? ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "the name store's audit checks entries 0 .. count - 2: the root as an entry, and never the newest"
+
 # --- the front end's isDefEq (src/front/defeq.fs and its helpers; plan FE1c)
 
 [[fault]]
@@ -14301,7 +14594,7 @@ reason = "FE1c: a free variable out of the metavariable's scope is accepted (?n 
 [[fault]]
 id = "fe-defeq-eta-reduce-off"
 file = "src/front/assign-check.fs"
-old = '''  over lf-meta-app? 0= if drop false outcome-ok exit then'''
+old = '''  over lf-term-app? 0= if drop false outcome-ok exit then'''
 new = '''  drop false outcome-ok exit'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c: mkLambdaFVars without etaReduce: ?t j =?= Nat.succ j assigns fun x => Nat.succ x, not Nat.succ"
@@ -14413,8 +14706,8 @@ reason = "FE1c review B1: Nat.succ ?h =?= 2^63 compared signed answers false"
 [[fault]]
 id = "fe-defeq-eqv-first-level"
 file = "src/front/term-eqv.fs"
-old = '''  over lf-cref-pairs nip 0 ?do'''
-new = '''  over lf-cref-pairs nip 1 min 0 ?do'''
+old = '''  over lf-cref-pairs nip ['] eq-level-at ok-all? 2swap 2drop ;'''
+new = '''  over lf-cref-pairs nip 1 min ['] eq-level-at ok-all? 2swap 2drop ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M3: == compares only a constant's first universe argument"
 
@@ -14730,8 +15023,8 @@ reason = "FE1g-1: two equal literals made apart compare different, so h1 h2 : 0 
 [[fault]]
 id = "fe-goal-except-ignored"
 file = "src/front/lctx-views.fs"
-old = '''  ?do dup i @ = if drop true unloop exit then cell +loop drop false ;'''
-new = '''  2drop drop false ;'''
+old = ''': lv-skip? ( fvar -- flag ) lv lv-except @ lv lv-except# @ cells-has? ;'''
+new = ''': lv-skip? ( fvar -- flag ) drop false ;'''
 test = "$GFORTH tests/front/goals.fs"
 reason = "FE1g-1: isSubPrefixOf skips none of exceptFVars, so checkAssignment's pattern variables count against the assignment"
 

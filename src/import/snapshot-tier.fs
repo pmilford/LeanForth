@@ -208,9 +208,9 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
 : tf-add ( i tf -- outcome )
   2dup tf-out ok-then2? 0= if nip nip exit then
   2swap tf-sf >r dup tier-unit rot rot 1+ r> sections-add ;
-: tf-adds ( tf -- outcome )
-  tier-sections# 1 do i over tf-add dup ok? 0= if nip unloop exit then drop loop
-  drop outcome-ok ;
+\ Sections 1 and on (section 0 is the information).
+: tf-add-next ( tf k -- tf outcome ) 1+ over tf-add ;
+: tf-adds ( tf -- outcome ) tier-sections# 1- ['] tf-add-next ok-each nip ;
 \ The information fields.
 : tf-count! ( i tf -- ) 2dup tf-data nip -rot swap ti-decls min swap ti! ;
 : tf-counts! ( stage tf -- ) nip ti-decls 1+ 1 do i over tf-count! loop drop ;
@@ -391,11 +391,10 @@ create kind-flags
 : more-item ( i stage -- u ) draft-d staged-item ;
 : item-name? ( i t stage -- flag )
   dup >r stage-tuples tuple-item r> stage-tier name-valid? ;
+: name-at? ( t stage k -- t stage flag ) >r 2dup r> -rot item-name? ;
 : names-tuple? ( t stage -- flag )
   2dup tuple-ok? 0= if 2drop false exit then
-  2dup stage-tuples tuple-length 0 ?do
-    2dup i -rot item-name? 0= if 2drop false unloop exit then
-  loop 2drop true ;
+  2dup stage-tuples tuple-length ['] name-at? all? nip nip ;
 : more-names? ( i stage -- flag ) tuck more-item swap names-tuple? ;
 : all-data? ( stage -- flag ) dup draft staged-more u32@ swap names-tuple? ;
 : block-data? ( stage -- flag ) 3 swap more-length? ;
@@ -411,10 +410,10 @@ create kind-flags
 : rule-rhs? ( k t stage -- flag )
   >r swap rule-rhs-item + swap r@ tuple-at r> stage-tier expr-valid? ;
 : rule? ( k t stage -- flag ) >r 2dup r@ rule-ctor? -rot r> rule-rhs? and ;
+: rule-at? ( t stage k -- t stage flag ) /rule-items * >r 2dup r> -rot rule? ;
+\ Unchecked: the tuple's length is a multiple of /rule-items (rules?).
 : rules-each? ( t stage -- flag )
-  2dup stage-tuples tuple-length 0 ?do
-    2dup i -rot rule? 0= if 2drop false unloop exit then
-  /rule-items +loop 2drop true ;
+  2dup stage-tuples tuple-length /rule-items / ['] rule-at? all? nip nip ;
 : rules? ( t stage -- flag )
   2dup tuple-ok? 0= if 2drop false exit then
   2dup stage-tuples tuple-length /rule-items mod if 2drop false exit then rules-each? ;
@@ -460,10 +459,11 @@ create kind-flags
 : line-ok? ( addr i stage -- flag )
   >r tuck tier-line-pair dup staged-none = if 2drop r> 2drop false exit then
   2dup = if 2drop r> staged-kind@ member-kind? exit then u< nip r> drop ;
+: line-after? ( addr stage k -- addr stage flag ) 1+ >r 2dup r> swap line-ok? ;
 : lines-ok? ( addr n stage -- flag )
   swap dup 0= if 2drop drop true exit then
   2 pick u32@ staged-none = if 2drop drop false exit then
-  1 ?do 2dup i swap line-ok? 0= if 2drop false unloop exit then loop 2drop true ;
+  1- ['] line-after? all? nip nip ;
 : lines-commit ( n slab stage -- outcome )
   >r 0 over slab-at 2 pick r> lines-ok?
   if slab-commit outcome-ok else 2drop outcome-invalid then ;
@@ -497,9 +497,8 @@ create tf-loads   \ by position, from 1
 : tf-load ( i tf -- outcome ) dup >r over 1- cells tf-loads + @ execute r> tf-limited ;
 : tf-note ( i tf -- ) 2dup tf-slab slab-count over tf-at ! swap tier-title swap tf-why ! ;
 : tf-load-noted ( i tf -- outcome ) 2dup tf-load dup ok? if nip nip exit then -rot tf-note ;
-: tf-loads-all ( tf -- outcome )
-  tier-sections# 1 do i over tf-load-noted dup ok? 0= if nip unloop exit then drop loop
-  drop outcome-ok ;
+: tf-load-next ( tf k -- tf outcome ) 1+ over tf-load-noted ;
+: tf-loads-all ( tf -- outcome ) tier-sections# 1- ['] tf-load-next ok-each nip ;
 
 \ The metadata: none (every field 0), or five texts of the tier.
 : tf-meta@ ( k tf -- u ) swap ti-meta + swap ti@ ;

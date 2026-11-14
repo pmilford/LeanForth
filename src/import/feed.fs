@@ -243,10 +243,9 @@ end-structure
   lf-lscope-context-add if outcome-ok else outcome-full then ;
 : feed-level-param ( l tier -- outcome )
   2dup level-tag@ tag-level-param = if level-name@ feed-param else 2drop outcome-ok then ;
+: feed-param-at ( tier l -- tier outcome ) over feed-level-param ;
 : feed-context ( feed -- outcome )
-  dup feed-tier swap feed-levels# 0 ?do
-    i over feed-level-param dup ok? 0= if nip unloop exit then drop
-  loop drop outcome-ok ;
+  dup feed-tier swap feed-levels# ['] feed-param-at ok-each nip ;
 
 \ ---- Levels, in number order; number 0 is level zero, the store's 0. A
 \ store that refuses a node is full; a level of another kind is invalid.
@@ -265,11 +264,10 @@ end-structure
 : feed-level ( l feed -- outcome )
   2dup feed-level-made dup ok? if drop -rot feed-level! outcome-ok
   else nip nip nip then ;
+\ Level k + 1 (number 0 is zero, set first).
+: feed-level-next ( feed k -- feed outcome ) 1+ over feed-level ;
 : feed-levels-all ( feed -- outcome )
-  0 0 2 pick feed-level!
-  dup feed-levels# 1 ?do
-    i over feed-level dup ok? 0= if nip unloop exit then drop
-  loop drop outcome-ok ;
+  0 0 2 pick feed-level! dup feed-levels# 1- ['] feed-level-next ok-each nip ;
 
 \ ---- Hooks (lf-feed-hooked): a presentation reads what the feed drops, the
 \ names and kinds of binders and the line each declaration came from, while
@@ -635,10 +633,8 @@ here feed-kinds - 1 cells / constant feed-kinds#
 : feed-decl-one ( d feed -- outcome )
   2dup lf-input-count -rot feed-one
   dup ok? if drop swap feed-decl-noted outcome-ok else >r 2drop drop r> then ;
-: feed-decls-all ( feed -- outcome )
-  dup feed-decls# 0 ?do
-    i over feed-where ! i over feed-decl-one dup ok? 0= if nip unloop exit then drop
-  loop drop outcome-ok ;
+: feed-decl-at ( feed d -- feed outcome ) 2dup swap feed-where ! over feed-decl-one ;
+: feed-decls-all ( feed -- outcome ) dup feed-decls# ['] feed-decl-at ok-each nip ;
 
 \ ---- The whole feed: the steps ( feed -- outcome ), in order. The first
 \ ends any earlier term view and attaches the stage's tier as the terms'
@@ -659,10 +655,7 @@ create feed-shares
   ' lf-lit-copy , ' lf-str-copy ,
 here feed-shares - 1 cells / constant feed-shares#
 : feed-share ( source k -- source outcome ) cells feed-shares + @ over swap execute ;
-: feed-borrow ( feed -- outcome )
-  feed-source @ outcome-ok feed-shares# 0 ?do
-    drop i feed-share dup ok? 0= if nip unloop exit then
-  loop nip ;
+: feed-borrow ( feed -- outcome ) feed-source @ feed-shares# ['] feed-share ok-each nip ;
 \ The copies: the same expressions marked (no binder entered: the table
 \ is the source's) and copied, each with the horizon of its expression
 \ (core/terms.fs's lf-term-horizon!), so that it finds only the leaves
@@ -704,10 +697,8 @@ create feed-shared-steps
 here feed-shared-steps - 1 cells / feed-steps# <>
 [if] .( feed.fs: the shared feed must have as many steps) cr abort [then]
 : feed-table ( feed -- addr ) feed-source @ if feed-shared-steps else feed-steps then ;
-: feed-step ( feed k -- outcome ) cells over feed-table + @ execute ;
-: feed-run ( feed -- outcome )
-  feed-steps# 0 do dup i feed-step dup ok? 0= if nip unloop exit then drop loop
-  drop outcome-ok ;
+: feed-step ( feed k -- feed outcome ) cells over feed-table + @ over swap execute ;
+: feed-run ( feed -- outcome ) feed-steps# ['] feed-step ok-each nip ;
 \ Feed the sealed stage into this context's input (see the header).
 \ The same with hooks, each an xt or 0: binder-hook ( term name kind -- ),
 \ called for every binder after its term is made, and decl-hook

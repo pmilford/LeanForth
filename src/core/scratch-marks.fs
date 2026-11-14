@@ -76,10 +76,11 @@ end-structure
 \ Mark every family: ok; or invalid when a store's count is not valid,
 \ the record then refused by every rollback.
 : lf-scratch-refused ( scratch -- outcome ) /lf-scratch erase outcome-invalid ;
+: lf-scratch-mark-one ( scratch k -- scratch outcome )
+  over swap lf-scratch-pair store-mark ;
 : lf-scratch-mark ( scratch -- outcome )
-  lf-scratch-families 0 do
-    dup i lf-scratch-pair store-mark ok? 0= if lf-scratch-refused unloop exit then
-  loop drop outcome-ok ;
+  lf-scratch-families ['] lf-scratch-mark-one ok-each
+  ok? if drop outcome-ok else lf-scratch-refused then ;
 \ Whether every family's mark is valid now (a rollback would accept it).
 : lf-scratch-valid? ( scratch -- flag )
   lf-scratch-families 0 do
