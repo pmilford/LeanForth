@@ -20,6 +20,9 @@ require ../../src/main.fs
 : named? ( id c-addr u -- flag ) lfa-intern = ;
 : last-node ( -- node ) syn-count 1- ;
 T{ s" tests/author/init-slice.ndjson" true lfc-library-open -> outcome-ok }T
+\ The reader alone: end NAME stops with 71 as before the elaborator
+\ (src/front/elab-decl.fs sets these hooks; tests/front/elab.fs tests it).
+' lfh-later is lf-front-elaborate   ' lfr-unelaborated is lf-front-by-statement
 
 \ ---- FE1a. Natural form is the default: 0 n + n = is
 \ binrel% Eq (binop% HAdd.hAdd 0 n) n, each node at its token.
@@ -136,9 +139,12 @@ T{ s" kernel-form axiom ax Prop end ax" nrun 0 lfn-library -> outcome-ok -1 true
 ' no-arity is lfn-library-arity
 T{ s" theorem t Nat explicit: n n n = := n end t" nfails -> 73 1 11 }T
 ' lfc-arity is lfn-library-arity
-\ Values outside a declaration: the text ends with values left.
+\ Values outside a declaration: natural text may build a term there (for
+\ #check, plan S1), but the text must not end with values left; kernel
+\ form refuses a term outside a declaration at its word.
 T{ s" Nat" nfails drop drop -> 33 }T
-T{ s" 1 2 +" nfails -> 4 1 5 }T
+T{ s" 1 2 +" nfails drop drop -> 33 }T
+T{ s" kernel-form Nat Nat ->" nfails -> 4 1 21 }T
 \ The run restores the caller's settings and leaves the stack as it was.
 T{ base @ get-current s" theorem t Nat explicit: n n := n end t" nrun drop
    base @ get-current rot = -rot = -> true true }T

@@ -341,8 +341,9 @@ T{ lfc-library-close -> }T
 \ ---- Through the command line: the path of every text.
 : tally ( k -- n ) cli-count-of @ ;
 : check ( c-addr u -- code ) cli-options library cli-state opt-env 2! cli-check ;
-\ No elaborator yet (plan FE1e): not supported, nothing checked.
-T{ add-zero-natural check lf-author-code -> 2 71 }T
+\ No elaboration data with the library: the elaborator cannot read the
+\ facts it needs (elab_as_elim and the other tags): 139, nothing checked.
+T{ add-zero-natural check lf-author-code -> 2 139 }T
 \ The kernel form's verdicts, the reference.
 T{ add-zero-kernel check -> 0 }T
 outcome-ok tally constant accepted

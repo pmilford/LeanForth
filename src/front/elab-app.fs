@@ -164,11 +164,11 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
   lf-libdec-stage 0= if 2drop false outcome-unsupported exit then
   over lf-libdec-count u< 0= if 2drop false outcome-ok exit then
   ea-data? if elab-tagged? outcome-ok else 2drop false outcome-unsupported then ;
-: ea-or-tag ( flag d tag -- flag' outcome ) ea-tagged? ok-then? if or outcome-ok else nip then ;
+: ea-or-tag ( flag d tag -- flag' outcome ) ea-tagged? ok-then? if or outcome-ok else nip false swap then ;
 : ea-elim-tags? ( d -- flag outcome )
-  false over elab-tag-as-elim ea-or-tag ok-then? 0= if nip exit then
-  over elab-tag-cases-on ea-or-tag ok-then? 0= if nip exit then
-  over elab-tag-rec-on ea-or-tag ok-then? 0= if nip exit then
+  false over elab-tag-as-elim ea-or-tag ok-then? 0= if nip false swap exit then
+  over elab-tag-cases-on ea-or-tag ok-then? 0= if nip false swap exit then
+  over elab-tag-rec-on ea-or-tag ok-then? 0= if nip false swap exit then
   swap elab-tag-brec-on ea-or-tag ;
 \ shouldElabAsElim: a recursor, or casesOn, recOn, brecOn or elab_as_elim.
 : ea-elim? ( d -- flag outcome )

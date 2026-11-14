@@ -95,8 +95,10 @@ variable a-level   \ the level the stand-in made for Type
 : const-level ( t -- level ) lf-term-first@ lf-cref-slot lf-cref-pairs drop 0 lf-cref-pair@ drop ;
 : sorry-app ( -- t ) va lf-term-second@ ;   \ sorryAx.{u} #0 Bool.false
 
-\ ---- 1. No statement elaborator (plan FE1e): error 71 at end, as for a
-\ term proof; a tactic proof with no step, the same.
+\ ---- 1. The runner's own default with no statement elaborator set
+\ (front/elab-decl.fs sets one): error 71 at end, as for a term proof; a
+\ tactic proof with no step, the same.
+' lfr-unelaborated stating
 T{ s" by-sorry end t" proof nrun err -> outcome-unsupported 71 1 52 }T
 T{ s" end t" proof nrun err -> outcome-unsupported 71 1 43 }T
 
