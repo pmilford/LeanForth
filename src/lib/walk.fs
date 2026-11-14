@@ -149,6 +149,17 @@ max-n 1 cells / constant walk-most-cells
 : walk-children ( first second walk -- outcome )
   >r 2dup r@ walk-child? swap r@ walk-child? and
   if r> walk-push2 else 2drop r> drop outcome-invalid then ;
+\ The same, a child pushed only when the test xt ( index -- flag ) says it
+\ still needs a visit (false: not yet checked, for a walk with a memo).
+: walk-push-unless ( index walk xt -- outcome )
+  >r over r> execute if 2drop outcome-ok else walk-push-outcome then ;
+: walk-push2-unless ( first second walk xt -- outcome )
+  2>r swap 2r@ walk-push-unless dup ok?
+  if drop 2r> walk-push-unless else nip 2r> 2drop then ;
+: walk-children? ( first second walk -- flag ) tuck walk-child? -rot walk-child? and ;
+: walk-children-unless ( first second walk xt -- outcome )
+  2over 2over drop walk-children?
+  if walk-push2-unless else 2drop 2drop outcome-invalid then ;
 \ Visiting: read the current node of a store of tagged nodes, then dispatch
 \ on its tag with ( first second walk tag -- outcome ); an unreadable node is
 \ invalid. The default arm of a dispatch CASE reports an unknown tag.

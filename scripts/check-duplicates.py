@@ -24,9 +24,11 @@ shape group); groups of two or more definitions are duplicates.
 
 MIN_TOKENS = 6 (8 until 2026-11-13). A body of five tokens or fewer is a trivial word (`: x-ok? ok? ;`, `: x-size
 ( n ) 8 * ;`, a field fetch); two files agree on those by accident and merging them would not make anything simpler.
-At six and seven tokens the groups are still mostly real logic (a test of two fields, a loop step, an outcome
-chain: about four in five of those added when the minimum went from 8 to 6 were copies or families, counted on
-main dc50d8eb), so the minimum is six. (Stack comments do not count: they are dropped like all comments.)
+At six and seven tokens the groups are still mostly real logic (a test of two fields, a loop step, a table
+read): of the 83 groups outside src/front that the minimum of six added on main dc50d8eb, two in three were
+copies (merged in reuse-out-2, or accepted with a reason) or families, and 28 false positives (idioms such as
+the guarded test `dup a? if b else drop false then`), so the minimum is six. At five the groups are mostly
+accessor pairs and idioms. (Stack comments do not count: they are dropped like all comments.)
 
 Ratchet: tests/duplicates-baseline.json holds today's groups, keyed by a hash of the normal form, each with a
 `reason` saying why it stays: `false positive: ...` (equal text, unrelated meaning), `family, table-driven later:

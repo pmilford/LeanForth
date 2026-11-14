@@ -502,9 +502,12 @@ and gives the range its largest file tier (`python3 scripts/test-tier.py
   folder; a folder no target uses makes the range full.
 - Faults: those whose `file` or `test` command names a changed file, and,
   when `tests/mutants/faults.toml` changed, the entries new or changed since
-  the base (`make mutants FAULTS=id,...`). The full tier runs none: `make
-  check`'s `mutants-check` checks the list, and agents run the faults of the
-  words they change.
+  the base (`make mutants FAULTS=id,...`). The full tier (plan 9.4.8j, after
+  the s1-synth review's B1) runs the entries new or changed since the base
+  and the faults whose old text lies on or next to a line the change touched
+  in its file (`git diff -U0`); a fault of a changed file whose text was left
+  alone still applies as before (the stale check confirms its old text) and
+  is left to the daily full `make mutants`.
 - Coverage in a smaller tier: `make coverage-focus COVERAGE_FILES=...
   COVERAGE_TARGETS=...` runs the targets of `make test` that load those files
   under instrumentation and applies the ratchet to those files alone
@@ -627,14 +630,21 @@ first three in `check-forth-quality`, the index in `check-docs`); each has unit 
   `tests/lib-callers-allowlist.json` lists it with a plan row id and a reason. An entry for a file that is used
   now fails too (stale), so the list only shrinks: delete the entry in the branch that adds the first caller.
   Files used by tests only are reported, not failed.
-- `scripts/check-duplicates.py`: finds colon definitions with identical bodies of at least 8 tokens, after
-  comments are dropped, words are lower-cased and every word defined in the same file (not in `lib/`) is
-  replaced by a placeholder numbered by first appearance, so `in-x` and `ib-x` copies match. It is a ratchet on
-  `tests/duplicates-baseline.json`: a new group or a group with more copies fails and prints each copy as
-  `file:line`. `python3 scripts/check-duplicates.py --report` prints every group. Update the baseline
-  (`--update-baseline`) only in a reviewed commit, as for `tests/forth-quality-baseline.json`; merging copies
-  shrinks it (run `--update-baseline` after a merge to drop the fixed groups). Limits: a copy that calls
-  another file's helpers (not renamed) is not matched, and equal normal forms of unrelated words are possible.
+- `scripts/check-duplicates.py`: finds colon definitions with identical bodies of at least 6 tokens (8
+  until reuse-out-2, 2026-11-13), after comments are dropped and words are lower-cased, in two normal forms. The
+  shape form replaces every word defined in the same file (not in `lib/`; by `:`, `constant`, `variable`,
+  `create`, `+field`, `begin-structure` or any defining word ending in `:`, such as `field:` or
+  `context-slab:`) by a placeholder numbered by first appearance, so `in-x` and `ib-x` copies match, and so
+  do parallel words that differ only in which local helper or field they use (a family). The copy form
+  replaces every call of a colon word outside `lib/` by that word's role, the hash of its own copy form
+  (numeric constants by their value), so that a copy calling the original file's helpers matches the
+  original. It is a ratchet on `tests/duplicates-baseline.json`: a new group or a group with more copies
+  fails and prints each copy as `file:line`, and so does a baseline group without a `reason` (`false
+  positive: ...`, `family, table-driven later: ...`, `accepted: ...` or `planned: <plan row> ...`).
+  `--report` prints every group with its reason, `--counts` the groups by folder. Update the baseline
+  (`--update-baseline`, which keeps each reason whose key or member list is unchanged) only in a reviewed
+  commit, as for `tests/forth-quality-baseline.json`; merging copies shrinks it. Limits: equal normal forms of
+  unrelated words are possible (hence the reasons), and copies shorter than six tokens are not compared.
 - `scripts/check-forth-quality.py` also fails for a row of `forth-reviews/LOG.md` dated 2026-11-13 or later whose
   Findings or Open text proposes a new `lib/` file or library word without a plan row id (`9.4.8a`, `FE1i-4`, `S2`).
 - `scripts/lib-index.py` writes [LIBRARY_WORDS.md](LIBRARY_WORDS.md), the index of the public words of `src/lib/`;
@@ -801,8 +811,19 @@ status on a small tree, and that the tree is untouched after each run.
 | --- | --- |
 | `make mutants` | every fault (about 25 s on Gforth 1.0; not part of `make test` or `make check`) |
 | `make mutants-quick` | the faults marked `quick`, one or two per module |
-| `make mutants-check` | only the stale-entry check, without running anything (part of `make check`, so the list cannot go stale unnoticed) |
-| `make test-mutants` | the runner's own tests (in `make test`) |
+| `make mutants-check` | only the stale-entry check and the history rule, without running anything (part of `make check`, so the list cannot go stale unnoticed) |
+| `make test-mutants` | the runner's own tests and the history rule (`scripts/mutants.py --history`; in `make test`) |
+
+The history rule (plan 9.4.8j): a commit may change the replacement text
+(`new`) of a fault that existed before it only when its message names the
+fault's id. `scripts/mutants.py --check` and `--history` read every commit of
+`main..HEAD` (`--base REF`) that changed `tests/mutants/faults.toml` and fail
+for each such change whose commit does not name the fault (a merge counts
+only for a text that differs from every parent's), so that an overwritten
+fault, whose file may no longer load and whose guard is then silently off
+(the s1-synth review's B1: 13 faults), cannot pass unnoticed. Changing a
+fault's `old` text (re-targeting it at moved code), its reason or its test
+is free.
 
 Run it with `GFORTH=...` for another host. On 2026-11-03 (Gforth 1.0) the
 list held 135 faults over `check-declaration.fs`, the checked environment

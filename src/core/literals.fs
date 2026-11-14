@@ -95,15 +95,20 @@ lf-tag-lit tag-nat lf-term-input-leaf-tag
 : lf-lit>big ( leaf arena -- big outcome )
   >r lf-lit-vector dup r@ arena-claim 0= if 2drop r> drop outcome-full no-result exit then
   >r r@ big-limbs swap cells move r> r> drop outcome-ok ;
+\ The number whose decimal digits are at addr u, read into a fresh arena
+\ and given to xt ( big -- i*x true | false ); false for text that is not
+\ digits, or with no room. The arena is freed after.
+: lf-lit-decimal-by ( addr u xt -- i*x true | false )
+  >r dup 9 / 8 + lf-lit-arena ok? 0= if drop 2drop r> drop false exit then
+  >r r@ decimal>big ok? if 2r@ drop execute else drop false then
+  r> lf-lit-arena-free r> drop ;
 \ The literal whose decimal digits are at addr u (the importer): as a
 \ handle, or false for text that is not digits, or no room.
 : lf-hterm-decimal ( addr u -- index identity true | false )
-  dup 9 / 8 + lf-lit-arena ok? 0= if drop 2drop false exit then
-  >r r@ decimal>big ok? if lf-hterm-big else drop false then r> lf-lit-arena-free ;
+  ['] lf-hterm-big lf-lit-decimal-by ;
 \ The same literal's fields, its limbs kept in the slab but no node made:
 \ an input literal of a term view (terms.fs), whose node is the tier's.
 : lf-lit-fields-big ( big -- first n true | false )
   big-vector tuck lf-lit-first ok? if swap true else 2drop false then ;
 : lf-lit-decimal ( addr u -- first n true | false )
-  dup 9 / 8 + lf-lit-arena ok? 0= if drop 2drop false exit then
-  >r r@ decimal>big ok? if lf-lit-fields-big else drop false then r> lf-lit-arena-free ;
+  ['] lf-lit-fields-big lf-lit-decimal-by ;

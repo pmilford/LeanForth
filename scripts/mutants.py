@@ -41,6 +41,16 @@ unchanged copy, or the temporary directory would lie inside the root.
 --check only validates the list and looks for stale entries, running
 nothing. --quick runs the faults marked quick (every entry is still checked
 for staleness); --only runs the named ones.
+
+The history rule (plan 9.4.8j; the s1-synth review's B1, where one commit
+overwrote 13 faults' replacement texts so that their files no longer
+loaded, unnoticed): a commit may change the replacement text (new) of a
+fault that existed before it only when its message names that fault's id.
+--check also reads every commit of BASE..HEAD (--base, default main: the
+branch's own commits; none on main itself) that changed the list and fails
+for each such change without the id in its message; --history checks only
+this, for make test. A merge counts only for a text that differs from every
+parent's.
 """
 import argparse
 import hashlib
@@ -124,6 +134,60 @@ def load_list(path):
     for index, fault in enumerate(data["fault"]):
         check_fault(fault, index, seen)
     return data["fault"]
+
+
+def git_text(root, *args):
+    """Git's output in root, or None when git fails (no repository, an unknown revision)."""
+    try:
+        run = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True,
+                             timeout=120)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return run.stdout if run.returncode == 0 else None
+
+
+def replacements(text):
+    """{id: new} of a fault list's text; {} when it does not parse."""
+    try:
+        faults = tomllib.loads(text or "").get("fault", [])
+    except tomllib.TOMLDecodeError:
+        return {}
+    return {f["id"]: f.get("new") for f in faults if isinstance(f, dict) and "id" in f}
+
+
+def names_fault(message, ident):
+    """Whether a commit message names the fault ident (as a whole id, not inside another)."""
+    return re.search(r"(?<![a-z0-9-])" + re.escape(ident) + r"(?![a-z0-9-])", message) is not None
+
+
+def unnamed_replacements(root, list_name, base):
+    """[(commit, id)] for every commit of BASE..HEAD that changed the replacement text of a
+    fault that existed before it without naming the fault in its message."""
+    listing = git_text(root, "log", "--format=%H %P", f"{base}..HEAD", "--", list_name)
+    problems = []
+    for line in (listing or "").splitlines():
+        commit, *parents = line.split()
+        after = replacements(git_text(root, "show", f"{commit}:{list_name}"))
+        before = [replacements(git_text(root, "show", f"{p}:{list_name}")) for p in parents]
+        message = git_text(root, "log", "-1", "--format=%B", commit) or ""
+        for ident, new in sorted(after.items()):
+            olds = [b[ident] for b in before if ident in b]
+            if olds and all(old != new for old in olds) and not names_fault(message, ident):
+                problems.append((commit[:12], ident))
+    return problems
+
+
+def history_problems(root, list_path, base):
+    """The history rule's failures, printed; their number."""
+    try:
+        name = str(list_path.resolve().relative_to(root))
+    except ValueError:
+        return 0
+    problems = unnamed_replacements(root, name, base)
+    for commit, ident in problems:
+        print(f"{'REPLACED UNNAMED':<34} {ident:<44} commit {commit} changes its new text "
+              f"without naming it")
+    return len(problems)
 
 
 def expected(fault):
@@ -369,6 +433,8 @@ def main(argv=None):
     parser.add_argument("--only", default=None)
     parser.add_argument("--quick", action="store_true")
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--history", action="store_true")
+    parser.add_argument("--base", default="main")
     parser.add_argument("--timeout", type=float, default=120.0)
     parser.add_argument("--tmpdir", default=None)
     args = parser.parse_args(argv)
@@ -379,6 +445,11 @@ def main(argv=None):
     except ListError as error:
         print(f"bad fault list: {error}")
         return 2
+    if args.history:
+        unnamed = history_problems(root, list_path, args.base)
+        print(f"mutants: {len(faults)} entries, {unnamed} replacement texts changed unnamed "
+              f"since {args.base}")
+        return 1 if unnamed else 0
     stale = {}
     for fault in faults:
         why = stale_reason(root, fault)
@@ -386,8 +457,10 @@ def main(argv=None):
             stale[fault["id"]] = why
             print(f"{'STALE':<34} {fault['id']:<44} {fault['file']}: {why}")
     if args.check:
-        print(f"mutants: {len(faults)} entries, {len(stale)} stale")
-        return 1 if stale else 0
+        unnamed = history_problems(root, list_path, args.base)
+        print(f"mutants: {len(faults)} entries, {len(stale)} stale, {unnamed} replacement texts "
+              f"changed unnamed since {args.base}")
+        return 1 if stale or unnamed else 0
     try:
         chosen = selected(faults, args, stale)
     except ListError as error:

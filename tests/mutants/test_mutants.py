@@ -153,11 +153,93 @@ class RunnerTest(unittest.TestCase):
             self.assertEqual(status, 2, (text, output))
             self.assertIn("bad fault list", output)
 
+    def test_checked_in_list_keeps_the_history_rule(self):
+        status = mutants.main(["--root", str(ROOT), "--history"])
+        self.assertEqual(status, 0)
+
     def test_checked_in_list_is_well_formed(self):
         faults = mutants.load_list(ROOT / mutants.DEFAULT_LIST)
         self.assertGreaterEqual(len(faults), 40)
         for fault in faults:
             self.assertTrue((ROOT / fault["file"]).is_file(), fault["id"])
+
+
+class HistoryTest(unittest.TestCase):
+    """The history rule (plan 9.4.8j) on a throw-away git repository: a commit that changes
+    an existing fault's replacement text must name the fault."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix="mutants-history-")
+        self.root = Path(self.temporary.name)
+        (self.root / "src").mkdir()
+        (self.root / "src/word.txt").write_text("alpha\nbeta\n")
+        (self.root / "check.sh").write_text(CHECK)
+        self.git("init", "-q", "-b", "main")
+        self.git("config", "user.email", "test@example.invalid")
+        self.git("config", "user.name", "test")
+        self.commit(CAUGHT, "the list")
+        self.git("checkout", "-q", "-b", "work")
+
+    def tearDown(self):
+        self.temporary.cleanup()
+
+    def git(self, *args):
+        mutants.subprocess.run(["git", "-C", str(self.root), *args], check=True,
+                               capture_output=True)
+
+    def commit(self, text, message):
+        (self.root / "tests").mkdir(exist_ok=True)
+        (self.root / mutants.DEFAULT_LIST).parent.mkdir(parents=True, exist_ok=True)
+        (self.root / mutants.DEFAULT_LIST).write_text(text)
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", message)
+
+    def check(self, *options):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            status = mutants.main(["--root", str(self.root), *options])
+        return status, output.getvalue()
+
+    def test_an_unnamed_replacement_fails(self):
+        self.commit(CAUGHT.replace("gamma", "epsilon"), "rewrite a fault quietly")
+        for option in ("--history", "--check"):
+            status, output = self.check(option)
+            self.assertEqual(status, 1, output)
+            self.assertRegex(output, r"(?m)^REPLACED UNNAMED +drops-alpha +commit [0-9a-f]+ ")
+
+    def test_a_named_replacement_passes(self):
+        self.commit(CAUGHT.replace("gamma", "epsilon"), "Re-target drops-alpha at epsilon")
+        self.assertEqual(self.check("--history")[0], 0)
+        self.assertEqual(self.check("--check")[0], 0)
+
+    def test_a_name_inside_another_id_does_not_count(self):
+        self.commit(CAUGHT.replace("gamma", "epsilon"), "Re-target drops-alpha-two")
+        self.assertEqual(self.check("--history")[0], 1)
+
+    def test_old_text_reason_and_new_faults_are_free(self):
+        changed = CAUGHT.replace("planted for the runner test", "another reason")
+        self.commit(changed + entry("new-one", "beta", "delta"), "add a fault, reword one")
+        self.assertEqual(self.check("--history")[0], 0)
+
+    def test_only_the_branch_is_read(self):
+        self.commit(CAUGHT.replace("gamma", "epsilon"), "Re-target drops-alpha")
+        self.git("checkout", "-q", "main")
+        self.commit(CAUGHT.replace("gamma", "zeta"), "a quiet change on main itself")
+        self.assertEqual(self.check("--history")[0], 0)
+        self.assertEqual(self.check("--history", "--base", "HEAD~1")[0], 1)
+
+    def test_a_merge_counts_only_new_text(self):
+        self.commit(CAUGHT.replace("gamma", "epsilon"), "Re-target drops-alpha")
+        self.git("checkout", "-q", "main")
+        self.commit(CAUGHT + entry("on-main", "beta", "delta"), "add a fault on main")
+        self.git("checkout", "-q", "work")
+        self.git("merge", "-q", "--no-edit", "main")
+        self.assertEqual(self.check("--history")[0], 0)
+
+    def test_no_repository_passes(self):
+        self.git("checkout", "-q", "main")
+        status, output = self.check("--history", "--base", "no-such-branch")
+        self.assertEqual(status, 0, output)
 
 
 if __name__ == "__main__":

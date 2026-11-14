@@ -743,6 +743,17 @@ T{ 5 0 ' depth-visit p3 ' walk-run-pair rs-checked p3 walk-fuel @ -> outcome-inv
 T{ 7 p4 walk-context ! p4 walk-context? 7 pz walk-context ! pz walk-context? -> 7 7 }T
 T{ 2 walk: s9 -> }T
 T{ 7 s9 walk-context ! s9 walk-context? s9 ' walk-context? rs-checked -> 0 0 }T
+\ walk-children-unless (reuse-out-2): earlier children only, each pushed
+\ unless the test says it needs no visit (here: odd ones), first then
+\ second; a later child is invalid, a push without room full.
+: odd-node? ( index -- flag ) 1 and 0<> ;
+: s9-reset ( -- ) 10 s9 walk-node ! 0 s9 walk-pending ! ;
+T{ s9-reset 3 4 s9 ' odd-node? walk-children-unless s9 walk-pending @ s9 walk-pop -> outcome-ok 1 4 }T
+T{ s9-reset 4 6 s9 ' odd-node? walk-children-unless s9 walk-pop s9 walk-pop -> outcome-ok 6 4 }T
+T{ s9-reset 3 5 s9 ' odd-node? walk-children-unless s9 walk-pending @ -> outcome-ok 0 }T
+T{ s9-reset 12 4 s9 ' odd-node? walk-children-unless s9 walk-pending @ -> outcome-invalid 0 }T
+T{ s9-reset 4 s9 walk-push drop 6 8 s9 ' odd-node? walk-children-unless -> outcome-full }T
+T{ s9-reset 3 4 s9 ' odd-node? ' walk-children-unless rs-checked -> outcome-ok }T
 T{ s" 0 walk2: pbad0" bad-walk? s" -1 walk2: pbad1" bad-walk? s" 1 walk2: pone" bad-walk? -> true true false }T
 
 \ Growable walks (plan task 6.2.0): a push past the record's room moves the

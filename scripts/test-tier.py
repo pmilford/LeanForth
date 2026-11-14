@@ -36,7 +36,11 @@ Each file gets a tier; the range gets the largest:
            known only from the base tree) and any file not named above. Suites: make coverage-check (make
            test once, instrumented, and the coverage ratchet), make
            check-rest (the rest of make check, every pinned-Lean comparison
-           included) and make test on Gforth 0.7.3.
+           included), make test on Gforth 0.7.3, and the planted faults
+           whose entries are new or changed, or whose old text lies on or
+           next to a changed line of its file (plan 9.4.8j); a fault of a
+           changed file whose text was left alone is left to the stale
+           check and the daily full run of make mutants.
 
 src/main.fs's closure follows Forth's require, include and needs, also in
 comments (more is loaded, never less). A target uses what
@@ -311,6 +315,65 @@ def selected_faults(changed, base_rev):
     return chosen
 
 
+HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", re.MULTILINE)
+
+
+def changed_lines(path, base_rev):
+    """The lines of PATH as it is now that differ from BASE_REV, as (first, last) ranges (a
+    deletion as the line it follows)."""
+    diff = git("diff", "-U0", "--no-renames", base_rev, "--", path, check=False) or ""
+    return [(int(first), int(first) + max(int(count or "1"), 1) - 1)
+            for first, count in HUNK.findall(diff)]
+
+
+def text_lines(text, old):
+    """(first, last) lines of OLD's first occurrence in TEXT, or None."""
+    at = text.find(old)
+    if at < 0:
+        return None
+    first = text.count("\n", 0, at) + 1
+    return first, first + old.count("\n")
+
+
+def touched_faults(changed, base_rev):
+    """The full tier's faults (plan 9.4.8j): those whose entry is new or differs from
+    BASE_REV's, and those whose old text lies on or next to a line the change touched in its
+    file. A fault of a changed file whose text the change left alone still applies as
+    before (mutants.py's stale check confirms its old text); the daily full run of make
+    mutants covers it."""
+    paths = {p for s, p in changed if s != "D"}
+    now = fault_entries(read_worktree(FAULTS) or "")
+    before = None
+    if FAULTS in paths:
+        before = fault_entries(git("show", f"{base_rev}:{FAULTS}", check=False))
+    hunks, chosen = {}, []
+    for ident, fault in now.items():
+        path, old = str(fault.get("file", "")), str(fault.get("old", ""))
+        if not os.path.isfile(path):
+            continue
+        if before is not None and before.get(ident) != fault:
+            chosen.append(ident)
+        elif path in paths:
+            if path not in hunks:
+                hunks[path] = (changed_lines(path, base_rev), read_worktree(path) or "")
+            ranges, text = hunks[path]
+            span = text_lines(text, old)
+            if span is None or any(a <= span[1] + 1 and span[0] - 1 <= b for a, b in ranges):
+                chosen.append(ident)
+    return chosen
+
+
+def full_result(result, changed, base_rev):
+    """The full tier's suites, and its faults (none for an empty range)."""
+    if result["tier"] == "full":
+        result["faults"] = touched_faults(changed, base_rev)
+        result["suites"] = [dict(s) for s in FULL_SUITES]
+        if result["faults"]:
+            result["suites"].append({"label": "faults", "goals": ["mutants"],
+                                     "vars": {"FAULTS": ",".join(result["faults"])}})
+    return result
+
+
 # --- the plan -----------------------------------------------------------------------
 
 def changed_since(rev):
@@ -341,8 +404,7 @@ def plan(changed, merge_base, full=False, reach=None):
     result = {"base": merge_base, "tier": tier, "files": files, "targets": [], "targets073": [],
               "faults": [], "coverage": None, "suites": []}
     if tier in ("full", "none"):
-        result["suites"] = [dict(s) for s in FULL_SUITES] if tier == "full" else []
-        return result
+        return full_result(result, changed, base_rev)
     reach_ = reach or Reach(make_database()[0])
     chosen = set()
     for f in files:
@@ -367,8 +429,7 @@ def plan(changed, merge_base, full=False, reach=None):
     tier = max((f["tier"] for f in files), key=TIERS.index)
     result["tier"] = tier
     if tier == "full":
-        result["suites"] = [dict(s) for s in FULL_SUITES]
-        return result
+        return full_result(result, changed, base_rev)
     result["targets"] = [u for u in reach_.every if u in chosen] + sorted(chosen - set(reach_.every))
     result["targets073"] = [u for u in reach_.of_test if u in chosen and reach_.runs_gforth(u)]
     if tier != "docs":

@@ -524,13 +524,8 @@ end-structure
 \ Binary children must come earlier (walk-children's test); each is pushed
 \ unless the memo holds it checked, first then second (so the second is
 \ visited first), and a push without room is full.
-: lf-cterm-push ( index walk -- outcome )
-  over lf-audited? if 2drop outcome-ok else walk-push-outcome then ;
-: lf-cterm-pushed ( first second walk -- outcome )
-  rot over lf-cterm-push dup ok? if drop lf-cterm-push else nip nip then ;
 : lf-cterm-children ( first second walk -- outcome )
-  >r 2dup r@ walk-child? swap r@ walk-child? and
-  if r> lf-cterm-pushed else 2drop r> drop outcome-invalid then ;
+  ['] lf-audited? walk-children-unless ;
 \ The children of a let (core/let-terms.fs) and of a projection
 \ (core/projections.fs) are checked as any binary node's, and their
 \ shape too: a let's second child is a lambda, a projection's first a

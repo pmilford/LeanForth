@@ -46,8 +46,10 @@ class Fixture(unittest.TestCase):
 
     def assertFull(self, result):
         self.assertEqual(result["tier"], "full")
-        self.assertEqual(self.labels(result), ["coverage-check", "check-rest", "test073"])
-        self.assertEqual([s["goals"] for s in result["suites"]], [["coverage-check"], ["check-rest"], ["test"]])
+        faults = ["faults"] if result["faults"] else []
+        self.assertEqual(self.labels(result), ["coverage-check", "check-rest", "test073"] + faults)
+        self.assertEqual([s["goals"] for s in result["suites"]][:3],
+                         [["coverage-check"], ["check-rest"], ["test"]])
 
 
 class Tiers(Fixture):
@@ -159,6 +161,26 @@ class Tiers(Fixture):
                 old = path.read_text() if path.exists() else ""
                 self.assertFull(self.change({name: old + "\n# changed\n"}))
                 self.repo.git("reset", "-q", "--hard", base)
+
+    def test_full_tier_runs_the_faults_whose_text_changed(self):
+        """Plan 9.4.8j: the full tier runs the faults whose old text a change touched."""
+        result = self.change({"src/core/c.fs": "require  ../lib/used.fs\n"})
+        self.assertFull(result)
+        self.assertEqual(result["faults"], ["core-one"])
+        self.assertEqual(result["suites"][-1]["vars"], {"FAULTS": "core-one"})
+
+    def test_full_tier_leaves_the_faults_of_untouched_text(self):
+        self.change({"src/core/c.fs": "require ../lib/used.fs\n\\ 1\n\\ 2\n\\ 3\n\\ 4\n"})
+        self.repo.git("tag", "-f", "base")
+        result = self.change({"src/core/c.fs": "require ../lib/used.fs\n\\ 1\n\\ 2\n\\ 3\n\\ four\n"})
+        self.assertFull(result)
+        self.assertEqual(result["faults"], [])
+
+    def test_full_tier_runs_the_changed_fault_entries(self):
+        text = tier_fixture.FAULTS.replace('new = "eerf"', 'new = "eref"')
+        result = self.change({"tests/mutants/faults.toml": text, "src/program/p.fs": ": p 1 ;\n"})
+        self.assertFull(result)
+        self.assertEqual(result["faults"], ["free-one"])
 
     def test_mixed_range_takes_the_largest(self):
         result = self.change({"./docs/A.md": "# B\n", "tests/lib/a.fs": "require ../../src/lib/free.fs\n\\ x\n",

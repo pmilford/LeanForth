@@ -1090,7 +1090,9 @@ test-differential: reference-author
 # a temporary copy of the tree, never this one, and the test it names must
 # then fail. Not part of make test or make check. mutants-quick runs the
 # faults marked quick, mutants-check only reports stale entries (old text
-# no longer found once); test-mutants, part of make test, tests the runner.
+# no longer found once) and replacement texts changed by a commit that does
+# not name the fault (plan 9.4.8j); test-mutants, part of make test, tests
+# the runner and checks that history rule on the branch's commits.
 # LEAN is the pinned binary itself (LEAN_BINARY), never the cache wrapper:
 # the runner's controls include the Lean cache's own tests. FAULTS=ID,...
 # runs only those faults (make tier's smaller tiers; mutants.py --only).
@@ -1107,6 +1109,7 @@ mutants-check:
 
 test-mutants:
 	$(RUN) python3 tests/mutants/test_mutants.py
+	$(RUN) python3 scripts/mutants.py --history
 
 # Block coverage of src/ over make test (plan task 1.4.1; TESTING_STRATEGY.md,
 # "Block coverage"): every Gforth run of make test loads Gforth 1.0's

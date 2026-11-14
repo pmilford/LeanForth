@@ -7984,9 +7984,9 @@ reason = "S6C: the memo is on outside a check, where every audit must run in ful
 
 [[fault]]
 id = "s6c-memo-children-unpushed"
-file = "src/core/constant-term-boundary.fs"
-old = '''  over lf-audited? if 2drop outcome-ok else walk-push-outcome then ;'''
-new = '''  2drop outcome-ok ;'''
+file = "src/lib/walk.fs"
+old = '''  >r over r> execute if 2drop outcome-ok else walk-push-outcome then ;'''
+new = '''  drop 2drop outcome-ok ;'''
 test = "$GFORTH tests/core/constant-term-boundary.fs"
 reason = "S6C: no child is pushed, as if every one were kept: only roots are checked"
 
@@ -17656,7 +17656,7 @@ id = "r2-export-where-byte"
 file = "src/import/ndjson.fs"
 old = '''  ."  (" .export-field ." line " .decimal .export-byte ." )" ;'''
 new = '''  ."  (" .export-field ." line " .decimal drop ." )" ;'''
-test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py"
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py ExitCodes"
 reason = "a JSON error's message no longer says the byte within the line"
 
 [[fault]]
@@ -17666,3 +17666,27 @@ old = ''': lf-env-all-final? ( -- flag ) lf-input-count ['] lf-env-final? all? ;
 new = ''': lf-env-all-final? ( -- flag ) lf-input-count 1- ['] lf-env-final? all? ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "a run whose last declaration is left open is confirmed"
+
+[[fault]]
+id = "r2-walk-push-unless-all"
+file = "src/lib/walk.fs"
+old = '''  >r over r> execute if 2drop outcome-ok else walk-push-outcome then ;'''
+new = '''  drop walk-push-outcome ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a child the walk's memo holds checked is pushed and visited again"
+
+[[fault]]
+id = "r2-walk-push2-unless-one"
+file = "src/lib/walk.fs"
+old = '''  if drop 2r> walk-push-unless else nip 2r> 2drop then ;'''
+new = '''  if drop 2r> 2drop drop outcome-ok else nip 2r> 2drop then ;'''
+test = "$GFORTH tests/lib/lib.fs && $GFORTH tests/core/level-substitute.fs"
+reason = "a binary node's second child is never pushed"
+
+[[fault]]
+id = "r2-lit-decimal-arena-kept"
+file = "src/core/literals.fs"
+old = '''  r> lf-lit-arena-free r> drop ;'''
+new = '''  r> drop r> drop ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "a decimal literal's arena is never freed, so the next literal finds no room"

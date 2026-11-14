@@ -164,13 +164,8 @@ create lf-mls-set-hooks /htab-hooks allot
 \ shape, and the rest of its graph, the graph audit (lf-cterm-check)
 \ checked before.
 : lf-mls-closed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else false then ;
-: lf-mls-push ( index walk -- outcome )
-  over lf-mls-closed? if 2drop outcome-ok else walk-push-outcome then ;
-: lf-mls-pushed ( first second walk -- outcome )
-  rot over lf-mls-push dup ok? if drop lf-mls-push else nip nip then ;
 : lf-mls-children ( first second walk -- outcome )
-  >r 2dup r@ walk-child? swap r@ walk-child? and
-  if r> lf-mls-pushed else 2drop r> drop outcome-invalid then ;
+  ['] lf-mls-closed? walk-children-unless ;
 \ The first visit of a term: mark it, check it, push its children.
 : lf-mls-first ( first second walk tag -- outcome )
   over walk-node @ lf-mls-mark dup ok? 0= if lf-mls-refused exit then drop
