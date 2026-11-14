@@ -87,11 +87,13 @@ status changes when this date is older than them. Stages are those of the
   the batch outside the front end (9.4.8d, e, k; `reuse-k1` and `reuse-out`, [kernel] approved by the owner): new
   `lib/memo.fs`, `lib/pqueue.fs`, `lib/decimal.fs`, `lib/bits.fs`, `lib/blocks.fs`; the kernel's six sorts, three
   caches, scheduler queue and about 58 loops on shared words; Init identical (59,349 accepted, the same fuel,
-  byte-identical snapshots). Duplicate groups 219 → 201. Next: the duplicate report as the work list (each group merged,
-  table-driven or accepted with a reason): outside the front end in branch `reuse-out-2` (tested alone, review and the
-  owner's [kernel] approval pending; plan 9.4.8f, j, k: a detector that finds copies through roles, groups outside
-  `src/front` 231 → 172, each kept one with a reason; the full tier runs the faults a change touches), the front end
-  after S2's merge A.
+  byte-identical snapshots). Duplicate groups 219 → 201. Outside the front end, `reuse-out-2` (plan 9.4.8f, j, k) is
+  integrated (merged to main 2026-11-14 after a Forth and kernel review, three re-checks, [kernel] and [import]
+  approved by the owner): a detector that finds copies through roles; duplicate groups outside `src/front` 231 → 118
+  (same detector), each kept one with a written reason (67 not copies, 30 accepted, 21 planned); about 60 shared words
+  in lib, core, kernel, import, cli and present; 450 test exports and all of Init identical (59,349 accepted, the same
+  fuel, byte-identical snapshots); the full tier runs the faults a change touches. Next: the front end's pass (152
+  groups and plan 9.4.8k's front items), after the reset.
 - Priority (owner, 2026-11-13 midday): the front end's slices in order, S1 then S2 ($0 + n = n$ by `by-induction` and
   `by-rw`) then S3 onwards; S2's acceptance includes the owner's proof set ($x + 0 = x$, $0 + n = n$, $n + m = m + n$,
   associativity, distributivity, list append length; S3 `2 + 2 = 4`, S4 `n < n + 1`; 2026-11-13). S2's design ([S2_INTERFACE.md](../design/S2_INTERFACE.md)) reviewed and approved by the

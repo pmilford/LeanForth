@@ -1380,3 +1380,16 @@ against pinned Lean. After a Forth review, two fix rounds and three re-checks
 ([review](../development/forth-reviews/2026-11-13-s1-elab.md)); the last re-check's minor items are plan 9.4.8k
 items for the front pass. S1 is called done only after the done checker runs it on all of `Init`.
 
+### [kernel] and [import]: the reuse pass outside the front end (2026-11-14)
+
+The owner approved the [kernel] and [import] gates for branch `reuse-out-2` (plan 9.4.8f, j, k): about 60 shared words
+in place of duplicated code across the kernel, the import reader (the NDJSON number and manifest readers), the command
+line, the printers and the libraries; the checker's rules unchanged; duplicate groups outside `src/front` 231 → 118,
+each kept one with a written reason. Evidence: all 450 test exports (5,833 declarations) byte-identical in verdicts,
+reasons, fuel and exit codes on main and the branch (the reviewer's own run after the last merge); all of Init the same
+59,349 accepted with fuel 654,719,715 and byte-identical snapshots (the implementer's runs); 20 forged or malformed
+export and manifest files refused as before; a Forth and kernel review and three re-checks
+([review](../development/forth-reviews/2026-11-13-reuse-out-2.md),
+[re-checks](../development/forth-reviews/2026-11-14-reuse-out-2-rc3.md)); the last re-check's small copies are plan
+9.4.8k items for the next pass.
+
