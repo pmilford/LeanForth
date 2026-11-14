@@ -185,7 +185,7 @@ here feed-settings - /feed-setting / constant feed-settings#
 : feed-level! ( index l feed -- ) feed-levels @ swap cells + ! ;
 : feed-level@ ( l feed -- index ) feed-levels @ swap cells + @ ;
 : feed-handle ( l feed -- index identity )
-  feed-level@ dup lf-level-identity 0= if 0 then ;
+  feed-level@ lf-level-handle ;
 
 \ ---- In place (compact-store plan step S5; core/terms.fs's input view).
 \ The term store reads the stage's expressions in place, lets and

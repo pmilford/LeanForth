@@ -420,6 +420,8 @@ create lf-tbind-hooks /htab-hooks allot
   dup lf-term-valid? 0= if drop false exit then
   dup lf-term-input? if lf-term-input-identity
   else lf-term-base - lf-terms store-identity @ then true ;
+\ A node with its identity, 0 when it is not live (a pass then refuses it).
+: lf-term-handle ( index -- index identity ) dup lf-term-identity 0= if 0 then ;
 
 \ Read a node's tag and fields. An index that is not allocated returns
 \ only false and no memory is read (the header is the root's to check).

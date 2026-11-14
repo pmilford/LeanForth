@@ -239,15 +239,12 @@ end-structure
 \ Names. A name's components; its ancestor t prefixes up; a component
 \ put on base; name's last t components put on base (Lean's operator+
 \ and replace_prefix, name.cpp 302-318, 363-375).
-: lf-nest-length ( name -- n )
-  0 begin over while 1+ swap lf-name-prefix@ swap repeat nip ;
-: lf-nest-up ( name t -- name' ) 0 ?do lf-name-prefix@ loop ;
 : lf-nest-part ( base part -- name true | false )
   dup lf-name-tag@ lf-name-tag-str =
   if lf-name-text lf-name-str else lf-name-payload lf-name-num then ;
 : lf-nest-graft ( name t base -- name' true | false )
   over 0 ?do
-    2 pick 2 pick i - 1- lf-nest-up lf-nest-part 0= if 2drop false unloop exit then
+    2 pick 2 pick i - 1- lf-name-ancestor lf-nest-part 0= if 2drop false unloop exit then
   loop nip nip true ;
 \ How many prefixes up name is ancestor, or -1.
 : lf-nest-distance ( name ancestor -- t|-1 )
@@ -285,7 +282,7 @@ end-structure
 \ _nested + J, made unique: an auxiliary type's name.
 : lf-nest-aux-name ( J -- name true | false )
   0 s" _nested" lf-name-str 0= if drop false exit then
-  >r dup lf-nest-length r> lf-nest-graft 0= if false exit then lf-nest-unique ;
+  >r dup lf-name-depth r> lf-nest-graft 0= if false exit then lf-nest-unique ;
 
 \ ---------------------------------------------------------------------------
 \ Making an auxiliary type J_k for the occurrence I Ds: a declaration of
@@ -301,7 +298,7 @@ end-structure
 \ when their numbers differ.
 : lf-nest-levels ( -- pairs n ) lf-nest-head lf-term-first@ lf-cref-slot lf-cref-pairs ;
 : lf-nest-subst ( root formals pairs n -- root' outcome )
-  >r >r >r lf-rcr-handle r> r> r> lf-ind-fuel @ lf-mixed-level-substitute
+  >r >r >r lf-term-handle r> r> r> lf-ind-fuel @ lf-mixed-level-substitute
   lf-mls-fuel @ lf-ind-fuel ! dup ok? if 2drop outcome-ok else no-result then ;
 : lf-nest-at-levels ( decl -- root outcome )
   dup lf-idecl-type @ swap lf-idecl-params@ lf-nest-levels
@@ -311,7 +308,7 @@ end-structure
 \ a Pi (else N3), instantiated with Ds, D0 first.
 : lf-nest-key-arg ( i -- D ) lf-nest-key@ lf-nest-k@ rot lf-ind-arg ;
 : lf-nest-inst ( root D -- root' outcome )
-  >r lf-term-second@ lf-rcr-handle r> lf-rcr-handle lf-ind-fuel @
+  >r lf-term-second@ lf-term-handle r> lf-term-handle lf-ind-fuel @
   lf-mixed-instantiate lf-minst-fuel @ lf-ind-fuel ! nip ;
 : lf-nest-pi-params ( root -- root' outcome )
   lf-nest-k@ 0 ?do
@@ -395,7 +392,7 @@ end-structure
 \ binder names and annotations not stored): a, or -1. A difference is an
 \ answer, not a failure: the diagnostic stays as it was.
 : lf-nest-same? ( a -- flag outcome )
-  lf-ind-ty lf-ty-key @ lf-rcr-handle lf-nest-key@ lf-rcr-handle lf-ind-fuel @
+  lf-ind-ty lf-ty-key @ lf-term-handle lf-nest-key@ lf-term-handle lf-ind-fuel @
   lf-mixed-equal lf-mcompare-fuel @ lf-ind-fuel ! ;
 : lf-nest-known ( -- a outcome )
   lf-ind-types@ lf-ind-in-types@ ?do

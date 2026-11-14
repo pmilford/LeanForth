@@ -122,7 +122,7 @@ rr-internal order+
 \ negative length means none (written as null). rr-note: names one.
 rr-note-room cell+ aligned constant /rr-note
 : rr-note: ( n "name" -- n' ) aligned /rr-note +field ;
-: rr-note ( note -- c-addr u ) dup cell+ swap @ ;
+: rr-note ( note -- c-addr u ) cell-count ;
 : rr-note? ( note -- flag ) @ 0< 0= ;
 : rr-forget ( note -- ) -1 swap ! ;
 \ Keep c-addr u in the note: ok, or full, with the note unchanged, when

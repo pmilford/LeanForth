@@ -2545,7 +2545,7 @@ reason = "one byte more than the buffer's room is taken: a split update overruns
 
 [[fault]]
 id = "sha-hex-letters"
-file = "src/lib/sha256.fs"
+file = "src/lib/decimal.fs"
 old = '''[char] a 10 - then'''
 new = '''[char] a 9 - then'''
 test = "$GFORTH tests/lib/sha256.fs"
@@ -2778,8 +2778,8 @@ reason = "a Forth exception inside a command exits 0 instead of 5, an internal f
 [[fault]]
 id = "cli-spent-context-ignored"
 file = "src/cli/check-run.fs"
-old = '''  ck-viewed? if lf-env-all-final? ck-faulted? 0= and flag>outcome else outcome-invalid then ;'''
-new = '''  ck-viewed? if lf-env-all-final? flag>outcome else outcome-invalid then ;'''
+old = '''  lf-env-all-final? ck-faulted? 0= and flag>outcome ;'''
+new = '''  lf-env-all-final? flag>outcome ;'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "a run whose last check threw ends ok: the report says run ok and stopped (review rvCLI2 L1)"
 
@@ -5751,9 +5751,11 @@ reason = "5.2.1b: the constructor's fields not given to the rule; a list's head 
 
 [[fault]]
 id = "iota-argument-after-major-dropped"
-file = "src/kernel/iota.fs"
-old = '''  dup 0= if 2drop outcome-ok exit then'''
-new = '''  2drop outcome-ok exit'''
+file = "src/kernel/whnf.fs"
+old = ''': lf-whnf-apply-last ( f app k -- node outcome )
+  dup 0= if 2drop outcome-ok exit then'''
+new = ''': lf-whnf-apply-last ( f app k -- node outcome )
+  2drop outcome-ok exit'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.1b: the arguments after the major premise not applied to the rule's right side"
 
@@ -5793,8 +5795,8 @@ reason = "whnf never asks reduce_nat: Nat.succ Nat.zero, which Lean's reduce_nat
 [[fault]]
 id = "dq-whnf-core-skipped"
 file = "src/kernel/defeq.fs"
-old = '''  dup lf-dq-pick2 drop swap ['] lf-dq-tn lf-whnf-cheap-call ;'''
-new = '''  dup lf-dq-pick2 drop outcome-ok rot lf-dq-tn ;'''
+old = '''  dup lf-dq-sides drop swap ['] lf-dq-tn lf-whnf-cheap-call ;'''
+new = '''  dup lf-dq-sides drop outcome-ok rot lf-dq-tn ;'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "is_def_eq_core's step 3 leaves the left side unreduced: a redex against its reduct is Lean's yes"
 
@@ -5817,8 +5819,10 @@ reason = "eta expands other to fun x => other #1, not other x: f against fun x =
 [[fault]]
 id = "dq-eta-no-is-yes"
 file = "src/kernel/defeq.fs"
-old = '''  if true r> lf-dq-end else r> lf-dq-struct-step then ;'''
-new = '''  drop true r> lf-dq-end ;'''
+old = ''': lf-dq-eta-back ( flag outcome frames -- ... frames next )
+  ['] lf-dq-struct-step lf-dq-yes-or ;'''
+new = ''': lf-dq-eta-back ( flag outcome frames -- ... frames next )
+  rot drop true -rot ['] lf-dq-struct-step lf-dq-yes-or ;'''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "an eta comparison that says no answers yes: Q against fun y => P y is accepted where Lean says no"
 
@@ -5891,8 +5895,8 @@ reason = "step 12 (structure eta, task 5.2.2) always answers no: p and (p.1, p.2
 [[fault]]
 id = "dq-eta-struct-one-way"
 file = "src/kernel/defeq.fs"
-old = '''  r@ lf-dq-sides swap r> ['] lf-dq-struct-other lf-dq-struct-call ;'''
-new = '''  r> lf-dq-unit-step ;'''
+old = '''  >r r@ lf-dq-sides swap r> ['] lf-dq-struct-other lf-dq-struct-call ;'''
+new = '''  lf-dq-unit-step ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "step 12 tries only the constructor on the right: (p.1, p.2) against p is a no where Lean says yes (eta.structure-left)"
 
@@ -5948,7 +5952,7 @@ reason = "lazy delta skips is_def_eq_offset, which compares two Nat.succ applica
 [[fault]]
 id = "dq-nat-zero-never"
 file = "src/kernel/whnf.fs"
-old = '''  lf-crec-name @ dup s" zero" lf-whnf-part? if lf-whnf-nat? else drop false then ;'''
+old = '''  lf-crec-name @ dup s" zero" lf-name-str-is? if lf-whnf-nat? else drop false then ;'''
 new = '''  drop false ;'''
 test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
 reason = "reduce_nat is taken never to compute, so Nat operations on Nat.zero unfold where Lean computes a literal whose type is missing (k7.*)"
@@ -8073,7 +8077,7 @@ reason = "6.5.5: abstract keeps a node with free variables unvisited, so they ar
 
 [[fault]]
 id = "s6a-shift-skip-reaches"
-file = "src/kernel/mixed-shift.fs"
+file = "src/kernel/mixed-rebuild.fs"
 old = '''  swap lf-term-data@ if lf-data-loose swap frame-context @ > 0= else drop false then ;'''
 new = '''  swap lf-term-data@ if lf-data-loose 1- swap frame-context @ > 0= else drop false then ;'''
 test = "$GFORTH tests/core/mixed-shift.fs"
@@ -8097,7 +8101,7 @@ reason = "6.5.5: the shift's memo keyed without the cutoff gives a node under a 
 
 [[fault]]
 id = "s6a-inst-skip-reaches"
-file = "src/kernel/mixed-instantiate.fs"
+file = "src/kernel/mixed-rebuild.fs"
 old = '''  swap lf-term-data@ if lf-data-loose swap frame-context @ > 0= else drop false then ;'''
 new = '''  swap lf-term-data@ if lf-data-loose 1- swap frame-context @ > 0= else drop false then ;'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
@@ -8702,8 +8706,8 @@ reason = "S5B: whnf_core never reduces a projection alone (reduce_proj), only on
 [[fault]]
 id = "s5b-iota-proj-extra-lost"
 file = "src/kernel/iota.fs"
-old = '''  swap dup lf-iota-n lf-iota-extra r> 0 ;'''
-new = '''  swap dup lf-iota-n 1- 0 max lf-iota-extra r> 0 ;'''
+old = '''  swap dup lf-iota-n lf-whnf-apply-last r> 0 ;'''
+new = '''  swap dup lf-iota-n 1- 0 max lf-whnf-apply-last r> 0 ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "S5B: a projection applied to arguments reduces to its field without the last argument"
 
@@ -8844,8 +8848,8 @@ reason = "S5B: a let whose body holds an mdata expression is read in place, its 
 [[fault]]
 id = "s7-early-never-noted"
 file = "src/kernel/environment.fs"
-old = '''  dup lf-slot-state @ lf-state-final = dup if nip exit then swap lf-slot-early ;'''
-new = '''  lf-slot-state @ lf-state-final = ;'''
+old = '''  dup lf-slot-done? dup if nip exit then swap lf-slot-early ;'''
+new = '''  lf-slot-done? ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "S7: a check that reads a slot not final yet leaves no witness (G-P5)"
 
@@ -11995,10 +11999,8 @@ reason = "a character's literal cell that the store cannot hold reads as undecid
 [[fault]]
 id = "cov2-defeq-lazy-failure-unknown"
 file = "src/kernel/defeq.fs"
-old = ''': lf-lz-t-back ( tn' outcome frames -- ... frames next )
-  >r ok-then? 0= if r> lf-dq-end-failed exit then'''
-new = ''': lf-lz-t-back ( tn' outcome frames -- ... frames next )
-  >r ok-then? 0= if drop outcome-unknown r> lf-dq-end-failed exit then'''
+old = '''  2>r ok-then? 0= if 2r> drop lf-dq-end-failed exit then 2r> >r lf-lz-t! r> execute ;'''
+new = '''  2>r ok-then? 0= if drop outcome-unknown 2r> drop lf-dq-end-failed exit then 2r> >r lf-lz-t! r> execute ;'''
 test = "$GFORTH tests/core/defeq-sweeps.fs"
 reason = "lazy delta turns the failure of t's unfolding (out of fuel) into undecided: exhausted is no longer reported"
 quick = true
@@ -12076,23 +12078,17 @@ reason = "a recursor applied to exactly its major premise is no redex (inductive
 
 [[fault]]
 id = "cov2-shift-string-leaf-bad"
-file = "src/kernel/mixed-shift.fs"
-old = '''    lf-tag-str of lf-rebuild-keep endof
-    lf-tag-symbolic-sort of lf-rebuild-keep endof
-    >r lf-rebuild-bad r> endcase ;
-\ Binary nodes (see the header): unchanged by the data word, given back'''
-new = '''    lf-tag-str of lf-rebuild-bad endof
-    lf-tag-symbolic-sort of lf-rebuild-keep endof
-    >r lf-rebuild-bad r> endcase ;
-\ Binary nodes (see the header): unchanged by the data word, given back'''
+file = "src/kernel/mixed-rebuild.fs"
+old = '''  lf-tag-lit of true endof  lf-tag-str of true endof'''
+new = '''  lf-tag-lit of true endof  lf-tag-str of false endof'''
 test = "$GFORTH tests/core/mixed-shift.fs"
 reason = "lifting a term refuses a string literal as malformed"
 
 [[fault]]
 id = "cov2-instantiate-literal-leaf-bad"
-file = "src/kernel/mixed-instantiate.fs"
-old = '''    lf-tag-lit of lf-rebuild-keep endof'''
-new = '''    lf-tag-lit of lf-rebuild-bad endof'''
+file = "src/kernel/mixed-rebuild.fs"
+old = '''  lf-tag-proj of true endof  lf-tag-lit of true endof'''
+new = '''  lf-tag-proj of true endof  lf-tag-lit of false endof'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
 reason = "instantiate refuses a natural-number literal as malformed"
 

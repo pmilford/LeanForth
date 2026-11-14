@@ -187,7 +187,7 @@ store-header context-record: lf-inputs
   lf-idecl-block @ ?dup if 1- lf-more-cell else 0 then ;
 \ Field k of a data record, and a list at addr: its items and count.
 : lf-more-field ( addr k -- x ) cells + @ ;
-: lf-more-list ( addr -- items n ) dup cell+ swap @ ;
+: lf-more-list ( addr -- items n ) cell-count ;
 \ The list after the one at addr.
 : lf-more-next ( addr -- addr' ) dup @ 1+ cells + ;
 \ A type's lists: all, then ctors; a recursor's all, then its rules.

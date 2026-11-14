@@ -84,8 +84,6 @@ end-structure
 \ other tag is malformed. Each visit costs one unit of fuel.
 \ Binary nodes (see the header): unchanged by the data word, given back
 \ by the memo, or rebuilt as mixed-rebuild.fs's passes are, then kept.
-: lf-minst-clean? ( node frames -- flag )
-  swap lf-term-data@ if lf-data-loose swap frame-context @ > 0= else drop false then ;
 : lf-minst-known? ( node frames -- result true | false )
   frame-context @ lf-minst-memo lf-rmemo@ ;
 : lf-minst-keep ( result node frames -- ) frame-context @ lf-minst-memo lf-rmemo! ;
@@ -100,17 +98,11 @@ end-structure
   2dup lf-rebuild-stuck? if nip >r lf-rebuild-deep r> 0 exit then
   ['] lf-minst-second lf-rebuild-first ;
 : lf-minst-pair ( node frames -- ... frames next )
-  2dup lf-minst-clean? if lf-replace-same exit then
+  2dup lf-rebuild-clean? if lf-replace-same exit then
   2dup lf-minst-known? if lf-replace-recall else lf-minst-rebuild then ;
 : lf-minst-binary ( node frames -- ... frames next )
   over lf-minst-children? if lf-minst-pair else lf-rebuild-refuse then ;
-: lf-minst-leaf ( node frames tag -- result outcome )
-  case lf-tag-bvar of lf-minst-bvar endof  lf-tag-fvar of lf-rebuild-keep endof
-    lf-tag-constant of lf-rebuild-keep endof  lf-tag-proj of lf-rebuild-keep endof
-    lf-tag-lit of lf-rebuild-keep endof
-    lf-tag-str of lf-rebuild-keep endof
-    lf-tag-symbolic-sort of lf-rebuild-keep endof
-    >r lf-rebuild-bad r> endcase ;
+: lf-minst-leaf ( node frames tag -- result outcome ) ['] lf-minst-bvar lf-rebuild-leaf ;
 \ The visit's first step (lib/frame.fs).
 : lf-minst-visit ( node frames -- ... frames next )
   2dup lf-minst-readable? lf-rebuild-tag

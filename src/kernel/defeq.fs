@@ -219,7 +219,8 @@ end-structure
   lf-dq-site lf-diag-frames-fuel outcome-exhausted ;
 \ Two terms kept across a child's visit, t below s.
 : lf-dq-save2 ( t s frames -- t s frames ) >r 2dup swap r@ frame-save r@ frame-save r> ;
-: lf-dq-pick2 ( frames -- t s ) dup 1 swap frame-pick swap 0 swap frame-pick ;
+\ The two cells on top: t and s, and from step 3 tn and sn.
+: lf-dq-sides ( frames -- t s ) dup 1 swap frame-pick swap 0 swap frame-pick ;
 \ The frames' fuel lent to a pass that keeps its own, and taken back.
 : lf-dq-lend ( frames addr -- ) swap frame-fuel @ swap ! ;
 : lf-dq-repay ( frames addr -- ) @ swap frame-fuel ! ;
@@ -426,7 +427,7 @@ defer lf-ap-arg ( frames -- ... frames next )
 : lf-ap-fn ( flag outcome frames -- ... frames next )
   >r ok-then? 0= if r> 2 lf-dq-drop-failed exit then
   0= if false r> 2 lf-dq-drop-answer exit then
-  r@ lf-dq-pick2 lf-dq-count swap lf-dq-count tuck <>
+  r@ lf-dq-sides lf-dq-count swap lf-dq-count tuck <>
   if drop false r> 2 lf-dq-drop-answer exit then
   r@ frame-save 0 r@ frame-save r> lf-ap-arg ;
 :noname ( t s frames -- ... frames next )
@@ -439,7 +440,7 @@ defer lf-ap-arg ( frames -- ... frames next )
 : lf-ar-next ( flag outcome frames -- ... frames next )
   >r ok-then? 0= if r> 2 lf-dq-drop-failed exit then
   0= if false r> 2 lf-dq-drop-answer exit then
-  r@ lf-dq-pick2 2 r@ frame-drop lf-term-first@ swap lf-term-first@ swap
+  r@ lf-dq-sides 2 r@ frame-drop lf-term-first@ swap lf-term-first@ swap
   r@ lf-dq-spend dup ok? if drop r> lf-ar-visit else nip nip r> lf-dq-failed then ;
 :noname ( t s frames -- ... frames next )
   >r 2dup lf-dq-apps? 0= if lf-dq-app? 0= swap lf-dq-app? 0= and r> lf-dq-answer exit then
@@ -452,12 +453,17 @@ defer lf-ap-arg ( frames -- ... frames next )
 \ updates. A step that ends the visit drops its four cells.
 : lf-dq-cells ( frames -- t s tn sn )
   >r 3 r@ frame-pick 2 r@ frame-pick 1 r@ frame-pick 0 r> frame-pick ;
-: lf-dq-sides ( frames -- tn sn ) dup 1 swap frame-pick swap 0 swap frame-pick ;
 : lf-dq-sides! ( tn sn frames -- ) >r 2 r@ frame-drop swap r@ frame-save r> frame-save ;
 : lf-dq-end ( flag frames -- flag outcome frames 0 ) 4 lf-dq-drop-answer ;
 \ Whether whnf_core changed either side: a new node (Lean's is_eqp).
 : lf-dq-changed? ( t s tn sn -- tn sn flag ) 2swap 2over rot <> -rot <> or ;
 : lf-dq-end-failed ( outcome frames -- 0 outcome frames 0 ) 4 lf-dq-drop-failed ;
+\ A child's answer to a step that may say yes: yes ends the visit with
+\ yes, a failure ends it with the failure, no goes on to the next step,
+\ xt ( frames -- ... frames next ).
+: lf-dq-yes-or ( flag outcome frames xt -- ... frames next )
+  2>r ok-then? 0= if 2r> drop lf-dq-end-failed exit then
+  if true 2r> drop lf-dq-end else 2r> execute then ;
 
 \ The doubt record (see the header): the first step passed that might
 \ have answered yes, with its terms; lf-dq-settle turns a final no into
@@ -474,8 +480,8 @@ defer lf-ap-arg ( frames -- ... frames next )
 \ The constants Lean matches by name here: Bool.true (step 2, whatever
 \ its universe arguments) and Nat.succ with one argument (K7, whnf.fs).
 : lf-dq-bool-true? ( name -- flag )
-  dup s" true" lf-whnf-part? 0= if drop false exit then
-  lf-name-prefix@ dup s" Bool" lf-whnf-part? if lf-name-prefix@ lf-whnf-anon? else drop false then ;
+  dup s" true" lf-name-str-is? 0= if drop false exit then
+  lf-name-prefix@ dup s" Bool" lf-name-str-is? if lf-name-prefix@ lf-whnf-anon? else drop false then ;
 : lf-dq-true? ( node -- flag )
   dup lf-whnf-const? if lf-whnf-cref lf-crec-name @ lf-dq-bool-true? else drop false then ;
 : lf-dq-succ? ( node -- flag ) dup lf-dq-count 1 = if lf-whnf-k7? else drop false then ;
@@ -695,18 +701,18 @@ defer lf-es-field ( frames -- ... frames next )
 defer lf-dq-string-step ( frames -- ... frames next )
 ' lf-dq-unit-step is lf-dq-string-step
 : lf-dq-struct-other ( flag outcome frames -- ... frames next )
-  >r ok-then? 0= if r> lf-dq-end-failed exit then
-  if true r> lf-dq-end else r> lf-dq-string-step then ;
+  ['] lf-dq-string-step lf-dq-yes-or ;
 \ try_eta_struct_core(t, s): its visit when it applies, else no at once
 \ (s's constructor looked up here, so that a step that does not apply
 \ opens no visit and spends no fuel).
 : lf-dq-struct-call ( t s frames cont -- ... frames next )
   2>r dup lf-dq-struct-ctor ok-then? 0= if lf-dq-gap-note 0 swap 2r> exit then
   if 2r> lf-es-call else 2drop false outcome-ok 2r> then ;
+\ The other way round: the constructor sought on t.
+: lf-dq-struct-swapped ( frames -- ... frames next )
+  >r r@ lf-dq-sides swap r> ['] lf-dq-struct-other lf-dq-struct-call ;
 : lf-dq-struct-back ( flag outcome frames -- ... frames next )
-  >r ok-then? 0= if r> lf-dq-end-failed exit then
-  if true r> lf-dq-end exit then
-  r@ lf-dq-sides swap r> ['] lf-dq-struct-other lf-dq-struct-call ;
+  ['] lf-dq-struct-swapped lf-dq-yes-or ;
 : lf-dq-struct-step ( frames -- ... frames next )
   dup lf-dq-sides rot ['] lf-dq-struct-back lf-dq-struct-call ;
 
@@ -731,8 +737,7 @@ defer lf-dq-string-step ( frames -- ... frames next )
   lf-term-first@ swap 0 lf-term-bvar 0= if 2drop lf-rebuild-full exit then
   lf-term-app 0= if drop lf-rebuild-full exit then lf-term-lam lf-rebuild-allocated ;
 : lf-dq-eta-back ( flag outcome frames -- ... frames next )
-  >r ok-then? 0= if r> lf-dq-end-failed exit then
-  if true r> lf-dq-end else r> lf-dq-struct-step then ;
+  ['] lf-dq-struct-step lf-dq-yes-or ;
 : lf-dq-eta-compare ( lambda other pi frames -- ... frames next )
   >r lf-dq-eta-expand ok-then? 0= if nip r> lf-dq-end-failed exit then
   r> ['] lf-dq-eta-back lf-dq-call ;
@@ -751,8 +756,7 @@ defer lf-dq-string-step ( frames -- ... frames next )
 
 \ Step 10.
 : lf-dq-app-back ( flag outcome frames -- ... frames next )
-  >r ok-then? 0= if r> lf-dq-end-failed exit then
-  if true r> lf-dq-end else r> lf-dq-eta-step then ;
+  ['] lf-dq-eta-step lf-dq-yes-or ;
 : lf-dq-app-step ( frames -- ... frames next )
   dup lf-dq-sides rot ['] lf-dq-app-back lf-ap-call ;
 
@@ -783,8 +787,7 @@ defer lf-dq-string-step ( frames -- ... frames next )
   >r over lf-term-first@ dup r@ frame-save r@ frame-save
   swap lf-term-second@ r@ frame-save lf-term-second@ r@ frame-save r> lf-lz-loop ;
 : lf-dq-proj-back ( flag outcome frames -- ... frames next )
-  >r ok-then? 0= if r> lf-dq-end-failed exit then
-  if true r> lf-dq-end else r> lf-dq-full-step then ;
+  ['] lf-dq-full-step lf-dq-yes-or ;
 : lf-dq-proj-step ( frames -- ... frames next )
   dup lf-dq-sides 2dup lf-dq-same-proj? 0= if 2drop lf-dq-full-step exit then
   rot ['] lf-dq-proj-back ['] lf-lzp-visit lf-dq-open ;
@@ -861,9 +864,12 @@ is lf-dq-reduce-proj
   lf-dq-flag if true r> lf-dq-end else r> lf-lz-differ then ;
 : lf-lz-quick ( frames -- ... frames next )
   >r r@ lf-dq-sides r> ['] lf-lz-quick-back lf-qk-call ;
-: lf-lz-t-back ( tn' outcome frames -- ... frames next )
-  >r ok-then? 0= if r> lf-dq-end-failed exit then
-  r@ lf-dq-sides nip r@ lf-dq-sides! r> lf-lz-quick ;
+\ t's side unfolded: tn' takes tn's place, then step xt ( frames -- ...
+\ frames next ); a failure ends the visit.
+: lf-lz-t! ( tn' frames -- frames ) dup >r lf-dq-sides nip r@ lf-dq-sides! r> ;
+: lf-lz-t-then ( tn' outcome frames xt -- ... frames next )
+  2>r ok-then? 0= if 2r> drop lf-dq-end-failed exit then 2r> >r lf-lz-t! r> execute ;
+: lf-lz-t-back ( tn' outcome frames -- ... frames next ) ['] lf-lz-quick lf-lz-t-then ;
 : lf-lz-s-back ( sn' outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-dq-end-failed exit then
   r@ lf-dq-sides drop swap r@ lf-dq-sides! r> lf-lz-quick ;
@@ -872,15 +878,15 @@ is lf-dq-reduce-proj
 : lf-lz-unfold ( node frames cont -- ... frames next )
   >r tuck lf-whnf-unfold ok-then? 0= if r> drop swap lf-dq-end-failed exit then
   swap r> lf-whnf-cheap-call ;
-: lf-lz-unfold-t ( frames -- ... frames next )
-  dup lf-dq-sides drop swap ['] lf-lz-t-back lf-lz-unfold ;
+\ t's side unfolded, then cont.
+: lf-lz-unfold-tn ( frames cont -- ... frames next )
+  >r dup lf-dq-sides drop swap r> lf-lz-unfold ;
+: lf-lz-unfold-t ( frames -- ... frames next ) ['] lf-lz-t-back lf-lz-unfold-tn ;
 : lf-lz-unfold-s ( frames -- ... frames next )
   dup lf-dq-sides nip swap ['] lf-lz-s-back lf-lz-unfold ;
 : lf-lz-both-back ( tn' outcome frames -- ... frames next )
-  >r ok-then? 0= if r> lf-dq-end-failed exit then
-  r@ lf-dq-sides nip r@ lf-dq-sides! r> lf-lz-unfold-s ;
-: lf-lz-unfold-both ( frames -- ... frames next )
-  dup lf-dq-sides drop swap ['] lf-lz-both-back lf-lz-unfold ;
+  ['] lf-lz-unfold-s lf-lz-t-then ;
+: lf-lz-unfold-both ( frames -- ... frames next ) ['] lf-lz-both-back lf-lz-unfold-tn ;
 \ Where only one side unfolds (971-991): try_unfold_proj_app (950-957)
 \ on the other first. When its head is a projection (Lean's get_app_fn
 \ is_proj), its whnf_core without cheap_proj, a child visit; a result
@@ -1018,13 +1024,13 @@ defer lf-lz-failure ( frames -- frames )
   >r ok-then? 0= if r> 2 lf-dq-drop-failed exit then
   r@ frame-save 1 r@ frame-pick r> ['] lf-dq-sn lf-whnf-cheap-call ;
 : lf-dq-core ( frames -- ... frames next )
-  dup lf-dq-pick2 drop swap ['] lf-dq-tn lf-whnf-cheap-call ;
+  dup lf-dq-sides drop swap ['] lf-dq-tn lf-whnf-cheap-call ;
 \ Step 2 (1142-1146), on the visit's t and s.
 : lf-dq-true-back ( t' outcome frames -- ... frames next )
   >r ok-then? 0= if r> 2 lf-dq-drop-failed exit then
   lf-dq-true? if true r> 2 lf-dq-drop-answer else r> lf-dq-core then ;
 : lf-dq-bool ( frames -- ... frames next )
-  >r r@ lf-dq-pick2 lf-dq-true? 0= if drop r> lf-dq-core exit then
+  >r r@ lf-dq-sides lf-dq-true? 0= if drop r> lf-dq-core exit then
   lf-dq-eager @ if r> ['] lf-dq-true-back lf-whnf-call exit then
   dup r@ lf-whnf-free? ok-then? 0= if nip r> 2 lf-dq-drop-failed exit then
   if drop r> lf-dq-core else r> ['] lf-dq-true-back lf-whnf-call then ;

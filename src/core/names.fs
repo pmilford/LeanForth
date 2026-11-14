@@ -283,6 +283,15 @@ create lf-name-viewed-ops /lf-nops allot
 \ The whole storage is well formed: the entry store's audit, which reads
 \ every entry; under a view every name was checked when it was made.
 : lf-name-storage-valid? ( -- flag ) lf-name-ops lf-nops-storage @ execute ;
+\ Whether the valid ID's own component is the string c-addr u (a numeric
+\ component never is); the number of components of a valid ID (0 for the
+\ anonymous name).
+: lf-name-str-is? ( id c-addr u -- flag )
+  rot dup lf-name-tag@ lf-name-tag-str =
+  if lf-name-text compare 0= else drop 2drop false then ;
+: lf-name-depth ( id -- n ) 0 begin over while 1+ swap lf-name-prefix@ swap repeat nip ;
+\ The prefix k components up (k at most the ID's depth).
+: lf-name-ancestor ( id k -- id' ) 0 ?do lf-name-prefix@ loop ;
 
 \ Reset to the anonymous name alone and advance the generation; saturation
 \ poisons the table rather than wrapping (see store-clear). Under a view,

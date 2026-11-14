@@ -545,7 +545,8 @@ end-structure
 \ Whether the slot is final, with no other effect (lf-slot-final? also
 \ notes a slot still open below the candidate as early).
 : lf-slot-done? ( slot -- flag ) lf-slot-state @ lf-state-final = ;
-: lf-slot-final? ( slot -- flag ) dup lf-slot-done? dup if nip exit then swap lf-slot-early ;
+: lf-slot-final? ( slot -- flag )
+  dup lf-slot-done? dup if nip exit then swap lf-slot-early ;
 \ Whether slot d of the current environment is final (no effect; the
 \ scheduler's and the import's test).
 : lf-env-done? ( d -- flag ) lf-env lf-env-slot lf-slot-done? ;

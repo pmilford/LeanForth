@@ -585,7 +585,7 @@ here lf-b3-ctor - 2 cells / constant lf-b3-ctor#
 \ info == info' compares them, each shared pair once): (equal ok); a
 \ structural difference is (false ok); any other failure passes on.
 : lf-blk-same ( generated exported -- flag outcome )
-  >r lf-rcr-handle r> lf-rcr-handle lf-ind-fuel @ lf-mixed-equal
+  >r lf-term-handle r> lf-term-handle lf-ind-fuel @ lf-mixed-equal
   lf-mcompare-fuel @ lf-ind-fuel ! ;
 \ Recursor r: named T_d.rec for a type d of the block, else Lean's "No
 \ such recursor"; then the field that differs from type d's generated

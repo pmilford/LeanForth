@@ -252,16 +252,13 @@ require ./quot.fs
   - lf-iota-peel lf-whnf-spine-args ok-then? 0= if nip no-result exit then lf-whnf-apply ;
 : lf-iota-fields ( rhs major nfields -- node outcome )
   swap lf-whnf-spine-args ok-then? 0= if nip nip no-result exit then drop lf-whnf-apply ;
-: lf-iota-extra ( rhs app k -- node outcome )
-  dup 0= if 2drop outcome-ok exit then
-  swap lf-whnf-spine-args ok-then? 0= if nip nip no-result exit then drop lf-whnf-apply ;
 : lf-iota-start ( app decl rule frames -- app decl rhs outcome )
   >r lf-irule-rhs over 3 pick lf-whnf-head r> lf-iota-rhs
   ok-then? 0= if no-result exit then
   2 pick dup lf-iota-n 3 pick lf-iota-prefix lf-iota-head-args ;
 : lf-iota-finish ( app decl major rule rhs -- reduct outcome )
   -rot lf-irule-nfields lf-iota-fields ok-then? 0= if nip nip no-result exit then
-  -rot over lf-iota-n swap lf-iota-major-idx - 1- lf-iota-extra ;
+  -rot over lf-iota-n swap lf-iota-major-idx - 1- lf-whnf-apply-last ;
 : lf-iota-apply ( app decl major rule frames -- reduct outcome )
   >r 2over 2 pick r> lf-iota-start ok-then? 0=
   if >r 2drop 2drop 2drop r> no-result exit then
@@ -433,7 +430,7 @@ require ./quot.fs
   over lf-whnf-head lf-proj-leaf lf-iota-proj-field ok-then?
   0= if nip r> lf-whnf-failed exit then
   dup 0< if 2drop -1 outcome-ok r> 0 exit then
-  swap dup lf-iota-n lf-iota-extra r> 0 ;
+  swap dup lf-iota-n lf-whnf-apply-last r> 0 ;
 \ A string literal c first becomes its constructor form in whnf
 \ (reduce_proj_core 421-422; kernel/string-literals.fs, a child visit).
 : lf-iota-proj-string? ( c outcome -- flag ) ok? if lf-str-leaf? else drop false then ;

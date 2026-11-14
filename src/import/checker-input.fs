@@ -170,7 +170,7 @@ create cin-hash /import-hash allot
 : cin-param ( record -- outcome )
   dup >r param-name @ cin-name lf-level-param r> cin-level-keep ;
 : cin-level-handle ( i -- index identity )
-  cin-level@ dup lf-level-identity 0= if 0 then ;
+  cin-level@ lf-level-handle ;
 
 \ Expressions (second pass), kept as handles.
 : cin-expr-keep ( index identity true | false record -- outcome )

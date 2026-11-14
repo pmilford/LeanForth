@@ -183,11 +183,11 @@ create lf-pf-eol 10 c,
   lf-pf-open-quote lf-pp-put lf-pp-put lf-pf-close-quote lf-pp-put ;
 \ The parts from the root (component 0) on, joined by dots.
 : lf-pf-put-parts ( id n -- )
-  dup 0 ?do i if s" ." lf-pp-put then 2dup i - 1- lf-pp-ancestor lf-pf-put-part loop
+  dup 0 ?do i if s" ." lf-pp-put then 2dup i - 1- lf-name-ancestor lf-pf-put-part loop
   2drop ;
 \ A name as text, as lf-pp-name-to: too long a name marks the pool full.
 : lf-pf-put-name ( id -- )
-  dup lf-pp-name-depth dup lf-name-default >
+  dup lf-name-depth dup lf-name-default >
   if ['] lf-pp-put lf-pp-too-deep else lf-pf-put-parts then ;
 : lf-pf-put-number ( u -- ) ['] lf-pp-put lf-pp-number-to ;
 

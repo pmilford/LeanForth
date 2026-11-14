@@ -8,8 +8,8 @@
    fast round and schedule of 64-bit cells and once with the plain
    definitions (sha256-portable defined first). One file is also checked
    against the sha256sum program when the host has it.
-2. Standalone: the library and the three files it requires,
-   src/lib/portability.fs, bits.fs and module.fs, are copied into a fresh
+2. Standalone: the library and the four files it requires,
+   src/lib/portability.fs, bits.fs, decimal.fs and module.fs, are copied into a fresh
    folder outside the project, and the example in the library's header
    runs there as a program of its own and prints the SHA-256 of "abc".
    There, too, the interface is exactly the documented one (ADR 0010):
@@ -39,6 +39,7 @@ LIBRARY = ROOT / "src" / "lib" / "sha256.fs"
 PORTABILITY = ROOT / "src" / "lib" / "portability.fs"
 MODULE = ROOT / "src" / "lib" / "module.fs"
 BITS = ROOT / "src" / "lib" / "bits.fs"
+DECIMAL = ROOT / "src" / "lib" / "decimal.fs"
 # The documented interface: the hashing words and FIPS 180-4's functions.
 PUBLIC = {"/sha256", "sha256:", "sha256-init", "sha256-update", "sha256-line", "sha256-final",
           "sha256-hex", "sha-digest-bytes", "sha-w32", "sha-shr", "sha-rotr", "sha-ch",
@@ -156,7 +157,7 @@ class Sha256Standalone(unittest.TestCase):
             folder = Path(scratch)
             self.assertFalse(folder.resolve().is_relative_to(ROOT.resolve()))
             (folder / "lib").mkdir()
-            for source in (LIBRARY, PORTABILITY, MODULE, BITS):
+            for source in (LIBRARY, PORTABILITY, MODULE, BITS, DECIMAL):
                 shutil.copy(source, folder / "lib" / source.name)
             (folder / "example.fs").write_text("require lib/sha256.fs\n" + header_example())
             self.assertEqual(gforth(["example.fs"], cwd=folder), [ABC])

@@ -131,6 +131,7 @@
 
 require ../lib/lib.fs
 require ../lib/slab.fs
+require ../lib/bytes.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/diagnostics.fs
@@ -179,8 +180,6 @@ end-structure
 \ the next collection. mk_rev_app applies arguments k-1 .. 0 of the
 \ array to f, the first collected outermost; a full store is full.
 : lf-whnf-head ( node -- head ) lf-mhead-spine drop ;
-\ A node with its identity, 0 when it is not live (a pass refuses it).
-: lf-whnf-handle ( node -- node identity ) dup lf-term-identity 0= if 0 then ;
 : lf-whnf-arg ( i -- addr ) lf-whnf-args slab-at ;
 : lf-whnf-collect ( node n -- )
   0 ?do dup lf-term-second@ i lf-whnf-arg ! lf-term-first@ loop drop ;
@@ -193,6 +192,11 @@ end-structure
   begin dup while
     1- tuck lf-whnf-arg @ lf-term-app 0= if drop lf-rebuild-full exit then swap
   repeat drop outcome-ok ;
+\ f applied to the last k arguments of app's spine, f itself for k = 0
+\ (app then not read): the iota and quotient reductions' extra arguments.
+: lf-whnf-apply-last ( f app k -- node outcome )
+  dup 0= if 2drop outcome-ok exit then
+  swap lf-whnf-spine-args ok-then? 0= if nip nip no-result exit then drop lf-whnf-apply ;
 
 \ Tags. A lambda; a free variable that is a live let variable (zeta).
 : lf-whnf-lam? ( node -- flag ) lf-term-tag@ lf-tag-lam = ;
@@ -290,7 +294,7 @@ defer lf-whnf-known ( node visit -- flag true | false )
 : lf-whnf-instantiated ( result id status -- result outcome )
   dup ok? if nip else nip nip no-result then ;
 : lf-whnf-put1 ( body arg frames -- node outcome )
-  >r >r lf-whnf-handle r> lf-whnf-handle r@ frame-fuel @ lf-mixed-instantiate
+  >r >r lf-term-handle r> lf-term-handle r@ frame-fuel @ lf-mixed-instantiate
   lf-minst-fuel @ r> frame-fuel ! lf-whnf-instantiated ;
 : lf-whnf-beta-one ( f n frames -- node outcome )
   >r tuck 1- lf-whnf-arg @ swap lf-term-second@ swap r> lf-whnf-put1
@@ -357,7 +361,7 @@ defer lf-whnf-known ( node visit -- flag true | false )
 : lf-whnf-substituted ( index id 0 | status -- index outcome )
   dup ok? if 2drop outcome-ok else no-result then ;
 : lf-whnf-substitute ( value decl pairs count frames -- value' outcome )
-  >r 2>r swap lf-whnf-handle rot lf-idecl-params@ drop 2r>
+  >r 2>r swap lf-term-handle rot lf-idecl-params@ drop 2r>
   r@ frame-fuel @ lf-mixed-level-substitute lf-whnf-substituted
   lf-mls-fuel @ r> frame-fuel ! ;
 : lf-whnf-value ( decl const frames -- value outcome )
@@ -399,33 +403,29 @@ defer lf-whnf-valued ( decl const frames -- value outcome )
 \ from the last.
 \ A table of texts: each entry its length in a cell and its characters,
 \ aligned; a length of 0 ends it. Shared and read-only.
-: lf-whnf-text, ( c-addr u -- ) dup , here swap dup allot move align ;
-: lf-whnf-text ( entry -- c-addr u ) dup cell+ swap @ ;
 create lf-whnf-nat-binary
-  s" add" lf-whnf-text,  s" sub" lf-whnf-text,  s" mul" lf-whnf-text,
-  s" pow" lf-whnf-text,  s" gcd" lf-whnf-text,  s" mod" lf-whnf-text,
-  s" div" lf-whnf-text,  s" beq" lf-whnf-text,  s" ble" lf-whnf-text,
-  s" land" lf-whnf-text,  s" lor" lf-whnf-text,  s" xor" lf-whnf-text,
-  s" shiftLeft" lf-whnf-text,  s" shiftRight" lf-whnf-text,  0 ,
-\ Whether name is a string component of these bytes after the prefix.
-: lf-whnf-part? ( name c-addr u -- flag )
-  rot dup lf-name-tag@ lf-name-tag-str =
-  if lf-name-text compare 0= else drop 2drop false then ;
+  s" add" cell-counted,  s" sub" cell-counted,  s" mul" cell-counted,
+  s" pow" cell-counted,  s" gcd" cell-counted,  s" mod" cell-counted,
+  s" div" cell-counted,  s" beq" cell-counted,  s" ble" cell-counted,
+  s" land" cell-counted,  s" lor" cell-counted,  s" xor" cell-counted,
+  s" shiftLeft" cell-counted,  s" shiftRight" cell-counted,  0 ,
+\ Whether name is Nat.x for an anonymous root (names.fs's lf-name-str-is?
+\ compares one string component).
 : lf-whnf-anon? ( name -- flag ) lf-name-tag@ lf-name-tag-anon = ;
 : lf-whnf-nat? ( name -- flag )
-  lf-name-prefix@ dup s" Nat" lf-whnf-part?
+  lf-name-prefix@ dup s" Nat" lf-name-str-is?
   if lf-name-prefix@ lf-whnf-anon? else drop false then ;
 \ The index of name's operation in the table, or -1.
 : lf-whnf-binary ( name -- i )
   0 lf-whnf-nat-binary begin dup @ while
-    2 pick over lf-whnf-text lf-whnf-part? if drop nip exit then
-    swap 1+ swap lf-whnf-text + aligned
+    2 pick over cell-count lf-name-str-is? if drop nip exit then
+    swap 1+ swap cell-count + aligned
   repeat 2drop drop -1 ;
 : lf-whnf-binary? ( name -- flag ) lf-whnf-binary 0< 0= ;
 : lf-whnf-op ( node -- i ) lf-whnf-head lf-whnf-cref lf-crec-name @ lf-whnf-binary ;
 : lf-whnf-matched? ( name n -- flag )
   over lf-whnf-nat? 0= if 2drop false exit then
-  case 1 of s" succ" lf-whnf-part? endof  2 of lf-whnf-binary? endof
+  case 1 of s" succ" lf-name-str-is? endof  2 of lf-whnf-binary? endof
     nip false swap endcase ;
 : lf-whnf-k7? ( node -- flag )
   lf-mhead-spine over lf-whnf-const? 0= if 2drop false exit then
@@ -434,7 +434,7 @@ create lf-whnf-nat-binary
 : lf-whnf-zero? ( node -- flag )
   dup lf-whnf-const? 0= if drop false exit then
   lf-whnf-cref dup lf-crec-arity @ if drop false exit then
-  lf-crec-name @ dup s" zero" lf-whnf-part? if lf-whnf-nat? else drop false then ;
+  lf-crec-name @ dup s" zero" lf-name-str-is? if lf-whnf-nat? else drop false then ;
 
 \ ---------------------------------------------------------------------------
 \ The iota hook and its default (see the header).

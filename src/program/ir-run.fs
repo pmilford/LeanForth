@@ -531,7 +531,7 @@ end-structure
 : irx-text-size ( u -- size ) chars cell+ aligned ;
 : irx-texts# ( -- addr ) irx-state irx-s-texts# ;
 : irx-text-record ( offset -- addr ) irx-state irx-s-texts + ;
-: irx-text-at ( offset -- c-addr u ) irx-text-record dup cell+ swap @ ;
+: irx-text-at ( offset -- c-addr u ) irx-text-record cell-count ;
 : irx-store-text ( c-addr u -- offset true | false )
   dup irx-text-size irx-texts# @ + irx-texts-capacity > if 2drop irx-full false exit then
   irx-texts# @ >r dup irx-text-size irx-texts# +!

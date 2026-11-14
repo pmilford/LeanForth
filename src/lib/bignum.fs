@@ -189,7 +189,7 @@ cell negate constant back-cell
 \ ---- Numbers ----
 
 : big-limbs ( big -- addr ) cell+ ;
-: big-vector ( big -- addr n ) dup cell+ swap @ ;
+: big-vector ( big -- addr n ) cell-count ;
 \ The top limb's address (count at least 1), and the address after the number.
 : big-top ( big -- addr ) dup @ cells + ;
 : big-end ( big -- addr ) dup @ 1+ cells + ;

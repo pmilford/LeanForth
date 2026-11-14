@@ -122,7 +122,8 @@ require ./check-run.fs
   s" numbers" cj-key cj-array dup kept-first @ cj-n kept-second @ cj-n cj-end-array ;
 : cj-reason ( step -- )
   cj-object dup kept-code @ dup s" code" cj-number lf-diag-name s" reason" cj-text
-  dup kept-site @ counted-or-empty s" site" cj-text dup cj-numbers kept-step @ s" step" cj-number
+  dup kept-site @ counted-or-empty s" site" cj-text
+  dup cj-numbers kept-step @ s" step" cj-number
   cj-end-object ;
 : cj-diagnostic ( d -- )
   s" diagnostic" cj-key ck-kept dup kept-code @ lf-diag-none =

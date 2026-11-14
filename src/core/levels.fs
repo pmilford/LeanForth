@@ -144,6 +144,8 @@ create lf-level-hooks /htab-hooks allot
 \ A live node's identity, including the zero level's; never repeats.
 : lf-level-identity ( index -- identity true | false )
   dup lf-level-valid? if lf-levels store-identity @ true else drop false then ;
+\ A level node with its identity, 0 when it is not live.
+: lf-level-handle ( index -- index identity ) dup lf-level-identity 0= if 0 then ;
 
 \ Append a node whose tag and fields the caller validated; a failed
 \ allocation (no room, or past a check's memory limit: scratch-meter.fs)

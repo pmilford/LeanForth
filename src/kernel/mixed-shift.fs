@@ -67,16 +67,9 @@ end-structure
   over lf-term-first@ over frame-context @ < if lf-rebuild-keep exit then
   lf-mshift-amount@ swap lf-term-first@ swap lf-mshift-up ;
 : lf-mshift-leaf ( node frames tag -- result outcome )
-  case lf-tag-bvar of lf-mshift-bvar endof  lf-tag-fvar of lf-rebuild-keep endof
-    lf-tag-constant of lf-rebuild-keep endof  lf-tag-proj of lf-rebuild-keep endof
-    lf-tag-lit of lf-rebuild-keep endof
-    lf-tag-str of lf-rebuild-keep endof
-    lf-tag-symbolic-sort of lf-rebuild-keep endof
-    >r lf-rebuild-bad r> endcase ;
+  ['] lf-mshift-bvar lf-rebuild-leaf ;
 \ Binary nodes (see the header): unchanged by the data word, given back
 \ by the memo, or rebuilt as mixed-rebuild.fs's passes are, then kept.
-: lf-mshift-clean? ( node frames -- flag )
-  swap lf-term-data@ if lf-data-loose swap frame-context @ > 0= else drop false then ;
 : lf-mshift-known? ( node frames -- result true | false )
   frame-context @ lf-mshift-memo lf-rmemo@ ;
 : lf-mshift-keep ( result node frames -- ) frame-context @ lf-mshift-memo lf-rmemo! ;
@@ -91,7 +84,7 @@ end-structure
   2dup lf-rebuild-stuck? if nip >r lf-rebuild-deep r> 0 exit then
   ['] lf-mshift-second lf-rebuild-first ;
 : lf-mshift-pair ( node frames -- ... frames next )
-  2dup lf-mshift-clean? if lf-replace-same exit then
+  2dup lf-rebuild-clean? if lf-replace-same exit then
   2dup lf-mshift-known? if lf-replace-recall else lf-mshift-rebuild then ;
 \ The visit's first step (lib/frame.fs).
 : lf-mshift-visit ( node frames -- ... frames next )

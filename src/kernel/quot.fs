@@ -222,14 +222,11 @@ create lf-quot-entries lf-quot-type , lf-quot-mk , lf-quot-lift , lf-quot-ind ,
   lf-whnf-cref lf-crec-name @ s" Quot.mk" lf-stmt-name? ;
 \ f, app's argument 3, applied to mk's last argument, then to app's k
 \ arguments after mk_pos; a full store is full.
-: lf-quot-extra ( r app k -- node outcome )
-  dup 0= if 2drop outcome-ok exit then
-  swap lf-whnf-spine-args ok-then? 0= if nip nip no-result exit then drop lf-whnf-apply ;
 : lf-quot-made ( mk' app mk -- reduct outcome )
   rot dup lf-quot-mk? 0= if drop 2drop -1 outcome-ok exit then
   lf-term-second@ 2 pick 3 lf-quot-arg swap lf-term-app 0=
   if 2drop lf-rebuild-full exit then
-  -rot over lf-quot-n swap - 1- lf-quot-extra ;
+  -rot over lf-quot-n swap - 1- lf-whnf-apply-last ;
 \ The hook's step: argument mk in whnf (a child visit), app and mk saved
 \ across it.
 : lf-quot-back ( mk' outcome frames -- ... frames next )

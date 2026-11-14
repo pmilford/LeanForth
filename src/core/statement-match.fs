@@ -107,12 +107,9 @@ end-structure
 : lf-stmt-split ( c-addr u -- c-addr k part-addr part-u )
   2dup lf-stmt-dot dup 0< if drop over 0 2swap exit then
   >r over r@ 2swap r> 1+ /string ;
-: lf-stmt-part? ( id c-addr u -- flag )
-  rot dup lf-name-tag@ lf-name-tag-str =
-  if lf-name-text compare 0= else drop 2drop false then ;
 : lf-name-dotted? ( id c-addr u -- flag )
   begin dup while
-    lf-stmt-split 2>r 2 pick 2r> lf-stmt-part? 0= if 2drop drop false exit then
+    lf-stmt-split 2>r 2 pick 2r> lf-name-str-is? 0= if 2drop drop false exit then
     rot lf-name-prefix@ -rot
   repeat 2drop 0= ;
 : lf-stmt-name? ( id c-addr u -- flag ) lf-name-dotted? ;
@@ -243,7 +240,7 @@ end-structure
   2drop lf-kept-fits align ;
 : lf-stmt-code ( entry -- code ) @ ;
 : lf-stmt-arity ( entry -- n ) cell+ @ ;
-: lf-stmt-kept ( addr -- c-addr u ) dup cell+ swap @ ;
+: lf-stmt-kept ( addr -- c-addr u ) cell-count ;
 : lf-stmt-named ( entry -- c-addr u ) 2 cells + lf-stmt-kept ;
 : lf-stmt-statement ( entry -- c-addr u ) lf-stmt-named + aligned lf-stmt-kept ;
 \ Whether decl is the entry's constant: name, universe parameters, statement.

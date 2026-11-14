@@ -630,7 +630,8 @@ create ck-line ck-line-room 2 + allot
 : ck-viewed? ( -- flag ) ck-state ck-env-id @ lf-env-viewed? ;
 \ Ok when every slot is final and the run did not stop on a fault.
 : ck-confirm ( -- outcome )
-  ck-viewed? if lf-env-all-final? ck-faulted? 0= and flag>outcome else outcome-invalid then ;
+  ck-viewed? 0= if outcome-invalid exit then
+  lf-env-all-final? ck-faulted? 0= and flag>outcome ;
 \ After the run: whether its verdicts can be read, in a new snapshot of
 \ the run's own environment.
 : ck-verdicts? ( -- flag ) ck-ours? if lf-env-view ok? else false then ;

@@ -40,7 +40,7 @@ DRIVER = ROOT / "tests" / "lib" / "sections-driver.fs"
 LIB = ROOT / "src" / "lib"
 LIBRARY = LIB / "sections.fs"
 NEEDED = ["sections.fs", "portability.fs", "module.fs", "outcome.fs", "u32.fs", "sha256.fs",
-          "bits.fs"]
+          "bits.fs", "decimal.fs"]
 PUBLIC = {"/sections", "sections:", "sections-init", "sections-field!", "sections-field@",
           "sections-add", "sections-write", "sections-open", "sections-count",
           "sections-info", "sections-read", "sections-close", "sections-align",

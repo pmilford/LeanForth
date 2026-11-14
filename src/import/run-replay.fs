@@ -90,9 +90,9 @@ rp-path-room 6 * 64 + rp-kept * 256 + constant rp-report-room
 
 \ Tables of entries: a code, a name's length and characters, aligned;
 \ the last entry has code -1.
-: rp-entry, ( code c-addr u -- ) rot , dup , here swap dup allot move align ;
+: rp-entry, ( code c-addr u -- ) rot , cell-counted, ;
 : rp-entry-code ( entry -- code ) @ ;
-: rp-entry-name ( entry -- c-addr u ) cell+ dup cell+ swap @ ;
+: rp-entry-name ( entry -- c-addr u ) cell+ cell-count ;
 : rp-entry-next ( entry -- entry' ) rp-entry-name + aligned ;
 \ The entry with this name, or the last entry.
 : rp-named ( c-addr u table -- entry )

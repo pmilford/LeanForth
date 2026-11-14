@@ -34,6 +34,21 @@ require ../core/terms.fs
 0 constant lf-rebuild-no-tag
 : lf-rebuild-tag ( node frames flag -- node frames tag )
   if over lf-term-tag@ else lf-rebuild-no-tag then ;
+\ A leaf of a shift or an instantiation: a bound variable as the pass's
+\ xt ( node frames -- result outcome ) says; a free variable, constant,
+\ projection, literal or symbolic Sort kept as it is; any other tag
+\ malformed.
+: lf-rebuild-kept-leaf? ( tag -- flag )
+  case lf-tag-fvar of true endof  lf-tag-constant of true endof
+    lf-tag-proj of true endof  lf-tag-lit of true endof  lf-tag-str of true endof
+    lf-tag-symbolic-sort of true endof  false swap endcase ;
+: lf-rebuild-leaf ( node frames tag xt -- result outcome )
+  over lf-tag-bvar = if nip execute exit then
+  drop lf-rebuild-kept-leaf? if lf-rebuild-keep else lf-rebuild-bad then ;
+\ A binary node whose data word says no loose bound variable at or above
+\ the frames' binder depth: the pass leaves it unchanged.
+: lf-rebuild-clean? ( node frames -- flag )
+  swap lf-term-data@ if lf-data-loose swap frame-context @ > 0= else drop false then ;
 \ A fresh node is ok; a failed allocation is full: the term store has no
 \ free record or its identity serial is spent (the children are results
 \ of earlier visits, so they are live).

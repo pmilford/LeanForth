@@ -38,7 +38,6 @@ require ../core/terms.fs
   0 0 lf-rn-site lf-diag-nat-size lf-diag-note -1 outcome-full ;
 : lf-rn-node ( index identity true | false -- node outcome )
   if drop outcome-ok else -1 outcome-full then ;
-: lf-rn-handle ( node -- node identity ) dup lf-term-identity 0= if 0 then ;
 
 \ Constants without universe arguments, by name.
 : lf-rn-name ( prefix c-addr u -- id outcome ) lf-name-str room-result ;
@@ -147,7 +146,7 @@ create lf-rn-binaries
 \ nat_lit_to_constructor: 0 as Nat.zero, n + 1 as Nat.succ n.
 : lf-rn-succ-of ( pred -- node outcome )
   lf-rn-succ ok-then? 0= if nip no-result exit then
-  lf-rn-handle rot lf-rn-handle lf-hterm-app lf-rn-node ;
+  lf-term-handle rot lf-term-handle lf-hterm-app lf-rn-node ;
 : lf-reduce-nat-constructor ( a -- node outcome )
   dup lf-term-second@ 0= if drop lf-rn-zero exit then
   lf-reduce-nat-pred ok-then? if lf-rn-succ-of else no-result then ;

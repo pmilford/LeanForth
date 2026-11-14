@@ -1167,8 +1167,8 @@ here families - cell / constant #families
 : .export-field ( key-addr key-u -- ) dup if ." field " type ." , " else 2drop then ;
 : .export-byte ( export -- )
   export-json dup json-why @ if ." , byte " json-offset .decimal else drop then ;
-: .export-where ( line key-addr key-u export -- )
-  >r ."  (" .export-field ." line " .decimal r> .export-byte ." )" ;
+: .export-where ( export line key-addr key-u -- )
+  ."  (" .export-field ." line " .decimal .export-byte ." )" ;
 \ The records of a kind handed over and accepted by their handlers since
 \ the reading began (export-restart, export-init or export-read): a line's
 \ record, or an element of an inductive block. Aborts for a number that

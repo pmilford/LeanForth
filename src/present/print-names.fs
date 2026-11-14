@@ -34,28 +34,23 @@ lf-walk-room context-walk2: lf-pp-scan-walk
   >r dup lf-name-tag@ lf-name-tag-str =
   if lf-name-text r> execute else lf-name-payload r> lf-pp-number-to then ;
 : lf-pp-dot-to ( xt -- ) s" ." rot execute ;
-: lf-pp-name-depth ( id -- n ) 0 begin over while 1+ swap lf-name-prefix@ swap repeat nip ;
-: lf-pp-ancestor ( id k -- id' ) 0 ?do lf-name-prefix@ loop ;
 \ Component k from the root (0 the first) of a name of n components.
-: lf-pp-part-at ( id n k xt -- ) >r - 1- lf-pp-ancestor r> lf-pp-part ;
+: lf-pp-part-at ( id n k xt -- ) >r - 1- lf-name-ancestor r> lf-pp-part ;
 : lf-pp-parts-to ( id n xt -- )
   over 0 ?do i if dup lf-pp-dot-to then 2 pick 2 pick i 3 pick lf-pp-part-at loop
   drop 2drop ;
 : lf-pp-too-deep ( id n xt -- ) 2drop drop true lf-pjob lf-pjob-full ! ;
 : lf-pp-name-to ( id xt -- )
-  over lf-pp-name-depth swap over lf-name-default >
+  over lf-name-depth swap over lf-name-default >
   if lf-pp-too-deep else lf-pp-parts-to then ;
 
 \ Hygienic names (Lean's macro scopes, such as a._@._internal._hyg.0)
 \ print as the part before _@, as Lean's delaborator prints them.
-: lf-pp-str? ( id c-addr u -- flag )
-  rot dup lf-name-tag@ lf-name-tag-str =
-  if lf-name-text compare 0= else drop 2drop false then ;
 : lf-pp-skip-nums ( id -- id' ) begin dup lf-name-tag@ lf-name-tag-num = while
   lf-name-prefix@ repeat ;
-: lf-pp-hygienic? ( id -- flag ) lf-pp-skip-nums s" _hyg" lf-pp-str? ;
+: lf-pp-hygienic? ( id -- flag ) lf-pp-skip-nums s" _hyg" lf-name-str-is? ;
 : lf-pp-erase ( id -- id' )
-  begin dup s" _@" lf-pp-str? 0= over and while lf-name-prefix@ repeat lf-name-prefix@ ;
+  begin dup s" _@" lf-name-str-is? 0= over and while lf-name-prefix@ repeat lf-name-prefix@ ;
 : lf-pp-hygienic ( name kind -- flag ) drop lf-pp-hygienic? ;
 
 \ A binder's suggested name, placed in the pool: its recorded name with

@@ -507,9 +507,8 @@ create cli-fed-ops
 \ (import/ndjson.fs's .export-where).
 : cli-error-head ( outcome why-addr why-u -- )
   ." error: " rot outcome-text type ." : " type ;
-: cli-where ( line key-addr key-u export -- ) .export-where cr ;
 : cli-input-error ( outcome -- )
-  >r cin-error r> -rot cli-error-head cin-export cli-where ;
+  cin-export swap >r cin-error r> -rot cli-error-head .export-where cr ;
 \ A failure about the manifest is at line 0 (the export opened, see
 \ cli-opens?): a hint at the export step and the explicit way out.
 : manifest-failed? ( outcome -- flag )
@@ -556,7 +555,8 @@ create cli-fed-ops
 \ reason of sealing (stage-why). A feed that failed gives the number of
 \ the expression or declaration where it stopped, as feed.fs keeps it.
 : cli-stage-error ( outcome -- )
-  >r ck-stage stage-error r> -rot cli-error-head ck-stage stage-export cli-where ;
+  ck-stage stage-export swap >r ck-stage stage-error r> -rot cli-error-head
+  .export-where cr ;
 : cli-stage-manifest? ( outcome -- flag )
   outcome-invalid = cli-checked? and ck-stage stage-error 2drop 2drop 0= and
   ck-stage stage-why @ 0= and ;

@@ -158,6 +158,10 @@ s" gforth" environment? [if] 2drop
 \ The address after a counted string counted, laid down: the next one of a
 \ table of them.
 : counted-next ( c-addr -- c-addr' ) count + aligned ;
+\ Compile text of any length as a cell-counted string (its length in a
+\ cell, then its bytes), then align: for tables of names and messages
+\ built while loading; bounds.fs's cell-count reads one back.
+: cell-counted, ( c-addr u -- ) dup , here swap dup allot move align ;
 \ The text of a counted string, or empty text for 0 (an absent string: a
 \ table entry, a field name or a reason not given).
 : counted-or-empty ( c-addr|0 -- c-addr u ) ?dup if count else s" " then ;

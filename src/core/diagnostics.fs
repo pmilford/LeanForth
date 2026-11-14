@@ -15,6 +15,7 @@
 \ are shared and read-only.
 
 require ../lib/lib.fs
+require ../lib/bytes.fs
 
 \ Reason codes; tests pin the numbers, never the wording. Unless a code
 \ says otherwise, its numbers are what was used and the limit.
@@ -212,9 +213,9 @@ end-structure
 \ The catalogue of printed names, in code order: each entry is a code, the
 \ name's length and its characters, aligned. The last entry, lf-diag-none,
 \ names every code the catalogue does not list. Shared and read-only.
-: lf-diag-entry, ( code c-addr u -- ) rot , dup , here swap dup allot move align ;
+: lf-diag-entry, ( code c-addr u -- ) rot , cell-counted, ;
 : lf-diag-entry-code ( entry -- code ) @ ;
-: lf-diag-entry-name ( entry -- c-addr u ) cell+ dup cell+ swap @ ;
+: lf-diag-entry-name ( entry -- c-addr u ) cell+ cell-count ;
 : lf-diag-entry-next ( entry -- entry' ) lf-diag-entry-name + aligned ;
 create lf-diag-catalogue
   lf-diag-fuel s" fuel exhausted" lf-diag-entry,

@@ -131,14 +131,12 @@ create hexed 4 allot
 : hex-into ( byte -- ) s" ***" hexed swap move hexed hex-byte! ;
 T{ 0 hex-into s" 00" hexed? 255 hex-into s" ff" hexed? -> true true }T
 T{ 171 2 base ! hex-into decimal s" ab" hexed? 16 hex-into s" 10" hexed? -> true true }T
-\ type-right and type-left: padded to the width, never cut (the printed
-\ text captured where the host can: Gforth 1.0's >string-execute).
+\ type-right: padded to the width, never cut (the printed text captured
+\ where the host can: Gforth 1.0's >string-execute).
 [defined] >string-execute [if]
 : right-text ( c-addr u width -- c-addr' u' ) ['] type-right >string-execute ;
-: left-text ( c-addr u width -- c-addr' u' ) ['] type-left >string-execute ;
-T{ s" 42" 5 right-text s"    42" text= s" 42" 5 left-text s" 42   " text= -> true true }T
-T{ s" 12345" 3 right-text s" 12345" text= s" 12345" 3 left-text s" 12345" text= -> true true }T
-T{ s" " 2 right-text s"   " text= s" ab" 0 left-text s" ab" text= -> true true }T
+T{ s" 42" 5 right-text s"    42" text= s" 12345" 3 right-text s" 12345" text= -> true true }T
+T{ s" " 2 right-text s"   " text= s" ab" 0 right-text s" ab" text= -> true true }T
 [then]
 T{ 9 hexed ' hex-byte! rs-checked s" 09" hexed? -> true }T
 \ Leading zeros change nothing however many there are (review reuse-out

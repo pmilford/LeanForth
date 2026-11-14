@@ -110,10 +110,9 @@ end-structure
   if drop else outcome-full lf-rcr-failing then ;
 \ A node as a handle; a dead node or -1 gets identity 0, which every
 \ constructor refuses.
-: lf-rcr-handle ( node -- node identity ) dup lf-term-identity 0= if 0 then ;
 \ A binary node, tag lf-tag-app, lf-tag-lam or lf-tag-pi.
 : lf-rcr-bind ( left right tag -- node )
-  >r swap lf-rcr-handle rot lf-rcr-handle r> lf-hterm-binary lf-rcr-made ;
+  >r swap lf-term-handle rot lf-term-handle r> lf-hterm-binary lf-rcr-made ;
 : lf-rcr-pi ( domain body -- node ) lf-tag-pi lf-rcr-bind ;
 : lf-rcr-app ( function argument -- node ) lf-tag-app lf-rcr-bind ;
 : lf-rcr-bvar ( k -- node ) lf-hterm-bvar lf-rcr-made ;
@@ -126,7 +125,7 @@ end-structure
   lf-mshift-fuel @ lf-ind-fuel ! dup ok? if 2drop else nip nip lf-rcr-failing then ;
 : lf-rcr-shift ( node cutoff amount -- node' )
   dup 0= if 2drop exit then
-  rot lf-rcr-handle 2swap lf-ind-fuel @ lf-mixed-shift lf-rcr-shifted ;
+  rot lf-term-handle 2swap lf-ind-fuel @ lf-mixed-shift lf-rcr-shifted ;
 
 \ ---------------------------------------------------------------------------
 \ consume_type_annotations, by name at the head of an application spine.

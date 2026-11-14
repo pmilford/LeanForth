@@ -123,6 +123,7 @@ manifest: counted-manifest
 \ average with one decimal, rounded half to even.
 : #group ( ud -- ud' ) # 2dup d0= if exit then # 2dup d0= if exit then # ;
 : grouped ( ud -- c-addr u ) <# begin #group 2dup d0= 0= while [char] , hold repeat #> ;
+: type-left ( c-addr u width -- ) over - 0 max >r type r> spaces ;
 \ Round the quotient q up when twice the remainder exceeds the divisor n,
 \ or equals it and q is odd.
 : round-up? ( rem n q -- flag ) 1 and 0<> >r swap 2* 2dup < -rot = r> and or ;
@@ -161,7 +162,7 @@ manifest: counted-manifest
 \ Errors: the outcome's name (outcome-text, lib/outcome.fs, which names
 \ any value outside the vocabulary invalid), why, the field, the line and,
 \ for a JSON syntax error, the byte within the line.
-: .why ( export -- ) dup >r export-error ." : " type r> .export-where ;
+: .why ( export -- ) dup export-error ." : " type .export-where ;
 : .count-error ( outcome -- ) ." error: " outcome-text type counted-export .why cr ;
 
 \ Read the export named c-addr u with fresh counts, by xt ( c-addr u --

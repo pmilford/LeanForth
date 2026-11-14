@@ -162,8 +162,8 @@ end-structure
 \ application whose function is the constant String.ofList, named by its
 \ components, without universe arguments.
 : lf-sx-of-list? ( name -- flag )
-  dup s" ofList" lf-whnf-part? 0= if drop false exit then
-  lf-name-prefix@ dup s" String" lf-whnf-part?
+  dup s" ofList" lf-name-str-is? 0= if drop false exit then
+  lf-name-prefix@ dup s" String" lf-name-str-is?
   if lf-name-prefix@ lf-whnf-anon? else drop false then ;
 : lf-sx-string-app? ( s -- flag )
   dup lf-term-tag@ lf-tag-app <> if drop false exit then

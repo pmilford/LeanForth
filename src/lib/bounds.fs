@@ -1,7 +1,7 @@
 \ Range and memory predicates used to validate input before forming
 \ addresses. Signed comparisons only, so no bound can wrap around. No state.
 \ Interface: between? upto? range-at in-range-at? in-ranges? cells-zero?
-\ cells= index? cells-index cells-has?.
+\ cells= index? cells-index cells-has? cell-count.
 \ Example:
 \   create primes 2 , 3 , 5 , 7 ,   create odds 3 , 5 , 7 ,
 \   3 4 index?  4 4 index?  0 -1 index?    \ true false false
@@ -44,3 +44,7 @@ require ./outcome.fs
   0 max 0 ?do 2dup i cells + @ = if 2drop i true unloop exit then loop 2drop false ;
 \ Whether one of the n cells from addr holds x.
 : cells-has? ( x addr n -- flag ) cells-index dup if nip then ;
+\ A cell-counted array or text: its count in the first cell, its cells
+\ or bytes after it. The address after the count and the count, as COUNT
+\ gives a counted string's (unchecked: addr holds such a record).
+: cell-count ( addr -- addr' n ) dup cell+ swap @ ;
