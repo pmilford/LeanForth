@@ -541,6 +541,9 @@ in the data, one `sunfold` record:
   - `levels` and `nodes` are tables of the value's levels and subterms,
     each entry naming only earlier ones by their place, so that shared
     parts are written once; `value` is the root's place among the nodes.
+    Two subterms share a node only when they are equal with their binder
+    names and binder information (`Expr.equal`, not Lean's `==`, which
+    ignores both and gave 18 of Init's 389 bodies another binder's name).
   - `rec_arg` is `f`'s structural recursion argument (Lean checks that it
     reduces to a constructor before the smart path's answer stands,
     WHNF.lean:898-905), or `null`. It is a place among an application's

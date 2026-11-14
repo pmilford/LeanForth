@@ -256,13 +256,24 @@ def dataValueJson : DataValue → MetaM Json
   | .ofName n => pure <| Json.mkObj [("name", nameJson n)]
   | v => throwError "an mdata value {v} in a smart-unfolding body"
 
+/-- A subterm as a key of the node table, compared by `Expr.equal`:
+Lean's `Expr ==` ignores binder names and binder info, so two binders that
+differ only there would share one node, which then carries the first one's
+name and info (18 of Init's 389 bodies did, review s2-unfold-a M2). The
+hash is Lean's, which ignores them too, so equal keys hash alike. -/
+structure ExprKey where
+  e : Expr
+
+instance : BEq ExprKey := ⟨fun a b => a.e.equal b.e⟩
+instance : Hashable ExprKey := ⟨fun a => a.e.hash⟩
+
 /-- The tables of a term: each level and each subterm written once, after
 its parts. -/
 structure Nodes where
   levels : Array Json := #[]
   levelIndex : Std.HashMap Level Nat := {}
   nodes : Array Json := #[]
-  index : Std.HashMap Expr Nat := {}
+  index : Std.HashMap ExprKey Nat := {}
 
 abbrev NodesM := StateT Nodes MetaM
 
@@ -289,7 +300,7 @@ def binderJson (n : Name) (bi : BinderInfo) (ty body : Nat) : Json :=
               ("body", toJson body)]
 
 partial def nodeOf (e : Expr) : NodesM Nat := do
-  if let some i := (← get).index[e]? then return i
+  if let some i := (← get).index[(⟨e⟩ : ExprKey)]? then return i
   let node ← match e with
     | .bvar i => pure <| Json.mkObj [("bvar", toJson i)]
     | .sort l => do pure <| Json.mkObj [("sort", toJson (← levelOf l))]
@@ -322,7 +333,7 @@ partial def nodeOf (e : Expr) : NodesM Nat := do
       pure <| Json.mkObj [("mdata", Json.mkObj [("entries", Json.arr entries), ("expr", toJson x)])]
     | .fvar _ | .mvar _ => throwError "a free variable or metavariable in a smart-unfolding body"
   let s ← get
-  set { s with nodes := s.nodes.push node, index := s.index.insert e s.nodes.size }
+  set { s with nodes := s.nodes.push node, index := s.index.insert ⟨e⟩ s.nodes.size }
   return s.nodes.size
 
 /-- The record of f's smart-unfolding definition f._sunfold (a definition). -/
