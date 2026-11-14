@@ -1329,3 +1329,8 @@ three caches, scheduler queue and about 58 loops on shared library words (`sort.
 Init checked with the old and the new code, the same 59,349 declarations accepted with the same fuel (654,719,715) and
 byte-identical snapshot files, confirmed independently twice; two kernel reviews and a re-check read every rewritten
 loop against the old one ([review](../development/forth-reviews/2026-11-13-reuse-out.md)); the full tier passed.
+
+### Overnight pace (2026-11-13, 21:30)
+
+The owner chose "finish and review": the four running agents finish, their short independent re-checks run overnight,
+the approval questions wait for the morning, and no new implementation agent starts overnight (weekly token budget).
