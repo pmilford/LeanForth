@@ -19,7 +19,7 @@
   "globals": 0,
   "long lines": 1,
   "long words": 0,
-  "rstack": 35,
+  "rstack": 33,
   "shuffles": 11,
   "words": 70
  },
@@ -51,7 +51,7 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 29,
+  "rstack": 27,
   "shuffles": 5,
   "words": 47
  },
@@ -125,7 +125,7 @@
   "long words": 0,
   "rstack": 2,
   "shuffles": 1,
-  "words": 61
+  "words": 62
  },
  "src/cli/check-run.fs": {
   "globals": 19,
@@ -147,9 +147,9 @@
   "globals": 3,
   "long lines": 0,
   "long words": 0,
-  "rstack": 12,
+  "rstack": 10,
   "shuffles": 0,
-  "words": 32
+  "words": 30
  },
  "src/cli/print-lf.fs": {
   "globals": 1,
@@ -211,7 +211,7 @@
   "globals": 1,
   "long lines": 0,
   "long words": 0,
-  "rstack": 23,
+  "rstack": 19,
   "shuffles": 7,
   "words": 34
  },
@@ -251,7 +251,7 @@
   "globals": 6,
   "long lines": 0,
   "long words": 5,
-  "rstack": 89,
+  "rstack": 87,
   "shuffles": 32,
   "words": 211
  },
@@ -723,7 +723,7 @@
   "globals": 6,
   "long lines": 2,
   "long words": 3,
-  "rstack": 158,
+  "rstack": 154,
   "shuffles": 42,
   "words": 183
  },
@@ -741,7 +741,7 @@
   "long words": 0,
   "rstack": 98,
   "shuffles": 19,
-  "words": 76
+  "words": 90
  },
  "src/import/ndjson-count.fs": {
   "globals": 4,
@@ -763,7 +763,7 @@
   "globals": 79,
   "long lines": 0,
   "long words": 0,
-  "rstack": 244,
+  "rstack": 242,
   "shuffles": 41,
   "words": 240
  },
@@ -795,7 +795,7 @@
   "globals": 7,
   "long lines": 3,
   "long words": 2,
-  "rstack": 139,
+  "rstack": 131,
   "shuffles": 35,
   "words": 190
  },
@@ -827,7 +827,7 @@
   "globals": 4,
   "long lines": 0,
   "long words": 2,
-  "rstack": 40,
+  "rstack": 36,
   "shuffles": 5,
   "words": 193
  },
@@ -853,15 +853,15 @@
   "long words": 2,
   "rstack": 62,
   "shuffles": 50,
-  "words": 153
+  "words": 154
  },
  "src/kernel/env-layers.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 3,
-  "rstack": 85,
+  "rstack": 81,
   "shuffles": 64,
-  "words": 95
+  "words": 96
  },
  "src/kernel/env-publish.fs": {
   "globals": 1,
@@ -893,15 +893,15 @@
   "long words": 2,
   "rstack": 181,
   "shuffles": 101,
-  "words": 246
+  "words": 249
  },
  "src/kernel/environment.fs": {
   "globals": 5,
   "long lines": 0,
   "long words": 3,
-  "rstack": 80,
+  "rstack": 78,
   "shuffles": 25,
-  "words": 319
+  "words": 321
  },
  "src/kernel/generated-recursor.fs": {
   "globals": 0,
@@ -914,18 +914,18 @@
  "src/kernel/inductive-block.fs": {
   "globals": 0,
   "long lines": 0,
-  "long words": 5,
-  "rstack": 24,
+  "long words": 4,
+  "rstack": 18,
   "shuffles": 9,
-  "words": 173
+  "words": 180
  },
  "src/kernel/inductive-nested.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 6,
-  "rstack": 60,
+  "rstack": 56,
   "shuffles": 21,
-  "words": 139
+  "words": 141
  },
  "src/kernel/inductive-recursor.fs": {
   "globals": 0,
@@ -1011,7 +1011,7 @@
   "globals": 1,
   "long lines": 0,
   "long words": 1,
-  "rstack": 70,
+  "rstack": 68,
   "shuffles": 9,
   "words": 75
  },
@@ -1067,7 +1067,7 @@
   "globals": 0,
   "long lines": 1,
   "long words": 1,
-  "rstack": 27,
+  "rstack": 25,
   "shuffles": 10,
   "words": 73
  },
@@ -1165,7 +1165,7 @@
   "long words": 0,
   "rstack": 399,
   "shuffles": 73,
-  "words": 250
+  "words": 248
  },
  "src/lib/bits.fs": {
   "globals": 0,
@@ -1173,7 +1173,7 @@
   "long words": 0,
   "rstack": 13,
   "shuffles": 3,
-  "words": 10
+  "words": 9
  },
  "src/lib/blocks.fs": {
   "globals": 0,
@@ -1187,7 +1187,7 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 2,
+  "rstack": 0,
   "shuffles": 2,
   "words": 10
  },
@@ -1221,7 +1221,7 @@
   "long words": 0,
   "rstack": 6,
   "shuffles": 2,
-  "words": 14
+  "words": 18
  },
  "src/lib/frame.fs": {
   "globals": 0,
@@ -1299,9 +1299,9 @@
   "globals": 0,
   "long lines": 0,
   "long words": 1,
-  "rstack": 0,
+  "rstack": 2,
   "shuffles": 3,
-  "words": 29
+  "words": 30
  },
  "src/lib/pools.fs": {
   "globals": 2,
@@ -1339,7 +1339,7 @@
   "globals": 2,
   "long lines": 0,
   "long words": 1,
-  "rstack": 47,
+  "rstack": 45,
   "shuffles": 18,
   "words": 100
  },
@@ -1451,9 +1451,9 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 42,
+  "rstack": 40,
   "shuffles": 3,
-  "words": 38
+  "words": 37
  },
  "src/present/log-check.fs": {
   "globals": 1,
@@ -1467,9 +1467,9 @@
   "globals": 4,
   "long lines": 0,
   "long words": 0,
-  "rstack": 29,
+  "rstack": 27,
   "shuffles": 7,
-  "words": 183
+  "words": 182
  },
  "src/present/notation-table.fs": {
   "globals": 1,
@@ -1595,7 +1595,7 @@
   "globals": 5,
   "long lines": 0,
   "long words": 0,
-  "rstack": 34,
+  "rstack": 32,
   "shuffles": 9,
   "words": 219
  },
@@ -1604,8 +1604,8 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 58,
-  "shuffles": 10,
-  "words": 258
+  "shuffles": 9,
+  "words": 253
  },
  "src/program/program-depth.fs": {
   "globals": 0,

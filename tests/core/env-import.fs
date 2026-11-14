@@ -143,7 +143,10 @@ create many 40 4 * allot
 : many-sorted? ( -- flag ) true 40 0 do many i 4 * + u32-le@ i 1+ 4 * = and loop ;
 T{ many! many 40 sorter dep-sort many-sorted? -> outcome-ok true }T
 \ Lookups: (key, answer) pairs by their key, unsigned, the answers moved
-\ with their keys.
+\ with their keys. The key $80000000 tells unsigned from signed only on a
+\ 32-bit host: on 64-bit cells every 32-bit key is positive, so a signed
+\ order sorts alike there (fault sn-le-sorter-signed, listed as
+\ equivalent; review reuse-out L4).
 create pairs 3 8 * allot
 $80000000 7 pairs 0 entry!  5 8 pairs 1 entry!  6 9 pairs 2 entry!
 T{ pairs 3 sorter look-sort -> outcome-ok }T
