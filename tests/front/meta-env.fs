@@ -114,7 +114,9 @@ T{ s" Nat.add.match_1" ' lf-menv-matcher? fact s" HAdd.hAdd" ' lf-menv-proj-fn? 
       false outcome-ok }T
 T{ s" Nat.add" ' lf-menv-smart? fact s" Nat.zero_add" ' lf-menv-smart? fact
    -> false outcome-unsupported false outcome-ok }T
-T{ s" Eq.ndrec" ' lf-menv-aux-recursor? fact -> true outcome-ok }T
+\ isAuxRecursor's three names by name, which the data also tags: without it.
+T{ s" Eq.ndrec" ' lf-menv-aux-recursor? fact s" Eq.ndrec_symm" ' lf-menv-aux-recursor? fact
+   s" Eq.ndrecOn" ' lf-menv-aux-recursor? fact -> true outcome-ok true outcome-ok true outcome-ok }T
 menv-lib lf-menv-stage!
 
 \ ---- The queries allocate nothing.
