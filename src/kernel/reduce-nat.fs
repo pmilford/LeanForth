@@ -72,8 +72,11 @@ require ../core/terms.fs
   dup >r lf-rn-apply r> r> swap >r execute r> lf-lit-arena-free ;
 \ Cells for an operation of the sizes of a and b.
 : lf-rn-cells ( a b -- a b cells ) over lf-term-second@ over lf-term-second@ + 8 * 64 + ;
-: lf-rn-std ( a b op -- node outcome ) >r lf-rn-cells r> swap ['] lf-rn-literal lf-rn-in-arena ;
-: lf-rn-test ( a b op -- node outcome ) >r lf-rn-cells r> swap ['] lf-rn-truth lf-rn-in-arena ;
+\ An operation in an arena of cells for a and b, its result made by make:
+\ a number (lf-rn-literal) or a Boolean (lf-rn-truth).
+: lf-rn-by ( a b op make -- node outcome ) 2>r lf-rn-cells 2r> rot swap lf-rn-in-arena ;
+: lf-rn-std ( a b op -- node outcome ) ['] lf-rn-literal lf-rn-by ;
+: lf-rn-test ( a b op -- node outcome ) ['] lf-rn-truth lf-rn-by ;
 : lf-rn-eq ( x y arena -- flag outcome ) drop big= outcome-ok ;
 : lf-rn-le ( x y arena -- flag outcome ) drop big<= outcome-ok ;
 

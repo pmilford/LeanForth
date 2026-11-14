@@ -111,8 +111,7 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
   lf-mcompare-visit-pair ;
 : lf-mcompare-site ( -- site ) c" mixed-compare lf-mixed-compare" ;
 : lf-mcompare-level-run ( a b -- outcome )
-  ['] lf-mcompare-level-visit lf-mcompare-level-walker walk-run-pair
-  lf-mcompare-level-walker lf-mcompare-site lf-diag-walk ;
+  ['] lf-mcompare-level-visit lf-mcompare-level-walker lf-mcompare-site lf-diag-run-pair ;
 : lf-mcompare-level ( a b -- outcome )
   lf-mcompare-fuel @ lf-mcompare-level-fuel ! lf-mcompare-level-run
   lf-mcompare-level-fuel @ lf-mcompare-fuel ! ;
@@ -177,12 +176,13 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
     lf-tag-proj of lf-mcompare-proj endof
     lf-tag-lit of lf-mcompare-lit endof  lf-tag-str of lf-mcompare-str endof
     walk-bad-tag endcase ;
-: lf-mcompare-visit ( walk -- outcome )
-  ['] lf-term-pair-valid? ['] lf-mcompare-term-slots ['] lf-mcompare-dispatch
-  lf-mcompare-visit-pair ;
+\ A term pair's visit with the dispatch xt (the comparison's, or the
+\ equality's below).
+: lf-mcompare-term-visit ( walk dispatch -- outcome )
+  >r ['] lf-term-pair-valid? ['] lf-mcompare-term-slots r> lf-mcompare-visit-pair ;
+: lf-mcompare-visit ( walk -- outcome ) ['] lf-mcompare-dispatch lf-mcompare-term-visit ;
 : lf-mcompare-run ( left right -- outcome )
-  ['] lf-mcompare-visit lf-mcompare-walker walk-run-pair
-  lf-mcompare-walker lf-mcompare-site lf-diag-walk ;
+  ['] lf-mcompare-visit lf-mcompare-walker lf-mcompare-site lf-diag-run-pair ;
 
 \ Lean's structural equality, operator== on terms (expr_eq_fn.cpp
 \ 123-125; ADR 0014 Q3, plan task 4.2.2b): the same constructors, bound
@@ -250,9 +250,7 @@ create lf-meq-hooks /htab-hooks allot
   dup lf-term-binary-tag? if drop lf-meq-children exit then
   2over 2 pick lf-meq-one-head? if 2drop 2drop outcome-ok exit then
   lf-mcompare-dispatch ;
-: lf-meq-visit ( walk -- outcome )
-  ['] lf-term-pair-valid? ['] lf-mcompare-term-slots ['] lf-meq-dispatch
-  lf-mcompare-visit-pair ;
+: lf-meq-visit ( walk -- outcome ) ['] lf-meq-dispatch lf-mcompare-term-visit ;
 : lf-mcompare-equal ( outcome -- flag outcome )
   dup outcome-unknown = if drop false outcome-ok exit then
   dup ok? if true swap exit then

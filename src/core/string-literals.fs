@@ -38,8 +38,7 @@ lf-tag-str tag-str lf-term-input-leaf-tag
 : lf-literal-tag? ( tag -- flag ) dup lf-tag-lit = swap lf-tag-str = or ;
 \ A literal leaf's bytes: their address (valid until the slab grows) and
 \ number.
-: lf-str-text ( leaf -- addr u )
-  dup lf-term-first@ lf-str-bytes slab-at swap lf-term-second@ ;
+: lf-str-text ( leaf -- addr u ) lf-str-bytes lf-lit-span ;
 \ Lean's == on two string literals: the same bytes.
 : lf-str-same? ( a b -- flag ) lf-str-text rot lf-str-text compare 0= ;
 

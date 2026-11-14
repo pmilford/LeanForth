@@ -102,7 +102,5 @@ end-structure
   dup lf-note-live? 0= if drop false exit then
   dup lf-note-kind@ lf-note-label <> if drop false exit then
   lf-note-text@ 2over compare 0= ;
-: lf-note-label-from? ( c-addr u from k -- c-addr u from flag )
-  over + swap >r lf-note-label-at? r> swap ;
 : lf-note-label? ( c-addr u from -- flag )
-  0 max lf-note-count over - ['] lf-note-label-from? any? nip nip nip ;
+  0 max lf-note-count ['] lf-note-label-at? any-in? nip nip ;

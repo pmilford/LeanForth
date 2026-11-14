@@ -19,8 +19,12 @@
 \   3 by-tag xt-table@ execute   \ three
 \   9 by-tag xt-table@ execute   \ invalid
 \
+\ ?execute ( i*x xt|0 -- j*x ) runs an optional hook: the xt, or
+\ nothing for 0 (a cell that holds a caller's word or none).
+\
 \ Interface: /xt-table xt-table: xt-table! xt-table@ xt-table-size
-\ xt-table-default; every other word is private (lf-lib-private; ADR 0010).
+\ xt-table-default ?execute; every other word is private (lf-lib-private;
+\ ADR 0010).
 \ State: none of its own; each table is a dictionary record made by
 \ xt-table:, written only while loading.
 
@@ -49,5 +53,8 @@ lf-lib set-current
   2dup xt-table-in? 0= abort" xt-table!: index outside the table" xt-table-at ! ;
 : xt-table@ ( i table -- xt )
   2dup xt-table-in? if xt-table-at @ else nip xt-table-default @ then ;
+\ Run the xt, or nothing for 0: an optional hook (snapshot renumbering, a
+\ scheduler tick, a caller's note).
+: ?execute ( i*x xt|0 -- j*x ) ?dup if execute then ;
 
 module-close

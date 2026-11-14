@@ -85,9 +85,7 @@ defer lf-pp-level-step ( view arg? frames -- ... frames next )
 : lf-pp-succ-step ( view k -- view' k' true | view k false )
   over lf-pp-view 0= if false exit then
   drop swap lf-level-tag-succ = if rot drop swap 1+ true else drop false then ;
-: lf-pp-succs ( view -- base k outcome )
-  0 begin lf-pp-spend 0= if outcome-exhausted exit then lf-pp-succ-step 0= until
-  outcome-ok ;
+: lf-pp-succs ( view -- base k outcome ) ['] lf-pp-succ-step lf-pp-fuelled ;
 : lf-pp-zero-view? ( view -- flag )
   lf-pp-view-tag if lf-level-tag-zero = else false then ;
 : lf-pp-offset-back ( outcome frames -- outcome frames 0 )

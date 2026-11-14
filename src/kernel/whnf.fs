@@ -463,8 +463,7 @@ defer lf-whnf-iota ( app frames -- ... frames next )
 \ outcome, recorded as a diagnostic.
 : lf-whnf-refused ( x frames cont outcome -- -1 outcome frames cont )
   >r over r@ swap lf-whnf-site lf-diag-frames drop r> frame-refuse ;
-: lf-whnf-open ( x frames cont xt -- ... frames next )
-  >r over frame-admit dup ok? if drop r> frame-open else r> drop lf-whnf-refused then ;
+: lf-whnf-open ( x frames cont xt -- ... frames next ) ['] lf-whnf-refused frame-open-or ;
 \ A step that ends its visit with a failure: no result.
 : lf-whnf-failed ( outcome frames -- -1 outcome frames 0 ) >r no-result r> 0 ;
 : lf-whnf-keep ( node frames -- node outcome frames 0 ) outcome-ok swap 0 ;

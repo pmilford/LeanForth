@@ -106,8 +106,8 @@ end-structure
 
 \ ---- The arrays: per layer slot its slot as loaded and whether it is
 \ new; per declaration loaded before, its slot + 1.
-: lay-map-room ( lay -- outcome ) dup lay-n @ swap lay-map ua-new ;
-: lay-new-room ( lay -- outcome ) dup lay-n @ swap lay-new ua-new ;
+: lay-map-room ( lay -- outcome ) ['] lay-n ['] lay-map ua-sized ;
+: lay-new-room ( lay -- outcome ) ['] lay-n ['] lay-new ua-sized ;
 : lay-old-room ( lay -- outcome )
   dup lay-stage @ stage-decls 2dup swap lay-old ! swap lay-slots ua-new ;
 : lay-arrays ( lay -- outcome )
@@ -130,9 +130,7 @@ end-structure
   over lf-look-name over lay-names @ u< if drop exit then
   >r dup lf-look-name r> lay-ly ly-name
   ok? if lf-look-renumber else 2drop lf-look-outside then ;
-: lay-answer ( answer lay -- answer' )
-  over lf-look-slot+1 ?dup 0= if drop exit then
-  1- swap lay-slot# 1+ lf-look-reslot ;
+: lay-answer ( answer lay -- answer' ) ['] lay-slot# answer-renum-by ;
 : lay-from ( j lay -- dk lk ) lay-snap snap-starts @ swap 2* cells + 2@ swap ;
 : lay-entry ( j lay -- key answer )
   2dup lay-snap look-key over lay-key >r
@@ -153,12 +151,9 @@ end-structure
   2dup 1 u32s tuck compare 0= >r
   sl-axioms u32s + swap sl-axioms u32s + swap sl-deps sl-axioms - u32s tuck compare 0=
   r> and ;
-: decls-same? ( i sd n lay -- flag )
-  swap >r true r> 0 ?do
-    3 pick i + 2 pick lay-decl 3 pick i + 3 pick lay-staged decl-same? and
-  loop nip nip nip ;
-: verdicts-same? ( j s n lay -- flag )
-  swap >r true r> 0 ?do 3 pick i + 3 pick i + 3 pick verdict-same? and loop nip nip nip ;
+: lay-decl-same? ( i sd lay -- flag ) tuck lay-staged >r lay-decl r> decl-same? ;
+: decls-same? ( i sd n lay -- flag ) ['] lay-decl-same? span-all? ;
+: verdicts-same? ( j s n lay -- flag ) ['] verdict-same? span-all? ;
 : lay-block? ( i lay -- flag ) tuck lay-decl swap lay-stage @ slot-record? 0= ;
 : unit-members ( i lay -- m )
   tuck lay-decl staged-more u32@ swap lay-stage @ stage-tuples

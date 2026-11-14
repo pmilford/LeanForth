@@ -37,10 +37,11 @@ lf-tag-lit tag-nat lf-term-input-leaf-tag
 \ invalid or full as terms.fs's lf-slab-copy-in.
 : lf-lit-copy ( source -- outcome ) lf-lit-limbs swap lf-slab-copy-in ;
 : lf-lit-leaf? ( node -- flag ) lf-term-tag@ lf-tag-lit = ;
-\ The limbs of a literal leaf: their address (valid until the slab grows)
-\ and count.
-: lf-lit-vector ( leaf -- addr n )
-  dup lf-term-first@ lf-lit-limbs slab-at swap lf-term-second@ ;
+\ A literal leaf's payload in its slab: the address of its first entry
+\ (the leaf's first field; valid until the slab grows) and its count (the
+\ second); string-literals.fs's bytes too. The limbs of a literal leaf.
+: lf-lit-span ( leaf slab -- addr n ) over lf-term-first@ swap slab-at swap lf-term-second@ ;
+: lf-lit-vector ( leaf -- addr n ) lf-lit-limbs lf-lit-span ;
 \ Lean's ==, Nat.beq: the same count and limbs.
 : lf-lit-limbs= ( a1 a2 n -- flag ) cells tuck compare 0= ;
 : lf-lit-same? ( a b -- flag )

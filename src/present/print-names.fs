@@ -64,10 +64,7 @@ lf-walk-room context-walk2: lf-pp-scan-walk
 \ A from beyond the scope (only after a forbidden reset from a sink) is
 \ the top of the scope: no binder.
 : lf-pp-shows? ( c-addr u i -- c-addr u flag ) lf-pp-bind-at lf-pp-text 2over compare 0= ;
-: lf-pp-shows-from? ( c-addr u from k -- c-addr u from flag )
-  over + swap >r lf-pp-shows? r> swap ;
-: lf-pp-any? ( c-addr u from -- flag )
-  lf-pp-depth over - ['] lf-pp-shows-from? any? nip nip nip ;
+: lf-pp-any? ( c-addr u from -- flag ) lf-pp-depth ['] lf-pp-shows? any-in? nip nip ;
 : lf-pp-taken? ( mark -- flag ) lf-pp-pending 0 lf-pp-any? ;
 
 \ Scans of a body with the print's fuel. In the body, bound variable i at
@@ -92,8 +89,11 @@ lf-walk-room context-walk2: lf-pp-scan-walk
   lf-pp-leaf-tag? if drop 2drop outcome-ok else drop 2drop outcome-invalid then ;
 \ Variable i mentions bound variable k of the body's context (walk-arg).
 : lf-pp-var-is ( i walk -- outcome ) dup walk-context @ swap walk-arg @ + = lf-pp-hit ;
-: lf-pp-loose-dispatch ( first second walk tag -- outcome )
-  dup lf-tag-bvar = if drop nip lf-pp-var-is else lf-pp-scan-other then ;
+\ A scan's dispatch: a bound variable goes to var ( i walk -- outcome ),
+\ every other node to lf-pp-scan-other.
+: lf-pp-scan-dispatch ( first second walk tag var -- outcome )
+  over lf-tag-bvar = if nip rot drop execute else drop lf-pp-scan-other then ;
+: lf-pp-loose-dispatch ( first second walk tag -- outcome ) ['] lf-pp-var-is lf-pp-scan-dispatch ;
 : lf-pp-loose-visit ( walk -- outcome ) ['] lf-pp-loose-dispatch lf-term-visit ;
 \ Variable i mentions a binder of the scope that shows the text pending at
 \ mark (walk-arg). A variable beyond the scope is left to the printer.
@@ -105,7 +105,7 @@ lf-walk-room context-walk2: lf-pp-scan-walk
   dup lf-pp-depth < 0= if 2drop outcome-ok exit then
   swap walk-arg @ lf-pp-shows-pending? lf-pp-hit ;
 : lf-pp-uses-dispatch ( first second walk tag -- outcome )
-  dup lf-tag-bvar = if drop nip lf-pp-var-shows else lf-pp-scan-other then ;
+  ['] lf-pp-var-shows lf-pp-scan-dispatch ;
 : lf-pp-uses-visit ( walk -- outcome ) ['] lf-pp-uses-dispatch lf-term-visit ;
 : lf-pp-scan ( term arg xt -- flag outcome )
   >r lf-pp-scan-walk dup lf-pp-lend walk-arg !

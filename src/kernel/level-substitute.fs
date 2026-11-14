@@ -89,8 +89,7 @@ lf-level-walk-room context-walk: lf-lsubst-walker
 \ scope in the caller's context, charging the given walk's fuel. Formal i
 \ and actual i are checked before formal i+1; the order decides which
 \ failure is reported and how much fuel is left.
-: lf-lsubst-new-formal? ( i -- flag )
-  dup lf-lsubst-formal@ dup 0> if swap lf-lsubst-in? 0= else 2drop false then ;
+: lf-lsubst-new-formal? ( i -- flag ) lf-lsubst-formals @ lf-lscope-fresh? ;
 : lf-lsubst-input ( i walk -- outcome )
   over lf-lsubst-new-formal? if swap lf-lsubst-actual@ swap lf-lscope-walk-check
   else 2drop outcome-invalid then ;
@@ -115,9 +114,7 @@ lf-level-walk-room context-walk: lf-lsubst-walker
 : lf-lsubst-reached? ( index -- flag ) lf-lsubst-seen @ lf-lsubst-stamp @ = ;
 \ A list the heap cannot grow is full, recorded with its count and room.
 : lf-lsubst-site ( -- site ) c" level-substitute lf-lsubst" ;
-: lf-lsubst-crowded ( n -- n )
-  dup lf-lsubst-reached-cells slab-capacity lf-lsubst-site
-  lf-diag-work-stack-full lf-diag-note ;
+: lf-lsubst-crowded ( n -- n ) lf-lsubst-reached-cells lf-lsubst-site lf-diag-slab-full ;
 : lf-lsubst-list ( index -- outcome )
   lf-lsubst-reached @ lf-lsubst-reached-cells lf-cells-add
   dup outcome-full = if swap lf-lsubst-crowded swap then swap lf-lsubst-reached ! ;

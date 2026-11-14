@@ -92,6 +92,7 @@ require ../lib/sections.fs
 require ../lib/sort.fs
 require ../lib/blocks.fs
 require ../lib/sha256.fs
+require ../lib/xt-table.fs
 require ../core/axiom-allowlist.fs
 require ../import/stage.fs
 require ../import/snapshot-tier.fs
@@ -244,8 +245,8 @@ variable snap-stale-allowed  false snap-stale-allowed !
 \ step SN4; snap-layer!): its slot j is the environment's slot d (the
 \ caller's xt), and a slot d it refers to is numbered s in the base and the
 \ layer (the caller's xt; a base numbers as the environment).
-: snap-e ( j snap -- d ) snap-which @ ?dup if execute then ;
-: snap-s ( d snap -- s ) snap-renum @ ?dup if execute then ;
+: snap-e ( j snap -- d ) snap-which @ ?execute ;
+: snap-s ( d snap -- s ) snap-renum @ ?execute ;
 : snap-wn@ ( snap -- n ) snap-wn @ ;
 \ Every slot's lists counted, then the blocks for them.
 : d-deps ( d -- n ) slot-env lf-slot-count @ ;
@@ -325,10 +326,12 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 : put-slot-at ( snap i -- snap outcome ) over put-slot ;
 : put-slots ( snap -- outcome ) dup snap-wn@ ['] put-slot-at ok-each nip ;
 \ The dependencies and lookups, each slot's in turn, slots numbered as
-\ written (snap-s): an answer's slot + 1 field.
-: answer-renum ( answer snap -- answer' )
-  over lf-look-slot+1 ?dup 0= if drop exit then
-  1- swap snap-s 1+ lf-look-reslot ;
+\ written (snap-s): an answer's slot + 1 field. answer-renum-by numbers
+\ an answer's slot by xt ( d x -- s ), for the snapshot and its layers
+\ (env-layers.fs); an answer that names no slot stays as it is.
+: answer-renum-by ( answer x xt -- answer' )
+  >r over lf-look-slot+1 ?dup 0= if r> 2drop exit then 1- swap r> execute 1+ lf-look-reslot ;
+: answer-renum ( answer snap -- answer' ) ['] snap-s answer-renum-by ;
 \ Names beyond the input (environment.fs, the seal; plan step SN5): the
 \ names a check made that its input tier does not hold, kept in the
 \ environment's own tier (lf-env-outer), are written after the tier's

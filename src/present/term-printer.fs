@@ -71,8 +71,7 @@ require ./print-strings.fs
 \ Leave the binders bound since the scope had depth0 binders; the step
 \ that does so at the end of a part, for the depth saved under it.
 : lf-pp-leave ( outcome depth0 -- outcome ) lf-pp-depth swap - lf-pp-unbind ;
-: lf-pp-leaving ( outcome frames -- outcome frames 0 )
-  >r r@ frame-restore lf-pp-leave r> 0 ;
+: lf-pp-leaving ( outcome frames -- outcome frames 0 ) ['] lf-pp-leave lf-pp-restored ;
 
 defer lf-pp-term-step ( term pos frames -- ... frames next )
 : lf-pp-term-call ( term pos frames cont -- ... frames next )
@@ -99,8 +98,7 @@ defer lf-pp-term-step ( term pos frames -- ... frames next )
 \ and the closing brace after the last: the reference's levels (addr),
 \ their number and the next index wait while one prints.
 defer lf-pp-uargs ( addr n i frames -- ... frames next )
-: lf-pp-uargs-back ( outcome frames -- ... frames next )
-  3 lf-pp-failed? if 0 exit then dup >r lf-pp-restore3 r> lf-pp-uargs ;
+: lf-pp-uargs-back ( outcome frames -- ... frames next ) ['] lf-pp-uargs lf-pp-back3 ;
 : lf-pp-uargs-next ( addr n i frames -- ... frames next )
   >r 2dup > 0= if 2drop drop lf-pp-universes-close outcome-ok r> 0 exit then
   dup if lf-pp-comma then
@@ -144,8 +142,7 @@ defer lf-pp-open-leaf ( term -- outcome )
 \ the next index wait while one prints.
 : lf-pp-arg-term ( app info i -- arg pos ) tuck lf-pp-arg-pos >r lf-pp-arg-at r> ;
 defer lf-pp-args ( app info i frames -- ... frames next )
-: lf-pp-args-back ( outcome frames -- ... frames next )
-  3 lf-pp-failed? if 0 exit then dup >r lf-pp-restore3 r> lf-pp-args ;
+: lf-pp-args-back ( outcome frames -- ... frames next ) ['] lf-pp-args lf-pp-back3 ;
 : lf-pp-arg ( app info i frames -- ... frames next )
   >r r@ lf-pp-keep-next lf-pp-arg-term lf-pp-space
   r> ['] lf-pp-args-back lf-pp-term-call ;

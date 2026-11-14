@@ -204,8 +204,7 @@ end-structure
 \ 0 ); a failure's x is no answer.
 : lf-dq-refused ( t s frames cont outcome -- 0 outcome frames cont )
   >r over r@ swap lf-dq-site lf-diag-frames drop 2swap 2drop 0 r> 2swap ;
-: lf-dq-open ( t s frames cont xt -- ... frames next )
-  >r over frame-admit dup ok? if drop r> frame-open else r> drop lf-dq-refused then ;
+: lf-dq-open ( t s frames cont xt -- ... frames next ) ['] lf-dq-refused frame-open-or ;
 : lf-dq-failed ( outcome frames -- 0 outcome frames 0 ) >r 0 swap r> 0 ;
 : lf-dq-answer ( flag frames -- flag outcome frames 0 ) outcome-ok swap 0 ;
 \ Ending a visit that saved n cells: they are dropped first.

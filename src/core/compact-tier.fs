@@ -52,9 +52,9 @@ begin-structure /quad
   1 u32s +field quad-data    \ facts about the record, or a stored hash
 end-structure
 
-\ Whether two records' a and b fields are equal.
-: quad-ab= ( addr1 addr2 -- flag )
-  over quad-a u32@ over quad-a u32@ = >r quad-b u32@ swap quad-b u32@ = r> and ;
+\ A record's a and b fields; whether two records' are equal.
+: quad-ab@ ( addr -- a b ) dup quad-a u32@ swap quad-b u32@ ;
+: quad-ab= ( addr1 addr2 -- flag ) quad-ab@ rot quad-ab@ d= ;
 
 \ Heads: a tag of 5 bits and a payload of 27 bits.
 31 constant head-tag-mask

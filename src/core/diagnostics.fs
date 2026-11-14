@@ -16,6 +16,7 @@
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
+require ../lib/slab.fs
 
 \ Reason codes; tests pin the numbers, never the wording. Unless a code
 \ says otherwise, its numbers are what was used and the limit.
@@ -182,9 +183,20 @@ end-structure
     outcome-full of 2r> lf-diag-walk-room endof
     outcome-invalid of 2r> lf-diag-walk-node endof
     outcome-unknown of 2r> lf-diag-walk-pair endof 2r> 2drop endcase ;
-\ A walk run from root with the visitor xt (lib/walk.fs's walk-run), its
-\ failure recorded as lf-diag-walk records it for the site.
+\ A walk run from root with the visitor xt (lib/walk.fs's walk-run), or a
+\ paired walk from node and its context (walk-run-pair), its failure
+\ recorded as lf-diag-walk records it for the site.
 : lf-diag-run ( root xt walk site -- outcome ) 2dup 2>r drop walk-run 2r> lf-diag-walk ;
+: lf-diag-run-pair ( node context xt walk site -- outcome )
+  2dup 2>r drop walk-run-pair 2r> lf-diag-walk ;
+\ After a walk ran: the fuel it left stored at addr, then its failure
+\ recorded as lf-diag-walk records it.
+: lf-diag-walked ( outcome walk addr site -- outcome )
+  >r over walk-fuel @ swap ! r> lf-diag-walk ;
+\ A slab the heap cannot grow, at site: the count n it needed and the
+\ slab's room, as a full work stack.
+: lf-diag-slab-full ( n slab site -- n )
+  >r over swap slab-capacity r> lf-diag-work-stack-full lf-diag-note ;
 
 \ After a pass on a frames record (lib/frame.fs) ended with outcome:
 \ exhausted records the fuel left, full the frames' stack, which the heap

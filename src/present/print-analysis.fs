@@ -187,9 +187,7 @@ defer lf-pp-same-step ( a b frames -- ... frames next )
     >r r@ lf-pp-chain-step r> swap 0= until drop outcome-ok ;
 : lf-pp-spine-step ( node n -- node' n' true | node n false )
   over lf-pp-applied? if swap lf-term-first@ swap 1+ true else false then ;
-: lf-pp-spine ( term -- head n outcome )
-  0 begin lf-pp-spend 0=
-  if outcome-exhausted exit then lf-pp-spine-step 0= until outcome-ok ;
+: lf-pp-spine ( term -- head n outcome ) ['] lf-pp-spine-step lf-pp-fuelled ;
 \ The type of variable i at the end of k Pi binders starting at chain.
 : lf-pp-chain-var ( chain k i -- type true | false )
   2dup > if - 1- lf-pp-bodies lf-term-first@ true else swap - nip lf-pp-var-type then ;

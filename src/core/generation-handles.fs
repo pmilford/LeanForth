@@ -78,8 +78,10 @@ create lf-stamp-hooks /htab-hooks allot
   lf-stamp-table htab-ready ok? 0= if lf-stamp-none exit then
   dup lf-stamp-find if nip lf-stamp-unit exit then lf-stamp-new ;
 
-\ Stamp cells of a symbolic Sort at a valid term index.
-: lf-hsort-term-stamp ( index -- addr ) lf-term-stamps lf-stamp-own ;
+\ Stamp cells at a valid term index: the node's own identity (a symbolic
+\ Sort's; constant-term-boundary.fs's constant nodes) and a Sort's level
+\ identity.
+: lf-term-own-stamp ( index -- addr ) lf-term-stamps lf-stamp-own ;
 : lf-hsort-level-stamp ( index -- addr ) lf-term-stamps lf-stamp-level ;
 
 \ The fuel the last audit left, under its established name.
@@ -118,7 +120,7 @@ create lf-stamp-hooks /htab-hooks allot
 \ Symbolic Sort from a live level handle while the session is current; the
 \ stamps tie the new term to both identities. Level scope is checked later.
 : lf-hsort-stamp ( level-identity term-index term-identity -- )
-  over lf-hsort-term-stamp ! lf-hsort-level-stamp ! ;
+  over lf-term-own-stamp ! lf-hsort-level-stamp ! ;
 : lf-hsort-source? ( level-index level-identity -- flag ) lf-hlevel-valid? lf-ssession-current? and ;
 : lf-hsort-new ( level-identity level-index -- index identity true | false )
   lf-term-symbolic-sort lf-hterm-result if >r tuck r@ lf-hsort-stamp r> true else drop false then ;
@@ -142,17 +144,15 @@ create lf-stamp-hooks /htab-hooks allot
 \ stamps of this exact term allocation and a level that still has the
 \ stamped identity. Children point backwards, so a count rollback cannot
 \ keep a parent while removing its child. Raw mutation is excluded.
-: lf-hsort-term-ok? ( node -- flag )
-  dup lf-term-identity if swap lf-hsort-term-stamp @ = else drop false then ;
+\ Whether the node still has the identity it was stamped with.
+: lf-term-stamped? ( node -- flag )
+  dup lf-term-identity if swap lf-term-own-stamp @ = else drop false then ;
 : lf-hsort-level-ok? ( level node -- flag )
   swap lf-level-identity if swap lf-hsort-level-stamp @ = else drop false then ;
 : lf-hsort-stamped? ( level node -- flag )
-  dup lf-hsort-term-ok? if lf-hsort-level-ok? else 2drop false then ;
+  dup lf-term-stamped? if lf-hsort-level-ok? else 2drop false then ;
 : lf-href-sort ( first second walk -- outcome ) nip walk-node @ lf-hsort-stamped? flag>outcome ;
-: lf-href-dispatch ( first second walk tag -- outcome )
-  dup lf-term-binary-tag? if drop walk-push2 exit then
-  case lf-tag-symbolic-sort of lf-href-sort endof
-    lf-tag-bvar of drop 2drop outcome-ok endof walk-bad-tag endcase ;
+: lf-href-dispatch ( first second walk tag -- outcome ) ['] lf-href-sort lf-symbolic-dispatch ;
 : lf-href-visit ( walk -- outcome ) ['] lf-href-dispatch lf-term-visit ;
 \ Internal: audit an already structurally checked root. Negative fuel is
 \ invalid.

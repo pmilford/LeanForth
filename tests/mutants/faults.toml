@@ -1023,9 +1023,9 @@ reason = "B1: a set of reached terms that cannot be made drops the caller's cell
 
 [[fault]]
 id = "mls-crowded-extra-cell"
-file = "src/kernel/mixed-level-substitute.fs"
-old = '''  dup lf-mls-reached-cells slab-capacity lf-mls-site'''
-new = '''  dup dup lf-mls-reached-cells slab-capacity lf-mls-site'''
+file = "src/core/diagnostics.fs"
+old = '''  >r over swap slab-capacity r> lf-diag-work-stack-full lf-diag-note ;'''
+new = '''  >r dup over swap slab-capacity r> lf-diag-work-stack-full lf-diag-note ;'''
 test = "$GFORTH tests/core/mixed-level-substitute-crowded.fs"
 reason = "B2: a reached list the heap cannot grow leaves its count twice"
 
@@ -1048,8 +1048,8 @@ reason = "B5: a constant's new level pairs the heap cannot hold drop a cell of t
 [[fault]]
 id = "lsubst-crowded-extra-cell"
 file = "src/kernel/level-substitute.fs"
-old = '''  dup lf-lsubst-reached-cells slab-capacity lf-lsubst-site'''
-new = '''  dup dup lf-lsubst-reached-cells slab-capacity lf-lsubst-site'''
+old = ''': lf-lsubst-crowded ( n -- n ) lf-lsubst-reached-cells lf-lsubst-site lf-diag-slab-full ;'''
+new = ''': lf-lsubst-crowded ( n -- n ) dup lf-lsubst-reached-cells lf-lsubst-site lf-diag-slab-full ;'''
 test = "$GFORTH tests/core/mixed-level-substitute-crowded.fs"
 reason = "B4: a level substitution's reached list the heap cannot grow leaves its count twice"
 
@@ -8340,8 +8340,8 @@ reason = "S4: a found constant is given again without its stamps"
 [[fault]]
 id = "s4-reusable-ref-ignored"
 file = "src/core/constant-term-boundary.fs"
-old = '''  dup lf-cterm-stamped? if lf-cterm-ref-live? else drop false then ;'''
-new = '''  lf-cterm-stamped? ;'''
+old = '''  dup lf-term-stamped? if lf-cterm-ref-live? else drop false then ;'''
+new = '''  lf-term-stamped? ;'''
 test = "$GFORTH tests/core/constant-term-boundary.fs"
 reason = "S4: a found constant whose reference was reset and made again at its index is given again"
 
@@ -9653,8 +9653,8 @@ reason = "SN5: a list with names beyond the input written unsorted after their k
 [[fault]]
 id = "sn4-layer-verdicts-uncompared"
 file = "src/kernel/env-layers.fs"
-old = '''  swap >r true r> 0 ?do 3 pick i + 3 pick i + 3 pick verdict-same? and loop nip nip nip ;'''
-new = '''  2drop 2drop true ;'''
+old = ''': verdicts-same? ( j s n lay -- flag ) ['] verdict-same? span-all? ;'''
+new = ''': verdicts-same? ( j s n lay -- flag ) 2drop 2drop true ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
 reason = "SN4: a declaration two layers hold is loaded once though their verdicts differ"
 
@@ -11610,8 +11610,8 @@ reason = "FRI B2: a reference of another name, the rest equal, is taken as the r
 [[fault]]
 id = "fri-b8-walk-once-no-skip"
 file = "src/core/constant-term-boundary.fs"
-old = '''  2 pick lf-walk-seen? if drop lf-walk-skip exit then execute ;'''
-new = '''  2 pick lf-walk-seen? drop execute ;'''
+old = '''  3 pick swap execute if drop lf-walk-skip exit then execute ;'''
+new = '''  3 pick swap execute drop execute ;'''
 test = "$GFORTH tests/core/constant-term-boundary.fs"
 reason = "FRI B8: a node the run reached before is walked again (its fuel and its subtree's)"
 
@@ -11634,8 +11634,8 @@ reason = "FRI B8: the audit memo keeps a node's identity as its epoch, so no nod
 [[fault]]
 id = "fri-b8-walk-once-at-no-skip"
 file = "src/core/constant-term-boundary.fs"
-old = '''  2 pick lf-walk-seen-at? if drop lf-walk-skip exit then execute ;'''
-new = '''  2 pick lf-walk-seen-at? drop execute ;'''
+old = '''  if lf-mark-other? else lf-mark-set drop false then ;'''
+new = '''  if lf-mark-other? drop false else lf-mark-set drop false then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "FRI B8: a (node, depth) pair reached before is walked again"
 
@@ -13760,7 +13760,7 @@ reason = "FRK A (lay-room): the last step's failure is the layer's outcome, so a
 [[fault]]
 id = "frk-imp-to-room-full"
 file = "src/kernel/env-import.fs"
-old = ''': imp-to-room ( imp -- outcome ) dup imp-sn @ swap imp-to ua-new ;'''
+old = ''': imp-to-room ( imp -- outcome ) ['] imp-sn ['] imp-to ua-sized ;'''
 new = ''': imp-to-room ( imp -- outcome ) drop outcome-full ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "FRK A (imp-input): the last step's failure is the import's outcome"

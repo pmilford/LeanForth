@@ -45,6 +45,14 @@ lf-walk-room context-walk: lf-repr-walker
     lf-tag-symbolic-sort of lf-repr-symbolic-sort endof
     lf-tag-bvar of lf-repr-bvar endof walk-bad-tag endcase ;
 : lf-repr-visit ( walk -- outcome ) ['] lf-repr-dispatch lf-term-visit ;
+\ A dispatch over a tree this boundary checked: a binary node pushes both
+\ children, a bound variable is fine, a symbolic Sort is checked by xt
+\ ( first second walk -- outcome ), any other tag is reported (the
+\ symbolic session's and generation-handles.fs's audits).
+: lf-symbolic-dispatch ( first second walk tag xt -- outcome )
+  swap dup lf-term-binary-tag? if 2drop walk-push2 exit then
+  case lf-tag-symbolic-sort of execute endof
+    lf-tag-bvar of 2drop 2drop outcome-ok endof nip walk-bad-tag endcase ;
 
 \ Walk one root with the current mode and the fuel left.
 : lf-repr-site ( -- site ) c" tagged-sort-boundary lf-repr-check" ;

@@ -65,8 +65,11 @@ lf-level-walk-room context-walk: lf-lscope-walk
 \ fills), and an ID met there already is a repeat, so the audit stays
 \ linear. A table the heap cannot give falls back to the pairwise audit.
 16 constant lf-lscope-few
-: lf-lscope-pair-ok? ( i -- flag )
-  dup lf-lscope-id@ dup 0> if swap lf-lscope-in? 0= else 2drop false then ;
+\ Whether entry i of the list of IDs at addr is positive and differs from
+\ every entry before it (here and level-substitute.fs's formals).
+: lf-lscope-fresh? ( i addr -- flag )
+  2dup swap cells + @ dup 0> if -rot swap cells-has? 0= else drop 2drop false then ;
+: lf-lscope-pair-ok? ( i -- flag ) lf-lscope-context lf-lscope-fresh? ;
 : lf-lscope-seen ( slot -- addr ) cells lf-lscope-table slab-base + ;
 \ Unchecked: id > 0 and mask + 1 a power of two of free or used slots.
 \ True when id is in the table already, else put it in.

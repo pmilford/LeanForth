@@ -110,7 +110,7 @@ T{ 0 h 0 h -1 lf-mixed-compare -> outcome-invalid }T
 T{ 0 h 0 h 0 lf-mixed-compare -> outcome-exhausted }T
 T{ 0 h 1 0 1000 lf-mixed-compare -> outcome-invalid }T
 \ Corruption beneath a mismatched root must still be audited on either side.
-0 0 lf-cterm-stamp-cell !
+0 0 lf-term-own-stamp !
 T{ 8 h 10 h 1000 lf-mixed-compare -> outcome-invalid }T
 T{ 10 h 8 h 1000 lf-mixed-compare -> outcome-invalid }T
 \ Names compare one component per unit of the given walk's fuel, down to the

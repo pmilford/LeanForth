@@ -147,7 +147,7 @@ lf-walk-room context-walk: lf-check-walker
 : lf-check-forms-visit ( walk -- outcome )
   ['] lf-check-forms-once lf-term-visit ;
 : lf-check-walked ( outcome -- outcome )
-  lf-check-walker walk-fuel @ lf-check-left ! lf-check-walker lf-check-site lf-diag-walk ;
+  lf-check-walker lf-check-left lf-check-site lf-diag-walked ;
 : lf-check-forms-walk ( root -- outcome )
   lf-check-walker lf-walk-marking
   ['] lf-check-forms-visit lf-check-walker walk-run lf-check-walked ;

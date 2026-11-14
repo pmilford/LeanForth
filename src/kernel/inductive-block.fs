@@ -347,8 +347,7 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   lf-ind-state lf-ind-leaf @ lf-ind-branch ;
 : lf-ind-once ( first second walk tag -- outcome ) ['] lf-ind-dispatch lf-walk-once ;
 : lf-ind-visit ( walk -- outcome ) ['] lf-ind-once lf-term-visit ;
-: lf-ind-walked ( outcome -- outcome )
-  lf-ind-walker walk-fuel @ lf-ind-fuel ! lf-ind-walker lf-ind-site lf-diag-walk ;
+: lf-ind-walked ( outcome -- outcome ) lf-ind-walker lf-ind-fuel lf-ind-site lf-diag-walked ;
 \ A walk of root by the visitor visit-xt ( walk -- outcome ), a run of
 \ its own (its marks).
 : lf-ind-run ( root visit-xt -- outcome )
@@ -647,8 +646,7 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-c1-once ( first second walk tag -- outcome ) ['] lf-c1-dispatch lf-walk-once-at ;
 : lf-c1-visit ( walk -- outcome ) ['] lf-c1-once lf-term-visit ;
 : lf-c1-walked ( outcome -- outcome )
-  lf-ind-pair-walker walk-fuel @ lf-ind-fuel !
-  lf-ind-pair-walker lf-ind-site lf-diag-walk ;
+  lf-ind-pair-walker lf-ind-fuel lf-ind-site lf-diag-walked ;
 : lf-c1-ctor ( j -- outcome )
   lf-ind-fuel @ lf-ind-pair-walker walk-budget 0= if drop outcome-invalid exit then
   lf-ind-pair-walker lf-walk-pairing

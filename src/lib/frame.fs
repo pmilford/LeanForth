@@ -188,6 +188,11 @@ max-n 1 cells / constant frame-most-cells
   >r over frame-save ['] frame-left over frame-save frame-enter drop r> ;
 : frame-call ( x frames cont -- x frames visitor | -1 outcome frames cont )
   over frame-admit dup ok? if drop frame-opened else frame-refuse then ;
+\ frame-open after frame-admit: xt, or, when the record refuses the visit,
+\ refuse ( frames cont outcome -- ... ) on its outcome (a pass's own
+\ diagnostic and failure, such as defeq.fs's and whnf.fs's).
+: frame-open-or ( frames cont xt refuse -- frames xt | ... )
+  2>r over frame-admit dup ok? if drop 2r> drop frame-open else 2r> nip execute then ;
 \ One context level deeper, restored when the visit returns. The visit
 \ must open (frame-admit, so the fuel decides before the context), and
 \ then a context that cannot grow (max-n) is full; a refused visit changes

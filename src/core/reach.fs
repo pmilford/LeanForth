@@ -110,13 +110,10 @@ end-structure
   lf-reach lf-reach-level# @ ['] lr-level-visit lr-down ;
 
 \ A reached metavariable, term or level.
-: lr-term-hole? ( flag term -- flag' ) dup lf-reached? swap lf-mvar? and or ;
-: lr-level-hole? ( flag level -- flag' )
-  dup lf-level-reached? swap lf-level-mvar? and or ;
-: lr-term-holes? ( -- flag )
-  false lf-reach lf-reach-term# @ 0 ?do i lr-term-hole? loop ;
-: lr-level-holes? ( -- flag )
-  false lf-reach lf-reach-level# @ 0 ?do i lr-level-hole? loop ;
+: lr-term-hole? ( term -- flag ) dup lf-reached? swap lf-mvar? and ;
+: lr-level-hole? ( level -- flag ) dup lf-level-reached? swap lf-level-mvar? and ;
+: lr-term-holes? ( -- flag ) lf-reach lf-reach-term# @ ['] lr-term-hole? any? ;
+: lr-level-holes? ( -- flag ) lf-reach lf-reach-level# @ ['] lr-level-hole? any? ;
 : lf-reach-holes? ( -- flag ) lr-term-holes? lr-level-holes? or ;
 
 \ A reached universe parameter of that name.

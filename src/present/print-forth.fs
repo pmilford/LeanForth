@@ -244,8 +244,9 @@ create lf-pf-eol 10 c,
 \ A parameter is written by its name, which must be a usable token. A
 \ level is a visit; lf-pf-level asks for one, continuing with cont.
 defer lf-pf-level-step ( level x frames -- ... frames next )
-: lf-pf-level ( level frames cont -- ... frames next )
-  rot 0 2swap ['] lf-pf-level-step lf-pp-call ;
+\ A visit of x (a level, a term) by its step, continuing with cont.
+: lf-pf-visit ( x frames cont step -- ... frames next ) >r rot 0 2swap r> lf-pp-call ;
+: lf-pf-level ( level frames cont -- ... frames next ) ['] lf-pf-level-step lf-pf-visit ;
 : lf-pf-param ( id -- outcome )
   dup lf-pf-declarable? 0= if drop outcome-unsupported exit then
   lf-pf-mark swap lf-pf-put-name dup lf-pp-pending lf-pf-token?
@@ -369,8 +370,11 @@ defer lf-pf-args ( addr n i frames -- ... frames next )
 \ entry in the side table is explicit and anonymous. A term is a visit;
 \ lf-pf-term asks for one, continuing with cont.
 defer lf-pf-term-step ( term x frames -- ... frames next )
-: lf-pf-term ( term frames cont -- ... frames next )
-  rot 0 2swap ['] lf-pf-term-step lf-pp-call ;
+: lf-pf-term ( term frames cont -- ... frames next ) ['] lf-pf-term-step lf-pf-visit ;
+\ A visit of node's first part, node saved for cont (an arrow's body, an
+\ application's argument).
+: lf-pf-first ( node frames cont -- ... frames next )
+  >r over over frame-save swap lf-term-first@ swap r> lf-pf-term ;
 : lf-pf-kind-word ( kind -- c-addr u )
   case lf-binder-implicit of s" implicit:" endof lf-binder-strict of s" strict-implicit:"
     endof
@@ -419,8 +423,7 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
   >r r@ frame-restore swap ok-then? 0= if r> 0 exit then
   lf-pf-bind-arrow ok-then? 0= if r> 0 exit then
   lf-term-second@ r> ['] lf-pf-arrow-end lf-pf-term ;
-: lf-pf-arrow ( pi frames -- ... frames next )
-  >r dup r@ frame-save lf-term-first@ r> ['] lf-pf-arrow-body lf-pf-term ;
+: lf-pf-arrow ( pi frames -- ... frames next ) ['] lf-pf-arrow-body lf-pf-first ;
 : lf-pf-pi ( pi frames -- ... frames next )
   >r dup lf-pf-arrow? ok-then2? 0= if r> 0 exit then
   if r> lf-pf-arrow else false r> lf-pf-binder then ;
@@ -429,8 +432,7 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
 : lf-pf-app-arg ( outcome frames -- ... frames next )
   >r r@ frame-restore swap ok-then?
   if lf-term-second@ r> ['] lf-pf-app-end lf-pf-term else r> 0 then ;
-: lf-pf-app ( app frames -- ... frames next )
-  >r dup r@ frame-save lf-term-first@ r> ['] lf-pf-app-arg lf-pf-term ;
+: lf-pf-app ( app frames -- ... frames next ) ['] lf-pf-app-arg lf-pf-first ;
 
 \ A term's visit: its node, then its labels and notes, the term waiting
 \ meanwhile. The step for the node's tag comes from a table by tag
@@ -475,8 +477,8 @@ lf-pp-tags ' lf-pf-invalid-step xt-table: lf-pf-steps
 ' lf-pf-str-step lf-tag-str lf-pf-step!
 ' lf-pf-proj-step lf-tag-proj lf-pf-step!
 : lf-pf-node-by ( tag -- xt ) lf-pf-steps xt-table@ ;
-: lf-pf-noted-end ( outcome frames -- outcome frames 0 )
-  >r r@ frame-restore swap ok-then? if lf-pf-notes then r> 0 ;
+: lf-pf-notes-after ( outcome term -- outcome ) swap ok-then? if lf-pf-notes then ;
+: lf-pf-noted-end ( outcome frames -- outcome frames 0 ) ['] lf-pf-notes-after lf-pp-restored ;
 : lf-pf-noted ( term x frames -- ... frames next )
   nip 2dup frame-save ['] lf-pf-noted-end over frame-save
   over lf-pp-tag if lf-pf-node-by else ['] lf-pf-invalid-step then execute ;
@@ -547,8 +549,8 @@ defer lf-pf-type-params ( type frames -- ... frames next )
   lf-pf-eol 1 lf-pp-emit 0 lf-pf-column ! outcome-ok ;
 \ The declaration's visit: header and universes at once, then its parts,
 \ the declaration waiting for its end line.
-: lf-pf-decl-end ( outcome frames -- outcome frames 0 )
-  >r r@ frame-restore swap ok-then? if lf-pf-end then r> 0 ;
+: lf-pf-end-after ( outcome decl -- outcome ) swap ok-then? if lf-pf-end then ;
+: lf-pf-decl-end ( outcome frames -- outcome frames 0 ) ['] lf-pf-end-after lf-pp-restored ;
 : lf-pf-declaration ( decl x frames -- ... frames next )
   >r drop dup lf-pf-header ok-then? 0= if r> 0 exit then
   lf-pf-universes ok-then? 0= if r> 0 exit then

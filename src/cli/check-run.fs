@@ -106,6 +106,7 @@ require ../lib/bytes.fs
 require ../lib/decimal.fs
 require ../lib/bits.fs
 require ../lib/sha256.fs
+require ../lib/xt-table.fs
 require ../core/input.fs
 require ../core/diagnostics.fs
 require ../kernel/environment.fs
@@ -864,7 +865,7 @@ create ck-pline-parts
 \ After a carry run's pass, before any check: the caller's word, which
 \ says how many it carried and will check again (the owner, 2026-11-12).
 : ck-carried! ( xt -- ) ck-state ck-carry-xt ! ;
-: ck-carried. ( -- ) ck-carrying? if ck-state ck-carry-xt @ ?dup if execute then then ;
+: ck-carried. ( -- ) ck-carrying? if ck-state ck-carry-xt @ ?execute then ;
 : ck-run-all ( -- outcome )
   ck-import-pass if ck-carried. lf-input-count ck-steps-any ck-snap-after then
   ck-confirm ck-tally ;

@@ -284,13 +284,15 @@ binder-checks
 
 
 : expr-app ( f a tier -- e outcome ) >r tag-app -rot r> expr-make ;
-: expr-bvar ( i tier -- e outcome ) >r tag-bvar swap 0 r> expr-make ;
-: expr-sort ( level tier -- e outcome ) >r tag-sort swap 0 r> expr-make ;
+\ An expression of the tag with one operand x (the second 0).
+: expr-one ( x tier tag -- e outcome ) swap >r swap 0 r> expr-make ;
+: expr-bvar ( i tier -- e outcome ) tag-bvar expr-one ;
+: expr-sort ( level tier -- e outcome ) tag-sort expr-one ;
 : expr-const ( name list tier -- e outcome ) >r tag-const -rot r> expr-make ;
-: expr-nat ( text tier -- e outcome ) >r tag-nat swap 0 r> expr-make ;
-: expr-str ( text tier -- e outcome ) >r tag-str swap 0 r> expr-make ;
-: expr-fvar ( n tier -- e outcome ) >r tag-fvar swap 0 r> expr-make ;
-: expr-mdata ( e tier -- e' outcome ) >r tag-mdata swap 0 r> expr-make ;
+: expr-nat ( text tier -- e outcome ) tag-nat expr-one ;
+: expr-str ( text tier -- e outcome ) tag-str expr-one ;
+: expr-fvar ( n tier -- e outcome ) tag-fvar expr-one ;
+: expr-mdata ( e tier -- e' outcome ) tag-mdata expr-one ;
 
 \ Walking a tier's own expressions by number: the number after e (a letE
 \ spans two). Unchecked, like the accessors.

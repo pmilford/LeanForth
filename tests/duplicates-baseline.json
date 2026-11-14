@@ -1286,7 +1286,7 @@
   "kind": "shape",
   "members": [
    "src/core/constant-term-boundary.fs:lf-cterm-stamped?",
-   "src/core/generation-handles.fs:lf-hsort-term-ok?"
+   "src/core/generation-handles.fs:lf-term-stamped?"
   ],
   "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (each module's own stamp cell)",
   "tokens": 11

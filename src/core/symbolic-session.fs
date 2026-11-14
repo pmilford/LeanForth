@@ -57,9 +57,7 @@ lf-walk-room context-walk: lf-ssession-walker
 \ symbolic Sort's level is scope-checked with the same budget.
 : lf-ssession-sort ( first second walk -- outcome ) nip lf-lscope-walk-check ;
 : lf-ssession-dispatch ( first second walk tag -- outcome )
-  dup lf-term-binary-tag? if drop walk-push2 exit then
-  case lf-tag-symbolic-sort of lf-ssession-sort endof
-    lf-tag-bvar of drop 2drop outcome-ok endof walk-bad-tag endcase ;
+  ['] lf-ssession-sort lf-symbolic-dispatch ;
 : lf-ssession-visit ( walk -- outcome ) ['] lf-ssession-dispatch lf-term-visit ;
 
 \ Check one root: representation and shape first, then the level of every

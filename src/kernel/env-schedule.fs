@@ -112,6 +112,7 @@
 
 require ../lib/lib.fs
 require ../lib/slab.fs
+require ../lib/xt-table.fs
 require ../lib/u32.fs
 require ../lib/task.fs
 require ../lib/sort.fs
@@ -467,12 +468,12 @@ variable lf-sched-faults  0 lf-sched-faults !
 \ ---- Finality, as the publisher left it (read raw: the driving task
 \ holds no snapshot), and the frontier below which every slot is final.
 : lf-sch-stop! ( d -- ) lf-sched lf-sch-stop-at dup @ rot min swap ! ;
-: lf-sch-ready! ( d -- )
-  lf-sch-queued over lf-sch-state! lf-sched lf-sch-ready pq-push ok? 0=
-  if true lf-sched lf-sch-broken ! then ;
-: lf-sch-later! ( d -- )
-  lf-sch-later over lf-sch-state! lf-sched lf-sch-laters pq-push ok? 0=
-  if true lf-sched lf-sch-broken ! then ;
+\ Slot d queued with the state on the queue (a heap the queue cannot grow
+\ breaks the schedule): ready to run, or later.
+: lf-sch-enqueue ( d state queue -- )
+  >r over lf-sch-state! r> pq-push ok? 0= if true lf-sched lf-sch-broken ! then ;
+: lf-sch-ready! ( d -- ) lf-sch-queued lf-sched lf-sch-ready lf-sch-enqueue ;
+: lf-sch-later! ( d -- ) lf-sch-later lf-sched lf-sch-laters lf-sch-enqueue ;
 : lf-sch-front@ ( -- n ) lf-sched lf-sch-frontier @ ;
 : lf-sch-advance ( -- )
   begin lf-sch-front@ dup lf-sch-n < if lf-env-done? else drop false then while
@@ -611,7 +612,7 @@ variable lf-sched-faults  0 lf-sched-faults !
 : lf-sched-tick! ( xt -- ) lf-sched lf-sch-tick ! ;
 : lf-sched-pre! ( xt -- ) lf-sched lf-sch-pre ! ;
 : lf-sched-final ( -- n ) lf-sched-reached lf-sched-stop min ;
-: lf-sch-ticked ( -- ) lf-sched lf-sch-tick @ ?dup if execute then ;
+: lf-sch-ticked ( -- ) lf-sched lf-sch-tick @ ?execute ;
 : lf-sch-loop ( -- )
   begin lf-sch-fill-workers lf-sch-busy? while lf-sch-wait-one lf-sch-ticked repeat ;
 : lf-sch-owner ( d -- u )

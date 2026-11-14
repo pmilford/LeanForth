@@ -129,9 +129,7 @@ create lf-mls-set-hooks /htab-hooks allot
 : lf-mls-reached? ( index -- flag ) lf-mls-find nip ;
 \ A list or set the heap cannot grow is full, recorded with its count and
 \ room.
-: lf-mls-crowded ( n -- n )
-  dup lf-mls-reached-cells slab-capacity lf-mls-site
-  lf-diag-work-stack-full lf-diag-note ;
+: lf-mls-crowded ( n -- n ) lf-mls-reached-cells lf-mls-site lf-diag-slab-full ;
 : lf-mls-list ( index -- outcome )
   lf-mls-reached @ lf-mls-reached-cells lf-cells-add
   dup outcome-full = if swap lf-mls-crowded swap then swap lf-mls-reached ! ;

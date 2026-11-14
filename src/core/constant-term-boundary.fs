@@ -235,8 +235,10 @@ create lf-pair-hooks /htab-hooks allot
 \ Dispatch with xt ( first second walk tag -- outcome ) a node not seen
 \ before; one seen before is ok, nothing pushed.
 : lf-walk-skip ( first second walk tag -- outcome ) 2drop 2drop outcome-ok ;
-: lf-walk-once ( first second walk tag xt -- outcome )
-  2 pick lf-walk-seen? if drop lf-walk-skip exit then execute ;
+\ (lf-walk-once-by takes the walk's test seen ( walk -- flag ).)
+: lf-walk-once-by ( first second walk tag xt seen -- outcome )
+  3 pick swap execute if drop lf-walk-skip exit then execute ;
+: lf-walk-once ( first second walk tag xt -- outcome ) ['] lf-walk-seen? lf-walk-once-by ;
 \ The same at exactly the node's depth, for a check whose verdict at a
 \ node can change with its depth either way, as Lean's for_each with an
 \ offset visits each shared (term, offset) pair once (for_each_fn.cpp,
@@ -255,14 +257,14 @@ create lf-pair-hooks /htab-hooks allot
   lf-walk-pair 2 pick lf-mark-at 2dup lf-unit-stamp @ =
   if lf-mark-other? else lf-mark-set drop false then ;
 : lf-walk-once-at ( first second walk tag xt -- outcome )
-  2 pick lf-walk-seen-at? if drop lf-walk-skip exit then execute ;
+  ['] lf-walk-seen-at? lf-walk-once-by ;
 \ The same for a walk run inside another's visit (review rvKN 2), also
 \ started by lf-walk-pairing: every pair it reaches is kept in the pair
 \ set alone, so the outer walk's units, and the nodes they let it skip,
 \ stay as they are.
 : lf-walk-seen-aside? ( walk -- flag ) lf-walk-pair lf-pairs-seen? ;
 : lf-walk-once-aside ( first second walk tag xt -- outcome )
-  2 pick lf-walk-seen-aside? if drop lf-walk-skip exit then execute ;
+  ['] lf-walk-seen-aside? lf-walk-once-by ;
 
 \ The audit memo (compact-store plan step S6 (c); ADR 0014 Amendment 4):
 \ in a check, the structural audit below checks a node once, not once per
@@ -440,9 +442,8 @@ end-structure
 
 \ Stamp cells of a constant node at a valid term index: its own identity
 \ and its reference's.
-: lf-cterm-stamp-cell ( index -- addr ) lf-term-stamps lf-stamp-own ;
 : lf-cterm-ref-cell ( index -- addr ) lf-term-stamps lf-stamp-ref ;
-: lf-cterm-stamp ( term identity -- ) swap lf-cterm-stamp-cell ! ;
+: lf-cterm-stamp ( term identity -- ) swap lf-term-own-stamp ! ;
 \ The reference a constant node was made for: its index and the identity
 \ stamped with the node (0 for a node made raw).
 : lf-cterm-ref ( node -- cref identity ) dup lf-term-first@ swap lf-cterm-ref-cell @ ;
@@ -463,12 +464,10 @@ end-structure
 \ lf-term-reusable?). Re-stamping a node given again writes what it holds.
 \ A constant's reference, like a Sort's level, must still be the record
 \ it was made for.
-: lf-cterm-stamped? ( node -- flag )
-  dup lf-term-identity if swap lf-cterm-stamp-cell @ = else drop false then ;
 : lf-cterm-ref-live? ( node -- flag )
   lf-cterm-ref swap lf-cref-current dup 0<> -rot = and ;
 : lf-cterm-made? ( node -- flag )
-  dup lf-cterm-stamped? if lf-cterm-ref-live? else drop false then ;
+  dup lf-term-stamped? if lf-cterm-ref-live? else drop false then ;
 : lf-cterm-reusable? ( n -- flag )
   dup lf-term-tag@ case
     lf-tag-constant of lf-cterm-made? endof
@@ -508,7 +507,7 @@ end-structure
   over ok? if walk-node @ lf-cterm-ref lf-audit-cref-mark else drop then ;
 : lf-cterm-reference ( first second walk -- outcome )
   swap if 2drop outcome-invalid exit then nip
-  dup walk-node @ lf-cterm-stamped? 0= if drop outcome-invalid exit then
+  dup walk-node @ lf-term-stamped? 0= if drop outcome-invalid exit then
   >r r@ walk-node @ lf-cterm-ref lf-cref-levels
   if r@ lf-cterm-levels r> lf-cterm-reached else r> drop outcome-invalid then ;
 : lf-cterm-sort? ( first second node -- flag )

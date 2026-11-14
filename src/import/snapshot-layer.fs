@@ -280,7 +280,7 @@ end-structure
   swap 1+ 2dup swap ly-fam-units u< 0= if 2drop 0 outcome-invalid exit then
   over ly-fam-rec dup ly-head drop tag-let-body <> if 2drop 0 outcome-invalid exit then
   quad-a u32@ swap ly-fam-xlate ;
-: ly-fam-operands ( j fam -- a b ) ly-fam-rec dup quad-a u32@ swap quad-b u32@ ;
+: ly-fam-operands ( j fam -- a b ) ly-fam-rec quad-ab@ ;
 : ly-fam-two ( a b fam -- a' b' outcome ) ly-fam-ly ly-two ;
 \ A letE (head, at record j): its body, then its type and value.
 : ly-fam-let ( head j fam -- e outcome )

@@ -557,14 +557,15 @@ end-structure
 : lf-slot-undecided? ( slot -- flag )
   lf-slot-outcome@ dup ok? over outcome-rejected = or swap outcome-unsupported = or 0= ;
 : lf-final-slot ( slot -- slot true | false ) dup lf-slot-final? ?keep ;
+\ A final slot that is rejected, undecided or unsupported.
+: lf-slot-rejected? ( slot -- flag )
+  dup lf-slot-final? swap lf-slot-outcome@ outcome-rejected = and ;
+: lf-slot-final-undecided? ( slot -- flag ) dup lf-slot-final? swap lf-slot-undecided? and ;
+: lf-slot-final-unsupported? ( slot -- flag ) dup lf-slot-final? swap lf-slot-unsupported? and ;
 \ A rejected slot whose name Lean's kernel holds (lf-env-added!).
-: lf-slot-added? ( slot -- flag )
-  dup lf-slot-final? over lf-slot-outcome@ outcome-rejected = and
-  swap lf-slot-added @ 0<> and ;
+: lf-slot-added? ( slot -- flag ) dup lf-slot-rejected? swap lf-slot-added @ 0<> and ;
 \ A rejected slot of a declaration Lean's replay skips (lf-env-skipped!).
-: lf-slot-skipped? ( slot -- flag )
-  dup lf-slot-final? over lf-slot-outcome@ outcome-rejected = and
-  swap lf-slot-skipped @ 0<> and ;
+: lf-slot-skipped? ( slot -- flag ) dup lf-slot-rejected? swap lf-slot-skipped @ 0<> and ;
 \ A slot later declarations may use: accepted, or added by Lean's kernel
 \ (its own verdict stays rejected; ADR 0015 decision 11).
 \ An added slot is usable once the publisher wrote its record (its
@@ -772,10 +773,9 @@ end-structure
   lf-slot-index lf-input-decl lf-idecl-kind @ lf-kind-inductive = ;
 : lf-slot-type-open? ( slot -- flag ) dup lf-slot-open? swap lf-slot-type? and ;
 : lf-slot-type-accepted? ( slot -- flag ) dup lf-slot-accepted? swap lf-slot-type? and ;
-: lf-slot-type-undecided? ( slot -- flag )
-  dup lf-slot-final? over lf-slot-undecided? and swap lf-slot-type? and ;
+: lf-slot-type-undecided? ( slot -- flag ) dup lf-slot-final-undecided? swap lf-slot-type? and ;
 : lf-slot-type-unsupported? ( slot -- flag )
-  dup lf-slot-final? over lf-slot-unsupported? and swap lf-slot-type? and ;
+  dup lf-slot-final-unsupported? swap lf-slot-type? and ;
 : lf-slot-type-added? ( slot -- flag ) dup lf-slot-added? swap lf-slot-type? and ;
 \ The tests, in order, each with the class it gives: an entry is a test
 \ ( slot -- flag ) and its class. A type rejected only by B3 holds T.rec
@@ -843,10 +843,9 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
   lf-slot-index lf-input-decl lf-idecl-kind @ lf-kind-quotient = ;
 : lf-slot-quot-open? ( slot -- flag ) dup lf-slot-open? swap lf-slot-quot? and ;
 : lf-slot-quot-accepted? ( slot -- flag ) dup lf-slot-accepted? swap lf-slot-quot? and ;
-: lf-slot-quot-undecided? ( slot -- flag )
-  dup lf-slot-final? over lf-slot-undecided? and swap lf-slot-quot? and ;
+: lf-slot-quot-undecided? ( slot -- flag ) dup lf-slot-final-undecided? swap lf-slot-quot? and ;
 : lf-slot-quot-unsupported? ( slot -- flag )
-  dup lf-slot-final? over lf-slot-unsupported? and swap lf-slot-quot? and ;
+  dup lf-slot-final-unsupported? swap lf-slot-quot? and ;
 create lf-env-quot-holders
   ' lf-slot-quot-open? , outcome-invalid ,  ' lf-slot-quot-accepted? , outcome-ok ,
   ' lf-slot-quot-undecided? , outcome-unknown ,

@@ -127,6 +127,12 @@
 : any? ( i*x n xt -- i*x flag )
   dup 1+ swap ?do 0 max 0 ?do i j execute if true unloop unloop exit then
   loop loop false ;
+\ The same for k = lo, lo+1, ... hi-1 (none when hi <= lo), for a search
+\ that starts part way. Example, whether a table holds a negative cell
+\ from index 2 on: `table 2 n ' cell-neg? any-in? nip`.
+: any-in? ( i*x lo hi xt -- i*x flag )
+  dup 1+ swap ?do over max swap ?do i j execute if true unloop unloop exit then
+  loop loop false ;
 \ The same as all? for a test that may fail, xt ( i*x k -- i*x flag outcome ):
 \ true and ok when every test gives true and ok; else false beside the
 \ first answer's outcome that stops the loop, ok for a plain false. n <=

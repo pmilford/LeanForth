@@ -135,8 +135,13 @@ variable imp-current
 \ ---- Arrays of 32-bit numbers in heap blocks the record owns.
 : ua@ ( i addr -- u ) swap u32s + u32@ ;
 : ua! ( u i addr -- ) swap u32s + u32! ;
-\ A zeroed array of n numbers at the cell addr: ok, or full.
+\ A zeroed array of n numbers at the cell addr: ok, or full; one at the
+\ record's field array-xt ( rec -- addr ) of as many numbers as its field
+\ count-xt ( rec -- addr ) holds.
 : ua-new ( n addr -- outcome ) swap u32s swap block-zeroed ;
+: ua-sized ( rec count-xt array-xt -- outcome ) >r over swap execute @ swap r> execute ua-new ;
+\ Entry i of the array at a1, or, where that holds 0, of the array at a2.
+: ua@-or ( i a1 a2 -- u ) >r over swap ua@ ?dup if nip r> drop exit then r> ua@ ;
 \ The carry pass's blocks (plan step 6.2.5c3-c4).
 : carry-free ( imp -- imp )
   dup imp-sd-of heap-release dup imp-why heap-release dup imp-cand heap-release
@@ -150,7 +155,9 @@ variable imp-current
 \ ---- S kept aside, from a stage tier-read filled, before the export is
 \ read into it: its declarations, each one's slot, and each name's newest
 \ declaration (its chain, staged-prev, leads to the others).
-: s-decl ( sd imp -- addr ) imp-sdecls @ swap /staged * + ;
+\ Record i of an array of staged records at addr.
+: staged-in ( i addr -- addr' ) swap /staged * + ;
+: s-decl ( sd imp -- addr ) imp-sdecls @ staged-in ;
 : s-count ( imp -- n ) imp-sdecls# @ ;
 : s-kind ( sd imp -- kind ) s-decl staged-head u32@ head-tag ;
 : s-name ( sd imp -- name ) s-decl staged-name u32@ ;
@@ -219,13 +226,15 @@ variable imp-current
   dup lf-input-count <> if 2drop outcome-invalid exit then swap imp-n ! outcome-ok ;
 \ What is taken, and why the rest is not: per input declaration, per S
 \ slot; and I3's maps (below).
-: imp-from-room ( imp -- outcome ) dup imp-n @ swap imp-from ua-new ;
-: imp-why-room ( imp -- outcome ) dup imp-n @ swap imp-why ua-new ;
-: imp-to-room ( imp -- outcome ) dup imp-sn @ swap imp-to ua-new ;
+: imp-from-room ( imp -- outcome ) ['] imp-n ['] imp-from ua-sized ;
+: imp-why-room ( imp -- outcome ) ['] imp-n ['] imp-why ua-sized ;
+: imp-to-room ( imp -- outcome ) ['] imp-sn ['] imp-to ua-sized ;
+: imp-cand-room ( imp -- outcome ) ['] imp-n ['] imp-cand ua-sized ;
+: imp-same-from-room ( imp -- outcome ) ['] imp-n ['] imp-same-from ua-sized ;
+: imp-same-to-room ( imp -- outcome ) ['] imp-sn ['] imp-same-to ua-sized ;
 : same-maps ( imp -- outcome )
-  dup imp-n @ over imp-cand ua-new dup ok? 0= if nip exit then drop
-  dup imp-n @ over imp-same-from ua-new dup ok? 0= if nip exit then drop
-  dup imp-sn @ swap imp-same-to ua-new ;
+  outcome-ok ['] imp-cand-room ok-with ['] imp-same-from-room ok-with
+  ['] imp-same-to-room ok-with nip ;
 : imp-input ( imp -- outcome )
   outcome-ok ['] imp-staged-room ok-with ['] imp-input-slots ok-with
   ['] imp-from-room ok-with ['] imp-why-room ok-with ['] imp-to-room ok-with
@@ -240,15 +249,22 @@ variable imp-current
   2dup head-of swap head-of = >r
   staged-name 6 u32s rot staged-name 6 u32s compare 0= r> and ;
 : decls-alike? ( ie sd imp -- flag ) tuck s-decl >r e-decl r> decl-same? ;
-\ n declarations from ie and from sd alike.
-: span-same? ( ie sd n imp -- flag )
-  swap >r true r> 0 ?do 3 pick i + 3 pick i + 3 pick decls-alike? and loop nip nip nip ;
-\ A member's block record: the nearest block record before it; -1 for
-\ none (S's declarations are never fed, so the loader checked no block).
-: s-block ( sd imp -- sb|-1 )
-  begin over 0< 0= while 2dup s-kind block? if drop exit then swap 1- swap repeat drop ;
-: e-block ( ie imp -- eb|-1 )
-  begin over 0< 0= while 2dup e-kind block? if drop exit then swap 1- swap repeat drop ;
+\ Whether test ( a b imp -- flag ) holds for a+k and b+k, k < n: two spans
+\ compared record by record (here n declarations from ie and from sd
+\ alike; env-layers.fs's declarations and verdicts).
+: span-at? ( a b imp test k -- a b imp test flag )
+  >r 3 pick r@ + 3 pick r> + 3 pick 3 pick execute ;
+: span-all? ( a b n imp test -- flag ) rot ['] span-at? all? >r 2drop 2drop r> ;
+: span-same? ( ie sd n imp -- flag ) ['] decls-alike? span-all? ;
+\ A member's block record: the nearest block record before it, whose kind
+\ kind-xt ( k imp -- kind ) reads; -1 for none (S's declarations are
+\ never fed, so the loader checked no block).
+: block-before ( k imp kind-xt -- b|-1 )
+  >r begin over 0< 0= while
+    2dup r@ execute block? if drop r> drop exit then swap 1- swap
+  repeat drop r> drop ;
+: s-block ( sd imp -- sb|-1 ) ['] s-kind block-before ;
+: e-block ( ie imp -- eb|-1 ) ['] e-kind block-before ;
 : blocks-of ( ie sd imp -- eb sb ) tuck s-block >r e-block r> ;
 \ The members of the input's block eb: its types, constructors, recursors.
 : block-size ( eb imp -- m )
@@ -287,8 +303,7 @@ variable imp-current
 : saved-deps ( d -- j n ) dup start@ drop swap sl-deps swap saved ;
 \ S's slot s has a slot here: taken from it, or (I3, plan step 6.2.5c4)
 \ checked here with its answer fields.
-: dep-taken ( s imp -- e+1|0 )
-  2dup imp-to @ ua@ ?dup if nip nip exit then imp-same-to @ ua@ ;
+: dep-taken ( s imp -- e+1|0 ) dup imp-to @ swap imp-same-to @ ua@-or ;
 : deps-taken? ( d imp -- flag )
   swap saved-deps bounds ?do
     i snap@ dep@ over dep-taken 0= if drop false unloop exit then
@@ -300,8 +315,7 @@ variable imp-current
   loop true ;
 \ An answer of this run in S's terms: the slot it gives, taken from S's
 \ (or, I3, checked here with the answer fields of S's).
-: s-of ( k imp -- d+1|0 )
-  2dup imp-from @ ua@ ?dup if nip nip exit then imp-same-from @ ua@ ;
+: s-of ( k imp -- d+1|0 ) dup imp-from @ swap imp-same-from @ ua@-or ;
 : answer-taken ( answer imp -- answer' true | false )
   over lf-look-slot+1 ?dup 0= if drop true exit then
   1- swap s-of ?dup 0= if drop false exit then
@@ -525,7 +539,7 @@ kind-quot kind-axiom - 1+ constant reach-kinds#
   2dup dup layer-number -rot renum! lslot! ;
 : imp-which ( j -- k ) imp@ imp-lslots @ ua@ ;
 : imp-renumber ( k -- s ) imp@ imp-renum @ ua@ ;
-: ldecl ( ld imp -- addr ) imp-ldecls @ swap /staged * + ;
+: ldecl ( ld imp -- addr ) imp-ldecls @ staged-in ;
 : base-newest ( name imp -- u )
   2dup imp-names# @ u< if imp-newest @ ua@ else 2drop 0 then ;
 : lchain ( name imp -- u ) 2dup imp-lnewest @ ua@ ?dup if nip nip exit then base-newest ;
@@ -549,8 +563,8 @@ kind-quot kind-axiom - 1+ constant reach-kinds#
 : layer-decls ( imp -- outcome )
   0 over e-count 0 ?do i 2 pick lstep dup ok? 0= if nip nip unloop exit then drop loop
   2drop outcome-ok ;
-: imp-renum-room ( imp -- outcome ) dup imp-n @ swap imp-renum ua-new ;
-: imp-lslots-room ( imp -- outcome ) dup imp-n @ swap imp-lslots ua-new ;
+: imp-renum-room ( imp -- outcome ) ['] imp-n ['] imp-renum ua-sized ;
+: imp-lslots-room ( imp -- outcome ) ['] imp-n ['] imp-lslots ua-sized ;
 : imp-ldecls-room ( imp -- outcome ) dup e-count /staged * swap imp-ldecls block-zeroed ;
 : imp-llines-room ( imp -- outcome ) dup e-count swap imp-llines ua-new ;
 : imp-lnewest-room ( imp -- outcome )

@@ -339,9 +339,8 @@ create lf-tfields-hooks /htab-hooks allot
 \ The fields by how the code reads them (see above): a pair of children;
 \ the raw fields; a let's lambda's type and body (the let's second
 \ record).
-: lf-tin-pair@ ( index -- first second )
-  lf-tin-at dup quad-a u32@ lf-tin-child swap quad-b u32@ lf-tin-child ;
-: lf-tin-raw@ ( index -- first second ) lf-tin-at dup quad-a u32@ swap quad-b u32@ ;
+: lf-tin-raw@ ( index -- first second ) lf-tin-at quad-ab@ ;
+: lf-tin-pair@ ( index -- first second ) lf-tin-raw@ swap lf-tin-child swap lf-tin-child ;
 : lf-tin-let-lam@ ( index -- first second )
   lf-tin-at dup quad-a u32@ lf-tin-child swap /quad + quad-a u32@ lf-tin-child ;
 : lf-tin-moded@ ( index x -- first second )

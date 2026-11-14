@@ -47,7 +47,7 @@ lf-walk-room context-walk2: lf-cts-walker
 : lf-cts-visit ( walk -- outcome ) ['] lf-cts-once lf-term-visit ;
 : lf-cts-run ( root depth -- outcome )
   lf-cts-walker lf-walk-marking
-  ['] lf-cts-visit lf-cts-walker walk-run-pair lf-cts-walker lf-cts-site lf-diag-walk ;
+  ['] lf-cts-visit lf-cts-walker lf-cts-site lf-diag-run-pair ;
 
 \ The whole graph is first validated by lf-cterm-check; the scope walk then
 \ continues with the fuel it leaves. On a failed validation lf-cts-fuel

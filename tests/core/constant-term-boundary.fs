@@ -105,12 +105,12 @@ T{ 0 cid @ 10 lf-cterm-check -> outcome-invalid }T
 repeat true lf-term-sharing! ;
 fill-terms
 0 lf-name-generation @ 0 0 lf-cref-new drop rid ! rindex !
-63 lf-cterm-stamp-cell @ saved-child !
+63 lf-term-own-stamp @ saved-child !
 rindex @ rid @ lf-cterm-new drop cid ! drop
 T{ 63 cid @ 10 lf-cterm-check -> outcome-ok }T
 T{ cid @ lf-term-capacity > -> true }T
-T{ 63 lf-cterm-stamp-cell @ -> cid @ }T
-T{ 62 lf-cterm-stamp-cell @ -> 0 }T
+T{ 63 lf-term-own-stamp @ -> cid @ }T
+T{ 62 lf-term-own-stamp @ -> 0 }T
 T{ rindex @ rid @ lf-cterm-new -> false }T
 lf-level-reset
 T{ 63 cid @ 10 lf-cterm-check -> outcome-invalid }T
@@ -188,7 +188,7 @@ T{ 5 pid @ 8 lf-cterm-check lf-cterm-fuel @ -> outcome-exhausted 0 }T
 T{ 5 pid @ 1+ 7 lf-cterm-check lf-cterm-fuel @ -> outcome-invalid 7 }T
 T{ 5 pid @ -1 lf-cterm-check lf-cterm-fuel @ -> outcome-invalid 7 }T
 T{ 5 pid @ 100 ' lf-cterm-check rs-checked -> outcome-ok }T
--3 0 lf-cterm-stamp-cell !
+-3 0 lf-term-own-stamp !
 T{ 5 pid @ 100 lf-cterm-check lf-cterm-fuel @ -> outcome-invalid 95 }T
 \ The contract's outcome set: only ok, invalid, exhausted or full, which
 \ the rebuilding passes pass on unnarrowed. Every index from -1 to 64 with

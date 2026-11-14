@@ -169,15 +169,30 @@ end-structure
 \ ok goes (false), the cells still kept.
 : lf-pp-failed? ( outcome frames n -- outcome frames true | frames false )
   >r over ok? if nip r> drop false else r> over frame-drop true then ;
+\ A continuation that, unless the part failed, restores the three values
+\ saved under it and goes on with next ( x1 x2 x3 frames -- ... frames
+\ next ): the next of a list's items.
+: lf-pp-back3 ( outcome frames next -- ... frames next )
+  >r 3 lf-pp-failed? if r> drop 0 exit then dup >r lf-pp-restore3 r> r> execute ;
 \ The step of a visit that cannot print its node: invalid.
 : lf-pp-invalid-step ( a b frames -- outcome frames 0 ) >r 2drop outcome-invalid r> 0 ;
 \ One unit of fuel for a step along a spine or chain, false when none is left.
 : lf-pp-spend ( -- flag ) lf-print-fuel dup @ 0> if -1 swap +! true else drop false then ;
+\ Steps along a spine or chain from k = 0, one unit of fuel each, while
+\ step ( x k -- x' k' true | x k false ) goes on: x and k where it
+\ stopped and ok, or exhausted when the fuel ran out first.
+: lf-pp-fuelled ( x step -- x' k outcome )
+  >r 0 begin lf-pp-spend 0= if r> drop outcome-exhausted exit then r@ execute 0= until
+  r> drop outcome-ok ;
 \ Close a parenthesis opened when flag is true; the step that does so for
 \ the flag saved under it, at the end of a part.
 : lf-pp-wrap ( outcome flag -- outcome ) if s" )" lf-pp-emit then ;
-: lf-pp-wrapped ( outcome frames -- outcome frames 0 )
-  >r r@ frame-restore lf-pp-wrap r> 0 ;
+\ A continuation that restores the value saved under it and ends with
+\ step ( outcome x -- outcome ) on it: closing a parenthesis, leaving a
+\ scope (term-printer.fs), ending a part (print-forth.fs).
+: lf-pp-restored ( outcome frames step -- outcome frames 0 )
+  swap >r r@ frame-restore swap execute r> 0 ;
+: lf-pp-wrapped ( outcome frames -- outcome frames 0 ) ['] lf-pp-wrap lf-pp-restored ;
 \ A walk (lib/walk.fs) borrows the print's fuel and gives back what is left.
 : lf-pp-lend ( walk -- ) lf-print-fuel @ swap walk-budget drop ;
 : lf-pp-repay ( walk -- ) walk-fuel @ lf-print-fuel ! ;
