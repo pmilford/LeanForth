@@ -330,6 +330,9 @@ unstage
 : one-limb ( first n -- n limb ) swap lf-lit-limbs slab-at @ ;
 T{ s" 12" lf-lit-decimal -rot one-limb -> true 1 12 }T
 T{ s" 0" lf-lit-decimal s" 1x" lf-lit-decimal -> 0 0 true false }T
+\ Each read's arena is freed, read or refused (reuse-out-2: one word
+\ lf-lit-decimal-by for both readers).
+T{ live-blocks @ s" 34" lf-lit-decimal 2drop drop s" 3x" lf-lit-decimal drop live-blocks @ = -> true }T
 create bad-utf8 255 c,
 T{ bad-utf8 1 lf-str-fields nip nip s" ab" lf-str-fields rot drop
    -> outcome-invalid 2 outcome-ok }T

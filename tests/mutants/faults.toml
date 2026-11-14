@@ -17592,7 +17592,7 @@ id = "r2-whnf-scan-bvar-passed"
 file = "src/kernel/whnf.fs"
 old = '''  lf-tag-bvar = if r> execute else r> 2drop 2drop outcome-ok then ;'''
 new = '''  drop r> 2drop 2drop outcome-ok ;'''
-test = "$GFORTH tests/core/whnf.fs && $GFORTH tests/core/check-block.fs"
+test = "$GFORTH tests/core/no-data-terms.fs"
 reason = "the loose-variable scans pass every bound variable: a term with one counts as closed"
 
 [[fault]]
@@ -17600,7 +17600,7 @@ id = "r2-tex-trailing-one-more"
 file = "src/present/latex-text.fs"
 old = '''  r> drop r> over - ;'''
 new = '''  r> drop r> over - 1+ ;'''
-test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Names"
+test = "GFORTH=$GFORTH python3 tests/present/check_golden.py"
 reason = "a name's trailing primes and digits counted one too many in LaTeX"
 
 [[fault]]
@@ -17608,7 +17608,7 @@ id = "r2-term-inner-flat"
 file = "src/core/terms.fs"
 old = '''  lf-term-binder-tag? 0= if true exit then dup max-n = if drop false else 1+ true then ;'''
 new = '''  lf-term-binder-tag? 0= if true exit then dup max-n = if drop false else true then ;'''
-test = "$GFORTH tests/core/constant-term-scope.fs"
+test = "$GFORTH tests/core/terms.fs"
 reason = "a binder's body is scanned at the binder's own depth: its variable reads as loose"
 
 [[fault]]
@@ -17616,7 +17616,7 @@ id = "r2-more-at-off"
 file = "src/core/input.fs"
 old = ''': lf-more-at ( ref -- addr|0 ) ?dup if 1- lf-more-cell else 0 then ;'''
 new = ''': lf-more-at ( ref -- addr|0 ) ?dup if lf-more-cell else 0 then ;'''
-test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+test = "$GFORTH tests/core/check-block.fs"
 reason = "a declaration's data read one cell late"
 
 [[fault]]
@@ -17640,7 +17640,7 @@ id = "r2-ind-members-any"
 file = "src/kernel/inductive-block.fs"
 old = ''': lf-ind-members-ok? ( -- flag ) lf-ind-members ['] lf-ind-member-ok? all? ;'''
 new = ''': lf-ind-members-ok? ( -- flag ) lf-ind-members ['] lf-ind-member-ok? any? ;'''
-test = "$GFORTH tests/core/check-block.fs"
+test = "$GFORTH tests/core/check-forged.fs && $GFORTH tests/core/check-block.fs"
 reason = "a block whose first member is well formed passes the member check whatever the others are"
 
 [[fault]]
@@ -17666,6 +17666,7 @@ old = ''': lf-env-all-final? ( -- flag ) lf-input-count ['] lf-env-final? all? ;
 new = ''': lf-env-all-final? ( -- flag ) lf-input-count 1- ['] lf-env-final? all? ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "a run whose last declaration is left open is confirmed"
+gap = "no test confirms a run record whose run stopped on its last declaration, leaving only that slot open (9.4.8k follow-up 7)"
 
 [[fault]]
 id = "r2-walk-push-unless-all"
