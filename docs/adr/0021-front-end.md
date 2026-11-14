@@ -333,3 +333,23 @@ failed tactic or elaboration still stops the text, and LeanForth never fills a f
   fields are a [format] decision when the code is built.
 - Owner's reason: their example "a theorem that has two subparts … force one to be true to check the other" is
   Lean's own `sorry`, and LeanForth behaves exactly as Lean by default.
+
+## Amendment 2 (2026-11-13): the front end reads the library from the stage (D13)
+
+Approval status: accepted 2026-11-13, gate: import, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section
+"[import]: S1's library route (2026-11-13, afternoon)"; designed in [S1_INTERFACE.md](../design/S1_INTERFACE.md) §1; built in branch `s1-meta-b`
+(merge B, reviewed: [report](../development/forth-reviews/2026-11-13-s1-meta-b.md)), merged 2026-11-13.
+
+This replaces the last clause of D13's first bullet ("neither new folder uses `kernel/` or `import/` except through the
+record route of D1, which `cli/` drives"):
+
+- `front/` may read a stage through `import/stage.fs`'s read-only words, as `meta-env.fs` and `elab-data.fs` already
+  do; only `cli/` drives the record route. `front/` never writes, extends, seals or feeds a stage:
+  `tests/front/test_front_imports.py` holds `front/`'s words of `import/` to a read-only allowlist, and a planted fault
+  that seals the stage from `front/` is caught (`fe-env-writes`).
+- What the front end decodes from the stage (`front/lib-decode.fs`) is scratch of the run: it never enters the text's
+  declarations, `lfc-empty` empties it before the stage is sealed, and only the hand-over's records reach the kernel,
+  which reads the library itself. A wrong decode changes only the elaborated term; the kernel guards validity.
+- In a context with a fed input (the tests; later plans 8.2.1e and 8.2.1g) the front end writes only above the input's
+  marks: the front-end tests over a fed input assert `lf-input-intact?`, and a planted fault writing below is caught
+  (`fe-env-intact`).

@@ -31,6 +31,12 @@
 \ - A tag (Lean's MetavarDecl.userName, a goal's case name: zero, succ),
 \   anonymous (0) when made; lf-mvar-tag! sets it, lf-mvar-kind! changes
 \   the kind (Lean's setTag, setKind), both noted under a mark.
+\ - The instance-typed flag (Lean's mctx.instanceTypedMVars,
+\   MetavarContext.lean:383, 467): false when made; lf-mvar-mark-inst
+\   ( mvar -- outcome ) sets it (markInstanceTyped, which synthesis's
+\   subgoals call, SynthInstance.lean:358), noted under a mark like a
+\   kind; lf-mvar-inst? ( mvar -- flag ) reads it (isInstanceTyped),
+\   false for a metavariable that is not live.
 \ - lf-mvar-assign checks that the leaf is live (a stale leaf, of an
 \   earlier context or an emptied one, is refused), that the metavariable
 \   has no assignment yet, plain or delayed, and the occurs check: the
@@ -140,6 +146,7 @@ begin-structure /mvd
   field: mvd-pending      \ a delayed assignment's pending metavariable, or -1
   field: mvd-fvars        \ and the first of its free variables in mv-fvars
   field: mvd-fvars#       \ and how many
+  field: mvd-inst         \ true: instance-typed (Lean's instanceTypedMVars)
 end-structure
 begin-structure /mvl
   field: mvl-depth
@@ -427,13 +434,14 @@ end-structure
 4 constant mv-was-kind
 5 constant mv-was-fvars
 6 constant mv-was-fvars#
+7 constant mv-was-inst
 \ The field an entry names: the record's (of mv-levels for a level
 \ assignment, else of mv-exprs) at the kind's offset.
 : mv-offset ( kind -- u )
   case mv-was-value of 0 mvd-value endof  mv-was-level of 0 mvl-value endof
     mv-was-delay of 0 mvd-pending endof  mv-was-tag of 0 mvd-tag endof
     mv-was-kind of 0 mvd-kind endof  mv-was-fvars of 0 mvd-fvars endof
-    0 mvd-fvars# swap endcase ;
+    mv-was-inst of 0 mvd-inst endof  0 mvd-fvars# swap endcase ;
 : mv-record ( n kind -- addr ) mv-was-level = if mvl-decl else mv-decl then ;
 : mv-cell ( entry -- addr ) dup 3 rshift over 7 and mv-record swap 7 and mv-offset + ;
 : mv-entry ( n kind -- entry ) swap 3 lshift or ;
@@ -565,6 +573,10 @@ end-structure
 : lf-mvar-tag! ( mvar name -- outcome )
   2dup lf-user-name? swap lf-mvar-live? and 0= if 2drop outcome-invalid exit then
   swap mv-number mv-was-tag mv-change ;
+: lf-mvar-mark-inst ( mvar -- outcome )
+  dup lf-mvar-live? 0= if drop outcome-invalid exit then
+  true swap mv-number mv-was-inst mv-change ;
+: lf-mvar-inst? ( mvar -- flag ) 0 mvd-inst mv-field 0= if false then ;
 : lf-mvar-kind! ( mvar kind -- outcome )
   2dup mv-kind? swap lf-mvar-live? and 0= if 2drop outcome-invalid exit then
   swap mv-number mv-was-kind mv-change ;

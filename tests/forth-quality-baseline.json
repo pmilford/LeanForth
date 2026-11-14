@@ -420,8 +420,8 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 4,
-  "shuffles": 4,
-  "words": 29
+  "shuffles": 5,
+  "words": 32
  },
  "src/front/elab-data.fs": {
   "globals": 37,
@@ -438,6 +438,22 @@
   "rstack": 0,
   "shuffles": 2,
   "words": 27
+ },
+ "src/front/lib-decode.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 34,
+  "shuffles": 10,
+  "words": 167
+ },
+ "src/front/meta-env.fs": {
+  "globals": 10,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 7,
+  "shuffles": 7,
+  "words": 109
  },
  "src/front/mvars.fs": {
   "globals": 0,

@@ -165,12 +165,8 @@ end-structure
 \ The walk: a node over a max or an imax waits for its base's two sides.
 : ln-open? ( level -- flag ) ld-base ln-tag lf-level-binary-tag? ;
 : ln-parts ( level -- a b ) ld-base dup lf-level-first@ swap lf-level-second@ ;
-: ln-undone ( child walk -- child true | false )
-  over swap dw-done? if drop false else true then ;
-: ln-pair-pending ( a b walk -- child true | false )
-  rot over ln-undone if nip nip true else ln-undone then ;
 : ln-pending ( node walk -- child true | false )
-  over ln-open? if >r ln-parts r> ln-pair-pending else 2drop false then ;
+  over ln-open? if >r ln-parts r> dw-want2 else 2drop false then ;
 : ln-images ( node walk -- a' b' ) >r ln-parts r@ dw-image swap r> dw-image swap ;
 : ln-imax ( node walk -- level )
   over ld-base lf-level-second@ ln-never-zero?

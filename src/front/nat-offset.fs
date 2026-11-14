@@ -22,7 +22,10 @@
 \ Nat.sub, Sub.sub, HSub.hSub and the others, by name and number of
 \ arguments), an instance of Add.add or HAdd.hAdd in an offset that is
 \ not Nat's own node for node (Lean then asks isDefEq at instances
-\ transparency), and a constant whose name the context's names lack.
+\ transparency). A constant's name is made in the context's name store
+\ when it has none yet, as Lean's mkNatLit and mkNatAdd name constants
+\ without asking the environment (in a fed context above the input's
+\ marks; a text's run has its own names, S1 merge B).
 \ Outcomes: ok; unsupported as above; full when a store or the heap has
 \ no room; invalid for a level store whose first level is not zero.
 \ Untrusted. State: the record no (the value so far and the
@@ -58,8 +61,7 @@ end-structure
 : no-split ( c-addr u -- c-addr i rest u' )
   2dup s" ." search if 2>r r@ - 2r> 1 /string else 2drop 0 -1 then ;
 : no-seek ( prefix c-addr i -- name outcome )
-  lf-name-tier name-seek-str dup ok? if over 0<
-  if 2drop -1 outcome-unsupported then then ;
+  lf-name-str if outcome-ok else -1 outcome-full then ;
 : no-name ( c-addr u -- name outcome )
   0 -rot begin no-split 2>r no-seek ok-then? 0= if 2r> 2drop no-result exit then
   2r> dup 0< until 2drop outcome-ok ;

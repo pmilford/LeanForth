@@ -68,9 +68,12 @@ T{ 0 s" Nat.add" cn fa fb pair app 0 proj lf-whnf-core -> -1 outcome-unsupported
 T{ 0 s" Nat.add" cn 0 proj lf-whnf-core -> -1 outcome-unsupported }T
 T{ 0 s" Nat.add" cn recm lf-whnf-core -> -1 outcome-unsupported }T
 
-\ ---- Unsupported: a definition, a quotient's lift, a K-like recursor, a
-\ structure's eta, a Nat.succ that whnf may fold.
-T{ 0 s" Nat.add" cn fk app fk app lf-whnf-core -> -1 outcome-unsupported }T
+\ ---- A definition that the data says is no matcher and no auxiliary
+\ recursor stays, as Lean's whnfCore leaves it (S1 merge B: whnfCore asks
+\ the facts; without them it is unsupported, below).
+T{ 0 s" Nat.add" cn fk app fk app dup whnf= -> true outcome-ok }T
+\ ---- Unsupported: a quotient's lift, a K-like recursor, a structure's
+\ eta, a Nat.succ that whnf may fold.
 : quot ( -- t ) lv1 lv1 2 s" Quot.lift" cn nat app fx app nat app fs app fb app ;
 T{ quot lv1 1 s" Quot.mk" cn nat app fx app fa app app lf-whnf-core
    -> -1 outcome-unsupported }T
@@ -177,9 +180,11 @@ T{ nat nat tpi dup meta-whnf= lv1 sort dup meta-whnf= 2 nlit dup meta-whnf=
 T{ fk fx app dup meta-whnf= nat fs 0 bv app lam fk app fs fk app meta-whnf=
    -> true outcome-ok true outcome-ok }T
 \ An instance (instance-reducible): unfolded at default (unsupported), left
-\ at reducible (whnfR); whnfCore alone still refuses its head.
-T{ inst-hadd lf-meta-whnf inst-hadd lf-meta-whnf-r nip inst-hadd lf-whnf-core
-   -> -1 outcome-unsupported outcome-ok -1 outcome-unsupported }T
+\ at reducible (whnfR); whnfCore alone leaves it (no matcher, no auxiliary
+\ recursor: S1 merge B).
+: core-same? ( t -- flag outcome ) dup lf-whnf-core >r same? r> ;
+T{ inst-hadd lf-meta-whnf inst-hadd lf-meta-whnf-r nip inst-hadd core-same?
+   -> -1 outcome-unsupported outcome-ok true outcome-ok }T
 T{ inst-hadd dup lf-meta-whnf-r drop same? lf-defeq-mode -> true lf-tr-default }T
 \ A projection function (semireducible in the data): unfolded at default,
 \ left at reducible; a matcher, an auxiliary recursor, Nat operations
@@ -212,6 +217,7 @@ T{ 0 s" Nat.div" cn fk app fx app fk app dup lf-tr-instances in-mode drop same?
 \ is unsupported, as in whnfCore.
 0 lf-menv-stage!
 T{ inst-hadd lf-meta-whnf-r -> -1 outcome-unsupported }T
+T{ 0 s" Nat.add" cn fk app fk app lf-whnf-core -> -1 outcome-unsupported }T
 menv-lib lf-menv-stage!
 \ The budget: none left is exhausted, nothing spent then.
 T{ 0 lf-meta-budget! nat lf-meta-whnf lf-meta-budget lf-meta-default-budget lf-meta-budget!
@@ -243,5 +249,8 @@ T{ ?n lf-whnf-core ?n fk app lf-whnf-core ?n lf-whnf-stuck
    -> -1 outcome-invalid -1 outcome-invalid false outcome-invalid }T
 lf-lctx-reset
 T{ fk lf-whnf-core fk fa app lf-whnf-core -> -1 outcome-invalid -1 outcome-invalid }T
+\ The fed input as loading left it: everything above wrote only above
+\ its marks (S1 §1, trust point 3).
+T{ lf-input-intact? -> true }T
 
 bye
