@@ -668,7 +668,7 @@
   "src/kernel/mixed-rebuild.fs": {
    "blocks": 86,
    "never_run": 5,
-   "reason": "reuse-out-2 2026-11-13: 2 unreachable by design, moved here from mixed-shift.fs and mixed-instantiate.fs with lf-rebuild-leaf: a leaf of no tag the pass knows (lines 44, 47); both passes audit the graph first, which refuses such a leaf. The other 3 measured 2026-11-12 at 3ac0558, not yet reviewed"
+   "reason": "reuse-out-2 2026-11-13, corrected 2026-11-14 (review reuse-out-2 M1): lf-rebuild-leaf's malformed arm (a node the store does not hold reaches it with lf-rebuild-no-tag, or a tag no leaf has) runs in tests/core/mixed-shift.fs's direct tests; a run of the passes never gives it such a leaf, since both audit the graph first. The other blocks measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/mixed-shift.fs": {
    "blocks": 128,

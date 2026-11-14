@@ -216,10 +216,44 @@ class HistoryTest(unittest.TestCase):
         self.commit(CAUGHT.replace("gamma", "epsilon"), "Re-target drops-alpha-two")
         self.assertEqual(self.check("--history")[0], 1)
 
-    def test_old_text_reason_and_new_faults_are_free(self):
+    def test_reason_and_new_faults_are_free(self):
         changed = CAUGHT.replace("planted for the runner test", "another reason")
         self.commit(changed + entry("new-one", "beta", "delta"), "add a fault, reword one")
         self.assertEqual(self.check("--history")[0], 0)
+
+    def test_an_unnamed_retarget_fails(self):
+        # Review reuse-out-2 L2: changing a fault's old text or its file is a change too.
+        self.commit(CAUGHT.replace("old = '''alpha'''", "old = '''beta'''"), "retarget quietly")
+        self.assertEqual(self.check("--history")[0], 1)
+        self.commit(CAUGHT.replace('file = "src/word.txt"', 'file = "src/other.txt"'), "move it")
+        status, output = self.check("--history")
+        self.assertEqual(status, 1, output)
+        self.assertEqual(output.count("REPLACED UNNAMED"), 2, output)
+
+    def test_a_commit_before_the_rule_is_held_to_new_only(self):
+        # A commit whose own scripts/mutants.py lacks RETARGET_RULE is judged as it was then.
+        (self.root / "scripts").mkdir(exist_ok=True)
+        (self.root / "scripts/mutants.py").write_text("# the older rule\n")
+        self.commit(CAUGHT.replace("old = '''alpha'''", "old = '''beta'''"), "retarget quietly")
+        self.assertEqual(self.check("--history")[0], 0)
+        self.commit(CAUGHT.replace("gamma", "epsilon"), "rewrite quietly")
+        self.assertEqual(self.check("--history")[0], 1)
+
+    def test_a_named_retarget_passes(self):
+        self.commit(CAUGHT.replace("old = '''alpha'''", "old = '''beta'''"), "Re-target drops-alpha")
+        self.assertEqual(self.check("--history")[0], 0)
+
+    def test_a_broken_list_hides_nothing(self):
+        # Review reuse-out-2 L2: a commit that breaks the list and changes a fault, then one
+        # that repairs it, still needs the name; it is compared with the last list that parsed.
+        changed = CAUGHT.replace("gamma", "epsilon")
+        self.commit(changed + "[[fault]\nid = broken\n", "break the list")
+        self.commit(changed, "repair the list")
+        status, output = self.check("--history")
+        self.assertEqual(status, 1, output)
+        self.assertRegex(output, r"(?m)^REPLACED UNNAMED +drops-alpha +commit [0-9a-f]+ ")
+        self.commit(CAUGHT.replace("gamma", "zeta"), "Re-target drops-alpha at zeta")
+        self.assertEqual(self.check("--history")[0], 1)
 
     def test_only_the_branch_is_read(self):
         self.commit(CAUGHT.replace("gamma", "epsilon"), "Re-target drops-alpha")

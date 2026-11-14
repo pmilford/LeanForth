@@ -723,6 +723,21 @@ T{ ' n-not-rec 0 block-warned -> outcome-ok lf-warn-rec }T
 \ The shape (B0): a constructor naming another type is invalid.
 : induct ( -- ) 7 lf-input-name 5 lf-ict-induct cell! ;
 T{ ' induct 4 block-verdict drop -> outcome-invalid lf-diag-block-shape }T
+\ The mutual Even/Odd block forged (review reuse-out-2 M1: B0's checks hold
+\ for every member, not only the first): 18 Even, 19 Odd, 20-22 their
+\ constructors, 23-24 their recursors. A later type whose all list names
+\ Even twice; Odd renamed Even, its all lists and its constructor's type
+\ following, so only the two types' names clash; a later member's block
+\ another one's. Each block is invalid.
+: all-of ( d -- addr ) data lf-ity-all@ drop ;
+: odd-all-wrong ( -- ) 18 lf-input-name 19 all-of cell+ ! ;
+T{ ' odd-all-wrong 18 block-verdict drop -> outcome-invalid lf-diag-block-shape }T
+: odd-named-even ( -- )
+  18 lf-input-name dup 19 lf-input-decl lf-idecl-name ! dup 18 all-of cell+ !
+  dup 19 all-of cell+ ! 22 lf-ict-induct cell! ;
+T{ ' odd-named-even 18 block-verdict drop -> outcome-invalid lf-diag-block-shape }T
+: later-member-moved ( -- ) 4 24 lf-input-decl lf-idecl-block ! ;
+T{ ' later-member-moved 18 block-verdict drop -> outcome-invalid lf-diag-block-shape }T
 \ The audit: an unsafe member, a literal in a constructor type (U2; a
 \ projection planted in a rule was the case until task 5.2.2 supported
 \ projections), a loose variable (V1).

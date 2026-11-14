@@ -44,13 +44,19 @@ for staleness); --only runs the named ones.
 
 The history rule (plan 9.4.8j; the s1-synth review's B1, where one commit
 overwrote 13 faults' replacement texts so that their files no longer
-loaded, unnoticed): a commit may change the replacement text (new) of a
-fault that existed before it only when its message names that fault's id.
---check also reads every commit of BASE..HEAD (--base, default main: the
-branch's own commits; none on main itself) that changed the list and fails
-for each such change without the id in its message; --history checks only
-this, for make test. A merge counts only for a text that differs from every
-parent's.
+loaded, unnoticed): a commit may change the file, the original text (old)
+or the replacement text (new) of a fault that existed before it only when
+its message names that fault's id (review reuse-out-2 L2: re-targeting a
+fault is as much a change as rewriting it). --check also reads every commit
+of BASE..HEAD (--base, default main: the branch's own commits; none on main
+itself) that changed the list and fails for each such change without the id
+in its message; --history checks only this, for make test. A merge counts
+only for a text that differs from every parent's. A list that does not
+parse hides nothing: a commit is compared with the nearest version before
+it that parses (first parents), so breaking the list in one commit and
+repairing it, changed, in the next still needs the name. The rule is not
+retroactive: a commit whose own scripts/mutants.py predates it (has no
+RETARGET_RULE line) is held only to naming changes of new, as it was then.
 """
 import argparse
 import hashlib
@@ -147,12 +153,39 @@ def git_text(root, *args):
 
 
 def replacements(text):
-    """{id: new} of a fault list's text; {} when it does not parse."""
+    """{id: (file, old, new)} of a fault list's text; None when it does not parse."""
     try:
         faults = tomllib.loads(text or "").get("fault", [])
     except tomllib.TOMLDecodeError:
-        return {}
-    return {f["id"]: f.get("new") for f in faults if isinstance(f, dict) and "id" in f}
+        return None
+    return {f["id"]: (f.get("file"), f.get("old"), f.get("new"))
+            for f in faults if isinstance(f, dict) and "id" in f}
+
+
+# The marker of the file/old/new rule (review reuse-out-2 L2), read in each commit's own copy.
+RETARGET_RULE = "a fault's file, old and new text are all named when they change"
+
+
+def judged_whole(root, commit):
+    """Whether commit is held to the whole rule (file, old and new): its tree's
+    scripts/mutants.py states it, or it has no such file (a repository of its own)."""
+    text = git_text(root, "show", f"{commit}:scripts/mutants.py")
+    return text is None or RETARGET_RULE in text
+
+
+def parsed_before(root, list_name, commit, limit=200):
+    """replacements() of the list at commit, or at the nearest first-parent ancestor whose list
+    parses ({} when none within limit commits, or no list there)."""
+    for _ in range(limit):
+        text = git_text(root, "show", f"{commit}:{list_name}")
+        found = replacements(text)
+        if found is not None:
+            return found
+        parent = (git_text(root, "rev-parse", "--verify", "--quiet", f"{commit}^") or "").strip()
+        if not parent:
+            return {}
+        commit = parent
+    return {}
 
 
 def names_fault(message, ident):
@@ -161,14 +194,21 @@ def names_fault(message, ident):
 
 
 def unnamed_replacements(root, list_name, base):
-    """[(commit, id)] for every commit of BASE..HEAD that changed the replacement text of a
-    fault that existed before it without naming the fault in its message."""
+    """[(commit, id)] for every commit of BASE..HEAD that changed the file, old or new text of a
+    fault that existed before it without naming the fault in its message. A commit whose list
+    does not parse is skipped; the next one is compared with the last list before it that
+    parses."""
     listing = git_text(root, "log", "--format=%H %P", f"{base}..HEAD", "--", list_name)
     problems = []
     for line in (listing or "").splitlines():
         commit, *parents = line.split()
         after = replacements(git_text(root, "show", f"{commit}:{list_name}"))
-        before = [replacements(git_text(root, "show", f"{p}:{list_name}")) for p in parents]
+        if after is None:
+            continue
+        before = [parsed_before(root, list_name, p) for p in parents]
+        if not judged_whole(root, commit):
+            after = {k: v[2] for k, v in after.items()}
+            before = [{k: v[2] for k, v in b.items()} for b in before]
         message = git_text(root, "log", "-1", "--format=%B", commit) or ""
         for ident, new in sorted(after.items()):
             olds = [b[ident] for b in before if ident in b]
@@ -185,8 +225,8 @@ def history_problems(root, list_path, base):
         return 0
     problems = unnamed_replacements(root, name, base)
     for commit, ident in problems:
-        print(f"{'REPLACED UNNAMED':<34} {ident:<44} commit {commit} changes its new text "
-              f"without naming it")
+        print(f"{'REPLACED UNNAMED':<34} {ident:<44} commit {commit} changes its file, old or "
+              f"new text without naming it")
     return len(problems)
 
 

@@ -92,6 +92,18 @@ T{ 0 some-cells 5 cells-has? 0 some-cells 4 cells-has? 4 some-cells -1 cells-has
 create counted-cells 3 , 7 , 8 , 9 ,
 T{ counted-cells cell-count swap counted-cells cell+ = -> 3 true }T
 T{ counted-cells cell-count drop 2 cells + @ counted-cells ' cell-count rs-checked nip -> 9 3 }T
+\ cell-counted! and cell-counted+! (ROUT3): a text put into a buffer of
+\ room bytes after its count cell, refused (nothing changed) when longer;
+\ appended after what it holds.
+create text-buf 1 cells 8 + allot
+: buf-text ( -- c-addr u ) text-buf cell-count ;
+T{ s" abc" text-buf 8 cell-counted! buf-text s" abc" compare -> true 0 }T
+T{ s" 123456789" text-buf 8 cell-counted! buf-text s" abc" compare -> false 0 }T
+T{ s" 12345678" text-buf 8 cell-counted! buf-text nip -> true 8 }T
+T{ s" " text-buf 8 cell-counted! s" ab" text-buf cell-counted+! s" cd" text-buf cell-counted+!
+   buf-text s" abcd" compare -> true 0 }T
+T{ s" e" text-buf ' cell-counted+! rs-checked buf-text s" abcde" compare -> 0 }T
+T{ s" xy" text-buf 8 ' cell-counted! rs-checked buf-text s" xy" compare -> true 0 }T
 T{ -1 some-cells 2 ' cells-has? rs-checked -> true }T
 \ cells=: n cells compared cell by cell (review reuse-k1 B1); equal for
 \ n <= 0; a difference in the first or the last cell, or in the sign.
@@ -588,6 +600,13 @@ T{ 7 6 ' test-3 ' anyed rs-checked -> 7 true 1234 }T
 create neg-cells 3 , 1 , 9 , -2 , 4 ,
 : cell-neg? ( table k -- table flag ) cells over + @ 0< ;
 T{ neg-cells 3 ' cell-neg? any? nip neg-cells 4 ' cell-neg? any? nip -> false true }T
+\ any-in? (ROUT3): the same over lo .. hi-1, none when hi <= lo; the test
+\ sees each k itself.
+T{ neg-cells 0 3 ' cell-neg? any-in? nip neg-cells 3 5 ' cell-neg? any-in? nip -> false true }T
+T{ neg-cells 4 5 ' cell-neg? any-in? nip neg-cells 3 3 ' cell-neg? any-in? nip -> false false }T
+T{ neg-cells 4 2 ' cell-neg? any-in? nip neg-cells 2 4 ' cell-neg? ' any-in? rs-checked nip
+   -> false true }T
+T{ 7 2 6 ' test-3 ' any-in? rs-checked 0 step-trail ! 7 4 6 ' test-3 any-in? -> 7 true 7 false }T
 \ A true flag other than -1 counts as true; the answer is a well-formed flag.
 T{ 4 ' test-one any? 0 ' test-one any? -> true false }T
 \ Nested: whether some k < n has some j < k at 3 or above, and with all?.
@@ -850,6 +869,15 @@ T{ 3 f1 ' frame-return ' frame-call rs-checked nip -> -1 outcome-exhausted ' fra
 100 f1 frame-budget drop  max-n f1 frame-context !
 T{ 3 f1 ' frame-return ' refused rs-checked f1 frame-context @ f1 frame-fuel @ ->
   -1 outcome-full ' frame-return max-n 100 }T
+\ frame-open-or (ROUT3): frame-open when the record admits the visit; else
+\ the refusal xt on ( x frames cont outcome ), the record unchanged.
+0 f1 frame-context !
+: opened-or-not ( x frames cont outcome -- x cont outcome ) rot drop ;
+: open-try ( x frames cont -- ... ) ['] frame-left ['] opened-or-not frame-open-or ;
+T{ 3 f1 ' frame-return open-try nip f1 frame-depth @ -> 3 ' frame-left 1 }T
+f1 frame-reset  0 f1 frame-budget drop
+T{ 3 f1 ' frame-return ' open-try rs-checked f1 frame-depth @ -> 3 ' frame-return outcome-exhausted 0 }T
+f1 frame-reset  100 f1 frame-budget drop  max-n f1 frame-context !
 \ frame-under checks the fuel before the context (ADR 0008): with no fuel
 \ left, a context at max-n is exhausted, as any other context is.
 0 f1 frame-budget drop
@@ -1045,6 +1073,8 @@ T{ 0 xt-single xt-table@ 1 xt-single xt-table@ -> ' xt-one ' xt-other }T
 T{ ' xt-one 4 xt-by-tag xt-set-fails ' xt-one -1 xt-by-tag xt-set-fails -> -2 -2 }T
 T{ ' xt-one max-n xt-by-tag xt-set-fails -> -2 }T
 T{ 4 xt-by-tag xt-table@ 0 xt-by-tag xt-table@ 2 xt-run -> ' xt-other ' xt-other -1 }T
+\ ?execute (ROUT3): the xt run, nothing for 0.
+T{ 5 ' 1+ ?execute 5 0 ?execute 5 ' 1+ ' ?execute rs-checked -> 6 5 6 }T
 : xt-made-fails ( c-addr u -- ior ) ['] evaluate catch dup if nip nip then ;
 T{ s" 0 ' xt-one xt-table: xt-none" xt-made-fails [undefined] xt-none -> -2 true }T
 T{ s" -1 ' xt-one xt-table: xt-neg" xt-made-fails [undefined] xt-neg -> -2 true }T

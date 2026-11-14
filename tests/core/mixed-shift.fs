@@ -196,4 +196,14 @@ variable lit-node  variable str-node
   dup lf-term-first@ dup lf-term-first@ lf-term-first@ swap lf-term-second@
   rot lf-term-second@ ;
 T{ lit-root 0 1 100 lf-mixed-shift nip swap parts -> outcome-ok 1 lit-node @ str-node @ }T
+
+\ The shared leaf step (mixed-rebuild.fs's lf-rebuild-leaf, review
+\ reuse-out-2 M1): a node the store does not hold reaches it with tag
+\ lf-rebuild-no-tag, and it, like any tag no leaf has, is malformed, never
+\ kept; a kept leaf is the node; a bound variable goes to the pass's xt.
+: never-bvar ( node frames -- result outcome ) 2drop 99 outcome-ok ;
+T{ 5 0 lf-rebuild-no-tag ' never-bvar lf-rebuild-leaf -> -1 outcome-invalid }T
+T{ 5 0 lf-tag-app ' never-bvar lf-rebuild-leaf -> -1 outcome-invalid }T
+T{ 5 0 lf-tag-constant ' never-bvar lf-rebuild-leaf -> 5 outcome-ok }T
+T{ 5 0 lf-tag-bvar ' never-bvar lf-rebuild-leaf -> 99 outcome-ok }T
 bye

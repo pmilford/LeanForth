@@ -17641,8 +17641,7 @@ file = "src/kernel/inductive-block.fs"
 old = ''': lf-ind-members-ok? ( -- flag ) lf-ind-members ['] lf-ind-member-ok? all? ;'''
 new = ''': lf-ind-members-ok? ( -- flag ) lf-ind-members ['] lf-ind-member-ok? any? ;'''
 test = "$GFORTH tests/core/check-block.fs"
-reason = "a block whose first member is well formed passes the member check whatever the others are"
-gap = "no test gives a block whose later member, not its first, has the wrong kind or block (a forged block; 9.4.8k follow-up 7)"
+reason = "a block whose first member is well formed passes the member check whatever the others are (tests/core/check-block.fs's later-member-moved, review reuse-out-2 M1)"
 
 [[fault]]
 id = "r2-pres-binder-name-kind"
@@ -17692,3 +17691,387 @@ old = '''  r> lf-lit-arena-free r> drop ;'''
 new = '''  r> drop r> drop ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "a decimal literal's arena is never freed, so the next literal finds no room"
+
+[[fault]]
+id = "rv-ind-types-any"
+file = "src/kernel/inductive-block.fs"
+old = ''': lf-ind-types-ok? ( -- flag ) lf-ind-types@ ['] lf-ind-type-ok? all? ;'''
+new = ''': lf-ind-types-ok? ( -- flag ) lf-ind-types@ ['] lf-ind-type-ok? any? ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "reviewer probe (review reuse-out-2 M1): a block whose first type is well formed passes B0's type check whatever a later one's all list says"
+
+[[fault]]
+id = "rv-ind-distinct-any"
+file = "src/kernel/inductive-block.fs"
+old = ''': lf-ind-distinct? ( -- flag ) lf-ind-members ['] lf-ind-unique? all? ;'''
+new = ''': lf-ind-distinct? ( -- flag ) lf-ind-members ['] lf-ind-unique? any? ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "reviewer probe (review reuse-out-2 M1): one member with a unique name passes the distinct-names check, two types of one name too"
+
+[[fault]]
+id = "rv-env-viewed-names"
+file = "src/kernel/environment.fs"
+old = '''  lf-env-is? if lf-env-view ok? lf-name-storage-valid? and else false then ;'''
+new = '''  lf-env-is? if lf-env-view ok? else false then ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "reviewer probe (review reuse-out-2 M1): a snapshot whose names fail their audit is read"
+
+[[fault]]
+id = "rv-rebuild-leaf-unknown-kept"
+file = "src/kernel/mixed-rebuild.fs"
+old = '''  drop lf-rebuild-kept-leaf? if lf-rebuild-keep else lf-rebuild-bad then ;'''
+new = '''  2drop lf-rebuild-keep ;'''
+test = "$GFORTH tests/core/mixed-shift.fs"
+reason = "reviewer probe (review reuse-out-2 M1): a leaf of no tag the passes know, or a node the store does not hold, kept instead of malformed"
+
+[[fault]]
+id = "r3-any-in-skips-lo"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do over max swap ?do i j execute if true unloop unloop exit then'''
+new = '''  dup 1+ swap ?do over max swap 1+ ?do i j execute if true unloop unloop exit then'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "any-in? starts one past lo: a binder or a note label at the search's first index is missed"
+
+[[fault]]
+id = "r3-execute-optional-skipped"
+file = "src/lib/xt-table.fs"
+old = ''': ?execute ( i*x xt|0 -- j*x ) ?dup if execute then ;'''
+new = ''': ?execute ( i*x xt|0 -- j*x ) ?dup if drop then ;'''
+test = "$GFORTH tests/lib/lib.fs && $GFORTH tests/core/env-import.fs"
+reason = "an optional hook never runs: the snapshot's renumbering, the scheduler's tick and the carry note are lost"
+
+[[fault]]
+id = "r3-frame-open-or-unchecked"
+file = "src/lib/frame.fs"
+old = '''  2>r over frame-admit dup ok? if drop 2r> drop frame-open else 2r> nip execute then ;'''
+new = '''  2>r over frame-admit drop 2r> drop frame-open ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "defeq's and whnf's frames open a visit the record refused (no fuel or no room)"
+
+[[fault]]
+id = "r3-cell-counted-no-room-check"
+file = "src/lib/bounds.fs"
+old = '''  2 pick < if drop 2drop false exit then 2dup ! cell+ swap move true ;'''
+new = '''  drop 2dup ! cell+ swap move true ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a text longer than the buffer is written past it (the run record's file name, the replay's old record)"
+
+[[fault]]
+id = "r3-cell-counted-append-uncounted"
+file = "src/lib/bounds.fs"
+old = ''': cell-counted+! ( c-addr u addr -- ) >r tuck r@ cell-count + swap move r> +! ;'''
+new = ''': cell-counted+! ( c-addr u addr -- ) >r tuck r@ cell-count + swap move r> 2drop ;'''
+test = "$GFORTH tests/lib/lib.fs && $GFORTH tests/core/run-record.fs"
+reason = "an appended text is not counted: the run record's and the replay's texts lose what was appended"
+
+[[fault]]
+id = "r3-type-left-right"
+file = "src/lib/decimal.fs"
+old = ''': type-left ( c-addr u width -- ) over - 0 max >r type r> spaces ;'''
+new = ''': type-left ( c-addr u width -- ) over - 0 max spaces type ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "type-left pads on the left: the count command's and the timings' name columns shift"
+
+[[fault]]
+id = "r3-name-str-any-kind"
+file = "src/core/names.fs"
+old = ''': lf-name-str? ( id -- flag ) lf-name-tag@ lf-name-tag-str = ;'''
+new = ''': lf-name-str? ( id -- flag ) lf-name-tag@ 0<> ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "a numeric component reads as a string one"
+
+[[fault]]
+id = "r3-name-num-is-str"
+file = "src/core/names.fs"
+old = ''': lf-name-num? ( id -- flag ) lf-name-tag@ lf-name-tag-num = ;'''
+new = ''': lf-name-num? ( id -- flag ) lf-name-tag@ lf-name-tag-str = ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "a string component reads as a numeric one"
+
+[[fault]]
+id = "r3-name-top-prefix-ignored"
+file = "src/core/names.fs"
+old = '''  2 pick lf-name-prefix@ lf-name-anon? if lf-name-str-is? else 2drop drop false then ;'''
+new = '''  lf-name-str-is? ;'''
+test = "$GFORTH tests/core/names.fs && $GFORTH tests/core/defeq.fs"
+reason = "a name matched by its last component alone: a user's X.Nat taken for Nat"
+
+[[fault]]
+id = "r3-name-root-one-step"
+file = "src/core/names.fs"
+old = ''': lf-name-root ( id -- id' ) begin dup lf-name-prefix@ ?dup while nip repeat ;'''
+new = ''': lf-name-root ( id -- id' ) dup lf-name-prefix@ ?dup if nip then ;'''
+test = "$GFORTH tests/core/names.fs && $GFORTH tests/core/check-block.fs"
+reason = "a name's root is its prefix, one step up, not its first component"
+
+[[fault]]
+id = "r3-name-put-kind-swapped"
+file = "src/core/names.fs"
+old = '''  dup lf-name-str? if lf-name-text lf-name-str else lf-name-payload lf-name-num then ;'''
+new = '''  dup lf-name-num? if lf-name-text lf-name-str else lf-name-payload lf-name-num then ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "a component put on a base as the other kind"
+
+[[fault]]
+id = "r3-name-graft-wrong-part"
+file = "src/core/names.fs"
+old = '''    >r 1- 2dup lf-name-ancestor r> swap lf-name-put 0= if 2drop false exit then'''
+new = '''    >r 1- 2dup 1+ lf-name-ancestor r> swap lf-name-put 0= if 2drop false exit then'''
+test = "$GFORTH tests/core/names.fs && $GFORTH tests/core/inductive-nested.fs"
+reason = "a graft puts each component's prefix instead of the component"
+
+[[fault]]
+id = "r3-name-current-any-generation"
+file = "src/core/names.fs"
+old = '''  lf-name-generation @ = swap lf-name-valid? and ;'''
+new = '''  drop lf-name-valid? ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "a name kept from before a reset reads as current"
+
+[[fault]]
+id = "r3-diag-walked-fuel-lost"
+file = "src/core/diagnostics.fs"
+old = '''  >r over walk-fuel @ swap ! r> lf-diag-walk ;'''
+new = '''  >r nip r> lf-diag-walk ;'''
+test = "$GFORTH tests/core/check-declaration.fs && $GFORTH tests/core/check-block.fs"
+reason = "the fuel a walk left is not handed back to its check (the declaration's, the block's)"
+
+[[fault]]
+id = "r3-diag-run-pair-unrecorded"
+file = "src/core/diagnostics.fs"
+old = '''  2dup 2>r drop walk-run-pair 2r> lf-diag-walk ;'''
+new = '''  2dup 2>r drop walk-run-pair 2r> 2drop ;'''
+test = "$GFORTH tests/core/mixed-compare.fs && $GFORTH tests/core/constant-term-scope.fs"
+reason = "a paired walk's failure goes unrecorded in the diagnostics"
+
+[[fault]]
+id = "r3-symbolic-bvar-refused"
+file = "src/core/tagged-sort-boundary.fs"
+old = '''    lf-tag-bvar of 2drop 2drop outcome-ok endof nip walk-bad-tag endcase ;'''
+new = '''    lf-tag-bvar of 2drop 2drop outcome-invalid endof nip walk-bad-tag endcase ;'''
+test = "$GFORTH tests/core/generation-handles.fs && $GFORTH tests/core/symbolic-session.fs"
+reason = "a bound variable fails the symbolic audits"
+
+[[fault]]
+id = "r3-term-stamped-any"
+file = "src/core/generation-handles.fs"
+old = '''  dup lf-term-identity if swap lf-term-own-stamp @ = else drop false then ;'''
+new = '''  dup lf-term-identity if 2drop true else drop false then ;'''
+test = "$GFORTH tests/core/generation-handles.fs && $GFORTH tests/core/constant-term-boundary.fs"
+reason = "a node reused at its index after a reset passes as the one stamped"
+
+[[fault]]
+id = "r3-quad-ab-swapped"
+file = "src/core/compact-tier.fs"
+old = ''': quad-ab@ ( addr -- a b ) dup quad-a u32@ swap quad-b u32@ ;'''
+new = ''': quad-ab@ ( addr -- a b ) dup quad-b u32@ swap quad-a u32@ ;'''
+test = "$GFORTH tests/core/compact.fs && $GFORTH tests/core/terms.fs"
+reason = "a record's operands read in the wrong order (the input tier's terms, the layer's families)"
+
+[[fault]]
+id = "r3-expr-one-operands-swapped"
+file = "src/core/compact-exprs.fs"
+old = ''': expr-one ( x tier tag -- e outcome ) swap >r swap 0 r> expr-make ;'''
+new = ''': expr-one ( x tier tag -- e outcome ) swap >r 0 r> expr-make ;'''
+test = "$GFORTH tests/core/compact.fs"
+reason = "a one-operand expression made with its tag and operand misplaced"
+
+[[fault]]
+id = "r3-lit-payload-count-as-offset"
+file = "src/core/literals.fs"
+old = '''  over lf-term-first@ swap slab-at swap lf-term-second@ ;'''
+new = '''  over lf-term-second@ swap slab-at swap lf-term-second@ ;'''
+test = "$GFORTH tests/core/reduce-nat.fs && $GFORTH tests/core/string-literals.fs"
+reason = "a literal's limbs or bytes read from its count's place in the slab"
+
+[[fault]]
+id = "r3-lscope-fresh-zero"
+file = "src/core/level-scope.fs"
+old = '''  2dup swap cells + @ dup 0> if -rot swap cells-has? 0= else drop 2drop false then ;'''
+new = '''  2dup swap cells + @ dup 0< 0= if -rot swap cells-has? 0= else drop 2drop false then ;'''
+test = "$GFORTH tests/core/level-scope.fs && $GFORTH tests/core/level-substitute.fs"
+reason = "a universe parameter or formal of ID 0 passes"
+
+[[fault]]
+id = "r3-reach-level-holes-all"
+file = "src/core/reach.fs"
+old = ''': lr-level-holes? ( -- flag ) lf-reach lf-reach-level# @ ['] lr-level-hole? any? ;'''
+new = ''': lr-level-holes? ( -- flag ) lf-reach lf-reach-level# @ ['] lr-level-hole? all? ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "a reached level metavariable goes unnoticed unless every level is one"
+
+[[fault]]
+id = "r3-span-all-any"
+file = "src/kernel/env-import.fs"
+old = ''': span-all? ( a b n imp test -- flag ) rot ['] span-at? all? >r 2drop 2drop r> ;'''
+new = ''': span-all? ( a b n imp test -- flag ) rot ['] span-at? any? >r 2drop 2drop r> ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "two spans count as alike when one record of them is (the import's blocks, the layer's declarations and verdicts)"
+
+[[fault]]
+id = "r3-block-before-not-block"
+file = "src/kernel/env-import.fs"
+old = '''    2dup r@ execute block? if drop r> drop exit then swap 1- swap'''
+new = '''    2dup r@ execute block? 0= if drop r> drop exit then swap 1- swap'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "a member's block record is the nearest record that is not a block"
+
+[[fault]]
+id = "r3-ua-or-second-only"
+file = "src/kernel/env-import.fs"
+old = ''': ua@-or ( i a1 a2 -- u ) >r over swap ua@ ?dup if nip r> drop exit then r> ua@ ;'''
+new = ''': ua@-or ( i a1 a2 -- u ) nip ua@ ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "a slot taken from S reads as not taken unless I3 checked it here"
+
+[[fault]]
+id = "r3-answer-renum-kept"
+file = "src/kernel/env-snapshot.fs"
+old = '''  1- swap r> execute 1+ lf-look-reslot ;'''
+new = '''  1- nip r> drop 1+ lf-look-reslot ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "a saved answer keeps its environment slot where the snapshot numbers it otherwise"
+
+[[fault]]
+id = "r3-slot-rejected-final"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-slot-final? swap lf-slot-outcome@ outcome-rejected = and ;'''
+new = '''  lf-slot-final? ;'''
+test = "$GFORTH tests/core/environment.fs && $GFORTH tests/core/check-block.fs"
+reason = "an accepted slot with Lean's added name reads as a rejected one Lean's kernel holds"
+
+[[fault]]
+id = "r3-rn-std-boolean"
+file = "src/kernel/reduce-nat.fs"
+old = ''': lf-rn-std ( a b op -- node outcome ) ['] lf-rn-literal lf-rn-by ;'''
+new = ''': lf-rn-std ( a b op -- node outcome ) ['] lf-rn-truth lf-rn-by ;'''
+test = "$GFORTH tests/core/reduce-nat.fs"
+reason = "an arithmetic result is made as a Boolean"
+
+[[fault]]
+id = "r3-rcr-fields-as-indices"
+file = "src/kernel/inductive-recursor.fs"
+old = ''': lf-rcr-fields! ( j amount -- ) ['] lf-rcr-k ['] lf-rcr-field lf-rcr-scratch! ;'''
+new = ''': lf-rcr-fields! ( j amount -- ) ['] lf-rcr-k ['] lf-rcr-index-dom lf-rcr-scratch! ;'''
+test = "$GFORTH tests/core/inductive-recursor.fs && $GFORTH tests/core/check-block.fs"
+reason = "a constructor's fields filled with its type's index domains"
+
+[[fault]]
+id = "r3-keys-all-unchecked"
+file = "src/import/manifest.fs"
+old = '''    dup 2r@ 4 pick execute 0= if 2drop 2r> 2drop false exit then key-next'''
+new = '''    dup 2r@ 4 pick execute drop key-next'''
+test = "$GFORTH tests/core/manifest.fs"
+reason = "a manifest missing a member, or a count that is not a natural, passes"
+
+[[fault]]
+id = "r3-slot-check-text-store"
+file = "src/import/ndjson.fs"
+old = ''': slot-check: ( xt "name" -- ) ['] slot! checker: ;'''
+new = ''': slot-check: ( xt "name" -- ) ['] text-slot! checker: ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "a decoded field stored as a text"
+
+[[fault]]
+id = "r3-nd-nested-exact"
+file = "src/import/ndjson.fs"
+old = ''': nd-nested ( table "name" -- ) ['] export-shape nd-object: ;'''
+new = ''': nd-nested ( table "name" -- ) ['] export-exact nd-object: ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "a nested object read as exact: unknown members refused"
+
+[[fault]]
+id = "r3-tally-two"
+file = "src/import/ndjson-count.fs"
+old = ''': tally+ ( record addr -- outcome ) nip 1 swap +! outcome-ok ;'''
+new = ''': tally+ ( record addr -- outcome ) nip 2 swap +! outcome-ok ;'''
+test = "GFORTH=$GFORTH python3 tests/core/test_ndjson_reader.py FixtureDifferential"
+reason = "constructors and recursors counted twice"
+
+[[fault]]
+id = "r3-tf-left-one-less"
+file = "src/import/snapshot-tier.fs"
+old = ''': tf-left ( cons i tf -- u ) tf-units swap cons-records slab-count - ;'''
+new = ''': tf-left ( cons i tf -- u ) tf-units swap cons-records slab-count 1+ - ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "a section's last let or list counted as cut short"
+
+[[fault]]
+id = "r3-stage-load-unsealed"
+file = "src/import/stage.fs"
+old = '''  over >r execute dup ok? if drop r> stage-seal else r> drop then ;'''
+new = '''  over >r execute r> drop ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "a stage read and never sealed"
+
+[[fault]]
+id = "r3-kept-in-unlimited"
+file = "src/import/stage-records.fs"
+old = ''': kept-in ( n outcome stage map -- outcome ) over >r execute kept r> limited ;'''
+new = ''': kept-in ( n outcome stage map -- outcome ) over >r execute kept r> drop ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "a stage grows past its memory limit"
+
+[[fault]]
+id = "r3-cli-text-dropped"
+file = "src/cli/leanforth.fs"
+old = ''': cli-text! ( c-addr u addr -- ) >r cli-value if r> 2! else r> drop then ;'''
+new = ''': cli-text! ( c-addr u addr -- ) >r cli-value if 2drop then r> drop ;'''
+test = "$GFORTH tests/cli/leanforth.fs && GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Print"
+reason = "--name, --env and --elab lose their text"
+
+[[fault]]
+id = "r3-irx-constant-as-word"
+file = "src/program/ir-run.fs"
+old = ''': irx-run-constant ( def fuel -- result ) ['] irx-own-stacks ['] irx-valued irx-run-def ;'''
+new = ''': irx-run-constant ( def fuel -- result ) ['] irx-own-stacks ['] irx-returned irx-run-def ;'''
+test = "$GFORTH tests/program/ir-run.fs"
+reason = "a constant that leaves no value or two runs as a word would"
+
+[[fault]]
+id = "r3-pp-fuelled-free"
+file = "src/present/print-job.fs"
+old = '''  >r 0 begin lf-pp-spend 0= if r> drop outcome-exhausted exit then r@ execute 0= until'''
+new = '''  >r 0 begin r@ execute 0= until'''
+test = "$GFORTH tests/present/print-deep.fs && $GFORTH tests/present/term-printer.fs"
+reason = "a spine or a chain of succ printed without spending the print's fuel"
+
+[[fault]]
+id = "r3-pp-restored-step-skipped"
+file = "src/present/print-job.fs"
+old = '''  swap >r r@ frame-restore swap execute r> 0 ;'''
+new = '''  swap >r r@ frame-restore 2drop r> 0 ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_golden.py"
+reason = "a parenthesis never closed, a scope never left"
+
+[[fault]]
+id = "r3-tex-code-no-slash"
+file = "src/present/latex-text.fs"
+old = '''  >r r@ lf-tex-slash @ execute r@ lf-tex-out r@ lf-tex-out u>hex r@ lf-tex-out'''
+new = '''  >r r@ lf-tex-slash @ execute 2drop r@ lf-tex-out u>hex r@ lf-tex-out'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Names"
+reason = "an escaped code point loses its backslash in LaTeX"
+
+[[fault]]
+id = "r3-scan-dispatch-vars-ignored"
+file = "src/present/print-names.fs"
+old = '''  over lf-tag-bvar = if nip rot drop execute else drop lf-pp-scan-other then ;'''
+new = '''  drop lf-pp-scan-other ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_golden.py"
+reason = "a binder name that a bound variable uses is reused"
+
+[[fault]]
+id = "r3-form-open-no-parens"
+file = "src/present/term-printer.fs"
+old = '''  swap >r rot swap true lf-pp-parens? lf-pp-open-if r@ frame-save r> ;'''
+new = '''  swap >r rot 2drop false lf-pp-open-if r@ frame-save r> ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_golden.py"
+reason = "an arrow or a forall printed without the parentheses its position needs"
+
+[[fault]]
+id = "r3-seconds-then-firsts-again"
+file = "src/present/print-analysis.fs"
+old = '''  if 2swap >r execute r> r> swap ['] frame-return swap execute else nip nip r> 0 then ;'''
+new = '''  if 2swap >r drop r> r> swap ['] frame-return swap execute else nip nip r> 0 then ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_golden.py && $GFORTH tests/present/term-printer.fs"
+reason = "the second parts compared as the first parts again: binder groups and implicit levels misjudged"

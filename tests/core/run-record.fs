@@ -306,6 +306,16 @@ rr-release
   cin-read ok? must fuel 64 lf-check-input ok? must >r lf-env-view ok? must
   0 lf-env-outcome 1 lf-env-outcome 2 lf-env-outcome r> lf-env-free ok? must ;
 T{ constant-fixture slot-verdicts -> outcome-ok outcome-ok outcome-ok }T
+\ The run's environment is viewed (lf-env-viewed?) only while its names
+\ can be read (review reuse-out-2 M1, fault rv-env-viewed-names): not
+\ with a byte pool count the name store's audit refuses, nor for another
+\ identity or none.
+: viewed-cases ( c-addr u -- f1 f2 f3 f4 )
+  cin-read ok? must fuel 64 lf-check-input ok? must >r
+  lf-env-id lf-env-viewed?  lf-name-used @ -1 lf-name-used ! lf-env-id lf-env-viewed?
+  swap lf-name-used !  lf-env-id 1+ lf-env-viewed?  0 lf-env-viewed?
+  r> lf-env-free ok? must ;
+T{ constant-fixture viewed-cases -> true false false false }T
 
 \ Determinism: the same run twice gives the same text.
 create first-text rr-text-room allot  variable first-size

@@ -148,6 +148,9 @@ T{ 0 lf-name-depth 1 lf-name-depth 3 lf-name-depth -> 0 1 3 }T
 T{ 3 0 lf-name-ancestor 3 1 lf-name-ancestor 3 2 lf-name-ancestor 3 3 lf-name-ancestor -> 3 2 1 0 }T
 T{ 3 lf-name-root 2 lf-name-root 1 lf-name-root 0 lf-name-root -> 1 1 1 0 }T
 T{ 0 lf-name-anon? 1 lf-name-anon? 2 lf-name-anon? -> true false false }T
+\ A name kept with its generation is current until the store is reset.
+T{ 3 lf-name-generation @ lf-name-current? 3 lf-name-generation @ 1+ lf-name-current? -> true false }T
+T{ lf-name-count @ lf-name-generation @ lf-name-current? -> false }T
 \ A one-component name by its text: Nat is, Nat.41.zero and the anonymous
 \ name are not, nor is a string that differs.
 T{ 1 s" Nat" lf-name-top? 3 s" zero" lf-name-top? 1 s" Na" lf-name-top? -> true false false }T
