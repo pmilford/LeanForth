@@ -359,9 +359,22 @@ is de-bind-dom
 : de-stuck-mvar ( t -- mvar true | false )
   lf-whnf-stuck dup ok? 0= if nip de-abort false exit then drop ;
 : de-opaque? ( mvar -- flag ) lf-mvar-kind if mv-opaque = else true then ;
+\ The synthesis hooks (S1 appendix D): Lean's synthPending
+\ (SynthInstance.lean:1037) and synthInstance (ExprDefEq.lean:626),
+\ answering unsupported until branch s1-synth sets them. A metavariable
+\ synthPending fills would let isDefEqOnFailure instantiate and compare
+\ again (unstuckMVar): that retry is not ported, unsupported.
+: de-synth-later ( mvar -- flag outcome ) drop false outcome-unsupported ;
+defer lf-meta-synth-pending ( mvar -- flag outcome )
+' de-synth-later is lf-meta-synth-pending
+: de-synth-none ( type -- inst flag outcome ) drop -1 false outcome-unsupported ;
+defer lf-meta-synth ( type -- inst flag outcome )
+' de-synth-none is lf-meta-synth
+: de-class? ( mvar -- flag ) lf-mvar-type drop lf-meta-class-none? 0= ;
 : de-synth-pending ( mvar -- )
-  dup de-opaque? if drop exit then
-  lf-mvar-type drop lf-meta-class-none? 0= if outcome-unsupported de-abort then ;
+  dup de-opaque? if drop exit then dup de-class? 0= if drop exit then
+  lf-meta-synth-pending ok-then? 0= if de-abort exit then if outcome-unsupported de-abort
+    then ;
 : de-try-synth ( t -- ) de-stuck-mvar if de-synth-pending then ;
 : de-older? ( mvar -- flag ) lf-mvar-depth if lf-mctx-depth < else false then ;
 : de-unstuck ( t -- stuck? )
@@ -467,8 +480,15 @@ defer de-args-post ( -- )
   lf-lb-true = 0= if lf-lb-false de-return exit then
   de-t de-s lf-mvar-assign dup ok? if drop lf-lb-true de-return
   else de-assign-failed then ;
+\ An instance-typed metavariable (Lean's branch under the option
+\ backward.isDefEq.respectTransparency.instanceSearchTypes, default true,
+\ ExprDefEq.lean:640-660): its value is checked at instances transparency
+\ or synthesized (checkTypesForInstanceTypedMVarAssignment,
+\ synthInstanceTypedMVarAndUnify): not ported, unsupported; only
+\ synthesis's subgoals are marked (branch s1-synth).
 : de-check-types ( -- )
   de-t lf-mvar? 0= if lf-lb-false de-return exit then
+  de-t lf-mvar-inst? if outcome-unsupported de-abort exit then
   de-t lf-mvar-type 0= if outcome-invalid de-abort exit then
   de-s de-infer 0= if 2drop exit then ['] de-ct-k de-solve de-bump ;
 
@@ -625,8 +645,14 @@ defer de-args-post ( -- )
 : de-nonrec? ( data -- flag )
   dup lf-ity-indices lf-more-field 0= over lf-ity-ctors@ nip 1 = and
   swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0= and ;
-: de-data ( d -- data ) lf-input-decl lf-idecl-data ;
-: de-ctor-fields ( name -- n ) lf-input-newest de-data lf-ict-fields lf-more-field ;
+: de-data ( d -- data ) lf-menv-data ;
+\ The inductive data of a name's declaration; none (no such declaration,
+\ a library one not decoded for want of room) ends the comparison with
+\ that outcome.
+: de-named-data ( name -- data true | false )
+  lf-menv-find de-must if de-data true else drop false then ;
+: de-ctor-fields ( name -- n|-1 )
+  de-named-data if lf-ict-fields lf-more-field else -1 then ;
 : de-unit-data? ( data -- flag )
   dup de-nonrec? if lf-ity-ctors@ drop @ de-ctor-fields 0= else drop false then ;
 : de-unit-type? ( type -- flag )
@@ -659,8 +685,9 @@ defer de-args-post ( -- )
 : de-ctor-arity ( ctor -- n )
   de-decl drop de-data
   dup lf-ict-params lf-more-field swap lf-ict-fields lf-more-field + ;
-: de-ctor-induct ( ctor -- data )
-  de-decl drop de-data lf-ict-induct lf-more-field lf-input-newest de-data ;
+: de-ctor-induct ( ctor -- data true | false )
+  de-decl drop de-data lf-ict-induct lf-more-field de-named-data ;
+: de-induct-nonrec? ( ctor -- flag ) de-ctor-induct if de-nonrec? else false then ;
 : de-ctor-fields-of ( ctor -- n ) de-decl drop de-data lf-ict-fields lf-more-field ;
 \ isDefEqEtaStruct a b with b a constructor application of a non-recursive
 \ structure and a none: code 1 when it has no fields (Lean then compares
@@ -669,7 +696,7 @@ defer de-args-post ( -- )
 : de-eta-struct ( a b -- code )
   dup de-ctor? 0= if 2drop 0 exit then over de-ctor? if 2drop 0 exit then
   dup lf-meta-head de-ctor-arity over lf-meta-args# <> if 2drop 0 exit then
-  nip lf-meta-head dup de-ctor-induct de-nonrec? 0= if drop 0 exit then
+  nip lf-meta-head dup de-induct-nonrec? 0= if drop 0 exit then
   de-ctor-fields-of 0= if 1 else outcome-unsupported de-abort 0 then ;
 
 \ ---- isDefEqQuick.

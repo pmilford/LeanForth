@@ -68,7 +68,7 @@ end-structure
   dup 0= if lf-reach-close then ;
 
 \ A node's cell; a number outside the table is never marked or reached.
-: lr-in? ( i n -- flag ) 0 swap within ;
+: lr-in? ( i n -- flag ) index? ;
 : lr-term ( term -- addr ) cells lf-reach lf-reach-terms @ + ;
 : lr-level ( level -- addr ) cells lf-reach lf-reach-levels @ + ;
 : lr-term? ( term -- flag ) lf-reach lf-reach-term# @ lr-in? ;

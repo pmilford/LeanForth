@@ -176,5 +176,7 @@ lf-mctx-reset
 T{ ?n lf-infer ?n fk app lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
 lf-lctx-reset
 T{ fk lf-infer fs fk app lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
+\ The fed input as loading left it (S1 §1, trust point 3).
+T{ lf-input-intact? -> true }T
 
 bye

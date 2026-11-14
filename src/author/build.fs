@@ -40,7 +40,7 @@ require ./errors.fs
 : lfa-lit-fields ( term -- tag value count )
   lf-tag-lit over lf-lit-cell rot lf-term-second@ ;
 : lfa-term-fields ( term -- tag first second )
-  dup lf-term-tag@ lf-tag-lit = if lfa-lit-fields else lf-term-slot lf-term-fields@ then ;
+  dup lf-lit-leaf? if lfa-lit-fields else lf-term-slot lf-term-fields@ then ;
 : lfa-term-same? ( node term -- flag )
   lfa-term-fields 3 pick node-second @ = >r 2 pick node-first @ = >r
   over node-tag @ = nip r> r> and and ;
@@ -53,8 +53,7 @@ require ./errors.fs
 : lfa-made ( index true | false -- term ) 0= if lfa-e-terms-full lfa-fail then ;
 \ An application, or a projection when f is a projection leaf
 \ (core/projections.fs): the authors' $ applies a leaf to its term.
-: lfa-leaf? ( term -- flag ) lf-term-tag@ lf-tag-proj = ;
-: lfa-app-tag ( f -- tag ) lfa-leaf? if lf-tag-projection else lf-tag-app then ;
+: lfa-app-tag ( f -- tag ) lf-proj-leaf? if lf-tag-projection else lf-tag-app then ;
 : lfa-new-app ( f a -- term ) over lfa-app-tag lf-term-binary lfa-made ;
 : lfa-new-bvar ( i -- term ) lf-term-bvar lfa-made ;
 : lfa-new-sort ( level -- term )

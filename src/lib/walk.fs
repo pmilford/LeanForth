@@ -140,7 +140,7 @@ max-n 1 cells / constant walk-most-cells
 : walk-children-at ( first second context walk -- outcome )
   >r rot r@ walk-context @ r@ walk-push-pair
   if r> walk-pair-outcome else 2drop r> drop outcome-full then ;
-: walk-child? ( index walk -- flag ) walk-node @ 0 swap within ;
+: walk-child? ( index walk -- flag ) walk-node @ index? ;
 : walk-child ( index walk -- outcome )
   2dup walk-child? if walk-push-outcome else 2drop outcome-invalid then ;
 : walk-children ( first second walk -- outcome )

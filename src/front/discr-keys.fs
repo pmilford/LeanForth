@@ -225,7 +225,7 @@ end-structure
 : dk-eta ( e -- e' flag outcome )
   dup dk-lam? if lf-meta-eta-expanded else false outcome-ok then ;
 : dk-reduce-step ( e -- e' again? outcome )
-  lf-meta-whnf-core ok-then? 0= if -1 false rot exit then
+  lf-whnf-core ok-then? 0= if -1 false rot exit then
   dup dk-unfold-check ok-then? if dk-eta else -1 false rot then ;
 : dk-reduce ( e -- e' outcome )
   begin dk-reduce-step ok-then? 0= if nip no-result exit then 0= until outcome-ok ;

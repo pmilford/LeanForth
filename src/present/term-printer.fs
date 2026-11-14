@@ -483,9 +483,8 @@ lf-pp-steps-applied
 : lf-pp-scope-bind ( node -- outcome )
   dup lf-pp-binder-node? 0= if drop-invalid exit then
   dup 0 lf-pp-name-binder ok-then2? if swap lf-term-first@ swap lf-pp-bind then ;
-: lf-pp-scope ( addr count -- outcome )
-  0 ?do dup i cells + @ lf-pp-scope-bind ok-then? 0= if unloop exit then
-  loop drop outcome-ok ;
+: lf-pp-scope-at ( addr k -- addr outcome ) cells over + @ lf-pp-scope-bind ;
+: lf-pp-scope ( addr count -- outcome ) ['] lf-pp-scope-at ok-each nip ;
 : lf-print-scoped ( term addr count fuel -- outcome )
   lf-print-ready? 0= if 2drop drop-invalid exit then
   lf-pp-scope ok-then? if 0 ['] lf-pp-term-step lf-pp-run then lf-pp-finish ;

@@ -647,6 +647,11 @@ T{ s" theorem t Nat explicit: x x d x = := x end t" nfails -> 73 1 29 }T
 T{ lf-author-code lf-author-outcome -> outcome-unsupported }T
 
 T{ lfc-library-close -> }T
+\ dag-walk.fs's memo bounds: a node is in a walk of size n when 0 <= node
+\ < n; a negative node never is (review reuse-1a L1).
+create dw-probe /dw allot  5 dw-probe dw-size !
+T{ 0 dw-probe dw-in? 4 dw-probe dw-in? 5 dw-probe dw-in? -> true true false }T
+T{ -1 dw-probe dw-in? max-n negate dw-probe dw-in? -> false false }T
 T{ depth -> 0 }T
 cr .( front.fs: all tests passed) cr
 bye

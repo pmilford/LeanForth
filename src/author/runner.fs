@@ -261,6 +261,5 @@ create lfa-blank-line 10 c,
 : lfa-print-one ( fuel i -- outcome )
   dup lfa-library? if 2drop outcome-ok exit then
   dup if lfa-blank-line 1 lf-pp-emit then lfa-decl swap lf-print-forth-decl ;
-: lf-author-print ( fuel -- outcome )
-  lf-author-count 0 ?do dup i lfa-print-one ok-then? 0= if unloop exit then loop
-  drop outcome-ok ;
+: lfa-print-at ( fuel i -- fuel outcome ) over swap lfa-print-one ;
+: lf-author-print ( fuel -- outcome ) lf-author-count ['] lfa-print-at ok-each nip ;

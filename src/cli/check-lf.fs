@@ -56,6 +56,8 @@ require ../front/reader.fs
 require ../front/tactic-basic.fs
 require ../import/stage.fs
 require ../front/elab-data.fs
+require ../front/meta-env.fs
+require ../front/mvars.fs
 require ./check-run.fs
 
 begin-structure /lfc
@@ -183,7 +185,8 @@ end-structure
 
 \ ---- The text: run by the words, a checked run with the library's finder.
 : lfc-finder ( -- xt|0 ) lfc-library? if ['] lfc-find else 0 then ;
-: lfc-settings! ( -- ) lfc-finder lf-author-library! true lf-author-checked! ;
+: lfc-settings! ( -- )
+  lfc-finder lf-author-library! true lf-author-checked! ck-stage lf-menv-library! ;
 : lfc-settings-off ( -- ) 0 lf-author-library! false lf-author-checked! ;
 \ A text that declares nothing of its own has nothing to check (error 49).
 : lfc-own? ( -- flag ) false lf-author-count 0 ?do i lfa-library? 0= or loop ;
@@ -217,7 +220,8 @@ end-structure
 : lfc-sharing! ( -- ) lf-term-sharing? lfc lfc-sharing ! ;
 : lfc-sharing-back ( -- ) lfc lfc-sharing @ lf-term-sharing! ;
 : lfc-empty ( -- )
-  lf-term-reset lf-level-reset lf-cref-reset lf-name-reset lfa-declarations-reset ;
+  lf-term-reset lf-level-reset lf-cref-reset lf-name-reset lfa-declarations-reset
+  lf-menv-reset lf-mctx-reset ;
 : lfc-records ( -- outcome ) lfc-produce dup ok? 0= lfc lfc-refused ! ;
 : lfc-made ( c-addr u -- outcome ) lfc-run dup ok? if drop lfc-records then ;
 \ The making xt ( c-addr u -- outcome ) runs under CATCH, so that the
@@ -234,12 +238,18 @@ end-structure
 \ ---- A library for a run outside check (a Forth session, the authoring
 \ tests): lfc-library-open reads the export c-addr u, its manifest checked
 \ when checked? is true, into the stage, not sealed, and lets the words
-\ name its constants (lfc-find, in this context); lfc-library-close frees
-\ the stage and the words name none again.
+\ name its constants (lfc-find, in this context) and the Meta layer read
+\ its declarations (front/meta-env.fs's run mode; any elaboration data
+\ read before is dropped: it was read against the stage freed; the run
+\ mode is left first, so that a read that fails leaves none bound to the
+\ stage freed); lfc-library-close frees the stage and the words name none
+\ again. A text's run binds the run mode to the stage (lfc-settings!) and
+\ lfc-empty leaves it, emptying the metavariable context too (S1 §1).
 : lfc-library-open ( c-addr u checked? -- outcome )
-  >r lfc-env! ck-stage stage-free r> lfc-library-read
-  dup ok? if ['] lfc-find lf-author-library! then ;
-: lfc-library-close ( -- ) 0 lf-author-library! ck-stage stage-free 0 0 lfc-env! ;
+  >r lfc-env! lf-menv-reset elab-reset ck-stage stage-free r> lfc-library-read
+  dup ok? if ['] lfc-find lf-author-library! ck-stage lf-menv-library! then ;
+: lfc-library-close ( -- )
+  lf-menv-reset elab-reset 0 lf-author-library! ck-stage stage-free 0 0 lfc-env! ;
 
 \ ---- Loading, as ck-load (cli/check-run.fs): the staging phase is the
 \ library's reading, the text's run and its records, and the seal.

@@ -449,6 +449,7 @@ below it).
 | 97 | invalid | Tactic `rfl` failed: The left-hand side |
 | 98 | invalid | Tactic `exact` failed: attempting to close the goal using |
 | 99 | unsupported | not supported yet: this case of the tactic (FE1G_TACTICS.md 5 names its step) |
+| 100 | invalid | invalid universe level: not greater than 0 |
 | 110 | invalid | type class instance expected |
 | 112 | invalid | elaboration data refused: an instance is recorded under a class its type is not of |
 | 113 | invalid | elaboration data refused: an instance's recorded keys differ from its type's |

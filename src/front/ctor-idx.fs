@@ -78,7 +78,7 @@ require ./constructions.fs
 \ T.{us} applied to the parameters, from variable pfirst down, then to
 \ the indices, from variable k - 1 down (k the indices).
 : down-var ( f i job -- e outcome ) tuck aux-span @ swap - swap apply-var ;
-: vars, ( f n job -- e outcome ) ['] down-var fold-with ;
+: vars, ( f n job -- e outcome ) ['] down-var ok-fold ;
 : ind-const ( job -- e outcome )
   dup type-levels ok-keep? 0= if exit then
   swap dup >r type-name swap r> aux-tier expr-const ;
@@ -89,9 +89,9 @@ require ./constructions.fs
   swap dup type-indices 1- over aux-span ! dup type-indices swap vars, ;
 
 \ ---- The type: Pi {params} {indices} (x : T params indices), Nat.
-: xs-binder ( j job -- outcome )
-  tuck type-binder swap implicit swap rot binder, outcome-ok ;
-: xs-binders ( job -- outcome ) dup xs-count swap ['] xs-binder aux-each ;
+: xs-binder ( job j -- job outcome )
+  over tuck type-binder swap implicit swap rot binder, outcome-ok ;
+: xs-binders ( job -- outcome ) dup xs-count ['] xs-binder ok-each nip ;
 : arrow-domain ( job -- e outcome ) dup xs-count 1- swap ind-app ;
 : arrow ( job -- e outcome )
   dup arrow-domain ok-keep? 0= if exit then
@@ -112,7 +112,7 @@ require ./constructions.fs
   if swap implicit-lam swap make-binder else nip nip nip no-result then ;
 : motive ( job -- e outcome )
   dup motive-x ok-keep? 0= if exit then swap dup type-indices 1- over aux-span !
-  dup type-indices swap ['] motive-step fold-with ;
+  dup type-indices swap ['] motive-step ok-fold ;
 \ Constructor c's alternative: fun fields => c's index; the fields'
 \ types moved past the indices and x.
 : field-pi ( q job -- e ) >r r@ type-params + r@ ctor-type swap r> nth-pi ;
@@ -129,10 +129,8 @@ require ./constructions.fs
   swap dup ctor-fields over aux-span ! ['] alt-step m-fold ;
 : apply-alt ( f c job -- e outcome )
   tuck alt ok-keep? if swap aux-tier expr-app else failed-past then ;
-\ Not a fold: each alternative folds its fields.
-: alts, ( f job -- e outcome )
-  dup ctor-count 0 ?do tuck i swap apply-alt ok-keep? 0= if unloop exit then swap loop
-  drop outcome-ok ;
+\ A fold whose alternatives each fold their fields.
+: alts, ( f job -- e outcome ) dup ctor-count swap ['] apply-alt ok-fold ;
 
 \ ---- The value, grown in aux-built-value: T.casesOn.{1, us} params
 \ motive indices x alternatives, then fun x, then the implicit funs.
@@ -140,7 +138,7 @@ require ./constructions.fs
   ok-keep? if swap aux-built-value ! outcome-ok else nip then ;
 : grow ( job xt -- outcome ) >r dup aux-value@ over r> execute grown ;
 : one-levels ( job -- t outcome )
-  dup tuple-begin ['] level-one, aux-then ['] type-levels-add aux-then tuple-done ;
+  dup tuple-begin ['] level-one, ok-with ['] type-levels-add ok-with tuple-done ;
 : one-cases ( job -- e outcome )
   dup cases-name 0= if no-cases exit then
   over one-levels ok-keep? if rot aux-tier expr-const else failed-past then ;
@@ -158,8 +156,8 @@ require ./constructions.fs
 : +alts ( job -- outcome ) ['] alts, grow ;
 : start-cases ( job -- outcome ) dup one-cases grown ;
 : cases-app ( job -- outcome )
-  dup start-cases ['] +params aux-then ['] +motive aux-then ['] +indices aux-then
-  ['] +x aux-then ['] +alts aux-then nip ;
+  dup start-cases ['] +params ok-with ['] +motive ok-with ['] +indices ok-with
+  ['] +x ok-with ['] +alts ok-with nip ;
 : idx-body ( job -- outcome )
   dup ctor-count 1 = if 0 over nat-literal grown exit then cases-app ;
 : x-wrapped ( job -- e outcome )
@@ -167,7 +165,7 @@ require ./constructions.fs
 : wrap-x ( job -- outcome ) dup x-wrapped grown ;
 : wrap-xs ( job -- outcome ) dup aux-value@ over aux-lams grown ;
 : idx-value! ( job -- outcome )
-  dup idx-body ['] wrap-x aux-then ['] wrap-xs aux-then nip ;
+  dup idx-body ['] wrap-x ok-with ['] wrap-xs ok-with nip ;
 
 \ ---- ctorIdx.
 : no-prop ( job -- outcome ) c" Lean makes no ctorIdx for a Prop" swap aux-refuse ;
@@ -178,7 +176,7 @@ require ./constructions.fs
   dup prop-former? if no-prop exit then dup large? 0= if no-large exit then
   dup type-names swap aux-built-params ! outcome-ok ;
 : ctor-idx ( job -- outcome )
-  dup idx-ready ['] x-ready aux-then ['] xs-binders aux-then ['] idx-type! aux-then
-  ['] idx-value! aux-then nip ;
+  dup idx-ready ['] x-ready ok-with ['] xs-binders ok-with ['] idx-type! ok-with
+  ['] idx-value! ok-with nip ;
 : aux-ctor-idx ( d job -- outcome )
-  tuck aux-begin ['] ctor-idx aux-then swap aux-because ;
+  tuck aux-begin ['] ctor-idx ok-with swap aux-because ;

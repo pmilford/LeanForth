@@ -148,6 +148,8 @@ require ./source.fs
 97 constant lfa-e-tac-rfl        \ rfl's two sides are not definitionally equal
 98 constant lfa-e-tac-assign     \ exact's term cannot be assigned to the goal
 99 constant lfa-e-tac-form       \ unsupported: this case of a tactic (a later step)
+\ The Meta layer's errors a user sees (S1, branch s1-meta; 101-109 free).
+100 constant lfa-e-universe-level \ getDecLevel: a level that is not greater than 0
 \ The instance table and its check of the elaboration data
 \ (src/front/instances.fs, plan FE1e3; FE1E_APPLICATIONS.md 4).
 110 constant lfa-e-not-class     \ getInstances' goal is no class application
@@ -343,6 +345,7 @@ create lfa-catalogue
   lfa-e-tac-form
   s" not supported yet: this case of the tactic (FE1G_TACTICS.md 5 names its step)"
   lfa-unsupported,
+  lfa-e-universe-level s" invalid universe level: not greater than 0" lfa-invalid,
   lfa-e-not-class s" type class instance expected" lfa-invalid,
   lfa-e-inst-class
   s" elaboration data refused: an instance is recorded under a class its type is not of"

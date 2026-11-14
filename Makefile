@@ -1009,7 +1009,7 @@ test-front:
 	  src/front/level-simp.fs src/front/level-params.fs src/front/level-normalize.fs \
 	  src/front/level-map.fs src/front/expr-remap.fs src/front/constructions.fs src/front/ctor-idx.fs \
 	  src/front/cases-several.fs \
-	  src/front/meta-env.fs src/front/meta-spine.fs src/front/whnf.fs src/front/beta-inst.fs \
+	  src/front/lib-decode.fs src/front/meta-env.fs src/front/meta-spine.fs src/front/whnf.fs src/front/beta-inst.fs \
 	  src/front/infer.fs src/front/tactic-syntax.fs \
 	  src/front/lctx-views.fs src/front/goals.fs src/front/goal-print.fs \
 	  src/front/term-eqv.fs src/front/prop-quick.fs \
@@ -1034,6 +1034,9 @@ test-front:
 	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "tactic-run.fs: all tests passed"
 	@out=$$($(RUN) $(GFORTH) tests/front/tactic-basic.fs 2>&1) || \
 	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "tactic-basic.fs: all tests passed"
+	@out=$$($(RUN) $(GFORTH) tests/front/menv-run.fs 2>&1) || \
+	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "menv-run.fs: all tests passed"
+	$(RUN) python3 tests/front/test_front_imports.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_tactics.py
 	$(RUN) $(GFORTH) tests/front/goals.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_goals.py
@@ -1061,7 +1064,15 @@ reference-front:
 reference-constructions:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/front/constructions-init.sh
 
-.PHONY: test-front reference-front reference-constructions
+# Binder kinds of the Init export against pinned Lean's environment, every
+# binder of every declaration's type (plan S1 §4): a measurement, not part
+# of make check (it exports Init, 345 MB); fails when a declaration S1
+# reads differs. INIT_EXPORT=FILE reuses a pinned export.
+reference-binder-kinds:
+	LEAN=$(LEAN) $(RUN) python3 tests/front/check_binder_kinds.py \
+	  $(if $(INIT_EXPORT),--export $(INIT_EXPORT))
+
+.PHONY: test-front reference-front reference-constructions reference-binder-kinds
 test: test-front
 test-differential: reference-front
 test-differential: reference-constructions

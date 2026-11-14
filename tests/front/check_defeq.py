@@ -187,7 +187,7 @@ CASES = [
     ("eq", (LIT, 3), succ(succ(succ(ZERO))), "FE1c reduceNat? (isDefEqNat)"),
     ("eq", succ("?h"), hadd(ofnat(0), hadd("k", ofnat(1))),
      "FE1d2 lazy delta reduction (FE1's acceptance case)"),
-    ("eq", hadd("k", ofnat(1)), succ("k"), "FE1d2 lazy delta reduction"),
+    ("eq", hadd("k", ofnat(1)), succ("k"), None),
     # Depth: a metavariable of the outer depth is read-only.
     ("deep", "?n", "k", None),
     ("deep", apps("u", "?n"), apps("u", "k"), None),
@@ -215,7 +215,7 @@ CASES = [
     ("eq", succ(hadd("?h", ofnat(2**63))), (LIT, 5), None),
     ("eq", succ("?h"), (LIT, 2**64 - 1), None),
     ("eq", hadd(hadd(ofnat(2**62), ofnat(2**62)), ofnat(2**62)), (LIT, 3 * 2**62),
-     "FE1d2 whnfCore's matcher facts"),
+     None),
     ("eq", succ(hadd(hadd(hadd("?h", ofnat(2**62)), ofnat(2**62)), ofnat(2**62))),
      (LIT, 3 * 2**62 + 1), None),
     ("eq", succ(hadd("k", hadd(hadd(ofnat(2**62), ofnat(2**62)), ofnat(2**62)))),

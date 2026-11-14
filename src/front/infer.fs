@@ -39,6 +39,18 @@
 \ outcomes (FE1g-3's by-sorry uses it, as Lean's mkSorry does);
 \ lf-whnf-firm? ( term -- flag ): whether whnf's delta could go further
 \ than whnfCore's result (FE1g-4's by-intro: asks).
+\ lf-meta-dec-level ( type -- level outcome ): Lean's getDecLevel
+\ (Meta/DecLevel.lean:57-76): the type's level (getLevel), its level
+\ metavariables instantiated and normalized (normalizeLevel), then
+\ decremented (decLevel): succ u gives u; a max or imax whose two sides
+\ both decrement gives mkLevelMax' of the two (no assignment below the
+\ root, processMax); an assignable level metavariable at the root is
+\ assigned succ ?w for a fresh ?w, the answer (one of an outer depth,
+\ levelAssignDepth, is read-only); zero, a parameter or anything else is
+\ Lean's "invalid universe level" (invalid; error 100 where a user sees
+\ it). Full when a store has no room (a fresh ?w may then stay, unassigned
+\ and named by no term: Lean's assignment cannot fail, so it has nothing
+\ to restore).
 \ Not re-entrant: one inference at a time per context uses the slabs
 \ below (whnfCore and the instantiations it calls keep their own). Each
 \ lambda or pi inferred adds its binders' free variables to the local
@@ -82,10 +94,10 @@ end-structure
 
 \ ---- Leaves.
 : if-levels-fill ( slot -- outcome ) if-levels lf-meta-levels-fill ;
-: if-levels-ok? ( slot d -- flag ) lf-input-params nip swap lf-cref-pairs nip = ;
+: if-levels-ok? ( slot d -- flag ) lf-menv-params nip swap lf-cref-pairs nip = ;
 : if-const-type ( slot d -- type outcome )
   over if-levels-fill dup ok? 0= if nip if-fail exit then drop nip
-  dup lf-input-decl lf-idecl-type @ swap lf-input-params >r 0 if-levels slab-at r>
+  dup lf-menv-type swap lf-menv-params >r 0 if-levels slab-at r>
   lf-meta-instantiate-level-params ;
 : if-slot ( const -- slot ) lf-term-first@ lf-cref-slot ;
 : if-const ( const -- type outcome )
@@ -236,5 +248,51 @@ end-structure
 \ which whnf must make Sort u; the cases as inferForallType's above.
 : lf-get-level ( type -- level outcome )
   lf-infer ok-then? if if-sort-level else no-result then ;
+
+\ ---- getDecLevel. Below the root a bottom-up walk (dag-walk.fs) whose
+\ image is the decrement + 1, 0 for none (a walk's images are not
+\ negative); the root may assign.
+begin-structure /idl
+  /dw +field idl-walk
+end-structure
+/idl context-record: idl
+: idl-walk@ ( -- walk ) idl idl-walk ;
+: idl-max? ( l -- flag )
+  lf-level-tag@ dup lf-level-tag-max = swap lf-level-tag-imax = or ;
+: idl-pending ( l walk -- child true | false )
+  over idl-max? 0= if 2drop false exit then
+  >r dup lf-level-first@ swap lf-level-second@ r> dw-want2 ;
+: idl-img ( l -- image ) idl-walk@ dw-image ;
+: idl-both ( l -- a b ) dup lf-level-first@ idl-img swap lf-level-second@ idl-img ;
+: idl-max ( l walk -- image )
+  >r idl-both 2dup 0= swap 0= or if 2drop r> drop 0 exit then
+  1- swap 1- swap lf-meta-max dup ok? if drop r> drop 1+ else r> dw-refuse drop 0 then ;
+: idl-build ( l walk -- image )
+  over lf-level-tag@ lf-level-tag-succ = if drop lf-level-first@ 1+ exit then
+  over idl-max? if idl-max else 2drop 0 then ;
+:noname ( -- ) ['] idl-pending idl-walk@ dw-pending ! ['] idl-build idl-walk@ dw-build ! ;
+  context-setup
+: idl-answer ( image -- level outcome ) ?dup if 1- outcome-ok else -1 outcome-invalid then
+  ;
+: idl-dec ( level -- level' outcome )
+  lf-level-count @ idl-walk@ dw-size ! idl-walk@ dw-run ok-then? if idl-answer else
+    no-result then ;
+\ An assignable ?u at the root: ?u := succ ?w for a fresh ?w, the answer.
+\ Lean's assignment cannot fail; here the stores may have no room (full),
+\ and then ?w, made already, stays unassigned and named by no term.
+: idl-assign ( mvar w succ -- w outcome )
+  rot swap lf-level-mvar-assign dup ok? 0= if nip no-result then ;
+: idl-succ-of ( mvar w -- w outcome )
+  dup lf-level-succ if idl-assign else 2drop -1 outcome-full then ;
+: idl-fresh ( mvar -- w outcome )
+  lf-level-mvar-new ok-then? if idl-succ-of else nip no-result then ;
+: idl-open? ( level -- flag outcome )
+  dup lf-level-mvar? if lf-level-assignable-mvar? else drop false outcome-ok then ;
+: idl-decrement ( level -- level' outcome )
+  dup idl-open? ok-then? 0= if nip no-result exit then if idl-fresh else idl-dec then ;
+: lf-meta-dec-level ( type -- level outcome )
+  lf-get-level ok-then? 0= if no-result exit then
+  lf-level-instantiate-mvars ok-then? 0= if no-result exit then
+  lf-meta-level-normalize ok-then? if idl-decrement else no-result then ;
 
 base !   \ the BASE this file was loaded with

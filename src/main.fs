@@ -77,6 +77,7 @@ require ./front/instantiate.fs
 require ./front/level-simp.fs
 require ./front/level-params.fs
 require ./front/level-normalize.fs
+require ./front/lib-decode.fs
 require ./front/meta-env.fs
 require ./front/whnf.fs
 require ./front/beta-inst.fs

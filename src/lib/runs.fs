@@ -99,8 +99,7 @@ lf-lib-private set-current
   dup rn-top? if rn-first@ outcome-ok else rn-copied then ;
 
 \ Pushing: x appended at the top, after the run's cells.
-: rn-put ( x -- outcome )
-  1 rn-cells slab-claim ok-then? if rn-cell ! outcome-ok else nip then ;
+: rn-put ( x -- outcome ) rn-cells slab-push ;
 : rn-pushed ( x first n -- run outcome )
   rot rn-put ok-then2? if 1+ rn-new else no-result then ;
 : rn-grown ( run x -- x first n outcome ) swap dup run-count >r rn-at-top r> swap ;

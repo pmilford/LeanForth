@@ -134,7 +134,8 @@ unfolding reveals, and a local or metavariable applied to arguments. **S1 check*
 declaration's type, target 0. Lean's export shares expressions equal up to binder info (fe6a M1). S1 needs a count of 0 on
 the declarations S1 reads (Eq, Eq.refl, HAdd, OfNat, Add and their instances); otherwise the list of differing
 declarations ships in the elaboration data, covered by M6's manifest entry, and those answer unsupported where their
-kinds are read.
+kinds are read. Measured (2026-11-13, merge B, `make reference-binder-kinds`): of Init's 59,349 exported
+declarations 755 differ in 1,101 binders; S1's 16 differ in none.
 
 ## 5. Error-code ranges (B5)
 

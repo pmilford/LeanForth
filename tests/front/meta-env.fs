@@ -143,5 +143,14 @@ menv-lib lf-menv-stage!
 T{ s" Nat.add" status -> -1 outcome-unsupported }T
 T{ menv-data menv-lib menv-digest elab-read elab-error-code -> outcome-invalid 24 }T
 T{ s" Nat.add" status s" Prod.fst" unfolds -> -1 outcome-unsupported -1 }T
+\ The fed input as loading left it, also after the run mode's reset
+\ (lfc-empty's) forgot the decoded library and the text list (S1 §1, trust
+\ point 3; fault fe-env-intact).
+T{ lf-input-intact? lf-menv-reset lf-input-intact? -> true true }T
+\ Binder kinds in the fed mode come from the stage named (S1 §4):
+\ HAdd.hAdd {α β γ} [self] (a b), none without a stage.
+menv-lib lf-menv-stage!
+T{ s" HAdd.hAdd" menv-decl lf-menv-kinds nip -> 6 }T
+T{ 0 lf-menv-stage! s" HAdd.hAdd" menv-decl lf-menv-kinds nip -> 0 }T
 
 bye
