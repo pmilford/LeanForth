@@ -3713,8 +3713,8 @@ reason = "review F3: a number beyond I-JSON's exact range, which the schema refu
 [[fault]]
 id = "rp-cut-mid-character"
 file = "src/import/run-replay.fs"
-old = '''  rp-path-room run-replay rp-path-size @ - rp-cut tuck rp-path + swap move'''
-new = '''  rp-path-room run-replay rp-path-size @ - min tuck rp-path + swap move'''
+old = '''  rp-path-room run-replay rp-path-size @ - rp-cut run-replay rp-path-size cell-counted+! ;'''
+new = '''  rp-path-room run-replay rp-path-size @ - min run-replay rp-path-size cell-counted+! ;'''
 test = "python3 tests/core/test_run_records.py"
 reason = "review F2: a long multibyte key is cut inside a character and the report fails"
 
@@ -5051,8 +5051,8 @@ quick = true
 [[fault]]
 id = "latex-name-banned-unescaped"
 file = "src/present/latex-text.fs"
-old = '''  2dup utf8-decode dup tr-banned? if s" \backslash{}u\{" lf-tex-code nip exit then'''
-new = '''  2dup utf8-decode dup tr-banned? 0 and if s" \backslash{}u\{" lf-tex-code nip exit then'''
+old = '''  2dup utf8-decode dup tr-banned? if s" u\{" r> lf-tex-code nip exit then'''
+new = '''  2dup utf8-decode dup tr-banned? 0 and if s" u\{" r> lf-tex-code nip exit then'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Names"
 reason = "a binder or constant name with a line end or a bidirectional control reaches the mathematics line raw and forges outline lines (review rvPR B1)"
 quick = true
@@ -9136,7 +9136,7 @@ reason = "SN2: a family's count in the information section is not compared with 
 [[fault]]
 id = "sn2-payload-written"
 file = "src/import/snapshot-tier.fs"
-old = '''  tf-copy-out dup ok? if >r 2dup exprs-unresolve r> then ;'''
+old = '''  ['] exprs-unresolve tf-copy-then ;'''
 new = '''  tf-copy-out ;'''
 test = "$GFORTH tests/core/snapshot-tier.fs"
 reason = "SN2: constants are written with their resolved payloads, which a dependent run numbers differently (the loader refuses them)"
@@ -9144,8 +9144,8 @@ reason = "SN2: constants are written with their resolved payloads, which a depen
 [[fault]]
 id = "sn2-mark-written"
 file = "src/import/snapshot-tier.fs"
-old = '''  tf-copy-out dup ok? if >r 2dup decls-unmark r> then ;'''
-new = '''  tf-copy-out ;'''
+old = ''': tf-decls-out ( addr units i tf -- addr' units outcome ) ['] decls-unmark tf-copy-then ;'''
+new = ''': tf-decls-out ( addr units i tf -- addr' units outcome ) tf-copy-out ;'''
 test = "$GFORTH tests/core/snapshot-tier.fs"
 reason = "SN2: declarations are written with their mdata marks, which sealing derives (the loader refuses them)"
 

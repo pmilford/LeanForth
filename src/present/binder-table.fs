@@ -135,7 +135,7 @@ end-structure
 \ view, read from its record (compact-store plan step S5; terms.fs's
 \ lf-term-input-binder@), when the name is valid.
 : lf-pres-name-live? ( entry -- flag )
-  dup lf-pterm-names @ lf-name-generation @ = swap lf-pterm-name @ lf-name-valid? and ;
+  dup lf-pterm-name @ swap lf-pterm-names @ lf-name-current? ;
 : lf-pres-input-binder@ ( term -- name kind true | false )
   lf-term-input-binder@ 0= if false exit then
   over lf-name-valid? if true else 2drop false then ;
@@ -178,7 +178,7 @@ end-structure
 \ replaces its type, and a record that went stale is reused. A table full
 \ of live records is full; bad input is invalid.
 : lf-pres-decl-name? ( decl -- flag )
-  dup lf-pdecl-names @ lf-name-generation @ = swap lf-pdecl-name @ lf-name-valid? and ;
+  dup lf-pdecl-name @ swap lf-pdecl-names @ lf-name-current? ;
 : lf-pres-decl-type? ( decl -- flag )
   dup lf-pdecl-type @ lf-term-identity
   if swap lf-pdecl-identity @ = else drop false then ;

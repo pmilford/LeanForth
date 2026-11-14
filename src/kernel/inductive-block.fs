@@ -347,7 +347,8 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   lf-ind-state lf-ind-leaf @ lf-ind-branch ;
 : lf-ind-once ( first second walk tag -- outcome ) ['] lf-ind-dispatch lf-walk-once ;
 : lf-ind-visit ( walk -- outcome ) ['] lf-ind-once lf-term-visit ;
-: lf-ind-walked ( outcome -- outcome ) lf-ind-walker lf-ind-fuel lf-ind-site lf-diag-walked ;
+: lf-ind-walked ( outcome -- outcome )
+  lf-ind-walker lf-ind-fuel lf-ind-site lf-diag-walked ;
 \ A walk of root by the visitor visit-xt ( walk -- outcome ), a run of
 \ its own (its marks).
 : lf-ind-run ( root visit-xt -- outcome )

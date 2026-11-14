@@ -596,10 +596,12 @@ here feed-kinds - 1 cells / constant feed-kinds#
 \ The universe parameters: their tuple, and parameter i of it, into the
 \ feed's buffer, which the record points at; a list the heap cannot hold
 \ is full.
-: feed-tuple ( feed -- t tuples ) dup ['] staged-params@ feed-staged@ swap feed-tier tier-tuples ;
+: feed-tuple ( feed -- t tuples )
+  dup ['] staged-params@ feed-staged@ swap feed-tier tier-tuples ;
 : feed-param! ( i feed -- )
   2dup feed-tuple tuple-item -rot feed-param-buf @ swap cells + ! ;
-: feed-params-room ( feed n -- feed n outcome ) dup 1 cells 3 pick feed-param-buf feed-grow ;
+: feed-params-room ( feed n -- feed n outcome )
+  dup 1 cells 3 pick feed-param-buf feed-grow ;
 : feed-params ( feed -- outcome )
   dup feed-tuple tuple-length feed-params-room ok? 0= if 2drop outcome-full exit then
   over feed-param-buf @ 2 pick feed-decl lf-idecl-params !

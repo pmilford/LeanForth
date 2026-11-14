@@ -40,7 +40,8 @@ lf-tag-lit tag-nat lf-term-input-leaf-tag
 \ A literal leaf's payload in its slab: the address of its first entry
 \ (the leaf's first field; valid until the slab grows) and its count (the
 \ second); string-literals.fs's bytes too. The limbs of a literal leaf.
-: lf-lit-span ( leaf slab -- addr n ) over lf-term-first@ swap slab-at swap lf-term-second@ ;
+: lf-lit-span ( leaf slab -- addr n )
+  over lf-term-first@ swap slab-at swap lf-term-second@ ;
 : lf-lit-vector ( leaf -- addr n ) lf-lit-limbs lf-lit-span ;
 \ Lean's ==, Nat.beq: the same count and limbs.
 : lf-lit-limbs= ( a1 a2 n -- flag ) cells tuck compare 0= ;

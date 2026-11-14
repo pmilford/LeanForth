@@ -207,7 +207,8 @@ defer store-refuse? ( store -- flag )
 : store-serial+ ( store -- serial ) store-serial 1 over +! @ ;
 : store-stamp ( store -- ) dup store-serial+ over store-count @ rot store-identity ! ;
 : store-claim ( store -- index ) dup store-stamp dup store-count @ 1 rot store-count +! ;
-: store-new ( store -- index true | false ) dup store-open? if store-claim true else drop false then ;
+: store-new ( store -- index true | false )
+  dup store-open? if store-claim true else drop false then ;
 : store-new-slot ( store -- addr index true | false )
   dup store-new if tuck swap store-slot swap true else drop false then ;
 \ Give the newest record back, as a claim that could not be completed;
@@ -219,7 +220,8 @@ defer store-refuse? ( store -- flag )
 
 \ Reset. The generation grows by one per reset, saturates to -1 (poisoned)
 \ instead of wrapping, and once negative stays unchanged.
-: epoch+ ( generation -- generation' ) dup 0< if exit then dup max-n = if drop -1 else 1+ then ;
+: epoch+ ( generation -- generation' )
+  dup 0< if exit then dup max-n = if drop -1 else 1+ then ;
 : store-epoch+ ( store -- ) store-generation dup @ epoch+ swap ! ;
 : store-clear ( store -- ) dup store-base @ over store-count ! store-epoch+ ;
 : store-poison ( store -- ) 0 over store-count ! -1 swap store-generation ! ;
@@ -278,7 +280,8 @@ dup set-current
 \ allocation (store-new, store-open?) checks the store anyway. Same
 \ outcome of the allocation as store-grow first.
 : store-filled? ( store -- flag ) dup store-count @ swap store-capacity @ < 0= ;
-: store-ready ( store -- outcome ) dup store-filled? if store-grow else drop outcome-ok then ;
+: store-ready ( store -- outcome )
+  dup store-filled? if store-grow else drop outcome-ok then ;
 \ Set a live heap store's limit, at least its count and a sound size;
 \ a block that holds more records shrinks to it: ok, full when that
 \ shrinking finds no heap (nothing changed), invalid otherwise.

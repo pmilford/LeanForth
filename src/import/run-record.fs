@@ -264,7 +264,8 @@ rr-reset rr-no-source
 \ (manifest.fs), through the reader's tap: each line, then its line feed.
 \ When it was ok, its digest must be rr-start's (rvRP3 round 3); a read
 \ that failed has no whole digest, and the record keeps what it found.
-: rr-tap ( export -- ) >r run-record rr-sha dup sha256-init ['] sha256-line r> export-tap! ;
+: rr-tap ( export -- )
+  >r run-record rr-sha dup sha256-init ['] sha256-line r> export-tap! ;
 : rr-tapped ( -- c-addr u )
   run-record dup rr-digest swap rr-sha sha256-final
   run-record dup rr-digest swap rr-seen sha256-hex
@@ -311,12 +312,12 @@ rr-reset rr-no-source
 \ The export file the run keeps: rr-start's, which every later read of
 \ the run uses (rvRP3 M1). rr-file! is internal (rr-internal): nothing
 \ else may name the file of a recorded run (rvRP3 R2-3).
-: rr-file ( -- c-addr u ) run-record dup rr-file-buf swap rr-file-size @ ;
+\ Each text buffer of the record is its size field and, after it, its
+\ bytes (bounds.fs's cell-counted words read and write it).
+: rr-file ( -- c-addr u ) run-record rr-file-size cell-count ;
 : rr-started? ( -- flag ) rr-file nip 0<> ;
 get-current rr-internal set-current
-: rr-file! ( c-addr u -- flag )
-  dup rr-file-room > if 2drop false exit then
-  dup run-record rr-file-size ! run-record rr-file-buf swap move true ;
+: rr-file! ( c-addr u -- flag ) run-record rr-file-size rr-file-room cell-counted! ;
 set-current
 \ Start a run on the export file named c-addr u, as described above.
 : rr-hash-file ( -- outcome ) rr-file run-record rr-before rr-hash ;
@@ -431,8 +432,8 @@ rr-power 2constant rr-exact
 
 \ Writing: the writer's sink appends to the text buffer; jw-limit keeps
 \ the text within it.
-: rr-text ( -- c-addr u ) run-record dup rr-text-buf swap rr-text-size @ ;
-: rr-sink ( c-addr u -- ) tuck rr-text + swap move run-record rr-text-size +! ;
+: rr-text ( -- c-addr u ) run-record rr-text-size cell-count ;
+: rr-sink ( c-addr u -- ) run-record rr-text-size cell-counted+! ;
 : rr-w ( -- writer ) run-record rr-writer ;
 : rr-object ( -- ) rr-w jw-open-object ;
 : rr-end-object ( -- ) rr-w jw-close-object ;
@@ -547,10 +548,10 @@ rr-power 2constant rr-exact
 
 \ A declaration's name, as the term printer writes it, collected in the
 \ name buffer; a longer name fails the text as full.
-: rr-name ( -- c-addr u ) run-record dup rr-name-buf swap rr-name-size @ ;
+: rr-name ( -- c-addr u ) run-record rr-name-size cell-count ;
 : rr-name-sink ( c-addr u -- )
   dup run-record rr-name-size @ + rr-name-room > if 2drop outcome-full rr-fail exit then
-  tuck rr-name + swap move run-record rr-name-size +! ;
+  run-record rr-name-size cell-counted+! ;
 : rr-name-out ( d -- )
   0 run-record rr-name-size ! lf-input-name ['] rr-name-sink lf-pp-name-to
   rr-name rr-name-room rr-shown ;

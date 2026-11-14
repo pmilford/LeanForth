@@ -2,7 +2,8 @@
 \ addresses. Signed comparisons only, so no bound can wrap around; and
 \ cell-counted records, laid down and read back. No state.
 \ Interface: between? upto? range-at in-range-at? in-ranges? cells-zero?
-\ cells= index? cells-index cells-has? cell-counted, cell-count.
+\ cells= index? cells-index cells-has? cell-counted, cell-count cell-counted!
+\ cell-counted+!.
 \ Example:
 \   create primes 2 , 3 , 5 , 7 ,   create odds 3 , 5 , 7 ,
 \   3 4 index?  4 4 index?  0 -1 index?    \ true false false
@@ -53,3 +54,10 @@ require ./outcome.fs
 \ string's (unchecked: addr holds such a record).
 : cell-counted, ( c-addr u -- ) dup , here swap dup allot move align ;
 : cell-count ( addr -- addr' n ) dup cell+ swap @ ;
+\ The same as a buffer of room bytes after its count cell (a record's
+\ text field): cell-counted! puts the text c-addr u in it (true; false,
+\ nothing changed, when u is more than room), cell-counted+! appends it
+\ (unchecked: the caller made sure it fits).
+: cell-counted! ( c-addr u addr room -- flag )
+  2 pick < if drop 2drop false exit then 2dup ! cell+ swap move true ;
+: cell-counted+! ( c-addr u addr -- ) >r tuck r@ cell-count + swap move r> +! ;

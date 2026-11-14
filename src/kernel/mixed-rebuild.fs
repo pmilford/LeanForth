@@ -28,7 +28,8 @@ require ../core/terms.fs
 \ gives for its node.
 : lf-rebuild-return ( node frames xt -- result outcome frames 0 )
   over >r execute r> 0 ;
-: lf-rebuild-refuse ( node frames -- -1 outcome frames 0 ) ['] lf-rebuild-bad lf-rebuild-return ;
+: lf-rebuild-refuse ( node frames -- -1 outcome frames 0 )
+  ['] lf-rebuild-bad lf-rebuild-return ;
 \ A visitor dispatches on the tag of its node; a node the store does not
 \ hold gives tag 0, which no term has, so the default arm refuses it.
 0 constant lf-rebuild-no-tag

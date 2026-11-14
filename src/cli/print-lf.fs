@@ -128,7 +128,8 @@ fl-reasons fl-reason-at <> [if] .( print-lf.fs: one text per reason) cr abort [t
 
 \ Print fdecl to sink: the printer's outcome; the text before a failure is
 \ incomplete, so a caller first prints into the void.
-: fl-run ( fdecl sink -- outcome ) 0 lf-print-setup lf-fl lf-fl-fuel @ lf-print-forth-decl ;
+: fl-run ( fdecl sink -- outcome )
+  0 lf-print-setup lf-fl lf-fl-fuel @ lf-print-forth-decl ;
 : fl-prints ( fdecl -- outcome ) ['] 2drop fl-run ;
 : fl-write ( fdecl -- ) ['] fl-out fl-run drop ;
 : fl-separate ( -- ) lf-fl lf-fl-any @ if s\" \n" fl-out then true lf-fl lf-fl-any ! ;

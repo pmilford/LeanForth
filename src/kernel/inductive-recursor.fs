@@ -215,9 +215,12 @@ end-structure
 \ between the parameters and the indices, and consumed.
 : lf-rcr-index-dom ( d j amount -- node )
   >r tuck lf-ind-index-domain @ swap r> lf-rcr-shift lf-rcr-consume ;
-: lf-rcr-indices! ( d amount -- )
-  over lf-rcr-n lf-rcr-room 0= if 2drop exit then
-  over lf-rcr-n 0 ?do 2dup i swap lf-rcr-index-dom i lf-rcr-scratch ! loop 2drop ;
+\ The scratch filled with the n items item ( x i amount -- node ) makes,
+\ n = count ( x -- n ); nothing when it has no room for them.
+: lf-rcr-scratch! ( x amount count item -- )
+  >r 2 pick swap execute dup lf-rcr-room 0= if drop r> drop 2drop exit then
+  r> swap 0 ?do 2 pick 2 pick i swap 3 pick execute i lf-rcr-scratch ! loop drop 2drop ;
+: lf-rcr-indices! ( d amount -- ) ['] lf-rcr-n ['] lf-rcr-index-dom lf-rcr-scratch! ;
 \ Constructor j's fields: k of them; field q's domain is the domain of
 \ the raw telescope's binder p+q, shifted past amount binders inserted
 \ between the parameters and the fields, and consumed.
@@ -227,9 +230,7 @@ end-structure
   swap lf-rcr-ctor-type lf-rcr-p rot + lf-rcr-skip lf-term-first@ ;
 : lf-rcr-field ( j q amount -- node )
   >r tuck lf-rcr-field-dom swap r> lf-rcr-shift lf-rcr-consume ;
-: lf-rcr-fields! ( j amount -- )
-  over lf-rcr-k lf-rcr-room 0= if 2drop exit then
-  over lf-rcr-k 0 ?do 2dup i swap lf-rcr-field i lf-rcr-scratch ! loop 2drop ;
+: lf-rcr-fields! ( j amount -- ) ['] lf-rcr-k ['] lf-rcr-field lf-rcr-scratch! ;
 
 \ ---------------------------------------------------------------------------
 \ Recursive fields (see the header): Lean's whnf on the block's fuel;

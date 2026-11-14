@@ -281,9 +281,12 @@ defer lf-pp-group-step ( pi flags frames -- ... frames next )
 : lf-pp-arrow-body ( pi flags frames cont -- ... frames next )
   over frame-save >r 2dup r@ lf-pp-save2 drop
   lf-term-first@ lf-prec-domain true lf-pos r> ['] lf-pp-arrow-domain lf-pp-term-call ;
+\ A Pi form at precedence prec opened, in parentheses where its position
+\ needs them; lf-pp-wrapped closes it after its body.
+: lf-pp-form-open ( pi pos flags frames prec -- pi flags frames )
+  swap >r rot swap true lf-pp-parens? lf-pp-open-if r@ frame-save r> ;
 : lf-pp-arrow-form ( pi pos flags frames -- ... frames next )
-  >r swap lf-prec-arrow true lf-pp-parens? lf-pp-open-if r@ frame-save
-  r> ['] lf-pp-wrapped lf-pp-arrow-body ;
+  lf-prec-arrow lf-pp-form-open ['] lf-pp-wrapped lf-pp-arrow-body ;
 \ (x : A) → B and {x : A} → B, for a Pi that is not a proposition: the
 \ scope's depth before the group and the flags wait meanwhile.
 : lf-pp-dep-group ( body outcome frames -- ... frames next )
@@ -293,8 +296,7 @@ defer lf-pp-group-step ( pi flags frames -- ... frames next )
   over frame-save >r lf-pp-depth r@ frame-save dup r@ frame-save
   r> ['] lf-pp-dep-group lf-pp-group-then ;
 : lf-pp-dep-form ( pi pos flags frames -- ... frames next )
-  >r swap lf-prec-arrow true lf-pp-parens? lf-pp-open-if r@ frame-save
-  r> ['] lf-pp-wrapped lf-pp-dep-body ;
+  lf-prec-arrow lf-pp-form-open ['] lf-pp-wrapped lf-pp-dep-body ;
 \ ∀ g1 g2 ..., B: further binder groups of the proposition join the ∀, a
 \ visit each; the depth before the ∀ waits under them, with the step that
 \ leaves its binders.
@@ -319,8 +321,7 @@ defer lf-pp-forall-step ( term x frames -- ... frames next )
   over frame-save >r lf-pp-depth r@ frame-save ['] lf-pp-leaving r@ frame-save
   lf-pp-forall r> ['] lf-pp-forall-on lf-pp-group-then ;
 : lf-pp-forall-form ( pi pos flags frames -- ... frames next )
-  >r swap lf-prec-lead true lf-pp-parens? lf-pp-open-if r@ frame-save
-  r> ['] lf-pp-wrapped lf-pp-forall-body ;
+  lf-prec-lead lf-pp-form-open ['] lf-pp-wrapped lf-pp-forall-body ;
 \ The form a Pi prints in, from its flags.
 : lf-pp-pi-form ( pi flags -- xt )
   2dup lf-pp-flags@ nip lf-pp-arrow? if 2drop ['] lf-pp-arrow-form exit then

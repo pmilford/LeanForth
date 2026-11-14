@@ -19,6 +19,16 @@
   "reason": "false positive: `n 0 ?do i x loop` over different counts and steps",
   "tokens": 6
  },
+ "0255f35c17e8": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/core/reach.fs:lr-term-holes?",
+   "src/core/reach.fs:lr-level-holes?"
+  ],
+  "reason": "false positive: an any? (outcome.fs) over a different count and test, the shared word already",
+  "tokens": 6
+ },
  "026830b1422b": {
   "copies": 2,
   "kind": "shape",
@@ -36,7 +46,7 @@
    "src/kernel/environment.fs:lf-env-fresh",
    "src/kernel/environment.fs:lf-env-fresh-generated"
   ],
-  "reason": "family, table-driven later: the two freshness checks of a name, each with its own pass",
+  "reason": "accepted: the two freshness checks of a name differ in their pass and their lookup kind (two of nine words); a word taking both as xts would be no shorter",
   "tokens": 9
  },
  "03ddd755d471": {
@@ -91,16 +101,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 11
  },
- "0a82dea42bf1": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/env-import.fs:dep-taken",
-   "src/kernel/env-import.fs:s-of"
-  ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each (the staged and the environment side)",
-  "tokens": 13
- },
  "0cfdc52c7ceb": {
   "copies": 2,
   "kind": "shape",
@@ -110,17 +110,6 @@
   ],
   "reason": "accepted: program/ir-reader.fs (today's IR reader) and the program-words verifier (verify-*.fs) are kept independent on purpose: tests/program/verify_check.py cross-checks the two designs, which a shared word would weaken",
   "tokens": 7
- },
- "0dadef8b961c": {
-  "copies": 3,
-  "kind": "shape",
-  "members": [
-   "src/present/term-printer.fs:lf-pp-arrow-form",
-   "src/present/term-printer.fs:lf-pp-dep-form",
-   "src/present/term-printer.fs:lf-pp-forall-form"
-  ],
-  "reason": "family, table-driven later: the printer's three Pi forms, each with its own precedence and body",
-  "tokens": 12
  },
  "0dd83b403a17": {
   "copies": 2,
@@ -139,7 +128,7 @@
    "src/core/derivation-log.fs:lf-log-keep-a",
    "src/core/derivation-log.fs:lf-log-keep-b"
   ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each (the log mark's operands; derivation-log.fs's allow-list keeps it self-contained)",
+  "reason": "accepted: a log mark's two operands, each kept from its own pair of fields with the kind its rule gives it; a word for both would take the fields and the kind and be no shorter (derivation-log.fs names only its own words, ADR 0013 L5)",
   "tokens": 11
  },
  "0fddcf55ce5f": {
@@ -192,28 +181,8 @@
    "src/present/proof-outline.fs:lf-ol-steps",
    "src/present/proof-outline.fs:lf-ol-refs"
   ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read",
+  "reason": "accepted: an outline record's two lists as address and count, one line each; a shared word would take both fields",
   "tokens": 6
- },
- "1413279e6d60": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/import/snapshot-tier.fs:tf-le-out",
-   "src/import/snapshot-tier.fs:tf-copy-out"
-  ],
-  "reason": "family, table-driven later: the tier's section writers, each with its own copy",
-  "tokens": 8
- },
- "14231cd416d3": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/present/binder-table.fs:lf-pres-name-live?",
-   "src/present/binder-table.fs:lf-pres-decl-name?"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (a term's and a declaration's binder record)",
-  "tokens": 11
  },
  "14e7840b0363": {
   "copies": 2,
@@ -224,6 +193,16 @@
   ],
   "reason": "false positive: the guarded test `dup a? if b else drop false then` (or with 2dup/2drop) of two different words",
   "tokens": 9
+ },
+ "15d7852a06d1": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/present/binder-table.fs:lf-pres-name-live?",
+   "src/present/binder-table.fs:lf-pres-decl-name?"
+  ],
+  "reason": "false positive: two fields of a record passed to the shared lf-name-current? (names.fs), a term's and a declaration's binder record",
+  "tokens": 7
  },
  "16ef53f91e89": {
   "copies": 2,
@@ -256,26 +235,6 @@
   "reason": "false positive: a two-way choice on a flag or a field between two different words",
   "tokens": 8
  },
- "19765dfb22c8": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/core/level-scope.fs:lf-lscope-pair-ok?",
-   "src/kernel/level-substitute.fs:lf-lsubst-new-formal?"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (each module's formal list)",
-  "tokens": 12
- },
- "1af52573d58e": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/inductive-recursor.fs:lf-rcr-indices!",
-   "src/kernel/inductive-recursor.fs:lf-rcr-fields!"
-  ],
-  "reason": "family, table-driven later: the recursor's index and field scratch fills, each with its own count and item",
-  "tokens": 21
- },
  "1cda9a9d4dcc": {
   "copies": 2,
   "kind": "shape",
@@ -285,16 +244,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
- },
- "1ed0c1a81df1": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/present/print-names.fs:lf-pp-loose-dispatch",
-   "src/present/print-names.fs:lf-pp-uses-dispatch"
-  ],
-  "reason": "family, table-driven later: two scans' dispatchers, each with its own variable step",
-  "tokens": 10
  },
  "1f0b62026cc7": {
   "copies": 2,
@@ -336,16 +285,6 @@
   "reason": "false positive: an ok-each loop (outcome.fs) over different steps, the shared word already",
   "tokens": 6
  },
- "212bd60544e0": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/env-layers.fs:lay-answer",
-   "src/kernel/env-snapshot.fs:answer-renum"
-  ],
-  "reason": "family, table-driven later: the layer's and the snapshot's renumbering of a lookup answer, each with its own slot map",
-  "tokens": 13
- },
  "21ea15970ee4": {
   "copies": 2,
   "kind": "shape",
@@ -365,26 +304,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
- },
- "23ffdf1f73b5": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/present/print-analysis.fs:lf-pp-spine",
-   "src/present/print-levels.fs:lf-pp-succs"
-  ],
-  "reason": "family, table-driven later: two fuelled loops, each with its own step",
-  "tokens": 12
- },
- "27833095c87c": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/present/print-analysis.fs:lf-pp-lsame-second",
-   "src/present/print-analysis.fs:lf-pp-same-second"
-  ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each",
-  "tokens": 15
  },
  "27ce43656ca0": {
   "copies": 2,
@@ -445,7 +364,7 @@
    "src/core/names.fs:lf-name-bytes@",
    "src/present/print-job.fs:lf-pp-text"
   ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (a text pool's offset and length)",
+  "reason": "family, table-driven later: 9.4.8k follow-up 8, one text pool (texts as offset and length into a growable byte slab) for namespaces.fs, note-table.fs, names.fs and print-job.fs",
   "tokens": 8
  },
  "2e602299de10": {
@@ -489,16 +408,6 @@
   "reason": "accepted: program/sha-words.fs is the text of lib/sha256.fs's helper words character for character, proved by tests/reference/program-ir.lean; plan row SHA-2 has the library load it (planned)",
   "tokens": 9
  },
- "31620c8e5567": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/present/print-analysis.fs:lf-pp-lsame-succ",
-   "src/present/print-analysis.fs:lf-pp-same-levels"
-  ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each",
-  "tokens": 6
- },
  "31ebe6e23706": {
   "copies": 2,
   "kind": "shape",
@@ -528,16 +437,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 8
- },
- "3299007d1c55": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/env-layers.fs:lay-map-room",
-   "src/kernel/env-layers.fs:lay-new-room"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (one growable array each, on the shared ua-new)",
-  "tokens": 6
  },
  "32cfafe45454": {
   "copies": 2,
@@ -569,16 +468,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
  },
- "3555000a639a": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/import/ndjson.fs:slot-check:",
-   "src/import/ndjson.fs:text-check:"
-  ],
-  "reason": "family, table-driven later: two defining words of the reader's field tables",
-  "tokens": 9
- },
  "361de2c5b4ff": {
   "copies": 5,
   "kind": "shape",
@@ -602,16 +491,6 @@
   "reason": "accepted: the same test in derivation-log.fs, whose allow-list (tests/core/check_log_isolation.py, ADR 0013 L5) admits no other module's words",
   "tokens": 8
  },
- "366757f26b8d": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/present/latex-text.fs:lf-tex-escaped",
-   "src/present/statement-forms.fs:lf-sf-tex"
-  ],
-  "reason": "family, table-driven later: two text loops, each with its own step",
-  "tokens": 8
- },
  "369f68a6c1ff": {
   "copies": 2,
   "kind": "shape",
@@ -619,7 +498,7 @@
    "src/program/ir-run.fs:irx-inputs",
    "src/program/ir-run.fs:irx-outputs"
   ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each (the interpreter's data and return stacks)",
+  "reason": "false positive: the inputs taken from and the outputs given to the IR's two stacks, in mirrored order (take, give)",
   "tokens": 11
  },
  "39bfc72be746": {
@@ -652,16 +531,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 12
- },
- "3b3436b29391": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/import/manifest.fs:all-keys?",
-   "src/import/manifest.fs:naturals?"
-  ],
-  "reason": "family, table-driven later: two key-table tests of the manifest reader, each with its own key test",
-  "tokens": 23
  },
  "3c14cb454f57": {
   "copies": 2,
@@ -710,7 +579,7 @@
    "src/import/stage-records.fs:value-ok?",
    "src/import/stage-records.fs:more-ok?"
   ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (a draft's value and more lists)",
+  "reason": "accepted: the draft's value and more lists, each with its own field, kind test and checker (three of twelve words differ) on the shared either-ok?",
   "tokens": 12
  },
  "3f03ea3b40a2": {
@@ -720,28 +589,8 @@
    "src/present/print-levels.fs:lf-pp-zero-view?",
    "src/present/print-levels.fs:lf-pp-zero-level?"
   ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each",
+  "reason": "false positive: the guarded test `x-tag if zero = else false then` of a view and of a level, different readers",
   "tokens": 7
- },
- "3fef554ad8fa": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/mixed-compare.fs:lf-mcompare-visit",
-   "src/kernel/mixed-compare.fs:lf-meq-visit"
-  ],
-  "reason": "family, table-driven later: the comparison's two visitors on lf-mcompare-visit-pair, each with its own dispatch",
-  "tokens": 7
- },
- "416c92370979": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/env-import.fs:span-same?",
-   "src/kernel/env-layers.fs:verdicts-same?"
-  ],
-  "reason": "family, table-driven later: the import's and the layer's span comparisons, each with its own record test",
-  "tokens": 22
  },
  "463da21283da": {
   "copies": 2,
@@ -795,16 +644,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
- },
- "4aa2634045e6": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/import/ndjson-count.fs:count-export",
-   "src/import/ndjson-count.fs:count-export-unchecked"
-  ],
-  "reason": "family, table-driven later: the checked and unchecked count commands",
-  "tokens": 7
  },
  "4ade1c7c68a9": {
   "copies": 3,
@@ -950,7 +789,7 @@
    "src/kernel/check-declaration.fs:lf-check-level-findable",
    "src/kernel/check-declaration.fs:lf-check-cref-findable"
   ],
-  "reason": "family, table-driven later: the findability test per store (term, level, reference)",
+  "reason": "false positive: the guarded test `dup a? if b else drop true then`, each store's own two tests (terms, levels, references)",
   "tokens": 8
  },
  "55851178c722": {
@@ -1020,7 +859,7 @@
    "src/present/notation-table.fs:lf-nt-left-at",
    "src/present/notation-table.fs:lf-nt-right-at"
   ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each",
+  "reason": "accepted: a row's precedence copied into its left or its right precedence, six tokens each",
   "tokens": 6
  },
  "59e7c676bb0c": {
@@ -1115,16 +954,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 9
  },
- "60df48070c93": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/present/term-printer.fs:lf-pp-uargs-back",
-   "src/present/term-printer.fs:lf-pp-args-back"
-  ],
-  "reason": "family, table-driven later: the printer's continuations, each with its next step",
-  "tokens": 11
- },
  "6148e1238e9e": {
   "copies": 2,
   "kind": "shape",
@@ -1162,7 +991,7 @@
    "src/core/names.fs:lf-name-byte-room?",
    "src/present/print-job.fs:lf-pp-room?"
   ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (each module's byte slab)",
+  "reason": "family, table-driven later: 9.4.8k follow-up 8, the text pool's room for more bytes, as names.fs and print-job.fs each check it",
   "tokens": 6
  },
  "65b9d43b0207": {
@@ -1172,7 +1001,7 @@
    "src/kernel/environment.fs:lf-env-earliest",
    "src/kernel/environment.fs:lf-env-matches"
   ],
-  "reason": "family, table-driven later: the indexed and the scanning lookups, each with its own result",
+  "reason": "false positive: `lf-input-indexed? if a else b then`, a choice between two different lookups (first match, count of matches)",
   "tokens": 6
  },
  "66e8f8ed3148": {
@@ -1185,16 +1014,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 9
- },
- "67c0cf14c59b": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/import/snapshot-tier.fs:exprs-left",
-   "src/import/snapshot-tier.fs:tuple-room"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (each section's cons set)",
-  "tokens": 7
  },
  "6876ce14b174": {
   "copies": 2,
@@ -1253,7 +1072,7 @@
    "src/core/constant-references.fs:lf-cref-pairs",
    "src/core/input.fs:lf-idecl-params@"
   ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (an array's address and count)",
+  "reason": "false positive: a record's array as address and count, from different records, pools and fields",
   "tokens": 7
  },
  "6b8b22f55a49": {
@@ -1265,31 +1084,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
- },
- "6bb5d0984ebb": {
-  "copies": 7,
-  "kind": "shape",
-  "members": [
-   "src/import/run-record.fs:rr-file",
-   "src/import/run-record.fs:rr-text",
-   "src/import/run-record.fs:rr-name",
-   "src/import/run-replay.fs:rp-path",
-   "src/import/run-replay.fs:rp-old-text",
-   "src/import/run-replay.fs:rp-report-text",
-   "src/program/verify-report.fs:pv-path"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (a record's buffer and its length)",
-  "tokens": 6
- },
- "6c4b80d99e56": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/core/constant-term-boundary.fs:lf-cterm-stamped?",
-   "src/core/generation-handles.fs:lf-term-stamped?"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (each module's own stamp cell)",
-  "tokens": 11
  },
  "6c6885378440": {
   "copies": 2,
@@ -1310,16 +1104,6 @@
   ],
   "reason": "accepted: the same test in derivation-log.fs, whose allow-list (tests/core/check_log_isolation.py, ADR 0013 L5) admits no other module's words",
   "tokens": 8
- },
- "6ccc7d40b082": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/present/print-forth.fs:lf-pf-level",
-   "src/present/print-forth.fs:lf-pf-term"
-  ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each",
-  "tokens": 6
  },
  "74022d8a67db": {
   "copies": 2,
@@ -1374,36 +1158,6 @@
   "reason": "false positive: a two-way choice on a flag or a field between two different words",
   "tokens": 7
  },
- "76b055871c86": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/defeq.fs:lf-dq-open",
-   "src/kernel/whnf.fs:lf-whnf-open"
-  ],
-  "reason": "family, table-driven later: the two passes' frame opening, each with its own refusal",
-  "tokens": 14
- },
- "772df0bf78ce": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/env-snapshot.fs:snap-e",
-   "src/kernel/env-snapshot.fs:snap-s"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (two optional maps)",
-  "tokens": 6
- },
- "77bbaa04bbd8": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/import/run-record.fs:rr-file!",
-   "src/import/run-replay.fs:rp-old!"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (each record's text buffer)",
-  "tokens": 17
- },
  "780f6c6fde34": {
   "copies": 2,
   "kind": "shape",
@@ -1412,26 +1166,6 @@
    "src/front/whnf.fs:wm-head"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 6
- },
- "78287413061b": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/reduce-nat.fs:lf-rn-std",
-   "src/kernel/reduce-nat.fs:lf-rn-test"
-  ],
-  "reason": "family, table-driven later: the arithmetic and the Boolean reductions, each with its own result step",
-  "tokens": 7
- },
- "785c7388efd9": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/present/print-job.fs:lf-pp-wrapped",
-   "src/present/term-printer.fs:lf-pp-leaving"
-  ],
-  "reason": "family, table-driven later: the printer's continuations, each with its next step",
   "tokens": 6
  },
  "795cc9910c62": {
@@ -1513,21 +1247,6 @@
   "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with/ok-and/ok-then?, already the shared words",
   "tokens": 12
  },
- "7dcbc73d54a8": {
-  "copies": 7,
-  "kind": "shape",
-  "members": [
-   "src/core/compact-exprs.fs:expr-bvar",
-   "src/core/compact-exprs.fs:expr-sort",
-   "src/core/compact-exprs.fs:expr-nat",
-   "src/core/compact-exprs.fs:expr-str",
-   "src/core/compact-exprs.fs:expr-fvar",
-   "src/core/compact-exprs.fs:expr-mdata",
-   "src/core/compact-levels.fs:level-succ"
-  ],
-  "reason": "family, table-driven later: one constructor per tag on the shared expr-make and level-build",
-  "tokens": 6
- },
  "7e3f53f99edc": {
   "copies": 2,
   "kind": "shape",
@@ -1535,7 +1254,7 @@
    "src/author/export.fs:lfx-level-of",
    "src/author/export.fs:lfx-expr-of"
   ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each",
+  "reason": "false positive: the guarded lookup `dup a? if b else drop -1 then` of a level's and a term's export number, different tests and tables",
   "tokens": 8
  },
  "7f21cb86891b": {
@@ -1601,7 +1320,7 @@
    "src/cli/check-run.fs:ck-wall-lap",
    "src/cli/check-run.fs:ck-cpu-lap"
   ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each (wall and CPU clock)",
+  "reason": "accepted: the wall and the CPU clock's lap, one line each; each names its clock field twice and its own reader, so a shared word would take both and be no shorter",
   "tokens": 8
  },
  "8554ef660cf9": {
@@ -1696,7 +1415,7 @@
    "src/kernel/mixed-level-substitute.fs:lf-mixed-level-substitute",
    "src/kernel/mixed-shift.fs:lf-mixed-shift"
   ],
-  "reason": "family, table-driven later: each pass's switch between its logged and its plain run (ADR 0013), one per pass",
+  "reason": "accepted: ADR 0013's switch between a pass's logged and plain run, `lf-log? if a else b then`; a word taking both as xts is no shorter, and a kernel file may name only the log's protocol words (tests/core/check_log_isolation.py)",
   "tokens": 6
  },
  "8a905bbc14b4": {
@@ -1720,10 +1439,9 @@
   "tokens": 6
  },
  "8c62bb325216": {
-  "copies": 7,
+  "copies": 6,
   "kind": "shape",
   "members": [
-   "src/core/constant-term-boundary.fs:lf-cterm-made?",
    "src/core/levels.fs:lf-level-child-params?",
    "src/core/terms.fs:lf-tin-may?",
    "src/front/mvars.fs:mv-value-of",
@@ -1744,17 +1462,6 @@
   "reason": "false positive: an outcome-carrying test turned into a flag, different tests",
   "tokens": 9
  },
- "8d4cf00c8cb4": {
-  "copies": 3,
-  "kind": "shape",
-  "members": [
-   "src/import/ndjson.fs:export-read",
-   "src/import/stage.fs:stage-continue",
-   "src/import/stage.fs:stage-continue-unchecked"
-  ],
-  "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with/ok-and/ok-then?, already the shared words",
-  "tokens": 9
- },
  "8da5e41464c0": {
   "copies": 3,
   "kind": "shape",
@@ -1765,16 +1472,6 @@
   ],
   "reason": "false positive: a record filled field by field with tuck, different records",
   "tokens": 12
- },
- "8dd4ae8bb8b0": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/import/ndjson.fs:nd-nested",
-   "src/import/ndjson.fs:nd-exact"
-  ],
-  "reason": "family, table-driven later: two defining words of the reader's shape tables",
-  "tokens": 8
  },
  "8e221229d09a": {
   "copies": 2,
@@ -1835,28 +1532,8 @@
    "src/present/note-table.fs:lf-note-count",
    "src/present/note-table.fs:lf-note-used"
   ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (a count clamped to its capacity)",
+  "reason": "accepted: a count read and clamped, `@ 0 max capacity min`, each its own field and capacity; the idiom is shorter than a clamp word's call",
   "tokens": 7
- },
- "912411c63131": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/core/terms.fs:lf-tin-raw@",
-   "src/import/snapshot-layer.fs:ly-fam-operands"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (a quad's two operands)",
-  "tokens": 7
- },
- "91530d2ebc28": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/core/literals.fs:lf-lit-vector",
-   "src/core/string-literals.fs:lf-str-text"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (a literal's slab)",
-  "tokens": 6
  },
  "929af6c198ed": {
   "copies": 2,
@@ -1865,7 +1542,7 @@
    "src/import/ndjson-emit.fs:thm-json",
    "src/import/ndjson-emit.fs:ctor-json"
   ],
-  "reason": "family, table-driven later: one writer per declaration kind, as Lean's export has one line form per kind",
+  "reason": "false positive: each declaration kind's JSON writer, its own members in Lean's order; equal length, different members",
   "tokens": 7
  },
  "9477caacbf7a": {
@@ -1895,7 +1572,7 @@
    "src/kernel/env-layers.fs:lay-own-count",
    "src/kernel/env-layers.fs:lay-twin-count"
   ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each (the layer and its twin)",
+  "reason": "accepted: the look count of a layer's slot and of its twin's, one line each; they differ in the index field and the slot reader",
   "tokens": 8
  },
  "958c0a9e56b0": {
@@ -1905,7 +1582,7 @@
    "src/core/derivation-log.fs:lf-log-set-a",
    "src/core/derivation-log.fs:lf-log-set-b"
   ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each (the log mark's operands; derivation-log.fs's allow-list keeps it self-contained)",
+  "reason": "accepted: a log mark's two operands, each set in its own pair of fields with the kind its rule gives it; a word for both would take the fields and the kind and be no shorter (derivation-log.fs names only its own words, ADR 0013 L5)",
   "tokens": 12
  },
  "959cf4d604d9": {
@@ -1915,7 +1592,7 @@
    "src/program/ir-run.fs:irx-items",
    "src/program/ir-run.fs:irx-ritems"
   ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each (the interpreter's data and return stacks)",
+  "reason": "accepted: the items on the IR's data and return stacks above the frame, one line each (the two stacks and their frame fields)",
   "tokens": 6
  },
  "95fde6cfeb20": {
@@ -1928,16 +1605,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 8
  },
- "9674b7aaacb1": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/present/print-forth.fs:lf-pf-noted-end",
-   "src/present/print-forth.fs:lf-pf-decl-end"
-  ],
-  "reason": "family, table-driven later: the printer's continuations, each with its next step",
-  "tokens": 10
- },
  "9692120167cb": {
   "copies": 2,
   "kind": "shape",
@@ -1945,7 +1612,7 @@
    "src/present/log-view.fs:lf-lv-fields!",
    "src/present/log-view.fs:lf-lv-add"
   ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (a kind table's two xts)",
+  "reason": "false positive: a kind record's two different hooks called, each with its own stack effect",
   "tokens": 6
  },
  "98fed58da85a": {
@@ -1977,18 +1644,8 @@
    "src/core/terms.fs:lf-term-first@",
    "src/core/terms.fs:lf-term-second@"
   ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each",
+  "reason": "accepted: the term store's two field readers, from the input tier or the own slot, one line each; they are the checker's hottest words, and a shared word taking the field would cost every read a call",
   "tokens": 10
- },
- "9bc1f215948e": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/mixed-compare.fs:lf-mcompare-level-run",
-   "src/kernel/mixed-compare.fs:lf-mcompare-run"
-  ],
-  "reason": "family, table-driven later: the two paired walks of the comparison; core/diagnostics.fs's lf-diag-run serves the single walks",
-  "tokens": 7
  },
  "9c4d1e9f37a9": {
   "copies": 2,
@@ -2020,16 +1677,6 @@
   "reason": "false positive: two stores into a record, different fields",
   "tokens": 7
  },
- "9ee1cee65845": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/cli/leanforth.fs:cli-replay",
-   "src/cli/leanforth.fs:cli-reexport"
-  ],
-  "reason": "false positive: a two-way choice on a flag or a field between two different words",
-  "tokens": 7
- },
  "9f563b7c6bf9": {
   "copies": 3,
   "kind": "shape",
@@ -2050,16 +1697,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 11
- },
- "a0288f0e9cd1": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/level-substitute.fs:lf-lsubst-crowded",
-   "src/kernel/mixed-level-substitute.fs:lf-mls-crowded"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (each pass's slab and site)",
-  "tokens": 6
  },
  "a1f608f0bfb2": {
   "copies": 2,
@@ -2095,17 +1732,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 8
  },
- "a6abbb4f798c": {
-  "copies": 3,
-  "kind": "shape",
-  "members": [
-   "src/cli/leanforth.fs:cli-env-option",
-   "src/cli/leanforth.fs:cli-elab-option",
-   "src/cli/leanforth.fs:cli-name-option"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (one option each)",
-  "tokens": 6
- },
  "a6d52b217fa8": {
   "copies": 2,
   "kind": "shape",
@@ -2115,26 +1741,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 13
- },
- "a6ee5dede112": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/program/ir-run.fs:irx-run-word",
-   "src/program/ir-run.fs:irx-run-constant"
-  ],
-  "reason": "family, table-driven later: the interpreter's run of a word and of a constant, each with its own frame",
-  "tokens": 10
- },
- "a6fa234afe50": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/environment.fs:lf-slot-added?",
-   "src/kernel/environment.fs:lf-slot-skipped?"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (a rejected slot's two flags)",
-  "tokens": 12
  },
  "a72de3b1764b": {
   "copies": 3,
@@ -2157,16 +1763,6 @@
   "reason": "accepted: program/sha-words.fs is the text of lib/sha256.fs's helper words character for character, proved by tests/reference/program-ir.lean; plan row SHA-2 has the library load it (planned)",
   "tokens": 11
  },
- "a8b058a60853": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/env-import.fs:s-decl",
-   "src/kernel/env-import.fs:ldecl"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (two staged arrays)",
-  "tokens": 6
- },
  "a97b0b74a7e7": {
   "copies": 3,
   "kind": "shape",
@@ -2185,7 +1781,7 @@
    "src/core/terms.fs:lf-sought@",
    "src/kernel/env-import.fs:imp-layer-decls"
   ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (three fields of a record)",
+  "reason": "false positive: three fields of a record read, different records",
   "tokens": 9
  },
  "ac834e546fa9": {
@@ -2223,18 +1819,18 @@
    "src/core/names.fs:lf-name-query-room?",
    "src/present/log-view.fs:lf-lv-scope-room?"
   ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (each module's slab)",
+  "reason": "planned: 9.4.8k follow-up 6, slab.fs (in flight in s1-synth-b) refusing a negative count in slab-hold, which these two guard by hand",
   "tokens": 10
  },
- "afa8f12fd372": {
+ "ad03bd508825": {
   "copies": 2,
   "kind": "shape",
   "members": [
-   "src/kernel/env-schedule.fs:lf-sch-ready!",
-   "src/kernel/env-schedule.fs:lf-sch-later!"
+   "src/kernel/environment.fs:lf-slot-added?",
+   "src/kernel/environment.fs:lf-slot-skipped?"
   ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each (the scheduler's two queues)",
-  "tokens": 14
+  "reason": "false positive: `dup a? swap field @ 0<> and`, the shared lf-slot-rejected? and two different flag fields",
+  "tokens": 7
  },
  "aff28922f078": {
   "copies": 2,
@@ -2243,7 +1839,7 @@
    "src/author/namespaces.fs:lfa-known-name",
    "src/present/note-table.fs:lf-note-text@"
   ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (a text pool's offset and length)",
+  "reason": "family, table-driven later: 9.4.8k follow-up 8, one text pool (texts as offset and length into a growable byte slab) for namespaces.fs, note-table.fs, names.fs and print-job.fs",
   "tokens": 10
  },
  "b1eade042fc5": {
@@ -2331,16 +1927,6 @@
   "reason": "family, table-driven later: the term, level and constant-reference stores (terms.fs, levels.fs, constant-references.fs) keep parallel interfaces over their own store, table and columns; one store-family record would serve them (9.4.8k follow-up 4)",
   "tokens": 11
  },
- "b5c60c041b13": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/present/note-table.fs:lf-note-label-from?",
-   "src/present/print-names.fs:lf-pp-shows-from?"
-  ],
-  "reason": "family, table-driven later: a text test from an offset, each with its own test",
-  "tokens": 7
- },
  "b6f4f28ce792": {
   "copies": 2,
   "kind": "shape",
@@ -2350,26 +1936,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 16
- },
- "b7d8c2a1635d": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/import/stage.fs:stage-load",
-   "src/import/stage.fs:stage-load-unchecked"
-  ],
-  "reason": "family, table-driven later: the checked and unchecked reads of one stage",
-  "tokens": 13
- },
- "b87a95c49175": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/import/snapshot-tier.fs:tf-exprs-out",
-   "src/import/snapshot-tier.fs:tf-decls-out"
-  ],
-  "reason": "family, table-driven later: the tier's section writers, each with its own fix-up",
-  "tokens": 9
  },
  "bb31b2c77ac3": {
   "copies": 2,
@@ -2388,7 +1954,7 @@
    "src/core/compact-exprs.fs:expr-same",
    "src/core/compact-levels.fs:level-same"
   ],
-  "reason": "family, table-driven later: htab same-hooks, one per record kind",
+  "reason": "false positive: two htab same-hooks, each comparing its own record kind's key (expr-key=, quad-key=)",
   "tokens": 6
  },
  "bb541025bf1f": {
@@ -2421,38 +1987,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
- },
- "bdfe7f089d5b": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/core/reach.fs:lr-term-holes?",
-   "src/core/reach.fs:lr-level-holes?"
-  ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each",
-  "tokens": 9
- },
- "bdff6f0de167": {
-  "copies": 4,
-  "kind": "shape",
-  "members": [
-   "src/kernel/environment.fs:lf-slot-type-undecided?",
-   "src/kernel/environment.fs:lf-slot-type-unsupported?",
-   "src/kernel/environment.fs:lf-slot-quot-undecided?",
-   "src/kernel/environment.fs:lf-slot-quot-unsupported?"
-  ],
-  "reason": "family, table-driven later: slot tests by kind and outcome, one each",
-  "tokens": 8
- },
- "be96929f9493": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/present/print-forth.fs:lf-pf-arrow",
-   "src/present/print-forth.fs:lf-pf-app"
-  ],
-  "reason": "family, table-driven later: the printer's continuations, each with its next step",
-  "tokens": 9
  },
  "bf4463f5c079": {
   "copies": 2,
@@ -2519,16 +2053,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
  },
- "c1b82710998c": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/present/print-analysis.fs:lf-pp-lsame-param",
-   "src/present/print-analysis.fs:lf-pp-same-sort"
-  ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each",
-  "tokens": 6
- },
  "c232bbe480f3": {
   "copies": 2,
   "kind": "shape",
@@ -2558,17 +2082,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
- },
- "c2d0b0d1e52e": {
-  "copies": 3,
-  "kind": "copy",
-  "members": [
-   "src/front/infer.fs:if-head",
-   "src/front/mvars.fs:mv-spine-head",
-   "src/front/whnf.fs:wm-head"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 6
  },
  "c2e75b9e45aa": {
   "copies": 2,
@@ -2621,7 +2134,7 @@
    "src/author/export.fs:lfx-wanted?",
    "src/author/export.fs:lfx-level-wanted?"
   ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each",
+  "reason": "false positive: the guarded test `x? if a else drop true then` of a term's and a level's reach, different tests",
   "tokens": 7
  },
  "c5df28d2b77a": {
@@ -2674,16 +2187,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
  },
- "c8a0473d081d": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/core/generation-handles.fs:lf-href-dispatch",
-   "src/core/symbolic-session.fs:lf-ssession-dispatch"
-  ],
-  "reason": "family, table-driven later: two walks' dispatchers that differ in their Sort step",
-  "tokens": 20
- },
  "c8ab582adafb": {
   "copies": 2,
   "kind": "shape",
@@ -2708,21 +2211,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 9
  },
- "c96be59922a2": {
-  "copies": 7,
-  "kind": "copy",
-  "members": [
-   "src/kernel/env-import.fs:imp-from-room",
-   "src/kernel/env-import.fs:imp-why-room",
-   "src/kernel/env-import.fs:imp-to-room",
-   "src/kernel/env-import.fs:imp-renum-room",
-   "src/kernel/env-import.fs:imp-lslots-room",
-   "src/kernel/env-layers.fs:lay-map-room",
-   "src/kernel/env-layers.fs:lay-new-room"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (one growable array each, on the shared ua-new)",
-  "tokens": 6
- },
  "c9a5284c385c": {
   "copies": 2,
   "kind": "shape",
@@ -2734,10 +2222,12 @@
   "tokens": 8
  },
  "ca01f3ffe72b": {
-  "copies": 2,
+  "copies": 4,
   "kind": "shape",
   "members": [
    "src/core/names.fs:lf-name-str-ok?",
+   "src/kernel/env-import.fs:dep-taken",
+   "src/kernel/env-import.fs:s-of",
    "src/kernel/env-import.fs:why-to"
   ],
   "reason": "false positive: two fields of a record passed on, different records and words",
@@ -2789,6 +2279,17 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 22
  },
+ "ce076b492da2": {
+  "copies": 3,
+  "kind": "copy",
+  "members": [
+   "src/front/infer.fs:if-head",
+   "src/front/mvars.fs:mv-spine-head",
+   "src/front/whnf.fs:wm-head"
+  ],
+  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "tokens": 6
+ },
  "ce6289a7e339": {
   "copies": 3,
   "kind": "shape",
@@ -2807,7 +2308,7 @@
    "src/import/ndjson-emit.fs:opaque-json",
    "src/import/ndjson-emit.fs:recursor-json"
   ],
-  "reason": "family, table-driven later: one writer per declaration kind, as Lean's export has one line form per kind",
+  "reason": "false positive: each declaration kind's JSON writer, its own members in Lean's order; equal length, different members",
   "tokens": 8
  },
  "d106d85d0554": {
@@ -2861,16 +2362,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
  },
- "d650e72345a6": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/import/run-record.fs:rr-sink",
-   "src/import/run-replay.fs:rp-report-sink"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (each record's text buffer)",
-  "tokens": 8
- },
  "d6a4375d3890": {
   "copies": 2,
   "kind": "shape",
@@ -2899,7 +2390,7 @@
    "src/core/generation-handles.fs:lf-stamp-same",
    "src/core/terms.fs:lf-tnode-same"
   ],
-  "reason": "family, table-driven later: htab same-hooks, one per record kind",
+  "reason": "false positive: two htab same-hooks of different records (a stamp unit's term, a leaf's node)",
   "tokens": 6
  },
  "d8a6e1b0cde9": {
@@ -2972,20 +2463,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 8
  },
- "ddd48b347be1": {
-  "copies": 6,
-  "kind": "shape",
-  "members": [
-   "src/import/snapshot-layer.fs:ly-fam-units",
-   "src/kernel/env-import.fs:imp-from-room",
-   "src/kernel/env-import.fs:imp-why-room",
-   "src/kernel/env-import.fs:imp-to-room",
-   "src/kernel/env-import.fs:imp-renum-room",
-   "src/kernel/env-import.fs:imp-lslots-room"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (one growable array each, on the shared ua-new)",
-  "tokens": 6
- },
  "de205fa01c9c": {
   "copies": 2,
   "kind": "shape",
@@ -3036,17 +2513,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 19
  },
- "e1d41cb4bd41": {
-  "copies": 3,
-  "kind": "shape",
-  "members": [
-   "src/core/constant-term-boundary.fs:lf-walk-once",
-   "src/core/constant-term-boundary.fs:lf-walk-once-at",
-   "src/core/constant-term-boundary.fs:lf-walk-once-aside"
-  ],
-  "reason": "family, table-driven later: one guard per seen-set, each with its own test",
-  "tokens": 9
- },
  "e36b9e9a2aff": {
   "copies": 2,
   "kind": "shape",
@@ -3078,16 +2544,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 14
  },
- "e42f5d59137e": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/import/ndjson-count.fs:tally-ctor",
-   "src/import/ndjson-count.fs:tally-recursor"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (one counter each)",
-  "tokens": 6
- },
  "e50147925318": {
   "copies": 7,
   "kind": "shape",
@@ -3102,16 +2558,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 18
- },
- "e566efcef78f": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/env-import.fs:s-block",
-   "src/kernel/env-import.fs:e-block"
-  ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each (the staged and the environment side)",
-  "tokens": 17
  },
  "e56a6e4c0d27": {
   "copies": 2,
@@ -3143,6 +2589,16 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 8
  },
+ "e651e4bd5109": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/kernel/env-import.fs:same-maps",
+   "src/kernel/env-layers.fs:lay-arrays"
+  ],
+  "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with, already the shared word",
+  "tokens": 11
+ },
  "e6a274160a4d": {
   "copies": 2,
   "kind": "shape",
@@ -3172,17 +2628,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 17
- },
- "eac818d4aef6": {
-  "copies": 3,
-  "kind": "shape",
-  "members": [
-   "src/import/stage-records.fs:names-kept",
-   "src/import/stage-records.fs:levels-kept",
-   "src/import/stage-records.fs:exprs-kept"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (each kind's map)",
-  "tokens": 6
  },
  "eb7510a045b4": {
   "copies": 6,
@@ -3237,7 +2682,7 @@
    "src/kernel/env-import.fs:same-from!",
    "src/kernel/env-import.fs:same-to!"
   ],
-  "reason": "family, table-driven later: the two sides of a pair (a and b, first and second, left and right, level and term), one word each (the two directions of the map)",
+  "reason": "accepted: the two directions of the same-declaration map, each one line storing one index + 1 at the other; a shared word would take both fields and both maps",
   "tokens": 12
  },
  "ee843b2fbebf": {
@@ -3247,19 +2692,8 @@
    "src/import/snapshot-tier.fs:tf-fill",
    "src/import/snapshot-tier.fs:tf-plain"
   ],
-  "reason": "family, table-driven later: the tier's two section loaders, each with its own room and copy step",
+  "reason": "accepted: the two section loaders differ in two steps (room, then read); a word taking both as xts would keep them and the record on the return stack around the read",
   "tokens": 16
- },
- "ef051e5fe18e": {
-  "copies": 3,
-  "kind": "shape",
-  "members": [
-   "src/kernel/check-declaration.fs:lf-check-walked",
-   "src/kernel/inductive-block.fs:lf-ind-walked",
-   "src/kernel/inductive-block.fs:lf-c1-walked"
-  ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (each walk's fuel cell and site)",
-  "tokens": 8
  },
  "ef39288f04e1": {
   "copies": 4,
@@ -3314,7 +2748,7 @@
    "src/kernel/level-value.fs:lf-lassign-grown?",
    "src/kernel/mixed-infer.fs:lf-minfer-scope-room?"
   ],
-  "reason": "family, table-driven later: parallel accessors that differ only in the record field or table they read (two slabs grown together)",
+  "reason": "planned: 9.4.8k follow-up 6, a slab.fs word holding two slabs to one count (slab.fs is in flight in s1-synth-b)",
   "tokens": 12
  },
  "f2b65c0aa60a": {

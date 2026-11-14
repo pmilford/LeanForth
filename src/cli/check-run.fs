@@ -700,7 +700,8 @@ create ck-line ck-line-room 2 + allot
 \ report (cli-verdicts), as the serial run's is, and nothing after it.
 : ck-marks! ( -- ) ck-wall-now 2dup ck-state ck-prog-mark 2! ck-state ck-flush-mark 2! ;
 : ck-lines! ( xt -- ) ck-state ck-line-xt ! ck-marks! ;
-: ck-progress! ( seconds -- ) ck-state ck-prog-secs ! true ck-state ck-prog-on ! ck-marks! ;
+: ck-progress! ( seconds -- )
+  ck-state ck-prog-secs ! true ck-state ck-prog-on ! ck-marks! ;
 : ck-done ( -- n ) ck-state ck-cursor @ ;
 : ck-lines-on? ( -- flag ) ck-state ck-line-xt @ 0<> ;
 : ck-watching? ( -- flag ) ck-lines-on? ck-state ck-prog-on @ or ;

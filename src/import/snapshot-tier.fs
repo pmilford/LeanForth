@@ -174,14 +174,17 @@ end-structure
 \ always copied and cleaned.
 : tf-span ( addr units i -- addr n units ) tier-per-unit over * swap ;
 : tf-raw-out ( addr units i tf -- addr units outcome ) 2drop outcome-ok ;
-: tf-le-out ( addr units i tf -- addr' units outcome )
-  >r tf-span r> swap >r tf-le r> swap ;
-: tf-copy-out ( addr units i tf -- addr' units outcome )
-  >r tf-span r> swap >r tf-copy r> swap ;
+\ (tf-out-with puts the section's n bytes with put ( addr n tf -- addr'
+\ outcome ); tf-copy-then cleans a copy with fix ( addr units -- ).)
+: tf-out-with ( addr units i tf put -- addr' units outcome )
+  2>r tf-span 2r> rot >r execute r> swap ;
+: tf-le-out ( addr units i tf -- addr' units outcome ) ['] tf-le tf-out-with ;
+: tf-copy-out ( addr units i tf -- addr' units outcome ) ['] tf-copy tf-out-with ;
+: tf-copy-then ( addr units i tf fix -- addr' units outcome )
+  >r tf-copy-out dup ok? if r> 2over rot execute else r> drop then ;
 : tf-exprs-out ( addr units i tf -- addr' units outcome )
-  tf-copy-out dup ok? if >r 2dup exprs-unresolve r> then ;
-: tf-decls-out ( addr units i tf -- addr' units outcome )
-  tf-copy-out dup ok? if >r 2dup decls-unmark r> then ;
+  ['] exprs-unresolve tf-copy-then ;
+: tf-decls-out ( addr units i tf -- addr' units outcome ) ['] decls-unmark tf-copy-then ;
 create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw-out ,
   ' tf-le-out , ' tf-exprs-out , ' tf-decls-out , ' tf-le-out ,
 \ A layer (ADR 0020 amendment 1, F5; plan step SN4) writes each family's
@@ -327,7 +330,9 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
   dup cand-data >r 0 over cand-data! dup expr-run-check ok? swap cand-data r> = and ;
 \ A letE's second record, inside the section: the body record as
 \ let-body! writes it (the body itself is checked by check-let).
-: exprs-left ( exprs tf -- u ) tp-exprs swap tf-units swap cons-records slab-count - ;
+\ Units of section i the set cons has not taken yet.
+: tf-left ( cons i tf -- u ) tf-units swap cons-records slab-count - ;
+: exprs-left ( exprs tf -- u ) tp-exprs swap tf-left ;
 : body-record-ok? ( addr -- flag )
   dup quad-head u32@ tag-let-body = over quad-b u32@ 0= and swap quad-data u32@ 0= and ;
 : let-shape? ( exprs tf -- flag )
@@ -351,7 +356,7 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
 \ Lists: a length and that many items, inside the section (what the
 \ items are, their users check). Texts: the next bytes of their pool.
 : tf-tuples-of ( stage -- tuples ) stage-tier tier-tuples ;
-: tuple-room ( tuples tf -- u ) tp-lists swap tf-units swap cons-records slab-count - ;
+: tuple-room ( tuples tf -- u ) tp-lists swap tf-left ;
 : tuple-step ( stage tf -- outcome )
   >r tf-tuples-of dup r> tuple-room over cons-top u32@ u>
   if dup cons-top u32@ 1+ swap cons-adopt nip else drop outcome-invalid then ;
@@ -496,7 +501,8 @@ create tf-loads   \ by position, from 1
   over ok? if tf-stage@ stage-over? if drop outcome-full then else drop then ;
 : tf-load ( i tf -- outcome ) dup >r over 1- cells tf-loads + @ execute r> tf-limited ;
 : tf-note ( i tf -- ) 2dup tf-slab slab-count over tf-at ! swap tier-title swap tf-why ! ;
-: tf-load-noted ( i tf -- outcome ) 2dup tf-load dup ok? if nip nip exit then -rot tf-note ;
+: tf-load-noted ( i tf -- outcome )
+  2dup tf-load dup ok? if nip nip exit then -rot tf-note ;
 : tf-load-next ( tf k -- tf outcome ) 1+ over tf-load-noted ;
 : tf-loads-all ( tf -- outcome ) tier-sections# 1- ['] tf-load-next ok-each nip ;
 

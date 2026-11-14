@@ -11,7 +11,11 @@
 \ UTF-8 character as \backslash{}x\{X\}, so that a name can never put a line end
 \ or a reordering into the LaTeX (or into the plain text it is part of). Text
 \ is examined a character at a time, with COMPARE and SEARCH for the symbol
-\ tables. Untrusted presentation code. Requires print-job.fs. No state.
+\ tables. The escaping serves two modes: math mode here (the printer's
+\ lf-pp-emit, \backslash{}) and text mode in statement-forms.fs (its own
+\ sink and bytes, \textbackslash{}); a mode is a read-only record of its
+\ sink, byte step and backslash. Untrusted presentation code. Requires
+\ print-job.fs. No state.
 
 require ./print-job.fs
 require ../lib/bytes.fs
@@ -26,15 +30,31 @@ require ../lib/text-rule.fs
   s" ^" lf-tex-is? if drop s" \hat{}" lf-pp-emit exit then
   s" ~" lf-tex-is? if drop s" \sim{}" lf-pp-emit exit then
   s" \" lf-tex-is? if drop s" \backslash{}" lf-pp-emit exit then 1 lf-pp-emit ;
-\ An escape: its prefix, then the number in hexadecimal and \}.
-: lf-tex-code ( u c-addr u2 -- ) lf-pp-emit u>hex lf-pp-emit s" \}" lf-pp-emit ;
-: lf-tex-bad ( c-addr -- ) c@ s" \backslash{}x\{" lf-tex-code ;
-\ The character at c-addr, u bytes left: written; the bytes it took.
-: lf-tex-step ( c-addr u -- n )
-  2dup utf8-length dup 0= if 2drop lf-tex-bad 1 exit then nip
-  2dup utf8-decode dup tr-banned? if s" \backslash{}u\{" lf-tex-code nip exit then
-  drop dup 1 = if drop lf-tex-byte 1 else tuck lf-pp-emit then ;
-: lf-tex-escaped ( c-addr u -- ) begin dup while 2dup lf-tex-step /string repeat 2drop ;
+\ A mode: its sink ( c-addr u -- ), its step for a one-byte character
+\ ( c-addr -- ) and its backslash ( -- c-addr u ).
+begin-structure /lf-tex-mode
+  field: lf-tex-sink
+  field: lf-tex-one
+  field: lf-tex-slash
+end-structure
+: lf-tex-out ( c-addr u mode -- ) lf-tex-sink @ execute ;
+\ A code in hexadecimal after the mode's backslash and the letter text
+\ c-addr u2 (u\{ or x\{), closed by \}.
+: lf-tex-code ( u c-addr u2 mode -- )
+  >r r@ lf-tex-slash @ execute r@ lf-tex-out r@ lf-tex-out u>hex r@ lf-tex-out
+  s" \}" r> lf-tex-out ;
+: lf-tex-bad ( c-addr mode -- ) >r c@ s" x\{" r> lf-tex-code ;
+\ The character at c-addr, u bytes left, written in the mode; the bytes it
+\ took.
+: lf-tex-step ( c-addr u mode -- n )
+  >r 2dup utf8-length dup 0= if 2drop r> lf-tex-bad 1 exit then nip
+  2dup utf8-decode dup tr-banned? if s" u\{" r> lf-tex-code nip exit then
+  drop dup 1 = if drop r> lf-tex-one @ execute 1 else tuck r> lf-tex-out then ;
+: lf-tex-text ( c-addr u mode -- )
+  >r begin dup while 2dup r@ lf-tex-step /string repeat 2drop r> drop ;
+: lf-tex-backslash ( -- c-addr u ) s" \backslash{}" ;
+create lf-tex-math ' lf-pp-emit , ' lf-tex-byte , ' lf-tex-backslash ,
+: lf-tex-escaped ( c-addr u -- ) lf-tex-math lf-tex-text ;
 
 \ Greek letters: a name that is exactly one of them prints as its command.
 : lf-tex-greek-letters ( -- c-addr u ) s" αβγδεζηθικλμνξπρστυφχψω" ;

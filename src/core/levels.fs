@@ -114,7 +114,8 @@ create lf-level-hooks /htab-hooks allot
 
 \ Discard every level and claim record 0 as the zero level with a fresh
 \ identity. Unchecked: the serial must not be spent; lf-level-reset checks.
-: lf-level-restart ( -- ) 0 lf-level-count ! lf-levels store-claim lf-level-slot /node erase ;
+: lf-level-restart ( -- )
+  0 lf-level-count ! lf-levels store-claim lf-level-slot /node erase ;
 \ Reset to the zero level alone and advance the generation. A spent identity
 \ serial poisons the store instead of reusing an identity. The table then
 \ holds the zero level alone.

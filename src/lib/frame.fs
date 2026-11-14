@@ -165,7 +165,8 @@ max-n 1 cells / constant frame-most-cells
   dup frame-fuel @ 0> 0= if drop outcome-exhausted exit then
   frame-need swap frame-room? room>outcome ;
 \ A refused visit continues at once with no result and the outcome.
-: frame-refuse ( x frames cont outcome -- -1 outcome frames cont ) 2>r nip -1 swap 2r> -rot ;
+: frame-refuse ( x frames cont outcome -- -1 outcome frames cont )
+  2>r nip -1 swap 2r> -rot ;
 \ The step that ends every visit: one frame less, the result made sane.
 : frame-exit ( result outcome frames -- result outcome' frames 0 )
   -1 over frame-depth +! swap outcome-sane swap 0 ;
@@ -198,7 +199,8 @@ max-n 1 cells / constant frame-most-cells
 \ then a context that cannot grow (max-n) is full; a refused visit changes
 \ nothing.
 : frame-context+! ( n frames -- ) frame-context +! ;
-: frame-up ( result outcome frames -- result outcome frames 0 ) -1 over frame-context+! 0 ;
+: frame-up ( result outcome frames -- result outcome frames 0 )
+  -1 over frame-context+! 0 ;
 : frame-deeper ( frames -- outcome )
   dup frame-admit ok-then? if frame-context @ max-n <> room>outcome then ;
 : frame-under ( x frames cont -- x frames visitor | -1 outcome frames cont )

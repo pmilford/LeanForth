@@ -127,8 +127,10 @@ end-structure
 \ and that prefixes point backwards; not uniqueness or immutability.
 : lf-name-span? ( offset length -- flag )
   over lf-name-used @ upto? if swap lf-name-used @ swap - upto? else 2drop false then ;
-: lf-name-num-ok? ( entry -- flag ) dup lf-entry-payload @ 0< 0= swap lf-entry-length @ 0= and ;
-: lf-name-str-ok? ( entry -- flag ) dup lf-entry-payload @ swap lf-entry-length @ lf-name-span? ;
+: lf-name-num-ok? ( entry -- flag )
+  dup lf-entry-payload @ 0< 0= swap lf-entry-length @ 0= and ;
+: lf-name-str-ok? ( entry -- flag )
+  dup lf-entry-payload @ swap lf-entry-length @ lf-name-span? ;
 : lf-name-body-ok? ( entry -- flag )
   dup lf-entry-tag @ case
     lf-name-tag-num of lf-name-num-ok? endof
@@ -149,11 +151,13 @@ end-structure
 
 \ Entry matching: same kind and prefix, then same number or same bytes. A
 \ string query is the first length bytes of lf-name-input-copy.
-: lf-name-head? ( prefix tag entry -- flag ) tuck lf-entry-tag @ = -rot lf-entry-prefix @ = and ;
+: lf-name-head? ( prefix tag entry -- flag )
+  tuck lf-entry-tag @ = -rot lf-entry-prefix @ = and ;
 : lf-name-num-match? ( prefix number entry -- flag )
   tuck lf-entry-payload @ = >r lf-name-tag-num swap lf-name-head? r> and ;
 : lf-name-query ( length -- addr length ) lf-name-input-copy swap ;
-: lf-name-bytes@ ( entry -- addr length ) dup lf-entry-payload @ lf-name-bytes + swap lf-entry-length @ ;
+: lf-name-bytes@ ( entry -- addr length )
+  dup lf-entry-payload @ lf-name-bytes + swap lf-entry-length @ ;
 : lf-name-str-match? ( prefix length entry -- flag )
   >r swap lf-name-tag-str r@ lf-name-head?
   if lf-name-query r> lf-name-bytes@ compare 0= else drop r> drop false then ;
@@ -169,7 +173,8 @@ end-structure
 \ Appending; callers have checked validity, absence and room. The store's
 \ identities are issued but unused: names are compared by content.
 : lf-name-room? ( -- flag ) lf-names store-ready drop lf-names store-open? ;
-: lf-name-byte-room? ( length -- flag ) lf-name-used @ + lf-name-byte-cells slab-hold ok? ;
+: lf-name-byte-room? ( length -- flag )
+  lf-name-used @ + lf-name-byte-cells slab-hold ok? ;
 : lf-name-new ( prefix tag -- entry id )
   lf-names store-claim dup >r lf-name-slot tuck lf-entry-tag ! tuck lf-entry-prefix ! r> ;
 : lf-name-add-num ( prefix number -- id )
@@ -263,7 +268,8 @@ create lf-name-viewed-ops /lf-nops allot
 ' lf-name-intern-num ' lf-name-viewed-num ' lf-nops-num lf-nops!
 ' lf-name-intern-str ' lf-name-viewed-str ' lf-nops-str lf-nops!
 ' lf-name-no-scratch ' lf-name-scratch-reset ' lf-nops-clear lf-nops!
-: lf-name-ops ( -- ops ) lf-name-viewed? if lf-name-viewed-ops else lf-name-stored-ops then ;
+: lf-name-ops ( -- ops )
+  lf-name-viewed? if lf-name-viewed-ops else lf-name-stored-ops then ;
 
 \ Kind and prefix of a valid ID.
 : lf-name-tag@ ( id -- tag ) lf-name-ops lf-nops-tag @ execute ;
@@ -288,6 +294,10 @@ create lf-name-viewed-ops /lf-nops allot
 : lf-name-str? ( id -- flag ) lf-name-tag@ lf-name-tag-str = ;
 : lf-name-num? ( id -- flag ) lf-name-tag@ lf-name-tag-num = ;
 : lf-name-anon? ( id -- flag ) lf-name-tag@ lf-name-tag-anon = ;
+\ Whether an ID kept with the generation it was made in still names that
+\ name: the store has not been reset since, and the ID is valid.
+: lf-name-current? ( id generation -- flag )
+  lf-name-generation @ = swap lf-name-valid? and ;
 \ Whether the valid ID's own component is the string c-addr u (a numeric
 \ component never is); the number of components of a valid ID (0 for the
 \ anonymous name).
@@ -344,7 +354,8 @@ defer lf-name-detach-hook ( -- )
 : lf-name-str-args? ( prefix length -- flag )
   lf-name-query-room? swap lf-name-valid? and lf-name-storage-valid? and ;
 : lf-name-copy-in ( addr length -- length ) tuck lf-name-input-copy swap move ;
-: lf-name-copied-str ( prefix length -- id true | false ) lf-name-ops lf-nops-str @ execute ;
+: lf-name-copied-str ( prefix length -- id true | false )
+  lf-name-ops lf-nops-str @ execute ;
 : lf-name-str ( prefix addr length -- id true | false )
   >r over r@ lf-name-str-args? r> swap
   if lf-name-copy-in lf-name-copied-str else 2drop drop false then ;

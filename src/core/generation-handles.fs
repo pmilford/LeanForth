@@ -101,7 +101,8 @@ create lf-stamp-hooks /htab-hooks allot
 \ The session's check covers both stores' headers (symbolic-session.fs).
 : lf-hterm-valid? ( index identity -- flag )
   lf-ssession-current? if lf-hterm-id? else 2drop false then ;
-: lf-hterms-valid? ( left lid right rid -- flag ) lf-hterm-valid? >r lf-hterm-valid? r> and ;
+: lf-hterms-valid? ( left lid right rid -- flag )
+  lf-hterm-valid? >r lf-hterm-valid? r> and ;
 
 \ Turn an allocator's result into a handle.
 : lf-hlevel-result ( index true | false -- index identity true | false )
@@ -113,7 +114,8 @@ create lf-stamp-hooks /htab-hooks allot
 \ Parameters must still be in the session context when checked.
 : lf-hlevel-zero ( -- index identity true | false )
   0 lf-level-root? if 0 dup lf-level-identity else false then ;
-: lf-hlevel-param ( name-id -- index identity true | false ) lf-level-param lf-hlevel-result ;
+: lf-hlevel-param ( name-id -- index identity true | false )
+  lf-level-param lf-hlevel-result ;
 : lf-hlevel-succ ( index identity -- index identity true | false )
   2dup lf-hlevel-valid? if drop lf-level-succ lf-hlevel-result else 2drop false then ;
 
@@ -121,7 +123,8 @@ create lf-stamp-hooks /htab-hooks allot
 \ stamps tie the new term to both identities. Level scope is checked later.
 : lf-hsort-stamp ( level-identity term-index term-identity -- )
   over lf-term-own-stamp ! lf-hsort-level-stamp ! ;
-: lf-hsort-source? ( level-index level-identity -- flag ) lf-hlevel-valid? lf-ssession-current? and ;
+: lf-hsort-source? ( level-index level-identity -- flag )
+  lf-hlevel-valid? lf-ssession-current? and ;
 : lf-hsort-new ( level-identity level-index -- index identity true | false )
   lf-term-symbolic-sort lf-hterm-result if >r tuck r@ lf-hsort-stamp r> true else drop false then ;
 : lf-hterm-sort ( level-index level-identity -- index identity true | false )
@@ -136,9 +139,12 @@ create lf-stamp-hooks /htab-hooks allot
 : lf-hterm-binary ( left lid right rid tag -- index identity true | false )
   >r 2over 2over lf-hterms-valid?
   if drop nip r> lf-term-binary lf-hterm-result else 2drop 2drop r> drop false then ;
-: lf-hterm-app ( left lid right rid -- index identity true | false ) lf-tag-app lf-hterm-binary ;
-: lf-hterm-lam ( domain did body bid -- index identity true | false ) lf-tag-lam lf-hterm-binary ;
-: lf-hterm-pi ( domain did body bid -- index identity true | false ) lf-tag-pi lf-hterm-binary ;
+: lf-hterm-app ( left lid right rid -- index identity true | false )
+  lf-tag-app lf-hterm-binary ;
+: lf-hterm-lam ( domain did body bid -- index identity true | false )
+  lf-tag-lam lf-hterm-binary ;
+: lf-hterm-pi ( domain did body bid -- index identity true | false )
+  lf-tag-pi lf-hterm-binary ;
 
 \ Audit of a structurally checked term: each symbolic Sort must carry the
 \ stamps of this exact term allocation and a level that still has the
@@ -151,8 +157,10 @@ create lf-stamp-hooks /htab-hooks allot
   swap lf-level-identity if swap lf-hsort-level-stamp @ = else drop false then ;
 : lf-hsort-stamped? ( level node -- flag )
   dup lf-term-stamped? if lf-hsort-level-ok? else 2drop false then ;
-: lf-href-sort ( first second walk -- outcome ) nip walk-node @ lf-hsort-stamped? flag>outcome ;
-: lf-href-dispatch ( first second walk tag -- outcome ) ['] lf-href-sort lf-symbolic-dispatch ;
+: lf-href-sort ( first second walk -- outcome )
+  nip walk-node @ lf-hsort-stamped? flag>outcome ;
+: lf-href-dispatch ( first second walk tag -- outcome )
+  ['] lf-href-sort lf-symbolic-dispatch ;
 : lf-href-visit ( walk -- outcome ) ['] lf-href-dispatch lf-term-visit ;
 \ Internal: audit an already structurally checked root. Negative fuel is
 \ invalid.

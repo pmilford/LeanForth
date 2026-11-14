@@ -516,7 +516,8 @@ defer lf-wc-entry ( node frames -- ... frames next )
 \ An application: its head is visited first only when it is a let term
 \ or a let variable (or no live variable), as Lean's whnf_core reduces
 \ the head first (514), node saved across that visit.
-: lf-wc-invalid ( node frames -- -1 outcome frames 0 ) nip outcome-invalid swap lf-whnf-failed ;
+: lf-wc-invalid ( node frames -- -1 outcome frames 0 )
+  nip outcome-invalid swap lf-whnf-failed ;
 : lf-wc-headed ( f outcome frames -- ... frames next )
   >r r@ frame-restore -rot ok-then? if r> lf-wc-head else nip r> lf-whnf-failed then ;
 : lf-wc-app ( node frames -- ... frames next )

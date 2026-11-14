@@ -75,7 +75,8 @@ end-structure
 : lf-mshift-keep ( result node frames -- ) frame-context @ lf-mshift-memo lf-rmemo! ;
 : lf-mshift-kept ( result outcome node -- result outcome )
   over ok? if 2 pick swap lf-mshift-frames lf-mshift-keep else drop then ;
-: lf-mshift-update ( r1 node r2 -- result outcome ) over >r lf-replace-update r> lf-mshift-kept ;
+: lf-mshift-update ( r1 node r2 -- result outcome )
+  over >r lf-replace-update r> lf-mshift-kept ;
 : lf-mshift-updated ( r2 outcome frames -- result outcome frames 0 )
   ['] lf-mshift-update lf-rebuild-joined ;
 : lf-mshift-second ( r1 outcome frames -- second frames next | -1 outcome frames 0 )

@@ -211,7 +211,8 @@ end-structure
   0 0 0 lfa-e-compiling lfa-record lfa-e-compiling lf-author-outcome ;
 \ Refused before anything runs: the caller's search order is too long to save
 \ (an outcome, not an abort: the caller's own order is left alone).
-: lfa-order-fits? ( -- flag ) get-order dup >r 0 ?do drop loop r> lfa-order-capacity > 0= ;
+: lfa-order-fits? ( -- flag )
+  get-order dup >r 0 ?do drop loop r> lfa-order-capacity > 0= ;
 : lfa-order-full ( -- outcome )
   0 0 0 lfa-e-search-order lfa-record lfa-e-search-order lf-author-outcome ;
 \ A run: the lines of a new text, counted from 1.

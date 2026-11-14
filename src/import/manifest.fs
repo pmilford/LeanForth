@@ -128,10 +128,12 @@ end-structure
 : keys-size ( table -- n )
   0 swap begin dup count nip while key-next swap 1+ swap repeat drop ;
 : has-key? ( key index view -- flag ) json-find dup if nip then ;
-: all-keys? ( table index view -- flag )   \ every key of the table a member
-  2>r begin dup count nip while
-    dup 2r@ has-key? 0= if drop 2r> 2drop false exit then key-next
-  repeat drop 2r> 2drop true ;
+\ Whether test ( key index view -- flag ) holds for every key of the table.
+: keys-all? ( table index view test -- flag )
+  -rot 2>r swap begin dup count nip while
+    dup 2r@ 4 pick execute 0= if 2drop 2r> 2drop false exit then key-next
+  repeat 2drop 2r> 2drop true ;
+: all-keys? ( table index view -- flag ) ['] has-key? keys-all? ;   \ every key a member
 : object-size ( index view -- n true | false ) >r json-object r> json-items-of ;
 : members? ( n index view -- flag ) object-size if = else drop false then ;
 \ The object at index has exactly the table's keys, each once: as many
@@ -178,10 +180,8 @@ kind-keys keys-size kind-count <>
 \ The member key of the object at index as a natural number.
 : natural-found? ( key index view -- flag )
   >r r@ json-find if r> natural-at dup if nip nip then else r> drop false then ;
-: naturals? ( table index view -- flag )   \ every key of the table a natural
-  2>r begin dup count nip while
-    dup 2r@ natural-found? 0= if drop 2r> 2drop false exit then key-next
-  repeat drop 2r> 2drop true ;
+: naturals? ( table index view -- flag )
+  ['] natural-found? keys-all? ;   \ every one a natural
 \ The manifest's count of kind, in the records object at index.
 : recorded ( kind index view -- c-addr u true | false )
   >r swap kind-member swap r@ json-find if r> natural-at else r> drop false then ;

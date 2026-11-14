@@ -487,8 +487,10 @@ defer lf-ap-arg ( frames -- ... frames next )
 \ is_def_eq_offset's is_nat_zero and is_nat_succ: the literal 0 or
 \ Nat.zero; a literal above 0 or Nat.succ x, and its predecessor (x, or
 \ the literal one less: reduce-nat.fs).
-: lf-dq-nat-zero? ( node -- flag ) dup lf-lit-leaf? if lf-term-second@ 0= else lf-whnf-zero? then ;
-: lf-dq-pred? ( node -- flag ) dup lf-lit-leaf? if lf-term-second@ 0<> else lf-dq-succ? then ;
+: lf-dq-nat-zero? ( node -- flag )
+  dup lf-lit-leaf? if lf-term-second@ 0= else lf-whnf-zero? then ;
+: lf-dq-pred? ( node -- flag )
+  dup lf-lit-leaf? if lf-term-second@ 0<> else lf-dq-succ? then ;
 : lf-dq-pred ( node -- pred outcome )
   dup lf-lit-leaf? if lf-reduce-nat-pred else lf-term-second@ outcome-ok then ;
 

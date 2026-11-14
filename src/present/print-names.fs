@@ -93,7 +93,8 @@ lf-walk-room context-walk2: lf-pp-scan-walk
 \ every other node to lf-pp-scan-other.
 : lf-pp-scan-dispatch ( first second walk tag var -- outcome )
   over lf-tag-bvar = if nip rot drop execute else drop lf-pp-scan-other then ;
-: lf-pp-loose-dispatch ( first second walk tag -- outcome ) ['] lf-pp-var-is lf-pp-scan-dispatch ;
+: lf-pp-loose-dispatch ( first second walk tag -- outcome )
+  ['] lf-pp-var-is lf-pp-scan-dispatch ;
 : lf-pp-loose-visit ( walk -- outcome ) ['] lf-pp-loose-dispatch lf-term-visit ;
 \ Variable i mentions a binder of the scope that shows the text pending at
 \ mark (walk-arg). A variable beyond the scope is left to the printer.

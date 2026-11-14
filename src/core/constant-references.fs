@@ -243,7 +243,7 @@ create lf-cref-hooks /htab-hooks allot
 
 \ A live name pair binds the index to the current name-table generation.
 : lf-cref-name-valid? ( index generation -- flag )
-  lf-name-generation @ = swap lf-name-valid? and lf-name-storage-valid? and ;
+  lf-name-current? lf-name-storage-valid? and ;
 \ count level pairs at addr are all live; count is not negative.
 : lf-cref-arity? ( count -- flag ) 0< 0= ;
 : lf-cref-level-ok? ( addr k -- addr flag ) over swap lf-cref-pair@ lf-hlevel-valid? ;
@@ -308,7 +308,8 @@ create lf-cref-hooks /htab-hooks allot
   lf-crefs store-ready drop
   lf-crefs store-new-slot 0= if drop 2drop 2drop lf-cref-refused exit then
   >r >r r@ lf-cref-levels! r@ lf-cref-name! r> lf-cref-stamp r> lf-cref-base + swap true ;
-: lf-cref-source? ( name generation -- flag ) lf-cref-name-valid? lf-cref-state-valid? and ;
+: lf-cref-source? ( name generation -- flag )
+  lf-cref-name-valid? lf-cref-state-valid? and ;
 \ Shadows (review rvRS F1; ADR 0014 Amendment 8). In a check, a reference
 \ made before it that the check has not reached is given for an equal
 \ one as before (so no outcome or fuel moves), but the room it saves is

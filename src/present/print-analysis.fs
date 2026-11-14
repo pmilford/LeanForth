@@ -42,16 +42,28 @@ defer lf-pp-lsame-step ( l1 l2 frames -- ... frames next )
   ['] lf-pp-lsame-step lf-pp-call ;
 : lf-pp-lfirsts ( l1 l2 -- f1 f2 ) lf-level-first@ swap lf-level-first@ swap ;
 : lf-pp-lseconds ( l1 l2 -- s1 s2 ) lf-level-second@ swap lf-level-second@ swap ;
+\ After the first parts compared equal: the second parts, that seconds
+\ ( x1 x2 -- s1 s2 ) reads, compared by call ( s1 s2 frames cont -- ...
+\ frames next ); the term comparison below uses it too.
+: lf-pp-seconds-then ( outcome frames seconds call -- ... frames next )
+  2swap >r r@ lf-pp-restore2 rot ok-then2?
+  if 2swap >r execute r> r> swap ['] frame-return swap execute else nip nip r> 0 then ;
 : lf-pp-lsame-second ( outcome frames -- ... frames next )
-  >r r@ lf-pp-restore2 rot ok-then2?
-  if lf-pp-lseconds r> ['] frame-return lf-pp-lsame-call else r> 0 then ;
+  ['] lf-pp-lseconds ['] lf-pp-lsame-call lf-pp-seconds-then ;
 : lf-pp-lsame-both ( l1 l2 frames -- ... frames next )
   >r 2dup r@ lf-pp-save2 lf-pp-lfirsts r> ['] lf-pp-lsame-second lf-pp-lsame-call ;
 : lf-pp-lsame-zero ( l1 l2 frames -- outcome frames 0 ) >r 2drop outcome-ok r> 0 ;
+\ (lf-pp-firsts-equal compares the first fields that firsts ( x1 x2 -- f1
+\ f2 ) reads; lf-pp-firsts-levels compares them as levels; both serve the
+\ term comparison below too.)
+: lf-pp-firsts-equal ( x1 x2 frames firsts -- outcome frames 0 )
+  swap >r execute = lf-pp-equal r> 0 ;
+: lf-pp-firsts-levels ( x1 x2 frames firsts -- ... frames next )
+  swap >r execute r> ['] frame-return lf-pp-lsame-call ;
 : lf-pp-lsame-param ( l1 l2 frames -- outcome frames 0 )
-  >r lf-pp-lfirsts = lf-pp-equal r> 0 ;
+  ['] lf-pp-lfirsts lf-pp-firsts-equal ;
 : lf-pp-lsame-succ ( l1 l2 frames -- ... frames next )
-  >r lf-pp-lfirsts r> ['] frame-return lf-pp-lsame-call ;
+  ['] lf-pp-lfirsts lf-pp-firsts-levels ;
 \ The step for a level tag: a CASE with one short arm per tag (kept
 \ together so the tags read as a table); an unknown tag is invalid.
 : lf-pp-lsame-by ( tag -- xt )
@@ -116,8 +128,7 @@ defer lf-pp-same-step ( a b frames -- ... frames next )
 : lf-pp-firsts ( a b -- a1 b1 ) lf-term-first@ swap lf-term-first@ swap ;
 : lf-pp-seconds ( a b -- a2 b2 ) lf-term-second@ swap lf-term-second@ swap ;
 : lf-pp-same-second ( outcome frames -- ... frames next )
-  >r r@ lf-pp-restore2 rot ok-then2?
-  if lf-pp-seconds r> ['] frame-return lf-pp-same-call else r> 0 then ;
+  ['] lf-pp-seconds ['] lf-pp-same-call lf-pp-seconds-then ;
 \ (frame-up works on any results below the frames: it touches only them.)
 : lf-pp-same-body ( outcome frames -- ... frames next )
   >r r@ lf-pp-restore2 rot ok-then2? 0= if r> 0 exit then
@@ -127,11 +138,11 @@ defer lf-pp-same-step ( a b frames -- ... frames next )
 : lf-pp-same-app ( a b frames -- ... frames next ) ['] lf-pp-same-second lf-pp-same-pair ;
 : lf-pp-same-binder ( a b frames -- ... frames next )
   ['] lf-pp-same-body lf-pp-same-pair ;
-: lf-pp-same-sort ( a b frames -- outcome frames 0 ) >r lf-pp-firsts = lf-pp-equal r> 0 ;
+: lf-pp-same-sort ( a b frames -- outcome frames 0 ) ['] lf-pp-firsts lf-pp-firsts-equal ;
 : lf-pp-same-bvar ( a b frames -- outcome frames 0 )
   >r lf-pp-firsts lf-pp-var-same? lf-pp-equal r> 0 ;
 : lf-pp-same-levels ( a b frames -- ... frames next )
-  >r lf-pp-firsts r> ['] frame-return lf-pp-lsame-call ;
+  ['] lf-pp-firsts lf-pp-firsts-levels ;
 \ The step for a term tag: a CASE with one short arm per tag (kept
 \ together so the tags read as a table); λ and Π, the remaining known
 \ tags, compare alike.

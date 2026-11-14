@@ -693,12 +693,14 @@ end-structure
 : irx-valued ( result -- result )
   dup irx-next = if drop irx-one-value? if irx-next else irx-bad-constant then exit then
   dup irx-exited = if drop irx-bad-constant then ;
-: irx-run-word ( def fuel -- result )
-  irx-enter-def 0= if irx-no-room exit then
-  irx-own-returns irx-steps irx-returned irx-leave ;
-: irx-run-constant ( def fuel -- result )
-  irx-enter-def 0= if irx-no-room exit then
-  irx-own-stacks irx-steps irx-valued irx-leave ;
+\ Run def in a frame that setup ( -- ) makes its own, its result checked
+\ by check ( result -- result ): a word's (its return stack) or a
+\ constant's (both stacks, one value).
+: irx-run-def ( def fuel setup check -- result )
+  2>r irx-enter-def 0= if 2r> 2drop irx-no-room exit then
+  2r> >r execute irx-steps r> execute irx-leave ;
+: irx-run-word ( def fuel -- result ) ['] irx-own-returns ['] irx-returned irx-run-def ;
+: irx-run-constant ( def fuel -- result ) ['] irx-own-stacks ['] irx-valued irx-run-def ;
 : irx-callee ( def fuel -- result )
   over irx-kind@ case
     irx-kind-word of irx-run-word endof

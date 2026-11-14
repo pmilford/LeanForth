@@ -60,7 +60,8 @@ end-structure
   lf-lscope-generation @ lf-lvalue-state lf-lvrec-context ! ;
 : lf-lassign-id@ ( i -- id ) cells lf-lassign-ids + @ ;
 : lf-lassign-value@ ( i -- value ) cells lf-lassign-values + @ ;
-: lf-lassign-room ( -- n ) lf-lassign-id-cells slab-capacity lf-lassign-value-cells slab-capacity min ;
+: lf-lassign-room ( -- n )
+  lf-lassign-id-cells slab-capacity lf-lassign-value-cells slab-capacity min ;
 \ Position of an ID among the first n entries.
 : lf-lassign-position ( id n -- i true | false ) lf-lassign-ids swap cells-index ;
 : lf-lassign-in? ( id n -- flag ) lf-lassign-ids swap cells-has? ;
@@ -157,7 +158,8 @@ end-structure
 \ One arm per level tag: zero and a parameter return their value, the
 \ others visit their children; another tag is invalid.
 : lf-lvalue-return ( value frames -- value status frames 0 ) >r outcome-ok r> 0 ;
-: lf-lvalue-zero ( first second frames -- 0 status frames 0 ) nip nip 0 swap lf-lvalue-return ;
+: lf-lvalue-zero ( first second frames -- 0 status frames 0 )
+  nip nip 0 swap lf-lvalue-return ;
 : lf-lvalue-named ( first second frames -- value status frames 0 )
   nip >r lf-lvalue-param r> lf-lvalue-return ;
 : lf-lvalue-dispatch ( first second tag frames -- ... frames next )

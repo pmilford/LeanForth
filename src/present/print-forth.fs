@@ -478,7 +478,8 @@ lf-pp-tags ' lf-pf-invalid-step xt-table: lf-pf-steps
 ' lf-pf-proj-step lf-tag-proj lf-pf-step!
 : lf-pf-node-by ( tag -- xt ) lf-pf-steps xt-table@ ;
 : lf-pf-notes-after ( outcome term -- outcome ) swap ok-then? if lf-pf-notes then ;
-: lf-pf-noted-end ( outcome frames -- outcome frames 0 ) ['] lf-pf-notes-after lf-pp-restored ;
+: lf-pf-noted-end ( outcome frames -- outcome frames 0 )
+  ['] lf-pf-notes-after lf-pp-restored ;
 : lf-pf-noted ( term x frames -- ... frames next )
   nip 2dup frame-save ['] lf-pf-noted-end over frame-save
   over lf-pp-tag if lf-pf-node-by else ['] lf-pf-invalid-step then execute ;
@@ -550,7 +551,8 @@ defer lf-pf-type-params ( type frames -- ... frames next )
 \ The declaration's visit: header and universes at once, then its parts,
 \ the declaration waiting for its end line.
 : lf-pf-end-after ( outcome decl -- outcome ) swap ok-then? if lf-pf-end then ;
-: lf-pf-decl-end ( outcome frames -- outcome frames 0 ) ['] lf-pf-end-after lf-pp-restored ;
+: lf-pf-decl-end ( outcome frames -- outcome frames 0 )
+  ['] lf-pf-end-after lf-pp-restored ;
 : lf-pf-declaration ( decl x frames -- ... frames next )
   >r drop dup lf-pf-header ok-then? 0= if r> 0 exit then
   lf-pf-universes ok-then? 0= if r> 0 exit then

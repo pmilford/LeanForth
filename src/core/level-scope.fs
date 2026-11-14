@@ -153,7 +153,8 @@ lf-level-walk-room context-walk: lf-lscope-walk
   dup lf-lscope-member? if drop outcome-ok else lf-lscope-outside then ;
 : lf-lscope-param ( first second walk -- outcome )
   drop 0= over 0> and if lf-lscope-param-in else drop outcome-invalid then ;
-: lf-lscope-succ ( first second walk -- outcome ) swap 0<> if 2drop outcome-invalid else walk-child then ;
+: lf-lscope-succ ( first second walk -- outcome )
+  swap 0<> if 2drop outcome-invalid else walk-child then ;
 : lf-lscope-dispatch ( first second walk tag -- outcome )
   dup lf-level-binary-tag? if drop walk-children exit then
   case lf-level-tag-zero of lf-lscope-zero endof

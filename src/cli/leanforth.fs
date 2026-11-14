@@ -190,7 +190,8 @@ manifest: cli-manifest
 
 \ Options. cli-options also forgets the file names, any mistake and an
 \ earlier command's memory limit per check (cli-fed-run sets this one's).
-: cli-options ( -- ) cli-state /cli-run erase cli-default-fuel cli-fuel ! 0 lf-meter-limit! ;
+: cli-options ( -- )
+  cli-state /cli-run erase cli-default-fuel cli-fuel ! 0 lf-meter-limit! ;
 ' cli-options context-setup
 : cli-no-manifest ( -- ) true cli-unchecked ! ;
 : cli-fuel! ( n -- ) cli-fuel ! ;
@@ -225,7 +226,8 @@ manifest: cli-manifest
 \ default 60; 0: after every report), and the text report's verdict lines
 \ written as they become final (cli/check-run.fs).
 60 constant cli-progress-default
-: cli-progress! ( seconds -- ) cli-state opt-progress-secs ! true cli-state opt-progress ! ;
+: cli-progress! ( seconds -- )
+  cli-state opt-progress-secs ! true cli-state opt-progress ! ;
 : cli-progress? ( -- flag ) cli-state opt-progress @ ;
 : cli-progress-apply ( -- )
   cli-progress? if cli-state opt-progress-secs @ ck-progress! then ;
@@ -1418,8 +1420,11 @@ variable cli-info#
 : cli-guard ( xt -- code ) catch ?dup if cli-thrown then ;
 : cli-file! ( c-addr u k -- ) 2* cells cli-state arg-files + 2! ;
 : cli-check ( c-addr u -- code ) 0 cli-file! ['] check-command cli-guard ;
+\ A command of two files: the first as file 0, the second as file 1.
+: cli-two-files ( c-addr0 u0 c-addr1 u1 command -- code )
+  >r 1 cli-file! 0 cli-file! r> cli-guard ;
 : cli-replay ( export-addr export-u record-addr record-u -- code )
-  1 cli-file! 0 cli-file! ['] replay-command cli-guard ;
+  ['] replay-command cli-two-files ;
 : cli-print ( c-addr u -- code ) 0 cli-file! ['] print-command cli-guard ;
 \ print's options: every step (--detail), one declaration (--name; the
 \ name must stay unchanged meanwhile).
@@ -1427,7 +1432,7 @@ variable cli-info#
 : cli-name! ( c-addr u -- ) cli-state opt-name 2! ;
 : cli-count ( c-addr u -- code ) 0 cli-file! ['] count-command cli-guard ;
 : cli-reexport ( in-addr in-u out-addr out-u -- code )
-  1 cli-file! 0 cli-file! ['] reexport-command cli-guard ;
+  ['] reexport-command cli-two-files ;
 : cli-version ( -- code ) ['] version-command cli-guard ;
 : cli-capabilities ( -- code ) ['] capabilities-command cli-guard ;
 : cli-help ( -- code ) ['] help-command cli-guard ;
@@ -1503,8 +1508,10 @@ end-structure
   if cli-fuel-value else c" not a fuel amount" cli-wrong then ;
 : cli-record-option ( c-addr u -- ) cli-value if cli-record! then ;
 : cli-save-option ( c-addr u -- ) cli-value if cli-save! then ;
-: cli-env-option ( c-addr u -- ) cli-value if cli-state opt-env 2! then ;
-: cli-elab-option ( c-addr u -- ) cli-value if cli-state opt-elab 2! then ;
+\ An option's text kept at addr, when it has one.
+: cli-text! ( c-addr u addr -- ) >r cli-value if r> 2! else r> drop then ;
+: cli-env-option ( c-addr u -- ) cli-state opt-env cli-text! ;
+: cli-elab-option ( c-addr u -- ) cli-state opt-elab cli-text! ;
 \ The first --snapshot names the base, each further one a layer on it, in
 \ order (plan step SN4); their names are kept in a heap block that grows.
 : cli-layers-room ( n -- outcome ) 2* cells cli-state opt-layers block-resize ;
@@ -1518,7 +1525,7 @@ end-structure
 : cli-stale-option ( c-addr u -- ) 2drop true cli-state opt-stale ! ;
 : cli-manifest-option ( c-addr u -- ) 2drop cli-no-manifest ;
 : cli-detail-option ( c-addr u -- ) 2drop true cli-state opt-detail ! ;
-: cli-name-option ( c-addr u -- ) cli-value if cli-state opt-name 2! then ;
+: cli-name-option ( c-addr u -- ) cli-state opt-name cli-text! ;
 : cli-resources-option ( c-addr u -- ) 2drop cli-resources ;
 : cli-json-option ( c-addr u -- ) 2drop cli-json ;
 : cli-latex-option ( c-addr u -- ) 2drop true cli-state opt-latex ! ;

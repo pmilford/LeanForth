@@ -560,8 +560,10 @@ end-structure
 \ A final slot that is rejected, undecided or unsupported.
 : lf-slot-rejected? ( slot -- flag )
   dup lf-slot-final? swap lf-slot-outcome@ outcome-rejected = and ;
-: lf-slot-final-undecided? ( slot -- flag ) dup lf-slot-final? swap lf-slot-undecided? and ;
-: lf-slot-final-unsupported? ( slot -- flag ) dup lf-slot-final? swap lf-slot-unsupported? and ;
+: lf-slot-final-undecided? ( slot -- flag )
+  dup lf-slot-final? swap lf-slot-undecided? and ;
+: lf-slot-final-unsupported? ( slot -- flag )
+  dup lf-slot-final? swap lf-slot-unsupported? and ;
 \ A rejected slot whose name Lean's kernel holds (lf-env-added!).
 : lf-slot-added? ( slot -- flag ) dup lf-slot-rejected? swap lf-slot-added @ 0<> and ;
 \ A rejected slot of a declaration Lean's replay skips (lf-env-skipped!).
@@ -773,7 +775,8 @@ end-structure
   lf-slot-index lf-input-decl lf-idecl-kind @ lf-kind-inductive = ;
 : lf-slot-type-open? ( slot -- flag ) dup lf-slot-open? swap lf-slot-type? and ;
 : lf-slot-type-accepted? ( slot -- flag ) dup lf-slot-accepted? swap lf-slot-type? and ;
-: lf-slot-type-undecided? ( slot -- flag ) dup lf-slot-final-undecided? swap lf-slot-type? and ;
+: lf-slot-type-undecided? ( slot -- flag )
+  dup lf-slot-final-undecided? swap lf-slot-type? and ;
 : lf-slot-type-unsupported? ( slot -- flag )
   dup lf-slot-final-unsupported? swap lf-slot-type? and ;
 : lf-slot-type-added? ( slot -- flag ) dup lf-slot-added? swap lf-slot-type? and ;
@@ -843,7 +846,8 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
   lf-slot-index lf-input-decl lf-idecl-kind @ lf-kind-quotient = ;
 : lf-slot-quot-open? ( slot -- flag ) dup lf-slot-open? swap lf-slot-quot? and ;
 : lf-slot-quot-accepted? ( slot -- flag ) dup lf-slot-accepted? swap lf-slot-quot? and ;
-: lf-slot-quot-undecided? ( slot -- flag ) dup lf-slot-final-undecided? swap lf-slot-quot? and ;
+: lf-slot-quot-undecided? ( slot -- flag )
+  dup lf-slot-final-undecided? swap lf-slot-quot? and ;
 : lf-slot-quot-unsupported? ( slot -- flag )
   dup lf-slot-final-unsupported? swap lf-slot-quot? and ;
 create lf-env-quot-holders

@@ -37,7 +37,8 @@ lf-walk-room context-walk: lf-repr-walker
 : lf-repr-concrete? ( walk -- flag ) walk-arg @ lf-repr-concrete = ;
 : lf-repr-sort-leaf ( first second flag -- outcome ) -rot lf-repr-leaf? and flag>outcome ;
 : lf-repr-sort ( first second walk -- outcome ) lf-repr-concrete? lf-repr-sort-leaf ;
-: lf-repr-symbolic-sort ( first second walk -- outcome ) lf-repr-concrete? 0= lf-repr-sort-leaf ;
+: lf-repr-symbolic-sort ( first second walk -- outcome )
+  lf-repr-concrete? 0= lf-repr-sort-leaf ;
 : lf-repr-bvar ( first second walk -- outcome ) drop lf-repr-leaf? flag>outcome ;
 : lf-repr-dispatch ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if drop walk-children exit then

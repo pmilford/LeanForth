@@ -50,6 +50,7 @@
 require ./log-view.fs
 require ./print-forth.fs
 require ./print-notation.fs
+require ./latex-text.fs
 require ../lib/decimal.fs
 require ../lib/text-rule.fs
 
@@ -87,13 +88,9 @@ end-structure
 \ Text a character at a time: a character the text rule bans and a byte that
 \ starts no UTF-8 character are written as \textbackslash{}u\{X\} and
 \ \textbackslash{}x\{X\}, so that no name can end a line or reorder the text.
-: lf-sf-code ( u c-addr u2 -- ) lf-lv-out u>hex lf-lv-out s" \}" lf-lv-out ;
-: lf-sf-bad ( c-addr -- ) c@ s" \textbackslash{}x\{" lf-sf-code ;
-: lf-sf-step ( c-addr u -- n )
-  2dup utf8-length dup 0= if 2drop lf-sf-bad 1 exit then nip
-  2dup utf8-decode dup tr-banned? if s" \textbackslash{}u\{" lf-sf-code nip exit then
-  drop dup 1 = if drop lf-sf-tex-byte 1 else tuck lf-lv-out then ;
-: lf-sf-tex ( c-addr u -- ) begin dup while 2dup lf-sf-step /string repeat 2drop ;
+: lf-sf-backslash ( -- c-addr u ) s" \textbackslash{}" ;
+create lf-sf-tex-mode ' lf-lv-out , ' lf-sf-tex-byte , ' lf-sf-backslash ,
+: lf-sf-tex ( c-addr u -- ) lf-sf-tex-mode lf-tex-text ;
 : lf-sf-line-sink ( c-addr u -- ) lf-lv-tex? if lf-sf-tex else lf-lv-safe lf-lv-out then ;
 \ The block: indentation is written before the first byte of a line.
 : lf-sf-bol! ( flag -- ) lf-sf lf-sf-bol ! ;

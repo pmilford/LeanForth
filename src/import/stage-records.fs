@@ -162,9 +162,11 @@ end-structure
 
 \ Keeping a built record as its family's next export index.
 : kept ( n outcome map -- outcome ) over ok? if nip fields-push else drop nip then ;
-: names-kept ( n outcome stage -- outcome ) >r r@ stage-name-map kept r> limited ;
-: levels-kept ( l outcome stage -- outcome ) >r r@ stage-level-map kept r> limited ;
-: exprs-kept ( e outcome stage -- outcome ) >r r@ stage-expr-map kept r> limited ;
+\ (kept-in keeps it in the stage's map that map ( stage -- map ) gives.)
+: kept-in ( n outcome stage map -- outcome ) over >r execute kept r> limited ;
+: names-kept ( n outcome stage -- outcome ) ['] stage-name-map kept-in ;
+: levels-kept ( l outcome stage -- outcome ) ['] stage-level-map kept-in ;
+: exprs-kept ( e outcome stage -- outcome ) ['] stage-expr-map kept-in ;
 
 \ ---- The metadata. The pinned versions' needs nothing kept; one that
 \ names others (the reader hands it over only after export-any-version!)

@@ -161,7 +161,9 @@ rp-depth 0 run-replay rp-writer jw-init 0= [if] .( run-replay.fs: writer) cr abo
 
 \ The path, and the code of a difference at it: saved and restored around
 \ each member and element.
-: rp-path ( -- c-addr u ) run-replay dup rp-path-buf swap rp-path-size @ ;
+\ Each text buffer of the record is its size field and, after it, its
+\ bytes (bounds.fs's cell-counted words read and write it).
+: rp-path ( -- c-addr u ) run-replay rp-path-size cell-count ;
 \ The bytes of the whole characters of c-addr u that fit in n bytes: a
 \ cut never splits a character (review F2). c-addr u is valid UTF-8, as
 \ the JSON reader checked; at an invalid byte the cut stops.
@@ -171,8 +173,7 @@ rp-depth 0 run-replay rp-writer jw-init 0= [if] .( run-replay.fs: writer) cr abo
     dup >r /string rot r> + -rot repeat 2drop r> drop ;
 : rp-cut ( c-addr u n -- c-addr u' ) 2 pick -rot rp-whole ;
 : rp-path+ ( c-addr u -- )   \ append, cut between characters at the path's room
-  rp-path-room run-replay rp-path-size @ - rp-cut tuck rp-path + swap move
-  run-replay rp-path-size +! ;
+  rp-path-room run-replay rp-path-size @ - rp-cut run-replay rp-path-size cell-counted+! ;
 : rp-saved ( -- size code ) run-replay dup rp-path-size @ swap rp-code @ ;
 : rp-restore ( size code -- ) run-replay tuck rp-code ! rp-path-size ! ;
 : rp-key+ ( c-addr u -- ) s" ." rp-path+ rp-path+ ;
@@ -291,7 +292,7 @@ defer rp-value ( n o -- )   \ compare value n of the new record with value o of 
 ' rp-compare-value is rp-value
 
 \ Reading the old record whole, and parsing both texts.
-: rp-old-text ( -- c-addr u ) run-replay dup rp-old-buf swap rp-old-size @ ;
+: rp-old-text ( -- c-addr u ) run-replay rp-old-size cell-count ;
 : rp-file-read ( fid -- u flag ) run-replay rp-old-buf rp-room 1+ rot read-file 0= ;
 : rp-load-open ( fid -- outcome )
   dup rp-file-read rot close-file 0= and over rp-room > 0= and
@@ -330,9 +331,7 @@ defer rp-value ( n o -- )   \ compare value n of the new record with value o of 
   rp-start rp-load ok? 0= if rp-unreadable rp-refuse exit then rp-parsed rp-free ;
 \ The same for an old record given as the text c-addr u, which is copied
 \ first (unreadable when longer than rp-room).
-: rp-old! ( c-addr u -- flag )
-  dup rp-room > if 2drop false exit then
-  dup run-replay rp-old-size ! run-replay rp-old-buf swap move true ;
+: rp-old! ( c-addr u -- flag ) run-replay rp-old-size rp-room cell-counted! ;
 : rp-replay-text ( c-addr u -- outcome )
   rp-start rp-old! 0= if rp-unreadable rp-refuse exit then rp-parsed rp-free ;
 \ When the input could not be checked again: the report says so.
@@ -359,9 +358,8 @@ defer rp-value ( n o -- )   \ compare value n of the new record with value o of 
 \ The report is written into its buffer first and typed, with a line
 \ feed, only when the writer ends ok: a failure types nothing, never part
 \ of a text (review F2).
-: rp-report-text ( -- c-addr u ) run-replay dup rp-report-buf swap rp-report-size @ ;
-: rp-report-sink ( c-addr u -- )
-  tuck rp-report-text + swap move run-replay rp-report-size +! ;
+: rp-report-text ( -- c-addr u ) run-replay rp-report-size cell-count ;
+: rp-report-sink ( c-addr u -- ) run-replay rp-report-size cell-counted+! ;
 : rp-report ( -- outcome )
   0 run-replay rp-report-size ! rp-report-room rp-w jw-limit !
   ['] rp-report-sink rp-w jw-start rp-body rp-w jw-end

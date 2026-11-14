@@ -479,14 +479,16 @@ defer lf-minfer-walk ( node -- type status )
 : lf-minfer-agree ( left right -- mask status ) lf-minfer-compare 0 swap ;
 \ A frame and a unit of fuel for each visit; the diagnostics of the
 \ refusals are inference's.
-: lf-minfer-frames-full ( -- ) lf-minfer-frames frame-room@ lf-diag-frame-limit lf-minfer-note ;
+: lf-minfer-frames-full ( -- )
+  lf-minfer-frames frame-room@ lf-diag-frame-limit lf-minfer-note ;
 : lf-minfer-refused ( outcome -- outcome )
   dup outcome-full = if lf-minfer-frames-full exit then
   dup outcome-exhausted = if lf-minfer-fuel @ lf-minfer-site lf-diag-exhausted then ;
 : lf-minfer-room ( frames -- outcome ) frame-admit dup ok? 0= if lf-minfer-refused then ;
 \ A binder a caller enters itself (check-block.fs): its domain, a term
 \ read under the scope, closed, as the scope's next free variable.
-: lf-minfer-enter-binder ( domain -- status ) lf-minfer-close ok-then? if 0 lf-minfer-bind then ;
+: lf-minfer-enter-binder ( domain -- status )
+  lf-minfer-close ok-then? if 0 lf-minfer-bind then ;
 
 \ Inference's visits. lf-minfer-call asks for the visit of node,
 \ continuing with cont ( type status frames -- ... ); the visit's first
@@ -880,7 +882,8 @@ defer lf-minfer-let-one ( v lam frames -- ... frames next )
   dup 0 lf-diag-unsupported lf-minfer-note -1 outcome-unknown ;
 \ A projection leaf is never a term of its own (core/projections.fs):
 \ malformed.
-: lf-minfer-stray ( first -- -1 status ) 0 lf-diag-malformed lf-minfer-note -1 outcome-invalid ;
+: lf-minfer-stray ( first -- -1 status )
+  0 lf-diag-malformed lf-minfer-note -1 outcome-invalid ;
 : lf-minfer-leaf ( first tag -- type status )
   case lf-tag-symbolic-sort of lf-minfer-sort-type endof
     lf-tag-constant of lf-minfer-constant endof

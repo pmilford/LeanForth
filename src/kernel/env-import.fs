@@ -139,7 +139,8 @@ variable imp-current
 \ record's field array-xt ( rec -- addr ) of as many numbers as its field
 \ count-xt ( rec -- addr ) holds.
 : ua-new ( n addr -- outcome ) swap u32s swap block-zeroed ;
-: ua-sized ( rec count-xt array-xt -- outcome ) >r over swap execute @ swap r> execute ua-new ;
+: ua-sized ( rec count-xt array-xt -- outcome )
+  >r over swap execute @ swap r> execute ua-new ;
 \ Entry i of the array at a1, or, where that holds 0, of the array at a2.
 : ua@-or ( i a1 a2 -- u ) >r over swap ua@ ?dup if nip r> drop exit then r> ua@ ;
 \ The carry pass's blocks (plan step 6.2.5c3-c4).

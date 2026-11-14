@@ -108,8 +108,10 @@ manifest: counted-manifest
 : tally-type ( record -- outcome )
   1 count-tally tally-types +! dup record-index @ 0= if tally-params else drop then
   outcome-ok ;
-: tally-ctor ( record -- outcome ) drop 1 count-tally tally-ctors +! outcome-ok ;
-: tally-recursor ( record -- outcome ) drop 1 count-tally tally-recursors +! outcome-ok ;
+\ One more record in the counter at addr.
+: tally+ ( record addr -- outcome ) nip 1 swap +! outcome-ok ;
+: tally-ctor ( record -- outcome ) count-tally tally-ctors tally+ ;
+: tally-recursor ( record -- outcome ) count-tally tally-recursors tally+ ;
 \ Set the handler of the kinds first to last.
 : on-kinds ( xt last first -- )
   swap 1+ swap ?do dup i counted-export export-handler ! loop drop ;
@@ -201,7 +203,6 @@ manifest: counted-manifest
 \ The command line's words: print, and after an error line exit at once
 \ with status 1. count-export checks the manifest; count-export-unchecked
 \ is the explicit choice not to.
-: count-export ( c-addr u -- )
-  ['] count-checked-read count-shown? 0= if exit-failure then ;
-: count-export-unchecked ( c-addr u -- )
-  ['] count-plain-read count-shown? 0= if exit-failure then ;
+: count-by ( c-addr u read -- ) count-shown? 0= if exit-failure then ;
+: count-export ( c-addr u -- ) ['] count-checked-read count-by ;
+: count-export-unchecked ( c-addr u -- ) ['] count-plain-read count-by ;

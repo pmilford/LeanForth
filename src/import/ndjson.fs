@@ -374,9 +374,12 @@ end-structure
 \ into the field at slot when the outcome is ok.
 : for-slot ( value slot export -- slot value export ) rot swap ;
 : slot! ( slot x outcome -- outcome ) ok-then? if swap ! outcome-ok else nip then ;
-\ Defining word: name ( value slot export -- outcome ), the check made
-\ from the decoder xt.
-: slot-check: ( xt "name" -- ) create , does> @ >r for-slot r> execute slot! ;
+\ Defining words: name ( value slot export -- outcome ), the check made
+\ from the decoder xt, its result kept by store ( slot x outcome --
+\ outcome ): slot! here, text-slot! below.
+: checker: ( xt store "name" -- )
+  create , , does> dup @ >r cell+ @ >r for-slot r> execute r> execute ;
+: slot-check: ( xt "name" -- ) ['] slot! checker: ;
 \ Natural numbers, as Lean's own reader takes them. Parse.lean matches
 \ `.num (n : Nat)`, a JsonNumber with mantissa n and exponent 0, and Lean's
 \ JSON parser (Json/Parser.lean) gives a number with d fraction digits and
@@ -488,7 +491,7 @@ end-structure
   export-json 2dup json-kind@ json-string = if json-text@ true else 2drop false then ;
 : text-slot! ( slot addr u true | slot outcome false -- outcome )
   if rot 2! outcome-ok else nip then ;
-: text-check: ( xt "name" -- ) create , does> @ >r for-slot r> execute text-slot! ;
+: text-check: ( xt "name" -- ) ['] text-slot! checker: ;
 : text-of ( value export -- addr u true | outcome false )
   tuck string-at if rot drop true else c" expected a string" export-bad false then ;
 \ The digits of a natural number of any size.
@@ -581,8 +584,10 @@ end-structure
 \ Defining words for checks of objects, name ( value slot export -- outcome ):
 \ nd-nested decodes one object with the table, ignoring slot; nd-listed
 \ decodes a list of such objects, kept in slot.
-: nd-nested ( table "name" -- ) create , does> @ rot drop swap export-shape ;
-: nd-exact ( table "name" -- ) create , does> @ rot drop swap export-exact ;
+: nd-object: ( table decode "name" -- )
+  create , , does> dup @ >r cell+ @ rot drop swap r> execute ;
+: nd-nested ( table "name" -- ) ['] export-shape nd-object: ;
+: nd-exact ( table "name" -- ) ['] export-exact nd-object: ;
 : nd-listed ( table "name" -- )
   create ['] export-shape , , does> >r for-slot r> swap list-of slot! ;
 

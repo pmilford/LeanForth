@@ -338,10 +338,13 @@ binder-reaches
   dup staging-filled stage-in? 0= if drop outcome-invalid exit then
   dup names-covered ['] stage-marking ok-with ['] consts-resolve ok-with
   ['] tier-sealing ok-with staging-sealed stage-state! ;
-: stage-load ( c-addr u stage -- outcome )
-  dup >r stage-read dup ok? if drop r> stage-seal else r> drop then ;
+\ Read with read ( c-addr u stage -- outcome ), stage-read or
+\ stage-read-unchecked, then seal.
+: stage-load-by ( c-addr u stage read -- outcome )
+  over >r execute dup ok? if drop r> stage-seal else r> drop then ;
+: stage-load ( c-addr u stage -- outcome ) ['] stage-read stage-load-by ;
 : stage-load-unchecked ( c-addr u stage -- outcome )
-  dup >r stage-read-unchecked dup ok? if drop r> stage-seal else r> drop then ;
+  ['] stage-read-unchecked stage-load-by ;
 
 \ ---- Continuing (ADR 0020 D5; plan step SN2). stage-continue reads
 \ another export into a filled stage's open tier -- one loaded from a
@@ -359,10 +362,11 @@ binder-reaches
 : stage-reopen ( stage -- outcome )
   dup staging-filled stage-in? 0= if drop outcome-invalid exit then
   dup own-clear ['] tier-marked ok-with over continued! staging-empty stage-state! ;
-: stage-continue ( c-addr u stage -- outcome )
-  dup stage-reopen ok-then? if stage-read else nip nip then ;
+: stage-continue-by ( c-addr u stage read -- outcome )
+  >r dup stage-reopen ok-then? if r> execute else r> drop nip nip then ;
+: stage-continue ( c-addr u stage -- outcome ) ['] stage-read stage-continue-by ;
 : stage-continue-unchecked ( c-addr u stage -- outcome )
-  dup stage-reopen ok-then? if stage-read-unchecked else nip nip then ;
+  ['] stage-read-unchecked stage-continue-by ;
 
 \ ---- Records made in this process (plan tasks 8.2.1c-d; ADR 0017
 \ Amendment 2). stage-produce ( xt stage -- outcome ) reads, as

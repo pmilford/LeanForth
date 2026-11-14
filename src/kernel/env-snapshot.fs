@@ -330,7 +330,8 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 \ an answer's slot by xt ( d x -- s ), for the snapshot and its layers
 \ (env-layers.fs); an answer that names no slot stays as it is.
 : answer-renum-by ( answer x xt -- answer' )
-  >r over lf-look-slot+1 ?dup 0= if r> 2drop exit then 1- swap r> execute 1+ lf-look-reslot ;
+  >r over lf-look-slot+1 ?dup 0= if r> 2drop exit then
+  1- swap r> execute 1+ lf-look-reslot ;
 : answer-renum ( answer snap -- answer' ) ['] snap-s answer-renum-by ;
 \ Names beyond the input (environment.fs, the seal; plan step SN5): the
 \ names a check made that its input tier does not hold, kept in the

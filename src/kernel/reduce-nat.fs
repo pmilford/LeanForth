@@ -66,7 +66,8 @@ require ../core/terms.fs
 : lf-rn-literal ( z outcome -- node outcome )
   ok-then? 0= if outcome-full = if lf-rn-too-big else -1 outcome-invalid then exit then
   lf-hterm-big lf-rn-node ;
-: lf-rn-truth ( flag outcome -- node outcome ) ok-then? if lf-rn-bool else no-result then ;
+: lf-rn-truth ( flag outcome -- node outcome )
+  ok-then? if lf-rn-bool else no-result then ;
 : lf-rn-in-arena ( a b op cells make -- node outcome )
   >r lf-lit-arena ok-then? 0= if r> drop drop 2drop drop lf-rn-too-big exit then
   dup >r lf-rn-apply r> r> swap >r execute r> lf-lit-arena-free ;
@@ -104,7 +105,8 @@ require ../core/terms.fs
   ['] lf-rn-literal lf-rn-in-arena ;
 \ Nat.pow (reduce_pow, 633-648): the exponent's count first, then a base
 \ of 0 or 1 at once, else the result's bits (at most bits(a) * e).
-: lf-rn-pow-bits ( a b -- a b bits ) over lf-rn-bits over lf-lit-cell um* if drop -1 then ;
+: lf-rn-pow-bits ( a b -- a b bits )
+  over lf-rn-bits over lf-lit-cell um* if drop -1 then ;
 : lf-rn-pow ( a b -- node outcome )
   dup lf-rn-count? 0= if 2drop lf-rn-refuse exit then
   over lf-rn-unit? if ['] big-pow lf-rn-std exit then
