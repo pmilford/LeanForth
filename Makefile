@@ -1095,11 +1095,13 @@ test-differential: reference-author
 # the runner and checks that history rule on the branch's commits.
 # LEAN is the pinned binary itself (LEAN_BINARY), never the cache wrapper:
 # the runner's controls include the Lean cache's own tests. FAULTS=ID,...
-# runs only those faults (make tier's smaller tiers; mutants.py --only).
+# runs only those faults (make tier; mutants.py --only); MUTANT_TEST_TIMEOUT is
+# the seconds one test may take (a fault that times out counts as caught).
 MUTANTS_TIMEOUT ?= 3600
+MUTANT_TEST_TIMEOUT ?= 120
 mutants:
 	LEAN=$(LEAN_BINARY) timeout $(MUTANTS_TIMEOUT) python3 scripts/mutants.py --gforth $(GFORTH) \
-	$(if $(FAULTS),--only $(FAULTS))
+	--timeout $(MUTANT_TEST_TIMEOUT) $(if $(FAULTS),--only $(FAULTS))
 
 mutants-quick:
 	LEAN=$(LEAN_BINARY) $(RUN) python3 scripts/mutants.py --gforth $(GFORTH) --quick

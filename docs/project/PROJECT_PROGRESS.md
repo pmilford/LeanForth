@@ -74,7 +74,10 @@ status changes when this date is older than them. Stages are those of the
   `lib/memo.fs`, `lib/pqueue.fs`, `lib/decimal.fs`, `lib/bits.fs`, `lib/blocks.fs`; the kernel's six sorts, three
   caches, scheduler queue and about 58 loops on shared words; Init identical (59,349 accepted, the same fuel,
   byte-identical snapshots). Duplicate groups 219 → 201. Next: the duplicate report as the work list (each group merged,
-  table-driven or accepted with a reason): outside the front end now, the front end after S2's merge A.
+  table-driven or accepted with a reason): outside the front end in branch `reuse-out-2` (tested alone, review and the
+  owner's [kernel] approval pending; plan 9.4.8f, j, k: a detector that finds copies through roles, groups outside
+  `src/front` 231 → 172, each kept one with a reason; the full tier runs the faults a change touches), the front end
+  after S2's merge A.
 - Priority (owner, 2026-11-13 midday): the front end's slices in order, S1 then S2 ($0 + n = n$ by `by-induction` and
   `by-rw`) then S3 onwards. S2's design ([S2_INTERFACE.md](../design/S2_INTERFACE.md)) reviewed and approved by the
   owner 2026-11-13, both FE1 forms; its first branch (`s2-unfold` merge A, Lean's unfolding) merges before S1's last
