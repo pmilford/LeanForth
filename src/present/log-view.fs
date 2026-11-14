@@ -113,7 +113,7 @@ end-structure
   execute 0= if 2drop s" ?" then ;
 : lf-lv-put ( c-addr u -- ) lf-lv-safe lf-lv-put-raw ;
 : lf-lv-out ( c-addr u -- ) lf-lv lf-lv-sink @ ?dup if execute else type then ;
-: lf-lv-n ( n -- ) dup 0< if s" -" lf-lv-put negate then lf-pp-digits lf-lv-put ;
+: lf-lv-n ( n -- ) dup 0< if s" -" lf-lv-put negate then u>decimal lf-lv-put ;
 : lf-lv-char ( c-addr u n -- c-addr' u' n' ) >r 2dup utf8-length 1 max /string r> 1+ ;
 : lf-lv-chars ( c-addr u -- n ) 0 begin over while lf-lv-char repeat nip nip ;
 create lf-lv-blanks 64 allot lf-lv-blanks 64 bl fill
@@ -125,7 +125,7 @@ create lf-lv-blanks 64 allot lf-lv-blanks 64 bl fill
 \ A number in hexadecimal, straight to the output.
 : lf-lv-hex ( u -- ) base @ >r hex 0 <# #s #> r> base ! lf-lv-out ;
 : lf-lv-hspace ( n -- )
-  dup 0> 0= if drop exit then s" \hspace*{" lf-lv-out lf-pp-digits lf-lv-out
+  dup 0> 0= if drop exit then s" \hspace*{" lf-lv-out u>decimal lf-lv-out
   s" \fontdimen2\font}" lf-lv-out ;
 : lf-lv-spaces ( n -- ) lf-lv-tex? if lf-lv-hspace else lf-lv-blank-run then ;
 \ Write the buffer, padded with spaces to width characters, and empty it.

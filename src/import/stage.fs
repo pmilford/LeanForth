@@ -95,6 +95,7 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/outcome.fs
 require ../lib/u32.fs
+require ../lib/decimal.fs
 require ../lib/slab.fs
 require ../lib/cons.fs
 require ../core/compact.fs
@@ -235,12 +236,9 @@ create pinned-meta
 \ have: the checked environment resolves it at the check (the recursor
 \ the block generated, or no constant). Any other name no declaration
 \ has stays an unknown constant.
-: generated-digits? ( c-addr u -- flag )
-  dup 0> >r base @ >r decimal 0 0 2swap >number >r 2drop drop r>
-  r> base ! 0= r> and ;
 : generated-text? ( c-addr u -- flag )
   2dup s" rec" compare 0= if 2drop true exit then
-  2dup 4 min s" rec_" compare if 2drop false exit then 4 /string generated-digits? ;
+  2dup 4 min s" rec_" compare if 2drop false exit then 4 /string decimal-digits? ;
 : type-decl? ( d stage -- flag ) staged-kind@ kind-type = ;
 : type-named? ( n stage -- flag )
   2dup stage-by-name slab-count u< 0= if 2drop false exit then

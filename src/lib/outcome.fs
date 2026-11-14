@@ -76,7 +76,8 @@
 : ok-or-none ( x outcome -- x outcome | -1 outcome ) dup ok? 0= if nip no-result then ;
 \ A result that needed room, as a store gives it ( x true | false ): x and
 \ ok, or -1 and full.
-: room-result ( x true | false -- x outcome ) if outcome-ok else outcome-full no-result then ;
+: room-result ( x true | false -- x outcome )
+  if outcome-ok else outcome-full no-result then ;
 \ Run the step xt ( i*x k -- i*x outcome ) for k = 0, 1, ... n-1 while it
 \ gives ok: ok, or the first outcome that is not ok, after which no step
 \ runs. The values below k are the steps' to read and replace, keeping

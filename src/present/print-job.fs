@@ -28,6 +28,7 @@
 \ its stack, its binders and its pool grow on the heap, and a print the
 \ heap has no room for is full.
 
+require ../lib/decimal.fs
 require ./binder-table.fs
 
 0 constant lf-print-unicode     \ mode: Lean's notation (with pp.unicode.fun)
@@ -119,8 +120,7 @@ end-structure
 : lf-pp-universes? ( -- flag ) lf-pjob lf-pjob-options @ lf-print-universes and 0<> ;
 \ A number's decimal digits, whatever BASE is; BASE is kept. The digits
 \ are in the pictured numeric output buffer, so they are used at once.
-: lf-pp-digits ( u -- c-addr u ) base @ >r decimal 0 <# #s #> r> base ! ;
-: lf-pp-number-to ( u xt -- ) >r lf-pp-digits r> execute ;
+: lf-pp-number-to ( u xt -- ) >r u>decimal r> execute ;
 : lf-pp-number ( u -- ) ['] lf-pp-emit lf-pp-number-to ;
 
 \ Visits (plan task 6.2.0). Every recursive printing word is a chain of

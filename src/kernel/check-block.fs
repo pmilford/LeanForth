@@ -79,6 +79,7 @@
 \ block's record lf-ind-state.
 
 require ../lib/lib.fs
+require ../lib/decimal.fs
 require ../core/diagnostics.fs
 require ../core/input.fs
 require ../core/levels.fs
@@ -476,9 +477,8 @@ end-structure
   lf-ind-ctors@ 0= if false outcome-ok exit then lf-blk-e3 ;
 \ The motive's universe: u, or u_1, u_2, ... the first not among the
 \ block's universe parameters (name("u").append_after(i)).
-: lf-blk-u ( i -- c-addr u )
-  ?dup 0= if s" u" exit then
-  base @ >r decimal 0 <# #s [char] _ hold [char] u hold #> r> base ! ;
+: lf-blk-u-text ( i -- c-addr u ) 0 <# #s [char] _ hold [char] u hold #> ;
+: lf-blk-u ( i -- c-addr u ) ?dup if ['] lf-blk-u-text in-decimal else s" u" then ;
 : lf-blk-taken? ( name -- flag ) lf-ind-lparams lf-ind-in? ;
 : lf-blk-elim-name ( -- name true | false )
   0 begin dup lf-blk-u 0 -rot lf-name-str 0= if drop false exit then

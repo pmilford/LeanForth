@@ -66,6 +66,7 @@
 \ builders inductive-recursor.fs's.
 
 require ../lib/lib.fs
+require ../lib/decimal.fs
 require ../core/constant-references.fs
 require ../core/diagnostics.fs
 require ../core/input.fs
@@ -259,7 +260,8 @@ end-structure
   >r over swap lf-nest-distance dup 0< if drop r> drop true exit then r> lf-nest-graft ;
 \ Lean's appendIndexAfter (append_after(idx), name.cpp 340-342): a last
 \ string component s becomes s_idx, a last number gets a component _idx.
-: lf-nest-digits ( n -- c-addr u ) base @ >r decimal 0 <# #s [char] _ hold #> r> base ! ;
+: lf-nest-underscored ( n -- c-addr u ) 0 <# #s [char] _ hold #> ;
+: lf-nest-digits ( n -- c-addr u ) ['] lf-nest-underscored in-decimal ;
 : lf-nest-text-at ( -- addr ) 0 lf-nest-text slab-at ;
 : lf-nest-joined ( c-addr u c-addr2 u2 -- c-addr' u' true | false )
   2over nip over + dup lf-nest-text slab-hold ok? 0= if drop 2drop 2drop false exit then

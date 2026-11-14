@@ -63,6 +63,7 @@ require ../lib/lib.fs
 require ../lib/bytes.fs
 require ../lib/json.fs
 require ../lib/json-write.fs
+require ../lib/decimal.fs
 require ../lib/sort.fs
 require ./ndjson.fs
 
@@ -484,13 +485,13 @@ here reexport-handlers - kind-count cells = load-check
 \ The command line's word. Errors are reported as ndjson-count.fs does:
 \ the outcome's name, why, the field, the line and, for a JSON error, the
 \ byte within the line.
-: .count ( n -- ) base @ >r decimal 0 .r r> base ! ;
 : .json-byte ( -- )
-  reexported export-json dup json-why @ if ." , byte " json-offset .count else drop then ;
+  reexported export-json dup json-why @ if ." , byte " json-offset .decimal
+  else drop then ;
 : .key ( c-addr u -- ) dup if ." field " type ." , " else 2drop then ;
 : .reexport-error ( outcome -- )
   ." error: " outcome-text type reexported export-error ." : " type ."  (" .key
-  ." line " .count .json-byte ." )" cr ;
+  ." line " .decimal .json-byte ." )" cr ;
 \ Leaving the host with status 1, as ndjson-count.fs does: Gforth's
 \ (bye) where it exists (both CI hosts), else an uncaught THROW.
 [defined] (bye) [if]
@@ -503,7 +504,7 @@ here reexport-handlers - kind-count cells = load-check
 : reexport-into ( in-addr in-u fid -- outcome )
   dup >r reexport-file r> closed over ok? if nip else drop then ;
 : reexport-report ( outcome -- )
-  dup ok? if drop ." reexported " reexport-lines@ .count ."  lines" cr exit then
+  dup ok? if drop ." reexported " reexport-lines@ .decimal ."  lines" cr exit then
   .reexport-error ;
 : create-refused ( c-addr u fid ior -- false )
   drop 2drop drop ." error: cannot create the output file" cr false ;

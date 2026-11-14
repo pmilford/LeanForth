@@ -311,7 +311,7 @@ end-structure
 \ the k-th redefinition of that name.
 : pv-def+ ( c-addr u def -- def )
   >r r@ pv-def-chars chars + swap dup >r chars move r> r@ pv-def-length +! r> ;
-: pv-suffix+ ( def k -- ) >r s" '" rot pv-def+ r> pv-decimal rot pv-def+ drop ;
+: pv-suffix+ ( def k -- ) >r s" '" rot pv-def+ r> n>decimal rot pv-def+ drop ;
 : pv-version-suffix ( def -- ) dup pv-def-version @ ?dup if pv-suffix+ else drop then ;
 : pv-name-folded ( def -- def ) dup pv-def-chars pv-fold ;
 : pv-ir-name! ( def -- )

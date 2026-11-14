@@ -16,6 +16,7 @@
 \ catalogue is a shared, read-only table.
 
 require ../lib/lib.fs
+require ../lib/decimal.fs
 require ./source.fs
 
 \ The THROW code of an authoring error, in the range ADR 0018 reserves for
@@ -391,16 +392,18 @@ end-structure
 \ The error as a line of text: error CODE at line:col L:C (token `T`):
 \ MESSAGE, then ; see line:col L:C when there is a second position, and
 \ the number for a Forth exception.
-: lfa-.n ( n -- ) base @ >r decimal 0 .r r> base ! ;
-: lfa-.pos ( pos -- ) ." line:col " lfa-pos> swap lfa-.n ." :" lfa-.n ;
+\ A number in decimal; the name front/tactic-run.fs uses (the front batch
+\ moves it to lib/decimal.fs's .decimal).
+: lfa-.n ( n -- ) .decimal ;
+: lfa-.pos ( pos -- ) ." line:col " lfa-pos> swap .decimal ." :" .decimal ;
 : lfa-.token ( -- ) ."  (token `" lfa-error lfa-err-token lfa-error lfa-err-length @ type
   ." `)" ;
 : lfa-.see ( -- ) lfa-error lfa-err-see @ dup 0< if drop exit then ." ; see " lfa-.pos ;
 \ The number: a Forth exception's THROW code; a tactic's plan step.
 : lfa-number@ ( -- n ) lfa-error lfa-err-number @ ;
-: lfa-.plan ( -- ) ."  (plan FE1g-" lfa-number@ lfa-.n ." )" ;
+: lfa-.plan ( -- ) ."  (plan FE1g-" lfa-number@ .decimal ." )" ;
 : lfa-.number ( -- )
-  lf-author-code case lfa-e-forth of ."  " lfa-number@ lfa-.n endof
+  lf-author-code case lfa-e-forth of ."  " lfa-number@ .decimal endof
     lfa-e-tac-run of lfa-.plan endof endcase ;
 \ The detail on the lines after the message, and a note if it was cut.
 : lfa-.cut ( -- ) lfa-error lfa-err-cut @ if cr ." (the rest could not be shown)" then ;
@@ -408,5 +411,5 @@ end-structure
   lfa-detail slab-count ?dup if cr 0 lfa-detail slab-at swap type then lfa-.cut ;
 : lf-author-error. ( -- )
   lf-author-code 0= if ." no error" exit then
-  ." error " lf-author-code lfa-.n ."  at " lfa-error lfa-err-at @ lfa-.pos lfa-.token
+  ." error " lf-author-code .decimal ."  at " lfa-error lfa-err-at @ lfa-.pos lfa-.token
   ." : " lf-author-code lf-author-message type lfa-.number lfa-.see lfa-.detail ;

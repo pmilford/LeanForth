@@ -103,6 +103,7 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../lib/lib.fs
 require ../lib/slab.fs
 require ../lib/bytes.fs
+require ../lib/decimal.fs
 require ../lib/sha256.fs
 require ../core/input.fs
 require ../core/diagnostics.fs
@@ -735,7 +736,7 @@ create ck-line ck-line-room 2 + allot
 : ck-pl+ ( c-addr u -- )
   dup ck-pl-room? 0= if 2drop exit then
   >r ck-state ck-pline ck-state ck-pline# @ + r@ move r> ck-state ck-pline# +! ;
-: ck-n+ ( u -- ) base @ >r decimal 0 <# #s #> r> base ! ck-pl+ ;
+: ck-n+ ( u -- ) u>decimal ck-pl+ ;
 : ck-elapsed-s ( -- s )
   ck-wall-now ck-state ck-run-mark clock-wall ck-since 1000000 um/mod nip ;
 : ck-percent ( -- n ) ck-done 100 * lf-input-count 1 max / ;

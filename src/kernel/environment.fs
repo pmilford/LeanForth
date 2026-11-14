@@ -98,6 +98,7 @@
 \ env-snapshot.fs, writes chosen fields in a fixed byte order).
 
 require ../lib/lib.fs
+require ../lib/decimal.fs
 require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/names.fs
@@ -739,11 +740,8 @@ end-structure
 \ accepted (or added) type only when it is its block's first and the
 \ block has an auxiliary type for that number (k from 1, no leading
 \ zero; the recipe, plan task 5.2.5b).
-: lf-env-number-rest ( c-addr u -- u' ) 0 0 2swap >number >r 2drop drop r> ;
-: lf-env-digits? ( c-addr u -- flag )
-  dup 0> >r base @ >r decimal lf-env-number-rest r> base ! 0= r> and ;
 : lf-env-aux-rec? ( c-addr u -- flag )
-  2dup 4 min s" rec_" compare if 2drop false else 4 /string lf-env-digits? then ;
+  2dup 4 min s" rec_" compare if 2drop false else 4 /string decimal-digits? then ;
 \ The kind of name's last part: lf-rec-main (rec), lf-rec-aux
 \ (rec_<digits>), 0 any other.
 1 constant lf-rec-main
@@ -783,7 +781,7 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 : lf-env-aux-k ( name -- k )
   lf-name-text 4 /string 2dup 1 min s" 0" compare 0= if 2drop 0 exit then
   dup lf-env-k-digits > if 2drop 0 exit then
-  base @ >r decimal 0 0 2swap >number 2drop r> base ! if drop 0 then ;
+  decimal>number 2drop if drop 0 then ;
 : lf-env-first-type? ( d -- flag )
   dup lf-input-decl lf-idecl-header ?dup
   if lf-hdr-first lf-more-field = else drop false then ;

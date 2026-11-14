@@ -4506,8 +4506,8 @@ reason = "rvI21 B2: T.rec_1 held by an accepted non-nested T, for which Lean gen
 [[fault]]
 id = "env-aux-digits-any"
 file = "src/kernel/environment.fs"
-old = '''  dup 0> >r base @ >r decimal lf-env-number-rest r> base ! 0= r> and ;'''
-new = '''  2drop true ;'''
+old = '''  2dup 4 min s" rec_" compare if 2drop false else 4 /string decimal-digits? then ;'''
+new = '''  2dup 4 min s" rec_" compare if 2drop false else 4 /string 2drop true then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 round 2: any rec_<text> counts as an auxiliary recursor; IE.N.rec_x is held by the unsupported IE.N"
 
@@ -9632,8 +9632,8 @@ reason = "SN5: a check that made names beyond its input (a nested block) is publ
 [[fault]]
 id = "det-information-jobs"
 file = "src/cli/leanforth.fs"
-old = '''  s\" ,\"cellBits\":" cli-info+ 1 cells 8 * cli-number-text cli-info+'''
-new = '''  s\" ,\"cellBits\":" cli-info+ 1 cells 8 * cli-jobs 1 > - cli-number-text cli-info+'''
+old = '''  s\" ,\"cellBits\":" cli-info+ 1 cells 8 * u>decimal cli-info+'''
+new = '''  s\" ,\"cellBits\":" cli-info+ 1 cells 8 * cli-jobs 1 > - u>decimal cli-info+'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_same_bytes"
 reason = "DET (2026-11-13): the information section holds a figure of the run (here --jobs), so --jobs 4 writes other bytes than --jobs 1; test_same_bytes pins the commit, not the information, and compares every byte"
 
@@ -14476,8 +14476,8 @@ reason = "ok-or-none hands on the half-made value of every failure but full"
 [[fault]]
 id = "lib-outcome-room-result-invalid"
 file = "src/lib/outcome.fs"
-old = ''': room-result ( x true | false -- x outcome ) if outcome-ok else outcome-full no-result then ;'''
-new = ''': room-result ( x true | false -- x outcome ) if outcome-ok else outcome-invalid no-result then ;'''
+old = '''  if outcome-ok else outcome-full no-result then ;'''
+new = '''  if outcome-ok else outcome-invalid no-result then ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "a store out of room reads as invalid input, not full"
 
@@ -16615,3 +16615,53 @@ old = '''  lf-lsubst-sorted dup ok? 0= if exit then drop'''
 new = '''  lf-lsubst-sorted drop'''
 test = "$GFORTH tests/core/level-substitute.fs"
 reason = "reuse-k1: a build whose sort the heap refused goes on over the unsorted list, ok where it is full"
+
+# --- decimal numbers (src/lib/decimal.fs, plan 9.4.8d) -------------------
+
+[[fault]]
+id = "lib-decimal-base-lost-on-throw"
+file = "src/lib/decimal.fs"
+old = ''': in-decimal ( i*x xt -- j*x ) base @ >r decimal catch r> base ! throw ;'''
+new = ''': in-decimal ( i*x xt -- j*x ) base @ >r decimal execute r> base ! ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "a THROW out of the word leaves BASE decimal: the hand-written copies' bug"
+
+[[fault]]
+id = "lib-decimal-sign-lost"
+file = "src/lib/decimal.fs"
+old = ''': d>text ( d -- c-addr u ) dup >r dabs <# #s r> sign #> ;'''
+new = ''': d>text ( d -- c-addr u ) dabs <# #s #> ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "a negative number is written without its minus sign"
+
+[[fault]]
+id = "lib-decimal-u-signed"
+file = "src/lib/decimal.fs"
+old = ''': u>decimal ( u -- c-addr u ) 0 ud>decimal ;'''
+new = ''': u>decimal ( u -- c-addr u ) s>d ud>decimal ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "an unsigned cell with its top bit set is widened as negative: -1 becomes a 39-digit number"
+
+[[fault]]
+id = "lib-decimal-digits-width-unchecked"
+file = "src/lib/decimal.fs"
+old = '''  dup cell-digits < if decimal>u true exit then dup cell-digits > if 2drop false exit then'''
+new = '''  dup cell-digits 1+ < if decimal>u true exit then dup cell-digits > if 2drop false exit then'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "digits as wide as max-n's are read modulo the cell: one past max-n reads as a small number"
+
+[[fault]]
+id = "lib-decimal-digits-empty"
+file = "src/lib/decimal.fs"
+old = ''': decimal-digits? ( c-addr u -- flag ) dup 0> >r decimal>number nip nip nip 0= r> and ;'''
+new = ''': decimal-digits? ( c-addr u -- flag ) true >r decimal>number nip nip nip 0= r> and ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "empty text counts as digits: the kernel's rec_ test (environment.fs) and the stage's would take `rec_` as an auxiliary recursor"
+
+[[fault]]
+id = "lib-decimal-number-base"
+file = "src/lib/decimal.fs"
+old = ''': decimal>number ( c-addr u -- ud c-addr' u' ) 0 0 2swap ['] >number in-decimal ;'''
+new = ''': decimal>number ( c-addr u -- ud c-addr' u' ) 0 0 2swap >number ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "digits read in the caller's BASE: under HEX, 19af reads as one number"

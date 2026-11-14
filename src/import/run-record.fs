@@ -455,7 +455,7 @@ rr-power 2constant rr-exact
   2dup tr-shown? 0= if outcome-invalid rr-fail then rr-string ;
 : rr-int ( n -- ) dup s>d rr-exact? 0= if outcome-invalid rr-fail then rr-w jw-n ;
 : rr-ud ( ud -- )
-  2dup rr-exact? 0= if outcome-invalid rr-fail then decimal-text rr-w jw-digits ;
+  2dup rr-exact? 0= if outcome-invalid rr-fail then ud>decimal rr-w jw-digits ;
 : rr-outcome ( outcome -- ) outcome-text rr-string ;
 : rr-note-out ( note -- ) dup rr-note? if rr-note rr-string else drop rr-null then ;
 : rr-member ( note c-addr u -- ) rr-key rr-note-out ;

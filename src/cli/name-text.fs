@@ -44,6 +44,7 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../lib/lib.fs
 require ../lib/slab.fs
 require ../lib/bytes.fs
+require ../lib/decimal.fs
 require ../lib/text-rule.fs
 require ../core/names.fs
 
@@ -70,7 +71,7 @@ create nt-state /nt allot  nt-state /nt erase
   drop 2drop true nt-short ! ;
 : nt-text@ ( -- c-addr u flag ) 0 nt-out slab-at nt-out slab-count nt-short @ 0= ;
 : nt-digits ( u -- ) 0 <# #s #> nt-put ;
-: nt-decimal ( u -- ) base @ >r decimal nt-digits r> base ! ;
+: nt-decimal ( u -- ) u>decimal nt-put ;
 : nt-hex ( u -- ) base @ >r hex nt-digits r> base ! ;
 \ An escape: its prefix, the number in hexadecimal, then }.
 : nt-escape ( u c-addr u -- ) nt-put nt-hex s" }" nt-put ;

@@ -66,6 +66,7 @@
 require ../lib/lib.fs
 require ../lib/bytes.fs
 require ../lib/json-write.fs
+require ../lib/decimal.fs
 require ../core/terms.fs
 require ../core/levels.fs
 require ../core/names.fs
@@ -233,8 +234,7 @@ end-structure
 : lfx-const ( term -- )
   s" const" lfx-inner lf-term-first@ lf-cref-slot
   dup lf-cref-name@ drop s" name" lfx-member lf-cref-pairs lfx-levels-of lfx-close ;
-: lfx-digits ( u -- c-addr u ) base @ >r decimal 0 <# #s #> r> base ! ;
-: lfx-lit ( term -- ) lf-lit-cell lfx-digits s" natVal" lfx-text ;
+: lfx-lit ( term -- ) lf-lit-cell u>decimal s" natVal" lfx-text ;
 : lfx-proj ( term -- )
   s" proj" lfx-inner dup lf-proj-leaf lf-proj-idx s" idx" lfx-member
   dup lf-proj-struct s" struct" lfx-ref lf-proj-leaf lf-proj-name s" typeName" lfx-member

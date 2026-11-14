@@ -37,6 +37,7 @@
 \ nothing.
 
 require ../lib/lib.fs
+require ../lib/decimal.fs
 require ../lib/text-run.fs
 require ../author/errors.fs
 
@@ -211,8 +212,6 @@ end-structure
 : pv-clipped ( c-addr u -- ) pv-room min pv-copy ;
 
 \ Numbers are written in decimal whatever BASE is.
-: pv-decimal ( n -- c-addr u ) base @ >r decimal dup abs 0 <# #s rot sign #> r> base ! ;
-: pv-decimal-d ( d -- c-addr u ) base @ >r decimal tuck dabs <# #s rot sign #> r> base ! ;
 
 \ The diagnostic: the first refusal is recorded with where it happened
 \ and written as one line, its pieces clipped to the line, into a slot of
@@ -223,7 +222,7 @@ end-structure
   dup pv-reason-outcome pv-outcome ! pv-reason ! pv-here lfa-pos pv-where ! ;
 : pv-stop ( -- ) pv-throw throw ;
 : pv-at ( line column -- )
-  s"  @" pv-clipped swap pv-decimal pv-clipped s" :" pv-clipped pv-decimal pv-clipped ;
+  s"  @" pv-clipped swap n>decimal pv-clipped s" :" pv-clipped n>decimal pv-clipped ;
 : pv-quote ( c-addr u -- ) dup if s" : " pv-clipped pv-clipped else 2drop then ;
 : pv-keep-said ( -- )
   pv-out pv-out# @ dup pv-said# ! pv-said-text swap chars move 0 pv-out# ! ;
@@ -288,8 +287,8 @@ end-structure
 
 \ Pieces of an IR line. Text that would not fit stops the run as full.
 : pv-append ( c-addr u -- ) dup pv-room > pv-why-capacity pv-?fail pv-copy ;
-: pv-number ( n -- ) pv-decimal pv-append ;
-: pv-number-d ( d -- ) pv-decimal-d pv-append ;
+: pv-number ( n -- ) n>decimal pv-append ;
+: pv-number-d ( d -- ) d>decimal pv-append ;
 : pv-location ( line column -- )
   s"  @" pv-append swap pv-number s" :" pv-append pv-number ;
 : pv-done ( -- ) pv-here pv-location pv-send ;
