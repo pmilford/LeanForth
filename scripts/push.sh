@@ -36,7 +36,7 @@ if [ -z "$DRY" ]; then exec 9>"$D/push.lock"; flock -n 9 || { echo "push.sh: ano
 [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "push.sh: uncommitted changes"; exit 1; }
 [ -n "$(git rev-list origin/main..HEAD)" ] || { echo "push.sh: nothing to push (HEAD is in origin/main)"; exit 0; }
 JOBS=8; [ "$(cat .claude/work/CPU_MODE 2>/dev/null)" = day ] && JOBS=2
-TIER=(python3 scripts/tested-tree.py tier --base origin/main --daily --no-progress --jobs "$JOBS" --lean-cache "$CACHE")
+TIER=(python3 scripts/tested-tree.py tier --base origin/main --daily --with-073 --no-progress --jobs "$JOBS" --lean-cache "$CACHE")
 [ -n "$FULL" ] && TIER+=("$FULL")
 if [ -n "$DRY" ]; then "${TIER[@]}" --dry-run; exit $?; fi
 # Gforth 0.7.3 spins forever after an error; a forgotten probe slows every test run (2026-11-12: 3 h at 100%).

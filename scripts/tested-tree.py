@@ -7,9 +7,9 @@ Usage (from the repository root):
   python3 scripts/tested-tree.py record -- make GOAL... [VAR=VALUE...]
   python3 scripts/tested-tree.py lookup -- make GOAL... [VAR=VALUE...]
   python3 scripts/tested-tree.py list [--all]
-  python3 scripts/tested-tree.py tier [--base REF] [--full] [--daily] [--lean-cache MODE]
-          [--jobs N] [--nice N] [--make MAKE] [--log-prefix PATH] [--summary FILE]
-          [--no-progress] [--dry-run]                                    (make tier, push.sh)
+  python3 scripts/tested-tree.py tier [--base REF] [--full] [--daily] [--with-073]
+          [--lean-cache MODE] [--jobs N] [--nice N] [--make MAKE] [--log-prefix PATH]
+          [--summary FILE] [--no-progress] [--dry-run]                   (make tier, push.sh)
 
 A record says that a make command exited 0 on the tree `git rev-parse HEAD^{tree}` names,
 with this Gforth (`--version` of GFORTH, else of the Makefile's default), this Lean (of
@@ -41,7 +41,10 @@ missing). list prints the records of HEAD's tree (--all: every record).
 tier runs the suites of scripts/test-tier.py's tier of BASE...HEAD (default main) in
 order, each as once does. --daily: when no full run (make coverage-check, make check-rest or make check
 with LEAN_CACHE=0, and make test on Gforth 0.7.3) is recorded today, on any tree, the
-tier is full with LEAN_CACHE=0 (the owner's daily full run). Then the progress check
+tier is full with LEAN_CACHE=0 (the owner's daily full run). The tier's Gforth 0.7.3
+suites (make test, or the changed targets, on 0.7.3) run only with --with-073, which
+push.sh passes: a branch's tier leaves them to the push and the daily run (owner,
+2026-11-14). Then the progress check
 (scripts/check-progress.py BASE) runs, unless --no-progress. --dry-run prints what would
 run or be reused and runs nothing. It prints, and writes to --summary as one line, each
 suite: ran (exit status, seconds, command) or reused (the record's commit and date), and
@@ -451,6 +454,8 @@ def run_tier(args):
             cache = "0"
             notes.append(f"daily full run: none recorded today ({now()[:10]}) of {', '.join(missing)}; "
                          "the full tier runs with LEAN_CACHE=0")
+    dropped = [] if args.with_073 else [s["label"] for s in result["suites"] if s.get("gforth073")]
+    result["suites"] = [s for s in result["suites"] if s["label"] not in dropped]
     print(test_tier.describe(result))
     for note in notes:
         print(note)
@@ -478,8 +483,12 @@ def run_tier(args):
         status = status or (1 if code else 0)
     labels = {s["label"] for s in result["suites"]}
     skipped = [s["label"] for s in test_tier.FULL_SUITES if s["label"] not in labels]
+    skipped = [label for label in skipped if label not in dropped]
     if skipped and result["tier"] != "full":
         lines.append(f"not run (tier {result['tier']} does not reach them): {', '.join(skipped)}")
+    if dropped:
+        lines.append(f"not run on a branch (Gforth 0.7.3 runs at the push and in the daily run): "
+                     f"{', '.join(dropped)}")
     if not args.no_progress:
         code = subprocess.run([sys.executable, os.path.join(HERE, "check-progress.py"), args.base]).returncode
         lines.append(f"progress check exit {code}")
@@ -513,6 +522,7 @@ def main(argv=None):
     parser.add_argument("--base", default="main")
     parser.add_argument("--full", action="store_true")
     parser.add_argument("--daily", action="store_true")
+    parser.add_argument("--with-073", action="store_true")
     parser.add_argument("--lean-cache", default="1", choices=sorted(STRONGER))
     parser.add_argument("--jobs", default="8")
     parser.add_argument("--nice", type=int)
