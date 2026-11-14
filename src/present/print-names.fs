@@ -70,9 +70,10 @@ lf-walk-room context-walk2: lf-pp-scan-walk
 \ A from beyond the scope (only after a forbidden reset from a sink) is
 \ the top of the scope: no binder.
 : lf-pp-shows? ( c-addr u i -- c-addr u flag ) lf-pp-bind-at lf-pp-text 2over compare 0= ;
+: lf-pp-shows-from? ( c-addr u from k -- c-addr u from flag )
+  over + swap >r lf-pp-shows? r> swap ;
 : lf-pp-any? ( c-addr u from -- flag )
-  lf-pp-depth tuck min
-  ?do i lf-pp-shows? if 2drop true unloop exit then loop 2drop false ;
+  lf-pp-depth over - ['] lf-pp-shows-from? any? nip nip nip ;
 : lf-pp-taken? ( mark -- flag ) lf-pp-pending 0 lf-pp-any? ;
 
 \ Scans of a body with the print's fuel. In the body, bound variable i at

@@ -132,25 +132,9 @@ T{ s\" [\"7\"]" parsed 1 jv json-u -> outcome-ok false }T
 T{ s" {}" parsed key-a 0 jv json-find-last -> outcome-ok false }T
 T{ s\" {\"a\":[1,{\"a\":2}],\"b\":3,\"a\":{\"a\":4}}" parsed key-a 0 jv json-find-last -> outcome-ok 10 true }T
 
-\ digits>u: the fast loop, the double-cell path at the width of max-n, and overflow.
-: max-n-text ( -- c-addr u ) max-n 0 <# #s #> ;
-T{ s" 0" digits>u s" 42" digits>u -> 0 true 42 true }T
-T{ max-n-text digits>u -> max-n true }T
-T{ max-n-text drop cell-digits 1- digits>u nip -> true }T
-: past-max-n ( -- c-addr u ) max-n-text text-buffer swap move text-buffer cell-digits
-  2dup + 1- dup c@ 1+ swap c! ;
-T{ past-max-n digits>u -> false }T
-T{ s" 123456789012345678901234567890" digits>u -> false }T
-T{ cell-digits max-n-text nip = -> true }T
-\ Nothing depends on BASE: digits are decimal on every path.
-T{ max-n-text 2 base ! digits>u decimal -> max-n true }T
-T{ max-n-text hex digits>u decimal -> max-n true }T
-T{ past-max-n hex digits>u decimal -> false }T
-T{ s" 1000" 2 base ! decimal>u decimal -> 1000 }T
-\ digit+ at the edge of a cell.
-T{ max-n 10 / max-n 10 mod char 0 + digit+ -> max-n true }T
-T{ max-n 10 / max-n 10 mod char 1 + digit+ -> false }T
-T{ 0 char 7 digit+ -> 7 true }T
+\ digits>u, decimal>u and digit+ moved to decimal.fs (tests/lib/decimal.fs);
+\ json-u reads through digits>u, whatever BASE is.
+T{ s" [4096]" parsed 1 jv json-u hex 1 jv json-u decimal -> outcome-ok 4096 true 4096 true }T
 
 \ canonical-natural?: digits only, no leading zero except 0 itself.
 T{ s" 0" canonical-natural? s" 10" canonical-natural? s" 123456789012345678901234567890" canonical-natural?

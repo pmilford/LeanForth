@@ -111,6 +111,9 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/bytes.fs
+require ../lib/blocks.fs
+require ../lib/decimal.fs
+require ../lib/bits.fs
 require ../core/diagnostics.fs
 require ../core/input.fs
 require ../kernel/environment.fs
@@ -241,12 +244,8 @@ manifest: cli-manifest
 \ The fuel a snapshot run asks for: --fuel's, or -1 for the snapshot's.
 : cli-asked-fuel ( -- n ) cli-state opt-fuel-given @ if cli-fuel @ else -1 then ;
 
-\ Numbers in decimal, whatever BASE is: xt runs with BASE decimal.
-: in-decimal ( i*x xt -- j*x ) base @ >r decimal execute r> base ! ;
-: do-decimal ( n -- ) 0 .r ;
-: .decimal ( n -- ) ['] do-decimal in-decimal ;
-: do-number-text ( n -- c-addr u ) 0 <# #s #> ;
-: cli-number-text ( n -- c-addr u ) ['] do-number-text in-decimal ;
+\ Numbers in decimal, whatever BASE is: lib/decimal.fs (.decimal,
+\ u>decimal, in-decimal).
 \ An internal fault: one line, and code 5.
 : cli-fault ( c-addr -- ) ." internal fault: " count type cr exit-fault cli-code! ;
 : cli-note ( c-addr -- ) ." note: " count type cr ;
@@ -648,10 +647,10 @@ create cli-fed-ops
   ."   fuel not known for " .decimal ."  declarations: a failed inference gives its"
   cr ."     counter up (their checks are not in the fuel above)" cr ;
 : cli-fuel. ( -- )
-  ."   fuel: " ck-fuel-total decimal-text type ."  steps in all, at most "
+  ."   fuel: " ck-fuel-total ud>decimal type ."  steps in all, at most "
   ck-fuel-budget .decimal ."  per declaration" cr cli-unknown-fuel. ;
 : cli-fuel-column ( n -- )
-  ck-fuel-budget cli-number-text nip >r cli-number-text r> cli-column ;
+  ck-fuel-budget u>decimal nip >r u>decimal r> cli-column ;
 : cli-top. ( k -- )
   ck-top@ ."     " dup ck-fuel-of cli-fuel-column space dup cli-name. ."  ("
   verdict-of verdict-name type ." )" cr ;
@@ -851,7 +850,7 @@ variable cli-info#
   s\" ,\"modified\":" cli-info+ cli-modified? if s" true" else s" false" then cli-info+
   s\" ,\"gforth\":" cli-info+ cli-info-host cli-info-text
   s\" ,\"engine\":" cli-info+ ck-engine cli-info-text
-  s\" ,\"cellBits\":" cli-info+ 1 cells 8 * cli-number-text cli-info+
+  s\" ,\"cellBits\":" cli-info+ cell-bits u>decimal cli-info+
   s" }" cli-info+ cli-info cli-info# @ ;
 : cli-snapshot-save ( -- )
   cli-save? 0= if exit then cli-state opt-save 2@ cli-info-build ck-snapshot-save drop ;
@@ -1326,7 +1325,7 @@ variable cli-info#
   ."   universe parameters per declaration and universe arguments per constant:" cr
   ."     no fixed limit (memory)" cr
   ."   fuel " cli-default-fuel .decimal ."  steps per declaration (--fuel N, at most "
-  cli-fuel-most cli-number-text type ." )" cr
+  cli-fuel-most u>decimal type ." )" cr
   ."   memory per check: none but the heap's (--memory-per-check MB)" cr ;
 : cli-planned. ( -- )
   ." planned, not built: program, serve and --record on any size," cr
@@ -1494,8 +1493,7 @@ end-structure
 : cli-value ( c-addr u -- c-addr' u' true | false )
   cli-arg if 2swap 2drop true else c" an option without its value" cli-wrong false then ;
 \ A decimal number from 0 to max-n with nothing else: (n true) or false.
-: do-digits ( c-addr u -- ud rest ) 0 0 2swap >number nip ;
-: cli-digits ( c-addr u -- ud rest ) ['] do-digits in-decimal ;
+: cli-digits ( c-addr u -- ud rest ) decimal>number nip ;
 : cli-in-range? ( ud -- n true | false ) 0= over 0< 0= and if true else drop false then ;
 : cli-decimal ( c-addr u -- n true | false )
   dup 0= if 2drop false exit then cli-digits if 2drop false else cli-in-range? then ;
@@ -1512,12 +1510,11 @@ end-structure
 : cli-elab-option ( c-addr u -- ) cli-value if cli-state opt-elab 2! then ;
 \ The first --snapshot names the base, each further one a layer on it, in
 \ order (plan step SN4); their names are kept in a heap block that grows.
-: cli-layers-room ( n -- addr ior )
-  2* cells cli-state opt-layers @ ?dup if swap resize else allocate then ;
+: cli-layers-room ( n -- outcome ) 2* cells cli-state opt-layers block-resize ;
 : cli-layer+ ( c-addr u -- )
-  cli-state opt-layers# @ 1+ cli-layers-room if drop c" no room for the layers" cli-wrong
-    exit then
-  dup cli-state opt-layers ! cli-state opt-layers# @ 2* cells + 2!
+  cli-state opt-layers# @ 1+ cli-layers-room ok? 0=
+  if c" no room for the layers" cli-wrong exit then
+  cli-state opt-layers @ cli-state opt-layers# @ 2* cells + 2!
   1 cli-state opt-layers# +! ;
 : cli-snapshot-option ( c-addr u -- )
   cli-value if cli-snapshot? if cli-layer+ else cli-snapshot! then then ;

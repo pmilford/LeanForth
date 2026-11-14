@@ -258,12 +258,14 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   swap lf-idecl-kind @ rot = and ;
 : lf-ind-members-ok? ( -- flag ) true lf-ind-members 0 ?do i lf-ind-member-ok? and loop ;
 \ Whether name is in a list of names; two lists equal name by name.
-: lf-ind-in? ( name items n -- flag )
-  0 ?do 2dup i cells + @ lf-name-same? if 2drop true unloop exit then loop 2drop false ;
+: lf-ind-item@ ( items i -- name ) cells + @ ;
+: lf-ind-in-at? ( name items i -- name items flag )
+  2dup-under lf-ind-item@ lf-name-same? ;
+: lf-ind-in? ( name items n -- flag ) ['] lf-ind-in-at? any? nip nip ;
+: lf-ind-same-at? ( items items' i -- items items' flag )
+  2dup-under tuck lf-ind-item@ >r lf-ind-item@ r> lf-name-same? ;
 : lf-ind-names= ( items n items' n' -- flag )
-  rot over <> if drop 2drop false exit then
-  0 ?do over i cells + @ over i cells + @ lf-name-same? 0= if 2drop false unloop exit then
-  loop 2drop true ;
+  rot over <> if drop 2drop false exit then ['] lf-ind-same-at? all? nip nip ;
 \ The block's types' names, as the first type's all list holds them once
 \ B0 passed.
 : lf-ind-all ( -- items n ) lf-ind-type-data lf-ity-all@ ;
@@ -328,9 +330,8 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-ind-member-each ( xt k -- outcome )
   lf-ind-member 2dup lf-idecl-type @ swap execute dup ok? 0= if nip nip exit then drop
   dup lf-ind-recursor? if lf-ind-rules-each else 2drop outcome-ok then ;
-: lf-ind-each ( xt -- outcome )
-  lf-ind-members 0 ?do dup i lf-ind-member-each dup ok? 0= if nip unloop exit then drop
-  loop drop outcome-ok ;
+: lf-ind-member-at ( xt i -- xt outcome ) over swap lf-ind-member-each ;
+: lf-ind-each ( xt -- outcome ) lf-ind-members ['] lf-ind-member-at ok-each nip ;
 
 \ A walk over every node of a root on the block's fuel, with xt ( first
 \ second walk tag -- outcome ) for each leaf (lf-ind-leaf); binary nodes
@@ -437,11 +438,10 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   2dup < if 2drop 0 else nip then ;
 \ Whether one of the first k of the n arguments of node's spine mentions
 \ the type.
+: lf-ind-arg-mentions? ( node n i -- node n flag outcome )
+  2dup-under lf-ind-arg lf-ind-mentions? ;
 : lf-ind-some-arg? ( node n k -- flag outcome )
-  0 ?do
-    2dup i lf-ind-arg lf-ind-mentions? ok-then? 0= if nip nip false swap unloop exit then
-    if 2drop true outcome-ok unloop exit then
-  loop 2drop false outcome-ok ;
+  ['] lf-ind-arg-mentions? ok-any? 2swap 2drop ;
 : lf-ind-no-nest ( x -- false outcome ) drop false outcome-ok ;
 : lf-ind-nested? ( node -- flag outcome )
   dup lf-ind-spine over lf-tag-constant lf-ind-tag? 0= if 2drop lf-ind-no-nest exit then
@@ -495,11 +495,10 @@ lf-walk-room context-walk2: lf-ind-pair-walker
     dup lf-term-first@ lf-ind-free? ok-then? 0= if false swap exit then
     0= if false outcome-ok exit then lf-term-second@
   repeat true outcome-ok ;
+: lf-ind-arg-free? ( node n i -- node n flag outcome )
+  2dup-under lf-ind-arg lf-ind-free? ;
 : lf-ind-args-free? ( node n -- flag outcome )
-  dup 0 ?do
-    2dup i lf-ind-arg lf-ind-free? ok-then? 0= if nip nip false swap unloop exit then
-    0= if 2drop false outcome-ok unloop exit then
-  loop 2drop true outcome-ok ;
+  dup ['] lf-ind-arg-free? ok-all? 2swap 2drop ;
 : lf-ind-head-free? ( head -- flag outcome )
   dup lf-ind-type-node? if drop true outcome-ok else lf-ind-free? then ;
 : lf-ind-result-plain? ( body -- flag outcome )
@@ -508,14 +507,8 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-ind-plain? ( j -- flag outcome )
   lf-ind-ctor-type lf-ind-domains-free? ok-then? 0= if nip false swap exit then
   if lf-ind-result-plain? else drop false outcome-ok then ;
-: lf-ind-ctors-plain? ( -- flag outcome )
-  lf-ind-ctors@ 0 ?do
-    i lf-ind-plain? ok-then? 0= if false swap unloop exit then
-    0= if false outcome-ok unloop exit then
-  loop true outcome-ok ;
-: lf-ind-ctors-scoped ( -- outcome )
-  lf-ind-ctors@ 0 ?do i lf-ind-ctor-scoped dup ok? 0= if unloop exit then drop loop
-  outcome-ok ;
+: lf-ind-ctors-plain? ( -- flag outcome ) lf-ind-ctors@ ['] lf-ind-plain? ok-all? ;
+: lf-ind-ctors-scoped ( -- outcome ) lf-ind-ctors@ ['] lf-ind-ctor-scoped ok-each ;
 : lf-ind-scoped ( -- outcome )
   lf-ind-ctors-plain? ok-then? 0= if exit then if outcome-ok exit then
   lf-ind-ctors-scoped ;
@@ -530,8 +523,7 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-ind-ctor-flags ( j -- outcome ) lf-ind-after-params lf-ind-fields-flags ;
 : lf-ind-flags-again ( -- outcome )
   false lf-ind-state lf-ind-is-rec ! false lf-ind-state lf-ind-is-refl !
-  lf-ind-ctors@ 0 ?do i lf-ind-ctor-flags dup ok? 0= if unloop exit then drop loop
-  outcome-ok ;
+  lf-ind-ctors@ ['] lf-ind-ctor-flags ok-each ;
 
 \ The audit, in this order: B0; unsafe members; U2, then V1, on every
 \ term; the scope. (A member named Nat.pow or Nat.shiftLeft was
@@ -601,13 +593,11 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   lf-ind-reserved? 0= if outcome-ok exit then
   lf-ind-first@ 0 lf-ind-site lf-diag-reserved-prefix lf-diag-note outcome-rejected ;
 : lf-ind-t0-term ( root -- outcome ) ['] lf-ind-prefix lf-ind-walk ;
+: lf-ind-t0-type ( k -- outcome ) lf-ind-type-at lf-idecl-type @ lf-ind-t0-term ;
+: lf-ind-t0-ctor ( k -- outcome ) lf-ind-ctor-type lf-ind-t0-term ;
+: lf-ind-t0-ctors ( -- outcome ) lf-ind-ctors@ ['] lf-ind-t0-ctor ok-each ;
 : lf-ind-t0 ( -- outcome )
-  lf-ind-types@ 0 ?do
-    i lf-ind-type-at lf-idecl-type @ lf-ind-t0-term dup ok? 0= if unloop exit then drop
-  loop
-  lf-ind-ctors@ 0 ?do
-    i lf-ind-ctor-type lf-ind-t0-term dup ok? 0= if unloop exit then drop
-  loop outcome-ok ;
+  lf-ind-types@ ['] lf-ind-t0-type ok-each ['] lf-ind-t0-ctors ok-and ;
 
 \ C1, a paired walk of each constructor type: (node, binders around it).
 \ A spine headed by the type with more arguments than parameters is
@@ -624,9 +614,10 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   true swap 0 ?do over i lf-ind-level-at? and loop nip ;
 : lf-ind-arg-uniform? ( node depth i -- flag )
   tuck - 1- >r lf-ind-nparams swap lf-ind-arg r> lf-ind-bvar? ;
+: lf-ind-arg-uniform-at? ( node depth i -- node depth flag )
+  2dup-under lf-ind-arg-uniform? ;
 : lf-ind-args-uniform? ( node depth -- flag )
-  lf-ind-nparams 0 ?do 2dup i lf-ind-arg-uniform? 0= if 2drop false unloop exit then
-  loop 2drop true ;
+  lf-ind-nparams ['] lf-ind-arg-uniform-at? all? nip nip ;
 : lf-c1-ok? ( node n depth -- flag )
   swap lf-ind-nparams <> if 2drop false exit then
   dup lf-ind-nparams < if 2drop false exit then
@@ -666,8 +657,7 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   lf-ind-fuel @ lf-ind-pair-walker walk-budget 0= if drop outcome-invalid exit then
   lf-ind-pair-walker lf-walk-pairing
   lf-ind-ctor-type 0 ['] lf-c1-visit lf-ind-pair-walker walk-run-pair lf-c1-walked ;
-: lf-ind-c1 ( -- outcome )
-  lf-ind-ctors@ 0 ?do i lf-c1-ctor dup ok? 0= if unloop exit then drop loop outcome-ok ;
+: lf-ind-c1 ( -- outcome ) lf-ind-ctors@ ['] lf-c1-ctor ok-each ;
 
 \ T1: at least numParams raw binders in the type, then in each
 \ constructor's type, in that order (get_params, 1138-1146, called from
@@ -678,7 +668,7 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   lf-ind-nparams lf-ind-site lf-diag-param-binders lf-diag-note outcome-rejected ;
 : lf-ind-enough ( node -- outcome )
   lf-ind-body nip dup lf-ind-nparams < if lf-ind-few else drop outcome-ok then ;
+: lf-ind-ctor-enough ( k -- outcome ) lf-ind-ctor-type lf-ind-enough ;
+: lf-ind-ctors-enough ( -- outcome ) lf-ind-ctors@ ['] lf-ind-ctor-enough ok-each ;
 : lf-ind-t1 ( -- outcome )
-  lf-ind-type lf-idecl-type @ lf-ind-enough dup ok? 0= if exit then drop
-  lf-ind-ctors@ 0 ?do i lf-ind-ctor-type lf-ind-enough dup ok? 0= if unloop exit then drop
-  loop outcome-ok ;
+  lf-ind-type lf-idecl-type @ lf-ind-enough ['] lf-ind-ctors-enough ok-and ;

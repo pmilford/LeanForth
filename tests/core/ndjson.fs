@@ -840,8 +840,8 @@ T{ kind-recursor ex export-handler ex export-handlers - -> kind-recursor cells }
 \ every kind; while it is ready, an export holds three heap blocks (the
 \ line buffer, the token tape and the container stack), and none after
 \ export-free. Here it also holds the three index maps the tests of
-\ sparse indices made, a table and a slab each, which export-restart
-\ empties but keeps.
+\ sparse indices made, a memo each (lib/memo.fs: its table and its
+\ entries), which export-restart empties but keeps.
 : export-blocks ( -- n ) live-blocks @ blocks-at-start - ;
 T{ export-blocks ex export-init kind-app ex export-handler @ ' export-refused = export-blocks
    -> 9 outcome-ok true 3 }T

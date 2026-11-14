@@ -11,7 +11,7 @@
 \   query answered (lf-i2-misses 0);
 \ - the same against the base and the dependent export's layer: all
 \   taken, the same outcomes;
-\ - dep-sort sorts little-endian slot numbers;
+\ - dep-sort and look-sort sort little-endian slot numbers and lookups;
 \ - a taken slot whose saved lookups cannot all be asked again is
 \   published invalid, never with the saved outcome (review FRK F3);
 \ - out of room while a layer is entered is full, never invalid (review
@@ -133,9 +133,24 @@ create nums 16 allot
 : num! ( u k -- ) 4 * nums + u32-le! ;
 : num@ ( k -- u ) 4 * nums + u32-le@ ;
 9 0 num! 3 1 num! 7 2 num! 1 3 num!
-nums 4 dep-sort
+create sorter /sorter allot  sorter /sorter erase
+T{ nums 4 sorter dep-sort -> outcome-ok }T
 T{ 0 num@ 1 num@ 2 num@ 3 num@ -> 1 3 7 9 }T
-nums 0 dep-sort
+T{ nums 0 sorter dep-sort -> outcome-ok }T
+\ Above 32 slot numbers the sort merges through scratch from the heap.
+create many 40 4 * allot
+: many! ( -- ) 40 0 do 40 i - 4 * many i 4 * + u32-le! loop ;
+: many-sorted? ( -- flag ) true 40 0 do many i 4 * + u32-le@ i 1+ 4 * = and loop ;
+T{ many! many 40 sorter dep-sort many-sorted? -> outcome-ok true }T
+\ Lookups: (key, answer) pairs by their key, unsigned, the answers moved
+\ with their keys. The key $80000000 tells unsigned from signed only on a
+\ 32-bit host: on 64-bit cells every 32-bit key is positive, so a signed
+\ order sorts alike there (fault sn-le-sorter-signed, listed as
+\ equivalent; review reuse-out L4).
+create pairs 3 8 * allot
+$80000000 7 pairs 0 entry!  5 8 pairs 1 entry!  6 9 pairs 2 entry!
+T{ pairs 3 sorter look-sort -> outcome-ok }T
+T{ pairs 0 entry@ pairs 1 entry@ pairs 2 entry@ -> 5 8 6 9 $80000000 7 }T
 
 \ ---- Out of room while a layer is entered (review FRI F1): the layer of
 \ inductive.ndjson (two blocks with their recursors, constants with

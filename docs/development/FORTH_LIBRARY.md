@@ -23,14 +23,14 @@ is added). The library audit of 2026-11-13 (plan 9.4.8) lists which libraries la
 | --- | --- | --- | --- |
 | Bounded record stores | `src/lib/store.fs` | `store:` defining word: a fixed number of fixed-width records with an allocation count, a reset generation that saturates to a poisoned state, an identity per record that never repeats, and a sealed shape so header corruption fails closed. `store-size` and `store-init` make the same store in memory obtained at run time (`ALLOCATE`, or a region of a context); `store-plan?` also refuses a size that would not fit in a cell. **Marks** (plan task 1.1.3): `store-mark ( mark store -- outcome )` records the store, its generation, serial and count in a `/store-mark` record the caller provides (fields `mark-store`, `mark-generation`, `mark-serial`, `mark-count`); `store-rollback ( mark store -- outcome )` restores the count, giving back every record allocated since, and never rewinds identities; `store-mark-valid? ( mark store -- flag )` tells whether it would. A rollback is refused, invalid with nothing changed, for a mark of another store, from another generation (a reset since), above the current count, of an invalid or poisoned store, or stale: records below its count must be older than the mark and the one at its count newer, so a mark below which an earlier rollback went and records were allocated again is refused. Marks are not capabilities: a forged record that passes these checks is accepted. **Heap stores** (plan task 1.1.5, ADR 0016 C9 step 3, 2026-11-03): `store-heap-init ( capacity width base store -- outcome )` puts the header in the caller's memory (it may move, as a context member does) and the block of identities and records on the heap; `store-grow ( store -- outcome )` doubles the block, at least 16 more records, up to the limit, when every record is in use (full at the limit, with no heap, or when the test hook refuses; nothing changed then); `store-limit! ( limit store -- outcome )` sets the limit (at least the count; a larger block shrinks); `store-heap-free`. The block and the limit are sealed shape fields; marks stay valid while the block grows; an address from `store-slot` is valid only until the next growth | New 2026-11-02; used by the term, level and name stores; heap stores (the checker's five stores) tested in `tests/lib/lib.fs` (growth, limit, marks across growth, shrinking, freeing); unit-tested in `tests/lib/lib.fs`, run-time stores in `tests/lib/context.fs`; marks 2026-11-02 in `tests/lib/store-mark.fs` (every refusal, and 20,000 random operations against a model that kills a mark when the count drops below it or the store is reset), used by the checked environment's input (`src/core/input.fs`); the hand-written count saving in the existing modules is not converted yet |
 | Tagged nodes | `src/lib/node.fs` | `BEGIN-STRUCTURE` record of tag and two fields, with whole-node `node!`/`node@` and `node-new`/`node-read` on a store | New 2026-11-02; terms and levels |
-| Range checks | `src/lib/bounds.fs` | `between?` and `upto?` (inclusive, signed, never wrapping) and `cells-zero?`; `index? ( i n -- flag )` (0 ≤ i < n, false for every i when n ≤ 0, where `0 n within` takes any i ≥ 0), `cells-index ( x addr n -- i true \| false )` and `cells-has? ( x addr n -- flag )` (the first of n cells holding x) ([below](#stacks-outcome-loops-and-index-checks)) | New 2026-11-02; `index?`, `cells-index`, `cells-has?` 2026-11-13 (plan 9.4.8a) in place of 9 `0 n within` checks and 5 cell searches; `tests/lib/lib.fs` |
-| Outcome vocabulary | `src/lib/outcome.fs` | ok, invalid, exhausted (out of fuel), unknown, rejected, unsupported and full (out of room: a store, work stack, frame, depth or size limit) (ADR 0008), with `ok?`, `outcome-sane`, `flag>outcome` and `room>outcome` (a validity or room flag as ok, else invalid or full), `visit-outcome` (the one rule for a visit bounded by fuel and room: no fuel is exhausted whatever the room, then no room is full), the continue-on-ok steps `ok-then?`, `ok-then2?`, `ok-then3?`, `ok-keep?` and `ok-keep2?`, `outcome-and` (two outcomes as one, the first failure), `outcome-steps` (a 0-ended list of steps run to the first failure; review FRI B6), `ok-and` and `ok-with` (a step run only while the outcome so far is ok, on the values below or on a value kept below; review FRK A), `no-result`, `outcome-text` (each outcome's name, for reports), the loops `ok-each ( i*x n xt -- i*x outcome )` and `ok-fold ( x n y xt -- x' outcome )` (a step for k = 0 … n-1 to the first failure), the tests over every index `all? ( i*x n xt -- i*x flag )` and `ok-all? ( i*x n xt -- i*x flag outcome )` (to the first false or failure) with their stop test `ok-true? ( flag outcome -- true | false outcome false )`, and `outcome-first! ( outcome a-addr -- )` (a first failure kept in a cell) ([below](#stacks-outcome-loops-and-index-checks)) | New 2026-11-02; every core and kernel module uses it; the per-module status aliases were removed; the loops and `outcome-first!` 2026-11-13 (plan 9.4.8a) in place of 30 hand-written loops, the combinators `aux-each`, `aux-fold` (`fold-with`), `aux-then` and `and-then`, and 7 first-failure cells outside `src/kernel/`; `all?`, `ok-all?` and `ok-true?` 2026-11-13 (review reuse-1a B2) in place of 8 flag loops and 2 all-while-ok loops outside `src/kernel/` |
+| Range checks | `src/lib/bounds.fs` | `between?` and `upto?` (inclusive, signed, never wrapping) and `cells-zero?`; `index? ( i n -- flag )` (0 ≤ i < n, false for every i when n ≤ 0, where `0 n within` takes any i ≥ 0), `cells-index ( x addr n -- i true \| false )` and `cells-has? ( x addr n -- flag )` (the first of n cells holding x); `cells= ( a-addr1 a-addr2 n -- flag )` (n cells compared cell by cell) and `in-ranges? ( x a-addr n -- flag )` (x within one of n (lo, hi) pairs, a character class) ([below](#stacks-outcome-loops-and-index-checks)) | New 2026-11-02; `index?`, `cells-index`, `cells-has?` 2026-11-13 (plan 9.4.8a) in place of 9 `0 n within` checks and 5 cell searches; `cells=` and `in-ranges?` 2026-11-13 (batch `reuse-out`, plan 9.4.8k) in place of `memo-cells=`, the kernel's `lf-mls-cells=`, `lfa-pairs=`, `tr-among?` and `nt-among?`; `tests/lib/lib.fs` |
+| Outcome vocabulary | `src/lib/outcome.fs` | ok, invalid, exhausted (out of fuel), unknown, rejected, unsupported and full (out of room: a store, work stack, frame, depth or size limit) (ADR 0008), with `ok?`, `outcome-sane`, `flag>outcome` and `room>outcome` (a validity or room flag as ok, else invalid or full), `visit-outcome` (the one rule for a visit bounded by fuel and room: no fuel is exhausted whatever the room, then no room is full), the continue-on-ok steps `ok-then?`, `ok-then2?`, `ok-then3?`, `ok-keep?` and `ok-keep2?`, `outcome-and` (two outcomes as one, the first failure), `outcome-steps` (a 0-ended list of steps run to the first failure; review FRI B6), `ok-and` and `ok-with` (a step run only while the outcome so far is ok, on the values below or on a value kept below; review FRK A), `no-result`, `outcome-text` (each outcome's name, for reports), the loops `ok-each ( i*x n xt -- i*x outcome )` and `ok-fold ( x n y xt -- x' outcome )` (a step for k = 0 … n-1 to the first failure), the tests over every index `all? ( i*x n xt -- i*x flag )` and `ok-all? ( i*x n xt -- i*x flag outcome )` (to the first false or failure) with their stop test `ok-true? ( flag outcome -- true | false outcome false )`, the tests over some index `any? ( i*x n xt -- i*x flag )` and `ok-any? ( i*x n xt -- i*x flag outcome )` (to the first true or failure, stop test `ok-found?`), `outcome-first! ( outcome a-addr -- )` (a first failure kept in a cell), `ok-or-none ( x outcome -- x outcome \| -1 outcome )` (a result kept only on ok) and `room-result ( x true \| false -- x outcome )` (a store's room flag as ok, or -1 and full), `2dup-under ( x1 x2 k -- x1 x2 x1 x2 k )` (a loop step's two values copied above its index) ([below](#stacks-outcome-loops-and-index-checks)) | New 2026-11-02; every core and kernel module uses it; the per-module status aliases were removed; the loops and `outcome-first!` 2026-11-13 (plan 9.4.8a) in place of 30 hand-written loops, the combinators `aux-each`, `aux-fold` (`fold-with`), `aux-then` and `and-then`, and 7 first-failure cells outside `src/kernel/`; `all?`, `ok-all?` and `ok-true?` 2026-11-13 (review reuse-1a B2) in place of 8 flag loops and 2 all-while-ok loops outside `src/kernel/`; `any?`, `ok-any?`, `ok-or-none`, `room-result` 2026-11-13 (batch `reuse-out`) in place of 6 any-loops outside the front end, 3 kernel any-while-ok loops, 2 `ok-or-none` and 10 `room-result` copies, with about 45 kernel loops moved onto `ok-each`, `all?`, `any?`, `ok-all?` (under the owner's [kernel] approval), and after review reuse-out (B1) 13 more kernel loops; `2dup-under` (S1) in place of 26 `>r 2dup r>` outside the front end |
 | DAG walks | `src/lib/walk.fs` | `walk:` defining word: fuel, current node, one visitor cell and a bounded work stack in one record; `walk-run` drives a visitor and `walk-visit` reads and dispatches a node. A push without room is full whatever fuel is left (checked where the push happens), and a root that cannot be pushed means a corrupted capacity, which is invalid. `walk-size`/`walk-init` and `walk2-size`/`walk2-init` make the same records at run time. The walk words keep no state of their own; each module's walk records are members of the checker context, one set per context | New 2026-11-02; level scope, Sort representation, session and handle audits use it |
 | Passes on an explicit stack | `src/lib/frame.fs` | A frames record: fuel, visits in progress, the visitor (set once), a context cell (such as a binder depth), a job cell, and the pass's stack, a heap block that grows by doubling (plan task 6.2.0). A visit is a chain of steps `( ... frames -- ... frames next )` run by a loop (`frame-run`, `frame-loop`, `frame-steps`), never nested on the host's stacks: a step either asks for a child's visit with `frame-call` or `frame-under` (one context level deeper), naming the step that continues with the child's `( result outcome )`, or returns `( result outcome frames 0 )`; values kept across a child's visit go on the pass's stack (`frame-save`, `frame-restore`, `frame-pick`, `frame-drop`; up to `frame-spare` cells a visit, all its steps together; a save past the block throws `frame-overrun`, -4111, instead of writing outside it, for 0.5% more instructions on the trial workload). `frame-admit` says why a visit cannot open: an unsound stack is invalid, then no fuel left is exhausted, then a stack the heap cannot grow full (the fuel decides first); `frame-under` is full at context `max-n`. `frame-open` opens a visit of another kind (mixed-infer.fs: inference and the rejection analysis share one record), and a step may run a loop of its own on the same record. A busy record refuses a new budget or pass; `frame-reset` recovers after a THROW; `frame-free` gives the stack back. Host-stack use is a constant whatever the depth | New 2026-11-02, explicit stack 2026-11-04; the kernel's shift, instantiate, beta and opening passes, inference and the analysis, normalize, is_geq and level evaluation use it; unit tests and a randomized model test |
 | Checker contexts | `src/lib/context.fs` | One `ALLOCATE`d record per worker for all of a check's mutable state ([ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md)), reached through the `USER` variable `lf-context` (a plain variable on hosts without Gforth's `USER`). Modules declare members while they load: `context-record:`, `context-store:`, `context-walk:`, `context-walk2:`, `context-frames:` (a frames record, set up with `frame-init`), and `context-setup` for set-up words; a refused declaration changes nothing. Each member's name is a colon definition that adds its offset, a literal, to `lf-context @`. Modules also state how deep their checks nest on the host stacks (`context-need`), which the job pool checks. `context-new`, `context-use` and `context-free` make, select and free contexts. Each context is idle or owned by one job; each task has an owner token `lf-owner` and may select only contexts it owns (the main task: idle ones); owned contexts cannot be freed. `context-in-job?` says whether the current task runs a job or a check; the checked environment's serial driver gives a check the token `context-check-owner`, so every in-job guard refuses it too. `context-claim` and `context-release` (the job pool's) are refused there as well. `call-balanced ( x xt -- )` runs a word above a cell and throws `context-unbalanced` (-4096) when the word changed the stack depth or that cell (the checked environment's serial driver uses it; `task.fs`'s `job-call` still has its own copy); `context-catch ( i*x xt -- j*x ior )` is `CATCH` that restores the current context afterwards. `context-slab:` declares a growable array member and `context-teardown` a word that frees a member's heap blocks with its context. The header lists the interface and gives an example; every other word is private (`lf-lib-private`, since 2026-11-12) | New 2026-11-02; ownership, frames members and atomic declarations 2026-11-02 after an independent review; every module of `src/core/` and `src/kernel/` keeps its state in it since 2026-11-02 (see the design below); tested in `tests/lib/context.fs`, including a randomized model with context switches at every step, and with real checker work in `tests/core/contexts.fs` |
 | Job pool | `src/lib/task.fs` | `job-submit ( context xt -- job ior )` and `job-wait ( job -- ior )`: a fixed pool of long-lived workers (at most one per logical core, setting `task-workers`) fed from a bounded queue; POSIX threads with a mutex and two condition variables on Gforth 1.0, the cooperative `tasker.fs` on Gforth 0.7.3, and a serial path elsewhere (or when forced, for tests). A job's context is owned by the job until it is waited for. Wrong stack effects give `task-unbalanced`; stack overflows never report success (guard pages on 1.0, canary zones on 0.7.3); when the host refuses a worker (near its process limit) the pool runs with those it made, and is refused (`task-no-worker`) only when it made none (`spawn-limit!` makes the host refuse in tests); `job-wait` refuses job 0, a refused submission's handle. `job-stacks-cover?` tells whether the workers' stacks hold a recursion requirement, and the pool refuses to start with stack settings below the largest need modules stated (`task-stacks-small`). On Gforth 1.0 each worker owns its exception-backtrace and error-stack strings (a new task copies the creator's user area, and shared strings were corrupted by concurrent THROWs). Job rules: never parse or use `PAD` (one buffer for all tasks on Gforth 1.0), use `<# #>` text before the job yields (one buffer on 0.7.3), and restore `BASE` if a job changes it (a worker starts with the main task's). `job-wait-any ( addr n -- k )` waits for the first of several jobs (a scheduler that keeps one job per worker) and `pool-workers! ( n -- )` sets the pool's size for its next start. Loaded by the parallel scheduler (`src/kernel/env-schedule.fs`, `check --jobs`) since 2026-11-11 | New 2026-11-02; pool replaced one thread per task the same day; `tests/lib/task.fs` and `task-serial.fs` compare jobs and interleaved contexts with serial runs for 1, 2 and all workers and reach every refusal, a host that refuses all or some workers among them; `task-overflow.fs` and `task-overflow-serial.fs` overflow both stacks inside jobs; `tests/lib/task-bench.fs` measures speed-up |
-| Line reader and UTF-8 | `src/lib/bytes.fs` | `reader:` record over a Forth-2012 file: whole lines in one heap buffer that grows for long lines up to a limit, strict framing (final line feed; `text-framed` refuses carriage returns and a byte-order mark), line numbers and double-cell file offsets; `utf8-length`, `utf8-valid?`, `utf8-decode` and `utf8-put` (RFC 3629, no overlongs or surrogates); `counted,` and `counted-next` (the next counted string of a table of them); `heap-claim` and `heap-release` for owned heap buffers; `fnv-step` and `bytes-mix` (an FNV-style mix of bytes into a hash, used by the checked environment's input fingerprint). Uses Gforth's native `scan` behind an adapter, with a portable loop otherwise. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; unit-tested against an independent UTF-8 model in `tests/lib/bytes.fs`, which loads it under `HEX` and counts heap blocks to show that a second `reader-init` frees the first buffer |
-| JSON reader | `src/lib/json.fs` | `json:` view record: a fail-closed, non-recursive RFC 8259 parser of one text into a growable token tape (containers know their item count and extent), escapes decoded in place, numbers kept as digit text, limits on depth, tokens, string and number length; `json-find`, `json-next`, `json-natural`, `json-u`, `digits>u` and `decimal>u` (decimal, independent of `BASE`); kind-checked `json-items-of` and `json-kind-at`. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; malformed corpus and every limit tested in `tests/lib/json.fs`, loaded under `HEX` |
+| Line reader and UTF-8 | `src/lib/bytes.fs` | `reader:` record over a Forth-2012 file: whole lines in one heap buffer that grows for long lines up to a limit, strict framing (final line feed; `text-framed` refuses carriage returns and a byte-order mark), line numbers and double-cell file offsets; `utf8-length`, `utf8-valid?`, `utf8-decode` and `utf8-put` (RFC 3629, no overlongs or surrogates); `counted,` and `counted-next` (the next counted string of a table of them); `fnv-step` and `bytes-mix` (an FNV-style mix of bytes into a hash, used by the checked environment's input fingerprint); `heap-claim` and `heap-release` now live in `blocks.fs`, which it requires. Uses Gforth's native `scan` behind an adapter, with a portable loop otherwise. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; unit-tested against an independent UTF-8 model in `tests/lib/bytes.fs`, which loads it under `HEX` and counts heap blocks to show that a second `reader-init` frees the first buffer |
+| JSON reader | `src/lib/json.fs` | `json:` view record: a fail-closed, non-recursive RFC 8259 parser of one text into a growable token tape (containers know their item count and extent), escapes decoded in place, numbers kept as digit text, limits on depth, tokens, string and number length; `json-find`, `json-next`, `json-natural`, `json-u` (on `decimal.fs`'s `digits>u`, which it requires; `digits>u` and `decimal>u` moved there 2026-11-13); kind-checked `json-items-of` and `json-kind-at`. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; malformed corpus and every limit tested in `tests/lib/json.fs`, loaded under `HEX` |
 | JSON writer | `src/lib/json-write.fs` | Plan task 3.1.3. A writer record (`json-writer: ( depth room "name" -- )`, or `jw-size` and `jw-init` in memory the caller owns, such as a context member) writes one JSON text to the caller's sink xt `( c-addr u -- )`: `jw-start ( sink writer -- )`, then `jw-string`, `jw-n` (signed cell), `jw-u` (unsigned cell), `jw-digits` (integer text of any size, as `json.fs` keeps it), `jw-bool`, `jw-null`, `jw-open-object`, `jw-key`, `jw-close-object`, `jw-open-array`, `jw-close-array`, or `jw-copy ( index view writer -- )` of a value `json.fs` parsed; `jw-end ( writer -- outcome )`. Every call takes the writer last and returns nothing. Deterministic bytes: no whitespace; members in call order, and with `jw-sorted` set each object's keys must strictly increase in byte order (code point order), checked against the last key kept in a key pool of `room` bytes; integers in decimal whatever `BASE` is, `-0` written `0`; strings escaped only as `\"`, `\\`, `\b \f \n \r \t` and `\u00xx` (lowercase) for other bytes below 32, everything else, valid UTF-8 included, as itself, which are the bytes of Python's `json.dumps(v, separators=(",", ":"), ensure_ascii=False)`; with the setting `jw-lean` (2026-11-03, for the NDJSON re-exporter) the bytes of Lean 4.35.0's `Json.compress` instead, which writes backspace, tab and form feed as `\u0008`, `\u0009` and `\u000c`; no real numbers (`jw-copy` of one is unsupported). The first failing call writes nothing and its outcome sticks until the next `jw-start` (`jw-outcome` reads it): invalid for calls out of order (a close that does not match its open or follows a key, a value where a key is due, a second value, `jw-end` before the value is complete, writes before `jw-start` or after `jw-end`), invalid UTF-8, bad integer text or flags, keys out of order in sorted mode, and any call from inside the writer's own sink (`jw-reset` or `jw-init` there fails the text when the sink returns); full past the byte limit `jw-limit` (so a buffer of n bytes never overflows), the depth or the key pool. So `jw-end` gives ok only for exactly one complete JSON value, and the sink only ever receives a prefix of one. After a THROW out of a writer word the caller discards the text and calls `jw-reset` (a THROW outside the sink leaves no mark); a sink that writes over the string or view being written is unchecked. No state of its own; `jw-copy` is a loop over the value's tokens, without recursion (a container it opens records the index of the token after it, and closes there), so a few stack cells serve any depth the writer allows. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; `tests/lib/json-write.fs` (180 assertions: every word's positive and negative cases, every limit at and one past its bound, sorted keys, keys refused as strings are, the sink rules including `jw-reset` and `jw-init` from inside the sink, a copy 10,000 containers deep and copies stopped by a failed close, two interleaved writers and a context member, 2,000 random strings and 2,000 random cells written and read back by `json.fs`, and all 138 lines of `tests/reference/*.ndjson` plus 16 lines with every other record kind of lean4export 3.1.0, `tests/lib/json-write-corpus.ndjson`, copied back byte for byte in both key modes; Lean's escapes for every byte below 32, keys, copies and `jw-limit`, 2026-11-03), loaded and partly run under `HEX`; `tests/lib/test_json_write.py` compares 300 random values written with the writer's words and 150 non-canonical texts copied with `jw-copy` against Python's `json.dumps`, 40 copies of values nested up to 64 deep, plus 50 refusals with their exact prefixes; 21 planted faults each caught, and after the independent review (2026-11-02) 6 more, one per fix reverted or broken, on Gforth 0.7.3 and 1.0 |
 | Packed 32-bit fields | `src/lib/u32.fs` | `u32@ ( addr -- u )` and `u32! ( u addr -- )` read and write an unsigned 32-bit field; `u32s ( n -- au )` sizes *n* fields; `u32-mask` is the 32-bit mask on any cell size. Gforth's `l@`/`l!` where the host has them and a load-time check (`u32-sound?`) shows they are unsigned 32-bit access: a value with bit 31 set comes back unchanged, and the four characters after the field keep their values; otherwise, or when `lf-u32-portable` is defined first, the Forth-2012 `u32-bytes@`/`u32-bytes!` (four characters, least significant first, an order the module fixes; public for the tests only). `u32!` keeps the low 32 bits; on a 32-bit host a value of 2³¹ or more reads back as a negative cell, so compare with `U<`. Loads in decimal whatever `BASE` is, and restores it. The layout of packed records is defined by arithmetic on the values, never by byte order, and packed memory is never written to a file as it is (the little-endian block words `u32s>le`, `le>u32s`, `u32-le!`, `u32-le@` convert, for sectioned files). The only non-text module allowed byte access (`scripts/check-portable-forth.py`) | New 2026-11-02 for the compact store ([ADR 0016](../adr/0016-compact-store.md), accepted 2026-11-03); not loaded by `lib.fs`; used since 2026-11-03 by the compact store's modules ([below](#the-compact-store)); both versions tested on every host in `tests/lib/lib.fs`, which loads it under `HEX` and asserts that Gforth's words are in use, shows the check refusing a sign-extending fetch and a cell-wide store, and loads it again under `BASE` 8 with `lf-u32-portable` defined to get the Forth-2012 version; after the independent review (2026-11-02) 6 planted faults each caught |
 | Wordlist modules | `src/lib/module.fs` | The two library wordlists of [ADR 0010](../adr/0010-wordlists.md) (accepted), `lf-lib` (public, pushed onto the search order once) and `lf-lib-private` (helpers), and its four words `order+`, `order-`, `module-open`, `module-close` | New 2026-11-03; used by the compact store's library modules below, `sha256.fs`, `text-rule.fs`, `text-run.fs` and, since 2026-11-12, `context.fs` (the ADR's migration converts the others); tests reach helpers with `lf-lib-private order+` |
@@ -38,13 +38,18 @@ is added). The library audit of 2026-11-13 (plan 9.4.8) lists which libraries la
 | Portable 32-bit hashing | `src/lib/hash32.fs` | `hash-fmix` (Murmur3's finaliser), `hash-step ( h x -- h' )` and `hash-bytes ( addr u -- h )` (FNV-1a), every product masked to 32 bits, so 32- and 64-bit hosts give the same values ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/hash32.fs` against values computed in Python |
 | Growable heap stores | `src/lib/slab.fs` | Plan task 1.1.5. `slab-init ( unit limit slab -- outcome )`: units of any size in one heap block that doubles by `RESIZE` up to a limit; `slab-room`, `slab-claim`, `slab-commit`, `slab-at`, `slab-top`, `slab-trim`, `slab-clear`; marks `slab-mark`, `slab-rollback`, `slab-mark-valid?` with `store.fs`'s refusals ([below](#the-compact-store)); a slab as a stack: `slab-push`, `slab-pop`, `slab-2push`, `slab-2pop`, `slab-last`, `slab-drop`, a pop of an empty slab throwing `slab-underflow`; worklists `slab-all?` and `slab-2all? ( slab xt -- flag outcome )` ([below](#stacks-outcome-loops-and-index-checks)) | New 2026-11-03; stacks 2026-11-13 (plan 9.4.8a) in place of 21 hand-written pushes, pops and tops, and 4 more after review reuse-1a (B1); the worklists 2026-11-13 (B2) in place of `lf-meta-pairs-all` and `pq-lrun`; `tests/lib/slab.fs` |
 | Runs (sequences that never change) | `src/lib/runs.fs` | A run is a handle (0 the empty run) to a stretch of a slab of cells, which are only appended, never changed, so runs share cells and a saved run is its handle: `run-push ( run x -- run' outcome )` (in place when the run ends at the top of the cells, else after a copy of it), `run-take` and `run-after ( run n -- run' outcome )` (no copy), `run-cat ( run1 run2 -- run outcome )` (in place when run2 begins where run1 ends), `run-count`, `run@ ( run i -- x )`, `run-valid?`, `runs-reset`, `runs-epoch` (changes with each reset), `runs-cells`; invalid for a handle that names no run or a count out of range, full when a slab cannot grow (no run made); its two slabs are members of the checker context (`context.fs`), so each context has its own runs | New 2026-11-13 (plan FE1g-1; the front end's local contexts and goal lists, `src/front/lctx-views.fs`, `goals.fs`); `tests/lib/runs.fs` (its example, every refusal, every heap refusal inside an operation, 400 random operations against a model), planted fault `fe-goal-run-no-copy` caught |
-| Stable sorting | `src/lib/sort.fs` | `sort-records ( a-addr n sorter -- outcome )` sorts n records of any size in place by the caller's order `( a-addr1 a-addr2 -- n )`, or by their keys (`sorter-key!`; `sorter-cells` and `sorter-u32s` order values); stable: insertion up to `sorter-short` (32) records, above that a bottom-up merge from runs of one record through a scratch (the caller's, `sorter-buffer!`, or the heap's: full when refused, nothing changed), its comparisons call for call those of `level-normalize.fs`'s `lf-lnorm-sort`; no recursion; invalid for a bad count, a sorter not accepted or busy, and an order or key word that changes the stack depth; a THROW out of the order is passed on, the scratch freed ([below](#sorting)) | New 2026-11-12 (the kernel refactor's batch C2 waited for it); used since 2026-11-13 (plan 9.4.8a) by the front end's `Level.normalize` (`src/front/level-normalize.fs`), the re-exporter's mdata members (`src/import/ndjson-emit.fs`) and getInstances' priority sort (`src/front/instances.fs`, branch `s1-synth`); the snapshot's three insertion sorts wait for the owner's approval of the kernel change (9.4.8e); `tests/lib/sort.fs`, 23 planted faults each caught |
+| Stable sorting | `src/lib/sort.fs` | `sort-records ( a-addr n sorter -- outcome )` sorts n records of any size in place by the caller's order `( a-addr1 a-addr2 -- n )`, or by their keys (`sorter-key!`; `sorter-cells` and `sorter-u32s` order values); stable: insertion up to `sorter-short` (32) records, above that a bottom-up merge from runs of one record through a scratch (the caller's, `sorter-buffer!`, or the heap's: full when refused, nothing changed), its comparisons call for call those of `level-normalize.fs`'s `lf-lnorm-sort`; no recursion; invalid for a bad count, a sorter not accepted or busy, and an order or key word that changes the stack depth; a THROW out of the order is passed on, the scratch freed ([below](#sorting)) | New 2026-11-12 (the kernel refactor's batch C2 waited for it); used since 2026-11-13 (plan 9.4.8a) by the front end's `Level.normalize` (`src/front/level-normalize.fs`), the re-exporter's mdata members (`src/import/ndjson-emit.fs`) and getInstances' priority sort (`src/front/instances.fs`, branch `s1-synth`); since branch `reuse-k1` (2026-11-13, awaiting the owner's [kernel] approval) the kernel's six sorts use it: the snapshot's three lists, Level.normalize's arguments and both level substitutions' reached nodes ([below](#sorting)); `tests/lib/sort.fs`, 23 planted faults each caught |
+| Keyed memo tables | `src/lib/memo.fs` | `memo-init ( kcells vcells memo -- outcome )`: keys and values of fixed numbers of cells, entries in a slab found by an `htab.fs` table; `memo-find`/`memo-put` (keys by address), `memo-at`/`memo-claim`/`memo@`/`memo!` (keys of one or two cells), `memo-clear`, `memo-empty` (a large table made small again), `memo-cut` (newest first), a check hook (a stale value is a miss) and an admit hook (an entry may be refused); every memo's table shares one read-only hooks record (review reuse-k1 M1) ([below](#keyed-memo-tables)) | New 2026-11-13 (branch `reuse-k1`); the checker's result caches (`caches.fs`), Lean's replace memo (`replace-memo.fs`) and the NDJSON reader's index maps use it; `tests/lib/memo.fs`, 12 planted faults each caught |
+| Decimal numbers | `src/lib/decimal.fs` | `in-base ( i*x xt base -- j*x )` and `in-decimal ( i*x xt -- j*x )` (BASE set, restored after a `THROW` too); `u>decimal`, `n>decimal`, `ud>decimal`, `d>decimal ( … -- c-addr u )`, `.decimal`, `u>hex`; `decimal>number ( c-addr u -- ud c-addr' u' )`, `decimal-digits?`; `digits>u` (leading zeros skipped), `decimal>u` and `cell-digits` moved from `json.fs`, `skip-zeros` from `bignum.fs` ([below](#decimal-numbers-bits-and-heap-blocks)) | New 2026-11-13 (batch `reuse-out`, plan 9.4.8d) in place of 23 hand-written BASE switches and number readers in 15 modules, kernel included; after review reuse-out (B2) also of the three hexadecimal copies (`name-text.fs`, `log-view.fs`, `latex-text.fs`) and `ir-run.fs`'s digit count and number text; `tests/lib/decimal.fs`, 9 planted faults each caught |
+| Bits and binary search | `src/lib/bits.fs` | `cell-bits` (a constant, counted, never `1 cells 8 *`), `log2-ceiling` (public, from `htab.fs`), `bits>cells`, `bit@`, `bit-on ( i a-addr -- … )` (no caller clears a bit: `bit-off` was dropped after review reuse-out), `lower-bound ( i*x lo hi xt -- i*x k )` (the first index whose element is not below, by the caller's test, over any signed range) ([below](#decimal-numbers-bits-and-heap-blocks)) | New 2026-11-13 (batch `reuse-out`, plan 9.4.8d) in place of 7 cell-width counts (`bignum.fs`'s `limb-bits` since review reuse-out B2), 3 log2 loops, 3 bit sets and 2 binary searches; `tests/lib/bits.fs`, 5 planted faults each caught |
+| Heap blocks in a cell | `src/lib/blocks.fs` | `block-zeroed ( u a-addr -- outcome )`, `block-resize ( u a-addr -- outcome )` (full leaves the cell as it was), `heap-claim`, `heap-release` (moved from `bytes.fs`) ([below](#decimal-numbers-bits-and-heap-blocks)) | New 2026-11-13 (batch `reuse-out`, plan 9.4.8b) in place of 13 hand-written allocate-erase-store and resize-or-allocate copies, kernel included (`env-layers.fs`'s `starts-grow` since review reuse-out B2); `tests/lib/blocks.fs`, 3 planted faults each caught |
+| Priority queues | `src/lib/pqueue.fs` | `pq-init ( order pq -- outcome )`, `pq-push`, `pq-pop`, `pq-min`, `pq-count`, `pq-clear`, `pq-free`: a binary min-heap of cells on a slab by the caller's order ([below](#priority-queues)) | New 2026-11-13 (branch `reuse-k1`); the parallel scheduler's two ready queues (`env-schedule.fs`); `tests/lib/pqueue.fs`, 6 planted faults each caught |
 | Hash tables | `src/lib/htab.fs` | Open addressing over 32-bit slots, hooks for rehashing and comparing, growth at 3/4, removal by Algorithm R, `htab-spread` and `htab-presize` ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/htab.fs` |
 | Hash-consed sets in two tiers | `src/lib/cons.fs`, `src/lib/pools.fs` | Each distinct record once, named by a number; a sealed input set shared read-only and scratch sets over it whose numbers continue; marks, resets, sealing; interned lists of 32-bit numbers (tuples, no fixed length) and texts ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/cons.fs` |
 | Compact store | `src/core/compact.fs` and `compact-tier.fs`, `compact-names.fs`, `compact-levels.fs`, `compact-exprs.fs` | ADR 0016's Lean layer: names, levels, universe lists, literals and 16-byte expression records in input and scratch tiers ([below](#the-compact-store)) | New 2026-11-03; not yet used by the kernel; `tests/core/compact.fs`, round trips of the reference exports and of `Init` |
 | Big natural numbers | `src/lib/bignum.fs` | Arbitrary-precision naturals for Lean's `Nat` literals ([below](#big-natural-numbers)): numbers in an arena the caller provides (`/big-arena`, `big-arena-init`; `big-mark` and `big-release` give back what was made since a mark), one-cell limbs whose width is counted (`limb-bits`), decimal reading and printing (`decimal>big`, `big>decimal`), conversion to and from a cell (`u>big`, `big>u`), comparison (`big-compare`, `big=`, `big<=`), and the operations Lean 4.35.0's kernel computes on literals (`big+ big- big* big/ big-mod big-gcd big-and big-or big-xor big-lshift big-rshift big-pow`, each `( a b arena -- c outcome )`). Schoolbook multiplication with Karatsuba from 48 limbs, Knuth's algorithm D, Lehmer's gcd. Outcomes ok, invalid (a malformed or released number, text or arena) and full (no room, or more bits than the arena's limit, by default Lean's 2^30). No state; loads in decimal whatever `BASE` is | New 2026-11-02 (plan task 5.2.3, library part); not yet used by the kernel (task 5.1.4); `tests/lib/bignum.fs` reaches every outcome; `make test` compares 37,585 cases with Python's integers on the running Gforth and catches 22 planted faults; review fixes of 2026-11-03 (printing overwrote the number below its text, stale operands, two speed fixes) with guarded-arena sweeps; `make check` has 984 of them computed by pinned Lean's kernel |
-| Signed big integers | `src/lib/bigint.fs` | Lean 4.35.0's `Int` over `bignum.fs` ([below](#signed-big-integers)): an integer is a sign cell (-1, 0, 1) followed by a bignum magnitude, made at the top of a bignum arena; `bigint+ bigint- bigint* bigint-ediv bigint-emod` `( a b arena -- c outcome )` (Lean's `/` and `%` on `Int` are `Int.ediv` and `Int.emod`), `bigint-bmod` and `bigint-pow` `( x m arena -- c outcome )` with a natural number `m`, `bigint-negate`, `bigint-gcd`, `bigint-natAbs` and `bigint-toNat` (natural-number results), `bigint-compare`, `bigint-sign`, `bigint-magnitude` (in place), `nat>bigint`, `n>bigint`, `bigint>n`, `decimal>bigint`, `bigint>decimal`, `bigint-valid?`. Outcomes ok, invalid, full as `bignum.fs`'s. Standalone: requires `bignum.fs`, `bounds.fs`, `outcome.fs`, `portability.fs` and `module.fs`; helpers private (ADR 0010); no state; no host recursion of its own; loads in decimal whatever `BASE` is | New 2026-11-13 (plan step FE1i-4, for `by-omega` and `by-decide`); tested alone, on branch `fe1i4-bigint`; no tactic uses it yet. `make test-bigint`: unit tests of every word and outcome, every room from 0 cells up, no heap use; 9,906 pairs against a model of Lean's definitions; the header's example and exact interface from outside the project. `make reference-bigint`: 17,906 pairs (10,000 random) equal pinned Lean's own `Int`, line for line, and 300 kernel-decided equations. 17 planted faults (`fe-bigint-…`) each caught; Forth review 2026-11-13 not blocking, its M1, L1, L2, S1 fixed |
-| SHA-256 | `src/lib/sha256.fs` | FIPS 180-4 SHA-256, incremental ([below](#sha-256)): `sha256:` (or `/sha256` address units of the caller's memory), `sha256-init ( sha -- )`, `sha256-update ( c-addr u sha -- )` with pieces of any size, `sha256-final ( c-addr sha -- )` for the 32-byte digest, `sha256-hex ( c-addr1 c-addr2 -- )` for its 64 lowercase hexadecimal digits. One word per FIPS function (`sha-rotr`, `sha-shr`, `sha-ch`, `sha-maj`, `sha-big-sigma0`, `sha-big-sigma1`, `sha-small-sigma0`, `sha-small-sigma1`), the plain round and schedule built from them, and on cells of 64 bits or more a fast round and schedule with the functions written out in place. Standalone: requires only `portability.fs` and `module.fs`; helpers private in `lf-lib-private` (ADR 0010); no state of its own; nothing fails. Loads in decimal whatever `BASE` is | New 2026-11-03 (plan task 3.2.6, for the export manifests); the program track's flagship verification target; `make test-sha256`: NIST vectors, every split of messages up to 200 bytes, the functions against independent models, the fast round against the plain one, 306 random messages against Python's `hashlib` on both paths, the header's example and the exact public interface checked from a folder outside the project; 14 planted faults each caught |
+| Signed big integers | `src/lib/bigint.fs` | Lean 4.35.0's `Int` over `bignum.fs` ([below](#signed-big-integers)): an integer is a sign cell (-1, 0, 1) followed by a bignum magnitude, made at the top of a bignum arena; `bigint+ bigint- bigint* bigint-ediv bigint-emod` `( a b arena -- c outcome )` (Lean's `/` and `%` on `Int` are `Int.ediv` and `Int.emod`), `bigint-bmod` and `bigint-pow` `( x m arena -- c outcome )` with a natural number `m`, `bigint-negate`, `bigint-gcd`, `bigint-natAbs` and `bigint-toNat` (natural-number results), `bigint-compare`, `bigint-sign`, `bigint-magnitude` (in place), `nat>bigint`, `n>bigint`, `bigint>n`, `decimal>bigint`, `bigint>decimal`, `bigint-valid?`. Outcomes ok, invalid, full as `bignum.fs`'s. Standalone: requires `bignum.fs` (and through it, since 2026-11-13, `bits.fs` and `decimal.fs`), `bounds.fs`, `outcome.fs`, `portability.fs` and `module.fs`; helpers private (ADR 0010); no state; no host recursion of its own; loads in decimal whatever `BASE` is | New 2026-11-13 (plan step FE1i-4, for `by-omega` and `by-decide`); tested alone, on branch `fe1i4-bigint`; no tactic uses it yet. `make test-bigint`: unit tests of every word and outcome, every room from 0 cells up, no heap use; 9,906 pairs against a model of Lean's definitions; the header's example and exact interface from outside the project. `make reference-bigint`: 17,906 pairs (10,000 random) equal pinned Lean's own `Int`, line for line, and 300 kernel-decided equations. 17 planted faults (`fe-bigint-…`) each caught; Forth review 2026-11-13 not blocking, its M1, L1, L2, S1 fixed |
+| SHA-256 | `src/lib/sha256.fs` | FIPS 180-4 SHA-256, incremental ([below](#sha-256)): `sha256:` (or `/sha256` address units of the caller's memory), `sha256-init ( sha -- )`, `sha256-update ( c-addr u sha -- )` with pieces of any size, `sha256-final ( c-addr sha -- )` for the 32-byte digest, `sha256-hex ( c-addr1 c-addr2 -- )` for its 64 lowercase hexadecimal digits. One word per FIPS function (`sha-rotr`, `sha-shr`, `sha-ch`, `sha-maj`, `sha-big-sigma0`, `sha-big-sigma1`, `sha-small-sigma0`, `sha-small-sigma1`), the plain round and schedule built from them, and on cells of 64 bits or more a fast round and schedule with the functions written out in place. Standalone: requires `portability.fs`, `bits.fs` (`cell-bits`) and `module.fs`; helpers private in `lf-lib-private` (ADR 0010); no state of its own; nothing fails. Loads in decimal whatever `BASE` is | New 2026-11-03 (plan task 3.2.6, for the export manifests); the program track's flagship verification target; `make test-sha256`: NIST vectors, every split of messages up to 200 bytes, the functions against independent models, the fast round against the plain one, 306 random messages against Python's `hashlib` on both paths, the header's example and the exact public interface checked from a folder outside the project; 14 planted faults each caught |
 | Visible text | `src/lib/text-rule.fs` | `tr-rule? ( c-addr u -- flag )`: valid UTF-8 with no control, format, line or paragraph separator or surrogate character (Unicode Cc, Cf, Zl, Zp, Cs); `tr-banned? ( code -- flag )`: a code point no such text holds; `tr-shown? ( c-addr u -- flag )`: also a character that is seen, not a space, a blank-looking filler, a combining mark or a default-ignorable code point. The rule of program receipts 0.2 and of run records; tables generated from Unicode 15.1 by `scripts/text_rule_tables.py`. Requires `bounds.fs`, `bytes.fs` and `module.fs`; helpers private; no state | New 2026-11-03 (run records, plan task 2.2.5); `tests/lib/text-rule.fs` on its own; every code point compared with the run-record schema's patterns by `tests/core/test_run_records.py` |
 | Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `-rot`, `max-n`, `cell` and the structure words, compiled only where the host lacks them. `scripts/check-portable-forth.py` refuses a module under `src/` that uses one of them without loading this file, directly or through the files it loads | New 2026-11-02; defines nothing under Gforth except `max-n`; `cell` and the load check added 2026-11-02 |
 | Diagnostics | `src/core/diagnostics.fs` | One record per checker context explaining the first failure of a check: a reason code, the site (module and word, a counted string) and two numbers; first failure wins until `lf-diag-clear`; `lf-diag@`, `lf-diag.`; helpers `lf-diag-walk`, `lf-diag-frames` and `lf-diag-store` explain a walk's, a pass's or a store's failure. Never changes an outcome; catalogue in [DIAGNOSTICS.md](../programming/DIAGNOSTICS.md) | New 2026-11-02 (plan 6.7, first form); every core and kernel module records its full and exhausted sites; `tests/core/diagnostics.fs` |
@@ -72,7 +77,7 @@ LeanForth, unless coupling gains a lot. Audit of `src/lib/` on 2026-11-03:
 
 | Library | General purpose? | What ties it to LeanForth today |
 | --- | --- | --- |
-| `bignum.fs` (natural numbers) | yes; no Lean code (Lean only in comments) | needs `outcome.fs`, `bounds.fs`, `portability.fs` (104 lines); naturals only (subtraction stops at 0, as Lean's `Nat`); all helper names public. Shown working from an unrelated folder on both Gforths |
+| `bignum.fs` (natural numbers) | yes; no Lean code (Lean only in comments) | needs `outcome.fs`, `bounds.fs`, `portability.fs` (104 lines), and since 2026-11-13 `bits.fs` (`cell-bits`) and `decimal.fs` (`skip-zeros`, with its `module.fs`); naturals only (subtraction stops at 0, as Lean's `Nat`); all helper names public. Shown working from an unrelated folder on both Gforths |
 | `bigint.fs` (signed integers) | yes, written to this rule (2026-11-13); Lean only in comments: its semantics are Lean's `Int`, which is also ordinary Euclidean division | requires `bignum.fs`, `bounds.fs`, `outcome.fs`, `portability.fs` and `module.fs`; helpers in `lf-lib-private`, 20 public words (`bigint…`, `nat>bigint`, `n>bigint`, `decimal>bigint`); an example in its header, run with the exact interface checked from a folder outside the project by `make test-bigint` |
 | `json.fs` (RFC 8259 reader), `json-write.fs` | yes | `json.fs` requires `bytes.fs`, which requires the whole `lib.fs` (contexts, walk records, frames) although it uses little of it; helper names public |
 | `bytes.fs` (bounded line reader, UTF-8) | yes, with strict framing rules chosen for Lean's exports (no carriage return, no byte-order mark, final line feed) | requires all of `lib.fs`; the framing rules should become options |
@@ -84,6 +89,8 @@ LeanForth, unless coupling gains a lot. Audit of `src/lib/` on 2026-11-03:
 | `sha256.fs` (SHA-256) | yes, written to this rule (2026-11-03) | requires only `portability.fs` and `module.fs`; helpers in `lf-lib-private`, 17 public words (the hashing interface and FIPS 180-4's functions), all named `sha-…` or `sha256…`; an example in its header and [below](#sha-256), run with the interface checked from a folder outside the project by `make test-sha256` |
 | `runs.fs` (sequences of cells that never change) | yes, written to this rule (2026-11-13) | requires `bounds.fs`, `outcome.fs`, `slab.fs`, `context.fs` and `module.fs` (its state is two context members, so one copy per checker context); helpers in `lf-lib-private`, 10 public words, all named `run…` or `runs…`; an example in its header, run by `tests/lib/runs.fs` without the checker |
 | `sort.fs` (stable sorting) | yes, written to this rule (2026-11-12) | requires `portability.fs`, `bounds.fs`, `outcome.fs`, `u32.fs` and `module.fs`; helpers in `lf-lib-private`, 11 public words, all named `sort…` or `sorter…`; an example in its header, run by `tests/lib/sort.fs` without the checker |
+| `memo.fs` (keyed memo tables) | yes, written to this rule (2026-11-13) | requires `portability.fs`, `bounds.fs`, `outcome.fs`, `u32.fs`, `hash32.fs`, `slab.fs`, `htab.fs` and `module.fs`; helpers in `lf-lib-private`, 17 public words, all named `memo…`; an example in its header, run by `tests/lib/memo.fs` without the checker |
+| `pqueue.fs` (priority queues) | yes, written to this rule (2026-11-13) | requires `portability.fs`, `outcome.fs`, `slab.fs` and `module.fs`; helpers in `lf-lib-private`, 8 public words, all named `pq…` or `/pqueue`; an example in its header, run by `tests/lib/pqueue.fs` without the checker |
 | `text-rule.fs` (visible text) | yes, written to this rule (2026-11-03): a UTF-8 hygiene rule with nothing of Lean | requires `bounds.fs`, `bytes.fs` (and through it `lib.fs`) and `module.fs`; helpers in `lf-lib-private`, three public words (`tr-banned?` since 2026-11-04, for callers that decode text themselves); an example in its header; `tests/lib/text-rule.fs` runs without the checker |
 | coming: the compact store (ADR 0016) | written to this rule from the start | — |
 
@@ -397,7 +404,9 @@ no state of its own.
 
 **Speed** (this machine, 2026-11-12): 100,000 cells with keys below
 1,000, 1.57 million comparisons, 0.17 s with `gforth` 1.0 and 0.31 s with
-0.7.3.
+0.7.3. Short lists (2026-11-13, `gforth-fast` 1.0, while a two-job check
+ran): 8 random cells in 0.6 µs a sort, 32 (the cut-over, by insertion)
+in 7.7 µs; `gforth` 1.0: 2 µs and 22 µs.
 
 **Tests** (`tests/lib/sort.fs`, in `make test-lib`; Gforth 1.0 and
 0.7.3; loaded under `HEX`): the public words and hidden helpers; the
@@ -434,7 +443,8 @@ the count's check, a zero order, the key word skipped, `sorter-u32s`
 reading a cell, a swallowed `THROW`, `sort-unsigned` signed), each
 caught.
 
-**Callers** (2026-11-13, plan 9.4.8a): `src/front/level-normalize.fs`
+**Callers** (2026-11-13). The front end's and the re-exporter's (plan
+9.4.8a): `src/front/level-normalize.fs`
 (`ln-sort`, a max's arguments by `normLt`, through a sorter in its
 context record; the heap's scratch above 32, full when refused) and
 `src/import/ndjson-emit.fs` (`members-sort`, mdata's key tokens by their
@@ -453,19 +463,288 @@ each) by priority with `sort-signed` and `sorter-key!`, as Lean's
 all on the insertion path; a class with more than 32 candidates would
 take the merge.
 
-**Sorts in `src/` that could use it** (2026-11-12; changing them is
-kernel work under the owner's approval, or another agent's front end;
-the last two rows converted 2026-11-13):
+The kernel's (branch `reuse-k1`, under the owner's [kernel] approval):
+the sizes are those passed on one check of all of `Init`
+(`bin/leanforth check --jobs 1 --save-snapshot`, 59,349 declarations),
+counted by a temporary counter in each caller, since removed:
 
-| Where | Kind | Equal keys |
+| Caller | Records and order | Sorts on Init | Of n: 0–1 / 2–8 / 9–32 / 33–256 / more; largest | Why the result is the one before |
+| --- | --- | --- | --- | --- |
+| `src/kernel/level-normalize.fs` `lf-lnorm-sort` (Level.normalize's arguments) | cells by `is_norm_lt`, one unit of fuel per comparison; scratch above the arguments in their stack | 24,545 | 0 / 24,524 / 21 / 0 / 0; 16 | the library's comparisons are, call for call, those of the insertion and merge sorts it replaced (same cut-over, 32), so the fuel too; only structurally equal levels tie |
+| `src/kernel/level-substitute.fs` `lf-lsubst-sorted` (the reached levels) | cells, signed; scratch from the heap above 32 | 13,021,899 | 9,983,236 / 3,035,860 / 2,803 / 0 / 0; 15 | the walk lists each node once: distinct keys have one ascending order (the heapsort it replaced was not stable, which distinct keys make irrelevant) |
+| `src/kernel/mixed-level-substitute.fs` `lf-mls-sorted` (the reached terms) | cells, signed; scratch: the images' cells, not written yet, so never full | 3,230,996 | 1,102 / 1,400,953 / 1,713,117 / 114,599 / 1,225; 2,259 | as above: the audit lists each term once |
+| `src/kernel/env-snapshot.fs` `dep-sort` (a slot's dependencies, written and merged by `env-layers.fs`) | 4-byte little-endian slot numbers, unsigned (`u32-le@` key) | 59,349 | 1,020 / 16,147 / 31,799 / 10,383 / 0; 246 | a stable sort of a total order: the unique result of the insertion sort it replaced |
+| `env-snapshot.fs` `look-sort` (a slot's lookups, when it has names beyond the input) | 8-byte (key, answer) pairs by the little-endian key, unsigned | 8 | 0 / 0 / 8 / 0 / 0; 32 | as above (the keys of a list are distinct) |
+| `env-snapshot.fs` `o-sort` (a slot's names beyond the input) | cells by `o-order`, the names' content | 8 | 0 / 0 / 8 / 0 / 0; 9 | as above: equal content is the same name |
+
+All six share the one `sort-short` cut-over; the snapshot's three share
+one sorter in the writer's record (`snap-outers`), one sort at a time,
+and the others one sorter each in their job's record. A sort above the
+cut-over that needs heap scratch the heap refuses is full: the snapshot's
+save or merge then fails full, and a level substitution is full,
+recorded as a full work stack (the insertion sorts and the heapsort they
+replaced needed no memory). On all of `Init`, checked with the branch and
+with `main` (`--jobs 2`, and `--jobs 1` with the counters), every verdict,
+every fuel count (654,719,715 in all) and the saved snapshot's bytes are
+the same.
+
+## Keyed memo tables
+
+`src/lib/memo.fs` (2026-11-13, branch `reuse-k1`; library audit action 2;
+untrusted until reviewed): a map from keys of a fixed number of cells to
+values of a fixed number of cells, for remembering results. A standalone
+library under the owner's rule
+([above](#reusability-the-libraries-as-standalone-forth-code)): it requires
+`portability.fs`, `bounds.fs`, `outcome.fs`, `u32.fs`, `hash32.fs`,
+`slab.fs`, `htab.fs` and `module.fs`, knows nothing of Lean, and keeps its
+helpers in `lf-lib-private`.
+
+```forth
+require src/lib/memo.fs
+create sq /memo allot   2 1 sq memo-init drop     \ keys of two cells, values of one
+49 7 0 sq memo! drop   7 0 sq memo@ . .           \ -1 49
+8 0 sq memo@ .                                    \ 0: no entry
+sq memo-free
+```
+
+| Word | Stack | Meaning |
 | --- | --- | --- |
-| `src/kernel/env-snapshot.fs` `entry-sink`, `look-sort` (213–218; also `env-layers.fs` 329) | insertion; 8-byte (key, answer) pairs by the little-endian key, unsigned | the lists are distinct by key; a stable sort keeps the bytes in any case: `8 ' sort-unsigned` with `' u32-le@ sorter-key!` |
-| `env-snapshot.fs` `dep-sort` (324–330; `env-layers.fs` 326) | insertion by shifting; little-endian 32-bit slot numbers, unsigned | equal values are equal bytes: `4 ' sort-unsigned` with `' u32-le@ sorter-key!` |
-| `env-snapshot.fs` `o-sink`, `o-sort` (386–391) | insertion; name numbers by content (`o-order`) | equal content is the same name: `' o-order sorter-cells` |
-| `src/kernel/level-normalize.fs` `lf-lnorm-sort` (207–264) | insertion up to 32, else bottom-up merge through slab cells; one unit of fuel per comparison | only structurally equal levels tie; the library's comparisons are the same calls |
-| `src/kernel/level-substitute.fs` `lf-cells-sort` (65–85; used at 256 and by `mixed-level-substitute.fs` 303) | heapsort of signed cells, no scratch, not stable | the reached node indices are distinct; the library would need scratch above 32 |
-| `src/front/level-normalize.fs` `ln-insert`, `ln-sort` (121–137) | insertion by shifting; levels by `normLt` | only structurally equal levels tie |
-| `src/import/ndjson-emit.fs` `member-insert`, `members-sort` (216–225) | insertion; mdata's key tokens by their text | two equal keys are refused as invalid |
+| `/memo` | `( -- u )` | a memo record's size; the record is the caller's, and may move |
+| `memo-init` | `( kcells vcells memo -- outcome )` | an empty memo of keys of `kcells` cells (at least one) and values of `vcells` (none or more), its table made: ok; full (no heap: not live, nothing held); invalid for a bad shape |
+| `memo-free` | `( memo -- )` | its blocks given back; the record zero |
+| `memo-live?`, `memo-count`, `memo-bytes` | `( memo -- flag \| n \| u )` | whether it may be used; entries; address units held (0 when not live) |
+| `memo-find` | `( key memo -- a-addr \| 0 )` | the value cells of the key at `key` (`kcells` cells), or 0: none, refused by the check hook, not live |
+| `memo-put` | `( key memo -- a-addr outcome )` | the value cells of key's entry, found or added (key copied, values zero), for the caller to write; 0 and full (no room, admit refused) or invalid (not live), nothing changed |
+| `memo-at`, `memo-claim` | `( k1 k2 memo -- … )` | the same with a key of one or two cells on the stack (a memo of one key cell reads only `k1`) |
+| `memo@`, `memo!` | `( k1 k2 memo -- x true \| false )`, `( x k1 k2 memo -- outcome )` | the first value cell, read or written |
+| `memo-clear`, `memo-empty` | `( memo -- )` | every entry out; `memo-empty` makes a table of more than `memo-small` (1,024) slots small again, its blocks given back |
+| `memo-cut` | `( n memo -- )` | the entries from the n-th on taken out, newest first |
+| `memo-check!`, `memo-admit!` | `( xt memo -- )` | hooks: `check ( a-addr -- flag )` whether a found value still holds; `admit ( memo -- flag )` whether an entry may be added |
+
+**Algorithm and why.** Entries (key cells, then value cells) in a slab
+that doubles as it fills, found by an open-addressing hash table
+(`htab.fs`: linear probing, doubled before it is 3/4 full, Algorithm R for
+removal) whose hooks hash and compare the key cells. Every key cell is
+mixed in by its low 32 bits (Murmur3's finaliser, `hash32.fs`) and by its
+high bits when any are set, so 32- and 64-bit hosts find the same entries
+and keys that differ only above bit 31 do not collide; keys are compared
+cell by cell, never as bytes. The table keeps its hooks' address, so the
+hooks are a heap block of their own and a memo record may move (a member
+of a checker context does while modules load). A put first makes the
+table ready (it may double, even for a key present), then finds, then
+asks the admit hook, then grows the entries: the order in which the three
+memos it replaced did these steps, so a check's memory meter is charged
+exactly as before. Why so: the three copies it replaced (the checker's
+result caches, Lean's replace memo, the NDJSON reader's index maps) were
+the same table on `htab.fs` and `slab.fs`, each with its own hooks, key
+record and emptying; one library with hooks for the two kernel-specific
+rules (a kept node is valid only while it has the identity kept with it;
+entries are charged to a check's memory limit) serves all three, and the
+front end's next.
+
+**Genericity.** The caller chooses the key and value cells, and the two
+hooks; keys are given by address, or for one or two cells on the stack.
+No order of entries is promised but insertion order for `memo-cut`.
+
+**Scaling.** A find or put costs a hash of `kcells` cells and a few
+probes whatever the size (table at most 3/4 full); a put that doubles the
+table rehashes every entry once (amortised constant). Memory: an entry is
+`kcells + vcells` cells in the slab (up to twice that while it doubles)
+plus 4 to 11 bytes of 32-bit slots; at least 16 slots and the hooks'
+2 cells. No recursion; a few host-stack cells.
+
+**Speed** (this machine, 2026-11-13, `gforth-fast` 1.0, while a two-job
+check ran): 16 keys of two cells put and found 100,000 times with an
+`memo-empty` between, 3.2 million operations in 0.38 s (0.12 µs each);
+1,000,000 distinct keys put in 0.72 s and found in 0.23 s. `gforth` 1.0:
+0.93 s; 1.04 s and 0.42 s.
+
+**Callers** (counted as for the sorts above, on all of `Init`):
+
+| Caller | Key, value (cells) and hooks | Entries when emptied on Init: count; mean; 0–1 / 2–8 / 9–32 / 33–256 / more; largest |
+| --- | --- | --- |
+| `src/kernel/caches.fs`, the five result caches (inferred types ×2, whnf_core, whnf, unfolding) | (identity, 0) → (node, identity); check: the node still has the identity (`replace-memo.fs`'s `lf-kept-node?`); admit: the check's memory meter | 1,750,307 empties; 20.2; 1,284,190 / 136,440 / 158,586 / 143,520 / 27,571; 45,514 |
+| `caches.fs`, the two pair caches (`m_success`, `m_failure`) | (smaller, larger identity) → none; admit as above | 701,894; 9.9; 484,870 / 80,136 / 98,224 / 34,362 / 4,302; 12,844 |
+| `caches.fs`, the free-variable memo | (node, identity) → flag; admit as above | 345,757; 77.1; 187,506 / 29,688 / 47,800 / 58,830 / 21,933; 102,937 |
+| `src/kernel/replace-memo.fs` (Lean's replace cache, one per pass kind and context) | (identity, offset, stamp) → (result, identity); check as above; `memo-cut` takes a call's entries out | 228,961 empties; 186; 24,860 / 45,237 / 77,995 / 62,744 / 18,125; 469,055 (stamped entries kept up to 2^20). Per call taken out: 22,299,167 calls; 5.6; 10,297,605 / 8,065,922 / 3,158,428 / 773,321 / 3,891; 4,107 |
+| `src/import/ndjson.fs`, the index maps (one per record family) | index → ordinal (one cell each) | none: every index of `Init` is its own ordinal, so no map is made (`tests/core/ndjson.fs` makes them) |
+
+**Tests** (`tests/lib/memo.fs`, in `make test-lib`; Gforth 1.0 and 0.7.3;
+loaded under `HEX`): the public words and hidden helpers; the header's
+example; every shape refused; a memo never made, refused by the heap (its
+hooks' block or its table) and freed; keys of one, two and three cells,
+differing in any one cell, and in their high bits only (spread over the
+table: the compared count); values written over; the check hook (a stale
+value a miss, a put finding it again) and the admit hook (asked only for
+a new entry, after the table is ready, before the entries grow); the heap
+refusing the table's growth (for a key present too) and the entries'
+growth; a moved record; cuts, clears and empties (blocks given back, hooks
+kept, a refused new table); a new entry's values zero over a cut one's
+memory; 4,000 random operations against a model. 12 planted faults
+(`lib-memo-…`) each caught; the callers' faults `cache-identity-unchecked`,
+`cache-admit-skipped`, `s6a-memo-identity-unchecked` and
+`ndjson-index-repeat-ignored` caught by the checker's and the reader's tests.
+
+## Priority queues
+
+`src/lib/pqueue.fs` (2026-11-13, branch `reuse-k1`; library audit action
+11; untrusted until reviewed): queues of cells that give back the one that
+comes out first by the caller's order. Standalone: it requires
+`portability.fs`, `outcome.fs`, `slab.fs` and `module.fs`, knows nothing of
+Lean, and keeps its helpers in `lf-lib-private`.
+
+```forth
+require src/lib/pqueue.fs  require src/lib/sort.fs   \ sort.fs for sort-signed
+create ready /pqueue allot   ' sort-signed ready pq-init drop
+7 ready pq-push drop  3 ready pq-push drop  5 ready pq-push drop
+ready pq-pop . ready pq-pop . ready pq-count .     \ 3 5 1
+ready pq-free
+```
+
+| Word | Stack | Meaning |
+| --- | --- | --- |
+| `/pqueue` | `( -- u )` | a queue record's size; the record is the caller's |
+| `pq-init` | `( order pq -- outcome )` | an empty queue by `order ( x1 x2 -- n )`, `sort.fs`'s convention (n > 0: x1 comes out after x2); invalid for an order of 0 |
+| `pq-push` | `( x pq -- outcome )` | ok; full when the heap cannot grow, nothing changed; invalid for a queue not accepted or not live |
+| `pq-min`, `pq-pop` | `( pq -- x )` | the cell that comes out first, staying or taken out (unchecked: the queue holds a cell) |
+| `pq-count` | `( pq -- n )` | cells queued |
+| `pq-clear`, `pq-free` | `( pq -- )` | every cell out; the block given back |
+
+**Algorithm and why.** A binary min-heap in a slab: a push moves the new
+cell up from the last place past each parent that comes out after it, a
+pop moves the last cell down from the root past the child that comes out
+first (the right one on a tie, as in the scheduler's heap it replaced, so
+the scheduler's queues are the same cell for cell) while that child comes
+out before it. A moving cell goes through a hole (each cell it passes
+moves into the hole, it is stored once at the end), with the comparisons
+and the result of swapping, and the hole and the moving value kept in the
+record, so the words pass one item. Why so: the scheduler's queues hold
+declaration numbers, pushed and popped in any order, up to one per
+declaration; a heap is the simplest structure with logarithmic steps, and
+no cell tied by the order is promised an order (a heap is not stable).
+
+**Genericity.** Cells, ordered by the caller's xt (values, or numbers
+naming records the order looks up).
+
+**Scaling.** At most about log2 n comparisons for a push and 2 log2 n for
+a pop; one cell per cell queued, the slab doubling from 16; no recursion.
+
+**Speed** (as above, `gforth-fast` 1.0): 16 random cells pushed and popped
+100,000 times, 1.6 million operations in 0.34 s (0.21 µs each); 1,000,000
+random cells pushed in 0.09 s and popped in 1.1 s. `gforth` 1.0: 0.75 s;
+0.22 s and 1.9 s.
+
+**Callers**: `src/kernel/env-schedule.fs`, the parallel scheduler's two
+ready queues (declaration numbers, `sort-signed`), pushed and popped in
+the driving task only. On all of `Init` with `--jobs 2` (counted by a
+temporary counter, since removed): 57,919 pushes, the queue then holding
+7,049 cells on average and 17,071 at most (0–1: 45, 2–8: 179, 9–32: 293,
+33–256: 1,584, more: 55,818); the serial run (`--jobs 1`) schedules
+nothing. The scheduler's verdicts and snapshot are the serial run's, the
+same as before the change (see [Sorting](#sorting)).
+
+**Tests** (`tests/lib/pqueue.fs`, in `make test-lib`; Gforth 1.0 and 0.7.3;
+loaded under `HEX`): the public words and hidden helpers; the header's
+example; an order of 0 and a queue never made or freed; signed values,
+duplicates, unsigned values with the top bit set, an order with ties;
+clearing; the return stack checked; the heap refusing growth (full,
+nothing changed); comparisons within 10 a push and 20 a pop for 1,000
+cells; 3,000 random pushes and pops against a model and against a copy
+of the scheduler's former heap, the same cell out at every pop and the
+same heap cell for cell after every step. 6 planted faults (`lib-pq-…`)
+each caught.
+
+## Decimal numbers, bits and heap blocks
+
+Batch `reuse-out` (2026-11-13, plan 9.4.8k; 9.4.8b and 9.4.8d): three
+small libraries for operations that a dozen modules each wrote by hand.
+Each is standalone (it requires only `portability.fs`, `module.fs` or
+`outcome.fs`), keeps its helpers private where it has any, and is tested
+on Gforth 1.0 and 0.7.3 outside the checker (`tests/lib/decimal.fs`,
+`bits.fs`, `blocks.fs`).
+
+```forth
+hex ff u>decimal type  -10 n>decimal type  decimal   \ 255-16
+s" 1234" digits>u . .                              \ -1 1234
+create sorted 2 , 3 , 5 , 7 , 11 ,
+: below? ( x k -- x flag ) cells sorted + @ over < ;
+6 0 5 ' below? lower-bound nip .                  \ 3: the first not below 6
+variable buf  0 buf !  100 buf block-zeroed .      \ 0: ok, zeroed
+buf heap-release
+```
+
+**Decimal numbers** (`decimal.fs`). *Algorithm*: `in-base` runs a word
+with `BASE` set under `CATCH` and restores `BASE` on both paths, passing
+a `THROW` on (the hand-written copies lost `BASE` when one came out);
+`in-decimal` is `in-base` with ten. The text words build pictured output
+inside it, so their text is the host's transient pictured-output buffer
+(`u>hex` writes hexadecimal as the host's `#` does, upper case on
+Gforth); reading is by hand, digit by digit (`digits>u`, exact or false
+when it does not fit a nonnegative cell, leading zeros skipped by
+`skip-zeros` once the text is as long as `cell-digits`, so the short
+path costs nothing more; `decimal>u`, modulo the cell size), or by
+`>NUMBER` inside `in-decimal` (`decimal>number`, `decimal-digits?`). *Genericity*: cells
+and double cells, signed or unsigned; any word under `in-decimal`.
+*Scaling*: linear in the digits, nothing allocated. *Speed* (`gforth-fast`
+1.0, this machine, 2026-11-13, while a two-job test ran): `7 u>decimal`
+19 ns, `max-n u>decimal` 112 ns, `digits>u` of 19 digits 19 ns.
+*Callers*: diagnostics and reports (`author/errors.fs`, `cli/check-run.fs`,
+`cli/leanforth.fs`, `cli/name-text.fs`, `present/print-job.fs`,
+`import/manifest.fs`, `import/ndjson-emit.fs`, `import/run-record.fs`,
+`program/verify-report.fs`, `program/ir-run.fs`'s printed stacks), the
+readers of numbers (`import/stage.fs`'s and the kernel's `rec_` test,
+`environment.fs`'s auxiliary recursor number, `program/ir-reader.fs`,
+`ir-run.fs`, `lib/json.fs`), the kernel's generated names
+(`check-block.fs`'s `u_k`, `inductive-nested.fs`'s `_k`), `u>hex` for the
+escapes of `cli/name-text.fs` and the LaTeX printers
+(`present/latex-text.fs`, `statement-forms.fs`), `skip-zeros` for
+`bignum.fs`'s decimal reader and `ir-run.fs`'s literals; on Init only the progress line, the report's counts and the
+manifest's counts run (numbers below 10^9); sizes per call are not
+measured yet (plan 9.4.8g).
+
+**Bits** (`bits.fs`). *Algorithm*: `cell-bits` counts a cell's bits once
+by shifting `max-n` right; `log2-ceiling` shifts u-1 right (the smallest
+k with 2^k ≥ u); a bit set is a run of cells, bit i in cell i / cell-bits;
+`lower-bound` halves lo..hi (Knuth's Algorithm B, TAOCP 6.2.1, in its
+"first not below" form), asking the caller's test whether element k is
+below the sought one; the midpoint takes hi − lo unsigned, so any signed
+range halves (review reuse-out L1: a range wider than `max-n` ran on). *Genericity*: bit indices unchecked (the caller
+keeps them in range); the test `( i*x k -- i*x flag )` sees the values
+below k (as `all?` gives them), so a search may carry a key and a record;
+the elements must be ordered so that the test holds for a prefix.
+*Scaling*: bit words constant time; `lower-bound` ⌊log2 (hi − lo)⌋ + 1
+tests, no memory, the test, lo, hi and k on the return stack. *Speed*
+(`gforth-fast`, as above): `bit-on` plus `bit@` 9 ns; `lower-bound` over
+32 cells 34 ns, over 100,000 cells 101 ns. *Callers*: `htab.fs` (its
+largest table, its presizing), `cons.fs`, `terms.fs` (presizing the term
+table from the stage's counts), `check-run.fs` (the expression table's
+size from the file's), the axiom rows of `environment.fs` (a bit per
+axiom of the run), the feed's copied-expression map (`feed.fs`, a bit per
+stage expression; none set on Init, whose export has no metadata), the reach
+tables of the author's export (`reach.fs`, a bit per term and level),
+`sha256.fs`, `run-record.fs`, `ir-run.fs` and `leanforth.fs` (the cell
+width), the mixed level substitution's reached list (`lower-bound` over
+up to 2,259 terms on Init, as the sort's table above) and the feed's
+copies (none on Init).
+
+**Heap blocks** (`blocks.fs`). *Algorithm*: a block is named by the cell
+that holds its address (0: none); `block-zeroed` allocates at least one
+unit, erases and stores; `block-resize` resizes the cell's block or
+allocates one for an empty cell; both leave the cell as it was when the
+heap refuses (full); `heap-release` frees and zeroes the cell, so a
+second release does nothing. *Genericity*: any size; the cell may be a
+record field, a variable or a context member. *Scaling*: one `ALLOCATE`
+or `RESIZE`, plus the erase for `block-zeroed`. *Speed* (`gforth-fast`,
+as above): `block-zeroed` and `heap-release` of 64 bytes 15 ns, of 1 MB
+8.8 µs (the erase). *Callers*: the import's maps (`env-import.fs`'s
+`ua-new` and its layer declarations, `env-layers.fs`, `snapshot-layer.fs`),
+the feed's maps and buffers (`feed.fs`), the reach tables (`reach.fs`),
+the author's numbering tables (`export.fs`), the re-exporter's buffer
+(`ndjson-emit.fs`), the command line's layer list (`leanforth.fs`), the
+program report's text (`verify-report.fs`), and `heap-release`'s many
+users (about 40, through `bytes.fs`); on Init the feed's maps (a cell
+per level, a bit per expression) are its largest zeroed blocks; sizes
+per call are not measured yet (plan 9.4.8g).
 
 ## Stacks, outcome loops and index checks
 
@@ -544,10 +823,13 @@ and ok) or one fails (false and its outcome, whatever its flag:
 `ok-true?`); `slab-2all?` does the same with pairs and `xt ( x1 x2 --
 flag outcome )`. The values not yet tested stay on the slab (the callers
 clear it before the next run). A slab that is not live answers false and
-invalid, no test run; one too narrow for a pair throws as `slab-2pop`.
-*Genericity*: any test with that stack effect; it finds its value (pair)
-on top, the slab and the xt below, which it must leave, and may push
-onto the same slab or use the return stack. *Scaling*: one pop and one
+invalid, no test run; a slab whose units are narrower than a cell
+(`slab-all?`) or a pair (`slab-2all?`) throws `slab-underflow`, as
+`slab-pop` and `slab-2pop` do. *Genericity*: any test with that stack
+effect; it finds its value (pair) on top and below it the slab and, for
+`slab-all?` only, the xt (`slab-2all?` keeps its xt on the return
+stack), which it must leave untouched; it may push onto the same slab or
+use the return stack (review reuse-1a re-check L). *Scaling*: one pop and one
 test per value, newest first (depth first); the pending work lies in the
 heap, so no depth needs the host's stacks; constant overhead per value.
 *Speed* (as above, `bench-loops.fs`): 50–65 ns a value, the pop

@@ -1,4 +1,5 @@
 include ../support/tester.fs
+include ../support/heap-watch.fs
 require ../../src/lib/lib.fs
 require ../../src/core/level-scope.fs
 require ../../src/core/levels.fs
@@ -152,20 +153,49 @@ T{ ipq one w+1 sub -> lf-level-count @ 1- outcome-ok }T
 T{ lf-level-count @ 1- lf-level-read -> lf-level-tag-max one w+1 true }T
 T{ lf-lsubst-stamp @ lf-lsubst-reached @ -> 1 3 }T
 
-\ lf-cells-sort: every arrangement of up to six cells, with repeats, comes
-\ out in ascending order and as the same cells (their sum and xor).
-create sort-cells 6 cells allot
-: sort-cell ( i -- addr ) cells sort-cells + ;
-: arrangement! ( code n -- ) 0 ?do dup 3 mod i sort-cell ! 3 / loop drop ;
+\ The reached nodes' sort (lf-lsubst-sorted, lib/sort.fs): every
+\ arrangement of up to six cells, with repeats, comes out in ascending
+\ order and as the same cells (their sum and xor); so do 40 cells, sorted
+\ by a merge through scratch from the heap, freed after; a heap that
+\ refuses the scratch is full, recorded as the list's, the list as it was.
+: sort-cell ( i -- addr ) lf-lsubst-reached-cells slab-at ;
+: listed ( n -- ) dup lf-lsubst-reached-cells slab-hold ok? must lf-lsubst-reached ! ;
+: arrangement! ( code n -- ) dup listed 0 ?do dup 3 mod i sort-cell ! 3 / loop drop ;
 : ascending? ( n -- flag )
   true swap 1 max 1 ?do i sort-cell @ i 1- sort-cell @ < if drop false then loop ;
 : sum-xor ( n -- sum xor ) 0 0 rot 0 ?do i sort-cell @ tuck xor >r + r> loop ;
 : arrangement-sorted? ( code n -- flag )
-  tuck arrangement! dup sum-xor 2>r sort-cells over lf-cells-sort
-  dup ascending? swap sum-xor 2r> d= and ;
+  tuck arrangement! dup sum-xor 2>r lf-lsubst-sorted ok? over ascending? and
+  swap sum-xor 2r> d= and ;
 : arrangements-sorted? ( -- flag )
   true 7 0 do 729 0 do i j arrangement-sorted? and loop loop ;
 T{ arrangements-sorted? -> true }T
+: descending ( n -- ) dup listed dup 0 ?do dup i - i sort-cell ! loop drop ;
+variable blocks-before
+T{ 40 descending live-blocks @ blocks-before ! lf-lsubst-sorted 40 ascending?
+   live-blocks @ blocks-before @ = -> outcome-ok true true }T
+lf-diag-clear
+T{ 40 descending 1 heap-refusals ! lf-lsubst-sorted 0 sort-cell @ 39 sort-cell @
+   -> outcome-full 40 1 }T
+T{ lf-diag@ nip nip -> 40 lf-diag-work-stack-full }T
+lf-diag-clear
+\ In a substitution: 40 succs over pp, pp given for itself (so no node is
+\ made), reach 41 levels; the build sorts them through scratch from the
+\ heap, the call's one allocation once the reached list has grown to hold
+\ them. Refused, the substitution is full, recorded as the reached list's
+\ (41 levels), and nothing is appended.
+: succs ( level n -- level' ) 0 ?do lf-level-succ must loop ;
+pp 40 succs constant pp+40
+variable refusals-left
+: sub-41 ( k -- result ok | status )
+  heap-refusals ! pp+40 pp qq sub heap-refusals @ refusals-left ! 0 heap-refusals ! ;
+T{ max-n sub-41 max-n refusals-left @ - -> pp+40 outcome-ok 2 }T
+T{ max-n sub-41 max-n refusals-left @ - -> pp+40 outcome-ok 1 }T
+lf-level-count @ constant before-41
+T{ 1 sub-41 refusals-left @ lf-level-count @ before-41 = -> outcome-full 0 true }T
+T{ lf-diag@ nip nip -> 41 lf-diag-work-stack-full }T
+lf-diag-clear
+T{ 2 sub-41 refusals-left @ -> pp+40 outcome-ok 1 }T
 
 \ Hash-consed levels (compact-store plan step S4): a substitution whose
 \ image exists gives that level and appends nothing; a build that fails

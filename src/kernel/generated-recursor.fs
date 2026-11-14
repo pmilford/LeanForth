@@ -91,7 +91,7 @@ end-structure
 : lf-genrec-sorted? ( node -- flag ) lf-mhead-kind lf-head-sort = ;
 : lf-genrec-params? ( node d -- node' flag )
   if lf-ind-nparams lf-genrec-skip exit then
-  lf-ind-nparams 0 ?do i lf-genrec-step 0= if false unloop exit then loop true ;
+  lf-ind-nparams ['] lf-genrec-step all? ;
 : lf-genrec-indices? ( node d -- node' flag )
   dup lf-ind-n 0 ?do
     dup lf-ind-ty lf-ty-domain @ i + rot swap lf-genrec-step
@@ -177,16 +177,13 @@ end-structure
 : lf-genrec-type ( d -- outcome )
   dup lf-ind-type-at lf-idecl-type @ lf-genrec-subst dup ok? 0= if nip nip exit then drop
   swap ?dup if lf-genrec-other else lf-genrec-first then ;
-: lf-genrec-types ( -- outcome )
-  lf-ind-types@ 0 ?do i lf-genrec-type dup ok? 0= if unloop exit then drop loop
-  outcome-ok ;
+: lf-genrec-types ( -- outcome ) lf-ind-types@ ['] lf-genrec-type ok-each ;
 : lf-genrec-ctor ( j -- outcome )
   dup lf-ind-ctor-type lf-genrec-subst dup ok? 0= if nip nip exit then drop
   swap lf-genrec-ctor-cells slab-at ! outcome-ok ;
 : lf-genrec-ctors ( -- outcome )
   lf-ind-ctors@ 1 max lf-genrec-ctor-cells slab-hold ok? 0= if outcome-full exit then
-  lf-ind-ctors@ 0 ?do i lf-genrec-ctor dup ok? 0= if unloop exit then drop loop
-  outcome-ok ;
+  lf-ind-ctors@ ['] lf-genrec-ctor ok-each ;
 
 \ The build, between the copy of the block record and its return. The
 \ type slot d opens its block (its header's first member), and is the

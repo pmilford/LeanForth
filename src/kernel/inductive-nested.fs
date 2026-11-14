@@ -66,6 +66,7 @@
 \ builders inductive-recursor.fs's.
 
 require ../lib/lib.fs
+require ../lib/decimal.fs
 require ../core/constant-references.fs
 require ../core/diagnostics.fs
 require ../core/input.fs
@@ -136,7 +137,7 @@ end-structure
   0 lf-nest-site lf-diag-nested-shape lf-diag-note outcome-rejected no-result ;
 \ A node made by inductive-recursor.fs's builders (whose failure sticks
 \ until lf-rcr-begin): (node ok), or (-1 failure).
-: lf-nest-built ( node -- node outcome ) lf-rcr-status@ dup ok? 0= if nip no-result then ;
+: lf-nest-built ( node -- node outcome ) lf-rcr-status@ ok-or-none ;
 \ A constant name at the level pairs given.
 : lf-nest-const ( name pairs n -- node )
   >r >r lf-name-generation @ r> r> lf-cref-new lf-rcr-referenced ;
@@ -199,7 +200,7 @@ end-structure
 : lf-nest-try ( node frames try -- result outcome )
   >r dup >r lf-nest-lend r@ frame-context @ r> r> swap >r execute r> lf-nest-back ;
 : lf-nest-replaced ( node frames try -- ... frames next )
-  >r 2dup r> lf-nest-try 2dup lf-nest-none?
+  2dup-under lf-nest-try 2dup lf-nest-none?
   if 2drop lf-nest-descend else 2swap dup >r lf-nest-kept r> 0 then ;
 \ A leaf no store holds is refused, any other kept.
 : lf-nest-leaf ( node frames tag -- ... frames next )
@@ -259,7 +260,8 @@ end-structure
   >r over swap lf-nest-distance dup 0< if drop r> drop true exit then r> lf-nest-graft ;
 \ Lean's appendIndexAfter (append_after(idx), name.cpp 340-342): a last
 \ string component s becomes s_idx, a last number gets a component _idx.
-: lf-nest-digits ( n -- c-addr u ) base @ >r decimal 0 <# #s [char] _ hold #> r> base ! ;
+: lf-nest-underscored ( n -- c-addr u ) 0 <# #s [char] _ hold #> ;
+: lf-nest-digits ( n -- c-addr u ) ['] lf-nest-underscored in-decimal ;
 : lf-nest-text-at ( -- addr ) 0 lf-nest-text slab-at ;
 : lf-nest-joined ( c-addr u c-addr2 u2 -- c-addr' u' true | false )
   2over nip over + dup lf-nest-text slab-hold ok? 0= if drop 2drop 2drop false exit then
@@ -413,12 +415,10 @@ end-structure
   dup 0< if drop lf-nest-new ok-then? 0= if no-result exit then then lf-nest-aux-app ;
 \ Whether one of the first k of the n arguments of node's spine mentions
 \ a type of the block (on the block's fuel).
+: lf-nest-arg-mentions? ( node n i -- node n flag outcome )
+  2dup-under lf-ind-arg lf-ind-occurrences ;
 : lf-nest-mentions? ( node n k -- flag outcome )
-  0 ?do
-    2dup i lf-ind-arg lf-ind-occurrences ok-then?
-    0= if nip nip false swap unloop exit then
-    if 2drop true outcome-ok unloop exit then
-  loop 2drop false outcome-ok ;
+  ['] lf-nest-arg-mentions? ok-any? 2swap 2drop ;
 \ An occurrence's I: a type Lean's environment holds (lf-env-find),
 \ inductive; its slot, or -1 for none (no inductive slot of that name
 \ before the block: Lean's find fails or finds no inductive type; none
@@ -485,10 +485,9 @@ end-structure
   lf-nest-wrap ok-then? 0= if nip exit then swap lf-nest-type-cell ! outcome-ok ;
 \ The queue: each type's constructors in turn, the auxiliary types made
 \ meanwhile included.
+: lf-nest-ctor-at ( first k -- first outcome ) over + lf-nest-ctor ;
 : lf-nest-type ( q -- outcome )
-  dup lf-ind-ty lf-ty-ctors @ over lf-ind-ty lf-ty-ctor @ tuck + swap ?do
-    i lf-nest-ctor dup ok? 0= if nip unloop exit then drop
-  loop drop outcome-ok ;
+  lf-ind-ty dup lf-ty-ctor @ swap lf-ty-ctors @ ['] lf-nest-ctor-at ok-each nip ;
 : lf-nest-queue ( -- outcome )
   0 begin dup lf-ind-types@ < while
     dup lf-nest-type dup ok? 0= if nip exit then drop 1+
@@ -583,8 +582,7 @@ end-structure
 : lf-nest-rule-back ( j -- outcome )
   dup lf-ind-rule @ lf-nest-restore ok-then? 0= if nip exit then
   swap lf-ind-rule ! outcome-ok ;
-: lf-nest-each ( xt n -- outcome )
-  0 ?do i over execute dup ok? 0= if nip unloop exit then drop loop drop outcome-ok ;
+: lf-nest-each ( xt n -- outcome ) swap ok-each ;
 : lf-nest-recs-back ( -- outcome ) ['] lf-nest-rec-back lf-ind-types@ lf-nest-each ;
 : lf-nest-rules-back ( -- outcome ) ['] lf-nest-rule-back lf-ind-ctors@ lf-nest-each ;
 \ After the recursors are built (step 12): restore them; ok at once for
@@ -599,7 +597,6 @@ end-structure
 : lf-nest-rec-name ( a -- outcome )
   0 lf-ind-ty lf-ty-rec-name @ over lf-ind-in-types@ - 1+ lf-nest-indexed
   0= if drop outcome-full exit then swap lf-ind-ty lf-ty-rec-name ! outcome-ok ;
+: lf-nest-rec-name-k ( k -- outcome ) lf-ind-in-types@ + lf-nest-rec-name ;
 : lf-nest-rec-names ( -- outcome )
-  lf-ind-types@ lf-ind-in-types@ ?do
-    i lf-nest-rec-name dup ok? 0= if unloop exit then drop
-  loop outcome-ok ;
+  lf-ind-types@ lf-ind-in-types@ - ['] lf-nest-rec-name-k ok-each ;

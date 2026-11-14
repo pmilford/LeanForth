@@ -8,7 +8,11 @@
 \ outcome-and, outcome-steps, ok-and, ok-with, the ok-then and ok-keep
 \ words, and the loops ok-each and ok-fold; the tests over every index,
 \ all? (a flag) and ok-all? (a flag and an outcome), with ok-true? their
-\ stop test; outcome-first! keeps a first failure in a cell.
+\ stop test, and over some index, any? and ok-any? (ok-found? its stop
+\ test); 2dup-under gives a step of these loops a copy of its two values;
+\ outcome-first! keeps a first
+\ failure in a cell; no-result, ok-or-none and room-result give a step's
+\ result with its outcome.
 \ No state, no dependencies.
 
 0 constant outcome-ok           \ succeeded; for a comparison, shown equal
@@ -69,6 +73,17 @@
   dup ok? if drop true else 2swap 2drop false then ;
 \ A failure that has no result: -1 in the result's place.
 : no-result ( outcome -- -1 outcome ) -1 swap ;
+\ A step's result kept only on ok: on any other outcome -1 takes its
+\ place, so a failure never hands on a half-made value.
+: ok-or-none ( x outcome -- x outcome | -1 outcome ) dup ok? 0= if nip no-result then ;
+\ A result that needed room, as a store gives it ( x true | false ): x and
+\ ok, or -1 and full.
+: room-result ( x true | false -- x outcome )
+  if outcome-ok else outcome-full no-result then ;
+\ A copy of the two values under the top one, put under it: what a step
+\ of the loops below reads when it keeps two values under its index k.
+\ Example: `: in-at? ( x addr k -- x addr flag ) 2dup-under cells + @ = ;`.
+: 2dup-under ( x1 x2 k -- x1 x2 x1 x2 k ) >r 2dup r> ;
 \ Run the step xt ( i*x k -- i*x outcome ) for k = 0, 1, ... n-1 while it
 \ gives ok: ok, or the first outcome that is not ok, after which no step
 \ runs. The values below k are the steps' to read and replace, keeping
@@ -103,7 +118,16 @@
 : all? ( i*x n xt -- i*x flag )
   dup 1+ swap ?do 0 max 0 ?do i j execute 0= if false unloop unloop exit then
   loop loop true ;
-\ The same for a test that may fail, xt ( i*x k -- i*x flag outcome ):
+\ Whether the test xt ( i*x k -- i*x flag ) holds for some k = 0, 1, ...
+\ n-1: true at the first k it holds, after which none runs; else false.
+\ n <= 0 gives false. The values below k and the xt as in all?. Example,
+\ whether a table's first three cells hold a negative one: `table 3 '
+\ cell-neg? any? nip` with `: cell-neg? ( table k -- table flag ) cells
+\ over + @ 0< ;`.
+: any? ( i*x n xt -- i*x flag )
+  dup 1+ swap ?do 0 max 0 ?do i j execute if true unloop unloop exit then
+  loop loop false ;
+\ The same as all? for a test that may fail, xt ( i*x k -- i*x flag outcome ):
 \ true and ok when every test gives true and ok; else false beside the
 \ first answer's outcome that stops the loop, ok for a plain false. n <=
 \ 0 gives true and ok. Example, Level.beq of a constant's universe
@@ -112,6 +136,20 @@
 : ok-all? ( i*x n xt -- i*x flag outcome )
   dup 1+ swap ?do 0 max 0 ?do i j execute ok-true? 0= if unloop unloop exit then
   loop loop true outcome-ok ;
+\ Stop at a true answer that is ok (true, ok and true) or at any failure
+\ (false, its outcome and true, so a failure never reads as an answer);
+\ go on after a false answer that is ok (false). The stop test of ok-any?.
+: ok-found? ( flag outcome -- true outcome true | false outcome true | false )
+  dup ok? 0= if nip false swap true exit then drop 0<> dup if outcome-ok true then ;
+\ The same as any? for a test that may fail, xt ( i*x k -- i*x flag
+\ outcome ): true and ok at the first true answer that is ok; false and
+\ the outcome of the first failure; after either none runs; false and ok
+\ when no answer is true. n <= 0 gives false and ok. Example, whether an
+\ argument mentions the type: `node n k ' arg-mentions? ok-any? 2swap
+\ 2drop` with arg-mentions? ( node n i -- node n flag outcome ).
+: ok-any? ( i*x n xt -- i*x flag outcome )
+  dup 1+ swap ?do 0 max 0 ?do i j execute ok-found? if unloop unloop exit then
+  loop loop false outcome-ok ;
 \ Keep the first failure in a cell: store the outcome only while the cell
 \ holds ok, so a later outcome, ok or not, never hides an earlier failure.
 : outcome-first! ( outcome a-addr -- ) dup @ ok? if ! else 2drop then ;

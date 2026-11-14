@@ -104,9 +104,12 @@ create kept-then 4096 cells allot
   snap-file s" {}" ck-snapshot-save ok? s" save" must ck-release
   20000000 ck-start snap-file -1 ck-snapshot-load ok? s" snapshot load" must ck-check
   ck-outcome ok? s" snapshot run" must ck-verdicts? s" snapshot view" must ;
+\ Every section is loaded, the last (the information) included: its text
+\ is the one saved (review reuse-out B1, snap-loads).
+: info-kept? ( -- flag ) ck-snap snap-info s" {}" compare 0= ;
 : round-trip ( c-addr u checked? -- )
-  fresh keep-then reloaded
-  true lf-input-count 0 ?do i same-now? and loop s" round trip" must ck-release ;
+  fresh keep-then reloaded info-kept?
+  lf-input-count 0 ?do i same-now? and loop s" round trip" must ck-release ;
 
 : each-export ( xt -- )
   checked# 0 ?do i checked-exports export@ true 3 pick execute loop
@@ -246,6 +249,14 @@ ck-release
   true ['] load-at made 1+ 1 ?do i load-at drop kept? and loop ;
 T{ ' load-at made 0> load-kept? 1 load-at 0 load-at
    -> true true outcome-full 0 outcome-ok 0 }T
+\ The same save for a slot of more than 32 dependencies (review reuse-k1
+\ H1): tests/cli/jobs/fan40.ndjson's last declaration depends on 40
+\ others (gen.py fan 40), so the save sorts its list through heap scratch
+\ (lib/sort.fs above its cut-over of 32); each refusal, that scratch's
+\ too, is full, never an unsorted list reported ok.
+s" tests/cli/jobs/fan40.ndjson" false fresh
+T{ ' save-at made 0> ' save-at all-full? save -> true true outcome-ok }T
+ck-release
 
 \ ---- The header's checks in order (review FRK C3), on a record in
 \ memory: each refusal with its outcome and reason, the first only; an

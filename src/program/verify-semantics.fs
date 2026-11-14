@@ -311,7 +311,7 @@ end-structure
 \ the k-th redefinition of that name.
 : pv-def+ ( c-addr u def -- def )
   >r r@ pv-def-chars chars + swap dup >r chars move r> r@ pv-def-length +! r> ;
-: pv-suffix+ ( def k -- ) >r s" '" rot pv-def+ r> pv-decimal rot pv-def+ drop ;
+: pv-suffix+ ( def k -- ) >r s" '" rot pv-def+ r> n>decimal rot pv-def+ drop ;
 : pv-version-suffix ( def -- ) dup pv-def-version @ ?dup if pv-suffix+ else drop then ;
 : pv-name-folded ( def -- def ) dup pv-def-chars pv-fold ;
 : pv-ir-name! ( def -- )
@@ -324,9 +324,9 @@ end-structure
   over pv-def-version ! pv-ir-name! ;
 \ Whether an earlier definition has the IR name of def, the newest.
 : pv-same-name? ( def index -- flag ) pv-def-text rot pv-def-chars compare 0= ;
+: pv-same-name-at? ( def index -- def flag ) over swap pv-same-name? ;
 : pv-name-taken? ( def -- flag )
-  pv-defs store-count @ 1- 0 ?do dup i pv-same-name? if drop true unloop exit then loop
-  drop false ;
+  pv-defs store-count @ 1- ['] pv-same-name-at? any? nip ;
 : pv-new-def ( kind -- index )
   pv-defs store-new-slot 0= if drop pv-why-capacity pv-fail then
   >r tuck pv-def! pv-name-taken? pv-why-version-name pv-?fail r> ;

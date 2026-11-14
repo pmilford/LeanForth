@@ -113,7 +113,7 @@ end-structure
   execute 0= if 2drop s" ?" then ;
 : lf-lv-put ( c-addr u -- ) lf-lv-safe lf-lv-put-raw ;
 : lf-lv-out ( c-addr u -- ) lf-lv lf-lv-sink @ ?dup if execute else type then ;
-: lf-lv-n ( n -- ) dup 0< if s" -" lf-lv-put negate then lf-pp-digits lf-lv-put ;
+: lf-lv-n ( n -- ) dup 0< if s" -" lf-lv-put negate then u>decimal lf-lv-put ;
 : lf-lv-char ( c-addr u n -- c-addr' u' n' ) >r 2dup utf8-length 1 max /string r> 1+ ;
 : lf-lv-chars ( c-addr u -- n ) 0 begin over while lf-lv-char repeat nip nip ;
 create lf-lv-blanks 64 allot lf-lv-blanks 64 bl fill
@@ -122,10 +122,8 @@ create lf-lv-blanks 64 allot lf-lv-blanks 64 bl fill
 \ LaTeX style (lf-lv-latex!, used by the proof outline): n blanks are n
 \ space widths of the font, a column ends with & and a line with \\.
 : lf-lv-tex? ( -- flag ) lf-lv lf-lv-tex @ 0<> ;
-\ A number in hexadecimal, straight to the output.
-: lf-lv-hex ( u -- ) base @ >r hex 0 <# #s #> r> base ! lf-lv-out ;
 : lf-lv-hspace ( n -- )
-  dup 0> 0= if drop exit then s" \hspace*{" lf-lv-out lf-pp-digits lf-lv-out
+  dup 0> 0= if drop exit then s" \hspace*{" lf-lv-out u>decimal lf-lv-out
   s" \fontdimen2\font}" lf-lv-out ;
 : lf-lv-spaces ( n -- ) lf-lv-tex? if lf-lv-hspace else lf-lv-blank-run then ;
 \ Write the buffer, padded with spaces to width characters, and empty it.
@@ -353,8 +351,8 @@ defer lf-lv-level ( ref -- level true | false )
   >r dup lf-level-identity 0= if 0 then swap r> lf-lv-pair-cells slab-at 2! ;
 : lf-lv-arg ( offset i -- flag )
   tuck + lf-log-arg-ref lf-lv-level if swap lf-lv-pair! true else drop false then ;
-: lf-lv-args ( offset count -- flag )
-  0 ?do dup i lf-lv-arg 0= if drop false unloop exit then loop drop true ;
+: lf-lv-arg-at ( offset i -- offset flag ) over swap lf-lv-arg ;
+: lf-lv-args ( offset count -- flag ) ['] lf-lv-arg-at all? nip ;
 \ Room for count levels, and the levels of the arguments from offset on.
 : lf-lv-levels? ( offset count -- flag )
   dup lf-lv-pair-cells slab-hold ok? if lf-lv-args else 2drop false then ;
@@ -420,8 +418,8 @@ defer lf-lv-level ( ref -- level true | false )
   2dup lf-lv-add if lf-lv-made! true else 2drop false then ;
 : lf-lv-ready ( k kind -- flag )
   2dup lf-lv-made-at @ -1 = if lf-lv-build dup if nip then else 2drop true then ;
-: lf-lv-built? ( k kind -- flag )
-  swap 1+ 0 ?do i over lf-lv-ready 0= if drop false unloop exit then loop drop true ;
+: lf-lv-ready-at ( kind i -- kind flag ) over lf-lv-ready ;
+: lf-lv-built? ( k kind -- flag ) swap 1+ ['] lf-lv-ready-at all? nip ;
 : lf-lv-unmark ( k kind -- ) swap 1+ 0 ?do i over lf-lv-made-at lf-lv-unmarked loop drop ;
 : lf-lv-new ( k kind -- node true | false )
   2dup lf-lv-marked ok? if 2dup lf-lv-built? if lf-lv-made-at lf-lv-made? exit then then

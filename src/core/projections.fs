@@ -41,7 +41,7 @@ lf-tag-proj lf-tin-proj-leaf tag-proj lf-term-input-leaf-twin
 \ named name of e, a new node; full without room.
 : lf-proj-of ( e name i -- node outcome )
   lf-hterm-proj 0= if drop -1 outcome-full exit then
-  drop swap lf-tag-projection lf-term-binary if outcome-ok else -1 outcome-full then ;
+  drop swap lf-tag-projection lf-term-binary room-result ;
 \ Whether node is a projection; whether it is a projection leaf; a leaf's
 \ structure name and index.
 : lf-proj? ( node -- flag ) lf-term-tag@ lf-tag-projection = ;

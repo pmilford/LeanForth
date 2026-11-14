@@ -52,7 +52,7 @@
 \ lam-head pi-head let-head proj-head expr-class expr-make expr-let
 \ expr-bvar expr-sort expr-const expr-app expr-nat expr-str expr-fvar
 \ expr-mdata expr-next expr-resolve!
-\ expr-valid? expr-head@ expr-tag@ expr-payload@ expr-a@ expr-b@ expr-data@
+\ expr-valid? expr-head@ expr-tag@ expr-pi? expr-payload@ expr-a@ expr-b@ expr-data@
 \ expr-body@ data-range data-depth data-params? data-fvars? range-max
 \ depth-max bvar-fits?. Outcomes: ok, full, invalid. State: expr-class and the check
 \ table, made while loading, read-only afterwards.
@@ -117,6 +117,9 @@ require ./compact-levels.fs
 : expr-record ( e tier -- addr ) tier-exprs cons-at ;
 : expr-head@ ( e tier -- head ) expr-record quad-head u32@ ;
 : expr-tag@ ( e tier -- tag ) expr-head@ head-tag ;
+\ Whether e is a Pi of any binder info (tags tag-pi to tag-let - 1); the
+\ front end's and the command line's telescopes walk these.
+: expr-pi? ( e tier -- flag ) expr-tag@ tag-pi tag-let within ;
 : expr-payload@ ( e tier -- u ) expr-head@ head-payload ;
 : expr-a@ ( e tier -- u ) expr-record quad-a u32@ ;
 : expr-b@ ( e tier -- u ) expr-record quad-b u32@ ;
