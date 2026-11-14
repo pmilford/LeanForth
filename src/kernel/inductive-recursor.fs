@@ -108,9 +108,9 @@ end-structure
   lf-rcr-ok? if lf-rcr-state lf-rcr-status ! else drop then -1 ;
 : lf-rcr-made ( index identity true | false -- node )
   if drop else outcome-full lf-rcr-failing then ;
-\ A node as a handle; a dead node or -1 gets identity 0, which every
-\ constructor refuses.
-\ A binary node, tag lf-tag-app, lf-tag-lam or lf-tag-pi.
+\ A binary node, tag lf-tag-app, lf-tag-lam or lf-tag-pi, from two nodes
+\ taken as handles (terms.fs's lf-term-handle: a dead node or -1 gets
+\ identity 0, which every constructor refuses).
 : lf-rcr-bind ( left right tag -- node )
   >r swap lf-term-handle rot lf-term-handle r> lf-hterm-binary lf-rcr-made ;
 : lf-rcr-pi ( domain body -- node ) lf-tag-pi lf-rcr-bind ;

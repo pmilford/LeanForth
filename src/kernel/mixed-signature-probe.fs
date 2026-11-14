@@ -235,7 +235,6 @@ here lf-msp-arrays - 1 cells / constant lf-msp-arrays#
 : lf-msp-lookup ( token req -- root identity 0 | status )
   tuck lf-msp-well-formed? if lf-msp-found else drop-invalid then ;
 
-
 \ Exact arity includes unused formals. One shared substitution budget covers
 \ the full audit and build; index scans and identity checks are unmetered.
 \ Failure rolls back all arena counts, not allocation serials or scratch.

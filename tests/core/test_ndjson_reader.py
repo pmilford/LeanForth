@@ -108,8 +108,11 @@ def disagreement(data, output):
 
 class FixtureDifferential(unittest.TestCase):
     def test_counts_equal_count_py(self):
-        outputs = forth_each(COUNT_FS, "count-report", FIXTURES)
-        for path, output in zip(FIXTURES, outputs):
+        # The reference fixtures and, for the inductive types, constructors and
+        # recursors the others have none of, the inductive blocks (ROUT3).
+        paths = FIXTURES + [ROOT / "tests" / "reference" / "inductive" / "blocks.ndjson"]
+        outputs = forth_each(COUNT_FS, "count-report", paths)
+        for path, output in zip(paths, outputs):
             code, expected = python_output(COUNT_PY, path)
             self.assertEqual(code, 0)
             self.assertEqual(output, expected, path.name)

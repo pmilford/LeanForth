@@ -345,8 +345,8 @@ require ./quot.fs
   dup frame-restore -rot lf-iota-k-failed ;
 : lf-iota-k-keep ( frames -- ... frames next ) dup frame-restore swap lf-iota-k-kept ;
 
-\ Whether K can run on e: environment mode, e scoped (lf-iota-ready?).
-\ The major inductive type's name when Ty's head is a constant of that
+\ K runs on e in environment mode, e scoped (lf-iota-ready?, above). The
+\ major inductive type's name when Ty's head is a constant of that
 \ name, else 0 (kept); unknown for a recursor type without that binder.
 : lf-iota-k-induct ( Ty decl -- name|0 outcome )
   lf-iota-induct ?dup 0= if drop 0 outcome-unknown exit then

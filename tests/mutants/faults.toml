@@ -17833,7 +17833,7 @@ id = "r3-diag-walked-fuel-lost"
 file = "src/core/diagnostics.fs"
 old = '''  >r over walk-fuel @ swap ! r> lf-diag-walk ;'''
 new = '''  >r nip r> lf-diag-walk ;'''
-test = "$GFORTH tests/core/check-declaration.fs && $GFORTH tests/core/check-block.fs"
+test = "$GFORTH tests/core/diagnostics.fs"
 reason = "the fuel a walk left is not handed back to its check (the declaration's, the block's)"
 
 [[fault]]
@@ -17841,7 +17841,7 @@ id = "r3-diag-run-pair-unrecorded"
 file = "src/core/diagnostics.fs"
 old = '''  2dup 2>r drop walk-run-pair 2r> lf-diag-walk ;'''
 new = '''  2dup 2>r drop walk-run-pair 2r> 2drop ;'''
-test = "$GFORTH tests/core/mixed-compare.fs && $GFORTH tests/core/constant-term-scope.fs"
+test = "$GFORTH tests/core/diagnostics.fs"
 reason = "a paired walk's failure goes unrecorded in the diagnostics"
 
 [[fault]]
@@ -17865,7 +17865,7 @@ id = "r3-quad-ab-swapped"
 file = "src/core/compact-tier.fs"
 old = ''': quad-ab@ ( addr -- a b ) dup quad-a u32@ swap quad-b u32@ ;'''
 new = ''': quad-ab@ ( addr -- a b ) dup quad-b u32@ swap quad-a u32@ ;'''
-test = "$GFORTH tests/core/compact.fs && $GFORTH tests/core/terms.fs"
+test = "$GFORTH tests/core/compact.fs && $GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "a record's operands read in the wrong order (the input tier's terms, the layer's families)"
 
 [[fault]]
@@ -17897,7 +17897,7 @@ id = "r3-reach-level-holes-all"
 file = "src/core/reach.fs"
 old = ''': lr-level-holes? ( -- flag ) lf-reach lf-reach-level# @ ['] lr-level-hole? any? ;'''
 new = ''': lr-level-holes? ( -- flag ) lf-reach lf-reach-level# @ ['] lr-level-hole? all? ;'''
-test = "$GFORTH tests/author/author.fs"
+test = "$GFORTH tests/front/handover.fs"
 reason = "a reached level metavariable goes unnoticed unless every level is one"
 
 [[fault]]
@@ -17905,7 +17905,7 @@ id = "r3-span-all-any"
 file = "src/kernel/env-import.fs"
 old = ''': span-all? ( a b n imp test -- flag ) rot ['] span-at? all? >r 2drop 2drop r> ;'''
 new = ''': span-all? ( a b n imp test -- flag ) rot ['] span-at? any? >r 2drop 2drop r> ;'''
-test = "$GFORTH tests/core/env-import.fs"
+test = "$GFORTH tests/core/env-import.fs && GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
 reason = "two spans count as alike when one record of them is (the import's blocks, the layer's declarations and verdicts)"
 
 [[fault]]
@@ -17939,6 +17939,7 @@ old = '''  dup lf-slot-final? swap lf-slot-outcome@ outcome-rejected = and ;'''
 new = '''  lf-slot-final? ;'''
 test = "$GFORTH tests/core/environment.fs && $GFORTH tests/core/check-block.fs"
 reason = "an accepted slot with Lean's added name reads as a rejected one Lean's kernel holds"
+equivalent = "the publisher sets a slot's added flag only for a block rejected by B3 (lf-env-added!) and its skipped flag only for a rejected outcome (lf-cand-skipped?), so a final slot with either flag is rejected; lf-slot-rejected? states that meaning"
 
 [[fault]]
 id = "r3-rn-std-boolean"
@@ -17961,16 +17962,16 @@ id = "r3-keys-all-unchecked"
 file = "src/import/manifest.fs"
 old = '''    dup 2r@ 4 pick execute 0= if 2drop 2r> 2drop false exit then key-next'''
 new = '''    dup 2r@ 4 pick execute drop key-next'''
-test = "$GFORTH tests/core/manifest.fs"
+test = "$GFORTH tests/core/manifest.fs && GFORTH=$GFORTH python3 tests/core/test_export_manifest.py"
 reason = "a manifest missing a member, or a count that is not a natural, passes"
 
 [[fault]]
-id = "r3-slot-check-text-store"
+id = "r3-checker-store-ignored"
 file = "src/import/ndjson.fs"
-old = ''': slot-check: ( xt "name" -- ) ['] slot! checker: ;'''
-new = ''': slot-check: ( xt "name" -- ) ['] text-slot! checker: ;'''
+old = '''  create , , does> dup @ >r cell+ @ >r for-slot r> execute r> execute ;'''
+new = '''  create , , does> dup @ >r cell+ @ >r for-slot r> execute r> drop slot! ;'''
 test = "$GFORTH tests/core/ndjson.fs"
-reason = "a decoded field stored as a text"
+reason = "every checker keeps its result with slot!, a text checker's text too"
 
 [[fault]]
 id = "r3-nd-nested-exact"
@@ -18033,7 +18034,7 @@ id = "r3-pp-fuelled-free"
 file = "src/present/print-job.fs"
 old = '''  >r 0 begin lf-pp-spend 0= if r> drop outcome-exhausted exit then r@ execute 0= until'''
 new = '''  >r 0 begin r@ execute 0= until'''
-test = "$GFORTH tests/present/print-deep.fs && $GFORTH tests/present/term-printer.fs"
+test = "$GFORTH tests/present/term-printer.fs && $GFORTH tests/present/print-deep.fs"
 reason = "a spine or a chain of succ printed without spending the print's fuel"
 
 [[fault]]
@@ -18049,7 +18050,7 @@ id = "r3-tex-code-no-slash"
 file = "src/present/latex-text.fs"
 old = '''  >r r@ lf-tex-slash @ execute r@ lf-tex-out r@ lf-tex-out u>hex r@ lf-tex-out'''
 new = '''  >r r@ lf-tex-slash @ execute 2drop r@ lf-tex-out u>hex r@ lf-tex-out'''
-test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Names"
+test = "$GFORTH tests/present/term-printer.fs"
 reason = "an escaped code point loses its backslash in LaTeX"
 
 [[fault]]
@@ -18073,5 +18074,5 @@ id = "r3-seconds-then-firsts-again"
 file = "src/present/print-analysis.fs"
 old = '''  if 2swap >r execute r> r> swap ['] frame-return swap execute else nip nip r> 0 then ;'''
 new = '''  if 2swap >r drop r> r> swap ['] frame-return swap execute else nip nip r> 0 then ;'''
-test = "GFORTH=$GFORTH python3 tests/present/check_golden.py && $GFORTH tests/present/term-printer.fs"
+test = "$GFORTH tests/present/term-printer.fs"
 reason = "the second parts compared as the first parts again: binder groups and implicit levels misjudged"

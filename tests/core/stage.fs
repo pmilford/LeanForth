@@ -144,6 +144,14 @@ T{ why s" memory limit of the stage reached" compare -> 0 }T
 0 st stage-limit!
 T{ fixture st stage-load counts -> outcome-ok fixture-counts }T
 st stage-free
+\    Each name, level or expression kept counts against the limit (kept-in,
+\    ROUT3): one kept past it is full, with the reason.
+T{ 12 st stage-init -> outcome-ok }T
+st stage-allocated 1- st stage-limit!
+T{ 0 outcome-ok st names-kept 0 outcome-ok st levels-kept 0 outcome-ok st exprs-kept
+   -> outcome-full outcome-full outcome-full }T
+T{ why s" memory limit of the stage reached" compare 7 outcome-invalid st names-kept -> 0 outcome-invalid }T
+0 st stage-limit!  st stage-free
 \ 3. A handler's THROW passes on after the rollback.
 : throws ( record -- outcome ) drop 77 throw ;
 T{ 12 st stage-init -> outcome-ok }T

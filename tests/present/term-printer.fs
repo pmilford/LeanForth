@@ -283,6 +283,14 @@ T{ P P P 2 t-var 1 t-var t-app 0 t-var t-app t-pi s" x" ex. t-pi s" x" ex. t-pi 
   t3 ! -> }T
 T{ cap-reset t3 @ fuel ' lf-print-term 2 base-after -> outcome-ok 2 }T
 T{ s" (x x_1 x_2 : Prop) → @x x_1 x_2" expect-text -> }T
+\ Its fuel, the spine's steps included (lf-pp-fuelled, ROUT3): a
+\ regression pin of 2026-11-14, 47 units, 39 when a spine spends none.
+T{ t3 @ need -> 47 }T
+\ Binders grouped over an application domain: F A against F A lifted, the
+\ functions and then the arguments compared (lf-pp-seconds-then, ROUT3).
+T{ t-prop t-prop t-prop t-pi 0 t-var 1 t-var t-app 1 t-var 2 t-var t-app 1 t-var 0 t-var t-app
+   t-pi s" y" ex. t-pi s" x" ex. t-pi s" F" ex. t-pi s" A" ex.
+   s" (A : Prop) → (F : Prop → Prop) → (x y : F A) → @x y" shows -> }T
 T{ lf-print-latex mode cap-reset s" proof₁₂" ' lf-tex-ident 16 base-after -> 16 }T
 T{ s" \mathit{proof}_{12}" expect-text -> }T
 

@@ -211,6 +211,21 @@ begin-check 5 lf-cterm-walker walk-node ! 7 lf-cterm-walker walk-context ! lf-di
 T{ outcome-unknown lf-cterm-walker test-site lf-diag-walk diag
   -> outcome-unknown 5 0 lf-diag-undecided }T
 end-check
+\ lf-diag-walked and lf-diag-run-pair (ROUT3): the fuel a walk left stored
+\ at the check's cell, then the end recorded; a paired run's end recorded
+\ for its site (an undecided visit: its node and its context).
+variable fuel-left
+begin-check 33 lf-cterm-walker walk-fuel ! lf-diag-clear
+T{ outcome-exhausted lf-cterm-walker fuel-left test-site lf-diag-walked diag fuel-left @
+  -> outcome-exhausted 33 0 lf-diag-fuel 33 }T
+T{ outcome-ok lf-cterm-walker fuel-left test-site ' lf-diag-walked rs-checked -> outcome-ok }T
+end-check
+4 walk2: pair-walk
+: undecided ( walk -- outcome ) drop outcome-unknown ;
+begin-check 10 pair-walk walk-budget drop lf-diag-clear
+T{ 5 7 ' undecided pair-walk test-site lf-diag-run-pair diag -> outcome-unknown 5 7 lf-diag-undecided }T
+T{ s" tests diagnostics" at? -> true }T
+end-check
 \ A pass's frames grow their stack (plan task 6.2.0); a growth the heap
 \ refuses is full, recorded with the cells in use and the capacity.
 \ The replace memos (kernel/replace-memo.fs) are made at their first call;
