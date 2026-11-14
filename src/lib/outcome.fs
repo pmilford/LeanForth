@@ -8,7 +8,9 @@
 \ outcome-and, outcome-steps, ok-and, ok-with, the ok-then and ok-keep
 \ words, and the loops ok-each and ok-fold; the tests over every index,
 \ all? (a flag) and ok-all? (a flag and an outcome), with ok-true? their
-\ stop test; outcome-first! keeps a first failure in a cell.
+\ stop test, and over some index, any?; outcome-first! keeps a first
+\ failure in a cell; no-result, ok-or-none and room-result give a step's
+\ result with its outcome.
 \ No state, no dependencies.
 
 0 constant outcome-ok           \ succeeded; for a comparison, shown equal
@@ -69,6 +71,12 @@
   dup ok? if drop true else 2swap 2drop false then ;
 \ A failure that has no result: -1 in the result's place.
 : no-result ( outcome -- -1 outcome ) -1 swap ;
+\ A step's result kept only on ok: on any other outcome -1 takes its
+\ place, so a failure never hands on a half-made value.
+: ok-or-none ( x outcome -- x outcome | -1 outcome ) dup ok? 0= if nip no-result then ;
+\ A result that needed room, as a store gives it ( x true | false ): x and
+\ ok, or -1 and full.
+: room-result ( x true | false -- x outcome ) if outcome-ok else outcome-full no-result then ;
 \ Run the step xt ( i*x k -- i*x outcome ) for k = 0, 1, ... n-1 while it
 \ gives ok: ok, or the first outcome that is not ok, after which no step
 \ runs. The values below k are the steps' to read and replace, keeping
@@ -103,7 +111,16 @@
 : all? ( i*x n xt -- i*x flag )
   dup 1+ swap ?do 0 max 0 ?do i j execute 0= if false unloop unloop exit then
   loop loop true ;
-\ The same for a test that may fail, xt ( i*x k -- i*x flag outcome ):
+\ Whether the test xt ( i*x k -- i*x flag ) holds for some k = 0, 1, ...
+\ n-1: true at the first k it holds, after which none runs; else false.
+\ n <= 0 gives false. The values below k and the xt as in all?. Example,
+\ whether a table's first three cells hold a negative one: `table 3 '
+\ cell-neg? any? nip` with `: cell-neg? ( table k -- table flag ) cells
+\ over + @ 0< ;`.
+: any? ( i*x n xt -- i*x flag )
+  dup 1+ swap ?do 0 max 0 ?do i j execute if true unloop unloop exit then
+  loop loop false ;
+\ The same as all? for a test that may fail, xt ( i*x k -- i*x flag outcome ):
 \ true and ok when every test gives true and ok; else false beside the
 \ first answer's outcome that stops the loop, ok for a plain false. n <=
 \ 0 gives true and ok. Example, Level.beq of a constant's universe

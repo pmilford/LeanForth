@@ -14297,6 +14297,26 @@ reason = "index? as `0 n within`: for a negative n every i >= 0 is an index"
 quick = true
 
 [[fault]]
+id = "lib-bounds-cells-eq-last-unread"
+file = "src/lib/bounds.fs"
+old = '''  0 max 0 ?do over i cells + @ over i cells + @ <> if 2drop false unloop exit then loop
+  2drop true ;'''
+new = '''  1- 0 max 0 ?do over i cells + @ over i cells + @ <> if 2drop false unloop exit then loop
+  2drop true ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "review reuse-k1 B1: cells= skips the last cell, so arrays differing only there read as equal"
+
+[[fault]]
+id = "lib-bounds-cells-eq-negative"
+file = "src/lib/bounds.fs"
+old = '''  0 max 0 ?do over i cells + @ over i cells + @ <> if 2drop false unloop exit then loop
+  2drop true ;'''
+new = '''  0 ?do over i cells + @ over i cells + @ <> if 2drop false unloop exit then loop
+  2drop true ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cells= with a negative count runs ?do from 0 to a negative limit: reads far past the arrays"
+
+[[fault]]
 id = "lib-bounds-cells-has-negated"
 file = "src/lib/bounds.fs"
 old = ''': cells-has? ( x addr n -- flag ) cells-index dup if nip then ;'''
@@ -14419,6 +14439,47 @@ old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute 0= if false unloop unloop exi
 new = '''  dup 1+ swap ?do 0 ?do i j execute 0= if false unloop unloop exit then'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "all? with a negative count runs tests (?DO wraps round) instead of none"
+
+[[fault]]
+id = "lib-outcome-any-past-true"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute if true unloop unloop exit then'''
+new = '''  dup 1+ swap ?do 0 max 0 ?do i j execute drop'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "any? runs every test and answers false whatever they gave"
+quick = true
+
+[[fault]]
+id = "lib-outcome-any-negative"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute if true unloop unloop exit then'''
+new = '''  dup 1+ swap ?do 0 ?do i j execute if true unloop unloop exit then'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "any? with a negative count runs tests (?DO wraps round) instead of none"
+
+[[fault]]
+id = "lib-outcome-any-flag-passed"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute if true unloop unloop exit then'''
+new = '''  dup 1+ swap ?do 0 max 0 ?do i j execute ?dup if unloop unloop exit then'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "any? answers the test's own true value, not a well-formed flag"
+
+[[fault]]
+id = "lib-outcome-or-none-kept"
+file = "src/lib/outcome.fs"
+old = ''': ok-or-none ( x outcome -- x outcome | -1 outcome ) dup ok? 0= if nip no-result then ;'''
+new = ''': ok-or-none ( x outcome -- x outcome | -1 outcome ) dup outcome-full = if nip no-result then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "ok-or-none hands on the half-made value of every failure but full"
+
+[[fault]]
+id = "lib-outcome-room-result-invalid"
+file = "src/lib/outcome.fs"
+old = ''': room-result ( x true | false -- x outcome ) if outcome-ok else outcome-full no-result then ;'''
+new = ''': room-result ( x true | false -- x outcome ) if outcome-ok else outcome-invalid no-result then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a store out of room reads as invalid input, not full"
 
 [[fault]]
 id = "lib-outcome-ok-all-past-answer"
@@ -16382,8 +16443,8 @@ reason = "keys that differ only above bit 31 all hash alike: found, but one long
 [[fault]]
 id = "lib-memo-key-short"
 file = "src/lib/memo.fs"
-old = ''': memo-same ( n key htab -- flag ) >r swap r@ memo-entry r> memo-kcells @ memo-cells= ;'''
-new = ''': memo-same ( n key htab -- flag ) >r swap r@ memo-entry r> memo-kcells @ 1- memo-cells= ;'''
+old = ''': memo-same ( n key htab -- flag ) >r swap r@ memo-entry r> memo-kcells @ cells= ;'''
+new = ''': memo-same ( n key htab -- flag ) >r swap r@ memo-entry r> memo-kcells @ 1- cells= ;'''
 test = "$GFORTH tests/lib/memo.fs"
 reason = "the last key cell is not compared: keys differing only there are one entry"
 
@@ -16460,12 +16521,12 @@ test = "$GFORTH tests/lib/memo.fs"
 reason = "a memo of keys of no cells is accepted"
 
 [[fault]]
-id = "lib-memo-table-refusal-leaks"
+id = "lib-memo-wide-key-probe"
 file = "src/lib/memo.fs"
-old = '''  dup memo-slab dup memo-blocks dup ok? if nip else swap memo-release then ;'''
-new = '''  dup memo-slab memo-blocks ;'''
+old = '''  dup memo-kcells @ 3 < if memo-probe! true else drop 2drop false then ;'''
+new = '''  dup memo-kcells @ 4 < if memo-probe! true else drop 2drop false then ;'''
 test = "$GFORTH tests/lib/memo.fs"
-reason = "a table the heap refuses after the hooks' block leaves that block held"
+reason = "review reuse-k1 L3: a memo of three key cells probed by memo-at reads the cell after the two-cell probe as its third"
 
 [[fault]]
 id = "lib-pq-tie-left"

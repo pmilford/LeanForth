@@ -15,23 +15,25 @@
 \ find or a put costs a few probes whatever the size; an entry takes its
 \ key and value cells in the slab (up to twice that while it doubles) and
 \ 1.3 to 2.7 slots of 4 bytes. A key is compared cell by cell, never as
-\ bytes; a hash is only a hint. The table keeps its hooks' address, so
-\ they are in a heap block of the memo's own, and a memo record may move.
+\ bytes; a hash is only a hint. The table is the memo's first field, so
+\ htab gives its hooks the memo's address: one read-only hooks record,
+\ made when the file loads, serves every memo, and a memo record may move.
 \
 \ Genericity. The caller chooses the key's cells (at least one) and the
 \ value's (none, for a set of keys); keys are given by address
 \ (memo-find, memo-put) or, for keys of one or two cells, on the stack
 \ (memo-at, memo-claim, memo@, memo!; a memo of one key cell reads only
-\ k1). Two optional hooks fit callers that keep results which may go
+\ k1; a memo of more key cells finds nothing and refuses a put by them,
+\ invalid). Two optional hooks fit callers that keep results which may go
 \ stale or whose memory is metered: check ( a-addr -- flag ), given a
 \ found entry's value cells, says whether the value still holds (else the
 \ find is a miss; memo-put still finds the entry, to write over it); admit
 \ ( memo -- flag ), asked before an entry is added, may refuse it (full).
-\ Hooks must not use the memo they serve.
+\ Hooks may read the memo they serve (memo-count, say), never change it.
 \
 \ Outcomes (lib/outcome.fs): memo-init ok, invalid for a key of no cells
 \ or a negative or too large shape (nothing made), full when the heap
-\ refuses the table or its hooks' block (the memo is then not live).
+\ refuses the table (the memo is then not live).
 \ memo-put makes the table ready (it may double), then finds the key,
 \ then asks admit and grows the entries for a new one: ok; full when the
 \ table (so even for a key present) or the entries cannot grow or admit
@@ -65,8 +67,8 @@
 \ memo-cut memo-check! memo-admit! memo-small. State: none of its own;
 \ every word takes a memo record made by the caller (in the dictionary or
 \ inside a larger record, which may move: a member of a checker context
-\ moves while modules load), which owns its heap blocks (the table, its
-\ hooks, the entries) until memo-free. One memo is single-threaded; separate memos
+\ moves while modules load), which owns its heap blocks (the table and
+\ the entries) until memo-free. One memo is single-threaded; separate memos
 \ are independent. Requires portability.fs, bounds.fs, outcome.fs,
 \ u32.fs, hash32.fs, slab.fs, htab.fs and module.fs; helpers are private
 \ in lf-lib-private (ADR 0010). Loads in decimal whatever BASE is, then
@@ -94,7 +96,6 @@ lf-lib-private set-current
   field: memo-check             \ xt ( a-addr -- flag ): a found value holds; or 0
   field: memo-admit             \ xt ( memo -- flag ): an entry may be added; or 0
   2 cells +field memo-probe     \ the key of memo-at and memo-claim while they run
-  field: memo-hooks             \ the table's hooks, a heap block (it never moves)
 end-structure
 4 constant memo-first-log2      \ a new table's slots: 16
 lf-lib set-current
@@ -110,35 +111,25 @@ lf-lib-private set-current
 : memo-mix ( h x -- h' ) tuck hash-step swap 16 rshift 16 rshift ?dup if hash-step then ;
 : memo-hash ( key memo -- h )
   0 swap memo-kcells @ 0 ?do over i cells + @ memo-mix loop nip ;
-: memo-cells= ( a-addr1 a-addr2 n -- flag )
-  0 ?do over i cells + @ over i cells + @ <> if 2drop false unloop exit then loop
-  2drop true ;
 \ The table's hooks: entry n's hash, and whether its key is the one at key
 \ (the table is the memo's first field, so htab is the memo).
 : memo-rehash ( n htab -- h ) tuck memo-entry swap memo-hash ;
-: memo-same ( n key htab -- flag ) >r swap r@ memo-entry r> memo-kcells @ memo-cells= ;
-\ A table keeps its hooks' address, so they are in a heap block of their
-\ own, not in the memo record, which may move.
-: memo-hooks-new ( memo -- outcome )
-  /htab-hooks allocate if 2drop outcome-full exit then
-  ['] memo-rehash ['] memo-same 2 pick htab-hooks! swap memo-hooks ! outcome-ok ;
-: memo-hooks-free ( memo -- ) memo-hooks dup @ ?dup if free drop then 0 swap ! ;
+: memo-same ( n key htab -- flag ) >r swap r@ memo-entry r> memo-kcells @ cells= ;
+\ Every memo's table shares these hooks: read-only once loaded.
+create memo-hooks /htab-hooks allot
+' memo-rehash ' memo-same memo-hooks htab-hooks!
 
 \ ---- Making and freeing. A shape: a key of at least one cell, a value of
 \ none or more, an entry's cells within a cell's count of address units.
 : memo-shape? ( kcells vcells -- flag )
   over 1 max-n cell / between? if swap max-n cell / swap - upto? else 2drop false then ;
 : memo-shape! ( kcells vcells memo -- ) tuck memo-vcells ! memo-kcells ! ;
-\ The slab (no heap yet; its shape is sound, so slab-init gives ok), the
-\ hooks and the table of 16 slots: ok, or full with no block held.
+\ The slab (no heap yet; its shape is sound, so slab-init gives ok) and
+\ the table of 16 slots: ok, or full with no block held.
 : memo-slab ( memo -- ) dup memo-unit dup slab-limit-max rot memo-entries slab-init drop ;
-: memo-table-new ( memo -- outcome )
-  memo-first-log2 over memo-hooks @ rot memo-table htab-init ;
-: memo-blocks ( memo -- outcome ) dup memo-hooks-new ok-then? if memo-table-new then ;
-: memo-release ( memo -- )
-  dup memo-table htab-free dup memo-entries slab-free memo-hooks-free ;
-: memo-make ( memo -- outcome )
-  dup memo-slab dup memo-blocks dup ok? if nip else swap memo-release then ;
+: memo-table-new ( memo -- outcome ) memo-first-log2 memo-hooks rot memo-table htab-init ;
+: memo-release ( memo -- ) dup memo-table htab-free memo-entries slab-free ;
+: memo-make ( memo -- outcome ) dup memo-slab memo-table-new ;
 lf-lib set-current
 \ Format a record as an empty memo of keys of kcells cells and values of
 \ vcells cells, with its table made: ok; full when the heap refuses (the
@@ -197,11 +188,15 @@ lf-lib set-current
   memo-place ;
 lf-lib-private set-current
 
-\ ---- Keys of one or two cells on the stack.
+\ ---- Keys of one or two cells on the stack; a memo of more key cells
+\ has no such key (the probe holds two cells).
 : memo-probe! ( k1 k2 memo -- key memo ) dup >r memo-probe tuck cell+ ! tuck ! r> ;
+: memo-probe? ( k1 k2 memo -- key memo true | false )
+  dup memo-kcells @ 3 < if memo-probe! true else drop 2drop false then ;
 lf-lib set-current
-: memo-at ( k1 k2 memo -- a-addr | 0 ) memo-probe! memo-find ;
-: memo-claim ( k1 k2 memo -- a-addr outcome ) memo-probe! memo-put ;
+: memo-at ( k1 k2 memo -- a-addr | 0 ) memo-probe? if memo-find else 0 then ;
+: memo-claim ( k1 k2 memo -- a-addr outcome )
+  memo-probe? if memo-put else 0 outcome-invalid then ;
 \ A memo with at least one value cell: the first value cell of (k1 k2).
 : memo@ ( k1 k2 memo -- x true | false ) memo-at dup if @ true then ;
 : memo! ( x k1 k2 memo -- outcome ) memo-claim ok-then? if ! outcome-ok else nip then ;

@@ -247,11 +247,7 @@ create lf-mls-set-hooks /htab-hooks allot
 : lf-mls-args! ( addr count -- outcome )
   0 ?do dup i lf-mls-arg dup ok? 0= if nip unloop exit then drop loop
   drop outcome-ok ;
-\ Cell arrays compared cell by cell (never as bytes); n <= 0 is equal.
-: lf-mls-cell= ( addr addr' i -- flag ) cells tuck + @ -rot + @ = ;
-: lf-mls-cells= ( addr addr' n -- flag )
-  0 max 0 ?do 2dup i lf-mls-cell= 0= if 2drop false unloop exit then loop 2drop true ;
-: lf-mls-changed? ( addr count -- flag ) 2* lf-mls-args swap lf-mls-cells= 0= ;
+: lf-mls-changed? ( addr count -- flag ) 2* lf-mls-args swap cells= 0= ;
 : lf-mls-arg-room ( addr count -- addr count outcome )
   dup lf-mls-arg-pairs slab-hold ;
 : lf-mls-substituted ( slot -- changed outcome )
