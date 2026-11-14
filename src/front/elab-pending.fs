@@ -251,16 +251,17 @@ defer lf-elab-default-instances ( class -- addr n outcome )
 : ep-found ( mvar inst -- flag outcome )
   over ep-assigned? if ep-again else lf-elab-defeq lfa-e-elab-instance ep-judged then ;
 : ep-none ( mvar -- flag outcome ) drop false lfa-e-elab-synth lf-elab-fail ;
-: ep-synth. ( type code -- type code )
-  ep-tracing? 0= if exit then s" synth " lf-elab-note over lf-elab-term.
-  dup case 1 of s" : found" endof 0 of s" : none" endof s" : stuck" rot endcase
-  lf-elab-note lf-elab-nl ;
+: ep-answer-text ( code -- c-addr u )
+  case 1 of s" : found" endof 0 of s" : none" endof >r s" : stuck" r> endcase ;
+: ep-synth. ( type inst code -- inst code )
+  ep-tracing? 0= if rot drop exit then s" synth " lf-elab-note rot lf-elab-term.
+  dup ep-answer-text lf-elab-note lf-elab-nl ;
 : ep-answered ( mvar inst code -- flag outcome )
   case 1 of ep-found endof 0 of drop ep-none endof >r 2drop false outcome-ok r> endcase ;
 : lf-elab-synth-core ( mvar -- flag outcome )
   dup ep-synth-type ok-then? 0= if nip false swap lf-elab-meta exit then
   dup lf-elab-try-synth ok-then2? 0= if nip nip false swap lf-elab-meta exit then
-  rot drop ep-synth. ep-answered ;
+  ep-synth. ep-answered ;
 
 \ ---- mkInstMVar.
 : ep-pend ( mvar flag outcome -- mvar outcome )

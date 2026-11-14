@@ -159,7 +159,7 @@ action-of lfa-run-fresh constant edc-run-before
   dup lf-infer lf-elab-meta ok-then? if lf-instantiate-mvars lf-elab-meta else no-result then ;
 : edc-checked ( node -- )
   dup edc-signature? if syn-at@ lfa-e-elab-print lfa-fail-see exit then
-  edc-check-term edc-must edc-check-type edc-must edc-check-line ;
+  dup syn-at@ lf-elab-at! edc-check-term edc-must edc-check-type edc-must edc-check-line ;
 : edc-w-check ( value -- )
   lf-elab-reset 1 edc edc-checks +! lfn>syntax ['] edc-checked edc-configured ;
 : edc-w-check-natural ( -- ) 1 lfa-args edc-w-check ;

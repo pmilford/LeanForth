@@ -28,7 +28,8 @@
 \ back (closeUsingOrAdmit; LeanForth never admits, ADR 0021 D3). Each
 \ step spends one unit of the run's own fuel (lf-tactic-fuel!; Lean
 \ counts heartbeats instead, so where its limit and this one differ is
-\ a listed difference, none known): none left is error 91, exhausted.
+\ a listed difference, none known) and one of the declaration's budget
+\ (meta-config.fs, --elab-fuel): none left is error 91, exhausted.
 \ A step runs by its kind's row of a table: by-sorry here; the others
 \ answer not supported yet (error 80, with the plan step that ports them,
 \ FE1g-4 to FE1g-6, and the goals), until a later file sets their rows
@@ -67,7 +68,10 @@
 \ lf-tac-block ( i rest -- ), lf-tac-done ( i -- ), lf-tac-focus ( --
 \ rest ), lf-tac-unfocus ( rest -- ), lf-tac-save ( -- save outcome ),
 \ lf-tac-restore, lf-tac-commit ( save -- outcome ), lf-tac-try,
-\ lf-tac-forget ( -- ), lf-open-parts ( -- n ), lf-open-parts. ( -- ).
+\ lf-tac-forget ( -- ), lf-open-parts ( -- n ), lf-open-parts. ( -- ),
+\ lf-front-close ( type value -- type' value' ) and lf-front-close-type
+\ ( type -- type' ) (a term proof's or an axiom's closing over the
+\ current view's binders, as a tactic proof's, front/elab-decl.fs).
 \ Errors stop the run (lfa-fail) with author/errors.fs's codes: 80, 89,
 \ 90, 91, 92 for a record whose steps do not nest as the reader makes
 \ them (checked before any step runs), 93 for a type inference or
@@ -97,6 +101,7 @@ require ../present/print-job.fs
 require ../author/errors.fs
 require ../author/declarations.fs
 require ./mvars.fs
+require ./meta-config.fs
 require ./lctx-views.fs
 require ./goals.fs
 require ./goal-print.fs
@@ -149,8 +154,9 @@ end-structure
 : lfr-limit ( -- n )
   trun dup trun-given @ if trun-limit @ else drop lfr-default-fuel then ;
 : lfr-fuel-start ( -- ) lfr-limit trun trun-fuel ! ;
+\ (A step also spends one of the declaration's budget, --elab-fuel: S1 8.)
 : lfr-spend? ( -- flag )
-  lf-tactic-fuel-left dup 0> if 1- trun trun-fuel ! true else drop false then ;
+  lf-tactic-fuel-left dup 0> if 1- trun trun-fuel ! lf-meta-spend? else drop false then ;
 
 \ ---- The record (tactic-syntax.fs). Step i's fields; unchecked.
 : lfr-kind ( i -- kind ) lf-tactic-step tac-kind @ ;
