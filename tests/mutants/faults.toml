@@ -16343,9 +16343,8 @@ equivalent = "getDecLevel normalizes first, as Lean's does: an imax whose right 
 [[fault]]
 id = "fe-defeq-synth-flag"
 file = "src/front/defeq.fs"
-old = '''  lf-meta-synth-pending ok-then? 0= if de-abort exit then if outcome-unsupported de-abort
-    then ;'''
-new = '''  lf-meta-synth-pending ok-then? 0= if de-abort exit then drop ;'''
+old = ''': de-synth-pending ( mvar -- ) de-synth-try if outcome-unsupported de-abort then ;'''
+new = ''': de-synth-pending ( mvar -- ) de-synth-try drop ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "review s1-meta-b M3 (F17): a synthPending hook that fills the metavariable is ignored, so the retry Lean makes is skipped"
 
@@ -16466,9 +16465,9 @@ reason = "getDecLevel's assignment refused room still answers the fresh ?w, not 
 [[fault]]
 id = "fe-inst-branch"
 file = "src/front/defeq.fs"
-old = '''  de-t lf-mvar-inst? if outcome-unsupported de-abort exit then'''
+old = '''  de-t lf-mvar-inst? if de-check-inst exit then'''
 new = ''''''
-test = "$GFORTH tests/front/menv-run.fs"
+test = "$GFORTH tests/front/synth.fs"
 reason = "S1 appendix D: an instance-typed metavariable assigned without Lean's check"
 
 # The design review of leanforth verify (2026-11-13): B1's rest and M1-M3 in the driver.
@@ -16656,6 +16655,166 @@ old = ''': lf-meta-succ? ( t -- flag ) 1 s" Nat.succ" lf-meta-app-of? ;'''
 new = ''': lf-meta-succ? ( t -- flag ) drop false ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "s1-synth second re-check L3: Nat.succ x no longer read as a numeral or an offset (its keys and isDefEqOffset change)"
+
+[[fault]]
+id = "fe-instance-try-order"
+file = "src/front/synth.fs"
+old = ''': sy-candidate-at ( g -- v ) sgn@ dup sg-first @ swap sg-idx @ + sy-cands slab-at @ ;'''
+new = ''': sy-candidate-at ( g -- v ) sgn@ sg-first @ sy-cands slab-at @ ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "FE1E 6.3: candidates tried from the front, not from the last (Add Nat tries a left-out one first)"
+
+[[fault]]
+id = "fe-stuck-as-failure"
+file = "src/front/synth.fs"
+old = '''  lf-synth-instance dup lf-meta-stuck = if drop 2drop -1 lf-synth-undef outcome-ok exit'''
+new = '''  lf-synth-instance dup lf-meta-stuck = if drop 2drop -1 lf-synth-none outcome-ok exit'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "FE1E 6.3: trySynthInstance reads the stuck signal as no instance (the elaborator would report failed to synthesize)"
+
+[[fault]]
+id = "fe-outparam-kept"
+file = "src/front/synth.fs"
+old = '''  dup sy-outs? if sy-out-type else drop outcome-ok then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "FE1E 6.3: preprocessOutParam keeps the out-parameter (HAdd Nat Nat ?c would stay stuck on it)"
+
+[[fault]]
+id = "fe-cache-key-no-wildcard"
+file = "src/front/synth.fs"
+old = '''  sy-wild ok-then? if swap sy-arg-addr ! outcome-ok else nip then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "FE1E 6.3: the cache key keeps the out-parameter argument, so a later goal with another one misses the cache entry Lean finds"
+
+[[fault]]
+id = "fe-max-size-off-by-one"
+file = "src/front/synth.fs"
+old = '''  dup scn@ sc-size @ lf-synth-max-size < 0= if drop outcome-ok exit then'''
+new = '''  dup scn@ sc-size @ lf-synth-max-size 1+ < 0= if drop outcome-ok exit then'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "FE1E 6.3: an answer of size synthInstance.maxSize (128) kept; Lean drops it"
+
+[[fault]]
+id = "fe-synth-every-answer-new"
+file = "src/front/synth.fs"
+old = '''  2dup sy-new-answer? ok-then? 0= if nip nip exit then if sy-add-new else 2drop'''
+new = '''  2dup sy-new-answer? ok-then? 0= if nip nip exit then drop sy-add-new exit if 2drop'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "isNewAnswer skipped: an answer of a type already answered is kept and wakes the waiters again"
+
+[[fault]]
+id = "fe-synth-canon-off"
+file = "src/front/synth.fs"
+old = '''  sgn@ dup sg-open @ if drop false outcome-ok exit then'''
+new = '''  drop false outcome-ok exit'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "canonInstances off: a goal without metavariables that has an answer keeps trying its other candidates"
+
+[[fault]]
+id = "fe-synth-pending-depth"
+file = "src/front/synth.fs"
+old = '''  sy-class-type? ok-then? if sy sy-pending @ lf-synth-max-pending > 0= and outcome-ok else'''
+new = '''  sy-class-type? ok-then? if outcome-ok else'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "maxSynthPendingDepth ignored: synthPending nests without limit"
+
+[[fault]]
+id = "fe-synth-pending-opaque"
+file = "src/front/synth.fs"
+old = '''  dup sy-opaque? ok-then? 0= if sy-false exit then if drop false outcome-ok exit then'''
+new = '''  dup sy-opaque? ok-then? 0= if sy-false exit then drop'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "synthPendingImp fills a synthetic opaque metavariable (a goal only tactics may assign)"
+
+[[fault]]
+id = "fe-synth-cache-other-context"
+file = "src/front/synth.fs"
+old = '''  lf-mctx-epoch sy sy-epoch @ <> if sy-cache slab-clear lf-mctx-epoch sy sy-epoch ! then ;'''
+new = '''  lf-mctx-epoch sy sy-epoch ! ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "the cache outlives its metavariable context: a reset context reads another context's terms"
+
+[[fault]]
+id = "fe-synth-answer-keeps-holes"
+file = "src/front/synth.fs"
+old = '''  if drop lfa-e-synth-mvars sy-refuse else outcome-ok then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "an answer that keeps a metavariable of the search's depth leaves the search (abstractMVars is not ported: 118)"
+
+[[fault]]
+id = "fe-synth-check-skipped"
+file = "src/front/synth.fs"
+old = '''  if drop lfa-e-synth-check sy-refuse false swap else true outcome-ok then ;'''
+new = '''  drop true outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "Lean's check of a result that holds a metavariable skipped, its universe constraints lost (121)"
+
+[[fault]]
+id = "fe-synth-left-out-tried"
+file = "src/front/synth.fs"
+old = '''  dup lf-inst-left-out? if drop lfa-e-synth-left-out sy-refuse nip exit then'''
+new = ''''''
+test = "$GFORTH tests/front/synth.fs"
+reason = "S1 9: a tried left-out candidate is not refused (its record number read as an instance's)"
+
+[[fault]]
+id = "fe-synth-tried-kept"
+file = "src/front/synth.fs"
+old = '''  sy-calls slab-count 0= if sy-tried slab-clear then'''
+new = ''''''
+test = "$GFORTH tests/front/synth.fs"
+reason = "the tried list of an earlier search is kept by the next"
+
+[[fault]]
+id = "fe-synth-nodes-kept"
+file = "src/front/synth.fs"
+old = '''  sy-c dup syc-gens @ sy-gens sy-cut  dup syc-resume @ sy-resume sy-cut'''
+new = '''  sy-c dup syc-resume @ sy-resume sy-cut'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "a search's generators outlive it, so the next one reads them"
+
+[[fault]]
+id = "fe-synth-key-no-rename"
+file = "src/front/synth.fs"
+old = '''  dup lf-mvar-assignable? 0= if drop outcome-ok exit then'''
+new = '''  drop outcome-ok exit'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "mkTableKey keeps each metavariable: two goals equal up to their metavariables get two entries"
+
+[[fault]]
+id = "fe-synth-key-assignments-kept"
+file = "src/front/synth.fs"
+old = ''': sy-key-marked ( t mark -- key outcome ) >r sy-placed r> lf-mctx-rollback outcome-and ;'''
+new = ''': sy-key-marked ( t mark -- key outcome ) >r sy-placed r> lf-mctx-commit outcome-and ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "a table key's placeholder assignments are kept: the goal's metavariables end up assigned to placeholders"
+
+[[fault]]
+id = "fe-defeq-nested-not-restored"
+file = "src/front/defeq.fs"
+old = '''  de-aside dup ok? 0= if nip nip false swap exit then drop catch de-back throw ;'''
+new = '''  de-aside dup ok? 0= if nip nip false swap exit then drop catch throw ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "the unification that called a synthesis hook is not brought back: it goes on with the nested search's machine"
+
+[[fault]]
+id = "fe-defeq-inst-typed-unchecked"
+file = "src/front/defeq.fs"
+old = '''  de-t lf-mvar-inst? if de-check-inst exit then'''
+new = '''  de-t lf-mvar-inst? if de-s de-inst de-s! de-assign-now exit then'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "an instance-typed metavariable assigned without comparing the types at instances transparency (fx accepted as an Add Nat instance)"
+
+[[fault]]
+id = "fe-defeq-inst-typed-no-synth"
+file = "src/front/defeq.fs"
+old = '''  de-s de-admissible? de-aborted? if drop exit then if de-inst-types else de-inst-synth'''
+new = '''  de-s de-admissible? de-aborted? if drop exit then if de-inst-types else lf-lb-false de-return'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "synthInstanceTypedMVarAndUnify skipped: a value that is not admissible is refused without synthesizing the instance"
 
 [[fault]]
 id = "fe-elab-default-rank-unbounded"

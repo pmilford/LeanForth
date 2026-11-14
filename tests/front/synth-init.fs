@@ -5,7 +5,10 @@
 \ from its type (src/front/instances.fs, lf-inst-check): one line per
 \ outcome with its count, and one line for each instance that is not ok;
 \ (2) for each problem of check_synth.py, the candidates getInstances
-\ gives (lf-inst-candidates), by name, or the outcome. Usage:
+\ gives (lf-inst-candidates), by name, or the outcome; (3) for each of
+\ its searches, lf-synth-instance's answer as pinned Lean prints it with
+\ pp.all (without @), none, stuck, or the outcome and code, and the
+\ instances it tried, in order (src/front/synth.fs). Usage:
 \   gforth tests/front/synth-init.fs -e 's" EXPORT" s" DATA" synth-init bye'
 \ Test support: printing recurses on the host stack over name parts.
 require ../../src/front/synth.fs
