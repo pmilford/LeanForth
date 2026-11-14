@@ -92,6 +92,23 @@ T{ lv1 1 s" Add" cn nat app synth tried# 0 s" instAddNat" tried?
 : hadd-level ( -- level ) s" instHAdd" menv-name lf-menv-find drop lf-meta-const-fresh drop
   lf-term-first@ lf-cref-slot lf-cref-pairs drop 0 lf-cref-pair@ drop ;
 T{ hadd-level lf-level-mvar? -> true }T
+\ The constants' refusals (meta-env.fs): a level that names none is full,
+\ a level word that fails passes its outcome on, and no room for the
+\ constant reference or for its term is full; none makes a constant.
+create no-such-level -1 ,
+: hadd-decl ( -- d ) s" instHAdd" menv-name lf-menv-find drop ;
+: no-level ( -- level outcome ) -1 outcome-exhausted ;
+: fresh-hadd ( -- term outcome ) hadd-decl lf-meta-const-fresh ;
+: crefs-full ( xt -- i*x )   \ xt run with the references' limit at their count
+  lf-cref-capacity >r lf-cref-count @ lf-cref-capacity! drop execute
+  r> lf-cref-capacity! drop ;
+T{ s" instHAdd" menv-name lf-name-generation @ no-such-level 1 lf-meta-const-at
+   hadd-decl ' no-level lf-meta-const-with -> -1 outcome-full -1 outcome-exhausted }T
+: terms-full ( xt -- i*x )   \ xt run with the terms' limit at their count
+  lf-term-capacity >r lf-term-count @ lf-term-capacity! drop execute
+  r> lf-term-capacity! drop ;
+T{ ' fresh-hadd crefs-full ' fresh-hadd terms-full fresh-hadd nip
+   -> -1 outcome-full -1 outcome-full outcome-ok }T
 \ The scan follows a Sort's level and max and imax levels: Sort (max ?u
 \ 1), Sort (imax 1 ?u); a level metavariable of the search's depth is
 \ what abstractMVars would keep (sy-deep-mvar?), an outer one not.

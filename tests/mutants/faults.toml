@@ -16903,6 +16903,14 @@ test = "$GFORTH tests/front/synth.fs"
 reason = "review s1-synth-b B3: lf-meta-const-at puts the first level at every place (preprocessOutParam's out-level lost)"
 
 [[fault]]
+id = "fe-meta-const-full-as-ok"
+file = "src/front/meta-env.fs"
+old = '''  if lf-cterm-new if drop outcome-ok exit then then -1 outcome-full ;'''
+new = '''  if lf-cterm-new if drop outcome-ok exit then then -1 outcome-ok ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b B3: a constant the stores have no room for reads as made (-1 beside ok)"
+
+[[fault]]
 id = "fe-meta-const-no-levels"
 file = "src/front/meta-env.fs"
 old = '''  me-pairs slab-clear over lf-menv-params nip ['] me-level-by ok-each nip'''
