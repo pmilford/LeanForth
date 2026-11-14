@@ -622,6 +622,28 @@ invalid if it ever escapes the Meta layer, and only `trySynthInstance`,
 `isDefEqGuarded` (false) and `synthPendingImp` (false) consume it, as
 Lean's catches do.
 
+**As built (FE1e5, branch `s1-synth-b`, 2026-11-13, tested alone;
+`src/front/synth.fs`).** As above, with these choices. A table key is the
+goal with each assignable metavariable a loose bound variable
+`sy-tc-base + i` and each level metavariable of the search's depth a
+level metavariable of the search's own, made by assigning them under a
+mark, instantiating and rolling back; keys compare by `lf-meta-eqv`
+(Lean's `==`), in a search's own entries, linearly. Lean's `__wild__` is
+the loose bound variable `sy-tc-base - 1` and the level parameter
+`__wild__`. Nodes keep `lf-mctx-snapshot` states; subgoal, waiter and
+answer lists are runs (`lib/runs.fs`). The cache is used only with no
+local instance in the context and is emptied with the context
+(`mctx-epoch@`). A nested search (synthPending inside isDefEq) runs on
+the same slabs above the outer one's counts; defeq.fs sets its machine
+aside meanwhile. defeq.fs ports checkTypesAndAssign's instance-typed
+branch (spineMVarsAdmissible, the types at instances transparency,
+synthInstanceTypedMVarAndUnify), and isDefEqArgs' trySynthPending of a
+postponed instance argument now goes on with the filled one. Unsupported,
+each with its code and plan row FE1e5b: Π-typed goals (117), answers with
+metavariables of the search (118), Lean's `check` (121); a tried candidate
+left out (119) or unverified (120) as S1 §9 says. `make reference-synth`
+compares 30 searches over `Init` with pinned Lean's `#synth`.
+
 ### 3.5 Metavariable snapshots
 
 Lean's generator and consumer nodes each keep a `MetavarContext` and

@@ -635,7 +635,7 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 2,
+  "rstack": 4,
   "shuffles": 0,
   "words": 12
  },
@@ -694,6 +694,14 @@
   "rstack": 4,
   "shuffles": 0,
   "words": 19
+ },
+ "src/front/synth.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 35,
+  "shuffles": 9,
+  "words": 191
  },
  "src/front/tactic-basic.fs": {
   "globals": 0,
@@ -1364,8 +1372,8 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 10,
-  "shuffles": 4,
-  "words": 31
+  "shuffles": 5,
+  "words": 37
  },
  "src/lib/sections.fs": {
   "globals": 2,

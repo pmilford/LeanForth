@@ -451,11 +451,17 @@ below it).
 | 99 | unsupported | not supported yet: this case of the tactic (FE1G_TACTICS.md 5 names its step) |
 | 100 | invalid | invalid universe level: not greater than 0 |
 | 110 | invalid | type class instance expected |
+| 111 | invalid | type class resolution failed, insufficient number of arguments |
 | 112 | invalid | elaboration data refused: an instance is recorded under a class its type is not of |
 | 113 | invalid | elaboration data refused: an instance's recorded keys differ from its type's |
 | 114 | unsupported | not supported yet: an instance's recorded keys are wider than its type's (no_index) |
 | 115 | invalid | elaboration data refused: an instance is filed under another root key than its class |
 | 116 | invalid | elaboration data refused: a default instance's type is not of its recorded class |
+| 117 | unsupported | not supported yet: an instance problem whose type is a function type (plan FE1e5b) |
+| 118 | unsupported | not supported yet: an instance answer that keeps the search's metavariables (FE1e5b) |
+| 119 | unsupported | not supported yet: the search tries an instance the export left out |
+| 120 | unsupported | not supported yet: the search tries an instance whose keys could not be checked (S2) |
+| 121 | unsupported | not supported yet: Lean's check of an instance that holds metavariables (FE1e5b) |
 | 125 | invalid | failed to synthesize instance of type class |
 | 126 | invalid | typeclass instance problem is stuck |
 | 127 | invalid | numerals are data in Lean, but the expected type is a proposition |

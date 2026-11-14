@@ -88,6 +88,8 @@ require ./front/infer.fs
 require ./front/defeq-delta.fs
 require ./front/goal-print.fs
 require ./front/instances.fs
+\ Instance search (plan FE1e5), which sets defeq.fs's synthesis hooks.
+require ./front/synth.fs
 \ The elaborator (plan S1, FE1e6-7): pending instance problems and default
 \ instances, applications, terms, and the glue that elaborates natural
 \ declarations, by-exact's terms and #check (front/elab-decl.fs sets the

@@ -211,16 +211,17 @@ T{ one-side lf-lctx-local made lf-meta-dec-level -> -1 outcome-invalid }T
 T{ lfa-e-universe-level lf-author-outcome -> outcome-invalid }T
 
 \ ---- 2. The instance-typed flag: set, rolled back with its scope; an
-\ assignment to an instance-typed metavariable is unsupported (S1
-\ appendix D, until s1-synth); the hooks answer unsupported.
+\ assignment to an instance-typed metavariable compares the types at
+\ instances transparency (S1 appendix D; synth.fs's tests have the other
+\ cases); the hooks, which src/main.fs's synth.fs sets: Nat is no class.
 variable im
 T{ nat mv-natural lf-mvar-new made dup im ! lf-mvar-inst? -> false }T
 T{ lf-mctx-mark made im @ lf-mvar-mark-inst swap lf-mctx-rollback im @ lf-mvar-inst?
    -> outcome-ok outcome-ok false }T
 T{ im @ lf-mvar-mark-inst im @ lf-mvar-inst? 0 lf-mvar-mark-inst -> outcome-ok true outcome-invalid }T
-T{ im @ 0 num lf-meta-defeq -> false outcome-unsupported }T
+T{ im @ 0 num lf-meta-defeq im @ lf-mvar-value nip -> true outcome-ok true }T
 T{ im @ lf-meta-synth-pending nat lf-meta-synth
-   -> false outcome-unsupported -1 false outcome-unsupported }T
+   -> false outcome-ok -1 false outcome-invalid }T
 
 \ ---- 4. lf-menv-reset leaves the run mode: nothing found.
 T{ lf-menv-reset s" Nat.add" nm lf-menv-find nip lf-libdec-count -> outcome-invalid 0 }T

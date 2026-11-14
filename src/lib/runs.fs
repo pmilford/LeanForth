@@ -17,6 +17,15 @@
 \   copy when run2 begins where run1 ends.
 \ - run-count ( run -- n ), run@ ( run i -- x ) (unchecked: a valid run,
 \   0 <= i < n), run-valid? ( run -- flag ).
+\ - run-each ( i*x run xt -- i*x outcome ): xt ( i*x x -- i*x outcome )
+\   on each cell x of the run, in order, while it gives ok: ok, or the
+\   first outcome that is not ok (no step after it). The values below x
+\   are the steps' to read and replace, as outcome.fs's ok-each; a step
+\   may make runs (the run it walks stays as it was).
+\ - run-filter ( run xt -- run' outcome ): a new run of the cells x for
+\   which xt ( x -- keep? ) is true, in order (the empty run when none),
+\   the kept cells appended once and one record made; the test makes no
+\   runs.
 \ - runs-reset ( -- ): every run is gone (and its handle means nothing
 \   afterwards); runs-epoch ( -- n ) changes with each reset, so a holder
 \   of a run can tell; runs-cells ( -- n ) the cells in use.
@@ -27,7 +36,11 @@
 \   0 7 run-push drop  dup 8 run-push drop   \ [7] and [7 8], one cell shared
 \   over 9 run-push drop  rot drop           \ [7 9]: [7] copied to the top
 \   run-cat drop  dup run-count .            \ [7 8 7 9]: 4
-\   2 run-after drop 0 run@ .                \ 7
+\   dup 2 run-after drop 0 run@ .            \ 7
+\   : sum ( n x -- n' outcome ) + outcome-ok ;
+\   : odd? ( x -- flag ) 1 and 0<> ;
+\   0 over ' sum run-each drop .             \ 31
+\   ' odd? run-filter drop run-count .       \ [7 7 9]: 3
 \ State: two slabs (slab.fs) that are members of the checker context
 \ (context.fs, ADR 0009), so each context has its own runs; one context
 \ is single-threaded. Requires bounds.fs, outcome.fs, slab.fs, context.fs
@@ -125,6 +138,35 @@ lf-lib set-current
 : run-cat ( run1 run2 -- run outcome )
   rn-both-valid? 0= if 2drop -1 outcome-invalid exit then
   dup 0= if drop outcome-ok exit then over 0= if nip outcome-ok exit then rn-cat ;
+lf-lib-private set-current
+
+\ Walking a run: its cells' numbers in rn-cells, end and first, as ?DO
+\ takes them. Cells are only appended, so the numbers stay valid while a
+\ step makes runs; the xt is the index of an outer loop run once, read
+\ with J (outcome.fs's ok-each), so a step sees only its own values.
+: rn-span ( run -- end first ) dup rn-end swap rn-first@ ;
+: rn-step ( i*x x xt -- i*x true | i*x outcome false )
+  execute dup ok? if drop true else false then ;
+lf-lib set-current
+\ The step xt ( i*x x -- i*x outcome ) on each cell, in order, to the
+\ first failure (the header); invalid for a handle that names no run.
+: run-each ( i*x run xt -- i*x outcome )
+  over run-valid? 0= if 2drop outcome-invalid exit then
+  dup 1+ swap ?do rn-span ?do i rn-cell @ j rn-step 0= if unloop unloop exit then
+  loop loop outcome-ok ;
+lf-lib-private set-current
+\ A filter appends the cells it keeps at the top of rn-cells, from cell
+\ number first on, and makes one run of them at the end.
+: rn-kept ( first xt x -- first xt outcome )
+  2dup swap execute if rn-put else drop outcome-ok then ;
+: rn-from ( first -- run outcome ) rn-cells slab-count over - rn-new ;
+lf-lib set-current
+\ A new run of the cells the test xt ( x -- keep? ) keeps, in order; -1
+\ and the outcome when none is made (invalid, or full). The test makes
+\ no runs (its cells would join the new run's).
+: run-filter ( run xt -- run' outcome )
+  rn-cells slab-count -rot swap ['] rn-kept run-each nip
+  ok-then? if rn-from else no-result then ;
 lf-lib-private set-current
 
 module-close

@@ -58,8 +58,12 @@
 \ unfoldable definition at either head (lazy delta reduction, FE1d2's
 \ facts), a projection node (isDefEqProj), a ground Nat operation
 \ (isDefEqNat's reduceNat?), structure eta for a structure-like type,
-\ a stuck metavariable whose type might be a class (synthPending,
-\ FE1e), isDefEqProjInst at instances or implicit transparency, a
+\ isDefEqOnFailure's comparison again after synthPending fills a stuck
+\ metavariable (unstuckMVar), an instance-typed metavariable's types
+\ that differ at instances transparency where its type is a pi or its
+\ value's spine holds a let (checkTypesAndAssign's instance-typed
+\ branch, ported otherwise: S1 appendix D), isDefEqProjInst at instances
+\ or implicit transparency, a
 \ string literal against String.ofList (isDefEqStringLit), the steps of
 \ the files above that answer unsupported, quasi-pattern assignments
 \ (isTypeCorrect), constApprox,
@@ -88,8 +92,10 @@
 \ and its view are as on entry (binders' free variables dropped).
 \ Untrusted front-end code: only the kernel's check of a finished term
 \ decides anything.
-\ State: the record df and the slabs de-frames and de-cells, in the
-\ checker context (ADR 0009); one unification at a time per context.
+\ State: the record df and the slabs de-frames, de-cells and de-saved,
+\ in the checker context (ADR 0009); one unification at a time per
+\ context, but for the synthesis hooks (synth.fs), which unify while
+\ this machine is set aside on de-saved.
 \ Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
@@ -224,7 +230,7 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-cell ( i -- addr ) de-cells slab-at ;
 : de-push ( x -- flag )
   de-cells lf-meta-push dup ok? if drop true else de-abort false then ;
-: de-truncate ( n -- ) de-cells slab-count - de-cells slab-commit ;
+: de-truncate ( n -- ) de-cells slab-cut ;
 \ An answer, with the activation's cells (from de-x on) given back.
 : de-cells-return ( r -- ) de-x de-truncate de-return ;
 : de-claim ( n -- i flag )
@@ -376,21 +382,47 @@ is de-bind-dom
 : de-opaque? ( mvar -- flag ) lf-mvar-kind if mv-opaque = else true then ;
 \ The synthesis hooks (S1 appendix D): Lean's synthPending
 \ (SynthInstance.lean:1037) and synthInstance (ExprDefEq.lean:626),
-\ answering unsupported until branch s1-synth sets them. A metavariable
-\ synthPending fills would let isDefEqOnFailure instantiate and compare
-\ again (unstuckMVar): that retry is not ported, unsupported.
+\ answering unsupported until front/synth.fs, loaded, sets them.
 : de-synth-later ( mvar -- flag outcome ) drop false outcome-unsupported ;
 defer lf-meta-synth-pending ( mvar -- flag outcome )
 ' de-synth-later is lf-meta-synth-pending
 : de-synth-none ( type -- inst flag outcome ) drop -1 false outcome-unsupported ;
 defer lf-meta-synth ( type -- inst flag outcome )
 ' de-synth-none is lf-meta-synth
+\ A hook runs a synthesis, which unifies: this machine (its record and
+\ both stacks) is set aside on de-saved meanwhile, each stack's cells from
+\ the last and its count after, and brought back after, however the hook
+\ ends (Lean's nested isDefEq leaves its caller's state); no room to set
+\ it aside answers full, nothing kept.
+1 cells context-slab: de-saved
+: de-out1 ( p k y -- p' outcome ) 2drop dup @ de-saved slab-push swap cell - swap ;
+: de-out ( addr n -- outcome ) tuck 1- cells + swap 0 ['] de-out1 ok-fold nip ;
+: de-in ( addr n -- ) cells over + swap ?do de-saved slab-pop i ! cell +loop ;
+: de-cells# ( slab -- n ) dup slab-count swap slab-unit cell / * ;
+: de-out-slab ( slab -- outcome )
+  dup slab-base over de-cells# de-out ok-then? if slab-count de-saved slab-push then ;
+: de-in-slab ( slab -- )
+  de-saved slab-pop over slab-clear over slab-commit dup slab-base swap de-cells# de-in ;
+: de-out-df ( -- outcome ) df /df cell / de-out ;
+: de-out-frames ( -- outcome ) de-frames de-out-slab ;
+: de-out-cells ( -- outcome ) de-cells de-out-slab ;
+: de-aside ( -- outcome )
+  de-saved slab-count de-out-df ['] de-out-frames ok-and ['] de-out-cells ok-and
+  dup ok? if nip exit then swap de-saved slab-cut ;
+: de-back ( -- ) de-cells de-in-slab de-frames de-in-slab df /df cell / de-in ;
+: de-nested ( mvar xt -- flag outcome )
+  de-aside dup ok? 0= if nip nip false swap exit then drop catch de-back throw ;
+: de-pending ( mvar -- flag outcome ) ['] lf-meta-synth-pending de-nested ;
 : de-class? ( mvar -- flag ) lf-mvar-type drop lf-meta-class-none? 0= ;
-: de-synth-pending ( mvar -- )
-  dup de-opaque? if drop exit then dup de-class? 0= if drop exit then
-  lf-meta-synth-pending ok-then? 0= if de-abort exit then if outcome-unsupported de-abort
-    then ;
-: de-try-synth ( t -- ) de-stuck-mvar if de-synth-pending then ;
+\ synthPending: true when it filled the metavariable, a failure aborts.
+\ isDefEqArgs' postponed instance arguments discard the answer (Lean's
+\ trySynthPending; the comparison that follows reads the filled one);
+\ isDefEqOnFailure would compare again (unstuckMVar): not ported.
+: de-synth-try ( mvar -- flag )
+  dup de-opaque? if drop false exit then dup de-class? 0= if drop false exit then
+  de-pending ok-then? 0= if de-abort false then ;
+: de-synth-pending ( mvar -- ) de-synth-try if outcome-unsupported de-abort then ;
+: de-try-synth ( t -- ) de-stuck-mvar if de-synth-try drop then ;
 : de-older? ( mvar -- flag ) lf-mvar-depth if lf-mctx-depth < else false then ;
 : de-unstuck ( t -- stuck? )
   de-stuck-mvar 0= if false exit then dup de-synth-pending
@@ -491,19 +523,58 @@ defer de-args-post ( -- )
 \ unsupported; a full store stays full.
 : de-assign-failed ( outcome -- )
   dup outcome-invalid = if drop outcome-unsupported then de-abort ;
-: de-ct-k ( r -- )
-  lf-lb-true = 0= if lf-lb-false de-return exit then
-  de-t de-s lf-mvar-assign dup ok? if drop lf-lb-true de-return
-  else de-assign-failed then ;
+: de-assign-now ( -- )
+  de-t de-s lf-mvar-assign dup ok? if drop lf-lb-true de-return else de-assign-failed
+  then ;
+: de-ct-k ( r -- ) lf-lb-true = if de-assign-now else lf-lb-false de-return then ;
 \ An instance-typed metavariable (Lean's branch under the option
 \ backward.isDefEq.respectTransparency.instanceSearchTypes, default true,
-\ ExprDefEq.lean:640-660): its value is checked at instances transparency
-\ or synthesized (checkTypesForInstanceTypedMVarAssignment,
-\ synthInstanceTypedMVarAndUnify): not ported, unsupported; only
-\ synthesis's subgoals are marked (branch s1-synth).
+\ ExprDefEq.lean:640-660; synthesis's subgoals are instance-typed,
+\ SynthInstance.lean:358): v instantiated; when its spine's metavariables
+\ are admissible (spineMVarsAdmissible: instance-typed, read-only or
+\ synthetic opaque) the types are compared at exactly instances
+\ transparency and ?m := v on true (checkTypesForInstanceTypedMVar-
+\ Assignment); otherwise, or when they differ and ?m's type is no pi,
+\ synthInstanceTypedMVarAndUnify: under a checkpoint, synthPending (the
+\ hook, the machine set aside), then v against ?m's instance. Not ported,
+\ unsupported: types that differ where ?m's type is a pi (Lean compares
+\ them at implicit transparency and the bodies under its binders), and a
+\ let on v's spine.
+: de-read-only? ( mvar -- flag )
+  dup lf-mvar-depth drop lf-mctx-depth <> if drop true exit then
+  lf-mvar-kind drop mv-opaque = lf-defeq-opaque de-flag? 0= and ;
+: de-adm-mvar ( mvar -- e lbool )   \ a delayed one's pending one, or the verdict
+  dup lf-mvar-delayed if 2drop nip lf-lb-undef exit then
+  dup lf-mvar-inst? swap de-read-only? or lf-lb 0 swap ;
+: de-adm-node ( e tag -- e' lbool )
+  case lf-tag-app of lf-term-first@ lf-lb-undef endof
+    lf-tag-lam of lf-term-second@ lf-lb-undef endof
+    lf-tag-projection of lf-proj-struct lf-lb-undef endof
+    lf-tag-mvar of de-adm-mvar endof  lf-lb-true swap endcase ;
+: de-adm-step ( e -- e' lbool )
+  dup lf-meta-mvar-free? if lf-lb-true exit then
+  dup lf-let? if outcome-unsupported de-abort lf-lb-false exit then
+  dup lf-term-tag@ de-adm-node ;
+: de-admissible? ( v -- flag )
+  begin de-adm-step dup lf-lb-undef = while drop repeat nip lf-lb-true = ;
+: de-synth-k ( flag outcome -- )
+  de-must 0= if drop exit then 0= if lf-lb-false de-close-k exit then
+  de-s de-t de-inst ['] de-close-k de-solve ;
+: de-inst-synth ( -- ) de-mark? if de-t de-pending de-synth-k then ;
+: de-inst-k ( r -- )
+  lf-lb-true = if de-assign-now exit then
+  de-t lf-mvar-type drop de-pi? if outcome-unsupported de-abort else de-inst-synth then ;
+: de-inst-types ( -- )
+  de-t lf-mvar-type 0= if outcome-invalid de-abort exit then
+  de-s de-infer 0= if 2drop exit then ['] de-inst-k de-solve lf-tr-instances df df-mode
+  ! ;
+: de-check-inst ( -- )
+  de-s de-inst de-aborted? if drop exit then de-s!
+  de-s de-admissible? de-aborted? if drop exit then if de-inst-types else de-inst-synth
+  then ;
 : de-check-types ( -- )
   de-t lf-mvar? 0= if lf-lb-false de-return exit then
-  de-t lf-mvar-inst? if outcome-unsupported de-abort exit then
+  de-t lf-mvar-inst? if de-check-inst exit then
   de-t lf-mvar-type 0= if outcome-invalid de-abort exit then
   de-s de-infer 0= if 2drop exit then ['] de-ct-k de-solve de-bump ;
 

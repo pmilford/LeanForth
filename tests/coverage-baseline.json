@@ -437,6 +437,11 @@
    "never_run": 3,
    "reason": "new file (plan FE1a-b, branch fe1, 2026-11-12): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded, a child beyond the walk memo and the reader default finder before cli/check-lf.fs sets it are never run"
   },
+  "src/front/synth.fs": {
+   "blocks": 1005,
+   "never_run": 94,
+   "reason": "new file (plan FE1e5, branch s1-synth-b, 2026-11-13; measured over make test-instances and test-front after review s1-synth-b H1 and M3: heap-refusal sweeps over three goals, budget sweeps over three): never run are (a) what plan S2 merge A reaches: preprocessOutParam's and the cache key's paths for a class with an out-parameter (on main its searches stop at unification's lazy delta; make reference-synth gives them with S2), cacheResult's answer for one (sy-cache-value), assignOutParams answering false, and error 111 (a class type with fewer binders than arguments); (b) failure branches no sweep reaches: a term or level store, metavariable, snapshot, switch, instantiation, inferType or whnf refused midway (the sweeps refuse heap blocks while the stores have room), a dead metavariable's type, a table entry missing or its test failing (sy-hit), an instance type that only whnf makes a pi, and canonInstances popping a generator inside a search"
+  },
   "src/front/tactic-basic.fs": {
    "blocks": 271,
    "never_run": 11,
