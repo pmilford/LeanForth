@@ -82,7 +82,7 @@ end-structure
   dup lf-term-tag@ lf-tag-fvar = if lf-fvar-let? 0= exit then
   dup lf-mvar? if lf-meta-unassigned? else drop false then ;
 : lf-meta-whnf-final? ( e -- flag )
-  dup 1 s" Nat.succ" lf-meta-app-of? if lf-term-second@ fi-inert? exit then
+  dup lf-meta-succ? if lf-term-second@ fi-inert? exit then
   lf-meta-head fi-head-final? ;
 
 \ ---- isProp.

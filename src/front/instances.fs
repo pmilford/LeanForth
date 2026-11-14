@@ -80,12 +80,15 @@
 \   outcome ) (step 3 alone, for default instance j), lf-inst-checked# and
 \   lf-inst-unverified# ( -- n ): the instances whose check is final, and
 \   those of them unverified.
-\ - lf-inst-error ( -- code ): the error code of the last query's or
-\   check's invalid or unsupported answer (src/author/errors.fs), 0 when
-\   it has none of the table's own (each starts at 0: a term or context view that
-\   is not live, a constant the data's stage lacks, a rank the reader
-\   should have refused); lf-inst-reset ( -- ) forgets the trees, checks
-\   and the pass (a new read of the data does too).
+\ - lf-inst-error ( -- code ): the error code (src/author/errors.fs) the
+\   last query or check set, 0 when it set none. Each starts at 0; an
+\   answer that is not ok sets its code when it has one of the table's
+\   own (none for a term or context view that is not live, a constant the
+\   data's stage lacks, a rank the reader should have refused), and an ok
+\   answer may leave 114 from a record it found unverified on the way.
+\   Only a refusal's code (112, 113, 115, 116) refuses the data.
+\   lf-inst-reset ( -- ) forgets the trees, checks and the pass (a new
+\   read of the data does too).
 \ Outcomes: ok; invalid as above; lf-meta-stuck from a query key (Meta
 \ layer only); unsupported; exhausted; full when a slab cannot grow.
 \ Untrusted. State: the record it (the last error, the counts, the pass,
@@ -141,11 +144,14 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
 : lf-inst-reset ( -- )   \ tables of the data as it is now
   it-roots slab-clear it-nodes slab-clear it-vals slab-clear it-status slab-clear
   it-dstatus slab-clear it /it erase elab-generation it it-data ! ;
+\ Tables of the data as it is: another read, or a reset of it
+\ (elab-generation), forgets them before any query or count reads them.
+: it-same-data ( -- ) elab-generation it it-data @ <> if lf-inst-reset then ;
 : lf-inst-error ( -- code ) it it-error @ ;
 : it-fail ( code -- outcome ) it it-error ! outcome-invalid ;
 : it-no-error ( -- ) 0 it it-error ! ;   \ each query and check starts so
-: lf-inst-checked# ( -- n ) it it-checked @ ;
-: lf-inst-unverified# ( -- n ) it it-unverified-n @ ;
+: lf-inst-checked# ( -- n ) it-same-data it it-checked @ ;
+: lf-inst-unverified# ( -- n ) it-same-data it it-unverified-n @ ;
 : lf-inst-left-out? ( v -- flag ) 0< ;
 : lf-inst-priority ( v -- p )
   dup lf-inst-left-out? if invert elab-left-out@ 2drop else elab-instance@ nip nip then ;
@@ -339,23 +345,26 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
 : it-pass-run ( -- outcome )
   it-records-ready ['] it-roots-made ok-and ['] it-instances-pass ok-and
   ['] it-defaults-pass ok-and ;
-\ A refusal of the data, an invalid answer with a code of its own (112,
+\ A refusal of the data, an invalid answer with a refusal's code (112,
 \ 113, 115, 116), answers every later query the same until another read
-\ or lf-inst-reset; an invalid with no code (a term or context view that
-\ is not live, below the table) is the query's alone.
+\ or lf-inst-reset; any other invalid (no code: a term or context view
+\ that is not live, below the table; or the 114 an unverified record
+\ left) is the query's alone.
+: it-refusal? ( code -- flag )
+  dup lfa-e-inst-wide <> swap lfa-e-inst-class lfa-e-default-class 1+ within and ;
 : it-refused ( outcome -- outcome )
-  dup outcome-invalid = lf-inst-error 0<> and if lf-inst-error it it-pass ! then ;
+  dup outcome-invalid = lf-inst-error it-refusal? and if lf-inst-error it it-pass ! then ;
 : it-pass-keep ( outcome -- outcome )
   dup ok? if it-passed it it-pass ! exit then it-refused ;
 \ Each query starts with no error code, and with tables of the data as it
-\ is: another read, or a reset of it (elab-generation), forgets them.
-: it-same-data ( -- ) elab-generation it it-data @ <> if lf-inst-reset then ;
+\ is (it-same-data).
 : it-query ( -- ) it-same-data it-no-error ;
 : lf-inst-classes ( -- outcome )
   it-query it it-pass @ ?dup 0= if it-pass-run it-pass-keep exit then
   dup it-passed = if drop outcome-ok else it-fail then ;
 : lf-inst-verified? ( v -- flag )
-  dup it-status slab-count index? if it-status@ it-verified = else drop false then ;
+  it-same-data dup it-status slab-count index? if it-status@ it-verified = else drop false
+  then ;
 
 \ ---- The trees: nodes (key, first child, next sibling, first and last
 \ value cell) and value cells (value, next), -1 for none.

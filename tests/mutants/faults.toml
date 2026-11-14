@@ -15876,8 +15876,8 @@ reason = "ignoreArg: an instance-implicit argument is indexed, not a star (Nat.d
 [[fault]]
 id = "fe-keys-succ-uncounted"
 file = "src/front/discr-keys.fs"
-old = '''  dup dk-succ? if dk-last swap 1+ swap true exit then'''
-new = '''  dup dk-succ? if dk-last true exit then'''
+old = '''  dup lf-meta-succ? if dk-last swap 1+ swap true exit then'''
+new = '''  dup lf-meta-succ? if dk-last true exit then'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "toNatLit?: Nat.succ adds nothing to the numeral's value"
 
@@ -15988,7 +15988,8 @@ reason = "s1-synth review M4: an erased instance is a candidate"
 [[fault]]
 id = "fe-inst-verified-always"
 file = "src/front/instances.fs"
-old = '''  dup it-status slab-count index? if it-status@ it-verified = else drop false then ;'''
+old = '''  it-same-data dup it-status slab-count index? if it-status@ it-verified = else drop false
+  then ;'''
 new = '''  drop true ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "s1-synth review M4: every value reads as verified, a left-out one and an unchecked one too"
@@ -16623,6 +16624,38 @@ old = '''  ok-then? if it-ranked slab-count = flag>outcome then ;'''
 new = '''  ok-then? if drop outcome-ok then ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "s1-synth re-check L2': a root whose values leave a rank empty is built, the hole read as left-out 0"
+
+[[fault]]
+id = "fe-inst-refusal-any-code"
+file = "src/front/instances.fs"
+old = '''  dup lfa-e-inst-wide <> swap lfa-e-inst-class lfa-e-default-class 1+ within and ;'''
+new = '''  0<> ;'''
+test = "$GFORTH tests/front/instances-odd.fs"
+reason = "s1-synth second re-check L1: the 114 an unverified record left turns a later code-less invalid into a permanent refusal of the data"
+
+[[fault]]
+id = "fe-inst-verified-other-read"
+file = "src/front/instances.fs"
+old = '''  it-same-data dup it-status slab-count index? if it-status@ it-verified = else drop false'''
+new = '''  dup it-status slab-count index? if it-status@ it-verified = else drop false'''
+test = "$GFORTH tests/front/instances-odd.fs"
+reason = "s1-synth second re-check L2: after a new read of the data an instance still answers verified until the next query"
+
+[[fault]]
+id = "fe-inst-counts-other-read"
+file = "src/front/instances.fs"
+old = ''': lf-inst-checked# ( -- n ) it-same-data it it-checked @ ;'''
+new = ''': lf-inst-checked# ( -- n ) it it-checked @ ;'''
+test = "$GFORTH tests/front/instances-odd.fs"
+reason = "s1-synth second re-check L2: the checked count of an earlier read of the data is reported for the new one"
+
+[[fault]]
+id = "fe-meta-succ-none"
+file = "src/front/term-eqv.fs"
+old = ''': lf-meta-succ? ( t -- flag ) 1 s" Nat.succ" lf-meta-app-of? ;'''
+new = ''': lf-meta-succ? ( t -- flag ) drop false ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth second re-check L3: Nat.succ x no longer read as a numeral or an offset (its keys and isDefEqOffset change)"
 
 [[fault]]
 id = "fe-elab-default-rank-unbounded"
