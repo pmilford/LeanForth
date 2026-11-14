@@ -1004,7 +1004,8 @@ load average about 4; `bench.fs` in `.claude/work/SYB/`, two runs): `run-each` w
 step that adds 31–34 ns a cell at n = 10 and 16–19 ns at n = 10^6,
 against 34 and 30–39 ns for `ok-fold` over `run@` (the walks it
 replaces); `run-filter` keeping half the cells 102 ns a cell at n = 10
-and 75 ns at n = 10^6 (an append per kept cell and one record).
+and 75 ns at n = 10^6 (an append per kept cell and one record), with its
+rule checked 105–108 and 87 ns (2026-11-14, load average about 1.3).
 *Callers and their sizes* (2026-11-13): instance search (`synth.fs`):
 the waiters an answer wakes and the answers a waiting consumer is given
 (`run-each`), the older answers a new one is compared with (`run-each`,
