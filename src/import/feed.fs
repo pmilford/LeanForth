@@ -516,13 +516,13 @@ here feed-kinds - 1 cells / constant feed-kinds#
 \ one that is no positive cell (on a host with 32-bit cells) is invalid
 \ rather than a negative count (review rvI21 L3).
 : feed-item@ ( k d feed -- u ) feed-stage @ staged-item ;
-: feed-nth ( d feed k -- d feed u ) >r 2dup r> -rot feed-item@ ;
+: feed-nth ( d feed k -- d feed u ) 2dup-under -rot feed-item@ ;
 : feed, ( outcome x -- outcome ) swap dup ok? if drop lf-more, else nip then ;
 : feed-u, ( outcome u -- outcome ) dup 0< if 2drop outcome-invalid else feed, then ;
 : feed-num, ( d feed outcome k -- d feed outcome ) swap >r feed-nth r> swap feed-u, ;
 \ A tuple as a list: its count, then its items.
 : feed-list-item ( outcome t cons i -- outcome t cons )
-  >r 2dup r> -rot tuple-item >r rot r> feed, -rot ;
+  2dup-under -rot tuple-item >r rot r> feed, -rot ;
 : feed-list, ( outcome t cons -- outcome )
   2dup tuple-length >r rot r@ feed, -rot r> 0 ?do i feed-list-item loop 2drop ;
 : feed-names, ( d feed outcome k -- d feed outcome )

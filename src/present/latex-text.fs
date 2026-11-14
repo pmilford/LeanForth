@@ -15,6 +15,7 @@
 
 require ./print-job.fs
 require ../lib/bytes.fs
+require ../lib/decimal.fs
 require ../lib/text-rule.fs
 
 \ Escaping, one byte at a time.
@@ -26,8 +27,7 @@ require ../lib/text-rule.fs
   s" ~" lf-tex-is? if drop s" \sim{}" lf-pp-emit exit then
   s" \" lf-tex-is? if drop s" \backslash{}" lf-pp-emit exit then 1 lf-pp-emit ;
 \ An escape: its prefix, then the number in hexadecimal and \}.
-: lf-tex-hex ( u -- ) base @ >r hex 0 <# #s #> r> base ! lf-pp-emit ;
-: lf-tex-code ( u c-addr u2 -- ) lf-pp-emit lf-tex-hex s" \}" lf-pp-emit ;
+: lf-tex-code ( u c-addr u2 -- ) lf-pp-emit u>hex lf-pp-emit s" \}" lf-pp-emit ;
 : lf-tex-bad ( c-addr -- ) c@ s" \backslash{}x\{" lf-tex-code ;
 \ The character at c-addr, u bytes left: written; the bytes it took.
 : lf-tex-step ( c-addr u -- n )

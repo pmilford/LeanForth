@@ -70,11 +70,9 @@ create nt-state /nt allot  nt-state /nt erase
   dup nt-out slab-claim ok? if nt-out slab-at swap move exit then
   drop 2drop true nt-short ! ;
 : nt-text@ ( -- c-addr u flag ) 0 nt-out slab-at nt-out slab-count nt-short @ 0= ;
-: nt-digits ( u -- ) 0 <# #s #> nt-put ;
 : nt-decimal ( u -- ) u>decimal nt-put ;
-: nt-hex ( u -- ) base @ >r hex nt-digits r> base ! ;
 \ An escape: its prefix, the number in hexadecimal, then }.
-: nt-escape ( u c-addr u -- ) nt-put nt-hex s" }" nt-put ;
+: nt-escape ( u c-addr u -- ) nt-put u>hex nt-put s" }" nt-put ;
 
 \ ---- Characters. The first character of a text: its code point and
 \ length, or the byte and 0 when it does not start a UTF-8 sequence.

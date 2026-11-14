@@ -240,10 +240,10 @@ end-structure
   dup lay-at-j @ over lay-from nip rot + swap lay-entry ;
 : lay-has? ( key answer lay -- flag ) dup lay-twin-list swap lay-twin-count look-in? ;
 : lay-own-in? ( i lay -- flag ) tuck lay-entry-j rot lay-has? ;
+: lay-own-in-at? ( lay i -- lay flag ) over lay-own-in? ;
 : lay-looks-same? ( lay -- flag )
   dup lay-twin-count over lay-own-count <> if drop false exit then
-  dup lay-own-count 0 ?do i over lay-own-in? 0= if drop false unloop exit then loop
-  drop true ;
+  dup lay-own-count ['] lay-own-in-at? all? nip ;
 : lay-twin-same? ( s i lay -- flag )
   >r tuck + swap r@ lay-uj @ + swap r@ lay-pair! r> lay-looks-same? ;
 : unit-looks-same? ( s lay -- flag )
@@ -287,9 +287,7 @@ end-structure
   lay-base @ >r dup r@ snap-block over r@ snap-size 3 pick + dup >r 1 max resize
   if drop 2drop r> drop r> drop outcome-full exit then
   r> rot r> snap-block! drop outcome-ok ;
-: starts-grow ( n lay -- outcome )
-  lay-base @ >r 2* cells 1 max r@ snap-starts @ swap resize
-  if drop r> drop outcome-full exit then r> snap-starts ! outcome-ok ;
+: starts-grow ( n lay -- outcome ) swap 2* cells swap lay-base @ snap-starts block-resize ;
 \ The counts the new slots add, from their records in the layer.
 : lay-adds ( k lay -- n )
   0 over lay-n @ 0 ?do

@@ -1080,7 +1080,7 @@ here families - cell / constant #families
 : export-tap! ( x xt export -- ) tuck export-tap ! export-tap-x ! ;
 : export-untap ( export -- ) 0 0 rot export-tap! ;
 : export-tapped ( c-addr u export -- c-addr u )
-  dup export-tap @ ?dup 0= if drop exit then >r export-tap-x @ >r 2dup r> r> execute ;
+  dup export-tap @ ?dup 0= if drop exit then >r export-tap-x @ 2dup-under r> execute ;
 \ Read, check and hand over the next line of the file, counted from the
 \ lines read so far.
 : export-next ( export -- outcome )

@@ -3,9 +3,11 @@
 \ docs/development/TEST_COVERAGE_REVIEW.md. Interfaces: the public words
 \ and hidden helpers, the header's example, stack effects and the return
 \ stack. Results: zero, one digit, the largest and the most negative
-\ cells, double cells, under BASEs 2, 10 and 16. Errors and state: BASE
-\ restored after a word that throws, the THROW passed on with its code;
-\ digits too large for a cell refused, at the width of max-n and one past.
+\ cells, double cells, under BASEs 2, 10 and 16; hexadecimal text;
+\ leading zeros, however many. Errors and state: BASE restored after a
+\ word that throws (in-base and in-decimal), the THROW passed on with its
+\ code; digits too large for a cell refused, at the width of max-n and
+\ one past, with and without leading zeros.
 \ Loaded under HEX: the module must not depend on BASE and must restore
 \ it. T{ }T checks results and data-stack depth.
 include ../support/tester.fs
@@ -19,8 +21,9 @@ T{ base-after-load -> 16 }T
 T{ [defined] in-decimal [defined] u>decimal [defined] n>decimal [defined] ud>decimal
    [defined] d>decimal [defined] digits>u -> true true true true true true }T
 T{ [defined] decimal>u [defined] cell-digits -> true true }T
+T{ [defined] in-base [defined] u>hex [defined] skip-zeros -> true true true }T
 T{ [defined] ud>text [defined] d>text [defined] decimal-width [defined] digit+
-   -> false false false false }T
+   [defined] unpadded>u -> false false false false false }T
 
 \ ---- Text: the digits, a minus sign for a negative signed number, the
 \ same whatever BASE is, and BASE left as it was.
@@ -57,6 +60,21 @@ T{ hex ' thrower ' in-decimal catch nip base @ decimal -> -77 16 }T
 T{ 2 base ! ' thrower ' in-decimal catch nip base @ decimal -> -77 2 }T
 \ A reader of numbers: >NUMBER in decimal whatever BASE is.
 T{ hex 0 0 s" 123x" ' >number in-decimal decimal nip -> 123 0 1 }T
+\ in-base: any BASE, given back after the word and after a THROW.
+T{ ' base-seen 2 in-base ' base-seen 16 in-base base @ -> 2 16 10 }T
+T{ hex ' base-seen 0A in-base base @ decimal -> 10 16 }T
+T{ 1 2 3 ' sum3 16 in-base 4 5 ' + 7 ' in-base rs-checked -> 6 9 }T
+: hex-thrower ( -- ) base @ 16 <> abort" not hex" -78 throw ;
+T{ ' hex-thrower 16 ' in-base catch nip nip base @ -> -78 10 }T
+T{ 2 base ! ' hex-thrower 10000 ' in-base catch nip nip base @ decimal -> -78 2 }T
+
+\ ---- u>hex: the hexadecimal digits of an unsigned cell, as the host's #
+\ writes them, whatever BASE is.
+: host-hex ( u -- c-addr u ) base @ >r hex 0 <# #s #> r> base ! ;
+T{ 0 u>hex s" 0" text= 9 u>hex s" 9" text= 255 u>hex s" FF" text= -> true true true }T
+T{ 4096 u>hex s" 1000" text= 2 base ! 1010 u>hex decimal s" A" text= base @ -> true true 10 }T
+T{ -1 u>hex keep -1 host-hex text= -1 u>hex nip max-n host-hex nip = -> true true }T
+T{ max-n 1+ u>hex drop c@ char 8 = 3054 ' u>hex rs-checked s" BEE" text= -> true true }T
 
 \ ---- .decimal prints n>decimal's text, no space after it.
 create printed 64 allot  variable printed#
@@ -94,6 +112,22 @@ T{ max-n-text 2 base ! digits>u decimal -> max-n true }T
 T{ max-n-text hex digits>u decimal -> max-n true }T
 T{ past-max-n hex digits>u decimal -> false }T
 T{ s" 1000" 2 base ! decimal>u decimal -> 1000 }T
+\ skip-zeros: the text after its leading zeros, empty for zeros only.
+T{ s" 007" skip-zeros s" 7" text= s" 70" skip-zeros s" 70" text= -> true true }T
+T{ s" 000" skip-zeros nip s" " skip-zeros nip s" 0" skip-zeros nip -> 0 0 0 }T
+T{ s" 0a" skip-zeros s" a" text= s" 1" ' skip-zeros rs-checked s" 1" text= -> true true }T
+\ Leading zeros change nothing however many there are (review reuse-out
+\ L2): more zeros than cell-digits before 1, before max-n, before the
+\ number one past it, and zeros alone.
+create padded 128 allot  variable padded#
+: zeros-before ( c-addr u -- c-addr' u' )
+  padded cell-digits 1+ [char] 0 fill  cell-digits 1+ padded# !
+  tuck padded padded# @ + swap move padded# +! padded padded# @ ;
+T{ s" 1" zeros-before digits>u -> 1 true }T
+T{ s" 1" zeros-before nip cell-digits > s" 00000000000000000000042" digits>u -> true 42 true }T
+T{ max-n-text zeros-before digits>u -> max-n true }T
+T{ past-max-n zeros-before digits>u s" " zeros-before digits>u -> false 0 true }T
+T{ s" 0" zeros-before hex digits>u decimal max-n-text zeros-before ' digits>u rs-checked -> 0 true max-n true }T
 \ digit+ (private) at the edge of a cell.
 lf-lib-private order+
 T{ max-n 10 / max-n 10 mod char 0 + digit+ -> max-n true }T
@@ -102,6 +136,7 @@ T{ 0 char 7 digit+ -> 7 true }T
 
 \ The header's example.
 T{ hex ff u>decimal s" 255" text= -10 n>decimal s" -16" text= decimal -> true true }T
+T{ 255 u>hex s" FF" text= s" 007" skip-zeros s" 7" text= -> true true }T
 T{ s" 1234" digits>u s" 99999999999999999999999" digits>u -> 1234 true false }T
 : dot-text ( n -- c-addr u ) 0 <# #s #> ;
 T{ hex 100 ' dot-text in-decimal decimal s" 256" text= base @ -> true 10 }T

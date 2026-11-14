@@ -414,9 +414,8 @@ create snap-outers /outers allot  snap-outers /outers erase
 : canon-copy ( name -- name' outcome )
   dup canon-name? if outer canon name-copy else drop -1 outcome-invalid then ;
 : canon-made ( name -- outcome ) canon-copy nip ;
-: canon-names ( addr n -- outcome )
-  cells bounds ?do i @ canon-made dup ok? 0= if unloop exit then drop 1 cells +loop
-  outcome-ok ;
+: canon-at ( addr k -- addr outcome ) cells over + @ canon-made ;
+: canon-names ( addr n -- outcome ) ['] canon-at ok-each nip ;
 \ The names sorted, then made (in the order they have, should the sort
 \ fail: the save fails then with the sort's outcome).
 : canon-slot ( slot -- outcome )
@@ -547,10 +546,8 @@ create snap-outers /outers allot  snap-outers /outers erase
   2dup snap-block >r 2dup snap-count >r drop snap-unit r> r> -rot ;
 : snap-add ( i snap -- outcome )
   2dup snap-shape 2>r >r over 1+ swap snap-sf r> -rot 2r> 2swap sections-add nip ;
-: snap-adds ( snap -- outcome )
-  snap-sections# tier-sections# do
-    i over snap-add dup ok? 0= if nip unloop exit then drop
-  loop drop outcome-ok ;
+: snap-add-at ( snap k -- snap outcome ) tier-sections# + over snap-add ;
+: snap-adds ( snap -- outcome ) snap-sections# tier-sections# - ['] snap-add-at ok-each nip ;
 \ A sealed stage, and the current environment valid over this context's
 \ input (which the caller fed from that stage: one slot per input
 \ declaration, in the feed's order), every slot final.
@@ -713,10 +710,8 @@ create snap-outers /outers allot  snap-outers /outers erase
 
 \ ---- Loading: the environment's sections, every field in range.
 : sec-units ( i snap -- n ) snap-sf sections-info drop nip nip ;
-: snap-loads ( snap -- outcome )
-  snap-sections# ss-slots do
-    i over snap-load dup ok? 0= if nip unloop exit then drop
-  loop drop outcome-ok ;
+: snap-load-at ( snap k -- snap outcome ) ss-slots + over snap-load ;
+: snap-loads ( snap -- outcome ) snap-sections# ss-slots - ['] snap-load-at ok-each nip ;
 \ The identity's counts against the sections, and the slots against n.
 : id-units? ( snap k i -- flag ) rot tuck sec-units >r id@ r> = ;
 : snap-counts? ( n snap -- flag )

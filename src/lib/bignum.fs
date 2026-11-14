@@ -96,15 +96,16 @@
 \ are read-only. Loads in decimal whatever BASE is, and restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
+require ./bits.fs
 require ./bounds.fs
+require ./decimal.fs
 require ./outcome.fs
 require ./portability.fs
 
 \ ---- Limbs ----
 
-\ Bits in a limb (a cell), counted rather than assumed.
-: count-bits ( u -- n ) 0 swap begin dup while 1 rshift swap 1+ swap repeat drop ;
--1 count-bits constant limb-bits
+\ Bits in a limb: a cell's, counted rather than assumed (bits.fs).
+cell-bits constant limb-bits
 \ Bits needed to write u, 0 for 0, by halving the width w that holds u:
 \ when u >> ceil(w/2) is not 0, keep that and count ceil(w/2) bits.
 : bit-length ( u -- n )
@@ -831,8 +832,6 @@ limb-bits 3 - constant lead-bits
 : digits? ( addr u -- flag )
   dup 0> 0= if 2drop false exit then chars over + swap
   ?do i c@ decimal-digit? 0= if unloop false exit then 1 chars +loop true ;
-: skip-zeros ( addr u -- addr' u' )
-  begin dup if over c@ [char] 0 = else false then while 1 /string repeat ;
 \ The value of at most chunk-digits digits.
 : chunk>u ( addr u -- u )
   0 -rot chars over + swap ?do 10 * i c@ [char] 0 - + 1 chars +loop ;

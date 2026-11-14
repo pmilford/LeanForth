@@ -324,7 +324,7 @@ end-structure
 : lf-blk-arity! ( d -- ) lf-ind-n lf-ind-nparams + lf-blk-state lf-blkrec-arity ! ;
 : lf-blk-c3-arg? ( node depth i -- flag )
   tuck - 1- >r lf-blk-arity swap lf-ind-arg r> lf-ind-bvar? ;
-: lf-blk-c3-param? ( node depth i -- node depth flag ) >r 2dup r> lf-blk-c3-arg? ;
+: lf-blk-c3-param? ( node depth i -- node depth flag ) 2dup-under lf-blk-c3-arg? ;
 : lf-blk-c3-params? ( node depth -- flag )
   lf-ind-nparams ['] lf-blk-c3-param? all? nip nip ;
 : lf-blk-shape-of? ( node depth d -- flag )
@@ -340,7 +340,7 @@ end-structure
 : lf-blk-index-free? ( node i xt -- flag outcome )
   >r lf-blk-arity swap lf-ind-arg r> execute lf-blk-none? ;
 : lf-blk-index-at? ( node xt k -- node xt flag outcome )
-  lf-ind-nparams + >r 2dup r> swap lf-blk-index-free? ;
+  lf-ind-nparams + 2dup-under swap lf-blk-index-free? ;
 : lf-blk-indices-free? ( node xt -- flag outcome )
   lf-blk-arity lf-ind-nparams - ['] lf-blk-index-at? ok-all? 2swap 2drop ;
 : lf-blk-valid? ( node depth xt -- flag outcome )

@@ -227,13 +227,22 @@ T{ fresh-img sa stage-decls 1- 9 0 peek 1+ 0 9 0 poke 9 forged attempted
 \ right-hand side, each forged out of range in the lists section (4).
 : tuple-of ( item d -- t ) sa staged-item ;
 : tuple-len ( t -- n ) sa stage-tuples tuple-length ;
-variable want-kind  variable want-item  variable want-n
-: list-wide? ( d -- flag )
-  dup sa staged-kind@ want-kind @ <> if drop false exit then
-  want-item @ swap tuple-of tuple-len want-n @ < 0= ;
+\ The first declaration of a kind whose list item has at least n entries
+\ (-1 for none): an any? over the declarations, the wanted kind, item and
+\ length in a record the test reads, the one found kept in it.
+begin-structure /wanted
+  field: wanted-kind  field: wanted-item  field: wanted-n  field: wanted-d
+end-structure
+create wanted /wanted allot
+: wanted! ( kind item n w -- w )
+  tuck wanted-n ! tuck wanted-item ! tuck wanted-kind ! -1 over wanted-d ! ;
+: kind-of? ( w d -- flag ) sa staged-kind@ swap wanted-kind @ = ;
+: long-enough? ( w d -- flag ) over wanted-item @ swap tuple-of tuple-len swap wanted-n @ < 0= ;
+: list-wide? ( w d -- w flag )
+  2dup kind-of? 0= if drop false exit then
+  2dup long-enough? if over wanted-d ! true else drop false then ;
 : first-wide ( kind item n -- d )
-  want-n ! want-item ! want-kind !
-  sa stage-decls 0 ?do i list-wide? if i unloop exit then loop -1 ;
+  wanted wanted! sa stage-decls ['] list-wide? any? drop wanted-d @ ;
 kind-type more-type-ctors 2 first-wide constant a-type2
 kind-recursor more-rec-rules 2 /rule-items * first-wide constant a-rec2
 T{ a-type2 0< a-rec2 0< -> false false }T

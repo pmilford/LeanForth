@@ -284,10 +284,10 @@ reason = "CD/L2: a universe name that is no parameter of the declaration is acce
 [[fault]]
 id = "env-repeated-param-pair"
 file = "src/kernel/environment.fs"
-old = '''  1 max 1 ?do dup i lf-param-repeated? if drop false unloop exit then loop drop true ;'''
-new = '''  1 max 2 ?do dup i lf-param-repeated? if drop false unloop exit then loop drop true ;'''
+old = ''': lf-param-repeated? ( params k -- flag ) 2dup lf-param@ -rot lf-params-has? ;'''
+new = ''': lf-param-repeated? ( params k -- flag ) 2dup lf-param@ -rot 1- lf-params-has? ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
-reason = "CD/L3: the second parameter is never compared with the first, so u u passes"
+reason = "CD/L3: a parameter is never compared with the one just before it, so u u passes"
 
 [[fault]]
 id = "env-redeclared-ok"
@@ -889,8 +889,8 @@ reason = "nodes of different kinds are compared as if they had the left one's ki
 [[fault]]
 id = "cmp-universe-args-skipped"
 file = "src/kernel/mixed-compare.fs"
-old = '''  >r 2dup r> lf-mcompare-arg lf-mcompare-level ;'''
-new = '''  >r 2dup r> lf-mcompare-arg 2drop outcome-ok ;'''
+old = '''  2dup-under lf-mcompare-arg lf-mcompare-level ;'''
+new = '''  2dup-under lf-mcompare-arg 2drop outcome-ok ;'''
 test = "$GFORTH tests/core/mixed-compare.fs"
 reason = "constants with different universe arguments compare equal"
 
@@ -4372,13 +4372,8 @@ reason = "rvI21 M1: consume_type_annotations skipped; An's recursor keeps optPar
 [[fault]]
 id = "ind-t0-skip"
 file = "src/kernel/inductive-block.fs"
-old = '''  lf-ind-types@ 0 ?do
-    i lf-ind-type-at lf-idecl-type @ lf-ind-t0-term dup ok? 0= if unloop exit then drop
-'''
-new = '''  outcome-ok exit
-  lf-ind-types@ 0 ?do
-    i lf-ind-type-at lf-idecl-type @ lf-ind-t0-term dup ok? 0= if unloop exit then drop
-'''
+old = '''  lf-ind-types@ ['] lf-ind-t0-type ok-each ['] lf-ind-t0-ctors ok-and ;'''
+new = '''  outcome-ok ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 M1: T0 skipped; a constructor using the declared constant _nested.X is accepted where Lean rejects the reserved prefix"
 
@@ -4463,9 +4458,8 @@ reason = "rvI21 B1: the constructors' cells are not grown for the block, which w
 [[fault]]
 id = "ind-t1-ctors-unchecked"
 file = "src/kernel/inductive-block.fs"
-old = '''  lf-ind-ctors@ 0 ?do i lf-ind-ctor-type lf-ind-enough dup ok? 0= if unloop exit then drop
-  loop outcome-ok ;'''
-new = '''  outcome-ok ;'''
+old = '''  lf-ind-type lf-idecl-type @ lf-ind-enough ['] lf-ind-ctors-enough ok-and ;'''
+new = '''  lf-ind-type lf-idecl-type @ lf-ind-enough ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 L1: T1 counts the type's binders only; a constructor with fewer than numParams is rejected later, for another rule"
 
@@ -14317,8 +14311,8 @@ reason = "cells= with a negative count runs ?do from 0 to a negative limit: read
 [[fault]]
 id = "lib-bounds-in-ranges-hi-open"
 file = "src/lib/bounds.fs"
-old = ''': in-range-at? ( x a-addr k -- x a-addr flag ) >r 2dup r> range-at between? ;'''
-new = ''': in-range-at? ( x a-addr k -- x a-addr flag ) >r 2dup r> range-at within ;'''
+old = ''': in-range-at? ( x a-addr k -- x a-addr flag ) 2dup-under range-at between? ;'''
+new = ''': in-range-at? ( x a-addr k -- x a-addr flag ) 2dup-under range-at within ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "a range's last code is left out: the name and text rules would refuse 9 and accept nothing at a class's end"
 
@@ -17000,8 +16994,8 @@ reason = "reuse-k1: a build whose sort the heap refused goes on over the unsorte
 [[fault]]
 id = "lib-decimal-base-lost-on-throw"
 file = "src/lib/decimal.fs"
-old = ''': in-decimal ( i*x xt -- j*x ) base @ >r decimal catch r> base ! throw ;'''
-new = ''': in-decimal ( i*x xt -- j*x ) base @ >r decimal execute r> base ! ;'''
+old = ''': in-base ( i*x xt base -- j*x ) base @ >r base ! catch r> base ! throw ;'''
+new = ''': in-base ( i*x xt base -- j*x ) base @ >r base ! execute r> base ! ;'''
 test = "$GFORTH tests/lib/decimal.fs"
 reason = "a THROW out of the word leaves BASE decimal: the hand-written copies' bug"
 

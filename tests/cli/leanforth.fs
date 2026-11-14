@@ -508,6 +508,26 @@ T{ nested 3 facts-of drop rot drop -> 0 0 }T
 \ nested export's later declarations wait on earlier ones (COV2).
 : edges-of ( c-addr u jobs -- n ) fresh >r run-with lf-sched-edges ck-release r> back ;
 T{ nested 3 edges-of 0> -> true }T
+\ The names a declaration's inductive data gives the plan (lf-sch-data;
+\ review reuse-out M2): a type's all list and constructors, a recursor's
+\ all list and each rule's constructor, the last of each included. In a
+\ block these are the block's own members, whose own names the plan takes
+\ as well and whose slots no readiness set holds (none lies below the
+\ block), so the data's names are read alone: a fresh stamp, the names
+\ and the walk's stack emptied. RvNest.A and RvNest.B are mutual; A's
+\ constructors a0 a1, A.rec's rules a0 a1.
+: sch-name ( c-addr u -- name ) lf-stmt-intern 0= throw ;
+: sch-names ( -- addr n ) 0 lf-sched lf-sch-names slab-at lf-sched lf-sch-names slab-count ;
+: data-names ( c-addr u -- outcome )
+  sch-name lf-input-newest lf-input-decl lf-sched lf-sch-stamp lf-sch-count+
+  lf-sched lf-sch-names lf-sch-empty lf-sched lf-sch-stack lf-sch-empty lf-sch-data ;
+: named? ( c-addr u -- flag ) sch-name sch-names cells-has? ;
+: last-names ( -- outcome a-last b-last outcome rule-last b-last )
+  fresh >r nested 3 run-with
+  s" RvNest.A" data-names s" RvNest.A.a1" named? s" RvNest.B" named?
+  s" RvNest.A.rec" data-names s" RvNest.A.a1" named? s" RvNest.B" named?
+  ck-release r> back ;
+T{ last-names -> outcome-ok true true outcome-ok true true }T
 nested 1 facts-of 2drop drop constant serial-nested
 \ A stress run: the nested export, many small interleaved checks, at 8
 \ workers five times, each time the serial run's facts.

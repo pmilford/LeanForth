@@ -145,7 +145,7 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
 : lf-mcompare-arg ( addr addr i -- level level )
   tuck lf-cref-pair@ drop >r lf-cref-pair@ drop r> ;
 : lf-mcompare-arg-at ( slot slot i -- slot slot outcome )
-  >r 2dup r> lf-mcompare-arg lf-mcompare-level ;
+  2dup-under lf-mcompare-arg lf-mcompare-level ;
 : lf-mcompare-args ( slot slot -- outcome )
   lf-mcompare-arrays ['] lf-mcompare-arg-at ok-each nip nip ;
 : lf-mcompare-constant ( a b walk -- outcome )

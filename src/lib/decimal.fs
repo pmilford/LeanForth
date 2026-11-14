@@ -5,15 +5,17 @@
 \ came out in between (library audit 2026-11-13, action 7; plan 9.4.8d),
 \ and for json.fs's digit reader, moved here.
 \
-\ The method. in-decimal runs a word with BASE decimal under CATCH and
-\ restores BASE on both paths, passing a THROW on. The text words build
-\ pictured numeric output (<# #s #>) inside in-decimal, so their text is
-\ the host's transient pictured-output buffer: valid until the next
-\ pictured output (another number formatted, by these words or by . or
-\ .r); copy it to keep it. Reading is by hand, digit by digit, never by
-\ >NUMBER, so BASE does not matter to it: digits>u gives the value of a
-\ run of decimal digits when it fits in a nonnegative cell, decimal>u the
-\ value modulo the cell size (unchecked: digits only).
+\ The method. in-base runs a word with BASE set under CATCH and restores
+\ BASE on both paths, passing a THROW on; in-decimal is in-base with ten.
+\ The text words build pictured numeric output (<# #s #>) inside in-base,
+\ so their text is the host's transient pictured-output buffer: valid
+\ until the next pictured output (another number formatted, by these
+\ words or by . or .r); copy it to keep it. u>hex writes hexadecimal
+\ digits as the host's # does (upper case on Gforth). Reading is by hand,
+\ digit by digit, never by >NUMBER, so BASE does not matter to it:
+\ digits>u gives the value of a run of decimal digits when it fits in a
+\ nonnegative cell, leading zeros skipped, decimal>u the value modulo the
+\ cell size (unchecked: digits only); skip-zeros drops leading zeros.
 \
 \ Genericity. Any cell or double cell, signed or unsigned; any word under
 \ in-decimal.
@@ -21,13 +23,16 @@
 \
 \ Example:
 \   hex ff u>decimal type  -10 n>decimal type  decimal   \ 255-16
+\   255 u>hex type  s" 007" skip-zeros type               \ FF7
+\   s" 00000000000000000000042" digits>u . .            \ -1 42
 \   s" 1234" digits>u . .                              \ -1 1234
 \   s" 99999999999999999999999" digits>u .             \ 0: too large
 \   : dot ( n -- ) 0 .r ;   hex 100 ' dot in-decimal   \ 256, BASE still hex
 \   s" 42x" decimal>number type d.  s" 042" decimal-digits?   \ x42 -1
 \
-\ Interface: in-decimal u>decimal n>decimal ud>decimal d>decimal .decimal
-\ decimal>number decimal-digits? digits>u decimal>u cell-digits. State:
+\ Interface: in-base in-decimal u>decimal n>decimal ud>decimal d>decimal
+\ .decimal u>hex decimal>number decimal-digits? skip-zeros digits>u
+\ decimal>u cell-digits. State:
 \ none. Requires portability.fs and module.fs; helpers private in
 \ lf-lib-private (ADR 0010). Loads in decimal whatever BASE is, then
 \ restores it.
@@ -39,9 +44,10 @@ require ./module.fs
 lf-lib-private module-open
 
 lf-lib set-current
-\ Run xt with BASE decimal, then give BASE back as it was, also when xt
-\ throws (the THROW is then passed on).
-: in-decimal ( i*x xt -- j*x ) base @ >r decimal catch r> base ! throw ;
+\ Run xt with BASE base, or decimal, then give BASE back as it was, also
+\ when xt throws (the THROW is then passed on).
+: in-base ( i*x xt base -- j*x ) base @ >r base ! catch r> base ! throw ;
+: in-decimal ( i*x xt -- j*x ) 10 in-base ;
 lf-lib-private set-current
 : ud>text ( ud -- c-addr u ) <# #s #> ;
 : d>text ( d -- c-addr u ) dup >r dabs <# #s r> sign #> ;
@@ -55,6 +61,8 @@ lf-lib set-current
 : n>decimal ( n -- c-addr u ) s>d d>decimal ;
 \ Print n in decimal, with no space after it.
 : .decimal ( n -- ) n>decimal type ;
+\ Hexadecimal digits of an unsigned cell, in the pictured-output buffer.
+: u>hex ( u -- c-addr u ) 0 ['] ud>text 16 in-base ;
 \ >NUMBER from zero in decimal: the digits' value (modulo a double cell)
 \ and the text after them.
 : decimal>number ( c-addr u -- ud c-addr' u' ) 0 0 2swap ['] >number in-decimal ;
@@ -67,6 +75,9 @@ lf-lib-private set-current
 lf-lib set-current
 \ Decimal digits of the largest cell, computed once.
 max-n decimal-width constant cell-digits
+\ The text after its leading zeros: empty for zeros only.
+: skip-zeros ( addr u -- addr' u' )
+  begin dup if over c@ [char] 0 = else false then while 1 /string repeat ;
 \ The value of decimal digits modulo the cell size: exact whenever it fits
 \ in an unsigned cell, which is always so for fewer digits than max-n has.
 \ Unchecked: addr u holds only decimal digits.
@@ -75,12 +86,17 @@ lf-lib-private set-current
 \ Ten times u plus the digit c, when that fits in a nonnegative cell.
 : digit+ ( u c -- u' true | false )
   [char] 0 - 2dup max-n swap - 10 / > if 2drop false exit then swap 10 * + true ;
-lf-lib set-current
-\ The value of decimal digits that fit in a nonnegative cell; false when
-\ larger. Unchecked: addr u holds only decimal digits.
-: digits>u ( addr u -- u true | false )
+\ The value of digits without leading zeros, when it fits.
+: unpadded>u ( addr u -- u true | false )
   dup cell-digits < if decimal>u true exit then dup cell-digits > if 2drop false exit then
   1- 2dup decimal>u -rot + c@ digit+ ;
+lf-lib set-current
+\ The value of decimal digits that fit in a nonnegative cell, however
+\ many leading zeros come first; false when larger. Fewer digits than
+\ cell-digits are read at once. Unchecked: addr u holds only decimal
+\ digits (none reads as 0).
+: digits>u ( addr u -- u true | false )
+  dup cell-digits < if decimal>u true exit then skip-zeros unpadded>u ;
 
 module-close
 base !   \ the BASE this file was loaded with

@@ -22,7 +22,7 @@ require ./outcome.fs
 \ a-addr (a table of ranges, such as a character class); n <= 0 holds
 \ none. range-at gives pair k; in-range-at? is in-ranges?'s test of it.
 : range-at ( a-addr k -- lo hi ) 2* cells + dup @ swap cell+ @ ;
-: in-range-at? ( x a-addr k -- x a-addr flag ) >r 2dup r> range-at between? ;
+: in-range-at? ( x a-addr k -- x a-addr flag ) 2dup-under range-at between? ;
 : in-ranges? ( x a-addr n -- flag ) ['] in-range-at? any? nip nip ;
 
 \ True when the n cells starting at addr are all zero; n <= 0 reads nothing

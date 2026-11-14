@@ -122,8 +122,6 @@ create lf-lv-blanks 64 allot lf-lv-blanks 64 bl fill
 \ LaTeX style (lf-lv-latex!, used by the proof outline): n blanks are n
 \ space widths of the font, a column ends with & and a line with \\.
 : lf-lv-tex? ( -- flag ) lf-lv lf-lv-tex @ 0<> ;
-\ A number in hexadecimal, straight to the output.
-: lf-lv-hex ( u -- ) base @ >r hex 0 <# #s #> r> base ! lf-lv-out ;
 : lf-lv-hspace ( n -- )
   dup 0> 0= if drop exit then s" \hspace*{" lf-lv-out u>decimal lf-lv-out
   s" \fontdimen2\font}" lf-lv-out ;

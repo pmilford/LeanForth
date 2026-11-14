@@ -321,7 +321,7 @@ create sec-reading
 \ Zero the section's span at addr unless the outcome is ok.
 : sec-wipe ( addr e outcome -- outcome )
   dup ok? if nip nip exit then >r sec-length @ erase r> ;
-: sec-take ( addr e sf -- outcome ) >r 2dup r> sec-fetch sec-wipe ;
+: sec-take ( addr e sf -- outcome ) 2dup-under sec-fetch sec-wipe ;
 \ Entry i, when it exists and its section fits room bytes; else an outcome.
 : sec-room ( room i sf -- e true | outcome false )
   2dup sec-n @ u< 0= if 2drop drop outcome-invalid false exit then

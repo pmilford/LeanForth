@@ -1284,5 +1284,15 @@ T{ 6 short-step 10 short-step 15 short-step -> 7 7 7 }T
 T{ 11 used-exactly? 12 used-exactly? 13 used-exactly? 14 used-exactly?
   -> true true true true }T
 
+\ 10. The names a block makes are written in decimal whatever BASE is
+\ (review reuse-out L3): the motive's universe u_k (lf-blk-u) and an
+\ auxiliary recursor's suffix _k (lf-nest-digits), under HEX for k = 26
+\ (1A), where a hexadecimal copy would differ; BASE is left as it was.
+hex
+T{ 1A lf-blk-u s" u_26" compare 1A lf-nest-digits s" _26" compare 0 lf-blk-u s" u" compare
+  -> 0 0 0 }T
+T{ base @ 1A lf-blk-u 2drop base @ = -> true }T
+decimal
+
 cases-done
 bye

@@ -404,20 +404,15 @@ end-structure
 \ so leading zeros change nothing. The model gives a literal outside the
 \ cell no meaning, so one that does not fit a host cell loads as unfit and
 \ runs as the failure unmodeled. Without its leading zeros, a magnitude
-\ of more digits than max-n 1+ has (irx-cell-digits) fits no cell; one of
-\ at most that many is below 10 * (max-n + 1), so a double cell holds it
-\ exactly for any cell width of 4 bits or more.
-: irx-width ( u -- n ) 0 <# #s #> nip ;
-max-n 1+ irx-width constant irx-cell-digits
+\ of more digits than max-n has (cell-digits, as many as max-n 1+ has:
+\ 2^k is never a power of ten) fits no cell; one of at most that many is
+\ below 10 * (max-n + 1), so a double cell holds it exactly for any cell
+\ width of 4 bits or more.
 : irx-sign ( c-addr u -- c-addr' u' negative? )
   2dup 1 min s" -" compare 0= dup if >r 1 /string r> then ;
-\ A zero before another digit.
-: irx-padded? ( c-addr u -- flag )
-  dup 1 > if 1 min s" 0" compare 0= else 2drop false then ;
-: irx-unpadded ( c-addr u -- c-addr' u' ) begin 2dup irx-padded? while 1 /string repeat ;
 \ The digits' value, or 0 1 (beyond every cell) when there are too many.
 : irx-unsigned ( c-addr u -- ud )
-  irx-unpadded dup irx-cell-digits > if 2drop 0 1 else decimal>number 2drop then ;
+  skip-zeros dup cell-digits > if 2drop 0 1 else decimal>number 2drop then ;
 \ The largest magnitude that fits, unsigned: max-n 1+ is the smallest cell's.
 : irx-limit ( negative? -- u ) if max-n 1+ else max-n then ;
 \ The low cell of ud, and whether ud is at most the limit.
@@ -767,13 +762,11 @@ max-n 1+ irx-width constant irx-cell-digits
 : irx-say ( c-addr u -- ) irx-sink @ execute ;
 : irx-say-blank ( -- ) s"  " irx-say ;
 : irx-say-byte ( x -- ) irx-output irx-output-char tuck c! 1 irx-say ;
-: irx-signed-text ( n -- ) dup abs 0 <# #s rot sign #> irx-say ;
-: irx-unsigned-text ( u -- ) 0 <# #s #> irx-say ;
-: irx-say-number ( n -- ) ['] irx-signed-text in-decimal irx-say-blank ;
-: irx-say-unsigned ( u -- ) ['] irx-unsigned-text in-decimal irx-say-blank ;
+: irx-say-number ( n -- ) n>decimal irx-say irx-say-blank ;
+: irx-say-unsigned ( u -- ) u>decimal irx-say irx-say-blank ;
 : irx-say-blanks ( n -- ) 0 max 0 ?do irx-say-blank loop ;
 : irx-say-depth ( n -- )
-  s" <" irx-say ['] irx-unsigned-text in-decimal s" > " irx-say ;
+  s" <" irx-say u>decimal irx-say s" > " irx-say ;
 \ .s: the number of the current word's items (those above its frame),
 \ then the top ones, at most nine, the deepest first: cells held - k up to
 \ held of the whole stack, k = min(items, 9).

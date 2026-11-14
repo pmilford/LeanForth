@@ -4,10 +4,11 @@
 \ and hidden helpers, the header's example, stack effects and the return
 \ stack. Results: cell-bits against the host; log2-ceiling at every power
 \ of two and one past it; bits in the first, a middle and the last cell
-\ of a set, set and cleared without touching their neighbours; searches
-\ of empty, one-element, all-below and none-below ranges, duplicates,
-\ ranges not starting at 0, a test carrying two values below k, and 2,000
-\ random sorted arrays against a linear search. Loaded under HEX: the
+\ of a set, set without touching their neighbours; searches of empty,
+\ one-element, all-below and none-below ranges, duplicates, ranges not
+\ starting at 0, a test carrying two values below k, ranges wider than
+\ max-n (review reuse-out L1), and 2,000 random sorted arrays against a
+\ linear search. Loaded under HEX: the
 \ module must not depend on BASE. T{ }T checks results and stack depth.
 include ../support/tester.fs
 include ../support/checks.fs
@@ -17,9 +18,9 @@ T{ base-after-load -> 16 }T
 
 \ ---- The interface (ADR 0010).
 T{ [defined] cell-bits [defined] log2-ceiling [defined] bits>cells [defined] bit@
-   [defined] bit-on [defined] bit-off [defined] lower-bound -> true true true true true true true }T
+   [defined] bit-on [defined] lower-bound -> true true true true true true }T
 T{ [defined] count-cell-bits [defined] bit-cell [defined] lb-mid [defined] lb-half
-   -> false false false false }T
+   [defined] bit-off -> false false false false false }T
 
 \ ---- cell-bits: a cell's bits, whatever an address unit holds.
 T{ 1 cell-bits 1- lshift 0< 1 cell-bits 1- lshift 2* -> true 0 }T
@@ -37,8 +38,8 @@ T{ 1000 log2-ceiling 1024 log2-ceiling 1025 log2-ceiling -> 10 10 11 }T
 T{ 0 bits>cells 1 bits>cells cell-bits bits>cells cell-bits 1+ bits>cells -> 0 1 1 2 }T
 T{ cell-bits 3 * bits>cells cell-bits 3 * 1- bits>cells -> 3 3 }T
 
-\ ---- Bit sets: set, read and clear bits in the first, a middle and the
-\ last cell; the cells around are left alone.
+\ ---- Bit sets: set and read bits in the first, a middle and the last
+\ cell; the cells around are left alone.
 create guard-lo -1 ,  create set 3 cells allot  create guard-hi -1 ,
 set 3 cells erase
 : last-bit ( -- i ) cell-bits 3 * 1- ;
@@ -48,8 +49,7 @@ T{ 0 set bit@ 1 set bit@ cell-bits set bit@ cell-bits 1+ set bit@ last-bit set b
    -> true false false true true }T
 T{ set @ set cell+ @ set 2 cells + @ 0< -> 1 2 true }T
 T{ guard-lo @ guard-hi @ -> -1 -1 }T
-cell-bits 1+ set bit-off  0 set bit-off  0 set bit-off
-T{ 0 set bit@ cell-bits 1+ set bit@ last-bit set bit@ set @ set cell+ @ -> false false true 0 0 }T
+set 3 cells erase
 5 set bit-on 5 set bit-on
 T{ 5 set bit@ set @ 7 set ' bit@ rs-checked -> true 32 false }T
 
@@ -78,6 +78,17 @@ T{ 7 sorted 0 5 ' in-table? lower-bound 7 sorted 0 5 ' in-table? ' lower-bound r
 variable asked
 : counted? ( x k -- x flag ) 1 asked +! below? ;
 T{ 0 asked ! 12 0 5 ' counted? lower-bound asked @ 4 < -> 12 5 true }T
+\ Ranges wider than max-n: hi - lo does not fit a signed cell, yet each
+\ search halves to its answer in at most cell-bits + 1 tests (element k
+\ is k; the test gives up, false, after 200, so a search that cannot
+\ halve ends with a wrong answer instead of running on).
+: k-below? ( x k -- x flag )
+  1 asked +! asked @ 200 < if over < else drop false then ;
+: wide ( x -- x k asked ) 0 asked ! max-n invert 2 + max-n 1- ['] k-below? lower-bound asked @ ;
+: wide-ok? ( x -- flag ) dup wide cell-bits 2 + < >r nip = r> and ;
+T{ 0 wide-ok? -1 wide-ok? 1 wide-ok? max-n 2 - wide-ok? max-n invert 3 + wide-ok?
+   -> true true true true true }T
+T{ max-n wide drop nip max-n invert wide drop nip -> max-n 1- max-n invert 2 + }T
 
 \ ---- Random sorted arrays against a linear search.
 variable bits-seed  20261113 bits-seed !

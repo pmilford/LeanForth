@@ -445,10 +445,9 @@ kind-quot kind-axiom - 1+ constant reach-kinds#
   r> if dup imp-seen @ 0= if 1 over imp-other +! then then 2drop outcome-ok ;
 \ Take what can be taken (see the header), in a current environment over
 \ the input imp-input read, before any check: ok, or the first failure.
-: imp-pass ( imp -- outcome )
-  dup imp-n @ 0 ?do
-    i e-final? 0= if i over imp-unit dup ok? 0= if nip unloop exit then drop then
-  loop drop outcome-ok ;
+: imp-pass-at ( imp k -- imp outcome )
+  dup e-final? if drop outcome-ok else over imp-unit then ;
+: imp-pass ( imp -- outcome ) dup imp-n @ ['] imp-pass-at ok-each nip ;
 
 \ ---- What the run reads afterwards.
 : imp-taken# ( imp -- n ) imp-taken @ ;

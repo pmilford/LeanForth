@@ -129,7 +129,7 @@ end-structure
   drop 2drop false ;
 \ The same, but keeping the text when it is not there.
 : ir-look ( c-addr u store -- index true | c-addr u false )
-  >r 2dup r> ir-find dup if 2swap 2drop then ;
+  2dup-under ir-find dup if 2swap 2drop then ;
 
 \ The vocabulary, spelled in lower case.
 80 /ir-slot 0 store: lf-ir-vocabulary

@@ -74,9 +74,9 @@ variable line-length
   0 line-length ! s"   lit " line+ swap if s" -" line+ then zeros+ ;
 \ "  lit ", a minus sign when negative, zeros leading zeros, u's digits.
 : lit-text ( u negative? zeros -- c-addr u ) lit-start 0 <# #s #> line+ line ;
-\ A 1 and as many zeros as max-n 1+ has digits: too many digits for a cell.
+\ A 1 and as many zeros as max-n has digits: too many digits for a cell.
 : lit-beyond ( negative? -- c-addr u )
-  0 lit-start s" 1" line+ irx-cell-digits zeros+ line ;
+  0 lit-start s" 1" line+ cell-digits zeros+ line ;
 : f ( fuel -- outcome ) s" f" run ;
 \ A literal beyond the cell loads, and runs as the model's unmodeled; one
 \ at the cell's edge is the edge.

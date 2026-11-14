@@ -1049,7 +1049,7 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
   dup ['] lf-slot-type? = if drop lf-look-type exit then
   ['] lf-slot-any = if lf-look-any else lf-look-other then ;
 : lf-env-first ( name test limit -- d|-1 )
-  >r 2dup r> lf-env-earliest -rot lf-look-test lf-look-first ;
+  2dup-under lf-env-earliest -rot lf-look-test lf-look-first ;
 : lf-env-quot-held ( limit -- d class ) lf-env-quot-held-pass 0 lf-look-quot lf-look-noted
   ;
 
@@ -1151,12 +1151,13 @@ create lf-replays   \ by kind; 0 for lf-look-other
 
 \ Universe parameters (E2; ADR 0011 rules L1–L3). Names compare
 \ structurally. Unchecked: the names are valid in an audited name store.
-: lf-params-has? ( name params n -- flag )
-  0 ?do 2dup i lf-param@ lf-name-same? if 2drop true unloop exit then loop
-  2drop false ;
+: lf-param-is? ( name params i -- name params flag ) 2dup-under lf-param@ lf-name-same? ;
+: lf-params-has? ( name params n -- flag ) ['] lf-param-is? any? nip nip ;
+\ Whether parameter k repeats one of the k before it, and the opposite as
+\ a step of all?.
 : lf-param-repeated? ( params k -- flag ) 2dup lf-param@ -rot lf-params-has? ;
-: lf-params-distinct? ( params n -- flag )
-  1 max 1 ?do dup i lf-param-repeated? if drop false unloop exit then loop drop true ;
+: lf-param-new? ( params k -- params flag ) over swap lf-param-repeated? 0= ;
+: lf-params-distinct? ( params n -- flag ) ['] lf-param-new? all? nip ;
 \ The parameters of accepted slot d, readable in this context's snapshot:
 \ (params n ok), else (0 0 invalid). The address is the slot's own.
 : lf-env-params ( d -- params n outcome )

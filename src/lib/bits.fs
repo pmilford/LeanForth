@@ -34,8 +34,8 @@
 \   5 0 5 ' below? lower-bound nip .        \ 2: sorted[2] = 5
 \   6 0 5 ' below? lower-bound nip .        \ 3: the first above 6
 \
-\ Interface: cell-bits log2-ceiling bits>cells bit@ bit-on bit-off
-\ lower-bound. State: none (cell-bits is a constant). Requires
+\ Interface: cell-bits log2-ceiling bits>cells bit@ bit-on lower-bound.
+\ State: none (cell-bits is a constant). Requires
 \ portability.fs and module.fs; helpers private in lf-lib-private (ADR
 \ 0010). Loads in decimal whatever BASE is, then restores it.
 
@@ -58,20 +58,23 @@ lf-lib-private set-current
 : bit-cell ( i a-addr -- a-addr' mask )
   over cell-bits / cells + swap cell-bits mod 1 swap lshift ;
 lf-lib set-current
-\ Bit i of the set at a-addr: read, set, cleared.
+\ Bit i of the set at a-addr: read, set. (No caller clears a bit: the
+\ sets are erased whole.)
 : bit@ ( i a-addr -- flag ) bit-cell swap @ and 0<> ;
 : bit-on ( i a-addr -- ) bit-cell over @ or swap ! ;
-: bit-off ( i a-addr -- ) bit-cell invert over @ and swap ! ;
 lf-lib-private set-current
 
 \ One halving of lo..hi at mid: above mid when element mid is below.
-: lb-mid ( lo hi -- mid ) over - 2/ + ;
+\ hi - lo, for lo < hi, is taken unsigned: it fits a cell even when it
+\ does not fit a signed one (lo near min-n, hi near max-n).
+: lb-mid ( lo hi -- mid ) over - 1 rshift + ;
 : lb-half ( lo hi mid below? -- lo' hi' ) if 1+ rot drop swap else nip then ;
 lf-lib set-current
 \ The first k in lo..hi-1 whose element is not below the sought one,
 \ by the test xt ( i*x k -- i*x flag ), true when element k is below;
 \ hi when every one is (and lo for an empty range, hi <= lo). The test
-\ runs with lo, hi and xt on the return stack, the values below k its own.
+\ runs with xt, lo, hi and k on the return stack, the values below k its
+\ own. Any signed lo and hi.
 : lower-bound ( i*x lo hi xt -- i*x k )
   >r 2>r begin 2r@ < while
     2r@ lb-mid 2r> r@ -rot 2>r over >r execute r> 2r> 2swap swap lb-half 2>r

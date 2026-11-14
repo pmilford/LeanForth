@@ -9,7 +9,8 @@
 \ words, and the loops ok-each and ok-fold; the tests over every index,
 \ all? (a flag) and ok-all? (a flag and an outcome), with ok-true? their
 \ stop test, and over some index, any? and ok-any? (ok-found? its stop
-\ test); outcome-first! keeps a first
+\ test); 2dup-under gives a step of these loops a copy of its two values;
+\ outcome-first! keeps a first
 \ failure in a cell; no-result, ok-or-none and room-result give a step's
 \ result with its outcome.
 \ No state, no dependencies.
@@ -79,6 +80,10 @@
 \ ok, or -1 and full.
 : room-result ( x true | false -- x outcome )
   if outcome-ok else outcome-full no-result then ;
+\ A copy of the two values under the top one, put under it: what a step
+\ of the loops below reads when it keeps two values under its index k.
+\ Example: `: in-at? ( x addr k -- x addr flag ) 2dup-under cells + @ = ;`.
+: 2dup-under ( x1 x2 k -- x1 x2 x1 x2 k ) >r 2dup r> ;
 \ Run the step xt ( i*x k -- i*x outcome ) for k = 0, 1, ... n-1 while it
 \ gives ok: ok, or the first outcome that is not ok, after which no step
 \ runs. The values below k are the steps' to read and replace, keeping

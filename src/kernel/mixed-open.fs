@@ -282,7 +282,7 @@ defer lf-open-unchanged? ( node frames -- flag )
   dup lf-open-job lf-openjob-count ! cells lf-open-terms slab-base swap move ;
 : lf-open-load ( subst n mode -- outcome )
   over lf-open-count dup ok? 0= if nip nip nip exit then drop
-  lf-open-test >r 2dup r> lf-open-all? if lf-open-copy outcome-ok
+  lf-open-test 2dup-under lf-open-all? if lf-open-copy outcome-ok
   else 2drop outcome-invalid then ;
 : lf-open-ready ( subst n mode -- outcome )
   lf-open-frames frame-busy? if drop 2drop outcome-invalid exit then
