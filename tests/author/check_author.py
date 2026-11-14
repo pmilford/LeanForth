@@ -845,18 +845,19 @@ KERNEL = "kernel-form "
 
 
 # Natural LeanForth (plan FE1a): read into syntax, then stopped as not
-# supported yet where elaboration or tactics would begin (exit 2), or
-# refused as a mistake (exit 4); never checked.
+# supported yet where the elaborator meets a step it does not have (the
+# numeral 0 without the elaboration data: error 139, plans FE1e5 and S2;
+# exit 2), or refused as a mistake (exit 4); never checked.
 def natural_cases():
     slice_ = str(INIT_SLICE)
     head = "theorem t\n  Nat explicit: n\n  0 n + n =\n:=\n"
     return [
         ("natural term proof", head + "  n Eq.refl\nend t\n", [], slice_, 2,
-         "error 71 at line:col 6:1 (token `end`)"),
+         "error 139 at line:col 6:1 (token `end`)"),
         ("natural tactic proof", head + "  by n by-induction\nend t\n", [], slice_, 2,
-         "error 71 at line:col 6:1 (token `end`)"),
+         "error 139 at line:col 6:1 (token `end`)"),
         ("natural ' and $", head + "  ' Nat.succ n $\nend t\n", [], slice_, 2,
-         "error 71 at line:col 6:1 (token `end`)"),
+         "error 139 at line:col 6:1 (token `end`)"),
         ("natural kernel word", "theorem t Prop explicit: p p := p end t\n", [], None, 2,
          "error 70 at line:col 1:11 (token `Prop`)"),
         ("natural by twice", head + "  by by\nend t\n", [], slice_, 4,
@@ -920,9 +921,10 @@ def check_snapshot_cases(work):
     if code != 4 or "not with a text" not in out:
         raise Failure(f"--env with --snapshot: exit {code}:\n{out[-400:]}")
     # Natural text against the snapshot's library (review fe1ab L4): the
-    # argument counts come from the snapshot's tier (Eq.refl takes one).
+    # argument counts come from the snapshot's tier (Eq.refl takes one);
+    # without the elaboration data the elaborator stops at end (139).
     natural = work / "natural.lf"
-    for proof, want, line in (("  n Eq.refl\n", 2, "error 71 at line:col 6:1 (token `end`)"),
+    for proof, want, line in (("  n Eq.refl\n", 2, "error 139 at line:col 6:1 (token `end`)"),
                               ("  Eq.refl\n", 4, "error 3 at line:col 5:3 (token `Eq.refl`)")):
         natural.write_text("theorem t\n  Nat explicit: n\n  n n =\n:=\n" + proof + "end t\n",
                            encoding="utf-8")

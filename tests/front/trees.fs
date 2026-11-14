@@ -10,6 +10,9 @@
   s" tests/author/init-slice.ndjson" true lfc-library-open ok? 0= abort" trees: no library" ;
 tree-library
 ' type lf-print-unicode lf-print-setup
+\ Only the reader runs: end t stops before the elaborator (error 71, the
+\ hand-over's default; front/elab-decl.fs is tested in tests/front/elab.fs).
+' lfh-later is lf-front-elaborate   ' lfr-unelaborated is lf-front-by-statement
 create tree-text 512 allot  variable tree-text#
 : tree+ ( c-addr u -- ) tuck tree-text tree-text# @ + swap move tree-text# +! ;
 : tree-run ( c-addr u -- )
