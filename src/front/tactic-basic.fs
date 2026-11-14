@@ -59,6 +59,8 @@
 \ mayPostpone, the result instantiated; exact passes false); error 71
 \ without front/elab-decl.fs;
 \ lf-tac-defeq ( t s -- flag outcome ), the tactics' isDefEq;
+\ lf-tac-indented. ( term -- outcome ), a term of a message, instantiated
+\ and indented on its own line (Lean's indentExpr), to the message's sink;
 \ lf-tac-holds? ( term xt -- flag outcome ), whether a term holds a leaf
 \ xt ( leaf -- flag ) accepts (heap stacks of dag-walk.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
@@ -176,8 +178,8 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 \ A term of a message, in Lean's notation, to the message's sink.
 : lfb-noted ( term -- outcome ) lf-print-sink true lf-print-to ;
 : lfb-term. ( term -- outcome ) lf-instantiate-mvars ok-then? if lfb-noted then ;
-: lfb-indented. ( term -- outcome ) s"   " lf-pp-emit lfb-term. ;
-: lfb-line. ( c-addr u term -- outcome ) >r lf-pp-emit r> lfb-indented. ;
+: lf-tac-indented. ( term -- outcome ) s"   " lf-pp-emit lfb-term. ;
+: lfb-line. ( c-addr u term -- outcome ) >r lf-pp-emit r> lf-tac-indented. ;
 : lfb-the-goal. ( -- outcome ) s\" \n\n" lf-pp-emit tb tb-goal @ lf-goal-print ;
 : lfb-blank-goal. ( x -- outcome ) drop s\" \n" lf-pp-emit tb tb-goal @ lf-goal-print ;
 : lfb-failed ( xt code -- ) >r 0 swap lf-tac-detail r> lf-tac-stop ;
@@ -266,7 +268,8 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 : lfb-sorted. ( -- outcome )
   lfb-has. ['] lfb-of. ok-and ['] lfb-but-sort. ok-and ['] lfb-of-want. ok-and ;
 : lfb-types. ( -- outcome ) lfb-sorted? if lfb-sorted. else lfb-plain. then ;
-: lfb-mismatch. ( x -- outcome ) drop tb tb-term @ lfb-indented. ['] lfb-types. ok-and ;
+: lfb-mismatch. ( x -- outcome )
+  drop tb tb-term @ lf-tac-indented. ['] lfb-types. ok-and ;
 : lfb-matched ( -- )
   tb tb-type @ tb tb-want @ lf-tac-defeq lf-tac-must
   0= if ['] lfb-mismatch. lfa-e-tac-mismatch lfb-failed then ;
@@ -279,7 +282,7 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 : lfb-occurs. ( -- outcome )
   s\" \nthis is often due to an occurs-check failure" lf-pp-emit outcome-ok ;
 : lfb-assign. ( x -- outcome )
-  drop tb tb-term @ lfb-indented. ['] lfb-occurs. ok-and ['] lfb-the-goal. ok-and ;
+  drop tb tb-term @ lf-tac-indented. ['] lfb-occurs. ok-and ['] lfb-the-goal. ok-and ;
 : lfb-unassignable ( -- ) ['] lfb-assign. lfa-e-tac-assign lfb-failed ;
 : lfb-in-scope ( e -- e ) dup ['] lfb-outside? lfb-holds? if lfb-unassignable then ;
 : lfb-close ( e -- )
@@ -305,7 +308,7 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 : lfb-rhs. ( -- outcome )
   s\" \nis not definitionally equal to the right-hand side\n" tb tb-type @ lfb-line. ;
 : lfb-rfl. ( x -- outcome )
-  drop tb tb-term @ lfb-indented. ['] lfb-rhs. ok-and ['] lfb-the-goal. ok-and ;
+  drop tb tb-term @ lf-tac-indented. ['] lfb-rhs. ok-and ['] lfb-the-goal. ok-and ;
 : lfb-sides-hold? ( -- flag )
   tb tb-term @ ['] lfb-hole? lfb-holds? tb tb-type @ ['] lfb-hole? lfb-holds? or ;
 : lfb-unequal ( -- )

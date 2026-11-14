@@ -166,6 +166,12 @@ T{ 1 s1 slab-cut m1 s1 slab-mark 5 s1 slab-push 6 s1 slab-push 1 s1 slab-remove
    m1 s1 slab-mark-valid? s1 cells@ -> outcome-ok outcome-ok outcome-ok true 21 6 }T
 T{ m1 s1 slab-rollback s1 cells@ -> outcome-ok 21 }T
 s1 slab-free
+\ Review s1-elab re-check 2 M: a mark at exactly i + 1, below the new
+\ count: [7], a mark at 1, 21 and 99 pushed, unit 0 taken out: refused.
+1 cells 100 s1 slab-init drop
+T{ 7 s1 slab-push m0 s1 slab-mark 21 s1 slab-push 99 s1 slab-push 0 s1 slab-remove
+   m0 s1 slab-mark-valid? -> outcome-ok outcome-ok outcome-ok outcome-ok false }T
+s1 slab-free
 2 cells 10 s1 slab-init drop
 : pair+ ( x1 x2 -- ) s1 slab-2push drop ;
 T{ 1 2 pair+ 3 4 pair+ 5 6 pair+ 0 s1 slab-remove s1 slab-2pop s1 slab-2pop s1 slab-count

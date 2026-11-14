@@ -17711,6 +17711,22 @@ new = '''  over 1- over slab-unmark-above tuck slab-close-up dup slab-count 1- s
 test = "$GFORTH tests/lib/slab.fs"
 reason = "review s1-elab re-check M1: slab-remove also refuses a mark at i, whose units did not move"
 
+[[fault]]
+id = "lib-slab-remove-unmark-above-next"
+file = "src/lib/slab.fs"
+old = '''  2dup slab-unmark-above tuck slab-close-up dup slab-count 1- swap slab-cut ;'''
+new = '''  over 1+ over slab-unmark-above tuck slab-close-up dup slab-count 1- swap slab-cut ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-elab re-check 2 M: slab-remove keeps a mark at exactly i + 1, below the new count, which then names other units"
+
+[[fault]]
+id = "fe-elab-fail-term-always-stored"
+file = "src/front/elab-pending.fs"
+old = '''  ep ep-code @ if nip else swap ep ep-term ! then lf-elab-fail ;'''
+new = '''  swap ep ep-term ! lf-elab-fail ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "review s1-elab re-check 2 L1: a later error's term replaces the first error's, so the message shows a term of another error"
+
 # --- S2 merge A: unfoldDefinition? (src/front/unfold.fs), whnf's delta
 # and parts (src/front/whnf.fs), lazy delta (src/front/defeq-delta.fs);
 # docs/design/S2_INTERFACE.md §2, §9.

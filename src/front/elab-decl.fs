@@ -98,11 +98,10 @@ action-of lfa-run-fresh constant edc-run-before
 \ ---- Errors: the run stops at the current token (end NAME, #check).
 \ (A failure no step recorded, a print's, has no second position: -1.)
 \ An error whose message shows a term (129): the term, instantiated,
-\ indented on the next line (Lean's indentExpr), as the error's detail.
-: edc-shown ( term -- outcome )
-  lf-instantiate-mvars ok-then? if s"   " lf-pp-emit lf-print-sink true lf-print-to then ;
+\ indented on the next line (Lean's indentExpr), as the error's detail
+\ (lf-tac-detail drops a detail whose printing failed).
 : edc-detail ( -- )
-  lf-elab-error-term dup 0< if drop else ['] edc-shown lf-tac-detail then ;
+  lf-elab-error-term dup 0< if drop else ['] lf-tac-indented. lf-tac-detail then ;
 : edc-fail ( outcome -- ) edc-detail lf-elab-code swap lfa-fail-see ;
 : edc-must ( outcome -- ) dup ok? if drop else edc-fail then ;
 

@@ -327,6 +327,10 @@ real-synth
 T{ lf-elab-reset 125 lf-elab-fail drop 12345 -77 false outcome-invalid ep-when-failed
    lf-elab-error drop -> 12345 false outcome-invalid 76 }T
 T{ outcome-invalid lf-elab-catch -> false }T
+\ The first error keeps its term: a second error with a term after one
+\ without leaves the first's code and no term (review s1-elab re-check 2 L1).
+T{ lf-elab-reset 125 lf-elab-fail drop zero 129 lf-elab-fail-term drop
+   lf-elab-error drop lf-elab-error-term -> 125 -1 }T
 \ synthesizePending on a list of two instance problems (a default
 \ instance's binders), the newest first as Lean prepends them: OfNat ?g 0
 \ is stuck until HAdd Nat Nat ?g, answered, makes ?g Nat; a second pass
