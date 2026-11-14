@@ -1,0 +1,13 @@
+\ S1's end (docs/design/S1_INTERFACE.md, the owner's page): 0 + 0 = 0 by
+\ rfl, its statement elaborated by LeanForth, the proof term
+\ @Eq.refl.{1} Nat (0 + 0) built by by-rfl and checked by the kernel.
+\ Lean: theorem t : 0 + 0 = 0 := by rfl (tests/front/s1-rfl.lean).
+\   bin/leanforth check --env tests/front/s1-slice.ndjson
+\     --elab-data tests/front/s1-slice.elab.ndjson tests/front/s1-rfl.lf
+\ Pending (tests/front/check_elab.py): instance search (plan FE1e5) and
+\ lazy delta (S2 merge A); until then it stops at end with error 139.
+theorem t
+  0 0 + 0 =
+:= by
+  by-rfl
+end t

@@ -1,0 +1,10 @@
+\ S1's midpoint (docs/design/S1_INTERFACE.md 11; plan S1): #check of
+\ 0 + 0 = 0, natural LeanForth. Lean: #check 0 + 0 = 0 prints
+\ 0 + 0 = 0 : Prop (tests/front/s1-check.lean), and so will this, with
+\   bin/leanforth check --env tests/front/s1-slice.ndjson
+\     --elab-data tests/front/s1-slice.elab.ndjson tests/front/s1-check.lf
+\ a text of only #check lines, nothing checked by the kernel, exit 0.
+\ Pending (tests/front/check_elab.py): instance search (plan FE1e5,
+\ synth.fs) and outParam unfolded by lazy delta (S2 merge A); until then
+\ it stops at #check with error 139, exit 2. A midpoint, never "done".
+0 0 + 0 = #check

@@ -1,0 +1,12 @@
+Nat.zero = Nat.zero : Prop
+Eq.refl Nat.zero : Nat.zero = Nat.zero
+zero_eq type (app (app (app Eq.{1} Nat.{}) Nat.zero.{}) Nat.zero.{})
+zero_eq value (app (app Eq.refl.{1} Nat.{}) Nat.zero.{})
+zero_eq_term type (app (app (app Eq.{1} Nat.{}) Nat.zero.{}) Nat.zero.{})
+zero_eq_term value (app (app Eq.refl.{1} Nat.{}) Nat.zero.{})
+self_eq type (pi Nat.{} (app (app (app Eq.{1} Nat.{}) #0) #0))
+self_eq value (lam Nat.{} (app (app Eq.refl.{1} Nat.{}) #0))
+succ_eq type (pi Nat.{} (app (app (app Eq.{1} Nat.{}) (app Nat.succ.{} #0)) (app Nat.succ.{} #0)))
+succ_eq value (lam Nat.{} (app (app Eq.refl.{1} Nat.{}) (app Nat.succ.{} #0)))
+succ_eq_exact type (pi Nat.{} (app (app (app Eq.{1} Nat.{}) (app Nat.succ.{} #0)) (app Nat.succ.{} #0)))
+succ_eq_exact value (lam Nat.{} (app (app Eq.refl.{1} Nat.{}) (app Nat.succ.{} #0)))
