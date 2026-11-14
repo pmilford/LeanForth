@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests of scripts/check-duplicates.py on throw-away source trees: tokenizing, alpha-renaming of file-local
-words, the length threshold, cross-file and within-file groups, the ratchet, and a check of today's tree."""
+words (every defining word), the copy form (calls of another file's helpers, roles, constants by value), the
+length threshold, cross-file and within-file groups, the ratchet with its reasons, and a check of today's tree."""
 import importlib.util
 import json
 import pathlib
@@ -68,19 +69,33 @@ class Groups(unittest.TestCase):
 
     def test_different_structure_does_not_match(self):
         body = ": %s %s over %s if nip %s swap execute else drop then ;\n"
-        a = ": ha ; : hb ; " + body % ("fa", "ha", "hb", "ha")
-        b = ": xa ; : xb ; " + body % ("fb", "xa", "xb", "xb")
+        a = ": ha 1 ; : hb 2 ; " + body % ("fa", "ha", "hb", "ha")
+        b = ": xa 1 ; : xb 2 ; " + body % ("fb", "xa", "xb", "xb")
         self.assertEqual(groups({"src/a.fs": a, "src/b.fs": b}), {})
 
     def test_short_bodies_are_ignored(self):
-        text = ": a ok? ;\n: b ok? ;\n: c 1 2 3 4 5 6 7 ;\n: d 1 2 3 4 5 6 7 ;\n"
+        text = ": a ok? ;\n: b ok? ;\n: c 1 2 3 4 5 ;\n: d 1 2 3 4 5 ;\n"
         self.assertEqual(groups({"src/a.fs": text}), {})
 
-    def test_threshold_is_eight_tokens(self):
-        eight = " ".join(["dup"] * 8)
-        seven = " ".join(["dup"] * 7)
-        self.assertEqual(len(groups({"src/a.fs": f": a {eight} ;\n: b {eight} ;\n"})), 1)
-        self.assertEqual(groups({"src/a.fs": f": a {seven} ;\n: b {seven} ;\n"}), {})
+    def test_threshold_is_six_tokens(self):
+        six = " ".join(["dup"] * 6)
+        five = " ".join(["dup"] * 5)
+        self.assertEqual(cd.MIN_TOKENS, 6)
+        self.assertEqual(len(groups({"src/a.fs": f": a {six} ;\n: b {six} ;\n"})), 1)
+        self.assertEqual(groups({"src/a.fs": f": a {five} ;\n: b {five} ;\n"}), {})
+
+    def test_every_defining_word_names_a_local(self):
+        for definer in ("+field", "field:", "context-slab:", "begin-structure", "store:"):
+            a = f"1 {definer} in-s\n: in-x in-s @ over + swap execute drop ;\n"
+            b = f"1 {definer} ib-s\n: ib-x ib-s @ over + swap execute drop ;\n"
+            with self.subTest(definer=definer):
+                self.assertEqual(len(groups({"src/a.fs": a, "src/b.fs": b})), 1)
+
+    def test_locals_and_quotations_define_nothing(self):
+        self.assertFalse(cd.definer("{:"))
+        self.assertFalse(cd.definer("[:"))
+        self.assertFalse(cd.definer(":"))
+        self.assertTrue(cd.definer("walk2:"))
 
     def test_within_a_file_group(self):
         found = groups({"src/a.fs": LONG % "one" + LONG % "two"})
@@ -99,24 +114,103 @@ class Groups(unittest.TestCase):
         self.assertEqual(len(groups({"src/a.fs": a, "src/b.fs": b})), 1)
 
 
+class Copies(unittest.TestCase):
+    """The copy form: a call of a colon word defined outside lib/ is replaced by that word's role."""
+    HELPERS = ": in-h ( x -- y ) dup 1+ * ;\n: in-g ( x -- y ) 2 lshift ;\n"
+    USER = ": %s ( x -- y ) dup in-h swap in-g + over - abs ;\n"
+
+    def test_a_copy_calling_the_other_files_helpers(self):
+        found = groups({"src/a.fs": self.HELPERS + self.USER % "in-x", "src/b.fs": self.USER % "ib-x"})
+        self.assertEqual(len(found), 1)
+        group = next(iter(found.values()))
+        self.assertEqual(group["kind"], "copy")
+        self.assertEqual([m[2] for m in group["members"]], ["in-x", "ib-x"])
+
+    def test_a_copy_with_renamed_copies_of_the_helpers(self):
+        b = self.HELPERS.replace("in-", "ib-") + (self.USER % "ib-x").replace("in-", "ib-")
+        found = groups({"src/a.fs": self.HELPERS + self.USER % "in-x", "src/b.fs": b})
+        self.assertEqual(len(found), 1)
+        self.assertEqual(next(iter(found.values()))["kind"], "shape")
+
+    def test_helpers_that_differ_do_not_match(self):
+        b = ": ib-h ( x -- y ) dup 1- * ;\n" + (self.USER % "ib-x").replace("in-h", "ib-h")
+        self.assertEqual(groups({"src/a.fs": self.HELPERS + self.USER % "in-x", "src/b.fs": b}), {})
+
+    def test_constants_keep_their_value(self):
+        a = "1 constant in-k\n: in-make in-k + ;\n: in-x in-make dup * over + swap ;\n"
+        b = "2 constant ib-k\n: ib-make ib-k + ;\n: ib-x ib-make dup * over + swap ;\n"
+        c = "1 constant ic-k\n: ic-make ic-k + ;\n: ic-x ic-make dup * over + swap ;\n"
+        found = groups({"src/a.fs": a, "src/b.fs": b, "src/c.fs": c})
+        kinds = sorted((g["kind"], sorted(m[2] for m in g["members"])) for g in found.values())
+        self.assertEqual(kinds, [("shape", ["ib-x", "ic-x", "in-x"])])
+        with tempfile.TemporaryDirectory() as tmp:
+            for name, text in (("a", a), ("b", b), ("c", c)):
+                (pathlib.Path(tmp) / "src").mkdir(exist_ok=True)
+                (pathlib.Path(tmp) / "src" / (name + ".fs")).write_text(text)
+            copy = {m[2]: cform for m, _, cform in cd.Tree(pathlib.Path(tmp)).forms()}
+        self.assertEqual(copy["in-x"], copy["ic-x"])
+        self.assertNotEqual(copy["in-x"], copy["ib-x"])
+        self.assertEqual(copy["in-make"], ["=1", "+"])
+
+    def test_lib_words_have_no_role(self):
+        lib = ": in-h dup 1+ * ;\n"
+        a = ": in-h dup 1+ * ;\n: in-x in-h over + swap execute drop ;\n"
+        b = ": ib-x in-h over + swap execute drop ;\n"
+        found = groups({"src/lib/l.fs": lib, "src/a.fs": a, "src/b.fs": b})
+        self.assertEqual([g["kind"] for g in found.values()], ["shape"])
+
+    def test_an_ambiguous_name_stays_literal(self):
+        a = ": h 1 ;\n"
+        b = ": h 2 ;\n"
+        c = ": x h over + swap execute drop ;\n: y h over + swap execute drop ;\n"
+        found = groups({"src/a.fs": a, "src/b.fs": b, "src/c.fs": c})
+        self.assertEqual(len(found), 1)
+
+
 class Ratchet(unittest.TestCase):
     def group(self, copies, key="k1"):
-        return {key: {"tokens": 9, "members": [("src/f%d.fs" % i, i, "w") for i in range(copies)]}}
+        return {key: {"tokens": 9, "kind": "shape",
+                      "members": [("src/f%d.fs" % i, i, "w") for i in range(copies)]}}
+
+    def based(self, copies, reason="accepted: test"):
+        base = cd.baseline_of(self.group(copies))
+        for entry in base.values():
+            entry["reason"] = reason
+        return base
 
     def test_equal_and_smaller_pass(self):
-        base = cd.baseline_of(self.group(3))
+        base = self.based(3)
         self.assertEqual(cd.ratchet(self.group(3), base), [])
         self.assertEqual(cd.ratchet(self.group(2), base), [])
         self.assertEqual(cd.ratchet({}, base), [])
 
     def test_new_group_fails_with_locations(self):
-        problems = cd.ratchet(self.group(2, "new"), cd.baseline_of(self.group(2)))
+        problems = cd.ratchet(self.group(2, "new"), self.based(2))
         self.assertIn("new duplicate group", problems[0])
         self.assertIn("src/f1.fs:1 w", problems[2])
 
     def test_grown_group_fails(self):
-        problems = cd.ratchet(self.group(3), cd.baseline_of(self.group(2)))
+        problems = cd.ratchet(self.group(3), self.based(2))
         self.assertIn("grew from 2", problems[0])
+
+    def test_a_group_without_a_reason_fails(self):
+        problems = cd.ratchet(self.group(2), cd.baseline_of(self.group(2)))
+        self.assertIn("group without a reason", problems[0])
+
+    def test_every_reason_kind_passes_and_others_fail(self):
+        for reason in ("false positive: x", "family, table-driven later: x", "accepted: x", "planned: 9.4.8k"):
+            with self.subTest(reason=reason):
+                self.assertEqual(cd.ratchet(self.group(2), self.based(2, reason)), [])
+        for reason in ("", "fine", "todo: later"):
+            with self.subTest(reason=reason):
+                self.assertEqual(len(cd.ratchet(self.group(2), self.based(2, reason))), 1)
+
+    def test_update_keeps_reasons_by_key_and_by_members(self):
+        old = self.based(2, "accepted: kept")
+        self.assertEqual(cd.baseline_of(self.group(2), old)["k1"]["reason"], "accepted: kept")
+        moved = cd.baseline_of(self.group(2, "k2"), old)
+        self.assertEqual(moved["k2"]["reason"], "accepted: kept")
+        self.assertNotIn("reason", cd.baseline_of(self.group(3, "k3"), old)["k3"])
 
 
 class Main(unittest.TestCase):
@@ -127,13 +221,27 @@ class Main(unittest.TestCase):
             (root / "tests").mkdir()
             (root / "src/a.fs").write_text(LONG % "x")
             (root / "src/b.fs").write_text(LONG % "y")
+            path = root / "tests/duplicates-baseline.json"
             self.assertEqual(cd.main(["--update-baseline", tmp]), 0)
-            self.assertEqual(len(json.loads((root / "tests/duplicates-baseline.json").read_text())), 1)
+            self.assertEqual(len(json.loads(path.read_text())), 1)
+            self.assertEqual(cd.main([tmp]), 1)                 # no reason yet
+            self.give_reason(path, "accepted: a test")
             self.assertEqual(cd.main([tmp]), 0)
             (root / "src/c.fs").write_text(LONG % "z")
             self.assertEqual(cd.main([tmp]), 1)
-            self.assertEqual(cd.main(["--report", "--update-baseline", tmp]), 0)
-            self.assertEqual(cd.main([tmp]), 0)
+            self.assertEqual(cd.main(["--report", "--counts", "--update-baseline", tmp]), 0)
+            self.assertEqual(cd.main(["--report", "--counts", tmp]), 0)     # the same key keeps its reason
+            other = LONG.replace("drop then", "nip then")
+            (root / "src/c.fs").write_text(other % "z1" + other % "z2" + LONG % "z")
+            self.assertEqual(cd.main(["--update-baseline", tmp]), 0)
+            self.assertEqual(cd.main([tmp]), 1)                 # the new pair has no reason
+            reasons = [v.get("reason") for v in json.loads(path.read_text()).values()]
+            self.assertEqual(sorted(map(str, reasons)), ["None", "accepted: a test"])
+
+    def give_reason(self, path, reason):
+        base = json.loads(path.read_text())
+        next(iter(base.values()))["reason"] = reason
+        path.write_text(json.dumps(base))
 
     def test_missing_baseline_fails_on_a_duplicate(self):
         with tempfile.TemporaryDirectory() as tmp:

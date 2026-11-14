@@ -158,6 +158,9 @@ s" gforth" environment? [if] 2drop
 \ The address after a counted string counted, laid down: the next one of a
 \ table of them.
 : counted-next ( c-addr -- c-addr' ) count + aligned ;
+\ The text of a counted string, or empty text for 0 (an absent string: a
+\ table entry, a field name or a reason not given).
+: counted-or-empty ( c-addr|0 -- c-addr u ) ?dup if count else s" " then ;
 
 \ Strict framing of one line: no carriage return anywhere (so no CRLF
 \ line ends) and no UTF-8 byte-order mark at its start. UTF-8 validity is

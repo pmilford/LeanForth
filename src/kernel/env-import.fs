@@ -275,10 +275,9 @@ variable imp-current
 : reproducible? ( d -- flag ) d-outcome unrepeatable? 0= ;
 : d-trailing? ( d -- flag ) sl-marks swap saved mark-with and 0<> ;
 \ Slots k .. k+n-1 in the input and not final.
-: e-final? ( k -- flag ) lf-env lf-env-slot lf-slot-state @ lf-state-final = ;
 : e-open? ( k n -- flag )
   over + dup lf-env lf-env-length > if 2drop false exit then
-  true -rot swap ?do i e-final? 0= and loop ;
+  true -rot swap ?do i lf-env-done? 0= and loop ;
 \ A member after its block's first: only when the first was taken here.
 : e-first ( k imp -- k' ) 2dup e-staged tuck swap e-block 1+ - - ;
 : first-taken? ( k imp -- flag )
@@ -446,7 +445,7 @@ kind-quot kind-axiom - 1+ constant reach-kinds#
 \ Take what can be taken (see the header), in a current environment over
 \ the input imp-input read, before any check: ok, or the first failure.
 : imp-pass-at ( imp k -- imp outcome )
-  dup e-final? if drop outcome-ok else over imp-unit then ;
+  dup lf-env-done? if drop outcome-ok else over imp-unit then ;
 : imp-pass ( imp -- outcome ) dup imp-n @ ['] imp-pass-at ok-each nip ;
 
 \ ---- What the run reads afterwards.

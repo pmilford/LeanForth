@@ -164,9 +164,7 @@ lf-lib set-current
 : call-balanced ( x xt -- )
   over >r depth >r execute depth r> 1- = ?call-balanced r> = ?call-balanced ;
 
-\ ALLOCATE u zeroed address units: the address and 0, or an undefined
-\ address and the ior.
-: allocate0 ( u -- addr ior ) dup allocate ?dup if rot drop exit then tuck swap erase 0 ;
+\ allocate0 ( u -- addr ior ), ALLOCATE of zeroed memory, is store.fs's.
 
 : context-bytes ( -- u ) context-layout layout-bytes @ ;
 : context-main ( -- context ) context-layout layout-main @ ;

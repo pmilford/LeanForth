@@ -99,6 +99,7 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../lib/lib.fs
 require ../lib/bytes.fs
 require ../lib/json.fs
+require ../lib/decimal.fs
 require ../lib/memo.fs
 
 \ Record kinds, the index of each kind's handler.
@@ -1157,9 +1158,17 @@ here families - cell / constant #families
 \ After a failure: the line, the field being decoded (empty if none) and
 \ the reason (empty if none). For a JSON error, json-offset of export-json
 \ gives the byte within the line.
-: counted-or-empty ( c-addr|0 -- c-addr u ) ?dup if count else s" " then ;
 : export-error ( export -- line key-addr key-u why-addr why-u )
   >r r@ export-at @ r@ export-key @ counted-or-empty r> export-why @ counted-or-empty ;
+\ Printing where a read failed, as " (field key, line n, byte b)": the
+\ field when one was being decoded, the line, and for a JSON error the
+\ byte within the line (for ndjson-count.fs, ndjson-emit.fs and the
+\ command line's messages).
+: .export-field ( key-addr key-u -- ) dup if ." field " type ." , " else 2drop then ;
+: .export-byte ( export -- )
+  export-json dup json-why @ if ." , byte " json-offset .decimal else drop then ;
+: .export-where ( line key-addr key-u export -- )
+  >r ."  (" .export-field ." line " .decimal r> .export-byte ." )" ;
 \ The records of a kind handed over and accepted by their handlers since
 \ the reading began (export-restart, export-init or export-read): a line's
 \ record, or an element of an inductive block. Aborts for a number that

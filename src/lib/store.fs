@@ -226,11 +226,9 @@ defer store-refuse? ( store -- flag )
 \ Heap stores (see the header). A store is a heap store when it names a
 \ block of its own; a zeroed header names none.
 : store-heap? ( store -- flag ) store-block @ 0<> ;
-\ ALLOCATE u zeroed address units: the address and 0, or the ior.
-lf-lib-private set-current
-: store-zeroed-block ( u -- addr ior )
-  dup allocate ?dup if rot drop exit then tuck swap erase 0 ;
-dup set-current
+\ ALLOCATE u zeroed address units: the address and 0, or an undefined
+\ address and the ior (public: context.fs, task.fs and the modules use it).
+: allocate0 ( u -- addr ior ) dup allocate ?dup if rot drop exit then tuck swap erase 0 ;
 \ Make a heap store of capacity records in a zeroed block, its limit the
 \ capacity: ok; invalid for an unsound shape or full when the heap has no
 \ room, the header then zero (no check accepts it). The header must not
@@ -238,7 +236,7 @@ dup set-current
 : store-heap-init ( capacity width base store -- outcome )
   >r 2>r dup 2r@ store-plan? 2r> rot 0= if 2drop drop r> store-header erase
     outcome-invalid exit then
-  r@ store-shape! r@ store-counters-zero r@ store-bytes store-zeroed-block
+  r@ store-shape! r@ store-counters-zero r@ store-bytes allocate0
   if drop r> store-header erase outcome-full exit then r> store-place outcome-ok ;
 \ Free a heap store's block and zero its header; a store made in place is
 \ left alone.
@@ -258,7 +256,7 @@ lf-lib-private set-current
 : store-install ( new n store -- )
   dup store-identities free drop tuck store-capacity ! tuck store-block ! store-seal! ;
 : store-resize ( n store -- outcome )
-  2dup store-width @ cell+ * store-zeroed-block if drop 2drop outcome-full exit then
+  2dup store-width @ cell+ * allocate0 if drop 2drop outcome-full exit then
   -rot >r 2dup r@ store-rehome r> store-install outcome-ok ;
 dup set-current
 \ The capacity growth gives: double, at least 16 more, never past the

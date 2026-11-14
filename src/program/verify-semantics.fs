@@ -42,6 +42,7 @@
 \ definition.
 
 require ../lib/lib.fs
+require ../lib/decimal.fs
 require ../lib/text-run.fs
 require ../author/source.fs
 require ./verify-report.fs
@@ -123,11 +124,10 @@ end-structure
 \ digit separator (1_000), 0x10, double numbers (1.) and every other form.
 \ tests/program/verify_ir02.py compares this reading with both Gforths'
 \ own on many tokens.
-: pv-digit? ( char -- flag ) [char] 0 [char] 9 1+ within ;
 : pv-letter? ( char -- flag ) pv-lower [char] a [char] z 1+ within ;
 \ The value of a digit or letter, 99 for any other character.
 : pv-digit-value ( char -- n )
-  dup pv-digit? if [char] 0 - exit then
+  dup decimal-digit? if [char] 0 - exit then
   dup pv-letter? if pv-lower [char] a - 10 + else drop 99 then ;
 : pv-in-base? ( char base -- n true | false )
   swap pv-digit-value tuck > if true else drop false then ;
@@ -201,10 +201,10 @@ end-structure
 : pv-point? ( c-addr u -- flag ) [char] . pv-first? ;
 \ The first character of a number after the signs and prefixes.
 : pv-numeral? ( char prefixed? -- flag )
-  over pv-hex-letter? and over [char] _ = or swap pv-digit? or ;
+  over pv-hex-letter? and over [char] _ = or swap decimal-digit? or ;
 \ A letter before a digit or a point: Gforth 1.0's float with an SI prefix.
 : pv-si-float? ( c-addr u -- flag )
-  1 > if dup c@ pv-letter? swap char+ c@ dup pv-digit? swap [char] . = or and
+  1 > if dup c@ pv-letter? swap char+ c@ dup decimal-digit? swap [char] . = or and
   else drop false then ;
 \ A rest that is a number by its first two characters: a quote and one
 \ more, or, after a prefix, an SI float.

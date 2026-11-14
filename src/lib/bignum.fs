@@ -827,7 +827,6 @@ limb-bits 3 - constant lead-bits
 
 \ ---- Decimal text ----
 
-: decimal-digit? ( c -- flag ) [char] 0 [char] 9 1+ within ;
 \ Whether text is one or more decimal digits.
 : digits? ( addr u -- flag )
   dup 0> 0= if 2drop false exit then chars over + swap

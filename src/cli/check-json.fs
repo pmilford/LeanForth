@@ -30,6 +30,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
+require ../lib/bytes.fs
 require ../lib/json-write.fs
 require ../core/diagnostics.fs
 require ../core/input.fs
@@ -117,12 +118,11 @@ require ./check-run.fs
 \ declaration Lean's replay skips (cli/tally.fs verdict-of).
 : cj-verdict-text ( d -- c-addr u )
   dup cj-began? if verdict-of else drop not-checked then verdict-name ;
-: cj-site ( site -- c-addr u ) ?dup if count else s" " then ;
 : cj-numbers ( step -- )
   s" numbers" cj-key cj-array dup kept-first @ cj-n kept-second @ cj-n cj-end-array ;
 : cj-reason ( step -- )
   cj-object dup kept-code @ dup s" code" cj-number lf-diag-name s" reason" cj-text
-  dup kept-site @ cj-site s" site" cj-text dup cj-numbers kept-step @ s" step" cj-number
+  dup kept-site @ counted-or-empty s" site" cj-text dup cj-numbers kept-step @ s" step" cj-number
   cj-end-object ;
 : cj-diagnostic ( d -- )
   s" diagnostic" cj-key ck-kept dup kept-code @ lf-diag-none =

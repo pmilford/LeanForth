@@ -77,6 +77,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./json.fs
+require ./decimal.fs
 require ./outcome.fs
 
 \ Writer states: what may come next.
@@ -278,11 +279,8 @@ max-n 4 - 6 / constant jw-longest
 
 \ Writing a string: the plain bytes in runs, each other byte as its escape,
 \ built in the scratch.
-: jw-hex-digit ( n -- c ) dup 10 < if [char] 0 else [char] a 10 - then + ;
-: jw-hex-pair ( byte addr -- )
-  over 4 rshift jw-hex-digit over c! swap 15 and jw-hex-digit swap char+ c! ;
 : jw-unicode-escape ( byte scratch -- c-addr 6 )
-  >r s" \u00" r@ swap move r@ 4 + jw-hex-pair r> 6 ;
+  >r s" \u00" r@ swap move r@ 4 + hex-byte! r> 6 ;
 : jw-short-escape ( letter scratch -- c-addr 2 ) backslash over c! tuck char+ c! 2 ;
 : jw-escape-text ( byte letter scratch -- c-addr u )
   over [char] u = if nip jw-unicode-escape exit then rot drop jw-short-escape ;

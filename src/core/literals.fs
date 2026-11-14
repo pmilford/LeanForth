@@ -19,13 +19,8 @@
 \ State: the limb slab, a member of the checker context.
 
 require ../lib/lib.fs
-\ lib/json.fs and lib/bignum.fs each define decimal-digit? (the same
-\ test), and the second to load warns: json.fs is loaded first and the
-\ warning silenced (Gforth's WARNINGS), until one keeps it private.
 require ../lib/json.fs
-[defined] warnings [if] warnings @ warnings off [then]
 require ../lib/bignum.fs
-[defined] warnings [if] warnings ! [then]
 require ../lib/slab.fs
 require ./generation-handles.fs
 require ./terms.fs

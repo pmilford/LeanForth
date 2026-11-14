@@ -111,8 +111,9 @@ create lf-scratch-backs
   dup lf-scratch-valid? 0= if drop outcome-invalid exit then
   dup 0 lf-scratch-back-to lf-scratch-lctx outcome-ok ;
 \ The first failure of two outcomes: a later step's outcome counts only
-\ when the earlier one was ok.
-: lf-scratch-settled ( outcome outcome' -- outcome ) over ok? if nip else drop then ;
+\ when the earlier one was ok (outcome.fs's outcome-and, named for the
+\ scratch release that follows a step).
+: lf-scratch-settled ( outcome outcome' -- outcome ) outcome-and ;
 
 \ The mark stack: entry k (from 0, the oldest) holds a mark and its number.
 begin-structure /lf-scratch-entry

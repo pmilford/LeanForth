@@ -87,6 +87,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
+require ../lib/bytes.fs
 require ../lib/json-write.fs
 require ../lib/bits.fs
 require ../lib/sha256.fs
@@ -298,7 +299,7 @@ rr-reset rr-no-source
 \ verdicts are never read from any other (review F1). Environments are
 \ compared by identity, which never repeats, not by address: a new
 \ environment made where a freed one was is another one (rvRP 2).
-: rr-ours? ( -- flag ) run-record rr-env-id @ dup if lf-env-id = else drop false then ;
+: rr-ours? ( -- flag ) run-record rr-env-id @ lf-env-is? ;
 \ The run's environment is freed only while it is current with the run's
 \ identity, through the current environment, never through the address
 \ kept: one the caller made another environment current over, or freed,
@@ -373,12 +374,9 @@ set-current
   swap r> rr-keep lf-env-spent? or ;
 : rr-steps ( n -- ) 0 ?do i rr-step if unloop exit then loop ;
 \ A snapshot of every slot of the run's own environment.
-: rr-viewed? ( -- flag )
-  rr-ours? if lf-env-view ok? lf-name-storage-valid? and else false then ;
-: rr-final? ( d -- flag ) lf-env-readable dup if nip then ;
-: rr-all-final? ( -- flag ) true lf-input-count 0 ?do i rr-final? and loop ;
+: rr-viewed? ( -- flag ) run-record rr-env-id @ lf-env-viewed? ;
 : rr-confirm ( -- outcome )
-  rr-viewed? if rr-all-final? flag>outcome else outcome-invalid then ;
+  rr-viewed? if lf-env-all-final? flag>outcome else outcome-invalid then ;
 : rr-own! ( env -- )
   dup run-record rr-env ! lf-envh-identity @ run-record rr-env-id !
   true run-record rr-own ! ;
@@ -574,7 +572,6 @@ rr-power 2constant rr-exact
   rr-end-array rr-axioms-agree ;
 : rr-accepted-out ( d -- )
   s" verdict" rr-key s" accepted" rr-string rr-axioms-out ;
-: rr-site ( site -- c-addr u ) ?dup if count else s" " then ;
 : rr-numbers-out ( step -- )
   s" numbers" rr-key rr-array dup kept-first @ rr-int kept-second @ rr-int rr-end-array ;
 \ The reason (the catalogue's name of the code) and the site go through the
@@ -584,7 +581,7 @@ rr-power 2constant rr-exact
   s" code" rr-key dup kept-code @ dup rr-int
   s" reason" rr-key lf-diag-name rr-note-room rr-shown ;
 : rr-site-out ( step -- step )
-  s" site" rr-key dup kept-site @ rr-site
+  s" site" rr-key dup kept-site @ counted-or-empty
   dup if rr-site-room rr-shown else rr-string then ;
 : rr-reason-out ( step -- )
   rr-object rr-code-out rr-site-out

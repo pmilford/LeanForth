@@ -466,7 +466,6 @@ variable lf-sched-faults  0 lf-sched-faults !
 
 \ ---- Finality, as the publisher left it (read raw: the driving task
 \ holds no snapshot), and the frontier below which every slot is final.
-: lf-sch-final? ( d -- flag ) lf-env lf-env-slot lf-slot-state @ lf-state-final = ;
 : lf-sch-stop! ( d -- ) lf-sched lf-sch-stop-at dup @ rot min swap ! ;
 : lf-sch-ready! ( d -- )
   lf-sch-queued over lf-sch-state! lf-sched lf-sch-ready pq-push ok? 0=
@@ -476,7 +475,7 @@ variable lf-sched-faults  0 lf-sched-faults !
   if true lf-sched lf-sch-broken ! then ;
 : lf-sch-front@ ( -- n ) lf-sched lf-sch-frontier @ ;
 : lf-sch-advance ( -- )
-  begin lf-sch-front@ dup lf-sch-n < if lf-sch-final? else drop false then while
+  begin lf-sch-front@ dup lf-sch-n < if lf-env-done? else drop false then while
     1 lf-sched lf-sch-frontier +!
   repeat ;
 \ Declarations waiting for every slot below them, once that holds.
@@ -498,12 +497,12 @@ variable lf-sched-faults  0 lf-sched-faults !
   dup 1+ lf-sch-rfrom@ swap lf-sch-rfrom@ ?do i lf-sch-rdep@ lf-sch-one-less loop ;
 : lf-sch-note ( s -- )
   lf-sch-noted over lf-sch-flag? if drop exit then
-  dup lf-sch-final? 0= if drop exit then lf-sch-noted over lf-sch-flag! lf-sch-wake ;
+  dup lf-env-done? 0= if drop exit then lf-sch-noted over lf-sch-flag! lf-sch-wake ;
 \ After d's hand-over: the slots of d and of its block's later members
 \ that are final now; a member its first left open is checked alone,
 \ once every slot below it is final.
 : lf-sch-trail ( m -- )
-  dup lf-sch-final? 0= if lf-sch-later! exit then
+  dup lf-env-done? 0= if lf-sch-later! exit then
   lf-sch-done over lf-sch-state! lf-sch-note ;
 : lf-sch-members-of ( d -- )
   dup lf-sch-span over + over 1+ ?do
@@ -662,7 +661,7 @@ task-host task-threads <> lf-sch-x86? or constant lf-sched-host-ok
 \ A slot final before the run, taken from a snapshot (env-import.fs, plan
 \ step SN4), is done and wakes the declarations that wait for it.
 : lf-sch-taken ( d -- )
-  dup lf-sch-final? 0= if drop exit then lf-sch-done over lf-sch-state! lf-sch-note ;
+  dup lf-env-done? 0= if drop exit then lf-sch-done over lf-sch-state! lf-sch-note ;
 : lf-sch-start ( -- )
   lf-context @ lf-sched lf-sch-home-ctx ! lf-sch-pool-size
   lf-sch-n 0 ?do i lf-sch-taken loop lf-sch-n 0 ?do i lf-sch-first loop ;

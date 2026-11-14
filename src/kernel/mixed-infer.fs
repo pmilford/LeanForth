@@ -425,11 +425,6 @@ defer lf-minfer-typer ( node frames -- type outcome )
 \ a step.
 defer lf-minfer-walk ( node -- type status )
 
-\ After a step that succeeded, keep x and the step's result; otherwise drop
-\ x and pass the failed ( result status ) on.
-: lf-minfer-step? ( x result status -- x result true | result status false )
-  dup ok? if drop true else rot drop false then ;
-
 \ Rejection (ADR 0011, ADR 0014): a rejection replaces whatever was
 \ recorded with its own record (lf-minfer-reject). The helpers report ok
 \ or a failure, and a failure leaves no fuel.
@@ -548,7 +543,7 @@ defer lf-minfer-walk ( node -- type status )
   2swap lf-minfer-argued false lf-dq-eager !
   r@ frame-restore r@ frame-restore swap rot lf-minfer-applied r> 0 ;
 : lf-minfer-app-fn ( T status frames -- ... frames next )
-  >r r@ frame-restore -rot lf-minfer-step? 0= if r> 0 exit then
+  >r r@ frame-restore -rot ok-keep? 0= if r> 0 exit then
   lf-minfer-pi-parts 0= if nip lf-minfer-none r> 0 exit then
   r@ frame-save swap dup r@ frame-save swap r@ frame-save r@ lf-minfer-marked
   r> ['] lf-minfer-app-arg lf-minfer-call-marked ;

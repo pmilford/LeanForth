@@ -277,7 +277,6 @@ cr-byte char r json-escape-byte!
   else 2drop json-escaped-string then ;
 
 \ Numbers: -? (0 | [1-9][0-9]*) (. [0-9]+)? ([eE] [+-]? [0-9]+)?
-: decimal-digit? ( c -- flag ) [char] 0 - 10 u< ;
 : digits-end ( end addr -- end addr' )
   begin 2dup u> while dup c@ decimal-digit? while 1+ repeat then ;
 : json-digits ( view -- n )

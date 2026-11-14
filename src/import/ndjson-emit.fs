@@ -484,13 +484,9 @@ here reexport-handlers - kind-count cells = load-check
 \ The command line's word. Errors are reported as ndjson-count.fs does:
 \ the outcome's name, why, the field, the line and, for a JSON error, the
 \ byte within the line.
-: .json-byte ( -- )
-  reexported export-json dup json-why @ if ." , byte " json-offset .decimal
-  else drop then ;
-: .key ( c-addr u -- ) dup if ." field " type ." , " else 2drop then ;
 : .reexport-error ( outcome -- )
-  ." error: " outcome-text type reexported export-error ." : " type ."  (" .key
-  ." line " .decimal .json-byte ." )" cr ;
+  ." error: " outcome-text type reexported dup >r export-error ." : " type
+  r> .export-where cr ;
 \ Leaving the host with status 1, as ndjson-count.fs does: Gforth's
 \ (bye) where it exists (both CI hosts), else an uncaught THROW.
 [defined] (bye) [if]

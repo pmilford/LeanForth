@@ -2,7 +2,8 @@
 \ A standalone library for any Forth-2012 system with cells of at least
 \ 32 bits and characters of 8 bits; it needs only portability.fs, which
 \ supplies -rot and the Forth-2012 structure words where a host lacks
-\ them, bits.fs (cell-bits, a cell's width), and module.fs, which keeps
+\ them, bits.fs (cell-bits, a cell's width), decimal.fs (hex-byte!, for
+\ sha256-hex), and module.fs, which keeps
 \ its helpers in a private word list (ADR 0010). LeanForth uses it to
 \ check its exports (src/import/manifest.fs).
 \ Untrusted until reviewed; the program track's plan is to prove it equal
@@ -62,6 +63,7 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./portability.fs
 require ./bits.fs
+require ./decimal.fs
 require ./module.fs
 
 lf-lib-private module-open
@@ -315,9 +317,6 @@ sha-doubling [if]
 \ The digest: H0 to H7 big-endian (6.2.2), 32 bytes at c-addr.
 : sha-digest! ( c-addr sha -- )   \ pass i writes Hi
   sha-h swap 8 0 do over i cells + @ over sha-be! 4 chars + loop 2drop ;
-: sha-hex-digit ( n -- c ) dup 10 < if [char] 0 else [char] a 10 - then + ;
-: sha-hex-byte ( c c-addr -- )
-  over 4 rshift sha-hex-digit over c! swap 15 and sha-hex-digit swap char+ c! ;
 
 lf-lib set-current
 \ Defining word: name ( -- sha ), a record of /sha256 address units to
@@ -341,7 +340,7 @@ lf-lib set-current
 \ The 32 bytes of a digest at c-addr1 as 64 lowercase hexadecimal digits
 \ at c-addr2, as sha256sum prints them.
 : sha256-hex ( c-addr1 c-addr2 -- )   \ pass i writes byte i as two digits
-  sha-digest-bytes 0 do over i chars + c@ over i 2* chars + sha-hex-byte loop 2drop ;
+  sha-digest-bytes 0 do over i chars + c@ over i 2* chars + hex-byte! loop 2drop ;
 
 module-close
 base !   \ the BASE this file was loaded with

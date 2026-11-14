@@ -1988,8 +1988,8 @@ reason = "a name that reads as a number is accepted, against the owner's answer 
 [[fault]]
 id = "pv-number-underscore"
 file = "src/program/verify-semantics.fs"
-old = '''  over pv-hex-letter? and over [char] _ = or swap pv-digit? or ;'''
-new = '''  over pv-hex-letter? and swap pv-digit? or ;'''
+old = '''  over pv-hex-letter? and over [char] _ = or swap decimal-digit? or ;'''
+new = '''  over pv-hex-letter? and swap decimal-digit? or ;'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "rvPW M1: names Gforth 1.0 reads as numbers with its digit separator (_1, -_1, #_1, ._) are accepted; the host oracle sees them"
 
@@ -2395,9 +2395,9 @@ reason = "one byte past jw-limit is written, so a buffer of n bytes overflows"
 
 [[fault]]
 id = "jw-upper-case-hex"
-file = "src/lib/json-write.fs"
-old = ''': jw-hex-digit ( n -- c ) dup 10 < if [char] 0 else [char] a 10 - then + ;'''
-new = ''': jw-hex-digit ( n -- c ) dup 10 < if [char] 0 else [char] A 10 - then + ;'''
+file = "src/lib/decimal.fs"
+old = ''': hex-char ( n -- c ) dup 10 < if [char] 0 else [char] a 10 - then + ;'''
+new = ''': hex-char ( n -- c ) dup 10 < if [char] 0 else [char] A 10 - then + ;'''
 test = "$GFORTH tests/lib/json-write.fs && python3 tests/lib/test_json_write.py"
 reason = "a \\u00xx escape has upper-case hex digits, unlike Python's json.dumps"
 
@@ -2778,8 +2778,8 @@ reason = "a Forth exception inside a command exits 0 instead of 5, an internal f
 [[fault]]
 id = "cli-spent-context-ignored"
 file = "src/cli/check-run.fs"
-old = '''  ck-viewed? if ck-all-final? ck-faulted? 0= and flag>outcome else outcome-invalid then ;'''
-new = '''  ck-viewed? if ck-all-final? flag>outcome else outcome-invalid then ;'''
+old = '''  ck-viewed? if lf-env-all-final? ck-faulted? 0= and flag>outcome else outcome-invalid then ;'''
+new = '''  ck-viewed? if lf-env-all-final? flag>outcome else outcome-invalid then ;'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "a run whose last check threw ends ok: the report says run ok and stopped (review rvCLI2 L1)"
 
@@ -2819,9 +2819,9 @@ reason = "check stages exports without their manifests by default"
 
 [[fault]]
 id = "cli-fed-not-final-ok"
-file = "src/cli/check-run.fs"
-old = ''': ck-final? ( d -- flag ) lf-env-readable dup if nip then ;'''
-new = ''': ck-final? ( d -- flag ) drop true ;'''
+file = "src/kernel/environment.fs"
+old = ''': lf-env-final? ( d -- flag ) lf-env-readable dup if nip then ;'''
+new = ''': lf-env-final? ( d -- flag ) drop true ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "a run whose publisher failed, leaving a slot open, is not reported as stopped"
 equivalent = "defence in depth since review rvCLI2 L1: a run leaves a slot open only when lf-env-step reports a stop (a THROW, a publisher fault) or the run stops before it, and either sets ck-faulted, which ck-confirm also requires clear; caught before L1, when the stop flag was dropped"
@@ -3467,7 +3467,7 @@ reason = "a commit that is not 40 lowercase hexadecimal digits is recorded"
 [[fault]]
 id = "rr-foreign-environment"
 file = "src/import/run-record.fs"
-old = ''': rr-ours? ( -- flag ) run-record rr-env-id @ dup if lf-env-id = else drop false then ;'''
+old = ''': rr-ours? ( -- flag ) run-record rr-env-id @ lf-env-is? ;'''
 new = ''': rr-ours? ( -- flag ) true ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "review F1: verdicts are read from whatever environment is current, not the run's own"
@@ -3476,7 +3476,7 @@ quick = true
 [[fault]]
 id = "rr-address-not-identity"
 file = "src/import/run-record.fs"
-old = ''': rr-ours? ( -- flag ) run-record rr-env-id @ dup if lf-env-id = else drop false then ;'''
+old = ''': rr-ours? ( -- flag ) run-record rr-env-id @ lf-env-is? ;'''
 new = ''': rr-ours? ( -- flag ) run-record rr-env @ dup if lf-env = else drop false then ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "rvRP 2: environments compared by address; a new one made where the run's was freed is claimed"
@@ -5537,7 +5537,7 @@ reason = "N3: an earlier text's failure flag stays for the next run of the sessi
 [[fault]]
 id = "lf-names-room-kept"
 file = "src/cli/check-lf.fs"
-old = ''': lfc-rooms-back ( -- outcome ) ck-restore lfc lfc-names @ lf-name-capacity! ck-first ;'''
+old = ''': lfc-rooms-back ( -- outcome ) ck-restore lfc lfc-names @ lf-name-capacity! outcome-and ;'''
 new = ''': lfc-rooms-back ( -- outcome ) ck-restore ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "N4: the name store keeps the room the words had after a text's run"

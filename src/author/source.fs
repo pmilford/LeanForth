@@ -26,6 +26,7 @@
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
+require ../lib/decimal.fs
 require ../lib/text-rule.fs
 
 65536 constant lfa-line-unit
@@ -122,15 +123,14 @@ end-structure
 \ where a number is meant, and every number-like token that is no plain
 \ decimal is refused (groups.fs).
 9 constant lfa-digits-max
-: lfa-digit? ( char -- flag ) [char] 0 [char] 9 1+ within ;
 : lfa-digits? ( c-addr u -- flag )
-  true -rot chars over + swap ?do i c@ lfa-digit? and loop ;
+  true -rot chars over + swap ?do i c@ decimal-digit? and loop ;
 : lfa-plain-decimal? ( c-addr u -- flag )
   dup 1 lfa-digits-max 1+ within if lfa-digits? else 2drop false then ;
 : lfa-prefix-char? ( char -- flag )
   dup [char] # [char] ' 1+ within over [char] + = or swap [char] - = or ;
 : lfa-number-like? ( c-addr u -- flag )
-  dup 0= if 2drop false exit then over c@ lfa-digit? if 2drop true exit then
+  dup 0= if 2drop false exit then over c@ decimal-digit? if 2drop true exit then
   1 > swap c@ lfa-prefix-char? and ;
 
 \ Characters a line may hold (see the header). The first character of

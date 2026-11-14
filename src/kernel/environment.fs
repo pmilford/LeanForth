@@ -542,8 +542,13 @@ end-structure
   lf-env if lf-slot-number 0 lf-env-cand lf-cand-decl @ within else drop false then ;
 : lf-slot-early ( slot -- ) lf-slot-below? if true lf-env-cand lf-cand-early ! then ;
 : lf-env-early? ( -- flag ) lf-env-cand lf-cand-early @ 0<> ;
-: lf-slot-final? ( slot -- flag )
-  dup lf-slot-state @ lf-state-final = dup if nip exit then swap lf-slot-early ;
+\ Whether the slot is final, with no other effect (lf-slot-final? also
+\ notes a slot still open below the candidate as early).
+: lf-slot-done? ( slot -- flag ) lf-slot-state @ lf-state-final = ;
+: lf-slot-final? ( slot -- flag ) dup lf-slot-done? dup if nip exit then swap lf-slot-early ;
+\ Whether slot d of the current environment is final (no effect; the
+\ scheduler's and the import's test).
+: lf-env-done? ( d -- flag ) lf-env lf-env-slot lf-slot-done? ;
 : lf-slot-outcome@ ( slot -- outcome ) lf-slot-outcome @ outcome-sane ;
 : lf-slot-accepted? ( slot -- flag ) dup lf-slot-final? swap lf-slot-outcome@ ok? and ;
 : lf-slot-open? ( slot -- flag ) lf-slot-final? 0= ;
@@ -630,6 +635,16 @@ end-structure
 : lf-env-readable ( d -- slot true | false )
   lf-env-i2 lf-env-snapshot 0= if drop false exit then
   lf-env-below? if lf-env-slot lf-final-slot else 2drop false then ;
+\ For a run's driver (cli/check-run.fs, import/run-record.fs): whether the
+\ current environment is the run's own, by identity id (0: none), never by
+\ address (a new environment made where a freed one was is another one);
+\ whether it then gives a snapshot whose names can be read; whether every
+\ input slot is final in that snapshot.
+: lf-env-is? ( id -- flag ) dup if lf-env-id = else drop false then ;
+: lf-env-viewed? ( id -- flag )
+  lf-env-is? if lf-env-view ok? lf-name-storage-valid? and else false then ;
+: lf-env-final? ( d -- flag ) lf-env-readable dup if nip then ;
+: lf-env-all-final? ( -- flag ) lf-input-count ['] lf-env-final? all? ;
 : lf-env-refuse ( d -- 0 outcome )
   lf-env-cand lf-cand-identity @ swap c" environment lf-env-accepted"
   lf-diag-env-handle lf-diag-note 0 outcome-invalid ;

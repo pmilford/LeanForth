@@ -385,16 +385,15 @@ create ck-line ck-line-room 2 + allot
 : ck-save ( -- )
   ck-capacities# 0 do i ck-capacity capacity-get @ execute i ck-saved-cell ! loop ;
 \ Give capacity k back; the first refusal stays.
-: ck-first ( outcome outcome2 -- outcome' ) over ok? if nip else drop then ;
 : ck-give-back ( outcome k -- outcome )
-  dup ck-saved-cell @ swap ck-capacity capacity-set @ execute ck-first ;
+  dup ck-saved-cell @ swap ck-capacity capacity-set @ execute outcome-and ;
 : ck-restore ( -- outcome ) outcome-ok ck-capacities# 0 do i ck-give-back loop ;
 \ Capacity k raised to the most a store may hold; the first refusal stays.
 \ ck-rooms keeps them all and raises them, for a LeanForth text's words
 \ (cli/check-lf.fs), which give them back with ck-restore before the feed
 \ keeps them again.
 : ck-raise ( outcome k -- outcome )
-  feed-most swap ck-capacity capacity-set @ execute ck-first ;
+  feed-most swap ck-capacity capacity-set @ execute outcome-and ;
 : ck-rooms ( -- outcome ) ck-save outcome-ok ck-capacities# 0 do i ck-raise loop ;
 \ The stores emptied, as the feed starts them.
 : ck-empty ( -- )
@@ -627,14 +626,11 @@ create ck-line ck-line-room 2 + allot
 
 \ The run's own environment, by identity (never another one that happens
 \ to be current), and a snapshot of every slot of it.
-: ck-ours? ( -- flag ) ck-state ck-env-id @ dup if lf-env-id = else drop false then ;
-: ck-viewed? ( -- flag )
-  ck-ours? if lf-env-view ok? lf-name-storage-valid? and else false then ;
-: ck-final? ( d -- flag ) lf-env-readable dup if nip then ;
-: ck-all-final? ( -- flag ) true lf-input-count 0 ?do i ck-final? and loop ;
+: ck-ours? ( -- flag ) ck-state ck-env-id @ lf-env-is? ;
+: ck-viewed? ( -- flag ) ck-state ck-env-id @ lf-env-viewed? ;
 \ Ok when every slot is final and the run did not stop on a fault.
 : ck-confirm ( -- outcome )
-  ck-viewed? if ck-all-final? ck-faulted? 0= and flag>outcome else outcome-invalid then ;
+  ck-viewed? if lf-env-all-final? ck-faulted? 0= and flag>outcome else outcome-invalid then ;
 \ After the run: whether its verdicts can be read, in a new snapshot of
 \ the run's own environment.
 : ck-verdicts? ( -- flag ) ck-ours? if lf-env-view ok? else false then ;
@@ -1181,7 +1177,7 @@ end-structure
 \ (a stopped run checked fewer than it did not take; review rvSN4 m3).
 : ck-checked# ( -- n )
   ck-verdicts? 0= if 0 exit then
-  0 lf-input-count 0 ?do i ck-final? i ck-taken? 0= and 1 and + loop ;
+  0 lf-input-count 0 ?do i lf-env-final? i ck-taken? 0= and 1 and + loop ;
 \ Verdicts taken from the snapshot (and its layers), not checked here.
 : ck-saved# ( -- n )
   ck-verdicts? 0= if 0 exit then

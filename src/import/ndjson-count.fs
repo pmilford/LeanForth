@@ -24,6 +24,7 @@
 require ../lib/lib.fs
 require ../lib/bytes.fs
 require ../lib/json.fs
+require ../lib/decimal.fs
 require ./ndjson.fs
 require ./manifest.fs
 
@@ -122,8 +123,6 @@ manifest: counted-manifest
 \ average with one decimal, rounded half to even.
 : #group ( ud -- ud' ) # 2dup d0= if exit then # 2dup d0= if exit then # ;
 : grouped ( ud -- c-addr u ) <# begin #group 2dup d0= 0= while [char] , hold repeat #> ;
-: type-right ( c-addr u width -- ) over - 0 max spaces type ;
-: type-left ( c-addr u width -- ) over - 0 max >r type r> spaces ;
 \ Round the quotient q up when twice the remainder exceeds the divisor n,
 \ or equals it and q is odd.
 : round-up? ( rem n q -- flag ) 1 and 0<> >r swap 2* 2dup < -rot = r> and or ;
@@ -162,11 +161,7 @@ manifest: counted-manifest
 \ Errors: the outcome's name (outcome-text, lib/outcome.fs, which names
 \ any value outside the vocabulary invalid), why, the field, the line and,
 \ for a JSON syntax error, the byte within the line.
-: .json-offset ( export -- )
-  export-json dup json-why @ if ." , byte " json-offset .int else drop then ;
-: .field ( c-addr u -- ) dup if ." field " type ." , " else 2drop then ;
-: .why ( export -- )
-  dup export-error ." : " type ."  (" .field ." line " .int .json-offset ." )" ;
+: .why ( export -- ) dup >r export-error ." : " type r> .export-where ;
 : .count-error ( outcome -- ) ." error: " outcome-text type counted-export .why cr ;
 
 \ Read the export named c-addr u with fresh counts, by xt ( c-addr u --

@@ -309,11 +309,9 @@ lf-lib set-current
 lf-lib-private set-current
 : cons-unlist ( local cons -- outcome )
   tuck cons-first @ + swap 2dup cons-rehash swap cons-table htab-remove ;
-\ The first failure of two outcomes.
-: worse ( outcome1 outcome2 -- outcome ) over ok? if nip else drop then ;
 : cons-forget ( local cons -- outcome )
   outcome-ok -rot begin 2dup cons-records slab-count < while
-    2dup cons-unlist >r rot r> worse -rot 2dup cons-span rot + swap
+    2dup cons-unlist >r rot r> outcome-and -rot 2dup cons-span rot + swap
   repeat 2drop ;
 \ Emptying the table costs its size; forgetting costs the records: choose
 \ the cheaper.

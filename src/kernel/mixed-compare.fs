@@ -133,11 +133,9 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
 : lf-mcompare-arity? ( slot slot -- flag ) lf-crec-arity @ swap lf-crec-arity @ = ;
 : lf-mcompare-name-ids ( slot slot -- name name )
   lf-crec-name @ swap lf-crec-name @ swap ;
-: lf-mcompare-continue? ( x y outcome -- x y true | outcome false )
-  dup ok? if drop true else nip nip false then ;
 : lf-mcompare-heads ( slot slot walk -- slot slot true | outcome false )
   >r 2dup lf-mcompare-arity? 0= if 2drop r> drop outcome-unknown false exit then
-  2dup lf-mcompare-name-ids r> lf-mcompare-names lf-mcompare-continue? ;
+  2dup lf-mcompare-name-ids r> lf-mcompare-names ok-then2? ;
 \ The level arrays of two references of equal arity, and their level
 \ indices at one position.
 : lf-mcompare-arrays ( slot slot -- addr addr count )

@@ -86,8 +86,8 @@ end-structure
 \ the most a store may hold (they grow only as records are made), then
 \ given back; the first refusal is the outcome.
 : lfc-rooms ( -- outcome )
-  ck-rooms lf-name-capacity lfc lfc-names ! feed-most lf-name-capacity! ck-first ;
-: lfc-rooms-back ( -- outcome ) ck-restore lfc lfc-names @ lf-name-capacity! ck-first ;
+  ck-rooms lf-name-capacity lfc lfc-names ! feed-most lf-name-capacity! outcome-and ;
+: lfc-rooms-back ( -- outcome ) ck-restore lfc lfc-names @ lf-name-capacity! outcome-and ;
 
 \ ---- The library's names (author/library.fs): a name of the run's name
 \ store looked up in the stage's tier part by part, prefix first, without
@@ -229,7 +229,7 @@ end-structure
 \ happens; a THROW then passes on (review N5; the stage has rolled back).
 : lfc-caught ( c-addr u xt -- outcome code )
   catch dup if nip nip outcome-invalid swap then ;
-: lfc-back ( outcome -- outcome ) lfc-empty lfc-rooms-back ck-first lfc-sharing-back ;
+: lfc-back ( outcome -- outcome ) lfc-empty lfc-rooms-back outcome-and lfc-sharing-back ;
 : lfc-making ( c-addr u xt -- outcome )
   lfc-sharing! lfc-rooms ok-then2? if lfc-caught else nip 0 then
   swap lfc-back swap throw ;

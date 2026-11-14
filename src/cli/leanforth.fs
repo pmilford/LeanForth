@@ -503,14 +503,11 @@ create cli-fed-ops
 : cli-fed? ( -- flag ) cli-ops cli-fed-ops = ;
 
 \ A read that failed: the outcome, the reason, the field and the line
-\ (0 for the manifest), and for a JSON error the byte within the line.
-: cli-field. ( c-addr u -- ) dup if ." field " type ." , " else 2drop then ;
-: cli-byte. ( export -- )
-  export-json dup json-why @ if ." , byte " json-offset .decimal else drop then ;
+\ (0 for the manifest), and for a JSON error the byte within the line
+\ (import/ndjson.fs's .export-where).
 : cli-error-head ( outcome why-addr why-u -- )
   ." error: " rot outcome-text type ." : " type ;
-: cli-where ( line key-addr key-u export -- )
-  >r ."  (" cli-field. ." line " .decimal r> cli-byte. ." )" cr ;
+: cli-where ( line key-addr key-u export -- ) .export-where cr ;
 : cli-input-error ( outcome -- )
   >r cin-error r> -rot cli-error-head cin-export cli-where ;
 \ A failure about the manifest is at line 0 (the export opened, see
@@ -612,11 +609,10 @@ create cli-fed-ops
 \ and the fuel used in all and by the declarations that used the most.
 \ Times and memory differ from run to run; the rest does not.
 \ Text right-aligned in a column of width characters.
-: cli-column ( c-addr u width -- ) over - 0 max spaces type ;
 \ Milliseconds as seconds with three decimals; microseconds in a column.
 : do-seconds ( ms -- c-addr u ) 0 <# # # # [char] . hold #s #> ;
 : cli-seconds ( ms -- c-addr u ) ['] do-seconds in-decimal ;
-: cli-second. ( d-us -- ) 1000 um/mod nip cli-seconds 9 cli-column ;
+: cli-second. ( d-us -- ) 1000 um/mod nip cli-seconds 9 type-right ;
 \ Phase k's row: its name, then its wall and CPU times.
 : cli-row ( k -- )
   ."   " dup ck-phase-name dup >r type 8 r> - spaces
@@ -650,7 +646,7 @@ create cli-fed-ops
   ."   fuel: " ck-fuel-total ud>decimal type ."  steps in all, at most "
   ck-fuel-budget .decimal ."  per declaration" cr cli-unknown-fuel. ;
 : cli-fuel-column ( n -- )
-  ck-fuel-budget u>decimal nip >r u>decimal r> cli-column ;
+  ck-fuel-budget u>decimal nip >r u>decimal r> type-right ;
 : cli-top. ( k -- )
   ck-top@ ."     " dup ck-fuel-of cli-fuel-column space dup cli-name. ."  ("
   verdict-of verdict-name type ." )" cr ;
