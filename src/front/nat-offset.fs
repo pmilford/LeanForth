@@ -15,6 +15,8 @@
 \   Nat Nat Nat (instHAdd.{0} Nat instAddNat) e k); a literal k is
 \   OfNat.ofNat.{0} Nat k (instOfNatNat k) (lf-meta-nat-lit, mkNatLit).
 \ - lf-meta-nat ( -- term outcome ): the constant Nat.
+\ The shapes it matches use term-eqv.fs's lf-meta-app-of? and
+\ lf-meta-nth-arg.
 \ Values are unsigned cells (below 2^64 on a 64-bit host), added and
 \ compared unsigned. Never a guess: unsupported for a literal, a sum or
 \ an offset beyond a cell, an operation Lean's evalNat also evaluates that is not
@@ -105,28 +107,28 @@ end-structure
   swap no-hadd-inst ok-then? 0= if nip nip no-result exit then
   swap outcome-ok no-app ok-then? 0= if nip no-result exit then swap outcome-ok no-app ;
 
-\ ---- Shapes: n arguments and a constant of the name at the head
-\ (Lean's match_expr).
-: no-is? ( t n c-addr u -- flag )
-  2>r over lf-meta-args# = if lf-meta-head 2r> lf-meta-const-named?
-  else drop 2r> 2drop false then ;
-\ Argument i, the first 0, of t with n arguments.
-: no-arg ( t i n -- a ) swap - 1- 0 ?do lf-term-first@ loop lf-term-second@ ;
-: no-inst-addnat? ( t -- flag ) 0 s" instAddNat" no-is? ;
+\ ---- Shapes (Lean's match_expr), by term-eqv.fs's lf-meta-app-of?.
+: no-inst-addnat? ( t -- flag ) 0 s" instAddNat" lf-meta-app-of? ;
 : no-inst-hadd? ( t -- flag )
-  dup 2 s" instHAdd" no-is? if 1 2 no-arg no-inst-addnat? else drop false then ;
-: no-inst-ofnat? ( t -- flag ) 1 s" instOfNatNat" no-is? ;
+  dup 2 s" instHAdd" lf-meta-app-of?
+  if 1 2 lf-meta-nth-arg no-inst-addnat? else drop false then ;
+: no-inst-ofnat? ( t -- flag ) 1 s" instOfNatNat" lf-meta-app-of? ;
 : no-sub? ( t -- flag )
-  dup 2 s" Nat.sub" no-is? over 4 s" Sub.sub" no-is? or swap 6 s" HSub.hSub" no-is? or ;
+  dup 2 s" Nat.sub" lf-meta-app-of? over 4 s" Sub.sub" lf-meta-app-of? or
+  swap 6 s" HSub.hSub" lf-meta-app-of? or ;
 : no-mul? ( t -- flag )
-  dup 2 s" Nat.mul" no-is? over 4 s" Mul.mul" no-is? or swap 6 s" HMul.hMul" no-is? or ;
+  dup 2 s" Nat.mul" lf-meta-app-of? over 4 s" Mul.mul" lf-meta-app-of? or
+  swap 6 s" HMul.hMul" lf-meta-app-of? or ;
 : no-div? ( t -- flag )
-  dup 2 s" Nat.div" no-is? over 4 s" Div.div" no-is? or swap 6 s" HDiv.hDiv" no-is? or ;
+  dup 2 s" Nat.div" lf-meta-app-of? over 4 s" Div.div" lf-meta-app-of? or
+  swap 6 s" HDiv.hDiv" lf-meta-app-of? or ;
 : no-mod? ( t -- flag )
-  dup 2 s" Nat.mod" no-is? over 4 s" Mod.mod" no-is? or swap 6 s" HMod.hMod" no-is? or ;
+  dup 2 s" Nat.mod" lf-meta-app-of? over 4 s" Mod.mod" lf-meta-app-of? or
+  swap 6 s" HMod.hMod" lf-meta-app-of? or ;
 : no-pow? ( t -- flag )
-  dup 2 s" Nat.pow" no-is? over 4 s" NatPow.pow" no-is? or over 5 s" Pow.pow" no-is? or
-  swap 6 s" HPow.hPow" no-is? or ;
+  dup 2 s" Nat.pow" lf-meta-app-of? over 4 s" NatPow.pow" lf-meta-app-of? or
+  over 5 s" Pow.pow" lf-meta-app-of? or
+  swap 6 s" HPow.hPow" lf-meta-app-of? or ;
 : no-unported? ( t -- flag )
   dup no-sub? over no-mul? or over no-div? or over no-mod? or swap no-pow? or ;
 \ The last two arguments of an addition.
@@ -139,7 +141,7 @@ end-structure
 : no-add-acc ( u -- outcome )
   no no-acc @ 2dup + tuck u> if 2drop outcome-unsupported exit then
   nip no no-acc ! outcome-ok ;
-: no-push-arg ( t i n -- outcome ) no-arg no-push ;
+: no-push-arg ( t i n -- outcome ) lf-meta-nth-arg no-push ;
 \ An addition's two summands, the first on top.
 : no-push-sides ( t -- code outcome )
   no-sides swap >r no-push dup ok? if drop r> no-push else r> drop then 0 swap ;
@@ -149,22 +151,23 @@ end-structure
 : no-succ-step ( t -- code outcome )
   0 1 no-push-arg dup ok? if drop 1 no-add-acc then 0 swap ;
 : no-ofnat-step ( t -- code outcome )
-  dup 2 3 no-arg no-inst-ofnat? if 1 3 no-push-arg 0 swap else drop 1 outcome-ok then ;
+  dup 2 3 lf-meta-nth-arg no-inst-ofnat?
+  if 1 3 no-push-arg 0 swap else drop 1 outcome-ok then ;
 : no-addc-step ( t -- code outcome )
-  dup 1 4 no-arg no-inst-addnat? if no-push-sides else drop 1 outcome-ok then ;
+  dup 1 4 lf-meta-nth-arg no-inst-addnat? if no-push-sides else drop 1 outcome-ok then ;
 : no-hadd-step ( t -- code outcome )
-  dup 3 6 no-arg no-inst-hadd? if no-push-sides else drop 1 outcome-ok then ;
+  dup 3 6 lf-meta-nth-arg no-inst-hadd? if no-push-sides else drop 1 outcome-ok then ;
 : no-sum-step ( t -- code outcome )
-  dup 4 s" Add.add" no-is? if no-addc-step exit then
-  dup 6 s" HAdd.hAdd" no-is? if no-hadd-step exit then
+  dup 4 s" Add.add" lf-meta-app-of? if no-addc-step exit then
+  dup 6 s" HAdd.hAdd" lf-meta-app-of? if no-hadd-step exit then
   no-unported? if 0 outcome-unsupported else 1 outcome-ok then ;
 : no-app-step ( t -- code outcome )
-  dup 1 s" Nat.succ" no-is? if no-succ-step exit then
-  dup 2 s" Nat.add" no-is? if no-push-sides exit then
-  dup 3 s" OfNat.ofNat" no-is? if no-ofnat-step else no-sum-step then ;
+  dup 1 s" Nat.succ" lf-meta-app-of? if no-succ-step exit then
+  dup 2 s" Nat.add" lf-meta-app-of? if no-push-sides exit then
+  dup 3 s" OfNat.ofNat" lf-meta-app-of? if no-ofnat-step else no-sum-step then ;
 : no-step ( t -- code outcome )
   dup lf-term-tag@ lf-tag-lit = if no-lit-step exit then
-  dup 0 s" Nat.zero" no-is? if drop 0 outcome-ok exit then
+  dup 0 s" Nat.zero" lf-meta-app-of? if drop 0 outcome-ok exit then
   dup lf-meta-app? if no-app-step else drop 1 outcome-ok then ;
 : no-none ( outcome -- 0 false outcome ) 0 swap false swap ;
 : no-run ( -- n flag outcome )
@@ -180,7 +183,7 @@ end-structure
 0 constant no-plain  1 constant no-succ-at  2 constant no-sum-at
 3 constant no-foreign  4 constant no-failed
 : no-want ( n -- inst outcome ) 4 = if s" instAddNat" 0 no-const else no-inst-hadd then ;
-: no-inst-arg ( e n -- arg ) dup 3 - swap no-arg ;
+: no-inst-arg ( e n -- arg ) dup 3 - swap lf-meta-nth-arg ;
 : no-inst-ok? ( e n -- flag outcome )
   tuck no-inst-arg swap no-want ok-then? if lf-meta-eqv else nip false swap then ;
 : no-fail ( outcome -- 0 0 code ) no no-out ! 0 0 no-failed ;
@@ -188,10 +191,10 @@ end-structure
   over swap no-inst-ok? dup ok? 0= if nip nip no-fail exit then drop
   if no-sides no-sum-at else drop 0 0 no-foreign then ;
 : no-layer ( e -- a b code )
-  dup 1 s" Nat.succ" no-is? if 0 1 no-arg 0 no-succ-at exit then
-  dup 2 s" Nat.add" no-is? if no-sides no-sum-at exit then
-  dup 4 s" Add.add" no-is? if 4 no-inst-layer exit then
-  dup 6 s" HAdd.hAdd" no-is? if 6 no-inst-layer else 0 no-plain then ;
+  dup 1 s" Nat.succ" lf-meta-app-of? if 0 1 lf-meta-nth-arg 0 no-succ-at exit then
+  dup 2 s" Nat.add" lf-meta-app-of? if no-sides no-sum-at exit then
+  dup 4 s" Add.add" lf-meta-app-of? if 4 no-inst-layer exit then
+  dup 6 s" HAdd.hAdd" lf-meta-app-of? if 6 no-inst-layer else 0 no-plain then ;
 \ v more for the offset: false when it passes a cell.
 : no-off+ ( v -- flag )
   no no-off @ over + tuck u> if drop false else no no-off ! true then ;

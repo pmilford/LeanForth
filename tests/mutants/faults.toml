@@ -14693,7 +14693,7 @@ reason = "FE1c: mkLambdaFVars without etaReduce: ?t j =?= Nat.succ j assigns fun
 [[fault]]
 id = "fe-defeq-ofnat-instance-unchecked"
 file = "src/front/nat-offset.fs"
-old = ''': no-inst-ofnat? ( t -- flag ) 1 s" instOfNatNat" no-is? ;'''
+old = ''': no-inst-ofnat? ( t -- flag ) 1 s" instOfNatNat" lf-meta-app-of? ;'''
 new = ''': no-inst-ofnat? ( t -- flag ) drop true ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c: evalNat takes OfNat.ofNat Nat 2 i for 2 whatever the instance i"
@@ -14805,8 +14805,8 @@ reason = "FE1c review M3: == compares only a constant's first universe argument"
 [[fault]]
 id = "fe-defeq-hadd-instance-unchecked"
 file = "src/front/nat-offset.fs"
-old = '''  dup 2 s" instHAdd" no-is? if 1 2 no-arg no-inst-addnat? else drop false then ;'''
-new = '''  2 s" instHAdd" no-is? ;'''
+old = '''  if 1 2 lf-meta-nth-arg no-inst-addnat? else drop false then ;'''
+new = '''  nip ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M3: evalNat takes instHAdd Nat i for any i"
 
@@ -15846,11 +15846,11 @@ reason = "S1 appendix D: Nat.succ 2 is whnf's result (reduceNat? folds it to 3)"
 
 [[fault]]
 id = "fe-whnf-mode-kept"
-file = "src/front/whnf.fs"
-old = '''  lf-defeq-mode swap lf-defeq-mode! swap lf-meta-whnf rot lf-defeq-mode! ;'''
-new = '''  lf-defeq-mode swap lf-defeq-mode! swap lf-meta-whnf rot drop ;'''
+file = "src/front/meta-config.fs"
+old = '''  lf-defeq-mode >r lf-defeq-mode! execute r> lf-defeq-mode! ;'''
+new = '''  lf-defeq-mode! execute ;'''
 test = "$GFORTH tests/front/whnf.fs"
-reason = "S1 appendix D: whnfR leaves the transparency reducible (Lean's withTransparency restores it)"
+reason = "S1 appendix D: whnfR (lf-meta-at) leaves the transparency reducible (Lean's withTransparency restores it)"
 
 [[fault]]
 id = "fe-whnf-forall-no-whnf"
@@ -15910,6 +15910,267 @@ old = '''  dup 0< if drop 2drop outcome-invalid no-result exit then'''
 new = ''''''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "s1-meta-a L4: a negative count runs ?do .. +loop through memory"
+
+# --- s1-synth: M6, the export's manifest binds the elaboration data (S1 note) ---
+
+[[fault]]
+id = "fe-m6-bound-ignored"
+file = "src/front/elab-data.fs"
+old = '''  ed-bound dup if compare 0= else 2drop 2drop true then ;'''
+new = '''  2drop true ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "M6: data other than the records the export's manifest names is read"
+
+[[fault]]
+id = "fe-m6-cli-unbound"
+file = "src/cli/check-lf.fs"
+old = '''  ck-stage stage-manifest manifest-elab-sha ;'''
+new = '''  0 0 ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "M6: leanforth check never passes the manifest's binding to the reader"
+
+[[fault]]
+id = "fe-m6-manifest-member-refused"
+file = "src/import/manifest.fs"
+old = ''': keys-wanted ( m -- n ) elab-named? negate manifest-keys keys-size + ;'''
+new = ''': keys-wanted ( m -- n ) drop manifest-keys keys-size ;'''
+test = "$GFORTH tests/core/manifest.fs"
+reason = "M6: a manifest that names its elaboration data is refused as malformed"
+
+[[fault]]
+id = "fe-m6-member-unchecked"
+file = "src/import/manifest.fs"
+old = ''': elab-digest? ( key m -- flag ) dup elab-named? if digest? else 2drop true then ;'''
+new = ''': elab-digest? ( key m -- flag ) 2drop true ;'''
+test = "$GFORTH tests/core/manifest.fs"
+reason = "M6: an elab_records_sha256 that is not 64 lowercase hexadecimal digits is accepted"
+
+[[fault]]
+id = "fe-m6-finisher-no-bind"
+file = "scripts/export_elab.py"
+old = '''    if args.bind:
+        bind(args.export, data)'''
+new = ''''''
+test = "python3 tests/front/test_elab_data.py"
+reason = "M6: scripts/export-elab.sh writes data the export's manifest does not name"
+
+# --- s1-synth: FE1e2 discrimination-tree keys, FE1e3 the instance table ---
+
+[[fault]]
+id = "fe-keys-instance-indexed"
+file = "src/front/discr-keys.fs"
+old = '''  dup lf-binder-instance = if 2drop true outcome-ok exit then'''
+new = '''  dup lf-binder-instance = if 2drop false outcome-ok exit then'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "ignoreArg: an instance-implicit argument is indexed, not a star (Nat.decLe's keys differ)"
+
+[[fault]]
+id = "fe-keys-succ-uncounted"
+file = "src/front/discr-keys.fs"
+old = '''  dup dk-succ? if dk-last swap 1+ swap true exit then'''
+new = '''  dup dk-succ? if dk-last true exit then'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "toNatLit?: Nat.succ adds nothing to the numeral's value"
+
+[[fault]]
+id = "fe-keys-stuck-dropped"
+file = "src/front/discr-keys.fs"
+old = '''  dk-stuck-const? ok-then? if if lf-meta-stuck else outcome-ok then then ;'''
+new = '''  dk-stuck-const? ok-then? if drop outcome-ok then ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "getUnifyKeyArgs: a recursor stuck on a metavariable is keyed instead of raising the stuck signal"
+
+[[fault]]
+id = "fe-keys-readonly-other"
+file = "src/front/discr-keys.fs"
+old = '''  dk-stuck-ex? dk-head lf-mvar-assignable? or if dk-star else dk-other then ;'''
+new = '''  dk-head lf-mvar-assignable? if dk-star else dk-other then ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "getUnifyKeyArgs: a read-only metavariable is other under isDefEqStuckEx (candidates lost)"
+
+[[fault]]
+id = "fe-inst-star-last"
+file = "src/front/instances.fs"
+old = '''  r@ it-find-child 0 it-refill r> it-star-child 0 it-push ;'''
+new = '''  rot r@ it-star-child 0 it-refill r> it-find-child 0 it-push ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "getUnify: the star child is visited after the matching one (Lean's order lost)"
+
+[[fault]]
+id = "fe-inst-sort-reversed"
+file = "src/front/instances.fs"
+old = ''': it-prio-at ( a-addr -- p ) @ lf-inst-priority ;'''
+new = ''': it-prio-at ( a-addr -- p ) @ lf-inst-priority negate ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "getInstances: the priority order reversed (lib/sort.fs's key), the highest priority first"
+
+[[fault]]
+id = "fe-inst-sort-by-value"
+file = "src/front/instances.fs"
+old = '''  1 cells ['] sort-signed it-sorter sorter-init ['] it-prio-at it-sorter sorter-key! ;'''
+new = '''  1 cells ['] sort-signed it-sorter sorter-init ['] @ it-sorter sorter-key! ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "getInstances sorts the values, not their priorities: equal priorities lose getUnify's order"
+
+[[fault]]
+id = "fe-inst-keys-unchecked"
+file = "src/front/instances.fs"
+old = '''    lfa-e-inst-keys it-fail swap endcase ;'''
+new = '''    outcome-ok swap endcase ;'''
+test = "$GFORTH tests/front/instances-bad.fs"
+reason = "the §4 check accepts an instance whose recorded keys differ from its type's"
+
+[[fault]]
+id = "fe-inst-class-unchecked"
+file = "src/front/instances.fs"
+old = '''  0= if 2drop lfa-e-inst-class it-fail exit then'''
+new = '''  drop'''
+test = "$GFORTH tests/front/instances-bad.fs"
+reason = "the §4 check accepts an instance recorded under another class"
+
+[[fault]]
+id = "fe-inst-rank-ignored"
+file = "src/front/instances.fs"
+old = ''': it-place ( v -- outcome ) dup it-rank it-ranked it-put ;'''
+new = ''': it-place ( v -- outcome ) dup it-rank 0 max 0 min it-ranked it-put ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "a root's values are not placed by rank (the tree loses Lean's child order and values)"
+
+[[fault]]
+id = "fe-inst-wide-refused"
+file = "src/front/instances.fs"
+old = '''  2dup it-over? if it-covered true exit then'''
+new = ''''''
+test = "$GFORTH tests/front/instances-bad.fs"
+reason = "a recorded star over a term the export lost a no_index on refuses the data instead of leaving the instance unverified"
+
+[[fault]]
+id = "fe-inst-partial-tree"
+file = "src/front/instances.fs"
+old = '''  it-tree ok-then? if tuck swap it-root@ tr-node ! outcome-ok else nip no-result then ;'''
+new = '''  it-tree >r tuck swap it-root@ tr-node ! r> ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth review H1: a root's tree counts before it is complete: after a refused heap request the same query answers with candidates missing"
+
+[[fault]]
+id = "fe-inst-exhausted-kept"
+file = "src/front/instances.fs"
+old = ''': it-final? ( outcome -- flag ) dup ok? swap outcome-unsupported = or ;'''
+new = ''': it-final? ( outcome -- flag ) dup outcome-invalid <> swap outcome-full <> and ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth review M1: a check that ran out of budget is kept as unverified for good"
+
+[[fault]]
+id = "fe-keys-implicit-literal-indexed"
+file = "src/front/discr-keys.fs"
+old = '''  over dk-literal? if nip dk-implicit? outcome-ok exit then'''
+new = '''  over dk-literal? if 2drop false outcome-ok exit then'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth review M2: a literal under an implicit binder is indexed (Lean's ignoreArg makes it a star: @Eq {5} 0 0)"
+
+[[fault]]
+id = "fe-inst-erased-kept"
+file = "src/front/instances.fs"
+old = ''': it-kept ( w v -- w' ) dup it-erased? if drop else over it-out slab-at ! 1+ then ;'''
+new = ''': it-kept ( w v -- w' ) over it-out slab-at ! 1+ ;'''
+test = "$GFORTH tests/front/instances-odd.fs"
+reason = "s1-synth review M4: an erased instance is a candidate"
+
+[[fault]]
+id = "fe-inst-verified-always"
+file = "src/front/instances.fs"
+old = '''  dup it-status slab-count index? if it-status@ it-verified = else drop false then ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth review M4: every value reads as verified, a left-out one and an unchecked one too"
+
+[[fault]]
+id = "fe-inst-star-root-searched"
+file = "src/front/instances.fs"
+old = '''  over elab-key-star? if 2drop outcome-unsupported exit then'''
+new = ''''''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth review M4: a bare metavariable goal (a star root) is searched and answers no candidates"
+
+[[fault]]
+id = "fe-keys-nested-numeral-skipped"
+file = "src/front/discr-keys.fs"
+old = '''  dk dk-path @ dk-nested? 0= or if -1 false outcome-ok exit then'''
+new = '''  -1 false outcome-ok exit'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth review M4: getUnifyKeyArgs' numeral below the root (toNatLit?) keyed by its constant"
+
+[[fault]]
+id = "fe-default-rank-ignored"
+file = "src/front/instances.fs"
+old = ''': it-dplace ( j -- outcome ) dup it-dvalue swap elab-default-rank it-defaults it-put ;'''
+new = ''': it-dplace ( j -- outcome ) dup it-dvalue swap drop 0 it-defaults it-put ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth review M4: default instances are not placed by rank (Pow's gap lost)"
+
+[[fault]]
+id = "fe-m6-binding-kept"
+file = "src/front/elab-data.fs"
+old = '''  0 elab elab-bound-length !'''
+new = ''''''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "s1-synth review M4: elab-bind!'s binding outlives its read and refuses the next, unbound one"
+
+[[fault]]
+id = "fe-inst-root-unchecked"
+file = "src/front/instances.fs"
+old = '''  dup elab-key-tag elab-key-const = if elab-key-decl = else 2drop false then ;'''
+new = '''  2drop true ;'''
+test = "$GFORTH tests/front/instances-bad.fs"
+reason = "s1-synth review H2: an instance filed under another class's root key is not refused (error 115)"
+
+[[fault]]
+id = "fe-inst-pass-skipped"
+file = "src/front/instances.fs"
+old = '''  it-query it it-pass @ ?dup 0= if it-pass-run it-pass-keep exit then'''
+new = '''  it-query it it-pass @ ?dup 0= if outcome-ok exit then'''
+test = "$GFORTH tests/front/instances-bad.fs"
+reason = "s1-synth review H2: the first query does not check every record (FE1E 4, When): misfiled data answers"
+
+[[fault]]
+id = "fe-default-class-unchecked"
+file = "src/front/instances.fs"
+old = '''  it-default-class it-head-class? if outcome-ok else lfa-e-default-class it-fail then ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/front/instances-bad.fs"
+reason = "FE1E 4 step 3: a default instance recorded under another class than its type's is accepted"
+
+[[fault]]
+id = "fe-inst-view-fails-open"
+file = "src/front/instances.fs"
+old = '''  elab-decl-name lf-mctx-view dup lf-view-valid? 0= if 2drop outcome-invalid exit then'''
+new = '''  elab-decl-name lf-mctx-view dup lf-view-valid? 0= if 2drop outcome-ok exit then'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth review L4: a context view that is not live reads as one without local instances"
+
+[[fault]]
+id = "fe-inst-local-ignored"
+file = "src/front/instances.fs"
+old = '''  dup lf-view-count 0 ?do 2dup i it-local? if 2drop outcome-unsupported unloop exit then'''
+new = '''  dup lf-view-count 0 ?do 2dup i it-local? if 2drop outcome-ok unloop exit then'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "FE1E 2.7: a local instance of the goal's class is ignored instead of answering unsupported"
+
+[[fault]]
+id = "fe-inst-telescope-natural"
+file = "src/front/instances.fs"
+old = '''  it-binder lf-binder-instance = if mv-synthetic else mv-natural then ;'''
+new = '''  drop mv-natural ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth review L3: forallMetaTelescopeReducing makes an instance-implicit binder's metavariable natural, not synthetic"
+
+[[fault]]
+id = "fe-meta-whnf-d-mode"
+file = "src/front/whnf.fs"
+old = ''': lf-meta-whnf-d ( e -- e' outcome ) lf-tr-default wm-at ;'''
+new = ''': lf-meta-whnf-d ( e -- e' outcome ) lf-meta-whnf ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "whnfD runs at the configured transparency, not at default (isType in ignoreArg reads it)"
 
 [[fault]]
 id = "fe-env-memo"
@@ -16413,6 +16674,94 @@ old = '''    *) printf 'error: internal: leanforth verify ended with status %s\n
 new = '''    *) exit "$status" ;;'''
 test = "python3 tests/program/test_program_verify.py Command"
 reason = "8.4.1c: an interpreter's own status (Python missing, a crash) passes through bin/leanforth verify and can read as a verdict"
+
+[[fault]]
+id = "fe-inst-root-arity-unchecked"
+file = "src/front/instances.fs"
+old = '''  it-root-arity? if outcome-ok else lfa-e-inst-root it-fail then ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/front/instances-bad.fs && $GFORTH tests/front/instances.fs"
+reason = "s1-synth re-check H1': an instance filed under its class's root key with another arity is accepted, and every query of the class silently misses it"
+
+[[fault]]
+id = "fe-inst-key-refusal-forgotten"
+file = "src/front/instances.fs"
+old = '''  dup it-root-key@ dup it-prepared it-refused ok-then? 0= if nip no-result exit then'''
+new = '''  dup it-root-key@ dup it-prepared ok-then? 0= if nip no-result exit then'''
+test = "$GFORTH tests/front/instances-odd.fs"
+reason = "s1-synth re-check M1': a key difference (113) refuses only its own root, and queries of other roots still answer"
+
+[[fault]]
+id = "fe-inst-error-stale"
+file = "src/front/instances.fs"
+old = ''': it-query ( -- ) it-same-data it-no-error ;'''
+new = ''': it-query ( -- ) it-same-data ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth re-check L1': an invalid answer that sets no code leaves the last query's code in lf-inst-error"
+
+[[fault]]
+id = "fe-inst-other-read-kept"
+file = "src/front/instances.fs"
+old = ''': it-same-data ( -- ) elab-generation it it-data @ <> if lf-inst-reset then ;'''
+new = ''': it-same-data ( -- ) ;'''
+test = "$GFORTH tests/front/instances-odd.fs"
+reason = "s1-synth re-check L3': the checks, trees and refusal of one read of the data are kept for the next"
+
+[[fault]]
+id = "fe-inst-rank-gap-read"
+file = "src/front/instances.fs"
+old = '''  ok-then? if it-ranked slab-count = flag>outcome then ;'''
+new = '''  ok-then? if drop outcome-ok then ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth re-check L2': a root whose values leave a rank empty is built, the hole read as left-out 0"
+
+[[fault]]
+id = "fe-elab-default-rank-unbounded"
+file = "src/front/elab-data.fs"
+old = '''  ed-dflt swap c" rank" ed-member ed-u32 ed-rank-most ['] ed-dflt-rank ed-put ;'''
+new = '''  ed-dflt swap c" rank" ed-member ed-u32 ['] ed-dflt-rank ed-put ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "s1-synth re-check M2': a default instance's rank of up to 2^32 - 1 is read, and getDefaultInstances then asks for a cell per rank (32 GiB)"
+
+[[fault]]
+id = "rc-tree-no-rollback"
+file = "src/front/instances.fs"
+old = '''  it-tree-mark 2>r it-filled dup ok? if 2r> 2drop else 2r> it-tree-back then ;'''
+new = '''  it-tree-mark 2drop it-filled ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth re-check M3' (reviewer's fault): a failed build keeps its nodes and value cells"
+
+[[fault]]
+id = "rc-tally-every-outcome"
+file = "src/front/instances.fs"
+old = '''  r> over ok? if it-status@ it-tally else drop then ;'''
+new = '''  r> it-status@ it-tally ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth re-check M3' (reviewer's fault): an exhausted or refused step 1 counts its instance as checked, once per re-run"
+
+[[fault]]
+id = "rc-roots-instances-only"
+file = "src/front/instances.fs"
+old = ''': it-value-root ( k -- outcome ) it-value it-root-key it-root-add ;'''
+new = ''': it-value-root ( k -- outcome ) it-value dup 0< if drop outcome-ok exit then it-root-key it-root-add ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth re-check M3' (reviewer's fault): a root only left-out values have is unknown, its query answers no values"
+
+[[fault]]
+id = "rc-strict-literal-kept"
+file = "src/front/discr-keys.fs"
+old = ''': dk-implicit? ( kind -- flag ) dup lf-binder-implicit = swap lf-binder-strict = or ;'''
+new = ''': dk-implicit? ( kind -- flag ) lf-binder-implicit = ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s1-synth re-check M3' (reviewer's fault): a strict-implicit literal or non-type is indexed, not a star"
+
+[[fault]]
+id = "fe-elab-generation-fixed"
+file = "src/front/elab-data.fs"
+old = '''  elab elab-counts elab-kinds cells erase 1 elab elab-gen +! ;'''
+new = '''  elab elab-counts elab-kinds cells erase ;'''
+test = "$GFORTH tests/front/elab-data.fs && $GFORTH tests/front/instances-odd.fs"
+reason = "s1-synth re-check L3': a reset or a new read leaves elab-generation as it was, so the instance table keeps another read's checks"
 
 # --- capabilities and help list verify (plan 8.4.1c; src/cli/leanforth.fs) --
 

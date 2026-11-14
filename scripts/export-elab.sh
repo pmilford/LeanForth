@@ -11,7 +11,9 @@
 # Usage: scripts/export-elab.sh OUTPUT EXPORT MODULE...
 #   EXPORT is the export made by scripts/export.sh for the same modules,
 #   with its manifest beside it (its SHA-256 goes into OUTPUT's header).
-#   Writes OUTPUT only when both steps succeed (OUTPUT.partial first).
+#   Writes OUTPUT only when both steps succeed (OUTPUT.partial first), then
+#   names OUTPUT's records SHA-256 in EXPORT's manifest (elab_records_sha256,
+#   S1 note M6): `leanforth check` refuses any other data for that export.
 # Environment:
 #   LEAN       the pinned Lean 4.35.0 binary, never an elan proxy (default:
 #              the project's .tools toolchain)
@@ -22,7 +24,7 @@ set -eu
 here=$(cd "$(dirname "$0")/.." && pwd)
 lean=${LEAN:-$here/.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean}
 if [ $# -lt 3 ]; then
-  sed -n '11,14p' "$0" >&2
+  sed -n '11,16p' "$0" >&2
   exit 2
 fi
 output=$1
@@ -45,4 +47,4 @@ raw=$(mktemp)
 trap 'rm -f "$raw"' EXIT   # only this script's own temporary file
 PATH="$toolchain/bin:$PATH" "$lean" -DwarningAsError=true --run \
   "$here/scripts/export_elab.lean" "$@" >"$raw"
-python3 "$here/scripts/export_elab.py" "$raw" "$export_file" "$output"
+python3 "$here/scripts/export_elab.py" "$raw" "$export_file" "$output" --bind

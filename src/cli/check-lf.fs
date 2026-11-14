@@ -170,8 +170,12 @@ end-structure
   ck-importing? if ck-snap snap-export-sha outcome-ok exit then
   ck-state ck-checked-read @ if lfc-manifest-sha outcome-ok exit then
   lfc lfc-env 2@ ck-sha-file ck-digest swap ;
+\ A library read with its manifest binds the data the manifest names (M6).
+: lfc-elab-bound ( -- c-addr u )
+  ck-importing? ck-state ck-checked-read @ 0= or if 0 0 exit then
+  ck-stage stage-manifest manifest-elab-sha ;
 : lfc-elab-read ( -- outcome )
-  lfc lfc-elab-file 2@ ck-stage lfc-export-sha
+  lfc-elab-bound elab-bind!  lfc lfc-elab-file 2@ ck-stage lfc-export-sha
   ok-then? if elab-read else nip nip nip elab-unhashed then ;
 : lfc-elab-step ( -- outcome )
   lfc lfc-elab-file @ 0= if outcome-ok exit then

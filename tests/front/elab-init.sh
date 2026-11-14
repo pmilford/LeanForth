@@ -29,14 +29,24 @@ fast="$(dirname "$gforth")/gforth-fast"
 if [ -x "$fast" ]; then gforth=$fast; fi
 work=$(mktemp -d)
 names="init.ndjson init.ndjson.manifest.json init.elab.ndjson slice.elab.ndjson whnf.elab.ndjson finish.txt
-  lean.txt forth.txt order.txt"
+  lean.txt forth.txt order.txt slice.ndjson slice.ndjson.manifest.json whnf.ndjson whnf.ndjson.manifest.json"
 trap 'for n in $names; do rm -f "$work/$n"; done; rmdir "$work"' EXIT
 
-LEAN="$lean" bash scripts/export-elab.sh "$work/slice.elab.ndjson" tests/author/init-slice.ndjson \
+# Copies: export-elab.sh names the data in the export's manifest (M6), and
+# the tracked manifests stay as they are.
+for pair in "tests/author/init-slice.ndjson slice" "tests/front/whnf-slice.ndjson whnf"; do
+  set -- $pair
+  cp "$1" "$work/$2.ndjson"
+  cp "$1.manifest.json" "$work/$2.ndjson.manifest.json"
+done
+LEAN="$lean" bash scripts/export-elab.sh "$work/slice.elab.ndjson" "$work/slice.ndjson" \
   Init >/dev/null
 cmp "$work/slice.elab.ndjson" tests/front/init-slice.elab.ndjson
-echo "scripts/export-elab.sh reproduces tests/front/init-slice.elab.ndjson byte for byte"
-LEAN="$lean" bash scripts/export-elab.sh "$work/whnf.elab.ndjson" tests/front/whnf-slice.ndjson \
+records=$(head -1 "$work/slice.elab.ndjson" | sed 's/.*"records_sha256":"\([0-9a-f]*\)".*/\1/')
+grep -q "\"elab_records_sha256\": \"$records\"" "$work/slice.ndjson.manifest.json"
+echo "scripts/export-elab.sh reproduces tests/front/init-slice.elab.ndjson byte for byte" \
+  "and names its records in the export's manifest"
+LEAN="$lean" bash scripts/export-elab.sh "$work/whnf.elab.ndjson" "$work/whnf.ndjson" \
   Init >/dev/null
 cmp "$work/whnf.elab.ndjson" tests/front/whnf-slice.elab.ndjson
 echo "scripts/export-elab.sh reproduces tests/front/whnf-slice.elab.ndjson byte for byte"

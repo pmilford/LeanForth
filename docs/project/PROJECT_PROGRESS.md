@@ -51,7 +51,10 @@ status changes when this date is older than them. Stages are those of the
   equal to pinned Lean). On main since 2026-11-13, approved by the owner: FE1e1 (elaboration data format 2,
   [import]/[format]) and the job pool failing closed when threads are refused ([runtime]). FE1c's term unification (Lean's `isDefEq`: 87 of 107 cases equal to pinned Lean, 20 answer unsupported) tested alone.
   Library: `lib/sort.fs` (a stable sort the kernel's sorts can adopt, FRK C2) tested alone. Designed:
-  FE1e, FE1g, FE1i, FE2. Nothing is proved by
+  FE1e, FE1g, FE1i, FE2. On main since 2026-11-13, [parser] and [import] approved by the owner
+  (branch `s1-synth`): FE1e2 (discrimination-tree keys) and FE1e3 (the instance table, getInstances, every record's class and
+  root key checked at the first query) tested alone, `make reference-synth` 2,321 of 2,938 Init instances recomputed
+  equal, 0 refused, 617 unverified; FE1E §4 step 4 (out-parameters) is plan row FE1e3b, not started. Nothing is proved by
   LeanForth yet. Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
 - Program track, restarted 2026-11-12 after being parked since 2026-11-04: LeanForth re-checks Lean's proofs of
   the clamp word's obligations (plan 5.5.1): works end to end (done check docs/development/done-checks/2026-11-12-program-track.md); owner gates [bypass] and [runtime] approved 2026-11-12, merged.
