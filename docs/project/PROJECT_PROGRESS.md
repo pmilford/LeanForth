@@ -21,7 +21,7 @@ speed before parallelism adds more.
 
 **What LeanForth is and is not (2026-11-12).** LeanForth today is only the checking half of Lean (the kernel): it re-checks proof terms that Lean produced and exported (NDJSON), including all of Lean's `Init`. It has none of Lean's front end, the larger half: no elaborator (implicit arguments, numerals, unification), no type classes or coercions, no tactics, no pattern matching or recursion compilation, no evaluation. So it cannot yet turn a written theorem into a proof; Lean does all of that before the export. LeanForth text is checked by the kernel since 2026-11-12 (plan 8.2.1a, c, d); there is no program verifier: for the clamp word LeanForth re-checks the proofs Lean wrote (plan 5.5.1, branch `program-551`). The front end is plan phase 8 ([PLAN_DRAFT.md](PLAN_DRAFT.md)), being re-planned from 2026-11-12.
 
-## Now, next, later (updated 2026-11-13)
+## Now, next, later (updated 2026-11-14)
 
 The single list of what is being worked on (owner, 2026-11-12; replaces the near-term queue of
 [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md), stale since 2026-11-03). `scripts/push.sh` refuses to push plan
@@ -79,10 +79,11 @@ status changes when this date is older than them. Stages are those of the
   `by-rw`) then S3 onwards; S2's acceptance includes the owner's proof set ($x + 0 = x$, $0 + n = n$, $n + m = m + n$,
   associativity, distributivity, list append length; S3 `2 + 2 = 4`, S4 `n < n + 1`; 2026-11-13). S2's design ([S2_INTERFACE.md](../design/S2_INTERFACE.md)) reviewed and approved by the
   owner 2026-11-13, both FE1 forms; its first branch (`s2-unfold` merge A, Lean's unfolding) merges before S1's last
-  branch, which needs it (S1's order amended). Merge A is tested alone on `s2-unfold` (2026-11-13; not merged: Forth
-  review and the [import] gate pending): `unfoldDefinition?` and lazy delta, elaboration data format 3 with every
-  smart-unfolding body and the `match_pattern` tag (formats 1 and 2 refused), and refused library decodes passed on;
-  `check_defeq.py` 122 of 138 cases equal to pinned Lean's (main: 102 of 120). No automatic
+  branch, which needs it (S1's order amended). Merge A is tested alone on `s2-unfold` (2026-11-14: the Forth review's
+  and its re-check's findings fixed; not merged: the check of those fixes and the [import] gate pending):
+  `unfoldDefinition?` and lazy delta, elaboration data format 3 with every smart-unfolding body and the
+  `match_pattern` tag (formats 1 and 2 refused), and refused library decodes passed on; `check_defeq.py` 137 of 162
+  cases equal to pinned Lean's, 25 listed gaps answering unsupported (main: 102 of 120). No automatic
   Mathlib run until changes need one.
 - The design stage (plan 9.4.7, owner 2026-11-13): every design reviewed before code and approved by the owner as a
   one-page summary; the plan re-cut into slices S1-S6, V1-V4 and SC1 (PLAN_DRAFT "Slices"); the reviews of the existing
