@@ -1393,3 +1393,12 @@ export and manifest files refused as before; a Forth and kernel review and three
 [re-checks](../development/forth-reviews/2026-11-14-reuse-out-2-rc3.md)); the last re-check's small copies are plan
 9.4.8k items for the next pass.
 
+### S2's tactics now; a showcase of LeanForth proofs next (2026-11-14, afternoon)
+
+At 93% of the week's tokens the owner started S2's tactics (branch `s2-tactics`, rewriting form first: `0 + n = n` by
+`by-induction-with` and `by-rw[ ]`, then the proof set as far as rewriting reaches), and asked for what follows: a set
+of nicely printed theorems written in LeanForth, each with its proof derived by LeanForth's tactics, checked by its
+kernel, and shown annotated: every step with the goal it leaves and an English line for how it follows (plan 8.6.12,
+the explained proofs), from S2's step log (s2-steps). The page joins docs/user/DEMOS.md's form (mathematics, LeanForth,
+Lean) but for proofs LeanForth itself derived, and says exactly what was run.
+
