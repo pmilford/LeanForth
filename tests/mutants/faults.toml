@@ -17640,8 +17640,9 @@ id = "r2-ind-members-any"
 file = "src/kernel/inductive-block.fs"
 old = ''': lf-ind-members-ok? ( -- flag ) lf-ind-members ['] lf-ind-member-ok? all? ;'''
 new = ''': lf-ind-members-ok? ( -- flag ) lf-ind-members ['] lf-ind-member-ok? any? ;'''
-test = "$GFORTH tests/core/check-forged.fs && $GFORTH tests/core/check-block.fs"
+test = "$GFORTH tests/core/check-block.fs"
 reason = "a block whose first member is well formed passes the member check whatever the others are"
+gap = "no test gives a block whose later member, not its first, has the wrong kind or block (a forged block; 9.4.8k follow-up 7)"
 
 [[fault]]
 id = "r2-pres-binder-name-kind"
