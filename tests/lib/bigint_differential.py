@@ -50,7 +50,8 @@ ROOT = Path(__file__).resolve().parents[2]
 RUNNER = ROOT / "tests/lib/bigint-cases.fs"
 LIBRARY = ROOT / "src/lib/bigint.fs"
 # The files the library requires, directly or through bignum.fs.
-REQUIRED = ["bigint.fs", "bignum.fs", "bounds.fs", "outcome.fs", "portability.fs", "module.fs"]
+REQUIRED = ["bigint.fs", "bignum.fs", "bits.fs", "bounds.fs", "decimal.fs", "outcome.fs",
+            "portability.fs", "module.fs"]
 PUBLIC = {"bigint-valid?", "bigint-sign", "bigint-magnitude", "bigint-compare", "bigint+",
           "bigint-", "bigint*", "bigint-negate", "bigint-ediv", "bigint-emod", "bigint-bmod",
           "bigint-gcd", "bigint-pow", "bigint-natabs", "bigint-tonat", "nat>bigint",
