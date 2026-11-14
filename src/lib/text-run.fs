@@ -128,7 +128,7 @@ lf-lib set-current
 : text-plain-at ( c-addr u -- n ) ['] text-odd? text-scan ;
 \ The floating-point stack a run's text may push numbers on: its depth
 \ (0 on a host without one) when the run begins, and its items above
-\ that depth dropped after an error.
+\ that depth dropped after an error (unchecked: n from 0 to the depth).
 [defined] fdepth [if]
 : floats-depth ( -- n ) fdepth ;
 : floats-drop-to ( n -- ) begin fdepth over > while fdrop repeat drop ;

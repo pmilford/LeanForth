@@ -99,5 +99,13 @@ T{ s" seven 10" run-line -> 7 #10 0 }T
 T{ s" seven dup" run-line base @ -> #-13 #16 }T
 T{ s\" seven\x00" run-line -> -1 }T
 decimal
+\ floats-depth and floats-drop-to (reuse-out-2): numbers a run left above
+\ its depth dropped, those below kept; nothing on a host without floats.
+[defined] fdepth [if]
+T{ floats-depth fdepth = -> true }T
+T{ 1e floats-depth 2e 3e floats-drop-to fdepth floats-depth = fdrop -> true }T
+[else]
+T{ floats-depth 0 floats-drop-to -> 0 }T
+[then]
 T{ depth -> 0 }T
 bye

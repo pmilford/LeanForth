@@ -266,4 +266,8 @@ T{ 998 lf-term-capacity! -> outcome-invalid }T
 lf-term-reset
 T{ 100 lf-term-capacity! lf-terms store-capacity @ -> outcome-ok 100 }T
 T{ lf-term-default lf-term-capacity! lf-terms store-capacity @ -> outcome-ok 64 }T
+\ lf-term-inner (reuse-out-2): a body one binder deeper under a lambda or
+\ Pi, no room at max-n, the same depth under any other tag.
+T{ 5 lf-tag-lam lf-term-inner 5 lf-tag-pi lf-term-inner 5 lf-tag-app lf-term-inner -> 6 true 6 true 5 true }T
+T{ max-n lf-tag-pi lf-term-inner max-n lf-tag-app lf-term-inner -> false max-n true }T
 bye
