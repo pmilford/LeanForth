@@ -204,3 +204,4 @@ T{ s" theorem z7 0 0 = := by by-rfl end z7" nrun ty 0 num 0 num eq-nat same?
    -> outcome-ok true }T
 T{ depth -> 0 }T
 cr .( elab.fs: all tests passed) cr
+bye

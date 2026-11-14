@@ -13,8 +13,9 @@ elab-app.fs, elab-term.fs, elab-decl.fs; docs/design/S1_INTERFACE.md 11).
    lazy delta (S2 merge A, outParam unfolded): each stops with error 139
    (exit 2), nothing checked, nothing accepted (PENDING; SWITCH: then each
    gives pinned Lean's answer, shown with --lean).
-3. --elab-fuel 3: exhausted, error 138, exit 3; a text of only #check
-   lines exits 0 with "nothing checked by the kernel".
+3. --elab-fuel 3: exhausted, error 138, exit 3; its misuses refused (exit
+   4); a text of only #check lines exits 0 with "nothing checked by the
+   kernel".
 A harness self-test first checks that a changed golden line is told apart.
 With --lean: pinned Lean writes the golden again (--write-golden keeps
 it) and it must be unchanged; the S1 twins give the answers the pending
@@ -136,6 +137,21 @@ def check_limits():
         code, out = check(str(only))
         if code != 0 or "nothing checked by the kernel" not in out:
             raise Failure(f"#check only: exit {code}\n{out}")
+    for args, said in MISUSES:
+        done = run(["bin/leanforth", "check", *args])
+        if done.returncode != 4 or said not in done.stdout + done.stderr:
+            raise Failure(f"leanforth check {' '.join(args)}: exit {done.returncode}, "
+                          f"expected 4 with {said!r}\n{done.stdout}{done.stderr}")
+
+
+# --elab-fuel's misuses: each refused before anything runs (exit 4).
+MISUSES = (
+    (["--elab-fuel", "5", SLICE], "--elab-fuel goes only with a LeanForth text (FILE.lf)"),
+    (["--env", SLICE, "--elab-fuel", "x5", NOW], "not an elaboration fuel amount: x5"),
+    (["--env", SLICE, "--elab-fuel", "9007199254740992", NOW],
+     "an elaboration fuel above 9007199254740991: 9007199254740992"),
+    (["--env", SLICE, NOW, "--elab-fuel"], "an option without its value: --elab-fuel"),
+)
 
 
 def lean(path):
