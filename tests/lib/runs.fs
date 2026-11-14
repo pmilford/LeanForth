@@ -74,6 +74,12 @@ T{ r78 r79 run-cat made ' odd? run-filter made cells. -> 7 7 9 }T
 T{ r79 ' true? run-filter made cells. r79 ' none? run-filter 0 ' true? run-filter
    -> 7 9 0 outcome-ok 0 outcome-ok }T
 T{ 99 ' true? run-filter -> -1 outcome-invalid }T
+\ A test that appends cells breaks the filter's rule: invalid, no run
+\ (review s1-synth-b re-check L-b); one that makes a run of no new cells
+\ (run-take) is allowed.
+: pushing? ( x -- flag ) r78 swap run-push 2drop true ;
+: taking? ( x -- flag ) drop r78 1 run-take 2drop true ;
+T{ r79 ' pushing? run-filter r79 ' taking? run-filter made cells. -> -1 outcome-invalid 7 9 }T
 \ One record for the new run, its cells appended once.
 lf-lib-private order+
 : growth ( xt -- cells records )   \ what xt ( -- ) adds to the two slabs

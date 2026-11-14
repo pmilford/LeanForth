@@ -98,7 +98,8 @@
 \ a level xt ( -- level outcome ) makes for each universe parameter, in
 \ order (mvars.fs's lf-meta-const-fresh, Lean's
 \ mkConstWithFreshMVarLevels, passes lf-level-mvar-new); full when a
-\ store has no room, else the xt's outcome (-1 then).
+\ store has no room, invalid for a level that names none, else the xt's
+\ outcome (-1 then).
 \ State: one context record, menv (the fed stage, the mode, the text
 \ list's stamp), and the slabs me-texts, me-tparams, me-tkinds,
 \ me-kinds and me-pairs. Loads in decimal whatever BASE is, then
@@ -218,21 +219,29 @@ end-structure
 : me-defn? ( d -- flag ) lf-menv-kind lf-kind-definition = ;
 
 \ ---- Constants: a name at levels, the (level, identity) pairs
-\ constant-references.fs takes made on me-pairs and read at once (no
-\ search runs between, so a nested call cannot overwrite them).
+\ constant-references.fs takes pushed on me-pairs and read at once. Each
+\ call cuts me-pairs back to its count on entry (me-scope), so a level
+\ xt that makes a constant of its own leaves the outer pairs as they were.
 : me-pair+ ( level -- outcome )
-  dup lf-level-identity 0= if drop outcome-full exit then swap me-pairs slab-2push ;
+  dup lf-level-identity 0= if drop outcome-invalid exit then swap me-pairs slab-2push ;
 : me-level-at ( addr k -- addr outcome ) over swap cells + @ me-pair+ ;
 : me-level-by ( xt k -- xt outcome ) drop dup execute ok-then? if me-pair+ then ;
-: me-made ( name gen -- term outcome )   \ at me-pairs' levels
-  me-pairs slab-base me-pairs slab-count lf-cref-new
+: me-newest ( n -- addr n ) me-pairs slab-count over - me-pairs slab-at swap ;
+: me-made ( name gen n -- term outcome )   \ at me-pairs' newest n levels
+  me-newest lf-cref-new
   if lf-cterm-new if drop outcome-ok exit then then -1 outcome-full ;
-: lf-meta-const-at ( name gen addr n -- term outcome )
-  me-pairs slab-clear ['] me-level-at ok-each nip ok-then? if me-made else nip no-result
-  then ;
-: lf-meta-const-with ( d xt -- term outcome )
-  me-pairs slab-clear over lf-menv-params nip ['] me-level-by ok-each nip
-  ok-then? if lf-menv-name lf-name-generation @ me-made else no-result then ;
+: me-finish ( name gen n outcome -- term outcome )
+  ok-then? if me-made else nip nip no-result then ;
+: me-scope ( i*x xt -- term outcome )
+  me-pairs slab-count >r execute r> me-pairs slab-cut ;
+: me-at ( name gen addr n -- term outcome ) tuck ['] me-level-at ok-each nip me-finish ;
+: lf-meta-const-at ( name gen addr n -- term outcome ) ['] me-at me-scope ;
+: me-named ( d -- name gen n )
+  dup lf-menv-name swap lf-menv-params nip lf-name-generation @ swap ;
+: me-with ( d xt -- term outcome )
+  over lf-menv-params nip ['] me-level-by ok-each nip
+  ok-then? if me-named me-made else no-result then ;
+: lf-meta-const-with ( d xt -- term outcome ) ['] me-with me-scope ;
 
 \ ---- Reducibility status: the elaboration data's record of the stage's
 \ declaration of the same name (the feed keeps the stage's name numbers).

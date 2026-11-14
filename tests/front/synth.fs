@@ -48,9 +48,11 @@ require ./whnf-cases.fs
 : tried# ( -- n ) lf-synth-tried nip ;
 : tried@ ( k -- v ) cells lf-synth-tried drop + @ ;
 : tried? ( k c-addr u -- flag ) inst-named swap tried@ = ;
-: clean? ( -- flag )   \ no depth, mark, call or node left
-  lf-mctx-depth 0= lf-mctx-marks 0= and sy-calls slab-count 0= and
-  sy-gens slab-count 0= and sy-entries slab-count 0= and sy-resume slab-count 0= and ;
+: none-in? ( flag slab -- flag' ) slab-count 0= and ;
+: clean? ( -- flag )   \ no depth, mark, call, node, answer or saved machine left
+  lf-mctx-depth 0= lf-mctx-marks 0= and sy-calls none-in? sy-gens none-in?
+  sy-entries none-in? sy-resume none-in? sy-cnodes none-in? sy-answers none-in?
+  sy-cands none-in? sy-tcl none-in? de-saved none-in? ;
 : same? ( inst flag outcome e -- same? flag outcome ) >r rot r> lf-meta-eqv drop -rot ;
 : assigned? ( mvar -- flag ) lf-mvar-value dup if nip then ;
 : synth ( t -- inst flag outcome ) lf-synth-instance ;
@@ -92,9 +94,10 @@ T{ lv1 1 s" Add" cn nat app synth tried# 0 s" instAddNat" tried?
 : hadd-level ( -- level ) s" instHAdd" menv-name lf-menv-find drop lf-meta-const-fresh drop
   lf-term-first@ lf-cref-slot lf-cref-pairs drop 0 lf-cref-pair@ drop ;
 T{ hadd-level lf-level-mvar? -> true }T
-\ The constants' refusals (meta-env.fs): a level that names none is full,
-\ a level word that fails passes its outcome on, and no room for the
-\ constant reference or for its term is full; none makes a constant.
+\ The constants' refusals (meta-env.fs): a level that names none is
+\ invalid (review s1-synth-b re-check L-c), a level word that fails
+\ passes its outcome on, and no room for the constant reference or for
+\ its term is full; none makes a constant.
 create no-such-level -1 ,
 : hadd-decl ( -- d ) s" instHAdd" menv-name lf-menv-find drop ;
 : no-level ( -- level outcome ) -1 outcome-exhausted ;
@@ -103,12 +106,27 @@ create no-such-level -1 ,
   lf-cref-capacity >r lf-cref-count @ lf-cref-capacity! drop execute
   r> lf-cref-capacity! drop ;
 T{ s" instHAdd" menv-name lf-name-generation @ no-such-level 1 lf-meta-const-at
-   hadd-decl ' no-level lf-meta-const-with -> -1 outcome-full -1 outcome-exhausted }T
+   hadd-decl ' no-level lf-meta-const-with -> -1 outcome-invalid -1 outcome-exhausted }T
 : terms-full ( xt -- i*x )   \ xt run with the terms' limit at their count
   lf-term-capacity >r lf-term-count @ lf-term-capacity! drop execute
   r> lf-term-capacity! drop ;
 T{ ' fresh-hadd crefs-full ' fresh-hadd terms-full fresh-hadd nip
    -> -1 outcome-full -1 outcome-full outcome-ok }T
+\ A level word that makes a constant itself (a nested call, at HAdd.hAdd's
+\ second level) leaves the outer constant's first level as it was, and
+\ every call leaves me-pairs as it found it (re-check L-c: cut back, not
+\ cleared).
+variable level-calls
+: nesting-level ( -- level outcome )
+  1 level-calls +! level-calls @ 2 = if fresh-hadd 2drop then lv1 outcome-ok ;
+: level-of ( term k -- level )
+  >r lf-term-first@ lf-cref-slot lf-cref-pairs drop r> lf-cref-pair@ drop ;
+: hadd-fn ( -- d ) s" HAdd.hAdd" menv-name lf-menv-find drop ;
+: nested-levels ( -- l0 l1 l2 outcome calls )
+  0 level-calls ! hadd-fn ['] nesting-level lf-meta-const-with >r
+  dup 0 level-of over 1 level-of rot 2 level-of r> level-calls @ ;
+T{ me-pairs slab-count nested-levels me-pairs slab-count
+   -> 0 lv1 lv1 lv1 outcome-ok 3 0 }T
 \ The scan follows a Sort's level and max and imax levels: Sort (max ?u
 \ 1), Sort (imax 1 ?u); a level metavariable of the search's depth is
 \ what abstractMVars would keep (sy-deep-mvar?), an outer one not.
@@ -453,7 +471,7 @@ T{ budgets-ok? 0 budget-run need 1- budget-run nip nip need budget-run -rot 2dro
 : fresh ( -- )
   mctx-epoch@ 1+ sy sy-epoch ! sy-gens shrink sy-cnodes shrink sy-entries shrink
   sy-answers shrink sy-resume shrink sy-cands shrink sy-found shrink sy-todo shrink
-  sy-calls shrink ;
+  sy-calls shrink de-saved shrink ;
 : refused ( k -- inst flag outcome fired? )
   le-and-lt dec swap fresh heap-refusals ! synth heap-refusals @ 0= 0 heap-refusals ! ;
 : refusal-ok? ( k -- flag fired? )
@@ -463,6 +481,26 @@ T{ budgets-ok? 0 budget-run need 1- budget-run nip nip need budget-run -rot 2dro
   true 800 1 do i refusal-ok? -rot and swap 0= if leave then loop ;
 : fired? ( k -- flag ) refused >r 2drop drop r> ;
 T{ refusals-ok? 800 fired? -> true false }T
+\ A nested search (via-k: synthPending fills ?k inside isDefEq, the
+\ machine set aside on de-saved) with each heap request of the isDefEq
+\ refused in turn: the answer, or full with nothing left set aside
+\ (review s1-synth-b re-check M-a: de-aside cuts de-saved back when it
+\ has no room).
+variable refuse-at   variable refusal-fired
+: refusing ( mvar k -- flag outcome )   \ isDefEq, its refuse-at-th heap request refused
+  refuse-at @ heap-refusals ! lf-meta-defeq heap-refusals @ 0= refusal-fired !
+  0 heap-refusals ! ;
+: k-made? ( -- flag ) kk @ assigned? dup if drop k-filled? then ;   \ k-filled? if any
+: via-k-refused ( -- flag outcome assigned? filled? )
+  nat add0 inst-typed dup k-hole refusing rot assigned? k-made? ;
+: via-k-ends? ( flag outcome assigned? filled? closed? -- ok? )
+  >r 2swap dup outcome-full = if 2drop 2drop r> clean? and exit then
+  ok? and and and r> and clean? and ;
+: via-k-swept ( k -- ok? fired? )
+  refuse-at ! fresh ['] via-k-refused in-scopes via-k-ends? refusal-fired @ ;
+: via-k-sweep ( -- flag )
+  true 400 1 do i via-k-swept -rot and swap 0= if leave then loop ;
+T{ via-k-sweep 400 via-k-swept nip -> true false }T
 \ A goal that keeps a metavariable (OfNat Nat ?k): unification's
 \ checkAssignment runs (assign-check.fs's occurs check), so each refusal
 \ answers full, or Lean's check of the result (121), and leaves nothing
@@ -501,4 +539,16 @@ variable sweep-goal   variable sweep-end
   outcome-unsupported = lf-synth-error 121 = and nip nip ;
 T{ ' twice-goal ' twice-end sweep! refusal-sweep budget-sweep 0> -> true true true }T
 T{ ' ofnat-hole ' hole-end sweep! budget-sweep 0> -> true true }T
+\ The same for each term-store limit from the store's count up (the
+\ terms-full pattern; review s1-synth-b re-check L-a): full with nothing
+\ left behind, until a limit has room for the search; how many were full.
+: terms-at ( i*x xt k -- j*x )   \ xt run with room for k more terms
+  lf-term-capacity >r lf-term-count @ + lf-term-capacity! drop execute
+  r> lf-term-capacity! drop ;
+: room-run ( k -- flag full? )
+  other-cache sweep-goal @ execute ['] synth rot terms-at dup outcome-full = >r swept r> ;
+: room-sweep ( -- flag fulls )   \ each room until one is enough: that room
+  true -1 1000 0 do drop i room-run -rot and swap 0= if i leave then -1 loop ;
+T{ ' twice-goal ' twice-end sweep! room-sweep 0> -> true true }T
+T{ ' ofnat-hole ' hole-end sweep! room-sweep 0> -> true true }T
 bye

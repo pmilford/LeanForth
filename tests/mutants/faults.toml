@@ -16913,10 +16913,26 @@ reason = "review s1-synth-b B3: a constant the stores have no room for reads as 
 [[fault]]
 id = "fe-meta-const-no-levels"
 file = "src/front/meta-env.fs"
-old = '''  me-pairs slab-clear over lf-menv-params nip ['] me-level-by ok-each nip'''
-new = '''  me-pairs slab-clear 0 ['] me-level-by ok-each nip'''
+old = '''  over lf-menv-params nip ['] me-level-by ok-each nip'''
+new = '''  0 ['] me-level-by ok-each nip'''
 test = "$GFORTH tests/front/synth.fs"
 reason = "review s1-synth-b B3: mkConstWithFreshMVarLevels makes the constant at no level"
+
+[[fault]]
+id = "fe-meta-const-pairs-cleared"
+file = "src/front/meta-env.fs"
+old = '''  me-pairs slab-count >r execute r> me-pairs slab-cut ;'''
+new = '''  me-pairs slab-clear execute ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b re-check L-c: a constant made inside a level word clears the outer constant's levels made so far, which then takes the inner's"
+
+[[fault]]
+id = "fe-meta-const-bad-level-full"
+file = "src/front/meta-env.fs"
+old = '''  dup lf-level-identity 0= if drop outcome-invalid exit then swap me-pairs slab-2push ;'''
+new = '''  dup lf-level-identity 0= if drop outcome-full exit then swap me-pairs slab-2push ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b re-check L-c: a level that names none (invalid input) reads as no room (full)"
 
 [[fault]]
 id = "fe-meta-with-throw-lost"
@@ -16955,8 +16971,8 @@ quick = true
 [[fault]]
 id = "lib-runs-filter-inverted"
 file = "src/lib/runs.fs"
-old = '''  2dup swap execute if rn-put else drop outcome-ok then ;'''
-new = '''  2dup swap execute 0= if rn-put else drop outcome-ok then ;'''
+old = '''  2dup rn-test 0= if 2drop outcome-invalid exit then if rn-put else drop outcome-ok then ;'''
+new = '''  2dup rn-test 0= if 2drop outcome-invalid exit then 0= if rn-put else drop outcome-ok then ;'''
 test = "$GFORTH tests/lib/runs.fs"
 reason = "review s1-synth-b B1: run-filter keeps the cells its test refuses"
 
@@ -16967,6 +16983,14 @@ old = '''  rn-cells slab-count -rot swap ['] rn-kept run-each nip'''
 new = '''  rn-cells slab-count -rot swap ['] rn-kept run-each'''
 test = "$GFORTH tests/lib/runs.fs"
 reason = "review s1-synth-b B1: run-filter leaves its test's xt behind (a stack effect off by one cell)"
+
+[[fault]]
+id = "lib-runs-filter-rule-unchecked"
+file = "src/lib/runs.fs"
+old = '''  2dup rn-test 0= if 2drop outcome-invalid exit then if rn-put else drop outcome-ok then ;'''
+new = '''  2dup rn-test drop if rn-put else drop outcome-ok then ;'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "review s1-synth-b re-check L-b: a filter whose test appends cells makes a run with the test's cells among the kept ones"
 
 [[fault]]
 id = "fe-goals-print-separator-first"
@@ -17119,6 +17143,14 @@ old = '''  de-aside dup ok? 0= if nip nip false swap exit then drop catch de-bac
 new = '''  de-aside dup ok? 0= if nip nip false swap exit then drop catch throw ;'''
 test = "$GFORTH tests/front/synth.fs"
 reason = "the unification that called a synthesis hook is not brought back: it goes on with the nested search's machine"
+
+[[fault]]
+id = "fe-defeq-aside-kept-on-refusal"
+file = "src/front/defeq.fs"
+old = '''  dup ok? if nip exit then swap de-saved slab-cut ;'''
+new = '''  dup ok? if nip exit then nip ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b re-check M-a: a refused set-aside leaves its partial copy on de-saved, which an outer de-back would restore"
 
 [[fault]]
 id = "fe-defeq-inst-typed-unchecked"
