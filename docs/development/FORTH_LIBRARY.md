@@ -1234,8 +1234,15 @@ table (`levels.fs`), the constant-reference table
 (`constant-references.fs`), the audit's pair set
 (`constant-term-boundary.fs`'s `lf-pairs-reset`, at each walk that keeps
 depths) and the comparison's pair set (`mixed-compare.fs`'s
-`lf-meq-reset`, at each structural equality); the sizes they pass on Init
-are measured below.
+`lf-meq-reset`, at each structural equality). *Sizes on Init* (a copy of
+the branch at `6f351f80` logging each call, `bin/leanforth check --json
+--no-manifest --jobs 2`, 2026-11-14; 4% of the lines, two workers writing
+at once, unreadable and left out): the comparison's pair set about 1.47
+million resets, every table at most 512 slots (95% of them at 512), so
+always cleared; the audit's pair set 1,295 resets, at most 256 slots; the
+term table 8 resets, one at 2,048 slots, remade; the level table 7, at
+most 1,024 slots; the reference table 4, one at 131,072 slots, remade
+instead of erasing 512 KB.
 
 ## The compact store
 
