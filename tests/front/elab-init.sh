@@ -61,10 +61,10 @@ python3 scripts/export_manifest.py "$work/init.ndjson"
 LEAN="$lean" bash scripts/export-elab.sh "$work/init.elab.ndjson" "$work/init.ndjson" Init \
   >"$work/finish.txt"
 cat "$work/finish.txt"
-# The records' SHA-256 of format 2 for Init (2026-11-12): any change to the
+# The records' SHA-256 of format 3 for Init (2026-11-13): any change to the
 # exporter's output shows here first.
 records=$(head -1 "$work/init.elab.ndjson" | sed 's/.*"records_sha256":"\([0-9a-f]*\)".*/\1/')
-if [ "$records" != b31ba2cf7f1490fab60d5e1bf650ed39282d73cb783e4dabc359b0d1b7d32eda ]; then
+if [ "$records" != 55a12ad9dd02baae4753620ba5c325abb8364f12291f196c7ca1bac03aed8108 ]; then
   printf 'Unexpected records of Init'"'"'s elaboration data: %s\n' "$records" >&2
   exit 1
 fi

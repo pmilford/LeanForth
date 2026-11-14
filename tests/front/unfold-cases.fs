@@ -9,7 +9,7 @@
 \   gforth tests/front/unfold-cases.fs -e 's" Nat.add" ucase bye'
 
 require ./menv-slice.fs
-menv-load menv-sunfolds!
+menv-load
 
 create uc-kinds
   s" none" counted, s" definition" counted, s" theorem" counted, s" axiom" counted,

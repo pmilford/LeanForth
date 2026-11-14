@@ -11,7 +11,7 @@
 require ./menv-slice.fs
 require ../../src/front/whnf.fs
 require ../../src/front/infer.fs
-menv-load menv-sunfolds! lf-mctx-reset lf-lctx-reset
+menv-load lf-mctx-reset lf-lctx-reset
 
 : must ( x flag -- x ) 0= abort" whnf-cases: no room" ;
 : made ( x outcome -- x ) ok? 0= abort" whnf-cases: not made" ;

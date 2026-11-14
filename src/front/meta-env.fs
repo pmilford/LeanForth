@@ -31,12 +31,11 @@
 \   Eq.ndrec_symm and Eq.ndrecOn, which isAuxRecursor names itself, are
 \   auxiliary recursors. Whether a definition has a smart-unfolding
 \   `_sunfold` definition (Lean's find? (mkSmartUnfoldingNameFor f),
-\   WHNF.lean:854) is asked of lf-menv-sunfold-source ( d -- flag outcome
-\   ), for a definition of the input or the library: the export leaves the
-\   `_sunfold` definitions out, and until the elaboration data carries
-\   them (format 3's sunfold records, plan S2 merge A) the source answers
-\   unsupported; a text definition has none (LeanForth elaborates no
-\   structural recursion, which alone makes them).
+\   WHNF.lean:854) is format 3's sunfold record of it (plan S2 merge A:
+\   the export leaves the `_sunfold` definitions out, and the data has a
+\   record for every one of the export's modules, so none means none),
+\   unsupported without data; a text definition has none (LeanForth
+\   elaborates no structural recursion, which alone makes them).
 \
 \ Transparency modes (meta-config.fs, numbered as Lean's TransparencyMode
 \ constructors): lf-tr-all, lf-tr-default, lf-tr-reducible,
@@ -266,11 +265,10 @@ end-structure
   dup lf-tr-modes u< 0= if 2drop -1 false outcome-invalid exit then
   swap lf-menv-find ok-then? if swap me-unfoldable else nip -1 false rot then ;
 
-\ ---- Facts of a definition from format 2: the stage's declaration of
-\ the same name asked with xt ( d -- x true | false ); unsupported
-\ without data, false for any other kind; Eq.ndrec, Eq.ndrec_symm and
-\ Eq.ndrecOn are auxiliary recursors by name. Smart unfolding: unsupported
-\ for a definition (no data has it yet).
+\ ---- Facts of a definition from the data (format 3): the stage's
+\ declaration of the same name asked with xt ( d -- x true | false );
+\ unsupported without data, false for any other kind; Eq.ndrec,
+\ Eq.ndrec_symm and Eq.ndrecOn are auxiliary recursors by name.
 : me-data-fact ( d xt -- flag outcome )
   swap me-staged 0= if drop false outcome-invalid exit then
   swap execute dup if nip then outcome-ok ;
@@ -289,17 +287,8 @@ end-structure
   elab-tag-aux-recursor elab-tagged? dup if 0 swap then ;
 : lf-menv-matcher? ( d -- flag outcome ) ['] elab-matcher-of me-defn-fact ;
 : lf-menv-proj-fn? ( d -- flag outcome ) ['] elab-projection-of me-defn-fact ;
-\ Smart unfolding: the source answers for a definition of the input or the
-\ library; a text definition has none.
-: me-sunfold-unknown ( d -- flag outcome ) drop false outcome-unsupported ;
-defer lf-menv-sunfold-source ( d -- flag outcome )
-' me-sunfold-unknown is lf-menv-sunfold-source
+: lf-menv-smart? ( d -- flag outcome ) ['] elab-sunfold-of me-defn-fact ;
 : me-text-decl? ( d -- flag ) me-run? if me-lib# u< 0= else drop false then ;
-: me-smart ( d -- flag outcome )
-  dup me-text-decl? if drop false outcome-ok else lf-menv-sunfold-source then ;
-: lf-menv-smart? ( d -- flag outcome )
-  dup me-decl? 0= if drop false outcome-invalid exit then
-  dup me-defn? if me-smart else drop false outcome-ok then ;
 : me-class-proj ( d -- 0 true | false )
   elab-projection-of if elab-projection-class? dup if 0 swap then else false then ;
 : lf-menv-proj-class? ( d -- flag outcome ) ['] me-class-proj me-defn-fact ;

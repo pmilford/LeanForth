@@ -3,11 +3,13 @@
 \ tests/front/test_elab_data.py runs every damaged file through the
 \ command line. Here: the key store's words on keys made by hand (each
 \ form, equality, hash, one term, full when the heap has no room); the
-\ slice's format-2 data read against the init slice's stage, every kind
+\ slice's format-3 data read against the init slice's stage, every kind
 \ of record read back by number and by declaration (instances with their
 \ keys and ranks, left-out instances with foreign keys and literals,
-\ classes, tags, matchers, projections); the synthetic eliminators found
-\ by kind and type; a refused read keeps nothing (every table empty,
+\ classes, tags, matchers, projections, Nat.add's smart-unfolding body
+\ node by node); the synthetic eliminators found by kind and type, and
+\ the fixture's nodes of every other form, one naming a structure the
+\ slice lacks (the body foreign); a refused read keeps nothing (every table empty,
 \ nothing loaded), a later read works again and replaces the earlier one;
 \ a missing file, a call during a read, a sealed stage and a name two
 \ declarations of the stage have (error 13) refused; every allocation
@@ -95,10 +97,10 @@ T{ elab-loaded? counts s" Nat" top elab-induction elab-eliminator-for
 T{ elab-error s" none" compare -> 0 0 }T
 
 \ The slice's data: 3 instances, 2 default instances, 18 reducibility
-\ statuses, no eliminator, 54 instances left out, 3 classes, 5 tags, 4
-\ matchers and 3 projections; nothing failed.
+\ statuses, no eliminator, 54 instances left out, 3 classes, 10 tags, 4
+\ matchers, 3 projections and 1 smart-unfolding body; nothing failed.
 T{ good lib digest elab-read elab-loaded? counts
-   -> outcome-ok true 3 2 18 0 54 3 5 4 3 0 }T
+   -> outcome-ok true 3 2 18 0 54 3 10 4 3 1 }T
 \ Read against lib, not against another stage.
 T{ lib elab-read-against? sealed elab-read-against? 0 elab-read-against? -> true false false }T
 T{ elab-error-line s" none" why? -> 0 true }T
@@ -157,6 +159,8 @@ T{ s" casesOn" nat elab-tag-cases-on elab-tagged? s" casesOn" nat elab-tag-aux-r
    elab-tagged? s" casesOn" nat elab-tag-rec-on elab-tagged? -> true true false }T
 T{ s" below" nat elab-tag-aux-recursor elab-tagged? s" brecOn" nat elab-tag-brec-on
    elab-tagged? s" add" nat elab-tag-as-elim elab-tagged? -> true true false }T
+T{ s" add" nat elab-tag-match-pattern elab-tagged? s" casesOn" nat elab-tag-match-pattern
+   elab-tagged? -> true false }T
 
 \ Matchers: Nat.add.match_1 (0): no parameter, two discriminants, its
 \ elimination universe parameter 0, alternatives of 1 and 2 fields;
@@ -177,9 +181,29 @@ T{ 0 elab-projection@ 0 elab-projection-class? 0 elab-projection-decl
 T{ 1 elab-projection@ 2drop -> s" HAdd" s" mk" dotted }T
 T{ s" instHAdd" top elab-projection-of -> false }T
 
+\ Smart-unfolding bodies: Nat.add's (0), recursion argument 1, root node
+\ 23 of its 24: fun x y => [sunfoldMatch] Nat.add.match_1 (fun _ _ =>
+\ Nat) x y (fun a => [sunfoldMatchAlt] a) (fun a b => [sunfoldMatchAlt]
+\ Nat.succ (Nat.add a b)), every name the slice's.
+T{ s" add" nat elab-sunfold-of s" Nat" top elab-sunfold-of -> 0 true false }T
+T{ 0 elab-sunfold-decl 0 elab-sunfold-value 0 elab-sunfold-rec-arg 0 elab-sunfold-foreign?
+   -> s" add" nat 23 1 true false }T
+T{ 23 elab-node-kind 23 elab-node-b 23 elab-node-c 23 elab-node-d -> elab-node-lam 0 22 0 }T
+T{ 1 elab-node-kind 1 elab-node-a 1 elab-node-levels nip -> elab-node-const add-match 1 }T
+T{ 1 elab-node-levels drop @ dup elab-level-kind swap elab-level-a elab-level-kind
+   -> elab-level-succ elab-level-zero }T
+T{ 21 elab-node-kind 21 elab-node-a 21 elab-node-b -> elab-node-mdata elab-sunfold-match 20 }T
+T{ 9 elab-node-a 5 elab-node-kind 5 elab-node-a -> elab-sunfold-match-alt elab-node-bvar 1 }T
+T{ 4 elab-node-kind 4 elab-node-a 4 elab-node-b 12 elab-node-a -> elab-node-app 1 3 s" succ" nat }T
+\ A binder's name is a key of its parts, as a foreign key's: a is 0, 1, "a".
+T{ 10 elab-node-a dup elab-key-tag swap elab-key-text nip -> elab-key-foreign 9 }T
+T{ 10 elab-node-a elab-key-text 8 /string s" a" compare -> 0 }T
+\ Loose bound variables, 1 + the largest: none at the root.
+T{ 23 ed-loose 22 ed-loose 21 ed-loose 19 ed-loose 5 ed-loose -> 0 1 2 0 2 }T
+
 \ The synthetic eliminators (test_elab_data.py writes them): one per
 \ kind and type list; a key of two types is found by neither of them alone.
-T{ elims lib digest elab-read counts -> outcome-ok 3 2 18 4 54 3 5 4 3 0 }T
+T{ elims lib digest elab-read counts -> outcome-ok 3 2 18 4 54 3 10 4 3 1 }T
 T{ s" Nat" top elab-induction elab-eliminator-for -> 0 true }T
 T{ 0 elab-eliminator@ -> elab-induction s" rec" nat }T
 T{ s" Nat" top elab-cases elab-eliminator-for over elab-eliminator@ -> 1 true elab-cases
@@ -198,19 +222,36 @@ T{ 20 1 left-key elab-key-text drop dup u32-le@ swap 4 + u32-le@ -> 2 0 }T
 T{ 20 1 left-key elab-key-text 16 /string s" BitVec" compare -> 0 }T
 T{ 44 1 left-key dup elab-key-arity swap elab-key-text nip -> 1 14 }T
 T{ 20 1 left-key 44 1 left-key elab-key= -> false }T
+\ The fixture's Nat.add body: after its root, nodes 24-32 of every other
+\ form; 29 projects Prod, which the slice lacks, so the body is foreign.
+T{ 0 elab-sunfold-foreign? 0 elab-sunfold-value -> true 23 }T
+T{ 24 elab-node-kind 24 elab-node-a elab-level-kind -> elab-node-sort elab-level-succ }T
+T{ 25 elab-node-kind 25 elab-node-b 25 elab-node-c 25 elab-node-d
+   -> elab-node-forall 24 0 3 }T
+T{ 25 elab-node-a elab-key-text nip -> 0 }T
+T{ 26 elab-node-kind 26 elab-node-b 26 elab-node-c 26 elab-node-d 31 elab-node-kind
+   -> elab-node-have 0 7 5 elab-node-let }T
+T{ 27 elab-node-kind 27 elab-node-a elab-key-text s" 18446744073709551616" compare
+   -> elab-node-lit 0 }T
+T{ 28 elab-node-kind 28 elab-node-a elab-key-text s" ab" compare -> elab-node-str 0 }T
+T{ 29 elab-node-kind 29 elab-node-a 29 elab-node-b 29 elab-node-c -> elab-node-proj -1 1 0 }T
+T{ 32 elab-node-a 32 elab-node-c 30 elab-node-a 30 elab-node-b
+   -> s" Nat" top 26 elab-borrowed 27 }T
+T{ 24 ed-loose 25 ed-loose 26 ed-loose 32 ed-loose -> 0 0 1 1 }T
 
 \ A refused read keeps nothing; the next read works and replaces it.
 : forgotten? ( d -- flag )
   dup elab-status 0= over elab-instance-of 0= and over elab-class-of 0= and
-  over elab-matcher-of 0= and swap elab-projection-of 0= and ;
+  over elab-matcher-of 0= and over elab-sunfold-of 0= and swap elab-projection-of 0= and ;
 : empty? ( -- flag )
   elab-loaded? 0= counts + + + + + + + + + 0= and s" instAddNat" top forgotten? and
+  s" add" nat forgotten? and
   s" Add" top forgotten? and add-match forgotten? and s" casesOn" nat elab-tag-cases-on elab-tagged? 0=
   and s" Nat" top elab-induction elab-eliminator-for 0= and elab-keys# 0= and ;
 T{ elims lib zero-sha elab-read empty? elab-error-line s" elaboration data of another export"
    why? elab-error-code -> outcome-invalid true 1 true 9 }T
 T{ lib elab-read-against? -> false }T
-T{ good lib digest elab-read counts elab-error-code -> outcome-ok 3 2 18 0 54 3 5 4 3 0 0 }T
+T{ good lib digest elab-read counts elab-error-code -> outcome-ok 3 2 18 0 54 3 10 4 3 1 0 }T
 \ M6: a binding (elab-bind!) holds for the next read only: bound to other
 \ records that read is refused (error 39), the next, unbound, works.
 : other-records ( -- c-addr u )
@@ -220,15 +261,17 @@ T{ other-records elab-bind! good lib digest elab-read elab-error-code
 \ Refused after its last line: none of the records it read stays.
 T{ s" tests/front/cut-off.elab.ndjson" lib digest elab-read empty? elab-error-line
    s" records differ in number from the header" why? elab-error-code
-   -> outcome-invalid true 96 true 20 }T
+   -> outcome-invalid true 102 true 20 }T
 \ Every code has its text, the first and the last as documented.
 T{ 0 ed-message s" none" compare 1 ed-message s" file missing or unreadable" compare
-   38 ed-message s" a record kind this reader does not read yet" compare -> 0 0 0 }T
+   38 ed-message s" a record kind this reader does not read yet" compare
+   45 ed-message s" an annotation this reader does not know" compare 46 ed-message nip
+   -> 0 0 0 0 0 }T
 \ elab-unhashed: error 26 at line 0, the outcome kept, nothing loaded.
 T{ good lib digest elab-read outcome-full elab-unhashed elab-error-code elab-error-line
    empty? -> outcome-ok outcome-full 26 0 true }T
 T{ elims lib digest elab-read good lib digest elab-read counts
-   -> outcome-ok outcome-ok 3 2 18 0 54 3 5 4 3 0 }T
+   -> outcome-ok outcome-ok 3 2 18 0 54 3 10 4 3 1 }T
 T{ elab-reset empty? -> true }T
 T{ s" tests/front/no-such.ndjson" lib digest elab-read elab-error-line
    s" file missing or unreadable" why? empty? -> outcome-invalid 0 true true }T
@@ -236,7 +279,7 @@ T{ s" tests/front/no-such.ndjson" lib digest elab-read elab-error-line
 \ A read while one is in progress is refused and changes nothing loaded.
 T{ good lib digest elab-read -> outcome-ok }T
 T{ true elab elab-reading ! good lib digest elab-read s" a read in progress" why?
-   false elab elab-reading ! counts -> outcome-invalid true 3 2 18 0 54 3 5 4 3 0 }T
+   false elab elab-reading ! counts -> outcome-invalid true 3 2 18 0 54 3 10 4 3 1 }T
 
 \ A sealed stage: its names cannot be looked up; refused, nothing kept.
 T{ 12 sealed stage-init slice sealed stage-load -> outcome-ok outcome-ok }T
@@ -286,7 +329,7 @@ T{ twice stage-free -> }T
   >r dup full-or-ok? r> and rot and swap outcome-full = rot swap - swap ;
 : refusals ( -- fulls flag ) 0 true 160 1 do i fresh-read tally loop ;
 T{ refusals swap 0> -> true true }T
-T{ elims lib digest elab-read counts -> outcome-ok 3 2 18 4 54 3 5 4 3 0 }T
+T{ elims lib digest elab-read counts -> outcome-ok 3 2 18 4 54 3 10 4 3 1 }T
 
 \ The reader and the view give their blocks back after every read, ok or
 \ not; the data's slabs and tables keep theirs until the context goes.

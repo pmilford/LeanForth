@@ -5,17 +5,21 @@
 \ instance tree, and the values of that tree the export lacks; default
 \ instances with their rank; reducibility; the induction and cases
 \ eliminators; the tags the elaborator and Meta's whnf read; matchers and
-\ projection functions -- checked against the export's names and kept for
-\ the elaborator (FE1e: instances; FE1g: eliminators; FE1d2: whnf). Format
-\ version 2, one JSON object per line: docs/programming/ELABORATION_DATA.md
-\ and schemas/elab-data-2.schema.json; a version 1 file is refused as
-\ another format version. Untrusted and fail-closed: the data never
+\ projection functions; the smart-unfolding bodies (f._sunfold) -- checked
+\ against the export's names and kept for the elaborator (FE1e: instances;
+\ FE1g: eliminators; FE1d2 and plan S2: whnf). Format version 3, one JSON
+\ object per line: docs/programming/ELABORATION_DATA.md and
+\ schemas/elab-data-3.schema.json; a version 1 or 2 file is refused as
+\ another format version (a format-2 file says "sunfold":0 for a library
+\ whose definitions have bodies). Untrusted and fail-closed: the data never
 \ reaches the kernel, and nothing it holds can make a declaration
 \ accepted; it can change what a statement means. What is checked here is
 \ the file's form, its export's SHA-256, the names and kinds of the
 \ declarations it names, that keys make one term, that ranks under each
-\ root key are 0, 1, 2, ... and that matchers and projections fit their
-\ declarations' types (below). The rest is pinned Lean's output taken on
+\ root key are 0, 1, 2, ..., that matchers and projections fit their
+\ declarations' types and that a smart-unfolding body is a closed term of
+\ its definition's universe parameters (below). The rest is pinned Lean's
+\ output taken on
 \ trust, bound to the export only by that unkeyed hash: that an instance
 \ belongs to the class its record names and has those keys (plan row
 \ FE1e3 checks both against the instance's type), ranks, priorities,
@@ -42,7 +46,10 @@
 \ an instance, eliminator, tagged declaration or projection function not
 \ one; a matcher a definition; a projection's constructor a constructor;
 \ a reducibility's declaration, an eliminator's target types and a
-\ constant key any declaration. An instance's or default instance's class
+\ constant key any declaration; a smart-unfolding body's definition a
+\ definition, its constants any declaration or none (the record is then
+\ foreign: kept, and unsupported where it would be used), a projection's
+\ structure an inductive type or none. An instance's or default instance's class
 \ has a class record before it. A left-out instance's name, when it is
 \ not_exported, is no declaration of the library, and a constant of its
 \ keys that no declaration has is kept as a foreign key. No declaration
@@ -56,16 +63,19 @@
 \ Outcomes (ADR 0008): ok; invalid for anything malformed, unknown,
 \ duplicated, of the wrong kind or differing from the header or from the
 \ export, a default instance's rank beyond elab-default-rank-most
-\ (65,535: error 40), an unreadable file, a sealed stage, or a call while
-\ a read is in progress; unsupported for another format version or Lean version, a
-\ number beyond 2^32 - 1 (no Lean library has one; plan row FE3 lifts it
-\ if one appears) and a smart-unfolding record (format 2 has the kind;
-\ plan row FE1d2 reads it); full when the heap has no room or a line
+\ (65,535: error 40), a smart-unfolding body given twice, with an entry
+\ that names a later one, a loose bound variable at its root or universe
+\ parameters other than its definition's (errors 41-44), an unreadable
+\ file, a sealed stage, or a call while a read is in progress;
+\ unsupported for another format version or Lean version, a number
+\ beyond 2^32 - 1 (no Lean library has one; plan row FE3 lifts it if one
+\ appears) and an annotation other than Lean's three (error 45); full
+\ when the heap has no room or a line
 \ passes elab-line-limit bytes. A read that is not ok keeps nothing: every
 \ table is empty afterwards, as after elab-reset.
 \ elab-error ( -- line c-addr u ) gives the line of the failure (1 the
 \ header; after the last line, the number of lines read; 0 before the
-\ file is open) and why: elab-error-line, elab-error-code (stable, 1-40)
+\ file is open) and why: elab-error-line, elab-error-code (stable, 1-45)
 \ and elab-error-why apart. elab-unhashed ( outcome -- outcome ) refuses
 \ for a caller that could not hash the export (error 26).
 \
@@ -87,7 +97,16 @@
 \ ( m -- pos true | false ), elab-matcher-alts ( m -- a n ), elab-alt@
 \ ( a -- fields overlaps thunk? ); elab-projection-of ( d -- p true |
 \ false ), elab-projection@ ( p -- ctor params idx ), elab-projection-decl
-\ ( p -- d ), elab-projection-class? ( p -- flag ). elab-loaded? says
+\ ( p -- d ), elab-projection-class? ( p -- flag ); elab-sunfold-of
+\ ( d -- s true | false ), elab-sunfold-decl ( s -- d ),
+\ elab-sunfold-value ( s -- n ) (its root node), elab-sunfold-rec-arg
+\ ( s -- k true | false ), elab-sunfold-foreign? ( s -- flag ) (a node
+\ names a constant the library lacks); its nodes, numbered across
+\ records: elab-node-kind ( n -- kind ) (elab-node-bvar .. -have, below)
+\ and elab-node-a, -b, -c, -d ( n -- x ) as the table below says,
+\ elab-node-levels ( n -- addr k ) a constant's levels (cells); its
+\ levels: elab-level-kind ( l -- kind ), elab-level-a, -b ( l -- x ).
+\ elab-loaded? says
 \ whether the last read was ok; elab-generation ( -- n ) changes with
 \ every read and every reset, so a user that keeps results about the
 \ data (front/instances.fs) can tell they are of another read;
@@ -108,13 +127,16 @@
 \   elab-instance elab-count .                        \ 3
 \
 \ State: one context record, elab (the read in progress: its reader,
-\ JSON view and SHA-256, the header's numbers and the key-reading mode;
-\ the eliminators' and the ranks' hash tables and their probes), and
-\ eleven context slabs: elab-facts (a record per declaration of the
-\ stage), the instances, the numbers of synthesis orders and
-\ out-parameters, the default instances, the eliminators and their target
+\ JSON view and SHA-256, the header's numbers, the key-reading mode and
+\ the kind of the record being read; the eliminators' and the ranks' hash
+\ tables and their probes), and fourteen context slabs: elab-facts (a
+\ record per declaration of the stage), the instances, the numbers of
+\ synthesis orders, out-parameters, universe parameters and a constant
+\ node's levels, the default instances, the eliminators and their target
 \ types, the left-out instances, the classes, the matchers, their
-\ alternatives and the projections; the keys are front/elab-keys.fs's.
+\ alternatives, the projections, the smart-unfolding bodies, their nodes
+\ and their levels; the keys are front/elab-keys.fs's (a node's literal,
+\ string and binder name among them, for their texts).
 \ One read at a time per context; the reader and the view hold heap memory
 \ only during a read, the tables and the slabs until the context is freed.
 \ Loads in decimal whatever BASE is, then restores it.
@@ -140,12 +162,31 @@ require ./elab-keys.fs
 \ Eliminator kinds: @[induction_eliminator] and @[cases_eliminator].
 0 constant elab-induction   1 constant elab-cases
 \ Tags: elab_as_elim, elab_without_expected_type, isAuxRecursor,
-\ isNoConfusion, isCasesOnRecursor, isRecOnRecursor, isBRecOnRecursor.
+\ isNoConfusion, isCasesOnRecursor, isRecOnRecursor, isBRecOnRecursor,
+\ match_pattern.
 0 constant elab-tag-as-elim   1 constant elab-tag-no-expected
 2 constant elab-tag-aux-recursor   3 constant elab-tag-no-confusion
 4 constant elab-tag-cases-on   5 constant elab-tag-rec-on   6 constant elab-tag-brec-on
+7 constant elab-tag-match-pattern   \ Lean's @[match_pattern] (hasMatchPatternAttribute)
 \ Why a value of the instance tree is no instance record.
 0 constant elab-erased   1 constant elab-not-exported
+\ A smart-unfolding body's nodes (Lean's Expr; fields a, b, c, d) and levels.
+\   bvar: a its index         sort: a its level      app: a the function, b the argument
+\   lam, forall: a the name (a key), b the type, c the body, d the binder info
+\   let, have: a the name, b the type, c the value, d the body (have: non_dep)
+\   lit, str: a a key of its digits or bytes     const: a its declaration (-1 when
+\   the library has none), its levels by elab-node-levels
+\   proj: a the structure (-1: none), b the field, c the term
+\   mdata: a the annotation (elab-sunfold-match, -match-alt, elab-borrowed), b the term
+0 constant elab-node-bvar   1 constant elab-node-sort   2 constant elab-node-app
+3 constant elab-node-lam   4 constant elab-node-forall   5 constant elab-node-let
+6 constant elab-node-lit   7 constant elab-node-str   8 constant elab-node-proj
+9 constant elab-node-mdata   10 constant elab-node-const   11 constant elab-node-have
+0 constant elab-sunfold-match   1 constant elab-sunfold-match-alt   2 constant elab-borrowed
+\ Levels: zero; succ (a); max, imax (a, b); param (a its place among the
+\ definition's universe parameters).
+0 constant elab-level-zero   1 constant elab-level-succ   2 constant elab-level-max
+3 constant elab-level-imax   4 constant elab-level-param
 1048576 constant elab-line-limit   \ longest line, in bytes
 8 constant elab-depth-limit        \ deepest JSON nesting of a line
 65536 constant elab-token-limit    \ most JSON tokens in one line
@@ -189,13 +230,29 @@ begin-structure /ed-proj
   field: ed-proj-decl   field: ed-proj-ctor   field: ed-proj-params   field: ed-proj-idx
   field: ed-proj-class                             \ true: the structure is a class
 end-structure
+begin-structure /ed-sun
+  field: ed-sun-decl
+  field: ed-sun-params   field: ed-sun-params#     \ its universe parameters in elab-orders
+  field: ed-sun-levels   field: ed-sun-levels#     \ its levels in elab-levels
+  field: ed-sun-nodes    field: ed-sun-nodes#      \ its nodes in elab-nodes
+  field: ed-sun-value                              \ the root, a node number
+  field: ed-sun-rec                                \ the recursion argument, or -1
+  field: ed-sun-foreign                            \ true: a name the library lacks
+end-structure
+\ A node, or a level (kind, a and b alone).
+begin-structure /ed-node
+  field: ed-node-kind   field: ed-node-a   field: ed-node-b   field: ed-node-c
+  field: ed-node-d
+  field: ed-node-loose     \ 1 + its largest loose bound variable, or 0
+end-structure
 \ What the data says of one declaration of the stage.
 begin-structure /ed-fact
-  field: ed-fact-bits      \ bits 0-2 its status, 3 a default instance, 4-10 its tags
+  field: ed-fact-bits      \ bits 0-2 its status, 3 a default instance, 4-11 its tags
   field: ed-fact-inst      \ its instance's number + 1, or 0
   field: ed-fact-class     \ its class's number + 1, or 0
   field: ed-fact-matcher   \ its matcher's number + 1, or 0
   field: ed-fact-proj      \ its projection's number + 1, or 0
+  field: ed-fact-sun       \ its smart-unfolding body's number + 1, or 0
 end-structure
 \ An eliminator's key, kind and target types (cells), as the table
 \ compares it; ed-key-one holds the type of a key made for one type.
@@ -216,6 +273,7 @@ begin-structure /elab
   field: elab-reading                \ true during a read
   field: elab-loaded                 \ true: the last read was ok
   field: elab-foreign                \ true: keys being read may name foreign constants
+  field: elab-kind                   \ the kind of the record being read
   field: elab-code                   \ why it failed: an error code, or 0
   field: elab-gen                    \ resets so far (each read starts with one)
   field: elab-at                     \ the line it failed at
@@ -239,6 +297,9 @@ end-structure
 /ed-match context-slab: elab-matches
 /ed-alt context-slab: elab-alts
 /ed-proj context-slab: elab-projs
+/ed-sun context-slab: elab-suns
+/ed-node context-slab: elab-nodes
+/ed-node context-slab: elab-levels
 
 : ed-view ( -- view ) elab elab-json ;
 : ed-stage ( -- stage ) elab elab-stage @ ;
@@ -265,8 +326,10 @@ end-structure
 27 constant ed-e-no-class   28 constant ed-e-class   29 constant ed-e-tag
 30 constant ed-e-term   31 constant ed-e-rank   32 constant ed-e-gap
 33 constant ed-e-default-rank   34 constant ed-e-left-out   35 constant ed-e-matcher
-36 constant ed-e-projection   37 constant ed-e-unfit   38 constant ed-e-later
-39 constant ed-e-bound   40 constant ed-e-dflt-most
+36 constant ed-e-projection   37 constant ed-e-unfit
+39 constant ed-e-bound   40 constant ed-e-dflt-most   41 constant ed-e-sunfold
+42 constant ed-e-order   43 constant ed-e-loose   44 constant ed-e-params
+45 constant ed-e-annotation
 create ed-messages
   s" none" counted,
   s" file missing or unreadable" counted,
@@ -309,6 +372,11 @@ create ed-messages
   s" a record kind this reader does not read yet" counted,
   s" other records than the export's manifest names" counted,
   s" a default instance's rank beyond 65535" counted,
+  s" a smart-unfolding body named twice" counted,
+  s" an index to no earlier entry" counted,
+  s" a loose bound variable" counted,
+  s" universe parameters other than the definition's" counted,
+  s" an annotation this reader does not know" counted,
   0 0 counted,
 : ed-message ( code -- c-addr u ) ed-messages swap 0 ?do key-next loop count ;
 : ed-line ( -- n ) elab elab-reader reader-position nip nip ;
@@ -340,6 +408,7 @@ create ed-messages
 : elab-class-of ( d -- k true | false ) ['] ed-fact-class ed-fact@ +1>number ;
 : elab-matcher-of ( d -- m true | false ) ['] ed-fact-matcher ed-fact@ +1>number ;
 : elab-projection-of ( d -- p true | false ) ['] ed-fact-proj ed-fact@ +1>number ;
+: elab-sunfold-of ( d -- s true | false ) ['] ed-fact-sun ed-fact@ +1>number ;
 : ed-tag-bit ( tag -- mask ) ed-tag-shift + 1 swap lshift ;
 : elab-tagged? ( d tag -- flag ) ed-tag-bit swap ed-bits@ and 0<> ;
 
@@ -383,6 +452,22 @@ create ed-messages
   ed-proj dup ed-proj-ctor @ over ed-proj-params @ rot ed-proj-idx @ ;
 : elab-projection-decl ( p -- d ) ed-proj ed-proj-decl @ ;
 : elab-projection-class? ( p -- flag ) ed-proj ed-proj-class @ ;
+: ed-sun ( s -- addr ) elab-suns slab-at ;
+: ed-node ( n -- addr ) elab-nodes slab-at ;
+: ed-level ( l -- addr ) elab-levels slab-at ;
+: elab-sunfold-decl ( s -- d ) ed-sun ed-sun-decl @ ;
+: elab-sunfold-value ( s -- n ) ed-sun ed-sun-value @ ;
+: elab-sunfold-rec-arg ( s -- k true | false ) ed-sun ed-sun-rec @ 1+ +1>number ;
+: elab-sunfold-foreign? ( s -- flag ) ed-sun ed-sun-foreign @ ;
+: elab-node-kind ( n -- kind ) ed-node ed-node-kind @ ;
+: elab-node-a ( n -- x ) ed-node ed-node-a @ ;
+: elab-node-b ( n -- x ) ed-node ed-node-b @ ;
+: elab-node-c ( n -- x ) ed-node ed-node-c @ ;
+: elab-node-d ( n -- x ) ed-node ed-node-d @ ;
+: elab-node-levels ( n -- addr k ) ed-node ed-node-b ed-span@ ;
+: elab-level-kind ( l -- kind ) ed-level ed-node-kind @ ;
+: elab-level-a ( l -- x ) ed-level ed-node-a @ ;
+: elab-level-b ( l -- x ) ed-level ed-node-b @ ;
 
 \ ---- The eliminators' table (lib/htab.fs): entries are eliminator
 \ numbers, keyed by kind and target types; the hooks make an entry's key
@@ -438,7 +523,7 @@ create ed-rank-hooks /htab-hooks allot
   elab-facts slab-clear elab-insts slab-clear elab-orders slab-clear
   elab-dflts slab-clear elab-elims slab-clear elab-types slab-clear elab-lefts slab-clear
   elab-classes slab-clear elab-matches slab-clear elab-alts slab-clear
-  elab-projs slab-clear ;
+  elab-projs slab-clear elab-suns slab-clear elab-nodes slab-clear elab-levels slab-clear ;
 : ed-tables-clear ( -- )
   ed-table? if ed-table htab-clear then
   ed-ranks dup htab-live? if htab-clear else drop then ;
@@ -469,7 +554,7 @@ create ed-elim-names  s" induction" counted, s" cases" counted, 0 0 counted,
 create ed-tag-names
   s" elab_as_elim" counted, s" elab_without_expected_type" counted,
   s" aux_recursor" counted, s" no_confusion" counted, s" cases_on" counted,
-  s" rec_on" counted, s" brec_on" counted, 0 0 counted,
+  s" rec_on" counted, s" brec_on" counted, s" match_pattern" counted, 0 0 counted,
 create ed-reason-names  s" erased" counted, s" not_exported" counted, 0 0 counted,
 : ed-kind-name ( kind -- c-addr ) ed-kind-names swap 0 ?do key-next loop ;
 
@@ -538,9 +623,9 @@ create ed-reason-names  s" erased" counted, s" not_exported" counted, 0 0 counte
 : ed-decls ( n -- u true | false )
   dup 0< if drop false exit then ed-stage 2dup stage-by-name slab-count u<
   if resolution else 2drop false then ;
+: ed-one-decl ( u -- d outcome ) +1>number if outcome-ok else 0 ed-e-several ed-bad then ;
 : ed-name-decl ( n -- d outcome )
-  ed-decls 0= if 0 ed-e-unknown ed-bad exit then
-  +1>number if outcome-ok else 0 ed-e-several ed-bad then ;
+  ed-decls if ed-one-decl else 0 ed-e-unknown ed-bad then ;
 : ed-decl ( index -- d outcome ) ed-name dup ok? if drop ed-name-decl then ;
 \ The same, of the kind wanted: an inductive type, or any but one; a
 \ definition, a constructor.
@@ -575,9 +660,11 @@ create ed-reason-names  s" erased" counted, s" not_exported" counted, 0 0 counte
 : ed-span-close ( span slab -- ) slab-count over @ - swap cell+ ! ;
 \ An array of naturals of 32 bits into elab-orders, as the span at addr.
 : ed-number-item ( item -- outcome ) ed-u32 ok-then? if elab-orders ed-push then ;
-: ed-numbers ( span index -- outcome )
-  over elab-orders ed-span-open ['] ed-number-item ed-array-items
-  swap elab-orders ed-span-close ;
+\ The items of an array read by xt ( item -- outcome ), each pushing its
+\ number to elab-orders, as the span at addr.
+: ed-span-items ( span index xt -- outcome )
+  >r over elab-orders ed-span-open r> ed-array-items swap elab-orders ed-span-close ;
+: ed-numbers ( span index -- outcome ) ['] ed-number-item ed-span-items ;
 \ Whether every number of the span is below limit.
 : ed-below? ( span limit -- flag )
   swap ed-span@ cells bounds ?do dup i @ u> 0= if drop unloop false exit then
@@ -698,17 +785,40 @@ create ed-key-readers  ' ed-key-const , ' ed-key-proj , ' ed-key-lit , ' ed-key-
   dup ed-value ed-rank-find
   if 2drop ed-e-rank ed-bad else ed-ranks htab-put outcome-ok then ;
 
+\ ---- A record's own declaration, its member name: read by the kind's
+\ reader, named by one record of the kind at most (a second: the kind's
+\ error), kept in the declaration's fact and in the record. ed-owns
+\ gives each kind's descriptor (0: its name is not its own): the reader
+\ ( index -- d outcome ), the fact field, the error, the record ( i --
+\ addr ) and its declaration field.
+begin-structure /ed-own
+  field: ed-own-reader   field: ed-own-fact   field: ed-own-why
+  field: ed-own-rec      field: ed-own-field
+end-structure
+create ed-inst-own  ' ed-no-type , ' ed-fact-inst , ed-e-instance , ' ed-inst , ' ed-inst-decl ,
+create ed-class-own  ' ed-a-type , ' ed-fact-class , ed-e-class , ' ed-class , ' ed-class-decl ,
+create ed-match-own
+  ' ed-a-def , ' ed-fact-matcher , ed-e-matcher , ' ed-match , ' ed-match-decl ,
+create ed-proj-own
+  ' ed-no-type , ' ed-fact-proj , ed-e-projection , ' ed-proj , ' ed-proj-decl ,
+create ed-sun-own  ' ed-a-def , ' ed-fact-sun , ed-e-sunfold , ' ed-sun , ' ed-sun-decl ,
+create ed-owns   \ by kind (elab-instance .. elab-sunfold)
+  ed-inst-own , 0 , 0 , 0 , 0 , ed-class-own , 0 , ed-match-own , ed-proj-own , ed-sun-own ,
+: ed-own ( -- own ) elab elab-kind @ cells ed-owns + @ ;
+: ed-own-once ( d i -- outcome )
+  over ed-own ed-own-fact @ ed-fact@ if 2drop ed-own ed-own-why @ ed-bad exit then
+  ed-own ed-own-fact @ ed-fact! outcome-ok ;
+: ed-own-named ( i d -- i d outcome ) 2dup swap ed-own-once ;
+: ed-own-read ( index -- d outcome ) ed-own ed-own-reader @ execute ;
+: ed-own-record ( i -- addr ) ed-own ed-own-rec @ execute ;
+: ed-own-decl! ( value i -- outcome )
+  swap c" name" ed-member ed-own-read dup ok? if drop ed-own-named then
+  rot ed-own-record -rot ed-own ed-own-field @ ed-put ;
+
 \ ---- Instances: name, class, priority, synthesis order, keys, rank.
 create ed-inst-keys
   s" class" counted, s" keys" counted, s" name" counted, s" priority" counted,
   s" rank" counted, s" synth_order" counted, 0 0 counted,
-: ed-inst-fact ( d i -- outcome )
-  over elab-instance-of if 2drop drop ed-e-instance ed-bad exit then
-  ['] ed-fact-inst ed-fact! outcome-ok ;
-: ed-inst-named ( i d -- i d outcome ) 2dup swap ed-inst-fact ;
-: ed-inst-decl! ( value i -- outcome )
-  swap c" name" ed-member ed-no-type dup ok? if drop ed-inst-named then
-  rot ed-inst -rot ['] ed-inst-decl ed-put ;
 : ed-inst-class! ( value i -- outcome )
   ed-inst swap c" class" ed-member ed-a-class ['] ed-inst-class ed-put ;
 : ed-inst-priority! ( value i -- outcome )
@@ -721,7 +831,7 @@ create ed-inst-keys
   ed-inst ed-inst-value swap c" rank" ed-member ed-value-rank! ;
 : ed-inst-place ( value i -- outcome ) nip 2* ed-place ;
 create ed-inst-steps
-  ' ed-inst-decl! , ' ed-inst-class! , ' ed-inst-priority! , ' ed-inst-order! ,
+  ' ed-own-decl! , ' ed-inst-class! , ' ed-inst-priority! , ' ed-inst-order! ,
   ' ed-inst-path! , ' ed-inst-rank! , ' ed-inst-place , 0 ,
 : ed-on-instance ( value -- outcome )
   dup ed-inst-keys ed-shape? 0= if drop ed-malformed exit then
@@ -832,13 +942,6 @@ create ed-elim-steps  ' ed-elim-kind! , ' ed-elim-decl! , ' ed-elim-types! , 0 ,
 \ binders of its type) and each out-level one of its universe parameters.
 create ed-class-members
   s" name" counted, s" out_level_params" counted, s" out_params" counted, 0 0 counted,
-: ed-class-fact ( d k -- outcome )
-  over elab-class-of if 2drop drop ed-e-class ed-bad exit then
-  ['] ed-fact-class ed-fact! outcome-ok ;
-: ed-class-named ( k d -- k d outcome ) 2dup swap ed-class-fact ;
-: ed-class-decl! ( value k -- outcome )
-  swap c" name" ed-member ed-a-type dup ok? if drop ed-class-named then
-  rot ed-class -rot ['] ed-class-decl ed-put ;
 : ed-class-params! ( value k -- outcome )
   ed-class ed-class-params swap c" out_params" ed-member ed-numbers ;
 : ed-class-levels! ( value k -- outcome )
@@ -848,7 +951,7 @@ create ed-class-members
   swap dup ed-class-levels swap ed-class-decl @ ed-levels ed-below? and ;
 : ed-class-fit ( value k -- outcome ) nip ed-class-fits? ed-e-unfit ed-or-bad ;
 create ed-class-steps
-  ' ed-class-decl! , ' ed-class-params! , ' ed-class-levels! , ' ed-class-fit , 0 ,
+  ' ed-own-decl! , ' ed-class-params! , ' ed-class-levels! , ' ed-class-fit , 0 ,
 : ed-on-class ( value -- outcome )
   dup ed-class-members ed-shape? 0= if drop ed-malformed exit then
   elab-classes ed-claim ok-then? if ed-class-steps ed-steps else nip then ;
@@ -875,13 +978,6 @@ create ed-match-members
 create ed-alt-members
   s" has_unit_thunk" counted, s" num_fields" counted, s" num_overlaps" counted,
   0 0 counted,
-: ed-match-fact ( d m -- outcome )
-  over elab-matcher-of if 2drop drop ed-e-matcher ed-bad exit then
-  ['] ed-fact-matcher ed-fact! outcome-ok ;
-: ed-match-named ( m d -- m d outcome ) 2dup swap ed-match-fact ;
-: ed-match-decl! ( value m -- outcome )
-  swap c" name" ed-member ed-a-def dup ok? if drop ed-match-named then
-  rot ed-match -rot ['] ed-match-decl ed-put ;
 : ed-match-params! ( value m -- outcome )
   ed-match swap c" num_params" ed-member ed-u32 ['] ed-match-params ed-put ;
 : ed-match-discrs! ( value m -- outcome )
@@ -919,7 +1015,7 @@ create ed-alt-steps  ' ed-alt-fields! , ' ed-alt-overlaps! , ' ed-alt-thunk! , 0
   dup ed-match-arity over elab-matcher@ 2drop ed-type-pis = swap ed-elim-fits? and ;
 : ed-match-fit ( value m -- outcome ) nip ed-match-fits? ed-e-unfit ed-or-bad ;
 create ed-match-steps
-  ' ed-match-decl! , ' ed-match-params! , ' ed-match-discrs! , ' ed-match-elim! ,
+  ' ed-own-decl! , ' ed-match-params! , ' ed-match-discrs! , ' ed-match-elim! ,
   ' ed-match-alts! , ' ed-match-names! , ' ed-match-fit , 0 ,
 : ed-on-matcher ( value -- outcome )
   dup ed-match-members ed-shape? 0= if drop ed-malformed exit then
@@ -932,13 +1028,6 @@ create ed-match-steps
 create ed-proj-members
   s" ctor" counted, s" from_class" counted, s" idx" counted, s" name" counted,
   s" num_params" counted, 0 0 counted,
-: ed-proj-fact ( d p -- outcome )
-  over elab-projection-of if 2drop drop ed-e-projection ed-bad exit then
-  ['] ed-fact-proj ed-fact! outcome-ok ;
-: ed-proj-named ( p d -- p d outcome ) 2dup swap ed-proj-fact ;
-: ed-proj-decl! ( value p -- outcome )
-  swap c" name" ed-member ed-no-type dup ok? if drop ed-proj-named then
-  rot ed-proj -rot ['] ed-proj-decl ed-put ;
 : ed-proj-ctor! ( value p -- outcome )
   ed-proj swap c" ctor" ed-member ed-a-ctor ['] ed-proj-ctor ed-put ;
 : ed-proj-params! ( value p -- outcome )
@@ -954,16 +1043,234 @@ create ed-proj-members
 : ed-proj-fit ( value p -- outcome )
   nip dup ed-proj-takes? swap ed-proj-field? and ed-e-unfit ed-or-bad ;
 create ed-proj-steps
-  ' ed-proj-decl! , ' ed-proj-ctor! , ' ed-proj-params! , ' ed-proj-idx! ,
+  ' ed-own-decl! , ' ed-proj-ctor! , ' ed-proj-params! , ' ed-proj-idx! ,
   ' ed-proj-class! , ' ed-proj-fit , 0 ,
 : ed-on-projection ( value -- outcome )
   dup ed-proj-members ed-shape? 0= if drop ed-malformed exit then
   elab-projs ed-claim ok-then? if ed-proj-steps ed-steps else nip then ;
 
-\ ---- Smart-unfolding bodies (_sunfold, plan row FE1d2): the kind is in
-\ format 2, so that data with them needs no new version, but this reader
-\ does not read them yet: unsupported.
-: ed-on-sunfold ( value -- outcome ) drop ed-e-later outcome-unsupported ed-fail ;
+\ ---- Smart-unfolding bodies (plan S2, format 3; S2_INTERFACE.md §3): the
+\ definition f, the record's own; the universe parameters of f._sunfold,
+\ f's in order (error 44); a table of levels and one of nodes, each entry
+\ naming only earlier ones (error 42); the root, a node with no loose
+\ bound variable (error 43); f's structural recursion argument or null
+\ (a place among an application's arguments, which Lean compares with
+\ their number where it uses it, WHNF.lean:900: f's type may be a
+\ definition that unfolds to more binders, as Nat.decidableExistsLT's
+\ DecidablePred, so no arity is checked here). A node's constant, or a projection's
+\ structure, that no declaration of the library has makes the record
+\ foreign: kept, and unsupported where it would be used (25 of Init's
+\ 387 name a `_proof_` lemma the export lacks). An annotation is one
+\ entry, sunfoldMatch, sunfoldMatchAlt or borrowed, true; any other is
+\ unsupported (error 45). A node's literal, string and binder name are
+\ keys of front/elab-keys.fs, for their texts (a name's parts as a
+\ foreign key's). The entry being read is the newest of its slab.
+create ed-sun-members
+  s" level_params" counted, s" levels" counted, s" name" counted, s" nodes" counted,
+  s" rec_arg" counted, s" value" counted, 0 0 counted,
+: ed-sun-now ( -- addr ) elab-suns slab-count 1- ed-sun ;
+: ed-nd ( -- addr ) elab-nodes slab-last ;
+: ed-lv ( -- addr ) elab-levels slab-last ;
+: ed-nodes-first ( -- n ) ed-sun-now ed-sun-nodes @ ;
+: ed-levels-first ( -- l ) ed-sun-now ed-sun-levels @ ;
+\ An entry of the record's table at index (from first) below the limit
+\ (a number): its number.
+: ed-entry-below ( index first limit -- n outcome )
+  rot ed-u32 ok-then? 0= if nip nip no-result exit then
+  rot + tuck > if outcome-ok else ed-e-order ed-bad then ;
+: ed-node-ref ( index -- n outcome ) ed-nodes-first elab-nodes slab-count 1- ed-entry-below ;
+: ed-root-ref ( index -- n outcome ) ed-nodes-first elab-nodes slab-count ed-entry-below ;
+: ed-level-ref ( index -- l outcome ) ed-levels-first elab-levels slab-count 1- ed-entry-below ;
+: ed-level-all ( index -- l outcome ) ed-levels-first elab-levels slab-count ed-entry-below ;
+\ A new entry of a slab of nodes or levels, every field 0.
+: ed-entry-new ( slab -- outcome )
+  dup ed-claim ok-then? if swap slab-at /ed-node erase outcome-ok else nip then ;
+\ Arrays of two, and the first item of an array.
+: ed-items? ( index n -- flag ) swap json-array ed-view json-items-of if = else drop false then ;
+: ed-first-item ( index -- item ) ed-view json-contents nip ;
+\ The two entries of an array of two, each read by xt ( item -- n outcome ).
+: ed-two-refs ( value xt -- n1 n2 outcome )
+  over 2 ed-items? 0= if 2drop 0 0 ed-malformed exit then
+  swap ed-first-item 2dup swap execute ok-then? 0= if nip nip 0 0 rot exit then
+  -rot ed-next swap execute ;
+: ed-ab! ( n1 n2 outcome addr -- outcome )
+  swap dup ok? 0= if nip nip nip exit then drop tuck ed-node-b ! ed-node-a ! outcome-ok ;
+\ An object of one member whose key is in table: the member's value and
+\ the key's place.
+: ed-sole? ( index -- flag ) json-object ed-view json-items-of if 1 = else false then ;
+: ed-sole ( value table -- value' k true | false )
+  over ed-sole? 0= if 2drop false exit then
+  >r ed-first-item dup 1+ swap ed-view json-text@ r> ed-key-index dup 0= if nip then ;
+
+\ The universe parameters: their names in elab-orders, each f's next one.
+: ed-sun-decl@ ( -- d ) ed-sun-now ed-sun-decl @ ;
+: ed-params-read ( -- k ) elab-orders slab-count ed-sun-now ed-sun-params @ - ;
+: ed-f-param ( k -- n ) ed-sun-decl@ ed-stage staged-params@ ed-stage stage-tuples tuple-item ;
+: ed-next-param? ( n -- flag )
+  ed-params-read dup ed-sun-decl@ ed-levels < if ed-f-param = else 2drop false then ;
+: ed-param-item ( item -- outcome )
+  ed-name ok-then? 0= if exit then
+  dup ed-next-param? if elab-orders ed-push else drop ed-e-params ed-bad then ;
+: ed-sun-params! ( value s -- outcome )
+  ed-sun ed-sun-params swap c" level_params" ed-member ['] ed-param-item ed-span-items ;
+: ed-param-place ( n -- i true | false ) ed-sun-now ed-sun-params ed-span@ cells-index ;
+
+\ The levels: "zero", or {"succ": L}, {"max": [L, L]}, {"imax": [L, L]},
+\ {"param": NAME}, each L an earlier level's place.
+create ed-level-names
+  s" succ" counted, s" max" counted, s" imax" counted, s" param" counted, 0 0 counted,
+: ed-lv-succ ( value -- outcome ) ed-lv swap ed-level-ref ['] ed-node-a ed-put ;
+: ed-lv-pair ( value -- outcome ) ['] ed-level-ref ed-two-refs ed-lv ed-ab! ;
+: ed-lv-param ( value -- outcome )
+  ed-name ok-then? 0= if exit then ed-param-place 0= if ed-e-params ed-bad exit then
+  ed-lv swap outcome-ok ['] ed-node-a ed-put ;
+create ed-level-readers  ' ed-lv-succ , ' ed-lv-pair , ' ed-lv-pair , ' ed-lv-param ,
+: ed-lv-form ( value k -- outcome ) dup 1+ ed-lv ed-node-kind ! cells ed-level-readers + @ execute ;
+: ed-lv-object ( item -- outcome ) ed-level-names ed-sole if ed-lv-form else ed-malformed then ;
+: ed-lv-zero ( item -- outcome ) s" zero" ed-text= ed-e-malformed ed-or-bad ;
+: ed-level-item ( item -- outcome )
+  elab-levels ed-entry-new dup ok? 0= if nip exit then drop
+  dup ed-view json-kind@ json-string = if ed-lv-zero else ed-lv-object then ;
+: ed-sun-levels! ( value s -- outcome )
+  ed-sun ed-sun-levels dup elab-levels ed-span-open swap c" levels" ed-member
+  ['] ed-level-item ed-array-items swap elab-levels ed-span-close ;
+
+\ The nodes' fields (the table at elab-node-bvar).
+: ed-nd-bvar ( value -- outcome ) ed-nd swap ed-u32 ['] ed-node-a ed-put ;
+: ed-nd-sort ( value -- outcome ) ed-nd swap ed-level-all ['] ed-node-a ed-put ;
+: ed-nd-app ( value -- outcome ) ['] ed-node-ref ed-two-refs ed-nd ed-ab! ;
+: ed-nd-name ( value -- outcome )
+  ed-nd swap c" name" ed-member ed-foreign-key ['] ed-node-a ed-put ;
+: ed-nd-type ( value -- outcome ) ed-nd swap c" type" ed-member ed-node-ref ['] ed-node-b ed-put ;
+: ed-nd-body ( value -- outcome ) ed-nd swap c" body" ed-member ed-node-ref ['] ed-node-c ed-put ;
+create ed-info-names
+  s" default" counted, s" implicit" counted, s" strict" counted, s" inst" counted, 0 0 counted,
+: ed-nd-info ( value -- outcome )
+  ed-nd swap c" info" ed-member ed-info-names ed-choice ['] ed-node-d ed-put ;
+create ed-binder-members
+  s" body" counted, s" info" counted, s" name" counted, s" type" counted, 0 0 counted,
+create ed-binder-steps  ' ed-nd-name , ' ed-nd-type , ' ed-nd-body , ' ed-nd-info , 0 ,
+\ A form's members, read by its steps ( value -- outcome ) in turn.
+: ed-nd-steps ( value members steps -- outcome )
+  >r over swap ed-shape? if r> outcome-steps else r> 2drop ed-malformed then ;
+: ed-nd-binder ( value -- outcome ) ed-binder-members ed-binder-steps ed-nd-steps ;
+: ed-nd-value ( value -- outcome )
+  ed-nd swap c" value" ed-member ed-node-ref ['] ed-node-c ed-put ;
+: ed-nd-let-body ( value -- outcome )
+  ed-nd swap c" body" ed-member ed-node-ref ['] ed-node-d ed-put ;
+: ed-nd-non-dep ( value -- outcome )
+  c" non_dep" ed-member ed-bool ok-then? if if elab-node-have ed-nd ed-node-kind ! then
+  outcome-ok then ;
+create ed-let-members
+  s" body" counted, s" name" counted, s" non_dep" counted, s" type" counted, s" value" counted,
+  0 0 counted,
+create ed-let-steps
+  ' ed-nd-name , ' ed-nd-type , ' ed-nd-value , ' ed-nd-let-body , ' ed-nd-non-dep , 0 ,
+: ed-nd-let ( value -- outcome ) ed-let-members ed-let-steps ed-nd-steps ;
+: ed-texted ( c-addr u tag -- k outcome ) ed-text-key elab-keys# 1- swap ;
+: ed-nd-lit ( value -- outcome )
+  ed-nd swap ed-digits ok-then2? if elab-key-lit ed-texted else no-result then
+  ['] ed-node-a ed-put ;
+: ed-nd-str ( value -- outcome )
+  ed-nd swap ed-text if elab-key-str ed-texted else 0 ed-malformed then ['] ed-node-a ed-put ;
+\ A constant, or a projection's structure: the one declaration of the
+\ name, or -1 when none has it (the record foreign).
+: ed-body-decl ( n -- d outcome )
+  ed-decls if ed-one-decl else true ed-sun-now ed-sun-foreign ! -1 outcome-ok then ;
+: ed-type-or-none ( d -- d outcome )
+  dup 0< if outcome-ok exit then dup ed-type? if outcome-ok else ed-kind-bad then ;
+: ed-body-name ( index -- d outcome ) ed-name ok-then? if ed-body-decl else no-result then ;
+: ed-nd-struct ( value -- outcome )
+  ed-nd swap c" struct" ed-member ed-body-name ok-then? if ed-type-or-none else no-result then
+  ['] ed-node-a ed-put ;
+: ed-nd-idx ( value -- outcome ) ed-nd swap c" idx" ed-member ed-u32 ['] ed-node-b ed-put ;
+: ed-nd-expr ( value -- outcome ) ed-nd swap c" expr" ed-member ed-node-ref ['] ed-node-c ed-put ;
+create ed-proj-node-members  s" expr" counted, s" idx" counted, s" struct" counted, 0 0 counted,
+create ed-proj-node-steps  ' ed-nd-struct , ' ed-nd-idx , ' ed-nd-expr , 0 ,
+: ed-nd-proj ( value -- outcome ) ed-proj-node-members ed-proj-node-steps ed-nd-steps ;
+\ An annotation: [[KEY, {"bool": true}]], KEY one of Lean's three.
+create ed-annotation-names
+  s" sunfoldMatch" counted, s" sunfoldMatchAlt" counted, s" borrowed" counted, 0 0 counted,
+create ed-bool-members  s" bool" counted, 0 0 counted,
+: ed-true? ( index -- flag )
+  dup ed-bool-members ed-shape? if c" bool" ed-member ed-view json-bool 0= if false then
+  else drop false then ;
+: ed-annotation ( key -- k true | false )
+  dup 1 ed-items? if ed-first-item ed-text else drop false then
+  if ed-annotation-names ed-key-index else false then ;
+: ed-unknown-mark ( -- k outcome ) 0 ed-e-annotation outcome-unsupported ed-fail ;
+: ed-entry ( entry -- k outcome )
+  dup 2 ed-items? 0= if drop 0 ed-malformed exit then
+  ed-first-item dup ed-next ed-true? if ed-annotation else drop false then
+  if outcome-ok else ed-unknown-mark then ;
+: ed-nd-entries ( value -- outcome )
+  ed-nd swap c" entries" ed-member dup 1 ed-items? if ed-first-item ed-entry
+  else drop 0 ed-malformed then ['] ed-node-a ed-put ;
+: ed-nd-mexpr ( value -- outcome ) ed-nd swap c" expr" ed-member ed-node-ref ['] ed-node-b ed-put ;
+create ed-mdata-members  s" entries" counted, s" expr" counted, 0 0 counted,
+create ed-mdata-steps  ' ed-nd-entries , ' ed-nd-mexpr , 0 ,
+: ed-nd-mdata ( value -- outcome ) ed-mdata-members ed-mdata-steps ed-nd-steps ;
+: ed-node-level ( item -- outcome ) ed-level-all ok-then? if elab-orders ed-push then ;
+: ed-nd-levels ( value -- outcome )
+  ed-nd ed-node-b swap c" levels" ed-member ['] ed-node-level ed-span-items ;
+: ed-nd-const ( value -- outcome )
+  dup c" const" ed-member ed-body-name ed-nd -rot ['] ed-node-a ed-put
+  dup ok? if drop ed-nd-levels else nip then ;
+
+\ Loose bound variables: 1 + the largest, from the fields of the newest node.
+: ed-loose ( n -- k ) ed-node ed-node-loose @ ;
+: ed-under ( n -- k ) ed-loose 1- 0 max ;
+: ed-lo-none ( addr -- k ) drop 0 ;
+: ed-lo-bvar ( addr -- k ) ed-node-a @ 1+ ;
+: ed-lo-app ( addr -- k ) dup ed-node-a @ ed-loose swap ed-node-b @ ed-loose max ;
+: ed-lo-binder ( addr -- k ) dup ed-node-b @ ed-loose swap ed-node-c @ ed-under max ;
+: ed-lo-let ( addr -- k )
+  dup ed-node-b @ ed-loose over ed-node-c @ ed-loose max swap ed-node-d @ ed-under max ;
+: ed-lo-proj ( addr -- k ) ed-node-c @ ed-loose ;
+: ed-lo-mdata ( addr -- k ) ed-node-b @ ed-loose ;
+create ed-loose-of   \ by node kind
+  ' ed-lo-bvar , ' ed-lo-none , ' ed-lo-app , ' ed-lo-binder , ' ed-lo-binder , ' ed-lo-let ,
+  ' ed-lo-none , ' ed-lo-none , ' ed-lo-proj , ' ed-lo-mdata , ' ed-lo-none , ' ed-lo-let ,
+: ed-loose! ( -- ) ed-nd dup dup ed-node-kind @ cells ed-loose-of + @ execute swap ed-node-loose ! ;
+
+\ A node: {"const": NAME, "levels": [L...]}, or an object of one member
+\ whose key names its kind.
+create ed-node-names
+  s" bvar" counted, s" sort" counted, s" app" counted, s" lam" counted, s" forall" counted,
+  s" let" counted, s" lit" counted, s" str" counted, s" proj" counted, s" mdata" counted,
+  0 0 counted,
+create ed-node-readers
+  ' ed-nd-bvar , ' ed-nd-sort , ' ed-nd-app , ' ed-nd-binder , ' ed-nd-binder , ' ed-nd-let ,
+  ' ed-nd-lit , ' ed-nd-str , ' ed-nd-proj , ' ed-nd-mdata ,
+create ed-const-node-members  s" const" counted, s" levels" counted, 0 0 counted,
+: ed-nd-form ( value k -- outcome ) dup ed-nd ed-node-kind ! cells ed-node-readers + @ execute ;
+: ed-nd-read ( item -- outcome )
+  dup ed-const-node-members ed-shape? if elab-node-const ed-nd ed-node-kind ! ed-nd-const exit then
+  ed-node-names ed-sole if ed-nd-form else ed-malformed then ;
+: ed-node-item ( item -- outcome )
+  elab-nodes ed-entry-new dup ok? 0= if nip exit then drop
+  ed-nd-read dup ok? if ed-loose! then ;
+: ed-sun-nodes! ( value s -- outcome )
+  ed-sun ed-sun-nodes dup elab-nodes ed-span-open swap c" nodes" ed-member
+  ['] ed-node-item ed-array-items swap elab-nodes ed-span-close ;
+
+\ The root and the recursion argument; then the record fits f.
+: ed-sun-value! ( value s -- outcome )
+  ed-sun swap c" value" ed-member ed-root-ref ['] ed-sun-value ed-put ;
+: ed-sun-rec! ( value s -- outcome )
+  ed-sun swap c" rec_arg" ed-member ed-u32-or-none ['] ed-sun-rec ed-put ;
+: ed-sun-closed? ( addr -- flag ) ed-sun-value @ ed-loose 0= ;
+: ed-sun-all-params? ( addr -- flag ) dup ed-sun-params# @ swap ed-sun-decl @ ed-levels = ;
+: ed-sun-fit ( value s -- outcome )
+  nip ed-sun dup ed-sun-all-params? 0= if drop ed-e-params ed-bad exit then
+  ed-sun-closed? ed-e-loose ed-or-bad ;
+create ed-sun-steps
+  ' ed-own-decl! , ' ed-sun-params! , ' ed-sun-levels! , ' ed-sun-nodes! , ' ed-sun-value! ,
+  ' ed-sun-rec! , ' ed-sun-fit , 0 ,
+: ed-on-sunfold ( value -- outcome )
+  dup ed-sun-members ed-shape? 0= if drop ed-malformed exit then
+  elab-suns ed-claim ok-then? 0= if nip exit then
+  dup ed-sun /ed-sun erase ed-sun-steps ed-steps ;
 
 \ ---- Lines. Each is one JSON object with one member: the header's key
 \ elab_data, or a record kind, whose value is an object.
@@ -975,7 +1282,8 @@ create ed-kind-handlers
 : ed-object-value? ( -- flag ) 2 ed-view json-kind-at json-object = ;
 : ed-wrapped? ( -- flag ) ed-one-member? if ed-object-value? else false then ;
 : ed-tally ( kind -- ) cells elab elab-counts + 1 swap +! ;
-: ed-dispatch ( value kind -- outcome ) dup ed-tally cells ed-kind-handlers + @ execute ;
+: ed-dispatch ( value kind -- outcome )
+  dup elab elab-kind ! dup ed-tally cells ed-kind-handlers + @ execute ;
 : ed-on-record ( -- outcome )
   ed-wrapped? 0= if ed-malformed exit then
   1 ed-view json-text@ ed-kind-names ed-key-index
@@ -992,7 +1300,7 @@ create ed-head-keys
   drop c" format" ed-member s" leanforth-elab-data" ed-text=
   ed-e-format ed-or-bad ;
 : ed-head-version ( value i -- outcome )
-  drop c" format_version" ed-member ed-view natural-at if s" 2" compare 0= else false then
+  drop c" format_version" ed-member ed-view natural-at if s" 3" compare 0= else false then
   ed-e-version ed-or-other ;
 : ed-head-shape ( value i -- outcome )
   drop ed-head-keys ed-shape? ed-e-malformed ed-or-bad ;

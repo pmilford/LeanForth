@@ -1,9 +1,10 @@
 # Elaboration data: Lean's attributes for LeanForth's front end
 
-Plan rows FE1d and FE1e1 ([plan](../project/PLAN_DRAFT.md#phase-8-front-end-fe1fe12-2026-11-12-replaces-831-and-832);
+Plan rows FE1d, FE1e1 and slice S2 ([plan](../project/PLAN_DRAFT.md#phase-8-front-end-fe1fe12-2026-11-12-replaces-831-and-832);
 [ADR 0021](../adr/0021-front-end.md) D10; [front-end design](../design/FRONT_END.md#49-elaboration-data);
-[FE1e design](../design/FE1E_APPLICATIONS.md#31-elaboration-data-format-2) §3.1).
-Status (2026-11-12), in the stages of
+[FE1e design](../design/FE1E_APPLICATIONS.md#31-elaboration-data-format-2) §3.1;
+[S2 design](../design/S2_INTERFACE.md#3-the-smart-unfolding-records-and-their-markers) §3).
+Status (2026-11-13), in the stages of
 [DONE_CHECKER.md](../development/DONE_CHECKER.md#stages):
 
 - Format 1 (FE1d) was **integrated**: the implementer ran
@@ -11,12 +12,17 @@ Status (2026-11-12), in the stages of
   on a snapshot of all of `Init`. The data was read whole, in 13.7 s and
   0.6 GB in all; the slice's data was refused there as another export's.
   The done checker has not run it.
-- Format 2 (FE1e1) is **tested alone**. The exporter, the reader and
-  `leanforth check --elab-data` read and check it, and the reference test
-  compares it with pinned Lean on all of `Init`. The format-2 sections
-  below are the current ones; format 1 is now refused.
-- Nothing uses the data yet. The elaborator (FE1e3 and later), the
-  tactics (FE1g) and Meta's whnf (FE1d2) are not built.
+- Format 2 (FE1e1) was **tested alone**; it is now refused, as format 1
+  is (a format-2 file says `"sunfold":0`, which would read as "no
+  definition has a smart-unfolding body").
+- Format 3 (S2 merge A, branch `s2-unfold`) is **tested alone**: format 2
+  plus every smart-unfolding body (`sunfold`) and the `match_pattern`
+  tag. The exporter, the reader and `leanforth check --elab-data` write,
+  read and check it; Meta's whnf (`lf-menv-smart?`) answers from it. The
+  sections below are format 3's.
+- `leanforth check` reads the data but no verdict uses it yet: the
+  instance table (FE1e3) and Meta's whnf are tested alone; the
+  elaborator (s1-elab) is not merged.
 
 ## What it is and why
 
@@ -141,7 +147,7 @@ something else). What LeanForth checks and what it takes on trust:
 ```text
 $ scripts/export.sh init.ndjson Init                     # the export and its manifest
 $ scripts/export-elab.sh init.elab.ndjson init.ndjson Init
-init.elab.ndjson: 290 class, 2938 instance, 31 instance_left_out, 34 default_instance, 7609 reducibility, 6 eliminator, 3790 tag, 2553 matcher, 975 projection, 0 sunfold; left out (not declarations of the export): 0 class, 0 instance, 0 default_instance, 114 reducibility, 0 eliminator, 45 tag, 78 matcher, 12 projection
+init.elab.ndjson: 290 class, 2938 instance, 31 instance_left_out, 34 default_instance, 7609 reducibility, 6 eliminator, 3813 tag, 2553 matcher, 975 projection, 387 sunfold; left out (not declarations of the export): 0 class, 0 instance, 0 default_instance, 114 reducibility, 0 eliminator, 45 tag, 78 matcher, 12 projection, 2 sunfold; 25 sunfold bodies naming what the export lacks
 ```
 
 The example above is shown, not run by `make check-doc-examples`, because
@@ -175,6 +181,11 @@ examples further down are run.
     are not 0, 1, 2, ...;
   - another Lean;
   - an export whose SHA-256 differs from its manifest's.
+- It keeps a smart-unfolding body when its definition is in the export,
+  whatever the body names, and counts the bodies that name a constant the
+  export lacks (25 of `Init`'s 387 kept: each names a `f._proof_N` lemma
+  that lean4export does not write); LeanForth answers *unsupported* where
+  it would use one (S2 merge B).
 - It sorts the records and writes the header, so the same input always
   gives the same bytes.
 
@@ -190,9 +201,11 @@ declarations) gives `tests/front/init-slice.elab.ndjson`:
 - 2 default instances (`instHAdd` for `HAdd`, priority 1000;
   `instOfNatNat` for `OfNat`, priority 100);
 - 18 reducibility statuses;
-- 5 tags (of `Nat.casesOn`, `Nat.brecOn`, `Nat.below`);
+- 10 tags (of `Nat.casesOn`, `Nat.brecOn`, `Nat.below`, and
+  `match_pattern` of `Add.add`, `HAdd.hAdd`, `Nat.add`, `Unit.unit`, `rfl`);
 - 4 matchers (`Nat.add.match_1` and three private ones);
 - 3 projection functions (`Add.add`, `HAdd.hAdd`, `OfNat.ofNat`);
+- 1 smart-unfolding body (`Nat.add`'s);
 - no eliminator (`Nat.recAux` is not in the slice).
 
 What the Lean program reads, after `importModules` with the extensions
@@ -205,9 +218,10 @@ loaded (global entries only: nothing scoped is active after an import):
 | `default_instance` | `Meta.defaultInstanceExtension`: class, instance, priority, and the rank in `getDefaultInstances` (most recent first) | 34 |
 | `reducibility` | every constant whose `getReducibilityStatusCore` is not `semireducible`: `reducible`, `irreducible`, `implicit_reducible` or `instance_reducible` (Lean 4.35.0's five statuses) | 7,723 (4,491 reducible, 2,782 instance_reducible, 343 implicit_reducible, 107 irreducible) |
 | `eliminator` | `Meta.customEliminatorExt`: `@[induction_eliminator]` and `@[cases_eliminator]`, keyed as Lean keys them by the head constants of the explicit targets' types | 6 (`Nat.recAux`, `Nat.casesAuxOn`, `BitVec.cons_induction`, `Decidable.falseTrueCases` twice, `Std.PlausibleIterStep.casesOn`) |
-| `tag` | per constant: the tag attributes `elab_as_elim` and `elab_without_expected_type` (Elab/App.lean:28, 1123); `aux_recursor` (`isAuxRecursor`, AuxRecursor.lean:31, which also holds for `Eq.ndrec` and `Eq.ndrecOn`); `no_confusion` (`isNoConfusion`); `cases_on`, `rec_on`, `brec_on` (`isCasesOnRecursor` and its siblings: an auxiliary recursor named `casesOn`, `recOn`, `brecOn`) | 3,835 (1,496 aux_recursor, 886 no_confusion, 604 cases_on, 584 rec_on, 244 elab_as_elim, 21 brec_on) |
+| `tag` | per constant: the tag attributes `elab_as_elim` and `elab_without_expected_type` (Elab/App.lean:28, 1123); `aux_recursor` (`isAuxRecursor`, AuxRecursor.lean:31, which also holds for `Eq.ndrec` and `Eq.ndrecOn`); `no_confusion` (`isNoConfusion`); `cases_on`, `rec_on`, `brec_on` (`isCasesOnRecursor` and its siblings: an auxiliary recursor named `casesOn`, `recOn`, `brecOn`); `match_pattern` (`hasMatchPatternAttribute`, Meta/Match/MatchPatternAttr.lean:41) | 3,858 (1,496 aux_recursor, 886 no_confusion, 604 cases_on, 584 rec_on, 244 elab_as_elim, 23 match_pattern, 21 brec_on) |
 | `matcher` | per constant, `Meta.getMatcherInfoCore?` (Meta/Match/MatcherInfo.lean:141) | 2,631 |
 | `projection` | per constant, `getProjectionFnInfo?` (ProjFns.lean:37) | 987 |
+| `sunfold` | every constant `f._sunfold` (`mkSmartUnfoldingNameFor`, Meta/WHNF.lean:50), a definition: `f`, its universe parameters, its value as tables of levels and nodes, and `getStructuralRecArgPos? f` (WHNF.lean:46, which is `getStructuralRecArgPosImp?`, Elab/PreDefinition/Structural/Eqns.lean:191) | 389 |
 
 The order of the instance tree cannot be recovered from the export: Lean
 orders a node's children by `Key.lt` (DiscrTree/Basic.lean:40), which
@@ -220,9 +234,9 @@ in exactly that order, filtered to the matches (probe p6 of the FE1e
 design). `getInstances` then sorts them stably by priority, and Lean
 tries them from the last.
 
-## The format, version 2
+## The format, version 3
 
-One JSON object per line ([schema](../../schemas/elab-data-2.schema.json),
+One JSON object per line ([schema](../../schemas/elab-data-3.schema.json),
 which every line satisfies). Names and keys are written as follows:
 
 - A name is the JSON array of its parts, root first, each a string or a
@@ -246,7 +260,7 @@ and the reader refuses it as malformed.
 Line 1 is the header:
 
 ```json
-{"elab_data":{"export_sha256":"5f906a8e...","format":"leanforth-elab-data","format_version":2,"lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"class":3,"default_instance":2,"eliminator":0,"instance":3,"instance_left_out":54,"matcher":4,"projection":3,"reducibility":18,"sunfold":0,"tag":5},"records_sha256":"..."}}
+{"elab_data":{"export_sha256":"5f906a8e...","format":"leanforth-elab-data","format_version":3,"lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"class":3,"default_instance":2,"eliminator":0,"instance":3,"instance_left_out":54,"matcher":4,"projection":3,"reducibility":18,"sunfold":1,"tag":10},"records_sha256":"..."}}
 ```
 
 - `export_sha256` is the export's SHA-256 as its manifest records it.
@@ -265,27 +279,31 @@ kind by text:
 | `default_instance` | `class`, `name` (the instance), `priority`, `rank` (its place in Lean's `getDefaultInstances` of the class, the most recent first; at most 65,535, error 40). Two of one class may not share a rank, but the ranks may have gaps: a default instance whose declaration the export lacks has no record of its own (format 2 has no `default_instance_left_out`), so its rank is missing, and refusing gaps would refuse every slice that lacks one. FE1e3's `lf-default-instances` gives a gap there (`lf-default-gap?`), and a caller that reaches it answers *unsupported* |
 | `reducibility` | `name`, `status`: one of `reducible`, `irreducible`, `implicit_reducible`, `instance_reducible` |
 | `eliminator` | `kind` (`induction` or `cases`), `name` (the eliminator), `types` (the names of the explicit targets' types) |
-| `tag` | `name`, `tag`: one of `elab_as_elim`, `elab_without_expected_type`, `aux_recursor`, `no_confusion`, `cases_on`, `rec_on`, `brec_on` |
+| `tag` | `name`, `tag`: one of `elab_as_elim`, `elab_without_expected_type`, `aux_recursor`, `no_confusion`, `cases_on`, `rec_on`, `brec_on`, `match_pattern` |
 | `matcher` | `name` (the matcher), `num_params`, `num_discrs`, `u_elim_pos` (the place of the universe parameter it eliminates into, or `null` when it eliminates only into `Prop`), `alt_infos` (each alternative's `num_fields`, `num_overlaps` and `has_unit_thunk`), `discr_names` (each discriminant's `h :` name, or `null`). Lean's `overlaps` map, which only the splitter reads, is not written |
 | `projection` | `name` (the projection function), `ctor` (the structure's constructor), `num_params` (the structure's parameters), `idx` (the field), `from_class` (whether the structure is a class) |
-| `sunfold` | smart-unfolding bodies (plan row FE1d2): a kind of format 2 that no exporter writes yet; the reader refuses such a record as *unsupported* (error 38). The [design](#smart-unfolding-bodies-designed-not-built) is below |
+| `sunfold` | a [smart-unfolding body](#smart-unfolding-bodies-format-3): `name` (the definition `f`), `level_params` (the universe parameters of `f._sunfold`, which are `f`'s), `levels` and `nodes` (its value, as tables), `value` (the root, a node's place), `rec_arg` (`f`'s structural recursion argument, or `null`). Every `f._sunfold` of the modules has one, so a definition with no record has none |
 
 A default instance the export lacks leaves a gap in its class's ranks
 (none does in `Init`); the instance tree's ranks have none, since every
 value of the tree has a record.
 
-Format version 1 ([schema](../../schemas/elab-data-1.schema.json): the
+Format versions 1 ([schema](../../schemas/elab-data-1.schema.json): the
 `instance` record without `keys` and `rank`, the `default_instance`
 record without `rank`, and only the four kinds `instance`,
-`default_instance`, `reducibility` and `eliminator`) is refused as
-"another format version" (unsupported, error 7). Export the data again
-with `scripts/export-elab.sh`.
+`default_instance`, `reducibility` and `eliminator`) and 2
+([schema](../../schemas/elab-data-2.schema.json): no smart-unfolding
+body and no `match_pattern` tag, its header saying `"sunfold":0`) are
+refused as "another format version" (unsupported, error 7): a format-2
+file read as format 3 would say that no definition has a smart-unfolding
+body, and `Nat.add` would unfold by its `brecOn` value, unlike Lean.
+Export the data again with `scripts/export-elab.sh`.
 
 ## Reading it: `leanforth check --elab-data`
 
 ```console
 $ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data tests/front/init-slice.elab.ndjson tests/author/19-add-zero.lf | head -1
-elaboration data: 3 instances, 2 default instances, 18 reducibility statuses, 0 eliminators, 54 instances left out, 3 classes, 5 tags, 4 matchers, 3 projections
+elaboration data: 3 instances, 2 default instances, 18 reducibility statuses, 0 eliminators, 54 instances left out, 3 classes, 10 tags, 4 matchers, 3 projections, 1 smart-unfolding bodies
 ```
 
 `--elab-data DATA` goes with a LeanForth text and its library (`--env
@@ -307,7 +325,7 @@ record cut off, is refused:
 
 ```console
 $ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data tests/front/cut-off.elab.ndjson tests/author/19-add-zero.lf
-error: invalid: the elaboration data was refused at line 96 (error 20): records differ in number from the header; the LeanForth text was not checked
+error: invalid: the elaboration data was refused at line 102 (error 20): records differ in number from the header; the LeanForth text was not checked
 ```
 
 What the reader checks, each failure refused with its reason:
@@ -319,7 +337,7 @@ What the reader checks, each failure refused with its reason:
 | its members, each well typed | `malformed line` | invalid |
 | its export SHA-256 is the library's | `elaboration data of another export` | invalid |
 | every line is one JSON object of a known kind with exactly its members | `not one JSON value within the limits`, `unknown record kind`, `malformed line` | invalid |
-| the kind is one this reader reads | `a record kind this reader does not read yet` (`sunfold`) | unsupported |
+| a smart-unfolding body: its definition a definition, once; its universe parameters the definition's, in order, and every `param` level one of them; every table entry naming only earlier ones, the root a node; no loose bound variable at the root; an annotation one entry `sunfoldMatch`, `sunfoldMatchAlt` or `borrowed` with the value true; a projection's structure an inductive type. A constant, or a projection's structure, that no declaration has makes the body foreign: kept, and *unsupported* where it would be used | `a smart-unfolding body named twice`, `universe parameters other than the definition's`, `an index to no earlier entry`, `a loose bound variable`, `an annotation this reader does not know`, `a declaration of the wrong kind` | invalid; unsupported for an annotation |
 | every name is exactly one declaration of the library (a left-out instance's key constants and projected structures: or none, kept as foreign keys) | `unknown name`, `a name several declarations have` | invalid |
 | of the right kind: a class an inductive type; an instance, eliminator, tagged declaration or projection function not one; a matcher a definition; a projection's constructor a constructor; a projection key's structure an inductive type | `a declaration of the wrong kind` | invalid |
 | an instance's and a default instance's class has a class record before it | `a class without its class record before it` | invalid |
@@ -349,7 +367,7 @@ printed with its text (`at line 2 (error 12): unknown name`):
 | 4 | `not one JSON value within the limits` | invalid (full past 65,536 tokens or 8 levels) | a line that is not JSON |
 | 5 | `no header` | invalid | line 1 is not `{"elab_data": {...}}` |
 | 6 | `not elaboration data` | invalid | the header's format is another |
-| 7 | `another format version` | unsupported | `format_version` is not 2 (format 1 among them) |
+| 7 | `another format version` | unsupported | `format_version` is not 3 (formats 1 and 2 among them) |
 | 8 | `another Lean version` | unsupported | written by another Lean version or revision |
 | 9 | `elaboration data of another export` | invalid | `export_sha256` is not the library's |
 | 10 | `malformed line` | invalid | a member missing, added or of the wrong type; a malformed name or key; discriminant names that are not one per discriminant |
@@ -380,9 +398,14 @@ printed with its text (`at line 2 (error 12): unknown name`):
 | 35 | `a matcher named twice` | invalid | two matcher records of one declaration |
 | 36 | `a projection named twice` | invalid | two projection records of one declaration |
 | 37 | `numbers that do not fit the declaration's type` | invalid | a matcher's, projection's or class's numbers that its type, its constructor's or its universe parameters cannot have |
-| 38 | `a record kind this reader does not read yet` | unsupported | a `sunfold` record (plan row FE1d2) |
+| 38 | `a record kind this reader does not read yet` | unsupported | not given since format 3, which reads every kind (format 2's readers gave it for a `sunfold` record) |
 | 39 | `other records than the export's manifest names` | invalid | the library's manifest has `elab_records_sha256` (M6) and the header's `records_sha256` differs |
 | 40 | `a default instance's rank beyond 65535` | invalid | a `default_instance` record's `rank` above 65,535 (`elab-default-rank-most`) |
+| 41 | `a smart-unfolding body named twice` | invalid | two `sunfold` records of one definition |
+| 42 | `an index to no earlier entry` | invalid | a level or node that names itself or a later entry of its table, a node's level beyond the table, or a root that is no node |
+| 43 | `a loose bound variable` | invalid | the root of a smart-unfolding body has a loose bound variable |
+| 44 | `universe parameters other than the definition's` | invalid | `level_params` that are not the definition's, in order, or a `param` level that is none of them |
+| 45 | `an annotation this reader does not know` | unsupported | an `mdata` node other than one entry `sunfoldMatch`, `sunfoldMatchAlt` or `borrowed` with the value true (no other is in `Init`) |
 
 Misuse is refused before anything runs:
 
@@ -419,7 +442,7 @@ Example, in three forms, of what the words give for the slice's data:
 | `elab-unhashed` | `( outcome -- outcome )` | for a caller that could not hash the export: refuse with error 26 at line 0, nothing loaded |
 | `elab-loaded?` | `( -- flag )` | the last read was ok |
 | `elab-reset` | `( -- )` | forget everything |
-| `elab-count` | `( kind -- n )` | records of a kind: `elab-instance`, `elab-default`, `elab-reducibility`, `elab-eliminator`, `elab-left-out`, `elab-class`, `elab-tag`, `elab-matcher`, `elab-projection` (`elab-sunfold`: always 0) |
+| `elab-count` | `( kind -- n )` | records of a kind: `elab-instance`, `elab-default`, `elab-reducibility`, `elab-eliminator`, `elab-left-out`, `elab-class`, `elab-tag`, `elab-matcher`, `elab-projection`, `elab-sunfold` |
 | `elab-instance@` | `( i -- d class priority )` | instance `i` |
 | `elab-instance-order` | `( i -- addr n )` | its synthesis order, `n` cells |
 | `elab-instance-keys` | `( i -- k n )` | its keys, `k` .. `k+n-1` |
@@ -433,7 +456,7 @@ Example, in three forms, of what the words give for the slice's data:
 | `elab-class@` | `( k -- d )` | class `k`'s declaration |
 | `elab-class-out-params`, `elab-class-out-levels` | `( k -- addr n )` | its out-parameter and out-level positions, `n` cells |
 | `elab-status` | `( d -- status )` | `elab-semireducible` (no record), `elab-reducible`, `elab-irreducible`, `elab-implicit-reducible`, `elab-instance-reducible` |
-| `elab-tagged?` | `( d tag -- flag )` | whether `d` has the tag: `elab-tag-as-elim`, `elab-tag-no-expected`, `elab-tag-aux-recursor`, `elab-tag-no-confusion`, `elab-tag-cases-on`, `elab-tag-rec-on`, `elab-tag-brec-on` |
+| `elab-tagged?` | `( d tag -- flag )` | whether `d` has the tag: `elab-tag-as-elim`, `elab-tag-no-expected`, `elab-tag-aux-recursor`, `elab-tag-no-confusion`, `elab-tag-cases-on`, `elab-tag-rec-on`, `elab-tag-brec-on`, `elab-tag-match-pattern` |
 | `elab-eliminator@` | `( i -- kind d )` | eliminator `i`, kind `elab-induction` or `elab-cases` |
 | `elab-eliminator-types` | `( i -- addr n )` | its target types, `n` cells |
 | `elab-eliminator-for` | `( d kind -- i true \| false )` | the eliminator of a kind whose one target type is `d` |
@@ -443,6 +466,10 @@ Example, in three forms, of what the words give for the slice's data:
 | `elab-matcher-alts`, `elab-alt@` | `( m -- a n )`, `( a -- fields overlaps thunk? )` | its alternatives |
 | `elab-projection-of` | `( d -- p true \| false )` | the projection record of a declaration |
 | `elab-projection@`, `elab-projection-decl`, `elab-projection-class?` | `( p -- ctor params idx )`, `( p -- d )`, `( p -- flag )` | projection `p` |
+| `elab-sunfold-of` | `( d -- s true \| false )` | the smart-unfolding body of a definition |
+| `elab-sunfold-decl`, `elab-sunfold-value`, `elab-sunfold-rec-arg`, `elab-sunfold-foreign?` | `( s -- d )`, `( s -- n )`, `( s -- k true \| false )`, `( s -- flag )` | body `s`: its definition, its root node, the recursion argument (false: null), whether a node names a constant the library lacks |
+| `elab-node-kind`, `elab-node-a` .. `elab-node-d`, `elab-node-levels` | `( n -- kind )`, `( n -- x )`, `( n -- addr k )` | node `n` (numbered across bodies): `elab-node-bvar`, `-sort`, `-app`, `-lam`, `-forall`, `-let`, `-have`, `-lit`, `-str`, `-proj`, `-mdata`, `-const`, and its fields as `src/front/elab-data.fs` tabulates them (a binder's name, a literal's digits and a string's bytes are keys, read with `elab-key-text`; a constant's or structure's declaration is -1 when the library has none); a constant's levels, `k` cells |
+| `elab-level-kind`, `elab-level-a`, `elab-level-b` | `( l -- kind )`, `( l -- x )` | level `l`: `elab-level-zero`, `-succ`, `-max`, `-imax` (earlier levels in `a`, `b`), `-param` (its place among the definition's universe parameters in `a`) |
 | `elab-key-tag` | `( k -- tag )` | `elab-key-star`, `-other`, `-lit`, `-str`, `-const`, `-arrow`, `-proj`, `-foreign` |
 | `elab-key-decl`, `elab-key-idx` | `( k -- d )`, `( k -- i )` | a constant's or projection's declaration; a projection's field |
 | `elab-key-arity` | `( k -- n )` | Lean's `Key.arity` (the table above; for a foreign key, its own, as Lean's key had it) |
@@ -476,68 +503,94 @@ drops leaves it, makes that instance unverified (error 114). `make
 reference-synth` recomputes every Init instance and compares getInstances
 with pinned Lean's `#synth` traces.
 
-## Smart-unfolding bodies: designed, not built
+## Smart-unfolding bodies (format 3)
 
-Plan row FE1d2 (on the branch that adds it) needs one more fact for Meta's
-whnf. When the option `smartUnfolding` is on (the default) and `f._sunfold`
-exists, `unfoldDefinition?` unfolds `f` by `f._sunfold`'s value and runs
+Meta's whnf needs one more fact (plan S2). When the option
+`smartUnfolding` is on (the default) and `f._sunfold` exists,
+`unfoldDefinition?` unfolds `f` by `f._sunfold`'s value and runs
 `smartUnfoldingReduce?` (Meta/WHNF.lean:720, 853, 918). That value is `f`
 written with direct recursion instead of `brecOn`. Annotations mark where a
 match must reduce (`sunfoldMatch`) and where an alternative was reached
 (`sunfoldMatchAlt`). lean4export writes neither `_sunfold` definitions
 (an internal name) nor annotations (mdata). Measured with pinned Lean
-(scratch probe, 2026-11-12):
+(`scripts/export_elab.lean` on `Init`, 2026-11-13):
 
-- `Init` has 389 `_sunfold` definitions.
-- Their annotations have three keys: `sunfoldMatch` (389),
-  `sunfoldMatchAlt` (1,014) and `borrowed` (8, the compiler's
-  borrow mark).
+- `Init` has 389 `_sunfold` definitions, every one a definition with a
+  structural recursion argument; 387 are of definitions the export has.
+- In the node tables (shared subterms written once) the annotations are
+  389 `sunfoldMatch`, 983 `sunfoldMatchAlt` and 7 `borrowed` (the
+  compiler's borrow mark), each one entry with the value true.
+- 25 of the 387 name a constant the export lacks, each a `f._proof_N`
+  lemma: such a body is kept and *unsupported* where it is used.
 - `Nat.add._sunfold` is
   `fun x y => [sunfoldMatch] Nat.add.match_1 (fun _ _ => Nat) x y (fun a => [sunfoldMatchAlt] a) (fun a b => [sunfoldMatchAlt] Nat.succ (Nat.add a b))`.
 
-The design, for format 2's reserved kind `sunfold` (the header already
-counts it, so the data needs no new format version):
+The same fact in three forms: in mathematics, `0 + (k + 1) = (0 + k) + 1`
+by the second equation of `+`; in Lean, `Nat.add` has the smart-unfolding
+body above, so `Nat.add 0 (k + 1)` unfolds to `Nat.succ (Nat.add 0 k)`;
+in the data, one `sunfold` record:
 
-- **Record:** `{"sunfold":{"name":F,"level_params":[NAME...],"nodes":[NODE...],"value":I}}`.
+```json
+{"sunfold":{"level_params":[],"levels":["zero",{"succ":0}],"name":["Nat","add"],"nodes":[{"const":["Nat"],"levels":[]},...],"rec_arg":1,"value":23}}
+```
+
+- **Record:** `{"sunfold":{"name":F,"level_params":[NAME...],"levels":[LEVEL...],"nodes":[NODE...],"value":I,"rec_arg":K}}`.
   - `F` is the definition `f` of the library.
-  - `level_params` are `f._sunfold`'s universe parameters (Lean gives
-    `f`'s).
-  - `nodes` is a hash-consed table of the value's subterms, each node
-    referring only to earlier nodes by their index, so that shared
-    subterms are written once.
-  - `value` is the index of the root.
+  - `level_params` are `f._sunfold`'s universe parameters, which are
+    `f`'s, in order.
+  - `levels` and `nodes` are tables of the value's levels and subterms,
+    each entry naming only earlier ones by their place, so that shared
+    parts are written once; `value` is the root's place among the nodes.
+  - `rec_arg` is `f`'s structural recursion argument (Lean checks that it
+    reduces to a constructor before the smart path's answer stands,
+    WHNF.lean:898-905), or `null`. It is a place among an application's
+    arguments, which Lean compares with their number where it uses it:
+    it may lie beyond the binders `f`'s type shows, as
+    `Nat.decidableExistsLT`'s does (its type ends in `DecidablePred`, a
+    definition of a Pi type), so the reader checks no bound.
+- **Levels:** `"zero"`, `{"succ":L}`, `{"max":[L,L]}`,
+  `{"imax":[L,L]}`, `{"param":NAME}`, each `L` an earlier level's place.
+  A table rather than JSON trees, so that a record nests at most 8 deep,
+  the reader's limit.
 - **Nodes:**
-  - `{"bvar":i}`
-  - `{"sort":L}`
-  - `{"const":NAME,"levels":[L...]}`
+  - `{"bvar":i}`, `{"sort":L}`, `{"const":NAME,"levels":[L...]}`
   - `{"app":[f,a]}`
   - `{"lam":{"name":NAME,"info":"default|implicit|strict|inst","type":i,"body":j}}`
-    and `{"forall":...}` alike
+    and `{"forall":...}` alike (a binder's name may be anonymous, `[]`)
   - `{"let":{"name":NAME,"type":i,"value":j,"body":k,"non_dep":bool}}`
   - `{"lit":"DIGITS"}`, `{"str":S}`
   - `{"proj":{"struct":NAME,"idx":i,"expr":j}}`
-  - `{"mdata":{"entries":[[KEY,VALUE]...],"expr":i}}`, with `KEY` a name
-    and `VALUE` one of `{"bool":b}`, `{"nat":"DIGITS"}`, `{"string":S}`,
-    `{"name":NAME}` (Lean's `DataValue`; the exporter stops at any other)
-  - no free variables or metavariables.
+  - `{"mdata":{"entries":[[KEY,{"bool":true}]],"expr":i}}`, `KEY` one of
+    `["sunfoldMatch"]`, `["sunfoldMatchAlt"]`, `["borrowed"]`
+  - no free variables or metavariables (the exporter stops).
   - Binder names keep their macro scopes as name parts (hygienic names
     such as `x._@.Init.Prelude.2314059840._hygCtx._hyg.13`).
-- **Levels**, as JSON trees: `"zero"`, `{"succ":L}`, `{"max":[L,L]}`,
-  `{"imax":[L,L]}`, `{"param":NAME}`.
-- **Checked when read:** the forms; every constant is one declaration of
-  the library; `F` is a definition of the library and has one record; the
-  universe parameters are `F`'s, and every `param` is among them; nodes
-  refer only to earlier nodes; no bound variable is loose at the root; an
-  mdata key is one of the three seen (others unsupported until seen).
-- **Checked at first use** (FE1d2's whnf): the value, its annotations
-  erased, is type-checked by the kernel against `F`'s type, which is the
-  type of `f._sunfold`; *unsupported* if the kernel cannot.
-- **Taken on trust:** that it is Lean's `_sunfold` body (any well-typed
-  term passes the kernel). Lean's whnf uses it only to decide how far to
-  unfold, and every term the front end builds is still kernel-checked;
-  the guard is FE1d2's node-for-node comparisons with pinned Lean.
-- **Size:** 389 records for `Init`; the node tables keep each record's
-  sharing.
+- **Checked when read:** the forms; `F` is a definition of the library
+  with one record; the universe parameters are `F`'s and every `param`
+  is among them; every entry names only earlier ones; no bound variable
+  is loose at the root; every constant
+  and projected structure is one declaration of the library (a
+  structure an inductive type) or none, which makes the body foreign; an
+  annotation is one of the three.
+- **Not checked at first use.** The design of 2026-11-12 had the kernel
+  type-check each body at its first use; it is withdrawn (S2 design
+  review M4, 2026-11-13): it would need a new kernel entry point on a
+  scratch term ([kernel], [bypass] gates), and the trust argument below
+  makes it unnecessary.
+- **Taken on trust ([import] gate, S2 merge A):** that it is Lean's
+  `_sunfold` body. The bodies are untrusted data, bound to the export by
+  the manifest's `elab_records_sha256` (M6). A wrong body can only change
+  an elaborated term, which the kernel checks against the declarations it
+  reads itself; Lean's whnf uses it only to decide how far to unfold, and
+  the guard is the node-for-node comparisons of S2's elaborated terms
+  with pinned Lean's.
+- **Kept:** each record's universe parameters, levels and nodes in the
+  reader's tables (`elab-sunfold-of`, `elab-node-kind`, ...); a node's
+  literal, string and binder name as keys of `src/front/elab-keys.fs`.
+  Merge B decodes a body into the term store at its first use and
+  `lf-menv-smart?` already answers from the records (merge A).
+- **Size:** 387 records, 31,829 nodes and 1,088 levels for `Init`'s
+  export; the longest line is 11 KB, the largest table 355 nodes.
 
 ## Tests and evidence
 
@@ -561,20 +614,27 @@ counts it, so the data needs no new format version):
     26, full.
   - `tests/front/test_elab_data.py` tests:
     - the finisher: kept and left out, the tree kept whole, deterministic,
-      21 refusals;
-    - the schema: 190 good lines and 22 wrong ones;
+      27 refusals (a smart-unfolding body of a theorem, naming a later
+      node or level, with an unknown annotation, a root beyond its nodes
+      or an unknown binder info among them), a body naming what the
+      export lacks kept and counted;
+    - the schema: 202 good lines and 33 wrong ones;
     - the [error catalogue](#errors) against the reader's;
     - the command line: the good data with an export, a snapshot and
-      `--no-manifest`, 16 eliminators (the table grows), 6 accepted
+      `--no-manifest`, 16 eliminators (the table grows), 11 accepted
       variants (an erased left-out instance the library has, a
       discriminant's name, a matcher into `Prop` only, a projection key of
-      the slice's structure and of one it lacks, a string literal key),
-      the verdicts unchanged, and 4 misuses (a layered snapshot among
-      them);
-    - 126 damaged files, each refused with its line, code, text and exit
+      the slice's structure and of one it lacks, a string literal key, a
+      default rank at the limit, a body naming a constant the slice lacks,
+      a body with a node of every form, a body with no recursion
+      argument and one beyond its type's binders), the verdicts
+      unchanged, and 4 misuses (a layered snapshot among them);
+    - 154 damaged files, each refused with its line, code, text and exit
       status and never "accepted": format 1's checks, format 2's (codes
-      27-38, the key forms, ranks, matchers, projections, every new
-      record kind with a member added), and a format-1 file.
+      27-37, the key forms, ranks, matchers, projections, every record
+      kind with a member added), format 3's (codes 41-45, 12 and 14 and
+      malformed nodes and levels of a body), and a format-1 and a
+      format-2 file.
   - Never run by `make test` (9 blocks, listed with their reasons in
     `tests/coverage-baseline.json`):
     - a name lookup that fails in an open tier (error 23), also after a
@@ -635,15 +695,17 @@ counts it, so the data needs no new format version):
 
 ## Limits and what is left
 
-- Nothing uses the data yet: FE1e3 and later (instances, default
-  instances), FE1g (eliminators) and FE1d2 (matchers, projections,
-  auxiliary recursors, smart unfolding) will.
+- No verdict uses the data yet: FE1e3 and later (instances, default
+  instances), FE1g (eliminators) and S2 (matchers, projections,
+  auxiliary recursors, smart unfolding) use it in the front end, which
+  `leanforth check` does not run on the data yet (s1-elab).
 - The class of each instance and default instance and each instance's
   keys are checked against their types at the first instance problem
   (FE1e3, not yet run by `leanforth check`, which uses no data yet); each
   class's out-parameters only by plan row FE1e3b; until then they rest
   on pinned Lean (above, "Trust").
-- Smart-unfolding bodies are designed (above), not written or read.
+- Smart-unfolding bodies are written and read (format 3); their decoding
+  into terms, and the smart path that uses them, is S2's merge B.
 - Only `--elab-data FILE`. The export's manifest names the data's records
   SHA-256 (M6) but not its file, so the data is not found from the
   manifest alone, and a snapshot does not keep the data or the binding;

@@ -1012,7 +1012,7 @@ variable cli-info#
   ." ; the LeanForth text was not checked" cr outcome>code cli-code! ;
 \ The elaboration data read, by kind, before the verdicts.
 : cli-elab-count. ( kind -- ) elab-count .decimal ;
-\ The kinds format 1 had, then the kinds format 2 added.
+\ The kinds format 1 had, then the kinds formats 2 and 3 added.
 : cli-elab-format1 ( -- )
   elab-instance cli-elab-count. ."  instances, " elab-default cli-elab-count.
   ."  default instances, " elab-reducibility cli-elab-count.
@@ -1022,9 +1022,10 @@ variable cli-info#
   elab-class cli-elab-count. ."  classes, " elab-tag cli-elab-count. ."  tags, "
   elab-matcher cli-elab-count. ."  matchers, " elab-projection cli-elab-count.
   ."  projections" ;
+: cli-elab-format3 ( -- ) ." , " elab-sunfold cli-elab-count. ."  smart-unfolding bodies" ;
 : cli-elab-note ( -- )
   cli-elab-file nip 0= if exit then ." elaboration data: " cli-elab-format1
-  cli-elab-format2 cr ;
+  cli-elab-format2 cli-elab-format3 cr ;
 : cli-text-error ( -- )
   ." error: " lf-author-code lf-author-outcome dup outcome-text type
   ." : the LeanForth text was not checked: " lf-author-error. cr outcome>code cli-code! ;
