@@ -114,12 +114,9 @@ begin-structure /lf-ol
 end-structure
 1 cells context-record: lf-ol-held
 : lf-ol ( -- addr ) lf-ol-held @ ;
-\ The block, as log-view.fs's (lf-lv-open, lf-lv-close).
-: lf-ol-open ( -- flag )
-  lf-ol ?dup if /lf-ol erase true exit then
-  /lf-ol allocate0 if drop false exit then lf-ol-held ! true ;
-: lf-ol-close ( -- ior )
-  lf-ol dup 0= if exit then free dup 0= if 0 lf-ol-held ! then ;
+\ The block, as log-view.fs's (lib/blocks.fs's block-reused, block-free).
+: lf-ol-open ( -- flag ) /lf-ol lf-ol-held block-reused ;
+: lf-ol-close ( -- ior ) lf-ol-held block-free ;
 :noname ( -- ) lf-ol-close throw ; context-teardown
 
 \ The style of the next outlines: LaTeX (true) or plain text (false, a new
@@ -378,9 +375,8 @@ defer lf-ol-walk ( s -- )
 \ and the walk goes on with the rest. A hit is reported as rejected, a
 \ stop signal here (lf-pp-hit?), never a verdict.
 lf-walk-room context-walk2: lf-ol-scan
-: lf-ol-scan-bvar ( i walk -- outcome ) dup walk-context @ swap walk-arg @ + = lf-pp-hit ;
 : lf-ol-scan-dispatch ( first second walk tag -- outcome )
-  dup lf-tag-bvar = if drop nip lf-ol-scan-bvar exit then
+  dup lf-tag-bvar = if drop nip lf-pp-var-is exit then
   dup lf-term-binary-tag? if lf-pp-scan-binary else drop 2drop drop outcome-ok then ;
 : lf-ol-scan-visit ( walk -- outcome )
   lf-term-walk-read if lf-ol-scan-dispatch else outcome-ok then ;

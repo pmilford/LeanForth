@@ -499,11 +499,9 @@ here feed-kinds - 1 cells / constant feed-kinds#
 : feed-safe ( unsafe? -- safety ) if lf-safety-unsafe else lf-safety-safe then ;
 : feed-safety ( feed -- )
   dup ['] staged-unsafe? feed-staged@ feed-safe swap ['] lf-idecl-safety feed-field ! ;
-: feed-valued? ( kind -- flag )
-  dup lf-kind-definition = over lf-kind-theorem = or swap lf-kind-opaque = or ;
 : feed-value ( feed -- ) ['] staged-value@ ['] lf-idecl-value feed-term-copy ;
 : feed-details ( feed -- )
-  dup feed-kind@ feed-valued? if dup feed-value then
+  dup feed-kind@ lf-kind-valued? if dup feed-value then
   dup feed-kind@ lf-kind-definition = if feed-def else feed-safety then ;
 \ ---- Inductive blocks (plan task 5.2.1a; ADR 0015 B1): the block
 \ record gives a header in the input's inductive data, [first types ctors

@@ -369,10 +369,8 @@ create ly-rec-data
 : ly-table ( kind -- table|0 )
   case kind-inductive of ly-block-data endof  kind-type of ly-type-data endof
     kind-ctor of ly-ctor-data endof  kind-recursor of ly-rec-data endof  0 swap endcase ;
-: ly-names-kind? ( kind -- flag )
-  dup kind-def = over kind-thm = or swap kind-opaque = or ;
 : ly-data ( t kind ly -- t' outcome )
-  over ly-names-kind? if nip ly-names exit then
+  over valued? if nip ly-names exit then
   swap ly-table ?dup if swap ly-more else drop outcome-invalid then ;
 : ly-more-field ( addr ly -- outcome )
   over staged-more u32@ dup none? if drop 2drop outcome-ok exit then

@@ -89,11 +89,8 @@ end-structure
 \ rebuilt copy survives into the next print); and given back. A FREE that
 \ fails keeps the block recorded, so that the teardown tries again and
 \ reports it.
-: lf-lv-open ( -- flag )
-  lf-lv ?dup if /lf-lv erase true exit then
-  /lf-lv allocate0 if drop false exit then lf-lv-held ! true ;
-: lf-lv-close ( -- ior )
-  lf-lv dup 0= if exit then free dup 0= if 0 lf-lv-held ! then ;
+: lf-lv-open ( -- flag ) /lf-lv lf-lv-held block-reused ;
+: lf-lv-close ( -- ior ) lf-lv-held block-free ;
 :noname ( -- ) lf-lv-close throw ; context-teardown
 
 \ Text: the buffer, the output, numbers, padding by characters.

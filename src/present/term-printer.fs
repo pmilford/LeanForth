@@ -103,7 +103,7 @@ defer lf-pp-uargs ( addr n i frames -- ... frames next )
   3 lf-pp-failed? if 0 exit then dup >r lf-pp-restore3 r> lf-pp-uargs ;
 : lf-pp-uargs-next ( addr n i frames -- ... frames next )
   >r 2dup > 0= if 2drop drop lf-pp-universes-close outcome-ok r> 0 exit then
-  dup if lf-pp-list-comma then
+  dup if lf-pp-comma then
   r@ lf-pp-keep-next nip lf-pp-level-at false r> ['] lf-pp-uargs-back lf-pp-level-part ;
 ' lf-pp-uargs-next is lf-pp-uargs
 : lf-pp-universe-args ( term frames cont -- ... frames next )

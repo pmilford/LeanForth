@@ -82,10 +82,8 @@ lf-walk-room context-walk2: lf-pp-scan-walk
 : lf-pp-hit ( flag -- outcome ) if outcome-rejected else outcome-ok then ;
 : lf-pp-hit? ( outcome -- flag outcome )
   dup outcome-rejected = if drop true outcome-ok else false swap then ;
-: lf-pp-inner ( depth tag -- depth' true | false )
-  lf-term-binder-tag? 0= if true exit then dup max-n = if drop false else 1+ true then ;
 : lf-pp-scan-binary ( first second walk tag -- outcome )
-  over walk-context @ swap lf-pp-inner if swap walk-children-at else drop 2drop
+  over walk-context @ swap lf-term-inner if swap walk-children-at else drop 2drop
   outcome-full then ;
 : lf-pp-leaf-tag? ( tag -- flag )
   dup lf-tag-sort = over lf-tag-symbolic-sort = or over lf-tag-constant = or

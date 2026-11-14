@@ -108,7 +108,7 @@ lf-pf-reserve by-intro: by-induction-with by-end by-rw[ by-rewrite[ ] | => by-so
 : lf-pf-open-quote ( -- c-addr u ) s\" \xC2\xAB" ;
 : lf-pf-close-quote ( -- c-addr u ) s\" \xC2\xBB" ;
 \ A part of 5 or more bytes between guillemets: the reader takes it as «digits»
-\ (src/author/declarations.fs, lfa-quoted?), so as text it would read back as
+\ (src/author/declarations.fs, by this word), so as text it would read back as
 \ another part or stop the file; such a part is not written (plan task 8.6.3).
 : lf-pf-guillemets? ( c-addr u -- flag )
   dup 4 > 0= if 2drop false exit then
@@ -382,7 +382,6 @@ defer lf-pf-args ( addr n i frames -- ... frames next )
 defer lf-pf-term-step ( term x frames -- ... frames next )
 : lf-pf-term ( term frames cont -- ... frames next )
   rot 0 2swap ['] lf-pf-term-step lf-pp-call ;
-: lf-pf-binder-name ( node -- name kind ) lf-pres-binder@ 0= if 0 lf-binder-default then ;
 : lf-pf-kind-word ( kind -- c-addr u )
   case lf-binder-implicit of s" implicit:" endof lf-binder-strict of s" strict-implicit:"
     endof
@@ -390,7 +389,7 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
 : lf-pf-spellable? ( id -- flag ) dup 0= swap lf-pf-writable? or ;
 : lf-pf-name-text ( id -- ) ?dup if lf-pf-put-name else lf-pf-anonymous lf-pp-put then ;
 : lf-pf-opener ( node -- outcome )
-  lf-pf-binder-name over lf-pf-spellable? 0= if 2drop outcome-unsupported exit then
+  lf-pres-binder-name over lf-pf-spellable? 0= if 2drop outcome-unsupported exit then
   lf-pf-mark swap lf-pf-kind-word lf-pp-put s"  " lf-pp-put swap lf-pf-name-text
     lf-pf-unit
   outcome-ok ;
@@ -400,7 +399,7 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
   lf-pf-mark swap lf-pf-put-name dup lf-pp-pending lf-pf-token? if drop else lf-pp-used !
     then ;
 : lf-pf-bind-visible ( node -- outcome )
-  lf-pf-mark swap lf-pf-binder-name drop lf-pf-referable 0 swap lf-pp-bind ;
+  lf-pf-mark swap lf-pres-binder-name drop lf-pf-referable 0 swap lf-pp-bind ;
 : lf-pf-bind-arrow ( -- outcome ) -1 lf-pf-mark lf-pp-bind ;
 \ A binder's domain, then kind: NAME and the binder in scope, a part of a
 \ visit: node waits while the domain prints.
@@ -422,7 +421,7 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
 : lf-pf-loose-name? ( id -- flag ) dup 0= if drop true else lf-pp-hygienic? then ;
 : lf-pf-arrow? ( pi -- flag outcome )
   dup lf-pp-kind lf-binder-default <> if drop false outcome-ok exit then
-  dup lf-pf-binder-name drop lf-pf-loose-name? 0= if drop false outcome-ok exit then
+  dup lf-pres-binder-name drop lf-pf-loose-name? 0= if drop false outcome-ok exit then
   lf-term-second@ 0 lf-pp-loose? >r 0= r> ;
 \ A B ->: pi waits while A prints.
 : lf-pf-arrow-end ( outcome frames -- outcome frames 0 )
@@ -515,7 +514,7 @@ lf-pp-tags ' lf-pf-invalid-step xt-table: lf-pf-steps
 \ the declaration's visit, as is a body on its own line.
 : lf-pf-param-line ( binder frames cont -- ... frames next ) 2 lf-pf-open lf-pf-head ;
 : lf-pf-same-binder? ( pi lam -- flag )
-  lf-pf-binder-name rot lf-pf-binder-name rot = >r = r> and ;
+  lf-pres-binder-name rot lf-pres-binder-name rot = >r = r> and ;
 : lf-pf-shares? ( type value -- flag )
   over lf-tag-pi lf-pp-is? over lf-tag-lam lf-pp-is? and 0= if 2drop false exit then
   2dup lf-term-first@ swap lf-term-first@ <> if 2drop false exit then lf-pf-same-binder? ;

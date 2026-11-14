@@ -89,16 +89,18 @@ require ./compact-tier.fs
 : name-lookup ( tier -- n true | i false )
   dup name-cand quad-data u32@ over name-under? rot tier-names cons-find ;
 : name-keep ( i tier -- n outcome ) 1 -rot tier-names cons-commit ;
-: name-intern ( tier -- n outcome )
-  dup name-lookup if nip outcome-ok else swap name-keep then ;
+\ The candidate's number when the set holds it, else kept by xt ( i tier
+\ -- n outcome ).
+: intern-by ( tier xt -- n outcome )
+  >r dup name-lookup if nip outcome-ok r> drop else swap r> execute then ;
+: name-intern ( tier -- n outcome ) ['] name-keep intern-by ;
 \ A string component: the record is kept first (at the limit it is full),
 \ then its text, whose offset goes into the record.
 : str-text! ( n tier -- n )
   tier-names >r r@ cons-key 2@ r@ cons-text, over r> cons-at quad-b u32! ;
 : str-keep ( i tier -- n outcome )
   tuck name-keep dup ok? if drop swap str-text! outcome-ok else rot drop then ;
-: str-intern ( tier -- n outcome )
-  dup name-lookup if nip outcome-ok else swap str-keep then ;
+: str-intern ( tier -- n outcome ) ['] str-keep intern-by ;
 
 \ A string component. Its text goes into the set's key first (cons-key!),
 \ so that a text from the tier's own byte slab, which may move while room
@@ -118,20 +120,21 @@ require ./compact-tier.fs
   >r over 0 r@ name-room dup ok? 0= if nip nip r> drop exit then drop
   swap tag-name-num r@ name-head! dup r@ name-x! r> name-hash! outcome-ok ;
 
+\ A name set up as the tier's candidate by setup ( i*x tier -- outcome ),
+\ then interned or sought by then ( tier -- n outcome ); a setup that
+\ fails gives -1 and its outcome.
+: name-by ( i*x tier setup then -- n outcome )
+  >r over >r execute dup ok? if drop r> r> execute else r> r> 2drop no-result then ;
 \ The name prefix.addr-u, or prefix.u: its number (an equal name's, which
 \ may be the input tier's) and ok; or -1 and full or invalid.
-: name-str ( prefix addr u tier -- n outcome )
-  dup >r str-setup dup ok? if drop r> str-intern else r> drop no-result then ;
-: name-num ( prefix u tier -- n outcome )
-  dup >r num-setup dup ok? if drop r> name-intern else r> drop no-result then ;
+: name-str ( prefix addr u tier -- n outcome ) ['] str-setup ['] str-intern name-by ;
+: name-num ( prefix u tier -- n outcome ) ['] num-setup ['] name-intern name-by ;
 \ The same names looked up without adding them: the number and ok; -1
 \ and ok when the name is absent; -1 and full or invalid when the lookup
 \ fails, as name-str and name-num would.
 : name-seek ( tier -- n outcome ) name-lookup 0= if drop -1 then outcome-ok ;
-: name-seek-str ( prefix addr u tier -- n outcome )
-  dup >r str-setup dup ok? if drop r> name-seek else r> drop no-result then ;
-: name-seek-num ( prefix u tier -- n outcome )
-  dup >r num-setup dup ok? if drop r> name-seek else r> drop no-result then ;
+: name-seek-str ( prefix addr u tier -- n outcome ) ['] str-setup ['] name-seek name-by ;
+: name-seek-num ( prefix u tier -- n outcome ) ['] num-setup ['] name-seek name-by ;
 \ The older forms: the number and true, or false, both when the name is
 \ absent and when the lookup fails (name-seek-str tells them apart).
 : seek>find ( n outcome -- n true | false ) ok? over 0< 0= and dup 0= if nip then ;

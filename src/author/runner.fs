@@ -49,6 +49,7 @@
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
+require ../lib/text-run.fs
 require ./words.fs
 require ./export.fs
 
@@ -99,13 +100,10 @@ end-structure
 
 \ Floating-point numbers, on hosts whose interpreter reads them: dropped
 \ after an error (a float token is refused like any number form).
-[defined] fdepth [if]
-: lfa-floats! ( -- ) fdepth lfa-run lfa-run-floats ! ;
-: lfa-floats-clear ( -- ) begin fdepth lfa-run lfa-run-floats @ > while fdrop repeat ;
-[else]
-: lfa-floats! ( -- ) ;
-: lfa-floats-clear ( -- ) ;
-[then]
+\ (lib/text-run.fs's floats-depth and floats-drop-to, also on a host
+\ without floating point).
+: lfa-floats! ( -- ) floats-depth lfa-run lfa-run-floats ! ;
+: lfa-floats-clear ( -- ) lfa-run lfa-run-floats @ floats-drop-to ;
 
 \ Lines of text, split at LF; a CR before it is dropped.
 : lfa-eol ( c-addr u -- n )

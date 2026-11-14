@@ -223,9 +223,8 @@ end-structure
   case lf-binder-implicit of s" implicit" endof
     lf-binder-strict of s" strictImplicit" endof
     lf-binder-instance of s" instImplicit" endof s" default" rot endcase ;
-: lfx-naming ( term -- name kind ) lf-pres-binder@ 0= if 0 lf-binder-default then ;
 : lfx-binder ( term c-addr u -- )
-  lfx-inner dup lfx-naming lfx-info s" binderInfo" lfx-text
+  lfx-inner dup lf-pres-binder-name lfx-info s" binderInfo" lfx-text
   over lf-term-second@ s" body" lfx-ref s" name" lfx-member
   lf-term-first@ s" type" lfx-ref lfx-close ;
 : lfx-levels-of ( addr count -- )

@@ -256,14 +256,13 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   dup lf-ind-kind-at swap lf-ind-member
   dup lf-idecl-more @ 0<> over lf-idecl-block @ lf-ind-type lf-idecl-block @ = and
   swap lf-idecl-kind @ rot = and ;
-: lf-ind-members-ok? ( -- flag ) true lf-ind-members 0 ?do i lf-ind-member-ok? and loop ;
+: lf-ind-members-ok? ( -- flag ) lf-ind-members ['] lf-ind-member-ok? all? ;
 \ Whether name is in a list of names; two lists equal name by name.
-: lf-ind-item@ ( items i -- name ) cells + @ ;
 : lf-ind-in-at? ( name items i -- name items flag )
-  2dup-under lf-ind-item@ lf-name-same? ;
+  2dup-under lf-param@ lf-name-same? ;
 : lf-ind-in? ( name items n -- flag ) ['] lf-ind-in-at? any? nip nip ;
 : lf-ind-same-at? ( items items' i -- items items' flag )
-  2dup-under tuck lf-ind-item@ >r lf-ind-item@ r> lf-name-same? ;
+  2dup-under tuck lf-param@ >r lf-param@ r> lf-name-same? ;
 : lf-ind-names= ( items n items' n' -- flag )
   rot over <> if drop 2drop false exit then ['] lf-ind-same-at? all? nip nip ;
 \ The block's types' names, as the first type's all list holds them once
@@ -276,7 +275,7 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   lf-ind-type-at dup lf-idecl-data dup lf-ity-all@ lf-ind-all-at?
   swap lf-ity-params lf-more-field lf-ind-nparams = and
   swap lf-idecl-params@ lf-ind-lparams lf-ind-names= and ;
-: lf-ind-types-ok? ( -- flag ) true lf-ind-types@ 0 ?do i lf-ind-type-ok? and loop ;
+: lf-ind-types-ok? ( -- flag ) lf-ind-types@ ['] lf-ind-type-ok? all? ;
 \ Each type's constructors, from its ctors list: the first's number in the
 \ block and how many; true when they are the block's constructors.
 : lf-ind-ctors-of ( d -- items n ) lf-ind-type-at lf-idecl-data lf-ity-ctors@ ;
@@ -293,10 +292,10 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   over lf-ind-induct rot lf-ind-owner lf-ind-tname lf-name-same? and ;
 : lf-ind-ctors-ok? ( -- flag )
   lf-ind-layout 0= if false exit then
-  true lf-ind-ctors@ 0 ?do i lf-ind-ctor-ok? and loop ;
+  lf-ind-ctors@ ['] lf-ind-ctor-ok? all? ;
 : lf-ind-rec-ok? ( r -- flag )
   lf-ind-rec lf-idecl-data lf-irc-all@ lf-ind-name -rot lf-ind-in? ;
-: lf-ind-recs-ok? ( -- flag ) true lf-ind-recs@ 0 ?do i lf-ind-rec-ok? and loop ;
+: lf-ind-recs-ok? ( -- flag ) lf-ind-recs@ ['] lf-ind-rec-ok? all? ;
 \ Member names distinct: each against those after it. Two constructors of
 \ one name are left to rule C4 (step 9 of check-block.fs): Lean's replay
 \ looks both up by name and its kernel rejects the duplicate.
@@ -308,7 +307,7 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-ind-unique? ( k -- flag )
   lf-ind-members over 1+ ?do dup i lf-ind-clash? if drop false unloop exit then loop
   drop true ;
-: lf-ind-distinct? ( -- flag ) true lf-ind-members 0 ?do i lf-ind-unique? and loop ;
+: lf-ind-distinct? ( -- flag ) lf-ind-members ['] lf-ind-unique? all? ;
 : lf-ind-shape? ( -- flag )
   lf-ind-members-ok? 0= if false exit then
   lf-ind-types-ok? 0= if false exit then
@@ -541,8 +540,8 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 \ twice (Parse.lean 78-80; review rvUNNI B1). Diagnostic: already
 \ declared, the later constructor's name and the earlier's declaration.
 : lf-ind-safe-at? ( k -- flag ) lf-ind-member lf-idecl-safety @ lf-safety-safe = ;
-: lf-ind-safe? ( -- flag ) true lf-ind-members 0 ?do i lf-ind-safe-at? and loop ;
-: lf-ind-any-safe? ( -- flag ) false lf-ind-members 0 ?do i lf-ind-safe-at? or loop ;
+: lf-ind-safe? ( -- flag ) lf-ind-members ['] lf-ind-safe-at? all? ;
+: lf-ind-any-safe? ( -- flag ) lf-ind-members ['] lf-ind-safe-at? any? ;
 : lf-ind-mixed ( -- outcome )
   lf-kind-inductive lf-safety-unsafe lf-ind-site lf-diag-unsupported-kind lf-diag-note
   outcome-unsupported ;

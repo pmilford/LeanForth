@@ -31,12 +31,10 @@ lf-walk-room context-walk2: lf-cts-walker
 : lf-cts-bvar ( first second walk -- outcome )
   nip walk-context @ 2dup < if 2drop outcome-ok else lf-cts-unbound then ;
 : lf-cts-leaf ( first second walk -- outcome ) drop 2drop outcome-ok ;
-: lf-cts-inner ( depth tag -- depth' true | false )
-  lf-term-binder-tag? 0= if true exit then dup max-n = if drop false else 1+ true then ;
 : lf-cts-deep ( -- outcome )
   max-n dup lf-cts-site lf-diag-binders-full lf-diag-note outcome-full ;
 : lf-cts-binary ( first second walk tag -- outcome )
-  over walk-context @ swap lf-cts-inner
+  over walk-context @ swap lf-term-inner
   if swap walk-children-at else drop 2drop lf-cts-deep then ;
 : lf-cts-dispatch ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if lf-cts-binary exit then

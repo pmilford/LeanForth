@@ -235,9 +235,6 @@ here lf-msp-arrays - 1 cells / constant lf-msp-arrays#
 : lf-msp-lookup ( token req -- root identity 0 | status )
   tuck lf-msp-well-formed? if lf-msp-found else drop-invalid then ;
 
-\ A successful substitution's result with the fuel it left.
-: lf-msp-left ( root identity 0 | status -- root identity fuel' 0 | status )
-  dup ok? if drop lf-mls-fuel @ outcome-ok then ;
 
 \ Exact arity includes unused formals. One shared substitution budget covers
 \ the full audit and build; index scans and identity checks are unmetered.
@@ -249,6 +246,6 @@ here lf-msp-arrays - 1 cells / constant lf-msp-arrays#
 : lf-msp-specialize-fuel
   ( token name actual-pairs count fuel -- root identity fuel' 0 | status )
   lf-msp-request >r r@ lf-msp-budget! r@ lf-sigreq-actuals ! r@ lf-sigreq-name !
-  r> lf-msp-lookup lf-msp-left ;
+  r> lf-msp-lookup lf-mls-left ;
 : lf-msp-specialize ( token name actual-pairs count fuel -- root identity 0 | status )
   lf-msp-specialize-fuel dup ok? if nip then ;

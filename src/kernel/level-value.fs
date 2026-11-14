@@ -62,9 +62,8 @@ end-structure
 : lf-lassign-value@ ( i -- value ) cells lf-lassign-values + @ ;
 : lf-lassign-room ( -- n ) lf-lassign-id-cells slab-capacity lf-lassign-value-cells slab-capacity min ;
 \ Position of an ID among the first n entries.
-: lf-lassign-position ( id n -- i true | false )
-  0 ?do dup i lf-lassign-id@ = if drop i true unloop exit then loop drop false ;
-: lf-lassign-in? ( id n -- flag ) lf-lassign-position dup if nip then ;
+: lf-lassign-position ( id n -- i true | false ) lf-lassign-ids swap cells-index ;
+: lf-lassign-in? ( id n -- flag ) lf-lassign-ids swap cells-has? ;
 \ Search a validated table; a missing ID returns only false.
 : lf-lassign-find ( id -- value true | false )
   lf-lassign-count @ lf-lassign-position if lf-lassign-value@ true else false then ;

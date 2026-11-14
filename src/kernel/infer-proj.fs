@@ -48,8 +48,7 @@ require ./whnf.fs
   lf-iproj-site lf-diag-invalid-proj lf-minfer-reject no-result ;
 : lf-iproj-unknown ( -- -1 status ) -1 outcome-unknown ;
 
-\ Spines: argument i of node, which has n arguments (as iota.fs).
-: lf-iproj-arg ( node n i -- arg ) - 1- 0 ?do lf-term-first@ loop lf-term-second@ ;
+\ Spines (argument i of a node of n arguments: inductive-block.fs's lf-ind-arg).
 : lf-iproj-n ( node -- n ) lf-mhead-spine nip ;
 : lf-iproj-head ( node -- head ) lf-mhead-spine drop ;
 : lf-iproj-pi? ( node -- flag ) lf-term-tag@ lf-tag-pi = ;
@@ -124,7 +123,7 @@ require ./whnf.fs
 : lf-iproj-param ( L E Ty P r i -- L E Ty P r' outcome )
   >r lf-minfer-whnf-job ok-then? 0= if r> drop no-result exit then
   dup lf-iproj-pi? 0= if drop r> drop 3 pick lf-iproj-bad exit then
-  lf-term-second@ 2 pick dup lf-iproj-n r> lf-iproj-arg lf-minfer-instantiate ;
+  lf-term-second@ 2 pick dup lf-iproj-n r> lf-ind-arg lf-minfer-instantiate ;
 \ The structure, its constructor's type, the parameters.
 : lf-iproj-start ( L E Ty P r -- L E Ty P r' outcome )
   drop 3 pick 2 pick lf-iproj-checked ok-then? 0= if no-result exit then

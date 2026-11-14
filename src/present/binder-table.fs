@@ -144,6 +144,10 @@ end-structure
   lf-pres-current 0= if false exit then
   dup lf-pres-name-live?
   if dup lf-pterm-name @ swap lf-pterm-kind @ true else drop false then ;
+\ The binder's name and kind, or the anonymous name and default binder
+\ when none is recorded (the printer's and the exporter's reading).
+: lf-pres-binder-name ( term -- name kind )
+  lf-pres-binder@ 0= if 0 lf-binder-default then ;
 
 \ Source record ID of any live term: an opaque nonnegative number chosen
 \ by the importer, such as the NDJSON line or expression index. A negative

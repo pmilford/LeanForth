@@ -80,10 +80,13 @@ require ../lib/text-rule.fs
 
 \ Counting trailing primes, ASCII digits and subscript digits; each count
 \ leaves at least one byte of base.
-: lf-tex-primes ( c-addr u -- c-addr u' n )
-  0 >r begin dup 1 > while 2dup lf-tex-prime-end? while 1- r> 1+ >r repeat then r> ;
-: lf-tex-digits ( c-addr u -- c-addr u' k )
-  0 >r begin dup 1 > while 2dup lf-tex-digit-end? while 1- r> 1+ >r repeat then r> ;
+\ The trailing characters for which xt ( c-addr u -- flag ) holds at the
+\ end, cut off while more than one character is left, and their number.
+: lf-tex-trailing ( c-addr u xt -- c-addr u' n )
+  over >r >r begin dup 1 > while 2dup r@ execute while 1- repeat then
+  r> drop r> over - ;
+: lf-tex-primes ( c-addr u -- c-addr u' n ) ['] lf-tex-prime-end? lf-tex-trailing ;
+: lf-tex-digits ( c-addr u -- c-addr u' k ) ['] lf-tex-digit-end? lf-tex-trailing ;
 : lf-tex-subs ( c-addr u -- c-addr u' k )
   0 >r begin dup 3 > while 2dup lf-tex-sub? while 3 - r> 1+ >r repeat then r> ;
 

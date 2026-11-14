@@ -60,7 +60,6 @@ require ./latex-text.fs
 : lf-pp-plus ( -- ) s"  + " lf-pp-emit ;
 : lf-pp-universes-open ( -- ) lf-pp-latex? if s" .\{" else s" .{" then lf-pp-emit ;
 : lf-pp-universes-close ( -- ) lf-pp-brace-close lf-pp-emit ;
-: lf-pp-list-comma ( -- ) lf-pp-latex? if s" ,\ " else s" , " then lf-pp-emit ;
 
 \ Identifiers: a bound variable's display name; a universe parameter's
 \ name, spelled like a variable; a constant's name. In LaTeX a structured

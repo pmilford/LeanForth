@@ -81,8 +81,8 @@ lf-level-walk-room context-walk: lf-lsubst-walker
 : lf-lsubst-actual@ ( position -- root ) cells lf-lsubst-actuals @ + @ ;
 \ Position of a formal ID among the first n formals.
 : lf-lsubst-position ( id n -- position true | false )
-  0 ?do dup i lf-lsubst-formal@ = if drop i true unloop exit then loop drop false ;
-: lf-lsubst-in? ( id n -- flag ) lf-lsubst-position dup if nip then ;
+  lf-lsubst-formals @ swap cells-index ;
+: lf-lsubst-in? ( id n -- flag ) lf-lsubst-formals @ swap cells-has? ;
 : lf-lsubst-find ( id -- position true | false ) lf-lsubst-count @ lf-lsubst-position ;
 
 \ Inputs: each formal is positive and new, and each actual passes level
@@ -153,8 +153,7 @@ lf-level-walk-room context-walk: lf-lsubst-walker
   lf-lsubst-stamp @ max-n = if lf-lsubst-restamp then
   1 lf-lsubst-stamp +! 0 lf-lsubst-reached ! ;
 : lf-lsubst-walk ( root -- outcome )
-  ['] lf-lsubst-visit lf-lsubst-walker walk-run
-  lf-lsubst-walker lf-lsubst-site lf-diag-walk ;
+  ['] lf-lsubst-visit lf-lsubst-walker lf-lsubst-site lf-diag-run ;
 : lf-lsubst-source ( root -- outcome )
   dup lf-lsubst-ready? if lf-lsubst-unseen lf-lsubst-walk else drop-invalid then ;
 \ The same check from inside another walk: start with its fuel and give it

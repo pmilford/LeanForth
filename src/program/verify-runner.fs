@@ -66,15 +66,11 @@ end-structure
 : pv-held-text ( -- c-addr ) pv-flow pv-flow-line ;
 
 \ Floating-point numbers that a host's interpreter may push are dropped.
-[defined] fdepth [if]
-: pv-floats! ( -- ) fdepth pv-flow pv-flow-floats ! ;
-: pv-floats-clear ( -- ) begin fdepth pv-flow pv-flow-floats @ > while fdrop repeat ;
-: pv-floats? ( -- flag ) fdepth pv-flow pv-flow-floats @ = ;
-[else]
-: pv-floats! ( -- ) ;
-: pv-floats-clear ( -- ) ;
-: pv-floats? ( -- true ) true ;
-[then]
+\ (lib/text-run.fs's floats-depth and floats-drop-to, also on a host
+\ without floating point, where the depth is always 0).
+: pv-floats! ( -- ) floats-depth pv-flow pv-flow-floats ! ;
+: pv-floats-clear ( -- ) pv-flow pv-flow-floats @ floats-drop-to ;
+: pv-floats? ( -- flag ) floats-depth pv-flow pv-flow-floats @ = ;
 
 \ The line in the source buffer, after the design's entry text, and what
 \ the design's line word hands to EVALUATE.

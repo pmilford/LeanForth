@@ -402,8 +402,10 @@ end-structure
 \ The replacement Iaux As is: the auxiliary type at the block's levels,
 \ applied to the parameters #(c+p-1) .. #c and to the occurrence's
 \ arguments after I's parameters.
-: lf-nest-is ( f -- node )
-  lf-nest-n@ lf-nest-k@ ?do lf-nest-node@ lf-nest-n@ i lf-ind-arg lf-rcr-app loop ;
+\ f applied to the node's arguments from start on.
+: lf-nest-args-from ( f start -- node )
+  lf-nest-n@ swap ?do lf-nest-node@ lf-nest-n@ i lf-ind-arg lf-rcr-app loop ;
+: lf-nest-is ( f -- node ) lf-nest-k@ lf-nest-args-from ;
 : lf-nest-aux-app ( a -- result outcome )
   lf-ind-tname lf-rcr-const lf-nest-depth@ lf-nest-p + 1- lf-nest-p lf-rcr-apply-vars
   lf-nest-is lf-nest-built ;
@@ -525,8 +527,7 @@ end-structure
 : lf-nest-key-at ( a -- node )
   lf-ind-ty lf-ty-key @ 0 lf-nest-depth@ lf-nest-p - lf-rcr-shift ;
 \ f applied to the node's arguments after the parameters.
-: lf-nest-rest ( f -- node )
-  lf-nest-n@ lf-nest-p ?do lf-nest-node@ lf-nest-n@ i lf-ind-arg lf-rcr-app loop ;
+: lf-nest-rest ( f -- node ) lf-nest-p lf-nest-args-from ;
 \ f applied to the arguments of key K.
 : lf-nest-key-args ( f K -- node )
   dup lf-ind-spine nip 0 ?do tuck dup lf-ind-spine nip i lf-ind-arg lf-rcr-app swap loop

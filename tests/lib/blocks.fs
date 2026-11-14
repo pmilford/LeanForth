@@ -51,6 +51,19 @@ cell-a heap-release  0 cell-b !
 T{ 1 heap-refusals ! 4 cell-a block-resize cell-a @ blocks -> outcome-full 0 0 }T
 T{ heap-refusals @ -> 0 }T
 
+\ ---- block-reused (reuse-out-2): a new zeroed block for an empty cell,
+\ the same block erased when the cell holds one; false when the heap
+\ refuses, the cell kept. block-free: 0 and a zeroed cell, 0 again for an
+\ empty cell.
+T{ 64 cell-a block-reused cell-a @ 64 all-zero? blocks -> true true 1 }T
+cell-a @ cell-b !  cell-a @ 64 -1 fill
+T{ 64 cell-a block-reused cell-a @ cell-b @ = cell-a @ 64 all-zero? blocks -> true true true 1 }T
+T{ 64 cell-a ' block-reused rs-checked blocks -> true 1 }T
+T{ cell-a block-free cell-a @ blocks cell-a block-free -> 0 0 0 0 }T
+T{ cell-a ' block-free rs-checked -> 0 }T
+0 cell-b !
+T{ 1 heap-refusals ! 8 cell-a block-reused cell-a @ blocks -> false 0 0 }T
+
 \ ---- The header's example.
 variable buf  0 buf !
 T{ 100 buf block-zeroed buf @ 99 + c@ 200 buf block-resize -> outcome-ok 0 outcome-ok }T

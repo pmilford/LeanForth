@@ -27,7 +27,8 @@
 \   buf heap-release  buf @ .  buf heap-release  \ 0: freed, then nothing
 \   64 heap-claim if free drop then             \ a block as a flag
 \
-\ Interface: heap-claim heap-release block-zeroed block-resize. State:
+\ Interface: heap-claim heap-release block-zeroed block-resize block-reused
+\ block-free. State:
 \ none. Requires outcome.fs; no helpers.
 
 require ./outcome.fs
@@ -49,3 +50,12 @@ require ./outcome.fs
 : block-resize ( u a-addr -- outcome )
   >r 1 max r@ @ ?dup if swap resize else allocate then
   if drop r> drop outcome-full else r> ! outcome-ok then ;
+\ A module's block of u units kept for reuse: the cell's block erased
+\ when it holds one (made earlier with the same u), else a new zeroed
+\ one: true, or false when the heap refuses (the cell then unchanged).
+: block-reused ( u a-addr -- flag )
+  dup @ ?dup if nip swap erase true exit then block-zeroed ok? ;
+\ Free the cell's block, if any, and zero the cell: 0, or FREE's ior
+\ with the cell unchanged, so that a later call tries again.
+: block-free ( a-addr -- ior )
+  dup @ ?dup 0= if drop 0 exit then free dup if nip else tuck swap ! then ;

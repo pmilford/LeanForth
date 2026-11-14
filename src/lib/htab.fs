@@ -44,7 +44,8 @@
 \     if 2drop drop else >r tuck cells values + ! r> seen htab-put then ;
 \
 \ Interface: /htab /htab-hooks htab-hooks! htab-init htab-free htab-limit
-\ htab-find htab-ready htab-put htab-remove htab-holds? htab-clear htab-presize
+\ htab-find htab-ready htab-put htab-remove htab-holds? htab-clear htab-small?
+\ htab-renew htab-presize
 \ htab-spread htab-freeze htab-frozen? htab-live?
 \ htab-count htab-slots htab-stats. State: none of its own; every word
 \ takes a table record, which owns its slot block until htab-free. Its
@@ -170,6 +171,14 @@ lf-lib set-current
 : htab-clear ( htab -- )
   dup htab-frozen? if drop exit then
   0 over htab-entries ! dup htab-block @ swap htab-slots u32s erase ;
+\ Empty a table that a run may have grown: clear it while it is live with
+\ at most small slots, else free it and make it again with xt ( -- ), so
+\ that a table one large run doubled does not keep its block, and its
+\ clearing cost, for every later run.
+: htab-small? ( small htab -- flag )
+  dup htab-live? if htab-slots >= else 2drop false then ;
+: htab-renew ( small htab xt -- )
+  -rot tuck htab-small? if htab-clear drop else htab-free execute then ;
 \ Freeze the table: from now on it only finds (htab-find, htab-holds?),
 \ writing nothing, and every word that would change it refuses (invalid)
 \ or, for htab-clear, does nothing. A sealed input's tables are frozen.

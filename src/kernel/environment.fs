@@ -176,9 +176,8 @@ end-structure
 \ it eliminates into every universe (its motive universe its first
 \ universe parameter).
 \ The kinds a declaration's own check covers (check-declaration.fs): with
-\ a value (definition, theorem, opaque) or without (axiom, quotient).
-: lf-kind-valued? ( kind -- flag )
-  dup lf-kind-definition = over lf-kind-theorem = or swap lf-kind-opaque = or ;
+\ a value (definition, theorem, opaque: core/input.fs's lf-kind-valued?)
+\ or without (axiom, quotient).
 : lf-kind-bare? ( kind -- flag ) dup lf-kind-axiom = swap lf-kind-quotient = or ;
 1 constant lf-recipe-raw
 2 constant lf-recipe-large
@@ -649,14 +648,15 @@ end-structure
 : lf-env-refuse ( d -- 0 outcome )
   lf-env-cand lf-cand-identity @ swap c" environment lf-env-accepted"
   lf-diag-env-handle lf-diag-note 0 outcome-invalid ;
-: lf-env-accepted ( d -- slot outcome )
-  dup lf-env-readable 0= if lf-env-refuse exit then
-  dup lf-slot-accepted? if nip outcome-ok else drop lf-env-refuse then ;
+\ Slot d when the snapshot may read it and the slot test xt ( slot --
+\ flag ) holds: (slot ok); else (0 invalid), recording the refusal.
+: lf-env-slot-if ( d xt -- slot outcome )
+  >r dup lf-env-readable 0= if r> drop lf-env-refuse exit then
+  dup r> execute if nip outcome-ok else drop lf-env-refuse then ;
+: lf-env-accepted ( d -- slot outcome ) ['] lf-slot-accepted? lf-env-slot-if ;
 \ The same for a slot later declarations may use (lf-slot-usable?):
 \ lookups, dependencies and the publisher's re-check read slots so.
-: lf-env-usable ( d -- slot outcome )
-  dup lf-env-readable 0= if lf-env-refuse exit then
-  dup lf-slot-usable? if nip outcome-ok else drop lf-env-refuse then ;
+: lf-env-usable ( d -- slot outcome ) ['] lf-slot-usable? lf-env-slot-if ;
 
 \ Handles. lf-env-handle gives a handle to slot d of the current
 \ environment, (identity d ok), when this context's snapshot may read it
@@ -1239,9 +1239,12 @@ create lf-replays   \ by kind; 0 for lf-look-other
 \ Whether declaration d is one Lean's replay skips (lf-env-skipped!): its
 \ outcome rejected, which reports call skipped; false when unreadable.
 : lf-env-skipped? ( d -- flag ) lf-env-readable if lf-slot-skipped? else false then ;
-: lf-env-axioms ( d -- bits outcome )
-  lf-env-readable 0= if 0 outcome-invalid exit then
-  dup lf-slot-accepted? if lf-slot-axioms @ outcome-ok else drop 0 outcome-invalid then ;
+\ A cell of accepted slot d, field ( slot -- a-addr ): (x ok); else (0
+\ invalid), nothing recorded.
+: lf-env-accepted@ ( d field -- x outcome )
+  >r lf-env-readable 0= if r> drop 0 outcome-invalid exit then
+  dup lf-slot-accepted? if r> execute @ outcome-ok else r> 2drop 0 outcome-invalid then ;
+: lf-env-axioms ( d -- bits outcome ) ['] lf-slot-axioms lf-env-accepted@ ;
 \ The shape of a usable declaration, (shape ok): an accepted inductive
 \ type's (lf-shape-...), 0 for any other; else (0 invalid).
 : lf-env-shape ( d -- shape outcome )
@@ -1267,10 +1270,7 @@ create lf-replays   \ by kind; 0 for lf-look-other
 \ The warnings of an accepted declaration, (bits ok): an inductive block
 \ member's B4 bits (check-block.fs lf-warn-...), 0 for any other; else
 \ (0 invalid).
-: lf-env-warnings ( d -- bits outcome )
-  lf-env-readable 0= if 0 outcome-invalid exit then
-  dup lf-slot-accepted? if lf-slot-warnings @ outcome-ok
-  else drop 0 outcome-invalid then ;
+: lf-env-warnings ( d -- bits outcome ) ['] lf-slot-warnings lf-env-accepted@ ;
 
 \ Axioms (plan task 5.3.1; owner decision 4 as amended). The bits of an
 \ axiom set that do not count as proved: an accepted declaration with any

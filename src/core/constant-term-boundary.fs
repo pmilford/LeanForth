@@ -225,7 +225,6 @@ create lf-pair-hooks /htab-hooks allot
 : lf-mark-next ( -- run )
   lf-mark-runs @ 1+ dup 0= if lf-marks-erase 1+ then dup lf-mark-runs ! ;
 : lf-walk-marking ( walk -- ) lf-mark-next swap walk-arg ! ;
-: lf-walk-depth ( walk -- depth ) dup walk-paired? if walk-context @ else drop 0 then ;
 : lf-mark-unit ( walk -- unit ) walk-node @ lf-mark-at ;
 \ A walk's unit holds its run, then the depth.
 : lf-mark-held? ( depth run unit -- flag )
@@ -234,7 +233,7 @@ create lf-pair-hooks /htab-hooks allot
 \ Whether this run reached the node before at a depth no greater; when
 \ not, the node is marked at its depth.
 : lf-walk-seen? ( walk -- flag )
-  dup lf-walk-depth over walk-arg @ rot lf-mark-unit
+  dup walk-context? over walk-arg @ rot lf-mark-unit
   >r 2dup r@ lf-mark-held? if r> drop 2drop true else r> lf-mark-set false then ;
 \ Dispatch with xt ( first second walk tag -- outcome ) a node not seen
 \ before; one seen before is ok, nothing pushed.
@@ -252,7 +251,7 @@ create lf-pair-hooks /htab-hooks allot
 \ exponentially often).
 : lf-walk-pairing ( walk -- ) dup lf-walk-marking walk-arg @ lf-pairs-reset ;
 : lf-walk-pair ( walk -- node depth run )
-  dup walk-node @ over lf-walk-depth rot walk-arg @ ;
+  dup walk-node @ over walk-context? rot walk-arg @ ;
 : lf-mark-other? ( node depth run unit -- flag )
   lf-unit-kept @ 2 pick = if 2drop drop true else lf-pairs-seen? then ;
 : lf-walk-seen-at? ( walk -- flag )

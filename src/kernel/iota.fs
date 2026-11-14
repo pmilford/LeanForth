@@ -197,10 +197,10 @@ require ./quot.fs
   swap lf-iota-params ok-then? 0= if r> drop >r 2drop drop r> no-result exit then
   swap lf-idecl-data lf-ict-fields lf-more-field rot swap r> swap lf-iota-fields-of
   rot drop ;
-: lf-iota-eta-ready? ( major frames -- flag outcome )
+: lf-iota-ready? ( major frames -- flag outcome )
   lf-minfer-env? if lf-iota-scoped? else 2drop false outcome-ok then ;
 : lf-iota-eta ( app major sdecl frames -- major' true | reduct outcome false )
-  2 pick swap lf-iota-eta-ready? ok-then?
+  2 pick swap lf-iota-ready? ok-then?
   0= if >r 2drop r> lf-iota-eta-failed false exit then
   0= if 2drop lf-iota-not-ported false exit then
   over lf-iota-type-of ok-then? 0= if >r 2drop r> lf-iota-eta-failed false exit then
@@ -345,9 +345,7 @@ require ./quot.fs
   dup frame-restore -rot lf-iota-k-failed ;
 : lf-iota-k-keep ( frames -- ... frames next ) dup frame-restore swap lf-iota-k-kept ;
 
-\ Whether K can run on e: environment mode, e scoped.
-: lf-iota-k-ready? ( e frames -- flag outcome )
-  lf-minfer-env? if lf-iota-scoped? else 2drop false outcome-ok then ;
+\ Whether K can run on e: environment mode, e scoped (lf-iota-ready?).
 \ The major inductive type's name when Ty's head is a constant of that
 \ name, else 0 (kept); unknown for a recursor type without that binder.
 : lf-iota-k-induct ( Ty decl -- name|0 outcome )
@@ -394,7 +392,7 @@ require ./quot.fs
   dup r@ lf-minfer-typed ok-then? 0= if nip nip r> lf-iota-k-off exit then
   r> lf-iota-k-compare ;
 : lf-iota-k ( e frames -- ... frames next )
-  2dup lf-iota-k-ready? ok-then? 0= if swap lf-iota-k-fail exit then
+  2dup lf-iota-ready? ok-then? 0= if swap lf-iota-k-fail exit then
   0= if lf-iota-k-undecided exit then
   2dup lf-minfer-typed ok-then? 0= if swap lf-iota-k-failed exit then
   rot 2 pick frame-save swap ['] lf-iota-k-typed lf-whnf-call ;

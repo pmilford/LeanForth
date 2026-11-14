@@ -136,6 +136,10 @@ constant lf-binary-tags
 \ Binary nodes: two children; binders: the second under one more binder.
 : lf-term-binary-tag? ( tag -- flag ) lf-tag-bit lf-binary-tags and 0<> ;
 : lf-term-binder-tag? ( tag -- flag ) dup lf-tag-lam = swap lf-tag-pi = or ;
+\ The binder depth of a node's body: one more under a lambda or Pi
+\ (false at max-n: no room), the same under any other tag.
+: lf-term-inner ( depth tag -- depth' true | false )
+  lf-term-binder-tag? 0= if true exit then dup max-n = if drop false else 1+ true then ;
 
 \ A record: the tag, the first and second fields, the data word, each a
 \ 32-bit field read and written only through u32@ and u32! (C7).
@@ -576,8 +580,7 @@ create lf-term-hooks /htab-hooks allot
 ' lf-term-table-make context-setup
 :noname ( -- ) lf-term-table htab-free ; context-teardown
 : lf-term-table-empty ( -- )
-  lf-term-table dup htab-live? if dup htab-slots lf-term-table-small <= else false then
-  if htab-clear else htab-free lf-term-table-make then ;
+  lf-term-table-small lf-term-table ['] lf-term-table-make htab-renew ;
 
 \ Room in the table for n entries without doubling (the feed sizes it
 \ from the stage's counts, ADR 0016 C9); a table the heap cannot make

@@ -182,8 +182,8 @@ T{ 5 cells allocate0 swap dup 5 cells-zero? swap free -> 0 true 0 }T
 2 cells context-record: c-heap
 : c-heap-extra ( -- addr ) c-heap cell+ ;
 : c-heap-make ( -- ) 64 allocate throw c-heap ! ;
-: block-free ( addr -- ) dup @ ?dup if free throw then 0 swap ! ;
-: c-heap-free ( -- ) c-heap block-free c-heap-extra block-free ;
+: c-block-free ( addr -- ) dup @ ?dup if free throw then 0 swap ! ;
+: c-heap-free ( -- ) c-heap c-block-free c-heap-extra c-block-free ;
 ' c-heap-make context-setup
 variable late-setup-fails  0 late-setup-fails !
 : c-late-setup ( -- ) late-setup-fails @ if 56 throw then ;

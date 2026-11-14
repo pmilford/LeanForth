@@ -88,6 +88,10 @@ T{ 9 some-cells 5 ' cells-index rs-checked -> 2 true }T
 \ reuse-1a L1); none in an empty or negative range.
 T{ 9 some-cells 5 cells-has? 7 some-cells 5 cells-has? 4 some-cells 0 cells-has? -> true false false }T
 T{ 0 some-cells 5 cells-has? 0 some-cells 4 cells-has? 4 some-cells -1 cells-has? -> true false false }T
+\ cell-count (reuse-out-2): the cells after a count cell, and the count.
+create counted-cells 3 , 7 , 8 , 9 ,
+T{ counted-cells cell-count swap counted-cells cell+ = -> 3 true }T
+T{ counted-cells cell-count drop 2 cells + @ counted-cells ' cell-count rs-checked nip -> 9 3 }T
 T{ -1 some-cells 2 ' cells-has? rs-checked -> true }T
 \ cells=: n cells compared cell by cell (review reuse-k1 B1); equal for
 \ n <= 0; a difference in the first or the last cell, or in the sign.
@@ -734,6 +738,11 @@ T{ 5 0 ' depth-visit p4 walk-run-pair p4 walk-fuel @ -> outcome-full 0 }T
 T{ 5 0 ' depth-visit p3 walk-run-pair p3 walk-fuel @ -> outcome-invalid 20 }T
 1 p3 walk-capacity !
 T{ 5 0 ' depth-visit p3 ' walk-run-pair rs-checked p3 walk-fuel @ -> outcome-invalid 20 }T
+\ walk-context? (reuse-out-2): a paired walk's context cell, 0 for a walk
+\ that is not paired.
+T{ 7 p4 walk-context ! p4 walk-context? 7 pz walk-context ! pz walk-context? -> 7 7 }T
+T{ 2 walk: s9 -> }T
+T{ 7 s9 walk-context ! s9 walk-context? s9 ' walk-context? rs-checked -> 0 0 }T
 T{ s" 0 walk2: pbad0" bad-walk? s" -1 walk2: pbad1" bad-walk? s" 1 walk2: pone" bad-walk? -> true true false }T
 
 \ Growable walks (plan task 6.2.0): a push past the record's room moves the

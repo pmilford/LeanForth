@@ -25,7 +25,8 @@
 \
 \ Interface (lf-lib): /run-settings, run-settings-order-max,
 \ run-settings-save, run-settings-restore, text-file-slurp, text-scan,
-\ text-line-end, text-cr-drop, text-plain-at. src/program/verify-runner.fs
+\ text-line-end, text-cr-drop, text-plain-at, floats-depth, floats-drop-to.
+\ src/program/verify-runner.fs
 \ is a complete user. Offsets into a text count characters (/STRING).
 \ State: none; every word takes its record or buffer. Loads in decimal
 \ whatever BASE is, then restores it.
@@ -125,6 +126,16 @@ lf-lib set-current
 \ text reads the same on every host: no line end inside a line, no
 \ control or multi-byte character whose treatment differs.
 : text-plain-at ( c-addr u -- n ) ['] text-odd? text-scan ;
+\ The floating-point stack a run's text may push numbers on: its depth
+\ (0 on a host without one) when the run begins, and its items above
+\ that depth dropped after an error.
+[defined] fdepth [if]
+: floats-depth ( -- n ) fdepth ;
+: floats-drop-to ( n -- ) begin fdepth over > while fdrop repeat drop ;
+[else]
+: floats-depth ( -- n ) 0 ;
+: floats-drop-to ( n -- ) drop ;
+[then]
 
 module-close
 base !   \ the BASE this file was loaded with

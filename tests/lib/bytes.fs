@@ -141,6 +141,15 @@ create two-names s" ab" counted, s" " counted, s" xyz" counted,  here constant n
 T{ two-names counted-next count s" " compare -> 0 }T
 T{ two-names counted-next counted-next count s" xyz" compare -> 0 }T
 T{ two-names counted-next counted-next counted-next names-end = -> true }T
+\ counted-or-empty (reuse-out-2): a counted string's text, empty for 0.
+T{ greeting counted-or-empty s" hello" compare 0 counted-or-empty nip -> 0 0 }T
+T{ 0 ' counted-or-empty rs-checked nip -> 0 }T
+\ cell-counted, (reuse-out-2): the length in a cell, any length, aligned;
+\ bounds.fs's cell-count reads it back.
+create cell-texts s" ab" cell-counted, s" " cell-counted, long-name 256 cell-counted,
+T{ cell-texts cell-count s" ab" compare here aligned here = -> 0 true }T
+T{ cell-texts cell-count + aligned cell-count nip -> 0 }T
+T{ cell-texts cell-count + aligned cell-count + aligned cell-count nip -> 256 }T
 
 \ The line reader on fixtures. composition.ndjson: 35 lines, 1,787 bytes,
 \ the longest (the metadata, line 1) 172 bytes.

@@ -220,9 +220,15 @@ lf-walk-room context-walk2: lf-whnf-scan
   nip walk-context @ < if outcome-ok else outcome-unknown then ;
 : lf-whnf-scan-binary ( first second walk tag -- outcome )
   over walk-context @ swap lf-term-binder-tag? - swap walk-children-at ;
+\ A step of a loose-variable scan (here and mixed-infer.fs's): a binary
+\ node's children pushed, one binder deeper under a lambda or Pi; a bound
+\ variable given to xt ( first second walk -- outcome ); any other leaf
+\ passed.
+: lf-whnf-scan-step ( first second walk tag xt -- outcome )
+  >r dup lf-term-binary-tag? if r> drop lf-whnf-scan-binary exit then
+  lf-tag-bvar = if r> execute else r> 2drop 2drop outcome-ok then ;
 : lf-whnf-scan-dispatch ( first second walk tag -- outcome )
-  dup lf-term-binary-tag? if lf-whnf-scan-binary exit then
-  lf-tag-bvar = if lf-whnf-scan-bvar else drop 2drop outcome-ok then ;
+  ['] lf-whnf-scan-bvar lf-whnf-scan-step ;
 : lf-whnf-scan-visit ( walk -- outcome ) ['] lf-whnf-scan-dispatch lf-term-visit ;
 : lf-whnf-scanned ( outcome -- flag outcome )
   dup outcome-unknown = if drop true outcome-ok exit then

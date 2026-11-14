@@ -555,9 +555,12 @@ defer lf-ap-arg ( frames -- ... frames next )
 : lf-dq-named ( name -- decl outcome )
   lf-dq-found ok-then? 0= if 0 swap exit then
   dup 0< if drop 0 outcome-ok else lf-whnf-decl then ;
-: lf-dq-head-named ( node -- decl outcome )
-  lf-whnf-head dup lf-whnf-const? 0= if drop 0 outcome-ok exit then
-  lf-whnf-cref lf-crec-name @ lf-dq-named ;
+\ What xt ( name -- decl outcome ) finds for the name of node's head
+\ constant; (0 ok) when the head is no constant.
+: lf-dq-head-by ( node xt -- decl outcome )
+  >r lf-whnf-head dup lf-whnf-const? 0= if r> 2drop 0 outcome-ok exit then
+  lf-whnf-cref lf-crec-name @ r> execute ;
+: lf-dq-head-named ( node -- decl outcome ) ['] lf-dq-named lf-dq-head-by ;
 \ is_non_rec_structure (inductive.cpp 28-33) of the type named name, with
 \ the numIndices and is_rec LeanForth's block check computed, never the
 \ file's (lf-env-structure; ADR 0015 section 8, owner answer Q2; review
@@ -567,9 +570,7 @@ defer lf-ap-arg ( frames -- ... frames next )
 : lf-dq-structure ( name -- decl|0 outcome )
   lf-dq-found ok-then? 0= if 0 swap exit then
   dup 0< if drop 0 outcome-ok else lf-env-structure then ;
-: lf-dq-head-structure ( node -- decl|0 outcome )
-  lf-whnf-head dup lf-whnf-const? 0= if drop 0 outcome-ok exit then
-  lf-whnf-cref lf-crec-name @ lf-dq-structure ;
+: lf-dq-head-structure ( node -- decl|0 outcome ) ['] lf-dq-structure lf-dq-head-by ;
 : lf-dq-ctor? ( decl -- flag )
   dup if dup lf-idecl-kind @ lf-kind-constructor = swap lf-idecl-data 0<> and then ;
 

@@ -85,6 +85,19 @@ T{ t htab-ready 101 key-find drop 5 t htab-remove 8 t htab-presize t htab-spread
 T{ 4 t htab-resize t htab-clear unchanged? t htab-count -> outcome-invalid true 8 }T
 t htab-free
 T{ t htab-live? -> false }T
+\ htab-small? and htab-renew (reuse-out-2): a live table of at most small
+\ slots is cleared (its size kept); a larger one, or a table not live, is
+\ freed and made again by the xt.
+variable remade
+: remake ( -- ) 1 remade +! 2 spread-hooks start drop ;
+T{ 2 spread-hooks start 42 key-add drop 4 t htab-small? 3 t htab-small? -> outcome-ok true false }T
+T{ 0 remade ! 4 t ' remake htab-renew t htab-count t htab-slots remade @ -> 0 4 0 }T
+T{ 46 key-add 47 key-add 48 key-add 49 key-add drop 2drop drop t htab-slots -> 8 }T
+T{ 4 t ' remake htab-renew t htab-count t htab-slots remade @ -> 0 4 1 }T
+t htab-free
+T{ 4 t htab-small? 0 remade ! 4 t ' remake htab-renew remade @ t htab-live? -> false 1 true }T
+T{ 4 t ' htab-small? rs-checked -> true }T
+t htab-free
 
 \ A randomized model: inserts and removals of keys 0 .. 63, compared with a
 \ table of which keys are present and their entries.

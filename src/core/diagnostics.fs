@@ -175,15 +175,16 @@ end-structure
 : lf-diag-walk-room ( walk site -- )
   >r dup walk-pending @ swap walk-capacity @ r> lf-diag-work-stack-full lf-diag-note ;
 : lf-diag-walk-node ( walk site -- ) >r walk-node @ 0 r> lf-diag-malformed lf-diag-note ;
-: lf-diag-walk-right ( walk -- node|0 )
-  dup walk-paired? if walk-context @ else drop 0 then ;
 : lf-diag-walk-pair ( walk site -- )
-  >r dup walk-node @ swap lf-diag-walk-right r> lf-diag-undecided lf-diag-note ;
+  >r dup walk-node @ swap walk-context? r> lf-diag-undecided lf-diag-note ;
 : lf-diag-walk ( outcome walk site -- outcome )
   2>r dup case outcome-exhausted of 2r> lf-diag-walk-fuel endof
     outcome-full of 2r> lf-diag-walk-room endof
     outcome-invalid of 2r> lf-diag-walk-node endof
     outcome-unknown of 2r> lf-diag-walk-pair endof 2r> 2drop endcase ;
+\ A walk run from root with the visitor xt (lib/walk.fs's walk-run), its
+\ failure recorded as lf-diag-walk records it for the site.
+: lf-diag-run ( root xt walk site -- outcome ) 2dup 2>r drop walk-run 2r> lf-diag-walk ;
 
 \ After a pass on a frames record (lib/frame.fs) ended with outcome:
 \ exhausted records the fuel left, full the frames' stack, which the heap

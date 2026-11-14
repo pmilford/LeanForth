@@ -35,6 +35,7 @@
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
+require ../lib/decimal.fs
 require ../core/input.fs
 require ../present/print-forth.fs
 require ./name-text.fs
@@ -166,14 +167,13 @@ fl-reasons fl-reason-at <> [if] .( print-lf.fs: one text per reason) cr abort [t
 
 : fl-count@ ( reason -- n ) cells lf-fl lf-fl-counts + @ ;
 : fl-skipped ( -- n ) 0 fl-reasons 0 ?do i fl-count@ + loop ;
-: fl-num ( n -- c-addr u ) 0 <# #s #> ;
 : fl-reason-line ( reason -- )
   dup fl-count@ ?dup 0= if drop exit then
-  s"   " fl-err fl-num fl-err s"  " fl-err fl-reason-text fl-err-line ;
-\ The counts, on stderr.
+  s"   " fl-err u>decimal fl-err s"  " fl-err fl-reason-text fl-err-line ;
+\ The counts, on stderr (lib/decimal.fs's u>decimal, whatever BASE is).
 : fl-summary ( -- )
-  lf-fl lf-fl-written @ fl-num fl-err s"  declarations written, " fl-err
-  fl-skipped fl-num fl-err s"  not written" fl-err-line
+  lf-fl lf-fl-written @ u>decimal fl-err s"  declarations written, " fl-err
+  fl-skipped u>decimal fl-err s"  not written" fl-err-line
   fl-reasons 0 ?do i fl-reason-line loop ;
 
 \ The text is in the kernel form, which its first line says (ADR 0021 D8;

@@ -7171,7 +7171,7 @@ reason = "5.2.7: the publisher's name re-check ignores a skipped slot; a declara
 [[fault]]
 id = "skip-block-mixed-skipped"
 file = "src/kernel/inductive-block.fs"
-old = ''': lf-ind-any-safe? ( -- flag ) false lf-ind-members 0 ?do i lf-ind-safe-at? or loop ;'''
+old = ''': lf-ind-any-safe? ( -- flag ) lf-ind-members ['] lf-ind-safe-at? any? ;'''
 new = ''': lf-ind-any-safe? ( -- flag ) false ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.7: a block with safe and unsafe members is skipped whole, where replay adds it when a type is safe (part b)"
@@ -7439,8 +7439,8 @@ reason = "FX6: an exponent above 2^64, which Lean does not parse, is read"
 [[fault]]
 id = "nd-minus-exponent-fraction"
 file = "src/import/ndjson.fs"
-old = '''  dup num-exp 2@ strip-zeros nip over frac-length or'''
-new = '''  dup num-exp 2@ strip-zeros nip over frac-length drop or'''
+old = '''  dup num-exp 2@ skip-zeros nip over frac-length or'''
+new = '''  dup num-exp 2@ skip-zeros nip over frac-length drop or'''
 test = "$GFORTH tests/core/ndjson.fs"
 reason = "FX6: 1.5e-0 (a fraction left in place by a zero minus exponent) is read as a natural"
 
@@ -9042,9 +9042,9 @@ reason = "FX12 (rvIO M1): R3 trusts the inference job's frames alone: a major pr
 [[fault]]
 id = "io-eta-unscoped"
 file = "src/kernel/iota.fs"
-old = ''': lf-iota-eta-ready? ( major frames -- flag outcome )
+old = ''': lf-iota-ready? ( major frames -- flag outcome )
   lf-minfer-env? if lf-iota-scoped? else 2drop false outcome-ok then ;'''
-new = ''': lf-iota-eta-ready? ( major frames -- flag outcome )
+new = ''': lf-iota-ready? ( major frames -- flag outcome )
   lf-minfer-env? if lf-whnf-loose? swap 0= swap else 2drop false outcome-ok then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "IO: structure eta in iota (R3) only on closed major premises: eta.block-index-variable unknown"
@@ -11668,9 +11668,9 @@ reason = "review L2: a non-dependent let whose body is copied (stage-cases/marks
 
 [[fault]]
 id = "fri-l2-layer-opaque-kind"
-file = "src/import/snapshot-layer.fs"
-old = '''  dup kind-def = over kind-thm = or swap kind-opaque = or ;'''
-new = '''  dup kind-def = swap kind-thm = or ;'''
+file = "src/import/stage-records.fs"
+old = ''': valued? ( kind -- flag ) dup kind-def = over kind-thm = or swap kind-opaque = or ;'''
+new = ''': valued? ( kind -- flag ) dup kind-def = swap kind-thm = or ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "review L2: an opaque declaration's data in a layer is refused as a kind with none"
 
@@ -12342,10 +12342,8 @@ reason = "the axiom table stops at a rejected slot below an accepted declaration
 [[fault]]
 id = "cov2-warnings-of-rejected"
 file = "src/kernel/environment.fs"
-old = '''  dup lf-slot-accepted? if lf-slot-warnings @ outcome-ok
-  else drop 0 outcome-invalid then ;'''
-new = '''  dup lf-slot-accepted? if lf-slot-warnings @ outcome-ok
-  else drop 0 outcome-ok then ;'''
+old = '''  dup lf-slot-accepted? if r> execute @ outcome-ok else r> 2drop 0 outcome-invalid then ;'''
+new = '''  dup lf-slot-accepted? if r> execute @ outcome-ok else r> 2drop 0 outcome-ok then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "a rejected declaration's warnings are given as none and ok, as if it had been accepted"
 
@@ -17418,3 +17416,253 @@ new = '''  tuck ['] sort-signed swap sorter-init drop ['] u32-le@ over sorter-ke
 test = "$GFORTH tests/core/env-import.fs"
 reason = "review reuse-k1 L7 and reuse-out L4: the dependency and lookup lists sorted by signed keys"
 equivalent = "on 64-bit hosts u32-le@ gives keys below 2^32, all positive as signed cells, so the signed and unsigned orders agree; only a 32-bit host, where the test's $80000000 key is negative, separates them"
+
+# --- reuse-out-2 (plan 9.4.8k, 2026-11-13): the words that replaced copies ------
+
+[[fault]]
+id = "r2-params-distinct-last"
+file = "src/kernel/environment.fs"
+old = ''': lf-params-distinct? ( params n -- flag ) ['] lf-param-new? all? nip ;'''
+new = ''': lf-params-distinct? ( params n -- flag ) 1- ['] lf-param-new? all? nip ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "review reuse-out L1: the last universe parameter never compared, so a repeat in it is accepted"
+
+[[fault]]
+id = "r2-decimal-digit-colon"
+file = "src/lib/decimal.fs"
+old = ''': decimal-digit? ( c -- flag ) [char] 0 - 10 u< ;'''
+new = ''': decimal-digit? ( c -- flag ) [char] 0 - 11 u< ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "a colon read as a decimal digit"
+
+[[fault]]
+id = "r2-hex-byte-nibbles"
+file = "src/lib/decimal.fs"
+old = '''  over 4 rshift hex-char over c! swap 15 and hex-char swap char+ c! ;'''
+new = '''  over 15 and hex-char over c! swap 4 rshift hex-char swap char+ c! ;'''
+test = "$GFORTH tests/lib/decimal.fs"
+reason = "a byte's two hexadecimal digits written low first"
+
+[[fault]]
+id = "r2-cell-count-short"
+file = "src/lib/bounds.fs"
+old = ''': cell-count ( addr -- addr' n ) dup cell+ swap @ ;'''
+new = ''': cell-count ( addr -- addr' n ) dup cell+ swap @ 1- 0 max ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a cell-counted record read one item short"
+
+[[fault]]
+id = "r2-cell-counted-unaligned"
+file = "src/lib/bytes.fs"
+old = ''': cell-counted, ( c-addr u -- ) dup , here swap dup allot move align ;'''
+new = ''': cell-counted, ( c-addr u -- ) dup , here swap dup allot move ;'''
+test = "$GFORTH tests/lib/bytes.fs"
+reason = "a cell-counted text not aligned, so the next cell of a table is misplaced"
+
+[[fault]]
+id = "r2-counted-or-empty-absent"
+file = "src/lib/bytes.fs"
+old = ''': counted-or-empty ( c-addr|0 -- c-addr u ) ?dup if count else s" " then ;'''
+new = ''': counted-or-empty ( c-addr|0 -- c-addr u ) dup if count else 1 then ;'''
+test = "$GFORTH tests/lib/bytes.fs"
+reason = "an absent string (0) read as one character at address 0"
+
+[[fault]]
+id = "r2-block-reused-dirty"
+file = "src/lib/blocks.fs"
+old = '''  dup @ ?dup if nip swap erase true exit then block-zeroed ok? ;'''
+new = '''  dup @ ?dup if nip 2drop true exit then block-zeroed ok? ;'''
+test = "$GFORTH tests/lib/blocks.fs"
+reason = "a module's block reused without erasing it: the last run's state survives into the next"
+
+[[fault]]
+id = "r2-block-free-kept"
+file = "src/lib/blocks.fs"
+old = '''  dup @ ?dup 0= if drop 0 exit then free dup if nip else tuck swap ! then ;'''
+new = '''  dup @ ?dup 0= if drop 0 exit then free nip ;'''
+test = "$GFORTH tests/lib/blocks.fs"
+reason = "the cell keeps a freed block's address, so a later open erases freed memory"
+
+[[fault]]
+id = "r2-htab-renew-never-clears"
+file = "src/lib/htab.fs"
+old = '''  -rot tuck htab-small? if htab-clear drop else htab-free execute then ;'''
+new = '''  -rot tuck htab-small? drop htab-free execute ;'''
+test = "$GFORTH tests/lib/htab.fs"
+reason = "a small table freed and made again on every reset instead of cleared"
+
+[[fault]]
+id = "r2-htab-small-any"
+file = "src/lib/htab.fs"
+old = '''  dup htab-live? if htab-slots >= else 2drop false then ;'''
+new = '''  dup htab-live? if 2drop true else 2drop false then ;'''
+test = "$GFORTH tests/lib/htab.fs"
+reason = "a table one run doubled is kept at its size for every later run"
+
+[[fault]]
+id = "r2-walk-context-single"
+file = "src/lib/walk.fs"
+old = ''': walk-context? ( walk -- x|0 ) dup walk-paired? if walk-context @ else drop 0 then ;'''
+new = ''': walk-context? ( walk -- x|0 ) walk-context @ ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a walk that is not paired reports a stale context cell"
+
+[[fault]]
+id = "r2-floats-drop-none"
+file = "src/lib/text-run.fs"
+old = ''': floats-drop-to ( n -- ) begin fdepth over > while fdrop repeat drop ;'''
+new = ''': floats-drop-to ( n -- ) drop ;'''
+test = "$GFORTH tests/author/author.fs && $GFORTH tests/program/verify.fs"
+reason = "numbers a failed run left on the floating-point stack stay for the next run"
+
+[[fault]]
+id = "r2-rebuild-leaf-bvar-kept"
+file = "src/kernel/mixed-rebuild.fs"
+old = '''  over lf-tag-bvar = if nip execute exit then'''
+new = '''  over lf-tag-bvar = if 2drop lf-rebuild-keep exit then'''
+test = "$GFORTH tests/core/mixed-shift.fs && $GFORTH tests/core/mixed-instantiate.fs"
+reason = "shift and instantiate keep every bound variable as it is"
+
+[[fault]]
+id = "r2-dq-yes-or-no-is-yes"
+file = "src/kernel/defeq.fs"
+old = '''  if true 2r> drop lf-dq-end else 2r> execute then ;'''
+new = '''  drop true 2r> drop lf-dq-end ;'''
+test = "$GFORTH tests/core/definite-rejection.fs"
+reason = "every step that may say yes answers yes on a no: eta, structure eta, the application step and the projection step"
+
+[[fault]]
+id = "r2-name-by-failure-ok"
+file = "src/core/compact-names.fs"
+old = '''  >r over >r execute dup ok? if drop r> r> execute else r> r> 2drop no-result then ;'''
+new = '''  >r over >r execute dup ok? if drop r> r> execute else r> r> 2drop drop -1 outcome-ok then ;'''
+test = "$GFORTH tests/core/compact.fs"
+reason = "a name whose setup is refused (too long, invalid prefix) reads as absent and ok"
+
+[[fault]]
+id = "r2-intern-by-adds-again"
+file = "src/core/compact-names.fs"
+old = '''  >r dup name-lookup if nip outcome-ok r> drop else swap r> execute then ;'''
+new = '''  >r dup name-lookup drop swap r> execute ;'''
+test = "$GFORTH tests/core/compact.fs"
+reason = "an equal name is added again instead of found, so names are no longer unique"
+
+[[fault]]
+id = "r2-diag-run-unnoted"
+file = "src/core/diagnostics.fs"
+old = ''': lf-diag-run ( root xt walk site -- outcome ) 2dup 2>r drop walk-run 2r> lf-diag-walk ;'''
+new = ''': lf-diag-run ( root xt walk site -- outcome ) drop walk-run ;'''
+test = "$GFORTH tests/core/check-declaration.fs && $GFORTH tests/core/level-substitute.fs"
+reason = "a walk that runs out of fuel or room records no diagnostic"
+
+[[fault]]
+id = "r2-env-slot-if-no-test"
+file = "src/kernel/environment.fs"
+old = '''  dup r> execute if nip outcome-ok else drop lf-env-refuse then ;'''
+new = '''  r> drop nip outcome-ok ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "a slot that is rejected, or not usable, is read as accepted"
+
+[[fault]]
+id = "r2-blk-pis-count"
+file = "src/kernel/check-block.fs"
+old = '''    2dup r@ execute dup ok? 0= if r> drop exit then drop swap lf-term-second@ swap 1+'''
+new = '''    2dup r@ execute dup ok? 0= if r> drop exit then drop swap lf-term-second@ swap 2 +'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "a telescope's binders counted twice: parameters taken for fields"
+
+[[fault]]
+id = "r2-span-each-last"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-env-may-write lf-cand-span@ 0 ?do 2dup i swap execute loop 2drop ;'''
+new = '''  lf-env-may-write lf-cand-span@ 1- 0 ?do 2dup i swap execute loop 2drop ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "the last member of a span is never marked final (or added)"
+
+[[fault]]
+id = "r2-nest-args-from-skip"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-nest-n@ swap ?do lf-nest-node@ lf-nest-n@ i lf-ind-arg lf-rcr-app loop ;'''
+new = '''  lf-nest-n@ swap 1+ ?do lf-nest-node@ lf-nest-n@ i lf-ind-arg lf-rcr-app loop ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "a nested occurrence applied to one argument too few"
+
+[[fault]]
+id = "r2-whnf-scan-bvar-passed"
+file = "src/kernel/whnf.fs"
+old = '''  lf-tag-bvar = if r> execute else r> 2drop 2drop outcome-ok then ;'''
+new = '''  drop r> 2drop 2drop outcome-ok ;'''
+test = "$GFORTH tests/core/whnf.fs && $GFORTH tests/core/check-block.fs"
+reason = "the loose-variable scans pass every bound variable: a term with one counts as closed"
+
+[[fault]]
+id = "r2-tex-trailing-one-more"
+file = "src/present/latex-text.fs"
+old = '''  r> drop r> over - ;'''
+new = '''  r> drop r> over - 1+ ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Names"
+reason = "a name's trailing primes and digits counted one too many in LaTeX"
+
+[[fault]]
+id = "r2-term-inner-flat"
+file = "src/core/terms.fs"
+old = '''  lf-term-binder-tag? 0= if true exit then dup max-n = if drop false else 1+ true then ;'''
+new = '''  lf-term-binder-tag? 0= if true exit then dup max-n = if drop false else true then ;'''
+test = "$GFORTH tests/core/constant-term-scope.fs"
+reason = "a binder's body is scanned at the binder's own depth: its variable reads as loose"
+
+[[fault]]
+id = "r2-more-at-off"
+file = "src/core/input.fs"
+old = ''': lf-more-at ( ref -- addr|0 ) ?dup if 1- lf-more-cell else 0 then ;'''
+new = ''': lf-more-at ( ref -- addr|0 ) ?dup if lf-more-cell else 0 then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "a declaration's data read one cell late"
+
+[[fault]]
+id = "r2-lsubst-position-short"
+file = "src/kernel/level-substitute.fs"
+old = '''  lf-lsubst-formals @ swap cells-index ;'''
+new = '''  lf-lsubst-formals @ swap 1- cells-index ;'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "the last universe parameter is never substituted"
+
+[[fault]]
+id = "r2-lassign-in-short"
+file = "src/kernel/level-value.fs"
+old = ''': lf-lassign-in? ( id n -- flag ) lf-lassign-ids swap cells-has? ;'''
+new = ''': lf-lassign-in? ( id n -- flag ) lf-lassign-ids swap 1- cells-has? ;'''
+test = "$GFORTH tests/core/level-value.fs"
+reason = "the last assigned parameter reads as unassigned"
+
+[[fault]]
+id = "r2-ind-members-any"
+file = "src/kernel/inductive-block.fs"
+old = ''': lf-ind-members-ok? ( -- flag ) lf-ind-members ['] lf-ind-member-ok? all? ;'''
+new = ''': lf-ind-members-ok? ( -- flag ) lf-ind-members ['] lf-ind-member-ok? any? ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "a block whose first member is well formed passes the member check whatever the others are"
+
+[[fault]]
+id = "r2-pres-binder-name-kind"
+file = "src/present/binder-table.fs"
+old = '''  lf-pres-binder@ 0= if 0 lf-binder-default then ;'''
+new = '''  lf-pres-binder@ 0= if 0 lf-binder-default then drop lf-binder-default ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "every binder printed and exported as explicit"
+
+[[fault]]
+id = "r2-export-where-byte"
+file = "src/import/ndjson.fs"
+old = '''  ."  (" .export-field ." line " .decimal .export-byte ." )" ;'''
+new = '''  ."  (" .export-field ." line " .decimal drop ." )" ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py"
+reason = "a JSON error's message no longer says the byte within the line"
+
+[[fault]]
+id = "r2-env-final-open"
+file = "src/kernel/environment.fs"
+old = ''': lf-env-all-final? ( -- flag ) lf-input-count ['] lf-env-final? all? ;'''
+new = ''': lf-env-all-final? ( -- flag ) lf-input-count 1- ['] lf-env-final? all? ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "a run whose last declaration is left open is confirmed"

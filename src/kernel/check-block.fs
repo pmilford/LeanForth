@@ -391,11 +391,14 @@ end-structure
   dup rot lf-blk-positivity ok-then? 0= if exit then lf-rcr-consume lf-blk-push ;
 : lf-blk-binder ( node i -- outcome )
   dup lf-ind-nparams < if lf-blk-param else lf-blk-field then ;
+\ A telescope walked: each Pi binder i given to xt ( node i -- outcome ),
+\ then (body k outcome), k its binders; the first failure stops it.
+: lf-blk-pis ( node xt -- node' k outcome )
+  >r 0 begin over lf-tag-pi lf-ind-tag? while
+    2dup r@ execute dup ok? 0= if r> drop exit then drop swap lf-term-second@ swap 1+
+  repeat r> drop outcome-ok ;
 \ The raw telescope: (body k outcome), k its binders.
-: lf-blk-binders ( node -- node' k outcome )
-  0 begin over lf-tag-pi lf-ind-tag? while
-    2dup lf-blk-binder dup ok? 0= if exit then drop swap lf-term-second@ swap 1+
-  repeat outcome-ok ;
+: lf-blk-binders ( node -- node' k outcome ) ['] lf-blk-binder lf-blk-pis ;
 \ C3: the result is a valid application of the constructor's own type
 \ (above, 493-494), its indices counted on the block's fuel.
 : lf-blk-c3 ( node depth -- flag outcome )
@@ -445,10 +448,7 @@ end-structure
 : lf-blk-e-binder ( node i -- outcome )
   dup lf-ind-nparams < 0= if lf-blk-e-field ok-then2? 0= if exit then then
   drop lf-term-first@ lf-rcr-consume lf-blk-push ;
-: lf-blk-e-walk ( node -- node' k outcome )
-  0 begin over lf-tag-pi lf-ind-tag? while
-    2dup lf-blk-e-binder dup ok? 0= if exit then drop swap lf-term-second@ swap 1+
-  repeat outcome-ok ;
+: lf-blk-e-walk ( node -- node' k outcome ) ['] lf-blk-e-binder lf-blk-pis ;
 \ Whether some argument of node's spine is the variable #index.
 : lf-blk-among? ( node index -- flag )
   swap begin dup lf-tag-app lf-ind-tag? while

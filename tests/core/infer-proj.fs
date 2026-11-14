@@ -48,7 +48,7 @@ require ../support/case-sweeps.fs
   T{ target-name dup leaf-of swap const-of lf-iproj-checked nip -> outcome-rejected }T ;
 : spines ( -- )
   T{ domain lf-iproj-n domain lf-iproj-head lf-iproj-n -> 2 0 }T
-  T{ domain 2 1 lf-iproj-arg domain lf-term-second@ = -> true }T
+  T{ domain 2 1 lf-ind-arg domain lf-term-second@ = -> true }T
   T{ domain lf-iproj-head lf-iproj-pi? domain lf-iproj-pi? -> false false }T ;
 s" proj.data" ' structures outcome-ok cs-probe-gives
 s" proj.data" ' spines outcome-ok cs-probe-gives

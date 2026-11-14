@@ -206,8 +206,7 @@ create lf-cref-hooks /htab-hooks allot
 :noname ( -- ) lf-cref-table htab-free ; context-teardown
 1024 constant lf-cref-table-small
 : lf-cref-table-empty ( -- )
-  lf-cref-table dup htab-live? if dup htab-slots lf-cref-table-small <= else false then
-  if htab-clear else htab-free lf-cref-table-make then ;
+  lf-cref-table-small lf-cref-table ['] lf-cref-table-make htab-renew ;
 : lf-cref-key! ( name generation addr count -- )
   lf-cref-key tuck lf-ckey-count ! tuck lf-ckey-addr !
   tuck lf-ckey-generation ! lf-ckey-name ! ;

@@ -158,7 +158,7 @@ create lf-stamp-hooks /htab-hooks allot
 \ invalid.
 : lf-href-site ( -- site ) c" generation-handles lf-hterm-check" ;
 : lf-href-run ( root -- status )
-  ['] lf-href-visit lf-href-walker walk-run lf-href-walker lf-href-site lf-diag-walk ;
+  ['] lf-href-visit lf-href-walker lf-href-site lf-diag-run ;
 : lf-href-check ( root fuel -- status )
   lf-href-walker walk-budget if lf-href-run else drop-invalid then ;
 

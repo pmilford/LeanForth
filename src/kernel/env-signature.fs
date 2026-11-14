@@ -60,8 +60,7 @@ end-structure
 : lf-envsig-visit ( walk -- outcome ) lf-levels ['] lf-envsig-dispatch walk-visit ;
 : lf-envsig-site ( -- site ) c" env-signature lf-env-level-scope" ;
 : lf-envsig-walk ( level -- outcome )
-  ['] lf-envsig-visit lf-envsig-walker walk-run
-  lf-envsig-walker lf-envsig-site lf-diag-walk ;
+  ['] lf-envsig-visit lf-envsig-walker lf-envsig-site lf-diag-run ;
 \ L2 on one level with the given fuel: the fuel left, and ok; rejected for
 \ a parameter the checked declaration does not declare; invalid without a
 \ check's snapshot, for negative fuel or a malformed level; exhausted;
@@ -96,8 +95,6 @@ end-structure
   lf-idecl-type @ dup lf-term-identity if true else drop false then ;
 : lf-envsig-actuals ( -- pairs count fuel )
   lf-envsig-request dup lf-esreq-pairs @ over lf-esreq-count @ rot lf-esreq-fuel @ ;
-: lf-envsig-left ( root identity 0 | status -- root identity fuel' 0 | status )
-  dup ok? if drop lf-mls-fuel @ outcome-ok then ;
 \ Without universe arguments, the stored type itself, unvisited and free
 \ of charge, as instantiate_type_lparams returns it (instantiate.cpp
 \ 251-252), and as whnf.fs unfolds such a constant to its stored value.
@@ -109,7 +106,7 @@ end-structure
 : lf-envsig-instantiate ( decl -- root identity fuel' 0 | status )
   dup lf-envsig-root 0= if drop outcome-invalid exit then
   lf-envsig-bare? if rot drop lf-envsig-stored exit then
-  rot lf-idecl-params@ drop lf-envsig-actuals lf-mixed-level-substitute lf-envsig-left ;
+  rot lf-idecl-params@ drop lf-envsig-actuals lf-mixed-level-substitute lf-mls-left ;
 : lf-envsig-type ( d -- root identity fuel' 0 | status )
   lf-env-usable ok-then? if lf-slot-decl lf-envsig-instantiate then ;
 

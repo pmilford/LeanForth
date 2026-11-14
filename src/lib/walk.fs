@@ -53,6 +53,9 @@ end-structure
 : walk-stack ( walk -- addr ) dup walk-heap @ ?dup if nip exit then walk-header + ;
 : walk-bytes ( cells -- u ) cells walk-header + ;
 : walk-paired? ( walk -- flag ) walk-width @ 2 = ;
+\ The context cell of the node being visited, 0 in a walk that is not
+\ paired (for a visitor or a diagnostic that serves both kinds).
+: walk-context? ( walk -- x|0 ) dup walk-paired? if walk-context @ else drop 0 then ;
 
 \ Making a walk record with room for capacity items of one cell (walk-size,
 \ walk-init, walk:) or of a node and its context (walk2-size, walk2-init,

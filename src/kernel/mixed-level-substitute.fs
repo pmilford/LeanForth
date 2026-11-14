@@ -205,7 +205,7 @@ create lf-mls-set-hooks /htab-hooks allot
   lf-mls-reached @ 0 ?do i lf-mls-unlist loop ;
 \ The formals and count are those last given to lf-lsubst-use.
 : lf-mls-walk ( root -- status )
-  ['] lf-mls-visit lf-mls-walker walk-run lf-mls-walker lf-mls-site lf-diag-walk ;
+  ['] lf-mls-visit lf-mls-walker lf-mls-site lf-diag-run ;
 : lf-mls-audit-from ( root -- status )
   lf-mls-unseen ok-then? if lf-mls-walk lf-mls-forget then ;
 
@@ -365,3 +365,7 @@ create lf-mls-set-hooks /htab-hooks allot
 : lf-mixed-level-substitute
   ( index id formals actual-pairs count fuel -- index id 0 | status )
   lf-log? if lf-mls-logged else lf-mls-pass then ;
+\ A successful substitution's result with the fuel it left (for the
+\ callers that report it: env-signature.fs, mixed-signature-probe.fs).
+: lf-mls-left ( root identity 0 | status -- root identity fuel' 0 | status )
+  dup ok? if drop lf-mls-fuel @ outcome-ok then ;

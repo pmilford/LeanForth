@@ -410,15 +410,13 @@ end-structure
   >r s" -" skip-text r@ num-negative !
   take-digits r@ num-whole 2!  scan-fraction r@ num-frac 2!
   scan-exponent r@ num-exp 2!  r> num-exp-minus ! 2drop ;
-: strip-zeros ( addr u -- addr' u' )
-  begin dup 0> while over 1 s" 0" compare 0= while 1 /string repeat then ;
-: all-zeros? ( addr u -- flag ) strip-zeros nip 0= ;
+: all-zeros? ( addr u -- flag ) skip-zeros nip 0= ;
 : mantissa-zero? ( number -- flag )
   dup num-whole 2@ all-zeros? swap num-frac 2@ all-zeros? and ;
 \ The exponent's value, at most max-n (a larger one is as good); false
 \ above 2^64, which Lean does not parse.
 : exp-cap ( addr u -- n true | false )
-  strip-zeros dup 20 > if 2drop false exit then
+  skip-zeros dup 20 > if 2drop false exit then
   dup 20 = if 2dup s" 18446744073709551616" compare 0> if 2drop false exit then then
   digits>u 0= if max-n then true ;
 : put-text ( dst addr n -- dst' ) rot 2dup + >r swap move r> ;
@@ -429,7 +427,7 @@ end-structure
 \ The mantissa followed by zeros zeros, leading zeros dropped.
 : put-digits ( number zeros -- addr u )
   >r dup num-digits over num-whole 2@ put-text over num-frac 2@ put-text
-  r> put-zeros swap num-digits tuck - strip-zeros ;
+  r> put-zeros swap num-digits tuck - skip-zeros ;
 : natural-value ( number zeros -- addr u outcome )
   over mantissa-zero? if 2drop s" 0" outcome-ok exit then
   over num-negative @ if 2drop 0 0 outcome-invalid exit then
@@ -441,7 +439,7 @@ end-structure
   over frac-length - natural-value ;
 \ An exponent of -0 leaves the exponent d of a number with d fraction digits.
 : minus-exponent ( number -- addr u outcome )
-  dup num-exp 2@ strip-zeros nip over frac-length or
+  dup num-exp 2@ skip-zeros nip over frac-length or
   if drop 0 0 outcome-invalid exit then 0 natural-value ;
 : real-natural ( number -- addr u outcome )
   dup num-exp-minus @ if minus-exponent else plus-exponent then ;

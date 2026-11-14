@@ -89,6 +89,9 @@ require ./constant-references.fs
 7 constant lf-kind-constructor
 8 constant lf-kind-recursor
 9 constant lf-kind-block         \ an empty inductive block (ADR 0016 amendment 1)
+\ The kinds with a value: definition, theorem, opaque.
+: lf-kind-valued? ( kind -- flag )
+  dup lf-kind-definition = over lf-kind-theorem = or swap lf-kind-opaque = or ;
 \ Safety and reducibility hints, coded as the NDJSON reader codes them.
 0 constant lf-safety-safe
 1 constant lf-safety-unsafe
@@ -138,7 +141,9 @@ store-header context-record: lf-inputs
 \ declaration (lf-input-indexed?); tests check that both agree. A heap
 \ slab of cells, a member of the checker context with a teardown word.
 /slab context-record: lf-input-names
-: lf-input-names-make ( -- ) 1 cells max-n 1 cells / lf-input-names slab-init drop ;
+\ A heap slab of cells for a context, of any length a cell can count.
+: lf-input-cells-make ( slab -- ) >r 1 cells max-n 1 cells / r> slab-init drop ;
+: lf-input-names-make ( -- ) lf-input-names lf-input-cells-make ;
 ' lf-input-names-make context-setup
 :noname ( -- ) lf-input-names slab-free ; context-teardown
 : lf-input-newest-cell ( name -- addr ) lf-input-names column-at ;
@@ -162,7 +167,7 @@ store-header context-record: lf-inputs
 \ computes its own and compares where Lean's replay compares (ADR 0015 B3,
 \ B4). A heap slab of cells, a member of the checker context.
 /slab context-record: lf-input-more
-: lf-input-more-make ( -- ) 1 cells max-n 1 cells / lf-input-more slab-init drop ;
+: lf-input-more-make ( -- ) lf-input-more lf-input-cells-make ;
 ' lf-input-more-make context-setup
 :noname ( -- ) lf-input-more slab-free ; context-teardown
 0 constant lf-hdr-first   1 constant lf-hdr-types   2 constant lf-hdr-ctors
@@ -182,9 +187,10 @@ store-header context-record: lf-inputs
 : lf-more@ ( k -- x ) lf-more-cell @ ;
 \ A declaration's data and its block's header: the address of the first
 \ cell, or 0 for none.
-: lf-idecl-data ( decl -- addr|0 ) lf-idecl-more @ ?dup if 1- lf-more-cell else 0 then ;
-: lf-idecl-header ( decl -- addr|0 )
-  lf-idecl-block @ ?dup if 1- lf-more-cell else 0 then ;
+\ A reference is its first cell's index plus one, 0 for none.
+: lf-more-at ( ref -- addr|0 ) ?dup if 1- lf-more-cell else 0 then ;
+: lf-idecl-data ( decl -- addr|0 ) lf-idecl-more @ lf-more-at ;
+: lf-idecl-header ( decl -- addr|0 ) lf-idecl-block @ lf-more-at ;
 \ Field k of a data record, and a list at addr: its items and count.
 : lf-more-field ( addr k -- x ) cells + @ ;
 : lf-more-list ( addr -- items n ) cell-count ;

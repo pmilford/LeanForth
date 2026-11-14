@@ -471,13 +471,14 @@ lf-recheck-skipped 1+ constant lf-recheck-early
   2dup lf-slot+ over lf-member-added? over lf-slot-added !
   swap lf-member-kind lf-kind-constructor = lf-cand-added? and
   if lf-slot-type-params! else 2drop then ;
-: lf-span-added! ( slot -- )
-  lf-env-may-write lf-cand-span@ 0 ?do dup i lf-member-added! loop drop ;
+\ xt ( slot i -- ) for each member i of the candidate's span.
+: lf-span-each ( slot xt -- )
+  lf-env-may-write lf-cand-span@ 0 ?do 2dup i swap execute loop 2drop ;
+: lf-span-added! ( slot -- ) ['] lf-member-added! lf-span-each ;
 \ Slot k of the span: its place in it, then, last, final.
 : lf-slot-final! ( slot k -- )
   tuck lf-slot+ tuck lf-slot-member ! lf-state-final swap lf-slot-state ! ;
-: lf-span-final! ( slot -- )
-  lf-env-may-write lf-cand-span@ 0 ?do dup i lf-slot-final! loop drop ;
+: lf-span-final! ( slot -- ) ['] lf-slot-final! lf-span-each ;
 \ A skipped declaration (lf-cand-skipped?): each slot of the span marked;
 \ any other's marks cleared.
 : lf-span-skipped! ( slot outcome -- )
