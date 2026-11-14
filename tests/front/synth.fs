@@ -504,6 +504,18 @@ variable refuse-at   variable refusal-fired
 : via-k-sweep ( -- flag )
   true 400 1 do i via-k-swept -rot and swap 0= if leave then loop ;
 T{ via-k-sweep 400 via-k-swept nip -> true false }T
+\ The same sweep with an outer search's machine already set aside (a
+\ sentinel on de-saved): a refused set-aside cuts de-saved back to its own
+\ base, never below it, so the outer machine survives (review s1-synth-b
+\ FIXA re-check M1: a cut to zero would drop it, and the outer de-back
+\ would then underflow).
+: sentinel-swept ( k -- ok? )
+  refuse-at ! fresh 12345 de-saved slab-push drop
+  ['] via-k-refused in-scopes 2drop 2drop drop
+  de-saved slab-count 1 = de-saved slab-pop 12345 = and ;
+: sentinel-sweep ( -- flag )
+  true 400 1 do i sentinel-swept and dup 0= if leave then loop ;
+T{ sentinel-sweep -> true }T
 \ A goal that keeps a metavariable (OfNat Nat ?k): unification's
 \ checkAssignment runs (assign-check.fs's occurs check), so each refusal
 \ answers full, or Lean's check of the result (121), and leaves nothing

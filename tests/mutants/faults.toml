@@ -17153,6 +17153,14 @@ test = "$GFORTH tests/front/synth.fs"
 reason = "review s1-synth-b re-check M-a: a refused set-aside leaves its partial copy on de-saved, which an outer de-back would restore"
 
 [[fault]]
+id = "fe-defeq-aside-cut-to-zero"
+file = "src/front/defeq.fs"
+old = '''  dup ok? if nip exit then swap de-saved slab-cut ;'''
+new = '''  dup ok? if nip exit then nip 0 de-saved slab-cut ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b FIXA re-check M1: a refused set-aside cut back to zero, not to its base, drops the machines outer searches set aside"
+
+[[fault]]
 id = "fe-defeq-inst-typed-unchecked"
 file = "src/front/defeq.fs"
 old = '''  de-t lf-mvar-inst? if de-check-inst exit then'''
