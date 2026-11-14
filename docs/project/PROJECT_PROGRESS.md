@@ -21,7 +21,7 @@ speed before parallelism adds more.
 
 **What LeanForth is and is not (2026-11-12).** LeanForth today is only the checking half of Lean (the kernel): it re-checks proof terms that Lean produced and exported (NDJSON), including all of Lean's `Init`. It has none of Lean's front end, the larger half: no elaborator (implicit arguments, numerals, unification), no type classes or coercions, no tactics, no pattern matching or recursion compilation, no evaluation. So it cannot yet turn a written theorem into a proof; Lean does all of that before the export. LeanForth text is checked by the kernel since 2026-11-12 (plan 8.2.1a, c, d); there is no program verifier: for the clamp word LeanForth re-checks the proofs Lean wrote (plan 5.5.1, branch `program-551`). The front end is plan phase 8 ([PLAN_DRAFT.md](PLAN_DRAFT.md)), being re-planned from 2026-11-12.
 
-## Now, next, later (updated 2026-11-13)
+## Now, next, later (updated 2026-11-14)
 
 The single list of what is being worked on (owner, 2026-11-12; replaces the near-term queue of
 [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md), stale since 2026-11-03). `scripts/push.sh` refuses to push plan
@@ -56,7 +56,8 @@ status changes when this date is older than them. Stages are those of the
   root key checked at the first query) tested alone, `make reference-synth` 2,321 of 2,938 Init instances recomputed
   equal, 0 refused, 617 unverified; FE1E §4 step 4 (out-parameters) is plan row FE1e3b, not started. FE1e5 (instance
   search, `src/front/synth.fs`: Lean's synthInstance? as tabled resolution, trySynthInstance and synthPending, which
-  set the unifier's hooks) tested alone on branch `s1-synth-b` (2026-11-13, not merged, Forth review pending): over
+  set the unifier's hooks) tested alone on branch `s1-synth-b` (2026-11-14, not merged: the Forth review's and its
+  re-check's findings fixed but for B-1, planned in 9.4.8k; the check of the fixes pending): over
   Init, `make reference-synth` gives pinned Lean's `#synth` answer after the same candidates for 24 of 30 problems
   (S1's three stuck ones stuck after Lean's one candidate, `OfNat Nat 0`, `Add Nat`); the five with an out-parameter
   (`HAdd Nat Nat ?c`, ...) answer unsupported until S2 merge A's lazy delta (equal to Lean's on a trial merge with
