@@ -127,10 +127,13 @@ Not ported, changing no answer: caches and Lean's diagnostics counters.
   none (Lean's `find?`, WHNF.lean:854): the fact merge A needs. **Format 3**: every format-2 file says `"sunfold":0`
   in its header, which would read as "no definition has a `_sunfold`" and unfold `Nat.add` by its `brecOn` value with
   no warning, so format 2 is refused as another format version (as format 1 is now) and S6's planned format becomes 4;
-  `schemas/elab-data-3.schema.json`. Checks when read: ELABORATION_DATA.md's list and `rec_arg` below `f`'s arity; a
-  body naming a constant the export lacks makes that record unsupported at use, not the file invalid (merge A measures
-  that all 389 name only exported constants); data errors 40-49 (s1-synth takes 39). Decoded into the term store at
-  first use, memoized per run, like S1's `lib-decode.fs`. ELABORATION_DATA.md's kernel check of each body at first use
+  `schemas/elab-data-3.schema.json`. Checks when read: ELABORATION_DATA.md's list (levels as a table like the
+  nodes, not JSON trees, so that a line nests at most 8 deep); `rec_arg` is not bounded by `f`'s type, since Lean
+  compares it with an application's arguments at use (WHNF.lean:900) and it can lie beyond the binders `f`'s type
+  shows (`Nat.decidableExistsLT`, measured at merge A); a body naming a constant the export lacks makes that record
+  unsupported at use, not the file invalid (merge A measured 25 of the 387 kept bodies, each naming a `_proof_N`
+  lemma lean4export leaves out); data errors 41-45 (s1-synth took 39 and 40). Decoded into the term store at first
+  use, memoized per run, like S1's `lib-decode.fs` (merge B). ELABORATION_DATA.md's kernel check of each body at first use
   is withdrawn: it would need a new kernel entry point on a scratch term ([kernel], [bypass]), and the trust argument
   below makes it unnecessary.
 - **Markers.** Lean's `sunfoldMatch` and `sunfoldMatchAlt` annotations become one front-end-only node kind (new
@@ -247,7 +250,7 @@ the library walk and memo of 9.4.8b; `defeq-delta.fs` and `unfold.fs` run on `fr
 | 215-224 | s2-tactics | 215 `-tac-no-pattern`; 216 `-tac-motive` (not type correct); 217 `-tac-motive-dep`; 218 `-tac-not-eq`; 219 `-tac-mvar-pattern`; 220 `-tac-occurs`; 221-224 kept |
 | 225-229 | s2-steps | kept (a step log out of room is 88, full) |
 | 230-249 | FE5 | |
-| data 40-49 | s2-unfold | the `sunfold` record checks (the elaboration data's own numbering) |
+| data 41-49 | s2-unfold | the `sunfold` record checks (the elaboration data's own numbering): 41 a body named twice, 42 an index to no earlier entry, 43 a loose bound variable, 44 universe parameters other than the definition's, 45 an unknown annotation (unsupported); 46-49 kept; data 39 and 40 are s1-synth's |
 
 All codes but 200 are invalid; each prints Lean's first message and, for a tactic error, the goals (as 89 and 97 do).
 Merge A writes the sub-ranges into `author/errors.fs`'s header. A Meta step not ported stays 93 at a tactic.

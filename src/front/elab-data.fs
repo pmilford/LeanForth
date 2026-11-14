@@ -177,12 +177,13 @@ require ./elab-keys.fs
 \   lit, str: a a key of its digits or bytes     const: a its declaration (-1 when
 \   the library has none), its levels by elab-node-levels
 \   proj: a the structure (-1: none), b the field, c the term
-\   mdata: a the annotation (elab-sunfold-match, -match-alt, elab-borrowed), b the term
+\   mdata: a the annotation (elab-sunfold-match, -match-alt, elab-borrowed), c the term
 0 constant elab-node-bvar   1 constant elab-node-sort   2 constant elab-node-app
 3 constant elab-node-lam   4 constant elab-node-forall   5 constant elab-node-let
 6 constant elab-node-lit   7 constant elab-node-str   8 constant elab-node-proj
 9 constant elab-node-mdata   10 constant elab-node-const   11 constant elab-node-have
-0 constant elab-sunfold-match   1 constant elab-sunfold-match-alt   2 constant elab-borrowed
+0 constant elab-sunfold-match   1 constant elab-sunfold-match-alt
+2 constant elab-borrowed
 \ Levels: zero; succ (a); max, imax (a, b); param (a its place among the
 \ definition's universe parameters).
 0 constant elab-level-zero   1 constant elab-level-succ   2 constant elab-level-max
@@ -232,7 +233,7 @@ begin-structure /ed-proj
 end-structure
 begin-structure /ed-sun
   field: ed-sun-decl
-  field: ed-sun-params   field: ed-sun-params#     \ its universe parameters in elab-orders
+  field: ed-sun-params   field: ed-sun-params#     \ its universe parameters' names
   field: ed-sun-levels   field: ed-sun-levels#     \ its levels in elab-levels
   field: ed-sun-nodes    field: ed-sun-nodes#      \ its nodes in elab-nodes
   field: ed-sun-value                              \ the root, a node number
@@ -519,11 +520,13 @@ create ed-rank-hooks /htab-hooks allot
   1 over ed-key-types# ! ed-key-find dup 0= if nip then ;
 
 \ ---- Forgetting: every table empty, the counts zero, nothing loaded.
+: ed-bodies-clear ( -- )
+  elab-suns slab-clear elab-nodes slab-clear elab-levels slab-clear ;
 : ed-slabs-clear ( -- )
   elab-facts slab-clear elab-insts slab-clear elab-orders slab-clear
   elab-dflts slab-clear elab-elims slab-clear elab-types slab-clear elab-lefts slab-clear
   elab-classes slab-clear elab-matches slab-clear elab-alts slab-clear
-  elab-projs slab-clear elab-suns slab-clear elab-nodes slab-clear elab-levels slab-clear ;
+  elab-projs slab-clear ed-bodies-clear ;
 : ed-tables-clear ( -- )
   ed-table? if ed-table htab-clear then
   ed-ranks dup htab-live? if htab-clear else drop then ;
@@ -795,15 +798,18 @@ begin-structure /ed-own
   field: ed-own-reader   field: ed-own-fact   field: ed-own-why
   field: ed-own-rec      field: ed-own-field
 end-structure
-create ed-inst-own  ' ed-no-type , ' ed-fact-inst , ed-e-instance , ' ed-inst , ' ed-inst-decl ,
-create ed-class-own  ' ed-a-type , ' ed-fact-class , ed-e-class , ' ed-class , ' ed-class-decl ,
+create ed-inst-own
+  ' ed-no-type , ' ed-fact-inst , ed-e-instance , ' ed-inst , ' ed-inst-decl ,
+create ed-class-own
+  ' ed-a-type , ' ed-fact-class , ed-e-class , ' ed-class , ' ed-class-decl ,
 create ed-match-own
   ' ed-a-def , ' ed-fact-matcher , ed-e-matcher , ' ed-match , ' ed-match-decl ,
 create ed-proj-own
   ' ed-no-type , ' ed-fact-proj , ed-e-projection , ' ed-proj , ' ed-proj-decl ,
 create ed-sun-own  ' ed-a-def , ' ed-fact-sun , ed-e-sunfold , ' ed-sun , ' ed-sun-decl ,
 create ed-owns   \ by kind (elab-instance .. elab-sunfold)
-  ed-inst-own , 0 , 0 , 0 , 0 , ed-class-own , 0 , ed-match-own , ed-proj-own , ed-sun-own ,
+  ed-inst-own , 0 , 0 , 0 , 0 , ed-class-own , 0 , ed-match-own , ed-proj-own ,
+  ed-sun-own ,
 : ed-own ( -- own ) elab elab-kind @ cells ed-owns + @ ;
 : ed-own-once ( d i -- outcome )
   over ed-own ed-own-fact @ ed-fact@ if 2drop ed-own ed-own-why @ ed-bad exit then
@@ -1070,6 +1076,7 @@ create ed-sun-members
   s" rec_arg" counted, s" value" counted, 0 0 counted,
 : ed-sun-now ( -- addr ) elab-suns slab-count 1- ed-sun ;
 : ed-nd ( -- addr ) elab-nodes slab-last ;
+: ed-nd-kind! ( kind -- ) ed-nd ed-node-kind ! ;
 : ed-lv ( -- addr ) elab-levels slab-last ;
 : ed-nodes-first ( -- n ) ed-sun-now ed-sun-nodes @ ;
 : ed-levels-first ( -- l ) ed-sun-now ed-sun-levels @ ;
@@ -1078,15 +1085,20 @@ create ed-sun-members
 : ed-entry-below ( index first limit -- n outcome )
   rot ed-u32 ok-then? 0= if nip nip no-result exit then
   rot + tuck > if outcome-ok else ed-e-order ed-bad then ;
-: ed-node-ref ( index -- n outcome ) ed-nodes-first elab-nodes slab-count 1- ed-entry-below ;
+\ An earlier node or level of the record; its root; any of its levels.
+: ed-node-ref ( index -- n outcome )
+  ed-nodes-first elab-nodes slab-count 1- ed-entry-below ;
 : ed-root-ref ( index -- n outcome ) ed-nodes-first elab-nodes slab-count ed-entry-below ;
-: ed-level-ref ( index -- l outcome ) ed-levels-first elab-levels slab-count 1- ed-entry-below ;
-: ed-level-all ( index -- l outcome ) ed-levels-first elab-levels slab-count ed-entry-below ;
+: ed-level-ref ( index -- l outcome )
+  ed-levels-first elab-levels slab-count 1- ed-entry-below ;
+: ed-level-all ( index -- l outcome )
+  ed-levels-first elab-levels slab-count ed-entry-below ;
 \ A new entry of a slab of nodes or levels, every field 0.
 : ed-entry-new ( slab -- outcome )
   dup ed-claim ok-then? if swap slab-at /ed-node erase outcome-ok else nip then ;
 \ Arrays of two, and the first item of an array.
-: ed-items? ( index n -- flag ) swap json-array ed-view json-items-of if = else drop false then ;
+: ed-items? ( index n -- flag )
+  swap json-array ed-view json-items-of if = else drop false then ;
 : ed-first-item ( index -- item ) ed-view json-contents nip ;
 \ The two entries of an array of two, each read by xt ( item -- n outcome ).
 : ed-two-refs ( value xt -- n1 n2 outcome )
@@ -1100,12 +1112,13 @@ create ed-sun-members
 : ed-sole? ( index -- flag ) json-object ed-view json-items-of if 1 = else false then ;
 : ed-sole ( value table -- value' k true | false )
   over ed-sole? 0= if 2drop false exit then
-  >r ed-first-item dup 1+ swap ed-view json-text@ r> ed-key-index dup 0= if nip then ;
+  swap ed-first-item dup 1+ -rot ed-view json-text@ rot ed-key-index dup 0= if nip then ;
 
 \ The universe parameters: their names in elab-orders, each f's next one.
 : ed-sun-decl@ ( -- d ) ed-sun-now ed-sun-decl @ ;
 : ed-params-read ( -- k ) elab-orders slab-count ed-sun-now ed-sun-params @ - ;
-: ed-f-param ( k -- n ) ed-sun-decl@ ed-stage staged-params@ ed-stage stage-tuples tuple-item ;
+: ed-f-param ( k -- n )
+  ed-sun-decl@ ed-stage staged-params@ ed-stage stage-tuples tuple-item ;
 : ed-next-param? ( n -- flag )
   ed-params-read dup ed-sun-decl@ ed-levels < if ed-f-param = else 2drop false then ;
 : ed-param-item ( item -- outcome )
@@ -1125,8 +1138,10 @@ create ed-level-names
   ed-name ok-then? 0= if exit then ed-param-place 0= if ed-e-params ed-bad exit then
   ed-lv swap outcome-ok ['] ed-node-a ed-put ;
 create ed-level-readers  ' ed-lv-succ , ' ed-lv-pair , ' ed-lv-pair , ' ed-lv-param ,
-: ed-lv-form ( value k -- outcome ) dup 1+ ed-lv ed-node-kind ! cells ed-level-readers + @ execute ;
-: ed-lv-object ( item -- outcome ) ed-level-names ed-sole if ed-lv-form else ed-malformed then ;
+: ed-lv-form ( value k -- outcome )
+  dup 1+ ed-lv ed-node-kind ! cells ed-level-readers + @ execute ;
+: ed-lv-object ( item -- outcome )
+  ed-level-names ed-sole if ed-lv-form else ed-malformed then ;
 : ed-lv-zero ( item -- outcome ) s" zero" ed-text= ed-e-malformed ed-or-bad ;
 : ed-level-item ( item -- outcome )
   elab-levels ed-entry-new dup ok? 0= if nip exit then drop
@@ -1141,56 +1156,68 @@ create ed-level-readers  ' ed-lv-succ , ' ed-lv-pair , ' ed-lv-pair , ' ed-lv-pa
 : ed-nd-app ( value -- outcome ) ['] ed-node-ref ed-two-refs ed-nd ed-ab! ;
 : ed-nd-name ( value -- outcome )
   ed-nd swap c" name" ed-member ed-foreign-key ['] ed-node-a ed-put ;
-: ed-nd-type ( value -- outcome ) ed-nd swap c" type" ed-member ed-node-ref ['] ed-node-b ed-put ;
-: ed-nd-body ( value -- outcome ) ed-nd swap c" body" ed-member ed-node-ref ['] ed-node-c ed-put ;
+: ed-nd-type ( value -- outcome )
+  ed-nd swap c" type" ed-member ed-node-ref ['] ed-node-b ed-put ;
+: ed-nd-body ( value -- outcome )
+  ed-nd swap c" body" ed-member ed-node-ref ['] ed-node-c ed-put ;
 create ed-info-names
-  s" default" counted, s" implicit" counted, s" strict" counted, s" inst" counted, 0 0 counted,
+  s" default" counted, s" implicit" counted, s" strict" counted, s" inst" counted,
+  0 0 counted,
 : ed-nd-info ( value -- outcome )
   ed-nd swap c" info" ed-member ed-info-names ed-choice ['] ed-node-d ed-put ;
 create ed-binder-members
   s" body" counted, s" info" counted, s" name" counted, s" type" counted, 0 0 counted,
-create ed-binder-steps  ' ed-nd-name , ' ed-nd-type , ' ed-nd-body , ' ed-nd-info , 0 ,
-\ A form's members, read by its steps ( value -- outcome ) in turn.
-: ed-nd-steps ( value members steps -- outcome )
-  >r over swap ed-shape? if r> outcome-steps else r> 2drop ed-malformed then ;
-: ed-nd-binder ( value -- outcome ) ed-binder-members ed-binder-steps ed-nd-steps ;
+\ A form: its members' table, then its steps ( value -- outcome ), run
+\ in turn when the value has exactly those members.
+create ed-binder-form
+  ed-binder-members , ' ed-nd-name , ' ed-nd-type , ' ed-nd-body , ' ed-nd-info , 0 ,
+: ed-nd-steps ( value form -- outcome )
+  2dup @ ed-shape? if cell+ outcome-steps else 2drop ed-malformed then ;
+: ed-nd-binder ( value -- outcome ) ed-binder-form ed-nd-steps ;
 : ed-nd-value ( value -- outcome )
   ed-nd swap c" value" ed-member ed-node-ref ['] ed-node-c ed-put ;
 : ed-nd-let-body ( value -- outcome )
   ed-nd swap c" body" ed-member ed-node-ref ['] ed-node-d ed-put ;
 : ed-nd-non-dep ( value -- outcome )
-  c" non_dep" ed-member ed-bool ok-then? if if elab-node-have ed-nd ed-node-kind ! then
+  c" non_dep" ed-member ed-bool ok-then? if if elab-node-have ed-nd-kind! then
   outcome-ok then ;
 create ed-let-members
-  s" body" counted, s" name" counted, s" non_dep" counted, s" type" counted, s" value" counted,
-  0 0 counted,
-create ed-let-steps
+  s" body" counted, s" name" counted, s" non_dep" counted, s" type" counted,
+  s" value" counted, 0 0 counted,
+create ed-let-form  ed-let-members ,
   ' ed-nd-name , ' ed-nd-type , ' ed-nd-value , ' ed-nd-let-body , ' ed-nd-non-dep , 0 ,
-: ed-nd-let ( value -- outcome ) ed-let-members ed-let-steps ed-nd-steps ;
+: ed-nd-let ( value -- outcome ) ed-let-form ed-nd-steps ;
 : ed-texted ( c-addr u tag -- k outcome ) ed-text-key elab-keys# 1- swap ;
 : ed-nd-lit ( value -- outcome )
   ed-nd swap ed-digits ok-then2? if elab-key-lit ed-texted else no-result then
   ['] ed-node-a ed-put ;
 : ed-nd-str ( value -- outcome )
-  ed-nd swap ed-text if elab-key-str ed-texted else 0 ed-malformed then ['] ed-node-a ed-put ;
+  ed-nd swap ed-text if elab-key-str ed-texted else 0 ed-malformed then
+  ['] ed-node-a ed-put ;
 \ A constant, or a projection's structure: the one declaration of the
 \ name, or -1 when none has it (the record foreign).
 : ed-body-decl ( n -- d outcome )
   ed-decls if ed-one-decl else true ed-sun-now ed-sun-foreign ! -1 outcome-ok then ;
 : ed-type-or-none ( d -- d outcome )
   dup 0< if outcome-ok exit then dup ed-type? if outcome-ok else ed-kind-bad then ;
-: ed-body-name ( index -- d outcome ) ed-name ok-then? if ed-body-decl else no-result then ;
+: ed-body-name ( index -- d outcome )
+  ed-name ok-then? if ed-body-decl else no-result then ;
 : ed-nd-struct ( value -- outcome )
-  ed-nd swap c" struct" ed-member ed-body-name ok-then? if ed-type-or-none else no-result then
-  ['] ed-node-a ed-put ;
-: ed-nd-idx ( value -- outcome ) ed-nd swap c" idx" ed-member ed-u32 ['] ed-node-b ed-put ;
-: ed-nd-expr ( value -- outcome ) ed-nd swap c" expr" ed-member ed-node-ref ['] ed-node-c ed-put ;
-create ed-proj-node-members  s" expr" counted, s" idx" counted, s" struct" counted, 0 0 counted,
-create ed-proj-node-steps  ' ed-nd-struct , ' ed-nd-idx , ' ed-nd-expr , 0 ,
-: ed-nd-proj ( value -- outcome ) ed-proj-node-members ed-proj-node-steps ed-nd-steps ;
+  ed-nd swap c" struct" ed-member ed-body-name
+  ok-then? if ed-type-or-none else no-result then ['] ed-node-a ed-put ;
+: ed-nd-idx ( value -- outcome )
+  ed-nd swap c" idx" ed-member ed-u32 ['] ed-node-b ed-put ;
+: ed-nd-expr ( value -- outcome )
+  ed-nd swap c" expr" ed-member ed-node-ref ['] ed-node-c ed-put ;
+create ed-proj-node-members
+  s" expr" counted, s" idx" counted, s" struct" counted, 0 0 counted,
+create ed-proj-node-form
+  ed-proj-node-members , ' ed-nd-struct , ' ed-nd-idx , ' ed-nd-expr , 0 ,
+: ed-nd-proj ( value -- outcome ) ed-proj-node-form ed-nd-steps ;
 \ An annotation: [[KEY, {"bool": true}]], KEY one of Lean's three.
 create ed-annotation-names
-  s" sunfoldMatch" counted, s" sunfoldMatchAlt" counted, s" borrowed" counted, 0 0 counted,
+  s" sunfoldMatch" counted, s" sunfoldMatchAlt" counted, s" borrowed" counted,
+  0 0 counted,
 create ed-bool-members  s" bool" counted, 0 0 counted,
 : ed-true? ( index -- flag )
   dup ed-bool-members ed-shape? if c" bool" ed-member ed-view json-bool 0= if false then
@@ -1206,10 +1233,9 @@ create ed-bool-members  s" bool" counted, 0 0 counted,
 : ed-nd-entries ( value -- outcome )
   ed-nd swap c" entries" ed-member dup 1 ed-items? if ed-first-item ed-entry
   else drop 0 ed-malformed then ['] ed-node-a ed-put ;
-: ed-nd-mexpr ( value -- outcome ) ed-nd swap c" expr" ed-member ed-node-ref ['] ed-node-b ed-put ;
 create ed-mdata-members  s" entries" counted, s" expr" counted, 0 0 counted,
-create ed-mdata-steps  ' ed-nd-entries , ' ed-nd-mexpr , 0 ,
-: ed-nd-mdata ( value -- outcome ) ed-mdata-members ed-mdata-steps ed-nd-steps ;
+create ed-mdata-form  ed-mdata-members , ' ed-nd-entries , ' ed-nd-expr , 0 ,
+: ed-nd-mdata ( value -- outcome ) ed-mdata-form ed-nd-steps ;
 : ed-node-level ( item -- outcome ) ed-level-all ok-then? if elab-orders ed-push then ;
 : ed-nd-levels ( value -- outcome )
   ed-nd ed-node-b swap c" levels" ed-member ['] ed-node-level ed-span-items ;
@@ -1226,26 +1252,27 @@ create ed-mdata-steps  ' ed-nd-entries , ' ed-nd-mexpr , 0 ,
 : ed-lo-binder ( addr -- k ) dup ed-node-b @ ed-loose swap ed-node-c @ ed-under max ;
 : ed-lo-let ( addr -- k )
   dup ed-node-b @ ed-loose over ed-node-c @ ed-loose max swap ed-node-d @ ed-under max ;
-: ed-lo-proj ( addr -- k ) ed-node-c @ ed-loose ;
-: ed-lo-mdata ( addr -- k ) ed-node-b @ ed-loose ;
+: ed-lo-term ( addr -- k ) ed-node-c @ ed-loose ;   \ proj's and mdata's
 create ed-loose-of   \ by node kind
-  ' ed-lo-bvar , ' ed-lo-none , ' ed-lo-app , ' ed-lo-binder , ' ed-lo-binder , ' ed-lo-let ,
-  ' ed-lo-none , ' ed-lo-none , ' ed-lo-proj , ' ed-lo-mdata , ' ed-lo-none , ' ed-lo-let ,
-: ed-loose! ( -- ) ed-nd dup dup ed-node-kind @ cells ed-loose-of + @ execute swap ed-node-loose ! ;
+  ' ed-lo-bvar , ' ed-lo-none , ' ed-lo-app , ' ed-lo-binder , ' ed-lo-binder ,
+  ' ed-lo-let , ' ed-lo-none , ' ed-lo-none , ' ed-lo-term , ' ed-lo-term ,
+  ' ed-lo-none , ' ed-lo-let ,
+: ed-loose-xt ( addr -- xt ) ed-node-kind @ cells ed-loose-of + @ ;
+: ed-loose! ( -- ) ed-nd dup dup ed-loose-xt execute swap ed-node-loose ! ;
 
 \ A node: {"const": NAME, "levels": [L...]}, or an object of one member
 \ whose key names its kind.
 create ed-node-names
-  s" bvar" counted, s" sort" counted, s" app" counted, s" lam" counted, s" forall" counted,
-  s" let" counted, s" lit" counted, s" str" counted, s" proj" counted, s" mdata" counted,
-  0 0 counted,
+  s" bvar" counted, s" sort" counted, s" app" counted, s" lam" counted,
+  s" forall" counted, s" let" counted, s" lit" counted, s" str" counted,
+  s" proj" counted, s" mdata" counted, 0 0 counted,
 create ed-node-readers
-  ' ed-nd-bvar , ' ed-nd-sort , ' ed-nd-app , ' ed-nd-binder , ' ed-nd-binder , ' ed-nd-let ,
-  ' ed-nd-lit , ' ed-nd-str , ' ed-nd-proj , ' ed-nd-mdata ,
+  ' ed-nd-bvar , ' ed-nd-sort , ' ed-nd-app , ' ed-nd-binder , ' ed-nd-binder ,
+  ' ed-nd-let , ' ed-nd-lit , ' ed-nd-str , ' ed-nd-proj , ' ed-nd-mdata ,
 create ed-const-node-members  s" const" counted, s" levels" counted, 0 0 counted,
-: ed-nd-form ( value k -- outcome ) dup ed-nd ed-node-kind ! cells ed-node-readers + @ execute ;
+: ed-nd-form ( value k -- outcome ) dup ed-nd-kind! cells ed-node-readers + @ execute ;
 : ed-nd-read ( item -- outcome )
-  dup ed-const-node-members ed-shape? if elab-node-const ed-nd ed-node-kind ! ed-nd-const exit then
+  dup ed-const-node-members ed-shape? if elab-node-const ed-nd-kind! ed-nd-const exit then
   ed-node-names ed-sole if ed-nd-form else ed-malformed then ;
 : ed-node-item ( item -- outcome )
   elab-nodes ed-entry-new dup ok? 0= if nip exit then drop
@@ -1260,13 +1287,14 @@ create ed-const-node-members  s" const" counted, s" levels" counted, 0 0 counted
 : ed-sun-rec! ( value s -- outcome )
   ed-sun swap c" rec_arg" ed-member ed-u32-or-none ['] ed-sun-rec ed-put ;
 : ed-sun-closed? ( addr -- flag ) ed-sun-value @ ed-loose 0= ;
-: ed-sun-all-params? ( addr -- flag ) dup ed-sun-params# @ swap ed-sun-decl @ ed-levels = ;
+: ed-sun-all-params? ( addr -- flag )
+  dup ed-sun-params# @ swap ed-sun-decl @ ed-levels = ;
 : ed-sun-fit ( value s -- outcome )
   nip ed-sun dup ed-sun-all-params? 0= if drop ed-e-params ed-bad exit then
   ed-sun-closed? ed-e-loose ed-or-bad ;
 create ed-sun-steps
-  ' ed-own-decl! , ' ed-sun-params! , ' ed-sun-levels! , ' ed-sun-nodes! , ' ed-sun-value! ,
-  ' ed-sun-rec! , ' ed-sun-fit , 0 ,
+  ' ed-own-decl! , ' ed-sun-params! , ' ed-sun-levels! , ' ed-sun-nodes! ,
+  ' ed-sun-value! , ' ed-sun-rec! , ' ed-sun-fit , 0 ,
 : ed-on-sunfold ( value -- outcome )
   dup ed-sun-members ed-shape? 0= if drop ed-malformed exit then
   elab-suns ed-claim ok-then? 0= if nip exit then

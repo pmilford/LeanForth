@@ -101,7 +101,7 @@ end-structure
   lf-meta-instantiate-level-params ;
 : if-slot ( const -- slot ) lf-term-first@ lf-cref-slot ;
 : if-const ( const -- type outcome )
-  dup lf-meta-const-decl 0= if outcome-invalid if-fail exit then
+  dup lf-meta-const-decl ok-then? 0= if if-fail exit then
   swap if-slot swap 2dup if-levels-ok? 0= if 2drop -1 outcome-invalid exit then
   if-const-type ;
 : if-fvar ( fvar -- type outcome )
@@ -137,8 +137,8 @@ end-structure
   over lf-tag-symbolic-sort = or swap lf-tag-lam = or ;
 : if-inert? ( term -- flag ) if-tag if-inert-tag? ;
 : if-head ( term -- head ) begin dup lf-meta-app? while lf-term-first@ repeat ;
-: if-firm-const? ( const -- flag )
-  lf-meta-const-decl if lf-menv-kind lf-kind-definition <> else false then ;
+: if-firm-const? ( const -- flag )   \ an unreadable declaration: not firm
+  lf-meta-const-decl ok? if lf-menv-kind lf-kind-definition <> else drop false then ;
 : if-firm? ( head -- flag )
   dup if-tag lf-tag-constant = if if-firm-const? else if-inert? then ;
 : if-no-pi ( type -- outcome )

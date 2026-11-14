@@ -72,9 +72,8 @@
 \ lf-decl-theorem .. lf-decl-stub; lf-menv-find ( name -- d outcome ) the
 \ declaration of a name, invalid when none has it (Lean: unknown
 \ constant), full or unsupported when a library declaration cannot be
-\ decoded (d -1 whenever the outcome is not ok); lf-menv-newest ( name --
-\ d|-1 ) the same without the outcome, -1 for every failure;
-\ lf-menv-name, lf-menv-kind, lf-menv-type, lf-menv-params ( d -- addr n ),
+\ decoded (d -1 whenever the outcome is not ok); lf-menv-name,
+\ lf-menv-kind, lf-menv-type, lf-menv-params ( d -- addr n ),
 \ lf-menv-value ( d -- term true | false ), lf-menv-hint ( d -- hint
 \ height ), lf-menv-data ( d -- addr|0 ) its inductive data (core/input.fs's
 \ layout), unchecked: d from lf-menv-find; lf-menv-kinds ( d -- addr n )
@@ -177,7 +176,6 @@ end-structure
 : lf-menv-find ( name -- d outcome )
   dup lf-name-valid? 0= if drop -1 outcome-invalid exit then
   me-run? if me-run-find else lf-input-newest me-found then ;
-: lf-menv-newest ( name -- d|-1 ) lf-menv-find ok? 0= if drop -1 then ;
 : me-fed-kind ( d -- kind ) lf-input-decl lf-idecl-kind @ ;
 : me-fed-type ( d -- term ) lf-input-decl lf-idecl-type @ ;
 : me-fed-value ( d -- term ) lf-input-decl lf-idecl-value @ ;

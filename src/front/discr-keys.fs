@@ -269,8 +269,7 @@ end-structure
 
 \ A constant: mkPath's nested numerals and offsets, getUnifyKeyArgs'
 \ stuck tests, then the key and its arguments.
-: dk-decl ( -- d outcome ) dk-head lf-meta-const-decl if outcome-ok else -1
-  outcome-invalid then ;
+: dk-decl ( -- d outcome ) dk-head lf-meta-const-decl ;
 : dk-reducible? ( d -- flag outcome )
   lf-menv-status ok-then? if elab-reducible = outcome-ok else false swap then ;
 : dk-mvar-in? ( from to -- flag ) swap false -rot ?do dk-e i dk-arg lf-meta-mvar-free?

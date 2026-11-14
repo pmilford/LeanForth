@@ -621,19 +621,21 @@ in the data, one `sunfold` record:
     - the schema: 202 good lines and 33 wrong ones;
     - the [error catalogue](#errors) against the reader's;
     - the command line: the good data with an export, a snapshot and
-      `--no-manifest`, 16 eliminators (the table grows), 11 accepted
+      `--no-manifest`, 16 eliminators (the table grows), 12 accepted
       variants (an erased left-out instance the library has, a
       discriminant's name, a matcher into `Prop` only, a projection key of
       the slice's structure and of one it lacks, a string literal key, a
       default rank at the limit, a body naming a constant the slice lacks,
       a body with a node of every form, a body with no recursion
-      argument and one beyond its type's binders), the verdicts
+      argument and one beyond its type's binders, a body of a
+      universe-polymorphic definition), the verdicts
       unchanged, and 4 misuses (a layered snapshot among them);
-    - 154 damaged files, each refused with its line, code, text and exit
+    - 156 damaged files, each refused with its line, code, text and exit
       status and never "accepted": format 1's checks, format 2's (codes
       27-37, the key forms, ranks, matchers, projections, every record
-      kind with a member added), format 3's (codes 41-45, 12 and 14 and
-      malformed nodes and levels of a body), and a format-1 and a
+      kind with a member added), format 3's (codes 41-45, 12 and 14,
+      malformed nodes and levels of a body, and a polymorphic body with
+      no or other universe parameters), and a format-1 and a
       format-2 file.
   - Never run by `make test` (9 blocks, listed with their reasons in
     `tests/coverage-baseline.json`):

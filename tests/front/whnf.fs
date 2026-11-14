@@ -327,6 +327,22 @@ T{ lv1 1 s" id" cn nat app zero app recm fz whnf= 5 nlit recm lf-whnf-core
 \ reduceNat?'s guard answers unsupported (merge B).
 T{ nat outp nat meta-whnf= hadd-kx lf-meta-whnf -> true outcome-ok -1 outcome-unsupported }T
 
+\ ---- isWFRec (reduceRec, WHNF.lean:229): Acc.rec and WellFounded.rec
+\ reduce their major premise at transparency all when the configured one
+\ is default (wc-wf-bump, before the major premise's frame runs); any
+\ other recursor, or another transparency, keeps it. The slice has
+\ neither recursor: their names are added to the context's tier.
+: tier-str ( prefix c-addr u -- n ) lf-name-tier name-str ok? must ;
+0 s" Acc" tier-str s" rec" tier-str drop  0 s" WellFounded" tier-str s" rec" tier-str drop
+: bumped ( c-addr u mode -- mode' )
+  lf-defeq-mode >r lf-defeq-mode! 0 -rot cn wc wc-head ! wc-wf-bump lf-defeq-mode
+  r> lf-defeq-mode! ;
+T{ s" Acc.rec" lf-tr-default bumped s" WellFounded.rec" lf-tr-default bumped
+   s" Nat.rec" lf-tr-default bumped -> lf-tr-all lf-tr-all lf-tr-default }T
+T{ s" Acc.rec" lf-tr-reducible bumped s" WellFounded.rec" lf-tr-instances bumped
+   s" Acc.rec" lf-tr-all bumped lf-defeq-mode -> lf-tr-reducible lf-tr-instances lf-tr-all
+   lf-tr-default }T
+
 \ ---- Stale leaves: after the contexts are emptied, every metavariable
 \ and free variable made before is invalid.
 lf-mctx-reset

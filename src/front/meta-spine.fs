@@ -9,11 +9,12 @@
 \   f a1 .. an into the slab, emptied first, an first; the head f. A
 \   refused cell gives -1 and full.
 \ - lf-meta-arg ( i slab -- term ): argument i, a0 the first, of a spine.
-\ - lf-meta-const-decl ( const -- d true | false ): the declaration of a
+\ - lf-meta-const-decl ( const -- d outcome ): the declaration of a
 \   constant's name (Lean's find?), through front/meta-env.fs in either
-\   mode; false also when a library declaration could not be decoded
-\   (full, unsupported): the constant then reads as unknown (plan S2:
-\   the outcome passed on).
+\   mode: ok; invalid when no declaration has the name (an unknown
+\   constant); full or unsupported, passed on, when a library
+\   declaration could not be decoded (never read as an unknown constant,
+\   plan S2); -1 for d when not ok.
 \ - lf-meta-levels-fill ( slot slab -- outcome ): a constant reference's
 \   universe arguments, as levels, into the slab, emptied first.
 \ - lf-meta-named ( new old -- new outcome ): a rebuilt binder gets the
@@ -58,9 +59,8 @@ require ../present/binder-table.fs
     over ms-peel ok-then? 0= if nip -1 swap exit then
   repeat nip outcome-ok ;
 : lf-meta-arg ( i slab -- term ) tuck slab-count 1- swap - swap slab-at @ ;
-: lf-meta-const-decl ( const -- d true | false )
-  lf-term-first@ lf-cref-slot lf-cref-name@ drop lf-menv-find
-  ok? if true else drop false then ;
+: lf-meta-const-decl ( const -- d outcome )
+  lf-term-first@ lf-cref-slot lf-cref-name@ drop lf-menv-find ;
 : ms-level ( slot i -- level ) swap lf-cref-pairs drop swap lf-cref-pair@ drop ;
 : lf-meta-levels-fill ( slot slab -- outcome )
   dup slab-clear swap dup lf-cref-pairs nip 0 ?do

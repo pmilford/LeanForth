@@ -72,8 +72,10 @@ end-structure
   lf-tag-fvar lf-tag-bit lf-tag-mvar lf-tag-bit or lf-tag-symbolic-sort lf-tag-bit or
   lf-tag-lam lf-tag-bit or
   lf-tag-pi lf-tag-bit or lf-tag-lit lf-tag-bit or lf-tag-projection lf-tag-bit or ;
+\ A constant whose declaration cannot be read (unknown, or not decoded)
+\ is taken as a definition: never final, so its callers answer unsupported.
 : fi-defn? ( const -- flag )
-  lf-meta-const-decl if lf-menv-kind lf-kind-definition = else true then ;
+  lf-meta-const-decl ok? if lf-menv-kind lf-kind-definition = else drop true then ;
 : fi-head-final? ( head -- flag )
   dup lf-term-const? if fi-defn? 0= exit then
   lf-term-tag@ lf-tag-bit fi-final-mask and 0<> ;
@@ -183,7 +185,8 @@ end-structure
 \ The kinds' source: a constant's declared (input) type, else the type.
 : fi-declared ( f type -- )
   swap dup lf-term-const?
-  if nip lf-meta-const-decl if lf-menv-type else -1 then else drop then fi-src ! ;
+  if nip lf-meta-const-decl ok? if lf-menv-type else drop -1 then else drop then
+  fi-src ! ;
 : fi-run ( f n -- m outcome )
   fi-params slab-clear over lf-infer ok-then? 0= if nip nip no-result exit then
   rot over fi-declared swap fi-telescope dup ok? if drop fi-props then

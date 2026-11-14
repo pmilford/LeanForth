@@ -189,9 +189,12 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
   dup lf-menv-kind lf-kind-definition <> if drop false exit then
   lf-defeq-mode dup lf-tr-all = swap lf-tr-default = or if drop true exit then
   lf-menv-status drop elab-reducible = ;
-\ No class: getConstTemp? decides (none for a constant no declaration has).
+\ No class: getConstTemp? decides (none for a constant no declaration has;
+\ a declaration that could not be decoded passes its outcome on).
+: it-unknown ( d outcome -- false outcome )
+  nip dup outcome-invalid = if drop outcome-ok then false swap ;
 : it-not-class ( const -- false outcome )
-  lf-meta-const-decl 0= if false outcome-ok exit then
+  lf-meta-const-decl ok-then? 0= if -1 swap it-unknown exit then
   it-defn-temp? if false outcome-unsupported else false outcome-ok then ;
 : it-class-of ( const -- d true | false )   \ its declaration, if a class
   lf-dt-const-decl 0= if false exit then

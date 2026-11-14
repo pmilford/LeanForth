@@ -192,7 +192,7 @@ T{ 23 elab-node-kind 23 elab-node-b 23 elab-node-c 23 elab-node-d -> elab-node-l
 T{ 1 elab-node-kind 1 elab-node-a 1 elab-node-levels nip -> elab-node-const add-match 1 }T
 T{ 1 elab-node-levels drop @ dup elab-level-kind swap elab-level-a elab-level-kind
    -> elab-level-succ elab-level-zero }T
-T{ 21 elab-node-kind 21 elab-node-a 21 elab-node-b -> elab-node-mdata elab-sunfold-match 20 }T
+T{ 21 elab-node-kind 21 elab-node-a 21 elab-node-c -> elab-node-mdata elab-sunfold-match 20 }T
 T{ 9 elab-node-a 5 elab-node-kind 5 elab-node-a -> elab-sunfold-match-alt elab-node-bvar 1 }T
 T{ 4 elab-node-kind 4 elab-node-a 4 elab-node-b 12 elab-node-a -> elab-node-app 1 3 s" succ" nat }T
 \ A binder's name is a key of its parts, as a foreign key's: a is 0, 1, "a".
@@ -235,7 +235,7 @@ T{ 27 elab-node-kind 27 elab-node-a elab-key-text s" 18446744073709551616" compa
    -> elab-node-lit 0 }T
 T{ 28 elab-node-kind 28 elab-node-a elab-key-text s" ab" compare -> elab-node-str 0 }T
 T{ 29 elab-node-kind 29 elab-node-a 29 elab-node-b 29 elab-node-c -> elab-node-proj -1 1 0 }T
-T{ 32 elab-node-a 32 elab-node-c 30 elab-node-a 30 elab-node-b
+T{ 32 elab-node-a 32 elab-node-c 30 elab-node-a 30 elab-node-c
    -> s" Nat" top 26 elab-borrowed 27 }T
 T{ 24 ed-loose 25 ed-loose 26 ed-loose 32 ed-loose -> 0 0 1 1 }T
 

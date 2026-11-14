@@ -128,6 +128,8 @@ begin-structure /wc
   field: wc-data     \ the recursor's inductive data
   field: wc-aux      \ a frame's third cell: the recursor's declaration,
                      \ or a class field's unfolded term
+  field: wc-fault    \ the first declaration that could not be decoded:
+                     \ its outcome (full, unsupported), else ok
 end-structure
 /wc context-record: wc
 1 cells context-slab: wc-args     \ the term's arguments, last first
@@ -144,7 +146,8 @@ end-structure
 0 constant wc-core-act   1 constant wc-full-act   2 constant wc-unfold-act
 : lf-whnf-fuel! ( n -- ) wc wc-limit ! ;
 : wc-start ( -- )
-  wc-frames slab-clear wc wc-limit @ ?dup 0= if lf-whnf-default-fuel then wc wc-fuel ! ;
+  wc-frames slab-clear wc wc-limit @ ?dup 0= if lf-whnf-default-fuel then wc wc-fuel !
+  outcome-ok wc wc-fault ! ;
 : wc-full? ( -- flag ) wc wc-act @ wc-full-act = ;
 
 \ ---- Results of a step ( -- term flag outcome ): flag true goes on.
@@ -208,12 +211,19 @@ end-structure
 : wc-unsupported ( e head -- e' flag outcome ) outcome-unsupported wc-2drop-fail ;
 : wc-invalid ( e head -- e' flag outcome ) outcome-invalid wc-2drop-fail ;
 
-\ ---- Constants: the input's declaration of the name (Lean's find?).
+\ ---- Constants: the input's declaration of the name (Lean's find?). A
+\ declaration that could not be decoded is no unknown constant: wc-kind
+\ keeps its outcome as the call's fault, which ends the call (wc-checked).
 : wc-name ( const -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
 : wc-levels# ( const -- n ) lf-term-first@ lf-cref-slot lf-cref-pairs nip ;
 0 constant wc-no-kind   \ not a constant, or one no declaration has
-: wc-kind ( term -- kind ) dup lf-term-tag@ lf-tag-constant = if
-    lf-meta-const-decl if lf-menv-kind exit then wc-no-kind exit then drop wc-no-kind ;
+: wc-fault! ( d outcome -- )
+  nip dup outcome-invalid = if drop else wc wc-fault outcome-first! then ;
+: wc-const-kind ( const -- kind )
+  lf-meta-const-decl ok-then? if lf-menv-kind else -1 swap wc-fault! wc-no-kind then ;
+: wc-kind ( term -- kind )
+  dup lf-term-const? if wc-const-kind else drop wc-no-kind then ;
+: wc-faulted ( -- outcome ) wc wc-fault @ ;
 
 \ ---- Recursors (reduceRec). The step's term, head and inductive data
 \ are kept in wc; the arguments in wc-args, the major premise's in
@@ -286,10 +296,13 @@ end-structure
 
 \ The block's one type (toCtorWhenStructure): when it is structure-like,
 \ a major premise that is not a constructor applied to exactly its
-\ parameters and fields is eta-expanded with its inferred type.
-: wc-induct-data ( -- data|0 )
-  wc wc-data @ lf-irc-all@ drop @ lf-menv-newest dup 0< if drop 0 exit then
-  lf-menv-data ;
+\ parameters and fields is eta-expanded with its inferred type. Its data,
+\ or 0 and unsupported when no declaration has its name; a declaration
+\ that could not be decoded passes its outcome on (full as full).
+: wc-induct-data ( -- data outcome )
+  wc wc-data @ lf-irc-all@ drop @ lf-menv-find
+  ok-then? if lf-menv-data outcome-ok exit then
+  dup outcome-invalid = if drop outcome-unsupported then 0 swap ;
 : wc-structure-like? ( data -- flag )
   dup lf-ity-indices lf-more-field 0= over lf-ity-ctors@ nip 1 = and
   swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0= and ;
@@ -313,7 +326,7 @@ end-structure
 \ The major premise's whnf: a constructor fires its rule, a literal
 \ (toCtorIfLit) answers unsupported, any other head leaves the recursor.
 : wc-major-head ( mhead -- e' flag outcome )
-  wc-induct-data dup 0= if 2drop outcome-unsupported wc-fail exit then
+  wc-induct-data ok-then? 0= if nip wc-fail exit then
   over swap wc-eta? if drop outcome-unsupported wc-fail exit then
   dup wc-ctor? if wc-ctor-major exit then
   lf-lit-leaf? if outcome-unsupported wc-fail else wc-stay then ;
@@ -381,8 +394,11 @@ end-structure
   dup wc-inert-defn? if 2drop wc-done exit then
   dup wc-blocked? if drop wc-unsupported exit then
   dup wc-recursor? if wc-iota else 2drop wc-done then ;
+\ A constant no declaration has stays; one that could not be decoded fails.
+: wc-unknown-head ( e head outcome -- e' flag outcome )
+  dup outcome-invalid = if 2drop wc-done else nip nip wc-fail then ;
 : wc-const-head ( e head -- e' flag outcome )
-  dup lf-meta-const-decl if wc-decl-head else drop wc-done then ;
+  dup lf-meta-const-decl ok-then? if wc-decl-head else wc-unknown-head then ;
 
 \ ---- One step of whnfCore.
 : wc-head-tag ( e head tag -- e' flag outcome )
@@ -464,7 +480,10 @@ end-structure
 : wc-next ( e flag -- e' flag' outcome )
   begin dup 0= wc-framed? and while drop wc-resume dup ok? 0= if exit then drop repeat
   outcome-ok ;
-: wc-turn ( e -- e' flag outcome ) wc-step dup ok? if drop wc-next then ;
+\ After a step, a fault (wc-kind's) ends the call with its outcome.
+: wc-checked ( e flag outcome -- e' flag outcome )
+  dup ok? 0= if exit then wc-faulted dup ok? if drop else nip nip nip wc-fail then ;
+: wc-turn ( e -- e' flag outcome ) wc-step dup ok? if drop wc-next then wc-checked ;
 : wc-loop ( e -- e' outcome )
   begin wc-spend 0= if drop -1 outcome-exhausted exit then
     wc-turn dup ok? 0= if nip exit then drop
@@ -536,8 +555,10 @@ end-structure
 : ws-kind ( e d -- false outcome )
   lf-menv-kind dup lf-kind-quotient = if 2drop false outcome-unsupported exit then
   lf-kind-definition = if lf-meta-mvar-free? ws-none? else drop false outcome-ok then ;
+: ws-unknown ( e head outcome -- false outcome )
+  nip nip dup outcome-invalid = if drop outcome-ok then false swap ;
 : ws-const ( e head -- mvar true outcome | false outcome )
-  dup lf-meta-const-decl 0= if 2drop false outcome-ok exit then
+  dup lf-meta-const-decl ok-then? 0= if ws-unknown exit then
   dup wc-recursor? if rot drop ws-rec else nip ws-kind then ;
 \ A projection (Lean: getStuckMVar? of its structure's whnf): a structure
 \ whose head is a plain metavariable is stuck on it, as whnf leaves it;
@@ -550,9 +571,15 @@ end-structure
   dup lf-term-tag@ case
     lf-tag-mvar of nip ws-mvar endof  lf-tag-constant of ws-const endof
     lf-tag-projection of nip ws-proj endof  >r 2drop false outcome-ok r> endcase ;
-: lf-whnf-stuck ( term -- mvar true outcome | false outcome )
-  dup lf-term-root? 0= if drop false outcome-invalid exit then
+\ A fault (wc-kind's) replaces the answer.
+: ws-checked ( mvar true outcome | false outcome -- mvar true outcome | false outcome )
+  dup ok? 0= if exit then wc-faulted dup ok? if drop exit then
+  nip swap if nip then false swap ;
+: ws-run ( term -- mvar true outcome | false outcome )
   dup lf-term-tag@ case lf-tag-mvar of ws-mvar endof  lf-tag-app of ws-app endof
     lf-tag-projection of ws-proj endof  >r drop true ws-none? r> endcase ;
+: lf-whnf-stuck ( term -- mvar true outcome | false outcome )
+  dup lf-term-root? 0= if drop false outcome-invalid exit then
+  outcome-ok wc wc-fault ! ws-run ws-checked ;
 
 base !   \ the BASE this file was loaded with

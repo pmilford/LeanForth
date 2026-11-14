@@ -10941,8 +10941,8 @@ reason = "review fe1ab L2: a value given back after its assignment is read from 
 [[fault]]
 id = "fe-elab-unknown-name-accepted"
 file = "src/front/elab-data.fs"
-old = '''  ed-decls 0= if 0 ed-e-unknown ed-bad exit then'''
-new = '''  ed-decls 0= if 0 outcome-ok exit then'''
+old = '''  ed-decls if ed-one-decl else 0 ed-e-unknown ed-bad then ;'''
+new = '''  ed-decls if ed-one-decl else 0 outcome-ok then ;'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "a name no declaration has is taken as declaration 0: the unknown-name files are accepted"
 
@@ -11041,10 +11041,11 @@ reason = "review fe1d L3: a class that is no inductive type (or an instance name
 [[fault]]
 id = "fe-elab-instance-twice"
 file = "src/front/elab-data.fs"
-old = '''  over elab-instance-of if 2drop drop ed-e-instance ed-bad exit then'''
+old = '''  over ed-own ed-own-fact @ ed-fact@ if 2drop ed-own ed-own-why @ ed-bad exit then
+'''
 new = ''''''
 test = "python3 tests/front/test_elab_data.py"
-reason = "review fe1d L3: two instance records of one declaration are read, their numbers mixed"
+reason = "review fe1d L3, S2: a record kind's own declaration named by two records is read, their numbers mixed (the shared check of instances, classes, matchers, projections and smart-unfolding bodies skipped)"
 
 [[fault]]
 id = "fe-elab-default-twice"
@@ -11155,10 +11156,10 @@ reason = "an instance or default instance whose class has no class record is rea
 [[fault]]
 id = "fe-ed2-class-twice"
 file = "src/front/elab-data.fs"
-old = '''  over elab-class-of if 2drop drop ed-e-class ed-bad exit then'''
-new = ''''''
+old = '''  ' ed-a-type , ' ed-fact-class , ed-e-class , ' ed-class , ' ed-class-decl ,'''
+new = '''  ' ed-a-type , ' ed-fact-class , ed-e-instance , ' ed-class , ' ed-class-decl ,'''
 test = "python3 tests/front/test_elab_data.py"
-reason = "a class given twice is read, the second record replacing the first (error 28 never given)"
+reason = "a class given twice is refused with another kind's error (error 28 never given)"
 
 [[fault]]
 id = "fe-ed2-tag-twice"
@@ -11213,18 +11214,18 @@ reason = "a not_exported left-out instance that the library has is read (error 3
 [[fault]]
 id = "fe-ed2-matcher-twice"
 file = "src/front/elab-data.fs"
-old = '''  over elab-matcher-of if 2drop drop ed-e-matcher ed-bad exit then'''
-new = ''''''
+old = '''  ' ed-a-def , ' ed-fact-matcher , ed-e-matcher , ' ed-match , ' ed-match-decl ,'''
+new = '''  ' ed-a-def , ' ed-fact-matcher , ed-e-projection , ' ed-match , ' ed-match-decl ,'''
 test = "python3 tests/front/test_elab_data.py"
-reason = "a matcher given twice is read, the second replacing the first (error 35 never given)"
+reason = "a matcher given twice is refused with another kind's error (error 35 never given)"
 
 [[fault]]
 id = "fe-ed2-projection-twice"
 file = "src/front/elab-data.fs"
-old = '''  over elab-projection-of if 2drop drop ed-e-projection ed-bad exit then'''
-new = ''''''
+old = '''  ' ed-no-type , ' ed-fact-proj , ed-e-projection , ' ed-proj , ' ed-proj-decl ,'''
+new = '''  ' ed-no-type , ' ed-fact-proj , ed-e-matcher , ' ed-proj , ' ed-proj-decl ,'''
 test = "python3 tests/front/test_elab_data.py"
-reason = "a projection given twice is read, the second replacing the first (error 36 never given)"
+reason = "a projection given twice is refused with another kind's error (error 36 never given)"
 
 [[fault]]
 id = "fe-ed2-matcher-unfit"
@@ -11245,10 +11246,10 @@ reason = "a projection whose field or parameters its types cannot have is read (
 [[fault]]
 id = "fe-ed2-sunfold-read"
 file = "src/front/elab-data.fs"
-old = ''': ed-on-sunfold ( value -- outcome ) drop ed-e-later outcome-unsupported ed-fail ;'''
-new = ''': ed-on-sunfold ( value -- outcome ) drop outcome-ok ;'''
+old = '''  drop c" format_version" ed-member ed-view natural-at if s" 3" compare 0= else false then'''
+new = '''  drop c" format_version" ed-member ed-view natural-at if 2drop true else false then'''
 test = "python3 tests/front/test_elab_data.py"
-reason = "a smart-unfolding record is taken as read though nothing reads it (error 38 never given)"
+reason = "S2 B1: a format-2 file is read as format 3: its \"sunfold\":0 says no definition has a smart-unfolding body, so Nat.add would unfold by its brecOn value"
 
 [[fault]]
 id = "fe-ed2-foreign-in-instance"
@@ -12961,10 +12962,10 @@ reason = "FE1c: without elaboration data the status is guessed as Lean's default
 [[fault]]
 id = "fe-env-missing-fact-guessed"
 file = "src/front/meta-env.fs"
-old = ''': me-sunfold-unknown ( d -- flag outcome ) drop false outcome-unsupported ;'''
-new = ''': me-sunfold-unknown ( d -- flag outcome ) drop false outcome-ok ;'''
+old = ''': lf-menv-smart? ( d -- flag outcome ) ['] elab-sunfold-of me-defn-fact ;'''
+new = ''': lf-menv-smart? ( d -- flag outcome ) drop false outcome-ok ;'''
 test = "$GFORTH tests/front/meta-env.fs"
-reason = "FE1c, S2: a definition's smart-unfolding fact, which LeanForth lacks without its source, is answered false (Lean: true for Nat.add), so Nat.add would unfold by its brecOn value"
+reason = "S2 merge A: a definition's smart-unfolding fact answered false whatever the data says (Lean: true for Nat.add), so Nat.add would unfold by its brecOn value"
 
 [[fault]]
 id = "fe-env-theorem-unfoldable"
@@ -16212,15 +16213,6 @@ test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b H2: a refused decode gives its handle with full, which callers read as a decoded declaration"
 
 [[fault]]
-id = "fe-env-newest-unchecked"
-file = "src/front/meta-env.fs"
-old = ''': lf-menv-newest ( name -- d|-1 ) lf-menv-find ok? 0= if drop -1 then ;'''
-new = ''': lf-menv-newest ( name -- d|-1 ) lf-menv-find drop ;'''
-test = "$GFORTH tests/front/menv-run.fs"
-reason = "review s1-meta-b H2: lf-menv-newest keeps a handle whose find failed"
-equivalent = "lf-menv-find gives -1 with every failing outcome in both modes (me-found, no-result, me-decoded), so the guard only restates that contract"
-
-[[fault]]
 id = "fe-defeq-named-unguarded"
 file = "src/front/defeq.fs"
 old = '''  lf-menv-find de-must if de-data true else drop false then ;'''
@@ -16828,3 +16820,155 @@ old = '''  df df-mode @ lf-tr-reducible = if dd-defeq exit then
 new = '''  dd-defeq ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "S2: unfoldReducibleDefEq never unfolds the reducible side first (outParam ?n against Nat.add k x then unfolds Nat.add)"
+
+[[fault]]
+id = "fe-ed3-sunfold-twice-error"
+file = "src/front/elab-data.fs"
+old = '''create ed-sun-own  ' ed-a-def , ' ed-fact-sun , ed-e-sunfold , ' ed-sun , ' ed-sun-decl ,'''
+new = '''create ed-sun-own  ' ed-a-def , ' ed-fact-sun , ed-e-matcher , ' ed-sun , ' ed-sun-decl ,'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "S2: a smart-unfolding body given twice is refused with another kind's error (error 41 never given)"
+
+[[fault]]
+id = "fe-ed3-order-unchecked"
+file = "src/front/elab-data.fs"
+old = '''  rot + tuck > if outcome-ok else ed-e-order ed-bad then ;'''
+new = '''  rot + nip outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "S2: a body's level or node may name itself or a later entry (error 42 never given): a decoder would loop or read a later record"
+
+[[fault]]
+id = "fe-ed3-loose-root"
+file = "src/front/elab-data.fs"
+old = '''  ed-sun-closed? ed-e-loose ed-or-bad ;'''
+new = '''  drop outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "S2: a smart-unfolding body with a loose bound variable at its root is read (error 43 never given)"
+
+[[fault]]
+id = "fe-ed3-loose-binder"
+file = "src/front/elab-data.fs"
+old = ''': ed-lo-binder ( addr -- k ) dup ed-node-b @ ed-loose swap ed-node-c @ ed-under max ;'''
+new = ''': ed-lo-binder ( addr -- k ) dup ed-node-b @ ed-loose swap ed-node-c @ ed-loose max ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "S2: a binder's body counted without its binder: every closed body (Nat.add's) refused as loose"
+
+[[fault]]
+id = "fe-ed3-params-count"
+file = "src/front/elab-data.fs"
+old = '''  nip ed-sun dup ed-sun-all-params? 0= if drop ed-e-params ed-bad exit then'''
+new = '''  nip ed-sun'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "S2: a body of a universe-polymorphic definition with fewer universe parameters than it is read (error 44 never given)"
+
+[[fault]]
+id = "fe-ed3-param-name"
+file = "src/front/elab-data.fs"
+old = '''  ed-params-read dup ed-sun-decl@ ed-levels < if ed-f-param = else 2drop false then ;'''
+new = '''  ed-params-read ed-sun-decl@ ed-levels < nip ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "S2: a body's universe parameters other than its definition's, as many, are read (error 44 never given)"
+
+[[fault]]
+id = "fe-ed3-annotation-any"
+file = "src/front/elab-data.fs"
+old = '''  if ed-annotation-names ed-key-index else false then ;'''
+new = '''  if 2drop 0 true else false then ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "S2: an mdata entry other than Lean's three annotations is read as sunfoldMatch (error 45 never given)"
+
+[[fault]]
+id = "fe-ed3-foreign-unmarked"
+file = "src/front/elab-data.fs"
+old = '''  ed-decls if ed-one-decl else true ed-sun-now ed-sun-foreign ! -1 outcome-ok then ;'''
+new = '''  ed-decls if ed-one-decl else -1 outcome-ok then ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "S2: a body naming a constant the library lacks is not marked foreign, so its use would decode a missing constant"
+
+[[fault]]
+id = "fe-ed3-foreign-refused"
+file = "src/front/elab-data.fs"
+old = '''  ed-decls if ed-one-decl else true ed-sun-now ed-sun-foreign ! -1 outcome-ok then ;'''
+new = '''  ed-decls if ed-one-decl else 0 ed-e-unknown ed-bad then ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "S2: a body naming a constant the export lacks refuses the whole file (25 of Init's 387 bodies name a _proof_ lemma lean4export leaves out)"
+
+[[fault]]
+id = "fe-ed3-struct-kind"
+file = "src/front/elab-data.fs"
+old = '''  dup 0< if outcome-ok exit then dup ed-type? if outcome-ok else ed-kind-bad then ;'''
+new = '''  outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "S2: a body's projection of a constructor (no structure) is read (error 14 never given)"
+
+[[fault]]
+id = "fe-ed3-have-as-let"
+file = "src/front/elab-data.fs"
+old = '''  c" non_dep" ed-member ed-bool ok-then? if if elab-node-have ed-nd-kind! then'''
+new = '''  c" non_dep" ed-member ed-bool ok-then? if if elab-node-let ed-nd-kind! then'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "S2: a have (non_dep let) read as a let: decoding would zeta-reduce where Lean keeps it"
+
+[[fault]]
+id = "fe-ed3-match-pattern-tag"
+file = "src/front/elab-data.fs"
+old = '''  s" rec_on" counted, s" brec_on" counted, s" match_pattern" counted, 0 0 counted,'''
+new = '''  s" rec_on" counted, s" brec_on" counted, s" match_patterns" counted, 0 0 counted,'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "S2: the match_pattern tag (S3's whnfMatcher reads it) is not one the reader knows: every format-3 file refused"
+
+[[fault]]
+id = "fe-meta-const-decl-unknown"
+file = "src/front/meta-spine.fs"
+old = '''  lf-term-first@ lf-cref-slot lf-cref-name@ drop lf-menv-find ;'''
+new = '''  lf-term-first@ lf-cref-slot lf-cref-name@ drop lf-menv-find dup ok? 0= if drop outcome-invalid then ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "s1-meta-b re-check (plan S2): a library declaration that could not be decoded reads as an unknown constant, so whnfCore leaves Nat.add 1 2 as it is, ok"
+
+[[fault]]
+id = "fe-whnf-fault-dropped"
+file = "src/front/whnf.fs"
+old = '''  dup ok? 0= if exit then wc-faulted dup ok? if drop else nip nip nip wc-fail then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "s1-meta-b re-check (plan S2): a major premise's head that could not be decoded reads as no constructor: the recursor stays, ok"
+
+[[fault]]
+id = "fe-whnf-induct-full-as-unsupported"
+file = "src/front/whnf.fs"
+old = '''  dup outcome-invalid = if drop outcome-unsupported then 0 swap ;'''
+new = '''  drop outcome-unsupported 0 swap ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "s1-meta-b re-check (plan S2): a refused decode of the recursor's inductive type (full) reported as unsupported"
+
+[[fault]]
+id = "fe-whnf-wf-bump-skipped"
+file = "src/front/whnf.fs"
+old = '''  if lf-tr-all lf-defeq-mode! then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "reduceRec's isWFRec: Acc.rec and WellFounded.rec reduce their major premise at the configured transparency, not all"
+
+[[fault]]
+id = "fe-defeq-undef-swapped"
+file = "src/front/defeq.fs"
+old = ''': de-undef-do ( r xt -- ) over lf-lb-undef = if nip execute else drop de-return then ;'''
+new = ''': de-undef-do ( r xt -- ) over lf-lb-false = if nip execute else drop de-return then ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "S2 reuse: a continuation goes on after false and returns undef: isDefEq's later steps (lazy delta, eta) are skipped or run after an answer"
+
+[[fault]]
+id = "fe-defeq-eta-struct-skipped"
+file = "src/front/defeq.fs"
+old = '''  -rot 2dup de-eta-struct if rot de-then de-es-types exit then'''
+new = '''  -rot 2dup 2drop false if rot de-then de-es-types exit then'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "S2 reuse: structure eta (isDefEqEtaStruct) never compares the types of a unit-like structure's constructor and a variable"
+
+[[fault]]
+id = "fe-dd-fallback-swapped"
+file = "src/front/defeq-delta.fs"
+old = ''': dd-t-or ( xt -- ) de-t dd-unfold if nip de-s dd-compare else drop execute then ;'''
+new = ''': dd-t-or ( xt -- ) de-s dd-unfold if nip de-t dd-compare else drop execute then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "S2 lazy delta: the left side's unfolding unfolds the right one instead (isDefEqLeft)"

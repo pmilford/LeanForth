@@ -1022,7 +1022,8 @@ variable cli-info#
   elab-class cli-elab-count. ."  classes, " elab-tag cli-elab-count. ."  tags, "
   elab-matcher cli-elab-count. ."  matchers, " elab-projection cli-elab-count.
   ."  projections" ;
-: cli-elab-format3 ( -- ) ." , " elab-sunfold cli-elab-count. ."  smart-unfolding bodies" ;
+: cli-elab-format3 ( -- )
+  ." , " elab-sunfold cli-elab-count. ."  smart-unfolding bodies" ;
 : cli-elab-note ( -- )
   cli-elab-file nip 0= if exit then ." elaboration data: " cli-elab-format1
   cli-elab-format2 cli-elab-format3 cr ;

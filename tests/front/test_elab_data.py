@@ -664,6 +664,17 @@ def format2_cases():
     ]
 
 
+# A body of a universe-polymorphic definition: instHAdd.{u_1}, Sort u_1.
+POLY = ('{"sunfold":{"level_params":[["u_1"]],"levels":[{"param":["u_1"]}],"name":["instHAdd"],'
+        '"nodes":[{"sort":0}],"rec_arg":null,"value":0}}')
+NAT_NODE = '{"const":["Nat"],"levels":[]}'
+
+
+def poly(record):
+    """The good records and a second body, record: (text, line of record)."""
+    return assemble(GOOD_RECORDS + [record]), len(GOOD_RECORDS) + 2
+
+
 def format3_cases():
     """Damaged files of the checks format 3 adds (plan S2): the
     smart-unfolding bodies."""
@@ -726,6 +737,15 @@ def format3_cases():
                                             '{"bool":true}]'), 4, "malformed"),
         case("body with another member", c('"rec_arg":1,', '"rec_arg":1,"x":1,'), 4, "malformed"),
         case("rec_arg a text", c('"rec_arg":1,', '"rec_arg":"1",'), 4, "malformed"),
+        # 44 for instHAdd.{u_1}: no universe parameter, or another one.
+        case("polymorphic body without its parameter",
+             poly(POLY.replace('"level_params":[["u_1"]],"levels":[{"param":["u_1"]}]',
+                               '"level_params":[],"levels":[]').replace('{"sort":0}', NAT_NODE)),
+             4, "universe parameters other than"),
+        case("polymorphic body with another parameter",
+             poly(POLY.replace('"level_params":[["u_1"]],"levels":[{"param":["u_1"]}]',
+                               '"level_params":[["v"]],"levels":[]').replace('{"sort":0}', NAT_NODE)),
+             4, "universe parameters other than"),
         case("rec_arg beyond 32 bits", c('"rec_arg":1,', '"rec_arg":4294967296,'), 2,
              "a number beyond"),
         case("unknown tag", c('"tag":"match_pattern"', '"tag":"match_patterns"'), 4, "malformed"),
@@ -798,6 +818,7 @@ def command_line(work):
         "a body with a node of every form": swap(SUN_END, "," + ",".join(MORE_NODES) + SUN_END),
         "a body with no recursion argument": swap('"rec_arg":1,', '"rec_arg":null,'),
         "a recursion argument beyond the type's binders": swap('"rec_arg":1,', '"rec_arg":7,'),
+        "a body of a universe-polymorphic definition": list(GOOD_RECORDS) + [POLY],
     }
     for what, records in accepted.items():
         path = work / (re.sub(r"\W+", "-", what) + ".ndjson")

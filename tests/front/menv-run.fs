@@ -298,6 +298,27 @@ T{ s" ReexportKinds.Wide" d-of lf-menv-data lf-ity-flags lf-more-field
 : valued? ( c-addr u -- flag ) d-of lf-menv-value nip ;
 T{ s" ReexportKinds.kept" valued? s" ReexportKinds.twice" valued? s" ReexportKinds.big" valued?
    -> true true true }T
+\ A declaration that cannot be decoded is no unknown constant (plan S2):
+\ whnfCore of Nat.add 1 2, getStuckMVar? of it and inferType of Nat.add
+\ pass unsupported on, as does whnfCore of a recursor whose major premise
+\ is the constant Nat.add alone (its kind asked: whnf.fs's fault).
+: add-12 ( -- t ) s" Nat.add" 0 cst 1 nlit app 2 nlit app ;
+T{ add-12 lf-whnf-core add-12 lf-whnf-stuck s" Nat.add" 0 cst lf-infer nip
+   -> -1 outcome-unsupported false outcome-unsupported outcome-unsupported }T
+: rec-on ( major -- t ) >r level1 0 u! s" Nat.rec" 1 cst nat app nat app nat app r> app ;
+T{ s" Nat.add" 0 cst rec-on lf-whnf-core -> -1 outcome-unsupported }T
+\ Nat.rec over Nat.zero (iota) with each allocation refused in turn, the
+\ library's decodes forgotten first: full or the minor premise (the
+\ constant Nat), never unsupported (wc-induct-data passes a refused
+\ decode of Nat on as full).
+s" Nat.zero" 0 cst rec-on constant iota-term
+: iota-at ( k -- e outcome )
+  ck-stage lf-menv-library! heap-refusals ! iota-term lf-whnf-core 0 heap-refusals ! ;
+: iota-ok? ( e outcome -- flag ) dup ok? if 2drop true else nip outcome-full = then ;
+: iota-note ( e outcome -- outcome ) 2dup iota-ok? 0= if dup worst ! then nip ;
+: iota-refused ( -- k ) 0 begin 1+ dup iota-at iota-note ok? until ;
+T{ outcome-ok worst ! iota-refused 1 > worst @ iota-term lf-whnf-core swap lf-term-const?
+   -> true outcome-ok outcome-ok true }T
 
 \ ---- 4. lfc-library-close leaves the run mode; a failed re-open leaves
 \ none bound to the stage it freed.
