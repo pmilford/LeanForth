@@ -144,7 +144,7 @@ end-structure
 : tier-file-init ( tf -- ) dup /tier-file erase dup tf-sf sections-init tf-unnote ;
 \ The section, and the record in it, that loading refused.
 : tier-file-error ( tf -- c-addr u record )
-  dup tf-why @ ?dup if count else s" " then rot tf-at @ ;
+  dup tf-why @ counted-or-empty rot tf-at @ ;
 \ Units in section i of the file read, as its table says.
 : tf-units ( i tf -- n ) tf-sf sections-info drop nip nip ;
 : tf-length ( i tf -- u ) tf-sf sections-info nip nip nip ;

@@ -575,12 +575,10 @@ create lf-term-hooks /htab-hooks allot
 \ A context's table: 16 slots at first, freed with the context. A table
 \ that has grown large goes back to 16 slots when the store is reset, so
 \ a reset costs little whatever an earlier run needed.
-1024 constant lf-term-table-small
 : lf-term-table-make ( -- ) 4 lf-term-hooks lf-term-table htab-init drop ;
 ' lf-term-table-make context-setup
 :noname ( -- ) lf-term-table htab-free ; context-teardown
-: lf-term-table-empty ( -- )
-  lf-term-table-small lf-term-table ['] lf-term-table-make htab-renew ;
+: lf-term-table-empty ( -- ) lf-term-table ['] lf-term-table-make htab-renew ;
 
 \ Room in the table for n entries without doubling (the feed sizes it
 \ from the stage's counts, ADR 0016 C9); a table the heap cannot make

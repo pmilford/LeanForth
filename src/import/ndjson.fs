@@ -1148,7 +1148,7 @@ here families - cell / constant #families
   if r> drop outcome-ok else r> c" cannot open the file" export-bad then ;
 : export-file ( c-addr u export -- outcome )
   dup export-restart dup >r export-open dup ok? if drop r@ export-caught then
-  r> export-reader reader-close over ok? if nip else drop then ;
+  r> export-reader reader-close outcome-and ;
 \ Read the export file named c-addr u, handing every record to its handler.
 : export-read ( c-addr u export -- outcome )
   dup export-idle ok-then? if export-file else nip nip then ;

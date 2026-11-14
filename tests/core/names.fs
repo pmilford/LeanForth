@@ -1,5 +1,6 @@
 \ Tests for untrusted structured-name interning; no theorem is checked.
 include ../support/tester.fs
+include ../support/checks.fs
 require ../../src/core/names.fs
 
 \ Equal components under equal prefixes are interned; different prefixes and
@@ -136,4 +137,34 @@ T{ 0 s" Nat" lf-name-str -> 1 true }T
 T{ 1 41 lf-name-num -> 2 true }T
 T{ 1 lf-name-text s" Nat" compare 2 lf-name-payload -> 0 41 }T
 T{ 1 lf-name-tag@ 2 lf-name-tag@ -> lf-name-tag-str lf-name-tag-num }T
+
+\ Kinds, depth, ancestors, root (reuse-out-2, ROUT3): Nat.41.zero is 3.
+T{ 2 s" zero" lf-name-str -> 3 true }T
+T{ 1 lf-name-str? 2 lf-name-str? 0 lf-name-str? 3 lf-name-str? -> true false false true }T
+T{ 1 lf-name-num? 2 lf-name-num? 0 lf-name-num? 3 lf-name-num? -> false true false false }T
+T{ 3 s" zero" lf-name-str-is? 3 s" zer" lf-name-str-is? 1 s" Nat" lf-name-str-is? -> true false true }T
+T{ 2 s" 41" lf-name-str-is? 0 s" " lf-name-str-is? -> false false }T
+T{ 0 lf-name-depth 1 lf-name-depth 3 lf-name-depth -> 0 1 3 }T
+T{ 3 0 lf-name-ancestor 3 1 lf-name-ancestor 3 2 lf-name-ancestor 3 3 lf-name-ancestor -> 3 2 1 0 }T
+T{ 3 lf-name-root 2 lf-name-root 1 lf-name-root 0 lf-name-root -> 1 1 1 0 }T
+T{ 0 lf-name-anon? 1 lf-name-anon? 2 lf-name-anon? -> true false false }T
+\ A one-component name by its text: Nat is, Nat.41.zero and the anonymous
+\ name are not, nor is a string that differs.
+T{ 1 s" Nat" lf-name-top? 3 s" zero" lf-name-top? 1 s" Na" lf-name-top? -> true false false }T
+T{ 0 s" " lf-name-top? 2 s" 41" lf-name-top? 1 s" Nat" ' lf-name-top? rs-checked -> false false true }T
+T{ 3 ' lf-name-root rs-checked 3 2 ' lf-name-ancestor rs-checked -> 1 1 }T
+\ Putting components on a base: Std, then Std.Nat.41.zero from Nat.41.zero
+\ (all three components, numeric one included), and its last two alone.
+T{ 0 s" Std" lf-name-str -> 4 true }T
+T{ 4 3 lf-name-put 4 2 lf-name-put -> 5 true 6 true }T
+T{ 5 lf-name-text s" zero" compare 5 lf-name-prefix@ 6 lf-name-payload -> 0 4 41 }T
+T{ 3 3 4 lf-name-graft -> 9 true }T
+T{ 9 lf-name-depth 9 lf-name-root 9 lf-name-prefix@ lf-name-payload -> 4 4 41 }T
+T{ 9 lf-name-text s" zero" compare 3 2 4 lf-name-graft 3 0 4 lf-name-graft -> 0 10 true 4 true }T
+T{ 3 3 4 ' lf-name-graft rs-checked -> 9 true }T
+\ A refusal stops the graft: false alone, the count unchanged after it.
+lf-name-count @ constant names-before-full
+lf-name-capacity lf-name-count !
+T{ 3 3 9 lf-name-graft 9 3 lf-name-put 3 3 0 lf-name-graft -> false false 3 true }T
+names-before-full lf-name-count !
 bye

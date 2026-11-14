@@ -491,7 +491,7 @@ kind-quot kind-axiom - 1+ constant reach-kinds#
 \ Slot k is a member published with the slot before it.
 : member-here? ( k -- flag )
   dup lf-input-count < 0= if drop false exit then
-  lf-env lf-env-slot dup lf-slot-state @ lf-state-final = swap lf-slot-member @ 0<> and ;
+  lf-env lf-env-slot dup lf-slot-done? swap lf-slot-member @ 0<> and ;
 : imp-same ( k imp -- )
   2dup imp-source 0< 0= if 2drop exit then
   begin 2dup same-one swap 1+ swap over member-here? 0= until 2drop ;

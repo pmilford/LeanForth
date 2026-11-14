@@ -848,7 +848,7 @@ quick = true
 
 [[fault]]
 id = "cmp-name-bytes-ignored"
-file = "src/kernel/mixed-compare.fs"
+file = "src/core/name-equal.fs"
 old = '''lf-name-text rot lf-name-text compare 0= ;'''
 new = '''lf-name-text rot lf-name-text 2drop 2drop true ;'''
 test = "$GFORTH tests/core/mixed-compare.fs"
@@ -856,7 +856,7 @@ reason = "names that differ only in a string component compare equal (re-targete
 
 [[fault]]
 id = "cmp-name-numbers-ignored"
-file = "src/kernel/mixed-compare.fs"
+file = "src/core/name-equal.fs"
 old = '''lf-name-payload swap lf-name-payload = ;'''
 new = '''lf-name-payload swap lf-name-payload 2drop true ;'''
 test = "$GFORTH tests/core/mixed-compare.fs"
@@ -1193,8 +1193,8 @@ reason = "an argument with a loose bound variable is put under a lambda without 
 [[fault]]
 id = "whnf-k7-off"
 file = "src/kernel/whnf.fs"
-old = '''  if lf-name-prefix@ lf-whnf-anon? else drop false then ;'''
-new = '''  if drop false else drop false then ;'''
+old = ''': lf-whnf-nat? ( name -- flag ) lf-name-prefix@ s" Nat" lf-name-top? ;'''
+new = ''': lf-whnf-nat? ( name -- flag ) drop false ;'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "K7 (ADR 0014 Q8): whnf unfolds a user's Nat.succ or Nat.add where Lean's reduce_nat looks at it by name"
 
@@ -17096,10 +17096,10 @@ reason = "the search stops with two candidates left: the mls image and the feed'
 [[fault]]
 id = "lib-blocks-zeroed-dirty"
 file = "src/lib/blocks.fs"
-old = '''  tuck swap erase swap ! outcome-ok ;'''
-new = '''  nip swap ! outcome-ok ;'''
+old = ''': allocate0 ( u -- addr ior ) dup allocate ?dup if rot drop exit then tuck swap erase 0 ;'''
+new = ''': allocate0 ( u -- addr ior ) dup allocate ?dup if rot drop exit then nip 0 ;'''
 test = "$GFORTH tests/lib/blocks.fs"
-reason = "block-zeroed's block is not erased: a reach table or a map starts with stale bits"
+reason = "allocate0's block, and so block-zeroed's, is not erased: a reach table or a map starts with stale bits"
 
 [[fault]]
 id = "lib-blocks-resize-full-ok"
@@ -17453,7 +17453,7 @@ reason = "a cell-counted record read one item short"
 
 [[fault]]
 id = "r2-cell-counted-unaligned"
-file = "src/lib/bytes.fs"
+file = "src/lib/bounds.fs"
 old = ''': cell-counted, ( c-addr u -- ) dup , here swap dup allot move align ;'''
 new = ''': cell-counted, ( c-addr u -- ) dup , here swap dup allot move ;'''
 test = "$GFORTH tests/lib/bytes.fs"
@@ -17486,16 +17486,16 @@ reason = "the cell keeps a freed block's address, so a later open erases freed m
 [[fault]]
 id = "r2-htab-renew-never-clears"
 file = "src/lib/htab.fs"
-old = '''  -rot tuck htab-small? if htab-clear drop else htab-free execute then ;'''
-new = '''  -rot tuck htab-small? drop htab-free execute ;'''
+old = '''  over htab-small? if drop htab-clear else swap htab-free execute then ;'''
+new = '''  over htab-small? drop swap htab-free execute ;'''
 test = "$GFORTH tests/lib/htab.fs"
 reason = "a small table freed and made again on every reset instead of cleared"
 
 [[fault]]
 id = "r2-htab-small-any"
 file = "src/lib/htab.fs"
-old = '''  dup htab-live? if htab-slots >= else 2drop false then ;'''
-new = '''  dup htab-live? if 2drop true else 2drop false then ;'''
+old = '''  dup htab-live? if htab-slots htab-small-slots <= else drop false then ;'''
+new = '''  dup htab-live? if drop true else drop false then ;'''
 test = "$GFORTH tests/lib/htab.fs"
 reason = "a table one run doubled is kept at its size for every later run"
 

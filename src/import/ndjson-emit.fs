@@ -497,7 +497,7 @@ here reexport-handlers - kind-count cells = load-check
 \ Re-export into fid, then close it; the first failure wins.
 : closed ( fid -- outcome ) close-file if outcome-full else outcome-ok then ;
 : reexport-into ( in-addr in-u fid -- outcome )
-  dup >r reexport-file r> closed over ok? if nip else drop then ;
+  dup >r reexport-file r> closed outcome-and ;
 : reexport-report ( outcome -- )
   dup ok? if drop ." reexported " reexport-lines@ .decimal ."  lines" cr exit then
   .reexport-error ;

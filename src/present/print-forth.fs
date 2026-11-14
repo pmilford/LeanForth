@@ -43,6 +43,7 @@
 \ incomplete.
 
 require ../lib/bounds.fs
+require ../lib/decimal.fs
 require ../lib/xt-table.fs
 require ./term-printer.fs
 require ./note-table.fs
@@ -97,10 +98,6 @@ lf-pf-reserve by-intro: by-induction-with by-end by-rw[ by-rewrite[ ] | => by-so
 \ control character, is not all digits and is not [anonymous]: then its
 \ text reads back as the same part. A name can be referred to when, in
 \ addition, it is no syntax word and cannot start a Forth number.
-: lf-pf-digit? ( char -- flag ) [char] 0 [char] 9 1+ within ;
-: lf-pf-digits? ( c-addr u -- flag )
-  dup 0= if 2drop false exit then
-  true -rot chars over + swap ?do i c@ lf-pf-digit? and loop ;
 : lf-pf-odd-char? ( char -- flag ) dup bl 1+ < swap [char] . = or ;
 : lf-pf-odd? ( c-addr u -- flag )
   false -rot chars over + swap ?do i c@ lf-pf-odd-char? or loop ;
@@ -117,7 +114,7 @@ lf-pf-reserve by-intro: by-induction-with by-end by-rw[ by-rewrite[ ] | => by-so
   dup 0= if 2drop false exit then 2dup lf-pf-odd? if 2drop false exit then
   2dup lf-pf-guillemets? if 2drop false exit then
   2dup tr-rule? 0= if 2drop false exit then
-  2dup lf-pf-digits? if 2drop false exit then lf-pf-anonymous compare 0<> ;
+  2dup decimal-digits? if 2drop false exit then lf-pf-anonymous compare 0<> ;
 \ A numeric part is writable up to the digits a cell holds exactly, which
 \ the authoring words read (src/author/declarations.fs): 18 on a 64-bit
 \ host, 9 on a 32-bit one. Lean's macro scopes have long ones
@@ -125,8 +122,8 @@ lf-pf-reserve by-intro: by-induction-with by-end by-rw[ by-rewrite[ ] | => by-so
 1 cells 8 < [if] 9 [else] 18 [then] constant lf-name-digits-max
 : lf-pf-part-bound ( -- u ) 1 lf-name-digits-max 0 ?do 10 * loop ;
 : lf-pf-part? ( id -- flag )
-  dup lf-name-tag@ lf-name-tag-str =
-  if lf-name-text 2dup lf-pf-digits? if 2drop true else lf-pf-plain? then exit then
+  dup lf-name-str?
+  if lf-name-text 2dup decimal-digits? if 2drop true else lf-pf-plain? then exit then
   lf-name-payload lf-pf-part-bound u< ;
 : lf-pf-writable? ( id -- flag )
   dup 0= if drop false exit then
@@ -135,7 +132,7 @@ lf-pf-reserve by-intro: by-induction-with by-end by-rw[ by-rewrite[ ] | => by-so
 : lf-pf-among? ( c-addr u char -- flag )
   false 2swap chars over + swap ?do over i c@ = or loop nip ;
 : lf-pf-number-start? ( char -- flag )
-  dup lf-pf-digit? swap s\" -+$#%&'\"." rot lf-pf-among? or ;
+  dup decimal-digit? swap s\" -+$#%&'\"." rot lf-pf-among? or ;
 : lf-pf-token? ( c-addr u -- flag )
   dup 0= if 2drop false exit then
   over c@ lf-pf-number-start? if 2drop false exit then lf-pf-reserved? 0= ;
@@ -146,9 +143,8 @@ lf-pf-reserve by-intro: by-induction-with by-end by-rw[ by-rewrite[ ] | => by-so
 \ dotted token is no number. A later numeric part is no problem: no word is
 \ made for a part, only for the whole name (src/author/namespaces.fs). A
 \ string part of digits is written between guillemets.
-: lf-pf-root ( id -- id' ) begin dup lf-name-prefix@ ?dup while nip repeat ;
 : lf-pf-root-ok? ( id -- flag )
-  lf-pf-root dup lf-name-tag@ lf-name-tag-str = 0= if drop false exit then
+  lf-name-root dup lf-name-str? 0= if drop false exit then
   lf-name-text drop c@ lf-pf-number-start? 0= ;
 : lf-pf-declarable? ( id -- flag )
   dup lf-pf-writable? if lf-pf-root-ok? else drop false then ;
@@ -177,9 +173,9 @@ create lf-pf-eol 10 c,
 \ A part: a string part of digits between guillemets (it stays a string
 \ when read back), a numeric part as its digits.
 : lf-pf-put-part ( id -- )
-  dup lf-name-tag@ lf-name-tag-str <>
+  dup lf-name-str? 0=
   if lf-name-payload ['] lf-pp-put lf-pp-number-to exit then
-  lf-name-text 2dup lf-pf-digits? 0= if lf-pp-put exit then
+  lf-name-text 2dup decimal-digits? 0= if lf-pp-put exit then
   lf-pf-open-quote lf-pp-put lf-pp-put lf-pf-close-quote lf-pp-put ;
 \ The parts from the root (component 0) on, joined by dots.
 : lf-pf-put-parts ( id n -- )
@@ -331,19 +327,12 @@ lf-pf-level-tags ' lf-pf-invalid-step xt-table: lf-pf-level-steps
 defer lf-pf-const-exists? ( name -- flag )
 : lf-pf-input-const? ( name -- flag ) lf-input-newest 0< 0= ;
 ' lf-pf-input-const? is lf-pf-const-exists?
-\ The name id with base put in front of its components (base.c for c); false
-\ when the name store refuses it (the caller then assumes the worst).
-: lf-pf-graft-part ( base id -- id' flag )
-  dup lf-name-tag@ lf-name-tag-str =
-  if swap >r lf-name-text r> -rot lf-name-str
-  else swap >r lf-name-payload r> swap lf-name-num then ;
-: lf-pf-graft ( base id -- id' flag )
-  dup 0= if drop true exit then
-  dup >r lf-name-prefix@ recurse 0= if r> drop 0 false exit then r> lf-pf-graft-part ;
 \ Whether namespace P around the declaration holds a constant P.c, which the
-\ reader would find first for c.
+\ reader would find first for c: the name id with P put in front of its
+\ components (lf-name-graft); when the name store refuses it, the caller
+\ assumes the worst.
 : lf-pf-captured-in? ( id P -- flag )
-  swap lf-pf-graft if lf-pf-const-exists? else drop true then ;
+  over lf-name-depth swap lf-name-graft if lf-pf-const-exists? else true then ;
 : lf-pf-captured? ( id -- flag )
   lf-pforth lf-pforth-decl @ lf-fdecl-name @ lf-name-prefix@
   begin dup while 2dup lf-pf-captured-in? if 2drop true exit then lf-name-prefix@ repeat

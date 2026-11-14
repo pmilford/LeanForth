@@ -83,7 +83,7 @@ end-structure
 : lay-error ( lay -- c-addr u at )
   dup lay-why @ ?dup if count rot lay-at @ exit then
   dup lay-snap snap-why @ if lay-snap snap-error exit then
-  lay-ly dup ly-why @ ?dup if count else s" " then rot ly-where @ ;
+  lay-ly dup ly-why @ counted-or-empty rot ly-where @ ;
 
 \ ---- Opening, the tier, the environment's sections.
 : lay-ly-start ( lay -- )

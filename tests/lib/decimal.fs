@@ -22,9 +22,9 @@ T{ [defined] in-decimal [defined] u>decimal [defined] n>decimal [defined] ud>dec
    [defined] d>decimal [defined] digits>u -> true true true true true true }T
 T{ [defined] decimal>u [defined] cell-digits -> true true }T
 T{ [defined] in-base [defined] u>hex [defined] skip-zeros -> true true true }T
-T{ [defined] decimal-digit? [defined] hex-char [defined] hex-byte! -> true true true }T
+T{ [defined] decimal-digit? [defined] hex-byte! [defined] type-left -> true true true }T
 T{ [defined] ud>text [defined] d>text [defined] decimal-width [defined] digit+
-   [defined] unpadded>u -> false false false false false }T
+   [defined] unpadded>u [defined] hex-char -> false false false false false false }T
 
 \ ---- Text: the digits, a minus sign for a negative signed number, the
 \ same whatever BASE is, and BASE left as it was.
@@ -123,20 +123,23 @@ T{ char 0 decimal-digit? char 9 decimal-digit? char 5 decimal-digit? -> true tru
 T{ char / decimal-digit? char : decimal-digit? char a decimal-digit? -> false false false }T
 T{ -1 decimal-digit? max-n decimal-digit? hex char A decimal-digit? decimal -> false false false }T
 T{ char 7 ' decimal-digit? rs-checked -> true }T
-\ hex-char and hex-byte!: lower-case digits, two per byte, high first,
-\ whatever BASE is; hex-byte! writes exactly two characters.
-T{ 0 hex-char 9 hex-char 10 hex-char 15 hex-char -> char 0 char 9 char a char f }T
+\ hex-byte!: lower-case digits, two per byte, high first, whatever BASE
+\ is; it writes exactly two characters.
 create hexed 4 allot
 : hexed? ( c-addr u -- flag ) hexed 2 compare 0= hexed 2 + c@ [char] * = and ;
 : hex-into ( byte -- ) s" ***" hexed swap move hexed hex-byte! ;
 T{ 0 hex-into s" 00" hexed? 255 hex-into s" ff" hexed? -> true true }T
 T{ 171 2 base ! hex-into decimal s" ab" hexed? 16 hex-into s" 10" hexed? -> true true }T
-\ type-right: padded to the width, never cut (the printed text captured
-\ where the host can: Gforth 1.0's >string-execute).
+\ type-right and type-left: padded to the width on the left, or on the
+\ right, never cut (the printed text captured where the host can: Gforth
+\ 1.0's >string-execute).
 [defined] >string-execute [if]
 : right-text ( c-addr u width -- c-addr' u' ) ['] type-right >string-execute ;
 T{ s" 42" 5 right-text s"    42" text= s" 12345" 3 right-text s" 12345" text= -> true true }T
 T{ s" " 2 right-text s"   " text= s" ab" 0 right-text s" ab" text= -> true true }T
+: left-text ( c-addr u width -- c-addr' u' ) ['] type-left >string-execute ;
+T{ s" 42" 5 left-text s" 42   " text= s" 12345" 3 left-text s" 12345" text= -> true true }T
+T{ s" " 2 left-text s"   " text= s" ab" 0 left-text s" ab" text= -> true true }T
 [then]
 T{ 9 hexed ' hex-byte! rs-checked s" 09" hexed? -> true }T
 \ Leading zeros change nothing however many there are (review reuse-out
@@ -151,8 +154,10 @@ T{ s" 1" zeros-before nip cell-digits > s" 00000000000000000000042" digits>u -> 
 T{ max-n-text zeros-before digits>u -> max-n true }T
 T{ past-max-n zeros-before digits>u s" " zeros-before digits>u -> false 0 true }T
 T{ s" 0" zeros-before hex digits>u decimal max-n-text zeros-before ' digits>u rs-checked -> 0 true max-n true }T
-\ digit+ (private) at the edge of a cell.
+\ digit+ and hex-char (private): digit+ at the edge of a cell; hex-char's
+\ lower-case digits.
 lf-lib-private order+
+T{ 0 hex-char 9 hex-char 10 hex-char 15 hex-char -> char 0 char 9 char a char f }T
 T{ max-n 10 / max-n 10 mod char 0 + digit+ -> max-n true }T
 T{ max-n 10 / max-n 10 mod char 1 + digit+ -> false }T
 T{ 0 char 7 digit+ -> 7 true }T

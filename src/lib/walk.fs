@@ -36,6 +36,13 @@ require ./bounds.fs
 require ./node.fs
 require ./outcome.fs
 require ./portability.fs
+require ./module.fs
+
+\ The words of this file are public, in the compilation word list current
+\ when it loads, except walk-children-unless's helpers, which are private
+\ (ADR 0010).
+lf-lib-private module-open
+dup set-current
 
 begin-structure walk-header
   field: walk-fuel       \ visits left
@@ -146,17 +153,20 @@ max-n 1 cells / constant walk-most-cells
 : walk-child? ( index walk -- flag ) walk-node @ index? ;
 : walk-child ( index walk -- outcome )
   2dup walk-child? if walk-push-outcome else 2drop outcome-invalid then ;
+lf-lib-private set-current
+: walk-children? ( first second walk -- flag ) tuck walk-child? -rot walk-child? and ;
+dup set-current
 : walk-children ( first second walk -- outcome )
-  >r 2dup r@ walk-child? swap r@ walk-child? and
-  if r> walk-push2 else 2drop r> drop outcome-invalid then ;
+  >r 2dup r@ walk-children? if r> walk-push2 else 2drop r> drop outcome-invalid then ;
 \ The same, a child pushed only when the test xt ( index -- flag ) says it
 \ still needs a visit (false: not yet checked, for a walk with a memo).
+lf-lib-private set-current
 : walk-push-unless ( index walk xt -- outcome )
   >r over r> execute if 2drop outcome-ok else walk-push-outcome then ;
 : walk-push2-unless ( first second walk xt -- outcome )
   2>r swap 2r@ walk-push-unless dup ok?
   if drop 2r> walk-push-unless else nip 2r> 2drop then ;
-: walk-children? ( first second walk -- flag ) tuck walk-child? -rot walk-child? and ;
+dup set-current
 : walk-children-unless ( first second walk xt -- outcome )
   2over 2over drop walk-children?
   if walk-push2-unless else 2drop 2drop outcome-invalid then ;
@@ -192,3 +202,5 @@ max-n 1 cells / constant walk-most-cells
 : walk-start-pair ( node context walk -- flag ) dup walk-clear walk-push-pair ;
 : walk-run-pair ( node context xt walk -- outcome )
   >r -rot r@ walk-start-pair if r> walk-loop else drop r> drop outcome-invalid then ;
+
+module-close

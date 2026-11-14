@@ -123,7 +123,6 @@ manifest: counted-manifest
 \ average with one decimal, rounded half to even.
 : #group ( ud -- ud' ) # 2dup d0= if exit then # 2dup d0= if exit then # ;
 : grouped ( ud -- c-addr u ) <# begin #group 2dup d0= 0= while [char] , hold repeat #> ;
-: type-left ( c-addr u width -- ) over - 0 max >r type r> spaces ;
 \ Round the quotient q up when twice the remainder exceeds the divisor n,
 \ or equals it and q is odd.
 : round-up? ( rem n q -- flag ) 1 and 0<> >r swap 2* 2dup < -rot = r> and or ;

@@ -615,7 +615,7 @@ create cli-fed-ops
 : cli-second. ( d-us -- ) 1000 um/mod nip cli-seconds 9 type-right ;
 \ Phase k's row: its name, then its wall and CPU times.
 : cli-row ( k -- )
-  ."   " dup ck-phase-name dup >r type 8 r> - spaces
+  ."   " dup ck-phase-name 8 type-left
   dup ck-phase-wall cli-second. ck-phase-cpu cli-second. cr ;
 : cli-times. ( -- )
   ck-timed? 0= if ."   time: not measured on this host" cr exit then
@@ -724,12 +724,13 @@ create cli-hex 64 allot
   then cr
   then ;
 \ Whether a text is plain: letters, digits, ".", "-", "_", " " only.
-: cli-plain? ( c-addr u -- flag )
-  true -rot bounds ?do
-    i count nip dup [char] a [char] z 1+ within over [char] A [char] Z 1+ within or
-    over [char] 0 [char] 9 1+ within or over [char] . = or over [char] - = or
-    over [char] _ = or swap bl = or and
-  loop ;
+create cli-plain-chars
+  char a , char z ,  char A , char Z ,  char 0 , char 9 ,
+  char . , char . ,  char - , char - ,  char _ , char _ ,  bl , bl ,
+here cli-plain-chars - 2 cells / constant cli-plain-chars#
+: cli-plain-at? ( c-addr k -- c-addr flag )
+  over + count nip cli-plain-chars cli-plain-chars# in-ranges? ;
+: cli-plain? ( c-addr u -- flag ) ['] cli-plain-at? all? nip ;
 \ The commit the snapshot's information names, or "unknown", also for a
 \ text that is not plain (a line feed in it could forge a report line;
 \ review rvSN3 m1).
@@ -1232,7 +1233,7 @@ variable cli-info#
 : cli-copy ( c-addr u fid -- outcome ) cli-reader reexport-read ;
 \ The copy, then the file closed on every path; the first failure wins.
 : cli-into ( c-addr u fid -- outcome )
-  dup >r ['] cli-copy catch r> closed swap throw over ok? if nip else drop then ;
+  dup >r ['] cli-copy catch r> closed swap throw outcome-and ;
 : cli-same? ( -- flag ) 0 cli-file 1 cli-file compare 0= ;
 : cli-create ( -- fid true | false )
   1 cli-file w/o bin create-file 0= dup 0= if nip then ;

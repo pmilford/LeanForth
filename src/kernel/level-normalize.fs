@@ -114,15 +114,11 @@ end-structure
 \ Lean's name order: -1, 0 or 1. Unchecked: both names passed
 \ lf-lnorm-name-ok?, so every prefix chain ends at the anonymous name.
 : lf-lnorm-sign ( n -- -1|0|1 ) dup 0> 1 and swap 0< or ;
-: lf-lnorm-depth ( id -- n )
-  0 swap begin dup while lf-name-prefix@ swap 1+ swap repeat drop ;
-: lf-lnorm-up ( id n -- id' ) 0 ?do lf-name-prefix@ loop ;
 \ One component each (203-215): a string after a number; strings by bytes
 \ and then length (Forth's COMPARE), numbers by value.
-: lf-lnorm-str? ( id -- flag ) lf-name-tag@ lf-name-tag-str = ;
 : lf-lnorm-limb ( a b -- n )
-  2dup lf-name-tags= 0= if drop lf-lnorm-str? 1 and 2* 1- exit then
-  over lf-lnorm-str? if lf-name-text rot lf-name-text 2swap compare exit then
+  2dup lf-name-tags= 0= if drop lf-name-str? 1 and 2* 1- exit then
+  over lf-name-str? if lf-name-text rot lf-name-text 2swap compare exit then
   lf-name-payload swap lf-name-payload swap - lf-lnorm-sign ;
 \ Two names of the same depth: their prefixes first, then the last parts,
 \ that is the first differing component from the root. Walked from the
@@ -133,9 +129,9 @@ end-structure
   0 -rot begin 2dup <> while lf-lnorm-kept lf-name-prefixes repeat 2drop ;
 \ Any two names (216-219): the shorter name's depth decides first, then a
 \ prefix comes before its extensions.
-: lf-lnorm-depths ( a b -- da db ) lf-lnorm-depth swap lf-lnorm-depth swap ;
+: lf-lnorm-depths ( a b -- da db ) lf-name-depth swap lf-name-depth swap ;
 : lf-lnorm-trimmed ( a b da db -- a' b' )
-  2dup min tuck - >r - rot swap lf-lnorm-up swap r> lf-lnorm-up ;
+  2dup min tuck - >r - rot swap lf-name-ancestor swap r> lf-name-ancestor ;
 : lf-lnorm-name-cmp ( a b -- n )
   2dup lf-lnorm-depths 2dup - lf-lnorm-sign >r lf-lnorm-trimmed lf-lnorm-level-cmp
   ?dup if r> drop else r> then ;

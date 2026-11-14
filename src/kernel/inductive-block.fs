@@ -578,10 +578,7 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 \ a projection would type-check against it and name, once restored, a
 \ constant that does not exist; review rvUNNI M3), in the type, then in
 \ each constructor type (rejected: Lean's "uses the reserved prefix").
-: lf-ind-root ( name -- root ) begin dup lf-name-prefix@ ?dup while nip repeat ;
-: lf-ind-reserved? ( name -- flag )
-  lf-ind-root dup lf-name-tag@ lf-name-tag-str =
-  if lf-name-text s" _nested" compare 0= else drop false then ;
+: lf-ind-reserved? ( name -- flag ) lf-name-root s" _nested" lf-name-str-is? ;
 \ The name a leaf names, as T0 reads it: a constant's, a projection
 \ leaf's structure's (its first field), else 0.
 : lf-ind-leaf-name ( first walk tag -- name|0 )

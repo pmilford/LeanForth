@@ -171,7 +171,7 @@ end-structure
   lf-name-prefix@ s" pre" lfx-member ;
 : lfx-name ( id -- )
   dup s" in" lfx-record
-  dup lf-name-tag@ lf-name-tag-num = if lfx-name-num else lfx-name-str then
+  dup lf-name-num? if lfx-name-num else lfx-name-str then
   lfx-close lfx-close lfx-emit ;
 : lfx-names ( -- ) lf-name-count @ 1 ?do i lfx-name loop ;
 

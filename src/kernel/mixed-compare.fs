@@ -23,6 +23,7 @@ require ../core/diagnostics.fs
 require ../core/levels.fs
 require ../core/local-context.fs
 require ../core/names.fs
+require ../core/name-equal.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 
@@ -80,21 +81,16 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
 \ ID and prefix is readable. Components are compared from the last back to
 \ the anonymous root, by kind and then by number or bytes, even when the
 \ IDs coincide; each component costs one unit of the given walk's fuel.
-: lf-mcompare-kinds? ( a b -- flag ) lf-name-tag@ swap lf-name-tag@ = ;
-: lf-mcompare-numbers? ( a b -- flag ) lf-name-payload swap lf-name-payload = ;
-: lf-mcompare-bytes? ( a b -- flag ) lf-name-text rot lf-name-text compare 0= ;
 : lf-mcompare-payloads? ( a b -- flag )
-  over lf-name-tag@ lf-name-tag-num =
-  if lf-mcompare-numbers? else lf-mcompare-bytes? then ;
+  over lf-name-num? if lf-name-num= else lf-name-str= then ;
 : lf-mcompare-components? ( a b -- flag )
-  2dup lf-mcompare-kinds? if lf-mcompare-payloads? else 2drop false then ;
-: lf-mcompare-prefixes ( a b -- a' b' ) lf-name-prefix@ swap lf-name-prefix@ swap ;
+  2dup lf-name-tags= if lf-mcompare-payloads? else 2drop false then ;
 \ One component decides when both names are anonymous (ok) or the
 \ components differ (unknown); otherwise both prefixes come next.
 : lf-mcompare-component ( a b -- a' b' false | outcome true )
   2dup or 0= if 2drop outcome-ok true exit then
   2dup lf-mcompare-components?
-  if lf-mcompare-prefixes false else 2drop outcome-unknown true then ;
+  if lf-name-prefixes false else 2drop outcome-unknown true then ;
 : lf-mcompare-names ( a b walk -- outcome )
   >r begin r@ walk-spend? 0= if 2drop r> drop outcome-exhausted exit then
     lf-mcompare-component until r> drop ;
@@ -229,9 +225,7 @@ create lf-meq-hooks /htab-hooks allot
 : lf-meq-table-make ( -- ) 4 lf-meq-hooks lf-meq-table htab-init drop ;
 ' lf-meq-table-make context-setup
 :noname ( -- ) lf-meq-table htab-free ; context-teardown
-: lf-meq-reset ( -- )
-  0 lf-meq-count ! lf-meq-table dup htab-live? if dup htab-slots 1024 <= else false then
-  if htab-clear else htab-free lf-meq-table-make then ;
+: lf-meq-reset ( -- ) 0 lf-meq-count ! lf-meq-table ['] lf-meq-table-make htab-renew ;
 : lf-meq-keep ( x y i -- )
   lf-meq-count @ 1+ lf-meq-pairs slab-hold ok? 0= if drop 2drop exit then
   >r lf-meq-count @ lf-meq-pair 2! lf-meq-count @ r> lf-meq-table htab-put

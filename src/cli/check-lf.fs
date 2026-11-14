@@ -94,9 +94,8 @@ end-structure
 \ adding any (-1: no such name; as deep as the name has parts), then its
 \ one declaration.
 : lfc-tier ( -- tier ) ck-stage stage-tier ;
-: lfc-numeric? ( id -- flag ) lf-name-tag@ lf-name-tag-num = ;
 : lfc-part ( prefix id -- n )
-  dup lfc-numeric? if lf-name-payload lfc-tier name-seek-num drop exit then
+  dup lf-name-num? if lf-name-payload lfc-tier name-seek-num drop exit then
   lf-name-text lfc-tier name-seek-str drop ;
 : lfc-name ( id -- n )
   dup 0= if exit then dup lf-name-prefix@ recurse dup 0< if nip exit then swap lfc-part ;

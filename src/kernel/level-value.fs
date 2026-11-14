@@ -237,10 +237,10 @@ end-structure
 : lf-lvalue-under ( root w -- value status )
   lf-lvalue-fuel @ swap lf-level-value-witness ;
 : lf-lvalue-left ( left right w -- right w v1 true | status false )
-  rot over lf-lvalue-under dup ok? if drop true else nip nip nip false then ;
+  rot over lf-lvalue-under ok-then3? ;
 : lf-lvalue-both ( left right w -- v1 v2 true | status false )
   lf-lvalue-left 0= if false exit then
-  -rot lf-lvalue-under dup ok? if drop true else nip nip false then ;
+  -rot lf-lvalue-under ok-then2? ;
 : lf-lvalue-differ ( left right w -- flag status )
   lf-lvalue-both if <> outcome-ok else false swap then ;
 : lf-lvalue-settled? ( flag status -- flag status stop? ) 2dup ok? 0= or ;

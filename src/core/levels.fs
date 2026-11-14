@@ -110,9 +110,7 @@ create lf-level-hooks /htab-hooks allot
   lf-level-table htab-ready ok? 0= if exit then
   0 lf-level-slot node@ lf-level-find if drop else 0 swap lf-level-table htab-put then ;
 \ Empty the table, back to 16 slots when it had grown large.
-1024 constant lf-level-table-small
-: lf-level-table-empty ( -- )
-  lf-level-table-small lf-level-table ['] lf-level-table-make htab-renew ;
+: lf-level-table-empty ( -- ) lf-level-table ['] lf-level-table-make htab-renew ;
 
 \ Discard every level and claim record 0 as the zero level with a fresh
 \ identity. Unchecked: the serial must not be spent; lf-level-reset checks.

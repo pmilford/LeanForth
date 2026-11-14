@@ -283,15 +283,27 @@ create lf-name-viewed-ops /lf-nops allot
 \ The whole storage is well formed: the entry store's audit, which reads
 \ every entry; under a view every name was checked when it was made.
 : lf-name-storage-valid? ( -- flag ) lf-name-ops lf-nops-storage @ execute ;
+\ Whether the valid ID's own component is a string, or a number (the
+\ anonymous name is neither); whether it is the anonymous name.
+: lf-name-str? ( id -- flag ) lf-name-tag@ lf-name-tag-str = ;
+: lf-name-num? ( id -- flag ) lf-name-tag@ lf-name-tag-num = ;
+: lf-name-anon? ( id -- flag ) lf-name-tag@ lf-name-tag-anon = ;
 \ Whether the valid ID's own component is the string c-addr u (a numeric
 \ component never is); the number of components of a valid ID (0 for the
 \ anonymous name).
 : lf-name-str-is? ( id c-addr u -- flag )
-  rot dup lf-name-tag@ lf-name-tag-str =
-  if lf-name-text compare 0= else drop 2drop false then ;
+  rot dup lf-name-str? if lf-name-text compare 0= else drop 2drop false then ;
+\ Whether the valid ID is the one-component name c-addr u: its own
+\ component that string, its prefix the anonymous name (as Lean matches
+\ Nat, Bool or eagerReduce by name).
+: lf-name-top? ( id c-addr u -- flag )
+  2 pick lf-name-prefix@ lf-name-anon? if lf-name-str-is? else 2drop drop false then ;
 : lf-name-depth ( id -- n ) 0 begin over while 1+ swap lf-name-prefix@ swap repeat nip ;
-\ The prefix k components up (k at most the ID's depth).
+\ The prefix k components up (k at most the ID's depth); a valid ID's
+\ first component, the ancestor whose prefix is the anonymous name (the
+\ anonymous name is its own).
 : lf-name-ancestor ( id k -- id' ) 0 ?do lf-name-prefix@ loop ;
+: lf-name-root ( id -- id' ) begin dup lf-name-prefix@ ?dup while nip repeat ;
 
 \ Reset to the anonymous name alone and advance the generation; saturation
 \ poisons the table rather than wrapping (see store-clear). Under a view,
@@ -336,6 +348,17 @@ defer lf-name-detach-hook ( -- )
 : lf-name-str ( prefix addr length -- id true | false )
   >r over r@ lf-name-str-args? r> swap
   if lf-name-copy-in lf-name-copied-str else 2drop drop false then ;
+
+\ A valid ID's own component put on base, interned; the last t
+\ components of name put on base, from the first of them (Lean's
+\ operator+ over a name's tail; t at most name's depth). False when the
+\ store refuses one; the components put before it stay interned.
+: lf-name-put ( base part -- name true | false )
+  dup lf-name-str? if lf-name-text lf-name-str else lf-name-payload lf-name-num then ;
+: lf-name-graft ( name t base -- name' true | false )
+  begin over while
+    >r 1- 2dup lf-name-ancestor r> swap lf-name-put 0= if 2drop false exit then
+  repeat nip nip true ;
 
 \ Every context starts with the anonymous name alone.
 ' lf-name-reset context-setup

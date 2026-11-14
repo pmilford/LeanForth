@@ -123,9 +123,8 @@ here nt-rest - 2 cells / constant nt-rest#
 \ between « and »; a numeric one in decimal.
 : nt-quoted ( c-addr u -- ) s" «" nt-put nt-escaped s" »" nt-put ;
 : nt-str ( c-addr u -- ) 2dup nt-ident? if nt-put else nt-quoted then ;
-: nt-str? ( id -- flag ) lf-name-tag@ lf-name-tag-str = ;
 : nt-component ( id -- )
-  dup nt-str? if lf-name-text nt-str else lf-name-payload nt-decimal then ;
+  dup lf-name-str? if lf-name-text nt-str else lf-name-payload nt-decimal then ;
 
 \ The name's components, from the name up to the root (k = 0 the last);
 \ full when the heap has no room for them.

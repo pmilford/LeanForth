@@ -73,7 +73,7 @@ end-structure
 \ numeric ones in decimal (as the printer spells a name), compared from the
 \ last component back, so nothing is copied and no length is limited.
 : pr-part-text ( id -- c-addr u )
-  dup lf-name-tag@ lf-name-tag-str = if lf-name-text else lf-name-payload u>decimal then ;
+  dup lf-name-str? if lf-name-text else lf-name-payload u>decimal then ;
 \ The text cut n characters before its end (n at most u): the head, then
 \ the tail.
 : pr-split ( c u n -- c u' tail n ) dup >r - 2dup + r> ;

@@ -481,7 +481,7 @@ defer lf-ap-arg ( frames -- ... frames next )
 \ its universe arguments) and Nat.succ with one argument (K7, whnf.fs).
 : lf-dq-bool-true? ( name -- flag )
   dup s" true" lf-name-str-is? 0= if drop false exit then
-  lf-name-prefix@ dup s" Bool" lf-name-str-is? if lf-name-prefix@ lf-whnf-anon? else drop false then ;
+  lf-name-prefix@ s" Bool" lf-name-top? ;
 : lf-dq-true? ( node -- flag )
   dup lf-whnf-const? if lf-whnf-cref lf-crec-name @ lf-dq-bool-true? else drop false then ;
 : lf-dq-succ? ( node -- flag ) dup lf-dq-count 1 = if lf-whnf-k7? else drop false then ;

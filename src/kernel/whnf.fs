@@ -415,12 +415,8 @@ create lf-whnf-nat-binary
   s" div" cell-counted,  s" beq" cell-counted,  s" ble" cell-counted,
   s" land" cell-counted,  s" lor" cell-counted,  s" xor" cell-counted,
   s" shiftLeft" cell-counted,  s" shiftRight" cell-counted,  0 ,
-\ Whether name is Nat.x for an anonymous root (names.fs's lf-name-str-is?
-\ compares one string component).
-: lf-whnf-anon? ( name -- flag ) lf-name-tag@ lf-name-tag-anon = ;
-: lf-whnf-nat? ( name -- flag )
-  lf-name-prefix@ dup s" Nat" lf-name-str-is?
-  if lf-name-prefix@ lf-whnf-anon? else drop false then ;
+\ Whether name is Nat.x for an anonymous root (names.fs's lf-name-top?).
+: lf-whnf-nat? ( name -- flag ) lf-name-prefix@ s" Nat" lf-name-top? ;
 \ The index of name's operation in the table, or -1.
 : lf-whnf-binary ( name -- i )
   0 lf-whnf-nat-binary begin dup @ while

@@ -764,7 +764,7 @@ end-structure
 1 constant lf-rec-main
 2 constant lf-rec-aux
 : lf-env-rec-kind ( name -- kind )
-  dup lf-name-tag@ lf-name-tag-str <> if drop 0 exit then
+  dup lf-name-str? 0= if drop 0 exit then
   lf-name-text 2dup s" rec" compare 0=
   if 2drop lf-rec-main else lf-env-aux-rec? lf-rec-aux and then ;
 : lf-slot-index ( slot -- d ) 0 lf-env lf-env-slot - /lf-slot / ;

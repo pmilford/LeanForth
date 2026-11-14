@@ -48,6 +48,7 @@ require ./bounds.fs
 require ./outcome.fs
 require ./portability.fs
 require ./module.fs
+require ./blocks.fs
 
 \ The words of this file are public, in the compilation word list current
 \ when it loads, except the helpers of making and moving a heap store's
@@ -226,9 +227,6 @@ defer store-refuse? ( store -- flag )
 \ Heap stores (see the header). A store is a heap store when it names a
 \ block of its own; a zeroed header names none.
 : store-heap? ( store -- flag ) store-block @ 0<> ;
-\ ALLOCATE u zeroed address units: the address and 0, or an undefined
-\ address and the ior (public: context.fs, task.fs and the modules use it).
-: allocate0 ( u -- addr ior ) dup allocate ?dup if rot drop exit then tuck swap erase 0 ;
 \ Make a heap store of capacity records in a zeroed block, its limit the
 \ capacity: ok; invalid for an unsound shape or full when the heap has no
 \ room, the header then zero (no check accepts it). The header must not

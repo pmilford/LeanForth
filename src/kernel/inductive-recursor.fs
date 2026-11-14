@@ -132,8 +132,7 @@ end-structure
 : lf-rcr-named? ( node c-addr u -- flag )
   rot dup lf-tag-constant lf-ind-tag? 0= if drop 2drop false exit then
   lf-ind-const-name dup lf-name-prefix@ if drop 2drop false exit then
-  dup lf-name-tag@ lf-name-tag-str = 0= if drop 2drop false exit then
-  lf-name-text compare 0= ;
+  -rot lf-name-str-is? ;
 : lf-rcr-gadget? ( head n -- flag )
   dup 1 = if
     drop dup s" outParam" lf-rcr-named? swap s" semiOutParam" lf-rcr-named? or exit

@@ -533,8 +533,7 @@ defer lf-minfer-walk ( node -- type status )
 \ matched by name, is compared with the domain in eager mode (defeq.fs).
 : lf-minfer-eager? ( node -- flag )
   lf-mhead-spine 2 = over lf-term-tag@ lf-tag-constant = and 0= if drop false exit then
-  lf-whnf-cref lf-crec-name @ dup s" eagerReduce" lf-name-str-is?
-  if lf-name-prefix@ lf-whnf-anon? else drop false then ;
+  lf-whnf-cref lf-crec-name @ s" eagerReduce" lf-name-top? ;
 : lf-minfer-app-arg ( A status frames -- type status frames 0 )
   >r r@ frame-restore r@ frame-restore 0 r@ frame-pick lf-minfer-eager? lf-dq-eager !
   2swap lf-minfer-argued false lf-dq-eager !

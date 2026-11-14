@@ -27,8 +27,8 @@
 \   buf heap-release  buf @ .  buf heap-release  \ 0: freed, then nothing
 \   64 heap-claim if free drop then             \ a block as a flag
 \
-\ Interface: heap-claim heap-release block-zeroed block-resize block-reused
-\ block-free. State:
+\ Interface: heap-claim heap-release allocate0 block-zeroed block-resize
+\ block-reused block-free. State:
 \ none. Requires outcome.fs; no helpers.
 
 require ./outcome.fs
@@ -41,9 +41,12 @@ require ./outcome.fs
 \ A new block of u address units (at least one), zeroed, its address
 \ stored at a-addr: ok, or full with the cell unchanged. The cell's
 \ earlier block, if any, is not freed (heap-release it first).
+\ ALLOCATE u zeroed address units: the address and 0, or an undefined
+\ address and the ior (moved here from store.fs; store.fs, htab.fs,
+\ context.fs, task.fs and the modules use it).
+: allocate0 ( u -- addr ior ) dup allocate ?dup if rot drop exit then tuck swap erase 0 ;
 : block-zeroed ( u a-addr -- outcome )
-  swap 1 max dup heap-claim 0= if 2drop outcome-full exit then
-  tuck swap erase swap ! outcome-ok ;
+  swap 1 max allocate0 if 2drop outcome-full exit then swap ! outcome-ok ;
 \ The cell's block resized to u address units (at least one), or a new
 \ block when the cell holds 0; the units kept as RESIZE keeps them, any
 \ new ones not erased. ok, or full with the cell and its block unchanged.

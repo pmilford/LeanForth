@@ -164,7 +164,7 @@ lf-lib set-current
 : call-balanced ( x xt -- )
   over >r depth >r execute depth r> 1- = ?call-balanced r> = ?call-balanced ;
 
-\ allocate0 ( u -- addr ior ), ALLOCATE of zeroed memory, is store.fs's.
+\ allocate0 ( u -- addr ior ), ALLOCATE of zeroed memory, is blocks.fs's.
 
 : context-bytes ( -- u ) context-layout layout-bytes @ ;
 : context-main ( -- context ) context-layout layout-main @ ;

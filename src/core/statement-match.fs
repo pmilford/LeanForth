@@ -234,7 +234,7 @@ end-structure
 : lf-keep-token ( count-addr c-addr u -- count-addr )
   2>r dup @ if lf-space lf-keep then 2r> lf-keep ;
 : lf-kept-fits ( count-addr -- )
-  dup cell+ swap @ lf-stmt-tokens lf-stmt-room > abort" statement: too many tokens" ;
+  cell-count lf-stmt-tokens lf-stmt-room > abort" statement: too many tokens" ;
 : lf-statement: ( "tokens end-statement" -- )
   here 0 , begin lf-next-token 2dup s" end-statement" compare while lf-keep-token repeat
   2drop lf-kept-fits align ;

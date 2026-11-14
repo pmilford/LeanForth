@@ -195,14 +195,11 @@ create lf-pair-hooks /htab-hooks allot
 : lf-pair-table-make ( -- ) 4 lf-pair-hooks lf-pair-table htab-init drop ;
 ' lf-pair-table-make context-setup
 :noname ( -- ) lf-pair-table htab-free ; context-teardown
-\ The set emptied for run; a table grown above 1024 slots is made again,
+\ The set emptied for run; a table grown large is made again (htab-renew),
 \ so that one large run leaves later ones no large table to clear.
-: lf-pairs-small? ( -- flag )
-  lf-pair-table dup htab-live? if htab-slots 1024 <= else drop false then ;
 : lf-pairs-reset ( run -- )
   lf-pair-state tuck lf-pairs-run ! 0 swap lf-pairs-count !
-  lf-pairs-small? if lf-pair-table htab-clear exit then
-  lf-pair-table htab-free lf-pair-table-make ;
+  lf-pair-table ['] lf-pair-table-make htab-renew ;
 : lf-pairs# ( -- n ) lf-pair-state lf-pairs-count @ ;
 \ Keep (node depth) at the empty slot i a find gave, if the slab can grow.
 : lf-pairs-put ( node depth i -- )

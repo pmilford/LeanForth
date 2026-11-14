@@ -99,7 +99,7 @@ lf-lib-private set-current
 end-structure
 4 constant memo-first-log2      \ a new table's slots: 16
 lf-lib set-current
-1024 constant memo-small        \ memo-empty makes a table of more slots small again
+htab-small-slots constant memo-small  \ memo-empty makes a table of more slots small again
 lf-lib-private set-current
 
 \ ---- Entries, keys and their hashes.
@@ -203,7 +203,8 @@ lf-lib set-current
 lf-lib-private set-current
 
 \ ---- Emptying. The newest entry out of the table and the slab.
-: memo-small? ( memo -- flag ) memo-table htab-slots memo-small > 0= ;
+\ (memo-empty asks this of a live memo only, whose table is live.)
+: memo-small? ( memo -- flag ) memo-table htab-small? ;
 : memo-remake ( memo -- ) dup memo-release memo-make drop ;
 : memo-last ( memo -- n ) memo-entries slab-count 1- ;
 : memo-drop-last ( memo -- )

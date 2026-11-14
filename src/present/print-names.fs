@@ -31,7 +31,7 @@ lf-walk-room context-walk2: lf-pp-scan-walk
 \ the ID is valid and the name storage passed lf-name-storage-valid?, so
 \ every prefix chain ends at the anonymous name, which gives nothing.
 : lf-pp-part ( id xt -- )
-  >r dup lf-name-tag@ lf-name-tag-str =
+  >r dup lf-name-str?
   if lf-name-text r> execute else lf-name-payload r> lf-pp-number-to then ;
 : lf-pp-dot-to ( xt -- ) s" ." rot execute ;
 \ Component k from the root (0 the first) of a name of n components.
@@ -46,8 +46,7 @@ lf-walk-room context-walk2: lf-pp-scan-walk
 
 \ Hygienic names (Lean's macro scopes, such as a._@._internal._hyg.0)
 \ print as the part before _@, as Lean's delaborator prints them.
-: lf-pp-skip-nums ( id -- id' ) begin dup lf-name-tag@ lf-name-tag-num = while
-  lf-name-prefix@ repeat ;
+: lf-pp-skip-nums ( id -- id' ) begin dup lf-name-num? while lf-name-prefix@ repeat ;
 : lf-pp-hygienic? ( id -- flag ) lf-pp-skip-nums s" _hyg" lf-name-str-is? ;
 : lf-pp-erase ( id -- id' )
   begin dup s" _@" lf-name-str-is? 0= over and while lf-name-prefix@ repeat lf-name-prefix@ ;

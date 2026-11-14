@@ -163,8 +163,7 @@ end-structure
 \ components, without universe arguments.
 : lf-sx-of-list? ( name -- flag )
   dup s" ofList" lf-name-str-is? 0= if drop false exit then
-  lf-name-prefix@ dup s" String" lf-name-str-is?
-  if lf-name-prefix@ lf-whnf-anon? else drop false then ;
+  lf-name-prefix@ s" String" lf-name-top? ;
 : lf-sx-string-app? ( s -- flag )
   dup lf-term-tag@ lf-tag-app <> if drop false exit then
   lf-term-first@ dup lf-whnf-const? 0= if drop false exit then

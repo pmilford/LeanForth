@@ -1,7 +1,8 @@
 \ Range and memory predicates used to validate input before forming
-\ addresses. Signed comparisons only, so no bound can wrap around. No state.
+\ addresses. Signed comparisons only, so no bound can wrap around; and
+\ cell-counted records, laid down and read back. No state.
 \ Interface: between? upto? range-at in-range-at? in-ranges? cells-zero?
-\ cells= index? cells-index cells-has? cell-count.
+\ cells= index? cells-index cells-has? cell-counted, cell-count.
 \ Example:
 \   create primes 2 , 3 , 5 , 7 ,   create odds 3 , 5 , 7 ,
 \   3 4 index?  4 4 index?  0 -1 index?    \ true false false
@@ -45,6 +46,10 @@ require ./outcome.fs
 \ Whether one of the n cells from addr holds x.
 : cells-has? ( x addr n -- flag ) cells-index dup if nip then ;
 \ A cell-counted array or text: its count in the first cell, its cells
-\ or bytes after it. The address after the count and the count, as COUNT
-\ gives a counted string's (unchecked: addr holds such a record).
+\ or bytes after it. cell-counted, compiles text of any length as one
+\ (its length in a cell, then its bytes), then aligns: for tables of
+\ names and messages built while loading. cell-count reads one back: the
+\ address after the count and the count, as COUNT gives a counted
+\ string's (unchecked: addr holds such a record).
+: cell-counted, ( c-addr u -- ) dup , here swap dup allot move align ;
 : cell-count ( addr -- addr' n ) dup cell+ swap @ ;

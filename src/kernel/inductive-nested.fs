@@ -239,13 +239,6 @@ end-structure
 \ Names. A name's components; its ancestor t prefixes up; a component
 \ put on base; name's last t components put on base (Lean's operator+
 \ and replace_prefix, name.cpp 302-318, 363-375).
-: lf-nest-part ( base part -- name true | false )
-  dup lf-name-tag@ lf-name-tag-str =
-  if lf-name-text lf-name-str else lf-name-payload lf-name-num then ;
-: lf-nest-graft ( name t base -- name' true | false )
-  over 0 ?do
-    2 pick 2 pick i - 1- lf-name-ancestor lf-nest-part 0= if 2drop false unloop exit then
-  loop nip nip true ;
 \ How many prefixes up name is ancestor, or -1.
 : lf-nest-distance ( name ancestor -- t|-1 )
   0 begin 2 pick 2 pick lf-name-same? 0= while
@@ -254,7 +247,7 @@ end-structure
 \ Lean's replace_prefix: name with its prefix prefix replaced by new;
 \ name itself when prefix is none of its prefixes.
 : lf-nest-replace-prefix ( name prefix new -- name' true | false )
-  >r over swap lf-nest-distance dup 0< if drop r> drop true exit then r> lf-nest-graft ;
+  >r over swap lf-nest-distance dup 0< if drop r> drop true exit then r> lf-name-graft ;
 \ Lean's appendIndexAfter (append_after(idx), name.cpp 340-342): a last
 \ string component s becomes s_idx, a last number gets a component _idx.
 : lf-nest-underscored ( n -- c-addr u ) 0 <# #s [char] _ hold #> ;
@@ -268,7 +261,7 @@ end-structure
   dup lf-name-prefix@ >r lf-name-text 2swap lf-nest-joined
   if r> -rot lf-name-str else r> drop false then ;
 : lf-nest-indexed ( name idx -- name' true | false )
-  lf-nest-digits rot dup lf-name-tag@ lf-name-tag-str =
+  lf-nest-digits rot dup lf-name-str?
   if lf-nest-str-indexed else -rot lf-name-str then ;
 \ mk_unique_name: base_k, k the next index from 1 (counted on for each
 \ name tried) for which no declaration before the block has that name:
@@ -282,7 +275,7 @@ end-structure
 \ _nested + J, made unique: an auxiliary type's name.
 : lf-nest-aux-name ( J -- name true | false )
   0 s" _nested" lf-name-str 0= if drop false exit then
-  >r dup lf-name-depth r> lf-nest-graft 0= if false exit then lf-nest-unique ;
+  >r dup lf-name-depth r> lf-name-graft 0= if false exit then lf-nest-unique ;
 
 \ ---------------------------------------------------------------------------
 \ Making an auxiliary type J_k for the occurrence I Ds: a declaration of

@@ -16,10 +16,10 @@
 \ digits>u gives the value of a run of decimal digits when it fits in a
 \ nonnegative cell, leading zeros skipped, decimal>u the value modulo the
 \ cell size (unchecked: digits only); skip-zeros drops leading zeros.
-\ decimal-digit? tests one character; hex-char is one lower-case digit
-\ of a number from 0 to 15 and hex-byte! the two of a byte, for
+\ decimal-digit? tests one character; hex-byte! writes the two
+\ lower-case hexadecimal digits of a byte, for
 \ fixed-width hexadecimal (JSON escapes, digests), with no pictured output.
-\ type-right pads text to a column's width, for tables.
+\ type-right and type-left pad text to a column's width, for tables.
 \
 \ Genericity. Any cell or double cell, signed or unsigned; any word under
 \ in-decimal.
@@ -35,8 +35,8 @@
 \   s" 42x" decimal>number type d.  s" 042" decimal-digits?   \ x42 -1
 \
 \ Interface: in-base in-decimal u>decimal n>decimal ud>decimal d>decimal
-\ .decimal type-right u>hex decimal>number decimal-digits?
-\ decimal-digit? hex-char hex-byte! skip-zeros digits>u decimal>u
+\ .decimal type-right type-left u>hex decimal>number decimal-digits?
+\ decimal-digit? hex-byte! skip-zeros digits>u decimal>u
 \ cell-digits. State:
 \ none. Requires portability.fs and module.fs; helpers private in
 \ lf-lib-private (ADR 0010). Loads in decimal whatever BASE is, then
@@ -68,9 +68,10 @@ lf-lib set-current
 : n>decimal ( n -- c-addr u ) s>d d>decimal ;
 \ Print n in decimal, with no space after it.
 : .decimal ( n -- ) n>decimal type ;
-\ Columns: text right-aligned in width characters (text longer than
-\ width is printed whole), for tables of numbers.
+\ Columns: text right-aligned, or left-aligned, in width characters
+\ (text longer than width is printed whole), for tables.
 : type-right ( c-addr u width -- ) over - 0 max spaces type ;
+: type-left ( c-addr u width -- ) over - 0 max >r type r> spaces ;
 \ Hexadecimal digits of an unsigned cell, in the pictured-output buffer.
 : u>hex ( u -- c-addr u ) 0 ['] ud>text 16 in-base ;
 \ >NUMBER from zero in decimal: the digits' value (modulo a double cell)
@@ -81,8 +82,10 @@ lf-lib set-current
 \ Whether the character c is a decimal digit, 0 to 9.
 : decimal-digit? ( c -- flag ) [char] 0 - 10 u< ;
 \ The lower-case hexadecimal digit of n, 0 to 15 (unchecked: other n give
-\ other characters).
+\ other characters); hex-byte!'s helper, private.
+lf-lib-private set-current
 : hex-char ( n -- c ) dup 10 < if [char] 0 else [char] a 10 - then + ;
+lf-lib set-current
 \ The two lower-case hexadecimal digits of a byte (0 to 255), high first,
 \ stored at c-addr and c-addr+1.
 : hex-byte! ( byte c-addr -- )

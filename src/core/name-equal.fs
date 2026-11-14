@@ -16,7 +16,7 @@ require ./names.fs
 : lf-name-tags= ( a b -- flag ) lf-name-tag@ swap lf-name-tag@ = ;
 : lf-name-part= ( a b -- flag )
   2dup lf-name-tags= 0= if 2drop false exit then
-  over lf-name-tag@ lf-name-tag-str = if lf-name-str= else lf-name-num= then ;
+  over lf-name-str? if lf-name-str= else lf-name-num= then ;
 : lf-name-prefixes ( a b -- a' b' ) lf-name-prefix@ swap lf-name-prefix@ swap ;
 
 \ Unchecked: a and b are valid IDs of a store that passed
