@@ -204,10 +204,7 @@ here lf-sch-cell-slabs - 1 cells / constant lf-sch-cell-slabs#
 : lf-sch-hold ( n slab -- outcome )
   tuck slab-count - dup 0> 0= if 2drop outcome-ok exit then
   2dup swap slab-claim ok-then? 0= if nip nip exit then swap rot lf-sch-zero outcome-ok ;
-\ Pushing a cell, popping the last one, emptying.
-: lf-sch-push ( x slab -- outcome )
-  1 over slab-claim ok-then? if swap slab-at ! outcome-ok else nip nip then ;
-: lf-sch-pop ( slab -- x ) dup slab-count 1- over slab-at @ swap -1 swap slab-commit ;
+\ Emptying a slab (pushes and pops: lib/slab.fs's slab-push, slab-pop).
 : lf-sch-empty ( slab -- ) dup slab-count negate swap slab-commit ;
 : lf-sch-cell@ ( i slab -- x ) slab-at @ ;
 : lf-sch-any? ( queue -- flag ) pq-count 0> ;
@@ -255,7 +252,7 @@ variable lf-sched-faults  0 lf-sched-faults !
 \ be made is left out: a check that needs it is run again if it began too
 \ early.
 : lf-sch-builtin ( c-addr u -- )
-  lf-stmt-intern if lf-sched lf-sch-builtins lf-sch-push drop else drop then ;
+  lf-stmt-intern if lf-sched lf-sch-builtins slab-push drop else drop then ;
 : lf-sch-builtins-nat ( -- )
   s" Nat" lf-sch-builtin s" Nat.zero" lf-sch-builtin s" Nat.succ" lf-sch-builtin
   s" Bool" lf-sch-builtin s" Bool.true" lf-sch-builtin s" Bool.false" lf-sch-builtin ;
@@ -280,7 +277,7 @@ variable lf-sched-faults  0 lf-sched-faults !
 : lf-sch-name ( name -- outcome )
   dup 0> 0= if drop outcome-ok exit then
   dup 1+ lf-sched lf-sch-named lf-sch-hold ok-then? 0= if exit then
-  dup lf-sch-fresh-name? if lf-sched lf-sch-names lf-sch-push else drop outcome-ok then ;
+  dup lf-sch-fresh-name? if lf-sched lf-sch-names slab-push else drop outcome-ok then ;
 
 \ The walk over a declaration's terms, each node once per declaration:
 \ the two children of a binary node (an application, a binder, and since
@@ -292,7 +289,7 @@ variable lf-sched-faults  0 lf-sched-faults !
   dup lf-sched lf-sch-seen slab-count u< 0= if drop false exit then
   lf-sch-seen@ dup u32@ lf-sch-stamp@ = if drop false exit then
   lf-sch-stamp@ swap u32! true ;
-: lf-sch-term ( t -- outcome ) lf-sched lf-sch-stack lf-sch-push ;
+: lf-sch-term ( t -- outcome ) lf-sched lf-sch-stack slab-push ;
 : lf-sch-two ( first second -- outcome )
   lf-sch-term ok-then? 0= if exit then lf-sch-term ;
 : lf-sch-const ( cref -- outcome ) lf-cref-slot lf-crec-name @ lf-sch-name ;
@@ -302,7 +299,7 @@ variable lf-sched-faults  0 lf-sched-faults !
     lf-tag-proj of drop lf-sch-name endof
     >r 2drop outcome-ok r> endcase ;
 : lf-sch-step ( -- outcome )
-  lf-sched lf-sch-stack lf-sch-pop
+  lf-sched lf-sch-stack slab-pop
   dup lf-sch-fresh-term? 0= if drop outcome-ok exit then
   lf-term-read if lf-sch-visit else outcome-invalid then ;
 : lf-sch-more? ( outcome -- outcome flag )
@@ -358,7 +355,7 @@ variable lf-sched-faults  0 lf-sched-faults !
 : lf-sch-dseen@ ( d -- addr ) lf-sched lf-sch-dseen slab-at ;
 : lf-sch-dep ( d -- outcome )
   dup lf-sch-dseen@ dup @ lf-sch-stamp@ = if 2drop outcome-ok exit then
-  lf-sch-stamp@ swap ! lf-sched lf-sch-deps lf-sch-push ;
+  lf-sch-stamp@ swap ! lf-sched lf-sch-deps slab-push ;
 : lf-sch-below ( d u -- outcome ) over > if lf-sch-dep else drop outcome-ok then ;
 : lf-sch-chain ( name u -- outcome )
   >r lf-input-newest outcome-ok begin over 0< 0= over ok? and while
@@ -449,8 +446,8 @@ variable lf-sched-faults  0 lf-sched-faults !
   lf-sched lf-sch-ats lf-sch-room outcome-and ;
 : lf-sched-add ( context -- outcome )
   lf-sch-worker-room dup ok? 0= if nip exit then drop
-  lf-sched lf-sch-ctxs lf-sch-push 0 lf-sched lf-sch-jobs lf-sch-push outcome-and
-  -1 lf-sched lf-sch-ats lf-sch-push outcome-and ;
+  lf-sched lf-sch-ctxs slab-push 0 lf-sched lf-sch-jobs slab-push outcome-and
+  -1 lf-sched lf-sch-ats slab-push outcome-and ;
 : lf-sch-in ( k -- ) lf-sch-ctx @ context-use ;
 : lf-sch-home ( -- ) lf-sched lf-sch-home-ctx @ context-use ;
 : lf-sch-idle? ( k -- flag ) dup lf-sch-ctx @ 0<> swap lf-sch-job @ 0= and ;

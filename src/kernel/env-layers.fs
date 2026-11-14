@@ -106,13 +106,10 @@ end-structure
 
 \ ---- The arrays: per layer slot its slot as loaded and whether it is
 \ new; per declaration loaded before, its slot + 1.
-: lay-zeros ( n addr -- outcome )
-  >r u32s 1 max dup allocate if 2drop r> drop outcome-full exit then
-  dup rot erase r> ! outcome-ok ;
-: lay-map-room ( lay -- outcome ) dup lay-n @ swap lay-map lay-zeros ;
-: lay-new-room ( lay -- outcome ) dup lay-n @ swap lay-new lay-zeros ;
+: lay-map-room ( lay -- outcome ) dup lay-n @ swap lay-map ua-new ;
+: lay-new-room ( lay -- outcome ) dup lay-n @ swap lay-new ua-new ;
 : lay-old-room ( lay -- outcome )
-  dup lay-stage @ stage-decls 2dup swap lay-old ! swap lay-slots lay-zeros ;
+  dup lay-stage @ stage-decls 2dup swap lay-old ! swap lay-slots ua-new ;
 : lay-arrays ( lay -- outcome )
   outcome-ok ['] lay-map-room ok-with ['] lay-new-room ok-with ['] lay-old-room ok-with
   nip ;

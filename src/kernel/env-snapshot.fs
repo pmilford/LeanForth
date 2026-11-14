@@ -90,6 +90,7 @@ require ../lib/lib.fs
 require ../lib/u32.fs
 require ../lib/sections.fs
 require ../lib/sort.fs
+require ../lib/blocks.fs
 require ../lib/sha256.fs
 require ../core/axiom-allowlist.fs
 require ../import/stage.fs
@@ -353,10 +354,9 @@ create snap-outers /outers allot  snap-outers /outers erase
 : outers-in# ( -- n ) snap-outers outers-in @ ;
 : canon ( -- tier ) snap-outers outers-canon @ ;
 : outer ( -- tier ) lf-env-outer ;
-: block-free ( addr -- ) @ ?dup if free drop then ;
 : outers-free ( -- )
-  canon ?dup if dup tier-free free drop then snap-outers outers-list block-free
-  snap-outers outers-names block-free snap-outers outers-bytes block-free
+  canon ?dup if dup tier-free free drop then snap-outers outers-list heap-release
+  snap-outers outers-names heap-release snap-outers outers-bytes heap-release
   snap-outers /outers erase ;
 : key-beyond? ( key -- flag ) lf-look-name outers-in# u< 0= ;
 \ Whether slot's list ends with a name beyond (such keys are its last).
@@ -394,7 +394,7 @@ create snap-outers /outers allot  snap-outers /outers erase
 \ and made in canon: ok or full.
 : outers-hold ( n -- outcome )
   dup snap-outers outers-room @ > 0= if drop outcome-ok exit then
-  snap-outers outers-list block-free 0 snap-outers outers-list !
+  snap-outers outers-list heap-release
   dup cells allocate if 2drop outcome-full exit then
   snap-outers outers-list ! snap-outers outers-room ! outcome-ok ;
 : outer-put ( addr n name -- addr n' ) 2 pick 2 pick cells + ! 1+ ;

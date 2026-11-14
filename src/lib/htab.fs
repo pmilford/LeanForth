@@ -56,6 +56,7 @@ require ./portability.fs
 require ./bounds.fs
 require ./outcome.fs
 require ./u32.fs
+require ./bits.fs
 require ./module.fs
 
 lf-lib-private module-open
@@ -84,7 +85,6 @@ end-structure
 
 \ The largest log2 of slots: 32, or fewer when a cell cannot address the
 \ slots' bytes (a 32-bit host).
-: cell-bits ( -- n ) 0 max-n begin ?dup while 1 rshift swap 1+ swap repeat 1+ ;
 cell-bits 3 - 32 min constant htab-log2-max
 
 lf-lib set-current
@@ -154,8 +154,6 @@ lf-lib-private set-current
   2dup htab-fits? 0= if 2drop outcome-full exit then
   over 1 swap lshift htab-zeroed if drop 2drop outcome-full exit then
   -rot dup >r htab-install over swap r> htab-move ?dup if free drop then outcome-ok ;
-\ The smallest log2 of slots at least u, for u >= 1.
-: log2-ceiling ( u -- log2 ) 1- 0 swap begin ?dup while 1 rshift swap 1+ swap repeat ;
 
 lf-lib set-current
 \ Make an empty table of 2^log2 slots with the hooks, allowed to grow to

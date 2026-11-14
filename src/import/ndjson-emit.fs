@@ -61,6 +61,7 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/bytes.fs
+require ../lib/blocks.fs
 require ../lib/json.fs
 require ../lib/json-write.fs
 require ../lib/decimal.fs
@@ -83,8 +84,6 @@ end-structure
 : buffer-left ( buffer -- n ) dup buffer-size @ swap buffer-used @ - ;
 : buffer-empty ( buffer -- ) 0 swap buffer-used ! ;
 : buffer-release ( buffer -- ) dup buffer-addr heap-release /buffer erase ;
-\ A heap block of size bytes in place of the one at addr, 0 for none.
-: block-resize ( addr size -- addr' ior ) over if resize else nip allocate then ;
 \ The size to grow to for n more bytes: twice the size, or more.
 : buffer-wanted ( n buffer -- size )
   dup buffer-used @ rot + swap buffer-size @ 2* max reexport-buffer-start max ;
@@ -92,8 +91,8 @@ end-structure
 \ when the heap has no room.
 : buffer-grow ( n buffer -- flag )
   tuck buffer-wanted dup reexport-buffer-limit > if 2drop false exit then
-  over buffer-addr @ over block-resize if drop 2drop false exit then
-  rot tuck buffer-addr ! buffer-size ! true ;
+  2dup swap buffer-addr block-resize ok? 0= if 2drop false exit then
+  swap buffer-size ! true ;
 : buffer-room? ( n buffer -- flag )
   2dup buffer-left > if buffer-grow else 2drop true then ;
 : buffer-append ( c-addr u buffer -- flag )

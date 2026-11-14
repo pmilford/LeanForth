@@ -124,10 +124,10 @@ end-structure
 \ definition itself (so a type headed by it may unfold).
 : lfc-tag ( e -- tag ) lfc-tier expr-tag@ ;
 : lfc-def? ( d -- flag ) ck-stage staged-kind@ kind-def = ;
-: lfc-pi? ( e -- flag ) lfc-tag tag-pi tag-let within ;
 : lfc-explicit ( n e -- n' ) lfc-tag tag-pi = if 1+ then ;
 : lfc-telescope ( e -- n e' )
-  0 swap begin dup lfc-pi? while tuck lfc-explicit swap lfc-tier expr-b@ repeat ;
+  0 swap begin dup lfc-tier expr-pi? while
+    tuck lfc-explicit swap lfc-tier expr-b@ repeat ;
 : lfc-head ( e -- e' ) begin dup lfc-tag tag-app = while lfc-tier expr-a@ repeat ;
 : lfc-const-unfolds? ( e -- flag ) lfc-tier expr-a@ lfc-decl if lfc-def? else false then ;
 : lfc-redex-tag? ( tag -- flag )

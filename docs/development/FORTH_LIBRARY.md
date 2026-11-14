@@ -722,10 +722,13 @@ and ok) or one fails (false and its outcome, whatever its flag:
 `ok-true?`); `slab-2all?` does the same with pairs and `xt ( x1 x2 --
 flag outcome )`. The values not yet tested stay on the slab (the callers
 clear it before the next run). A slab that is not live answers false and
-invalid, no test run; one too narrow for a pair throws as `slab-2pop`.
-*Genericity*: any test with that stack effect; it finds its value (pair)
-on top, the slab and the xt below, which it must leave, and may push
-onto the same slab or use the return stack. *Scaling*: one pop and one
+invalid, no test run; a slab whose units are narrower than a cell
+(`slab-all?`) or a pair (`slab-2all?`) throws `slab-underflow`, as
+`slab-pop` and `slab-2pop` do. *Genericity*: any test with that stack
+effect; it finds its value (pair) on top and below it the slab and, for
+`slab-all?` only, the xt (`slab-2all?` keeps its xt on the return
+stack), which it must leave untouched; it may push onto the same slab or
+use the return stack (review reuse-1a re-check L). *Scaling*: one pop and one
 test per value, newest first (depth first); the pending work lies in the
 heap, so no depth needs the host's stacks; constant overhead per value.
 *Speed* (as above, `bench-loops.fs`): 50–65 ns a value, the pop

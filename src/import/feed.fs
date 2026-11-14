@@ -78,6 +78,8 @@
 \ copies) only during lf-feed.
 
 require ../lib/bytes.fs
+require ../lib/blocks.fs
+require ../lib/bits.fs
 require ../core/compact.fs
 require ../core/input.fs
 require ../core/unsupported-forms.fs
@@ -130,9 +132,7 @@ end-structure
 \ feed-free. There is no other limit (plan task 6.2.0); no heap is full.
 : feed-grow ( n u buffer -- outcome )
   >r over r@ cell+ @ > 0= if 2drop r> drop outcome-ok exit then
-  over * 1 max r@ @ ?dup if swap resize else allocate then
-  if 2drop r> drop outcome-full exit then
-  r@ ! r> cell+ ! outcome-ok ;
+  over * r@ block-resize dup ok? if swap r> cell+ ! else nip r> drop then ;
 : feed-pairs ( feed -- addr ) feed-pair-buf @ ;
 
 \ ---- Capacities: the stage's records plus room for the checks; a
@@ -174,14 +174,10 @@ here feed-settings - /feed-setting / constant feed-settings#
 : feed-room ( feed -- outcome ) drop lf-term-count @ feed-term-room + lf-term-capacity! ;
 
 \ ---- Maps: heap blocks of cells, zeroed, freed by feed-free.
-: feed-block ( cells addr -- outcome )
-  >r cells 1 max dup allocate if 2drop r> drop outcome-full exit then
-  tuck swap erase r> ! outcome-ok ;
+: feed-block ( cells addr -- outcome ) swap cells swap block-zeroed ;
 \ The expressions need no map (see "In place" below), only a bit each,
 \ set for the ones copied.
-1 cells 8 * constant feed-cell-bits
-: feed-expr-map ( feed -- outcome )
-  dup feed-exprs# feed-cell-bits / 1+ swap feed-dirty feed-block ;
+: feed-expr-map ( feed -- outcome ) dup feed-exprs# bits>cells swap feed-dirty feed-block ;
 : feed-maps ( feed -- outcome )
   dup feed-levels# over feed-levels feed-block dup ok? 0= if nip exit then
   drop feed-expr-map ;
@@ -202,10 +198,8 @@ here feed-settings - /feed-setting / constant feed-settings#
 \ view's leaf table: a Sort its level, a constant its reference (made as
 \ when copying), a literal its limbs or bytes in the context's slabs.
 \ Levels, references and declarations are as when copying.
-: feed-bit ( e feed -- addr mask )
-  feed-dirty @ over feed-cell-bits / cells + swap feed-cell-bits mod 1 swap lshift ;
-: feed-dirty? ( e feed -- flag ) feed-bit swap @ and 0<> ;
-: feed-dirty! ( e feed -- ) feed-bit over @ or swap ! ;
+: feed-dirty? ( e feed -- flag ) feed-dirty @ bit@ ;
+: feed-dirty! ( e feed -- ) feed-dirty @ bit-on ;
 begin-structure /feed-copy
   field: feed-copied-e                  \ the expression
   2 cells +field feed-copied-handle     \ its term handle: index, identity (2@)
@@ -220,12 +214,10 @@ end-structure
 : feed-copy+ ( index identity e feed -- outcome )
   dup feed-copy-room ok? 0= if 2drop 2drop outcome-full exit then
   feed-copy-next tuck feed-copied-e ! feed-copied-handle 2! outcome-ok ;
-\ Binary search: the first copy whose expression is not below e.
-: feed-copy-below? ( e feed k -- flag ) swap feed-copy-e > ;
-: feed-narrow ( e feed lo hi -- e feed lo' hi' )
-  2dup + 2/ >r 2over r@ feed-copy-below? if nip r> 1+ swap else drop r> then ;
-: feed-seek ( e feed -- e feed k )
-  0 over feed-copies# @ begin 2dup < while feed-narrow repeat drop ;
+\ Binary search (lib/bits.fs): the first copy whose expression is not
+\ below e.
+: feed-copy-below? ( e feed k -- e feed flag ) over feed-copy-e 2 pick < ;
+: feed-seek ( e feed -- e feed k ) 0 over feed-copies# @ ['] feed-copy-below? lower-bound ;
 \ Copy k when it is expression e's, else 0.
 : feed-copy-of ( e feed k -- addr|0 )
   2dup swap feed-copies# @ < 0= if 2drop drop 0 exit then

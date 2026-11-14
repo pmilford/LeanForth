@@ -27,6 +27,7 @@
 \ has_param_univ test, lf-mls-closed?).
 
 require ../lib/lib.fs
+require ../lib/bits.fs
 require ../lib/slab.fs
 require ../lib/hash32.fs
 require ../lib/htab.fs
@@ -265,11 +266,8 @@ create lf-mls-set-hooks /htab-hooks allot
 \ of a reached term is reached, so it is in the sorted list: found by
 \ binary search, its image at the same place.
 : lf-mls-image-cell ( i -- addr ) lf-mls-image-cells slab-at ;
-: lf-mls-half ( lo hi -- mid ) over - 2/ + ;
-: lf-mls-search ( node lo hi -- i )
-  begin 2dup < while
-    2dup lf-mls-half dup lf-mls-node 4 pick < if 1+ rot drop swap else nip then
-  repeat drop nip ;
+: lf-mls-below? ( node i -- node flag ) lf-mls-node over < ;
+: lf-mls-search ( node lo hi -- i ) ['] lf-mls-below? lower-bound nip ;
 \ A reached term's image, or the term itself when the audit did not list
 \ it (no universe parameter, lf-mls-closed?).
 : lf-mls-listed? ( node i -- flag )

@@ -7927,8 +7927,8 @@ reason = "S3: the reached set keeps its entries after an audit"
 [[fault]]
 id = "s3-mls-search-past"
 file = "src/kernel/mixed-level-substitute.fs"
-old = '''    2dup lf-mls-half dup lf-mls-node 4 pick < if 1+ rot drop swap else nip then'''
-new = '''    2dup lf-mls-half dup lf-mls-node 4 pick <= if 1+ rot drop swap else nip then'''
+old = ''': lf-mls-below? ( node i -- node flag ) lf-mls-node over < ;'''
+new = ''': lf-mls-below? ( node i -- node flag ) lf-mls-node over <= ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
 reason = "S3: a child's image is read one place past it in the sorted list"
 
@@ -8947,10 +8947,10 @@ reason = "FX10 M3: declarations past the stop left in the ready heap make a run 
 id = "frk-sched-add-pushes-first"
 file = "src/kernel/env-schedule.fs"
 old = '''  lf-sch-worker-room dup ok? 0= if nip exit then drop
-  lf-sched lf-sch-ctxs lf-sch-push 0 lf-sched lf-sch-jobs lf-sch-push outcome-and
-  -1 lf-sched lf-sch-ats lf-sch-push outcome-and ;'''
-new = '''  lf-sched lf-sch-ctxs lf-sch-push dup ok? 0= if exit then drop
-  0 lf-sched lf-sch-jobs lf-sch-push -1 lf-sched lf-sch-ats lf-sch-push or
+  lf-sched lf-sch-ctxs slab-push 0 lf-sched lf-sch-jobs slab-push outcome-and
+  -1 lf-sched lf-sch-ats slab-push outcome-and ;'''
+new = '''  lf-sched lf-sch-ctxs slab-push dup ok? 0= if exit then drop
+  0 lf-sched lf-sch-jobs slab-push -1 lf-sched lf-sch-ats slab-push or
   ok? room>outcome ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "FRK F1: the context is pushed before the jobs list is known to have room, so a full add keeps a context the caller frees"
@@ -9630,8 +9630,8 @@ reason = "SN5: a check that made names beyond its input (a nested block) is publ
 [[fault]]
 id = "det-information-jobs"
 file = "src/cli/leanforth.fs"
-old = '''  s\" ,\"cellBits\":" cli-info+ 1 cells 8 * u>decimal cli-info+'''
-new = '''  s\" ,\"cellBits\":" cli-info+ 1 cells 8 * cli-jobs 1 > - u>decimal cli-info+'''
+old = '''  s\" ,\"cellBits\":" cli-info+ cell-bits u>decimal cli-info+'''
+new = '''  s\" ,\"cellBits\":" cli-info+ cell-bits cli-jobs 1 > - u>decimal cli-info+'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_same_bytes"
 reason = "DET (2026-11-13): the information section holds a figure of the run (here --jobs), so --jobs 4 writes other bytes than --jobs 1; test_same_bytes pins the commit, not the information, and compares every byte"
 
@@ -16695,3 +16695,95 @@ old = ''': decimal>number ( c-addr u -- ud c-addr' u' ) 0 0 2swap ['] >number in
 new = ''': decimal>number ( c-addr u -- ud c-addr' u' ) 0 0 2swap >number ;'''
 test = "$GFORTH tests/lib/decimal.fs"
 reason = "digits read in the caller's BASE: under HEX, 19af reads as one number"
+
+# --- snapshot tier: every list name and recursor rule (review reuse-1a re-check H)
+
+[[fault]]
+id = "snap-tier-names-first-only"
+file = "src/import/snapshot-tier.fs"
+old = '''  2dup stage-tuples tuple-length ['] name-at? all? nip nip ;'''
+new = '''  2dup stage-tuples tuple-length 1 min ['] name-at? all? nip nip ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "only a list's first name is checked: a forged second constructor name loads"
+
+[[fault]]
+id = "snap-tier-rules-last-unchecked"
+file = "src/import/snapshot-tier.fs"
+old = '''  2dup stage-tuples tuple-length /rule-items / ['] rule-at? all? nip nip ;'''
+new = '''  2dup stage-tuples tuple-length /rule-items / 1- ['] rule-at? all? nip nip ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "a recursor's last rule is never checked: its forged constructor name or right-hand side loads"
+
+[[fault]]
+id = "snap-tier-rules-unchecked"
+file = "src/import/snapshot-tier.fs"
+old = '''  2dup stage-tuples tuple-length /rule-items mod if 2drop false exit then rules-each? ;'''
+new = '''  2dup stage-tuples tuple-length /rule-items mod if 2drop false exit then 2drop true ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "no recursor rule is checked when a snapshot is read"
+
+# --- bits and blocks (src/lib/bits.fs, blocks.fs; plan 9.4.8b, 9.4.8d) ---
+
+[[fault]]
+id = "lib-bits-log2-floor"
+file = "src/lib/bits.fs"
+old = ''': log2-ceiling ( u -- log2 ) 1- 0 swap begin ?dup while 1 rshift swap 1+ swap repeat ;'''
+new = ''': log2-ceiling ( u -- log2 ) 0 swap begin ?dup while 1 rshift swap 1+ swap repeat ;'''
+test = "$GFORTH tests/lib/bits.fs"
+reason = "log2-ceiling one too large at every power of two: a table presized for 1024 entries doubles"
+
+[[fault]]
+id = "lib-bits-cells-floor"
+file = "src/lib/bits.fs"
+old = ''': bits>cells ( n -- cells ) cell-bits 1- + cell-bits / ;'''
+new = ''': bits>cells ( n -- cells ) cell-bits / ;'''
+test = "$GFORTH tests/lib/bits.fs"
+reason = "a bit set one cell short: the reach tables and the feed's map write past their blocks"
+
+[[fault]]
+id = "lib-bits-bit-cell-off"
+file = "src/lib/bits.fs"
+old = '''  over cell-bits / cells + swap cell-bits mod 1 swap lshift ;'''
+new = '''  over cell-bits 1- / cells + swap cell-bits mod 1 swap lshift ;'''
+test = "$GFORTH tests/lib/bits.fs"
+reason = "bits past the first cell land in the wrong cell"
+
+[[fault]]
+id = "lib-bits-lower-bound-short"
+file = "src/lib/bits.fs"
+old = '''  >r 2>r begin 2r@ < while'''
+new = '''  >r 2>r begin 2r@ 1- < while'''
+test = "$GFORTH tests/lib/bits.fs"
+reason = "the search stops with two candidates left: the mls image and the feed's copies found one off"
+
+[[fault]]
+id = "lib-blocks-zeroed-dirty"
+file = "src/lib/blocks.fs"
+old = '''  tuck swap erase swap ! outcome-ok ;'''
+new = '''  nip swap ! outcome-ok ;'''
+test = "$GFORTH tests/lib/blocks.fs"
+reason = "block-zeroed's block is not erased: a reach table or a map starts with stale bits"
+
+[[fault]]
+id = "lib-blocks-resize-full-ok"
+file = "src/lib/blocks.fs"
+old = '''  if drop r> drop outcome-full else r> ! outcome-ok then ;'''
+new = '''  if drop r> drop outcome-ok else r> ! outcome-ok then ;'''
+test = "$GFORTH tests/lib/blocks.fs"
+reason = "a refused resize reads as done: the feed and the re-exporter would write past the old block"
+
+[[fault]]
+id = "lib-blocks-release-kept"
+file = "src/lib/blocks.fs"
+old = ''': heap-release ( a-addr -- ) dup @ ?dup if free drop then 0 swap ! ;'''
+new = ''': heap-release ( a-addr -- ) dup @ ?dup if free drop then drop ;'''
+test = "$GFORTH tests/lib/blocks.fs"
+reason = "the cell keeps the freed address: a second release frees it again"
+
+[[fault]]
+id = "core-expr-pi-explicit-only"
+file = "src/core/compact-exprs.fs"
+old = ''': expr-pi? ( e tier -- flag ) expr-tag@ tag-pi tag-let within ;'''
+new = ''': expr-pi? ( e tier -- flag ) expr-tag@ tag-pi = ;'''
+test = "$GFORTH tests/core/compact.fs"
+reason = "only an explicit Pi counts: a library constant's telescope stops at its first implicit binder"

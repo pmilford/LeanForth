@@ -111,7 +111,9 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/bytes.fs
+require ../lib/blocks.fs
 require ../lib/decimal.fs
+require ../lib/bits.fs
 require ../core/diagnostics.fs
 require ../core/input.fs
 require ../kernel/environment.fs
@@ -848,7 +850,7 @@ variable cli-info#
   s\" ,\"modified\":" cli-info+ cli-modified? if s" true" else s" false" then cli-info+
   s\" ,\"gforth\":" cli-info+ cli-info-host cli-info-text
   s\" ,\"engine\":" cli-info+ ck-engine cli-info-text
-  s\" ,\"cellBits\":" cli-info+ 1 cells 8 * u>decimal cli-info+
+  s\" ,\"cellBits\":" cli-info+ cell-bits u>decimal cli-info+
   s" }" cli-info+ cli-info cli-info# @ ;
 : cli-snapshot-save ( -- )
   cli-save? 0= if exit then cli-state opt-save 2@ cli-info-build ck-snapshot-save drop ;
@@ -1508,12 +1510,11 @@ end-structure
 : cli-elab-option ( c-addr u -- ) cli-value if cli-state opt-elab 2! then ;
 \ The first --snapshot names the base, each further one a layer on it, in
 \ order (plan step SN4); their names are kept in a heap block that grows.
-: cli-layers-room ( n -- addr ior )
-  2* cells cli-state opt-layers @ ?dup if swap resize else allocate then ;
+: cli-layers-room ( n -- outcome ) 2* cells cli-state opt-layers block-resize ;
 : cli-layer+ ( c-addr u -- )
-  cli-state opt-layers# @ 1+ cli-layers-room if drop c" no room for the layers" cli-wrong
-    exit then
-  dup cli-state opt-layers ! cli-state opt-layers# @ 2* cells + 2!
+  cli-state opt-layers# @ 1+ cli-layers-room ok? 0=
+  if c" no room for the layers" cli-wrong exit then
+  cli-state opt-layers @ cli-state opt-layers# @ 2* cells + 2!
   1 cli-state opt-layers# +! ;
 : cli-snapshot-option ( c-addr u -- )
   cli-value if cli-snapshot? if cli-layer+ else cli-snapshot! then then ;

@@ -47,6 +47,7 @@
 
 require ../lib/lib.fs
 require ../lib/decimal.fs
+require ../lib/bits.fs
 require ../lib/text-run.fs
 decimal
 
@@ -180,15 +181,12 @@ end-structure
 : irx-row-returns ( rin rout -- ) irx-last-row tuck irx-prim-rout ! irx-prim-rin ! ;
 : irx-partial ( xt -- ) irx-last-row irx-prim-domain ! ;
 
-\ The cell width, counted, for RSHIFT's domain.
-: irx-bits ( -- u ) 0 -1 begin dup while 1 rshift swap 1+ swap repeat drop ;
-irx-bits constant irx-cell-bits
 
 : irx-noop ( -- ) ;
 : irx-times ( n1 n2 -- n3 ) um* drop ;
 : irx-abs ( n -- n' ) dup 0< if negate then ;
 : irx-divisible? ( n1 n2 -- n1 n2 flag ) over 0< 0= over 0> and ;
-: irx-shiftable? ( x u -- x u flag ) dup 0< 0= over irx-cell-bits < and ;
+: irx-shiftable? ( x u -- x u flag ) dup 0< 0= over cell-bits < and ;
 
 \ The 40 primitives of IR 0.2, in the order of Prim in program-ir.lean:
 \ IR 0.1's 38, then LSHIFT and -ROT.

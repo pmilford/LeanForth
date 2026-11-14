@@ -65,6 +65,7 @@
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
+require ../lib/blocks.fs
 require ../lib/json-write.fs
 require ../lib/decimal.fs
 require ../core/terms.fs
@@ -139,12 +140,11 @@ end-structure
 : lfx-level! ( n level -- ) lfx lfx-level-table lfx-cell ! ;
 : lfx-height@ ( i -- h ) lfx lfx-height-table lfx-cell @ ;
 : lfx-height! ( h i -- ) lfx lfx-height-table lfx-cell ! ;
-: lfx-block ( u addr -- flag ) swap 1 max allocate if drop 0 then dup rot ! 0<> ;
 : lfx-tables ( -- flag )
-  lf-term-count @ cells dup lfx lfx-expr-table lfx-block
-  lf-level-count @ cells lfx lfx-level-table lfx-block and
-  lfa-decl-count cells lfx lfx-height-table lfx-block and
-  swap lfx lfx-mark-table lfx-block and ;
+  lf-term-count @ cells dup lfx lfx-expr-table block-zeroed
+  lf-level-count @ cells lfx lfx-level-table block-zeroed outcome-and
+  lfa-decl-count cells lfx lfx-height-table block-zeroed outcome-and
+  swap lfx lfx-mark-table block-zeroed outcome-and ok? ;
 : lfx-free ( -- )
   lfx lfx-expr-table heap-release lfx lfx-level-table heap-release
   lfx lfx-height-table heap-release lfx lfx-mark-table heap-release ;

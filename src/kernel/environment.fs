@@ -99,6 +99,7 @@
 
 require ../lib/lib.fs
 require ../lib/decimal.fs
+require ../lib/bits.fs
 require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/names.fs
@@ -1301,8 +1302,6 @@ end-structure
 1 cells context-slab: lf-axd-row-of    \ per slot: its row's number
 1 cells context-slab: lf-axd-number    \ per axiom slot: its number
 1 cells context-slab: lf-axd-axioms    \ per number: the axiom's slot
-: lf-axd-cell-bits ( -- n ) 0 max-n begin ?dup while 1 rshift swap 1+ swap repeat 1+ ;
-lf-axd-cell-bits constant lf-axd-bits   \ bits per cell
 : lf-axd-width@ ( -- n ) lf-axd-state lf-axd-width @ ;
 : lf-axd-row ( r -- addr ) lf-axd-width@ * lf-axd-rows slab-at ;
 : lf-axd-top ( -- addr ) lf-axd-rows slab-top ;
@@ -1334,7 +1333,7 @@ lf-axd-cell-bits constant lf-axd-bits   \ bits per cell
   lf-env-limit lf-axd-row-of slab-hold dup ok? 0= if exit then drop
   lf-env-limit lf-axd-number slab-hold dup ok? if lf-axd-unset then ;
 : lf-axd-width! ( -- )
-  lf-axd-axioms slab-count lf-axd-bits /mod swap 0<> - 1 max lf-axd-state lf-axd-width ! ;
+  lf-axd-axioms slab-count bits>cells 1 max lf-axd-state lf-axd-width ! ;
 : lf-axd-empty ( -- outcome )
   lf-axd-width! lf-axd-width@ lf-axd-rows slab-claim nip
   dup ok? if 0 lf-axd-row lf-axd-width@ cells erase then ;
@@ -1358,8 +1357,7 @@ lf-axd-cell-bits constant lf-axd-bits   \ bits per cell
   lf-axd-row lf-axd-top lf-axd-width@ cells bounds ?do
     dup @ i @ or i ! cell+
   1 cells +loop drop ;
-: lf-axd-bit! ( k -- )
-  lf-axd-bits /mod cells lf-axd-top + swap 1 swap lshift over @ or swap ! ;
+: lf-axd-bit! ( k -- ) lf-axd-top bit-on ;
 : lf-axd-deps-or ( slot -- )
   dup lf-slot-count @ 0 ?do i over lf-dep-at lf-axd-row-of@ lf-axd-or loop drop ;
 : lf-axd-join ( slot j -- )
@@ -1405,7 +1403,7 @@ lf-axd-cell-bits constant lf-axd-bits   \ bits per cell
   repeat drop ;
 : lf-axd-give ( d xt -- )
   swap lf-axd-row-of@ lf-axd-width@ 0 ?do
-    dup lf-axd-row i cells + @ ?dup if rot swap i lf-axd-bits * lf-axd-cell swap then
+    dup lf-axd-row i cells + @ ?dup if rot swap i cell-bits * lf-axd-cell swap then
   loop 2drop ;
 : lf-env-axiom-deps ( d xt -- outcome )
   over lf-env-accepted nip ok? 0= if 2drop outcome-invalid exit then

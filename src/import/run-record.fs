@@ -88,6 +88,7 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/json-write.fs
+require ../lib/bits.fs
 require ../lib/sha256.fs
 require ../core/diagnostics.fs
 require ../core/input.fs
@@ -423,7 +424,6 @@ set-current
 : rr-basename ( c-addr u -- c-addr' u' )
   begin 2dup s" /" search while 1 /string 2swap 2drop repeat 2drop ;
 : rr-engine ( -- c-addr u ) rr-program rr-basename ;
-: rr-cell-bits ( -- n ) 0 1 begin ?dup while 1 lshift swap 1+ swap repeat ;
 
 \ Numbers a record holds are exact in every JSON reader: within
 \ +-(2^53 - 1), I-JSON's range (RFC 7493).
@@ -510,7 +510,7 @@ rr-power 2constant rr-exact
 : rr-host-out ( -- )
   s" host" rr-key rr-object rr-forth s" forth" rr-host-shown
   rr-forth-version s" version" rr-host-shown rr-engine s" engine" rr-host-shown
-  s" cellBits" rr-key rr-cell-bits rr-int rr-end-object ;
+  s" cellBits" rr-key cell-bits rr-int rr-end-object ;
 : rr-setting ( n c-addr u -- ) rr-key rr-int ;
 : rr-stores ( -- )
   lf-term-capacity s" terms" rr-setting lf-level-capacity s" levels" rr-setting

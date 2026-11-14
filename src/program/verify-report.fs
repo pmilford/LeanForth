@@ -38,6 +38,7 @@
 
 require ../lib/lib.fs
 require ../lib/decimal.fs
+require ../lib/blocks.fs
 require ../lib/text-run.fs
 require ../author/errors.fs
 
@@ -243,10 +244,8 @@ end-structure
 \ it was), which stops the run as full at the current place.
 : pv-written ( -- c-addr u ) pv-written-at @ pv-written# @ ;
 : pv-new-size ( u -- u' ) pv-written-size @ 2* max pv-written-start max ;
-: pv-reallocated ( size -- a-addr ior )
-  chars pv-written-at @ ?dup if swap resize else allocate then ;
 : pv-resized? ( size -- flag )
-  dup pv-reallocated if 2drop false exit then pv-written-at ! pv-written-size ! true ;
+  dup chars pv-written-at block-resize ok? if pv-written-size ! true else drop false then ;
 : pv-room-for? ( u -- flag )
   pv-written# @ + dup pv-written-size @ > if pv-new-size pv-resized? else drop true then ;
 : pv-written-end ( -- c-addr ) pv-written chars + ;

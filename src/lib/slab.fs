@@ -290,12 +290,16 @@ lf-lib-private set-current
 lf-lib set-current
 \ Whether every value of a worklist passes a test that may push more:
 \ xt ( x -- flag outcome ), for slab-2all? ( x1 x2 -- flag outcome ), runs
-\ on the newest value (pair) popped, seeing nothing below it, until the
-\ slab is empty: true and ok; or false and ok at the first false answer,
-\ false and the outcome at the first that is not ok, the values not yet
-\ tested left on the slab (clear it before the next run). A slab that is
-\ not live: false and invalid, no test run; one too narrow for a pair
-\ throws as slab-2pop. Example in the header.
+\ on the newest value (pair) popped until the slab is empty. Below the
+\ value lie the slab and, for slab-all?, the xt (slab-2all? keeps its xt
+\ on the return stack): the test leaves them untouched (review reuse-1a
+\ re-check L). The answer: true and ok; or false and ok at the first
+\ false answer, false and the outcome at the first that is not ok, the
+\ values not yet tested left on the slab (clear it before the next run).
+\ A slab that is not live: false and invalid, no test run. A slab whose
+\ units are narrower than a cell (slab-all?) or a pair (slab-2all?)
+\ throws slab-underflow, as slab-pop and slab-2pop do. Example in the
+\ header.
 : slab-all? ( slab xt -- flag outcome )
   over slab-live? if ['] slab-step slab-drained else slab-dead then ;
 : slab-2all? ( slab xt -- flag outcome )

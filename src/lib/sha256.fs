@@ -2,8 +2,8 @@
 \ A standalone library for any Forth-2012 system with cells of at least
 \ 32 bits and characters of 8 bits; it needs only portability.fs, which
 \ supplies -rot and the Forth-2012 structure words where a host lacks
-\ them, and module.fs, which keeps its helpers in a private word list
-\ (ADR 0010). LeanForth uses it to check its exports (src/import/manifest.fs).
+\ them, bits.fs (cell-bits, a cell's width), and module.fs, which keeps
+\ its helpers in a private word list (ADR 0010). LeanForth uses it to check its exports (src/import/manifest.fs).
 \ Untrusted until reviewed; the program track's plan is to prove it equal
 \ to FIPS 180-4 (docs/project/PLAN_DRAFT.md, "Flagship program target").
 \
@@ -60,15 +60,13 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./portability.fs
+require ./bits.fs
 require ./module.fs
 
 lf-lib-private module-open
 
-\ The width of a cell in bits, counted while loading: shift a 1 left
-\ until it falls out.
-: sha-count-bits ( -- n ) 0 1 begin ?dup while 1 lshift swap 1+ swap repeat ;
-sha-count-bits constant sha-cell-bits
-sha-cell-bits 32 < [if] .( sha256.fs needs cells of at least 32 bits) cr abort [then]
+\ The width of a cell in bits: bits.fs's cell-bits, counted while loading.
+cell-bits 32 < [if] .( sha256.fs needs cells of at least 32 bits) cr abort [then]
 \ The mask 2^32-1; on a 32-bit cell 2^32 wraps to 0 and the mask is every
 \ bit, so masking changes nothing there.
 $10000 dup * 1- constant sha-mask
@@ -213,7 +211,7 @@ end-structure
 \ to 31 of x + y, x xor y, x and y and x or y depend only on bits 0 to 31
 \ of x and y, so the bits above bit 31 never reach a stored word, and the
 \ results equal the plain words' (the tests compare them).
-[defined] sha256-portable sha-cell-bits 64 < or 0= constant sha-doubling
+[defined] sha256-portable cell-bits 64 < or 0= constant sha-doubling
 sha-doubling [if]
 \ Seven lines, one per part of the round, each commented: splitting the
 \ round into two words cost about 10% of the hashing time (measured), and

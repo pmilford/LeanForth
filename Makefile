@@ -295,6 +295,8 @@ test-lib:
 	$(RUN) $(GFORTH) tests/lib/memo.fs
 	$(RUN) $(GFORTH) tests/lib/pqueue.fs
 	$(RUN) $(GFORTH) tests/lib/decimal.fs
+	$(RUN) $(GFORTH) tests/lib/bits.fs
+	$(RUN) $(GFORTH) tests/lib/blocks.fs
 	$(RUN) $(GFORTH) tests/lib/runs.fs
 	$(RUN) $(GFORTH) tests/lib/lib.fs
 	$(RUN) $(GFORTH) tests/lib/lib-model.fs

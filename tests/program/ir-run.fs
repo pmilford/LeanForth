@@ -242,8 +242,8 @@ T{ f( s"   prim 0<>" >ir )f -5 in1 1 f out-stack -> outcome-ok -1 }T
 T{ f( s"   prim xor" >ir )f 12 10 in2 1 f out-stack -> outcome-ok 6 }T
 T{ f( s"   prim invert" >ir )f 0 in1 1 f out-stack -> outcome-ok -1 }T
 T{ f( s"   prim rshift" >ir )f -1 1 in2 1 f out-stack -> outcome-ok max-n }T
-T{ f( s"   prim rshift" >ir )f -1 irx-cell-bits 1- in2 1 f out-stack -> outcome-ok 1 }T
-T{ f( s"   prim rshift" >ir )f -1 irx-cell-bits in2 1 f -> outcome-unsupported }T
+T{ f( s"   prim rshift" >ir )f -1 cell-bits 1- in2 1 f out-stack -> outcome-ok 1 }T
+T{ f( s"   prim rshift" >ir )f -1 cell-bits in2 1 f -> outcome-unsupported }T
 T{ f( s"   prim rshift" >ir )f -1 -1 in2 1 f -> outcome-unsupported }T
 T{ f( s"   prim max" >ir s"   prim true" >ir s"   prim false" >ir )f 3 9 in2 1 f out-stack
    -> outcome-ok 9 -1 0 }T
@@ -449,8 +449,8 @@ T{ s"   prim -rot" in-body -> outcome-invalid }T
 T{ s"   out ." in-body -> outcome-invalid }T
 T{ s\"   out .\" x\"" in-body -> outcome-invalid }T
 T{ g( s"   prim lshift" >ir )g 1 4 in2 1 f out-stack -> outcome-ok 16 }T
-T{ 1 irx-cell-bits 1- in2 1 f out-stack -> outcome-ok max-n invert }T
-T{ 1 irx-cell-bits in2 1 f -> outcome-unsupported }T
+T{ 1 cell-bits 1- in2 1 f out-stack -> outcome-ok max-n invert }T
+T{ 1 cell-bits in2 1 f -> outcome-unsupported }T
 T{ 1 -1 in2 1 f -> outcome-unsupported }T
 T{ 1 in1 1 f -> outcome-invalid }T
 T{ g( s"   prim -rot" >ir )g 1 2 in2 1 f -> outcome-invalid }T

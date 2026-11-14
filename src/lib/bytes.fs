@@ -1,7 +1,8 @@
 \ Bounded line reader over a Forth-2012 file, strict text framing and UTF-8
 \ checks. A general text tool with no Lean knowledge. Untrusted: it decides
 \ nothing about validity beyond the bytes it frames.
-\ Requires: lib.fs (portability, store-zeroed, outcome).
+\ Requires: lib.fs (portability, store-zeroed, outcome), blocks.fs (heap-claim and
+\ heap-release, which its callers reach through this file).
 \ State: none of its own. Every reader word takes a reader record made by
 \ reader:, so separate readers are independent; one reader is
 \ single-threaded. The two byte tables below are constant after loading.
@@ -23,6 +24,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./lib.fs
+require ./blocks.fs
 
 10 constant lf-byte                \ line feed
 13 constant cr-byte                \ carriage return
@@ -46,11 +48,7 @@ end-structure
 \ Defining word: name ( -- reader ), zeroed, with no buffer and no file.
 : reader: ( "name" -- ) create /reader store-zeroed, drop ;
 
-\ Heap memory as a flag: true with the address, or false alone.
-: heap-claim ( u -- addr true | false ) allocate if drop false else true then ;
-\ Free the heap block whose address is in the cell at a-addr, if there is
-\ one, and zero the cell.
-: heap-release ( a-addr -- ) dup @ ?dup if free drop then 0 swap ! ;
+\ heap-claim and heap-release: lib/blocks.fs (required above).
 : reader-buffer! ( addr size reader -- ) tuck reader-size ! reader-buffer ! ;
 : reader-release ( reader -- ) 0 over reader-size ! reader-buffer heap-release ;
 \ Give a reader a buffer of size bytes (at least one) for lines of at most
