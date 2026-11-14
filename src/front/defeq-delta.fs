@@ -72,8 +72,8 @@ lf-walk-room context-walk: dd-walker
 
 \ ---- Candidates in x and y.
 : dd-candidate ( t -- d flag )
-  lf-meta-head dup de-const? 0= if drop -1 false exit then
-  de-const-name df df-mode @ lf-menv-unfoldable dd-flag ;
+  lf-meta-head dup lf-term-const? 0= if drop -1 false exit then
+  lf-const-name df df-mode @ lf-menv-unfoldable dd-flag ;
 : dd-cand! ( t addr -- ) swap dd-candidate 0= if drop -1 then swap ! ;
 : dd-t? ( -- flag ) de-x 0< 0= ;
 : dd-s? ( -- flag ) de-y 0< 0= ;
@@ -127,7 +127,7 @@ lf-walk-room context-walk: dd-walker
 \ packedInstanceOf?: while e's head is a class projection function, e
 \ unfolded and whnfCore'd, until its head is the constant other.
 : dd-class-head? ( e -- flag )
-  lf-meta-head dup de-const? 0= if drop false exit then
+  lf-meta-head dup lf-term-const? 0= if drop false exit then
   de-decl if lf-menv-proj-class? dd-flag else false then ;
 : dd-packed-step ( e -- e' flag ) dd-unfold if dd-core else false then ;
 : dd-class-more? ( e -- flag ) dd-class-head? dup if drop de-spend? then ;
@@ -174,7 +174,7 @@ lf-tag-bvar lf-tag-bit lf-tag-fvar lf-tag-bit or lf-tag-mvar lf-tag-bit or
 : dd-simple? ( e -- flag )
   df df-fuel @ dd-walker walk-budget drop ['] dd-visit dd-walker walk-run
   dd-walker walk-fuel @ df df-fuel ! dd-verdict ;
-: dd-preamble ( v -- e ) begin dup de-lam? while lf-term-second@ repeat ;
+: dd-preamble ( v -- e ) begin dup lf-term-lam? while lf-term-second@ repeat ;
 : dd-regular ( d height -- flag )
   2 > if drop true exit then
   lf-menv-value if dd-preamble dd-simple? 0= else outcome-invalid de-abort false then ;
@@ -203,7 +203,7 @@ lf-tag-bvar lf-tag-bit lf-tag-fvar lf-tag-bit or lf-tag-mvar lf-tag-bit or
   de-t dd-unfold if de-s dd-unfold if dd-compare else 2drop dd-undef then
   else drop dd-undef then ;
 : dd-same ( -- )
-  de-t de-const? de-s de-const? and if dd-consts exit then
+  de-t lf-term-const? de-s lf-term-const? and if dd-consts exit then
   de-t lf-meta-app? de-s lf-meta-app? and if dd-apps else lf-lb-false de-return then ;
 
 \ ---- isDefEqDelta.

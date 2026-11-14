@@ -15,8 +15,11 @@
 \   constant); full or unsupported, passed on, when a library
 \   declaration could not be decoded (never read as an unknown constant,
 \   plan S2); -1 for d when not ok.
-\ - lf-meta-levels-fill ( slot slab -- outcome ): a constant reference's
-\   universe arguments, as levels, into the slab, emptied first.
+\ - lf-meta-levels-fill ( const slab -- outcome ): a constant's universe
+\   arguments, as levels, into the slab, emptied first.
+\ - lf-meta-arity? ( d const -- flag ): the constant has as many universe
+\   arguments as the declaration d has universe parameters (the test of
+\   Lean's deltaDefinition, inferConstant and reduceRec).
 \ - lf-meta-named ( new old -- new outcome ): a rebuilt binder gets the
 \   old one's name and kind (present/binder-table.fs), when it has them;
 \   full when the table has no room for them (a rebuilt node that is an
@@ -44,6 +47,7 @@ require ../lib/lib.fs
 require ../lib/slab.fs
 require ../core/terms.fs
 require ../core/constant-references.fs
+require ../core/constant-term-boundary.fs
 require ./meta-env.fs
 require ../core/local-context.fs
 require ../core/mvar-leaves.fs
@@ -60,10 +64,11 @@ require ../present/binder-table.fs
   repeat nip outcome-ok ;
 : lf-meta-arg ( i slab -- term ) tuck slab-count 1- swap - swap slab-at @ ;
 : lf-meta-const-decl ( const -- d outcome )
-  lf-term-first@ lf-cref-slot lf-cref-name@ drop lf-menv-find ;
+  lf-const-name lf-menv-find ;
+: lf-meta-arity? ( d const -- flag ) lf-const-levels# swap lf-menv-params nip = ;
 : ms-level ( slot i -- level ) swap lf-cref-pairs drop swap lf-cref-pair@ drop ;
-: lf-meta-levels-fill ( slot slab -- outcome )
-  dup slab-clear swap dup lf-cref-pairs nip 0 ?do
+: lf-meta-levels-fill ( const slab -- outcome )
+  dup slab-clear swap lf-const-slot dup lf-cref-pairs nip 0 ?do
     2dup i ms-level swap lf-meta-push dup ok? 0= if nip nip unloop exit then drop
   loop 2drop outcome-ok ;
 : ms-full ( outcome -- outcome' ) outcome-full = if outcome-full else outcome-ok then ;

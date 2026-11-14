@@ -110,8 +110,7 @@ end-structure
 \ ---- Names and shapes (Lean's constant names, by text).
 : dk-head ( -- head ) dk dk-h @ ;
 : dk-e ( -- e ) dk dk-term @ ;
-: dk-name ( const -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
-: lf-dt-const-decl ( const -- d true | false ) dk-name elab-decl-of ;
+: lf-dt-const-decl ( const -- d true | false ) lf-const-name elab-decl-of ;
 : lf-dt-const? ( head -- const true | false )
   dup lf-term-const? if true else drop false then ;
 : dk-last ( e -- a ) lf-term-second@ ;
@@ -159,7 +158,7 @@ end-structure
   dk-new ok-then? 0= if nip nip no-result exit then
   tuck elab-key-arity! tuck elab-key-ref! outcome-ok ;
 : dk-const-key ( const n -- k outcome )
-  swap dk-name dk-declared ok-then? if swap elab-key-const dk-ref-key else nip
+  swap lf-const-name dk-declared ok-then? if swap elab-key-const dk-ref-key else nip
   no-result then ;
 : dk-fvar-key ( fvar n -- k outcome ) elab-key-fvar dk-ref-key ;
 : dk-idx! ( leaf k -- k ) tuck swap lf-proj-idx swap elab-key-idx! ;
@@ -213,7 +212,7 @@ end-structure
 : dk-const-head ( e -- const true | false ) lf-meta-head lf-dt-const? ;
 : dk-unfolds? ( e -- flag outcome )
   dk-const-head 0= if false outcome-ok exit then
-  dk-name lf-defeq-mode lf-menv-unfoldable ok-then? if nip outcome-ok else nip false
+  lf-const-name lf-defeq-mode lf-menv-unfoldable ok-then? if nip outcome-ok else nip false
   swap then ;
 : dk-unfold-check ( e -- outcome )   \ a definition it would unfold: unsupported
   dk-unfolds? ok-true? if outcome-unsupported else nip then ;
@@ -270,8 +269,6 @@ end-structure
 \ A constant: mkPath's nested numerals and offsets, getUnifyKeyArgs'
 \ stuck tests, then the key and its arguments.
 : dk-decl ( -- d outcome ) dk-head lf-meta-const-decl ;
-: dk-reducible? ( d -- flag outcome )
-  lf-menv-status ok-then? if elab-reducible = outcome-ok else false swap then ;
 : dk-mvar-in? ( from to -- flag ) swap false -rot ?do dk-e i dk-arg lf-meta-mvar-free?
   0= or loop ;
 : dk-match-span ( m -- from to ) elab-matcher@ rot drop swap 1+ tuck + ;
@@ -283,7 +280,7 @@ end-structure
   dup dk-match-arity dk dk-n @ > if drop false else dk-match-span dk-mvar-in? then ;
 : dk-rec? ( d -- flag ) lf-menv-kind lf-kind-recursor = ;
 : dk-stuck-const? ( d -- flag outcome )
-  dup dk-reducible? ok-then? 0= if nip false swap exit then
+  dup lf-menv-reducible? ok-then? 0= if nip false swap exit then
   if drop true outcome-ok exit then
   dup dk-matcher-stuck? if drop true else dk-rec? then outcome-ok ;
 : dk-unify-stuck ( -- outcome )

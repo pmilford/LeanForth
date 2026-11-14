@@ -2,7 +2,7 @@
 \ ports of Lean 4.35.0's getFunInfoNArgs (Lean/Meta/FunInfo.lean), as
 \ far as isDefEqArgs reads it, and isProp (Lean/Meta/InferType.lean),
 \ with the test for a term Lean's whnf leaves as it is.
-\ - lf-meta-whnf-final? ( e -- flag ): e, a result of whnfCore
+\ - lf-meta-whnf-final? ( e -- flag outcome ): e, a result of whnfCore
 \   (whnf.fs), is one Lean's whnf leaves as it is: its head is a free
 \   variable, metavariable, Sort, lambda, pi, literal, projection or a
 \   constant that is no definition, and it is no Nat.succ that whnf's
@@ -72,19 +72,24 @@ end-structure
   lf-tag-fvar lf-tag-bit lf-tag-mvar lf-tag-bit or lf-tag-symbolic-sort lf-tag-bit or
   lf-tag-lam lf-tag-bit or
   lf-tag-pi lf-tag-bit or lf-tag-lit lf-tag-bit or lf-tag-projection lf-tag-bit or ;
-\ A constant whose declaration cannot be read (unknown, or not decoded)
-\ is taken as a definition: never final, so its callers answer unsupported.
-: fi-defn? ( const -- flag )
-  lf-meta-const-decl ok? if lf-menv-kind lf-kind-definition = else drop true then ;
-: fi-head-final? ( head -- flag )
-  dup lf-term-const? if fi-defn? 0= exit then
-  lf-term-tag@ lf-tag-bit fi-final-mask and 0<> ;
+\ A constant no declaration has is taken as a definition: never final,
+\ so its callers answer unsupported; one whose declaration could not be
+\ decoded passes that outcome on (full as full). fi-final: ok for a
+\ final term, unsupported for one whnf might reduce.
+: fi-defn? ( const -- flag outcome )
+  lf-meta-const-decl dup outcome-invalid = if 2drop true outcome-ok exit then
+  ok-then? if lf-menv-kind lf-kind-definition = outcome-ok else true swap then ;
+: fi-head-final? ( head -- flag outcome )
+  dup lf-term-const? if fi-defn? swap 0= swap exit then
+  lf-term-tag@ lf-tag-bit fi-final-mask and 0<> outcome-ok ;
+: fi-final ( flag outcome -- outcome )
+  ok-then? if if outcome-ok else outcome-unsupported then then ;
 : lf-meta-unassigned? ( mvar -- flag ) lf-mvar-value dup if nip then 0= ;
 : fi-inert? ( t -- flag )
   dup lf-term-tag@ lf-tag-fvar = if lf-fvar-let? 0= exit then
   dup lf-mvar? if lf-meta-unassigned? else drop false then ;
-: lf-meta-whnf-final? ( e -- flag )
-  dup 1 s" Nat.succ" lf-meta-app-of? if lf-term-second@ fi-inert? exit then
+: lf-meta-whnf-final? ( e -- flag outcome )
+  dup 1 s" Nat.succ" lf-meta-app-of? if lf-term-second@ fi-inert? outcome-ok exit then
   lf-meta-head fi-head-final? ;
 
 \ ---- isProp.
@@ -93,7 +98,7 @@ end-structure
   else false swap then ;
 : fi-sort-prop ( type -- flag outcome )
   dup lf-tag-symbolic-sort lf-term-tag? if fi-zero-sort? exit then
-  lf-meta-whnf-final? if false outcome-ok else false outcome-unsupported then ;
+  lf-meta-whnf-final? fi-final false swap ;
 : lf-meta-is-prop ( e -- flag outcome )
   dup lf-meta-prop-quick ok-then? 0= if nip false swap exit then
   dup lf-lb-undef <> if nip lf-lb-true = outcome-ok exit then drop
@@ -136,7 +141,7 @@ end-structure
 : fi-reduce ( type n -- type' n' go? outcome )
   >r lf-whnf-core ok-then? 0= if -1 swap r> swap false swap exit then
   dup lf-term-pi? if -1 fi-src ! r> true outcome-ok exit then
-  dup lf-meta-whnf-final? if outcome-ok else outcome-unsupported then r> swap false swap ;
+  dup lf-meta-whnf-final? fi-final r> swap false swap ;
 : fi-step ( type n -- type' n' go? outcome )
   dup 0= if false outcome-ok exit then over lf-term-pi? if fi-pi
   else fi-reduce then ;
@@ -153,7 +158,7 @@ end-structure
 : fi-maybe-pi? ( type -- flag outcome )
   fi-unwrap dup lf-term-pi? if drop true outcome-ok exit then
   lf-whnf-core ok-then? 0= if false swap exit then
-  dup lf-term-pi? if drop true else lf-meta-whnf-final? 0= then outcome-ok ;
+  dup lf-term-pi? if drop true outcome-ok else lf-meta-whnf-final? swap 0= swap then ;
 : fi-earlier? ( arg i -- flag ) false swap 0 ?do over i fi-x = or loop nip ;
 : fi-ho-arg? ( arg i -- flag outcome )
   over swap fi-earlier? if lf-fvar-type fi-maybe-pi? else drop false outcome-ok then ;
@@ -183,6 +188,8 @@ end-structure
 : fi-prop-at ( i -- outcome ) dup fi-prop! ['] fi-ho-free ok-with nip ;
 : fi-props ( -- outcome ) fi-params slab-count ['] fi-prop-at ok-each ;
 \ The kinds' source: a constant's declared (input) type, else the type.
+\ fi-run's inferType has just found f's declaration (a refused decode
+\ ends there, passed on), so this lookup of it is ok.
 : fi-declared ( f type -- )
   swap dup lf-term-const?
   if nip lf-meta-const-decl ok? if lf-menv-type else drop -1 then else drop then

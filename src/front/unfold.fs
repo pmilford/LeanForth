@@ -40,8 +40,9 @@
 \ application's head or a definition without a value; unsupported as
 \ above; full when a store or slab has no room. A failure gives -1 and
 \ lf-unfold-none.
-\ Reuse: meta-env.fs for every fact, meta-spine.fs for the spine and
-\ mkAppN, level-params.fs for instantiateValueLevelParams, instantiate.fs
+\ Reuse: meta-env.fs for every fact, meta-spine.fs for the spine, the
+\ universe-argument count and mkAppN, constant-term-boundary.fs for the
+\ head's name, level-params.fs for instantiateValueLevelParams, instantiate.fs
 \ for head beta, term-eqv.fs for the head.
 \ Unchecked: e is a live term (whnf.fs's entries check it). Untrusted: only
 \ the kernel's check of a finished term decides anything.
@@ -71,18 +72,12 @@ require ./term-eqv.fs
 : uf-none-of ( e -- e code outcome ) lf-unfold-none outcome-ok ;
 : uf-fail ( outcome -- -1 code outcome ) -1 lf-unfold-none rot ;
 
-\ ---- The head constant.
-: uf-slot ( const -- slot ) lf-term-first@ lf-cref-slot ;
-: uf-name ( const -- name ) uf-slot lf-cref-name@ drop ;
-\ As many universe arguments as the declaration has parameters.
-: uf-arity? ( d const -- flag ) uf-slot lf-cref-pairs nip swap lf-menv-params nip = ;
-
 \ ---- deltaDefinition and deltaBetaDefinition: d's value with const's
 \ universe arguments for its parameters (instantiateValueLevelParams);
 \ applied to the arguments in uf-args, a lambda value with head beta
 \ (betaRev), any other as it is.
 : uf-value ( d const -- value outcome )
-  uf-slot uf-levels lf-meta-levels-fill ok-then? 0= if no-result exit then
+  uf-levels lf-meta-levels-fill ok-then? 0= if no-result exit then
   dup lf-menv-value 0= if drop-invalid no-result exit then
   swap lf-menv-params >r 0 uf-levels slab-at r> lf-meta-instantiate-level-params ;
 : uf-beta ( value -- e' outcome )
@@ -112,7 +107,7 @@ require ./term-eqv.fs
   dup uf-smart-check ok-then? 0= if false swap exit then
   lf-menv-matcher? ok-then? if 0= outcome-ok else false swap then ;
 : uf-known ( e d const -- e' code outcome )
-  2dup uf-arity? 0= if 2drop uf-none-of exit then
+  2dup lf-meta-arity? 0= if 2drop uf-none-of exit then
   over uf-gate ok-then? 0= if nip nip nip uf-fail exit then
   if rot drop uf-default else 2drop uf-none-of then ;
 
@@ -120,11 +115,11 @@ require ./term-eqv.fs
 \ getUnfoldableConst? at default transparency.
 : uf-inst-mode? ( -- flag ) lf-defeq-mode dup lf-tr-instances = swap lf-tr-implicit = or ;
 : uf-class-field ( const -- d flag outcome )
-  uf-name dup lf-menv-find ok-then? 0= if nip -1 false rot exit then
+  lf-const-name dup lf-menv-find ok-then? 0= if nip -1 false rot exit then
   lf-menv-proj-class? ok-then? 0= if nip -1 false rot exit then
   if lf-tr-default lf-menv-unfoldable else drop -1 false outcome-ok then ;
 : uf-ready ( e d const -- e' code outcome )
-  2dup uf-arity? 0= if 2drop uf-none-of exit then
+  2dup lf-meta-arity? 0= if 2drop uf-none-of exit then
   uf-delta-beta ok-then? 0= if nip uf-fail exit then
   dup uf-field? if nip lf-unfold-ask-none outcome-ok else drop uf-none-of then ;
 : uf-proj-inst ( e const -- e' code outcome )
@@ -135,7 +130,7 @@ require ./term-eqv.fs
 
 \ ---- An application: getUnfoldableConst? at its head.
 : uf-app-head ( e const -- e' code outcome )
-  dup uf-name lf-defeq-mode lf-menv-unfoldable
+  dup lf-const-name lf-defeq-mode lf-menv-unfoldable
   ok-then? 0= if nip nip nip uf-fail exit then
   if swap uf-known else drop uf-when-instances then ;
 : uf-spine ( e -- e' code outcome )
@@ -144,12 +139,12 @@ require ./term-eqv.fs
 
 \ ---- A constant: getUnfoldableConstNoEx? (an unknown name: none).
 : uf-const-d ( const -- d flag outcome )
-  uf-name lf-defeq-mode lf-menv-unfoldable
+  lf-const-name lf-defeq-mode lf-menv-unfoldable
   dup outcome-invalid = if 2drop false outcome-ok then ;
 : uf-const-known ( const d -- e' code outcome )
   dup lf-menv-smart? ok-then? 0= if nip nip uf-fail exit then
   if drop uf-none-of exit then
-  2dup swap uf-arity? 0= if drop uf-none-of exit then
+  2dup swap lf-meta-arity? 0= if drop uf-none-of exit then
   swap uf-value ok-then? if lf-unfold-made outcome-ok else uf-fail then ;
 : uf-const ( const -- e' code outcome )
   dup uf-const-d ok-then? 0= if nip nip uf-fail exit then

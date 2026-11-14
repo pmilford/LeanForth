@@ -214,8 +214,6 @@ end-structure
 \ ---- Constants: the input's declaration of the name (Lean's find?). A
 \ declaration that could not be decoded is no unknown constant: wc-kind
 \ keeps its outcome as the call's fault, which ends the call (wc-checked).
-: wc-name ( const -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
-: wc-levels# ( const -- n ) lf-term-first@ lf-cref-slot lf-cref-pairs nip ;
 0 constant wc-no-kind   \ not a constant, or one no declaration has
 : wc-fault! ( d outcome -- )
   nip dup outcome-invalid = if drop else wc wc-fault outcome-first! then ;
@@ -261,20 +259,19 @@ end-structure
   dup wc-plain-fvar? over wc-plain-mvar? or over lf-term-binder? or swap wc-sort? or ;
 \ Nat.succ applied to one argument that whnf might fold (reduceNat?).
 : wc-succ? ( head -- flag )
-  dup lf-term-const? if wc-name lf-menv-nat-succ? wc-margs slab-count 1 = and
+  dup lf-term-const? if lf-const-name lf-menv-nat-succ? wc-margs slab-count 1 = and
   else drop false then ;
 : wc-foldable? ( head -- flag )
   wc-succ? 0= if false exit then
   0 wc-margs lf-meta-arg dup wc-inert? swap lf-lit-leaf? or 0= ;
 
-\ The universe arguments of the recursor's constant, as levels.
-: wc-levels-fill ( const -- outcome )
-  lf-term-first@ lf-cref-slot wc-levels lf-meta-levels-fill ;
+\ The universe arguments of the recursor's constant, as levels, and its
+\ declaration's parameters (wc-aux: the recursor's d, from wc-iota).
 : wc-levels-at ( -- addr ) 0 wc-levels slab-at ;
-: wc-rec-params ( -- names n ) wc wc-head @ lf-meta-const-decl drop lf-menv-params ;
-: wc-levels-ok? ( -- flag ) wc-rec-params nip wc wc-head @ wc-levels# = ;
+: wc-rec-params ( -- names n ) wc wc-aux @ lf-menv-params ;
+: wc-levels-ok? ( -- flag ) wc wc-aux @ wc wc-head @ lf-meta-arity? ;
 : wc-rhs-levels ( rhs -- rhs' outcome )
-  wc wc-head @ wc-levels-fill dup ok? 0= if nip no-result exit then drop
+  wc wc-head @ wc-levels lf-meta-levels-fill dup ok? 0= if nip no-result exit then drop
   wc-rec-params >r wc-levels-at r> lf-meta-instantiate-level-params ;
 
 \ rhs applied to the prefix, the constructor's fields (the last nfields
@@ -291,7 +288,7 @@ end-structure
   swap wc-fields ok-then? if wc-rest else no-result then ;
 : wc-ctor-major ( mhead -- e' flag outcome )
   dup wc-foldable? if drop outcome-unsupported wc-fail exit then
-  wc-name wc-rule 0= if wc-stay exit then
+  lf-const-name wc-rule 0= if wc-stay exit then
   wc-levels-ok? 0= if drop wc-stay exit then wc-fire wc-go ;
 
 \ The block's one type (toCtorWhenStructure): when it is structure-like,
@@ -307,6 +304,9 @@ end-structure
   dup lf-ity-indices lf-more-field 0= over lf-ity-ctors@ nip 1 = and
   swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0= and ;
 : wc-ctor? ( mhead -- flag ) wc-kind lf-kind-constructor = ;
+\ A constructor's parameters and fields. Called only after wc-ctor?
+\ found mhead's declaration, so its second lookup cannot fail (the
+\ outcome dropped here and in wc-ctor-params is ok).
 : wc-ctor-arity ( mhead -- n )
   lf-meta-const-decl drop lf-menv-data dup lf-ict-params lf-more-field
   swap lf-ict-fields lf-more-field + ;
@@ -333,7 +333,7 @@ end-structure
 \ isWFRec: Acc.rec and WellFounded.rec reduce their major premise at
 \ transparency all when it is default.
 : wc-wf-bump ( -- )
-  wc wc-head @ wc-name lf-menv-wf-rec? lf-defeq-mode lf-tr-default = and
+  wc wc-head @ lf-const-name lf-menv-wf-rec? lf-defeq-mode lf-tr-default = and
   if lf-tr-all lf-defeq-mode! then ;
 : wc-reduce-rec ( -- e' flag outcome )
   wc-short? if wc-stay exit then
@@ -363,6 +363,7 @@ end-structure
   if drop lf-tr-instances then ;
 : wc-lower ( -- ) wc wc-proj-i @ if lf-defeq-mode wc-at-most-i lf-defeq-mode! then ;
 : wc-proj-at ( p -- k ) lf-proj-leaf lf-proj-idx ;
+\ Only after wc-ctor? (wc-project), as wc-ctor-arity.
 : wc-ctor-params ( ctor -- n )
   lf-meta-const-decl drop lf-menv-data lf-ict-params lf-more-field ;
 : wc-field ( rhead p -- x true | false )
@@ -421,7 +422,8 @@ end-structure
 \ ---- reduceNat?: a constant of Nat's namespace with one or two arguments
 \ (Lean's list, taken widely), except Nat.succ of a term whnf leaves.
 : wm-head-named? ( e xt -- flag )
-  swap lf-meta-head dup lf-term-const? if wc-name swap execute else 2drop false then ;
+  swap lf-meta-head dup lf-term-const?
+  if lf-const-name swap execute else 2drop false then ;
 : wm-succ-inert? ( e -- flag )
   dup ['] lf-menv-nat-succ? wm-head-named?
   if lf-term-second@ wc-inert? else drop false then ;

@@ -239,7 +239,6 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-const? ( t -- flag ) lf-tag-constant lf-meta-tag? ;
 : de-lam? ( t -- flag ) lf-tag-lam lf-meta-tag? ;
 : de-pi? ( t -- flag ) lf-tag-pi lf-meta-tag? ;
-: de-const-name ( const -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
 \ A constant's declaration: none for an unknown name; a declaration that
 \ could not be decoded (full, unsupported) aborts with its outcome.
 : de-decl ( const -- d true | false )
@@ -284,19 +283,18 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-level-defeq? ( l r -- flag )
   2dup lf-meta-level-defeq dup ok? 0= if de-abort drop 2drop false exit then drop
   dup if nip nip exit then drop de-level-taint false ;
-: de-level@ ( const i -- level ) swap lf-term-first@ lf-cref-slot lf-cref-pairs drop swap
-  lf-cref-pair@ drop ;
-: de-levels# ( const -- n ) lf-term-first@ lf-cref-slot lf-cref-pairs nip ;
+: de-level@ ( const i -- level )
+  swap lf-const-slot lf-cref-pairs drop swap lf-cref-pair@ drop ;
 : de-level-pair ( c1 c2 i -- flag ) tuck de-level@ >r de-level@ r> de-level-defeq? ;
 \ isListLevelDefEqAux: pair by pair while both lists last; false when one
 \ ends first.
-: de-levels-min ( c1 c2 -- n ) de-levels# swap de-levels# min ;
-: de-levels= ( c1 c2 -- flag ) de-levels# swap de-levels# = ;
+: de-levels-min ( c1 c2 -- n ) lf-const-levels# swap lf-const-levels# min ;
+: de-levels= ( c1 c2 -- flag ) lf-const-levels# swap lf-const-levels# = ;
 : de-levels ( c1 c2 -- lbool )
   2dup de-levels-min 0 ?do 2dup i de-level-pair 0=
   if 2drop unloop lf-lb-false exit then loop de-levels= lf-lb ;
 : de-same-const? ( h1 h2 -- flag )
-  over de-const? over de-const? and if de-const-name swap de-const-name lf-name-same?
+  over de-const? over de-const? and if lf-const-name swap lf-const-name lf-name-same?
   else 2drop false then ;
 
 \ ---- isDefEqProofIrrel.
@@ -685,8 +683,8 @@ defer de-args-post ( -- )
 \ ---- Delta candidates, isDefEqNat, isDefEqEtaStruct.
 : de-delta? ( t -- flag )
   lf-meta-head dup de-const? 0= if drop false exit then
-  de-const-name df df-mode @ lf-menv-unfoldable de-must if nip else 2drop true then ;
-: de-nat-name? ( const -- flag ) de-const-name lf-menv-nat-name? ;
+  lf-const-name df df-mode @ lf-menv-unfoldable de-must if nip else 2drop true then ;
+: de-nat-name? ( const -- flag ) lf-const-name lf-menv-nat-name? ;
 : de-nat-op? ( t -- flag )
   dup lf-meta-args# 1 3 within 0= if drop false exit then
   lf-meta-head dup de-const? if de-nat-name? else drop false then ;
@@ -783,7 +781,7 @@ defer de-quick-x ( -- )
 
 \ ---- isExprDefEqExpensive and isExprDefEqAuxImpl.
 : de-consts ( -- )
-  de-t de-const-name de-s de-const-name lf-name-same? 0=
+  de-t lf-const-name de-s lf-const-name lf-name-same? 0=
   if lf-lb-false de-return exit then
   de-t de-s de-levels de-return ;
 \ isDefEqAppFallback: the late cases after isDefEqOnFailure; its stuck

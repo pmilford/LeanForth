@@ -702,6 +702,13 @@ def format3_cases():
                                    sun_line), 4, "malformed"),
         case("root beyond the nodes", c('"value":23}}', '"value":24}}'), 4,
              "an index to no earlier"),
+        # 37: a constant node with other than its declaration's number of
+        # universe arguments (review s2-unfold-a L1).
+        case("constant with a universe argument too many",
+             c('{"const":["Nat"],"levels":[]}', '{"const":["Nat"],"levels":[0]}'), 4,
+             "numbers that do not fit"),
+        case("constant with a universe argument too few", c('"levels":[1]}', '"levels":[]}'), 4,
+             "numbers that do not fit"),
         # 43: a loose bound variable at the root.
         case("loose root", c('"value":23}}', '"value":21}}'), 4, "a loose bound variable"),
         # 44: universe parameters.
@@ -851,6 +858,8 @@ def command_line(work):
                                      '"star",{"lit_str":"0"}],"name":["Zero","toOfNat0"]'),
         "a body naming a constant the slice lacks": swap('{"const":["Nat","succ"]',
                                                          '{"const":["Nat","noSuch"]'),
+        "a constant the slice lacks, with universe arguments": swap(
+            '{"const":["Nat","succ"],"levels":[]', '{"const":["Nat","noSuch"],"levels":[1,0]'),
         "a body with a node of every form": swap(
             MORE_LEVELS[0] + ',"name":["Nat","add"]', MORE_LEVELS[1] + ',"name":["Nat","add"]',
             swap(SUN_END, "," + ",".join(MORE_NODES) + SUN_END)),

@@ -218,8 +218,9 @@ T{ fk fx s" Nat.add" nat-op dup succ swap app off-sk rot rot = -> 1 true }T
 T{ fx fk 2 nlit hadd-by lf-meta-offset 2swap 2drop -> false outcome-unsupported }T
 \ whnf's fixed points, isProp, getFunInfoNArgs, isClassQuick?.
 T{ fk lf-meta-whnf-final? succ fk app lf-meta-whnf-final? succ 2 nlit app lf-meta-whnf-final?
-   -> true true false }T
-T{ fk fk nat-add lf-meta-whnf-final? l0 sort lf-meta-whnf-final? -> false true }T
+   -> true outcome-ok true outcome-ok false outcome-ok }T
+T{ fk fk nat-add lf-meta-whnf-final? l0 sort lf-meta-whnf-final?
+   -> false outcome-ok true outcome-ok }T
 T{ eqab lf-meta-is-prop nat lf-meta-is-prop -> true outcome-ok false outcome-ok }T
 T{ succ 1 lf-meta-fun-info 0 lf-meta-param -> 1 outcome-ok lf-binder-default false }T
 T{ nat l0 sort lf-meta-class-none? fk lf-meta-class-none? -> nat true true }T

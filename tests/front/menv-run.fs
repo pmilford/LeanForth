@@ -276,6 +276,17 @@ T{ outcome-ok worst ! stuck-refused 2 > worst @ -> true outcome-ok }T
   ck-stage lf-menv-library! s" Nat.rec" d-of drop lbd-records slab-trim drop
   1 heap-refusals ! stuck-term lf-whnf-stuck 0 heap-refusals ! ;
 T{ stuck-full -> false outcome-full }T
+\ The same refusal through whnf's fixed-point test of Nat.add and
+\ inferType of v 0 with v : Nat.add (whnfCore leaves the constant as it
+\ is, unread): full, never a flag read as unsupported (review
+\ s2-unfold-a L5).
+: add-refused ( t xt -- x outcome )
+  ck-stage lf-menv-library! s" Nat.rec" d-of drop lbd-records slab-trim drop
+  1 heap-refusals ! execute 0 heap-refusals ! ;
+s" Nat.add" 0 cst constant nat-add
+nat-add lf-lctx-local made 0 nlit app constant v-applied
+T{ nat-add ' lf-meta-whnf-final? add-refused nip -> outcome-full }T
+T{ v-applied ' lf-infer add-refused nip -> outcome-full }T
 \ A name's parts on a slab with room for one: the second part's room
 \ refused, a find answers full and keeps the cell below it, as does a
 \ tier name's run name.

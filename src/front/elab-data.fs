@@ -650,7 +650,7 @@ create ed-reason-names  s" erased" counted, s" not_exported" counted, 0 0 counte
 \ ---- Fields. A record's fields are steps ( value i -- outcome ), run in
 \ turn while ok; ed-put stores x in a field of record addr when ok.
 : ed-step ( value i outcome xt -- value i outcome )
-  over ok? 0= if drop exit then nip >r 2dup r> execute ;
+  over ok? 0= if drop exit then nip 2dup-under execute ;
 : ed-steps ( value i table -- outcome )
   outcome-ok swap begin dup @ while dup cell+ >r @ ed-step r> repeat drop nip nip ;
 : ed-put ( addr x outcome xt -- outcome )
@@ -1081,10 +1081,11 @@ create ed-sun-members
 : ed-nodes-first ( -- n ) ed-sun-now ed-sun-nodes @ ;
 : ed-levels-first ( -- l ) ed-sun-now ed-sun-levels @ ;
 \ An entry of the record's table at index (from first) below the limit
-\ (a number): its number.
+\ (a number): its number. The index is checked against the room left
+\ (limit - first), so first + index cannot wrap.
 : ed-entry-below ( index first limit -- n outcome )
-  rot ed-u32 ok-then? 0= if nip nip no-result exit then
-  rot + tuck > if outcome-ok else ed-e-order ed-bad then ;
+  over - rot ed-u32 ok-then? 0= if nip nip no-result exit then
+  tuck swap index? if + outcome-ok else drop ed-e-order ed-bad then ;
 \ An earlier node or level of the record; its root; any of its levels.
 : ed-node-ref ( index -- n outcome )
   ed-nodes-first elab-nodes slab-count 1- ed-entry-below ;
@@ -1150,21 +1151,25 @@ create ed-level-readers  ' ed-lv-succ , ' ed-lv-pair , ' ed-lv-pair , ' ed-lv-pa
   ed-sun ed-sun-levels dup elab-levels ed-span-open swap c" levels" ed-member
   ['] ed-level-item ed-array-items swap elab-levels ed-span-close ;
 
-\ The nodes' fields (the table at elab-node-bvar).
-: ed-nd-bvar ( value -- outcome ) ed-nd swap ed-u32 ['] ed-node-a ed-put ;
-: ed-nd-sort ( value -- outcome ) ed-nd swap ed-level-all ['] ed-node-a ed-put ;
+\ The nodes' fields (the table at elab-node-bvar). ed-field! stores x at
+\ faddr when ok; ed-nd-put in the field xt of the newest node; ed-nd-ref!
+\ there the place of an earlier node, member key of value.
+: ed-field! ( x outcome faddr -- outcome )
+  swap ok-then? if ! outcome-ok else nip then ;
+: ed-nd-put ( x outcome xt -- outcome ) ed-nd swap execute ed-field! ;
+: ed-nd-ref! ( value key xt -- outcome ) >r ed-member ed-node-ref r> ed-nd-put ;
+: ed-nd-bvar ( value -- outcome ) ed-u32 ['] ed-node-a ed-nd-put ;
+: ed-nd-sort ( value -- outcome ) ed-level-all ['] ed-node-a ed-nd-put ;
 : ed-nd-app ( value -- outcome ) ['] ed-node-ref ed-two-refs ed-nd ed-ab! ;
 : ed-nd-name ( value -- outcome )
-  ed-nd swap c" name" ed-member ed-foreign-key ['] ed-node-a ed-put ;
-: ed-nd-type ( value -- outcome )
-  ed-nd swap c" type" ed-member ed-node-ref ['] ed-node-b ed-put ;
-: ed-nd-body ( value -- outcome )
-  ed-nd swap c" body" ed-member ed-node-ref ['] ed-node-c ed-put ;
+  c" name" ed-member ed-foreign-key ['] ed-node-a ed-nd-put ;
+: ed-nd-type ( value -- outcome ) c" type" ['] ed-node-b ed-nd-ref! ;
+: ed-nd-body ( value -- outcome ) c" body" ['] ed-node-c ed-nd-ref! ;
 create ed-info-names
   s" default" counted, s" implicit" counted, s" strict" counted, s" inst" counted,
   0 0 counted,
 : ed-nd-info ( value -- outcome )
-  ed-nd swap c" info" ed-member ed-info-names ed-choice ['] ed-node-d ed-put ;
+  c" info" ed-member ed-info-names ed-choice ['] ed-node-d ed-nd-put ;
 create ed-binder-members
   s" body" counted, s" info" counted, s" name" counted, s" type" counted, 0 0 counted,
 \ A form: its members' table, then its steps ( value -- outcome ), run
@@ -1174,10 +1179,8 @@ create ed-binder-form
 : ed-nd-steps ( value form -- outcome )
   2dup @ ed-shape? if cell+ outcome-steps else 2drop ed-malformed then ;
 : ed-nd-binder ( value -- outcome ) ed-binder-form ed-nd-steps ;
-: ed-nd-value ( value -- outcome )
-  ed-nd swap c" value" ed-member ed-node-ref ['] ed-node-c ed-put ;
-: ed-nd-let-body ( value -- outcome )
-  ed-nd swap c" body" ed-member ed-node-ref ['] ed-node-d ed-put ;
+: ed-nd-value ( value -- outcome ) c" value" ['] ed-node-c ed-nd-ref! ;
+: ed-nd-let-body ( value -- outcome ) c" body" ['] ed-node-d ed-nd-ref! ;
 : ed-nd-non-dep ( value -- outcome )
   c" non_dep" ed-member ed-bool ok-then? if if elab-node-have ed-nd-kind! then
   outcome-ok then ;
@@ -1189,11 +1192,11 @@ create ed-let-form  ed-let-members ,
 : ed-nd-let ( value -- outcome ) ed-let-form ed-nd-steps ;
 : ed-texted ( c-addr u tag -- k outcome ) ed-text-key elab-keys# 1- swap ;
 : ed-nd-lit ( value -- outcome )
-  ed-nd swap ed-digits ok-then2? if elab-key-lit ed-texted else no-result then
-  ['] ed-node-a ed-put ;
+  ed-digits ok-then2? if elab-key-lit ed-texted else no-result then
+  ['] ed-node-a ed-nd-put ;
 : ed-nd-str ( value -- outcome )
-  ed-nd swap ed-text if elab-key-str ed-texted else 0 ed-malformed then
-  ['] ed-node-a ed-put ;
+  ed-text if elab-key-str ed-texted else 0 ed-malformed then
+  ['] ed-node-a ed-nd-put ;
 \ A constant, or a projection's structure: the one declaration of the
 \ name, or -1 when none has it (the record foreign).
 : ed-body-decl ( n -- d outcome )
@@ -1203,12 +1206,10 @@ create ed-let-form  ed-let-members ,
 : ed-body-name ( index -- d outcome )
   ed-name ok-then? if ed-body-decl else no-result then ;
 : ed-nd-struct ( value -- outcome )
-  ed-nd swap c" struct" ed-member ed-body-name
-  ok-then? if ed-type-or-none else no-result then ['] ed-node-a ed-put ;
-: ed-nd-idx ( value -- outcome )
-  ed-nd swap c" idx" ed-member ed-u32 ['] ed-node-b ed-put ;
-: ed-nd-expr ( value -- outcome )
-  ed-nd swap c" expr" ed-member ed-node-ref ['] ed-node-c ed-put ;
+  c" struct" ed-member ed-body-name
+  ok-then? if ed-type-or-none else no-result then ['] ed-node-a ed-nd-put ;
+: ed-nd-idx ( value -- outcome ) c" idx" ed-member ed-u32 ['] ed-node-b ed-nd-put ;
+: ed-nd-expr ( value -- outcome ) c" expr" ['] ed-node-c ed-nd-ref! ;
 create ed-proj-node-members
   s" expr" counted, s" idx" counted, s" struct" counted, 0 0 counted,
 create ed-proj-node-form
@@ -1231,17 +1232,23 @@ create ed-bool-members  s" bool" counted, 0 0 counted,
   ed-first-item dup ed-next ed-true? if ed-annotation else drop false then
   if outcome-ok else ed-unknown-mark then ;
 : ed-nd-entries ( value -- outcome )
-  ed-nd swap c" entries" ed-member dup 1 ed-items? if ed-first-item ed-entry
-  else drop 0 ed-malformed then ['] ed-node-a ed-put ;
+  c" entries" ed-member dup 1 ed-items? if ed-first-item ed-entry
+  else drop 0 ed-malformed then ['] ed-node-a ed-nd-put ;
 create ed-mdata-members  s" entries" counted, s" expr" counted, 0 0 counted,
 create ed-mdata-form  ed-mdata-members , ' ed-nd-entries , ' ed-nd-expr , 0 ,
 : ed-nd-mdata ( value -- outcome ) ed-mdata-form ed-nd-steps ;
 : ed-node-level ( item -- outcome ) ed-level-all ok-then? if elab-orders ed-push then ;
 : ed-nd-levels ( value -- outcome )
   ed-nd ed-node-b swap c" levels" ed-member ['] ed-node-level ed-span-items ;
+\ A constant: its declaration (-1: foreign), then its levels, as many as
+\ the declaration has universe parameters (a foreign one's: any number).
+: ed-nd-levels# ( -- n ) ed-nd ed-node-b ed-span@ nip ;
+: ed-nd-arity? ( -- flag )
+  ed-nd ed-node-a @ dup 0< if drop true else ed-levels ed-nd-levels# = then ;
+: ed-nd-fits ( -- outcome ) ed-nd-arity? if outcome-ok else ed-e-unfit ed-bad then ;
 : ed-nd-const ( value -- outcome )
-  dup c" const" ed-member ed-body-name ed-nd -rot ['] ed-node-a ed-put
-  dup ok? if drop ed-nd-levels else nip then ;
+  dup c" const" ed-member ed-body-name ['] ed-node-a ed-nd-put
+  ok-then? if ed-nd-levels dup ok? if drop ed-nd-fits then then ;
 
 \ Loose bound variables: 1 + the largest, from the fields of the newest node.
 : ed-loose ( n -- k ) ed-node ed-node-loose @ ;
@@ -1306,7 +1313,7 @@ create ed-kind-handlers
   ' ed-on-instance , ' ed-on-default , ' ed-on-reducibility , ' ed-on-eliminator ,
   ' ed-on-left-out , ' ed-on-class , ' ed-on-tag , ' ed-on-matcher , ' ed-on-projection ,
   ' ed-on-sunfold ,
-: ed-one-member? ( -- flag ) 0 json-object ed-view json-items-of if 1 = else false then ;
+: ed-one-member? ( -- flag ) 0 ed-sole? ;
 : ed-object-value? ( -- flag ) 2 ed-view json-kind-at json-object = ;
 : ed-wrapped? ( -- flag ) ed-one-member? if ed-object-value? else false then ;
 : ed-tally ( kind -- ) cells elab elab-counts + 1 swap +! ;

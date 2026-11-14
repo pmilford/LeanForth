@@ -45,10 +45,9 @@ end-structure
   lmap lmap-xt ! dup lf-term-first@ dup lmap-image tuck =
   if drop outcome-ok else nip lmap-sort-new then ;
 
-: lmap-cref ( term -- slot ) lf-term-first@ lf-cref-slot ;
 : lmap-moves? ( flag addr i -- flag' ) lf-cref-pair@ drop dup lmap-image <> or ;
 : lmap-moved? ( term -- flag )
-  lmap-cref lf-cref-pairs false swap 0 ?do over i lmap-moves? loop nip ;
+  lf-const-slot lf-cref-pairs false swap 0 ?do over i lmap-moves? loop nip ;
 : lmap-at ( i -- addr ) 2* cells lmap lmap-pairs @ + ;
 : lmap-pair! ( level addr -- ) >r dup lmap-identity swap r> 2! ;
 : lmap-fill ( addr count -- )
@@ -59,8 +58,9 @@ end-structure
   dup lf-cref-name@ rot lf-cref-pairs nip lmap lmap-pairs @ swap lf-cref-new
   if lf-cterm-new if drop true exit then then false ;
 : lmap-const-new ( node -- image outcome )
-  dup lmap-cref lf-cref-pairs dup lmap-block 0= if 2drop drop -1 outcome-full exit then
-  lmap-fill lmap-cref lmap-ref-new lmap lmap-pairs heap-release
+  dup lf-const-slot lf-cref-pairs dup lmap-block
+  0= if 2drop drop -1 outcome-full exit then
+  lmap-fill lf-const-slot lmap-ref-new lmap lmap-pairs heap-release
   if outcome-ok else -1 outcome-full then ;
 : lf-meta-const-remap ( node xt -- image outcome )
   lmap lmap-xt ! dup lmap-moved? if lmap-const-new else outcome-ok then ;

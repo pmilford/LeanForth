@@ -13067,8 +13067,8 @@ reason = "FE1c: a resumed frame works on the term of the step that ran last, not
 [[fault]]
 id = "fe-infer-levels-unchecked"
 file = "src/front/infer.fs"
-old = ''': if-levels-ok? ( slot d -- flag ) lf-menv-params nip swap lf-cref-pairs nip = ;'''
-new = ''': if-levels-ok? ( slot d -- flag ) 2drop true ;'''
+old = '''  2dup swap lf-meta-arity? 0= if 2drop -1 outcome-invalid exit then'''
+new = '''  2dup 2drop'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a constant with the wrong number of universe levels gets a type, where Lean throws"
 
@@ -13125,8 +13125,8 @@ reason = "FE1c: a function type that is no pi (a let variable, a metavariable) i
 [[fault]]
 id = "fe-infer-no-pi-accepted"
 file = "src/front/infer.fs"
-old = '''  if-head if-firm? if outcome-invalid else outcome-unsupported then ;'''
-new = '''  drop outcome-unsupported ;'''
+old = ''': if-no-pi ( type -- outcome ) if-head if-firm-or ;'''
+new = ''': if-no-pi ( type -- outcome ) drop outcome-unsupported ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a function expected (Lean throws) answers unsupported instead of invalid"
 
@@ -13173,8 +13173,8 @@ reason = "FE1c: a domain whose type is no sort, where Lean throws type expected,
 [[fault]]
 id = "fe-whnf-succ-name-unchecked"
 file = "src/front/whnf.fs"
-old = '''  dup lf-term-const? if wc-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
-new = '''  dup dup if wc-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
+old = '''  dup lf-term-const? if lf-const-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
+new = '''  dup dup if lf-const-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "review fe1c-2 M2: a major premise's head that is no constant is read as a constant reference (an unchecked store read; a free variable with Nat.succ's reference number answers unsupported)"
 
@@ -16828,8 +16828,9 @@ reason = "S2: unfoldDefinition? unfolds a matcher (Nat.add.match_1), which Lean 
 [[fault]]
 id = "fe-unfold-arity-ignored"
 file = "src/front/unfold.fs"
-old = ''': uf-arity? ( d const -- flag ) uf-slot lf-cref-pairs nip swap lf-menv-params nip = ;'''
-new = ''': uf-arity? ( d const -- flag ) 2drop true ;'''
+old = '''  2dup lf-meta-arity? 0= if 2drop uf-none-of exit then
+  over uf-gate'''
+new = '''  over uf-gate'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S2: a constant with more universe arguments than parameters unfolds (Lean's deltaDefinition gives none)"
 
@@ -16917,8 +16918,8 @@ reason = "S2: a smart-unfolding body given twice is refused with another kind's 
 [[fault]]
 id = "fe-ed3-order-unchecked"
 file = "src/front/elab-data.fs"
-old = '''  rot + tuck > if outcome-ok else ed-e-order ed-bad then ;'''
-new = '''  rot + nip outcome-ok ;'''
+old = '''  tuck swap index? if + outcome-ok else drop ed-e-order ed-bad then ;'''
+new = '''  nip + outcome-ok ;'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "S2: a body's level or node may name itself or a later entry (error 42 never given): a decoder would loop or read a later record"
 
@@ -17005,8 +17006,8 @@ reason = "S2: the match_pattern tag (S3's whnfMatcher reads it) is not one the r
 [[fault]]
 id = "fe-meta-const-decl-unknown"
 file = "src/front/meta-spine.fs"
-old = '''  lf-term-first@ lf-cref-slot lf-cref-name@ drop lf-menv-find ;'''
-new = '''  lf-term-first@ lf-cref-slot lf-cref-name@ drop lf-menv-find dup ok? 0= if drop outcome-invalid then ;'''
+old = '''  lf-const-name lf-menv-find ;'''
+new = '''  lf-const-name lf-menv-find dup ok? 0= if drop outcome-invalid then ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "s1-meta-b re-check (plan S2): a library declaration that could not be decoded reads as an unknown constant, so whnfCore leaves Nat.add 1 2 as it is, ok"
 
