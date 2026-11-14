@@ -147,7 +147,7 @@ declarations 755 differ in 1,101 binders; S1's 16 differ in none.
 | 100-109 | Meta errors a user sees ("invalid universe level", the stuck and trail refusals) | S1 (s1-meta) |
 | 110-124 | instances: "failed to synthesize", the instance codes, one per unsupported instance rule | S1 (s1-synth) |
 | 125-139 | elaboration: numerals, applications, `binop%`/`binrel%`, defaults, the glue, `#check`, fuel, the rest of FE1E §2.7's unsupported rows | S1 (s1-elab) |
-| 140-199 | elaboration in FE2: one per Lean error and unsupported condition of its §4; structures, notation, commands | S5, S6 |
+| 140-199 | elaboration in FE2: one per Lean error and unsupported condition of its §4; structures, notation, commands (140 and 141, the first command codes, are `#check` inside a declaration, in a term position, Lean's parser error, or in a tactic block, which Lean would end before it: review s1-elab M1 and its re-check L1) | S5, S6 (140, 141: S1) |
 | 200-249 | tactics after FE1g-4 (FE1g-5 to FE1g-8, FE5's) | S2 on |
 | 250-269, 270-299 | `decide`; `omega` and its opt-in flag | S3, S4 |
 

@@ -1,0 +1,9 @@
+\ The wrong twin of tests/front/s1-rfl.lf: 0 + 0 = 1 by rfl. Lean refuses
+\ it at rfl, "Tactic `rfl` failed: The left-hand side ...", and nothing is
+\ checked (tests/front/s1-rfl-wrong.lean); LeanForth stops at by-rfl with
+\ error 97 and Lean's text, exit 4 (tests/front/check_elab.py).
+theorem t
+  0 0 + 1 =
+:= by
+  by-rfl
+end t

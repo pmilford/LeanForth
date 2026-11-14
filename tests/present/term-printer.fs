@@ -422,4 +422,32 @@ T{ args{ s" f" t-const s" Prod" 1 t-proj args{ s" a" t-const t-app s" Prod.2 f a
 : tex-text ( c-addr u -- ) ['] cap-sink 100 lf-lv-setup must cap-reset lf-sf-tex lf-lv-done ;
 T{ s\" a\xe2\x80\xaeb\xffc\\" tex-text
    s" a\textbackslash{}u\{202E\}b\textbackslash{}x\{FF\}c\textbackslash{}" expect-text -> }T
+\ A print to another sink for a while (lf-print-with, lf-print-to; review
+\ s1-elab re-check L5): in Unicode whatever the mode set, the notation
+\ flag as given; the sink, the options and the flag given back after,
+\ also after a THROW (passed on); lf-print-sink is the sink set.
+create other-buf 256 allot   variable other-len
+: other-sink ( c-addr u -- ) tuck other-buf other-len @ + swap move other-len +! ;
+: other ( -- c-addr u ) other-buf other-len @ ;
+: ascii-u ( -- options ) lf-print-ascii lf-print-universes or ;
+: lam-id ( -- t ) t-prop 0 t-var t-lam ;
+fresh ascii-u mode
+T{ lf-print-sink lf-print-settings -> ' cap-sink ' cap-sink ascii-u }T
+T{ ' lf-print-settings ' other-sink lf-print-with -> ' other-sink lf-print-unicode }T
+T{ ' lf-print-sink ' other-sink lf-print-with lf-print-sink -> ' other-sink ' cap-sink }T
+T{ 0 other-len ! cap-reset lam-id ' other-sink false lf-print-to other s" fun x ↦ x" compare
+   cap nip -> outcome-ok 0 0 }T
+T{ lf-print-settings lf-print-notation? -> ' cap-sink ascii-u false }T
+T{ true lf-print-notation! lam-id ' other-sink false lf-print-to lf-print-notation?
+   false lf-print-notation! -> outcome-ok true }T
+: notation-in ( c-addr u -- ) 2drop lf-print-notation? other-len ! ;
+T{ 0 other-len ! lam-id ' notation-in true lf-print-to other-len @ lf-print-notation?
+   -> outcome-ok true false }T
+: throws ( -- ) 7 throw ;
+T{ ' throws ' other-sink ' lf-print-with catch nip nip lf-print-settings
+   -> 7 ' cap-sink ascii-u }T
+: bad-sink ( c-addr u -- ) 2drop 9 throw ;
+T{ lam-id ' bad-sink true ' lf-print-to catch nip nip nip lf-print-reset
+   lf-print-notation? lf-print-settings -> 9 false ' cap-sink ascii-u }T
+T{ lam-id s" fun x => x" shows -> }T
 bye

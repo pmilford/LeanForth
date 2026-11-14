@@ -89,4 +89,19 @@ end-structure
 : lf-meta-spend? ( -- flag )
   lf-meta-budget dup 0> if 1- lf-meta-budget! true else drop false then ;
 
+\ ---- The budget of each declaration (branch s1-elab; S1 §8; added at the
+\ end of this file, which branch s2-unfold also changes): --elab-fuel N
+\ sets how many steps one declaration or #check may take
+\ (lf-elab-fuel!, default lf-meta-default-budget); lf-meta-budget-start
+\ gives the budget that many again, as Lean's maxHeartbeats counts afresh
+\ for each declaration. lf-elab-fuel reads the setting.
+begin-structure /mfuel
+  field: mfuel-each    \ the steps each declaration may take
+end-structure
+/mfuel context-record: mfuel
+: lf-elab-fuel! ( n -- ) mfuel mfuel-each ! ;
+: lf-elab-fuel ( -- n ) mfuel mfuel-each @ ;
+:noname ( -- ) lf-meta-default-budget lf-elab-fuel! ; context-setup
+: lf-meta-budget-start ( -- ) lf-elab-fuel lf-meta-budget! ;
+
 base !   \ the BASE this file was loaded with

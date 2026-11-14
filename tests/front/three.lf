@@ -1,7 +1,7 @@
 \ Three natural declarations, an axiom, a definition and a theorem (plan
 \ row FE1f; tests/front/handover.fs runs it with a stand-in elaborator, as
-\ FE1e's elaborator does not exist yet; without one it stops at the first
-\ end with error 71).
+\ FE1e's elaborator does not elaborate numerals yet; run alone it stops
+\ at the end of two, whose 2 waits for plans FE1e5 and S2, with error 139).
 \ Lean: axiom someNat : Nat
 \       def two : Nat := 2
 \       theorem add_zero' (n : Nat) : n + 0 = n := Eq.refl n

@@ -12,8 +12,9 @@ sections 3 and 4).
    messages below, which the Lean run checks against pinned Lean's.
 3. `bin/leanforth check --env tests/front/tactic-slice.ndjson FILE` on
    each file, and with tests/front/run-slice.ndjson on the runner's files
-   (RUN_FILES), exits 2 with error 71 at its end NAME (not supported yet:
-   elaborating the statement, plan FE1e; the runner's own outcomes are
+   (RUN_FILES), exits 2 with error 139 at its end NAME (not supported yet:
+   the elaborator, src/front/elab-decl.fs, needs the library's
+   elaboration data, which these runs do not give; the runner's own outcomes are
    tests/front/tactic-run.fs's, with stand-in elaborators), and on
    malformed twins written here exits 4 with the twin's error code;
    nothing is checked, nothing accepted.
@@ -172,8 +173,8 @@ def check(path, slice_=SLICE):
 def check_files():
     for path, slice_ in [(f, SLICE) for f in FILES] + [(f, RUN_SLICE) for f in RUN_FILES]:
         code, out = check(path, slice_)
-        if code != 2 or "error 71 at" not in out or "accepted" in out:
-            raise Failure(f"{path}: exit {code}, expected 2 with error 71\n{out}")
+        if code != 2 or "error 139 at" not in out or "accepted" in out:
+            raise Failure(f"{path}: exit {code}, expected 2 with error 139\n{out}")
 
 
 def check_twins():
@@ -335,7 +336,7 @@ def main():
         return 1
     print(f"tactic records: {len(FILES)} files read as tests/front/tactics.golden says; "
           f"errors.fs's messages for codes {sorted(set(CODES.values()))} as pinned; "
-          f"leanforth check stops each and {len(RUN_FILES)} more with error 71 (exit 2) "
+          f"leanforth check stops each and {len(RUN_FILES)} more with error 139 (exit 2) "
           f"and {len(TWINS)} malformed twins with their errors (exit 4); harness "
           "self-test passed")
     return 0

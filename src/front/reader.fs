@@ -22,9 +22,9 @@
 \   constants print;
 \ - binder words take a type as written; := takes the statement; by right
 \   after := opens a tactic proof; end NAME of a declaration keeps the
-\   proof's node, runs the elaborator (lf-front-elaborate: error 71 until
-\   plan FE1e) and hands the result over (handover.fs), and tactic words
-\   need the tactic engine (error 72).
+\   proof's node, runs the elaborator (lf-front-elaborate, which
+\   front/elab-decl.fs sets; error 71 without it) and hands the result
+\   over (handover.fs), and tactic words need the tactic engine (error 72).
 \ Values are LeanForth values (author/values.fs) of a kind of their own,
 \ each naming a syntax node. Untrusted: a tree is what was written; only
 \ the kernel's check of the elaborated term decides anything.

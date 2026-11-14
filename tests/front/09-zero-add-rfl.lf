@@ -2,8 +2,8 @@
 \ docs/design/S1_INTERFACE.md §11 row 2, branch s1-meta).
 \ Lean: theorem zero_add_zero : 0 + 0 = 0 := by rfl
 \ gives @Eq.refl.{1} Nat (0 + 0), checked by the kernel. The statement
-\ is not elaborated yet (branch s1-elab): run alone, the text stops at
-\ end with error 71, exit 2. tests/front/menv-run.fs runs it with a
+\ is not elaborated yet (its numerals wait for plans FE1e5 and S2): run
+\ alone, the text stops at end with error 139, exit 2. tests/front/menv-run.fs runs it with a
 \ stand-in that gives the statement Lean elaborates,
 \ @Eq.{1} Nat (@HAdd.hAdd.{0,0,0} Nat Nat Nat (@instHAdd.{0} Nat
 \ instAddNat) 0 0) 0, each 0 being @OfNat.ofNat.{0} Nat 0 (instOfNatNat 0);

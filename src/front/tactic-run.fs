@@ -8,9 +8,9 @@
 \ 1. lf-front-by-statement ( -- type ), the hook FE1e's := by fills: it
 \    elaborates the declaration's binders, each a free variable whose
 \    local it pushes on the current view (mvars.fs, lf-mctx-view), and
-\    gives the statement's type in their context. Until plan FE1e it stops
-\    the run, not supported yet (error 71), as a term proof's end does;
-\    tests set a stand-in that builds the type directly.
+\    gives the statement's type in their context (front/elab-decl.fs; without
+\    it the run stops, not supported yet, error 71, as a term proof's end
+\    does); tests set a stand-in that builds the type directly.
 \ 2. lf-tactic-by ( type -- goal ), Lean's runTactic: the type
 \    instantiated, a new goal of it (synthetic opaque, untagged, in the
 \    current view), the goal list [goal], the steps run in order, and at
@@ -28,7 +28,8 @@
 \ back (closeUsingOrAdmit; LeanForth never admits, ADR 0021 D3). Each
 \ step spends one unit of the run's own fuel (lf-tactic-fuel!; Lean
 \ counts heartbeats instead, so where its limit and this one differ is
-\ a listed difference, none known): none left is error 91, exhausted.
+\ a listed difference, none known) and one of the declaration's budget
+\ (meta-config.fs, --elab-fuel): none left is error 91, exhausted.
 \ A step runs by its kind's row of a table: by-sorry here; the others
 \ answer not supported yet (error 80, with the plan step that ports them,
 \ FE1g-4 to FE1g-6, and the goals), until a later file sets their rows
@@ -67,7 +68,10 @@
 \ lf-tac-block ( i rest -- ), lf-tac-done ( i -- ), lf-tac-focus ( --
 \ rest ), lf-tac-unfocus ( rest -- ), lf-tac-save ( -- save outcome ),
 \ lf-tac-restore, lf-tac-commit ( save -- outcome ), lf-tac-try,
-\ lf-tac-forget ( -- ), lf-open-parts ( -- n ), lf-open-parts. ( -- ).
+\ lf-tac-forget ( -- ), lf-open-parts ( -- n ), lf-open-parts. ( -- ),
+\ lf-front-close ( type value -- type' value' ) and lf-front-close-type
+\ ( type -- type' ) (a term proof's or an axiom's closing over the
+\ current view's binders, as a tactic proof's, front/elab-decl.fs).
 \ Errors stop the run (lfa-fail) with author/errors.fs's codes: 80, 89,
 \ 90, 91, 92 for a record whose steps do not nest as the reader makes
 \ them (checked before any step runs), 93 for a type inference or
@@ -94,9 +98,11 @@ require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../present/binder-table.fs
 require ../present/print-job.fs
+require ../present/term-printer.fs
 require ../author/errors.fs
 require ../author/declarations.fs
 require ./mvars.fs
+require ./meta-config.fs
 require ./lctx-views.fs
 require ./goals.fs
 require ./goal-print.fs
@@ -149,8 +155,9 @@ end-structure
 : lfr-limit ( -- n )
   trun dup trun-given @ if trun-limit @ else drop lfr-default-fuel then ;
 : lfr-fuel-start ( -- ) lfr-limit trun trun-fuel ! ;
+\ (A step also spends one of the declaration's budget, --elab-fuel: S1 8.)
 : lfr-spend? ( -- flag )
-  lf-tactic-fuel-left dup 0> if 1- trun trun-fuel ! true else drop false then ;
+  lf-tactic-fuel-left dup 0> if 1- trun trun-fuel ! lf-meta-spend? else drop false then ;
 
 \ ---- The record (tactic-syntax.fs). Step i's fields; unchecked.
 : lfr-kind ( i -- kind ) lf-tactic-step tac-kind @ ;
@@ -198,15 +205,12 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ block's place; a tactic's error also shows the goals, kept as the
 \ error's detail (for the first error only: a later one is not kept).
 : lf-tac-step ( -- i ) trun trun-step @ ;
-\ xt ( x -- outcome ) printing with the term printer's sink set to sink
-\ for the while, the printer's settings put back however xt ends (a THROW
-\ passes on); lf-tac-detail prints into the error's detail, unless an
-\ error is recorded already.
-: lfr-printed ( x xt sink -- outcome )
-  lf-print-settings 2>r lf-print-unicode lf-print-setup catch 2r> lf-print-setup throw ;
+\ lf-tac-detail ( x xt -- ): xt ( x -- outcome ) prints into the error's
+\ detail (present/term-printer.fs's lf-print-with: the printer's settings
+\ put back however xt ends), unless an error is recorded already.
 : lf-tac-detail ( x xt -- )
   lf-author-code if 2drop exit then
-  ['] lfa-detail+ lfr-printed ok? 0= if lfa-detail-cut then ;
+  ['] lfa-detail+ lf-print-with ok? 0= if lfa-detail-cut then ;
 : lfr-goals-of ( x -- outcome ) drop lf-goals-text ;
 : lfr-with-goals ( -- ) 0 ['] lfr-goals-of lf-tac-detail ;
 : lfr-at-step ( code -- ) >r lf-tac-step dup lfr-spelling rot lfr-at r> lfa-fail-at ;
@@ -321,7 +325,7 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-text-cut ( c-addr u i -- ) 2drop drop true trun trun-cut ! ;
 : lfr-text+ ( c-addr u -- )
   dup trun-text slab-claim ok? if trun-text slab-at swap move else lfr-text-cut then ;
-: lfr-goal-text ( goal -- outcome ) ['] lf-goal-print ['] lfr-text+ lfr-printed ;
+: lfr-goal-text ( goal -- outcome ) ['] lf-goal-print ['] lfr-text+ lf-print-with ;
 : lfr-part ( -- addr ) trun-parts slab-last ;
 \ A span of trun-text: where it begins, then its length once written.
 : lfr-span-end ( first addr -- length ) tuck ! lfr-text# swap @ - ;
@@ -441,6 +445,11 @@ defer lf-front-by-statement ( -- type )
 ' lfr-unelaborated is lf-front-by-statement
 : lfr-assemble ( type goal -- type' value )
   ['] lf-term-lam lfr-close >r ['] lf-term-pi lfr-close r> ;
+\ For a term proof or an axiom (front/elab-decl.fs): the type and value,
+\ or the type alone, closed over the current view's binders in the same
+\ way.
+: lf-front-close ( type value -- type' value' ) lfr-xs lfr-assemble ;
+: lf-front-close-type ( type -- type' ) lfr-xs ['] lf-term-pi lfr-close ;
 : lfr-proof-end ( -- )
   lf-front-by-statement lfr-xs dup lf-tactic-by lfr-assemble lf-front-hand-over
   lfa-declared ;

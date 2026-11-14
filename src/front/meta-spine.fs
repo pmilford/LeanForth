@@ -33,6 +33,9 @@
 \ - lf-meta-tag? ( term tag -- flag ): the term's tag is tag;
 \   lf-meta-fvar? ( term -- flag ): a free variable.
 \ - lf-meta-args# ( term -- n ): the number of arguments of its spine.
+\ - lf-meta-forall-body ( term -- body ): what is under its leading pis
+\   (the term itself when it is no pi), its loose bound variables those
+\   binders' (Lean's getForallBody of each, unreduced).
 \ - lf-meta-pop ( slab -- x ): the slab's last cell, taken off.
 \ - lf-meta-app ( f a -- f' outcome ): the application f a (Lean's
 \   mkApp); full, with -1, when the term store has no room.
@@ -82,6 +85,8 @@ require ../present/binder-table.fs
 : lf-meta-fvar? ( term -- flag ) lf-tag-fvar lf-meta-tag? ;
 : lf-meta-args# ( term -- n )
   0 swap begin dup lf-meta-app? while lf-term-first@ swap 1+ swap repeat drop ;
+: lf-meta-forall-body ( term -- body )
+  begin dup lf-term-pi? while lf-term-second@ repeat ;
 : lf-meta-pop ( slab -- x ) dup slab-count 1- over slab-at @ -1 rot slab-commit ;
 : lf-meta-app ( f a -- f' outcome ) lf-term-app if outcome-ok else -1 outcome-full then ;
 : ms-apply-at ( f i slab -- f' outcome ) lf-meta-arg lf-meta-app ;

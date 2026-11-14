@@ -27,7 +27,7 @@
 \   explicit is not made a local instance either (plan FE3).
 \ - t by-exact, Lean's exact t: in the main goal's context (its view
 \   current), t elaborated against the goal's type (lf-tac-elab, Lean's
-\   Tactic.elabTerm, plan FE1e: until then error 71), its type inferred
+\   Tactic.elabTerm, front/elab-decl.fs, with no postponing), its type inferred
 \   (infer.fs) and compared with the goal's by isDefEq (defeq.fs, the
 \   elaborator's configuration, default transparency): false is error 96
 \   with Lean's text (the term and both types). Lean compares with
@@ -52,10 +52,15 @@
 \ addPPExplicitToExposeDiff (explicit arguments where the two would
 \ print alike) and its line breaks past width 120 are not ported (plan
 \ 8.6).
-\ Words: lf-tac-elab ( node expected -- term outcome ), a deferred word
-\ plan FE1e sets (its Tactic.elabTerm: Term.elabTerm, the synthetic
-\ metavariables synthesized with no postponing, the result instantiated);
+\ Words: lf-tac-elab ( node expected postpone? -- term outcome ), a
+\ deferred word front/elab-decl.fs sets (Lean's Tactic.elabTerm:
+\ Term.elabTerm against expected, a negative one for none, the synthetic
+\ metavariables synthesized, postponing when postpone? is true, Lean's
+\ mayPostpone, the result instantiated; exact passes false); error 71
+\ without front/elab-decl.fs;
 \ lf-tac-defeq ( t s -- flag outcome ), the tactics' isDefEq;
+\ lf-tac-indented. ( term -- outcome ), a term of a message, instantiated
+\ and indented on its own line (Lean's indentExpr), to the message's sink;
 \ lf-tac-holds? ( term xt -- flag outcome ), whether a term holds a leaf
 \ xt ( leaf -- flag ) accepts (heap stacks of dag-walk.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
@@ -91,7 +96,6 @@ require ./defeq-delta.fs
 require ./tactic-syntax.fs
 require ./tactic-run.fs
 
-100000 constant lfb-print-fuel     \ printer fuel for each term of a message
 begin-structure /tb
   field: tb-goal        \ the goal the step works on
   field: tb-view        \ its context
@@ -113,19 +117,16 @@ end-structure
 /tb context-record: tb
 
 \ ---- Hooks.
-defer lf-tac-elab ( node expected -- term outcome )
-: lfb-unelaborated ( node expected -- term outcome )
-  2drop lfa-e-elaborate lf-tac-fail -1 outcome-unsupported ;
+defer lf-tac-elab ( node expected postpone? -- term outcome )
+: lfb-unelaborated ( node expected postpone? -- term outcome )
+  2drop drop lfa-e-elaborate lf-tac-fail -1 outcome-unsupported ;
 ' lfb-unelaborated is lf-tac-elab
-\ isDefEq in the elaborator's configuration at default transparency;
-\ defeq's own configuration and mode put back however it ends, and an
-\ internal code such as the stuck signal made invalid (outcome-sane).
-: lfb-elab-defeq ( t s -- flag outcome )
-  lf-defeq-elab lf-defeq-flags! lf-tr-default lf-defeq-mode! lf-meta-defeq ;
-: lfb-defeq-set! ( flags mode -- ) lf-defeq-mode! lf-defeq-flags! ;
+\ isDefEq in the elaborator's configuration at default transparency
+\ (lf-meta-with: defeq's own configuration and mode put back however it
+\ ends), an internal code such as the stuck signal made invalid
+\ (outcome-sane).
 : lf-tac-defeq ( t s -- flag outcome )
-  lf-defeq-flags lf-defeq-mode 2>r ['] lfb-elab-defeq catch 2r> lfb-defeq-set! throw
-  outcome-sane ;
+  ['] lf-meta-defeq lf-defeq-elab lf-tr-default lf-meta-with outcome-sane ;
 
 \ ---- Leaves: a bottom-up walk (dag-walk.fs) whose image is 1 where a
 \ leaf passes the test.
@@ -174,12 +175,11 @@ defer lf-tac-elab ( node expected -- term outcome )
 \ ---- Messages: terms printed as goals print them (notation on, the
 \ printer's flag put back however printing ends), indented as Lean's
 \ indentExpr; a tactic error's goal after a blank line.
-: lfb-noting ( term -- outcome ) true lf-print-notation! lfb-print-fuel lf-print-term ;
-: lfb-noted ( term -- outcome )
-  lf-print-notation? >r ['] lfb-noting catch r> lf-print-notation! throw ;
+\ A term of a message, in Lean's notation, to the message's sink.
+: lfb-noted ( term -- outcome ) lf-print-sink true lf-print-to ;
 : lfb-term. ( term -- outcome ) lf-instantiate-mvars ok-then? if lfb-noted then ;
-: lfb-indented. ( term -- outcome ) s"   " lf-pp-emit lfb-term. ;
-: lfb-line. ( c-addr u term -- outcome ) >r lf-pp-emit r> lfb-indented. ;
+: lf-tac-indented. ( term -- outcome ) s"   " lf-pp-emit lfb-term. ;
+: lfb-line. ( c-addr u term -- outcome ) >r lf-pp-emit r> lf-tac-indented. ;
 : lfb-the-goal. ( -- outcome ) s\" \n\n" lf-pp-emit tb tb-goal @ lf-goal-print ;
 : lfb-blank-goal. ( x -- outcome ) drop s\" \n" lf-pp-emit tb tb-goal @ lf-goal-print ;
 : lfb-failed ( xt code -- ) >r 0 swap lf-tac-detail r> lf-tac-stop ;
@@ -243,7 +243,8 @@ defer lf-tac-elab ( node expected -- term outcome )
 
 \ ---- t by-exact.
 : lfb-opaque-free ( t -- ) ['] lfb-opaque? lfb-holds? if lfa-e-tac-meta lf-tac-fail then ;
-: lfb-elaborated ( i -- ) lfb-arg tb tb-want @ lf-tac-elab lf-tac-must tb tb-term ! ;
+: lfb-elaborated ( i -- )
+  lfb-arg tb tb-want @ false lf-tac-elab lf-tac-must tb tb-term ! ;
 : lfb-typed ( -- ) tb tb-term @ lf-infer lf-tac-must tb tb-type ! ;
 : lfb-guarded ( -- ) tb tb-type @ lfb-opaque-free tb tb-want @ lfb-opaque-free ;
 \ Lean's throwTypeMismatchError: the term, its type, the type expected.
@@ -267,7 +268,8 @@ defer lf-tac-elab ( node expected -- term outcome )
 : lfb-sorted. ( -- outcome )
   lfb-has. ['] lfb-of. ok-and ['] lfb-but-sort. ok-and ['] lfb-of-want. ok-and ;
 : lfb-types. ( -- outcome ) lfb-sorted? if lfb-sorted. else lfb-plain. then ;
-: lfb-mismatch. ( x -- outcome ) drop tb tb-term @ lfb-indented. ['] lfb-types. ok-and ;
+: lfb-mismatch. ( x -- outcome )
+  drop tb tb-term @ lf-tac-indented. ['] lfb-types. ok-and ;
 : lfb-matched ( -- )
   tb tb-type @ tb tb-want @ lf-tac-defeq lf-tac-must
   0= if ['] lfb-mismatch. lfa-e-tac-mismatch lfb-failed then ;
@@ -280,7 +282,7 @@ defer lf-tac-elab ( node expected -- term outcome )
 : lfb-occurs. ( -- outcome )
   s\" \nthis is often due to an occurs-check failure" lf-pp-emit outcome-ok ;
 : lfb-assign. ( x -- outcome )
-  drop tb tb-term @ lfb-indented. ['] lfb-occurs. ok-and ['] lfb-the-goal. ok-and ;
+  drop tb tb-term @ lf-tac-indented. ['] lfb-occurs. ok-and ['] lfb-the-goal. ok-and ;
 : lfb-unassignable ( -- ) ['] lfb-assign. lfa-e-tac-assign lfb-failed ;
 : lfb-in-scope ( e -- e ) dup ['] lfb-outside? lfb-holds? if lfb-unassignable then ;
 : lfb-close ( e -- )
@@ -306,7 +308,7 @@ defer lf-tac-elab ( node expected -- term outcome )
 : lfb-rhs. ( -- outcome )
   s\" \nis not definitionally equal to the right-hand side\n" tb tb-type @ lfb-line. ;
 : lfb-rfl. ( x -- outcome )
-  drop tb tb-term @ lfb-indented. ['] lfb-rhs. ok-and ['] lfb-the-goal. ok-and ;
+  drop tb tb-term @ lf-tac-indented. ['] lfb-rhs. ok-and ['] lfb-the-goal. ok-and ;
 : lfb-sides-hold? ( -- flag )
   tb tb-term @ ['] lfb-hole? lfb-holds? tb tb-type @ ['] lfb-hole? lfb-holds? or ;
 : lfb-unequal ( -- )

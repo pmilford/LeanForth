@@ -36,7 +36,7 @@
 \   xt -- j*x ) runs xt between the two (its results must not be keys).
 \ - lf-dt-const? ( head -- const true | false ): a constant head;
 \   lf-dt-const-decl ( const -- d true | false ): its declaration in the
-\   data's stage (elab-decl-of).
+\   data's stage (meta-env.fs's lf-menv-data-decl, fed or run mode).
 \ reduceDT (Main.lean:200-244) is whnfCore, unfoldDefinition? and strict
 \ eta, repeated. unfoldDefinition? acts on a definition the transparency
 \ unfolds, which needs smart unfolding's facts (S1 appendix D, plan S2):
@@ -109,7 +109,7 @@ end-structure
 \ ---- Names and shapes (Lean's constant names, by text).
 : dk-head ( -- head ) dk dk-h @ ;
 : dk-e ( -- e ) dk dk-term @ ;
-: lf-dt-const-decl ( const -- d true | false ) lf-const-name elab-decl-of ;
+: lf-dt-const-decl ( const -- d true | false ) lf-const-name lf-menv-data-decl ;
 : lf-dt-const? ( head -- const true | false )
   dup lf-term-const? if true else drop false then ;
 : dk-last ( e -- a ) lf-term-second@ ;
@@ -150,8 +150,8 @@ end-structure
 : dk-lit-key ( u -- k outcome )
   elab-key-lit dk-new ok-then? 0= if nip no-result exit then
   tuck >r dk-digits r> dk-text ;
-: dk-declared ( name -- d outcome ) elab-decl-of if outcome-ok else -1 outcome-invalid
-  then ;
+: dk-declared ( name -- d outcome )
+  lf-menv-data-decl if outcome-ok else -1 outcome-invalid then ;
 : dk-ref-key ( d n tag -- k outcome )
   dk-new ok-then? 0= if nip nip no-result exit then
   tuck elab-key-arity! tuck elab-key-ref! outcome-ok ;
@@ -248,7 +248,7 @@ end-structure
 \ A projection (Main.lean:290-299): its structure goes on before the
 \ arguments; under mkPath a class's structure is no_index, a star.
 : dk-class-struct? ( leaf -- flag )
-  lf-proj-name elab-decl-of if elab-class-of dup if nip then else false then ;
+  lf-proj-name lf-menv-data-decl if elab-class-of dup if nip then else false then ;
 : dk-struct ( proj -- term )
   dup lf-proj-struct swap lf-proj-leaf dk-class-struct? dk dk-path @ and
   if drop lf-dt-star then ;
@@ -272,7 +272,7 @@ end-structure
 : dk-match-span ( m -- from to ) elab-matcher@ rot drop swap 1+ tuck + ;
 : dk-match-arity ( m -- n ) dup elab-matcher-alts nip swap elab-matcher@ rot drop + 1+ + ;
 : dk-matcher ( d -- m true | false )
-  lf-menv-name elab-decl-of if elab-matcher-of else false then ;
+  lf-menv-name lf-menv-data-decl if elab-matcher-of else false then ;
 : dk-matcher-stuck? ( d -- flag )
   dk-matcher 0= if false exit then
   dup dk-match-arity dk dk-n @ > if drop false else dk-match-span dk-mvar-in? then ;

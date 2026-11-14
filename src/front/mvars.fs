@@ -106,7 +106,8 @@
 \ ( level value -- outcome ), lf-mvar-occurs? ( mvar term -- flag outcome ),
 \ lf-level-mvar-occurs?, lf-level-assignable-mvar? ( level -- flag
 \ outcome ), lf-level-stale-mvar?, lf-level-instantiate-mvars ( level -- level'
-\ outcome ), lf-instantiate-mvars ( term -- term' outcome ), lf-depends-on?.
+\ outcome ), lf-instantiate-mvars ( term -- term' outcome ),
+\ lf-mvar-type-instantiated ( mvar -- type outcome ), lf-depends-on?.
 \ State: the record mctx (the current view, three walk records of
 \ dag-walk.fs and the spine table, heap blocks that live only while a walk
 \ runs), the stores mv-exprs, mv-levels and mv-fvars and the slabs
@@ -812,6 +813,10 @@ end-structure
 : lf-instantiate-mvars ( term -- term' outcome )
   mv-spine-block 0= if drop -1 outcome-full exit then
   mv-inst-run mctx mctx-spine heap-release ;
+\ A metavariable's type, instantiated (Lean's instantiateMVars
+\ (<- mvarId.getType)); invalid for one that is not live.
+: lf-mvar-type-instantiated ( mvar -- type outcome )
+  lf-mvar-type 0= if -1 outcome-invalid exit then lf-instantiate-mvars ;
 
 \ ---- Dependencies, Lean's exprDependsOn (MetavarContext.lean, DependsOn):
 \ the term is instantiated first (Lean visits an assigned metavariable's

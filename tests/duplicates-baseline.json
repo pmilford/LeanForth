@@ -19,6 +19,16 @@
   "reason": "false positive: `n 0 ?do i x loop` over different counts and steps",
   "tokens": 6
  },
+ "023c14bd188d": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/elab-app.fs:ea-take-term",
+   "src/front/elab-pending.fs:ep-b-taken"
+  ],
+  "reason": "planned: 9.4.8k front batch (s1-elab's words, came with main's merge of s1-elab)",
+  "tokens": 14
+ },
  "0255f35c17e8": {
   "copies": 2,
   "kind": "shape",
@@ -209,9 +219,9 @@
   "kind": "shape",
   "members": [
    "src/front/elab-data.fs:ed-body-name",
+   "src/front/elab-term.fs:et-op-finish",
    "src/front/infer.fs:if-get-level",
    "src/front/infer.fs:lf-get-level",
-   "src/front/synth.fs:sy-key-for",
    "src/front/unfold.fs:uf-delta-beta",
    "src/kernel/reduce-nat.fs:lf-rn-named"
   ],
@@ -605,6 +615,16 @@
   "reason": "false positive: the guarded test `x-tag if zero = else false then` of a view and of a level, different readers",
   "tokens": 7
  },
+ "41c780bc6e5c": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/elab-app.fs:lf-elab-ensure",
+   "src/kernel/env-schedule.fs:lf-sch-root"
+  ],
+  "reason": "planned: 9.4.8k guard word (one word in lib/outcome.fs for `dup 0< if drop outcome-ok else xt then`, from review s1-elab; the kernel member under [kernel])",
+  "tokens": 8
+ },
  "463da21283da": {
   "copies": 2,
   "kind": "shape",
@@ -616,10 +636,12 @@
   "tokens": 17
  },
  "465b1376b48b": {
-  "copies": 3,
+  "copies": 5,
   "kind": "shape",
   "members": [
    "src/cli/check-run.fs:ck-left",
+   "src/front/elab-pending.fs:ep-synth-failed",
+   "src/front/elab-term.fs:et-coe-at",
    "src/kernel/defeq.fs:lf-lz-unknown",
    "src/present/log-check.fs:lf-lc-declaration?"
   ],
@@ -831,6 +853,16 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 17
+ },
+ "57de781fb2f7": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/elab-pending.fs:ep-t-kind",
+   "src/front/elab-term.fs:et-am-kind"
+  ],
+  "reason": "planned: 9.4.8k front batch (s1-elab's words, came with main's merge of s1-elab)",
+  "tokens": 7
  },
  "5861f8e38f7b": {
   "copies": 2,
@@ -1274,6 +1306,16 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
  },
+ "82ea3a350107": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/elab-app.fs:ea-inst-drop",
+   "src/front/elab-pending.fs:ep-remove"
+  ],
+  "reason": "planned: 9.4.8k front batch (s1-elab's words, came with main's merge of s1-elab)",
+  "tokens": 6
+ },
  "8325cf7f4ee1": {
   "copies": 2,
   "kind": "shape",
@@ -1283,6 +1325,16 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 8
+ },
+ "8420fb188ea1": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/elab-pending.fs:ep-b-fill",
+   "src/front/elab-term.fs:et-eo-fill"
+  ],
+  "reason": "planned: 9.4.8k front batch (s1-elab's words, came with main's merge of s1-elab)",
+  "tokens": 14
  },
  "8491f708aaaa": {
   "copies": 2,
@@ -1497,6 +1549,16 @@
   "reason": "accepted: a count read and clamped, `@ 0 max capacity min`, each its own field and capacity; the idiom is shorter than a clamp word's call",
   "tokens": 7
  },
+ "91515f88b12a": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/elab-app.fs:lf-elab-app-new",
+   "src/front/elab-term.fs:et-eo-new"
+  ],
+  "reason": "planned: 9.4.8k front batch (s1-elab's words, came with main's merge of s1-elab)",
+  "tokens": 14
+ },
  "929af6c198ed": {
   "copies": 2,
   "kind": "shape",
@@ -1671,6 +1733,16 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 8
  },
+ "a269d6e7faf8": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/elab-term.fs:et-coerced",
+   "src/kernel/environment.fs:lf-axd-ready"
+  ],
+  "reason": "false positive: `x? if outcome-ok else y then`, a guarded step with unrelated tests and steps (the elaborator's coercion, the kernel's axiom-row reset)",
+  "tokens": 6
+ },
  "a53c96283e2c": {
   "copies": 5,
   "kind": "shape",
@@ -1844,12 +1916,13 @@
   "tokens": 9
  },
  "b441222231c7": {
-  "copies": 19,
+  "copies": 20,
   "kind": "shape",
   "members": [
    "src/cli/leanforth.fs:cli-fed-report",
    "src/cli/leanforth.fs:cli-reexported",
    "src/core/names.fs:lf-name-ops",
+   "src/front/elab-app.fs:ea-strict",
    "src/front/instantiate.fs:in-leaf",
    "src/front/tactic-basic.fs:lfb-types.",
    "src/import/run-replay.fs:rp-verdict-code",
@@ -1921,9 +1994,10 @@
   "tokens": 20
  },
  "bdc10859317a": {
-  "copies": 3,
+  "copies": 4,
   "kind": "shape",
   "members": [
+   "src/front/elab-pending.fs:ep-found",
    "src/front/mvars.fs:mv-pair-build",
    "src/front/mvars.fs:mv-build",
    "src/kernel/level-substitute.fs:lf-lsubst-dispatch"
@@ -2082,9 +2156,10 @@
   "tokens": 7
  },
  "c5df28d2b77a": {
-  "copies": 2,
+  "copies": 3,
   "kind": "shape",
   "members": [
+   "src/front/elab-pending.fs:lf-elab-note",
    "src/kernel/environment.fs:lf-env-noted",
    "src/program/ir-reader.fs:ir-stop"
   ],
@@ -2130,6 +2205,20 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after the front branches merge; came with main's s2-unfold and s1-synth-b)",
   "tokens": 7
+ },
+ "c785f98ba48a": {
+  "copies": 6,
+  "kind": "shape",
+  "members": [
+   "src/front/elab-app.fs:ea-xn",
+   "src/front/elab-app.fs:ea-paramidx",
+   "src/front/elab-app.fs:ea-insts#",
+   "src/front/elab-data.fs:ed-params-read",
+   "src/front/elab-pending.fs:ep-defs#",
+   "src/front/elab-pending.fs:ep-goals#"
+  ],
+  "reason": "planned: 9.4.8k front batch (s1-elab's words, came with main's merge of s1-elab)",
+  "tokens": 6
  },
  "c7f1814e616e": {
   "copies": 2,
@@ -2244,9 +2333,10 @@
   "tokens": 6
  },
  "ce6289a7e339": {
-  "copies": 3,
+  "copies": 4,
   "kind": "shape",
   "members": [
+   "src/front/elab-decl.fs:edc-must",
    "src/front/level-params.fs:lp-l-result",
    "src/front/level-params.fs:lp-remapped",
    "src/front/mvars.fs:mv-remapped"
@@ -2702,16 +2792,6 @@
   ],
   "reason": "planned: 9.4.8k follow-up 6, a slab.fs word holding two slabs to one count (slab.fs is in flight in s1-elab)",
   "tokens": 12
- },
- "f2b65c0aa60a": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/fun-info.fs:fi-strip",
-   "src/front/instances.fs:it-past-pis"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 6
  },
  "f2e0f3bc4eaa": {
   "copies": 2,

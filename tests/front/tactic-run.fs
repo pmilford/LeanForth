@@ -95,8 +95,10 @@ variable a-level   \ the level the stand-in made for Type
 : const-level ( t -- level ) lf-term-first@ lf-cref-slot lf-cref-pairs drop 0 lf-cref-pair@ drop ;
 : sorry-app ( -- t ) va lf-term-second@ ;   \ sorryAx.{u} #0 Bool.false
 
-\ ---- 1. No statement elaborator (plan FE1e): error 71 at end, as for a
-\ term proof; a tactic proof with no step, the same.
+\ ---- 1. The runner's own default with no statement elaborator set
+\ (front/elab-decl.fs sets one): error 71 at end, as for a term proof; a
+\ tactic proof with no step, the same.
+' lfr-unelaborated stating
 T{ s" by-sorry end t" proof nrun err -> outcome-unsupported 71 1 52 }T
 T{ s" end t" proof nrun err -> outcome-unsupported 71 1 43 }T
 
@@ -356,7 +358,7 @@ T{ 0 lf-tac-commit lf-tac-forget max-n /tsv / saves-most lfr-saves -> outcome-ok
 \ throws (review fe1g3 L10).
 2variable settings
 : throws ( x -- outcome ) drop -78 throw ;
-T{ lf-print-settings settings 2! 0 ' throws ' 2drop ' lfr-printed catch nip nip nip -> -78 }T
+T{ lf-print-settings settings 2! 0 ' throws ' 2drop ' lf-print-with catch nip nip nip -> -78 }T
 T{ lf-print-settings settings 2@ d= -> true }T
 
 \ ---- 5. Room for an open part's text or an error's detail used up (a

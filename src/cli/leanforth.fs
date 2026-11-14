@@ -135,6 +135,8 @@ require ./name-text.fs
 require ./check-run.fs
 require ./check-lf.fs
 require ./check-json.fs
+require ../front/meta-config.fs
+require ../front/elab-decl.fs
 
 100000000 constant cli-default-fuel   \ fuel of each declaration's check
 : cli-version-text ( -- c-addr u ) s" 0.1.0-dev" ;   \ LeanForth's version
@@ -179,6 +181,8 @@ begin-structure /cli-run
                                 \ (--memory-per-check); 0: no limit
   2 cells +field opt-env        \ the library export of a LeanForth text (--env), or 0 0
   2 cells +field opt-elab       \ the library's elaboration data (--elab-data), or 0 0
+  field: opt-elab-fuel          \ elaboration steps of a declaration (--elab-fuel)
+  field: opt-elab-fuel-given    \ true: --elab-fuel was given
 end-structure
 /cli-run context-record: cli-state
 manifest: cli-manifest
@@ -1038,8 +1042,15 @@ variable cli-info#
 \ (front/tactic-run.fs; ADR 0021 Amendment 1: the JSON report's fields
 \ wait for the owner's [format] decision).
 : cli-open-parts ( -- ) cli-json? 0= if lf-open-parts. then ;
+\ A text of only #check lines (plan S1; front/elab-decl.fs): nothing for
+\ the kernel to check, which a text with no declaration of its own is
+\ told (error 49); as Lean, exit 0, the terms printed as the text ran.
+: cli-checks-only? ( -- flag )
+  lfc-failed? lf-author-code lfa-e-nothing = and lf-elab-checks 0> and ;
+: cli-checks-only ( -- ) ." nothing checked by the kernel" cr ;
 : cli-text-report ( -- )
   lfc-elab-failed? if cli-elab-error exit then
+  cli-checks-only? if cli-checks-only exit then
   lfc-failed? if cli-text-error exit then lfc-refused? if cli-records-error exit then
   cli-fed-tally cli-fed-report cli-open-parts ;
 \ --jobs N with a text: no worker can share the run's input (the words'
@@ -1058,9 +1069,12 @@ variable cli-info#
   cli-snapshot? 0= if cli-text-load exit then
   cli-layers cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-import
   dup ok? if drop cli-text-load then ;
+: cli-elab-fuel-set ( -- )
+  cli-state opt-elab-fuel-given @ if cli-state opt-elab-fuel @ else lf-meta-default-budget
+  then lf-elab-fuel! ;
 : cli-text-run ( -- )
-  lfc-fresh cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check then
-  cli-text-report ;
+  cli-elab-fuel-set lfc-fresh cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check
+  then cli-text-report ;
 : cli-text-misused? ( -- flag )
   cli-record? cli-save? or cli-json? or cli-snapshot? cli-library-file nip 0<> and or ;
 : cli-text-misuse ( -- code )
@@ -1081,8 +1095,11 @@ variable cli-info#
 : cli-elab-misuse ( -- code | 0 )
   cli-elab-alone? if cli-elab-alone exit then
   cli-elab-layered? if cli-elab-layers exit then 0 ;
+: cli-elab-fuel-misplaced? ( -- code true | false )
+  cli-state opt-elab-fuel-given @ 0= if false exit then
+  s" --elab-fuel goes only with a LeanForth text (FILE.lf)" cli-misuse-snap true ;
 : cli-elab-misplaced? ( -- code true | false )
-  cli-state opt-elab @ 0= if false exit then
+  cli-state opt-elab @ 0= if cli-elab-fuel-misplaced? exit then
   s" --elab-data goes only with a LeanForth text (FILE.lf)" cli-misuse-snap true ;
 : cli-text-refused ( -- code | 0 )
   cli-text-misused? if cli-text-misuse exit then
@@ -1368,10 +1385,12 @@ variable cli-info#
   ."       the same for a small export, and write its run record to RECORD" cr
   ."   check [--env EXPORT | --snapshot FILE] [--fuel N] [--resources] [--jobs N]" cr
   ."         [--strict-axioms] [--no-manifest] [--memory-per-check MB]" cr
-  ."         [--elab-data DATA] FILE.lf" cr
+  ."         [--elab-data DATA] [--elab-fuel N] FILE.lf" cr
   ."       check a LeanForth text, against Lean's library EXPORT or a snapshot" cr
   ."       FILE of one: its declarations built by the words, checked as an export's;" cr
-  ."       DATA: the library's elaboration data (scripts/export-elab.sh)" cr ;
+  ."       DATA: the library's elaboration data (scripts/export-elab.sh); N: the" cr
+  ."       elaborator's steps per declaration (default 100000000; out of them:" cr
+  ."       exit 3); a text of only #check lines checks nothing and exits 0" cr ;
 : cli-engine-usage. ( -- )
   ."   check, replay and print run on gforth-fast, the default engine; --checked" cr
   ."       runs Gforth's checking engine instead, about 2.4 times slower, which" cr
@@ -1513,6 +1532,16 @@ end-structure
 : cli-text! ( c-addr u addr -- ) >r cli-value if r> 2! else r> drop then ;
 : cli-env-option ( c-addr u -- ) cli-state opt-env cli-text! ;
 : cli-elab-option ( c-addr u -- ) cli-state opt-elab cli-text! ;
+\ --elab-fuel N (plan S1, S1_INTERFACE.md 8): the front end's steps per
+\ declaration (elaboration, synthesis, unification, whnf, tactic steps),
+\ at most cli-fuel-most; --fuel stays the kernel's.
+: cli-elab-fuel-value ( c-addr u n -- )
+  dup cli-fuel-most > if drop c" an elaboration fuel above 9007199254740991" cli-wrong
+    exit then
+  cli-state opt-elab-fuel ! 2drop true cli-state opt-elab-fuel-given ! ;
+: cli-elab-fuel-option ( c-addr u -- )
+  cli-value 0= if exit then 2dup cli-decimal
+  if cli-elab-fuel-value else c" not an elaboration fuel amount" cli-wrong then ;
 \ The first --snapshot names the base, each further one a layer on it, in
 \ order (plan step SN4); their names are kept in a heap block that grows.
 : cli-layers-room ( n -- outcome ) 2* cells cli-state opt-layers block-resize ;
@@ -1595,6 +1624,7 @@ create cli-option-table
   ' cli-per-check-option takes-memory 0 cli-entry, --memory-per-check
   ' cli-env-option takes-env 0 cli-entry, --env
   ' cli-elab-option takes-elab 0 cli-entry, --elab-data
+  ' cli-elab-fuel-option takes-elab 0 cli-entry, --elab-fuel
   0 ,
 : cli-takes? ( entry -- flag ) cli-entry-first @ cli-state arg-set @ and 0<> ;
 : cli-taken ( c-addr u entry -- )
