@@ -314,16 +314,12 @@ variable lf-sched-faults  0 lf-sched-faults !
 \ A member's names: its own, its type's and value's, and its inductive
 \ data's (a type's all and ctors, a constructor's type, a recursor's all
 \ and each rule's constructor and right side).
-: lf-sch-list ( items n -- outcome )
-  outcome-ok swap 0 ?do
-    ok-then? 0= if unloop exit then dup i cells + @ lf-sch-name
-  loop nip ;
+: lf-sch-item ( items i -- items outcome ) cells over + @ lf-sch-name ;
+: lf-sch-list ( items n -- outcome ) ['] lf-sch-item ok-each nip ;
 : lf-sch-rule ( rule -- outcome )
   dup lf-irule-ctor lf-sch-name ok-then? 0= if exit then lf-irule-rhs lf-sch-root ;
-: lf-sch-rules ( data -- outcome )
-  lf-irc-rules@ outcome-ok swap 0 ?do
-    ok-then? 0= if unloop exit then dup i lf-irc-rule lf-sch-rule
-  loop nip ;
+: lf-sch-rule-at ( rules i -- rules outcome ) over swap lf-irc-rule lf-sch-rule ;
+: lf-sch-rules ( data -- outcome ) lf-irc-rules@ ['] lf-sch-rule-at ok-each nip ;
 : lf-sch-type-data ( data -- outcome )
   dup lf-ity-all@ lf-sch-list ok-then? 0= if exit then lf-ity-ctors@ lf-sch-list ;
 : lf-sch-rec-data ( data -- outcome )
@@ -350,15 +346,11 @@ variable lf-sched-faults  0 lf-sched-faults !
   lf-hdr-first lf-more-field = ;
 : lf-sch-span ( u -- n )
   dup 1+ begin 2dup swap lf-sch-member-of? while 1+ repeat swap - ;
-: lf-sch-members ( u -- outcome )
-  dup lf-sch-span over + swap outcome-ok -rot ?do
-    dup ok? 0= if unloop exit then drop i lf-sch-member
-  loop ;
+: lf-sch-member-at ( u k -- u outcome ) over + lf-sch-member ;
+: lf-sch-members ( u -- outcome ) dup lf-sch-span ['] lf-sch-member-at ok-each nip ;
+: lf-sch-builtin-name ( i -- outcome ) lf-sched lf-sch-builtins lf-sch-cell@ lf-sch-name ;
 : lf-sch-builtins-add ( -- outcome )
-  outcome-ok lf-sched lf-sch-builtins slab-count 0 ?do
-    dup ok? 0= if unloop exit then drop
-    i lf-sched lf-sch-builtins lf-sch-cell@ lf-sch-name
-  loop ;
+  lf-sched lf-sch-builtins slab-count ['] lf-sch-builtin-name ok-each ;
 
 \ The slots a name gives the set of declaration u: every declaration of
 \ that name below u, and of the type whose generated recursor the name
@@ -396,10 +388,7 @@ variable lf-sched-faults  0 lf-sched-faults !
 : lf-sch-plan-one ( u -- outcome )
   dup lf-sch-starts! dup lf-env-trailing?
   if lf-sch-trailing swap lf-sch-state! outcome-ok else lf-sch-unit then ;
-: lf-sch-plan-all ( -- outcome )
-  outcome-ok lf-sch-n 0 ?do
-    dup ok? 0= if unloop exit then drop i lf-sch-plan-one
-  loop ;
+: lf-sch-plan-all ( -- outcome ) lf-sch-n ['] lf-sch-plan-one ok-each ;
 \ The ends: entry n of the starts.
 : lf-sch-ends! ( -- ) lf-sch-n lf-sch-starts! ;
 

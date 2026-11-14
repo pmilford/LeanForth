@@ -283,10 +283,10 @@ defer lf-whnf-known ( node visit -- flag true | false )
 \ normal form, one contraction at a time.
 : lf-whnf-arg-open? ( frames i -- frames flag outcome )
   lf-whnf-arg @ over lf-whnf-loose? ;
+: lf-whnf-arg-at? ( frames k j -- frames k flag outcome )
+  over + swap >r lf-whnf-arg-open? r> -rot ;
 : lf-whnf-open-args? ( k m frames -- flag outcome )
-  -rot over + swap ?do i lf-whnf-arg-open? ok-then? 0= if nip false swap unloop exit then
-    if drop true outcome-ok unloop exit then
-  loop drop false outcome-ok ;
+  -rot ['] lf-whnf-arg-at? ok-any? 2swap 2drop ;
 : lf-whnf-instantiated ( result id status -- result outcome )
   dup ok? if nip else nip nip no-result then ;
 : lf-whnf-put1 ( body arg frames -- node outcome )

@@ -353,8 +353,8 @@ defer lf-lv-level ( ref -- level true | false )
   >r dup lf-level-identity 0= if 0 then swap r> lf-lv-pair-cells slab-at 2! ;
 : lf-lv-arg ( offset i -- flag )
   tuck + lf-log-arg-ref lf-lv-level if swap lf-lv-pair! true else drop false then ;
-: lf-lv-args ( offset count -- flag )
-  0 ?do dup i lf-lv-arg 0= if drop false unloop exit then loop drop true ;
+: lf-lv-arg-at ( offset i -- offset flag ) over swap lf-lv-arg ;
+: lf-lv-args ( offset count -- flag ) ['] lf-lv-arg-at all? nip ;
 \ Room for count levels, and the levels of the arguments from offset on.
 : lf-lv-levels? ( offset count -- flag )
   dup lf-lv-pair-cells slab-hold ok? if lf-lv-args else 2drop false then ;
@@ -420,8 +420,8 @@ defer lf-lv-level ( ref -- level true | false )
   2dup lf-lv-add if lf-lv-made! true else 2drop false then ;
 : lf-lv-ready ( k kind -- flag )
   2dup lf-lv-made-at @ -1 = if lf-lv-build dup if nip then else 2drop true then ;
-: lf-lv-built? ( k kind -- flag )
-  swap 1+ 0 ?do i over lf-lv-ready 0= if drop false unloop exit then loop drop true ;
+: lf-lv-ready-at ( kind i -- kind flag ) over lf-lv-ready ;
+: lf-lv-built? ( k kind -- flag ) swap 1+ ['] lf-lv-ready-at all? nip ;
 : lf-lv-unmark ( k kind -- ) swap 1+ 0 ?do i over lf-lv-made-at lf-lv-unmarked loop drop ;
 : lf-lv-new ( k kind -- node true | false )
   2dup lf-lv-marked ok? if 2dup lf-lv-built? if lf-lv-made-at lf-lv-made? exit then then

@@ -320,10 +320,8 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 : put-slot ( j snap -- outcome )
   2dup snap-slot -rot tuck snap-e swap >r tuck slot-env put-env swap
   r> snap-facts @ execute >r sl-fuel 2 pick fld2! r@ put-step r> put-site nip ;
-: put-slots ( snap -- outcome )
-  dup snap-wn@ 0 ?do
-    i over put-slot dup ok? 0= if nip unloop exit then drop
-  loop drop outcome-ok ;
+: put-slot-at ( snap i -- snap outcome ) over put-slot ;
+: put-slots ( snap -- outcome ) dup snap-wn@ ['] put-slot-at ok-each nip ;
 \ The dependencies and lookups, each slot's in turn, slots numbered as
 \ written (snap-s): an answer's slot + 1 field.
 : answer-renum ( answer snap -- answer' )

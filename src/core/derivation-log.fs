@@ -780,8 +780,8 @@ create lf-log-level-copier
 : lf-log-arg-copy ( cref crid i -- flag )
   lf-cref-level 0= if 0 lf-log-unreadable exit then
   lf-log-level-ref if lf-log-arg+ true else false then ;
-: lf-log-args-copy ( cref crid count -- flag )
-  0 ?do 2dup i lf-log-arg-copy 0= if 2drop false unloop exit then loop 2drop true ;
+: lf-log-arg-copy-at ( cref crid i -- cref crid flag ) >r 2dup r> lf-log-arg-copy ;
+: lf-log-args-copy ( cref crid count -- flag ) ['] lf-log-arg-copy-at all? nip nip ;
 : lf-log-cref-args ( cref crid count -- offset true | false )
   dup lf-log-args-room? 0= if drop 2drop lf-log-refs-full exit then
   lf-log-state lf-logs-args @ >r lf-log-args-copy if r> true else r> drop false then ;

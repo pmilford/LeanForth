@@ -94,10 +94,10 @@ lf-level-walk-room context-walk: lf-lsubst-walker
 : lf-lsubst-input ( i walk -- outcome )
   over lf-lsubst-new-formal? if swap lf-lsubst-actual@ swap lf-lscope-walk-check
   else 2drop outcome-invalid then ;
+: lf-lsubst-input-at ( walk i -- walk outcome ) over lf-lsubst-input ;
 : lf-lsubst-inputs ( walk -- outcome )
   lf-lscope-context-valid? 0= if drop-invalid exit then
-  lf-lsubst-count @ 0 ?do
-    i over lf-lsubst-input dup ok? 0= if nip unloop exit then drop loop drop outcome-ok ;
+  lf-lsubst-count @ ['] lf-lsubst-input-at ok-each nip ;
 
 \ The source walk: shape as in level-scope, except that a parameter must be
 \ a formal, and children are visited first child first. The first time
@@ -242,11 +242,10 @@ lf-level-walk-room context-walk: lf-lsubst-walker
 : lf-lsubst-sorted ( -- outcome )
   0 lf-lsubst-reached-cells slab-at lf-lsubst-reached @ lf-lsubst-sorter sort-records
   dup outcome-full = if lf-lsubst-reached @ lf-lsubst-crowded drop then ;
+: lf-lsubst-build-at ( i -- outcome ) lf-lsubst-node lf-lsubst-build-node ;
 : lf-lsubst-build ( -- outcome )
   lf-lsubst-sorted dup ok? 0= if exit then drop
-  lf-lsubst-reached @ 0 ?do
-    i lf-lsubst-node lf-lsubst-build-node dup ok? 0= if unloop exit then drop
-  loop outcome-ok ;
+  lf-lsubst-reached @ ['] lf-lsubst-build-at ok-each ;
 : lf-lsubst-setup ( -- ) ['] sort-signed lf-lsubst-sorter sorter-cells drop ;
 ' lf-lsubst-setup context-setup
 

@@ -249,17 +249,15 @@ end-structure
 
 \ ---- Levels, in number order; number 0 is level zero, the store's 0. A
 \ store that refuses a node is full; a level of another kind is invalid.
-: feed-made ( index true | false -- index outcome )
-  if outcome-ok else -1 outcome-full then ;
 : feed-a ( l feed -- index ) tuck feed-tier level-a@ swap feed-level@ ;
 : feed-b ( l feed -- index ) tuck feed-tier level-b@ swap feed-level@ ;
 : feed-two ( l feed -- left right ) 2dup feed-a -rot feed-b ;
 : feed-level-made ( l feed -- index outcome )
   2dup feed-tier level-tag@ case
-    tag-level-succ of feed-a lf-level-succ feed-made endof
-    tag-level-max of feed-two lf-level-max feed-made endof
-    tag-level-imax of feed-two lf-level-imax feed-made endof
-    tag-level-param of feed-tier level-name@ lf-level-param feed-made endof
+    tag-level-succ of feed-a lf-level-succ room-result endof
+    tag-level-max of feed-two lf-level-max room-result endof
+    tag-level-imax of feed-two lf-level-imax room-result endof
+    tag-level-param of feed-tier level-name@ lf-level-param room-result endof
     >r 2drop -1 outcome-invalid r> endcase ;
 : feed-level ( l feed -- outcome )
   2dup feed-level-made dup ok? if drop -rot feed-level! outcome-ok

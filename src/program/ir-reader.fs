@@ -477,8 +477,7 @@ end-structure
 \ does not matter; loading stops if a slot is left empty.
 : ir-table ( n "name" -- ) create 0 ?do 0 , loop ;
 : ir-act! ( xt index table -- ) ir-cell ! ;
-: ir-filled? ( table n -- flag )
-  0 ?do dup @ 0= if drop false unloop exit then cell+ loop drop true ;
+: ir-filled? ( table n -- flag ) 0 -rot cells-has? 0= ;
 \ Refuse the word of vocabulary index as unsupported, for reason.
 : ir-refuse ( index reason -- ) nip ir-unsupported ;
 

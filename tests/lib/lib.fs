@@ -101,6 +101,17 @@ T{ some-cells other-cells 5 ' cells= rs-checked -> false }T
 \ The header's example.
 create primes 2 , 3 , 5 , 7 ,   create odds 3 , 5 , 7 ,
 T{ primes cell+ odds 3 cells=  primes odds 3 cells= -> true false }T
+\ in-ranges?: x within one of n (lo, hi) pairs, both ends included; none
+\ for n <= 0; an empty pair (lo > hi) holds nothing; the header's example.
+create digits 48 , 57 ,  65 , 70 ,
+T{ char 7 digits 2 in-ranges?  char G digits 2 in-ranges?  char A digits 2 in-ranges? -> true false true }T
+T{ 48 digits 2 in-ranges? 57 digits 2 in-ranges? 47 digits 2 in-ranges? 58 digits 2 in-ranges?
+   -> true true false false }T
+T{ 70 digits 2 in-ranges? 70 digits 1 in-ranges? 50 digits 0 in-ranges? 50 digits -2 in-ranges?
+   -> true false false false }T
+create odd-ranges 5 , 3 ,  -9 , -7 ,  max-n , max-n ,
+T{ 4 odd-ranges 1 in-ranges? -8 odd-ranges 2 in-ranges? max-n odd-ranges 3 in-ranges? -> false true true }T
+T{ digits 1 range-at char 5 digits 2 ' in-ranges? rs-checked -> 65 70 true }T
 
 \ cells-zero?: any nonzero cell in range makes it false.
 create zero-cells 3 cells allot
@@ -592,6 +603,37 @@ T{ 0 6 ' test-ko ' ok-alled rs-checked -> 0 false outcome-full 12345 }T
 : test-fail ( k -- flag outcome ) drop false outcome-exhausted ;
 : test-odd ( k -- flag outcome ) drop true 99 ;
 T{ 3 ' test-fail ok-all? 3 ' test-odd ok-all? -> false outcome-exhausted false 99 }T
+
+\ ok-found?: stop at true and ok, or at any failure; go on after false and ok.
+T{ true outcome-ok ok-found? 1 outcome-ok ok-found? false outcome-ok ok-found?
+   -> true outcome-ok true true outcome-ok true false }T
+T{ true outcome-full ok-found? false outcome-unknown ok-found? 7 99 ok-found?
+   -> false outcome-full true false outcome-unknown true false 99 true }T
+\ ok-any?: the test ( i*x k -- i*x flag outcome ) until a true and ok
+\ answer or a failure: true and ok; false and the failure's outcome;
+\ false and ok when none holds. test-ka is true at 3, fails at 4.
+: test-ka ( x k -- x flag outcome )
+  dup step-trail @ 10 * + 1+ step-trail ! case
+    3 of true outcome-ok endof  4 of true outcome-full endof  false outcome-ok rot
+  endcase ;
+: ok-anyed ( x n xt -- x flag outcome trail ) 0 step-trail ! ok-any? step-trail @ ;
+T{ 1 3 ' test-ka ok-anyed 1 6 ' test-ka ok-anyed -> 1 false outcome-ok 123 1 true outcome-ok 1234 }T
+: test-k4 ( x k -- x flag outcome ) dup 3 = if drop false outcome-ok else test-ka then ;
+T{ 0 6 ' test-k4 ok-anyed -> 0 false outcome-full 1235 }T
+T{ 0 0 ' test-ka ok-anyed 0 -3 ' test-ka ok-anyed 0 max-n invert ' test-ka ok-anyed
+   -> 0 false outcome-ok 0 0 false outcome-ok 0 0 false outcome-ok 0 }T
+T{ 0 6 ' test-ka ' ok-anyed rs-checked -> 0 true outcome-ok 1234 }T
+\ A failing test's true flag never reads as found; an outcome outside the
+\ vocabulary stops the loop as a failure; a true other than -1 is true.
+: test-full ( k -- flag outcome ) drop true outcome-full ;
+: test-one-ok ( k -- flag outcome ) drop 1 outcome-ok ;
+T{ 3 ' test-full ok-any? 3 ' test-odd ok-any? 3 ' test-one-ok ok-any?
+   -> false outcome-full false 99 true outcome-ok }T
+\ Nested in ok-all?: every k < n has some j < k at 2 or above.
+: above-2? ( j -- flag outcome ) 2 > outcome-ok ;
+: some-above-2? ( k -- flag outcome ) ['] above-2? ok-any? ;
+T{ 3 ' some-above-2? ok-all? 5 ' some-above-2? ok-all? -> false outcome-ok false outcome-ok }T
+T{ 5 ' some-above-2? ok-any? -> true outcome-ok }T
 
 \ walk: refuses a capacity below 1.
 : bad-walk? ( addr u -- flag ) ['] evaluate catch dup if nip nip then 0<> ;

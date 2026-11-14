@@ -683,7 +683,7 @@ end-structure
 : power-fits? ( base e arena -- flag ) arena-limit @ 1- 0 max rot big-bits 1- / u> 0= ;
 : power-core ( base e arena -- c outcome )
   >r 2dup r@ power-fits? room-then? 0= if r> drop exit then
-  r> big-power dup ok? 0= if nip no-result then ;
+  r> big-power ok-or-none ;
 \ Whether a number is 0 or 1.
 : unit? ( big -- flag ) big>u if 2 u< else false then ;
 : pow-core ( base e arena -- c outcome )

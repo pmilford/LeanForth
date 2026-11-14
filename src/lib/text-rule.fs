@@ -143,19 +143,15 @@ create tr-unseen
   $1e4ec , $1e4ef ,  $1e8d0 , $1e8d6 ,  $1e944 , $1e94a ,  $e0000 , $e0fff ,
 here tr-unseen - 2 cells / constant tr-unseen#
 
-\ Whether code lies in one of the n ranges of table.
-: tr-range ( table k -- lo hi ) 2* cells + dup @ swap cell+ @ ;
-: tr-among? ( code table n -- flag )
-  0 ?do 2dup i tr-range between? if 2drop true unloop exit then loop 2drop false ;
 \ A code of -1 stands for bytes that are not UTF-8: banned, and not seen.
 : tr-seen? ( code -- flag )
-  dup 0< if drop false exit then tr-unseen tr-unseen# tr-among? 0= ;
+  dup 0< if drop false exit then tr-unseen tr-unseen# in-ranges? 0= ;
 
 lf-lib set-current
 \ Whether no text may hold the code point code (see the header); -1, for
 \ bytes that are not UTF-8, is banned too.
 : tr-banned? ( code -- flag )
-  dup 0< if drop true exit then tr-banned tr-banned# tr-among? ;
+  dup 0< if drop true exit then tr-banned tr-banned# in-ranges? ;
 
 lf-lib-private set-current
 \ The first character of c-addr u (bytes.fs's utf8-decode) and the rest;

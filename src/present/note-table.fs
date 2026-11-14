@@ -61,8 +61,8 @@ end-structure
 : lf-note-on? ( term i -- flag ) dup lf-note-live? if lf-note-term@ = else 2drop false
   then ;
 \ Does term carry any live entry?
-: lf-note-any? ( term -- flag )
-  lf-note-count 0 ?do dup i lf-note-on? if drop true unloop exit then loop drop false ;
+: lf-note-on-at? ( term i -- term flag ) over swap lf-note-on? ;
+: lf-note-any? ( term -- flag ) lf-note-count ['] lf-note-on-at? any? nip ;
 
 \ Adding an entry: the text is copied into the pool. A dead term or an
 \ unknown kind is invalid; a full table or pool is full. Either way
@@ -98,11 +98,11 @@ end-structure
 
 \ Is there a live label with this text among the entries from index from
 \ onwards? Labels must be unique within one declaration.
-: lf-note-label-at? ( c-addr u i -- flag )
-  dup lf-note-live? 0= if drop 2drop false exit then
-  dup lf-note-kind@ lf-note-label <> if drop 2drop false exit then
-  lf-note-text@ compare 0= ;
+: lf-note-label-at? ( c-addr u i -- c-addr u flag )
+  dup lf-note-live? 0= if drop false exit then
+  dup lf-note-kind@ lf-note-label <> if drop false exit then
+  lf-note-text@ 2over compare 0= ;
+: lf-note-label-from? ( c-addr u from k -- c-addr u from flag )
+  over + swap >r lf-note-label-at? r> swap ;
 : lf-note-label? ( c-addr u from -- flag )
-  0 max lf-note-count swap ?do 2dup i lf-note-label-at? if 2drop true unloop exit then
-    loop
-  2drop false ;
+  0 max lf-note-count over - ['] lf-note-label-from? any? nip nip nip ;

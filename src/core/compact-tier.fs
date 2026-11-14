@@ -139,14 +139,12 @@ end-structure
 : tier-pair ( mark tier i -- part cons ) tuck swap tier-family >r swap tier-mark-part r> ;
 \ Mark a scratch tier (or an input tier still being filled): ok; or, with
 \ a mark every rollback refuses, invalid or full.
-: tier-mark ( mark tier -- outcome )
-  tier-families 0 do
-    2dup i tier-pair cons-mark ok-then2? 0= if unloop exit then
-  loop 2drop outcome-ok ;
+: tier-mark-at ( mark tier k -- mark tier outcome ) >r 2dup r> tier-pair cons-mark ;
+: tier-mark ( mark tier -- outcome ) tier-families ['] tier-mark-at ok-each nip nip ;
+: tier-mark-valid-at? ( mark tier k -- mark tier flag )
+  >r 2dup r> tier-pair cons-mark-valid? ;
 : tier-mark-valid? ( mark tier -- flag )
-  tier-families 0 do
-    2dup i tier-pair cons-mark-valid? 0= if 2drop false unloop exit then
-  loop 2drop true ;
+  tier-families ['] tier-mark-valid-at? all? nip nip ;
 \ Give back every record made since the mark: ok; invalid with nothing
 \ changed for a mark that is not valid; or invalid after the rollback when
 \ a family's table missed an entry (corrupted).

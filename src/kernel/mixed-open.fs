@@ -345,7 +345,7 @@ defer lf-open-unchanged? ( node frames -- flag )
   lf-fvar-type -rot lf-abstract ;
 : lf-close-pi ( body fvars i -- body' outcome )
   lf-close-type ok-then? 0= if nip no-result exit then
-  swap lf-term-pi if outcome-ok else -1 outcome-full then ;
+  swap lf-term-pi room-result ;
 : lf-close-all ( body fvars n -- body' outcome )
   swap >r begin ?dup while
     1- tuck r@ swap lf-close-pi ok-keep? 0= if r> drop exit then swap

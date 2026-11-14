@@ -8,7 +8,8 @@
 \ outcome-and, outcome-steps, ok-and, ok-with, the ok-then and ok-keep
 \ words, and the loops ok-each and ok-fold; the tests over every index,
 \ all? (a flag) and ok-all? (a flag and an outcome), with ok-true? their
-\ stop test, and over some index, any?; outcome-first! keeps a first
+\ stop test, and over some index, any? and ok-any? (ok-found? its stop
+\ test); outcome-first! keeps a first
 \ failure in a cell; no-result, ok-or-none and room-result give a step's
 \ result with its outcome.
 \ No state, no dependencies.
@@ -130,6 +131,20 @@
 : ok-all? ( i*x n xt -- i*x flag outcome )
   dup 1+ swap ?do 0 max 0 ?do i j execute ok-true? 0= if unloop unloop exit then
   loop loop true outcome-ok ;
+\ Stop at a true answer that is ok (true, ok and true) or at any failure
+\ (false, its outcome and true, so a failure never reads as an answer);
+\ go on after a false answer that is ok (false). The stop test of ok-any?.
+: ok-found? ( flag outcome -- true outcome true | false outcome true | false )
+  dup ok? 0= if nip false swap true exit then drop 0<> dup if outcome-ok true then ;
+\ The same as any? for a test that may fail, xt ( i*x k -- i*x flag
+\ outcome ): true and ok at the first true answer that is ok; false and
+\ the outcome of the first failure; after either none runs; false and ok
+\ when no answer is true. n <= 0 gives false and ok. Example, whether an
+\ argument mentions the type: `node n k ' arg-mentions? ok-any? 2swap
+\ 2drop` with arg-mentions? ( node n i -- node n flag outcome ).
+: ok-any? ( i*x n xt -- i*x flag outcome )
+  dup 1+ swap ?do 0 max 0 ?do i j execute ok-found? if unloop unloop exit then
+  loop loop false outcome-ok ;
 \ Keep the first failure in a cell: store the outcome only while the cell
 \ holds ok, so a later outcome, ok or not, never hides an earlier failure.
 : outcome-first! ( outcome a-addr -- ) dup @ ok? if ! else 2drop then ;

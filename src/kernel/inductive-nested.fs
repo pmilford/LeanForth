@@ -137,7 +137,7 @@ end-structure
   0 lf-nest-site lf-diag-nested-shape lf-diag-note outcome-rejected no-result ;
 \ A node made by inductive-recursor.fs's builders (whose failure sticks
 \ until lf-rcr-begin): (node ok), or (-1 failure).
-: lf-nest-built ( node -- node outcome ) lf-rcr-status@ dup ok? 0= if nip no-result then ;
+: lf-nest-built ( node -- node outcome ) lf-rcr-status@ ok-or-none ;
 \ A constant name at the level pairs given.
 : lf-nest-const ( name pairs n -- node )
   >r >r lf-name-generation @ r> r> lf-cref-new lf-rcr-referenced ;
@@ -415,12 +415,10 @@ end-structure
   dup 0< if drop lf-nest-new ok-then? 0= if no-result exit then then lf-nest-aux-app ;
 \ Whether one of the first k of the n arguments of node's spine mentions
 \ a type of the block (on the block's fuel).
+: lf-nest-arg-mentions? ( node n i -- node n flag outcome )
+  >r 2dup r> lf-ind-arg lf-ind-occurrences ;
 : lf-nest-mentions? ( node n k -- flag outcome )
-  0 ?do
-    2dup i lf-ind-arg lf-ind-occurrences ok-then?
-    0= if nip nip false swap unloop exit then
-    if 2drop true outcome-ok unloop exit then
-  loop 2drop false outcome-ok ;
+  ['] lf-nest-arg-mentions? ok-any? 2swap 2drop ;
 \ An occurrence's I: a type Lean's environment holds (lf-env-find),
 \ inductive; its slot, or -1 for none (no inductive slot of that name
 \ before the block: Lean's find fails or finds no inductive type; none
@@ -585,8 +583,7 @@ end-structure
 : lf-nest-rule-back ( j -- outcome )
   dup lf-ind-rule @ lf-nest-restore ok-then? 0= if nip exit then
   swap lf-ind-rule ! outcome-ok ;
-: lf-nest-each ( xt n -- outcome )
-  0 ?do i over execute dup ok? 0= if nip unloop exit then drop loop drop outcome-ok ;
+: lf-nest-each ( xt n -- outcome ) swap ok-each ;
 : lf-nest-recs-back ( -- outcome ) ['] lf-nest-rec-back lf-ind-types@ lf-nest-each ;
 : lf-nest-rules-back ( -- outcome ) ['] lf-nest-rule-back lf-ind-ctors@ lf-nest-each ;
 \ After the recursors are built (step 12): restore them; ok at once for

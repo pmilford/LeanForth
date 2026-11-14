@@ -131,7 +131,7 @@ require ./whnf.fs
   dup lf-iproj-ctor ok-then? 0= if nip no-result exit then
   3 pick lf-iproj-at ok-then? 0= if nip no-result exit then
   swap lf-idecl-data lf-ity-params lf-more-field
-  0 ?do i lf-iproj-param ok-then? 0= if no-result unloop exit then loop outcome-ok ;
+  ['] lf-iproj-param ok-each ok-or-none ;
 \ P: whether Ty is a proposition.
 : lf-iproj-prop ( L E Ty P r -- L E Ty P' r outcome )
   nip over lf-iproj-prop? ok-then? 0= if >r drop 0 -1 r> exit then swap outcome-ok ;
@@ -156,9 +156,7 @@ require ./whnf.fs
   r> lf-term-second@ 4 pick 4 pick r> lf-iproj-mk ok-then? 0= if nip no-result exit then
   lf-minfer-instantiate ;
 : lf-iproj-fields ( L E Ty P r -- L E Ty P r' outcome )
-  4 pick lf-proj-idx 0 ?do
-    i lf-iproj-field ok-then? 0= if no-result unloop exit then
-  loop outcome-ok ;
+  4 pick lf-proj-idx ['] lf-iproj-field ok-each ok-or-none ;
 \ The projected field: r's whnf a Pi (else invalidProj), its domain.
 : lf-iproj-end ( L E Ty P r -- L E Ty P r' outcome )
   lf-minfer-whnf-job ok-then? 0= if no-result exit then

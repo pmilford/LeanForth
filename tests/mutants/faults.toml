@@ -113,8 +113,8 @@ reason = "CD: step 3 (L3) skipped; repeated universe parameters are accepted"
 [[fault]]
 id = "cd-last-step-skipped"
 file = "src/kernel/check-declaration.fs"
-old = '''  lf-check-table dup @ 0 ?do'''
-new = '''  lf-check-table dup @ 1- 0 ?do'''
+old = '''  lf-check-table dup @ ['] lf-check-do-at ok-each nip'''
+new = '''  lf-check-table dup @ 1- ['] lf-check-do-at ok-each nip'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "CD: the step loop stops one short and never compares the value's type"
 
@@ -651,8 +651,8 @@ reason = "an argument rejected by D1-D5 is no longer recorded with its rules (ap
 [[fault]]
 id = "infer-imax-zero"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-sort-cell @ swap lf-level-mk-imax if outcome-ok else -1 outcome-full then ;'''
-new = '''  lf-minfer-sort-cell @ swap lf-level-imax if outcome-ok else -1 outcome-full then ;'''
+old = '''  lf-minfer-sort-cell @ swap lf-level-mk-imax room-result ;'''
+new = '''  lf-minfer-sort-cell @ swap lf-level-imax room-result ;'''
 test = "$GFORTH tests/core/mixed-infer-coverage.fs"
 reason = "a Pi's sort is a raw imax, not Lean's mk_imax: a Pi into Prop gets Sort (imax u 0), not Sort 0 (re-targeted at Amendment 1's lf-minfer-pi-sort, then at plan task 4.2.2a's lf-minfer-imax)"
 
@@ -889,8 +889,8 @@ reason = "nodes of different kinds are compared as if they had the left one's ki
 [[fault]]
 id = "cmp-universe-args-skipped"
 file = "src/kernel/mixed-compare.fs"
-old = '''  lf-mcompare-arrays 0 ?do 2dup i lf-mcompare-arg lf-mcompare-level'''
-new = '''  lf-mcompare-arrays 0 ?do 2dup i lf-mcompare-arg 2drop outcome-ok'''
+old = '''  >r 2dup r> lf-mcompare-arg lf-mcompare-level ;'''
+new = '''  >r 2dup r> lf-mcompare-arg 2drop outcome-ok ;'''
 test = "$GFORTH tests/core/mixed-compare.fs"
 reason = "constants with different universe arguments compare equal"
 
@@ -2271,8 +2271,8 @@ reason = "rvIR3 L3: 'ab, 'a- and '>x are read as numbers, though both Gforths re
 [[fault]]
 id = "rv-collision-skips-first"
 file = "src/program/verify-semantics.fs"
-old = '''  pv-defs store-count @ 1- 0 ?do dup i pv-same-name? if drop true unloop exit then loop'''
-new = '''  pv-defs store-count @ 1- 1 max 1 ?do dup i pv-same-name? if drop true unloop exit then loop'''
+old = ''': pv-same-name-at? ( def index -- def flag ) over swap pv-same-name? ;'''
+new = ''': pv-same-name-at? ( def index -- def flag ) dup 0= if drop false exit then over swap pv-same-name? ;'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "rvIR3: the collision check ignores the file's first definition (: x'1 ; : x ; : X ;)"
 
@@ -3115,8 +3115,8 @@ reason = "a declaration holding an mdata expression is not marked, so the checke
 [[fault]]
 id = "stage-mark-rules-skipped"
 file = "src/import/stage.fs"
-old = '''    if 2drop true unloop exit then'''
-new = '''    if 2drop false unloop exit then'''
+old = '''  ['] rule-reach? any? nip nip ;'''
+new = '''  drop 0 ['] rule-reach? any? nip nip ;'''
 test = "$GFORTH tests/core/stage.fs"
 reason = "an mdata record reached only through a recursor rule's right-hand side leaves the recursor unmarked (review of the stage)"
 
@@ -3999,8 +3999,8 @@ reason = "a test log keeps the last check's published slot, so a printer can tak
 [[fault]]
 id = "printer-rebuilds-only-the-top"
 file = "src/present/log-view.fs"
-old = '''  swap 1+ 0 ?do i over lf-lv-ready 0= if drop false unloop exit then loop drop true ;'''
-new = '''  lf-lv-ready ;'''
+old = ''': lf-lv-built? ( k kind -- flag ) swap 1+ ['] lf-lv-ready-at all? nip ;'''
+new = ''': lf-lv-built? ( k kind -- flag ) lf-lv-ready ;'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "the rebuild of a copy (plan task 6.2.0) builds only the copy asked for, not the copies below it that its walk marked, so a copy with copied children prints as ?"
 
@@ -4290,8 +4290,8 @@ reason = "B0 skipped: a constructor naming another type is checked as if it name
 [[fault]]
 id = "ind-skip-uniform"
 file = "src/kernel/inductive-block.fs"
-old = '''  lf-ind-ctors@ 0 ?do i lf-c1-ctor dup ok? 0= if unloop exit then drop loop outcome-ok ;'''
-new = '''  outcome-ok ;'''
+old = ''': lf-ind-c1 ( -- outcome ) lf-ind-ctors@ ['] lf-c1-ctor ok-each ;'''
+new = ''': lf-ind-c1 ( -- outcome ) outcome-ok ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "C1 skipped: a constructor returning T Nat is not rejected as Lean's nonUniformOccurrence"
 
@@ -4411,10 +4411,8 @@ reason = "rvI21 M1: B3 field 4 (all) never compared; a recursor whose all names 
 [[fault]]
 id = "ind-step11-skip"
 file = "src/kernel/check-block.fs"
-old = ''': lf-blk-rec-name ( -- outcome )
-'''
-new = ''': lf-blk-rec-name ( -- outcome ) outcome-ok exit
-'''
+old = ''': lf-blk-rec-name ( -- outcome ) lf-ind-types@ ['] lf-blk-rec-name-of ok-each ;'''
+new = ''': lf-blk-rec-name ( -- outcome ) outcome-ok ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 M1: step 11 skipped; a block whose constructor is named rec is accepted where Lean finds the recursor's name taken"
 
@@ -8694,8 +8692,8 @@ reason = "S5B: a projection is no binary node, so the passes treat it as an unkn
 [[fault]]
 id = "s5b-proj-of-swapped"
 file = "src/core/projections.fs"
-old = '''  drop swap lf-tag-projection lf-term-binary if outcome-ok else -1 outcome-full then ;'''
-new = '''  drop lf-tag-projection lf-term-binary if outcome-ok else -1 outcome-full then ;'''
+old = '''  drop swap lf-tag-projection lf-term-binary room-result ;'''
+new = '''  drop lf-tag-projection lf-term-binary room-result ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "S5B: mk_proj puts the term first and the leaf second, a malformed projection"
 
@@ -11976,7 +11974,7 @@ reason = "the caches' hook answers 'closed' for a node without a data word inste
 [[fault]]
 id = "cov2-str-app-refusal-unknown"
 file = "src/kernel/string-literals.fs"
-old = ''': lf-sx-app ( f a -- node outcome ) lf-term-app if outcome-ok else -1 outcome-full then ;'''
+old = ''': lf-sx-app ( f a -- node outcome ) lf-term-app room-result ;'''
 new = ''': lf-sx-app ( f a -- node outcome ) lf-term-app if outcome-ok else -1 outcome-unknown then ;'''
 test = "$GFORTH tests/core/string-literals.fs"
 reason = "a full term store while a string literal is expanded reads as undecided, not out of room"
@@ -14317,6 +14315,22 @@ test = "$GFORTH tests/lib/lib.fs"
 reason = "cells= with a negative count runs ?do from 0 to a negative limit: reads far past the arrays"
 
 [[fault]]
+id = "lib-bounds-in-ranges-hi-open"
+file = "src/lib/bounds.fs"
+old = ''': in-range-at? ( x a-addr k -- x a-addr flag ) >r 2dup r> range-at between? ;'''
+new = ''': in-range-at? ( x a-addr k -- x a-addr flag ) >r 2dup r> range-at within ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a range's last code is left out: the name and text rules would refuse 9 and accept nothing at a class's end"
+
+[[fault]]
+id = "lib-bounds-in-ranges-first-only"
+file = "src/lib/bounds.fs"
+old = ''': in-ranges? ( x a-addr n -- flag ) ['] in-range-at? any? nip nip ;'''
+new = ''': in-ranges? ( x a-addr n -- flag ) 1 min ['] in-range-at? any? nip nip ;'''
+test = "$GFORTH tests/lib/text-rule.fs"
+reason = "only a table's first range is searched: text-rule's banned and unseen tables lose every later range"
+
+[[fault]]
 id = "lib-bounds-cells-has-negated"
 file = "src/lib/bounds.fs"
 old = ''': cells-has? ( x addr n -- flag ) cells-index dup if nip then ;'''
@@ -14480,6 +14494,22 @@ old = '''  if outcome-ok else outcome-full no-result then ;'''
 new = '''  if outcome-ok else outcome-invalid no-result then ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "a store out of room reads as invalid input, not full"
+
+[[fault]]
+id = "lib-outcome-ok-any-failure-found"
+file = "src/lib/outcome.fs"
+old = '''  dup ok? 0= if nip false swap true exit then drop 0<> dup if outcome-ok true then ;'''
+new = '''  dup ok? 0= if true exit then drop 0<> dup if outcome-ok true then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "ok-any? hands a failing test's flag on: a refused check's true reads as found"
+
+[[fault]]
+id = "lib-outcome-ok-any-past-answer"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute ok-found? if unloop unloop exit then'''
+new = '''  dup 1+ swap ?do 0 max 0 ?do i j execute 2drop'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "ok-any? runs every test and answers false and ok whatever they gave"
 
 [[fault]]
 id = "lib-outcome-ok-all-past-answer"

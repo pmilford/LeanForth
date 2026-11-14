@@ -95,12 +95,9 @@ create nt-rest
   $21 , $21 ,  $27 , $27 ,  $30 , $39 ,  $3f , $3f ,
   $2080 , $2089 ,  $2090 , $209c ,  $1d62 , $1d6a ,  $2c7c , $2c7c ,
 here nt-rest - 2 cells / constant nt-rest#
-: nt-range ( table k -- lo hi ) 2* cells + dup @ swap cell+ @ ;
-: nt-among? ( code table n -- flag )
-  0 ?do 2dup i nt-range between? if 2drop true unloop exit then loop 2drop false ;
-: nt-first? ( code -- flag ) nt-first nt-first# nt-among? ;
+: nt-first? ( code -- flag ) nt-first nt-first# in-ranges? ;
 : nt-rest? ( code -- flag )
-  dup nt-first? if drop true else nt-rest nt-rest# nt-among? then ;
+  dup nt-first? if drop true else nt-rest nt-rest# in-ranges? then ;
 \ Whether every character of c-addr u is valid UTF-8 and satisfies xt
 \ ( code -- flag ).
 : nt-all? ( c-addr u xt -- flag )

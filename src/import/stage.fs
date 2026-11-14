@@ -306,11 +306,11 @@ binder-reaches
 : reach-free ( stage -- ) stage-reach heap-release ;
 \ Whether a declaration's type, value or recursor rules reach one.
 : field-reach? ( e stage -- flag ) over none? if 2drop false else reach@ then ;
+: rule-reach? ( t stage k -- t stage flag )
+  /rule-items * rule-rhs-item + >r 2dup stage-tuples r> -rot tuple-item over reach@ ;
 : rules-reach? ( t stage -- flag )
-  2dup stage-tuples tuple-length 0 ?do
-    i rule-rhs-item + 2 pick 2 pick stage-tuples tuple-item over reach@
-    if 2drop true unloop exit then
-  /rule-items +loop 2drop false ;
+  2dup stage-tuples tuple-length /rule-items 1- + /rule-items /
+  ['] rule-reach? any? nip nip ;
 : decl-reach? ( d stage -- flag )
   2dup staged-type@ over field-reach? >r 2dup staged-value@ over field-reach? r> or >r
   2dup staged-kind@ kind-recursor = if

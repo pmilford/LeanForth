@@ -229,7 +229,7 @@ create lf-pf-eol 10 c,
   dup lf-pf-visible? if lf-pf-shown 2over compare 0= else drop false then ;
 : lf-pf-hidden? ( j -- flag )
   dup lf-pf-shown dup 0= if 2drop drop true exit then
-  rot 0 ?do i lf-pf-hides? if 2drop true unloop exit then loop 2drop false ;
+  rot ['] lf-pf-hides? any? nip nip ;
 : lf-pf-var# ( n -- ) lf-pf-mark swap lf-pf-put-number s"  var#" lf-pp-put lf-pf-unit ;
 : lf-pf-var ( i -- outcome )
   dup 0 lf-pp-depth within 0= if drop-invalid exit then

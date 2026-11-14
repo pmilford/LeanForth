@@ -244,9 +244,8 @@ create lf-mls-set-hooks /htab-hooks allot
 : lf-mls-arg ( addr position -- outcome )
   tuck lf-cref-pair@ drop lf-mls-pair ok-then?
   if rot lf-mls-arg! outcome-ok else nip nip then ;
-: lf-mls-args! ( addr count -- outcome )
-  0 ?do dup i lf-mls-arg dup ok? 0= if nip unloop exit then drop loop
-  drop outcome-ok ;
+: lf-mls-arg-at ( addr i -- addr outcome ) over swap lf-mls-arg ;
+: lf-mls-args! ( addr count -- outcome ) ['] lf-mls-arg-at ok-each nip ;
 : lf-mls-changed? ( addr count -- flag ) 2* lf-mls-args swap cells= 0= ;
 : lf-mls-arg-room ( addr count -- addr count outcome )
   dup lf-mls-arg-pairs slab-hold ;
@@ -315,9 +314,7 @@ create lf-mls-set-hooks /htab-hooks allot
 : lf-mls-ready ( -- outcome ) lf-mls-image-room dup ok? if drop lf-mls-sorted then ;
 : lf-mls-build ( -- outcome )
   lf-mls-ready dup ok? 0= if exit then drop
-  lf-mls-reached @ 0 ?do
-    i lf-mls-build-at dup ok? 0= if unloop exit then drop
-  loop outcome-ok ;
+  lf-mls-reached @ ['] lf-mls-build-at ok-each ;
 
 \ The passes in order: the root handle and stores, the replacements (live,
 \ and in level scope), the whole graph (lf-cterm-check), the source audit,
@@ -328,8 +325,8 @@ create lf-mls-set-hooks /htab-hooks allot
 : lf-mls-actual ( pairs position -- flag )
   tuck lf-cref-pair@ 2dup lf-hlevel-valid?
   if drop swap cells lf-mls-actuals + ! true else 2drop drop false then ;
-: lf-mls-actuals! ( pairs count -- flag )
-  0 ?do dup i lf-mls-actual 0= if drop false unloop exit then loop drop true ;
+: lf-mls-actual-at ( pairs i -- pairs flag ) over swap lf-mls-actual ;
+: lf-mls-actuals! ( pairs count -- flag ) ['] lf-mls-actual-at all? nip ;
 : lf-mls-graph ( index id -- outcome )
   lf-mls-fuel @ lf-cterm-check lf-cterm-fuel @ lf-mls-fuel ! ;
 : lf-mls-checks ( index id -- index id outcome )

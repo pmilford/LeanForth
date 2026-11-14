@@ -286,9 +286,7 @@ end-structure
   dup lf-blk-type! 6 lf-blk-step! dup lf-blk-names ok-then? 0= if exit then
   7 lf-blk-step! dup lf-blk-type ok-then? 0= if exit then
   8 lf-blk-step! lf-blk-telescope ;
-: lf-blk-types ( -- outcome )
-  lf-ind-types@ 0 ?do i lf-blk-type-steps dup ok? 0= if unloop exit then drop loop
-  outcome-ok ;
+: lf-blk-types ( -- outcome ) lf-ind-types@ ['] lf-blk-type-steps ok-each ;
 
 \ ---------------------------------------------------------------------------
 \ Step 9: the constructors, each against the first type's parameter
@@ -326,9 +324,9 @@ end-structure
 : lf-blk-arity! ( d -- ) lf-ind-n lf-ind-nparams + lf-blk-state lf-blkrec-arity ! ;
 : lf-blk-c3-arg? ( node depth i -- flag )
   tuck - 1- >r lf-blk-arity swap lf-ind-arg r> lf-ind-bvar? ;
+: lf-blk-c3-param? ( node depth i -- node depth flag ) >r 2dup r> lf-blk-c3-arg? ;
 : lf-blk-c3-params? ( node depth -- flag )
-  lf-ind-nparams 0 ?do 2dup i lf-blk-c3-arg? 0= if 2drop false unloop exit then loop
-  2drop true ;
+  lf-ind-nparams ['] lf-blk-c3-param? all? nip nip ;
 : lf-blk-shape-of? ( node depth d -- flag )
   dup lf-blk-arity! >r over lf-ind-spine lf-blk-arity <> if r> 2drop 2drop false exit then
   dup lf-ind-which r> <> if drop 2drop false exit then
@@ -341,11 +339,10 @@ end-structure
   ok-then? if 0= outcome-ok else false swap then ;
 : lf-blk-index-free? ( node i xt -- flag outcome )
   >r lf-blk-arity swap lf-ind-arg r> execute lf-blk-none? ;
+: lf-blk-index-at? ( node xt k -- node xt flag outcome )
+  lf-ind-nparams + >r 2dup r> swap lf-blk-index-free? ;
 : lf-blk-indices-free? ( node xt -- flag outcome )
-  lf-blk-arity lf-ind-nparams ?do
-    2dup i swap lf-blk-index-free? ok-then? 0= if nip nip false swap unloop exit then
-    0= if 2drop false outcome-ok unloop exit then
-  loop 2drop true outcome-ok ;
+  lf-blk-arity lf-ind-nparams - ['] lf-blk-index-at? ok-all? 2swap 2drop ;
 : lf-blk-valid? ( node depth xt -- flag outcome )
   >r over swap lf-blk-shape? 0= if r> 2drop false outcome-ok exit then
   r> lf-blk-indices-free? ;
@@ -423,13 +420,10 @@ end-structure
   dup lf-blk-ctor-name over 0 ?do dup i lf-blk-ctor-name lf-name-same?
     if drop lf-blk-declared unloop exit then
   loop 2drop outcome-ok ;
-: lf-blk-ctors-declared ( -- outcome )
-  lf-ind-ctors@ 0 ?do i lf-blk-ctor-fresh dup ok? 0= if unloop exit then drop loop
-  outcome-ok ;
+: lf-blk-ctors-declared ( -- outcome ) lf-ind-ctors@ ['] lf-blk-ctor-fresh ok-each ;
 : lf-blk-ctors ( -- outcome )
   true lf-ind-state lf-ind-visible !
-  lf-ind-ctors@ 0 ?do i lf-blk-ctor dup ok? 0= if unloop exit then drop loop
-  lf-blk-ctors-declared ;
+  lf-ind-ctors@ ['] lf-blk-ctor ok-each dup ok? if drop lf-blk-ctors-declared then ;
 
 \ ---------------------------------------------------------------------------
 \ Step 10: the elimination level (E0-E4) and K.
@@ -460,10 +454,10 @@ end-structure
   swap begin dup lf-tag-app lf-ind-tag? while
     2dup lf-term-second@ swap lf-ind-bvar? if 2drop true exit then lf-term-first@
   repeat 2drop false ;
+: lf-blk-revealed-at? ( node k i -- node k flag )
+  >r 2dup 1- r> lf-blk-check@ - lf-blk-among? ;
 : lf-blk-revealed? ( node k -- flag )
-  lf-blk-checks# 0 ?do 2dup 1- i lf-blk-check@ - lf-blk-among? 0=
-    if 2drop false unloop exit then
-  loop 2drop true ;
+  lf-blk-checks# ['] lf-blk-revealed-at? all? nip nip ;
 : lf-blk-e3 ( -- prop? outcome )
   0 lf-blk-state lf-blkrec-checks !
   lf-blk-job 0 lf-ind-ctor-type lf-blk-e-walk lf-blk-refuel
@@ -513,9 +507,7 @@ end-structure
     dup lf-blk-rec-id i lf-blk-declared-name lf-name-same?
     if i lf-blk-rec-clash unloop exit then
   loop drop outcome-ok ;
-: lf-blk-rec-name ( -- outcome )
-  lf-ind-types@ 0 ?do i lf-blk-rec-name-of dup ok? 0= if unloop exit then drop loop
-  outcome-ok ;
+: lf-blk-rec-name ( -- outcome ) lf-ind-types@ ['] lf-blk-rec-name-of ok-each ;
 \ Step 12: the recursor (inductive-recursor.fs), and the recipe that lets
 \ a later declaration build it again (generated-recursor.fs). For a
 \ nested block (task 5.2.5b, inductive-nested.fs): its auxiliary types'
@@ -532,24 +524,22 @@ end-structure
 : lf-blk-aux-fresh-at ( a -- outcome )
   lf-blk-rec-id dup lf-blk-earlier? if 0 lf-diag-already-declared lf-blk-reject exit then
   lf-blk-rec-fresh ;
-: lf-blk-aux-fresh ( -- outcome )
-  lf-ind-types@ lf-ind-in-types@ ?do
-    i lf-blk-aux-fresh-at dup ok? 0= if unloop exit then drop
-  loop outcome-ok ;
+\ The block's auxiliary types, k from 0: type in-types + k.
+: lf-blk-aux-count ( -- n ) lf-ind-types@ lf-ind-in-types@ - ;
+: lf-blk-aux-k-fresh ( k -- outcome ) lf-ind-in-types@ + lf-blk-aux-fresh-at ;
+: lf-blk-aux-fresh ( -- outcome ) lf-blk-aux-count ['] lf-blk-aux-k-fresh ok-each ;
 \ Lean's typing of the nested occurrences I Ds (1315-1324), which the
 \ auxiliary block does not contain: each auxiliary type's, under the
 \ first type's parameters as get_params made them (their raw domains,
 \ 1138-1146), the block's constructors and recursors visible.
 : lf-blk-raw-param ( i -- node )
   lf-ind-type lf-idecl-type @ swap lf-rcr-skip lf-term-first@ ;
-: lf-blk-key-params ( -- outcome )
-  lf-ind-nparams 0 ?do i lf-blk-raw-param lf-blk-push dup ok? 0= if unloop exit then drop
-  loop outcome-ok ;
+: lf-blk-key-param ( i -- outcome ) lf-blk-raw-param lf-blk-push ;
+: lf-blk-key-params ( -- outcome ) lf-ind-nparams ['] lf-blk-key-param ok-each ;
 : lf-blk-key ( a -- outcome ) lf-ind-ty lf-ty-key @ lf-minfer-walk nip ;
+: lf-blk-aux-key ( k -- outcome ) lf-ind-in-types@ + lf-blk-key ;
 : lf-blk-keys-typed ( -- outcome )
-  lf-blk-key-params dup ok? 0= if exit then drop
-  lf-ind-types@ lf-ind-in-types@ ?do i lf-blk-key dup ok? 0= if unloop exit then drop loop
-  outcome-ok ;
+  lf-blk-key-params dup ok? if drop lf-blk-aux-count ['] lf-blk-aux-key ok-each then ;
 : lf-blk-keys! ( flag -- ) lf-blk-state lf-blkrec-keys ! ;
 : lf-blk-keys ( -- outcome )
   lf-ind-aux@ 0= if outcome-ok exit then
@@ -663,8 +653,7 @@ here lf-b3-rec - 2 cells / constant lf-b3-rec#
   dup lf-ind-rec lf-idecl-name @ lf-blk-rec-of dup 0< if drop lf-blk-no-such exit then
   lf-blk-type! dup lf-blk-rec-diff ok-then? 0= if nip exit then
   ?dup if lf-blk-rec-differs else drop outcome-ok then ;
-: lf-blk-recs-b3 ( -- outcome )
-  lf-ind-recs@ 0 ?do i lf-blk-rec-b3 dup ok? 0= if unloop exit then drop loop outcome-ok ;
+: lf-blk-recs-b3 ( -- outcome ) lf-ind-recs@ ['] lf-blk-rec-b3 ok-each ;
 \ Before B3, each type's shape (ADR 0015 section 8, owner answer Q2;
 \ review rvCONV B2): its computed numIndices and the block's is_rec, as
 \ Lean's kernel computed them (inductive.cpp 263-281, 308-329, 372), never
@@ -673,9 +662,7 @@ here lf-b3-rec - 2 cells / constant lf-b3-rec#
 \ R5 and projections read them.
 : lf-blk-shape ( d -- outcome )
   dup lf-ind-n lf-ind-state lf-ind-is-rec @ lf-shape swap lf-env-shape! ;
-: lf-blk-shapes ( -- outcome )
-  lf-ind-in-types@ 0 ?do i lf-blk-shape dup ok? 0= if unloop exit then drop loop
-  outcome-ok ;
+: lf-blk-shapes ( -- outcome ) lf-ind-in-types@ ['] lf-blk-shape ok-each ;
 : lf-blk-compare ( -- outcome )
   lf-blk-shapes ['] lf-blk-ctors-b3 ok-and ['] lf-blk-recs-b3 ok-and ;
 
@@ -727,8 +714,7 @@ create lf-blk-steps
 here lf-blk-steps - 1 cells / constant lf-blk-steps#
 : lf-blk-do ( k -- outcome ) dup 1+ lf-blk-step! cells lf-blk-steps + @ execute ;
 : lf-blk-run ( -- outcome )
-  lf-blk-steps# 0 ?do i lf-blk-do dup ok? 0= if unloop exit then drop loop
-  lf-blk-steps# 1+ lf-blk-step! outcome-ok ;
+  lf-blk-steps# ['] lf-blk-do ok-each dup ok? if lf-blk-steps# 1+ lf-blk-step! then ;
 \ The block of this context's snapshot: its members as the candidate's
 \ span (every member gets the outcome), and the fuel.
 : lf-blk-begin ( fuel -- outcome )
