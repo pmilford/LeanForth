@@ -1329,3 +1329,17 @@ three caches, scheduler queue and about 58 loops on shared library words (`sort.
 Init checked with the old and the new code, the same 59,349 declarations accepted with the same fuel (654,719,715) and
 byte-identical snapshot files, confirmed independently twice; two kernel reviews and a re-check read every rewritten
 loop against the old one ([review](../development/forth-reviews/2026-11-13-reuse-out.md)); the full tier passed.
+
+### Overnight pace (2026-11-13, 21:30)
+
+The owner chose "finish and review": the four running agents finish, their short independent re-checks run overnight,
+the approval questions wait for the morning, and no new implementation agent starts overnight (weekly token budget).
+
+### A proof set for S2-S4 (2026-11-13, night)
+
+The owner asked whether LeanForth can develop several proofs natively and chose to add them: S2's acceptance gains
+$x + 0 = x$, $0 + n = n$, $n + m = m + n$, $n + (m + k) = (n + m) + k$, $n \cdot (m + k) = n \cdot m + n \cdot k$ and
+the length of a list append (or in S5 if its notation needs natural statements), each written in LeanForth, compared
+node for node with pinned Lean's term and checked by LeanForth's kernel, its forms confirmed with pinned Lean to lie
+within S2's tactics first; S3 gains `2 + 2 = 4` by `by-decide`, S4 `n < n + 1` by `by-omega`. The weekly token budget
+resets Tuesday 2026-11-17 at 5 pm (Pacific).

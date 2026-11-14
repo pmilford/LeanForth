@@ -385,3 +385,47 @@ form; the schema fixes every field and refuses others.
 | `kabstract.fs`, `meta-check.fs` | the library walk with its memo (`lib/`, 9.4.8b), `lib/slab.fs`, `instantiate.fs` |
 | `tactic-rewrite.fs`, `step-log.fs` | `lib/json-write.fs`, `lib/slab.fs` (the step records), `goal-print.fs` |
 
+
+## Appendix G. The owner's proof set in Lean (2026-11-13)
+
+The Lean forms S2 (and S3, S4) port for the owner's proof set ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md),
+"A proof set for S2-S4"), using only S2's tactics (`induction … with`, `rw`, `rfl`, `exact`) and Init's lemmas, plus
+`decide` (S3) and `omega` (S4). Pinned Lean 4.35.0 checks the file with exit 0 (2026-11-13, 23:34). The first six
+depend on no axiom; `omega`'s proof of `n < n + 1` uses `propext` and `Quot.sound`, so S4's acceptance reports those two
+axioms. The proofs by `rfl`, `decide` and `omega` alone name no lemma; the others rewrite with Init's `Nat.add_succ`
+and `Nat.mul_succ`, the list lemmas `List.nil_append`, `List.cons_append`, `List.length_nil` and `List.length_cons`,
+and the set's own earlier theorems.
+
+```lean
+theorem ps_add_zero (x : Nat) : x + 0 = x := by rfl
+theorem ps_zero_add (n : Nat) : 0 + n = n := by
+  induction n with
+  | zero => rfl
+  | succ k ih => rw [Nat.add_succ, ih]
+theorem ps_succ_add (n m : Nat) : Nat.succ n + m = Nat.succ (n + m) := by
+  induction m with
+  | zero => rfl
+  | succ k ih => rw [Nat.add_succ, ih, Nat.add_succ]
+theorem ps_add_comm (n m : Nat) : n + m = m + n := by
+  induction m with
+  | zero => rw [ps_zero_add]; rfl
+  | succ k ih => rw [Nat.add_succ, ih, ps_succ_add]
+theorem ps_add_assoc (n m k : Nat) : n + (m + k) = (n + m) + k := by
+  induction k with
+  | zero => rfl
+  | succ j ih => rw [Nat.add_succ, Nat.add_succ, ih, Nat.add_succ]
+theorem ps_mul_add (n m k : Nat) : n * (m + k) = n * m + n * k := by
+  induction k with
+  | zero => rfl
+  | succ j ih => rw [Nat.add_succ, Nat.mul_succ, ih, Nat.mul_succ, ps_add_assoc]
+theorem ps_length_append (xs ys : List Nat) : (xs ++ ys).length = xs.length + ys.length := by
+  induction xs with
+  | nil => rw [List.nil_append, List.length_nil, ps_zero_add]
+  | cons x t ih => rw [List.cons_append, List.length_cons, List.length_cons, ih, ps_succ_add]
+theorem ps_two_two : 2 + 2 = 4 := by decide
+theorem ps_lt_succ (n : Nat) : n < n + 1 := by omega
+```
+
+What S2 needs beyond FE1 for these: tactic sequencing (`;`) inside an alternative, rewriting with the set's own earlier
+theorems, the `List` notation and `++` through instance search (S1's synth), and `*` (`HMul`, `Nat.mul_succ`). Each
+LeanForth file is compared node for node with this file's terms.
