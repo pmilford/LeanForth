@@ -633,7 +633,7 @@ the loose bound variable `sy-tc-base - 1` and the level parameter
 `__wild__`. Nodes keep `lf-mctx-snapshot` states; subgoal, waiter and
 answer lists are runs (`lib/runs.fs`). The cache is used only with no
 local instance in the context and is emptied with the context
-(`lf-mctx-epoch`). A nested search (synthPending inside isDefEq) runs on
+(`mctx-epoch@`). A nested search (synthPending inside isDefEq) runs on
 the same slabs above the outer one's counts; defeq.fs sets its machine
 aside meanwhile. defeq.fs ports checkTypesAndAssign's instance-typed
 branch (spineMVarsAdmissible, the types at instances transparency,

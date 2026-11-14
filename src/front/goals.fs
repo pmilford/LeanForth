@@ -11,7 +11,8 @@
 \   extended context (withLocalDecl, intro), push the local on a view
 \   first (lf-view-push).
 \ - lf-goal-assigned? ( goal -- flag ): Lean's MVarId.isAssigned (a plain
-\   assignment; a delayed one is not).
+\   assignment; a delayed one is not); lf-goal-unassigned? its negation,
+\   the test of getUnsolvedGoals' and synthesis's filters.
 \ - lf-goal-clear ( goal fvar -- goal' outcome ): Lean's MVarId.clear,
 \   refused (invalid) when the goal is assigned, its context does not hold
 \   fvar, another local's type or (shown) value depends on it, or its type
@@ -59,6 +60,7 @@ end-structure
   over lf-user-name? 0= if drop 2drop -1 outcome-invalid exit then
   >r swap mv-opaque r> lf-mvar-new-at ok-then? if gl-tagged else nip no-result then ;
 : lf-goal-assigned? ( goal -- flag ) lf-mvar-value dup if nip then ;
+: lf-goal-unassigned? ( goal -- flag ) lf-goal-assigned? 0= ;
 \ A goal tactics may change: live and not assigned (checkNotAssigned).
 : gl-open? ( goal -- flag )
   dup lf-mvar-live? if lf-goal-assigned? 0= else drop false then ;
@@ -120,17 +122,11 @@ end-structure
   0 over run-push ok-then? if gl-set pst pst-root ! outcome-ok else nip then ;
 
 \ The goals not assigned, in order (a new run).
-: gl-keep ( list goal -- list' outcome )
-  dup lf-goal-assigned? if drop outcome-ok else run-push then ;
-: gl-kept ( new list i -- new' list outcome )
-  over swap run@ rot swap gl-keep >r swap r> ;
-: gl-unsolved ( list -- list' outcome )
-  0 swap dup run-count ['] gl-kept ok-each
-  ok-then? if drop outcome-ok else nip no-result then ;
 : lf-goals-unsolved ( -- list outcome )
-  lf-goals gl-unsolved ok-then? if dup gl-set outcome-ok else no-result then ;
+  lf-goals ['] lf-goal-unassigned? run-filter ok-then? if dup gl-set outcome-ok else
+  no-result then ;
 \ The place of the first goal not assigned, or the count.
-: gl-open-at? ( list i -- flag ) run@ lf-goal-assigned? 0= ;
+: gl-open-at? ( list i -- flag ) run@ lf-goal-unassigned? ;
 : gl-first-open ( list -- k )
   dup run-count 0 ?do dup i gl-open-at? if drop i unloop exit then loop run-count ;
 : gl-main ( list -- goal outcome )

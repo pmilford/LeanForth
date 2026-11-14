@@ -86,7 +86,7 @@ T{ fg 3 num le dec synth fg 3 num dec-le same? -> true true outcome-ok }T
 T{ lv1 1 s" Add" cn nat app synth tried# 0 s" instAddNat" tried?
    -> -1 false outcome-unsupported 2 true }T
 \ mkConstWithFreshMVarLevels: instHAdd.{?u}.
-: hadd-level ( -- level ) s" instHAdd" menv-name lf-menv-find drop lf-synth-const drop
+: hadd-level ( -- level ) s" instHAdd" menv-name lf-menv-find drop lf-meta-const-fresh drop
   lf-term-first@ lf-cref-slot lf-cref-pairs drop 0 lf-cref-pair@ drop ;
 T{ hadd-level lf-level-mvar? -> true }T
 \ The scan follows a Sort's level and max and imax levels: Sort (max ?u
@@ -153,12 +153,16 @@ T{ -1 synth -> -1 false outcome-invalid }T
 T{ clean? -> true }T
 
 \ ---- The cache: a second search of the same goal tries nothing; a
-\ reset context (lf-mctx-epoch) has another cache; the cache is not used
+\ reset context (mctx-epoch@) has another cache; the cache is not used
 \ with a local instance in the context, and a goal with metavariables
 \ and no out-parameter keys it as it is.
 T{ nat add0 synth s" instAddNat" c0 same? tried# -> true true outcome-ok 0 }T
-T{ sy-cache slab-count 0> lf-mctx-epoch 1+ sy sy-epoch ! nat add0 synth nip nip tried#
+T{ sy-cache slab-count 0> mctx-epoch@ 1+ sy sy-epoch ! nat add0 synth nip nip tried#
    -> true outcome-ok 1 }T
+\ synthPendingDepth keys the cache: the entry made at depth 0 is missed
+\ at depth 1 (a search, instAddNat tried), found at depth 0.
+: at-pending ( n -- tried ) sy sy-pending ! nat add0 synth 2drop drop tried# 0 sy sy-pending ! ;
+T{ 1 at-pending 0 at-pending -> 1 0 }T
 : add-local ( -- old )
   lf-mctx-view dup nat add0 lf-lctx-local made 0 0 lf-local-new made
   s" Add" menv-name lf-local-instance made lf-view-push made lf-mctx-view! ;
@@ -190,6 +194,7 @@ T{ hadd-nat sy-head-class drop sy-outs? nat add0 sy-head-class drop sy-outs?
 
 \ ---- Table keys: assignable metavariables and level ones of the
 \ search's depth placeholders, numbered from the left; outer ones kept.
+?lv constant ou1   ?lv constant ou2     \ outer level metavariables
 T{ sy-enter true lf-mctx-depth{ made constant kscope -> outcome-ok }T
 : inner ( -- m ) nat mv-natural lf-mvar-new made ;
 inner constant m1   inner constant m2
@@ -203,6 +208,11 @@ T{ ?n m1 pair lf-synth-key drop ?n m2 pair lf-synth-key drop lf-meta-eqv
    -> true outcome-ok false outcome-ok }T
 T{ m1 m2 pair lf-synth-key drop 0 sy-tc drop 1 sy-tc drop pair lf-meta-eqv
    m1 assigned? -> true outcome-ok false }T
+\ Level metavariables: the search's depth's are placeholders, numbered
+\ apart from the terms'; outer ones kept (Sort ?u1, Sort ?u2 differ).
+: sort-key ( level -- key ) sort lf-synth-key drop ;
+T{ ?lv sort-key ?lv sort-key lf-meta-eqv ou1 sort-key ou2 sort-key lf-meta-eqv
+   -> true outcome-ok false outcome-ok }T
 
 \ ---- addAnswer: none at the size limit; isNewAnswer by type.
 : size-node ( n -- c )   \ Add Nat's consumer at size n, in this search
@@ -218,6 +228,15 @@ T{ lf-synth-max-size 1- size-node dup scn@ sc-mvar @ s" instAddNat" c0 lf-mvar-a
    sy-add-answer 0 sen@ se-answers @ run-count -> outcome-ok 1 }T
 T{ 0 sen@ se-answers @ run-count sy-c syc-result @ s" instAddNat" c0 lf-meta-eqv
    -> 1 true outcome-ok }T
+\ isNewAnswer with two older answers, of types Add Nat and Mul Nat: one of
+\ type Add Nat is not new (the later Mul Nat does not make it new), one of
+\ type Nat is.
+: typed-answer ( type -- a ) 0 1 sy-answer-new made tuck san@ sa-type ! ;
+: two-answers ( -- e )   \ entry 0's answers: [Add Nat, Mul Nat]
+  0 nat add0 typed-answer run-push made l0 1 s" Mul" cn nat app typed-answer run-push made
+  0 sen@ se-answers ! 0 ;
+T{ nat add0 typed-answer two-answers sy-new-answer? nat typed-answer two-answers
+   sy-new-answer? -> false outcome-ok true outcome-ok }T
 T{ kscope }lf-mctx-depth sy-leave clean? -> outcome-ok true }T
 
 \ ---- canonInstances: a generator of a goal with no metavariable that
@@ -233,7 +252,57 @@ T{ 0 sen@ se-answers dup @ 0 run-push drop swap ! false canon-gen sy-canon?
 : mul-gen ( -- g ) l0 1 s" Mul" cn nat app lf-synth-key drop nat 0 sy-gen-open made
   false over sgn@ sg-open ! ;
 T{ mul-gen sy-canon? -> false outcome-ok }T
+\ A goal whose only metavariable is a level one (Add.{?u} Nat) has
+\ metavariables (hasMVar): its generator is open, never popped by
+\ canonInstances.
+: lvl-gen ( -- g )
+  nat add0 lf-synth-key drop ?lv 1 s" Add" cn nat app mv-natural lf-mvar-new made 0
+  sy-gen-open made ;
+: gen-open? ( g -- flag outcome ) sy-gen-goal >r drop sgn@ sg-open @ r> ;
+T{ lvl-gen gen-open? -> true outcome-ok }T
 T{ sy-leave clean? -> true }T
+
+\ ---- A nested search (synthPending inside a search) has its own table
+\ and gives back only what it added: the outer search's generator and
+\ entry stay, and the inner one finds no outer entry.
+: add-key ( -- key ) nat add0 lf-synth-key drop ;
+: outer-gen ( -- ) false canon-gen sgn@ sg-key @ sy-root sy-entry-new done ;
+T{ sy-enter outer-gen sy-enter add-key sy-find sy-gens slab-count sy-entries slab-count
+   -> outcome-ok outcome-ok -1 false outcome-ok 1 1 }T
+T{ false canon-gen drop sy-leave sy-gens slab-count add-key sy-find sy-leave clean?
+   -> 1 0 true outcome-ok true }T
+
+\ ---- consume: only the subgoals not yet assigned stay (?m1 assigned,
+\ ?m2 not: [?m2]).
+: two-goals ( -- c )
+  sy-enter done nat add0 lf-synth-key drop nat add0 mv-natural lf-mvar-new made
+  sy-cnode-open made nat mv-natural lf-mvar-new made dup >r s" Nat.zero" c0 lf-mvar-assign
+  done 0 r> run-push made nat mv-natural lf-mvar-new made dup >r run-push made
+  over scn@ sc-goals ! r> ;
+: left-goals ( c m2 -- n same? outcome )
+  >r dup sy-goals-left swap scn@ sc-goals @ dup run-count swap 0 run@ r> = rot ;
+T{ two-goals left-goals sy-leave clean? -> 1 true outcome-ok true }T
+
+\ ---- step: resume comes before generate. With a (consumer, answer) on
+\ the resume stack and a generator with nothing left to try, the pair is
+\ taken: the answer instAddNat is unified with the consumer's subgoal ?m
+\ (its goal ?g := ?m), a node of the goal with the sizes added (5 + 3)
+\ consumes it, and the root gets the answer; the generator stays.
+variable rg   variable rm
+: resume-node ( -- c )   \ ?g's consumer at size 5, its subgoal ?m, its entry
+  nat add0 mv-natural lf-mvar-new made rg !  nat add0 mv-natural lf-mvar-new made rm !
+  rg @ rm @ lf-mvar-assign done  nat add0 lf-synth-key drop rg @ sy-cnode-open made
+  0 rm @ run-push made over scn@ sc-goals !  5 over scn@ sc-size !
+  lf-mctx-snapshot made over scn@ sc-snap !  dup add-entry ;
+: resume-ready ( -- )
+  resume-node s" instAddNat" c0 3 sy-answer-new made sy-resume slab-2push done
+  false canon-gen 0 swap sgn@ sg-idx ! ;
+: newest-size ( -- n ) sy-cnodes slab-count 1- scn@ sc-size @ ;
+T{ sy-enter true lf-mctx-depth{ made constant rscope -> outcome-ok }T
+T{ resume-ready sy-step sy-gens slab-count sy-resume slab-count newest-size
+   -> true outcome-ok 1 0 8 }T
+T{ sy-c syc-result @ s" instAddNat" c0 lf-meta-eqv -> true outcome-ok }T
+T{ rscope }lf-mctx-depth sy-leave clean? -> outcome-ok true }T
 
 \ ---- synthPending (synthPendingImp): a synthetic opaque metavariable,
 \ one whose type is no class and a nesting past maxSynthPendingDepth are
@@ -278,7 +347,7 @@ T{ nat add0 mv-synthetic pending dup add-add s" instAddNat" c0 add-add lf-meta-d
 : in-scopes ( i*x xt -- j*x closed? )
   lf-mctx-mark made >r true lf-mctx-depth{ made >r execute r> }lf-mctx-depth
   r> lf-mctx-rollback outcome-and ok? ;
-: other-cache ( -- ) lf-mctx-epoch 1+ sy sy-epoch ! ;
+: other-cache ( -- ) mctx-epoch@ 1+ sy sy-epoch ! ;
 : direct ( -- flag outcome assigned? )
   nat add0 inst-typed dup s" instAddNat" c0 lf-meta-defeq rot assigned? ;
 T{ ' direct in-scopes -> true outcome-ok true true }T
@@ -318,11 +387,30 @@ T{ other-cache ' via-none in-scopes -> false outcome-ok false true }T
 : via-pi-type ( -- flag outcome )
   nat nat add0 tpi inst-typed fx lf-meta-defeq ;
 T{ ' via-pi-type in-scopes -> false outcome-unsupported true }T
+\ A synthetic opaque metavariable of this depth is read-only too (not
+\ assignSyntheticOpaque): admissible, nothing synthesized.
+: via-opaque ( -- flag outcome assigned? tried )
+  sy-tried slab-clear nat add0 inst-typed dup nat nat add0 tpi mv-opaque pending fa app
+  lf-meta-defeq rot assigned? tried# ;
+T{ ' via-opaque in-scopes -> true outcome-ok true 0 true }T
+\ A projection's spine is its structure's: ?x.1 for an assignable ?x of
+\ this depth is not admissible, so synthPending runs (instAddNat tried).
+: prod-add ( -- t ) l0 l0 2 s" Prod" cn nat add0 app nat app ;
+: via-proj ( -- tried )
+  sy-tried slab-clear nat add0 inst-typed prod-add mv-natural pending 0 proj lf-meta-defeq
+  2drop tried# ;
+T{ other-cache ' via-proj in-scopes -> 1 true }T
+\ synthPending searches in the metavariable's own local context: its
+\ local instance means no cache and instances.fs's rule (unsupported),
+\ not the current context's answer.
+: pending-in-local ( -- flag outcome )
+  add-local nat add0 mv-synthetic lf-mvar-new made swap lf-mctx-view! lf-synth-pending ;
+T{ other-cache pending-in-local -> false outcome-unsupported }T
 
 \ ---- Exhausted: each budget from 0 answers exhausted or the answer, and
 \ nothing is left behind (Decidable (2 <= 3 /\ 1 < 2): two levels).
 : budget-run ( k -- inst flag outcome )
-  lf-meta-budget! lf-mctx-epoch 1+ sy sy-epoch ! le-and-lt dec synth
+  lf-meta-budget! mctx-epoch@ 1+ sy sy-epoch ! le-and-lt dec synth
   lf-meta-default-budget lf-meta-budget! ;
 : budget-ok? ( k -- flag )
   budget-run dup outcome-exhausted = if drop 2drop clean? exit then
@@ -330,7 +418,7 @@ T{ ' via-pi-type in-scopes -> false outcome-unsupported true }T
 \ The steps the search takes (each budget below it exhausted, at it the
 \ answer), every 1/40 of them tried.
 : steps ( -- n )
-  lf-meta-default-budget lf-meta-budget! lf-mctx-epoch 1+ sy sy-epoch ! le-and-lt dec
+  lf-meta-default-budget lf-meta-budget! mctx-epoch@ 1+ sy sy-epoch ! le-and-lt dec
   synth
   2drop drop lf-meta-default-budget lf-meta-budget - lf-meta-default-budget
   lf-meta-budget! ;
@@ -343,7 +431,7 @@ T{ budgets-ok? 0 budget-run need 1- budget-run nip nip need budget-run -rot 2dro
 \ shrunk first): full, or the answer; nothing is left behind.
 : shrink ( slab -- ) dup slab-clear slab-trim drop ;
 : fresh ( -- )
-  lf-mctx-epoch 1+ sy sy-epoch ! sy-gens shrink sy-cnodes shrink sy-entries shrink
+  mctx-epoch@ 1+ sy sy-epoch ! sy-gens shrink sy-cnodes shrink sy-entries shrink
   sy-answers shrink sy-resume shrink sy-cands shrink sy-found shrink sy-todo shrink
   sy-calls shrink ;
 : refused ( k -- inst flag outcome fired? )

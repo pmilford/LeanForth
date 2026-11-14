@@ -52,8 +52,8 @@
 \ - The cache (Meta.Cache.synthInstance): by the cache key's type and
 \   synthPendingDepth, when the context has no local instance (with one
 \   it is not used, which changes no answer); emptied with the context
-\   (lf-mctx-epoch). Lean's __wild__ wildcards are the loose bound
-\   variable sy-tc-base - 1 and the level parameter of the anonymous name.
+\   (mctx-epoch@). Lean's __wild__ wildcards are the loose bound
+\   variable sy-tc-base - 1 and the level parameter named __wild__.
 \ - lf-try-synth ( type -- inst code outcome ): trySynthInstance (1018):
 \   lf-synth-some, lf-synth-none, or lf-synth-undef for the stuck signal.
 \ - lf-synth-pending ( mvar -- flag outcome ): synthPendingImp (1037):
@@ -63,8 +63,9 @@
 \   signal is false) and the instance assigned (false when it was
 \   assigned meanwhile).
 \ - lf-synth-key ( type -- key outcome ): mkTableKey of an instantiated
-\   type; lf-synth-const ( d -- term outcome ): declaration d's constant
-\   at new level metavariables (mkConstWithFreshMVarLevels).
+\   type. A candidate's constant comes from mvars.fs's lf-meta-const-fresh
+\   (mkConstWithFreshMVarLevels), a renamed head from meta-env.fs's
+\   lf-meta-const-at.
 \ - lf-synth-tried ( -- addr n ): the instances tried (tryResolve) since
 \   the last search that is not nested began, in order (Lean's
 \   trace.Meta.synthInstance apply lines); lf-synth-error ( -- code ):
@@ -88,17 +89,20 @@
 \ bounded. Untrusted: only the kernel's check of a finished term decides.
 \ State: the record sy (the error, synthPendingDepth, the cache's epoch,
 \ a key's counts), the slab sy-calls (a search's goal, kind, cache key,
-\ answer, root state and the other slabs' counts when it began; the
-\ newest is the running one) and the slabs sy-gens, sy-cnodes,
-\ sy-entries, sy-answers, sy-resume, sy-cache, sy-cands, sy-todo,
-\ sy-found, sy-tcl, sy-args, sy-pairs, sy-mvars and sy-tried, in the
-\ checker context (ADR 0009). Loads in decimal whatever BASE is, then
+\ answer, root state and the counts of the slabs it adds to, sy-scoped,
+\ when it began; the newest is the running one) and the slabs sy-gens,
+\ sy-cnodes, sy-entries, sy-answers, sy-resume, sy-cache, sy-cands,
+\ sy-todo, sy-found, sy-tcl, sy-args, sy-mvars, sy-lv and sy-tried, in the
+\ checker context (ADR 0009); sy-scoped is a read-only table of their
+\ words. Loads in decimal whatever BASE is, then
 \ restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/runs.fs
 require ../lib/bounds.fs
 require ../author/errors.fs
+require ./goals.fs
+require ./meta-env.fs
 require ./instances.fs
 require ./defeq.fs
 
@@ -114,9 +118,9 @@ begin-structure /syc        \ a search
   field: syc-ckey           \ the cache key's type, or -1: no cache
   field: syc-result         \ the root's answer, or -1
   field: syc-snap           \ the root's state
-  field: syc-gens   field: syc-resume   field: syc-entries   \ the slabs'
+  field: syc-gens   field: syc-resume   field: syc-entries   \ sy-scoped's slabs'
   field: syc-cnodes   field: syc-answers   field: syc-cands   \ counts at its
-  field: syc-tcl                                              \ start
+  field: syc-tcl                                              \ start, in its order
 end-structure
 begin-structure /sy
   field: sy-error           \ the last failure's code, or 0
@@ -155,11 +159,17 @@ begin-structure /sche  field: sk-type  field: sk-depth  field: sk-result  end-st
 2 cells context-slab: sy-found
 1 cells context-slab: sy-tcl
 1 cells context-slab: sy-args
-2 cells context-slab: sy-pairs
 1 cells context-slab: sy-mvars
 1 cells context-slab: sy-lv
 1 cells context-slab: sy-tried
 
+\ The slabs a search adds to, given back at its end (sy-leave), in the
+\ order of syc-gens .. syc-tcl.
+create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-answers ,
+  ' sy-cands , ' sy-tcl ,
+7 constant sy-scoped#
+: sy-scoped@ ( i -- slab ) cells sy-scoped + @ execute ;
+: syc-count ( syc i -- addr ) cells swap syc-gens + ;
 : sy-c ( -- syc ) sy-calls slab-last ;
 : lf-synth-error ( -- code ) sy sy-error @ ;
 : sy-refuse ( code -- -1 outcome ) dup sy sy-error ! lf-author-outcome -1 swap ;
@@ -255,12 +265,17 @@ begin-structure /sche  field: sk-type  field: sk-depth  field: sk-result  end-st
 \ ---- The table: this search's entries (Lean's tableEntries), each a
 \ goal's key with its waiters and answers as runs (lib/runs.fs), found by
 \ Lean's Expr ==.
+\ The first i in lo .. hi-1 whose test xt ( key i -- key flag outcome )
+\ holds (the xt kept as an outer loop's index, read with J): i and true;
+\ -1 and false when none does, or with the first failing test's outcome.
+: sy-hit ( key lo hi xt -- i found? outcome )
+  dup 1+ swap ?do swap ?do i j execute ok-then? 0= if nip -1 false rot unloop unloop
+    exit then if drop i true outcome-ok unloop unloop exit then
+  loop loop drop -1 false outcome-ok ;
 : sen@ ( e -- addr ) sy-entries slab-at ;
 : sy-entry-hit? ( key e -- key flag outcome ) sen@ se-key @ over lf-meta-eqv ;
 : sy-find ( key -- e found? outcome )
-  sy-entries slab-count sy-c syc-entries @ ?do i sy-entry-hit? ok-then? 0= if
-    nip no-result false swap unloop exit then if drop i true outcome-ok unloop exit then
-  loop drop -1 false outcome-ok ;
+  sy-c syc-entries @ sy-entries slab-count ['] sy-entry-hit? sy-hit ;
 : sy-entry-new ( key waiter -- outcome )
   0 swap run-push ok-then? 0= if nip exit then
   1 sy-entries slab-claim ok-then? 0= if nip nip exit then
@@ -268,9 +283,6 @@ begin-structure /sche  field: sk-type  field: sk-depth  field: sk-result  end-st
 : sy-run+ ( x addr -- outcome )   \ x at the end of the run at addr
   tuck @ swap run-push ok-then? if swap ! outcome-ok else nip then ;
 : sy-wait ( waiter e -- outcome ) sen@ se-waiters sy-run+ ;
-\ xt ( x k run -- x outcome ) for each element k of the run, in order,
-\ while ok.
-: sy-run-each ( x run xt -- outcome ) >r dup run-count swap r> ok-fold nip ;
 
 \ ---- Nodes.
 : sgn@ ( g -- addr ) sy-gens slab-at ;
@@ -329,18 +341,17 @@ begin-structure /sche  field: sk-type  field: sk-depth  field: sk-result  end-st
   swap scn@ sc-size @ 1+ sy-answer-new ok-then? 0= if no-result exit then
   dup san@ sa-expr @ lf-infer ok-then? if over san@ sa-type ! outcome-ok else nip
   no-result then ;
-: sy-old-other ( type answers k -- type answers flag outcome )
-  over swap run@ san@ sa-type @ >r over r> lf-meta-eqv ok-then? if 0= outcome-ok else
-  false swap then ;
+: sy-other-type ( type a -- type new? outcome )   \ a's type is not type
+  san@ sa-type @ over lf-meta-eqv ok-then? if 0= outcome-ok else false swap then ;
+: sy-old-other ( type new? a -- type new? outcome )   \ none compared once one is equal
+  swap if sy-other-type else drop false outcome-ok then ;
 : sy-new-answer? ( a e -- flag outcome )   \ no older answer has its type
-  sen@ se-answers @ swap san@ sa-type @ swap dup run-count ['] sy-old-other ok-all?
-  >r nip nip r> ;
+  sen@ se-answers @ swap san@ sa-type @ true rot ['] sy-old-other run-each rot drop ;
 : sy-wake ( a waiter -- outcome )
   dup sy-root = if drop san@ sa-expr @ sy-c syc-result ! outcome-ok exit then
   swap sy-resume slab-2push ;
-: sy-wake-one ( a k waiters -- a outcome ) swap run@ over swap sy-wake ;
-: sy-wake-all ( a e -- outcome )
-  sen@ se-waiters @ ['] sy-wake-one sy-run-each ;
+: sy-wake1 ( a waiter -- a outcome ) over swap sy-wake ;
+: sy-wake-all ( a e -- outcome ) sen@ se-waiters @ ['] sy-wake1 run-each nip ;
 : sy-add-new ( a e -- outcome )
   2dup sen@ se-answers sy-run+ ok-then? if sy-wake-all else nip nip then ;
 : sy-add-checked ( a e -- outcome )
@@ -357,14 +368,12 @@ begin-structure /sche  field: sk-type  field: sk-depth  field: sk-result  end-st
 \ ---- consume: in the consumer's state, its subgoals not yet assigned;
 \ none left: an answer; else the first one's table entry, waited on, its
 \ answers queued; or a new goal.
-: sy-unassigned ( run k goals -- run' outcome )
-  swap run@ dup lf-mvar-value if 2drop outcome-ok else run-push then ;
 : sy-goals-left ( c -- outcome )
-  dup scn@ sc-goals @ 0 over run-count rot ['] sy-unassigned ok-fold
+  dup scn@ sc-goals @ ['] lf-goal-unassigned? run-filter
   ok-then? if swap scn@ sc-goals ! outcome-ok else nip then ;
-: sy-queue-one ( c k answers -- c outcome ) swap run@ over swap sy-resume slab-2push ;
+: sy-queue1 ( c a -- c outcome ) over swap sy-resume slab-2push ;
 : sy-queue ( c e -- outcome )   \ every answer of e, in order, for the consumer
-  sen@ se-answers @ ['] sy-queue-one sy-run-each ;
+  sen@ se-answers @ ['] sy-queue1 run-each nip ;
 : sy-known ( c e -- outcome ) 2dup sy-wait ok-then? if sy-queue else nip nip then ;
 : sy-first ( c -- mvar ) scn@ sc-goals @ 0 run@ ;
 : sy-unknown ( c key -- outcome )
@@ -387,15 +396,6 @@ begin-structure /sche  field: sk-type  field: sk-depth  field: sk-result  end-st
 \ of no binder), directly when the goal's body has no metavariable left,
 \ else by isDefEq.
 : sy-no2 ( outcome -- -1 -1 outcome ) -1 -1 rot ;
-: sy-pair+ ( level -- outcome )
-  dup lf-level-identity 0= if drop outcome-full exit then swap sy-pairs slab-2push ;
-: sy-level-new ( k -- outcome ) drop lf-level-mvar-new ok-then? if sy-pair+ then ;
-: sy-cref ( name gen -- term outcome )   \ the constant at sy-pairs' levels
-  sy-pairs slab-base sy-pairs slab-count lf-cref-new
-  if lf-cterm-new if drop outcome-ok exit then then -1 outcome-full ;
-: lf-synth-const ( d -- term outcome )
-  sy-pairs slab-clear dup lf-menv-params nip ['] sy-level-new ok-each
-  ok-then? if lf-menv-name lf-name-generation @ sy-cref else no-result then ;
 : sy-body! ( c -- outcome )
   dup scn@ sc-mvar @ lf-mvar-type 0= if drop outcome-invalid exit then
   dup sy-pi-free ok-then? if swap scn@ sc-body ! outcome-ok else nip then ;
@@ -415,9 +415,8 @@ begin-structure /sche  field: sk-type  field: sk-depth  field: sk-result  end-st
 : sy-telescope ( val type -- val' body outcome )
   begin sy-inst-step ok-then? 0= if exit then while repeat outcome-ok ;
 : sy-inst-val ( i -- val outcome )
-  elab-instance@ 2drop elab-decl-name lf-menv-find ok-then? if lf-synth-const else
-  no-result
-  then ;
+  elab-instance@ 2drop elab-decl-name lf-menv-find ok-then? if lf-meta-const-fresh else
+  no-result then ;
 : sy-inst-type ( i -- val type outcome ) sy-inst-val ok-then? if dup lf-infer else
   sy-no2 then ;
 : sy-val! ( val body c -- ) scn@ tuck sc-ibody ! sc-val ! ;
@@ -525,10 +524,9 @@ begin-structure /sche  field: sk-type  field: sk-depth  field: sk-result  end-st
   over execute ok-then? if swap sy-lv slab-at ! outcome-ok else nip then ;
 : sy-relevel ( k xt -- outcome )
   swap elab-class-out-levels swap ['] sy-lv-put ok-fold nip ;
-: sy-lv-pair ( i -- outcome ) sy-lv slab-at @ sy-pair+ ;
 : sy-renamed ( head -- head' outcome )   \ its name at sy-lv's levels
-  sy-pairs slab-clear sy-lv slab-count ['] sy-lv-pair ok-each
-  ok-then? if lf-term-first@ lf-cref-slot lf-cref-name@ sy-cref else no-result then ;
+  lf-term-first@ lf-cref-slot lf-cref-name@ sy-lv slab-base sy-lv slab-count
+  lf-meta-const-at ;
 : sy-new-head ( head k xt -- head' outcome )
   >r over lf-term-first@ lf-cref-slot sy-lv lf-meta-levels-fill ok-then? 0= if
     r> drop nip no-result exit then
@@ -595,15 +593,14 @@ begin-structure /sche  field: sk-type  field: sk-depth  field: sk-result  end-st
   lf-mctx-view dup lf-view-valid? 0= if drop false exit then
   dup lf-view-count ['] sy-local-free? all? nip ;
 : sy-cache-fresh ( -- )
-  lf-mctx-epoch sy sy-epoch @ <> if sy-cache slab-clear lf-mctx-epoch sy sy-epoch ! then ;
+  mctx-epoch@ sy sy-epoch @ <> if sy-cache slab-clear mctx-epoch@ sy sy-epoch ! then ;
 : sy-cache-hit? ( key i -- key flag outcome )
   skn@ dup sk-depth @ sy sy-pending @ = if sk-type @ over lf-meta-eqv else drop false
   outcome-ok then ;
-: sy-cache-find ( key -- r found? outcome )
-  sy-cache slab-count 0 ?do i sy-cache-hit? ok-then? 0= if nip no-result false swap unloop
-    exit then if drop i skn@ sk-result @ true outcome-ok unloop exit then
-  loop drop -1 false outcome-ok ;
-: sy-cache-lookup ( -- r found? outcome )
+: sy-cache-find ( key -- i found? outcome )
+  0 sy-cache slab-count ['] sy-cache-hit? sy-hit ;
+: sy-cache-result ( i -- r ) skn@ sk-result @ ;
+: sy-cache-lookup ( -- i found? outcome )   \ the entry
   sy-cache-ok? 0= if -1 sy-c syc-ckey ! then sy-cache-fresh
   sy-c syc-ckey @ dup 0< if false outcome-ok exit then sy-cache-find ;
 : sy-cache-put ( r -- outcome )   \ cacheResult
@@ -666,25 +663,19 @@ begin-structure /sche  field: sk-type  field: sk-depth  field: sk-result  end-st
 : sy-core ( type -- inst flag outcome )
   sy-preprocess dup ok? 0= if sy-none exit then drop
   sy-cache-lookup ok-then? 0= if nip sy-none exit then
-  if sy-apply-cached else drop sy-miss then ;
+  if sy-cache-result sy-apply-cached else drop sy-miss then ;
 
 \ ---- A search's call: its record, the slabs' counts at its start; at
 \ its end everything it added given back.
 : sy-counts! ( syc -- )
-  sy-gens slab-count over syc-gens !  sy-resume slab-count over syc-resume !
-  sy-entries slab-count over syc-entries !  sy-cnodes slab-count over syc-cnodes !
-  sy-answers slab-count over syc-answers !  sy-cands slab-count over syc-cands !
-  sy-tcl slab-count swap syc-tcl ! ;
+  sy-scoped# 0 do i sy-scoped@ slab-count over i syc-count ! loop drop ;
 : sy-enter ( -- outcome )
   sy-calls slab-count 0= if sy-tried slab-clear then
   1 sy-calls slab-claim ok-then? 0= if exit then drop
   sy-c dup /syc erase -1 over syc-result ! -1 over syc-ckey ! sy-counts! outcome-ok ;
-: sy-cut ( n slab -- ) tuck slab-count - swap slab-commit ;
 : sy-leave ( -- )
-  sy-c dup syc-gens @ sy-gens sy-cut  dup syc-resume @ sy-resume sy-cut
-  dup syc-entries @ sy-entries sy-cut  dup syc-cnodes @ sy-cnodes sy-cut
-  dup syc-answers @ sy-answers sy-cut  dup syc-cands @ sy-cands sy-cut
-  syc-tcl @ sy-tcl sy-cut  sy-calls slab-drop ;
+  sy-c sy-scoped# 0 do dup i syc-count @ i sy-scoped@ slab-cut loop drop
+  sy-calls slab-drop ;
 : sy-flags ( -- flags )
   lf-defeq-flags lf-defeq-stuck or lf-defeq-fo or lf-defeq-ctx or
   lf-defeq-const lf-defeq-univ or invert and ;
