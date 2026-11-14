@@ -335,14 +335,6 @@
   ],
   "tokens": 14
  },
- "344d6c558513": {
-  "copies": 2,
-  "members": [
-   "src/front/elab-data.fs:ed-proj-idx!",
-   "src/front/elab-data.fs:ed-nd-idx"
-  ],
-  "tokens": 8
- },
  "3555000a639a": {
   "copies": 2,
   "members": [
@@ -554,14 +546,6 @@
   ],
   "tokens": 8
  },
- "591a5096d9b3": {
-  "copies": 2,
-  "members": [
-   "src/front/elab-data.fs:ed-nd-body",
-   "src/front/elab-data.fs:ed-nd-let-body"
-  ],
-  "tokens": 8
- },
  "5a5a01221e51": {
   "copies": 2,
   "members": [
@@ -752,14 +736,6 @@
    "src/front/elab-data.fs:ed-key-item"
   ],
   "tokens": 10
- },
- "7a3d0d08c70e": {
-  "copies": 2,
-  "members": [
-   "src/front/elab-data.fs:ed-nd-value",
-   "src/front/elab-data.fs:ed-sun-value!"
-  ],
-  "tokens": 8
  },
  "7c73ccf93620": {
   "copies": 4,
@@ -1370,14 +1346,6 @@
   "members": [
    "src/core/compact-names.fs:name-up",
    "src/front/constructions.fs:nth-pi"
-  ],
-  "tokens": 8
- },
- "dc8cff64fa89": {
-  "copies": 2,
-  "members": [
-   "src/front/elab-data.fs:ed-elim-decl!",
-   "src/front/elab-data.fs:ed-nd-name"
   ],
   "tokens": 8
  },
