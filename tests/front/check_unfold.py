@@ -117,6 +117,11 @@ TERMS = [
     ("unfold", "instances", apps(HADD3, "k", "x"), None),
     ("unfold", "implicit", apps(HADD3, "k", "x"), None),
     ("unfold", "instances", HADD3, None),
+    # unfoldProjInst?'s result with no projection at its head (the
+    # instance argument missing: a lambda), and with universe arguments
+    # other than the declaration's parameters: none (review s2-unfold-a).
+    ("unfold", "instances", apps(c("HAdd.hAdd", 0, 0, 0), NAT, NAT, NAT), None),
+    ("unfold", "instances", apps(c("HAdd.hAdd", 0, 0), NAT, NAT, NAT, INST, "k", "x"), None),
     ("unfold", "instances", apps(c("HAdd.hAdd", 0, 0, 0), NAT, NAT, NAT, "k", "k", "x"), None),
     ("unfold", "default", apps(c("HAdd.hAdd", 0, 0, 0), NAT, NAT, NAT, "k", "k", "x"), None),
     ("unfold", "reducible", apps(c("Prod.fst", 0, 0), NAT, NAT, cw.pair("a", "b")), None),

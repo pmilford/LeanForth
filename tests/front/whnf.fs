@@ -296,6 +296,14 @@ T{ hadd-kx lf-tr-instances unf rot add-kx same? hadd-kx lf-tr-reducible stays
 : k1kx ( -- t ) fk s" HAdd" menv-name 0 lf-proj-of made fk app fx app ;
 T{ hadd-kkx lf-tr-instances stays hadd-kkx lf-tr-default unf rot k1kx same?
    -> false outcome-ok true true outcome-ok true }T
+\ unfoldProjInst? gives none when its result has no projection at the
+\ head (the instance argument missing: a lambda) and for universe
+\ arguments other than the declaration's parameters (check_unfold.py
+\ compares both with pinned Lean; review s2-unfold-a).
+: hadd-nnn ( -- t ) l0 l0 l0 3 s" HAdd.hAdd" cn nat app nat app nat app ;
+: hadd-2kx ( -- t ) l0 l0 2 s" HAdd.hAdd" cn nat app nat app nat app inst-hadd app fk app fx app ;
+T{ hadd-nnn lf-tr-instances stays hadd-2kx lf-tr-instances stays
+   -> false outcome-ok true false outcome-ok true }T
 \ A structure projection (Prod.fst, reducible, no class's): at reducible
 \ unfoldDefault leaves its projection (no class field to reduce).
 : fst-ab ( -- t ) l0 l0 2 s" Prod.fst" cn nat app nat app fa fb pair app ;
@@ -307,8 +315,8 @@ T{ lf-tr-instances lf-defeq-mode! hadd-kx lf-meta-unfold 2drop drop lf-defeq-mod
 
 \ ---- whnfCore's parts by whnf (S2 merge A): a projection's structure
 \ (instHAdd Nat instAddNat unfolds to its constructor at default, not at
-\ reducible); whnfCoreAtDefEq's by whnfAtMostI (id unfolds at default,
-\ not at instances); a recursor's major premise (id Nat Nat.zero is
+\ reducible); whnfCoreAtDefEq's by whnfAtMostI (id unfolds at default
+\ and implicit, not at instances); a recursor's major premise (id Nat Nat.zero is
 \ Nat.zero); a literal major premise (toCtorIfLit) unsupported.
 : add-lam ( -- t ) nat nat l0 1 s" Add.add" cn nat app 0 s" instAddNat" cn app 1 bv app 0 bv app lam lam ;
 T{ inst-hadd 0 proj add-lam whnf= inst-hadd 0 proj dup lf-tr-reducible ' lf-whnf-core at-mode
@@ -316,6 +324,9 @@ T{ inst-hadd 0 proj add-lam whnf= inst-hadd 0 proj dup lf-tr-reducible ' lf-whnf
 : id-ab ( -- t ) lv1 1 s" id" cn l0 l0 2 s" Prod" cn nat app nat app app fa fb pair app 0 proj ;
 T{ id-ab fa whnf= id-ab dup lf-whnf-core-at-defeq same-out lf-defeq-mode
    -> true outcome-ok true outcome-ok lf-tr-default }T
+\ At implicit transparency too (id is implicit-reducible: whnf at
+\ implicit would unfold it, whnfAtMostI does not; review s2-unfold-a H1).
+T{ id-ab dup lf-tr-implicit ' lf-whnf-core-at-defeq at-mode same-out -> true outcome-ok }T
 \ A part that fails (Nat.add k x by whnfAtMostI: reduceNat?'s guard) still
 \ gives the caller its transparency back.
 T{ 0 s" Nat.add" cn fk app fx app 0 proj lf-whnf-core-at-defeq nip lf-defeq-mode

@@ -115,6 +115,15 @@ true (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (ap
 true (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) x) (app (app (app (app Add.add.{0} Nat.{}) instAddNat.{}) k) x)
 true (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b) (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b)
 false
+true (app (app id.{1} Nat.{}) (app (app (app Prod.fst.{0,0} Nat.{}) Nat.{}) (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b))) (app (app (app Prod.fst.{0,0} Nat.{}) Nat.{}) (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b))
+true (app (app (app Prod.fst.{0,0} Nat.{}) Nat.{}) (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b)) (app (app id.{1} Nat.{}) (app (app (app Prod.fst.{0,0} Nat.{}) Nat.{}) (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b)))
+true (app (app id.{1} Nat.{}) (app (app Nat.mul.{} k) x)) (app (app Nat.mul.{} k) x)
+true (app (app Nat.mul.{} k) x) (app (app id.{1} Nat.{}) (app (app Nat.mul.{} k) x))
+true (app (app id.{1} Nat.{}) (app (app Nat.add.{} k) x)) (app (app (app (app (app (app Function.comp.{1,1,1} Nat.{}) Nat.{}) Nat.{}) (app id.{1} Nat.{})) (app Nat.add.{} k)) x)
+true (app Nat.pred.{} x) (app Nat.pred.{} (app (app id.{1} Nat.{}) x))
+true k (app (proj 0 (app (app id.{1} (app (app Prod.{0,0} (pi Nat.{} Nat.{})) Nat.{})) (app (app (app (app Prod.mk.{0,0} (pi Nat.{} Nat.{})) Nat.{}) (lam Nat.{} #0)) 0))) k)
+true (app (proj 0 (app (app id.{1} (app (app Prod.{0,0} (pi Nat.{} Nat.{})) Nat.{})) (app (app (app (app Prod.mk.{0,0} (pi Nat.{} Nat.{})) Nat.{}) (lam Nat.{} #0)) 0))) k) k
+true a (proj 0 (app (app id.{1} (app (app Prod.{0,0} Nat.{}) Nat.{})) (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b)))
 true (app Nat.succ.{} (app (app (app OfNat.ofNat.{0} Nat.{}) 9223372036854775807) (app instOfNatNat.{} 9223372036854775807))) 9223372036854775808
 false
 true (app Nat.succ.{} (app (app (app OfNat.ofNat.{0} Nat.{}) 18446744073709551614) (app instOfNatNat.{} 18446744073709551614))) 18446744073709551615

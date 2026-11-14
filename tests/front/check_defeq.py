@@ -91,6 +91,14 @@ ADD_ADD = apps(c("Add.add", 0), NAT, c("instAddNat"))
 HADD_MK = apps(c("HAdd.mk", 0, 0, 0), NAT, NAT, NAT,
                (LAM, NAT, (LAM, NAT, apps(ADD_ADD, "#1", "#0"))))
 SMART = "S2 merge B smart unfolding (Nat.add._sunfold)"
+SMART_MUL = "S2 merge B smart unfolding (Nat.mul._sunfold, the greater height unfolded first)"
+ID1, FST, MUL, PRED = c("id", 1), c("Prod.fst", 0, 0), c("Nat.mul"), c("Nat.pred")
+PROD_F = apps(c("Prod", 0, 0), NAT2, NAT)
+
+
+def mk_f(f, n):
+    return apps(PROD_MK, NAT2, NAT, f, n)
+
 EQAB = apps(c("Eq", 1), NAT, "a", "b")
 REFL_A = apps(c("Eq.refl", 1), NAT, "a")
 MOTIVE, STEP = lam(NAT), lam(lam("#0"))
@@ -239,6 +247,32 @@ CASES = [
      "S2 merge B isDefEqProjInst (ExprDefEq.lean:2356)"),
     ("impl", pair("a", "b"), pair("a", "?n"), None),
     ("inst", ADD, "k", "FE1c isDefEqProjInst (projection facts, FE1d2)"),
+    # Lazy delta's choices (review s2-unfold-a H1): a projection function
+    # on one side only unfolds the other side (?n := Prod.fst ..., not a);
+    # without metavariables the side of the greater height unfolds first
+    # (Nat.mul, 2, before id, 1; its smart unfolding a gap); after both
+    # sides unfold, the side whose head the other's unfolding reached is
+    # compared as it is (id against Function.comp's unfolding); tryHeuristic
+    # compares a non-trivial definition's arguments first (Nat.pred: height
+    # 2, a value that is not simple).
+    ("meta", apps(ID1, NAT, "?n"), apps(FST, NAT, NAT, pair("a", "b")), None),
+    ("meta", apps(FST, NAT, NAT, pair("a", "b")), apps(ID1, NAT, "?n"), None),
+    ("eq", apps(ID1, NAT, apps(MUL, "k", "x")), apps(MUL, "k", "x"), SMART_MUL),
+    ("eq", apps(MUL, "k", "x"), apps(ID1, NAT, apps(MUL, "k", "x")), SMART_MUL),
+    ("eq", apps(ID1, NAT, apps(ADD, "k", "x")),
+     apps(c("Function.comp", 1, 1, 1), NAT, NAT, NAT, apps(ID1, NAT), apps(ADD, "k"), "x"), None),
+    ("eq", apps(PRED, "x"), apps(PRED, apps(ID1, NAT, "x")), None),
+    # isExprDefEqExpensive's whnfCore reduces a projection's structure by
+    # whnf (proj := yesWithDelta: id unfolds at default), where
+    # isExprDefEqAux's whnfCoreAtDefEq does not (review s2-unfold-a M1).
+    ("meta", "k", apps((PROJ, 0, apps(ID1, PROD_F, mk_f(lam("#0"), (LIT, 0)))), "k"), None),
+    ("meta", apps((PROJ, 0, apps(ID1, PROD_F, mk_f(lam("#0"), (LIT, 0)))), "k"), "k",
+     "FE1c inferType of a projection (proof irrelevance)"),
+    # isExprDefEqAux's whnfCoreAtDefEq leaves the projection (id stays at
+    # instances); Lean then reduces it in isExprDefEqExpensive, after
+    # isDefEqProj.
+    ("meta", "a", (PROJ, 0, apps(ID1, apps(c("Prod", 0, 0), NAT, NAT), pair("a", "b"))),
+     "FE1c projections (isDefEqProj)"),
     # Offsets and values are unsigned cells (review B1).
     ("eq", succ("?h"), (LIT, 2**63), None),
     ("eq", succ(hadd("?h", ofnat(2**63))), (LIT, 5), None),

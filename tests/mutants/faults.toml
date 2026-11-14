@@ -17688,3 +17688,138 @@ new = '''  tuck ['] sort-signed swap sorter-init drop ['] u32-le@ over sorter-ke
 test = "$GFORTH tests/core/env-import.fs"
 reason = "review reuse-k1 L7 and reuse-out L4: the dependency and lookup lists sorted by signed keys"
 equivalent = "on 64-bit hosts u32-le@ gives keys below 2^32, all positive as signed cells, so the signed and unsigned orders agree; only a 32-bit host, where the test's $80000000 key is negative, separates them"
+
+# --- Review s2-unfold-a (2026-11-13): lazy delta's choices against pinned
+# Lean (H1), whnfCore at isExprDefEqExpensive (M1), a body constant's
+# universe arguments (L1), the node fields (L4), refused decodes passed on
+# (L5), the shared arity test (B1), unfoldProjInst?'s none cases.
+
+[[fault]]
+id = "fe-dd-keys-swapped"
+file = "src/front/defeq-delta.fs"
+old = '''  2dup > if 2drop dd-first-t exit then < if dd-first-s else dd-heads then ;'''
+new = '''  2dup < if 2drop dd-first-t exit then > if dd-first-s else dd-heads then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review s2-unfold-a H1: unfoldDefEq unfolds the side of the smaller height first (id before Nat.mul), so id Nat (Nat.mul k x) =?= Nat.mul k x answers true where Lean's order reaches Nat.mul's smart unfolding (a gap: unsupported)"
+
+[[fault]]
+id = "fe-dd-abbrev-rank-opaque"
+file = "src/front/defeq-delta.fs"
+old = '''drop lf-hint-abbrev = if max-n else -1 then ;'''
+new = '''drop lf-hint-abbrev = if -1 else -1 then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review s2-unfold-a H1: an abbreviation ranks as opaque in unfoldDefEq's ReducibilityHints.lt, so a regular definition unfolds before it"
+equivalent = "an abbreviation's key decides only against a definition of the same reducibility, without metavariables, that is no projection function (projection functions go by dd-proj-cases first); in Init those abbreviations are reducible ones (Unit, inferInstance, autoParam, the casesOn and below definitions) meeting outParam, semiOutParam, optParam, GT.gt, GE.ge or Ne, which unfold to an argument or one constant application, so either order reaches the same comparison, or instance-reducible matchers, which whnfCore answers unsupported before lazy delta runs; no Init case tells the two orders apart"
+
+[[fault]]
+id = "fe-dd-proj-cases-swapped"
+file = "src/front/defeq-delta.fs"
+old = '''2dup = if 2drop dd-reducible exit then drop if dd-unfold-s else dd-unfold-t then ;'''
+new = '''2dup = if 2drop dd-reducible exit then drop if dd-unfold-t else dd-unfold-s then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review s2-unfold-a H1: a projection function on one side unfolds itself instead of the other side, so id Nat ?n =?= Prod.fst Nat Nat (a, b) assigns ?n := a, not Lean's Prod.fst ... (a, b)"
+
+[[fault]]
+id = "fe-dd-heads-both-unchecked"
+file = "src/front/defeq-delta.fs"
+old = '''  de-t over dd-same-head? if nip de-t swap then dd-compare ;'''
+new = '''  dd-compare ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review s2-unfold-a H1: after both sides unfold, the unfolded left side is compared where Lean keeps it (sameHeadSymbol t sNew), so id Nat (Nat.add k x) =?= Function.comp (id Nat) (Nat.add k) x reaches Nat.add's smart unfolding: unsupported, not true"
+
+[[fault]]
+id = "fe-dd-simple-always"
+file = "src/front/defeq-delta.fs"
+old = '''  dup outcome-rejected = if drop false exit then'''
+new = '''  dup outcome-rejected = if drop true exit then'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review s2-unfold-a H1: every value counts as simple, so Nat.pred (height 2) is trivial, tryHeuristic skips its arguments and Nat.pred x =?= Nat.pred (id Nat x) unfolds both into a matcher: unsupported, not true"
+
+[[fault]]
+id = "fe-whnf-at-most-i-implicit"
+file = "src/front/whnf.fs"
+old = '''  dup lf-tr-all = over lf-tr-default = or over lf-tr-implicit = or'''
+new = '''  dup lf-tr-all = over lf-tr-default = or'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-unfold-a H1: whnfAtMostI keeps implicit transparency, so whnfCoreAtDefEq at implicit unfolds id under a projection (Lean lowers implicit to instances)"
+
+[[fault]]
+id = "fe-defeq-expensive-at-defeq"
+file = "src/front/defeq.fs"
+old = '''  else ['] de-exp-nat ['] de-whnf-c de-rewhnf then ;'''
+new = '''  else ['] de-exp-nat ['] de-whnf de-rewhnf then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review s2-unfold-a M1: isExprDefEqExpensive's whnfCore reduces a projection's structure by whnfAtMostI, so k =?= (id P (Prod.mk (fun x => x) 0)).1 k answers unsupported where Lean's whnfCore (proj := yesWithDelta) gives true"
+
+[[fault]]
+id = "fe-defeq-aux-whnf-core"
+file = "src/front/defeq.fs"
+old = '''  dup lf-lb-undef = if drop ['] de-solve-inst ['] de-whnf de-rewhnf else de-return then ;'''
+new = '''  dup lf-lb-undef = if drop ['] de-solve-inst ['] de-whnf-c de-rewhnf else de-return then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review s2-unfold-a M1: isExprDefEqAux reduces a projection's structure with whnf at the call's transparency, where Lean's whnfCoreAtDefEq lowers it to instances"
+
+[[fault]]
+id = "fe-ed3-const-arity-unchecked"
+file = "src/front/elab-data.fs"
+old = ''': ed-nd-fits ( -- outcome ) ed-nd-arity? if outcome-ok else ed-e-unfit ed-bad then ;'''
+new = ''': ed-nd-fits ( -- outcome ) outcome-ok ;'''
+test = "GFORTH=$GFORTH python3 tests/front/test_elab_data.py"
+reason = "review s2-unfold-a L1: a smart-unfolding body's constant with other universe arguments than its declaration's parameters (Nat.{0}) is read, never refused"
+
+[[fault]]
+id = "fe-ed3-foreign-arity"
+file = "src/front/elab-data.fs"
+old = '''  ed-nd ed-node-a @ dup 0< if drop true else ed-levels ed-nd-levels# = then ;'''
+new = '''  ed-nd ed-node-a @ dup 0< if drop false else ed-levels ed-nd-levels# = then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/test_elab_data.py"
+reason = "review s2-unfold-a L1: a body's constant that the library lacks (foreign) is refused for its universe arguments, which only a declaration's parameters can bound"
+
+[[fault]]
+id = "fe-ed3-field-stored-on-failure"
+file = "src/front/elab-data.fs"
+old = '''  swap ok-then? if ! outcome-ok else nip then ;'''
+new = '''  swap drop ! outcome-ok ;'''
+test = "GFORTH=$GFORTH python3 tests/front/test_elab_data.py"
+reason = "review s2-unfold-a L4: a node field's refused value (a negative bound variable, an unknown binder info) is stored and the node read as ok"
+
+[[fault]]
+id = "fe-fi-defn-decode-flag"
+file = "src/front/fun-info.fs"
+old = '''  ok-then? if lf-menv-kind lf-kind-definition = outcome-ok else true swap then ;'''
+new = '''  ok-then? if lf-menv-kind lf-kind-definition = outcome-ok else drop true outcome-ok then ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s2-unfold-a L5: a declaration whose decode was refused room reads as a definition (callers answer unsupported) instead of passing full on"
+
+[[fault]]
+id = "fe-if-firm-decode-flag"
+file = "src/front/infer.fs"
+old = '''  ok-then? if lf-menv-kind lf-kind-definition <> outcome-ok else false swap then ;'''
+new = '''  ok-then? if lf-menv-kind lf-kind-definition <> outcome-ok else drop false outcome-ok then ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s2-unfold-a L5: inferType of v 0 with v : Nat.add, Nat.add's decode refused room, answers unsupported instead of full"
+
+[[fault]]
+id = "fe-meta-arity-ignored"
+file = "src/front/meta-spine.fs"
+old = ''': lf-meta-arity? ( d const -- flag ) lf-const-levels# swap lf-menv-params nip = ;'''
+new = ''': lf-meta-arity? ( d const -- flag ) 2drop true ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-unfold-a B1: the shared universe-argument count passes any constant, so outParam.{1,1} Nat unfolds (Lean's deltaDefinition gives none)"
+
+[[fault]]
+id = "fe-unfold-proj-inst-arity"
+file = "src/front/unfold.fs"
+old = '''  2dup lf-meta-arity? 0= if 2drop uf-none-of exit then
+  uf-delta-beta'''
+new = '''  uf-delta-beta'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-unfold-a: unfoldProjInst? delta-reduces HAdd.hAdd.{0,0} (two universe arguments for three parameters), where Lean's deltaBetaDefinition gives none"
+
+[[fault]]
+id = "fe-unfold-proj-inst-no-proj"
+file = "src/front/unfold.fs"
+old = '''  dup uf-field? if nip lf-unfold-ask-none outcome-ok else drop uf-none-of then ;'''
+new = '''  nip lf-unfold-ask-none outcome-ok ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-unfold-a: unfoldProjInst? asks reduceProj? of a result with no projection at its head (HAdd.hAdd Nat Nat Nat unfolds to a lambda), where Lean gives none"

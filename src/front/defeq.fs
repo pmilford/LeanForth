@@ -257,9 +257,10 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 \ A Meta call at the activation's transparency (Lean's withTransparency,
 \ meta-config.fs's lf-meta-at), the configured one restored after.
 : de-mode-at ( i*x xt -- j*x ) df df-mode @ lf-meta-at ;
-\ whnfCoreAtDefEq and whnf at the activation's transparency, whnfD at
-\ default (whnf.fs).
+\ whnfCoreAtDefEq, whnfCore and whnf at the activation's transparency,
+\ whnfD at default (whnf.fs).
 : de-whnf ( t -- t' flag ) ['] lf-whnf-core-at-defeq de-mode-at de-must ;
+: de-whnf-c ( t -- t' flag ) ['] lf-whnf-core de-mode-at de-must ;
 : de-whnf-m ( t -- t' flag ) ['] lf-meta-whnf de-mode-at de-must ;
 \ inferType, at default transparency or above (withInferTypeConfig); a
 \ literal's type is Nat (infer.fs has no literal case).
@@ -828,14 +829,17 @@ defer de-delta-x ( -- )
   de-nat-unported? if outcome-unsupported de-abort exit then
   ['] de-exp-o ['] de-offset de-call ;
 : de-changed? ( t' s' -- t' s' flag ) over de-t de-eqv-of 0= over de-s de-eqv-of 0= or ;
-\ whnfCore of both sides: when either changes, isExprDefEqAux again;
-\ else the step xt.
-: de-rewhnf ( xt -- )
-  de-t de-whnf 0= if 2drop exit then de-s de-whnf 0= if 2drop drop exit then
+\ Both sides by whnf ( t -- t' flag ): when either changes,
+\ isExprDefEqAux again; else the step xt. isExprDefEqAuxImpl uses
+\ whnfCoreAtDefEq (de-solve-p), isExprDefEqExpensive whnfCore, whose
+\ projections reduce their structure with whnf (ExprDefEq.lean:2414).
+: de-rewhnf ( xt whnf -- )
+  dup de-t swap execute 0= if 2drop drop exit then
+  swap de-s swap execute 0= if 2drop drop exit then
   de-changed? if ['] de-solve-x de-goto drop else 2drop execute then ;
 : de-exp-proj ( -- )
   de-t lf-proj? de-s lf-proj? or if outcome-unsupported de-abort
-  else ['] de-exp-nat de-rewhnf then ;
+  else ['] de-exp-nat ['] de-whnf-c de-rewhnf then ;
 : de-exp-e2 ( r -- ) ['] de-exp-proj de-undef-do ;
 : de-exp-e1 ( r -- )
   dup lf-lb-undef <> if de-return exit then drop
@@ -844,7 +848,7 @@ defer de-delta-x ( -- )
 : de-solve-inst ( -- )
   de-t de-inst de-t! de-s de-inst de-s! de-aborted? 0= if de-expensive then ;
 : de-solve-p ( r -- )
-  dup lf-lb-undef = if drop ['] de-solve-inst de-rewhnf else de-return then ;
+  dup lf-lb-undef = if drop ['] de-solve-inst ['] de-whnf de-rewhnf else de-return then ;
 : de-solve-q ( r -- )
   dup lf-lb-undef <> if de-return exit then drop
   ['] de-solve-p ['] de-pirrel de-call ;
