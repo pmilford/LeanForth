@@ -1,5 +1,7 @@
 # LeanForth words: programming reference
 
+See also the [language reference](../user/LANGUAGE_REFERENCE.md) (owner's important page: every word by part, implemented or designed).
+
 Status: implemented 2026-11-03 in `src/author/` and `src/present/`
 (plan task 8.1.2, [ADR 0017](../adr/0017-leanforth-syntax.md)); untrusted;
 the [parser] review gate of `AGENTS.md` is still open. The user's view,

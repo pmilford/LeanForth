@@ -1,5 +1,7 @@
 # LeanForth syntax: theorems and proofs as Forth words
 
+See also the [language reference](LANGUAGE_REFERENCE.md) (owner's important page: every word by part, implemented or designed).
+
 **Status (2026-11-12): integrated; the [parser] review gate is
 pending.** The words of [ADR 0017](../adr/0017-leanforth-syntax.md), which
 the owner approved as the design, exist in `src/author/` (plan task
