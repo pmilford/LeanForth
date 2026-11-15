@@ -24,13 +24,22 @@ T{ s" tests/front/s2-slice.elab.ndjson" lfc-elab-file! lfc-elab-read -> outcome-
 : run ( -- outcome ) file ['] lfc-run lfc-making ;
 T{ run -> outcome-ok }T
 
-\ ---- 1. The heap refusing each allocation in turn.
-variable worst
-: refused-at ( k -- outcome ) heap-refusals ! run 0 heap-refusals ! ;
-: refusal-ok? ( outcome -- flag ) dup ok? swap outcome-full = or ;
-: each-refused ( -- k )
-  0 begin 1+ dup refused-at dup refusal-ok? 0= if dup worst ! then ok? until ;
-T{ outcome-ok worst ! each-refused 1 > worst @ -> true outcome-ok }T
+\ ---- 1. The heap refusing each allocation in turn, every k until a run
+\ makes fewer allocations than k (the refusal never fires; review
+\ s2-tactics re-check H1: the sweep went on past induction, rw, rfl and
+\ try, not only until the first run that ends ok). A fired refusal ends
+\ full, or is absorbed (the run still elaborates the same theorem, which
+\ the kernel then checks): never another outcome. The absorbed ones are
+\ pinned by count, so a step that starts to swallow a refusal (tryClear's
+\ full read as "cannot clear", review re-check M4) changes the count.
+variable absorbed   variable bad
+: refused-at ( k -- outcome fired? )
+  heap-refusals ! run heap-refusals @ 0= 0 heap-refusals ! ;
+: tally ( outcome -- )
+  dup outcome-full = if drop exit then ok? if 1 absorbed +! else 1 bad +! then ;
+: each-refused ( -- k ) 0 begin 1+ dup refused-at while tally repeat drop ;
+T{ 0 absorbed ! 0 bad ! each-refused 1000 > bad @ -> true 0 }T
+T{ absorbed @ -> 2 }T
 T{ run -> outcome-ok }T
 
 \ ---- 2. The elaboration fuel at each limit.

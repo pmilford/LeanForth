@@ -19707,3 +19707,19 @@ new = '''  de-hint-free? ok-then? 0= if drop false then'''
 test = "$GFORTH tests/front/s2-sweeps.fs"
 reason = "review s2-tactics fix round: the hint key's whnfR running out of fuel reported as not supported yet (93), where the run is out of fuel (91)"
 
+[[fault]]
+id = "s2-stuck-inner-mvar-head-none"
+file = "src/front/whnf.fs"
+old = '''  lf-term-tag@ dup lf-tag-mvar <> swap lf-tag-projection <> and ;'''
+new = '''  lf-term-tag@ lf-tag-projection <> ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-tactics re-check M2: an explicit argument headed by a metavariable is passed as none, a decided answer Lean does not give"
+
+[[fault]]
+id = "s2-induction-clear-full-kept"
+file = "src/front/tactic-induction.fs"
+old = '''  lf-tac-main swap lf-goal-clear dup outcome-invalid = if 2drop exit then
+  lf-tac-must lfi-only ;'''
+new = '''  lf-tac-main swap lf-goal-clear ok? if lfi-only else drop then ;'''
+test = "$GFORTH tests/front/s2-sweeps.fs"
+reason = "review s2-tactics re-check M4: tryClear's full or exhausted read as cannot clear, a runtime failure swallowed (Lean's <|> never catches one)"

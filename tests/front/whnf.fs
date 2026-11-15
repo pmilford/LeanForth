@@ -133,6 +133,9 @@ T{ nat inst-add succ ?n app ?h add-of lf-whnf-stuck -> ?h true outcome-ok }T
 T{ nat inst-add succ ?n app fk add-of lf-whnf-stuck -> false outcome-ok }T
 T{ nat inst-add ?n recm fk add-of lf-whnf-stuck -> false outcome-unsupported }T
 T{ nat inst-add nat inst-add ?n fk add-of fk add-of lf-whnf-stuck -> false outcome-unsupported }T
+\ An explicit argument whose head is a metavariable is not passed as none
+\ (review s2-tactics re-check M2).
+T{ nat inst-add ?f fk app fk add-of lf-whnf-stuck -> false outcome-unsupported }T
 T{ nat inst-add 0 s" List.toByteArray" cn ?n app fk add-of lf-whnf-stuck
    -> false outcome-unsupported }T
 T{ nat inst-add ?q 0 proj fk add-of lf-whnf-stuck -> false outcome-unsupported }T
