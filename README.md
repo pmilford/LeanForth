@@ -25,7 +25,7 @@ The Makefile and `bin/leanforth` find these automatically (override with `GFORTH
 ## Run
 
 ```bash
-make test    # Forth and Python tests; needs only Gforth and Python 3 (about 8 s with 8 parallel jobs)
+make test    # Forth and Python tests; needs only Gforth and Python 3 (several minutes; about 9 min at JOBS=2, 2026-11-14)
 make check   # make test plus every pinned-Lean comparison
 ```
 
