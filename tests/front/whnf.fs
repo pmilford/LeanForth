@@ -26,6 +26,9 @@ require ./whnf-cases.fs
 : same-out ( a b outcome -- flag outcome ) >r same? r> ;
 : tag-out ( t outcome -- tag outcome ) >r lf-term-tag@ r> ;
 : recm ( major -- t ) >r rec fm app fz app fs app r> app ;
+\ Whether a call gave its term back: ( e e' outcome ) and ( e e' flag outcome ).
+: same-term? ( e e' outcome -- flag outcome ) >r = r> ;
+: kept? ( e e' flag outcome -- flag flag outcome ) >r >r = r> r> ;
 
 \ ---- Full: the first call's first allocation (its spine's slab)
 \ refused; the same call again works.
@@ -242,7 +245,7 @@ T{ hadd-kx fk fx nat-add meta-whnf= hadd-kx dup lf-meta-whnf-r drop same?
 T{ fk zero nat-add fk meta-whnf= fk fx succ swap app nat-add succ fk fx nat-add app meta-whnf=
    -> true outcome-ok true outcome-ok }T
 T{ fk zero nat-add lf-meta-unfold rot fk = -> true outcome-ok true }T
-T{ fk fx nat-add dup lf-meta-unfold >r >r = r> r> -> true false outcome-ok }T
+T{ fk fx nat-add dup lf-meta-unfold kept? -> true false outcome-ok }T
 \ reduceMatcher? (S2 merge B): Nat.add.match_1 m k 0 z s is z k, with x + 1
 \ for 0 it is s k x, with a stuck discriminant it stays; fewer arguments
 \ than the alternatives stay (partialApp).
@@ -252,7 +255,7 @@ T{ fk zero m1 fz fk app whnf= fk fx succ swap app m1 fs fk app fx app whnf=
 T{ fk fx m1 dup whnf= fk zero m1 fa app fz fk app fa app whnf= -> true outcome-ok true outcome-ok }T
 T{ 0 s" Nat.add.match_1" cn fk app dup meta-whnf= -> true outcome-ok }T
 \ unfoldDefinition? leaves a matcher to whnfCore (none).
-T{ fk zero m1 dup lf-meta-unfold >r >r = r> r> -> true false outcome-ok }T
+T{ fk zero m1 dup lf-meta-unfold kept? -> true false outcome-ok }T
 \ Not ported yet: a matcher at reducible, instances or implicit
 \ transparency (canUnfoldAtMatcher, unfoldNestedDIte).
 T{ fk zero m1 lf-meta-whnf-r -> -1 outcome-unsupported }T
@@ -296,7 +299,7 @@ T{ 0 lf-meta-budget! nat lf-meta-whnf lf-meta-budget lf-meta-default-budget lf-m
 T{ nat nat tpi fk app lf-meta-whnf-forall nat lf-meta-whnf-forall
    quot lv1 1 s" Quot.mk" cn nat app fx app fa app app lf-meta-whnf-forall
    -> nat nat tpi fk app lf-whnf-core drop outcome-ok nat outcome-ok -1 outcome-unsupported }T
-T{ hadd-kx dup lf-meta-whnf-forall >r = r> -> true outcome-ok }T
+T{ hadd-kx dup lf-meta-whnf-forall same-term? -> true outcome-ok }T
 T{ nat nat nat tpi lam fk app lf-meta-whnf-forall swap nat nat tpi same? -> outcome-ok true }T
 \ A constant no declaration has stays (getUnfoldableConstNoEx?); applied,
 \ it is invalid (Lean: unknown constant); a type whnf cannot decide
@@ -339,7 +342,7 @@ T{ nat fk lam lf-tr-default stays unknown lf-tr-default stays lv1 lv1 2 s" outPa
 \ Nat.add k x takes the smart path (merge B) and gives none, stuck on x;
 \ unsupported without the facts (no data read against the stage) for
 \ any definition.
-T{ fk fx nat-add dup lf-meta-unfold >r >r = r> r> -> true false outcome-ok }T
+T{ fk fx nat-add dup lf-meta-unfold kept? -> true false outcome-ok }T
 0 lf-menv-stage!
 T{ nat outp lf-meta-unfold -> -1 false outcome-unsupported }T
 menv-lib lf-menv-stage!
