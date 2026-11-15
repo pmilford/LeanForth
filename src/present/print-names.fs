@@ -51,13 +51,13 @@ lf-walk-room context-walk2: lf-pp-scan-walk
 : lf-pp-erase ( id -- id' )
   begin dup s" _@" lf-name-str-is? 0= over and while lf-name-prefix@ repeat lf-name-prefix@ ;
 : lf-pp-hygienic ( name kind -- flag ) drop lf-pp-hygienic? ;
+: lf-pp-unhygienic ( id -- id' ) dup lf-pp-hygienic? if lf-pp-erase then ;
 
 \ A binder's suggested name, placed in the pool: its recorded name with
 \ macro scopes erased; a for the anonymous name, as Lean; x when the side
 \ table has no name for the binder.
 : lf-pp-base ( id -- )
-  dup lf-pp-hygienic? if lf-pp-erase then
-  ?dup if ['] lf-pp-put lf-pp-name-to else s" a" lf-pp-put then ;
+  lf-pp-unhygienic ?dup if ['] lf-pp-put lf-pp-name-to else s" a" lf-pp-put then ;
 : lf-pp-suggest ( node -- ) lf-pres-binder@ if drop lf-pp-base else s" x" lf-pp-put then ;
 
 \ Does any binder in scope from bottom index from upwards show this text?

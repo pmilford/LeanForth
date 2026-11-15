@@ -1,0 +1,47 @@
+\ Resource sweeps of S2's tactics (plan S2, branch s2-tactics) through
+\ the text's run of `leanforth check FILE.lf` (src/cli/check-lf.fs's
+\ lfc-run) over tests/front/s2-slice.ndjson and its elaboration data;
+\ run by tests/front/check_s2.py. tests/front/01-zero-add-rw.lf
+\ (induction, rfl, rw [Nat.add_succ, ih] and its with_reducible rfl):
+\ 1. the heap refusing its k-th allocation, for every k until a run
+\    elaborates: each refused run ends full, never ok, and nothing it
+\    left changes the next run;
+\ 2. the declaration's elaboration fuel (--elab-fuel) at every limit
+\    from 1 until a run elaborates: each
+\    run that runs out ends exhausted (error 91, or 138 in the statement's
+\    elaboration), never with the goal
+\    left open (error 89) as though rfl inside try had failed (Lean's try
+\    never catches a runtime exception; review s2-tactics M2).
+\ Every T{ }T checks the data stack's depth.
+include ../support/tester.fs
+include ../support/heap-watch.fs
+require ../../src/main.fs
+decimal
+
+T{ s" tests/front/s2-slice.ndjson" true lfc-library-open -> outcome-ok }T
+T{ s" tests/front/s2-slice.elab.ndjson" lfc-elab-file! lfc-elab-read -> outcome-ok }T
+: file ( -- c-addr u ) s" tests/front/01-zero-add-rw.lf" ;
+: run ( -- outcome ) file ['] lfc-run lfc-making ;
+T{ run -> outcome-ok }T
+
+\ ---- 1. The heap refusing each allocation in turn.
+variable worst
+: refused-at ( k -- outcome ) heap-refusals ! run 0 heap-refusals ! ;
+: refusal-ok? ( outcome -- flag ) dup ok? swap outcome-full = or ;
+: each-refused ( -- k )
+  0 begin 1+ dup refused-at dup refusal-ok? 0= if dup worst ! then ok? until ;
+T{ outcome-ok worst ! each-refused 1 > worst @ -> true outcome-ok }T
+T{ run -> outcome-ok }T
+
+\ ---- 2. The elaboration fuel at each limit.
+variable worst-code
+: fuel-at ( n -- outcome code )
+  lf-elab-fuel! run lf-author-code lf-meta-default-budget lf-elab-fuel! ;
+: fuel-code? ( code -- flag ) dup lfa-e-tac-fuel = swap lfa-e-elab-fuel = or ;
+: fuel-fit? ( outcome code -- flag )
+  fuel-code? over outcome-exhausted = and swap ok? or ;
+: each-fuel ( -- n )
+  0 begin 1+ dup fuel-at 2dup fuel-fit? 0= if dup worst-code ! then drop ok? until ;
+T{ 0 worst-code ! each-fuel 1 > worst-code @ -> true 0 }T
+T{ run -> outcome-ok }T
+bye

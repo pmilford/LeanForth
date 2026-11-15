@@ -14911,7 +14911,8 @@ reason = "FE1c review M3: isDefEqMVarSelf tries constApprox on a read-only metav
 [[fault]]
 id = "fe-defeq-hints-off"
 file = "src/front/defeq.fs"
-old = '''  de-hint-free? 0= if outcome-unsupported de-abort then ;'''
+old = '''  de-hint-free? ok-then? 0= if de-abort exit then
+  0= if outcome-unsupported de-abort then ;'''
 new = '''  drop ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M3/L4: a failure under a definition head ignores unification hints"
@@ -15580,8 +15581,8 @@ reason = "FE1g-4 (design 8.3): rfl closes p = q with Eq.refl without isDefEq"
 [[fault]]
 id = "fe-rfl-non-eq"
 file = "src/front/tactic-basic.fs"
-old = ''': lfb-eq? ( t -- flag ) lf-meta-head-args 3 = swap s" Eq" lf-tac-named? and ;'''
-new = ''': lfb-eq? ( t -- flag ) lf-meta-head-args 3 = nip ;'''
+old = ''': lfb-eq? ( t -- flag ) 3 s" Eq" lf-meta-app-of? ;'''
+new = ''': lfb-eq? ( t -- flag ) lf-meta-args# 3 = ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 (design 8.3): the Eq head check dropped, so Ne p q reaches eq_refl and fails as invalid where Lean's apply_rfl would look for @[refl] lemmas"
 
@@ -19610,3 +19611,99 @@ old = '''  tb tb-want @ lf-instantiate-mvars lf-tac-must lfi-over-target'''
 new = '''  tb tb-want @ lf-instantiate-mvars lf-tac-must'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
 reason = "S2 4 (setMotiveArg): the motive does not abstract the target, so every case states the goal itself"
+
+[[fault]]
+id = "s2-stuck-proj-any-class"
+file = "src/front/whnf.fs"
+old = '''  if ws-class else ws-to-name? 0= ws-none? then ;'''
+new = '''  if ws-proj-fn else ws-to-name? 0= ws-none? then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-tactics H2 (a): getStuckMVar? of a projection function of no class looks at its structure argument, where Lean answers none unless fromClass"
+
+[[fault]]
+id = "s2-stuck-proj-args-unseen"
+file = "src/front/whnf.fs"
+old = '''  ws-arg@ dup lf-meta-mvar-free? if drop ws-later else nip ws-plain then ;'''
+new = '''  ws-arg@ dup lf-meta-mvar-free? if 2drop false outcome-ok else nip ws-plain then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-tactics H2 (b): a class projection whose instance holds no metavariable answers none, where Lean goes on to the explicit arguments (WHNF.lean:361, issue 1408)"
+
+[[fault]]
+id = "s2-stuck-aux-parent-none"
+file = "src/front/whnf.fs"
+old = '''  if ws-class else ws-to-name? 0= ws-none? then ;'''
+new = '''  if ws-class else drop false outcome-ok then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-tactics H2 (c): a definition that may be an auxiliary parent projection (not in the data) answers none, where Lean may find its instance's metavariable"
+
+[[fault]]
+id = "s2-stuck-proj-inner-passed"
+file = "src/front/whnf.fs"
+old = ''': ws-skip? ( e -- flag ) dup wc-plain-mvar? if drop false else ws-inner-none? then ;'''
+new = ''': ws-skip? ( e -- flag ) dup wc-plain-mvar? if drop false else drop true then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-tactics H2 (b): an explicit argument whose metavariable sits under a recursor or a class projection is passed over, where Lean's getStuckMVar? recursion may find it stuck"
+
+[[fault]]
+id = "s2-kab-loose-unguarded"
+file = "src/front/kabstract.fs"
+old = ''': kab-closed? ( e -- flag outcome ) lf-meta-loose ok-then? if 0= outcome-ok else false
+  swap then ;'''
+new = ''': kab-closed? ( e -- flag outcome ) drop true outcome-ok ;'''
+test = "$GFORTH tests/front/s2-units.fs"
+reason = "review s2-tactics H1 (m5): kabstract tries a subterm with a loose bound variable, where Lean's hasLooseBVars test skips it (fun x => Nat.succ x has no Nat.succ ?n)"
+
+[[fault]]
+id = "s2-kab-let-walked"
+file = "src/front/kabstract.fs"
+old = '''  over lf-let? if 2drop outcome-unsupported exit then
+  over lf-term-binary? if kab-open else drop kab-image then ;'''
+new = '''  over lf-term-binary? if kab-open else drop kab-image then ;'''
+test = "$GFORTH tests/front/s2-units.fs"
+reason = "review s2-tactics M3: kabstract walks a let's parts in its own order, where Lean visits type, value, body and a metavariable pattern's first match assigns it"
+
+[[fault]]
+id = "s2-rw-try-forgets-fuel"
+file = "src/front/tactic-rewrite.fs"
+old = ''': lfw-caught ( code -- ) lfw-invalid? if drop lf-tac-forget else throw then ;'''
+new = ''': lfw-caught ( code -- ) drop lf-tac-forget ;'''
+test = "$GFORTH tests/front/s2-sweeps.fs"
+reason = "review s2-tactics M2: try (with_reducible rfl) forgets a run out of fuel, so the goal is left open (89), where Lean's try never catches a runtime exception"
+
+[[fault]]
+id = "s2-rw-motive-unchecked"
+file = "src/front/tactic-rewrite.fs"
+old = '''  dup outcome-invalid = if drop ['] lfw-motive. lfa-e-tac-motive lfw-failed then
+    lf-tac-must ;'''
+new = '''  drop ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+reason = "S2 5 (MVarId.rewrite): the motive used without Meta.check, so a motive that is not type correct reaches the kernel"
+gap = "review s2-tactics H1 (m2, error 216): no LeanForth text reaches a motive that is not type correct yet: Lean's case (h : n + 0 = n) : h = h by rw [Nat.add_zero] needs a hypothesis used as a term, which natural LeanForth refuses (error 73), and forall in natural form (plan FE2); meta-check.fs's own refusal is caught in tests/front/s2-units.fs"
+
+[[fault]]
+id = "s2-rw-dependence-unchecked"
+file = "src/front/tactic-rewrite.fs"
+old = '''  lfw-at trw trw-etype @ lf-tac-defeq lf-tac-must 0= if
+    ['] lfw-dependent. lfa-e-tac-motive-dep lfw-failed then ;'''
+new = '''  ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+reason = "S2 5 (MVarId.rewrite): the motive's dependence on the pattern not checked"
+gap = "review s2-tactics H1 (m3, error 217): unreachable while rw rewrites only the target: the target's type is a sort, which mentions no term, so the motive's body always has the target's type (rw at a hypothesis or a term, plan S3 or later)"
+
+[[fault]]
+id = "s2-alt-field-kinds-ignored"
+file = "src/front/tactic-induction.fs"
+old = ''': lfi-explicit? ( case f -- flag ) lfi-field-kind lf-binder-default = ;'''
+new = ''': lfi-explicit? ( case f -- flag ) 2drop true ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+reason = "S2 4 (introN): an alternative's fields all taken as explicit, whatever the eliminator's type says"
+gap = "review s2-tactics H1 (m8): every eliminator S2's inputs reach (Nat.rec_add_one's cases, List.rec) has only explicit fields; one with an implicit field (Nat.le.rec's m) needs an index target, which answers 99, or a type written with forall (plan FE2)"
+
+[[fault]]
+id = "s2-hint-fuel-unsupported"
+file = "src/front/defeq.fs"
+old = '''  de-hint-free? ok-then? 0= if de-abort exit then'''
+new = '''  de-hint-free? ok-then? 0= if drop false then'''
+test = "$GFORTH tests/front/s2-sweeps.fs"
+reason = "review s2-tactics fix round: the hint key's whnfR running out of fuel reported as not supported yet (93), where the run is out of fuel (91)"
+

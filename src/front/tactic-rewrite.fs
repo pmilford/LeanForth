@@ -58,6 +58,7 @@ require ./mvars.fs
 require ./meta-config.fs
 require ./goals.fs
 require ./instantiate.fs
+require ./term-eqv.fs
 require ./meta-env.fs
 require ./whnf.fs
 require ./infer.fs
@@ -125,7 +126,7 @@ end-structure
   begin lfw-pi while lfw-enter repeat trw trw-htype ! ;
 
 \ ---- matchEq?: Eq α lhs rhs, after whnf when it is none.
-: lfw-iff? ( t -- flag ) lf-meta-head-args 2 = swap s" Iff" lf-tac-named? and ;
+: lfw-iff? ( t -- flag ) 2 s" Iff" lf-meta-app-of? ;
 : lfw-sides ( eq -- )
   dup lf-term-second@ trw trw-rhs ! lf-term-first@ dup lf-term-second@ trw trw-lhs !
   lf-term-first@ lf-term-second@ trw trw-alpha ! ;
@@ -230,9 +231,11 @@ end-structure
   dup lf-tactic-step dup tac-first @ swap tac-count @ over + swap ?do i over lfw-rule loop
   drop ;
 
-\ ---- try (with_reducible rfl): a failure undone, unless not supported yet.
-: lfw-unsupported? ( -- flag ) lf-author-code lf-author-outcome outcome-unsupported = ;
-: lfw-caught ( code -- ) lfw-unsupported? if throw then drop lf-tac-forget ;
+\ ---- try (with_reducible rfl): a failure (invalid) undone; anything else
+\ thrown again, as Lean's try never catches a runtime exception (fuel,
+\ room; CoreM.lean:806-810) and a gap of LeanForth's stays one.
+: lfw-invalid? ( -- flag ) lf-author-code lf-author-outcome outcome-invalid = ;
+: lfw-caught ( code -- ) lfw-invalid? if drop lf-tac-forget else throw then ;
 : lfw-rfl ( -- ) lf-tac-step lf-tac-rfl-reducible ;
 : lfw-try-rfl ( -- ) ['] lfw-rfl lf-tac-try ?dup if lfw-caught then ;
 : lfw-w-rewrite ( i -- ) lfw-rules ;

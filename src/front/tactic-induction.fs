@@ -69,6 +69,7 @@ require ./goals.fs
 require ./instantiate.fs
 require ./meta-env.fs
 require ./meta-spine.fs
+require ./term-eqv.fs
 require ./elab-data.fs
 require ./whnf.fs
 require ./infer.fs
@@ -116,14 +117,12 @@ end-structure
 : lfi-target-type ( -- t ) ti tind-target @ lf-infer lf-tac-must ;
 
 \ ---- The eliminator: a custom one, else the inductive type's recursor.
-: lfi-head-name ( t -- name true | false )
-  lf-meta-head-args drop dup lf-term-const? if lf-const-name true else drop false then ;
 : lfi-custom ( name -- d true | false )
   lf-menv-data-decl 0= if false exit then elab-induction elab-eliminator-for
   0= if false exit then elab-eliminator@ nip lf-menv-of-data lf-tac-must true ;
 : lfi-custom? ( -- d true | false )
   lfi-target-type lf-instantiate-mvars lf-tac-must lf-meta-head-beta lf-tac-must
-  lfi-head-name if lfi-custom else false then ;
+  lf-meta-head-name if lfi-custom else false then ;
 : lfi-major ( -- t ) lfi-target-type lf-meta-whnf lf-tac-must ;
 \ Not an inductive type (205): Lean's text with its hints, then the goal.
 : lfi-sort? ( t -- level true | false )
@@ -154,9 +153,9 @@ end-structure
     drop lfi-major@ lfi-explain. ['] lf-tac-goal. ok-and then ;
 : lfi-not-inductive ( -- ) ['] lfi-major. lfa-e-tac-not-inductive lf-tac-failed ;
 : lfi-inductive ( t -- d true | false )
-  lfi-head-name 0= if false exit then lf-menv-find dup outcome-invalid = if 2drop false
-    exit
-  then lf-tac-must dup lf-menv-kind lf-kind-inductive = dup 0= if nip then ;
+  lf-meta-head-name 0= if false exit then
+  lf-menv-find dup outcome-invalid = if 2drop false exit then
+  lf-tac-must dup lf-menv-kind lf-kind-inductive = dup 0= if nip then ;
 \ Mutual or nested (209): Lean's text and its hint.
 : lfi-kind. ( c-addr u -- outcome )
   s"  `" lf-pp-emit lfi-major@ lf-meta-head-args drop lf-const-name lf-pp-name
@@ -374,8 +373,11 @@ end-structure
     lf-tac-intro-as ;
 : lfi-intros ( case -- ) tia-fields @ 0 ?do i lfi-field loop ;
 : lfi-only ( goal -- ) 0 swap run-push lf-tac-must lf-goals! lf-tac-must ;
+\ tryClear: a refusal (invalid) keeps the goal; fuel, room or a gap is
+\ thrown, as Lean's <|> never catches a runtime exception.
 : lfi-cleared ( fvar -- )
-  lf-tac-main swap lf-goal-clear ok? if lfi-only else drop then ;
+  lf-tac-main swap lf-goal-clear dup outcome-invalid = if 2drop exit then
+  lf-tac-must lfi-only ;
 : lfi-case-goal! ( case fvar -- )
   >r dup tia-goal @ lfi-only lfi-intros r> lfi-cleared ;
 : lfi-alt ( j -- )
@@ -385,10 +387,12 @@ end-structure
 : lfi-w-alt ( j -- ) lf-goals over ['] lfi-alt lf-tac-in-record lf-tac-block ;
 
 \ ---- by-induction: every case's goal, its fields named inaccessibly,
-\ after the goals left (Lean's evalAlts without alternatives).
+\ after the goals left (Lean's evalAlts without alternatives): the step's
+\ arguments counted as names already taken, so none is given.
 : lfi-plain-case ( k -- )
   ti tind-first @ swap lfi-case dup ta talt-case ! lf-tac-step ta talt-step !
-  0 ta talt-given ! ti tind-elim @ ta talt-elim ! ti tind-target @ lfi-case-goal! ;
+  lfi-given# ta talt-given ! ti tind-elim @ ta talt-elim !
+  ti tind-target @ lfi-case-goal! ;
 \ (The cases run in the step's own record: an alternative's fields; the
 \ goals gathered in the step's tb-new as a run.)
 : lfi-gather ( -- ) tb tb-new @ lf-tac-main run-push lf-tac-must tb tb-new ! ;

@@ -157,9 +157,11 @@ end-structure
   dup 1 4 lf-meta-nth-arg no-inst-addnat? if no-push-sides else drop 1 outcome-ok then ;
 : no-hadd-step ( t -- code outcome )
   dup 3 6 lf-meta-nth-arg no-inst-hadd? if no-push-sides else drop 1 outcome-ok then ;
-\ An operation not ported whose last argument or the one before certainly
-\ holds a free variable has no value either: Lean's evalNat fails at the
-\ variable, or at an instance it reaches (branch s2-tactics: n * 0).
+\ An operation not ported whose last argument or the one before holds a
+\ free variable has no value either: Lean's evalNat (Offset.lean:28-60)
+\ fails at a free variable or an instance guard it reaches (branch
+\ s2-tactics: n * 0); it skips type arguments, so this assumes the free
+\ variable is not only in one of an operand's (as in S2's inputs).
 : no-fvar-operand? ( t -- flag )
   dup lf-term-second@ lf-meta-has-fvar? swap lf-term-first@ lf-term-second@
     lf-meta-has-fvar?

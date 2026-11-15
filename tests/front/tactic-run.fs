@@ -171,16 +171,18 @@ T{ printed unsolved-line compare -> 0 }T
 \ ---- 1. Tactics not ported yet: 80 at the word, its plan step, the goals
 \ (by-rfl, by-exact and by-intro: run since FE1g-4: tests/front/tactic-basic.fs;
 \ induction and rewriting since S2, end to end in tests/front/check_s2.py:
-\ here the stand-in elaborator's target is refused at the word, 76, and an
-\ empty rewrite leaves the goal, rfl failing inside try, 89 at by as Lean's
-\ rw [] does).
+\ here the stand-in elaborator's target is refused at the word, 76; an
+\ empty rewrite's rfl, with no library for the Meta layer here, runs out
+\ of room (60 at end), which try passes on as Lean's try passes a runtime
+\ exception (review s2-tactics M2); with the library, 89 at by as Lean's
+\ rw [] gives: tests/front/s2w-rw-empty.lf).
 : later ( c-addr u -- code line col plan ) proof nrun drop err plan# ;
 T{ s" n by-induction end t" later -> 76 1 45 0 }T
 T{ token s" by-induction" compare -> 0 }T
 T{ s" n by-induction-with | zero => by-rfl by-end end t" later -> 76 1 45 0 }T
 T{ s" by-case: zero => by-rfl by-end end t" later -> 80 1 43 5 }T
 T{ token s" by-case:" compare detail lean-goals compare -> 0 0 }T
-T{ s" by-rw[ ] end t" later -> 89 1 40 0 }T
+T{ s" by-rw[ ] end t" later -> 60 1 43 0 }T
 T{ s" by-rewrite[ ] end t" later -> 89 1 40 0 }T
 T{ token s" by" compare outcome-unsupported lfa-e-tac-run lf-author-outcome = -> 0 true }T
 [defined] >string-execute [if]

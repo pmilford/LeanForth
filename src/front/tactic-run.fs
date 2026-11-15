@@ -410,7 +410,11 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-unrun ( -- ) lfr-running @ lfr-record tst-parent @ lfr-running ! ;
 : lf-tac-in-record ( i*x i xt -- j*x )
   over lfr-record+ lfr-running ! catch lfr-unrun throw ;
-: lfr-recent ( -- k ) lfr-running @ dup 0< if drop trun-steps slab-count 1- then ;
+\ The running record, else the newest; with none at all, refused as a
+\ gap of LeanForth's (lfa-e-tac-record), never slab-at -1.
+: lfr-recent ( -- k )
+  lfr-running @ dup 0< if drop trun-steps slab-count 1- then
+  dup 0< if lfa-e-tac-record lfr-fail then ;
 : lf-tac-record ( -- addr ) lfr-recent lfr-record tst-work ;
 : lf-tac-records ( -- n ) trun-steps slab-count ;
 : lf-tac-record-at ( k -- addr ) lfr-record tst-work ;   \ unchecked: k < lf-tac-records

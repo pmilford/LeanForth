@@ -115,7 +115,9 @@ end-structure
 
 \ A hypothesis's name with its suffix; the printer's hook prints a free
 \ variable so, a metavariable by its tag or number.
-: gp-hyp ( i -- ) dup gp-local lf-local-name lf-pp-name gp-code@ gp-suffix ;
+\ An inaccessible hypothesis prints with its macro scopes erased (a✝).
+: gp-hyp ( i -- )
+  dup gp-local lf-local-name lf-pp-unhygienic lf-pp-name gp-code@ gp-suffix ;
 : gp-current ( -- view ) gp gp-active @ if gp-view@ else lf-mctx-view then ;
 : gp-plain-name ( i -- ) gp-current swap lf-view-local lf-local-name lf-pp-name ;
 : gp-named ( i -- ) gp gp-active @ if gp-hyp else gp-plain-name then ;

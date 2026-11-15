@@ -34,3 +34,7 @@ theorem w_not_inductive (f : Nat → Nat) : f = f := by
   | zero => rfl
 theorem w_mvar_pattern (n : Nat) (h : ∀ x : Nat, x = 0 + x) : n = 0 + n := by
   rw [h]
+theorem w_induction_plain (n : Nat) : 0 + n = n := by
+  induction n
+theorem w_rw_empty (n : Nat) : 0 + n = n := by
+  rw []

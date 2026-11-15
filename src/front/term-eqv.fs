@@ -22,7 +22,8 @@
 \   took at most two parts, and no caller passes more; defeq.fs tests
 \   three);
 \   lf-meta-const-named? ( t c-addr u -- flag ): t is that constant
-\   (isConstOf); lf-meta-head ( t -- head ): getAppFn;
+\   (isConstOf); lf-meta-head ( t -- head ): getAppFn; lf-meta-head-name
+\   ( t -- name true | false ): getAppFn.constName?;
 \   lf-meta-app-of? ( t n c-addr u -- flag ): t has n arguments and the
 \   constant of the dotted name at its head (Lean's match_expr shapes);
 \   lf-meta-nth-arg ( t i n -- a ): argument i, the first 0, of such a t;
@@ -117,7 +118,10 @@ require ./meta-spine.fs
 : lf-meta-const-named? ( t c-addr u -- flag )
   rot dup lf-term-const? if lf-const-name lf-meta-name?
   else drop 2drop false then ;
-: lf-meta-head ( t -- head ) begin dup lf-term-app? while lf-term-first@ repeat ;
+: lf-meta-head ( t -- head ) lf-meta-head-args drop ;
+\ The name of the constant at t's head (Lean's getAppFn.constName?).
+: lf-meta-head-name ( t -- name true | false )
+  lf-meta-head dup lf-term-const? if lf-const-name true else drop false then ;
 \ Shapes: n arguments and a constant of the name at the head (Lean's
 \ match_expr); argument i, the first 0, of t with n arguments.
 : lf-meta-app-of? ( t n c-addr u -- flag )

@@ -667,9 +667,9 @@
   "globals": 2,
   "long lines": 0,
   "long words": 0,
-  "rstack": 37,
-  "shuffles": 12,
-  "words": 171
+  "rstack": 34,
+  "shuffles": 11,
+  "words": 170
  },
  "src/front/meta-check.fs": {
   "globals": 0,
@@ -688,12 +688,12 @@
   "words": 17
  },
  "src/front/meta-env.fs": {
-  "globals": 10,
+  "globals": 11,
   "long lines": 0,
   "long words": 0,
   "rstack": 9,
   "shuffles": 9,
-  "words": 136
+  "words": 138
  },
  "src/front/meta-spine.fs": {
   "globals": 0,

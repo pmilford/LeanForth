@@ -1,0 +1,9 @@
+\ A wrong proof for S2's tactics (tests/front/check_s2.py; its Lean twin is
+\ tests/front/s2-wrong.lean's w_induction_plain): by-induction without
+\ alternatives leaves both cases open (error 89, Lean's unsolved goals).
+theorem w_induction_plain
+  Nat explicit: n
+  0 n + n =
+:= by
+  n by-induction
+end w_induction_plain

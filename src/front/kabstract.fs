@@ -112,13 +112,19 @@ end-structure
 : kab-open ( e off -- outcome )
   2dup kab-build+ ok-then2? 0= if exit then 2dup kab-second+ ok-then2? 0= if exit then
   kab-first+ ;
+\ Lean visits a let's type, value and body in that order (KAbstract.lean:
+\ 43), where a metavariable pattern's first match assigns it; this walk's
+\ order differs: any let answers unsupported until it is ported.
 : kab-visit ( e off -- outcome )
   over kab-matched? ok-then? 0= if nip nip exit then if nip kab-bvar exit then
+  over lf-let? if 2drop outcome-unsupported exit then
   over lf-term-binary? if kab-open else drop kab-image then ;
 
 \ ---- Rebuilding: e's tag over the two images, the same node when they
 \ are e's own parts; a new binder keeps e's name and kind.
-: kab-parts= ( e f s -- flag ) rot tuck lf-term-second@ = -rot lf-term-first@ = and ;
+: kab-parts ( e -- f s ) dup lf-term-first@ swap lf-term-second@ ;
+\ (The two parts compared as one pair of cells.)
+: kab-parts= ( e f s -- flag ) rot kab-parts d= ;
 : kab-node ( e f s -- e' outcome )
   rot >r r@ lf-term-tag@ lf-term-binary if r> lf-meta-named else r> drop
     outcome-full no-result then ;

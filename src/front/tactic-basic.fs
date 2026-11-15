@@ -71,7 +71,7 @@
 \ goal's first binder introduced as given (0: its own name, inaccessible)
 \ with the kind given (introN for an alternative's fields); and the
 \ message and term helpers lf-tac-line., lf-tac-goal., lf-tac-failed,
-\ lf-tac-inline, lf-tac-inline., lf-tac-named?, lf-tac-eq?, lf-tac-hole?,
+\ lf-tac-inline, lf-tac-inline., lf-tac-eq?, lf-tac-hole?,
 \ lf-tac-made, lf-tac-binder ( pi -- name kind ).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: tb, the running step record's fields (tactic-run.fs's
@@ -102,6 +102,7 @@ require ./goal-print.fs
 require ./instantiate.fs
 require ./meta-env.fs
 require ./meta-spine.fs
+require ./term-eqv.fs
 require ./whnf.fs
 require ./infer.fs
 require ./defeq.fs
@@ -241,7 +242,7 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 : lfb-later? ( pi given -- flag ) lfb-rfl? swap lfb-plain? 0= or ;
 \ The name given, or for _ the binder's own (a when it has none),
 \ inaccessible; the binder known explicit.
-: lfb-own ( pi -- name ) lf-pres-binder@ 2drop ?dup 0= if s" a" lfa-intern then ;
+: lfb-own ( pi -- name ) lf-tac-binder drop ?dup 0= if s" a" lfa-intern then ;
 : lfb-named ( pi given -- name flags )
   ?dup if nip 0 exit then lfb-own lf-local-inaccessible ;
 : lfb-plain ( given -- given )
@@ -343,10 +344,8 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 : lfb-w-exact ( i -- ) ['] lfb-exact lfb-step ;
 
 \ ---- by-rfl.
-\ A head that is the constant of a name; Eq applied to three arguments.
-: lf-tac-named? ( head c-addr u -- flag )
-  lfa-intern swap dup lf-term-const? if lf-const-name = else 2drop false then ;
-: lfb-eq? ( t -- flag ) lf-meta-head-args 3 = swap s" Eq" lf-tac-named? and ;
+\ Eq applied to three arguments.
+: lfb-eq? ( t -- flag ) 3 s" Eq" lf-meta-app-of? ;
 : lf-tac-eq? ( t -- flag ) lfb-eq? ;
 : lfb-target ( -- t )
   tb tb-want @ lf-instantiate-mvars lf-tac-must lf-whnf-core lf-tac-must ;

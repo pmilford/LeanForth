@@ -159,9 +159,13 @@ end-structure
 : if-unfolds? ( type -- flag outcome )
   if-head dup if-tag lf-tag-constant = 0= if drop false outcome-ok exit then
   if-firm-const ok-then? if 0= outcome-ok else false swap then ;
+\ At least default transparency (withAtLeastTransparency .default,
+\ InferType.lean:229): all stays all.
+: if-whnf-d ( type -- type' outcome )
+  lf-defeq-mode lf-tr-all = if lf-meta-whnf else lf-meta-whnf-d then ;
 : if-delta ( type -- type' outcome )
   dup if-unfolds? ok-then? 0= if nip no-result exit then
-  if lf-meta-whnf-d else outcome-ok then ;
+  if if-whnf-d else outcome-ok then ;
 : if-pi-of ( type -- pi outcome )
   dup if-pi? if outcome-ok else dup if-no-pi if-fail then ;
 : if-to-pi ( type -- pi outcome )

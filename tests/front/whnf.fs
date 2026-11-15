@@ -111,6 +111,37 @@ T{ 0 s" Nat.add" cn ?n app fk app lf-whnf-stuck -> false outcome-ok }T
 T{ ?f lf-whnf-stuck fp s" Prod" menv-name 0 lf-proj-of made lf-whnf-stuck
    -> false outcome-unsupported false outcome-unsupported }T
 T{ -1 lf-whnf-stuck fk lf-whnf-stuck -> false outcome-invalid false outcome-ok }T
+\ A class's projection function (Add.add, getProjectionFnInfo? fromClass;
+\ WHNF.lean:345-370): stuck on a plain metavariable instance; with the
+\ instance known, on the first explicit argument that is a plain
+\ metavariable (issue 1408), a parameter's too (OfNat.ofNat's n), none
+\ when only an implicit one holds one; an explicit argument holding one
+\ under a head Lean answers none for (a constructor, a local) is passed,
+\ under another (a recursor, a class projection, S.toP, a projection) or
+\ one past the type's binders unsupported (not ported); a
+\ projection function of no class (Array.toList) none; a definition
+\ named S.toP (an auxiliary parent projection, not in the data)
+\ unsupported.
+: add-of ( alpha inst a b -- t ) >r >r >r >r l0 1 s" Add.add" cn r> app r> app r> app r> app ;
+0 s" instAddNat" cn constant inst-add
+: ofnat-of ( n inst -- t ) >r >r l0 1 s" OfNat.ofNat" cn nat app r> app r> app ;
+T{ nat ?q fk fk add-of lf-whnf-stuck -> ?q true outcome-ok }T
+T{ nat inst-add fk ?n add-of lf-whnf-stuck -> ?n true outcome-ok }T
+T{ nat inst-add ?n ?h add-of lf-whnf-stuck -> ?n true outcome-ok }T
+T{ ?n inst-add fk fk add-of lf-whnf-stuck -> false outcome-ok }T
+T{ nat inst-add succ ?n app ?h add-of lf-whnf-stuck -> ?h true outcome-ok }T
+T{ nat inst-add succ ?n app fk add-of lf-whnf-stuck -> false outcome-ok }T
+T{ nat inst-add ?n recm fk add-of lf-whnf-stuck -> false outcome-unsupported }T
+T{ nat inst-add nat inst-add ?n fk add-of fk add-of lf-whnf-stuck -> false outcome-unsupported }T
+T{ nat inst-add 0 s" List.toByteArray" cn ?n app fk add-of lf-whnf-stuck
+   -> false outcome-unsupported }T
+T{ nat inst-add ?q 0 proj fk add-of lf-whnf-stuck -> false outcome-unsupported }T
+T{ nat inst-add fk ?n app ?h add-of lf-whnf-stuck -> ?h true outcome-ok }T
+T{ nat inst-add fk fk add-of ?n app lf-whnf-stuck -> false outcome-unsupported }T
+T{ ?n 0 s" instOfNatNat" cn fk app ofnat-of lf-whnf-stuck -> ?n true outcome-ok }T
+T{ l0 1 s" Array.toList" cn nat app ?n app lf-whnf-stuck -> false outcome-ok }T
+T{ 0 s" List.toByteArray" cn ?n app lf-whnf-stuck -> false outcome-unsupported }T
+T{ 0 s" List.toByteArray" cn fk app lf-whnf-stuck -> false outcome-ok }T
 \ A K-like recursor is never stuck (isRecStuck?).
 : eq-rec ( major -- t ) >r lv1 lv1 2 s" Eq.rec" cn nat app fa app fm app fx app fa app r> app ;
 T{ ?h eq-rec lf-whnf-stuck ?h eq-rec lf-whnf-core -> false outcome-ok -1 outcome-unsupported }T

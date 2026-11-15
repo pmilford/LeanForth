@@ -11,7 +11,11 @@ meta-check.fs; docs/design/S2_INTERFACE.md 4, 5, 9 and appendix G).
    (tests/front/s2-proofs.golden, the output of tests/front/s2-proofs.lean).
 2. The wrong proofs (WRONG, twins of tests/front/s2-wrong.lean's): exit 4,
    the error code and Lean's first message (the first lines of the error,
-   as LeanForth prints them).
+   as LeanForth prints them); the proofs not supported yet (UNSUPPORTED):
+   exit 2 and the code.
+3. tests/front/s2-units.fs (kabstract, Meta.check) and s2-sweeps.fs (the
+   heap refusing each allocation of 01-zero-add-rw.lf's run, isDefEq's
+   fuel at each limit): exit 0, no failed test.
 A harness self-test first checks that a changed golden line is told apart.
 With --lean: pinned Lean writes the golden again (--write-golden keeps it)
 and it must be unchanged, and pinned Lean refuses each wrong twin with the
@@ -42,6 +46,8 @@ FILES = [("tests/front/01-zero-add-rw.lf", ["zero_add''"]),
                                               "ps_length_append"])]
 # The wrong twins: file, code, Lean's message as LeanForth prints it.
 GOAL = "case succ\nk : Nat\nih : 0 + k = k\n\u22a2 0 + (k + 1) = k + 1"
+PLAIN = ("case zero\n\u22a2 0 + 0 = 0\n\ncase succ\nn\u271d : Nat\na\u271d : 0 + n\u271d = n\u271d\n"
+         "\u22a2 0 + (n\u271d + 1) = n\u271d + 1")
 WRONG = [("tests/front/s2w-pattern.lf", 215,
           "Tactic `rewrite` failed: Did not find an occurrence of the pattern",
           "  ?n * Nat.succ ?m\nin the target expression\n  0 + (k + 1) = k + 1\n\n" + GOAL),
@@ -55,7 +61,13 @@ WRONG = [("tests/front/s2w-pattern.lf", 215,
          ("tests/front/s2w-not-eq.lf", 218,
           "Invalid rewrite argument: Expected an equality or iff proof or definition name, "
           "but `k` is a value of type", "  Nat"),
-         ("tests/front/s2w-rw-unsolved.lf", 89, "unsolved goals", "case succ\nk : Nat")]
+         ("tests/front/s2w-rw-unsolved.lf", 89, "unsolved goals", "case succ\nk : Nat"),
+         ("tests/front/s2w-induction-plain.lf", 89, "unsolved goals", PLAIN),
+         ("tests/front/s2w-rw-empty.lf", 89, "unsolved goals", "n : Nat\n\u22a2 0 + n = n")]
+# Forth unit tests and resource sweeps of S2's words (tester.fs).
+UNITS = ["tests/front/s2-units.fs", "tests/front/s2-sweeps.fs"]
+# Proofs LeanForth does not support yet: exit 2, the code and its text.
+UNSUPPORTED = [("tests/front/s2w-rw-definition.lf", 99, "not supported yet: this case of the tactic")]
 # Pinned Lean's messages for the same proofs (tests/front/s2-wrong.lean),
 # where its printer and LeanForth's agree (Lean prints (0 + k).succ,
 # LeanForth Nat.succ (0 + k): plan 8.6).
@@ -67,7 +79,9 @@ LEAN_WRONG = ["Tactic `rewrite` failed: Did not find an occurrence of the patter
               "Too many variable names provided at alternative `succ`: 3 provided, but 2 expected",
               "Invalid rewrite argument: Expected an equality or iff proof or definition name, "
               "but `k` is a value of type\n  Nat",
-              "unsolved goals\ncase succ\nk : Nat"]
+              "unsolved goals\ncase succ\nk : Nat",
+              "unsolved goals\n" + PLAIN,
+              "unsolved goals\nn : Nat\n\u22a2 0 + n = n"]
 
 
 class Failure(Exception):
@@ -128,6 +142,18 @@ def check_wrong():
         if code != 4 or line not in out or message not in out or detail not in out:
             raise Failure(f"{path}: exit {code}, expected 4 with {line}{message!r} "
                           f"and {detail!r}\n{out}")
+    for path, number, message in UNSUPPORTED:
+        code, out = check(path)
+        if code != 2 or f"error {number} at " not in out or message not in out:
+            raise Failure(f"{path}: exit {code}, expected 2 with error {number}, {message!r}\n{out}")
+
+
+def check_units():
+    for path in UNITS:
+        done = run([GFORTH, path])
+        if done.returncode != 0 or "INCORRECT" in done.stdout + done.stderr \
+                or "WRONG" in done.stdout + done.stderr:
+            raise Failure(f"{path}: exit {done.returncode}\n{done.stdout}{done.stderr}")
 
 
 def check_lean(write):
@@ -155,9 +181,11 @@ def main():
         return
     check_files(want)
     check_wrong()
+    check_units()
     print(f"check_s2: {len(FILES)} files accepted, their {len(want)} type and value lines "
           f"equal pinned Lean's node for node; {len(WRONG)} wrong proofs refused with Lean's "
-          f"messages; harness self-test passed")
+          f"messages; {len(UNSUPPORTED)} unsupported; {len(UNITS)} unit files pass; "
+          f"harness self-test passed")
 
 
 if __name__ == "__main__":
