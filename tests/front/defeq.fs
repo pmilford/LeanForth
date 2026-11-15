@@ -114,7 +114,10 @@ T{ succ fk app 0 nlit dq 0 nlit zero dq 1 nlit zero dq
    -> false outcome-ok true outcome-ok false outcome-ok }T
 T{ own-mark succ ?h app 3 nlit dq ?h inst 2 ofnat same own-back clean? -> true outcome-ok true true }T
 T{ 3 nlit succ succ succ zero app app app dq -> false outcome-unsupported }T
-T{ succ ?h app 0 ofnat fk 1 ofnat hadd hadd dq ?h free? -> false outcome-unsupported true }T
+\ FE1's acceptance case (S2 merge B's smart unfolding after lazy delta):
+\ Nat.succ ?h against 0 + (k + 1) assigns ?h := Nat.add 0 k, as Lean.
+T{ own-mark succ ?h app 0 ofnat fk 1 ofnat hadd hadd dq ?h inst
+   0 s" Nat.add" cn 0 ofnat app fk app same own-back -> true outcome-ok true }T
 
 \ ---- Transparency: a definition is a delta candidate at default only;
 \ there lazy delta (S2 merge A) finds that neither constant unfolds (each
