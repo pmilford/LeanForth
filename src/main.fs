@@ -98,6 +98,12 @@ require ./front/elab-pending.fs
 require ./front/elab-app.fs
 require ./front/elab-term.fs
 require ./front/elab-decl.fs
+\ S2's tactics (branch s2-tactics): rewriting (kabstract, Meta.check) and
+\ induction with its alternatives, rows of the runner.
+require ./front/kabstract.fs
+require ./front/meta-check.fs
+require ./front/tactic-rewrite.fs
+require ./front/tactic-induction.fs
 
 \ The command line: check, replay, print, count, reexport, version,
 \ capabilities. It loads the staging of exports into the checker's input,

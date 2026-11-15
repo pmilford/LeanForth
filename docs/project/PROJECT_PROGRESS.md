@@ -41,8 +41,10 @@ status changes when this date is older than them. Stages are those of the
   [ADR 0021](../adr/0021-front-end.md) proposed, D1-D3, D5, D7 and Amendment 1 (`sorry` as in Lean) decided by the
   owner). 2026-11-14: slice S1 is **done** (done check 2026-11-14-s1.md: `theorem t 0 0 + 0 = := by by-rfl end t`
   elaborated by LeanForth and accepted by its kernel on all of `Init`, node for node Lean's); S2's merge A is on main;
-  S2's tactics (`by-induction-with`, `by-rw[ ]`: FE1, $0 + n = n$ by induction, and the owner's proof set) are being
-  built on branch `s2-tactics`, then a showcase of LeanForth-derived, annotated proofs. Earlier, on main (2026-11-13): FE1a (natural reader) integrated; FE1b (metavariables, with
+  S2's tactics (`by-induction-with`, `by-rw[ ]`) are integrated (merged 2026-11-14 after a review, a fix round and
+  a re-check): FE1's $0 + n = n$ by induction and rewriting and the owner's proof set ($succ\,n + m$, $n + m = m + n$,
+  $n \cdot (m + k)$, list append length) accepted by the kernel, node for node Lean's; next a showcase run of these
+  files, then merge B (smart unfolding) and s2-steps; no done check yet. Earlier, on main (2026-11-13): FE1a (natural reader) integrated; FE1b (metavariables, with
   assignment marks) tested alone; FE1c (Lean's level unification and normalize, instantiate and head beta: 153 cases
   equal to pinned Lean) tested alone in part; FE1d (elaboration data) integrated; FE1f (the hand-over of an elaborated
   declaration to the kernel) tested alone, reached by no user command before FE1e; FE6a (casesOn, recOn and ctorIdx

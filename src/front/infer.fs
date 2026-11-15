@@ -21,7 +21,8 @@
 \   kind.
 \ - a pi (inferForallType): its binders opened, the body's level and the
 \   domains' (getLevel) combined with mkLevelIMax' and normalized.
-\ Never a guess: unsupported for a let, projection or literal, an
+\ A number literal's type is Nat (Lean's Literal.type).
+\ Never a guess: unsupported for a let, projection or string literal, an
 \ application with any other head, a lambda or pi whose body or domain
 \ is itself a lambda or pi or none of the above (nested telescopes, let
 \ telescopes, inferProjType: plan FE1c), a lambda's type holding a
@@ -82,6 +83,7 @@ require ./level-normalize.fs
 require ./meta-spine.fs
 require ./whnf.fs
 require ./beta-inst.fs
+require ./nat-offset.fs
 
 begin-structure /if
   field: if-from    \ inferAppType's j: the first argument not put in yet
@@ -111,10 +113,13 @@ end-structure
   lf-hterm-sort if drop outcome-ok else -1 outcome-full then ;
 : if-sort ( sort -- type outcome )
   lf-term-first@ lf-level-succ if if-sort-new else -1 outcome-full then ;
+\ A number's type (Lean's Literal.type; branch s2-tactics: Meta.check of
+\ rewriting's motive meets OfNat.ofNat Nat 1 (instOfNatNat 1)).
+: if-lit ( lit -- type outcome ) drop lf-meta-nat ;
 : if-leaf ( term tag -- type outcome )
   case lf-tag-constant of if-const endof  lf-tag-fvar of if-fvar endof
     lf-tag-mvar of if-mvar endof  lf-tag-symbolic-sort of if-sort endof
-    lf-tag-bvar of outcome-invalid if-fail endof
+    lf-tag-lit of if-lit endof  lf-tag-bvar of outcome-invalid if-fail endof
     >r outcome-unsupported if-fail r> endcase ;
 
 \ ---- Applications (inferAppType): the arguments in if-args. As Lean's,
@@ -147,9 +152,25 @@ end-structure
 : if-firm-or ( head -- outcome )
   if-firm ok-then? if if outcome-invalid else outcome-unsupported then then ;
 : if-no-pi ( type -- outcome ) if-head if-firm-or ;
+\ Where whnfCore leaves a definition at the head, Lean's whnfD unfolds it
+\ (inferAppType's whnf, getLevel's whnfD: outParam (Type) in HAdd.hAdd's
+\ binders; branch s2-tactics, with merge A's delta).
+\ (A declaration that could not be decoded passes its outcome on.)
+: if-unfolds? ( type -- flag outcome )
+  if-head dup if-tag lf-tag-constant = 0= if drop false outcome-ok exit then
+  if-firm-const ok-then? if 0= outcome-ok else false swap then ;
+\ At least default transparency (withAtLeastTransparency .default,
+\ InferType.lean:229): all stays all.
+: if-whnf-d ( type -- type' outcome )
+  lf-defeq-mode lf-tr-all = if lf-meta-whnf else lf-meta-whnf-d then ;
+: if-delta ( type -- type' outcome )
+  dup if-unfolds? ok-then? 0= if nip no-result exit then
+  if if-whnf-d else outcome-ok then ;
+: if-pi-of ( type -- pi outcome )
+  dup if-pi? if outcome-ok else dup if-no-pi if-fail then ;
 : if-to-pi ( type -- pi outcome )
   lf-whnf-core ok-then? 0= if no-result exit then
-  dup if-pi? if outcome-ok else dup if-no-pi if-fail then ;
+  if-delta ok-then? if if-pi-of else no-result then ;
 : if-n ( -- n ) if-args slab-count ;
 : if-j ( -- addr ) if-state if-from ;
 : if-rev ( i -- addr m ) dup if-n swap - if-args slab-at swap if-j @ - ;
@@ -216,10 +237,12 @@ end-structure
 : if-sort? ( term -- flag ) if-tag lf-tag-symbolic-sort = ;
 : if-no-sort ( type -- outcome )
   if-head dup if-tag lf-tag-mvar = if drop outcome-unsupported exit then if-firm-or ;
+: if-sort-of ( T -- level outcome )
+  dup if-sort? if lf-term-first@ outcome-ok else dup if-no-sort if-fail then ;
 : if-sort-level ( T -- level outcome )
   dup if-sort? if lf-term-first@ outcome-ok exit then
   lf-whnf-core ok-then? 0= if no-result exit then
-  dup if-sort? if lf-term-first@ outcome-ok else dup if-no-sort if-fail then ;
+  if-delta ok-then? if if-sort-of else no-result then ;
 : if-get-level ( type -- level outcome )
   if-body ok-then? if if-sort-level else no-result then ;
 : if-pi-telescope ( term -- body outcome )
@@ -276,8 +299,8 @@ end-structure
   over idl-max? if idl-max else 2drop 0 then ;
 :noname ( -- ) ['] idl-pending idl-walk@ dw-pending ! ['] idl-build idl-walk@ dw-build ! ;
   context-setup
-: idl-answer ( image -- level outcome ) ?dup if 1- outcome-ok else -1 outcome-invalid then
-  ;
+: idl-answer ( image -- level outcome ) ?dup if 1- outcome-ok else -1 outcome-invalid
+  then ;
 : idl-dec ( level -- level' outcome )
   lf-level-count @ idl-walk@ dw-size ! idl-walk@ dw-run ok-then? if idl-answer else
     no-result then ;

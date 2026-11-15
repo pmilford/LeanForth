@@ -427,9 +427,20 @@ end-structure
 : wm-succ-inert? ( e -- flag )
   dup ['] lf-menv-nat-succ? wm-head-named?
   if lf-term-second@ wc-inert? else drop false then ;
+\ Lean's withNatValue (WHNF.lean:976) gives no value for an argument that
+\ holds a free variable and no metavariable, so reduceNat? folds nothing
+\ when its first argument does, or its second after a literal first
+\ (branch s2-tactics: rewriting's kabstract compares k + 1 with
+\ 0 + Nat.succ k).
+: wm-no-value? ( a -- flag ) dup lf-meta-mvar-free? if lf-meta-has-fvar? else drop false
+  then ;
+: wm-args-none? ( e -- flag )
+  dup lf-term-first@ lf-term-second@ dup wm-no-value? if 2drop true exit then
+  lf-lit-leaf? if lf-term-second@ wm-no-value? else drop false then ;
+: wm-none? ( e -- flag ) dup lf-meta-args# 2 = if wm-args-none? else drop false then ;
 : wm-nat? ( e -- flag )
   dup lf-meta-args# 1 3 within over ['] lf-menv-nat-name? wm-head-named? and
-  if wm-succ-inert? 0= else drop false then ;
+  if dup wm-none? if drop false else wm-succ-inert? 0= then else drop false then ;
 
 \ ---- Delta: whnf's step once whnfCore ends (reduceNat?, then
 \ unfoldDefinition?), and lf-meta-unfold's one step. An unfolding goes on
@@ -539,9 +550,10 @@ end-structure
 \ that is a recursor's major premise (isRecStuck?: none for a K-like
 \ recursor); a definition's application without metavariables has none
 \ (its data word is known), one with them needs its projection facts.
-: ws-mvar ( mvar -- mvar true outcome | false outcome )
-  dup lf-mvar-live? 0= if drop false outcome-invalid exit then
+: ws-plain ( e -- mvar true outcome | false outcome )
   dup wc-plain-mvar? if true outcome-ok else drop false outcome-unsupported then ;
+: ws-mvar ( mvar -- mvar true outcome | false outcome )
+  dup lf-mvar-live? 0= if drop false outcome-invalid exit then ws-plain ;
 : ws-none? ( flag -- false outcome )
   false swap if outcome-ok else outcome-unsupported then ;
 : ws-major-head ( mhead -- mvar true outcome | false outcome )
@@ -555,9 +567,65 @@ end-structure
   lf-menv-data wc wc-data ! drop ws-major ;
 \ A binary node's data word is known only when no metavariable is in it
 \ (core/terms.fs): Lean's hasExprMVar is false.
-: ws-kind ( e d -- false outcome )
-  lf-menv-kind dup lf-kind-quotient = if 2drop false outcome-unsupported exit then
-  lf-kind-definition = if lf-meta-mvar-free? ws-none? else drop false outcome-ok then ;
+\ With metavariables, Lean looks for a projection function's facts
+\ (getProjectionFnInfo?, WHNF.lean:345-370; branch s2-tactics, from the
+\ data's projection records): one not from a class has none; a class's is
+\ its instance argument's (the one after its parameters) after whnf: its
+\ own when it is a plain metavariable, not supported yet when it holds one
+\ otherwise; when it holds none, Lean goes on to the explicit arguments
+\ (issue 1408; their binders as the data's kinds give them): the first
+\ with a metavariable is stuck on it when it is a plain one, else not
+\ supported yet unless one level of Lean's recursion answers none, as is
+\ one past the kinds the data has (Lean's getFunInfo reduces the type).
+\ Lean's auxiliary parent projections (diamonds,
+\ getAuxParentProjectionInfo?) are not in the data: a definition named
+\ S.toP answers unsupported.
+: ws-params ( d -- n true | false )
+  lf-menv-name lf-menv-data-decl 0= if false exit then elab-projection-of 0= if false exit
+    then
+  elab-projection@ drop nip true ;
+: ws-to-name? ( d -- flag )
+  lf-menv-name dup lf-name-tag@ lf-name-tag-str <> if drop false exit then
+  lf-name-text 2 min s" to" compare 0= ;
+\ An explicit argument holding a metavariable below its head, one level of
+\ Lean's recursion: none when its head is a constant Lean answers none for
+\ (no recursor, quotient, class projection function or S.toP) or no
+\ metavariable, projection or constant; else not supported yet.
+: ws-inner-decl? ( d -- flag )
+  dup wc-recursor? over lf-menv-kind lf-kind-quotient = or if drop false exit then
+  dup lf-menv-proj-class? ok-then? 0= if 2drop false exit then
+  if drop false else ws-to-name? 0= then ;
+: ws-inner-none? ( e -- flag )
+  lf-meta-head-args drop dup lf-term-const? if
+    lf-meta-const-decl ok-then? if ws-inner-decl? else drop false then exit then
+  lf-term-tag@ dup lf-tag-mvar <> swap lf-tag-projection <> and ;
+: ws-skip? ( e -- flag ) dup wc-plain-mvar? if drop false else ws-inner-none? then ;
+: ws-arg@ ( i -- e ) wc-args lf-meta-arg ;
+: ws-seen? ( d i -- flag )
+  dup ws-arg@ lf-meta-mvar-free? if 2drop true exit then
+  tuck lf-menv-kind@ 0= if drop false exit then
+  lf-binder-default <> if drop true else ws-arg@ ws-skip? then ;
+: ws-found ( d i -- mvar true outcome | false outcome )
+  tuck lf-menv-kind@ if drop ws-arg@ ws-plain else drop false outcome-unsupported then ;
+: ws-later ( d -- mvar true outcome | false outcome )
+  0 begin dup wc-args slab-count < while 2dup ws-seen? while 1+ repeat ws-found
+  else 2drop false outcome-ok then ;
+: ws-struct ( d n -- mvar true outcome | false outcome )
+  ws-arg@ dup lf-meta-mvar-free? if drop ws-later else nip ws-plain then ;
+: ws-proj-fn ( d -- mvar true outcome | false outcome )
+  dup ws-params 0= if drop false outcome-unsupported exit then
+  dup wc-args slab-count < 0= if 2drop false outcome-unsupported exit then ws-struct ;
+: ws-class ( d -- mvar true outcome | false outcome )
+  dup lf-menv-proj-class? ok-then? 0= if nip false swap exit then
+  if ws-proj-fn else drop false outcome-ok then ;
+: ws-defn ( e d -- mvar true outcome | false outcome )
+  swap lf-meta-mvar-free? if drop false outcome-ok exit then
+  dup lf-menv-proj-fn? ok-then? 0= if nip false swap exit then
+  if ws-class else ws-to-name? 0= ws-none? then ;
+: ws-kind ( e d -- mvar true outcome | false outcome )
+  dup lf-menv-kind dup lf-kind-quotient = if drop 2drop false outcome-unsupported exit
+    then
+  lf-kind-definition = if ws-defn else 2drop false outcome-ok then ;
 : ws-unknown ( e head outcome -- false outcome )
   nip nip dup outcome-invalid = if drop outcome-ok then false swap ;
 : ws-const ( e head -- mvar true outcome | false outcome )
@@ -567,8 +635,7 @@ end-structure
 \ whose head is a plain metavariable is stuck on it, as whnf leaves it;
 \ any other would need whnf first.
 : ws-proj ( proj -- mvar true outcome | false outcome )
-  lf-proj-struct wc-margs lf-meta-spine ok-then? 0= if false swap exit then
-  dup wc-plain-mvar? if true outcome-ok else drop false outcome-unsupported then ;
+  lf-proj-struct wc-margs lf-meta-spine ok-then? 0= if false swap exit then ws-plain ;
 : ws-app ( e -- mvar true outcome | false outcome )
   dup wc-args lf-meta-spine ok-then? 0= if nip false swap exit then
   dup lf-term-tag@ case

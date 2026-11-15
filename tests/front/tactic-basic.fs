@@ -108,8 +108,10 @@ T{ va tag va lf-term-second@ tag va lf-term-second@ lf-term-second@ dup tag swap
 T{ va bname s" p" name= va lf-term-second@ bname s" h" name= -> true true }T
 T{ va lf-term-second@ lf-term-first@ dup tag swap lf-term-first@ -> lf-tag-bvar 0 }T
 T{ ty tag ty lf-term-second@ dup tag swap lf-term-first@ tag -> lf-tag-pi lf-tag-pi lf-tag-bvar }T
-\ The hypothesis's local: the given name, accessible, explicit.
-: new-local ( -- local ) tb tb-new @ lf-mvar-view drop dup lf-view-count 1- lf-view-local ;
+\ The hypothesis's local: the given name, accessible, explicit (intro's
+\ step record, the first of the run: review fe1g3 M2).
+: new-local ( -- local )
+  0 lf-tac-record-at tb-new @ lf-mvar-view drop dup lf-view-count 1- lf-view-local ;
 T{ new-local dup lf-local-name s" h" name= swap lf-local-flags -> true 0 }T
 \ The goal's value before instantiation: fun h => ?n h, ?n delayed [h].
 T{ lf-pst-root lf-mvar-value drop dup tag swap lf-term-second@ lf-term-first@ lf-mvar-delayed

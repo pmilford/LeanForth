@@ -1,0 +1,9 @@
+\ A wrong proof for S2's tactics (tests/front/check_s2.py; its Lean twin is
+\ tests/front/s2-wrong.lean's w_rw_empty): no rule, and rfl inside try
+\ fails, so the goal is left (error 89, Lean's unsolved goals).
+theorem w_rw_empty
+  Nat explicit: n
+  0 n + n =
+:= by
+  by-rw[ ]
+end w_rw_empty

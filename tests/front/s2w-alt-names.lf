@@ -1,0 +1,11 @@
+\ A wrong proof for S2's tactics (tests/front/check_s2.py; its Lean twin is
+\ tests/front/s2-wrong.lean's w_alt_names): refused with Lean's first message.
+theorem w_alt_names
+  Nat explicit: n
+  0 n + n =
+:= by
+  n by-induction-with
+  | zero =>       by-rfl
+  | succ k ih x => by-rw[ ' Nat.add_succ ih ]
+  by-end
+end w_alt_names

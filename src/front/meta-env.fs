@@ -83,6 +83,8 @@
 \ words wrote them, recorded by lf-menv-add; never read from a shared term
 \ node; the answer holds until the next call, and fewer kinds than binders
 \ (none known, no room) leave the rest unknown to the caller;
+\ lf-menv-kinds-in ( d k -- addr n ) the same for the leading binders of
+\ the domain of its type's binder k (S2 §4; none for a text declaration);
 \ lf-menv-status ( d -- status outcome ) an elab-* status;
 \ lf-menv-can-unfold ( d mode -- flag outcome ) canUnfoldDefault;
 \ lf-menv-unfoldable ( name mode -- d flag outcome ) getUnfoldableConst?:
@@ -368,6 +370,20 @@ end-structure
 : me-text-kinds ( d -- ) me-text me-kinds-span me-kinds-copy ;
 ' me-fed-kinds ' me-lib-kinds ' me-text-kinds me-table me-binders
 : lf-menv-kinds ( d -- addr n ) me-binders me-ask me-kinds-out ;
+\ The kinds of the leading binders of the domain of d's binder k (S2 §4:
+\ an eliminator's alternatives' fields), as lf-menv-kinds; a text
+\ declaration's are not recorded (none).
+: me-tier-kinds-in ( e tier k -- )
+  lf-tier-domain if me-kinds lf-tier-kinds drop else 2drop me-kinds slab-clear then ;
+: me-fed-kinds-in ( k d -- )
+  me-stage 0= if 2drop me-kinds slab-clear exit then
+  me-staged if me-stage staged-type@ me-stage stage-tier rot me-tier-kinds-in
+  else drop me-kinds slab-clear then ;
+: me-lib-kinds-in ( k d -- )
+  swap lf-libdec-domain if me-kinds lf-tier-kinds drop else me-kinds slab-clear then ;
+: me-text-kinds-in ( k d -- ) 2drop me-kinds slab-clear ;
+' me-fed-kinds-in ' me-lib-kinds-in ' me-text-kinds-in me-table me-binders-in
+: lf-menv-kinds-in ( d k -- addr n ) swap me-binders-in me-ask me-kinds-out ;
 : me-cell@ ( addr n k -- x true | false )
   tuck swap index? if cells + @ true else 2drop false then ;
 : lf-menv-kind@ ( d k -- kind true | false ) swap lf-menv-kinds rot me-cell@ ;

@@ -3,9 +3,9 @@
 \         induction n with
 \         | zero => rfl
 \         | succ k ih => rw [Nat.add_succ, ih]
-\ Today the tactic proof is read whole and its shape checked (FE1g-2); end
-\ stops, not supported yet (error 139, exit 2): 0 and + wait for plans
-\ FE1e5 and S2. Constants: tests/front/tactic-slice.ndjson.
+\ With the S2 slice and its elaboration data it is accepted, its term pinned
+\ Lean's (tests/front/check_s2.py); with tests/front/tactic-slice.ndjson
+\ alone (no elaboration data) end stops, not supported yet (139, exit 2).
 theorem zero_add''
   Nat explicit: n
   0 n + n =

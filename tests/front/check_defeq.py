@@ -216,7 +216,7 @@ CASES = [
     ("red", ADD, c("Nat.mul"), None),
     ("eq", ADD, c("Nat.mul"), None),
     ("red", apps(ADD, "k", "x"), apps(ADD, "k", "x"), None),
-    ("red", apps(ADD, "k", "x"), apps(ADD, "x", "k"), "FE1c unification hints (the hint table)"),
+    ("red", apps(ADD, "k", "x"), apps(ADD, "x", "k"), None),  # hints: Init's, S2
     ("eq", apps(ADD, "k", "x"), apps(ADD, "x", "k"), SMART),
     # Instances and implicit transparency, with arguments; at reducible,
     # an assignment's types compared at implicit (id Nat unfolds there).
@@ -225,7 +225,7 @@ CASES = [
     ("impl", apps("u", "?n"), apps("u", "k"), None),
     ("red", "?t", lam("#0", apps(c("id", 2), (SORT, 1), NAT)), None),
     ("red", apps(c("Eq.refl", 1), ADD, "a"), apps(c("Eq.refl", 1), c("Nat.mul"), "a"), None),
-    ("red", ADD, "k", "FE1c unification hints (the hint table)"),
+    ("red", ADD, "k", None),  # hints: Init's (s2-tactics)
     ("eq", "?n", apps(ADD, "?n", "k"), "S2 merge B reduceNat?'s guard (whnf of Nat.add ?n k)"),
     # Lazy delta (S2 merge A, ExprDefEq.lean:1544-1849): one side unfolds
     # (outParam, Lean's p4b and p4f; at implicit with a level

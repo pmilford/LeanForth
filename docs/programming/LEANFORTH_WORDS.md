@@ -157,6 +157,8 @@ is elaborated yet:
 | `\| TAG NAMES… =>`, `by-case: TAG NAMES… =>` | `( -- )` | an alternative of the `by-induction-with` it is right inside (up to the next `\|` or `by-end`), a case block (up to its `by-end`); the header on one line, its names hypotheses of the block |
 | `by-end` | `( -- )` | closes the innermost `by-induction-with` or `by-case:` |
 | `by-rw[`, `by-rewrite[` … `]` | `( -- )`, `( r1 .. rn -- )` | the values built between the brackets are the rules, in order; a hypothesis there takes no values (applied with `$`: `ih k $`) |
+| `t by-induction`, `t by-induction-with`, `\|`, run | | as Lean's `induction t` and `induction t with \| …` (plan S2, `src/front/tactic-induction.fs`): `t` a variable of an inductive type, the eliminator the data's (`Nat.recAux`) or `T.rec`; each alternative takes its case's goal, names its explicit fields and runs as a block; 205 no inductive type, 206 a name of no case, 207 a case not written, 208 too many names, 209 a mutual or nested type, 212 the motive's type, 213 a name written twice, 99 a form not ported (a target that is no variable, hypotheses that depend on it, index targets, instance binders); `by-case:` stays 80 (plan S2 merge B) |
+| `by-rewrite[ r … ]`, `by-rw[ r … ]`, run | | as Lean's `rewrite [r, …]` and `rw [r, …]` (plan S2, `src/front/tactic-rewrite.fs`, on `kabstract.fs` and `meta-check.fs`): each rule a hypothesis or a theorem, its equation's left side abstracted wherever it occurs (`kabstract` at reducible transparency), the motive type-checked, `Eq.mpr` and `congrArg` as Lean builds them; `by-rw[` then tries `rfl` at reducible transparency; 215 no occurrence, 216 a motive not type correct, 217 a dependent motive, 218 no equation, 219 a metavariable pattern, 220 the occurs check, 99 a form not ported (a definition as a rule, `Iff`, an instance binder, a rule's argument left to a new goal) |
 | `=>` | | ends a header; alone, error 84 |
 | the tactic words in kernel-form text | | not supported (72) |
 | the other kernel-form words (`Prop`, `fun`, `var#`, `^`, ...) | | not supported yet in natural form (70) |
@@ -479,6 +481,19 @@ below it).
 | 139 | unsupported | not supported yet: an elaboration step (plans FE2-FE5, S2) |
 | 140 | invalid | unexpected token '#check'; expected term |
 | 141 | invalid | #check is a command: Lean would end the tactic block here; put it after end |
+| 205 | invalid | Tactic `induction` failed: major premise type is not an inductive type |
+| 206 | invalid | Invalid alternative name |
+| 207 | invalid | Alternative |
+| 208 | invalid | Too many variable names provided at alternative |
+| 209 | invalid | The `induction` tactic does not support the type |
+| 212 | invalid | Type mismatch when assigning motive |
+| 213 | invalid | Duplicate alternative name |
+| 215 | invalid | Tactic `rewrite` failed: Did not find an occurrence of the pattern |
+| 216 | invalid | Tactic `rewrite` failed: motive is not type correct: |
+| 217 | invalid | Tactic `rewrite` failed: Motive is dependent: |
+| 218 | invalid | Invalid rewrite argument: Expected an equality or iff proof or definition name, but |
+| 219 | invalid | Invalid rewrite argument: The pattern to be substituted is a metavariable |
+| 220 | invalid | Occurs check failed: Expression |
 
 Codes come in ranges (`src/author/errors.fs`): 1 to 73 the words, the
 runner, the stores and natural text read (FE1a); 74 to 79 elaboration and
@@ -489,7 +504,11 @@ the instance table's, `src/front/instances.fs`, plan FE1e3; 112, 113,
 as FE1E_APPLICATIONS.md §4 says); 125 to 139 the elaborator's (S1,
 `src/front/elab-*.fs`) and 140 and 141 `#check` inside a declaration, in
 a term position (Lean's parser error) or in a tactic block (where Lean
-would end the block before it; the first of FE2's command codes); the rest of 100 on free. Codes 81 to
+would end the block before it; the first of FE2's command codes); 205 to
+220 S2's induction and rewriting (`src/front/tactic-induction.fs`,
+`tactic-rewrite.fs`: Lean's texts, the names they hold ending the
+message's own line, as in "Invalid alternative name `suc`: Expected
+`succ`"; 210, 211 and 214 kept for `by-case:`); the rest of 100 on free. Codes 81 to
 88 are the reading of
 tactic proofs (`src/front/tactic-syntax.fs`, plan FE1g-2): 82 names the
 word and the open block's (by-induction-with for an alternative, by-rw[

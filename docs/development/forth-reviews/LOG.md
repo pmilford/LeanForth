@@ -106,6 +106,9 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-14 | `af3c342c..6b003cee` | reuse-out-2 second pass ROUT3 (all kept groups outside front) and the merge of main d5db8416 | forth-reviewer (Opus), re-check and gates | [report](2026-11-14-reuse-out-2-rc3.md) | B1, B2, M1, L1-L6; style rises accepted | 0: fixed in 6b003cee..58317372, L1, L5, L6 planned |
 | 2026-11-14 | `6b003cee..1874bcd6` | reuse-out-2 ROUT4 fixes and the merge of main d84facb7 | forth-reviewer (Opus), re-check rc4 | [report](2026-11-14-reuse-out-2-rc3.md), section "Re-check rc4" | B1, B2, M1, M2, L1-L3 | 0: M2, L1, L2 fixed in 771fd012; B1, B2, M1, L3 planned in 9.4.8k |
 | 2026-11-14 | `1874bcd6..771fd012` | reuse-out-2: rc4's M2 tests and fault, two baseline entries, plan rows (no src change) | coordinator (Opus), against the re-check's findings | [report](2026-11-14-reuse-out-2-rc3.md), last section | tests and baselines only | 0 |
+| 2026-11-14 | `6684b824..b498dbbc` | s2-tactics: S2's induction (by-induction, by-induction-with, alternatives) and rewriting (by-rw[, by-rewrite[), kabstract, Meta.check, step records | forth-reviewer (Opus), style, fidelity and [bypass] probe | [report](2026-11-14-s2-tactics.md), section "Forth review" | 2 B, 2 H, 4 M, 4 L, 4 style | 0: fixed in b498dbbc..f82edbb8, B2 planned |
+| 2026-11-14 | `b498dbbc..f82edbb8` | s2-tactics fix round S2FIX | forth-reviewer (Opus), re-check | [report](2026-11-14-s2-tactics.md), section "Re-check of S2FIX" | 1 H, 4 M, 2 L | 0: H1, M2 (mvar head), M4 fixed in 716a1dc2 (tests); M1, M3, L1, L2, the quotient twin planned in 9.4.8k |
+| 2026-11-14 | `f82edbb8..716a1dc2` | s2-tactics: the full heap sweep, a stuck-argument test, two faults (tests and plan only) | coordinator (Opus), against the re-check's findings | [report](2026-11-14-s2-tactics.md), last section | tests only; both faults caught | 0 |
 
 ## Backlog
 

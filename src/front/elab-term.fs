@@ -360,8 +360,6 @@ defer et-go-call ( node x frames cont -- ... frames next )
 \ class has two or more default instances and one's type ends in
 \ C a b c with b (a left leaf) or a (a right one) headed by the max
 \ type's head constant.
-: et-head-name ( t -- name true | false )
-  lf-meta-head dup lf-term-const? if lf-const-name true else drop false then ;
 : et-args3 ( t -- a b true | false )
   dup lf-term-app? 0= if drop false exit then lf-term-first@
   dup lf-term-app? 0= if drop false exit then dup lf-term-second@ swap lf-term-first@
@@ -372,7 +370,7 @@ defer et-go-call ( node x frames cont -- ... frames next )
   else no-result then ;
 : et-def-hit? ( name left? type -- flag )
   lf-meta-forall-body et-args3 0= if 2drop false exit then
-  rot et-side et-head-name if = else drop false then ;
+  rot et-side lf-meta-head-name if = else drop false then ;
 : et-scan-one ( name left? v -- name left? flag outcome )
   dup lf-default-gap? if drop false lfa-e-elab-step lf-elab-fail exit then
   et-default-type lf-elab-meta ok-then? 0= if false swap exit then
@@ -389,7 +387,7 @@ defer et-go-call ( node x frames cont -- ... frames next )
   et-data-class 0= if 2drop false outcome-ok exit then
   lf-elab-default-instances ok-then2? if et-hetero-scan else nip nip false swap then ;
 : et-hetero ( i -- flag outcome )
-  eo eo-max @ et-head-name 0= if drop false outcome-ok exit then
+  eo eo-max @ lf-meta-head-name 0= if drop false outcome-ok exit then
   over tn tn-left @ rot tn tn-up @ et-hetero-of ;
 
 \ ---- applyCoe (Extra.lean:415), the tree in pre-order: an operator below

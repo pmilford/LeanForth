@@ -81,8 +81,10 @@ T{ nat>nat nat lf-term-pi must lf-infer -> -1 outcome-unsupported }T
 nat mv-natural lf-mvar-new made constant ?x
 ?x lf-lctx-local made constant fdom
 lv1 1 s" outParam" cn lf-lctx-local made constant fo
+\ (outParam.{1} alone: getLevel's whnfD unfolds it to a lambda, no sort:
+\ invalid, Lean's "type expected"; branch s2-tactics.)
 T{ fdom nat lf-term-pi must lf-infer fo nat lf-term-pi must lf-infer
-   -> -1 outcome-unsupported -1 outcome-unsupported }T
+   -> -1 outcome-unsupported -1 outcome-invalid }T
 T{ nat fk 0 bv let lf-infer -> -1 outcome-unsupported }T
 T{ fa fb pair 0 proj lf-infer -> -1 outcome-unsupported }T
 T{ nat 0 bv lam fk app lf-infer -> -1 outcome-unsupported }T
@@ -95,9 +97,10 @@ T{ rec nat nat lam app fz app fs app fk app nat infer= -> true outcome-ok }T
 T{ rec nat 0 bv 0 bv eq lam app fz app fs app fk app fk fk eq infer= -> true outcome-ok }T
 T{ rec nat nat lam app fz app fs app nat>nat infer= -> true outcome-ok }T
 T{ rec nat nat 1 bv 0 bv eq tpi lam app fz app fs app lf-infer -> -1 outcome-unsupported }T
-\ The type is no pi and whnf would unfold it: fq : outParam (Nat -> Nat).
+\ The type is no pi and whnfD unfolds it, as Lean's inferAppType does:
+\ fq : outParam (Nat -> Nat), fq k : Nat (branch s2-tactics).
 lv1 1 s" outParam" cn nat>nat app lf-lctx-local made constant fq
-T{ fq fk app lf-infer -> -1 outcome-unsupported }T
+T{ fq fk app nat infer= -> true outcome-ok }T
 T{ 0 lf-term-sort must lf-infer -> -1 outcome-unsupported }T
 
 \ ---- Invalid: no term, a loose bound variable, a wrong number of
@@ -119,9 +122,10 @@ T{ fw fk app lf-infer -> -1 outcome-invalid }T
 : unknown ( -- t ) 0 s" motive" menv-part lf-name-generation @ lv-pairs 0 lf-cref-new must
   lf-cterm-new must drop ;
 T{ unknown lf-infer unknown fk app lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
-\ A type that is a definition alone: whnf would unfold it (unsupported).
+\ A type that is a definition alone: whnfD unfolds it to a lambda, no pi:
+\ invalid, Lean's "function expected" (branch s2-tactics).
 lv1 1 s" outParam" cn lf-lctx-local made constant ft
-T{ ft fk app lf-infer -> -1 outcome-unsupported }T
+T{ ft fk app lf-infer -> -1 outcome-invalid }T
 T{ 0 bv fk app lf-infer -> -1 outcome-invalid }T
 
 \ ---- Exhausted: whnfCore's fuel runs out on a type that is no pi.

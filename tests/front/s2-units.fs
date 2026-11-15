@@ -1,0 +1,50 @@
+\ Unit tests of S2's kabstract and Meta.check (plan S2, branch
+\ s2-tactics; src/front/kabstract.fs, src/front/meta-check.fs) over the
+\ Init slice, with the variables of tests/front/whnf-cases.fs; run by
+\ tests/front/check_s2.py. kabstract: a free-variable pattern abstracted
+\ everywhere, under binders too (bound variable k + 1 under k binders); a
+\ pattern under a binder matched only where no bound variable is loose
+\ (Lean's hasLooseBVars test: fun x => Nat.succ x has no Nat.succ ?n);
+\ no occurrence; a let answers unsupported (Lean's order of a let's parts
+\ is not ported); no term: invalid. Meta.check: a type correct
+\ application, pi and lambda; an argument of the wrong type (invalid,
+\ the application kept); a pi whose body is no type; a constant with the
+\ wrong number of universe arguments; a let (unsupported); the budget
+\ spent (exhausted) and a refused allocation (full), each call after
+\ them answering as before. Every T{ }T checks the data stack's depth.
+include ../support/tester.fs
+include ../support/heap-watch.fs
+require ./whnf-cases.fs
+require ../../src/front/kabstract.fs
+require ../../src/front/meta-check.fs
+
+: eqv ( a b -- flag ) lf-meta-eqv drop ;
+: abs= ( e p expected -- flag flag' outcome ) >r lf-meta-kabstract rot r> eqv -rot ;
+succ fk app constant sk
+nat sk lam constant k-under
+
+\ ---- kabstract.
+T{ sk fk succ 0 bv app abs= -> true true outcome-ok }T
+T{ k-under sk nat 1 bv lam abs= -> true true outcome-ok }T
+T{ k-under fk nat succ 1 bv app lam abs= -> true true outcome-ok }T
+T{ nat succ 0 bv app lam succ ?n app lf-meta-kabstract rot drop -> false outcome-ok }T
+T{ ?n lf-mvar-value -> false }T
+T{ fk sk lf-meta-kabstract rot fk = -> false outcome-ok true }T
+T{ nat nat 0 bv 0 bv let lam succ ?n app lf-meta-kabstract
+   -> -1 false outcome-unsupported }T
+T{ -1 sk lf-meta-kabstract -> -1 false outcome-invalid }T
+T{ sk fk succ 0 bv app abs= -> true true outcome-ok }T
+
+\ ---- Meta.check, at transparency all.
+: chk ( e -- outcome ) lf-tr-all lf-meta-check ;
+T{ sk chk nat nat tpi chk nat 0 bv lam chk -> outcome-ok outcome-ok outcome-ok }T
+succ nat app constant bad-app
+T{ bad-app chk lf-meta-check-bad bad-app = -> outcome-invalid true }T
+T{ nat fk tpi chk lf-meta-check-bad -> outcome-invalid -1 }T
+T{ l0 1 s" Nat" cn chk -> outcome-invalid }T
+T{ nat fk 0 bv let chk -> outcome-unsupported }T
+T{ lf-meta-budget 0 lf-meta-budget! sk chk swap lf-meta-budget! sk chk
+   -> outcome-exhausted outcome-ok }T
+T{ 1 heap-refusals ! nat succ 0 bv app lam chk 0 heap-refusals ! -> outcome-full }T
+T{ nat succ 0 bv app lam chk -> outcome-ok }T
+bye

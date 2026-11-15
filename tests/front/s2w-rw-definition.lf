@@ -1,0 +1,9 @@
+\ A wrong proof for S2's tactics (tests/front/check_s2.py): rewriting by
+\ a definition's name (Lean unfolds it by its equation lemmas) is not
+\ supported yet (error 99).
+theorem w_rw_definition
+  Nat explicit: n
+  0 n + n =
+:= by
+  by-rw[ ' Nat.add ]
+end w_rw_definition

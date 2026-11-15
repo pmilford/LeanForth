@@ -427,8 +427,22 @@ defer lf-meta-synth ( type -- inst flag outcome )
 : de-unstuck ( t -- stuck? )
   de-stuck-mvar 0= if false exit then dup de-synth-pending
   lf-defeq-stuck de-flag? if de-older? else drop false then ;
+\ isDefEqOnFailure's tryUnificationHints (UnificationHint.lean:99): the
+\ library's hints are known only for Lean 4.35.0's Init (elaboration data
+\ of Init alone, elab-init-only?), whose one hint is Not p =?= p -> False
+\ (Init/Hints.lean): a side that whnfR makes no Not application has no
+\ candidate (Lean's DiscrTree.getMatch keys it withReducible after
+\ reduceDT, DiscrTree/Main.lean:472, UnificationHint.lean:31; plan task
+\ for hints in the data); a Not side or another library: unsupported; a
+\ whnfR that fails passes its outcome on (fuel, room).
+: de-not? ( t -- flag ) 1 s" Not" lf-meta-app-of? ;
+: de-hint-free? ( t -- flag outcome )
+  elab-init-only? 0= if drop false outcome-ok exit then
+  lf-meta-whnf-r ok-then? if de-not? 0= outcome-ok else false swap then ;
 : de-hints ( t -- )
-  dup lf-mvar? if drop exit then de-head-defn? if outcome-unsupported de-abort then ;
+  dup lf-mvar? if drop exit then dup de-head-defn? 0= if drop exit then
+  de-hint-free? ok-then? 0= if de-abort exit then
+  0= if outcome-unsupported de-abort then ;
 : de-stuck-either ( -- stuck? )
   de-t de-unstuck ?dup if exit then de-aborted? if false exit then de-s de-unstuck ;
 : de-on-failure ( -- stuck? )

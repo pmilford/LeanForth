@@ -2277,15 +2277,26 @@
   "tokens": 7
  },
  "ca3a2c479aab": {
-  "copies": 3,
+  "copies": 4,
   "kind": "shape",
   "members": [
+   "src/front/tactic-induction.fs:lfi-setup",
    "src/front/tactic-syntax.fs:lft-header",
    "src/kernel/env-schedule.fs:lf-sch-builtins-make",
    "src/program/verify-runner.fs:pv-work"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
+ },
+ "cb3247c9476a": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/elab-data.fs:ed-or-bad",
+   "src/front/meta-check.fs:mck-fits"
+  ],
+  "reason": "false positive: a flag's two outcomes, each module its own failure record",
+  "tokens": 7
  },
  "cc681a2bd39b": {
   "copies": 6,
@@ -2300,6 +2311,17 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 9
+ },
+ "cca32ef45c0a": {
+  "copies": 3,
+  "kind": "shape",
+  "members": [
+   "src/front/tactic-rewrite.fs:lfw-pattern.",
+   "src/front/tactic-rewrite.fs:lfw-motive.",
+   "src/front/tactic-rewrite.fs:lfw-dependent."
+  ],
+  "reason": "accepted: three message details of rewrite (S2), each its own field and continuation; the shared part is lfw-framed. already",
+  "tokens": 7
  },
  "ccfa4020f3d4": {
   "copies": 2,
@@ -2505,6 +2527,16 @@
   ],
   "reason": "accepted: program/ir-reader.fs (today's IR reader) and the program-words verifier (verify-*.fs) are kept independent on purpose: tests/program/verify_check.py cross-checks the two designs, which a shared word would weaken",
   "tokens": 11
+ },
+ "df7d33eb0023": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/tactic-run.fs:lf-tac-stop-at",
+   "src/front/tactic-run.fs:lfr-block-fail"
+  ],
+  "reason": "accepted: an error at a step's word and at a block's place, two readers of the record; a shared word would take both readers as arguments",
+  "tokens": 7
  },
  "dfdfa172bb14": {
   "copies": 2,
