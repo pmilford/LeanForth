@@ -41,6 +41,7 @@ defer .t
   lfc-rooms dump-must lf-author-begin lf-author-file
   dup ok? 0= if ." stopped: " lf-author-error. cr drop exit then drop
   lf-author-count 0 ?do i dump-own loop ;
-: s2-dump ( c-addr u -- )
-  [: s" tests/front/s2-slice.ndjson" ;] is dump-lib
-  [: s" tests/front/s2-slice.elab.ndjson" ;] is dump-data elab-dump ;
+\ Named words, not quotations: Gforth 0.7.3 has no [: ;].
+: s2-lib ( -- c-addr u ) s" tests/front/s2-slice.ndjson" ;
+: s2-data ( -- c-addr u ) s" tests/front/s2-slice.elab.ndjson" ;
+: s2-dump ( c-addr u -- ) ['] s2-lib is dump-lib ['] s2-data is dump-data elab-dump ;
