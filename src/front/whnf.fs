@@ -108,6 +108,7 @@ require ../core/literals.fs
 require ../core/string-literals.fs
 require ../core/projections.fs
 require ../core/mvar-leaves.fs
+require ../core/annotations.fs
 require ../core/input.fs
 require ./mvars.fs
 require ./instantiate.fs
@@ -484,10 +485,15 @@ lf-unfold-ask-none 1+ constant wc-match-kind
 : wc-const-head ( e head -- e' flag outcome )
   dup lf-meta-const-decl ok-then? if wc-decl-head else wc-unknown-head then ;
 
-\ ---- One step of whnfCore.
+\ ---- One step of whnfCore. An annotation (a smart-unfolding marker,
+\ core/annotations.fs) is looked through, at the term or at the head of
+\ an application (whnfEasyCases' mdata case).
+: wc-annot-head ( e head -- e' flag outcome ) nip lf-annot-strip wc-rebuild wc-go ;
+: wc-annot ( e -- e' flag outcome ) lf-annot-strip true outcome-ok ;
 : wc-head-tag ( e head tag -- e' flag outcome )
   case lf-tag-mvar of wc-mvar-head endof  lf-tag-fvar of wc-fvar-head endof
     lf-tag-constant of wc-const-head endof  lf-tag-projection of wc-proj-head endof
+    lf-tag-annotation of wc-annot-head endof
     lf-tag-bvar of wc-invalid endof  >r drop wc-done r> endcase ;
 : wc-head-step ( e head -- e' flag outcome )
   dup lf-term-lam? if drop lf-meta-head-beta wc-go exit then
@@ -496,7 +502,7 @@ lf-unfold-ask-none 1+ constant wc-match-kind
   dup wc-args lf-meta-spine ok-then? if wc-head-step else wc-drop-fail then ;
 : wc-leaf-step ( e tag -- e' flag outcome )
   case lf-tag-mvar of wc-mvar endof  lf-tag-fvar of wc-fvar endof
-    lf-tag-projection of dup wc-proj-head endof
+    lf-tag-projection of dup wc-proj-head endof  lf-tag-annotation of wc-annot endof
     lf-tag-bvar of outcome-invalid wc-drop-fail endof  >r wc-done r> endcase ;
 : wc-core-step ( e -- e' flag outcome )
   dup lf-let? if wc-zeta wc-go exit then

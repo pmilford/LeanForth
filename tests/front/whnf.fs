@@ -409,6 +409,11 @@ T{ s" Acc.rec" lf-tr-reducible bumped s" WellFounded.rec" lf-tr-instances bumped
    s" Acc.rec" lf-tr-all bumped lf-defeq-mode -> lf-tr-reducible lf-tr-instances lf-tr-all
    lf-tr-default }T
 
+\ ---- Smart-unfolding annotations (S2 merge B): whnfCore looks through
+\ one at the term and at an application's head (whnfEasyCases).
+: ann ( t -- t' ) lf-annot-match lf-annot ok? 0= abort" annotation" ;
+T{ fk ann ann fk whnf= nat 0 bv lam ann fk app fk whnf= -> true outcome-ok true outcome-ok }T
+
 \ ---- Stale leaves: after the contexts are emptied, every metavariable
 \ and free variable made before is invalid.
 lf-mctx-reset

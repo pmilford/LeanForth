@@ -19771,3 +19771,35 @@ old = '''  if drop lf-whnf-collect outcome-ok else nip nip then ;'''
 new = '''  if drop lf-whnf-collect outcome-ok else nip nip drop outcome-unknown then ;'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "an application's arguments the heap cannot hold read as undecided, not out of room"
+
+[[fault]]
+id = "fe-annotation-instantiate-leaf"
+file = "src/front/instantiate.fs"
+old = '''  over lf-annot? if in-step-annot else 2dup in-leaf in-done then ;'''
+new = '''  2dup in-leaf in-done ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "S2 merge B: instantiate1 takes a smart-unfolding annotation for a leaf, so its child's bound variables stay unreplaced"
+
+[[fault]]
+id = "fe-annotation-beta-inst-leaf"
+file = "src/front/beta-inst.fs"
+old = '''  over lf-annot? if ib-step-annot else 2dup ib-leaf ib-done then ;'''
+new = '''  2dup ib-leaf ib-done ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "S2 merge B: instantiateBetaRevRange takes a smart-unfolding annotation for a leaf"
+
+[[fault]]
+id = "fe-annotation-beta-always-strips"
+file = "src/front/instantiate.fs"
+old = ''': hb-in ( f -- f' ) in-state in-mdata @ if exit then lf-annot-strip ;'''
+new = ''': hb-in ( f -- f' ) lf-annot-strip ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "S2 merge B: deltaBetaDefinition's betaRev looks through an annotation between lambdas where Lean keeps it (preserveMData)"
+
+[[fault]]
+id = "fe-annotation-head-stuck"
+file = "src/front/whnf.fs"
+old = '''    lf-tag-annotation of wc-annot-head endof'''
+new = '''    lf-tag-annotation of drop wc-done endof'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2 merge B: whnfCore stops at an annotation at an application's head where Lean's whnfEasyCases looks through it"

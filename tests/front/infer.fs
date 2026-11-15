@@ -163,6 +163,11 @@ T{ 0 bv chain fk x1 fk chain rb= -> true outcome-ok }T
 \ body has no binder around its variable (plan FE1g-4), else unsupported.
 T{ 0 bv 0 bv x1 lf-meta-instantiate-rev-beta -> -1 outcome-unsupported }T
 T{ nat 1 bv 0 bv app lam sfun x1 sfun rb= -> true outcome-ok }T
+\ An annotation (core/annotations.fs, S2 merge B) keeps its key around its
+\ child's image, and is the same node when the child stays.
+: ann ( t -- t' ) lf-annot-match lf-annot ok? 0= abort" annotation" ;
+T{ 0 bv ann fk x1 fk ann rb= fk ann dup fa x1 lf-meta-instantiate-rev-beta drop =
+   -> true outcome-ok true }T
 : deep-fun ( -- t ) nat nat 1 bv tpi lam ;   \ fun x => Nat -> x, a binder around x
 T{ nat 1 bv 0 bv app lam deep-fun x1 lf-meta-instantiate-rev-beta -> -1 outcome-unsupported }T
 \ Invalid: no body, no argument, a negative m.
