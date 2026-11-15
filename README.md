@@ -1,30 +1,62 @@
 # LeanForth
 
-**LeanForth today is only the checking half of Lean (the kernel): it re-checks proof terms that Lean produced and exported (NDJSON), including all of Lean's `Init`. It has none of Lean's front end, the larger half: no elaborator (implicit arguments, numerals, unification), no type classes or coercions, no tactics, no pattern matching or recursion compilation, no evaluation. So it cannot yet turn a written theorem into a proof; Lean does all of that before the export. Since 2026-11-12, `leanforth check [--env EXPORT] FILE.lf` also checks LeanForth text whose proofs are written by hand as kernel proof terms (plan 8.2.1a, c, d; gates approved by the owner 2026-11-12). There is no program verifier. The front end is plan phase 8 ([docs/project/PLAN_DRAFT.md](docs/project/PLAN_DRAFT.md)), being re-planned from 2026-11-12.**
+LeanForth is a checker for Lean 4 proofs, written in Forth (developed on Gforth 1.0), that gives Lean 4.35.0's verdicts. A second product path, verified executable Forth programs, is started.
 
-See the [project progress report](docs/project/PROJECT_PROGRESS.md) for both product
-tracks, importer limits, and a reproducible code inventory.
-The [development roadmap](docs/project/DEVELOPMENT_ROADMAP.md) breaks each track into
-ordered submilestones with dependencies and acceptance evidence.
-New here? The [user guide](docs/user/USER_GUIDE.md) says what LeanForth is
-and is not, where the trust boundaries are and what to read next;
-[concepts in three forms](docs/user/CONCEPTS.md) explains levels, `Sort`,
-terms, theorems and the kernel with examples in mathematics, Forth and Lean,
-and [terms for new readers](docs/user/TERMS_FOR_NEW_READERS.md) is a short
-glossary.
-All documentation is indexed in [docs/README.md](docs/README.md), grouped
-into user, programming, development, project, ADR and review folders.
+## What it does today
 
-LeanForth aims to be a Forth-friendly mathematical theorem-proving **and verified-programming** system, with an independently trustworthy checker and efficient executable Forth backends. Today it re-checks proofs that Lean exported, has verified no program, and its checker has not passed its review gate. Its mathematical data and presentation notation must never redefine or ambiguously overload the Forth source grammar.
+- **Re-checks Lean's exports.** `bin/leanforth check` reads a Lean 4.35.0 export (NDJSON) and checks each declaration with LeanForth's own kernel. It has accepted all of Lean's `Init` and all of Mathlib (729,263 of 729,263 declarations; the night's build of 2026-11-13). The kernel has not yet passed its human review gate (`AGENTS.md`).
+- **Checks theorems written in LeanForth.** LeanForth's own elaborator turns LeanForth text into kernel terms, and the kernel checks them as it checks an export. Slice S1 is done ([done check](docs/development/done-checks/2026-11-14-s1.md)): `theorem t 0 0 + 0 = := by by-rfl end t` is elaborated and accepted on all of `Init`. Slice S2's tactics (`by-induction-with`, `by-rw[ ]`) are on `main`: `tests/front/01-zero-add-rw.lf` (0 + n = n, by induction and rewriting) and the proof set `tests/front/ps-*.lf` are accepted by the kernel. S2 is not done: no done check has run. Not yet written: most of Lean's tactics, pattern matching and recursion compilation, evaluation. See [the elaborator page](docs/user/ELABORATION.md).
+- **Verified Forth programs (second path).** `bin/leanforth verify SOURCE.fs --contract CONTRACT` checks one Forth word against a contract: pinned Lean writes the proofs and LeanForth's checker re-checks them ([manual](docs/programming/PROGRAM_VERIFY.md)). Its first slice (V1) is on `main`; the later slices are parked.
 
-Start with **[docs/project/CODEX_HANDOFF.md](docs/project/CODEX_HANDOFF.md)** (the original project brief), then **[docs/project/IMPLEMENTATION_PLAN.md](docs/project/IMPLEMENTATION_PLAN.md)** and **[AGENTS.md](AGENTS.md)**. Coding agents follow `AGENTS.md`: Codex reads it directly, and Claude Code loads it through `.claude/CLAUDE.md`. Work up to the `pre-claude` tag was developed with Codex. Follow **[docs/user/SETUP_WSL.md](docs/user/SETUP_WSL.md)** for the recommended Windows/WSL2 setup.
+Correctness is relative to stated semantics and assumptions; the elaborator, parsers, tactics and printers are untrusted and can never make a wrong proof accepted. Current state, both tracks and limits: [project progress](docs/project/PROJECT_PROGRESS.md) (its "Now, next, later" list is the queue).
 
-Proposed baseline: Windows 11 desktop; WSL2 Ubuntu development; Gforth 1.0 (reference implementation); Forth-2012 subset for portability; Lean 4.35.0 pinned as interoperability oracle; GitHub; Codex or Claude Code. CPU tensors first, using high-performance C/BLAS libraries behind a portable FFI; optional ArrayFire/GPU after measured need.
+## Install
+
+Requirements: Linux x86-64 or WSL2 (see [the WSL setup](docs/user/SETUP_WSL.md)), Python 3, a C compiler, `make`, `curl`. The two scripts download pinned releases, check their SHA-256 and install into the git-ignored `.tools/`:
+
+```bash
+sudo apt-get install -y m4 libtool-bin libffi-dev libltdl-dev pkg-config zstd
+scripts/install-gforth.sh .tools/gforth     # Gforth 1.0.0, built from source: .tools/gforth/bin/gforth
+scripts/install-lean.sh .tools/elan/toolchains/leanprover--lean4---v4.35.0   # Lean 4.35.0 toolchain
+```
+
+The Makefile and `bin/leanforth` find these automatically (override with `GFORTH=...` and `LEAN=...`). Lean is needed only for `make check` and `verify`; checking exports needs only Gforth. An existing elan installation under `.tools/elan` also works ([installation log](docs/development/INSTALLATION_LOG.md)).
+
+## Run
+
+```bash
+make test    # Forth and Python tests; needs only Gforth and Python 3 (about 8 s with 8 parallel jobs)
+make check   # make test plus every pinned-Lean comparison
+```
+
+**Check a Lean export:** `bin/leanforth check FILE.ndjson` prints each declaration's verdict and a summary; see [the command line](docs/user/COMMAND_LINE.md) for options, exit statuses and how to export Init or Mathlib. `bin/leanforth help` lists every command.
+
+**Check a LeanForth file** on the small library slices in the repository. S1, the statement above (run on 2026-11-15: exit 0, `t: accepted; axioms: none`, ending `548 declarations: 548 accepted`):
+
+```bash
+bin/leanforth check --env tests/front/s1-slice.ndjson --elab-data tests/front/s1-slice.elab.ndjson tests/front/s1-rfl.lf
+```
+
+S2, 0 + n = n by induction and rewriting (run on 2026-11-15: exit 0, `zero_add'': accepted; axioms: none`, ending `580 declarations: 580 accepted`):
+
+```bash
+bin/leanforth check --env tests/front/s2-slice.ndjson --elab-data tests/front/s2-slice.elab.ndjson tests/front/01-zero-add-rw.lf
+```
+
+The output first lists the slice's library declarations, then yours. A `sorryAx` line in the S2 slice's list is part of the library and is marked NOT PROVED, as the summary says.
+
+## Where to go next
+
+- [docs/README.md](docs/README.md): every document, by folder and audience.
+- [User guide](docs/user/USER_GUIDE.md), [concepts in three forms](docs/user/CONCEPTS.md), [terms for new readers](docs/user/TERMS_FOR_NEW_READERS.md), [the elaborator](docs/user/ELABORATION.md), [the LeanForth syntax](docs/user/LEANFORTH_SYNTAX.md).
+- [Demos](docs/user/DEMOS.md) and [running the checks](docs/user/RUNNING_THE_CHECKS.md).
+- [Project progress](docs/project/PROJECT_PROGRESS.md), [roadmap](docs/project/DEVELOPMENT_ROADMAP.md), [implementation plan](docs/project/IMPLEMENTATION_PLAN.md).
+- Coding agents follow [AGENTS.md](AGENTS.md) (Codex reads it directly, Claude Code through `.claude/CLAUDE.md`). Work up to the `pre-claude` tag was developed with Codex.
 
 ## Where the code is
 
-The first checker is not through its review gate; `bin/leanforth check
-FILE.ndjson` runs it on a Lean export of any size (all of Lean's `Init`)
+`bin/leanforth check
+FILE.ndjson` runs the checker on a Lean export of any size
 and prints each declaration's verdict, with its axioms when accepted,
 then a summary, with `--resources`
 the time, memory and fuel used, and with `--json` all of it as JSON
@@ -52,26 +84,8 @@ What it loads is unverified code in progress, exercised by the tests.
 [The Forth library inventory](docs/development/FORTH_LIBRARY.md) describes
 each component, its maturity and what is still missing.
 
-## Installing the pinned tools and running the tests
 
-The Forth modules and tests exercise the host; they do not prove theorems or
-verify programs. Install the pinned toolchains into the ignored `.tools/`
-directory (each script checks the download's SHA-256 and fails otherwise):
-
-```bash
-sudo apt-get install -y m4 libtool-bin libffi-dev libltdl-dev pkg-config zstd
-scripts/install-gforth.sh .tools/gforth
-scripts/install-lean.sh .tools/elan/toolchains/leanprover--lean4---v4.35.0
-```
-
-An existing elan installation under `.tools/elan`, as described in
-[the installation log](docs/development/INSTALLATION_LOG.md), works too. Then, from the
-repository root:
-
-```bash
-make test    # Forth and Python tests; needs only Gforth and Python 3
-make check   # make test plus every pinned-Lean oracle and differential test
-```
+## Testing notes
 
 The Makefile uses `.tools/gforth/bin/gforth` and the Lean 4.35.0 toolchain
 binary under `.tools/elan` when present, otherwise `gforth` and `lean` on PATH;
@@ -90,22 +104,12 @@ shows and what it does not.
 `make test-program` includes clamp and [five additional executable Forth
 examples](docs/programming/PROGRAM_EXAMPLES.md). They are runtime tested, not verified.
 
-These tests run the checker on Lean's exports and compare it with
-pinned Lean; they do not show that it is correct. The checker re-checks proofs that Lean exported; LeanForth text
-is checked by the same checker since 2026-11-12 (8.2.1a, c, d); 8.2.1b, e, f and g are not started. The
-[core ADR](docs/adr/0001-core-fragment.md) and [program example](docs/programming/PROGRAM_EXAMPLE.md)
-needed human review before implementation.
-The export check recompiles the composition theorem, uses the `leanexport`
-bundled with Lean 4.35.0, and compares its output byte-for-byte with the checked-in
-NDJSON fixture. It is not an independent proof check or an importer test.
-See [starting the kernel](docs/development/KERNEL_START.md) for the remaining prerequisites.
-
 `make test-harness` evaluates Gforth's bundled test harness with a passing
 test and intentional wrong-value and wrong-stack-depth failures. It currently
 requires a Gforth installation containing `test/ttester.fs`; it has been tested
 locally with Gforth 1.0 and Ubuntu's Gforth 0.7.3. See
 [the testing strategy](docs/development/TESTING_STRATEGY.md).
-`make test-core` tests experimental term storage, structural scope, and the
+`make test-core` tests term storage, structural scope, and the
 `mixed-*` substitution, reduction, conversion and inference passes with the
 definition probe built on them. These untrusted prototypes cannot authorize a
 theorem; inferred types are mutable data, not checked theorem handles. Their
