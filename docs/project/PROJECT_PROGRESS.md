@@ -30,7 +30,7 @@ status changes when this date is older than them. Stages are those of the
 
 **Now**
 - LeanForth text checked by LeanForth's kernel, with Init imported for real (plan 8.2.1a, c, d): works end to end (done check docs/development/done-checks/2026-11-12-lf-files.md); owner gates [parser], [bypass], [import] approved by the owner 2026-11-12.
-  `leanforth check [--env EXPORT] FILE.lf` checks hand-written kernel terms; no elaborator or tactics yet. 8.2.1b, e, f
+  `leanforth check [--env EXPORT] FILE.lf` checks hand-written kernel terms and, since S1 (2026-11-14), elaborated ones. 8.2.1b, e, f
   and g are not started.
 - Fixes before tonight's run: the performance review's findings (rvPF1), the broken coverage tool and a coverage
   ratchet, the documentation the done-checker audit found overstated or stale, and real bugs from the Forth backlog
@@ -39,8 +39,10 @@ status changes when this date is older than them. Stages are those of the
 - All of Mathlib on the night's build (`d789e45f`, verdict version 9, 2026-11-13): 729,263 of 729,263 accepted, snapshot saved; see the Mathlib line below.
 - The front end, LeanForth's own elaborator and tactics (plan FE1-FE12, replacing 8.3.1-8.3.2; [design](../design/FRONT_END.md),
   [ADR 0021](../adr/0021-front-end.md) proposed, D1-D3, D5, D7 and Amendment 1 (`sorry` as in Lean) decided by the
-  owner). FE1, the first theorem proved from LeanForth text ($0 + n = n$ by induction, no hand-written proof term, no
-  Lean tool), is being built. On main (2026-11-13): FE1a (natural reader) integrated; FE1b (metavariables, with
+  owner). 2026-11-14: slice S1 is **done** (done check 2026-11-14-s1.md: `theorem t 0 0 + 0 = := by by-rfl end t`
+  elaborated by LeanForth and accepted by its kernel on all of `Init`, node for node Lean's); S2's merge A is on main;
+  S2's tactics (`by-induction-with`, `by-rw[ ]`: FE1, $0 + n = n$ by induction, and the owner's proof set) are being
+  built on branch `s2-tactics`, then a showcase of LeanForth-derived, annotated proofs. Earlier, on main (2026-11-13): FE1a (natural reader) integrated; FE1b (metavariables, with
   assignment marks) tested alone; FE1c (Lean's level unification and normalize, instantiate and head beta: 153 cases
   equal to pinned Lean) tested alone in part; FE1d (elaboration data) integrated; FE1f (the hand-over of an elaborated
   declaration to the kernel) tested alone, reached by no user command before FE1e; FE6a (casesOn, recOn and ctorIdx
