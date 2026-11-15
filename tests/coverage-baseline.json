@@ -356,9 +356,9 @@
    "reason": "S1 merge B: lf-menv-add refusing for want of room at a hand-over (error 60), which no heap-refusal scan of a text reaches"
   },
   "src/front/infer.fs": {
-   "blocks": 370,
-   "never_run": 21,
-   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) in a level list, a Sort's level, a spine, a telescope, an abstraction, a pi or a normalized level"
+   "blocks": 375,
+   "never_run": 22,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) in a level list, a Sort's level, a spine, a telescope, an abstraction, a pi or a normalized level; S2 (branch s2-tactics' review fix round (2026-11-14)): if-whnf-d's branch at transparency all (inferType's withAtLeastTransparency .default keeps all; no test's Meta.check meets a definition at a binder type's head) and if-sort-level's refusal"
   },
   "src/front/instances.fs": {
    "blocks": 680,
@@ -371,9 +371,9 @@
    "reason": "measured 2026-11-12 on fe1c-lnorm after review L4 (meta-heap.fs refuses each allocation): never run are in-instantiate-leaf's non-variable leaf at a depth whose range test kept nothing (157), a failing loose-range walk inside instantiate1's value check (190: the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)), and head beta's application refused by the term store after the lambdas were taken (221); FE1g-3/4 (branch fe1g3, 016d1bd1, 2026-11-13): a loose value whose range walk the heap refuses (in-value-ok) is not reached"
   },
   "src/front/kabstract.fs": {
-   "blocks": 148,
-   "never_run": 29,
-   "reason": "S2 (branch s2-tactics): the paths the proof set does not reach -- induction on a type that is not inductive, mutual or nested, an eliminator with index targets or instance binders, a motive whose type does not fit; rewriting with an Iff, a definition, an instance binder, a metavariable pattern, a motive not type correct or dependent, a rule left with new goals; Meta.check of a let or projection; heap refusals inside the new tactics (follow-up tests: plan S2 FE1g-8 classes 1-7)"
+   "blocks": 152,
+   "never_run": 20,
+   "reason": "S2 (branch s2-tactics, branch s2-tactics' review fix round (2026-11-14)): never run are the walk's failure branches -- a refusal of room at a bound variable, a node's rebuild or a binder's second part (kab-bvar, kab-node, kab-open, kab-second+), isDefEq's and the loose-variable test's failures, and the head comparisons of projections and literals (kab-fields=, kab-same), which S2's patterns do not have; tests/front/s2-units.fs runs the rest"
   },
   "src/front/lctx-views.fs": {
    "blocks": 168,
@@ -411,22 +411,22 @@
   },
   "src/front/meta-check.fs": {
    "blocks": 153,
-   "never_run": 42,
-   "reason": "S2 (branch s2-tactics): the paths the proof set does not reach -- induction on a type that is not inductive, mutual or nested, an eliminator with index targets or instance binders, a motive whose type does not fit; rewriting with an Iff, a definition, an instance binder, a metavariable pattern, a motive not type correct or dependent, a rule left with new goals; Meta.check of a let or projection; heap refusals inside the new tactics (follow-up tests: plan S2 FE1g-8 classes 1-7)"
+   "never_run": 19,
+   "reason": "S2 (branch s2-tactics, branch s2-tactics' review fix round (2026-11-14)): never run are the failure branches of the walk's steps -- refusals of room past the first (mck-full), and inferType's, whnf's and getLevel's failures inside an application, a binder or a constant (mck-app, mck-fn-type, mck-fits?, mck-pi-domain, mck-pi-body, mck-const); tests/front/s2-units.fs runs every outcome once"
   },
   "src/front/meta-config.fs": {
    "blocks": 27,
    "never_run": 0
   },
   "src/front/meta-env.fs": {
-   "blocks": 439,
-   "never_run": 28,
-   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are an input declaration the named stage does not hold (unreachable: the feed makes the input from the stage's declarations, and only that stage is accepted) and the name tests of a numeric part and of a prefix that is not top-level, which no declaration of the slice named succ or ndrec has"
+   "blocks": 440,
+   "never_run": 31,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are an input declaration the named stage does not hold (unreachable: the feed makes the input from the stage's declarations, and only that stage is accepted) and the name tests of a numeric part and of a prefix that is not top-level, which no declaration of the slice named succ or ndrec has; S2 (branch s2-tactics and branch s2-tactics' review fix round (2026-11-14)): lf-menv-kinds-in's rows -- a text declaration's kinds, which are not recorded (me-text-kinds-in), and a binder k past the type (me-tier-kinds-in, me-lib-kinds-in's false branch); tests/front/meta-env.fs's kinds-in cases run the fed row"
   },
   "src/front/meta-spine.fs": {
    "blocks": 79,
    "never_run": 2,
-   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-13): never run is the branch where a slab refuses a cell (full) while a universe-argument list is filled; the spine refusal is tested through whnf.fs; and (plan S2 merge A) mkApp's refusal when the term store has no room for the node (the tests' stores are sized ahead)"
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-13): never run is the branch where a slab refuses a cell (full) while a universe-argument list is filled; the spine refusal is tested through whnf.fs; and (plan S2 merge A) mkApp's refusal when the term store has no room for the node (the tests' stores are sized ahead); S2 (branch s2-tactics): lf-meta-has-fvar?'s leaf branch for a free variable alone (its callers pass applications)"
   },
   "src/front/mvars.fs": {
    "blocks": 905,
@@ -459,24 +459,24 @@
    "reason": "new file (plan FE1e5, branch s1-synth-b, 2026-11-13; measured over make test-instances and test-front after review s1-synth-b H1 and M3 and its re-check's M-a and L-a: heap-refusal sweeps over four goals, budget sweeps over three, term-store room sweeps over two): never run are (a) what plan S2 merge A reaches: preprocessOutParam's and the cache key's paths for a class with an out-parameter (on main its searches stop at unification's lazy delta; make reference-synth gives them with S2), cacheResult's answer for one (sy-cache-value), assignOutParams answering false, and error 111 (a class type with fewer binders than arguments); (b) failure branches no sweep reaches: a level store, metavariable, snapshot, switch, instantiation, inferType or whnf refused midway (the heap sweeps refuse blocks while the stores have room; the room sweeps limit only the term store, whose refusals they reach), a dead metavariable's type, a table entry missing or its test failing (sy-hit), an instance type that only whnf makes a pi, and canonInstances popping a generator inside a search"
   },
   "src/front/tactic-basic.fs": {
-   "blocks": 286,
+   "blocks": 281,
    "never_run": 16,
-   "reason": "new file (plan FE1g-4, branch fe1g3, 2026-11-13), not yet reviewed: refusals of the heap or stores inside a step (lfb-made, a walk refused, a local or view not made), the detail a refused heap cuts, and Meta steps that answer unsupported only where FE1c leaves gaps; scripts/coverage.py --uncovered lists them; 10 after s1-elab's re-check B2 (2026-11-14: lf-tac-defeq on lf-meta-with)"
+   "reason": "new file (plan FE1g-4, branch fe1g3, 2026-11-13), not yet reviewed: refusals of the heap or stores inside a step (lfb-made, a walk refused, a local or view not made), the detail a refused heap cuts, and Meta steps that answer unsupported only where FE1c leaves gaps; scripts/coverage.py --uncovered lists them; 10 after s1-elab's re-check B2 (2026-11-14: lf-tac-defeq on lf-meta-with); S2 (branch s2-tactics): lf-tac-failed's and lf-tac-inline's refusals of the message's room, lf-tac-binder's anonymous-name branch (a binder with neither a presentation nor an input name) and lfb-own's (an inaccessible binder named a)"
   },
   "src/front/tactic-induction.fs": {
-   "blocks": 402,
-   "never_run": 95,
-   "reason": "S2 (branch s2-tactics): the paths the proof set does not reach -- induction on a type that is not inductive, mutual or nested, an eliminator with index targets or instance binders, a motive whose type does not fit; rewriting with an Iff, a definition, an instance binder, a metavariable pattern, a motive not type correct or dependent, a rule left with new goals; Meta.check of a let or projection; heap refusals inside the new tactics (follow-up tests: plan S2 FE1g-8 classes 1-7)"
+   "blocks": 399,
+   "never_run": 83,
+   "reason": "S2 (branch s2-tactics, branch s2-tactics' review fix round (2026-11-14)): never run are the paths no LeanForth text reaches yet -- a major premise whose type is no inductive type (205: Prop and forall in natural form are plan FE2), a mutual or nested type (209: none in the S2 slice), a motive whose type does not fit (212: not met with Nat's or List's eliminators), index targets and generalizeVars (99: a hypothesis used as a term is error 73), a custom eliminator's instance binders, and refusals of room or decode inside the step past those tests/front/s2-sweeps.fs reaches"
   },
   "src/front/tactic-rewrite.fs": {
-   "blocks": 179,
-   "never_run": 29,
-   "reason": "S2 (branch s2-tactics): the paths the proof set does not reach -- induction on a type that is not inductive, mutual or nested, an eliminator with index targets or instance binders, a motive whose type does not fit; rewriting with an Iff, a definition, an instance binder, a metavariable pattern, a motive not type correct or dependent, a rule left with new goals; Meta.check of a let or projection; heap refusals inside the new tactics (follow-up tests: plan S2 FE1g-8 classes 1-7)"
+   "blocks": 180,
+   "never_run": 27,
+   "reason": "S2 (branch s2-tactics, branch s2-tactics' review fix round (2026-11-14)): never run are the paths no LeanForth text reaches yet -- an Iff rule, a metavariable pattern (219), a motive not type correct (216) or dependent (217; unreachable while only the target is rewritten), the rule holding the goal itself (220: no text names the goal's metavariable), new goals, and the failure branches of inferType, whnf and isDefEq inside the step (lfw-eq, lfw-pi, lfw-matched, lfw-closed)"
   },
   "src/front/tactic-run.fs": {
-   "blocks": 388,
-   "never_run": 22,
-   "reason": "new file (plan FE1g-3, branch fe1g3, 2026-11-13), not yet reviewed: refusals of the heap in the runner's slabs (frames, saves, open parts, binders), the outcomes of the goal list a well-formed run never meets (lfr-own-code 92, lf-tac-main full), the closing's failures (lfr-close-code), and lf-tac-later for rows no kind reaches yet; scripts/coverage.py --uncovered lists them"
+   "blocks": 392,
+   "never_run": 23,
+   "reason": "new file (plan FE1g-3, branch fe1g3, 2026-11-13), not yet reviewed: refusals of the heap in the runner's slabs (frames, saves, open parts, binders), the outcomes of the goal list a well-formed run never meets (lfr-own-code 92, lf-tac-main full), the closing's failures (lfr-close-code), and lf-tac-later for rows no kind reaches yet; scripts/coverage.py --uncovered lists them; S2 (branch s2-tactics and branch s2-tactics' review fix round (2026-11-14)): lf-tac-fail-at's and lfr-pair-at!'s refusals, and lfr-recent's guard when no step record exists (defensive: every caller runs inside a step)"
   },
   "src/front/tactic-syntax.fs": {
    "blocks": 194,
@@ -494,9 +494,9 @@
    "reason": "new file (plan S2 merge A, branch s2-unfold, 2026-11-13; after review s2-unfold-a, measured over make test-front): never run are the refusals of the facts unfoldDefinition? asks (a declaration's lookup, a class projection, a matcher, a smart-unfolding body: unsupported without data or a refused decode) and of room (a level list, a spine, mkAppN), a definition without its value, and two decision branches no slice case reaches: a value that is no lambda applied to arguments, and a reducible class projection function at reducible transparency (Init's class projections are semireducible)"
   },
   "src/front/whnf.fs": {
-   "blocks": 762,
-   "never_run": 37,
-   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) inside a rebuild, a level list, a spine, a rule's application or a frame, defensive defaults no well-formed input reaches (a recursor whose block names no declaration), and the recursive-type test of a structure-like type, which no inductive type of Init has; and (plan S2 merge A, branch s2-unfold, 2026-11-13) the frame machine's refusals (a frame or a spine refused room while a recursor's major premise, a projection's structure or a class field's structure is reduced), a recursor whose inductive type no declaration has, the class field's failures (a literal structure, a refused rebuild, a kept unfolding whose structure is no constructor), and the whnf loop's fault check, which the part's delta always reaches first (its fault fe-whnf-fault-dropped is a known equivalent)"
+   "blocks": 818,
+   "never_run": 36,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) inside a rebuild, a level list, a spine, a rule's application or a frame, defensive defaults no well-formed input reaches (a recursor whose block names no declaration), and the recursive-type test of a structure-like type, which no inductive type of Init has; and (plan S2 merge A, branch s2-unfold, 2026-11-13) the frame machine's refusals (a frame or a spine refused room while a recursor's major premise, a projection's structure or a class field's structure is reduced), a recursor whose inductive type no declaration has, the class field's failures (a literal structure, a refused rebuild, a kept unfolding whose structure is no constructor), and the whnf loop's fault check, which the part's delta always reaches first (its fault fe-whnf-fault-dropped is a known equivalent); S2 (branch s2-tactics and branch s2-tactics' review fix round (2026-11-14)): getStuckMVar?'s projection branches no test meets -- a projection record that is missing (ws-params), an instance argument past the arguments, a projection's or a constant's decode refused inside ws-inner-decl?, and wm-args-none?'s refusal"
   },
   "src/import/checker-input.fs": {
    "blocks": 292,

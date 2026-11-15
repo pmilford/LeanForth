@@ -157,6 +157,16 @@ T{ lf-input-intact? lf-menv-reset lf-input-intact? -> true true }T
 \ HAdd.hAdd {α β γ} [self] (a b), none without a stage.
 menv-lib lf-menv-stage!
 T{ s" HAdd.hAdd" menv-decl lf-menv-kinds nip -> 6 }T
+\ The kinds of the leading binders of binder k's domain (S2 4, an
+\ eliminator's fields): Nat.rec's succ case (binder 2) has two explicit
+\ ones, its motive one, its major premise and a binder past the type
+\ none; with no stage, none.
+T{ s" Nat.rec" menv-decl 2 lf-menv-kinds-in nip -> 2 }T
+T{ s" Nat.rec" menv-decl 2 lf-menv-kinds-in drop @ -> lf-binder-default }T
+T{ s" Nat.rec" menv-decl 0 lf-menv-kinds-in nip s" Nat.rec" menv-decl 3 lf-menv-kinds-in nip
+   -> 1 0 }T
+T{ s" Nat.rec" menv-decl 9 lf-menv-kinds-in nip -> 0 }T
 T{ 0 lf-menv-stage! s" HAdd.hAdd" menv-decl lf-menv-kinds nip -> 0 }T
+T{ s" Nat.rec" menv-decl 2 lf-menv-kinds-in nip -> 0 }T
 
 bye
