@@ -793,7 +793,7 @@ New since the last snapshot: [reading a Lean proof](../user/READING_A_LEAN_PROOF
 step by step), [LeanForth syntax](../user/LEANFORTH_SYNTAX.md) with checked
 examples and its [word reference](../programming/LEANFORTH_WORDS.md), the
 [checked environment](../programming/CHECKED_ENVIRONMENT.md) with its threat
-model, [readable proofs sketch](../user/READABLE_PROOFS_SKETCH.md), the
+model, [readable proofs sketch](../obsolete/user/READABLE_PROOFS_SKETCH.md), the
 measurements of the [compact store](../development/measurements/compact-store-2026-11-02/README.md)
 and [Lean's kernel profile](../development/measurements/lean-kernel-profile-2026-11-02/README.md),
 and ADRs 0010, 0013, 0016, 0017 and 0018. `make test` now runs the Forth

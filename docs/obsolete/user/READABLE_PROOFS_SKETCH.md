@@ -1,9 +1,9 @@
 # Readable proofs: what a checked proof will look like
 
 > **Superseded: the printer is implemented.** See
-> [the proof outline](PROOF_OUTLINE.md) for what it prints today, checked
+> [the proof outline](../../user/PROOF_OUTLINE.md) for what it prints today, checked
 > by `make test`. This page is the design sketch it was built from (plan
-> task 2.4.4, [ADR 0013](../adr/0013-derivation-log.md)); its mock-ups
+> task 2.4.4, [ADR 0013](../../adr/0013-derivation-log.md)); its mock-ups
 > differ from the output in details. The Lean examples were checked
 > by hand with the pinned Lean 4.35.0; the Forth on this page is
 > illustrative.
@@ -19,8 +19,8 @@ line names the checker steps behind it.
 Words used here: a *proposition* is a statement that can be true or false;
 a *proof* of `A → B` is a function that turns any proof of `A` into a proof
 of `B`; the *kernel* is the part of LeanForth that checks proofs (see
-[terms for new readers](TERMS_FOR_NEW_READERS.md) and
-[concepts](CONCEPTS.md)).
+[terms for new readers](../../user/TERMS_FOR_NEW_READERS.md) and
+[concepts](../../user/CONCEPTS.md)).
 
 ## The example: `composition`
 
@@ -58,7 +58,7 @@ templates (structured-template), not checked reasoning.
 `← 2, 4` means the line uses lines 2 and 4; `s50` names a line of the
 checker's log. With `--detail` the printer would list all 65 checker steps
 instead (they are listed in
-[ADR 0013](../adr/0013-derivation-log.md#the-log-level-terms-65-steps)).
+[ADR 0013](../../adr/0013-derivation-log.md#the-log-level-terms-65-steps)).
 A JSON form for programs and AI tools carries the same lines with the
 checker's step numbers and the input's line numbers.
 
@@ -180,8 +180,8 @@ Both Lean blocks were checked with the pinned Lean 4.35.0 and
 
 ## Where this comes from
 
-The plan's mock-ups ([§7 of the plan](../project/PLAN_DRAFT.md#7-readable-proofs-what-the-output-could-look-like)),
-the proof-step format of [the interface contracts](../programming/INTERFACE_CONTRACTS.md),
-the [term printer](TERM_PRINTER.md) that prints each formula, and
-[ADR 0013](../adr/0013-derivation-log.md), the proposed design with its
+The plan's mock-ups ([§7 of the plan](../../project/PLAN_DRAFT.md#7-readable-proofs-what-the-output-could-look-like)),
+the proof-step format of [the interface contracts](../../programming/INTERFACE_CONTRACTS.md),
+the [term printer](../../user/TERM_PRINTER.md) that prints each formula, and
+[ADR 0013](../../adr/0013-derivation-log.md), the proposed design with its
 open questions for the owner.
