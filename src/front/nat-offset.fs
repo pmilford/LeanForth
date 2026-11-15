@@ -15,6 +15,14 @@
 \   Nat Nat Nat (instHAdd.{0} Nat instAddNat) e k); a literal k is
 \   OfNat.ofNat.{0} Nat k (instOfNatNat k) (lf-meta-nat-lit, mkNatLit).
 \ - lf-meta-nat ( -- term outcome ): the constant Nat.
+\ - lf-meta-ctor-if-lit ( e -- e' outcome ): toCtorIfLit (WHNF.lean:23)
+\   for a natural literal: 0 is Nat.zero, v > 0 Nat.succ of the raw
+\   literal v - 1 (unsupported beyond a cell); any other term is itself
+\   (a string literal is front/whnf.fs's).
+\ - lf-meta-cleanup-offset ( e -- e' outcome ): cleanupNatOffsetMajor
+\   (WHNF.lean:216): for isOffset? e = (s, k), s when k = 0, Nat.succ s
+\   when k = 1, else Nat.succ (s + (k - 1)) (mkNatAdd, mkNatLit); e when
+\   it is no offset. Both are reduceRec's clean-up of a major premise.
 \ The shapes it matches use term-eqv.fs's lf-meta-app-of? and
 \ lf-meta-nth-arg.
 \ Values are unsigned cells (below 2^64 on a 64-bit host), added and
@@ -238,5 +246,24 @@ end-structure
   over lf-meta-eval-nat ok-then2? 0= if nip nip no-result exit then
   swap 0= and if nip lf-meta-nat-lit exit then
   lf-meta-nat-lit ok-then? if no-add else nip no-result then ;
+
+\ ---- reduceRec's clean-up of a major premise (WHNF.lean:247-248, plan S2
+\ merge B): toCtorIfLit (23) and cleanupNatOffsetMajor (216).
+\ mkNatSucc: Nat.succ e.
+: no-succ ( e -- t outcome )
+  s" Nat.succ" 0 no-const ok-then? if swap outcome-ok no-app else nip no-result then ;
+: no-lit-ctor ( lit -- e outcome )
+  dup lf-lit-small? 0= if drop outcome-unsupported no-result exit then
+  lf-lit-cell ?dup 0= if s" Nat.zero" 0 no-const exit then
+  1- no-lit ok-then? if no-succ else no-result then ;
+: lf-meta-ctor-if-lit ( e -- e' outcome )
+  dup lf-lit-leaf? if no-lit-ctor else outcome-ok then ;
+: no-plus ( s k -- t outcome ) lf-meta-nat-lit ok-then? if no-add else nip no-result then ;
+: no-cleanup ( s k -- e' outcome )
+  ?dup 0= if outcome-ok exit then
+  1- ?dup if no-plus ok-then? 0= if no-result exit then then no-succ ;
+: lf-meta-cleanup-offset ( e -- e' outcome )
+  dup lf-meta-offset ok-then3? 0= if nip no-result exit then
+  if rot drop no-cleanup else 2drop outcome-ok then ;
 
 base !   \ the BASE this file was loaded with

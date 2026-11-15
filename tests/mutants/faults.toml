@@ -19678,9 +19678,7 @@ old = '''  dup outcome-invalid = if drop ['] lfw-motive. lfa-e-tac-motive lfw-fa
 new = '''  drop ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
 reason = "S2 5 (MVarId.rewrite): the motive used without Meta.check, so a motive that is not type correct reaches the kernel"
-# Caught since the heap sweep runs every refusal (tests/front/s2-sweeps.fs): without Meta.check its
-# allocations go, so the pinned count of absorbed refusals changes; a direct test of 216 still needs a text that
-# reaches a motive that is not type correct (a hypothesis as a term, error 73; forall, plan FE2).
+gap = "review s2-tactics H1 (m2, error 216): no LeanForth text reaches a motive that is not type correct yet: Lean's case (h : n + 0 = n) : h = h by rw [Nat.add_zero] needs a hypothesis used as a term, which natural LeanForth refuses (error 73), and forall in natural form (plan FE2); meta-check.fs's own refusal is caught in tests/front/s2-units.fs"
 
 [[fault]]
 id = "s2-rw-dependence-unchecked"

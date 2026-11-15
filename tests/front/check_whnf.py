@@ -77,7 +77,13 @@ CASES = [
     ("whnf", rec(SUCC), None),
     ("whnf", rec("?n"), None),
     ("whnf", rec(apps(SUCC, "?n")), None),
-    ("whnf", rec(apps(SUCC, apps(SUCC, "k"))), "FE1c Nat offsets (cleanupNatOffsetMajor)"),
+    # reduceRec's clean-up (S2 merge B): cleanupNatOffsetMajor and
+    # toCtorIfLit.
+    ("whnf", rec(apps(SUCC, apps(SUCC, "k"))), None),
+    ("whnf", rec(apps(SUCC, apps(SUCC, apps(SUCC, "k")))), None),
+    ("whnf", rec(("lit", 0)), None),
+    ("whnf", rec(("lit", 3)), None),
+    ("whnf", rec(apps(SUCC, ("lit", 3))), "S3 reduceNat? folding literals (Nat.succ 3)"),
     ("whnf", apps(PROD_REC, NAT, NAT, "m", "s", apps(PROD_MK, NAT, NAT, "a", "b")), None),
     ("whnf", apps(PROD_REC, NAT, NAT, "m", "s", "p"), "FE1c inferType (toCtorWhenStructure)"),
     ("whnf", apps((LAM, NAT, "#0"), "k"), None),
@@ -189,6 +195,8 @@ def lean(t):
         return f"(mkProj `Prod {t[1]} {lean(t[2])})"
     if isinstance(t, tuple) and t[0] == SORT:
         return "(mkSort Level.zero)" if t[1] == 0 else "(mkSort (mkLevelSucc .zero))"
+    if isinstance(t, tuple) and t[0] == "lit":
+        return f"(mkRawNatLit {t[1]})"
     if isinstance(t, tuple) and t[0] == PI:
         return f"(mkForall `y .default {lean(t[1])} {lean(t[2])})"
     if isinstance(t, tuple):
@@ -210,6 +218,8 @@ def forth(t):
         return f"{forth(t[2])} {t[1]} proj"
     if isinstance(t, tuple) and t[0] == SORT:
         return "l0 sort" if t[1] == 0 else "lv1 sort"
+    if isinstance(t, tuple) and t[0] == "lit":
+        return f"{t[1]} nat-lit"
     if isinstance(t, tuple) and t[0] == PI:
         return f"{forth(t[1])} {forth(t[2])} tpi"
     if isinstance(t, tuple):

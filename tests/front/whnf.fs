@@ -14,6 +14,7 @@ require ./whnf-cases.fs
 
 \ Terms equal node for node (test only: recursion on the host stack).
 : leaf= ( t1 t2 -- flag )
+  over lf-lit-leaf? if lf-lit-same? exit then
   over lf-term-first@ over lf-term-first@ = >r lf-term-second@ swap lf-term-second@ = r> and ;
 : same? ( t1 t2 -- flag )
   2dup = if 2drop true exit then
@@ -86,7 +87,10 @@ T{ lv1 lv1 2 s" Eq.rec" cn nat app fa app fm app fx app fa app fk app lf-whnf-co
    -> -1 outcome-unsupported }T
 : prod-rec ( -- t ) lv1 l0 l0 3 s" Prod.rec" cn nat app nat app fm app fs app ;
 T{ prod-rec fp app lf-whnf-core -> -1 outcome-unsupported }T
-T{ fk succ swap app succ swap app recm lf-whnf-core -> -1 outcome-unsupported }T
+\ cleanupNatOffsetMajor (S2 merge B): Nat.succ (Nat.succ k) is the offset
+\ (k, 2), the major premise Nat.succ (k + 1).
+: k+1 ( -- t ) fk 1 lf-meta-mk-offset drop ;
+T{ fk succ swap app succ swap app recm fs k+1 app k+1 recm app whnf= -> true outcome-ok }T
 
 \ ---- Invalid: no term, a loose bound variable, a malformed let.
 T{ -1 lf-whnf-core 0 bv lf-whnf-core -> -1 outcome-invalid -1 outcome-invalid }T
@@ -235,7 +239,9 @@ T{ inst-hadd dup lf-meta-whnf-r drop same? lf-defeq-mode -> true lf-tr-default }
 T{ hadd-kx lf-meta-whnf hadd-kx dup lf-meta-whnf-r drop same?
    -> -1 outcome-unsupported true }T
 T{ 0 s" Nat.add.match_1" cn fk app lf-meta-whnf -> -1 outcome-unsupported }T
-T{ lv1 1 s" Nat.casesOn" cn fk app lf-meta-whnf -> -1 outcome-unsupported }T
+\ An auxiliary recursor unfolds (deltaBetaDefinition, S2 merge B): Nat.casesOn
+\ with its motive alone is a lambda.
+T{ lv1 1 s" Nat.casesOn" cn fk app lf-meta-whnf tag-out -> lf-tag-lam outcome-ok }T
 \ (Nat.add k x: reduceNat? gets no value for an operand that holds a free
 \ variable, Lean's withNatValue, and reducible leaves Nat.add; s2-tactics.)
 T{ 0 s" Nat.add" cn fk app fx app dup lf-meta-whnf-r drop same? -> true }T
@@ -369,8 +375,9 @@ T{ id-ab dup lf-tr-implicit ' lf-whnf-core-at-defeq at-mode same-out -> true out
 \ gives the caller its transparency back.
 T{ 0 s" Nat.add" cn fk app fx app 0 proj lf-whnf-core-at-defeq nip lf-defeq-mode
    -> outcome-unsupported lf-tr-default }T
-T{ lv1 1 s" id" cn nat app zero app recm fz whnf= 5 nlit recm lf-whnf-core
-   -> true outcome-ok -1 outcome-unsupported }T
+\ toCtorIfLit (S2 merge B): the literal 5 is Nat.succ 4, 0 is Nat.zero.
+T{ lv1 1 s" id" cn nat app zero app recm fz whnf= 5 nlit recm fs 4 nlit app 4 nlit recm app
+   whnf= 0 nlit recm fz whnf= -> true outcome-ok true outcome-ok true outcome-ok }T
 \ whnf goes on after an unfolding: outParam Nat is Nat; instHAdd's
 \ projection applied reaches Add.add's field, Nat.add k x, where
 \ reduceNat?'s guard answers unsupported (merge B).

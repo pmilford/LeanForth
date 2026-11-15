@@ -86,7 +86,7 @@
 \ addr; invalid when one is still no pi (Lean: too many parameters) or
 \ n is negative.
 \ Untrusted: only the kernel's check of a finished term decides anything.
-\ State: the record wc (fuel, whether facts are asked, the activation,
+\ State: the record wc (fuel, the activation,
 \ the projection mode, lf-meta-unfold's answer, the transparency on
 \ entry, the recursor step's term, head, data and declaration) and the
 \ slabs wc-args, wc-margs, wc-levels and wc-frames, in the checker
@@ -100,6 +100,7 @@ require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/let-terms.fs
 require ../core/literals.fs
+require ../core/string-literals.fs
 require ../core/projections.fs
 require ../core/mvar-leaves.fs
 require ../core/input.fs
@@ -110,13 +111,13 @@ require ./meta-config.fs
 require ./meta-env.fs
 require ./meta-spine.fs
 require ./term-eqv.fs
+require ./nat-offset.fs
 require ./unfold.fs
 
 100000 constant lf-whnf-default-fuel
 begin-structure /wc
   field: wc-limit    \ steps a call may take; 0: the default
   field: wc-fuel     \ steps left in this call
-  field: wc-facts    \ true: a definition head asks meta-env.fs's facts
   field: wc-act      \ the running activation: wc-core-act, -full- or -unfold-
   field: wc-proj-i   \ true: projections' structures by whnfAtMostI
   field: wc-unfolded \ lf-meta-unfold's answer: whether its term unfolded
@@ -287,7 +288,6 @@ end-structure
   wc-prefixed ok-then? 0= if nip no-result exit then
   swap wc-fields ok-then? if wc-rest else no-result then ;
 : wc-ctor-major ( mhead -- e' flag outcome )
-  dup wc-foldable? if drop outcome-unsupported wc-fail exit then
   lf-const-name wc-rule 0= if wc-stay exit then
   wc-levels-ok? 0= if drop wc-stay exit then wc-fire wc-go ;
 
@@ -323,13 +323,12 @@ end-structure
   wc-kind dup lf-kind-inductive = over lf-kind-axiom = or swap lf-kind-theorem = or ;
 : wc-inert-major? ( mhead -- flag )
   dup wc-head-inert? over wc-leaf-inert? or swap wc-const-inert? or ;
-\ The major premise's whnf: a constructor fires its rule, a literal
-\ (toCtorIfLit) answers unsupported, any other head leaves the recursor.
+\ The major premise's whnf, cleaned up: a constructor fires its rule,
+\ any other head leaves the recursor.
 : wc-major-head ( mhead -- e' flag outcome )
   wc-induct-data ok-then? 0= if nip wc-fail exit then
   over swap wc-eta? if drop outcome-unsupported wc-fail exit then
-  dup wc-ctor? if wc-ctor-major exit then
-  lf-lit-leaf? if outcome-unsupported wc-fail else wc-stay then ;
+  dup wc-ctor? if wc-ctor-major else drop wc-stay then ;
 \ isWFRec: Acc.rec and WellFounded.rec reduce their major premise at
 \ transparency all when it is default.
 : wc-wf-bump ( -- )
@@ -348,8 +347,15 @@ end-structure
 : wc-rec-frame ( -- outcome )
   wc wc-aux @ lf-menv-data wc wc-data !
   wc-term wc-args lf-meta-spine ok-then? if wc wc-head ! outcome-ok then ;
+\ reduceRec's clean-up (WHNF.lean:247-248): toCtorIfLit, then
+\ cleanupNatOffsetMajor (front/nat-offset.fs); a string literal, which
+\ toCtorIfLit reduces through String.ofList, answers unsupported (S5).
+: wc-clean ( r -- r' outcome )
+  dup lf-str-leaf? if drop outcome-unsupported no-result exit then
+  lf-meta-ctor-if-lit ok-then? if lf-meta-cleanup-offset else no-result then ;
 : wc-rec-resume ( r -- e' flag outcome )
   wc-rec-frame dup ok? 0= if wc-drop-fail exit then drop
+  wc-clean ok-then? 0= if wc-fail exit then
   wc-margs lf-meta-spine ok-then? if wc-major-head else wc-fail then ;
 
 \ ---- Projections (projectCore?): the structure's whnf r, a constructor
@@ -381,19 +387,24 @@ end-structure
   lf-proj-struct swap 0 wc-proj-kind wc-frame ok-then? 0= if wc-fail exit then
   wc-lower true outcome-ok ;
 
-: wc-blocked? ( d -- flag )
-  lf-menv-kind dup lf-kind-definition = swap lf-kind-quotient = or ;
 : wc-recursor? ( d -- flag ) lf-menv-kind lf-kind-recursor = ;
-\ With facts asked, a definition that is certainly no matcher and no
-\ auxiliary recursor stays (Lean's whnfCore returns e).
-: wc-fact-no? ( d xt -- flag ) execute ok? swap 0= and ;
-: wc-inert-defn? ( d -- flag )
-  wc wc-facts @ 0= if drop false exit then dup lf-menv-kind lf-kind-definition <>
-  if drop false exit then
-  dup ['] lf-menv-matcher? wc-fact-no? swap ['] lf-menv-aux-recursor? wc-fact-no? and ;
+\ A definition at the head (whnfCore, WHNF.lean:659-675): a matcher
+\ reduces (reduceMatcher?: not ported yet, unsupported); an auxiliary
+\ definition (isAuxDef: an auxiliary recursor or a noConfusion) unfolds
+\ by deltaBetaDefinition (front/unfold.fs), and stays when its universe
+\ arguments are not as many as its parameters; any other stays.
+: wc-defn-fail ( e head d outcome -- -1 false outcome ) nip nip nip wc-fail ;
+: wc-aux-def ( e head d -- e' flag outcome )
+  swap lf-unfold-delta-beta ok-then2? 0= if wc-fail exit then
+  if true outcome-ok else wc-done then ;
+: wc-matcher ( e head d -- e' flag outcome ) drop wc-unsupported ;
+: wc-defn-head ( e head d -- e' flag outcome )
+  dup lf-menv-matcher? ok-then? 0= if wc-defn-fail exit then if wc-matcher exit then
+  dup lf-menv-aux-def? ok-then? 0= if wc-defn-fail exit then
+  if wc-aux-def else 2drop wc-done then ;
 : wc-decl-head ( e head d -- e' flag outcome )
-  dup wc-inert-defn? if 2drop wc-done exit then
-  dup wc-blocked? if drop wc-unsupported exit then
+  dup lf-menv-kind dup lf-kind-definition = if drop wc-defn-head exit then
+  lf-kind-quotient = if drop wc-unsupported exit then
   dup wc-recursor? if wc-iota else 2drop wc-done then ;
 \ A constant no declaration has stays; one that could not be decoded fails.
 : wc-unknown-head ( e head outcome -- e' flag outcome )
@@ -437,7 +448,9 @@ end-structure
 : wm-args-none? ( e -- flag )
   dup lf-term-first@ lf-term-second@ dup wm-no-value? if 2drop true exit then
   lf-lit-leaf? if lf-term-second@ wm-no-value? else drop false then ;
-: wm-none? ( e -- flag ) dup lf-meta-args# 2 = if wm-args-none? else drop false then ;
+: wm-none? ( e -- flag )
+  dup lf-meta-args# dup 2 = if drop wm-args-none? exit then
+  1 = if lf-term-second@ wm-no-value? else drop false then ;
 : wm-nat? ( e -- flag )
   dup lf-meta-args# 1 3 within over ['] lf-menv-nat-name? wm-head-named? and
   if dup wm-none? if drop false else wm-succ-inert? 0= then else drop false then ;
@@ -509,20 +522,18 @@ end-structure
 : wc-leave ( -- ) wc wc-mode0 @ lf-defeq-mode! ;
 : wc-run ( e act proj-i -- e' outcome )
   wc-enter dup lf-term-root? if wc-loop else drop -1 outcome-invalid then wc-leave ;
-: wc-core ( term facts -- term' outcome ) wc wc-facts ! wc-core-act false wc-run ;
-: lf-whnf-core ( term -- term' outcome ) true wc-core ;
-: lf-whnf-core-at-defeq ( term -- term' outcome )
-  true wc wc-facts ! wc-core-act true wc-run ;
+: lf-whnf-core ( term -- term' outcome ) wc-core-act false wc-run ;
+: lf-whnf-core-at-defeq ( term -- term' outcome ) wc-core-act true wc-run ;
 
 \ ---- whnf (lf-meta-whnf) and unfoldDefinition? (lf-meta-unfold).
-: lf-meta-whnf ( e -- e' outcome ) true wc wc-facts ! wc-full-act false wc-run ;
+: lf-meta-whnf ( e -- e' outcome ) wc-full-act false wc-run ;
 : wc-unfold-run ( e -- e' outcome )
   wc-delta ok-then2? 0= if no-result exit then if wc-loop else outcome-ok then ;
 : wc-answer ( e' outcome -- e' flag outcome )
   dup ok? if wc wc-unfolded @ else false then swap ;
 : lf-meta-unfold ( e -- e' flag outcome )
   dup lf-term-root? 0= if drop -1 false outcome-invalid exit then
-  true wc wc-facts ! wc-unfold-act false wc-enter wc-unfold-run wc-leave wc-answer ;
+  wc-unfold-act false wc-enter wc-unfold-run wc-leave wc-answer ;
 \ whnfR and whnfD: whnf at reducible or default transparency, the
 \ configured one restored.
 : wm-at ( e mode -- e' outcome ) ['] lf-meta-whnf swap lf-meta-at ;

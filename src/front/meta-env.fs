@@ -356,6 +356,12 @@ end-structure
 : lf-menv-aux-recursor? ( d -- flag outcome )
   dup me-decl? if dup me-ndrec? if drop true outcome-ok exit then then
   ['] me-aux-tag me-defn-fact ;
+\ isAuxDef (WHNF.lean:79): an auxiliary recursor or a noConfusion.
+: me-no-confusion ( d -- 0 true | false )
+  elab-tag-no-confusion elab-tagged? dup if 0 swap then ;
+: lf-menv-aux-def? ( d -- flag outcome )
+  dup lf-menv-aux-recursor? ok-then? 0= if nip false swap exit then
+  if drop true outcome-ok else ['] me-no-confusion me-defn-fact then ;
 \ ---- Binder kinds (S1 §4), into me-kinds.
 : me-kinds-out ( -- addr n ) 0 me-kinds slab-at me-kinds slab-count ;
 : me-fed-kinds ( d -- )

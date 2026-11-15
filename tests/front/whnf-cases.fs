@@ -67,7 +67,11 @@ nat mv-natural lf-mvar-new made constant ?q  ?q char q named
 : .levels ( slot -- )
   lf-cref-pairs 0 ?do i if ." ," then dup i lf-cref-pair@ drop .lv loop drop ;
 : .const ( t -- ) lf-term-first@ lf-cref-slot dup lf-cref-name@ drop .nm ." .{" .levels ." }" ;
+: nat-lit ( u -- t ) lf-hterm-cell 0= abort" whnf-cases: not made" drop ;
+\ A natural literal as Lean's sx prints it (its fallback, ?? and the value).
+: .lit ( t -- ) ." ?? " lf-lit-cell 0 .r ;
 : .leaf ( t -- )
+  dup lf-lit-leaf? over lf-lit-small? and if .lit exit then
   dup case-name 0= if drop ." ??" exit then
   over lf-term-tag@ lf-tag-mvar = if ." ?" then emit drop ;
 defer .t
