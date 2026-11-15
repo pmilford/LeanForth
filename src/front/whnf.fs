@@ -427,9 +427,20 @@ end-structure
 : wm-succ-inert? ( e -- flag )
   dup ['] lf-menv-nat-succ? wm-head-named?
   if lf-term-second@ wc-inert? else drop false then ;
+\ Lean's withNatValue (WHNF.lean:976) gives no value for an argument that
+\ holds a free variable and no metavariable, so reduceNat? folds nothing
+\ when its first argument does, or its second after a literal first
+\ (branch s2-tactics: rewriting's kabstract compares k + 1 with
+\ 0 + Nat.succ k).
+: wm-no-value? ( a -- flag ) dup lf-meta-mvar-free? if lf-meta-has-fvar? else drop false
+  then ;
+: wm-args-none? ( e -- flag )
+  dup lf-term-first@ lf-term-second@ dup wm-no-value? if 2drop true exit then
+  lf-lit-leaf? if lf-term-second@ wm-no-value? else drop false then ;
+: wm-none? ( e -- flag ) dup lf-meta-args# 2 = if wm-args-none? else drop false then ;
 : wm-nat? ( e -- flag )
   dup lf-meta-args# 1 3 within over ['] lf-menv-nat-name? wm-head-named? and
-  if wm-succ-inert? 0= else drop false then ;
+  if dup wm-none? if drop false else wm-succ-inert? 0= then else drop false then ;
 
 \ ---- Delta: whnf's step once whnfCore ends (reduceNat?, then
 \ unfoldDefinition?), and lf-meta-unfold's one step. An unfolding goes on
@@ -555,9 +566,31 @@ end-structure
   lf-menv-data wc wc-data ! drop ws-major ;
 \ A binary node's data word is known only when no metavariable is in it
 \ (core/terms.fs): Lean's hasExprMVar is false.
-: ws-kind ( e d -- false outcome )
-  lf-menv-kind dup lf-kind-quotient = if 2drop false outcome-unsupported exit then
-  lf-kind-definition = if lf-meta-mvar-free? ws-none? else drop false outcome-ok then ;
+\ With metavariables, Lean looks for a projection function's facts
+\ (getProjectionFnInfo?; branch s2-tactics, from the data's projection
+\ records): a definition that is none has no stuck one; a projection
+\ function's is its structure argument's (the one after its parameters)
+\ after whnf: none when that argument holds no metavariable (whnf makes
+\ none), its own when it is a plain one, else not supported yet.
+: ws-params ( d -- n true | false )
+  lf-menv-name lf-menv-data-decl 0= if false exit then elab-projection-of 0= if false exit
+    then
+  elab-projection@ drop nip true ;
+: ws-struct ( e -- mvar true outcome | false outcome )
+  dup lf-meta-mvar-free? if drop false outcome-ok exit then
+  dup wc-plain-mvar? if true outcome-ok else drop false outcome-unsupported then ;
+: ws-proj-fn ( d -- mvar true outcome | false outcome )
+  ws-params 0= if false outcome-unsupported exit then
+  dup wc-args slab-count < 0= if drop false outcome-unsupported exit then
+  wc-args lf-meta-arg ws-struct ;
+: ws-defn ( e d -- mvar true outcome | false outcome )
+  swap lf-meta-mvar-free? if drop false outcome-ok exit then
+  dup lf-menv-proj-fn? ok-then? 0= if nip false swap exit then
+  if ws-proj-fn else drop false outcome-ok then ;
+: ws-kind ( e d -- mvar true outcome | false outcome )
+  dup lf-menv-kind dup lf-kind-quotient = if drop 2drop false outcome-unsupported exit
+    then
+  lf-kind-definition = if ws-defn else 2drop false outcome-ok then ;
 : ws-unknown ( e head outcome -- false outcome )
   nip nip dup outcome-invalid = if drop outcome-ok then false swap ;
 : ws-const ( e head -- mvar true outcome | false outcome )

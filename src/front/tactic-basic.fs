@@ -63,10 +63,22 @@
 \ and indented on its own line (Lean's indentExpr), to the message's sink;
 \ lf-tac-holds? ( term xt -- flag outcome ), whether a term holds a leaf
 \ xt ( leaf -- flag ) accepts (heap stacks of dag-walk.fs).
+\ For S2's tactics (tactic-rewrite.fs, tactic-induction.fs):
+\ lf-tac-step-run ( i*x i xt -- j*x ) xt in a new step record, the main
+\ goal's fields in tb and its context current; lf-tac-rfl-reducible
+\ ( i -- ) rfl at reducible transparency (by-rfl decides at the
+\ transparency it runs at); lf-tac-intro-as ( given kind i -- ) the main
+\ goal's first binder introduced as given (0: its own name, inaccessible)
+\ with the kind given (introN for an alternative's fields); and the
+\ message and term helpers lf-tac-line., lf-tac-goal., lf-tac-failed,
+\ lf-tac-inline, lf-tac-inline., lf-tac-named?, lf-tac-eq?, lf-tac-hole?,
+\ lf-tac-made, lf-tac-binder ( pi -- name kind ).
 \ Untrusted: only the kernel's check of the finished term decides.
-\ State: the record tb (the step's goal, terms and context, the leaf test
-\ and walk, the metavariable count when the step began) in the checker
-\ context (ADR 0009). Loads in decimal whatever BASE is, then restores it.
+\ State: tb, the running step record's fields (tactic-run.fs's
+\ lf-tac-record, review fe1g3 M2: the step's goal, terms and context, the
+\ metavariable count when the step began), and the record tbw (the leaf
+\ test and walk) in the checker context (ADR 0009). Loads in decimal
+\ whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -89,6 +101,7 @@ require ./goals.fs
 require ./goal-print.fs
 require ./instantiate.fs
 require ./meta-env.fs
+require ./meta-spine.fs
 require ./whnf.fs
 require ./infer.fs
 require ./defeq.fs
@@ -111,10 +124,17 @@ begin-structure /tb
   field: tb-name        \ the hypothesis's name
   field: tb-flags       \ and its local's flags
   field: tb-new         \ the goal in its place
-  field: tb-test        \ the leaf test of lf-tac-holds? ( leaf -- flag )
-  /dw +field tb-walk    \ and its walk
 end-structure
-/tb context-record: tb
+/tb lf-tac-work-cells cells >
+[if] .( tactic-basic.fs: tb is wider than a step record) cr abort [then]
+\ The step's fields: in the running step record (tactic-run.fs's
+\ lf-tac-record, review fe1g3 M2), else the last one's.
+: tb ( -- addr ) lf-tac-record ;
+begin-structure /tbw      \ lf-tac-holds?'s walk, apart: it holds heap blocks
+  field: tbw-test         \ the leaf test ( leaf -- flag )
+  /dw +field tbw-walk     \ and its walk
+end-structure
+/tbw context-record: tbw
 
 \ ---- Hooks.
 defer lf-tac-elab ( node expected postpone? -- term outcome )
@@ -138,13 +158,13 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
   swap lf-term-second@ swap lfb-undone ;
 : lfb-images ( node walk -- i1 i2 )
   over lf-term-first@ over dw-image >r swap lf-term-second@ swap dw-image r> swap ;
-: lfb-leaf ( leaf -- 0|1 ) tb tb-test @ execute 1 and ;
+: lfb-leaf ( leaf -- 0|1 ) tbw tbw-test @ execute 1 and ;
 : lfb-build ( node walk -- 0|1 )
   over lf-term-binary? if lfb-images or else drop lfb-leaf then ;
 : lfb-walk ( -- walk )
-  tb tb-walk ['] lfb-build over dw-build ! ['] lfb-pending over dw-pending !
+  tbw tbw-walk ['] lfb-build over dw-build ! ['] lfb-pending over dw-pending !
   lf-term-base lf-term-count @ + over dw-size ! ;
-: lf-tac-holds? ( term xt -- flag outcome ) tb tb-test ! lfb-walk dw-run swap 0<> swap ;
+: lf-tac-holds? ( term xt -- flag outcome ) tbw tbw-test ! lfb-walk dw-run swap 0<> swap ;
 \ The tests: a metavariable not assigned (a delayed one counts as
 \ assigned, as Lean's isAssigned and isDelayedAssigned together), one
 \ also synthetic opaque, one also new; a free variable outside the
@@ -160,16 +180,27 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 : lfb-outside? ( leaf -- flag )
   dup lf-term-tag@ lf-tag-fvar = if lfb-seen? 0= else drop false then ;
 : lfb-holds? ( term xt -- flag ) lf-tac-holds? lf-tac-must ;
+: lf-tac-hole? ( leaf -- flag ) lfb-hole? ;
 
 \ ---- The step's goal and context (Lean's withMainContext); the row's
 \ action leaves the current context as it found it, also when it fails.
 : lfb-start ( goal -- )
   dup tb tb-goal ! dup lf-mvar-type drop tb tb-want ! lf-mvar-view drop
   dup tb tb-view ! lf-mctx-view! lf-mvar-count tb tb-from ! ;
-: lfb-step ( i xt -- )
-  lf-mctx-view >r lf-tac-main lfb-start catch r> lf-mctx-view! throw ;
+\ A step's action xt ( i*x i -- j*x ) runs in a new step record.
+: lfb-run ( i*x xt i -- j*x )
+  lf-mctx-view >r swap lf-tac-main lfb-start catch r> lf-mctx-view! throw ;
+: lfb-step ( i*x i xt -- j*x ) swap ['] lfb-run lf-tac-in-record ;
+\ For the other tactics: the same, the step's goal and context in tb.
+: lf-tac-step-run ( i*x i xt -- j*x ) lfb-step ;
 : lfb-popped ( -- ) 0 lf-replace-main lf-tac-must ;
 : lfb-made ( flag -- ) 0= if outcome-full lf-tac-must then ;
+: lf-tac-made ( flag -- ) lfb-made ;   \ a term store's false: no room (60)
+\ A pi's binder name and kind: the presentation table's, else its input
+\ record's, else the anonymous name, explicit.
+: lf-tac-binder ( pi -- name kind )
+  dup lf-pres-binder@ if 2>r drop 2r> exit then
+  lf-term-input-binder@ 0= if 0 lf-binder-default then ;
 : lfb-arg ( i -- x ) lf-tactic-step tac-first @ lf-tactic-arg drop ;
 
 \ ---- Messages: terms printed as goals print them (notation on, the
@@ -183,6 +214,14 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 : lfb-the-goal. ( -- outcome ) s\" \n\n" lf-pp-emit tb tb-goal @ lf-goal-print ;
 : lfb-blank-goal. ( x -- outcome ) drop s\" \n" lf-pp-emit tb tb-goal @ lf-goal-print ;
 : lfb-failed ( xt code -- ) >r 0 swap lf-tac-detail r> lf-tac-stop ;
+\ For the other tactics' messages (tactic-rewrite.fs, tactic-induction.fs):
+\ a label and a term on the next line, the goal after a blank line, an
+\ error whose detail xt ( x -- outcome ) prints, at the step running.
+: lf-tac-line. ( c-addr u term -- outcome ) lfb-line. ;
+: lf-tac-goal. ( -- outcome ) lfb-the-goal. ;
+: lf-tac-failed ( xt code -- ) lfb-failed ;
+\ A detail xt ( x -- outcome ) prints that ends the message's own line.
+: lf-tac-inline ( x xt -- ) lf-author-code if 2drop exit then lf-tac-detail lfa-inline ;
 
 \ ---- by-intro: NAME.
 : lfb-binding? ( t -- flag ) dup lf-term-pi? swap lf-let? or ;
@@ -240,6 +279,15 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 : lfb-intro ( i -- )
   lfb-arg tb tb-want @ lfb-binder tb tb-pi ! lfb-plain lfb-dom lfb-name! lfb-introduced ;
 : lfb-w-intro ( i -- ) ['] lfb-intro lfb-step ;
+\ For an alternative's fields (tactic-induction.fs, Lean's introN): the
+\ main goal's first binder introduced as given (0: its own name,
+\ inaccessible), of the kind the eliminator's declared type gives, never
+\ read from the goal's node (S2_INTERFACE 4).
+: lfb-kind! ( kind -- ) tb tb-flags @ or tb tb-flags ! ;
+: lfb-intro-as ( given kind i -- )
+  drop tb tb-want @ lfb-binder tb tb-pi ! swap lfb-name! lfb-kind! lfb-dom
+    lfb-introduced ;
+: lf-tac-intro-as ( given kind i -- ) ['] lfb-intro-as lfb-step ;
 
 \ ---- t by-exact.
 : lfb-opaque-free ( t -- ) ['] lfb-opaque? lfb-holds? if lfa-e-tac-meta lf-tac-fail then ;
@@ -258,6 +306,7 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
   lfb-sorts 0= if false exit then
   tb tb-sort @ tb tb-want-sort @ lf-tac-defeq ok? if 0= else drop false then ;
 : lfb-inline. ( term -- outcome ) s" `" lf-pp-emit lfb-term. s" `" lf-pp-emit ;
+: lf-tac-inline. ( term -- outcome ) lfb-inline. ;   \ `term`, as Lean's inlineExpr
 : lfb-has. ( -- outcome ) s\" \nhas type\n" tb tb-type @ lfb-line. ;
 : lfb-but. ( -- outcome ) s\" \nbut is expected to have type\n" tb tb-want @ lfb-line. ;
 : lfb-of. ( -- outcome ) s\" \nof sort " lf-pp-emit tb tb-sort @ lfb-inline. ;
@@ -294,12 +343,11 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 : lfb-w-exact ( i -- ) ['] lfb-exact lfb-step ;
 
 \ ---- by-rfl.
-: lfb-spine ( t -- head n )
-  0 swap begin dup lf-term-app? while lf-term-first@ swap 1+ swap repeat swap ;
-: lfb-eq-head? ( head -- flag )
-  dup lf-term-const? 0= if drop false exit then
-  lf-const-name s" Eq" lfa-intern = ;
-: lfb-eq? ( t -- flag ) lfb-spine 3 = swap lfb-eq-head? and ;
+\ A head that is the constant of a name; Eq applied to three arguments.
+: lf-tac-named? ( head c-addr u -- flag )
+  lfa-intern swap dup lf-term-const? if lf-const-name = else 2drop false then ;
+: lfb-eq? ( t -- flag ) lf-meta-head-args 3 = swap s" Eq" lf-tac-named? and ;
+: lf-tac-eq? ( t -- flag ) lfb-eq? ;
 : lfb-target ( -- t )
   tb tb-want @ lf-instantiate-mvars lf-tac-must lf-whnf-core lf-tac-must ;
 : lfb-side ( t -- t' ) lf-term-second@ lf-instantiate-mvars lf-tac-must ;
@@ -315,19 +363,25 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
   lfb-sides-hold? if lfa-e-tac-meta lf-tac-fail then
   ['] lfb-rfl. lfa-e-tac-rfl lfb-failed ;
 \ @Eq.refl.{u} α lhs, u and α those of the goal's Eq.
-: lfb-level ( t -- level ) lfb-spine drop lf-const-slot lf-cref-pairs drop
+: lfb-level ( t -- level ) lf-meta-head-args drop lf-const-slot lf-cref-pairs drop
   0 lf-cref-pair@ drop ;
 : lfb-alpha ( t -- α ) lf-term-first@ lf-term-first@ lf-term-second@ ;
 : lfb-refl ( t -- term )
   dup lfb-level s" Eq.refl" lf-tac-const1 swap lfb-alpha lf-tac-app
   tb tb-term @ lf-tac-app ;
+\ isDefEq at the transparency the step runs at (default; reducible under
+\ by-rw[ 's with_reducible).
+: lfb-defeq ( t s -- flag outcome )
+  ['] lf-meta-defeq lf-defeq-elab lf-defeq-mode lf-meta-with outcome-sane ;
 : lfb-decided ( t -- )
-  tb tb-term @ tb tb-type @ lf-tac-defeq lf-tac-must
+  tb tb-term @ tb tb-type @ lfb-defeq lf-tac-must
   if lfb-refl tb tb-goal @ swap lf-mvar-assign lf-tac-must else drop lfb-unequal then ;
 : lfb-rfl ( i -- )
   drop lfb-target dup lfb-eq? 0= if drop lfa-e-tac-meta lf-tac-fail then
   dup lfb-sides lfb-decided lfb-popped ;
 : lfb-w-rfl ( i -- ) ['] lfb-rfl lfb-step ;
+\ with_reducible rfl (by-rw[ 's closing step, Init/Tactics.lean's rw).
+: lf-tac-rfl-reducible ( i -- ) ['] lfb-w-rfl lf-tr-reducible lf-meta-at ;
 
 ' lfb-w-intro tac-k-intro lf-tactic-action!
 ' lfb-w-exact tac-k-exact lf-tactic-action!

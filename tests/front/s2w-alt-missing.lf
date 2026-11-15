@@ -1,0 +1,10 @@
+\ A wrong proof for S2's tactics (tests/front/check_s2.py; its Lean twin is
+\ tests/front/s2-wrong.lean's w_alt_missing): refused with Lean's first message.
+theorem w_alt_missing
+  Nat explicit: n
+  0 n + n =
+:= by
+  n by-induction-with
+  | zero =>       by-rfl
+  by-end
+end w_alt_missing

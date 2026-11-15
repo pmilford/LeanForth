@@ -12486,10 +12486,10 @@ id = "fe-inst-delayed-unreduced"
 file = "src/front/mvars.fs"
 old = '''  if drop mv-unported exit then
   0 mv-apply mv-headed ;
-: mv-delay-step ( node rec -- image )'''
+\ ?d applied to #(k-1)'''
 new = '''  if drop mv-unported exit then
   0 mv-apply ;
-: mv-delay-step ( node rec -- image )'''
+\ ?d applied to #(k-1)'''
 test = "$GFORTH tests/front/front.fs"
 reason = "review of fe1c-lnorm M1: the delayed step applies fun xs => value to the arguments without reducing it, where Lean beta-reduces (?d x is Prop)"
 
@@ -14911,7 +14911,7 @@ reason = "FE1c review M3: isDefEqMVarSelf tries constApprox on a read-only metav
 [[fault]]
 id = "fe-defeq-hints-off"
 file = "src/front/defeq.fs"
-old = '''  dup lf-mvar? if drop exit then de-head-defn? if outcome-unsupported de-abort then ;'''
+old = '''  de-hint-free? 0= if outcome-unsupported de-abort then ;'''
 new = '''  drop ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M3/L4: a failure under a definition head ignores unification hints"
@@ -15427,8 +15427,8 @@ reason = "FE1g-3: error 80 no longer says which plan step ports the tactic"
 [[fault]]
 id = "fe-run-detail-unprinted"
 file = "src/author/errors.fs"
-old = '''  ." : " lf-author-code lf-author-message type lfa-.number lfa-.see lfa-.detail ;'''
-new = '''  ." : " lf-author-code lf-author-message type lfa-.number lfa-.see ;'''
+old = '''  ." : " lfa-.message lfa-.number lfa-.see lfa-.detail ;'''
+new = '''  ." : " lfa-.message lfa-.number lfa-.see ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "FE1g-3: a tactic error is printed without the goals Lean prints under it"
 
@@ -15572,7 +15572,7 @@ reason = "FE1g-4: intro _ makes an accessible hypothesis where Lean's is hygieni
 [[fault]]
 id = "fe-rfl-no-defeq"
 file = "src/front/tactic-basic.fs"
-old = '''  tb tb-term @ tb tb-type @ lf-tac-defeq lf-tac-must'''
+old = '''  tb tb-term @ tb tb-type @ lfb-defeq lf-tac-must'''
 new = '''  true'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 (design 8.3): rfl closes p = q with Eq.refl without isDefEq"
@@ -15580,8 +15580,8 @@ reason = "FE1g-4 (design 8.3): rfl closes p = q with Eq.refl without isDefEq"
 [[fault]]
 id = "fe-rfl-non-eq"
 file = "src/front/tactic-basic.fs"
-old = ''': lfb-eq? ( t -- flag ) lfb-spine 3 = swap lfb-eq-head? and ;'''
-new = ''': lfb-eq? ( t -- flag ) lfb-spine 3 = nip ;'''
+old = ''': lfb-eq? ( t -- flag ) lf-meta-head-args 3 = swap s" Eq" lf-tac-named? and ;'''
+new = ''': lfb-eq? ( t -- flag ) lf-meta-head-args 3 = nip ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 (design 8.3): the Eq head check dropped, so Ne p q reaches eq_refl and fails as invalid where Lean's apply_rfl would look for @[refl] lemmas"
 
@@ -15645,8 +15645,8 @@ reason = "FE1g-4 review fe1g3 L4 (F14): intro's new goal keeps the body's beta r
 [[fault]]
 id = "fe-step-view-kept"
 file = "src/front/tactic-basic.fs"
-old = '''  lf-mctx-view >r lf-tac-main lfb-start catch r> lf-mctx-view! throw ;'''
-new = '''  lf-mctx-view >r lf-tac-main lfb-start execute r> lf-mctx-view! ;'''
+old = '''  lf-mctx-view >r swap lf-tac-main lfb-start catch r> lf-mctx-view! throw ;'''
+new = '''  lf-mctx-view >r swap lf-tac-main lfb-start execute r> lf-mctx-view! ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L10: a step that fails leaves its goal's context current"
 
@@ -17241,8 +17241,8 @@ reason = "s1-synth re-check M3' (reviewer's fault): a strict-implicit literal or
 [[fault]]
 id = "fe-elab-generation-fixed"
 file = "src/front/elab-data.fs"
-old = '''  elab elab-counts elab-kinds cells erase 1 elab elab-gen +! ;'''
-new = '''  elab elab-counts elab-kinds cells erase ;'''
+old = '''  elab elab-counts elab-kinds cells erase 1 elab elab-gen +!'''
+new = '''  elab elab-counts elab-kinds cells erase'''
 test = "$GFORTH tests/front/elab-data.fs && $GFORTH tests/front/instances-odd.fs"
 reason = "s1-synth re-check L3': a reset or a new read leaves elab-generation as it was, so the instance table keeps another read's checks"
 
@@ -19536,3 +19536,77 @@ old = ''': text-scan ( c-addr u xt -- n ) over >r text-from nip r> swap - ;'''
 new = ''': text-scan ( c-addr u xt -- n ) over >r text-from nip r> swap - 1 max ;'''
 test = "$GFORTH tests/lib/text-run.fs"
 reason = "review reuse-out-2 rc3 B2 (text-scan on the private text-from): a match in the first character is reported one character on"
+
+[[fault]]
+id = "s2-kab-no-defeq"
+file = "src/front/kabstract.fs"
+old = ''': kab-defeq ( e -- flag outcome ) kab kab-pattern @ lf-meta-defeq outcome-sane ;'''
+new = ''': kab-defeq ( e -- flag outcome ) drop true outcome-ok ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+reason = "S2 5 (kabstract): every subterm of the pattern's head and arity counts as an occurrence, unchecked by isDefEq"
+
+[[fault]]
+id = "s2-kab-parts-unvisited"
+file = "src/front/kabstract.fs"
+old = '''  over lf-term-binary? if kab-open else drop kab-image then ;'''
+new = '''  drop kab-image ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+reason = "S2 5 (kabstract): a node that is no occurrence is kept whole, its parts never looked at"
+
+[[fault]]
+id = "s2-rw-sides-swapped"
+file = "src/front/tactic-rewrite.fs"
+old = '''  trw trw-alpha @ lf-tac-app trw trw-etype @ lf-tac-app trw trw-lhs @ lf-tac-app
+  trw trw-rhs @ lf-tac-app trw trw-motive @ lf-tac-app trw trw-heq @ lf-tac-app ;'''
+new = '''  trw trw-alpha @ lf-tac-app trw trw-etype @ lf-tac-app trw trw-rhs @ lf-tac-app
+  trw trw-lhs @ lf-tac-app trw trw-motive @ lf-tac-app trw trw-heq @ lf-tac-app ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+reason = "S2 5 (MVarId.rewrite): congrArg's sides swapped, a proof the kernel refuses"
+
+[[fault]]
+id = "s2-rw-mpr-new-twice"
+file = "src/front/tactic-rewrite.fs"
+old = '''  >r lfw-want lfw-level s" Eq.mpr" lf-tac-const1 lfw-want lf-tac-app trw trw-new @'''
+new = '''  >r lfw-want lfw-level s" Eq.mpr" lf-tac-const1 trw trw-new @ lf-tac-app trw trw-new @'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+reason = "S2 5 (replaceTargetEq): Eq.mpr's first argument the new target where Lean's is the goal's type as stored"
+
+[[fault]]
+id = "s2-rw-rfl-skipped"
+file = "src/front/tactic-rewrite.fs"
+old = ''': lfw-w-rw ( i -- ) lfw-rules lfw-try-rfl ;'''
+new = ''': lfw-w-rw ( i -- ) lfw-rules ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+reason = "S2 5 (the rw macro): by-rw[ without try (with_reducible rfl), so FE1's succ case is left open"
+
+[[fault]]
+id = "s2-alt-names-unchecked"
+file = "src/front/tactic-induction.fs"
+old = ''': lfi-names-checked ( i -- ) lfi-alts-of lfi-twice lfi-unknown ;'''
+new = ''': lfi-names-checked ( i -- ) lfi-alts-of lfi-twice ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+reason = "S2 4 (checkAltNames): an alternative that names no case is not refused with Lean's text"
+
+[[fault]]
+id = "s2-alt-missing-unchecked"
+file = "src/front/tactic-induction.fs"
+old = '''  over swap lfi-case dup tia-used @ if drop else rot swap lfi-missing then ;'''
+new = '''  over swap lfi-case drop ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+reason = "S2 4 (evalAlts): a case no alternative took is not Lean's 'has not been provided'"
+
+[[fault]]
+id = "s2-induction-target-kept"
+file = "src/front/tactic-induction.fs"
+old = '''  >r dup tia-goal @ lfi-only lfi-intros r> lfi-cleared ;'''
+new = '''  >r dup tia-goal @ lfi-only lfi-intros r> drop ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+reason = "S2 4 (evalAlts' tryClear): the target stays in each case's context, which Lean's goals do not show"
+
+[[fault]]
+id = "s2-motive-unabstracted"
+file = "src/front/tactic-induction.fs"
+old = '''  tb tb-want @ lf-instantiate-mvars lf-tac-must lfi-over-target'''
+new = '''  tb tb-want @ lf-instantiate-mvars lf-tac-must'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+reason = "S2 4 (setMotiveArg): the motive does not abstract the target, so every case states the goal itself"

@@ -285,6 +285,8 @@ begin-structure /elab
   sha-digest-bytes 2* chars +field elab-records   \ the header's records_sha256
   sha-digest-bytes 2* chars +field elab-bound     \ the records_sha256 elab-bind! named
   field: elab-bound-length           \ its length: 0 when none is named
+  field: elab-modules#               \ the header's modules: how many
+  field: elab-inits#                 \ and how many are Init
 end-structure
 /elab context-record: elab
 /ed-fact context-slab: elab-facts
@@ -532,7 +534,8 @@ create ed-rank-hooks /htab-hooks allot
   ed-ranks dup htab-live? if htab-clear else drop then ;
 : elab-reset ( -- )
   ed-slabs-clear elab-keys-clear ed-tables-clear false elab elab-loaded !
-  elab elab-counts elab-kinds cells erase 1 elab elab-gen +! ;
+  elab elab-counts elab-kinds cells erase 1 elab elab-gen +!
+  0 elab elab-modules# ! 0 elab elab-inits# ! ;
 : elab-generation ( -- n ) elab elab-gen @ ;
 \ A caller that could not compute the export's SHA-256 refuses the data
 \ with error 26 at line 0, its outcome kept; nothing is loaded.
@@ -1365,10 +1368,20 @@ create ed-head-keys
 : ed-head-hash ( value i -- outcome )
   drop c" records_sha256" ed-member ed-text 0= if ed-malformed exit then
   2dup sha-digest-bytes 2* hex-text? 0= if 2drop ed-malformed exit then ed-records-keep ;
+\ (Counted for elab-init-only?: S2's unification hints.)
+: ed-module-count ( item -- )
+  1 elab elab-modules# +! s" Init" ed-text= if 1 elab elab-inits# +! then ;
 : ed-module-item ( item -- outcome )
-  ed-view json-kind@ json-string = if outcome-ok else ed-malformed then ;
+  dup ed-view json-kind@ json-string = if ed-module-count outcome-ok else drop
+    ed-malformed
+  then ;
 : ed-head-modules ( value i -- outcome )
-  drop c" modules" ed-member ['] ed-module-item ed-array-items ;
+  drop 0 elab elab-modules# ! 0 elab elab-inits# !
+  c" modules" ed-member ['] ed-module-item ed-array-items ;
+\ The data is of Lean's Init alone (its header's modules: Init), whose
+\ unification hints are known (front/defeq.fs's isDefEqOnFailure).
+: elab-init-only? ( -- flag )
+  elab-loaded? elab dup elab-modules# @ 1 = swap elab-inits# @ 1 = and and ;
 create ed-head-steps
   ' ed-head-format , ' ed-head-version , ' ed-head-shape , ' ed-head-lean ,
   ' ed-head-export , ' ed-head-records , ' ed-head-hash , ' ed-head-modules , 0 ,

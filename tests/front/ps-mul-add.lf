@@ -1,0 +1,23 @@
+\ The owner's proof set (docs/design/S2_INTERFACE.md appendix G):
+\ n + (m + k) = (n + m) + k and n * (m + k) = n * m + n * k.
+\ Lean: tests/front/s2-proofs.lean's ps_add_assoc and ps_mul_add (the
+\ zero cases rewrite by Nat.add_zero and Nat.mul_zero where appendix G has
+\ rfl, which needs Nat.add's smart unfolding, S2 merge B).
+theorem ps_add_assoc
+  Nat explicit: n  Nat explicit: m  Nat explicit: k
+  n m k + + n m + k + =
+:= by
+  k by-induction-with
+  | zero =>       by-rw[ ' Nat.add_zero ' Nat.add_zero ]
+  | succ j ih =>  by-rw[ ' Nat.add_succ ' Nat.add_succ ih ' Nat.add_succ ]
+  by-end
+end ps_add_assoc
+theorem ps_mul_add
+  Nat explicit: n  Nat explicit: m  Nat explicit: k
+  n m k + * n m * n k * + =
+:= by
+  k by-induction-with
+  | zero =>       by-rw[ ' Nat.add_zero ' Nat.mul_zero ' Nat.add_zero ]
+  | succ j ih =>  by-rw[ ' Nat.add_succ ' Nat.mul_succ ih ' Nat.mul_succ ' ps_add_assoc ]
+  by-end
+end ps_mul_add

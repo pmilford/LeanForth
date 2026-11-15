@@ -375,8 +375,10 @@ T{ ghost ?n app sub-key -> outcome-invalid }T
 T{ id3 add0 keys-of nip -> 6 }T
 : eq3 ( a b c -- t ) >r >r >r lv1 1 s" Eq" cn r> app r> app r> app ;
 : ge-eq ( -- t ) ge-local dup dup eq3 ;
-T{ fp 0 proj fx fx eq3 lf-dt-path nip nip ge-eq lf-dt-path nip nip
-   -> outcome-unsupported outcome-unsupported }T
+\ (A type that is a reducible definition: inferType's whnfD now unfolds
+\ GE.ge, so ge-eq's arguments are proofs, ignored; branch s2-tactics.)
+T{ fp 0 proj fx fx eq3 lf-dt-path nip nip ge-eq lf-dt-path rot drop
+   -> outcome-unsupported 4 outcome-ok }T
 : id-twice ( a -- t ) lv1 1 s" id" cn over app swap app ;
 T{ lv1 1 s" id" cn fp 0 proj app fx app add0 lf-dt-path nip nip
    ge-local id-twice add0 lf-dt-path nip nip

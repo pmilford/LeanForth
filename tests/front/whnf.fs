@@ -105,7 +105,9 @@ T{ ?n recm lf-whnf-stuck ?h fk app lf-whnf-stuck -> ?n true outcome-ok ?h true o
 T{ fk recm lf-whnf-stuck fs fk app lf-whnf-stuck -> false outcome-ok false outcome-ok }T
 T{ ?n succ swap app recm lf-whnf-stuck -> false outcome-ok }T
 T{ 0 s" Nat.add" cn fk app fk app lf-whnf-stuck -> false outcome-ok }T
-T{ 0 s" Nat.add" cn ?n app fk app lf-whnf-stuck -> false outcome-unsupported }T
+\ With a metavariable, a definition that is no projection function has no
+\ stuck one (getProjectionFnInfo? none; branch s2-tactics).
+T{ 0 s" Nat.add" cn ?n app fk app lf-whnf-stuck -> false outcome-ok }T
 T{ ?f lf-whnf-stuck fp s" Prod" menv-name 0 lf-proj-of made lf-whnf-stuck
    -> false outcome-unsupported false outcome-unsupported }T
 T{ -1 lf-whnf-stuck fk lf-whnf-stuck -> false outcome-invalid false outcome-ok }T
@@ -199,8 +201,10 @@ T{ inst-hadd dup lf-meta-whnf-r drop same? lf-defeq-mode -> true lf-tr-default }
 T{ hadd-kx lf-meta-whnf hadd-kx dup lf-meta-whnf-r drop same?
    -> -1 outcome-unsupported true }T
 T{ 0 s" Nat.add.match_1" cn fk app lf-meta-whnf -> -1 outcome-unsupported }T
-T{ lv1 1 s" Nat.casesOn" cn fk app lf-meta-whnf 0 s" Nat.add" cn fk app fx app lf-meta-whnf-r
-   -> -1 outcome-unsupported -1 outcome-unsupported }T
+T{ lv1 1 s" Nat.casesOn" cn fk app lf-meta-whnf -> -1 outcome-unsupported }T
+\ (Nat.add k x: reduceNat? gets no value for an operand that holds a free
+\ variable, Lean's withNatValue, and reducible leaves Nat.add; s2-tactics.)
+T{ 0 s" Nat.add" cn fk app fx app dup lf-meta-whnf-r drop same? -> true }T
 T{ succ 2 nlit app lf-meta-whnf succ fk app dup meta-whnf=
    -> -1 outcome-unsupported true outcome-ok }T
 \ unfoldDefinition? by transparency: Nat.add alone stays (it has a

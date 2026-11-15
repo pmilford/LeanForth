@@ -778,7 +778,22 @@ end-structure
   swap mv-spine drop dup mv-args# mv-after-lams mv-zeta-met =
   if drop mv-unported exit then
   0 mv-apply mv-headed ;
+\ ?d applied to #(k-1) .. #0, the variables of the lambdas around it in
+\ order (an intro's or an alternative's fun x1 .. xk => ?d x1 .. xk): the
+\ value abstracted is the image, as Lean's instantiateRevRange gives it
+\ (each argument, lifted under the value's binders, is the variable
+\ abstracted there), with no beta step and so no lifting (branch
+\ s2-tactics: induction's cases hold binders around their hypotheses).
+: mv-arg-at? ( j -- flag ) dup mv-nth swap mv-args# swap - lf-term-bvar-is? ;
+: mv-own-bvars? ( k -- flag )
+  mv-args# <> if false exit then true mv-args# 1+ 1 ?do i mv-arg-at? and loop ;
+: mv-in-place? ( node rec -- node rec flag )
+  over mv-spine drop dup mv-rec-k mv-own-bvars? ;
+: mv-placed ( node rec -- image )
+  dup mv-rec-pending-value mv-image mv-solid
+  if swap mv-rec-abstract nip else 2drop mv-node-rebuild then ;
 : mv-delay-step ( node rec -- image )
+  mv-in-place? if mv-placed exit then
   dup mv-rec-pending-value mv-image mv-solid
   if swap mv-rec-fun mv-delay-beta else 2drop mv-node-rebuild then ;
 : mv-delay-ready ( n head -- rec true | false )

@@ -1029,7 +1029,9 @@ test-front:
 	  src/front/assign-check.fs src/front/nat-offset.fs src/front/fun-info.fs src/front/defeq.fs \
 	  src/front/defeq-delta.fs \
 	  src/front/tactic-run.fs src/front/tactic-basic.fs src/front/elab-pending.fs \
-	  src/front/elab-app.fs src/front/elab-term.fs src/front/elab-decl.fs; do \
+	  src/front/elab-app.fs src/front/elab-term.fs src/front/elab-decl.fs \
+	  src/front/kabstract.fs src/front/meta-check.fs src/front/tactic-rewrite.fs \
+	  src/front/tactic-induction.fs; do \
 	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	  if [ -n "$$out" ]; then printf '%s printed while loading:\n%s\n' "$$m" "$$out" >&2; exit 1; fi; \
 	done
@@ -1058,6 +1060,7 @@ test-front:
 	@out=$$($(RUN) $(GFORTH) tests/front/elab.fs 2>&1) || \
 	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "elab.fs: all tests passed"
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_elab.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_s2.py
 
 # The natural reader's trees against pinned Lean's macro expansion of the
 # same statements (tests/front/operators.lean); the Meta layer's answers
@@ -1076,6 +1079,7 @@ reference-front:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_tactics.py --lean
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_goals.py --lean
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_elab.py --lean
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_s2.py --lean
 
 # Lean's generated definitions (casesOn, recOn, ctorIdx; plan FE6) built by
 # src/front/constructions.fs and ctor-idx.fs for every inductive type of Init, against

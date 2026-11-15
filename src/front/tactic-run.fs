@@ -64,7 +64,15 @@
 \ ( outcome -- ) (a Meta step's failure stops the run), lf-tac-detail
 \ ( x xt -- ) (xt's printing as the error's detail), lf-tac-later ( i -- )
 \ (a step not ported yet), lf-tac-const0 ( c-addr u -- term ),
-\ lf-tac-const1 ( level c-addr u -- term ), lf-tac-app ( f a -- t ),
+\ lf-tac-const1 ( level c-addr u -- term ), lf-tac-const2 ( c-addr u l1 l2
+\ -- term ), lf-tac-app ( f a -- t ), lf-tactic-end! ( xt kind -- ) (what
+\ a block of the kind does at its end, before done: xt ( i -- )),
+\ lf-tac-stop-at and lf-tac-fail-at ( j code -- ) (an error at step j's
+\ word and place, without or with the goals), the step records (review
+\ fe1g3 M2: one per step a tactic runs, kept for the step log of
+\ s2-steps, dropped by a restore past them): lf-tac-in-record ( i*x i xt
+\ -- j*x ), lf-tac-record ( -- addr ) (the running record's own fields,
+\ else the last's), lf-tac-records ( -- n ), lf-tac-record-at ( k -- addr ),
 \ lf-tac-block ( i rest -- ), lf-tac-done ( i -- ), lf-tac-focus ( --
 \ rest ), lf-tac-unfocus ( rest -- ), lf-tac-save ( -- save outcome ),
 \ lf-tac-restore, lf-tac-commit ( save -- outcome ), lf-tac-try,
@@ -78,8 +86,9 @@
 \ reduction not ported yet (plan FE1c), 88 or 60 for no room, 71 and the
 \ hand-over's 74-77. Untrusted: only the kernel's check of the finished
 \ term decides anything.
-\ State: the record trun (fuel, the step running, the universe argument
-\ being built) and the slabs trun-frames, trun-saves, trun-xs and
+\ State: the record trun (fuel, the step running, the step record
+\ running, the universe arguments being built) and the slabs trun-frames,
+\ trun-saves, trun-steps, trun-xs and
 \ trun-locals (one declaration's run), trun-parts and trun-text (the
 \ open parts of the whole run, emptied by lfa-run-fresh), in the checker
 \ context (ADR 0009); the table of rows lfr-rows is shared, set while the
@@ -118,9 +127,17 @@ begin-structure /trun
   field: trun-given      \ true when lf-tactic-fuel! set them
   field: trun-step       \ the step running, for its errors
   field: trun-cut        \ true when an open part's text found no room
-  2 cells +field trun-pair  \ sorryAx's universe argument: level, identity
+  field: trun-record     \ the step record running (trun-steps), or -1
+  4 cells +field trun-pair  \ universe arguments (sorryAx, congrArg): level, identity
 end-structure
 /trun context-record: trun
+32 constant lf-tac-work-cells   \ the room of a tactic's own fields in a step record
+begin-structure /tst      \ a step record (fe1g3 review M2): one per step run
+  field: tst-step         \ its step in the record
+  field: tst-parent       \ the record of the step it runs inside, or -1
+  lf-tac-work-cells cells +field tst-work   \ the tactic's own fields
+end-structure
+/tst context-slab: trun-steps
 begin-structure /tfr      \ an open block
   field: tfr-step         \ its step in the record
   field: tfr-next         \ the first step not looked at yet
@@ -134,6 +151,7 @@ begin-structure /tsv      \ a saved state
   field: tsv-parts        \ how many open parts there were
   field: tsv-text         \ and their text's length
   field: tsv-view         \ the current local context (a tactic may set it)
+  field: tsv-steps        \ how many step records there were
 end-structure
 /tsv context-slab: trun-saves
 1 cells context-slab: trun-xs       \ the binders' free variables (Lean's xs)
@@ -176,6 +194,7 @@ end-structure
 24 constant lfr-room              \ characters of a spelling
 begin-structure /trow
   field: trow-run
+  field: trow-end                 \ ( i -- ) at its block's end, before done
   field: trow-plan
   field: trow-length
   lfr-room chars +field trow-chars
@@ -187,11 +206,13 @@ create lfr-rows lfr-kinds lfr-row-size * allot
 : lfr-kind? ( kind -- flag ) 1 lfr-kinds 1+ within ;
 : lfr-row ( kind -- addr )
   dup lfr-kind? 0= abort" tactic-run: no such tactic kind" 1- lfr-row-size * lfr-rows + ;
+\ (Spelling a kind also gives its block's end nothing to do.)
 : lfr-spell ( c-addr u kind -- )
   over lfr-room > abort" tactic-run: a spelling too long"
-  lfr-row 2dup trow-length ! trow-chars swap chars move ;
+  lfr-row ['] drop over trow-end ! 2dup trow-length ! trow-chars swap chars move ;
 : lfr-set ( xt plan kind -- ) lfr-row tuck trow-plan ! trow-run ! ;
 : lf-tactic-action! ( xt kind -- ) 0 swap lfr-set ;
+: lf-tactic-end! ( xt kind -- ) lfr-row trow-end ! ;
 : lfr-spelling ( i -- c-addr u ) lfr-kind lfr-row dup trow-chars swap trow-length @ ;
 s" by" tac-k-by lfr-spell              s" by-rfl" tac-k-rfl lfr-spell
 s" by-exact" tac-k-exact lfr-spell     s" by-intro:" tac-k-intro lfr-spell
@@ -213,11 +234,15 @@ s" by-sorry" tac-k-sorry lfr-spell
   ['] lfa-detail+ lf-print-with ok? 0= if lfa-detail-cut then ;
 : lfr-goals-of ( x -- outcome ) drop lf-goals-text ;
 : lfr-with-goals ( -- ) 0 ['] lfr-goals-of lf-tac-detail ;
-: lfr-at-step ( code -- ) >r lf-tac-step dup lfr-spelling rot lfr-at r> lfa-fail-at ;
+\ An error at step j's word and place (an alternative's |, an induction's
+\ word at its block's end), with the goals or without.
+: lf-tac-stop-at ( j code -- ) >r dup lfr-spelling rot lfr-at r> lfa-fail-at ;
+: lfr-at-step ( code -- ) lf-tac-step swap lf-tac-stop-at ;
 \ (With no step of the record running, a word called directly: at the
 \ current token.)
 : lfr-fail ( code -- ) lf-tac-step lf-tactic-count < if lfr-at-step else lfa-fail then ;
 : lf-tac-fail ( code -- ) lfr-with-goals lfr-fail ;
+: lf-tac-fail-at ( j code -- ) lfr-with-goals lf-tac-stop-at ;
 : lf-tac-stop ( code -- ) lfr-fail ;
 : lfr-block-fail ( i code -- ) >r dup lfr-block-word rot lfr-block-at r> lfa-fail-at ;
 \ An outcome other than ok stops the run: the run's own stores (no room
@@ -287,8 +312,9 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-go ( j -- ) dup 1+ lfr-top tfr-next ! lfr-step ;
 \ A block's end: done at its place, the goals outside it put back.
 : lfr-pop ( -- ) trun-frames slab-drop ;
+: lfr-ending ( i -- i ) dup dup lfr-kind lfr-row trow-end @ execute ;
 : lfr-end-block ( -- )
-  lfr-top dup tfr-step @ swap tfr-rest @ lfr-pop swap lf-tac-done lfr-goals! ;
+  lfr-top dup tfr-step @ swap tfr-rest @ lfr-pop swap lfr-ending lf-tac-done lfr-goals! ;
 : lfr-advance ( -- ) lfr-top lfr-next if lfr-go else lfr-end-block then ;
 : lfr-loop ( -- ) begin lfr-depth while lfr-advance repeat ;
 
@@ -339,7 +365,9 @@ s" by-sorry" tac-k-sorry lfr-spell
   false trun trun-cut ! lfr-name-kept lfr-goal-kept lfr-cut? lfr-must ;
 \ The term: sorryAx.{u} T Bool.false, its constants by name.
 : lfr-pair ( -- addr ) trun trun-pair ;
-: lfr-pair! ( level -- ) dup lf-level-identity 0= if 0 then swap lfr-pair 2! ;
+: lfr-pair-at! ( level addr -- )
+  2dup ! swap lf-level-identity 0= if 0 then swap cell+ ! ;
+: lfr-pair! ( level -- ) lfr-pair lfr-pair-at! ;
 : lfr-made ( flag -- ) 0= if outcome-full lfr-meta-must then ;
 : lfr-const ( c-addr u n -- term )
   >r lfa-intern lf-name-generation @ lfr-pair r> lf-cref-new lfr-made
@@ -349,6 +377,9 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ application.
 : lf-tac-const0 ( c-addr u -- term ) 0 lfr-const ;
 : lf-tac-const1 ( level c-addr u -- term ) 2>r lfr-pair! 2r> 1 lfr-const ;
+\ (The name first: c-addr u l1 l2, the levels in order.)
+: lf-tac-const2 ( c-addr u l1 l2 -- term )
+  lfr-pair 2 cells + lfr-pair-at! lfr-pair! 2 lfr-const ;
 : lf-tac-app ( f a -- t ) lfr-app ;
 : lfr-sorry-term ( type level -- term )
   lfr-pair! s" sorryAx" 1 lfr-const swap lfr-app s" Bool.false" 0 lfr-const lfr-app ;
@@ -362,6 +393,28 @@ s" by-sorry" tac-k-sorry lfr-spell
   lf-mvar-assign lfr-meta-must ;
 ' lfr-sorry tac-k-sorry lf-tactic-action!
 
+\ ---- Step records (fe1g3 review M2; S2_INTERFACE 5): each step a tactic
+\ runs gets a record on a heap stack, its step, the record of the step it
+\ runs inside (by-rw[ runs by-rfl) and the tactic's own fields, kept for
+\ the step log (s2-steps); a restore drops the ones made since its save.
+\ lf-tac-in-record ( i*x i xt -- j*x ) runs xt with a new record running;
+\ lf-tac-record ( -- addr ) the running record's fields, else the last's.
+: lfr-running ( -- addr ) trun trun-record ;
+:noname ( -- ) -1 lfr-running ! ; context-setup
+: lfr-record ( k -- addr ) trun-steps slab-at ;
+: lfr-record+ ( i -- k )
+  1 trun-steps slab-claim lfr-must tuck lfr-record dup /tst erase tuck tst-step !
+  lfr-running @ swap tst-parent ! ;
+\ (The record running before is the new one's parent: a restore cuts only
+\ records made after its save, so the parent is still there after a THROW.)
+: lfr-unrun ( -- ) lfr-running @ lfr-record tst-parent @ lfr-running ! ;
+: lf-tac-in-record ( i*x i xt -- j*x )
+  over lfr-record+ lfr-running ! catch lfr-unrun throw ;
+: lfr-recent ( -- k ) lfr-running @ dup 0< if drop trun-steps slab-count 1- then ;
+: lf-tac-record ( -- addr ) lfr-recent lfr-record tst-work ;
+: lf-tac-records ( -- n ) trun-steps slab-count ;
+: lf-tac-record-at ( k -- addr ) lfr-record tst-work ;   \ unchecked: k < lf-tac-records
+
 \ ---- Saved states (choice points). Only the latest may be restored or
 \ committed, as metavariable marks.
 : lfr-saves ( -- n ) trun-saves slab-count ;
@@ -370,7 +423,7 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-fill ( mark addr -- )
   tuck tsv-mark ! lf-goals over tsv-goals ! lfr-depth over tsv-frames !
   trun-parts slab-count over tsv-parts ! lfr-text# over tsv-text !
-  lf-mctx-view swap tsv-view ! ;
+  lf-tac-records over tsv-steps ! lf-mctx-view swap tsv-view ! ;
 \ The metavariable context's trail (front/mvars.fs's marks, last in,
 \ first out): the one place to change when the trail's interface does.
 : lfr-trail-mark ( -- mark outcome ) lf-mctx-mark ;
@@ -386,7 +439,8 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ in a try).
 : lfr-back ( addr -- )
   dup tsv-frames @ trun-frames slab-cut dup tsv-parts @ trun-parts slab-cut
-  dup tsv-text @ trun-text slab-cut tsv-goals @ lf-goals! drop ;
+  dup tsv-text @ trun-text slab-cut dup tsv-steps @ trun-steps slab-cut
+  tsv-goals @ lf-goals! drop ;
 : lfr-rolled ( addr -- outcome )
   dup lfr-back dup tsv-view @ lf-mctx-view! tsv-mark @ lfr-trail-undo ;
 : lf-tac-restore ( save -- outcome )
@@ -403,8 +457,8 @@ s" by-sorry" tac-k-sorry lfr-spell
 
 \ ---- The run: the root goal, the steps, the end.
 : lfr-fresh ( -- )
-  trun-frames slab-clear trun-saves slab-clear lfr-fuel-start lf-pst-reset
-  0 trun trun-step ! ;
+  trun-frames slab-clear trun-saves slab-clear trun-steps slab-clear lfr-fuel-start
+  lf-pst-reset 0 trun trun-step ! -1 lfr-running ! ;
 : lfr-root ( type -- )
   lf-instantiate-mvars lfr-close-must 0 lf-mctx-view lf-goal-new lfr-close-must
   lf-pst-open lfr-must ;

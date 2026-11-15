@@ -157,10 +157,19 @@ end-structure
   dup 1 4 lf-meta-nth-arg no-inst-addnat? if no-push-sides else drop 1 outcome-ok then ;
 : no-hadd-step ( t -- code outcome )
   dup 3 6 lf-meta-nth-arg no-inst-hadd? if no-push-sides else drop 1 outcome-ok then ;
+\ An operation not ported whose last argument or the one before certainly
+\ holds a free variable has no value either: Lean's evalNat fails at the
+\ variable, or at an instance it reaches (branch s2-tactics: n * 0).
+: no-fvar-operand? ( t -- flag )
+  dup lf-term-second@ lf-meta-has-fvar? swap lf-term-first@ lf-term-second@
+    lf-meta-has-fvar?
+  or ;
+: no-unported-step ( t -- code outcome )
+  no-fvar-operand? if 1 outcome-ok else 0 outcome-unsupported then ;
 : no-sum-step ( t -- code outcome )
   dup 4 s" Add.add" lf-meta-app-of? if no-addc-step exit then
   dup 6 s" HAdd.hAdd" lf-meta-app-of? if no-hadd-step exit then
-  no-unported? if 0 outcome-unsupported else 1 outcome-ok then ;
+  dup no-unported? if no-unported-step else drop 1 outcome-ok then ;
 : no-app-step ( t -- code outcome )
   dup lf-meta-succ? if no-succ-step exit then
   dup 2 s" Nat.add" lf-meta-app-of? if no-push-sides exit then

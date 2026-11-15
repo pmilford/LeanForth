@@ -294,14 +294,15 @@ T{ succ fk app -1 nlit nat-add lf-meta-offset nip nip nip -> outcome-unsupported
 : inst-x ( -- inst ) l0 1 s" instHAdd" cn nat app fx app ;
 T{ inst-x 2 nlit 3 nlit hadd-by lf-meta-eval-nat -> 0 false outcome-ok }T
 \ Universe lists: == compares every level; isDefEq pair by pair, false
-\ when one list ends first. HAdd.hAdd at two levels stops at proof
-\ irrelevance (isProp of its type: fun-info.fs, unsupported); a
+\ when one list ends first. HAdd.hAdd at two levels: proof irrelevance's
+\ isProp of its type now gets its binders' levels through whnfD
+\ (outParam, infer.fs, branch s2-tactics), then false, as Lean; a
 \ definition with one list too long is unfolded on one side only (lazy
 \ delta, S2 merge A: deltaDefinition's level count), then its levels
 \ differ: false, as Lean.
 : hadd-c ( l -- t ) >r l0 l0 r> 3 s" HAdd.hAdd" cn ;
 T{ l0 hadd-c lv1 hadd-c lf-meta-eqv l0 hadd-c lv1 hadd-c dq
-   -> false outcome-ok false outcome-unsupported }T
+   -> false outcome-ok false outcome-ok }T
 : prod-c ( l -- t ) >r l0 r> 2 s" Prod.mk" cn ;
 T{ l0 prod-c lv1 prod-c dq l0 prod-c l0 1 s" Prod.mk" cn dq -> false outcome-ok false outcome-ok }T
 T{ l0 1 s" OfNat.ofNat" cn l0 l0 2 s" OfNat.ofNat" cn dq -> false outcome-ok }T
@@ -361,19 +362,26 @@ T{ lf-tr-reducible lf-defeq-mode! inst-nat fk fx hadd-by hadd-mk fk fx hadd-by d
 T{ deeper ?t fk app ?t fx app lf-defeq-elab lf-defeq-const or with-flags
    shallower -> false outcome-ok }T
 \ Unification hints: a failure with a definition at the head might match
-\ a hint (Init's or another library's): unsupported, never false.
-T{ lf-tr-reducible lf-defeq-mode! 0 s" Nat.add" cn fk dq lf-tr-default lf-defeq-mode!
-   -> false outcome-unsupported }T
+\ a hint. With data of Init alone (this slice's, elab-init-only?), whose
+\ one hint is Not p =?= p -> False, a side whnf makes no Not application
+\ has none: false, as Lean (branch s2-tactics); data of another library
+\ (its modules counted two here, then put back): unsupported, never false.
+: hint-dq ( -- flag outcome )
+  lf-tr-reducible lf-defeq-mode! 0 s" Nat.add" cn fk dq lf-tr-default lf-defeq-mode! ;
+T{ elab-init-only? hint-dq -> true false outcome-ok }T
+T{ 2 elab elab-modules# ! hint-dq 1 elab elab-modules# ! -> false outcome-unsupported }T
 \ Its twin, Nat.rec _ k _ ?o =?= Nat.add with the synthetic opaque ?o
 \ read-only (one depth deeper), reaches isDefEqOnFailure stuck on ?o:
 \ under isDefEqStuckEx the stuck signal (ExprDefEq.lean:2182) and no
-\ hints, else the hints, unsupported (review s1-meta-a M1).
+\ hints, else the hints: none for data of Init alone (Nat.add's whnf is
+\ no Not application), so false, as Lean (review s1-meta-a M1; branch
+\ s2-tactics).
 : rec-major ( major -- t ) >r rec nat nat lam app fk app nat nat fk lam lam app r> app ;
 : hint-twin ( flags -- flag outcome )
   lf-tr-reducible lf-defeq-mode! deeper ?o rec-major 0 s" Nat.add" cn
   rot with-flags shallower lf-tr-default lf-defeq-mode! ;
 T{ lf-defeq-elab lf-defeq-stuck or hint-twin lf-defeq-elab hint-twin
-   -> false lf-meta-stuck false outcome-unsupported }T
+   -> false lf-meta-stuck false outcome-ok }T
 \ synthPending's hook (S1 appendix D; branch s1-synth sets it) on the
 \ natural ?r : Nat, whose type might be a class, stuck in the same twin
 \ under isDefEqStuckEx: a hook that fills it asks for Lean's retry, not

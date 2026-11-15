@@ -198,6 +198,24 @@ require ./source.fs
 \ it goes), then runs #check as a command: 141 says so.
 140 constant lfa-e-check-here     \ #check inside a declaration, in a term position
 141 constant lfa-e-check-in-by    \ #check inside a tactic block
+\ S2's tactics (branch s2-tactics, S2_INTERFACE 8): induction and its
+\ alternatives (205-213; 210 and 211 kept for by-case:), rewriting
+\ (215-220; 214 and 221-224 kept). Each prints Lean's first message, its
+\ names on the message's line (lfa-inline) and, for a tactic's failure,
+\ the goals after it.
+205 constant lfa-e-tac-not-inductive \ induction: the target's type is no inductive type
+206 constant lfa-e-tac-alt-name     \ an alternative named as no case of the eliminator
+207 constant lfa-e-tac-alt-missing  \ an alternative not written
+208 constant lfa-e-tac-alt-names    \ more names at an alternative than its fields
+209 constant lfa-e-tac-mutual       \ induction on a mutual or nested inductive type
+212 constant lfa-e-tac-elim-motive  \ the motive's type does not fit the eliminator's
+213 constant lfa-e-tac-alt-twice    \ an alternative written twice
+215 constant lfa-e-tac-no-pattern   \ rewrite: no occurrence of the pattern
+216 constant lfa-e-tac-motive       \ rewrite: the motive is not type correct
+217 constant lfa-e-tac-motive-dep   \ rewrite: the target's type depends on the pattern
+218 constant lfa-e-tac-not-eq       \ rewrite: the rule proves no equality
+219 constant lfa-e-tac-mvar-pattern \ rewrite: the pattern is a metavariable
+220 constant lfa-e-tac-occurs       \ rewrite: the rule holds the goal itself
 
 \ The catalogue: one message record per code, in order, each followed by
 \ its text and aligned; a record with code 0 closes it.
@@ -446,6 +464,23 @@ create lfa-catalogue
   lfa-e-check-here s" unexpected token '#check'; expected term" lfa-invalid,
   here lfa-e-check-in-by s" #check is a command: Lean would end the tactic block here; "
   lfa-invalid, s" put it after end" lfa-more,
+  lfa-e-tac-not-inductive
+  s" Tactic `induction` failed: major premise type is not an inductive type" lfa-invalid,
+  lfa-e-tac-alt-name s" Invalid alternative name" lfa-invalid,
+  lfa-e-tac-alt-missing s" Alternative" lfa-invalid,
+  lfa-e-tac-alt-names s" Too many variable names provided at alternative" lfa-invalid,
+  lfa-e-tac-mutual s" The `induction` tactic does not support the type" lfa-invalid,
+  lfa-e-tac-elim-motive s" Type mismatch when assigning motive" lfa-invalid,
+  lfa-e-tac-alt-twice s" Duplicate alternative name" lfa-invalid,
+  lfa-e-tac-no-pattern
+  s" Tactic `rewrite` failed: Did not find an occurrence of the pattern" lfa-invalid,
+  lfa-e-tac-motive s" Tactic `rewrite` failed: motive is not type correct:" lfa-invalid,
+  lfa-e-tac-motive-dep s" Tactic `rewrite` failed: Motive is dependent:" lfa-invalid,
+  here lfa-e-tac-not-eq s" Invalid rewrite argument: Expected an equality or iff proof "
+  lfa-invalid, s" or definition name, but" lfa-more,
+  here lfa-e-tac-mvar-pattern s" Invalid rewrite argument: The pattern to be substituted "
+  lfa-invalid, s" is a metavariable" lfa-more,
+  lfa-e-tac-occurs s" Occurs check failed: Expression" lfa-invalid,
   0 outcome-invalid s" " lfa-message,
 
 \ The catalogue record of a code; an unknown code gives the closing record.
@@ -465,6 +500,7 @@ begin-structure /lfa-err
   field: lfa-err-number      \ a number the code defines (a Forth THROW code), or 0
   field: lfa-err-length      \ characters of the token kept
   field: lfa-err-cut         \ true when the detail could not be kept whole
+  field: lfa-err-inline      \ characters of the detail that end the message's line
   lfa-token-keep +field lfa-err-token
 end-structure
 /lfa-err context-record: lfa-error
@@ -488,6 +524,10 @@ end-structure
 : lfa-detail+ ( c-addr u -- )
   dup lfa-detail slab-claim ok? if lfa-detail slab-at swap move exit then
   2drop drop lfa-detail-cut ;
+\ The detail kept so far ends the message's own line (a message whose
+\ Lean text names things in its first line: Invalid alternative name
+\ `suc`: Expected `succ`); the rest goes on the lines after it.
+: lfa-inline ( -- ) lfa-detail slab-count lfa-error lfa-err-inline ! ;
 
 \ Stop the run with an error at the current token: lfa-fail; with a second
 \ position: lfa-fail-see; lfa-must stops unless the flag is true.
@@ -515,9 +555,13 @@ end-structure
     lfa-e-tac-run of lfa-.plan endof endcase ;
 \ The detail on the lines after the message, and a note if it was cut.
 : lfa-.cut ( -- ) lfa-error lfa-err-cut @ if cr ." (the rest could not be shown)" then ;
+: lfa-inline# ( -- n ) lfa-error lfa-err-inline @ lfa-detail slab-count min ;
+: lfa-.inline ( -- ) 0 lfa-detail slab-at lfa-inline# type ;
 : lfa-.detail ( -- )
-  lfa-detail slab-count ?dup if cr 0 lfa-detail slab-at swap type then lfa-.cut ;
+  lfa-detail slab-count lfa-inline# - ?dup if cr lfa-inline# lfa-detail slab-at swap type
+  then lfa-.cut ;
+: lfa-.message ( -- ) lf-author-code lf-author-message type lfa-.inline ;
 : lf-author-error. ( -- )
   lf-author-code 0= if ." no error" exit then
   ." error " lf-author-code .decimal ."  at " lfa-error lfa-err-at @ lfa-.pos lfa-.token
-  ." : " lf-author-code lf-author-message type lfa-.number lfa-.see lfa-.detail ;
+  ." : " lfa-.message lfa-.number lfa-.see lfa-.detail ;

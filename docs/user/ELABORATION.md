@@ -68,6 +68,48 @@ read its binder's kind; the term is the same).
 | Numerals, `+` and `=` (Lean's `binop%`, `binrel%`), default instances | `0 0 + 0 =`, `2 2 + 4 =`, `n n + n n + =` | elaborated as Lean does |
 | A term proof, `by-rfl`, `by-exact` | `tests/front/s1-now.lf` | accepted by the kernel |
 | `#check` | `0 0 + 0 = #check` | prints `0 + 0 = 0 : Prop` |
+| Induction with alternatives, rewriting (S2) | `tests/front/01-zero-add-rw.lf`, `tests/front/ps-*.lf` | accepted by the kernel, the proof term pinned Lean's node for node |
+
+### Induction and rewriting (plan S2, branch `s2-tactics`)
+
+The worked example, $0 + n = n$ for every natural number $n$, by induction on $n$: for $n = 0$, $0 + 0 = 0$ by
+computation; for $n = k + 1$, $0 + (k + 1) = (0 + k) + 1$ by the definition of $+$ (`Nat.add_succ`) and
+$(0 + k) + 1 = k + 1$ by the induction hypothesis $0 + k = k$.
+
+```text
+theorem zero_add''   Nat explicit: n   0 n + n =
+:= by
+  n by-induction-with
+  | zero =>       by-rfl
+  | succ k ih =>  by-rw[ ' Nat.add_succ ih ]
+  by-end
+end zero_add''
+```
+
+Lean: `theorem zero_add'' (n : Nat) : 0 + n = n := by induction n with | zero => rfl | succ k ih => rw [Nat.add_succ, ih]`.
+
+```console
+$ bin/leanforth check --env tests/front/s2-slice.ndjson \
+    --elab-data tests/front/s2-slice.elab.ndjson tests/front/01-zero-add-rw.lf
+...
+zero_add'': accepted; axioms: none
+```
+
+`n by-induction-with` finds `Nat.recAux` (the eliminator the elaboration data registers for `Nat`), builds the
+motive `fun n => 0 + n = n` and one goal per case, `zero` and `succ`; `| succ k ih =>` names the case's fields
+`k` and `ih : 0 + k = k`. `by-rw[ ' Nat.add_succ ih ]` rewrites with `Nat.add_succ` (its left side `?n + Nat.succ
+?m` found as `0 + (k + 1)`), then with `ih`, then closes `Nat.succ k = k + 1` by `rfl` at reducible
+transparency, as Lean's `rw`. The term LeanForth builds (`Nat.recAux`, `Eq.mpr`, `congrArg`, `id`) is pinned
+Lean's node for node (`tests/front/check_s2.py`, against `tests/front/s2-proofs.lean`), and the kernel checks
+it; with the full `Init` snapshot and its elaboration data the same files are accepted too. A wrong proof stops
+with Lean's message: `| suc k ih =>` is error 206, "Invalid alternative name `suc`: Expected `succ`";
+`by-rw[ ' Nat.mul_succ ]` is 215, "Tactic `rewrite` failed: Did not find an occurrence of the pattern", the
+pattern, the target and the goal. The owner's proof set (`tests/front/ps-*.lf`: $\mathrm{succ}\,n + m =
+\mathrm{succ}(n + m)$, $n + m = m + n$, $n + (m + k) = (n + m) + k$, $n(m + k) = nm + nk$ and
+$|xs \mathbin{+\!\!+} ys| = |xs| + |ys|$) is accepted the same way; where appendix G of
+`docs/design/S2_INTERFACE.md` closes a case by `rfl` that needs `Nat.add`'s smart unfolding (S2 merge B), the
+files rewrite with `Nat.add_zero` or `Nat.mul_zero` instead, the form pinned Lean accepts. Not yet: `by-case:`
+(merge B), `++` as a word (`HAppend.hAppend` is written out), `←`, `at h`, `using`, `generalizing`.
 
 The unit tests (`tests/front/elab.fs`) also pin the order of events against pinned Lean's (golden traces of
 `0 + 0 = 0` and `0 + n = n`): the problems made, the default instances tried and rolled back, and where lazy

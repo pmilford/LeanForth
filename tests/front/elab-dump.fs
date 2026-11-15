@@ -9,8 +9,11 @@
 require ../../src/main.fs
 decimal
 
-: dump-lib ( -- c-addr u ) s" tests/front/s1-slice.ndjson" ;
-: dump-data ( -- c-addr u ) s" tests/front/s1-slice.elab.ndjson" ;
+\ The S1 slice by default; s2-dump uses S2's (tests/front/check_s2.py).
+defer dump-lib ( -- c-addr u )
+defer dump-data ( -- c-addr u )
+:noname s" tests/front/s1-slice.ndjson" ; is dump-lib
+:noname s" tests/front/s1-slice.elab.ndjson" ; is dump-data
 : dump-must ( outcome -- ) ok? 0= abort" elab-dump: a loading step failed" ;
 : .nm ( name -- ) dup lf-name-prefix@ ?dup if recurse ." ." then lf-name-text type ;
 : .lv ( level -- )
@@ -38,3 +41,6 @@ defer .t
   lfc-rooms dump-must lf-author-begin lf-author-file
   dup ok? 0= if ." stopped: " lf-author-error. cr drop exit then drop
   lf-author-count 0 ?do i dump-own loop ;
+: s2-dump ( c-addr u -- )
+  [: s" tests/front/s2-slice.ndjson" ;] is dump-lib
+  [: s" tests/front/s2-slice.elab.ndjson" ;] is dump-data elab-dump ;

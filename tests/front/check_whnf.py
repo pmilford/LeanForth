@@ -159,7 +159,7 @@ CASES = [
     ("stuck", rec("k"), None),
     ("stuck", apps("?h", "k"), None),
     ("stuck", apps("s", "k"), None),
-    ("stuck", apps(ADD, "?n", "k"), "FE1d2 projection-function facts"),
+    ("stuck", apps(ADD, "?n", "k"), None),  # projection records (s2-tactics)
     ("stuck", apps(ADD, "k", "k"), None),
     ("stuck", rec(apps(SUCC, "?n")), None),
     ("stuck", (PROJ, 0, "?q"), None),

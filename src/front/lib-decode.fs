@@ -306,6 +306,18 @@ end-structure
 : lf-libdec-kinds ( d slab -- outcome )
   over lbd-in? 0= if slab-clear drop outcome-invalid exit then
   >r lbd-stage@ staged-type@ lbd-tier r> lf-tier-kinds ;
+\ The same for the domain of e's binder k (from 0): an eliminator's
+\ alternative's fields (S2_INTERFACE 4); invalid, the slab empty, when e
+\ has no binder k.
+: lbd-body ( e tier -- e' tier ) tuck expr-b@ swap ;
+: lf-tier-domain ( e tier k -- e' tier flag )
+  0 ?do 2dup lbd-pi-in? 0= if false unloop exit then lbd-body loop
+  2dup lbd-pi-in? if tuck expr-a@ swap true else false then ;
+: lf-tier-kinds-in ( e tier k slab -- outcome )
+  >r lf-tier-domain if r> lf-tier-kinds else 2drop r> slab-clear outcome-invalid then ;
+: lf-libdec-kinds-in ( d k slab -- outcome )
+  rot dup lbd-in? 0= if drop nip slab-clear outcome-invalid exit then
+  lbd-stage@ staged-type@ lbd-tier 2swap lf-tier-kinds-in ;
 
 \ ---- A declaration's record, filled step by step ( r -- outcome ): the
 \ steps read the stage's declaration the record names (lbr-decl).

@@ -29,10 +29,14 @@
 \   then (core/terms.fs), a leaf is no metavariable (Lean's !hasExprMVar;
 \   a node whose word is unknown is taken to hold one).
 \ - lf-meta-fvar-free? ( term -- flag ): the term's data word shows no
-\   free variable (false when the store keeps no word for it).
+\   free variable (false when the store keeps no word for it);
+\   lf-meta-has-fvar? ( term -- flag ): it certainly holds one (a free
+\   variable leaf, or a data word that shows one).
 \ - lf-meta-tag? ( term tag -- flag ): the term's tag is tag;
 \   lf-meta-fvar? ( term -- flag ): a free variable.
-\ - lf-meta-args# ( term -- n ): the number of arguments of its spine.
+\ - lf-meta-head-args ( term -- head n ): the head of its spine and the number
+\   of its arguments (Lean's getAppFn and getAppNumArgs);
+\   lf-meta-args# ( term -- n ): that number alone.
 \ - lf-meta-forall-body ( term -- body ): what is under its leading pis
 \   (the term itself when it is no pi), its loose bound variables those
 \   binders' (Lean's getForallBody of each, unreduced).
@@ -81,10 +85,14 @@ require ../present/binder-table.fs
 : lf-meta-mvar-free? ( term -- flag )
   dup ms-binary? if lf-term-data@ dup if nip then exit then lf-term-tag@ lf-tag-mvar <> ;
 : lf-meta-fvar-free? ( term -- flag ) lf-term-data@ if lf-data-fvar? 0= else false then ;
+: lf-meta-has-fvar? ( term -- flag )
+  dup ms-binary? if lf-term-data@ if lf-data-fvar? else false then exit then
+  lf-term-tag@ lf-tag-fvar = ;
 : lf-meta-tag? ( term tag -- flag ) swap lf-term-tag@ = ;
 : lf-meta-fvar? ( term -- flag ) lf-tag-fvar lf-meta-tag? ;
-: lf-meta-args# ( term -- n )
-  0 swap begin dup lf-meta-app? while lf-term-first@ swap 1+ swap repeat drop ;
+: lf-meta-head-args ( term -- head n )
+  0 swap begin dup lf-meta-app? while lf-term-first@ swap 1+ swap repeat swap ;
+: lf-meta-args# ( term -- n ) lf-meta-head-args nip ;
 : lf-meta-forall-body ( term -- body )
   begin dup lf-term-pi? while lf-term-second@ repeat ;
 : lf-meta-pop ( slab -- x ) dup slab-count 1- over slab-at @ -1 rot slab-commit ;

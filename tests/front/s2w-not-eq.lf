@@ -1,0 +1,11 @@
+\ A wrong proof for S2's tactics (tests/front/check_s2.py; its Lean twin is
+\ tests/front/s2-wrong.lean's w_not_eq): refused with Lean's first message.
+theorem w_not_eq
+  Nat explicit: n
+  0 n + n =
+:= by
+  n by-induction-with
+  | zero =>       by-rfl
+  | succ k ih =>  by-rw[ k ]
+  by-end
+end w_not_eq

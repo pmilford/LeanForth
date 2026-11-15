@@ -169,18 +169,24 @@ T{ printed unsolved-line compare -> 0 }T
 [then]
 
 \ ---- 1. Tactics not ported yet: 80 at the word, its plan step, the goals
-\ (by-rfl, by-exact and by-intro: run since FE1g-4: tests/front/tactic-basic.fs).
+\ (by-rfl, by-exact and by-intro: run since FE1g-4: tests/front/tactic-basic.fs;
+\ induction and rewriting since S2, end to end in tests/front/check_s2.py:
+\ here the stand-in elaborator's target is refused at the word, 76, and an
+\ empty rewrite leaves the goal, rfl failing inside try, 89 at by as Lean's
+\ rw [] does).
 : later ( c-addr u -- code line col plan ) proof nrun drop err plan# ;
-T{ s" n by-induction end t" later -> 80 1 45 5 }T
-T{ token s" by-induction" compare detail lean-goals compare -> 0 0 }T
-T{ s" n by-induction-with | zero => by-rfl by-end end t" later -> 80 1 45 5 }T
+T{ s" n by-induction end t" later -> 76 1 45 0 }T
+T{ token s" by-induction" compare -> 0 }T
+T{ s" n by-induction-with | zero => by-rfl by-end end t" later -> 76 1 45 0 }T
 T{ s" by-case: zero => by-rfl by-end end t" later -> 80 1 43 5 }T
-T{ s" by-rw[ ] end t" later -> 80 1 43 6 }T
-T{ s" by-rewrite[ ] end t" later -> 80 1 43 6 }T
-T{ token s" by-rewrite[" compare outcome-unsupported lfa-e-tac-run lf-author-outcome = -> 0 true }T
+T{ token s" by-case:" compare detail lean-goals compare -> 0 0 }T
+T{ s" by-rw[ ] end t" later -> 89 1 40 0 }T
+T{ s" by-rewrite[ ] end t" later -> 89 1 40 0 }T
+T{ token s" by" compare outcome-unsupported lfa-e-tac-run lf-author-outcome = -> 0 true }T
 [defined] >string-execute [if]
 : error-text ( -- c-addr u ) ['] lf-author-error. >string-execute ;
-T{ error-text s" (plan FE1g-6)" search nip nip -> true }T
+T{ s" by-case: zero => by-rfl by-end end t" later 2drop 2drop
+   error-text s" (plan FE1g-5)" search nip nip -> true }T
 [then]
 
 \ ---- 1. No goals: a second by-sorry (Lean: "No goals to be solved" at
