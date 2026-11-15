@@ -1,9 +1,12 @@
 # The elaborator: what LeanForth fills in
 
-Status (2026-11-14, branch `s1-elab` after its review fixes, plan slice S1): **written and tested alone** (the
-stages of [DONE_CHECKER.md](../development/DONE_CHECKER.md)), with instance search (`synth.fs`) and lazy unfolding
-(S2's merge A) merged in; S1's files run on the S1 slice as below; not done (the done check on all of `Init` is
-owed). What you write in natural LeanForth leaves things
+Status (2026-11-14, plan slice S1): **done**: works end to end on all of `Init` (the stages of
+[DONE_CHECKER.md](../development/DONE_CHECKER.md); done check
+[2026-11-14-s1.md](../development/done-checks/2026-11-14-s1.md)), with instance search (`synth.fs`) and lazy
+unfolding (S2's merge A). S1's files run on the S1 slice as below in seconds; on all of `Init`,
+`bin/leanforth check --jobs 2 --env init.ndjson --elab-data init.elab.ndjson tests/front/s1-rfl.lf` takes about 18
+minutes (it checks `Init` first), or about 70 s from a snapshot of `Init` (`--snapshot FILE` in place of `--env`,
+development mode, labelled so). What you write in natural LeanForth leaves things
 out that Lean fills in: hidden (implicit) arguments, universe levels, which `+` and which `0` you mean. The
 elaborator (`src/front/elab-pending.fs`, `elab-app.fs`, `elab-term.fs`, `elab-decl.fs`) fills them in, step for
 step as Lean 4.35.0's elaborator does ([S1_INTERFACE.md](../design/S1_INTERFACE.md),

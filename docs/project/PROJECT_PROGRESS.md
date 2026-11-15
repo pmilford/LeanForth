@@ -66,10 +66,13 @@ status changes when this date is older than them. Stages are those of the
   [parser] and [bypass] approved by the owner):
   the elaborator FE1e6-7 (applications with hidden arguments, `binrel%`/`binop%`, numerals, default instances, the
   declaration glue, `#check`, `--elab-fuel`) written and tested alone, instance search running in the command
-  line's run mode: on the S1 slice `bin/leanforth check ... tests/front/s1-rfl.lf` has LeanForth elaborate
-  `theorem t : 0 + 0 = 0 := by rfl` (node for node pinned Lean's) and the kernel accept it, `s1-check.lf` prints
+  line's run mode: S1 is **done** (done check 2026-11-14-s1.md): on all of `Init`, `bin/leanforth check --jobs 2
+  --env init.ndjson --elab-data init.elab.ndjson tests/front/s1-rfl.lf` has LeanForth elaborate tests/front/s1-rfl.lf
+  (Lean's `theorem t : 0 + 0 = 0 := by rfl`; node for node pinned Lean's) and the kernel accept it (18 min), `s1-check.lf` prints
   `0 + 0 = 0 : Prop`, the wrong twin fails with Lean's rfl message (`tests/front/check_elab.py`;
-  [ELABORATION.md](../user/ELABORATION.md)); S1's done check on all of `Init` is owed. LeanForth re-checks; it has not proved a theorem of its own. Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
+  [ELABORATION.md](../user/ELABORATION.md)); also `03-zero-add-exact.lf` (`0 + n = n` by `exact Nat.zero_add n`)
+  accepted on all of `Init`, node for node Lean's. Apart from its own LeanForth texts (S1's t and that file), every
+  accepted theorem is Lean's export re-checked. Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
 - Program track, restarted 2026-11-12 after being parked since 2026-11-04: LeanForth re-checks Lean's proofs of
   the clamp word's obligations (plan 5.5.1): works end to end (done check docs/development/done-checks/2026-11-12-program-track.md); owner gates [bypass] and [runtime] approved 2026-11-12, merged.
   `python3 scripts/program_receipt.py export OUT.ndjson` has pinned Lean export the contract theorem and its two

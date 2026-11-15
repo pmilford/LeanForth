@@ -1,5 +1,6 @@
 \ A proof by a library theorem (docs/design/FE1G_TACTICS.md 2.4 and 3.1).
 \ Lean: theorem zero_add_ex (n : Nat) : 0 + n = n := by exact Nat.zero_add n
-\ Today it is read (FE1g-2) and stops at end as not supported yet (error
-\ 71, exit 2) until plan FE1e elaborates the statement for the runner. Constants: tests/front/tactic-slice.ndjson.
+\ Accepted on all of Init (done check 2026-11-14-s1.md, the extra
+\ midpoint; its term node for node pinned Lean's); on the small slices the
+\ search tries an instance their export leaves out (119, exit 2).
 theorem zero_add_ex Nat explicit: n   0 n + n =   := by  n Nat.zero_add by-exact   end zero_add_ex
