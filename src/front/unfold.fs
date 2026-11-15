@@ -85,13 +85,8 @@ require ./term-eqv.fs
   ok-then? 0= if nip no-result exit then swap if lf-meta-head-beta else outcome-ok then ;
 : uf-delta-beta ( d const -- e' outcome )
   uf-value ok-then? if uf-beta else no-result then ;
-\ deltaBetaDefinition of e, whose head is const, d's constant: e' and
-\ true; e and false when the universe arguments are not as many as d's
-\ parameters (Lean's failK).
-: lf-unfold-delta-beta ( e d const -- e' flag outcome )
-  2dup lf-meta-arity? 0= if 2drop false outcome-ok exit then
-  rot uf-args lf-meta-spine ok-then? 0= if nip nip -1 false rot exit then drop
-  uf-delta-beta ok-then? if true outcome-ok else -1 false rot then ;
+\ instantiateValueLevelParams: d's value with const's universe arguments.
+: lf-unfold-value ( d const -- value outcome ) uf-value ;
 
 \ ---- unfoldDefault: at reducible transparency a class field whose result
 \ has a projection at its head asks whnf.fs for reduceProj?.

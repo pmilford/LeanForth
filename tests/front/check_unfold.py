@@ -101,6 +101,8 @@ HADD3 = apps(c("HAdd.hAdd", 0, 0, 0), NAT, NAT, NAT, INST)
 ADD_ADD = apps(c("Add.add", 0), NAT, c("instAddNat"))
 SMART = "S2 merge B smart unfolding (Nat.add._sunfold)"
 NAT_GUARD = "S2 merge B reduceNat?'s guard (Nat.add k x)"
+CAN_UNFOLD = "S2 merge B canUnfoldAtMatcher and unfoldNestedDIte (whnfMatcher)"
+MATCH1 = apps(c("Nat.add.match_1", 1), "m")
 MODES = {"all": "all", "default": "default", "reducible": "reducible",
          "instances": "instances", "none": "none", "implicit": "implicit"}
 
@@ -153,6 +155,18 @@ TERMS = [
     ("mwhnf", "default", apps(HADD3, "k", "x"), NAT_GUARD),
     ("mwhnf", "instances", apps(HADD3, "k", "x"), NAT_GUARD),
     ("mwhnf", "all", c("Nat.zero_add"), None),
+    # reduceMatcher? and an auxiliary recursor's deltaBetaDefinition in
+    # whnfCore (S2 merge B): Nat.add.match_1 and Nat.casesOn.
+    ("mwhnf", "default", apps(MATCH1, "k", cw.ZERO, "z", "s"), None),
+    ("mwhnf", "default", apps(MATCH1, "k", apps(cw.SUCC, "x"), "z", "s"), None),
+    ("mwhnf", "default", apps(MATCH1, "k", "x", "z", "s"), None),
+    ("mwhnf", "default", apps(MATCH1, "k", cw.ZERO, "z", "s", "a"), None),
+    ("mwhnf", "all", apps(MATCH1, "k", ("lit", 2), "z", "s"), None),
+    ("mwhnf", "default", apps(MATCH1, "k", cw.ZERO, "z"), None),
+    ("mwhnf", "default", apps(c("Nat.casesOn", 1), "m", cw.ZERO, "z", "s"), None),
+    ("mwhnf", "default", apps(c("Nat.casesOn", 1), "m", apps(cw.SUCC, "k"), "z", "s"), None),
+    ("mwhnf", "reducible", apps(MATCH1, "k", cw.ZERO, "z", "s"), CAN_UNFOLD),
+    ("mwhnf", "instances", apps(MATCH1, "k", cw.ZERO, "z", "s"), CAN_UNFOLD),
 ]
 
 TERMS_FILE = ROOT / "tests/front/unfold-terms.lean"

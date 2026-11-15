@@ -238,10 +238,20 @@ T{ inst-hadd dup lf-meta-whnf-r drop same? lf-defeq-mode -> true lf-tr-default }
 \ reduceNat? might fold; Nat.succ of a variable stays.
 T{ hadd-kx lf-meta-whnf hadd-kx dup lf-meta-whnf-r drop same?
    -> -1 outcome-unsupported true }T
-T{ 0 s" Nat.add.match_1" cn fk app lf-meta-whnf -> -1 outcome-unsupported }T
+\ reduceMatcher? (S2 merge B): Nat.add.match_1 m k 0 z s is z k, with x + 1
+\ for 0 it is s k x, with a stuck discriminant it stays; fewer arguments
+\ than the alternatives stay (partialApp).
+: m1 ( a b -- t ) >r >r lv1 1 s" Nat.add.match_1" cn fm app r> app r> app fz app fs app ;
+T{ fk zero m1 fz fk app whnf= fk fx succ swap app m1 fs fk app fx app whnf=
+   -> true outcome-ok true outcome-ok }T
+T{ fk fx m1 dup whnf= fk zero m1 fa app fz fk app fa app whnf= -> true outcome-ok true outcome-ok }T
+T{ 0 s" Nat.add.match_1" cn fk app dup meta-whnf= -> true outcome-ok }T
+\ Not ported yet: a matcher at reducible, instances or implicit
+\ transparency (canUnfoldAtMatcher, unfoldNestedDIte).
+T{ fk zero m1 lf-meta-whnf-r -> -1 outcome-unsupported }T
 \ An auxiliary recursor unfolds (deltaBetaDefinition, S2 merge B): Nat.casesOn
 \ with its motive alone is a lambda.
-T{ lv1 1 s" Nat.casesOn" cn fk app lf-meta-whnf tag-out -> lf-tag-lam outcome-ok }T
+T{ lv1 1 s" Nat.casesOn" cn fk app lf-whnf-core tag-out -> lf-tag-lam outcome-ok }T
 \ (Nat.add k x: reduceNat? gets no value for an operand that holds a free
 \ variable, Lean's withNatValue, and reducible leaves Nat.add; s2-tactics.)
 T{ 0 s" Nat.add" cn fk app fx app dup lf-meta-whnf-r drop same? -> true }T

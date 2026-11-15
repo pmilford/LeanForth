@@ -50,17 +50,21 @@
 \ resumes with it, its activation and transparency restored. No host
 \ recursion (plan task 6.2.0 (b)); the transparency on entry is restored
 \ on every exit.
+\ A definition at the head (S2 merge B): a matcher reduces by
+\ reduceMatcher? (below, at the matchers), an auxiliary definition
+\ (casesOn, noConfusion) unfolds by deltaBetaDefinition, any other stays.
+\ A recursor's major premise is cleaned up after its whnf: a natural
+\ literal becomes constructors (toCtorIfLit), an offset s + k Nat.succ of
+\ s + (k - 1) (cleanupNatOffsetMajor).
 \ Never a guess: unsupported for what Lean decides with a fact or a step
-\ not ported yet -- a matcher or an auxiliary recursor at a definition's
-\ head (whnfCore's matcher and deltaBetaDefinition steps, S2 merge B; a
-\ definition that is neither stays), a definition with a `_sunfold` or not
-\ known to have none (unfold.fs), a quotient's lift or ind, a
-\ delayed-assigned metavariable at the head, a literal where Lean turns it
-\ into constructors (toCtorIfLit), and, for a recursor: K-like ones
-\ (toCtorWhenK infers the major premise's type), a major premise
-\ Nat.succ of a term reduceNat? might fold (cleanupNatOffsetMajor), a
-\ stuck major premise of a structure-like type (toCtorWhenStructure
-\ eta-expands it), and a recursor of a mutual or nested block.
+\ not ported yet -- a matcher at reducible, instances or implicit
+\ transparency (canUnfoldAtMatcher), a definition with a `_sunfold` or
+\ not known to have none (unfold.fs), a quotient's lift or ind, a
+\ delayed-assigned metavariable at the head, a string literal or a
+\ literal beyond a cell as a major premise, and, for a recursor: K-like
+\ ones (toCtorWhenK infers the major premise's type), a stuck major
+\ premise of a structure-like type (toCtorWhenStructure eta-expands it),
+\ and a recursor of a mutual or nested block.
 \ Let variables: Lean unfolds a let variable only when it is no "have"
 \ (nondep) declaration; lf-fvar-let? is false for a have
 \ (core/local-context.fs, lf-lctx-have, plan FE1g-1), which therefore
@@ -86,11 +90,12 @@
 \ addr; invalid when one is still no pi (Lean: too many parameters) or
 \ n is negative.
 \ Untrusted: only the kernel's check of a finished term decides anything.
-\ State: the record wc (fuel, the activation,
-\ the projection mode, lf-meta-unfold's answer, the transparency on
-\ entry, the recursor step's term, head, data and declaration) and the
-\ slabs wc-args, wc-margs, wc-levels and wc-frames, in the checker
-\ context. Loads in decimal whatever BASE is, then restores it.
+\ State: the record wc (fuel, the activation, the projection mode,
+\ lf-meta-unfold's answer, the transparency on entry, the recursor or
+\ matcher step's term, head, data and declaration, a matcher's sizes) and
+\ the slabs wc-args, wc-margs, wc-levels, wc-hs (the open matchers'
+\ alternative variables) and wc-frames, in the checker context. Loads
+\ in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -131,11 +136,14 @@ begin-structure /wc
                      \ or a class field's unfolded term
   field: wc-fault    \ the first declaration that could not be decoded:
                      \ its outcome (full, unsupported), else ok
+  field: wc-mpre     \ a matcher's parameters, motive and discriminants
+  field: wc-malts    \ and its alternatives
 end-structure
 /wc context-record: wc
 1 cells context-slab: wc-args     \ the term's arguments, last first
 1 cells context-slab: wc-margs    \ the major premise's arguments, last first
 1 cells context-slab: wc-levels   \ the recursor's universe arguments
+1 cells context-slab: wc-hs       \ open matchers' alternatives' variables
 begin-structure /wcf
   field: wcf-kind    \ wc-proj-kind, wc-rec-kind or unfold.fs's ask code
   field: wcf-term    \ the step's term
@@ -147,7 +155,8 @@ end-structure
 0 constant wc-core-act   1 constant wc-full-act   2 constant wc-unfold-act
 : lf-whnf-fuel! ( n -- ) wc wc-limit ! ;
 : wc-start ( -- )
-  wc-frames slab-clear wc wc-limit @ ?dup 0= if lf-whnf-default-fuel then wc wc-fuel !
+  wc-frames slab-clear wc-hs slab-clear
+  wc wc-limit @ ?dup 0= if lf-whnf-default-fuel then wc wc-fuel !
   outcome-ok wc wc-fault ! ;
 : wc-full? ( -- flag ) wc wc-act @ wc-full-act = ;
 
@@ -172,6 +181,7 @@ end-structure
 \ in a whnf activation; when the part is done, the frame resumes with it
 \ (wc-resume), as Lean's call of whnf returns.
 0 constant wc-proj-kind   1 constant wc-rec-kind
+lf-unfold-ask-none 1+ constant wc-match-kind
 : wc-top ( -- frame ) wc-frames slab-last ;
 : wc-keep ( frame -- ) wc wc-act @ over wcf-act ! lf-defeq-mode swap wcf-mode ! ;
 \ One frame claimed whole, or none (full); the part's activation is whnf.
@@ -388,16 +398,78 @@ end-structure
   wc-lower true outcome-ok ;
 
 : wc-recursor? ( d -- flag ) lf-menv-kind lf-kind-recursor = ;
-\ A definition at the head (whnfCore, WHNF.lean:659-675): a matcher
-\ reduces (reduceMatcher?: not ported yet, unsupported); an auxiliary
-\ definition (isAuxDef: an auxiliary recursor or a noConfusion) unfolds
-\ by deltaBetaDefinition (front/unfold.fs), and stays when its universe
-\ arguments are not as many as its parameters; any other stays.
+\ ---- Matchers (reduceMatcher?, WHNF.lean:509; plan S2 merge B): the
+\ matcher's value at the head's universe arguments, its first prefix
+\ (parameters, motive, discriminants) lambdas taking the application's
+\ arguments and its next alts lambdas opened with new free variables hs
+\ (forallBoundedTelescope of inferType: a lambda's application has its
+\ binders' domains); the body's whnf (whnfMatcher, a part) whose head is
+\ hs[i] gives the i-th alternative applied to its arguments and to the
+\ arguments after the alternatives, with head beta, and whnfCore goes on;
+\ any other head leaves e (stuck), as do fewer arguments than prefix and
+\ alts (partialApp). A value with fewer lambdas answers unsupported. At
+\ reducible, instances and implicit transparency Lean also unfolds dite
+\ in the value (unfoldNestedDIte) and whnfMatcher canUnfoldAtMatcher's
+\ names: not ported yet, unsupported.
 : wc-defn-fail ( e head d outcome -- -1 false outcome ) nip nip nip wc-fail ;
+: wc-minfo! ( d -- outcome )
+  lf-menv-matcher-sizes 0= if outcome-unsupported exit then
+  wc wc-malts ! wc wc-mpre ! outcome-ok ;
+: wc-partial? ( -- flag ) wc-args slab-count wc wc-mpre @ wc wc-malts @ + < ;
+\ all, default and none: whnfMatcher's plain whnf (a bit per mode).
+1 lf-tr-all lshift 1 lf-tr-default lshift or
+1 lf-tr-none lshift or constant wc-plain-modes
+: wc-plain-mode? ( -- flag ) 1 lf-defeq-mode lshift wc-plain-modes and 0<> ;
+: wc-take ( v i -- v' outcome )
+  over lf-term-lam? 0= if 2drop outcome-unsupported no-result exit then
+  wc-args lf-meta-arg swap lf-term-second@ swap lf-meta-instantiate1 ;
+: wc-take-at ( v k y -- v' outcome ) + wc-take ;
+: wc-new-h ( lam -- lam x outcome )
+  dup lf-term-first@ lf-lctx-local ok-then? 0= if no-result exit then
+  dup wc-hs lf-meta-push ;
+: wc-open-h ( v k y -- v' outcome )
+  2drop dup lf-term-lam? 0= if drop outcome-unsupported no-result exit then
+  wc-new-h ok-then? 0= if nip no-result exit then lf-meta-open ;
+: wc-match-body ( value -- part outcome )
+  wc wc-mpre @ 0 ['] wc-take-at ok-fold ok-then? 0= if no-result exit then
+  wc wc-malts @ 0 ['] wc-open-h ok-fold ;
+: wc-match-value ( -- value outcome ) wc wc-aux @ wc wc-head @ lf-unfold-value ;
+: wc-match-part ( e head d -- e' flag outcome )
+  wc wc-aux ! drop wc wc-e ! wc-match-value ok-then? 0= if wc-fail exit then
+  wc-match-body ok-then? 0= if wc-fail exit then
+  wc-term wc wc-aux @ wc-match-kind wc-frame wc-go ;
+: wc-matcher ( e head d -- e' flag outcome )
+  wc-plain-mode? 0= if drop wc-unsupported exit then
+  dup wc-minfo! dup ok? 0= if wc-defn-fail exit then drop
+  wc-partial? if 2drop wc-done else over wc wc-head ! wc-match-part then ;
+\ Resumed with the body's whnf r: hs[i] at r's head, or none.
+: wc-h@ ( i -- x ) wc-hs slab-count wc wc-malts @ - + wc-hs slab-at @ ;
+: wc-alt-of ( head -- i true | false )
+  wc wc-malts @ 0 ?do dup i wc-h@ = if drop i true unloop exit then loop drop false ;
+: wc-hs-drop ( -- ) wc wc-malts @ negate wc-hs slab-commit ;
+: wc-alt-apply ( i -- e' outcome )
+  wc wc-mpre @ + wc-args lf-meta-arg wc-margs lf-meta-apply-all
+  ok-then? 0= if no-result exit then
+  wc-args wc-from wc wc-mpre @ wc wc-malts @ + wc-args slab-count wc-apply
+  ok-then? if lf-meta-head-beta else no-result then ;
+: wc-match-frame ( -- outcome )
+  wc wc-aux @ wc-minfo! dup ok? 0= if exit then drop
+  wc-term wc-args lf-meta-spine ok-then? if drop outcome-ok then ;
+: wc-match-resume ( r -- e' flag outcome )
+  wc-match-frame dup ok? 0= if wc-drop-fail exit then drop
+  wc-margs lf-meta-spine ok-then? 0= if wc-fail exit then
+  wc-alt-of wc-hs-drop if wc-alt-apply wc-go else wc-stay then ;
+
+\ A definition at the head (whnfCore, WHNF.lean:659-675): a matcher
+\ reduces (reduceMatcher?, above); an auxiliary
+\ definition (isAuxDef: an auxiliary recursor or a noConfusion) unfolds
+\ by deltaBetaDefinition (its value, front/unfold.fs, applied to the
+\ arguments with head beta: betaRev), and stays when its universe
+\ arguments are not as many as its parameters; any other stays.
 : wc-aux-def ( e head d -- e' flag outcome )
-  swap lf-unfold-delta-beta ok-then2? 0= if wc-fail exit then
-  if true outcome-ok else wc-done then ;
-: wc-matcher ( e head d -- e' flag outcome ) drop wc-unsupported ;
+  2dup swap lf-meta-arity? 0= if 2drop wc-done exit then
+  swap lf-unfold-value ok-then? 0= if wc-drop-fail exit then
+  nip wc-rebuild ok-then? if lf-meta-head-beta else no-result then wc-go ;
 : wc-defn-head ( e head d -- e' flag outcome )
   dup lf-menv-matcher? ok-then? 0= if wc-defn-fail exit then if wc-matcher exit then
   dup lf-menv-aux-def? ok-then? 0= if wc-defn-fail exit then
@@ -499,7 +571,8 @@ end-structure
 : wc-core-resume ( r kind -- e' flag outcome )
   wc-rec-kind = if wc-rec-resume else wc-proj-resume then wc-then-delta ;
 : wc-resume ( r -- e' flag outcome )
-  wc-pop dup lf-unfold-ask-keep < if wc-core-resume else wc-field-resume then ;
+  wc-pop dup wc-match-kind = if drop wc-match-resume wc-then-delta exit then
+  dup lf-unfold-ask-keep < if wc-core-resume else wc-field-resume then ;
 
 \ ---- The loop.
 : wc-spend ( -- flag ) wc wc-fuel @ dup 0> if 1- wc wc-fuel ! true else drop false then ;

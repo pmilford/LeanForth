@@ -258,12 +258,13 @@ end-structure
   1- no-lit ok-then? if no-succ else no-result then ;
 : lf-meta-ctor-if-lit ( e -- e' outcome )
   dup lf-lit-leaf? if no-lit-ctor else outcome-ok then ;
-: no-plus ( s k -- t outcome ) lf-meta-nat-lit ok-then? if no-add else nip no-result then ;
+: no-plus ( s k -- t outcome )
+  lf-meta-nat-lit ok-then? if no-add else nip no-result then ;
 : no-cleanup ( s k -- e' outcome )
   ?dup 0= if outcome-ok exit then
   1- ?dup if no-plus ok-then? 0= if no-result exit then then no-succ ;
+\ isOffset? none leaves (e, 0) (lf-meta-offset), which no-cleanup keeps.
 : lf-meta-cleanup-offset ( e -- e' outcome )
-  dup lf-meta-offset ok-then3? 0= if nip no-result exit then
-  if rot drop no-cleanup else 2drop outcome-ok then ;
+  lf-meta-offset ok-then3? if drop no-cleanup else no-result then ;
 
 base !   \ the BASE this file was loaded with

@@ -405,6 +405,14 @@ end-structure
   me-run? if me-run-data-decl else elab-decl-of then ;
 : lf-menv-of-data ( d' -- d outcome )
   me-run? if me-decoded else elab-decl-name lf-menv-find then ;
+\ getMatcherInfo? (S2 merge B), from format 2's matcher record: the
+\ arguments before a matcher's alternatives (its parameters, motive and
+\ discriminants) and its alternatives; false when the data has none.
+: me-prefix ( m -- n ) elab-matcher@ + 1+ nip ;
+: me-alts ( m -- n ) elab-matcher-alts nip ;
+: lf-menv-matcher-sizes ( d -- prefix alts true | false )
+  lf-menv-name lf-menv-data-decl 0= if false exit then
+  elab-matcher-of 0= if false exit then dup me-prefix swap me-alts true ;
 
 \ ---- A text declaration made visible (lf-menv-add): its name, kind,
 \ type, value, universe parameters and the kinds of its type's leading Pi

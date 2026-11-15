@@ -13021,10 +13021,10 @@ reason = "FE1c: Nat.succ of a term whnf may fold or offset (Nat.succ (Nat.succ k
 [[fault]]
 id = "fe-whnf-definition-head-guessed"
 file = "src/front/whnf.fs"
-old = '''  lf-menv-kind dup lf-kind-definition = swap lf-kind-quotient = or ;'''
-new = '''  lf-menv-kind lf-kind-quotient = ;'''
+old = '''  dup lf-menv-kind dup lf-kind-definition = if drop wc-defn-head exit then'''
+new = '''  dup lf-menv-kind dup lf-kind-definition = if drop 2drop wc-done exit then'''
 test = "$GFORTH tests/front/whnf.fs"
-reason = "FE1c: a definition at the head ends whnfCore without the matcher and auxiliary-recursor facts Lean asks for"
+reason = "FE1c, S2 merge B: a definition at the head ends whnfCore without the matcher and auxiliary-recursor steps Lean takes"
 
 [[fault]]
 id = "fe-whnf-k-ignored"
@@ -15874,18 +15874,18 @@ reason = "S1 §2: the stuck signal leaves its marks open instead of rolling them
 [[fault]]
 id = "fe-whnf-facts-ignored"
 file = "src/front/whnf.fs"
-old = '''  wc wc-facts @ 0= if drop false exit then'''
-new = '''  drop false exit'''
+old = '''  dup lf-menv-matcher? ok-then? 0= if wc-defn-fail exit then if wc-matcher exit then'''
+new = '''  dup lf-menv-matcher? ok-then? 0= if wc-defn-fail exit then drop'''
 test = "$GFORTH tests/front/whnf.fs"
-reason = "S1 appendix D: whnf refuses every definition head although format 2 says it is no matcher and no auxiliary recursor"
+reason = "S1 appendix D, S2 merge B: whnfCore leaves a matcher's application as it is (reduceMatcher? skipped)"
 
 [[fault]]
 id = "fe-whnf-no-facts"
 file = "src/front/whnf.fs"
-old = ''': lf-whnf-core ( term -- term' outcome ) true wc-core ;'''
-new = ''': lf-whnf-core ( term -- term' outcome ) false wc-core ;'''
+old = '''  if wc-aux-def else 2drop wc-done then ;'''
+new = '''  drop 2drop wc-done ;'''
 test = "$GFORTH tests/front/whnf.fs"
-reason = "S1 merge B: whnfCore stops asking the facts Lean's asks (reduceMatcher?, isAuxDef), so an inert definition head is unsupported again"
+reason = "S1 merge B, S2 merge B: whnfCore leaves an auxiliary recursor (Nat.casesOn) where Lean unfolds it (isAuxDef, deltaBetaDefinition)"
 
 [[fault]]
 id = "fe-whnf-no-delta-check"
@@ -16283,10 +16283,42 @@ reason = "S1 §1: a text declaration never visible to the next (Lean's addDecl)"
 [[fault]]
 id = "fe-env-inert-kind"
 file = "src/front/whnf.fs"
-old = '''  wc wc-facts @ 0= if drop false exit then dup lf-menv-kind lf-kind-definition <>'''
-new = '''  wc wc-facts @ 0= if drop false exit then false'''
+old = '''  dup wc-recursor? if wc-iota else 2drop wc-done then ;'''
+new = '''  2drop wc-done ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S1 merge B: whnfCore leaves a recursor as an inert definition"
+
+[[fault]]
+id = "fe-offset-cleanup-skipped"
+file = "src/front/whnf.fs"
+old = '''  wc-clean ok-then? 0= if wc-fail exit then'''
+new = '''  outcome-ok ok-then? 0= if wc-fail exit then'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2 merge B: reduceRec takes a literal or Nat.succ (Nat.succ k) major premise as it is (toCtorIfLit, cleanupNatOffsetMajor skipped)"
+
+[[fault]]
+id = "fe-lit-ctor-off-by-one"
+file = "src/front/nat-offset.fs"
+old = '''  1- no-lit ok-then? if no-succ else no-result then ;'''
+new = '''  no-lit ok-then? if no-succ else no-result then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2 merge B: toCtorIfLit makes the literal 5 Nat.succ 5"
+
+[[fault]]
+id = "fe-match-first-alt"
+file = "src/front/whnf.fs"
+old = '''  wc wc-malts @ 0 ?do dup i wc-h@ = if drop i true unloop exit then loop drop false ;'''
+new = '''  wc wc-malts @ 0 ?do dup i wc-h@ = if drop 0 true unloop exit then loop drop false ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2 merge B: reduceMatcher? always takes the first alternative (Nat.add.match_1 m k (x + 1) z s gives z k x)"
+
+[[fault]]
+id = "fe-match-extra-args-dropped"
+file = "src/front/whnf.fs"
+old = '''  wc-args wc-from wc wc-mpre @ wc wc-malts @ + wc-args slab-count wc-apply'''
+new = '''  wc-args wc-from wc wc-mpre @ dup wc-apply'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2 merge B: reduceMatcher? drops the arguments after the alternatives"
 
 [[fault]]
 id = "fe-kinds-tag"
