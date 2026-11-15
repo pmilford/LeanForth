@@ -11,8 +11,10 @@
 \   (GetUnfoldableConst.lean:78: a definition the transparency unfolds;
 \   an unknown name is invalid, as Lean throws): none (lf-unfold-none)
 \   when f's universe arguments are not as many as its parameters;
-\   unsupported when f has a smart-unfolding `f._sunfold` definition (the
-\   smart path, plan S2 merge B) or when that is not known
+\   when f has a smart-unfolding `f._sunfold` definition, its body at f's
+\   universe arguments applied to a1 .. an (head beta keeping its
+\   annotations) and lf-unfold-ask-smart: whnf.fs runs the rest of the
+\   smart path (plan S2 merge B); unsupported when that is not known
 \   (lf-menv-smart?); none for a matcher (whnfCore reduces matchers);
 \   else unfoldDefault (821): f's value with f's universe arguments for
 \   its parameters, applied to a1 .. an with head beta
@@ -65,6 +67,7 @@ require ./term-eqv.fs
 
 0 constant lf-unfold-none   1 constant lf-unfold-made
 2 constant lf-unfold-ask-keep   3 constant lf-unfold-ask-none
+4 constant lf-unfold-ask-smart
 1 cells context-slab: uf-args
 1 cells context-slab: uf-levels
 
@@ -76,10 +79,11 @@ require ./term-eqv.fs
 \ universe arguments for its parameters (instantiateValueLevelParams);
 \ applied to the arguments in uf-args, a lambda value with head beta
 \ (betaRev), any other as it is.
+: uf-at-levels ( value d -- value' outcome )
+  lf-menv-params >r 0 uf-levels slab-at r> lf-meta-instantiate-level-params ;
 : uf-value ( d const -- value outcome )
   uf-levels lf-meta-levels-fill ok-then? 0= if no-result exit then
-  dup lf-menv-value 0= if drop-invalid no-result exit then
-  swap lf-menv-params >r 0 uf-levels slab-at r> lf-meta-instantiate-level-params ;
+  dup lf-menv-value 0= if drop-invalid no-result exit then swap uf-at-levels ;
 : uf-beta ( value -- e' outcome )
   dup lf-term-lam? swap uf-args lf-meta-apply-all
   ok-then? 0= if nip no-result exit then swap if lf-meta-head-beta else outcome-ok then ;
@@ -100,18 +104,31 @@ require ./term-eqv.fs
 : uf-default ( d const -- e' code outcome )
   over >r uf-delta-beta ok-then? if r> uf-at-field else r> drop uf-fail then ;
 
-\ Before unfoldDefault: a `_sunfold` (the smart path, merge B) or not
-\ knowing whether there is one answers unsupported; a matcher may not
-\ unfold (flag false).
-: uf-smart-check ( d -- outcome )
-  lf-menv-smart? ok-then? if if outcome-unsupported else outcome-ok then then ;
-: uf-gate ( d -- flag outcome )
-  dup uf-smart-check ok-then? 0= if false swap exit then
-  lf-menv-matcher? ok-then? if 0= outcome-ok else false swap then ;
+\ The smart path's start (S2 merge B): f._sunfold's body (its record's,
+\ front/lib-decode.fs) at const's universe arguments, applied to the
+\ arguments with head beta that keeps its annotations (deltaBetaDefinition
+\ with preserveMData): e1 and lf-unfold-ask-smart; whnf.fs reduces it.
+: uf-sun-body ( d s -- d body outcome ) over lf-menv-params lf-libdec-sunfold ;
+: uf-body ( d const s -- body outcome )
+  swap uf-levels lf-meta-levels-fill ok-then? 0= if nip no-result exit then
+  uf-sun-body ok-then? if swap uf-at-levels else nip no-result then ;
+: uf-sbeta ( body -- e1 outcome )
+  uf-args lf-meta-apply-all ok-then? if lf-meta-head-beta-keep else no-result then ;
+: uf-smart ( e d const s -- e1 code outcome )
+  uf-body ok-then? 0= if nip uf-fail exit then
+  uf-sbeta ok-then? if nip lf-unfold-ask-smart outcome-ok else nip uf-fail then ;
+: uf-smart-of ( e d const -- e1 code outcome )
+  over lf-menv-sunfold if uf-smart else drop 2drop outcome-unsupported uf-fail then ;
+\ Not knowing whether f has a `_sunfold` answers unsupported; without
+\ one a matcher does not unfold (whnfCore reduces it), any other by
+\ unfoldDefault.
+: uf-plain ( e d const -- e' code outcome )
+  over lf-menv-matcher? ok-then? 0= if nip nip nip uf-fail exit then
+  if 2drop uf-none-of else rot drop uf-default then ;
 : uf-known ( e d const -- e' code outcome )
   2dup lf-meta-arity? 0= if 2drop uf-none-of exit then
-  over uf-gate ok-then? 0= if nip nip nip uf-fail exit then
-  if rot drop uf-default else 2drop uf-none-of then ;
+  over lf-menv-smart? ok-then? 0= if nip nip nip uf-fail exit then
+  if uf-smart-of else uf-plain then ;
 
 \ ---- unfoldProjInstWhenInstances? and unfoldProjInst?: isProjInst, then
 \ getUnfoldableConst? at default transparency.

@@ -139,6 +139,8 @@ begin-structure /wc
                      \ its outcome (full, unsupported), else ok
   field: wc-mpre     \ a matcher's parameters, motive and discriminants
   field: wc-malts    \ and its alternatives
+  field: wc-mkind    \ the frame kind of a matcher's part
+  field: wc-sm-out   \ the smart path's reduceMatcher?: wc-sm-fail .. -reduced
 end-structure
 /wc context-record: wc
 1 cells context-slab: wc-args     \ the term's arguments, last first
@@ -183,6 +185,8 @@ end-structure
 \ (wc-resume), as Lean's call of whnf returns.
 0 constant wc-proj-kind   1 constant wc-rec-kind
 lf-unfold-ask-none 1+ constant wc-match-kind
+wc-match-kind 1+ constant wc-smart-kind   wc-smart-kind 1+ constant wc-smatch-kind
+wc-smatch-kind 1+ constant wc-srec-kind
 : wc-top ( -- frame ) wc-frames slab-last ;
 : wc-keep ( frame -- ) wc wc-act @ over wcf-act ! lf-defeq-mode swap wcf-mode ! ;
 \ One frame claimed whole, or none (full); the part's activation is whnf.
@@ -435,14 +439,15 @@ lf-unfold-ask-none 1+ constant wc-match-kind
   wc wc-mpre @ 0 ['] wc-take-at ok-fold ok-then? 0= if no-result exit then
   wc wc-malts @ 0 ['] wc-open-h ok-fold ;
 : wc-match-value ( -- value outcome ) wc wc-aux @ wc wc-head @ lf-unfold-value ;
-: wc-match-part ( e head d -- e' flag outcome )
-  wc wc-aux ! drop wc wc-e ! wc-match-value ok-then? 0= if wc-fail exit then
+: wc-match-keep ( e head d kind -- ) wc wc-mkind ! wc wc-aux ! wc wc-head ! wc wc-e ! ;
+: wc-match-part ( e head d kind -- e' flag outcome )
+  wc-match-keep wc-match-value ok-then? 0= if wc-fail exit then
   wc-match-body ok-then? 0= if wc-fail exit then
-  wc-term wc wc-aux @ wc-match-kind wc-frame wc-go ;
+  wc-term wc wc-aux @ wc wc-mkind @ wc-frame wc-go ;
 : wc-matcher ( e head d -- e' flag outcome )
   wc-plain-mode? 0= if drop wc-unsupported exit then
   dup wc-minfo! dup ok? 0= if wc-defn-fail exit then drop
-  wc-partial? if 2drop wc-done else over wc wc-head ! wc-match-part then ;
+  wc-partial? if 2drop wc-done else wc-match-kind wc-match-part then ;
 \ Resumed with the body's whnf r: hs[i] at r's head, or none.
 : wc-h@ ( i -- x ) wc-hs slab-count wc wc-malts @ - + wc-hs slab-at @ ;
 : wc-alt-of ( head -- i true | false )
@@ -543,99 +548,6 @@ lf-unfold-ask-none 1+ constant wc-match-kind
 : wc-ask ( e e' code -- s flag outcome )
   wc-frame dup ok? 0= if wc-fail exit then drop
   lf-tr-instances lf-defeq-mode! wc-field-of true outcome-ok ;
-: wc-unfold-code ( e e' code -- e'' flag outcome )
-  dup lf-unfold-none = if 2drop wc-done exit then
-  dup lf-unfold-made = if drop nip wc-advance else wc-ask then ;
-: wc-unfold ( e -- e' flag outcome )
-  dup lf-unfold-step ok-then2? if wc-unfold-code else wc-drop-fail then ;
-: wc-delta ( e -- e' flag outcome )
-  wc-full? if dup wm-nat? if outcome-unsupported wc-drop-fail exit then then
-  lf-meta-spend? if wc-unfold else outcome-exhausted wc-drop-fail then ;
-\ After a whnfCore step: when it ends, a whnf activation tries delta.
-: wc-then-delta ( e flag outcome -- e' flag' outcome )
-  dup ok? 0= if exit then drop dup if outcome-ok exit then
-  drop wc-full? if wc-delta else false outcome-ok then ;
-: wc-step ( e -- e' flag outcome ) wc-core-step wc-then-delta ;
-
-\ ---- Resuming a frame with its part's whnf r. A class field: the field
-\ applied to the unfolded term's arguments with head beta, else the
-\ unfolded term (ask-keep) or nothing (ask-none).
-: wc-field-arg ( r -- x flag outcome )
-  wc-margs lf-meta-spine ok-then? 0= if wc-fail exit then
-  dup lf-lit-leaf? if drop outcome-unsupported wc-fail exit then
-  wc wc-aux @ lf-meta-head wc-project if true else -1 false then outcome-ok ;
-: wc-field-apply ( x -- y outcome )
-  wc wc-aux @ wc-args lf-meta-spine ok-then? 0= if nip no-result exit then drop
-  wc-rebuild ok-then? if lf-meta-head-beta else no-result then ;
-: wc-field-none ( kind -- e' flag outcome )
-  lf-unfold-ask-keep = if wc wc-aux @ wc-advance else wc-stay then ;
-: wc-field-got ( kind x flag -- e' flag outcome )
-  if nip wc-field-apply ok-then? if wc-advance else wc-fail then
-  else drop wc-field-none then ;
-: wc-field-resume ( r kind -- e' flag outcome )
-  swap wc-field-arg ok-then2? if wc-field-got else nip wc-fail then ;
-: wc-core-resume ( r kind -- e' flag outcome )
-  wc-rec-kind = if wc-rec-resume else wc-proj-resume then wc-then-delta ;
-: wc-resume ( r -- e' flag outcome )
-  wc-pop dup wc-match-kind = if drop wc-match-resume wc-then-delta exit then
-  dup lf-unfold-ask-keep < if wc-core-resume else wc-field-resume then ;
-
-\ ---- The loop.
-: wc-spend ( -- flag ) wc wc-fuel @ dup 0> if 1- wc wc-fuel ! true else drop false then ;
-: wc-next ( e flag -- e' flag' outcome )
-  begin dup 0= wc-framed? and while drop wc-resume dup ok? 0= if exit then drop repeat
-  outcome-ok ;
-\ After a step, a fault (wc-kind's, the first failure) ends the call with
-\ its outcome, whatever the step gave.
-: wc-checked ( e flag outcome -- e' flag outcome )
-  wc-faulted dup ok? if drop else nip nip nip wc-fail then ;
-: wc-turn ( e -- e' flag outcome ) wc-step dup ok? if drop wc-next then wc-checked ;
-: wc-loop ( e -- e' outcome )
-  begin wc-spend 0= if drop -1 outcome-exhausted exit then
-    wc-turn dup ok? 0= if nip exit then drop
-  0= until outcome-ok ;
-\ A call: the activation, the projection mode and the facts flag set, the
-\ transparency on entry restored at the end.
-: wc-enter ( act proj-i -- )
-  wc wc-proj-i ! wc wc-act ! false wc wc-unfolded ! lf-defeq-mode wc wc-mode0 ! wc-start ;
-: wc-leave ( -- ) wc wc-mode0 @ lf-defeq-mode! ;
-: wc-run ( e act proj-i -- e' outcome )
-  wc-enter dup lf-term-root? if wc-loop else drop -1 outcome-invalid then wc-leave ;
-: lf-whnf-core ( term -- term' outcome ) wc-core-act false wc-run ;
-: lf-whnf-core-at-defeq ( term -- term' outcome ) wc-core-act true wc-run ;
-
-\ ---- whnf (lf-meta-whnf) and unfoldDefinition? (lf-meta-unfold).
-: lf-meta-whnf ( e -- e' outcome ) wc-full-act false wc-run ;
-: wc-unfold-run ( e -- e' outcome )
-  wc-delta ok-then2? 0= if no-result exit then if wc-loop else outcome-ok then ;
-: wc-answer ( e' outcome -- e' flag outcome )
-  dup ok? if wc wc-unfolded @ else false then swap ;
-: lf-meta-unfold ( e -- e' flag outcome )
-  dup lf-term-root? 0= if drop -1 false outcome-invalid exit then
-  wc-unfold-act false wc-enter wc-unfold-run wc-leave wc-answer ;
-\ whnfR and whnfD: whnf at reducible or default transparency, the
-\ configured one restored.
-: wm-at ( e mode -- e' outcome ) ['] lf-meta-whnf swap lf-meta-at ;
-: lf-meta-whnf-r ( e -- e' outcome ) lf-tr-reducible wm-at ;
-: lf-meta-whnf-d ( e -- e' outcome ) lf-tr-default wm-at ;
-: lf-meta-whnf-forall ( e -- e' outcome )
-  dup lf-meta-whnf ok-then? 0= if nip no-result exit then
-  dup lf-term-pi? if nip else drop then outcome-ok ;
-\ instantiateForall's step: e made a pi (whnf when it is none), its body
-\ instantiated with p.
-: wm-to-pi ( e -- pi outcome )
-  dup lf-term-pi? if outcome-ok else drop -1 outcome-invalid then ;
-: wm-pi ( e -- pi outcome )
-  dup lf-term-pi? if outcome-ok exit then
-  lf-meta-whnf ok-then? if wm-to-pi else no-result then ;
-: wm-inst ( e p -- e' outcome )
-  swap wm-pi ok-then? 0= if nip no-result exit then
-  lf-term-second@ swap lf-meta-instantiate1 ;
-: wm-inst-at ( e k addr -- e' outcome ) swap cells + @ wm-inst ;
-: lf-meta-instantiate-forall ( e addr n -- e' outcome )
-  dup 0< if drop 2drop outcome-invalid no-result exit then
-  swap ['] wm-inst-at ok-fold ok-then? if outcome-ok else no-result then ;
-
 \ ---- getStuckMVar?: the unassigned metavariable at the head, or one
 \ that is a recursor's major premise (isRecStuck?: none for a K-like
 \ recursor); a definition's application without metavariables has none
@@ -740,5 +652,179 @@ lf-unfold-ask-none 1+ constant wc-match-kind
 : lf-whnf-stuck ( term -- mvar true outcome | false outcome )
   dup lf-term-root? 0= if drop false outcome-invalid exit then
   outcome-ok wc wc-fault ! ws-run ws-checked ;
+
+\ ---- The smart path of unfoldDefinition? (WHNF.lean:851-905, plan S2
+\ merge B). e1 (unfold.fs, lf-unfold-ask-smart) is smartUnfoldingReduce?'d
+\ when its head is a sunfoldMatch annotation of a matcher's application
+\ m: a smart frame keeps (e, e1) and reduceMatcher? of m runs (wc-smatch,
+\ its part the matcher's body as in whnfCore); a result whose top is a
+\ sunfoldMatchAlt annotation gives that annotation's term applied to e1's
+\ arguments; a stuck m gives none, unless getStuckMVar? finds a
+\ metavariable (synthPending might unstick it: unsupported); a head that
+\ is no matcher's full application gives none. Then e's recursion
+\ argument (rec_arg, getStructuralRecArgPos?), when it has one, must be a
+\ constructor's application after whnf (whnfMatcher, a part;
+\ isConstructorApp with toCtorIfLit), else none. Not ported yet,
+\ unsupported: a marker elsewhere in e1 (go's walk under lambdas, lets and
+\ arguments), a reduced result without an alternative marker at its top,
+\ and the parts at reducible, instances or implicit transparency.
+0 constant wc-sm-fail   1 constant wc-sm-stuck   2 constant wc-sm-reduced
+: wc-sm! ( state -- ) wc wc-sm-out ! ;
+: wc-sm-none ( m -- m false outcome ) wc-sm-fail wc-sm! wc-done ;
+: wc-smatch-sizes ( m head d -- e' flag outcome )
+  dup wc-minfo! dup ok? 0= if wc-defn-fail exit then drop
+  wc-partial? if 2drop wc-sm-none else wc-smatch-kind wc-match-part then ;
+: wc-smatch-decl ( m head d -- e' flag outcome )
+  wc-plain-mode? 0= if drop wc-unsupported exit then
+  dup lf-menv-matcher? ok-then? 0= if wc-defn-fail exit then
+  if wc-smatch-sizes else 2drop wc-sm-none then ;
+: wc-smatch-head ( m head -- e' flag outcome )
+  dup lf-term-const? 0= if drop wc-sm-none exit then
+  dup lf-meta-const-decl ok-then? if wc-smatch-decl exit then
+  dup outcome-invalid = if 2drop wc-sm-none else wc-2drop-fail then ;
+: wc-smatch ( m -- e' flag outcome )
+  dup wc-args lf-meta-spine ok-then? if wc-smatch-head else wc-drop-fail then ;
+: wc-smart-m ( e1 -- m true | false ) lf-meta-head lf-annot-match lf-annot-keyed? ;
+: wc-smart ( e e1 -- e' flag outcome )
+  dup wc-smart-m 0= if drop outcome-unsupported wc-drop-fail exit then drop
+  tuck wc-smart-kind wc-frame dup ok? 0= if wc-drop-fail exit then drop
+  wc-smart-m drop wc-smatch ;
+\ Resumed: reduceMatcher?'s answer (the frame of m) for the smart frame.
+: wc-smatch-resume ( r -- e' flag outcome )
+  wc-match-frame dup ok? 0= if wc-drop-fail exit then drop
+  dup wc-margs lf-meta-spine ok-then? 0= if wc-drop-fail exit then
+  wc-alt-of wc-hs-drop if nip wc-alt-apply ok-then? 0= if wc-fail exit then wc-sm-reduced
+  else wc-sm-stuck then wc-sm! wc-done ;
+\ The smart frame resumed (wc-term e, wc-aux e1): none leaves e.
+: wc-sfail ( -- e flag outcome ) wc-term wc-done ;
+: wc-sstuck ( r -- e' flag outcome )
+  lf-whnf-stuck ok-then? 0= if wc-fail exit then
+  if drop outcome-unsupported wc-fail else wc-sfail then ;
+: wc-s-extra ( c -- r outcome )
+  wc wc-aux @ wc-args lf-meta-spine ok-then? 0= if nip no-result exit then drop
+  wc-args lf-meta-apply-all ;
+: wc-rec-pos ( -- k true | false )
+  wc-term lf-meta-head lf-meta-const-decl
+  ok-then? if lf-menv-rec-arg else drop false then ;
+: wc-srec-arg ( r k -- e' flag outcome )
+  wc-term wc-args lf-meta-spine ok-then? 0= if nip wc-drop-fail exit then drop
+  dup wc-args slab-count < 0= if 2drop wc-sfail exit then
+  wc-args lf-meta-arg swap wc-term swap wc-srec-kind wc-frame wc-go ;
+: wc-srec ( r -- e' flag outcome )
+  wc-rec-pos 0= if wc-advance exit then
+  wc-plain-mode? 0= if 2drop outcome-unsupported wc-fail exit then wc-srec-arg ;
+: wc-sreduced ( t -- e' flag outcome )
+  lf-annot-match-alt lf-annot-keyed? 0= if outcome-unsupported wc-fail exit then
+  wc-s-extra ok-then? if wc-srec else wc-fail then ;
+: wc-smart-resume ( t -- e' flag outcome )
+  wc wc-sm-out @ dup wc-sm-reduced = if drop wc-sreduced exit then
+  wc-sm-stuck = if wc-sstuck else drop wc-sfail then ;
+\ The recursion argument's whnf a: e1's reduct (wc-aux) when a is a
+\ constructor's application, else none.
+: wc-ctor-app? ( a -- flag outcome )
+  lf-meta-ctor-if-lit ok-then? 0= if false swap exit then
+  wc-margs lf-meta-spine ok-then? 0= if false swap exit then wc-exact? outcome-ok ;
+: wc-srec-resume ( a -- e' flag outcome )
+  wc-ctor-app? ok-then? 0= if wc-fail exit then
+  if wc wc-aux @ wc-advance else wc-sfail then ;
+
+: wc-unfold-code ( e e' code -- e'' flag outcome )
+  dup lf-unfold-none = if 2drop wc-done exit then
+  dup lf-unfold-made = if drop nip wc-advance exit then
+  dup lf-unfold-ask-smart = if drop wc-smart else wc-ask then ;
+: wc-unfold ( e -- e' flag outcome )
+  dup lf-unfold-step ok-then2? if wc-unfold-code else wc-drop-fail then ;
+: wc-delta ( e -- e' flag outcome )
+  wc-full? if dup wm-nat? if outcome-unsupported wc-drop-fail exit then then
+  lf-meta-spend? if wc-unfold else outcome-exhausted wc-drop-fail then ;
+\ After a whnfCore step: when it ends, a whnf activation tries delta.
+: wc-then-delta ( e flag outcome -- e' flag' outcome )
+  dup ok? 0= if exit then drop dup if outcome-ok exit then
+  drop wc-full? if wc-delta else false outcome-ok then ;
+: wc-step ( e -- e' flag outcome ) wc-core-step wc-then-delta ;
+
+\ ---- Resuming a frame with its part's whnf r. A class field: the field
+\ applied to the unfolded term's arguments with head beta, else the
+\ unfolded term (ask-keep) or nothing (ask-none).
+: wc-field-arg ( r -- x flag outcome )
+  wc-margs lf-meta-spine ok-then? 0= if wc-fail exit then
+  dup lf-lit-leaf? if drop outcome-unsupported wc-fail exit then
+  wc wc-aux @ lf-meta-head wc-project if true else -1 false then outcome-ok ;
+: wc-field-apply ( x -- y outcome )
+  wc wc-aux @ wc-args lf-meta-spine ok-then? 0= if nip no-result exit then drop
+  wc-rebuild ok-then? if lf-meta-head-beta else no-result then ;
+: wc-field-none ( kind -- e' flag outcome )
+  lf-unfold-ask-keep = if wc wc-aux @ wc-advance else wc-stay then ;
+: wc-field-got ( kind x flag -- e' flag outcome )
+  if nip wc-field-apply ok-then? if wc-advance else wc-fail then
+  else drop wc-field-none then ;
+: wc-field-resume ( r kind -- e' flag outcome )
+  swap wc-field-arg ok-then2? if wc-field-got else nip wc-fail then ;
+: wc-core-resume ( r kind -- e' flag outcome )
+  wc-rec-kind = if wc-rec-resume else wc-proj-resume then wc-then-delta ;
+: wc-resume-plain ( r kind -- e' flag outcome )
+  dup lf-unfold-ask-keep < if wc-core-resume else wc-field-resume then ;
+: wc-resume-smart ( r kind -- e' flag outcome )
+  dup wc-smart-kind = if drop wc-smart-resume exit then
+  wc-smatch-kind = if wc-smatch-resume else wc-srec-resume then ;
+: wc-resume ( r -- e' flag outcome )
+  wc-pop dup wc-match-kind = if drop wc-match-resume wc-then-delta exit then
+  dup wc-smart-kind < if wc-resume-plain else wc-resume-smart then ;
+
+\ ---- The loop.
+: wc-spend ( -- flag ) wc wc-fuel @ dup 0> if 1- wc wc-fuel ! true else drop false then ;
+: wc-next ( e flag -- e' flag' outcome )
+  begin dup 0= wc-framed? and while drop wc-resume dup ok? 0= if exit then drop repeat
+  outcome-ok ;
+\ After a step, a fault (wc-kind's, the first failure) ends the call with
+\ its outcome, whatever the step gave.
+: wc-checked ( e flag outcome -- e' flag outcome )
+  wc-faulted dup ok? if drop else nip nip nip wc-fail then ;
+: wc-turn ( e -- e' flag outcome ) wc-step dup ok? if drop wc-next then wc-checked ;
+: wc-loop ( e -- e' outcome )
+  begin wc-spend 0= if drop -1 outcome-exhausted exit then
+    wc-turn dup ok? 0= if nip exit then drop
+  0= until outcome-ok ;
+\ A call: the activation, the projection mode and the facts flag set, the
+\ transparency on entry restored at the end.
+: wc-enter ( act proj-i -- )
+  wc wc-proj-i ! wc wc-act ! false wc wc-unfolded ! lf-defeq-mode wc wc-mode0 ! wc-start ;
+: wc-leave ( -- ) wc wc-mode0 @ lf-defeq-mode! ;
+: wc-run ( e act proj-i -- e' outcome )
+  wc-enter dup lf-term-root? if wc-loop else drop -1 outcome-invalid then wc-leave ;
+: lf-whnf-core ( term -- term' outcome ) wc-core-act false wc-run ;
+: lf-whnf-core-at-defeq ( term -- term' outcome ) wc-core-act true wc-run ;
+
+\ ---- whnf (lf-meta-whnf) and unfoldDefinition? (lf-meta-unfold).
+: lf-meta-whnf ( e -- e' outcome ) wc-full-act false wc-run ;
+: wc-unfold-run ( e -- e' outcome )
+  wc-delta ok-then2? 0= if no-result exit then if wc-loop else outcome-ok then ;
+: wc-answer ( e' outcome -- e' flag outcome )
+  dup ok? if wc wc-unfolded @ else false then swap ;
+: lf-meta-unfold ( e -- e' flag outcome )
+  dup lf-term-root? 0= if drop -1 false outcome-invalid exit then
+  wc-unfold-act false wc-enter wc-unfold-run wc-leave wc-answer ;
+\ whnfR and whnfD: whnf at reducible or default transparency, the
+\ configured one restored.
+: wm-at ( e mode -- e' outcome ) ['] lf-meta-whnf swap lf-meta-at ;
+: lf-meta-whnf-r ( e -- e' outcome ) lf-tr-reducible wm-at ;
+: lf-meta-whnf-d ( e -- e' outcome ) lf-tr-default wm-at ;
+: lf-meta-whnf-forall ( e -- e' outcome )
+  dup lf-meta-whnf ok-then? 0= if nip no-result exit then
+  dup lf-term-pi? if nip else drop then outcome-ok ;
+\ instantiateForall's step: e made a pi (whnf when it is none), its body
+\ instantiated with p.
+: wm-to-pi ( e -- pi outcome )
+  dup lf-term-pi? if outcome-ok else drop -1 outcome-invalid then ;
+: wm-pi ( e -- pi outcome )
+  dup lf-term-pi? if outcome-ok exit then
+  lf-meta-whnf ok-then? if wm-to-pi else no-result then ;
+: wm-inst ( e p -- e' outcome )
+  swap wm-pi ok-then? 0= if nip no-result exit then
+  lf-term-second@ swap lf-meta-instantiate1 ;
+: wm-inst-at ( e k addr -- e' outcome ) swap cells + @ wm-inst ;
+: lf-meta-instantiate-forall ( e addr n -- e' outcome )
+  dup 0< if drop 2drop outcome-invalid no-result exit then
+  swap ['] wm-inst-at ok-fold ok-then? if outcome-ok else no-result then ;
 
 base !   \ the BASE this file was loaded with

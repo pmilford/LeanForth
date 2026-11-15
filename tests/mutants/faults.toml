@@ -17778,16 +17778,16 @@ reason = "S2 §9: unfoldComparingHeadsDefEq unfolds both sides where Lean unfold
 [[fault]]
 id = "fe-delta-no-sunfold"
 file = "src/front/unfold.fs"
-old = '''  lf-menv-smart? ok-then? if if outcome-unsupported else outcome-ok then then ;'''
-new = '''  lf-menv-smart? ok-then? if drop outcome-ok then ;'''
+old = '''  if uf-smart-of else uf-plain then ;'''
+new = '''  drop uf-plain ;'''
 test = "$GFORTH tests/front/whnf.fs"
-reason = "S2 §9: a definition with a `_sunfold` (Nat.add) unfolds by its brecOn value, where Lean takes the smart path"
+reason = "S2 §9: a definition with a `_sunfold` (Nat.add) unfolds by its brecOn value, where Lean takes the smart path (Nat.add k x is none)"
 
 [[fault]]
 id = "fe-unfold-matcher"
 file = "src/front/unfold.fs"
-old = '''  lf-menv-matcher? ok-then? if 0= outcome-ok else false swap then ;'''
-new = '''  lf-menv-matcher? ok-then? if drop true outcome-ok else false swap then ;'''
+old = '''  if 2drop uf-none-of else rot drop uf-default then ;'''
+new = '''  drop rot drop uf-default ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S2: unfoldDefinition? unfolds a matcher (Nat.add.match_1), which Lean leaves to whnfCore"
 
@@ -17795,8 +17795,8 @@ reason = "S2: unfoldDefinition? unfolds a matcher (Nat.add.match_1), which Lean 
 id = "fe-unfold-arity-ignored"
 file = "src/front/unfold.fs"
 old = '''  2dup lf-meta-arity? 0= if 2drop uf-none-of exit then
-  over uf-gate'''
-new = '''  over uf-gate'''
+  over lf-menv-smart?'''
+new = '''  over lf-menv-smart?'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S2: a constant with more universe arguments than parameters unfolds (Lean's deltaDefinition gives none)"
 
@@ -19803,3 +19803,19 @@ old = '''    lf-tag-annotation of wc-annot-head endof'''
 new = '''    lf-tag-annotation of drop wc-done endof'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S2 merge B: whnfCore stops at an annotation at an application's head where Lean's whnfEasyCases looks through it"
+
+[[fault]]
+id = "fe-sunfold-markers-dropped"
+file = "src/front/lib-decode.fs"
+old = '''  dup elab-borrowed = if drop outcome-ok else lbd-s-key lf-annot then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2 merge B: a smart-unfolding body decoded without its sunfoldMatch markers, so the smart path finds no match to reduce"
+
+[[fault]]
+id = "fe-smart-stuck-as-reduced"
+file = "src/front/whnf.fs"
+old = '''  else wc-sm-stuck then wc-sm! wc-done ;'''
+new = '''  else wc-sm-reduced then wc-sm! wc-done ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2 merge B: a stuck match (Nat.add k x) read as reduced"

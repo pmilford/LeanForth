@@ -91,7 +91,6 @@ ADD_ADD = apps(c("Add.add", 0), NAT, c("instAddNat"))
 HADD_MK = apps(c("HAdd.mk", 0, 0, 0), NAT, NAT, NAT,
                (LAM, NAT, (LAM, NAT, apps(ADD_ADD, "#1", "#0"))))
 SMART = "S2 merge B smart unfolding (Nat.add._sunfold)"
-SMART_MUL = "S2 merge B smart unfolding (Nat.mul._sunfold, the greater height unfolded first)"
 ID1, FST, MUL, PRED = c("id", 1), c("Prod.fst", 0, 0), c("Nat.mul"), c("Nat.pred")
 UNIT_TYPE, DEC_LT = c("Unit"), c("Nat.decLt")
 PROJ_TYPE = "FE1c inferType of a projection (proof irrelevance)"
@@ -206,8 +205,17 @@ CASES = [
     ("eq", (LIT, 0), ZERO, None),
     ("eq", (LIT, 1), ZERO, None),
     ("eq", (LIT, 3), succ(succ(succ(ZERO))), "FE1c reduceNat? (isDefEqNat)"),
-    ("eq", succ("?h"), hadd(ofnat(0), hadd("k", ofnat(1))),
-     SMART + " after lazy delta (FE1's acceptance case)"),
+    # FE1's acceptance case: smart unfolding after lazy delta (merge B);
+    # 00-add-zero.lf's and 02-add-zero-rfl.lf's k + 0 = k, both ways:
+    # after HAdd.hAdd and Add.add unfold, isDefEqProofIrrel infers the
+    # type of instAddNat.1 k 0 (a gap of FE1c); Nat.add k 0 = k itself.
+    ("eq", succ("?h"), hadd(ofnat(0), hadd("k", ofnat(1))), None),
+    ("eq", hadd("k", ofnat(0)), "k", PROJ_TYPE),
+    ("eq", "k", hadd("k", ofnat(0)), None),
+    ("eq", hadd("k", ofnat(0)), hadd("x", ofnat(0)), None),
+    ("eq", apps(ADD, "k", ofnat(0)), "k", None),
+    ("eq", "k", apps(ADD, "k", ofnat(0)), None),
+    ("eq", apps(ADD, "k", ZERO), apps(ADD, "x", (LIT, 0)), None),
     ("eq", hadd("k", ofnat(1)), succ("k"), None),
     # Depth: a metavariable of the outer depth is read-only.
     ("deep", "?n", "k", None),
@@ -217,7 +225,7 @@ CASES = [
     ("eq", ADD, c("Nat.mul"), None),
     ("red", apps(ADD, "k", "x"), apps(ADD, "k", "x"), None),
     ("red", apps(ADD, "k", "x"), apps(ADD, "x", "k"), None),  # hints: Init's, S2
-    ("eq", apps(ADD, "k", "x"), apps(ADD, "x", "k"), SMART),
+    ("eq", apps(ADD, "k", "x"), apps(ADD, "x", "k"), None),
     # Instances and implicit transparency, with arguments; at reducible,
     # an assignment's types compared at implicit (id Nat unfolds there).
     ("inst", apps("u", "k"), apps("u", "x"), None),
@@ -266,9 +274,8 @@ CASES = [
     # 2, a value that is not simple).
     ("meta", apps(ID1, NAT, "?n"), apps(FST, NAT, NAT, pair("a", "b")), None),
     ("meta", apps(FST, NAT, NAT, pair("a", "b")), apps(ID1, NAT, "?n"), None),
-    ("eq", apps(ID1, NAT, apps(MUL, "k", "x")), apps(MUL, "k", "x"), SMART_MUL),
-    ("eq", apps(MUL, "k", "x"), apps(ID1, NAT, apps(MUL, "k", "x")),
-     "S3 evalNat's Nat.mul (isDefEqOffsetNat, nat-offset.fs; folding literals)"),
+    ("eq", apps(ID1, NAT, apps(MUL, "k", "x")), apps(MUL, "k", "x"), None),
+    ("eq", apps(MUL, "k", "x"), apps(ID1, NAT, apps(MUL, "k", "x")), None),
     ("eq", apps(ID1, NAT, apps(ADD, "k", "x")),
      apps(c("Function.comp", 1, 1, 1), NAT, NAT, NAT, apps(ID1, NAT), apps(ADD, "k"), "x"), None),
     ("eq", apps(PRED, "x"), apps(PRED, apps(ID1, NAT, "x")), None),

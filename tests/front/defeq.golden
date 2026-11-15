@@ -80,6 +80,12 @@ true 0 Nat.zero.{}
 false
 true 3 (app Nat.succ.{} (app Nat.succ.{} (app Nat.succ.{} Nat.zero.{})))
 true (app Nat.succ.{} (app (app Nat.add.{} (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0))) k)) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0))) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) (app (app (app OfNat.ofNat.{0} Nat.{}) 1) (app instOfNatNat.{} 1))))
+true (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0))) k
+true k (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0)))
+false
+true (app (app Nat.add.{} k) (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0))) k
+true k (app (app Nat.add.{} k) (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0)))
+false
 true (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) (app (app (app OfNat.ofNat.{0} Nat.{}) 1) (app instOfNatNat.{} 1))) (app Nat.succ.{} k)
 false
 false

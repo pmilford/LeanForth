@@ -135,7 +135,18 @@ TERMS = [
     ("unfold", "reducible", apps(ADD_ADD, "k", "x"), None),
     ("unfold", "instances", apps(ADD_ADD, "k", "x"), None),
     ("unfold", "default", c("instAddNat"), None),
-    ("unfold", "default", apps(cw.ADD, "k", "x"), SMART),
+    # The smart path (S2 merge B): Nat.add k x is stuck on x (none);
+    # Nat.add k 0 and Nat.add k (x + 1) reduce, rec_arg a constructor.
+    ("unfold", "default", apps(cw.ADD, "k", "x"), None),
+    ("unfold", "default", apps(cw.ADD, "k", cw.ZERO), None),
+    ("unfold", "default", apps(cw.ADD, "k", apps(cw.SUCC, "x")), None),
+    ("unfold", "default", apps(cw.ADD, "k", ("lit", 0)), None),
+    ("unfold", "default", apps(cw.ADD, "k", apps(c("OfNat.ofNat", 0), cw.NAT, ("lit", 0),
+                                                apps(c("instOfNatNat"), ("lit", 0)))), None),
+    ("mwhnf", "default", apps(cw.ADD, "k", cw.ZERO), None),
+    ("mwhnf", "default", apps(HADD3, "k", apps(c("OfNat.ofNat", 0), cw.NAT, ("lit", 0),
+                                              apps(c("instOfNatNat"), ("lit", 0)))), None),
+    ("mwhnf", "default", apps(c("Nat.mul"), "k", apps(cw.SUCC, "x")), None),
     ("unfold", "default", cw.ADD, None),
     ("unfold", "default", apps(c("Nat.add.match_1", 1), "k"), None),
     ("unfold", "all", c("Nat.zero_add"), None),
@@ -152,8 +163,8 @@ TERMS = [
     ("mwhnf", "instances", INST, None),
     ("mwhnf", "default", (cw.PROJ, 0, INST), None),
     ("mwhnf", "default", apps(c("id", 1), NAT, "k"), None),
-    ("mwhnf", "default", apps(HADD3, "k", "x"), NAT_GUARD),
-    ("mwhnf", "instances", apps(HADD3, "k", "x"), NAT_GUARD),
+    ("mwhnf", "default", apps(HADD3, "k", "x"), None),
+    ("mwhnf", "instances", apps(HADD3, "k", "x"), CAN_UNFOLD),
     ("mwhnf", "all", c("Nat.zero_add"), None),
     # reduceMatcher? and an auxiliary recursor's deltaBetaDefinition in
     # whnfCore (S2 merge B): Nat.add.match_1 and Nat.casesOn.

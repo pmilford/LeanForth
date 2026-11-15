@@ -405,6 +405,12 @@ end-structure
   me-run? if me-run-data-decl else elab-decl-of then ;
 : lf-menv-of-data ( d' -- d outcome )
   me-run? if me-decoded else elab-decl-name lf-menv-find then ;
+\ A definition's sunfold record (Lean's find? of f._sunfold) and its
+\ rec_arg (getStructuralRecArgPos?, S2 merge B); false when none.
+: lf-menv-sunfold ( d -- s true | false )
+  lf-menv-name lf-menv-data-decl if elab-sunfold-of else false then ;
+: lf-menv-rec-arg ( d -- k true | false )
+  lf-menv-sunfold if elab-sunfold-rec-arg else false then ;
 \ getMatcherInfo? (S2 merge B), from format 2's matcher record: the
 \ arguments before a matcher's alternatives (its parameters, motive and
 \ discriminants) and its alternatives; false when the data has none.

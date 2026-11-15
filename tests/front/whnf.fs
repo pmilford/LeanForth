@@ -234,10 +234,15 @@ T{ inst-hadd hadd-mk meta-whnf= inst-hadd lf-meta-whnf-r nip inst-hadd dup lf-wh
    -> true outcome-ok outcome-ok true outcome-ok }T
 T{ inst-hadd dup lf-meta-whnf-r drop same? lf-defeq-mode -> true lf-tr-default }T
 \ A projection function (semireducible in the data): unfolded at default,
-\ left at reducible; a matcher, an auxiliary recursor, Nat operations
-\ reduceNat? might fold; Nat.succ of a variable stays.
-T{ hadd-kx lf-meta-whnf hadd-kx dup lf-meta-whnf-r drop same?
-   -> -1 outcome-unsupported true }T
+\ left at reducible; Nat.add k x by the smart path (S2 merge B) is stuck
+\ on x, so whnf ends there; Nat.add k 0 and Nat.add k (x + 1) reduce.
+: nat-add ( a b -- t ) >r >r 0 s" Nat.add" cn r> app r> app ;
+T{ hadd-kx fk fx nat-add meta-whnf= hadd-kx dup lf-meta-whnf-r drop same?
+   -> true outcome-ok true }T
+T{ fk zero nat-add fk meta-whnf= fk fx succ swap app nat-add succ fk fx nat-add app meta-whnf=
+   -> true outcome-ok true outcome-ok }T
+T{ fk zero nat-add lf-meta-unfold rot fk = -> true outcome-ok true }T
+T{ fk fx nat-add dup lf-meta-unfold >r >r = r> r> -> true false outcome-ok }T
 \ reduceMatcher? (S2 merge B): Nat.add.match_1 m k 0 z s is z k, with x + 1
 \ for 0 it is s k x, with a stuck discriminant it stays; fewer arguments
 \ than the alternatives stay (partialApp).
@@ -246,6 +251,8 @@ T{ fk zero m1 fz fk app whnf= fk fx succ swap app m1 fs fk app fx app whnf=
    -> true outcome-ok true outcome-ok }T
 T{ fk fx m1 dup whnf= fk zero m1 fa app fz fk app fa app whnf= -> true outcome-ok true outcome-ok }T
 T{ 0 s" Nat.add.match_1" cn fk app dup meta-whnf= -> true outcome-ok }T
+\ unfoldDefinition? leaves a matcher to whnfCore (none).
+T{ fk zero m1 dup lf-meta-unfold >r >r = r> r> -> true false outcome-ok }T
 \ Not ported yet: a matcher at reducible, instances or implicit
 \ transparency (canUnfoldAtMatcher, unfoldNestedDIte).
 T{ fk zero m1 lf-meta-whnf-r -> -1 outcome-unsupported }T
@@ -286,16 +293,19 @@ menv-lib lf-menv-stage!
 T{ 0 lf-meta-budget! nat lf-meta-whnf lf-meta-budget lf-meta-default-budget lf-meta-budget!
    -> -1 outcome-exhausted 0 }T
 \ whnfForall: a pi from whnf, else the term itself; a failure passes on.
-T{ nat nat tpi fk app lf-meta-whnf-forall nat lf-meta-whnf-forall hadd-kx lf-meta-whnf-forall
+T{ nat nat tpi fk app lf-meta-whnf-forall nat lf-meta-whnf-forall
+   quot lv1 1 s" Quot.mk" cn nat app fx app fa app app lf-meta-whnf-forall
    -> nat nat tpi fk app lf-whnf-core drop outcome-ok nat outcome-ok -1 outcome-unsupported }T
+T{ hadd-kx dup lf-meta-whnf-forall >r = r> -> true outcome-ok }T
 T{ nat nat nat tpi lam fk app lf-meta-whnf-forall swap nat nat tpi same? -> outcome-ok true }T
 \ A constant no declaration has stays (getUnfoldableConstNoEx?); applied,
 \ it is invalid (Lean: unknown constant); a type whnf cannot decide
 \ passes its failure on through instantiateForall, one that is no pi is
 \ invalid.
 T{ unknown dup meta-whnf= unknown fk app lf-meta-whnf -> true outcome-ok -1 outcome-invalid }T
-T{ hadd-kx fx 1 rxs lf-meta-instantiate-forall inst-hadd fx 1 rxs lf-meta-instantiate-forall
-   -> -1 outcome-unsupported -1 outcome-invalid }T
+T{ quot lv1 1 s" Quot.mk" cn nat app fx app fa app app fx 1 rxs lf-meta-instantiate-forall
+   inst-hadd fx 1 rxs lf-meta-instantiate-forall hadd-kx fx 1 rxs lf-meta-instantiate-forall
+   -> -1 outcome-unsupported -1 outcome-invalid -1 outcome-invalid }T
 \ instantiateForall: (a : Sort 1) -> a with Nat is Nat; (fun _ => Nat ->
 \ Nat) k, a pi only after whnf, with x is Nat; one parameter too many is
 \ invalid (Lean throws); none leaves the term.
@@ -326,9 +336,10 @@ T{ match1 lf-tr-default stays 0 s" Nat.zero_add" cn lf-tr-all stays
    -> false outcome-ok true false outcome-ok true }T
 T{ nat fk lam lf-tr-default stays unknown lf-tr-default stays lv1 lv1 2 s" outParam" cn nat app
    lf-tr-default stays -> false outcome-ok true false outcome-ok true false outcome-ok true }T
-\ Unsupported: Nat.add applied has a `_sunfold` (the smart path, merge B);
-\ without the facts (no data read against the stage) any definition.
-T{ 0 s" Nat.add" cn fk app fx app lf-meta-unfold -> -1 false outcome-unsupported }T
+\ Nat.add k x takes the smart path (merge B) and gives none, stuck on x;
+\ unsupported without the facts (no data read against the stage) for
+\ any definition.
+T{ fk fx nat-add dup lf-meta-unfold >r >r = r> r> -> true false outcome-ok }T
 0 lf-menv-stage!
 T{ nat outp lf-meta-unfold -> -1 false outcome-unsupported }T
 menv-lib lf-menv-stage!
@@ -389,9 +400,9 @@ T{ 0 s" Nat.add" cn fk app fx app 0 proj lf-whnf-core-at-defeq nip lf-defeq-mode
 T{ lv1 1 s" id" cn nat app zero app recm fz whnf= 5 nlit recm fs 4 nlit app 4 nlit recm app
    whnf= 0 nlit recm fz whnf= -> true outcome-ok true outcome-ok true outcome-ok }T
 \ whnf goes on after an unfolding: outParam Nat is Nat; instHAdd's
-\ projection applied reaches Add.add's field, Nat.add k x, where
-\ reduceNat?'s guard answers unsupported (merge B).
-T{ nat outp nat meta-whnf= hadd-kx lf-meta-whnf -> true outcome-ok -1 outcome-unsupported }T
+\ projection applied reaches Add.add's field, Nat.add k x, which
+\ reduceNat?'s guard and the smart path (merge B) leave.
+T{ nat outp nat meta-whnf= hadd-kx fk fx nat-add meta-whnf= -> true outcome-ok true outcome-ok }T
 
 \ ---- isWFRec (reduceRec, WHNF.lean:229): Acc.rec and WellFounded.rec
 \ reduce their major premise at transparency all when the configured one
