@@ -75,18 +75,19 @@ is not (`groups.fs:12-20`). A line of a file must have fewer than 1024 character
 `0 + n = n`. A name takes as many values from the stack as the thing it
 names has explicit arguments, so `xs List.length` is Lean's `xs.length`.
 
-**Stack comments.** Words are described in Forth-2012 notation,
-`( before -- after )`: what the word takes from the stack, and what it leaves.
-The rightmost item is the top of the stack. Text that a word reads *itself*
-from the rest of the line is written in quotes in the same comment:
+**Stack comments and parsed text.** The *stack* column shows only the data
+stack, in Forth notation `( before -- after )`: what the word takes from the
+stack and what it leaves, the top of the stack rightmost. Text that a word
+reads *itself* from the rest of the line is never on the stack: it is written
+in capitals in the *word* column, after the word, as you type it:
 
-| Comment | Meaning |
+| Written | Meaning |
 | --- | --- |
-| `( "name" -- )` | the word reads the next token on its line (one name) and leaves nothing on the stack |
-| `( "name1" ... "terminator" -- )` | it reads tokens up to and including a terminator such as `=>` |
-| `( "text\"" -- )` | it reads the characters up to the next `"` on the same line |
-| `( v "name" -- )` | it takes a value from the stack and also reads a name |
-| `( t1 t2 -- t3 )` | an ordinary word on terms: two terms in, one out |
+| `universe NAME` with stack `( -- )` | the word parses the next token on its line (one name) and leaves nothing on the stack |
+| `by-case: TAG NAME1 ... =>` | it parses tokens up to and including a terminator such as `=>` |
+| `note" TEXT"` | it parses the characters up to the next `"` on the same line |
+| `explicit: NAME` with stack `( v -- )` | it takes a value from the stack and also parses a name |
+| `+` with stack `( t1 t2 -- t3 )` | an ordinary word on terms: two terms in, one out |
 
 In these comments `t` is a term, `s` a statement (a term that is a
 proposition), `v` any LeanForth value (a term, or in natural form a syntax
@@ -183,7 +184,10 @@ at level `l`: `Prop` is `Sort 0`, `Type` is `Sort 1`, `Type l` is
 `Sort (l + 1)`. A *universe parameter* is a level variable, like `u`, that
 a declaration is generic in: `identity.{u} {A : Sort u} (a : A) : A` holds
 for types of every level. `universe u` after the declaration's name
-introduces one. Lean: `universe u`, `Sort u`, `Type u`, `Prop`.
+introduces one. In practice: a statement about `Nat` or lists of `Nat` needs no
+universe parameter; you need one only when the statement is about an arbitrary
+type (`A : Sort u`, "for every type A"), so that the one theorem covers types
+of every size. Lean: `universe u`, `Sort u`, `Type u`, `Prop`.
 
 **Binder.** A binder introduces a variable with a type, for the rest of
 the declaration: the `(n : Nat)` of `theorem t (n : Nat) : ...`. Before
@@ -271,30 +275,30 @@ Errors named in the "Function" cells are codes of `src/author/errors.fs`.
 
 | Word | Stack and parse effect | Kind | State changed | Function |
 | --- | --- | --- | --- | --- |
-| `theorem` | `( "name" -- )` | parsing: one name, on its line | starts the declaration (kind theorem); empty binders; its name becomes a word at `end` | Starts a theorem named NAME inside the current namespace; errors 2 no name, 14 inside a declaration, 15 values on the stack, 28 name already declared (also by the library), 30 bad name, 53 `_root_` in the name. |
-| `def` | `( "name" -- )` | parsing: one name | as `theorem`, kind def | Starts a definition: the same, with a value instead of a proof. |
-| `axiom` | `( "name" -- )` | parsing: one name | as `theorem`, kind axiom | Starts an axiom: binders and one statement, no `:=`; `end NAME` takes the statement. |
-| `import-stub` | `( "name" -- )` | parsing: one name | as `theorem`, kind stub | Stands for a library constant; `bin/leanforth check` refuses it (error 48). |
-| `protected` | `( "kind" "name" -- )` | parsing: two names, the kind word `theorem`, `def`, `axiom` or `import-stub`, then the name | as that kind; marks the declaration protected | Starts a declaration that short names cannot reach through a namespace; error 43 when the first token is no kind, 44 when the name has no namespace prefix. |
-| `universe` | `( "name" -- )` | parsing: exactly one name; a second name is a new token to run | appends a universe parameter to the declaration (at most 8) and makes NAME a word in the locals | Declares a universe parameter NAME; it must come right after the declaration's name, before any binder, value or `:=` (error 16), once per name (28), at most 8 (10). |
-| `explicit:` | `( v "name" -- )` | parsing: one name | opens a binder: pushes it on the binders; NAME becomes a word in the locals (not for `[anonymous]` or a number-like name) | Binds NAME with kind explicit and the type that is the value on the stack, `(name : T)`; errors 3 no type below, 2 no name, 65 too many binders. |
-| `implicit:` | `( v "name" -- )` | parsing: one name | as `explicit:` | The same with kind implicit, `{name : T}`. |
-| `strict-implicit:` | `( v "name" -- )` | parsing: one name | as `explicit:` | The same with kind strict implicit, `⦃name : T⦄`. |
-| `instance:` | `( v "name" -- )` | parsing: one name | as `explicit:` | The same with kind instance implicit, `[name : T]`. |
+| `theorem NAME` | `( -- )` | parsing: one name, on its line | starts the declaration (kind theorem); empty binders; its name becomes a word at `end` | Starts a theorem named NAME inside the current namespace; errors 2 no name, 14 inside a declaration, 15 values on the stack, 28 name already declared (also by the library), 30 bad name, 53 `_root_` in the name. |
+| `def NAME` | `( -- )` | parsing: one name | as `theorem`, kind def | Starts a definition: the same, with a value instead of a proof. |
+| `axiom NAME` | `( -- )` | parsing: one name | as `theorem`, kind axiom | Starts an axiom: binders and one statement, no `:=`; `end NAME` takes the statement. |
+| `import-stub NAME` | `( -- )` | parsing: one name | as `theorem`, kind stub | Stands for a library constant; `bin/leanforth check` refuses it (error 48). |
+| `protected KIND NAME` | `( -- )` | parsing: two names, the kind word `theorem`, `def`, `axiom` or `import-stub`, then the name | as that kind; marks the declaration protected | Starts a declaration that short names cannot reach through a namespace; error 43 when the first token is no kind, 44 when the name has no namespace prefix. |
+| `universe NAME` | `( -- )` | parsing: exactly one name; a second name is a new token to run | appends a universe parameter to the declaration (at most 8) and makes NAME a word in the locals | Parses NAME and appends it as a universe parameter of the current declaration, at most 8 per declaration. A universe parameter is a level variable that makes the declaration generic over sizes of types (see [universe](#terms)): Lean's `universe u` in `def identity.{u} {A : Sort u} (a : A) : A`. It must come right after the declaration's name, before any binder, value or `:=` (error 16), once per name (28), at most 8 (10). |
+| `explicit: NAME` | `( v -- )` | parsing: one name | opens a binder: pushes it on the binders; NAME becomes a word in the locals (not for `[anonymous]` or a number-like name) | Binds NAME with kind explicit and the type that is the value on the stack, `(name : T)`; errors 3 no type below, 2 no name, 65 too many binders. |
+| `implicit: NAME` | `( v -- )` | parsing: one name | as `explicit:` | The same with kind implicit, `{name : T}`. |
+| `strict-implicit: NAME` | `( v -- )` | parsing: one name | as `explicit:` | The same with kind strict implicit, `⦃name : T⦄`. |
+| `instance: NAME` | `( v -- )` | parsing: one name | as `explicit:` | The same with kind instance implicit, `[name : T]`. |
 | `:=` | `( s -- )` | ordinary; acts once per declaration | the statement tree (natural) or the declaration's type (kernel form) is stored; the binders open now become its parameters | Ends the statement. Errors 17 not allowed here (outside a declaration, an axiom, or a second `:=`), 18 the statement is not exactly one term or a value sits between binders. |
-| `end` | `( "name" -- )` | parsing: one name; inside a declaration it completes it, outside it leaves a namespace | completes the declaration: closes binders around statement and proof, records type and value, publishes the name; or pops namespaces | NAME must repeat the declaration's name (error 22) or name the namespaces to leave (22, 23). In natural form it runs the elaborator and the tactics (errors 19 `:=` missing, 20 proof not one term, 21 binder still open, 82 block open, 86 value left over). |
-| `namespace` | `( "name" -- )` | parsing: one name, may be dotted | enters one namespace per part | Between declarations only (error 24); `namespace A.B` enters `A`, then `A.B`; more than 16 namespaces entered and opened together is error 25. |
-| `open` | `( "name" -- )` | parsing: one name | marks the namespace opened (until the enclosing `end`) | Makes the names of namespace NAME findable by their short names; unknown namespace is error 26. |
+| `end NAME` | `( -- )` | parsing: one name; inside a declaration it completes it, outside it leaves a namespace | completes the declaration: closes binders around statement and proof, records type and value, publishes the name; or pops namespaces | NAME must repeat the declaration's name (error 22) or name the namespaces to leave (22, 23). In natural form it runs the elaborator and the tactics (errors 19 `:=` missing, 20 proof not one term, 21 binder still open, 82 block open, 86 value left over). |
+| `namespace NAME` | `( -- )` | parsing: one name, may be dotted | enters one namespace per part | Between declarations only (error 24); `namespace A.B` enters `A`, then `A.B`; more than 16 namespaces entered and opened together is error 25. |
+| `open NAME` | `( -- )` | parsing: one name | marks the namespace opened (until the enclosing `end`) | Makes the names of namespace NAME findable by their short names; unknown namespace is error 26. |
 | NAME of a constant or variable | `( v1 ... vk -- v )` | ordinary (found by the interpreter; resolved when run) | pops its arguments, pushes one value | Applies the constant or variable to as many values as it has explicit arguments (k); errors 1 unknown, 27 ambiguous, 55 a short name of a library constant, 73 the count depends on unfolding a definition. |
 | a numeral `0`, `2` | `( -- v )` | ordinary (read by Forth, not a LeanForth word) | pushes a number; its position is kept | In natural form Lean's numeral, a plain decimal of at most nine digits; other number forms are error 35. |
-| `'` | `( "name" -- )` followed by NAME `( -- v )` | looks ahead: reads the next token without consuming it; natural form only | marks a pending tick; the next name word then takes no arguments | The function NAME itself, unapplied; error 59 when no name follows on the line. |
+| `' NAME` | `( -- v )` | looks ahead: reads the next token without consuming it; natural form only | marks a pending tick; the next name word then takes no arguments | The function NAME itself, unapplied; error 59 when no name follows on the line. |
 | `$` | `( f a -- v )` | ordinary | pops two values, pushes the application | One more argument: `f a $` is Lean's `f a`. |
 | `+` `*` | `( a b -- v )` | ordinary; natural form only (error 58 in kernel form) | pops two, pushes an operator node | Lean's `a + b` and `a * b`, as `binop%` of `HAdd.hAdd` and `HMul.hMul`. |
 | `=` `≤` | `( a b -- v )` | ordinary; natural form only | pops two, pushes a relation node | Lean's `a = b` and `a ≤ b`, as `binrel%` of `Eq` and `LE.le`. |
 | `#check` | `( v -- )` | ordinary; natural form; outside declarations only | counts the check; prints one line `TERM : TYPE`; no declaration | Elaborates the term with no expected type and prints it with its type; inside a declaration it is error 140 (141 in a tactic block). |
 | `kernel-form` | `( -- )` | ordinary; acts outside declarations | switches the run to the kernel form for the rest of the run | Error 57 inside a declaration. |
-| `\` | `( "rest of line" -- )` | parsing: the rest of the line | none | A comment to the end of the line. |
-| `(` | `( "text)" -- )` | parsing: text up to `)` on the same line | none | A comment; without `)` on its line it is error 42. |
+| `\ TEXT` | `( -- )` | parsing: the rest of the line | none | A comment to the end of the line. |
+| `( TEXT)` | `( -- )` | parsing: text up to `)` on the same line | none | A comment; without `)` on its line it is error 42. |
 | `->` | `( a b -- t )` | ordinary; kernel form only | pops two types, pushes the function type | `A B ->` is Lean's `A → B`. |
 | `fun` `forall` | `( v -- t )` | ordinary; kernel form only | closes the innermost open binder around the one value above it | A λ or a Π over that binder; errors 13 no binder open, 12 body not one term. |
 | `Prop` `Type` `Sort` `^` `var#` `lit#` `proj#` `level+` `level-max` `level-imax` `root:` | see [programming reference](../programming/LEANFORTH_WORDS.md#the-vocabulary) | kernel form only (natural form: error 70) | build kernel terms and levels | Levels, de Bruijn variables, literals, projections and universe arguments written out. |
@@ -461,9 +465,9 @@ section is the words in the text that go into it.
 
 | Word | Stack and parse effect | Kind | State changed | Function |
 | --- | --- | --- | --- | --- |
-| `label:` | `( v "name" -- v' )` | parsing: one name; kernel form only (natural form: error 70) | gives the term its own node and adds a label entry to the note table (`src/present/note-table.fs`) | Names the step that built the value on top, so the printer can refer to it; a label repeated in one declaration is error 29, a missing name is 2. |
-| `note"` | `( v "text\"" -- v' )` | parsing: the text up to the next `"` on its line; kernel form only | as `label:`, entry kind person | Attaches a note by a person; no closing `"` on the line is error 37. |
-| `ai-note"` | `( v "text\"" -- v' )` | parsing: as `note"`; kernel form only | as `label:`, entry kind AI | Attaches a note tagged as written by an AI. |
+| `label: NAME` | `( v -- v' )` | parsing: one name; kernel form only (natural form: error 70) | gives the term its own node and adds a label entry to the note table (`src/present/note-table.fs`) | Names the step that built the value on top, so the printer can refer to it; a label repeated in one declaration is error 29, a missing name is 2. |
+| `note" TEXT"` | `( v -- v' )` | parsing: the text up to the next `"` on its line; kernel form only | as `label:`, entry kind person | Attaches a note by a person; no closing `"` on the line is error 37. |
+| `ai-note" TEXT"` | `( v -- v' )` | parsing: as `note"`; kernel form only | as `label:`, entry kind AI | Attaches a note tagged as written by an AI. |
 | `**` English line per tactic step (plan 8.6.12) | | designed in [S2_INTERFACE.md](../design/S2_INTERFACE.md), `--steps` | n/a | Not on main. |
 
 ### B.2 The words
@@ -508,7 +512,7 @@ term that results.
 | Word | Stack and parse effect | Kind | State changed | Function |
 | --- | --- | --- | --- | --- |
 | NAME of a theorem or constructor | `( a1 ... ak -- t )` | ordinary (resolved when run) | pops k values, pushes the application | Applies it to its explicit arguments: `n Eq.refl` is Lean's `Eq.refl n`; the elaborator supplies the hidden type and level. |
-| `'` | `( "name" -- )`, then NAME `( -- t )` | looks ahead; natural form | marks a pending tick | The constant itself, unapplied. |
+| `' NAME` | `( -- t )` | looks ahead; natural form | marks a pending tick | The constant itself, unapplied. |
 | `$` | `( f a -- t )` | ordinary | pops two, pushes one | One more argument. |
 | `Eq.refl`, `Nat.zero_add`, `congrArg`, ... | `( a -- t )` | ordinary names | as NAME | Any constant of the library named with `--env`; the count of values is its explicit arguments. |
 | `^` | `( c l -- c' )` | ordinary; kernel form only | adds a universe argument to the constant | `Eq.refl 1 ^ Nat $ n $`: explicit universe levels with `^`, every argument with `$`. |
@@ -596,17 +600,17 @@ values; to apply it write `$` (`ih k $`).
 | `by` | `( -- )` | ordinary; right after `:=` only (error 69 elsewhere; natural form; error 51 in kernel form) | read: records the proof's position and opens the tactic block (step 0) | Marks that a tactic proof follows `:=`. | `:= by` |
 | `by-rfl` | `( -- )` | ordinary | read: a step. Run: assigns the main goal `Eq.refl` and removes it from the goals | Closes the goal `a = b` when both sides are definitionally equal; otherwise error 97. | `rfl` |
 | `by-exact` | `( t -- )` | ordinary | read: a step holding the term. Run: elaborates t against the goal, assigns it, removes the goal | Closes the goal with the term t; a type mismatch is error 96, a wrong number of values 86 or 87. | `exact t` |
-| `by-intro:` | `( "name" -- )` | parsing: one name, or `_` | read: a step; NAME becomes a hypothesis word in the locals. Run: replaces the goal by one with the first binder introduced | Introduces one hypothesis NAME from the goal's first binder; `_` leaves it inaccessible (it cannot be written afterwards); error 94 when there is none, 84 when NAME is a LeanForth word. | `intro NAME` |
+| `by-intro: NAME` | `( -- )` | parsing: one name, or `_` | read: a step; NAME becomes a hypothesis word in the locals. Run: replaces the goal by one with the first binder introduced | Introduces one hypothesis NAME from the goal's first binder; `_` leaves it inaccessible (it cannot be written afterwards); error 94 when there is none, 84 when NAME is a LeanForth word. | `intro NAME` |
 | `by-sorry` | `( -- )` | ordinary | read: a step. Run: assigns the goal `sorryAx T Bool.false`, records an open part | Closes the goal with an open part; the declaration is accepted but reported NOT PROVED. | `sorry` |
 | `by-induction` | `( t -- )` | ordinary | read: a step holding t. Run: replaces the main goal by one goal per case | Induction on the variable t; the cases are left open (alone it ends in error 89). | `induction t` |
 | `by-induction-with` | `( t -- )` | ordinary; opens a block that `by-end` closes | read: a block step holding t. Run: as `by-induction`, each case taken by an alternative | Induction on t with the cases written as alternatives. | `induction t with` |
-| `\|` | `( "tag" "name1" ... "=>" -- )` | parsing: tokens of its line up to `=>`; only right inside `by-induction-with` (error 83 elsewhere) | read: an alternative block; the names become hypotheses until the alternative ends. Run: introduces the case's fields and runs the block | One alternative: TAG names a case (`zero`, `succ`), the names name its fields and hypotheses; ends at the next `\|` or at `by-end`. | `\| tag names =>` |
+| `\| TAG NAME1 ... =>` | `( -- )` | parsing: tokens of its line up to `=>`; only right inside `by-induction-with` (error 83 elsewhere) | read: an alternative block; the names become hypotheses until the alternative ends. Run: introduces the case's fields and runs the block | One alternative: TAG names a case (`zero`, `succ`), the names name its fields and hypotheses; ends at the next `\|` or at `by-end`. | `\| tag names =>` |
 | `=>` | | read only by `\|` and `by-case:` as their terminator; run alone it is error 84 | none | Ends an alternative's header. | `=>` |
 | `by-end` | `( -- )` | ordinary | read: closes the innermost `by-induction-with` or `by-case:` block | Closes the block; with none open, error 83. | indentation |
 | `by-rw[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: a block step. Run: rewrites the goal with each rule, then tries `by-rfl` | Starts a list of rewrite rules; every value built until `]` is a rule. | `rw [` |
 | `by-rewrite[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, no `by-rfl` | The same without the closing `rfl`. | `rewrite [` |
 | `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules, in order; closes it | Ends the rule list of `by-rw[` or `by-rewrite[`; with none open, error 83. | `]` |
-| `**` `by-case:` | `( "tag" "name1" ... "=>" -- )` | parsing: as `\|`; closed by `by-end` | read: a case block. Run: error 80 | One case after `by-induction`; read today, running stops with error 80. | `case tag names =>` |
+| `**` `by-case:` `TAG NAME1 ... =>` | `( -- )` | parsing: as `\|`; closed by `by-end` | read: a case block. Run: error 80 | One case after `by-induction`; read today, running stops with error 80. | `case tag names =>` |
 | `**` `by-decide` | `( -- )` | designed | n/a | Close a closed goal by evaluation. | `decide` |
 | `**` `by-omega` | `( -- )` | designed | n/a | Linear arithmetic over `Nat` and `Int`. | `omega` |
 | `**` `by-native-decide` | `( -- )` | designed; permanently unsupported (exit 2): it rests on `Lean.ofReduceBool` | n/a | n/a | `native_decide` |
