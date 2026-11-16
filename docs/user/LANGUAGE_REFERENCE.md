@@ -11,6 +11,18 @@
 > point could not be settled from the code, the entry says "(unclear from
 > the code)".
 
+**Who this is for.** You know mathematics, or Forth, or both. You do not
+need to know Lean. Every technical word is explained in the
+[glossary of concepts](#glossary-of-concepts) the first time it matters, and
+each explanation ends with the matching Lean spelling, for readers who
+want to compare.
+
+**What LeanForth is.** LeanForth lets you write a theorem and its proof as
+ordinary Forth text, and then has a small checking program (the *kernel*)
+confirm that the proof is correct. The theorem prover and its language come
+from Lean, a system for checking mathematical proofs; LeanForth reads the
+same mathematics in a postfix (Forth-style) spelling.
+
 **Notation.** A word is **implemented** when its definition exists on
 `main`; it carries no mark. A word marked **`**`** is *designed but not yet
 implemented* (or implemented only in part, as the entry says), and the entry
@@ -20,11 +32,11 @@ checked file they come from; a block I wrote that no test checks is marked
 "(illustration, not run)". Stack comments are explained in
 [Reading this reference](#reading-this-reference).
 
-**Trust.** The words build terms and tactic steps. They decide nothing.
-Only the kernel's check of the term accepts a theorem
-(`bin/leanforth check`, [the checker](COMMAND_LINE.md)). LeanForth today
-re-checks proofs written in LeanForth text and proofs that Lean exported;
-it does not claim that "LeanForth proved" anything by itself.
+**Trust.** The words build mathematical expressions and tactic steps. They
+decide nothing. Only the kernel's check of the finished proof accepts a
+theorem (`bin/leanforth check`, [the checker](COMMAND_LINE.md)). LeanForth
+today re-checks proofs written in LeanForth text and proofs that Lean
+exported; it does not claim that "LeanForth proved" anything by itself.
 
 **Other pages.** The same words are also described in
 [LEANFORTH_SYNTAX.md](LEANFORTH_SYNTAX.md) (user view, kernel-form examples),
@@ -34,17 +46,20 @@ elaborator fills in). Where they differ from this page, the code and this
 page's dated status decide; report the difference.
 
 **Two forms.** A file is **natural LeanForth** by default (the form of this
-page: `0 n + n =`, Lean's elaborator fills in hidden arguments). A file that
-starts with `kernel-form` is in the **kernel form**, in which every hidden
-argument and universe level is written out (`tests/author/*.lf`). Natural
-forms need the library's elaboration data: `--elab-data`; without it the
+page: `0 n + n =`; Lean's elaborator fills in the hidden arguments). A file
+that starts with `kernel-form` is in the **kernel form**, in which every
+hidden argument and universe level is written out (`tests/author/*.lf`).
+See [natural form and kernel form](#natural-form-and-kernel-form). Natural
+files need the library's elaboration data (`--elab-data`); without it the
 elaborator stops with error 139. Most words below work in both forms; the
 "Kind" and "Function" cells say where a word is of one form only.
 
 | Part | Contents |
 | --- | --- |
-| [Reading this reference](#reading-this-reference) | stack comments, postfix order, the term stack, the authoring state |
-| [Terms](#terms) | what NAME, universe, binder, goal, tactic and the other terms of the tables mean |
+| [Two annotated examples](#two-annotated-examples) | a one-line theorem and a three-theorem file, every line labelled |
+| [Reading this reference](#reading-this-reference) | how a file is read, postfix order, symbols and how to say them, placeholders, stack letters, what the words change |
+| [Glossary of concepts](#glossary-of-concepts) | declaration, binder, statement, tactic, goal, level and the other ideas the words work on |
+| [Errors](#errors) | what an error message shows |
 | [A. Theorems](#a-theorems) | declarations, binders, statements, `#check` |
 | [B. Proof outlines](#b-proof-outlines) | the outline of a checked proof; labels and notes |
 | [C. Proofs](#c-proofs) | proof terms |
@@ -55,215 +70,550 @@ elaborator stops with error 139. Most words below work in both forms; the
 
 ---
 
+## Two annotated examples
+
+Both files are checked by the test suite and accepted by the kernel. In
+the tables, "part" says what each line is. The words used are defined
+below; the examples are here first so that you can see the shape of a
+file. Lines that start with `\` are comments and are left out.
+
+### A theorem of one line: `0 + 0 = 0`
+
+File: `tests/front/s1-rfl.lf`.
+
+| Line | Text | Part | What it does |
+| --- | --- | --- | --- |
+| 1 | `theorem t` | start of the declaration, with its **name** `t` | begins a theorem called `t` |
+| 2 | `  0 0 + 0 =` | **statement** | in postfix: push `0`, push `0`, `+` adds them, push `0`, `=` builds the claim "(0 + 0) equals 0" |
+| 3 | `:= by` | `:=` then `by` | `:=` ends the statement ("is proved by"); `by` says the proof is a list of tactics |
+| 4 | `  by-rfl` | **tactic** | closes the goal "0 + 0 = 0": both sides are the same number once `0 + 0` is computed |
+| 5 | `end t` | **end** | finishes the declaration; repeats the name `t` |
+
+There is no binder, because the statement mentions no variable.
+
+- Mathematics: 0 + 0 = 0.
+- LeanForth: `theorem t  0 0 + 0 =  := by  by-rfl  end t`
+- Lean: `theorem t : 0 + 0 = 0 := by rfl`
+
+### Three theorems, one using the others: addition commutes
+
+File: `tests/front/ps-add-comm.lf` (the owner's proof set; Lean twin in
+`tests/front/s2-proofs.lean`). Lines are the file's own line numbers.
+
+| Line | Text | Part |
+| --- | --- | --- |
+| 8 | `theorem ps_zero_add` | start, **name** |
+| 9 | `  Nat explicit: n` | **binder**: a parameter `n`, a natural number |
+| 10 | `  0 n + n =` | **statement**: `0 + n = n` |
+| 11 | `:= by` | `:=`, `by` |
+| 12 | `  n by-induction-with` | **tactic**: induction on `n`; it opens a block of alternatives |
+| 13 | `  \| zero =>       by-rfl` | **case alternative** for `n = 0`, with its tactic |
+| 14 | `  \| succ k ih =>  by-rw[ ' Nat.add_succ ih ]` | **case alternative** for `n = k + 1`; `k` and the hypothesis `ih` are named here; the tactic rewrites with two rules |
+| 15 | `  by-end` | closes the block of alternatives |
+| 16 | `end ps_zero_add` | **end** |
+| 17 | `theorem ps_succ_add` | start, **name** |
+| 18 | `  Nat explicit: n  Nat explicit: m` | two **binders** |
+| 19 | `  n Nat.succ m + n m + Nat.succ =` | **statement**: `succ n + m = succ (n + m)` |
+| 20 | `:= by` | `:=`, `by` |
+| 21 | `  m by-induction-with` | **tactic**: induction on `m` |
+| 22 | `  \| zero =>       by-rw[ ' Nat.add_zero ' Nat.add_zero ]` | **case alternative** (zero) |
+| 23 | `  \| succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]` | **case alternative** (successor) |
+| 24 | `  by-end` | closes the alternatives |
+| 25 | `end ps_succ_add` | **end** |
+| 26 | `theorem ps_add_comm` | start, **name** |
+| 27 | `  Nat explicit: n  Nat explicit: m` | two **binders** |
+| 28 | `  n m + m n + =` | **statement**: `n + m = m + n` |
+| 29 | `:= by` | `:=`, `by` |
+| 30 | `  m by-induction-with` | **tactic**: induction on `m` |
+| 31 | `  \| zero =>       by-rw[ ' ps_zero_add ' Nat.add_zero ]` | **case alternative**; `ps_zero_add` is the theorem of lines 8-16, **used as a rewrite rule** |
+| 32 | `  \| succ k ih =>  by-rw[ ' Nat.add_succ ih ' ps_succ_add ]` | **case alternative**; uses `ps_succ_add`, lines 17-25 |
+| 33 | `  by-end` | closes the alternatives |
+| 34 | `end ps_add_comm` | **end** |
+
+Each statement in three forms:
+
+| Theorem | Mathematics | LeanForth statement | Lean |
+| --- | --- | --- | --- |
+| `ps_zero_add` | for every natural n: 0 + n = n | `0 n + n =` | `theorem ps_zero_add (n : Nat) : 0 + n = n` |
+| `ps_succ_add` | for all n, m: (n + 1) + m = (n + m) + 1 | `n Nat.succ m + n m + Nat.succ =` | `theorem ps_succ_add (n m : Nat) : Nat.succ n + m = Nat.succ (n + m)` |
+| `ps_add_comm` | for all n, m: n + m = m + n | `n m + m n + =` | `theorem ps_add_comm (n m : Nat) : n + m = m + n` |
+
+The Lean proof of `ps_add_comm`, for comparison:
+
+```lean
+theorem ps_add_comm (n m : Nat) : n + m = m + n := by
+  induction m with
+  | zero => rw [ps_zero_add, Nat.add_zero]
+  | succ k ih => rw [Nat.add_succ, ih, ps_succ_add]
+```
+
+(`Nat.succ n` is "the successor of n", that is n + 1. The tick `'` before
+a theorem's name, as in `' Nat.add_succ`, means "the theorem itself, as
+a rewrite rule"; see [D.5](#d5-by-rw--by-rewrite-).)
+
+---
+
 ## Reading this reference
 
-**LeanForth is Forth.** A LeanForth file is read by Forth's own text
-interpreter, one line at a time, with a private search order that holds only
-LeanForth's words (`src/author/runner.fs`, `lfa-eval-line`, line 185; the
-wordlists `lf-words`, `lf-locals`, `lf-consts` of `src/author/groups.fs`,
-lines 44-52). Each token of a line is looked up and the word found is run at
-once, left to right. A token that is a plain decimal number of at most nine
-digits is a number; any other token that is no word is an error (codes 1, 35).
-Words are **ordinary**, not Forth `immediate` words: none of them is run at
-compile time, and a LeanForth run started while Forth is compiling is refused
-(error 45, `runner.fs:133,184`). Names are case-sensitive even though Forth
-is not (`groups.fs:12-20`). A line of a file must have fewer than 1024 characters (error 39).
+### How a file is read
+
+**A file is Forth text; LeanForth words are the only words Forth sees.**
+The file is read by Forth's own text interpreter, one line at a time
+(`lfa-eval-line`, `src/author/runner.fs:185`: the line goes to Forth's
+`EVALUATE`). Before each line, the runner sets Forth's *search order*
+(the list of wordlists in which Forth looks a token up) to exactly three
+wordlists, searched in this order (`lfa-order!`, `src/author/groups.fs:52`):
+
+1. `lf-words`: the fixed LeanForth words (`theorem`, `explicit:`, `by-rfl`,
+   `+`, `=`, `:=`, `end`, ...);
+2. `lf-locals`: the names the current declaration has introduced
+   (its variables, universe parameters and hypotheses);
+3. `lf-consts`: the names of constants (the declarations made so far in
+   the file and, with `--env`, the library's).
+
+The three are ordinary Forth wordlists, but they are *private*: the caller's
+own search order is saved before the run and restored after it
+(`lfa-save`, `lfa-restore`, `runner.fs:93-99`). **Ordinary Forth words are
+not reachable.** `dup`, `+` (as Forth's addition), `:`, `.` and the like are
+not in the search order, so a `.lf` file cannot call them or define a Forth
+word; the `+` you write is LeanForth's `+`, which builds an addition, not
+Forth's. A token that no one of the three lists has and that is not a plain
+decimal number is an error (codes 1 and 35).
+
+**When a word runs.** The interpreter is in *interpret state* (Forth's
+default, as opposed to compiling a `:` definition). In that state the
+interpreter takes each token, finds its word and runs it at once, left to
+right. So a LeanForth word runs at the moment the interpreter reaches it
+in the text. The words do not make a program and run it later; most of them
+only record something (a value on the stack, a binder, a tactic step).
+Natural form adds one delay: the words before `end NAME` only record, and the
+real work (turning the record into mathematics and running the tactics)
+happens when `end NAME` is read ([below](#when-things-happen)).
+
+**"Immediate".** In Forth an *immediate* word is one that runs even while
+Forth is compiling a definition. LeanForth words are not immediate and do
+not need to be: the file is never read in compile state. A run started
+while Forth is compiling is refused (error 45, `runner.fs:133,184`), and
+every line must end with Forth still interpreting. This page does not use
+"compile time" in any other sense.
+
+**Other facts about the reading.** A token that is a plain decimal number of at
+most nine digits is a number; any other token that is no word is an error
+(codes 1, 35). Names are case-sensitive even though Forth is not
+(`groups.fs:12-20`). A line must have fewer than 1024 characters (error 39).
+
+### When things happen
+
+The file runs from the top to the bottom. Between declarations the words
+are `namespace`, `open`, `end` (of a namespace), `kernel-form`, comments,
+and an expression followed by `#check`; a file that stops inside a
+declaration or with values left is error 33. `theorem NAME` (or `def`,
+`axiom`) opens a declaration; binders, statement, `:=` and proof follow;
+`end NAME` closes it.
+
+1. *While the lines are read*, each word acts at once: it takes values off
+   the stack and leaves new ones, and adds binders and tactic steps.
+2. *At `end NAME`*, in natural form, the elaborator turns the recorded
+   syntax into complete mathematical expressions, the tactics run, and the
+   result is handed over as a finished declaration (`lfn-end-declaration`,
+   `reader.fs:192`; `lft-end-proof`, `tactic-syntax.fs:312`).
+3. *After the whole file has run*, `bin/leanforth check` hands every
+   finished declaration to the kernel (`src/cli/check-lf.fs:196`).
+
+The first error ends the run; later text is not read.
+
+### Natural form and kernel form
+
+In **natural form** you write `0 n + n =` and the elaborator (see
+[elaboration](#elaboration)) supplies what Lean would infer: which type
+each number has, which `+` is meant, hidden arguments. In the **kernel
+form** nothing is inferred: every hidden argument and universe level is
+written out, and a few words (`^`, `Sort`, `fun`, `forall`, `->`) exist
+only there. The kernel form is what the checker finally works with.
+
+### Postfix order, and what the symbols mean
 
 **Postfix order.** An argument is written before the word that uses it.
-`0 n + n =` means "zero, `n`, add, `n`, equal": the two operands of `+` are
-`0` and `n`, the two sides of `=` are the sum and `n`. In Lean it is
-`0 + n = n`. A name takes as many values from the stack as the thing it
-names has explicit arguments, so `xs List.length` is Lean's `xs.length`.
+`0 n + n =` means: push `0`; push `n`; `+` takes those two and builds the
+sum `0 + n`; push `n`; `=` takes the sum and `n` and builds the claim
+"`0 + n` equals `n`". In Lean it is `0 + n = n`. A name takes as many values
+from the stack as the thing it names has explicit arguments, so
+`xs List.length` is Lean's `xs.length`.
 
-**Stack comments and parsed text.** The *stack* column shows only the data
-stack, in Forth notation `( before -- after )`: what the word takes from the
-stack and what it leaves, the top of the stack rightmost. Text that a word
-reads *itself* from the rest of the line is never on the stack: it is written
-in capitals in the *word* column, after the word, as you type it:
+**`=` is never assignment.** In LeanForth, `=` builds the *proposition*
+"a equals b": a statement that may be true or false and is to be proved. It
+stores nothing and compares nothing at run time. `0 1 =` is a perfectly good
+statement (a false one, which no proof can establish).
+
+| Symbol | Say it as | What it is |
+| --- | --- | --- |
+| `=` | "equals" | builds the proposition "a equals b" from two values; never assignment |
+| `:=` | "is proved by" (after a theorem's statement), "is defined as" (in a definition) | ends the statement and starts the proof (or, for `def`, the value) |
+| `=>` | "gives" or "then" | ends the header of a case: `\| zero =>` reads "in the case zero: ..." |
+| `\|` | "case" (from "bar") | starts one case alternative of an induction |
+| `'` | "tick" | `' NAME` means "the theorem or function NAME itself, not applied to anything"; used for rewrite rules |
+| `#check` | "check" | prints the type of the value before it; asserts nothing |
+| `rfl` (here `by-rfl`) | "reflexivity" | the tactic that closes `a = a`, also when the two sides only become the same after computing |
+| `by` | "by" | says the proof that follows is a list of tactics |
+| `⊢` | "proves" or "turnstile" | in a printed goal, separates the hypotheses (left) from what is still to prove (right) |
+| `$` | "apply" | gives a function one more argument |
+| `≤` | "is at most" | builds the proposition "a is at most b" |
+
+### Stack comments, parsed text and placeholders
+
+The *stack* column shows only the data stack, in Forth notation
+`( before -- after )`: what the word takes from the stack and what it
+leaves, the top of the stack rightmost. Text that a word reads *itself*
+from the rest of the line (it is *parsed*, in Forth's term) is never on
+the stack. It is written in capitals in the *word* column, after the word,
+as you type it. Text a parsing word reads is not run as words: in
+`theorem foo` the token `foo` is a name for the word to use, not a word to
+run. A parsing word that finds no token left on its line stops the run with
+error 2.
+
+**Placeholders** (the capitals in the word column), each defined once:
+
+| Placeholder | What you write there |
+| --- | --- |
+| `NAME` | one name token: the name of a declaration, a universe parameter, a namespace, a label, or a constant (see [name](#name)) |
+| `VAR-NAME` | one name token that becomes a new variable (the parameter a binder adds) |
+| `HYP-NAME` | one name token that becomes a new hypothesis or a case's variable, for example `k` and `ih` in `\| succ k ih =>`; or `_` for one you will not use |
+| `CASE-TAG` | the name of one case of an induction, as the type defines it: `zero` or `succ` for `Nat`; `nil` or `cons` for `List` |
+| `KIND` | one of the words `theorem`, `def`, `axiom`, `import-stub` |
+| `TEXT` | free characters, up to the closer the entry names (the end of the line, a `)`, or a `"`) |
+| `...` | zero or more further tokens of the same sort, up to the terminator the entry names (for example `=>`) |
+
+Examples of how the entries use them:
 
 | Written | Meaning |
 | --- | --- |
 | `universe NAME` with stack `( -- )` | the word parses the next token on its line (one name) and leaves nothing on the stack |
-| `by-case: TAG NAME1 ... =>` | it parses tokens up to and including a terminator such as `=>` |
+| `by-case: CASE-TAG HYP-NAME ... =>` | it parses the case tag, then any number of hypothesis names, up to and including the terminator `=>` |
 | `note" TEXT"` | it parses the characters up to the next `"` on the same line |
-| `explicit: NAME` with stack `( v -- )` | it takes a value from the stack and also parses a name |
-| `+` with stack `( t1 t2 -- t3 )` | an ordinary word on terms: two terms in, one out |
+| `explicit: VAR-NAME` with stack `( v -- )` | it takes a value from the stack (the variable's type) and also parses a name |
+| `+` with stack `( t1 t2 -- t3 )` | an ordinary word: two values in, one out |
 
-In these comments `t` is a term, `s` a statement (a term that is a
-proposition), `v` any LeanForth value (a term, or in natural form a syntax
-tree for a term), `c` a constant waiting for universe levels, `l` a universe
-level or a plain number, `n` a number. A *parsing word* is one that reads
-text after itself; the column "Kind" says so. Text it reads is not run as
-words: in `theorem foo` the token `foo` is a name for the word to use, not a
-word to run. A parsing word that finds no token left on its line stops the
-run with error 2.
+### The stack letters: what a value is
 
-**The term stack.** The values LeanForth builds live on Forth's data stack
-(the "term stack" in the tables). A cell is not the term itself but a
-reference to an item kept in a store (`src/author/values.fs:1-20`); a value
-can be used once (a second use is error 34) and only inside the declaration
-and binder that made it. A word that needs `n` values checks that they are
-above the *frame*, the depth where the innermost open binder or the
-declaration began (`lfa-args`, `src/author/scopes.fs:83`); too few is error
-3. So the stack of one declaration is empty when a declaration starts (error
+In stack comments `t` is a *term* (a mathematical expression: see
+[term](#term)), `s` a *statement* (a term that is a proposition), `v` any
+LeanForth value, `c` a constant waiting for universe levels, `l` a universe
+level or a plain number, and `n` a plain number. Several others are one-off:
+`f` a function, `a` and `b` operands, `r` a rewrite rule.
+
+**What such a letter is in memory.** Every one of them, `t`, `s`, `v`, `c`
+and a level, is *one Forth cell* on the data stack. For all but plain
+numbers the cell is a **negative number** `-(k+1)`: `k` is an index into
+LeanForth's item store, a table of records, one per value made in the
+current declaration, with room for 512 (`lfa-items`, `src/author/values.fs:1-49`).
+The record says what the value is (kind: term, level, name, constant,
+or in natural form a syntax node) and holds the index of the expression
+node in the term store (`src/core/terms.fs`). A plain number `n` is an
+ordinary non-negative cell; a level written as a number is read as that
+level. Natural form works in two steps: the cell first stands for a syntax
+node; the elaborator makes the real expression at `end NAME`.
+
+**What you can do with a value:** pass it to a word that takes one
+(`+`, `=`, `$`, `explicit:`, `by-exact`, ...). A value can be used **once**:
+the word that takes it marks it used, and a second use is error 34. A value
+can be used only in the declaration and binder that made it. There is nothing
+to inspect: Forth's `@` and `.` are not even in reach.
+
+**Why it is not a Forth address.** An address could be copied and used again,
+and could point at memory that has since been reused; the cell is an
+index that is checked every time (a number, a used or stale value stops the
+run, error 34), so a copy of a value can never stand for an expression
+twice or after its binder has closed. The checker never trusts the cell
+itself anyway; it checks the finished expression.
+
+**The value stack.** The values LeanForth builds live on Forth's data stack
+(called "the stack" in the tables). A word that needs `n` values checks that
+they are above the *frame*: the stack depth where the innermost open binder
+or the declaration began (`lfa-args`, `src/author/scopes.fs:83`); too few
+is error 3. So the stack of one declaration is empty when it starts (error
 15) and holds exactly one value, the statement, when `:=` comes.
 
-**Authoring state.** "Authoring" is the run of the words over the text. The
-state they change, named in the tables' "State changed" column:
+### What the words change
+
+The tables' "What it changes" column names the following parts of the
+author's working state. Each is defined here once and in plain words.
 
 | Name in the tables | What it is |
 | --- | --- |
-| declaration | the record of the declaration being built (`lfa-current` and its slot in `lfa-decls`: kind, name, universe parameters, type, value, protected flag; `src/author/declarations.fs:54-60`, `constants.fs:22-29`); it exists from `theorem NAME` to `end NAME` |
-| binders | the list of binders open now, innermost last: name, kind, type, where each began (`lfa-binders`, `src/author/scopes.fs:20-28`) |
-| locals | the words made for variables, universe parameters and hypotheses (`lf-locals`, `groups.fs`); a binder's name is a word until its binder closes |
-| term stack | the Forth data stack, as described above |
-| statement tree | in natural form, the syntax tree of the statement and of the proof, kept until `end NAME` (`lfn-decl`, `src/front/reader.fs:46-51`) |
-| steps | the tactic step list: one record per tactic word read (`tac-steps`, `tac-args`; `src/front/tactic-syntax.fs:96-124`) |
-| goals | at run time, the list of goals still to prove (`src/front/goals.fs`, `lf-goals`) |
-| namespaces | the namespaces entered and opened (`lfa-spaces`, `src/author/namespaces.fs:104-113`) |
-
-**How a file is read.** The file runs from the top to the bottom. Between
-declarations the words are `namespace`, `open`, `end` (of a namespace),
-`kernel-form`, comments, and a term followed by `#check`; a file that stops
-inside a declaration or with values left is error 33. `theorem NAME` (or `def`, `axiom`) opens a
-declaration; binders, statement, `:=` and proof follow; `end NAME` closes it.
-In natural form the words before `end NAME` only build syntax trees and
-tactic steps. **At `end NAME`** the elaborator turns the trees into terms,
-the tactics run, and the result is handed over as a finished declaration
-(`lfn-end-declaration`, `reader.fs:192`; `lft-end-proof`,
-`tactic-syntax.fs:312`). **The kernel check comes after the whole file has
-run**: `bin/leanforth check` runs the text, then checks every finished
-declaration (`src/cli/check-lf.fs:196`). The first error ends the run; later
-text is not read.
+| the declaration | the record of the declaration being built: its kind, name, universe parameters, statement, proof, protected flag (`lfa-current` and `lfa-decls`; `src/author/declarations.fs:54-60`, `constants.fs:22-29`). It exists from `theorem NAME` to `end NAME`. See [declaration](#declaration) |
+| the binder list | the parameters opened so far, innermost last: for each its name, kind, type and where it began (`lfa-binders`, `src/author/scopes.fs:20-28`). See [binder](#binder) |
+| the locals | the names in the wordlist `lf-locals`: one word for each variable, universe parameter and hypothesis, made as the name is introduced and removed when its binder or block ends (`groups.fs`; `declarations.fs:111,119`). See [locals](#locals) |
+| the value stack | Forth's data stack, as above |
+| the syntax record | in natural form, the recorded syntax of the statement and proof, kept until `end NAME` (`lfn-decl`, `src/front/reader.fs:46-51`) |
+| the tactic steps | the list with one entry per tactic word read, in order (`tac-steps`, `tac-args`; `src/front/tactic-syntax.fs:96-124`) |
+| the goal list | while tactics run (at `end NAME`), the goals still to prove (`src/front/goals.fs`, `lf-goals`) |
+| the namespaces | the namespaces entered and opened (`lfa-spaces`, `src/author/namespaces.fs:104-113`) |
 
 ---
 
-## Terms
+## Glossary of concepts
 
-Each term is defined for a mathematician who has not used Lean. "Lean:"
-gives the matching Lean spelling.
+Each concept: one line in plain words, then a few sentences, an example,
+and "Lean:" for the Lean spelling. They are in the order a beginner needs
+them. For the sense of "term" see [term](#term).
 
-**NAME.** A name is how a declaration, variable, universe parameter or
-namespace is called. It is a *token*, that is, text between blanks (space,
-TAB, line ends); it may hold any characters a line may hold (letters of any
-language, digits, `_`, `'`, `!`, `?`, ...), except control and formatting
-characters (error 46). A dot is special: it separates the *parts* of a name,
-so `Nat.add_succ` has two parts, the namespace `Nat` and the name
-`add_succ`. A name has no empty part (`.a`, `a.`, `a..b` are error 30) and,
-for the name of a declaration, universe, namespace or hypothesis, must not
-look like a number to Forth: a first character that is a digit, or one of `+
-- # $ % & '` with more text after it, is refused (error 30; error 35 for
-such a token that is no name at all). A binder's name may look like a
-number: it then gets no word, and `n var#` refers to the binder. A part that
-is only digits is a number part (no leading zero; at most 18 digits on a
-64-bit host, 9 on a 32-bit one); `«123»` (with the guillemets) is the string
-`123`. Names are case-sensitive: `n` and `N` differ. A declaration's full
-name may be 256 characters (error 62). `[anonymous]` is the name of a binder
-that has none. *Hygienic names* are Lean's invisible names made by macros
-(`HAdd.hAdd✝`); you never write them. LeanForth uses them for its operator
-words: `+` means the global constant `HAdd.hAdd`, whatever local variable or
-namespace is around (`src/front/syntax.fs:19-21`). Lean: identifiers
-(`Nat.add_succ`, `n`, `zero_add''`).
+### name
 
-**Declaration; theorem; axiom; def.** A *declaration* adds a named constant
-to the library: a name, a type, and sometimes a value. A **theorem** has a
-statement (its type, a proposition) and a proof (its value): once proved it
+**Meaning:** the label of a declaration, variable, universe parameter or
+namespace.
+
+A name is a *token*, that is, text between blanks (space, TAB, line ends).
+It may hold any characters a line may hold (letters of any language, digits,
+`_`, `'`, `!`, `?`, ...), except control and formatting characters (error 46).
+A dot separates the *parts* of a name: `Nat.add_succ` has the parts `Nat`
+(a namespace) and `add_succ`. A name has no empty part (`.a`, `a.`, `a..b`
+are error 30). For the name of a declaration, universe, namespace or
+hypothesis, a first character that is a digit, or one of `+ - # $ % & '`
+with more text after it, is refused (error 30; error 35 for such a token
+that is no name at all). A binder's name may look like a number: it then
+gets no word, and `n var#` refers to the binder. A part that is only digits
+is a number part (no leading zero; at most 18 digits on a 64-bit host, 9 on
+a 32-bit one); `«123»` (with the guillemets) is the string `123`. Names are
+case-sensitive: `n` and `N` differ. A declaration's full name may be 256
+characters (error 62). `[anonymous]` is the name of a binder that has none.
+*Hygienic names* are Lean's invisible names made by macros (`HAdd.hAdd✝`);
+you never write them. LeanForth uses them for its operator words: `+` means
+the global constant `HAdd.hAdd`, whatever local variable or namespace is
+around (`src/front/syntax.fs:19-21`). Example: `Nat.add_succ`. Lean:
+identifiers (`Nat.add_succ`, `n`, `zero_add''`).
+
+### declaration
+
+**Meaning:** a named item added to the library: a theorem, definition or
+axiom.
+
+A declaration has a name, a type, and sometimes a value. A **theorem** has
+a statement (its type, a proposition) and a proof (its value): once proved it
 is a fact you can use by name. An **axiom** has a statement and no proof: it
-is assumed, and every theorem that uses it reports it (`axioms: none` is
-the good case). A **def** (a definition) has a type and a value that is data
-or a function, for example `def double (n : Nat) : Nat := n + n`.
-`import-stub` stands for a constant that a library would provide; the
-checker refuses it. Lean: `theorem`, `axiom`, `def`.
+is assumed, and every theorem that uses it reports it (`axioms: none` is the
+good case). A **def** (definition) has a type and a value that is data or a
+function. `import-stub` stands for a constant that a library would provide;
+the checker refuses it. Example: `theorem ps_zero_add ... end ps_zero_add`.
+Lean: `theorem`, `axiom`, `def double (n : Nat) : Nat := n + n`.
 
-**Universe level; universe; universe parameter.** To avoid the paradox of
-"the set of all sets", Lean sorts its types into a hierarchy. `Prop` is the
-sort of propositions; `Type` is the sort of ordinary types such as `Nat`;
-`Type 1` holds types of types, and so on. The index is a *universe level*
-(a natural number, or an expression like `u + 1`), and `Sort l` is the sort
-at level `l`: `Prop` is `Sort 0`, `Type` is `Sort 1`, `Type l` is
-`Sort (l + 1)`. A *universe parameter* is a level variable, like `u`, that
-a declaration is generic in: `identity.{u} {A : Sort u} (a : A) : A` holds
-for types of every level. `universe u` after the declaration's name
-introduces one. In practice: a statement about `Nat` or lists of `Nat` needs no
-universe parameter; you need one only when the statement is about an arbitrary
-type (`A : Sort u`, "for every type A"), so that the one theorem covers types
-of every size. Lean: `universe u`, `Sort u`, `Type u`, `Prop`.
+### binder
 
-**Binder.** A binder introduces a variable with a type, for the rest of
-the declaration: the `(n : Nat)` of `theorem t (n : Nat) : ...`. Before
-`:=`, the binders are the *parameters* of the declaration. In LeanForth a
-binder is written as its type, a binder word and its name:
-`Nat explicit: n` means "binder type `Nat`, binder kind *explicit*, name
-`n`"; it is not a definition of `Nat`. Lean: `(n : Nat)`.
+**Meaning:** a parameter: a variable, with its type, that the declaration
+is stated for.
 
-**Binder kinds.** *Explicit*, `(x : T)`: the caller must give the argument.
-*Implicit*, `{x : T}`: Lean works it out from other arguments. *Strict
-implicit*, `⦃x : T⦄`: like implicit, but only inserted once a later explicit
-argument is given. *Instance implicit*, `[x : T]`: Lean finds it by instance
-search (for a type class such as `Add Nat`). The words are `explicit:`,
-`implicit:`, `strict-implicit:` and `instance:`
-(`src/present/binder-table.fs:36-39`). The kind decides how many arguments a
-name takes from the stack: only the explicit ones.
+Before `:=`, the binders are the *parameters* of the declaration; a user of
+the theorem supplies a value for each explicit one. In LeanForth a binder is
+written as its type, a binder word and its name: `Nat explicit: n` adds the
+parameter `n`, of type `Nat`, to the theorem being written. It is not a
+definition of `Nat`. Example: `Nat explicit: n` in `ps_zero_add`. Lean:
+`(n : Nat)`.
 
-**Protected; private; namespace.** A *namespace* is a prefix of names that
-groups them: `Nat.add_succ` lives in `Nat`; inside `namespace Nat`, `add_succ`
-alone finds it. A *protected* declaration is not found by its short name
-through a namespace: `protected theorem Nat.foo` can be written `Nat.foo`
-even inside `namespace Nat`, but not `foo`. It needs a namespace in its name.
-`private` (visible only in its file) has no LeanForth word. Lean:
-`namespace`, `open`, `protected`, `private`.
+**Binder kinds.** *Explicit* (`explicit:`), Lean's `(x : T)`: the user of the
+theorem supplies it. *Implicit* (`implicit:`), `{x : T}`: Lean infers it from
+other arguments. *Strict implicit* (`strict-implicit:`), `⦃x : T⦄`: like
+implicit, but filled in only once a later explicit argument is given.
+*Instance* (`instance:`), `[x : T]`: Lean finds it by *instance search*
+(looking up a registered fact such as "Nat can be added"). The kind decides
+how many arguments a name takes from the stack: only the explicit ones
+(`src/present/binder-table.fs:36-39`).
 
-**Term; statement; proof.** A *term* is a piece of mathematics the kernel
-understands: a number, a variable, a function, an application `f a`, a
-proposition `0 + n = n`, a proof. The *type* of a term says what it is: `n`
-has type `Nat`; a proof has as its type the proposition it proves. A
-theorem's *statement* is that proposition (the term before `:=`); its
-*proof* (or *value*) is a term whose type is the statement. Lean: terms,
-types, `theorem name : statement := proof`.
+### locals
 
-**Goal; hypothesis.** While tactics run, the *goal* is a statement still to
-be proved, together with what may be assumed. A *hypothesis* is one of those
-assumptions: a variable `n : Nat`, or an assumption `ih : 0 + k = k`. A tactic
-step changes the goal list: it closes a goal, or replaces it by simpler ones.
-Lean prints a goal as `n : Nat ⊢ 0 + n = n`.
+**Meaning:** the names that are valid only inside the declaration being
+written.
 
-**Tactic; alternative.** A *tactic* is a step of a proof that tells Lean how
-to build the proof term: `rfl` (the two sides are equal by computation),
-`exact t` (this term does it), `rw [h]` (rewrite with an equation),
-`induction n` (prove it for zero, and from `k` to `k + 1`). An *alternative*
-is the part of an `induction ... with` that proves one *case*, written
-`| zero => ...` or `| succ k ih => ...`: the tag names the case, the names
-after it name that case's variables and hypotheses. The tactics only build a
-term; the kernel checks it.
+When a binder is opened, a word with the binder's name is added to the
+wordlist `lf-locals`, so that writing `n` in the statement or proof refers to
+the parameter. The same happens for universe parameters and for the
+hypotheses a tactic names. These words are removed when their binder or block
+ends, or at `end NAME`; nothing outside the declaration sees them. A name
+spelt like a number gets no word. Lean: the local context (`n : Nat` above
+the turnstile).
 
-**Motive.** An induction, and a rewrite, need a function from a value to a
-statement: the *motive*. For induction on `n` in `0 + n = n` it is
-`fun n => 0 + n = n`; the zero case proves the motive at zero, the step case
-from `k` to `k + 1`. For a rewrite with `a = b` it is the goal with `a`
-abstracted into a variable. LeanForth builds it as Lean does and
-type-checks it (errors 212, 216, 217).
+### statement, statement tree
 
-**Rewrite rule.** A rule is a proof of an equation `a = b` (a hypothesis,
-or a theorem written `' NAME`). Rewriting replaces each `a` in the goal by
-`b`. Lean: `rw [h]`.
+**Meaning:** the proposition a theorem asserts; the *statement tree* is
+that proposition as the syntax recorded so far.
 
-**Elaboration.** Lean's elaborator turns what you wrote into a complete
-term: it finds the type of each part, supplies hidden arguments, finds
-instances and decides what a numeral like `0` means (here `OfNat Nat 0`).
-LeanForth's elaborator (`src/front/`) does the same steps at `end NAME` or at
-`#check`, as the pinned Lean does; see [ELABORATION.md](ELABORATION.md).
+The statement is the one value left on the stack when `:=` is read: for
+`0 n + n =` it is "0 + n = n". It is a *type*: the proof is a value of that
+type. In natural form the statement is first kept as a *syntax tree* (a tree
+of the words you wrote: the `=` with the `+` below it, and so on) in the
+syntax record, until `end NAME` turns it into a full expression.
+Example: line 10 of `ps-add-comm.lf`. Lean: the text between `:` and
+`:=` in `theorem t : statement := ...`.
 
-**Kernel check.** The kernel is the small trusted program that accepts a
-term only if its type is correct. Words, elaborator and tactics are
-untrusted; only an accepted kernel check makes a theorem true. Lean: the
+### term
+
+**Meaning:** a mathematical expression the kernel can check, of any
+kind.
+
+*Term* in this page always has the mathematical (Lean) meaning: a number,
+a variable, a function, an application `f a`, a proposition such as
+`0 + n = n`, or a proof. Every term has a *type*: `n` has type `Nat`; a
+proof has as its type the proposition it proves. A *proof term* is a term
+whose type is a theorem's statement; the kernel checks proof terms. (The
+words "value" and "cell" are used for what lies on the Forth stack, which
+stands for a term; see [the stack letters](#the-stack-letters-what-a-value-is).)
+Example: `0 + n = n` is a term of type `Prop`; `Nat.zero_add n` is a term
+whose type is that proposition. Lean: terms, types, proof terms.
+
+### natural form and kernel form
+
+**Meaning:** the two spellings of LeanForth text.
+
+Natural form is how people write: you give what Lean would write and
+leave the hidden parts out. Kernel form is the complete version, in which
+every hidden argument is spelt out; it is what the kernel finally checks.
+Elaboration (below) turns the first into the second. The checker accepts
+both file kinds; a file starts in natural form unless its first
+declaration-level word is `kernel-form`. Example: natural
+`theorem t  0 0 + 0 =  := by  by-rfl  end t` (`tests/front/s1-rfl.lf`);
+kernel form `tests/author/01-identity.lf` (below, section A.2). Lean: the
+source text versus the fully elaborated expression.
+
+### goal, hypothesis
+
+**Meaning:** a goal is something still to be proved; a hypothesis is
+something assumed while proving it.
+
+While tactics run, a *goal* is a statement still to be proved, together with
+what may be assumed. A *hypothesis* is one of those assumptions: a variable
+`n : Nat`, or an assumption `ih : 0 + k = k`. A tactic step changes the goal
+list: it closes a goal, or replaces it by simpler ones. Lean prints a goal as
+`n : Nat ⊢ 0 + n = n` (read: from the hypothesis `n : Nat`, it proves
+`0 + n = n`).
+
+### tactic, tactic step, alternative
+
+**Meaning:** a tactic is a command that changes the goal list; a *tactic
+step* is one use of a tactic in the file; an *alternative* is the part of an
+induction that handles one case.
+
+A tactic tells the system how to build the proof: `by-rfl` ("the two sides are
+equal by computation"), `by-exact` ("this expression is the proof"),
+`by-rw[ ... ]` ("rewrite with these equations"), `by-induction-with` ("prove
+it for zero, and from `k` to `k + 1`"). Each tactic word read adds one *step*
+to the step list; the steps run at `end NAME`. An *alternative* is
+`| CASE-TAG HYP-NAME ... =>` followed by the tactics for that case, for
+example `| succ k ih => ...`: the tag names the case, the names after it
+name that case's variables and hypotheses. The tactics only build a proof
+term; the kernel checks it. Lean: `rfl`, `exact`, `rw`, `induction ... with`.
+
+### namespace
+
+**Meaning:** a prefix that groups names.
+
+`Nat.add_succ` lives in the namespace `Nat`; inside `namespace Nat`,
+`add_succ` alone finds it. A *protected* declaration is not found by its short
+name through a namespace: `protected theorem Nat.foo` can be written
+`Nat.foo` even inside `namespace Nat`, but not `foo`. `private` (visible only
+in its file) has no LeanForth word. Lean: `namespace`, `open`, `protected`,
+`private`.
+
+### Sort and universe level
+
+**Meaning:** every expression that is a type has a *sort*, a kind of "size
+class", given by a number called the *universe level*.
+
+The worked example:
+
+| Expression | Is | Sort it belongs to |
+| --- | --- | --- |
+| `0 + 0 = 0` | a proposition | `Prop`, which is `Sort 0` |
+| `Nat` (the natural numbers) | an ordinary type | `Type`, which is `Sort 1` (so `Nat : Type`) |
+| `Type` | a collection of types | `Type 1`, which is `Sort 2` (so `Type : Type 1`) |
+| `Type 1` | a bigger collection | `Type 2`, which is `Sort 3` |
+
+So `Sort l` is the sort at level `l`; `Prop = Sort 0`; `Type l = Sort (l + 1)`.
+Each is one level up from what it contains. **Why levels exist:** if `Type`
+held itself (`Type : Type`), one could build "the collection of all
+collections that do not contain themselves", and the system would prove
+false statements (Russell's paradox, in its type-theory form). Putting every
+collection one level above its members avoids it. A *universe parameter*
+is a level variable, `u`, that makes a declaration generic: `identity.{u}
+{A : Sort u} (a : A) : A` holds for types of every level. `universe u`
+after the declaration's name introduces one. In practice you need one only
+when a statement is about an arbitrary type (`A : Sort u`, "for every type
+A"); a statement about `Nat` or lists of `Nat` needs none. Lean: `Sort u`,
+`Type u`, `Prop`, `universe u`.
+
+### elaboration
+
+**Meaning:** completing what you wrote into a full expression.
+
+Lean's elaborator finds the type of each part, supplies hidden arguments,
+finds instances and decides what a numeral like `0` means (here `OfNat Nat
+0`, "the number 0 as a natural"). LeanForth's elaborator (`src/front/`) does
+the same steps, at `end NAME` or at `#check`, as the pinned Lean does; see
+[ELABORATION.md](ELABORATION.md). Lean: the elaborator.
+
+### kernel
+
+**Meaning:** the small program that checks proof terms.
+
+The kernel accepts an expression only if its type is correct. Words,
+elaborator and tactics are untrusted; only an accepted kernel check makes a
+theorem true. After a theorem is accepted the checker lists the *axioms* its
+proof depends on (`accepted; axioms: none`). A proof closed with `by-sorry`
+depends on `sorryAx`: it is accepted but reported NOT PROVED. Lean: the
 kernel (`Lean.Environment.addDecl`).
 
-**Axioms used.** After a theorem is accepted the checker lists the
-axioms its proof depends on (`accepted; axioms: none`). A proof closed with
-`by-sorry` depends on `sorryAx`: it is accepted but reported NOT PROVED.
+### motive
 
-**Authoring state.** The data the words change while the text runs; see
-[Reading this reference](#reading-this-reference).
+**Meaning:** the statement-valued function that an induction or a rewrite
+works with.
+
+Induction on `n` in `0 + n = n` uses the function `fun n => 0 + n = n`: the
+zero case proves it at zero, the step case from `k` to `k + 1`. For a
+rewrite with `a = b`, the motive is the goal with `a` replaced by a
+variable. LeanForth builds it as Lean does and type-checks it (errors 212,
+216, 217). Lean: the motive of `Nat.rec`; `Eq.mpr`.
+
+### rewrite rule
+
+**Meaning:** an equation `a = b` used to replace `a` by `b` in the goal.
+
+A rule is a proof of an equation: a hypothesis written by name, or a
+theorem written `' NAME`. Rewriting finds the left side of the equation in
+the goal and replaces it by the right side. **Worked example.** The goal is
+`0 + (k + 1) = k + 1`. The rule is `Nat.add_succ : n + succ m = succ (n + m)`
+("adding a successor: n plus the successor of m is the successor of n plus
+m"). The rule's left side, `n + succ m`, matches the goal's left side
+`0 + succ k` (written `k + 1` above) with `n := 0` and `m := k`. Each match
+is replaced by the right side, `succ (0 + k)`. The goal after the rewrite
+is `succ (0 + k) = succ k`. A second rule, the hypothesis `ih : 0 + k = k`,
+now matches `0 + k` and turns the goal into `succ k = succ k`, which `rfl`
+closes. In LeanForth: `by-rw[ ' Nat.add_succ ih ]`. Lean: `rw [Nat.add_succ, ih]`.
+
+---
+
+## Errors
+
+The first error stops the run. Every error prints:
+
+- its **code**, a number that stays the same (`error 97`);
+- the **position**, `line:col` (line and column of the place);
+- the **token** where it stopped (the word or name being read);
+- a **message in plain English**. For errors about the mathematics (a
+  proof step that does not work), the message is Lean's own text; the goals
+  are printed below it, as Lean prints them.
+
+Example, from the done-check `docs/development/done-checks/2026-11-14-s1.md`
+(file `tests/front/s1-rfl-wrong.lf`, which claims `0 + 0 = 1` by `rfl`):
+
+```text
+error 97 at line:col 8:3 (token by-rfl): Tactic rfl failed:
+  The left-hand side / 0 + 0 / is not definitionally equal to the right-hand side / 1 / ⊢ 0 + 0 = 1
+```
+
+(Printed on one line in the checker; wrapped here.) Read it: error 97, the
+tactic `rfl` failed, at line 8, column 3, at the token `by-rfl`; the two sides
+`0 + 0` and `1` are not the same once computed. The checker also exits
+with a status: 2 not supported, 3 out of fuel, 4 refused ([F.2](#f2-the-commands)).
+Tests pin the codes, never the wording. The catalogue of messages is
+`src/author/errors.fs`; the codes with their causes are listed in
+[the programming reference](../programming/LEANFORTH_WORDS.md#errors).
 
 ---
 
@@ -273,35 +623,35 @@ axioms its proof depends on (`accepted; axioms: none`). A proof closed with
 
 Errors named in the "Function" cells are codes of `src/author/errors.fs`.
 
-| Word | Stack and parse effect | Kind | State changed | Function |
+| Word | Takes from the stack | How it reads the line | What it creates or changes | What it does |
 | --- | --- | --- | --- | --- |
-| `theorem NAME` | `( -- )` | parsing: one name, on its line | starts the declaration (kind theorem); empty binders; its name becomes a word at `end` | Starts a theorem named NAME inside the current namespace; errors 2 no name, 14 inside a declaration, 15 values on the stack, 28 name already declared (also by the library), 30 bad name, 53 `_root_` in the name. |
-| `def NAME` | `( -- )` | parsing: one name | as `theorem`, kind def | Starts a definition: the same, with a value instead of a proof. |
-| `axiom NAME` | `( -- )` | parsing: one name | as `theorem`, kind axiom | Starts an axiom: binders and one statement, no `:=`; `end NAME` takes the statement. |
-| `import-stub NAME` | `( -- )` | parsing: one name | as `theorem`, kind stub | Stands for a library constant; `bin/leanforth check` refuses it (error 48). |
-| `protected KIND NAME` | `( -- )` | parsing: two names, the kind word `theorem`, `def`, `axiom` or `import-stub`, then the name | as that kind; marks the declaration protected | Starts a declaration that short names cannot reach through a namespace; error 43 when the first token is no kind, 44 when the name has no namespace prefix. |
-| `universe NAME` | `( -- )` | parsing: exactly one name; a second name is a new token to run | appends a universe parameter to the declaration (at most 8) and makes NAME a word in the locals | Parses NAME and appends it as a universe parameter of the current declaration, at most 8 per declaration. A universe parameter is a level variable that makes the declaration generic over sizes of types (see [universe](#terms)): Lean's `universe u` in `def identity.{u} {A : Sort u} (a : A) : A`. It must come right after the declaration's name, before any binder, value or `:=` (error 16), once per name (28), at most 8 (10). |
-| `explicit: NAME` | `( v -- )` | parsing: one name | opens a binder: pushes it on the binders; NAME becomes a word in the locals (not for `[anonymous]` or a number-like name) | Binds NAME with kind explicit and the type that is the value on the stack, `(name : T)`; errors 3 no type below, 2 no name, 65 too many binders. |
-| `implicit: NAME` | `( v -- )` | parsing: one name | as `explicit:` | The same with kind implicit, `{name : T}`. |
-| `strict-implicit: NAME` | `( v -- )` | parsing: one name | as `explicit:` | The same with kind strict implicit, `⦃name : T⦄`. |
-| `instance: NAME` | `( v -- )` | parsing: one name | as `explicit:` | The same with kind instance implicit, `[name : T]`. |
-| `:=` | `( s -- )` | ordinary; acts once per declaration | the statement tree (natural) or the declaration's type (kernel form) is stored; the binders open now become its parameters | Ends the statement. Errors 17 not allowed here (outside a declaration, an axiom, or a second `:=`), 18 the statement is not exactly one term or a value sits between binders. |
-| `end NAME` | `( -- )` | parsing: one name; inside a declaration it completes it, outside it leaves a namespace | completes the declaration: closes binders around statement and proof, records type and value, publishes the name; or pops namespaces | NAME must repeat the declaration's name (error 22) or name the namespaces to leave (22, 23). In natural form it runs the elaborator and the tactics (errors 19 `:=` missing, 20 proof not one term, 21 binder still open, 82 block open, 86 value left over). |
-| `namespace NAME` | `( -- )` | parsing: one name, may be dotted | enters one namespace per part | Between declarations only (error 24); `namespace A.B` enters `A`, then `A.B`; more than 16 namespaces entered and opened together is error 25. |
-| `open NAME` | `( -- )` | parsing: one name | marks the namespace opened (until the enclosing `end`) | Makes the names of namespace NAME findable by their short names; unknown namespace is error 26. |
-| NAME of a constant or variable | `( v1 ... vk -- v )` | ordinary (found by the interpreter; resolved when run) | pops its arguments, pushes one value | Applies the constant or variable to as many values as it has explicit arguments (k); errors 1 unknown, 27 ambiguous, 55 a short name of a library constant, 73 the count depends on unfolding a definition. |
-| a numeral `0`, `2` | `( -- v )` | ordinary (read by Forth, not a LeanForth word) | pushes a number; its position is kept | In natural form Lean's numeral, a plain decimal of at most nine digits; other number forms are error 35. |
-| `' NAME` | `( -- v )` | looks ahead: reads the next token without consuming it; natural form only | marks a pending tick; the next name word then takes no arguments | The function NAME itself, unapplied; error 59 when no name follows on the line. |
-| `$` | `( f a -- v )` | ordinary | pops two values, pushes the application | One more argument: `f a $` is Lean's `f a`. |
-| `+` `*` | `( a b -- v )` | ordinary; natural form only (error 58 in kernel form) | pops two, pushes an operator node | Lean's `a + b` and `a * b`, as `binop%` of `HAdd.hAdd` and `HMul.hMul`. |
-| `=` `≤` | `( a b -- v )` | ordinary; natural form only | pops two, pushes a relation node | Lean's `a = b` and `a ≤ b`, as `binrel%` of `Eq` and `LE.le`. |
-| `#check` | `( v -- )` | ordinary; natural form; outside declarations only | counts the check; prints one line `TERM : TYPE`; no declaration | Elaborates the term with no expected type and prints it with its type; inside a declaration it is error 140 (141 in a tactic block). |
-| `kernel-form` | `( -- )` | ordinary; acts outside declarations | switches the run to the kernel form for the rest of the run | Error 57 inside a declaration. |
-| `\ TEXT` | `( -- )` | parsing: the rest of the line | none | A comment to the end of the line. |
-| `( TEXT)` | `( -- )` | parsing: text up to `)` on the same line | none | A comment; without `)` on its line it is error 42. |
-| `->` | `( a b -- t )` | ordinary; kernel form only | pops two types, pushes the function type | `A B ->` is Lean's `A → B`. |
-| `fun` `forall` | `( v -- t )` | ordinary; kernel form only | closes the innermost open binder around the one value above it | A λ or a Π over that binder; errors 13 no binder open, 12 body not one term. |
-| `Prop` `Type` `Sort` `^` `var#` `lit#` `proj#` `level+` `level-max` `level-imax` `root:` | see [programming reference](../programming/LEANFORTH_WORDS.md#the-vocabulary) | kernel form only (natural form: error 70) | build kernel terms and levels | Levels, de Bruijn variables, literals, projections and universe arguments written out. |
+| `theorem NAME` | `( -- )` | reads one name from its line | opens a new [declaration](#declaration) of kind theorem, with no binders yet; the word NAME exists only after `end NAME` | Starts a theorem named NAME inside the current namespace; errors 2 no name, 14 inside a declaration, 15 values on the stack, 28 name already declared (also by the library), 30 bad name, 53 `_root_` in the name. |
+| `def NAME` | `( -- )` | one name | as `theorem`, kind def | Starts a definition: the same, with a value instead of a proof. |
+| `axiom NAME` | `( -- )` | one name | as `theorem`, kind axiom | Starts an axiom: binders and one statement, no `:=`; `end NAME` takes the statement. |
+| `import-stub NAME` | `( -- )` | one name | as `theorem`, kind stub | Stands for a library constant; `bin/leanforth check` refuses it (error 48). |
+| `protected KIND NAME` | `( -- )` | two names: first the kind word (`theorem`, `def`, `axiom` or `import-stub`), then the name | as that kind, and marks the declaration protected | Starts a declaration that short names cannot reach through a namespace; error 43 when the first token is no kind, 44 when the name has no namespace prefix. |
+| `universe NAME` | `( -- )` | exactly one name; a second name is a new token to run | adds a [universe parameter](#sort-and-universe-level) called NAME to the declaration (at most 8): an entry NAME in the declaration's universe list, and a word NAME in the [locals](#locals) | Lets the declaration be generic over the sizes of types: Lean's `universe u` in `def identity.{u} {A : Sort u} (a : A) : A`. It must come right after the declaration's name, before any binder, value or `:=` (error 16), once per name (28), at most 8 (10). |
+| `explicit: VAR-NAME` | `( v -- )`: the type of the new variable | one name | adds the **parameter** VAR-NAME of that type to the declaration being written: an entry in the declaration's binder list (name, kind explicit, type, position), and a word VAR-NAME in the locals that stands for the variable until the declaration ends (no word for `[anonymous]` or a number-like name). A user of the finished theorem supplies a value for it | Lean's `(name : T)`. `Nat explicit: n` reads "a parameter `n`, of type `Nat`". Errors 3 no type below, 2 no name, 65 too many binders. |
+| `implicit: VAR-NAME` | `( v -- )` | one name | the same entry and word, with kind implicit | Lean's `{name : T}`: Lean infers the argument from the other ones. |
+| `strict-implicit: VAR-NAME` | `( v -- )` | one name | as `implicit:`, kind strict implicit | Lean's `⦃name : T⦄`: inferred only once a later explicit argument is given. |
+| `instance: VAR-NAME` | `( v -- )` | one name | as `implicit:`, kind instance | Lean's `[name : T]`: found by instance search. |
+| `:=` | `( s -- )`: the statement | reads nothing; acts once per declaration | takes the statement off the stack and stores it in the declaration (in natural form as syntax, in kernel form as the finished type); the binders open now become the declaration's parameters | Ends the statement and starts the proof ("is proved by"; in a `def`, "is defined as"). Errors 17 not allowed here (outside a declaration, in an axiom, or a second `:=`), 18 the statement is not exactly one expression or a value sits between binders. |
+| `end NAME` | `( -- )` | one name; inside a declaration it completes it, outside it leaves a namespace | completes the declaration: closes its binders around statement and proof, records its type and value, and makes the word NAME for later declarations; or leaves the namespaces | NAME must repeat the declaration's name (error 22) or name the namespaces to leave (22, 23). In natural form it runs the elaborator and the tactics (errors 19 `:=` missing, 20 proof not one expression, 21 binder still open, 82 block open, 86 value left over). |
+| `namespace NAME` | `( -- )` | one name, may be dotted | enters one [namespace](#namespace) per part | Between declarations only (error 24); `namespace A.B` enters `A`, then `A.B`; more than 16 namespaces entered and opened together is error 25. |
+| `open NAME` | `( -- )` | one name | marks the namespace opened (until the enclosing `end`) | Makes the names of namespace NAME findable by their short names; unknown namespace is error 26. |
+| NAME of a constant or variable (a word you never define; the interpreter finds it) | `( v1 ... vk -- v )`: its k explicit arguments | none | takes its arguments, leaves one value | Applies the constant or variable to as many values as it has explicit arguments (k); errors 1 unknown, 27 ambiguous, 55 a short name of a library constant, 73 the count depends on unfolding a definition. |
+| a numeral `0`, `2` | `( -- v )` | none (read by Forth, not a LeanForth word) | pushes a number and remembers where it was written | In natural form Lean's numeral, a plain decimal of at most nine digits; other number forms are error 35. |
+| `' NAME` | `( -- v )` | reads the next token without consuming it; natural form only | the next name takes no arguments from the stack | The function or theorem NAME itself, applied to nothing ("tick NAME"); error 59 when no name follows on the line. |
+| `$` | `( f a -- v )` | none | takes two values, leaves the application | One more argument: `f a $` is Lean's `f a`. |
+| `+` `*` | `( a b -- v )` | none; natural form only (error 58 in kernel form) | takes two values, leaves the sum or product | Lean's `a + b` and `a * b`, as `binop%` of `HAdd.hAdd` and `HMul.hMul`. |
+| `=` `≤` | `( a b -- v )` | none; natural form only | takes two values, leaves the *proposition* "a equals b" or "a is at most b" | Lean's `a = b` and `a ≤ b`, as `binrel%` of `Eq` and `LE.le`. `=` is never assignment. |
+| `#check` | `( v -- )` | none; natural form; outside declarations only | counts the check; prints one line `EXPRESSION : TYPE`; adds no declaration | Elaborates the expression with no expected type and prints it with its type; inside a declaration it is error 140 (141 in a tactic block). |
+| `kernel-form` | `( -- )` | none; acts outside declarations | switches the rest of the run to the kernel form | Error 57 inside a declaration. |
+| `\ TEXT` | `( -- )` | the rest of the line | nothing | A comment to the end of the line. |
+| `( TEXT)` | `( -- )` | text up to `)` on the same line | nothing | A comment; without `)` on its line it is error 42. |
+| `->` | `( a b -- t )` | none; kernel form only | takes two types, leaves the function type | `A B ->` is Lean's `A → B`. |
+| `fun` `forall` | `( v -- t )` | none; kernel form only | closes the innermost open binder around the one value above it | A λ (function) or a Π (for all) over that binder; errors 13 no binder open, 12 body not one expression. |
+| `Prop` `Type` `Sort` `^` `var#` `lit#` `proj#` `level+` `level-max` `level-imax` `root:` | see [programming reference](../programming/LEANFORTH_WORDS.md#the-vocabulary) | kernel form only (natural form: error 70) | build kernel expressions and levels | Levels, de Bruijn variables, literals, projections and universe arguments written out. |
 | `**` natural spellings `->`, `fun`, `forall`, `Prop`, `∃`, `_`, `let:`, `have:`, `show`, `⟨ ⟩`, `.NAME`, `@`, `++` and more | `( A B -- t )` etc. | designed: [FE2_TERMS.md §2.2](../design/FE2_TERMS.md) | n/a | Today error 70 in natural form; `_`, `let:`, `have`, `by` in kernel form are errors 51 and 52. |
 | `**` `variable`, `section`, `set_option` | `( -- )` | designed: [FE2_TERMS.md §2.2](../design/FE2_TERMS.md) | n/a | Commands, not built. |
 
@@ -425,8 +775,8 @@ n Nat.succ n Nat.succ =
 [FE2_TERMS.md §2.2-2.3](../design/FE2_TERMS.md); natural-form `fun`,
 `forall`, `Prop`, `->` stop with error 70 today.
 
-**`#check`.** `TERM #check` (between declarations) elaborates TERM with no
-expected type and prints `TERM : TYPE` (`edc-w-check`,
+**`#check`.** `EXPRESSION #check` (between declarations) elaborates the expression with no
+expected type and prints `EXPRESSION : TYPE` (`edc-w-check`,
 `src/front/elab-decl.fs:170`). It is never part of a verdict: a file of only
 `#check` lines ends "nothing checked by the kernel", exit 0. Lean:
 `#check 0 + 0 = 0`, which prints `0 + 0 = 0 : Prop`.
@@ -463,7 +813,7 @@ section is the words in the text that go into it.
 
 ### B.1 Glossary
 
-| Word | Stack and parse effect | Kind | State changed | Function |
+| Word | Takes from the stack | How it reads the line | What it creates or changes | What it does |
 | --- | --- | --- | --- | --- |
 | `label: NAME` | `( v -- v' )` | parsing: one name; kernel form only (natural form: error 70) | gives the term its own node and adds a label entry to the note table (`src/present/note-table.fs`) | Names the step that built the value on top, so the printer can refer to it; a label repeated in one declaration is error 29, a missing name is 2. |
 | `note" TEXT"` | `( v -- v' )` | parsing: the text up to the next `"` on its line; kernel form only | as `label:`, entry kind person | Attaches a note by a person; no closing `"` on the line is error 37. |
@@ -509,7 +859,7 @@ term that results.
 
 ### C.1 Glossary
 
-| Word | Stack and parse effect | Kind | State changed | Function |
+| Word | Takes from the stack | How it reads the line | What it creates or changes | What it does |
 | --- | --- | --- | --- | --- |
 | NAME of a theorem or constructor | `( a1 ... ak -- t )` | ordinary (resolved when run) | pops k values, pushes the application | Applies it to its explicit arguments: `n Eq.refl` is Lean's `Eq.refl n`; the elaborator supplies the hidden type and level. |
 | `' NAME` | `( -- t )` | looks ahead; natural form | marks a pending tick | The constant itself, unapplied. |
@@ -595,27 +945,27 @@ values; to apply it write `$` (`ih k $`).
 
 ### D.1 Glossary
 
-| Word | Stack and parse effect | Kind | State changed | Function | Lean |
+| Word | Takes from the stack | How it reads the line | What it creates or changes | What it does | Lean |
 | --- | --- | --- | --- | --- | --- |
 | `by` | `( -- )` | ordinary; right after `:=` only (error 69 elsewhere; natural form; error 51 in kernel form) | read: records the proof's position and opens the tactic block (step 0) | Marks that a tactic proof follows `:=`. | `:= by` |
 | `by-rfl` | `( -- )` | ordinary | read: a step. Run: assigns the main goal `Eq.refl` and removes it from the goals | Closes the goal `a = b` when both sides are definitionally equal; otherwise error 97. | `rfl` |
 | `by-exact` | `( t -- )` | ordinary | read: a step holding the term. Run: elaborates t against the goal, assigns it, removes the goal | Closes the goal with the term t; a type mismatch is error 96, a wrong number of values 86 or 87. | `exact t` |
-| `by-intro: NAME` | `( -- )` | parsing: one name, or `_` | read: a step; NAME becomes a hypothesis word in the locals. Run: replaces the goal by one with the first binder introduced | Introduces one hypothesis NAME from the goal's first binder; `_` leaves it inaccessible (it cannot be written afterwards); error 94 when there is none, 84 when NAME is a LeanForth word. | `intro NAME` |
+| `by-intro: HYP-NAME` | `( -- )` | parsing: one name, or `_` | read: a step; HYP-NAME becomes a hypothesis word in the locals. Run: replaces the goal by one with the first binder introduced | Introduces one hypothesis HYP-NAME from the goal's first binder; `_` leaves it inaccessible (it cannot be written afterwards); error 94 when there is none, 84 when HYP-NAME is a LeanForth word. | `intro HYP-NAME` |
 | `by-sorry` | `( -- )` | ordinary | read: a step. Run: assigns the goal `sorryAx T Bool.false`, records an open part | Closes the goal with an open part; the declaration is accepted but reported NOT PROVED. | `sorry` |
 | `by-induction` | `( t -- )` | ordinary | read: a step holding t. Run: replaces the main goal by one goal per case | Induction on the variable t; the cases are left open (alone it ends in error 89). | `induction t` |
 | `by-induction-with` | `( t -- )` | ordinary; opens a block that `by-end` closes | read: a block step holding t. Run: as `by-induction`, each case taken by an alternative | Induction on t with the cases written as alternatives. | `induction t with` |
-| `\| TAG NAME1 ... =>` | `( -- )` | parsing: tokens of its line up to `=>`; only right inside `by-induction-with` (error 83 elsewhere) | read: an alternative block; the names become hypotheses until the alternative ends. Run: introduces the case's fields and runs the block | One alternative: TAG names a case (`zero`, `succ`), the names name its fields and hypotheses; ends at the next `\|` or at `by-end`. | `\| tag names =>` |
+| `\| CASE-TAG HYP-NAME ... =>` | `( -- )` | parsing: tokens of its line up to `=>`; only right inside `by-induction-with` (error 83 elsewhere) | read: an alternative block; the names become hypotheses until the alternative ends. Run: introduces the case's fields and runs the block | One alternative of an induction. CASE-TAG is the name of the case (`zero`, `succ`); each HYP-NAME becomes a new word for one of the case's variables or hypotheses (`k`, `ih` in `\| succ k ih =>`) until the alternative ends. The alternative ends at the next `\|` or at `by-end`. | `\| tag names =>` |
 | `=>` | | read only by `\|` and `by-case:` as their terminator; run alone it is error 84 | none | Ends an alternative's header. | `=>` |
 | `by-end` | `( -- )` | ordinary | read: closes the innermost `by-induction-with` or `by-case:` block | Closes the block; with none open, error 83. | indentation |
 | `by-rw[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: a block step. Run: rewrites the goal with each rule, then tries `by-rfl` | Starts a list of rewrite rules; every value built until `]` is a rule. | `rw [` |
 | `by-rewrite[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, no `by-rfl` | The same without the closing `rfl`. | `rewrite [` |
 | `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules, in order; closes it | Ends the rule list of `by-rw[` or `by-rewrite[`; with none open, error 83. | `]` |
-| `**` `by-case:` `TAG NAME1 ... =>` | `( -- )` | parsing: as `\|`; closed by `by-end` | read: a case block. Run: error 80 | One case after `by-induction`; read today, running stops with error 80. | `case tag names =>` |
+| `**` `by-case: CASE-TAG HYP-NAME ...  =>` | `( -- )` | parsing: as `\|`; closed by `by-end` | read: a case block. Run: error 80 | One case after `by-induction`; read today, running stops with error 80. | `case tag names =>` |
 | `**` `by-decide` | `( -- )` | designed | n/a | Close a closed goal by evaluation. | `decide` |
 | `**` `by-omega` | `( -- )` | designed | n/a | Linear arithmetic over `Nat` and `Int`. | `omega` |
 | `**` `by-native-decide` | `( -- )` | designed; permanently unsupported (exit 2): it rests on `Lean.ofReduceBool` | n/a | n/a | `native_decide` |
 | `**` `by-try`, `by-first`, `<;>` | | combinators; sketched in FE1G §4 and S2 §3 (the trail), no word fixed | n/a | n/a | `try`, `first`, `<;>` |
-| `**` `by-alt: TAG NAMES... =>` | | an open question of the design: spelling alternatives without `\|` | n/a | n/a | `\| tag names =>` |
+| `**` `by-alt: CASE-TAG HYP-NAME ... =>` | | an open question of the design: spelling alternatives without `\|` | n/a | n/a | `\| tag names =>` |
 | `**` `by-refine`, `by-subst`, `by-cases`, `by-apply` and others | | named in FE2 §3/FE5 as later tactics; no spelling is fixed | n/a | n/a | `refine`, `subst`, ... |
 
 Designs: [FE1G_TACTICS.md](../design/FE1G_TACTICS.md) (the first tactics,
@@ -648,7 +998,7 @@ theorem t   0 0 + 0 =   := by   end t
 definitionally equal and builds `Eq.refl` (`lfb-w-rfl`,
 `src/front/tactic-basic.fs:381`). `by-exact` takes a term from the
 stack and closes the goal with it (`lfb-w-exact`, line 344); a type mismatch is
-error 96. `by-intro: NAME` reads NAME, makes it a hypothesis word and, when
+error 96. `by-intro: HYP-NAME` reads NAME, makes it a hypothesis word and, when
 run, introduces the goal's first binder as a hypothesis named NAME, usable
 until the block ends; with no binder left it is error 94. `by-sorry` closes
 the goal with `sorryAx`; the declaration is then accepted but reported NOT
@@ -695,7 +1045,7 @@ theorem zero_add_sorry   Nat explicit: n   0 n + n =   := by   by-sorry   end ze
 `n by-induction-with` is Lean's `induction n with`: `n` must be a variable
 of an inductive type; the eliminator is the data's (`Nat.recAux`) or
 `T.rec`. When run it replaces the main goal by one goal per case and builds
-the motive from the goal. Each `| TAG NAMES... =>` alternative takes its
+the motive from the goal. Each `| CASE-TAG HYP-NAME ... =>` alternative takes its
 case's goal and names its explicit fields (`| succ k ih =>`: the number `k`
 and the hypothesis `ih : 0 + k = k`). The header is on one line: `|` reads
 the tag and the names up to `=>` (`lft-header`, `tactic-syntax.fs:276`);
@@ -746,6 +1096,12 @@ names, 208), `s2w-alt-twice.lf` (213), `s2w-induction-plain.lf` (89).
 
 ### D.5 `by-rw[ ]`, `by-rewrite[ ]`
 
+In plain words: each rule is an equation `a = b`; the tactic finds `a` in the
+goal and writes `b` in its place, one rule after the other, then closes
+the goal by `rfl` if the two sides have become the same. A worked example
+is under [rewrite rule](#rewrite-rule): with the rule `Nat.add_succ`, the goal
+`0 + (k + 1) = k + 1` becomes `succ (0 + k) = succ k`.
+
 `by-rw[ r1 r2 ... ]` is Lean's `rw [r1, r2, ...]`: each rule is a
 hypothesis (written by name) or a theorem written `' NAME`; its equation's
 left side is abstracted wherever it occurs in the goal (`kabstract` at
@@ -788,7 +1144,7 @@ Wrong twins: `s2w-rw-empty.lf` (`by-rw[ ]` leaves the goal: 89),
 
 ### D.6 `by-case:` (`**`)
 
-`by-case: TAG NAMES... =>` ... `by-end` is read today (it checks the shape,
+`by-case: CASE-TAG HYP-NAME ... =>` ... `by-end` is read today (it checks the shape,
 FE1g-2: `lft-w-case`, `tactic-syntax.fs:289`) but running it stops with
 error 80, "not supported yet" (plan S2 merge B). Design:
 [FE1G_TACTICS.md](../design/FE1G_TACTICS.md) §3.2,
@@ -830,7 +1186,7 @@ namespaces (grepped in `src/author/`, `src/front/` and `src/cli/` on
 
 | Tool | Stack comment | Function |
 | --- | --- | --- |
-| `TERM #check` | `( v -- )` | the type of a term, which finds what a name means (section A) |
+| `EXPRESSION #check` | `( v -- )` | the type of a term, which finds what a name means (section A) |
 | `namespace`, `open` | `( -- )` | change which names a short name means |
 | `leanforth print --lf EXPORT` | command line | write a Lean export as one LeanForth text, to see the words and names |
 | `lf-words`, `lf-locals`, `lf-consts` | Forth wordlists | the search order while a file runs; inspect from Forth (`src/author/groups.fs`) |
