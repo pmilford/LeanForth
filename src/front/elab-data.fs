@@ -382,7 +382,7 @@ create ed-messages
   s" an annotation this reader does not know" counted,
   0 0 counted,
 : ed-message ( code -- c-addr u ) ed-messages swap 0 ?do key-next loop count ;
-: ed-line ( -- n ) elab elab-reader reader-position nip nip ;
+: ed-line ( -- n ) elab elab-reader reader-line# ;
 : ed-fail ( code outcome -- outcome ) ed-line elab elab-at ! swap elab elab-code ! ;
 : ed-bad ( code -- outcome ) outcome-invalid ed-fail ;
 : ed-malformed ( -- outcome ) ed-e-malformed ed-bad ;

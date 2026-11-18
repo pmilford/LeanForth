@@ -29,6 +29,11 @@
 \ is the framing of Lean's exports: every line ends with a line feed, and
 \ the caller refuses carriage returns and the mark with text-framed. A
 \ dropped byte still counts in the line limit and in the file offsets.
+\ Only a line feed ends a line: a carriage return elsewhere is part of the
+\ line. So in ordinary text a file ending in a line feed and then a lone
+\ carriage return has one more line, empty once its carriage return is
+\ dropped (as Python's universal newlines read it): every byte of the file
+\ belongs to a line the caller sees, and none is lost silently.
 \
 \ Example: count the lines of a file, then check and decode a character.
 \   reader: rd   4096 65536 rd reader-init drop
@@ -42,7 +47,7 @@
 \ Interface: /reader reader: reader-init reader-rules! reader-text
 \ reader-strict reader-final-lf reader-keep-cr reader-keep-bom reader-free
 \ reader-attach reader-open reader-close reader-line reader-more?
-\ reader-position byte-scan text-framed utf8-length utf8-valid?
+\ reader-position reader-line# byte-scan text-framed utf8-length utf8-valid?
 \ utf8-decode utf8-size utf8-put counted, counted-next counted-or-empty
 \ fnv-step bytes-mix. Requires portability.fs, bounds.fs (between?),
 \ outcome.fs, store.fs (store-zeroed,), blocks.fs (heap-claim and
@@ -200,7 +205,10 @@ lf-lib-private set-current
 
 \ At the end of the file: a last line without its line feed is given one
 \ after its bytes when the rules take it (full when the buffer cannot
-\ grow for it); otherwise, or with no bytes left, invalid.
+\ grow for it); otherwise, or with no bytes left, invalid. The read that
+\ found the end had room, and taking lines only frees more, so the buffer
+\ is never full here today; the growth is kept as a guard, and its full
+\ outcome is tested on a reader set up full.
 : reader-lf! ( reader -- ) lf-byte over reader-room drop c! 1 swap reader-end +! ;
 : reader-close-line ( reader -- outcome )
   dup reader-room! ok-then? if reader-lf! outcome-ok then ;
@@ -229,6 +237,8 @@ lf-lib set-current
 \ The current line's number (1-based; 0 before the first line) and the
 \ file offset of its first byte.
 : reader-position ( reader -- d line ) dup reader-at 2@ rot reader-lines @ ;
+\ The current line's number alone, as reader-position gives it.
+: reader-line# ( reader -- n ) reader-lines @ ;
 
 \ Compile a counted string of at most 255 bytes into the dictionary, then
 \ align; a longer one aborts. For tables of names built while loading.

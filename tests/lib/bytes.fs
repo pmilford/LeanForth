@@ -170,7 +170,7 @@ variable lines-read  variable bytes-read  variable offsets-ok
 \ A buffer far smaller than a line grows; every line and byte is read.
 T{ 8 4096 open-with -> outcome-ok }T
 T{ read-all lines-read @ bytes-read @ offsets-ok @ -> outcome-ok 35 1787 true }T
-T{ rd reader-position nip nip -> 35 }T
+T{ rd reader-position nip nip rd reader-line# -> 35 35 }T
 T{ rd reader-more? -> false }T
 T{ rd reader-line -> 0 0 outcome-invalid }T
 T{ finish -> }T
@@ -192,7 +192,7 @@ T{ rd reader-free rd reader-buffer @ -> 0 }T
 T{ 2 4096 open-with -> outcome-ok }T
 T{ rd reader-line rot drop -> 172 outcome-ok }T
 T{ rd reader-line drop 9 min s\" {\"in\":1,\"" compare -> 0 }T
-T{ rd reader-position -> 173 0 2 }T
+T{ rd reader-position rd reader-line# -> 173 0 2 2 }T
 T{ finish -> }T
 T{ 8 64 rd ' reader-init rs-checked -> outcome-ok }T
 T{ finish -> }T
@@ -266,6 +266,33 @@ T{ 4 3 open-noeol rd reader-line -> outcome-ok 0 0 outcome-full }T
 T{ finish -> }T
 T{ reader-strict rd reader-rules! 4 4 open-noeol rd reader-line -> outcome-ok 0 0 outcome-invalid }T
 T{ finish -> }T
+\ Before the first line the line number is 0.
+T{ 4 4 open-noeol rd reader-line# -> outcome-ok 0 }T
+T{ finish -> }T
+
+\ A file ending in a line feed and a lone carriage return ("a" LF CR):
+\ only a line feed ends a line, so ordinary text has a second, empty line
+\ (its carriage return dropped, as at the end of any last line); strict
+\ framing refuses the last line, and reader-keep-cr alone keeps the CR.
+: open-lone-cr ( rules -- outcome )
+  rd reader-rules! 4 64 rd reader-init drop s" tests/lib/reader-lone-cr.txt" rd reader-open ;
+T{ reader-text open-lone-cr s" a" next= s" " next= rd reader-line# rd reader-more? -> outcome-ok true true 2 false }T
+T{ finish -> }T
+T{ reader-strict open-lone-cr s" a" next= rd reader-line -> outcome-ok true 0 0 outcome-invalid }T
+T{ finish -> }T
+T{ reader-keep-cr open-lone-cr s" a" next= s\" \r" next= -> outcome-ok true true }T
+T{ finish -> }T
+
+\ reader-close-line on a full buffer at the end of the file: the buffer
+\ grows by the line feed, or, when RESIZE is refused, full with nothing
+\ changed. (Reading never gets here full: the read that finds the end has
+\ room; the reader is set up full by hand.)
+: full-at-end ( -- ) 4 64 rd reader-init drop  0 rd reader-start !  4 rd reader-end !
+  true rd reader-eof !  s" abcd" rd reader-buffer @ swap move ;
+T{ full-at-end 1 heap-refusals ! rd reader-close-line rd reader-size @ rd reader-end @ -> outcome-full 4 4 }T
+T{ heap-refusals @ rd reader-close-line rd reader-size @ rd reader-end @ -> 0 outcome-ok 8 5 }T
+T{ rd reader-buffer @ 5 s\" abcd\n" compare -> 0 }T
+T{ rd reader-free -> }T
 
 \ FNV-style mixing: one step is h xor x, times 16777619, modulo the cell;
 \ bytes-mix takes the bytes one at a time, in order, with that step.

@@ -865,7 +865,7 @@ here families - cell / constant #families
   c" handler left no outcome or extra items" export-bad ;
 
 \ Handing a decoded record over, with no field or reason left from decoding.
-: export-line-number ( export -- n ) export-reader reader-position nip nip ;
+: export-line-number ( export -- n ) export-reader reader-line# ;
 \ Write the export, its line number and its generation into the record's
 \ header; the export waits on the return stack.
 : record-stamp ( record export -- )

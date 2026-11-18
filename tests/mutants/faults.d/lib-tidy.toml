@@ -67,3 +67,27 @@ old = '''\ Interface: /htab /htab-hooks hook-rehash hook-same htab-hooks! htab-i
 new = '''\ Interface: /htab /htab-hooks htab-hooks! htab-init'''
 test = "python3 tests/scripts/test_lib_index.py"
 reason = "a header's interface list that leaves out public words (htab.fs's hook fields, review note 8)"
+
+[[fault]]
+id = "lt3-reader-line-number-off"
+file = "src/lib/bytes.fs"
+old = ''': reader-line# ( reader -- n ) reader-lines @ ;'''
+new = ''': reader-line# ( reader -- n ) reader-lines @ 1- 0 max ;'''
+test = "$GFORTH tests/lib/bytes.fs"
+reason = "the line number one short after the first line, so an export's error names the line before the bad one"
+
+[[fault]]
+id = "lt3-reader-close-line-ignores-full"
+file = "src/lib/bytes.fs"
+old = '''  dup reader-room! ok-then? if reader-lf! outcome-ok then ;'''
+new = '''  dup reader-room! ok-then? if reader-lf! then outcome-ok ;'''
+test = "$GFORTH tests/lib/bytes.fs"
+reason = "a last line taken as ok when RESIZE refused room for its line feed"
+
+[[fault]]
+id = "lt3-reader-lone-cr-kept"
+file = "src/lib/bytes.fs"
+old = ''': line-cr-drop ( addr n -- addr n' ) dup if 2dup + 1- c@ cr-byte = + then ;'''
+new = ''': line-cr-drop ( addr n -- addr n' ) dup 1 > if 2dup + 1- c@ cr-byte = + then ;'''
+test = "$GFORTH tests/lib/bytes.fs"
+reason = "a line that is only a carriage return keeps it in ordinary text (the lone CR after a file's last line feed)"
