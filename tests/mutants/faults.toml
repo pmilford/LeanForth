@@ -3115,7 +3115,7 @@ old = '''    printf 'leanforth: internal fault: Gforth ended with status %s\n' "
     exit 5'''
 new = '''    printf 'leanforth: internal fault: Gforth ended with status %s\n' "$status" >&2
     exit 0'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_5_broken_gforth"
 reason = "a Gforth that fails on its own is reported with exit status 0"
 
 [[fault]]
