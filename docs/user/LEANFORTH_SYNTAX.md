@@ -121,17 +121,20 @@ theorem zero_add'' (n : Nat) : 0 + n = n := by
   | succ k ih => rw [Nat.add_succ, ih]
 ```
 
-What LeanForth says today (the export names `Nat.add_succ` and what it
-uses):
+What LeanForth says today, against S2's slice of `Init` (the declarations
+the proof set uses) and its elaboration data (plan S2, integrated
+2026-11-17):
 
 ```console
-$ bin/leanforth check --env tests/front/tactic-slice.ndjson tests/front/01-zero-add-rw.lf; echo "exit status $?"
-error: unsupported: the LeanForth text was not checked: error 139 at line:col 17:1 (token `end`): not supported yet: an elaboration step (plans FE2-FE5, S2)
-exit status 2
+$ bin/leanforth check --env tests/front/s2-slice.ndjson --elab-data tests/front/s2-slice.elab.ndjson tests/front/01-zero-add-rw.lf | grep "^zero_add"
+zero_add'': accepted; axioms: none
 ```
 
-The words (read, not yet run; the design is
-[FE1G_TACTICS.md](../design/FE1G_TACTICS.md)):
+Without the elaboration data (`--elab-data`) the statement's numerals and
+`+` cannot be elaborated, and the text stops at `end` (error 139, exit 2).
+
+The words (the design is [FE1G_TACTICS.md](../design/FE1G_TACTICS.md));
+all of them are read, and all but `by-case:` run (see "Running" below):
 
 | Word | Stack effect | Lean | Read as |
 | --- | --- | --- | --- |
@@ -177,10 +180,11 @@ first, as Lean runs them; LeanForth stops at the first error, Lean goes
 on to report more. Today `by-sorry`, `by-intro:`, `by-exact` and `by-rfl`
 run (plan FE1g-4: Lean's `intro`, `exact` and `rfl`, with Lean's error
 texts for a goal with nothing to introduce, a term of another type and
-two sides that are not equal); every other tactic stops at its word, "not
-supported yet" with the plan step that ports it (error 80: FE1g-5 for
-induction and cases, FE1g-6 for rewriting), followed by the goals at
-that point. A goal
+two sides that are not equal), and so do `by-induction`,
+`by-induction-with` with its `|` alternatives, `by-rw[ ]` and
+`by-rewrite[ ]` (plan S2, integrated 2026-11-17: Lean's `induction`,
+`rw` and `rewrite`). `by-case:` still stops at its word, "not supported
+yet" (error 80, plan FE1g-5), followed by the goals at that point. A goal
 left when the proof ends is Lean's "unsolved goals" at `by` (error 89),
 the goals printed as Lean prints them; a tactic with no goal left is
 Lean's "No goals to be solved" (error 90); each step spends one unit of

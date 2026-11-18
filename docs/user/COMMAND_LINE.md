@@ -109,15 +109,27 @@ read into syntax trees and elaborated at each `end` (plan S1, branch
 `s1-elab`: written and tested alone; [the elaborator](ELABORATION.md)):
 with the library's elaboration data (`--elab-data`; without it every
 natural declaration stops with error 139), names, applications, `=`,
-binders, term proofs and tactic proofs work today; a statement with numerals or `+` stops with error 139 (instance
-search, plan FE1e5; unfolding, plan S2), and a kernel-form word such as
-`Prop` with error 70, both "not supported yet" (exit 2), and nothing is
-checked ([two forms](LEANFORTH_SYNTAX.md#two-forms-kernel-form-and-natural-leanforth),
+binders, numerals, `+`, term proofs and tactic proofs work today (plan S2,
+integrated 2026-11-17): `by-rfl`, `by-exact`, `by-induction-with` with its
+`|` cases, `by-rw[ ]` and `by-rewrite[ ]`, with Lean's smart unfolding of
+recursive definitions such as `Nat.add`. `by-case:` stops with error 80
+and a kernel-form word such as `Prop` with error 70, both "not supported
+yet" (exit 2), and nothing is checked
+([two forms](LEANFORTH_SYNTAX.md#two-forms-kernel-form-and-natural-leanforth),
 [tactic proofs](LEANFORTH_SYNTAX.md#tactic-proofs-read-and-run-once-statements-are-elaborated)).
-FE1's theorem $0 + n = n$, written in natural LeanForth with tactics:
+FE1's theorem $0 + n = n$ in natural LeanForth, by induction and
+rewriting, against S2's slice of `Init` and its elaboration data:
 
 ```console
-$ bin/leanforth check --env tests/author/init-slice.ndjson tests/front/01-zero-add.lf; echo "exit status $?"
+$ bin/leanforth check --env tests/front/s2-slice.ndjson --elab-data tests/front/s2-slice.elab.ndjson tests/front/01-zero-add-rw.lf | grep "^zero_add"
+zero_add'': accepted; axioms: none
+```
+
+Without the elaboration data the same file stops where its declaration
+ends:
+
+```console
+$ bin/leanforth check --env tests/front/s2-slice.ndjson tests/front/01-zero-add-rw.lf; echo "exit status $?"
 error: unsupported: the LeanForth text was not checked: error 139 at line:col 17:1 (token `end`): not supported yet: an elaboration step (plans FE2-FE5, S2)
 exit status 2
 ```
@@ -215,9 +227,10 @@ library:
 The values themselves (which class an instance serves, ranks, priorities,
 reducibility) are pinned Lean's, taken on trust
 ([what is checked](../programming/ELABORATION_DATA.md#what-it-is-and-why)).
-The counts read are printed first. The verdicts are those of the same run
-without the data, since nothing uses it yet (the elaborator of plan rows
-FE1e and FE1g will):
+The counts read are printed first. Natural text needs the data: the
+elaborator and the tactics read it ([above](#checking-leanforth-text)). A
+kernel-form text, such as this one, does not use it, and its verdicts are
+those of the same run without the data:
 
 ```console
 $ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data tests/front/init-slice.elab.ndjson tests/author/19-add-zero.lf | head -1
@@ -329,9 +342,17 @@ $ bin/leanforth check --env tests/front/s2-slice.ndjson --elab-data tests/front/
 ```
 
 `tests/front/s2-steps.golden` holds the logs of S2's proof set
-(`tests/front/check_s2.py` checks them, with the schema); a script that
-prints each of those theorems with its checked steps and goals is
-`scripts/showcase-steps.sh`.
+(`tests/front/check_s2.py` checks them, with the schema).
+`scripts/showcase-steps.sh` lays the log out for a person: for each
+theorem of the proof set, its LeanForth text, its statement as Lean prints
+the first goal, each checked step with the goal before and the goals after,
+and its verdict. By default it runs on S2's slice of `Init` (a second a
+file; `make test-showcase` compares the output with
+`tests/front/showcase.golden`); with
+`SHOWCASE_LIBRARY="--snapshot INIT.lfsnap --elab-data INIT.elab.ndjson"`
+it runs on all of `Init` (65-100 s a file).
+[examples/s2-showcase.txt](examples/s2-showcase.txt) is its output on all
+of `Init`, run on 2026-11-18.
 
 What runs: the file runs through Forth's own interpreter with only
 LeanForth's words visible ([ADR 0017 Amendment 1, A5](../adr/0017-leanforth-syntax.md#a5-sealed-text-what-must-be-shut-and-the-probes));
@@ -344,12 +365,15 @@ wrong word builds a different term, which the checker checks as it is.
 
 **What this does not do.**
 
-- There is no elaborator: every implicit argument, universe level and
-  instance is written by hand, and there is no `+`, `=` or numeral
-  notation.
-- There are no tactics: `by` stops as "not supported". Proofs are kernel
-  terms written by hand; an induction is a `Nat.rec` term with its motive
-  spelled out.
+- In kernel-form text there is no elaborator: every implicit argument,
+  universe level and instance is written by hand; `+` and `=` are refused
+  as words of natural LeanForth (error 58, exit 4) and a numeral is not
+  supported (error 50, exit 2). Natural text has them
+  ([above](#checking-leanforth-text)).
+- In kernel-form text there are no tactics: `by` stops as "not supported"
+  (error 51). Proofs are kernel terms written by hand; an induction is a
+  `Nat.rec` term with its motive spelled out. Natural text has the tactics
+  listed above.
 - `Init`'s definitions (`Nat`, `Nat.add`, `Nat.rec`, `Eq`, `HAdd`,
   `Nat.add_comm` with its proof) come from pinned Lean's export;
   LeanForth re-checks them but did not write them.

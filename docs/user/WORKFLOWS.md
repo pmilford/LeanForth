@@ -23,9 +23,13 @@ partly built; both are meant to end at the same checker:
   the terms, report mistakes with line and column, and print a declaration
   back as words. They are untrusted: `check FILE.lf` loads them in its own process,
   and the kernel checks the terms they build, so a wrong proof is rejected.
-  There is no elaborator and no tactics: proofs are kernel terms written by
-  hand, and `Init` comes from Lean's export. Still planned: untrusted
-  helpers such as implicit arguments and tactics (8.3). The same checker is to decide; a
+  In natural LeanForth, the default, an untrusted elaborator fills in
+  implicit arguments, instances, numerals and `+`, and the tactics
+  `by-rfl`, `by-exact`, `by-induction-with` and `by-rw[ ]` build the proofs
+  (plans S1 and S2, with the library's elaboration data;
+  [the elaborator](ELABORATION.md)); in the kernel form proofs are kernel
+  terms written by hand. Either way `Init` comes from Lean's export, and
+  the same checker decides; a
   LeanForth-written theorem is to be printable as Lean source for Lean
   to check as a second opinion (not built).
 
@@ -177,8 +181,8 @@ abs, in-range, factorial, gcd):
   obligations with every declaration they use (4,277), and **LeanForth's
   checker re-checks that export** and accepts it; an export whose program IR
   term, postcondition or proof term was changed after Lean proved it is
-  rejected (plan 5.5.1). Lean wrote the proofs; LeanForth has no tactics
-  yet and wrote no proof.
+  rejected (plan 5.5.1). Lean wrote the proofs; LeanForth wrote none of
+  them.
 - The **receipt format** exists as a JSON Schema, version 0.3
   ([program receipts](../programming/PROGRAM_RECEIPTS.md)), and the first
   receipt, for clamp, is generated: `accepted-by-leanforth` (LeanForth's
