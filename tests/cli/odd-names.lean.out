@@ -20,3 +20,4 @@
 19	Foo.«#x»	Foo.«#x» = Foo.«#x»
 20	a.«b c».d	a.«b c».d = a.«b c».d
 21	Foo.«12»	Foo.«12» = Foo.«12»
+str	-	"a󠁁b𝅳c" = "a󠁁b𝅳c"

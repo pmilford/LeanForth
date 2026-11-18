@@ -47,6 +47,14 @@ reason = "check's text and JSON write fun and inferInstanceAs as «fun» and «i
 quick = true
 
 [[fault]]
+id = "str-print-wide-banned-raw"
+file = "src/present/print-strings.fs"
+old = ''': lf-pq-banned ( code -- ) dup $10000 < if s" u" 4 lf-pq-coded else lf-pq-wide then ;'''
+new = ''': lf-pq-banned ( code -- ) dup $10000 < if s" u" 4 lf-pq-coded else drop then ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py OddNames.test_print_string"
+reason = "a format character above U+FFFF in a string literal (U+E0041, U+1D173) is left out of what print shows, not written as \\u{X} (review F4)"
+
+[[fault]]
 id = "outline-input-name-raw"
 file = "src/present/proof-outline.fs"
 old = '''  else lf-lv-put-text then ;'''

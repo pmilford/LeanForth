@@ -39,3 +39,20 @@ run_cmd liftTermElabM do
     addOdd k n
     IO.println s!"{k}\t{n.toString}\t{← ppExpr (oddStatement n)}"
     k := k + 1
+
+-- A string literal holding two format characters above U+FFFF, U+E0041 (a
+-- tag) and U+1D173 (a musical one), which Lean prints as themselves and
+-- LeanForth as \u{X} (review F4): oddStr : "a…b…c" = "a…b…c", printed as
+-- the line str, -, ppExpr of the statement, and exported apart, as
+-- tests/cli/odd-string.ndjson (a string literal brings Lean's String, about
+-- 590 KB of export), so that print of the names stays fast.
+def oddText : String := String.ofList ['a', Char.ofNat 0xE0041, 'b', Char.ofNat 0x1D173, 'c']
+
+def oddLiteral : Expr := mkApp3 (mkConst ``Eq [Level.one]) (mkConst ``String)
+  (mkStrLit oddText) (mkStrLit oddText)
+
+run_cmd liftTermElabM do
+  addDecl (.thmDecl { name := `oddStr, levelParams := [], type := oddLiteral,
+                      value := mkApp2 (mkConst ``Eq.refl [Level.one]) (mkConst ``String)
+                                 (mkStrLit oddText) })
+  IO.println s!"str\t-\t{← ppExpr oddLiteral}"

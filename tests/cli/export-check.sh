@@ -12,8 +12,10 @@
 # dependent.lean and sibling.lean (two libraries importing inductive.lean,
 # for check --snapshot), let-zd.lean and let-b.lean (lets equal but for
 # their names, cross_snapshot.py's let pair), each
-# without axioms, and odd-names.lean (22 names that need « », whose
-# Name.toString and ppExpr it prints as odd-names.lean.out records), and scripts/export.sh reproduces the committed
+# without axioms, and odd-names.lean (22 names that need « » and a string
+# literal with format characters above U+FFFF, whose Name.toString and
+# ppExpr it prints as odd-names.lean.out records, exported as odd-names and
+# odd-string), and scripts/export.sh reproduces the committed
 # exports and their manifests byte for byte. LEAN names the pinned Lean
 # 4.35.0 binary.
 set -eu
@@ -35,7 +37,8 @@ cleanup() {
     nested.ndjson nested.ndjson.manifest.json \
     dependent.ndjson dependent.ndjson.manifest.json sibling.ndjson sibling.ndjson.manifest.json \
     let-zd.ndjson let-zd.ndjson.manifest.json let-b.ndjson let-b.ndjson.manifest.json \
-    LeanForthOddNames.olean odd-names.lean.out odd-names.ndjson odd-names.ndjson.manifest.json; do
+    LeanForthOddNames.olean odd-names.lean.out odd-names.ndjson odd-names.ndjson.manifest.json \
+    odd-string.ndjson odd-string.ndjson.manifest.json; do
     rm -f "$temporary/$name"
   done
   rmdir "$temporary"
@@ -84,6 +87,10 @@ LEAN="$lean" LEAN_PATH="$temporary" bash scripts/export.sh "$temporary/odd-names
   LeanForthOddNames -- oddThm{0..21} >/dev/null
 cmp tests/cli/odd-names.ndjson "$temporary/odd-names.ndjson"
 cmp tests/cli/odd-names.ndjson.manifest.json "$temporary/odd-names.ndjson.manifest.json"
+LEAN="$lean" LEAN_PATH="$temporary" bash scripts/export.sh "$temporary/odd-string.ndjson" \
+  LeanForthOddNames -- oddStr >/dev/null
+cmp tests/cli/odd-string.ndjson "$temporary/odd-string.ndjson"
+cmp tests/cli/odd-string.ndjson.manifest.json "$temporary/odd-string.ndjson.manifest.json"
 # shared-depths.lean: 53 rows (rvS36 P1, P2; agent PF P3; agent R5 P4; CK P5; CT P6) checked by pinned
 # Lean's kernel; the script compares LeanForth's verdict on each export, with the audit memo
 # on and off.
@@ -98,4 +105,4 @@ printf '%s\n' 'Lean accepts chain, impliesSelf, Two.cases, Two.swap, irrelevant,
   'nested.lean, Two.swap_swap, Two.swap_swap_first, Two.cases_first, Two.swap_first,' \
   'Two.swap_second, Zd and B, and rejects their wrong twins; prints the names of' \
   'odd-names.lean as odd-names.lean.out records; scripts/export.sh reproduces the' \
-  'twelve exports and their manifests.'
+  'thirteen exports and their manifests.'

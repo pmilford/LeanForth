@@ -391,6 +391,14 @@ T{ s\" a\"b\\c\nd\te\x0d\x01\x7f'" t-str
    s\" \"a\\\"b\\\\c\\nd\\te\\x0d\\x01\\x7f'\"" shows -> }T
 T{ s\" \xc3\xa9\xf0\x9f\x98\x80" t-str s\" \"\xc3\xa9\xf0\x9f\x98\x80\"" shows -> }T
 T{ s\" a\xe2\x80\xaeb\xc2\x85" t-str s\" \"a\\u202eb\\u0085\"" shows -> }T
+\ Above U+FFFF, where Lean's syntax has no escape, as names write it
+\ (review F4): U+E0041, a tag character, and U+1D173, a musical format
+\ character, as \u{E0041} and \u{1D173}, in plain text and in LaTeX.
+T{ s\" a\xf3\xa0\x81\x81b\xf0\x9d\x85\xb3" t-str s\" \"a\\u{E0041}b\\u{1D173}\"" shows -> }T
+lf-print-latex mode
+T{ s\" a\xf3\xa0\x81\x81b" t-str
+   s\" \\texttt{\"a\\textbackslash{}u\\{E0041\\}b\"}" shows -> }T
+0 mode
 T{ args{ s" f" t-const s" x y" t-str t-app s\" f \"x y\"" shows -> }T
 lf-print-latex mode
 T{ s\" a_b\\{}~ c" t-str
