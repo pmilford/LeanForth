@@ -87,7 +87,9 @@
 \ save, and a declaration handed over records its name, entries and open
 \ parts (/tld); a log record or text that finds no room cuts the log
 \ (nothing more is logged in the run; the run, its verdicts and its exit
-\ code are as without the log); lf-steps-decls ( -- n ), lf-steps-decl
+\ code are as without the log, except when memory is exhausted: the log's
+\ text takes room in trun-text that a later open part might have had,
+\ which then stops the run full, 88); lf-steps-decls ( -- n ), lf-steps-decl
 \ ( k -- addr ), lf-steps-entry ( k -- addr ), lf-steps-span ( k -- first
 \ n ), lf-steps-text ( first n -- c-addr u ), lf-steps-cut? ( -- flag ) and
 \ lf-tac-word ( kind -- c-addr u ) read them for front/step-log.fs;
@@ -368,7 +370,9 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ in slabs that outlive the stores (as the open parts); a restore drops
 \ the entries made since its save (lfr-back). A record or text that finds
 \ no room cuts the log (L4): the entry under way is dropped, nothing more
-\ is logged in the run, and the run goes on as without the log.
+\ is logged in the run, and the run goes on as without the log (but for
+\ exhausted memory: the log's text in trun-text may leave a later open
+\ part no room, review re-check N3).
 : lf-steps-record! ( flag -- ) trun trun-log-on ! ;
 : lf-steps-cut? ( -- flag ) trun trun-log-cut @ ;
 : lfg-on? ( -- flag ) trun trun-log-on @ lf-steps-cut? 0= and ;

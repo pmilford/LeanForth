@@ -427,7 +427,7 @@ T{ s" tests/front/06-sorry.lf" check outcome-ok tally cli-not-proved @ lf-open-p
 \ nothing.
 variable lines#
 : count-lines ( c-addr u -- ) s\" \n" compare 0= if 1 lines# +! then ;
-: no-axioms ( d -- outcome ) drop outcome-ok ;
+: no-axioms ( d xt -- outcome ) 2drop outcome-ok ;
 : logged-with ( find axioms -- n outcome )
   0 lines# ! ['] count-lines -rot lf-steps-write lines# @ swap ;
 : logged ( find -- n outcome ) ['] no-axioms logged-with ;
@@ -442,7 +442,7 @@ T{ ' all-found logged ' none-found logged -> 2 outcome-ok 0 outcome-ok }T
 \ axioms word's refusal is the writer's outcome, the header ended.
 : logged0 ( -- addr ) 0 lf-steps-decl ;
 T{ logged0 tld-parts @ logged0 tld-cut @ logged0 tld-count @ -> 1 false 1 }T
-: axioms-full ( d -- outcome ) drop outcome-full ;
+: axioms-full ( d xt -- outcome ) 2drop outcome-full ;
 T{ ' all-found ' axioms-full logged-with -> 1 outcome-full }T
 \ A log that runs out of room is cut (review L4): the run, its verdicts
 \ and its exit code as without it; a declaration logged after the cut
@@ -467,6 +467,10 @@ T{ steps-written? -> true }T
   ['] sorry-steps >string-execute 2swap search nip nip ;
 T{ s\" \"axioms\":[\"sorryAx\"],\"cut\":false," sorry-header? -> true }T
 T{ s\" \"open_parts\":1,\"steps\":1}}" sorry-header? -> true }T
+\ An axiom whose name cannot be given: "axioms":null, never a short list
+\ (review re-check N2), and the writer's outcome the refusal.
+: null-steps ( -- c-addr u ) ['] type ['] all-found ['] axioms-full lf-steps-write drop ;
+T{ ' null-steps >string-execute s\" \"axioms\":null," search nip nip -> true }T
 [then]
 \ Without --steps nothing is kept.
 T{ s" tests/front/06-sorry.lf" check lf-steps-decls -> 0 0 }T

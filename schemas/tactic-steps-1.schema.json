@@ -34,15 +34,22 @@
           "additionalProperties": false,
           "properties": {
             "axioms": {
-              "description": "Every axiom the declaration depends on, as #print axioms names them (sorryAx for a by-sorry). The declaration is proved only when open_parts is 0 and each axiom is one of the allowlisted propext, Classical.choice and Quot.sound; otherwise the report calls it NOT PROVED.",
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1
-              }
+              "description": "Every axiom the declaration depends on, as #print axioms names them (sorryAx for a by-sorry). The declaration is proved only when open_parts is 0 and each axiom is one of the allowlisted propext, Classical.choice and Quot.sound; otherwise the report calls it NOT PROVED. null when an axiom's name could not be given (never a short list); the log is then an error, exit 3.",
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "cut": {
-              "description": "true when the step log ran out of room while the text ran, before this declaration's end: its steps are left out (steps is 0), and any declaration whose header found no room is missing. The verdicts and the exit code are as without the log.",
+              "description": "true when the step log ran out of room while the text ran, before this declaration's end: its steps are left out (steps is 0), and any declaration whose header found no room is missing. The verdicts and the exit code are as without the log, except when memory is exhausted (the log's text shares room with the open parts').",
               "type": "boolean"
             },
             "declaration": {

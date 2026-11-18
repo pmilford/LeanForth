@@ -174,6 +174,16 @@ T{ outcome-ok worst ! uu-refused 1 > worst @ -> true outcome-ok }T
 T{ s" uu" d-of lf-menv-params swap @ s" u" nm = -> 1 true }T
 \ The tier unchanged by every decode and every name sought above.
 T{ tier# -> names0 exprs0 levels0 }T
+\ A tier letE, dependent and not (review re-check N1; no slice has one):
+\ the let of its value (b) and the lambda of its type (a) and body, its
+\ nonDep the tag's; made in the tier after the check above.
+: tlbv ( i -- t ) lf-term-bvar drop ;
+: tbvar ( i -- e ) ck-stage stage-tier expr-bvar drop ;
+: tlet ( nondep -- e ) 0 swap let-head 7 tbvar 8 tbvar 9 tbvar ck-stage stage-tier expr-let drop ;
+: twant ( nondep -- t ) >r 8 tlbv 7 tlbv 9 tlbv lf-term-lam drop r> lf-let-make drop ;
+: tdecoded ( nondep -- t outcome ) tlet lbd-forget lbd-term lbd-forget ;
+T{ false tdecoded swap false twant lf-meta-eqv -> outcome-ok true outcome-ok }T
+T{ true tdecoded swap true twant lf-meta-eqv -> outcome-ok true outcome-ok }T
 \ The library's count is the stage's when bound: a stage that grows
 \ while bound adds no declaration, and a text handle (0, the first after
 \ none) keeps its meaning.

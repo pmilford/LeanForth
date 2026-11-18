@@ -312,7 +312,10 @@ exit code: when keeping it finds no room while the text runs, the log is
 cut (nothing more is logged in the run) and says so, with `"cut":true`
 and no step lines in the header of each declaration it reaches after
 that (a declaration whose header finds no room at all is missing), while
-the run goes on as without the log. Only a log that cannot be written
+the run goes on as without the log. The one exception is exhausted
+memory: the log's text shares room with the open parts' text, so a later
+`by-sorry` may then find no room (error 88, exit 3) where a run without
+`--steps` would have had it. Only a log that cannot be written
 (the file, or an axiom's name, finds no room) is an error (exit 3). Version 1
 does not yet carry each tactic's rule (the eliminator, the rewrite rule
 and its place, the closing term), the constants and hypotheses a step

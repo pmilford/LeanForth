@@ -28,9 +28,11 @@
 \ lf-steps-write ( sink find axioms -- outcome ): sink ( c-addr u -- )
 \ takes each piece of a line, then its line feed; find ( c-addr u -- d
 \ true | false ) gives the accepted declaration of that full name;
-\ axioms ( d -- outcome ) calls lf-steps-axiom ( c-addr u -- ) for each
-\ axiom d depends on. ok, or the first refusal (the writer's, full for no
-\ room in its key pool, or axioms').
+\ axioms ( d xt -- outcome ) calls xt ( c-addr u -- ) with the name of
+\ each axiom d depends on; it runs twice, to check that every name can be
+\ given, then to write them: a refusal the first time writes "axioms":null
+\ (never a short list). ok, or the first refusal (the writer's, full for
+\ no room in its key pool, or axioms').
 \ Presentation data: nothing reads it to decide; it changes no verdict.
 \ Example: ' type ' accepted ' axioms-of lf-steps-write drop
 \ State: the record lsl (the sink, the two words, the declaration's first
@@ -74,9 +76,12 @@ end-structure
 
 \ ---- The header: the axioms first (their outcome kept), then the rest.
 : lsl-name ( decl -- c-addr u ) tld-name 2@ lf-steps-text ;
-: lf-steps-axiom ( c-addr u -- ) lsl-w jw-string ;
+: lsl-axiom ( c-addr u -- ) lsl-w jw-string ;
+: lsl-axioms-of ( d xt -- outcome ) lsl lsl-axioms @ execute ;
 : lsl-axiom-list ( d -- outcome )
-  s" axioms" lsl-key lsl-w jw-open-array lsl lsl-axioms @ execute lsl-w jw-close-array ;
+  s" axioms" lsl-key dup ['] 2drop lsl-axioms-of
+  dup ok? 0= if nip lsl-w jw-null exit then
+  drop lsl-w jw-open-array ['] lsl-axiom lsl-axioms-of lsl-w jw-close-array ;
 : lsl-steps# ( decl -- n ) dup tld-cut @ if drop 0 else tld-count @ then ;
 : lsl-rest ( decl -- )
   dup tld-cut @ s" cut" lsl-key lsl-w jw-bool dup lsl-name s" declaration" lsl-text

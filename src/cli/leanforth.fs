@@ -187,6 +187,7 @@ begin-structure /cli-run
   2 cells +field opt-steps      \ the step log's file, or - (--steps), or 0 0
   field: run-steps-fid          \ the step log's file while it is written
   field: run-steps-bad          \ true: writing it (or an axiom's name) failed
+  field: run-steps-axiom        \ xt ( c-addr u -- ): where an axiom's name goes
 end-structure
 /cli-run context-record: cli-state
 manifest: cli-manifest
@@ -1062,17 +1063,19 @@ variable cli-info#
 : cli-steps ( -- c-addr u ) cli-state opt-steps 2@ ;
 : cli-steps? ( -- flag ) cli-steps nip 0<> ;
 : cli-steps-fail ( -- ) true cli-state run-steps-bad ! ;
+: cli-steps-bad ( outcome -- outcome' )
+  cli-state run-steps-bad @ if drop outcome-full then ;
 \ Accepted: the newest input declaration of that full name (the text's
 \ come after the library's: pr-newest finds them first).
 : cli-step-find ( c-addr u -- d true | false )
   pr-newest 0= if false exit then dup lf-env-outcome ok? dup 0= if nip then ;
 : cli-step-axiom ( d -- )
-  lf-input-name nt-name if lf-steps-axiom else 2drop cli-steps-fail then ;
-: cli-step-axioms ( d -- outcome ) ['] cli-step-axiom lf-env-axiom-deps ;
+  lf-input-name nt-name if cli-state run-steps-axiom @ execute exit then
+  2drop cli-steps-fail ;
+: cli-step-axioms ( d xt -- outcome )
+  cli-state run-steps-axiom ! ['] cli-step-axiom lf-env-axiom-deps cli-steps-bad ;
 : cli-steps-put ( c-addr u -- )
   cli-state run-steps-fid @ write-file if cli-steps-fail then ;
-: cli-steps-bad ( outcome -- outcome' )
-  cli-state run-steps-bad @ if drop outcome-full then ;
 : cli-steps-to ( sink -- outcome )
   ['] cli-step-find ['] cli-step-axioms lf-steps-write cli-steps-bad ;
 : cli-steps-file ( -- outcome )

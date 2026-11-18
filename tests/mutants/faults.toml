@@ -20081,7 +20081,47 @@ reason = "review s2-finish L4: a cut declaration's partial steps written as if w
 [[fault]]
 id = "cli-steps-axioms-dropped"
 file = "src/cli/leanforth.fs"
-old = ''': cli-step-axioms ( d -- outcome ) ['] cli-step-axiom lf-env-axiom-deps ;'''
-new = ''': cli-step-axioms ( d -- outcome ) drop outcome-ok ;'''
+old = '''  cli-state run-steps-axiom ! ['] cli-step-axiom lf-env-axiom-deps cli-steps-bad ;'''
+new = '''  2drop outcome-ok ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "review s2-finish M2: the step log's header lists no axiom, so a by-sorry declaration looks proved"
+
+[[fault]]
+id = "fe-libdec-let-value-body-swapped"
+file = "src/front/lib-decode.fs"
+old = '''  if -rot src-b-img swap r> lf-let-make lbd-made else nip nip r> drop no-result then ;'''
+new = '''  if -rot src-c-img swap r> lf-let-make lbd-made else nip nip r> drop no-result then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-finish re-check N1 (D1): a let decoded with its body as its value, both sources"
+
+[[fault]]
+id = "fe-libdec-tier-let-nondep-dropped"
+file = "src/front/lib-decode.fs"
+old = '''  tag-let-nondep = >r 2dup lbd-let-named ok-then?'''
+new = '''  drop false >r 2dup lbd-let-named ok-then?'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s2-finish re-check N1: a tier letE's nonDep flag dropped"
+
+[[fault]]
+id = "fe-sunfold-have-as-let"
+file = "src/front/lib-decode.fs"
+old = '''    elab-node-const of tag-const endof  drop tag-let-nondep 0 endcase ;'''
+new = '''    elab-node-const of tag-const endof  drop tag-let 0 endcase ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-finish re-check N1 (D3): a smart-unfolding body's have decoded as a dependent let"
+
+[[fault]]
+id = "fe-sunfold-let-body-from-c"
+file = "src/front/lib-decode.fs"
+old = ''': lbd-nchild ( n i -- x ) over lbd-nfirst + lbd-nfield ;'''
+new = ''': lbd-nchild ( n i -- x ) over lbd-nfirst + 2 min lbd-nfield ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-finish re-check N1 (D4): a smart-unfolding let's body read from field c, not d"
+
+[[fault]]
+id = "fe-steps-axioms-unchecked"
+file = "src/front/step-log.fs"
+old = '''  dup ok? 0= if nip lsl-w jw-null exit then'''
+new = '''  dup ok? 0= if drop outcome-ok then'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review s2-finish re-check N2: an axiom whose name cannot be given leaves a short list, not null"

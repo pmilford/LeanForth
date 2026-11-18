@@ -297,6 +297,23 @@ T{ rec-99 -> true false outcome-ok }T
 T{ lf-meta-budget ' rec-99 used ' add-k0-kept used < swap lf-meta-budget! -> true }T
 T{ fk ?n nat-add lf-meta-unfold -> -1 false outcome-unsupported }T
 T{ lv1 1 s" List.append" cn sun-of pad 0 lf-libdec-sunfold -> -1 outcome-invalid }T
+\ A let and a have of a smart-unfolding body (review re-check N1; no
+\ slice's body has one): the let of the value (field c) and the lambda
+\ of the type (b) and body (d), the have's nonDep; nodes made here, then
+\ given back.
+: lbv ( i -- t ) lf-term-bvar drop ;
+: want-let ( nondep -- t ) >r 8 lbv 7 lbv 9 lbv lf-term-lam drop r> lf-let-make drop ;
+: enode ( kind -- n ) 1 elab-nodes slab-claim drop tuck ed-node ed-node-kind ! ;
+: efield! ( x n xt -- ) swap ed-node swap execute ! ;
+: ebvar ( i -- n ) elab-node-bvar enode tuck ['] ed-node-a efield! ;
+: elet ( kind -- n )
+  enode 0 over ['] ed-node-a efield! 7 ebvar over ['] ed-node-b efield!
+  8 ebvar over ['] ed-node-c efield! 9 ebvar over ['] ed-node-d efield! ;
+: decoded ( kind -- t outcome )
+  elab-nodes slab-count >r lbd-sun-forget elet lbd-snode
+  r> elab-nodes slab-cut lbd-sun-forget ;
+T{ elab-node-let decoded swap false want-let same? -> outcome-ok true }T
+T{ elab-node-have decoded swap true want-let same? -> outcome-ok true }T
 \ (Nat.add k x: reduceNat? gets no value for an operand that holds a free
 \ variable, Lean's withNatValue, and reducible leaves Nat.add; s2-tactics.)
 T{ 0 s" Nat.add" cn fk app fx app dup lf-meta-whnf-r drop same? -> true }T
