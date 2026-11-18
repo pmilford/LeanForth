@@ -387,7 +387,7 @@ printed with its text (`at line 2 (error 12): unknown name`):
 | 7 | `another format version` | unsupported | `format_version` is neither the number 3 nor the text `"3.1"` (formats 1 and 2 among them) |
 | 8 | `another Lean version` | unsupported | written by another Lean version or revision |
 | 9 | `elaboration data of another export` | invalid | `export_sha256` is not the library's |
-| 10 | `malformed line` | invalid | a member missing, added or of the wrong type; a malformed name or key; discriminant names that are not one per discriminant; an inert node in a format-3 file |
+| 10 | `malformed line` | invalid | a member missing, added or of the wrong type; a malformed name or key; discriminant names that are not one per discriminant; an inert node in a format-3 file, or whose `key` is no text |
 | 11 | `unknown record kind` | invalid | a record of a kind this format does not have |
 | 12 | `unknown name` | invalid | no declaration of the library has the name |
 | 13 | `a name several declarations have` | invalid | the library has more than one declaration of the name |
@@ -679,6 +679,39 @@ anonymous binder; the other three of the 11 are bodies of definitions the
 export lacks, left out as before. The data has both `instHSMul` default
 instances of `HSMul`.
 
+## Unification hints: not in the data
+
+Lean keeps every `unif_hint` in `unificationHintExtension`'s discrimination
+tree (Meta/UnificationHint.lean:37), keyed by the hint's left-hand side, and
+`isDefEqOnFailure` tries them when a unification would fail (:99). The data
+does not carry them. Instead the front end's `isDefEq` answers *unsupported*,
+never "not equal", for a failure whose side has a definition or a projection
+node at its head (`src/front/defeq.fs`, `de-hint-key?`; with data of `Init`
+alone, whose one hint is `Not p =?= p → False`, it asks whether the side is a
+`Not`). That covers every hint of pinned Mathlib, as pinned Lean lists them
+(`tests/front/unif-hints.lean`, run on 2026-11-18 with Mathlib's `.lake`
+build: 6.9 s, 8.8 GB; its output is `tests/front/unif-hints-mathlib.golden`,
+which `make test-elab-data-e2e` checks):
+
+| Key (Lean's `DiscrTree.Key`) | Kind | Hints |
+| --- | --- | ---: |
+| `Not`, 1 argument | definition | 1 (`Init`'s) |
+| `Shrink`, 2 arguments | definition | 1 (`CategoryTheory.FunctorToTypes`, in `ShrinkYoneda`) |
+| projection 0 of `CategoryTheory.Functor`, 1 argument | projection | 16 (`yoneda_obj_obj_eq_hom` and its `'`, `ulift` and `coyoneda` forms, `forget_obj_eq_coe` of `RingCat`, `CommRingCat`, `SemiRingCat`, `CommSemiRingCat` and `AlgebraicGeometry.Scheme`, `Scheme.forgetToTop_obj_eq_coe`, two hints of `Sites.DenseSubsite` and `Limits.Indization`) |
+| projection 0 of `Action` | projection | 4 (`Rep.barComplex`, `Rep.standardComplex`, `Representation.LinearizeMonoidal`) |
+| projection 0 of `Rep` | projection | 1 (`Rep.barComplex`) |
+| projection 0 of `SSet.S` | projection | 2 (`SSet.Subcomplex.N`) |
+| projections 0 and 1 of `SSet.Subcomplex.Pairing` | projection | 2 |
+
+So 27 hints of Mathlib's own (all in category theory, representation theory
+and simplicial sets) and `Init`'s one: one keyed at a definition, 26 at a
+projection. The design (MATHLIB_FRONT.md O7) had taken their keys for
+definitions (`Prefunctor.obj`, `Quiver.Hom`); Lean keys a hint by its side
+reduced at reducible transparency, where a projection function unfolds to a
+projection node, so `de-hint-key?` also takes a projection node at the head
+(slice MF1, branch `data-bk`). A table of hints in the data waits for a
+theorem that needs one.
+
 ## Tests and evidence
 
 - `make test-elab-data` (in `make test`):
@@ -722,6 +755,9 @@ instances of `HSMul`.
       lacks kept and counted; a RAW body with the three kinds of inert
       metadata and an anonymous binder written as format 3.1, exactly the
       format-3.1 fixture's body, and read by `leanforth check`;
+    - pinned Lean's list of Mathlib's unification hints
+      (`tests/front/unif-hints-mathlib.golden`): 28, each keyed at a
+      definition or a projection ([above](#unification-hints-not-in-the-data));
     - the schema: 302 good lines and 39 wrong ones;
     - the [error catalogue](#errors) against the reader's;
     - the command line: the good data with an export, a snapshot and
@@ -735,14 +771,15 @@ instances of `HSMul`.
       universe-polymorphic definition), the format-3.1 fixture and a 3.1
       file without an inert node, the verdicts
       unchanged, and 4 misuses (a layered snapshot among them);
-    - 196 damaged files, each refused with its line, code, text and exit
+    - 198 damaged files, each refused with its line, code, text and exit
       status and never "accepted": format 1's checks, format 2's (codes
       27-37, the key forms, ranks, matchers, projections, every record
       kind with a member added), format 3's (codes 41-45, 12 and 14,
       malformed nodes, levels, references and annotations of a body,
       max and imax levels, and a polymorphic body with no or other
       universe parameters), format 3.1's (an inert node in a format-3
-      file, of another key, malformed or naming itself, `save_info` as an
+      file, of another key, with a key that is no text (a name, a number,
+      null: malformed, review L3), malformed or naming itself, `save_info` as an
       annotation, a default instance of two classes or twice at one rank,
       and six other versions: 3.1 as a number, "3", "3.2", "3.10", "3.1 "
       and 31), and a format-1 and a format-2 file.
@@ -758,6 +795,21 @@ instances of `HSMul`.
     - a let among a matcher's parameters (13 of `Init`'s matchers, read
       by `make reference-elab-data`; no slice has one);
     - a THROW inside a read.
+- `make reference-mathlib-slice` (in `make check` and the front end's
+  tier; `tests/front/check_mathlib_slice.py`, plan MF1): the Mathlib slice
+  fixture ([MATHLIB_FRONT.md](../design/MATHLIB_FRONT.md#6-measuring-and-the-mathlib-slice-fixture)
+  §6). `scripts/mathlib-slice.py` cuts the declarations of
+  `tests/front/mathlib-slice.roots` and what they need (5,469 declarations: real
+  numbers, `add_zero`, `add_comm`) from the machine's Mathlib export and
+  writes their data from pinned Lean's records of all of Mathlib, cached
+  in the main checkout's `.claude/work/mathlib-slice` (362 s and 9.2 GB
+  the first time, on 2026-11-18; nothing after) and checked against
+  `tests/front/mathlib-slice.sha256`. The test saves the slice's snapshot
+  and checks four texts against it: `s1-rfl.lf` (`0 + 0 = 0`) and
+  `03-zero-add-exact.lf` accepted with no axiom, `mf-real-rfl.lf` (`x + 0
+  = x + 0` for a real `x`) accepted with `propext`, `Classical.choice`
+  and `Quot.sound`, `s1-rfl-wrong.lf` refused (exit 4); about 100 s on
+  Gforth 1.0. Never a run on all of Mathlib.
 - `make reference-elab-data` (in `make check`, pinned Lean):
   `tests/front/elab-init.sh`, about 4 minutes on a busy machine (2026-11-12).
   - `scripts/export-elab.sh` reproduces

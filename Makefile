@@ -1024,9 +1024,17 @@ test-elab-data-e2e:
 reference-elab-data: RUN := timeout 1500
 reference-elab-data:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/front/elab-init.sh
-.PHONY: test-elab-data test-elab-data-e2e reference-elab-data
+# The front end on the Mathlib slice fixture (plan MF1; MATHLIB_FRONT.md section 6):
+# scripts/mathlib-slice.py cuts the slice of tests/front/mathlib-slice.roots from the
+# machine's Mathlib export and writes its data with pinned Lean (cached in the main
+# checkout's .claude/work/mathlib-slice: about 10 minutes and 9 GB the first time,
+# nothing after), checked against tests/front/mathlib-slice.sha256; then the slice's
+# snapshot and four texts against it (about 1 minute). Never a run on all of Mathlib.
+reference-mathlib-slice:
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_mathlib_slice.py
+.PHONY: test-elab-data test-elab-data-e2e reference-elab-data reference-mathlib-slice
 test: test-elab-data test-elab-data-e2e
-test-differential: reference-elab-data
+test-differential: reference-elab-data reference-mathlib-slice
 
 # The instance table (plans FE1e2 and FE1e3; S1_INTERFACE.md §9): keys,
 # isClass?, getUnify and getInstances over the Init slice, and instance

@@ -164,6 +164,7 @@ test-printer-differential          e2e
 reference-program-ir               e2e
 reference-manifest                 e2e
 reference-elab-data                e2e
+reference-mathlib-slice            e2e     the Mathlib slice fixture (MF1): its snapshot and four texts
 reference-synth                    e2e
 reference-front                    e2e
 reference-constructions            e2e

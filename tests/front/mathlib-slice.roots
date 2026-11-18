@@ -1,0 +1,23 @@
+# The Mathlib slice's roots (scripts/mathlib-slice.py; docs/design/MATHLIB_FRONT.md
+# section 6, slice B of its measurements): real numbers, add_zero, add_comm and
+# what the front end's searches need. One declaration name per line, as Lean
+# prints it; scripts/export-slice.py adds everything they need.
+add_zero
+add_comm
+Real
+Real.instAdd
+Real.instZero
+Real.instAddMonoid
+Real.instAddCommSemigroup
+AddMonoid.toAddZeroClass
+AddCommSemigroup.toAddCommMagma
+Zero.toOfNat0
+instHAdd
+instOfNatNat
+# The candidate Lean's order tries first for OfNat ?α 0, HAdd ?α ?β ?γ, Add ?α and
+# Zero ?α: without them a search with an unknown type meets an instance the
+# slice left out and answers unsupported (the measurements' run 11).
+Lean.Grind.CommRing.OfCommSemiring.instOfNatQ
+Std.Time.WallTime.instHAddOffset_1
+Lean.Grind.CommRing.OfCommSemiring.instAddQ
+Pi.instZero
