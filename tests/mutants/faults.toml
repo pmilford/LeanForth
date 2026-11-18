@@ -2166,11 +2166,11 @@ reason = "a word that calls itself with no earlier version is written as a recur
 
 [[fault]]
 id = "pv-reserved-ignored"
-file = "src/program/verify-semantics.fs"
-old = '''    pv-kind-reserved of drop pv-why-not-ir pv-fail endof'''
-new = '''    pv-kind-reserved of drop endof'''
+file = "src/program/verify.fs"
+old = '''  over pv-entry-kind @ pv-kind-reserved = pv-why-not-ir pv-?fail'''
+new = ''''''
 test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
-reason = "a Forth word outside IR 0.1 (CELLS, @, DO ...) is skipped instead of refused, so its IR means something else"
+reason = "a Forth word outside IR 0.1 (CELLS, @, DO ...) is not refused as such, so its IR means something else (re-targeted 2026-11-18 from pv-perform's reserved branch, which only the retired separate vocabulary reached)"
 quick = true
 
 [[fault]]

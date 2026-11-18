@@ -438,11 +438,11 @@ end-structure
 : pv-s-quote ( -- ) pv-inside pv-quoted pv-then-type pv-out-text ;
 : pv-type-alone ( -- ) pv-why-not-ir pv-fail ;
 
-\ A table entry's verification semantics.
+\ A table entry's verification semantics. Never a reserved entry's: the
+\ mode shift refuses those first (pv-shift-entry, verify.fs).
 : pv-perform ( entry -- )
   dup pv-entry-kind @ case
     pv-kind-action of pv-entry-datum @ execute endof
-    pv-kind-reserved of drop pv-why-not-ir pv-fail endof
     pv-kind-output of pv-out-word endof swap pv-prim endcase ;
 
 \ Definitions. The location of `word` is the colon's; of `constant` and
