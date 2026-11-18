@@ -638,6 +638,18 @@ T{ s\" \"name\":\"leanforth\"" holds? s\" {\"in\":1,\"str\":{\"pre\":0,\"str\":\
    -> true true }T
 T{ s\" {\"thm\":{\"all\":[1],\"levelParams\":[],\"name\":1,\"type\":3,\"value\":2}}" holds?
    -> true }T
+\ The names pass the full audit before any line is written (ADR 0005
+\ Amendment 1): a name's kept hash rewritten after the kept audit passed
+\ it, or its prefix pointed forward, refuses the export as invalid.
+variable kept-cell
+: spoil ( x addr -- ) dup @ kept-cell ! ! ;
+: unspoil ( addr -- ) kept-cell @ swap ! ;
+: name-1 ( -- entry ) 1 lf-name-slot ;
+T{ s" theorem t Prop explicit: p p := p end t" run -> outcome-ok }T
+T{ lf-name-storage-valid? 1 name-1 lf-entry-hash spoil export-now lines-n @ -> true outcome-invalid 0 }T
+T{ name-1 lf-entry-hash unspoil 99 name-1 lf-entry-prefix spoil export-now lines-n @
+   -> outcome-invalid 0 }T
+T{ name-1 lf-entry-prefix unspoil export-now -> outcome-ok }T
 \ Lean's heights: a definition one above the highest it names.
 T{ s" def a 0 Type := Prop end a def b 0 Type := a end b" exported -> outcome-ok }T
 T{ s\" \"hints\":{\"regular\":1}" holds? s\" \"hints\":{\"regular\":2}" holds? -> true true }T

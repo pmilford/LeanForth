@@ -277,5 +277,40 @@ T{ lf-name-storage-valid? -> true }T
 99 2 lf-name-slot lf-entry-tag !
 lf-name-reset 3 lf-name-used ! 3 lf-name-count !
 T{ lf-name-storage-valid? -> false }T
+
+\ A walk's check (lf-name-chain-ok?): every component of the chain is a
+\ name whose own entry is well formed. A prefix pointed forward after the
+\ audit passed the entry (here a cycle: 2 -> 3 -> 2) and a text outside
+\ the bytes in use are caught on the walk, so it ends.
+lf-name-reset
+T{ 0 s" A" lf-name-str 1 s" B" lf-name-str 2 7 lf-name-num -> 1 true 2 true 3 true }T
+T{ 3 lf-name-chain-ok? 0 lf-name-chain-ok? 4 lf-name-chain-ok? -1 lf-name-chain-ok? -> true true false false }T
+T{ lf-name-storage-valid? lf-name-audit-all? -> true true }T
+3 2 lf-name-slot lf-entry-prefix !
+T{ lf-name-storage-valid? 3 lf-name-chain-ok? 2 lf-name-chain-ok? 1 lf-name-chain-ok? -> true false false true }T
+T{ lf-name-audit-all? -> false }T
+1 2 lf-name-slot lf-entry-prefix !
+lf-name-used @ 1+ 1 lf-name-slot lf-entry-length !
+T{ 3 lf-name-chain-ok? lf-name-audit-all? -> false false }T
+1 1 lf-name-slot lf-entry-length !
+T{ 3 lf-name-chain-ok? lf-name-audit-all? -> true true }T
+\ The kept hashes (the hand-over audit, lf-name-audit-all?): a hash cell
+\ rewritten after the audit passed its entry is found.
+2 lf-name-slot lf-entry-hash @ constant hash-2
+5 2 lf-name-slot lf-entry-hash !
+T{ lf-name-storage-valid? lf-name-hashes-ok? lf-name-audit-all? -> true false false }T
+hash-2 2 lf-name-slot lf-entry-hash !
+T{ lf-name-hashes-ok? -> true }T
+
+\ The index with no table block (the heap refused it): every name is
+\ refused as names full, a name already made too, and nothing is read; a
+\ reset makes the table again.
+lf-name-reset
+T{ 0 s" kept" lf-name-str -> 1 true }T
+lf-name-table htab-free lf-diag-clear
+T{ 0 s" kept" lf-name-str 0 s" new" lf-name-str lf-diag-code@ -> false false lf-diag-names-full }T
+T{ lf-name-count @ lf-name-table htab-live? -> 2 false }T
+lf-name-reset
+T{ lf-name-table htab-live? 0 s" kept" lf-name-str -> true 1 true }T
 lf-name-reset
 bye

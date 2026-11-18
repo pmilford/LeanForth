@@ -30,4 +30,14 @@ T{ 5 ' hash-fmix rs-checked s" ab" ' hash-bytes rs-checked drop -> 5 hash-fmix }
 \ Only the interface is public: helpers are private (ADR 0010).
 T{ s" hash-mul" forth-wordlist search-wordlist s" hash-mul" lf-lib search-wordlist -> 0 0 }T
 T{ s" hash-fmix" lf-lib search-wordlist nip -> -1 }T
+\ hash-3 is the three-field mix it names, bit for bit, on 10,000 random
+\ triples and at the ends of the range (it replaced terms.fs's
+\ lf-fields-hash, whose values the term and level tables' layout follows).
+: mix-3 ( a b c -- h ) >r >r hash-fmix r> hash-step r> hash-step ;
+: hash-3-same? ( a b c -- flag ) 2 pick 2 pick 2 pick mix-3 >r hash-3 r> = ;
+: hash-3-all? ( -- flag )
+  true 10000 0 do hash-rnd hash-rnd hash-rnd hash-3-same? and loop ;
+T{ hash-3-all? 0 0 0 hash-3-same? -1 -1 -1 hash-3-same? -> true true true }T
+T{ 1 2 3 hash-3 3 2 1 hash-3 = 1 2 3 hash-3 in-range? -> false true }T
+T{ 1 2 3 ' hash-3 rs-checked -> 1 hash-fmix 2 hash-step 3 hash-step }T
 bye

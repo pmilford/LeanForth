@@ -103,25 +103,41 @@ a test that corrupts the store on purpose).
   the audit has not passed yet (the newest entries, and entries a raw
   write of the count exposes); any entry a find reaches (the find checks
   the entry before comparing it, and a corrupted one stops the find and
-  refuses the name, so its bytes are never read); a reader that checks the
-  component it reads (`lf-name-part-ok?`).
-- **Now, no longer caught:** a write into an entry the audit already
-  passed, when it leaves the header as it was. It is caught only when a
-  find or a checking reader meets that entry, or at the next full pass (a
-  reset, byte use going down). A reader that walks a corrupted name
-  without checking it (name equality, the printer) may then read wrong
-  data or not stop. This is the guarantee the names under a view, and the
-  term and level stores, have had since ADR 0016 C8 and its step S2 note
-  (owner-approved 2026-11-04): checked when made, the header at every
-  pass.
+  refuses the name, so its bytes are never read).
+- **Every walk of a name checks its chain** (`lf-name-chain-ok?`, review
+  finding 1): each component is a name now, its prefix points back and its
+  text lies in the bytes in use, one comparison per component. Name
+  equality (`lf-name-ids?`, both IDs) and the printer (`lf-pp-name-to`,
+  `lf-pp-hygienic?`) call it, so a name corrupted after its audit gives
+  false or an invalid print, never a loop or a read out of bounds.
+- **A full audit at the hand-over** (review finding 2): before the stored
+  names are written for the kernel's check of a `.lf` text, or exported
+  at all (`author/export.fs`'s `lfx-unwritable?`), every entry is read
+  from entry 1 and every kept hash is recomputed from its entry and
+  compared (`lf-name-audit-all?`); a failure refuses the export as
+  invalid. It costs 2 ms for 27,000 names (`gforth-fast`), once per text.
+  So what the kernel checks has had the old audit, plus the hash cell,
+  which the old audit never read.
+- **Now, no longer caught at the next call:** a write into an entry the
+  audit already passed, when it leaves the header as it was. It is caught
+  when a find or a walk meets that entry, or at the hand-over, or at the
+  next full pass (a reset, byte use going down); an interning or a
+  storage check that reads neither goes on. Compared with ADR 0016 C8 and
+  its step S2 note (owner-approved 2026-11-04): the names under a view
+  are checked when made and not audited again, as now; the term and
+  level stores audit a node once per epoch and keep a bound check on
+  every read (`store-at?`) and fuel on every walk; the stored names keep
+  the chain check on every walk instead, and the hand-over audit.
 
-Three tests asserted the old guarantee and now assert the new one: in
-`tests/core/names.fs` an entry corrupted after its audit is refused when
-its own name is interned and seen by an audit from entry 1
-(`lf-name-entries-from?`), while the kept audit passes; in
-`tests/core/run-record.fs` (`lf-env-viewed?`, fault `rv-env-viewed-names`)
-and `tests/present/term-printer.fs` the corrupted entry is the root, which
-every audit reads.
+Tests: in `tests/core/names.fs` an entry corrupted after its audit is
+refused when its own name is interned and seen by an audit from entry 1
+(`lf-name-entries-from?`) and by `lf-name-chain-ok?`, while the kept audit
+passes; in `tests/core/run-record.fs` (`lf-env-viewed?`, fault
+`rv-env-viewed-names`) the corrupted entry is the root, which every audit
+reads; `tests/present/term-printer.fs` keeps main's case (a prefix pointed
+forward on a name, now caught by the chain check: invalid) and adds the
+root's; `tests/author/author.fs` refuses an export with a rewritten hash
+or prefix.
 
 ### Alternatives rejected
 
@@ -138,10 +154,8 @@ every audit reads.
   the printer, the environment's checks), the kept audit for interning:
   keeps the old guarantee for those readers, but their calls alone are
   about 38,000 full audits in the Init `.lf` check (about 7 s) and still
-  grow with the square of the names. It remains available: an audit from
-  entry 1 is `1 lf-name-entries-from?`, which a later change can run at
-  defined points (after loading, before a snapshot is written, at the end
-  of a run).
+  grow with the square of the names. The full audit runs instead at one
+  defined point, the hand-over above.
 - **Run the front end's names as a view over the library's tier** (the
   scan's other option): a larger change of the front end and its IDs; it
   may follow, and this change does not prevent it.

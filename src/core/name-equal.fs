@@ -19,17 +19,19 @@ require ./names.fs
   over lf-name-str? if lf-name-str= else lf-name-num= then ;
 : lf-name-prefixes ( a b -- a' b' ) lf-name-prefix@ swap lf-name-prefix@ swap ;
 
-\ Unchecked: a and b are valid IDs of a store that passed
-\ lf-name-storage-valid?, whose prefixes point backwards, so the loop ends.
+\ Unchecked: a and b passed lf-name-chain-ok?, so every component on
+\ their chains is well formed and its prefix points backwards: the loop
+\ ends and reads nothing out of bounds.
 : lf-name-same? ( a b -- flag )
   begin 2dup <> while
     2dup lf-name-part= 0= if 2drop false exit then lf-name-prefixes
   repeat 2drop true ;
 
-\ Checked: false unless both IDs are valid and the whole store passes its
-\ audit (lf-name-storage-valid?: in the stored mode its header, root and
-\ every entry made since the audit's last pass; ADR 0005 Amendment 1).
+\ Checked: false unless the store passes its audit (lf-name-storage-valid?:
+\ in the stored mode its header, root and every entry made since the
+\ audit's last pass; ADR 0005 Amendment 1) and both IDs are names whose
+\ chains are well formed, each component checked (lf-name-chain-ok?).
 : lf-name-ids? ( a b -- flag )
-  lf-name-valid? swap lf-name-valid? and lf-name-storage-valid? and ;
+  lf-name-chain-ok? swap lf-name-chain-ok? and lf-name-storage-valid? and ;
 : lf-name-equal? ( a b -- flag )
   2dup lf-name-ids? if lf-name-same? else 2drop false then ;

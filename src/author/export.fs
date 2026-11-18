@@ -327,7 +327,12 @@ lf-tag-app lf-tag-bit lf-tag-bvar lf-tag-bit or lf-tag-constant lf-tag-bit or
 \ believes. Every node: one anywhere in the stores (core/mvar-leaves.fs);
 \ the nodes reached: one they reach (core/reach.fs).
 : lfx-holes? ( -- flag ) lfx-reaching? if lf-reach-holes? else lf-holes? then ;
-: lfx-checked ( -- ) lfx-holes? if outcome-invalid lfx-refuse else lfx-write then ;
+\ The stored names pass the full audit first (lf-name-audit-all?: every
+\ entry and every kept hash; ADR 0005 Amendment 1): the names handed to
+\ the kernel's check of a .lf text were each read and checked, and every
+\ name lfx-name writes has a well-formed chain.
+: lfx-unwritable? ( -- flag ) lfx-holes? lf-name-audit-all? 0= or ;
+: lfx-checked ( -- ) lfx-unwritable? if outcome-invalid lfx-refuse else lfx-write then ;
 \ The roots: each theorem's, definition's and axiom's type and value.
 : lfx-root ( i -- )
   dup lfa-decl-kind lf-decl-stub < 0= if drop exit then

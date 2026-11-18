@@ -547,9 +547,10 @@
   "tokens": 22
  },
  "3a1dbea59edb": {
-  "copies": 2,
+  "copies": 3,
   "kind": "shape",
   "members": [
+   "src/core/names.fs:lf-name-str-refused",
    "src/front/unfold.fs:uf-when-instances",
    "src/present/log-view.fs:lf-lv-formula"
   ],
@@ -1998,12 +1999,13 @@
   "tokens": 9
  },
  "b441222231c7": {
-  "copies": 21,
+  "copies": 22,
   "kind": "shape",
   "members": [
    "src/cli/leanforth.fs:cli-fed-report",
    "src/cli/leanforth.fs:cli-reexported",
    "src/core/names.fs:lf-name-ops",
+   "src/core/names.fs:lf-name-part?",
    "src/front/elab-app.fs:ea-strict",
    "src/front/instantiate.fs:in-leaf",
    "src/front/tactic-basic.fs:lfb-types.",
@@ -2013,14 +2015,14 @@
    "src/kernel/environment.fs:lf-env-origin",
    "src/kernel/mixed-infer.fs:lf-minfer-signature",
    "src/kernel/whnf.fs:lf-whnf-proj-call",
-   "src/present/log-view.fs:lf-lv-spaces",
-   "src/present/log-view.fs:lf-lv-part-here",
-   "src/present/log-view.fs:lf-lv-name-of-node",
    "src/present/log-view.fs:lf-lv-name-id",
+   "src/present/log-view.fs:lf-lv-name-of-node",
+   "src/present/log-view.fs:lf-lv-part-here",
+   "src/present/log-view.fs:lf-lv-spaces",
    "src/present/print-job.fs:lf-pp-mode",
    "src/program/ir-run.fs:irx-lit",
-   "src/program/verify-semantics.fs:pv-lit",
    "src/program/verify-semantics.fs:pv-call",
+   "src/program/verify-semantics.fs:pv-lit",
    "src/program/verify-semantics.fs:pv-prim"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",

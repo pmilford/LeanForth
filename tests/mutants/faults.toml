@@ -11579,8 +11579,8 @@ reason = "FRI B2: a level or term found whose second field differs counts as equ
 [[fault]]
 id = "fri-b2-sought-hash-key"
 file = "src/core/terms.fs"
-old = '''  dup >r lf-sought! r@ dup lf-sought@ lf-fields-hash r> drop ;'''
-new = '''  dup >r lf-sought! r@ dup lf-sought@ drop 0 lf-fields-hash r> drop ;'''
+old = '''  dup >r lf-sought! r@ dup lf-sought@ hash-3 r> drop ;'''
+new = '''  dup >r lf-sought! r@ dup lf-sought@ drop 0 hash-3 r> drop ;'''
 test = "$GFORTH tests/core/terms.fs"
 reason = "FRI B2: a record is sought under a hash without its second field, so an equal record entered under the full hash is not found"
 
@@ -14736,10 +14736,74 @@ reason = "a reset keeps the index's table, so one large run's table is cleared s
 [[fault]]
 id = "ni-index-full-ignored"
 file = "src/core/names.fs"
-old = '''  lf-name-index-room? 0= if drop lf-name-index-refused exit then'''
+old = '''  lf-name-index-room? 0= if 2drop lf-name-index-refused exit then'''
 new = ''''''
 test = "$GFORTH tests/core/names.fs"
 reason = "a name is listed in a table that could not grow: past 3/4 full, and the names-full outcome is lost"
+
+[[fault]]
+id = "lib-hash-3-order"
+file = "src/lib/hash32.fs"
+old = ''': hash-3 ( a b c -- h ) rot hash-fmix rot hash-step swap hash-step ;'''
+new = ''': hash-3 ( a b c -- h ) hash-fmix rot hash-step swap hash-step ;'''
+test = "$GFORTH tests/lib/hash32.fs"
+reason = "hash-3 mixes its fields in another order: no longer the hash the term and level tables were laid out by"
+
+[[fault]]
+id = "ni-dead-index-read"
+file = "src/core/names.fs"
+old = '''  lf-name-index-ready 0= if lf-name-index-refused true exit then'''
+new = '''  lf-name-index-ready drop'''
+test = "$GFORTH tests/core/names.fs"
+reason = "review F7: a table with no block (the heap refused it) is probed: the find reads address 0"
+
+[[fault]]
+id = "ni-dead-index-live"
+file = "src/core/names.fs"
+old = '''  lf-name-table htab-live? ;'''
+new = '''  true ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "review F8: a table with no block counts as readable: the find reads address 0"
+
+[[fault]]
+id = "ni-chain-part-unchecked"
+file = "src/core/names.fs"
+old = '''    dup lf-name-part-ok? 0= if drop false exit then lf-name-prefix@'''
+new = '''    lf-name-prefix@'''
+test = "$GFORTH tests/core/names.fs"
+reason = "a walk's check skips each component's own entry: a prefix pointed forward after the audit makes the walk cycle"
+
+[[fault]]
+id = "ni-chain-id-unchecked"
+file = "src/core/names.fs"
+old = '''    dup lf-name-valid? 0= if drop false exit then'''
+new = ''''''
+test = "$GFORTH tests/core/names.fs"
+reason = "a walk's check reads the entry of an ID that is no name (beyond the count, negative)"
+
+[[fault]]
+id = "ni-hash-kept-unchecked"
+file = "src/core/names.fs"
+old = '''  over + lf-name-slot dup lf-name-hash-of swap lf-entry-hash @ = ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "the hand-over audit takes every kept hash on trust: a rewritten hash cell gives an equal name a second ID once the table grows"
+
+[[fault]]
+id = "ni-export-unaudited"
+file = "src/author/export.fs"
+old = ''': lfx-unwritable? ( -- flag ) lfx-holes? lf-name-audit-all? 0= or ;'''
+new = ''': lfx-unwritable? ( -- flag ) lfx-holes? ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "a .lf text's names are handed to the kernel without the full audit: an entry corrupted after the kept audit is written"
+
+[[fault]]
+id = "ni-printer-chain-unchecked"
+file = "src/present/print-names.fs"
+old = '''  over lf-name-chain-ok? if lf-pp-checked-name-to else lf-pp-bad-name then ;'''
+new = '''  lf-pp-checked-name-to ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "review finding 1: the printer walks a name corrupted after the audit: it cycles (main's test hung) instead of printing invalid"
 
 # --- the front end's isDefEq (src/front/defeq.fs and its helpers; plan FE1c)
 
