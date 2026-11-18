@@ -31,7 +31,7 @@ reason = "MF1 O1: an inert node is read in a format-3 file, which the readers of
 [[fault]]
 id = "fe-ed31-inert-any-key"
 file = "src/front/elab-data.fs"
-old = '''  c" key" ed-member ed-inert-names ed-text-index ed-known ;'''
+old = '''  ed-inert-names ed-text-index ed-known ;'''
 new = '''  drop 0 outcome-ok ;'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "MF1 O1: an inert node of any key is read (S2's sunfoldMatch or Lean's noindex written as inert), where the allowlist gives error 45"

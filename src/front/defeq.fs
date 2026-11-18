@@ -72,11 +72,13 @@
 \ kept: they change no answer.
 \ Unification hints (isDefEqOnFailure's tryUnificationHints): the hint
 \ table is not read (an export does not carry it). A failure with a
-\ definition at the head of either side answers unsupported, never
-\ false: that covers Init's only hint, Not p =?= p -> False
-\ (Init/Hints.lean), whose key is Not, a definition. A library with a
-\ hint keyed at a constructor, an inductive type or a variable is not
-\ covered: such an environment needs the hint table first (plan FE1c).
+\ definition or a projection node at the head of either side answers
+\ unsupported, never false: that covers Init's only hint, Not p =?= p ->
+\ False (Init/Hints.lean), whose key is Not, a definition, and Mathlib's
+\ 27, keyed at Shrink (a definition) and at projections (26; MF1,
+\ tests/front/unif-hints.lean, listed in ELABORATION_DATA.md). A library
+\ with a hint keyed at a constructor, an inductive type or a variable is
+\ not covered: it needs the hint table first (plan FE1c).
 \ Machine: each Lean call is an activation with registers (t, s, x, y
 \ and a mark) and an entry step; a call pushes the caller's registers
 \ and its continuation on the heap stack de-frames; a return pops them
@@ -432,13 +434,17 @@ defer lf-meta-synth ( type -- inst flag outcome )
 \ candidate (Lean's DiscrTree.getMatch keys it withReducible after
 \ reduceDT, DiscrTree/Main.lean:472, UnificationHint.lean:31; plan task
 \ for hints in the data); a Not side or another library: unsupported; a
-\ whnfR that fails passes its outcome on (fuel, room).
+\ whnfR that fails passes its outcome on (fuel, room). A side may match a
+\ hint when its head is a definition or a projection node (Lean's key
+\ .proj, the key of 26 of Mathlib's 27 hints).
 : de-not? ( t -- flag ) 1 s" Not" lf-meta-app-of? ;
+: de-hint-key? ( t -- flag )
+  dup de-head-defn? if drop true else lf-meta-head lf-proj? then ;
 : de-hint-free? ( t -- flag outcome )
   elab-init-only? 0= if drop false outcome-ok exit then
   lf-meta-whnf-r ok-then? if de-not? 0= outcome-ok else false swap then ;
 : de-hints ( t -- )
-  dup lf-mvar? if drop exit then dup de-head-defn? 0= if drop exit then
+  dup lf-mvar? if drop exit then dup de-hint-key? 0= if drop exit then
   de-hint-free? ok-then? 0= if de-abort exit then
   0= if outcome-unsupported de-abort then ;
 : de-stuck-either ( -- stuck? )

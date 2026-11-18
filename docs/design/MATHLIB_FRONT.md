@@ -132,7 +132,9 @@ names.
 **O7. Unification hints.** Mathlib has 27 `unif_hint`s, all in category theory; `defeq.fs:72-79` handles a hint
 correctly only when it is keyed at a definition, which answers unsupported (the samples, `Prefunctor.obj` and
 `Quiver.Hom`, are). MF1 lists the 27 keys in the data's documentation and a test pins that each answers unsupported;
-a hint table in the data waits for a theorem that needs one.
+a hint table in the data waits for a theorem that needs one. (Measured in MF1, 2026-11-18: one hint is keyed at a
+definition, `Shrink`, and 26 at a projection, since Lean keys a hint's side reduced at reducible transparency;
+`defeq.fs` now answers unsupported at a projection head too, [ELABORATION_DATA.md](../programming/ELABORATION_DATA.md#unification-hints-not-in-the-data).)
 
 **Not obstacles:** the name lookup `.lf` text uses (`groups.fs:253`, `lfa-const-named`) asks the text's own wordlist,
 then the tier's hashed name table (`compact-names.fs`); only the text's own declaration list (`constants.fs:42`) is

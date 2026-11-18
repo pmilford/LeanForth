@@ -1,0 +1,19 @@
+# Planted faults of branch data-bk: MF1's last items (unification hints keyed at a
+# projection, an inert key that is no text) and plan FE1c-bk (Lean's binder kinds in
+# the elaboration data). Read with tests/mutants/faults.toml as one list.
+
+[[fault]]
+id = "fe-hint-proj-key"
+file = "src/front/defeq.fs"
+old = '''  dup de-head-defn? if drop true else lf-meta-head lf-proj? then ;'''
+new = '''  de-head-defn? ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "MF1 O7: a failure with a projection node at the head is taken to match no unification hint, where 26 of Mathlib's 27 hints are keyed at one (Lean's .proj key)"
+
+[[fault]]
+id = "fe-ed31-inert-key-type"
+file = "src/front/elab-data.fs"
+old = '''  c" key" ed-member dup ed-string? 0= if drop 0 ed-malformed exit then'''
+new = '''  c" key" ed-member'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "MF1 review L3: an inert node whose key is no JSON text answers error 45 (unsupported) where it is malformed (error 10)"

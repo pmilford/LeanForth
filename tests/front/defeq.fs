@@ -398,6 +398,13 @@ T{ deeper ?t fk app ?t fx app lf-defeq-elab lf-defeq-const or with-flags
   lf-tr-reducible lf-defeq-mode! 0 s" Nat.add" cn fk dq lf-tr-default lf-defeq-mode! ;
 T{ elab-init-only? hint-dq -> true false outcome-ok }T
 T{ 2 elab elab-modules# ! hint-dq 1 elab elab-modules# ! -> false outcome-unsupported }T
+\ 26 of Mathlib's 27 hints are keyed at a projection node (Lean's key
+\ .proj; tests/front/unif-hints.lean, MF1): a side whose head is one may
+\ match a hint, as may one whose head is a definition; a variable's
+\ cannot.
+: add-proj ( -- t ) 0 s" instAddNat" cn 0 s" Add" projn fk app fk app ;
+T{ add-proj de-hint-key? 0 s" Nat.add" cn fk app de-hint-key? fk de-hint-key?
+   -> true true false }T
 \ Its twin, Nat.rec _ k _ ?o =?= Nat.add with the synthetic opaque ?o
 \ read-only (one depth deeper), reaches isDefEqOnFailure stuck on ?o:
 \ under isDefEqStuckEx the stuck signal (ExprDefEq.lean:2182) and no

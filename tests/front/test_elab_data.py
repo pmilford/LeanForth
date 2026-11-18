@@ -889,8 +889,11 @@ def format31_cases():
              2, "an annotation this reader"),
         case("inert node of Lean's noindex", v31(save, save.replace("save_info", "noindex")), 2,
              "an annotation this reader"),
-        case("inert key a name", v31(save, save.replace('"save_info"', '["save_info"]')), 2,
-             "an annotation this reader"),
+        # A key that is no text is malformed, not an unknown key (review L3 of MF1).
+        case("inert key a name", v31(save, save.replace('"save_info"', '["save_info"]')), 4,
+             "malformed"),
+        case("inert key a number", v31(save, save.replace('"save_info"', '7')), 4, "malformed"),
+        case("inert key null", v31(save, save.replace('"save_info"', 'null')), 4, "malformed"),
         case("inert node without its term", v31(save, '{"inert":{"key":"save_info"}}'), 4,
              "malformed"),
         case("inert node with another member", v31(save, save.replace("}}", ',"x":1}}')), 4,
@@ -1140,10 +1143,29 @@ def schema_cases():
     print(f"schema: {len(lines)} fixture lines valid, {len(wrong)} wrong lines invalid")
 
 
+HINTS = ROOT / "tests/front/unif-hints-mathlib.golden"
+
+
+def unif_hints():
+    """Mathlib's unification hints (MATHLIB_FRONT.md O7): pinned Lean's list
+    (tests/front/unif-hints.lean on pinned Mathlib) holds Init's one and
+    Mathlib's 27, and each is keyed at a definition or a projection, the
+    heads at which src/front/defeq.fs (de-hint-key?) answers unsupported."""
+    rows = HINTS.read_text().splitlines()
+    if rows[-1] != "28 hints, 26 not keyed at a definition" or len(rows) != 29:
+        fail(f"{HINTS.name}: not pinned Lean's 28 hints: {rows[-1]}")
+    for row in rows[:-1]:
+        name, *key = row.split(" ")
+        if not (row.endswith(" definition") or key[0] == "Lean.Meta.DiscrTree.Key.proj"):
+            fail(f"unification hint {name} keyed where LeanForth would answer false: {row}")
+    print(f"unification hints: {len(rows) - 1}, each keyed at a definition or a projection")
+
+
 def main():
     for path, made in FIXTURES.items():
         if path.read_text() != made():
             fail(f"{path} is not what {made.__name__}() writes")
+    unif_hints()
     schema_cases()
     errors_documented()
     with tempfile.TemporaryDirectory() as work:

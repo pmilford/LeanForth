@@ -1274,12 +1274,15 @@ create ed-mdata-form  ed-mdata-members , ' ed-nd-entries , ' ed-nd-expr , 0 ,
 : ed-nd-mdata ( value -- outcome ) ed-mdata-form ed-nd-steps ;
 \ An inert node (format 3.1 alone; in a format-3 file malformed, as the
 \ readers of format 3 had it): {"expr":i,"key":KEY}, KEY one of three
-\ kinds of metadata LeanForth does not carry; any other is error 45. An
-\ mdata node of elab-inert; the body holding it is not usable.
+\ kinds of metadata LeanForth does not carry; any other text is error 45,
+\ a KEY that is no text malformed (review L3 of MF1). An mdata node of
+\ elab-inert; the body holding it is not usable.
 create ed-inert-names
   s" save_info" counted, s" noImplicitLambda" counted, s" congrHole" counted, 0 0 counted,
+: ed-string? ( index -- flag ) ed-view json-kind-at json-string = ;
 : ed-inert-key ( value -- k outcome )
-  c" key" ed-member ed-inert-names ed-text-index ed-known ;
+  c" key" ed-member dup ed-string? 0= if drop 0 ed-malformed exit then
+  ed-inert-names ed-text-index ed-known ;
 : ed-inert-mark ( -- outcome )
   true ed-sun-now ed-sun-inert ! elab-inert outcome-ok ['] ed-node-a ed-nd-put ;
 : ed-nd-key ( value -- outcome ) ed-inert-key ok-then? if drop ed-inert-mark then ;
