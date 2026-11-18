@@ -10908,8 +10908,8 @@ reason = "FE1c: abstract does not count the binders above a free variable, so it
 [[fault]]
 id = "fe-abst-mvar-kept"
 file = "src/front/instantiate.fs"
-old = ''': in-hole? ( leaf -- flag ) lf-term-tag@ dup lf-tag-fvar = swap lf-tag-mvar = or ;'''
-new = ''': in-hole? ( leaf -- flag ) lf-term-tag@ lf-tag-fvar = ;'''
+old = '''lf-tag-fvar lf-tag-mvar 2 lf-meta-tags constant in-holes'''
+new = '''lf-tag-fvar 1 lf-meta-tags constant in-holes'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: abstract keeps a metavariable it was given, where Lean's abstract replaces it too"
 
@@ -13539,16 +13539,16 @@ reason = "review fe1c-2 L2: a stale metavariable answers unsupported instead of 
 [[fault]]
 id = "fe-infer-lambda-type-unsupported"
 file = "src/front/infer.fs"
-old = '''  over lf-tag-symbolic-sort = or swap lf-tag-lam = or ;'''
-new = '''  over lf-tag-symbolic-sort = or nip ;'''
+old = '''lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-meta-tags constant if-inerts'''
+new = '''lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort 3 lf-meta-tags constant if-inerts'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "review fe1c-2 L2: a function whose type is a lambda answers unsupported, where Lean throws function expected"
 
 [[fault]]
 id = "fe-env-ndrecon-forgotten"
 file = "src/front/meta-env.fs"
-old = '''  dup s" ndrec" me-str? over s" ndrec_symm" me-str? or swap s" ndrecOn" me-str? or ;'''
-new = '''  dup s" ndrec" me-str? swap s" ndrec_symm" me-str? or ;'''
+old = '''texts-begin texts+ ndrec ndrec_symm ndrecOn'''
+new = '''texts-begin texts+ ndrec ndrec_symm'''
 test = "$GFORTH tests/front/meta-env.fs"
 reason = "review fe1c-2 L3: Eq.ndrecOn, which isAuxRecursor names, answers unsupported"
 
@@ -16606,8 +16606,8 @@ reason = "S2 merge B: toCtorIfLit makes the literal 5 Nat.succ 5"
 [[fault]]
 id = "fe-match-first-alt"
 file = "src/front/whnf.fs"
-old = '''  wc wc-malts @ 0 ?do dup i wc-h@ = if drop i true unloop exit then loop drop false ;'''
-new = '''  wc wc-malts @ 0 ?do dup i wc-h@ = if drop 0 true unloop exit then loop drop false ;'''
+old = ''': wc-alt-of ( head -- i true | false ) wc wc-malts @ ['] wc-h-is? find-index ;'''
+new = ''': wc-alt-of ( head -- i true | false ) wc wc-malts @ ['] wc-h-is? find-index if drop 0 true else false then ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S2 merge B: reduceMatcher? always takes the first alternative (Nat.add.match_1 m k (x + 1) z s gives z k x)"
 

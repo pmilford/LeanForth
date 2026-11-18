@@ -75,7 +75,8 @@ end-structure
 : kab-sorts? ( h1 h2 -- flag ) lf-sort? swap lf-sort? and ;
 : kab-names= ( h1 h2 -- flag ) lf-const-name swap lf-const-name = ;
 : kab-fields= ( h1 h2 -- flag ) lf-term-first@ swap lf-term-first@ = ;
-: kab-tag-only? ( tag -- flag ) dup lf-tag-lam = swap lf-tag-pi = or ;
+lf-tag-lam lf-tag-pi 2 lf-meta-tags constant kab-binders
+: kab-tag-only? ( tag -- flag ) kab-binders lf-meta-tag-of? ;
 : kab-same ( h1 h2 tag -- flag )
   case lf-tag-constant of kab-names= endof  lf-tag-projection of kab-fields= endof
     lf-tag-lit of lf-lit-same? endof  lf-tag-str of lf-str-same? endof

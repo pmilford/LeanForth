@@ -162,10 +162,9 @@ defer lf-delta-unfolded ( e -- )   \ a trace's hook; nothing by default
 \ parts; a simple leaf is ok; a binder, let or constant is rejected (not
 \ simple); any other tag (an unsupported form) unsupported. The walk
 \ spends the call's fuel.
-lf-tag-bvar lf-tag-bit lf-tag-fvar lf-tag-bit or lf-tag-mvar lf-tag-bit or
-  lf-tag-sort lf-tag-bit or lf-tag-symbolic-sort lf-tag-bit or lf-tag-lit lf-tag-bit or
-  lf-tag-str lf-tag-bit or constant dd-simple-tags   \ isSimple's leaves
-: dd-leaf? ( tag -- flag ) lf-tag-bit dd-simple-tags and 0<> ;
+lf-tag-bvar lf-tag-fvar lf-tag-mvar lf-tag-sort lf-tag-symbolic-sort lf-tag-lit
+  lf-tag-str 7 lf-meta-tags constant dd-simple-tags   \ isSimple's leaves
+: dd-leaf? ( tag -- flag ) dd-simple-tags lf-meta-tag-of? ;
 : dd-false? ( tag -- flag )
   dup lf-term-binder-tag? over lf-term-let-tag? or swap lf-tag-constant = or ;
 : dd-other ( tag -- outcome )

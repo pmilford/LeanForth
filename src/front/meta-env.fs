@@ -132,6 +132,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
+require ../lib/texts.fs
 require ../core/names.fs
 require ../core/levels.fs
 require ../core/constant-references.fs
@@ -333,8 +334,10 @@ end-structure
 : me-top? ( name c-addr u -- flag )
   rot dup lf-name-prefix@ 0= if -rot me-str? else drop 2drop false then ;
 : me-eq? ( prefix -- flag ) s" Eq" me-top? ;
-: me-ndrec-text? ( name -- flag )
-  dup s" ndrec" me-str? over s" ndrec_symm" me-str? or swap s" ndrecOn" me-str? or ;
+\ Names as tables of texts (lib/texts.fs; s2-finish L1, review F10).
+texts-begin texts+ ndrec ndrec_symm ndrecOn
+texts-end constant me-ndrec-texts
+: me-ndrec-text? ( name -- flag ) ['] me-str? me-ndrec-texts texts-find 0<> ;
 : me-ndrec? ( d -- flag )
   lf-menv-name dup me-ndrec-text? if lf-name-prefix@ me-eq? else drop false then ;
 : lf-menv-aux-recursor? ( d -- flag outcome )
@@ -344,25 +347,20 @@ end-structure
 \ one (pinned Lean: whnfCore leaves Nat.noConfusion's application).
 : lf-menv-aux-def? ( d -- flag outcome ) lf-menv-aux-recursor? ;
 \ canUnfoldAtMatcher's own names (GetUnfoldableConst.lean:44-57).
-: me-matcher-a? ( name -- name flag )
-  dup s" OfNat.ofNat" lf-name-dotted? over s" NatCast.natCast" lf-name-dotted? or
-  over s" Zero.zero" lf-name-dotted? or over s" One.one" lf-name-dotted? or ;
-: me-matcher-b? ( name -- name flag )
-  dup s" decEq" lf-name-dotted? over s" Nat.decEq" lf-name-dotted? or
-  over s" Char.ofNat" lf-name-dotted? or over s" Char.ofNatAux" lf-name-dotted? or ;
-: me-matcher-c? ( name -- name flag )
-  dup s" String.decEq" lf-name-dotted? over s" List.hasDecEq" lf-name-dotted? or
-  over s" Fin.ofNat" lf-name-dotted? or over s" HMod.hMod" lf-name-dotted? or
-  over s" Mod.mod" lf-name-dotted? or ;
-: me-uint? ( prefix -- flag )
-  dup s" UInt8" lf-name-dotted? over s" UInt16" lf-name-dotted? or
-  over s" UInt32" lf-name-dotted? or swap s" UInt64" lf-name-dotted? or ;
+texts-begin texts+ OfNat.ofNat NatCast.natCast Zero.zero One.one decEq Nat.decEq
+  texts+ Char.ofNat Char.ofNatAux String.decEq List.hasDecEq Fin.ofNat HMod.hMod
+  texts+ Mod.mod
+texts-end constant me-matcher-texts
+texts-begin texts+ UInt8 UInt16 UInt32 UInt64
+texts-end constant me-uint-texts
+texts-begin texts+ ofNat decEq
+texts-end constant me-uint-op-texts
+: me-dotted-in? ( name table -- flag ) ['] lf-name-dotted? swap texts-find 0<> ;
 : me-uint-op? ( name -- flag )
-  dup s" ofNat" me-str? over s" decEq" me-str? or
-  if lf-name-prefix@ me-uint? else drop false then ;
+  dup ['] me-str? me-uint-op-texts texts-find
+  if lf-name-prefix@ me-uint-texts me-dotted-in? else drop false then ;
 : me-matcher-name? ( name -- flag )
-  me-matcher-a? if drop true exit then  me-matcher-b? if drop true exit then
-  me-matcher-c? if drop true exit then  me-uint-op? ;
+  dup me-matcher-texts me-dotted-in? if drop true else me-uint-op? then ;
 \ Lean's hasMatchPatternAttribute: the data's match_pattern tag.
 : me-pattern-tag ( d' -- 0 true | false )
   elab-tag-match-pattern elab-tagged? dup if 0 swap then ;

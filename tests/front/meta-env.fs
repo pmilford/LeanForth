@@ -168,5 +168,14 @@ T{ s" Nat.rec" menv-decl 0 lf-menv-kinds-in nip s" Nat.rec" menv-decl 3 lf-menv-
 T{ s" Nat.rec" menv-decl 9 lf-menv-kinds-in nip -> 0 }T
 T{ 0 lf-menv-stage! s" HAdd.hAdd" menv-decl lf-menv-kinds nip -> 0 }T
 T{ s" Nat.rec" menv-decl 2 lf-menv-kinds-in nip -> 0 }T
+\ canUnfoldAtMatcher's own names (GetUnfoldableConst.lean:44-57; tables of
+\ lib/texts.fs, s2-finish L1): the first and last of its list, a UInt
+\ operation, an Eq.ndrec name; names next to them are none.
+: nm2 ( c-addr u c-addr' u' -- id ) 2>r 0 -rot lf-name-str drop 2r> lf-name-str drop ;
+T{ s" OfNat" s" ofNat" nm2 me-matcher-name? s" Mod" s" mod" nm2 me-matcher-name?
+   s" UInt64" s" decEq" nm2 me-matcher-name? s" Mod" s" div" nm2 me-matcher-name?
+   s" UInt64" s" add" nm2 me-matcher-name? -> true true true false false }T
+T{ 0 s" ndrecOn" lf-name-str drop me-ndrec-text? 0 s" ndrecOff" lf-name-str drop me-ndrec-text?
+   -> true false }T
 
 bye

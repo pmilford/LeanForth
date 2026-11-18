@@ -26,6 +26,15 @@
 \ - lf-meta-firm-const? ( const -- flag outcome ): neither a definition nor
 \   an unknown constant, so whnf cannot unfold it (false with a failure's
 \   outcome): infer's firm head and fun-info's final one.
+\ - lf-meta-tags ( tag1 .. tagn n -- mask ): the set of n term tags as a
+\   mask of core/terms.fs's lf-tag-bit (kept as a constant);
+\   lf-meta-tag-of? ( tag mask -- flag ) and lf-meta-tag-in? ( term mask
+\   -- flag ): a tag, a term's tag, in the set (review F3 of 2026-11-18:
+\   one test in place of the OR chains of tag comparisons).
+\ - lf-meta-under ( e tag -- e' true | e false ): a let's body (Lean's
+\   letE passed with its body instantiated: core/let-terms.fs keeps it as
+\   a binder) or, for a binder of the tag (lambda or pi), its body; e and
+\   false for any other term (review F7 of 2026-11-18).
 \ - lf-meta-levels-fill ( const slab -- outcome ): a constant's universe
 \   arguments, as levels, into the slab, emptied first.
 \ - lf-meta-arity? ( d const -- flag ): the constant has as many universe
@@ -70,6 +79,7 @@ require ./meta-env.fs
 require ../core/local-context.fs
 require ../core/mvar-leaves.fs
 require ../present/binder-table.fs
+require ../core/let-terms.fs
 
 : lf-meta-push ( x slab -- outcome )
   tuck 1 swap slab-claim ok-then? if rot slab-at ! outcome-ok else nip nip then ;
@@ -107,6 +117,12 @@ require ../present/binder-table.fs
   dup ms-binary? if lf-term-data@ if lf-data-fvar? else false then exit then
   lf-term-tag@ lf-tag-fvar = ;
 : lf-meta-tag? ( term tag -- flag ) swap lf-term-tag@ = ;
+: lf-meta-tags ( tag1 .. tagn n -- mask ) 0 swap 0 ?do swap lf-tag-bit or loop ;
+: lf-meta-tag-of? ( tag mask -- flag ) swap lf-tag-bit and 0<> ;
+: lf-meta-tag-in? ( term mask -- flag ) swap lf-term-tag@ swap lf-meta-tag-of? ;
+: lf-meta-under ( e tag -- e' true | e false )
+  over lf-let? if drop lf-let-body true exit then
+  over swap lf-meta-tag? if lf-term-second@ true else false then ;
 : lf-meta-fvar? ( term -- flag ) lf-tag-fvar lf-meta-tag? ;
 : lf-meta-head-args ( term -- head n )
   0 swap begin dup lf-meta-app? while lf-term-first@ swap 1+ swap repeat swap ;

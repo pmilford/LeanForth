@@ -84,8 +84,8 @@ end-structure
 \ once elaborated (MutualDef.lean); plan FE1e's elaborator must say when
 \ it does not. The type is marked and swept first, then the value.
 : lfh-names ( -- addr n ) lfh-decl@ dup lf-fdecl-universe swap lf-fdecl-universes @ ;
-: lfh-unused? ( addr n -- flag )
-  0 ?do dup @ lf-reach-param? 0= if drop true unloop exit then cell+ loop drop false ;
+: lfh-free? ( addr k -- addr flag ) cells over + @ lf-reach-param? 0= ;
+: lfh-unused? ( addr n -- flag ) ['] lfh-free? any? nip ;
 : lfh-def? ( -- flag ) lfh-decl@ lf-fdecl-kind @ lf-decl-def = ;
 : lfh-unused-of ( type-unused? -- flag ) lfh-def? if drop lfh-names lfh-unused? then ;
 : lfh-refuse ( code -- outcome ) lfh-why! outcome-invalid ;

@@ -72,3 +72,51 @@ old = '''  lf-kind-definition lf-meta-kind-or swap lf-kind-definition <> swap ;'
 new = '''  lf-kind-inductive lf-meta-kind-or swap lf-kind-definition <> swap ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "reuse pass F8: an unknown constant reads as firm (an inductive) where Lean's inferType and getFunInfo take it as one whnf may unfold"
+
+[[fault]]
+id = "rfa-find-index-off-by-one"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute if drop i true unloop unloop exit then'''
+new = '''  dup 1+ swap ?do 0 max 0 ?do i j execute if drop i 1+ true unloop unloop exit then'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "reuse pass F4: find-index gives the place after the one found, so every linear find (declarations, levels, references, goals, marks) names the wrong entry"
+
+[[fault]]
+id = "rfa-texts-next-skips"
+file = "src/lib/texts.fs"
+old = ''': text-next ( entry -- entry' ) count chars + ;'''
+new = ''': text-next ( entry -- entry' ) count chars + 1+ ;'''
+test = "$GFORTH tests/lib/texts.fs"
+reason = "reuse pass F10: a table's walk steps one byte too far, so it reads a text from the middle of the next"
+
+[[fault]]
+id = "rfa-tag-of-inverted"
+file = "src/front/meta-spine.fs"
+old = ''': lf-meta-tag-of? ( tag mask -- flag ) swap lf-tag-bit and 0<> ;'''
+new = ''': lf-meta-tag-of? ( tag mask -- flag ) swap lf-tag-bit and 0= ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "reuse pass F3: a tag set answers for the tags outside it (isProofQuick, isPropQuick, getFunInfo, inferType's inert heads)"
+
+[[fault]]
+id = "rfa-under-let-kept"
+file = "src/front/meta-spine.fs"
+old = '''  over lf-let? if drop lf-let-body true exit then'''
+new = '''  over lf-let? if drop false exit then'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "reuse pass F7: isProofQuick and isPropQuick stop at a let instead of going on with its body (Lean's letE case)"
+
+[[fault]]
+id = "rfa-pq-pi-a-proof"
+file = "src/front/prop-quick.fs"
+old = '''lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-pi 4 lf-meta-tags constant pq-no-proofs'''
+new = '''lf-tag-sort lf-tag-symbolic-sort lf-tag-lit 3 lf-meta-tags constant pq-no-proofs'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review T2 of 2026-11-18: isProofQuick of a pi answers undef where Lean's answers false (a type is no proof), so defeq's proof irrelevance tries more"
+
+[[fault]]
+id = "rfa-matcher-name-lost"
+file = "src/front/meta-env.fs"
+old = '''  texts+ Mod.mod'''
+new = '''  texts+ Mod.modulo'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "s2-finish L1: canUnfoldAtMatcher's Mod.mod is not unfolded at a matcher, unlike Lean"

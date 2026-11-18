@@ -39,6 +39,5 @@ lfa-decl-capacity /lfa-decl 0 context-store: lfa-decls
 : lfa-library? ( i -- flag ) lfa-decl-kind lfa-decl-library = ;
 \ The record of name, the file's or the library's: one at most, as no
 \ declaration takes a name declared before (error 28), the library's too.
-: lfa-decl-find ( name -- i true | false )
-  lfa-decl-count 0 ?do dup i lfa-decl-name = if drop i true unloop exit then loop
-  drop false ;
+: lfa-decl-named? ( name i -- name flag ) lfa-decl-name over = ;
+: lfa-decl-find ( name -- i true | false ) lfa-decl-count ['] lfa-decl-named? find-index ;

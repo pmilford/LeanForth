@@ -72,17 +72,15 @@ end-structure
 /fi context-record: fi-state
 
 \ ---- whnf's fixed points.
-: fi-final-mask ( -- mask )
-  lf-tag-fvar lf-tag-bit lf-tag-mvar lf-tag-bit or lf-tag-symbolic-sort lf-tag-bit or
-  lf-tag-lam lf-tag-bit or
-  lf-tag-pi lf-tag-bit or lf-tag-lit lf-tag-bit or lf-tag-projection lf-tag-bit or ;
+lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam lf-tag-pi lf-tag-lit
+  lf-tag-projection 7 lf-meta-tags constant fi-finals
 \ A constant no declaration has is taken as a definition: never final,
 \ so its callers answer unsupported; one whose declaration could not be
 \ decoded passes that outcome on (full as full): lf-meta-firm-const?.
 \ fi-final: ok for a final term, unsupported for one whnf might reduce.
 : fi-head-final? ( head -- flag outcome )
   dup lf-term-const? if lf-meta-firm-const? exit then
-  lf-term-tag@ lf-tag-bit fi-final-mask and 0<> outcome-ok ;
+  fi-finals lf-meta-tag-in? outcome-ok ;
 : fi-final ( flag outcome -- outcome )
   ok-then? if if outcome-ok else outcome-unsupported then then ;
 : lf-meta-unassigned? ( mvar -- flag ) lf-mvar-value dup if nip then 0= ;
@@ -170,10 +168,10 @@ end-structure
     2dup lf-term-second@ swap fi-ho-arg? ok-then? 0= if nip nip false swap exit then
     if 2drop true outcome-ok exit then lf-term-first@ repeat 2drop false outcome-ok ;
 \ isClassQuick? answers none for these heads: no class.
+lf-tag-sort lf-tag-symbolic-sort lf-tag-fvar lf-tag-lit lf-tag-bvar 5 lf-meta-tags
+  constant fi-no-classes
 : fi-not-class? ( head -- flag )
-  dup lf-mvar? if lf-meta-unassigned? exit then
-  dup lf-sort? if drop true exit then
-  lf-term-tag@ dup lf-tag-fvar = over lf-tag-lit = or swap lf-tag-bvar = or ;
+  dup lf-mvar? if lf-meta-unassigned? exit then fi-no-classes lf-meta-tag-in? ;
 : lf-meta-class-none? ( type -- flag ) lf-meta-forall-body lf-meta-head fi-not-class? ;
 : fi-ho? ( i -- flag outcome )
   dup lf-meta-param drop lf-binder-default = if drop false outcome-ok exit then

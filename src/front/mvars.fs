@@ -518,9 +518,8 @@ end-structure
 \ mark that is not open, or a depth scope, is refused, invalid, and
 \ nothing changes.
 : mv-serial-at ( i -- serial ) mv-marks slab-at mvs-serial @ ;
-: mv-mark-index ( mark -- i true | false )
-  lf-mctx-marks 0 ?do
-    dup i mv-serial-at = if drop i true unloop exit then loop drop false ;
+: mv-serial-is? ( mark i -- mark flag ) mv-serial-at over = ;
+: mv-mark-index ( mark -- i true | false ) lf-mctx-marks ['] mv-serial-is? find-index ;
 : mv-plain-at? ( i -- flag ) mv-marks slab-at mvs-kind @ mv-plain = ;
 : mv-drop-scope ( -- )
   mv-undo-scope mv-latest mvs-kind @ mv-deep = if mv-depths-back then mv-close ;

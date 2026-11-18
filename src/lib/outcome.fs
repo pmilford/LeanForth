@@ -9,7 +9,8 @@
 \ words, and the loops ok-each and ok-fold; the tests over every index,
 \ all? (a flag) and ok-all? (a flag and an outcome), with ok-true? their
 \ stop test, and over some index, any? and ok-any? (ok-found? its stop
-\ test); 2dup-under gives a step of these loops a copy of its two values;
+\ test), and find-index (the first such index); 2dup-under gives a step
+\ of these loops a copy of its two values;
 \ outcome-first! keeps a first
 \ failure in a cell and ok-store a step's result only on ok; no-result,
 \ ok-or-none and room-result give a step's result with its outcome.
@@ -176,3 +177,13 @@
     outcome-full of s" full" endof  s" invalid" rot endcase ;
 \ Drop an argument and report invalid input.
 : drop-invalid ( x -- outcome ) drop outcome-invalid ;
+\ The first k = 0, 1, ... n-1 for which the test xt ( x k -- x flag )
+\ holds: k and true, after which none runs; else false. x is dropped
+\ either way (one value; any?'s search giving the place: review F4 of
+\ 2026-11-18 and the author review's R3, the linear finds of a store,
+\ slab or table by index). n <= 0 gives false. Example, the first
+\ negative cell of a table 5 -2 -7: `table 3 ' cell-neg? find-index`
+\ gives 1 and true.
+: find-index ( x n xt -- k true | false )
+  dup 1+ swap ?do 0 max 0 ?do i j execute if drop i true unloop unloop exit then
+  loop loop drop false ;

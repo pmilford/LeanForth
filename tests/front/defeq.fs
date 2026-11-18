@@ -256,6 +256,15 @@ T{ fu fk app lf-meta-proof-quick nat fe lam fk app lf-meta-proof-quick ?h lf-met
    -> lf-lb-false outcome-ok lf-lb-true outcome-ok lf-lb-false outcome-ok }T
 T{ nat eqab tpi lf-meta-prop-quick nat fk eqab let lf-meta-prop-quick fu fk app lf-meta-prop-quick
    -> lf-lb-true outcome-ok lf-lb-true outcome-ok lf-lb-undef outcome-ok }T
+\ The tag sets (review F3 of 2026-11-18): a pi or a sort is no proof, a
+\ lambda or a sort no proposition; a let and a lambda are passed to their
+\ bodies by isProofQuick.
+T{ nat nat tpi lf-meta-proof-quick nat lf-meta-proof-quick
+   -> lf-lb-false outcome-ok lf-lb-false outcome-ok }T
+T{ nat lf-meta-prop-quick nat fk lam lf-meta-prop-quick
+   -> lf-lb-false outcome-ok lf-lb-false outcome-ok }T
+T{ nat fk fe let lf-meta-proof-quick nat fe lam lf-meta-proof-quick
+   -> lf-lb-true outcome-ok lf-lb-true outcome-ok }T
 : lmax ( a b -- l ) lf-level-tag-max lf-level-binary drop ;
 : limax ( a b -- l ) lf-level-tag-imax lf-level-binary drop ;
 T{ l0 l0 lmax lf-meta-always-zero? lv1 l0 limax lf-meta-always-zero? l0 lv1 lmax lf-meta-always-zero?

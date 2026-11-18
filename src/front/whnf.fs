@@ -466,8 +466,8 @@ wc-smatch-kind 1+ constant wc-srec-kind
   wc-partial? if 2drop wc-done else wc-match-kind wc-match-part then ;
 \ Resumed with the body's whnf r: hs[i] at r's head, or none.
 : wc-h@ ( i -- x ) wc-hs slab-count wc wc-malts @ - + wc-hs slab-at @ ;
-: wc-alt-of ( head -- i true | false )
-  wc wc-malts @ 0 ?do dup i wc-h@ = if drop i true unloop exit then loop drop false ;
+: wc-h-is? ( head i -- head flag ) wc-h@ over = ;
+: wc-alt-of ( head -- i true | false ) wc wc-malts @ ['] wc-h-is? find-index ;
 : wc-hs-drop ( -- ) wc wc-malts @ negate wc-hs slab-commit ;
 : wc-alt-apply ( i -- e' outcome )
   wc wc-mpre @ + wc-args lf-meta-arg wc-margs lf-meta-apply-all

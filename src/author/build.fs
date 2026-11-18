@@ -45,9 +45,9 @@ require ./errors.fs
   lfa-term-fields 3 pick node-second @ = >r 2 pick node-first @ = >r
   over node-tag @ = nip r> r> and and ;
 \ An existing term equal to the node sought, without labels or notes.
-: lfa-find ( node -- term true | false )
-  lf-term-count @ 0 ?do dup i lfa-term-same? i lfa-shareable? and
-    if drop i true unloop exit then loop drop false ;
+: lfa-term-is? ( node term -- node flag )
+  2dup lfa-term-same? swap lfa-shareable? and ;
+: lfa-find ( node -- term true | false ) lf-term-count @ ['] lfa-term-is? find-index ;
 
 \ New nodes; a refused allocation stops the run (the term store is full).
 : lfa-made ( index true | false -- term ) 0= if lfa-e-terms-full lfa-fail then ;
@@ -119,9 +119,9 @@ require ./errors.fs
 
 \ Levels, shared by content; the zero level is index 0.
 : lfa-level-made ( index true | false -- level ) 0= if lfa-e-levels-full lfa-fail then ;
+: lfa-level-is? ( node i -- node flag ) over swap lf-level-slot lfa-same? ;
 : lfa-level-find ( node -- level true | false )
-  lf-level-count @ 0 ?do dup i lf-level-slot lfa-same?
-    if drop i true unloop exit then loop drop false ;
+  lf-level-count @ ['] lfa-level-is? find-index ;
 : lfa-succ ( level -- level' )
   lf-level-tag-succ over 0 lfa-seek lfa-level-find if nip exit then
   lf-level-succ lfa-level-made ;
@@ -159,9 +159,9 @@ end-structure
     2* cells= ;
 : lfa-ref-match? ( ref i -- flag ) 2dup lfa-ref-head? if lfa-ref-levels? else 2drop false
   then ;
+: lfa-ref-is? ( ref i -- ref flag ) over swap lfa-ref-match? ;
 : lfa-ref-find ( ref -- index identity true | false )
-  lf-cref-count @ 0 ?do dup i lfa-ref-match?
-    if drop i lfa-cref-at true unloop exit then loop drop false ;
+  lf-cref-count @ ['] lfa-ref-is? find-index if lfa-cref-at true else false then ;
 : lfa-ref-new ( ref -- index identity )
   dup lfa-ref-name @ lf-name-generation @ rot dup lfa-ref-pairs swap lfa-ref-count @
   lf-cref-new 0= if lfa-e-references-full lfa-fail then ;

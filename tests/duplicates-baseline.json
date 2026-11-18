@@ -1972,17 +1972,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
  },
- "c232bbe480f3": {
-  "copies": 3,
-  "kind": "shape",
-  "members": [
-   "src/author/constants.fs:lfa-decl-find",
-   "src/front/level-params.fs:lp-index",
-   "src/front/mvars.fs:mv-mark-index"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 17
- },
  "c24c8ecb19c0": {
   "copies": 2,
   "kind": "shape",
@@ -2385,16 +2374,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
- },
- "db8d654acef2": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/instantiate.fs:in-hole?",
-   "src/front/term-eqv.fs:eq-unshared?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 8
  },
  "dbcdef2236aa": {
   "copies": 2,
