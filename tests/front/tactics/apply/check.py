@@ -5,7 +5,8 @@ harness and its usage are tests/front/tactics/tactic_check.py's."""
 import pathlib
 import sys
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+ROOT = pathlib.Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(ROOT / "tests/front/tactics"))
 import tactic_check  # noqa: E402
 
 D = "tests/front/tactics/apply/"
