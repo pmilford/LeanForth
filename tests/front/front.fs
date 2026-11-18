@@ -688,6 +688,55 @@ T{ lfc-library-close -> }T
 create dw-probe /dw allot  5 dw-probe dw-size !
 T{ 0 dw-probe dw-in? 4 dw-probe dw-in? 5 dw-probe dw-in? -> true true false }T
 T{ -1 dw-probe dw-in? max-n negate dw-probe dw-in? -> false false }T
+
+\ dag-walk.fs's two kinds of states (performance scan, 2026-11-18): a walk
+\ of more than dw-array-most nodes keeps them in a memo of the nodes it
+\ meets, a smaller one in an array of all. instantiateMVars and the occurs
+\ check of 300 random terms (lambdas, pis, applications, Prop, a loose
+\ variable, assigned and unassigned metavariables, assignments through
+\ others) give the same terms (Expr.eqv) and answers with the array as
+\ with the memo, after the store grew past the cut-over.
+lf-author-begin lf-mctx-reset
+T{ 0 lf-term-sort -> prop true }T
+variable wt-seed  20261118 wt-seed !
+: wt-rnd ( n -- u ) wt-seed @ 1103515245 * 12345 + 2147483647 and dup wt-seed ! 16 rshift
+  swap mod ;
+create wt-mvars 6 cells allot
+: wt-mvar ( i -- m ) cells wt-mvars + @ ;
+: wt-bvar ( -- t ) 0 lf-term-bvar 0= abort" bvar" ;
+: wt-leaf ( limit -- t )
+  dup 0> 2 wt-rnd and if wt-rnd wt-mvar else drop 3 wt-rnd if prop else wt-bvar then then ;
+: wt-tag ( -- tag ) 3 wt-rnd dup 2 = if drop lf-tag-app else lf-tag-lam + then ;
+defer wt-term ( depth limit -- t )
+: wt-kids ( depth limit -- a b ) swap 1- swap 2dup wt-term >r wt-term r> ;
+: wt-node ( depth limit -- t )
+  over 0= 3 wt-rnd 0= or if nip wt-leaf else wt-kids wt-tag lf-term-binary 0= abort" bin" then ;
+' wt-node is wt-term
+: wt-mvars! ( -- ) 6 0 do mv-natural new i cells wt-mvars + ! loop ;
+: wt-assign ( -- ) 6 1 do 2 wt-rnd if i wt-mvar 3 i wt-term lf-mvar-assign drop then loop ;
+300 constant wt-n
+create wt-terms wt-n 3 * cells allot
+: wt-at ( i k -- addr ) swap 3 * + cells wt-terms + ;
+: wt-inst ( t -- t' ) lf-instantiate-mvars ok? 0= abort" instantiate" ;
+: wt-occurs ( t -- flag ) 1 wt-mvar swap lf-mvar-occurs? ok? 0= abort" occurs" ;
+: wt-make ( i -- ) 4 6 wt-term 2dup swap 0 wt-at ! dup wt-inst 2 pick 1 wt-at !
+  wt-occurs swap 2 wt-at ! ;
+: wt-again? ( i -- flag )
+  dup 0 wt-at @ dup wt-inst 2 pick 1 wt-at @ lf-meta-eqv drop
+  swap wt-occurs rot 2 wt-at @ = and ;
+: wt-all? ( -- flag ) true wt-n 0 do i wt-again? and loop ;
+: wt-make-all ( -- ) wt-n 0 do i wt-make loop ;
+wt-mvars! wt-assign wt-make-all
+T{ lf-term-count @ dw-array-most < wt-all? -> true true }T
+: wt-fill ( n -- ) 0 ?do i 7 + lf-term-bvar 2drop loop ;
+dw-array-most wt-fill
+T{ lf-term-count @ dw-array-most > wt-all? -> true true }T
+\ Which kind a run uses: a build that answers 1 when it finds the array.
+create wt-walk /dw allot  wt-walk /dw erase
+:noname ( node walk -- child true | false ) 2drop false ; wt-walk dw-pending !
+:noname ( node walk -- image ) nip dw-array? 1 and ; wt-walk dw-build !
+: wt-kind ( size -- image outcome ) wt-walk dw-size ! 0 wt-walk dw-run ;
+T{ dw-array-most wt-kind dw-array-most 1+ wt-kind -> 1 outcome-ok 0 outcome-ok }T
 T{ depth -> 0 }T
 cr .( front.fs: all tests passed) cr
 bye

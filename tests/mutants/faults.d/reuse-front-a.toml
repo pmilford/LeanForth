@@ -287,3 +287,37 @@ old = ''': texts-comment? ( c-addr u -- flag ) s" \" compare 0= ;'''
 new = ''': texts-comment? ( c-addr u -- flag ) 2drop false ;'''
 test = "$GFORTH tests/lib/texts.fs"
 reason = "reuse pass part A3, note 8: a comment on a line of texts+ is laid down as texts"
+
+# Part A3, the performance scan's dag-walk item: a walk of more than
+# dw-array-most nodes keeps its states in a memo of the nodes it meets.
+[[fault]]
+id = "rfa3-dw-always-array"
+file = "src/front/dag-walk.fs"
+old = '''  dup dw-size @ dw-array-most > if dw-seen-run else dw-array-run then ;'''
+new = '''  dw-array-run ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "reuse pass part A3, dag-walk: every walk makes and erases an array of the whole term store again"
+
+[[fault]]
+id = "rfa3-dw-memo-kept"
+file = "src/front/dag-walk.fs"
+old = ''': dw-seen-end ( walk -- ) dup dw-stack heap-release dw-seen memo-free ;'''
+new = ''': dw-seen-end ( walk -- ) dw-stack heap-release ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "reuse pass part A3, dag-walk: a walk's memo is never given back (and the next run formats it over its blocks)"
+
+[[fault]]
+id = "rfa3-dw-claim-refusal-lost"
+file = "src/front/dag-walk.fs"
+old = '''  tuck 0 swap dw-seen memo-claim dup ok? if drop nip else nip swap dw-refuse 0 then ;'''
+new = '''  tuck 0 swap dw-seen memo-claim drop nip ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "reuse pass part A3, dag-walk: a state the heap had no room for is written at address 0 and the walk goes on"
+
+[[fault]]
+id = "rfa3-dw-seen-made-unchecked"
+file = "src/front/dag-walk.fs"
+old = ''': dw-seen-made ( walk -- flag ) 1 1 rot dw-seen memo-init ok? ;'''
+new = ''': dw-seen-made ( walk -- flag ) 1 1 rot dw-seen memo-init drop true ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "reuse pass part A3, dag-walk: a memo the heap refused at its start is used as if made"

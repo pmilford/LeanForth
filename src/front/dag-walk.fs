@@ -17,11 +17,17 @@
 \     below the size only;
 \   build ( node walk -- image )  the image, from the children's (dw-image);
 \     it may end the walk with dw-refuse ( outcome walk -- ).
-\ dw-run ( root walk -- image outcome ) runs a walk; the memo and the stack
-\ are heap blocks made when it starts and freed before it returns, so a
-\ walk keeps no address between runs (front/lib-decode.fs keeps its two
-\ walks' tables for a text's run instead, through dw-tables, dw-go and
-\ dw-free; plan 9.4.8b gives that use words of its own). A record runs one
+\ dw-run ( root walk -- image outcome ) runs a walk; its stack and its
+\ states are heap blocks made when it starts and freed before it returns,
+\ so a walk keeps no address between runs. The states are an array of
+\ every node for a walk of at most dw-array-most nodes, else a keyed memo
+\ (lib/memo.fs) of only the nodes the walk meets, so that a walk costs
+\ what it visits, not the size of the term store (performance scan,
+\ 2026-11-18: the array, made and erased for each run, was 41,000 cells
+\ on average for 2.3 nodes visited in a check of Init).
+\ front/lib-decode.fs keeps its two walks' tables, arrays of every node,
+\ for a text's run instead, through dw-tables, dw-go and dw-free (plan
+\ 9.4.8b gives that use words of its own). A record runs one
 \ walk at a time: a walk whose build needs another walk uses another
 \ record (mvars.fs walks levels inside a term walk). Untrusted front-end
 \ code.
@@ -29,20 +35,22 @@
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
+require ../lib/memo.fs
 require ../core/terms.fs
 
+16 constant dw-first-room
 begin-structure /dw
   field: dw-pending      \ xt ( node walk -- child true | false )
   field: dw-build        \ xt ( node walk -- image )
-  field: dw-size         \ nodes the memo holds: every node at the start
-  field: dw-memo         \ heap: per node 0 unseen, 1 under way, image + 2 made
+  field: dw-size         \ the walk's nodes: every node at the start
+  field: dw-memo         \ heap: per node 0 unseen, 1 under way, image + 2 made; or 0
   field: dw-stack        \ heap: the pending nodes
   field: dw-top          \ cells of the stack in use
   field: dw-room         \ cells of the stack allocated
   field: dw-outcome      \ ok, or the first refusal
+  /memo +field dw-seen   \ dw-run's states by node, as dw-memo's, for the nodes met
 end-structure
 
-16 constant dw-first-room
 \ The first refusal stays; refusing with ok changes nothing.
 : dw-refuse ( outcome walk -- ) dw-outcome outcome-first! ;
 : dw-ok? ( walk -- flag ) dw-outcome @ ok? ;
@@ -52,8 +60,17 @@ end-structure
 \ refuses the walk may leave -1, which reads as "under way", but a refused
 \ walk takes no further step. A node beyond the memo (a value given back
 \ since it was assigned) is never done; its visit ends the walk invalid.
+\ A run of dw-run keeps the states in the memo dw-seen instead (no entry:
+\ 0); a state the heap has no room to record refuses the walk, full.
 : dw-cell ( node walk -- addr ) dw-memo @ swap cells + ;
-: dw-state ( node walk -- n ) dw-cell @ ;
+: dw-array? ( walk -- flag ) dw-memo @ 0<> ;
+: dw-seen@ ( node walk -- n ) 0 swap dw-seen memo@ 0= if 0 then ;
+: dw-state ( node walk -- n ) dup dw-array? if dw-cell @ else dw-seen@ then ;
+: dw-seen-cell ( node walk -- addr | 0 )
+  tuck 0 swap dw-seen memo-claim dup ok? if drop nip else nip swap dw-refuse 0 then ;
+: dw-state-cell ( node walk -- addr | 0 )
+  dup dw-array? if dw-cell else dw-seen-cell then ;
+: dw-state! ( n addr | n 0 -- ) ?dup if ! else drop then ;
 : dw-in? ( node walk -- flag ) dw-size @ index? ;
 : dw-done? ( node walk -- flag ) 2dup dw-in? if dw-state 1 > else 2drop false then ;
 \ A pending word's test of one child: the child and true when its image
@@ -71,7 +88,7 @@ end-structure
 \ new, so pushing it ends the walk invalid.
 : dw-new? ( node walk -- flag ) 2dup dw-in? if dw-state 0= else 2drop true then ;
 : dw-image ( node walk -- image ) dw-state 2 - ;
-: dw-made ( image node walk -- ) dw-cell swap 2 + swap ! ;
+: dw-made ( image node walk -- ) dw-state-cell swap 2 + swap dw-state! ;
 
 \ The stack.
 : dw-slot ( i walk -- addr ) dw-stack @ swap cells + ;
@@ -82,18 +99,28 @@ end-structure
   over dw-stack ! dw-room dup @ 2* swap ! true ;
 : dw-roomy ( walk -- flag )
   dup dw-top @ over dw-room @ < if drop true else dw-grown then ;
-: dw-put ( node walk -- ) dup >r dup dw-top @ swap dw-slot ! 1 r> dw-top +! ;
+: dw-top-slot ( walk -- addr ) dup dw-top @ swap dw-slot ;
+: dw-put ( node walk -- ) tuck dw-top-slot ! 1 swap dw-top +! ;
 : dw-push ( node walk -- )
   dup dw-roomy 0= if nip outcome-full swap dw-refuse exit then
-  2dup dw-cell 1 swap ! dw-put ;
+  2dup dw-state-cell 1 swap dw-state! dw-put ;
 
 \ The tables, for every node there is when the walk starts.
 : dw-block ( u addr -- flag ) swap 1 max allocate if drop 0 then dup rot ! 0<> ;
 : dw-memo-erase ( walk -- ) dup dw-memo @ swap dw-size @ cells erase ;
-: dw-tables ( walk -- flag )
-  dw-first-room over dw-room ! dw-first-room cells over dw-stack dw-block
-  over dw-size @ cells rot dw-memo dw-block and ;
+: dw-stack-made ( walk -- flag )
+  dw-first-room over dw-room ! dw-first-room cells swap dw-stack dw-block ;
+: dw-memo-made ( walk -- flag ) dup dw-size @ cells swap dw-memo dw-block ;
+: dw-tables ( walk -- flag ) dup dw-stack-made swap dw-memo-made and ;
 : dw-free ( walk -- ) dup dw-memo heap-release dw-stack heap-release ;
+\ A run of a walk of more than dw-array-most nodes keeps its states in
+\ dw-seen: an array of them all, made and erased for each run, would cost
+\ more than the nodes it visits (the cut-over is where erasing 4,096 cells
+\ takes about as long as a memo's first entries).
+4096 constant dw-array-most
+: dw-seen-made ( walk -- flag ) 1 1 rot dw-seen memo-init ok? ;
+: dw-seen-start ( walk -- flag ) dup dw-stack-made swap dw-seen-made and ;
+: dw-seen-end ( walk -- ) dup dw-stack heap-release dw-seen memo-free ;
 
 \ One step: the node on top is made when its children are, else its first
 \ pending child goes on top; a child under way is a cycle.
@@ -113,7 +140,12 @@ end-structure
 : dw-go ( root walk -- image outcome )
   2dup dw-in? 0= if 2drop -1 outcome-invalid exit then
   2dup dw-loop dup dw-ok? if dw-image outcome-ok else nip dw-outcome @ -1 swap then ;
-: dw-run ( root walk -- image outcome )
-  outcome-ok over dw-outcome ! 0 over dw-top !
+: dw-array-run ( root walk -- image outcome )
   dup dw-tables 0= if dup dw-free 2drop -1 outcome-full exit then
   dup dw-memo-erase tuck dw-go rot dw-free ;
+: dw-seen-run ( root walk -- image outcome )
+  dup dw-seen-start 0= if dw-seen-end drop -1 outcome-full exit then
+  dup >r dw-go r> dw-seen-end ;
+: dw-run ( root walk -- image outcome )
+  outcome-ok over dw-outcome ! 0 over dw-top !
+  dup dw-size @ dw-array-most > if dw-seen-run else dw-array-run then ;
