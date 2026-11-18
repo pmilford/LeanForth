@@ -73,6 +73,8 @@ import subprocess
 import sys
 import tempfile
 
+import lean_pin  # scripts/lean_pin.py, beside this script
+
 FORMAT = 1
 # Source text that may read anything besides the source, the options and the
 # imported modules: such calls always run Lean.
@@ -484,8 +486,18 @@ def main(args):
     # A bare name (the Makefile's LEAN default `lean`, when no .tools toolchain is beside the
     # checkout, as in a worktree) is found on PATH: execv takes a path, and the toolchain's
     # leanexport is found beside the real file (fix-batch-4, 2026-11-18).
+    # Never an elan proxy, which downloads a toolchain when ELAN_HOME is not
+    # set, and a name found on PATH only when it is Lean 4.35.0 (scripts/
+    # lean_pin.py; review fix-batch Re-check 2). An explicit path is checked
+    # for a proxy only, so each call costs no extra run.
     if os.sep not in lean:
-        lean = shutil.which(lean) or lean
+        found = shutil.which(lean)
+        reason = found and lean_pin.refusal(found)
+        lean = found or lean
+    else:
+        reason = lean_pin.proxy(lean) if os.path.exists(lean) else None
+    if reason:
+        sys.exit(f"lean-cache: refused: {reason}")
     mode = os.environ.get("LEANFORTH_LEAN_CACHE", "1")
     if mode not in ("0", "1", "verify"):
         sys.exit(f"lean-cache: LEANFORTH_LEAN_CACHE must be 0, 1 or verify, not {mode}")

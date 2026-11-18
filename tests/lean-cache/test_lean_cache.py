@@ -151,6 +151,31 @@ class CacheTest(unittest.TestCase):
                                                LEANFORTH_LEAN_CACHE=mode)
             self.assertEqual((status, stdout, stderr), (0, b"elaborated B.lean: theorem b \n", b""))
 
+    def test_elan_proxy_refused(self):
+        """An elan proxy, by path or found on PATH, is never run (it downloads a toolchain
+        without ELAN_HOME); a lean on PATH that is not 4.35.0 is refused too (review
+        fix-batch Re-check 2)."""
+        name = self.source("C.lean", "theorem c")
+        proxies = Path(self.temporary.name) / "elan-bin"
+        proxies.mkdir()
+        executable(proxies / "elan", "#!/bin/sh\necho downloading >> \"$FAKE_COUNT\"\nexit 9\n")
+        (proxies / "lean").symlink_to(proxies / "elan")
+        path = str(proxies) + os.pathsep + os.environ.get("PATH", "")
+        for env in ({"LEANFORTH_LEAN": "lean", "PATH": path},
+                    {"LEANFORTH_LEAN": str(proxies / "lean")}):
+            status, stdout, stderr = self.lean(name, **env)
+            self.assertEqual((status, stdout), (1, b""), env)
+            self.assertIn(b"lean-cache: refused: ", stderr)
+            self.assertIn(b"is an elan proxy", stderr)
+        old = Path(self.temporary.name) / "old-bin"
+        old.mkdir()
+        executable(old / "lean", "#!/bin/sh\necho 'Lean (version 4.9.0)'\n")
+        status, _, stderr = self.lean(name, LEANFORTH_LEAN="lean",
+                                      PATH=str(old) + os.pathsep + os.environ.get("PATH", ""))
+        self.assertEqual(status, 1)
+        self.assertIn(b"is not Lean 4.35.0", stderr)
+        self.assertEqual(self.runs(), 0, "no proxy and no other Lean ran a file")
+
     def test_changed_source_misses(self):
         name = self.source("A.lean", "theorem a")
         self.assert_cached(name)
