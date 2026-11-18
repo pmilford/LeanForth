@@ -88,7 +88,7 @@
    "never_run": 116,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed; S2 coverage debt, owner 2026-11-17 (s2-finish, paid in the slice's batch test pass): 105->116: the step log's refusals (an axiom's name nt-name refuses, a file that cannot be created or written, an axiom's name that finds no room) and S2's text paths that make check runs but make test does not; fix-batch coverage debt, owner 2026-11-17 rule (branch fix-batch, 2026-11-18; paid in its batch test pass): 116->117: the heap refusing the arguments' or the file names' block (cli-seen-full, cli-path+'s THROW -59) fix-batch-4 (2026-11-18, measured over make test at 111b433f): 116, as before the fix batch: the internal-fault branch and the derived-path words are tested; left new, the heap refusing the argument blocks (cli-seen-full, cli-path+'s -59)."
   },
-  "src/cli/name-text.fs": {
+  "src/present/name-text.fs": {
    "blocks": 104,
    "never_run": 8,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"

@@ -8,8 +8,10 @@
 \ bans (a control or format character, such as a bidirectional one, a
 \ line or paragraph separator), which Lean writes as itself, is written as
 \ \u and four hexadecimal digits when it is below U+10000 (every
-\ bidirectional control is), Lean's own escape for the same character, so
-\ that a literal cannot end a line or reorder the text it is printed in.
+\ bidirectional control is), Lean's own escape for the same character, and
+\ above it (tag characters, musical format characters) as \u{X}, which
+\ Lean's syntax lacks, so that a literal cannot end a
+\ line or reorder the text it is printed in, in any mode.
 \ In LaTeX the quoted text is the argument of \texttt, its characters that
 \ are special in text mode escaped. Bytes that are no UTF-8 character
 \ (only a corrupted leaf holds them) are invalid. Untrusted presentation
@@ -18,6 +20,7 @@
 require ./print-job.fs
 require ./latex-text.fs
 require ../lib/bytes.fs
+require ../lib/decimal.fs
 require ../lib/text-rule.fs
 require ../core/string-literals.fs
 
@@ -42,10 +45,16 @@ require ../core/string-literals.fs
 
 \ One character, its bytes c-addr n and its code point.
 : lf-pq-control? ( code -- flag ) dup 32 < swap 127 = or ;
-: lf-pq-banned? ( code -- flag ) dup tr-banned? swap $10000 < and ;
+\ A banned character: \u and four digits below U+10000; above, where
+\ Lean's string syntax has no escape (\u takes four digits, and a
+\ surrogate pair reads as two NULs), \u{X} as names write it (X in
+\ capital hexadecimal), which Lean refuses to read rather than reads as
+\ another string (review F4).
+: lf-pq-wide ( code -- ) s" u{" lf-pq-letter u>hex lf-pq-out s" }" lf-pq-out ;
+: lf-pq-banned ( code -- ) dup $10000 < if s" u" 4 lf-pq-coded else lf-pq-wide then ;
 : lf-pq-other ( c-addr n code -- code )
   dup lf-pq-control? if >r 2drop r@ s" x" 2 lf-pq-coded r> exit then
-  dup lf-pq-banned? if >r 2drop r@ s" u" 4 lf-pq-coded r> exit then
+  dup tr-banned? if >r 2drop r@ lf-pq-banned r> exit then
   >r lf-pq-out r> ;
 : lf-pq-char ( c-addr n code -- )
   case 10 of 2drop s" n" lf-pq-letter endof

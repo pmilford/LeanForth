@@ -21,6 +21,7 @@ the cache only when LEAN_CACHE is not 0 and CI is not set. Needs only
 Python 3 and make; runs no Lean and no Forth.
 """
 import os
+import shutil
 import stat
 import subprocess
 import tempfile
@@ -80,7 +81,8 @@ class CacheTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="lean-cache-test-")
         base = Path(self.temporary.name)
-        self.prefix = base / "toolchain"
+        # An elan home's layout, the only place lean_pin.py takes a Lean from.
+        self.prefix = base / "toolchains" / "fake"
         (self.prefix / "bin").mkdir(parents=True)
         (self.prefix / "lib" / "lean").mkdir(parents=True)
         executable(self.prefix / "bin" / "lean", FAKE_LEAN)
@@ -150,6 +152,46 @@ class CacheTest(unittest.TestCase):
             status, stdout, stderr = self.lean(name, LEANFORTH_LEAN="lean", PATH=path,
                                                LEANFORTH_LEAN_CACHE=mode)
             self.assertEqual((status, stdout, stderr), (0, b"elaborated B.lean: theorem b \n", b""))
+
+    def test_elan_proxy_refused(self):
+        """An elan proxy, by path or found on PATH, is never run (it downloads a toolchain
+        without ELAN_HOME); a lean on PATH that is not 4.35.0 is refused too (review
+        fix-batch Re-check 2)."""
+        name = self.source("C.lean", "theorem c")
+        proxies = Path(self.temporary.name) / "elan-bin"
+        proxies.mkdir()
+        executable(proxies / "elan", "#!/bin/sh\necho downloading >> \"$FAKE_COUNT\"\nexit 9\n")
+        (proxies / "lean").symlink_to(proxies / "elan")
+        path = str(proxies) + os.pathsep + os.environ.get("PATH", "")
+        for env in ({"LEANFORTH_LEAN": "lean", "PATH": path},
+                    {"LEANFORTH_LEAN": str(proxies / "lean")}):
+            status, stdout, stderr = self.lean(name, **env)
+            self.assertEqual((status, stdout), (1, b""), env)
+            self.assertIn(b"lean-cache: refused: ", stderr)
+            self.assertIn(b"is an elan proxy", stderr)
+        # A wrapper script, a copy and a hard link of the proxy, given by path,
+        # are refused by where they are, never run (review F5).
+        wrapper = Path(self.temporary.name) / "wrapper-lean"
+        executable(wrapper, f"#!/bin/sh\nexec '{proxies / 'elan'}' \"$@\"\n")
+        copied = Path(self.temporary.name) / "copy"
+        copied.mkdir()
+        shutil.copy(proxies / "elan", copied / "lean")
+        hard = Path(self.temporary.name) / "hard"
+        hard.mkdir()
+        os.link(proxies / "elan", hard / "lean")
+        for lean in (wrapper, copied / "lean", hard / "lean"):
+            status, stdout, stderr = self.lean(name, LEANFORTH_LEAN=str(lean))
+            self.assertEqual((status, stdout), (1, b""), lean)
+            self.assertIn(b"is not a Lean toolchain's binary", stderr)
+        old = Path(self.temporary.name) / "toolchains" / "old"
+        (old / "bin").mkdir(parents=True)
+        (old / "lib" / "lean").mkdir(parents=True)
+        executable(old / "bin" / "lean", "#!/bin/sh\necho 'Lean (version 4.9.0)'\n")
+        status, _, stderr = self.lean(name, LEANFORTH_LEAN="lean",
+                                      PATH=str(old / "bin") + os.pathsep + os.environ.get("PATH", ""))
+        self.assertEqual(status, 1)
+        self.assertIn(b"is not Lean 4.35.0", stderr)
+        self.assertEqual(self.runs(), 0, "no proxy and no other Lean ran a file")
 
     def test_changed_source_misses(self):
         name = self.source("A.lean", "theorem a")

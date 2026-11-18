@@ -126,8 +126,10 @@ end-structure
 \ Where the next outlines go: an xt ( c-addr u -- ), or 0 for TYPE.
 : lf-outline-sink! ( xt|0 -- ) lf-ol-style cell+ ! ;
 \ How plain-style outlines show names: namer ( id -- c-addr u flag ) for a
-\ declaration's name and escape ( c-addr u -- c-addr' u' flag ) for any other
-\ text, each an xt or 0 (as they are, the default); the text of either is
+\ declaration's name and escape ( c-addr u -- c-addr' u' flag ) for text
+\ from outside, the input's file name (never the term printer's, which is
+\ escaped already: log-view.fs lf-lv-put), each an xt or 0 (as they are,
+\ the default); the text of either is
 \ valid until the next call, and a false flag means it must not be shown.
 : lf-outline-names! ( namer escape -- ) lf-ol-style 3 cells + ! lf-ol-style 2 cells + ! ;
 : lf-ol-set-names ( -- ) lf-ol-style 2 cells + @ lf-lv lf-lv-decl-namer !
@@ -513,9 +515,16 @@ lf-walk-room context-walk: lf-ol-premises
   lf-diag-clear? if exit then s"   Diagnostic: " lf-lv-put lf-diag@ nip
   lf-diag-name lf-lv-put
   s"  (" lf-lv-put swap lf-lv-n s" , " lf-lv-put lf-lv-n s" )" lf-ol-line ;
+\ NOT PROVED, as the command line's reports mark it (review N11): an axiom
+\ outside the allowlist. Axioms not read (-1, "axioms: ?") would be marked
+\ so too; the command line never gives them (cli/tally.fs decl-axioms).
+: lf-ol-not-proved. ( -- )
+  0 lf-olr-axioms lf-ol-field @ lf-allowlist-bits invert and
+  if s" ; NOT PROVED: depends on an axiom" lf-lv-put then ;
 : lf-ol-verdict ( -- )
   s"   " lf-lv-put lf-ol-accepted?
-  if s" accepted; " lf-lv-put lf-ol-axioms 0 lf-lv-flush lf-lv-eol exit then
+  if s" accepted; " lf-lv-put lf-ol-axioms lf-ol-not-proved. 0 lf-lv-flush lf-lv-eol exit
+  then
   lf-ol-outcome outcome-sane outcome-text lf-ol-line lf-ol-diagnostic ;
 \ The statement (or the type), in the forms selected (statement-forms.fs); a
 \ declaration with no type says so.
@@ -529,7 +538,7 @@ lf-walk-room context-walk: lf-ol-premises
 \ The input's name: as it is, or escaped in the typewriter font (LaTeX).
 : lf-ol-source-name. ( c-addr u -- )
   lf-lv-tex? if s" \texttt{" lf-lv-put 0 lf-lv-flush lf-sf-tex s" }" lf-lv-put
-  else lf-lv-put then ;
+  else lf-lv-put-text then ;
 : lf-ol-source ( -- )
   lf-ol-source-name dup 0= if 2drop exit then s"   Input:     " lf-lv-put
   lf-ol-source-name.

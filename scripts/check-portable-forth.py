@@ -79,7 +79,7 @@ BYTE_MODULES = {
         "texts are decoded from UTF-8, character by character, to check them against "
         "the text rule of run records and receipts",
     "src/lib/hash32.fs": "FNV-1a hashes a text one byte at a time (ADR 0016 C4)",
-    "src/cli/name-text.fs":
+    "src/present/name-text.fs":
         "names are decoded from UTF-8, character by character, to show them as Lean does, "
         "with escapes",
     "src/author/source.fs":

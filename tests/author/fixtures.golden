@@ -1490,10 +1490,10 @@ end zero_add'
 round trip: terms, names, kinds, labels and notes same; printed text same
 == 21-numeric-name
 ran: ok
-lean: theorem _private.tests.reference.author-21-numeric-name.0.twice : ∀ (p : Prop), p → p :=
+lean: theorem _private.tests.reference.«author-21-numeric-name».0.twice : ∀ (p : Prop), p → p :=
 lean: fun p h ↦ h
 lean: theorem useTwice : ∀ (p : Prop), p → p :=
-lean: fun p h ↦ _private.tests.reference.author-21-numeric-name.0.twice p h
+lean: fun p h ↦ _private.tests.reference.«author-21-numeric-name».0.twice p h
 term: 0 _private.tests.reference.author-21-numeric-name.#0.twice
 term:   type (pi p 0 (Sort 0) (pi h 0 #0 #1))
 term:   value (lam p 0 (Sort 0) (lam h 0 #0 #0))

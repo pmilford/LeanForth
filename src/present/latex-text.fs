@@ -44,12 +44,22 @@ end-structure
   >r r@ lf-tex-slash @ execute r@ lf-tex-out r@ lf-tex-out u>hex r@ lf-tex-out
   s" \}" r> lf-tex-out ;
 : lf-tex-bad ( c-addr mode -- ) >r c@ s" x\{" r> lf-tex-code ;
+\ « and », which name-text.fs puts around a name part that is no
+\ identifier, as math symbols in either mode: LaTeX's default font
+\ encoding (OT1) has no guillemets.
+: lf-tex-angle? ( code -- flag ) dup $ab = swap $bb = or ;
+: lf-tex-angle ( code -- c-addr u )
+  $ab = if s" \ensuremath{\ll}" else s" \ensuremath{\gg}" then ;
+\ A character of n > 1 bytes at c-addr: the bytes it takes and its text.
+: lf-tex-wide ( c-addr n code -- n c-addr' u' )
+  dup lf-tex-angle? if nip nip 2 swap lf-tex-angle else drop tuck then ;
 \ The character at c-addr, u bytes left, written in the mode; the bytes it
 \ took.
 : lf-tex-step ( c-addr u mode -- n )
   >r 2dup utf8-length dup 0= if 2drop r> lf-tex-bad 1 exit then nip
   2dup utf8-decode dup tr-banned? if s" u\{" r> lf-tex-code nip exit then
-  drop dup 1 = if drop r> lf-tex-one @ execute 1 else tuck r> lf-tex-out then ;
+  over 1 = if 2drop r> lf-tex-one @ execute 1 exit then
+  lf-tex-wide r> lf-tex-out ;
 : lf-tex-text ( c-addr u mode -- )
   >r begin dup while 2dup r@ lf-tex-step /string repeat 2drop r> drop ;
 : lf-tex-backslash ( -- c-addr u ) s" \backslash{}" ;

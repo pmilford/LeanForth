@@ -4,8 +4,10 @@
 exported, and since 2026-11-12 LeanForth text; it does not yet verify a
 program.** From the shell, `bin/leanforth check FILE.ndjson`
 ([the command line](COMMAND_LINE.md)) checks a Lean 4.35.0 export of any
-size (all of Lean's `Init` and, on an earlier build, all of Mathlib's
-729,263 declarations were accepted), but the checker is [kernel] code
+size (all of Lean's `Init` was accepted, and, on build `d789e45f` of
+2026-11-13, all of Mathlib's 729,263 declarations; later builds have not
+been run on all of Mathlib: [progress](../project/PROJECT_PROGRESS.md)),
+but the checker is [kernel] code
 and several parts have not passed their review gates.
 `leanforth check [--env EXPORT] FILE.lf` checks LeanForth text with the
 same checker ([checking a file](LEANFORTH_SYNTAX.md#checking-a-file); plan 8.2.1c-d).
@@ -59,7 +61,8 @@ tools.
   approved on 2026-11-02) accepts and rejects definitions, theorems, inductive types
   (also recursive and mutual), `let`, literals, projections and quotients,
   but several of these parts have not passed their review gates. It accepted all of Lean's `Init` and, on build
-  `b74a04d` (not re-run since), all 729,263 declarations of Mathlib's export,
+  `d789e45f` (2026-11-13, the latest run the progress page records; later
+  builds not run on all of Mathlib), all 729,263 declarations of Mathlib's export,
   with nested inductive types; a few constructs (metadata, blocks mixing safe
   and unsafe members; unsafe and partial declarations are skipped as Lean skips
   them) are still *unsupported* ([the command line](COMMAND_LINE.md#a-whole-library-leans-init)).

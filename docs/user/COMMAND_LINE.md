@@ -329,7 +329,18 @@ the run goes on as without the log. The one exception is exhausted
 memory: the log's text shares room with the open parts' text, so a later
 `by-sorry` may then find no room (error 88, exit 3) where a run without
 `--steps` would have had it. Only a log that cannot be written
-(the file, or an axiom's name, finds no room) is an error (exit 3). Version 1
+(the file, or an axiom's name, finds no room) is an error (exit 3); then
+nothing more is written, and a FILE is cut back to its last whole line,
+which the error message says (since 2026-11-18, review N14: before, a
+failed write could leave half a line). When the cut itself fails (the
+flush, the cut or the close of the file), the message says instead that
+the file may end inside a line; the exit status is 3 either way. The file
+holds no mark of its own that it was cut (format version 1 has no record
+for one). Each header's `steps` count is followed by that many step lines
+in a whole declaration, so a reader can find a cut inside a declaration;
+a cut between declarations leaves a log that looks whole with the later
+declarations missing, and only the exit status shows that a log is
+complete. Version 1
 does not yet carry each tactic's rule (the eliminator, the rewrite rule
 and its place, the closing term), the constants and hypotheses a step
 used, or the goals in kernel form; a later version adds them. `--steps`
@@ -532,10 +543,22 @@ counts the accepted declarations and gives their axioms; then notes
 explain a limit that was reached.
 
 **Names.** A declaration's name is shown as Lean's `Name.toString` shows
-it (`src/cli/name-text.fs`): its components joined by dots, numeric ones
+it (`src/present/name-text.fs`): its components joined by dots, numeric ones
 in decimal, a component that is not an identifier between `«` and `»`
 (`ReexportKinds.«with space»`; an empty component is `«»`), and the
-anonymous name as `[anonymous]`; names of any depth. Three differences
+anonymous name as `[anonymous]`; names of any depth. A first component
+that is a word of Lean's syntax is bare here, as `Name.toString` writes
+it (`fun`, `inferInstanceAs`, `Prop`). Since 2026-11-18 (review PB1)
+`print`, the goals of `.goals` and every other term the printer writes
+spell names by the same rule, with one more, as Lean's term printer
+(`ppExpr`) does: a first component that is a word of Init's syntax is
+between `«` and `»` too (`«fun» = «fun»`, but `Foo.fun`); words that a
+file's own imports add, such as Mathlib's notation, are not known.
+Before, a component holding a dot printed bare, so `Foo.«a.b»` showed as
+the different name `Foo.a.b`, and a bidirectional control in a goal's
+name reached the output raw. `tests/cli/odd-names.lean` holds 22 such
+names with what pinned Lean prints for each, which the tests compare
+with `check`, its JSON and `print` in plain text and LaTeX. Three differences
 from Lean's text make the line show exactly what the name holds, so that
 no name, however crafted, can start a line of its own, look like the
 start of another declaration's line, move the cursor or reorder the
@@ -590,7 +613,15 @@ and counted apart in the summary, never as proved. The summary names
 the allowlisted axioms the accepted declarations use, then the count:
 `axioms: none` when they use no axiom, else for example `axioms:
 propext, Classical.choice, Quot.sound (allowlisted); none NOT PROVED`
-or `axioms: 2 NOT PROVED (they depend on an axiom)`. The mark is
+or `axioms: 2 NOT PROVED (they depend on an axiom)`. Every report reads
+"accepted" with the kernel's own test (final and ok) and an accepted
+declaration's axiom set under that same test, so the set of an accepted
+declaration is always known. Should it ever not be, that is an internal
+fault, exit 5 (`internal fault: a Forth exception (THROW -4135)`), in
+the text and the JSON alike, never a report with axioms unknown (since
+2026-11-18, review F2; no report schema has a value for them).
+`print`'s outline marks the declaration the same way (`accepted; axioms:
+unlisted; NOT PROVED: depends on an axiom`). The mark is
 presentation, never a different verdict. So, by the
 owner's decision of 2026-11-04, a
 run whose declarations are all accepted, some of them NOT PROVED, keeps
@@ -1076,7 +1107,9 @@ resources:
 after each check. For an accepted declaration it is exact: with a budget
 of exactly that much (`--fuel N`) it is accepted, with one less it is not
 (`make test` checks this on the fixtures). An exhausted check used the
-whole budget. The block's fuel is counted on its first member (`Two`
+whole budget, and the text and JSON reports both say so, wherever in the
+check it ran out (before 2026-11-18 one that ran out in its first step
+was reported with too little). The block's fuel is counted on its first member (`Two`
 above); its other members show none of their own. A check that failed
 inside inference gives its counter up (the checker sets it to zero), so
 its fuel is *not known*: the report counts those declarations apart and
@@ -1571,7 +1604,14 @@ wrongly. Such a declaration becomes a comment line
 constant still read back, an `import-stub` of the same name, universe
 parameters and, when it prints, type (the stub the authoring words use for a
 constant of Lean's library: an assumption, not a proof). Each one is also
-listed on the standard error with its reason, followed by the counts. The
+listed on the standard error with its reason, followed by the counts.
+Such a text is not the export: it reads back only with `--env EXPORT`,
+which gives the stubbed constants. So, since 2026-11-18 (review N3), the
+standard error then ends with `note: the text is not the export: N
+declarations not written; ...` and `print --lf` exits 2 (unsupported),
+not 0; it exits 0 only when every declaration was written. A concrete
+`Sort` is written as the words of the symbolic `Sort` of the same level,
+which read back as that node: equal in meaning, not the same node. The
 reasons today (the gaps are follow-ups of plan task 8.6.3):
 
 | Reason | Why |
@@ -1819,8 +1859,8 @@ supported:
   verify: one Forth word against its contract (plan 8.4.1, V1): pinned Lean
     writes the proofs, this checker re-checks them, a receipt records it;
     needs Python 3 and the pinned Lean 4.35.0 (owner, 2026-11-13: V1 only)
-Mathlib: all 729,263 declarations of its Lean export accepted on build b74a04d
-  (fuel 250M, --memory-per-check 8192, --no-manifest); not re-run since
+Mathlib: this build makes no claim; the dated runs on all of Mathlib and
+  their builds are in docs/project/PROJECT_PROGRESS.md
 not yet supported (check answers unsupported or unknown, exit 2):
   a block with both safe and unsafe members (5.2.7 part b),
   metadata (mdata) in a term (4.1.3);

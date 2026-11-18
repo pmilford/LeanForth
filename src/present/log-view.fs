@@ -96,19 +96,24 @@ end-structure
 \ Text: the buffer, the output, numbers, padding by characters.
 : lf-lv-text ( -- c-addr u ) lf-lv-line slab-base lf-lv-line slab-count ;
 : lf-lv-clear ( -- ) lf-lv-line slab-clear ;
-\ The outline's text goes into the buffer as it is (lf-lv-put-raw) or, in plain
-\ style when the caller gave an escaping word (lf-outline-names!), escaped, so
-\ that a name in a formula cannot start a line of its own; text that cannot
-\ be escaped (no heap) shows as ?.
+\ The outline's text goes into the buffer as it is (lf-lv-put): the
+\ outline's own words and the term printer's text, whose names
+\ (name-text.fs nt-part) and strings (print-strings.fs) are already
+\ escaped and must not be escaped again (review F1: a second escape turned
+\ » into \u{BB}). Text from outside, the input's file name, goes through
+\ lf-lv-put-text: in plain style, when the caller gave an escaping word
+\ (lf-outline-names!), escaped, so that it cannot start a line of its own;
+\ text that cannot be escaped (no heap) shows as ?.
 \ Text the heap has no room for is left out and counted (a "?" is shown by
 \ the caller's next failure count, never a cut line).
-: lf-lv-put-raw ( c-addr u -- )
+: lf-lv-put ( c-addr u -- )
   dup lf-lv-line slab-claim ok?
   if lf-lv-line slab-at swap move else drop 2drop 1 lf-lv lf-lv-bad +! then ;
+\ Plain style only: LaTeX style writes such text through statement-forms.fs's
+\ lf-sf-tex instead (proof-outline.fs lf-ol-source-name.).
 : lf-lv-safe ( c-addr u -- c-addr' u' )
-  lf-lv lf-lv-escape @ ?dup 0= if exit then lf-lv lf-lv-tex @ if drop exit then
-  execute 0= if 2drop s" ?" then ;
-: lf-lv-put ( c-addr u -- ) lf-lv-safe lf-lv-put-raw ;
+  lf-lv lf-lv-escape @ ?dup 0= if exit then execute 0= if 2drop s" ?" then ;
+: lf-lv-put-text ( c-addr u -- ) lf-lv-safe lf-lv-put ;
 : lf-lv-out ( c-addr u -- ) lf-lv lf-lv-sink @ ?dup if execute else type then ;
 : lf-lv-n ( n -- ) dup 0< if s" -" lf-lv-put negate then u>decimal lf-lv-put ;
 : lf-lv-char ( c-addr u n -- c-addr' u' n' ) >r 2dup utf8-length 1 max /string r> 1+ ;
@@ -502,7 +507,7 @@ defer lf-lv-level ( ref -- level true | false )
 \ whole and is not escaped again.
 : lf-lv-decl-shown ( id -- )
   lf-lv lf-lv-decl-namer @ execute
-  if lf-lv-put-raw else 2drop s" ?" lf-lv-put-raw 1 lf-lv lf-lv-bad +! then ;
+  if lf-lv-put else 2drop s" ?" lf-lv-put 1 lf-lv lf-lv-bad +! then ;
 : lf-lv-printed-name ( id -- )
   lf-lv-math-open lf-print-name lf-lv-printed lf-lv-math-close ;
 : lf-lv-decl-namer? ( -- flag ) lf-lv lf-lv-decl-namer @ 0<> lf-lv-tex? 0= and ;

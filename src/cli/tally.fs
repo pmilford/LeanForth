@@ -19,6 +19,11 @@
 \ that depend on an axiom outside the allowlist (core/axiom-allowlist.fs;
 \ an axiom gets Lean's verdict, plan task 5.3.1); and the axioms the
 \ accepted ones use, joined (cli-axioms-used), which the summary names.
+\ Every report reads a declaration through the same words: decl-accepted?
+\ (the kernel's test), decl-outcome and decl-axioms, so the text, the
+\ JSON, the step log and the outline agree; an accepted declaration whose
+\ axioms cannot be read is an internal fault (axioms-unread), never a
+\ report.
 \ LeanForth-specific; untrusted (it reports, it decides no verdict).
 \ State: one record in the checker context, cli-tally-state (the code so
 \ far, the counts, the axioms used and whether NOT PROVED gives code 6).
@@ -64,10 +69,29 @@ here verdict-order - 1 cells / constant verdict-kinds
 verdict-kinds skipped 1+ <>
 [if] .( tally.fs: one entry per verdict) cr abort [then]
 : verdict-kind ( k -- verdict ) cells verdict-order + @ ;
+\ The one test of "accepted" every report uses (the text, the JSON, the
+\ step log, the outline; reviews N1 and PB2, 2026-11-18): the kernel's
+\ own, lf-slot-accepted? (final and ok), on a slot this context's
+\ snapshot may read; no effect (lf-env-accepted would note a refusal).
+: decl-accepted? ( d -- flag ) lf-env-readable if lf-slot-accepted? else false then ;
+\ Declaration d's outcome, read once: lf-env-outcome reads only a final
+\ slot (lf-env-readable), so it is ok exactly when decl-accepted? holds,
+\ and an ok outcome on a slot that is not final reads invalid (review N1).
+: decl-outcome ( d -- outcome ) lf-env-outcome ;
+\ The axiom set of declaration d: its slot's when d is accepted, 0 when
+\ it is not. An accepted declaration's set is always readable:
+\ lf-env-axioms reads it under decl-accepted?'s own test (environment.fs
+\ lf-env-accepted@). One that is not is an internal fault, thrown
+\ (axioms-unread; exit 5 through the command line's THROW handler), so no
+\ report ever shows axioms that are not known (review F2: no report
+\ schema has a value for them).
+-4135 constant axioms-unread   \ THROW code: an accepted declaration's axioms unread
+: decl-unread ( d -- 0 ) decl-accepted? if axioms-unread throw then 0 ;
+: decl-axioms ( d -- bits ) dup lf-env-axioms ok? if nip else drop decl-unread then ;
 \ Declaration d's verdict, read from its slot (kernel/environment.fs):
 \ skipped, else its outcome.
 : verdict-of ( d -- verdict )
-  dup lf-env-skipped? if drop skipped else lf-env-outcome then ;
+  dup lf-env-skipped? if drop skipped else decl-outcome then ;
 \ A verdict as reports name it: accepted for ok, not-checked, skipped, or
 \ the outcome's name.
 : verdict-name ( verdict -- c-addr u )
@@ -106,8 +130,8 @@ end-structure
 \ Count a NOT PROVED declaration apart; under --strict-axioms, with code 6.
 \ An accepted declaration's axiom set joins the axioms used.
 : cli-not-proved-code ( -- ) cli-strict-axioms? if exit-not-proved cli-code! then ;
-: cli-axioms-join ( outcome bits -- outcome bits )
-  over ok? if dup cli-axioms-used dup @ rot or swap ! then ;
+: cli-axioms-or ( bits -- ) cli-axioms-used @ or cli-axioms-used ! ;
+: cli-axioms-join ( outcome bits -- outcome bits ) over ok? if dup cli-axioms-or then ;
 : cli-tally-proved ( outcome bits -- )
   cli-axioms-join
   not-proved? if 1 cli-not-proved +! cli-not-proved-code then ;

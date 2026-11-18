@@ -24,7 +24,7 @@
 \ true: ok, or the writer's failure (invalid for a text it refuses, full
 \ when a name finds no heap), after which standard output holds a text
 \ cut short, never a whole report. Names, and the export's file name, are
-\ written as cli/name-text.fs shows them (Lean's Name.toString, with
+\ written as present/name-text.fs shows them (Lean's Name.toString, with
 \ escapes), so the report holds the same text as the text output.
 \ State: one shared record, the writer cj-writer.
 
@@ -41,7 +41,7 @@ require ../import/stage.fs
 require ../import/feed.fs
 require ../import/run-record.fs
 require ./tally.fs
-require ./name-text.fs
+require ../present/name-text.fs
 require ./check-run.fs
 
 8 0 json-writer: cj-writer
@@ -63,7 +63,7 @@ require ./check-run.fs
 : cj-flag ( flag key-addr key-u -- ) cj-key cj-writer jw-bool ;
 : cj-null-member ( key-addr key-u -- ) cj-key cj-null ;
 
-\ A text as cli/name-text.fs shows it; one the heap cannot hold fails the
+\ A text as present/name-text.fs shows it; one the heap cannot hold fails the
 \ report as full.
 : cj-shown ( c-addr u flag -- c-addr u ) 0= if outcome-full cj-writer jw-fail then ;
 : cj-name-text ( d -- c-addr u ) lf-input-name nt-name cj-shown ;
@@ -133,14 +133,16 @@ require ./check-run.fs
 : cj-unlisted ( d -- ) dup lf-env-unlisted? if cj-name-text cj-string else drop then ;
 : cj-not-proved-by ( d -- )
   s" notProvedBy" cj-key cj-array ['] cj-unlisted lf-env-axiom-deps drop cj-end-array ;
+\ An accepted declaration's axioms, read as every report reads them
+\ (tally.fs decl-axioms: never unknown, an internal fault instead).
 : cj-axioms ( d -- )
-  dup lf-env-axioms drop dup s" axiomBits" cj-number
+  dup decl-axioms dup s" axiomBits" cj-number
   lf-env-unproved 0<> dup s" notProved" cj-flag if cj-not-proved-by else drop then ;
 \ What follows the verdict: the axioms of an accepted one, the diagnostic
 \ of any other that began.
 : cj-detail ( d -- )
   dup cj-began? 0= if drop exit then
-  dup lf-env-outcome ok? if cj-axioms else cj-diagnostic then ;
+  dup decl-accepted? if cj-axioms else cj-diagnostic then ;
 \ A check's fuel used, null when it is not known (cli/check-run.fs).
 : cj-fuel-used ( d -- ) s" fuel" cj-key ck-fuel-of dup 0< if drop cj-null else cj-n then ;
 \ Where its verdict comes from (0.3): checked, snapshot, uses-snapshot.

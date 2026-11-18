@@ -2,7 +2,11 @@
 \ term, or a whole declaration, as the LeanForth words that build it, so
 \ that running the printed words (src/author/) gives the identical term:
 \ the same nodes, levels, constants and universe arguments, binder names
-\ and kinds, labels and notes. Constants are written by their full names,
+\ and kinds, labels and notes. One exception (review N13): a concrete Sort
+\ n (lf-pf-concrete) prints the words of the symbolic Sort of the same
+\ level (Prop, n-1 Type), which read back as the symbolic node, equal in
+\ meaning to the concrete one but not the same node.
+\ Constants are written by their full names,
 \ with root: where a namespace around a dotted declaration holds a constant
 \ the reader would find first (it looks names up there first), and where a
 \ variable or universe parameter has the same spelling or the name is a

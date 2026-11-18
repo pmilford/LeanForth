@@ -31,6 +31,9 @@ fi
 output=$1
 shift
 
+# Never run an elan proxy, nor anything not known to be a toolchain's Lean
+# (scripts/lean_pin.py, review F5): it is judged before it is asked its version.
+python3 "$here/scripts/lean_pin.py" check "$lean" || exit 1
 version=$("$lean" --version)
 case "$version" in
   'Lean (version 4.35.0,'*) ;;

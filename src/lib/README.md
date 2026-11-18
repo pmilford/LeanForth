@@ -73,6 +73,7 @@ This prints `ba7816bf...f20015ad`, the SHA-256 of "abc".
 | `bits.fs` | Bit sets, the width of a cell, base-2 logarithm, and binary search. |
 | `u32.fs` | Reading and writing packed unsigned 32-bit fields on any cell size. |
 | `bytes.fs` | Bounded line reader and UTF-8 checks. |
+| `name-table.fs` | Small read-only tables of names laid down while loading, each entry some data cells and a counted name, found by exact bytes. |
 | `text-rule.fs` | Tests whether UTF-8 text is "visible": no control, format or separator characters, and not blank-looking. |
 | `text-run.fs` | Tools for interpreting text in a vocabulary of your own: saving and restoring the interpreter's settings, reading a whole file, scanning lines. |
 

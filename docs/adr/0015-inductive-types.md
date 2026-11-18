@@ -527,7 +527,9 @@ decides most comparisons, projecting the literal; step 13 itself decides where
 `String.ofList` does not unfold (rows `primitive.string-opaque-expansion`,
 `-reversed`, `-wrong`: `String.ofList` an axiom). The printer writes a literal as Lean's
 `String.quote` does (a character `lib/text-rule.fs` bans as `\uHHHH` when below
-U+10000) in plain and LaTeX modes; the Forth form has no word for one yet
+U+10000, and above it, where Lean's syntax has no escape, as `\u{X}`, as names
+write it: since 2026-11-18, review F4 of fix-cli-present; before, such a
+character was printed raw) in plain and LaTeX modes; the Forth form has no word for one yet
 (`str#`, a follow-up of this task), so such a declaration is not written.
 Evidence: rows `lit.string-*` (ten, among them a projected literal, a literal
 major premise right and wrong, two literals apart, `""`, `"é😀"` and `decide`)

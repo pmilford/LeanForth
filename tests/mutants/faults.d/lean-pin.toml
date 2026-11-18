@@ -1,0 +1,71 @@
+# Planted faults of the guard against running an elan proxy (scripts/lean_pin.py and its
+# callers: scripts/lean-cache.py, scripts/export.sh, scripts/export-elab.sh): branch
+# fix-cli-present-2, review F5 of fix-cli-present (2026-11-18). Read with
+# tests/mutants/faults.toml as one list.
+
+[[fault]]
+id = "lean-pin-layout-skipped"
+file = "scripts/lean_pin.py"
+old = '''    return proxy(path) or layout(path) or version(path)'''
+new = '''    return proxy(path) or version(path)'''
+test = "python3 scripts/lean_pin.py"
+reason = "a wrapper script, a copy or a hard link of an elan proxy is asked its version, which runs elan and can download a 3 GB toolchain (review F5)"
+quick = true
+
+[[fault]]
+id = "lean-pin-copy-missed"
+file = "scripts/lean_pin.py"
+old = '''        if os.path.isfile(elan) and (os.path.samefile(real, elan)
+                                     or filecmp.cmp(real, elan, shallow=False)):'''
+new = '''        if False:'''
+test = "python3 scripts/lean_pin.py"
+reason = "a copy or a hard link of elan placed in a toolchain's bin folder passes as that toolchain's Lean and is run (review F5)"
+
+[[fault]]
+id = "lean-pin-shape-loose"
+file = "scripts/lean_pin.py"
+old = '''            and os.path.basename(os.path.dirname(prefix)) == "toolchains"'''
+new = '''            and True'''
+test = "python3 scripts/lean_pin.py"
+reason = "a lean outside an elan home's toolchains folder, a copy of a proxy among them, is taken for a toolchain's binary (review F5)"
+
+[[fault]]
+id = "lean-pin-version-elan-home"
+file = "scripts/lean_pin.py"
+old = '''    env = dict(os.environ, ELAN_HOME=elan_home(real))'''
+new = '''    env = dict(os.environ)'''
+test = "python3 scripts/lean_pin.py"
+reason = "a toolchain's Lean is asked its version without ELAN_HOME set to its elan home"
+
+[[fault]]
+id = "lc-explicit-path-layout-skipped"
+file = "scripts/lean-cache.py"
+old = '''        reason = (lean_pin.proxy(lean) or lean_pin.layout(lean)) if os.path.exists(lean) else None'''
+new = '''        reason = lean_pin.proxy(lean) if os.path.exists(lean) else None'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "the Lean cache runs a wrapper script, a copy or a hard link of an elan proxy given by path (review F5)"
+quick = true
+
+[[fault]]
+id = "export-sh-unchecked"
+file = "scripts/export.sh"
+old = '''python3 "$here/scripts/lean_pin.py" check "$lean" || exit 1'''
+new = ''':'''
+test = "python3 scripts/lean_pin.py"
+reason = "scripts/export.sh asks any LEAN its version, an elan proxy's wrapper or copy among them, which runs it (review F5)"
+
+[[fault]]
+id = "export-elab-sh-unchecked"
+file = "scripts/export-elab.sh"
+old = '''python3 "$here/scripts/lean_pin.py" check "$lean" || exit 1'''
+new = ''':'''
+test = "python3 scripts/lean_pin.py"
+reason = "scripts/export-elab.sh asks any LEAN its version, an elan proxy's wrapper or copy among them, which runs it (review F5)"
+
+[[fault]]
+id = "lean-pin-cache-unchecked"
+file = "scripts/lean_pin.py"
+old = '''    if os.path.exists(path) and os.path.realpath(path) == os.path.realpath(CACHE):'''
+new = '''    if False:'''
+test = "python3 scripts/lean_pin.py"
+reason = "the Lean cache given as LEAN is judged as a binary, not by the Lean it runs (LEANFORTH_LEAN)"

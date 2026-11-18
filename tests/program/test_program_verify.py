@@ -93,7 +93,28 @@ def rel(path):
     return Path(path).resolve().relative_to(ROOT).as_posix()
 
 
-def run(argv, fake=None, lean=str(FAKE), env=None):
+def fake_toolchain(folder):
+    """FOLDER/toolchains/fake/bin, with lean and leanexport scripts that run fake_lean.py
+    beside lib/lean: scripts/export.sh takes a Lean only from a toolchain's own folder
+    (scripts/lean_pin.py, review F5 of fix-cli-present), and fake_lean.py finds the
+    checkout from its own path, so it is run, not copied."""
+    prefix = Path(folder) / "toolchains" / "fake"
+    (prefix / "lib" / "lean").mkdir(parents=True)
+    (prefix / "bin").mkdir()
+    for name in ("lean", "leanexport"):
+        (prefix / "bin" / name).write_text(f"#!/bin/sh\nexec '{sys.executable}' '{FAKE}' \"$@\"\n")
+        (prefix / "bin" / name).chmod(0o755)
+    return prefix / "bin"
+
+
+# One toolchain of stand-ins for the whole run, inside the checkout (receipts name files
+# inside it only), removed when the process ends.
+(ROOT / "build").mkdir(exist_ok=True)
+FAKE_TOOLS = tempfile.TemporaryDirectory(dir=ROOT / "build", prefix="fake-lean-")
+FAKE_LEAN = fake_toolchain(FAKE_TOOLS.name) / "lean"
+
+
+def run(argv, fake=None, lean=str(FAKE_LEAN), env=None):
     """The driver inside this process with the stand-ins: (exit status, printed text)."""
     variables = {"GFORTH": GFORTH, "LEAN": lean, "LEANEXPORT": str(FAKE),
                  program_verify.TEST_TOOLS: "1", "VERIFY_FAKE": json.dumps(fake or {}),
@@ -116,7 +137,7 @@ def cli(argv, cwd=ROOT, env=None):
     return done.returncode, done.stdout + done.stderr
 
 
-def verify(contract, out, fake=None, extra=(), lean=str(FAKE), env=None):
+def verify(contract, out, fake=None, extra=(), lean=str(FAKE_LEAN), env=None):
     return run([source_of(contract), "--contract", CONTRACTS / f"{contract}.contract",
                 "--out", out, *extra], fake, lean, env)
 
@@ -416,10 +437,7 @@ class Lean(unittest.TestCase):
             self.assertEqual((status, problem_codes(text)), (4, ["lean-not-found"]), text)
             self.assertIn("/nonexistent/lean", text)
         with scratch() as out:   # a toolchain folder of stand-ins in place of the pinned one
-            toolchain = Path(out) / "bin"
-            toolchain.mkdir()
-            for name in ("lean", "leanexport"):
-                (toolchain / name).symlink_to(FAKE)
+            toolchain = fake_toolchain(out)
             with mock.patch.object(program_verify, "PINNED_LEAN", toolchain / "lean"):
                 status, text = verify("lf-clamp", Path(out) / "o", lean="/nonexistent/lean",
                                       env={program_verify.TEST_TOOLS: "0", "LEANEXPORT": "/no"})
@@ -429,7 +447,7 @@ class Lean(unittest.TestCase):
             for name in ("lean", "leanexport"):
                 self.assertEqual(evidence["tools"][name], {
                     "path": rel(toolchain) + "/" + name,
-                    "sha256": program_verify.digest(FAKE.read_bytes())})
+                    "sha256": program_verify.digest((toolchain / name).read_bytes())})
             self.assertEqual(set(evidence["tools"]), {"gforth", "lean", "leanexport"})
 
     def test_lean_not_found(self):

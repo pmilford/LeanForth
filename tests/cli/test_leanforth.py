@@ -355,6 +355,12 @@ class ExitCodes(unittest.TestCase):
                 "note: makes it 6"]
         self.expect(["check", "--no-manifest", postulate], 0, lines + note)
         self.expect(["check", "--no-manifest", "--strict-axioms", postulate], 6, lines)
+        # The outline marks it as the check does (review N11).
+        status, out, _ = run("print", "--no-manifest", postulate)
+        self.assertEqual(status, 0)
+        self.assertIn("\n  accepted; axioms: unlisted; NOT PROVED: depends on an axiom\n", out)
+        status, out, _ = run("print", "--no-manifest", COMPOSITION)
+        self.assertIn("\n  accepted; axioms: none\n", out)
         # Every axiom a declaration rests on, through its type and value, as
         # Lean's #print axioms lists them; propext with another statement
         # than Lean's is no allowlisted axiom (inductive-table rows).
@@ -784,7 +790,15 @@ class Overwrites(unittest.TestCase):
                              "lib.elab.ndjson", "--steps", "missing/log.ndjson", "victim.lf",
                              cwd=self.dir)
         self.assertEqual(status, 3, out)
-        self.assertIn("error: the step log could not be written: missing/log.ndjson", out)
+        self.assertIn("error: the step log could not be written: missing/log.ndjson\n", out)
+        # A file that takes no byte (/dev/full): its close fails, and the error
+        # says it may end inside a line, never that it was cut (review N3).
+        status, out, _ = run("check", "--no-manifest", "--env", "lib.ndjson", "--elab-data",
+                             "lib.elab.ndjson", "--steps", "/dev/full", "victim.lf",
+                             cwd=self.dir)
+        self.assertEqual(status, 3, out)
+        self.assertIn("error: the step log could not be written: /dev/full; it may end inside "
+                      "a line\n", out)
 
 
 class ForthFaults(unittest.TestCase):
@@ -829,6 +843,22 @@ class OtherLean(unittest.TestCase):
         status, out, _ = run("print", "--lf", "--no-manifest", "--any-lean-version", OTHER_LEAN)
         self.assertEqual(status, 0)
         self.assertIn("\\ " + OTHER_NOTE, out.splitlines())
+
+    def test_print_lf_stubbed(self):
+        """print --lf exits 2, unsupported, and says the text is not the
+        export, when declarations were replaced by import-stubs (review N3);
+        0 when every declaration was written."""
+        status, out, err = run("print", "--lf", DEPENDENT)
+        self.assertEqual(status, 2)
+        self.assertIn("import-stub Two", out)
+        self.assertIn("\nnote: the text is not the export: 7 declarations not written; with "
+                      "import-stubs it reads back only with --env EXPORT\n", err)
+        status, out, err = run("print", "--lf", COMPOSITION)
+        self.assertEqual((status, "the text is not the export" in err), (0, False))
+        # help says so too (review N4).
+        status, out, _ = run("help")
+        self.assertIn("listed on stderr and stubbed, and then the\n      exit status is 2 "
+                      "(the text is not the export)\n", out)
 
     def test_escaped(self):
         """A crafted version cannot forge a line: it is shown escaped."""
@@ -975,7 +1005,7 @@ class Print(unittest.TestCase):
         self.assertEqual((status, out.count(REFUSED), out.count("  exhausted")), (3, 3, 3))
         status, out = self.lines("--no-manifest", f"{CASES}/composition-postulate.ndjson")
         self.assertEqual((status, out[1:3], out[-1]),
-                         (0, ["Axiom composition", f"  accepted; axioms: unlisted"],
+                         (0, ["Axiom composition", "  accepted; axioms: unlisted; NOT PROVED: depends on an axiom"],
                           "No proof outline: an axiom or a quotient constant has no proof;"
                           " Lean's kernel takes it as given."))
         for args, code in [((FIXTURE,), 0), (("--no-manifest", UNKNOWN), 2),
@@ -1128,18 +1158,16 @@ class Behaviour(unittest.TestCase):
     def capabilities_match_facts(self, out):
         """The capabilities text states what is true: nested inductive types are
         accepted (checked here), so they are not listed as unsupported; the
-        Mathlib line gives the count and build of the full Mathlib run and
-        does not say that nothing was checked."""
-        # That the progress page records the same count and build is checked by the
-        # documentation-facts test (make test-doc-facts), apart from this slow target.
+        Mathlib line makes no measured claim of an earlier build (review N5)
+        but names the document that records the runs, which exists."""
         lacks = out.split("not yet supported")[1].split("limits (")[0]
         self.assertNotIn("nested", lacks)
         self.assertEqual(run("check", "tests/cli/nested.ndjson")[0], 0)
-        self.assertNotIn("0 of 729,263", out)
-        mathlib = out.split("Mathlib: ")[1].split("not re-run since")[0]
-        for fact in ("all 729,263 declarations of its Lean export accepted", "b74a04d",
-                     "fuel 250M", "--memory-per-check 8192", "--no-manifest"):
-            self.assertIn(fact, mathlib)
+        for stale in ("729,263", "b74a04d", "accepted on build"):
+            self.assertNotIn(stale, out)
+        self.assertIn("Mathlib: this build makes no claim; the dated runs on all of Mathlib "
+                      "and\n  their builds are in docs/project/PROJECT_PROGRESS.md\n", out)
+        self.assertTrue((ROOT / "docs/project/PROJECT_PROGRESS.md").is_file())
 
     def test_informational(self):
         status, out, _ = run("version")
@@ -1375,8 +1403,10 @@ class NoLabel(unittest.TestCase):
             self.assertEqual((status, d["verdict"], d["notProved"], d["notProvedBy"],
                               "label" in keys(got)), (0, "accepted", True, ["sorryAx"], False))
             status, out, _ = run("print", "--no-manifest", str(export))
+            # The outline marks it NOT PROVED, as check does (review N11).
             self.assertEqual((status, out.splitlines()[1:3]),
-                             (0, ["Axiom sorryAx", "  accepted; axioms: unlisted"]))
+                             (0, ["Axiom sorryAx", "  accepted; axioms: unlisted; NOT PROVED: "
+                                  "depends on an axiom"]))
 
 
 CASES_ALL = [
@@ -1550,6 +1580,11 @@ class JsonReport(unittest.TestCase):
             (good, lambda r: r["settings"].pop("strictAxioms")),
             (good, lambda r: r["measured"].pop("engine")),
             (good, lambda r: r["measured"].update(engine="")),
+            # Axioms not known have no value in the schema (review F2: that
+            # is an internal fault, exit 5, never a report).
+            (good, lambda r: r["declarations"][0].update(axiomBits=None)),
+            (good, lambda r: not_proved(r) or r["declarations"][0].update(
+                axiomBits=None, notProvedBy=[])),
         ]
         for base, edit in cases:
             self.assertNotEqual(changed(base, edit), [], cases.index((base, edit)))
@@ -1614,7 +1649,7 @@ class JsonReport(unittest.TestCase):
 
 
 class Names(unittest.TestCase):
-    """Names as Lean's Name.toString shows them (src/cli/name-text.fs), in
+    """Names as Lean's Name.toString shows them (src/present/name-text.fs), in
     the text and the JSON report alike: a component that is not an
     identifier between « and », and every character the text rule bans
     escaped, so that no name can start a line of its own or reorder the
@@ -1787,6 +1822,148 @@ class Names(unittest.TestCase):
                              (0, f"{folder}/caf\\x{{FF}}\\u{{A}}.ndjson", "", []))
 
 
+# tests/cli/odd-names.lean: 22 names Lean writes with « », with a word of its
+# syntax or with a character a line must never show raw, each a definition N
+# with a theorem oddThmK : N = N. odd-names.lean.out holds what pinned Lean
+# prints for each (K, Name.toString, ppExpr of the statement); make
+# reference-cli (export-check.sh) checks that Lean prints it still.
+ODD = "tests/cli/odd-names.ndjson"
+# tests/cli/odd-string.lean: a string literal holding U+E0041 and U+1D173, which
+# Lean prints as themselves and LeanForth as \u{X} (review F4).
+ODD_STRING = "tests/cli/odd-string.ndjson"
+ODD_WIDE = {"\U000e0041": "\\u{E0041}", "\U0001d173": "\\u{1D173}"}
+# Where LeanForth's text differs from Lean's on purpose (COMMAND_LINE.md
+# "Names", differences 1-3): K -> (Lean's text, LeanForth's), in every name.
+ODD_DIFFERS = {1: [("‮", "\\u{202E}")],                  # 2: a banned character
+               3: [("Foo.a«b»c", "Foo.«a«b\\u{BB}c»")],       # 1 and 2: » inside
+               17: [("a\\b", "a\\\\b")]}                      # 3: a backslash
+# LaTeX's spelling of what the names hold, read back (latex-text.fs).
+ODD_TEX = {"\\ensuremath{\\ll}": "«", "\\ensuremath{\\gg}": "»", "\\textbackslash{}": "\\",
+           "\\backslash{}": "\\", "\\{": "{", "\\}": "}", "\\_": "_", "\\#": "#", "~": " "}
+
+
+def odd_out():
+    """odd-names.lean.out's lines, each split at its tabs."""
+    text = (ROOT / "tests/cli/odd-names.lean.out").read_text(encoding="utf-8")
+    return [line.split("\t") for line in text.splitlines()]
+
+
+def odd_lean():
+    """K -> (Name.toString, ppExpr of oddThmK's statement), as LeanForth spells them."""
+    shown = {}
+    for k, name, statement in odd_out():
+        for lean, ours in ODD_DIFFERS.get(int(k), []):
+            name, statement = name.replace(lean, ours), statement.replace(lean, ours)
+        shown[int(k)] = (name, statement)
+    return shown
+
+
+def odd_untex(text):
+    return re.sub("|".join(re.escape(key) for key in ODD_TEX), lambda m: ODD_TEX[m[0]], text)
+
+
+def odd_lines(out, k, title):
+    """The lines of oddThmK's outline that begin with "  Statement in "."""
+    lines = out.splitlines()
+    start = lines.index(title.format(k=k))
+    return {line.split(":", 1)[0].strip(): line.split(":", 1)[1].strip()
+            for line in lines[start + 1:start + 6] if line.lstrip().startswith("Statement in ")}
+
+
+class OddNames(unittest.TestCase):
+    """Names that need « », against what pinned Lean prints (reviews F1 and
+    F3 of fix-cli-present): every statement print shows is Lean's ppExpr
+    (« » around a word of Lean's syntax), in plain text, LaTeX and the
+    Markdown mathematics line, with only the differences COMMAND_LINE.md
+    "Names" states."""
+    lean = odd_lean()
+
+    def test_lean_cases(self):
+        self.assertEqual(len(self.lean), 22)
+        self.assertEqual(self.lean[4], ("fun", "«fun» = «fun»"))
+
+    def test_print_plain(self):
+        status, out, err = run("print", ODD)
+        self.assertEqual((status, err), (0, ""))
+        for k, (_, statement) in self.lean.items():
+            got = odd_lines(out, k, "Theorem oddThm{k}")
+            self.assertEqual((got["Statement in Lean"], got["Statement in math text"]),
+                             (statement, statement), k)
+            self.assertEqual(odd_untex(got["Statement in mathematics"]),
+                             "$\\mathsf{%s} = \\mathsf{%s}$" % tuple(statement.split(" = ")), k)
+            # The proof's own lines, through the outline's line buffer.
+            self.assertIn(f"  Then Eq.refl {statement.split(' = ')[0]} : {statement},", out, k)
+
+    def test_print_latex(self):
+        status, out, err = run("print", "--latex", ODD)
+        self.assertEqual((status, err), (0, ""))
+        for k, (_, statement) in self.lean.items():
+            got = odd_lines(out, k, "\\textbf{{Theorem }}$\\mathsf{{oddThm{k}}}$ \\\\")
+            self.assertEqual(odd_untex(got["Statement in Lean (ASCII)"]),
+                             "{\\ttfamily %s} \\\\" % statement, k)
+            self.assertEqual(odd_untex(got["Statement in mathematics"]),
+                             "$\\mathsf{%s} = \\mathsf{%s}$ \\\\" % tuple(statement.split(" = ")),
+                             k)
+
+    def test_report_names(self):
+        """check's text and JSON and print's plain titles name a declaration
+        by Lean's Name.toString: fun, not «fun» (review F3); the term
+        printer's names, LaTeX's titles among them, follow ppExpr."""
+        status, out, _ = run("check", ODD)
+        self.assertEqual(status, 0)
+        status, got, _ = report(ODD)
+        names = [d["name"] for d in got["declarations"]]
+        status, plain, _ = run("print", ODD)
+        status, tex, _ = run("print", "--latex", ODD)
+        for k, (name, statement) in self.lean.items():
+            self.assertIn(f"\n{name}: accepted; axioms: none\n", out, k)
+            self.assertEqual(names[names.index(f"oddThm{k}") - 1], name, k)
+            self.assertIn(f"\nDefinition {name}\n", plain, k)
+            self.assertIn("\\textbf{Definition }$\\mathsf{%s}$ \\\\" % statement.split(" = ")[0],
+                          odd_untex(tex), k)
+
+    def test_print_string(self):
+        """A string literal's format characters above U+FFFF show as \\u{X} in
+        every line print writes, plain, LaTeX and the Markdown mathematics
+        line (review F4), and the input's file name in LaTeX escapes them
+        too (the fault latex-name-banned-unescaped). tests/cli/odd-string.lean:
+        strUse (h : P "a…b…c") : P "a…b…c", the literal holding the two
+        characters themselves."""
+        source = (ROOT / "tests/cli/odd-string.lean").read_text(encoding="utf-8")
+        (lean,) = set(re.findall(r'"a[^"]*c"', source))
+        literal = re.sub("|".join(ODD_WIDE), lambda m: ODD_WIDE[m[0]], lean)
+        self.assertEqual(literal, '"a\\u{E0041}b\\u{1D173}c"')
+        status, out, _ = run("print", "--name", "strUse", ODD_STRING)
+        got = odd_lines(out, 0, "Theorem strUse")
+        self.assertEqual(status, 0)
+        for label in ("Statement in Lean", "Statement in math text"):
+            self.assertEqual(got[label].count(f"P {literal}"), 2, label)
+        self.assertEqual(odd_untex(got["Statement in mathematics"]).count(
+            f"\\mathsf{{P}}\\ \\texttt{{{literal}}}"), 2)
+        with tempfile.TemporaryDirectory() as folder:
+            export = Path(folder) / "s\U000e0041.ndjson"
+            export.write_bytes((ROOT / ODD_STRING).read_bytes())
+            status, tex, _ = run("print", "--latex", "--no-manifest", "--name", "strUse",
+                                 str(export))
+        got = odd_lines(tex, 0, "\\textbf{{Theorem }}$\\mathsf{{strUse}}$ \\\\")
+        self.assertEqual(status, 0)
+        self.assertEqual(odd_untex(got["Statement in Lean (ASCII)"]).count(f"P {literal}"), 2)
+        self.assertEqual(odd_untex(got["Statement in mathematics"]).count(
+            f"\\texttt{{{literal}}}"), 2)
+        self.assertIn("/s\\u{E0041}.ndjson} line ", odd_untex(tex))
+        for wide in ODD_WIDE:
+            self.assertNotIn(wide, out + tex)
+
+    def test_input_name_escaped(self):
+        """The input's file name, the one text the outline escapes itself."""
+        with tempfile.TemporaryDirectory() as folder:
+            export = Path(folder) / "odd‮\n.ndjson"
+            export.write_bytes((ROOT / ODD).read_bytes())
+            status, out, _ = run("print", "--no-manifest", "--name", "oddThm0", str(export))
+            self.assertEqual(status, 0)
+            self.assertIn(f"\n  Input:     {folder}/odd\\u{{202E}}\\u{{A}}.ndjson line ", out)
+
+
 class Resources(unittest.TestCase):
     """check --resources (plan task 6.5.2, the command line's part)."""
 
@@ -1915,6 +2092,21 @@ class Fuel(unittest.TestCase):
                 _, again, _ = report("--fuel", str(budget), export)
                 self.assertEqual(again["declarations"][most["index"]]["verdict"], verdict,
                                  (export, budget))
+
+    def test_exhausted_used_budget(self):
+        """A check that runs out of fuel used its whole budget, in JSON and
+        text alike, also when it ran out in step 1 (the constant-term
+        check) or 2, before the counters read after a check (review B1)."""
+        for budget in [50, 100, 200]:
+            status, got, _ = report("--fuel", str(budget), CHAIN)
+            (chain,) = got["declarations"]
+            self.assertEqual((status, chain["verdict"], chain["fuel"], got["fuel"]["total"],
+                              [top["fuel"] for top in got["fuel"]["top"]]),
+                             (3, "exhausted", budget, budget, [budget]), budget)
+            status, out, _ = run("check", "--resources", "--fuel", str(budget), CHAIN)
+            self.assertEqual(status, 3)
+            self.assertIn(f"  fuel: {budget} steps in all, at most {budget} per declaration\n"
+                          f"  most fuel used:\n    {budget} chain (exhausted)\n", out)
 
     def test_most(self):
         """--fuel takes at most 2^53 - 1, the largest integer every JSON

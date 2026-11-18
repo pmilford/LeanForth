@@ -124,7 +124,7 @@ bits64? [if]
 T{ cli-fuel-most 1+ 1 53 lshift = -> true }T
 [then]
 
-\ Names as cli/name-text.fs shows them: Lean's Name.toString, with « »
+\ Names as present/name-text.fs shows them: Lean's Name.toString, with « »
 \ always around a component that is not an identifier and escapes for
 \ what the text rule bans, for » and for a backslash; names of any depth.
 : shows ( c-addr u -- c-addr' u' ) 0 -rot lf-name-str drop nt-name drop ;
@@ -160,8 +160,59 @@ T{ hygienic nt-name drop s" x.«_@»._hyg" compare -> 0 }T
 T{ s\" fake: accepted\xe2\x9c\x9d" shows s\" \xc2\xabfake: accepted\xe2\x9c\x9d\xc2\xbb" compare
   -> 0 }T
 T{ s" _" shows s" _" compare s" #x y" shows s" «#x y»" compare -> 0 0 }T
+\ A report's name is Lean's Name.toString (review F3): a root component
+\ that is a token of Init's syntax is bare (fun, Type), as Lean writes it;
+\ only the term printer's nt-part puts it between « » (below). A
+\ component holding a dot is between « ».
+: foo-shows ( c-addr u -- c-addr' u' ) 0 s" Foo" lf-name-str drop -rot lf-name-str drop
+  nt-name drop ;
+T{ s" fun" shows s" fun" compare s" fun" foo-shows s" Foo.fun" compare -> 0 0 }T
+T{ s" Type" shows s" Type" compare s" funny" shows s" funny" compare -> 0 0 }T
+T{ s" a.b" foo-shows s" Foo.«a.b»" compare -> 0 }T
+\ A step log whose writing failed ends at its last whole line (review
+\ N14): nothing after the failure is written, and the file is cut back.
+: steps-file ( -- c-addr u ) s" tests/cli/steps-cut.tmp" ;
+: steps-text ( -- c-addr u )
+  steps-file r/o open-file throw >r pad 64 r@ read-file throw pad swap r> close-file throw ;
+: steps-try ( outcome -- c-addr u )
+  steps-file w/o create-file throw cli-state run-steps-fid ! 0 0 cli-state run-steps-whole 2!
+  false cli-state run-steps-bad ! s" {a}" cli-steps-put s\" \n" cli-steps-put s" {b" cli-steps-put
+  cli-steps-fail s\" }\n" cli-steps-put cli-steps-cut drop cli-steps-fid close-file throw
+  steps-text steps-file delete-file throw ;
+T{ outcome-full steps-try s\" {a}\n" compare cli-state run-steps-uncut @ -> 0 false }T
+T{ outcome-ok steps-try s\" {a}\n{b" compare -> 0 }T
+\ A line end at the end of a longer write marks it too, one inside it not
+\ (review N3: the sink need not write the line feed alone).
+T{ s\" {a}\n" cli-line-end? s\" {a}\n{b" cli-line-end? 0 0 cli-line-end? -> true false false }T
+\ When the cut itself fails (/dev/full: the flush finds no room, the
+\ resize is refused), that is recorded, and the error says the file may
+\ end inside a line.
+: full-cut ( -- uncut? )
+  false cli-state run-steps-uncut ! s" /dev/full" w/o open-file throw cli-state run-steps-fid !
+  false cli-state run-steps-bad ! s\" {a}\n{b" cli-steps-put cli-steps-fail
+  outcome-full cli-steps-cut drop cli-steps-fid close-file drop cli-state run-steps-uncut @ ;
+T{ full-cut -> true }T
+false cli-state run-steps-bad !  false cli-state run-steps-uncut !
+\ A name's last component as the printer asks for it (nt-part), as Lean's
+\ formatter writes it (review PB1): «fun» as the root, but Foo.fun.
+: root ( c-addr u -- id ) 0 -rot lf-name-str drop ;
+: under-foo ( c-addr u -- id ) s" Foo" root -rot lf-name-str drop ;
+T{ s" fun" under-foo nt-part drop s" fun" compare s" fun" root nt-part drop s" «fun»" compare
+  -> 0 0 }T
+T{ s" Type" root nt-part drop s" «Type»" compare s" funny" root nt-part drop s" funny" compare
+  -> 0 0 }T
+T{ s" x" root nt-part -rot s" x" compare s" a.b" under-foo nt-part drop s" «a.b»" compare
+  -> true 0 0 }T
 \ An export's file name: the same escapes, no « ».
 T{ s\" a b\x01\xff" nt-text drop s" a b\u{1}\x{FF}" compare -> 0 }T
+\ nt-text writes a block of its own (review F1): a name's text given to it
+\ is read, not rewritten while read, and stays as it was; its own result
+\ given back to it is refused, never read while it is rewritten.
+: part-then-text ( -- c-addr u ) s" a.b" under-foo nt-part drop 2dup nt-text drop 2drop ;
+T{ part-then-text s" «a.b»" compare -> 0 }T
+T{ s" a.b" under-foo nt-part drop nt-text drop s" «a.b\u{BB}" compare -> 0 }T
+T{ s" x\y" nt-text drop nt-text nip nip -> false }T
+T{ s" x\y" nt-text drop 2drop s" x\y" nt-text -rot s" x\\y" compare -> true 0 }T
 
 \ The codes of the check, with the declarations counted by verdict.
 cli-options
@@ -467,6 +518,31 @@ T{ false planted true planted -> 0 1 6 1 }T
 T{ false planted-says true planted-says -> true true true true true false }T
 [then]
 cli-options
+
+\ "Accepted" is the kernel's test for every report (tally.fs
+\ decl-accepted?; reviews N1, PB2): an ok outcome on a slot that is not
+\ final is not accepted, reads invalid, and has no axioms (0).
+: unfinal-run ( -- ) false planted-run 0 lf-env lf-env-slot lf-slot-state 0 swap ! ;
+: unfinal ( -- raw-ok? accepted? outcome bits )
+  unfinal-run 0 lf-env lf-env-slot lf-slot-outcome@ ok? 0 decl-accepted? 0 decl-outcome
+  0 decl-axioms rr-release ;
+T{ unfinal -> true false outcome-invalid 0 }T
+T{ false planted-run 0 decl-accepted? 0 decl-outcome 0 decl-axioms rr-release
+  -> true outcome-ok 8 }T
+\ An accepted declaration whose axioms cannot be read is an internal fault,
+\ never a report with axioms unknown (review F2). decl-axioms reads them
+\ under decl-accepted?'s own test, so no run reaches that; its refusal,
+\ decl-unread, is run here for an accepted declaration and for one not
+\ accepted (0, no axioms), and the command line's THROW handler turns the
+\ fault into code 5.
+: unread-caught ( -- ior ) false planted-run 0 ['] decl-unread catch nip rr-release ;
+T{ unread-caught -> axioms-unread }T
+T{ unfinal-run 0 decl-unread rr-release -> 0 }T
+[defined] >string-execute [if]
+T{ axioms-unread ' cli-thrown >string-execute
+  s\" internal fault: a Forth exception (THROW -4135)\n" compare -> 5 0 }T
+[then]
+cli-start
 
 \ print reads with the checker's input: n allocations stage composition
 \ there, fewer than print makes in all.
