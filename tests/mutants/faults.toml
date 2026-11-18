@@ -19575,7 +19575,7 @@ id = "s2-kab-no-defeq"
 file = "src/front/kabstract.fs"
 old = ''': kab-defeq ( e -- flag outcome ) kab kab-pattern @ lf-meta-defeq outcome-sane ;'''
 new = ''': kab-defeq ( e -- flag outcome ) drop true outcome-ok ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 5 (kabstract): every subterm of the pattern's head and arity counts as an occurrence, unchecked by isDefEq"
 
 [[fault]]
@@ -19583,7 +19583,7 @@ id = "s2-kab-parts-unvisited"
 file = "src/front/kabstract.fs"
 old = '''  over lf-term-binary? if kab-open else drop kab-image then ;'''
 new = '''  drop kab-image ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 5 (kabstract): a node that is no occurrence is kept whole, its parts never looked at"
 
 [[fault]]
@@ -19593,7 +19593,7 @@ old = '''  trw trw-alpha @ lf-tac-app trw trw-etype @ lf-tac-app trw trw-lhs @ l
   trw trw-rhs @ lf-tac-app trw trw-motive @ lf-tac-app trw trw-heq @ lf-tac-app ;'''
 new = '''  trw trw-alpha @ lf-tac-app trw trw-etype @ lf-tac-app trw trw-rhs @ lf-tac-app
   trw trw-lhs @ lf-tac-app trw trw-motive @ lf-tac-app trw trw-heq @ lf-tac-app ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 5 (MVarId.rewrite): congrArg's sides swapped, a proof the kernel refuses"
 
 [[fault]]
@@ -19601,7 +19601,7 @@ id = "s2-rw-mpr-new-twice"
 file = "src/front/tactic-rewrite.fs"
 old = '''  >r lfw-want lfw-level s" Eq.mpr" lf-tac-const1 lfw-want lf-tac-app trw trw-new @'''
 new = '''  >r lfw-want lfw-level s" Eq.mpr" lf-tac-const1 trw trw-new @ lf-tac-app trw trw-new @'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 5 (replaceTargetEq): Eq.mpr's first argument the new target where Lean's is the goal's type as stored"
 
 [[fault]]
@@ -19609,7 +19609,7 @@ id = "s2-rw-rfl-skipped"
 file = "src/front/tactic-rewrite.fs"
 old = ''': lfw-w-rw ( i -- ) lfw-rules lfw-try-rfl ;'''
 new = ''': lfw-w-rw ( i -- ) lfw-rules ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 5 (the rw macro): by-rw[ without try (with_reducible rfl), so FE1's succ case is left open"
 
 [[fault]]
@@ -19617,7 +19617,7 @@ id = "s2-alt-names-unchecked"
 file = "src/front/tactic-induction.fs"
 old = ''': lfi-names-checked ( i -- ) lfi-alts-of lfi-twice lfi-unknown ;'''
 new = ''': lfi-names-checked ( i -- ) lfi-alts-of lfi-twice ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 4 (checkAltNames): an alternative that names no case is not refused with Lean's text"
 
 [[fault]]
@@ -19625,7 +19625,7 @@ id = "s2-alt-missing-unchecked"
 file = "src/front/tactic-induction.fs"
 old = '''  over swap lfi-case dup tia-used @ if drop else rot swap lfi-missing then ;'''
 new = '''  over swap lfi-case drop ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 4 (evalAlts): a case no alternative took is not Lean's 'has not been provided'"
 
 [[fault]]
@@ -19633,7 +19633,7 @@ id = "s2-induction-target-kept"
 file = "src/front/tactic-induction.fs"
 old = '''  >r dup tia-goal @ lfi-only lfi-intros r> lfi-cleared ;'''
 new = '''  >r dup tia-goal @ lfi-only lfi-intros r> drop ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 4 (evalAlts' tryClear): the target stays in each case's context, which Lean's goals do not show"
 
 [[fault]]
@@ -19641,7 +19641,7 @@ id = "s2-motive-unabstracted"
 file = "src/front/tactic-induction.fs"
 old = '''  tb tb-want @ lf-instantiate-mvars lf-tac-must lfi-over-target'''
 new = '''  tb tb-want @ lf-instantiate-mvars lf-tac-must'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 4 (setMotiveArg): the motive does not abstract the target, so every case states the goal itself"
 
 [[fault]]
@@ -19708,7 +19708,7 @@ file = "src/front/tactic-rewrite.fs"
 old = '''  dup outcome-invalid = if drop ['] lfw-motive. lfa-e-tac-motive lfw-failed then
     lf-tac-must ;'''
 new = '''  drop ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 5 (MVarId.rewrite): the motive used without Meta.check, so a motive that is not type correct reaches the kernel"
 gap = "review s2-tactics H1 (m2, error 216): no LeanForth text reaches a motive that is not type correct yet: Lean's case (h : n + 0 = n) : h = h by rw [Nat.add_zero] needs a hypothesis used as a term, which natural LeanForth refuses (error 73), and forall in natural form (plan FE2); meta-check.fs's own refusal is caught in tests/front/s2-units.fs"
 
@@ -19718,7 +19718,7 @@ file = "src/front/tactic-rewrite.fs"
 old = '''  lfw-at trw trw-etype @ lf-tac-defeq lf-tac-must 0= if
     ['] lfw-dependent. lfa-e-tac-motive-dep lfw-failed then ;'''
 new = '''  ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 5 (MVarId.rewrite): the motive's dependence on the pattern not checked"
 gap = "review s2-tactics H1 (m3, error 217): unreachable while rw rewrites only the target: the target's type is a sort, which mentions no term, so the motive's body always has the target's type (rw at a hypothesis or a term, plan S3 or later)"
 
@@ -19727,7 +19727,7 @@ id = "s2-alt-field-kinds-ignored"
 file = "src/front/tactic-induction.fs"
 old = ''': lfi-explicit? ( case f -- flag ) lfi-field-kind lf-binder-default = ;'''
 new = ''': lfi-explicit? ( case f -- flag ) 2drop true ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 4 (introN): an alternative's fields all taken as explicit, whatever the eliminator's type says"
 gap = "review s2-tactics H1 (m8): every eliminator S2's inputs reach (Nat.rec_add_one's cases, List.rec) has only explicit fields; one with an implicit field (Nat.le.rec's m) needs an index target, which answers 99, or a type written with forall (plan FE2)"
 

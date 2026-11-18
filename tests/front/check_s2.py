@@ -31,6 +31,9 @@ and it must be unchanged, and pinned Lean refuses each wrong twin with the
 message the LeanForth file must print.
 
 Usage: GFORTH=... python3 tests/front/check_s2.py [--write-steps]
+       GFORTH=... python3 tests/front/check_s2.py --tactics   (1 and 2 only: the
+         planted faults' quick test, without the step log's extra runs and 4)
+       GFORTH=... python3 tests/front/check_s2.py --steps-of FILE  (one log)
        LEAN=... python3 tests/front/check_s2.py --lean [--write-golden]
 """
 import json
@@ -314,8 +317,13 @@ def main():
               f"the {len(LEAN_WRONG)} messages; harness self-test passed")
         return
     files = check_boundary()
-    check_steps(check_files(want))
+    logs = check_files(want)
     check_wrong()
+    if "--tactics" in sys.argv:
+        print(f"check_s2 --tactics: {len(FILES)} files accepted as pinned Lean's, "
+              f"{len(WRONG)} wrong proofs refused with Lean's messages")
+        return
+    check_steps(logs)
     check_units()
     print(f"check_s2: no kernel or importer file ({files}) names the smart-unfolding marker; "
           f"{len(FILES)} files accepted, their {len(want)} type and value lines "
