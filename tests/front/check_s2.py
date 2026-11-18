@@ -36,7 +36,6 @@ Usage: GFORTH=... python3 tests/front/check_s2.py [--write-steps]
        GFORTH=... python3 tests/front/check_s2.py --steps-of FILE  (one log)
        LEAN=... python3 tests/front/check_s2.py --lean [--write-golden]
 """
-import json
 import hashlib
 import json
 import os
