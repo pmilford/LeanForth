@@ -55,13 +55,15 @@ order-
 \ Hash tables (lib/htab.fs; compact-store plan step S3): the term store's
 \ hash-consing table (core/terms.fs), the level store's and the
 \ references' (core/levels.fs, core/constant-references.fs; step S4), the
+\ stored names' index (core/names.fs, ADR 0005 Amendment 1), the
 \ stamps' table (core/generation-handles.fs) and, when loaded, the reached
 \ set of universe substitution (kernel/mixed-level-substitute.fs): the
 \ block address, a table record's first field.
 : canon-htab ( dst htab -- ) canon-at 0 swap ! ;
 : canon-core-htabs ( dst -- dst )
   dup lf-term-table canon-htab dup lf-stamp-table canon-htab
-  dup lf-level-table canon-htab dup lf-cref-table canon-htab ;
+  dup lf-level-table canon-htab dup lf-cref-table canon-htab
+  dup lf-name-table canon-htab ;
 \ And, when loaded, the pairs == met (kernel/mixed-compare.fs, step S4)
 \ and the pairs a walk's run reached (core/constant-term-boundary.fs's
 \ pair set; review rvKN).
@@ -108,7 +110,8 @@ order-
 : canon-htab-digest ( h htab -- h' ) dup htab-slots rot swap canon-mix swap htab-count canon-mix ;
 : canon-core-digest ( h -- h' )
   lf-term-table canon-htab-digest lf-stamp-table canon-htab-digest
-  lf-level-table canon-htab-digest lf-cref-table canon-htab-digest ;
+  lf-level-table canon-htab-digest lf-cref-table canon-htab-digest
+  lf-name-table canon-htab-digest ;
 [defined] lf-pair-table [if]
 : canon-pair-digest ( h -- h' ) lf-pair-table canon-htab-digest ;
 [else]

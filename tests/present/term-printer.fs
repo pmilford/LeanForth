@@ -244,11 +244,16 @@ T{ t2 @ 0 lf-print-inline t2 @ 0 lf-print-display
 T{ t2 @ -1 lf-print-inline t2 @ -1 lf-print-display -> outcome-invalid outcome-invalid }T
 
 \ A corrupted name store (a count beyond the table, or an entry whose
-\ prefix points forward) makes every print invalid.
+\ prefix points forward) makes every print invalid. The store's audit
+\ reads its header, its root and the entries it has not passed yet; an
+\ entry it passed is caught where a name is printed, by its chain's check
+\ (lf-name-chain-ok?; ADR 0005 Amendment 1), so the print of a name that
+\ does not read it goes on.
 variable names-count
 : corrupt-count ( -- ) lf-name-count @ names-count ! 99 lf-name-count ! ;
 : heal-count ( -- ) names-count @ lf-name-count ! ;
 : corrupt-prefix ( id -- ) 50 swap lf-name-slot lf-entry-prefix ! ;
+: corrupt-root ( -- ) 50 0 lf-name-slot lf-entry-prefix ! ;
 fresh 0 mode
 T{ P 0 t-var t-lam t1 ! s" q" nm t2 ! s" u" lparam t3 ! corrupt-count -> }T
 T{ t1 @ fuel lf-print-term t2 @ lf-print-name t3 @ fuel lf-print-level
@@ -256,7 +261,11 @@ T{ t1 @ fuel lf-print-term t2 @ lf-print-name t3 @ fuel lf-print-level
 T{ t1 @ fuel lf-print-statement t1 @ fuel lf-print-inline
   -> outcome-invalid outcome-invalid }T
 T{ heal-count t1 @ s" fun x ↦ x" shows -> }T
-T{ t2 @ corrupt-prefix t2 @ lf-print-name t1 @ fuel lf-print-term
+T{ t2 @ corrupt-prefix t2 @ lf-print-name -> outcome-invalid }T
+T{ t1 @ s" fun x ↦ x" shows -> }T
+\ A binder name with a broken chain is not hygienic: it is refused whole.
+T{ t2 @ lf-pp-hygienic? -> false }T
+T{ corrupt-root t2 @ lf-print-name t1 @ fuel lf-print-term
   -> outcome-invalid outcome-invalid }T
 
 \ Names print without recursion: one of lf-name-default components prints

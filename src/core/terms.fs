@@ -298,11 +298,10 @@ end-structure
 : lf-sought= ( tag first second key -- flag )
   >r r@ lf-sought-second @ = swap r@ lf-sought-first @ = and
   swap r> lf-sought-tag @ = and ;
-: lf-fields-hash ( tag first second -- h ) rot hash-fmix rot hash-step swap hash-step ;
 \ The key's hash after its fields are stored.
 : lf-sought-hash! ( tag first second key -- key h )
-  dup >r lf-sought! r@ dup lf-sought@ lf-fields-hash r> drop ;
-: lf-tfields-rehash ( n htab -- h ) drop lf-tleaf lf-tleaf-fields lf-fields-hash ;
+  dup >r lf-sought! r@ dup lf-sought@ hash-3 r> drop ;
+: lf-tfields-rehash ( n htab -- h ) drop lf-tleaf lf-tleaf-fields hash-3 ;
 : lf-tfields-same ( n key htab -- flag ) drop >r lf-tleaf lf-tleaf-fields r> lf-sought= ;
 create lf-tnode-hooks /htab-hooks allot
 ' lf-tnode-rehash ' lf-tnode-same lf-tnode-hooks htab-hooks!
@@ -399,7 +398,7 @@ create lf-tfields-hooks /htab-hooks allot
 \ (lf-term-input-binder), found by tag and children, binder name and
 \ information ignored, as Lean's == ignores them. A slot holds the node.
 : lf-tbind-fields ( n -- tag first second ) dup lf-tin-tag@ swap lf-tin-fields@ ;
-: lf-tbind-rehash ( n htab -- h ) drop lf-tbind-fields lf-fields-hash ;
+: lf-tbind-rehash ( n htab -- h ) drop lf-tbind-fields hash-3 ;
 : lf-tbind-same ( n key htab -- flag ) drop >r lf-tbind-fields r> lf-sought= ;
 create lf-tbind-hooks /htab-hooks allot
 ' lf-tbind-rehash ' lf-tbind-same lf-tbind-hooks htab-hooks!
@@ -560,7 +559,7 @@ defer lf-term-findable? ( n -- flag )
 
 \ The table's hooks: the hash of record n from its fields, and whether
 \ live record n equals the record sought (and may be given).
-: lf-term-rehash ( n htab -- h ) drop lf-term-slot lf-term-fields@ lf-fields-hash ;
+: lf-term-rehash ( n htab -- h ) drop lf-term-slot lf-term-fields@ hash-3 ;
 \ The fields are compared before the hook is asked, which a probe then
 \ asks only of the one live record equal to the key, never of the others
 \ its run passes (agent PERF1: the hook reads the environment's validity,
@@ -591,7 +590,7 @@ create lf-term-hooks /htab-hooks allot
 \ made while sharing was off, or that the table could not take, is not),
 \ and every record from count up to the store's count.
 : lf-term-forget ( index -- )
-  dup lf-term-slot lf-term-fields@ lf-fields-hash lf-term-table htab-remove drop ;
+  dup lf-term-slot lf-term-fields@ hash-3 lf-term-table htab-remove drop ;
 : lf-term-unlist ( count -- )
   lf-term-table htab-live? 0= if drop exit then
   lf-term-base tuck + swap lf-term-count @ + swap ?do
@@ -707,7 +706,7 @@ defer lf-term-view-hook ( -- outcome )
 : lf-tleaf-by-node ( n -- )
   dup lf-tleaf lf-tleaf-node @ dup hash-fmix lf-term-view lf-tview-nodes htab-find
   if 2drop else lf-term-view lf-tview-nodes htab-put then ;
-: lf-tleaf-hash ( n -- key h ) lf-tleaf lf-tleaf-fields lf-fields-hash lf-tin-key swap ;
+: lf-tleaf-hash ( n -- key h ) lf-tleaf lf-tleaf-fields hash-3 lf-tin-key swap ;
 : lf-tleaf-by-fields ( n -- )
   dup lf-tleaf lf-tleaf-fields lf-tin-leaf-find if 2drop exit then
   dup lf-tleaf-hash lf-term-view lf-tview-fields htab-find

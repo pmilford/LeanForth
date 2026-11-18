@@ -336,12 +336,12 @@
   "words": 8
  },
  "src/core/names.fs": {
-  "globals": 2,
+  "globals": 3,
   "long lines": 3,
   "long words": 0,
-  "rstack": 23,
-  "shuffles": 4,
-  "words": 98
+  "rstack": 17,
+  "shuffles": 3,
+  "words": 134
  },
  "src/core/projections.fs": {
   "globals": 0,
@@ -412,8 +412,8 @@
   "long lines": 1,
   "long words": 3,
   "rstack": 53,
-  "shuffles": 28,
-  "words": 205
+  "shuffles": 26,
+  "words": 204
  },
  "src/core/unsupported-forms.fs": {
   "globals": 0,
@@ -1340,8 +1340,8 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 0,
-  "shuffles": 1,
-  "words": 5
+  "shuffles": 3,
+  "words": 6
  },
  "src/lib/htab.fs": {
   "globals": 0,

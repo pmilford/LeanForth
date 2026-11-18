@@ -74,7 +74,7 @@ store-header context-record: lf-levels
 \ its fields and tell whether allocated record n equals the record sought.
 /htab context-record: lf-level-table
 /lf-sought context-record: lf-level-key   \ the record sought (terms.fs)
-: lf-level-rehash ( n htab -- h ) drop lf-level-slot node@ lf-fields-hash ;
+: lf-level-rehash ( n htab -- h ) drop lf-level-slot node@ hash-3 ;
 \ Whether level n may be given for a record made equal to it: a hook, by
 \ default always; kernel/check-declaration.fs sets it so that in a check a
 \ level made before it is given only once the check reached it, as for
@@ -100,7 +100,7 @@ create lf-level-hooks /htab-hooks allot
 \ sharing was off, or that the table could not take, is not), and every
 \ record from count up to the store's count.
 : lf-level-forget ( index -- )
-  dup lf-level-slot node@ lf-fields-hash lf-level-table htab-remove drop ;
+  dup lf-level-slot node@ hash-3 lf-level-table htab-remove drop ;
 : lf-level-unlist ( count -- )
   lf-level-table htab-live? 0= if drop exit then
   lf-level-count @ swap ?do i lf-level-forget loop ;

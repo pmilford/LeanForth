@@ -11862,8 +11862,8 @@ reason = "FRI B2: a level or term found whose second field differs counts as equ
 [[fault]]
 id = "fri-b2-sought-hash-key"
 file = "src/core/terms.fs"
-old = '''  dup >r lf-sought! r@ dup lf-sought@ lf-fields-hash r> drop ;'''
-new = '''  dup >r lf-sought! r@ dup lf-sought@ drop 0 lf-fields-hash r> drop ;'''
+old = '''  dup >r lf-sought! r@ dup lf-sought@ hash-3 r> drop ;'''
+new = '''  dup >r lf-sought! r@ dup lf-sought@ drop 0 hash-3 r> drop ;'''
 test = "$GFORTH tests/core/terms.fs"
 reason = "FRI B2: a record is sought under a hash without its second field, so an equal record entered under the full hash is not found"
 
@@ -14928,10 +14928,181 @@ reason = "review reuse-1a L1: a negative node is inside the walk's memo, which i
 [[fault]]
 id = "core-names-entry-after-root"
 file = "src/core/names.fs"
-old = ''': lf-name-entry-after? ( k -- flag ) 1+ lf-name-entry-checked? ;'''
-new = ''': lf-name-entry-after? ( k -- flag ) lf-name-entry-checked? ;'''
+old = ''': lf-name-entry-past? ( k i -- k flag ) over + lf-name-entry-checked? ;'''
+new = ''': lf-name-entry-past? ( k i -- k flag ) over + 1- lf-name-entry-checked? ;'''
 test = "$GFORTH tests/core/names.fs"
-reason = "the name store's audit checks entries 0 .. count - 2: the root as an entry, and never the newest"
+reason = "the name store's audit checks entries k - 1 .. count - 2: the root as an entry, and never the newest (re-targeted at the kept audit, ADR 0005 Amendment 1)"
+
+# --- the stored names' index and kept audit (src/core/names.fs; ADR 0005
+# Amendment 1, branch names-index)
+
+[[fault]]
+id = "ni-same-above-count"
+file = "src/core/names.fs"
+old = '''  2drop dup lf-name-count @ u< 0= if drop false exit then'''
+new = '''  2drop'''
+test = "$GFORTH tests/core/names.fs"
+reason = "a slot left for a name given back (above the count, beyond a shrunk block) is compared: the name made again is refused"
+
+[[fault]]
+id = "ni-corrupt-skipped"
+file = "src/core/names.fs"
+old = '''  dup lf-name-entry-checked? if lf-name-slot lf-name-sought? else drop true then ;'''
+new = '''  dup lf-name-entry-checked? if lf-name-slot lf-name-sought? else drop false then ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "a corrupted entry the find reaches is passed over: its name is made a second time instead of refused"
+
+[[fault]]
+id = "ni-found-unchecked"
+file = "src/core/names.fs"
+old = ''': lf-name-found ( n -- id true | false ) dup lf-name-entry-checked? dup 0= if nip then ;'''
+new = ''': lf-name-found ( n -- id true | false ) true ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "the ID of a corrupted entry the find stopped at is given out"
+
+[[fault]]
+id = "ni-sync-none"
+file = "src/core/names.fs"
+old = '''  lf-name-count @ lf-name-listed @ over max swap ?do i lf-name-unlist loop'''
+new = '''  lf-name-count @ lf-name-listed @ 2drop'''
+test = "$GFORTH tests/core/names.fs"
+reason = "names a rollback gave back stay in the index, which grows with every check (review rvS4 M1's fault for the names)"
+
+[[fault]]
+id = "ni-hash-not-kept"
+file = "src/core/names.fs"
+old = '''  lf-name-sought lf-nsought-hash @ over lf-name-slot lf-entry-hash !'''
+new = '''  0 over lf-name-slot lf-entry-hash !'''
+test = "$GFORTH tests/core/names.fs"
+reason = "an entry's hash is not kept: the table, once grown, puts it where no find looks, and an equal name gets a second ID"
+
+[[fault]]
+id = "ni-part-any"
+file = "src/core/names.fs"
+old = '''  lf-name-sought-str? if lf-name-same-bytes? else lf-name-same-number? then ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "names of the same kind and prefix are found equal whatever their component"
+
+[[fault]]
+id = "ni-audit-used-ignored"
+file = "src/core/names.fs"
+old = '''  swap lf-naudit-used @ lf-name-used @ upto? and ;'''
+new = '''  nip ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "the kept audit survives byte use going down: an audited string past the bytes in use is not seen"
+
+[[fault]]
+id = "ni-audit-generation-ignored"
+file = "src/core/names.fs"
+old = '''  lf-name-audit dup lf-naudit-generation @ lf-name-generation @ ='''
+new = '''  lf-name-audit true'''
+test = "$GFORTH tests/core/names.fs"
+reason = "the kept audit survives a reset: entries of the new generation below the old audit's count are never read"
+
+[[fault]]
+id = "ni-audit-failure-kept"
+file = "src/core/names.fs"
+old = '''  dup if lf-name-audited else lf-name-audit-drop then ;'''
+new = '''  dup if lf-name-audited then ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "a failed audit keeps its record: once the header looks right again, the corrupted entry it found is not read"
+
+[[fault]]
+id = "ni-reset-keeps-table"
+file = "src/core/names.fs"
+old = '''  lf-names store-clear lf-name-table-empty ;'''
+new = '''  lf-names store-clear ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "a reset keeps the index's table, so one large run's table is cleared slot by slot by every later run"
+
+[[fault]]
+id = "ni-index-full-ignored"
+file = "src/core/names.fs"
+old = '''  lf-name-index-room? 0= if 2drop lf-name-index-refused exit then'''
+new = ''''''
+test = "$GFORTH tests/core/names.fs"
+reason = "a name is listed in a table that could not grow: past 3/4 full, and the names-full outcome is lost"
+
+[[fault]]
+id = "lib-hash-3-order"
+file = "src/lib/hash32.fs"
+old = ''': hash-3 ( a b c -- h ) rot hash-fmix rot hash-step swap hash-step ;'''
+new = ''': hash-3 ( a b c -- h ) hash-fmix rot hash-step swap hash-step ;'''
+test = "$GFORTH tests/lib/hash32.fs"
+reason = "hash-3 mixes its fields in another order: no longer the hash the term and level tables were laid out by"
+
+[[fault]]
+id = "ni-dead-index-read"
+file = "src/core/names.fs"
+old = '''  lf-name-index-ready 0= if lf-name-index-refused true exit then'''
+new = '''  lf-name-index-ready drop'''
+test = "$GFORTH tests/core/names.fs"
+reason = "review F7: a table with no block (the heap refused it) is probed: the find reads address 0"
+
+[[fault]]
+id = "ni-dead-index-live"
+file = "src/core/names.fs"
+old = '''  lf-name-table htab-live? ;'''
+new = '''  true ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "review F8: a table with no block counts as readable: the find reads address 0"
+
+[[fault]]
+id = "ni-chain-part-unchecked"
+file = "src/core/names.fs"
+old = '''    dup lf-name-part-ok? 0= if drop false exit then lf-name-prefix@'''
+new = '''    lf-name-prefix@'''
+test = "$GFORTH tests/core/names.fs"
+reason = "a walk's check skips each component's own entry: a prefix pointed forward after the audit makes the walk cycle"
+
+[[fault]]
+id = "ni-chain-id-unchecked"
+file = "src/core/names.fs"
+old = '''    dup lf-name-valid? 0= if drop false exit then'''
+new = ''''''
+test = "$GFORTH tests/core/names.fs"
+reason = "a walk's check reads the entry of an ID that is no name (beyond the count, negative)"
+
+[[fault]]
+id = "ni-hash-kept-unchecked"
+file = "src/core/names.fs"
+old = '''  over + lf-name-slot dup lf-name-hash-of swap lf-entry-hash @ = ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "the hand-over audit takes every kept hash on trust: a rewritten hash cell gives an equal name a second ID once the table grows"
+
+[[fault]]
+id = "ni-export-unaudited"
+file = "src/author/export.fs"
+old = ''': lfx-unwritable? ( -- flag ) lfx-holes? lf-name-audit-all? 0= or ;'''
+new = ''': lfx-unwritable? ( -- flag ) lfx-holes? ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "a .lf text's names are handed to the kernel without the full audit: an entry corrupted after the kept audit is written"
+
+[[fault]]
+id = "ni-printer-chain-unchecked"
+file = "src/present/print-names.fs"
+old = '''  over lf-name-chain-ok? if lf-pp-checked-name-to else lf-pp-bad-name then ;'''
+new = '''  lf-pp-checked-name-to ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "review finding 1: the printer walks a name corrupted after the audit: it cycles (main's test hung) instead of printing invalid"
+
+[[fault]]
+id = "ni-equal-chain-unchecked"
+file = "src/core/name-equal.fs"
+old = '''  lf-name-chain-ok? swap lf-name-chain-ok? and lf-name-storage-valid? and ;'''
+new = '''  lf-name-valid? swap lf-name-valid? and lf-name-storage-valid? and ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "re-check F10: name equality walks a name corrupted after the audit unchecked: a prefix pointed forward at an equal twin compares equal"
+
+[[fault]]
+id = "ni-hashes-skip-newest"
+file = "src/core/names.fs"
+old = '''  1 lf-name-count @ 1- ['] lf-name-hash-kept? all? nip ;'''
+new = '''  1 lf-name-count @ 2 - ['] lf-name-hash-kept? all? nip ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "re-check F12: the hand-over audit checks every kept hash but the newest entry's"
 
 # --- the front end's isDefEq (src/front/defeq.fs and its helpers; plan FE1c)
 

@@ -35,11 +35,13 @@
 \ (lf-name-stored-ops and lf-name-viewed-ops, filled once while loading,
 \ read-only after). The public words run the current mode's word, so none
 \ of them can read the entry store under a view. The entry store's own
-\ words (lf-name-count, lf-name-slot, lf-name-field, lf-names-ok?) are for
+\ words (lf-name-count, lf-name-slot, lf-name-field, lf-name-entries-from?) are for
 \ the stored mode and for tests that corrupt entries; lf-name-entry-ok? is
 \ false under a view.
 
 require ../lib/lib.fs
+require ../lib/hash32.fs
+require ../lib/htab.fs
 require ./diagnostics.fs
 require ./compact.fs
 
@@ -50,12 +52,15 @@ require ./compact.fs
 2 constant lf-name-tag-num
 
 \ One entry: kind, prefix ID, then the number or the string's byte offset in
-\ lf-name-bytes, then the string length (always 0 for a number).
+\ lf-name-bytes, then the string length (always 0 for a number), then the
+\ name's hash in the index (see "The index" below): a hint, never compared
+\ as a name, never audited.
 begin-structure /lf-entry
   field: lf-entry-tag
   field: lf-entry-prefix
   field: lf-entry-payload
   field: lf-entry-length
+  field: lf-entry-hash
 end-structure
 /lf-entry 1 cells / constant lf-name-slot-cells
 
@@ -122,9 +127,9 @@ end-structure
 : lf-name-stored? ( id -- flag )
   lf-name-state-valid? if 0 lf-name-count @ within else drop false then ;
 
-\ Full structural audit of the entry store, guarding later byte reads
-\ against corrupted tags, prefixes, offsets and lengths. Checks bounds
-\ and that prefixes point backwards; not uniqueness or immutability.
+\ Structural audit of the entry store, guarding later byte reads against
+\ corrupted tags, prefixes, offsets and lengths. Checks bounds and that
+\ prefixes point backwards; not uniqueness or immutability.
 : lf-name-span? ( offset length -- flag )
   over lf-name-used @ upto? if swap lf-name-used @ swap - upto? else 2drop false then ;
 : lf-name-num-ok? ( entry -- flag )
@@ -142,33 +147,181 @@ end-structure
 \ entries (lf-name-part-ok? is the word for either mode).
 : lf-name-entry-ok? ( id -- flag )
   lf-name-viewed? if drop false else lf-name-entry-checked? then ;
-\ Entries 1 .. count - 1 (0 is the root, checked as zero below).
-: lf-name-entry-after? ( k -- flag ) 1+ lf-name-entry-checked? ;
-: lf-names-ok? ( -- flag ) lf-name-count @ 1- ['] lf-name-entry-after? all? ;
-: lf-name-entries-valid? ( -- flag )
-  lf-name-state-valid? 0= if false exit then
-  0 lf-name-slot lf-name-slot-cells cells-zero? lf-names-ok? and ;
+\ The header (count, byte use, generation: lf-name-state-valid?), the root
+\ (all zero), and entries k .. count - 1, for k >= 1 (1: every entry).
+: lf-name-sound? ( -- flag )
+  lf-name-state-valid? if 0 lf-name-slot lf-name-slot-cells cells-zero? else false then ;
+: lf-name-entry-past? ( k i -- k flag ) over + lf-name-entry-checked? ;
+: lf-name-entries-from? ( k -- flag )
+  lf-name-sound? if lf-name-count @ over - ['] lf-name-entry-past? all? nip
+  else drop false then ;
 
-\ Entry matching: same kind and prefix, then same number or same bytes. A
-\ string query is the first length bytes of lf-name-input-copy.
-: lf-name-head? ( prefix tag entry -- flag )
-  tuck lf-entry-tag @ = -rot lf-entry-prefix @ = and ;
-: lf-name-num-match? ( prefix number entry -- flag )
-  tuck lf-entry-payload @ = >r lf-name-tag-num swap lf-name-head? r> and ;
+\ The audit kept (ADR 0005 Amendment 1). Entries 1 .. count - 1 of the
+\ record passed the audit in its generation, when byte use was used. The
+\ next audit checks the header and the root again and then only the
+\ entries from there up to today's count; it starts again from entry 1
+\ after a reset (the generation moved) or when byte use went down (a
+\ rollback or a write), which could leave an audited string outside the
+\ bytes in use. An entry this module wrote is never written again, so an
+\ entry once audited is not read by later audits: a write into it from
+\ outside (a memory fault of other code, or a test) is caught only where
+\ a reader checks that entry (lf-name-part-ok?, the index's find below).
+begin-structure /lf-naudit
+  field: lf-naudit-count
+  field: lf-naudit-generation
+  field: lf-naudit-used
+end-structure
+/lf-naudit context-record: lf-name-audit
+: lf-name-audit-kept? ( -- flag )
+  lf-name-audit dup lf-naudit-generation @ lf-name-generation @ =
+  swap lf-naudit-used @ lf-name-used @ upto? and ;
+\ The first entry the next audit reads, at least 1 (above the count after
+\ a rollback: it then reads none, and keeps the lower count).
+: lf-name-audit-from ( -- k )
+  lf-name-audit-kept? if lf-name-audit lf-naudit-count @ 1 max else 1 then ;
+: lf-name-audited ( -- )
+  lf-name-audit lf-name-count @ over lf-naudit-count !
+  lf-name-generation @ over lf-naudit-generation ! lf-name-used @ swap lf-naudit-used ! ;
+\ A failed audit keeps nothing: the next one reads every entry again.
+: lf-name-audit-drop ( -- ) lf-name-audit /lf-naudit erase ;
+\ The stored mode's audit of the whole storage: the header, the root and
+\ the entries not yet audited.
+: lf-name-entries-valid? ( -- flag )
+  lf-name-audit-from lf-name-entries-from?
+  dup if lf-name-audited else lf-name-audit-drop then ;
+
+\ A string query is the first length bytes of lf-name-input-copy.
 : lf-name-query ( length -- addr length ) lf-name-input-copy swap ;
 : lf-name-bytes@ ( entry -- addr length )
   dup lf-entry-payload @ lf-name-bytes + swap lf-entry-length @ ;
-: lf-name-str-match? ( prefix length entry -- flag )
-  >r swap lf-name-tag-str r@ lf-name-head?
-  if lf-name-query r> lf-name-bytes@ compare 0= else drop r> drop false then ;
 
-\ Linear search of entries 1 .. count-1.
-: lf-name-find-num ( prefix number -- id true | false )
-  lf-name-count @ 1 ?do 2dup i lf-name-slot lf-name-num-match?
-    if 2drop i true unloop exit then loop 2drop false ;
-: lf-name-find-str ( prefix length -- id true | false )
-  lf-name-count @ 1 ?do 2dup i lf-name-slot lf-name-str-match?
-    if 2drop i true unloop exit then loop 2drop false ;
+\ ---------------------------------------------------------------------------
+\ The index (ADR 0005 Amendment 1): in the stored mode, a hash table
+\ (lib/htab.fs) of entries 1 .. count - 1 by kind, prefix and component,
+\ which finds a name in place of a linear search. An entry is made only
+\ after a find for it failed, so no two entries are equal, and the index
+\ gives the one entry equal to a name: the ID the linear search gave. It
+\ follows the store: before a find, the entries a rollback gave back (at
+\ or above the count) leave the table by their kept hashes, and a reset
+\ empties it. A slot whose entry is at or above the count is passed over.
+\ An entry the find reaches that fails its own audit
+\ (lf-name-entry-checked?) stops the find, and the name is refused: its
+\ bytes are never read. Entries that a raw write of the count exposed
+\ (tests) are audited but not listed. The index is full when the table
+\ cannot grow (the heap), recorded as the names being full.
+
+\ The name sought: kind, prefix, the number or the query's length, its
+\ hash, then whether the table had room for one more (htab-ready's
+\ outcome, taken before the find so that its slot takes the new entry).
+begin-structure /lf-nsought
+  field: lf-nsought-tag
+  field: lf-nsought-prefix
+  field: lf-nsought-x
+  field: lf-nsought-hash
+  field: lf-nsought-ready
+end-structure
+/lf-nsought context-record: lf-name-sought
+: lf-name-sought-tag ( -- tag ) lf-name-sought lf-nsought-tag @ ;
+: lf-name-sought-prefix ( -- prefix ) lf-name-sought lf-nsought-prefix @ ;
+: lf-name-sought-x ( -- x ) lf-name-sought lf-nsought-x @ ;
+: lf-name-sought-str? ( -- flag ) lf-name-sought-tag lf-name-tag-str = ;
+\ The hash (lib/hash32.fs): kind, prefix, then the number or the bytes'.
+: lf-name-x-hash ( -- h )
+  lf-name-sought-x lf-name-sought-str? if lf-name-query hash-bytes then ;
+: lf-name-sought-hash ( -- h )
+  lf-name-sought-tag lf-name-sought-prefix lf-name-x-hash hash-3 ;
+: lf-name-seek! ( prefix x tag -- )
+  lf-name-sought tuck lf-nsought-tag ! tuck lf-nsought-x ! lf-nsought-prefix !
+  lf-name-sought-hash lf-name-sought lf-nsought-hash ! ;
+
+\ Whether a checked entry is the name sought: the same kind and prefix,
+\ then the same number or the same bytes.
+: lf-name-head? ( entry -- flag )
+  dup lf-entry-tag @ lf-name-sought-tag =
+  swap lf-entry-prefix @ lf-name-sought-prefix = and ;
+: lf-name-same-bytes? ( entry -- flag )
+  lf-name-bytes@ lf-name-sought-x lf-name-query compare 0= ;
+: lf-name-same-number? ( entry -- flag ) lf-entry-payload @ lf-name-sought-x = ;
+: lf-name-part? ( entry -- flag )
+  lf-name-sought-str? if lf-name-same-bytes? else lf-name-same-number? then ;
+\ Both are read: a checked entry's bytes lie inside the bytes in use (a
+\ number's are empty), so the part of an entry of the other kind is
+\ compared harmlessly, and false.
+: lf-name-sought? ( entry -- flag ) dup lf-name-head? swap lf-name-part? and ;
+
+\ An entry's hash recomputed from its fields, as lf-name-sought-hash
+\ computes the name sought's: the check of the kept hash (the audit at a
+\ hand-over, lf-name-audit-all? below). Unchecked: a checked entry.
+: lf-name-entry-x ( entry -- x )
+  dup lf-entry-tag @ lf-name-tag-str =
+  if lf-name-bytes@ hash-bytes else lf-entry-payload @ then ;
+: lf-name-hash-of ( entry -- h )
+  dup lf-entry-tag @ swap dup lf-entry-prefix @ swap lf-name-entry-x hash-3 ;
+: lf-name-hash-kept? ( k i -- k flag )
+  over + lf-name-slot dup lf-name-hash-of swap lf-entry-hash @ = ;
+\ Every entry's kept hash, for entries that passed the audit.
+: lf-name-hashes-ok? ( -- flag )
+  1 lf-name-count @ 1- ['] lf-name-hash-kept? all? nip ;
+
+\ The table's hooks: entry n's kept hash (0 beyond the store's block,
+\ where only a slot left from a shrunk store points), and whether entry n
+\ is the name sought or stops the find (see above).
+: lf-name-entry-hash ( n -- h )
+  dup lf-names store-capacity @ u< if lf-name-slot lf-entry-hash @ else drop 0 then ;
+: lf-name-rehash ( n htab -- h ) drop lf-name-entry-hash ;
+: lf-name-same ( n key htab -- flag )
+  2drop dup lf-name-count @ u< 0= if drop false exit then
+  dup lf-name-entry-checked? if lf-name-slot lf-name-sought? else drop true then ;
+create lf-name-hooks /htab-hooks allot
+' lf-name-rehash ' lf-name-same lf-name-hooks htab-hooks!
+
+\ The table, a member of the checker context, and the entries listed in
+\ it: 1 .. listed - 1, or fewer (an entry a raw write exposed is not).
+\ 16 slots at first; a reset makes a table one large run grew small again.
+\ Unlike the entry store (lf-names-make aborts), a table the heap cannot
+\ make is no error here: it is made again before each find
+\ (lf-name-index-ready, htab-ready), and a find on a table that is still
+\ not live refuses the name as names full (fail closed).
+begin-structure /lf-nindex
+  /htab +field lf-nindex-table
+  field: lf-nindex-listed
+end-structure
+/lf-nindex context-record: lf-name-index
+: lf-name-table ( -- htab ) lf-name-index lf-nindex-table ;
+: lf-name-listed ( -- addr ) lf-name-index lf-nindex-listed ;
+: lf-name-table-make ( -- )
+  4 lf-name-hooks lf-name-table htab-init drop 1 lf-name-listed ! ;
+' lf-name-table-make context-setup
+:noname ( -- ) lf-name-table htab-free ; context-teardown
+: lf-name-table-empty ( -- )
+  lf-name-table ['] lf-name-table-make htab-renew 1 lf-name-listed ! ;
+
+\ Before a find: the entries a rollback gave back leave the table.
+: lf-name-unlist ( n -- ) dup lf-name-entry-hash lf-name-table htab-remove drop ;
+: lf-name-index-sync ( -- )
+  lf-name-count @ lf-name-listed @ over max swap ?do i lf-name-unlist loop
+  lf-name-count @ lf-name-listed @ min lf-name-listed ! ;
+\ Synchronised and ready for one more entry (the outcome kept with the
+\ name sought): whether the table can be read (no heap may leave none).
+: lf-name-index-ready ( -- flag )
+  lf-name-index-sync lf-name-table htab-ready lf-name-sought lf-nsought-ready !
+  lf-name-table htab-live? ;
+: lf-name-index-room? ( -- flag ) lf-name-sought lf-nsought-ready @ ok? ;
+: lf-name-site ( -- site ) c" names lf-name-intern" ;
+: lf-name-index-refused ( -- false )
+  lf-name-table htab-count 0 lf-name-site lf-diag-names-full lf-diag-note false ;
+\ The entry found: its ID, or false when it failed its audit.
+: lf-name-found ( n -- id true | false ) dup lf-name-entry-checked? dup 0= if nip then ;
+\ The name sought: its ID and true, then true; or false (refused), then
+\ true; or, when it is absent, the empty slot where it belongs and false.
+: lf-name-lookup ( -- id true true | false true | slot false )
+  lf-name-index-ready 0= if lf-name-index-refused true exit then
+  lf-name-sought dup lf-nsought-hash @ lf-name-table htab-find
+  if lf-name-found true else false then ;
+\ A new entry, with its hash, into the slot its lookup found.
+: lf-name-list ( slot id -- id )
+  lf-name-sought lf-nsought-hash @ over lf-name-slot lf-entry-hash !
+  tuck swap lf-name-table htab-put lf-name-count @ lf-name-listed ! ;
 
 \ Appending; callers have checked validity, absence and room. The store's
 \ identities are issued but unused: names are compared by content.
@@ -190,21 +343,27 @@ end-structure
 \ the table is full; exhaustion changes nothing and is recorded as a
 \ diagnostic: no free entry or a spent serial, or for a string, no room
 \ for its bytes (the bytes needed and the capacity).
-: lf-name-site ( -- site ) c" names lf-name-intern" ;
+\ A full index is recorded as names full too (lf-name-index-refused).
 : lf-name-refused ( -- false )
   lf-names lf-name-site lf-diag-names-full lf-diag-store false ;
 : lf-name-bytes-refused ( length -- false )
   lf-name-used @ + lf-name-byte-room lf-name-site lf-diag-name-bytes-full lf-diag-note
   false ;
-: lf-name-str-refused ( prefix length -- false )
-  nip lf-name-room? if lf-name-bytes-refused else drop lf-name-refused then ;
+: lf-name-str-refused ( length -- false )
+  lf-name-room? if lf-name-bytes-refused else drop lf-name-refused then ;
+\ The name sought, absent, made by xt ( prefix x -- id ) and listed in
+\ its slot, when the table had room for it.
+: lf-name-append ( slot xt -- id true | false )
+  lf-name-index-room? 0= if 2drop lf-name-index-refused exit then
+  lf-name-sought-prefix swap lf-name-sought-x swap execute lf-name-list true ;
 : lf-name-intern-num ( prefix number -- id true | false )
-  2dup lf-name-find-num if nip nip true exit then
-  lf-name-room? if lf-name-add-num true else 2drop lf-name-refused then ;
+  lf-name-tag-num lf-name-seek! lf-name-lookup if exit then
+  lf-name-room? if ['] lf-name-add-num lf-name-append else drop lf-name-refused then ;
+: lf-name-str-room? ( -- flag ) lf-name-room? lf-name-sought-x lf-name-byte-room? and ;
 : lf-name-intern-str ( prefix length -- id true | false )
-  2dup lf-name-find-str if nip nip true exit then
-  lf-name-room? over lf-name-byte-room? and
-  if lf-name-add-str true else lf-name-str-refused then ;
+  lf-name-tag-str lf-name-seek! lf-name-lookup if exit then
+  lf-name-str-room? if ['] lf-name-add-str lf-name-append exit then
+  drop lf-name-sought-x lf-name-str-refused ;
 
 \ ---------------------------------------------------------------------------
 \ The stored mode's words: the entry store.
@@ -286,9 +445,27 @@ create lf-name-viewed-ops /lf-nops allot
 \ checked when it was made under a view. The prefix chain of a valid ID
 \ is then walked with lf-name-prefix@, one component at a time.
 : lf-name-part-ok? ( id -- flag ) lf-name-ops lf-nops-part-ok @ execute ;
+\ An ID and its whole prefix chain, one check per component: false at an
+\ ID that is not a name now (lf-name-valid?), or a component whose prefix
+\ does not point back or whose text lies outside the bytes in use
+\ (lf-name-part-ok?). A walk of a name an outside write corrupted after
+\ its audit then ends and reads nothing out of bounds (ADR 0005
+\ Amendment 1). O(depth); call it before walking a name.
+: lf-name-chain-ok? ( id -- flag )
+  begin dup while
+    dup lf-name-valid? 0= if drop false exit then
+    dup lf-name-part-ok? 0= if drop false exit then lf-name-prefix@
+  repeat drop true ;
 \ The whole storage is well formed: the entry store's audit, which reads
-\ every entry; under a view every name was checked when it was made.
+\ its header and root and every entry made since its last pass (ADR 0005
+\ Amendment 1); under a view every name was checked when it was made.
 : lf-name-storage-valid? ( -- flag ) lf-name-ops lf-nops-storage @ execute ;
+\ The full audit, for a hand-over of the stored names (author/export.fs
+\ writes them for a .lf text's kernel check): every entry from entry 1,
+\ and every kept hash recomputed; under a view, true (checked when made).
+: lf-name-audit-all? ( -- flag )
+  lf-name-viewed? if true exit then
+  1 lf-name-entries-from? if lf-name-hashes-ok? else false then ;
 \ Whether the valid ID's own component is a string, or a number (the
 \ anonymous name is neither); whether it is the anonymous name.
 : lf-name-str? ( id -- flag ) lf-name-tag@ lf-name-tag-str = ;
@@ -320,7 +497,7 @@ create lf-name-viewed-ops /lf-nops allot
 \ the scratch tier is emptied.
 : lf-name-reset ( -- )
   lf-name-ops lf-nops-clear @ execute 0 lf-name-slot /lf-entry erase 0 lf-name-used !
-  lf-names store-clear ;
+  lf-names store-clear lf-name-table-empty ;
 
 \ Attach the sealed input tier as this context's names, emptying the
 \ scratch tier and advancing the generation: ok, or the outcome of making

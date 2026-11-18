@@ -894,13 +894,14 @@ and the outcome at the first failure, through `ok-true? ( flag outcome
 plain false. Both keep the xt as `ok-each` does (`J`). *Genericity*:
 any test with the stated effect, the values below k its context to read
 (a table, a record, a pair of keys) and keep; a test that starts at 1
-adds it to k (`lf-names-ok?`, `lfr-steps-ok?`, `lines-ok?` pass n − 1).
+adds it to k (`lfr-steps-ok?`, `lines-ok?` pass n − 1; the name store's
+`lf-name-entries-from?` passes count − k and adds k, ADR 0005 Amendment 1).
 n ≤ 0 gives true (and ok). *Scaling*: constant overhead per index, no
 recursion. *Speed* (as above, `bench-loops.fs`): `all?` 6 ns a step at
 n = 10 and 3–4 ns at n = 10^6, against 6–7 and 5 ns for the hand-written
 `?DO … 0= IF FALSE UNLOOP EXIT` loop; `ok-all?` 11–12 and 10 ns against
 12 and 11 ns. *Callers* (2026-11-13): the audits of the name store
-(every entry), of a level scope (its universe parameters, pairwise or
+(since ADR 0005 Amendment 1, the entries made since its last pass), of a level scope (its universe parameters, pairwise or
 hashed) and of a tactic record (each step), the input's universe
 parameters (each declaration's), the snapshot's name tuples and
 recursor rules (each declaration's) and lines (one per declaration of a
@@ -1406,7 +1407,11 @@ table (`levels.fs`), the constant-reference table
 (`constant-references.fs`), the audit's pair set
 (`constant-term-boundary.fs`'s `lf-pairs-reset`, at each walk that keeps
 depths) and the comparison's pair set (`mixed-compare.fs`'s
-`lf-meq-reset`, at each structural equality). *Sizes on Init* (a copy of
+`lf-meq-reset`, at each structural equality) and the stored names' index
+(`names.fs`'s `lf-name-table-empty`, at each name reset; ADR 0005
+Amendment 1: one entry per stored name, 26,701 in a `.lf` check against
+Init through the snapshot, so its table grows to 65,536 slots and is
+made again at the next reset). *Sizes on Init* (a copy of
 the branch at `6f351f80` logging each call, `bin/leanforth check --json
 --no-manifest --jobs 2`, 2026-11-14; 4% of the lines, two workers writing
 at once, unreadable and left out): the comparison's pair set about 1.47

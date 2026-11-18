@@ -12,9 +12,9 @@
 \ 2166136261, prime 16777619), read one character at a time.
 \
 \ Example: the hash of a record of three 32-bit fields a b c, and of a text.
-\   a hash-fmix b hash-step c hash-step     ( h )
+\   a b c hash-3                            ( h ) \ a hash-fmix b hash-step c hash-step
 \   s" Nat.succ" hash-bytes                 ( h )
-\ Interface: hash-fmix, hash-step, hash-bytes. No state. Loads in decimal
+\ Interface: hash-fmix, hash-step, hash-3, hash-bytes. No state. Loads in decimal
 \ whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
@@ -39,6 +39,9 @@ lf-lib set-current
   16 hash-shift hash-m1 hash-mul 13 hash-shift hash-m2 hash-mul 16 hash-shift ;
 \ Mix the low 32 bits of x into the hash h.
 : hash-step ( h x -- h' ) xor u32-mask and hash-fmix ;
+\ A record of three fields a, b, c: a's finaliser, then b and c mixed in
+\ (the hash of terms', levels' and stored names' records).
+: hash-3 ( a b c -- h ) rot hash-fmix rot hash-step swap hash-step ;
 \ FNV-1a of the u bytes at addr; 0 bytes give the basis.
 : hash-bytes ( addr u -- h )
   fnv-basis -rot over + swap ?do i c@ xor fnv-prime hash-mul loop ;

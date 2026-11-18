@@ -28,9 +28,12 @@ lf-walk-room context-walk2: lf-pp-scan-walk
 \ component k from the root is found by walking up from the name, so a
 \ name of n components takes n*n/2 steps. A name of more than
 \ lf-name-default components prints nothing and marks the pool full (the
-\ print then ends full), as a name the pool has no room for does. Unchecked:
-\ the ID is valid and the name storage passed lf-name-storage-valid?, so
-\ every prefix chain ends at the anonymous name, which gives nothing.
+\ print then ends full), as a name the pool has no room for does. A name
+\ whose chain fails lf-name-chain-ok? (an ID that is no name, or a
+\ component an outside write corrupted after the name store's audit
+\ passed it, ADR 0005 Amendment 1) prints nothing and breaks the print,
+\ which then ends invalid. The words below lf-pp-name-to are unchecked:
+\ a checked chain ends at the anonymous name, which gives nothing.
 \ Each string component is spelled as Lean writes it (name-text.fs's
 \ nt-part, review PB1): between « » and escaped when it is no identifier
 \ (or, as the root, a token), so Foo.«a.b» is never Foo.a.b and no
@@ -49,14 +52,20 @@ lf-walk-room context-walk2: lf-pp-scan-walk
   over 0 ?do i if dup lf-pp-dot-to then 2 pick 2 pick i 3 pick lf-pp-part-at loop
   drop 2drop ;
 : lf-pp-too-deep ( id n xt -- ) 2drop drop lf-pp-full! ;
-: lf-pp-name-to ( id xt -- )
+: lf-pp-checked-name-to ( id xt -- )
   over lf-name-depth swap over lf-name-default >
   if lf-pp-too-deep else lf-pp-parts-to then ;
+: lf-pp-bad-name ( id xt -- ) 2drop true lf-pp-broken ! ;
+: lf-pp-name-to ( id xt -- )
+  over lf-name-chain-ok? if lf-pp-checked-name-to else lf-pp-bad-name then ;
 
 \ Hygienic names (Lean's macro scopes, such as a._@._internal._hyg.0)
 \ print as the part before _@, as Lean's delaborator prints them.
 : lf-pp-skip-nums ( id -- id' ) begin dup lf-name-num? while lf-name-prefix@ repeat ;
-: lf-pp-hygienic? ( id -- flag ) lf-pp-skip-nums s" _hyg" lf-name-str-is? ;
+\ A name whose chain fails its check is not hygienic: lf-pp-name-to then
+\ refuses it.
+: lf-pp-hygienic? ( id -- flag )
+  dup lf-name-chain-ok? if lf-pp-skip-nums s" _hyg" lf-name-str-is? else drop false then ;
 : lf-pp-erase ( id -- id' )
   begin dup s" _@" lf-name-str-is? 0= over and while lf-name-prefix@ repeat lf-name-prefix@ ;
 : lf-pp-hygienic ( name kind -- flag ) drop lf-pp-hygienic? ;
