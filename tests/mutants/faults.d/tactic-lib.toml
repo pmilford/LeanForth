@@ -227,3 +227,11 @@ old = '''  dup ['] abl-assignable? lf-term-holds? lf-must if abl-fail then'''
 new = '''  dup ['] abl-assignable? lf-term-holds? lf-must drop'''
 test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
 reason = "a2-i review F1: mkAppM's result keeps an assignable metavariable unrejected (Lean: result contains metavariables); check_whnf.py's mkAppM congrArg #[u] expects rejected"
+
+[[fault]]
+id = "lib-congr-fun-wrong-h"
+file = "src/front/app-builder.fs"
+old = '''  s" f" lfa-intern abl-named rot 4 abl-arg ;'''
+new = '''  s" f" lfa-intern abl-named rot 5 abl-arg ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
+reason = "a2-i review F2: congrArg? takes congrFun's argument a for its proof h (AppBuilder.lean:199); check_whnf.py's Nat.succ over congrFun w k expects congrArg of w"

@@ -115,6 +115,7 @@ rejected
 (app (app Eq.refl.{1} Nat.{}) k)
 rejected
 rejected
+(app (app (app (app (app (app congrArg.{1,1} (pi Nat.{} Nat.{})) Nat.{}) u) v) (lam (pi Nat.{} Nat.{}) (app Nat.succ.{} (app #0 k)))) w)
 (app (app (app id.{1} (pi Nat.{} Nat.{})) u) k)
 rejected
 rejected

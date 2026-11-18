@@ -205,16 +205,12 @@ T{ mismatch abm-frames slab-count lf-mctx-marks -> -4204 0 0 }T
 \ mkAppM at transparency all keeps it (withAtLeastTransparency).
 : refl-zero ( -- e ) s" Eq.refl" zero 1 lf-mk-app-m ;
 T{ ' refl-zero lf-tr-all lf-meta-at 2 s" Eq.refl" lf-meta-app-of? -> true }T
-\ mkCongrArg: a dependent function is no arrow (rejected); a congrFun
-\ proof is fused through congrArg? (Expr.beta with a loose #0, which
-\ instantiate1 does not lift yet: refused, as in check_whnf.py's gap).
+\ mkCongrArg: a dependent function is no arrow (rejected). (A congrFun
+\ proof fused through congrArg? is check_whnf.py's, against pinned Lean.)
 : refl-fun ( -- f ) s" Eq.refl" nat lf-infer! lf-level! lf-mk-const1 nat lf-mk-app ;
 nat0 zero zero lf-mk-eq s" h" binder constant fh
 : dependent ( -- code ) refl-fun fh ['] lf-mk-congr-arg catch dup if nip nip then ;
 T{ dependent -> -4204 }T
-: fun-proof ( -- h ) s" congrFun" 0 0 2 lf-mk-const nat nat zero zero fh zero 6 lf-mk-app-n ;
-: fused ( -- code ) s" Nat.succ" lf-mk-const0 fun-proof ['] lf-mk-congr-arg catch dup if nip nip then ;
-T{ fused lf-meta-thrown? -> true }T   \ a refusal, never a term
 T{ nat dup lf-whnf-r! = -> true }T
 
 \ ---- 4. mkAppM's instance binders (AppBuilder.lean's mkAppMFinal), with

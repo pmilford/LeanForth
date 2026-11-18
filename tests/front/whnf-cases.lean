@@ -55,6 +55,8 @@ run_meta do
     withLocalDeclD `e (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) nat a b) fun e => do
     withLocalDeclD `u (mkForall `y .default nat nat) fun u => do
     withLocalDeclD `v (mkForall `y .default nat nat) fun v => do
+    withLocalDeclD `w (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) (mkForall `y .default nat nat) u v)
+      fun w => do
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkApp (mkConst `Nat.succ []) k))
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkConst `Nat.zero []))
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) k)
@@ -172,6 +174,7 @@ run_meta do
     buildCase (mkAppM ``Eq.refl #[k])
     buildCase (mkAppM ``Nat.succ #[k, k])
     buildCase (mkAppM ``Nat.succ #[e])
+    buildCase (do mkCongrArg (mkConst ``Nat.succ) (← mkCongrFun w k))
     buildCase (mkAppM ``id #[u, k])
     buildCase (mkAppM ``id #[u, k, k])
     buildCase (mkAppM ``congrArg #[u])

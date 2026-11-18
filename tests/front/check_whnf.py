@@ -12,7 +12,7 @@ lf-infer) prints its own. Build cases (plan slice a2-i, the tactic
 library): Meta/AppBuilder.lean's builders (mkEq, mkEqRefl, mkEqSymm,
 mkEqTrans, mkExpectedPropHint, mkCongrArg, mkAppM) against
 src/front/app-builder.fs's, over the free
-variables e : a = b and u v : Nat -> Nat besides; an
+variables e : a = b, u v : Nat -> Nat and w : u = v besides; an
 AppBuilder exception prints "rejected", as LeanForth's rejected outcome.
 The lines must be equal, except for the cases listed as gaps, where
 LeanForth must answer unsupported (a fact or step not ported; the plan
@@ -311,6 +311,13 @@ BUILDS = [
     # metavariables (Lean's "result contains metavariables"). (Instance
     # binders: tests/front/tactic-lib.fs, over the S2 slice and its
     # elaboration data, where instance search runs.)
+    # congrArg? fuses a congrFun proof (AppBuilder.lean:199): Nat.succ over
+    # congrFun w k is congrArg of fun x => Nat.succ (x k) and w : u = v.
+    # (mkCongrFun is not ported: the Forth side writes Lean's congrFun term,
+    # @congrFun.{1, 1} Nat (fun y => Nat) u v w k.)
+    build("do mkCongrArg (mkConst ``Nat.succ) (← mkCongrFun w k)",
+          's" Nat.succ" lf-mk-const0 s" congrFun" lv1 lv1 2 lf-mk-const nat nat nat lam '
+          "fu fv fw fk 6 lf-mk-app-n lf-mk-congr-arg"),
     build("mkAppM ``id #[u, k]", 's" id" fu fk 2 lf-mk-app-m'),
     build("mkAppM ``id #[u, k, k]", 's" id" fu fk fk 3 lf-mk-app-m'),
     build("mkAppM ``congrArg #[u]", 's" congrArg" fu 1 lf-mk-app-m'),
@@ -384,6 +391,8 @@ def buildCase (x : MetaM Expr) : MetaM Unit := do
 BUILD_SETUP = """    withLocalDeclD `e (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) nat a b) fun e => do
     withLocalDeclD `u (mkForall `y .default nat nat) fun u => do
     withLocalDeclD `v (mkForall `y .default nat nat) fun v => do
+    withLocalDeclD `w (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) (mkForall `y .default nat nat) u v)
+      fun w => do
 """
 
 
