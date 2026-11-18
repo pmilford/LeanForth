@@ -305,6 +305,15 @@ BUILDS = [
     build("mkAppM ``Eq.refl #[k]", 's" Eq.refl" fk 1 lf-mk-app-m'),
     build("mkAppM ``Nat.succ #[k, k]", 's" Nat.succ" fk fk 2 lf-mk-app-m'),
     build("mkAppM ``Nat.succ #[e]", 's" Nat.succ" fe 1 lf-mk-app-m'),
+    # mkAppM past the declaration's pis: id (Nat -> Nat) u's type shows no
+    # pi until whnfD, which gives one for k; none for a third argument
+    # (too many arguments). congrArg with f alone leaves its h's type's
+    # metavariables (Lean's "result contains metavariables"). (Instance
+    # binders: tests/front/tactic-lib.fs, over the S2 slice and its
+    # elaboration data, where instance search runs.)
+    build("mkAppM ``id #[u, k]", 's" id" fu fk 2 lf-mk-app-m'),
+    build("mkAppM ``id #[u, k, k]", 's" id" fu fk fk 3 lf-mk-app-m'),
+    build("mkAppM ``congrArg #[u]", 's" congrArg" fu 1 lf-mk-app-m'),
     # (mkEqMP and mkEqMPR are mkAppM of Eq.mp and Eq.mpr, which this slice
     # lacks: tests/front/tactic-lib.fs checks their terms over the S2 slice.)
 ]

@@ -9,7 +9,8 @@
 \    value outside the vocabulary), lf-meta-catch's hand-back (each
 \    outcome as thrown, never ok; another code passed on), commitWhen's
 \    true, false and THROW, the builders' invalid, rejected and
-\    unsupported; 2. malformed input: a value outside the outcomes, too
+\    unsupported, mkAppM's instance binders found and not found (part 4,
+\    with the slice's elaboration data); 2. malformed input: a value outside the outcomes, too
 \    many levels or arguments, a goal or variable outside any context, an
 \    unknown constant; 3. stack effects (each T{ }T checks the depth);
 \ 5. resources: a store's false thrown full; 6. state and rollback: the
@@ -204,12 +205,6 @@ T{ mismatch abm-frames slab-count lf-mctx-marks -> -4204 0 0 }T
 \ mkAppM at transparency all keeps it (withAtLeastTransparency).
 : refl-zero ( -- e ) s" Eq.refl" zero 1 lf-mk-app-m ;
 T{ ' refl-zero lf-tr-all lf-meta-at 2 s" Eq.refl" lf-meta-app-of? -> true }T
-\ An instance binder (HAdd.hAdd's [self]): a synthetic metavariable
-\ filled at the end by instance search, which this run (no elaboration
-\ data) cannot do: a failure, the frame and context put back.
-: hadd-code ( -- code ) s" HAdd.hAdd" zero zero 2 ['] lf-mk-app-m catch dup if >r 2drop 2drop
-  drop r> then ;
-T{ hadd-code 0<> abm-frames slab-count lf-mctx-marks -> true 0 0 }T
 \ mkCongrArg: a dependent function is no arrow (rejected); a congrFun
 \ proof is fused through congrArg? (Expr.beta with a loose #0, which
 \ instantiate1 does not lift yet: refused, as in check_whnf.py's gap).
@@ -221,6 +216,28 @@ T{ dependent -> -4204 }T
 : fused ( -- code ) s" Nat.succ" lf-mk-const0 fun-proof ['] lf-mk-congr-arg catch dup if nip nip then ;
 T{ fused lf-meta-thrown? -> true }T   \ a refusal, never a term
 T{ nat dup lf-whnf-r! = -> true }T
+
+\ ---- 4. mkAppM's instance binders (AppBuilder.lean's mkAppMFinal), with
+\ the S2 slice's elaboration data read, so that instance search
+\ (synth.fs's lf-synth-instance) is the lf-meta-synth hook, and the
+\ stores given the command line's room (lfc-rooms). Pinned Lean 4.35.0
+\ (pp.all, mkAppM in run_meta over a local k : Nat): HAdd.hAdd #[k, k]
+\ is @HAdd.hAdd.{0, 0, 0} Nat Nat Nat (@instHAdd.{0} Nat instAddNat) k k;
+\ Append.append #[Nat, Nat] is "failed to synthesize Append.{1} Type"
+\ (rejected), the frame and context put back. HAdd.hAdd #[Nat, Nat]
+\ (Lean: "failed to synthesize HAdd Type Type ?γ") tries a candidate the
+\ slice's data leaves out (synth.fs's error 119): unsupported,
+\ never rejected nor a term.
+T{ s" tests/front/s2-slice.elab.ndjson" lfc-elab-file! lfc-elab-read lfc-rooms -> outcome-ok outcome-ok }T
+lf-author-begin
+nat s" k" binder constant fk
+: inst-nat ( -- e ) s" instHAdd" 0 lf-mk-const1 nat lf-mk-app s" instAddNat" lf-mk-const0 lf-mk-app ;
+: hadd-lean ( -- e ) s" HAdd.hAdd" 0 0 0 3 lf-mk-const nat nat nat inst-nat fk fk 6 lf-mk-app-n ;
+: hadd-kk ( -- e ) s" HAdd.hAdd" fk fk 2 lf-mk-app-m ;
+T{ hadd-kk hadd-lean lf-meta-eqv abm-frames slab-count lf-mctx-marks -> true outcome-ok 0 0 }T
+: types2 ( c-addr u -- code ) nat nat 2 ['] lf-mk-app-m catch dup if >r 2drop 2drop drop r> then ;
+T{ s" Append.append" types2 abm-frames slab-count lf-mctx-marks -> -4204 0 0 }T
+T{ s" HAdd.hAdd" types2 lf-synth-error abm-frames slab-count -> -4205 119 0 }T
 lf-author-begin
 .( tactic-lib.fs: all tests passed) cr
 bye

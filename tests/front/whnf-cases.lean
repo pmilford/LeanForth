@@ -172,3 +172,6 @@ run_meta do
     buildCase (mkAppM ``Eq.refl #[k])
     buildCase (mkAppM ``Nat.succ #[k, k])
     buildCase (mkAppM ``Nat.succ #[e])
+    buildCase (mkAppM ``id #[u, k])
+    buildCase (mkAppM ``id #[u, k, k])
+    buildCase (mkAppM ``congrArg #[u])

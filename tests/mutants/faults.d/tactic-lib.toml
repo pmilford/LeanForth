@@ -211,3 +211,19 @@ old = ''': lf-mk-eq-mpr ( h p -- e ) s" Eq.mpr" abl-decl -rot 2 lf-mk-app-m-of ;
 new = ''': lf-mk-eq-mpr ( h p -- e ) s" Eq.mp" abl-decl -rot 2 lf-mk-app-m-of ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i mkEqMPR (AppBuilder.lean:447): Eq.mp where Lean applies Eq.mpr"
+
+[[fault]]
+id = "lib-app-m-no-instance-found"
+file = "src/front/app-builder.fs"
+old = '''  dup lf-mvar-type drop lf-meta-synth lf-must 0= if abl-fail then lf-mvar-assign lf-must ;'''
+new = '''  dup lf-mvar-type drop lf-meta-synth lf-must drop lf-mvar-assign lf-must ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "a2-i review F1: mkAppM takes \"no instance\" for found and assigns the instance binder (Lean: failed to synthesize); tactic-lib.fs's Append.append #[Nat, Nat] expects rejected"
+
+[[fault]]
+id = "lib-app-m-assignable-left"
+file = "src/front/app-builder.fs"
+old = '''  dup ['] abl-assignable? lf-term-holds? lf-must if abl-fail then'''
+new = '''  dup ['] abl-assignable? lf-term-holds? lf-must drop'''
+test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
+reason = "a2-i review F1: mkAppM's result keeps an assignable metavariable unrejected (Lean: result contains metavariables); check_whnf.py's mkAppM congrArg #[u] expects rejected"
