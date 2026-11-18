@@ -876,16 +876,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 17
  },
- "57de781fb2f7": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/elab-pending.fs:ep-t-kind",
-   "src/front/elab-term.fs:et-am-kind"
-  ],
-  "reason": "planned: 9.4.8k front batch (s1-elab's words, came with main's merge of s1-elab)",
-  "tokens": 7
- },
  "5861f8e38f7b": {
   "copies": 2,
   "kind": "shape",
@@ -1407,16 +1397,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (s1-elab's words, came with main's merge of s1-elab)",
   "tokens": 6
- },
- "8325cf7f4ee1": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/whnf.fs:wc-head-inert?",
-   "src/front/whnf.fs:wc-inert-major?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 8
  },
  "8420fb188ea1": {
   "copies": 2,

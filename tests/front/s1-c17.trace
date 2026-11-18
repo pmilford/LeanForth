@@ -67,7 +67,7 @@ synth @OfNat ?m.146 0: stuck
 resume ?116: not ready
 synth @HAdd ?m.138 ?m.139 ?m.146: stuck
 resume ?140: not ready
-synth @Add ?m.198: stuck
+synth @Add ?α: stuck
 default ?140 instHAdd: rolled back
 default ?1 instOfNatNat: ok
 synth @OfNat ?m.139 0: stuck

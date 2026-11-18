@@ -97,3 +97,28 @@ none
 ?q
 none
 none
+(app (app (app Eq.{1} Nat.{}) a) b)
+(app (app Eq.refl.{1} Nat.{}) a)
+(app (app (app (app Eq.symm.{1} Nat.{}) a) b) e)
+(app (app Eq.refl.{1} Nat.{}) a)
+rejected
+(app (app (app (app (app (app Eq.trans.{1} Nat.{}) a) b) a) e) (app (app (app (app Eq.symm.{1} Nat.{}) a) b) e))
+e
+e
+rejected
+(app (app id.{0} (app (app (app Eq.{1} Nat.{}) a) b)) e)
+(app (app (app (app (app (app congrArg.{1,1} Nat.{}) Nat.{}) a) b) u) e)
+(app (app Eq.refl.{1} Nat.{}) (app u a))
+(app (app (app (app (app (app congrArg.{1,1} Nat.{}) Nat.{}) a) b) (lam Nat.{} (app u (app v #0)))) e)
+rejected
+(app Nat.succ.{} k)
+(app (app Eq.refl.{1} Nat.{}) k)
+rejected
+rejected
+(app (app (app (app (app (app congrArg.{1,1} (pi Nat.{} Nat.{})) Nat.{}) u) v) (lam (pi Nat.{} Nat.{}) (app Nat.succ.{} (app #0 k)))) w)
+(app (app (app (app (app (app congrArg.{1,1} Nat.{}) Nat.{}) a) b) (lam Nat.{} #0)) e)
+(app (app (app id.{1} (pi Nat.{} Nat.{})) u) k)
+rejected
+rejected
+rejected
+(app Nat.succ.{} ?n)

@@ -33,6 +33,9 @@ def stuckCase (e : Expr) : MetaM Unit := do
 
 def nat : Expr := mkConst ``Nat
 
+def buildCase (x : MetaM Expr) : MetaM Unit := do
+  try IO.println (← sx (← x)) catch _ => IO.println "rejected"
+
 run_meta do
   withLocalDeclD `m nat fun m => do
   withLocalDeclD `z nat fun z => do
@@ -49,6 +52,11 @@ run_meta do
     let f ← mkFreshExprMVar nat (userName := `f)
     let q ← mkFreshExprMVar nat (userName := `q)
     f.mvarId!.assign sfun
+    withLocalDeclD `e (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) nat a b) fun e => do
+    withLocalDeclD `u (mkForall `y .default nat nat) fun u => do
+    withLocalDeclD `v (mkForall `y .default nat nat) fun v => do
+    withLocalDeclD `w (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) (mkForall `y .default nat nat) u v)
+      fun w => do
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkApp (mkConst `Nat.succ []) k))
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkConst `Nat.zero []))
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) k)
@@ -148,3 +156,28 @@ run_meta do
     stuckCase (mkApp (mkProj `Prod 0 q) k)
     stuckCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkLambda `y .default (mkConst `Nat []) (mkBVar 0)))
     stuckCase (mkApp f k)
+    buildCase (mkEq a b)
+    buildCase (mkEqRefl a)
+    buildCase (mkEqSymm e)
+    buildCase (do mkEqSymm (← mkEqRefl a))
+    buildCase (mkEqSymm k)
+    buildCase (do mkEqTrans e (← mkEqSymm e))
+    buildCase (do mkEqTrans (← mkEqRefl a) e)
+    buildCase (do mkEqTrans e (← mkEqRefl b))
+    buildCase (mkEqTrans e k)
+    buildCase (do return mkExpectedPropHint e (← mkEq a b))
+    buildCase (mkCongrArg u e)
+    buildCase (do mkCongrArg u (← mkEqRefl a))
+    buildCase (do mkCongrArg u (← mkCongrArg v e))
+    buildCase (mkCongrArg s e)
+    buildCase (mkAppM ``Nat.succ #[k])
+    buildCase (mkAppM ``Eq.refl #[k])
+    buildCase (mkAppM ``Nat.succ #[k, k])
+    buildCase (mkAppM ``Nat.succ #[e])
+    buildCase (do mkCongrArg (mkConst ``Nat.succ) (← mkCongrFun w k))
+    buildCase (do mkCongrArg (mkLambda `y .default nat (mkBVar 0)) (← mkCongrArg (mkLambda `y .default nat (mkBVar 0)) e))
+    buildCase (mkAppM ``id #[u, k])
+    buildCase (mkAppM ``id #[u, k, k])
+    buildCase (mkAppM ``congrArg #[u])
+    buildCase (mkAppM ``id #[])
+    buildCase (mkAppM ``Nat.succ #[n])

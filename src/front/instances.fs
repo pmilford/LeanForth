@@ -23,13 +23,12 @@
 \   finished staying finished. Step 4 (a class's out-parameters
 \   recomputed by checkOutParam) is plan row FE1e3b; until then they rest
 \   on pinned Lean.
-\ - lf-inst-telescope ( type -- body outcome ): forallMetaTelescopeReducing
-\   (Basic.lean): a new metavariable for each binder, synthetic for an
-\   instance-implicit one, else natural; whnf where no pi is left (a pi it
-\   makes is entered, else the type as it was). A binder's kind comes from
-\   the declared type's own pi, walked beside; a pi that whnf made has
-\   none known and gets a natural metavariable (neither the class nor the
-\   keys depend on it; FE1e5, which reuses the telescope, settles it).
+\ - lf-inst-telescope ( d -- body outcome ): forallMetaTelescopeReducing
+\   (Basic.lean) over declaration d's type: the tactic library's
+\   (telescope.fs: a new metavariable for each binder, synthetic for an
+\   instance-implicit one, else natural; whnf where no pi is left, a pi it
+\   makes entered, else the type as it was), the binder kinds d's own,
+\   then the nodes' records past whnf (an unknown one unsupported).
 \ - lf-class? ( type -- class true outcome | false outcome ): isClass?
 \   through isClassQuick?: the class (its declaration in the data's stage)
 \   at the head past the pis; false for a head that is no class (a
@@ -106,6 +105,8 @@ require ../lib/bounds.fs
 require ../author/errors.fs
 require ./discr-keys.fs
 require ./lctx-views.fs
+require ./meta-must.fs
+require ./telescope.fs
 
 0 constant it-unchecked   1 constant it-class-ok   2 constant it-unverified
 3 constant it-verified
@@ -169,25 +170,11 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
 : it-value ( k -- v ) elab-left-out elab-count - ;
 : it-cells ( outcome slab -- addr n outcome ) dup slab-base swap slab-count rot ;
 
-\ ---- forallMetaTelescopeReducing, the declared type's pi beside (src,
-\ -1 once whnf made the pis).
-: it-binder ( src -- kind )   \ an input pi's binder kind, else (-1 too) explicit
-  lf-term-input-binder@ if nip else lf-binder-default then ;
-: it-mv-kind ( src -- kind )
-  it-binder lf-binder-instance = if mv-synthetic else mv-natural then ;
-: it-mvar-for ( pi src -- pi mvar outcome )
-  it-mv-kind over lf-term-first@ swap lf-mvar-new ;
-: it-src-body ( src -- src' ) dup 0< 0= if lf-term-second@ then ;
-: it-enter ( pi src -- body src' outcome )
-  tuck it-mvar-for ok-then? if lf-meta-open else nip no-result then rot it-src-body swap ;
-: it-whnf-pi ( e -- e' more? outcome )
-  dup lf-meta-whnf ok-then? 0= if nip -1 false rot exit then
-  dup lf-term-pi? if nip true outcome-ok else drop false outcome-ok then ;
-: it-step ( e src -- e' src' more? outcome )
-  over lf-term-pi? if it-enter true swap exit then drop it-whnf-pi -1 -rot ;
-: lf-inst-telescope ( type -- body outcome )
-  dup begin it-step ok-then? 0= if nip nip no-result exit then while repeat
-  drop outcome-ok ;
+\ ---- forallMetaTelescopeReducing over declaration d's type, its binder
+\ kinds d's own (telescope.fs; the metavariables are not kept).
+: it-body ( d -- body )
+  0 over lf-menv-type rot ['] 2drop lf-forall-meta-telescope-reducing nip ;
+: lf-inst-telescope ( d -- body outcome ) ['] it-body 1 1 lf-meta-catch ;
 
 \ ---- isClass? by isClassQuick? (an undefined answer is unsupported).
 : it-defn-temp? ( d -- flag )   \ getConstTemp? gives a definition
@@ -236,7 +223,7 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
 \ configuration, one metavariable depth deeper; the keys, marks and
 \ metavariables it made are forgotten after.
 : it-on-type ( r d xt -- outcome )
-  >r lf-menv-type lf-inst-telescope ok-then? if swap r> execute else nip r> drop then ;
+  >r lf-inst-telescope ok-then? if swap r> execute else nip r> drop then ;
 : it-deeper ( r d xt -- outcome )
   false lf-mctx-depth{ ok-then? 0= if nip nip nip exit then
   >r ['] it-on-type lf-dt-scoped r> }lf-mctx-depth outcome-and ;

@@ -1095,6 +1095,8 @@ test-front:
 	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "tactic-run.fs: all tests passed"
 	@out=$$($(RUN) $(GFORTH) tests/front/tactic-basic.fs 2>&1) || \
 	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "tactic-basic.fs: all tests passed"
+	@out=$$($(RUN) $(GFORTH) tests/front/tactic-lib.fs 2>&1) || \
+	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "tactic-lib.fs: all tests passed"
 	@out=$$($(RUN) $(GFORTH) tests/front/menv-run.fs 2>&1) || \
 	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "menv-run.fs: all tests passed"
 	$(RUN) python3 tests/front/test_front_imports.py

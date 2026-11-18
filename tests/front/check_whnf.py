@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The front end's whnfCore, getStuckMVar? and inferType against pinned Lean (plan FE1c).
+"""The front end's whnfCore, getStuckMVar?, inferType and term builders against pinned Lean.
 
 Each case is a term over Init's Nat, Prod, Eq and Quot (the slice
 tests/front/whnf-slice.ndjson), free variables m z s k x a b, p : Prod Nat
@@ -7,8 +7,13 @@ Nat, a let variable g := fun y => s y, metavariables ?n ?h (unassigned)
 and ?f := fun y => s y. Pinned Lean 4.35.0 (tests/front/whnf-cases.lean,
 which this script writes with --write and checks is up to date) prints
 Meta.whnfCore's result, getStuckMVar?'s answer or inferType's type;
-LeanForth (tests/front/whnf-cases.fs: lf-whnf-core, lf-whnf-stuck,
-lf-infer) prints its own.
+LeanForth (tests/front/whnf-cases.fs through whnf-builds.fs: lf-whnf-core, lf-whnf-stuck,
+lf-infer) prints its own. Build cases (plan slice a2-i, the tactic
+library): Meta/AppBuilder.lean's builders (mkEq, mkEqRefl, mkEqSymm,
+mkEqTrans, mkExpectedPropHint, mkCongrArg, mkAppM) against
+src/front/app-builder.fs's, over the free
+variables e : a = b, u v : Nat -> Nat and w : u = v besides; an
+AppBuilder exception prints "rejected", as LeanForth's rejected outcome.
 The lines must be equal, except for the cases listed as gaps, where
 LeanForth must answer unsupported (a fact or step not ported; the plan
 item is named) and Lean's answer is shown. A harness self-test first checks
@@ -253,6 +258,8 @@ def forth(t):
 
 
 def lean_case(kind, t):
+    if kind == "build":
+        return f"({t[0]})"
     if kind != "ibeta":
         return lean(t)
     body, args = t
@@ -260,11 +267,79 @@ def lean_case(kind, t):
 
 
 def forth_case(kind, t):
-    """An ibeta case's arguments, the last first: bound variable 0's first."""
+    """An ibeta case's arguments, the last first: bound variable 0's first; a
+    build case's code in a word of its own (bcN), whose token build-run runs."""
+    if kind == "build":
+        n = [b[1] for b in BUILDS].index(t)
+        return f": bc{n} {t[1]} ; ' bc{n}"
     if kind != "ibeta":
         return forth(t)
     body, args = t
     return f"{forth(body)} {' '.join(forth(a) for a in reversed(args))} {len(args)} rxs"
+
+
+# Build cases: (Lean's MetaM Expr, LeanForth's code giving the term).
+
+
+def build(lean_code, forth_code, gap=None):
+    return ("build", (lean_code, forth_code), gap)
+
+
+BUILDS = [
+    build("mkEq a b", "fa fb lf-mk-eq"),
+    build("mkEqRefl a", "fa lf-mk-eq-refl"),
+    build("mkEqSymm e", "fe lf-mk-eq-symm"),
+    build("do mkEqSymm (← mkEqRefl a)", "fa lf-mk-eq-refl lf-mk-eq-symm"),
+    build("mkEqSymm k", "fk lf-mk-eq-symm"),
+    build("do mkEqTrans e (← mkEqSymm e)", "fe fe lf-mk-eq-symm lf-mk-eq-trans"),
+    build("do mkEqTrans (← mkEqRefl a) e", "fa lf-mk-eq-refl fe lf-mk-eq-trans"),
+    build("do mkEqTrans e (← mkEqRefl b)", "fe fb lf-mk-eq-refl lf-mk-eq-trans"),
+    build("mkEqTrans e k", "fe fk lf-mk-eq-trans"),
+    build("do return mkExpectedPropHint e (← mkEq a b)",
+          "fe fa fb lf-mk-eq lf-mk-expected-prop-hint"),
+    build("mkCongrArg u e", "fu fe lf-mk-congr-arg"),
+    build("do mkCongrArg u (← mkEqRefl a)", "fu fa lf-mk-eq-refl lf-mk-congr-arg"),
+    build("do mkCongrArg u (← mkCongrArg v e)", "fu fv fe lf-mk-congr-arg lf-mk-congr-arg"),
+    build("mkCongrArg s e", "fs fe lf-mk-congr-arg"),
+    build("mkAppM ``Nat.succ #[k]", 's" Nat.succ" fk 1 lf-mk-app-m'),
+    build("mkAppM ``Eq.refl #[k]", 's" Eq.refl" fk 1 lf-mk-app-m'),
+    build("mkAppM ``Nat.succ #[k, k]", 's" Nat.succ" fk fk 2 lf-mk-app-m'),
+    build("mkAppM ``Nat.succ #[e]", 's" Nat.succ" fe 1 lf-mk-app-m'),
+    # mkAppM past the declaration's pis: id (Nat -> Nat) u's type shows no
+    # pi until whnfD, which gives one for k; none for a third argument
+    # (too many arguments). congrArg with f alone leaves its h's type's
+    # metavariables (Lean's "result contains metavariables"). (Instance
+    # binders: tests/front/tactic-lib.fs, over the S2 slice and its
+    # elaboration data, where instance search runs.)
+    # congrArg? fuses a congrFun proof (AppBuilder.lean:199): Nat.succ over
+    # congrFun w k is congrArg of fun x => Nat.succ (x k) and w : u = v.
+    # (mkCongrFun is not ported: the Forth side writes Lean's congrFun term,
+    # @congrFun.{1, 1} Nat (fun y => Nat) u v w k.)
+    build("do mkCongrArg (mkConst ``Nat.succ) (← mkCongrFun w k)",
+          's" Nat.succ" lf-mk-const0 s" congrFun" lv1 lv1 2 lf-mk-const nat nat nat lam '
+          "fu fv fw fk 6 lf-mk-app-n lf-mk-congr-arg"),
+    # Fusing two identities gives fun x : Nat => x, a node the slice already
+    # has (an input node keeps its own binder record: app-builder.fs's
+    # abl-named leaves it unrecorded).
+    build("do mkCongrArg (mkLambda `y .default nat (mkBVar 0)) "
+          "(← mkCongrArg (mkLambda `y .default nat (mkBVar 0)) e)",
+          "nat 0 bv lam nat 0 bv lam fe lf-mk-congr-arg lf-mk-congr-arg"),
+    build("mkAppM ``id #[u, k]", 's" id" fu fk 2 lf-mk-app-m'),
+    build("mkAppM ``id #[u, k, k]", 's" id" fu fk fk 3 lf-mk-app-m'),
+    build("mkAppM ``congrArg #[u]", 's" congrArg" fu 1 lf-mk-app-m'),
+    # mkAppMFinal's check tells assignable from other metavariables only
+    # for terms: a result with an unassigned level metavariable (id with
+    # no argument: id.{?u}, Lean "result contains metavariables") and one
+    # holding a metavariable of an outer depth (?n, which Lean returns
+    # as it is) both answer unsupported.
+    build("mkAppM ``id #[]", 's" id" 0 lf-mk-app-m',
+          gap="a2-ii mkAppM's level metavariables: assignable ones rejected"),
+    build("mkAppM ``Nat.succ #[n]", 's" Nat.succ" ?n 1 lf-mk-app-m',
+          gap="a2-ii mkAppM's outer metavariables: the term returned"),
+    # (mkEqMP and mkEqMPR are mkAppM of Eq.mp and Eq.mpr, which this slice
+    # lacks: tests/front/tactic-lib.fs checks their terms over the S2 slice.)
+]
+CASES += BUILDS
 
 
 LEAN_HEAD = """import Lean
@@ -322,9 +397,23 @@ LEAN_SETUP = """run_meta do
 """
 
 
+# The build cases' own definition and variables, after the shared setup
+# (check_unfold.py reuses LEAN_HEAD and LEAN_SETUP), as whnf-builds.fs adds them.
+BUILD_HEAD = """
+def buildCase (x : MetaM Expr) : MetaM Unit := do
+  try IO.println (← sx (← x)) catch _ => IO.println "rejected"
+"""
+BUILD_SETUP = """    withLocalDeclD `e (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) nat a b) fun e => do
+    withLocalDeclD `u (mkForall `y .default nat nat) fun u => do
+    withLocalDeclD `v (mkForall `y .default nat nat) fun v => do
+    withLocalDeclD `w (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) (mkForall `y .default nat nat) u v)
+      fun w => do
+"""
+
+
 def lean_source():
     calls = "\n".join(f"    {kind}Case {lean_case(kind, t)}" for kind, t, _ in CASES)
-    return LEAN_HEAD + "\n" + LEAN_SETUP + calls + "\n"
+    return LEAN_HEAD + BUILD_HEAD + "\n" + LEAN_SETUP + BUILD_SETUP + calls + "\n"
 
 
 def run(command):
@@ -345,7 +434,7 @@ def lean_lines():
 
 def forth_lines():
     calls = " ".join(f"{forth_case(kind, t)} {kind}-run" for kind, t, _ in CASES)
-    return run([GFORTH, "tests/front/whnf-cases.fs", "-e", calls + " bye"])
+    return run([GFORTH, "tests/front/whnf-builds.fs", "-e", calls + " bye"])
 
 
 def golden(path, lines):
@@ -413,7 +502,7 @@ def main():
     except Failure as error:
         print(f"check_whnf: {error}")
         return 1
-    print(f"whnfCore, getStuckMVar?, inferType and instantiateBetaRevRange: "
+    print(f"whnfCore, getStuckMVar?, inferType, instantiateBetaRevRange and the term builders: "
           f"{len(CASES) - len(gaps)} of {len(CASES)} "
           "cases equal to "
           f"pinned Lean's; {len(gaps)} gaps answer unsupported, Lean's answer shown: "

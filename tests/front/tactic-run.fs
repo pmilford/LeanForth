@@ -203,16 +203,20 @@ T{ token s" by-sorry" compare detail nip -> 0 0 }T
 ' zero-add stating
 T{ s" by-sorry end t" proof nrun lf-author-code lf-open-parts -> outcome-ok 0 1 }T
 T{ 0 part-goal lean-goals compare -> 0 }T
-\ rw's telescope over the rule's type (review C4 of 2026-11-18): a rule
-\ binder whose kind no record gives is refused, 99, never guessed
-\ explicit. No text makes such a pi (tactic-rewrite.fs's lfw-binder says
-\ why), so a probe in rw's row reads the binder of a pi made inside the
-\ run (sharing off: no input node of the library is met) in the rule's
-\ step record: unrecorded, 99 at the rule; recorded, its name and kind.
-\ Guessed explicit, the run would go on to end's unsolved goal (89).
+\ rw's telescope over the rule's type (review C4 of 2026-11-18; the
+\ tactic library's lf-forall-meta-telescope-reducing, telescope.fs): a
+\ rule binder whose kind no record gives is refused, unsupported (93 at
+\ the step, the runner's mapping of the library's failure), never guessed
+\ explicit. No text makes such a pi, so a probe in rw's row walks a pi
+\ made inside the run (sharing off: no input node of the library is met)
+\ in the rule's step record: unrecorded, 93; recorded, its kind given to
+\ the telescope's xt. Guessed explicit, the run would go on to end's
+\ unsolved goal (89).
 variable probe-kind
 : probe-pi ( -- pi ) nat nat lf-term-pi 0= abort" pi" ;
-: probe-read ( pi j i -- ) drop trw trw-rule ! lfw-binder probe-kind ! drop ;
+: probe-kind! ( acc mvar kind -- acc ) probe-kind ! drop ;
+: probe-read ( pi j i -- )
+  drop trw trw-rule ! 0 swap -1 ['] probe-kind! lf-forall-meta-telescope-reducing 2drop ;
 : probe-unnamed ( j i -- ) probe-pi -rot probe-read ;
 : probe-named ( j i -- )
   probe-pi dup s" a" lfa-intern 3 lf-pres-binder! made -rot probe-read ;
@@ -222,7 +226,7 @@ variable probe-kind
 tac-k-rw lfr-row trow-run @ constant rw-action
 ' unnamed-row tac-k-rw lf-tactic-action!
 T{ -1 probe-kind ! s" by-rw[ n ] end t" proof nrun err probe-kind @
-   -> outcome-unsupported 99 1 43 -1 }T
+   -> outcome-unsupported 93 1 43 -1 }T
 ' named-row tac-k-rw lf-tactic-action!
 T{ s" by-rw[ n ] end t" proof nrun err probe-kind @ -> outcome-invalid 89 1 40 3 }T
 rw-action tac-k-rw lf-tactic-action!
@@ -381,6 +385,20 @@ T{ ' spoil lf-tac-try state? -> 0 true tagged mv-natural 0 }T
 \ Nested: an inner failure undone, the outer success kept.
 : inner ( -- ) ['] spoil-fail lf-tac-try drop lf-tac-forget ;
 T{ two-goals ' inner lf-tac-try state? -> 0 false 0 mv-opaque 2 }T
+\ A tactic library failure (meta-must.fs's throw) inside try is the
+\ authoring error lfr-meta-code names: rejected (Lean's AppBuilder or
+\ application type mismatch, an instance not found) is 96, a Lean error
+\ (invalid) that try catches and undoes; unsupported stays 93, which try
+\ catches too but lfw-caught passes on (a gap of LeanForth's); full and
+\ exhausted keep 60 and 91 (review F7 of a2-i).
+variable lib-outcome
+: lib-fails ( -- ) spoil lib-outcome @ lf-must ;
+: lib-code ( outcome -- code outcome' )
+  lib-outcome ! two-goals ['] lib-fails lf-tac-try drop lf-author-code dup lf-author-outcome
+  lf-tac-forget ;
+T{ outcome-rejected lib-code state? -> 96 outcome-invalid false 0 mv-opaque 2 }T
+T{ outcome-unsupported lib-code outcome-full lib-code outcome-exhausted lib-code
+   -> 93 outcome-unsupported 60 outcome-full 91 outcome-exhausted }T
 \ A failed attempt that leaves an inner mark or depth scope open (review
 \ C1 of 2026-11-18): every scope opened since the save is undone with it,
 \ the assignments before the goal list, and no mark stays open.
@@ -589,6 +607,24 @@ T{ steps-written? -> false }T
 ' lfr-sorry tac-k-sorry lf-tactic-action!
 ' lfr-unelaborated stating
 T{ lfc-library-close -> }T
+
+\ ---- rw's motive check (lfw-independent) opens a local for the
+\ abstracted term (withLocalDecl) and drops it: the local context's count
+\ after the rw step grows only by the one local per rule that the
+\ motive's type check (lf-meta-check, meta-check.fs: a walk step, not a
+\ scope) keeps: 2 for the two rules of tests/front/01-zero-add-rw.lf's
+\ rw [Nat.add_succ, ih], run over the S2 slice and its elaboration data
+\ (review F6 of a2-i: a local kept by withLocalDecl makes it 4).
+variable rw-runs   variable rw-locals
+: counted-rw ( i -- )
+  1 rw-runs +! lf-lctx-count @ >r rw-action execute lf-lctx-count @ r> - rw-locals +! ;
+T{ s" tests/front/s2-slice.ndjson" true lfc-library-open -> outcome-ok }T
+T{ s" tests/front/s2-slice.elab.ndjson" lfc-elab-file! lfc-elab-read -> outcome-ok }T
+' counted-rw tac-k-rw lf-tactic-action!  ' edc-by-statement stating
+: rw-file ( -- outcome ) s" tests/front/01-zero-add-rw.lf" ['] lfc-run lfc-making ;
+T{ 0 rw-runs ! 0 rw-locals ! rw-file rw-runs @ rw-locals @ -> outcome-ok 1 2 }T
+rw-action tac-k-rw lf-tactic-action!  ' lfr-unelaborated stating
+T{ lfc-library-close 0 0 lfc-elab-file! -> }T
 T{ depth -> 0 }T
 cr .( tactic-run.fs: all tests passed) cr
 bye

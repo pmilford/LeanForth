@@ -26,9 +26,10 @@
 \   that one of its class's default instances of that priority fills, in
 \   Lean's list order (the most recent first), each tried under a mark
 \   (commitWhen): the instance at new universe metavariables applied to a
-\   new metavariable per binder (forallMetaTelescopeReducing: synthetic for
-\   an instance binder, natural otherwise, kinds from the declared type,
-\   lf-menv-kind@; a pi that only whnf shows is 136), isDefEqGuarded with
+\   new metavariable per binder (the tactic library's
+\   forallMetaTelescopeReducing, telescope.fs: synthetic for an instance
+\   binder, natural otherwise, kinds from the declared type, a pi that
+\   only whnf shows by its node's record), isDefEqGuarded with
 \   synthetic opaque metavariables assignable, then its instance binders
 \   filled, the last binder first as Lean prepends them (synthesizePending:
 \   by instances while that fills one, else one by a default instance of any
@@ -113,6 +114,9 @@ require ./defeq-delta.fs
 require ./instances.fs
 require ./synth.fs
 require ../lib/decimal.fs
+require ./meta-must.fs
+require ./app-builder.fs
+require ./telescope.fs
 
 0 constant lf-postpone-yes   1 constant lf-postpone-partial   2 constant lf-postpone-no
 3 constant lf-postpone-check   \ no, a stuck problem left (#check's ignoreStuckTC)
@@ -145,7 +149,6 @@ begin-structure /epb   \ synthesizeUsingDefault[Prio] on one metavariable
   field: epb-d         \ the attempt's instance (a declaration)
   field: epb-app       \ the instance applied to the binders' metavariables so far
   field: epb-type      \ the rest of its type
-  field: epb-k         \ the binders entered
 end-structure
 /epb context-slab: ep-bs
 begin-structure /epc   \ synthesizePending on a list of metavariables
@@ -210,9 +213,7 @@ defer lf-elab-default-instances ( class -- addr n outcome )
 
 \ ---- Whether a term reaches a metavariable, term or level
 \ (core/reach.fs's tables, made for the question and freed).
-: lf-elab-holes? ( term -- flag outcome )
-  lf-reach-open 0= if drop false outcome-full exit then
-  lf-reach-term lf-reach-sweep lf-reach-holes? lf-reach-close outcome-ok ;
+: lf-elab-holes? ( term -- flag outcome ) lf-meta-has-mvar? ;   \ app-builder.fs's
 \ The term kept when it reaches no metavariable, else the error code.
 : lf-elab-closed ( term code -- term outcome )
   >r dup lf-elab-holes? ok-then? 0= if r> drop exit then
@@ -385,35 +386,21 @@ defer ep-c-call ( first x frames cont -- ... frames next )
   ep-defs# 0= if false exit then
   begin ep-b-wrap ep-b-done? if false exit then ep-b-taken ep-b-hit? 0= while drop repeat
   true ;
-\ forallMetaTelescopeReducing over the attempt's type, the binders' kinds
-\ from its declared type; its instance binders' metavariables pushed on
-\ ep-goals.
-: ep-t-kind ( -- kind true | false ) epb epb-d @ epb epb-k @ lf-menv-kind@ ;
-: ep-t-mvar ( kind -- mvar outcome )
-  lf-binder-instance = if mv-synthetic else mv-natural then
-  epb epb-type @ lf-term-first@ swap lf-mvar-new lf-elab-meta ;
-: ep-t-goal ( mvar kind -- outcome )
-  lf-binder-instance = if ep-goals slab-push else drop outcome-ok then ;
-: ep-t-apply ( mvar -- outcome )
-  epb epb-app @ swap lf-term-app if epb epb-app ! outcome-ok else outcome-full then ;
-: ep-t-open ( mvar -- outcome )
-  epb epb-type @ lf-term-second@ swap lf-meta-instantiate1 lf-elab-meta
-  ok-then? if epb epb-type ! outcome-ok then ;
-: ep-t-binder ( -- outcome )
-  ep-t-kind 0= if lfa-e-elab-binder lf-elab-fail exit then
-  dup ep-t-mvar ok-then? 0= if nip exit then tuck swap ep-t-goal
-  ['] ep-t-apply ok-with ['] ep-t-open ok-with nip 1 epb epb-k +! ;
-: ep-t-end ( -- outcome )
-  epb epb-type @ lf-meta-whnf lf-elab-meta ok-then? 0= if exit then
-  lf-term-pi? if lfa-e-elab-binder lf-elab-fail else outcome-ok then ;
-: ep-telescope ( -- outcome )
-  begin epb epb-type @ lf-term-pi? while ep-t-binder dup ok? 0= if exit then drop repeat
-  ep-t-end ;
+\ forallMetaTelescopeReducing over the attempt's type (telescope.fs), the
+\ binders' kinds from its declared type, the instance applied to each
+\ metavariable, an instance binder's pushed on ep-goals.
+: ep-t-goal ( mvar kind -- )
+  lf-binder-instance = if ep-goals slab-push lf-must else drop then ;
+: ep-t-mvar ( app mvar kind -- app' ) over swap ep-t-goal lf-mk-app ;
+: ep-t-walk ( -- )
+  epb epb-app @ epb epb-type @ epb epb-d @ ['] ep-t-mvar lf-forall-meta-telescope-reducing
+  epb epb-type ! epb epb-app ! ;
+: ep-telescope ( -- outcome ) ['] ep-t-walk 0 0 lf-meta-catch lf-elab-meta ;
 : ep-b-start ( v -- outcome )
   elab-default@ drop nip lf-menv-of-data ok-then? 0= if exit then
   dup epb epb-d ! lf-meta-const-fresh ok-then? 0= if exit then
   dup epb epb-app ! lf-infer lf-elab-meta ok-then? 0= if exit then
-  epb epb-type ! 0 epb epb-k ! ep-telescope ;
+  epb epb-type ! ep-telescope ;
 \ isDefEqGuarded with synthetic opaque metavariables assignable
 \ (withAssignableSyntheticOpaque).
 : ep-opaque ( -- flags mode ) lf-defeq-flags lf-defeq-opaque or lf-defeq-mode ;

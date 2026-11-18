@@ -78,6 +78,9 @@ require ./infer.fs
 require ./tactic-syntax.fs
 require ./tactic-run.fs
 require ./tactic-basic.fs
+require ./meta-must.fs
+require ./app-builder.fs
+require ./telescope.fs
 
 begin-structure /tia      \ a case of the eliminator (Lean's ElimApp.Alt)
   field: tia-name         \ its name: its binder's
@@ -256,20 +259,16 @@ end-structure
   ti tind-ftype @ lf-meta-whnf-forall lf-tac-must dup lf-term-pi? 0= if
     lfa-e-tac-meta lf-tac-fail then ;
 : lfi-applied ( pi arg -- )
-  dup ti tind-f @ swap lf-tac-app ti tind-f ! lf-meta-open lf-tac-must ti tind-ftype ! ;
+  dup ti tind-f @ swap lf-mk-app ti tind-f ! lf-meta-open lf-tac-must ti tind-ftype ! ;
 : lfi-elim-app ( -- )
   ti tind-elim @ lf-meta-const-fresh lf-tac-must dup ti tind-f ! lf-infer lf-tac-must
   ti tind-ftype ! ti tind-binders @ 0 ?do lfi-pi dup i lfi-arg-at lfi-applied loop ;
 
-\ ---- setMotiveArg: fun x => the goal's type over the target.
-: lfi-target-name ( -- name )
-  tb tb-view @ ti tind-target @ lf-view-find 0= if lfa-e-tac-meta lf-tac-fail then
-  tb tb-view @ swap lf-view-local lf-local-name ;
-: lfi-over-target ( t -- t' ) ti tind-target 1 lf-meta-abstract lf-tac-must ;
-: lfi-motive ( -- lam )
-  tb tb-want @ lf-instantiate-mvars lf-tac-must lfi-over-target
-  ti tind-target @ lf-fvar-type swap lf-term-lam lf-tac-made
-  dup lfi-target-name lf-binder-default lf-pres-binder! lf-tac-must ;
+\ ---- setMotiveArg: fun x => the goal's type over the target (Lean's
+\ mkLambdaFVars targets type, telescope.fs: the binder named and of the
+\ kind of the target's local in the goal's context, a target outside it
+\ invalid, 93).
+: lfi-motive ( -- lam ) tb tb-want @ ti tind-target 1 lf-mk-lambda-fvars ;
 : lfi-motive. ( x -- outcome ) drop tb tb-term @ lf-tac-indented. ;
 : lfi-motive-fits ( lam -- lam )
   dup lf-infer lf-tac-must ti tind-motive @ lf-mvar-type drop lf-tac-defeq lf-tac-must
