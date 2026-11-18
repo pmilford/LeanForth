@@ -513,9 +513,18 @@ lf-walk-room context-walk: lf-ol-premises
   lf-diag-clear? if exit then s"   Diagnostic: " lf-lv-put lf-diag@ nip
   lf-diag-name lf-lv-put
   s"  (" lf-lv-put swap lf-lv-n s" , " lf-lv-put lf-lv-n s" )" lf-ol-line ;
+\ NOT PROVED, as the command line's reports mark it (review N11): an axiom
+\ outside the allowlist, or axioms not read (-1).
+: lf-ol-not-proved-why ( bits -- c-addr u )
+  0< if s" ; NOT PROVED: its axioms could not be read" exit then
+  s" ; NOT PROVED: depends on an axiom" ;
+: lf-ol-not-proved. ( -- )
+  0 lf-olr-axioms lf-ol-field @ dup lf-allowlist-bits invert and
+  if lf-ol-not-proved-why lf-lv-put else drop then ;
 : lf-ol-verdict ( -- )
   s"   " lf-lv-put lf-ol-accepted?
-  if s" accepted; " lf-lv-put lf-ol-axioms 0 lf-lv-flush lf-lv-eol exit then
+  if s" accepted; " lf-lv-put lf-ol-axioms lf-ol-not-proved. 0 lf-lv-flush lf-lv-eol exit
+  then
   lf-ol-outcome outcome-sane outcome-text lf-ol-line lf-ol-diagnostic ;
 \ The statement (or the type), in the forms selected (statement-forms.fs); a
 \ declaration with no type says so.

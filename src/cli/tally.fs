@@ -19,6 +19,10 @@
 \ that depend on an axiom outside the allowlist (core/axiom-allowlist.fs;
 \ an axiom gets Lean's verdict, plan task 5.3.1); and the axioms the
 \ accepted ones use, joined (cli-axioms-used), which the summary names.
+\ Every report reads a declaration through the same words: decl-accepted?
+\ (the kernel's test), decl-outcome and decl-axioms (axioms-unknown when
+\ the set cannot be read), so the text, the JSON, the step log and the
+\ outline agree.
 \ LeanForth-specific; untrusted (it reports, it decides no verdict).
 \ State: one record in the checker context, cli-tally-state (the code so
 \ far, the counts, the axioms used and whether NOT PROVED gives code 6).
@@ -64,10 +68,26 @@ here verdict-order - 1 cells / constant verdict-kinds
 verdict-kinds skipped 1+ <>
 [if] .( tally.fs: one entry per verdict) cr abort [then]
 : verdict-kind ( k -- verdict ) cells verdict-order + @ ;
+\ The one test of "accepted" every report uses (the text, the JSON, the
+\ step log, the outline; reviews N1 and PB2, 2026-11-18): the kernel's
+\ own, lf-slot-accepted? (final and ok), on a slot this context's
+\ snapshot may read; no effect (lf-env-accepted would note a refusal).
+: decl-accepted? ( d -- flag ) lf-env-readable if lf-slot-accepted? else false then ;
+\ Declaration d's outcome: ok only when decl-accepted? holds, so an ok
+\ outcome on a slot that is not accepted reads invalid.
+: decl-ok-outcome ( d -- outcome )
+  decl-accepted? if outcome-ok else outcome-invalid then ;
+: decl-outcome ( d -- outcome )
+  dup lf-env-outcome dup ok? if drop decl-ok-outcome else nip then ;
+\ The axioms of an accepted declaration d, or axioms-unknown when they
+\ cannot be read (never 0, "none"): the text prints "axioms: ?", the JSON
+\ "axiomBits": null, and it counts as NOT PROVED (not-proved?).
+-1 constant axioms-unknown
+: decl-axioms ( d -- bits ) lf-env-axioms ok? 0= if drop axioms-unknown then ;
 \ Declaration d's verdict, read from its slot (kernel/environment.fs):
 \ skipped, else its outcome.
 : verdict-of ( d -- verdict )
-  dup lf-env-skipped? if drop skipped else lf-env-outcome then ;
+  dup lf-env-skipped? if drop skipped else decl-outcome then ;
 \ A verdict as reports name it: accepted for ok, not-checked, skipped, or
 \ the outcome's name.
 : verdict-name ( verdict -- c-addr u )
@@ -83,12 +103,14 @@ begin-structure /cli-tally
   field: tallied-not-proved                    \ accepted, with an axiom
   field: tallied-strict                        \ true: NOT PROVED gives code 6
   field: tallied-axioms                        \ the accepted ones' axiom sets, joined
+  field: tallied-unread                        \ accepted, their axioms not read
 end-structure
 /cli-tally context-record: cli-tally-state
 : cli-worst ( -- addr ) cli-tally-state tallied-worst ;
 : cli-count-of ( k -- addr ) cells cli-tally-state tallied-counts + ;
 : cli-not-proved ( -- addr ) cli-tally-state tallied-not-proved ;
 : cli-axioms-used ( -- addr ) cli-tally-state tallied-axioms ;
+: cli-axioms-unread ( -- addr ) cli-tally-state tallied-unread ;
 \ A command's start: nothing counted, nothing failed, NOT PROVED with
 \ Lean's code.
 : cli-start ( -- ) cli-tally-state /cli-tally erase exit-accepted cli-worst ! ;
@@ -101,13 +123,17 @@ end-structure
 \ Whether a verdict with the axiom set bits is NOT PROVED: accepted, and
 \ depending on an axiom outside the allowlist (core/axiom-allowlist.fs:
 \ propext, Classical.choice and Quot.sound with Lean's statements count as
-\ proved; the owner's rule).
+\ proved; the owner's rule). Axioms not read (axioms-unknown) are NOT
+\ PROVED too: nothing shows they are allowlisted.
 : not-proved? ( outcome bits -- flag ) lf-allowlist-bits invert and 0<> swap ok? and ;
 \ Count a NOT PROVED declaration apart; under --strict-axioms, with code 6.
-\ An accepted declaration's axiom set joins the axioms used.
+\ An accepted declaration's axiom set joins the axioms used; one not read
+\ is counted apart instead.
 : cli-not-proved-code ( -- ) cli-strict-axioms? if exit-not-proved cli-code! then ;
-: cli-axioms-join ( outcome bits -- outcome bits )
-  over ok? if dup cli-axioms-used dup @ rot or swap ! then ;
+: cli-axioms-or ( bits -- ) cli-axioms-used @ or cli-axioms-used ! ;
+: cli-axioms-add ( bits -- )
+  dup axioms-unknown = if drop 1 cli-axioms-unread +! else cli-axioms-or then ;
+: cli-axioms-join ( outcome bits -- outcome bits ) over ok? if dup cli-axioms-add then ;
 : cli-tally-proved ( outcome bits -- )
   cli-axioms-join
   not-proved? if 1 cli-not-proved +! cli-not-proved-code then ;

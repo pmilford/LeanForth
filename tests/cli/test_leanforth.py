@@ -355,6 +355,12 @@ class ExitCodes(unittest.TestCase):
                 "note: makes it 6"]
         self.expect(["check", "--no-manifest", postulate], 0, lines + note)
         self.expect(["check", "--no-manifest", "--strict-axioms", postulate], 6, lines)
+        # The outline marks it as the check does (review N11).
+        status, out, _ = run("print", "--no-manifest", postulate)
+        self.assertEqual(status, 0)
+        self.assertIn("\n  accepted; axioms: unlisted; NOT PROVED: depends on an axiom\n", out)
+        status, out, _ = run("print", "--no-manifest", COMPOSITION)
+        self.assertIn("\n  accepted; axioms: none\n", out)
         # Every axiom a declaration rests on, through its type and value, as
         # Lean's #print axioms lists them; propext with another statement
         # than Lean's is no allowlisted axiom (inductive-table rows).
@@ -1375,8 +1381,10 @@ class NoLabel(unittest.TestCase):
             self.assertEqual((status, d["verdict"], d["notProved"], d["notProvedBy"],
                               "label" in keys(got)), (0, "accepted", True, ["sorryAx"], False))
             status, out, _ = run("print", "--no-manifest", str(export))
+            # The outline marks it NOT PROVED, as check does (review N11).
             self.assertEqual((status, out.splitlines()[1:3]),
-                             (0, ["Axiom sorryAx", "  accepted; axioms: unlisted"]))
+                             (0, ["Axiom sorryAx", "  accepted; axioms: unlisted; NOT PROVED: "
+                                  "depends on an axiom"]))
 
 
 CASES_ALL = [
@@ -1550,6 +1558,8 @@ class JsonReport(unittest.TestCase):
             (good, lambda r: r["settings"].pop("strictAxioms")),
             (good, lambda r: r["measured"].pop("engine")),
             (good, lambda r: r["measured"].update(engine="")),
+            # Axioms not read (null) are NOT PROVED (review N1).
+            (good, lambda r: r["declarations"][0].update(axiomBits=None)),
         ]
         for base, edit in cases:
             self.assertNotEqual(changed(base, edit), [], cases.index((base, edit)))
@@ -1562,6 +1572,9 @@ class JsonReport(unittest.TestCase):
         self.assertEqual(changed(good, lambda r: not_proved(r, strict=False)), [])
         self.assertEqual(changed(good, lambda r: not_proved(r) or rejected(r, 1)), [])
         self.assertEqual(changed(good, lambda r: r["measured"].update(engine=None)), [])
+        # Axioms that could not be read: null, NOT PROVED by no axiom named.
+        self.assertEqual(changed(good, lambda r: not_proved(r) or r["declarations"][0].update(
+            axiomBits=None, notProvedBy=[])), [])
 
     def test_deterministic(self):
         for args in [[INDUCTIVE], ["--no-manifest", "tests/core/reexport/kinds.ndjson"]]:

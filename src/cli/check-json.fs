@@ -133,14 +133,19 @@ require ./check-run.fs
 : cj-unlisted ( d -- ) dup lf-env-unlisted? if cj-name-text cj-string else drop then ;
 : cj-not-proved-by ( d -- )
   s" notProvedBy" cj-key cj-array ['] cj-unlisted lf-env-axiom-deps drop cj-end-array ;
+\ Axioms that could not be read (tally.fs axioms-unknown): axiomBits null
+\ and NOT PROVED, by no axiom named; as the text's "axioms: ?" (review N1).
+: cj-bits ( bits -- )
+  s" axiomBits" cj-key dup axioms-unknown = if drop cj-null else cj-n then ;
+: cj-unproved? ( bits -- flag ) outcome-ok swap not-proved? ;
 : cj-axioms ( d -- )
-  dup lf-env-axioms drop dup s" axiomBits" cj-number
-  lf-env-unproved 0<> dup s" notProved" cj-flag if cj-not-proved-by else drop then ;
+  dup decl-axioms dup cj-bits cj-unproved? dup s" notProved" cj-flag
+  if cj-not-proved-by else drop then ;
 \ What follows the verdict: the axioms of an accepted one, the diagnostic
 \ of any other that began.
 : cj-detail ( d -- )
   dup cj-began? 0= if drop exit then
-  dup lf-env-outcome ok? if cj-axioms else cj-diagnostic then ;
+  dup decl-accepted? if cj-axioms else cj-diagnostic then ;
 \ A check's fuel used, null when it is not known (cli/check-run.fs).
 : cj-fuel-used ( d -- ) s" fuel" cj-key ck-fuel-of dup 0< if drop cj-null else cj-n then ;
 \ Where its verdict comes from (0.3): checked, snapshot, uses-snapshot.

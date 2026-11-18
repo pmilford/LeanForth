@@ -17,8 +17,8 @@
 \ is still in the context.
 \
 \ Untrusted presentation code: nothing here decides or changes a verdict;
-\ the verdict printed is the published slot's (lf-env-outcome), with its
-\ axioms, and the log is the checker's; the outline printer
+\ the verdict printed is the published slot's (tally.fs decl-outcome), with
+\ its axioms, and the log is the checker's; the outline printer
 \ itself refuses a log that does not agree with that verdict, a
 \ declaration not accepted, and a log truncated or kept without formulas.
 \ The printer's scratch between checks advances the stores' identity
@@ -41,6 +41,7 @@ require ../kernel/check-declaration.fs
 require ../present/binder-table.fs
 require ../present/print-names.fs
 require ../present/proof-outline.fs
+require ./tally.fs
 require ./check-run.fs
 
 begin-structure /pr
@@ -105,11 +106,13 @@ end-structure
 \ check of its inductive block's first member (as the environment's own
 \ run skips it, lf-env-next), whose log and outline cover the block.
 : pr-due? ( i -- flag ) lf-env-published? 0= ;
-\ Its verdict, read in a view of the environment: the outcome and, when
-\ accepted, the axiom set (-1 otherwise); invalid when no view can be had.
+\ Its verdict, read in a view of the environment as every report reads it
+\ (tally.fs decl-outcome, decl-axioms): the outcome and, when accepted,
+\ the axiom set (axioms-unknown, -1, otherwise); invalid when no view can
+\ be had.
 : pr-verdict ( i -- outcome axioms )
-  lf-env-view ok? 0= if drop outcome-invalid -1 exit then
-  dup lf-env-outcome swap lf-env-axioms ok? 0= if drop -1 then ;
+  lf-env-view ok? 0= if drop outcome-invalid axioms-unknown exit then
+  dup decl-outcome swap decl-axioms ;
 : pr-line ( i -- line )
   dup print-state pr-decls @ < if pr-lines slab-at @ else drop 0 then ;
 \ Print the outline of declaration i of the export c-addr u (detail:

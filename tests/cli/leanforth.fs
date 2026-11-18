@@ -468,6 +468,45 @@ T{ false planted-says true planted-says -> true true true true true false }T
 [then]
 cli-options
 
+\ "Accepted" is the kernel's test for every report (tally.fs
+\ decl-accepted?; reviews N1, PB2): an ok outcome on a slot that is not
+\ final is not accepted, reads invalid, and has no axioms (axioms-unknown).
+: unfinal-run ( -- ) false planted-run 0 lf-env lf-env-slot lf-slot-state 0 swap ! ;
+: unfinal ( -- raw-ok? accepted? outcome bits )
+  unfinal-run 0 lf-env lf-env-slot lf-slot-outcome@ ok? 0 decl-accepted? 0 decl-outcome
+  0 decl-axioms rr-release ;
+T{ unfinal -> true false outcome-invalid axioms-unknown }T
+T{ false planted-run 0 decl-accepted? 0 decl-outcome 0 decl-axioms rr-release
+  -> true outcome-ok 8 }T
+\ Axioms not read count as NOT PROVED, apart from the axioms used, and
+\ never as none; under --strict-axioms with code 6.
+cli-start
+T{ outcome-ok axioms-unknown cli-tally-proved cli-not-proved @ cli-axioms-unread @
+  cli-axioms-used @ cli-worst @ -> 1 1 0 0 }T
+T{ outcome-rejected axioms-unknown cli-tally-proved cli-not-proved @ cli-axioms-unread @
+  -> 1 1 }T
+cli-start true cli-strict-axioms!
+T{ outcome-ok axioms-unknown cli-tally-proved cli-worst @ -> 6 }T
+cli-start
+[defined] >string-execute [if]
+\ The text says "axioms: ?" and the JSON null, for the same bits.
+T{ axioms-unknown ' cli-axioms-of. >string-execute s" axioms: ?" compare -> 0 }T
+T{ 8 ' cli-axioms-of. >string-execute s" axioms: unlisted" compare -> 0 }T
+: bits-json ( bits -- c-addr u )
+  ['] type cj-writer jw-start cj-object cj-bits cj-end-object cj-writer jw-end drop ;
+: json-of ( bits -- c-addr u ) ['] bits-json >string-execute ;
+T{ axioms-unknown json-of s\" {\"axiomBits\":null}" compare -> 0 }T
+T{ 9 json-of s\" {\"axiomBits\":9}" compare -> 0 }T
+T{ axioms-unknown cj-unproved? 0 cj-unproved? 1 cj-unproved? -> true false false }T
+\ The summary: "?" with how many were not read, then NOT PROVED with why.
+: unread-line ( -- c-addr u )
+  cli-start 1 outcome-ok cli-count-of ! 1 cli-not-proved ! 1 cli-axioms-unread !
+  ['] cli-accepted. >string-execute ;
+T{ unread-line s\" accepted: 1; axioms: ? (1 not read); 1 NOT PROVED (they depend on an axiom, or theirs were not read)\n"
+  compare -> 0 }T
+[then]
+cli-start
+
 \ print reads with the checker's input: n allocations stage composition
 \ there, fewer than print makes in all.
 : staging-allocations ( -- n )

@@ -304,8 +304,6 @@ end-structure
 : cli-faulted? ( -- flag ) cli-ops ops-stopped? @ execute ;
 \ Verdicts only from the run's own environment, by identity.
 : cli-made? ( -- flag ) cli-ops ops-ours? @ execute lf-env-view ok? and ;
-\ A declaration's axiom set: 0 when it is not accepted.
-: cli-bits ( d -- bits ) lf-env-axioms drop ;
 \ No room is a resource limit; anything else is a fault.
 : full-or-fault ( outcome -- code ) outcome-full = if exit-limit else exit-fault then ;
 
@@ -313,7 +311,7 @@ end-structure
 \ holds (skipped, or its outcome; and NOT PROVED apart), the rest not
 \ checked after a fault.
 : cli-tally-one ( d -- )
-  dup verdict-of cli-tally dup lf-env-outcome swap cli-bits cli-tally-proved ;
+  dup verdict-of cli-tally dup decl-outcome swap decl-axioms cli-tally-proved ;
 : cli-tally-stopped ( -- )
   exit-fault cli-code! lf-input-count cli-stepped - not-checked cli-count-of +! ;
 : cli-tally-verdicts ( -- )
@@ -336,10 +334,15 @@ end-structure
 : cli-axiom-named ( d -- )
   dup lf-env-unlisted? 0= if drop exit then
   cli-axioms-named @ if ." , " then 1 cli-axioms-named +! cli-name. ;
-: cli-not-proved. ( d -- )
-  dup lf-env-outcome over cli-bits not-proved? 0= if drop exit then
-  ." ; NOT PROVED: depends on " 0 cli-axioms-named !
+: cli-depends. ( d -- )
+  ." depends on " 0 cli-axioms-named !
   ['] cli-axiom-named lf-env-axiom-deps drop cli-axioms-named @ 0= if ." an axiom" then ;
+\ Axioms not read are NOT PROVED too (tally.fs not-proved?).
+: cli-unproved-why. ( d -- )
+  ." ; NOT PROVED: " dup decl-axioms axioms-unknown =
+  if drop ." its axioms could not be read" else cli-depends. then ;
+: cli-not-proved. ( d -- )
+  dup decl-outcome over decl-axioms not-proved? if cli-unproved-why. else drop then ;
 \ Declaration d's line: its name and the verdict its slot holds.
 \ In a run of a snapshot (ADR 0020 D4, OQ-3) a verdict says where it comes
 \ from: taken from the snapshot, not re-checked; or checked in this run
@@ -369,19 +372,25 @@ end-structure
     ." , uses results from the " ck-stale? if ." stale " then ." snapshot" then ;
 : cli-origin. ( d origin -- d )
   over swap lf-origin-saved = if cli-taken-from. else cli-here. then ;
+: cli-axioms-of. ( bits -- )
+  dup axioms-unknown = if drop ." axioms: ?" else lf-check-axioms. then ;
 : cli-accepted-from. ( d origin -- )
-  ." accepted (" cli-origin. ." ); "
-  lf-env-axioms ok? if lf-check-axioms. else drop ." axioms: ?" then ;
+  ." accepted (" cli-origin. ." ); " decl-axioms cli-axioms-of. ;
 : cli-failed-from. ( d origin -- )
-  over dup lf-env-outcome lf-check-failed. ."  (" cli-origin. drop ." )" ;
+  over dup decl-outcome lf-check-failed. ."  (" cli-origin. drop ." )" ;
 : cli-labelled. ( d origin -- )
-  over lf-env-outcome ok? if cli-accepted-from. else cli-failed-from. then ;
+  over decl-accepted? if cli-accepted-from. else cli-failed-from. then ;
 : cli-labelled? ( d -- flag ) dup lf-env-origin swap ck-reason or 0<> ;
+\ Unlabelled, as check-declaration's lf-check-verdict. prints it, accepted
+\ only as tally.fs's decl-accepted? means it.
+: cli-plain. ( d -- )
+  dup decl-accepted? if ." accepted; " decl-axioms cli-axioms-of. exit then
+  dup decl-outcome lf-check-failed. ;
 : cli-verdict. ( d -- )
-  dup cli-labelled? if dup lf-env-origin cli-labelled. else lf-check-verdict. then ;
+  dup cli-labelled? if dup lf-env-origin cli-labelled. else cli-plain. then ;
 : cli-verdict ( d -- )
   dup cli-name. ." : " dup cli-verdict. dup cli-not-proved. cr
-  dup lf-env-outcome ok? if drop else cli-why. then ;
+  dup decl-accepted? if drop else cli-why. then ;
 \ A declaration the stopped run never reached: verdict not checked, said
 \ so that it cannot be read as skipped, the verdict of an unsafe or
 \ partial declaration (review rvUNNI L5).
@@ -439,12 +448,17 @@ end-structure
 : cli-listed. ( bits -- )
   lf-axiom-propext lf-check-axiom. lf-axiom-choice lf-check-axiom.
   lf-axiom-sound lf-check-axiom. drop ."  (allowlisted); " ;
+: cli-unproved-of. ( -- )
+  ."  NOT PROVED (they depend on an axiom"
+  cli-axioms-unread @ if ." , or theirs were not read" then ." )" ;
 : cli-unproved. ( -- )
-  cli-not-proved @ ?dup 0= if ." none NOT PROVED" exit then
-  .decimal ."  NOT PROVED (they depend on an axiom)" ;
+  cli-not-proved @ ?dup 0= if ." none NOT PROVED" exit then .decimal cli-unproved-of. ;
+\ Axioms that could not be read come first, as "?" with their count.
+: cli-unread. ( -- ) cli-axioms-unread @ ?dup if ." ? (" .decimal ."  not read); " then ;
+: cli-axioms-any? ( -- flag ) cli-axioms-used @ cli-axioms-unread @ or 0<> ;
 : cli-axioms. ( -- )
-  ." axioms: " cli-axioms-used @ ?dup 0= if ." none" exit then
-  lf-allowlist-bits and ?dup if cli-listed. then cli-unproved. ;
+  ." axioms: " cli-unread. cli-axioms-any? 0= if ." none" exit then
+  cli-axioms-used @ lf-allowlist-bits and ?dup if cli-listed. then cli-unproved. ;
 : cli-accepted. ( -- )
   outcome-ok cli-count-of @ ?dup 0= if exit then
   ." accepted: " .decimal ." ; " cli-axioms. cr ;
@@ -1087,9 +1101,10 @@ variable cli-info#
 : cli-steps-bad ( outcome -- outcome' )
   cli-state run-steps-bad @ if drop outcome-full then ;
 \ Accepted: the newest input declaration of that full name (the text's
-\ come after the library's: pr-newest finds them first).
+\ come after the library's: pr-newest finds them first), accepted as the
+\ kernel means it (tally.fs decl-accepted?, review PB2).
 : cli-step-find ( c-addr u -- d true | false )
-  pr-newest 0= if false exit then dup lf-env-outcome ok? dup 0= if nip then ;
+  pr-newest 0= if false exit then dup decl-accepted? dup 0= if nip then ;
 : cli-step-axiom ( d -- )
   lf-input-name nt-name if cli-state run-steps-axiom @ execute exit then
   2drop cli-steps-fail ;

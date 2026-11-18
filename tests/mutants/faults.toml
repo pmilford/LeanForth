@@ -2947,6 +2947,46 @@ test = "python3 tests/cli/test_leanforth.py Fuel.test_exhausted_used_budget"
 reason = "a check that ran out of fuel in step 1 reports fuel 0 (or too little), not its budget (review B1)"
 
 [[fault]]
+id = "cli-accepted-raw-slot"
+file = "src/cli/tally.fs"
+old = ''': decl-accepted? ( d -- flag ) lf-env-readable if lf-slot-accepted? else false then ;'''
+new = ''': decl-accepted? ( d -- flag ) lf-env lf-env-slot lf-slot-outcome@ ok? ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "an ok slot that is not final counts as accepted in every report and the step log (reviews N1, PB2)"
+
+[[fault]]
+id = "cli-axioms-unread-none"
+file = "src/cli/tally.fs"
+old = ''': decl-axioms ( d -- bits ) lf-env-axioms ok? 0= if drop axioms-unknown then ;'''
+new = ''': decl-axioms ( d -- bits ) lf-env-axioms drop ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "axioms that could not be read are reported as none, so proved (review N1)"
+
+[[fault]]
+id = "cli-axioms-unread-joined"
+file = "src/cli/tally.fs"
+old = '''  dup axioms-unknown = if drop 1 cli-axioms-unread +! else cli-axioms-or then ;'''
+new = '''  cli-axioms-or ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "axioms not read join the summary's axioms used as every axiom, and are not counted apart"
+
+[[fault]]
+id = "cj-axioms-unread-zero"
+file = "src/cli/check-json.fs"
+old = '''  s" axiomBits" cj-key dup axioms-unknown = if drop cj-null else cj-n then ;'''
+new = '''  s" axiomBits" cj-key 0 max cj-n ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "JSON writes axiomBits 0 (none) where the text says axioms: ? (review N1)"
+
+[[fault]]
+id = "outline-not-proved-unmarked"
+file = "src/present/proof-outline.fs"
+old = '''  if s" accepted; " lf-lv-put lf-ol-axioms lf-ol-not-proved. 0 lf-lv-flush lf-lv-eol exit'''
+new = '''  if s" accepted; " lf-lv-put lf-ol-axioms 0 lf-lv-flush lf-lv-eol exit'''
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_0_not_proved"
+reason = "the outline of a declaration resting on an axiom outside the allowlist has no NOT PROVED mark (review N11)"
+
+[[fault]]
 id = "cli-fuel-given-up-counted"
 file = "src/cli/check-run.fs"
 old = ''': ck-gave-up? ( outcome left -- flag ) 0= swap ck-ran-out? 0= and ;'''
@@ -3506,16 +3546,16 @@ reason = "an accepted verdict prints the label the owner withdrew on 2026-11-12"
 [[fault]]
 id = "cj-label-back"
 file = "src/cli/check-json.fs"
-old = '''  dup lf-env-outcome ok? if cj-axioms else cj-diagnostic then ;'''
-new = '''  dup lf-env-outcome ok? if s" experimental" s" label" cj-text cj-axioms else cj-diagnostic then ;'''
+old = '''  dup decl-accepted? if cj-axioms else cj-diagnostic then ;'''
+new = '''  dup decl-accepted? if s" experimental" s" label" cj-text cj-axioms else cj-diagnostic then ;'''
 test = "python3 tests/cli/test_leanforth.py NoLabel"
 reason = "an accepted declaration of the JSON report carries the label the owner withdrew on 2026-11-12"
 
 [[fault]]
 id = "ol-label-back"
 file = "src/present/proof-outline.fs"
-old = '''  if s" accepted; " lf-lv-put lf-ol-axioms 0 lf-lv-flush lf-lv-eol exit then'''
-new = '''  if s" accepted (experimental); " lf-lv-put lf-ol-axioms 0 lf-lv-flush lf-lv-eol exit then'''
+old = '''  if s" accepted; " lf-lv-put lf-ol-axioms lf-ol-not-proved. 0 lf-lv-flush lf-lv-eol exit'''
+new = '''  if s" accepted (experimental); " lf-lv-put lf-ol-axioms lf-ol-not-proved. 0 lf-lv-flush lf-lv-eol exit'''
 test = "python3 tests/present/check_outline.py"
 reason = "a proof outline's verdict carries the label the owner withdrew on 2026-11-12"
 
@@ -7033,16 +7073,16 @@ reason = "rvAX L2: a quotient record's fuel is read from inference's counter, th
 [[fault]]
 id = "cli-axioms-not-joined"
 file = "src/cli/tally.fs"
-old = '''  over ok? if dup cli-axioms-used dup @ rot or swap ! then ;'''
-new = '''  ;'''
+old = '''  dup axioms-unknown = if drop 1 cli-axioms-unread +! else cli-axioms-or then ;'''
+new = '''  dup axioms-unknown = if drop 1 cli-axioms-unread +! else drop then ;'''
 test = "python3 tests/cli/test_leanforth.py ExitCodes.test_1_forged_quotient ExitCodes.test_2_unsupported_and_unknown"
 reason = "rvAX L4: the summary says axioms: none when propext, Classical.choice and Quot.sound are used"
 
 [[fault]]
 id = "cli-listed-not-named"
 file = "src/cli/leanforth.fs"
-old = '''  lf-allowlist-bits and ?dup if cli-listed. then cli-unproved. ;'''
-new = '''  drop cli-unproved. ;'''
+old = '''  cli-axioms-used @ lf-allowlist-bits and ?dup if cli-listed. then cli-unproved. ;'''
+new = '''  cli-unproved. ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "rvAX L4: the summary does not name the allowlisted axioms used"
 
@@ -7339,8 +7379,8 @@ reason = "5.2.7: a skipped declaration makes the status 1, where Lean's checker 
 [[fault]]
 id = "skip-counted-rejected"
 file = "src/cli/tally.fs"
-old = '''  dup lf-env-skipped? if drop skipped else lf-env-outcome then ;'''
-new = '''  lf-env-outcome ;'''
+old = '''  dup lf-env-skipped? if drop skipped else decl-outcome then ;'''
+new = '''  decl-outcome ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "5.2.7: reports count a skipped declaration as rejected, status 1"
 
