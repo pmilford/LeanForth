@@ -260,16 +260,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 11
  },
- "1f51f21d782e": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-closed?",
-   "src/front/instantiate.fs:in-closed?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 9
- },
  "20086de961a5": {
   "copies": 2,
   "kind": "shape",
@@ -329,16 +319,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after the front branches merge; came with main's s2-unfold and s1-synth-b)",
   "tokens": 7
- },
- "27ce43656ca0": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-claim",
-   "src/front/instantiate.fs:in-claim"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 8
  },
  "28f41f13b2d8": {
   "copies": 2,
@@ -411,16 +391,6 @@
    "src/kernel/level-make.fs:lf-level-mk-imax"
   ],
   "reason": "false positive: the guarded test `dup a? if b else drop false then` (or with 2dup/2drop) of two different words",
-  "tokens": 7
- },
- "301ba51b47d9": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-entry!",
-   "src/front/instantiate.fs:in-entry!"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
  },
  "30d0f14ab8e9": {
@@ -536,16 +506,6 @@
   "reason": "false positive: a lookup or -1, different tables",
   "tokens": 6
  },
- "39d9545e808f": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-run",
-   "src/front/instantiate.fs:in-run"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 22
- },
  "3a1dbea59edb": {
   "copies": 2,
   "kind": "shape",
@@ -596,16 +556,6 @@
   ],
   "reason": "false positive: an ok-each loop (outcome.fs) over different steps, the shared word already",
   "tokens": 6
- },
- "3e32d6911a9e": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-leaf-range",
-   "src/front/instantiate.fs:in-leaf-range"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 9
  },
  "3edc6735929e": {
   "copies": 2,
@@ -680,17 +630,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 14
  },
- "497c97adf9db": {
-  "copies": 3,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-made",
-   "src/front/instantiate.fs:in-made",
-   "src/front/mvars.fs:mv-made"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 6
- },
  "4ade1c7c68a9": {
   "copies": 3,
   "kind": "shape",
@@ -743,16 +682,6 @@
   "reason": "false positive: a token loop on lfa-next-token, each with its own step",
   "tokens": 8
  },
- "4eb9e359a352": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-push-if",
-   "src/front/instantiate.fs:in-push-if"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 9
- },
  "50c4f8f07dd3": {
   "copies": 2,
   "kind": "shape",
@@ -764,26 +693,14 @@
   "tokens": 8
  },
  "51522cd1516d": {
-  "copies": 4,
+  "copies": 2,
   "kind": "shape",
   "members": [
    "src/core/constant-term-boundary.fs:lf-pair-same",
-   "src/front/beta-inst.fs:ib-same",
-   "src/front/instantiate.fs:in-same",
    "src/kernel/mixed-compare.fs:lf-meq-same"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
- },
- "5159de5b82a6": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-second",
-   "src/front/instantiate.fs:in-second"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 6
  },
  "51c2be37e123": {
   "copies": 2,
@@ -794,16 +711,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 12
- },
- "52650bc18233": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-hooks-made",
-   "src/front/instantiate.fs:in-hooks-made"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 9
  },
  "526a341cbecf": {
   "copies": 2,
@@ -1090,16 +997,6 @@
   "reason": "false positive: the guarded test `dup a? if b else drop false then` (or with 2dup/2drop) of two different words",
   "tokens": 7
  },
- "6a18ab970b1c": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-step-annot",
-   "src/front/instantiate.fs:in-step-annot"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front): instantiate.fs and beta-inst.fs carry smart-unfolding annotations alike: one shared annotation step (S2 merge B)",
-  "tokens": 10
- },
  "6a44becdbbb5": {
   "copies": 2,
   "kind": "shape",
@@ -1169,16 +1066,6 @@
   ],
   "reason": "accepted: the same test in derivation-log.fs, whose allow-list (tests/core/check_log_isolation.py, ADR 0013 L5) admits no other module's words",
   "tokens": 8
- },
- "717e3ed1c9c3": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-annot-image",
-   "src/front/instantiate.fs:in-annot-image"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front): instantiate.fs and beta-inst.fs carry smart-unfolding annotations alike: one shared annotation image (S2 merge B)",
-  "tokens": 6
  },
  "719a2248d5cc": {
   "copies": 2,
@@ -1263,16 +1150,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 10
  },
- "7b584c00ba1b": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-table-make",
-   "src/front/instantiate.fs:in-table-make"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 6
- },
  "7c11570642a7": {
   "copies": 7,
   "kind": "shape",
@@ -1321,16 +1198,6 @@
   "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with/ok-and/ok-then?, already the shared words",
   "tokens": 12
  },
- "7db9c55dfa3c": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-annot-rebuild",
-   "src/front/instantiate.fs:in-annot-rebuild"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front): instantiate.fs and beta-inst.fs carry smart-unfolding annotations alike: one shared annotation rebuild (S2 merge B)",
-  "tokens": 15
- },
  "7e3f53f99edc": {
   "copies": 2,
   "kind": "shape",
@@ -1351,16 +1218,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 9
- },
- "8020183d145c": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-pair-image",
-   "src/front/instantiate.fs:in-pair-image"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 12
  },
  "8085ebdd787c": {
   "copies": 18,
@@ -1711,16 +1568,6 @@
   "reason": "false positive: a kind record's two different hooks called, each with its own stack effect",
   "tokens": 6
  },
- "98fed58da85a": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-find",
-   "src/front/instantiate.fs:in-find"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 8
- },
  "990e3f3c62c2": {
   "copies": 4,
   "kind": "shape",
@@ -1949,16 +1796,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
  },
- "b2a9af45350b": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-room",
-   "src/front/instantiate.fs:in-room"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 10
- },
  "b380e2991a4d": {
   "copies": 10,
   "kind": "shape",
@@ -2065,16 +1902,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
- },
- "bd6c469680af": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-keep",
-   "src/front/instantiate.fs:in-keep"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 20
  },
  "bdc10859317a": {
   "copies": 4,
@@ -2326,14 +2153,12 @@
   "tokens": 9
  },
  "c8ea52d268a9": {
-  "copies": 6,
+  "copies": 4,
   "kind": "shape",
   "members": [
    "src/front/assign-check.fs:ac-undone",
    "src/front/goal-print.fs:gp-undone",
-   "src/front/instantiate.fs:in-undone",
    "src/front/level-params.fs:lp-undone",
-   "src/front/mvars.fs:mv-undone",
    "src/front/term-find.fs:tf-undone"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
@@ -2348,16 +2173,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 8
- },
- "c9ddc1f565e5": {
-  "copies": 2,
-  "kind": "copy",
-  "members": [
-   "src/front/beta-inst.fs:ib-range",
-   "src/front/instantiate.fs:in-range"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 15
  },
  "ca01f3ffe72b": {
   "copies": 4,
@@ -2459,13 +2274,12 @@
   "tokens": 6
  },
  "ce6289a7e339": {
-  "copies": 4,
+  "copies": 3,
   "kind": "shape",
   "members": [
    "src/front/elab-decl.fs:edc-must",
    "src/front/level-params.fs:lp-l-result",
-   "src/front/level-params.fs:lp-remapped",
-   "src/front/mvars.fs:mv-remapped"
+   "src/front/level-params.fs:lp-remapped"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
@@ -2672,16 +2486,6 @@
   "reason": "false positive: the guarded test `dup a? if b else drop false then` (or with 2dup/2drop) of two different words",
   "tokens": 9
  },
- "e1c7062439e8": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-image?",
-   "src/front/instantiate.fs:in-image?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 19
- },
  "e36b9e9a2aff": {
   "copies": 2,
   "kind": "shape",
@@ -2703,12 +2507,11 @@
   "tokens": 6
  },
  "e41f7bc1c7c1": {
-  "copies": 3,
+  "copies": 2,
   "kind": "shape",
   "members": [
    "src/front/assign-check.fs:ac-parts",
-   "src/front/level-params.fs:lp-parts-pending",
-   "src/front/mvars.fs:mv-pair-pending"
+   "src/front/level-params.fs:lp-parts-pending"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 14
@@ -2749,16 +2552,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after the front branches merge; came with main's s2-unfold and s1-synth-b)",
   "tokens": 6
  },
- "e5e8935a1b22": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-busy?",
-   "src/front/instantiate.fs:in-busy?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 8
- },
  "e60a6daee8de": {
   "copies": 2,
   "kind": "shape",
@@ -2785,16 +2578,6 @@
   "members": [
    "src/front/level-normalize.fs:ln-walk",
    "src/front/level-params.fs:lp-lwalk"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 17
- },
- "e9365edb85b2": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-step-pair",
-   "src/front/instantiate.fs:in-step-pair"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 17
@@ -2949,28 +2732,6 @@
   ],
   "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with/ok-and/ok-then?, already the shared words",
   "tokens": 6
- },
- "f820a56cdea5": {
-  "copies": 4,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-same-pair?",
-   "src/front/instantiate.fs:in-same-pair?",
-   "src/front/level-params.fs:lp-same?",
-   "src/front/mvars.fs:mv-same-pair?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 10
- },
- "f9de3c1d0146": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-images",
-   "src/front/instantiate.fs:in-images"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 8
  },
  "fb9e34f8597c": {
   "copies": 3,

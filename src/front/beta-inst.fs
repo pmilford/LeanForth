@@ -16,21 +16,18 @@
 \ unsupported, never another term; a beta step under a binder, whose
 \ arguments have loose ones, is front/instantiate.fs's: done where no
 \ binder of the lambda's body needs them lifted, else unsupported.
-\ The walk keeps its pending (node, depth) items on a heap stack and makes
-\ the image of each pair once (a memo table, as Lean's cache), so no depth
-\ needs the host's stacks (plan task 6.2.0).
+\ The walk is offset-walk.fs's (pending (node, depth) pairs on a heap
+\ stack, the image of each pair made once, as Lean's cache), so no depth
+\ needs the host's stacks (plan task 6.2.0); the beta case is its own.
 \ Outcomes: ok; invalid for a term that is not in the store (the body or
-\ an argument) or a negative m; unsupported as above; full when a store or the heap has no
-\ room. A failure gives -1 for the term. Untrusted.
-\ State: the record ib-state (the arguments, the walk's outcome and the
-\ memo's hash table) and the slabs ib-memo, ib-pending and ib-spine, in
-\ the checker context. The table is made afresh for each walk and freed
-\ with the context. Loads in decimal whatever BASE is, then restores it.
+\ an argument) or a negative m; unsupported as above; full when a store
+\ or the heap has no room. A failure gives -1 for the term. Untrusted.
+\ State: the record ib-state (the arguments and the rebuild walk) and the
+\ slab ib-spine, in the checker context; the walk's blocks are freed with
+\ the context. Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
-require ../lib/htab.fs
-require ../lib/hash32.fs
 require ../core/terms.fs
 require ../core/mvar-leaves.fs
 require ../core/annotations.fs
@@ -41,66 +38,21 @@ require ./meta-spine.fs
 begin-structure /ib
   field: ib-xs                 \ the arguments: the address of their cells
   field: ib-xs#                \ and how many
-  field: ib-outcome            \ ok, or the walk's first failure
-  2 cells +field ib-key        \ the (node depth) sought in the memo
-  /htab-hooks +field ib-hooks  \ the memo table's hooks
-  /htab +field ib-table        \ the memo: (node depth) to its entry
+  /ow +field ib-replace        \ the rebuild walk (offset-walk.fs)
 end-structure
 /ib context-record: ib-state
-3 cells context-slab: ib-memo      \ entries: node depth image
-2 cells context-slab: ib-pending   \ the walk's stack: node depth
 1 cells context-slab: ib-spine     \ the beta case's arguments, last first
-:noname ( -- ) ib-state ib-table htab-free ; context-teardown
+:noname ( -- ) ib-state ib-replace ow-free ; context-teardown
 
-: ib-fail ( outcome -- ) ib-state ib-outcome outcome-first! ;
 : ib-head ( node -- head ) begin dup lf-term-app? while lf-term-first@ repeat ;
 \ An application whose head is a bound variable: Lean's beta case.
 : ib-beta? ( node -- flag )
   dup lf-term-app? if ib-head lf-term-bvar? else drop false then ;
 
-\ Kept as it is: no loose bound variable at the depth (a binary node's
-\ data word, unknown when it holds a metavariable: then visited).
-: ib-leaf-range ( leaf -- range )
-  dup lf-term-bvar? if lf-term-first@ 1+ else drop 0 then ;
-: ib-range ( node -- range true | false )
-  dup in-inner? 0= if ib-leaf-range true exit then
-  lf-term-data@ if lf-data-loose true else false then ;
-: ib-closed? ( node depth -- flag ) swap ib-range if < 0= else drop false then ;
-
-\ The memo: entries in a slab, found through a hash table by (node depth).
-: ib-entry ( n -- addr ) ib-memo slab-at ;
-: ib-hash ( node depth -- h ) swap hash-fmix swap hash-step ;
-: ib-rehash ( n htab -- h ) drop ib-entry 2@ ib-hash ;
-: ib-same ( n key htab -- flag ) drop swap ib-entry 2@ rot 2@ d= ;
-: ib-hooks-made ( -- hooks )
-  ['] ib-rehash ['] ib-same ib-state ib-hooks htab-hooks! ib-state ib-hooks ;
-: ib-tab ( -- htab ) ib-state ib-table ;
-: ib-table-make ( -- outcome ) ib-tab htab-free 4 ib-hooks-made ib-tab htab-init ;
-: ib-sought ( -- addr ) ib-state ib-key ;
-: ib-find ( node depth -- n true | i false )
-  2dup ib-sought 2! ib-hash ib-sought swap ib-tab htab-find ;
-: ib-image? ( node depth -- image true | false )
-  2dup ib-closed? if drop true exit then
-  ib-find if ib-entry 2 cells + @ true else drop false then ;
-: ib-ready? ( node depth -- flag ) ib-image? dup if nip then ;
-: ib-image ( node depth -- image ) ib-image? drop ;
-: ib-room ( -- outcome ) ib-tab htab-ready dup ok? if drop 1 ib-memo slab-room then ;
-: ib-entry! ( node depth image n -- ) ib-entry tuck 2 cells + ! 2! ;
-: ib-claim ( node depth image -- n ) 1 ib-memo slab-claim drop dup >r ib-entry! r> ;
-: ib-keep ( node depth image -- outcome )
-  ib-room dup ok? 0= if nip nip nip exit then drop
-  ib-claim dup ib-entry 2@ ib-find drop ib-tab htab-put outcome-ok ;
-
-\ The stack.
-: ib-top ( -- node depth ) ib-pending slab-last 2@ ;
-: ib-pop ( -- ) ib-pending slab-drop ;
-: ib-push ( node depth -- ) ib-pending slab-2push ib-fail ;
-: ib-push-if ( node depth -- pushed? )
-  2dup ib-ready? if 2drop false else ib-push true then ;
-
 \ Bound variables: #k below the depth is itself; one of the m an
-\ argument; a larger one m less.
-: ib-made ( index true | false -- image ) 0= if outcome-full ib-fail -1 then ;
+\ argument; a larger one m less. A pair with no loose bound variable at
+\ its depth is kept (in-closed?, instantiate.fs).
+: ib-made ( index true | false -- image ) room-result ow-fail ;
 : ib-x ( k -- x ) cells ib-state ib-xs @ + @ ;
 : ib-m ( -- m ) ib-state ib-xs# @ ;
 : ib-bvar ( node depth -- image )
@@ -109,20 +61,6 @@ end-structure
   drop lf-term-first@ ib-m - lf-term-bvar ib-made ;
 : ib-leaf ( node depth -- image ) over lf-term-bvar? if ib-bvar else drop then ;
 
-\ Binary nodes: children's images, the node rebuilt when one changes.
-: ib-first ( node depth -- child depth ) swap lf-term-first@ swap ;
-: ib-second ( node depth -- child depth' )
-  over lf-term-binder? - swap lf-term-second@ swap ;
-: ib-images ( node depth -- i1 i2 )
-  2dup ib-first ib-image >r ib-second ib-image r> swap ;
-: ib-same-pair? ( i1 i2 node -- i1 i2 flag )
-  >r 2dup r@ lf-term-second@ = swap r> lf-term-first@ = and ;
-: ib-rebuild ( i1 i2 node -- image )
-  dup >r lf-term-tag@ lf-term-binary
-  if r> lf-meta-named ib-fail else r> drop outcome-full ib-fail -1 then ;
-: ib-pair-image ( node depth -- image )
-  over >r ib-images r@ ib-same-pair? if 2drop r> exit then r> ib-rebuild ;
-
 \ The beta case: the head's image applied to the spine's arguments'
 \ images (each at the depth, in ib-spine, last first), one head beta step
 \ taken when the head's image is a lambda (Lean's betaRev).
@@ -130,52 +68,29 @@ end-structure
 : ib-spine-arg ( i -- arg ) ib-spine lf-meta-arg ;
 : ib-apply ( f depth -- f' )
   ib-spine slab-count 0 ?do
-    i ib-spine-arg over ib-image rot swap lf-term-app ib-made swap
+    i ib-spine-arg over ow-image rot swap lf-term-app ib-made swap
   loop drop ;
 : ib-lam? ( term -- flag ) dup 0< if drop false else lf-term-lam? then ;
 : ib-head-beta ( f -- f' )
-  dup 0< if exit then lf-meta-head-beta dup ok? if drop else ib-fail drop -1 then ;
+  dup 0< if exit then lf-meta-head-beta ok-or-none ow-fail ;
 : ib-head-image ( node depth -- image ) swap ib-head swap ib-bvar ;
 : ib-beta-apply ( himage depth -- image )
   over >r ib-apply r> ib-lam? if ib-head-beta then ;
 : ib-beta-image ( node depth -- image )
-  over ib-spine-fill dup ok? 0= if ib-fail 2drop -1 exit then drop
+  over ib-spine-fill dup ok? 0= if ow-fail 2drop -1 exit then drop
   tuck ib-head-image swap ib-beta-apply ;
 : ib-arg ( node depth -- arg depth ) swap lf-term-second@ swap ;
 : ib-args-pushed? ( node depth -- pushed? )
   false -rot begin over lf-term-app? while
-    2dup ib-arg ib-push-if if rot drop true -rot then ib-first
+    2dup ib-arg ow-push-if if rot drop true -rot then ow-first
   repeat 2drop ;
-
-\ One step on the top pair: done already, a child first, or made.
-: ib-done ( node depth image -- ) ib-keep ib-fail ib-pop ;
 : ib-step-beta ( node depth -- )
-  2dup ib-args-pushed? if 2drop exit then 2dup ib-beta-image ib-done ;
-: ib-step-pair ( node depth -- )
-  2dup ib-first ib-push-if if 2drop exit then
-  2dup ib-second ib-push-if if 2drop exit then 2dup ib-pair-image ib-done ;
-\ An annotation (core/annotations.fs): its child's image under its key,
-\ itself when the child stays.
-: ib-annot-rebuild ( image node -- image' )
-  2dup lf-annot-child = if nip exit then
-  lf-annot-key lf-annot ok-then? 0= if ib-fail -1 then ;
-: ib-annot-image ( node depth -- image )
-  over lf-annot-child swap ib-image swap ib-annot-rebuild ;
-: ib-step-annot ( node depth -- )
-  2dup ib-first ib-push-if if 2drop exit then 2dup ib-annot-image ib-done ;
-: ib-step ( -- )
-  ib-top 2dup ib-ready? if 2drop ib-pop exit then
-  over ib-beta? if ib-step-beta exit then
-  over lf-term-binary? if ib-step-pair exit then
-  over lf-annot? if ib-step-annot else 2dup ib-leaf ib-done then ;
-: ib-busy? ( -- flag ) ib-pending slab-count 0> ib-state ib-outcome @ ok? and ;
-: ib-start ( -- outcome )
-  outcome-ok ib-state ib-outcome ! ib-memo slab-clear ib-pending slab-clear
-  ib-table-make ;
-: ib-run ( body -- term outcome )
-  dup 0 ib-push begin ib-busy? while ib-step repeat
-  ib-state ib-outcome @ dup ok? if drop 0 ib-image outcome-ok else nip no-result then ;
-
+  2dup ib-args-pushed? if 2drop exit then 2dup ib-beta-image ow-done ;
+\ The walk's own case: an application headed by a bound variable.
+: ib-own ( node depth -- node depth false | true )
+  over ib-beta? if ib-step-beta true else false then ;
+' in-closed? ' ib-leaf ' ib-own ow-kind constant ib-kind
+: ib-run ( body -- term outcome ) ib-kind ib-state ib-replace ow-run ;
 \ The arguments: terms with no loose bound variable.
 : ib-xs! ( addr m -- ) ib-state tuck ib-xs# ! ib-xs ! ;
 : ib-x-ok ( x -- outcome )
@@ -186,6 +101,6 @@ end-structure
   dup 0< if 2drop drop -1 outcome-invalid exit then ib-xs!
   dup lf-term-root? 0= if drop -1 outcome-invalid exit then
   ib-args-ok dup ok? 0= if nip no-result exit then drop
-  ib-m 0= if outcome-ok exit then ib-start ok-then? if ib-run else no-result then ;
+  ib-m 0= if outcome-ok exit then ib-run ;
 
 base !   \ the BASE this file was loaded with

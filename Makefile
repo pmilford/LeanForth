@@ -1083,6 +1083,7 @@ test-front:
 	$(RUN) $(GFORTH) tests/front/front.fs
 	$(RUN) $(GFORTH) tests/front/meta.fs
 	$(RUN) $(GFORTH) tests/front/meta-heap.fs
+	$(RUN) $(GFORTH) tests/front/offset-walk.fs
 	$(RUN) $(GFORTH) tests/front/constructions.fs
 	@out=$$($(RUN) $(GFORTH) tests/front/handover.fs 2>&1) || \
 	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "handover.fs: all tests passed"

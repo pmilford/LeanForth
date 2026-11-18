@@ -324,17 +324,14 @@ end-structure
 \ metavariable, its value; a level's are its parts (succ, max, imax) and,
 \ for an assigned level metavariable, its value. An occurs check's image
 \ is 1 when the node holds the target (mctx-target), else 0.
-: mv-undone ( child walk -- child true | false )
-  over swap dw-done? if drop false else true then ;
 : mv-binary? ( term -- flag ) lf-term-tag@ lf-term-binary-tag? ;
 : mv-value-of ( term -- value true | false )
   dup lf-mvar-live? if lf-mvar-value else drop false then ;
 : mv-pair-pending ( node walk -- child true | false )
-  over lf-term-first@ over mv-undone if nip nip true exit then
-  swap lf-term-second@ swap mv-undone ;
+  >r dup lf-term-first@ swap lf-term-second@ r> dw-want2 ;
 : mv-term-pending ( node walk -- child true | false )
   over mv-binary? if mv-pair-pending exit then
-  swap mv-value-of if swap mv-undone else drop false then ;
+  swap mv-value-of if swap dw-want else drop false then ;
 : mv-pair-images ( node walk -- i1 i2 )
   over lf-term-first@ over dw-image >r swap lf-term-second@ swap dw-image r> swap ;
 : mv-walk ( build pending walk -- walk )
@@ -345,7 +342,7 @@ end-structure
 : mv-pending-of ( mvar -- pending true | false )
   mv-of 0= if false exit then mvd-pending @ dup 0< if drop false else true then ;
 : mv-delay-leaf ( walk node -- child true | false )
-  mv-pending-of if swap mv-undone else drop false then ;
+  mv-pending-of if swap dw-want else drop false then ;
 : mv-occurs-pending ( node walk -- child true | false )
   2dup mv-term-pending if nip nip true exit then
   over lf-mvar? if swap mv-delay-leaf else 2drop false then ;
@@ -367,12 +364,11 @@ end-structure
 : mvl-value-of ( level -- value true | false )
   dup lf-level-mvar-live? if lf-level-mvar-value else drop false then ;
 : mvl-pair-pending ( node walk -- child true | false )
-  over mvl-first over mv-undone if nip nip true exit then
-  swap mvl-second swap mv-undone ;
+  >r dup mvl-first swap mvl-second r> dw-want2 ;
 : mvl-pending ( node walk -- child true | false )
   over mvl-binary? if mvl-pair-pending exit then
-  over mvl-succ? if swap mvl-first swap mv-undone exit then
-  swap mvl-value-of if swap mv-undone else drop false then ;
+  over mvl-succ? if swap mvl-first swap dw-want exit then
+  swap mvl-value-of if swap dw-want else drop false then ;
 : mvl-pair-images ( node walk -- i1 i2 )
   over mvl-first over dw-image >r swap mvl-second swap dw-image r> swap ;
 : mvl-walk ( build -- walk )
@@ -672,15 +668,11 @@ end-structure
 : mv-refuse ( outcome -- ) mv-twalk dw-refuse ;
 : mv-image ( node -- image ) mv-twalk dw-image ;
 : mv-unported ( -- -1 ) outcome-unsupported mv-refuse -1 ;
-: mv-named ( new old -- new ) lf-meta-named mv-refuse ;
-: mv-same-pair? ( i1 i2 node -- i1 i2 flag )
-  >r 2dup r@ lf-term-second@ = swap r> lf-term-first@ = and ;
+\ (A refusal with ok changes nothing: mv-refuse also keeps a made image.)
 : mv-rebuild ( node walk -- image )
-  over >r mv-pair-images r@ mv-same-pair? if 2drop r> exit then
-  r@ lf-term-tag@ lf-term-binary if r> mv-named exit then r> outcome-full mv-refuse ;
+  over >r mv-pair-images r> lf-meta-rebuilt mv-refuse ;
 : mv-node-rebuild ( node -- image ) mv-twalk mv-rebuild ;
-: mv-remapped ( image outcome -- image ) dup ok? if drop else mv-refuse then ;
-: mv-made ( term true | false -- term ) 0= if outcome-full mv-refuse -1 then ;
+: mv-made ( term true | false -- term ) room-result mv-refuse ;
 
 \ Spines, walking down the first parts; delayed heads ready for their
 \ step (mctx-delays: some delayed assignment's pending one is assigned).
@@ -766,7 +758,7 @@ end-structure
 : mv-lands? ( term -- flag )
   mv-delays? if mv-spine-head mv-delay-rec dup if nip then else drop false then ;
 : mv-args-land? ( -- flag ) false mv-args# 0 ?do i mv-args slab-at @ mv-lands? or loop ;
-: mv-headed ( term -- image ) lf-meta-head-beta mv-remapped ;
+: mv-headed ( term -- image ) lf-meta-head-beta mv-refuse ;
 : mv-beta-all ( node f -- image )
   swap mv-spine drop dup mv-lands? mv-args-land? or if drop mv-unported exit then
   0 mv-apply mv-headed ;
@@ -785,7 +777,7 @@ end-structure
 \ against all n arguments, as Lean does, with no second pass.
 : mv-rec-fvars ( rec -- addr ) mvd-fvars @ mv-fvars store-slot ;
 : mv-rec-abstract ( value rec -- e )
-  dup mv-rec-fvars swap mv-rec-k lf-meta-abstract mv-remapped ;
+  dup mv-rec-fvars swap mv-rec-k lf-meta-abstract mv-refuse ;
 : mv-lam-over ( body type -- lam ) swap lf-term-lam mv-made ;
 : mv-lams-over ( e type k -- F ) 0 ?do tuck mv-lam-over swap loop drop ;
 : mv-rec-fun ( value rec -- F )
@@ -828,8 +820,8 @@ end-structure
 \ (level-map.fs rebuilds the node when one changes).
 : mv-level-image ( level -- level' )
   lf-level-instantiate-mvars dup ok? if drop else mv-refuse then ;
-: mv-sort-build ( node -- image ) ['] mv-level-image lf-meta-sort-remap mv-remapped ;
-: mv-const-build ( node -- image ) ['] mv-level-image lf-meta-const-remap mv-remapped ;
+: mv-sort-build ( node -- image ) ['] mv-level-image lf-meta-sort-remap mv-refuse ;
+: mv-const-build ( node -- image ) ['] mv-level-image lf-meta-const-remap mv-refuse ;
 : mv-leaf-build ( node walk -- image )
   over mv-value-of if swap dw-image nip else drop then ;
 : mv-leaf-kind ( node walk -- image )

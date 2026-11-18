@@ -570,6 +570,7 @@ check ran): 16 keys of two cells put and found 100,000 times with an
 | `caches.fs`, the free-variable memo | (node, identity) → flag; admit as above | 345,757; 77.1; 187,506 / 29,688 / 47,800 / 58,830 / 21,933; 102,937 |
 | `src/kernel/replace-memo.fs` (Lean's replace cache, one per pass kind and context) | (identity, offset, stamp) → (result, identity); check as above; `memo-cut` takes a call's entries out | 228,961 empties; 186; 24,860 / 45,237 / 77,995 / 62,744 / 18,125; 469,055 (stamped entries kept up to 2^20). Per call taken out: 22,299,167 calls; 5.6; 10,297,605 / 8,065,922 / 3,158,428 / 773,321 / 3,891; 4,107 |
 | `src/import/ndjson.fs`, the index maps (one per record family) | index → ordinal (one cell each) | none: every index of `Init` is its own ordinal, so no map is made (`tests/core/ndjson.fs` makes them) |
+| `src/front/offset-walk.fs` (the front end's instantiate1, abstract and instantiateBetaRevRange; reuse pass F2, 2026-11-18) | (node, depth) → image; no hooks; made afresh per walk, as the hash table it replaced | not measured on `Init`: the front end runs on authored text only (`.lf` checks); `tests/front/offset-walk.fs` walks up to 20,000 binders |
 
 **Tests** (`tests/lib/memo.fs`, in `make test-lib`; Gforth 1.0 and 0.7.3;
 loaded under `HEX`): the public words and hidden helpers; the header's
@@ -808,7 +809,7 @@ Gforth 0.7.3 about twice as slow.
 *Callers* (2026-11-13): the front end's level equality and unification
 (`level-simp.fs`, `level-defeq.fs`: pairs still to compare), `Expr.eqv`
 (`term-eqv.fs`), `Level.normalize`'s flattening (`level-normalize.fs`),
-instantiate and its beta (`instantiate.fs`, `beta-inst.fs`: the walks'
+instantiate and its beta (`offset-walk.fs` for `instantiate.fs` and `beta-inst.fs`: the walks'
 pending (node, depth) pairs), `isPropQuick` (`prop-quick.fs`), the goal
 printer's groups (`goal-print.fs`), the tactic runner's blocks, parts and
 saves (`tactic-run.fs`), and the input's inductive cells

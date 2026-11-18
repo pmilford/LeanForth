@@ -75,6 +75,7 @@ require ./front/level-map.fs
 require ./front/mvars.fs
 require ./front/meta-config.fs
 require ./front/level-defeq.fs
+require ./front/offset-walk.fs
 require ./front/instantiate.fs
 require ./front/level-simp.fs
 require ./front/level-params.fs

@@ -130,19 +130,12 @@ end-structure
   over kab-unported? if 2drop outcome-unsupported exit then
   over lf-term-binary? if kab-open else drop kab-image then ;
 
-\ ---- Rebuilding: e's tag over the two images, the same node when they
-\ are e's own parts; a new binder keeps e's name and kind.
-: kab-parts ( e -- f s ) dup lf-term-first@ swap lf-term-second@ ;
-\ (The two parts compared as one pair of cells.)
-: kab-parts= ( e f s -- flag ) rot kab-parts d= ;
-: kab-node ( e f s -- e' outcome )
-  rot >r r@ lf-term-tag@ lf-term-binary if r> lf-meta-named else r> drop
-    outcome-full no-result then ;
-: kab-rebuilt ( e f s -- e' outcome )
-  >r 2dup r@ kab-parts= if drop r> drop outcome-ok else r> kab-node then ;
+\ ---- Rebuilding: e over the two images (offset-walk.fs's lf-meta-rebuilt:
+\ the same node when they are e's own parts; a new binder keeps e's name
+\ and kind).
 : kab-pair ( -- f s ) kab-images slab-pop kab-images slab-pop swap ;
 : kab-build ( e off -- outcome )
-  drop kab-pair kab-rebuilt ok-then? if kab-image then ;
+  drop >r kab-pair r> lf-meta-rebuilt ok-then? if kab-image then ;
 
 \ ---- The loop (lib/slab.fs's worklist drain): one unit of the budget a
 \ visit.

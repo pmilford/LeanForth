@@ -1,0 +1,58 @@
+# Planted faults of the front reuse pass, part A (branch reuse-front-a,
+# 2026-11-18): the shared words that replace the front end's copies.
+
+[[fault]]
+id = "rfa-ow-current-not-restored"
+file = "src/front/offset-walk.fs"
+old = '''  ow-current @ >r dup ow-current ! ow-go r> ow-current ! ;'''
+new = '''  dup ow-current ! ow-go ;'''
+test = "$GFORTH tests/front/offset-walk.fs"
+reason = "reuse pass F2: a walk run inside another's hook leaves its own record in use, so the outer walk goes on with the inner one's stack and memo"
+
+[[fault]]
+id = "rfa-ow-kept-ignored"
+file = "src/front/offset-walk.fs"
+old = '''  2dup ow-hooks owk-kept @ execute if drop true exit then ow ow-memo memo@ ;'''
+new = '''  ow ow-memo memo@ ;'''
+test = "$GFORTH tests/front/offset-walk.fs"
+reason = "reuse pass F2: a pair the kind keeps (instantiate1's closed subterm, Lean's looseBVarRange test) is walked and rebuilt instead"
+
+[[fault]]
+id = "rfa-ow-own-skipped"
+file = "src/front/offset-walk.fs"
+old = '''  ow-hooks owk-own @ execute if exit then'''
+new = '''  ow-hooks drop'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "reuse pass F2: the walk's own case (instantiateBetaRevRange's beta of a bound-variable head) is never tried"
+
+[[fault]]
+id = "rfa-ow-stack-kept"
+file = "src/front/offset-walk.fs"
+old = '''  dup slab-live? if slab-clear outcome-ok else ow-stack-make then ;'''
+new = '''  dup slab-live? if drop outcome-ok else ow-stack-make then ;'''
+test = "$GFORTH tests/front/offset-walk.fs"
+reason = "reuse pass F2: a failed walk's pending pairs stay on the stack and the next run visits them"
+
+[[fault]]
+id = "rfa-ow-memo-leaked"
+file = "src/front/offset-walk.fs"
+old = ''': ow-memo-make ( memo -- outcome ) dup memo-free 2 1 rot memo-init ;'''
+new = ''': ow-memo-make ( memo -- outcome ) 2 1 rot memo-init ;'''
+test = "$GFORTH tests/front/offset-walk.fs"
+reason = "reuse pass F2: each run's memo is made over the last one's without giving its blocks back"
+
+[[fault]]
+id = "rfa-rebuilt-always-new"
+file = "src/front/offset-walk.fs"
+old = '''  >r 2dup r@ ow-parts d= if 2drop r> outcome-ok else r> ow-binary then ;'''
+new = '''  ow-binary ;'''
+test = "$GFORTH tests/front/offset-walk.fs"
+reason = "reuse pass F2: a node whose parts stay is copied (Lean's update keeps it), so authoring runs, which share no node, change every term"
+
+[[fault]]
+id = "rfa-annot-over-always-new"
+file = "src/front/offset-walk.fs"
+old = '''  2dup lf-annot-child = if nip outcome-ok exit then lf-annot-key lf-annot ;'''
+new = '''  lf-annot-key lf-annot ;'''
+test = "$GFORTH tests/front/offset-walk.fs"
+reason = "reuse pass F2: an annotation whose child stays is copied (Lean's updateMData! keeps it)"

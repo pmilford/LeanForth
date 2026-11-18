@@ -10867,7 +10867,7 @@ reason = "FE1c: instantiate1 keeps a loose index above the value instead of lowe
 
 [[fault]]
 id = "fe-inst-binder-depth-lost"
-file = "src/front/instantiate.fs"
+file = "src/front/offset-walk.fs"
 old = '''  over lf-term-binder? - swap lf-term-second@ swap ;'''
 new = '''  swap lf-term-second@ swap ;'''
 test = "$GFORTH tests/front/meta.fs"
@@ -10875,16 +10875,16 @@ reason = "FE1c: instantiate1 does not count a binder, so it replaces a variable 
 
 [[fault]]
 id = "fe-inst-binder-name-lost"
-file = "src/front/instantiate.fs"
-old = ''': in-named ( new old -- new ) lf-meta-named in-fail ;'''
-new = ''': in-named ( new old -- new ) drop ;'''
+file = "src/front/offset-walk.fs"
+old = '''  >r r@ lf-term-tag@ lf-term-binary if r> lf-meta-named exit then'''
+new = '''  >r r@ lf-term-tag@ lf-term-binary if r> drop outcome-ok exit then'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: a rebuilt binder loses its name and kind, so the term differs from Lean's"
 
 [[fault]]
 id = "fe-inst-loose-value"
 file = "src/front/instantiate.fs"
-old = '''  0> in-state in-lifts @ and if outcome-unsupported in-fail then ;'''
+old = '''  0> in-state in-lifts @ and if outcome-unsupported ow-fail then ;'''
 new = '''  drop ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c (narrowed by FE1g-4, which puts such a value in where no binder lies around it): a value with loose bound variables is put in under a binder without the lifting Lean does, so it is captured"
@@ -11169,16 +11169,16 @@ reason = "FE1b: instantiation leaves assigned metavariables in place"
 
 [[fault]]
 id = "fe-binder-names-lost"
-file = "src/front/mvars.fs"
-old = ''': mv-named ( new old -- new ) lf-meta-named mv-refuse ;'''
-new = ''': mv-named ( new old -- new ) drop ;'''
+file = "src/front/meta-spine.fs"
+old = '''  lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! ms-full else outcome-ok then ;'''
+new = '''  drop outcome-ok ;'''
 test = "$GFORTH tests/front/front.fs"
-reason = "FE1b: a rebuilt binder loses its name and kind (Lean's terms keep them)"
+reason = "FE1b: a rebuilt binder loses its name and kind (Lean's terms keep them); re-targeted to the shared lf-meta-named (reuse pass F2)"
 
 [[fault]]
 id = "fe-sort-level-kept"
 file = "src/front/mvars.fs"
-old = ''': mv-sort-build ( node -- image ) ['] mv-level-image lf-meta-sort-remap mv-remapped ;'''
+old = ''': mv-sort-build ( node -- image ) ['] mv-level-image lf-meta-sort-remap mv-refuse ;'''
 new = ''': mv-sort-build ( node -- image ) ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1b: Sort ?u keeps ?u after ?u is assigned"
@@ -11186,7 +11186,7 @@ reason = "FE1b: Sort ?u keeps ?u after ?u is assigned"
 [[fault]]
 id = "fe-const-levels-kept"
 file = "src/front/mvars.fs"
-old = ''': mv-const-build ( node -- image ) ['] mv-level-image lf-meta-const-remap mv-remapped ;'''
+old = ''': mv-const-build ( node -- image ) ['] mv-level-image lf-meta-const-remap mv-refuse ;'''
 new = ''': mv-const-build ( node -- image ) ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1b: a constant over ?u keeps ?u after ?u is assigned"
@@ -12421,7 +12421,7 @@ reason = "FE1c review L3: max (u+1) 1 stays a max, where Lean's mkLevelMax' subs
 
 [[fault]]
 id = "fe-inst-let-deeper"
-file = "src/front/instantiate.fs"
+file = "src/front/offset-walk.fs"
 old = '''  over lf-term-binder? - swap lf-term-second@ swap ;'''
 new = '''  over lf-term-tag@ dup lf-term-binder-tag? swap lf-tag-let = or - swap lf-term-second@ swap ;'''
 test = "python3 tests/front/check_meta.py"
@@ -15226,17 +15226,17 @@ reason = "FE1c review M1: a rebuilt binder loses its kind when the binder table 
 
 [[fault]]
 id = "fe-defeq-inst-copy-drops-full"
-file = "src/front/instantiate.fs"
-old = ''': in-named ( new old -- new ) lf-meta-named in-fail ;'''
-new = ''': in-named ( new old -- new ) lf-meta-named drop ;'''
+file = "src/front/offset-walk.fs"
+old = ''': ow-pair-image ( node depth -- image ) over swap ow-images rot lf-meta-rebuilt ow-fail ;'''
+new = ''': ow-pair-image ( node depth -- image ) over swap ow-images rot lf-meta-rebuilt drop ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M1: instantiate1 drops a full binder table and loses the kind"
 
 [[fault]]
 id = "fe-defeq-mvars-copy-drops-full"
 file = "src/front/mvars.fs"
-old = ''': mv-named ( new old -- new ) lf-meta-named mv-refuse ;'''
-new = ''': mv-named ( new old -- new ) lf-meta-named drop ;'''
+old = '''  over >r mv-pair-images r> lf-meta-rebuilt mv-refuse ;'''
+new = '''  over >r mv-pair-images r> lf-meta-rebuilt drop ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M1: instantiateMVars drops a full binder table and loses the kind"
 
@@ -20070,19 +20070,19 @@ reason = "an application's arguments the heap cannot hold read as undecided, not
 
 [[fault]]
 id = "fe-annotation-instantiate-leaf"
-file = "src/front/instantiate.fs"
-old = '''  over lf-annot? if in-step-annot else 2dup in-leaf in-done then ;'''
-new = '''  2dup in-leaf in-done ;'''
+file = "src/front/offset-walk.fs"
+old = '''  over lf-annot? if ow-step-annot else ow-step-leaf then ;'''
+new = '''  ow-step-leaf ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "S2 merge B: instantiate1 takes a smart-unfolding annotation for a leaf, so its child's bound variables stay unreplaced"
 
 [[fault]]
 id = "fe-annotation-beta-inst-leaf"
-file = "src/front/beta-inst.fs"
-old = '''  over lf-annot? if ib-step-annot else 2dup ib-leaf ib-done then ;'''
-new = '''  2dup ib-leaf ib-done ;'''
+file = "src/front/offset-walk.fs"
+old = '''  over lf-annot-child swap ow-image swap lf-meta-annot-over ow-fail ;'''
+new = '''  drop ;'''
 test = "$GFORTH tests/front/infer.fs"
-reason = "S2 merge B: instantiateBetaRevRange takes a smart-unfolding annotation for a leaf"
+reason = "S2 merge B: instantiateBetaRevRange keeps a smart-unfolding annotation as it is, its child's bound variables not put in (re-targeted to offset-walk.fs's shared annotation step, reuse pass F2)"
 
 [[fault]]
 id = "fe-annotation-beta-always-strips"
