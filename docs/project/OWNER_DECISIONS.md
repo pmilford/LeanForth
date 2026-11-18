@@ -1402,3 +1402,24 @@ kernel, and shown annotated: every step with the goal it leaves and an English l
 the explained proofs), from S2's step log (s2-steps). The page joins docs/user/DEMOS.md's form (mathematics, LeanForth,
 Lean) but for proofs LeanForth itself derived, and says exactly what was run.
 
+
+## Faster merges: deferred duplication, batched coverage debt, the daily run out of the push (2026-11-17)
+
+The owner, after an evening in which S2's branch worked (Lean comparisons and planted faults passing) but did not
+merge for hours: "we are progressing too slowly ... too much testing ... too small work packages". Three decisions,
+each asked in plain language with a recommendation:
+
+1. **Duplication and style findings may merge as planned work** when a reuse pass is already scheduled next. The
+   Forth reviewer still reports them; each becomes a named item of that pass (plan 9.4.8). Trust-boundary findings
+   and differences from Lean still block the merge. This narrows "Reviews block on duplication" (2026-11-13).
+2. **Coverage debt on failure branches may merge, recorded per slice.** Every new word still needs its main tests
+   and a planted fault before the merge. Never-run refusal paths (a store or heap refusing, fuel running out,
+   malformed records) may wait: the coverage baseline is raised in a commit that names the slice, the debt is listed
+   per file in the slice's report and plan row, and one batch test pass pays it at the end of the slice, before the
+   slice's done check. This narrows "coverage may not drop" (the 110% rule) for those branches only.
+3. **The daily cache-off full run leaves the push.** It runs once a night by itself (and before a tag), recorded per
+   tree. A push runs only its own change tier; Gforth 0.7.3's unit tests still run at code pushes. `scripts/push.sh`
+   warns when the last daily run is old; it does not run it.
+
+Unchanged: pinned-Lean comparisons, planted faults, the trust part of every Forth review, the owner's gates, and the
+done checker.
