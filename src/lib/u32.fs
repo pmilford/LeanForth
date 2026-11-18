@@ -30,14 +30,29 @@
 \ State: none. u32-native is a constant set while loading, by a check
 \ that uses the 8-character buffer u32-trial once, then never again.
 \ The file loads in decimal whatever BASE is, then restores it.
+\
+\ Example: three packed fields; a value keeps its low 32 bits.
+\   create fields 3 u32s allot
+\   7 fields u32!  -1 fields 4 + u32!  fields u32@ .  fields 4 + u32@ u32-mask = .
+\   \ prints: 7 -1
+\
+\ Interface: u32s u32-mask u32@ u32! u32-native u32-sound? u32-bytes@
+\ u32-bytes! u32-le! u32-le@ u32s>le le>u32s u32-block? u32s>le-fields
+\ le>u32s-fields. Requires portability.fs and module.fs; helpers are
+\ private in lf-lib-private (ADR 0010).
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./portability.fs
+require ./module.fs
 
+lf-lib-private module-open
+
+lf-lib set-current
 \ Address units of n packed fields, and the 32-bit mask: on a 64-bit host
 \ 2^32-1; on a 32-bit host 2^32 wraps to 0 and the mask is -1, every bit.
 : u32s ( n -- au ) 4 * chars ;
 $10000 dup * 1- constant u32-mask
+lf-lib-private set-current
 \ Bits 0 .. 7 of x, and bits 8i .. 8i+7 of u.
 : u32-low ( x -- c ) $FF and ;
 : u32-byte ( u i -- c ) 8 * rshift u32-low ;
@@ -47,12 +62,16 @@ $10000 dup * 1- constant u32-mask
 \ addr; u32-byte+ shifts u up by 8 bits and adds character i at addr;
 \ bits above 32 are dropped.
 : u32-byte! ( u addr i -- ) >r swap r@ u32-byte swap r> chars + c! ;
+lf-lib set-current
 : u32-bytes! ( u addr -- )
   2dup 0 u32-byte! 2dup 1 u32-byte! 2dup 2 u32-byte! 3 u32-byte! ;
+lf-lib-private set-current
 : u32-byte+ ( u addr i -- u' ) chars + c@ u32-low swap 8 lshift or ;
+lf-lib set-current
 : u32-bytes@ ( addr -- u )
   0 over 3 u32-byte+ over 2 u32-byte+ over 1 u32-byte+ swap 0 u32-byte+ ;
 
+lf-lib-private set-current
 \ Whether a fetch and a store, given as xts, are unsigned 32-bit access:
 \ a value with bits 0 and 31 set comes back unchanged, not sign-extended,
 \ and the store leaves the four characters after the field as they were
@@ -60,6 +79,7 @@ $10000 dup * 1- constant u32-mask
 1 31 lshift 1+ constant u32-probe
 create u32-trial 8 chars allot
 : u32-trial! ( store-xt -- ) u32-trial 8 chars $FF fill u32-probe u32-trial rot execute ;
+lf-lib set-current
 : u32-sound? ( fetch-xt store-xt -- flag )
   u32-trial! u32-trial swap execute u32-probe =
   u32-trial 4 chars + u32-bytes@ u32-mask = and ;
@@ -90,11 +110,13 @@ synonym u32! l! ( u addr -- )
 : u32-le! ( u c-addr -- ) u32-bytes! ;
 : u32-le@ ( c-addr -- u ) u32-bytes@ ;
 
+lf-lib-private set-current
 \ Whether packed memory is already little-endian: the field 1 has its one
 \ set bit in the first character and the fourth character is 0. Checked
 \ once, while loading; lf-u32-fields forces false.
 : u32-little? ( -- flag )
   1 u32-trial u32! u32-trial c@ 1 = u32-trial 3 chars + c@ 0= and ;
+lf-lib set-current
 [defined] lf-u32-fields 0= [if] u32-little? [else] false [then]
 constant u32-block?
 
@@ -111,4 +133,5 @@ constant u32-block?
 : le>u32s ( c-addr addr n -- )
   u32-block? if 4 * chars move else le>u32s-fields then ;
 
+module-close
 base !   \ the BASE this file was loaded with

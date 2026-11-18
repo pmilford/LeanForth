@@ -1,10 +1,16 @@
 \ Range and memory predicates used to validate input before forming
 \ addresses. Signed comparisons only, so no bound can wrap around; and
 \ cell-counted records, laid down and read back. No state.
-\ Interface: between? upto? range-at in-range-at? in-ranges? cells-zero?
-\ cells= index? cells-index cells-has? cell-counted, cell-count cell-counted!
-\ cell-counted+!.
+\ Interface: between? upto? range-at in-ranges? cells-zero? cells= index?
+\ cells-index cells-has? cell-counted, cell-count cell-counted!
+\ cell-counted+!. Requires portability.fs, outcome.fs (any?, 2dup-under)
+\ and module.fs;
+\ helpers are private in lf-lib-private (ADR 0010).
 \ Example:
+\   create primes 2 , 3 , 5 , 7 ,   create odds 3 , 5 , 7 ,
+\   3 4 index? .  4 4 index? .  5 primes 4 cells-index . .
+\   primes cell+ odds 3 cells= .   \ prints: -1 0 -1 2 -1
+\ More cases, with their results:
 \   create primes 2 , 3 , 5 , 7 ,   create odds 3 , 5 , 7 ,
 \   3 4 index?  4 4 index?  0 -1 index?    \ true false false
 \   5 primes 4 cells-index                 \ 2 true
@@ -15,7 +21,11 @@
 
 require ./portability.fs
 require ./outcome.fs
+require ./module.fs
 
+lf-lib-private module-open
+
+lf-lib set-current
 \ True when lo <= n <= hi; false whenever hi < lo.
 : between? ( n lo hi -- flag ) rot tuck < 0= -rot swap < 0= and ;
 \ True when 0 <= n <= limit; false for any negative limit.
@@ -24,7 +34,9 @@ require ./outcome.fs
 \ a-addr (a table of ranges, such as a character class); n <= 0 holds
 \ none. range-at gives pair k; in-range-at? is in-ranges?'s test of it.
 : range-at ( a-addr k -- lo hi ) 2* cells + dup @ swap cell+ @ ;
+lf-lib-private set-current
 : in-range-at? ( x a-addr k -- x a-addr flag ) 2dup-under range-at between? ;
+lf-lib set-current
 : in-ranges? ( x a-addr n -- flag ) ['] in-range-at? any? nip nip ;
 
 \ True when the n cells starting at addr are all zero; n <= 0 reads nothing
@@ -61,3 +73,5 @@ require ./outcome.fs
 : cell-counted! ( c-addr u addr room -- flag )
   2 pick < if drop 2drop false exit then 2dup ! cell+ swap move true ;
 : cell-counted+! ( c-addr u addr -- ) >r tuck r@ cell-count + swap move r> +! ;
+
+module-close
