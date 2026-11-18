@@ -2131,6 +2131,22 @@ test = "$GFORTH tests/lib/text-run.fs"
 reason = "run-settings-restore leaves BASE as the run set it"
 
 [[fault]]
+id = "pv-rethrow-ends-ok"
+file = "src/program/verify-runner.fs"
+old = '''  dup pv-settled? if drop exit then ['] pv-interrupted pv-try drop ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "a design's THROW handler that throws again leaves the run ok, instead of stopped as interrupted"
+
+[[fault]]
+id = "pv-file-word-runs"
+file = "src/program/verify.fs"
+old = ''': pv-not-ours ( index -- ) drop pv-why-interrupted pv-fail-here ;'''
+new = ''': pv-not-ours ( index -- ) drop ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "a word of the file run by anyone but the verifier does nothing, instead of refusing"
+
+[[fault]]
 id = "pv-run-while-compiling"
 file = "src/program/verify-runner.fs"
 old = ''': pv-not-compiling ( -- ) state @ pv-why-compiling pv-?fail-here ;'''

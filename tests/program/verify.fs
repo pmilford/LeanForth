@@ -376,6 +376,37 @@ pv-design: throwing-design  ' throwing-prefix throwing-design prefix-like
 T{ prepare-throws -> 77 false }T
 T{ s" : f ;" checked -> outcome-ok 0 1 0 }T
 
+\ The runner's own fallbacks, with designs like the mode shift but for
+\ one word: a line word that refuses with no current token, whose
+\ diagnostic then quotes none; and a handler of THROWs that throws
+\ again, after which the run stops as interrupted.
+: line-like ( xt design -- ) pv-shift over /pv-design move pv-design-line ! ;
+: caught-like ( xt design -- ) pv-shift over /pv-design move pv-design-caught ! ;
+: no-token-fail ( -- ) pv-no-token pv-why-unknown pv-fail ;
+pv-design: no-token-design  ' no-token-fail no-token-design line-like
+T{ 0 transcript# ! s" x" s" t.fs" no-token-design pv-text-run verdict
+   -> outcome-unsupported pv-why-unknown 1 0 }T
+T{ s" lf-ir 0.1|source t.fs|unsupported @1:0: not a known word or 32-bit decimal|"
+   transcribed? -> true }T
+: throw-55 ( -- ) 55 throw ;
+: throw-66 ( code -- ) drop 66 throw ;
+pv-design: rethrow-design  ' throw-66 rethrow-design caught-like
+' throw-55 rethrow-design pv-design-line !
+T{ s" x" s" t.fs" rethrow-design pv-text-run verdict
+   -> outcome-invalid pv-why-interrupted 1 0 }T
+
+\ A word of the file run by anyone but the verifier (here this test,
+\ after the run) refuses: the mode shift never lets one run. It throws
+\ the runner's code; a refusal already recorded stands, and after an
+\ accepted run the record says interrupted.
+: file-word ( c-addr u -- xt ) pv-words @ search-wordlist 0= abort" no file word" ;
+: run-file-word ( -- code reason ) s" g" file-word catch lf-verify-reason ;
+T{ s" : g ; : f then ;" checked -> outcome-invalid pv-why-unbalanced 1 11 }T
+T{ run-file-word -> pv-throw pv-why-unbalanced }T
+T{ s" : g ;" checked -> outcome-ok 0 1 0 }T
+T{ run-file-word -> pv-throw pv-why-interrupted }T
+T{ s" : f ;" checked -> outcome-ok 0 1 0 }T
+
 \ Capacities at the boundary: eight open structures are written, the
 \ ninth is full, at its own line, as with today's reader.
 create nest-text 256 chars allot
