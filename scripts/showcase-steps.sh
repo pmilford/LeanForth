@@ -36,11 +36,13 @@ for line in sys.stdin:
     record = json.loads(line)
     if "tactic_steps" in record:
         head = record["tactic_steps"]
-        print(f"  theorem {head[\"declaration\"]}: {head[\"steps\"]} checked steps")
+        name, count = head["declaration"], head["steps"]
+        print(f"  theorem {name}: {count} checked steps")
         continue
-    parent = f", in step {record[\"parent\"]}" if record["parent"] else ""
-    print(f"  step {record[\"step\"]}: {record[\"word\"]} ({record[\"tactic\"]}) "
-          f"at line:col {record[\"source\"]}{parent}")
+    step, word, tactic, source = record["step"], record["word"], record["tactic"], record["source"]
+    parent = record["parent"]
+    inside = f", in step {parent}" if parent else ""
+    print(f"  step {step}: {word} ({tactic}) at line:col {source}{inside}")
     if record["goal_before"] is not None:
         print("    before:")
         print(goal(record["goal_before"], "      "))
@@ -56,7 +58,7 @@ for file in "$@"; do
   # shellcheck disable=SC2086
   out=$(bin/leanforth check $library --steps - "$file" </dev/null 2>&1)
   code=$?
-  printf '%s\n' "$out" | grep '^{' | python3 -c "$format"
+  printf '%s\n' "$out" | grep '^{' | python3 -c "$format" || status=1
   # The file's own theorems' verdicts (the library's come first), or the error.
   for name in $(grep -oE '^theorem +[^ ]+' "$file" | awk '{print $2}'); do
     printf '%s\n' "$out" | grep -F -- "$name: " | grep -v '^{' | tail -1
