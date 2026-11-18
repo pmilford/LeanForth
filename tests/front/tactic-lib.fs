@@ -249,6 +249,12 @@ T{ no-such abm-frames slab-count lf-mctx-marks -> -4201 0 0 }T
 : mismatch ( -- code ) s" Nat.succ" refl-nat 1 ['] lf-mk-app-m catch dup if nip nip nip nip then ;
 T{ mismatch abm-frames slab-count lf-mctx-marks -> -4204 0 0 }T
 \ mkAppM at transparency all keeps it (withAtLeastTransparency).
+\ An instance binder in this run, which has no elaboration data: no class
+\ is known, so instance search refuses the goal (110, invalid), never a
+\ term; the frame and context put back (part 4 has the data).
+: hadd-code ( -- code ) s" HAdd.hAdd" zero zero 2 ['] lf-mk-app-m catch dup if >r 2drop 2drop
+  drop r> then ;
+T{ hadd-code lf-synth-error abm-frames slab-count lf-mctx-marks -> -4201 110 0 0 }T
 : refl-zero ( -- e ) s" Eq.refl" zero 1 lf-mk-app-m ;
 T{ ' refl-zero lf-tr-all lf-meta-at 2 s" Eq.refl" lf-meta-app-of? -> true }T
 \ mkCongrArg: a dependent function is no arrow (rejected). (A congrFun
