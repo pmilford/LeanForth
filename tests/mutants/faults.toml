@@ -1667,6 +1667,38 @@ test = "$GFORTH tests/cli/leanforth.fs"
 reason = "capabilities does not list checking a LeanForth text (check [--env EXPORT | --snapshot FILE] FILE.lf)"
 
 [[fault]]
+id = "cli-same-file-text-only"
+file = "src/cli/leanforth.fs"
+old = '''  cli-arg-index if swap cli-arg-index if cli-same-pair? exit then then drop false ;'''
+new = '''  2drop false ;'''
+test = "python3 tests/cli/test_leanforth.py Overwrites"
+reason = "review B1 of 2026-11-18: an output compared with the inputs only as text, so ./ex.ndjson or a link overwrites the export"
+
+[[fault]]
+id = "cli-steps-not-written"
+file = "src/cli/leanforth.fs"
+old = '''  cli-steps 2dup s" -" compare if c" STEPS" cli-out+ else 2drop then ;'''
+new = '''  cli-steps 2drop ;'''
+test = "python3 tests/cli/test_leanforth.py Overwrites"
+reason = "review B2 of 2026-11-18: --steps is not counted as a file written, so it overwrites FILE.lf, --env or --elab-data and exits 0"
+
+[[fault]]
+id = "cli-wrapper-no-same-files"
+file = "bin/leanforth"
+old = '''    if [ "${arguments[i]}" -ef "${arguments[j]}" ]; then same+="$i:$j "; fi'''
+new = '''    :'''
+test = "python3 tests/cli/test_leanforth.py Overwrites"
+reason = "review B1 of 2026-11-18: the wrapper lists no names of one file, so a link or a relative name over an input is written"
+
+[[fault]]
+id = "cli-check-direct-unguarded"
+file = "src/cli/leanforth.fs"
+old = '''  cli-start false cli-clashing ?dup if exit then'''
+new = '''  cli-start'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "check-command run directly (cli-check, as the Forth interface does) writes RECORD over the export"
+
+[[fault]]
 id = "ndjson-anonymous-name"
 file = "src/import/ndjson.fs"
 old = '''  tuck name-of 2dup anonymous? if 2drop bad-ref else rot drop then ;'''
@@ -2753,8 +2785,8 @@ reason = "NOT PROVED gives exit status 6 by default, not Lean's 0 (owner, 2026-1
 [[fault]]
 id = "cli-strict-axioms-dropped"
 file = "src/cli/leanforth.fs"
-old = '''  cli-start cli-strict? cli-strict-axioms! cli-misused? if cli-misuse-record exit then'''
-new = '''  cli-start cli-misused? if cli-misuse-record exit then'''
+old = '''  cli-strict? cli-strict-axioms! cli-misused? if cli-misuse-record exit then'''
+new = '''  cli-misused? if cli-misuse-record exit then'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "check ignores --strict-axioms: the report says strictAxioms false and NOT PROVED keeps 0"
 
@@ -5296,6 +5328,30 @@ reason = "a run started by an immediate word while Forth compiles compiles the L
 quick = true
 
 [[fault]]
+id = "author-room-throw-internal"
+file = "src/author/runner.fs"
+old = '''  lfa-room-throw? if lfa-e-forth-room else lfa-e-forth then ;'''
+new = '''  drop lfa-e-forth ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "review N1 of 2026-11-18: a host stack running out (THROW -3) is reported as an internal fault (exit 5), not a resource limit (exit 3)"
+
+[[fault]]
+id = "author-room-throw-dictionary"
+file = "src/author/runner.fs"
+old = '''  case -3 of true endof -5 of true endof -8 of true endof'''
+new = '''  case -3 of true endof -5 of true endof'''
+test = "$GFORTH tests/author/author.fs"
+reason = "review N1 of 2026-11-18: the dictionary running out (THROW -8) is an internal fault, not a resource limit"
+
+[[fault]]
+id = "author-forth-fault-invalid"
+file = "src/author/errors.fs"
+old = '''  lfa-e-forth s" a Forth exception, with its THROW code" lfa-internal,'''
+new = '''  lfa-e-forth s" a Forth exception, with its THROW code" lfa-invalid,'''
+test = "$GFORTH tests/author/author.fs"
+reason = "review N1 of 2026-11-18: a Forth fault inside a run is blamed on the text (invalid, exit 4) instead of exit 5"
+
+[[fault]]
 id = "author-line-end-compiling"
 file = "src/author/runner.fs"
 old = '''  lfa-interpreting? lfa-e-compiling lfa-must lfa-the-line nip lfa-read-to ;'''
@@ -5331,8 +5387,8 @@ reason = "a second text in one run counts its lines on from the first, so its er
 [[fault]]
 id = "author-exception-empty-token"
 file = "src/author/runner.fs"
-old = '''  lfa-first-token lfa-number! lfa-token lfa-here lfa-e-forth lfa-record ;'''
-new = '''  lfa-number! lfa-token lfa-here lfa-e-forth lfa-record ;'''
+old = '''  lfa-first-token lfa-number! lfa-token lfa-here lfa-thrown lfa-record ;'''
+new = '''  lfa-number! lfa-token lfa-here lfa-thrown lfa-record ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "a Forth exception on a line no word has read yet shows an empty token (p04)"
 

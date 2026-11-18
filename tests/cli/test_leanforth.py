@@ -665,6 +665,104 @@ FOO_NOT_PROVED = ("foo: accepted; axioms: unlisted; "
                   "NOT PROVED: depends on foo")
 
 
+class Overwrites(unittest.TestCase):
+    """No file a command writes is one it reads, under any spelling, whatever
+    options come first (review B1, B2 of 2026-11-18): RECORD, FILE
+    (--save-snapshot), STEPS (--steps) and COPY against EXPORT, FILE.lf,
+    --env, --elab-data and --snapshot; exit 4 before anything runs, the
+    file unchanged. bin/leanforth finds two names one file (test -ef); the
+    Forth side alone knows which option takes a value (cli-option-table)."""
+
+    TEXT = "tests/front/01-zero-add-rw.lf"
+    LIBRARY = "tests/front/s2-slice.ndjson"
+    DATA = "tests/front/s2-slice.elab.ndjson"
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.temp.name)
+        for source, name in [(COMPOSITION, "ex.ndjson"), (self.TEXT, "victim.lf"),
+                             (self.LIBRARY, "lib.ndjson"), (self.DATA, "lib.elab.ndjson")]:
+            (self.dir / name).write_bytes((ROOT / source).read_bytes())
+        (self.dir / "sub").mkdir()
+        for name in ["ex.ndjson", "victim.lf", "lib.ndjson", "lib.elab.ndjson"]:
+            (self.dir / "sub" / ("link-" + name)).symlink_to(self.dir / name)
+        self.before = {p.name: p.read_bytes() for p in self.dir.iterdir() if p.is_file()}
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def refused(self, args, message):
+        status, out, err = run(*args, cwd=self.dir)
+        self.assertEqual((status, out, err), (4, f"error: {message}\n", ""), args)
+        after = {p.name: p.read_bytes() for p in self.dir.iterdir() if p.is_file()}
+        self.assertEqual(after, self.before, args)
+
+    def test_export(self):
+        """Every value option first, every output, a relative and a linked name."""
+        firsts = [[], ["--jobs", "2"], ["--memory-per-check", "100"], ["--fuel", "5"],
+                  ["--progress"], ["--snapshot-stale-ok"]]
+        outputs = [("--record", "RECORD"), ("--save-snapshot", "FILE"), ("--steps", "STEPS")]
+        for first in firsts:
+            for option, what in outputs:
+                for name in ["./ex.ndjson", "sub/link-ex.ndjson", "../" + self.dir.name + "/ex.ndjson"]:
+                    self.refused(["check", *first, "--no-manifest", option, name, "ex.ndjson"],
+                                 f"{what} must not be EXPORT")
+        self.refused(["reexport", "ex.ndjson", "sub/link-ex.ndjson"], "COPY must not be EXPORT")
+        self.refused(["reexport", "--no-manifest", "sub/link-ex.ndjson", "./ex.ndjson"],
+                     "COPY must not be EXPORT")
+
+    def test_text(self):
+        """--steps and the outputs over the text, its library and its data."""
+        text = ["--env", "lib.ndjson", "--elab-data", "lib.elab.ndjson"]
+        for first in [[], ["--elab-fuel", "10"], ["--jobs", "2"]]:
+            for name, what in [("./victim.lf", "FILE.lf"), ("sub/link-victim.lf", "FILE.lf"),
+                               ("sub/link-lib.ndjson", "the --env export"),
+                               ("./lib.elab.ndjson", "the --elab-data file")]:
+                self.refused(["check", *first, *text, "--steps", name, "victim.lf"],
+                             f"STEPS must not be {what}")
+        self.refused(["check", "--env", "sub/link-lib.ndjson", "--elab-data", "lib.elab.ndjson",
+                      "--steps", "lib.ndjson", "victim.lf"], "STEPS must not be the --env export")
+
+    def test_snapshot_and_outputs(self):
+        """FILE over the snapshot read; two outputs one file, even a new one."""
+        self.refused(["check", "--snapshot", "ex.ndjson", "--save-snapshot", "sub/link-ex.ndjson"],
+                     "FILE must not be the snapshot read")
+        self.refused(["check", "--env", "lib.ndjson", "--record", "new.json", "--steps", "new.json",
+                      "victim.lf"], "STEPS must not be RECORD")
+        self.assertFalse((self.dir / "new.json").exists())
+
+    def test_inputs_may_repeat(self):
+        """Files only read may be one file: replay EXPORT EXPORT is no clash."""
+        status, out, _ = run("replay", "ex.ndjson", "sub/link-ex.ndjson", cwd=self.dir)
+        self.assertNotIn("must not be", out)
+        self.assertEqual(status, 4)
+
+    def test_steps_unwritable(self):
+        """--steps into a folder that does not exist: a resource fault, 3."""
+        status, out, _ = run("check", "--no-manifest", "--env", "lib.ndjson", "--elab-data",
+                             "lib.elab.ndjson", "--steps", "missing/log.ndjson", "victim.lf",
+                             cwd=self.dir)
+        self.assertEqual(status, 3, out)
+        self.assertIn("error: the step log could not be written: missing/log.ndjson", out)
+
+
+class ForthFaults(unittest.TestCase):
+    """A Forth exception inside a text's run is LeanForth's, never the
+    text's (review N1 of 2026-11-18): a host stack running out is a
+    resource limit, exit 3, error 300 (error 41, any other THROW, is exit 5:
+    tests/author/author.fs's thrown); neither is invalid text, exit 4."""
+
+    def test_stack_overflow(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "overflow.lf"
+            path.write_text("kernel-form\ntheorem t\n" + ("1 " * 400 + "\n") * 200,
+                            encoding="utf-8")
+            status, out, _ = run("check", str(path))
+        self.assertEqual(status, 3, out)
+        self.assertIn("error: full: the LeanForth text was not checked: error 300", out)
+        self.assertIn("with its THROW code -3", out)
+
+
 class OtherLean(unittest.TestCase):
     """--any-lean-version (check and print): an export whose metadata names
     another exporter and Lean version of format 3.1.0 (here one with sparse

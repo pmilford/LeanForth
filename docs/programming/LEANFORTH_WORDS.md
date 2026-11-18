@@ -265,7 +265,8 @@ A5):
   characters refused a token is what an editor shows as one.
 - **Lines.** Each text a run is given (`lf-author-text`, `lf-author-file`)
   counts its lines from 1.
-- **Forth exceptions** (error 41) name the last token a word read, or,
+- **Forth exceptions** (error 41, an internal fault, exit 5; error 300, full,
+  exit 3, when a host stack, the dictionary or the heap ran out) name the last token a word read, or,
   when no word has read one on that line, the line's first token.
 - **Group words** are made only while at least `lfa-dictionary-reserve`
   (65,536) address units of dictionary stay unused (else error 66, full),
@@ -352,7 +353,8 @@ position is the word that found the mistake (for codes 1 and 35, the
 refused token itself; for 39, the long line's first token); codes 11, 12,
 18 and 21 also give a second place (where the constant was written, where
 the binder was opened; for 18, the parameter's binder with a value left
-below it).
+below it). The outcome *internal* (code 41) is none of the vocabulary: an
+internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 
 | Code | Outcome | Message |
 | --- | --- | --- |
@@ -396,7 +398,7 @@ below it).
 | 38 | invalid | unknown constant |
 | 39 | full | line too long |
 | 40 | invalid | the file cannot be opened or read |
-| 41 | invalid | a Forth exception, with its THROW code |
+| 41 | internal | a Forth exception, with its THROW code |
 | 42 | invalid | a ( comment must end with ) on the same line |
 | 43 | invalid | protected comes right before theorem, def, axiom or import-stub |
 | 44 | invalid | protected declarations must be in a namespace |
@@ -497,6 +499,7 @@ below it).
 | 218 | invalid | Invalid rewrite argument: Expected an equality or iff proof or definition name, but |
 | 219 | invalid | Invalid rewrite argument: The pattern to be substituted is a metavariable |
 | 220 | invalid | Occurs check failed: Expression |
+| 300 | full | out of room: a Forth stack, the dictionary or the heap, with its THROW code |
 
 Codes come in ranges (`src/author/errors.fs`): 1 to 73 the words, the
 runner, the stores and natural text read (FE1a); 74 to 79 elaboration and

@@ -389,7 +389,7 @@ Options:
   command-line mistake (status 4).
 - `--record RECORD` writes the run record of the check to RECORD
   ([run records and replay](#run-records-and-replay)); RECORD must not be
-  the export. Run records 0.3 hold at most 32 declarations, so `check
+  the export ([files written](#files-written-are-never-files-read)). Run records 0.3 hold at most 32 declarations, so `check
   --record` reads the export straight into the checker's default
   sizes ([small exports](#small-exports-check---record-and-replay)).
 - `--resources` (`check` only) adds the [resource report](#the-resource-report)
@@ -1638,10 +1638,25 @@ both reads check it.
 | 0 | Every declaration accepted or skipped (or, for the other commands, done); NOT PROVED ones too, as Lean, unless `--strict-axioms` | every verdict *ok* or *skipped* |
 | 1 | Something rejected: Lean's kernel rejects it too | *rejected* |
 | 2 | Unsupported or unknown: LeanForth cannot decide it yet | *unsupported*, *unknown* |
-| 3 | A resource limit: out of fuel or out of room | *exhausted*, *full* |
+| 3 | A resource limit: out of fuel or out of room, also a Forth stack, the dictionary or the heap running out inside a LeanForth text's run (error 300) | *exhausted*, *full* |
 | 4 | Malformed input: a broken export, a missing or wrong manifest, a file that cannot be opened or created, or a malformed command line | *invalid* |
-| 5 | An internal fault: a Forth exception, a check that threw, a failed publication, or Gforth ending in an unexpected way | — |
+| 5 | An internal fault: a Forth exception (also inside a LeanForth text's run, error 41: never "invalid text"), a check that threw, a failed publication, or Gforth ending in an unexpected way | — |
 | 6 | Only with `--strict-axioms`: every declaration accepted, but some NOT PROVED (they depend on an axiom) | *ok* with an axiom |
+
+### Files written are never files read
+
+Before anything runs, a command that writes a file — `check --record
+RECORD`, `--save-snapshot FILE`, `--steps STEPS` (not `-`), `reexport
+EXPORT COPY` — refuses one that is a file it reads (the export or
+`FILE.lf`, `--env`, `--elab-data`, every `--snapshot`) or another file it
+writes, with status 4 and `error: STEPS must not be FILE.lf` (the names
+as in the usage; review B1, B2 of 2026-11-18). Two names are one file
+when they are the same text or the same file by device and inode, so a
+relative name (`./x`, `../d/x`) or a symbolic link to the file is refused
+too; options before the file name, such as `--jobs N`, change nothing.
+`bin/leanforth` finds the names of one file (`test -ef`) and passes them
+on by position; which option takes a value is known only to the Forth
+side's option table.
 
 When the declarations end differently, the most severe status wins, in
 the order 5, 4, 1, 3, 2, 6, 0: an internal fault or a malformed export puts

@@ -841,5 +841,33 @@ lf-sched lf-sch-ready queue-in  lf-sched lf-sch-laters queue-in
 T{ lf-sched lf-sch-ready queue-out lf-sched lf-sch-laters queue-out -> 2 5 9 2 5 9 }T
 lf-sched lf-sch-ready pq-free  lf-sched lf-sch-laters pq-free
 
+\ No file written is one read or written by another argument (review B1,
+\ B2 of 2026-11-18): the same text, or a pair of argument indices that
+\ bin/leanforth found one file (tests/cli/test_leanforth.py's Overwrites
+\ runs those); files only read may repeat.
+: t-ex ( -- c-addr u ) s" ex.ndjson" ;
+: t-dot-ex ( -- c-addr u ) s" ./ex.ndjson" ;
+: t-new ( -- c-addr u ) s" new.json" ;
+: t-export ( -- c-addr ) c" EXPORT" ;  : t-record ( -- c-addr ) c" RECORD" ;
+: t-file ( -- c-addr ) c" FILE" ;  : t-steps ( -- c-addr ) c" STEPS" ;
+T{ 3 12 cli-pair s"  3:12 " compare -> 0 }T
+cli-options
+T{ t-ex t-export cli-in+ t-ex t-record cli-out+ t-dot-ex t-file cli-out+ -> }T
+T{ 0 cli-path 1 cli-path cli-same-file? 0 cli-path 2 cli-path cli-same-file? -> true false }T
+T{ 0 cli-path 1 cli-path cli-written? 0 cli-path 0 cli-path cli-written? -> true false }T
+T{ 2 cli-path cli-path-addr 0 cli-path cli-path-addr -> t-dot-ex drop t-ex drop }T
+T{ 12 3 cli-same-pair? -> false }T
+cli-options
+T{ t-ex t-export cli-in+ t-ex t-record cli-out+ cli-clash -> 0 1 true }T
+T{ cli-state arg-paths# @ 1 cli-path path-out? @ 0 cli-path path-out? @ -> 2 true false }T
+cli-options
+T{ t-ex t-export cli-in+ t-ex t-record cli-in+ t-dot-ex t-file cli-out+ cli-clash -> false }T
+T{ 0 0 t-steps cli-out+ cli-state arg-paths# @ -> 3 }T
+T{ t-new t-record cli-out+ t-new t-steps cli-out+ cli-clash -> 3 4 true }T
+cli-options
+T{ t-ex cli-seen+ 2drop t-new cli-seen+ 2drop cli-seen nip -> 2 }T
+T{ t-new drop cli-arg-index t-ex drop cli-arg-index t-dot-ex drop cli-arg-index -> 1 true 0 true false }T
+cli-options
+
 cases-done
 bye

@@ -199,9 +199,18 @@ end-structure
 : lfa-first-token ( -- )
   lfa-token nip if exit then lfa-the-line lfa-next-token dup 0= if 2drop 2drop exit then
   lfa-token! 2drop ;
+\ A host stack, the dictionary or the heap ran out (THROW -3, -5, -8, or
+\ ALLOCATE's or RESIZE's -59, -61): error 300, full (exit 3); any other
+\ code is LeanForth's internal fault, error 41 (exit 5), never the text's.
+: lfa-room-throw? ( code -- flag )
+  case -3 of true endof -5 of true endof -8 of true endof
+    -59 of true endof -61 of true endof false swap endcase ;
+: lfa-forth-code ( code -- code' )
+  lfa-room-throw? if lfa-e-forth-room else lfa-e-forth then ;
+: lfa-thrown ( -- code ) lfa-error lfa-err-number @ lfa-forth-code ;
 : lfa-foreign ( code -- )
   dup -13 = if drop lfa-undefined exit then
-  lfa-first-token lfa-number! lfa-token lfa-here lfa-e-forth lfa-record ;
+  lfa-first-token lfa-number! lfa-token lfa-here lfa-thrown lfa-record ;
 : lfa-caught ( code -- outcome )
   ?dup 0= if outcome-ok exit then
   dup lf-author-throw = if drop else lfa-foreign then

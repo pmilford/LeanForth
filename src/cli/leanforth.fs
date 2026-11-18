@@ -112,6 +112,7 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../lib/lib.fs
 require ../lib/bytes.fs
 require ../lib/blocks.fs
+require ../lib/bounds.fs
 require ../lib/decimal.fs
 require ../lib/bits.fs
 require ../lib/text-run.fs
@@ -188,6 +189,11 @@ begin-structure /cli-run
   field: run-steps-fid          \ the step log's file while it is written
   field: run-steps-bad          \ true: writing it (or an axiom's name) failed
   field: run-steps-axiom        \ xt ( c-addr u -- ): where an axiom's name goes
+  field: arg-seen               \ every argument read, 0 the command: its address each
+  field: arg-seen#              \ how many
+  field: arg-paths              \ the files the command reads and writes (/cli-path each)
+  field: arg-paths#             \ how many
+  field: opt-engines            \ 1: --fast given, 2: --checked given (both: a mistake)
 end-structure
 /cli-run context-record: cli-state
 manifest: cli-manifest
@@ -517,10 +523,10 @@ create cli-fed-ops
 \ A read that failed: the outcome, the reason, the field and the line
 \ (0 for the manifest), and for a JSON error the byte within the line
 \ (import/ndjson.fs's .export-where).
-: cli-error-head ( outcome why-addr why-u -- )
-  ." error: " rot outcome-text type ." : " type ;
+: cli-error-head ( why-addr why-u outcome -- )
+  ." error: " outcome-text type ." : " type ;
 : cli-input-error ( outcome -- )
-  cin-export swap >r cin-error r> -rot cli-error-head .export-where cr ;
+  cin-export swap >r cin-error r> cli-error-head .export-where cr ;
 \ A failure about the manifest is at line 0 (the export opened, see
 \ cli-opens?): a hint at the export step and the explicit way out.
 : manifest-failed? ( outcome -- flag )
@@ -567,13 +573,13 @@ create cli-fed-ops
 \ reason of sealing (stage-why). A feed that failed gives the number of
 \ the expression or declaration where it stopped, as feed.fs keeps it.
 : cli-stage-error ( outcome -- )
-  ck-stage stage-export swap >r ck-stage stage-error r> -rot cli-error-head
+  ck-stage stage-export swap >r ck-stage stage-error r> cli-error-head
   .export-where cr ;
 : cli-stage-manifest? ( outcome -- flag )
   outcome-invalid = cli-checked? and ck-stage stage-error 2drop 2drop 0= and
   ck-stage stage-why @ 0= and ;
 : cli-feed-error ( outcome -- )
-  s" the staged export could not be fed to the checker" cli-error-head
+  s" the staged export could not be fed to the checker" rot cli-error-head
   ."  (it stopped at expression or declaration " ck-feeding-record feed-at .decimal
   ." )" cr ;
 \ A snapshot refused (--snapshot): the outcome, what was refused, and the
@@ -933,10 +939,6 @@ variable cli-info#
   cli-record-text dup ok? if drop cli-record 2@ rr-save then ;
 : cli-recorded ( -- )
   cli-record? 0= if exit then cli-saved dup ok? if drop else cli-record-failed then ;
-\ RECORD must not name the export: comparing the names as text; the
-\ wrapper also refuses one file under two names.
-: cli-over-export? ( -- flag )
-  cli-record? if cli-record 2@ 0 cli-file compare 0= else false then ;
 : cli-checks ( -- code )
   cli-recorded-ops cli-state run-ops ! cli-unchecked-note cli-settings
   cli-recording? if cli-run cli-recorded then rr-release cli-worst @ ;
@@ -989,12 +991,25 @@ variable cli-info#
   cli-snap-both? if
   s" --save-snapshot without an export writes one snapshot again, not its layers"
     cli-misuse-snap exit then
-  cli-save? cli-snapshot? and if
-    cli-state opt-save 2@ cli-state opt-snapshot 2@ compare 0=
-    if s" FILE must not be the snapshot read" cli-misuse-snap exit then then
   cli-save? cli-state opt-layers# @ 0<> and
   if s" --save-snapshot writes a layer on one snapshot only" cli-misuse-snap exit then
   cli-stale-misuse ;
+: cli-wrong ( c-addr u why -- )
+  cli-state arg-mistake @ if drop 2drop exit then
+  cli-state arg-mistake ! cli-state arg-culprit 2! ;
+: cli-mistake? ( -- flag ) cli-state arg-mistake @ 0<> ;
+\ Every argument read is kept by its address, in order, the command 0:
+\ its index names it in bin/leanforth's list of arguments that are one
+\ file (cli-same-file?).
+: cli-seen ( -- addr n ) cli-state arg-seen @ cli-state arg-seen# @ ;
+: cli-seen-room ( -- outcome )
+  cli-state arg-seen# @ 1+ cells cli-state arg-seen block-resize ;
+: cli-seen-full ( c-addr u -- c-addr u ) 2dup c" no room for the arguments" cli-wrong ;
+: cli-seen+ ( c-addr u -- c-addr u )
+  cli-seen-room ok? 0= if cli-seen-full exit then
+  over cli-seen cells + ! 1 cli-state arg-seen# +! ;
+
+
 \ check [--env EXPORT | --snapshot FILE] FILE.lf (plan tasks 8.2.1c-d;
 \ cli/check-lf.fs): a LeanForth text run by the LeanForth words, its
 \ declarations staged after the library's -- an export's, or a snapshot's
@@ -1033,8 +1048,12 @@ variable cli-info#
 : cli-elab-note ( -- )
   cli-elab-file nip 0= if exit then ." elaboration data: " cli-elab-format1
   cli-elab-format2 cli-elab-format3 cr ;
+\ An error's outcome as the line names it: error 41's is none of the
+\ vocabulary, an internal fault (exit 5, author/errors.fs lfa-internal).
+: cli-author-outcome. ( outcome -- )
+  dup outcome? if outcome-text type else drop ." internal fault" then ;
 : cli-text-error ( -- )
-  ." error: " lf-author-code lf-author-outcome dup outcome-text type
+  ." error: " lf-author-code lf-author-outcome dup cli-author-outcome.
   ." : the LeanForth text was not checked: " lf-author-error. cr outcome>code cli-code! ;
 \ The text ran, but its records did not reach the stage whole (review L4):
 \ the refusal's outcome, said of the text, never of an export line the
@@ -1162,8 +1181,82 @@ variable cli-info#
 : cli-snapshot-check ( -- code )
   cli-files @ 0= if ['] cli-snapshot-run cli-fed-run exit then
   cli-opens? 0= if cli-not-opened exit then ['] cli-import-run cli-fed-run ;
+\ No file a command writes may be one it reads or another it writes,
+\ checked before anything runs (exit 4): RECORD (--record), FILE
+\ (--save-snapshot), STEPS (--steps, not -) and reexport's COPY against
+\ EXPORT or FILE.lf, --env, --elab-data and every --snapshot. Two names
+\ are one file when they are the same text, or when bin/leanforth found
+\ them one file by device and inode (test -ef, through symbolic links and
+\ relative names): it lists those arguments in LEANFORTH_SAME_FILES as
+\ " I:J " pairs of their indices (cli-seen), I < J.
+begin-structure /cli-path
+  2 cells +field path-text      \ the file's name, as given
+  field: path-label             \ counted string: what the messages call it
+  field: path-out?              \ true: the command writes it
+end-structure
+: cli-arg-index ( c-addr -- i true | false ) cli-seen cells-index ;
+: cli-pair-text ( i j -- c-addr u )
+  <# bl hold s>d #s 2drop [char] : hold s>d #s bl hold #> ;
+: cli-pair ( i j -- c-addr u ) ['] cli-pair-text in-decimal ;
+: cli-same-files ( -- c-addr u ) s" LEANFORTH_SAME_FILES" cli-env ;
+: cli-same-pair? ( i j -- flag )
+  2dup > if swap then cli-pair cli-same-files 2swap search nip nip ;
+: cli-same-index? ( c-addr1 c-addr2 -- flag )
+  cli-arg-index if swap cli-arg-index if cli-same-pair? exit then then drop false ;
+: cli-path ( i -- addr ) /cli-path * cli-state arg-paths @ + ;
+: cli-same-text? ( a b -- flag ) path-text 2@ rot path-text 2@ compare 0= ;
+: cli-path-addr ( path -- c-addr ) path-text 2@ drop ;
+: cli-same-place? ( a b -- flag ) cli-path-addr swap cli-path-addr cli-same-index? ;
+: cli-same-file? ( a b -- flag )
+  2dup cli-same-text? if 2drop true else cli-same-place? then ;
+: cli-written? ( a b -- flag ) path-out? @ swap path-out? @ or ;
+\ Paths a and b clash when either is written and they are one file.
+: cli-clash? ( a b -- flag ) 2dup cli-written? if cli-same-file? else 2drop false then ;
+: cli-paths-room ( -- outcome )
+  cli-state arg-paths# @ 1+ /cli-path * cli-state arg-paths block-resize ;
+: cli-path! ( c-addr u label out? addr -- )
+  tuck path-out? ! tuck path-label ! path-text 2! ;
+: cli-path+ ( c-addr u label out? -- )   \ THROW -59 when there is no room
+  cli-paths-room ok? 0= if -59 throw then
+  cli-state arg-paths# @ cli-path cli-path! 1 cli-state arg-paths# +! ;
+: cli-in+ ( c-addr u label -- ) over if false cli-path+ else drop 2drop then ;
+: cli-out+ ( c-addr u label -- ) over if true cli-path+ else drop 2drop then ;
+: cli-layer-in ( i -- )
+  2* cells cli-state opt-layers @ + 2@ c" the snapshot read" cli-in+ ;
+: cli-layers-in ( -- ) cli-state opt-layers# @ 0 ?do i cli-layer-in loop ;
+: cli-steps-out+ ( -- )
+  cli-steps 2dup s" -" compare if c" STEPS" cli-out+ else 2drop then ;
+\ The file names, set by the command line or by cli-check (cli-files
+\ counts only those of the command line).
+: cli-first-in ( -- )
+  0 cli-file cli-text-file? if c" FILE.lf" else c" EXPORT" then cli-in+ ;
+\ The command's second file, when it writes one (reexport's COPY).
+: cli-copy-out+ ( copy? -- ) if 1 cli-file c" COPY" cli-out+ then ;
+: cli-inputs ( -- )
+  cli-first-in cli-library-file c" the --env export" cli-in+
+  cli-elab-file c" the --elab-data file" cli-in+
+  cli-state opt-snapshot 2@ c" the snapshot read" cli-in+ cli-layers-in ;
+: cli-outputs ( copy? -- )
+  cli-copy-out+ cli-record 2@ c" RECORD" cli-out+
+  cli-state opt-save 2@ c" FILE" cli-out+ cli-steps-out+ ;
+: cli-paths ( copy? -- ) 0 cli-state arg-paths# ! cli-inputs cli-outputs ;
+: cli-clash-in ( i -- j true | false )
+  cli-state arg-paths# @ over 1+ ?do
+    dup cli-path i cli-path cli-clash? if drop i true unloop exit then loop drop false ;
+: cli-clash ( -- i j true | false )
+  cli-state arg-paths# @ 0 ?do i cli-clash-in if i swap true unloop exit then loop false ;
+: cli-label. ( path -- ) path-label @ count type ;
+: cli-clash. ( i j -- )   \ the later one first when it is written
+  cli-path swap cli-path swap dup path-out? @ 0= if swap then
+  ." error: " cli-label. ."  must not be " cli-label. cr ;
+\ 0, or 4 after the message when a written file is read or written twice;
+\ copy?: the command's second file is one it writes. Each command that
+\ writes a file runs it first.
+: cli-clashing ( copy? -- code|0 )
+  cli-paths cli-clash if cli-clash. exit-malformed else 0 then ;
 : check-command ( -- code )
-  cli-start cli-strict? cli-strict-axioms! cli-misused? if cli-misuse-record exit then
+  cli-start false cli-clashing ?dup if exit then
+  cli-strict? cli-strict-axioms! cli-misused? if cli-misuse-record exit then
   cli-text? if exit then cli-any-misused? if cli-misuse-any exit then
   cli-jobs-misused? if cli-misuse-jobs exit then
   cli-per-check-misused? if cli-misuse-per-check exit then
@@ -1171,7 +1264,6 @@ variable cli-info#
   cli-snap-misuse ?dup if exit then
   cli-snapshot? if cli-snapshot-check exit then
   cli-opens? 0= if cli-not-opened exit then
-  cli-over-export? if ." error: RECORD must not be EXPORT" cr exit-malformed exit then
   cli-record? if cli-checks else cli-library then ;
 
 \ replay: the export, file 0, checked again as check --record checks it,
@@ -1298,7 +1390,6 @@ variable cli-info#
 \ The copy, then the file closed on every path; the first failure wins.
 : cli-into ( c-addr u fid -- outcome )
   dup >r ['] cli-copy catch r> closed swap throw outcome-and ;
-: cli-same? ( -- flag ) 0 cli-file 1 cli-file compare 0= ;
 : cli-create ( -- fid true | false )
   1 cli-file w/o bin create-file 0= dup 0= if nip then ;
 : cli-uncreated ( -- code ) ." error: cannot create the copy" cr exit-malformed ;
@@ -1307,7 +1398,7 @@ variable cli-info#
   outcome>code ;
 : cli-reexported ( -- code ) cli-create if cli-copied else cli-uncreated then ;
 : reexport-command ( -- code )
-  cli-same? if ." error: COPY must not be EXPORT" cr exit-malformed exit then
+  true cli-clashing ?dup if exit then
   cli-opens? if cli-unchecked-note cli-reexported else cli-unopened then ;
 
 \ ---------------------------------------------------------------------------
@@ -1506,14 +1597,11 @@ variable cli-info#
 \ options it takes and its file names; the first mistake is kept with its
 \ argument and reported before anything runs.
 [defined] next-arg [if]
-: cli-arg ( -- c-addr u true | false ) next-arg over if true else 2drop false then ;
+: cli-arg ( -- c-addr u true | false )
+  next-arg over if cli-seen+ true else 2drop false then ;
 [else]
 : cli-arg ( -- false ) false ;
 [then]
-: cli-wrong ( c-addr u why -- )
-  cli-state arg-mistake @ if drop 2drop exit then
-  cli-state arg-mistake ! cli-state arg-culprit 2! ;
-: cli-mistake? ( -- flag ) cli-state arg-mistake @ 0<> ;
 
 \ Tables of names: entries laid down by a defining word, the name last,
 \ ending with a cell 0 where the next entry's word would be.
@@ -1609,9 +1697,13 @@ end-structure
   cli-value 0= if exit then 2dup pr-forms
   if cli-state opt-forms ! 2drop else c" not a list of statement forms" cli-wrong then ;
 : cli-strict-option ( c-addr u -- ) 2drop cli-strict ;
-\ --fast: bin/leanforth chose the engine before Forth ran; nothing to do.
-: cli-fast-option ( c-addr u -- ) 2drop ;
-: cli-checked-option ( c-addr u -- ) 2drop ;
+\ --fast, --checked: bin/leanforth chose the engine before Forth ran (by
+\ any argument --checked); both together are a mistake (cli-engines).
+: cli-engine-option ( c-addr u bit -- ) cli-state opt-engines tuck @ or swap ! 2drop ;
+: cli-fast-option ( c-addr u -- ) 1 cli-engine-option ;
+: cli-checked-option ( c-addr u -- ) 2 cli-engine-option ;
+: cli-engines ( -- )
+  cli-state opt-engines @ 3 = if s" " c" --fast and --checked together" cli-wrong then ;
 : cli-lf-option ( c-addr u -- ) 2drop true cli-state opt-lf ! ;
 : cli-kernel-option ( c-addr u -- ) 2drop true cli-state opt-kernel ! ;
 : cli-any-lean-option ( c-addr u -- ) 2drop cli-any-lean ;
@@ -1687,7 +1779,8 @@ create cli-option-table
 : cli-option? ( c-addr u -- flag ) 1 min s" -" compare 0= ;
 : cli-argument ( c-addr u -- ) 2dup cli-option? if cli-option else cli-positional then ;
 : cli-arguments ( set -- )
-  cli-state arg-set ! begin cli-arg while cli-argument repeat ;
+  cli-state arg-set ! begin cli-arg while cli-argument repeat cli-engines ;
+
 
 \ The commands: each one's word ( -- code ), the number of file names it
 \ needs and the options it takes.
