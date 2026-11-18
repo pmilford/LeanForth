@@ -26,13 +26,14 @@
 \ memory, no recursion.
 \
 \ Example:
-\   cell-bits . 1000 log2-ceiling .        \ 64 10 (on a 64-bit host)
+\   1000 log2-ceiling .  cell-bits 32 >= .  \ 10 -1 (cells of 32 bits or more)
 \   create seen 100 bits>cells cells allot  seen 100 bits>cells cells erase
-\   5 seen bit-on  5 seen bit@  6 seen bit@  \ true false
+\   5 seen bit-on  5 seen bit@ .  6 seen bit@ .  \ -1 0
 \   create sorted 2 , 3 , 5 , 7 , 11 ,
 \   : below? ( x k -- x flag ) cells sorted + @ over < ;
 \   5 0 5 ' below? lower-bound nip .        \ 2: sorted[2] = 5
 \   6 0 5 ' below? lower-bound nip .        \ 3: the first above 6
+\   \ prints: 10 -1 -1 0 2 3
 \
 \ Interface: cell-bits log2-ceiling bits>cells bit@ bit-on lower-bound.
 \ State: none (cell-bits is a constant). Requires

@@ -60,7 +60,7 @@
 \   create key 1 , 2 , 3 ,
 \   key m3 memo-put drop  10 over !  20 swap cell+ !
 \   key m3 memo-find @ .                        \ 10
-\   sq memo-free  m3 memo-free
+\   sq memo-free  m3 memo-free                 \ prints: -1 49 0 10
 \
 \ Interface: /memo memo-init memo-free memo-live? memo-count memo-bytes
 \ memo-find memo-put memo-at memo-claim memo@ memo! memo-clear memo-empty

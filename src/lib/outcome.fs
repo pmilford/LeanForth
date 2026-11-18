@@ -14,6 +14,11 @@
 \ failure in a cell and ok-store a step's result only on ok; no-result,
 \ ok-or-none and room-result give a step's result with its outcome.
 \ No state, no dependencies.
+\ Example: each cell of a table checked, stopping at the first failure.
+\   create table 3 , 5 , -1 , 7 ,
+\   : cell-ok ( table k -- table outcome ) cells over + @ 0> flag>outcome ;
+\   table 2 ' cell-ok ok-each nip .  table 4 ' cell-ok ok-each nip .
+\   outcome-full outcome-text type   \ prints: 0 1 full
 
 0 constant outcome-ok           \ succeeded; for a comparison, shown equal
 1 constant outcome-invalid      \ malformed input or corrupted state

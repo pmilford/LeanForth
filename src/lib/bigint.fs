@@ -66,7 +66,7 @@
 \   s" -12" ar decimal>bigint drop   s" 7" ar decimal>bigint drop
 \   2dup ar bigint-ediv drop ar bigint>decimal drop type space    \ -2
 \   ar bigint-emod drop ar bigint>decimal drop type               \ 2
-\   start ar big-release drop
+\   start ar big-release drop                  \ prints: -2 2
 \
 \ Interface: bigint-valid? bigint-sign bigint-magnitude bigint-compare
 \ bigint+ bigint- bigint* bigint-negate bigint-ediv bigint-emod bigint-bmod

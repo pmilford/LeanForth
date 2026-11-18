@@ -13,11 +13,12 @@
 \ read-only afterwards, so tasks may read one table at once.
 \
 \ Example: a word for each of the tags 1 and 3, any other tag invalid.
-\   : one ( -- ) ;   : three ( -- ) ;   : invalid ( -- ) ;
+\   : one ( -- ) 1 . ;   : three ( -- ) 3 . ;   : invalid ( -- ) 0 . ;
 \   4 ' invalid xt-table: by-tag
 \   ' one 1 by-tag xt-table!   ' three 3 by-tag xt-table!
 \   3 by-tag xt-table@ execute   \ three
 \   9 by-tag xt-table@ execute   \ invalid
+\   \ prints: 3 0
 \
 \ ?execute ( i*x xt|0 -- j*x ) runs an optional hook: the xt, or
 \ nothing for 0 (a cell that holds a caller's word or none).

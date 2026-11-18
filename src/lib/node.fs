@@ -1,5 +1,9 @@
 \ Tagged nodes: records of a tag and two fields, the record shape of the
 \ term and level stores. No state of its own.
+\ Example: two nodes in a store of four, the second read back.
+\   4 /node 0 store: nodes
+\   1 10 20 nodes node-new drop .  2 0 1 nodes node-new drop .
+\   1 nodes node-read . . . .   9 nodes node-read .   \ prints: 0 1 -1 1 0 2 0
 
 require ./portability.fs
 require ./store.fs

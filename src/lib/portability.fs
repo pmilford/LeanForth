@@ -7,6 +7,8 @@
 \ every current host (Forth-2012 itself does not require it). upto? and
 \ max-n rely on this. tests/lib/lib.fs checks each one-line fallback
 \ against the host's own word.
+\ Example: words a Forth-2012 host may lack, the same everywhere.
+\   1 2 3 -rot . . .  5 3 >= .  max-n 0> .   \ prints: 2 1 3 -1 -1
 
 \ Comparisons and stack words that Gforth provides as extensions.
 [undefined] >= [if] : >= ( n1 n2 -- flag ) < 0= ; [then]

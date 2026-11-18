@@ -2,11 +2,13 @@
 \ library for any Forth-2012 system with 8-bit characters; it needs
 \ bounds.fs, bytes.fs (UTF-8 framing) and module.fs (ADR 0010).
 \
-\   s" composition" tr-shown?            \ true
-\   s\" a\xe2\x80\xaeb" tr-rule?         \ false: U+202E, a bidirectional control
-\   s\" \xe3\x85\xa4" tr-shown?           \ false: U+3164 HANGUL FILLER alone
-\   s\" a\xcc\x81" tr-shown?             \ true: a, then a combining acute accent
-\   $202e tr-banned?                     \ true: no text may hold U+202E
+\ Example:
+\   s" composition" tr-shown? .          \ true
+\   s\" a\xe2\x80\xaeb" tr-rule? .       \ false: U+202E, a bidirectional control
+\   s\" \xe3\x85\xa4" tr-shown? .         \ false: U+3164 HANGUL FILLER alone
+\   s\" a\xcc\x81" tr-shown? .           \ true: a, then a combining acute accent
+\   $202e tr-banned? .                   \ true: no text may hold U+202E
+\   \ prints: -1 0 0 -1 -1
 \
 \ tr-rule? ( c-addr u -- flag ): the text keeps the rule. It is valid
 \ UTF-8 (bytes.fs's utf8-valid?: no overlong form, no surrogate, nothing

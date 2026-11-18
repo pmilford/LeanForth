@@ -32,6 +32,7 @@
 \
 \ Example (with hash32.fs): distinct numbers below 2^32 kept in an array,
 \ found by value.
+\   require lib/hash32.fs
 \   create values 100 cells allot   create seen /htab allot
 \   create hooks /htab-hooks allot
 \   : value@ ( n -- x ) cells values + @ ;
@@ -42,6 +43,9 @@
 \   : add ( x n -- )   \ make x value n, unless x is already present
 \     seen htab-ready drop  over dup hash-fmix seen htab-find
 \     if 2drop drop else >r tuck cells values + ! r> seen htab-put then ;
+\   7 0 add  9 1 add  7 2 add                \ 7 is there already
+\   seen htab-count .  9 dup hash-fmix seen htab-find . .  seen htab-free
+\   \ prints: 2 -1 1
 \
 \ Interface: /htab /htab-hooks htab-hooks! htab-init htab-free htab-limit
 \ htab-find htab-ready htab-put htab-remove htab-holds? htab-clear

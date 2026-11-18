@@ -31,6 +31,14 @@
 \ walk to its first room, empty; until then the block keeps its largest
 \ size. Every checker context's walks are growable (lib/context.fs frees
 \ their blocks with the context).
+\
+\ Example: a chain of nodes 5, 4, ... 0, each visit pushing the next.
+\   8 walk: chain
+\   : visit ( walk -- outcome )
+\     dup walk-node @ ?dup if 1- swap walk-push room>outcome
+\     else drop outcome-ok then ;
+\   100 chain walk-budget .  5 ' visit chain walk-run .  chain walk-fuel @ .
+\   \ prints: -1 0 94
 
 require ./bounds.fs
 require ./node.fs

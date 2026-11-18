@@ -52,14 +52,16 @@
 \ freed, the records then a permutation of the input, the sorter ready to
 \ sort again (a THROW with sort-unbalanced's code, -4131, reads as invalid).
 \
-\ Example: cells by value; then 8-byte (key, payload) pairs by their first
-\ packed 32-bit field (lib/u32.fs), pairs of equal keys kept in order.
+\ Example: cells by value; then (key, payload) pairs of two cells by their
+\ first cell, pairs of equal keys kept in order.
+\   : cells. ( addr n -- ) cells bounds ?do i @ . cell +loop ;
 \   create by-value /sorter allot   create numbers 5 , 3 , 9 , 3 ,
 \   ' sort-signed by-value sorter-cells drop
-\   numbers 4 by-value sort-records .     \ 0 (ok); numbers: 3 3 5 9
-\   create by-key /sorter allot
-\   8 ' sort-unsigned by-key sorter-init drop  ' u32@ by-key sorter-key!
-\   pairs 1000 by-key sort-records .      \ ok, or 6 (full) without scratch
+\   numbers 4 by-value sort-records .  numbers 4 cells.   \ 0 (ok) 3 3 5 9
+\   create by-key /sorter allot   create pairs 7 , 1 , 2 , 2 , 7 , 3 ,
+\   2 cells ' sort-signed by-key sorter-init drop  ' @ by-key sorter-key!
+\   pairs 3 by-key sort-records .  pairs 6 cells.   \ 0 2 2 7 1 7 3
+\   \ prints: 0 3 3 5 9 0 2 2 7 1 7 3
 \
 \ Interface: /sorter sorter-init sorter-cells sorter-u32s sorter-key!
 \ sorter-buffer! sorter-short sort-short sort-records sort-signed

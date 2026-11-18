@@ -48,6 +48,7 @@
 \
 \ Example (with pools.fs): an input set of texts, sealed, and a scratch set
 \ over it that finds the input's texts and adds its own.
+\   require lib/pools.fs
 \   create input /cons allot   create scratch /cons allot
 \   4 text-class input cons-init drop
 \   s" Nat" input text-intern 2drop  input cons-seal drop
@@ -55,6 +56,7 @@
 \   s" Nat" scratch text-intern drop .     \ 0, the input's
 \   s" Int" scratch text-intern drop .     \ 1, the scratch set's first
 \   scratch cons-reset drop  scratch cons-free  input cons-free
+\   \ prints: 0 1
 \
 \ Interface: cons-class: cons-hooks! /cons cons-init cons-extend cons-free
 \ cons-numbers cons-first cons-under cons-at cons-text-at cons-top

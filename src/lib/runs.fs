@@ -42,6 +42,7 @@
 \   : odd? ( x -- flag ) 1 and 0<> ;
 \   0 over ' sum run-each drop .             \ 31
 \   ' odd? run-filter drop run-count .       \ [7 7 9]: 3
+\   \ prints: 4 7 31 3
 \ State: two slabs (slab.fs) that are members of the checker context
 \ (context.fs, ADR 0009), so each context has its own runs; one context
 \ is single-threaded. Requires bounds.fs, outcome.fs, slab.fs, context.fs

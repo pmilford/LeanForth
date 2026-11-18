@@ -63,11 +63,11 @@
 \   pool slab-free
 \   create todo /slab allot   1 cells 1000 todo slab-init drop
 \   7 todo slab-push drop  8 todo slab-push drop
-\   todo slab-pop todo slab-pop todo slab-count    \ 8 7 0
+\   todo slab-pop . todo slab-pop . todo slab-count .   \ 8 7 0
 \   : small? ( n -- flag outcome )
 \     dup 100 < swap 2/ ?dup if todo slab-push else outcome-ok then ;
-\   40 todo slab-push drop  todo ' small? slab-all?    \ true 0 (ok)
-\   todo slab-free
+\   40 todo slab-push drop  todo ' small? slab-all? . .   \ 0 (ok) -1 (true)
+\   todo slab-free                              \ prints: 8 7 0 0 -1
 \
 \ Interface: /slab slab-init slab-free slab-live? slab-valid? slab-count
 \ slab-capacity slab-limit slab-unit slab-at slab-top slab-room

@@ -9,8 +9,8 @@ loading, BASE, the search order and the data stack must be as before, and lf-lib
 must not be searched (a file that changes BASE or the search order and does not restore it
 fails). When the header has an example (indented `\\   ` lines after a line starting
 `\\ Example`, with `\\ prints: TEXT` in it), the example runs there too, in decimal, and must
-print TEXT (whitespace compared as single spaces). Files without such an example are listed
-in NO_EXAMPLE, which may only shrink.
+print TEXT (whitespace compared as single spaces); an example may `require lib/x.fs` another
+library file, which is copied with its own requirements. Every file has such an example.
 
 Run from the repository root with GFORTH set (the Makefile does this):
     GFORTH=.tools/gforth/bin/gforth python3 tests/lib/test_standalone.py
@@ -31,14 +31,7 @@ if "/" in GFORTH:
     GFORTH = str(Path(GFORTH).absolute())
 FAST = os.environ.get("GFORTH_FAST") or (GFORTH + "-fast" if "/" in GFORTH else "gforth-fast")
 REQUIRE = re.compile(r"^\s*require\s+\./(\S+)", re.M)
-# Files whose header has no runnable example yet (plan task 1.1.8): may only shrink.
-NO_EXAMPLE = {
-    "bigint.fs", "bits.fs", "blocks.fs", "cons.fs", "context.fs", "decimal.fs", "frame.fs",
-    "hash32.fs", "htab.fs", "lib.fs", "memo.fs", "module.fs", "node.fs", "outcome.fs",
-    "pools.fs", "portability.fs", "pqueue.fs", "runs.fs", "sections.fs", "sha256.fs",
-    "slab.fs", "sort.fs", "store-columns.fs", "store.fs", "task.fs", "text-rule.fs",
-    "text-run.fs", "walk.fs", "xt-table.fs",
-}
+EXAMPLE_REQUIRE = re.compile(r"^\s*require\s+lib/(\S+)", re.M)
 # What a load leaves: BASE, the depth, the search order's depth and whether lf-lib-private
 # is in it. The probe word is defined before loading, so it sees the order as it was.
 PROBE = """: order-has? ( wid -- flag ) >r get-order 0 swap 0 ?do swap r@ = or loop r> drop ;
@@ -68,7 +61,9 @@ def example(name):
     body = []
     for line in lines[start + 1:]:
         if not line.startswith("\\   "):
-            break
+            if body or not line.startswith("\\"):
+                break
+            continue   # the example's title goes on, before its code
         body.append(line[4:])
     text = "\n".join(body)
     m = re.search(r"\\ prints: (.*)", text)
@@ -87,13 +82,13 @@ class Standalone(unittest.TestCase):
         found = [GFORTH] + ([FAST] if shutil.which(FAST) or Path(FAST).exists() else [])
         return found
 
-    def folder(self, name):
+    def folder(self, name, extra=()):
         scratch = tempfile.TemporaryDirectory(prefix="lf-lib-")
         self.addCleanup(scratch.cleanup)
         folder = Path(scratch.name)
         self.assertFalse(folder.resolve().is_relative_to(ROOT), "the folder must be outside")
         (folder / "lib").mkdir()
-        for f in closure(name):
+        for f in {g for n in (name, *extra) for g in closure(n)}:
             shutil.copy(LIB / f, folder / "lib" / f)
         return folder
 
@@ -121,11 +116,10 @@ class Standalone(unittest.TestCase):
     def test_examples_run_as_written(self):
         files = sorted(p.name for p in LIB.glob("*.fs"))
         missing = {f for f in files if example(f) is None}
-        self.assertLessEqual(missing, NO_EXAMPLE, "a header lost its example")
-        self.assertEqual(missing, NO_EXAMPLE, "a new example: take the file off NO_EXAMPLE")
-        for name in sorted(set(files) - missing):
+        self.assertEqual(missing, set(), "a header without a runnable example")
+        for name in files:
             program, expected = example(name)
-            folder = self.folder(name)
+            folder = self.folder(name, EXAMPLE_REQUIRE.findall(program))
             for engine in self.engines():
                 with self.subTest(file=name, engine=Path(engine).name):
                     code, out, err = run(engine, folder, f"require lib/{name}\ndecimal\n" + program)

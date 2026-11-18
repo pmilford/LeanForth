@@ -32,12 +32,15 @@
 \ addresses, across it). Growth that the limit or the heap refuses
 \ changes nothing and gives full (ADR 0008). store-limit! sets the limit
 \ (shrinking the block when it holds more), store-heap-free frees the
-\ block. Every other word works alike on both kinds. Example:
+\ block. Every other word works alike on both kinds.
+\ Example: a store grows only when every record is in use; then it gains
+\ 16 records (4 -> 20).
 \   create big store-header allot
-\   4 /node 0 big store-heap-init drop   1000 big store-limit! drop
-\   big store-grow drop    \ ok, still 4 records: a store grows only when every record
-\                          \ is in use; then it gains 16 (4 -> 20)
-\   big store-heap-free
+\   4 3 cells 0 big store-heap-init .   1000 big store-limit! .
+\   big store-grow .  big store-capacity @ .   \ 0 (ok) 4
+\   : fill ( n -- ) 0 ?do big store-new 2drop loop ;
+\   4 fill  big store-grow .  big store-capacity @ .  big store-heap-free
+\   \ prints: 0 0 0 4 0 20
 \
 \ Untrusted. One store is single-threaded: callers must not change it
 \ during a call. Separate stores are independent. The layout (header,

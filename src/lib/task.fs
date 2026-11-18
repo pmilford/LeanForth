@@ -76,6 +76,15 @@
 \ the pool, and every later job fails. On the serial host a job runs on
 \ the caller's stacks, where an overflow is the host's THROW.
 \
+\ Example: two jobs, each in a context of its own, waited for in turn.
+\   variable a  variable b
+\   : job-a ( -- ) 6 7 * a ! ;   : job-b ( -- ) 100 b ! ;
+\   context-new throw constant c1  context-new throw constant c2
+\   c1 ' job-a job-submit throw  c2 ' job-b job-submit throw
+\   job-wait . job-wait .  a @ . b @ .   \ 0 0 42 100
+\   c1 context-free throw  c2 context-free throw  pool-stop
+\   \ prints: 0 0 42 100
+\
 \ State: the pool record task-pool and the ring task-queue (shared; on
 \ Gforth 1.0 guarded by task-lock), and one ALLOCATEd job record per
 \ submitted job, until it is waited for. Untrusted.

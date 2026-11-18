@@ -25,7 +25,8 @@
 \   100 buf block-zeroed .  buf @ 99 + c@ .     \ 0 0: ok, zeroed
 \   200 buf block-resize .                      \ 0: ok, the first 100 kept
 \   buf heap-release  buf @ .  buf heap-release  \ 0: freed, then nothing
-\   64 heap-claim if free drop then             \ a block as a flag
+\   64 heap-claim . free .                      \ -1 0: a block as a flag
+\   \ prints: 0 0 0 0 -1 0
 \
 \ Interface: heap-claim heap-release allocate0 block-zeroed block-resize
 \ block-reused block-free. State:
