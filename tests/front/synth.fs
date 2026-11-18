@@ -212,6 +212,17 @@ T{ sy-cache slab-count 0> mctx-epoch@ 1+ sy sy-epoch ! nat add0 synth nip nip tr
 \ at depth 1 (a search, instAddNat tried), found at depth 0.
 : at-pending ( n -- tried ) sy sy-pending ! nat add0 synth 2drop drop tried# 0 sy sy-pending ! ;
 T{ 1 at-pending 0 at-pending -> 1 0 }T
+\ A failed attempt keeps the cache, as Lean's SavedState.restore keeps
+\ Meta.State.cache (review R3 of 2026-11-18): Add Nat's entry, made
+\ inside an attempt that is rolled back, stays and is hit after it. A
+\ search for Add ?T, ?T made inside the attempt, caches nothing (119
+\ here: unsupported is never cached), and a new ?U is another number.
+: cache# ( -- n ) sy-cache slab-count ;
+: attempt ( xt -- n ) lf-mctx-mark made swap execute cache# swap lf-mctx-rollback done ;
+: add-nat ( -- ) nat add0 synth 2drop drop ;
+: add-hole ( -- ) l0 ?tv add0 synth nip nip outcome-unsupported <> abort" add-hole" ;
+T{ mctx-epoch@ 1+ sy sy-epoch ! ' add-nat attempt cache# nat add0 synth nip nip tried# -> 1 1 outcome-ok 0 }T
+T{ ' add-hole attempt cache# l0 ?tv add0 synth nip nip tried# 0> -> 1 1 outcome-unsupported true }T
 : add-local ( -- old )
   lf-mctx-view dup nat add0 lf-lctx-local made 0 0 lf-local-new made
   s" Add" menv-name lf-local-instance made lf-view-push made lf-mctx-view! ;
