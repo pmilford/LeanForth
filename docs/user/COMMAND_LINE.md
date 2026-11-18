@@ -296,8 +296,10 @@ that runs with no goal in focus, an alternative taking its case). The
 format is `leanforth-tactic-steps` version 1, described by
 [schemas/tactic-steps-1.schema.json](../../schemas/tactic-steps-1.schema.json).
 A rejected declaration, a term proof and a text that stops write no
-lines; the log is presentation only and changes no verdict and no exit
-status, but a log that cannot be written is an error (exit 3). Version 1
+lines; nothing reads the log to decide, so it changes no verdict, but
+keeping it takes room: a run whose log finds no room stops with no room
+(error 88, exit 3) as any tactic run out of room does, and a log that
+cannot be written is an error (exit 3). Version 1
 does not yet carry each tactic's rule (the eliminator, the rewrite rule
 and its place, the closing term), the constants and hypotheses a step
 used, or the goals in kernel form; a later version adds them. `--steps`

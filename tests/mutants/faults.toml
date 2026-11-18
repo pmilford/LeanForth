@@ -20003,3 +20003,11 @@ old = ''': lf-menv-aux-def? ( d -- flag outcome ) lf-menv-aux-recursor? ;'''
 new = ''': lf-menv-aux-def? ( d -- flag outcome ) lf-menv-kind lf-kind-definition = outcome-ok ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
 reason = "review s2-finish M1: whnfCore unfolds a definition that is no auxiliary recursor (Nat.noConfusion), where Lean's isAuxDef leaves it"
+
+[[fault]]
+id = "fe-smart-args-unchecked"
+file = "src/front/whnf.fs"
+old = '''    if drop true outcome-ok exit then lf-term-first@'''
+new = '''    drop lf-term-first@'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-finish M3: the smart path goes on with a marker in e1's arguments, which Lean's go would walk"

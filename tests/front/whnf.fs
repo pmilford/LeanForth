@@ -267,6 +267,13 @@ T{ fk zero m1 lf-meta-whnf-r swap fz fk app same? lf-defeq-flags -> outcome-ok t
 : dite ( -- t ) lv1 1 s" dite" cn ;
 : nested ( t mode -- t' outcome ) lf-defeq-mode >r lf-defeq-mode! wc-nested-dite r> lf-defeq-mode! ;
 : kept-at ( t mode -- flag outcome ) over swap nested >r = r> ;
+\ The smart path refuses a marker in e1's arguments, not at its head
+\ (review s2-finish M3): a marked argument, and a marked head alone.
+: marked ( t -- t' ) lf-annot-match lf-annot drop ;
+T{ fk marked fk app fx marked app lf-whnf-args-marked? -> true outcome-ok }T
+T{ fk marked fk app fx app lf-whnf-args-marked? nat fk marked lam fx app lf-whnf-args-marked?
+   -> false outcome-ok false outcome-ok }T
+T{ fs nat fk marked lam app lf-whnf-args-marked? -> true outcome-ok }T
 T{ nat dite fk app lam lf-tr-reducible nested nat fk lam lf-tr-instances kept-at
    -> -1 outcome-unsupported true outcome-ok }T
 T{ dite lf-tr-default kept-at -> true outcome-ok }T

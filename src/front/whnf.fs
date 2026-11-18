@@ -710,8 +710,20 @@ wc-smatch-kind 1+ constant wc-srec-kind
 : wc-smatch ( m -- e' flag outcome )
   dup wc-args lf-meta-spine ok-then? if wc-smatch-head else wc-drop-fail then ;
 : wc-smart-m ( e1 -- m true | false ) lf-meta-head lf-annot-match lf-annot-keyed? ;
+\ A marker in one of e1's arguments (Lean's go walks them): not ported,
+\ unsupported (review s2-finish M3).
+: wc-arg-marked? ( app -- flag outcome ) lf-term-second@ ['] lf-annot? lf-term-holds? ;
+: lf-whnf-args-marked? ( e1 -- flag outcome )
+  begin dup lf-meta-app? while
+    dup wc-arg-marked? ok-then? 0= if nip false swap exit then
+    if drop true outcome-ok exit then lf-term-first@
+  repeat drop false outcome-ok ;
+: wc-smart-ok ( e1 -- e1 outcome )
+  dup lf-whnf-args-marked? ok-then? 0= if exit then
+  if outcome-unsupported else outcome-ok then ;
 : wc-smart ( e e1 -- e' flag outcome )
   dup wc-smart-m 0= if drop outcome-unsupported wc-drop-fail exit then drop
+  wc-smart-ok dup ok? 0= if wc-2drop-fail exit then drop
   tuck wc-smart-kind wc-frame dup ok? 0= if wc-drop-fail exit then drop
   wc-smart-m drop wc-smatch ;
 \ Resumed: reduceMatcher?'s answer (the frame of m) for the smart frame.
