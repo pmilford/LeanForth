@@ -1464,7 +1464,7 @@ Unchanged: the pinned-Lean comparisons and planted faults of every file a change
 
 Asked in plain language after the Forth review of `s2-finish` and its re-check
 (.claude/work/pending-reports/2026-11-17-s2-finish-review-final.md; filed with the merge as
-`docs/development/forth-reviews/2026-11-17-s2-finish.md`).
+`2026-11-17-s2-finish.md` in the Forth reviews folder).
 
 1. **[format] The step log, `check --steps FILE|-`, format `leanforth-tactic-steps` version 1: approved.** One header
    line per accepted declaration (name, steps, `axioms`, `open_parts`, `cut`) and one line per tactic step with its
