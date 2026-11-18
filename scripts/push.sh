@@ -5,10 +5,12 @@
 #   2. the Forth review log and style ratchet, strict (scripts/check-forth-quality.py --strict)
 #   3. the suites of the change tier of origin/main..HEAD (owner, 2026-11-13, plan 9.4.6; scripts/test-tier.py), each
 #      reused when a pass on HEAD's exact tree with the same Gforth, Lean and cache mode is recorded, else run and
-#      recorded (scripts/tested-tree.py tier). The full tier is CI's two jobs with make test run once: make
-#      coverage-check (make test, instrumented, and the coverage ratchet), make check-rest (the rest of make check,
-#      every pinned-Lean comparison) and make test on Gforth 0.7.3. When no full run is recorded today, on any tree,
-#      this push runs the full tier with LEAN_CACHE=0 (the daily full run).
+#      recorded (scripts/tested-tree.py tier). The full tier is CI's two jobs split into unit and end-to-end tests
+#      (owner, 2026-11-14; tests/test-classes.txt): make coverage-check (make test once, instrumented, on Gforth
+#      1.0: every unit test and every end-to-end test of make test, and the coverage ratchet), make test-unit on
+#      gforth-fast, make check-rest (the rest of make check, every pinned-Lean comparison) and make test-unit on
+#      Gforth 0.7.3. When no full run is recorded today, on any tree, this push runs the full tier with
+#      LEAN_CACHE=0 (the daily full run).
 # Usage: scripts/push.sh [--no-cache] [--full] [--dry-run]
 #   --no-cache  LEAN_CACHE=0 for the suites; --full  the full tier whatever changed (before a tag);
 #   --dry-run   print the tier and what would run or be reused, then stop: runs, records and pushes nothing.

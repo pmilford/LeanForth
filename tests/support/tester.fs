@@ -8,3 +8,9 @@ require test/ttester.fs
   type source type cr -1 throw ;
 
 ' lf-test-fail error-xt !
+
+\ Whether this engine checks the data stack's depth, reporting an underflow
+\ as THROW -4: Gforth's checking engine (1.0 and 0.7.3) does, gforth-fast
+\ does not; told by the program's name. A test of the host's own underflow
+\ report runs only where it holds (unit tests run on both engines).
+: host-checks-depth? ( -- flag ) 0 arg s" gforth-fast" search nip nip 0= ;

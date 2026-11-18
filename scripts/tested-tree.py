@@ -39,12 +39,15 @@ targets of make check or the faults that hold it; the whole command when coverag
 missing). list prints the records of HEAD's tree (--all: every record).
 
 tier runs the suites of scripts/test-tier.py's tier of BASE...HEAD (default main) in
-order, each as once does. --daily: when no full run (make coverage-check, make check-rest or make check
-with LEAN_CACHE=0, and make test on Gforth 0.7.3) is recorded today, on any tree, the
-tier is full with LEAN_CACHE=0 (the owner's daily full run). The tier's Gforth 0.7.3
-suites (make test, or the changed targets, on 0.7.3) run only with --with-073, which
-push.sh passes: a branch's tier leaves them to the push and the daily run (owner,
-2026-11-14). Then the progress check
+order, each as once does. --daily: when no full run (make coverage-check, make test-unit
+on gforth-fast, make check-rest or make check with LEAN_CACHE=0, and make test-unit on
+Gforth 0.7.3) is recorded today, on any tree, the tier is full with LEAN_CACHE=0 (the
+owner's daily full run). A suite of the unit tests on another engine (test-tier.py's
+ENGINES) runs with GFORTH set to that engine: gforth-fast beside the main checkout's
+Gforth 1.0 (LF_GFORTH_FAST names another), or Gforth 0.7.3; its records name the engine
+(gforth-fast prints Gforth 1.0's version, so its records add "(gforth-fast)"). The 0.7.3
+suites run only with --with-073, which push.sh passes: a branch's tier leaves them to the
+push and the daily run (owner, 2026-11-14). Then the progress check
 (scripts/check-progress.py BASE) runs, unless --no-progress. --dry-run prints what would
 run or be reused and runs nothing. It prints, and writes to --summary as one line, each
 suite: ran (exit status, seconds, command) or reused (the record's commit and date), and
@@ -54,7 +57,8 @@ Records live in the main checkout's .claude/work/ci/tested/ (one JSON file each)
 by every worktree of the clone like the Lean cache and never committed; LF_TESTED_DIR
 names another folder (the tests use a temporary one). LF_TESTED_NOW (YYYY-MM-DD
 HH:MM:SS) fixes the clock for tests; LF_GFORTH073 names Gforth 0.7.3 (default the main
-checkout's .claude/work/A/gforth073.sh). Exit status: the command's (record, once; 0 when
+checkout's .claude/work/A/gforth073.sh), LF_GFORTH_FAST gforth-fast (default the main
+checkout's .tools/gforth/bin/gforth-fast). Exit status: the command's (record, once; 0 when
 reused), 0 or 1 (lookup, tier), 2 usage error, 3 refused or not recordable.
 """
 import argparse
@@ -115,6 +119,15 @@ def tested_dir():
 
 def gforth073():
     return os.environ.get("LF_GFORTH073") or os.path.join(checkout(), ".claude/work/A/gforth073.sh")
+
+
+def gforth_fast():
+    return os.environ.get("LF_GFORTH_FAST") or os.path.join(checkout(), ".tools/gforth/bin/gforth-fast")
+
+
+def engine_gforth(engine):
+    """The GFORTH of a suite run on ENGINE (test-tier.py's ENGINES)."""
+    return {"fast": gforth_fast, "073": gforth073}[engine]()
 
 
 def now():
@@ -178,6 +191,9 @@ def toolchain(variables):
     found = version(gforth)
     if found is None:
         raise Refused(f"cannot read the version of the Gforth {gforth}")
+    # gforth-fast prints the version of Gforth's checking engine: the record names the engine.
+    if os.path.basename(os.path.realpath(gforth)).startswith("gforth-fast"):
+        found += " (gforth-fast)"
     return {"gforth": found, "lean": version(lean) or "none", "lean_cache": cache}
 
 
@@ -416,19 +432,23 @@ def once(argv, log=None, nice=None):
 def daily_missing(records, day):
     """The full run's suites not recorded today on any tree, with today's toolchain."""
     chain = toolchain({})
-    try:
-        chain073 = toolchain({"GFORTH": gforth073()})
-    except Refused:
-        chain073 = {"gforth": None}
+    engines = {}
+    for engine in test_tier.ENGINES:
+        try:
+            engines[engine] = toolchain({"GFORTH": engine_gforth(engine)})["gforth"]
+        except Refused:
+            engines[engine] = None
     # A calendar day is the local date (the clock's midnight ends it, whatever ran just before).
     # A run with a variable that changes what it tests (FAULTS=, COVERAGE_FILES=, ...) never counts.
     todays = [r for r in records if str(r.get("date", "")).startswith(day) and r.get("lean") == chain["lean"]
               and all(k in NEUTRAL - NARROWING for k in (r.get("variables") or {}))]
     need = {
         "make coverage-check": lambda r: r["suite"] == "coverage-check" and r["gforth"] == chain["gforth"],
+        "make test-unit on gforth-fast": lambda r: r["suite"] == "test-unit" and r["gforth"] == engines["fast"],
         "make check-rest with LEAN_CACHE=0": lambda r: r["suite"] in ("check-rest", "check")
         and r["gforth"] == chain["gforth"] and r["lean_cache"] in ("0", "verify"),
-        "make test on Gforth 0.7.3": lambda r: r["suite"] == "test" and r["gforth"] == chain073["gforth"],
+        "make test-unit on Gforth 0.7.3": lambda r: r["suite"] in ("test-unit", "test")
+        and r["gforth"] == engines["073"],
     }
     return [name for name, ok in need.items() if not any(ok(r) for r in todays)]
 
@@ -436,7 +456,7 @@ def daily_missing(records, day):
 def suite_argv(suite, make_program, jobs, cache):
     argv = [make_program, *suite["goals"], *(f"{k}={v}" for k, v in suite.get("vars", {}).items()),
             f"JOBS={jobs}", f"LEAN_CACHE={cache}"]
-    return argv + ([f"GFORTH={gforth073()}"] if suite.get("gforth073") else [])
+    return argv + ([f"GFORTH={engine_gforth(suite['engine'])}"] if suite.get("engine") else [])
 
 
 def run_tier(args):
@@ -454,7 +474,7 @@ def run_tier(args):
             cache = "0"
             notes.append(f"daily full run: none recorded today ({now()[:10]}) of {', '.join(missing)}; "
                          "the full tier runs with LEAN_CACHE=0")
-    dropped = [] if args.with_073 else [s["label"] for s in result["suites"] if s.get("gforth073")]
+    dropped = [] if args.with_073 else [s["label"] for s in result["suites"] if s.get("engine") == "073"]
     result["suites"] = [s for s in result["suites"] if s["label"] not in dropped]
     print(test_tier.describe(result))
     for note in notes:

@@ -207,7 +207,7 @@ class Tier(Base):
         self.assertEqual((self.records(), self.repo.logged()), ([], []))
         out = self.assertRan(self.tier())
         self.assertIn("targets ran: exit 0", out)
-        self.assertIn("not run (tier docs does not reach them): coverage-check, check-rest, test073", out)
+        self.assertIn("not run (tier docs does not reach them): coverage-check, testfast, check-rest, test073", out)
         self.assertEqual(self.repo.logged(), ["check-docs"])
         out = self.assertRan(self.tier())
         self.assertIn("targets reused: ", out)
@@ -221,6 +221,7 @@ class Tier(Base):
         log = self.repo.logged()
         self.assertIn("gforth10 coverage-focus src/lib/free.fs over smoke test-lib test-front", log)
         self.assertIn("gforth073 tests/lib/a.fs", log)
+        self.assertIn("gforthfast tests/lib/a.fs", log)
         self.assertIn("gforth10 mutants free-one,alone-one", log)
         self.assertNotIn("gforth10 tests/lib/a.fs", log, "the instrumented run stands for the plain one")
         self.assertIn("check-portable-forth", log)
@@ -235,6 +236,7 @@ class Tier(Base):
         self.repo.commit("library")
         out = self.assertRan(self.tier())
         self.assertNotIn("gforth073", " ".join(self.repo.logged()))
+        self.assertIn("gforthfast tests/lib/a.fs", self.repo.logged(), "gforth-fast runs on a branch")
         self.assertIn("not run on a branch (Gforth 0.7.3 runs at the push and in the daily run): targets073", out)
         self.assertNotIn("targets073 ran", out)
         out = self.assertRan(self.tier("--with-073"))
@@ -263,6 +265,9 @@ class Tier(Base):
         for argv in suites:
             self.assertRan(self.records_tool("record", "--", "make", *argv))
 
+    def fast(self):
+        return str(self.repo.path / ".tools/gforth/bin/gforth-fast")
+
     def test_daily_full_run(self):
         self.repo.write("./docs/A.md", "# docs\n")
         self.repo.commit("docs")
@@ -270,9 +275,12 @@ class Tier(Base):
         self.assertIn("daily full run: none recorded today (2026-11-13)", out)
         self.assertIn("coverage-check would run: make coverage-check JOBS=2 LEAN_CACHE=0", out)
         self.assertIn("check-rest would run: make check-rest JOBS=2 LEAN_CACHE=0", out)
-        self.assertIn("test073 would run: make test JOBS=2 LEAN_CACHE=0 GFORTH=", out)
+        self.assertIn("test073 would run: make test-unit JOBS=2 LEAN_CACHE=0 GFORTH=", out)
+        self.assertIn("testfast would run: make test-unit JOBS=2 LEAN_CACHE=0 GFORTH=", out)
         gforth073 = str(self.repo.path / ".tools/gforth073")
-        self.daily(["coverage-check"], ["check-rest", "LEAN_CACHE=1"], ["test", f"GFORTH={gforth073}"])
+        self.daily(["coverage-check"], ["check-rest", "LEAN_CACHE=1"], ["test-unit", f"GFORTH={gforth073}"])
+        self.assertIn("of make test-unit on gforth-fast", self.assertRan(self.tier("--daily", "--dry-run")))
+        self.daily(["test-unit", f"GFORTH={self.fast()}"])
         out = self.assertRan(self.tier("--daily", "--with-073", "--dry-run"))
         self.assertIn("of make check-rest with LEAN_CACHE=0", out, "a cached check-rest is no daily run")
         self.daily(["check", "LEAN_CACHE=0"])
@@ -282,7 +290,7 @@ class Tier(Base):
 
     def test_daily_run_with_changing_variables_does_not_count(self):
         gforth073 = str(self.repo.path / ".tools/gforth073")
-        self.daily(["coverage-check"], ["test", f"GFORTH={gforth073}"],
+        self.daily(["coverage-check"], ["test-unit", f"GFORTH={gforth073}"], ["test-unit", f"GFORTH={self.fast()}"],
                    ["check-rest", "LEAN_CACHE=0", "FAULTS=free-one"])
         self.repo.write("./docs/A.md", "# docs\n")
         self.repo.commit("docs")
@@ -305,7 +313,8 @@ class Tier(Base):
         self.repo.write("Makefile", self.repo.path.joinpath("Makefile").read_text() + "\n")
         self.repo.commit("Makefile")
         gforth073 = str(self.repo.path / ".tools/gforth073")
-        for argv in (["coverage-check"], ["check-rest"], ["test", f"GFORTH={gforth073}"]):
+        for argv in (["coverage-check"], ["check-rest"], ["test-unit", f"GFORTH={gforth073}"],
+                     ["test-unit", f"GFORTH={self.fast()}"]):
             self.assertRan(self.records_tool("record", "--", "make", *argv))
         self.repo.write("./docs/A.md", "# the review log, after the merge\n")
         self.repo.commit("docs")
@@ -316,7 +325,8 @@ class Tier(Base):
         self.assertIn("make check-docs JOBS=2 LEAN_CACHE=1; the rest reused: ", out)
         self.assertIn("changes since are tier docs", out)
         self.assertIn("check-rest reused", out)
-        self.assertEqual(self.repo.logged()[before:], ["check-docs", "check-docs"])
+        # check-docs on Gforth 1.0 (instrumented), gforth-fast and 0.7.3: a unit test on each engine.
+        self.assertEqual(self.repo.logged()[before:], ["check-docs", "check-docs", "check-docs"])
         self.assertIn("reused", self.assertRan(self.tier("--with-073")))
 
     def test_full_tier_reuses_a_make_check(self):
@@ -326,7 +336,17 @@ class Tier(Base):
         out = self.assertRan(self.tier("--with-073", "--dry-run"))
         self.assertIn("check-rest reused", out)
         self.assertIn("coverage-check would run", out)
+        self.assertIn("testfast would run", out)
         self.assertIn("test073 would run", out)
+
+    def test_fast_engine_records_are_its_own(self):
+        """gforth-fast prints Gforth 1.0's version; its records name the engine."""
+        self.assertRan(self.records_tool("record", "--", "make", "test-lib", f"GFORTH={self.fast()}"))
+        [record] = self.records()
+        self.assertEqual(record["gforth"], "gforth 1.0.0 stub (gforth-fast)")
+        self.assertEqual(self.repo.logged(), ["gforthfast tests/lib/a.fs"])
+        self.assertRan(self.records_tool("lookup", "--", "make", "test-lib"), 1)
+        self.assertRan(self.records_tool("lookup", "--", "make", "test-lib", f"GFORTH={self.fast()}"))
 
 
 class Push(Base):
@@ -337,7 +357,7 @@ class Push(Base):
         self.remote = self.repo.path.parent / "remote.git"
         subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(self.remote)], check=True,
                        capture_output=True)
-        for name in ("push.sh", "tested-tree.py", "test-tier.py", "changed-tests.py"):
+        for name in ("push.sh", "tested-tree.py", "test-tier.py", "changed-tests.py", "test-classes.py"):
             shutil.copy(ROOT / "scripts" / name, self.repo.path / "scripts" / name)
         self.repo.stub("scripts/check-progress.py", "import os, sys\nprint('progress stub')\n"
                        "sys.exit(int(os.environ.get('STUB_PROGRESS', '0')))\n")
@@ -383,9 +403,11 @@ class Push(Base):
         self.assertEqual(self.repo.git("log", "-1", "--format=%s"), f"Record the local CI of {tested_head[:7]}")
         line = (self.repo.path / "docs/development/ci-results.log").read_text().splitlines()[-1]
         for text in ("progress 0; forth-quality 0; suites exit 0", "tier full", "coverage-check ran: exit 0",
-                     "check-rest ran: exit 0", "LEAN_CACHE=0", "test073 ran: exit 0", "gforth 1.0.0 stub"):
+                     "testfast ran: exit 0", "check-rest ran: exit 0", "LEAN_CACHE=0", "test073 ran: exit 0",
+                     "gforth 1.0.0 stub"):
             self.assertIn(text, line)
-        self.assertEqual(sorted(r["suite"] for r in self.records()), ["check-rest", "coverage-check", "test"])
+        self.assertEqual(sorted(r["suite"] for r in self.records()),
+                         ["check-rest", "coverage-check", "test-unit", "test-unit"])
         self.assertTrue((self.repo.path / f".claude/work/ci/{tested_head[:7]}-check-rest.log").exists())
         # Today's full run is recorded: a documentation commit now runs its own tier only.
         self.repo.write("./docs/A.md", "# docs again\n")
@@ -395,7 +417,7 @@ class Push(Base):
         line = (self.repo.path / "docs/development/ci-results.log").read_text().splitlines()[-1]
         self.assertIn("tier docs", line)
         self.assertIn("targets ran: exit 0", line)
-        self.assertIn("not run (tier docs does not reach them): coverage-check, check-rest, test073", line)
+        self.assertIn("not run (tier docs does not reach them): coverage-check, testfast, check-rest, test073", line)
 
     def test_failure_is_not_pushed(self):
         before = self.remote_head()

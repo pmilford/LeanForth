@@ -47,9 +47,10 @@ class Fixture(unittest.TestCase):
     def assertFull(self, result):
         self.assertEqual(result["tier"], "full")
         faults = ["faults"] if result["faults"] else []
-        self.assertEqual(self.labels(result), ["coverage-check", "check-rest", "test073"] + faults)
-        self.assertEqual([s["goals"] for s in result["suites"]][:3],
-                         [["coverage-check"], ["check-rest"], ["test"]])
+        self.assertEqual(self.labels(result), ["coverage-check", "testfast", "check-rest", "test073"] + faults)
+        self.assertEqual([(s["goals"], s.get("engine")) for s in result["suites"]][:4],
+                         [(["coverage-check"], None), (["test-unit"], "fast"), (["check-rest"], None),
+                          (["test-unit"], "073")])
 
 
 class Tiers(Fixture):
@@ -61,7 +62,7 @@ class Tiers(Fixture):
         result = self.change({"./docs/A.md": "# A, changed\n", "README.md": "# changed\n"})
         self.assertEqual(result["tier"], "docs")
         self.assertEqual(result["targets"], ["check-docs"])
-        self.assertEqual((result["targets073"], result["faults"], result["coverage"]), ([], [], None))
+        self.assertEqual((result["engine_targets"], result["faults"], result["coverage"]), ([], [], None))
         self.assertEqual(self.labels(result), ["targets"])
 
     def test_docs_a_test_reads(self):
@@ -76,12 +77,14 @@ class Tiers(Fixture):
         result = self.change({"tests/lib/a.fs": "require ../../src/lib/free.fs\n\\ more\n"})
         self.assertEqual(result["tier"], "tests")
         self.assertEqual(result["targets"], ["test-lib"])
-        self.assertEqual(result["targets073"], ["test-lib"])
+        self.assertEqual(result["engine_targets"], ["test-lib"])
         self.assertEqual(result["faults"], ["free-one"])
         # Every target of make test that loads the file, test-front through src/front/alone.fs.
         self.assertEqual(result["coverage"], {"kind": "focus", "files": ["src/lib/free.fs"],
                                               "targets": ["smoke", "test-lib", "test-front"]})
-        self.assertEqual(self.labels(result), ["coverage-focus", "targets", "targets073", "faults"])
+        self.assertEqual(self.labels(result), ["coverage-focus", "targets", "targetsfast", "targets073", "faults"])
+        engines = {s["engine"]: s["goals"] for s in result["suites"] if s.get("engine")}
+        self.assertEqual(engines, {"fast": ["test-lib"], "073": ["test-lib"]})
 
     def test_tests_that_drive_main_need_all_coverage(self):
         result = self.change({"tests/core/c.fs": "require ../../src/main.fs\n\\ more\n"})
@@ -94,7 +97,7 @@ class Tiers(Fixture):
         result = self.change({"tests/front/data.txt": "other data\n"})
         self.assertEqual(result["tier"], "tests")
         self.assertEqual(result["targets"], ["reference-front"])
-        self.assertEqual(result["targets073"], [])
+        self.assertEqual(result["engine_targets"], [])
 
     def test_unused_test_file_takes_its_folder(self):
         result = self.change({"tests/lib/notes.txt": "notes\n"})
@@ -120,7 +123,7 @@ class Tiers(Fixture):
         self.assertEqual(result["tier"], "library")
         self.assertEqual(result["targets"], ["check-portable-forth", "check-forth-quality", "smoke",
                                              "test-lib", "test-front"])
-        self.assertEqual(result["targets073"], ["smoke", "test-lib", "test-front"])
+        self.assertEqual(result["engine_targets"], ["smoke", "test-lib", "test-front"])
         self.assertEqual(result["faults"], ["free-one", "alone-one"])
         self.assertEqual(result["coverage"], {"kind": "focus", "files": ["src/lib/free.fs"],
                                               "targets": ["smoke", "test-lib", "test-front"]})
@@ -251,11 +254,61 @@ class Tiers(Fixture):
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertIn("tier: library", run.stdout)
         self.assertIn("suite targets073 (Gforth 0.7.3): make smoke test-lib test-front", run.stdout)
+        self.assertIn("suite targetsfast (gforth-fast): make smoke test-lib test-front", run.stdout)
 
     def test_bad_base(self):
         run = self.repo.script("test-tier.py", "--base", "no-such-ref")
         self.assertEqual(run.returncode, 2)
         self.assertIn("test-tier: git", run.stderr)
+
+
+class Engines(Fixture):
+    """Owner, 2026-11-14: unit tests on gforth-fast and Gforth 0.7.3 too, end-to-end tests once."""
+
+    def engines(self, result):
+        return {s["engine"]: s["goals"] for s in result["suites"] if s.get("engine")}
+
+    def test_end_to_end_test_runs_once(self):
+        result = self.change({"tests/cli/cli.fs": "\\ the command line, changed\n"})
+        self.assertEqual(result["tier"], "tests")
+        self.assertEqual(result["targets"], ["test-cli"])
+        self.assertEqual((result["engine_targets"], self.engines(result)), ([], {}))
+        self.assertEqual(self.labels(result), ["targets"])
+
+    def test_unclassified_target_runs_on_every_engine(self):
+        # A target the table lacks counts as a unit test: the engines run more, never less.
+        self.repo.write("tests/test-classes.txt", tier_fixture.CLASSES.replace("test-cli e2e\n", ""))
+        self.repo.commit("test-cli unclassified")
+        self.repo.git("tag", "-f", "base")
+        result = self.change({"tests/cli/cli.fs": "\\ the command line, changed\n"})
+        self.assertEqual(self.engines(result), {"fast": ["test-cli"], "073": ["test-cli"]})
+
+    def test_plan_without_a_reached_unit_test_on_an_engine_fails(self):
+        result = {"tier": "tests", "targets": ["test-lib", "test-core", "check-docs", "test-cli"],
+                  "suites": [{"label": "targetsfast", "goals": ["test-core"], "engine": "fast"},
+                             {"label": "targets073", "goals": ["test-lib", "test-core"], "engine": "073"}]}
+        unit = {"test-lib", "test-core"}.__contains__
+        self.assertEqual(tt.engine_problems(result, unit, {"test-cli"}),
+                         ["unit test test-lib would not run on gforth-fast"])
+        result["suites"][0]["goals"].append("test-lib")
+        self.assertEqual(tt.engine_problems(result, unit, {"test-cli"}), [])
+
+    def test_plan_with_an_end_to_end_test_on_073_fails(self):
+        result = {"tier": "library", "targets": ["test-lib", "test-cli"],
+                  "suites": [{"label": "targetsfast", "goals": ["test-lib"], "engine": "fast"},
+                             {"label": "targets073", "goals": ["test-lib", "test-cli"], "engine": "073"}]}
+        self.assertEqual(tt.engine_problems(result, {"test-lib"}.__contains__, {"test-cli"}),
+                         ["end-to-end test test-cli would run on Gforth 0.7.3"])
+
+    def test_full_tier_runs_the_unit_tests_on_every_engine(self):
+        full = {"tier": "full", "targets": [], "suites": [dict(s) for s in tt.FULL_SUITES]}
+        self.assertEqual(tt.engine_problems(full, lambda u: True, set()), [])
+        full["suites"] = [s for s in full["suites"] if s.get("engine") != "073"]
+        self.assertEqual(tt.engine_problems(full, lambda u: True, set()),
+                         ["the full tier runs no make test-unit on Gforth 0.7.3"])
+        full["suites"].append({"label": "test073", "goals": ["test"], "engine": "073"})
+        self.assertEqual(len(tt.engine_problems(full, lambda u: True, set())), 1,
+                         "make test on 0.7.3 would run the end-to-end tests there")
 
 
 class Reaches(Fixture):
@@ -348,8 +401,16 @@ class RealTree(unittest.TestCase):
 
     def test_check_rest_repeats_only_the_engine_targets(self):
         differs = self.variables["COVERAGE_ENGINE_DIFFERS"].split()
-        self.assertEqual(differs, ["test-cli"])
+        self.assertEqual(differs, ["test-cli-engines"])
         self.assertEqual(self.built(["test"]) & self.built(["check-rest"]), self.built(differs))
+
+    def test_unit_and_end_to_end_cover_make_check(self):
+        """make test-unit and make test-e2e are the table's classes; together they are make check."""
+        unit, e2e = self.built(["test-unit"]) - {"test-unit"}, self.built(["test-e2e"]) - {"test-e2e"}
+        self.assertFalse(unit & e2e)
+        self.assertEqual(unit | e2e, self.built(["check"]))
+        self.assertTrue({"test-cli-1", "test-front-e2e", "reference"} <= e2e)
+        self.assertTrue({"test-cli-forth", "test-front", "smoke"} <= unit)
 
     def test_main_loads_the_checker(self):
         self.assertIn("src/kernel/check-declaration.fs", self.loaded)

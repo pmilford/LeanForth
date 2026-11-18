@@ -18,8 +18,10 @@ jobs:
       # make runs 8 jobs at once by default; on the runner, one per CPU
       # (8 ran out of memory twice on 2026-11-04). LEAN_CACHE=0: CI never
       # replays cached Lean runs (also the Makefile's default when CI is set).
-      - name: Run Forth and Python tests
-        run: make test GFORTH=gforth LEAN_CACHE=0 JOBS=$(nproc)
+      # Unit tests only (owner, 2026-11-14; tests/test-classes.txt): the
+      # end-to-end tests run once, on the pinned Gforth 1.0, in the job below.
+      - name: Run Forth and Python unit tests
+        run: make test-unit GFORTH=gforth LEAN_CACHE=0 JOBS=$(nproc)
 
   pinned:
     name: Pinned Gforth 1.0.0 and Lean 4.35.0 (full suite)
@@ -58,3 +60,5 @@ jobs:
           python3 --version
       - name: Run Forth, Python and pinned-Lean tests
         run: make check LEAN_CACHE=0 JOBS=$(nproc)
+      - name: Run the unit tests on gforth-fast
+        run: make test-unit GFORTH="$(dirname "$GFORTH")/gforth-fast" LEAN_CACHE=0 JOBS=$(nproc)
