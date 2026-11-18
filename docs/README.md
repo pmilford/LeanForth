@@ -88,6 +88,7 @@ See also [obsolete/README.md](obsolete/README.md) for documents that a newer one
 - [done-checks/](development/done-checks/2026-11-12-audit.md) — done-checker reports, starting with the first audit of 2026-11-12.
 - [process-audits/](development/process-audits/2026-11-12-agents-md.md) — audits of the AGENTS.md rules against practice.
 - [ci-results.log](development/ci-results.log) — every push's local CI results with the Gforth and Lean versions (written by `scripts/push.sh`).
+- [src/lib/README.md](../src/lib/README.md) — the reusable Forth libraries: what each file is, the most useful ones for other projects, how to load them.
 - [FORTH_LIBRARY.md](development/FORTH_LIBRARY.md) — inventory of reusable Forth facilities and what is still missing.
 - [LIBRARY_WORDS.md](development/LIBRARY_WORDS.md) — generated index of the public words of `src/lib/` (`scripts/lib-index.py`).
 - [design-reviews/LOG.md](development/design-reviews/LOG.md) — the independent design reviews required before code (owner, 2026-11-13): reports and verdicts.
