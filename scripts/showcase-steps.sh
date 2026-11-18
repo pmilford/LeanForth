@@ -1,9 +1,12 @@
 #!/bin/bash
 # The proof set, annotated (plan S2, branch s2-steps): each theorem file of
-# S1's and S2's proof set checked by `bin/leanforth check ... --steps -`,
-# printed as its text, then each checked step with its goals before and
-# after (the step log, docs/user/COMMAND_LINE.md "The step log"), then
-# LeanForth's verdict lines and the exit status.
+# S1's and S2's proof set checked by `bin/leanforth check ... --steps -`, and
+# for each theorem its LeanForth text, its statement as Lean prints the first
+# goal, each checked step with the goal before and the goals after as the
+# step log gives them (docs/user/COMMAND_LINE.md "The step log"), and its
+# verdict; then the run's errors, summary line and exit status. The layout is
+# scripts/showcase-steps-format.py's; tests/front/showcase.golden is the
+# output on the S2 slice (make test-showcase).
 #
 # Usage: scripts/showcase-steps.sh [FILE.lf ...]
 #   With no file, the proof set: s1-rfl.lf, 03-zero-add-exact.lf,
@@ -11,9 +14,11 @@
 #   files 00-add-zero.lf (a term proof: no steps) and 02-add-zero-rfl.lf.
 #   SHOWCASE_LIBRARY: the library options, by default S2's slice of Init
 #   (--env tests/front/s2-slice.ndjson --elab-data
-#   tests/front/s2-slice.elab.ndjson, a few seconds a file); for all of
-#   Init through a snapshot, about 75 s a file:
+#   tests/front/s2-slice.elab.ndjson, about a second a file); for all of
+#   Init through a snapshot, about 80 s a file:
 #     SHOWCASE_LIBRARY="--snapshot init.lfsnap --elab-data init.elab.ndjson"
+#   File names are taken from the checkout's root. GFORTH names the engine
+#   as for bin/leanforth.
 # Exit status: 0 when every file exits 0, else 1. Read-only: it writes
 # nothing but standard output.
 set -u
@@ -26,51 +31,13 @@ if [ $# -eq 0 ]; then
     tests/front/ps-mul-add.lf tests/front/ps-length-append.lf tests/front/00-add-zero.lf \
     tests/front/02-add-zero-rfl.lf
 fi
-# The step lines, laid out: a declaration's name, then each step's word,
-# place and parent, its goal before and its goals after, indented.
-format='
-import json, sys
-ALLOWED = {"propext", "Classical.choice", "Quot.sound"}
-def goal(text, lead):
-    return "\n".join(lead + line for line in text.splitlines())
-for line in sys.stdin:
-    record = json.loads(line)
-    if "tactic_steps" in record:
-        head = record["tactic_steps"]
-        name, count = head["declaration"], head["steps"]
-        axioms, parts = head["axioms"], head["open_parts"]
-        proved = "NOT PROVED" if parts or any(a not in ALLOWED for a in axioms) else "proved"
-        print(f"  theorem {name}: {count} checked steps; {proved} (axioms: "
-              f"{', '.join(axioms) or 'none'}; open parts: {parts})")
-        if head["cut"]:
-            print("  (the step log ran out of room: its steps are left out)")
-        continue
-    step, word, tactic, source = record["step"], record["word"], record["tactic"], record["source"]
-    parent = record["parent"]
-    inside = f", in step {parent}" if parent else ""
-    print(f"  step {step}: {word} ({tactic}) at line:col {source}{inside}")
-    if record["goal_before"] is not None:
-        print("    before:")
-        print(goal(record["goal_before"], "      "))
-    after = record["goals_after"]
-    print("    after: " + ("no goals" if not after else f"{len(after)} goal(s)"))
-    for text in after:
-        print(goal(text, "      "))
-'
 status=0
 for file in "$@"; do
-  echo "=== $file"
-  grep -v '^\\' "$file" | grep -v '^ *$'
   # shellcheck disable=SC2086
   out=$(bin/leanforth check $library --steps - "$file" </dev/null 2>&1)
   code=$?
-  printf '%s\n' "$out" | grep '^{' | python3 -c "$format" || status=1
-  # The file's own theorems' verdicts (the library's come first), or the error.
-  for name in $(grep -oE '^theorem +[^ ]+' "$file" | awk '{print $2}'); do
-    printf '%s\n' "$out" | grep -F -- "$name: " | grep -v '^{' | tail -1
-  done
-  printf '%s\n' "$out" | grep '^error'
-  echo "--- exit $code"
+  printf '%s\n' "$out" | python3 scripts/showcase-steps-format.py "$file" "$code" || status=1
+  echo
   [ "$code" -eq 0 ] || status=1
 done
 exit $status

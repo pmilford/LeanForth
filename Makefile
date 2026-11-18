@@ -1096,6 +1096,11 @@ test-front-e2e:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_elab.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_s2.py
 
+# The proof set's showcase (scripts/showcase-steps.sh) on S2's slice against its golden
+# output (tests/front/showcase.golden), a stopped file and the formatter's refusals.
+test-showcase:
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_showcase.py
+
 # The natural reader's trees against pinned Lean's macro expansion of the
 # same statements (tests/front/operators.lean); the Meta layer's answers
 # against pinned Lean's (tests/front/check_meta.py: isLevelDefEqAux,
@@ -1146,8 +1151,8 @@ test: $(TACTIC_UNIT_TARGETS) $(TACTIC_E2E_TARGETS)
 test-unit: $(TACTIC_UNIT_TARGETS)
 test-e2e: $(TACTIC_E2E_TARGETS)
 
-.PHONY: test-front test-front-e2e reference-front reference-constructions reference-binder-kinds
-test: test-front test-front-e2e
+.PHONY: test-front test-front-e2e test-showcase reference-front reference-constructions reference-binder-kinds
+test: test-front test-front-e2e test-showcase
 test-differential: reference-front
 test-differential: reference-constructions
 test-differential: reference-author
