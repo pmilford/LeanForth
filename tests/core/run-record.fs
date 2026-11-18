@@ -308,13 +308,15 @@ rr-release
 T{ constant-fixture slot-verdicts -> outcome-ok outcome-ok outcome-ok }T
 \ The run's environment is viewed (lf-env-viewed?) only while its names
 \ can be read (review reuse-out-2 M1, fault rv-env-viewed-names): not
-\ with a name entry of a kind the name store's audit refuses (the input
-\ itself still intact), nor for another identity or none.
-: last-tag ( -- addr ) lf-name-count @ 1- lf-name-slot lf-entry-tag ;
+\ with a root name entry of a kind the name store's audit refuses (the
+\ input itself still intact), nor for another identity or none. The audit
+\ reads the root every time; an entry it passed is not read again (ADR
+\ 0005 Amendment 1).
+: root-tag ( -- addr ) 0 lf-name-slot lf-entry-tag ;
 : viewed-cases ( c-addr u -- f1 f2 f3 f4 )
   cin-read ok? must fuel 64 lf-check-input ok? must >r
-  lf-env-id lf-env-viewed?  last-tag @ 9 last-tag ! lf-env-id lf-env-viewed?
-  swap last-tag !  lf-env-id 1+ lf-env-viewed?  0 lf-env-viewed?
+  lf-env-id lf-env-viewed?  root-tag @ 9 root-tag ! lf-env-id lf-env-viewed?
+  swap root-tag !  lf-env-id 1+ lf-env-viewed?  0 lf-env-viewed?
   r> lf-env-free ok? must ;
 T{ constant-fixture viewed-cases -> true false false false }T
 

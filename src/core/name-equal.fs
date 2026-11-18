@@ -27,7 +27,8 @@ require ./names.fs
   repeat 2drop true ;
 
 \ Checked: false unless both IDs are valid and the whole store passes its
-\ audit, which reads every entry.
+\ audit (lf-name-storage-valid?: in the stored mode its header, root and
+\ every entry made since the audit's last pass; ADR 0005 Amendment 1).
 : lf-name-ids? ( a b -- flag )
   lf-name-valid? swap lf-name-valid? and lf-name-storage-valid? and ;
 : lf-name-equal? ( a b -- flag )
