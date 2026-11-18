@@ -97,7 +97,9 @@ class Standalone(unittest.TestCase):
         self.assertEqual(len(files), 35)
         for name in files:
             folder = self.folder(name)
-            program = PROBE + f"hex state. require lib/{name} state. cr\n"
+            # Ends in decimal: under make coverage Gforth writes its block counts with "."
+            # at BYE (scripts/coverage-prelude.fs), which scripts/coverage.py reads as decimal.
+            program = PROBE + f"hex state. require lib/{name} state. cr decimal\n"
             for engine in self.engines():
                 with self.subTest(file=name, engine=Path(engine).name):
                     code, out, err = run(engine, folder, program)
@@ -122,7 +124,7 @@ class Standalone(unittest.TestCase):
             folder = self.folder(name, EXAMPLE_REQUIRE.findall(program))
             for engine in self.engines():
                 with self.subTest(file=name, engine=Path(engine).name):
-                    code, out, err = run(engine, folder, f"require lib/{name}\ndecimal\n" + program)
+                    code, out, err = run(engine, folder, f"require lib/{name}\ndecimal\n" + program + "decimal\n")
                     self.assertEqual(code, 0, f"{name}'s example fails: {out} {err}")
                     self.assertEqual(" ".join(out.split()), expected, f"{name}'s example")
 
