@@ -152,3 +152,11 @@ old = '''  2 pick if-pi? if drop swap lf-term-second@ swap outcome-ok exit then'
 new = '''  2 pick if-pi? if drop swap lf-term-first@ swap outcome-ok exit then'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "reuse pass part A2, F11: inferAppType steps into a pi's domain instead of its body"
+
+[[fault]]
+id = "rfa2-dot-offset"
+file = "src/author/source.fs"
+old = ''': lfa-dot ( c-addr u -- n ) ['] lfa-dot? text-scan ;'''
+new = ''': lfa-dot ( c-addr u -- n ) ['] lfa-blank? text-scan ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A2, R2: a dotted name is not split at its first dot, so namespaces and short names are lost"

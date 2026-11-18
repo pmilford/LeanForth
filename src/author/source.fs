@@ -26,6 +26,7 @@
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
+require ../lib/text-run.fs
 require ../lib/decimal.fs
 require ../lib/text-rule.fs
 
@@ -95,9 +96,7 @@ end-structure
 \ Tokens of a text, split at blanks.
 : lfa-skip-blanks ( c-addr u -- c-addr' u' )
   begin dup while over c@ lfa-blank? while 1 /string repeat then ;
-: lfa-word-end ( c-addr u -- n )
-  dup >r 0 ?do dup i chars + c@ lfa-blank? if drop i unloop r> drop exit then loop drop
-    r> ;
+: lfa-word-end ( c-addr u -- n ) ['] lfa-blank? text-scan ;
 : lfa-next-token ( c-addr u -- c-addr' u' token-addr token-u )
   lfa-skip-blanks 2dup lfa-word-end >r over r@ 2swap r> /string 2swap ;
 
@@ -105,8 +104,8 @@ end-structure
 : lfa-dot-at? ( c-addr i -- flag ) chars + c@ [char] . = ;
 : lfa-last-char ( c-addr u -- char ) + 1- c@ ;
 \ The offset of the first dot, or u.
-: lfa-dot ( c-addr u -- n )
-  dup >r 0 ?do dup i lfa-dot-at? if drop i unloop r> drop exit then loop drop r> ;
+: lfa-dot? ( char -- flag ) [char] . = ;
+: lfa-dot ( c-addr u -- n ) ['] lfa-dot? text-scan ;
 \ The name without its last part (and the dot before it); empty for one part.
 : lfa-cut ( c-addr u -- c-addr u' ) begin dup while 1- 2dup lfa-dot-at? until then ;
 \ An empty part: a dot first, last or twice in a row, or no text.
