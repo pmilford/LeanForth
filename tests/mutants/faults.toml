@@ -15420,10 +15420,50 @@ reason = "FE1g-3: by-sorry's sorryAx gets level 0 whatever the goal's sort (Lean
 [[fault]]
 id = "fe-run-restore-keeps"
 file = "src/front/tactic-run.fs"
-old = ''': lfr-trail-undo ( mark -- outcome ) lf-mctx-rollback ;'''
+old = ''': lfr-trail-undo ( mark -- outcome ) lf-mctx-rollback-to ;'''
 new = ''': lfr-trail-undo ( mark -- outcome ) lf-mctx-commit ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "FE1g-3: a failed attempt keeps its assignments, tags and kinds (Lean's restore skipped)"
+
+[[fault]]
+id = "fe-run-restore-latest-only"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-trail-undo ( mark -- outcome ) lf-mctx-rollback-to ;'''
+new = ''': lfr-trail-undo ( mark -- outcome ) lf-mctx-rollback ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review C1 of 2026-11-18: a failed attempt that left an inner mark open keeps its assignments, and the marks leak"
+
+[[fault]]
+id = "fe-run-undone-silent"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-undone ( save code -- code ) swap lf-tac-restore lfr-sure ;'''
+new = ''': lfr-undone ( save code -- code ) swap lf-tac-restore drop ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review C1 of 2026-11-18: a save that cannot be put back is dropped silently and the run goes on"
+
+[[fault]]
+id = "fe-run-kept-silent"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-kept ( save code -- code ) swap lf-tac-commit lfr-sure ;'''
+new = ''': lfr-kept ( save code -- code ) swap lf-tac-commit drop ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review C1 of 2026-11-18: a success whose save cannot be kept goes on with the marks open"
+
+[[fault]]
+id = "mctx-rollback-to-depths-kept"
+file = "src/front/mvars.fs"
+old = '''  mv-undo-scope mv-latest mvs-kind @ mv-deep = if mv-depths-back then mv-close ;'''
+new = '''  mv-undo-scope mv-close ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "review C1 of 2026-11-18: rolling back through a depth scope leaves the metavariable context one depth deeper"
+
+[[fault]]
+id = "mctx-rollback-to-any-kind"
+file = "src/front/mvars.fs"
+old = '''  dup mv-plain-at? 0= if drop outcome-invalid exit then'''
+new = ''''''
+test = "$GFORTH tests/front/front.fs"
+reason = "rolling back to a depth scope's serial as a mark is not refused"
 
 [[fault]]
 id = "fe-run-unfocus-drops-rest"
@@ -20023,8 +20063,8 @@ reason = "S2 merge B: Meta.check passes a smart-unfolding marker unchecked"
 [[fault]]
 id = "fe-steps-rolled-back"
 file = "src/front/tactic-run.fs"
-old = '''  dup lfr-back-log tsv-goals @ lf-goals! drop ;'''
-new = '''  tsv-goals @ lf-goals! drop ;'''
+old = '''  dup lfr-back-log tsv-goals @ lf-goals! ;'''
+new = '''  tsv-goals @ lf-goals! ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "S2 s2-steps: a failed attempt's step-log entries are kept after the restore"
 

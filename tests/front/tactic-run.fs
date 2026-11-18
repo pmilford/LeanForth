@@ -342,6 +342,24 @@ T{ ' spoil lf-tac-try state? -> 0 true tagged mv-natural 0 }T
 \ Nested: an inner failure undone, the outer success kept.
 : inner ( -- ) ['] spoil-fail lf-tac-try drop lf-tac-forget ;
 T{ two-goals ' inner lf-tac-try state? -> 0 false 0 mv-opaque 2 }T
+\ A failed attempt that leaves an inner mark or depth scope open (review
+\ C1 of 2026-11-18): every scope opened since the save is undone with it,
+\ the assignments before the goal list, and no mark stays open.
+: spoil-marked ( -- ) lf-mctx-mark 2drop spoil lfa-e-tac-unsolved lfa-fail ;
+: spoil-deep ( -- ) true lf-mctx-depth{ 2drop spoil lfa-e-tac-unsolved lfa-fail ;
+T{ two-goals ' spoil-marked lf-tac-try lf-tac-forget state? lf-mctx-marks lfr-saves
+   -> lf-author-throw false 0 mv-opaque 2 0 0 }T
+T{ lf-mctx-depth two-goals ' spoil-deep lf-tac-try lf-tac-forget state? lf-mctx-marks
+   lf-mctx-depth -> 0 lf-author-throw false 0 mv-opaque 2 0 0 }T
+\ A success that leaves a mark open cannot be kept: the run stops with
+\ lfr-state-lost, a THROW no try catches.
+: keep-marked ( -- ) lf-mctx-mark 2drop ;
+T{ two-goals ' keep-marked ' lf-tac-try catch nip lfr-saves -> lfr-state-lost 0 }T
+T{ lf-mctx-marks lf-mctx-reset -> 2 }T
+\ So does a failure whose save cannot be put back (a newer save left).
+: save-and-fail ( -- ) lf-tac-save 2drop lfa-e-tac-unsolved lfa-fail ;
+T{ two-goals ' save-and-fail ' lf-tac-try catch nip -> lfr-state-lost }T
+lf-tac-forget
 \ Saves are last in, first out; another is refused, nothing changed.
 variable s1  variable s2
 T{ two-goals lf-tac-save swap s1 ! lf-tac-save swap s2 ! -> outcome-ok outcome-ok }T

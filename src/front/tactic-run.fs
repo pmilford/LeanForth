@@ -47,14 +47,22 @@
 \ goal as printed are kept for the whole run (they outlive the stores the
 \ checker empties) and lf-open-parts. reports them after the verdicts.
 \ Choice points (Lean's saveState and restore, for FE5's first and the
-\ rfl alternatives): lf-tac-try ( xt -- code ) runs xt from a saved state
-\ (a mark of the metavariable context, the goal list, the open blocks, the
-\ open parts and the current local context) and keeps its changes when it
-\ succeeds (0), or puts the state back when it fails with an authoring
-\ error (its THROW code;
-\ the error stays recorded until lf-tac-forget); any other THROW passes
-\ on, the state put back. Fuel is not given back (nor are Lean's
-\ heartbeats); nodes made by a failed attempt stay, reached by nothing.
+\ rfl alternatives): lf-tac-try ( xt -- code ), xt ( -- ), runs xt from a
+\ saved state and keeps its changes when it succeeds (0), or puts the
+\ state back when it fails with an authoring error (its THROW code; the
+\ error stays recorded until lf-tac-forget); any other THROW passes on,
+\ the state put back. A save holds exactly: a mark of the metavariable
+\ context (rolled back through every scope opened since, lf-mctx-rollback-to),
+\ the current local context, the goal list, and trun's open blocks, open
+\ parts, step records, step log and its text. It does NOT yet hold the
+\ elaborator's pending list and synthesis window, the induction blocks
+\ (tind-withs, tind-alts), trw-mvars or trun-entry (reviews C2 and N4 of
+\ 2026-11-18): they must join it before FE5's combinators (first, try,
+\ <;>) run attempts that can fail inside them; today only rw's closing
+\ rfl runs in a try. A save that cannot be put back or kept stops the
+\ run (THROW lfr-state-lost, an internal fault). Fuel is not given back
+\ (nor are Lean's heartbeats); nodes made by a failed attempt stay,
+\ reached by nothing.
 \ Words: lf-front-by-statement, lf-tactic-by, lf-tactic-fuel! ( n -- )
 \ (steps a run may take, from 0), lf-tactic-fuel-default ( -- ),
 \ lf-tactic-fuel-left ( -- n ), lf-tactic-action! ( xt kind -- ),
@@ -513,7 +521,7 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ The metavariable context's trail (front/mvars.fs's marks, last in,
 \ first out): the one place to change when the trail's interface does.
 : lfr-trail-mark ( -- mark outcome ) lf-mctx-mark ;
-: lfr-trail-undo ( mark -- outcome ) lf-mctx-rollback ;
+: lfr-trail-undo ( mark -- outcome ) lf-mctx-rollback-to ;
 : lfr-trail-keep ( mark -- outcome ) lf-mctx-commit ;
 : lfr-unmark ( mark outcome -- -1 outcome ) swap lfr-trail-undo drop no-result ;
 : lf-tac-save ( -- save outcome )
@@ -525,19 +533,26 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ in a try).
 : lfr-back-log ( addr -- )
   dup tsv-log @ trun-log slab-cut tsv-log-spans @ trun-log-spans slab-cut ;
-: lfr-back ( addr -- )
+: lfr-back ( addr -- outcome )
   dup tsv-frames @ trun-frames slab-cut dup tsv-parts @ trun-parts slab-cut
   dup tsv-text @ trun-text slab-cut dup tsv-steps @ trun-steps slab-cut
-  dup lfr-back-log tsv-goals @ lf-goals! drop ;
+  dup lfr-back-log tsv-goals @ lf-goals! ;
+\ The trail first, through every scope opened since (review C1 of
+\ 2026-11-18), then the view, the goal list and the slabs.
 : lfr-rolled ( addr -- outcome )
-  dup lfr-back dup tsv-view @ lf-mctx-view! tsv-mark @ lfr-trail-undo ;
+  dup tsv-mark @ lfr-trail-undo ok-then? 0= if exit then
+  dup tsv-view @ lf-mctx-view! lfr-back ;
 : lf-tac-restore ( save -- outcome )
   dup lfr-latest? 0= if drop outcome-invalid exit then lfr-save lfr-rolled lfr-drop-save ;
 : lf-tac-commit ( save -- outcome )
   dup lfr-latest? 0= if drop outcome-invalid exit then
   lfr-save tsv-mark @ lfr-trail-keep lfr-drop-save ;
-: lfr-kept ( save code -- code ) swap lf-tac-commit drop ;
-: lfr-undone ( save code -- code ) swap lf-tac-restore drop ;
+\ A save that cannot be put back or kept is LeanForth's fault: the run
+\ stops with a THROW no try catches (an internal fault, error 41).
+-4134 constant lfr-state-lost   \ THROW code: a choice point refused
+: lfr-sure ( outcome -- ) ok? 0= if lfr-state-lost throw then ;
+: lfr-kept ( save code -- code ) swap lf-tac-commit lfr-sure ;
+: lfr-undone ( save code -- code ) swap lf-tac-restore lfr-sure ;
 : lfr-caught ( save code -- code )
   ?dup 0= if 0 lfr-kept exit then lfr-undone dup lf-author-throw <> if throw then ;
 : lf-tac-try ( xt -- code ) lf-tac-save lfr-must swap catch lfr-caught ;

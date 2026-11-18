@@ -88,6 +88,7 @@
 \ ( -- n );
 \ lf-mctx-view ( -- view ), lf-mctx-view! ( view -- );
 \ lf-mctx-mark ( -- mark outcome ), lf-mctx-rollback ( mark -- outcome ),
+\ lf-mctx-rollback-to ( mark -- outcome ) (every newer scope too),
 \ lf-mctx-commit ( mark -- outcome ), lf-mctx-marks ( -- n ), lf-mctx-latest
 \ ( -- mark ), lf-mctx-snapshot, lf-mctx-switch, lf-mctx-depth{,
 \ }lf-mctx-depth, lf-mvar-depth ( mvar -- depth true | false );
@@ -514,6 +515,23 @@ end-structure
 : }lf-mctx-depth ( scope -- outcome )
   mv-deep mv-scope? 0= if outcome-invalid exit then
   mv-undo-scope mv-depths-back mv-close outcome-ok ;
+\ Back to a plain mark through every newer scope (Lean's restore of a
+\ saved MetavarContext, which replaces the whole context; review C1 of
+\ 2026-11-18): each newer scope, plain or deep, is undone and closed,
+\ latest first, a deep one's depths given back, and then the mark's. A
+\ mark that is not open, or a depth scope, is refused, invalid, and
+\ nothing changes.
+: mv-serial-at ( i -- serial ) mv-marks slab-at mvs-serial @ ;
+: mv-mark-index ( mark -- i true | false )
+  lf-mctx-marks 0 ?do
+    dup i mv-serial-at = if drop i true unloop exit then loop drop false ;
+: mv-plain-at? ( i -- flag ) mv-marks slab-at mvs-kind @ mv-plain = ;
+: mv-drop-scope ( -- )
+  mv-undo-scope mv-latest mvs-kind @ mv-deep = if mv-depths-back then mv-close ;
+: lf-mctx-rollback-to ( mark -- outcome )
+  mv-mark-index 0= if outcome-invalid exit then
+  dup mv-plain-at? 0= if drop outcome-invalid exit then
+  lf-mctx-marks swap ?do mv-drop-scope loop outcome-ok ;
 
 \ Snapshots, kept in serial order (a scope's close drops the newest), so
 \ a serial is found by halving.
