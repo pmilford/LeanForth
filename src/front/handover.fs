@@ -29,17 +29,18 @@
 \   FE1c); full for no room.
 \ - In natural text, end NAME runs the elaborator (lf-front-elaborate, a
 \   deferred word front/elab-decl.fs sets; error 71, not supported yet,
-\   without it), then lf-front-hand-over, which stops the run at end NAME on
-\   a refusal: error 200 for a smart-unfolding marker reached, 74 for a
-\   hole left, 75 for an unused universe parameter, 76 for terms that
-\   are malformed (no node, a value unfit for the kind), 77 for an instantiation step not ported yet, 60 for no
-\   room. A declaration handed over is made visible to the next, as
-\   Lean's addDecl makes it (front/meta-env.fs, lf-menv-add; no room:
-\   60). The run's records then go to the kernel by the path of every
-\   text (cli/check-lf.fs: author/export.fs's lf-author-export-reached,
-\   the importer stage's stage-produce, the feed, check-declaration), and
-\   the export writer refuses a metavariable it would write whatever this
-\   file decided (ADR 0021 D2). Untrusted: only the kernel's check of the
+\   without it), then lf-front-hand-over, which stops the run at end NAME
+\   on a refusal: error 200 for a smart-unfolding marker reached, 74 for a
+\   hole left, 75 for an unused universe parameter, 76 for terms that are
+\   malformed (no node, a value unfit for the kind), 77 for an
+\   instantiation step not ported yet, 60 for no room. A declaration
+\   handed over is made visible to the next, as Lean's addDecl makes it
+\   (front/meta-env.fs, lf-menv-add; no room: 60). The run's records then
+\   go to the kernel by the path of every text (cli/check-lf.fs:
+\   author/export.fs's lf-author-export-reached, the importer stage's
+\   stage-produce, the feed, check-declaration), and the export writer
+\   refuses a metavariable or marker it would write whatever this file
+\   decided (ADR 0021 D2). Untrusted: only the kernel's check of the
 \   records decides anything.
 \ State: one context record, lfh (the scratch mark, the declaration and
 \ the refusal's error of a hand-over), in the checker context (ADR 0009).
