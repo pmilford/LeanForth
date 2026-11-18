@@ -106,6 +106,8 @@ T{ lf-binder-instance named-pi -1 0 lf-binder-kind-at -> lf-binder-instance true
 T{ lf-binder-strict named-pi refl-d 9 lf-binder-kind-at -> lf-binder-strict true }T
 T{ fresh-pi -1 0 lf-binder-kind-at fresh-pi lf-binder-of -> false false }T
 T{ lf-binder-implicit named-pi lf-binder-of rot s" y" name= -> lf-binder-implicit true true }T
+\ An unrecorded binder's name is the anonymous one (0); a recorded one's.
+T{ fresh-pi lf-binder-name lf-binder-default named-pi lf-binder-name s" y" name= -> 0 true }T
 
 \ ---- lf-with-local-decl: a new local in a new current view; both put
 \ back after xt, also after a THROW.
@@ -177,6 +179,30 @@ T{ nat mv-natural lf-mvar-new made goal ! ' lam-goal in-view1 lf-term-second@ go
 : after-x ( -- code ) mv-opaque new-in-view1 view2 nat mv-opaque lf-mctx-view lf-mvar-new-at made
   goal ! ['] lam-goal catch view0 lf-mctx-view! ;
 T{ after-x -> -4205 }T
+\ A metavariable that sees y but not x, abstracted over [x, y] (Lean
+\ reverts y alone): refused, unsupported.
+view1 lf-mctx-view! nat s" y" binder constant fy  lf-mctx-view constant view-xy
+view0 fy s" y" lfa-intern 0 lf-local-new made lf-view-push made constant view-y
+view0 lf-mctx-view!
+: lam-xy ( -- e ) fx xs ! fy xs cell+ ! goal @ xs 2 lf-mk-lambda-fvars ;
+: partial-xs ( -- code )
+  nat mv-opaque view-y lf-mvar-new-at made goal ! view-xy lf-mctx-view! ['] lam-xy catch
+  view0 lf-mctx-view! ;
+T{ partial-xs -> -4205 }T
+\ mkLambdaFVars leaves no metavariable that sees x (Lean's elimMVarDeps
+\ reverts it): a delayed-assigned one (?n of fun y => ?n y, which ?g of
+\ context x, y gives; ?n's context holds x), or one inside e
+\ (Nat.succ ?g, ?g in view1), is refused, unsupported; one that does not
+\ see x stays (above).
+: lam-y ( -- e ) fy xs ! goal @ xs 1 lf-mk-lambda-fvars ;
+: delayed-e ( -- code )
+  nat mv-opaque view-xy lf-mvar-new-at made goal ! view-xy lf-mctx-view! lam-y aux goal !
+  view1 lf-mctx-view! ['] lam-goal catch view0 lf-mctx-view! ;
+T{ delayed-e -> -4205 }T
+: succ-goal ( -- e ) fx xs ! s" Nat.succ" lf-mk-const0 goal @ lf-mk-app xs 1 lf-mk-lambda-fvars ;
+: inner-e ( -- code ) mv-natural new-in-view1 view1 lf-mctx-view! ['] succ-goal catch
+  view0 lf-mctx-view! ;
+T{ inner-e -> -4205 }T
 
 \ HAdd.hAdd {α β γ} [self : HAdd α β γ] : α → β → γ (a new run).
 lf-author-begin

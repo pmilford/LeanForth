@@ -47,9 +47,10 @@
 \ (xs : types) -> e's type in the context before them (synthetic opaque
 \ when e's is not assignable, else e's kind) and e := ?n xs, delayed
 \ when e is synthetic opaque, else assigned. Not ported: a let variable
-\ among the xs and a context where locals follow the xs (unsupported);
-\ a metavariable inside e that sees the xs is left as it is (Lean's
-\ elimMVarDeps would revert it; the hand-over refuses the hole, 74).
+\ among the xs, a context where locals follow the xs or that holds only
+\ some of them, and any other metavariable left in e (delayed-assigned,
+\ or inside e) whose context holds one of the xs: all unsupported
+\ (Lean's elimMVarDeps would revert it).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: tl-frames (a telescope's frame, one per telescope open, in the
 \ checker context, ADR 0009) and tlb (the binding loop's fields: not
@@ -193,8 +194,17 @@ defer tl-bind-in ( e addr n view xt -- e' )
 : tl-elim ( e addr n -- e' )
   >r over swap r> tle! dup tl-open-mvar? 0= if exit then tle-sees? 0= if exit then
   tle-tail? 0= if outcome-unsupported lf-must then tle tle-xs @ tle tle-n @ tl-revert ;
+\ elimMVarDeps beyond that case: a metavariable left in e (delayed-
+\ assigned, or inside e) that sees one of the variables, or has no
+\ context, is refused (unsupported; Lean would revert it). The test
+\ throws nothing (it runs inside lf-term-holds?'s walk).
+: tl-sees-xs? ( leaf -- flag )
+  dup lf-mvar? 0= if drop false exit then
+  dup lf-mvar-view nip 0= if drop true exit then tle tle-mvar ! tle-sees? ;
+: tl-closed ( e -- e )
+  dup ['] tl-sees-xs? lf-term-holds? lf-must if outcome-unsupported lf-must then ;
 : tl-binding ( e addr n view xt -- e' )
-  2>r 2>r lf-instantiate! 2r@ tl-elim 2r> 2r> tl-bound ;
+  2>r 2>r lf-instantiate! 2r@ tl-elim tl-closed 2r> 2r> tl-bound ;
 ' tl-binding is tl-bind-in
 \ (Lean's mkLambdaFVars and mkForallFVars give e as it is for no variable.)
 : lf-mk-lambda-fvars ( e fvars n -- e' )

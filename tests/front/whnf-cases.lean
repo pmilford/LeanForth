@@ -175,6 +175,7 @@ run_meta do
     buildCase (mkAppM ``Nat.succ #[k, k])
     buildCase (mkAppM ``Nat.succ #[e])
     buildCase (do mkCongrArg (mkConst ``Nat.succ) (← mkCongrFun w k))
+    buildCase (do mkCongrArg (mkLambda `y .default nat (mkBVar 0)) (← mkCongrArg (mkLambda `y .default nat (mkBVar 0)) e))
     buildCase (mkAppM ``id #[u, k])
     buildCase (mkAppM ``id #[u, k, k])
     buildCase (mkAppM ``congrArg #[u])

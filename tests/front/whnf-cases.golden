@@ -116,6 +116,7 @@ rejected
 rejected
 rejected
 (app (app (app (app (app (app congrArg.{1,1} (pi Nat.{} Nat.{})) Nat.{}) u) v) (lam (pi Nat.{} Nat.{}) (app Nat.succ.{} (app #0 k)))) w)
+(app (app (app (app (app (app congrArg.{1,1} Nat.{}) Nat.{}) a) b) (lam Nat.{} #0)) e)
 (app (app (app id.{1} (pi Nat.{} Nat.{})) u) k)
 rejected
 rejected

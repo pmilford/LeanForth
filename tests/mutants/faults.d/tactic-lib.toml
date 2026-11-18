@@ -114,7 +114,7 @@ reason = "FE1g-3 (moved to the library's mkBinding, a2-i): mkLambdaFVars without
 [[fault]]
 id = "fe-intro-no-delay"
 file = "src/front/telescope.fs"
-old = '''  2>r 2>r lf-instantiate! 2r@ tl-elim 2r> 2r> tl-bound ;'''
+old = '''  2>r 2>r lf-instantiate! 2r@ tl-elim tl-closed 2r> 2r> tl-bound ;'''
 new = '''  2>r 2>r lf-instantiate! 2r> 2r> tl-bound ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 design 8.3 (moved to the library's elimMVar case, a2-i): intro assigns fun h => ?new without the delayed assignment, so h stays free in the value"
@@ -144,6 +144,47 @@ old = ''': tl-aux-view ( -- view ) tle-view dup lf-view-count tle tle-n @ - run-
 new = ''': tl-aux-view ( -- view ) tle-view ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i elimMVar: ?n made in a context that still holds the variables it abstracts"
+
+[[fault]]
+id = "lib-binding-mvars-unchecked"
+file = "src/front/telescope.fs"
+old = '''  2>r 2>r lf-instantiate! 2r@ tl-elim tl-closed 2r> 2r> tl-bound ;'''
+new = '''  2>r 2>r lf-instantiate! 2r@ tl-elim 2r> 2r> tl-bound ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "a2-i review F5: mkLambdaFVars leaves a metavariable that sees the variables (Lean's elimMVarDeps reverts it); tactic-lib.fs's delayed-e and inner-e expect unsupported"
+
+[[fault]]
+id = "lib-elim-delayed-open"
+file = "src/front/telescope.fs"
+old = '''  dup lf-mvar-delayed if 2drop 2drop false exit then lf-mvar-value dup if nip then 0= ;'''
+new = '''  dup lf-mvar-delayed if 2drop 2drop true exit then lf-mvar-value dup if nip then 0= ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "a2-i review F3: a delayed-assigned e taken for an open metavariable and reverted again; tactic-lib.fs's delayed-e expects unsupported"
+
+[[fault]]
+id = "lib-elim-missing-placed"
+file = "src/front/telescope.fs"
+old = '''  dup tle-index 0= if drop false exit then swap tle-view lf-view-count tle tle-n @ - + = ;'''
+new = '''  dup tle-index 0= if drop true exit then swap tle-view lf-view-count tle tle-n @ - + = ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "a2-i review F3: a variable missing from the metavariable's context taken as placed at its end; tactic-lib.fs's partial-xs expects unsupported"
+
+[[fault]]
+id = "lib-binder-name-not-anonymous"
+file = "src/front/telescope.fs"
+old = ''': lf-binder-name ( pi -- name ) lf-binder-of if drop else 0 then ;'''
+new = ''': lf-binder-name ( pi -- name ) lf-binder-of if drop else 1 then ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "a2-i review F3: an unrecorded binder named with another name than the anonymous one (mkFreshExprMVar's userName)"
+
+[[fault]]
+id = "lib-named-input-recorded"
+file = "src/front/app-builder.fs"
+old = '''  over lf-term-input? if drop exit then
+'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
+reason = "a2-i review F3: a builder writes a binder record for an input node, which keeps its own; check_whnf.py's two-identity fusion meets one"
 
 [[fault]]
 id = "lib-domain-unabstracted"

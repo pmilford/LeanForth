@@ -318,6 +318,12 @@ BUILDS = [
     build("do mkCongrArg (mkConst ``Nat.succ) (← mkCongrFun w k)",
           's" Nat.succ" lf-mk-const0 s" congrFun" lv1 lv1 2 lf-mk-const nat nat nat lam '
           "fu fv fw fk 6 lf-mk-app-n lf-mk-congr-arg"),
+    # Fusing two identities gives fun x : Nat => x, a node the slice already
+    # has (an input node keeps its own binder record: app-builder.fs's
+    # abl-named leaves it unrecorded).
+    build("do mkCongrArg (mkLambda `y .default nat (mkBVar 0)) "
+          "(← mkCongrArg (mkLambda `y .default nat (mkBVar 0)) e)",
+          "nat 0 bv lam nat 0 bv lam fe lf-mk-congr-arg lf-mk-congr-arg"),
     build("mkAppM ``id #[u, k]", 's" id" fu fk 2 lf-mk-app-m'),
     build("mkAppM ``id #[u, k, k]", 's" id" fu fk fk 3 lf-mk-app-m'),
     build("mkAppM ``congrArg #[u]", 's" congrArg" fu 1 lf-mk-app-m'),
