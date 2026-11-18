@@ -16,9 +16,15 @@ require ../../src/present/term-printer.fs
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
   lf-pres-reset lf-ssession-begin must ;
 
-\ Names: a simple name, or one more string component under a prefix.
-: nm ( c-addr u -- id ) 0 -rot lf-name-str must ;
+\ Names: one more string component under a prefix; or a name read as Lean
+\ reads one, a component per dot (HAdd.hAdd is HAdd, then hAdd), since
+\ the printer writes a component holding a dot between « ».
 : nm. ( prefix c-addr u -- id ) lf-name-str must ;
+: nm-head# ( c-addr u -- n ) tuck [char] . byte-scan nip - ;
+: nm-cut ( c u n -- c n c' u' ) >r over r@ 2swap r> 1+ /string ;
+: nm-split ( prefix c-addr u -- id )
+  begin 2dup nm-head# 2dup > while nm-cut 2>r nm. 2r> repeat drop nm. ;
+: nm ( c-addr u -- id ) 0 -rot nm-split ;
 : nm# ( prefix n -- id ) lf-name-num must ;
 
 \ Terms. Binders take their name and kind from the side table.

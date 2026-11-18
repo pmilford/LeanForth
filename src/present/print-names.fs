@@ -6,6 +6,7 @@
 \ scans that ask whether a body mentions a binder.
 
 require ./print-job.fs
+require ./name-text.fs
 require ../core/levels.fs
 require ../core/level-scope.fs
 require ../core/tagged-sort-boundary.fs
@@ -30,16 +31,24 @@ lf-walk-room context-walk2: lf-pp-scan-walk
 \ print then ends full), as a name the pool has no room for does. Unchecked:
 \ the ID is valid and the name storage passed lf-name-storage-valid?, so
 \ every prefix chain ends at the anonymous name, which gives nothing.
+\ Each string component is spelled as Lean writes it (name-text.fs's
+\ nt-part, review PB1): between « » and escaped when it is no identifier
+\ (or, as the root, a token), so Foo.«a.b» is never Foo.a.b and no
+\ bidirectional control reaches the sink raw; one the heap has no room to
+\ escape marks the pool full.
+: lf-pp-full! ( -- ) true lf-pjob lf-pjob-full ! ;
+: lf-pp-shown-to ( c-addr u flag xt -- )
+  swap if execute else drop 2drop lf-pp-full! then ;
 : lf-pp-part ( id xt -- )
   >r dup lf-name-str?
-  if lf-name-text r> execute else lf-name-payload r> lf-pp-number-to then ;
+  if nt-part r> lf-pp-shown-to else lf-name-payload r> lf-pp-number-to then ;
 : lf-pp-dot-to ( xt -- ) s" ." rot execute ;
 \ Component k from the root (0 the first) of a name of n components.
 : lf-pp-part-at ( id n k xt -- ) >r - 1- lf-name-ancestor r> lf-pp-part ;
 : lf-pp-parts-to ( id n xt -- )
   over 0 ?do i if dup lf-pp-dot-to then 2 pick 2 pick i 3 pick lf-pp-part-at loop
   drop 2drop ;
-: lf-pp-too-deep ( id n xt -- ) 2drop drop true lf-pjob lf-pjob-full ! ;
+: lf-pp-too-deep ( id n xt -- ) 2drop drop lf-pp-full! ;
 : lf-pp-name-to ( id xt -- )
   over lf-name-depth swap over lf-name-default >
   if lf-pp-too-deep else lf-pp-parts-to then ;

@@ -275,6 +275,12 @@ T{ true. mv-synthetic vz lf-mvar-new-at made goal-text s\" z : Nat := Nat\n⊢ T
 \ A let's value with a let inside counts its type and body one level
 \ down (LeanForth keeps them under a lambda): let c := 1; c is depth 4.
 T{ 1 num nat 0 t-var t-lam 0 lf-let-make must gp-depth -> 4 outcome-ok }T
+\ So two nested lets around 125 ones (depth 252) reach 254, still shown;
+\ counted at the lambda's own depth they would reach 256, past it: the
+\ value crosses the threshold only through the lets (review N16).
+: let-around ( body -- t ) 1 num nat rot t-lam 0 lf-let-make must ;
+: two-lets ( -- t ) 125 ones let-around let-around ;
+T{ 125 ones gp-depth two-lets gp-depth -> 252 outcome-ok 254 outcome-ok }T
 \ Metavariables: ?TAG for a tagged one, ?m.N for another.
 nat mv-natural lf-mvar-new made constant mq  mq s" q" nm lf-mvar-tag! must-ok
 nat mv-natural lf-mvar-new made constant manon

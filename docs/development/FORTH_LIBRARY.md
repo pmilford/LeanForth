@@ -50,6 +50,7 @@ is added). The library audit of 2026-11-13 (plan 9.4.8) lists which libraries la
 | Big natural numbers | `src/lib/bignum.fs` | Arbitrary-precision naturals for Lean's `Nat` literals ([below](#big-natural-numbers)): numbers in an arena the caller provides (`/big-arena`, `big-arena-init`; `big-mark` and `big-release` give back what was made since a mark), one-cell limbs whose width is counted (`limb-bits`), decimal reading and printing (`decimal>big`, `big>decimal`), conversion to and from a cell (`u>big`, `big>u`), comparison (`big-compare`, `big=`, `big<=`), and the operations Lean 4.35.0's kernel computes on literals (`big+ big- big* big/ big-mod big-gcd big-and big-or big-xor big-lshift big-rshift big-pow`, each `( a b arena -- c outcome )`). Schoolbook multiplication with Karatsuba from 48 limbs, Knuth's algorithm D, Lehmer's gcd. Outcomes ok, invalid (a malformed or released number, text or arena) and full (no room, or more bits than the arena's limit, by default Lean's 2^30). No state; loads in decimal whatever `BASE` is | New 2026-11-02 (plan task 5.2.3, library part); not yet used by the kernel (task 5.1.4); `tests/lib/bignum.fs` reaches every outcome; `make test` compares 37,585 cases with Python's integers on the running Gforth and catches 22 planted faults; review fixes of 2026-11-03 (printing overwrote the number below its text, stale operands, two speed fixes) with guarded-arena sweeps; `make check` has 984 of them computed by pinned Lean's kernel |
 | Signed big integers | `src/lib/bigint.fs` | Lean 4.35.0's `Int` over `bignum.fs` ([below](#signed-big-integers)): an integer is a sign cell (-1, 0, 1) followed by a bignum magnitude, made at the top of a bignum arena; `bigint+ bigint- bigint* bigint-ediv bigint-emod` `( a b arena -- c outcome )` (Lean's `/` and `%` on `Int` are `Int.ediv` and `Int.emod`), `bigint-bmod` and `bigint-pow` `( x m arena -- c outcome )` with a natural number `m`, `bigint-negate`, `bigint-gcd`, `bigint-natAbs` and `bigint-toNat` (natural-number results), `bigint-compare`, `bigint-sign`, `bigint-magnitude` (in place), `nat>bigint`, `n>bigint`, `bigint>n`, `decimal>bigint`, `bigint>decimal`, `bigint-valid?`. Outcomes ok, invalid, full as `bignum.fs`'s. Standalone: requires `bignum.fs` (and through it, since 2026-11-13, `bits.fs` and `decimal.fs`), `bounds.fs`, `outcome.fs`, `portability.fs` and `module.fs`; helpers private (ADR 0010); no state; no host recursion of its own; loads in decimal whatever `BASE` is | New 2026-11-13 (plan step FE1i-4, for `by-omega` and `by-decide`); tested alone, on branch `fe1i4-bigint`; no tactic uses it yet. `make test-bigint`: unit tests of every word and outcome, every room from 0 cells up, no heap use; 9,906 pairs against a model of Lean's definitions; the header's example and exact interface from outside the project. `make reference-bigint`: 17,906 pairs (10,000 random) equal pinned Lean's own `Int`, line for line, and 300 kernel-decided equations. 17 planted faults (`fe-bigint-…`) each caught; Forth review 2026-11-13 not blocking, its M1, L1, L2, S1 fixed |
 | SHA-256 | `src/lib/sha256.fs` | FIPS 180-4 SHA-256, incremental ([below](#sha-256)): `sha256:` (or `/sha256` address units of the caller's memory), `sha256-init ( sha -- )`, `sha256-update ( c-addr u sha -- )` with pieces of any size, `sha256-final ( c-addr sha -- )` for the 32-byte digest, `sha256-hex ( c-addr1 c-addr2 -- )` for its 64 lowercase hexadecimal digits. One word per FIPS function (`sha-rotr`, `sha-shr`, `sha-ch`, `sha-maj`, `sha-big-sigma0`, `sha-big-sigma1`, `sha-small-sigma0`, `sha-small-sigma1`), the plain round and schedule built from them, and on cells of 64 bits or more a fast round and schedule with the functions written out in place. Standalone: requires `portability.fs`, `bits.fs` (`cell-bits`), `decimal.fs` (`hex-byte!`) and `module.fs`; helpers private in `lf-lib-private` (ADR 0010); no state of its own; nothing fails. Loads in decimal whatever `BASE` is | New 2026-11-03 (plan task 3.2.6, for the export manifests); the program track's flagship verification target; `make test-sha256`: NIST vectors, every split of messages up to 200 bytes, the functions against independent models, the fast round against the plain one, 306 random messages against Python's `hashlib` on both paths, the header's example and the exact public interface checked from a folder outside the project; 14 planted faults each caught |
+| Name tables | `src/lib/name-table.fs` | `name-table: ( k "name" -- )`, a read-only table of entries of k data cells then a counted name, laid down while loading (`counted,`, `names,` for a line of names alone, `name-table-end`); `name-table-find ( c-addr u table -- entry \| 0 )` by exact bytes, `name-entry-name`, `name-table-each ( table xt -- )` ([below](#name-tables)). Requires `bytes.fs` and `module.fs`; helpers private; no state | New 2026-11-18 (branch `fix-cli-present`, review R4 of 2026-11-18 author-cli and R9 of the present pass); first caller `src/present/name-text.fs`'s tokens; `tests/lib/name-table.fs` on its own |
 | Visible text | `src/lib/text-rule.fs` | `tr-rule? ( c-addr u -- flag )`: valid UTF-8 with no control, format, line or paragraph separator or surrogate character (Unicode Cc, Cf, Zl, Zp, Cs); `tr-banned? ( code -- flag )`: a code point no such text holds; `tr-shown? ( c-addr u -- flag )`: also a character that is seen, not a space, a blank-looking filler, a combining mark or a default-ignorable code point. The rule of program receipts 0.2 and of run records; tables generated from Unicode 15.1 by `scripts/text_rule_tables.py`. Requires `bounds.fs`, `bytes.fs` and `module.fs`; helpers private; no state | New 2026-11-03 (run records, plan task 2.2.5); `tests/lib/text-rule.fs` on its own; every code point compared with the run-record schema's patterns by `tests/core/test_run_records.py` |
 | Running text | `src/lib/text-run.fs` | The interpreter's settings saved and restored (`run-settings-save`, `-restore`), a whole file read once as bytes (`text-file-slurp`), lines (`text-line-end`, `text-cr-drop`), the plain-text rule (`text-plain-at`), the float stack's depth (`floats-depth`, `floats-drop-to`); `text-scan ( c-addr u xt -- n )`, the offset of the first character for which the test `xt ( char -- flag )` holds (u when none), and `text-any? ( c-addr u xt -- flag )`, whether any does (`text-any? 0=`: none does). *Algorithm*: one pass with `/STRING`, stopping at the first match, so offsets count characters on any host; *genericity*: any per-character test; *cost*: one call of the test per character up to the first match, no memory, two return-stack cells; *speed* (Gforth 1.0 `gforth`, 2026-11-14, load average about 0.1, `.claude/work/ROUT4/`): `text-any?` with no match 8 ns a character at 10 characters, 6 ns at 10^6. Requires `portability.fs`, `outcome.fs`, `module.fs`; helpers private; no state | New 2026-11-03 (program verifier); `text-any?` 2026-11-14 (ROUT4, review reuse-out-2 rc3 B2) in place of five of eight hand-written character loops: print-forth.fs's `lf-pf-odd?`, `lf-pf-blank-in?`, `lf-pf-note?` (names, labels and notes, a handful of bytes each), cli/leanforth.fs's `cli-plain?` (a snapshot's information texts, under 40 bytes), import/manifest.fs's `hex-text?` (40- and 64-digit commits and digests); of the other three, author/source.fs's `lfa-digits?` went onto `decimal-digits?`, `lf-pf-among?` and `cli-quote-at` onto `bytes.fs`'s `byte-scan`; `tests/lib/text-run.fs`, faults `r4-text-any-last` and the callers' `r4-*` |
 | Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `-rot`, `max-n`, `cell` and the structure words, compiled only where the host lacks them. `scripts/check-portable-forth.py` refuses a module under `src/` that uses one of them without loading this file, directly or through the files it loads | New 2026-11-02; defines nothing under Gforth except `max-n`; `cell` and the load check added 2026-11-02 |
@@ -690,14 +691,14 @@ and double cells, signed or unsigned; any word under `in-decimal`.
 1.0, this machine, 2026-11-13, while a two-job test ran): `7 u>decimal`
 19 ns, `max-n u>decimal` 112 ns, `digits>u` of 19 digits 19 ns.
 *Callers*: diagnostics and reports (`author/errors.fs`, `cli/check-run.fs`,
-`cli/leanforth.fs`, `cli/name-text.fs`, `present/print-job.fs`,
+`cli/leanforth.fs`, `present/name-text.fs`, `present/print-job.fs`,
 `import/manifest.fs`, `import/ndjson-emit.fs`, `import/run-record.fs`,
 `program/verify-report.fs`, `program/ir-run.fs`'s printed stacks), the
 readers of numbers (`import/stage.fs`'s and the kernel's `rec_` test,
 `environment.fs`'s auxiliary recursor number, `program/ir-reader.fs`,
 `ir-run.fs`, `lib/json.fs`), the kernel's generated names
 (`check-block.fs`'s `u_k`, `inductive-nested.fs`'s `_k`), `u>hex` for the
-escapes of `cli/name-text.fs` and the LaTeX printers
+escapes of `present/name-text.fs` and the LaTeX printers
 (`present/latex-text.fs`, `statement-forms.fs`), `skip-zeros` for
 `bignum.fs`'s decimal reader and `ir-run.fs`'s literals; on Init only the progress line, the report's counts and the
 manifest's counts run (numbers below 10^9); sizes per call are not
@@ -987,6 +988,33 @@ a Sort's levels). 35 planted faults (`lib-slab-…`, `lib-outcome-…`,
 `fe-pairs-all-…`, `fe-eq-push-…`, `fe-level-seconds-…`,
 `fe-rec-apply-…`, `imp-emit-…`, and for the review's other findings
 `fe-assign-…`, `fe-fun-info-…`, `fe-dag-walk-…`), each caught.
+
+## Name tables
+
+`src/lib/name-table.fs` holds the small read-only tables of names that
+modules lay down while loading: the command line's commands and options,
+`print --statement`'s forms, the progress line's parts and the tokens of
+Init's syntax the name speller escapes.
+
+- **Algorithm.** A linear scan from the first entry, one `COMPARE` per
+  entry, stopping at the first equal name; `name-table-each` visits every
+  entry in order. Why: the tables are tens to a few hundred names, read a
+  handful of times per command or once per printed name, and a scan needs
+  no index, no sorting at load time and no memory beyond the table.
+- **Genericity.** The caller chooses k, the data cells per entry (0 for
+  names alone), and what they hold (xts, bits, counts); names are any
+  bytes up to 255 (`counted,`), compared exactly. A table ends at a first
+  data cell of 0 (k > 0) or an empty name (k = 0), so the first data cell
+  must not be 0 and a k = 0 table holds no empty name.
+- **Scaling.** Cost grows with the entries before the hit: n compares for
+  a miss. No scratch memory, no recursion, two return-stack cells.
+- **Measured speed** (2026-11-18, Gforth 1.0.0 `gforth`, WSL2 on the
+  development machine): Init's 139 tokens, 0.74 µs per lookup that hits
+  near the middle, 2.5 µs per miss or a hit at the end; a 10,000-entry
+  table, 182 µs per hit at its end. A table above a few thousand names
+  read in a loop wants a hash table (`htab.fs`) instead.
+- **Callers.** `src/present/name-text.fs` (`nt-tokens`, 139 names, one
+  lookup per printed name's root component).
 
 ## Runs
 

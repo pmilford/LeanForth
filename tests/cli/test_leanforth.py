@@ -836,6 +836,18 @@ class OtherLean(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertIn("\\ " + OTHER_NOTE, out.splitlines())
 
+    def test_print_lf_stubbed(self):
+        """print --lf exits 2, unsupported, and says the text is not the
+        export, when declarations were replaced by import-stubs (review N3);
+        0 when every declaration was written."""
+        status, out, err = run("print", "--lf", DEPENDENT)
+        self.assertEqual(status, 2)
+        self.assertIn("import-stub Two", out)
+        self.assertIn("\nnote: the text is not the export: 7 declarations not written; with "
+                      "import-stubs it reads back only with --env EXPORT\n", err)
+        status, out, err = run("print", "--lf", COMPOSITION)
+        self.assertEqual((status, "the text is not the export" in err), (0, False))
+
     def test_escaped(self):
         """A crafted version cannot forge a line: it is shown escaped."""
         text = (ROOT / OTHER_LEAN).read_text(encoding="utf-8")
@@ -981,7 +993,7 @@ class Print(unittest.TestCase):
         self.assertEqual((status, out.count(REFUSED), out.count("  exhausted")), (3, 3, 3))
         status, out = self.lines("--no-manifest", f"{CASES}/composition-postulate.ndjson")
         self.assertEqual((status, out[1:3], out[-1]),
-                         (0, ["Axiom composition", f"  accepted; axioms: unlisted"],
+                         (0, ["Axiom composition", "  accepted; axioms: unlisted; NOT PROVED: depends on an axiom"],
                           "No proof outline: an axiom or a quotient constant has no proof;"
                           " Lean's kernel takes it as given."))
         for args, code in [((FIXTURE,), 0), (("--no-manifest", UNKNOWN), 2),
@@ -1134,18 +1146,16 @@ class Behaviour(unittest.TestCase):
     def capabilities_match_facts(self, out):
         """The capabilities text states what is true: nested inductive types are
         accepted (checked here), so they are not listed as unsupported; the
-        Mathlib line gives the count and build of the full Mathlib run and
-        does not say that nothing was checked."""
-        # That the progress page records the same count and build is checked by the
-        # documentation-facts test (make test-doc-facts), apart from this slow target.
+        Mathlib line makes no measured claim of an earlier build (review N5)
+        but names the document that records the runs, which exists."""
         lacks = out.split("not yet supported")[1].split("limits (")[0]
         self.assertNotIn("nested", lacks)
         self.assertEqual(run("check", "tests/cli/nested.ndjson")[0], 0)
-        self.assertNotIn("0 of 729,263", out)
-        mathlib = out.split("Mathlib: ")[1].split("not re-run since")[0]
-        for fact in ("all 729,263 declarations of its Lean export accepted", "b74a04d",
-                     "fuel 250M", "--memory-per-check 8192", "--no-manifest"):
-            self.assertIn(fact, mathlib)
+        for stale in ("729,263", "b74a04d", "accepted on build"):
+            self.assertNotIn(stale, out)
+        self.assertIn("Mathlib: this build makes no claim; the dated runs on all of Mathlib "
+                      "and\n  their builds are in docs/project/PROJECT_PROGRESS.md\n", out)
+        self.assertTrue((ROOT / "docs/project/PROJECT_PROGRESS.md").is_file())
 
     def test_informational(self):
         status, out, _ = run("version")
@@ -1627,7 +1637,7 @@ class JsonReport(unittest.TestCase):
 
 
 class Names(unittest.TestCase):
-    """Names as Lean's Name.toString shows them (src/cli/name-text.fs), in
+    """Names as Lean's Name.toString shows them (src/present/name-text.fs), in
     the text and the JSON report alike: a component that is not an
     identifier between « and », and every character the text rule bans
     escaped, so that no name can start a line of its own or reorder the

@@ -394,7 +394,9 @@ def print_lf(export):
     """`leanforth print --lf` of an export: (the text, what it listed on stderr)."""
     run = subprocess.run(["bin/leanforth", "print", "--lf", "--no-manifest", str(export)],
                          stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT)
-    if run.returncode != 0:
+    # 2 (unsupported) exactly when a declaration was not written (review N3).
+    stubbed = b"\nnote: the text is not the export: " in b"\n" + run.stderr
+    if run.returncode != (2 if stubbed else 0):
         raise Failure(f"print --lf {export}: exit {run.returncode}:\n"
                       + run.stderr.decode("utf-8", "replace"))
     return run.stdout.decode("utf-8"), run.stderr.decode("utf-8")

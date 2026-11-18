@@ -2912,7 +2912,7 @@
   "kind": "shape",
   "members": [
    "src/cli/leanforth.fs:cli-argument",
-   "src/cli/name-text.fs:nt-str",
+   "src/present/name-text.fs:nt-str",
    "src/front/level-simp.fs:lm-subsumes",
    "src/import/feed.fs:feed-joined"
   ],

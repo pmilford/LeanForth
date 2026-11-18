@@ -450,4 +450,30 @@ T{ ' throws ' other-sink ' lf-print-with catch nip nip lf-print-settings
 T{ lam-id ' bad-sink true ' lf-print-to catch nip nip nip lf-print-reset
    lf-print-notation? lf-print-settings -> 9 false ' cap-sink ascii-u }T
 T{ lam-id s" fun x => x" shows -> }T
+
+\ Names as Lean 4.35.0 writes them (review PB1; checked against the pinned
+\ Lean's #check and trace_state on 2026-11-18): a component that is no
+\ identifier between « », so Foo.«a.b» never prints as Foo.a.b; a root
+\ component that is a token of Init's syntax too («fun», but Foo.fun);
+\ identifiers, Greek letters and _ bare; a bidirectional control escaped,
+\ never raw (Lean writes it raw: a difference kept on purpose).
+fresh 0 mode
+: foo. ( c-addr u -- t ) s" Foo" nm -rot nm. lf-name-generation @ cargs 0 lf-cref-new must
+  lf-cterm-new must drop ;
+: one. ( c-addr u -- t ) 0 -rot nm. lf-name-generation @ cargs 0 lf-cref-new must
+  lf-cterm-new must drop ;
+T{ s" a.b" foo. s" Foo.«a.b»" shows -> }T
+T{ s" fun" foo. s" Foo.fun" shows -> }T
+T{ s" fun" one. s" «fun»" shows -> }T
+T{ s" Type" one. s" «Type»" shows -> }T
+T{ s" with space" one. s" «with space»" shows -> }T
+T{ s" 1x" one. s" «1x»" shows -> }T
+T{ s" αβγ" one. s" αβγ" shows -> }T
+T{ s" _" one. s" _" shows -> }T
+T{ s" a_b}" one. s" «a_b}»" shows -> }T
+T{ s\" a\xe2\x80\xaeb" one. s" «a\u{202E}b»" shows -> }T
+\ A binder: its name spelled the same way, in the binder and the body.
+: odd-lam ( c-addr u -- t ) 2>r t-prop 0 t-var t-lam 2r> ex. ;
+T{ s" a_b}" odd-lam s" fun «a_b}» ↦ «a_b}»" shows -> }T
+T{ s" x" odd-lam s" fun x ↦ x" shows -> }T
 bye

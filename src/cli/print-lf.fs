@@ -3,7 +3,12 @@
 \ Every declaration of the export fed into the checker's input, in file
 \ order, is written by the term printer's Forth mode (present/print-forth.fs)
 \ as the theorem, def or axiom words that build it, statement and value, so
-\ that src/author's runner reads the text back to identical terms.
+\ that src/author's runner reads the text back to identical terms (but a
+\ concrete Sort, read back as the symbolic one, print-forth.fs) -- when
+\ every declaration was written. A text with import-stubs is not the
+\ export: it reads back only with --env EXPORT (which gives the stubbed
+\ constants), so lf-file-write says so on stderr and the command line
+\ exits 2, unsupported (review N3).
 \
 \ What the words cannot write is never dropped and never written wrongly. A
 \ declaration that is not a safe theorem, definition or axiom (an inductive
@@ -38,7 +43,7 @@ require ../lib/bytes.fs
 require ../lib/decimal.fs
 require ../core/input.fs
 require ../present/print-forth.fs
-require ./name-text.fs
+require ../present/name-text.fs
 
 \ Why a declaration is not written, one counter each (lf-fl-counts).
 0 constant fl-inductive
@@ -180,6 +185,12 @@ fl-reasons fl-reason-at <> [if] .( print-lf.fs: one text per reason) cr abort [t
 \ The text is in the kernel form, which its first line says (ADR 0021 D8;
 \ author/form.fs), so leanforth check reads it back as written.
 : fl-marker ( -- ) s\" kernel-form\n" fl-out ;
+\ A text with declarations not written is not the export (see the header).
+: fl-not-export ( n -- )
+  s" note: the text is not the export: " fl-err u>decimal fl-err
+  s"  declarations not written; with import-stubs it reads back only with --env EXPORT"
+  fl-err-line ;
 : lf-file-write ( fuel -- skipped )
   lf-fl /lf-fl erase lf-fl lf-fl-fuel ! fl-marker
-  lf-input-count 0 ?do i lf-input-decl fl-one loop fl-summary fl-skipped ;
+  lf-input-count 0 ?do i lf-input-decl fl-one loop fl-summary
+  fl-skipped dup if dup fl-not-export then ;

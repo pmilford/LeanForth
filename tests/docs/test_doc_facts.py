@@ -9,8 +9,8 @@ runs again when any file its test programs read changes). Here they form one sma
 target, make test-doc-facts, with exactly the same assertions:
 
 1. The progress page records the full-Mathlib run the capabilities text states:
-   729,263 of 729,263 accepted on build b74a04d (the command line's tests check that
-   `leanforth capabilities` says the same).
+   729,263 of 729,263 accepted on build b74a04d (`leanforth capabilities` makes no
+   claim of its own and points to that page; the command line's tests check that).
 2. The command line's manual gives help's exit codes in tally.fs's order of severity
    (FRP review C2: user text that restates the codes must not go stale).
 3. The AI guide names the current program-receipt schema, and no page of the current

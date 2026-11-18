@@ -1,9 +1,15 @@
-\ A declaration's name as display text, for the command line's text and
-\ JSON reports (cli/leanforth.fs, cli/check-json.fs): Lean's own
+\ The one name speller (review R9, 2026-11-18): a name as display text,
+\ for the command line's text and JSON reports (cli/leanforth.fs,
+\ cli/check-json.fs) and, a component at a time (nt-part), for the term
+\ printer (print-names.fs, so goals and print too): Lean's own
 \ Name.toString (Lean 4.35.0, Init/Data/ToString/Name.lean), its
 \ components joined by dots from the root, numeric ones in decimal, a
 \ component that is not an identifier between « and » (an empty one as
-\ «»), the anonymous name as [anonymous]; names of any depth. Three
+\ «»), the anonymous name as [anonymous]; names of any depth. As Lean's
+\ formatter writes an identifier (Name.toString with isToken), a root
+\ component that is a token of Init's syntax (nt-tokens: fun, let, Type,
+\ ...) is between « » too: «fun», but Foo.fun; the tokens a file's own
+\ imports add (Mathlib's notation) are not known here. Three
 \ differences make the text show exactly what the name holds, so that no
 \ name can start a line of its own, look like the start of another line
 \ or reorder what follows it:
@@ -28,6 +34,9 @@
 \
 \ nt-name ( id -- c-addr u flag ) the display text of name id; flag false
 \ when the heap had no room for it (the text must then not be shown).
+\ nt-part ( id -- c-addr u flag ) the string component id (the last of
+\ name id) as it shows: its text itself when it is shown bare, else
+\ between « » and escaped (flag false: no room).
 \ nt-text ( c-addr u -- c-addr' u' flag ) any bytes with the escapes of 2
 \ and 3, without « » (an export's file name). A text stays valid until the
 \ next call. nt-free frees the heap blocks; the command line does not
@@ -46,12 +55,14 @@ require ../lib/slab.fs
 require ../lib/bytes.fs
 require ../lib/decimal.fs
 require ../lib/text-rule.fs
+require ../lib/name-table.fs
 require ../core/names.fs
 
 begin-structure /nt
   /slab +field nts-text      \ the text's bytes
   /slab +field nts-parts     \ the name's component IDs, from the name to the root
   field: nts-short           \ true once a byte found no room
+  2 cells +field nts-tokens  \ Init's tokens (lib/name-table.fs), laid while loading
 end-structure
 create nt-state /nt allot  nt-state /nt erase
 : nt-out ( -- slab ) nt-state nts-text ;
@@ -119,12 +130,70 @@ here nt-rest - 2 cells / constant nt-rest#
   2dup nt-char ?dup if nt-shown else s" \x{" nt-escape 1 /string then ;
 : nt-escaped ( c-addr u -- ) begin dup while nt-out-char repeat 2drop ;
 
-\ ---- Components: a string one as it is when an identifier, else escaped
-\ between « and »; a numeric one in decimal.
+\ ---- The tokens of Init's syntax that are identifiers, which Lean's
+\ formatter puts between « » as a root component: Lean 4.35.0's token
+\ table after importing Init (Lean.Parser.getTokenTable), its entries that
+\ pass isIdFirst and isIdRest, but _ (Lean never escapes the pseudo-syntax
+\ _). Regenerate them when the pinned Lean changes.
+: nt-tokens ( -- table ) nt-state nts-tokens ;
+: nt-token, ( c-addr u -- ) nt-tokens name-entry ;
+s" Prop" nt-token, s" Sort" nt-token, s" StateRefT" nt-token, s" Type" nt-token,
+s" abbrev" nt-token, s" add_decl_doc" nt-token, s" assert!" nt-token,
+s" assert_not_exists" nt-token, s" assert_not_imported" nt-token,
+s" attribute" nt-token, s" axiom" nt-token, s" binder_predicate" nt-token,
+s" break" nt-token, s" builtin_initialize" nt-token, s" by" nt-token,
+s" catch" nt-token, s" class" nt-token, s" coinductive" nt-token,
+s" coinductive_fixpoint" nt-token, s" continue" nt-token, s" dbg_trace" nt-token,
+s" debug_assert!" nt-token, s" declare_syntax_cat" nt-token, s" decreasing_by" nt-token,
+s" def" nt-token, s" deprecated_module" nt-token, s" deprecated_syntax" nt-token,
+s" deriving" nt-token, s" do" nt-token, s" docs_to_verso" nt-token, s" elab" nt-token,
+s" elab_rules" nt-token, s" else" nt-token, s" end" nt-token, s" example" nt-token,
+s" export" nt-token, s" extends" nt-token, s" finally" nt-token, s" for" nt-token,
+s" forall" nt-token, s" from" nt-token, s" fun" nt-token, s" grind_pattern" nt-token,
+s" have" nt-token, s" haveI" nt-token, s" hiding" nt-token, s" idbg" nt-token,
+s" if" nt-token, s" import" nt-token, s" in" nt-token, s" include" nt-token,
+s" inductive" nt-token, s" inductive_fixpoint" nt-token, s" inferInstanceAs" nt-token,
+s" infix" nt-token, s" infixl" nt-token, s" infixr" nt-token,
+s" init_grind_norm" nt-token, s" init_quot" nt-token, s" initialize" nt-token,
+s" instance" nt-token, s" leading_parser" nt-token, s" let" nt-token, s" letI" nt-token,
+s" let_delayed" nt-token, s" let_expr" nt-token, s" let_fun" nt-token,
+s" let_tmp" nt-token, s" local" nt-token, s" logNamedError" nt-token,
+s" logNamedErrorAt" nt-token, s" logNamedWarning" nt-token,
+s" logNamedWarningAt" nt-token, s" macro" nt-token, s" macro_rules" nt-token,
+s" match" nt-token, s" match_expr" nt-token, s" meta" nt-token,
+s" monotonicity_by" nt-token, s" mut" nt-token, s" mutual" nt-token,
+s" namespace" nt-token, s" no_index" nt-token, s" nofun" nt-token, s" nomatch" nt-token,
+s" noncomputable" nt-token, s" nonrec" nt-token, s" notation" nt-token,
+s" omit" nt-token, s" opaque" nt-token, s" open" nt-token, s" panic!" nt-token,
+s" partial" nt-token, s" partial_fixpoint" nt-token, s" postfix" nt-token,
+s" prefix" nt-token, s" private" nt-token, s" protected" nt-token, s" public" nt-token,
+s" recall" nt-token, s" recall?" nt-token, s" recommended_spelling" nt-token,
+s" register_error_explanation" nt-token, s" register_tactic_tag" nt-token,
+s" renaming" nt-token, s" repeat" nt-token, s" return" nt-token, s" scoped" nt-token,
+s" section" nt-token, s" set_option" nt-token, s" show" nt-token,
+s" show_term_elab" nt-token, s" sorry" nt-token, s" structure" nt-token,
+s" suffices" nt-token, s" syntax" nt-token, s" tactic_alt" nt-token,
+s" tactic_extension" nt-token, s" tactic_name" nt-token, s" tactic_tag" nt-token,
+s" termination_by" nt-token, s" termination_by?" nt-token, s" then" nt-token,
+s" theorem" nt-token, s" throwNamedError" nt-token, s" throwNamedErrorAt" nt-token,
+s" trailing_parser" nt-token, s" try" nt-token, s" universe" nt-token,
+s" unless" nt-token, s" unlock_limits" nt-token, s" unreachable!" nt-token,
+s" unsafe" nt-token, s" until" nt-token, s" variable" nt-token, s" where" nt-token,
+s" while" nt-token, s" with" nt-token, s" with_weak_namespace" nt-token,
+: nt-token? ( c-addr u -- flag ) nt-tokens name-table-find 0<> ;
+
+\ ---- Components: a string one as it is when an identifier (and, as the
+\ root, no token), else escaped between « and »; a numeric one in decimal.
+: nt-root? ( id -- flag ) lf-name-prefix@ 0= ;
+: nt-token-root? ( id -- flag )
+  dup nt-root? if lf-name-text nt-token? else drop false then ;
+: nt-plain? ( id -- flag ) dup lf-name-text nt-ident? swap nt-token-root? 0= and ;
 : nt-quoted ( c-addr u -- ) s" «" nt-put nt-escaped s" »" nt-put ;
-: nt-str ( c-addr u -- ) 2dup nt-ident? if nt-put else nt-quoted then ;
+: nt-str ( id -- ) dup nt-plain? if lf-name-text nt-put else lf-name-text nt-quoted then ;
 : nt-component ( id -- )
-  dup lf-name-str? if lf-name-text nt-str else lf-name-payload nt-decimal then ;
+  dup lf-name-str? if nt-str else lf-name-payload nt-decimal then ;
+: nt-part ( id -- c-addr u flag )
+  dup nt-plain? if lf-name-text true exit then lf-name-text nt-start nt-quoted nt-text@ ;
 
 \ The name's components, from the name up to the root (k = 0 the last);
 \ full when the heap has no room for them.
@@ -133,10 +202,10 @@ here nt-rest - 2 cells / constant nt-rest#
     dup nt-parts slab-push ok? 0= if drop outcome-full exit then lf-name-prefix@
   repeat drop outcome-ok ;
 : nt-count ( -- n ) nt-parts slab-count ;
-: nt-part ( k -- id ) nt-parts slab-at @ ;
+: nt-part-id ( k -- id ) nt-parts slab-at @ ;
 \ Root first, joined by dots.
 : nt-dot ( k -- ) nt-count 1- <> if s" ." nt-put then ;
-: nt-components ( -- ) 0 nt-count 1- do i nt-dot i nt-part nt-component -1 +loop ;
+: nt-components ( -- ) 0 nt-count 1- do i nt-dot i nt-part-id nt-component -1 +loop ;
 : nt-name ( id -- c-addr u flag )
   nt-start ?dup 0= if s" [anonymous]" true exit then
   nt-gather ok? 0= if nt-text@ drop false exit then nt-components nt-text@ ;

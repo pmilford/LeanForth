@@ -67,7 +67,7 @@
 \ which Lean's replay skips: lf-env-skipped?) with Lean's code 0; staging,
 \ parsing and printing here can hand the checker a wrong
 \ claim or misreport a failure, never make a declaration accepted. Names
-\ are printed as cli/name-text.fs shows them, escaped, so a crafted name
+\ are printed as present/name-text.fs shows them, escaped, so a crafted name
 \ cannot forge a line. An accepted declaration that depends on an axiom
 \ outside the allowlist (core/axiom-allowlist.fs) is marked NOT PROVED
 \ on its line, with those axioms named, and counted apart (the owner's
@@ -132,7 +132,7 @@ require ../import/ndjson-emit.fs
 require ./print.fs
 require ./print-lf.fs
 require ./tally.fs
-require ./name-text.fs
+require ../present/name-text.fs
 require ./check-run.fs
 require ./check-lf.fs
 require ./check-json.fs
@@ -189,6 +189,7 @@ begin-structure /cli-run
   field: run-steps-fid          \ the step log's file while it is written
   field: run-steps-bad          \ true: writing it (or an axiom's name) failed
   field: run-steps-axiom        \ xt ( c-addr u -- ): where an axiom's name goes
+  2field: run-steps-whole       \ the step log's bytes through its last line feed
   field: arg-seen               \ every argument read, 0 the command: its address each
   field: arg-seen#              \ how many
   field: arg-paths              \ the files the command reads and writes (/cli-path each)
@@ -267,7 +268,7 @@ manifest: cli-manifest
 \ An internal fault: one line, and code 5.
 : cli-fault ( c-addr -- ) ." internal fault: " count type cr exit-fault cli-code! ;
 : cli-note ( c-addr -- ) ." note: " count type cr ;
-\ A declaration's name as cli/name-text.fs shows it; one the heap cannot
+\ A declaration's name as present/name-text.fs shows it; one the heap cannot
 \ hold is not shown, and is an internal fault.
 : cli-unshown ( c-addr u -- )
   2drop ." [a name with no room to show]" exit-fault cli-code! ;
@@ -1110,19 +1111,31 @@ variable cli-info#
   2drop cli-steps-fail ;
 : cli-step-axioms ( d xt -- outcome )
   cli-state run-steps-axiom ! ['] cli-step-axiom lf-env-axiom-deps cli-steps-bad ;
+\ A FILE whose writing failed ends at its last whole line, never in the
+\ middle of one (review N14): nothing is written after the first failure,
+\ and the file is cut back to the bytes through its last line feed.
+: cli-steps-fid ( -- fid ) cli-state run-steps-fid @ ;
+: cli-steps-whole! ( -- ) cli-steps-fid file-position drop cli-state run-steps-whole 2! ;
+: cli-steps-mark ( c-addr u -- ) s\" \n" compare 0= if cli-steps-whole! then ;
 : cli-steps-put ( c-addr u -- )
-  cli-state run-steps-fid @ write-file if cli-steps-fail then ;
+  cli-state run-steps-bad @ if 2drop exit then
+  2dup cli-steps-fid write-file if 2drop cli-steps-fail else cli-steps-mark then ;
+: cli-steps-cut ( outcome -- outcome )
+  dup ok? if exit then cli-steps-fid flush-file drop
+  cli-state run-steps-whole 2@ cli-steps-fid resize-file drop ;
 : cli-steps-to ( sink -- outcome )
   ['] cli-step-find ['] cli-step-axioms lf-steps-write cli-steps-bad ;
 : cli-steps-file ( -- outcome )
   cli-steps w/o create-file if drop outcome-full exit then cli-state run-steps-fid !
-  ['] cli-steps-put cli-steps-to
-  cli-state run-steps-fid @ close-file if drop outcome-full then ;
+  0 0 cli-state run-steps-whole 2! ['] cli-steps-put cli-steps-to cli-steps-cut
+  cli-steps-fid close-file if drop outcome-full then ;
+: cli-stdout? ( -- flag ) cli-steps s" -" compare 0= ;
 : cli-steps-out ( -- outcome )
-  cli-steps s" -" compare if cli-steps-file exit then ['] type cli-steps-to ;
+  cli-stdout? if ['] type cli-steps-to else cli-steps-file then ;
 : cli-steps-write ( -- )
   cli-steps? 0= if exit then cli-steps-out ok? if exit then
-  ." error: the step log could not be written: " cli-steps type cr
+  ." error: the step log could not be written: " cli-steps type
+  cli-stdout? 0= if ." ; it ends at its last whole line" then cr
   outcome-full outcome>code cli-code! ;
 : cli-text-report ( -- )
   lfc-elab-failed? if cli-elab-error exit then
@@ -1434,7 +1447,7 @@ end-structure
   cli-lf-misused? if cli-lf-misuse exit then
   s" \ LeanForth text written by leanforth print --lf; untrusted presentation, not a proof" type cr
   cli-lf-note
-  cli-fuel @ lf-file-write drop ;
+  cli-fuel @ lf-file-write if exit-undecided cli-code! then ;
 : cli-print-library ( -- )
   0 cli-file cli-checked? pr-load dup ok? 0= if cli-print-unread exit then drop
   cli-lf? if cli-lf-run else cli-other-note cli-printing then ;
@@ -1535,9 +1548,11 @@ end-structure
   ."   so a correct proof can still end unknown;" cr
   ."   check --record and replay (the old reader) refuse inductive types, and" cr
   ."   answer unsupported for let, literals, projections and metadata;" cr ;
+\ No measured claim: a count from another build says nothing of this one
+\ (review N5); the dated runs are recorded in the progress document.
 : cli-mathlib. ( -- )
-  ." Mathlib: all 729,263 declarations of its Lean export accepted on build b74a04d" cr
-  ."   (fuel 250M, --memory-per-check 8192, --no-manifest); not re-run since" cr ;
+  ." Mathlib: this build makes no claim; the dated runs on all of Mathlib and" cr
+  ."   their builds are in docs/project/PROJECT_PROGRESS.md" cr ;
 : cli-check-limits. ( -- )
   ."   check: stores, walks and lists that grow with the export (memory), any" cr
   ."     depth and number of dependencies or constructors (plan task 6.2.0);" cr

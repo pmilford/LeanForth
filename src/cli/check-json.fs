@@ -24,7 +24,7 @@
 \ true: ok, or the writer's failure (invalid for a text it refuses, full
 \ when a name finds no heap), after which standard output holds a text
 \ cut short, never a whole report. Names, and the export's file name, are
-\ written as cli/name-text.fs shows them (Lean's Name.toString, with
+\ written as present/name-text.fs shows them (Lean's Name.toString, with
 \ escapes), so the report holds the same text as the text output.
 \ State: one shared record, the writer cj-writer.
 
@@ -41,7 +41,7 @@ require ../import/stage.fs
 require ../import/feed.fs
 require ../import/run-record.fs
 require ./tally.fs
-require ./name-text.fs
+require ../present/name-text.fs
 require ./check-run.fs
 
 8 0 json-writer: cj-writer
@@ -63,7 +63,7 @@ require ./check-run.fs
 : cj-flag ( flag key-addr key-u -- ) cj-key cj-writer jw-bool ;
 : cj-null-member ( key-addr key-u -- ) cj-key cj-null ;
 
-\ A text as cli/name-text.fs shows it; one the heap cannot hold fails the
+\ A text as present/name-text.fs shows it; one the heap cannot hold fails the
 \ report as full.
 : cj-shown ( c-addr u flag -- c-addr u ) 0= if outcome-full cj-writer jw-fail then ;
 : cj-name-text ( d -- c-addr u ) lf-input-name nt-name cj-shown ;

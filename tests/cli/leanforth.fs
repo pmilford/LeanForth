@@ -124,7 +124,7 @@ bits64? [if]
 T{ cli-fuel-most 1+ 1 53 lshift = -> true }T
 [then]
 
-\ Names as cli/name-text.fs shows them: Lean's Name.toString, with « »
+\ Names as present/name-text.fs shows them: Lean's Name.toString, with « »
 \ always around a component that is not an identifier and escapes for
 \ what the text rule bans, for » and for a backslash; names of any depth.
 : shows ( c-addr u -- c-addr' u' ) 0 -rot lf-name-str drop nt-name drop ;
@@ -160,6 +160,33 @@ T{ hygienic nt-name drop s" x.«_@»._hyg" compare -> 0 }T
 T{ s\" fake: accepted\xe2\x9c\x9d" shows s\" \xc2\xabfake: accepted\xe2\x9c\x9d\xc2\xbb" compare
   -> 0 }T
 T{ s" _" shows s" _" compare s" #x y" shows s" «#x y»" compare -> 0 0 }T
+\ A root component that is a token of Init's syntax, as Lean's formatter
+\ writes it (review PB1): «fun», but Foo.fun; a component holding a dot.
+: foo-shows ( c-addr u -- c-addr' u' ) 0 s" Foo" lf-name-str drop -rot lf-name-str drop
+  nt-name drop ;
+T{ s" fun" shows s" «fun»" compare s" fun" foo-shows s" Foo.fun" compare -> 0 0 }T
+T{ s" Type" shows s" «Type»" compare s" funny" shows s" funny" compare -> 0 0 }T
+T{ s" a.b" foo-shows s" Foo.«a.b»" compare -> 0 }T
+\ A step log whose writing failed ends at its last whole line (review
+\ N14): nothing after the failure is written, and the file is cut back.
+: steps-file ( -- c-addr u ) s" tests/cli/steps-cut.tmp" ;
+: steps-text ( -- c-addr u )
+  steps-file r/o open-file throw >r pad 64 r@ read-file throw pad swap r> close-file throw ;
+: steps-try ( outcome -- c-addr u )
+  steps-file w/o create-file throw cli-state run-steps-fid ! 0 0 cli-state run-steps-whole 2!
+  false cli-state run-steps-bad ! s" {a}" cli-steps-put s\" \n" cli-steps-put s" {b" cli-steps-put
+  cli-steps-fail s\" }\n" cli-steps-put cli-steps-cut drop cli-steps-fid close-file throw
+  steps-text steps-file delete-file throw ;
+T{ outcome-full steps-try s\" {a}\n" compare -> 0 }T
+T{ outcome-ok steps-try s\" {a}\n{b" compare -> 0 }T
+false cli-state run-steps-bad !
+\ A name's last component as the printer asks for it (nt-part).
+: root ( c-addr u -- id ) 0 -rot lf-name-str drop ;
+: under-foo ( c-addr u -- id ) s" Foo" root -rot lf-name-str drop ;
+T{ s" fun" under-foo nt-part drop s" fun" compare s" fun" root nt-part drop s" «fun»" compare
+  -> 0 0 }T
+T{ s" x" root nt-part -rot s" x" compare s" a.b" under-foo nt-part drop s" «a.b»" compare
+  -> true 0 0 }T
 \ An export's file name: the same escapes, no « ».
 T{ s\" a b\x01\xff" nt-text drop s" a b\u{1}\x{FF}" compare -> 0 }T
 

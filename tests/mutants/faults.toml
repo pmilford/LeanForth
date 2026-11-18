@@ -2939,6 +2939,46 @@ test = "$GFORTH tests/cli/leanforth.fs"
 reason = "the fuel reported is not what the check used: that budget no longer accepts exactly"
 
 [[fault]]
+id = "cli-steps-not-cut"
+file = "src/cli/leanforth.fs"
+old = '''  dup ok? if exit then cli-steps-fid flush-file drop'''
+new = '''  exit cli-steps-fid flush-file drop'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a step log whose writing failed is left ending in half a line (review N14)"
+
+[[fault]]
+id = "cli-steps-written-after-failure"
+file = "src/cli/leanforth.fs"
+old = '''  cli-state run-steps-bad @ if 2drop exit then'''
+new = ''''''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "pieces after a failed write still go to the step log, past the cut"
+
+[[fault]]
+id = "cli-lf-stubbed-exit-0"
+file = "src/cli/leanforth.fs"
+old = '''  cli-fuel @ lf-file-write if exit-undecided cli-code! then ;'''
+new = '''  cli-fuel @ lf-file-write drop ;'''
+test = "python3 tests/cli/test_leanforth.py OtherLean.test_print_lf_stubbed"
+reason = "print --lf exits 0 with declarations replaced by import-stubs (review N3)"
+
+[[fault]]
+id = "cli-lf-stubbed-unsaid"
+file = "src/cli/print-lf.fs"
+old = '''  fl-skipped dup if dup fl-not-export then ;'''
+new = '''  fl-skipped ;'''
+test = "python3 tests/cli/test_leanforth.py OtherLean.test_print_lf_stubbed"
+reason = "print --lf does not say that a text with stubs is not the export (review N3)"
+
+[[fault]]
+id = "cli-capabilities-old-claim"
+file = "src/cli/leanforth.fs"
+old = '''  ." Mathlib: this build makes no claim; the dated runs on all of Mathlib and" cr'''
+new = '''  ." Mathlib: all 729,263 declarations of its Lean export accepted on build b74a04d" cr'''
+test = "python3 tests/cli/test_leanforth.py Behaviour.test_informational"
+reason = "capabilities states a measurement of an earlier build as this build's (review N5)"
+
+[[fault]]
 id = "cli-fuel-exhausted-early-unspent"
 file = "src/cli/check-run.fs"
 old = '''  2dup ck-spent-all? if 2drop ck-fuel-budget else ck-left-used then ;'''
@@ -3102,11 +3142,11 @@ new = '''  10[0-6] | [0-6]) code=$((status % 100)) ;;'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "Gforth's own exit status (0 after it ends early, 1 after an error) reads as a verdict"
 
-# --- names as Lean shows them (src/cli/name-text.fs; review rvCLI2 M1, M2) --
+# --- names as Lean shows them (src/present/name-text.fs; review rvCLI2 M1, M2) --
 
 [[fault]]
 id = "cli-name-raw"
-file = "src/cli/name-text.fs"
+file = "src/present/name-text.fs"
 old = ''': nt-quoted ( c-addr u -- ) s" «" nt-put nt-escaped s" »" nt-put ;'''
 new = ''': nt-quoted ( c-addr u -- ) nt-put ;'''
 test = "python3 tests/cli/test_leanforth.py"
@@ -3115,7 +3155,7 @@ quick = true
 
 [[fault]]
 id = "cli-name-banned-kept"
-file = "src/cli/name-text.fs"
+file = "src/present/name-text.fs"
 old = ''': nt-escaped? ( code -- flag ) dup tr-banned? swap $bb = or ;'''
 new = ''': nt-escaped? ( code -- flag ) $bb = ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
@@ -3123,7 +3163,7 @@ reason = "control and bidirectional characters in a name are printed as they are
 
 [[fault]]
 id = "cli-name-guillemet-kept"
-file = "src/cli/name-text.fs"
+file = "src/present/name-text.fs"
 old = ''': nt-escaped? ( code -- flag ) dup tr-banned? swap $bb = or ;'''
 new = ''': nt-escaped? ( code -- flag ) tr-banned? ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
@@ -3131,7 +3171,7 @@ reason = "a » in a component ends its « » early, so the rest of the line look
 
 [[fault]]
 id = "cli-name-subscript-signs"
-file = "src/cli/name-text.fs"
+file = "src/present/name-text.fs"
 old = '''  $2080 , $2089 ,  $2090 , $209c ,  $1d62 , $1d6a ,  $2c7c , $2c7c ,'''
 new = '''  $2080 , $209c ,  $2090 , $209c ,  $1d62 , $1d6a ,  $2c7c , $2c7c ,'''
 test = "$GFORTH tests/cli/leanforth.fs"
@@ -3139,7 +3179,7 @@ reason = "subscript signs such as ₊ count as identifier characters, which Lean
 
 [[fault]]
 id = "cli-name-backslash-kept"
-file = "src/cli/name-text.fs"
+file = "src/present/name-text.fs"
 old = '''  [char] \ = if s" \\" nt-put else over r@ nt-put then r> /string ;'''
 new = '''  drop over r@ nt-put r> /string ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
@@ -3147,11 +3187,67 @@ reason = "a backslash in a name is not escaped, so a name can show the text of a
 
 [[fault]]
 id = "cli-name-no-root"
-file = "src/cli/name-text.fs"
+file = "src/present/name-text.fs"
 old = '''    dup nt-parts slab-push ok? 0= if drop outcome-full exit then lf-name-prefix@'''
 new = '''    dup nt-parts slab-push ok? 0= if drop outcome-full exit then drop 0'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "only a name's last component is shown, not the walk to its root"
+
+[[fault]]
+id = "lib-name-table-first-only"
+file = "src/lib/name-table.fs"
+old = '''  @ begin dup while ntab-named? if nip nip exit then @ repeat nip nip ;'''
+new = '''  @ begin dup while ntab-named? if nip nip exit then drop 0 repeat nip nip ;'''
+test = "$GFORTH tests/lib/name-table.fs"
+reason = "a lookup reads only the first entry of a table"
+
+[[fault]]
+id = "lib-name-table-unlinked"
+file = "src/lib/name-table.fs"
+old = '''  align here over ntab-tail ! here swap ntab-last ! 0 , counted, ;'''
+new = '''  align here swap ntab-last ! 0 , counted, ;'''
+test = "$GFORTH tests/lib/name-table.fs"
+reason = "an entry is not linked from the one before it: a table holds no entries"
+
+[[fault]]
+id = "lib-name-table-each-skips"
+file = "src/lib/name-table.fs"
+old = '''  swap @ begin dup while 2dup swap execute @ repeat 2drop ;'''
+new = '''  swap @ begin dup while 2dup swap execute @ dup if @ then repeat 2drop ;'''
+test = "$GFORTH tests/lib/name-table.fs"
+reason = "name-table-each visits every other entry"
+
+[[fault]]
+id = "tex-guillemet-raw"
+file = "src/present/latex-text.fs"
+old = ''': lf-tex-angle? ( code -- flag ) dup $ab = swap $bb = or ;'''
+new = ''': lf-tex-angle? ( code -- flag ) drop false ;'''
+test = "python3 tests/cli/test_leanforth.py Names.test_print_latex_odd_names"
+reason = "LaTeX gets the « » of a name part raw, which LaTeX's default font encoding cannot set: the fragment does not compile"
+
+[[fault]]
+id = "pp-name-part-raw"
+file = "src/present/name-text.fs"
+old = '''  dup nt-plain? if lf-name-text true exit then lf-name-text nt-start nt-quoted nt-text@ ;'''
+new = '''  lf-name-text true ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "the printer writes a component that is no identifier bare: Foo.«a.b» prints as Foo.a.b, U+202E raw (review PB1)"
+
+[[fault]]
+id = "name-token-root-bare"
+file = "src/present/name-text.fs"
+old = ''': nt-plain? ( id -- flag ) dup lf-name-text nt-ident? swap nt-token-root? 0= and ;'''
+new = ''': nt-plain? ( id -- flag ) lf-name-text nt-ident? ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a root component that is a token of Init's syntax (fun) shows bare, where Lean writes «fun»"
+
+[[fault]]
+id = "pp-name-root-last"
+file = "src/present/name-text.fs"
+old = ''': nt-root? ( id -- flag ) lf-name-prefix@ 0= ;'''
+new = ''': nt-root? ( id -- flag ) lf-name-prefix@ 0<> ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the token rule applies to the components after the root (Foo.«fun»), not to the root"
 
 [[fault]]
 id = "cli-fuel-unbounded"
@@ -4276,10 +4372,36 @@ quick = true
 [[fault]]
 id = "lc-bare-name-not-found"
 file = "scripts/lean-cache.py"
-old = '''        lean = shutil.which(lean) or lean'''
+old = '''        lean = found or lean'''
 new = '''        pass'''
 test = "python3 tests/lean-cache/test_lean_cache.py"
 reason = "fix-batch-4: LEANFORTH_LEAN=lean (no .tools beside a worktree) is exec'd as a path, so every pinned-Lean target of check-rest fails with lean-not-found"
+
+[[fault]]
+id = "lc-elan-proxy-run"
+file = "scripts/lean-cache.py"
+old = '''    if reason:
+        sys.exit(f"lean-cache: refused: {reason}")'''
+new = '''    pass'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "an elan proxy on PATH or named is run, which downloads a 3 GB toolchain without ELAN_HOME (review fix-batch Re-check 2)"
+
+[[fault]]
+id = "toolchain-elan-proxy-run"
+file = "tests/support/toolchain.py"
+old = '''    if reason:
+        raise SystemExit(f"toolchain: refused: {reason}")'''
+new = '''    pass'''
+test = "python3 tests/support/toolchain.py"
+reason = "toolchain.lean() hands an elan proxy to a test, which runs it"
+
+[[fault]]
+id = "lean-pin-hard-link-missed"
+file = "scripts/lean_pin.py"
+old = '''        if os.path.exists(sibling) and os.path.samefile(real, sibling):'''
+new = '''        if False:'''
+test = "python3 scripts/lean_pin.py"
+reason = "an elan proxy made as a hard link (as elan makes them) is not recognised"
 
 [[fault]]
 id = "lc-key-without-module"
@@ -15313,6 +15435,14 @@ old = '''  gp gp-prev @ dup 0< if 2drop true outcome-ok else gp-fuel lf-print-sa
 new = '''  gp gp-prev @ dup 0< if 2drop true outcome-ok else = outcome-ok then ;'''
 test = "python3 tests/front/check_goals.py"
 reason = "FE1g-1: hypotheses share a line only when their types are one node, where Lean compares them with =="
+
+[[fault]]
+id = "fe-goal-let-depth-rule"
+file = "src/front/goal-print.fs"
+old = '''  over >r gp-images r> lf-let? if 1- 0 max then max 1+ gp-depth-most min ;'''
+new = '''  over >r gp-images r> drop max 1+ gp-depth-most min ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "a let counts its type and body at the lambda's depth plus one, not the lambda's (Lean's approxDepth): two nested lets push a value past 254 (review N16)"
 
 [[fault]]
 id = "fe-goal-let-threshold"

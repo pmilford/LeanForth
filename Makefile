@@ -354,6 +354,7 @@ test-lib:
 	$(RUN) $(GFORTH) tests/lib/task-no-env.fs
 	$(RUN) $(GFORTH) tests/lib/bytes.fs
 	$(RUN) $(GFORTH) tests/lib/text-rule.fs
+	$(RUN) $(GFORTH) tests/lib/name-table.fs
 	$(RUN) $(GFORTH) tests/lib/json.fs
 	$(RUN) $(GFORTH) tests/lib/json-write.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_json_write.py
@@ -706,6 +707,7 @@ test-program-ir-run:
 	$(RUN) python3 tests/program/vc_check.py
 	$(RUN) python3 tests/program/receipt_check.py
 	$(RUN) python3 tests/support/toolchain.py
+	$(RUN) python3 scripts/lean_pin.py
 	$(RUN) python3 tests/program/clamp_mutants.py --test
 
 # The clamp receipt's evidence recorded afresh once per make (plan 5.5.1): Lean

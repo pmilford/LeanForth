@@ -329,7 +329,10 @@ the run goes on as without the log. The one exception is exhausted
 memory: the log's text shares room with the open parts' text, so a later
 `by-sorry` may then find no room (error 88, exit 3) where a run without
 `--steps` would have had it. Only a log that cannot be written
-(the file, or an axiom's name, finds no room) is an error (exit 3). Version 1
+(the file, or an axiom's name, finds no room) is an error (exit 3); then
+nothing more is written, and a FILE is cut back to its last whole line,
+which the error message says (since 2026-11-18, review N14: before, a
+failed write could leave half a line). Version 1
 does not yet carry each tactic's rule (the eliminator, the rewrite rule
 and its place, the closing term), the constants and hypotheses a step
 used, or the goals in kernel form; a later version adds them. `--steps`
@@ -532,10 +535,18 @@ counts the accepted declarations and gives their axioms; then notes
 explain a limit that was reached.
 
 **Names.** A declaration's name is shown as Lean's `Name.toString` shows
-it (`src/cli/name-text.fs`): its components joined by dots, numeric ones
+it (`src/present/name-text.fs`): its components joined by dots, numeric ones
 in decimal, a component that is not an identifier between `«` and `»`
 (`ReexportKinds.«with space»`; an empty component is `«»`), and the
-anonymous name as `[anonymous]`; names of any depth. Three differences
+anonymous name as `[anonymous]`; names of any depth. As Lean's
+formatter does, a first component that is a word of Init's syntax is
+between `«` and `»` too (`«fun»`, but `Foo.fun`); words that a file's
+own imports add, such as Mathlib's notation, are not known. Since
+2026-11-18 (review PB1) `print`, the goals of `.goals` and every other
+term the printer writes spell names by the same rule: before, a
+component holding a dot printed bare, so `Foo.«a.b»` showed as the
+different name `Foo.a.b`, and a bidirectional control in a goal's name
+reached the output raw. Three differences
 from Lean's text make the line show exactly what the name holds, so that
 no name, however crafted, can start a line of its own, look like the
 start of another declaration's line, move the cursor or reorder the
@@ -1580,7 +1591,14 @@ wrongly. Such a declaration becomes a comment line
 constant still read back, an `import-stub` of the same name, universe
 parameters and, when it prints, type (the stub the authoring words use for a
 constant of Lean's library: an assumption, not a proof). Each one is also
-listed on the standard error with its reason, followed by the counts. The
+listed on the standard error with its reason, followed by the counts.
+Such a text is not the export: it reads back only with `--env EXPORT`,
+which gives the stubbed constants. So, since 2026-11-18 (review N3), the
+standard error then ends with `note: the text is not the export: N
+declarations not written; ...` and `print --lf` exits 2 (unsupported),
+not 0; it exits 0 only when every declaration was written. A concrete
+`Sort` is written as the words of the symbolic `Sort` of the same level,
+which read back as that node: equal in meaning, not the same node. The
 reasons today (the gaps are follow-ups of plan task 8.6.3):
 
 | Reason | Why |
@@ -1828,8 +1846,8 @@ supported:
   verify: one Forth word against its contract (plan 8.4.1, V1): pinned Lean
     writes the proofs, this checker re-checks them, a receipt records it;
     needs Python 3 and the pinned Lean 4.35.0 (owner, 2026-11-13: V1 only)
-Mathlib: all 729,263 declarations of its Lean export accepted on build b74a04d
-  (fuel 250M, --memory-per-check 8192, --no-manifest); not re-run since
+Mathlib: this build makes no claim; the dated runs on all of Mathlib and
+  their builds are in docs/project/PROJECT_PROGRESS.md
 not yet supported (check answers unsupported or unknown, exit 2):
   a block with both safe and unsafe members (5.2.7 part b),
   metadata (mdata) in a term (4.1.3);
