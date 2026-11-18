@@ -233,7 +233,8 @@ T{ refl-nat zero lf-mk-eq-mpr 4 s" Eq.mpr" lf-meta-app-of? -> true }T
 \ Expr.eq?: Eq α a b's arguments in order; none for another term.
 : eq-ab ( -- a b e ) zero zero 2dup lf-mk-eq ;
 : sides= ( a b α a' b' -- α b=b' a=a' ) rot >r rot = -rot = r> -rot ;
-T{ eq-ab lf-eq? >r sides= rot s" Nat" lf-meta-const-named? r> -> true true true true }T
+: eq-taken ( -- b=b' a=a' nat? flag ) eq-ab lf-eq? >r sides= rot s" Nat" lf-meta-const-named? r> ;
+T{ eq-taken -> true true true true }T
 T{ nat lf-eq? refl-nat lf-eq? -> false false }T
 \ (The S2 slice has no Eq.mp: mkAppM's getConstVal fails, invalid.)
 : mp-code ( -- code ) refl-nat zero ['] lf-mk-eq-mp catch dup if nip nip then ;
