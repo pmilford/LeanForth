@@ -513,7 +513,7 @@ is et-rel
   lf-term-symbolic-sort if outcome-ok else outcome-full no-result then ;
 : et-is-type? ( e -- flag outcome )
   lf-infer lf-elab-meta ok-then? 0= if false swap exit then lf-meta-whnf lf-elab-meta
-  ok-then? if lf-term-tag@ lf-tag-sort = outcome-ok else false swap then ;
+  ok-then? if lf-sort? outcome-ok else false swap then ;
 : et-not-sort ( -- outcome )   \ coerceToSort?: CoeSort's instances, not ported
   s" CoeSort" lfa-intern lf-menv-find nip ok?
   if lfa-e-elab-coercion else lfa-e-elab-type then lf-elab-fail ;

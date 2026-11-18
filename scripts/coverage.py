@@ -197,10 +197,24 @@ def ratchet(files, baseline):
     return messages
 
 
+DEFINITION = re.compile(r"(?m)^[ \t]*:(noname)?[ \t\n]|[ \t]:noname[ \t\n]")
+
+
+def compiles_blocks(name):
+    """Whether source NAME defines a word, so that a run that loads it counts blocks: a load
+    list such as src/main.fs (requires only) has none and is never in the counts."""
+    try:
+        return bool(DEFINITION.search((ROOT / name).read_text(encoding="utf-8", errors="replace")))
+    except OSError:
+        return True
+
+
 def focus(files, only):
-    """FILES limited to ONLY, and a message for each file of ONLY that no run loaded."""
+    """FILES limited to ONLY, and a message for each file of ONLY that no run loaded (one
+    that defines no word compiles no block, so no run can show it loaded)."""
     kept = {name: files[name] for name in only if name in files}
-    return kept, [f"{name}: no run of the command loaded it" for name in only if name not in files]
+    return kept, [f"{name}: no run of the command loaded it" for name in only
+                  if name not in files and compiles_blocks(name)]
 
 
 def new_baseline(files, counted, old, reason):

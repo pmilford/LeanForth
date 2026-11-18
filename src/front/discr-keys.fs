@@ -178,11 +178,10 @@ end-structure
 : dk-kinds-make ( head n -- outcome ) lf-meta-fun-info ok-then? if dk-kinds-copy then ;
 : dk-kind ( i -- kind|-1 ) dup dk-kinds slab-count < if dk-kinds slab-at @ else drop -1
   then ;
-: dk-sort? ( e -- flag ) lf-term-tag@ dup lf-tag-sort = swap lf-tag-symbolic-sort = or ;
 \ isType: the type's whnf at default transparency (whnfD) is a Sort.
 : dk-type? ( a -- flag outcome )
   lf-infer ok-then? 0= if false swap exit then
-  lf-meta-whnf-d ok-then? if dk-sort? outcome-ok else false swap then ;
+  lf-meta-whnf-d ok-then? if lf-sort? outcome-ok else false swap then ;
 : dk-proof? ( a -- flag outcome ) lf-infer ok-then? if lf-meta-is-prop else false swap
   then ;
 : dk-implicit? ( kind -- flag ) dup lf-binder-implicit = swap lf-binder-strict = or ;

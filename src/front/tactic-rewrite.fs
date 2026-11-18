@@ -41,7 +41,8 @@
 \ 217's inner error texts (LeanForth names the application that did not
 \ fit), and binderNameHint (no rule of Init's proof set has one).
 \ Untrusted: only the kernel's check of the finished term decides.
-\ State: the slab trw-mvars (the rule's new metavariables) in the checker
+\ State: the slab trw-mvars (the rule's new metavariables), kept in a
+\ tactic's saved state on trw-mvars-kept (tac-state:), in the checker
 \ context (ADR 0009); everything else in the step record. Loads in
 \ decimal whatever BASE is, then restores it.
 
@@ -83,7 +84,6 @@ begin-structure /trw
   field: trw-etype       \ the target's type
   field: trw-motive      \ fun _a => abst
   field: trw-proof       \ congrArg's proof of target = new
-  field: trw-saved       \ the elaborator's pending list, set aside
 end-structure
 /trw lf-tac-work-cells cells >
 [if] .( tactic-rewrite.fs: trw is wider than a step record) cr abort [then]
@@ -110,8 +110,24 @@ end-structure
   if ['] lfw-occurs. lfa-e-tac-occurs lfw-failed then ;
 
 \ ---- forallMetaTelescopeReducing over the rule's type.
+\ The rule's binder name and kind, the presentation table's, else its
+\ input record's; an unknown kind is refused, 99 (review C4 of 2026-11-18:
+\ Lean makes an instance binder's metavariable synthetic, so a guess of
+\ explicit is no port). No text reaches the refusal today: every pi of a
+\ rule's type carries a record, from the author's build, the library's
+\ decoder (lib-decode.fs's lbd-named), a view's input record, or a
+\ rebuild that copies it (lf-meta-named), each refusing when the heap is
+\ full; the unrecorded binders, lf-meta-mk-lambda's and isDefEq's eta
+\ lambdas (Lean's mkLambdaFVars takes the local's kind), never become a
+\ rule's pi while no text writes a lambda (plan FE2). Defensive, fail
+\ closed; tests/front/tactic-run.fs probes it in rw's row.
+: lfw-known? ( pi -- flag )
+  dup lf-pres-binder@ if 2drop drop true exit then
+  lf-term-input-binder@ dup if nip nip then ;
+: lfw-binder ( pi -- name kind )
+  dup lfw-known? 0= if lfa-e-tac-form lfw-stop then lf-tac-binder ;
 : lfw-mvar ( pi -- mvar )
-  dup lf-tac-binder lf-binder-instance = if lfa-e-tac-form lfw-stop then
+  dup lfw-binder lf-binder-instance = if lfa-e-tac-form lfw-stop then
   swap lf-term-first@ mv-natural lf-mvar-new lf-tac-must tuck swap lf-mvar-tag!
     lf-tac-must ;
 : lfw-applied ( mvar -- ) trw trw-heq @ swap lf-tac-app trw trw-heq ! ;
@@ -219,13 +235,20 @@ end-structure
 
 \ ---- One rule (Lean's rewriteTarget inside Term.withSynthesize).
 : lfw-begin ( j -- )
-  trw trw-rule ! trw-mvars slab-clear lf-elab-synth{ trw trw-saved !
+  trw trw-rule ! trw-mvars slab-clear
   lfw-want lf-instantiate-mvars lf-tac-must trw trw-e ! ;
 : lfw-core ( -- )
   lfw-elaborated lfw-occurs-free lfw-telescope lfw-matched lfw-pattern-ok lfw-abstracted
   lfw-new lfw-motive! lfw-checked lfw-independent lfw-proof! ;
-: lfw-synthesized ( -- ) trw trw-saved @ lf-postpone-no }lf-elab-synth lf-tac-must ;
-: lfw-rewrite ( j i -- ) drop lfw-begin lfw-core lfw-synthesized lfw-closed lfw-replaced ;
+\ The pending list set aside around the rule and put back however it
+\ ends (review C2 of 2026-11-18: a failed rule left the window open).
+: lfw-synthesized ( -- ) ['] lfw-core lf-postpone-no lf-elab-with-synth lf-tac-must ;
+: lfw-rewrite ( j i -- ) drop lfw-begin lfw-synthesized lfw-closed lfw-replaced ;
+\ trw-mvars in a tactic's saved state (tactic-run.fs's tac-state:).
+1 cells context-slab: trw-mvars-kept
+: lfw-keep ( -- outcome ) trw-mvars trw-mvars-kept slab-keep ;
+: lfw-kept ( undo? -- outcome ) trw-mvars trw-mvars-kept slab-kept ;
+' lfw-keep ' lfw-kept tac-state:
 : lfw-rule ( j i -- ) ['] lfw-rewrite lf-tac-step-run ;
 : lfw-rules ( i -- )
   dup lf-tactic-step dup tac-first @ swap tac-count @ over + swap ?do i over lfw-rule loop

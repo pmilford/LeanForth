@@ -10,6 +10,7 @@
 require ../lib/lib.fs
 require ./diagnostics.fs
 require ./terms.fs
+require ./levels.fs
 
 6 constant lf-tag-symbolic-sort
 \ An input Sort of a term view (terms.fs) has its level in the leaf table.
@@ -29,6 +30,16 @@ lf-walk-room context-walk: lf-repr-walker
 \ level exists, is in scope, is live, or has Lean semantics.
 : lf-term-symbolic-sort ( level-index -- index true | false )
   dup 0< if drop false else lf-tag-symbolic-sort swap 0 lf-term-add then ;
+\ Lean's Expr.isSort and Expr.isProp for either representation (review N2
+\ of 2026-11-18; new words, used by the front end only): lf-sort? is any
+\ Sort; lf-prop? is Sort 0 exactly, a concrete Sort of universe 0 or a
+\ symbolic Sort whose level is the zero node (a level metavariable or
+\ parameter is not zero: the caller instantiates first, as Lean does).
+: lf-sort? ( t -- flag ) lf-term-tag@ dup lf-tag-sort = swap lf-tag-symbolic-sort = or ;
+: lf-symbolic-prop? ( t -- flag ) lf-term-first@ lf-level-tag@ lf-level-tag-zero = ;
+: lf-prop? ( t -- flag )
+  dup lf-tag-symbolic-sort lf-term-tag? if lf-symbolic-prop? exit then
+  dup lf-tag-sort lf-term-tag? if lf-term-first@ 0= else drop false then ;
 
 \ Visiting one node. A leaf has a nonnegative first field and a zero second
 \ field; a Sort must also match the walk's mode (symbolic means "not

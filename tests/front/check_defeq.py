@@ -48,6 +48,8 @@ GOLDEN = ROOT / "tests/front/defeq.golden"
 FVARS = set("mzskxabpgjecuvwid")
 MVARS = {"?n": "n", "?h": "h", "?f": "f", "?q": "q", "?r": "r", "?t": "t", "?y": "y", "?o": "o"}
 LAM, LET, PROJ, SORT, PI, LIT = "lam", "let", "proj", "sort", "pi", "lit"
+FLIT = "flit"   # a literal in a node of its own (no sharing), as authoring runs make them
+FSORT = "fsort"   # a Sort in a node of its own, likewise
 
 
 def c(name, *levels):
@@ -357,6 +359,18 @@ CASES = [
     ("dstuck", (SORT, "u"), (SORT, 1), None),
     ("dstuck", (SORT, "u"), (SORT, "u"), None),
     ("stuck", (SORT, "u"), (SORT, 1), None),
+    # kabstract at reducible transparency (rw's), the pattern a literal:
+    # its head compared by value (HeadIndex .lit), each equal literal in a
+    # node of its own abstracted (review C3 of 2026-11-18).
+    ("kabs", apps(ADD, (FLIT, 2), (FLIT, 2)), (FLIT, 2), None),
+    ("kabs", apps(ADD, (FLIT, 2), (FLIT, 3)), (FLIT, 3), None),
+    ("kabs", apps(ADD, (FLIT, 2), (FLIT, 3)), (FLIT, 4), None),
+    # the pattern a Sort: every Sort is one head (HeadIndex .sort), so a
+    # Sort in a node of its own is found and isDefEq assigns ?lu (review
+    # F2 of 2026-11-18); Prop is no instance of Sort 1.
+    ("kabs", apps(c("id", 2), (FSORT, 1), NAT), (FSORT, "u"), None),
+    ("kabs", apps(c("id", 2), (FSORT, 1), NAT), (FSORT, 1), None),
+    ("kabs", apps(c("id", 1), (FSORT, 0), apps(c("True"))), (FSORT, 1), None),
 ]
 
 
@@ -382,9 +396,9 @@ def lean(t):
             return f"(mkForall `y .default {lean(t[1])} {lean(t[2])})"
         if tag == PROJ:
             return f"(mkProj `Prod {t[1]} {lean(t[2])})"
-        if tag == SORT:
+        if tag in (SORT, FSORT):
             return f"(mkSort {LEAN_LEVELS[t[1]]})"
-        if tag == LIT:
+        if tag in (LIT, FLIT):
             return f"(mkRawNatLit {t[1]})"
         return f"(mkLet `y {lean(t[1])} {lean(t[2])} {lean(t[3])})"
     if t.startswith("#"):
@@ -411,6 +425,10 @@ def forth(t):
         if tag == LIT:
             assert 0 <= t[1] < 2**64, t   # one unsigned cell in nlit
             return f"{t[1]} nlit"
+        if tag == FLIT:
+            return f"{t[1]} fresh-nlit"
+        if tag == FSORT:
+            return f"{FORTH_LEVELS[t[1]]} fresh-sort"
         return f"{forth(t[1])} {forth(t[2])} {forth(t[3])} let"
     if t.startswith("#"):
         return f"{t[1:]} bv"
@@ -479,6 +497,15 @@ def instCase (t s : Expr) : MetaM Unit :=
 
 def implCase (t s : Expr) : MetaM Unit :=
   answer t s (withTransparency .implicit (isDefEq t s))
+
+def kabsCase (e p : Expr) : MetaM Unit := do
+  let saved ← saveState
+  try
+    let r ← withReducible (kabstract e p)
+    let shown ← sx r
+    IO.println (if r.hasLooseBVars then s!"true {shown}" else "false")
+  catch _ => IO.println "error"
+  saved.restore
 
 def nat : Expr := mkConst ``Nat
 """

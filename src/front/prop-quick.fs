@@ -97,8 +97,7 @@ require ./term-eqv.fs
   pq-app-head over pq-head? if pq-head-arrow exit then
   drop lf-term-lam? if lf-lb-false else lf-lb-undef then outcome-ok ;
 : pq-no-prop? ( e -- flag )
-  lf-term-tag@ dup lf-tag-lit = over lf-tag-sort = or over lf-tag-symbolic-sort = or
-  swap lf-tag-lam = or ;
+  dup lf-sort? if drop true exit then lf-term-tag@ dup lf-tag-lit = swap lf-tag-lam = or ;
 : pq-prop-leaf ( e -- lbool outcome )
   dup pq-head? if 0 pq-head-arrow exit then
   pq-no-prop? if lf-lb-false else lf-lb-undef then outcome-ok ;
@@ -150,8 +149,7 @@ require ./term-eqv.fs
 \ application's head as above, where a lambda with no argument left goes
 \ on as isProofQuick of its body.
 : pq-no-proof? ( e -- flag )
-  lf-term-tag@ dup lf-tag-lit = over lf-tag-sort = or over lf-tag-symbolic-sort = or
-  swap lf-tag-pi = or ;
+  dup lf-sort? if drop true exit then lf-term-tag@ dup lf-tag-lit = swap lf-tag-pi = or ;
 : pq-proof-leaf ( e -- lbool outcome )
   dup pq-head? if 0 pq-proof-arrow exit then
   pq-no-proof? if lf-lb-false else lf-lb-undef then outcome-ok ;

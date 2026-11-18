@@ -1667,6 +1667,102 @@ test = "$GFORTH tests/cli/leanforth.fs"
 reason = "capabilities does not list checking a LeanForth text (check [--env EXPORT | --snapshot FILE] FILE.lf)"
 
 [[fault]]
+id = "cli-same-file-text-only"
+file = "src/cli/leanforth.fs"
+old = ''': cli-plain-place? ( a b -- flag ) cli-indices dup if drop cli-same-pair? then ;'''
+new = ''': cli-plain-place? ( a b -- flag ) 2drop false ;'''
+test = "python3 tests/cli/test_leanforth.py Overwrites"
+reason = "review B1 of 2026-11-18: an output compared with the inputs only as text, so ./ex.ndjson or a link overwrites the export"
+
+[[fault]]
+id = "cli-steps-not-written"
+file = "src/cli/leanforth.fs"
+old = '''  cli-steps 2dup s" -" compare if c" STEPS" cli-out+ else 2drop then ;'''
+new = '''  cli-steps 2drop ;'''
+test = "python3 tests/cli/test_leanforth.py Overwrites"
+reason = "review B2 of 2026-11-18: --steps is not counted as a file written, so it overwrites FILE.lf, --env or --elab-data and exits 0"
+
+[[fault]]
+id = "cli-wrapper-no-same-files"
+file = "bin/leanforth"
+old = '''       [ "${arguments[i]}" -ef "${arguments[j]}" ]; then same+="$i:$j "; fi'''
+new = '''       false; then :; fi'''
+test = "python3 tests/cli/test_leanforth.py Overwrites"
+reason = "review B1 of 2026-11-18: the wrapper lists no names of one file, so a link or a relative name over an input is written"
+
+[[fault]]
+id = "cli-export-manifest-not-read"
+file = "src/cli/leanforth.fs"
+old = '''  2dup c" EXPORT" cli-in+ c" EXPORT's manifest" cli-manifest-in ;'''
+new = '''  c" EXPORT" cli-in+ ;'''
+test = "python3 tests/cli/test_leanforth.py Overwrites.test_manifests"
+reason = "review F1 of 2026-11-18: an export's manifest is not an input, so --steps, --record, --save-snapshot or reexport's COPY overwrite it"
+
+[[fault]]
+id = "cli-manifest-unflagged"
+file = "src/cli/leanforth.fs"
+old = '''  over 0= if drop 2drop exit then cli-in+ ['] manifest-suffix cli-derive ;'''
+new = '''  over 0= if drop 2drop exit then cli-in+ ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review F1 of 2026-11-18: a manifest path is kept as its export's name, so the manifest itself is never an input and is overwritten"
+
+[[fault]]
+id = "cli-manifest-text-unsuffixed"
+file = "src/cli/leanforth.fs"
+old = '''  2dup cli-stem-of? if cli-suffix-of? else 2drop false then ;'''
+new = '''  2dup cli-stem-of? if 2drop true else 2drop false then ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review F1 of 2026-11-18: a written name is compared with the export's name and length, not its manifest's suffix, so any name of that length and stem is taken for the manifest"
+
+[[fault]]
+id = "cli-derived-length-unchecked"
+file = "src/cli/leanforth.fs"
+old = '''  2dup cli-length-of? 0= if 2drop false exit then'''
+new = '''  ( length unchecked )'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review R2 of 2026-11-18: a derived file's name is taken for any text that begins with its stem and ends with its suffix, so ex.ndjso clashes with ex.ndjson.manifest.json"
+
+[[fault]]
+id = "cli-partial-not-written"
+file = "src/cli/leanforth.fs"
+old = '''  cli-state opt-save 2@ c" FILE" cli-out+ cli-partial-out cli-steps-out+ ;'''
+new = '''  cli-state opt-save 2@ c" FILE" cli-out+ cli-steps-out+ ;'''
+test = "python3 tests/cli/test_leanforth.py Overwrites.test_partial"
+reason = "review R2 of 2026-11-18: --save-snapshot FILE writes FILE.partial first, which is then on no list, so check --save-snapshot y y.partial overwrites the export and exits 0"
+
+[[fault]]
+id = "cli-derived-mark-one"
+file = "src/cli/leanforth.fs"
+old = ''': cli-mark ( d -- char ) cli-manifest? if [char] m else [char] p then ;'''
+new = ''': cli-mark ( d -- char ) drop [char] m ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review R2 of 2026-11-18: FILE.partial is sought in the wrapper's pairs as a manifest (m), so a link to an input named FILE.partial is overwritten"
+
+[[fault]]
+id = "cli-wrapper-no-partial-pairs"
+file = "bin/leanforth"
+old = '''      same+="${i}p:$j "'''
+new = '''      :'''
+test = "python3 tests/cli/test_leanforth.py Overwrites.test_partial"
+reason = "review R2 of 2026-11-18: the wrapper lists no FILE.partial one file with an argument, so --save-snapshot sub/y with sub/y.partial a link to the export overwrites it"
+
+[[fault]]
+id = "cli-wrapper-no-manifest-pairs"
+file = "bin/leanforth"
+old = '''      same+="${i}m:$j "'''
+new = '''      :'''
+test = "python3 tests/cli/test_leanforth.py Overwrites.test_manifests"
+reason = "review F1 of 2026-11-18: the wrapper lists no manifest one file with an argument, so ./EXPORT.manifest.json or a link to it is overwritten"
+
+[[fault]]
+id = "cli-check-direct-unguarded"
+file = "src/cli/leanforth.fs"
+old = '''  cli-start false cli-clashing ?dup if exit then'''
+new = '''  cli-start'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "check-command run directly (cli-check, as the Forth interface does) writes RECORD over the export"
+
+[[fault]]
 id = "ndjson-anonymous-name"
 file = "src/import/ndjson.fs"
 old = '''  tuck name-of 2dup anonymous? if 2drop bad-ref else rot drop then ;'''
@@ -2753,9 +2849,9 @@ reason = "NOT PROVED gives exit status 6 by default, not Lean's 0 (owner, 2026-1
 [[fault]]
 id = "cli-strict-axioms-dropped"
 file = "src/cli/leanforth.fs"
-old = '''  cli-start cli-strict? cli-strict-axioms! cli-misused? if cli-misuse-record exit then'''
-new = '''  cli-start cli-misused? if cli-misuse-record exit then'''
-test = "python3 tests/cli/test_leanforth.py"
+old = '''  cli-strict? cli-strict-axioms! cli-misused? if cli-misuse-record exit then'''
+new = '''  cli-misused? if cli-misuse-record exit then'''
+test = "python3 tests/cli/test_leanforth.py ExitCodes"
 reason = "check ignores --strict-axioms: the report says strictAxioms false and NOT PROVED keeps 0"
 
 [[fault]]
@@ -4130,6 +4226,14 @@ reason = "a changed source text replays the old text's run"
 quick = true
 
 [[fault]]
+id = "lc-bare-name-not-found"
+file = "scripts/lean-cache.py"
+old = '''        lean = shutil.which(lean) or lean'''
+new = '''        pass'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "fix-batch-4: LEANFORTH_LEAN=lean (no .tools beside a worktree) is exec'd as a path, so every pinned-Lean target of check-rest fails with lean-not-found"
+
+[[fault]]
 id = "lc-key-without-module"
 file = "scripts/lean-cache.py"
 old = '''"module": module_path(source),'''
@@ -5296,6 +5400,30 @@ reason = "a run started by an immediate word while Forth compiles compiles the L
 quick = true
 
 [[fault]]
+id = "author-room-throw-internal"
+file = "src/author/runner.fs"
+old = '''  lfa-room-throw? if lfa-e-forth-room else lfa-e-forth then ;'''
+new = '''  drop lfa-e-forth ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "review N1 of 2026-11-18: a host stack running out (THROW -3) is reported as an internal fault (exit 5), not a resource limit (exit 3)"
+
+[[fault]]
+id = "author-room-throw-dictionary"
+file = "src/author/runner.fs"
+old = '''  case -3 of true endof -5 of true endof -8 of true endof'''
+new = '''  case -3 of true endof -5 of true endof'''
+test = "$GFORTH tests/author/author.fs"
+reason = "review N1 of 2026-11-18: the dictionary running out (THROW -8) is an internal fault, not a resource limit"
+
+[[fault]]
+id = "author-forth-fault-invalid"
+file = "src/author/errors.fs"
+old = '''  lfa-e-forth s" a Forth exception, with its THROW code" lfa-internal,'''
+new = '''  lfa-e-forth s" a Forth exception, with its THROW code" lfa-invalid,'''
+test = "$GFORTH tests/author/author.fs"
+reason = "review N1 of 2026-11-18: a Forth fault inside a run is blamed on the text (invalid, exit 4) instead of exit 5"
+
+[[fault]]
 id = "author-line-end-compiling"
 file = "src/author/runner.fs"
 old = '''  lfa-interpreting? lfa-e-compiling lfa-must lfa-the-line nip lfa-read-to ;'''
@@ -5331,8 +5459,8 @@ reason = "a second text in one run counts its lines on from the first, so its er
 [[fault]]
 id = "author-exception-empty-token"
 file = "src/author/runner.fs"
-old = '''  lfa-first-token lfa-number! lfa-token lfa-here lfa-e-forth lfa-record ;'''
-new = '''  lfa-number! lfa-token lfa-here lfa-e-forth lfa-record ;'''
+old = '''  lfa-first-token lfa-number! lfa-token lfa-here lfa-thrown lfa-record ;'''
+new = '''  lfa-number! lfa-token lfa-here lfa-thrown lfa-record ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "a Forth exception on a line no word has read yet shows an empty token (p04)"
 
@@ -15364,10 +15492,50 @@ reason = "FE1g-3: by-sorry's sorryAx gets level 0 whatever the goal's sort (Lean
 [[fault]]
 id = "fe-run-restore-keeps"
 file = "src/front/tactic-run.fs"
-old = ''': lfr-trail-undo ( mark -- outcome ) lf-mctx-rollback ;'''
+old = ''': lfr-trail-undo ( mark -- outcome ) lf-mctx-rollback-to ;'''
 new = ''': lfr-trail-undo ( mark -- outcome ) lf-mctx-commit ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "FE1g-3: a failed attempt keeps its assignments, tags and kinds (Lean's restore skipped)"
+
+[[fault]]
+id = "fe-run-restore-latest-only"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-trail-undo ( mark -- outcome ) lf-mctx-rollback-to ;'''
+new = ''': lfr-trail-undo ( mark -- outcome ) lf-mctx-rollback ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review C1 of 2026-11-18: a failed attempt that left an inner mark open keeps its assignments, and the marks leak"
+
+[[fault]]
+id = "fe-run-undone-silent"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-undone ( save code -- code ) swap lf-tac-restore lfr-sure ;'''
+new = ''': lfr-undone ( save code -- code ) swap lf-tac-restore drop ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review C1 of 2026-11-18: a save that cannot be put back is dropped silently and the run goes on"
+
+[[fault]]
+id = "fe-run-kept-silent"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-kept ( save code -- code ) swap lf-tac-commit lfr-sure ;'''
+new = ''': lfr-kept ( save code -- code ) swap lf-tac-commit drop ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review C1 of 2026-11-18: a success whose save cannot be kept goes on with the marks open"
+
+[[fault]]
+id = "mctx-rollback-to-depths-kept"
+file = "src/front/mvars.fs"
+old = '''  mv-undo-scope mv-latest mvs-kind @ mv-deep = if mv-depths-back then mv-close ;'''
+new = '''  mv-undo-scope mv-close ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "review C1 of 2026-11-18: rolling back through a depth scope leaves the metavariable context one depth deeper"
+
+[[fault]]
+id = "mctx-rollback-to-any-kind"
+file = "src/front/mvars.fs"
+old = '''  dup mv-plain-at? 0= if drop outcome-invalid exit then'''
+new = ''''''
+test = "$GFORTH tests/front/front.fs"
+reason = "rolling back to a depth scope's serial as a mark is not refused"
 
 [[fault]]
 id = "fe-run-unfocus-drops-rest"
@@ -16387,8 +16555,8 @@ reason = "review s1-meta-b H1: a tier name's split refused room eats the caller'
 [[fault]]
 id = "fe-env-refused-handle"
 file = "src/front/meta-env.fs"
-old = ''': me-decoded ( d -- d outcome ) dup lf-libdec-decl nip dup ok? 0= if nip no-result then ;'''
-new = ''': me-decoded ( d -- d outcome ) dup lf-libdec-decl nip ;'''
+old = '''  dup lf-libdec-decl nip me-undecoded dup ok? 0= if nip no-result then ;'''
+new = '''  dup lf-libdec-decl nip me-undecoded ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b H2: a refused decode gives its handle with full, which callers read as a decoded declaration"
 
@@ -19967,8 +20135,8 @@ reason = "S2 merge B: Meta.check passes a smart-unfolding marker unchecked"
 [[fault]]
 id = "fe-steps-rolled-back"
 file = "src/front/tactic-run.fs"
-old = '''  dup lfr-back-log tsv-goals @ lf-goals! drop ;'''
-new = '''  tsv-goals @ lf-goals! drop ;'''
+old = '''  dup lfr-back-log tsv-goals @ lf-goals! ;'''
+new = '''  tsv-goals @ lf-goals! ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "S2 s2-steps: a failed attempt's step-log entries are kept after the restore"
 
@@ -20125,3 +20293,280 @@ old = '''  dup ok? 0= if nip lsl-w jw-null exit then'''
 new = '''  dup ok? 0= if drop outcome-ok then'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "review s2-finish re-check N2: an axiom whose name cannot be given leaves a short list, not null"
+
+[[fault]]
+id = "synth-no-ctx-approx"
+file = "src/front/synth.fs"
+old = '''  lf-defeq-flags lf-defeq-stuck or lf-defeq-fo or lf-defeq-ctx or'''
+new = '''  lf-defeq-flags lf-defeq-stuck or lf-defeq-fo or'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review N1 of 2026-11-18 (it survived then): synthesis runs without Lean's ctxApprox"
+
+[[fault]]
+id = "assign-ctx-approx-always"
+file = "src/front/assign-check.fs"
+old = ''': ac-approx? ( -- flag ) lf-defeq-ctx lf-meta-flag? ;'''
+new = ''': ac-approx? ( -- flag ) true ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review N1 of 2026-11-18: checkAssignment answers unsupported under ctxApprox where the configuration has it off, as the leaked register did"
+
+[[fault]]
+id = "menv-undecoded-unknown"
+file = "src/front/meta-env.fs"
+old = '''  dup outcome-invalid = if over me-lib-d? if drop outcome-unsupported then then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review N3 of 2026-11-18: a library declaration that cannot be decoded reads as no such constant, so isClass?, whnf and infer go on as if it did not exist"
+
+[[fault]]
+id = "menv-undecoded-past-library"
+file = "src/front/meta-env.fs"
+old = ''': me-lib-d? ( d -- flag ) lf-libdec-count u< ;'''
+new = ''': me-lib-d? ( d -- flag ) drop true ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "a declaration of a stage grown past the bound library reads as unsupported, not as unknown"
+
+[[fault]]
+id = "core-prop-symbolic-never"
+file = "src/core/tagged-sort-boundary.fs"
+old = ''': lf-symbolic-prop? ( t -- flag ) lf-term-first@ lf-level-tag@ lf-level-tag-zero = ;'''
+new = ''': lf-symbolic-prop? ( t -- flag ) drop false ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "review N2 of 2026-11-18: no symbolic Sort is Prop, so propagateExpectedType propagates an expected Prop, which Lean refuses on purpose"
+
+[[fault]]
+id = "elab-prop-not-instantiated"
+file = "src/front/elab-app.fs"
+old = '''  lf-instantiate-mvars lf-elab-meta ok-then? if lf-prop? outcome-ok else false swap then ;'''
+new = '''  lf-prop? outcome-ok ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "review N2 of 2026-11-18: an expected Sort ?u with ?u := 0 is not seen as Prop (Lean instantiates first)"
+
+[[fault]]
+id = "elab-is-type-concrete-only"
+file = "src/front/elab-term.fs"
+old = '''  ok-then? if lf-sort? outcome-ok else false swap then ;'''
+new = '''  ok-then? if lf-term-tag@ lf-tag-sort = outcome-ok else false swap then ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "review N2 of 2026-11-18: ensureType's isType never fires on the front end's symbolic Sorts"
+
+[[fault]]
+id = "induction-type-hint-any-sort"
+file = "src/front/tactic-induction.fs"
+old = '''  lf-term-first@ lf-level-tag@ lf-level-tag-succ = ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "review N2 of 2026-11-18: the type-universe hint shows for Sort u, where Lean's isType (a succ level) gives none"
+
+[[fault]]
+id = "kab-literal-by-node"
+file = "src/front/kabstract.fs"
+old = '''    lf-tag-lit of lf-lit-same? endof  lf-tag-str of lf-str-same? endof
+'''
+new = ''''''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review C3 of 2026-11-18: kabstract compares literal heads by node, so with sharing off (authoring runs) an equal literal is never tried"
+
+[[fault]]
+id = "rw-unknown-binder-explicit"
+file = "src/front/tactic-rewrite.fs"
+old = '''  dup lfw-known? 0= if lfa-e-tac-form lfw-stop then lf-tac-binder ;'''
+new = '''  lf-tac-binder ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review C4 of 2026-11-18: rw takes an unknown binder kind for explicit and makes a natural metavariable where Lean may make a synthetic one; tests/front/tactic-run.fs's probe in rw's row reads an unrecorded pi made inside the run and expects 99"
+
+[[fault]]
+id = "author-binder-kind-dropped"
+file = "src/author/build.fs"
+old = ''': lfa-name! ( term name kind -- term ) 2>r dup 2r> lf-pres-binder! lfa-kind-kept ;'''
+new = ''': lfa-name! ( term name kind -- term ) 2>r dup 2r> lf-pres-binder! drop ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "fix-batch-2 (review C4 of 2026-11-18): the build drops a binder kind the heap had no room for, so the pi reaches rw or intro unrecorded and a resource failure reads as not supported"
+
+[[fault]]
+id = "elab-ensure-type-defeq-ignored"
+file = "src/front/elab-term.fs"
+old = '''  lf-elab-defeq lf-elab-meta ok-then? if if outcome-ok else et-not-sort then then ;'''
+new = '''  lf-elab-defeq lf-elab-meta ok-then? if drop et-not-sort then ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "fix-batch-2 (review N2 of 2026-11-18): ensureType ignores isDefEq(type, Sort ?u) and calls a term whose type is a metavariable no type"
+
+[[fault]]
+id = "kab-literal-by-node-lean"
+file = "src/front/kabstract.fs"
+old = '''    lf-tag-lit of lf-lit-same? endof  lf-tag-str of lf-str-same? endof
+'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "fix-batch-2 (review C3 of 2026-11-18): kabstract compares literal heads by node; the pinned-Lean kabs cases of check_defeq.py (two equal literals in nodes of their own) must find both"
+
+[[fault]]
+id = "kab-sorts-by-tag"
+file = "src/front/kabstract.fs"
+old = '''  2dup kab-sorts? if 2drop true exit then
+'''
+new = ''''''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review F2 of 2026-11-18: kabstract compares a symbolic Sort head by node and a concrete one against a symbolic one by tag, where Lean's HeadIndex .sort is one head for every Sort"
+
+[[fault]]
+id = "kab-sorts-by-tag-lean"
+file = "src/front/kabstract.fs"
+old = ''': kab-sorts? ( h1 h2 -- flag ) lf-sort? swap lf-sort? and ;'''
+new = ''': kab-sorts? ( h1 h2 -- flag ) 2drop false ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review F2 of 2026-11-18: a Sort pattern in a node of its own is not found where pinned Lean's kabstract abstracts it (check_defeq.py's kabs cases)"
+
+[[fault]]
+id = "fe-run-rolled-old-order"
+file = "src/front/tactic-run.fs"
+old = '''  dup tsv-mark @ lfr-trail-undo ok-then? 0= if true lfr-states-all drop exit then
+  dup tsv-view @ lf-mctx-view! lfr-back true lfr-states-all outcome-and ;'''
+new = '''  dup lfr-back drop dup tsv-view @ lf-mctx-view! tsv-mark @ lfr-trail-undo
+  true lfr-states-all outcome-and ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review F4 of 2026-11-18: a restore puts the goal list back before the trail and drops lf-goals!'s refusal, so a lost goal list goes on silently"
+
+[[fault]]
+id = "fe-run-trail-refusal-ignored"
+file = "src/front/tactic-run.fs"
+old = '''  dup tsv-mark @ lfr-trail-undo ok-then? 0= if true lfr-states-all drop exit then'''
+new = '''  dup tsv-mark @ lfr-trail-undo drop'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review F4 of 2026-11-18: a failed attempt that rolled back its save's own mark is restored as if the trail had taken it back"
+
+[[fault]]
+id = "cli-internal-fault-as-misuse"
+file = "src/cli/leanforth.fs"
+old = '''  ." : the LeanForth text was not checked: " lf-author-error. cr outcome>code cli-code! ;'''
+new = '''  ." : the LeanForth text was not checked: " lf-author-error. cr outcome-sane outcome>code cli-code! ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review F5 of 2026-11-18: a Forth fault in a text's run (error 41) exits 4, blaming the text, instead of 5"
+
+[[fault]]
+id = "cli-author-outcome-unnamed"
+file = "src/cli/leanforth.fs"
+old = '''  dup outcome? if outcome-text type else drop ." internal fault" then ;'''
+new = '''  drop ." internal fault" ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review F5 of 2026-11-18: a text's error is said as an internal fault whatever its outcome, so a heap refusal (error 300, full) reads as LeanForth's fault"
+
+[[fault]]
+id = "slab-keep-no-count"
+file = "src/lib/slab.fs"
+old = ''': slab-copy-in ( slab addr -- ) 2dup slab-count-after swap slab-in-use rot swap move ;'''
+new = ''': slab-copy-in ( slab addr -- ) swap slab-in-use rot swap move ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "fix-batch-3 (reviews C2, N4 of 2026-11-18): a kept copy has no count, so slab-restore and slab-forget read whatever lies past the units"
+
+[[fault]]
+id = "slab-keep-any-unit"
+file = "src/lib/slab.fs"
+old = '''  2dup slab-same-unit? 0= if 2drop outcome-invalid exit then'''
+new = ''''''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "fix-batch-3: slab-keep copies into a store of another unit, so a copy is cut or read across units"
+
+[[fault]]
+id = "slab-restore-keeps-copy"
+file = "src/lib/slab.fs"
+old = ''': slab-restored ( store slab -- ) over slab-kept-at swap slab-in-use move slab-forget ;'''
+new = ''': slab-restored ( store slab -- ) over slab-kept-at swap slab-in-use move drop ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "fix-batch-3: a restored copy stays on the store, so the next restore puts back the wrong state"
+
+[[fault]]
+id = "tac-state-not-kept"
+file = "src/front/tactic-run.fs"
+old = '''  tuck lfr-save lfr-fill lfr-states-save dup ok? 0= if lfr-unsaved then ;'''
+new = '''  tuck lfr-save lfr-fill outcome-ok ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "reviews C2 and N4 of 2026-11-18: a save holds only the runner's slabs, so a failed try leaves the other modules' states changed"
+
+[[fault]]
+id = "tac-state-not-restored"
+file = "src/front/tactic-run.fs"
+old = '''  dup tsv-view @ lf-mctx-view! lfr-back true lfr-states-all outcome-and ;'''
+new = '''  dup tsv-view @ lf-mctx-view! lfr-back false lfr-states-all outcome-and ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "reviews C2 and N4 of 2026-11-18: a failed try forgets the other modules' kept states instead of putting them back"
+
+[[fault]]
+id = "tac-entry-not-restored"
+file = "src/front/tactic-run.fs"
+old = '''  tsv-entry @ trun trun-entry ! ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review C2 of 2026-11-18: after a failed try trun-entry names a step-log entry the restore cut"
+
+[[fault]]
+id = "tac-saves-left-at-fresh"
+file = "src/front/tactic-run.fs"
+old = '''  lfr-saves 0 ?do false lfr-states-all drop loop trun-saves slab-clear ;'''
+new = '''  trun-saves slab-clear ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "fix-batch-3: a run that stopped inside a try leaves its kept states on the modules' stores for the next run"
+
+[[fault]]
+id = "tac-induction-withs-not-restored"
+file = "src/front/tactic-induction.fs"
+old = '''  swap tind-withs tind-withs-kept slab-kept outcome-and ;'''
+new = '''  nip ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review C2 of 2026-11-18: a failed try leaves the induction blocks it opened open"
+
+[[fault]]
+id = "tac-rw-mvars-not-kept"
+file = "src/front/tactic-rewrite.fs"
+old = ''': lfw-kept ( undo? -- outcome ) trw-mvars trw-mvars-kept slab-kept ;'''
+new = ''': lfw-kept ( undo? -- outcome ) drop trw-mvars-kept slab-forget outcome-ok ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review C2 of 2026-11-18: a failed try leaves trw-mvars as the attempt's rw made it"
+
+[[fault]]
+id = "tac-pending-base-not-restored"
+file = "src/front/elab-pending.fs"
+old = '''  ep-saved slab-2pop drop over if ep ep-base ! else drop then ;'''
+new = '''  ep-saved slab-2pop drop drop ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "reviews C2 and N4 of 2026-11-18: a failed try leaves the elaborator's synthesis window where the attempt opened it"
+
+[[fault]]
+id = "tac-pending-not-restored"
+file = "src/front/elab-pending.fs"
+old = ''': lf-elab-pending-kept ( undo? -- outcome ) ep-base-back ep-pending ep-saved slab-kept ;'''
+new = ''': lf-elab-pending-kept ( undo? -- outcome ) ep-base-back drop ep-saved slab-forget outcome-ok ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review N4 of 2026-11-18: a failed try keeps the pending instance problems the attempt added"
+
+[[fault]]
+id = "elab-with-synth-window-open"
+file = "src/front/elab-pending.fs"
+old = '''  lf-elab-window{ >r ['] ep-synth-run catch r> }lf-elab-window throw ;'''
+new = '''  lf-elab-window{ >r ['] ep-synth-run catch r> drop throw ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "review C2 of 2026-11-18: a rule that throws inside withSynthesize leaves the pending list set aside"
+
+[[fault]]
+id = "elab-step-failure-loses-window"
+file = "src/front/elab-pending.fs"
+old = '''  ep-resume-all dup ok? 0= if ep-unstepped exit then drop'''
+new = '''  ep-resume-all dup ok? 0= if nip ep-abandon exit then drop'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "review N4 of 2026-11-18: a synthesis pass that fails part-way loses the window's instance problems"
+
+[[fault]]
+id = "menv-undecoded-off-by-one"
+file = "src/front/meta-env.fs"
+old = ''': me-lib-d? ( d -- flag ) lf-libdec-count u< ;'''
+new = ''': me-lib-d? ( d -- flag ) lf-libdec-count 1+ u< ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review F11 of 2026-11-18: the declaration one past the bound library's count reads as one of its own (unsupported, not unknown)"
+
+[[fault]]
+id = "slab-kept-always-restores"
+file = "src/lib/slab.fs"
+old = '''  rot if slab-restore else nip slab-forget outcome-ok then ;'''
+new = '''  rot drop slab-restore ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "fix-batch-3: a committed save puts its copy back, undoing the attempt that succeeded"

@@ -542,13 +542,16 @@ every file: `make daily` runs both, and `make tag-check` requires them.
   alone still applies as before (the stale check confirms its old text) and
   is left to the daily full `make mutants`.
 - Coverage in every tier (owner, 2026-11-17): `make coverage-focus
-  COVERAGE_FILES=... COVERAGE_TARGETS=...` runs under instrumentation the unit
-  tests of `make test` that load the touched files — every Forth file of
-  `src/` the change touches, the files a changed test drives, the files whose
-  entry of `tests/coverage-baseline.json` changed — and applies the ratchet to
-  those files alone (`scripts/coverage.py --only`). A file that no unit test
-  but `smoke` loads is measured over the end-to-end tests of `make test` that
-  load it. `make coverage-check` (every file) runs in a tier only when the
+  COVERAGE_FILES=... COVERAGE_TARGETS=...` runs under instrumentation every
+  target of `make test` that loads the touched files, unit and end-to-end,
+  and `smoke` — the touched files being every Forth file of `src/` the change
+  touches, the files a changed test drives, the files whose entry of
+  `tests/coverage-baseline.json` changed — and applies the ratchet to those
+  files alone (`scripts/coverage.py --only`). The end-to-end targets count
+  because the baseline counts all of `make test`: over its unit tests alone,
+  `src/cli/leanforth.fs` showed 561 never-run blocks against 117
+  (2026-11-18). A file that defines no word, such as `src/main.fs`, compiles
+  no block and is not required in the counts. `make coverage-check` (every file) runs in a tier only when the
   baseline's run count changes or a test program is deleted (what it drove
   is known only from the base); otherwise in `make daily`.
 - Left to the daily full run: (1) a change in file A that stops running part

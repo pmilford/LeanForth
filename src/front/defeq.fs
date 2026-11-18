@@ -947,7 +947,7 @@ defer de-delta-x ( -- )
 : de-config ( -- )
   lf-defeq-mode df df-mode ! outcome-ok df df-outcome ! false df df-taint !
   df df-limit @ ?dup 0= if lf-defeq-default-fuel then df df-fuel !
-  lf-lb-undef df df-result !  lf-defeq-ctx de-flag? lf-meta-ctx-approx! ;
+  lf-lb-undef df df-result ! ;
 : de-start ( t s -- )
   de-frames slab-clear de-cells slab-clear 0 df df-m ! ['] de-top de-regs! de-config
   lf-mctx-view df df-view0 ! de-term-mark df df-mark0 ! ;

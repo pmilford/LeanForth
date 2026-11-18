@@ -51,7 +51,9 @@ require ./source.fs
 \            case, rewriting), 225-229 branch s2-steps, 230-249 FE5
 \   250-269  decide (S3)
 \   270-299  omega and its opt-in flag (S4)
-\   300-     free
+\   300-309  the runner's Forth faults (fix-batch, 2026-11-18): 300 a host
+\            stack, the dictionary or the heap ran out (41 is any other)
+\   310-     free
 1 constant lfa-e-unknown        \ no word, variable, universe or constant has the name
 2 constant lfa-e-no-name         \ a name must follow on the same line
 3 constant lfa-e-missing         \ a value is missing above the binder or declaration
@@ -219,6 +221,8 @@ require ./source.fs
 218 constant lfa-e-tac-not-eq       \ rewrite: the rule proves no equality
 219 constant lfa-e-tac-mvar-pattern \ rewrite: the pattern is a metavariable
 220 constant lfa-e-tac-occurs       \ rewrite: the rule holds the goal itself
+300 constant lfa-e-forth-room       \ THROW -3, -5, -8, -59 or -61: a host stack,
+                                    \ the dictionary or the heap ran out
 
 \ The catalogue: one message record per code, in order, each followed by
 \ its text and aligned; a record with code 0 closes it.
@@ -243,6 +247,12 @@ end-structure
 : lfa-unsupported, ( code c-addr u -- ) outcome-unsupported lfa-of, ;
 : lfa-full, ( code c-addr u -- ) outcome-full lfa-of, ;
 : lfa-exhausted, ( code c-addr u -- ) outcome-exhausted lfa-of, ;
+\ An internal fault (review N1 of 2026-11-18): a Forth exception in a run
+\ is LeanForth's fault, never the text's, so its "outcome" is no outcome
+\ of the vocabulary: ok? is false, outcome-sane makes it invalid, and the
+\ command line's outcome>code gives 5 (cli/tally.fs).
+outcome-full 1+ constant lfa-internal
+: lfa-internal, ( code c-addr u -- ) lfa-internal lfa-of, ;
 create lfa-catalogue
   lfa-e-unknown
   s" unknown name: no syntax word, bound variable, universe parameter or constant has it"
@@ -293,7 +303,7 @@ create lfa-catalogue
   lfa-e-unknown-constant s" unknown constant" lfa-invalid,
   lfa-e-line s" line too long" lfa-full,
   lfa-e-file s" the file cannot be opened or read" lfa-invalid,
-  lfa-e-forth s" a Forth exception, with its THROW code" lfa-invalid,
+  lfa-e-forth s" a Forth exception, with its THROW code" lfa-internal,
   lfa-e-comment-end s" a ( comment must end with ) on the same line" lfa-invalid,
   lfa-e-protected-here
   s" protected comes right before theorem, def, axiom or import-stub" lfa-invalid,
@@ -487,6 +497,9 @@ create lfa-catalogue
   here lfa-e-tac-mvar-pattern s" Invalid rewrite argument: The pattern to be substituted "
   lfa-invalid, s" is a metavariable" lfa-more,
   lfa-e-tac-occurs s" Occurs check failed: Expression" lfa-invalid,
+  lfa-e-forth-room
+  s" out of room: a Forth stack, the dictionary or the heap, with its THROW code"
+  lfa-full,
   0 outcome-invalid s" " lfa-message,
 
 \ The catalogue record of a code; an unknown code gives the closing record.
@@ -558,6 +571,7 @@ end-structure
 : lfa-.plan ( -- ) ."  (plan FE1g-" lfa-number@ .decimal ." )" ;
 : lfa-.number ( -- )
   lf-author-code case lfa-e-forth of ."  " lfa-number@ .decimal endof
+    lfa-e-forth-room of ."  " lfa-number@ .decimal endof
     lfa-e-tac-run of lfa-.plan endof endcase ;
 \ The detail on the lines after the message, and a note if it was cut.
 : lfa-.cut ( -- ) lfa-error lfa-err-cut @ if cr ." (the rest could not be shown)" then ;

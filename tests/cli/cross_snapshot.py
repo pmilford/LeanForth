@@ -26,6 +26,8 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tests" / "support"))
+import toolchain  # noqa: E402  (the Gforth as every test script finds it)
 FIXTURES = ["tests/reference/composition.ndjson", "tests/reference/constant-fixture.ndjson",
             "tests/cli/inductive.ndjson", "tests/cli/chain.ndjson", "tests/cli/dependent.ndjson",
             "tests/cli/sibling.ndjson", "tests/cli/unfold.ndjson", "tests/cli/nested.ndjson",
@@ -44,8 +46,9 @@ def run(gforth, *args):
 
 
 def main():
-    gforth = sys.argv[1] if len(sys.argv) > 1 else os.environ.get(
-        "GFORTH", str(ROOT / ".tools" / "gforth" / "bin" / "gforth"))
+    # The environment's, else this checkout's .tools, else the PATH's (a worktree has no
+    # .tools: make tier's run of reference-cli exited 5 there, fix-batch-4).
+    gforth = sys.argv[1] if len(sys.argv) > 1 else toolchain.gforth()
     if os.sep in gforth:
         gforth = str(Path(gforth).resolve())
     differences = pairs = 0

@@ -266,12 +266,17 @@ T{ l0 l0 lmax lf-meta-always-zero? lv1 l0 limax lf-meta-always-zero? l0 lv1 lmax
 T{ input-nat nat lf-meta-eqv input-type lv1 sort lf-meta-eqv input-type l0 sort lf-meta-eqv
    -> true outcome-ok true outcome-ok false outcome-ok }T
 T{ fp 0 proj fp 1 proj lf-meta-eqv -> false outcome-ok }T
+\ ctxApprox as configured (review N1 of 2026-11-18): read where it is
+\ used, so lf-meta-with's scope sets it and gives it back.
+: ctx-on ( -- ) lf-defeq-flags lf-defeq-ctx or lf-defeq-flags! ;
+: ctx-off ( -- ) lf-defeq-flags lf-defeq-ctx invert and lf-defeq-flags! ;
+T{ ctx-off ' ac-approx? lf-defeq-ctx lf-tr-default lf-meta-with ac-approx? -> true false }T
 \ checkAssignment's refusals: an out-of-scope let variable, a variable
 \ out of scope inside a beta-redex or under ctxApprox, hasCtxLocals.
 T{ ?n xs 0 fl chk rot drop ?n xs 0 nat fj lam fk app
    chk rot drop -> false outcome-unsupported false outcome-unsupported }T
-T{ true lf-meta-ctx-approx! ?n xs 0 ?t fj app chk rot drop
-   false lf-meta-ctx-approx! ?n xk 1 ?h chk
+T{ ctx-on ?n xs 0 ?t fj app chk rot drop
+   ctx-off ?n xk 1 ?h chk
    -> false outcome-unsupported ?h false outcome-ok }T
 T{ ?n xs 0 nat fk fj let chk rot drop -> false outcome-ok }T
 \ mkLambdaFVars: an xi in a metavariable's scope (elimMVarDeps) or a let
@@ -329,10 +334,10 @@ T{ ?n xqk 2 fk chk ?n xkq 2 fk chk -> fk false outcome-ok fk false outcome-ok }T
 T{ ?n xs 0 ?w chk rot drop -> false outcome-ok }T
 T{ own-mark ?d ?n 0 lf-mvar-delay ?n xs 0 ?d chk rot drop own-back
    -> outcome-ok false outcome-ok }T
-T{ false lf-meta-ctx-approx! ?n xs 1 ?z chk ?n xs 0 ?z chk rot drop
+T{ ctx-off ?n xs 1 ?z chk ?n xs 0 ?z chk rot drop
    -> ?z true outcome-ok false outcome-ok }T
 \ Under ctxApprox Lean would give ?z a smaller context: not ported.
-T{ true lf-meta-ctx-approx! ?n xs 0 ?z chk rot drop false lf-meta-ctx-approx!
+T{ ctx-on ?n xs 0 ?z chk rot drop ctx-off
    -> false outcome-unsupported }T
 \ A stale metavariable, a free variable no longer in the context.
 : stale ( -- mvar ) ?n lf-term-first@ ?n lf-term-second@ 1+ lf-mvar-leaf must ;
@@ -505,5 +510,26 @@ T{ own-mark offset-pair dq ?h free? own-back -> true outcome-ok false }T
 T{ own-mark live-blocks @ offset-pair dq 2drop live-blocks @ = own-back clean? -> true true }T
 \ The fed input as loading left it (S1 §1, trust point 3).
 T{ lf-input-intact? -> true }T
+
+\ kabstract's heads (review C3 of 2026-11-18): a literal by its value, as
+\ Lean's HeadIndex .lit, also when the store shares no node (authoring
+\ runs); a string by its text.
+require ../../src/front/kabstract.fs
+false lf-term-sharing!
+: lit-of ( u -- t ) lf-hterm-cell 0= abort" lit" drop ;
+: heads-apart ( t1 t2 -- same? apart? ) 2dup <> >r kab-heads= r> ;
+T{ 2 lit-of 2 lit-of heads-apart 2 lit-of 3 lit-of kab-heads= -> true true false }T
+T{ s" ab" slit s" ab" slit heads-apart s" ab" slit s" b" slit kab-heads=
+   -> true true false }T
+\ Every Sort is one head, HeadIndex .sort (review F2 of 2026-11-18): two
+\ symbolic Sorts in nodes of their own, a concrete one against a symbolic
+\ one, and Prop against Type; no Sort is a literal's or a pi's head.
+: ssort ( level -- t ) lf-term-symbolic-sort 0= abort" sort" ;
+: csort ( level -- t ) lf-term-sort 0= abort" sort" ;
+T{ 0 ssort 0 ssort heads-apart 0 csort 0 ssort kab-heads= 0 ssort 0 csort kab-heads=
+   -> true true true true }T
+T{ 0 csort 1 csort heads-apart 0 csort 0 lit-of kab-heads= 2 lit-of 1 ssort kab-heads=
+   -> true true false false }T
+true lf-term-sharing!
 
 bye

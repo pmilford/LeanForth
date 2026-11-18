@@ -719,8 +719,9 @@ def coverage_need(files, reach_, loaded, base_rev="HEAD"):
     """None, {"kind": "all"} (make coverage-check) or {"kind": "focus", files, targets}: the
     ratchet of the changed source files (owner, 2026-11-17): every Forth file of src/ the change
     touches, the files a changed test drives and the files whose baseline entry changed, over
-    the unit tests of make test that load them (tests/test-classes.txt; the end-to-end tests of
-    make test that load a file no unit test loads). Only a change of the baseline's run count
+    every target of make test that loads them, unit and end-to-end (the baseline counts all of
+    make test; unit tests alone left blocks of e2e-only paths uncounted, fix-batch-4), and
+    smoke. Only a change of the baseline's run count
     needs all of make coverage-check, which make daily runs. LOADED is kept for the callers."""
     focus = set()
     for f in files:
@@ -740,12 +741,12 @@ def coverage_need(files, reach_, loaded, base_rev="HEAD"):
     focus = {p for p in focus if p.endswith(".fs")}
     if not focus:
         return None
-    e2e = end_to_end()
-    targets = [u for u in reach_.of_test if u not in e2e and any(p in reach_.uses[u] for p in focus)]
-    # smoke only loads each module: a file no other unit test loads is measured by the
-    # end-to-end tests of make test that load it, or the ratchet would fail on blocks they run.
-    alone = {p for p in focus if not any(p in reach_.uses[u] for u in targets if u != "smoke")}
-    targets += [u for u in reach_.of_test if u not in targets and any(p in reach_.uses[u] for p in alone)]
+    # Every target of make test that loads a focused file, end-to-end ones too: the
+    # baseline's counts are those of the whole make test, so a file whose blocks only an
+    # end-to-end test runs (bin/leanforth's, a .lf run) would look uncovered over its unit
+    # tests alone (fix-batch-4, 2026-11-18: cli/leanforth.fs 561 never-run blocks over
+    # test-cli-forth against 117 over make test). scripts/coverage.py --only states the same.
+    targets = [u for u in reach_.of_test if any(p in reach_.uses[u] for p in focus)]
     targets += [u for u in ("smoke",) if u not in targets]
     return {"kind": "focus", "files": sorted(focus), "targets": targets}
 
