@@ -1,0 +1,46 @@
+# counters (tools/patch.py, tools/zzcnt.fs on a scratch copy of src/), s1-rfl.lf check as above:
+# 0 storage audits, 1 entries visited by them, 2 most names, 3 lf-name-find-num calls, 4 entries visited,
+# 5 lf-name-find-str calls, 6 entries visited, 7 library declarations decoded
+CNT 0 207781
+CNT 1 2985094484
+CNT 2 26701
+CNT 3 23482
+CNT 4 329453156
+CNT 5 146433
+CNT 6 2114226768
+CNT 7 3260
+(80.08 s wall 79.46 user, gforth-fast, instrumented copy)
+
+# p1m (Init's first 1M lines, 9,202 declarations), check --no-manifest --jobs 1, gforth-fast: 230.33 s wall 207.27 user 145944 KB
+# 10 htab-find, 11 htab compares, 12 lf-env-current, 13 replace-memo lookups, 14 their hits, 15 lf-term-cons,
+# 20+2k hits / 21+2k misses of cache k: 0 infer, 1 infer-only, 2 whnf_core, 3 whnf, 4 unfold, 5 success, 6 failure;
+# 40 allocate, 41 free, 42 resize, 43 bytes allocated
+CNT 10 231296192 
+CNT 11 274189812 
+CNT 12 58824160 
+CNT 13 29004418 
+CNT 14 3769044 
+CNT 15 38093745 
+CNT 20 831976 
+CNT 21 1514788 
+CNT 22 475594 
+CNT 23 314548 
+CNT 24 184213 
+CNT 25 4736162 
+CNT 26 376555 
+CNT 27 221228 
+CNT 28 794439 
+CNT 29 71150 
+CNT 30 94096 
+CNT 31 946868 
+CNT 32 899 
+CNT 33 45835 
+CNT 40 390495 
+CNT 41 390364 
+CNT 42 18118 
+CNT 43 1626264483 
+resources:
+  time (s)     wall      cpu
+  stage       2.233    2.231
+  feed        0.214    0.214
+  check     227.563  204.865

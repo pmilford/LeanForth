@@ -1,0 +1,428 @@
+[Meta.isDefEq] ✅️ Sort ?u.1 =?= Type
+[Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ℝ =?= ?m.7
+  [Meta.isDefEq] ℝ [nonassignable] =?= ?m.7 [assignable]
+  [Meta.isDefEq] ✅️ Sort ?u.3 =?= Type
+[Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ Type ?u.9 =?= Type
+[Meta.isDefEq] ✅️ Type ?u.10 =?= Type
+[Meta.isDefEq] ✅️ outParam (Type ?u.11) =?= Type
+  [Meta.isDefEq.delta.unfoldLeft] outParam
+  [Meta.isDefEq] ✅️ Type ?u.11 =?= Type
+[Meta.isDefEq] ✅️ HAdd ℝ ℝ ?m.3 =?= HAdd ?m.5 ?m.5 ?m.5
+  [Meta.isDefEq] ✅️ ℝ =?= ?m.5
+    [Meta.isDefEq] ℝ [nonassignable] =?= ?m.5 [assignable]
+    [Meta.isDefEq.transparency] raising transparency instances → implicit
+    [Meta.isDefEq] ✅️ Type ?u.10 =?= Type
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+  [Meta.isDefEq] ✅️ ?m.3 =?= ℝ
+    [Meta.isDefEq] ?m.3 [assignable] =?= ℝ [nonassignable]
+    [Meta.isDefEq.transparency] raising transparency instances → implicit
+    [Meta.isDefEq] ✅️ outParam (Type ?u.9) =?= Type
+      [Meta.isDefEq.delta.unfoldLeft] outParam
+      [Meta.isDefEq] ✅️ Type ?u.9 =?= Type
+[Meta.isDefEq] ✅️ Add ℝ =?= Add ℝ
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ?m.6 =?= Real.instAdd
+  [Meta.isDefEq] ?m.6 [assignable] =?= Real.instAdd [nonassignable]
+  [Meta.isDefEq] ✅️ Add ℝ =?= Add ℝ
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ HAdd ℝ ℝ ℝ =?= HAdd ℝ ℝ ℝ
+[Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ℝ =?= ?m.1
+  [Meta.isDefEq] ℝ [nonassignable] =?= ?m.1 [assignable]
+  [Meta.isDefEq] ✅️ Type ?u.8 =?= Type
+[Meta.isDefEq] ✅️ ℝ =?= ?m.3
+  [Meta.isDefEq] ℝ [nonassignable] =?= ?m.3 [assignable]
+  [Meta.isDefEq] ✅️ Type ?u.6 =?= Type
+[Meta.isDefEq] ✅️ ℝ =?= ?m.4
+  [Meta.isDefEq] ℝ [nonassignable] =?= ?m.4 [assignable]
+  [Meta.isDefEq] ✅️ Type ?u.5 =?= Type
+[Meta.isDefEq] ✅️ HAdd ℝ ℝ ?m.7 =?= HAdd ?m.9 ?m.9 ?m.9
+  [Meta.isDefEq] ✅️ ℝ =?= ?m.9
+    [Meta.isDefEq] ℝ [nonassignable] =?= ?m.9 [assignable]
+    [Meta.isDefEq.transparency] raising transparency instances → implicit
+    [Meta.isDefEq] ✅️ Type ?u.10 =?= Type
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+  [Meta.isDefEq] ✅️ ?m.7 =?= ℝ
+    [Meta.isDefEq] ?m.7 [assignable] =?= ℝ [nonassignable]
+    [Meta.isDefEq.transparency] raising transparency instances → implicit
+    [Meta.isDefEq] ✅️ outParam (Type ?u.9) =?= Type
+      [Meta.isDefEq.delta.unfoldLeft] outParam
+      [Meta.isDefEq] ✅️ Type ?u.9 =?= Type
+[Meta.isDefEq] ✅️ Add ℝ =?= Add ℝ
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ?m.10 =?= Real.instAdd
+  [Meta.isDefEq] ?m.10 [assignable] =?= Real.instAdd [nonassignable]
+  [Meta.isDefEq] ✅️ Add ℝ =?= Add ℝ
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ HAdd ℝ ℝ ?m.5 =?= HAdd ℝ ℝ ℝ
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+  [Meta.isDefEq] ✅️ ?m.5 =?= ℝ
+    [Meta.isDefEq] ?m.5 [assignable] =?= ℝ [nonassignable]
+    [Meta.isDefEq] ✅️ Type ?u.4 =?= Type
+[Meta.isDefEq] ✅️ ?m.6 =?= instHAdd
+  [Meta.isDefEq] ?m.6 [assignable] =?= instHAdd [nonassignable]
+  [Meta.isDefEq] ✅️ HAdd ℝ ℝ ℝ =?= HAdd ℝ ℝ ℝ
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] 💥️ OfNat ?m.1 0 =?= OfNat (Lean.Grind.Ring.OfSemiring.Q ?m.4) ?m.6
+  [Meta.isDefEq] 💥️ ?m.1 =?= Lean.Grind.Ring.OfSemiring.Q ?m.4
+    [Meta.isDefEq] ?m.1 [nonassignable] =?= Lean.Grind.Ring.OfSemiring.Q ?m.4 [nonassignable]
+[Meta.isDefEq] 💥️ OfNat ?m.1 0 =?= OfNat (Lean.Grind.Ring.OfSemiring.Q ?m.4) ?m.6
+  [Meta.isDefEq] 💥️ ?m.1 =?= Lean.Grind.Ring.OfSemiring.Q ?m.4
+    [Meta.isDefEq] ?m.1 [nonassignable] =?= Lean.Grind.Ring.OfSemiring.Q ?m.4 [nonassignable]
+[Meta.isDefEq] 💥️ OfNat ?m.1 0 =?= OfNat (Lean.Grind.Ring.OfSemiring.Q ?m.4) ?m.6
+  [Meta.isDefEq] 💥️ ?m.1 =?= Lean.Grind.Ring.OfSemiring.Q ?m.4
+    [Meta.isDefEq] ?m.1 [nonassignable] =?= Lean.Grind.Ring.OfSemiring.Q ?m.4 [nonassignable]
+[Meta.isDefEq] ✅️ OfNat ℝ 0 =?= OfNat ?m.9 0
+  [Meta.isDefEq] ✅️ ℝ =?= ?m.9
+    [Meta.isDefEq] ℝ [nonassignable] =?= ?m.9 [assignable]
+    [Meta.isDefEq.transparency] raising transparency instances → implicit
+    [Meta.isDefEq] ✅️ Type ?u.11 =?= Type
+  [Meta.isDefEq] ✅️ 0 =?= 0
+[Meta.isDefEq] ✅️ Zero ℝ =?= Zero ℝ
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ?m.10 =?= Real.instZero
+  [Meta.isDefEq] ?m.10 [assignable] =?= Real.instZero [nonassignable]
+  [Meta.isDefEq] ✅️ Zero ℝ =?= Zero ℝ
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ OfNat ℝ 0 =?= OfNat ℝ 0
+[Meta.isDefEq] ✅️ ?m.2 =?= Zero.toOfNat0
+  [Meta.isDefEq] ?m.2 [assignable] =?= Zero.toOfNat0 [nonassignable]
+  [Meta.isDefEq] ✅️ OfNat ℝ 0 =?= OfNat ℝ 0
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+    [Meta.isDefEq] ✅️ 0 =?= 0
+[Meta.isDefEq] ✅️ x + 0 = x =?= x + 0 = x
+[Meta.isDefEq] ✅️ x + 0 = x =?= x + 0 = x
+  [Meta.isDefEq] ✅️ x + 0 =?= x + 0
+    [Meta.isDefEq] ❌️ instHAdd =?= instHAdd
+      [Meta.isDefEq.delta] ❌️ instHAdd =?= instHAdd
+        [Meta.isDefEq.transparency] raising transparency instances → implicit
+        [Meta.isDefEq] ❌️ ℝ =?= ℕ
+      [Meta.isDefEq.delta.unfoldLeftRight] instHAdd
+      [Meta.isDefEq] ❌️ { hAdd := fun a b => Add.add a b } =?= { hAdd := fun a b => Add.add a b }
+        [Meta.isDefEq] ❌️ fun a b => Add.add a b =?= fun a b => Add.add a b
+          [Meta.isDefEq] ❌️ ℝ =?= ℕ
+        [Meta.isDefEq.onFailure] ❌️ { hAdd := fun a b => Add.add a b } =?= { hAdd := fun a b => Add.add a b }
+    [Meta.isDefEq.delta.unfoldLeftRight] HAdd.hAdd
+    [Meta.isDefEq] ✅️ instHAdd.1 x 0 =?= instHAdd.1 x 0
+      [Meta.isDefEq] ✅️ Add.add x 0 =?= Add.add x 0
+        [Meta.isDefEq] ❌️ Real.instAddMonoid.toAddZeroClass.toAddZero.toAdd =?= instAddNat
+          [Meta.isDefEq.delta.unfoldRight] instAddNat
+          [Meta.isDefEq] ❌️ Real.instAddMonoid.toAddZeroClass.toAddZero.toAdd =?= { add := Nat.add }
+            [Meta.isDefEq.delta.unfoldLeft] AddZero.toAdd
+            [Meta.isDefEq] ❌️ Real.instAddMonoid.toAddZeroClass.toAddZero.2 =?= { add := Nat.add }
+              [Meta.isDefEq] ❌️ Real.instAddMonoid.toAddZeroClass.toAdd =?= { add := Nat.add }
+                [Meta.isDefEq.delta.unfoldLeft] AddZeroClass.toAdd
+                [Meta.isDefEq] ❌️ Real.instAddMonoid.toAddZeroClass.2 =?= { add := Nat.add }
+                  [Meta.isDefEq] ❌️ Real.instAddMonoid.toAdd =?= { add := Nat.add }
+                    [Meta.isDefEq.delta.unfoldLeft] AddMonoid.toAdd
+                    [Meta.isDefEq] ❌️ Real.instAddMonoid.2 =?= { add := Nat.add }
+                      [Meta.isDefEq] ❌️ Real.instAdd =?= { add := Nat.add }
+                        [Meta.isDefEq.delta.unfoldLeft] Real.instAdd
+                        [Meta.isDefEq] ❌️ { add := Real.add✝ } =?= { add := Nat.add }
+                          [Meta.isDefEq] ❌️ Real.add✝ =?= Nat.add
+                          [Meta.isDefEq.onFailure] ❌️ { add := Real.add✝ } =?= { add := Nat.add }
+        [Meta.isDefEq.delta.unfoldLeftRight] Add.add
+        [Meta.isDefEq] ✅️ Real.instAddMonoid.toAddZeroClass.toAddZero.toAdd.1 x 0 =?= Real.instAdd.1 x 0
+          [Meta.isDefEq] ✅️ Real.add✝ x 0 =?= Real.add✝ x 0
+            [Meta.isDefEq] ✅️ x =?= x
+            [Meta.isDefEq] ✅️ 0 =?= 0
+              [Meta.isDefEq.delta.unfoldLeftRight] OfNat.ofNat
+              [Meta.isDefEq] ✅️ Zero.toOfNat0.1 =?= Zero.toOfNat0.1
+                [Meta.isDefEq] ✅️ Zero.zero =?= Zero.zero
+                  [Meta.isDefEq.delta.unfoldLeftRight] Zero.zero
+                  [Meta.isDefEq] ✅️ Real.instAddMonoid.toAddZeroClass.toAddZero.toZero.1 =?= Real.instZero.1
+                    [Meta.isDefEq] ✅️ Real.zero✝ =?= Real.zero✝
+  [Meta.isDefEq] ✅️ x =?= x
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ AddZeroClass ℝ =?= AddZeroClass ?m.12
+  [Meta.isDefEq] ✅️ ℝ =?= ?m.12
+    [Meta.isDefEq] ℝ [nonassignable] =?= ?m.12 [assignable]
+    [Meta.isDefEq.transparency] raising transparency instances → implicit
+    [Meta.isDefEq] ✅️ Type ?u.10 =?= Type
+[Meta.isDefEq] ✅️ AddMonoid ℝ =?= AddMonoid ℝ
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ?m.13 =?= Real.instAddMonoid
+  [Meta.isDefEq] ?m.13 [assignable] =?= Real.instAddMonoid [nonassignable]
+  [Meta.isDefEq] ✅️ AddMonoid ℝ =?= AddMonoid ℝ
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ AddZeroClass ℝ =?= AddZeroClass ℝ
+[Meta.isDefEq] ✅️ ?m.10 =?= Real.instAddMonoid.toAddZeroClass
+  [Meta.isDefEq] ?m.10 [assignable] =?= Real.instAddMonoid.toAddZeroClass [nonassignable]
+  [Meta.isDefEq] ✅️ AddZeroClass ℝ =?= AddZeroClass ℝ
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ x + 0 = x =?= x + 0 = x
+  [Meta.isDefEq] ✅️ x + 0 =?= x + 0
+    [Meta.isDefEq] ❌️ instHAdd =?= instHAdd
+      [Meta.isDefEq.delta] ❌️ instHAdd =?= instHAdd
+        [Meta.isDefEq.transparency] raising transparency instances → implicit
+        [Meta.isDefEq] ❌️ ℝ =?= ℕ
+      [Meta.isDefEq.delta.unfoldLeftRight] instHAdd
+      [Meta.isDefEq] ❌️ { hAdd := fun a b => Add.add a b } =?= { hAdd := fun a b => Add.add a b }
+        [Meta.isDefEq] ❌️ fun a b => Add.add a b =?= fun a b => Add.add a b
+          [Meta.isDefEq] ❌️ ℝ =?= ℕ
+        [Meta.isDefEq.onFailure] ❌️ { hAdd := fun a b => Add.add a b } =?= { hAdd := fun a b => Add.add a b }
+    [Meta.isDefEq.delta.unfoldLeftRight] HAdd.hAdd
+    [Meta.isDefEq] ✅️ instHAdd.1 x 0 =?= instHAdd.1 x 0
+      [Meta.isDefEq] ✅️ Add.add x 0 =?= Add.add x 0
+        [Meta.isDefEq] ❌️ Real.instAdd =?= instAddNat
+          [Meta.isDefEq.delta.unfoldLeftRight] Real.instAdd
+          [Meta.isDefEq] ❌️ { add := Real.add✝ } =?= { add := Nat.add }
+            [Meta.isDefEq] ❌️ Real.add✝ =?= Nat.add
+            [Meta.isDefEq.onFailure] ❌️ { add := Real.add✝ } =?= { add := Nat.add }
+        [Meta.isDefEq.delta.unfoldLeftRight] Add.add
+        [Meta.isDefEq] ✅️ Real.instAdd.1 x 0 =?= Real.instAddMonoid.toAddZeroClass.toAddZero.toAdd.1 x 0
+          [Meta.isDefEq] ✅️ Real.add✝ x 0 =?= Real.add✝ x 0
+            [Meta.isDefEq] ✅️ x =?= x
+            [Meta.isDefEq] ✅️ 0 =?= 0
+              [Meta.isDefEq.delta.unfoldLeftRight] OfNat.ofNat
+              [Meta.isDefEq] ✅️ Zero.toOfNat0.1 =?= Zero.toOfNat0.1
+                [Meta.isDefEq] ✅️ Zero.zero =?= Zero.zero
+                  [Meta.isDefEq.delta.unfoldLeftRight] Zero.zero
+                  [Meta.isDefEq] ✅️ Real.instZero.1 =?= Real.instAddMonoid.toAddZeroClass.toAddZero.toZero.1
+                    [Meta.isDefEq] ✅️ Real.zero✝ =?= Real.zero✝
+  [Meta.isDefEq] ✅️ x =?= x
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ?m.9 =?= ℝ
+  [Meta.isDefEq] ?m.9 [assignable] =?= ℝ [nonassignable]
+  [Meta.isDefEq] ✅️ Type ?u.9 =?= Type
+[Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ Sort ?u.1 =?= Type
+[Meta.isDefEq] ✅️ Sort ?u.2 =?= Type
+[Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ℝ =?= ?m.9
+  [Meta.isDefEq] ℝ [nonassignable] =?= ?m.9 [assignable]
+  [Meta.isDefEq] ✅️ Sort ?u.4 =?= Type
+[Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ Type ?u.11 =?= Type
+[Meta.isDefEq] ✅️ Type ?u.12 =?= Type
+[Meta.isDefEq] ✅️ outParam (Type ?u.13) =?= Type
+  [Meta.isDefEq.delta.unfoldLeft] outParam
+  [Meta.isDefEq] ✅️ Type ?u.13 =?= Type
+[Meta.isDefEq] ✅️ HAdd ℝ ℝ ?m.1 =?= HAdd ?m.3 ?m.3 ?m.3
+  [Meta.isDefEq] ✅️ ℝ =?= ?m.3
+    [Meta.isDefEq] ℝ [nonassignable] =?= ?m.3 [assignable]
+    [Meta.isDefEq.transparency] raising transparency instances → implicit
+    [Meta.isDefEq] ✅️ Type ?u.12 =?= Type
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+  [Meta.isDefEq] ✅️ ?m.1 =?= ℝ
+    [Meta.isDefEq] ?m.1 [assignable] =?= ℝ [nonassignable]
+    [Meta.isDefEq.transparency] raising transparency instances → implicit
+    [Meta.isDefEq] ✅️ outParam (Type ?u.11) =?= Type
+      [Meta.isDefEq.delta.unfoldLeft] outParam
+      [Meta.isDefEq] ✅️ Type ?u.11 =?= Type
+[Meta.isDefEq] ✅️ Add ℝ =?= Add ℝ
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ?m.4 =?= Real.instAdd
+  [Meta.isDefEq] ?m.4 [assignable] =?= Real.instAdd [nonassignable]
+  [Meta.isDefEq] ✅️ Add ℝ =?= Add ℝ
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ HAdd ℝ ℝ ℝ =?= HAdd ℝ ℝ ℝ
+[Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ℝ =?= ?m.1
+  [Meta.isDefEq] ℝ [nonassignable] =?= ?m.1 [assignable]
+  [Meta.isDefEq] ✅️ Type ?u.7 =?= Type
+[Meta.isDefEq] ✅️ ℝ =?= ?m.2
+  [Meta.isDefEq] ℝ [nonassignable] =?= ?m.2 [assignable]
+  [Meta.isDefEq] ✅️ Type ?u.6 =?= Type
+[Meta.isDefEq] ✅️ HAdd ℝ ℝ ?m.5 =?= HAdd ?m.7 ?m.7 ?m.7
+  [Meta.isDefEq] ✅️ ℝ =?= ?m.7
+    [Meta.isDefEq] ℝ [nonassignable] =?= ?m.7 [assignable]
+    [Meta.isDefEq.transparency] raising transparency instances → implicit
+    [Meta.isDefEq] ✅️ Type ?u.12 =?= Type
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+  [Meta.isDefEq] ✅️ ?m.5 =?= ℝ
+    [Meta.isDefEq] ?m.5 [assignable] =?= ℝ [nonassignable]
+    [Meta.isDefEq.transparency] raising transparency instances → implicit
+    [Meta.isDefEq] ✅️ outParam (Type ?u.11) =?= Type
+      [Meta.isDefEq.delta.unfoldLeft] outParam
+      [Meta.isDefEq] ✅️ Type ?u.11 =?= Type
+[Meta.isDefEq] ✅️ Add ℝ =?= Add ℝ
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ?m.8 =?= Real.instAdd
+  [Meta.isDefEq] ?m.8 [assignable] =?= Real.instAdd [nonassignable]
+  [Meta.isDefEq] ✅️ Add ℝ =?= Add ℝ
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ HAdd ℝ ℝ ?m.3 =?= HAdd ℝ ℝ ℝ
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+  [Meta.isDefEq] ✅️ ?m.3 =?= ℝ
+    [Meta.isDefEq] ?m.3 [assignable] =?= ℝ [nonassignable]
+    [Meta.isDefEq] ✅️ Type ?u.5 =?= Type
+[Meta.isDefEq] ✅️ ?m.4 =?= instHAdd
+  [Meta.isDefEq] ?m.4 [assignable] =?= instHAdd [nonassignable]
+  [Meta.isDefEq] ✅️ HAdd ℝ ℝ ℝ =?= HAdd ℝ ℝ ℝ
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ Type ?u.11 =?= Type
+[Meta.isDefEq] ✅️ Type ?u.12 =?= Type
+[Meta.isDefEq] ✅️ outParam (Type ?u.13) =?= Type
+  [Meta.isDefEq.delta.unfoldLeft] outParam
+  [Meta.isDefEq] ✅️ Type ?u.13 =?= Type
+[Meta.isDefEq] ✅️ HAdd ℝ ℝ ℝ =?= HAdd ℝ ℝ ℝ
+[Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ℝ =?= ?m.5
+  [Meta.isDefEq] ℝ [nonassignable] =?= ?m.5 [assignable]
+  [Meta.isDefEq] ✅️ Type ?u.10 =?= Type
+[Meta.isDefEq] ✅️ ℝ =?= ?m.6
+  [Meta.isDefEq] ℝ [nonassignable] =?= ?m.6 [assignable]
+  [Meta.isDefEq] ✅️ Type ?u.9 =?= Type
+[Meta.isDefEq] ✅️ HAdd ℝ ℝ ?m.7 =?= HAdd ℝ ℝ ℝ
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+  [Meta.isDefEq] ✅️ ?m.7 =?= ℝ
+    [Meta.isDefEq] ?m.7 [assignable] =?= ℝ [nonassignable]
+    [Meta.isDefEq] ✅️ Type ?u.8 =?= Type
+[Meta.isDefEq] ✅️ ?m.8 =?= instHAdd
+  [Meta.isDefEq] ?m.8 [assignable] =?= instHAdd [nonassignable]
+  [Meta.isDefEq] ✅️ HAdd ℝ ℝ ℝ =?= HAdd ℝ ℝ ℝ
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ x + y = y + x =?= x + y = y + x
+[Meta.isDefEq] ❌️ y + x = y + x =?= ?m.16 ↔ ?m.16
+  [Meta.isDefEq] ❌️ @Eq =?= Iff
+  [Meta.isDefEq.onFailure] ❌️ y + x = y + x =?= ?m.16 ↔ ?m.16
+[Meta.isDefEq] ❌️ ?m.16 ↔ ?m.16 =?= y + x = y + x
+  [Meta.isDefEq] ❌️ Iff =?= @Eq
+  [Meta.isDefEq.onFailure] ❌️ ?m.16 ↔ ?m.16 =?= y + x = y + x
+[Meta.isDefEq] ❌️ y + x = y + x =?= ?m.17 ≍ ?m.17
+  [Meta.isDefEq] ❌️ @Eq =?= @HEq
+  [Meta.isDefEq.onFailure] ❌️ y + x = y + x =?= ?m.17 ≍ ?m.17
+[Meta.isDefEq] ❌️ ?m.17 ≍ ?m.17 =?= y + x = y + x
+  [Meta.isDefEq] ❌️ @HEq =?= @Eq
+  [Meta.isDefEq.onFailure] ❌️ ?m.17 ≍ ?m.17 =?= y + x = y + x
+[Meta.isDefEq] ✅️ y + x =?= y + x
+  [Meta.isDefEq] ❌️ instHAdd =?= instHAdd
+    [Meta.isDefEq.delta] ❌️ instHAdd =?= instHAdd
+      [Meta.isDefEq.transparency] raising transparency instances → implicit
+      [Meta.isDefEq] ❌️ ℝ =?= ℕ
+    [Meta.isDefEq.delta.unfoldLeftRight] instHAdd
+    [Meta.isDefEq] ❌️ { hAdd := fun a b => Add.add a b } =?= { hAdd := fun a b => Add.add a b }
+      [Meta.isDefEq] ❌️ fun a b => Add.add a b =?= fun a b => Add.add a b
+        [Meta.isDefEq] ❌️ ℝ =?= ℕ
+      [Meta.isDefEq.onFailure] ❌️ { hAdd := fun a b => Add.add a b } =?= { hAdd := fun a b => Add.add a b }
+  [Meta.isDefEq] ✅️ y =?= y
+  [Meta.isDefEq] ✅️ x =?= x
+  [Meta.isDefEq.transparency] raising transparency reducible → implicit
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+  [Meta.isDefEq.transparency] raising transparency reducible → implicit
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+  [Meta.isDefEq.transparency] raising transparency reducible → implicit
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+  [Meta.isDefEq.transparency] raising transparency reducible → implicit
+  [Meta.isDefEq] ✅️ instHAdd =?= instHAdd
+    [Meta.isDefEq.delta] ✅️ instHAdd =?= instHAdd
+      [Meta.isDefEq] ✅️ ℝ =?= ℝ
+      [Meta.isDefEq] ✅️ Real.instAddCommSemigroup.toAddCommMagma.toAdd =?= Real.instAdd
+        [Meta.isDefEq.delta.unfoldLeft] AddCommMagma.toAdd
+        [Meta.isDefEq] ✅️ Real.instAdd =?= Real.instAdd
+[Meta.isDefEq] 💥️ AddCommMagma ?m.11 =?= AddCommMagma ((i : ?m.14) → ?m.15 i)
+  [Meta.isDefEq] 💥️ ?m.11 =?= (i : ?m.14) → ?m.15 i
+    [Meta.isDefEq] ?m.11 [nonassignable] =?= (i : ?m.14) → ?m.15 i [nonassignable]
+[Meta.isDefEq] 💥️ AddCommMagma ?m.11 =?= AddCommMagma ((i : ?m.14) → ?m.15 i)
+  [Meta.isDefEq] 💥️ ?m.11 =?= (i : ?m.14) → ?m.15 i
+    [Meta.isDefEq] ?m.11 [nonassignable] =?= (i : ?m.14) → ?m.15 i [nonassignable]
+[Meta.isDefEq] ✅️ x + y =?= ?a + ?b
+  [Meta.isDefEq] ❌️ instHAdd =?= instHAdd
+    [Meta.isDefEq.delta] ❌️ instHAdd =?= instHAdd
+      [Meta.isDefEq.transparency] raising transparency instances → implicit
+      [Meta.isDefEq] ❌️ ℝ =?= ℕ
+    [Meta.isDefEq.delta.unfoldLeftRight] instHAdd
+    [Meta.isDefEq] ❌️ { hAdd := fun a b => Add.add a b } =?= { hAdd := fun a b => Add.add a b }
+      [Meta.isDefEq] ❌️ fun a b => Add.add a b =?= fun a b => Add.add a b
+        [Meta.isDefEq] ❌️ ℝ =?= ℕ
+      [Meta.isDefEq.onFailure] ❌️ { hAdd := fun a b => Add.add a b } =?= { hAdd := fun a b => Add.add a b }
+  [Meta.isDefEq.transparency] raising transparency reducible → implicit
+  [Meta.isDefEq] ✅️ ℝ =?= ?m.11
+    [Meta.isDefEq] ℝ [nonassignable] =?= ?m.11 [assignable]
+    [Meta.isDefEq] ✅️ Type ?u.11 =?= Type
+  [Meta.isDefEq] ✅️ x =?= ?a
+    [Meta.isDefEq] x [nonassignable] =?= ?a [assignable]
+    [Meta.isDefEq.transparency] raising transparency reducible → implicit
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+  [Meta.isDefEq] ✅️ y =?= ?b
+    [Meta.isDefEq] y [nonassignable] =?= ?b [assignable]
+    [Meta.isDefEq.transparency] raising transparency reducible → implicit
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+  [Meta.isDefEq.transparency] raising transparency reducible → implicit
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+  [Meta.isDefEq.transparency] raising transparency reducible → implicit
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+  [Meta.isDefEq.transparency] raising transparency reducible → implicit
+  [Meta.isDefEq] ✅️ instHAdd =?= instHAdd
+    [Meta.isDefEq.delta] ✅️ instHAdd =?= instHAdd
+      [Meta.isDefEq] ✅️ ℝ =?= ℝ
+      [Meta.isDefEq] ✅️ AddCommMagma ℝ =?= AddCommMagma ?m.16
+        [Meta.isDefEq] ✅️ ℝ =?= ?m.16
+          [Meta.isDefEq] ℝ [nonassignable] =?= ?m.16 [assignable]
+          [Meta.isDefEq.transparency] raising transparency instances → implicit
+          [Meta.isDefEq] ✅️ Type ?u.12 =?= Type
+      [Meta.isDefEq] ✅️ AddCommSemigroup ℝ =?= AddCommSemigroup ℝ
+        [Meta.isDefEq] ✅️ ℝ =?= ℝ
+      [Meta.isDefEq] ✅️ ?m.17 =?= Real.instAddCommSemigroup
+        [Meta.isDefEq] ?m.17 [assignable] =?= Real.instAddCommSemigroup [nonassignable]
+        [Meta.isDefEq] ✅️ AddCommSemigroup ℝ =?= AddCommSemigroup ℝ
+          [Meta.isDefEq] ✅️ ℝ =?= ℝ
+      [Meta.isDefEq] ✅️ AddCommMagma ℝ =?= AddCommMagma ℝ
+      [Meta.isDefEq] ✅️ Real.instAdd =?= Real.instAddCommSemigroup.toAddCommMagma.toAdd
+        [Meta.isDefEq.delta.unfoldRight] AddCommMagma.toAdd
+        [Meta.isDefEq] ✅️ Real.instAdd =?= Real.instAdd
+[Meta.isDefEq] ❌️ y + x =?= x + y
+  [Meta.isDefEq] ❌️ instHAdd =?= instHAdd
+    [Meta.isDefEq.delta] ❌️ instHAdd =?= instHAdd
+      [Meta.isDefEq.transparency] raising transparency instances → implicit
+      [Meta.isDefEq] ❌️ ℝ =?= ℕ
+    [Meta.isDefEq.delta.unfoldLeftRight] instHAdd
+    [Meta.isDefEq] ❌️ { hAdd := fun a b => Add.add a b } =?= { hAdd := fun a b => Add.add a b }
+      [Meta.isDefEq] ❌️ fun a b => Add.add a b =?= fun a b => Add.add a b
+        [Meta.isDefEq] ❌️ ℝ =?= ℕ
+      [Meta.isDefEq.onFailure] ❌️ { hAdd := fun a b => Add.add a b } =?= { hAdd := fun a b => Add.add a b }
+  [Meta.isDefEq] ❌️ y =?= x
+    [Meta.isDefEq.onFailure] ❌️ y =?= x
+  [Meta.isDefEq.onFailure] ❌️ y + x =?= x + y
+[Meta.isDefEq] ✅️ Type =?= Type
+[Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ Type =?= Type
+[Meta.isDefEq] ✅️ Type =?= Type
+[Meta.isDefEq] ✅️ outParam Type =?= Type
+  [Meta.isDefEq.delta.unfoldLeft] outParam
+  [Meta.isDefEq] ✅️ Type =?= Type
+[Meta.isDefEq] ✅️ Type =?= Type
+[Meta.isDefEq] ✅️ Add ℝ =?= Add ℝ
+[Meta.isDefEq] ✅️ HAdd ℝ ℝ ℝ =?= HAdd ℝ ℝ ℝ
+[Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ Prop =?= Prop
+[Meta.isDefEq] ✅️ AddCommMagma ℝ =?= AddCommMagma ?m.16
+  [Meta.isDefEq] ✅️ ℝ =?= ?m.16
+    [Meta.isDefEq] ℝ [nonassignable] =?= ?m.16 [assignable]
+    [Meta.isDefEq.transparency] raising transparency instances → implicit
+    [Meta.isDefEq] ✅️ Type ?u.12 =?= Type
+[Meta.isDefEq] ✅️ AddCommSemigroup ℝ =?= AddCommSemigroup ℝ
+  [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ ?m.17 =?= Real.instAddCommSemigroup
+  [Meta.isDefEq] ?m.17 [assignable] =?= Real.instAddCommSemigroup [nonassignable]
+  [Meta.isDefEq] ✅️ AddCommSemigroup ℝ =?= AddCommSemigroup ℝ
+    [Meta.isDefEq] ✅️ ℝ =?= ℝ
+[Meta.isDefEq] ✅️ AddCommMagma ℝ =?= AddCommMagma ℝ
+[Meta.isDefEq] ✅️ Real.instAddCommSemigroup.toAddCommMagma =?= Real.instAddCommSemigroup.toAddCommMagma
+@[instance_reducible] def Real.instAddMonoid : AddMonoid ℝ :=
+inferInstance
+@[instance_reducible] def Real.instAddCommSemigroup : AddCommSemigroup ℝ :=
+inferInstance
+@[instance_reducible] def Real.instAdd : Add ℝ :=
+{ add := Real.add✝ }
+lean: 1.74 s 1720556 KB peak
+exit 0

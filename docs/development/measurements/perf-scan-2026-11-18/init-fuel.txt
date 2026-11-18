@@ -1,0 +1,36 @@
+# all of Init (S1DONE/init.ndjson), check --json --jobs 2, gforth-fast, nice 5, load 9-12 on 10 cores
+# /usr/bin/time: 723.67 s wall 1349.29 user 4.25 sys 780072 KB
+# measured (microseconds): {"stage": {"wall": 24992078, "cpu": 24717206}, "feed": {"wall": 4374538, "cpu": 4365733}, "check": {"wall": 693326313, "cpu": 1323488543}, "total": {"wall": 723315823, "cpu": 1353194347}}
+# peak resident bytes 799793152
+declarations 59349, fuel 654719715, verdicts {'accepted': 59349}
+fuel quantile 0.5: 1770
+fuel quantile 0.9: 16707
+fuel quantile 0.99: 167576
+fuel quantile 0.999: 547686
+top 10 declarations: 4.3% of all fuel
+top 20 declarations: 6.4% of all fuel
+top 100 declarations: 13.9% of all fuel
+top 1000 declarations: 41.7% of all fuel
+top 5900 declarations: 78.0% of all fuel
+fuel share by declaration fuel 10^k: 10^0: 0.0%, 10^1: 0.0%, 10^2: 1.4%, 10^3: 15.3%, 10^4: 35.8%, 10^5: 40.4%, 10^6: 7.1%
+the 20 declarations using most fuel:
+    4382815 _private.Init.Data.Vector.Extract.0.Vector.extract_append._proof_1
+    4342962 _private.Init.Data.Array.Extract.0.Array.extract_append._proof_1_1
+    3249616 _private.Init.Data.Vector.Extract.0.Vector.extract_extract._proof_1
+    2814234 _private.Init.Data.Vector.Extract.0.Vector.extract_append_extract._proof_1
+    2788611 _private.Init.Data.Array.Extract.0.Array.extract_append_extract._proof_1_1
+    2430202 _private.Init.Data.Array.Extract.0.Array.extract_append._proof_1_4
+    2059550 _private.Init.Data.Array.Extract.0.Array.extract_append_extract._proof_1_3
+    1978652 _private.Init.Data.Array.Extract.0.Array.extract_reverse._proof_1_2
+    1948072 _private.Init.Data.Array.Extract.0.Array.extract_extract._proof_1_1
+    1917083 _private.Init.Data.Array.Extract.0.Array.extract_add_left._proof_1_2
+    1886736 _private.Init.Data.BitVec.Lemmas.0.BitVec.getMsbD_extractLsb._proof_1_4
+    1558019 _private.Init.Data.Int.DivMod.Lemmas.0.Int.add_one_tdiv._proof_1_1
+    1533422 _private.Init.Data.Vector.Extract.0.Vector.extract_add_left._proof_1
+    1525321 _private.Init.Data.Vector.Extract.0.Vector.extract_reverse._proof_1_1
+    1364102 _private.Init.Data.String.Lemmas.Pattern.String.ForwardSearcher.0.String.Slice.Pattern.Model.ForwardSliceSearcher.Invariants.isValidSearchFrom_toList
+    1336089 _private.Init.Data.Array.Extract.0.Array.extract_append._proof_1_3
+    1300559 _private.Init.Data.Dyadic.Basic.0.Dyadic.toRat_mul._proof_1_8
+    1258689 _private.Init.Data.Vector.Extract.0.Vector.extract_reverse._proof_1
+    1253104 _private.Init.Data.String.Pattern.String.0.String.Slice.Pattern.ForwardSliceSearcher.finitenessRelation._proof_2
+    1198239 _private.Init.Data.List.ToArray.0.List.insertIdx_toArray._proof_1_8

@@ -1,0 +1,92 @@
+# check of tests/front/s1-rfl.lf against Init's snapshot with Init's elaboration data,
+# gforth-fast under tools/sample.py (10 ms); commands in PERFORMANCE_SCAN.md, Commands
+resources:
+  time (s)     wall      cpu
+  stage      76.932   73.235
+  feed        1.953    1.910
+  check       5.978    5.842
+  total      91.476   87.417
+  memory: peak resident 650.6 MB; the stage's heap blocks 179.7 MB
+samples 8613
+ 99.92%   8606  cli-text-run
+ 93.01%   8011  cli-text-loaded
+  7.05%    607  ck-snapshot-import
+ 85.96%   7404  ck-lf-load
+  2.18%    188  ck-feed-phase
+ 83.29%   7174  lfc-text
+ 82.35%   7093  it-pass-run
+ 81.90%   7054  lf-libdec-decl
+ 69.16%   5957  lf-name-storage-valid?
+  9.57%    824  lf-name-find-str
+  2.87%    247  lf-name-find-num
+  6.69%    576  ck-check
+  6.08%    524  ck-import-pass
+  0.22%     19  cli-text-report
+cli-main: 99.95% (8609), without lf-name-find-num lf-name-find-str lf-name-storage-valid?: 18.36% (1581) of 8613
+it-pass-run: 82.35% (7093), without lf-name-find-num lf-name-find-str lf-name-storage-valid?: 1.47% (127) of 8613
+== lf-name-storage-valid? 69.16%
+ 49.36%  lf-name-str-args? < lf-name-str < lbd-run-part < lbd-run-parts
+  7.64%  lf-name-num-args? < lf-name-num < lbd-run-part < lbd-run-parts
+  4.18%  lf-cref-name-valid? < lf-cref-name-ok? < lf-cref-valid? < lf-cterm-source?
+  4.17%  lf-cref-name-valid? < lf-cref-name-ok? < lf-cref-valid? < lf-cref-record
+  3.47%  lf-cref-name-valid? < lf-cref-source? < lf-cref-new < lbd-cterm
+-- exclusive
+ 10.08%  between?
+  9.13%  lf-name-entry-checked?
+  7.84%  store-slot
+  7.14%  store-identities
+  6.71%  lf-name-body-ok?
+  6.70%  lf-name-span?
+  6.04%  lf-names
+  4.28%  lf-name-pool
+  4.14%  all?
+  3.01%  lf-name-head?
+  2.88%  lf-name-slot
+  2.37%  store-records
+  1.95%  lf-name-str-match?
+  1.88%  lf-name-str-ok?
+  1.70%  htab@
+-- inclusive
+# the snapshot tier's load (tf-load-next), exclusive
+-- exclusive
+ 24.55%  htab@
+ 17.27%  sha-round
+  7.27%  quad-ab@
+  6.36%  sha-schedule-word
+  2.91%  record-body?
+  2.18%  hash-shift
+  2.18%  slab-count
+  1.64%  sha-be@
+-- inclusive
+# the import pass of the 59,349 snapshot results (ck-import-pass), exclusive
+-- exclusive
+  7.06%  between?
+  5.53%  store-count-valid?
+  3.44%  erase
+  2.29%  mark-identity
+  2.10%  lf-slot-done?
+  2.10%  mark-this?
+  2.10%  lf-input-state
+  2.10%  store-check
+-- inclusive
+
+# tests/front/04-nested-ih.lf, same command
+resources:
+  time (s)     wall      cpu
+  stage      86.975   79.288
+  feed        1.953    1.906
+  check       5.891    5.743
+  total     103.278   94.019
+samples 9594
+ 82.77%   7941  it-pass-run
+ 68.83%   6604  lf-name-storage-valid?
+ 83.64%   8024  lfc-text
+lfc-text: 83.64% (8024), without it-pass-run lf-name-find-num lf-name-find-str lf-name-storage-valid?: 0.25% (24) of 9594
+
+# the same s1-rfl check on gforth (the checking engine), /usr/bin/time: 298.93 s wall 293.82 user 628420 KB
+resources:
+  time (s)     wall      cpu
+  stage     252.623  249.191
+  feed        5.012    4.827
+  check      19.458   18.898
+  total     298.486  294.061

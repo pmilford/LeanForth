@@ -1,0 +1,9 @@
+mf-real-wrong.lean:5:53: error: Type mismatch
+  add_zero x
+has type
+  x + 0 = x
+but is expected to have type
+  x + 1 = x
+Command exited with non-zero status 1
+lean: 1.13 s 1721208 KB peak
+exit 1

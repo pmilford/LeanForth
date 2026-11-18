@@ -1,0 +1,10 @@
+\ Slice MF's acceptance target (docs/design/MATHLIB_FRONT.md, section 8),
+\ the LeanForth twin of mf-real.lean:
+\   theorem real_add_zero (x : ℝ) : x + 0 = x := by exact add_zero x
+\   theorem real_add_comm (x y : ℝ) : x + y = y + x := by rw [add_comm]
+\ To run against Mathlib's snapshot and elaboration data (today it stops:
+\ this folder's README, "Runs"):
+\   bin/leanforth check --snapshot mathlib.lfsnap
+\     --elab-data mathlib.elab.ndjson mf-real.lf
+theorem real_add_zero Real explicit: x   x 0 + x =   := by  x add_zero by-exact  end real_add_zero
+theorem real_add_comm Real explicit: x  Real explicit: y   x y + y x + =   := by  by-rw[ ' add_comm ]  end real_add_comm

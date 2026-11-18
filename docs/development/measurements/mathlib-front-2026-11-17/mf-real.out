@@ -1,0 +1,49 @@
+theorem real_add_zero : ∀ (x : Real),
+  @Eq.{1} Real
+    (@HAdd.hAdd.{0, 0, 0} Real Real Real (@instHAdd.{0} Real Real.instAdd) x
+      (@OfNat.ofNat.{0} Real (nat_lit 0) (@Zero.toOfNat0.{0} Real Real.instZero)))
+    x :=
+fun (x : Real) => @add_zero.{0} Real (@AddMonoid.toAddZeroClass.{0} Real Real.instAddMonoid) x
+theorem real_add_comm : ∀ (x y : Real),
+  @Eq.{1} Real (@HAdd.hAdd.{0, 0, 0} Real Real Real (@instHAdd.{0} Real Real.instAdd) x y)
+    (@HAdd.hAdd.{0, 0, 0} Real Real Real (@instHAdd.{0} Real Real.instAdd) y x) :=
+fun (x y : Real) =>
+  @Eq.mpr.{0}
+    (@Eq.{1} Real (@HAdd.hAdd.{0, 0, 0} Real Real Real (@instHAdd.{0} Real Real.instAdd) x y)
+      (@HAdd.hAdd.{0, 0, 0} Real Real Real (@instHAdd.{0} Real Real.instAdd) y x))
+    (@Eq.{1} Real
+      (@HAdd.hAdd.{0, 0, 0} Real Real Real
+        (@instHAdd.{0} Real
+          (@AddCommMagma.toAdd.{0} Real (@AddCommSemigroup.toAddCommMagma.{0} Real Real.instAddCommSemigroup)))
+        y x)
+      (@HAdd.hAdd.{0, 0, 0} Real Real Real (@instHAdd.{0} Real Real.instAdd) y x))
+    (@id.{0}
+      (@Eq.{1} Prop
+        (@Eq.{1} Real (@HAdd.hAdd.{0, 0, 0} Real Real Real (@instHAdd.{0} Real Real.instAdd) x y)
+          (@HAdd.hAdd.{0, 0, 0} Real Real Real (@instHAdd.{0} Real Real.instAdd) y x))
+        (@Eq.{1} Real
+          (@HAdd.hAdd.{0, 0, 0} Real Real Real
+            (@instHAdd.{0} Real
+              (@AddCommMagma.toAdd.{0} Real (@AddCommSemigroup.toAddCommMagma.{0} Real Real.instAddCommSemigroup)))
+            y x)
+          (@HAdd.hAdd.{0, 0, 0} Real Real Real (@instHAdd.{0} Real Real.instAdd) y x)))
+      (@congrArg.{1, 1} Real Prop
+        (@HAdd.hAdd.{0, 0, 0} Real Real Real
+          (@instHAdd.{0} Real
+            (@AddCommMagma.toAdd.{0} Real (@AddCommSemigroup.toAddCommMagma.{0} Real Real.instAddCommSemigroup)))
+          x y)
+        (@HAdd.hAdd.{0, 0, 0} Real Real Real
+          (@instHAdd.{0} Real
+            (@AddCommMagma.toAdd.{0} Real (@AddCommSemigroup.toAddCommMagma.{0} Real Real.instAddCommSemigroup)))
+          y x)
+        (fun (_a : Real) => @Eq.{1} Real _a (@HAdd.hAdd.{0, 0, 0} Real Real Real (@instHAdd.{0} Real Real.instAdd) y x))
+        (@add_comm.{0} Real (@AddCommSemigroup.toAddCommMagma.{0} Real Real.instAddCommSemigroup) x y)))
+    (@Eq.refl.{1} Real
+      (@HAdd.hAdd.{0, 0, 0} Real Real Real
+        (@instHAdd.{0} Real
+          (@AddCommMagma.toAdd.{0} Real (@AddCommSemigroup.toAddCommMagma.{0} Real Real.instAddCommSemigroup)))
+        y x))
+'real_add_zero' depends on axioms: [propext, Classical.choice, Quot.sound]
+'real_add_comm' depends on axioms: [propext, Classical.choice, Quot.sound]
+lean: 1.28 s 1730468 KB peak
+exit 0

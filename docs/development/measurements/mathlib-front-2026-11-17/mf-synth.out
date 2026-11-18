@@ -1,0 +1,121 @@
+instHAdd
+[Meta.synthInstance] ✅️ HAdd ℝ ℝ ℝ
+  [Meta.synthInstance] ✅️ new goal HAdd ℝ ℝ _tc.1
+    [Meta.synthInstance.instances] #[@instHAdd]
+  [Meta.synthInstance.apply] ✅️ apply @instHAdd to HAdd ℝ ℝ ℝ
+    [Meta.synthInstance.tryResolve] ✅️ HAdd ℝ ℝ ℝ ≟ HAdd ℝ ℝ ℝ
+    [Meta.synthInstance] ✅️ new goal Add ℝ
+      [Meta.synthInstance.instances] #[@AddZero.toAdd, @Lean.Grind.AddCommMonoid.toAdd, @Lean.Grind.Semiring.toAdd, @AddSemigroup.toAdd, @AddCommMagma.toAdd, @Distrib.toAdd, Real.instAdd]
+  [Meta.synthInstance.apply] ✅️ apply Real.instAdd to Add ℝ
+    [Meta.synthInstance.tryResolve] ✅️ Add ℝ ≟ Add ℝ
+    [Meta.synthInstance.answer] ✅️ Add ℝ
+  [Meta.synthInstance.resume] ✅️ propagating Add ℝ to subgoal Add ℝ of HAdd ℝ ℝ ℝ
+    [Meta.synthInstance.resume] size: 1
+    [Meta.synthInstance.answer] ✅️ HAdd ℝ ℝ ℝ
+  [Meta.synthInstance] result instHAdd
+Zero.toOfNat0
+[Meta.synthInstance] ✅️ OfNat ℝ 0
+  [Meta.synthInstance] ✅️ new goal OfNat ℝ 0
+    [Meta.synthInstance.instances] #[@Lean.Grind.Semiring.ofNat, @instOfNatAtLeastTwo, @Zero.toOfNat0]
+  [Meta.synthInstance.apply] ✅️ apply @Zero.toOfNat0 to OfNat ℝ 0
+    [Meta.synthInstance.tryResolve] ✅️ OfNat ℝ 0 ≟ OfNat ℝ 0
+    [Meta.synthInstance] ✅️ new goal Zero ℝ
+      [Meta.synthInstance.instances] #[@Lean.Grind.AddCommMonoid.toZero, @Zero.ofOfNat0, @AddZero.toZero, @NegZeroClass.toZero, @MulZeroClass.toZero, Real.instZero]
+  [Meta.synthInstance.apply] ✅️ apply Real.instZero to Zero ℝ
+    [Meta.synthInstance.tryResolve] ✅️ Zero ℝ ≟ Zero ℝ
+    [Meta.synthInstance.answer] ✅️ Zero ℝ
+  [Meta.synthInstance.resume] ✅️ propagating Zero ℝ to subgoal Zero ℝ of OfNat ℝ 0
+    [Meta.synthInstance.resume] size: 1
+    [Meta.synthInstance.answer] ✅️ OfNat ℝ 0
+  [Meta.synthInstance] result Zero.toOfNat0
+[Meta.synthInstance] ✅️ OfNat ℕ 0
+  [Meta.synthInstance] ✅️ new goal OfNat ℕ 0
+    [Meta.synthInstance.instances] #[@Lean.Grind.Semiring.ofNat, @instOfNatAtLeastTwo, @Zero.toOfNat0, instOfNatNat]
+  [Meta.synthInstance.apply] ✅️ apply instOfNatNat to OfNat ℕ 0
+    [Meta.synthInstance.tryResolve] ✅️ OfNat ℕ 0 ≟ OfNat ℕ 0
+    [Meta.synthInstance.answer] ✅️ OfNat ℕ 0
+  [Meta.synthInstance] result instOfNatNat 0
+Real.instAddMonoid.toAddZeroClass
+[Meta.synthInstance] ✅️ AddZeroClass ℝ
+  [Meta.synthInstance] ✅️ new goal AddZeroClass ℝ
+    [Meta.synthInstance.instances] #[@AddMonoid.toAddZeroClass]
+  [Meta.synthInstance.apply] ✅️ apply @AddMonoid.toAddZeroClass to AddZeroClass ℝ
+    [Meta.synthInstance.tryResolve] ✅️ AddZeroClass ℝ ≟ AddZeroClass ℝ
+    [Meta.synthInstance] ✅️ new goal AddMonoid ℝ
+      [Meta.synthInstance.instances] #[@AddLeftCancelMonoid.toAddMonoid, @AddRightCancelMonoid.toAddMonoid, @AddCommMonoid.toAddMonoid, @SubNegMonoid.toAddMonoid, @AddMonoidWithOne.toAddMonoid, Real.instAddMonoid]
+  [Meta.synthInstance.apply] ✅️ apply Real.instAddMonoid to AddMonoid ℝ
+    [Meta.synthInstance.tryResolve] ✅️ AddMonoid ℝ ≟ AddMonoid ℝ
+    [Meta.synthInstance.answer] ✅️ AddMonoid ℝ
+  [Meta.synthInstance.resume] ✅️ propagating AddMonoid ℝ to subgoal AddMonoid ℝ of AddZeroClass ℝ
+    [Meta.synthInstance.resume] size: 1
+    [Meta.synthInstance.answer] ✅️ AddZeroClass ℝ
+  [Meta.synthInstance] result Real.instAddMonoid.toAddZeroClass
+Real.instAddCommSemigroup.toAddCommMagma
+[Meta.synthInstance] ✅️ AddCommMagma ℝ
+  [Meta.synthInstance] ✅️ new goal AddCommMagma ℝ
+    [Meta.synthInstance.instances] #[@AddCommSemigroup.toAddCommMagma]
+  [Meta.synthInstance.apply] ✅️ apply @AddCommSemigroup.toAddCommMagma to AddCommMagma ℝ
+    [Meta.synthInstance.tryResolve] ✅️ AddCommMagma ℝ ≟ AddCommMagma ℝ
+    [Meta.synthInstance] ✅️ new goal AddCommSemigroup ℝ
+      [Meta.synthInstance.instances] #[@AddCommMonoid.toAddCommSemigroup, Real.instAddCommSemigroup]
+  [Meta.synthInstance.apply] ✅️ apply Real.instAddCommSemigroup to AddCommSemigroup ℝ
+    [Meta.synthInstance.tryResolve] ✅️ AddCommSemigroup ℝ ≟ AddCommSemigroup ℝ
+    [Meta.synthInstance.answer] ✅️ AddCommSemigroup ℝ
+  [Meta.synthInstance.resume] ✅️ propagating AddCommSemigroup ℝ to subgoal AddCommSemigroup ℝ of AddCommMagma ℝ
+    [Meta.synthInstance.resume] size: 1
+    [Meta.synthInstance.answer] ✅️ AddCommMagma ℝ
+  [Meta.synthInstance] result Real.instAddCommSemigroup.toAddCommMagma
+instOfNatAtLeastTwo
+[Meta.synthInstance] ✅️ OfNat ℝ 2
+  [Meta.synthInstance] ✅️ new goal OfNat ℝ 2
+    [Meta.synthInstance.instances] #[@Lean.Grind.Semiring.ofNat, @instOfNatAtLeastTwo]
+  [Meta.synthInstance.apply] ✅️ apply @instOfNatAtLeastTwo to OfNat ℝ 2
+    [Meta.synthInstance.tryResolve] ✅️ OfNat ℝ 2 ≟ OfNat ℝ 2
+    [Meta.synthInstance] ✅️ new goal NatCast ℝ
+      [Meta.synthInstance.instances] #[@AddMonoidWithOne.toNatCast, Real.instNatCast]
+  [Meta.synthInstance.apply] ✅️ apply Real.instNatCast to NatCast ℝ
+    [Meta.synthInstance.tryResolve] ✅️ NatCast ℝ ≟ NatCast ℝ
+    [Meta.synthInstance.answer] ✅️ NatCast ℝ
+  [Meta.synthInstance.resume] ✅️ propagating NatCast ℝ to subgoal NatCast ℝ of OfNat ℝ 2
+    [Meta.synthInstance.resume] size: 1
+    [Meta.synthInstance] ✅️ new goal Nat.AtLeastTwo 2
+      [Meta.synthInstance.instances] #[Nat.instAtLeastTwoHAddOfNat]
+  [Meta.synthInstance.apply] ✅️ apply Nat.instAtLeastTwoHAddOfNat to Nat.AtLeastTwo 2
+    [Meta.synthInstance.tryResolve] ✅️ Nat.AtLeastTwo 2 ≟ (1 + 1).AtLeastTwo
+    [Meta.synthInstance] ✅️ new goal NeZero 1
+      [Meta.synthInstance.instances] #[@NeZero.of_gt', @Invertible.toNeZero, Nat.AtLeastTwo.toNeZero, @NeZero.one, @NeZero.charZero_one, @Nat.instNeZeroSucc]
+  [Meta.synthInstance.apply] ✅️ apply @Nat.instNeZeroSucc to NeZero 1
+    [Meta.synthInstance.tryResolve] ✅️ NeZero 1 ≟ NeZero (0 + 1)
+    [Meta.synthInstance.answer] ✅️ NeZero 1
+  [Meta.synthInstance.resume] ✅️ propagating NeZero (0 + 1) to subgoal NeZero 1 of Nat.AtLeastTwo 2
+    [Meta.synthInstance.resume] size: 1
+    [Meta.synthInstance.answer] ✅️ Nat.AtLeastTwo 2
+  [Meta.synthInstance.resume] ✅️ propagating (1 + 1).AtLeastTwo to subgoal Nat.AtLeastTwo 2 of OfNat ℝ 2
+    [Meta.synthInstance.resume] size: 3
+    [Meta.synthInstance.answer] ✅️ OfNat ℝ 2
+  [Meta.synthInstance] result instOfNatAtLeastTwo
+[Meta.synthInstance] ✅️ OfNat ℕ 2
+  [Meta.synthInstance] ✅️ new goal OfNat ℕ 2
+    [Meta.synthInstance.instances] #[@Lean.Grind.Semiring.ofNat, @instOfNatAtLeastTwo, instOfNatNat]
+  [Meta.synthInstance.apply] ✅️ apply instOfNatNat to OfNat ℕ 2
+    [Meta.synthInstance.tryResolve] ✅️ OfNat ℕ 2 ≟ OfNat ℕ 2
+    [Meta.synthInstance.answer] ✅️ OfNat ℕ 2
+  [Meta.synthInstance] result instOfNatNat 2
+Real.instLT
+[Meta.synthInstance] ✅️ LT ℝ
+  [Meta.synthInstance] ✅️ new goal LT ℝ
+    [Meta.synthInstance.instances] #[@Std.PreorderPackage.toLT, @Preorder.toLT, Real.instLT]
+  [Meta.synthInstance.apply] ✅️ apply Real.instLT to LT ℝ
+    [Meta.synthInstance.tryResolve] ✅️ LT ℝ ≟ LT ℝ
+    [Meta.synthInstance.answer] ✅️ LT ℝ
+  [Meta.synthInstance] result Real.instLT
+Real.instField
+[Meta.synthInstance] ✅️ Field ℝ
+  [Meta.synthInstance] ✅️ new goal Field ℝ
+    [Meta.synthInstance.instances] #[Real.instField]
+  [Meta.synthInstance.apply] ✅️ apply Real.instField to Field ℝ
+    [Meta.synthInstance.tryResolve] ✅️ Field ℝ ≟ Field ℝ
+    [Meta.synthInstance.answer] ✅️ Field ℝ
+  [Meta.synthInstance] result Real.instField
+lean: 1.71 s 1706548 KB peak
+exit 0

@@ -1,0 +1,18 @@
+# the last push (dfa21ac6, 2026-11-17): scripts/timed.sh per command (LF_TIMING_LOG), summed by target;
+# both Gforths and the coverage run together; JOBS=2, Lean cache on
+commands 1635, targets 108, sum 2745 s
+  483.1 s    1 commands  coverage-check
+  124.6 s    1 commands  test-cli-4
+  123.3 s    3 commands  test-front-e2e
+  112.9 s    1 commands  reference-program-verify-refuted
+  111.9 s    1 commands  program-clamp-record
+  107.7 s    1 commands  reference-program-verify-clamp
+   92.9 s    1 commands  test-cli-1
+   90.3 s    1 commands  test-cli-3
+   75.3 s  135 commands  test-core
+   70.4 s    3 commands  check-doc-examples
+   68.4 s  192 commands  test-front
+   67.9 s   28 commands  unnamed
+   65.3 s   30 commands  test-environment
+   58.1 s    6 commands  test-reexport
+   55.0 s   33 commands  test-composition-fixture

@@ -1,0 +1,6 @@
+theorem real_refl
+  Real explicit: x
+  x 0 + x 0 + =
+:= by
+  by-rfl
+end real_refl

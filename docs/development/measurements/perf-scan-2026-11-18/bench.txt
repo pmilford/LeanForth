@@ -1,0 +1,17 @@
+# perf-scan micro-benchmarks, 2026-11-17 23:00-23:10, gforth-fast 1.0.0, load 7-13 on 10 cores (shared)
+# gforth-fast src/main.fs tools/bench.fs -e "N memo-case bye"  (and sha-case, names-case)
+# gforth-fast src/main.fs tools/sortbench.fs -e bye
+memo put+find n=1000 170 ns/op
+memo put+find n=1000000 403 ns/op
+sha256 64-byte message n=100000 2433 ns/op
+lf-name-str (stored mode) n=1000 22250 ns/op
+lf-name-str (stored mode) n=4000 81288 ns/op
+lf-name-str (stored mode) n=16000 331871 ns/op
+sort n=16 132 ns/element
+sort n=32 246 ns/element
+sort n=33 188 ns/element
+sort n=1000 327 ns/element
+sort n=100000 563 ns/element
+sort n=1000000 692 ns/element
+# repeat of the sort (first run): 144, 270, 186, 315, 585, 685 ns/element
+# tools/sortcheck.fs: sort-records stays inside its records (guard cells) and sorts, n = 2..64, 1000 reuses of one sorter

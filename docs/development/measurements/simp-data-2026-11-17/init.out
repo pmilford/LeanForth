@@ -1,0 +1,26 @@
+export declarations: 59349
+simp sets: 10 non-empty: 8
+  set simp {'erased': 0, 'lemma_names': 10301, 'post': 10295, 'post_nodes': 60296, 'pre': 1, 'pre_nodes': 7, 'to_unfold': 31, 'to_unfold_thms': 12}
+  set int_toBitVec_meta {'erased': 0, 'lemma_names': 356, 'post': 356, 'post_nodes': 1667, 'pre': 0, 'pre_nodes': 0, 'to_unfold': 0, 'to_unfold_thms': 0}
+  set wf_preprocess {'erased': 0, 'lemma_names': 50, 'post': 50, 'post_nodes': 423, 'pre': 0, 'pre_nodes': 0, 'to_unfold': 0, 'to_unfold_thms': 0}
+  set bitvec_to_nat {'erased': 0, 'lemma_names': 36, 'post': 36, 'post_nodes': 207, 'pre': 0, 'pre_nodes': 0, 'to_unfold': 0, 'to_unfold_thms': 0}
+  set push_cast {'erased': 0, 'lemma_names': 24, 'post': 24, 'post_nodes': 127, 'pre': 0, 'pre_nodes': 0, 'to_unfold': 0, 'to_unfold_thms': 0}
+  set method_specs_simp {'erased': 0, 'lemma_names': 16, 'post': 16, 'post_nodes': 47, 'pre': 0, 'pre_nodes': 0, 'to_unfold': 0, 'to_unfold_thms': 0}
+  set bool_to_prop {'erased': 0, 'lemma_names': 5, 'post': 5, 'post_nodes': 24, 'pre': 0, 'pre_nodes': 0, 'to_unfold': 0, 'to_unfold_thms': 0}
+  set mvcgen_simp {'erased': 0, 'lemma_names': 1, 'post': 1, 'post_nodes': 7, 'pre': 0, 'pre_nodes': 0, 'to_unfold': 1, 'to_unfold_thms': 1}
+  lemmas of simp {'records': 10296, 'bytes': 4181551, 'keys': 94769, 'inv': 0, 'pre': 1, 'rfl': 898, 'perm': 0, 'prio_not_1000': 104, 'origin_other': 0, 'head_star': 0, 'head_other': 0, 'proof_aux_simp': 1917, 'proof_is_origin': 8379, 'proof_in_export': 9269, 'origin_in_export': 10278, 'max_keys': 98, 'aux_in_export': 908, 'distinct_origins': 10295}
+  lemmas of int_toBitVec_meta {'records': 356, 'bytes': 132242, 'keys': 2076, 'inv': 0, 'pre': 0, 'rfl': 0, 'perm': 0, 'prio_not_1000': 0, 'origin_other': 0, 'head_star': 0, 'head_other': 0, 'proof_aux_simp': 48, 'proof_is_origin': 308, 'proof_in_export': 334, 'aux_in_export': 26, 'origin_in_export': 356, 'max_keys': 22, 'distinct_origins': 356}
+  lemmas of wf_preprocess {'records': 50, 'bytes': 19719, 'keys': 541, 'inv': 0, 'pre': 0, 'rfl': 1, 'perm': 0, 'prio_not_1000': 0, 'origin_other': 0, 'head_star': 0, 'head_other': 0, 'proof_aux_simp': 0, 'proof_is_origin': 50, 'proof_in_export': 50, 'origin_in_export': 50, 'max_keys': 18, 'distinct_origins': 50}
+  lemmas of bitvec_to_nat {'records': 36, 'bytes': 12890, 'keys': 258, 'inv': 0, 'pre': 0, 'rfl': 8, 'perm': 0, 'prio_not_1000': 0, 'origin_other': 0, 'head_star': 0, 'head_other': 0, 'proof_aux_simp': 5, 'proof_is_origin': 31, 'proof_in_export': 35, 'aux_in_export': 4, 'origin_in_export': 36, 'max_keys': 12, 'distinct_origins': 36}
+  lemmas of push_cast {'records': 24, 'bytes': 9470, 'keys': 198, 'inv': 0, 'pre': 0, 'rfl': 15, 'perm': 0, 'prio_not_1000': 0, 'origin_other': 0, 'head_star': 0, 'head_other': 0, 'proof_aux_simp': 0, 'proof_is_origin': 24, 'proof_in_export': 24, 'origin_in_export': 24, 'max_keys': 10, 'distinct_origins': 24}
+  lemmas of method_specs_simp {'records': 16, 'bytes': 4462, 'keys': 50, 'inv': 0, 'pre': 0, 'rfl': 16, 'perm': 0, 'prio_not_1000': 0, 'origin_other': 0, 'head_star': 0, 'head_other': 0, 'proof_aux_simp': 0, 'proof_is_origin': 16, 'proof_in_export': 16, 'origin_in_export': 16, 'max_keys': 4, 'distinct_origins': 16}
+  lemmas of bool_to_prop {'records': 5, 'bytes': 1718, 'keys': 29, 'inv': 0, 'pre': 0, 'rfl': 3, 'perm': 0, 'prio_not_1000': 0, 'origin_other': 0, 'head_star': 0, 'head_other': 0, 'proof_aux_simp': 2, 'proof_is_origin': 3, 'proof_in_export': 5, 'aux_in_export': 2, 'origin_in_export': 5, 'max_keys': 9, 'distinct_origins': 5}
+  lemmas of mvcgen_simp {'records': 1, 'bytes': 354, 'keys': 7, 'inv': 0, 'pre': 0, 'rfl': 0, 'perm': 0, 'prio_not_1000': 0, 'origin_other': 0, 'head_star': 0, 'head_other': 0, 'proof_aux_simp': 0, 'proof_is_origin': 1, 'proof_in_export': 1, 'origin_in_export': 1, 'max_keys': 7, 'distinct_origins': 1}
+unfold: 32 with eqns: 13 eqns: 13 eqns in export: 13
+  simprocs of simprocAttr records 341 names 341 dsimprocs 244 bytes 72476 in export 0
+    by namespace: [('BitVec', 65), ('Fin', 33), ('Int', 28), ('Nat', 25), ('Char', 24), ('Int64', 19), ('Int16', 19), ('Int8', 19), ('Int32', 19), ('UInt64', 16), ('UInt16', 16), ('UInt32', 16), ('UInt8', 16), ('String', 13), ('(root)', 5), ('Array', 3), ('ISize', 2), ('USize', 1), ('Lean', 1), ('List', 1)]
+  simprocs of sevalprocAttr records 349 names 349 dsimprocs 254 bytes 75009 in export 0
+    by namespace: [('BitVec', 63), ('Fin', 33), ('Int', 29), ('Nat', 26), ('Char', 24), ('Int64', 20), ('Int16', 20), ('Int8', 20), ('Int32', 20), ('UInt64', 17), ('UInt16', 17), ('UInt32', 17), ('UInt8', 17), ('String', 13), ('(root)', 5), ('Array', 3), ('ISize', 2), ('USize', 1), ('Lean', 1), ('List', 1)]
+simproc decls: {'builtin': 390, 'imported': 0}
+defeq tags: {'backward_defeq': 3220, 'defeq': 1691}
+congr lemmas: 59 functions: 43 prio != 1000: 0 in export: 59

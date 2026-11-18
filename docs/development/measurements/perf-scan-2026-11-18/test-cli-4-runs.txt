@@ -1,0 +1,5 @@
+# tests/cli/run_group.py 4 (test-cli-4) with GFORTH=tools/gtime.sh around gforth 1.0.0 (the checking engine),
+# load 10-13 on 10 cores: every Gforth run logged with its wall and user seconds
+runs 358, wall sum 143.7 s, user sum 111.1 s
+runs under 0.6 s: 347, their wall sum 135.1 s
+median run 0.38 s
