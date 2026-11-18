@@ -325,15 +325,10 @@ end-structure
 \ metavariable, its value; a level's are its parts (succ, max, imax) and,
 \ for an assigned level metavariable, its value. An occurs check's image
 \ is 1 when the node holds the target (mctx-target), else 0.
-: mv-binary? ( term -- flag ) lf-term-tag@ lf-term-binary-tag? ;
 : mv-value-of ( term -- value true | false )
   dup lf-mvar-live? if lf-mvar-value else drop false then ;
-\ A binary node's first part, else its second, whose image is pending
-\ (dw-want2); assign-check.fs's walks share it.
-: lf-meta-want-parts ( node walk -- child true | false )
-  >r dup lf-term-first@ swap lf-term-second@ r> dw-want2 ;
 : mv-term-pending ( node walk -- child true | false )
-  over mv-binary? if lf-meta-want-parts exit then
+  over lf-term-binary? if dw-want-parts exit then
   swap mv-value-of if swap dw-want else drop false then ;
 : mv-pair-images ( node walk -- i1 i2 )
   over lf-term-first@ over dw-image >r swap lf-term-second@ swap dw-image r> swap ;
@@ -354,7 +349,7 @@ end-structure
   mv-pending-of if swap dw-image else drop 0 then ;
 : mv-occurs-build ( node walk -- 0|1 )
   over mv-target @ = if 2drop 1 exit then
-  over mv-binary? if mv-pair-images or else mv-leaf-hit then ;
+  over lf-term-binary? if mv-pair-images or else mv-leaf-hit then ;
 : lf-mvar-occurs? ( mvar term -- flag outcome )
   swap mv-target ! ['] mv-occurs-build ['] mv-occurs-pending mctx mctx-walk mv-walk
   dw-run swap 0<> swap ;
@@ -724,9 +719,9 @@ end-structure
   2dup mv-term-pending if nip nip true exit then
   over mv-app? if mv-app-pending else 2drop false then ;
 : mv-hole-pending ( node walk -- child true | false )
-  over mv-binary? if lf-meta-want-parts else 2drop false then ;
+  over lf-term-binary? if dw-want-parts else 2drop false then ;
 : mv-hole-build ( node walk -- 0|1 )
-  over mv-binary? if mv-pair-images or else drop lf-mvar? 1 and then ;
+  over lf-term-binary? if mv-pair-images or else drop lf-mvar? 1 and then ;
 : mv-holes? ( term -- flag outcome )
   ['] mv-hole-build ['] mv-hole-pending mctx mctx-hwalk mv-walk dw-run swap 0<> swap ;
 
@@ -829,7 +824,7 @@ end-structure
   over lf-term-tag@ case lf-tag-symbolic-sort of drop mv-sort-build endof
     lf-tag-constant of drop mv-const-build endof drop mv-leaf-build 0 endcase ;
 : mv-build ( node walk -- image )
-  over mv-binary? if mv-pair-build else mv-leaf-kind then ;
+  over lf-term-binary? if mv-pair-build else mv-leaf-kind then ;
 : mv-spine-block ( -- flag )
   lf-term-base lf-term-count @ + 2* cells 1 max allocate
   if drop false exit then mctx mctx-spine ! true ;
@@ -858,7 +853,7 @@ end-structure
   dup lf-mvar? if mv-target @ lf-mvar-sees? else drop false then ;
 : mv-dep-build ( node walk -- 0|1 )
   over mv-dep-hit? if 2drop 1 exit then
-  over mv-binary? if mv-pair-images or else 2drop 0 then ;
+  over lf-term-binary? if mv-pair-images or else 2drop 0 then ;
 : mv-dep-walk ( term -- flag outcome )
   ['] mv-dep-build ['] mv-hole-pending mctx mctx-hwalk mv-walk dw-run swap 0<> swap ;
 : lf-depends-on? ( term fvar -- flag outcome )

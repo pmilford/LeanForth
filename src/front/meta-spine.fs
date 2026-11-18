@@ -109,12 +109,12 @@ require ../core/let-terms.fs
 : ms-full ( outcome -- outcome' ) outcome-full = if outcome-full else outcome-ok then ;
 : lf-meta-named ( new old -- new outcome )
   lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! ms-full else outcome-ok then ;
-: ms-binary? ( term -- flag ) lf-term-tag@ lf-term-binary-tag? ;
 : lf-meta-mvar-free? ( term -- flag )
-  dup ms-binary? if lf-term-data@ dup if nip then exit then lf-term-tag@ lf-tag-mvar <> ;
+  dup lf-term-binary? if lf-term-data@ dup if nip then exit then
+  lf-term-tag@ lf-tag-mvar <> ;
 : lf-meta-fvar-free? ( term -- flag ) lf-term-data@ if lf-data-fvar? 0= else false then ;
 : lf-meta-has-fvar? ( term -- flag )
-  dup ms-binary? if lf-term-data@ if lf-data-fvar? else false then exit then
+  dup lf-term-binary? if lf-term-data@ if lf-data-fvar? else false then exit then
   lf-term-tag@ lf-tag-fvar = ;
 : lf-meta-tag? ( term tag -- flag ) swap lf-term-tag@ = ;
 : lf-meta-tags ( tag1 .. tagn n -- mask ) 0 swap 0 ?do swap lf-tag-bit or loop ;

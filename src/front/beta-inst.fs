@@ -34,6 +34,7 @@ require ../core/annotations.fs
 require ../present/binder-table.fs
 require ./instantiate.fs
 require ./meta-spine.fs
+require ./offset-walk.fs
 
 begin-structure /ib
   field: ib-xs                 \ the arguments: the address of their cells

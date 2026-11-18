@@ -115,7 +115,7 @@ end-structure
 : ac-inner? ( node -- flag )
   dup lf-term-binary? if lf-meta-fvar-free? 0= else drop false then ;
 : ac-parts-if ( node walk flag -- child true | false )
-  if lf-meta-want-parts else 2drop false then ;
+  if dw-want-parts else 2drop false then ;
 : ac-pending-child ( node walk -- child true | false ) over ac-inner? ac-parts-if ;
 : ac-first-fail ( i1 i2 -- image ) over if drop else nip then ;
 : ac-img ( node -- image ) ac-wk dw-image ;

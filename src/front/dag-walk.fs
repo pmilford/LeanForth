@@ -12,7 +12,9 @@
 \   pending ( node walk -- child true | false )  the first child whose
 \     image is not made yet (dw-done? tells; dw-want ( child walk -- child
 \     true | false ) gives the child when it is one, dw-want2 ( a b walk --
-\     child true | false ) the first of two), nodes below the size only;
+\     child true | false ) the first of two, dw-want-parts ( node walk --
+\     child true | false ) the first of a binary term's two parts), nodes
+\     below the size only;
 \   build ( node walk -- image )  the image, from the children's (dw-image);
 \     it may end the walk with dw-refuse ( outcome walk -- ).
 \ dw-run ( root walk -- image outcome ) runs a walk; the memo and the stack
@@ -27,6 +29,7 @@
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
+require ../core/terms.fs
 
 begin-structure /dw
   field: dw-pending      \ xt ( node walk -- child true | false )
@@ -60,6 +63,10 @@ end-structure
 \ The same for two children, the first one first.
 : dw-want2 ( a b walk -- child true | false )
   rot over dw-want if nip nip true else dw-want then ;
+\ The same for a binary term's two parts (core/terms.fs).
+: dw-want-parts ( node walk -- child true | false )
+  over lf-term-first@ over dw-want if nip nip true exit then
+  swap lf-term-second@ swap dw-want ;
 \ Never met: neither under way nor made; a node beyond the memo counts as
 \ new, so pushing it ends the walk invalid.
 : dw-new? ( node walk -- flag ) 2dup dw-in? if dw-state 0= else 2drop true then ;
