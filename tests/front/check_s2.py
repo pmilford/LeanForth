@@ -37,6 +37,8 @@ Usage: GFORTH=... python3 tests/front/check_s2.py [--write-steps]
        LEAN=... python3 tests/front/check_s2.py --lean [--write-golden]
 """
 import json
+import hashlib
+import json
 import os
 import pathlib
 import re
@@ -261,6 +263,44 @@ def check_wrong():
             raise Failure(f"{path}: exit {code}, expected 2 with error {number}, {message!r}\n{out}")
 
 
+MATCH = '{"mdata":{"entries":[[["sunfoldMatch"],{"bool":true}]],"expr":'
+# An inert body (format 3.1, MATHLIB_FRONT.md O1) through the whole run:
+# Nat.add's first sunfoldMatch made an inert node in a copy of the data,
+# read with --no-manifest (the manifest binds the real data). A proof that
+# smart-unfolds Nat.add answers unsupported; one that does not is accepted.
+INERT_RUNS = [("tests/front/02-add-zero-rfl.lf", 2, "error 93 at "),
+              ("tests/front/s2w-add-zero-rfl.lf", 2, ""),
+              ("tests/front/09-zero-add-rfl.lf", 0, "")]
+
+
+def inert_data():
+    """The slice's data with Nat.add's body holding an inert node, as format 3.1."""
+    head, body = (ROOT / DATA).read_text(encoding="utf-8").split("\n", 1)
+    lines = body.split("\n")
+    i = next(i for i, x in enumerate(lines) if x.startswith('{"sunfold":{') and
+             '"name":["Nat","add"],' in x and MATCH in x)
+    expr = lines[i].split(MATCH, 1)[1].split("}", 1)[0]
+    lines[i] = lines[i].replace(MATCH + expr + "}}", f'{{"inert":{{"expr":{expr},"key":"save_info"}}}}', 1)
+    body = "\n".join(lines)
+    header = json.loads(head)
+    header["elab_data"].update(format_version="3.1",
+                               records_sha256=hashlib.sha256(body.encode()).hexdigest())
+    return json.dumps(header, sort_keys=True, separators=(",", ":")) + "\n" + body
+
+
+def check_inert():
+    with tempfile.TemporaryDirectory() as work:
+        data = pathlib.Path(work) / "inert.elab.ndjson"
+        data.write_text(inert_data(), encoding="utf-8")
+        for path, want, text in INERT_RUNS:
+            done = run(["bin/leanforth", "check", "--no-manifest", "--env", SLICE,
+                        "--elab-data", str(data), path])
+            out = done.stdout + done.stderr
+            if done.returncode != want or text not in out:
+                raise Failure(f"inert body, {path}: exit {done.returncode}, expected {want} "
+                              f"with {text!r}\n{out}")
+
+
 def check_units():
     for path in UNITS:
         done = run([GFORTH, path])
@@ -334,6 +374,7 @@ def main():
     files = check_boundary()
     logs = check_files(want)
     check_wrong()
+    check_inert()
     if "--tactics" in sys.argv:
         print(f"check_s2 --tactics: {len(FILES)} files accepted as pinned Lean's, "
               f"{len(WRONG)} wrong proofs refused with Lean's messages")
@@ -344,7 +385,8 @@ def main():
           f"{len(FILES)} files accepted, their {len(want)} type and value lines "
           f"equal pinned Lean's node for node, their step logs valid and as golden; "
           f"{len(WRONG)} wrong proofs refused with Lean's "
-          f"messages; {len(UNSUPPORTED)} unsupported; {len(UNITS)} unit files pass; "
+          f"messages; {len(UNSUPPORTED)} unsupported; an inert body unused in "
+          f"{len(INERT_RUNS)} runs; {len(UNITS)} unit files pass; "
           f"harness self-test passed")
 
 

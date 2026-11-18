@@ -441,7 +441,9 @@ elab-level-param tag-level-param <> or
 : lbd-anonymous ( term n -- term outcome ) drop outcome-ok ;
 : lbd-s-key ( kind -- key )
   elab-sunfold-match = if lf-annot-match else lf-annot-match-alt then ;
+\ An inert node is refused here too, never read as an annotation.
 : lbd-nmdata ( n -- term outcome )
+  dup elab-node-a elab-inert = if drop outcome-unsupported no-result exit then
   dup elab-node-c lbd-sxsrc dw-image swap elab-node-a
   dup elab-borrowed = if drop outcome-ok else lbd-s-key lf-annot then ;
 : lbd-snode ( n -- term outcome ) lbd-sxsrc lbd-run ;

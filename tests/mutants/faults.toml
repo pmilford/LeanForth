@@ -11345,7 +11345,7 @@ reason = "review fe1d L3, S2: a record kind's own declaration named by two recor
 [[fault]]
 id = "fe-elab-default-twice"
 file = "src/front/elab-data.fs"
-old = '''  nip dup ['] ed-dflt-clash? ed-dflt-any? if drop ed-e-default ed-bad exit then'''
+old = '''  nip dup ['] ed-dflt-clash? any? if drop ed-e-default ed-bad exit then'''
 new = '''  nip'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "review fe1d L3, MF1 O2: a default instance named twice with two classes is read (a repeat of one class at another rank is Lean's and read)"
@@ -11493,7 +11493,7 @@ quick = true
 [[fault]]
 id = "fe-ed2-default-rank-twice"
 file = "src/front/elab-data.fs"
-old = '''  ['] ed-dflt-same? ed-dflt-any? 0= ed-e-default-rank ed-or-bad ;'''
+old = '''  dup ['] ed-dflt-same? any? nip 0= ed-e-default-rank ed-or-bad ;'''
 new = '''  drop outcome-ok ;'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "two default instances of one class with one rank are read (error 33 never given)"
@@ -18394,8 +18394,8 @@ reason = "S2: a body's universe parameters other than its definition's, as many,
 [[fault]]
 id = "fe-ed3-annotation-any"
 file = "src/front/elab-data.fs"
-old = '''  if ed-annotation-names ed-key-index else false then ;'''
-new = '''  if 2drop 0 true else false then ;'''
+old = '''  ed-first-item ed-annotation-names ed-text-index ;'''
+new = '''  drop 0 true ;'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "S2: an mdata entry other than Lean's three annotations is read as sunfoldMatch (error 45 never given)"
 

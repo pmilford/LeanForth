@@ -702,7 +702,12 @@ instances of `HSMul`.
       default instance of one class at ranks 0 and 1, both kept; a
       format-3 read after it.
   - `tests/front/whnf.fs`: an inert body is neither decoded nor unfolded
-    by (*unsupported*), and unfolds again once the mark is cleared.
+    by (*unsupported*), and unfolds again once the mark is cleared; an
+    inert node in a body not marked is refused by the decoder itself.
+  - `tests/front/check_s2.py`: the S2 slice's data with an inert node in
+    `Nat.add`'s body (format 3.1, `--no-manifest`): `02-add-zero-rfl.lf`
+    and `s2w-add-zero-rfl.lf` exit 2 (unsupported), `09-zero-add-rfl.lf`
+    exits 0.
   - `tests/front/elab-check-lf.fs` tests the check step: `--no-manifest`
     hashes the library again, and refusing the hash's buffer gives error
     26, full.

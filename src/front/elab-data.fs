@@ -593,9 +593,11 @@ create ed-reason-names  s" erased" counted, s" not_exported" counted, 0 0 counte
   dup ed-null? if drop -1 outcome-ok exit then ed-u32 ;
 : ed-bool ( index -- flag outcome )
   ed-view json-bool if outcome-ok else 0 ed-malformed then ;
-\ One of the table's texts: its place.
+\ One of the table's texts: its place (ed-choice: else malformed).
+: ed-text-index ( index table -- k true | false )
+  >r ed-text r> swap if ed-key-index else drop false then ;
 : ed-choice ( index table -- k outcome )
-  >r ed-text if r> ed-key-index if outcome-ok exit then else r> drop then 0 ed-malformed ;
+  ed-text-index if outcome-ok else 0 ed-malformed then ;
 \ xt ( item -- outcome ) on each element of an array in turn, while ok.
 : ed-next ( item -- item' ) ed-view json-next ;
 : ed-items ( end first xt -- outcome )
@@ -912,10 +914,8 @@ create ed-dflt-keys
   over elab-default-rank-most u> over ok? and if drop ed-e-dflt-most ed-bad then ;
 : ed-dflt-rank! ( value i -- outcome )
   ed-dflt swap c" rank" ed-member ed-u32 ed-rank-most ['] ed-dflt-rank ed-put ;
-\ Default instances are few (34 in Init, 52 in Mathlib): each is compared
-\ with those before, by xt ( i j -- flag ).
-: ed-dflt-any? ( i xt -- flag )
-  over 0 ?do 2dup i swap execute if 2drop unloop true exit then loop 2drop false ;
+\ Default instances are few (34 in Init, 52 in Mathlib): record i is
+\ compared with each record k before it (lib's any?).
 : ed-dflt-decl@ ( i -- d ) ed-dflt ed-dflt-decl @ ;
 : ed-dflt-class@ ( i -- class ) ed-dflt ed-dflt-class @ ;
 : ed-dflt-rank@ ( i -- rank ) ed-dflt ed-dflt-rank @ ;
@@ -923,15 +923,18 @@ create ed-dflt-keys
 : ed-same-class? ( i j -- flag ) ed-dflt-class@ swap ed-dflt-class@ = ;
 : ed-same-rank? ( i j -- flag ) ed-dflt-rank@ swap ed-dflt-rank@ = ;
 \ One class and one rank; one instance of two classes.
-: ed-dflt-same? ( i j -- flag )
+: ed-same-slot? ( i j -- flag )
   2dup ed-same-rank? 0= if 2drop false exit then ed-same-class? ;
-: ed-dflt-clash? ( i j -- flag )
+: ed-clash? ( i j -- flag )
   2dup ed-same-decl? if ed-same-class? 0= else 2drop false then ;
+\ The tests any? runs, record i kept below.
+: ed-dflt-same? ( i k -- i flag ) over swap ed-same-slot? ;
+: ed-dflt-clash? ( i k -- i flag ) over swap ed-clash? ;
 \ After the rank: no earlier record of the instance with another class
 \ (error 16), none of the class with this rank (error 33).
 : ed-dflt-once ( value i -- outcome )
-  nip dup ['] ed-dflt-clash? ed-dflt-any? if drop ed-e-default ed-bad exit then
-  ['] ed-dflt-same? ed-dflt-any? 0= ed-e-default-rank ed-or-bad ;
+  nip dup ['] ed-dflt-clash? any? if drop ed-e-default ed-bad exit then
+  dup ['] ed-dflt-same? any? nip 0= ed-e-default-rank ed-or-bad ;
 create ed-dflt-steps
   ' ed-dflt-decl! , ' ed-dflt-class! , ' ed-dflt-priority! , ' ed-dflt-rank! ,
   ' ed-dflt-once , 0 ,
@@ -1255,13 +1258,14 @@ create ed-bool-members  s" bool" counted, 0 0 counted,
   dup ed-bool-members ed-shape? if c" bool" ed-member ed-view json-bool 0= if false then
   else drop false then ;
 : ed-annotation ( key -- k true | false )
-  dup 1 ed-items? if ed-first-item ed-text else drop false then
-  if ed-annotation-names ed-key-index else false then ;
+  dup 1 ed-items? 0= if drop false exit then
+  ed-first-item ed-annotation-names ed-text-index ;
 : ed-unknown-mark ( -- k outcome ) 0 ed-e-annotation outcome-unsupported ed-fail ;
+\ A mark's place, or error 45.
+: ed-known ( k true | false -- k outcome ) if outcome-ok else ed-unknown-mark then ;
 : ed-entry ( entry -- k outcome )
   dup 2 ed-items? 0= if drop 0 ed-malformed exit then
-  ed-first-item dup ed-next ed-true? if ed-annotation else drop false then
-  if outcome-ok else ed-unknown-mark then ;
+  ed-first-item dup ed-next ed-true? if ed-annotation else drop false then ed-known ;
 : ed-nd-entries ( value -- outcome )
   c" entries" ed-member dup 1 ed-items? if ed-first-item ed-entry
   else drop 0 ed-malformed then ['] ed-node-a ed-nd-put ;
@@ -1275,8 +1279,7 @@ create ed-mdata-form  ed-mdata-members , ' ed-nd-entries , ' ed-nd-expr , 0 ,
 create ed-inert-names
   s" save_info" counted, s" noImplicitLambda" counted, s" congrHole" counted, 0 0 counted,
 : ed-inert-key ( value -- k outcome )
-  c" key" ed-member ed-text if ed-inert-names ed-key-index else false then
-  if outcome-ok else ed-unknown-mark then ;
+  c" key" ed-member ed-inert-names ed-text-index ed-known ;
 : ed-inert-mark ( -- outcome )
   true ed-sun-now ed-sun-inert ! elab-inert outcome-ok ['] ed-node-a ed-nd-put ;
 : ed-nd-key ( value -- outcome ) ed-inert-key ok-then? if drop ed-inert-mark then ;
@@ -1326,6 +1329,9 @@ create ed-node-readers
   ' ed-nd-bvar , ' ed-nd-sort , ' ed-nd-app , ' ed-nd-binder , ' ed-nd-binder ,
   ' ed-nd-let , ' ed-nd-lit , ' ed-nd-str , ' ed-nd-proj , ' ed-nd-mdata , ' ed-nd-inert ,
 create ed-const-node-members  s" const" counted, s" levels" counted, 0 0 counted,
+\ A name's place is its node kind (elab-node-bvar .. -mdata), except
+\ inert's, 10: stored for a moment as elab-node-const, until ed-nd-inert
+\ makes the node an mdata (or the read fails).
 : ed-nd-form ( value k -- outcome ) dup ed-nd-kind! cells ed-node-readers + @ execute ;
 : ed-nd-read ( item -- outcome )
   dup ed-const-node-members ed-shape? if elab-node-const ed-nd-kind! ed-nd-const exit then
