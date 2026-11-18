@@ -1426,7 +1426,7 @@ done checker.
 
 ## Tactic plug-ins: the step log's names, a tactic tier, the order (2026-11-17)
 
-Asked with the design docs/design/TACTIC_PLUGINS.md (branch `tactic-plugin-design`, in revision after its design
+Asked with the tactic plug-in design (`TACTIC_PLUGINS.md` on branch `tactic-plugin-design`, not yet on main, in revision after its design
 review, .claude/work/pending-reports/2026-11-17-tactic-plugins-design-review.md) and its measurement: of 18 front-end
 branches since 2026-11-12, `tests/mutants/faults.toml` was changed by 18, the `Makefile` by 17, `src/main.fs` by 12 and
 `src/author/errors.fs` by 11. The owner approved:
