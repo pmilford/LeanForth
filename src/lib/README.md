@@ -146,10 +146,18 @@ This prints `ba7816bf...f20015ad`, the SHA-256 of "abc".
   compared against an independent implementation: the big numbers and the
   JSON writer against Python's. They have not had an outside security or
   correctness audit.
-- A few files load more than they use. `json.fs` and `text-rule.fs` need
-  `bytes.fs`, which loads all of `lib.fs`. Trimming this is planned (plan
-  task 1.1.8).
+- Every file loads on its own: `make test-lib-standalone` copies each one
+  with exactly the files it requires into a folder outside the project,
+  loads it on Gforth and gforth-fast, and checks that `BASE` and the search
+  order are as before. Six headers (`bignum.fs`, `bounds.fs`, `bytes.fs`,
+  `json.fs`, `json-write.fs`, `u32.fs`) have an example that test runs as
+  written; the others' examples are not run yet (plan task 1.1.8).
+- `bytes.fs`'s reader reads ordinary text by default (a last line without
+  a line feed, CRLF line ends, a leading byte-order mark); `reader-strict`
+  gives the strict framing LeanForth uses for Lean's exports.
 - `context.fs` and `task.fs` were designed around the checker's needs.
   They are general, but less polished as stand-alone tools than the rest.
-- Some older files (`bignum.fs`, `json.fs`, `bytes.fs`) still keep their
-  helper words public.
+- `frame.fs`, `task.fs`, `blocks.fs`, `outcome.fs` and `node.fs` still
+  keep every word public, and several files (`frame.fs`, `task.fs`,
+  `htab.fs`, `slab.fs`, `store.fs` and others) lack the measured profile
+  of [FORTH_LIBRARY.md](../../docs/development/FORTH_LIBRARY.md).
