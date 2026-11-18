@@ -54,17 +54,19 @@ T{ x prop app walk swap parts -> outcome-ok y prop }T
 prop prop app constant pp
 T{ pp walk -> pp outcome-ok }T
 \ A binder's second part one deeper: the deepest leaf of fun _ => fun _ => x.
-T{ prop prop x lam lam walk >r parts nip parts nip r> deepest @
+: inner2 ( t -- t' ) parts nip parts nip ;
+: kept= ( t t' outcome -- flag outcome ) >r = r> ;
+T{ prop prop x lam lam walk swap inner2 swap deepest @
    -> y outcome-ok 2 }T
 \ A shared node is made once: x x x x has x once, as a leaf at depth 0.
 T{ x x app dup app walk nip visits @ -> outcome-ok 1 }T
 \ ---- The kind's kept test: z a is its own image, unvisited.
-T{ true kept-flag ! z x app dup walk false kept-flag ! >r = r> visits @
+T{ true kept-flag ! z x app dup walk false kept-flag ! kept= visits @
    -> true outcome-ok 0 }T
 \ ---- Annotations: over the child's image with the key; kept when the
 \ child stays.
 T{ x lf-annot-match ann walk swap dup lf-annot? swap parts -> outcome-ok true y lf-annot-match }T
-T{ prop lf-annot-match ann dup walk >r = r> -> true outcome-ok }T
+T{ prop lf-annot-match ann dup walk kept= -> true outcome-ok }T
 \ ---- Failures: the walk stops with the first one; -1 for the term.
 T{ b9 z app walk -> -1 outcome-full }T
 T{ z b9 app walk -> -1 outcome-unsupported }T
