@@ -624,7 +624,7 @@ def plan(changed, merge_base, full=False, reach=None):
 def end_to_end():
     """The end-to-end targets of tests/test-classes.txt. A target the table lacks counts as a
     unit test here, so the engines run more, never less (make check-test-classes refuses it)."""
-    return set(test_classes.of_class(test_classes.read()[0], "e2e"))
+    return test_classes.OfClass(test_classes.read()[0], "e2e")
 
 
 def engine_units(reach_):

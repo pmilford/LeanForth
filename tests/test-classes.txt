@@ -16,6 +16,11 @@
 #           coverage-check for those of make test, make check-rest for the others).
 #   manual  a test program no target of make check runs: benchmarks and measurements run by hand.
 
+# A tactic's own targets, found by the Makefile from tests/front/tactics/NAME/ (tactic plug-in
+# design, slice (a1)): a pattern row classes every one of them.
+test-tactic-*-e2e                  e2e     tests/front/tactics/NAME/check.py: its .lf runs
+test-tactic-*                      unit    tests/front/tactics/NAME/test.fs: its unit tests
+
 # make test: unit
 check-tools-untracked              unit
 check-docs                         unit

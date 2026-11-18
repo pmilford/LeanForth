@@ -603,7 +603,7 @@ def target_seconds():
                 total[row[0]] = total.get(row[0], 0.0) + float(row[1])
             except ValueError:
                 continue
-    unit = set(test_tier.test_classes.of_class(test_tier.test_classes.read()[0], "unit"))
+    unit = test_tier.test_classes.OfClass(test_tier.test_classes.read()[0], "unit")
     return {t: s / (3 if t in unit else 2 if t == "test-cli-engines" else 1) for t, s in total.items()}
 
 

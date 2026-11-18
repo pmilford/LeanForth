@@ -7,7 +7,10 @@ Usage (from the repository root):
 
 tests/test-classes.txt is the one list of the classes (docs/development/TESTING_STRATEGY.md,
 "Unit and end-to-end tests"): each row is a target of the Makefile or a test program's path, its
-class (unit, e2e or manual) and a note; # starts a comment line. The Makefile reads it for make
+class (unit, e2e or manual) and a note; # starts a comment line. A target row may be a pattern
+with * (test-tactic-*: the targets the Makefile finds from tests/front/tactics/, tactic plug-in
+design, slice (a1)): a target without a row of its own takes the class of the longest pattern
+that matches it, and a pattern may match no target yet. The Makefile reads it for make
 test-unit and make test-e2e, scripts/test-tier.py for the suites of a change tier: unit tests run
 on Gforth 1.0 (instrumented), on gforth-fast and at the push on Gforth 0.7.3, end-to-end tests
 once.
@@ -22,6 +25,7 @@ row is then stale); a target row classed manual. Exit status 0, 1 for problems, 
 error.
 """
 import argparse
+import fnmatch
 import importlib.util
 import os
 import subprocess
@@ -69,9 +73,31 @@ def read(path=TABLE):
         return {}, [f"{path}: missing: every test target needs a class"]
 
 
+def is_pattern(name):
+    return "*" in name
+
+
 def of_class(rows, wanted):
-    """The target names (not paths) of class WANTED, in the table's order."""
-    return [name for name, kind in rows.items() if kind == wanted and not is_path(name)]
+    """The target names (not paths or patterns) of class WANTED, in the table's order."""
+    return [name for name, kind in rows.items() if kind == wanted and not is_path(name) and not is_pattern(name)]
+
+
+def class_of(rows, target):
+    """TARGET's class: its own row's, else the longest matching pattern's, else None."""
+    if target in rows:
+        return rows[target]
+    patterns = sorted((n for n in rows if is_pattern(n) and fnmatch.fnmatchcase(target, n)), key=len, reverse=True)
+    return rows[patterns[0]] if patterns else None
+
+
+class OfClass:
+    """The targets of one class, as a container: `target in OfClass(rows, "e2e")`."""
+
+    def __init__(self, rows, wanted):
+        self.rows, self.wanted = rows, wanted
+
+    def __contains__(self, target):
+        return class_of(self.rows, target) == self.wanted
 
 
 def problems_of(rows, leaves, reached, programs):
@@ -80,8 +106,9 @@ def problems_of(rows, leaves, reached, programs):
     found = []
     targets = {n: k for n, k in rows.items() if not is_path(n)}
     paths = {n: k for n, k in rows.items() if is_path(n)}
-    found += [f"target {t}: in no class (add a row to {TABLE})" for t in leaves if t not in targets]
-    found += [f"row {t}: no leaf target of make check has that name" for t in targets if t not in leaves]
+    found += [f"target {t}: in no class (add a row to {TABLE})" for t in leaves if class_of(targets, t) is None]
+    found += [f"row {t}: no leaf target of make check has that name" for t in targets
+              if t not in leaves and not is_pattern(t)]
     found += [f"row {t}: a target is unit or e2e, never manual" for t, k in targets.items() if k == "manual"]
     for path in programs:
         if path not in reached and path not in paths:
