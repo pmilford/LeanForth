@@ -323,6 +323,17 @@ T{ s" tests/reference/composition.ndjson" staged stg fdd count-binders 0 lf-feed
    lf-term-viewed? lf-term-count @ hooked @ -> outcome-ok true 0 0 }T
 T{ 31 lf-term-input-binder@ rot lf-name-text s" value" compare 30 lf-term-input-binder@
    1 lf-term-input-binder@ -> 0 true 0 false false }T
+\ A number past the input is no input binder, though it be a lambda the
+\ store made, of either parity (an odd one would read as a record): a
+\ store lambda, a lambda over it, the base itself and -1 all answer
+\ false. (The tactic library's telescope no longer asks of a store pi,
+\ so only this test reaches core/terms.fs's guard, 2026-11-18.)
+: store-lams ( -- lam lam' )
+  977 lf-term-bvar drop dup dup lf-term-lam drop tuck lf-term-lam drop ;
+T{ store-lams lf-term-binder? swap lf-term-binder? -> true true }T
+T{ store-lams 1 and swap 1 and  store-lams min lf-term-base u< -> 0 1 false }T
+T{ store-lams lf-term-input-binder@ swap lf-term-input-binder@
+   lf-term-base lf-term-input-binder@ -1 lf-term-input-binder@ -> false false false false }T
 unstage
 \ The fields the feed gives an input literal (core/literals.fs,
 \ core/string-literals.fs): no node made, the limbs or bytes kept in the
