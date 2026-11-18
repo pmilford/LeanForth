@@ -587,16 +587,6 @@
   "reason": "planned: 9.4.8k guard word (one word in lib/outcome.fs for `dup 0< if drop outcome-ok else xt then`, from review s1-elab; the kernel member under [kernel])",
   "tokens": 8
  },
- "4269527a7890": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/infer.fs:if-const",
-   "src/front/whnf.fs:wc-const-head"
-  ],
-  "reason": "false positive: the guarded declaration lookup idiom (lf-meta-const-decl ok-then?), with unrelated continuations (a type, a whnf step)",
-  "tokens": 8
- },
  "463da21283da": {
   "copies": 2,
   "kind": "shape",

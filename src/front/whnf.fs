@@ -237,10 +237,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ declaration that could not be decoded is no unknown constant: wc-kind
 \ keeps its outcome as the call's fault, which ends the call (wc-checked).
 0 constant wc-no-kind   \ not a constant, or one no declaration has
-: wc-fault! ( d outcome -- )
-  nip dup outcome-invalid = if drop else wc wc-fault outcome-first! then ;
-: wc-const-kind ( const -- kind )
-  lf-meta-const-decl ok-then? if lf-menv-kind else -1 swap wc-fault! wc-no-kind then ;
+: wc-const-kind ( const -- kind ) wc-no-kind lf-meta-kind-or wc wc-fault outcome-first! ;
 : wc-kind ( term -- kind )
   dup lf-term-const? if wc-const-kind else drop wc-no-kind then ;
 : wc-faulted ( -- outcome ) wc wc-fault @ ;
@@ -504,10 +501,9 @@ wc-smatch-kind 1+ constant wc-srec-kind
   lf-kind-quotient = if drop wc-unsupported exit then
   dup wc-recursor? if wc-iota else 2drop wc-done then ;
 \ A constant no declaration has stays; one that could not be decoded fails.
-: wc-unknown-head ( e head outcome -- e' flag outcome )
-  dup outcome-invalid = if 2drop wc-done else nip nip wc-fail then ;
 : wc-const-head ( e head -- e' flag outcome )
-  dup lf-meta-const-decl ok-then? if wc-decl-head else wc-unknown-head then ;
+  dup lf-meta-const-known ok-then? 0= if nip nip wc-fail exit then
+  if wc-decl-head else drop wc-done then ;
 
 \ ---- One step of whnfCore. An annotation (a smart-unfolding marker,
 \ core/annotations.fs) is looked through, at the term or at the head of
@@ -651,10 +647,10 @@ wc-smatch-kind 1+ constant wc-srec-kind
   dup lf-menv-kind dup lf-kind-quotient = if drop 2drop false outcome-unsupported exit
     then
   lf-kind-definition = if ws-defn else 2drop false outcome-ok then ;
-: ws-unknown ( e head outcome -- false outcome )
-  nip nip dup outcome-invalid = if drop outcome-ok then false swap ;
+: ws-unknown ( e head outcome -- false outcome ) nip nip false swap ;
 : ws-const ( e head -- mvar true outcome | false outcome )
-  dup lf-meta-const-decl ok-then? 0= if ws-unknown exit then
+  dup lf-meta-const-known ok-then? 0= if ws-unknown exit then
+  0= if outcome-ok ws-unknown exit then
   dup wc-recursor? if rot drop ws-rec else nip ws-kind then ;
 \ A projection (Lean: getStuckMVar? of its structure's whnf): a structure
 \ whose head is a plain metavariable is stuck on it, as whnf leaves it;
@@ -703,8 +699,8 @@ wc-smatch-kind 1+ constant wc-srec-kind
   if wc-smatch-sizes else 2drop wc-sm-none then ;
 : wc-smatch-head ( m head -- e' flag outcome )
   dup lf-term-const? 0= if drop wc-sm-none exit then
-  dup lf-meta-const-decl ok-then? if wc-smatch-decl exit then
-  dup outcome-invalid = if 2drop wc-sm-none else wc-2drop-fail then ;
+  dup lf-meta-const-known ok-then? 0= if wc-2drop-fail exit then
+  if wc-smatch-decl else drop wc-sm-none then ;
 : wc-smatch ( m -- e' flag outcome )
   dup wc-args lf-meta-spine ok-then? if wc-smatch-head else wc-drop-fail then ;
 : wc-smart-m ( e1 -- m true | false ) lf-meta-head lf-annot-match lf-annot-keyed? ;

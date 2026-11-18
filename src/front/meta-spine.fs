@@ -15,6 +15,17 @@
 \   constant); full or unsupported, passed on, when a library
 \   declaration could not be decoded (never read as an unknown constant,
 \   plan S2); -1 for d when not ok.
+\ - lf-meta-const-known ( const -- d true outcome | false outcome ): the
+\   same with an unknown constant as false and ok (Lean's find? giving
+\   none); every other failure passed on with false (review F8 of
+\   2026-11-18: the one "unknown constant" test of whnf, defeq, infer,
+\   fun-info).
+\ - lf-meta-kind-or ( const kind -- kind' outcome ): the constant's
+\   declaration kind (meta-env.fs's lf-menv-kind); kind itself for an
+\   unknown constant, and with a failure's outcome.
+\ - lf-meta-firm-const? ( const -- flag outcome ): neither a definition nor
+\   an unknown constant, so whnf cannot unfold it (false with a failure's
+\   outcome): infer's firm head and fun-info's final one.
 \ - lf-meta-levels-fill ( const slab -- outcome ): a constant's universe
 \   arguments, as levels, into the slab, emptied first.
 \ - lf-meta-arity? ( d const -- flag ): the constant has as many universe
@@ -72,6 +83,13 @@ require ../present/binder-table.fs
 : lf-meta-arg ( i slab -- term ) tuck slab-count 1- swap - swap slab-at @ ;
 : lf-meta-const-decl ( const -- d outcome )
   lf-const-name lf-menv-find ;
+: ms-unknown-ok ( outcome -- outcome' ) dup outcome-invalid = if drop outcome-ok then ;
+: lf-meta-const-known ( const -- d true outcome | false outcome )
+  lf-meta-const-decl dup ok? if true swap exit then nip ms-unknown-ok false swap ;
+: lf-meta-kind-or ( const kind -- kind' outcome )
+  swap lf-meta-const-known ok-then? 0= if exit then if nip lf-menv-kind then outcome-ok ;
+: lf-meta-firm-const? ( const -- flag outcome )
+  lf-kind-definition lf-meta-kind-or swap lf-kind-definition <> swap ;
 : lf-meta-arity? ( d const -- flag ) lf-const-levels# swap lf-menv-params nip = ;
 : ms-level ( slot i -- level ) swap lf-cref-pairs drop swap lf-cref-pair@ drop ;
 : lf-meta-levels-fill ( const slab -- outcome )

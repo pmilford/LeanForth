@@ -19734,19 +19734,19 @@ reason = "review s2-unfold-a re-check M1-new: isExprDefEqExpensive's whnfCore ru
 
 [[fault]]
 id = "fe-fi-defn-decode-flag"
-file = "src/front/fun-info.fs"
-old = '''  ok-then? if lf-menv-kind lf-kind-definition = outcome-ok else true swap then ;'''
-new = '''  ok-then? if lf-menv-kind lf-kind-definition = outcome-ok else drop true outcome-ok then ;'''
+file = "src/front/meta-spine.fs"
+old = '''  swap lf-meta-const-known ok-then? 0= if exit then if nip lf-menv-kind then outcome-ok ;'''
+new = '''  swap lf-meta-const-known ok-then? 0= if drop outcome-ok exit then if nip lf-menv-kind then outcome-ok ;'''
 test = "$GFORTH tests/front/menv-run.fs"
-reason = "review s2-unfold-a L5: a declaration whose decode was refused room reads as a definition (callers answer unsupported) instead of passing full on"
+reason = "review s2-unfold-a L5: a declaration whose decode was refused room reads as a definition (callers answer unsupported) instead of passing full on (re-targeted to the shared lf-meta-kind-or, reuse pass F8)"
 
 [[fault]]
 id = "fe-if-firm-decode-flag"
-file = "src/front/infer.fs"
-old = '''  ok-then? if lf-menv-kind lf-kind-definition <> outcome-ok else false swap then ;'''
-new = '''  ok-then? if lf-menv-kind lf-kind-definition <> outcome-ok else drop false outcome-ok then ;'''
+file = "src/front/meta-spine.fs"
+old = ''': ms-unknown-ok ( outcome -- outcome' ) dup outcome-invalid = if drop outcome-ok then ;'''
+new = ''': ms-unknown-ok ( outcome -- outcome' ) drop outcome-ok ;'''
 test = "$GFORTH tests/front/menv-run.fs"
-reason = "review s2-unfold-a L5: inferType of v 0 with v : Nat.add, Nat.add's decode refused room, answers unsupported instead of full"
+reason = "review s2-unfold-a L5: inferType of v 0 with v : Nat.add, Nat.add's decode refused room, answers unsupported instead of full (re-targeted to the shared lf-meta-const-known: every failure read as an unknown constant, reuse pass F8)"
 
 [[fault]]
 id = "fe-meta-arity-ignored"

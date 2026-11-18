@@ -156,12 +156,9 @@ end-structure
 : if-inert? ( term -- flag ) if-tag if-inert-tag? ;
 : if-head ( term -- head ) begin dup lf-meta-app? while lf-term-first@ repeat ;
 \ A constant no declaration has is not firm; one whose declaration could
-\ not be decoded passes that outcome on (full as full).
-: if-firm-const ( const -- flag outcome )
-  lf-meta-const-decl dup outcome-invalid = if 2drop false outcome-ok exit then
-  ok-then? if lf-menv-kind lf-kind-definition <> outcome-ok else false swap then ;
+\ not be decoded passes that outcome on (full as full): lf-meta-firm-const?.
 : if-firm ( head -- flag outcome )
-  dup if-tag lf-tag-constant = if if-firm-const else if-inert? outcome-ok then ;
+  dup if-tag lf-tag-constant = if lf-meta-firm-const? else if-inert? outcome-ok then ;
 \ Invalid where whnf leaves the head (Lean throws), unsupported where its
 \ delta might go on, a refused decode passed on.
 : if-firm-or ( head -- outcome )
@@ -173,7 +170,7 @@ end-structure
 \ (A declaration that could not be decoded passes its outcome on.)
 : if-unfolds? ( type -- flag outcome )
   if-head dup if-tag lf-tag-constant = 0= if drop false outcome-ok exit then
-  if-firm-const ok-then? if 0= outcome-ok else false swap then ;
+  lf-meta-firm-const? ok-then? if 0= outcome-ok else false swap then ;
 \ At least default transparency (withAtLeastTransparency .default,
 \ InferType.lean:229): all stays all.
 : if-whnf-d ( type -- type' outcome )

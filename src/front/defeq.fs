@@ -247,9 +247,7 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-pi? ( t -- flag ) lf-tag-pi lf-meta-tag? ;
 \ A constant's declaration: none for an unknown name; a declaration that
 \ could not be decoded (full, unsupported) aborts with its outcome.
-: de-decl ( const -- d true | false )
-  lf-meta-const-decl dup outcome-invalid = if 2drop false exit then
-  de-must dup 0= if nip then ;
+: de-decl ( const -- d true | false ) lf-meta-const-known de-must drop ;
 : de-kind? ( head kind -- flag )
   over de-const? if swap de-decl if lf-menv-kind = else drop false then
   else 2drop false then ;

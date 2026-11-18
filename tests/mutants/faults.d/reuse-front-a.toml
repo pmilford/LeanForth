@@ -56,3 +56,19 @@ old = '''  2dup lf-annot-child = if nip outcome-ok exit then lf-annot-key lf-ann
 new = '''  lf-annot-key lf-annot ;'''
 test = "$GFORTH tests/front/offset-walk.fs"
 reason = "reuse pass F2: an annotation whose child stays is copied (Lean's updateMData! keeps it)"
+
+[[fault]]
+id = "rfa-const-known-invalid-kept"
+file = "src/front/meta-spine.fs"
+old = ''': ms-unknown-ok ( outcome -- outcome' ) dup outcome-invalid = if drop outcome-ok then ;'''
+new = ''': ms-unknown-ok ( outcome -- outcome' ) ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "reuse pass F8: an unknown constant answers invalid where Lean's find? gives none, so whnf, defeq, inferType and getFunInfo fail instead of going on"
+
+[[fault]]
+id = "rfa-kind-or-default-lost"
+file = "src/front/meta-spine.fs"
+old = '''  lf-kind-definition lf-meta-kind-or swap lf-kind-definition <> swap ;'''
+new = '''  lf-kind-inductive lf-meta-kind-or swap lf-kind-definition <> swap ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "reuse pass F8: an unknown constant reads as firm (an inductive) where Lean's inferType and getFunInfo take it as one whnf may unfold"

@@ -78,13 +78,10 @@ end-structure
   lf-tag-pi lf-tag-bit or lf-tag-lit lf-tag-bit or lf-tag-projection lf-tag-bit or ;
 \ A constant no declaration has is taken as a definition: never final,
 \ so its callers answer unsupported; one whose declaration could not be
-\ decoded passes that outcome on (full as full). fi-final: ok for a
-\ final term, unsupported for one whnf might reduce.
-: fi-defn? ( const -- flag outcome )
-  lf-meta-const-decl dup outcome-invalid = if 2drop true outcome-ok exit then
-  ok-then? if lf-menv-kind lf-kind-definition = outcome-ok else true swap then ;
+\ decoded passes that outcome on (full as full): lf-meta-firm-const?.
+\ fi-final: ok for a final term, unsupported for one whnf might reduce.
 : fi-head-final? ( head -- flag outcome )
-  dup lf-term-const? if fi-defn? swap 0= swap exit then
+  dup lf-term-const? if lf-meta-firm-const? exit then
   lf-term-tag@ lf-tag-bit fi-final-mask and 0<> outcome-ok ;
 : fi-final ( flag outcome -- outcome )
   ok-then? if if outcome-ok else outcome-unsupported then then ;
