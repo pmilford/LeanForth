@@ -270,6 +270,14 @@ test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
 reason = "a2-i review F1: mkAppM's result keeps an assignable metavariable unrejected (Lean: result contains metavariables); check_whnf.py's mkAppM congrArg #[u] expects rejected"
 
 [[fault]]
+id = "lib-app-m-other-mvar-taken"
+file = "src/front/app-builder.fs"
+old = '''  dup lf-meta-has-mvar? lf-must if outcome-unsupported lf-must then ;'''
+new = '''  dup lf-meta-has-mvar? lf-must drop ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
+reason = "a2-i review F4: a result with a level or outer metavariable answered as a term, where LeanForth cannot yet tell Lean's verdict (a listed gap must answer unsupported)"
+
+[[fault]]
 id = "lib-congr-fun-wrong-h"
 file = "src/front/app-builder.fs"
 old = '''  s" f" lfa-intern abl-named rot 4 abl-arg ;'''

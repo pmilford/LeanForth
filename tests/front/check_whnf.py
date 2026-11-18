@@ -327,6 +327,15 @@ BUILDS = [
     build("mkAppM ``id #[u, k]", 's" id" fu fk 2 lf-mk-app-m'),
     build("mkAppM ``id #[u, k, k]", 's" id" fu fk fk 3 lf-mk-app-m'),
     build("mkAppM ``congrArg #[u]", 's" congrArg" fu 1 lf-mk-app-m'),
+    # mkAppMFinal's check tells assignable from other metavariables only
+    # for terms: a result with an unassigned level metavariable (id with
+    # no argument: id.{?u}, Lean "result contains metavariables") and one
+    # holding a metavariable of an outer depth (?n, which Lean returns
+    # as it is) both answer unsupported.
+    build("mkAppM ``id #[]", 's" id" 0 lf-mk-app-m',
+          gap="a2-ii mkAppM's level metavariables: assignable ones rejected"),
+    build("mkAppM ``Nat.succ #[n]", 's" Nat.succ" ?n 1 lf-mk-app-m',
+          gap="a2-ii mkAppM's outer metavariables: the term returned"),
     # (mkEqMP and mkEqMPR are mkAppM of Eq.mp and Eq.mpr, which this slice
     # lacks: tests/front/tactic-lib.fs checks their terms over the S2 slice.)
 ]

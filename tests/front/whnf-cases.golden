@@ -120,3 +120,5 @@ rejected
 (app (app (app id.{1} (pi Nat.{} Nat.{})) u) k)
 rejected
 rejected
+rejected
+(app Nat.succ.{} ?n)
