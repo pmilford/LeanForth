@@ -198,7 +198,15 @@ end-structure
   me-texts slab-count begin dup while
     1- 2dup me-texts slab-at mtx-name @ = if nip me-lib# + true exit then
   repeat 2drop false ;
-: me-decoded ( d -- d outcome ) dup lf-libdec-decl nip dup ok? 0= if nip no-result then ;
+\ A library declaration decoded: its name was found, so a decoder's
+\ invalid for one of the library's (malformed tier data) is unsupported,
+\ never "no such constant" (review N3 of 2026-11-18; meta-spine.fs); one
+\ past the library's count (a stage grown while bound) stays unknown.
+: me-lib-d? ( d -- flag ) lf-libdec-count u< ;
+: me-undecoded ( d outcome -- d outcome' )
+  dup outcome-invalid = if over me-lib-d? if drop outcome-unsupported then then ;
+: me-decoded ( d -- d outcome )
+  dup lf-libdec-decl nip me-undecoded dup ok? 0= if nip no-result then ;
 : me-run-find ( name -- d outcome )
   me-texts-current dup me-text-named if nip outcome-ok exit then
   lf-libdec-find ok-then? if me-decoded else no-result then ;

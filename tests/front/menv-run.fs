@@ -136,6 +136,24 @@ T{ s" Nat.add" d-of lf-menv-status s" Nat.add" d-of lf-menv-matcher?
 \ Binder kinds from the tier's tags: HAdd.hAdd {α β γ} [self] (a b).
 : kinds ( d -- k0 k3 k4 n ) lf-menv-kinds >r dup @ over 3 cells + @ rot 4 cells + @ r> ;
 T{ s" HAdd.hAdd" d-of kinds -> 1 3 0 6 }T
+\ A library declaration whose staged data is malformed (its kind set to
+\ the slot no record has, then put back) is found by name, so every kind
+\ of caller hears unsupported, never "no such constant", invalid (review
+\ N3 of 2026-11-18): the Meta env's find, a constant's declaration,
+\ inferType, whnf and isClass?; an unknown name stays invalid.
+variable spoilt-head
+: spoilt ( -- d ) s" Nat.pred" nm lf-libdec-find made ;
+: head@ ( -- addr ) spoilt ck-stage staged-at staged-head ;
+: spoil-kind ( -- ) head@ u32@ dup spoilt-head ! 31 invert and kind-axiom 5 + or head@ u32! ;
+: unspoil ( -- ) spoilt-head @ head@ u32! ;
+: pred ( -- t ) s" Nat.pred" 0 cst ;
+spoil-kind
+T{ s" Nat.pred" nm lf-menv-find pred lf-meta-const-decl
+   -> -1 outcome-unsupported -1 outcome-unsupported }T
+T{ pred lf-infer nip pred lf-meta-whnf nip -> outcome-unsupported outcome-unsupported }T
+T{ pred lf-class? nip s" No.such" 0 cst lf-meta-const-decl -> outcome-unsupported -1 outcome-invalid }T
+unspoil
+T{ s" Nat.pred" d-of lf-menv-kind -> lf-kind-definition }T
 
 \ ---- 2. A text declaration made visible at its hand-over (lf-menv-add):
 \ found before the library, its kind, type and binder kinds as written.

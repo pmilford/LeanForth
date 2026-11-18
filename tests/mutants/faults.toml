@@ -16483,8 +16483,8 @@ reason = "review s1-meta-b H1: a tier name's split refused room eats the caller'
 [[fault]]
 id = "fe-env-refused-handle"
 file = "src/front/meta-env.fs"
-old = ''': me-decoded ( d -- d outcome ) dup lf-libdec-decl nip dup ok? 0= if nip no-result then ;'''
-new = ''': me-decoded ( d -- d outcome ) dup lf-libdec-decl nip ;'''
+old = '''  dup lf-libdec-decl nip me-undecoded dup ok? 0= if nip no-result then ;'''
+new = '''  dup lf-libdec-decl nip me-undecoded ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b H2: a refused decode gives its handle with full, which callers read as a decoded declaration"
 
@@ -20237,3 +20237,19 @@ old = ''': ac-approx? ( -- flag ) lf-defeq-ctx lf-meta-flag? ;'''
 new = ''': ac-approx? ( -- flag ) true ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "review N1 of 2026-11-18: checkAssignment answers unsupported under ctxApprox where the configuration has it off, as the leaked register did"
+
+[[fault]]
+id = "menv-undecoded-unknown"
+file = "src/front/meta-env.fs"
+old = '''  dup outcome-invalid = if over me-lib-d? if drop outcome-unsupported then then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review N3 of 2026-11-18: a library declaration that cannot be decoded reads as no such constant, so isClass?, whnf and infer go on as if it did not exist"
+
+[[fault]]
+id = "menv-undecoded-past-library"
+file = "src/front/meta-env.fs"
+old = ''': me-lib-d? ( d -- flag ) lf-libdec-count u< ;'''
+new = ''': me-lib-d? ( d -- flag ) drop true ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "a declaration of a stage grown past the bound library reads as unsupported, not as unknown"
