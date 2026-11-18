@@ -149,8 +149,10 @@ T{ s" kernel-form Nat Nat ->" nfails -> 4 1 21 }T
 T{ base @ get-current s" theorem t Nat explicit: n n := n end t" nrun drop
    base @ get-current rot = -rot = -> true true }T
 
-\ Out of room: the numerals' positions (author/form.fs) hold 512; a 513th
-\ number in one declaration stops the run full (64), on the line it ends.
+\ Out of room: the numerals' positions (author/form.fs) grow (the author
+\ review's R5): 513 numbers in one declaration are not too many; at a
+\ limit set (here 512) the 513th stops the run full (64), on the line it
+\ ends.
 create text 4096 allot  variable text#
 : text0 ( -- ) 0 text# ! ;
 : text+ ( c-addr u -- ) tuck text text# @ + swap move text# +! ;
@@ -159,7 +161,17 @@ create text 4096 allot  variable text#
 text0 s\" theorem t\n" text+ s" 1 " 300 times s\" \n" text+ s" 1 " 212 times s\" \n" text+
 T{ text$ nfails drop drop lf-author-code lf-author-outcome -> 33 outcome-invalid }T
 text0 s\" theorem t\n" text+ s" 1 " 300 times s\" \n" text+ s" 1 " 213 times s\" \n" text+
+T{ text$ nfails drop drop lf-author-code lf-author-outcome -> 33 outcome-invalid }T
+lfa-form-reset  512 lfa-numerals store-limit! drop
 T{ text$ nfails drop lf-author-code lf-author-outcome -> 64 3 outcome-full }T
+lf-author-begin  1 cells lfa-store-limit lfa-numerals store-limit! drop
+\ Values grow (author/values.fs, the author review's R5): a statement of
+\ 256 arrows, 513 values in one declaration, once full (64) at 512.
+\ (The term store's limit raised for the run's 513 nodes, then put back.)
+lf-term-capacity constant terms-were  lf-author-begin  4096 lf-term-capacity! drop
+text0 s" def t 0 Type := Prop" text+ s"  Prop ->" 256 times s"  end t" text+
+T{ lf-author-begin lf-author-kernel text$ lf-author-text -> outcome-ok }T
+lf-author-begin  terms-were lf-term-capacity! drop
 
 \ Out of room: a syntax store that may hold 3 nodes stops the run full
 \ (68) at the word that needed a fourth; nothing is left on the stack.

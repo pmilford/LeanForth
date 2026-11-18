@@ -516,6 +516,16 @@
   "reason": "false positive: `x? if a else drop b then` with unrelated tests and branches (unfold.fs's instance-mode choice, log-view.fs's formula printing)",
   "tokens": 7
  },
+ "3a5e73ad792e": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/author/form.fs:lfa-store-limit",
+   "src/front/mvars.fs:mv-limit"
+  ],
+  "tokens": 6,
+  "reason": "planned: 9.4.8k front batch: one store.fs word store-heap-open ( room width store -- outcome ), a heap store limited only by the address space, for mvars.fs mv-make/mv-limit, syntax.fs, tactic-syntax.fs, core/local-context.fs and author form.fs, scopes.fs and values.fs (store.fs was on the lib-tidy branch during reuse-front-a2)"
+ },
  "3a7e8de14c92": {
   "copies": 3,
   "kind": "shape",

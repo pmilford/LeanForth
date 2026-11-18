@@ -305,7 +305,7 @@ level or a plain number, and `n` a plain number. Several others are one-off:
 and a level, is *one Forth cell* on the data stack. For all but plain
 numbers the cell is a **negative number** `-(k+1)`: `k` is an index into
 LeanForth's item store, a table of records, one per value made in the
-current declaration, with room for 512 (`lfa-items`, `src/author/values.fs:1-49`).
+current declaration, a heap store that grows as values are made (`lfa-items`, `src/author/values.fs`).
 The record says what the value is (kind: term, level, name, constant,
 or in natural form a syntax node) and holds the index of the expression
 node in the term store (`src/core/terms.fs`). A plain number `n` is an

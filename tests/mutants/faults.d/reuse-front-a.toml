@@ -160,3 +160,27 @@ old = ''': lfa-dot ( c-addr u -- n ) ['] lfa-dot? text-scan ;'''
 new = ''': lfa-dot ( c-addr u -- n ) ['] lfa-blank? text-scan ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "reuse pass part A2, R2: a dotted name is not split at its first dot, so namespaces and short names are lost"
+
+[[fault]]
+id = "rfa2-values-fixed"
+file = "src/author/values.fs"
+old = '''  /lfa-item lfa-store-limit lfa-items store-limit! ok? 0= abort" author: value limit" ;'''
+new = '''  512 lfa-items store-limit! ok? 0= abort" author: value limit" ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "reuse pass part A2, R5: a declaration holds 512 values again, so a statement of 256 arrows stops full"
+
+[[fault]]
+id = "rfa2-values-not-grown"
+file = "src/author/values.fs"
+old = '''  lfa-items store-ready drop lfa-items store-new-slot lfa-e-values-full lfa-must >r'''
+new = '''  lfa-items store-new-slot lfa-e-values-full lfa-must >r'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A2, R5: the value store never grows past its first room"
+
+[[fault]]
+id = "rfa2-numerals-fixed"
+file = "src/author/form.fs"
+old = '''  1 cells lfa-store-limit lfa-numerals store-limit! ok? 0= abort" author: numeral limit" ;'''
+new = '''  512 lfa-numerals store-limit! ok? 0= abort" author: numeral limit" ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "reuse pass part A2, R5: a declaration holds 512 numbers again"

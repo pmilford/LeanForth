@@ -568,7 +568,7 @@ The authoring words' own tables are fixed per run, and making them
 growable is plan task 8.2.1b: 1,024 declarations, 1,024 name entries in
 65,536 bytes of spelling, 1,024 known namespaces in 32,768 bytes, 16
 namespace scopes and open namespaces at once, names of at most 256 bytes
-(a group name 240), 512 values per declaration, 64 open binders, 64 labels
+(a group name 240), values, numerals and open binders as many as the heap holds, 64 labels
 and notes in 4,096 bytes, 8 universe parameters per declaration and 8
 universe arguments per constant, a search order of at most 16 wordlists at
 the start of a run (error 47), numbers of at most 9 digits (numeric parts

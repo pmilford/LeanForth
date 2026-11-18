@@ -175,8 +175,15 @@ lfa-scope-close  16 lfa-binders store-limit! drop
 text0 s" theorem t" text+ s"  Prop explicit: a" 17 times
 T{ text$ fails drop drop -> 65 }T
 lfa-scope-close  lfa-binder-limit lfa-binders store-limit! drop
+\ Values grow too (the author review's R5): 513 values are not too many
+\ (the text then ends unfinished); a value store at its limit, a setting
+\ (here 16), is. The numerals: tests/front/front.fs.
 text0 s" theorem t" text+ s"  Prop" 513 times
+T{ text$ fails drop drop -> 33 }T
+lfa-items-reset  16 lfa-items store-limit! drop
+text0 s" theorem t" text+ s"  Prop" 17 times
 T{ text$ fails drop drop -> 64 }T
+lfa-items-reset  /lfa-item lfa-store-limit lfa-items store-limit! drop
 text0 s" theorem t Prop" text+ s\"  note\" n\"" 65 times
 T{ text$ fails drop drop -> 67 }T
 text0 s" import-stub c end c " 33 times

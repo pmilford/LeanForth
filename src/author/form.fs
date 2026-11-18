@@ -27,12 +27,18 @@
 \ lfa-front-made? says whether a declaration of the run came through the
 \ front end's hand-over (src/front/handover.fs sets it).
 \ State: one context record, lfa-form, and the store lfa-numerals, both
-\ in the checker context (ADR 0009).
+\ in the checker context (ADR 0009). The run's stores of numerals, binders
+\ (scopes.fs) and values (values.fs) are heap stores (lib/store.fs) of
+\ lfa-store-room records at first that grow as the heap allows, up to
+\ lfa-store-limit ( width -- n ) records (plan task 6.2.0).
 
 require ../lib/lib.fs
 require ./errors.fs
 
-512 constant lfa-numeral-capacity
+\ The first room of a run's heap store, and the most records of width
+\ bytes one can hold.
+16 constant lfa-store-room
+: lfa-store-limit ( width -- n ) cell+ max-n store-header - swap / ;
 
 begin-structure /lfa-form
   field: lfa-form-kernel      \ true: the kernel form
@@ -40,7 +46,12 @@ begin-structure /lfa-form
   field: lfa-form-front       \ true: a declaration came through the front end
 end-structure
 /lfa-form context-record: lfa-form
-lfa-numeral-capacity 1 cells 0 context-store: lfa-numerals
+store-header context-record: lfa-numerals
+: lfa-numerals-make ( -- )
+  lfa-store-room 1 cells 0 lfa-numerals store-heap-init ok? 0= abort" author: no heap"
+  1 cells lfa-store-limit lfa-numerals store-limit! ok? 0= abort" author: numeral limit" ;
+' lfa-numerals-make context-setup
+:noname ( -- ) lfa-numerals store-heap-free ; context-teardown
 
 : lfa-kernel-form? ( -- flag ) lfa-form lfa-form-kernel @ ;
 : lfa-kernel-form! ( -- ) true lfa-form lfa-form-kernel ! ;
@@ -56,6 +67,7 @@ lfa-numeral-capacity 1 cells 0 context-store: lfa-numerals
 
 \ Numerals: the positions of the numbers on the data stack, newest last.
 : lfa-numeral-push ( pos -- )
+  lfa-numerals store-ready drop
   lfa-numerals store-new-slot lfa-e-values-full lfa-must drop ! ;
 : lfa-numeral-at ( -- pos )
   lfa-numerals store-count @ dup 0> lfa-e-not-value lfa-must
