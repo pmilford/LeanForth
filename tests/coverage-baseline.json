@@ -85,8 +85,8 @@
   },
   "src/cli/leanforth.fs": {
    "blocks": 1714,
-   "never_run": 115,
-   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed; S2 coverage debt, owner 2026-11-17 (s2-finish, paid in the slice's batch test pass): 105->115: the step log's refusals (a file that cannot be created or written, an axiom's name that finds no room) and S2's text paths that make check runs but make test does not"
+   "never_run": 116,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed; S2 coverage debt, owner 2026-11-17 (s2-finish, paid in the slice's batch test pass): 105->116: the step log's refusals (an axiom's name nt-name refuses, a file that cannot be created or written, an axiom's name that finds no room) and S2's text paths that make check runs but make test does not"
   },
   "src/cli/name-text.fs": {
    "blocks": 104,
