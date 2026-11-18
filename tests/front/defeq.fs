@@ -517,9 +517,9 @@ T{ lf-input-intact? -> true }T
 require ../../src/front/kabstract.fs
 false lf-term-sharing!
 : lit-of ( u -- t ) lf-hterm-cell 0= abort" lit" drop ;
-: apart? ( t1 t2 -- t1 t2 flag ) 2dup <> ;
-T{ 2 lit-of 2 lit-of apart? >r kab-heads= r> 2 lit-of 3 lit-of kab-heads= -> true true false }T
-T{ s" ab" slit s" ab" slit apart? >r kab-heads= r> s" ab" slit s" b" slit kab-heads=
+: heads-apart ( t1 t2 -- same? apart? ) 2dup <> >r kab-heads= r> ;
+T{ 2 lit-of 2 lit-of heads-apart 2 lit-of 3 lit-of kab-heads= -> true true false }T
+T{ s" ab" slit s" ab" slit heads-apart s" ab" slit s" b" slit kab-heads=
    -> true true false }T
 true lf-term-sharing!
 
