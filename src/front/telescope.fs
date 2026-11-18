@@ -19,7 +19,10 @@
 \   lf-with-local-decl ( i*x type name bi xt -- j*x )  withLocalDecl
 \       (Basic.lean:1835): xt ( i*x fvar -- j*x ) runs with a new free
 \       variable of type in a new local whose view is current; the view
-\       and the local context (lf-lctx-drop) put back on both paths
+\       and the local context put back on both paths. lf-lctx-drop drops
+\       every local made inside xt, not only this one: nothing made
+\       inside may escape (a metavariable made there and kept would name
+\       a dead local, which lf-fvar-live? tells; Lean's keeps its context)
 \   lf-forall-meta-telescope-reducing ( acc type d xt -- acc' body )
 \       forallMetaTelescopeReducing (Basic.lean:1751-1791, maxMVars?
 \       none, kind natural): a new metavariable per binder, synthetic for
