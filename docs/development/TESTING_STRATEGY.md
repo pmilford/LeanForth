@@ -461,8 +461,8 @@ time, as `scripts/export.sh` builds `export_manifest.py`'s, is not seen).
 | `src/import/` | `test-core` (NDJSON reader, load), `test-manifest`, `test-stage`, `test-reexport`, `test-run-records`, `test-compact` |
 | `src/program/` | `test-program`, `test-program-ir`, `test-program-ir-run` |
 | `src/present/` | `test-present`; `test-printer-differential` |
-| `src/author/` | `test-author`; `reference-author` |
-| `src/front/`, `src/core/mvar-leaves.fs` | `test-front`; `test-author` (the export writer's refusal, the marker); `reference-front` (pinned Lean's macro expansion); `reference-constructions` (`casesOn`, `recOn` and `ctorIdx` built for every type of Init and compared with Lean's export, and their binder names and information with pinned Lean's environment; plan FE6); `test-instances` and `reference-synth` (the instance keys and table and instance search, plans FE1e2-FE1e3 and FE1e5: every Init instance recomputed, getInstances and 30 searches against pinned Lean) |
+| `src/author/` | `test-author`, `test-author-e2e`; `reference-author` |
+| `src/front/`, `src/core/mvar-leaves.fs` | `test-front`, `test-front-e2e` (`.lf` files through `bin/leanforth check`); `test-author` (the export writer's refusal, the marker); `reference-front` (pinned Lean's macro expansion); `reference-constructions` (`casesOn`, `recOn` and `ctorIdx` built for every type of Init and compared with Lean's export, and their binder names and information with pinned Lean's environment; plan FE6); `test-instances` and `reference-synth` (the instance keys and table and instance search, plans FE1e2-FE1e3 and FE1e5: every Init instance recomputed, getInstances and 30 searches against pinned Lean) |
 | `tests/reference/*.lean` | the target that runs the file (`make check-changed` finds it) |
 | `scripts/lean-cache.py`, the Makefile | `test-lean-cache`, then the full tier (`make tier`) |
 | `docs/` | `check-docs`, `check-doc-examples` |
@@ -482,19 +482,26 @@ and gives the range its largest file tier (`python3 scripts/test-tier.py
 | Tier | Files | Suites |
 | --- | --- | --- |
 | docs | Markdown anywhere, `docs/`, `.claude/`, `.codex/`, `prompts/`, `LICENSE`, `.gitignore` | `check-docs`, the targets that read the file (a page whose examples run, a catalogue a test compares), the progress check |
-| tests | any other file under `tests/` | the targets that use it (also on Gforth 0.7.3 at the push); its planted faults; the block coverage of the source files the changed tests drive (`make coverage-check` when `src/main.fs` loads one of them) |
-| library | a Forth file of `src/lib/` that `src/main.fs` does not load | the targets that use it (on Gforth 0.7.3 too at the push), its faults, its coverage |
-| front | a Forth file of `src/front/` that `src/main.fs` does not load | the same, and `test-front`, `reference-front` |
-| full | any Forth file `src/main.fs` loads (at HEAD or at the base, so a library that becomes loaded is full), `src/main.fs`, `src/kernel`, `core`, `import`, `cli` and every other folder of `src/`, the Makefile, `scripts/`, `bin/`, `schemas/`, `lean-toolchain`, `.github/`, anything else | `make coverage-check`, `make check-rest`; `make test` on Gforth 0.7.3 at the push |
+| tests | any other file under `tests/` | the targets that use it, their unit tests also on gforth-fast (and on Gforth 0.7.3 at the push); its planted faults; the block coverage of the source files the changed tests drive (`make coverage-check` when `src/main.fs` loads one of them) |
+| library | a Forth file of `src/lib/` that `src/main.fs` does not load | the targets that use it (their unit tests on gforth-fast, and on 0.7.3 at the push), its faults, its coverage |
+| front | a Forth file of `src/front/` that `src/main.fs` does not load | the same, and `test-front`, `test-front-e2e`, `reference-front` |
+| full | any Forth file `src/main.fs` loads (at HEAD or at the base, so a library that becomes loaded is full), `src/main.fs`, `src/kernel`, `core`, `import`, `cli` and every other folder of `src/`, the Makefile, `scripts/`, `bin/`, `schemas/`, `lean-toolchain`, `.github/`, anything else | `make coverage-check`, `make test-unit` on gforth-fast, `make check-rest`; `make test-unit` on Gforth 0.7.3 at the push |
 
+- Unit and end-to-end tests (owner, 2026-11-14): see "Unit and end-to-end
+  tests" below. In a smaller tier the reached unit targets whose recipe runs
+  Gforth run on gforth-fast (`targetsfast`) and at the push on Gforth 0.7.3
+  (`targets073`); an end-to-end target never does. `scripts/test-tier.py`
+  refuses a plan (exit 2) that would leave such a unit target off an engine
+  or put an end-to-end target on one.
 - Gforth 0.7.3 (owner, 2026-11-14): a branch's tier (`make tier`) leaves
   its 0.7.3 suites to the push, which runs them (`tested-tree.py tier
   --with-073`), and to the daily full run; a portability slip is then caught
   at the push instead of on the branch, and each branch's full tier is about
   9 minutes shorter. `make coverage-check` is `make test` instrumented, so
   the full tier never runs `make test` on Gforth 1.0 a second time; only
-  `test-cli` runs in both, on purpose (COVERAGE_ENGINE_DIFFERS: its
-  `gforth-fast` runs, which coverage replaces by the counting Gforth).
+  `test-cli-engines` runs in both, on purpose (COVERAGE_ENGINE_DIFFERS: it
+  compares `gforth-fast` with the checking engine, and coverage replaces
+  `gforth-fast` by the counting Gforth).
 - "Loads" is the `require`/`include`/`needs` graph from `src/main.fs`,
   comments included (more is loaded, never less). Since FE1g-1 it holds 180
   of the 192 Forth files: every front-end file but `cases-several.fs`,
@@ -567,8 +574,8 @@ review and style check and the refusal on any failure. Its suites are the
 tier of `origin/main..HEAD`, run as `make tier` runs them: what a record of
 HEAD's tree, or of an earlier commit for what the change since cannot
 reach, stands for is reused, the rest runs. When no full run (`make coverage-check`,
-`make check-rest` or `make check` with `LEAN_CACHE=0`, and `make test` on
-Gforth 0.7.3) is recorded today on any tree, the push runs the full tier with
+`make test-unit` on gforth-fast, `make check-rest` or `make check` with `LEAN_CACHE=0`,
+and `make test-unit` on Gforth 0.7.3) is recorded today on any tree, the push runs the full tier with
 `LEAN_CACHE=0`: the owner's daily full run. `--full` forces the full tier
 (before a tag), `--no-cache` sets `LEAN_CACHE=0`, `--dry-run` prints the tier
 and what would run or be reused and stops. The line it appends to
@@ -580,15 +587,16 @@ other than `main`, with uncommitted changes, and when there is nothing to push.
 **One instrumented run of `make test`.** `make check` is now `make test` plus
 `make check-rest`: every target of `make check` outside `make test`, and the
 targets of `make test` whose Gforth changes under coverage. That is
-`COVERAGE_ENGINE_DIFFERS`, today `test-cli`: its `--fast` runs use
+`COVERAGE_ENGINE_DIFFERS`, since 2026-11-17 `test-cli-engines` (until then
+all of `test-cli`): the Engines class's `--fast` runs use
 `gforth-fast`, which `make coverage` replaces with the counting Gforth 1.0, so
 its engine comparisons compare the checking engine with itself there. No
-other test of `make test` names `gforth-fast` or reads the coverage
+other test of `make test` compares `gforth-fast` with another engine or reads the coverage
 variables. The full tier runs `make coverage-check` (all of `make test`,
 instrumented, and the ratchet) and `make check-rest`, so `make test` runs
 once instead of twice. `tests/scripts/test_test_tier.py` checks that `make
 check`'s targets are exactly those of `make test` and `make check-rest`, and
-that `check-rest` repeats no target of `make test` but `test-cli`'s.
+that `check-rest` repeats no target of `make test` but `test-cli-engines`.
 
 Measured 2026-11-13 with `JOBS=2` and `nice -n 10` while other agents
 loaded the machine (load 4-6 on 10 cores); "target time" is the sum of
@@ -626,6 +634,72 @@ reach, and nothing after a full-tier change or on another branch; the tier
 runner reusing, narrowing and running; the daily full run; and `scripts/push.sh` on a
 copy with a bare repository as origin: its dry run, its refusals, a push, a
 failed suite not pushed, and the record of what ran and what was reused.
+Since 2026-11-17 they also check the engines: a reached unit test on
+gforth-fast and 0.7.3, an end-to-end test on neither, an unclassified target
+on both, a plan that drops a unit test from an engine or puts an end-to-end
+test on 0.7.3 refused, gforth-fast's records kept apart from Gforth 1.0's.
+`make check-test-classes` (in `make test`) runs `tests/scripts/test_test_classes.py`
+(the table's rows; a target, a test file in neither class, a stale or
+malformed row and a missing table fail on a throw-away repository) and then
+`scripts/test-classes.py` on the real tree.
+
+### Unit and end-to-end tests (owner, 2026-11-14)
+
+The owner found the same code tested too many times and decided: **unit
+tests** (a Forth test file that loads a module and runs its cases; Python
+tests of scripts) run on both Gforth engines, `gforth` (the checking engine,
+also the one `make coverage` counts with) and `gforth-fast` (`bin/leanforth`'s
+default); **end-to-end tests** (anything that runs `bin/leanforth` on an
+export, a snapshot or `.lf` files; the pinned-Lean comparisons; runs of
+all of `Init`; faults planted in a copy of the tree) run once, on one engine,
+and not again outside `make coverage-check` when it already runs them;
+**Gforth 0.7.3** runs the unit tests only, at the push and in the daily run.
+
+- **One table.** [`tests/test-classes.txt`](../../tests/test-classes.txt)
+  gives every leaf target of `make check` its class (46 unit, 91 end to
+  end on 2026-11-17), and names the test programs no target runs by a path
+  it can see (`manual`: benchmarks, measurements by hand) or that a target runs
+  through a path built at run time. The Makefile reads it for `make
+  test-unit` and `make test-e2e`; `scripts/test-tier.py` for the suites of a
+  tier; `scripts/test-classes.py` (`make check-test-classes`, part of `make
+  test`) fails when a leaf target of `make check` or a tracked test program
+  under `tests/` is in neither class, or a row names nothing.
+- **Mixed targets split.** `test-cli`'s four parts are end to end, its
+  Forth side (`test-cli-forth`) unit, and the Engines class is its own part
+  `test-cli-engines`; `test-front-e2e` (`check_tactics.py`, `check_elab.py`,
+  `check_s2.py`), `test-author-e2e` (`check_author.py`) and
+  `test-elab-data-e2e` (`test_elab_data.py`) took the `bin/leanforth` runs of
+  `test-front`, `test-author` and `test-elab-data`, which keep their unit
+  tests. `make test` and `make check` run the same commands as before.
+- **Where each runs.** `make coverage-check` runs all of `make test` once,
+  instrumented on Gforth 1.0: every unit test on the checking engine and every
+  end-to-end test of `make test`, which run nowhere else. `make test-unit
+  GFORTH=.tools/gforth/bin/gforth-fast` runs the unit tests on gforth-fast
+  (in every branch's tier). `make check-rest` runs the end-to-end tests outside
+  `make test` once, and `test-cli-engines` (about 10 s) a second time, plain, for
+  its gforth-fast comparison. `make test-unit GFORTH=<0.7.3>` runs at the push.
+- **Engine-dependent observations.** Three host observations differ on
+  gforth-fast, which checks no stack depth and reports a division overflow
+  as THROW -10: the underflow checks of `tests/program/clamp.fs` and
+  `examples.fs` run only where `host-checks-depth?` (`tests/support/tester.fs`,
+  from the engine's program name) holds, and `tests/program/ir_reader_files.py`
+  accepts -10 or -11 for the smallest number divided by -1. Every other unit
+  test passed unchanged on gforth-fast (2026-11-17, 96 s at `JOBS=2`).
+- **Records.** gforth-fast prints Gforth 1.0's version, so
+  `scripts/tested-tree.py` adds "(gforth-fast)" to its records' Gforth: a
+  pass on one engine never stands for the other.
+
+What now runs fewer times, and why that is safe: the end-to-end tests of
+`make test` (`test-cli-1`…`4`, `test-front-e2e`, `test-author-e2e`,
+`test-elab-data-e2e`, `test-program-verify-command`) no longer run on
+Gforth 0.7.3, and `test-cli`'s four parts no longer run a second time in
+`make check-rest`; they still run once per full tier on Gforth 1.0 (with
+coverage), and their Forth code is reached on 0.7.3 and gforth-fast by the
+unit tests of the same modules. `test-cli-engines` keeps the real
+gforth-fast comparison in `make check-rest`, `reference-cli` runs
+`bin/leanforth --fast` on its exports, and `make engine-gate` compares the two
+engines on all of `Init`. Every test of `make check` still runs at least once
+per full tier, and every unit test now runs on one more engine than before.
 
 ## Reuse checks (plan 9.4.8f, owner 2026-11-13)
 
