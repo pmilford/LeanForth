@@ -45,6 +45,7 @@
 \   /sections sections: sections-init sections-field! sections-field@
 \   sections-add sections-write sections-open sections-count sections-info
 \   sections-read sections-close sections-align sections-max
+\   sections-suffix
 \ Everything else is private (lf-lib-private).
 \
 \ Limits: file offsets and lengths are held in cells, so a 32-bit host
@@ -66,6 +67,9 @@ lf-lib-private module-open
 lf-lib set-current
 4096 constant sections-align   \ the header's size and every section's alignment
 62 constant sections-max       \ sections one header holds
+\ ( -- c-addr u ) what the partial's name adds to FILE: a caller that must
+\ not let FILE.partial be one of its other files names it with this.
+: sections-suffix ( -- c-addr u ) s" .partial" ;
 lf-lib-private set-current
 
 16 constant sec-fields         \ caller's 32-bit header fields
@@ -74,7 +78,6 @@ $01020304 constant sec-order   \ written little-endian; the other order reads as
 $04030201 constant sec-order-swapped
 500 constant sec-path-room     \ the longest file name; FILE.partial adds 8
 : sec-magic ( -- c-addr u ) s" SECTFILE" ;
-: sec-suffix ( -- c-addr u ) s" .partial" ;
 
 \ One table entry in the header, little-endian (offsets in address units).
 begin-structure /sec-slot
@@ -204,7 +207,7 @@ end-structure
 : sec-partial-name ( sf -- c-addr u ) dup sec-partial swap sec-pathlen @ 8 + ;
 : sec-name-in ( c-addr u sf -- ) 2dup sec-pathlen ! sec-path swap move ;
 : sec-name-partial ( sf -- )
-  dup sec-final-name rot sec-partial sec-put sec-suffix rot sec-put drop ;
+  dup sec-final-name rot sec-partial sec-put sections-suffix rot sec-put drop ;
 : sec-name! ( c-addr u sf -- outcome )
   over sec-path-room u> if drop 2drop outcome-full exit then
   dup >r sec-name-in r> sec-name-partial outcome-ok ;

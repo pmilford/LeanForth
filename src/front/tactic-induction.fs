@@ -49,7 +49,9 @@
 \ Errors stop the run (author/errors.fs) at the step's word, an
 \ alternative's at its |. Untrusted: the kernel checks the finished term.
 \ State: the slabs tind-withs (the open by-induction-with blocks) and
-\ tind-alts (their cases), in the checker context (ADR 0009); the step's
+\ tind-alts (their cases), kept in a tactic's saved state on
+\ tind-withs-kept and tind-alts-kept (tac-state:), in the checker
+\ context (ADR 0009); the step's
 \ own fields in its step record (tactic-run.fs, review fe1g3 M2). Loads in
 \ decimal whatever BASE is, then restores it.
 
@@ -92,6 +94,17 @@ begin-structure /tiw      \ an open by-induction-with block
 end-structure
 /tiw context-slab: tind-withs
 1 cells context-slab: tind-js   \ a with block's alternatives: their steps
+\ The open blocks and their cases in a tactic's saved state (tactic-run.fs's
+\ tac-state:; review C2 of 2026-11-18: a failed block left them open).
+/tia context-slab: tind-alts-kept
+/tiw context-slab: tind-withs-kept
+: lfi-keep ( -- outcome )
+  tind-alts tind-alts-kept slab-keep dup ok? 0= if exit then drop
+  tind-withs tind-withs-kept slab-keep dup ok? if exit then tind-alts-kept slab-forget ;
+: lfi-kept ( undo? -- outcome )
+  dup tind-alts tind-alts-kept slab-kept
+  swap tind-withs tind-withs-kept slab-kept outcome-and ;
+' lfi-keep ' lfi-kept tac-state:
 begin-structure /tind     \ the step's fields, after tb's
   /tb +field tind-tb
   field: tind-target      \ the target: a free variable
@@ -125,8 +138,10 @@ end-structure
   lf-meta-head-name if lfi-custom else false then ;
 : lfi-major ( -- t ) lfi-target-type lf-meta-whnf lf-tac-must ;
 \ Not an inductive type (205): Lean's text with its hints, then the goal.
-: lfi-sort? ( t -- level true | false )
-  dup lf-term-tag@ lf-tag-sort = if lf-term-first@ true else drop false then ;
+\ Lean's majorType.isProp and .isType (Sort 0; a Sort of a succ level).
+: lfi-succ-sort? ( t -- flag )
+  dup lf-tag-symbolic-sort lf-term-tag? 0= if lf-sort? exit then
+  lf-term-first@ lf-level-tag@ lf-level-tag-succ = ;
 : lfi-prop-hint. ( -- )
   s\" \n\nConsider using the 'by_cases' tactic, which does true/false " lf-pp-emit
   s" reasoning for propositions." lf-pp-emit ;
@@ -136,7 +151,7 @@ end-structure
   s" According to Lean's underlying theory, the only provable " lf-pp-emit
   s" distinguishing feature of types is their cardinalities." lf-pp-emit ;
 : lfi-sort-hint. ( t -- )
-  lfi-sort? 0= if exit then 0= if lfi-prop-hint. else lfi-type-hint. then ;
+  dup lf-prop? if drop lfi-prop-hint. exit then lfi-succ-sort? if lfi-type-hint. then ;
 : lfi-explanation. ( -- )
   s\" \n\nExplanation: the `induction` tactic is for constructor-based " lf-pp-emit
   s" reasoning as well as for applying custom induction principles with a " lf-pp-emit

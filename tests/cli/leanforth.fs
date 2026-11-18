@@ -406,6 +406,27 @@ T{ thrown-text -> 77 true true }T
   s" error: full: the records written for the LeanForth text were refused" search nip nip ;
 T{ refused-message -> 3 true }T
 [then]
+\ A Forth fault inside a text's run is LeanForth's (review F5 of
+\ 2026-11-18): any THROW but a resource one is error 41, an internal
+\ fault, exit 5 (cli-author-outcome. names it, outcome>code maps it); a
+\ heap refusal (-59) is error 300, full, exit 3. The two words exist only
+\ here, among the LeanForth words the texts tests/cli/forth-*.lf call.
+get-current lf-words set-current
+: forth-fault ( -- ) -21 throw ;
+: forth-room ( -- ) -59 throw ;
+set-current
+: fault-text ( -- c-addr u ) s" tests/cli/forth-fault.lf" ;
+: room-text ( -- c-addr u ) s" tests/cli/forth-room.lf" ;
+T{ fault-text cli-check lf-author-code room-text cli-check lf-author-code -> 5 41 3 300 }T
+[defined] >string-execute [if]
+: said ( c-addr u xt -- code flag )
+  >r ['] cli-check >string-execute r> execute search nip nip ;
+: fault-said ( -- c-addr u )
+  s" error: internal fault: the LeanForth text was not checked: error 41 at line:col 5:1" ;
+: room-said ( -- c-addr u ) s" error: full: the LeanForth text was not checked: error 300" ;
+T{ fault-text ' fault-said said room-text ' room-said said -> 5 true 3 true }T
+[then]
+cli-options
 
 \ A run that stops in the publisher: a THROW before declaration 1's slot
 \ is final. The run is invalid (that slot is open), the code a fault's;
@@ -840,6 +861,83 @@ T{ lf-sch-queues-init -> outcome-ok }T
 lf-sched lf-sch-ready queue-in  lf-sched lf-sch-laters queue-in
 T{ lf-sched lf-sch-ready queue-out lf-sched lf-sch-laters queue-out -> 2 5 9 2 5 9 }T
 lf-sched lf-sch-ready pq-free  lf-sched lf-sch-laters pq-free
+
+\ No file written is one read or written by another argument (review B1,
+\ B2 of 2026-11-18): the same text, or a pair of argument indices that
+\ bin/leanforth found one file (tests/cli/test_leanforth.py's Overwrites
+\ runs those); files only read may repeat.
+: t-ex ( -- c-addr u ) s" ex.ndjson" ;
+: t-dot-ex ( -- c-addr u ) s" ./ex.ndjson" ;
+: t-new ( -- c-addr u ) s" new.json" ;
+: t-export ( -- c-addr ) c" EXPORT" ;  : t-record ( -- c-addr ) c" RECORD" ;
+: t-file ( -- c-addr ) c" FILE" ;  : t-steps ( -- c-addr ) c" STEPS" ;
+T{ 3 12 cli-pair s"  3:12 " compare -> 0 }T
+cli-options
+T{ t-ex t-export cli-in+ t-ex t-record cli-out+ t-dot-ex t-file cli-out+ -> }T
+T{ 0 cli-path 1 cli-path cli-same-file? 0 cli-path 2 cli-path cli-same-file? -> true false }T
+T{ 0 cli-path 1 cli-path cli-written? 0 cli-path 0 cli-path cli-written? -> true false }T
+T{ 2 cli-path cli-path-addr 0 cli-path cli-path-addr -> t-dot-ex drop t-ex drop }T
+T{ 12 3 cli-same-pair? -> false }T
+cli-options
+T{ t-ex t-export cli-in+ t-ex t-record cli-out+ cli-clash -> 0 1 true }T
+T{ cli-state arg-paths# @ 1 cli-path path-out? @ 0 cli-path path-out? @ -> 2 true false }T
+cli-options
+T{ t-ex t-export cli-in+ t-ex t-record cli-in+ t-dot-ex t-file cli-out+ cli-clash -> false }T
+T{ 0 0 t-steps cli-out+ cli-state arg-paths# @ -> 3 }T
+T{ t-new t-record cli-out+ t-new t-steps cli-out+ cli-clash -> 3 4 true }T
+cli-options
+T{ t-ex cli-seen+ 2drop t-new cli-seen+ 2drop cli-seen nip -> 2 }T
+T{ t-new drop cli-arg-index t-ex drop cli-arg-index t-dot-ex drop cli-arg-index -> 1 true 0 true false }T
+cli-options
+\ An export's manifest is read with it (review F1 of 2026-11-18): its path
+\ is the export's name, flagged, and a written name equal to the export's
+\ plus .manifest.json clashes with it; " Im:J " names argument I's
+\ manifest one file with argument J.
+: t-exm ( -- c-addr u ) s" ex.ndjson.manifest.json" ;
+: t-manifest ( -- c-addr ) c" M" ;
+T{ 3 char m 12 cli-dpair s"  3m:12 " compare -> 0 }T
+: t-export-in ( c-addr u -- ) 2dup t-export cli-in+ t-manifest cli-manifest-in ;
+T{ t-ex t-export-in t-exm t-record cli-out+ cli-state arg-paths# @ -> 3 }T
+T{ 0 cli-path cli-derived? 1 cli-path cli-derived? 2 cli-path cli-derived? -> false true false }T
+T{ 1 cli-path cli-mark 1 cli-path cli-suffix s" .manifest.json" compare -> char m 0 }T
+T{ 1 cli-path 2 cli-path cli-same-text? 2 cli-path 1 cli-path cli-same-text? -> true true }T
+T{ 0 cli-path 2 cli-path cli-same-text? 0 cli-path 1 cli-path cli-same-text? -> false false }T
+T{ cli-clash -> 1 2 true }T
+cli-options
+T{ t-new t-export-in t-dot-ex t-record cli-out+ cli-clash -> false }T
+\ Derived path c-addr1 u1 (a manifest) against written text c-addr2 u2:
+\ one name only when as long, the stem first and the suffix last.
+: t-pair ( c-addr1 u1 c-addr2 u2 -- flag )
+  cli-options 2swap t-manifest cli-manifest-in t-record cli-out+
+  0 cli-path 1 cli-path cli-same-text? ;
+T{ t-ex s" .manifest.json" t-pair t-ex s" json" t-pair s" ex" s" x" t-pair -> false false false }T
+T{ t-ex t-exm t-pair s" ex.ndjso" t-exm t-pair s" fx.ndjson" t-exm t-pair -> true false false }T
+T{ t-ex s" ex.ndjson.manifest.jsox" t-pair -> false }T
+\ A shorter text is never read past its end: "ex" in memory that goes on
+\ as the manifest's name.
+T{ t-ex t-exm drop 2 t-pair -> false }T
+cli-options
+T{ t-ex t-export-in 0 0 t-manifest cli-manifest-in cli-state arg-paths# @ 1 cli-path cli-derived?
+   -> 2 true }T
+cli-options
+\ --save-snapshot FILE writes FILE.partial first (lib/sections.fs; review
+\ R2 of 2026-11-18): a derived output, " Ip:J " in the pairs, that no
+\ input may be, by text or by place; two derived files of one stem with
+\ different suffixes are two names.
+: t-y ( -- c-addr u ) s" y" ;  : t-yp ( -- c-addr u ) s" y.partial" ;
+T{ 1 char p 2 cli-dpair s"  1p:2 " compare -> 0 }T
+T{ cli-partial-out cli-state arg-paths# @ -> 0 }T
+T{ t-y cli-save! cli-partial-out cli-state arg-paths# @ 0 cli-path path-out? @ -> 1 true }T
+T{ 0 cli-path cli-mark 0 cli-path cli-suffix s" .partial" compare -> char p 0 }T
+T{ t-yp t-export cli-in+ cli-clash -> 0 1 true }T
+cli-options  0 0 cli-save!
+T{ t-y cli-save! cli-partial-out t-y t-export-in cli-clash -> false }T
+T{ 0 cli-path 2 cli-path cli-same-text? 0 cli-path 2 cli-path cli-both-text? -> false false }T
+cli-options  0 0 cli-save!
+\ Two manifests: one name when their exports' names are one text.
+T{ t-ex t-export-in t-ex t-export-in t-new t-export-in -> }T
+T{ 1 cli-path 3 cli-path cli-same-text? 1 cli-path 5 cli-path cli-same-text? -> true false }T
+cli-options
 
 cases-done
 bye

@@ -230,6 +230,44 @@ T{ m0 s2 slab-mark 1 s2 slab-push 2 s2 slab-push m0 s2 slab-rollback s2 slab-cou
    -> outcome-ok outcome-ok outcome-ok outcome-ok 0 }T
 s1 slab-free s2 slab-free s3 slab-free
 
+\ Copies kept as a stack (a choice point's saved state): slab-keep pushes
+\ a copy of the units and their count onto a store of the same unit,
+\ slab-restore makes them the slab's again and drops the copy,
+\ slab-forget drops it; last in, first out.
+1 cells 10 s1 slab-init drop  1 cells 100 s2 slab-init drop
+: s1-cells ( -- x... n ) s1 slab-count 0 ?do i s1 slab-at @ loop s1 slab-count ;
+T{ 7 s1 slab-push 8 s1 slab-push s1 s2 slab-keep s2 slab-count
+   -> outcome-ok outcome-ok outcome-ok 3 }T
+T{ s1 slab-pop 9 s1 slab-push 10 s1 slab-push s1 s2 slab-keep s2 slab-count
+   -> 8 outcome-ok outcome-ok outcome-ok 7 }T
+T{ 11 s1 slab-push s1 s2 slab-restore s1-cells s2 slab-count -> 0 0 7 9 10 3 3 }T
+T{ 0 s1 slab-cut s1 s2 slab-restore s1-cells s2 slab-count -> 0 7 8 2 0 }T
+\ An empty slab is kept as one; a copy forgotten leaves the slab as it is.
+T{ 0 s1 slab-cut s1 s2 slab-keep 5 s1 slab-push s2 slab-forget s1-cells s2 slab-count
+   -> outcome-ok outcome-ok 5 1 0 }T
+T{ s1 s2 slab-keep 0 s1 slab-cut 6 s1 slab-push s1 s2 slab-restore s1-cells
+   -> outcome-ok outcome-ok outcome-ok 5 1 }T
+\ Another unit, or one narrower than a cell: invalid; a store with no
+\ room for the copy and its count: full; nothing changed either way.
+2 cells 10 s3 slab-init drop
+T{ s1 s3 slab-keep s3 slab-count -> outcome-invalid 0 }T
+s3 slab-free  1 cells 1- 10 s3 slab-init drop
+T{ s3 s3 slab-keep s3 slab-count -> outcome-invalid 0 }T
+s3 slab-free  1 cells 2 s3 slab-init drop
+T{ 1 s1 slab-push s1 s3 slab-keep s3 slab-count s1-cells -> outcome-ok outcome-full 0 5 1 2 }T
+\ slab-kept: put back (true) or forgotten (false, ok), the copy dropped.
+s3 slab-free  1 cells 100 s3 slab-init drop
+T{ s1 s3 slab-keep 9 s1 slab-push true s1 s3 slab-kept s1-cells s3 slab-count
+   -> outcome-ok outcome-ok outcome-ok 5 1 2 0 }T
+T{ s1 s3 slab-keep 9 s1 slab-push false s1 s3 slab-kept s1-cells s3 slab-count
+   -> outcome-ok outcome-ok outcome-ok 5 1 9 3 0 }T
+0 s1 slab-cut 5 s1 slab-push drop 1 s1 slab-push drop
+s3 slab-free  1 cells 2 s3 slab-init drop
+\ With no copy kept: slab-underflow, nothing changed.
+T{ s3 ' slab-forget underflow? s1 s3 ' slab-restore catch nip nip s3 slab-count
+   s1 slab-count -> true slab-underflow 0 2 }T
+s1 slab-free s2 slab-free s3 slab-free
+
 \ Worklists: slab-all? pops a value and tests it, the test pushing more,
 \ until the slab is empty (true ok), a test says false (false ok) or one
 \ fails (false and its outcome), the values not yet tested left; the

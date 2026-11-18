@@ -481,12 +481,11 @@ def main(args):
     lean = os.environ.get("LEANFORTH_LEAN")
     if not lean:
         sys.exit("lean-cache: LEANFORTH_LEAN must name the real Lean binary")
+    # A bare name (the Makefile's LEAN default `lean`, when no .tools toolchain is beside the
+    # checkout, as in a worktree) is found on PATH: execv takes a path, and the toolchain's
+    # leanexport is found beside the real file (fix-batch-4, 2026-11-18).
     if os.sep not in lean:
-        # A bare name (a make run without the pinned toolchain): the PATH's, as a shell would.
-        found = shutil.which(lean)
-        if not found:
-            sys.exit(f"lean-cache: LEANFORTH_LEAN names {lean}, which is not on PATH")
-        lean = found
+        lean = shutil.which(lean) or lean
     mode = os.environ.get("LEANFORTH_LEAN_CACHE", "1")
     if mode not in ("0", "1", "verify"):
         sys.exit(f"lean-cache: LEANFORTH_LEAN_CACHE must be 0, 1 or verify, not {mode}")

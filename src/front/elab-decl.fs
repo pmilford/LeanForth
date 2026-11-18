@@ -150,6 +150,9 @@ action-of lfa-run-fresh constant edc-run-before
 : edc-tac-elab ( node expected postpone? -- term outcome )
   ['] edc-tac-run edc-configured dup ok? 0= if edc-tac-fail then ;
 ' edc-tac-elab is lf-tac-elab
+\ The pending list in a tactic's saved state, as Lean's Term.saveState
+\ holds pendingMVars (tactic-run.fs's tac-state:; review N4 of 2026-11-18).
+' lf-elab-pending-keep ' lf-elab-pending-kept tac-state:
 
 \ ---- #check.
 : edc-printed ( term -- outcome ) ['] type true lf-print-to ;

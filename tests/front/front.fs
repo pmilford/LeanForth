@@ -568,6 +568,24 @@ T{ mark-in2 @ lf-mctx-rollback mark-out @ lf-mctx-rollback lmc lfree? lmd lfree?
 T{ lmb one lf-level-mvar-assign mv-trail slab-count -> outcome-ok 0 }T
 T{ mark-out @ lf-mctx-rollback 0 lf-mctx-commit lmb lfree? lf-mctx-marks
    -> outcome-invalid outcome-invalid false 0 }T
+\ Back to a mark through every newer scope (review C1 of 2026-11-18):
+\ plain and deep ones are undone and closed, the depths given back; a
+\ depth scope, a closed mark, 0 or a number never given are refused and
+\ change nothing; back to an inner mark keeps the outer one's changes.
+variable dscope2
+T{ mark mark-out ! lmc one lf-level-mvar-assign mark mark-in ! lmd one lf-level-mvar-assign
+   -> outcome-ok outcome-ok }T
+T{ lf-mctx-depth false lf-mctx-depth{ swap dscope2 ! lf-mctx-depth lf-mctx-marks
+   -> 0 outcome-ok 1 3 }T
+T{ dscope2 @ lf-mctx-rollback-to 0 lf-mctx-rollback-to 99999 lf-mctx-rollback-to lf-mctx-marks
+   -> outcome-invalid outcome-invalid outcome-invalid 3 }T
+T{ mark-out @ lf-mctx-rollback-to lmc lfree? lmd lfree? lf-mctx-marks lf-mctx-depth
+   mv-trail slab-count -> outcome-ok true true 0 0 0 }T
+T{ mark-out @ lf-mctx-rollback-to -> outcome-invalid }T
+T{ mark mark-out ! lmc one lf-level-mvar-assign mark mark-in ! lmd one lf-level-mvar-assign
+   mark drop -> outcome-ok outcome-ok }T
+T{ mark-in @ lf-mctx-rollback-to lmc lfree? lmd lfree? lf-mctx-marks -> outcome-ok false true 1 }T
+T{ mark-out @ lf-mctx-rollback lmc lfree? lf-mctx-marks -> outcome-ok true 0 }T
 \ A refused assignment notes nothing: ?a is assigned already.
 lma one lf-level-mvar-assign drop
 T{ mark mark-out ! lma one lf-level-mvar-assign mv-trail slab-count -> outcome-invalid 0 }T

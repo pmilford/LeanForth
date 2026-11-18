@@ -368,14 +368,16 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
   ea ea-rres @ outcome-ok ;
 
 \ ---- propagateExpectedType (App.lean:563), before a syntax argument.
-: ea-prop? ( t -- flag )
-  dup lf-term-tag@ lf-tag-sort = if lf-term-first@ 0= else drop false then ;
+\ Lean's expectedType.isProp after instantiateMVars (App.lean:593): Sort 0
+\ exactly; an expected Prop is never propagated (review N2 of 2026-11-18).
+: ea-prop? ( t -- flag outcome )
+  lf-instantiate-mvars lf-elab-meta ok-then? if lf-prop? outcome-ok else false swap then ;
 : ea-prop-off ( -- outcome ) false ea ea-propagate ! outcome-ok ;
 : ea-prop-try ( expected type -- outcome )
   ea-try-synthesize dup ok? 0= if nip nip exit then drop
   lf-elab-defeq lf-elab-meta ok-then? if if ea-prop-off else outcome-ok then then ;
 : ea-prop-with ( expected -- outcome )
-  dup ea-prop? if drop ea-prop-off exit then
+  dup ea-prop? ok-then? 0= if nip exit then if drop ea-prop-off exit then
   ea-resulting ok-then? 0= if nip exit then
   dup 0< if 2drop outcome-ok else ea-prop-try then ;
 : ea-propagate-arg ( -- outcome )

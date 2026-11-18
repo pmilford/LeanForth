@@ -54,6 +54,16 @@
 \   it is not used, which changes no answer); emptied with the context
 \   (mctx-epoch@). Lean's __wild__ wildcards are the loose bound
 \   variable sy-tc-base - 1 and the level parameter named __wild__.
+\   A failed attempt keeps it (it is not in tactic-run.fs's tac-state
+\   chain), as Lean's Meta.SavedState.restore keeps Meta.State.cache
+\   (Meta/Basic.lean 624-626 restores only mctx, zetaDeltaFVarIds and
+\   postponed; review R3 of 2026-11-18). No entry then names a
+\   metavariable that is gone: an answer holding one of the search's is
+\   unsupported (118, 121) and never cached; a rollback (mvars.fs) undoes
+\   assignments, not declarations, so a metavariable made inside the
+\   attempt keeps its number and no later one takes it; and no tactic
+\   rollback takes back a term node (the front end's one term rollback,
+\   the hand-over, ends the declaration).
 \ - lf-try-synth ( type -- inst code outcome ): trySynthInstance (1018):
 \   lf-synth-some, lf-synth-none, or lf-synth-undef for the stuck signal;
 \   it searches through defeq.fs's hook lf-meta-synth (this file's

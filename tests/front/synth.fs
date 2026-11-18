@@ -62,6 +62,14 @@ require ./whnf-cases.fs
 T{ nat add0 synth s" instAddNat" c0 same? tried# 0 s" instAddNat" tried? clean?
    -> true true outcome-ok 1 true true }T
 T{ nat 0 ofnat0 synth s" instOfNatNat" c0 0 num app same? -> true true outcome-ok }T
+\ Synthesis runs with Lean's synthInstance? configuration (foApprox,
+\ ctxApprox, isDefEqStuckEx on; constApprox, univApprox off), and the
+\ configuration in force is as it was after it (review N1 of 2026-11-18:
+\ a copy of ctxApprox outlived the search).
+: sy-flag? ( bit -- flag ) sy-flags and 0<> ;
+T{ lf-defeq-ctx sy-flag? lf-defeq-fo sy-flag? lf-defeq-stuck sy-flag? -> true true true }T
+T{ lf-defeq-const sy-flag? lf-defeq-univ sy-flag? -> false false }T
+T{ lf-defeq-flags nat add0 synth 2drop drop lf-defeq-flags = ac-approx? -> true false }T
 \ Two levels: instDecidableAnd's subgoals Decidable (2 <= 3) and
 \ Decidable (1 < 2) each a new goal, answered, resumed in turn.
 : le-and-lt ( -- t ) 2 num 3 num le 1 num 2 num lt p-and ;
@@ -204,6 +212,17 @@ T{ sy-cache slab-count 0> mctx-epoch@ 1+ sy sy-epoch ! nat add0 synth nip nip tr
 \ at depth 1 (a search, instAddNat tried), found at depth 0.
 : at-pending ( n -- tried ) sy sy-pending ! nat add0 synth 2drop drop tried# 0 sy sy-pending ! ;
 T{ 1 at-pending 0 at-pending -> 1 0 }T
+\ A failed attempt keeps the cache, as Lean's SavedState.restore keeps
+\ Meta.State.cache (review R3 of 2026-11-18): Add Nat's entry, made
+\ inside an attempt that is rolled back, stays and is hit after it. A
+\ search for Add ?T, ?T made inside the attempt, caches nothing (119
+\ here: unsupported is never cached), and a new ?U is another number.
+: cache# ( -- n ) sy-cache slab-count ;
+: attempt ( xt -- n ) lf-mctx-mark made swap execute cache# swap lf-mctx-rollback done ;
+: add-nat ( -- ) nat add0 synth 2drop drop ;
+: add-hole ( -- ) l0 ?tv add0 synth nip nip outcome-unsupported <> abort" add-hole" ;
+T{ mctx-epoch@ 1+ sy sy-epoch ! ' add-nat attempt cache# nat add0 synth nip nip tried# -> 1 1 outcome-ok 0 }T
+T{ ' add-hole attempt cache# l0 ?tv add0 synth nip nip tried# 0> -> 1 1 outcome-unsupported true }T
 : add-local ( -- old )
   lf-mctx-view dup nat add0 lf-lctx-local made 0 0 lf-local-new made
   s" Add" menv-name lf-local-instance made lf-view-push made lf-mctx-view! ;

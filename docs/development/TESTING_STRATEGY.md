@@ -558,7 +558,8 @@ every file: `make daily` runs both, and `make tag-check` requires them.
   `src/cli/leanforth.fs`, whose blocks end-to-end tests run.) A file no
   target of `make test` reads is not measured: the plan prints a line that
   `make daily`'s full run measures it, and `coverage.py` notes, never fails,
-  a named file no run loaded. A test change that drives `src/main.fs` thus
+  a named file no run loaded; a file that defines no word, such as
+  `src/main.fs` (a load list), compiles no block and gets no note. A test change that drives `src/main.fs` thus
   measures most of `make test` under instrumentation, which stands in for
   the plain runs of those targets. `make coverage-check` (every file) runs in
   a tier only when the baseline's run count changes or a test program is

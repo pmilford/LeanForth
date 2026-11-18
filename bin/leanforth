@@ -52,28 +52,21 @@ if [ "${1:-}" = verify ]; then
   esac
 fi
 
-# --fast and --checked among the options of check, replay or print (not the
-# value of --record, --fuel, --name, --statement, --save-snapshot or --snapshot).
+# The engine of check, replay or print: an argument --fast or --checked.
+# Which options take a value is known only to the Forth side
+# (src/cli/leanforth.fs, cli-option-table), which also refuses both
+# together; a value spelled --checked (--record --checked) only changes the
+# engine, never a verdict.
 fast=false
 checked=false
 case ${1:-} in
   check | replay | print)
-    previous=
     for argument in "${@:2}"; do
-      case $previous in
-        --record | --fuel | --name | --statement | --save-snapshot | --snapshot | --env | \
-        --elab-data) ;;
-        *) case $argument in
-             --fast) fast=true ;;
-             --checked) checked=true ;;
-           esac ;;
+      case $argument in
+        --fast) fast=true ;;
+        --checked) checked=true ;;
       esac
-      previous=$argument
     done
-    if $fast && $checked; then
-      printf 'error: --fast and --checked together\ntry: leanforth help\n'
-      exit 4
-    fi
     ;;
 esac
 # Default engine: gforth-fast for every command but with --checked.
@@ -125,29 +118,32 @@ fi
 LEANFORTH_ENGINE=${GFORTH##*/}
 export LEANFORTH_ENGINE
 
-# reexport writes COPY, check --record RECORD and check --save-snapshot
-# FILE: refuse one that
-# names the export under another name before anything is written (the
-# Forth side compares the names only as text).
-if [ "${1:-}" = reexport ] || [ "${1:-}" = check ]; then
-  files=() target= previous= what=
-  for argument in "${@:2}"; do
-    case $previous in
-      --record) target=$argument ;;
-      --save-snapshot) target=$argument what=FILE ;;
-      --fuel | --snapshot | --env | --elab-data) ;;
-      *) case $argument in -*) ;; *) files+=("$argument") ;; esac ;;
-    esac
-    previous=$argument
+# The arguments that name one existing file (test -ef: the same device and
+# inode, through symbolic links and relative names), as " I:J " pairs of
+# their indices, the command 0 and I < J, in LEANFORTH_SAME_FILES, and as
+# " Im:J " when the manifest an export argument I would have
+# (I.manifest.json, read with it) is argument J, and " Ip:J " when
+# I.partial (written first by --save-snapshot I, then renamed) is argument
+# J. The Forth side, which
+# alone knows each option's role, refuses a file written that is one read
+# or written by another argument (cli-same-file?), exit 4, before anything
+# runs.
+same=' '
+arguments=("$@")
+for ((i = 1; i < ${#arguments[@]}; i++)); do
+  manifest="${arguments[i]}.manifest.json" partial="${arguments[i]}.partial"
+  for ((j = 1; j < ${#arguments[@]}; j++)); do
+    if [ "$j" != "$i" ] && [ -e "$manifest" ] && [ "$manifest" -ef "${arguments[j]}" ]; then
+      same+="${i}m:$j "
+    fi
+    if [ "$j" != "$i" ] && [ -e "$partial" ] && [ "$partial" -ef "${arguments[j]}" ]; then
+      same+="${i}p:$j "
+    fi
+    if [ "$j" -gt "$i" ] && [ -e "${arguments[i]}" ] &&
+       [ "${arguments[i]}" -ef "${arguments[j]}" ]; then same+="$i:$j "; fi
   done
-  what=${what:-RECORD}
-  if [ "$1" = reexport ] && [ "${#files[@]}" -eq 2 ]; then target=${files[1]} what=COPY; fi
-  if [ -n "$target" ] && [ "${#files[@]}" -ge 1 ] && [ -e "$target" ] &&
-    [ "${files[0]}" -ef "$target" ]; then
-    printf 'error: %s must not be EXPORT\n' "$what"
-    exit 4
-  fi
-fi
+done
+export LEANFORTH_SAME_FILES=$same
 
 # The checkout's git commit, and whether tracked files differ from it, for
 # version and for the run record (check --record, replay); none outside a

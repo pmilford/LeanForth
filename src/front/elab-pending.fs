@@ -129,6 +129,7 @@ end-structure
 /ep context-record: ep
 2 cells context-slab: ep-pending   \ (mvar, position) by 2!, oldest first
 2 cells context-slab: ep-scratch   \ a step's entries, then those it keeps
+2 cells context-slab: ep-saved     \ ep-pending's copies and bases, one a tactic save
 1 cells context-slab: ep-prios     \ the default instances' priorities, highest first
 1 cells context-slab: ep-defs      \ default-instance records, a range per attempt
 1 cells context-slab: ep-goals     \ synthesizePending's lists, a range each
@@ -304,9 +305,17 @@ defer lf-elab-default-instances ( class -- addr n outcome )
   lf-elab-pending# ['] ep-to-scratch ok-each dup ok? 0= if nip nip exit then
   drop ep-window-cut ep-kept ep-back ;
 : ep-abandon ( first outcome -- false outcome ) swap ep-scratch-cut false swap ;
+\ A step that fails part-way loses nothing (review N4 of 2026-11-18): the
+\ window becomes its n entries taken, then those made meanwhile.
+: ep-tail ( w -- from w ) ep-scratch slab-count over - swap ;
+: ep-unstep ( first n -- outcome )
+  lf-elab-pending# dup ['] ep-to-scratch ok-each dup ok? 0= if nip nip nip exit then
+  drop ep-window-cut -rot ep-back ok-then? if ep-tail ep-back then ;
+: ep-unstepped ( first n outcome -- false outcome )
+  >r over swap ep-unstep drop ep-scratch-cut false r> ;
 : ep-step ( -- progress outcome )
   ep-take dup ok? 0= if nip ep-abandon exit then drop
-  ep-resume-all dup ok? 0= if nip ep-abandon exit then drop
+  ep-resume-all dup ok? 0= if ep-unstepped exit then drop
   2dup ep-kept nip over <> >r over >r ep-merge r> ep-scratch-cut r> swap ;
 
 \ ---- Default instances: the priorities any default instance has, each
@@ -552,6 +561,23 @@ is ep-c-call
 : ep-synth-end ( mode -- outcome )
   dup lf-elab-synthesize swap lf-postpone-yes = if ['] ep-default-loop ok-and then ;
 : }lf-elab-synth ( saved mode -- outcome ) ep-synth-end swap }lf-elab-window ;
+\ lf-elab-with-synth ( xt mode -- outcome ), xt ( -- ): the same around
+\ xt, the list put back also when xt or the synthesis throws (Lean's
+\ withSynthesize puts it back in a finally; review C2 of 2026-11-18).
+: ep-synth-run ( xt mode -- outcome ) swap execute ep-synth-end ;
+: lf-elab-with-synth ( xt mode -- outcome )
+  lf-elab-window{ >r ['] ep-synth-run catch r> }lf-elab-window throw ;
+\ The pending list in a tactic's saved state (tactic-run.fs's tac-state:,
+\ registered by elab-decl.fs; reviews C2 and N4 of 2026-11-18): its
+\ entries and the window's base kept on ep-saved (lib/slab.fs's
+\ slab-keep), put back or forgotten, last in, first out; only the saves
+\ change ep-saved (lf-elab-pending-reset leaves it).
+: lf-elab-pending-keep ( -- outcome )
+  ep-pending ep-saved slab-keep dup ok? 0= if exit then drop
+  ep ep-base @ 0 ep-saved slab-2push dup ok? if exit then ep-saved slab-forget ;
+: ep-base-back ( undo? -- undo? )
+  ep-saved slab-2pop drop over if ep ep-base ! else drop then ;
+: lf-elab-pending-kept ( undo? -- outcome ) ep-base-back ep-pending ep-saved slab-kept ;
 
 \ ---- The reset.
 : lf-elab-pending-reset ( -- )

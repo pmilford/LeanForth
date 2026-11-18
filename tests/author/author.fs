@@ -201,8 +201,23 @@ T{ lf-author-code -> 40 }T
 \ a word read. (A line of 1024 characters in a file, error 39, is the
 \ fixture 17-long-line.lf.)
 text0 s" theorem t" text+ s"  1" 40000 times
-T{ text$ fails -> 41 1 9 }T
-T{ lfa-error lfa-err-number @ -> -3 }T
+T{ text$ fails -> 300 1 9 }T
+T{ lfa-error lfa-err-number @ 300 lf-author-outcome -> -3 outcome-full }T
+\ The class of a Forth exception (review N1 of 2026-11-18): a host stack,
+\ the dictionary or the heap running out is full, error 300 (exit 3); any
+\ other THROW is LeanForth's internal fault, error 41, whose outcome is
+\ none of the vocabulary (exit 5), never the text's invalid (exit 4).
+: thrown ( throw -- code outcome flag ) lfa-error-reset lfa-caught lf-author-code swap dup ok? ;
+T{ -3 thrown -> 300 outcome-full false }T
+T{ -5 thrown -> 300 outcome-full false }T
+T{ -8 thrown -> 300 outcome-full false }T
+T{ -59 thrown -> 300 outcome-full false }T
+T{ -61 thrown -> 300 outcome-full false }T
+T{ -4 thrown -> 41 lfa-internal false }T
+T{ -9 thrown -> 41 lfa-internal false }T
+T{ -6 thrown -> 41 lfa-internal false }T
+T{ lfa-internal outcome? lfa-internal outcome-sane -> false outcome-invalid }T
+T{ lfa-error lfa-err-number @ -> -6 }T
 \ Numbers are plain decimals of at most 9 digits: every other form a Forth
 \ host may read as a number is refused at its token, the same on every
 \ host (Gforth 1.0 recognizes more forms than 0.7.3); a token that is no
@@ -443,7 +458,7 @@ T{ s\" def f Prop := Prop end f\r\n" run -> outcome-ok }T
 \ A Forth exception on a line where no word has read a token yet names
 \ the line's first token (p04): here the data stack overflows on line 2.
 text0 s\" theorem t\n" text+ s"  1" 40000 times
-T{ text$ fails -> 41 2 2 }T
+T{ text$ fails -> 300 2 2 }T
 T{ lfa-error lfa-err-token lfa-error lfa-err-length @ s" 1" compare -> 0 }T
 
 \ Each text's lines count from 1, also when a second text runs in the

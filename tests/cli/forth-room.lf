@@ -1,0 +1,5 @@
+\ A text whose run finds no room (review F5 of 2026-11-18): the word
+\ forth-room exists only in tests/cli/leanforth.fs, which defines it among
+\ the LeanForth words to THROW -59 (ALLOCATE refused), so the run stops
+\ with error 300, full (exit 3).
+forth-room

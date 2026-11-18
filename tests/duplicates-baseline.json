@@ -989,6 +989,16 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 9
  },
+ "60d05b2539b5": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/cli/check-run.fs:ck-layer-id",
+   "src/cli/leanforth.fs:cli-path"
+  ],
+  "reason": "planned: 9.4.8k reuse pass (review F7 of 2026-11-18, with the front batch): both are hand-written index*size+base growable record arrays that lib/slab.fs provides; cli-path, cli-seen and opt-layers move onto context slabs (slab-at, slab-push) in the reuse pass",
+  "tokens": 6
+ },
  "6148e1238e9e": {
   "copies": 2,
   "kind": "shape",
@@ -2036,6 +2046,16 @@
   "reason": "family, table-driven later: the term, level and constant-reference stores (terms.fs, levels.fs, constant-references.fs) keep parallel interfaces over their own store, table and columns; one store-family record would serve them (9.4.8k follow-up 4)",
   "tokens": 11
  },
+ "b69e73b09f8a": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/cli/leanforth.fs:cli-seen",
+   "src/front/elab-pending.fs:lf-elab-error"
+  ],
+  "reason": "false positive: two fields of one record read (the arguments seen, an elaboration error); equal shape, unrelated meaning",
+  "tokens": 6
+ },
  "bb31b2c77ac3": {
   "copies": 2,
   "kind": "shape",
@@ -2124,10 +2144,11 @@
   "tokens": 8
  },
  "bf88a9b691e8": {
-  "copies": 3,
+  "copies": 4,
   "kind": "shape",
   "members": [
    "src/author/build.fs:lfa-ref-match?",
+   "src/cli/leanforth.fs:cli-clash?",
    "src/core/name-equal.fs:lf-name-equal?",
    "src/kernel/env-snapshot.fs:slot-fine?"
   ],
@@ -2155,11 +2176,12 @@
   "tokens": 6
  },
  "c232bbe480f3": {
-  "copies": 2,
+  "copies": 3,
   "kind": "shape",
   "members": [
    "src/author/constants.fs:lfa-decl-find",
-   "src/front/level-params.fs:lp-index"
+   "src/front/level-params.fs:lp-index",
+   "src/front/mvars.fs:mv-mark-index"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 17
@@ -2381,7 +2403,7 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
  },
- "cae0572a1926": {
+ "cb2dc9d72640": {
   "copies": 2,
   "kind": "copy",
   "members": [
@@ -2947,16 +2969,6 @@
   ],
   "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with/ok-and/ok-then?, already the shared words",
   "tokens": 6
- },
- "f7841b636bbb": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/discr-keys.fs:dk-sort?",
-   "src/front/whnf.fs:wc-sort?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 8
  },
  "f820a56cdea5": {
   "copies": 4,

@@ -1,0 +1,5 @@
+\ A text whose run meets a Forth fault (review F5 of 2026-11-18): the
+\ word forth-fault exists only in tests/cli/leanforth.fs, which defines it
+\ among the LeanForth words to THROW -21, so the run stops with error 41,
+\ an internal fault (exit 5).
+forth-fault

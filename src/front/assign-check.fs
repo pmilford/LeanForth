@@ -38,7 +38,9 @@
 \ the local context (processAssignment's are). A metavariable's scope is
 \ its own local context (its view, lctx-views.fs, plan FE1g-1); the let
 \ variables between the xi are read in the current view.
-\ lf-meta-ctx-approx! ( flag -- ) sets ctxApprox (Lean's Meta.Config).
+\ ctxApprox is read from the configuration in force (meta-config.fs's
+\ lf-defeq-ctx, Lean's getConfig), never kept here (review N1 of
+\ 2026-11-18: a copy outlived a nested synthesis).
 \ lf-meta-delayed? ( mvar -- flag ): mvar has a delayed assignment.
 \ Outcomes: ok; unsupported as above; full when a store or the heap has
 \ no room; invalid for a stale leaf. Untrusted.
@@ -51,6 +53,7 @@ require ../core/local-context.fs
 require ../core/mvar-leaves.fs
 require ../core/let-terms.fs
 require ./dag-walk.fs
+require ./meta-config.fs
 require ./mvars.fs
 require ./instantiate.fs
 require ./meta-spine.fs
@@ -62,11 +65,10 @@ begin-structure /ac
   field: ac-n         \ and how many
   field: ac-locals    \ hasCtxLocals: an xi in ?m's scope
   field: ac-hit       \ typeOccursCheck: ?m in a metavariable's type
-  field: ac-approx    \ ctxApprox
   /dw +field ac-walk
 end-structure
 /ac context-record: ac
-: lf-meta-ctx-approx! ( flag -- ) ac ac-approx ! ;
+: ac-approx? ( -- flag ) lf-defeq-ctx lf-meta-flag? ;   \ ctxApprox
 
 \ Scopes: each metavariable's own local context (mvars.fs, lctx-views.fs).
 : ac-x ( i -- x ) cells ac ac-xs @ + @ ;
@@ -97,7 +99,7 @@ end-structure
   ac-m swap lf-mvar-occurs? dup ok? if drop else nip ac-refuse-with then ;
 : ac-typed ( mvar -- ) lf-mvar-type if ac-occurs-in if true ac ac-hit ! then then ;
 : ac-other ( mvar -- image )
-  lf-mvar-assignable? 0= if ac-fail exit then ac ac-approx @ if ac-refuse
+  lf-mvar-assignable? 0= if ac-fail exit then ac-approx? if ac-refuse
   else ac-fail then ;
 : ac-pending ( mvar -- flag ) lf-mvar-delayed if 2drop ac-occurs-in else false then ;
 : ac-mvar ( mvar -- image )
@@ -138,7 +140,7 @@ end-structure
   lf-term-first@ repeat drop ;
 : lf-meta-delayed? ( mvar -- flag ) lf-mvar-delayed dup if nip nip nip then ;
 : ac-mvar-spine? ( node -- flag )
-  ac ac-approx @ 0= if drop false exit then
+  ac-approx? 0= if drop false exit then
   dup lf-meta-head dup lf-mvar?
   if lf-meta-delayed? 0= swap ac-fvar-args? and else 2drop false then ;
 : ac-app ( node image -- image )

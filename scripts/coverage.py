@@ -248,12 +248,25 @@ def ratchet(files, baseline):
     return messages
 
 
+DEFINITION = re.compile(r"(?m)^[ \t]*:(noname)?[ \t\n]|[ \t]:noname[ \t\n]")
+
+
+def compiles_blocks(name):
+    """Whether source NAME defines a word, so that a run that loads it counts blocks: a load
+    list such as src/main.fs (requires only) has none and is never in the counts."""
+    try:
+        return bool(DEFINITION.search((ROOT / name).read_text(encoding="utf-8", errors="replace")))
+    except OSError:
+        return True
+
+
 def focus(files, only):
     """FILES limited to ONLY, and a note for each file of ONLY that no run loaded: the full run
-    (make coverage-check, in make daily) measures it, as it measures every file."""
+    (make coverage-check, in make daily) measures it, as it measures every file. A file that
+    defines no word (src/main.fs, a load list) compiles no block, so it gets no note."""
     kept = {name: files[name] for name in only if name in files}
     return kept, [f"{name}: no run of these targets loaded it; make daily's full coverage run measures it"
-                  for name in only if name not in files]
+                  for name in only if name not in files and compiles_blocks(name)]
 
 
 def new_baseline(files, counted, old, reason):
