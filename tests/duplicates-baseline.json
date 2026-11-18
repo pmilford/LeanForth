@@ -996,7 +996,7 @@
    "src/cli/check-run.fs:ck-layer-id",
    "src/cli/leanforth.fs:cli-path"
   ],
-  "reason": "planned reuse-pass item (review F7 of 2026-11-18): both are hand-written index*size+base growable record arrays that lib/slab.fs provides; cli-path, cli-seen and opt-layers move onto context slabs (slab-at, slab-push) in the reuse pass",
+  "reason": "planned: reuse pass (review F7 of 2026-11-18): both are hand-written index*size+base growable record arrays that lib/slab.fs provides; cli-path, cli-seen and opt-layers move onto context slabs (slab-at, slab-push) in the reuse pass",
   "tokens": 6
  },
  "6148e1238e9e": {

@@ -385,6 +385,19 @@ s" Nat.zero" 0 cst rec-on constant iota-term
 T{ outcome-ok worst ! iota-refused 1 > worst @ iota-term lf-whnf-core swap lf-term-const?
    -> true outcome-ok outcome-ok true }T
 
+\ ---- 2. Binder kinds of two library declarations whose types differ
+\ only in a binder's kind (tests/front/binder-merge.lean, probe G(ii) of
+\ 2026-11-18). The front end never merges them: a run's term store
+\ shares no node (author/runner.fs) and the decode memo is keyed by the
+\ tier's expression, whose identity holds the kind (core/compact-exprs.fs).
+\ But lean4export 3.1.0 itself writes one node for both (Lean's
+\ Expr.eqv ignores binder kinds and names): BK.expl reads implicit.
+\ KNOWN GAP (plan row FE1c-bk): Lean's BK.expl is explicit, 0 1.
+: one-kind ( c-addr u -- kind n ) d-of lf-menv-kinds >r @ r> ;
+T{ s" tests/front/binder-merge.ndjson" true lfc-library-open -> outcome-ok }T
+T{ s" BK.impl" one-kind s" BK.expl" one-kind -> 1 1 1 1 }T
+T{ s" BK.impl" d-of lf-menv-type s" BK.expl" d-of lf-menv-type = -> true }T
+
 \ ---- 4. lfc-library-close leaves the run mode; a failed re-open leaves
 \ none bound to the stage it freed.
 T{ lfc-library-close lf-libdec-stage lf-libdec-count -> 0 0 }T
