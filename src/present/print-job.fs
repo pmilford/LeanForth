@@ -207,9 +207,11 @@ end-structure
 : lf-pp-pool ( -- addr ) lf-pp-pool-bytes slab-base ;
 : lf-pp-used ( -- addr ) lf-pjob lf-pjob-used ;
 : lf-pp-full? ( -- flag ) lf-pjob lf-pjob-full @ ;
+\ The pool full: a name did not fit in it, or could not be printed whole.
+: lf-pp-full! ( -- ) true lf-pjob lf-pjob-full ! ;
 : lf-pp-room? ( u -- flag ) lf-pp-used @ + lf-pp-pool-bytes slab-hold ok? ;
 : lf-pp-put ( c-addr u -- )
-  dup lf-pp-room? 0= if 2drop true lf-pjob lf-pjob-full ! exit then
+  dup lf-pp-room? 0= if 2drop lf-pp-full! exit then
   tuck >r lf-pp-pool lf-pp-used @ + r> move lf-pp-used +! ;
 : lf-pp-pool-outcome ( -- outcome )
   lf-pp-full? if outcome-full else outcome-ok then ;

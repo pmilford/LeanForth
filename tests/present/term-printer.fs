@@ -261,6 +261,12 @@ T{ t1 @ fuel lf-print-term t2 @ lf-print-name t3 @ fuel lf-print-level
 T{ t1 @ fuel lf-print-statement t1 @ fuel lf-print-inline
   -> outcome-invalid outcome-invalid }T
 T{ heal-count t1 @ s" fun x ↦ x" shows -> }T
+\ First a prefix that points forward to a later, valid name: no cycle,
+\ so a printer that skipped the chain's check would print it (r.q) and
+\ fail here (fault ni-printer-chain-unchecked) rather than loop on the
+\ entry beyond the table below.
+: forward-prefix ( id -- ) s" r" nm swap lf-name-slot lf-entry-prefix ! ;
+T{ t2 @ forward-prefix t2 @ lf-print-name -> outcome-invalid }T
 T{ t2 @ corrupt-prefix t2 @ lf-print-name -> outcome-invalid }T
 T{ t1 @ s" fun x ↦ x" shows -> }T
 \ A binder name with a broken chain is not hygienic: it is refused whole.

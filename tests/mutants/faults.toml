@@ -15095,7 +15095,7 @@ file = "src/present/print-names.fs"
 old = '''  over lf-name-chain-ok? if lf-pp-checked-name-to else lf-pp-bad-name then ;'''
 new = '''  lf-pp-checked-name-to ;'''
 test = "$GFORTH tests/present/term-printer.fs"
-reason = "review finding 1: the printer walks a name corrupted after the audit: it cycles (main's test hung) instead of printing invalid"
+reason = "review finding 1: the printer walks a name corrupted after the audit instead of printing invalid: a forward prefix to a valid name prints (the assertion before the entry beyond the table, on which it would loop; plan 9.4.8n (10))"
 
 [[fault]]
 id = "ni-equal-chain-unchecked"
