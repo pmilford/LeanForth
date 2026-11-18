@@ -336,12 +336,12 @@
   "words": 8
  },
  "src/core/names.fs": {
-  "globals": 2,
+  "globals": 3,
   "long lines": 3,
   "long words": 0,
-  "rstack": 23,
-  "shuffles": 4,
-  "words": 98
+  "rstack": 17,
+  "shuffles": 3,
+  "words": 127
  },
  "src/core/projections.fs": {
   "globals": 0,

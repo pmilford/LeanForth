@@ -14645,10 +14645,101 @@ reason = "review reuse-1a L1: a negative node is inside the walk's memo, which i
 [[fault]]
 id = "core-names-entry-after-root"
 file = "src/core/names.fs"
-old = ''': lf-name-entry-after? ( k -- flag ) 1+ lf-name-entry-checked? ;'''
-new = ''': lf-name-entry-after? ( k -- flag ) lf-name-entry-checked? ;'''
+old = ''': lf-name-entry-past? ( k i -- k flag ) over + lf-name-entry-checked? ;'''
+new = ''': lf-name-entry-past? ( k i -- k flag ) over + 1- lf-name-entry-checked? ;'''
 test = "$GFORTH tests/core/names.fs"
-reason = "the name store's audit checks entries 0 .. count - 2: the root as an entry, and never the newest"
+reason = "the name store's audit checks entries k - 1 .. count - 2: the root as an entry, and never the newest (re-targeted at the kept audit, ADR 0005 Amendment 1)"
+
+# --- the stored names' index and kept audit (src/core/names.fs; ADR 0005
+# Amendment 1, branch names-index)
+
+[[fault]]
+id = "ni-same-above-count"
+file = "src/core/names.fs"
+old = '''  2drop dup lf-name-count @ u< 0= if drop false exit then'''
+new = '''  2drop'''
+test = "$GFORTH tests/core/names.fs"
+reason = "a slot left for a name given back (above the count, beyond a shrunk block) is compared: the name made again is refused"
+
+[[fault]]
+id = "ni-corrupt-skipped"
+file = "src/core/names.fs"
+old = '''  dup lf-name-entry-checked? if lf-name-slot lf-name-sought? else drop true then ;'''
+new = '''  dup lf-name-entry-checked? if lf-name-slot lf-name-sought? else drop false then ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "a corrupted entry the find reaches is passed over: its name is made a second time instead of refused"
+
+[[fault]]
+id = "ni-found-unchecked"
+file = "src/core/names.fs"
+old = ''': lf-name-found ( n -- id true | false ) dup lf-name-entry-checked? dup 0= if nip then ;'''
+new = ''': lf-name-found ( n -- id true | false ) true ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "the ID of a corrupted entry the find stopped at is given out"
+
+[[fault]]
+id = "ni-sync-none"
+file = "src/core/names.fs"
+old = '''  lf-name-count @ lf-name-listed @ over max swap ?do i lf-name-unlist loop'''
+new = '''  lf-name-count @ lf-name-listed @ 2drop'''
+test = "$GFORTH tests/core/names.fs"
+reason = "names a rollback gave back stay in the index, which grows with every check (review rvS4 M1's fault for the names)"
+
+[[fault]]
+id = "ni-hash-not-kept"
+file = "src/core/names.fs"
+old = '''  lf-name-sought lf-nsought-hash @ over lf-name-slot lf-entry-hash !'''
+new = '''  0 over lf-name-slot lf-entry-hash !'''
+test = "$GFORTH tests/core/names.fs"
+reason = "an entry's hash is not kept: the table, once grown, puts it where no find looks, and an equal name gets a second ID"
+
+[[fault]]
+id = "ni-part-any"
+file = "src/core/names.fs"
+old = '''  lf-name-sought-str? if lf-name-same-bytes? else lf-name-same-number? then ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "names of the same kind and prefix are found equal whatever their component"
+
+[[fault]]
+id = "ni-audit-used-ignored"
+file = "src/core/names.fs"
+old = '''  swap lf-naudit-used @ lf-name-used @ upto? and ;'''
+new = '''  nip ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "the kept audit survives byte use going down: an audited string past the bytes in use is not seen"
+
+[[fault]]
+id = "ni-audit-generation-ignored"
+file = "src/core/names.fs"
+old = '''  lf-name-audit dup lf-naudit-generation @ lf-name-generation @ ='''
+new = '''  lf-name-audit true'''
+test = "$GFORTH tests/core/names.fs"
+reason = "the kept audit survives a reset: entries of the new generation below the old audit's count are never read"
+
+[[fault]]
+id = "ni-audit-failure-kept"
+file = "src/core/names.fs"
+old = '''  dup if lf-name-audited else lf-name-audit-drop then ;'''
+new = '''  dup if lf-name-audited then ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "a failed audit keeps its record: once the header looks right again, the corrupted entry it found is not read"
+
+[[fault]]
+id = "ni-reset-keeps-table"
+file = "src/core/names.fs"
+old = '''  lf-names store-clear lf-name-table-empty ;'''
+new = '''  lf-names store-clear ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "a reset keeps the index's table, so one large run's table is cleared slot by slot by every later run"
+
+[[fault]]
+id = "ni-index-full-ignored"
+file = "src/core/names.fs"
+old = '''  lf-name-index-room? 0= if drop lf-name-index-refused exit then'''
+new = ''''''
+test = "$GFORTH tests/core/names.fs"
+reason = "a name is listed in a table that could not grow: past 3/4 full, and the names-full outcome is lost"
 
 # --- the front end's isDefEq (src/front/defeq.fs and its helpers; plan FE1c)
 

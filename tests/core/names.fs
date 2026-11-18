@@ -265,6 +265,7 @@ lf-name-tag-str 2 lf-name-slot lf-entry-tag !
 T{ lf-name-storage-valid? -> true }T
 99 1 lf-name-slot lf-entry-tag !
 T{ lf-name-storage-valid? 0 s" c" lf-name-str -> true 3 true }T
+T{ lf-name-storage-valid? -> true }T
 lf-name-used @ 1- lf-name-used !
 T{ lf-name-storage-valid? -> false }T
 lf-name-used @ 1+ lf-name-used !
@@ -274,7 +275,7 @@ T{ lf-name-storage-valid? -> true }T
 \ After a reset every entry is read again, here two that a raw count and
 \ byte use exposed, the second corrupted.
 99 2 lf-name-slot lf-entry-tag !
-lf-name-reset 2 lf-name-used ! 3 lf-name-count !
+lf-name-reset 3 lf-name-used ! 3 lf-name-count !
 T{ lf-name-storage-valid? -> false }T
 lf-name-reset
 bye
