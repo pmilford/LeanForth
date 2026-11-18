@@ -28,10 +28,16 @@ import subprocess
 import tempfile
 import unittest
 
+import importlib.util
+
+from test_requires import code_words, definitions
 from test_sha256 import source_words
 
 ROOT = Path(__file__).resolve().parents[2]
 LIB = ROOT / "src" / "lib"
+_spec = importlib.util.spec_from_file_location("lib_index", ROOT / "scripts" / "lib-index.py")
+INDEX = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(INDEX)
 TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "300"))
 GFORTH = os.environ.get("GFORTH", "gforth")
 if "/" in GFORTH:
@@ -121,6 +127,31 @@ class Standalone(unittest.TestCase):
                     self.assertEqual(grown, 1 if lib else 0, f"{name} changes the search order")
                     self.assertEqual(after[3], "0" if lib else "x",
                                      f"{name} leaves lf-lib-private searched")
+
+    def test_public_words_are_in_lf_lib(self):
+        # Every public word (as LIBRARY_WORDS.md lists it) is filed in lf-lib, and no word only
+        # private is, after a plain load (ADR 0010). portability.fs and module.fs define words of
+        # the host's own kind (standard words where a host lacks them; the word lists
+        # themselves), and lib.fs only loads the others: all three file in the loader's list.
+        public = {p.name: {w[0].lower() for w in INDEX.words(p)} for p in LIB.glob("*.fs")}
+        everywhere = set().union(*public.values())
+        for name in sorted(set(public) - {"portability.fs", "module.fs", "lib.fs"}):
+            private = definitions(code_words((LIB / name).read_text())) - everywhere
+            names = [w for w in sorted(public[name]) if '"' not in w]
+            program = (f"require lib/{name}\n"
+                       ": found? ( c-addr u -- flag ) lf-lib search-wordlist dup if nip then 0<> ;\n"
+                       # A word defined only on request (store.fs's fault hooks) is skipped.
+                       ": public ( c-addr u -- ) 2dup found? 0= >r 2dup find-name 0<> r> and\n"
+                       "  if .\" missing:\" type space else 2drop then ;\n"
+                       ": private ( c-addr u -- ) 2dup found? if .\" public:\" type space else 2drop then ;\n"
+                       + "".join(f's" {w}" public\n' for w in names)
+                       + "".join(f's" {w}" private\n' for w in sorted(private) if '"' not in w)
+                       + ".\" done\" cr\n")
+            folder = self.folder(name)
+            with self.subTest(file=name):
+                code, out, err = run(self.engines()[0], folder, program)
+                self.assertEqual(code, 0, f"{name}: {out} {err}")
+                self.assertEqual(out.split(), ["done"], f"{name}: words filed in the wrong list")
 
     def test_examples_run_as_written(self):
         files = sorted(p.name for p in LIB.glob("*.fs"))

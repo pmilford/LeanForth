@@ -85,9 +85,8 @@
 \ frame-sound? frame-room@ frame-room? frame-admit frame-refuse
 \ frame-return frame-opened frame-left frame-open frame-call
 \ frame-open-or frame-context+! frame-up frame-under frame-loop
-\ frame-steps frame-through frame-start frame-run, public in the
-\ compilation word list current when the file loads; the stack's growth
-\ and the steps that open and end a visit are private (lf-lib-private;
+\ frame-steps frame-through frame-start frame-run, public in lf-lib; the
+\ stack's growth and the steps that open and end a visit are private (lf-lib-private;
 \ ADR 0010).
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
@@ -97,7 +96,7 @@ require ./portability.fs
 require ./module.fs
 
 lf-lib-private module-open
-dup set-current
+lf-lib set-current
 
 begin-structure /frames
   field: frame-fuel      \ visits left
@@ -116,7 +115,7 @@ end-structure
 3 frame-spare + constant frame-need
 lf-lib-private set-current
 16 constant frame-first-cells
-dup set-current
+lf-lib set-current
 
 \ Initialise a record in place: idle, no fuel, no job, an empty stack, the
 \ visitor xt, which is set once here. frames: defines a standalone record,
@@ -149,7 +148,7 @@ dup set-current
 lf-lib-private set-current
 : frame-top ( frames -- addr ) dup frame-used @ cells swap frame-block @ + ;
 : frame-held? ( frames -- flag ) dup frame-used @ swap frame-capacity @ u< ;
-dup set-current
+lf-lib set-current
 : frame-save ( x frames -- )
   dup frame-held? 0= if frame-overrun throw then tuck frame-top ! 1 swap frame-used +! ;
 : frame-restore ( frames -- x ) -1 over frame-used +! frame-top @ ;
@@ -176,7 +175,7 @@ max-n 1 cells / constant frame-most-cells
   2dup frame-size 2dup 2>r swap frame-short? if 2r> 2drop false exit then 2r>
   dup cells 2 pick frame-block @ ?dup if swap resize else allocate then
   if 2drop drop false else rot tuck frame-block ! frame-capacity ! true then ;
-dup set-current
+lf-lib set-current
 : frame-room? ( n frames -- flag ) 2dup frame-fits? if 2drop true else frame-grow then ;
 
 \ Visiting. A visit opens (ok) when the stack is sound, fuel is left and
@@ -194,14 +193,14 @@ lf-lib-private set-current
 \ The step that ends every visit: one frame less, the result made sane.
 : frame-exit ( result outcome frames -- result outcome' frames 0 )
   -1 over frame-depth +! swap outcome-sane swap 0 ;
-dup set-current
+lf-lib set-current
 \ The step that only returns, the continuation of a root (frame-run) or of
 \ a visit whose result is its parent's (a tail call: mixed-beta.fs).
 : frame-return ( frames -- frames 0 ) 0 ;
 lf-lib-private set-current
 : frame-enter ( frames -- frames visitor )
   -1 over frame-fuel +! 1 over frame-depth +! dup frame-visitor @ ;
-dup set-current
+lf-lib set-current
 : frame-opened ( x frames cont -- x frames visitor )
   over frame-save ['] frame-exit over frame-save frame-enter ;
 \ For a pass whose visits are of several kinds (mixed-infer.fs), or that
@@ -231,7 +230,7 @@ dup set-current
 lf-lib-private set-current
 : frame-deeper ( frames -- outcome )
   dup frame-admit ok-then? if frame-context @ max-n <> room>outcome then ;
-dup set-current
+lf-lib set-current
 : frame-under ( x frames cont -- x frames visitor | -1 outcome frames cont )
   over frame-deeper dup ok? 0= if frame-refuse exit then drop
   over frame-save ['] frame-up over frame-save 1 over frame-context+!

@@ -54,13 +54,12 @@ require ./portability.fs
 require ./module.fs
 require ./blocks.fs
 
-\ The words of this file are public, in the compilation word list current
-\ when it loads, except the helpers of making and moving a heap store's
-\ block, which are private (ADR 0010): between module-open and
-\ module-close the previous word list stays on the stack, and each part
-\ names where its words go.
+\ The words of this file are public, in lf-lib, except the helpers of
+\ making and moving a heap store's block, which are private (ADR 0010):
+\ between module-open and module-close the previous word list stays on
+\ the stack, and each part names where its words go.
 lf-lib-private module-open
-dup set-current
+lf-lib set-current
 
 begin-structure store-header
   field: store-capacity     \ maximum number of records
@@ -135,7 +134,7 @@ lf-lib-private set-current
   0 over store-count ! 0 over store-generation ! 0 swap store-serial ! ;
 : store-place ( block store -- )
   tuck store-block ! dup store-capacity @ over store-limit ! store-seal! ;
-dup set-current
+lf-lib set-current
 : store-zero ( store -- ) dup store-identities swap store-bytes erase ;
 : store-format ( capacity width base store -- )
   dup >r store-shape! r@ store-counters-zero 0 r@ store-place r> store-zero ;
@@ -262,7 +261,7 @@ lf-lib-private set-current
 : store-resize ( n store -- outcome )
   2dup store-width @ cell+ * allocate0 if drop 2drop outcome-full exit then
   -rot >r 2dup r@ store-rehome r> store-install outcome-ok ;
-dup set-current
+lf-lib set-current
 \ The capacity growth gives: double, at least 16 more, never past the
 \ limit (so it cannot overflow).
 : store-doubled ( store -- n )

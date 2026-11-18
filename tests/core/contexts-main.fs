@@ -120,7 +120,9 @@ dict-bytes allocate throw constant par-copy
   dup ck-state /ck in-record? over ck-stage /stage in-record? or
   over ck-feeding-record /feed in-record? or swap ck-worker-feed /feed in-record? or ;
 \ On Gforth 1.0 also the worker threads' ids and the pool's mutex and its
-\ two conditions, laid down from task-lock up to pool-lock.
+\ two conditions, laid down from task-lock up to pool-lock. The pool's
+\ records are private to lib/task.fs (ADR 0010).
+lf-lib-private order+
 [defined] worker-ids [if]
 : par-sync? ( addr -- flag ) ['] task-lock >body ['] pool-lock within ;
 : par-ids? ( addr -- flag )

@@ -163,6 +163,7 @@ This prints `ba7816bf...f20015ad`, the SHA-256 of "abc".
   gives the strict framing LeanForth uses for Lean's exports.
 - `context.fs` and `task.fs` were designed around the checker's needs.
   They are general, but less polished as stand-alone tools than the rest.
-- `task.fs` still keeps every word public (about 130, most of them the
-  pool's internals; plan task 1.1.8). `blocks.fs`, `outcome.fs` and
-  `node.fs` have no helpers: every word they define is used elsewhere.
+- `task.fs`'s public words are the job pool's interface, listed in its
+  header; its records, queue and workers are private. `blocks.fs`,
+  `outcome.fs` and `node.fs` have no helpers: every word they define is
+  public, in `lf-lib` as every library's.

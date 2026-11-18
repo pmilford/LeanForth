@@ -22,7 +22,10 @@ import sys
 DEFAULT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUTPUT = "docs/development/LIBRARY_WORDS.md"
 COLON = re.compile(r"^:\s+(\S+)\s*(\([^)]*\))?(.*)$")
-DATA = re.compile(r"^(?:.*\s)?(constant|variable|value|defer|create|2constant|2variable)\s+(\S+)\s*(.*)$", re.I)
+# Data and defining words, each one a line names before its comment: the standard's, Gforth's
+# USER, and the libraries' own (a name ending in a colon, such as cons-class: or reader:).
+DATA = re.compile(r"(?:^|\s)(constant|variable|value|defer|create|2constant|2variable|user|[^\s:]\S*:)\s+(\S+)",
+                  re.I)
 STRUCT = re.compile(r"(?:^|\s)(begin-structure|field:|cfield:|2field:|\+field)\s+(\S+)", re.I)
 UNDEFINED = re.compile(r"^\[undefined\]\s+(\S+)\s+\[if\]", re.I)
 PRIVATE = re.compile(r"^\s*lf-lib-private\s+(module-open|set-current)\b")
@@ -58,10 +61,9 @@ def definitions(lines, i):
     if fields:
         text = trailing(line) or (comment_above(lines, i) if fields[0].group(1).lower() == "begin-structure" else "")
         return [(f.group(2), "", text[:MAX_DESCRIPTION]) for f in fields]
-    data = DATA.match(line) if line[:1] != " " else None
-    if data:
-        return [(data.group(2), "", (comment_above(lines, i) or trailing(data.group(3)))[:MAX_DESCRIPTION])]
-    return []
+    data = list(DATA.finditer(re.split(r"(?:^|\s)\\\s", line)[0])) if line[:1] != " " else []
+    text = (comment_above(lines, i) or trailing(line))[:MAX_DESCRIPTION]
+    return [(d.group(2), "", text if k == 0 else "") for k, d in enumerate(data)]
 
 
 def words(path):
@@ -76,7 +78,9 @@ def words(path):
         elif private or line.lstrip().startswith("\\"):
             continue
         else:
-            out += [entry for entry in definitions(lines, i) if entry[0] not in {e[0] for e in out}]
+            for entry in definitions(lines, i):
+                if entry[0] not in {e[0] for e in out}:   # a name two branches define, once
+                    out.append(entry)
     return out
 
 

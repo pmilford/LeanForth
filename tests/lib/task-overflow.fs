@@ -11,6 +11,7 @@
 include ../support/tester.fs
 include ../support/checks.fs
 require ../../src/lib/task.fs
+lf-lib-private order+   \ the tests reach the pool's record and guard zones (ADR 0010)
 
 1 cells context-record: marks
 

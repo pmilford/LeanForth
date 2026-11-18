@@ -91,3 +91,39 @@ old = ''': line-cr-drop ( addr n -- addr n' ) dup if 2dup + 1- c@ cr-byte = + th
 new = ''': line-cr-drop ( addr n -- addr n' ) dup 1 > if 2dup + 1- c@ cr-byte = + then ;'''
 test = "$GFORTH tests/lib/bytes.fs"
 reason = "a line that is only a carriage return keeps it in ordinary text (the lone CR after a file's last line feed)"
+
+[[fault]]
+id = "lt3-blocks-in-loader-list"
+file = "src/lib/blocks.fs"
+old = '''get-current lf-lib set-current   \ every word below is public, in lf-lib'''
+new = '''get-current dup set-current   \ every word below is public, in lf-lib'''
+test = "python3 tests/lib/test_standalone.py"
+reason = "blocks.fs's public words filed in the loader's word list, not lf-lib (review note 7)"
+
+[[fault]]
+id = "lt3-frame-in-loader-list"
+file = "src/lib/frame.fs"
+old = '''lf-lib-private module-open
+lf-lib set-current'''
+new = '''lf-lib-private module-open
+dup set-current'''
+test = "python3 tests/lib/test_standalone.py"
+reason = "frame.fs's record and fields filed in the loader's word list, as before lib-tidy-3"
+
+[[fault]]
+id = "lt3-task-helper-public"
+file = "src/lib/task.fs"
+old = '''lf-lib-private set-current
+: env-cells ( c-addr u -- n ) environment? 0= if 0 then ;'''
+new = ''': env-cells ( c-addr u -- n ) environment? 0= if 0 then ;'''
+test = "python3 tests/scripts/test_lib_index.py"
+reason = "a job-pool helper made public: the header's interface list and LIBRARY_WORDS.md no longer match"
+
+[[fault]]
+id = "lt3-task-submit-private"
+file = "src/lib/task.fs"
+old = '''lf-lib set-current
+: job-submit ( context xt -- job ior )'''
+new = ''': job-submit ( context xt -- job ior )'''
+test = "$GFORTH tests/core/environment-tasks.fs"
+reason = "job-submit filed private: a program that loads task.fs cannot submit a job"

@@ -12,6 +12,7 @@
 include ../support/tester.fs
 include ../support/checks.fs
 require ../../src/lib/task.fs
+lf-lib-private order+   \ the tests reach the pool's record and env-cells (ADR 0010)
 include ./task-job.fs
 
 \ Results recorded inside a job (nested jobs, a worker's strings).

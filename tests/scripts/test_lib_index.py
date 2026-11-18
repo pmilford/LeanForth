@@ -119,7 +119,7 @@ class Tree(unittest.TestCase):
     # Files whose header has no interface list (LIBRARY_WORDS.md lists their words); this set
     # may only shrink.
     NO_LIST = {"lib.fs", "module.fs", "node.fs", "outcome.fs", "portability.fs", "runs.fs",
-               "store-columns.fs", "store.fs", "task.fs", "walk.fs"}
+               "store-columns.fs", "store.fs", "walk.fs"}
 
     def test_header_interfaces_name_every_public_word(self):
         # Review lib-tidy, note 8: htab.fs's list left out its public fields.

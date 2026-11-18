@@ -85,9 +85,9 @@ LeanForth, unless coupling gains a lot. Audit of `src/lib/` on 2026-11-03:
 | `json.fs` (RFC 8259 reader), `json-write.fs` | yes | since 2026-11-18 (plan 1.1.8, branch `lib-tidy`) each requires exactly what it uses (`portability.fs`, `bounds.fs`, `outcome.fs`, `store.fs`, `blocks.fs`, `bytes.fs`, `decimal.fs`, `module.fs`); helpers in `lf-lib-private`; the public words and a runnable example in each header |
 | `bytes.fs` (bounded line reader, UTF-8) | yes | since 2026-11-18 requires `portability.fs`, `bounds.fs`, `outcome.fs`, `store.fs`, `blocks.fs` and `module.fs`, not `lib.fs`; the framing rules are options (`reader-rules!`): a zeroed reader reads ordinary text (a last line without a line feed, CRLF ends, a leading byte-order mark dropped), `reader-strict` is Lean's exports' framing, which the NDJSON and elaboration-data readers pass; helpers private |
 | `u32.fs` (32-bit access) | yes | none beyond `portability.fs` |
-| `store.fs`, `node.fs`, `walk.fs`, `frame.fs` (bounded stores, records, explicit-stack walks) | yes | the shared outcome vocabulary; since 2026-11-18 (branch `lib-tidy-2`) `frame.fs`'s eleven helpers (the stack's growth, the steps that open and end a visit) are private, its other words public in the word list current when it loads, as `walk.fs`'s |
-| `context.fs`, `task.fs` (per-task contexts, job pool) | partly: a general job pool and context mechanism, designed around the checker's per-check state | the checker's context model (ADR 0009); since 2026-11-18 `task.fs` requires `portability.fs`, `blocks.fs` and `context.fs`, not all of `lib.fs`; its about 130 words are all still public |
-| `outcome.fs` (ok, invalid, exhausted, unknown, rejected, unsupported, full) | LeanForth's shared result vocabulary | deliberately shared: one vocabulary for every module |
+| `store.fs`, `node.fs`, `walk.fs`, `frame.fs` (bounded stores, records, explicit-stack walks) | yes | the shared outcome vocabulary; since 2026-11-18 (branch `lib-tidy-2`) `frame.fs`'s eleven helpers (the stack's growth, the steps that open and end a visit) are private, its other words public; since branch `lib-tidy-3` the public words of all four are filed in `lf-lib`, as every library's (`store.fs`, `walk.fs` and `frame.fs` had put them in the loader's compilation word list, `node.fs` had no module) |
+| `context.fs`, `task.fs` (per-task contexts, job pool) | partly: a general job pool and context mechanism, designed around the checker's per-check state | the checker's context model (ADR 0009); since 2026-11-18 `task.fs` requires `portability.fs`, `blocks.fs`, `context.fs` and `module.fs`, not all of `lib.fs`; since branch `lib-tidy-3` its 29 public words are the pool's interface (`job-submit`, `job-wait`, `job-wait-any`, the pool's start, stop and size, its settings, the host and the THROW codes, listed in its header) and its other 115 words (the pool and job records, the queue, the host's lock and conditions, the workers) are private |
+| `outcome.fs` (ok, invalid, exhausted, unknown, rejected, unsupported, full) | LeanForth's shared result vocabulary | deliberately shared: one vocabulary for every module; its words, and `blocks.fs`'s, are in `lf-lib` since branch `lib-tidy-3` (neither has a helper to hide) |
 | `sections.fs` (sectioned binary files) | yes, written to this rule (2026-11-11): requires `portability.fs`, `module.fs`, `outcome.fs`, `u32.fs`, `sha256.fs`; helpers private; 14 public words, all `sections…`; an example in its header, run with the interface checked from a folder outside the project by `make test-sections` |
 | `sha256.fs` (SHA-256) | yes, written to this rule (2026-11-03) | requires `portability.fs`, `bits.fs`, `decimal.fs` and `module.fs`; helpers in `lf-lib-private`, 17 public words (the hashing interface and FIPS 180-4's functions), all named `sha-…` or `sha256…`; an example in its header and [below](#sha-256), run with the interface checked from a folder outside the project by `make test-sha256` |
 | `runs.fs` (sequences of cells that never change) | yes, written to this rule (2026-11-13) | requires `bounds.fs`, `outcome.fs`, `slab.fs`, `context.fs` and `module.fs` (its state is two context members, so one copy per checker context); helpers in `lf-lib-private`, 10 public words, all named `run…` or `runs…`; an example in its header, run by `tests/lib/runs.fs` without the checker |
@@ -105,10 +105,14 @@ outside the project, and every file requires each library file whose
 words it uses (an audit of words against `require` lines found none
 required and unused); every header has an example ending in what it
 prints, run as written by `make test-lib-standalone` on both engines; the
-helpers of every file but `task.fs` are private (ADR 0010); and every
+helpers of every file are private (ADR 0010), and since branch
+`lib-tidy-3` every public word is filed in `lf-lib`; and every
 library's speed is measured at two sizes with its callers' real sizes
-([below](#measured-profiles-2026-11-18)). Still open: `task.fs`'s public
-list.
+([below](#measured-profiles-2026-11-18)). Since `lib-tidy-3` the
+standalone test loads each file with `BASE` 7 and a source check reads
+every number in decimal, `tests/lib/test_requires.py` checks the direct
+`require` lines, and `tests/scripts/test_lib_index.py` checks that each
+header's interface list names every public word.
 
 ## JSON and NDJSON
 

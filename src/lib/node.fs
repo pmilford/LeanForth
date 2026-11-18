@@ -7,6 +7,8 @@
 
 require ./portability.fs
 require ./store.fs
+require ./module.fs
+get-current lf-lib set-current   \ every word below is public, in lf-lib
 
 begin-structure /node
   field: node-tag
@@ -29,3 +31,4 @@ end-structure
 \ check (compact-store plan step S2).
 : node-read ( index store -- tag first second true | false )
   2dup store-at? if store-slot node@ true else 2drop false then ;
+set-current   \ the compilation word list this file was loaded with
