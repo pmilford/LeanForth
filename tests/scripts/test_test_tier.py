@@ -434,7 +434,7 @@ class Reaches(Fixture):
 class BareWords(unittest.TestCase):
     """A quoted word equal to a folder's name is an input only when used as a path (2026-11-18:
     the mode "development" made test-cli read all of docs/development, ci-results.log too)."""
-    TRACKED = {p: "0" for p in ("docs/development/ci-results.log", "docs/development/A.md", "docs/user/B.md",
+    TRACKED = {p: "0" for p in ("docs/development/ci-results.log", "docs/development/TESTING_STRATEGY.md", "docs/user/COMMAND_LINE.md",
                                 "tests/cli/t.py", "tests/support/h.py", "src/lib/x.fs", "README.md")}
 
     def used(self, line, language=".py"):
@@ -466,12 +466,12 @@ class BareWords(unittest.TestCase):
             self.assertFalse(self.used(line, ".sh"), line)
 
     def test_program_inputs(self):
-        folder = {"docs/development/ci-results.log", "docs/development/A.md"}
+        folder = {"docs/development/ci-results.log", "docs/development/TESTING_STRATEGY.md"}
         self.assertEqual(self.inputs('assert out["mode"] == "development"\n'), set())
         self.assertEqual(self.inputs('page = DOCS / "development" / name\n'), folder)
         self.assertEqual(self.inputs('check(root, "development/")\n'), folder, "a path separator")
         self.assertEqual(self.inputs('assertEqual(tier, "docs")\n'), set(), "a root folder's name as a value")
-        self.assertEqual(self.inputs('walk("docs")\n'), folder | {"docs/user/B.md"})
+        self.assertEqual(self.inputs('walk("docs")\n'), folder | {"docs/user/COMMAND_LINE.md"})
         self.assertEqual(self.inputs('run("check", "README.md")\n'), {"README.md"}, "a file name stays")
 
 

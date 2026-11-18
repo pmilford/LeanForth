@@ -58,7 +58,8 @@ OpenAI Codex. Codex-era docs (`docs/project/CODEX_HANDOFF.md`, `prompts/FIRST_CO
   `AGENTS.md` requires: `scripts/push.sh` does this by change tier, its own
   tier only (a documentation push: the documentation and progress checks).
   Its full tier (owner, 2026-11-17) is the coverage ratchet of the touched
-  source files over their unit tests (`make coverage-focus`), `make test`,
+  source files over every target of `make test` that loads them
+  (`make coverage-focus`, 2026-11-18), `make test`,
   `make test-unit` on gforth-fast and `make check-rest`, with the Lean cache,
   and each target's recorded pass is reused while the files it reads are
   unchanged (`scripts/tested-tree.py`); it picks `JOBS` (5, or 2 when other
