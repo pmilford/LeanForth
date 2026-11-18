@@ -261,6 +261,11 @@
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
+  "src/front/app-builder.fs": {
+   "blocks": 198,
+   "never_run": 1,
+   "reason": "new file (plan slice a2-i, the tactic library; its review fix round, branch tactic-lib-2, 2026-11-18, measured over test-front, test-front-e2e, test-instances, test-elab-data and test-author): never run is abm-inst+'s refusal of a 17th instance binder in one mkAppM call (192:40, abl-most: no declaration of a slice has more than 16); a resource branch, coverage debt of slice a2-i (owner 2026-11-17 rule)."
+  },
   "src/front/assign-check.fs": {
    "blocks": 311,
    "never_run": 14,
@@ -492,6 +497,11 @@
    "blocks": 194,
    "never_run": 3,
    "reason": "new file (plan FE1g-2, branch fe1g2, 2026-11-13): the two load-time aborts of tac-heap (no heap for the tactic stores) and the defensive branch of lft-bracketed? (a hypothesis read outside a tactic proof, which the hypotheses' scopes rule out) are never run"
+  },
+  "src/front/telescope.fs": {
+   "blocks": 174,
+   "never_run": 3,
+   "reason": "new file (plan slice a2-i, the tactic library; its review fix round, branch tactic-lib-2, 2026-11-18, measured over test-front, test-front-e2e, test-instances, test-elab-data and test-author): never run are a metavariable with no local context (tle-view 169:57 and tl-sees-xs? 206:29: malformed, every metavariable is made in a view) and tl-open-mvar?'s assigned e (178:74: unreachable, e is instantiated first); coverage debt of slice a2-i (owner 2026-11-17 rule)."
   },
   "src/front/term-eqv.fs": {
    "blocks": 159,
