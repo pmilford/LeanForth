@@ -22,6 +22,9 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
 \ And, when loaded (src/main.fs since plan task 8.2.1c), the authoring
 \ words' binders (src/author/scopes.fs).
 [defined] lfa-binders [if] ' lfa-binders , [then]
+\ And their values and numerals (src/author/values.fs, form.fs; heap
+\ stores since reuse-front-a2).
+[defined] lfa-items [if] ' lfa-items , ' lfa-numerals , [then]
 \ And the natural reader's syntax store (src/front/syntax.fs, plan FE1a).
 [defined] syn-store [if] ' syn-store , [then]
 \ And the metavariable context's stores (src/front/mvars.fs, plan FE1b).
