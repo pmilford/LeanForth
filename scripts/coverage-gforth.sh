@@ -7,10 +7,22 @@
 # counts name source files relative to it), the make target that ran it
 # (LF_MAKE_TARGET, which scripts/timed.sh sets; empty without) and its
 # arguments.
+#
+# It starts no process of its own before it becomes the strict wrapper
+# (EXEC): under a process limit (`ulimit -u`) a refused fork here would end
+# the run with the shell's own status, which reads as a Gforth failure; so
+# the only way it fails to start Gforth is the strict wrapper's, which
+# reports it (scripts/start-limit.sh). The count file is named by this
+# process's number; one left by an earlier process of that number is never
+# overwritten (noclobber), and mktemp names it then.
 set -eu
-here=$(cd "$(dirname "$0")" && pwd)
-out=$(mktemp "$LF_COVERAGE_DIR/run.XXXXXX")
-printf '%s\n%s\n%s\n' "$(pwd)" "${LF_MAKE_TARGET:-}" "$*" >"$out.cwd"
+case $0 in */*) here=${0%/*} ;; *) here=. ;; esac
+case $here in /*) ;; *) here=$PWD/$here ;; esac
+out=$LF_COVERAGE_DIR/run.$$
+set -C
+if ! { : >"$out"; } 2>/dev/null; then out=$(mktemp "$LF_COVERAGE_DIR/run.XXXXXX"); fi
+set +C
+printf '%s\n%s\n%s\n' "$PWD" "${LF_MAKE_TARGET:-}" "$*" >"$out.cwd"
 LF_COVERAGE_OUT=$out
 export LF_COVERAGE_OUT
 # Through the strict wrapper (nonzero status after a reported error).

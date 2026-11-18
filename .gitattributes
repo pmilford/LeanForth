@@ -1,0 +1,3 @@
+# Fixtures whose exact bytes (carriage returns, a byte-order mark, no final
+# line feed) are the test: never converted.
+tests/lib/reader-*.txt -text

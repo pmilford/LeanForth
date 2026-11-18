@@ -322,6 +322,7 @@ test-differential: test-inductive-table
 
 test-harness:
 	GFORTH=$(GFORTH) $(RUN) bash tests/harness/check.sh
+	$(RUN) python3 tests/scripts/test_start_limit.py
 
 # The general Forth library in src/lib. The job pool is not loaded by
 # src/main.fs, so it gets its own silent-load check; task.fs tests the
@@ -975,6 +976,25 @@ test-sections:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_sections.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/scripts/test_with_scratch.py
 
+# Every src/lib file alone (plan task 1.1.8): copied with exactly the files it
+# requires into a folder outside the project, loaded with BASE 7 on Gforth and
+# gforth-fast, BASE and the search order restored, every number read in
+# decimal, and each header's example run as written (tests/lib/test_standalone.py);
+# and each file requires directly every library file whose words it uses
+# (tests/lib/test_requires.py).
+test-lib-standalone:
+	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_standalone.py
+	$(RUN) python3 tests/lib/test_requires.py
+
+# Report only (not part of make test): each library's speed at a small and a
+# large size, on gforth-fast (the Gforth named, with -fast) and then Gforth,
+# with the machine's load; the figures of FORTH_LIBRARY.md's "Measured
+# profiles" (tests/lib/lib-bench.fs, a few minutes).
+lib-bench:
+	@mkdir -p build
+	@for g in $(LEANFORTH_GFORTH)-fast $(LEANFORTH_GFORTH); do echo "$$g, load $$(cut -d' ' -f1-3 /proc/loadavg 2>/dev/null)"; \
+	  $$g tests/lib/lib-bench.fs -e 'lib-bench bye' || exit 1; done
+
 test-manifest:
 	$(RUN) $(GFORTH) tests/core/manifest.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_export_manifest.py
@@ -985,8 +1005,8 @@ test-manifest:
 reference-manifest:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/reference/manifest-check.sh
 
-.PHONY: test-sha256 test-sections test-manifest reference-manifest
-test: test-sha256 test-sections test-manifest
+.PHONY: test-sha256 test-sections test-lib-standalone test-manifest reference-manifest lib-bench
+test: test-sha256 test-sections test-lib-standalone test-manifest
 test-differential: reference-manifest
 
 # The elaboration data (plan row FE1d; docs/programming/ELABORATION_DATA.md):

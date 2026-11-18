@@ -25,13 +25,17 @@
 \   100 buf block-zeroed .  buf @ 99 + c@ .     \ 0 0: ok, zeroed
 \   200 buf block-resize .                      \ 0: ok, the first 100 kept
 \   buf heap-release  buf @ .  buf heap-release  \ 0: freed, then nothing
-\   64 heap-claim if free drop then             \ a block as a flag
+\   64 heap-claim . free .                      \ -1 0: a block as a flag
+\   \ prints: 0 0 0 0 -1 0
 \
 \ Interface: heap-claim heap-release allocate0 block-zeroed block-resize
 \ block-reused block-free. State:
-\ none. Requires outcome.fs; no helpers.
+\ none. Requires outcome.fs and module.fs; no helpers: every word is
+\ public, in lf-lib.
 
 require ./outcome.fs
+require ./module.fs
+get-current lf-lib set-current   \ every word below is public, in lf-lib
 
 \ Heap memory as a flag: true with the address, or false alone.
 : heap-claim ( u -- addr true | false ) allocate if drop false else true then ;
@@ -62,3 +66,4 @@ require ./outcome.fs
 \ with the cell unchanged, so that a later call tries again.
 : block-free ( a-addr -- ior )
   dup @ ?dup 0= if drop 0 exit then free dup 0= if over 0 swap ! then nip ;
+set-current   \ the compilation word list this file was loaded with

@@ -1,0 +1,137 @@
+# Planted faults of the library tidy (plan task 1.1.8, branch lib-tidy-3): the standalone
+# test's BASE checks, the requires check and the callers' strict reader framing.
+
+[[fault]]
+id = "lt3-sha256-ends-in-hex"
+file = "src/lib/sha256.fs"
+old = '''base !   \ the BASE this file was loaded with'''
+new = '''base ! hex'''
+test = "python3 tests/lib/test_standalone.py"
+reason = "a library file that leaves BASE in hex: loaded with BASE 7, the load check sees 16 afterwards"
+
+[[fault]]
+id = "lt3-frame-numbers-in-loading-base"
+file = "src/lib/frame.fs"
+old = '''base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
+'''
+new = '''base @   \ the numbers below are decimal; the BASE kept here returns at the end
+'''
+test = "python3 tests/lib/test_standalone.py"
+reason = "frame.fs's numbers (-4111, 16) read in the loading BASE: the source check finds them, and with BASE 7 the file does not load"
+
+[[fault]]
+id = "lt3-bytes-without-blocks"
+file = "src/lib/bytes.fs"
+old = '''require ./blocks.fs
+'''
+new = ''''''
+test = "python3 tests/lib/test_requires.py"
+reason = "bytes.fs uses heap-claim of blocks.fs, reached only through store.fs: the standalone load passes, the requires check refuses it"
+
+[[fault]]
+id = "lt3-export-reader-final-lf-only"
+file = "src/import/ndjson.fs"
+old = '''  export-reader reader-strict over reader-rules!'''
+new = '''  export-reader reader-final-lf over reader-rules!'''
+test = "python3 tests/core/test_ndjson_reader.py FramingFailures"
+reason = "the export reader drops carriage returns and a byte-order mark from its lines, so a CRLF export is read where Lean's exports are refused"
+
+[[fault]]
+id = "lt3-export-reader-ordinary-text"
+file = "src/import/ndjson.fs"
+old = '''  export-reader reader-strict over reader-rules!'''
+new = '''  export-reader reader-text over reader-rules!'''
+test = "python3 tests/core/test_ndjson_reader.py FramingFailures ExitStatus"
+reason = "the export reader reads ordinary text: a last line without its line feed is accepted, and carriage returns are dropped"
+
+[[fault]]
+id = "lt3-elab-reader-ordinary-text"
+file = "src/front/elab-data.fs"
+old = '''  reader-strict elab elab-reader reader-rules!'''
+new = '''  reader-text elab elab-reader reader-rules!'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "the elaboration data's reader takes a last line without its line feed, which the strict framing refuses"
+
+[[fault]]
+id = "lt3-index-without-fields"
+file = "scripts/lib-index.py"
+old = '''STRUCT = re.compile(r"(?:^|\s)(begin-structure|field:|cfield:|2field:|\+field)\s+(\S+)", re.I)'''
+new = '''STRUCT = re.compile(r"(?:^|\s)(begin-structure)\s+(\S+)", re.I)'''
+test = "python3 tests/scripts/test_lib_index.py"
+reason = "structure fields left out of LIBRARY_WORDS.md (review lib-tidy finding 4): the index is stale and the structure test fails"
+
+[[fault]]
+id = "lt3-htab-header-without-hooks"
+file = "src/lib/htab.fs"
+old = '''\ Interface: /htab /htab-hooks hook-rehash hook-same htab-hooks! htab-init'''
+new = '''\ Interface: /htab /htab-hooks htab-hooks! htab-init'''
+test = "python3 tests/scripts/test_lib_index.py"
+reason = "a header's interface list that leaves out public words (htab.fs's hook fields, review note 8)"
+
+[[fault]]
+id = "lt3-reader-line-number-off"
+file = "src/lib/bytes.fs"
+old = ''': reader-line# ( reader -- n ) reader-lines @ ;'''
+new = ''': reader-line# ( reader -- n ) reader-lines @ 1- 0 max ;'''
+test = "$GFORTH tests/lib/bytes.fs"
+reason = "the line number one short after the first line, so an export's error names the line before the bad one"
+
+[[fault]]
+id = "lt3-reader-close-line-ignores-full"
+file = "src/lib/bytes.fs"
+old = '''  dup reader-room! ok-then? if reader-lf! outcome-ok then ;'''
+new = '''  dup reader-room! ok-then? if reader-lf! then outcome-ok ;'''
+test = "$GFORTH tests/lib/bytes.fs"
+reason = "a last line taken as ok when RESIZE refused room for its line feed"
+
+[[fault]]
+id = "lt3-reader-lone-cr-kept"
+file = "src/lib/bytes.fs"
+old = ''': line-cr-drop ( addr n -- addr n' ) dup if 2dup + 1- c@ cr-byte = + then ;'''
+new = ''': line-cr-drop ( addr n -- addr n' ) dup 1 > if 2dup + 1- c@ cr-byte = + then ;'''
+test = "$GFORTH tests/lib/bytes.fs"
+reason = "a line that is only a carriage return keeps it in ordinary text (the lone CR after a file's last line feed)"
+
+[[fault]]
+id = "lt3-blocks-in-loader-list"
+file = "src/lib/blocks.fs"
+old = '''get-current lf-lib set-current   \ every word below is public, in lf-lib'''
+new = '''get-current dup set-current   \ every word below is public, in lf-lib'''
+test = "python3 tests/lib/test_standalone.py"
+reason = "blocks.fs's public words filed in the loader's word list, not lf-lib (review note 7)"
+
+[[fault]]
+id = "lt3-frame-in-loader-list"
+file = "src/lib/frame.fs"
+old = '''lf-lib-private module-open
+lf-lib set-current'''
+new = '''lf-lib-private module-open
+dup set-current'''
+test = "python3 tests/lib/test_standalone.py"
+reason = "frame.fs's record and fields filed in the loader's word list, as before lib-tidy-3"
+
+[[fault]]
+id = "lt3-task-helper-public"
+file = "src/lib/task.fs"
+old = '''lf-lib-private set-current
+: env-cells ( c-addr u -- n ) environment? 0= if 0 then ;'''
+new = ''': env-cells ( c-addr u -- n ) environment? 0= if 0 then ;'''
+test = "python3 tests/scripts/test_lib_index.py"
+reason = "a job-pool helper made public: the header's interface list and LIBRARY_WORDS.md no longer match"
+
+[[fault]]
+id = "lt3-task-submit-private"
+file = "src/lib/task.fs"
+old = '''lf-lib set-current
+: job-submit ( context xt -- job ior )'''
+new = ''': job-submit ( context xt -- job ior )'''
+test = "$GFORTH tests/core/environment-tasks.fs"
+reason = "job-submit filed private: a program that loads task.fs cannot submit a job"
+
+[[fault]]
+id = "lt3-refused-fork-unexplained"
+file = "scripts/start-limit.sh"
+old = '''    254) lf_why="resource limit (a process could not be started)" ;;'''
+new = '''    255) lf_why="resource limit (a process could not be started)" ;;'''
+test = "python3 tests/scripts/test_start_limit.py Report"
+reason = "a refused fork (bash's status 254) reported as a plain Gforth status again (review note 9)"

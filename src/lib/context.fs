@@ -70,8 +70,10 @@
 \   : my-buffer-free ( -- ) my-buffer @ ?dup if free drop then 0 my-buffer ! ;
 \   ' my-buffer-free context-teardown
 \   context-new throw constant my-context
-\   my-context context-use  64 allocate throw my-buffer !  context-main context-use
+\   my-context context-use  64 allocate throw my-buffer !
+\   my-buffer @ 0<> .  context-main context-use  my-buffer @ .   \ -1 0
 \   my-context context-free throw        \ runs my-buffer-free, frees the walk's block
+\   \ prints: -1 0
 \
 \ Interface: lf-context lf-owner context-check-owner context-in-job?
 \ context-unbalanced ?call-balanced call-balanced allocate0 /context-header
@@ -92,10 +94,12 @@
 \ tasks start. Untrusted. The layout is host-specific and must never be
 \ serialized.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./blocks.fs
 require ./bounds.fs
 require ./portability.fs
 require ./module.fs
+require ./outcome.fs
 require ./store.fs
 require ./walk.fs
 require ./frame.fs
@@ -433,3 +437,4 @@ lf-lib set-current
 : context-catch ( i*x xt -- j*x ior ) lf-context @ >r catch r> lf-context ! ;
 
 module-close
+base !   \ the BASE this file was loaded with

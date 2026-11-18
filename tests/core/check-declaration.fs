@@ -807,15 +807,15 @@ lf-meter-stop  ' lf-check-scratch is lf-meter-used  0 lf-meter-limit!
 \ Literals (review rvRS F3): a literal's limbs and a string literal's
 \ bytes are charged to the limit, and given back with the check's scratch
 \ (lf-input-rollback), counted by the reading until then.
-create big-limbs 200 cells allot  big-limbs 200 cells erase  1 big-limbs 199 cells + !
+create lit-limbs 200 cells allot  lit-limbs 200 cells erase  1 lit-limbs 199 cells + !
 create big-text 2000 allot  big-text 2000 char a fill
 ' fake-used is lf-meter-used  1000 lf-meter-limit!  0 fake-bytes !
 lf-meter-start
-T{ big-limbs 200 lf-hterm-lit lf-meter-passed? -> false true }T
+T{ lit-limbs 200 lf-hterm-lit lf-meter-passed? -> false true }T
 lf-meter-stop lf-meter-start
 T{ big-text 2000 lf-str-new nip nip lf-meter-passed? -> outcome-full true }T
 lf-meter-stop lf-meter-start
-T{ big-limbs 100 lf-hterm-lit nip nip lf-meter-passed? -> true false }T
+T{ lit-limbs 100 lf-hterm-lit nip nip lf-meter-passed? -> true false }T
 lf-meter-stop  ' lf-check-scratch is lf-meter-used  0 lf-meter-limit!
 lf-lit-limbs slab-count 100 - constant limbs-before
 lf-str-bytes slab-count constant bytes-before
@@ -823,7 +823,7 @@ T{ big-text 50 lf-str-new nip nip lf-input-slab-bytes -> outcome-ok 100 cells 50
 T{ lf-input-rollback lf-lit-limbs slab-count lf-str-bytes slab-count lf-input-slab-bytes
    -> outcome-ok limbs-before bytes-before 0 }T
 \ The reading counts a literal's limbs with its node.
-T{ lf-check-scratch big-limbs 100 lf-hterm-lit nip nip lf-check-scratch rot -
+T{ lf-check-scratch lit-limbs 100 lf-hterm-lit nip nip lf-check-scratch rot -
    -> true 100 cells lf-meter-term-bytes + }T
 lf-input-rollback drop
 \ A local-context entry is charged just after its node, under the real

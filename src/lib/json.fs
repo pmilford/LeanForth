@@ -1,7 +1,5 @@
 \ Fail-closed JSON reader (RFC 8259) for one JSON text at a time, such as
 \ one NDJSON line. A general tool with no Lean knowledge. Untrusted.
-\ Requires: bytes.fs (UTF-8 checks, heap, line feed and carriage return),
-\ decimal.fs (digits>u: numbers read by hand, so BASE never matters).
 \ State: none of its own. Every word takes a view record made by json:, so
 \ separate views are independent; one view is single-threaded. The byte
 \ tables below are constant after loading.
@@ -33,10 +31,37 @@
 \ object keys are kept: json-find returns the first and json-find-last
 \ the last (the one a parser that overwrites on insert, such as Lean's,
 \ keeps), and a caller that needs unique keys checks them.
+\
+\ Example: the value of a member, as a natural number.
+\   json: view   8 view json-init drop   create text 64 allot
+\   : size ( -- ) c" size" 0 view json-find . view json-u . . ;
+\   s\" {\"name\":\"x\",\"size\":42}" tuck text swap move
+\   text swap view json-parse . size  view json-free   \ prints: 0 -1 -1 42
+\
+\ Interface: the token kinds json-object json-array json-string
+\ json-integer json-real json-true json-false json-null; /json json:
+\ json-init json-free and the settings json-token-limit json-depth-limit
+\ json-string-limit json-digit-limit json-why; json-parse json-offset
+\ json-reason; reading the tape: json-kind@ json-text@ json-items@
+\ json-kind-at json-items-of json-next json-contents json-find
+\ json-find-last json-bool json-natural json-u; digits: canonical-natural?
+\ digits-end. Requires portability.fs, bounds.fs, outcome.fs, store.fs
+\ (store-zeroed,), blocks.fs (heap-claim, heap-release), bytes.fs (UTF-8),
+\ decimal.fs (decimal-digit?, digits>u: numbers read by hand, so BASE never
+\ matters) and module.fs; helpers are private in lf-lib-private (ADR 0010).
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
+require ./portability.fs
+require ./bounds.fs
+require ./outcome.fs
+require ./store.fs
+require ./blocks.fs
 require ./bytes.fs
 require ./decimal.fs
+require ./module.fs
+
+lf-lib-private module-open
+lf-lib set-current
 
 \ Token kinds.
 0 constant json-object
@@ -47,6 +72,7 @@ require ./decimal.fs
 5 constant json-true
 6 constant json-false
 7 constant json-null
+lf-lib-private set-current
 
 begin-structure /token
   field: token-kind
@@ -57,24 +83,30 @@ end-structure
 : token-items ( token -- addr ) token-text ;
 : token-after ( token -- addr ) token-size ;
 
+lf-lib set-current
 begin-structure /json
+lf-lib-private set-current
   field: json-tape                 \ heap array of tokens
   field: json-room                 \ tokens it holds now
   field: json-count                \ tokens parsed
   field: json-stack                \ heap array of the open containers' indices
   field: json-depth                \ containers open now
+lf-lib set-current
   field: json-token-limit          \ most tokens in one text
   field: json-depth-limit          \ deepest nesting of containers
   field: json-string-limit         \ longest string after decoding, in bytes
   field: json-digit-limit          \ longest number text, in bytes
+lf-lib-private set-current
   field: json-state                \ what the parser expects next
   field: json-start                \ first byte of the text
   field: json-pos                  \ next byte to read
   field: json-end                  \ address after the text
   field: json-out                  \ where a string's decoded bytes go
   field: json-mark                 \ start of the string or number being read
+lf-lib set-current
   field: json-why                  \ counted string: why parsing failed, or 0
 end-structure
+lf-lib-private set-current
 
 \ Parser states: what may come next.
 0 constant st-value                \ any value
@@ -86,8 +118,10 @@ end-structure
 
 256 constant json-first-room       \ tokens in a new tape; it doubles as needed
 
+lf-lib set-current
 \ Defining word: name ( -- view ), zeroed, without heap memory yet.
 : json: ( "name" -- ) create /json store-zeroed, drop ;
+lf-lib-private set-current
 : json-tape! ( room addr view -- ) tuck json-tape ! json-room ! ;
 \ Limits: depth as given; tokens, strings and numbers as large as memory.
 : json-limits! ( depth view -- )
@@ -99,6 +133,7 @@ end-structure
 : json-heap-tape ( view -- outcome )
   json-first-room dup /token * heap-claim
   if rot json-tape! outcome-ok else 2drop outcome-full then ;
+lf-lib set-current
 \ Free a view's heap memory and zero it.
 : json-free ( view -- )
   dup json-tape heap-release dup json-stack heap-release /json erase ;
@@ -107,13 +142,16 @@ end-structure
 \ room; json-free then releases what was allocated.
 : json-init ( depth view -- outcome )
   dup json-free tuck json-limits! dup json-heap-stack ok-then? if json-heap-tape then ;
+lf-lib-private set-current
 
 \ Failure: remember why, and give invalid or full.
 : json-bad ( view c-addr -- outcome ) swap json-why ! outcome-invalid ;
 : json-over ( view c-addr -- outcome ) swap json-why ! outcome-full ;
+lf-lib set-current
 \ Where parsing stopped, as an offset into the text, and why it failed.
 : json-offset ( view -- n ) dup json-pos @ swap json-start @ - ;
 : json-reason ( view -- c-addr u ) json-why @ ?dup if count else s" none" then ;
+lf-lib-private set-current
 
 \ Reading position.
 : json-rest ( view -- end pos ) dup json-end @ swap json-pos @ ;
@@ -277,8 +315,11 @@ cr-byte char r json-escape-byte!
   else 2drop json-escaped-string then ;
 
 \ Numbers: -? (0 | [1-9][0-9]*) (. [0-9]+)? ([eE] [+-]? [0-9]+)?
+lf-lib set-current
+\ The address after the decimal digits from addr on, at most end.
 : digits-end ( end addr -- end addr' )
   begin 2dup u> while dup c@ decimal-digit? while 1+ repeat then ;
+lf-lib-private set-current
 : json-digits ( view -- n )
   >r r@ json-rest digits-end nip r@ json-pos @ over r> json-pos ! - ;
 : json-skip-if ( c view -- flag ) tuck json-peek = dup if swap json-skip else nip then ;
@@ -384,6 +425,7 @@ create json-steps   \ indexed by state
 : json-finish ( view -- outcome )
   dup json-skip-space dup json-peek 0< if drop outcome-ok exit then
   c" text after the value" json-bad ;
+lf-lib set-current
 \ Parse the text addr u into the view's tape; see the header for outcomes.
 \ Escaped strings are decoded in place inside addr u.
 : json-parse ( addr u view -- outcome )
@@ -412,9 +454,11 @@ create json-steps   \ indexed by state
   if drop 1+ else nip token-after @ then ;
 \ The tokens inside a container: from first up to, but not including, end.
 : json-contents ( index view -- end first ) over swap json-token token-after @ swap 1+ ;
-\ The value of the first member of an object whose key is the counted string.
+lf-lib-private set-current
 : json-key= ( c-addr key view -- flag ) json-text@ rot count compare 0= ;
 : json-member-next ( key view -- key' ) swap 1+ swap json-next ;
+lf-lib set-current
+\ The value of the first member of an object whose key is the counted string.
 : json-find ( c-addr object view -- value true | false )
   tuck json-contents -rot swap 2>r
   begin dup 2r@ drop < while
@@ -436,9 +480,11 @@ create json-steps   \ indexed by state
 
 \ Natural numbers. A natural is an integer token without a minus sign, or
 \ -0 (which JSON allows and which equals 0).
+lf-lib-private set-current
 : natural-text ( addr u -- addr u true | false )
   over c@ [char] - <> if true exit then
   2dup s" -0" compare if 2drop false else 1 /string true then ;
+lf-lib set-current
 \ The digits of the natural number at index.
 : json-natural ( index view -- addr u true | false )
   2dup json-kind@ json-integer <> if 2drop false exit then json-text@ natural-text ;
@@ -451,4 +497,5 @@ create json-steps   \ indexed by state
   dup 0= if 2drop false exit then over c@ [char] 0 = over 1 > and if 2drop false exit then
   over + swap digits-end = ;
 
+module-close
 base !   \ the BASE this file was loaded with (not reached when loading throws)

@@ -12,6 +12,7 @@ include ../support/tester.fs
 include ../support/checks.fs
 include ../support/heap-watch.fs
 hex require ../../src/import/ndjson.fs base @ decimal constant base-after-load
+lf-lib-private order+   \ the reader's and the view's fields (ADR 0010)
 
 T{ base-after-load export-line-limit export-token-limit export-depth-limit kind-count
    -> 16 67108864 65536 64 27 }T
@@ -447,13 +448,13 @@ T{ 0 snap recursor-rule -> 0 }T
 \ level arguments, has 9 + k tokens.
 140000 constant big-room
 create big-line big-room allot  variable big-length
-: big+ ( c-addr u -- )
+: text+ ( c-addr u -- )
   dup big-length @ + big-room > abort" big-line too small"
   tuck big-line big-length @ + swap move big-length +! ;
-: zeros+ ( k -- ) 0 ?do s" 0," big+ loop -1 big-length +! ;
+: zeros+ ( k -- ) 0 ?do s" 0," text+ loop -1 big-length +! ;
 : const-line ( n k -- c-addr u )
-  0 big-length ! s\" {\"ie\":" big+ swap 0 <# #s #> big+
-  s\" ,\"const\":{\"name\":1,\"us\":[" big+ zeros+ s" ]}}" big+ big-line big-length @ ;
+  0 big-length ! s\" {\"ie\":" text+ swap 0 <# #s #> text+
+  s\" ,\"const\":{\"name\":1,\"us\":[" text+ zeros+ s" ]}}" text+ big-line big-length @ ;
 T{ 10 export-token-limit 9 - const-line ex export-line ex export-json json-count @
    -> outcome-ok export-token-limit }T
 T{ 11 export-token-limit 8 - const-line ex export-line why s" too many tokens" compare
@@ -464,8 +465,8 @@ T{ ex export-json json-room @ export-token-limit <= -> true }T
 \ holds n nested arrays, is nested n + 3 deep (the line's object, mdata's
 \ and data's); 64 containers deep pass, 65 are full.
 : nested-line ( n -- c-addr u )
-  0 big-length ! s\" {\"ie\":8,\"mdata\":{\"data\":{\"k\":" big+
-  dup 0 ?do s" [" big+ loop 0 ?do s" ]" big+ loop s\" },\"expr\":0}}" big+
+  0 big-length ! s\" {\"ie\":8,\"mdata\":{\"data\":{\"k\":" text+
+  dup 0 ?do s" [" text+ loop 0 ?do s" ]" text+ loop s\" },\"expr\":0}}" text+
   big-line big-length @ ;
 T{ prefix 62 nested-line ex export-line why s" nested too deeply" compare ex export-exprs @
    -> outcome-ok outcome-full 0 8 }T

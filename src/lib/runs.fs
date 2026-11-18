@@ -42,13 +42,15 @@
 \   : odd? ( x -- flag ) 1 and 0<> ;
 \   0 over ' sum run-each drop .             \ 31
 \   ' odd? run-filter drop run-count .       \ [7 7 9]: 3
+\   \ prints: 4 7 31 3
 \ State: two slabs (slab.fs) that are members of the checker context
 \ (context.fs, ADR 0009), so each context has its own runs; one context
-\ is single-threaded. Requires bounds.fs, outcome.fs, slab.fs, context.fs
-\ and module.fs; helpers private in lf-lib-private (ADR 0010). Loads in
+\ is single-threaded. Requires portability.fs, bounds.fs, outcome.fs, slab.fs,
+\ context.fs and module.fs; helpers private in lf-lib-private (ADR 0010). Loads in
 \ decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
+require ./portability.fs
 require ./bounds.fs
 require ./outcome.fs
 require ./slab.fs

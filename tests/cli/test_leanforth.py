@@ -936,7 +936,7 @@ class Print(unittest.TestCase):
             self.assertEqual(self.lines("--statement", forms, COMPOSITION), (0, expected), forms)
         for bad in ("", "lean,", "latin", "lean,,mathematics", "Lean"):
             status, out, err = run("print", "--statement", bad, COMPOSITION)
-            self.assertEqual((status, out.startswith("error:")), (4, True), bad)
+            self.assertEqual((status, out.startswith("error:")), (4, True), f"{bad}: {out}{err}")
         status, out, err = run("check", "--statement", "lean", COMPOSITION)
         self.assertEqual((status, out.startswith("error: an option this command does not take")),
                          (4, True))

@@ -22,6 +22,10 @@
 \     saved run-settings-save 0= if 2drop -2 exit then
 \     my-words 1 set-order decimal
 \     ['] evaluate catch dup if nip nip then saved run-settings-restore ;
+\   s" 1 2" run-line . . .                      \ 0 (no THROW) 2 1
+\   : numeral? ( c -- flag ) [char] 0 - 10 u< ;
+\   s" ab7c" ' numeral? text-scan .  s" abc" ' numeral? text-any? .
+\   \ prints: 0 2 1 2 0
 \
 \ Interface (lf-lib): /run-settings, run-settings-order-max,
 \ run-settings-save, run-settings-restore, text-file-slurp, text-scan,

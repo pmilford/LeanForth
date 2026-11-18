@@ -3,11 +3,14 @@
 \ A standalone library for any Forth-2012 system; it needs bytes.fs
 \ (counted,) and module.fs (ADR 0010).
 \
+\ Example: a table of two colours, each with a number after its name.
 \   name-table: colours
 \   s" red" colours name-entry 1 ,
 \   s" green" colours name-entry 2 ,
-\   s" green" colours name-table-find name-entry-data @   \ 2
-\   s" blue" colours name-table-find                      \ 0
+\   s" green" colours name-table-find name-entry-data @ .
+\   s" blue" colours name-table-find .   \ prints: 2 0
+\ Interface: name-table:, name-entry, name-table-find, name-entry-name,
+\ name-entry-data, name-table-each.
 \
 \ name-table: ( "name" -- ) makes an empty table; the name gives its
 \ address. Any two cells set to 0 serve as an empty table too, such as

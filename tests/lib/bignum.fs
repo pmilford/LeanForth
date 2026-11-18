@@ -11,6 +11,7 @@
 include ../support/tester.fs
 include ../support/checks.fs
 hex require ../../src/lib/bignum.fs base @ decimal constant base-after-load
+lf-lib-private order+   \ the tests reach helpers (ADR 0010)
 
 T{ base-after-load -> 16 }T
 

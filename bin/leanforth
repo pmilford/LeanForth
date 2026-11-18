@@ -30,12 +30,22 @@
 # git can tell it (LEANFORTH_COMMIT, LEANFORTH_MODIFIED).
 set -u
 
+# A fork refused (a process limit, `ulimit -u`, which counts every thread of
+# the user) ends bash with status 254 and runs this trap: an internal fault,
+# said as such, with the user's threads and the limit when the helper has
+# been read (scripts/start-limit.sh; review lib-tidy, note 9).
+trap 'st=$?; if [ "$st" -eq 254 ]; then
+  command -v lf_start_report >/dev/null && lf_start_report "leanforth: internal fault" 254 ||
+    printf "leanforth: internal fault: could not start a process: resource limit\n" >&2
+  exit 5; fi' EXIT
+
 self=$0
 command -v readlink >/dev/null 2>&1 && self=$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")
 root=$(cd "$(dirname "$self")/.." && pwd -P) || {
   printf 'leanforth: internal fault: cannot find the LeanForth checkout\n' >&2
   exit 5
 }
+. "$root/scripts/start-limit.sh"
 
 # verify (plan 8.4.1c): checking a Forth word against its contract runs the driver
 # scripts/program_verify.py, which needs Python 3 and the pinned Lean 4.35.0 (the owner
@@ -164,7 +174,10 @@ status=$?
 case $status in
   10[0-6]) code=$((status - 100)) ;;
   *)
-    printf 'leanforth: internal fault: Gforth ended with status %s\n' "$status" >&2
+    # A Gforth that never started (a wrapper's fork refused, 254; an exec
+    # that failed, 126 or 127) is said as such; any other status is Gforth's.
+    lf_start_report "leanforth: internal fault" "$status" ||
+      printf 'leanforth: internal fault: Gforth ended with status %s\n' "$status" >&2
     exit 5
     ;;
 esac

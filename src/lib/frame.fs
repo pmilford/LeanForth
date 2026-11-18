@@ -75,12 +75,28 @@
 \     over 2 < if >r drop 1 outcome-ok r> 0 exit then
 \     2dup frame-save swap 1- swap ['] leaves-second frame-call ;
 \   ' leaves-visit frames: tree
-\   1000 tree frame-budget drop  10 0 tree frame-run   \ 89 ok, 177 visits
-\   tree frame-free
+\   1000 tree frame-budget drop  10 0 tree frame-run . .   \ 0 (ok) 89
+\   tree frame-free                                      \ prints: 0 89
+\
+\ Interface: /frames frame-fuel frame-depth frame-visitor frame-context
+\ frame-job frame-block frame-used frame-capacity frame-spare frame-need
+\ frame-init frames: frame-free frame-busy? frame-reset frame-budget
+\ frame-overrun frame-save frame-restore frame-pick frame-drop
+\ frame-sound? frame-room@ frame-room? frame-admit frame-refuse
+\ frame-return frame-opened frame-left frame-open frame-call
+\ frame-open-or frame-context+! frame-up frame-under frame-loop
+\ frame-steps frame-through frame-start frame-run, public in lf-lib; the
+\ stack's growth and the steps that open and end a visit are private (lf-lib-private;
+\ ADR 0010).
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./bounds.fs
 require ./outcome.fs
 require ./portability.fs
+require ./module.fs
+
+lf-lib-private module-open
+lf-lib set-current
 
 begin-structure /frames
   field: frame-fuel      \ visits left
@@ -97,7 +113,9 @@ end-structure
 \ a visit's admission makes: its own continuation cells and that many.
 8 constant frame-spare
 3 frame-spare + constant frame-need
+lf-lib-private set-current
 16 constant frame-first-cells
+lf-lib set-current
 
 \ Initialise a record in place: idle, no fuel, no job, an empty stack, the
 \ visitor xt, which is set once here. frames: defines a standalone record,
@@ -127,8 +145,10 @@ end-structure
 \ Unchecked: frame-restore, frame-pick (cell i from the top, 0 the last
 \ saved) and frame-drop (n cells) take cells saved by the same visit.
 -4111 constant frame-overrun
+lf-lib-private set-current
 : frame-top ( frames -- addr ) dup frame-used @ cells swap frame-block @ + ;
 : frame-held? ( frames -- flag ) dup frame-used @ swap frame-capacity @ u< ;
+lf-lib set-current
 : frame-save ( x frames -- )
   dup frame-held? 0= if frame-overrun throw then tuck frame-top ! 1 swap frame-used +! ;
 : frame-restore ( frames -- x ) -1 over frame-used +! frame-top @ ;
@@ -139,6 +159,7 @@ end-structure
 : frame-sound? ( frames -- flag ) dup frame-used @ 0 rot frame-capacity @ between? ;
 \ The cells in use and the capacity, as diagnostics record them.
 : frame-room@ ( frames -- used capacity ) dup frame-used @ swap frame-capacity @ ;
+lf-lib-private set-current
 : frame-fits? ( n frames -- flag ) dup frame-capacity @ swap frame-used @ - > 0= ;
 \ The size to grow to: at least what n more cells need, double the
 \ capacity and frame-first-cells, at most the cells a cell can count in
@@ -154,6 +175,7 @@ max-n 1 cells / constant frame-most-cells
   2dup frame-size 2dup 2>r swap frame-short? if 2r> 2drop false exit then 2r>
   dup cells 2 pick frame-block @ ?dup if swap resize else allocate then
   if 2drop drop false else rot tuck frame-block ! frame-capacity ! true then ;
+lf-lib set-current
 : frame-room? ( n frames -- flag ) 2dup frame-fits? if 2drop true else frame-grow then ;
 
 \ Visiting. A visit opens (ok) when the stack is sound, fuel is left and
@@ -167,14 +189,18 @@ max-n 1 cells / constant frame-most-cells
 \ A refused visit continues at once with no result and the outcome.
 : frame-refuse ( x frames cont outcome -- -1 outcome frames cont )
   2>r nip -1 swap 2r> -rot ;
+lf-lib-private set-current
 \ The step that ends every visit: one frame less, the result made sane.
 : frame-exit ( result outcome frames -- result outcome' frames 0 )
   -1 over frame-depth +! swap outcome-sane swap 0 ;
+lf-lib set-current
 \ The step that only returns, the continuation of a root (frame-run) or of
 \ a visit whose result is its parent's (a tail call: mixed-beta.fs).
 : frame-return ( frames -- frames 0 ) 0 ;
+lf-lib-private set-current
 : frame-enter ( frames -- frames visitor )
   -1 over frame-fuel +! 1 over frame-depth +! dup frame-visitor @ ;
+lf-lib set-current
 : frame-opened ( x frames cont -- x frames visitor )
   over frame-save ['] frame-exit over frame-save frame-enter ;
 \ For a pass whose visits are of several kinds (mixed-infer.fs), or that
@@ -201,8 +227,10 @@ max-n 1 cells / constant frame-most-cells
 : frame-context+! ( n frames -- ) frame-context +! ;
 : frame-up ( result outcome frames -- result outcome frames 0 )
   -1 over frame-context+! 0 ;
+lf-lib-private set-current
 : frame-deeper ( frames -- outcome )
   dup frame-admit ok-then? if frame-context @ max-n <> room>outcome then ;
+lf-lib set-current
 : frame-under ( x frames cont -- x frames visitor | -1 outcome frames cont )
   over frame-deeper dup ok? 0= if frame-refuse exit then drop
   over frame-save ['] frame-up over frame-save 1 over frame-context+!
@@ -229,3 +257,6 @@ max-n 1 cells / constant frame-most-cells
   dup frame-busy? if 2drop false else frame-context ! true then ;
 : frame-run ( x context frames -- result outcome )
   tuck frame-start if ['] frame-call frame-through drop else 2drop -1 outcome-invalid then ;
+
+module-close
+base !   \ the BASE this file was loaded with

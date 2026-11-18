@@ -26,6 +26,13 @@
 \ migration steps.
 \ State: the two wordlists and the search-order entry, made once while
 \ loading.
+\ Example: a helper kept private, a public word that uses it.
+\   lf-lib-private module-open
+\   : twice ( n -- 2n ) 2* ;
+\   lf-lib set-current
+\   : quadruple ( n -- 4n ) twice twice ;
+\   module-close
+\   5 quadruple .  s" twice" find-name 0= .   \ prints: 20 -1
 
 [undefined] lf-lib [if]
 wordlist constant lf-lib

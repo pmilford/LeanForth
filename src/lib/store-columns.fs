@@ -11,7 +11,9 @@
 \ ), usually a heap store. Its owner calls columns-cover (or the cheap
 \ columns-ready) after the store may have grown and before a new record
 \ is used; a column is added with column-add, after declaring its member,
-\ an xt ( -- slab ) such as a context record (lib/context.fs):
+\ an xt ( -- slab ) such as a context record (lib/context.fs).
+\ Example:
+\   require lib/context.fs
 \   store-header context-record: things          \ a heap store of 8-cell records
 \   :noname ( -- ) 16 8 cells 0 things store-heap-init drop ; context-setup
 \   ' things column-group: thing-columns
@@ -20,7 +22,8 @@
 \   /slab context-record: thing-marks
 \   1 cells ' thing-marks thing-columns column-add   \ one cell per thing
 \   things store-grow drop thing-columns columns-cover drop
-\   5 thing-marks column-at                          \ unit 5's address
+\   5 thing-marks column-at @ .                      \ unit 5: 0
+\   \ prints: 0
 \ A unit's address is valid until the store next grows. Outcomes: ok,
 \ full (no heap, or the test hook of lib/store.fs refuses the growth: no
 \ column changed, though the store's own block may already have grown,
@@ -33,6 +36,7 @@
 \ and one teardown word, which frees them. Single-threaded per member.
 \ Helpers are private (ADR 0010).
 
+require ./portability.fs
 require ./store.fs
 require ./slab.fs
 require ./outcome.fs

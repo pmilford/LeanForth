@@ -1,8 +1,14 @@
 \ Tagged nodes: records of a tag and two fields, the record shape of the
 \ term and level stores. No state of its own.
+\ Example: two nodes in a store of four, the second read back.
+\   4 /node 0 store: nodes
+\   1 10 20 nodes node-new drop .  2 0 1 nodes node-new drop .
+\   1 nodes node-read . . . .   9 nodes node-read .   \ prints: 0 1 -1 1 0 2 0
 
 require ./portability.fs
 require ./store.fs
+require ./module.fs
+get-current lf-lib set-current   \ every word below is public, in lf-lib
 
 begin-structure /node
   field: node-tag
@@ -25,3 +31,4 @@ end-structure
 \ check (compact-store plan step S2).
 : node-read ( index store -- tag first second true | false )
   2dup store-at? if store-slot node@ true else 2drop false then ;
+set-current   \ the compilation word list this file was loaded with

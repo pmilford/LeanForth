@@ -48,6 +48,7 @@
 \
 \ Example (with pools.fs): an input set of texts, sealed, and a scratch set
 \ over it that finds the input's texts and adds its own.
+\   require lib/pools.fs
 \   create input /cons allot   create scratch /cons allot
 \   4 text-class input cons-init drop
 \   s" Nat" input text-intern 2drop  input cons-seal drop
@@ -55,14 +56,18 @@
 \   s" Nat" scratch text-intern drop .     \ 0, the input's
 \   s" Int" scratch text-intern drop .     \ 1, the scratch set's first
 \   scratch cons-reset drop  scratch cons-free  input cons-free
+\   \ prints: 0 1
 \
-\ Interface: cons-class: cons-hooks! /cons cons-init cons-extend cons-free
+\ Interface: /cons-class cons-class: cons-hooks! /cons cons-init cons-extend
+\ cons-free
 \ cons-numbers cons-first cons-under cons-at cons-text-at cons-top
 \ cons-key cons-key! cons-key-fix cons-room cons-room-key cons-find
 \ cons-text, cons-commit cons-entry? cons-in? cons-under? cons-base?
 \ cons-open? cons-allocated cons-used /cons-mark cons-mark
 \ cons-mark-valid? cons-rollback cons-reset cons-seal cons-sealed?
-\ cons-building cons-table cons-records cons-bytes cons-under-finds
+\ the set's fields cons-class cons-sealed cons-building cons-key-base
+\ cons-table cons-records cons-bytes cons-under-finds, the mark's fields
+\ cons-mark-records cons-mark-bytes,
 \ cons-numbers-max cons-load-room cons-adopt (loading a set's records from
 \ a file, each checked by the caller; see cons-load-room).
 \ A sealed set's table is frozen (htab.fs): finds in it write nothing.

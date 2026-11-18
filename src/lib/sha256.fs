@@ -9,13 +9,15 @@
 \ Untrusted until reviewed; the program track's plan is to prove it equal
 \ to FIPS 180-4 (docs/project/PLAN_DRAFT.md, "Flagship program target").
 \
+\ Example: the SHA-256 of "abc", given in two pieces.
 \   sha256: hasher                \ a record holding one hash in progress
 \   create digest 32 allot  create text 64 allot
 \   hasher sha256-init
 \   s" ab" hasher sha256-update  s" c" hasher sha256-update
 \   digest hasher sha256-final  digest text sha256-hex  text 64 type
+\   \ prints: ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
 \
-\ prints ba7816bf...f20015ad, the SHA-256 of "abc". The message may come in
+\ The message may come in
 \ pieces of any size, from 0 bytes on; the digest is the same however it
 \ is split. Nothing fails: every input is a message. After sha256-final the
 \ record holds the padded hash and must be given to sha256-init before

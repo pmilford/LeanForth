@@ -1,0 +1,74 @@
+/home/peter/code/LeanForth/.tools/gforth/bin/gforth-fast, load 3.25 4.12 5.58
+
+| Library: operation (time per item) | small n: time | large n: time |
+| --- | --- | --- |
+| sha256: hash a message (a byte) | 64: 29.9 ns | 1048576: 12.8 ns |
+| json: parse (a byte) | 64: 14.2 ns | 1048576: 12.4 ns |
+| json-write: an array of integers (a value) | 8: 83.0 ns | 100000: 75.7 ns |
+| bignum: multiply, n limbs (a call) | 2: 149.6 ns | 1000: 771.9 µs |
+| bignum: divide 2n by n limbs (a call) | 2: 243.5 ns | 1000: 2164.9 µs |
+| bigint: ediv, -2n by n limbs (a call) | 2: 550.0 ns | 1000: 2339.8 µs |
+| htab: insert, then find (an operation) | 1000: 55.2 ns | 1000000: 87.0 ns |
+| memo: put, then find (an operation) | 1000: 157.9 ns | 1000000: 393.5 ns |
+| slab: push, then pop (an operation) | 1000: 28.0 ns | 1000000: 24.5 ns |
+| sort: random cells, with their copy (a cell) | 16: 185.7 ns | 1000000: 698.6 ns |
+| pqueue: push, then pop (an operation) | 1000: 207.7 ns | 1000000: 491.5 ns |
+| bytes: utf8-valid? (a byte) | 64: 6.0 ns | 1048576: 5.7 ns |
+| bytes: reader, 80-byte lines (a byte) | 10: 7.5 ns | 50000: 0.8 ns |
+| decimal: u>decimal, n digits (a call) | 2: 24.7 ns | 20: 114.7 ns |
+| decimal: u>decimal then digits>u (a call) | 2: 30.2 ns | 20: 120.2 ns |
+| sections: write, open, read one section (a byte) | 1024: 279.5 ns | 4194304: 27.8 ns |
+| hash32: hash-bytes (a byte) | 64: 2.1 ns | 1048576: 2.2 ns |
+| bounds: cells-index, absent (a cell) | 16: 1.2 ns | 1000000: 0.9 ns |
+| bits: lower-bound over n cells (a search) | 16: 29.1 ns | 1000000: 131.6 ns |
+| u32: u32! then u32@ (a field) | 1000: 1.4 ns | 1000000: 1.4 ns |
+| pools: text-intern, distinct texts (a text) | 1000: 230.0 ns | 1000000: 573.4 ns |
+| pools: tuples of two (a tuple) | 1000: 424.2 ns | 1000000: 597.6 ns |
+| runs: run-push (a cell) | 1000: 108.7 ns | 1000000: 109.0 ns |
+| store, node: node-new with growth (a node) | 1000: 32.8 ns | 1000000: 37.3 ns |
+| walk: a chain of n nodes (a visit) | 1000: 23.2 ns | 1000000: 23.4 ns |
+| frame: leaves of a tree, n levels (a visit) | 10: 44.3 ns | 25: 44.3 ns |
+| context: new, then free (a context) | 1: 147.4 ns | 100: 155.7 ns |
+| text-rule: tr-rule? (a byte) | 64: 6.2 ns | 1048576: 5.6 ns |
+| text-run: text-any?, no match (a byte) | 10: 3.2 ns | 1048576: 2.4 ns |
+| xt-table: xt-table@ in n entries (a lookup) | 16: 3.0 ns | 4096: 3.5 ns |
+| blocks: allocate0 and free, n bytes (a call) | 64: 20.3 ns | 1048576: 8814.4 ns |
+| outcome: ok-each (a step) | 16: 3.1 ns | 1000000: 2.9 ns |
+| task: empty jobs, 8 in flight (a job) | 1: 47.9 µs | 1000: 32.2 µs |
+/home/peter/code/LeanForth/.tools/gforth/bin/gforth, load 3.97 4.21 5.49
+
+| Library: operation (time per item) | small n: time | large n: time |
+| --- | --- | --- |
+| sha256: hash a message (a byte) | 64: 160.1 ns | 1048576: 68.8 ns |
+| json: parse (a byte) | 64: 53.0 ns | 1048576: 55.9 ns |
+| json-write: an array of integers (a value) | 8: 242.0 ns | 100000: 254.9 ns |
+| bignum: multiply, n limbs (a call) | 2: 548.6 ns | 1000: 2764.5 µs |
+| bignum: divide 2n by n limbs (a call) | 2: 781.4 ns | 1000: 8084.2 µs |
+| bigint: ediv, -2n by n limbs (a call) | 2: 1723.1 ns | 1000: 7677.5 µs |
+| htab: insert, then find (an operation) | 1000: 179.8 ns | 1000000: 244.6 ns |
+| memo: put, then find (an operation) | 1000: 404.5 ns | 1000000: 749.2 ns |
+| slab: push, then pop (an operation) | 1000: 63.9 ns | 1000000: 67.4 ns |
+| sort: random cells, with their copy (a cell) | 16: 433.4 ns | 1000000: 1823.9 ns |
+| pqueue: push, then pop (an operation) | 1000: 492.8 ns | 1000000: 1068.4 ns |
+| bytes: utf8-valid? (a byte) | 64: 24.2 ns | 1048576: 25.0 ns |
+| bytes: reader, 80-byte lines (a byte) | 10: 9.1 ns | 50000: 1.5 ns |
+| decimal: u>decimal, n digits (a call) | 2: 76.4 ns | 20: 310.8 ns |
+| decimal: u>decimal then digits>u (a call) | 2: 92.1 ns | 20: 341.4 ns |
+| sections: write, open, read one section (a byte) | 1024: 1107.6 ns | 4194304: 144.9 ns |
+| hash32: hash-bytes (a byte) | 64: 3.9 ns | 1048576: 3.7 ns |
+| bounds: cells-index, absent (a cell) | 16: 5.0 ns | 1000000: 3.6 ns |
+| bits: lower-bound over n cells (a search) | 16: 106.1 ns | 1000000: 522.0 ns |
+| u32: u32! then u32@ (a field) | 1000: 3.2 ns | 1000000: 3.1 ns |
+| pools: text-intern, distinct texts (a text) | 1000: 585.1 ns | 1000000: 1232.3 ns |
+| pools: tuples of two (a tuple) | 1000: 1170.0 ns | 1000000: 1491.7 ns |
+| runs: run-push (a cell) | 1000: 305.1 ns | 1000000: 321.6 ns |
+| store, node: node-new with growth (a node) | 1000: 106.3 ns | 1000000: 106.9 ns |
+| walk: a chain of n nodes (a visit) | 1000: 80.7 ns | 1000000: 83.0 ns |
+| frame: leaves of a tree, n levels (a visit) | 10: 158.8 ns | 25: 156.6 ns |
+| context: new, then free (a context) | 1: 334.0 ns | 100: 341.0 ns |
+| text-rule: tr-rule? (a byte) | 64: 24.2 ns | 1048576: 24.3 ns |
+| text-run: text-any?, no match (a byte) | 10: 7.7 ns | 1048576: 6.1 ns |
+| xt-table: xt-table@ in n entries (a lookup) | 16: 7.6 ns | 4096: 10.6 ns |
+| blocks: allocate0 and free, n bytes (a call) | 64: 23.7 ns | 1048576: 8126.4 ns |
+| outcome: ok-each (a step) | 16: 6.1 ns | 1000000: 5.1 ns |
+| task: empty jobs, 8 in flight (a job) | 1: 50.6 µs | 1000: 33.5 µs |

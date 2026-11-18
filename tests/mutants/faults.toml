@@ -19176,6 +19176,40 @@ test = "$GFORTH tests/lib/bytes.fs"
 reason = "an absent string (0) read as one character at address 0"
 
 [[fault]]
+id = "lt-reader-last-ignores-rule"
+file = "src/lib/bytes.fs"
+old = '''  dup reader-pending? over reader-final-lf reader-rule? 0= and'''
+new = '''  dup reader-pending?'''
+test = "$GFORTH tests/lib/bytes.fs"
+reason = "a last line without its line feed taken although the rules (Lean's exports) refuse it"
+
+[[fault]]
+id = "lt-reader-cr-always-dropped"
+file = "src/lib/bytes.fs"
+old = '''  dup reader-keep-cr reader-rule? 0= if >r line-cr-drop r> then'''
+new = '''  >r line-cr-drop r>'''
+test = "$GFORTH tests/lib/bytes.fs"
+reason = "a carriage return dropped from a strictly framed line, which the caller must see to refuse it"
+
+[[fault]]
+id = "lt-reader-bom-every-line"
+file = "src/lib/bytes.fs"
+old = '''  dup reader-first? swap reader-keep-bom reader-rule? 0= and if line-bom-drop then ;'''
+new = '''  reader-keep-bom reader-rule? 0= if line-bom-drop then ;'''
+test = "$GFORTH tests/lib/bytes.fs"
+reason = "a byte-order mark dropped from any line, not only the first"
+
+[[fault]]
+id = "lt-reader-rules-reset-by-attach"
+file = "src/lib/bytes.fs"
+old = '''  field: reader-rules              \ the rule bits, reader-text when zero
+  field: reader-start              \ buffer offset of the first unread byte'''
+new = '''  field: reader-start              \ buffer offset of the first unread byte
+  field: reader-rules              \ the rule bits, reader-text when zero'''
+test = "$GFORTH tests/lib/bytes.fs"
+reason = "the rules among the progress fields, so opening a file forgets them"
+
+[[fault]]
 id = "r2-block-reused-dirty"
 file = "src/lib/blocks.fs"
 old = '''  dup @ ?dup if nip swap erase true exit then block-zeroed ok? ;'''

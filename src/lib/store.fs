@@ -32,31 +32,34 @@
 \ addresses, across it). Growth that the limit or the heap refuses
 \ changes nothing and gives full (ADR 0008). store-limit! sets the limit
 \ (shrinking the block when it holds more), store-heap-free frees the
-\ block. Every other word works alike on both kinds. Example:
+\ block. Every other word works alike on both kinds.
+\ Example: a store grows only when every record is in use; then it gains
+\ 16 records (4 -> 20).
 \   create big store-header allot
-\   4 /node 0 big store-heap-init drop   1000 big store-limit! drop
-\   big store-grow drop    \ ok, still 4 records: a store grows only when every record
-\                          \ is in use; then it gains 16 (4 -> 20)
-\   big store-heap-free
+\   4 3 cells 0 big store-heap-init .   1000 big store-limit! .
+\   big store-grow .  big store-capacity @ .   \ 0 (ok) 4
+\   : fill ( n -- ) 0 ?do big store-new 2drop loop ;
+\   4 fill  big store-grow .  big store-capacity @ .  big store-heap-free
+\   \ prints: 0 0 0 4 0 20
 \
 \ Untrusted. One store is single-threaded: callers must not change it
 \ during a call. Separate stores are independent. The layout (header,
 \ capacity identity cells, then the records) is host-specific and must
 \ never be serialized directly.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./bounds.fs
 require ./outcome.fs
 require ./portability.fs
 require ./module.fs
 require ./blocks.fs
 
-\ The words of this file are public, in the compilation word list current
-\ when it loads, except the helpers of making and moving a heap store's
-\ block, which are private (ADR 0010): between module-open and
-\ module-close the previous word list stays on the stack, and each part
-\ names where its words go.
+\ The words of this file are public, in lf-lib, except the helpers of
+\ making and moving a heap store's block, which are private (ADR 0010):
+\ between module-open and module-close the previous word list stays on
+\ the stack, and each part names where its words go.
 lf-lib-private module-open
-dup set-current
+lf-lib set-current
 
 begin-structure store-header
   field: store-capacity     \ maximum number of records
@@ -131,7 +134,7 @@ lf-lib-private set-current
   0 over store-count ! 0 over store-generation ! 0 swap store-serial ! ;
 : store-place ( block store -- )
   tuck store-block ! dup store-capacity @ over store-limit ! store-seal! ;
-dup set-current
+lf-lib set-current
 : store-zero ( store -- ) dup store-identities swap store-bytes erase ;
 : store-format ( capacity width base store -- )
   dup >r store-shape! r@ store-counters-zero 0 r@ store-place r> store-zero ;
@@ -258,7 +261,7 @@ lf-lib-private set-current
 : store-resize ( n store -- outcome )
   2dup store-width @ cell+ * allocate0 if drop 2drop outcome-full exit then
   -rot >r 2dup r@ store-rehome r> store-install outcome-ok ;
-dup set-current
+lf-lib set-current
 \ The capacity growth gives: double, at least 16 more, never past the
 \ limit (so it cannot overflow).
 : store-doubled ( store -- n )
@@ -357,3 +360,4 @@ end-structure
   else 2drop outcome-invalid then ;
 
 module-close
+base !   \ the BASE this file was loaded with

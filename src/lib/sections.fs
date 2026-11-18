@@ -6,6 +6,7 @@
 \ knows nothing of what the sections hold. Untrusted until reviewed; the
 \ format is described in docs/programming/SECTIONED_FILES.md.
 \
+\ Example: one section of three fields, written to a file and read back.
 \   sections: sf   create fields 3 u32s allot   create bytes 12 allot
 \   7 fields u32!  8 fields 1 u32s + u32!  9 fields 2 u32s + u32!
 \   fields bytes 3 u32s>le                 \ the section's bytes, little-endian
@@ -16,8 +17,9 @@
 \   s" out.sect" sf sections-open .        \ checks the header and the layout
 \   create back 12 allot  back 12 0 sf sections-read .   \ addr room i
 \   back 4 + u32-le@ .  sf sections-close .
+\   \ prints: 0 0 0 0 0 8 0
 \
-\ prints 0 0 0 0 0 8 0 (six outcomes, ok each, and the second field, 8).
+\ That is six outcomes, ok each, and the second field, 8.
 \ Writing: sections-init, up to 16 header fields (sections-field!, 32-bit
 \ values), then sections-add for each section (the caller's memory, left
 \ in place until sections-write), then sections-write. The file is built as

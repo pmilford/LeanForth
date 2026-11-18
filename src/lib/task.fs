@@ -76,11 +76,40 @@
 \ the pool, and every later job fails. On the serial host a job runs on
 \ the caller's stacks, where an overflow is the host's THROW.
 \
+\ Example: two jobs, each in a context of its own, waited for in turn.
+\   variable a  variable b
+\   : job-a ( -- ) 6 7 * a ! ;   : job-b ( -- ) 100 b ! ;
+\   context-new throw constant c1  context-new throw constant c2
+\   c1 ' job-a job-submit throw  c2 ' job-b job-submit throw
+\   job-wait . job-wait .  a @ . b @ .   \ 0 0 42 100
+\   c1 context-free throw  c2 context-free throw  pool-stop
+\   \ prints: 0 0 42 100
+\
+\ Interface (public, in lf-lib): job-submit job-wait job-wait-any
+\ pool-start pool-stop pool-workers! pool-size pool-running?
+\ workers-running job-stacks-cover? spawn-limit! task-yield; the settings
+\ task-data-cells task-return-cells task-slack-cells task-guard-cells
+\ task-queue-jobs task-cores task-workers; the host, task-host, one of
+\ task-serial task-cooperative task-threads; and the THROW codes
+\ task-unbalanced task-overflow task-refused task-queue-full
+\ task-no-worker task-stacks-small. The pool's records, queue, host words
+\ and workers are private (lf-lib-private, ADR 0010). Requires
+\ portability.fs, blocks.fs, context.fs and module.fs.
+\
 \ State: the pool record task-pool and the ring task-queue (shared; on
 \ Gforth 1.0 guarded by task-lock), and one ALLOCATEd job record per
 \ submitted job, until it is waited for. Untrusted.
 
-require ./lib.fs
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
+require ./portability.fs
+require ./blocks.fs
+require ./context.fs
+require ./module.fs
+
+\ The pool's interface is public (lf-lib); its records, queue, hosts and
+\ workers are private (lf-lib-private, ADR 0010).
+lf-lib-private module-open
+lf-lib set-current
 
 \ THROW codes of the pool, outside Forth-2012's reserved range.
 -4096 constant task-unbalanced  \ the job's word changed the stack depth
@@ -100,17 +129,22 @@ require ./lib.fs
 \ pool is stopped. The largest need the checker states is inference with
 \ beta nested at its deepest level, 1,664 return and 1,280 data cells
 \ (mixed-infer.fs); pool-start refuses settings that do not cover it.
+lf-lib-private set-current
 : env-cells ( c-addr u -- n ) environment? 0= if 0 then ;
+lf-lib set-current
 8192 s" STACK-CELLS" env-cells max value task-data-cells
 8192 s" RETURN-STACK-CELLS" env-cells max value task-return-cells
 64 constant task-slack-cells      \ cells the worker's own words use
 1024 constant task-guard-cells    \ canary cells beyond each stack (0.7.3)
+lf-lib-private set-current
 1024 constant task-scratch-bytes  \ for HERE, PAD and WORD below them (0.7.3)
+lf-lib set-current
 1024 constant task-queue-jobs     \ most jobs queued at once
 
 \ Logical cores online, from Linux's /sys/devices/system/cpu/online (a
 \ list such as 0-5,8,10-11, read into PAD while this file loads); 1 where
 \ that cannot be read.
+lf-lib-private set-current
 : cpu-read ( -- c-addr u )
   s" /sys/devices/system/cpu/online" r/o open-file if drop pad 0 exit then
   >r pad dup 80 r@ read-line 0= and and r> close-file drop ;
@@ -121,10 +155,12 @@ require ./lib.fs
 : cpu-item ( c-addr u -- n c-addr' u' )
   cpu-number 2dup cpu-dash? if cpu-range else rot drop 1 -rot then cpu-skip ;
 : cpu-count ( c-addr u -- n ) 0 -rot begin dup 0> while cpu-item 2>r + 2r> repeat 2drop ;
+lf-lib set-current
 cpu-read cpu-count 1 max constant task-cores
 \ Workers the pool starts: every core unless changed with TO while the
 \ pool is stopped; kept between 1 and task-cores.
 task-cores value task-workers
+lf-lib-private set-current
 
 begin-structure /pool
   field: pool-head        \ queue index of the oldest queued job
@@ -156,7 +192,9 @@ end-structure
 \ default, is the largest unsigned number, so no limit but the host's.
 \ spawn-allowed? tells whether the host makes one more worker; read by
 \ the driving task while it starts the pool, when no worker leaves.
+lf-lib set-current
 : spawn-limit! ( n -- ) task-pool pool-spawn-limit ! ;
+lf-lib-private set-current
 : spawn-allowed? ( -- flag ) task-pool dup pool-live @ swap pool-spawn-limit @ u< ;
 \ What pthread_create gives when the host refuses a thread (EAGAIN).
 11 constant host-refused
@@ -185,7 +223,10 @@ end-structure
 \ serial host, so that tests reach it on every Forth.
 [defined] task-serial-only 0= [defined] newtask4 and
 [defined] pthread_cond_wait and [defined] save-task and [if]
+lf-lib set-current
 task-threads constant task-host
+: task-yield ( -- ) pause ;
+lf-lib-private set-current
 mutex task-lock
 cond task-work
 cond task-change
@@ -196,13 +237,14 @@ cond task-change
 : work-broadcast ( -- ) task-work pthread_cond_broadcast drop ;
 : change-wait ( -- ) task-change task-lock pthread_cond_wait drop ;
 : change-broadcast ( -- ) task-change pthread_cond_broadcast drop ;
-: task-yield ( -- ) pause ;
 : task-self ( -- task ) up@ ;
 : stacks-ior ( task -- ior ) drop 0 ;
 [else] [defined] task-serial-only 0= [defined] next-task and [defined] udp and [if]
-require tasker.fs
+dup set-current require tasker.fs   \ Gforth's words, beside the loader's
+lf-lib set-current
 task-cooperative constant task-host
 : task-yield ( -- ) pause ;
+lf-lib-private set-current
 \ A task's address is the start of its user area, where next-task is.
 : task-self ( -- task ) next-task ;
 : task-user ( addr task -- addr' ) + next-task - ;
@@ -238,8 +280,10 @@ task-cooperative constant task-host
 : stacks-ior ( task -- ior )
   guards-check task-pool pool-broken @ task-overflow and ior-first ;
 [else]
+lf-lib set-current
 task-serial constant task-host
 : task-yield ( -- ) ;
+lf-lib-private set-current
 : task-self ( -- task ) 0 ;
 : stacks-ior ( task -- ior ) drop 0 ;
 [then] [then]
@@ -369,6 +413,7 @@ task-host task-serial = [if]
 \ frames limit times its cells per frame (frame.fs) plus its entry words.
 : covers? ( need have -- flag ) task-slack-cells - > 0= ;
 : env-covers? ( need c-addr u -- flag ) environment? if covers? else drop true then ;
+lf-lib set-current
 task-host task-serial = [if]
 : job-stacks-cover? ( data-cells return-cells -- flag )
   s" RETURN-STACK-CELLS" env-covers? swap s" STACK-CELLS" env-covers? and ;
@@ -376,6 +421,7 @@ task-host task-serial = [if]
 : job-stacks-cover? ( data-cells return-cells -- flag )
   task-return-cells covers? swap task-data-cells covers? and ;
 [then]
+lf-lib-private set-current
 
 \ Starting and stopping the pool. pool-start starts it, unless it runs,
 \ and gives 0; or task-stacks-small, starting nothing, when the stack
@@ -386,6 +432,7 @@ task-host task-serial = [if]
 \ the first refusal. It seals the context layout first, so no need can
 \ be stated later. pool-stop lets the workers finish every queued job,
 \ then waits until all have left; it aborts inside a job.
+lf-lib set-current
 task-host task-serial = [if]
 : pool-size ( -- n ) 0 ;
 [else]
@@ -393,6 +440,7 @@ task-host task-serial = [if]
 [then]
 : workers-running ( -- n ) task-pool pool-live @ ;
 : pool-running? ( -- flag ) workers-running 0> ;
+lf-lib-private set-current
 : worker-added ( -- ) pool-lock 1 task-pool pool-live +! pool-unlock ;
 : worker-add ( -- ior ) worker-spawn dup 0= if worker-added then ;
 : pool-fill ( n -- ior ) 0 ?do worker-add ?dup if unloop exit then loop 0 ;
@@ -400,15 +448,19 @@ task-host task-serial = [if]
 : pool-halt ( -- )
   pool-lock true task-pool pool-stopping ! work-broadcast pool-drain
   false task-pool pool-stopping ! pool-unlock ;
+lf-lib set-current
 : pool-stop ( -- ) lf-owner @ abort" pool-stop: inside a job" pool-halt workers-join ;
+lf-lib-private set-current
 : pool-stacks? ( -- flag ) context-needs job-stacks-cover? ;
 \ A refusal after a worker was made leaves the pool running with fewer.
 : pool-fresh ( -- ior )
   task-stack-bytes task-pool pool-stack-bytes !
   pool-size pool-fill pool-running? if drop 0 then ;
+lf-lib set-current
 : pool-start ( -- ior )
   pool-running? if 0 exit then
   context-seal pool-stacks? if pool-fresh else task-stacks-small then ;
+lf-lib-private set-current
 
 \ Submitting. job-refusal gives why a submission is refused before
 \ anything is made, or 0, starting the pool if needed.
@@ -429,20 +481,24 @@ task-host task-serial = [if]
 : job-drop ( job ior -- 0 ior ) swap free drop 0 swap ;
 \ The job stays on the return stack: on the serial host its word runs here.
 : job-launched ( job -- job ior ) dup >r job-launch r> swap ;
+lf-lib set-current
 : job-submit ( context xt -- job ior )
   job-refusal ?dup if nip nip 0 swap exit then
   job-new ?dup if exit then
   dup job-claim 0= if task-refused job-drop exit then
   job-launched dup if >r job-unclaim r> job-drop then ;
+lf-lib-private set-current
 
 \ Waiting. job-wait refuses inside a job, leaving the job alone, and for
 \ job 0, the handle of a refused submission, which it never reads.
 : job-await ( job -- )
   pool-lock begin dup job-done @ 0= while change-wait repeat pool-unlock drop ;
 : wait-refused? ( job -- flag ) 0= lf-owner @ 0<> or ;
+lf-lib set-current
 : job-wait ( job -- ior )
   dup wait-refused? if drop task-refused exit then
   dup job-await job-unclaim dup job-ior @ swap free ior-first ;
+lf-lib-private set-current
 
 \ Waiting for the first of several jobs (a scheduler that keeps one job
 \ per worker): job-wait-any ( addr n -- k ) waits until one of the jobs
@@ -459,6 +515,7 @@ task-host task-serial = [if]
 : jobs-await ( addr n -- k )
   pool-lock begin 2dup jobs-done dup 0< while drop change-wait repeat nip nip
   pool-unlock ;
+lf-lib set-current
 : job-wait-any ( addr n -- k )
   lf-owner @ if 2drop -1 exit then 2dup jobs-any? if jobs-await else 2drop -1 then ;
 
@@ -468,8 +525,11 @@ task-host task-serial = [if]
 : pool-workers! ( n -- )
   pool-running? if pool-stop then 1 max task-cores min to task-workers ;
 
+lf-lib-private set-current
 \ On Gforth 1.0 the program's end first stops the pool (outside a job),
 \ so that no worker thread is still running while the process exits.
 task-host task-threads = [if]
 :noname ( -- ) lf-owner @ 0= if pool-stop then defers bye ; is bye
 [then]
+module-close
+base !   \ the BASE this file was loaded with

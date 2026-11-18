@@ -11,9 +11,12 @@
 \ hash-bytes is FNV-1a over bytes (Fowler, Noll, Vo; offset basis
 \ 2166136261, prime 16777619), read one character at a time.
 \
-\ Example: the hash of a record of three 32-bit fields a b c, and of a text.
-\   a b c hash-3                            ( h ) \ a hash-fmix b hash-step c hash-step
-\   s" Nat.succ" hash-bytes                 ( h )
+\ Example: the hash of a record of three 32-bit fields 1 2 3, by hash-3
+\ and by hand, below 2^32 on any host; FNV-1a of "a", 0xe40c292c;
+\ Murmur3's finaliser of 1.
+\   1 2 3 hash-3  dup 1 hash-fmix 2 hash-step 3 hash-step = .
+\   u32-mask u> 0= .
+\   s" a" hash-bytes .  1 hash-fmix .   \ prints: -1 -1 3826002220 1364076727
 \ Interface: hash-fmix, hash-step, hash-3, hash-bytes. No state. Loads in decimal
 \ whatever BASE is, then restores it.
 

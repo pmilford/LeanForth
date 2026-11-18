@@ -865,7 +865,7 @@ here families - cell / constant #families
   c" handler left no outcome or extra items" export-bad ;
 
 \ Handing a decoded record over, with no field or reason left from decoding.
-: export-line-number ( export -- n ) export-reader reader-lines @ ;
+: export-line-number ( export -- n ) export-reader reader-line# ;
 \ Write the export, its line number and its generation into the record's
 \ header; the export waits on the return stack.
 : record-stamp ( record export -- )
@@ -1129,8 +1129,11 @@ here families - cell / constant #families
 \ export-init, refuse every kind until handlers are set, and read only the
 \ pinned versions until export-any-version! says otherwise. Full when the
 \ heap has no room; export-free then releases what was allocated.
+\ Exports are framed strictly (bytes.fs's reader-strict): every line ends
+\ with a line feed, and export-parse refuses carriage returns and marks.
 : export-buffers ( export -- outcome )
-  export-buffer-size export-line-limit rot export-reader reader-init ;
+  export-reader reader-strict over reader-rules!
+  export-buffer-size export-line-limit rot reader-init ;
 : export-json-init ( export -- outcome )
   export-json export-depth-limit over json-init
   export-token-limit rot json-token-limit ! ;

@@ -27,12 +27,13 @@
 \
 \ Example:
 \   hex ff u>decimal type  -10 n>decimal type  decimal   \ 255-16
-\   255 u>hex type  s" 007" skip-zeros type               \ FF7
+\   255 u>hex type  s" 007" skip-zeros type space         \ FF7
 \   s" 00000000000000000000042" digits>u . .            \ -1 42
 \   s" 1234" digits>u . .                              \ -1 1234
 \   s" 99999999999999999999999" digits>u .             \ 0: too large
 \   : dot ( n -- ) 0 .r ;   hex 100 ' dot in-decimal   \ 256, BASE still hex
-\   s" 42x" decimal>number type d.  s" 042" decimal-digits?   \ x42 -1
+\   decimal s" 42x" decimal>number type d.  s" 042" decimal-digits? .  \ x42 -1
+\   \ prints: 255-16FF7 -1 42 -1 1234 0 256x42 -1
 \
 \ Interface: in-base in-decimal u>decimal n>decimal ud>decimal d>decimal
 \ .decimal type-right type-left u>hex decimal>number decimal-digits?

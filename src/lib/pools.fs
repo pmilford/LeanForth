@@ -29,6 +29,7 @@
 \     lists tuple-add drop lists tuple-end drop ;
 \   7 9 pair 7 9 pair = .                 \ -1, true
 \   7 9 pair dup lists tuple-length . 1 swap lists tuple-item .   \ 2 9
+\   \ prints: -1 2 9
 \
 \ Interface: tuple-class tuple-start tuple-add tuple-end tuple-length
 \ tuple-item text-class text-intern text@. State: the two classes, made
@@ -40,6 +41,7 @@ require ./portability.fs
 require ./outcome.fs
 require ./u32.fs
 require ./hash32.fs
+require ./slab.fs
 require ./cons.fs
 require ./module.fs
 

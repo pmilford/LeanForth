@@ -14,7 +14,15 @@
 \ failure in a cell and ok-store a step's result only on ok; no-result,
 \ ok-or-none and room-result give a step's result with its outcome.
 \ No state, no dependencies.
+\ Example: each cell of a table checked, stopping at the first failure.
+\   create table 3 , 5 , -1 , 7 ,
+\   : cell-ok ( table k -- table outcome ) cells over + @ 0> flag>outcome ;
+\   table 2 ' cell-ok ok-each nip .  table 4 ' cell-ok ok-each nip .
+\   outcome-full outcome-text type   \ prints: 0 1 full
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
+require ./module.fs
+get-current lf-lib set-current   \ every word below is public, in lf-lib
 0 constant outcome-ok           \ succeeded; for a comparison, shown equal
 1 constant outcome-invalid      \ malformed input or corrupted state
 2 constant outcome-exhausted    \ out of fuel: the processing budget ran out
@@ -176,3 +184,5 @@
     outcome-full of s" full" endof  s" invalid" rot endcase ;
 \ Drop an argument and report invalid input.
 : drop-invalid ( x -- outcome ) drop outcome-invalid ;
+set-current   \ the compilation word list this file was loaded with
+base !   \ the BASE this file was loaded with

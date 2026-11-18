@@ -32,11 +32,12 @@
 \ grow (nothing changed), invalid for a queue that is not live. pq-pop
 \ and pq-min are unchecked: the queue holds a cell (pq-count > 0).
 \
-\ Example: declaration numbers, smallest first.
+\ Example: declaration numbers, smallest first (sort.fs's order).
+\   require lib/sort.fs
 \   create ready /pqueue allot   ' sort-signed ready pq-init drop
 \   7 ready pq-push drop  3 ready pq-push drop  5 ready pq-push drop
 \   ready pq-pop . ready pq-pop . ready pq-count .   \ 3 5 1
-\   ready pq-free
+\   ready pq-free                                    \ prints: 3 5 1
 \
 \ Interface: /pqueue pq-init pq-free pq-count pq-push pq-pop pq-min
 \ pq-clear. State: none of its own; every word takes a queue record made

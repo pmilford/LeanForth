@@ -147,10 +147,24 @@ This prints `ba7816bf...f20015ad`, the SHA-256 of "abc".
   compared against an independent implementation: the big numbers and the
   JSON writer against Python's. They have not had an outside security or
   correctness audit.
-- A few files load more than they use. `json.fs` and `text-rule.fs` need
-  `bytes.fs`, which loads all of `lib.fs`. Trimming this is planned (plan
-  task 1.1.8).
+- Every file loads on its own: `make test-lib-standalone` copies each one
+  with exactly the files it requires into a folder outside the project,
+  loads it on Gforth and gforth-fast with `BASE` set to 7, and checks that
+  `BASE` and the search order are as before; every number in the source is
+  read in decimal, and each file requires directly every file whose words it
+  uses (`tests/lib/test_requires.py`), not only through another file. Every header has an example ending in the text it
+  prints, and that test runs each one as written there, on both engines
+  (and on Gforth 0.7.3), so an example cannot go stale.
+- `make lib-bench` measures each library at a small and a large size on
+  gforth-fast and gforth; the figures, with what each library costs as
+  inputs grow and the sizes LeanForth really passes it on `Init`, are in
+  [FORTH_LIBRARY.md](../../docs/development/FORTH_LIBRARY.md#measured-profiles-2026-11-18).
+- `bytes.fs`'s reader reads ordinary text by default (a last line without
+  a line feed, CRLF line ends, a leading byte-order mark); `reader-strict`
+  gives the strict framing LeanForth uses for Lean's exports.
 - `context.fs` and `task.fs` were designed around the checker's needs.
   They are general, but less polished as stand-alone tools than the rest.
-- Some older files (`bignum.fs`, `json.fs`, `bytes.fs`) still keep their
-  helper words public.
+- `task.fs`'s public words are the job pool's interface, listed in its
+  header; its records, queue and workers are private. `blocks.fs`,
+  `outcome.fs` and `node.fs` have no helpers: every word they define is
+  public, in `lf-lib` as every library's.

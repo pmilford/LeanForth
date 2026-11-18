@@ -63,6 +63,19 @@ compiler and runtime correctness.
 - **Size guards.** Differential scripts check both tables' line counts and
   exit on mismatch before comparing them.
 - **Documentation links.** `make check-docs` fails on broken links.
+- **Gforth that could not start** (2026-11-18, after one unexplained exit
+  5 under coverage). Under `ulimit -u 500` the limit counts every thread
+  of the user, other agents' job pools included; bash retries a refused
+  fork for about 15 seconds, then ends with status 254, which a caller
+  read as a Gforth failure. `scripts/gforth-strict.sh` and `bin/leanforth`
+  now say "could not start Gforth: resource limit" (254; "exec failed"
+  for 126 and 127) with the user's thread count and process limit, read
+  from `/proc` without starting a process (`scripts/start-limit.sh`);
+  `bin/leanforth` still exits 5, an internal fault, and
+  `scripts/coverage-gforth.sh` starts no process before it becomes the
+  strict wrapper. `tests/scripts/test_start_limit.py` (in
+  `make test-harness`) runs `bin/leanforth` on a wrapper whose own limit
+  is 1 (`ulimit -u 1` in that process only).
 - **Gforth exit status.** Gforth 1.0 exits 0 after an uncaught error when
   its error report itself fails: with `BASE` 0 the report divides by `BASE`
   and ends in "Division by zero" (Gforth 0.7.3 exits 1). A test that

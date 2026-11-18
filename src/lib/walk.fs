@@ -31,18 +31,26 @@
 \ walk to its first room, empty; until then the block keeps its largest
 \ size. Every checker context's walks are growable (lib/context.fs frees
 \ their blocks with the context).
+\
+\ Example: a chain of nodes 5, 4, ... 0, each visit pushing the next.
+\   8 walk: chain
+\   : visit ( walk -- outcome )
+\     dup walk-node @ ?dup if 1- swap walk-push room>outcome
+\     else drop outcome-ok then ;
+\   100 chain walk-budget .  5 ' visit chain walk-run .  chain walk-fuel @ .
+\   \ prints: -1 0 94
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./bounds.fs
 require ./node.fs
 require ./outcome.fs
 require ./portability.fs
 require ./module.fs
 
-\ The words of this file are public, in the compilation word list current
-\ when it loads, except walk-children-unless's helpers, which are private
-\ (ADR 0010).
+\ The words of this file are public, in lf-lib, except
+\ walk-children-unless's helpers, which are private (ADR 0010).
 lf-lib-private module-open
-dup set-current
+lf-lib set-current
 
 begin-structure walk-header
   field: walk-fuel       \ visits left
@@ -155,7 +163,7 @@ max-n 1 cells / constant walk-most-cells
   2dup walk-child? if walk-push-outcome else 2drop outcome-invalid then ;
 lf-lib-private set-current
 : walk-children? ( first second walk -- flag ) tuck walk-child? -rot walk-child? and ;
-dup set-current
+lf-lib set-current
 : walk-children ( first second walk -- outcome )
   >r 2dup r@ walk-children? if r> walk-push2 else 2drop r> drop outcome-invalid then ;
 \ The same, a child pushed only when the test xt ( index -- flag ) says it
@@ -166,7 +174,7 @@ lf-lib-private set-current
 : walk-push2-unless ( first second walk xt -- outcome )
   2>r swap 2r@ walk-push-unless dup ok?
   if drop 2r> walk-push-unless else nip 2r> 2drop then ;
-dup set-current
+lf-lib set-current
 : walk-children-unless ( first second walk xt -- outcome )
   2over 2over drop walk-children?
   if walk-push2-unless else 2drop 2drop outcome-invalid then ;
@@ -204,3 +212,4 @@ dup set-current
   >r -rot r@ walk-start-pair if r> walk-loop else drop r> drop outcome-invalid then ;
 
 module-close
+base !   \ the BASE this file was loaded with
