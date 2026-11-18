@@ -266,12 +266,17 @@ T{ l0 l0 lmax lf-meta-always-zero? lv1 l0 limax lf-meta-always-zero? l0 lv1 lmax
 T{ input-nat nat lf-meta-eqv input-type lv1 sort lf-meta-eqv input-type l0 sort lf-meta-eqv
    -> true outcome-ok true outcome-ok false outcome-ok }T
 T{ fp 0 proj fp 1 proj lf-meta-eqv -> false outcome-ok }T
+\ ctxApprox as configured (review N1 of 2026-11-18): read where it is
+\ used, so lf-meta-with's scope sets it and gives it back.
+: ctx-on ( -- ) lf-defeq-flags lf-defeq-ctx or lf-defeq-flags! ;
+: ctx-off ( -- ) lf-defeq-flags lf-defeq-ctx invert and lf-defeq-flags! ;
+T{ ctx-off ' ac-approx? lf-defeq-ctx lf-tr-default lf-meta-with ac-approx? -> true false }T
 \ checkAssignment's refusals: an out-of-scope let variable, a variable
 \ out of scope inside a beta-redex or under ctxApprox, hasCtxLocals.
 T{ ?n xs 0 fl chk rot drop ?n xs 0 nat fj lam fk app
    chk rot drop -> false outcome-unsupported false outcome-unsupported }T
-T{ true lf-meta-ctx-approx! ?n xs 0 ?t fj app chk rot drop
-   false lf-meta-ctx-approx! ?n xk 1 ?h chk
+T{ ctx-on ?n xs 0 ?t fj app chk rot drop
+   ctx-off ?n xk 1 ?h chk
    -> false outcome-unsupported ?h false outcome-ok }T
 T{ ?n xs 0 nat fk fj let chk rot drop -> false outcome-ok }T
 \ mkLambdaFVars: an xi in a metavariable's scope (elimMVarDeps) or a let
@@ -329,10 +334,10 @@ T{ ?n xqk 2 fk chk ?n xkq 2 fk chk -> fk false outcome-ok fk false outcome-ok }T
 T{ ?n xs 0 ?w chk rot drop -> false outcome-ok }T
 T{ own-mark ?d ?n 0 lf-mvar-delay ?n xs 0 ?d chk rot drop own-back
    -> outcome-ok false outcome-ok }T
-T{ false lf-meta-ctx-approx! ?n xs 1 ?z chk ?n xs 0 ?z chk rot drop
+T{ ctx-off ?n xs 1 ?z chk ?n xs 0 ?z chk rot drop
    -> ?z true outcome-ok false outcome-ok }T
 \ Under ctxApprox Lean would give ?z a smaller context: not ported.
-T{ true lf-meta-ctx-approx! ?n xs 0 ?z chk rot drop false lf-meta-ctx-approx!
+T{ ctx-on ?n xs 0 ?z chk rot drop ctx-off
    -> false outcome-unsupported }T
 \ A stale metavariable, a free variable no longer in the context.
 : stale ( -- mvar ) ?n lf-term-first@ ?n lf-term-second@ 1+ lf-mvar-leaf must ;

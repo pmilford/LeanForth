@@ -20221,3 +20221,19 @@ old = '''  dup ok? 0= if nip lsl-w jw-null exit then'''
 new = '''  dup ok? 0= if drop outcome-ok then'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "review s2-finish re-check N2: an axiom whose name cannot be given leaves a short list, not null"
+
+[[fault]]
+id = "synth-no-ctx-approx"
+file = "src/front/synth.fs"
+old = '''  lf-defeq-flags lf-defeq-stuck or lf-defeq-fo or lf-defeq-ctx or'''
+new = '''  lf-defeq-flags lf-defeq-stuck or lf-defeq-fo or'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review N1 of 2026-11-18 (it survived then): synthesis runs without Lean's ctxApprox"
+
+[[fault]]
+id = "assign-ctx-approx-always"
+file = "src/front/assign-check.fs"
+old = ''': ac-approx? ( -- flag ) lf-defeq-ctx lf-meta-flag? ;'''
+new = ''': ac-approx? ( -- flag ) true ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review N1 of 2026-11-18: checkAssignment answers unsupported under ctxApprox where the configuration has it off, as the leaked register did"
