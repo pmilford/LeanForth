@@ -394,6 +394,21 @@ pv-design: rethrow-design  ' throw-66 rethrow-design caught-like
 ' throw-55 rethrow-design pv-design-line !
 T{ s" x" s" t.fs" rethrow-design pv-text-run verdict
    -> outcome-invalid pv-why-interrupted 1 0 }T
+\ A handler that records a diagnostic of its own (here full) decides the
+\ run's verdict: the runner asks the design first (Forth review L2).
+: capacity-handler ( code -- ) drop pv-why-capacity pv-fail-here ;
+pv-design: handled-design  ' capacity-handler handled-design caught-like
+' throw-55 handled-design pv-design-line !
+T{ s" x" s" t.fs" handled-design pv-text-run verdict
+   -> outcome-full pv-why-capacity 1 0 }T
+\ A reserved entry handed to pv-perform itself is refused, never written
+\ as IR (the mode shift refuses it before; Forth review L1).
+: perform-cells ( -- ) s" cells" pv-entry-of drop pv-perform ;
+pv-design: reserved-design  ' perform-cells reserved-design line-like
+T{ 0 transcript# ! s" x" s" t.fs" reserved-design pv-text-run verdict
+   -> outcome-unsupported pv-why-not-ir 1 0 }T
+T{ s" lf-ir 0.1|source t.fs|unsupported @1:0: a Forth word outside IR 0.2|"
+   transcribed? -> true }T
 
 \ A word of the file run by anyone but the verifier (here this test,
 \ after the run) refuses: the mode shift never lets one run. It throws

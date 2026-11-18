@@ -243,7 +243,7 @@ lf-term-input-codes head-tag-mask 1+ 2* cells erase
 : lf-term-input-twin! ( code tag -- ) 0 lf-tin-entry ! ;
 \ The checker's tags whose input nodes are in the leaf table, a bit each.
 variable lf-tin-leaf-tags   0 lf-tin-leaf-tags !
-: lf-tin-leaf-tags+ ( lftag -- ) 1 swap lshift lf-tin-leaf-tags @ or lf-tin-leaf-tags ! ;
+: lf-tin-leaf-tags+ ( lftag -- ) lf-tag-bit lf-tin-leaf-tags @ or lf-tin-leaf-tags ! ;
 : lf-term-input-leaf-tag ( lftag tag -- )
   over lf-tin-leaf-tags+ >r lf-tin-leaf-bit or r> lf-term-input-tag! ;
 \ The same for what a record of tag carries, read in mode.

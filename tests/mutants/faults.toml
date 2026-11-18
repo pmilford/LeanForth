@@ -2131,6 +2131,15 @@ test = "$GFORTH tests/lib/text-run.fs"
 reason = "run-settings-restore leaves BASE as the run set it"
 
 [[fault]]
+id = "pv-design-handler-skipped"
+file = "src/program/verify-runner.fs"
+old = '''  dup pv-settled? if drop exit then ['] pv-design-handles pv-try
+  dup pv-settled?'''
+new = '''  dup pv-settled?'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "Forth review L2 of small-fixes-1118: the runner never asks the design's THROW handler, so a diagnostic it would record (full) becomes interrupted"
+
+[[fault]]
 id = "pv-rethrow-ends-ok"
 file = "src/program/verify-runner.fs"
 old = '''  dup pv-settled? if drop exit then ['] pv-interrupted pv-try drop ;'''
@@ -2186,8 +2195,16 @@ file = "src/program/verify.fs"
 old = '''  over pv-entry-kind @ pv-kind-reserved = pv-why-not-ir pv-?fail'''
 new = ''''''
 test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
-reason = "a Forth word outside IR 0.1 (CELLS, @, DO ...) is not refused as such, so its IR means something else (re-targeted 2026-11-18 from pv-perform's reserved branch, which only the retired separate vocabulary reached)"
+reason = "a Forth word outside IR 0.1 (CELLS, @, DO ...) is not refused as such, so its IR means something else (re-targeted 2026-11-18 to the mode shift's own refusal; pv-perform's arm is fault pv-perform-reserved-written)"
 quick = true
+
+[[fault]]
+id = "pv-perform-reserved-written"
+file = "src/program/verify-semantics.fs"
+old = '''    pv-kind-reserved of drop pv-why-not-ir pv-fail endof'''
+new = '''    pv-kind-reserved of drop endof'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "Forth review L1 of small-fixes-1118: a reserved entry handed to pv-perform is skipped instead of refused (tested with a design whose line word calls pv-perform on CELLS)"
 
 [[fault]]
 id = "pv-literal-too-large"
@@ -8978,6 +8995,14 @@ old = '''lf-tag-let lf-tag-bit or lf-tag-projection lf-tag-bit or lf-tag-let-non
 new = '''lf-tag-let lf-tag-bit or lf-tag-let-nondep lf-tag-bit or'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5B: a projection is no binary node, so the passes treat it as an unknown leaf"
+
+[[fault]]
+id = "tin-leaf-tags-raw-shift"
+file = "src/core/terms.fs"
+old = ''': lf-tin-leaf-tags+ ( lftag -- ) lf-tag-bit lf-tin-leaf-tags @ or lf-tin-leaf-tags ! ;'''
+new = ''': lf-tin-leaf-tags+ ( lftag -- ) 1 swap lshift lf-tin-leaf-tags @ or lf-tin-leaf-tags ! ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "Forth review L3 of small-fixes-1118: the leaf-table tag set shifts by the raw tag, not lf-tag-bit, so a tag above 31 or below 0 gets another bit than lf-tin-leaf-tag? reads"
 
 [[fault]]
 id = "tag-bit-negative-unclamped"
