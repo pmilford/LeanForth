@@ -336,11 +336,12 @@ def file_index(tracked):
     return index
 
 
-def input_files(start, tracked, cache, index=None):
+def input_files(start, tracked, cache, index=None, followed=None):
     """(every tracked file the start files may read, [reasons they cannot be known]): closure()
     with the files program_inputs() says each program runs, to a fixed point, and the files it
     says they may read (read, not followed: a file found only by its name or folder is data).
-    CACHE maps a program to its (followed, read, reasons); INDEX is file_index(TRACKED)."""
+    CACHE maps a program to its (followed, read, reasons); INDEX is file_index(TRACKED); a set
+    FOLLOWED gets the files that are run or loaded (not only read as data)."""
     index = index or file_index(tracked)
     seen, todo, reasons, read = set(), list(start), [], set()
     while todo:
@@ -365,6 +366,8 @@ def input_files(start, tracked, cache, index=None):
         reasons += why
         read |= data
         todo += files - seen
+    if followed is not None:
+        followed |= {p for p in seen if p in tracked}
     return {p for p in seen | read if p in tracked}, sorted(set(reasons))
 
 

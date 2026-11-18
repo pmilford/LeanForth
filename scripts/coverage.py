@@ -177,6 +177,10 @@ def focused_never_run(table, chosen):
     rows = [table["targets"][t] for t in chosen if t in table["targets"]]
     if not rows:
         return None
+    if len(rows) == len(table["targets"]):
+        return table["blocks"], table["never_run"]   # every run of the file: the full run's count
+    # Fewer targets: the compiled blocks are taken as the largest set one target compiled (a file
+    # compiles the same blocks wherever it loads, but for conditional compilation).
     ran = set().union(*(set(r["ran"]) for r in rows))
     compiled = max(r["compiled"] for r in rows)
     return compiled, compiled - len(ran)

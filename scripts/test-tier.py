@@ -275,13 +275,16 @@ class Reach:
         self.inputs = None
 
     def loaders(self, path):
-        """The targets of make test that may load or run PATH: those whose inputs (Inputs, the
-        finder of the per-target reuse) hold it, unit and end-to-end alike, and any whose recipe
-        make -n cannot print. A file's block counts over them are those of all of make test."""
+        """The targets of make test that may load or run PATH: those whose programs, as the finder
+        of the per-target reuse (Inputs) follows them, run or load it, unit and end-to-end alike,
+        and any whose recipe make -n cannot print. A target that only reads PATH as data (a style
+        check's glob) runs none of its blocks. A file's block counts over them are those of all of
+        make test (checked on 2026-11-18 for every file: each target that compiled a file in a full
+        run was chosen)."""
         if self.inputs is None:
             self.inputs = Inputs()
             self.inputs.prefetch(self.of_test)
-        return [u for u in self.of_test if (self.inputs.read(u) is None or path in self.inputs.read(u))]
+        return [u for u in self.of_test if self.inputs.read(u, True) is None or path in self.inputs.read(u, True)]
 
     def users(self, path):
         return [u for u in self.every if path in self.uses[u]]
@@ -413,13 +416,17 @@ class Inputs:
                              capture_output=True, text=True, env=clean_env())
         return self.normal(run.stdout) if run.returncode == 0 else None
 
-    def read(self, name):
-        """The files target NAME may read (the files its digest covers), or None when make -n
-        fails. The coverage of a file is measured over every target of make test that reads it."""
+    def read(self, name, loaded_only=False):
+        """The files target NAME may read (the files its digest covers), or with LOADED_ONLY
+        those it may run or load (not those it only reads as data); None when make -n fails."""
         if name not in self.reads:
             text = self.recipe(name)
-            self.reads[name] = None if text is None else self.files(changed_tests.named_files(text))[0]
-        return self.reads[name]
+            followed = set()
+            files = None if text is None else changed_tests.input_files(
+                changed_tests.named_files(text), self.tracked, self.cache, self.index, followed)[0]
+            self.reads[name] = None if files is None else (files | self.global_files, followed)
+        found = self.reads[name]
+        return None if found is None else found[1 if loaded_only else 0]
 
     def files(self, start):
         """(input files, reasons) of programs and files START, the exported ones included."""
