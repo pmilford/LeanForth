@@ -5606,8 +5606,8 @@ reason = "TAB, which separates tokens as a space does, is refused as a control c
 [[fault]]
 id = "author-lines-cumulative"
 file = "src/author/runner.fs"
-old = '''  lfa-lines-restart lfa-save decimal depth lfa-floor! ['] lfa-lines catch'''
-new = '''  lfa-save decimal depth lfa-floor! ['] lfa-lines catch'''
+old = '''  lfa-lines-restart decimal depth lfa-floor! ['] lfa-lines catch lfa-restore lfa-caught ;'''
+new = '''  decimal depth lfa-floor! ['] lfa-lines catch lfa-restore lfa-caught ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "a second text in one run counts its lines on from the first, so its errors point at the wrong line (p12)"
 
