@@ -656,9 +656,9 @@ decoded gives the same answers, at most sooner, and changes no walker.)
 **On all of Mathlib** (2026-11-18, branch `mf1`, by the implementer; the
 done checker has not run it), with no step-around (the design's
 measurement runs had left the 11 bodies out and deleted the second
-`instHSMul` default instance from a copy):
+`instHSMul` default instance from a copy; a `text` block, since the tests have no Mathlib):
 
-```console
+```text
 $ LEAN_PATH=… scripts/export-elab.sh mathlib.elab.ndjson mathlib.ndjson Mathlib
 mathlib.elab.ndjson: 2450 class, 43808 instance, 470 instance_left_out, 52 default_instance, 85147 reducibility, 152 eliminator, 44264 tag, 25047 matcher, 15463 projection, 1785 sunfold; left out (not declarations of the export): … 59 sunfold; 86 sunfold bodies naming what the export lacks; 12 inert markers (format 3.1)
 $ bin/leanforth check --snapshot mathlib-d789e45f.lfsnap --elab-data mathlib.elab.ndjson tests/author/01-identity.lf
