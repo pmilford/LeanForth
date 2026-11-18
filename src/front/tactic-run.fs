@@ -360,10 +360,11 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ no room.
 \ (The span's length: the text's count now less its first.)
 : lfg-len ( first outcome -- n outcome ) swap lfg-text# swap - swap ;
-: lfg-cut ( outcome -- outcome' ) trun trun-cut @ if drop outcome-full then ;
+\ Full when a text found no room (the open parts' and the step log's).
+: lfr-cut? ( outcome -- outcome' ) trun trun-cut @ if drop outcome-full then ;
 : lfg-print ( goal -- first n outcome )
   false trun trun-cut ! lfg-text# tuck swap ['] lf-goal-print ['] lfg-text+ lf-print-with
-  lfg-len lfg-cut ;
+  lfg-len lfr-cut? ;
 : lfg-entry ( -- addr ) trun-log slab-last ;
 : lfg-before ( -- )
   lf-main-goal ok-then? if lfg-print lfr-must else drop -1 0 then
@@ -435,7 +436,6 @@ s" by-sorry" tac-k-sorry lfr-spell
   lfr-text# lfa-full lfr-text+ lfr-part top-name lfr-span-end lfr-part top-name# ! ;
 : lfr-goal-kept ( goal -- outcome )
   lfr-text# swap lfr-goal-text >r lfr-part top-goal lfr-span-end lfr-part top-goal# ! r> ;
-: lfr-cut? ( outcome -- outcome' ) trun trun-cut @ if drop outcome-full then ;
 : lfr-open-part ( goal -- )
   1 trun-parts slab-claim lfr-must drop lf-tac-step lfr-at lfr-part top-at !
   false trun trun-cut ! lfr-name-kept lfr-goal-kept lfr-cut? lfr-must ;
