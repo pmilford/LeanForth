@@ -184,6 +184,8 @@ lfa-items-reset  16 lfa-items store-limit! drop
 text0 s" theorem t" text+ s"  Prop" 17 times
 T{ text$ fails drop drop -> 64 }T
 lfa-items-reset  /lfa-item lfa-store-limit lfa-items store-limit! drop
+\ A heap store refused at its start aborts (form.fs's lfa-heap-must).
+T{ outcome-full ' lfa-heap-must catch nip outcome-ok ' lfa-heap-must catch -> -2 0 }T
 text0 s" theorem t Prop" text+ s\"  note\" n\"" 65 times
 T{ text$ fails drop drop -> 67 }T
 text0 s" import-stub c end c " 33 times

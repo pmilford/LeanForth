@@ -28,8 +28,8 @@ end-structure
 store-header context-record: lfa-binders
 /lfa-binder lfa-store-limit constant lfa-binder-limit
 : lfa-binders-make ( -- )
-  lfa-store-room /lfa-binder 0 lfa-binders store-heap-init ok? 0= abort" author: no heap"
-  lfa-binder-limit lfa-binders store-limit! ok? 0= abort" author: binder limit" ;
+  lfa-store-room /lfa-binder 0 lfa-binders store-heap-init lfa-heap-must
+  lfa-binder-limit lfa-binders store-limit! lfa-heap-must ;
 ' lfa-binders-make context-setup
 :noname ( -- ) lfa-binders store-heap-free ; context-teardown
 

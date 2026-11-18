@@ -39,6 +39,9 @@ require ./errors.fs
 \ bytes one can hold.
 16 constant lfa-store-room
 : lfa-store-limit ( width -- n ) cell+ max-n store-header - swap / ;
+\ A heap store refused at its start (no heap, an unsound shape) aborts:
+\ no run could go on without it.
+: lfa-heap-must ( outcome -- ) ok? 0= abort" author: no heap for a store" ;
 
 begin-structure /lfa-form
   field: lfa-form-kernel      \ true: the kernel form
@@ -48,8 +51,8 @@ end-structure
 /lfa-form context-record: lfa-form
 store-header context-record: lfa-numerals
 : lfa-numerals-make ( -- )
-  lfa-store-room 1 cells 0 lfa-numerals store-heap-init ok? 0= abort" author: no heap"
-  1 cells lfa-store-limit lfa-numerals store-limit! ok? 0= abort" author: numeral limit" ;
+  lfa-store-room 1 cells 0 lfa-numerals store-heap-init lfa-heap-must
+  1 cells lfa-store-limit lfa-numerals store-limit! lfa-heap-must ;
 ' lfa-numerals-make context-setup
 :noname ( -- ) lfa-numerals store-heap-free ; context-teardown
 

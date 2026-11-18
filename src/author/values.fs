@@ -39,8 +39,8 @@ begin-structure /lfa-item
 end-structure
 store-header context-record: lfa-items
 : lfa-items-make ( -- )
-  lfa-store-room /lfa-item 0 lfa-items store-heap-init ok? 0= abort" author: no heap"
-  /lfa-item lfa-store-limit lfa-items store-limit! ok? 0= abort" author: value limit" ;
+  lfa-store-room /lfa-item 0 lfa-items store-heap-init lfa-heap-must
+  /lfa-item lfa-store-limit lfa-items store-limit! lfa-heap-must ;
 ' lfa-items-make context-setup
 :noname ( -- ) lfa-items store-heap-free ; context-teardown
 
