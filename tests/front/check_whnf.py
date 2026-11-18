@@ -7,7 +7,7 @@ Nat, a let variable g := fun y => s y, metavariables ?n ?h (unassigned)
 and ?f := fun y => s y. Pinned Lean 4.35.0 (tests/front/whnf-cases.lean,
 which this script writes with --write and checks is up to date) prints
 Meta.whnfCore's result, getStuckMVar?'s answer or inferType's type;
-LeanForth (tests/front/whnf-cases.fs: lf-whnf-core, lf-whnf-stuck,
+LeanForth (tests/front/whnf-cases.fs through whnf-builds.fs: lf-whnf-core, lf-whnf-stuck,
 lf-infer) prints its own. Build cases (plan slice a2-i, the tactic
 library): Meta/AppBuilder.lean's builders (mkEq, mkEqRefl, mkEqSymm,
 mkEqTrans, mkExpectedPropHint, mkCongrArg, mkAppM) against
@@ -395,7 +395,7 @@ def lean_lines():
 
 def forth_lines():
     calls = " ".join(f"{forth_case(kind, t)} {kind}-run" for kind, t, _ in CASES)
-    return run([GFORTH, "tests/front/whnf-cases.fs", "-e", calls + " bye"])
+    return run([GFORTH, "tests/front/whnf-builds.fs", "-e", calls + " bye"])
 
 
 def golden(path, lines):
