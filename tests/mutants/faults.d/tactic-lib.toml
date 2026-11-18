@@ -80,6 +80,22 @@ test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i withLocalDecl: the local outlives its scope (rw's motive check left one before a2-i)"
 
 [[fault]]
+id = "rw-lib-local-not-dropped"
+file = "src/front/telescope.fs"
+old = '''  tl-mark >r ['] tl-opened catch r> lf-lctx-drop throw ;'''
+new = '''  tl-mark >r ['] tl-opened catch r> drop throw ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "a2-i review F6: withLocalDecl never drops its local, seen in rw's own test (tactic-run.fs counts the locals rw's step leaves)"
+
+[[fault]]
+id = "rw-independent-bare-local"
+file = "src/front/tactic-rewrite.fs"
+old = '''  trw trw-alpha @ s" _a" lfa-intern lf-binder-default ['] lfw-at lf-with-local-decl'''
+new = '''  trw trw-alpha @ lf-lctx-local lf-tac-must lfw-at'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "a2-i review F6: rw's motive independence check makes its local without withLocalDecl's scope, so the local outlives the rule (the state before a2-i)"
+
+[[fault]]
 id = "rw-unknown-binder-explicit"
 file = "src/front/telescope.fs"
 old = '''  lf-binder-kind-at 0= if outcome-unsupported lf-must then ;'''

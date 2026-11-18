@@ -593,6 +593,24 @@ T{ steps-written? -> false }T
 ' lfr-sorry tac-k-sorry lf-tactic-action!
 ' lfr-unelaborated stating
 T{ lfc-library-close -> }T
+
+\ ---- rw's motive check (lfw-independent) opens a local for the
+\ abstracted term (withLocalDecl) and drops it: the local context's count
+\ after the rw step grows only by the one local per rule that the
+\ motive's type check (lf-meta-check, meta-check.fs: a walk step, not a
+\ scope) keeps: 2 for the two rules of tests/front/01-zero-add-rw.lf's
+\ rw [Nat.add_succ, ih], run over the S2 slice and its elaboration data
+\ (review F6 of a2-i: a local kept by withLocalDecl makes it 4).
+variable rw-runs   variable rw-locals
+: counted-rw ( i -- )
+  1 rw-runs +! lf-lctx-count @ >r rw-action execute lf-lctx-count @ r> - rw-locals +! ;
+T{ s" tests/front/s2-slice.ndjson" true lfc-library-open -> outcome-ok }T
+T{ s" tests/front/s2-slice.elab.ndjson" lfc-elab-file! lfc-elab-read -> outcome-ok }T
+' counted-rw tac-k-rw lf-tactic-action!  ' edc-by-statement stating
+: rw-file ( -- outcome ) s" tests/front/01-zero-add-rw.lf" ['] lfc-run lfc-making ;
+T{ 0 rw-runs ! 0 rw-locals ! rw-file rw-runs @ rw-locals @ -> outcome-ok 1 2 }T
+rw-action tac-k-rw lf-tactic-action!  ' lfr-unelaborated stating
+T{ lfc-library-close 0 0 lfc-elab-file! -> }T
 T{ depth -> 0 }T
 cr .( tactic-run.fs: all tests passed) cr
 bye
