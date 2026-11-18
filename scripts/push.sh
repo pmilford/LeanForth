@@ -3,15 +3,14 @@
 # .claude/work/ci/<hash>-result.txt, and pushes only when all pass.
 #   1. the progress check (scripts/check-progress.py: stage words, progress report, Now/next/later)
 #   2. the Forth review log and style ratchet, strict (scripts/check-forth-quality.py --strict)
-#   3. the suites of the change tier of origin/main..HEAD (owner, 2026-11-13, plan 9.4.6; scripts/test-tier.py), each
-#      reused when a pass on HEAD's exact tree with the same Gforth, Lean and cache mode is recorded, else run and
-#      recorded (scripts/tested-tree.py tier). The full tier is CI's two jobs split into unit and end-to-end tests
-#      (owner, 2026-11-14; tests/test-classes.txt): make coverage-check (make test once, instrumented, on Gforth
-#      1.0: every unit test and every end-to-end test of make test, and the coverage ratchet), make test-unit on
-#      gforth-fast, make check-rest (the rest of make check, every pinned-Lean comparison) and make test-unit on
-#      Gforth 0.7.3. A push runs only its own tier (owner, 2026-11-17): a documentation push the documentation
-#      and progress checks, a code push its tier once, with the Lean cache.
-#   4. the age of the last daily full run (make daily: LEAN_CACHE=0, Gforth 0.7.3 included, its own command, run
+#   3. the suites of the change tier of origin/main..HEAD (owner, 2026-11-13, plan 9.4.6; scripts/test-tier.py), run
+#      and recorded by scripts/tested-tree.py tier, which reuses a recorded pass of each target whose inputs are
+#      unchanged (owner, 2026-11-17: per-target reuse). The full tier (tests/test-classes.txt): the coverage
+#      ratchet of the changed source files over their unit tests (make coverage-focus), make test on Gforth 1.0,
+#      make test-unit on gforth-fast and make check-rest (every pinned-Lean comparison). A push runs only its own
+#      tier: a documentation push the documentation and progress checks, a code push its tier once, with the Lean
+#      cache. Gforth 0.7.3 and the coverage of every file run only in make daily (owner, 2026-11-17).
+#   4. the age of the last daily full run (make daily: LEAN_CACHE=0, Gforth 0.7.3 and make coverage-check, run
 #      once a night and before a tag): reported, with a warning when none is recorded or it is older than 36
 #      hours; a push never runs it and never refuses for it. A tag needs one for its exact tree (make tag-check).
 # Usage: scripts/push.sh [--no-cache] [--full] [--dry-run]
@@ -22,7 +21,9 @@
 # .claude/work/ci/<hash>-timing.txt (slowest shown). The result line, with every suite run (exit status, time) or
 # reused (the record's commit and date) and those the tier did not need, the Gforth and Lean versions, is appended
 # to the tracked docs/development/ci-results.log in a follow-up commit.
-# JOBS follows .claude/work/CPU_MODE ("day": 2, otherwise make's default). Never force-pushes.
+# JOBS (owner, 2026-11-17): JOBS=N in the environment wins; else 2 when .claude/work/CPU_MODE says "day"; else 5
+# when at most two heavy processes (Gforth, Lean, leanexport) of other runs are going, 2 when more
+# (LF_HEAVY_COUNT=N stands for the count, for tests). Always under ulimit -u 500. Never force-pushes.
 set -u
 cd "$(dirname "$0")/.." || exit 1
 ulimit -u 500
@@ -41,8 +42,13 @@ if [ -z "$DRY" ]; then exec 9>"$D/push.lock"; flock -n 9 || { echo "push.sh: ano
 [ "$(git rev-parse --abbrev-ref HEAD)" = main ] || [ -n "$DRY" ] || { echo "push.sh: not on main"; exit 1; }
 [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "push.sh: uncommitted changes"; exit 1; }
 [ -n "$(git rev-list origin/main..HEAD)" ] || { echo "push.sh: nothing to push (HEAD is in origin/main)"; exit 0; }
-JOBS=8; [ "$(cat .claude/work/CPU_MODE 2>/dev/null)" = day ] && JOBS=2
-TIER=(python3 scripts/tested-tree.py tier --base origin/main --with-073 --no-progress --jobs "$JOBS" --lean-cache "$CACHE")
+heavy=${LF_HEAVY_COUNT:-$(ps -eo comm= | grep -cE '^(gforth[-a-z0-9.]*|lean|leanexport)$')}
+if [ -n "${JOBS:-}" ]; then why="JOBS from the environment"
+elif [ "$(cat .claude/work/CPU_MODE 2>/dev/null)" = day ]; then JOBS=2; why="CPU mode day"
+elif [ "$heavy" -le 2 ]; then JOBS=5; why="$heavy heavy processes running"
+else JOBS=2; why="$heavy heavy processes running"; fi
+echo "push.sh: JOBS=$JOBS ($why)"
+TIER=(python3 scripts/tested-tree.py tier --base origin/main --no-progress --jobs "$JOBS" --lean-cache "$CACHE")
 [ -n "$FULL" ] && TIER+=("$FULL")
 DAILY=(python3 scripts/tested-tree.py daily-status --warn-hours 36)
 if [ -n "$DRY" ]; then "${TIER[@]}" --dry-run; s=$?; "${DAILY[@]}"; exit $s; fi

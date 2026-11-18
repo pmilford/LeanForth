@@ -1042,24 +1042,16 @@ test: test-author test-author-e2e
 # the elaborator (plan S1, FE1e6-7: tests/front/elab.fs with stand-ins for
 # instance search; tests/front/check_elab.py against pinned Lean's golden
 # terms through leanforth check). Its modules load alone, printing nothing.
+# The modules whose silent load test-front checks are found from the files (tactic plug-in
+# design, slice (a1); branch tactic-plugin-design): every front-end file, of src/front/ and of
+# its tactics/ and meta-tactic/ folders, but those test-instances and test-elab-data load
+# (FRONT_LOADED_ELSEWHERE), and the two core modules only the front end uses.
+FRONT_LOADED_ELSEWHERE := src/front/discr-keys.fs src/front/elab-data.fs src/front/elab-keys.fs \
+	src/front/instances.fs src/front/synth.fs
+FRONT_MODULES := $(filter-out $(FRONT_LOADED_ELSEWHERE),$(sort $(wildcard src/front/*.fs \
+	src/front/tactics/*.fs src/front/meta-tactic/*.fs))) src/core/mvar-leaves.fs src/core/reach.fs
 test-front:
-	@for m in src/front/syntax.fs src/front/dag-walk.fs src/front/reader.fs src/front/mvars.fs \
-	  src/front/handover.fs src/core/mvar-leaves.fs src/core/reach.fs \
-  src/front/meta-config.fs src/front/level-defeq.fs src/front/instantiate.fs \
-	  src/front/level-simp.fs src/front/level-params.fs src/front/level-normalize.fs \
-	  src/front/level-map.fs src/front/expr-remap.fs src/front/constructions.fs src/front/ctor-idx.fs \
-	  src/front/cases-several.fs \
-	  src/front/lib-decode.fs src/front/meta-env.fs src/front/meta-spine.fs src/front/unfold.fs \
-	  src/front/whnf.fs src/front/beta-inst.fs \
-	  src/front/infer.fs src/front/tactic-syntax.fs \
-	  src/front/lctx-views.fs src/front/goals.fs src/front/goal-print.fs \
-	  src/front/term-eqv.fs src/front/prop-quick.fs \
-	  src/front/assign-check.fs src/front/nat-offset.fs src/front/fun-info.fs src/front/defeq.fs \
-	  src/front/defeq-delta.fs \
-	  src/front/tactic-run.fs src/front/tactic-basic.fs src/front/elab-pending.fs \
-	  src/front/elab-app.fs src/front/elab-term.fs src/front/elab-decl.fs \
-	  src/front/kabstract.fs src/front/meta-check.fs src/front/tactic-rewrite.fs \
-	  src/front/tactic-induction.fs; do \
+	@for m in $(FRONT_MODULES); do \
 	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	  if [ -n "$$out" ]; then printf '%s printed while loading:\n%s\n' "$$m" "$$out" >&2; exit 1; fi; \
 	done
@@ -1128,6 +1120,23 @@ reference-constructions:
 reference-binder-kinds:
 	LEAN=$(LEAN) $(RUN) python3 tests/front/check_binder_kinds.py \
 	  $(if $(INIT_EXPORT),--export $(INIT_EXPORT))
+
+# A tactic's own tests (tactic plug-in design, slice (a1)): tests/front/tactics/NAME/test.fs is
+# the unit target test-tactic-NAME and tests/front/tactics/NAME/check.py the end-to-end target
+# test-tactic-NAME-e2e, both part of make test, found from the files, so a branch that adds a
+# tactic edits no Makefile line (tests/test-classes.txt classes them by pattern).
+TACTIC_UNIT_TARGETS := $(patsubst tests/front/tactics/%/test.fs,test-tactic-%,\
+	$(sort $(wildcard tests/front/tactics/*/test.fs)))
+TACTIC_E2E_TARGETS := $(patsubst tests/front/tactics/%/check.py,test-tactic-%-e2e,\
+	$(sort $(wildcard tests/front/tactics/*/check.py)))
+$(TACTIC_UNIT_TARGETS): test-tactic-%:
+	$(RUN) $(GFORTH) tests/front/tactics/$*/test.fs
+$(TACTIC_E2E_TARGETS): test-tactic-%-e2e:
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/tactics/$*/check.py
+.PHONY: $(TACTIC_UNIT_TARGETS) $(TACTIC_E2E_TARGETS)
+test: $(TACTIC_UNIT_TARGETS) $(TACTIC_E2E_TARGETS)
+test-unit: $(TACTIC_UNIT_TARGETS)
+test-e2e: $(TACTIC_E2E_TARGETS)
 
 .PHONY: test-front test-front-e2e reference-front reference-constructions reference-binder-kinds
 test: test-front test-front-e2e
@@ -1414,6 +1423,7 @@ tier:
 test-tiers:
 	$(RUN) python3 tests/scripts/test_test_tier.py
 	$(RUN) python3 tests/scripts/test_tested_tree.py
+	$(RUN) python3 tests/scripts/test_check_tactic_plugins.py
 # The daily full run (owner, 2026-11-17: its own command, once a night and before a tag;
 # a push only reports its age): the full tier of HEAD with LEAN_CACHE=0 and Gforth 0.7.3,
 # each suite recorded for this exact tree; DRY_RUN=1 prints what would run. make tag-check

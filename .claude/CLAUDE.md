@@ -54,18 +54,25 @@ OpenAI Codex. Codex-era docs (`docs/project/CODEX_HANDOFF.md`, `prompts/FIRST_CO
 - Reviewers probe and plant their own faults; they do not repeat the
   implementer's recorded suite runs on the same head.
 - GitHub CI is off at the owner's request (2026-11-11). Before every push run
-  its jobs locally under `ulimit -u 500`: `make check` (Lean cache on),
-  `make test-unit` on gforth-fast and
-  `make test-unit GFORTH=$PWD/.claude/work/A/gforth073.sh` (Gforth 0.7.3,
-  unit tests only); check the exit codes and record them, as `AGENTS.md`
-  requires. `scripts/push.sh` does this by change tier, its own tier only (a
-  documentation push: the documentation and progress checks): its full tier
-  is `make coverage-check`, `make test-unit` on gforth-fast, `make check-rest`
-  and the 0.7.3 `make test-unit`, and it reuses passes recorded for the
-  identical tree (`scripts/push.sh --dry-run` shows the plan).
+  its jobs locally under `ulimit -u 500` and record the exit codes, as
+  `AGENTS.md` requires: `scripts/push.sh` does this by change tier, its own
+  tier only (a documentation push: the documentation and progress checks).
+  Its full tier (owner, 2026-11-17) is the coverage ratchet of the touched
+  source files over their unit tests (`make coverage-focus`), `make test`,
+  `make test-unit` on gforth-fast and `make check-rest`, with the Lean cache,
+  and each target's recorded pass is reused while the files it reads are
+  unchanged (`scripts/tested-tree.py`); it picks `JOBS` (5, or 2 when other
+  heavy runs are going or in CPU mode day; `JOBS=N` overrides).
+  `scripts/push.sh --dry-run` shows the plan with estimated times.
 - The cache-off full run is `make daily` (owner, 2026-11-17): once a night,
-  by itself, and before a tag; `make tag-check` must pass for the tree to be
-  tagged. `scripts/push.sh` only reports its age and warns past 36 hours.
+  by itself, and before a tag; it alone runs `make coverage-check` of every
+  file and `make test-unit` on Gforth 0.7.3
+  (`GFORTH=$PWD/.claude/work/A/gforth073.sh`); `make tag-check` must pass for
+  the tree to be tagged. `scripts/push.sh` only reports its age and warns past
+  36 hours.
+- A branch that only adds a tactic plug-in (`scripts/check-tactic-plugins.py`
+  finds it confined) gets the tactic tier: the front end's unit tests, every
+  `.lf` end-to-end run and `reference-front`.
 
 ## Reviews
 

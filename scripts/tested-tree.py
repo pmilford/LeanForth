@@ -216,10 +216,41 @@ class Make:
         self.differs = self.built(variables.get("COVERAGE_ENGINE_DIFFERS", "").split())
         self.of_test = self.built(["test"])
         self.units = test_tier.units(self.rules)[0]
-        self.reach, self.deltas = None, {}
+        self.reach, self.deltas, self.inputs, self.ancestors = None, {}, None, {}
+        self.faults, self.baseline = None, False
 
     def built(self, goals):
         return test_tier.reach(goals, self.rules) & self.recipes
+
+    def ancestor(self, commit):
+        if commit not in self.ancestors:
+            self.ancestors[commit] = subprocess.run(["git", "merge-base", "--is-ancestor", commit, "HEAD"],
+                                                    capture_output=True).returncode == 0
+        return self.ancestors[commit]
+
+    def digest(self, item, variables):
+        """The digest of what ITEM of a pass of make ... VARIABLES read (scripts/test-tier.py's
+        Inputs), or None when it cannot be known: then only a record of this tree, or of an
+        earlier commit whose change since cannot reach it, stands for the item."""
+        if any(k not in NEUTRAL for k in variables) or item in (COVERAGE_ALL, "coverage-check", "coverage-focus",
+                                                                "mutants"):
+            return None
+        self.inputs = self.inputs or test_tier.Inputs()
+        if item.startswith("fault:"):
+            self.faults = self.faults or test_tier.fault_list()
+            return self.inputs.fault(self.faults.get(item[len("fault:"):]))
+        if item.startswith("coverage:"):
+            if self.baseline is False:
+                try:
+                    self.baseline = json.loads(test_tier.read_worktree(test_tier.COVERAGE_BASELINE) or "null")
+                except ValueError:
+                    self.baseline = None
+            targets = self.built(variables.get("COVERAGE_TARGETS", "").split())
+            return self.inputs.coverage(item[len("coverage:"):], targets, self.baseline) if targets else None
+        return self.inputs.target(item) if item in self.recipes else None
+
+    def digests(self, items, variables):
+        return {item: self.digest(item, variables) for item in sorted(items)}
 
     def since(self, commit):
         """(what the change from COMMIT to HEAD reaches, its tier), or (None, tier) when it
@@ -227,9 +258,7 @@ class Make:
         the targets of its tier, its faults, and every coverage item ("coverage") when the
         tier asks for coverage."""
         if commit not in self.deltas:
-            ancestor = subprocess.run(["git", "merge-base", "--is-ancestor", commit, "HEAD"],
-                                      capture_output=True).returncode == 0
-            if not ancestor:
+            if not self.ancestor(commit):
                 self.deltas[commit] = (None, "not an ancestor")
             else:
                 self.reach = self.reach or test_tier.Reach(self.rules)
@@ -266,7 +295,7 @@ class Make:
 
 
 def all_faults():
-    return list(test_tier.fault_entries(test_tier.read_worktree(test_tier.FAULTS) or ""))
+    return list(test_tier.fault_list())
 
 
 # --- records --------------------------------------------------------------------------
@@ -344,6 +373,16 @@ def lookup(argv, make=None, records=None):
     for record in (r for r in pool if r.get("tree") == here):
         take(record, set(record.get("covers", ())), "this tree")
     earlier = sorted((r for r in pool if r.get("tree") != here), key=lambda r: r.get("date", ""), reverse=True)
+    # Per-target reuse (owner, 2026-11-17): an item whose inputs' digest equals the one a record
+    # of an earlier commit of HEAD's history stored for it; an item without a digest never.
+    pending = needs - gained(have, needs)
+    if pending and any(r.get("inputs") for r in earlier):
+        current = make.digests(pending, variables)
+        for record in earlier:
+            stored = record.get("inputs") or {}
+            hits = {n for n, d in current.items() if d and stored.get(n) == d}
+            if hits and make.ancestor(record["commit"]):
+                take(record, hits, "inputs unchanged")
     for commit in list(dict.fromkeys(r["commit"] for r in earlier))[:MAX_EARLIER_COMMITS]:
         if not needs - gained(have, needs):
             break
@@ -359,7 +398,8 @@ def shown(argv):
 
 
 def reused_text(used):
-    """The records a lookup used: commit, date, command, and whether they are of this tree."""
+    """The records a lookup used: commit, date, command, and whether they are of this tree; a
+    record used for some items only says how many ("inputs unchanged: 12 targets")."""
     return ", ".join(f"{r['commit'][:10]} {r['date']} ({r['command']}"
                      + ("" if note == "this tree" else f"; {note}") + ")" for r, note in used)
 
@@ -399,7 +439,9 @@ def record(argv, log=None, nice=None, make=None):
         raise Refused("the worktree differs from HEAD's tree (commit first, or run make itself): "
                       + "; ".join(problems[:5]))
     chain = toolchain(variables)
-    covers = sorted((make or Make()).covers(goals, variables))
+    make = make or Make()
+    covers = sorted(make.covers(goals, variables))
+    inputs = {item: d for item, d in make.digests(covers, variables).items() if d}
     before, commit = tree(), git("rev-parse", "HEAD")
     branch = git("rev-parse", "--abbrev-ref", "HEAD")
     started, date = time.monotonic(), now()
@@ -420,7 +462,7 @@ def record(argv, log=None, nice=None, make=None):
     entry = {"version": VERSION, "tree": before, "suite": " ".join(goals), "variables": variables,
              "gforth": chain["gforth"], "lean": chain["lean"], "lean_cache": chain["lean_cache"],
              "commit": commit, "branch": branch, "exit": 0, "date": date, "seconds": seconds,
-             "command": shown(argv), "covers": covers}
+             "command": shown(argv), "covers": covers, "inputs": inputs}
     write_record(entry)
     print(f"tested-tree: passed in {seconds:.0f} s; recorded for tree {before[:12]} (commit {commit[:10]})")
     return 0
@@ -523,7 +565,7 @@ def run_daily(args):
     status, lines = 0, []
     need_of = {"coverage-check": "make coverage-check", "testfast": "make test-unit on gforth-fast",
                "check-rest": "make check-rest with LEAN_CACHE=0", "test073": "make test-unit on Gforth 0.7.3"}
-    for suite in test_tier.FULL_SUITES:
+    for suite in test_tier.DAILY_SUITES:
         need = need_of[suite["label"]]
         argv = suite_argv(suite, args.make, args.jobs, "0")
         if need not in missing:
@@ -541,6 +583,43 @@ def run_daily(args):
     return status
 
 
+def target_seconds():
+    """{target: seconds of one run} from the newest push's timing log (.claude/work/ci/*-timing.txt
+    of the main checkout, "target seconds exit" per command): a target's commands summed and
+    divided by the suites that ran it there (a unit test of make test ran in three: coverage,
+    gforth-fast, 0.7.3; test-cli-engines in two). An estimate, for dry runs; {} without a log."""
+    folder = os.path.join(checkout(), ".claude/work/ci")
+    try:
+        logs = sorted((os.path.join(folder, n) for n in os.listdir(folder) if n.endswith("-timing.txt")),
+                      key=os.path.getmtime)
+        with open(logs[-1], encoding="utf-8") as stream:
+            rows = [line.split() for line in stream]
+    except (OSError, IndexError):
+        return {}
+    total = {}
+    for row in rows:
+        if len(row) >= 2:
+            try:
+                total[row[0]] = total.get(row[0], 0.0) + float(row[1])
+            except ValueError:
+                continue
+    unit = test_tier.test_classes.OfClass(test_tier.test_classes.read()[0], "unit")
+    return {t: s / (3 if t in unit else 2 if t == "test-cli-engines" else 1) for t, s in total.items()}
+
+
+def estimate(argv, missing, make, jobs, times):
+    """A dry run's estimate of a suite: the target time of what would run, and that divided by
+    JOBS (a lower bound of the wall time: make's longest chain may be longer)."""
+    targets = {m for m in missing if m in make.recipes} or make.covers(*parse(argv))
+    known = [times[t] for t in targets if t in times]
+    if not known:
+        return ""
+    seconds = sum(known)
+    unknown = len(targets) - len(known)
+    return (f" [estimate: {seconds:.0f} s of target time, at least {seconds / max(int(jobs), 1):.0f} s at "
+            f"JOBS={jobs}" + (f"; {unknown} targets without a timing" if unknown else "") + "]")
+
+
 def suite_argv(suite, make_program, jobs, cache):
     argv = [make_program, *suite["goals"], *(f"{k}={v}" for k, v in suite.get("vars", {}).items()),
             f"JOBS={jobs}", f"LEAN_CACHE={cache}"]
@@ -555,12 +634,18 @@ def run_tier(args):
     merge_base, changed = test_tier.changed_files(args.base)
     result = test_tier.plan(changed, merge_base, args.full)
     cache, notes = args.lean_cache, []
-    dropped = [] if args.with_073 else [s["label"] for s in result["suites"] if s.get("engine") == "073"]
-    result["suites"] = [s for s in result["suites"] if s["label"] not in dropped]
+    if args.with_073:
+        notes.append("--with-073 is ignored: Gforth 0.7.3 runs only in make daily and make tag-check "
+                     "(owner, 2026-11-17)")
     print(test_tier.describe(result))
     for note in notes:
         print(note)
     make, lines, status, tree_hash = Make(), [], 0, tree()
+    tactic = result.get("tactic_check")
+    if tactic and tactic["problems"]:
+        lines.append("tactic plug-in check failed: " + "; ".join(tactic["problems"]))
+        status = 1
+    times = target_seconds() if args.dry_run else {}
     for suite in result["suites"]:
         argv = suite_argv(suite, args.make, args.jobs, cache)
         label = suite["label"]
@@ -572,7 +657,8 @@ def run_tier(args):
             argv = narrowed(argv, missing, make) if used else argv
             rest = f"; the rest reused: {reused_text(used)}" if used else ""
             if args.dry_run:
-                lines.append(f"{label} would run: {shown(argv)}{rest}")
+                guess = estimate(argv, missing, make, args.jobs, times)
+                lines.append(f"{label} would run: {shown(argv)}{guess}{rest}")
                 continue
             started = time.monotonic()
             log = f"{args.log_prefix}{label}.log" if args.log_prefix else None
@@ -584,12 +670,10 @@ def run_tier(args):
         status = status or (1 if code else 0)
     labels = {s["label"] for s in result["suites"]}
     skipped = [s["label"] for s in test_tier.FULL_SUITES if s["label"] not in labels]
-    skipped = [label for label in skipped if label not in dropped]
     if skipped and result["tier"] != "full":
         lines.append(f"not run (tier {result['tier']} does not reach them): {', '.join(skipped)}")
-    if dropped:
-        lines.append(f"not run on a branch (Gforth 0.7.3 runs at the push and in the daily run): "
-                     f"{', '.join(dropped)}")
+    lines.append("not run in a tier (make daily runs them): make coverage-check of every file, "
+                 "make test-unit on Gforth 0.7.3")
     if not args.no_progress:
         code = subprocess.run([sys.executable, os.path.join(HERE, "check-progress.py"), args.base]).returncode
         lines.append(f"progress check exit {code}")

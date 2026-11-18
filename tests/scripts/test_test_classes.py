@@ -120,6 +120,65 @@ class Tree(unittest.TestCase):
         self.assertNotIn("tests/lib/a.fs", run.stdout)
 
 
+class Patterns(unittest.TestCase):
+    """Tactic plug-in design, slice (a1): pattern rows class the targets the Makefile finds."""
+
+    ROWS = {"test-tactic-*": "unit", "test-tactic-*-e2e": "e2e", "test-lib": "unit"}
+
+    def test_longest_pattern_wins(self):
+        self.assertEqual(tc.class_of(self.ROWS, "test-tactic-decide"), "unit")
+        self.assertEqual(tc.class_of(self.ROWS, "test-tactic-decide-e2e"), "e2e")
+        self.assertEqual(tc.class_of(self.ROWS, "test-lib"), "unit")
+        self.assertIsNone(tc.class_of(self.ROWS, "test-other"))
+        self.assertIn("test-tactic-x-e2e", tc.OfClass(self.ROWS, "e2e"))
+        self.assertNotIn("test-tactic-x", tc.OfClass(self.ROWS, "e2e"))
+        self.assertEqual(tc.of_class(self.ROWS, "unit"), ["test-lib"], "a pattern names no target itself")
+
+    def test_a_pattern_may_match_nothing_and_classes_what_it_matches(self):
+        self.assertEqual(tc.problems_of(self.ROWS, ["test-lib"], set(), []), [])
+        self.assertEqual(tc.problems_of(self.ROWS, ["test-lib", "test-tactic-rfl", "test-tactic-rfl-e2e"], set(), []),
+                         [])
+        self.assertEqual(tc.problems_of({"test-tactic-*": "manual"}, ["test-tactic-rfl"], set(), []),
+                         ["row test-tactic-*: a target is unit or e2e, never manual"])
+
+
+class Discovery(unittest.TestCase):
+    """The real Makefile finds a tactic's targets from tests/front/tactics/NAME/ (slice (a1)): in a
+    copy holding the Makefile, the table and one tactic's test files, make test, test-unit and
+    test-e2e name them; in the project's own tree there are none yet."""
+
+    def test_tactic_targets_found_from_files(self):
+        import shutil
+        import tempfile
+        top = pathlib.Path(tempfile.mkdtemp(prefix="lf-discovery-"))
+        try:
+            shutil.copy(ROOT / "Makefile", top / "Makefile")
+            (top / "tests/front/tactics/decide").mkdir(parents=True)
+            shutil.copy(ROOT / tc.TABLE, top / tc.TABLE)
+            (top / "tests/front/tactics/decide/test.fs").write_text("\\ unit\n")
+            (top / "tests/front/tactics/decide/check.py").write_text("# e2e\n")
+            env = tier_fixture.make_env()
+            run = lambda *goals: tier_fixture.subprocess.run(  # noqa: E731
+                ["make", "-n", "--no-print-directory", "-j1", *goals], cwd=top, env=env,
+                capture_output=True, text=True).stdout
+            self.assertIn("tests/front/tactics/decide/test.fs", run("test-tactic-decide"))
+            self.assertIn("python3 tests/front/tactics/decide/check.py", run("test-tactic-decide-e2e"))
+            self.assertIn("tests/front/tactics/decide/test.fs", run("test-unit"))
+            self.assertNotIn("tests/front/tactics/decide/check.py", run("test-unit"))
+            self.assertIn("tests/front/tactics/decide/check.py", run("test-e2e"))
+            both = run("test")
+            self.assertIn("tests/front/tactics/decide/test.fs", both)
+            self.assertIn("tests/front/tactics/decide/check.py", both)
+        finally:
+            shutil.rmtree(top, ignore_errors=True)
+
+    def test_none_in_the_project_yet(self):
+        run = tier_fixture.subprocess.run(["make", "-s", "--no-print-directory", "--eval",
+                                           "p: ; @echo [$(TACTIC_UNIT_TARGETS)][$(TACTIC_E2E_TARGETS)]", "p"],
+                                          cwd=ROOT, env=tier_fixture.make_env(), capture_output=True, text=True)
+        self.assertEqual(run.stdout.strip(), "[][]")
+
+
 class RealTree(unittest.TestCase):
     """The project's own table (read only): the e2e targets of make test are those the
     owner's decision names, and every unit target of make test runs on Gforth."""

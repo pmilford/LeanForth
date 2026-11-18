@@ -7,7 +7,11 @@ Usage (from the repository root):
                              [--timeout SECONDS] [--tmpdir DIR]
 
 The list (default tests/mutants/faults.toml) holds one [[fault]] table per
-planted fault:
+planted fault; every *.toml file of the folder faults.d beside it (tests/mutants/faults.d/,
+one file per tactic or module: the tactic plug-in design, slice (a1)) is read as part of
+the same list, in name order. An id given twice, in one file or in two, a file that does not
+parse and a file with anything but [[fault]] tables make the whole list malformed (exit 2):
+a fault file is never skipped. Each entry has:
   id          a unique name, lower case, digits and hyphens;
   file        the file the fault changes, relative to the root;
   old         text that must occur in that file exactly once;
@@ -74,6 +78,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_LIST = "tests/mutants/faults.toml"
+FAULTS_DIR = "faults.d"   # beside the list: each *.toml in it is part of the list
 REQUIRED = ("id", "file", "old", "new", "test", "reason")
 OPTIONAL = ("equivalent", "gap", "quick")
 ID = re.compile(r"^[a-z0-9][a-z0-9-]*$")
@@ -98,8 +103,9 @@ def text_field(fault, key, where, single_line=False):
     return value
 
 
-def check_fault(fault, index, seen):
-    where = f"fault {index + 1}"
+def check_fault(fault, index, seen, origin="the list"):
+    """Check one entry; SEEN maps each id met so far to the file that gave it."""
+    where = f"{origin}: fault {index + 1}"
     if not isinstance(fault, dict):
         raise ListError(f"{where}: not a table")
     unknown = set(fault) - set(REQUIRED) - set(OPTIONAL)
@@ -107,10 +113,12 @@ def check_fault(fault, index, seen):
     if unknown or missing:
         raise ListError(f"{where}: unknown keys {sorted(unknown)}, missing {missing}")
     ident = text_field(fault, "id", where, True)
-    where = f"fault {ident}"
-    if not ID.match(ident) or ident in seen:
-        raise ListError(f"{where}: id must be unique, lower case, digits and hyphens")
-    seen.add(ident)
+    where = f"{origin}: fault {ident}"
+    if not ID.match(ident):
+        raise ListError(f"{where}: id must be lower case, digits and hyphens")
+    if ident in seen:
+        raise ListError(f"{where}: id must be unique; {seen[ident]} gives it too")
+    seen[ident] = origin
     name = text_field(fault, "file", where, True)
     if name.startswith("/") or ".." in Path(name).parts:
         raise ListError(f"{where}: file must be a path inside the root")
@@ -127,19 +135,30 @@ def check_fault(fault, index, seen):
         raise ListError(f"{where}: quick must be true or false")
 
 
+def list_files(path):
+    """The files of the fault list at PATH: PATH, then each *.toml of the faults.d folder beside
+    it, in name order."""
+    path = Path(path)
+    folder = path.parent / FAULTS_DIR
+    return [path] + (sorted(folder.glob("*.toml")) if folder.is_dir() else [])
+
+
 def load_list(path):
-    """The validated list of faults (dicts) in the TOML file at path."""
-    try:
-        with open(path, "rb") as handle:
-            data = tomllib.load(handle)
-    except (OSError, tomllib.TOMLDecodeError) as error:
-        raise ListError(f"{path}: {error}") from error
-    if set(data) != {"fault"} or not isinstance(data["fault"], list):
-        raise ListError(f"{path}: expected only [[fault]] tables")
-    seen = set()
-    for index, fault in enumerate(data["fault"]):
-        check_fault(fault, index, seen)
-    return data["fault"]
+    """The validated list of faults (dicts) in the TOML file at path and the files of the
+    faults.d folder beside it, as one list (ListError on any malformed file or a repeated id)."""
+    seen, faults = {}, []
+    for name in list_files(path):
+        try:
+            with open(name, "rb") as handle:
+                data = tomllib.load(handle)
+        except (OSError, tomllib.TOMLDecodeError) as error:
+            raise ListError(f"{name}: {error}") from error
+        if set(data) != {"fault"} or not isinstance(data["fault"], list):
+            raise ListError(f"{name}: expected only [[fault]] tables")
+        for index, fault in enumerate(data["fault"]):
+            check_fault(fault, index, seen, str(name))
+        faults += data["fault"]
+    return faults
 
 
 def git_text(root, *args):
@@ -173,12 +192,30 @@ def judged_whole(root, commit):
     return text is None or RETARGET_RULE in text
 
 
+def list_names_at(root, list_name, commit):
+    """The fault list's files in COMMIT's tree: LIST_NAME and its faults.d folder's *.toml."""
+    folder = str(Path(list_name).parent / FAULTS_DIR)
+    listed = git_text(root, "ls-tree", "--name-only", f"{commit}:{folder}") or ""
+    return [list_name] + [f"{folder}/{n}" for n in sorted(listed.split()) if n.endswith(".toml")]
+
+
+def replacements_at(root, list_name, commit):
+    """replacements() of the whole list (all its files) at COMMIT, or None when a file does not
+    parse. A fault that moves from one file to another keeps its id, so it is compared as one."""
+    found = {}
+    for name in list_names_at(root, list_name, commit):
+        part = replacements(git_text(root, "show", f"{commit}:{name}"))
+        if part is None:
+            return None
+        found.update(part)
+    return found
+
+
 def parsed_before(root, list_name, commit, limit=200):
     """replacements() of the list at commit, or at the nearest first-parent ancestor whose list
     parses ({} when none within limit commits, or no list there)."""
     for _ in range(limit):
-        text = git_text(root, "show", f"{commit}:{list_name}")
-        found = replacements(text)
+        found = replacements_at(root, list_name, commit)
         if found is not None:
             return found
         parent = (git_text(root, "rev-parse", "--verify", "--quiet", f"{commit}^") or "").strip()
@@ -198,11 +235,12 @@ def unnamed_replacements(root, list_name, base):
     fault that existed before it without naming the fault in its message. A commit whose list
     does not parse is skipped; the next one is compared with the last list before it that
     parses."""
-    listing = git_text(root, "log", "--format=%H %P", f"{base}..HEAD", "--", list_name)
+    folder = str(Path(list_name).parent / FAULTS_DIR)
+    listing = git_text(root, "log", "--format=%H %P", f"{base}..HEAD", "--", list_name, folder)
     problems = []
     for line in (listing or "").splitlines():
         commit, *parents = line.split()
-        after = replacements(git_text(root, "show", f"{commit}:{list_name}"))
+        after = replacements_at(root, list_name, commit)
         if after is None:
             continue
         before = [parsed_before(root, list_name, p) for p in parents]

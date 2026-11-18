@@ -482,26 +482,44 @@ and gives the range its largest file tier (`python3 scripts/test-tier.py
 | Tier | Files | Suites |
 | --- | --- | --- |
 | docs | Markdown anywhere, `docs/`, `.claude/`, `.codex/`, `prompts/`, `LICENSE`, `.gitignore` | `check-docs`, the targets that read the file (a page whose examples run, a catalogue a test compares), the progress check |
-| tests | any other file under `tests/` | the targets that use it, their unit tests also on gforth-fast (and on Gforth 0.7.3 at the push); its planted faults; the block coverage of the source files the changed tests drive (`make coverage-check` when `src/main.fs` loads one of them) |
-| library | a Forth file of `src/lib/` that `src/main.fs` does not load | the targets that use it (their unit tests on gforth-fast, and on 0.7.3 at the push), its faults, its coverage |
+| tests | any other file under `tests/` (a `tests/mutants/faults.d/*.toml` is part of the fault list) | the targets that use it, their unit tests also on gforth-fast; its planted faults; the block coverage of the source files the changed tests drive |
+| library | a Forth file of `src/lib/` that `src/main.fs` does not load | the targets that use it (their unit tests on gforth-fast), its faults, its coverage |
 | front | a Forth file of `src/front/` that `src/main.fs` does not load | the same, and `test-front`, `test-front-e2e`, `reference-front` |
-| full | any Forth file `src/main.fs` loads (at HEAD or at the base, so a library that becomes loaded is full), `src/main.fs`, `src/kernel`, `core`, `import`, `cli` and every other folder of `src/`, the Makefile, `scripts/`, `bin/`, `schemas/`, `lean-toolchain`, `.github/`, anything else | `make coverage-check`, `make test-unit` on gforth-fast, `make check-rest`; `make test-unit` on Gforth 0.7.3 at the push |
+| tactic | only a branch `scripts/check-tactic-plugins.py` finds confined (below) | the front end's unit tests (on gforth-fast too), every end-to-end run of `.lf` files, `reference-front` (the S1/S2 pinned-Lean comparisons), the source rules, its coverage and faults |
+| full | any Forth file `src/main.fs` loads (at HEAD or at the base, so a library that becomes loaded is full), `src/main.fs`, `src/kernel`, `core`, `import`, `cli` and every other folder of `src/`, the Makefile, `scripts/`, `bin/`, `schemas/`, `lean-toolchain`, `.github/`, anything else | the coverage of the changed source files (`make coverage-focus`), `make test`, `make test-unit` on gforth-fast, `make check-rest`, each target reused while its inputs are unchanged |
+
+Since 2026-11-17 (owner) no tier runs Gforth 0.7.3 or `make coverage-check` of
+every file: `make daily` runs both, and `make tag-check` requires them.
 
 - Unit and end-to-end tests (owner, 2026-11-14): see "Unit and end-to-end
   tests" below. In a smaller tier the reached unit targets whose recipe runs
-  Gforth run on gforth-fast (`targetsfast`) and at the push on Gforth 0.7.3
-  (`targets073`); an end-to-end target never does. `scripts/test-tier.py`
-  refuses a plan (exit 2) that would leave such a unit target off an engine
-  or put an end-to-end target on one.
-- Gforth 0.7.3 (owner, 2026-11-14): a branch's tier (`make tier`) leaves
-  its 0.7.3 suites to the push, which runs them (`tested-tree.py tier
-  --with-073`), and to the daily full run; a portability slip is then caught
-  at the push instead of on the branch, and each branch's full tier is about
-  9 minutes shorter. `make coverage-check` is `make test` instrumented, so
-  the full tier never runs `make test` on Gforth 1.0 a second time; only
-  `test-cli-engines` runs in both, on purpose (COVERAGE_ENGINE_DIFFERS: it
-  compares `gforth-fast` with the checking engine, and coverage replaces
-  `gforth-fast` by the counting Gforth).
+  Gforth run on gforth-fast (`targetsfast`); an end-to-end target never
+  does. `scripts/test-tier.py` refuses a plan (exit 2) that would leave such
+  a unit target off gforth-fast, put an end-to-end target on an engine, or
+  run Gforth 0.7.3 at all.
+- Gforth 0.7.3 (owner, 2026-11-17, replacing the push rule of 2026-11-14):
+  only `make daily` and `make tag-check`; `tested-tree.py tier --with-073` is
+  accepted and ignored with a note, and `scripts/push.sh` no longer passes
+  it. A portability slip is caught by the next nightly run, and before any
+  tag.
+- The full tier's coverage suite runs first; its record stands for the plain
+  runs of the same targets, so `make test` then runs only the rest. Only
+  `test-cli-engines` runs in both `make test` and `make check-rest`, on
+  purpose (COVERAGE_ENGINE_DIFFERS: it compares `gforth-fast` with the
+  checking engine, and coverage replaces `gforth-fast` by the counting Gforth).
+- The tactic tier (owner, 2026-11-17; the tactic plug-in design's decision 2
+  and slice (a1), `TACTIC_PLUGINS.md` of its branch
+  `tactic-plugin-design`): `scripts/check-tactic-plugins.py` finds a branch
+  confined when it adds `src/front/tactics/NAME.fs` and changes nothing but
+  `src/front/tactics/`, `tests/front/tactics/NAME/`,
+  `tests/mutants/faults.d/NAME.toml` and documentation, and its tactic files
+  write no hook (`is`, `defer!`), no data word (variable, value, create,
+  buffer:) another file defines, and call `lf-tactic-...!` only for a kind
+  they define (comments and strings left out). Only then is the tier
+  "tactic"; otherwise (exit 3) the files' own tier applies, which for a file
+  `src/main.fs` loads is full, and a broken rule (exit 1) also fails `make
+  tier`. The kernel and import suites are left to the daily run: a confined
+  file cannot reach them.
 - "Loads" is the `require`/`include`/`needs` graph from `src/main.fs`,
   comments included (more is loaded, never less). Since FE1g-1 it holds 180
   of the 192 Forth files: every front-end file but `cases-several.fs`,
@@ -516,22 +534,30 @@ and gives the range its largest file tier (`python3 scripts/test-tier.py
   runs on 0.7.3. A test file no target names selects the targets of its
   folder; a folder no target uses makes the range full.
 - Faults: those whose `file` or `test` command names a changed file, and,
-  when `tests/mutants/faults.toml` changed, the entries new or changed since
+  when `tests/mutants/faults.toml` or a `faults.d` file changed, the entries new or changed since
   the base (`make mutants FAULTS=id,...`). The full tier (plan 9.4.8j, after
   the s1-synth review's B1) runs the entries new or changed since the base
   and the faults whose old text lies on or next to a line the change touched
   in its file (`git diff -U0`); a fault of a changed file whose text was left
   alone still applies as before (the stale check confirms its old text) and
   is left to the daily full `make mutants`.
-- Coverage in a smaller tier: `make coverage-focus COVERAGE_FILES=...
-  COVERAGE_TARGETS=...` runs the targets of `make test` that load those files
-  under instrumentation and applies the ratchet to those files alone
-  (`scripts/coverage.py --only`); with every target that loads a file, its
-  counts are those of the whole `make test`. A changed
-  `tests/coverage-baseline.json` needs `make coverage-check`.
-- Left to the daily full run: the coverage of files a changed library or
-  test loads but does not drive (a library's own dependencies), and a
-  document or test file that a test reads through a path built at run time.
+- Coverage in every tier (owner, 2026-11-17): `make coverage-focus
+  COVERAGE_FILES=... COVERAGE_TARGETS=...` runs under instrumentation the unit
+  tests of `make test` that load the touched files — every Forth file of
+  `src/` the change touches, the files a changed test drives, the files whose
+  entry of `tests/coverage-baseline.json` changed — and applies the ratchet to
+  those files alone (`scripts/coverage.py --only`). A file that no unit test
+  but `smoke` loads is measured over the end-to-end tests of `make test` that
+  load it. `make coverage-check` (every file) runs in a tier only when the
+  baseline's run count changes or a test program is deleted (what it drove
+  is known only from the base); otherwise in `make daily`.
+- Left to the daily full run: (1) a change in file A that stops running part
+  of file B lowers B's coverage, which only the whole measurement sees; (2)
+  blocks of a touched file that only an end-to-end test of `make test` runs
+  are not counted in the focused run, so its ratchet can fail where `make
+  coverage-check` passes (a false alarm, never a miss: run `make
+  coverage-check` to confirm); (3) the coverage of files a changed library
+  or test loads but does not drive; (4) Gforth 0.7.3.
 
 **Tested-tree records.** `scripts/tested-tree.py` writes one JSON record per
 passing scripted run, in the main checkout's `.claude/work/ci/tested/`
@@ -563,6 +589,33 @@ coverage-check` the ratchet and `make test`'s targets but those of
   and a review fix to a test needs only that test's targets, faults and
   coverage. Without this, every push after a merge's documentation commit
   would have re-run the whole suite.
+- **Per-target reuse** (owner, 2026-11-17). A record also keeps, for each
+  target, fault and coverage item it stands for, a digest of what that item
+  read (`scripts/test-tier.py`'s `Inputs`): the recipe as `make -n` prints it
+  (its prerequisites' recipes included; the checkout's path and the toolchain
+  paths left out, the Gforth and Lean versions and the cache mode being the
+  record's key), the variables make exports to every recipe and its special
+  lines (`SHELL`, `MAKEFLAGS`, `include` ...), and the git blob of every file
+  `scripts/changed-tests.py`'s `input_files` finds: the files the recipe
+  names, followed through Forth loads, Python imports, named paths (also
+  behind `$root/`, `{ROOT}/`), and literal names beside a program; as data,
+  every file of a test program's own folder, every file of a basename a
+  program names, of a folder whose name it quotes, of an extension it globs,
+  under the folder a path template starts in. A record of an earlier commit
+  of HEAD's history stands for each item whose digest is unchanged, whatever
+  the tier: a Makefile change invalidates only the targets whose recipe or
+  exported variables it changes, a script change only the targets that run
+  or load it. An item's digest is none, so it is never reused across
+  commits, when what it reads cannot be known: a program or recipe reads
+  git's index or history (`git ls-files`, `log`, `diff`; not `rev-parse` or
+  `diff --quiet`), files outside the checkout (`.tools/` beyond the
+  toolchains, the home folder), an export the environment names, lists a
+  folder the finder cannot name, or the recipe names no file (12 of 137
+  targets on 2026-11-17: the git-reading checks, `test-tiers`,
+  `test-mutants`, and three whose tests contain `${HOME}` text). A fault's
+  digest covers its entry, its file and what its test command reads; a
+  coverage item's, the digests of the targets it ran over, the file's
+  baseline entry and the coverage tool.
 - `make once GOALS="check"` runs `make check` unless records stand for it
   (or only the targets they do not stand for), and records the pass; `make tier` (`BASE=main`, `JOBS=2`, `DRY_RUN=1` to
   only print) runs every suite of the branch's tier so, then the progress
@@ -575,9 +628,16 @@ tier of `origin/main..HEAD`, run as `make tier` runs them: what a record of
 HEAD's tree, or of an earlier commit for what the change since cannot
 reach, stands for is reused, the rest runs. A push runs only its own tier
 (owner, 2026-11-17): a documentation push the documentation and progress
-checks (minutes), a code push its tier once, with the Lean cache and Gforth
-0.7.3's unit tests; until then the first push of a day ran the whole full tier
-without the cache (about 35 minutes even for a documentation change).
+checks (minutes), a code push its tier once, with the Lean cache and
+per-target reuse; until then the first push of a day ran the whole full tier
+without the cache (about 35 minutes even for a documentation change). Gforth
+0.7.3 runs at no push (owner, 2026-11-17). `JOBS` (owner, 2026-11-17): `JOBS=N`
+in the environment wins; else 2 when `.claude/work/CPU_MODE` says `day`; else
+5 when at most two heavy processes (Gforth, Lean, leanexport) of other runs
+are going, 2 when more; always under `ulimit -u 500`. A dry run gives each
+suite that would run an estimate: the target time of what it would run, from
+the newest push's timing log (a unit test's time divided by the three suites
+it ran in there), and that divided by `JOBS`, a lower bound of the wall time.
 `--full` forces the full tier, `--no-cache` sets `LEAN_CACHE=0`, `--dry-run`
 prints the tier and what would run or be reused and stops (also on a branch,
 against `origin/main`). The push then reports how old the last daily run is
@@ -660,6 +720,21 @@ adding `LEAN_CACHE=0`, and the stale daily run's warning. Since 2026-11-17 they 
 gforth-fast and 0.7.3, an end-to-end test on neither, an unclassified target
 on both, a plan that drops a unit test from an engine or puts an end-to-end
 test on 0.7.3 refused, gforth-fast's records kept apart from Gforth 1.0's.
+Since the per-target reuse (2026-11-17) `test_tested_tree.py`'s `PerTarget`
+checks that a target is reused when an unrelated file (a script, a Forth file
+it does not load) changes, and not when a file it loads through two requires,
+a data or golden file it reads (named, or only beside its program), its
+Makefile rule, an exported variable or the Gforth or Lean version changed,
+that an item whose inputs cannot be known is never reused, a fault reused
+while what its test reads is unchanged, and no record of another branch used;
+`test_test_tier.py` that the full tier measures only the touched files, no
+tier runs 0.7.3, and the fault list's `faults.d` files; `Push` that no push
+plans a 0.7.3 suite and how `JOBS` follows the load;
+`tests/scripts/test_check_tactic_plugins.py` each rule of the tactic check
+and the tactic tier given to a confined branch and refused to one that edits
+the runner, another tactic's tests, the Makefile, `faults.toml` or breaks a
+rule. `tests/scripts/test_test_classes.py` checks the pattern rows and that
+the real Makefile finds a tactic's targets from `tests/front/tactics/NAME/`.
 `make check-test-classes` (in `make test`) runs `tests/scripts/test_test_classes.py`
 (the table's rows; a target, a test file in neither class, a stale or
 malformed row and a missing table fail on a throw-away repository) and then
@@ -675,8 +750,8 @@ default); **end-to-end tests** (anything that runs `bin/leanforth` on an
 export, a snapshot or `.lf` files; the pinned-Lean comparisons; runs of
 all of `Init`; faults planted in a copy of the tree) run once, on one engine,
 and not again outside `make coverage-check` when it already runs them;
-**Gforth 0.7.3** runs the unit tests only, at code pushes and in the daily
-run (`make daily`).
+**Gforth 0.7.3** runs the unit tests only, in the daily run (`make daily`;
+since 2026-11-17 no longer at code pushes).
 
 - **One table.** [`tests/test-classes.txt`](../../tests/test-classes.txt)
   gives every leaf target of `make check` its class (46 unit, 91 end to
@@ -700,7 +775,7 @@ run (`make daily`).
   GFORTH=.tools/gforth/bin/gforth-fast` runs the unit tests on gforth-fast
   (in every branch's tier). `make check-rest` runs the end-to-end tests outside
   `make test` once, and `test-cli-engines` (about 10 s) a second time, plain, for
-  its gforth-fast comparison. `make test-unit GFORTH=<0.7.3>` runs at the push.
+  its gforth-fast comparison. `make test-unit GFORTH=<0.7.3>` runs in `make daily`.
 - **Engine-dependent observations.** Three host observations differ on
   gforth-fast, which checks no stack depth and reports a division overflow
   as THROW -10: the underflow checks of `tests/program/clamp.fs` and
@@ -908,7 +983,12 @@ A planted fault (a *mutant*) is a small deliberate bug: if no test fails
 with it in place, the tests do not check what that code does. Reviews used
 to plant faults in throwaway scripts that were then lost; `make mutants`
 (plan task 1.4.2) keeps them as a checked-in list,
-`tests/mutants/faults.toml`, run by `scripts/mutants.py`. Each entry names:
+`tests/mutants/faults.toml`, run by `scripts/mutants.py`. Every
+`tests/mutants/faults.d/*.toml` is read with it as one list, in name order
+(tactic plug-in design, slice (a1): a tactic's faults in a file of its own);
+an id given twice, in one file or two, or a file that does not parse refuses
+the whole list, and the history rule below follows a fault across the files.
+No fault has moved there yet. Each entry names:
 
 - `file`, the file it changes, and `old`, an exact text that must occur
   there exactly once, with `new`, its replacement;
