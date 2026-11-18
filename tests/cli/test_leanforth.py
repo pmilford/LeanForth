@@ -1101,8 +1101,8 @@ class RunRecords(unittest.TestCase):
             Path(path).write_text(json.dumps(record))
             status, out, _ = run("replay", "--no-manifest", wrong, path)
             report = json.loads(out)
-            self.assertEqual((status, report["result"], report["findings"][0]["code"]),
-                             (1, "refused", "accepted-not-established"))
+            self.assertEqual((status, report["result"]), (1, "refused"))
+            self.assertEqual(report["findings"][0]["code"], "accepted-not-established")
             status, out, _ = run("replay", wrong, path)     # read without the manifest before
             self.assertEqual((status, json.loads(out)["result"]), (1, "refused"))
             status, out, _ = run("replay", COMPOSITION, str(Path(folder) / "missing.json"))
@@ -2044,20 +2044,29 @@ class Engines(unittest.TestCase):
 
     def test_gforth_unset(self):
         """With GFORTH unset the wrapper finds the engines itself, in this
-        checkout's .tools or on PATH: gforth-fast, and gforth with --checked."""
+        checkout's .tools or on PATH: gforth-fast, and gforth with --checked.
+        Without both in .tools (a copy of the checkout, as the planted-fault
+        runner makes), a PATH of this test's own comes first, whose gforth and
+        gforth-fast each start the GFORTH the tests use, so the test always
+        runs."""
         tools = ROOT / ".tools" / "gforth" / "bin"
-
-        def found(name):
-            return (tools / name).exists() or shutil.which(name)
-        if not (found("gforth") and found("gforth-fast")):
-            self.skipTest("no gforth and gforth-fast to find without GFORTH")
         env = {key: value for key, value in os.environ.items() if key != "GFORTH"}
-        for options, engine in [([], "gforth-fast"), (["--fast"], "gforth-fast"), (["--checked"], "gforth")]:
-            result = subprocess.run([str(TOOL), "check", "--json", *options, COMPOSITION],
-                                    cwd=ROOT, env=env, stdin=subprocess.DEVNULL,
-                                    capture_output=True, timeout=TEST_LIMIT)
-            self.assertEqual((result.returncode, json.loads(result.stdout)["measured"]["engine"],
-                              result.stderr), (0, engine, b""), options)
+        engine_path = shutil.which(GFORTH) or GFORTH
+        with tempfile.TemporaryDirectory() as folder:
+            if not all((tools / name).exists() for name in ("gforth", "gforth-fast")):
+                for name in ("gforth", "gforth-fast"):
+                    stub = Path(folder) / name
+                    stub.write_text(f'#!/bin/sh\nexec "{engine_path}" "$@"\n')
+                    stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
+                env["PATH"] = folder + os.pathsep + env.get("PATH", "")
+            for options, engine in [([], "gforth-fast"), (["--fast"], "gforth-fast"),
+                                    (["--checked"], "gforth")]:
+                result = subprocess.run([str(TOOL), "check", "--json", *options, COMPOSITION],
+                                        cwd=ROOT, env=env, stdin=subprocess.DEVNULL,
+                                        capture_output=True, timeout=TEST_LIMIT)
+                self.assertEqual((result.returncode,
+                                  json.loads(result.stdout)["measured"]["engine"],
+                                  result.stderr), (0, engine, b""), options)
 
     def test_options(self):
         """--fast goes with check, replay and print; it is no file name,

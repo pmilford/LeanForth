@@ -2885,7 +2885,7 @@ id = "cli-spent-context-ignored"
 file = "src/cli/check-run.fs"
 old = '''  lf-env-all-final? ck-faulted? 0= and flag>outcome ;'''
 new = '''  lf-env-all-final? flag>outcome ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_5_thrown ExitCodes.test_5_stopped_mid_run"
 reason = "a run whose last check threw ends ok: the report says run ok and stopped (review rvCLI2 L1)"
 
 [[fault]]
@@ -3040,7 +3040,7 @@ id = "cli-json-status-0"
 file = "src/cli/check-json.fs"
 old = ''': cj-status ( -- ) cli-worst @ s" exitStatus" cj-number ;'''
 new = ''': cj-status ( -- ) 0 s" exitStatus" cj-number ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py JsonReport.test_valid_and_as_the_text"
 reason = "the JSON report says status 0 whatever the verdicts"
 quick = true
 
@@ -3049,7 +3049,7 @@ id = "cli-json-all-accepted"
 file = "src/cli/check-json.fs"
 old = '''  dup cj-began? if verdict-of else drop not-checked then verdict-name ;'''
 new = '''  drop outcome-ok verdict-name ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py JsonReport.test_valid_and_as_the_text"
 reason = "trust boundary: the JSON report calls every declaration accepted, not its slot's verdict"
 quick = true
 
@@ -3058,7 +3058,7 @@ id = "cli-json-never-stopped"
 file = "src/cli/check-json.fs"
 old = ''': cj-stopped ( -- ) ck-stopped? s" stopped" cj-flag ;'''
 new = ''': cj-stopped ( -- ) false s" stopped" cj-flag ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_5_stopped_mid_run"
 reason = "the JSON report of a run that stopped on a fault does not say so"
 
 [[fault]]
@@ -3082,7 +3082,7 @@ id = "cli-replay-never-compares"
 file = "src/cli/leanforth.fs"
 old = '''  ok? if 1 cli-file rp-replay else rp-rerun-refused then ;'''
 new = '''  drop rp-start outcome-ok ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py RunRecords.test_replay"
 reason = "replay confirms any record without comparing it with the new run"
 
 [[fault]]
@@ -3124,7 +3124,7 @@ id = "wrapper-takes-host-status"
 file = "bin/leanforth"
 old = '''  10[0-6]) code=$((status - 100)) ;;'''
 new = '''  10[0-6] | [0-6]) code=$((status % 100)) ;;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_5_broken_gforth"
 reason = "Gforth's own exit status (0 after it ends early, 1 after an error) reads as a verdict"
 
 # --- names as Lean shows them (src/present/name-text.fs; review rvCLI2 M1, M2) --
@@ -3240,41 +3240,41 @@ id = "cli-fuel-unbounded"
 file = "src/cli/leanforth.fs"
 old = '''  dup cli-fuel-most > if drop c" a fuel amount above 9007199254740991" cli-wrong exit then'''
 new = '''  dup drop false if drop c" a fuel amount above 9007199254740991" cli-wrong exit then'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_4_command_line Fuel.test_most"
 reason = "--fuel above 2^53 - 1 is taken, and the report's fuel is beyond what JSON holds exactly"
 
 [[fault]]
 id = "cli-schema-status-0-loose"
-file = "schemas/check-report-0.1.schema.json"
+file = "schemas/check-report-0.4.schema.json"
 old = '''          "counts": {"$ref": "#/$defs/allAccepted"},'''
 new = '''          "counts": {"type": "object"},'''
-test = "python3 tests/cli/test_leanforth.py"
-reason = "the schema takes a status-0 report whose counts hold a rejected or not-checked declaration"
+test = "python3 tests/cli/test_leanforth.py JsonReport.test_schema_refuses"
+reason = "the schema takes a status-0 report whose counts hold a rejected or not-checked declaration (re-targeted 2026-11-18 from schema 0.1, kept unchanged for earlier reports, to 0.4, the one reports are written in)"
 
 [[fault]]
 id = "cli-schema-strict-0-loose"
-file = "schemas/check-report-0.1.schema.json"
+file = "schemas/check-report-0.4.schema.json"
 old = '''          "counts": {"properties": {"notProved": {"const": 0}}},
           "declarations": {"items": {"properties": {"notProved": {"const": false}}}}'''
 new = '''          "counts": {"type": "object"}'''
-test = "python3 tests/cli/test_leanforth.py"
-reason = "the schema takes a status-0 report with a NOT PROVED declaration under --strict-axioms"
+test = "python3 tests/cli/test_leanforth.py JsonReport.test_schema_refuses"
+reason = "the schema takes a status-0 report with a NOT PROVED declaration under --strict-axioms (re-targeted 2026-11-18 from schema 0.1, kept unchanged for earlier reports, to 0.4, the one reports are written in)"
 
 [[fault]]
 id = "cli-schema-6-unstrict"
-file = "schemas/check-report-0.1.schema.json"
+file = "schemas/check-report-0.4.schema.json"
 old = '''          "settings": {"properties": {"strictAxioms": {"const": true}}},
           "run": {"const": "ok"},'''
 new = '''          "run": {"const": "ok"},'''
-test = "python3 tests/cli/test_leanforth.py"
-reason = "the schema takes exit status 6 from a run without --strict-axioms"
+test = "python3 tests/cli/test_leanforth.py JsonReport.test_schema_refuses"
+reason = "the schema takes exit status 6 from a run without --strict-axioms (re-targeted 2026-11-18 from schema 0.1, kept unchanged for earlier reports, to 0.4, the one reports are written in)"
 
 [[fault]]
 id = "wrapper-checked-ignored"
 file = "bin/leanforth"
 old = '''if $checked; then engine=gforth; fi'''
 new = '''true'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py Engines.test_gforth_unset"
 reason = "--checked does not select the checking engine when GFORTH is not set"
 
 [[fault]]
@@ -3282,7 +3282,7 @@ id = "wrapper-fast-beside-ignored"
 file = "bin/leanforth"
 old = '''      GFORTH=$candidate'''
 new = '''      :'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py Engines.test_fast_same_reports"
 reason = "--fast keeps the checking engine when GFORTH names it: the report names gforth, not gforth-fast"
 
 # --- the importer stage (src/import/stage.fs, stage-records.fs) -----------
@@ -6460,7 +6460,7 @@ id = "log-aside-steps-kept"
 file = "src/kernel/mixed-infer.fs"
 old = ''': lf-minfer-logging? ( -- flag ) lf-log? 0<> lf-minfer-deciding? and ;'''
 new = ''': lf-minfer-logging? ( -- flag ) lf-log? 0<> ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py Print.test_0_binder_kinds"
 reason = "an inference aside (infer_proj's is_prop, defeq.fs's typer) logs application steps without their comparison; the log fails its structural check and print shows nothing of OfNat.ofNat"
 
 # --- literals (plan task 5.2.3) ---------------------------------------------
@@ -7067,7 +7067,7 @@ id = "env-axiom-deps-direct-only"
 file = "src/kernel/environment.fs"
 old = '''  over lf-axd-deps-or swap lf-slot-decl lf-idecl-kind @ lf-kind-axiom ='''
 new = '''  swap lf-slot-decl lf-idecl-kind @ lf-kind-axiom ='''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_0_not_proved"
 reason = "the axioms a declaration rests on through its dependencies are not named"
 
 # --- review rvAX (agent FX3): Lean's four quotient names, quotient records'
@@ -7505,7 +7505,7 @@ id = "skip-json-says-rejected"
 file = "src/cli/check-json.fs"
 old = '''  dup cj-began? if verdict-of else drop not-checked then verdict-name ;'''
 new = '''  dup cj-began? if lf-env-outcome else drop not-checked then verdict-name ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py JsonReport.test_valid_and_as_the_text"
 reason = "5.2.7: the JSON report calls a skipped declaration rejected, against its counts and status 0"
 
 [[fault]]
@@ -7581,7 +7581,7 @@ id = "fx8-unreached-line-plain"
 file = "src/cli/leanforth.fs"
 old = ''': cli-unreached ( d -- ) cli-name. ." : not checked (not reached: the run stopped)" cr ;'''
 new = ''': cli-unreached ( d -- ) cli-name. ." : not checked" cr ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_5_stopped_mid_run"
 reason = "rvUNNI L5: a declaration a stopped run never reached reads like the skipped verdict's line"
 
 [[fault]]
