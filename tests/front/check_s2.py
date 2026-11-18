@@ -3,8 +3,8 @@
 src/front/tactic-induction.fs, tactic-rewrite.fs, kabstract.fs,
 meta-check.fs; docs/design/S2_INTERFACE.md 4, 5, 9 and appendix G).
 
-1. FE1's rewriting form, the nested induction and the owner's proof set
-   (FILES) through `bin/leanforth check --env tests/front/s2-slice.ndjson
+1. FE1's rewriting form, the nested induction, the owner's proof set and
+   merge B's midpoint, n + 0 = n by Eq.refl and by rfl (FILES) through `bin/leanforth check --env tests/front/s2-slice.ndjson
    --elab-data tests/front/s2-slice.elab.ndjson`: exit 0, each theorem
    accepted with no axiom; their types and values, dumped by
    tests/front/elab-dump.fs (s2-dump), equal pinned Lean's node for node
@@ -43,7 +43,15 @@ FILES = [("tests/front/01-zero-add-rw.lf", ["zero_add''"]),
          ("tests/front/ps-add-comm.lf", ["ps_zero_add", "ps_succ_add", "ps_add_comm"]),
          ("tests/front/ps-mul-add.lf", ["ps_add_assoc", "ps_mul_add"]),
          ("tests/front/ps-length-append.lf", ["ps_zero_add", "ps_succ_add",
-                                              "ps_length_append"])]
+                                              "ps_length_append"]),
+         # S2 merge B's midpoint (smart unfolding: n + 0 unfolds to n).
+         ("tests/front/00-add-zero.lf", ["add_zero'"]),
+         ("tests/front/02-add-zero-rfl.lf", ["add_zero'"])]
+# A file whose theorem has another name in tests/front/s2-proofs.lean,
+# which declares both add_zero' forms.
+ALIASES = {"tests/front/02-add-zero-rfl.lf": {"add_zero'": "add_zero_rfl'"}}
+ADD_ZERO_RFL = ("Tactic `rfl` failed: The left-hand side\n  n + 0\nis not definitionally equal "
+                "to the right-hand side\n  n + 1\n\nn : Nat\n\u22a2 n + 0 = n + 1")
 # The wrong twins: file, code, Lean's message as LeanForth prints it.
 GOAL = "case succ\nk : Nat\nih : 0 + k = k\n\u22a2 0 + (k + 1) = k + 1"
 PLAIN = ("case zero\n\u22a2 0 + 0 = 0\n\ncase succ\nn\u271d : Nat\na\u271d : 0 + n\u271d = n\u271d\n"
@@ -63,11 +71,15 @@ WRONG = [("tests/front/s2w-pattern.lf", 215,
           "but `k` is a value of type", "  Nat"),
          ("tests/front/s2w-rw-unsolved.lf", 89, "unsolved goals", "case succ\nk : Nat"),
          ("tests/front/s2w-induction-plain.lf", 89, "unsolved goals", PLAIN),
-         ("tests/front/s2w-rw-empty.lf", 89, "unsolved goals", "n : Nat\n\u22a2 0 + n = n")]
+         ("tests/front/s2w-rw-empty.lf", 89, "unsolved goals", "n : Nat\n\u22a2 0 + n = n"),
+         ("tests/front/s2w-add-zero-rfl.lf", 97, ADD_ZERO_RFL, "")]
 # Forth unit tests and resource sweeps of S2's words (tester.fs).
 UNITS = ["tests/front/s2-units.fs", "tests/front/s2-sweeps.fs"]
 # Proofs LeanForth does not support yet: exit 2, the code and its text.
-UNSUPPORTED = [("tests/front/s2w-rw-definition.lf", 99, "not supported yet: this case of the tactic")]
+UNSUPPORTED = [("tests/front/s2w-rw-definition.lf", 99, "not supported yet: this case of the tactic"),
+               # Lean tries a coercion (CoeT's instance search) before its type
+               # mismatch: plan FE4 (w_add_zero in tests/front/s2-wrong.lean).
+               ("tests/front/s2w-add-zero.lf", 131, "not supported yet: a coercion")]
 # Pinned Lean's messages for the same proofs (tests/front/s2-wrong.lean),
 # where its printer and LeanForth's agree (Lean prints (0 + k).succ,
 # LeanForth Nat.succ (0 + k): plan 8.6).
@@ -81,7 +93,10 @@ LEAN_WRONG = ["Tactic `rewrite` failed: Did not find an occurrence of the patter
               "but `k` is a value of type\n  Nat",
               "unsolved goals\ncase succ\nk : Nat",
               "unsolved goals\n" + PLAIN,
-              "unsolved goals\nn : Nat\n\u22a2 0 + n = n"]
+              "unsolved goals\nn : Nat\n\u22a2 0 + n = n",
+              ADD_ZERO_RFL,
+              "Type mismatch\n  Eq.refl n\nhas type\n  n = n\nbut is expected to have type\n"
+              "  n + 0 = n + 1"]
 
 
 class Failure(Exception):
@@ -105,14 +120,20 @@ def dump(path):
     return [line for line in done.stdout.splitlines() if " type " in line or " value " in line]
 
 
+def aliased(path, line):
+    """A dumped line under the name s2-proofs.lean gives its theorem."""
+    name, rest = line.split(" ", 1)
+    return ALIASES.get(path, {}).get(name, name) + " " + rest
+
+
 def golden():
     return {line.split(" ", 2)[0] + " " + line.split(" ", 2)[1]: line
             for line in GOLDEN.read_text(encoding="utf-8").splitlines()}
 
 
 def self_test(want):
-    if len(want) != 16:
-        raise Failure(f"harness self-test: {len(want)} golden lines, expected 16")
+    if len(want) != 20:
+        raise Failure(f"harness self-test: {len(want)} golden lines, expected 20")
     wrong = dict(want)
     key = next(iter(wrong))
     wrong[key] = wrong[key].replace("#0", "#1", 1)
@@ -129,6 +150,7 @@ def check_files(want):
             if f"\n{name}: accepted; axioms: none" not in "\n" + out:
                 raise Failure(f"{path}: {name} not accepted with no axiom\n{out}")
         for line in dump(path):
+            line = aliased(path, line)
             key = " ".join(line.split(" ", 2)[:2])
             if want.get(key) != line:
                 raise Failure(f"{path}: {key} differs from pinned Lean's:\n  LeanForth: {line}\n"

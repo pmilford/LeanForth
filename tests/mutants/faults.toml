@@ -19819,3 +19819,43 @@ old = '''  else wc-sm-stuck then wc-sm! wc-done ;'''
 new = '''  else wc-sm-reduced then wc-sm! wc-done ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S2 merge B: a stuck match (Nat.add k x) read as reduced"
+
+[[fault]]
+id = "fe-infer-proj-name-unchecked"
+file = "src/front/infer.fs"
+old = ''': if-induct? ( d -- flag ) dup lf-menv-kind lf-kind-inductive = swap if-named? and ;'''
+new = ''': if-induct? ( d -- flag ) lf-menv-kind lf-kind-inductive = ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "S2 merge B: inferProjType takes a projection of S on a value of another structure, where Lean throws invalid projection"
+
+[[fault]]
+id = "fe-infer-proj-any-ctor-count"
+file = "src/front/infer.fs"
+old = '''  lf-ity-ctors@ 1 = if @ true else drop false then ;'''
+new = '''  0> if @ true else drop false then ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "S2 merge B: inferProjType projects a type with several constructors (Or) by its first, where Lean's matchConstStructure fails"
+
+[[fault]]
+id = "fe-infer-proj-indices-ignored"
+file = "src/front/infer.fs"
+old = '''  if outcome-unsupported if-fail exit then'''
+new = '''  drop'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "S2 merge B: a projection of an indexed one-constructor type (Eq) answers instead of unsupported"
+
+[[fault]]
+id = "fe-infer-proj-field-not-projected"
+file = "src/front/infer.fs"
+old = ''': if-field ( j -- proj outcome ) if-e swap if-s swap lf-proj-of ;'''
+new = ''': if-field ( j -- proj outcome ) drop if-e outcome-ok ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "S2 merge B: an earlier field in a later field's type is put in as the structure itself, not as its projection (Fin's isLt)"
+
+[[fault]]
+id = "fe-infer-proj-type-not-whnf"
+file = "src/front/infer.fs"
+old = '''  if-e ['] if-leaf-type if-body-by ok-then? if if-whnf-d else no-result then ;'''
+new = '''  if-e ['] if-leaf-type if-body-by ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "S2 merge B: the structure's type is not whnf'd (outParam (Prod Nat Nat)), so the projection is refused where Lean infers it"

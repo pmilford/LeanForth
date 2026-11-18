@@ -79,7 +79,8 @@ defer .t
 : .let ( t -- )
   ." (let " dup lf-let-type .t space dup lf-let-value .t space lf-let-body .t ." )" ;
 : .proj ( t -- ) ." (proj " dup lf-proj-leaf lf-proj-idx 0 .r space lf-proj-struct .t ." )" ;
-: proj ( e i -- t ) >r s" Prod" menv-name r> lf-proj-of made ;
+: projn ( e i c-addr u -- t ) menv-name swap lf-proj-of made ;
+: proj ( e i -- t ) s" Prod" projn ;
 :noname ( t -- )
   dup lf-let? if .let exit then
   dup lf-proj? if .proj exit then

@@ -145,7 +145,17 @@ CASES = [
     ("infer", (PI, (SORT, 0), (SORT, 0)), None),
     ("infer", (PI, (SORT, 1), NAT), None),
     ("infer", (PI, (PI, NAT, NAT), NAT), "FE1c a nested telescope for a pi domain"),
-    ("infer", (PROJ, 0, pair("a", "b")), "FE1c inferProjType"),
+    # inferProjType (S2 merge B: n + 0 unfolds to instAddNat.1 n 0): a
+    # field, a field applied, a field whose type names an earlier field
+    # (Fin.mk's isLt over val, put in as a projection; ill-typed
+    # arguments, as inferType does not check).
+    ("infer", (PROJ, 0, pair("a", "b")), None),
+    ("infer", (PROJ, 1, pair("a", "b")), None),
+    ("infer", (PROJ, 0, "p"), None),
+    ("infer", apps((PROJ, 0, apps(c("instHAdd", 0), NAT, c("instAddNat")), "HAdd"), "k", "x"),
+     None),
+    ("infer", apps((PROJ, 0, c("instAddNat"), "Add"), "k", "x"), None),
+    ("infer", (PROJ, 1, apps(c("Fin.mk"), "k", "a", "b"), "Fin"), None),
     ("infer", (LET, NAT, "k", "#0"), "FE1c inferLambdaType for let"),
     ("infer", apps(REC, (LAM, NAT, NAT), "z", "s", "k"), None),
     ("infer", apps(REC, (LAM, NAT, apps(c("Eq", 1), NAT, "#0", "#0")), "z", "s", "k"), None),
@@ -175,6 +185,11 @@ CASES = [
 ]
 
 
+def proj_name(t):
+    """A projection's structure: Prod unless the case names another."""
+    return t[3] if len(t) > 3 else "Prod"
+
+
 LEAN_LEVELS = {0: "Level.zero", 1: "(mkLevelSucc .zero)", 2: "(mkLevelSucc (mkLevelSucc .zero))"}
 FORTH_LEVELS = {0: "l0", 1: "lv1", 2: "lv2"}
 
@@ -192,7 +207,7 @@ def lean(t):
     if isinstance(t, tuple) and t[0] == LAM:
         return f"(mkLambda `y .default {lean(t[1])} {lean(t[2])})"
     if isinstance(t, tuple) and t[0] == PROJ:
-        return f"(mkProj `Prod {t[1]} {lean(t[2])})"
+        return f"(mkProj `{proj_name(t)} {t[1]} {lean(t[2])})"
     if isinstance(t, tuple) and t[0] == SORT:
         return "(mkSort Level.zero)" if t[1] == 0 else "(mkSort (mkLevelSucc .zero))"
     if isinstance(t, tuple) and t[0] == "lit":
@@ -215,7 +230,7 @@ def forth(t):
     if isinstance(t, tuple) and t[0] == LAM:
         return f"{forth(t[1])} {forth(t[2])} lam"
     if isinstance(t, tuple) and t[0] == PROJ:
-        return f"{forth(t[2])} {t[1]} proj"
+        return f'{forth(t[2])} {t[1]} s" {proj_name(t)}" projn'
     if isinstance(t, tuple) and t[0] == SORT:
         return "l0 sort" if t[1] == 0 else "lv1 sort"
     if isinstance(t, tuple) and t[0] == "lit":

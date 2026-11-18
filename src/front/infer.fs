@@ -21,11 +21,19 @@
 \   kind.
 \ - a pi (inferForallType): its binders opened, the body's level and the
 \   domains' (getLevel) combined with mkLevelIMax' and normalized.
+\ - a projection e.i, alone or at an application's head (inferProjType,
+\   S2 merge B: n + 0 unfolds to instAddNat.1 n 0): e's type, whnf'd,
+\   must be the inductive type S with one constructor applied to its
+\   parameters (invalid otherwise, Lean's "invalid projection"); the
+\   constructor's type at those, its fields before i put in as e.j, then
+\   field i's domain with its parameter annotations consumed.
 \ A number literal's type is Nat (Lean's Literal.type).
-\ Never a guess: unsupported for a let, projection or string literal, an
+\ Never a guess: unsupported for a let or string literal, an
 \ application with any other head, a lambda or pi whose body or domain
 \ is itself a lambda or pi or none of the above (nested telescopes, let
-\ telescopes, inferProjType: plan FE1c), a lambda's type holding a
+\ telescopes: plan FE1c), a projection of a structure with indices or
+\ of a term that is or is headed by a projection, lambda, pi or let (a
+\ nested inference: plan FE1c), a lambda's type holding a
 \ metavariable (mkForallFVars's elimMVarDeps), a level Lean would get by
 \ assigning a metavariable Sort ?u, a beta step under a binder of the
 \ type (front/beta-inst.fs), and Sort's legacy numeric form.
@@ -59,8 +67,8 @@
 \ context, which only grows while a declaration is elaborated
 \ (core/local-context.fs): the context is emptied with the declaration.
 \ Untrusted: only the kernel's check of a finished term decides anything.
-\ State: the record if-state (inferAppType's j) and the slabs if-args
-\ (the arguments, last first), if-levels (a
+\ State: the record if-state (inferAppType's j, inferProjType's
+\ projection) and the slabs if-args (the arguments, last first), if-levels (a
 \ constant's universe arguments), if-xs and if-lams (a lambda's free
 \ variables and binders), in the checker context. Loads in decimal
 \ whatever BASE is, then restores it.
@@ -74,6 +82,8 @@ require ../core/local-context.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/input.fs
+require ../core/projections.fs
+require ../core/name-equal.fs
 require ./mvars.fs
 require ./instantiate.fs
 require ./level-params.fs
@@ -82,11 +92,13 @@ require ./level-simp.fs
 require ./level-normalize.fs
 require ./meta-spine.fs
 require ./whnf.fs
+require ./term-eqv.fs
 require ./beta-inst.fs
 require ./nat-offset.fs
 
 begin-structure /if
   field: if-from    \ inferAppType's j: the first argument not put in yet
+  field: if-proj    \ inferProjType's projection
 end-structure
 /if context-record: if-state
 1 cells context-slab: if-args     \ the application's arguments, last first
@@ -94,16 +106,19 @@ end-structure
 
 : if-tag ( term -- tag ) lf-term-tag@ ;
 : if-fail ( x outcome -- -1 outcome ) nip no-result ;
+: if-bad ( x -- -1 outcome ) outcome-invalid if-fail ;
 
 \ ---- Leaves.
 : if-const-type ( const d -- type outcome )
   swap if-levels lf-meta-levels-fill ok-then? 0= if no-result exit then
   dup lf-menv-type swap lf-menv-params >r 0 if-levels slab-at r>
   lf-meta-instantiate-level-params ;
-: if-const ( const -- type outcome )
-  dup lf-meta-const-decl ok-then? 0= if if-fail exit then
+\ d's type at const's universe arguments, another number of them invalid.
+: if-at-levels ( const d -- type outcome )
   2dup swap lf-meta-arity? 0= if 2drop -1 outcome-invalid exit then
   if-const-type ;
+: if-const ( const -- type outcome )
+  dup lf-meta-const-decl ok-then? if if-at-levels else if-fail then ;
 : if-fvar ( fvar -- type outcome )
   dup lf-fvar-live? if lf-fvar-type outcome-ok else outcome-invalid if-fail then ;
 : if-mvar ( mvar -- type outcome )
@@ -183,12 +198,82 @@ end-structure
 : if-args-in ( type -- type' outcome )
   0 if-j ! if-n 0 ?do i if-enter dup ok? 0= if unloop exit then drop loop
   if-n if-flush ;
-\ A spine's head is no application; a lambda, pi, let or projection
-\ there answers unsupported (if-leaf).
-: if-head-type ( head -- type outcome ) dup if-tag if-leaf ;
-: if-app ( term -- type outcome )
+\ A spine's head is no application; a lambda, pi or let there answers
+\ unsupported (if-leaf), a projection is inferred below. The head's type
+\ comes first, then the arguments fill if-args: inferring a projection's
+\ structure uses if-args too.
+: if-leaf-type ( head -- type outcome ) dup if-tag if-leaf ;
+: if-app-of ( term type -- type' outcome )
+  swap if-spine ok-then? if drop if-args-in else nip no-result then ;
+\ A term, its head's type by xt ( head -- type outcome ).
+: if-body-by ( term xt -- type outcome )
+  over lf-meta-app? 0= if execute exit then
+  over if-head swap execute ok-then? if if-app-of else nip no-result then ;
+
+\ ---- Projections (inferProjType, InferType.lean:128): e.i of the
+\ structure S has the type of field i of S's one constructor applied to
+\ the parameters of e's type (whnf'd), each earlier field j put in as
+\ e.j, the field's type whnf'd to a pi whose domain is the answer, its
+\ optParam, autoParam, outParam and semiOutParam annotations consumed.
+\ Invalid (Lean's "invalid projection") when e's type is not an
+\ application of the inductive type S with one constructor and
+\ parameters plus indices arguments, or a field type is no pi.
+\ Unsupported: S with indices (no structure has them), and e itself a
+\ projection, lambda, pi or let or headed by one (inferring it would
+\ nest this inference: plan FE1c, nested telescopes).
+: if-p ( -- addr ) if-state if-proj ;
+: if-s ( -- name ) if-p @ lf-proj-leaf lf-proj-name ;
+: if-e ( -- e ) if-p @ lf-proj-struct ;
+: if-e-type ( -- type outcome )
+  if-e ['] if-leaf-type if-body-by ok-then? if if-whnf-d else no-result then ;
+: if-named? ( d -- flag ) lf-menv-name if-s lf-name-same? ;
+: if-induct? ( d -- flag ) dup lf-menv-kind lf-kind-inductive = swap if-named? and ;
+: if-one-ctor ( data -- name true | false )
+  lf-ity-ctors@ 1 = if @ true else drop false then ;
+: if-arity ( data -- params indices ) dup lf-ity-params lf-more-field
+  swap lf-ity-indices lf-more-field ;
+\ S's data, after the head was found S: its constructor's name.
+: if-shape ( data -- ctor outcome )
+  dup if-arity tuck + if-n <> if drop if-bad exit then
+  if outcome-unsupported if-fail exit then
+  if-one-ctor if outcome-ok else -1 outcome-invalid then ;
+: if-ctor ( name -- d outcome )
+  lf-menv-find ok-then? 0= if no-result exit then
+  dup lf-menv-kind lf-kind-constructor = if outcome-ok else if-bad then ;
+\ e's type's head, a constant naming S: S's constructor's declaration.
+: if-data ( d -- data outcome ) lf-menv-data dup if outcome-ok else if-bad then ;
+: if-struct ( head -- d outcome )
+  lf-meta-const-decl ok-then? 0= if no-result exit then
+  dup if-induct? 0= if if-bad exit then
+  if-data ok-then? 0= if no-result exit then
+  if-shape ok-then? if if-ctor else no-result then ;
+: if-ctor-type ( head -- type outcome )
+  dup if-tag lf-tag-constant <> if if-bad exit then
+  dup if-struct ok-then? 0= if if-fail exit then if-at-levels ;
+\ The constructor's type applied to the parameters, which if-args holds.
+: if-params-in ( type -- type' outcome )
   if-spine ok-then? 0= if no-result exit then
-  if-head-type ok-then? if if-args-in else no-result then ;
+  if-ctor-type ok-then? if if-args-in else no-result then ;
+: if-pi-whnf ( type -- pi outcome )
+  if-whnf-d ok-then? 0= if no-result exit then dup if-pi? if outcome-ok else if-bad then ;
+: if-field ( j -- proj outcome ) if-e swap if-s swap lf-proj-of ;
+: if-skip ( type j -- type' outcome )
+  swap if-pi-whnf ok-then? 0= if nip no-result exit then lf-term-second@
+  swap if-field ok-then? if lf-meta-instantiate1 else nip no-result then ;
+: if-fields ( type -- type' outcome )
+  if-p @ lf-proj-leaf lf-proj-idx 0 ?do
+    i if-skip dup ok? 0= if unloop exit then drop
+  loop outcome-ok ;
+: if-domain ( type -- type' outcome )
+  if-pi-whnf ok-then? if lf-term-first@ lf-meta-consume-annotations outcome-ok
+  else no-result then ;
+: if-proj-type ( p -- type outcome )
+  if-p ! if-e-type ok-then? 0= if no-result exit then
+  if-params-in ok-then? 0= if no-result exit then
+  if-fields ok-then? if if-domain else no-result then ;
+: if-head-type ( head -- type outcome )
+  dup lf-proj? if if-proj-type else if-leaf-type then ;
+: if-app ( term -- type outcome ) ['] if-head-type if-body-by ;
 
 \ ---- Lambdas (inferLambdaType, with mkForallFVars): each binder opened
 \ with a new free variable of its domain (lambdaTelescope; the local
@@ -220,8 +305,7 @@ end-structure
   if-xs slab-count tuck if-abstract ok-then? 0= if nip no-result exit then
   swap begin dup 0> while 1- tuck if-pi ok-then? 0= if nip no-result exit then swap repeat
   drop outcome-ok ;
-: if-body ( term -- type outcome )
-  dup lf-meta-app? if if-app else dup if-tag if-leaf then ;
+: if-body ( term -- type outcome ) if-app ;
 : if-lambda ( lam -- type outcome )
   if-telescope ok-then? 0= if no-result exit then
   if-body ok-then? if if-close else no-result then ;

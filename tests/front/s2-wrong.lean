@@ -38,3 +38,5 @@ theorem w_induction_plain (n : Nat) : 0 + n = n := by
   induction n
 theorem w_rw_empty (n : Nat) : 0 + n = n := by
   rw []
+theorem w_add_zero_rfl (n : Nat) : n + 0 = n + 1 := by rfl
+theorem w_add_zero (n : Nat) : n + 0 = n + 1 := Eq.refl n

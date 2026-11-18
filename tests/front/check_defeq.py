@@ -90,10 +90,8 @@ def lam(body, dom=NAT):
 ADD_ADD = apps(c("Add.add", 0), NAT, c("instAddNat"))
 HADD_MK = apps(c("HAdd.mk", 0, 0, 0), NAT, NAT, NAT,
                (LAM, NAT, (LAM, NAT, apps(ADD_ADD, "#1", "#0"))))
-SMART = "S2 merge B smart unfolding (Nat.add._sunfold)"
 ID1, FST, MUL, PRED = c("id", 1), c("Prod.fst", 0, 0), c("Nat.mul"), c("Nat.pred")
 UNIT_TYPE, DEC_LT = c("Unit"), c("Nat.decLt")
-PROJ_TYPE = "FE1c inferType of a projection (proof irrelevance)"
 PROD_F = apps(c("Prod", 0, 0), NAT2, NAT)
 STUCK_PROJ = "FE1c getStuckMVar? of a projection whose structure needs whnf (isDefEqOnFailure)"
 
@@ -198,7 +196,7 @@ CASES = [
     # Nat offsets and values.
     ("eq", succ("?h"), succ(succ("k")), None),
     ("eq", succ("?h"), succ(succ("?r")), None),
-    ("eq", succ(succ("?h")), succ("k"), SMART),
+    ("eq", succ(succ("?h")), succ("k"), None),
     ("eq", succ("k"), succ("x"), None),
     ("eq", succ("?h"), (LIT, 3), None),
     ("eq", succ("k"), (LIT, 0), None),
@@ -208,9 +206,9 @@ CASES = [
     # FE1's acceptance case: smart unfolding after lazy delta (merge B);
     # 00-add-zero.lf's and 02-add-zero-rfl.lf's k + 0 = k, both ways:
     # after HAdd.hAdd and Add.add unfold, isDefEqProofIrrel infers the
-    # type of instAddNat.1 k 0 (a gap of FE1c); Nat.add k 0 = k itself.
+    # type of instAddNat.1 k 0 (inferProjType); Nat.add k 0 = k itself.
     ("eq", succ("?h"), hadd(ofnat(0), hadd("k", ofnat(1))), None),
-    ("eq", hadd("k", ofnat(0)), "k", PROJ_TYPE),
+    ("eq", hadd("k", ofnat(0)), "k", None),
     ("eq", "k", hadd("k", ofnat(0)), None),
     ("eq", hadd("k", ofnat(0)), hadd("x", ofnat(0)), None),
     ("eq", apps(ADD, "k", ofnat(0)), "k", None),
@@ -250,7 +248,7 @@ CASES = [
     ("eq", apps(ADD_ADD, "k", "x"), hadd("k", "x"), None),
     ("eq", hadd("k", "x"), apps(ADD, "k", "x"), None),
     ("eq", hadd("?n", "x"), apps(ADD_ADD, "k", "x"), None),
-    ("eq", hadd("k", "x"), hadd("x", "k"), SMART),
+    ("eq", hadd("k", "x"), hadd("x", "k"), None),
     ("eq", c("id", 1), c("id", 2), None),
     ("eq", apps(c("outParam", 1), "?n"), apps(ADD, "k", "x"), None),
     ("eq", apps(c("outParam", 1), "?n"), NAT, None),
@@ -301,7 +299,7 @@ CASES = [
      " asks isDefEq at instances)"),
     ("eq", apps(ID1, NAT, "x"), apps(ID1, NAT, apps(ID1, NAT, "x")), None),
     ("eq", apps(DEC_LT, "k", "x"), apps(DEC_LT, "k", apps(ID1, NAT, "x")), None),
-    ("eq", hadd("k", "x"), hadd("k", apps(ID1, NAT, "x")), PROJ_TYPE),
+    ("eq", hadd("k", "x"), hadd("k", apps(ID1, NAT, "x")), None),
     ("eq", c("id", 1, 1), c("id", 2), None),
     ("eq", ID1, apps(ID1, NAT), None),
     # (review s2-unfold-a re-check M3-new) packedInstanceOf? reaching a
@@ -312,12 +310,12 @@ CASES = [
     ("eq", apps(ID1, NAT, apps("u", "k")), HMUL_U, None),
     ("eq", c("id", "u"), ID1, None),
     ("eq", apps(c("Nat.isValidChar"), "k"), apps(c("Nat.isValidChar"), apps(ID1, NAT, "k")),
-     PROJ_TYPE),
+     None),
     # isExprDefEqExpensive's whnfCore reduces a projection's structure by
     # whnf (proj := yesWithDelta: id unfolds at default), where
     # isExprDefEqAux's whnfCoreAtDefEq does not (review s2-unfold-a M1).
     ("meta", "k", ID_FST_K, None),
-    ("meta", ID_FST_K, "k", PROJ_TYPE),
+    ("meta", ID_FST_K, "k", None),
     # At reducible and instances id stays: whnfCore leaves the projection
     # stuck (Lean: false), where a whnfCore at default would unfold it
     # (review s2-unfold-a re-check M1-new).

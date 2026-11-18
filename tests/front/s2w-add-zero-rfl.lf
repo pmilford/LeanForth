@@ -1,0 +1,4 @@
+\ A wrong twin of 02-add-zero-rfl.lf (tests/front/check_s2.py): n + 0 and
+\ n + 1 differ, and rfl fails with Lean's message (error 97).
+\ Lean: theorem w_add_zero_rfl (n : Nat) : n + 0 = n + 1 := by rfl
+theorem w_add_zero_rfl   Nat explicit: n   n 0 + n 1 + =   := by  by-rfl   end w_add_zero_rfl
