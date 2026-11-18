@@ -203,6 +203,45 @@ T{ token s" by-sorry" compare detail nip -> 0 0 }T
 ' zero-add stating
 T{ s" by-sorry end t" proof nrun lf-author-code lf-open-parts -> outcome-ok 0 1 }T
 T{ 0 part-goal lean-goals compare -> 0 }T
+\ rw's telescope over the rule's type (review C4 of 2026-11-18): a rule
+\ binder whose kind no record gives is refused, 99, never guessed
+\ explicit. No text makes such a pi (tactic-rewrite.fs's lfw-binder says
+\ why), so a probe in rw's row reads the binder of a pi made inside the
+\ run (sharing off: no input node of the library is met) in the rule's
+\ step record: unrecorded, 99 at the rule; recorded, its name and kind.
+\ Guessed explicit, the run would go on to end's unsolved goal (89).
+variable probe-kind
+: probe-pi ( -- pi ) nat nat lf-term-pi 0= abort" pi" ;
+: probe-read ( pi j i -- ) drop trw trw-rule ! lfw-binder probe-kind ! drop ;
+: probe-unnamed ( j i -- ) probe-pi -rot probe-read ;
+: probe-named ( j i -- )
+  probe-pi dup s" a" lfa-intern 3 lf-pres-binder! made -rot probe-read ;
+: probe-rule ( i xt -- ) >r dup lf-tactic-step tac-first @ swap r> lf-tac-step-run ;
+: unnamed-row ( i -- ) ['] probe-unnamed probe-rule ;
+: named-row ( i -- ) ['] probe-named probe-rule ;
+tac-k-rw lfr-row trow-run @ constant rw-action
+' unnamed-row tac-k-rw lf-tactic-action!
+T{ -1 probe-kind ! s" by-rw[ n ] end t" proof nrun err probe-kind @
+   -> outcome-unsupported 99 1 43 -1 }T
+' named-row tac-k-rw lf-tactic-action!
+T{ s" by-rw[ n ] end t" proof nrun err probe-kind @ -> outcome-invalid 89 1 40 3 }T
+rw-action tac-k-rw lf-tactic-action!
+\ The author's build stops when the heap has no room for a binder's kind
+\ (60), so no pi of a text reaches rw unrecorded: a pi past the table's
+\ room, the heap refusing the table's growth (in a context of its own,
+\ whose table starts small).
+variable lit#
+: fresh-lit ( -- t ) 1 lit# +! 1000000 lit# @ + raw-lit ;
+: past-room ( -- t ) begin fresh-lit dup lf-pres-unit lf-pres-terms slab-capacity u< while
+    drop repeat ;
+: refused-kind ( -- throw? code )
+  lf-author-begin nat past-room lf-term-pi 0= abort" pi" 1 heap-refusals !
+  s" a" lfa-intern 0 ['] lfa-name! catch 0 heap-refusals ! dup if nip nip nip then
+  lf-author-code ;
+context-new throw constant kinds-context
+kinds-context context-use
+T{ refused-kind -> lf-author-throw lfa-e-terms-full }T
+context-main context-use  kinds-context context-free throw
 \ A let among the binders: not supported yet when the value is closed.
 ' let-x stating
 T{ s" by-sorry end t" proof nrun err -> outcome-unsupported 93 1 52 }T
@@ -505,12 +544,6 @@ T{ steps-written? -> false }T
 [then]
 ' lfr-sorry tac-k-sorry lf-tactic-action!
 ' lfr-unelaborated stating
-\ rw's telescope over the rule's type (review C4 of 2026-11-18): a known
-\ binder gives its name and kind (an unknown kind is refused, 99; no
-\ test reaches one yet: a pi made here may meet a stale input record).
-: named-pi ( -- pi )
-  nat nat lf-term-pi 0= abort" pi" dup s" a" lfa-intern 3 lf-pres-binder! made ;
-T{ lf-author-begin named-pi lfw-binder swap s" a" lfa-intern = -> 3 true }T
 T{ lfc-library-close -> }T
 T{ depth -> 0 }T
 cr .( tactic-run.fs: all tests passed) cr

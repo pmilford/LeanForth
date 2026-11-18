@@ -88,16 +88,20 @@ require ./errors.fs
   >r 2dup lf-tag-proj -rot lfa-seek lfa-find if nip nip r> drop false exit then
   lfa-new-proj r> lfa-span true ;
 
-\ Binder nodes, never shared: the node, then its name and kind.
+\ Binder nodes, never shared: the node, then its name and kind. A kind
+\ the heap has no room to record stops the run (60): the front end reads
+\ kinds (rw's telescope, intro), so a lost one is no longer only a lost
+\ name in printed text (fix-batch-2, review C4 of 2026-11-18).
 : lfa-binder-node ( domain body tag -- term ) lf-term-binary lfa-made ;
-: lfa-name! ( term name kind -- term ) 2>r dup 2r> lf-pres-binder! drop ;
+: lfa-kind-kept ( outcome -- ) ok? 0= if lfa-e-terms-full lfa-fail then ;
+: lfa-name! ( term name kind -- term ) 2>r dup 2r> lf-pres-binder! lfa-kind-kept ;
 
 \ A node of its own for a step that gets a label or note: the term itself
 \ when it was new, else a copy with the same fields and position.
 : lfa-copy-source ( old new -- )
   swap lf-pres-source@ if lf-pres-source! drop else drop then ;
 : lfa-copy-naming ( old new -- )
-  swap lf-pres-binder@ if lf-pres-binder! drop else drop then ;
+  swap lf-pres-binder@ if lf-pres-binder! lfa-kind-kept else drop then ;
 : lfa-copy-entry ( old new -- ) 2dup lfa-copy-source lfa-copy-naming ;
 : lfa-fields ( term -- first second ) dup lf-term-first@ swap lf-term-second@ ;
 \ A CASE with one arm per tag that is ever shared; binder nodes are new.

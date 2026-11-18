@@ -289,6 +289,14 @@ T{ lf-tag-sort 1 0 lf-term-add drop dup lf-sort? swap lf-prop? -> true false }T
 lf-meta-default-budget lf-meta-budget!
 T{ nat et-is-type? prop0 et-is-type? 0 nlit et-is-type? -> true outcome-ok true outcome-ok
    false outcome-ok }T
+\ ensureType's isDefEq with Sort ?u, now reached only by a type whose
+\ type is no Sort after whnf: ?e : ?T is a type once ?T := Sort ?w (a
+\ type such as Nat.zero : Nat is not: 130 above).
+: typed-hole ( -- e T )
+  sort-u drop mv-natural lf-mvar-new drop dup mv-natural lf-mvar-new drop swap ;
+T{ typed-hole drop et-is-type? -> false outcome-ok }T
+T{ typed-hole swap et-ensure-type nip swap lf-mvar-value swap lf-sort?
+   -> outcome-ok true true }T
 T{ prop0 ea-prop? type1 ea-prop? -> true outcome-ok false outcome-ok }T
 T{ sort-u 0 lf-level-mvar-assign drop ea-prop? -> true outcome-ok }T
 T{ prop0 lfi-succ-sort? type1 lfi-succ-sort? sort-u drop lfi-succ-sort? -> false true false }T

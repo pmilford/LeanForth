@@ -94,9 +94,11 @@ end-structure
 \ column grew with the term store, so such a term could not be made at
 \ all (the term store was full); now the term is made and only its entry
 \ is refused. The callers of lf-pres-binder! and lf-pres-source! in
-\ cli/print.fs, author/build.fs and present/log-view.fs drop the outcome:
-\ a refused entry loses only that binder name or source ID in the
-\ printed text, never a verdict (review of pf1-fix L4).
+\ cli/print.fs, author/build.fs (sources only) and present/log-view.fs
+\ drop the outcome: a refused entry loses only that binder name or source
+\ ID in the printed text, never a verdict (review of pf1-fix L4).
+\ author/build.fs stops on a refused binder (60): the front end reads
+\ kinds (review C4 of 2026-11-18).
 : lf-pres-take ( identity term -- entry )
   lf-pres-entry 2dup lf-pterm-identity @ = if nip else tuck lf-pres-blank then ;
 : lf-pres-claim ( term -- entry outcome )

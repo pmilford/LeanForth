@@ -113,7 +113,14 @@ end-structure
 \ The rule's binder name and kind, the presentation table's, else its
 \ input record's; an unknown kind is refused, 99 (review C4 of 2026-11-18:
 \ Lean makes an instance binder's metavariable synthetic, so a guess of
-\ explicit is no port).
+\ explicit is no port). No text reaches the refusal today: every pi of a
+\ rule's type carries a record, from the author's build, the library's
+\ decoder (lib-decode.fs's lbd-named), a view's input record, or a
+\ rebuild that copies it (lf-meta-named), each refusing when the heap is
+\ full; the unrecorded binders, lf-meta-mk-lambda's and isDefEq's eta
+\ lambdas (Lean's mkLambdaFVars takes the local's kind), never become a
+\ rule's pi while no text writes a lambda (plan FE2). Defensive, fail
+\ closed; tests/front/tactic-run.fs probes it in rw's row.
 : lfw-known? ( pi -- flag )
   dup lf-pres-binder@ if 2drop drop true exit then
   lf-term-input-binder@ dup if nip nip then ;

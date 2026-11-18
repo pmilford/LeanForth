@@ -20301,5 +20301,20 @@ file = "src/front/tactic-rewrite.fs"
 old = '''  dup lfw-known? 0= if lfa-e-tac-form lfw-stop then lf-tac-binder ;'''
 new = '''  lf-tac-binder ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
-reason = "review C4 of 2026-11-18: rw takes an unknown binder kind for explicit and makes a natural metavariable where Lean may make a synthetic one"
-gap = "no test reaches a rule binder of unknown kind yet: a pi built in a unit test may meet a stale input record (fix-batch report); the check_s2 rules all carry their kinds"
+reason = "review C4 of 2026-11-18: rw takes an unknown binder kind for explicit and makes a natural metavariable where Lean may make a synthetic one; tests/front/tactic-run.fs's probe in rw's row reads an unrecorded pi made inside the run and expects 99"
+
+[[fault]]
+id = "author-binder-kind-dropped"
+file = "src/author/build.fs"
+old = ''': lfa-name! ( term name kind -- term ) 2>r dup 2r> lf-pres-binder! lfa-kind-kept ;'''
+new = ''': lfa-name! ( term name kind -- term ) 2>r dup 2r> lf-pres-binder! drop ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "fix-batch-2 (review C4 of 2026-11-18): the build drops a binder kind the heap had no room for, so the pi reaches rw or intro unrecorded and a resource failure reads as not supported"
+
+[[fault]]
+id = "elab-ensure-type-defeq-ignored"
+file = "src/front/elab-term.fs"
+old = '''  lf-elab-defeq lf-elab-meta ok-then? if if outcome-ok else et-not-sort then then ;'''
+new = '''  lf-elab-defeq lf-elab-meta ok-then? if drop et-not-sort then ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "fix-batch-2 (review N2 of 2026-11-18): ensureType ignores isDefEq(type, Sort ?u) and calls a term whose type is a metavariable no type"
