@@ -7,7 +7,8 @@ Without --write the script checks that the file is current and fails, naming the
 when it is stale (part of `make check-docs`). For every src/lib/*.fs file the index lists, one line each, the
 public words: colon definitions, constants, variables, values, defers and created data. Words compiled into
 the private wordlist (ADR 0010: between `lf-lib-private module-open` / `lf-lib-private set-current` and the next
-`lf-lib set-current` or `module-close`) are left out. Each line gives the word, its stack comment when one
+`lf-lib set-current`, `dup set-current` (the wordlist current when the file loads, as store.fs uses) or
+`module-close`) are left out. Each line gives the word, its stack comment when one
 follows the name on the definition line, and the first line of the comment block directly above the definition
 (or the comment at the end of the definition line). A reader looking for an existing word, such as the Forth
 reviewer (docs/development/FORTH_REVIEWER.md), searches this page first.
@@ -21,7 +22,7 @@ OUTPUT = "docs/development/LIBRARY_WORDS.md"
 COLON = re.compile(r"^:\s+(\S+)\s*(\([^)]*\))?(.*)$")
 DATA = re.compile(r"^(?:.*\s)?(constant|variable|value|defer|create|2constant|2variable)\s+(\S+)\s*(.*)$", re.I)
 PRIVATE = re.compile(r"^\s*lf-lib-private\s+(module-open|set-current)\b")
-PUBLIC = re.compile(r"^\s*(lf-lib\s+set-current|module-close)\b")
+PUBLIC = re.compile(r"^\s*(lf-lib\s+set-current|dup\s+set-current|module-close)\b")
 MAX_DESCRIPTION = 110
 
 

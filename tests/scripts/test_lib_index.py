@@ -56,6 +56,12 @@ class Words(unittest.TestCase):
         self.assertNotIn("helper", names)
         self.assertNotIn("hidden-too", names)
 
+    def test_previous_wordlist_is_public(self):
+        # store.fs's form: public words go into the wordlist current at load (dup set-current).
+        text = "lf-lib-private module-open\ndup set-current\n: open ( -- ) ;\n" \
+               "lf-lib-private set-current\n: inner ( -- ) ;\ndup set-current\n: last ( -- ) ;\n"
+        self.assertEqual([w[0] for w in words(text)], ["open", "last"])
+
     def test_file_without_modules_is_all_public(self):
         self.assertEqual([w[0] for w in words(": a ;\n: b ;\n")], ["a", "b"])
 
