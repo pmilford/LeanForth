@@ -488,6 +488,16 @@ T{ s" Acc.rec" lf-tr-reducible bumped s" WellFounded.rec" lf-tr-instances bumped
 : ann ( t -- t' ) lf-annot-match lf-annot ok? 0= abort" annotation" ;
 T{ fk ann ann fk whnf= nat 0 bv lam ann fk app fk whnf= -> true outcome-ok true outcome-ok }T
 
+\ ---- Spines (meta-spine.fs): f k x a in a slab, a first; mkAppRange
+\ over a part (none when to <= from), mkAppN over all, the arguments'
+\ cells one below the other.
+: spine ( -- head ) fk fk app fx app fa app wc-args lf-meta-spine drop ;
+: range ( from to -- t ) spine -rot over - swap wc-args lf-meta-apply-from drop ;
+T{ 0 3 range fk fk app fx app fa app same? 1 3 range fk fx app fa app same? -> true true }T
+T{ 1 2 range fk fx app same? 2 2 range fk = 3 1 range fk = -> true true true }T
+T{ spine wc-args lf-meta-apply-all drop fk fk app fx app fa app same? -> true }T
+T{ 2 wc-args lf-meta-arg fa = 0 wc-args lf-meta-arg-at 1 wc-args lf-meta-arg-at - -> true cell }T
+
 \ ---- Stale leaves: after the contexts are emptied, every metavariable
 \ and free variable made before is invalid.
 lf-mctx-reset

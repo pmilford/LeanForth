@@ -13271,16 +13271,16 @@ reason = "FE1c: Eq.ndrec, which Lean's isAuxRecursor names itself, answers unsup
 [[fault]]
 id = "fe-whnf-iota-prefix-dropped"
 file = "src/front/whnf.fs"
-old = ''': wc-prefixed ( rhs -- rhs' outcome ) wc-args wc-from 0 wc-prefix wc-apply ;'''
-new = ''': wc-prefixed ( rhs -- rhs' outcome ) wc-args wc-from 0 0 wc-apply ;'''
+old = ''': wc-prefixed ( rhs -- rhs' outcome ) wc-prefix 0 wc-args lf-meta-apply-from ;'''
+new = ''': wc-prefixed ( rhs -- rhs' outcome ) 0 0 wc-args lf-meta-apply-from ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "FE1c: iota applies the rule's right side without the recursor's parameters, motives and minor premises"
 
 [[fault]]
 id = "fe-whnf-iota-rest-dropped"
 file = "src/front/whnf.fs"
-old = '''  wc-args wc-from wc-major-at 1+ wc-args slab-count wc-apply ;'''
-new = '''  wc-args wc-from wc-major-at 1+ dup wc-apply ;'''
+old = '''  wc-major-at 1+ wc-args slab-count over - swap wc-args lf-meta-apply-from ;'''
+new = '''  wc-major-at 1+ 0 swap wc-args lf-meta-apply-from ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "FE1c: iota drops the arguments after the major premise (Nat.rec m z s Nat.zero x gives z, not z x)"
 
@@ -13368,8 +13368,8 @@ reason = "FE1c: a constant with the wrong number of universe levels gets a type,
 [[fault]]
 id = "fe-infer-args-left-loose"
 file = "src/front/infer.fs"
-old = '''  if-n if-flush ;'''
-new = '''  outcome-ok ;'''
+old = '''  0 if-n ['] if-enter ok-each ok-then? if if-n swap if-flush else if-fail then ;'''
+new = '''  0 if-n ['] if-enter ok-each ok-then? if drop outcome-ok else if-fail then ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: the arguments after the last whnf point are never put in, so the type keeps loose bound variables"
 
@@ -13499,8 +13499,8 @@ reason = "review fe1c-2 L1, re-targeted by S2: a constant no declaration has is 
 [[fault]]
 id = "fe-whnf-fields-no-max"
 file = "src/front/whnf.fs"
-old = '''  wc-margs wc-from wc-margs slab-count tuck swap - 0 max swap wc-apply ;'''
-new = '''  wc-margs wc-from wc-margs slab-count tuck swap - swap wc-apply ;'''
+old = '''  wc-margs slab-count tuck swap - 0 max tuck - swap wc-margs lf-meta-apply-from ;'''
+new = '''  wc-margs slab-count tuck swap - tuck - swap wc-margs lf-meta-apply-from ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "review fe1c-2 L1: a constructor with fewer arguments than its rule's fields (Nat.succ alone) makes the rule read before its arguments (Lean's Nat subtraction gives 0)"
 
@@ -16614,8 +16614,8 @@ reason = "S2 merge B: reduceMatcher? always takes the first alternative (Nat.add
 [[fault]]
 id = "fe-match-extra-args-dropped"
 file = "src/front/whnf.fs"
-old = '''  wc-args wc-from wc wc-mpre @ wc wc-malts @ + wc-args slab-count wc-apply'''
-new = '''  wc-args wc-from wc wc-mpre @ dup wc-apply'''
+old = '''  wc wc-mpre @ wc wc-malts @ + wc-args slab-count over - swap wc-args lf-meta-apply-from'''
+new = '''  wc wc-mpre @ 0 swap wc-args lf-meta-apply-from'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S2 merge B: reduceMatcher? drops the arguments after the alternatives"
 
@@ -16929,8 +16929,8 @@ reason = "review s1-meta-b: a decoded expression or level is never walked (every
 [[fault]]
 id = "fe-declevel-assign-kept"
 file = "src/front/infer.fs"
-old = '''  rot swap lf-level-mvar-assign dup ok? 0= if nip no-result then ;'''
-new = '''  rot swap lf-level-mvar-assign ;'''
+old = '''  lf-level-mvar-assign dup ok? 0= if nip no-result then ;'''
+new = '''  lf-level-mvar-assign ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "getDecLevel's assignment refused room still answers the fresh ?w, not -1"
 

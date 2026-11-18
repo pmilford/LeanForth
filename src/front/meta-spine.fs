@@ -6,7 +6,8 @@
 \ - lf-meta-spine ( term slab -- head outcome ): the arguments of
 \   f a1 .. an into the slab, emptied first, an first; the head f. A
 \   refused cell gives -1 and full.
-\ - lf-meta-arg ( i slab -- term ): argument i, a0 the first, of a spine.
+\ - lf-meta-arg ( i slab -- term ): argument i, a0 the first, of a spine;
+\   lf-meta-arg-at ( i slab -- addr ): its cell (a(i+1)'s the cell below).
 \ - lf-meta-const-decl ( const -- d outcome ): the declaration of a
 \   constant's name (Lean's find?), through front/meta-env.fs in either
 \   mode: ok; invalid when no declaration has the name (an unknown
@@ -62,9 +63,12 @@
 \   mkApp); full, with -1, when the term store has no room.
 \ - lf-meta-apply-all ( f slab -- f' outcome ): f applied to a spine's
 \   arguments, a0 first (Lean's mkAppN f args); full as above.
+\   lf-meta-apply-from ( f n from slab -- f' outcome ): f applied to the
+\   n arguments from from on (Lean's mkAppRange f from (from+n); none
+\   when n <= 0).
 \ Unchecked: the terms are live, the constant is one, the slab is a cell
-\ slab. State: none of its own; every word
-\ takes its slab. Loads in decimal whatever BASE is, then restores it.
+\ slab, from .. from+n-1 within it. State: none of its own; every word takes
+\ its slab. Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -85,7 +89,8 @@ require ../core/let-terms.fs
   dup slab-clear swap begin dup lf-meta-app? while
     over ms-peel ok-then? 0= if nip -1 swap exit then
   repeat nip outcome-ok ;
-: lf-meta-arg ( i slab -- term ) tuck slab-count 1- swap - swap slab-at @ ;
+: lf-meta-arg-at ( i slab -- addr ) tuck slab-count 1- swap - swap slab-at ;
+: lf-meta-arg ( i slab -- term ) lf-meta-arg-at @ ;
 : lf-meta-const-decl ( const -- d outcome )
   lf-const-name lf-menv-find ;
 : ms-unknown-ok ( outcome -- outcome' ) dup outcome-invalid = if drop outcome-ok then ;
@@ -125,8 +130,10 @@ require ../core/let-terms.fs
 : lf-meta-forall-body ( term -- body )
   begin dup lf-term-pi? while lf-term-second@ repeat ;
 : lf-meta-app ( f a -- f' outcome ) lf-term-app if outcome-ok else -1 outcome-full then ;
-: ms-apply-at ( f i slab -- f' outcome ) lf-meta-arg lf-meta-app ;
+: ms-app-down ( f k addr -- f' outcome ) swap cells - @ lf-meta-app ;
+: lf-meta-apply-from ( f n from slab -- f' outcome )
+  lf-meta-arg-at ['] ms-app-down ok-fold ;
 : lf-meta-apply-all ( f slab -- f' outcome )
-  dup slab-count swap ['] ms-apply-at ok-fold ;
+  dup slab-count swap 0 swap lf-meta-apply-from ;
 
 base !   \ the BASE this file was loaded with

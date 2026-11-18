@@ -67,10 +67,10 @@
 \ context, which only grows while a declaration is elaborated
 \ (core/local-context.fs): the context is emptied with the declaration.
 \ Untrusted: only the kernel's check of a finished term decides anything.
-\ State: the record if-state (inferAppType's j, inferProjType's
-\ projection) and the slabs if-args (the arguments, last first), if-levels (a
-\ constant's universe arguments), if-xs and if-lams (a lambda's free
-\ variables and binders), in the checker context. Loads in decimal
+\ State: the record if-state (inferProjType's projection) and the slabs
+\ if-args (the arguments, last first), if-levels (a constant's universe
+\ arguments), if-xs and if-lams (a lambda's free variables and binders),
+\ in the checker context. Loads in decimal
 \ whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
@@ -97,7 +97,6 @@ require ./beta-inst.fs
 require ./nat-offset.fs
 
 begin-structure /if
-  field: if-from    \ inferAppType's j: the first argument not put in yet
   field: if-proj    \ inferProjType's projection
 end-structure
 /if context-record: if-state
@@ -111,7 +110,7 @@ end-structure
 \ ---- Leaves.
 : if-const-type ( const d -- type outcome )
   swap if-levels lf-meta-levels-fill ok-then? 0= if no-result exit then
-  dup lf-menv-type swap lf-menv-params >r 0 if-levels slab-at r>
+  dup lf-menv-type swap lf-menv-params 0 if-levels slab-at swap
   lf-meta-instantiate-level-params ;
 \ d's type at const's universe arguments, another number of them invalid.
 : if-at-levels ( const d -- type outcome )
@@ -182,17 +181,18 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-meta-tags constant 
   lf-whnf-core ok-then? 0= if no-result exit then
   if-delta ok-then? if if-pi-of else no-result then ;
 : if-n ( -- n ) if-args slab-count ;
-: if-j ( -- addr ) if-state if-from ;
-: if-rev ( i -- addr m ) dup if-n swap - if-args slab-at swap if-j @ - ;
-: if-flush ( type i -- type' outcome ) if-rev lf-meta-instantiate-rev-beta ;
-: if-enter ( type i -- type' outcome )
-  over if-pi? if drop lf-term-second@ outcome-ok exit then
-  tuck if-flush ok-then? 0= if nip no-result exit then
-  if-to-pi ok-then? 0= if nip no-result exit then
-  swap if-j ! lf-term-second@ outcome-ok ;
+\ inferAppType's loop, j (the first argument not put in yet) on the stack:
+\ arguments j .. i-1 put into type (instantiateRevRange j i), its whnf a pi.
+: if-rev ( i j -- addr m ) over swap - swap if-n swap - if-args slab-at swap ;
+: if-flush ( type i j -- type' outcome ) if-rev lf-meta-instantiate-rev-beta ;
+: if-pi-body ( type -- body outcome )
+  if-to-pi ok-then? if lf-term-second@ outcome-ok else no-result then ;
+: if-flushed ( type i j -- body outcome ) if-flush ['] if-pi-body ok-and ;
+: if-enter ( type j i -- type' j' outcome )
+  2 pick if-pi? if drop swap lf-term-second@ swap outcome-ok exit then
+  dup >r swap if-flushed r> swap ;
 : if-args-in ( type -- type' outcome )
-  0 if-j ! if-n 0 ?do i if-enter dup ok? 0= if unloop exit then drop loop
-  if-n if-flush ;
+  0 if-n ['] if-enter ok-each ok-then? if if-n swap if-flush else if-fail then ;
 \ A spine's head is no application; a lambda, pi or let there answers
 \ unsupported (if-leaf), a projection is inferred below. The head's type
 \ comes first, then the arguments fill if-args: inferring a projection's
@@ -386,10 +386,10 @@ end-structure
 \ An assignable ?u at the root: ?u := succ ?w for a fresh ?w, the answer.
 \ Lean's assignment cannot fail; here the stores may have no room (full),
 \ and then ?w, made already, stays unassigned and named by no term.
-: idl-assign ( mvar w succ -- w outcome )
-  rot swap lf-level-mvar-assign dup ok? 0= if nip no-result then ;
+: idl-assign ( w mvar succ -- w outcome )
+  lf-level-mvar-assign dup ok? 0= if nip no-result then ;
 : idl-succ-of ( mvar w -- w outcome )
-  dup lf-level-succ if idl-assign else 2drop -1 outcome-full then ;
+  tuck lf-level-succ if idl-assign else 2drop -1 outcome-full then ;
 : idl-fresh ( mvar -- w outcome )
   lf-level-mvar-new ok-then? if idl-succ-of else nip no-result then ;
 : idl-open? ( level -- flag outcome )

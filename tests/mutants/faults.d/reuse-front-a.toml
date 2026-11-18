@@ -120,3 +120,35 @@ old = '''  texts+ Mod.mod'''
 new = '''  texts+ Mod.modulo'''
 test = "$GFORTH tests/front/meta-env.fs"
 reason = "s2-finish L1: canUnfoldAtMatcher's Mod.mod is not unfolded at a matcher, unlike Lean"
+
+[[fault]]
+id = "rfa2-app-range-up"
+file = "src/front/meta-spine.fs"
+old = ''': ms-app-down ( f k addr -- f' outcome ) swap cells - @ lf-meta-app ;'''
+new = ''': ms-app-down ( f k addr -- f' outcome ) swap cells + @ lf-meta-app ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "reuse pass part A2, F11: mkAppRange walks the spine the wrong way, so a recursor's fields, its rest and a matcher's alternatives get the wrong arguments"
+
+[[fault]]
+id = "rfa2-app-range-count"
+file = "src/front/meta-spine.fs"
+old = '''  lf-meta-arg-at ['] ms-app-down ok-fold ;'''
+new = '''  lf-meta-arg-at swap 1- swap ['] ms-app-down ok-fold ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "reuse pass part A2, F11: mkAppRange leaves off its last argument"
+
+[[fault]]
+id = "rfa2-infer-j-skips"
+file = "src/front/infer.fs"
+old = '''  dup >r swap if-flushed r> swap ;'''
+new = '''  dup 1+ >r swap if-flushed r> swap ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "reuse pass part A2, F11: inferAppType's j skips the argument at a whnf point, so it is never put in"
+
+[[fault]]
+id = "rfa2-infer-pi-body-type"
+file = "src/front/infer.fs"
+old = '''  2 pick if-pi? if drop swap lf-term-second@ swap outcome-ok exit then'''
+new = '''  2 pick if-pi? if drop swap lf-term-first@ swap outcome-ok exit then'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "reuse pass part A2, F11: inferAppType steps into a pi's domain instead of its body"

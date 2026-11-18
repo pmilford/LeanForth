@@ -1957,8 +1957,8 @@
    "src/front/meta-env.fs:lf-menv-sunfold",
    "src/front/meta-env.fs:lf-menv-matcher"
   ],
-  "tokens": 6,
-  "reason": "accepted: two readers of different records (sunfold, matcher) of the data's declaration, both on lf-menv-elab; a shared word would take an xt and be no shorter"
+  "reason": "accepted: two readers of different records (sunfold, matcher) of the data's declaration, both on lf-menv-elab; a shared word would take an xt and be no shorter",
+  "tokens": 6
  },
  "c1696d534b1d": {
   "copies": 2,
