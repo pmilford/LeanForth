@@ -1459,3 +1459,24 @@ net:
 4. A push runs more targets at a time when few agents are running.
 
 Unchanged: the pinned-Lean comparisons and planted faults of every file a change can reach. Branch `test-reuse`.
+
+## [format] S2's step log, and the smart-unfolding marker (2026-11-17)
+
+Asked in plain language after the Forth review of `s2-finish` and its re-check
+(.claude/work/pending-reports/2026-11-17-s2-finish-review-final.md; filed with the merge as
+`docs/development/forth-reviews/2026-11-17-s2-finish.md`).
+
+1. **[format] The step log, `check --steps FILE|-`, format `leanforth-tactic-steps` version 1: approved.** One header
+   line per accepted declaration (name, steps, `axioms`, `open_parts`, `cut`) and one line per tactic step with its
+   goals. Evidence: it is written only for accepted declarations and nothing reads it back; a declaration proved only
+   with `by-sorry` shows `"axioms":["sorryAx"]` and `"open_parts":1` (probed by the reviewer); a log out of room is cut
+   and marked and changes no verdict or exit code; the reviewer's planted faults (filter always true, cut unmarked)
+   were caught. The tactic name is the pattern approved earlier today. Later fields are version 2.
+2. **The smart-unfolding marker (core term tag 17): merge without a separate [kernel] gate.** No file under
+   `src/kernel` or `src/import` changed. `core/terms.fs` gains one inert constant and
+   `core/constant-term-boundary.fs` one case arm, both loaded by the kernel; the importer cannot make the marker, the
+   hand-over refuses it first (error 200), the export writer refuses it, and no snapshot is written in a text run
+   (planted faults caught in both reviews). The reviewer's judgement, which the owner accepted: kernel behaviour is
+   unchanged, to be noted here and not gated.
+
+Not yet done: S2's merge, its push and its done check.
