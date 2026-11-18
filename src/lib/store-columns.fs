@@ -36,6 +36,7 @@
 \ and one teardown word, which frees them. Single-threaded per member.
 \ Helpers are private (ADR 0010).
 
+require ./portability.fs
 require ./store.fs
 require ./slab.fs
 require ./outcome.fs

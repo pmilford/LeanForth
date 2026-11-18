@@ -41,6 +41,7 @@ require ./portability.fs
 require ./outcome.fs
 require ./u32.fs
 require ./hash32.fs
+require ./slab.fs
 require ./cons.fs
 require ./module.fs
 

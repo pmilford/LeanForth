@@ -89,7 +89,9 @@
 \ Gforth 1.0 guarded by task-lock), and one ALLOCATEd job record per
 \ submitted job, until it is waited for. Untrusted.
 
-require ./lib.fs
+require ./portability.fs
+require ./blocks.fs
+require ./context.fs
 
 \ THROW codes of the pool, outside Forth-2012's reserved range.
 -4096 constant task-unbalanced  \ the job's word changed the stack depth

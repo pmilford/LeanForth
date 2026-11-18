@@ -98,6 +98,7 @@ require ./blocks.fs
 require ./bounds.fs
 require ./portability.fs
 require ./module.fs
+require ./outcome.fs
 require ./store.fs
 require ./walk.fs
 require ./frame.fs
