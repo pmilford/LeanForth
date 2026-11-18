@@ -25,8 +25,9 @@ Status (2026-11-13), in the stages of
   [inert nodes](#format-31-inert-metadata); the same reader also takes a
   default instance named twice and, from the exporter, an anonymous
   binder, so that the data of all of Mathlib is written and read whole.
-  Tested alone; the slice's run on all of Mathlib is under
-  [Format 3.1](#format-31-inert-metadata).
+  Works end to end on all of Mathlib (run by the implementer on
+  2026-11-18, under [Format 3.1](#format-31-inert-metadata)); the done
+  checker has not run it.
 - `leanforth check` reads the data but no verdict uses it yet: the
   instance table (FE1e3) and Meta's whnf are tested alone; the
   elaborator (s1-elab) is not merged.
@@ -651,6 +652,32 @@ path of the Mathlib front end's targets). A body holding one is unusable,
 never wrong. (The design planned the node as an annotation that every
 walker answers unsupported on; refusing the whole body when it is
 decoded gives the same answers, at most sooner, and changes no walker.)
+
+**On all of Mathlib** (2026-11-18, branch `mf1`, by the implementer; the
+done checker has not run it), with no step-around (the design's
+measurement runs had left the 11 bodies out and deleted the second
+`instHSMul` default instance from a copy):
+
+```console
+$ LEAN_PATH=… scripts/export-elab.sh mathlib.elab.ndjson mathlib.ndjson Mathlib
+mathlib.elab.ndjson: 2450 class, 43808 instance, 470 instance_left_out, 52 default_instance, 85147 reducibility, 152 eliminator, 44264 tag, 25047 matcher, 15463 projection, 1785 sunfold; left out (not declarations of the export): … 59 sunfold; 86 sunfold bodies naming what the export lacks; 12 inert markers (format 3.1)
+$ bin/leanforth check --snapshot mathlib-d789e45f.lfsnap --elab-data mathlib.elab.ndjson tests/author/01-identity.lf
+elaboration data: 43808 instances, 52 default instances, 85147 reducibility statuses, 152 eliminators, 470 instances left out, 2450 classes, 44264 tags, 25047 matchers, 15463 projections, 1785 smart-unfolding bodies
+…
+729264 declarations: 729264 accepted; 729263 from the snapshot, 1 checked in this run
+```
+
+The exporter took 144 s and 9.1 GB (pinned Lean's part most of it), exit
+0; it bound the data in a copy of the export's manifest
+(`elab_records_sha256` `a4892a53…b18c`). The check exited 0 in 254 s and
+9.61 GB (`gforth-fast`; the measurement's run 3, with the step-arounds:
+294 s, 9.61 GB). Seven bodies hold the 12 inert nodes
+(`GradedMonoid.GMonoid.gnpowRec`, `Batteries.BinomialHeap.Imp.Heap.WF.findMin`,
+`Lean.stateStackModify`, `Mathlib.Tactic.GuessName.applyNameDict` and three
+private ones) and one, `Mathlib.Tactic.Ring.ExProd.evalIntCast`, the
+anonymous binder; the other three of the 11 are bodies of definitions the
+export lacks, left out as before. The data has both `instHSMul` default
+instances of `HSMul`.
 
 ## Tests and evidence
 
