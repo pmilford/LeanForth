@@ -54,15 +54,15 @@ require ./apply.fs
 
 \ ---- matchConstInduct on getType''s head: the head constant and its
 \ inductive type's constructors, else error 382.
-: mco-not-inductive ( -- ) ['] lf-tac-goal-after. lfa-e-ctor-target lf-tac-failed ;
+: mco-failed ( goal code -- ) >r ['] lf-tac-goal-of. lf-tac-detail r> lf-tac-stop ;
 : mco-decl ( c -- d ) lf-const-name lf-menv-find lf-must ;
 : mco-inductive? ( head -- flag )
   dup lf-term-const? if mco-decl lf-menv-kind lf-kind-inductive = else drop false then ;
 : mco-ctors ( head -- items n )
   mco-decl lf-menv-data ?dup 0= if outcome-unsupported lf-must then lf-ity-ctors@ ;
 : mco-head ( goal -- head )
-  lf-mvar-type drop lf-whnf! lf-instantiate! lf-meta-head
-  dup mco-inductive? 0= if mco-not-inductive then ;
+  dup lf-mvar-type drop lf-whnf! lf-instantiate! lf-meta-head
+  dup mco-inductive? if nip exit then drop lfa-e-ctor-target mco-failed 0 ;
 \ Constructor name at the head's levels (mkConst ctor us).
 : mco-const ( head name -- e ) swap lf-const-levels lf-mk-const-id ;
 
@@ -80,8 +80,7 @@ require ./apply.fs
 : mco-name ( items i -- name ) cells + @ ;
 : mco-tried? ( goal head items i -- goal head items flag )
   >r 2 pick 2 pick 2 pick r> mco-name mco-applies? ;
-: mco-none ( goal head items -- 0 )
-  2drop drop ['] lf-tac-goal-after. lfa-e-ctor-none lf-tac-failed 0 ;
+: mco-none ( goal head items -- 0 ) 2drop lfa-e-ctor-none mco-failed 0 ;
 : mco-first ( goal head items n -- name )
   0 ?do i mco-tried? if i mco-name nip nip unloop exit then loop mco-none ;
 : lf-goal-constructor ( goal -- goals )

@@ -282,7 +282,8 @@ variable breaker
 : parent! ( p i -- ) lf-tactic-step tac-parent ! ;
 : breaks ( xt c-addr u -- code ) rot breaker ! proof nrun drop lf-author-code ;
 T{ :noname 0 1 kind! ; s" by-sorry end t" breaks -> 92 }T
-T{ :noname 12 1 kind! ; s" by-sorry end t" breaks -> 92 }T
+T{ :noname 1000 1 kind! ; s" by-sorry end t" breaks -> 92 }T   \ a kind with no row
+T{ :noname 1025 1 kind! ; s" by-sorry end t" breaks -> 92 }T   \ one past the table
 T{ :noname tac-k-by 1 kind! ; s" by-sorry end t" breaks -> 92 }T
 T{ :noname 1 1 parent! ; s" by-sorry end t" breaks -> 92 }T
 T{ :noname -1 1 parent! ; s" by-sorry end t" breaks -> 92 }T
@@ -387,7 +388,8 @@ T{ ' spoil lf-tac-try state? -> 0 true tagged mv-natural 0 }T
 T{ two-goals ' inner lf-tac-try state? -> 0 false 0 mv-opaque 2 }T
 \ A tactic library failure (meta-must.fs's throw) inside try is the
 \ authoring error lfr-meta-code names: rejected (Lean's AppBuilder or
-\ application type mismatch, an instance not found) is 96, a Lean error
+\ application type mismatch, an instance not found) is 101 (plan 9.4.8l
+\ G), a Lean error
 \ (invalid) that try catches and undoes; unsupported stays 93, which try
 \ catches too but lfw-caught passes on (a gap of LeanForth's); full and
 \ exhausted keep 60 and 91 (review F7 of a2-i).
@@ -396,7 +398,7 @@ variable lib-outcome
 : lib-code ( outcome -- code outcome' )
   lib-outcome ! two-goals ['] lib-fails lf-tac-try drop lf-author-code dup lf-author-outcome
   lf-tac-forget ;
-T{ outcome-rejected lib-code state? -> 96 outcome-invalid false 0 mv-opaque 2 }T
+T{ outcome-rejected lib-code state? -> 101 outcome-invalid false 0 mv-opaque 2 }T
 T{ outcome-unsupported lib-code outcome-full lib-code outcome-exhausted lib-code
    -> 93 outcome-unsupported 60 outcome-full 91 outcome-exhausted }T
 \ A failed attempt that leaves an inner mark or depth scope open (review

@@ -51,5 +51,5 @@ require ./goal.fs
 : lf-goal-assumption ( goal -- )
   lf-goal-not-assigned dup lf-mvar-type drop over mas-view mas-find
   if lf-mvar-assign lf-must exit then
-  drop ['] lf-tac-goal-after. lfa-e-assumption lf-tac-failed ;
+  ['] lf-tac-goal-of. lf-tac-detail lfa-e-assumption lf-tac-stop ;
 base !   \ the BASE this file was loaded with

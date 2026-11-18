@@ -130,8 +130,9 @@ end-structure
   ap-conclusion? 0= if outcome-ok exit then
   s\" \n\nNote: The full type of " lf-pp-emit ap ap-e @ lf-tac-inline. ['] ap-full. ok-and ;
 : ap-with. ( -- outcome ) s\" \nwith the goal\n" ap ap-target @ lf-tac-line. ;
+: ap-goal. ( -- outcome ) s\" \n" lf-pp-emit ap ap-goal @ lf-tac-goal-of. ;
 : ap-unify. ( concl -- outcome )
-  lf-tac-indented. ['] ap-with. ok-and ['] ap-note. ok-and ['] lf-tac-goal. ok-and ;
+  lf-tac-indented. ['] ap-with. ok-and ['] ap-note. ok-and ['] ap-goal. ok-and ;
 : ap-unify-fail ( -- )
   0 ['] ap-head. lf-tac-inline ap-concl ['] ap-unify. lf-tac-detail lfa-e-apply lf-tac-stop ;
 : ap-search ( -- )
@@ -141,9 +142,10 @@ end-structure
 : ap-insts ( -- ) ap-todo slab-clear
   ap-new# 0 ?do i ap-inst? if i ap-new drop ap-todo slab-push lf-must then loop ;
 : ap-type. ( mvar -- outcome ) lf-mvar-type drop lf-tac-indented. ;
-: ap-no-instance ( mvar -- ) ['] ap-type. lfa-e-elab-synth lf-tac-failed ;
+: ap-no-instance ( mvar -- ) ['] ap-type. lf-tac-detail lfa-e-elab-synth lf-tac-stop ;
 : ap-assign-inst ( mvar inst -- )
-  lf-defeq! 0= if ['] lf-tac-goal-after. lfa-e-apply-inst lf-tac-failed then ;
+  lf-defeq! 0= if ap ap-goal @ ['] lf-tac-goal-of. lf-tac-detail lfa-e-apply-inst lf-tac-stop
+  then ;
 \ One metavariable: found (true), else put off (false).
 : ap-synth-one ( mvar -- found? )
   dup lf-infer! lf-synth-instance lf-must if ap-assign-inst true exit then

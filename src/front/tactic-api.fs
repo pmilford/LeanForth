@@ -46,6 +46,7 @@ require ./meta-tactic/constructor.fs
 \ The spelling is read four times: >in put back before each.
 : tap-again ( in -- in ) dup >in ! ;
 : tap-row ( in c-addr u -- in kind )
+  2dup lf-pf-reserved? abort" lf-tactic: a word reserved already"
   2dup lf-pf-reserve-more lf-tactic-free dup >r lfr-spell ['] lf-tac-later 0 r@ lfr-set r> ;
 : lf-tactic: ( shape "spelling" -- kind )
   >in @ parse-name tap-row >r tap-again r@ rot lft-reader,

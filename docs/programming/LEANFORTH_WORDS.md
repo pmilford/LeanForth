@@ -155,6 +155,7 @@ is elaborated yet:
 | `t by-exact`, `t by-induction`, `t by-induction-with` | `( t -- )` | a tactic step with its term; `by-induction-with` opens a block of alternatives up to `by-end` |
 | `by-rfl`, `by-intro: NAME` | `( -- )` | a tactic step; `by-intro:`'s name (or `_`) is a hypothesis until its block ends |
 | `by-sorry` | `( -- )` | Lean's `sorry` tactic: closes the main goal with `sorryAx` (an open part; the declaration is NOT PROVED); 90 when no goal is left |
+| `t by-apply`, `by-assumption`, `by-constructor` | `( t -- )`, `( -- )`, `( -- )` | ports of Lean's `apply`, `assumption` and `constructor` (tactic plug-in design, slice a2-iii; `src/front/tactics/`, on the goal layer `src/front/meta-tactic/`): 380 no argument count makes t's conclusion fit, 125 an instance not found, 384 an instance found but not fitting, 381 no hypothesis has the goal's type, 382 the goal is no inductive type, 383 no constructor applies, 99 a case not ported |
 | `by-intro: NAME`, `t by-exact`, `by-rfl`, run | | as Lean's `intro`, `exact` and `rfl` (plan FE1g-4, `src/front/tactic-basic.fs`): 94 no binder to introduce, 95 a metavariable left unassigned, 96 a type mismatch, 97 two sides not definitionally equal, 98 a term the goal cannot take, 99 a case not supported yet (`intro rfl`, a `let`, a binder not known explicit), 93 a step of the Meta layer not ported yet |
 | `\| TAG NAMES… =>`, `by-case: TAG NAMES… =>` | `( -- )` | an alternative of the `by-induction-with` it is right inside (up to the next `\|` or `by-end`), a case block (up to its `by-end`); the header on one line, its names hypotheses of the block |
 | `by-end` | `( -- )` | closes the innermost `by-induction-with` or `by-case:` |
@@ -456,6 +457,7 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 98 | invalid | Tactic `exact` failed: attempting to close the goal using |
 | 99 | unsupported | not supported yet: this case of the tactic (FE1G_TACTICS.md 5 names its step) |
 | 100 | invalid | invalid universe level: not greater than 0 |
+| 101 | invalid | AppBuilder failed: a term the tactic library builds does not fit (an equality proof expected, an application type mismatch, no instance found) |
 | 110 | invalid | type class instance expected |
 | 111 | invalid | type class resolution failed, insufficient number of arguments |
 | 112 | invalid | elaboration data refused: an instance is recorded under a class its type is not of |
@@ -500,6 +502,11 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 219 | invalid | Invalid rewrite argument: The pattern to be substituted is a metavariable |
 | 220 | invalid | Occurs check failed: Expression |
 | 300 | full | out of room: a Forth stack, the dictionary or the heap, with its THROW code |
+| 380 | invalid | Tactic `apply` failed: could not unify the |
+| 384 | invalid | Tactic `apply` failed: failed to assign synthesized instance |
+| 381 | invalid | Tactic `assumption` failed |
+| 382 | invalid | Tactic `constructor` failed: target is not an inductive datatype |
+| 383 | invalid | Tactic `constructor` failed: no applicable constructor found |
 
 Codes come in ranges (`src/author/errors.fs`): 1 to 73 the words, the
 runner, the stores and natural text read (FE1a); 74 to 79 elaboration and
