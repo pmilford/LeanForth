@@ -400,7 +400,7 @@ end-structure
 elab-level-zero tag-level-zero <> elab-level-succ tag-level-succ <> or
 elab-level-max tag-level-max <> or elab-level-imax tag-level-imax <> or
 elab-level-param tag-level-param <> or
-[if] .( lib-decode.fs: elab-level-* must be the tier's tag-level-*) cr abort [then]
+[if] .( lib-decode.fs: elab-level-* differ from tier tags tag-level-*) cr abort [then]
 : lbd-sname@ ( k -- name ) cells lbd lbd-snames @ + @ ;
 : lbd-sparam ( l -- index outcome )
   elab-level-a dup lbd lbd-snames# @ u< 0= if drop outcome-invalid no-result exit then
