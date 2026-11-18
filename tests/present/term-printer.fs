@@ -263,6 +263,8 @@ T{ t1 @ fuel lf-print-statement t1 @ fuel lf-print-inline
 T{ heal-count t1 @ s" fun x ↦ x" shows -> }T
 T{ t2 @ corrupt-prefix t2 @ lf-print-name -> outcome-invalid }T
 T{ t1 @ s" fun x ↦ x" shows -> }T
+\ A binder name with a broken chain is not hygienic: it is refused whole.
+T{ t2 @ lf-pp-hygienic? -> false }T
 T{ corrupt-root t2 @ lf-print-name t1 @ fuel lf-print-term
   -> outcome-invalid outcome-invalid }T
 
