@@ -261,8 +261,7 @@ begin-structure /trow
   field: trow-plan
   field: trow-length
   lfr-room chars +field trow-chars
-  field: trow-lean-length
-  lfr-room chars +field trow-lean
+  lfr-room 1+ chars +field trow-lean   \ Lean's name, counted
 end-structure
 /trow aligned constant lfr-row-size
 create lfr-rows lfr-kinds cells allot   lfr-rows lfr-kinds cells erase
@@ -286,15 +285,14 @@ create lfr-rows lfr-kinds cells allot   lfr-rows lfr-kinds cells erase
 : lf-tactic-action! ( xt kind -- ) 0 swap lfr-set ;
 : lf-tactic-end! ( xt kind -- ) lfr-row trow-end ! ;
 : lf-tactic-plan! ( plan kind -- ) lfr-row trow-plan ! ;
-: lf-tactic-lean! ( c-addr u kind -- )
-  >r lfr-roomy r> lfr-row 2dup trow-lean-length ! trow-lean swap chars move ;
+: lf-tactic-lean! ( c-addr u kind -- ) >r lfr-roomy r> lfr-row trow-lean place ;
 : lfr-spelling ( i -- c-addr u ) lfr-kind lfr-row dup trow-chars swap trow-length @ ;
 \ The registry read (tests/front/tactic-registry.fs, front/step-log.fs).
 lfr-kinds constant lf-tactic-kinds#
 : lf-tactic-row? ( kind -- flag ) lfr-kind? ;
 : lf-tactic-plan@ ( kind -- n ) lfr-row trow-plan @ ;
 : lf-tactic-run? ( kind -- flag ) lfr-row trow-run @ 0<> ;
-: lf-tac-lean ( kind -- c-addr u ) lfr-row dup trow-lean swap trow-lean-length @ ;
+: lf-tac-lean ( kind -- c-addr u ) lfr-row trow-lean count ;
 \ The first kind with no row, from 12 (the S1/S2 kinds keep 1-11).
 : lf-tactic-free ( -- kind )
   tac-k-sorry 1+ begin dup lfr-kind? while 1+ repeat ;

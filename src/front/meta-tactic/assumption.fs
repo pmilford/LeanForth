@@ -47,7 +47,7 @@ require ./goal.fs
   dup lf-view-count begin dup while 1-
     2 pick 2 pick 2 pick mas-fits? if lf-view-local lf-local-fvar nip true exit then
   repeat drop 2drop false ;
-: mas-view ( goal -- view ) lf-mvar-view 0= if outcome-invalid lf-must then ;
+: mas-view ( goal -- view ) lf-mvar-view lf-found ;
 : lf-goal-assumption ( goal -- )
   lf-goal-not-assigned dup lf-mvar-type drop over mas-view mas-find
   if lf-mvar-assign lf-must exit then

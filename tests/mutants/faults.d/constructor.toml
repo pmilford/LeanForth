@@ -39,7 +39,7 @@ reason = "a2-ii: lfa-code: takes a code registered already (two messages for one
 [[fault]]
 id = "registry-lean-name-is-word"
 file = "src/front/tactic-run.fs"
-old = ''': lf-tac-lean ( kind -- c-addr u ) lfr-row dup trow-lean swap trow-lean-length @ ;'''
+old = ''': lf-tac-lean ( kind -- c-addr u ) lfr-row trow-lean count ;'''
 new = ''': lf-tac-lean ( kind -- c-addr u ) lfr-row dup trow-chars swap trow-length @ ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/constructor/check.py"
 reason = "a2-ii: the step log names the LeanForth word where Lean's tactic name belongs (the schema refuses by-constructor)"

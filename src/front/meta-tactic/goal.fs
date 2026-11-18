@@ -42,9 +42,9 @@ require ../app-builder.fs
 
 \ ---- replaceTargetEq: Eq.mpr.{u} target new (mkExpectedPropHint h
 \ (mkEq target new)) goal'.
-: mtg-type ( goal -- type ) lf-mvar-type 0= if outcome-invalid lf-must then ;
-: mtg-tag ( goal -- tag ) lf-mvar-tag 0= if outcome-invalid lf-must then ;
-: mtg-view ( goal -- view ) lf-mvar-view 0= if outcome-invalid lf-must then ;
+: mtg-type ( goal -- type ) lf-mvar-type lf-found ;
+: mtg-tag ( goal -- tag ) lf-mvar-tag lf-found ;
+: mtg-view ( goal -- view ) lf-mvar-view lf-found ;
 : mtg-goal-new ( type goal -- goal' )
   dup mtg-tag swap mtg-view lf-goal-new lf-must ;
 : mtg-hint ( target new h -- h' ) -rot lf-mk-eq lf-mk-expected-prop-hint ;
@@ -57,7 +57,7 @@ require ../app-builder.fs
   dup >r over >r mtg-value r> swap lf-mvar-assign lf-must r> ;
 
 \ ---- headBetaType.
-: mtg-kind ( goal -- kind ) lf-mvar-kind 0= if outcome-invalid lf-must then ;
+: mtg-kind ( goal -- kind ) lf-mvar-kind lf-found ;
 : mtg-tag! ( goal tag -- ) lf-mvar-tag! lf-must ;
 : mtg-like ( type goal -- goal' )   \ a new metavariable as goal, of type
   >r r@ mtg-kind r@ mtg-view lf-mvar-new-at lf-must dup r> mtg-tag mtg-tag! ;

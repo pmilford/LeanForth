@@ -21,6 +21,8 @@
 \                                     .lean:50)
 \   lf-with-goal ( i*x goal xt -- j*x ) MVarId.withContext (Meta/Basic.lean)
 \   lf-with-view ( i*x xt view -- j*x ) xt in that local context (withLCtx)
+\   lf-found ( x true | false -- x )  a lookup's answer, none thrown invalid
+\                                     (a record LeanForth made is missing: a fault)
 \ Fail-closed (the design's rule): a failure is thrown as the code
 \ lf-meta-throw-base - outcome (-4201 to -4206), never for ok, so CATCH
 \ gives 0 only when the code ran to its end; lf-meta-catch hands back
@@ -97,6 +99,7 @@ require ./defeq.fs
 \ goal's, the current one put back however xt ends.
 : lf-with-view ( i*x xt view -- j*x )
   lf-mctx-view swap lf-mctx-view! >r catch r> lf-mctx-view! throw ;
-: lfm-view ( goal -- view ) lf-mvar-view 0= if outcome-invalid lf-must then ;
+: lf-found ( x true | false -- x ) 0= if outcome-invalid lf-must then ;
+: lfm-view ( goal -- view ) lf-mvar-view lf-found ;
 : lf-with-goal ( i*x goal xt -- j*x ) swap lfm-view lf-with-view ;
 base !   \ the BASE this file was loaded with
