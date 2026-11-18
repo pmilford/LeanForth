@@ -1727,14 +1727,6 @@
   "shuffles": 3,
   "words": 6
  },
- "src/program/verify-alias.fs": {
-  "globals": 2,
-  "long lines": 0,
-  "long words": 0,
-  "rstack": 17,
-  "shuffles": 1,
-  "words": 29
- },
  "src/program/verify-report.fs": {
   "globals": 2,
   "long lines": 0,

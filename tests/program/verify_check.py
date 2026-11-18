@@ -1,12 +1,13 @@
-"""The program words in two modes (ADR 0019) against today's reader.
+"""The program words in correctness mode (ADR 0019) against today's reader.
 
 Usage (from the repository root):
   GFORTH=... python3 tests/program/verify_check.py [--list]
 
-Every input below runs, in one Gforth, through three translators from Forth
+Every input below runs, in one Gforth, through two translators from Forth
 source to IR 0.1: today's reader (src/program/ir-reader.fs, kept only as the
-test oracle), the mode shift (src/program/verify.fs, the primary design) and
-the separate vocabulary (src/program/verify-alias.fs). The inputs:
+test oracle) and the mode shift (src/program/verify.fs; the separate
+vocabulary, a second design once compared here too, was retired on
+2026-11-18). The inputs:
 
   reader   every verdict case of tests/program/ir-reader.fs, the lines it
            feeds given as one text (today's reader is fed them one by one);
@@ -16,9 +17,8 @@ the separate vocabulary (src/program/verify-alias.fs). The inputs:
            three golden sources (their IR must equal tests/program/ir/*.ir),
            a missing file, a directory and /dev/zero.
 
-The two designs must agree exactly: every line written, the outcome, the
-reason, the line and the column. Each must agree with today's reader in the
-same way, except for the improvements the owner's answers and ADR 0019 §2-§3
+The mode shift must agree with today's reader exactly: every line written,
+the outcome, the reason, the line and the column, except for the improvements the owner's answers and ADR 0019 §2-§3
 make, and the additions of IR 0.2 (Amendment 1), each recognised by a rule
 and counted:
 
@@ -259,7 +259,6 @@ def hostile_cases():
 
 DRIVER_HEAD = f"""require {ROOT}/src/program/ir-reader.fs
 require {ROOT}/src/program/verify.fs
-require {ROOT}/src/program/verify-alias.fs
 : show ( c-addr u -- ) ." | " type cr ;
 ' show lf-verify-to
 : four. ( a b c d -- ) 2swap swap . . swap . . ;
@@ -270,11 +269,9 @@ require {ROOT}/src/program/verify-alias.fs
   lf-ir-finish lf-ir-reason lf-ir-where ." = " four. cr ;
 : verdict. ( outcome -- outcome ) dup lf-verify-reason lf-verify-where ." = " four. cr ;
 : new-text ( c-addr u -- outcome ) ." NEW" cr s" t.fs" lf-verify-text verdict. ;
-: alias-text ( c-addr u -- ) ." ALIAS" cr s" t.fs" lf-alias-text verdict. drop ;
 : old-file ( c-addr u -- ) ." OLD" cr ['] show -rot lf-ir-read-file lf-ir-reason
   lf-ir-where ." = " four. cr ;
 : new-file ( c-addr u -- outcome ) ." NEW" cr lf-verify-file verdict. ;
-: alias-file ( c-addr u -- ) ." ALIAS" cr lf-alias-file verdict. drop ;
 \\ Run mode: plain Gforth loads what the new code accepted, a text line by
 \\ line, a file with INCLUDED, into a word list of its own with BASE ten,
 \\ under CATCH; it must not throw and must leave no value.
@@ -303,9 +300,9 @@ create host-path 512 chars allot
 : case. ( n -- ) ." CASE " . cr ;
 : end. ( -- ) ." DEPTH " depth . cr ;
 : texts ( c-addr u n -- )
-  case. 2dup old-text 2dup alias-text 2dup new-text ok? if host-text else 2drop then end. ;
+  case. 2dup old-text 2dup new-text ok? if host-text else 2drop then end. ;
 : files ( c-addr u n -- )
-  case. 2dup old-file 2dup alias-file 2dup new-file ok? if host-file else 2drop then end. ;
+  case. 2dup old-file 2dup new-file ok? if host-file else 2drop then end. ;
 """
 
 
@@ -333,7 +330,7 @@ def run_driver(gforth, entries, directory):
         if line.startswith("CASE "):
             current = int(line.split()[1])
             results[current] = {"depth": None}
-        elif line in ("OLD", "NEW", "ALIAS"):
+        elif line in ("OLD", "NEW"):
             who = line
             results[current][who] = [[], None]
         elif line.startswith("| "):
@@ -468,14 +465,12 @@ def main():
               for s, g in GOLDEN}
     for n, (name, expected) in enumerate(names):
         r = results[n]
-        old, new, alias = r["OLD"], r["NEW"], r["ALIAS"]
+        old, new = r["OLD"], r["NEW"]
         group = name.split(":")[0]
         if r["depth"] != 0:
             problems.append(f"{name}: data stack depth {r['depth']} after the runs")
         if expected is not None and old[1] != expected:
             problems.append(f"{name}: today's reader gave {old[1]}, its test says {expected}")
-        if new != alias:
-            problems.append(f"{name}: the designs differ:\n  shift {new}\n  alias {alias}")
         if name in golden and (new[1][0] != 0 or new[0] != golden[name]):
             problems.append(f"{name}: IR differs from the golden file")
         if name in BIG_VERDICTS:
@@ -500,8 +495,7 @@ def main():
         print(problem, file=sys.stderr)
     summary = "; ".join(f"{group} " + ", ".join(f"{k} {v}" for k, v in sorted(c.items()))
                         for group, c in counts.items())
-    print(f"program words cross-check: {len(names)} inputs, both designs identical on "
-          f"{sum(1 for n in range(len(names)) if results[n]['NEW'] == results[n]['ALIAS'])}; "
+    print(f"program words cross-check: {len(names)} inputs; "
           f"against today's reader: {summary}; the {loads} accepted inputs loaded by Gforth "
           f"too")
     return 1 if problems else 0

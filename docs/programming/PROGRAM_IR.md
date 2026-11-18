@@ -220,19 +220,15 @@ of running, performs its *verification semantics*: `DUP` writes `prim dup`,
 
 ```forth
 s" src/program/clamp.fs" lf-verify-file   ( -- outcome )  \ the mode shift
-s" src/program/clamp.fs" lf-alias-file    ( -- outcome )  \ the separate vocabulary
 ```
 
-Each writes the clamp's IR above, byte for byte, one line at a time through
+It writes the clamp's IR above, byte for byte, one line at a time through
 the output word `lf-verify-to ( xt -- )` chose (each line is typed by
 default), and gives an outcome; `lf-verify-text ( c-addr u c-addr2 u2 --
-outcome )` and `lf-alias-text` run lines of text named c-addr2 u2 in the
-header, and `lf-verify-reason`, `lf-verify-where` and `lf-verify-message`
+outcome )` runs lines of text named c-addr2 u2 in the header, and `lf-verify-reason`, `lf-verify-where` and `lf-verify-message`
 tell why and where the last run stopped. A diagnostic has the reader's form
-(below) and its reason numbers, plus six: 27 "the host read a literal
-differently from its text" (the separate vocabulary only), 28 "run while
-Forth is compiling", 29 "a standard word redefined before the run" (the
-mode shift only), 30 "a name that reads as a number", and, for
+(below) and its reason numbers, plus five: 28 "run while Forth is
+compiling", 29 "a standard word redefined before the run", 30 "a name that reads as a number", and, for
 [IR 0.2](#ir-02), 31 "a name the IR gives another version" and 32 "text
 not closed on its line"; reason 2 reads "a Forth word outside IR 0.2".
 The lines reach the output word when the run ends, the version line
@@ -243,9 +239,8 @@ first (IR 0.2 only when a line needs it).
 | [`src/lib/text-run.fs`](../../src/lib/text-run.fs) | General library (helpers private, ADR 0010): the search order, compilation word list and `BASE` saved and restored, a whole file read as bytes into a buffer (full when it fills it), lines split at LF, the plain-text rule |
 | [`src/program/verify-report.fs`](../../src/program/verify-report.fs) | The run record, the reasons (in the authoring layer's message format, `src/author/errors.fs`), output lines and diagnostics |
 | [`src/program/verify-semantics.fs`](../../src/program/verify-semantics.fs) | The verification semantics: one table keyed by name, the actions of `:`, `;`, `CONSTANT`, `IF` … and the 38 primitives, definitions, frames, literals |
-| [`src/program/verify-runner.fs`](../../src/program/verify-runner.fs) | The runner both designs share: lines, files read a block at a time, isolation, exceptions |
-| [`src/program/verify.fs`](../../src/program/verify.fs) | **The mode shift** (ADR 0019 §9 (b2), the owner's primary design) |
-| [`src/program/verify-alias.fs`](../../src/program/verify-alias.fs) | The separate vocabulary, kept working beside it with the same actions |
+| [`src/program/verify-runner.fs`](../../src/program/verify-runner.fs) | The runner: lines, files read a block at a time, isolation, exceptions |
+| [`src/program/verify.fs`](../../src/program/verify.fs) | **The mode shift** (ADR 0019 §9 (b2), the owner's chosen design) |
 
 **The mode shift.** The words are Forth's own: `DUP` is `FORTH-WORDLIST`'s
 `DUP`, and its verification semantics sit in a table beside it. The runner
@@ -264,24 +259,23 @@ one shared token, neither is a compile-only word redefined after. Run mode
 is another Forth, so a tampered host stays an assumption in any case. No
 host word ever runs, and the host converts no number.
 
-**The separate vocabulary.** LeanForth's own words named `dup`, `if`, `:`
-… live in a word list of their own; with only that list and the file's
-words in the search order, Forth's interpreter finds and runs them, and
-each performs the same action. Forth also reads the numbers, and Gforth
-1.0's recognizers read more forms (`"x"`, `->x`, `` `dup ``, `1e`), so each
-word first checks the text since the previous one (the *gap*): only plain
-decimals, each written as `lit n`, and the data stack grown by exactly
-their values. It cannot see a standard word redefined before the run, nor
-a host word named like a decimal, which the mode shift refuses.
+**The separate vocabulary, retired.** ADR 0019's second design, which
+kept LeanForth's own words named `dup`, `if`, `:` … in a word list of
+their own and let Forth's interpreter find them, was kept working beside
+the mode shift until the owner retired it on 2026-11-18
+([decisions](../project/OWNER_DECISIONS.md#decisions-of-2026-11-18-morning-page));
+`src/program/verify-alias.fs` and its tests remain in the repository's
+history, and its reason 27 ("the host read a literal differently from its
+text") is not reused.
 
-**What they accept** is what the reader accepts (below): colon definitions
+**What it accepts** is what the reader accepts (below): colon definitions
 and constants made of IR 0.1's primitives, control words, plain decimals
 and earlier definitions, with `\` and `( )` comments and `DECIMAL`, in any
 case of letters; the same lines and characters and the same capacities,
 with a file read a block at a time and no limit on its size; and, since
 IR 0.2, what [IR 0.2](#ir-02) adds (redefinitions of the file's own words,
 output words, `LSHIFT`, `-ROT`, prefixed numbers and 32-bit literals). On
-IR 0.1 input they differ from the reader on purpose in four ways, from the
+IR 0.1 input it differs from the reader on purpose in four ways, from the
 owner's answers and ADR 0019 §2-§3:
 
 - *Forth-2012's Core and Core Ext words are reserved:* one outside IR 0.2
@@ -312,9 +306,7 @@ order of more than 16 word lists is refused as *full* before anything
 changes); `BASE` is ten throughout; after each line `STATE` must be zero
 and the data stack as deep as before (defence in depth: no input reaches
 either check). Every `THROW` is caught: a run is the authoring program's
-top level (ADR 0018) and gives only an outcome. A token that Forth's
-interpreter cannot read (the separate vocabulary) is refused as unknown at
-the first token after the checked text that is no plain decimal. An output
+top level (ADR 0018) and gives only an outcome. An output
 word that throws or leaves a cell fails the run as *invalid* ("output word
 failed"); a run started by the output word in its own context aborts
 (`THROW` −2) and changes nothing. One run at a time in each context.
@@ -326,7 +318,8 @@ authoring layer it belongs in the authoring program (plan 8.2.1) and
 records and its reading of the invoking token back from `>IN`.
 
 **Evidence** (`make test-program-verify`, Gforth 1.0.0 and 0.7.3,
-2026-11-04, after review rvPW): the three golden files byte for byte in
+2026-11-04, after review rvPW; until 2026-11-18 it covered the separate
+vocabulary too, and its two planted faults went with it): the three golden files byte for byte in
 both designs; 287 inputs through the reader and both designs (108 cases of
 the reader's tests, 151 hostile inputs, 28 files: every kind of line end,
 a file of 65,536 bytes ending in an LF with a redefinition after it,
@@ -1001,7 +994,7 @@ words write the lowest version that fits.
 
 ```sh
 make test-program-ir        # receipts, verbatim copies, reader tests and files (Gforth, Python)
-make test-program-verify    # the program words: both designs, cross-check, round trip
+make test-program-verify    # the program words: the mode shift, cross-check, round trip
 make reference-program-ir   # the Lean model, its axioms, its IR against the golden files
 make reference-program-ir-run   # the IR interpreter against Lean, verify_ir02.py --lean, VCs
 ```
@@ -1029,10 +1022,10 @@ all-primitives source),
 (copies, axioms, the primitive tables of the reader and the program words,
 Lean-versus-reader comparison); the program words'
 [`tests/program/verify.fs`](../../tests/program/verify.fs) (golden files,
-diagnostics and isolation in both designs, redefined standard words),
+diagnostics and isolation, redefined standard words),
 [`tests/program/verify_check.py`](../../tests/program/verify_check.py)
-(both designs against each other and the reader, with Gforth loading what
-they accept),
+(the mode shift against the reader, with Gforth loading what it
+accepts),
 [`tests/program/verify_roundtrip.py`](../../tests/program/verify_roundtrip.py)
 (round trip and random programs) and
 [`tests/lib/text-run.fs`](../../tests/lib/text-run.fs) (their library).

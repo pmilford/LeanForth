@@ -673,16 +673,6 @@
   "reason": "false positive: the difference of two fields, different records",
   "tokens": 7
  },
- "4c5832d9a918": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/program/verify-alias.fs:pv-gap-scan",
-   "src/program/verify-semantics.fs:pv-reserve-all"
-  ],
-  "reason": "false positive: a token loop on lfa-next-token, each with its own step",
-  "tokens": 8
- },
  "50c4f8f07dd3": {
   "copies": 2,
   "kind": "shape",
@@ -1426,16 +1416,6 @@
   ],
   "reason": "false positive: a field of a record or 0, different records",
   "tokens": 8
- },
- "8e488f6efdbb": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/program/ir-reader.fs:ir-unreadable",
-   "src/program/verify-alias.fs:pv-gap"
-  ],
-  "reason": "false positive: three different words in a row",
-  "tokens": 6
  },
  "8e4e15a62296": {
   "copies": 2,

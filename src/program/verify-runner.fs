@@ -1,4 +1,4 @@
-\ The runner of correctness mode (ADR 0019 §3), shared by both designs. It
+\ The runner of correctness mode (ADR 0019 §3), for the mode shift. It
 \ reads a source file as bytes, a block at a time and with no limit on its
 \ size, as today's reader does; splits it into lines at LF (one CR just
 \ before an LF dropped); refuses any character other than printable ASCII,
@@ -70,7 +70,6 @@ end-structure
 \ without floating point, where the depth is always 0).
 : pv-floats! ( -- ) floats-depth pv-flow pv-flow-floats ! ;
 : pv-floats-clear ( -- ) pv-flow pv-flow-floats @ floats-drop-to ;
-: pv-floats? ( -- flag ) floats-depth pv-flow pv-flow-floats @ = ;
 
 \ The line in the source buffer, after the design's entry text, and what
 \ the design's line word hands to EVALUATE.
@@ -183,9 +182,9 @@ end-structure
   pv-outcome @ ok? if pv-line# @ 0 lfa-pos pv-where ! then ;
 : pv-go ( -- outcome ) ['] pv-work catch pv-caught pv-finish pv-outcome @ ;
 
-\ Running text or a file in a design; the public words of verify.fs and
-\ verify-alias.fs. Text is lines separated by LF, named c-addr2 u2 in the
-\ header; it must stay unchanged during the run.
+\ Running text or a file in a design; the public words of verify.fs. Text
+\ is lines separated by LF, named c-addr2 u2 in the header; it must stay
+\ unchanged during the run.
 : pv-text-run ( c-addr u c-addr2 u2 design -- outcome ) pv-prepare pv-rest! pv-go ;
 : pv-file-run ( c-addr u design -- outcome ) pv-prepare true pv-reading ! pv-go ;
 

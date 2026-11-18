@@ -1,6 +1,6 @@
-\ The program words' run record, reasons and output (ADR 0019): shared by
-\ both designs that run a Forth source file in correctness mode, the mode
-\ shift (verify.fs) and the separate vocabulary (verify-alias.fs). A run
+\ The program words' run record, reasons and output (ADR 0019), for the
+\ mode shift (verify.fs), which runs a Forth source file in correctness
+\ mode. A run
 \ writes the program IR (docs/programming/PROGRAM_IR.md) one line at a
 \ time, each line with the line and column of its source token, and stops
 \ at the first refusal with one diagnostic line, "OUTCOME @line:column:
@@ -20,7 +20,9 @@
 \
 \ Reasons are numbered as src/program/ir-reader.fs, the reader of IR 0.1
 \ and the program words' earlier test oracle, numbers its diagnostics,
-\ plus six of their own (27 to 32); their messages are records in the
+\ plus five of their own (28 to 32; 27, "the host read a literal
+\ differently from its text", was the separate vocabulary's, retired on
+\ 2026-11-18, and is not reused); their messages are records in the
 \ format of the authoring layer's catalogue (src/author/errors.fs), each
 \ with its fixed outcome. The current token is an offset into the line
 \ being run, the authoring layer's idea of a position
@@ -30,7 +32,7 @@
 \ them in their trusted-reader assumption. State: one context record,
 \ pv-run, reached only through the accessors below, and the heap buffer it
 \ points to during a run; the catalogue, the indentation's blanks and the
-\ two designs' records, read-only once loaded. The output word runs when a
+\ design records, read-only once loaded. The output word runs when a
 \ run ends, while the run is still under way; it must take its two cells
 \ and leave none (else the run fails as invalid, "output word failed"),
 \ and a run it starts in its own context aborts (THROW -2) and changes
@@ -61,7 +63,7 @@ require ../author/errors.fs
 19 constant pv-why-one-value     20 constant pv-why-borrowed
 21 constant pv-why-dividing      23 constant pv-why-output
 25 constant pv-why-busy          26 constant pv-why-interrupted
-27 constant pv-why-host-literal  28 constant pv-why-compiling
+28 constant pv-why-compiling
 29 constant pv-why-replaced      30 constant pv-why-number-name
 31 constant pv-why-version-name  32 constant pv-why-open-text
 
@@ -90,7 +92,6 @@ create pv-catalogue
   pv-why-output s" output word failed" lfa-invalid,
   pv-why-busy s" reader busy" lfa-invalid,
   pv-why-interrupted s" read stopped by an exception" lfa-invalid,
-  pv-why-host-literal s" the host read a literal differently from its text" lfa-invalid,
   pv-why-compiling s" run while Forth is compiling" lfa-invalid,
   pv-why-replaced s" a standard word redefined before the run" lfa-unsupported,
   pv-why-number-name s" a name that reads as a number" lfa-unsupported,
@@ -115,9 +116,9 @@ create pv-catalogue
 4096 constant pv-written-start   \ characters first allocated for the lines written
 
 \ A design: how it runs a line, made once while its file loads and read
-\ only afterwards. The mode shift (verify.fs) and the separate vocabulary
-\ (verify-alias.fs) are the two; pv-design: makes an empty one, whose
-\ fields the design's file fills.
+\ only afterwards. The mode shift (verify.fs) is the one in use, the
+\ tests make variants of it; pv-design: makes an empty one, whose fields
+\ the design's file fills.
 begin-structure /pv-design
   field: pv-design-prefix        \ ( -- c-addr u ) text before each line
   field: pv-design-order         \ ( -- ) set the run's search order
