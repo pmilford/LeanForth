@@ -73,7 +73,7 @@ reason = "a step log whose close failed (/dev/full) is said to end at its last w
 [[fault]]
 id = "cli-steps-line-end-alone"
 file = "src/cli/leanforth.fs"
-old = ''': cli-line-end? ( c-addr u -- flag ) dup if + 1- c@ 10 = else nip then ;'''
+old = ''': cli-line-end? ( c-addr u -- flag ) dup 0= if nip exit then + 1- 1 s\" \n" compare 0= ;'''
 new = ''': cli-line-end? ( c-addr u -- flag ) s\" \n" compare 0= ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "a write that ends a line with more before it in the same write is not marked, so the cut goes back a whole line too far (review N3)"
