@@ -192,3 +192,61 @@ old = ''': lfa-heap-must ( outcome -- ) ok? 0= abort" author: no heap for a stor
 new = ''': lfa-heap-must ( outcome -- ) drop ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "reuse pass part A2, R5: a heap store the heap could not start goes on unnoticed"
+
+# Part A3 (branch reuse-front-a3): the index of terms a node may be shared
+# with (review reuse-front-a finding 1), author/build.fs.
+[[fault]]
+id = "rfa3-share-identity-unchecked"
+file = "src/author/build.fs"
+old = '''  dup lfa-link-term @ dup lfa-count < if lfa-identity swap lfa-link-identity @ ='''
+new = '''  dup lfa-link-term @ dup lfa-count < if 2drop true'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A3, finding 1: a link of a term given back by a rollback still answers, for the new term made at its number"
+
+[[fault]]
+id = "rfa3-share-noted"
+file = "src/author/build.fs"
+old = '''  lfa-link dup lfa-link-live? if lfa-link-term @ lfa-shareable? else drop false then ;'''
+new = '''  lfa-link lfa-link-live? ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A3, findings 1 and 2: a term with a label or note is shared, so a label appears at two places"
+
+[[fault]]
+id = "rfa3-share-rollback-unseen"
+file = "src/author/build.fs"
+old = ''': lfa-kept? ( k -- flag ) 1- lfa-identity lfa-shares lfa-shares-last @ > 0= ;'''
+new = ''': lfa-kept? ( k -- flag ) drop true ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A3, finding 1: after a rollback the terms made again at the numbers given back are never entered"
+
+[[fault]]
+id = "rfa3-share-constants-unsought"
+file = "src/author/build.fs"
+old = '''lf-tag-symbolic-sort lf-tag-bit or lf-tag-constant lf-tag-bit or lf-tag-lit lf-tag-bit or'''
+new = '''lf-tag-symbolic-sort lf-tag-bit or lf-tag-lit lf-tag-bit or'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A3, finding 1: constants are not entered, so a constant written twice is two nodes"
+
+[[fault]]
+id = "rfa3-share-newest-first"
+file = "src/author/build.fs"
+old = '''  dup @ if 2dup cell+ @ lfa-link lfa-link-next ! else 2dup ! then cell+ ! ;'''
+new = '''  2dup ! cell+ ! ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A3, finding 1: a chain keeps only its newest term, so a lookup finds a copy made for a label instead of the first term"
+
+[[fault]]
+id = "rfa3-share-never-renewed"
+file = "src/author/build.fs"
+old = ''': lfa-stale? ( -- flag ) lfa-stale @ lfa-done @ > ;'''
+new = ''': lfa-stale? ( -- flag ) false ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A3, finding 1: the links of terms given back pile up and the index is never made again"
+
+[[fault]]
+id = "rfa3-share-room-ignored"
+file = "src/author/build.fs"
+old = ''': lfa-room ( outcome -- ) ok? lfa-e-terms-full lfa-must ;'''
+new = ''': lfa-room ( outcome -- ) drop ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A3, finding 1: a memo or link the heap refused goes unnoticed and the run goes on with a broken index"

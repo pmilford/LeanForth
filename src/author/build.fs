@@ -16,6 +16,8 @@
 
 require ../lib/lib.fs
 require ../lib/find.fs
+require ../lib/memo.fs
+require ../lib/slab.fs
 require ../core/terms.fs
 require ../core/literals.fs
 require ../core/projections.fs
@@ -42,13 +44,99 @@ require ./errors.fs
   lf-tag-lit over lf-lit-cell rot lf-term-second@ ;
 : lfa-term-fields ( term -- tag first second )
   dup lf-lit-leaf? if lfa-lit-fields else lf-term-slot lf-term-fields@ then ;
-: lfa-term-same? ( node term -- flag )
-  lfa-term-fields 3 pick node-second @ = >r 2 pick node-first @ = >r
-  over node-tag @ = nip r> r> and and ;
+
+\ The index of the terms a node may be shared with (review reuse-front-a
+\ finding 1: a linear scan of the term store for each new node grew as
+\ the cube of a statement's arrows once a declaration's values had no
+\ limit). A memo (lib/memo.fs) maps a term's fields, as lfa-term-fields
+\ gives them, to the chain of the terms that have them, oldest first:
+\ links (term, identity, next) in a slab (lib/slab.fs). Only the tags
+\ that a lookup seeks are entered (lfa-sought-tags: those lfa-copy
+\ shares). The index follows the term store lazily: a lookup first
+\ enters the terms made since the last one (lfa-shares-follow), and it
+\ tells a rollback or reset by identities (core/terms.fs: a record's
+\ identity is a serial that never repeats and grows with its number, so
+\ a record made since the newest one entered has a newer identity). The
+\ links of terms given back stay in their chains, stale, and a lookup
+\ passes over them; once stale links outnumber live ones the index is
+\ made again. A lookup answers the first live term of its chain that has
+\ no label or note: the first term number that a scan of the whole store
+\ would find, so sharing is as it was. Cost: a hash lookup and a link or
+\ two per node; per entered term a link of three cells and, per distinct
+\ fields, a memo entry of five. A heap that refuses the memo or a link
+\ stops the run as a full term store (60), never with another node.
+lf-tag-app lf-tag-bit lf-tag-projection lf-tag-bit or lf-tag-bvar lf-tag-bit or
+lf-tag-symbolic-sort lf-tag-bit or lf-tag-constant lf-tag-bit or lf-tag-lit lf-tag-bit or
+lf-tag-proj lf-tag-bit or constant lfa-sought-tags
+begin-structure /lfa-link
+  field: lfa-link-term
+  field: lfa-link-identity   \ the term's identity when it was entered
+  field: lfa-link-next       \ the next link of the chain, numbered from 1; 0 at the end
+end-structure
+begin-structure /lfa-shares
+  /memo +field lfa-shares-memo   \ fields -> chain: first and last link (from 1)
+  /slab +field lfa-shares-links
+  field: lfa-shares-done         \ terms 0 .. done-1 are entered
+  field: lfa-shares-last         \ the newest identity entered
+  field: lfa-shares-stale        \ terms given back since the index was made
+end-structure
+/lfa-shares context-record: lfa-shares
+/node context-record: lfa-share-key
+: lfa-memo ( -- memo ) lfa-shares lfa-shares-memo ;
+: lfa-links ( -- slab ) lfa-shares lfa-shares-links ;
+: lfa-done ( -- a-addr ) lfa-shares lfa-shares-done ;
+: lfa-stale ( -- a-addr ) lfa-shares lfa-shares-stale ;
+: lfa-link ( n -- addr ) 1- lfa-links slab-at ;
+:noname ( -- ) lfa-memo memo-free lfa-links slab-free ; context-teardown
+: lfa-room ( outcome -- ) ok? lfa-e-terms-full lfa-must ;
+: lfa-unentered ( -- ) 0 lfa-done ! 0 lfa-stale ! ;
+: lfa-shares-make ( -- )
+  lfa-unentered lfa-links slab-free 3 2 lfa-memo memo-init lfa-room
+  /lfa-link dup slab-limit-max lfa-links slab-init lfa-room ;
+: lfa-shares-ready ( -- ) lfa-memo memo-live? 0= if lfa-shares-make then ;
+: lfa-renew ( -- ) lfa-memo memo-empty lfa-links slab-clear lfa-unentered ;
+
+\ Entering term t: a link at the end of its fields' chain.
+: lfa-identity ( term -- identity ) lf-term-identity 0= if 0 then ;
+: lfa-link! ( term addr -- )
+  2dup lfa-link-term ! swap lfa-identity over lfa-link-identity ! 0 swap lfa-link-next ! ;
+: lfa-link-new ( term -- n ) 1 lfa-links slab-claim lfa-room 1+ tuck lfa-link lfa-link! ;
+: lfa-chain+ ( n a-addr -- )
+  dup @ if 2dup cell+ @ lfa-link lfa-link-next ! else 2dup ! then cell+ ! ;
+: lfa-key ( term -- key ) lfa-term-fields lfa-share-key dup >r node! r> ;
+: lfa-sought-tag? ( key -- flag ) node-tag @ lf-tag-bit lfa-sought-tags and 0<> ;
+: lfa-enter-key ( term key -- )
+  lfa-memo memo-put lfa-room swap lfa-link-new swap lfa-chain+ ;
+: lfa-enter ( term -- ) dup lfa-key dup lfa-sought-tag? if lfa-enter-key else 2drop then ;
+: lfa-entered ( term -- )
+  dup lfa-enter dup lfa-identity lfa-shares lfa-shares-last ! 1+ lfa-done ! ;
+
+\ Following the store: the terms below k that are the records entered
+\ (no newer identity), the rest given back, and the terms made since.
+: lfa-count ( -- n ) lf-term-count @ ;
+: lfa-kept? ( k -- flag ) 1- lfa-identity lfa-shares lfa-shares-last @ > 0= ;
+: lfa-kept ( -- k )
+  lfa-done @ lfa-count min begin dup while dup lfa-kept? 0= while 1- repeat then ;
+: lfa-forget ( k -- ) lfa-done @ over - lfa-stale +! lfa-done ! ;
+: lfa-stale? ( -- flag ) lfa-stale @ lfa-done @ > ;
+: lfa-shares-follow ( -- )
+  lfa-shares-ready lfa-kept lfa-forget lfa-stale? if lfa-renew lfa-shares-ready then
+  lfa-count lfa-done @ ?do i lfa-entered loop ;
+
+\ A lookup: the first link whose term is the record entered, within the
+\ store's count, and has no label or note.
+: lfa-link-live? ( addr -- flag )
+  dup lfa-link-term @ dup lfa-count < if lfa-identity swap lfa-link-identity @ =
+  else 2drop false then ;
+: lfa-link-hit? ( n -- flag )
+  lfa-link dup lfa-link-live? if lfa-link-term @ lfa-shareable? else drop false then ;
+: lfa-chain-next ( n -- n' ) lfa-link lfa-link-next @ ;
+: lfa-chain-find ( n -- term true | false )
+  begin dup while dup lfa-link-hit? 0= while lfa-chain-next repeat
+    lfa-link lfa-link-term @ true then ;
 \ An existing term equal to the node sought, without labels or notes.
-: lfa-term-is? ( node term -- node flag )
-  2dup lfa-term-same? swap lfa-shareable? and ;
-: lfa-find ( node -- term true | false ) lf-term-count @ ['] lfa-term-is? find-index ;
+: lfa-find ( node -- term true | false )
+  lfa-shares-follow lfa-memo memo-find dup if @ lfa-chain-find then ;
 
 \ New nodes; a refused allocation stops the run (the term store is full).
 : lfa-made ( index true | false -- term ) 0= if lfa-e-terms-full lfa-fail then ;

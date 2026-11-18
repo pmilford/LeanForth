@@ -766,6 +766,46 @@ def check_texts():
           f"{len(TEXT_EXIT)} stopped before any check, {len(wrong)} wrong twins rejected")
 
 
+# Large statements under a time budget (review reuse-front-a finding 1):
+# with no limit on a declaration's values, the search for a node to share
+# was a scan of the whole term store per node, and P -> ... -> P of 500
+# arrows took minutes. ARROW_BUDGET seconds are generous for a loaded
+# machine (600 arrows: about 1.5 s; the scan took minutes). 2,000 arrows
+# go deeper than the host's return stack allows the shift of a statement's
+# variables (author/build.fs, lfa-shift): full, error 300 (exit 3), at once.
+ARROW_BUDGET = 30
+ARROW_CASES = ((600, 0, "t: accepted"), (2000, 3, "error 300 at line:col"))
+
+
+def arrows(n):
+    """theorem t : (P : Prop) -> P -> ... -> P (n Ps), proved by fun P x1 .. => x1."""
+    def lines(tokens):
+        return "".join("  " + " ".join(tokens[i:i + 40]) + "\n" for i in range(0, len(tokens), 40))
+    statement = ["Prop explicit: P"] + ["P"] * n + ["->"] * (n - 1) + ["forall"]
+    proof = (["Prop explicit: Q"] + [f"Q explicit: x{i}" for i in range(1, n)] + ["x1"]
+             + ["fun"] * n)
+    return f"kernel-form\ntheorem t\n{lines(statement)}:=\n{lines(proof)}end t\n"
+
+
+def check_arrows():
+    with tempfile.TemporaryDirectory() as workdir:
+        for n, want, line in ARROW_CASES:
+            path = pathlib.Path(workdir) / f"arrows-{n}.lf"
+            path.write_text(arrows(n), encoding="utf-8")
+            command = ["bin/leanforth", "check", str(path)]
+            try:
+                run = subprocess.run(command, stdin=subprocess.DEVNULL, capture_output=True,
+                                     timeout=ARROW_BUDGET)
+            except subprocess.TimeoutExpired:
+                raise Failure(f"check of {n} arrows: over {ARROW_BUDGET} s") from None
+            out = run.stdout.decode("utf-8", "replace") + run.stderr.decode()
+            if run.returncode != want or line not in out:
+                raise Failure(f"check of {n} arrows: exit {run.returncode}, want {want} "
+                              f"and {line!r}:\n{out[-600:]}")
+    print(f"large statements: {', '.join(str(n) for n, _, _ in ARROW_CASES)} arrows "
+          f"within {ARROW_BUDGET} s")
+
+
 # A constant of the Init slice whose name has a numeric part (lfc-part's
 # numeric branch, review L4).
 NUMERIC = "_private.Init.Data.Nat.Basic.0.Nat.zero_add.match_1_1"
@@ -1058,6 +1098,7 @@ def main(args):
                 check_corpus()
                 check_lf_files()
                 check_texts()
+                check_arrows()
                 check_text_cases()
     except (Failure, OSError, subprocess.SubprocessError) as error:
         print(f"check_author: {error}", file=sys.stderr)

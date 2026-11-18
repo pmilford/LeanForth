@@ -184,6 +184,100 @@ lfa-items-reset  16 lfa-items store-limit! drop
 text0 s" theorem t" text+ s"  Prop" 17 times
 T{ text$ fails drop drop -> 64 }T
 lfa-items-reset  /lfa-item lfa-store-limit lfa-items store-limit! drop
+\ Sharing (build.fs's index, review reuse-front-a finding 1): a lookup
+\ finds what a scan of the whole term store finds, the first term with the
+\ node's fields and no label or note, after random statements with labels,
+\ rollbacks of the store (one large enough to make the index again, one
+\ that leaves stale links), terms made again at the numbers given back,
+\ and a reset. The scan is the lookup before the index.
+: scan-same? ( node term -- flag )
+  lfa-term-fields 3 pick node-second @ = >r 2 pick node-first @ = >r
+  over node-tag @ = nip r> r> and and ;
+: scan-is? ( node term -- node flag ) 2dup scan-same? swap lfa-shareable? and ;
+: scan-find ( node -- term true | false ) lf-term-count @ ['] scan-is? find-index ;
+create probe /node allot
+: probe-of ( term -- node ) lfa-term-fields probe node! probe ;
+: found ( node xt -- term | -1 ) execute 0= if -1 then ;
+: agree? ( node -- flag ) dup ['] scan-find found swap ['] lfa-find found = ;
+: absent ( node -- node ) 1 over node-second +! ;
+\ Every term of a tag a lookup seeks (a binder never is), and its fields
+\ with the second one more, which mostly no term has.
+: term-agrees? ( term -- flag ) dup probe-of agree? swap probe-of absent agree? and ;
+create sought-tags  lf-tag-app , lf-tag-projection , lf-tag-bvar , lf-tag-symbolic-sort ,
+  lf-tag-constant , lf-tag-lit , lf-tag-proj ,
+: sought? ( term -- flag ) probe-of node-tag @ sought-tags 7 cells-has? ;
+: all-agree? ( -- flag )
+  true lf-term-count @ 0 ?do i sought? if i term-agrees? and then loop ;
+variable share-seed  20261118 share-seed !
+: share-rnd ( n -- u )
+  share-seed @ 1103515245 * 12345 + 2147483647 and dup share-seed ! 16 rshift swap mod ;
+variable depth#  variable label#
+: num+ ( n -- ) 0 <# #s #> text+ ;
+\ Leaves P, Q (variables), Prop (a Sort) and c (a constant); arrows and
+\ applications.
+create leaves  char P c, char Q c, char c c,
+: leaf-text ( k -- c-addr u ) dup 3 = if drop s"  Prop" else s"  " text+ leaves + 1 then ;
+: leaf ( -- ) 4 share-rnd leaf-text text+ 1 depth# +! ;
+: arrow ( -- ) 3 share-rnd if s"  ->" else s"  $" then text+ -1 depth# +! ;
+\ Labels, at most 60 in the run (the note table holds 64).
+: label? ( -- flag ) 6 share-rnd 0= label# @ 60 < and ;
+: label ( -- ) label? if s"  label: l" text+ label# @ num+ 1 label# +! then ;
+: step ( -- ) depth# @ 2 < 3 share-rnd 0= or if leaf else arrow then label ;
+: statement ( n -- ) 0 depth# ! 0 ?do step loop begin depth# @ 1 > while arrow repeat ;
+: axiom-text ( k -- )
+  s"  axiom a" text+ dup num+ s"  Prop explicit: P Prop explicit: Q" text+
+  16 share-rnd 2 + statement s"  forall forall end a" text+ num+ ;
+: stub ( k0 -- ) 0= if s" import-stub c end c" text+ then ;
+: axioms ( k0 n -- outcome )
+  text0 over stub bounds ?do i axiom-text loop text$ lf-author-text ;
+create share-mark /store-mark allot
+variable share-room  lf-term-capacity share-room !  1000000 lf-term-capacity! drop
+variable share-names  lf-name-capacity share-names !  100000 lf-name-capacity! drop
+lf-author-begin lf-author-kernel
+T{ 0 40 axioms all-agree? -> outcome-ok true }T
+T{ share-mark lf-terms store-mark -> outcome-ok }T
+T{ 40 60 axioms all-agree? -> outcome-ok true }T
+T{ share-mark lf-term-rollback all-agree? -> outcome-ok true }T
+T{ lfa-shares lfa-shares-stale @ -> 0 }T
+T{ 100 30 axioms all-agree? -> outcome-ok true }T
+T{ share-mark lf-terms store-mark -> outcome-ok }T
+variable kept-seed  share-seed @ kept-seed !
+T{ 130 10 axioms all-agree? -> outcome-ok true }T
+T{ share-mark lf-term-rollback all-agree? -> outcome-ok true }T
+T{ lfa-shares lfa-shares-stale @ 0> -> true }T
+\ The same statements again, one number later and with a term made before
+\ any lookup: the stale links' numbers now hold other terms.
+T{ share-mark lf-term-rollback 1000 lfa-new-bvar drop -> outcome-ok }T
+kept-seed @ share-seed !
+T{ 140 10 axioms all-agree? -> outcome-ok true }T
+T{ 150 30 axioms all-agree? -> outcome-ok true }T
+\ By hand: #2000 entered at number m, given back, then #2001 made at m and
+\ #2000 at m + 1 with no lookup between: the stale link of m is passed
+\ over (its identity is old), and m is entered again.
+: bvar-sought ( i -- term true | false ) lf-tag-bvar swap 0 probe node! probe lfa-find ;
+variable x-term  variable y-term  variable z-term
+T{ share-mark lf-terms store-mark -> outcome-ok }T
+T{ 2000 lfa-new-bvar x-term ! 2000 bvar-sought -> x-term @ true }T
+T{ share-mark lf-term-rollback -> outcome-ok }T
+2001 lfa-new-bvar y-term !  2000 lfa-new-bvar z-term !
+T{ y-term @ x-term @ = 2000 bvar-sought -> true z-term @ true }T
+T{ 2001 bvar-sought all-agree? -> y-term @ true true }T
+T{ lf-author-begin all-agree? lf-term-count @ -> true 0 }T
+\ The index out of room: a memo that admits no entry, or a slab of two
+\ links, stops the run full (60), never with another node; a memo freed
+\ is made again, with every term entered again.
+: no-entry ( memo -- false ) drop false ;
+: five ( -- c-addr u ) s" axiom a Prop explicit: P P P P P P -> -> -> -> forall end a" ;
+: five-run ( -- outcome code ) five run lf-author-code ;
+T{ five-run -> outcome-ok 0 }T
+' no-entry lfa-memo memo-admit!
+T{ five-run -> outcome-full 60 }T
+0 lfa-memo memo-admit!  lfa-links slab-free  /lfa-link 2 lfa-links slab-init drop
+T{ five-run -> outcome-full 60 }T
+lfa-memo memo-free
+T{ five-run lfa-links slab-count 2 > -> outcome-ok 0 true }T
+T{ 0 1 axioms all-agree? -> outcome-ok true }T
+lf-author-begin share-room @ lf-term-capacity! drop share-names @ lf-name-capacity! drop
 \ A heap store refused at its start aborts (form.fs's lfa-heap-must).
 T{ outcome-full ' lfa-heap-must catch nip outcome-ok ' lfa-heap-must catch -> -2 0 }T
 text0 s" theorem t Prop" text+ s\"  note\" n\"" 65 times
