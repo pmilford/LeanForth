@@ -670,16 +670,6 @@
   "reason": "false positive: a two-way choice on a test of the top item (dup X if Y else Z then), each with its own test and words; a word taking three xts would be no shorter",
   "tokens": 7
  },
- "46add6576f0e": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/lib-decode.fs:lbd-ab?",
-   "src/front/lib-decode.fs:lbd-xab?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 7
- },
  "47757cd38ad0": {
   "copies": 2,
   "kind": "shape",
@@ -2224,17 +2214,6 @@
   "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with/ok-and/ok-then?, already the shared words",
   "tokens": 20
  },
- "c5143d099433": {
-  "copies": 3,
-  "kind": "copy",
-  "members": [
-   "src/front/lib-decode.fs:lbd-slab?",
-   "src/front/lib-decode.fs:lbd-sxab?",
-   "src/front/lib-decode.fs:lbd-sxbc?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front): lib-decode.fs's sunfold decoder tests its slab kinds with three copies of one test (S2 merge B)",
-  "tokens": 7
- },
  "c58391eaab48": {
   "copies": 6,
   "kind": "copy",
@@ -2389,16 +2368,6 @@
   ],
   "reason": "false positive: two fields of a record passed on, different records and words",
   "tokens": 7
- },
- "ca10d6050986": {
-  "copies": 2,
-  "kind": "copy",
-  "members": [
-   "src/front/lib-decode.fs:lbd-sltwo",
-   "src/front/lib-decode.fs:lbd-s-binder"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front): lib-decode.fs's sunfold decoder reads two cells alike in two words (S2 merge B)",
-  "tokens": 6
  },
  "ca3a2c479aab": {
   "copies": 4,
