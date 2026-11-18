@@ -895,8 +895,11 @@ create ed-left-steps
 create ed-dflt-keys
   s" class" counted, s" name" counted, s" priority" counted, s" rank" counted,
   0 0 counted,
-: ed-dflt-decl! ( value i -- outcome )
-  ed-dflt swap c" name" ed-member ed-no-type ['] ed-dflt-decl ed-put ;
+\ A record's member name, a declaration that is no inductive type, into
+\ field xt of addr (default instances' and eliminators').
+: ed-decl-into ( addr value xt -- outcome )
+  swap c" name" ed-member ed-no-type rot ed-put ;
+: ed-dflt-decl! ( value i -- outcome ) ed-dflt swap ['] ed-dflt-decl ed-decl-into ;
 : ed-dflt-class! ( value i -- outcome )
   ed-dflt swap c" class" ed-member ed-a-class ['] ed-dflt-class ed-put ;
 : ed-dflt-priority! ( value i -- outcome )
@@ -913,22 +916,25 @@ create ed-dflt-keys
 \ with those before, by xt ( i j -- flag ).
 : ed-dflt-any? ( i xt -- flag )
   over 0 ?do 2dup i swap execute if 2drop unloop true exit then loop 2drop false ;
-: ed-dflt-key ( i -- class rank ) ed-dflt dup ed-dflt-class @ swap ed-dflt-rank @ ;
-: ed-dflt-same? ( i j -- flag ) ed-dflt-key rot ed-dflt-key d= ;
-: ed-dflt-once ( value i -- outcome )
-  nip ['] ed-dflt-same? ed-dflt-any? 0= ed-e-default-rank ed-or-bad ;
-\ One instance of two classes.
-: ed-dflt-same-decl? ( i j -- flag )
-  ed-dflt ed-dflt-decl @ swap ed-dflt ed-dflt-decl @ = ;
-: ed-dflt-same-class? ( i j -- flag )
-  ed-dflt ed-dflt-class @ swap ed-dflt ed-dflt-class @ = ;
+: ed-dflt-decl@ ( i -- d ) ed-dflt ed-dflt-decl @ ;
+: ed-dflt-class@ ( i -- class ) ed-dflt ed-dflt-class @ ;
+: ed-dflt-rank@ ( i -- rank ) ed-dflt ed-dflt-rank @ ;
+: ed-same-decl? ( i j -- flag ) ed-dflt-decl@ swap ed-dflt-decl@ = ;
+: ed-same-class? ( i j -- flag ) ed-dflt-class@ swap ed-dflt-class@ = ;
+: ed-same-rank? ( i j -- flag ) ed-dflt-rank@ swap ed-dflt-rank@ = ;
+\ One class and one rank; one instance of two classes.
+: ed-dflt-same? ( i j -- flag )
+  2dup ed-same-rank? 0= if 2drop false exit then ed-same-class? ;
 : ed-dflt-clash? ( i j -- flag )
-  2dup ed-dflt-same-decl? if ed-dflt-same-class? 0= else 2drop false then ;
-: ed-dflt-one-class ( value i -- outcome )
-  nip ['] ed-dflt-clash? ed-dflt-any? 0= ed-e-default ed-or-bad ;
+  2dup ed-same-decl? if ed-same-class? 0= else 2drop false then ;
+\ After the rank: no earlier record of the instance with another class
+\ (error 16), none of the class with this rank (error 33).
+: ed-dflt-once ( value i -- outcome )
+  nip dup ['] ed-dflt-clash? ed-dflt-any? if drop ed-e-default ed-bad exit then
+  ['] ed-dflt-same? ed-dflt-any? 0= ed-e-default-rank ed-or-bad ;
 create ed-dflt-steps
-  ' ed-dflt-decl! , ' ed-dflt-class! , ' ed-dflt-one-class , ' ed-dflt-priority! ,
-  ' ed-dflt-rank! , ' ed-dflt-once , 0 ,
+  ' ed-dflt-decl! , ' ed-dflt-class! , ' ed-dflt-priority! , ' ed-dflt-rank! ,
+  ' ed-dflt-once , 0 ,
 : ed-on-default ( value -- outcome )
   dup ed-dflt-keys ed-shape? 0= if drop ed-malformed exit then
   elab-dflts ed-claim ok-then? if ed-dflt-steps ed-steps else nip then ;
@@ -948,8 +954,7 @@ create ed-red-keys  s" name" counted, s" status" counted, 0 0 counted,
 create ed-elim-keys  s" kind" counted, s" name" counted, s" types" counted, 0 0 counted,
 : ed-elim-kind! ( value i -- outcome )
   ed-elim swap c" kind" ed-member ed-elim-names ed-choice ['] ed-elim-kind ed-put ;
-: ed-elim-decl! ( value i -- outcome )
-  ed-elim swap c" name" ed-member ed-no-type ['] ed-elim-decl ed-put ;
+: ed-elim-decl! ( value i -- outcome ) ed-elim swap ['] ed-elim-decl ed-decl-into ;
 : ed-type-item ( item -- outcome ) ed-decl ok-then? if elab-types ed-push then ;
 : ed-types-span ( addr -- )
   elab-types slab-count over ed-elim-types @ - swap ed-elim-types# ! ;

@@ -11345,8 +11345,8 @@ reason = "review fe1d L3, S2: a record kind's own declaration named by two recor
 [[fault]]
 id = "fe-elab-default-twice"
 file = "src/front/elab-data.fs"
-old = '''  nip ['] ed-dflt-clash? ed-dflt-any? 0= ed-e-default ed-or-bad ;'''
-new = '''  2drop outcome-ok ;'''
+old = '''  nip dup ['] ed-dflt-clash? ed-dflt-any? if drop ed-e-default ed-bad exit then'''
+new = '''  nip'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "review fe1d L3, MF1 O2: a default instance named twice with two classes is read (a repeat of one class at another rank is Lean's and read)"
 
@@ -11493,8 +11493,8 @@ quick = true
 [[fault]]
 id = "fe-ed2-default-rank-twice"
 file = "src/front/elab-data.fs"
-old = '''  nip ['] ed-dflt-same? ed-dflt-any? 0= ed-e-default-rank ed-or-bad ;'''
-new = '''  2drop outcome-ok ;'''
+old = '''  ['] ed-dflt-same? ed-dflt-any? 0= ed-e-default-rank ed-or-bad ;'''
+new = '''  drop outcome-ok ;'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "two default instances of one class with one rank are read (error 33 never given)"
 
