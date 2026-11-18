@@ -21,7 +21,7 @@ speed before parallelism adds more.
 
 **What LeanForth is and is not (2026-11-12).** LeanForth today is only the checking half of Lean (the kernel): it re-checks proof terms that Lean produced and exported (NDJSON), including all of Lean's `Init`. It has none of Lean's front end, the larger half: no elaborator (implicit arguments, numerals, unification), no type classes or coercions, no tactics, no pattern matching or recursion compilation, no evaluation. So it cannot yet turn a written theorem into a proof; Lean does all of that before the export. LeanForth text is checked by the kernel since 2026-11-12 (plan 8.2.1a, c, d); there is no program verifier: for the clamp word LeanForth re-checks the proofs Lean wrote (plan 5.5.1, branch `program-551`). The front end is plan phase 8 ([PLAN_DRAFT.md](PLAN_DRAFT.md)), being re-planned from 2026-11-12.
 
-## Now, next, later (updated 2026-11-14)
+## Now, next, later (updated 2026-11-17)
 
 The single list of what is being worked on (owner, 2026-11-12; replaces the near-term queue of
 [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md), stale since 2026-11-03). `scripts/push.sh` refuses to push plan
@@ -29,6 +29,7 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
+- 2026-11-17: S2's merge B (smart unfolding: `n + 0 = n` by `by-rfl`) and the step log (`check --steps`) are written and tested alone on branch `s2-finish`, in the review's fix round, not merged; no done check. The test split is integrated (unit tests on `gforth` and `gforth-fast`, end-to-end tests once, Gforth 0.7.3 unit tests at code pushes, `make daily` for the cache-off full run, which no longer runs at a push). The owner's faster-merge decisions are in OWNER_DECISIONS.md. Planned, not started: slices S7 (`by-ring`) and S8 (`by-norm-num`). The language reference is parked until S2 merges. Next: S2's merge, gates and done check; the front reuse pass with the library tidy-up (plan 1.1.8); FE2 with two fixes (a same-file theorem used plainly by name; `open` of a library namespace); S3; S4. Verified programs (V2-V4): parked by the owner.
 - LeanForth text checked by LeanForth's kernel, with Init imported for real (plan 8.2.1a, c, d): works end to end (done check docs/development/done-checks/2026-11-12-lf-files.md); owner gates [parser], [bypass], [import] approved by the owner 2026-11-12.
   `leanforth check [--env EXPORT] FILE.lf` checks hand-written kernel terms and, since S1 (2026-11-14), elaborated ones. 8.2.1b, e, f
   and g are not started.
