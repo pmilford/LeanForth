@@ -1441,3 +1441,21 @@ branches since 2026-11-12, `tests/mutants/faults.toml` was changed by 18, the `M
    gate is the long step towards `norm_num`, `ring` and proofs about real numbers.
 
 The owner also asked for the plug-in interface itself ("do the tactics plug in and keep going").
+
+## Shorter test runs: per-target reuse, coverage on touched files, Gforth 0.7.3 nightly, more jobs (2026-11-17)
+
+After a push of the test split took about 30 minutes (Lean comparisons 933 s, the unit suite under coverage 511 s,
+Gforth 0.7.3 254 s, `gforth-fast` 110 s, two targets at a time), the owner: "30 minutes testing sounds too long for
+the scope of those recent changes", and suggested fewer Gforth 0.7.3 runs and coverage on the touched files only.
+Approved, all four, with the nightly full run (`make daily`: everything, Lean cache off, Gforth 0.7.3) as the safety
+net:
+
+1. A test target's recorded pass is reused while the files that target reads are unchanged, not only when the whole
+   tree is identical. A target whose inputs cannot be determined always runs.
+2. At a branch tier and at a push, coverage is measured for the tests of the changed files only; full coverage runs
+   nightly. Known gap: a change in one file that lowers another file's coverage is found a day late.
+3. Gforth 0.7.3 runs in the nightly run and before a tag, no longer at pushes (replaces "Gforth 0.7.3 at the push
+   only", 2026-11-14).
+4. A push runs more targets at a time when few agents are running.
+
+Unchanged: the pinned-Lean comparisons and planted faults of every file a change can reach. Branch `test-reuse`.
