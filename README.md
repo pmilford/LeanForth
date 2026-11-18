@@ -90,7 +90,12 @@ each component, its maturity and what is still missing.
 The Makefile uses `.tools/gforth/bin/gforth` and the Lean 4.35.0 toolchain
 binary under `.tools/elan` when present, otherwise `gforth` and `lean` on PATH;
 override with `GFORTH=...` or `LEAN=...`. It calls the toolchain binary
-directly, so no `ELAN_HOME` is needed. Individual targets such as
+directly, so no `ELAN_HOME` is needed. A Lean is taken only from a
+toolchain's own folder (its real path `.../toolchains/NAME/bin/lean`, with
+`NAME/lib/lean` beside it) and never when it is elan or a copy of it:
+`scripts/lean_pin.py check LEAN` judges it before anything runs it, since
+an elan proxy run without `ELAN_HOME` downloads a 3 GB toolchain.
+Individual targets such as
 `make reference` or `make test-constant-term-scope-differential` can also be
 run on their own; `make check` runs every one listed in `DIFFERENTIAL_TARGETS`.
 A missing or failing tool makes the command fail. Make runs 8 targets at a

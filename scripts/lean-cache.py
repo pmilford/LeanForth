@@ -487,15 +487,18 @@ def main(args):
     # checkout, as in a worktree) is found on PATH: execv takes a path, and the toolchain's
     # leanexport is found beside the real file (fix-batch-4, 2026-11-18).
     # Never an elan proxy, which downloads a toolchain when ELAN_HOME is not
-    # set, and a name found on PATH only when it is Lean 4.35.0 (scripts/
-    # lean_pin.py; review fix-batch Re-check 2). An explicit path is checked
-    # for a proxy only, so each call costs no extra run.
+    # set, nor anything not known to be a toolchain's binary, and a name
+    # found on PATH only when it is Lean 4.35.0 (scripts/lean_pin.py; reviews
+    # fix-batch Re-check 2 and F5 of fix-cli-present). An explicit path is
+    # judged by where it is (proxy, layout), which runs nothing, so each call
+    # costs no extra run; a wrapper, a copy or a hard link of a proxy given by
+    # path is refused, not run.
     if os.sep not in lean:
         found = shutil.which(lean)
         reason = found and lean_pin.refusal(found)
         lean = found or lean
     else:
-        reason = lean_pin.proxy(lean) if os.path.exists(lean) else None
+        reason = (lean_pin.proxy(lean) or lean_pin.layout(lean)) if os.path.exists(lean) else None
     if reason:
         sys.exit(f"lean-cache: refused: {reason}")
     mode = os.environ.get("LEANFORTH_LEAN_CACHE", "1")
