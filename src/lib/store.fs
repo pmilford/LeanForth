@@ -47,6 +47,7 @@
 \ capacity identity cells, then the records) is host-specific and must
 \ never be serialized directly.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./bounds.fs
 require ./outcome.fs
 require ./portability.fs
@@ -360,3 +361,4 @@ end-structure
   else 2drop outcome-invalid then ;
 
 module-close
+base !   \ the BASE this file was loaded with

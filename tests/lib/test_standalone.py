@@ -2,15 +2,20 @@
 
 For each of the library's files the test copies the file and exactly the files it requires,
 transitively (its `require ./x.fs` lines), into a temporary folder outside the checkout and
-loads it there under HEX on Gforth (GFORTH) and on gforth-fast beside it (GFORTH_FAST, when
+loads it there with BASE 7 on Gforth (GFORTH) and on gforth-fast beside it (GFORTH_FAST, when
 it exists). So a file that uses a word from a file it does not require fails to load: the
 "requires only what it uses, and everything it uses" rule is checked, not claimed. After
 loading, BASE, the search order and the data stack must be as before, and lf-lib-private
 must not be searched (a file that changes BASE or the search order and does not restore it
 fails). When the header has an example (indented `\\   ` lines after a line starting
-`\\ Example`, with `\\ prints: TEXT` in it), the example runs there too, in decimal, and must
-print TEXT (whitespace compared as single spaces); an example may `require lib/x.fs` another
-library file, which is copied with its own requirements. Every file has such an example.
+`\\ Example`, with `\\ prints: TEXT` in it), the example runs there too, in decimal, after the file was loaded
+with BASE 7, and must print TEXT (whitespace compared as single spaces); an example may
+`require lib/x.fs` another library file, which is copied with its own requirements. Every
+file has such an example. BASE 7 is unusual on purpose: a number with a digit 7, 8 or 9 does
+not read in it and others read as different values, so a file whose numbers depend on the
+BASE it is loaded with fails to load or prints a wrong example, where under HEX or decimal it
+could pass. A source check finds the rest: a file with any number other than 0, 1 and -1
+sets `base @ decimal` before it (and the load check sees BASE restored at its end).
 
 Run from the repository root with GFORTH set (the Makefile does this):
     GFORTH=.tools/gforth/bin/gforth python3 tests/lib/test_standalone.py
@@ -22,6 +27,8 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+
+from test_sha256 import source_words
 
 ROOT = Path(__file__).resolve().parents[2]
 LIB = ROOT / "src" / "lib"
@@ -99,17 +106,17 @@ class Standalone(unittest.TestCase):
             folder = self.folder(name)
             # Ends in decimal: under make coverage Gforth writes its block counts with "."
             # at BYE (scripts/coverage-prelude.fs), which scripts/coverage.py reads as decimal.
-            program = PROBE + f"hex state. require lib/{name} state. cr decimal\n"
+            program = PROBE + f"7 base ! state. require lib/{name} state. cr decimal\n"
             for engine in self.engines():
                 with self.subTest(file=name, engine=Path(engine).name):
                     code, out, err = run(engine, folder, program)
                     self.assertEqual(code, 0, f"{name} does not load alone: {out} {err}")
                     before, after = out.split()[:4], out.split()[4:8]
-                    # BASE 16 and the depth, order depth and private flag as before.
-                    self.assertEqual(after[0], "16", f"{name} leaves BASE changed")
+                    # BASE 7 and the depth, order depth and private flag as before.
+                    self.assertEqual(after[0], "7", f"{name} leaves BASE changed")
                     self.assertEqual(after[1], before[1], f"{name} leaves the stack changed")
                     # module.fs, loaded once, puts lf-lib in the search order for good.
-                    grown = int(after[2], 16) - int(before[2], 16)
+                    grown = int(after[2], 7) - int(before[2], 7)
                     lib = "module.fs" in closure(name)
                     self.assertEqual(grown, 1 if lib else 0, f"{name} changes the search order")
                     self.assertEqual(after[3], "0" if lib else "x",
@@ -124,9 +131,57 @@ class Standalone(unittest.TestCase):
             folder = self.folder(name, EXAMPLE_REQUIRE.findall(program))
             for engine in self.engines():
                 with self.subTest(file=name, engine=Path(engine).name):
-                    code, out, err = run(engine, folder, f"require lib/{name}\ndecimal\n" + program + "decimal\n")
+                    code, out, err = run(engine, folder,
+                                         f"7 base ! require lib/{name}\ndecimal\n" + program + "decimal\n")
                     self.assertEqual(code, 0, f"{name}'s example fails: {out} {err}")
                     self.assertEqual(" ".join(out.split()), expected, f"{name}'s example")
+
+
+# A number token of Forth source: digits, perhaps signed or ending in "." (a double).
+# Numbers written with #, $ or % name their base and are not matched.
+NUMBER = re.compile(r"^-?[0-9]+\.?$")
+STRINGS = ('s"', '."', 'c"', 'abort"', 's\\"')
+
+
+def base_dependent_numbers(text):
+    """The numbers of Forth source read before an interpreted `base @ decimal`, other than
+    0, 1 and -1 (which read the same in every BASE). Strings and the character after CHAR
+    and [CHAR] are skipped."""
+    words, found, i, colon, string = source_words(text), [], 0, False, False
+    while i < len(words):
+        word = words[i].lower()
+        if string:
+            string = not word.endswith('"')
+        elif word in STRINGS:
+            string = True
+        elif word in ("char", "[char]"):
+            i += 1
+        elif word == "decimal" and not colon and [w.lower() for w in words[max(i - 2, 0):i]] == ["base", "@"]:
+            return found
+        elif word in (":", ":noname"):
+            colon = True
+        elif word == ";":
+            colon = False
+        elif NUMBER.match(word) and word.rstrip(".") not in ("0", "1", "-1"):
+            found.append(words[i])
+        i += 1
+    return found
+
+
+class Numbers(unittest.TestCase):
+    def test_numbers_are_read_in_decimal(self):
+        for p in sorted(LIB.glob("*.fs")):
+            with self.subTest(file=p.name):
+                self.assertEqual(base_dependent_numbers(p.read_text()), [],
+                                 f"{p.name}: numbers before `base @ decimal`")
+
+    def test_the_source_check_sees_numbers(self):
+        # Regression pins of the check itself.
+        self.assertEqual(base_dependent_numbers("16 constant k ( 99 ) \\ 42\n"), ["16"])
+        self.assertEqual(base_dependent_numbers(': f 0 1 -1 ; s" 7 8" [char] 9 #10 $1f'), [])
+        self.assertEqual(base_dependent_numbers("base @ decimal 16 constant k base !"), [])
+        self.assertEqual(base_dependent_numbers(": f base @ decimal ; 2 constant two"), ["2"])
+        self.assertEqual(base_dependent_numbers("-4111 constant x 3. 2constant d"), ["-4111", "3."])
 
 
 if __name__ == "__main__":

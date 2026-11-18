@@ -973,9 +973,9 @@ test-sections:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/scripts/test_with_scratch.py
 
 # Every src/lib file alone (plan task 1.1.8): copied with exactly the files it
-# requires into a folder outside the project, loaded under HEX on Gforth and
-# gforth-fast, BASE and the search order restored, and each header's example
-# run as written (tests/lib/test_standalone.py).
+# requires into a folder outside the project, loaded with BASE 7 on Gforth and
+# gforth-fast, BASE and the search order restored, every number read in
+# decimal, and each header's example run as written (tests/lib/test_standalone.py).
 test-lib-standalone:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_standalone.py
 

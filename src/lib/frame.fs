@@ -90,6 +90,7 @@
 \ and the steps that open and end a visit are private (lf-lib-private;
 \ ADR 0010).
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./bounds.fs
 require ./outcome.fs
 require ./portability.fs
@@ -259,3 +260,4 @@ dup set-current
   tuck frame-start if ['] frame-call frame-through drop else 2drop -1 outcome-invalid then ;
 
 module-close
+base !   \ the BASE this file was loaded with

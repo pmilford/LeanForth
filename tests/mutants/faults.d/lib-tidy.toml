@@ -1,0 +1,20 @@
+# Planted faults of the library tidy (plan task 1.1.8, branch lib-tidy-3): the standalone
+# test's BASE checks, the requires check and the callers' strict reader framing.
+
+[[fault]]
+id = "lt3-sha256-ends-in-hex"
+file = "src/lib/sha256.fs"
+old = '''base !   \ the BASE this file was loaded with'''
+new = '''base ! hex'''
+test = "python3 tests/lib/test_standalone.py"
+reason = "a library file that leaves BASE in hex: loaded with BASE 7, the load check sees 16 afterwards"
+
+[[fault]]
+id = "lt3-frame-numbers-in-loading-base"
+file = "src/lib/frame.fs"
+old = '''base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
+'''
+new = '''base @   \ the numbers below are decimal; the BASE kept here returns at the end
+'''
+test = "python3 tests/lib/test_standalone.py"
+reason = "frame.fs's numbers (-4111, 16) read in the loading BASE: the source check finds them, and with BASE 7 the file does not load"

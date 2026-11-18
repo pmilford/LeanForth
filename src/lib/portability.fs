@@ -11,6 +11,7 @@
 \   1 2 3 -rot . . .  5 3 >= .  max-n 0> .   \ prints: 2 1 3 -1 -1
 
 \ Comparisons and stack words that Gforth provides as extensions.
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 [undefined] >= [if] : >= ( n1 n2 -- flag ) < 0= ; [then]
 [undefined] <= [if] : <= ( n1 n2 -- flag ) > 0= ; [then]
 [undefined] u<= [if] : u<= ( u1 u2 -- flag ) u> 0= ; [then]
@@ -61,3 +62,4 @@
 [undefined] end-structure [if] : end-structure ( addr n -- ) swap ! ; [then]
 [undefined] +field [if] : +field ( n1 n2 "name" -- n3 ) create over , + does> @ + ; [then]
 [undefined] field: [if] : field: ( n1 "name" -- n2 ) aligned 1 cells +field ; [then]
+base !   \ the BASE this file was loaded with

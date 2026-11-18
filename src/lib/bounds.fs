@@ -19,6 +19,7 @@
 \   create digits 48 , 57 ,  65 , 70 ,       \ 0-9 and A-F
 \   char 7 digits 2 in-ranges?  char G digits 2 in-ranges?   \ true false
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./portability.fs
 require ./outcome.fs
 require ./module.fs
@@ -75,3 +76,4 @@ lf-lib set-current
 : cell-counted+! ( c-addr u addr -- ) >r tuck r@ cell-count + swap move r> +! ;
 
 module-close
+base !   \ the BASE this file was loaded with

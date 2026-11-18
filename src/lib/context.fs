@@ -94,6 +94,7 @@
 \ tasks start. Untrusted. The layout is host-specific and must never be
 \ serialized.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./blocks.fs
 require ./bounds.fs
 require ./portability.fs
@@ -436,3 +437,4 @@ lf-lib set-current
 : context-catch ( i*x xt -- j*x ior ) lf-context @ >r catch r> lf-context ! ;
 
 module-close
+base !   \ the BASE this file was loaded with

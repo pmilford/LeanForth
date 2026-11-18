@@ -89,6 +89,7 @@
 \ Gforth 1.0 guarded by task-lock), and one ALLOCATEd job record per
 \ submitted job, until it is waited for. Untrusted.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./portability.fs
 require ./blocks.fs
 require ./context.fs
@@ -484,3 +485,4 @@ task-host task-serial = [if]
 task-host task-threads = [if]
 :noname ( -- ) lf-owner @ 0= if pool-stop then defers bye ; is bye
 [then]
+base !   \ the BASE this file was loaded with

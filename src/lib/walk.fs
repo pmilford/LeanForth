@@ -40,6 +40,7 @@
 \   100 chain walk-budget .  5 ' visit chain walk-run .  chain walk-fuel @ .
 \   \ prints: -1 0 94
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./bounds.fs
 require ./node.fs
 require ./outcome.fs
@@ -212,3 +213,4 @@ dup set-current
   >r -rot r@ walk-start-pair if r> walk-loop else drop r> drop outcome-invalid then ;
 
 module-close
+base !   \ the BASE this file was loaded with
