@@ -5338,6 +5338,7 @@ new = '''  2dup utf8-decode dup tr-banned? 0 and if s" u\{" r> lf-tex-code nip e
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Names"
 reason = "a binder or constant name with a line end or a bidirectional control reaches the mathematics line raw and forges outline lines (review rvPR B1)"
 quick = true
+equivalent = "defence in depth since fix-cli-present (review PB1): every name reaches LaTeX through present/name-text.fs, which already writes a banned character as \\u{X}, so latex-text.fs never sees one raw in a name; the escape stays for any other text"
 
 [[fault]]
 id = "forth-stub-without-type-refused"

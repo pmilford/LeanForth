@@ -94,7 +94,8 @@ LIBRARIES["08-monoid"] = str(HERE / "monoid-slice.ndjson")   # the class alone, 
 # Lean's line -> the term printer's line, where they differ, with the reason.
 PRIVATE = ("Lean prints a private declaration by its short name, marked private; the "
            "words have no private declarations and name it in full, numeric part and all")
-TWICE = "_private.tests.reference.author-21-numeric-name.0.twice"
+# As the printer spells it, Lean's Name.toString: the part with hyphens between « ».
+TWICE = "_private.tests.reference.«author-21-numeric-name».0.twice"
 KNOWN = {
     "21-numeric-name": {
         "private theorem twice : ∀ (p : Prop), p → p :=":
