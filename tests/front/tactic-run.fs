@@ -399,6 +399,17 @@ T{ lf-mctx-marks lf-mctx-reset -> 2 }T
 : save-and-fail ( -- ) lf-tac-save 2drop lfa-e-tac-unsolved lfa-fail ;
 T{ two-goals ' save-and-fail ' lf-tac-try catch nip -> lfr-state-lost }T
 lf-tac-forget
+\ And a failure that rolled back the save's own mark (review F4 of
+\ 2026-11-18: the trail refuses it), or after which the saved goal list
+\ is gone (lf-goals! refuses it; runs-reset ends every run): the trail
+\ first, then the goal list, and neither outcome is dropped.
+: kill-own-mark ( -- ) lf-mctx-latest lf-mctx-rollback drop spoil lfa-e-tac-unsolved lfa-fail ;
+: kill-goals ( -- ) runs-reset lfa-e-tac-unsolved lfa-fail ;
+T{ two-goals ' kill-own-mark ' lf-tac-try catch nip lfr-saves -> lfr-state-lost 0 }T
+lf-tac-forget
+T{ two-goals ' kill-goals ' lf-tac-try catch nip lfr-saves lf-mctx-marks
+   -> lfr-state-lost 0 0 }T
+lf-tac-forget
 \ Saves are last in, first out; another is refused, nothing changed.
 variable s1  variable s2
 T{ two-goals lf-tac-save swap s1 ! lf-tac-save swap s2 ! -> outcome-ok outcome-ok }T

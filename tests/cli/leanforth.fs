@@ -406,6 +406,27 @@ T{ thrown-text -> 77 true true }T
   s" error: full: the records written for the LeanForth text were refused" search nip nip ;
 T{ refused-message -> 3 true }T
 [then]
+\ A Forth fault inside a text's run is LeanForth's (review F5 of
+\ 2026-11-18): any THROW but a resource one is error 41, an internal
+\ fault, exit 5 (cli-author-outcome. names it, outcome>code maps it); a
+\ heap refusal (-59) is error 300, full, exit 3. The two words exist only
+\ here, among the LeanForth words the texts tests/cli/forth-*.lf call.
+get-current lf-words set-current
+: forth-fault ( -- ) -21 throw ;
+: forth-room ( -- ) -59 throw ;
+set-current
+: fault-text ( -- c-addr u ) s" tests/cli/forth-fault.lf" ;
+: room-text ( -- c-addr u ) s" tests/cli/forth-room.lf" ;
+T{ fault-text cli-check lf-author-code room-text cli-check lf-author-code -> 5 41 3 300 }T
+[defined] >string-execute [if]
+: said ( c-addr u xt -- code flag )
+  >r ['] cli-check >string-execute r> execute search nip nip ;
+: fault-said ( -- c-addr u )
+  s" error: internal fault: the LeanForth text was not checked: error 41 at line:col 5:1" ;
+: room-said ( -- c-addr u ) s" error: full: the LeanForth text was not checked: error 300" ;
+T{ fault-text ' fault-said said room-text ' room-said said -> 5 true 3 true }T
+[then]
+cli-options
 
 \ A run that stops in the publisher: a THROW before declaration 1's slot
 \ is final. The run is invalid (that slot is open), the code a fault's;

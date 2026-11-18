@@ -20376,3 +20376,36 @@ old = ''': kab-sorts? ( h1 h2 -- flag ) lf-sort? swap lf-sort? and ;'''
 new = ''': kab-sorts? ( h1 h2 -- flag ) 2drop false ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
 reason = "review F2 of 2026-11-18: a Sort pattern in a node of its own is not found where pinned Lean's kabstract abstracts it (check_defeq.py's kabs cases)"
+
+[[fault]]
+id = "fe-run-rolled-old-order"
+file = "src/front/tactic-run.fs"
+old = '''  dup tsv-mark @ lfr-trail-undo ok-then? 0= if exit then
+  dup tsv-view @ lf-mctx-view! lfr-back ;'''
+new = '''  dup lfr-back drop dup tsv-view @ lf-mctx-view! tsv-mark @ lfr-trail-undo ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review F4 of 2026-11-18: a restore puts the goal list back before the trail and drops lf-goals!'s refusal, so a lost goal list goes on silently"
+
+[[fault]]
+id = "fe-run-trail-refusal-ignored"
+file = "src/front/tactic-run.fs"
+old = '''  dup tsv-mark @ lfr-trail-undo ok-then? 0= if exit then'''
+new = '''  dup tsv-mark @ lfr-trail-undo drop'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review F4 of 2026-11-18: a failed attempt that rolled back its save's own mark is restored as if the trail had taken it back"
+
+[[fault]]
+id = "cli-internal-fault-as-misuse"
+file = "src/cli/leanforth.fs"
+old = '''  ." : the LeanForth text was not checked: " lf-author-error. cr outcome>code cli-code! ;'''
+new = '''  ." : the LeanForth text was not checked: " lf-author-error. cr outcome-sane outcome>code cli-code! ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review F5 of 2026-11-18: a Forth fault in a text's run (error 41) exits 4, blaming the text, instead of 5"
+
+[[fault]]
+id = "cli-author-outcome-unnamed"
+file = "src/cli/leanforth.fs"
+old = '''  dup outcome? if outcome-text type else drop ." internal fault" then ;'''
+new = '''  drop ." internal fault" ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review F5 of 2026-11-18: a text's error is said as an internal fault whatever its outcome, so a heap refusal (error 300, full) reads as LeanForth's fault"
