@@ -65,6 +65,13 @@ T{ -1 ' lf-infer! code1 -> -4201 }T   \ no term
 T{ 3 4 ' sum-prod 2 2 lf-meta-catch -> 7 12 outcome-ok }T
 T{ 3 4 ' fails-unsupported 2 1 lf-meta-catch -> -1 outcome-unsupported }T
 T{ 5 ' fails-full 1 2 lf-meta-catch -> -1 -1 outcome-full }T
+\ A wrong cell count is LeanForth's fault, thrown invalid when xt ends:
+\ never a cell of the caller's eaten silently (review F8 of a2-i).
+\ (by-count: a THROW's five cells dropped, xt's two inputs among them.)
+: by-count ( i*x xt in out -- code ) ['] lf-meta-catch catch dup if >r 2drop 2drop drop r> then ;
+T{ 111 222 333 ' sum-prod 3 2 by-count -> 111 -4201 }T
+T{ 3 4 ' sum-prod 2 1 by-count -> -4201 }T
+T{ 3 4 ' sum-prod 2 2 by-count -> 7 12 outcome-ok 0 }T
 : other ( -- ) 77 throw ;
 : author-fails ( -- ) lfa-e-tac-meta lfa-fail ;
 : passed-on ( xt -- code ) 0 0 ['] lf-meta-catch catch nip nip nip ;

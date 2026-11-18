@@ -32,10 +32,18 @@ reason = "a2-i: -4200 (ok) read as a failure's code"
 [[fault]]
 id = "lib-catch-failure-ok"
 file = "src/front/meta-must.fs"
-old = '''  lfm-caught 2r> swap lfm-drop-under lfm-nones ;'''
-new = '''  lfm-caught 2r> swap lfm-drop-under lfm-nones drop outcome-ok ;'''
+old = '''  lfm-caught 2r> swap lfm-drop-under lfm-nones r> drop ;'''
+new = '''  lfm-caught 2r> swap lfm-drop-under lfm-nones r> drop drop outcome-ok ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i fail-closed rule: lf-meta-catch hands back ok for a failure"
+
+[[fault]]
+id = "lib-catch-count-trusted"
+file = "src/front/meta-must.fs"
+old = ''': lfm-left ( j*x d -- j*x outcome ) depth 1- = if outcome-ok else outcome-invalid lf-must then ;'''
+new = ''': lfm-left ( j*x d -- j*x outcome ) drop outcome-ok ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "a2-i review F8: lf-meta-catch trusts its in and out counts, so a wrong count eats a caller's cell silently"
 
 [[fault]]
 id = "lib-catch-swallows-other"
