@@ -58,13 +58,16 @@
 \   scratch cons-reset drop  scratch cons-free  input cons-free
 \   \ prints: 0 1
 \
-\ Interface: cons-class: cons-hooks! /cons cons-init cons-extend cons-free
+\ Interface: /cons-class cons-class: cons-hooks! /cons cons-init cons-extend
+\ cons-free
 \ cons-numbers cons-first cons-under cons-at cons-text-at cons-top
 \ cons-key cons-key! cons-key-fix cons-room cons-room-key cons-find
 \ cons-text, cons-commit cons-entry? cons-in? cons-under? cons-base?
 \ cons-open? cons-allocated cons-used /cons-mark cons-mark
 \ cons-mark-valid? cons-rollback cons-reset cons-seal cons-sealed?
-\ cons-building cons-table cons-records cons-bytes cons-under-finds
+\ the set's fields cons-class cons-sealed cons-building cons-key-base
+\ cons-table cons-records cons-bytes cons-under-finds, the mark's fields
+\ cons-mark-records cons-mark-bytes,
 \ cons-numbers-max cons-load-room cons-adopt (loading a set's records from
 \ a file, each checked by the caller; see cons-load-room).
 \ A sealed set's table is frozen (htab.fs): finds in it write nothing.

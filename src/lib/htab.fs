@@ -47,8 +47,8 @@
 \   seen htab-count .  9 dup hash-fmix seen htab-find . .  seen htab-free
 \   \ prints: 2 -1 1
 \
-\ Interface: /htab /htab-hooks htab-hooks! htab-init htab-free htab-limit
-\ htab-find htab-ready htab-put htab-remove htab-holds? htab-clear
+\ Interface: /htab /htab-hooks hook-rehash hook-same htab-hooks! htab-init
+\ htab-free htab-limit htab-find htab-ready htab-put htab-remove htab-holds? htab-clear
 \ htab-small-slots htab-small? htab-renew htab-presize
 \ htab-spread htab-freeze htab-frozen? htab-live?
 \ htab-count htab-slots htab-stats. State: none of its own; every word

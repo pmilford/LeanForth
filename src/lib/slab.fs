@@ -70,14 +70,16 @@
 \   todo slab-free                              \ prints: 8 7 0 0 -1
 \
 \ Interface: /slab slab-init slab-free slab-live? slab-valid? slab-count
-\ slab-capacity slab-limit slab-unit slab-at slab-top slab-room
-\ slab-reserve slab-claim slab-commit slab-cut slab-remove slab-bad-cut slab-trim
+\ slab-capacity slab-limit slab-unit slab-at slab-base slab-top slab-room
+\ slab-reserve slab-hold slab-claim slab-commit slab-cut slab-remove
+\ slab-bad-cut slab-trim
 \ slab-clear slab-bytes slab-used-bytes slab-limit-max slab-offset
 \ slab-push slab-pop slab-2push slab-2pop slab-last slab-drop
 \ slab-keep slab-restore slab-forget slab-kept
 \ slab-underflow slab-all? slab-2all?
-\ slab-generation /slab-mark slab-mark slab-mark-valid? slab-rollback
-\ slab-mark-count. State: none of its own; every word takes a slab record
+\ slab-generation /slab-mark slab-mark slab-mark-valid? slab-rollback, and
+\ the mark's fields slab-mark-slab slab-mark-epoch slab-mark-entry
+\ slab-mark-count slab-mark-serial. State: none of its own; every word takes a slab record
 \ made by the caller (in the dictionary or inside a larger record) and a
 \ slab owns its heap blocks until slab-free. One slab is single-threaded;
 \ separate slabs are independent. Its memory is host-specific and never

@@ -51,3 +51,19 @@ old = '''  reader-strict elab elab-reader reader-rules!'''
 new = '''  reader-text elab elab-reader reader-rules!'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "the elaboration data's reader takes a last line without its line feed, which the strict framing refuses"
+
+[[fault]]
+id = "lt3-index-without-fields"
+file = "scripts/lib-index.py"
+old = '''STRUCT = re.compile(r"(?:^|\s)(begin-structure|field:|cfield:|2field:|\+field)\s+(\S+)", re.I)'''
+new = '''STRUCT = re.compile(r"(?:^|\s)(begin-structure)\s+(\S+)", re.I)'''
+test = "python3 tests/scripts/test_lib_index.py"
+reason = "structure fields left out of LIBRARY_WORDS.md (review lib-tidy finding 4): the index is stale and the structure test fails"
+
+[[fault]]
+id = "lt3-htab-header-without-hooks"
+file = "src/lib/htab.fs"
+old = '''\ Interface: /htab /htab-hooks hook-rehash hook-same htab-hooks! htab-init'''
+new = '''\ Interface: /htab /htab-hooks htab-hooks! htab-init'''
+test = "python3 tests/scripts/test_lib_index.py"
+reason = "a header's interface list that leaves out public words (htab.fs's hook fields, review note 8)"
