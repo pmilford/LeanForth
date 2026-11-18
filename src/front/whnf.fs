@@ -275,9 +275,8 @@ wc-smatch-kind 1+ constant wc-srec-kind
   dup wc-unassigned? if wc-delayed? 0= else drop false then ;
 : wc-plain-fvar? ( term -- flag )
   dup lf-fvar-live? if lf-fvar-let? 0= else drop false then ;
-: wc-sort? ( term -- flag ) lf-sort? ;
 : wc-inert? ( term -- flag )
-  dup wc-plain-fvar? over wc-plain-mvar? or over lf-term-binder? or swap wc-sort? or ;
+  dup wc-plain-fvar? over wc-plain-mvar? or over lf-term-binder? or swap lf-sort? or ;
 \ Nat.succ applied to one argument that whnf might fold (reduceNat?).
 : wc-succ? ( head -- flag )
   dup lf-term-const? if lf-const-name lf-menv-nat-succ? wc-margs slab-count 1 = and
@@ -336,7 +335,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ Heads whose application whnf leaves as it is and no rule matches
 \ (getStuckMVar? below asks them).
 : wc-head-inert? ( mhead -- flag )
-  dup wc-plain-fvar? over wc-plain-mvar? or swap wc-sort? or ;
+  dup wc-plain-fvar? over wc-plain-mvar? or swap lf-sort? or ;
 : wc-leaf-inert? ( mhead -- flag )
   wc-margs slab-count 0= if lf-term-binder? else drop false then ;
 : wc-const-inert? ( mhead -- flag )

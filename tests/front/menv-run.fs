@@ -154,6 +154,10 @@ T{ pred lf-infer nip pred lf-meta-whnf nip -> outcome-unsupported outcome-unsupp
 T{ pred lf-class? nip s" No.such" 0 cst lf-meta-const-decl -> outcome-unsupported -1 outcome-invalid }T
 unspoil
 T{ s" Nat.pred" d-of lf-menv-kind -> lf-kind-definition }T
+\ The bound is exact (review F11 of 2026-11-18): the library's last
+\ declaration is one of its own, the next index past it is not.
+T{ lf-libdec-count 1- outcome-invalid me-undecoded nip lf-libdec-count outcome-invalid
+   me-undecoded nip -> outcome-unsupported outcome-invalid }T
 
 \ ---- 2. A text declaration made visible at its hand-over (lf-menv-add):
 \ found before the library, its kind, type and binder kinds as written.
