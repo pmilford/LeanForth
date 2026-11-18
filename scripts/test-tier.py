@@ -338,6 +338,14 @@ COVERAGE_TOOL = ("scripts/coverage.py", "scripts/coverage-gforth.sh", "scripts/c
 FAULT_RUNNER = ("scripts/mutants.py", "scripts/gforth-strict.sh")
 
 
+def clean_env():
+    """The environment a digest's make runs in: the caller's without what an enclosing make (make
+    once, make tier) or push.sh passes down, so a digest is the same whoever computes it."""
+    dropped = {"LF_TIMING_LOG", "GFORTH", "LEAN", "LEANEXPORT", "LEAN_CACHE", "TEST_TIMEOUT", "JOBS", "CI"}
+    return {k: v for k, v in changed_tests.make_env().items()
+            if k not in dropped and not k.startswith(("LEANFORTH_", "MAKE"))}
+
+
 def digest_of(*parts):
     return hashlib.sha256(json.dumps(parts, sort_keys=True).encode()).hexdigest()
 
@@ -368,7 +376,7 @@ class Inputs:
 
     def environment(self):
         """The variables make exports to every recipe (beyond the caller's own), normalized."""
-        env = {k: v for k, v in changed_tests.make_env().items() if k != "LF_TIMING_LOG"}
+        env = clean_env()
         run = subprocess.run(["make", "-s", "--no-print-directory", "--eval", "__lf_inputs_env: ; @env -0",
                               "__lf_inputs_env", *PLACEHOLDERS], capture_output=True, text=True, env=env)
         lines = []
@@ -380,7 +388,7 @@ class Inputs:
 
     def recipe(self, target):
         if target not in self.recipes:
-            env = {k: v for k, v in changed_tests.make_env().items() if k != "LF_TIMING_LOG"}
+            env = clean_env()
             run = subprocess.run(["make", "-n", "--no-print-directory", "-j1", target, *PLACEHOLDERS],
                                  capture_output=True, text=True, env=env)
             self.recipes[target] = self.normal(run.stdout) if run.returncode == 0 else None

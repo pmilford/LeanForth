@@ -386,7 +386,7 @@ class PerTarget(Base):
     def makefile(self, old, new):
         text = self.repo.path.joinpath("Makefile").read_text()
         self.assertIn(old, text)
-        self.change({"Makefile": text.replace(old, new)})
+        self.change({"Makefile": text.replace(old, new, 1)})
 
     def test_reused_when_an_unrelated_file_changes(self):
         self.record("test-lib", "test-core", "reference-front")
@@ -445,6 +445,15 @@ class PerTarget(Base):
         self.change({"src/lib/used.fs": ": used 6 ;\n"})
         self.lookup("mutants", "FAULTS=free-one")
         self.lookup("mutants", "FAULTS=core-one", code=1)
+
+    def test_digest_is_the_same_under_an_enclosing_make(self):
+        """A pass recorded by make once or make tier (whose make exports TEST_TIMEOUT, MAKEFLAGS
+        and the like) stands for the same target looked up from a plain shell."""
+        self.makefile("COVERAGE_ENGINE_DIFFERS", "export TEST_TIMEOUT ?= 1800\nCOVERAGE_ENGINE_DIFFERS")
+        self.assertRan(self.records_tool("record", "--", "make", "test-lib", TEST_TIMEOUT="1800", LF_TIMING_LOG="",
+                                         LEANEXPORT="/elsewhere/leanexport"))
+        self.change({"scripts/check.py": "print(6)\n"})
+        self.assertIn("inputs unchanged", self.lookup("test-lib"))
 
     def test_records_of_another_branch_are_not_used(self):
         self.repo.git("checkout", "-q", "-b", "other")
