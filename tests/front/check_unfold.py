@@ -25,7 +25,9 @@ error is LeanForth's invalid), except for the gaps listed, where LeanForth
 answers unsupported and Lean's answer is shown (plan S2 merge B: smart
 unfolding and reduceNat?'s guard).
 
-Usage: LEAN=... GFORTH=... python3 tests/front/check_unfold.py [--write]
+Usage: LEAN=... GFORTH=... python3 tests/front/check_unfold.py [--write | --write-golden]
+       GFORTH=... python3 tests/front/check_unfold.py --golden   (Lean's recorded lines,
+         tests/front/unfold-env.golden and unfold-terms.golden; make test)
 """
 import os
 import pathlib
@@ -200,6 +202,9 @@ TERMS = [
 ]
 
 TERMS_FILE = ROOT / "tests/front/unfold-terms.lean"
+# Pinned Lean's lines, recorded for make test's run without Lean (--golden).
+ENV_GOLDEN = ROOT / "tests/front/unfold-env.golden"
+TERMS_GOLDEN = ROOT / "tests/front/unfold-terms.golden"
 TERMS_HEAD = """
 def unfoldCase (m : TransparencyMode) (e : Expr) : MetaM Unit := do
   try
@@ -234,8 +239,10 @@ def terms_lines(command, source=None):
 
 def terms_compare():
     """The term cases: a list of the gaps' texts; raise on a difference."""
-    want = terms_lines([LEAN, "-DwarningAsError=true", str(TERMS_FILE.relative_to(ROOT))],
-                       terms_source())
+    want = golden(TERMS_GOLDEN, lambda: terms_lines(
+        [LEAN, "-DwarningAsError=true", str(TERMS_FILE.relative_to(ROOT))], terms_source()))
+    if len(want) != len(TERMS):
+        raise Failure(f"{TERMS_GOLDEN.relative_to(ROOT)}: {len(want)} lines for {len(TERMS)} cases")
     calls = " ".join(f"{cw.forth(t)} lf-tr-{MODES[mode]} {kind}-run"
                      for kind, mode, t, _ in TERMS)
     got = terms_lines([GFORTH, "tests/front/whnf-cases.fs", "-e", calls + " bye"])
@@ -250,6 +257,20 @@ def terms_compare():
         elif w != g and not (w == "error" and g == "invalid"):
             raise Failure(f"{name}:\n  Lean:      {w}\n  LeanForth: {g}")
     return gaps
+
+
+def golden(path, lines):
+    """Pinned Lean's lines as recorded (--golden: make test, without Lean);
+    with Lean, its lines must equal the record (--write-golden writes it)."""
+    if "--golden" in sys.argv:
+        return path.read_text(encoding="utf-8").splitlines()
+    lines = lines()
+    if "--write-golden" in sys.argv:
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if path.read_text(encoding="utf-8").splitlines() != lines:
+        raise Failure(f"{path.relative_to(ROOT)} differs from pinned Lean's lines: "
+                      f"{sys.argv[0]} --write-golden")
+    return lines
 
 
 def lean_source():
@@ -320,7 +341,10 @@ def main():
     try:
         self_test()
         gaps = []
-        for lean, forth in zip(lean_lines(), forth_lines()):
+        want = golden(ENV_GOLDEN, lean_lines)
+        if len(want) != len(NAMES):
+            raise Failure(f"{ENV_GOLDEN.relative_to(ROOT)}: {len(want)} lines for {len(NAMES)} names")
+        for lean, forth in zip(want, forth_lines()):
             gaps += compare(lean, forth)
         term_gaps = terms_compare()
     except Failure as error:

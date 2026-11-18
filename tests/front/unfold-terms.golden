@@ -1,0 +1,69 @@
+1 Nat.{}
+1 Nat.{}
+0
+1 (lam Sort 1 #0)
+1 (app (app (proj 0 (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) x)
+1 (app (app (proj 0 (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) x)
+0
+1 (app (app (app (app Add.add.{0} Nat.{}) instAddNat.{}) k) x)
+1 (app (app (app (app Add.add.{0} Nat.{}) instAddNat.{}) k) x)
+1 (lam Nat.{} (lam Nat.{} (app (app (app (app Add.add.{0} Nat.{}) instAddNat.{}) #1) #0)))
+0
+0
+0
+1 (app (app (proj 0 k) k) x)
+1 (proj 0 (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b))
+0
+1 (app (app (app (app HAdd.mk.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (lam Nat.{} (lam Nat.{} (app (app (app (app Add.add.{0} Nat.{}) instAddNat.{}) #1) #0))))
+0
+1 (app (app (app (app HAdd.mk.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (lam Nat.{} (lam Nat.{} (app (app (app (app Add.add.{0} Nat.{}) instAddNat.{}) #1) #0))))
+1 (app (app (proj 0 instAddNat.{}) k) x)
+0
+1 (app (app Nat.add.{} k) x)
+1 (app (app Add.mk.{0} Nat.{}) Nat.add.{})
+0
+1 k
+1 (app Nat.succ.{} (app (app Nat.add.{} k) x))
+1 k
+1 k
+k
+k
+(app (app Nat.add.{} (app (app Nat.mul.{} k) x)) k)
+0
+0
+0
+0
+1 k
+0
+0
+0
+0
+error
+Nat.{}
+(app (app (app (app HAdd.mk.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (lam Nat.{} (lam Nat.{} (app (app (app (app Add.add.{0} Nat.{}) instAddNat.{}) #1) #0))))
+(app (app instHAdd.{0} Nat.{}) instAddNat.{})
+(app (app (app (app HAdd.mk.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (lam Nat.{} (lam Nat.{} (app (app (app (app Add.add.{0} Nat.{}) instAddNat.{}) #1) #0))))
+(lam Nat.{} (lam Nat.{} (app (app (app (app Add.add.{0} Nat.{}) instAddNat.{}) #1) #0)))
+k
+(app (app Nat.add.{} k) x)
+(app (app Nat.add.{} k) x)
+Nat.zero_add.{}
+(app z k)
+(app (app s k) x)
+(app (app (app (app (app Nat.add.match_1.{1} m) k) x) z) s)
+(app (app z k) a)
+(app (app s k) ?? 1)
+(app (app (app (app Nat.add.match_1.{1} m) k) Nat.zero.{}) z)
+z
+(app s k)
+(app z k)
+(app z k)
+(app (app s k) x)
+(app z k)
+(app z k)
+(app z k)
+(app (app s k) x)
+(app (app s k) x)
+(app (app s k) (app (app Nat.add.{} Nat.zero.{}) x))
+(app (app (app OfNat.ofNat.{0} Nat.{}) ?? 0) (app instOfNatNat.{} ?? 0))
+(app (app (app OfNat.ofNat.{0} Nat.{}) ?? 0) (app instOfNatNat.{} ?? 0))

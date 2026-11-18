@@ -19995,3 +19995,11 @@ old = ''': lfg-close ( -- ) lfg-on? if lfg-after then ;'''
 new = ''': lfg-close ( -- ) ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --steps-of tests/front/04-nested-ih.lf"
 reason = "S2 s2-steps: a step's goals after are never recorded (the log's spans point nowhere)"
+
+[[fault]]
+id = "fe-aux-def-no-confusion"
+file = "src/front/meta-env.fs"
+old = ''': lf-menv-aux-def? ( d -- flag outcome ) lf-menv-aux-recursor? ;'''
+new = ''': lf-menv-aux-def? ( d -- flag outcome ) lf-menv-kind lf-kind-definition = outcome-ok ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
+reason = "review s2-finish M1: whnfCore unfolds a definition that is no auxiliary recursor (Nat.noConfusion), where Lean's isAuxDef leaves it"

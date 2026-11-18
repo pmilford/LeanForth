@@ -92,6 +92,7 @@ run_meta do
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkApp (mkLambda `y .default (mkConst `Nat []) (mkBVar 0)) k))
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) (mkApp (mkConst `Nat.succ []) z)) s) (mkConst `Nat.zero [])))
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkApp (mkApp (mkConst `Nat.add []) k) k))
+    whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.noConfusion [Level.zero]) (mkConst `True [])) (mkConst `Nat.zero [])) (mkConst `Nat.zero [])) (mkApp (mkApp (mkConst `Eq.refl [(mkLevelSucc .zero)]) (mkConst `Nat [])) (mkConst `Nat.zero [])))
     inferCase (mkConst `Nat.add [])
     inferCase (mkApp (mkConst `Nat.add []) k)
     inferCase (mkApp (mkApp (mkConst `Nat.add []) k) k)

@@ -10,9 +10,14 @@
 \ preserveMData: front/instantiate.fs (instantiate1, abstract and head
 \ beta, which looks through one between lambdas as Lean's betaRev does,
 \ unless asked to keep it) and front/beta-inst.fs; front/whnf.fs strips
-\ the outer ones (whnfEasyCases). Every other walker treats the tag as an
-\ unknown leaf and must fail closed on it; the kernel never receives
-\ one. Untrusted.
+\ the outer ones (whnfEasyCases). Other front-end walkers (mvars.fs,
+\ assign-check.fs, reach.fs's sweep, term-find.fs, discr-keys.fs,
+\ defeq.fs) treat the node as an opaque leaf whose data word is its
+\ child's; kabstract.fs and meta-check.fs answer unsupported on it. The
+\ barrier is the hand-over, which refuses a declaration reaching one
+\ (error 200, front/handover.fs), and the export writer, which refuses to
+\ write one (author/export.fs): so the kernel never receives one.
+\ Untrusted.
 \ Words: lf-tag-annotation (core/terms.fs), lf-annot-match,
 \ lf-annot-match-alt, lf-annot ( child key -- t outcome ) (full when the
 \ store has no room), lf-annot? ( t -- flag ), lf-annot-child ( t --

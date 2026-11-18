@@ -332,12 +332,9 @@ end-structure
 : lf-menv-aux-recursor? ( d -- flag outcome )
   dup me-decl? if dup me-ndrec? if drop true outcome-ok exit then then
   ['] me-aux-tag me-defn-fact ;
-\ isAuxDef (WHNF.lean:79): an auxiliary recursor or a noConfusion.
-: me-no-confusion ( d -- 0 true | false )
-  elab-tag-no-confusion elab-tagged? dup if 0 swap then ;
-: lf-menv-aux-def? ( d -- flag outcome )
-  dup lf-menv-aux-recursor? ok-then? 0= if nip false swap exit then
-  if drop true outcome-ok else ['] me-no-confusion me-defn-fact then ;
+\ isAuxDef (WHNF.lean:79-81): isAuxRecursor alone; a noConfusion is not
+\ one (pinned Lean: whnfCore leaves Nat.noConfusion's application).
+: lf-menv-aux-def? ( d -- flag outcome ) lf-menv-aux-recursor? ;
 \ canUnfoldAtMatcher's own names (GetUnfoldableConst.lean:44-57).
 : me-matcher-a? ( name -- name flag )
   dup s" OfNat.ofNat" lf-name-dotted? over s" NatCast.natCast" lf-name-dotted? or

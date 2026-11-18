@@ -733,7 +733,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
   ok-then? if lf-menv-rec-arg else drop false then ;
 : wc-srec-arg ( r k -- e' flag outcome )
   wc-term wc-args lf-meta-spine ok-then? 0= if nip wc-drop-fail exit then drop
-  dup wc-args slab-count < 0= if 2drop wc-sfail exit then
+  dup wc-args slab-count u< 0= if 2drop wc-sfail exit then
   wc-args lf-meta-arg swap wc-term swap wc-srec-kind wc-frame wc-at-matcher wc-go ;
 : wc-srec ( r -- e' flag outcome ) wc-rec-pos if wc-srec-arg else wc-advance then ;
 : wc-sreduced ( t -- e' flag outcome )

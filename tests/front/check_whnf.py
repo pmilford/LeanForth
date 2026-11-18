@@ -20,7 +20,9 @@ never has it; Lean's lines mark it <md>, and a line equal once the marks
 are dropped is counted and listed apart, as equal up to the export's
 missing mdata (plan row FE1d2).
 
-Usage: LEAN=... GFORTH=... python3 tests/front/check_whnf.py [--write]
+Usage: LEAN=... GFORTH=... python3 tests/front/check_whnf.py [--write | --write-golden]
+       GFORTH=... python3 tests/front/check_whnf.py --golden   (Lean's recorded lines,
+         tests/front/whnf-cases.golden; make test)
 """
 import os
 import pathlib
@@ -32,6 +34,8 @@ LEAN = os.environ.get("LEAN", ".tools/elan/toolchains/leanprover--lean4---v4.35.
 GFORTH = os.environ.get("GFORTH", "gforth")
 LIMIT = 300
 LEAN_FILE = ROOT / "tests/front/whnf-cases.lean"
+# Pinned Lean's lines, recorded for make test's run without Lean (--golden).
+GOLDEN = ROOT / "tests/front/whnf-cases.golden"
 
 FVARS = "mzskxabpg"
 MVARS = {"?n": "n", "?h": "h", "?f": "f", "?q": "q"}
@@ -118,6 +122,10 @@ CASES = [
     ("whnf", rec(apps((LAM, NAT, "#0"), "k")), None),
     ("whnf", rec(apps(REC, "m", apps(SUCC, "z"), "s", ZERO)), None),
     ("whnf", rec(apps(ADD, "k", "k")), None),
+    # isAuxDef is isAuxRecursor alone: whnfCore leaves a noConfusion
+    # (review s2-finish M1).
+    ("whnf", apps(c("Nat.noConfusion", 0), c("True"), ZERO, ZERO, apps(c("Eq.refl", 1), NAT, ZERO)),
+     None),
     ("infer", ADD, None),
     ("infer", apps(ADD, "k"), None),
     ("infer", apps(ADD, "k", "k"), None),
@@ -340,6 +348,20 @@ def forth_lines():
     return run([GFORTH, "tests/front/whnf-cases.fs", "-e", calls + " bye"])
 
 
+def golden(path, lines):
+    """Pinned Lean's lines as recorded (--golden: make test, without Lean);
+    with Lean, its lines must equal the record (--write-golden writes it)."""
+    if "--golden" in sys.argv:
+        return path.read_text(encoding="utf-8").splitlines()
+    lines = lines()
+    if "--write-golden" in sys.argv:
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if path.read_text(encoding="utf-8").splitlines() != lines:
+        raise Failure(f"{path.relative_to(ROOT)} differs from pinned Lean's lines: "
+                      f"{sys.argv[0]} --write-golden")
+    return lines
+
+
 def self_test():
     if lean(apps("s", "?n")) != "(mkApp s n)" or forth(apps("s", "?n")) != "fs ?n app":
         raise Failure("harness self-test: terms not written as expected")
@@ -378,7 +400,10 @@ def main():
     try:
         self_test()
         gaps, mdata = [], []
-        for (kind, term, gap), want, got in zip(CASES, lean_lines(), forth_lines()):
+        wanted = golden(GOLDEN, lean_lines)
+        if len(wanted) != len(CASES):
+            raise Failure(f"{GOLDEN.relative_to(ROOT)}: {len(wanted)} lines for {len(CASES)} cases")
+        for (kind, term, gap), want, got in zip(CASES, wanted, forth_lines()):
             text = judge(f"{kind} {forth_case(kind, term)}", gap, want, got)
             if text:
                 gaps.append(f"{kind} {text}")
