@@ -38,11 +38,18 @@ from this measurement; a new file with never-run blocks needs --reason TEXT, kep
 in the baseline, and the other files keep their reasons.
 
 --only FILE (repeatable; make coverage-focus) limits --check to those files,
-for the smaller change tiers (plan 9.4.6; scripts/test-tier.py): COMMAND is
-then a few targets, every target of make test that loads FILE, so FILE's
-counts are those of the whole make test. A FILE no run loaded fails, and the
-checks of the run counts against the baseline's, which assume all of make
-test, are left out.
+for the change tiers (plan 9.4.6; scripts/test-tier.py): COMMAND is then
+every target of make test that loads or runs FILE (unit and end-to-end, as
+the input finder of the per-target reuse finds them), so FILE's counts are
+those of the whole make test. A FILE no run loaded is noted, not failed (make
+daily's full run measures it), and the checks of the run counts against the
+baseline's, which assume all of make test, are left out.
+
+--per-target FILE writes, for each file, each make target's compiled and run
+blocks (JSON): a focused run of any set of targets can then be computed from
+one full run (focused_never_run). Each run is attributed to its target through
+the Makefile's RUN (scripts/timed.sh sets LF_MAKE_TARGET; this tool sets
+LF_TIMING_LOG when it is unset so that RUN goes through it).
 
 --files also prints every file; --uncovered writes each block that never
 ran, as file:line:column; --keep keeps the raw counts in DIR. The command
@@ -90,6 +97,9 @@ def run_command(command, gforth, directory):
     env = {k: v for k, v in os.environ.items() if k not in MAKE_VARIABLES}
     env.update(GFORTH=str(WRAPPER), LF_COVERAGE_GFORTH=gforth,
                LF_COVERAGE_DIR=str(directory))
+    # The Makefile's RUN then goes through scripts/timed.sh, which names each command's
+    # target (LF_MAKE_TARGET) for the counts of its runs (--per-target).
+    env.setdefault("LF_TIMING_LOG", str(directory / "timing.txt"))
     return subprocess.run(command, cwd=ROOT, env=env, stdin=subprocess.DEVNULL).returncode
 
 
@@ -105,18 +115,20 @@ def source_key(name, cwd):
     return str(relative) if relative.parts[0] == "src" else None
 
 
-def read_runs(directory):
-    """({(file, line, column): count} over src/, runs with counts, runs without).
+def read_runs(directory, targets=None):
+    """({(file, line, column): count} over src/, runs with counts, runs without); with a dict
+    TARGETS, also fills it with {make target: {block: count}} (a run without a target under "").
 
     A run's file has one line per block compiled, src/ or not (about 40,000), and
     a make test has over a thousand runs: the lines are first summed per working
-    directory by their text, and only the distinct ones are parsed."""
+    directory (and target) by their text, and only the distinct ones are parsed."""
     sums, counted, empty = {}, 0, 0
     for out in sorted(directory.glob("run.*")):
         if out.name.endswith(".cwd"):
             continue
-        cwd = Path(str(out) + ".cwd").read_text(encoding="utf-8", errors="replace").splitlines()[0]
-        table, seen = sums.setdefault(cwd, {}), False
+        about = Path(str(out) + ".cwd").read_text(encoding="utf-8", errors="replace").splitlines()
+        cwd, target = about[0], (about[1] if len(about) > 1 and targets is not None else "")
+        table, seen = sums.setdefault((cwd, target), {}), False
         with open(out, encoding="utf-8", errors="replace") as handle:
             for line in handle:
                 seen = True
@@ -125,14 +137,49 @@ def read_runs(directory):
                     table[head] = table.get(head, 0) + int(count)
         counted, empty = counted + seen, empty + (not seen)
     blocks = {}
-    for cwd, table in sums.items():
+    for (cwd, target), table in sums.items():
+        mine = targets.setdefault(target, {}) if targets is not None else None
         for head, count in table.items():
             match = COUNT_HEAD.match(head)
             key = match and source_key(match[1], cwd)
             if key:
                 block = (key, int(match[2]), int(match[3]))
                 blocks[block] = blocks.get(block, 0) + count
+                if mine is not None:
+                    mine[block] = mine.get(block, 0) + count
     return blocks, counted, empty
+
+
+def per_target(blocks, targets):
+    """{file: {"blocks", "never_run", "targets": {target: {"compiled", "ran": [index]}}}}: each
+    target's runs of each file, the blocks as indices into the file's sorted blocks."""
+    order = {}
+    for block in sorted(blocks):
+        table = order.setdefault(block[0], {})
+        table[block] = len(table)
+    files = {name: {"blocks": len(table), "never_run": sum(1 for b in table if blocks[b] == 0),
+                    "targets": {}} for name, table in order.items()}
+    for target, table in targets.items():
+        for block, count in table.items():
+            entry = files[block[0]]["targets"].setdefault(target, {"compiled": 0, "ran": []})
+            entry["compiled"] += 1
+            if count:
+                entry["ran"].append(order[block[0]][block])
+    for entry in files.values():
+        for row in entry["targets"].values():
+            row["ran"].sort()
+    return files
+
+
+def focused_never_run(table, chosen):
+    """(blocks, never run) of one file of per_target() over the targets CHOSEN only: what a
+    focused run of those targets measures. None when none of them loads the file."""
+    rows = [table["targets"][t] for t in chosen if t in table["targets"]]
+    if not rows:
+        return None
+    ran = set().union(*(set(r["ran"]) for r in rows))
+    compiled = max(r["compiled"] for r in rows)
+    return compiled, compiled - len(ran)
 
 
 def totals(blocks, group):
@@ -198,9 +245,11 @@ def ratchet(files, baseline):
 
 
 def focus(files, only):
-    """FILES limited to ONLY, and a message for each file of ONLY that no run loaded."""
+    """FILES limited to ONLY, and a note for each file of ONLY that no run loaded: the full run
+    (make coverage-check, in make daily) measures it, as it measures every file."""
     kept = {name: files[name] for name in only if name in files}
-    return kept, [f"{name}: no run of the command loaded it" for name in only if name not in files]
+    return kept, [f"{name}: no run of these targets loaded it; make daily's full coverage run measures it"
+                  for name in only if name not in files]
 
 
 def new_baseline(files, counted, old, reason):
@@ -231,6 +280,8 @@ def main(argv=None):
     parser.add_argument("--update-baseline", action="store_true")
     parser.add_argument("--reason", default="")
     parser.add_argument("--only", action="append", default=[], metavar="FILE")
+    parser.add_argument("--per-target", metavar="FILE",
+                        help="write each make target's runs of each file (JSON; per_target())")
     parser.add_argument("command", nargs="*")
     args = parser.parse_args(argv)
     if args.only and (args.update_baseline or not args.check):
@@ -246,7 +297,11 @@ def main(argv=None):
     directory.mkdir(parents=True, exist_ok=True)
     try:
         status = run_command(command, gforth, directory)
-        blocks, counted, empty = read_runs(directory)
+        targets = {} if args.per_target else None
+        blocks, counted, empty = read_runs(directory, targets)
+        if args.per_target:
+            with open(args.per_target, "w", encoding="utf-8") as handle:
+                json.dump({"command": command, "files": per_target(blocks, targets)}, handle)
     finally:
         if not args.keep:
             shutil.rmtree(directory, ignore_errors=True)
@@ -278,10 +333,11 @@ def main(argv=None):
         BASELINE.write_text(text + "\n", encoding="utf-8")
         print(f"wrote {BASELINE}")
     elif args.check:
-        missing = []
         if args.only:
-            files, missing = focus(files, [os.path.normpath(name) for name in args.only])
-        messages = missing + (ratchet(files, baseline) if baseline else [f"no {BASELINE.name}"])
+            files, notes = focus(files, [os.path.normpath(name) for name in args.only])
+            for note in notes:
+                print("note: " + note)
+        messages = ratchet(files, baseline) if baseline else [f"no {BASELINE.name}"]
         for message in messages:
             print("FAILED: " + message)
         if messages:

@@ -272,6 +272,16 @@ class Reach:
         self.cache = {}
         self.uses = {u: changed_tests.closure(changed_tests.named_files(self.text[u]), self.cache)
                      for u in self.every}
+        self.inputs = None
+
+    def loaders(self, path):
+        """The targets of make test that may load or run PATH: those whose inputs (Inputs, the
+        finder of the per-target reuse) hold it, unit and end-to-end alike, and any whose recipe
+        make -n cannot print. A file's block counts over them are those of all of make test."""
+        if self.inputs is None:
+            self.inputs = Inputs()
+            self.inputs.prefetch(self.of_test)
+        return [u for u in self.of_test if (self.inputs.read(u) is None or path in self.inputs.read(u))]
 
     def users(self, path):
         return [u for u in self.every if path in self.uses[u]]
@@ -364,7 +374,7 @@ class Inputs:
         self.top = os.getcwd()
         self.tracked = changed_tests.tracked_files()
         self.index = changed_tests.file_index(self.tracked)
-        self.cache, self.recipes, self.digests, self.reasons = {}, {}, {}, {}
+        self.cache, self.recipes, self.digests, self.reasons, self.reads = {}, {}, {}, {}, {}
         exported = self.environment()
         makefile = read_worktree("Makefile") or ""
         self.global_text = exported + "\n".join(MAKE_SPECIAL.findall(makefile))
@@ -388,11 +398,28 @@ class Inputs:
 
     def recipe(self, target):
         if target not in self.recipes:
-            env = clean_env()
-            run = subprocess.run(["make", "-n", "--no-print-directory", "-j1", target, *PLACEHOLDERS],
-                                 capture_output=True, text=True, env=env)
-            self.recipes[target] = self.normal(run.stdout) if run.returncode == 0 else None
+            self.recipes[target] = self._recipe(target)
         return self.recipes[target]
+
+    def prefetch(self, targets):
+        """make -n of every target of TARGETS, eight at a time (each takes a fraction of a second)."""
+        todo = [t for t in targets if t not in self.recipes]
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            for name, text in zip(todo, pool.map(self._recipe, todo)):
+                self.recipes[name] = text
+
+    def _recipe(self, target):
+        run = subprocess.run(["make", "-n", "--no-print-directory", "-j1", target, *PLACEHOLDERS],
+                             capture_output=True, text=True, env=clean_env())
+        return self.normal(run.stdout) if run.returncode == 0 else None
+
+    def read(self, name):
+        """The files target NAME may read (the files its digest covers), or None when make -n
+        fails. The coverage of a file is measured over every target of make test that reads it."""
+        if name not in self.reads:
+            text = self.recipe(name)
+            self.reads[name] = None if text is None else self.files(changed_tests.named_files(text))[0]
+        return self.reads[name]
 
     def files(self, start):
         """(input files, reasons) of programs and files START, the exported ones included."""
@@ -716,12 +743,15 @@ def baseline_changes(base_rev):
 
 
 def coverage_need(files, reach_, loaded, base_rev="HEAD"):
-    """None, {"kind": "all"} (make coverage-check) or {"kind": "focus", files, targets}: the
-    ratchet of the changed source files (owner, 2026-11-17): every Forth file of src/ the change
-    touches, the files a changed test drives and the files whose baseline entry changed, over
-    the unit tests of make test that load them (tests/test-classes.txt; the end-to-end tests of
-    make test that load a file no unit test loads). Only a change of the baseline's run count
-    needs all of make coverage-check, which make daily runs. LOADED is kept for the callers."""
+    """None, {"kind": "all"} (make coverage-check) or {"kind": "focus", files, targets, skipped}:
+    the ratchet of the changed source files (owner, 2026-11-17): every Forth file of src/ the
+    change touches, the files a changed test drives and the files whose baseline entry changed,
+    over every target of make test that loads or runs one of them, unit and end-to-end
+    (Reach.loaders, 2026-11-18): tests/coverage-baseline.json counts a file's never-run blocks
+    over all of make test, and only these targets run its blocks, so the focused count is the
+    full run's. A file no target of make test reads ("skipped") is left to make daily's full
+    run. Only a change of the baseline's run count needs all of make coverage-check, which make
+    daily runs. LOADED is kept for the callers."""
     focus = set()
     for f in files:
         if f["status"] == "D" and f["path"].startswith("tests/") and f["path"].endswith(PROGRAMS):
@@ -740,20 +770,17 @@ def coverage_need(files, reach_, loaded, base_rev="HEAD"):
     focus = {p for p in focus if p.endswith(".fs")}
     if not focus:
         return None
-    e2e = end_to_end()
-    targets = [u for u in reach_.of_test if u not in e2e and any(p in reach_.uses[u] for p in focus)]
-    # smoke only loads each module: a file no other unit test loads is measured by the
-    # end-to-end tests of make test that load it, or the ratchet would fail on blocks they run.
-    alone = {p for p in focus if not any(p in reach_.uses[u] for u in targets if u != "smoke")}
-    targets += [u for u in reach_.of_test if u not in targets and any(p in reach_.uses[u] for p in alone)]
-    targets += [u for u in ("smoke",) if u not in targets]
-    return {"kind": "focus", "files": sorted(focus), "targets": targets}
+    loaders = {p: reach_.loaders(p) for p in sorted(focus)}
+    measured = sorted(p for p in focus if loaders[p])
+    targets = [u for u in reach_.of_test if any(u in loaders[p] for p in measured)]
+    return {"kind": "focus", "files": measured, "targets": targets,
+            "skipped": sorted(p for p in focus if not loaders[p])}
 
 
 def coverage_suites(cover):
     if cover and cover["kind"] == "all":
         return [{"label": "coverage-check", "goals": ["coverage-check"]}]
-    if cover:
+    if cover and cover["files"]:
         return [{"label": "coverage-focus", "goals": ["coverage-focus"],
                  "vars": {"COVERAGE_FILES": " ".join(cover["files"]),
                           "COVERAGE_TARGETS": " ".join(cover["targets"])}}]
@@ -782,6 +809,8 @@ def describe(result):
     if tactic:
         lines.append("tactic plug-in check: " + ("confined" if tactic["confined"] else
                                                  "; ".join(tactic["problems"] + tactic["reasons"])))
+    for path in (result.get("coverage") or {}).get("skipped", []):
+        lines.append(f"coverage of {path}: no target of make test reads it; make daily's full run measures it")
     for s in result["suites"]:
         extra = " ".join(f"{k}='{v}'" for k, v in s.get("vars", {}).items())
         gforth = f" ({ENGINES[s['engine']]})" if s.get("engine") else ""

@@ -84,17 +84,18 @@ class Tiers(Fixture):
         self.assertEqual(result["faults"], ["free-one"])
         # Every target of make test that loads the file, test-front through src/front/alone.fs.
         self.assertEqual(result["coverage"], {"kind": "focus", "files": ["src/lib/free.fs"],
-                                              "targets": ["smoke", "test-lib", "test-front"]})
+                                              "targets": ["smoke", "test-lib", "test-front"], "skipped": []})
         self.assertEqual(self.labels(result), ["coverage-focus", "targets", "targetsfast", "faults"])
         engines = {s["engine"]: s["goals"] for s in result["suites"] if s.get("engine")}
         self.assertEqual(engines, {"fast": ["test-lib"]})
 
     def test_tests_that_drive_main_measure_only_the_files_they_drive(self):
-        # Owner, 2026-11-17: the ratchet of the files a change reaches, over their unit tests.
+        # Owner, 2026-11-17: the ratchet of the files a change reaches, over the targets of make
+        # test that load them (smoke loads src/*/*.fs, not src/main.fs).
         result = self.change({"tests/core/c.fs": "require ../../src/main.fs\n\\ more\n"})
         self.assertEqual(result["tier"], "tests")
         self.assertEqual(result["coverage"], {"kind": "focus", "files": ["src/main.fs"],
-                                              "targets": ["test-core", "smoke"]})
+                                              "targets": ["test-core"], "skipped": []})
         self.assertEqual(self.labels(result)[0], "coverage-focus")
         self.assertEqual(result["faults"], ["core-one"])
 
@@ -103,7 +104,7 @@ class Tiers(Fixture):
         result = self.change({"src/core/c.fs": "require ../lib/used.fs\n\\ changed\n"})
         self.assertFull(result)
         self.assertEqual(result["coverage"], {"kind": "focus", "files": ["src/core/c.fs"],
-                                              "targets": ["smoke", "test-core"]})
+                                              "targets": ["smoke", "test-core"], "skipped": []})
         self.assertEqual(result["suites"][0]["vars"], {"COVERAGE_FILES": "src/core/c.fs",
                                                        "COVERAGE_TARGETS": "smoke test-core"})
         self.repo.git("reset", "-q", "--hard", "base")
@@ -117,6 +118,24 @@ class Tiers(Fixture):
         self.repo.git("tag", "-f", "base")
         result = self.change({"src/program/p.fs": ": p 3 ;\n"})
         self.assertEqual(result["coverage"]["targets"], ["smoke", "test-cli"])
+
+    def test_every_target_that_loads_a_file_measures_it(self):
+        """2026-11-18: the baseline counts a file over all of make test, so its focused count is
+        taken over every target that loads it, unit and end-to-end, or blocks only an end-to-end
+        test runs would look never run (src/cli/leanforth.fs, elab-data.fs on main)."""
+        self.repo.write("tests/cli/cli.fs", "require ../../src/lib/free.fs\n")
+        self.repo.commit("an end-to-end test loads free.fs too")
+        self.repo.git("tag", "-f", "base")
+        result = self.change({"src/lib/free.fs": ": free-word 2 ;\n"})
+        self.assertEqual(result["coverage"]["targets"], ["smoke", "test-lib", "test-front", "test-cli"])
+
+    def test_a_file_no_target_reads_is_left_to_the_daily_run(self):
+        result = self.change({"src/deep/er/x.fs": ": x 1 ;\n", "src/lib/free.fs": ": free-word 2 ;\n"})
+        self.assertEqual((result["coverage"]["files"], result["coverage"]["skipped"]),
+                         (["src/lib/free.fs"], ["src/deep/er/x.fs"]))
+        run = self.repo.script("test-tier.py", "--base", "base")
+        self.assertIn("coverage of src/deep/er/x.fs: no target of make test reads it; make daily's full run "
+                      "measures it", run.stdout)
 
     def test_changed_baseline_entries_are_measured(self):
         self.repo.write("tests/coverage-baseline.json", '{"runs": 5, "files": {}}\n')
@@ -184,7 +203,7 @@ class Tiers(Fixture):
         self.assertEqual(result["engine_targets"], ["smoke", "test-lib", "test-front"])
         self.assertEqual(result["faults"], ["free-one", "alone-one"])
         self.assertEqual(result["coverage"], {"kind": "focus", "files": ["src/lib/free.fs"],
-                                              "targets": ["smoke", "test-lib", "test-front"]})
+                                              "targets": ["smoke", "test-lib", "test-front"], "skipped": []})
 
     def test_library_main_loads(self):
         self.assertFull(self.change({"src/lib/used.fs": ": used 1 ;\n"}))

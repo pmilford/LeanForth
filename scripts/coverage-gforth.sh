@@ -4,11 +4,13 @@
 # scripts/coverage-prelude.fs before the arguments it is given, so it can
 # stand in for GFORTH in any test. Each run writes its block counts to a
 # new file in LF_COVERAGE_DIR, and beside it its working directory (the
-# counts name source files relative to it) and its arguments.
+# counts name source files relative to it), the make target that ran it
+# (LF_MAKE_TARGET, which scripts/timed.sh sets; empty without) and its
+# arguments.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 out=$(mktemp "$LF_COVERAGE_DIR/run.XXXXXX")
-printf '%s\n%s\n' "$(pwd)" "$*" >"$out.cwd"
+printf '%s\n%s\n%s\n' "$(pwd)" "${LF_MAKE_TARGET:-}" "$*" >"$out.cwd"
 LF_COVERAGE_OUT=$out
 export LF_COVERAGE_OUT
 # Through the strict wrapper (nonzero status after a reported error).
