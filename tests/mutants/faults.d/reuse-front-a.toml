@@ -268,3 +268,22 @@ old = '''  lfa-groups lfa-groups-order lfa-order# cells-index 0= if lfa-order# t
 new = '''  lfa-groups lfa-groups-order lfa-order# cells-index 0= if 0 then ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "reuse pass part A3, finding 2: a wordlist not in the search order counts as the first, so every list after it is searched"
+
+# Part A3, finding 4: the parts step shared by mvars.fs's and
+# assign-check.fs's walks (dag-walk.fs).
+[[fault]]
+id = "rfa3-want-parts-second-skipped"
+file = "src/front/dag-walk.fs"
+old = '''  swap lf-term-second@ swap dw-want ;'''
+new = '''  2drop false ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "reuse pass part A3, finding 4: a binary term's second part is never walked, so a metavariable there is not instantiated or found"
+
+# Part A3, note 8: a \ comment after texts+ is no text.
+[[fault]]
+id = "rfa3-texts-comment-kept"
+file = "src/lib/texts.fs"
+old = ''': texts-comment? ( c-addr u -- flag ) s" \" compare 0= ;'''
+new = ''': texts-comment? ( c-addr u -- flag ) 2drop false ;'''
+test = "$GFORTH tests/lib/texts.fs"
+reason = "reuse pass part A3, note 8: a comment on a line of texts+ is laid down as texts"

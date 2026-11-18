@@ -126,7 +126,11 @@ end-structure
 
 \ The record's stack: made at its first run, emptied at the next; its
 \ memo: made afresh for each run (as the hash table it replaced, so that
-\ a run's first heap request is still its table's).
+\ a run's first heap request is still its table's). Measured 2026-11-18
+\ (gforth-fast): making and freeing it costs about 90 ns a run more than
+\ clearing a kept one (240 against 155 ns with one entry); the check of
+\ tests/front/ps-add-comm.lf on Init runs 5,905 walks, so about 0.5 ms
+\ of its 76 s.
 : ow-stack-make ( slab -- outcome ) 2 cells dup slab-limit-max rot slab-init ;
 : ow-stack-ready ( slab -- outcome )
   dup slab-live? if slab-clear outcome-ok else ow-stack-make then ;

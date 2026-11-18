@@ -6,7 +6,8 @@
 \ A table is a run of counted texts (a count byte of 1 .. 255, then the
 \ characters) ended by a zero count. texts-begin ( -- table ) starts one
 \ at the aligned dictionary pointer; texts+ ( "text ..." -- ) lays down
-\ every blank-separated text on the rest of the input line; text,
+\ every blank-separated text on the rest of the input line, up to a \
+\ comment (a text that is \ alone ends the line's texts); text,
 \ ( c-addr u -- ) lays down one (a length outside 1 .. 255 aborts, before
 \ anything is laid down); texts-end ( -- ) ends the table and aligns.
 \ Keep the table's address as a constant; a table is read-only once made,
@@ -40,11 +41,17 @@ lf-lib-private module-open
 
 : text-room ( u -- u ) dup 1 256 within 0= abort" text,: a text of 1 .. 255 characters" ;
 : texts-hit? ( x xt entry -- x xt entry flag ) >r 2dup r@ count rot execute r> swap ;
+\ The next text of the line; none (0 0) at its end or at a \ comment,
+\ whose rest of the line is skipped.
+: texts-comment? ( c-addr u -- flag ) s" \" compare 0= ;
+: texts-word ( "text" -- c-addr u )
+  parse-name 2dup texts-comment? if 2drop source nip >in ! 0 0 then ;
 
 lf-lib set-current
 : texts-begin ( -- table ) align here ;
 : text, ( c-addr u -- ) text-room dup c, here swap chars dup allot move ;
-: texts+ ( "text ..." -- ) begin parse-name dup while text, repeat 2drop ;
+\ Lay down every text on the rest of the line, up to a \ comment.
+: texts+ ( "text ..." -- ) begin texts-word dup while text, repeat 2drop ;
 : texts-end ( -- ) 0 c, align ;
 : text-next ( entry -- entry' ) count chars + ;
 : texts-find ( x xt table -- entry | 0 )

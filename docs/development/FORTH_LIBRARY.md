@@ -1052,12 +1052,20 @@ part A, 2026-11-18, review F4 and the author review's R3) is `any?` giving
 the place: the first k whose test xt ( x k -- x flag ) holds, x dropped.
 *Algorithm*: a counted loop that stops at the first hit; the xt is kept
 as the outer index of a one-pass loop, as in `any?`, so it uses no
-return-stack cell of its own. *Cost*: one test per index up to the hit.
-*Callers*: the authoring finds of a declaration, level and constant
-reference (`author/constants.fs`, `build.fs`, sizes: the declarations,
-levels and references of the run's store; `lfa-find` over the whole term
-store, see PERFORMANCE_SCAN A8), the first open goal (`front/goals.fs`),
-a metavariable mark (`mvars.fs`), a matcher alternative (`whnf.fs`).
+return-stack cell of its own. *Cost*: one test per index up to the hit;
+no memory. *Speed* (2026-11-18, a test that never holds, load about 1
+to 8): 7 ns an index at 10 indices and 4 to 5 ns at 10^6 on `gforth`, 3
+to 6 ns and 2 to 3 ns on `gforth-fast`. *Callers*: the authoring finds
+of a declaration, level and constant reference (`author/constants.fs`,
+`build.fs`; sizes: the declarations, levels and references of the run's
+store), the first open goal (`front/goals.fs`), a metavariable mark
+(`mvars.fs`), a matcher alternative (`whnf.fs`). The search for a node
+to share no longer scans with it: a hash index replaced the scan of the
+whole term store (`build.fs`, review reuse-front-a finding 1, 2026-11-18).
+*Sizes on a real run* (`leanforth check --snapshot` of Init with
+`tests/front/ps-add-comm.lf`, counted 2026-11-18): `lfa-decl-named?` 20
+searches of at most 7 declarations (4.45 on average), `gl-open-at?` 33
+searches of 1 goal; the other callers were not reached by that text.
 Tested in `tests/lib/lib.fs` (both engines); fault
 `rfa-find-index-off-by-one`.
 

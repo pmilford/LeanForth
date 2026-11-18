@@ -56,6 +56,14 @@ texts-end
 texts-begin texts+ odd
 texts-end constant odd-table
 T{ here aligned here = odd-table c@ -> true 3 }T
+\ A \ comment ends a line's texts (review reuse-front-a note 8); a text
+\ that only starts with \ is a text.
+texts-begin texts+ one \ two three
+texts+ \x four \
+texts-end constant commented
+T{ commented count s" one" compare commented text-next count s" \x" compare -> 0 0 }T
+T{ commented text-next text-next count s" four" compare -> 0 }T
+T{ commented text-next text-next text-next c@ -> 0 }T
 
 T{ depth -> 0 }T
 cr .( texts.fs: all tests passed) cr

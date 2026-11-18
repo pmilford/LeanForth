@@ -24,8 +24,9 @@ require ./module.fs
 
 lf-lib-private module-open
 lf-lib set-current
-\ The outer loop runs once, with xt as its index, so that j gives xt to
-\ the inner loop without a return-stack operation of its own.
+\ The first k < n for which xt ( x k -- x flag ) answers true, x dropped.
+\ (The outer loop runs once, with xt as its index, so that j gives xt to
+\ the inner loop without a return-stack operation of its own.)
 : find-index ( x n xt -- k true | false )
   dup 1+ swap ?do 0 max 0 ?do i j execute if drop i true unloop unloop exit then
   loop loop drop false ;
