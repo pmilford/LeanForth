@@ -943,6 +943,44 @@ end no goal may remain (error 89, "unsolved goals"). The tables name both:
 ends (`lft-entry!`, `tactic-syntax.fs:247`). Written alone it takes no
 values; to apply it write `$` (`ih k $`).
 
+**Apply, assumption, constructor.** These three words are ports of
+Lean's tactics of the same names: they make the same choices, in the same
+order, and build the same proof term (each is compared with pinned Lean
+4.35.0 by `tests/front/tactics/*/check.py`).
+
+- A *conclusion* is what a theorem says after its arguments. `Nat.le_succ`
+  takes a number `n` and concludes `n ≤ n + 1`. `t by-apply` closes the main
+  goal with `t` when `t`'s conclusion is the goal. Arguments the goal does
+  not fix become new goals. Lean's order is kept: first the goals that no
+  other new goal mentions, then the others. Each new goal is named after
+  `t`'s argument (`case left`). No fit is error 380, with Lean's message.
+  Examples, from checked files: `' Nat.le_succ by-apply` proves
+  `n ≤ n + 1` (`tests/front/tactics/apply/ap-le-succ.lf`); in
+  `tests/front/tactics/apply/ap-and.lf`, `' And.intro by-apply` leaves the
+  goals `case left` and `case right`. Mathematically: from n ≤ n + 1 for
+  every n, conclude it for this n. Lean: `apply Nat.le_succ`.
+- A *hypothesis* is a fact the theorem assumes, such as `h : a ≤ b`.
+  `by-assumption` closes the main goal with the newest hypothesis whose
+  statement is the goal, up to unfolding (definitional equality). None is
+  error 381. Examples: `by-assumption` proves `a ≤ b` from `h : a ≤ b`
+  (`tests/front/tactics/assumption/as-one.lf`) and `a ≤ a + 0` from
+  `h : a ≤ a` (`as-defeq.lf`, since `a + 0` unfolds to `a`). Lean:
+  `assumption`.
+- An *inductive type* is a type made of listed *constructors*, the ways to
+  build its values or proofs: `And` has one, `And.intro`; `Or` has two,
+  `Or.inl` and `Or.inr`. `by-constructor` unfolds the goal until its head
+  is an inductive type, then applies the first constructor that fits, as
+  `by-apply` would. A goal that is no inductive type is error 382; no
+  constructor that fits is error 383. When several fit, Lean also prints a
+  warning; LeanForth prints none, and chooses the same one. Examples:
+  `by-constructor` turns `a ≤ b ∧ b ≤ a` into the goals `case left` and
+  `case right` (`tests/front/tactics/constructor/co-and.lf`), and proves
+  `n ≤ n` by `Nat.le.refl` (`co-le.lf`). Lean: `constructor`.
+
+A statement's hypothesis is written with a tick when it stands alone,
+`' h by-apply`, because its type is not unfolded to count its arguments
+(error 73).
+
 ### D.1 Glossary
 
 | Word | Takes from the stack | How it reads the line | What it creates or changes | What it does | Lean |
@@ -952,6 +990,9 @@ values; to apply it write `$` (`ih k $`).
 | `by-exact` | `( t -- )` | ordinary | read: a step holding the term. Run: elaborates t against the goal, assigns it, removes the goal | Closes the goal with the term t; a type mismatch is error 96, a wrong number of values 86 or 87. | `exact t` |
 | `by-intro: HYP-NAME` | `( -- )` | parsing: one name, or `_` | read: a step; HYP-NAME becomes a hypothesis word in the locals. Run: replaces the goal by one with the first binder introduced | Introduces one hypothesis HYP-NAME from the goal's first binder; `_` leaves it inaccessible (it cannot be written afterwards); error 94 when there is none, 84 when HYP-NAME is a LeanForth word. | `intro HYP-NAME` |
 | `by-sorry` | `( -- )` | ordinary | read: a step. Run: assigns the goal `sorryAx T Bool.false`, records an open part | Closes the goal with an open part; the declaration is accepted but reported NOT PROVED. | `sorry` |
+| `by-apply` | `( t -- )` | ordinary | read: a step holding t. Run: assigns the main goal t applied to new goals, which take its place | Closes the goal with t when t's conclusion fits it; t's arguments the goal does not fix become goals. No fit: error 380; an instance not found: 125. | `apply t` |
+| `by-assumption` | `( -- )` | ordinary | read: a step. Run: assigns the main goal the newest hypothesis whose type is the goal's, removes the goal | Closes the goal with a hypothesis; none fits: error 381. | `assumption` |
+| `by-constructor` | `( -- )` | ordinary | read: a step. Run: as `by-apply` with the first constructor of the goal's inductive type that fits | Proves an `And`, `Or`, `True`, `≤`... goal by one of its constructors; the goal is no inductive type: 382; none fits: 383. | `constructor` |
 | `by-induction` | `( t -- )` | ordinary | read: a step holding t. Run: replaces the main goal by one goal per case | Induction on the variable t; the cases are left open (alone it ends in error 89). | `induction t` |
 | `by-induction-with` | `( t -- )` | ordinary; opens a block that `by-end` closes | read: a block step holding t. Run: as `by-induction`, each case taken by an alternative | Induction on t with the cases written as alternatives. | `induction t with` |
 | `\| CASE-TAG HYP-NAME ... =>` | `( -- )` | parsing: tokens of its line up to `=>`; only right inside `by-induction-with` (error 83 elsewhere) | read: an alternative block; the names become hypotheses until the alternative ends. Run: introduces the case's fields and runs the block | One alternative of an induction. CASE-TAG is the name of the case (`zero`, `succ`); each HYP-NAME becomes a new word for one of the case's variables or hypotheses (`k`, `ih` in `\| succ k ih =>`) until the alternative ends. The alternative ends at the next `\|` or at `by-end`. | `\| tag names =>` |
@@ -966,7 +1007,7 @@ values; to apply it write `$` (`ih k $`).
 | `**` `by-native-decide` | `( -- )` | designed; permanently unsupported (exit 2): it rests on `Lean.ofReduceBool` | n/a | n/a | `native_decide` |
 | `**` `by-try`, `by-first`, `<;>` | | combinators; sketched in FE1G §4 and S2 §3 (the trail), no word fixed | n/a | n/a | `try`, `first`, `<;>` |
 | `**` `by-alt: CASE-TAG HYP-NAME ... =>` | | an open question of the design: spelling alternatives without `\|` | n/a | n/a | `\| tag names =>` |
-| `**` `by-refine`, `by-subst`, `by-cases`, `by-apply` and others | | named in FE2 §3/FE5 as later tactics; no spelling is fixed | n/a | n/a | `refine`, `subst`, ... |
+| `**` `by-refine`, `by-subst`, `by-cases` and others | | named in FE2 §3/FE5 as later tactics; no spelling is fixed | n/a | n/a | `refine`, `subst`, ... |
 
 Designs: [FE1G_TACTICS.md](../design/FE1G_TACTICS.md) (the first tactics,
 §3.2 words, §7 FE1i hook), [FE1I_AUTOMATION.md](../design/FE1I_AUTOMATION.md)
