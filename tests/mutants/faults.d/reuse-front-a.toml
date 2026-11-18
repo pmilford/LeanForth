@@ -250,3 +250,21 @@ old = ''': lfa-room ( outcome -- ) ok? lfa-e-terms-full lfa-must ;'''
 new = ''': lfa-room ( outcome -- ) drop ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "reuse pass part A3, finding 1: a memo or link the heap refused goes unnoticed and the run goes on with a broken index"
+
+# Part A3: the branches the review's finding 2 found untested (build.fs's
+# shareable test is rfa3-share-noted above).
+[[fault]]
+id = "rfa3-smatch-unknown-unsupported"
+file = "src/front/whnf.fs"
+old = '''  if wc-smatch-decl else drop wc-sm-none then ;'''
+new = '''  if wc-smatch-decl else 2drop outcome-unsupported wc-fail then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "reuse pass part A3, finding 2: a marked head that is a constant of no declaration answers unsupported instead of none"
+
+[[fault]]
+id = "rfa3-order-index-missing-first"
+file = "src/author/groups.fs"
+old = '''  lfa-groups lfa-groups-order lfa-order# cells-index 0= if lfa-order# then ;'''
+new = '''  lfa-groups lfa-groups-order lfa-order# cells-index 0= if 0 then ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A3, finding 2: a wordlist not in the search order counts as the first, so every list after it is searched"

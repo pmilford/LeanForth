@@ -297,6 +297,15 @@ T{ rec-99 -> true false outcome-ok }T
 T{ lf-meta-budget ' rec-99 used ' add-k0-kept used < swap lf-meta-budget! -> true }T
 T{ fk ?n nat-add lf-meta-unfold -> -1 false outcome-unsupported }T
 T{ lv1 1 s" List.append" cn sun-of pad 0 lf-libdec-sunfold -> -1 outcome-invalid }T
+\ A marked head that is no matcher's application gives none (review
+\ reuse-front-a finding 2): a constant of no declaration (a binder's name
+\ of the slice), one that is no matcher, a variable; the term itself,
+\ false, ok, and the smart path's state none.
+: smatch ( m -- flag flag outcome flag )
+  dup >r wc-smatch rot r> = -rot wc wc-sm-out @ wc-sm-fail = ;
+T{ 0 s" motive" cn fk app smatch -> true false outcome-ok true }T
+T{ 0 s" Nat.succ" cn fk app smatch -> true false outcome-ok true }T
+T{ fk fx app smatch -> true false outcome-ok true }T
 \ A let and a have of a smart-unfolding body (review re-check N1; no
 \ slice's body has one): the let of the value (field c) and the lambda
 \ of the type (b) and body (d), the have's nonDep; nodes made here, then

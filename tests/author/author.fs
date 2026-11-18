@@ -723,6 +723,12 @@ T{ s" Prop" wide-run -> outcome-full }T
 T{ lf-author-code -> 47 }T
 T{ same-order? -> true true }T
 T{ s" theorem t Prop explicit: p p := p end t" run -> outcome-ok }T
+\ A wordlist's place in the copied search order (groups.fs, review
+\ reuse-front-a finding 2): its index, or the count when it is not there,
+\ so that no list is searched after it.
+T{ lfa-order@ lfa-order# 0> 0 lfa-order-wid lfa-order-index -> true 0 }T
+T{ lfa-order# 1- lfa-order-wid lfa-order-index -> lfa-order# 1- }T
+T{ wordlist lfa-order-index -> lfa-order# }T
 
 \ Names the words cannot spell: a part between guillemets reads back as another
 \ part, or stops the run (plan task 8.6.3), so the printer refuses it; a Zs space
