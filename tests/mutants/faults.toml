@@ -8999,16 +8999,16 @@ reason = "S5B: a projection is no binary node, so the passes treat it as an unkn
 [[fault]]
 id = "tin-leaf-tags-raw-shift"
 file = "src/core/terms.fs"
-old = ''': lf-tin-leaf-tags+ ( lftag -- ) lf-tag-bit lf-tin-leaf-tags @ or lf-tin-leaf-tags ! ;'''
+old = ''': lf-tin-leaf-tags+ ( lftag -- ) lf-tin-leaf-tags lf-tag-set+ ;'''
 new = ''': lf-tin-leaf-tags+ ( lftag -- ) 1 swap lshift lf-tin-leaf-tags @ or lf-tin-leaf-tags ! ;'''
 test = "$GFORTH tests/core/terms.fs"
-reason = "Forth review L3 of small-fixes-1118: the leaf-table tag set shifts by the raw tag, not lf-tag-bit, so a tag above 31 or below 0 gets another bit than lf-tin-leaf-tag? reads"
+reason = "Forth review L3 of small-fixes-1118: the leaf-table tag set shifts by the raw tag, not through lf-tag-set+, so a tag above 31 or below 0 gets another bit than lf-tin-leaf-tag? reads"
 
 [[fault]]
 id = "tag-bit-negative-unclamped"
 file = "src/core/terms.fs"
-old = ''': lf-tag-bit ( tag -- mask ) 0 max 31 min 1 swap lshift ;'''
-new = ''': lf-tag-bit ( tag -- mask ) 31 min 1 swap lshift ;'''
+old = ''': lf-tag-place ( tag -- i ) 0 max 31 min ;'''
+new = ''': lf-tag-place ( tag -- i ) 31 min ;'''
 test = "$GFORTH tests/core/terms.fs"
 reason = "plan 9.4.8n (6): a negative tag shifts by a negative count (undefined in Forth-2012) instead of getting bit 0, which no tag has"
 
