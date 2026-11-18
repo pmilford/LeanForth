@@ -74,12 +74,10 @@ verdict-kinds skipped 1+ <>
 \ own, lf-slot-accepted? (final and ok), on a slot this context's
 \ snapshot may read; no effect (lf-env-accepted would note a refusal).
 : decl-accepted? ( d -- flag ) lf-env-readable if lf-slot-accepted? else false then ;
-\ Declaration d's outcome: ok only when decl-accepted? holds, so an ok
-\ outcome on a slot that is not accepted reads invalid.
-: decl-ok-outcome ( d -- outcome )
-  decl-accepted? if outcome-ok else outcome-invalid then ;
-: decl-outcome ( d -- outcome )
-  dup lf-env-outcome dup ok? if drop decl-ok-outcome else nip then ;
+\ Declaration d's outcome, read once: lf-env-outcome reads only a final
+\ slot (lf-env-readable), so it is ok exactly when decl-accepted? holds,
+\ and an ok outcome on a slot that is not final reads invalid (review N1).
+: decl-outcome ( d -- outcome ) lf-env-outcome ;
 \ The axiom set of declaration d: its slot's when d is accepted, 0 when
 \ it is not. An accepted declaration's set is always readable:
 \ lf-env-axioms reads it under decl-accepted?'s own test (environment.fs

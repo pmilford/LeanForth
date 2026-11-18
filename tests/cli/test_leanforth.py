@@ -855,6 +855,10 @@ class OtherLean(unittest.TestCase):
                       "import-stubs it reads back only with --env EXPORT\n", err)
         status, out, err = run("print", "--lf", COMPOSITION)
         self.assertEqual((status, "the text is not the export" in err), (0, False))
+        # help says so too (review N4).
+        status, out, _ = run("help")
+        self.assertIn("listed on stderr and stubbed, and then the\n      exit status is 2 "
+                      "(the text is not the export)\n", out)
 
     def test_escaped(self):
         """A crafted version cannot forge a line: it is shown escaped."""

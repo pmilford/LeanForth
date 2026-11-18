@@ -1,4 +1,6 @@
-\ The one name speller (review R9, 2026-11-18): a name as display text,
+\ The one name speller for Lean text (review R9, 2026-11-18; the Forth
+\ form's names, in LeanForth's own syntax, are print-forth.fs's, review
+\ R2): a name as display text,
 \ for the command line's text and JSON reports (cli/leanforth.fs,
 \ cli/check-json.fs) and, a component at a time (nt-part), for the term
 \ printer (print-names.fs, so goals and print too): Lean's own
@@ -45,16 +47,19 @@
 \ give it text that is already escaped (a name's, the term printer's): it
 \ would escape it twice; its own last result it refuses (flag false). A
 \ text of nt-name or nt-part stays valid until the next call of either,
-\ one of nt-text until the next nt-text. nt-free frees the heap blocks; the command line does not
-\ call it: one process runs one command, the blocks are as large as the
-\ longest name shown, and the host takes them back when the process
-\ leaves. A Forth session that wants the memory back calls it; the next
-\ call makes them again.
-\ State: one shared record, nt-state (/nt): three slabs (a name's text,
-\ other text escaped, the name's components), which of the first two is
-\ being written, whether a byte found no room, and the table of Init's
-\ tokens, laid while loading. One text at
-\ a time, in any context. It reads bytes (c@) to decode UTF-8. Loads in
+\ one of nt-text until the next nt-text. nt-free frees the heap blocks;
+\ the command line does not call it: one process runs one command, the
+\ blocks are as large as the longest name shown, and the host takes them
+\ back when the process leaves. A Forth session that wants the memory back
+\ calls it; the next call makes them again.
+\ State: one record for the whole process (not per context), nt-state
+\ (/nt): three slabs (a name's text, other text escaped, the name's
+\ components), which of the first two is being written, whether a byte
+\ found no room, and the table of Init's tokens, laid while loading and
+\ read only after. One text at a time: the term printer, which keeps its
+\ own state per context (print-job.fs, ADR 0009), spells names here, so
+\ two contexts must not print at once; none does today (no job prints;
+\ review N2). It reads bytes (c@) to decode UTF-8. Loads in
 \ decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end

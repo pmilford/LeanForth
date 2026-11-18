@@ -1638,7 +1638,8 @@ end-structure
   ."       FORMS: lean, text, mathematics, leanforth, all (default), joined by commas" cr
   ."   print --lf [--no-manifest] [--fuel N] [--fast] [--any-lean-version] EXPORT" cr
   ."       write every declaration as one LeanForth text, unchecked; what the" cr
-  ."       words cannot write is listed on stderr and stubbed" cr
+  ."       words cannot write is listed on stderr and stubbed, and then the" cr
+  ."       exit status is 2 (the text is not the export)" cr
   ."   count [--no-manifest] EXPORT     count the export's records by kind" cr
   ."   reexport [--no-manifest] EXPORT COPY" cr
   ."       write the export again, byte for byte as Lean's exporter writes it" cr ;
