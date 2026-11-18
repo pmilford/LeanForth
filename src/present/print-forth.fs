@@ -97,9 +97,28 @@ lf-pf-reserve by-intro: by-induction-with by-end by-rw[ by-rewrite[ ] | => by-so
 lf-pf-reserve #check
 0 c, align
 : lf-pf-next ( c-addr -- c-addr' ) count chars + ;
-: lf-pf-reserved? ( c-addr u -- flag )
-  lf-pf-reserved begin dup c@ while >r 2dup r@ count compare 0= if r> drop 2drop true exit
+: lf-pf-in? ( c-addr u list -- flag )
+  begin dup c@ while >r 2dup r@ count compare 0= if r> drop 2drop true exit
   then r> lf-pf-next repeat drop 2drop false ;
+\ Words a tactic file adds while the modules load (tactic plug-in design
+\ 3.1, lf-tactic:): a chain of records, a link cell then the counted
+\ spelling, in load order; read-only afterwards.
+create lf-pf-more 0 ,
+: lf-pf-more-end ( -- addr ) lf-pf-more begin dup @ while @ repeat ;
+: lf-pf-reserve-more ( c-addr u -- )
+  align here 0 , lf-pf-more-end ! lf-pf-word, 0 c, align ;
+: lf-pf-more? ( c-addr u -- flag )
+  lf-pf-more @ begin dup while >r 2dup r@ cell+ lf-pf-in? if r> drop 2drop true exit
+  then r> @ repeat nip nip ;
+: lf-pf-reserved? ( c-addr u -- flag )
+  2dup lf-pf-reserved lf-pf-in? if 2drop true else lf-pf-more? then ;
+\ Every reserved word, the list's then the chain's: xt ( c-addr -- ),
+\ c-addr the counted spelling.
+: lf-pf-each-in ( xt list -- )
+  begin dup c@ while 2dup 2>r swap execute 2r> lf-pf-next repeat 2drop ;
+: lf-pf-each-reserved ( xt -- )
+  dup lf-pf-reserved lf-pf-each-in
+  lf-pf-more @ begin dup while 2dup 2>r cell+ lf-pf-each-in 2r> @ repeat 2drop ;
 
 \ Names. A part is spelt plainly when it is not empty, has no dot, space or
 \ control character, is not all digits and is not [anonymous]: then its

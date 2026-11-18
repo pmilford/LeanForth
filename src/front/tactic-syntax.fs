@@ -238,6 +238,30 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 : lft-w-bracket-end ( v1 .. vn -- )
   lft-in-bracket lft-rules lft-past lft-close lft-from! ;
 
+\ Shapes (tactic plug-in design 3.2): how the word of a tactic that
+\ registers itself (tactic-api.fs's lf-tactic:) is read. A shape is a
+\ record: the values the word takes, then its builder ( v1 .. vn kind
+\ -- ), which records the step. tac-shape-plain takes none (by-rfl's
+\ shape), tac-shape-term one term (by-exact's). Shapes with headers,
+\ names, rules or blocks are core work of their own branch.
+begin-structure /lft-shape
+  field: shape-want
+  field: shape-build
+end-structure
+: lft-term-done ( t kind -- ) lft-term-step lft-done ;
+create tac-shape-plain 0 , ' lft-plain ,
+create tac-shape-term 1 , ' lft-term-done ,
+\ A registered word's reader: a word of lft-readers named as its
+\ spelling, its body the shape then the kind. It checks the values above
+\ the frame before it puts the kind on the stack (as lft-w-exact does).
+wordlist constant lft-readers
+: lft-read ( body -- )
+  >r r@ @ shape-want @ lft-tactic r@ cell+ @ r> @ shape-build @ execute ;
+: lft-reader, ( kind shape "name" -- )
+  get-current >r lft-readers set-current create , , r> set-current does> lft-read ;
+: lft-reader ( "name" -- xt )
+  parse-name lft-readers search-wordlist 0= abort" tactic-syntax: no reader" ;
+
 \ Names given to hypotheses: _, or a name that is no LeanForth word,
 \ which the block's text can use until the block ends (groups.fs).
 : lft-hole? ( c-addr u -- flag ) s" _" lfa-token= ;
