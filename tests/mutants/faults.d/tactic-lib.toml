@@ -90,7 +90,7 @@ reason = "a2-i withLocalDecl: the local outlives its scope (rw's motive check le
 [[fault]]
 id = "lib-rejected-not-supported"
 file = "src/front/tactic-run.fs"
-old = '''    outcome-rejected of lfa-e-tac-mismatch endof lfa-e-tac-meta swap endcase ;'''
+old = '''    outcome-rejected of lfa-e-app-builder endof lfa-e-tac-meta swap endcase ;'''
 new = '''    lfa-e-tac-meta swap endcase ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "a2-i review F7: a tactic library rejection (Lean's error) told as 93, not supported yet, which rw's try passes on where Lean's try catches it"
@@ -130,8 +130,8 @@ reason = "s1-synth review L3 (moved to the library's telescope, a2-i): forallMet
 [[fault]]
 id = "lib-telescope-frame-kept"
 file = "src/front/telescope.fs"
-old = '''  tl-open ['] tl-walk catch ?dup if tl-frames slab-drop throw then tl-close ;'''
-new = '''  tl-open ['] tl-walk catch ?dup if throw then tl-close ;'''
+old = ''': tl-run ( -- acc body ) ['] tl-walk catch ?dup if tl-frames slab-drop throw then tl-close ;'''
+new = ''': tl-run ( -- acc body ) ['] tl-walk catch ?dup if throw then tl-close ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i: a telescope that fails leaves its frame, and the next telescope reads the wrong one"
 

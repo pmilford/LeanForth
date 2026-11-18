@@ -1,0 +1,76 @@
+# Planted faults of by-apply and the goal layer's apply (slice a2-iii;
+# src/front/tactics/apply.fs, src/front/meta-tactic/apply.fs, goal.fs and
+# telescope.fs's bounded telescope), read with faults.toml as one list
+# (scripts/mutants.py).
+
+[[fault]]
+id = "apply-range-from-zero"
+file = "src/front/meta-tactic/apply.fs"
+old = '''  ap ap-target @ lf-expected-num-args drop - 0 max ap ap-lower ! ;'''
+new = '''  ap ap-target @ lf-expected-num-args 2drop drop 0 ap ap-lower ! ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/apply/check.py"
+reason = "a2-iii: the range of argument counts starts at 0, not numArgs less the goal's (Lean's rangeNumArgs; the error says type for conclusion)"
+
+[[fault]]
+id = "apply-dependent-first"
+file = "src/front/meta-tactic/apply.fs"
+old = ''': ap-result ( -- goals ) 0 false ap-those true ap-those ;'''
+new = ''': ap-result ( -- goals ) 0 true ap-those false ap-those ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/apply/check.py"
+reason = "a2-iii: reorderGoals puts the dependent goals first (Nat.le_trans's m before h₁, h₂)"
+
+[[fault]]
+id = "apply-one-goal-keeps-tag"
+file = "src/front/meta-tactic/apply.fs"
+old = '''  ap-goals slab-count 1 = if 0 ap-goal@ ap-tag lf-mvar-tag! lf-must exit then'''
+new = '''  ap-goals slab-count 1 = if exit then'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/constructor/check.py"
+reason = "a2-iii: appendParentTag leaves a single new goal its binder's tag (Or.inl's h) instead of the parent's"
+
+[[fault]]
+id = "apply-no-instances"
+file = "src/front/meta-tactic/apply.fs"
+old = '''  ap-synth-instances'''
+new = '''  '''
+test = "$GFORTH tests/front/tactics/apply/test.fs"
+reason = "a2-iii: synthAppInstances skipped, so instance metavariables stay open"
+
+[[fault]]
+id = "apply-mvar-head-young"
+file = "src/front/telescope.fs"
+old = '''  >r lf-meta-head dup lf-mvar? if lf-term-first@ r> < else r> 2drop false then ;'''
+new = '''  >r lf-meta-head dup lf-mvar? if lf-term-first@ r> < 0= else r> 2drop false then ;'''
+test = "$GFORTH tests/front/tactics/apply/test.fs"
+reason = "a2-iii: getExpectedNumArgsAux takes the telescope's own metavariables for a metavariable head, and an older one for none"
+
+[[fault]]
+id = "apply-telescope-unbounded"
+file = "src/front/telescope.fs"
+old = '''  swap >r tl-open r> tl tlf-max ! tl-run ;'''
+new = '''  swap >r tl-open r> drop tl-run ;'''
+test = "$GFORTH tests/front/tactics/apply/test.fs"
+reason = "a2-iii: forallMetaTelescopeReducing's maxMVars ignored"
+
+[[fault]]
+id = "goal-head-beta-kept"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  dup mtg-type dup lf-meta-head-beta lf-must tuck = if drop exit then'''
+new = '''  dup mtg-type dup lf-meta-head-beta lf-must tuck 2drop exit'''
+test = "$GFORTH tests/front/tactics/apply/test.fs"
+reason = "a2-iii: headBetaType never changes a goal's type"
+
+[[fault]]
+id = "goal-tag-not-appended"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mtg-appended ( parent tag -- tag' ) ?dup if mtg-suffix lfa-intern-part then ;'''
+new = ''': mtg-appended ( parent tag -- tag' ) ?dup if nip then ;'''
+test = "$GFORTH tests/front/tactics/apply/test.fs"
+reason = "a2-iii: appendTag keeps the goal's own tag, not parent.tag"
+
+[[fault]]
+id = "goal-replace-target-no-hint"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mtg-hint ( target new h -- h' ) -rot lf-mk-eq lf-mk-expected-prop-hint ;'''
+new = ''': mtg-hint ( target new h -- h' ) nip nip ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
+reason = "a2-ii: replaceTargetEq without mkExpectedPropHint (rw's term is no longer Lean's)"

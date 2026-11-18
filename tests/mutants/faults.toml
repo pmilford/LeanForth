@@ -15954,8 +15954,8 @@ reason = "FE1g-3 review fe1g3 L1: a step whose parent is a block already closed 
 [[fault]]
 id = "fe-run-row-unchecked"
 file = "src/front/tactic-run.fs"
-old = '''  dup lfr-kind? 0= abort" tactic-run: no such tactic kind" 1- lfr-row-size * lfr-rows + ;'''
-new = '''  1- lfr-row-size * lfr-rows + ;'''
+old = '''  dup lfr-kind? 0= abort" tactic-run: no such tactic kind" lfr-cell @ ;'''
+new = '''  lfr-cell @ ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "FE1g-3 review fe1g3 L2: lf-tactic-action! with kind 0 or 12 writes outside the table of rows"
 
@@ -20100,9 +20100,9 @@ reason = "S2 5 (MVarId.rewrite): congrArg's sides swapped, a proof the kernel re
 
 [[fault]]
 id = "s2-rw-mpr-new-twice"
-file = "src/front/tactic-rewrite.fs"
-old = '''  >r s" Eq.mpr" lfw-want lf-level! lf-mk-const1 lfw-want trw trw-new @ lfw-hint r>'''
-new = '''  >r s" Eq.mpr" lfw-want lf-level! lf-mk-const1 trw trw-new @ trw trw-new @ lfw-hint r>'''
+file = "src/front/meta-tactic/goal.fs"
+old = '''  >r >r over mtg-mpr-const -rot 2dup r> mtg-hint r> 4 lf-mk-app-n ;'''
+new = '''  >r >r over mtg-mpr-const -rot nip dup 2dup r> mtg-hint r> 4 lf-mk-app-n ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 5 (replaceTargetEq): Eq.mpr's first argument the new target where Lean's is the goal's type as stored"
 

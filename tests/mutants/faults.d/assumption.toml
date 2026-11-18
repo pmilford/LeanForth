@@ -1,0 +1,27 @@
+# Planted faults of by-assumption and the goal layer's assumption (slice
+# a2-iii; src/front/tactics/assumption.fs, src/front/meta-tactic/assumption.fs),
+# read with faults.toml as one list (scripts/mutants.py).
+
+[[fault]]
+id = "assumption-detail-taken"
+file = "src/front/meta-tactic/assumption.fs"
+old = '''  lf-view-local dup lf-local-detail? if 2drop false exit then'''
+new = '''  lf-view-local'''
+test = "$GFORTH tests/front/tactics/assumption/test.fs"
+reason = "a2-iii: findLocalDeclWithType? takes an implementation detail"
+
+[[fault]]
+id = "assumption-oldest-first"
+file = "src/front/meta-tactic/assumption.fs"
+old = '''  dup lf-view-count begin dup while 1-'''
+new = '''  dup lf-view-count 1- 0 max begin dup while 1-'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/assumption/check.py"
+reason = "a2-iii: the newest local is never tried (as_newest takes h1, as_one fails)"
+
+[[fault]]
+id = "assumption-not-assigned"
+file = "src/front/meta-tactic/assumption.fs"
+old = '''  if lf-mvar-assign lf-must exit then'''
+new = '''  if 2drop exit then'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/assumption/check.py"
+reason = "a2-iii: the goal is left open when a hypothesis fits (the hand-over refuses the hole)"
