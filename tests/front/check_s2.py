@@ -4,11 +4,18 @@ src/front/tactic-induction.fs, tactic-rewrite.fs, kabstract.fs,
 meta-check.fs; docs/design/S2_INTERFACE.md 4, 5, 9 and appendix G).
 
 1. FE1's rewriting form, the nested induction, the owner's proof set and
-   merge B's midpoint, n + 0 = n by Eq.refl and by rfl (FILES) through `bin/leanforth check --env tests/front/s2-slice.ndjson
-   --elab-data tests/front/s2-slice.elab.ndjson`: exit 0, each theorem
+   merge B's midpoint, n + 0 = n by Eq.refl and by rfl (FILES) through
+   `bin/leanforth check --env tests/front/s2-slice.ndjson --elab-data
+   tests/front/s2-slice.elab.ndjson --steps -`: exit 0, each theorem
    accepted with no axiom; their types and values, dumped by
    tests/front/elab-dump.fs (s2-dump), equal pinned Lean's node for node
-   (tests/front/s2-proofs.golden, the output of tests/front/s2-proofs.lean).
+   (tests/front/s2-proofs.golden, the output of tests/front/s2-proofs.lean);
+   the step log after the report (branch s2-steps, front/step-log.fs):
+   every line valid by schemas/tactic-steps-1.schema.json, each header's
+   count its step lines, the lines equal tests/front/s2-steps.golden
+   (LeanForth's own log, reviewed; --write-steps writes it again); with
+   --jobs 2 and with --steps FILE the same lines; a wrong proof (exit 4)
+   writes none; --steps with an export is refused (exit 4).
 2. The wrong proofs (WRONG, twins of tests/front/s2-wrong.lean's): exit 4,
    the error code and Lean's first message (the first lines of the error,
    as LeanForth prints them); the proofs not supported yet (UNSUPPORTED):
@@ -23,14 +30,16 @@ With --lean: pinned Lean writes the golden again (--write-golden keeps it)
 and it must be unchanged, and pinned Lean refuses each wrong twin with the
 message the LeanForth file must print.
 
-Usage: GFORTH=... python3 tests/front/check_s2.py
+Usage: GFORTH=... python3 tests/front/check_s2.py [--write-steps]
        LEAN=... python3 tests/front/check_s2.py --lean [--write-golden]
 """
+import json
 import os
 import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 GFORTH = os.environ.get("GFORTH", "gforth")
@@ -39,6 +48,10 @@ LIMIT = 600
 SLICE = "tests/front/s2-slice.ndjson"
 DATA = "tests/front/s2-slice.elab.ndjson"
 GOLDEN = ROOT / "tests/front/s2-proofs.golden"
+STEPS_GOLDEN = ROOT / "tests/front/s2-steps.golden"
+sys.path.insert(0, str(ROOT / "tests/support"))
+from schema_subset import Validator, load_strict  # noqa: E402
+STEPS_SCHEMA = Validator(load_strict((ROOT / "schemas/tactic-steps-1.schema.json").read_text()))
 # Each file and the theorems it declares, in order.
 FILES = [("tests/front/01-zero-add-rw.lf", ["zero_add''"]),
          ("tests/front/04-nested-ih.lf", ["zero_add_nested"]),
@@ -111,9 +124,36 @@ def run(args):
                           text=True, timeout=LIMIT, env=dict(os.environ, GFORTH=GFORTH))
 
 
-def check(path):
-    done = run(["bin/leanforth", "check", "--env", SLICE, "--elab-data", DATA, path])
+def check(path, *more):
+    done = run(["bin/leanforth", "check", "--env", SLICE, "--elab-data", DATA, *more, path])
     return done.returncode, done.stdout + done.stderr
+
+
+def step_lines(out):
+    """The step log's lines: those after the report that are JSON objects."""
+    return [line for line in out.splitlines() if line.startswith("{")]
+
+
+def check_log(path, lines):
+    """Schema, counts: each header's steps, then that many step lines."""
+    expected = 0
+    for line in lines:
+        record = load_strict(line)
+        errors = list(STEPS_SCHEMA.errors(record))
+        if errors:
+            raise Failure(f"{path}: step log line not valid: {errors}\n  {line}")
+        if "tactic_steps" in record:
+            if expected:
+                raise Failure(f"{path}: a header where {expected} more steps are due")
+            expected, number = record["tactic_steps"]["steps"], 0
+            continue
+        number += 1
+        if not expected or record["step"] != number or record["parent"] >= number:
+            raise Failure(f"{path}: step {record['step']} out of order\n  {line}")
+        expected -= 1
+    tactics = ":= by" in (ROOT / path).read_text(encoding="utf-8")
+    if expected or bool(lines) != tactics:
+        raise Failure(f"{path}: a step log missing, cut short or for no tactic proof: {lines}")
 
 
 def dump(path):
@@ -145,10 +185,13 @@ def self_test(want):
 
 
 def check_files(want):
+    logs = []
     for path, names in FILES:
-        code, out = check(path)
+        code, out = check(path, "--steps", "-")
         if code != 0:
             raise Failure(f"{path}: exit {code}\n{out}")
+        check_log(path, step_lines(out))
+        logs += step_lines(out)
         for name in names:
             if f"\n{name}: accepted; axioms: none" not in "\n" + out:
                 raise Failure(f"{path}: {name} not accepted with no axiom\n{out}")
@@ -158,6 +201,33 @@ def check_files(want):
             if want.get(key) != line:
                 raise Failure(f"{path}: {key} differs from pinned Lean's:\n  LeanForth: {line}\n"
                               f"  Lean:      {want.get(key)}")
+    return logs
+
+
+def check_steps(logs):
+    """The log against its golden file; --jobs 2, --steps FILE, a wrong
+    proof and an export."""
+    if "--write-steps" in sys.argv:
+        STEPS_GOLDEN.write_text("\n".join(logs) + "\n", encoding="utf-8")
+    if logs != STEPS_GOLDEN.read_text(encoding="utf-8").splitlines():
+        raise Failure("the step log differs from tests/front/s2-steps.golden "
+                      "(python3 tests/front/check_s2.py --write-steps after a review)")
+    path = FILES[1][0]
+    alone = [line for line in logs if line in step_lines(check(path, "--steps", "-")[1])]
+    code, out = check(path, "--jobs", "2", "--steps", "-")
+    if code != 0 or step_lines(out) != alone:
+        raise Failure(f"{path} with --jobs 2: exit {code}, another step log\n{out}")
+    with tempfile.TemporaryDirectory() as work:
+        log = pathlib.Path(work) / "steps.ndjson"
+        code, out = check(path, "--steps", str(log))
+        if code != 0 or step_lines(out) or log.read_text(encoding="utf-8").splitlines() != alone:
+            raise Failure(f"{path} with --steps FILE: exit {code}, another step log\n{out}")
+    code, out = check(WRONG[0][0], "--steps", "-")
+    if code != 4 or step_lines(out):
+        raise Failure(f"{WRONG[0][0]}: exit {code}, a step log for a wrong proof\n{out}")
+    done = run(["bin/leanforth", "check", "--steps", "-", SLICE])
+    if done.returncode != 4 or "--steps goes only with a LeanForth text" not in done.stdout:
+        raise Failure(f"--steps with an export: exit {done.returncode}\n{done.stdout}")
 
 
 def check_wrong():
@@ -221,7 +291,21 @@ def check_lean(write):
         raise Failure(f"s2-wrong.lean: exit {done.returncode}, missing {missing}\n{out}")
 
 
+def steps_of(path):
+    """One file's step log against its part of the golden file (the faults'
+    quick test)."""
+    code, out = check(path, "--steps", "-")
+    lines = step_lines(out)
+    check_log(path, lines)
+    if code != 0 or "\n".join(lines) not in STEPS_GOLDEN.read_text(encoding="utf-8"):
+        raise Failure(f"{path}: exit {code}, a step log not in {STEPS_GOLDEN.name}\n{out}")
+    print(f"check_s2 --steps-of {path}: {len(lines)} lines valid and as golden")
+
+
 def main():
+    if "--steps-of" in sys.argv:
+        steps_of(sys.argv[sys.argv.index("--steps-of") + 1])
+        return
     want = golden()
     self_test(want)
     if "--lean" in sys.argv:
@@ -230,12 +314,13 @@ def main():
               f"the {len(LEAN_WRONG)} messages; harness self-test passed")
         return
     files = check_boundary()
-    check_files(want)
+    check_steps(check_files(want))
     check_wrong()
     check_units()
     print(f"check_s2: no kernel or importer file ({files}) names the smart-unfolding marker; "
           f"{len(FILES)} files accepted, their {len(want)} type and value lines "
-          f"equal pinned Lean's node for node; {len(WRONG)} wrong proofs refused with Lean's "
+          f"equal pinned Lean's node for node, their step logs valid and as golden; "
+          f"{len(WRONG)} wrong proofs refused with Lean's "
           f"messages; {len(UNSUPPORTED)} unsupported; {len(UNITS)} unit files pass; "
           f"harness self-test passed")
 

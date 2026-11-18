@@ -80,6 +80,15 @@
 \ lf-front-close ( type value -- type' value' ) and lf-front-close-type
 \ ( type -- type' ) (a term proof's or an axiom's closing over the
 \ current view's binders, as a tactic proof's, front/elab-decl.fs).
+\ The step log (S2 6, s2-steps): lf-steps-record! ( flag -- ) keeps one
+\ (cli: check --steps); then each step the loop runs gets an entry
+\ (/tlg: its kind, position, the entry of its block, the main goal before
+\ and the goals after, printed), a restore drops those made since its
+\ save, and a declaration handed over records its name and entries
+\ (/tld); lf-steps-decls ( -- n ), lf-steps-decl ( k -- addr ),
+\ lf-steps-entry ( k -- addr ), lf-steps-span ( k -- first n ),
+\ lf-steps-text ( first n -- c-addr u ) and lf-tac-word ( kind -- c-addr u )
+\ read them for front/step-log.fs; emptied with the open parts.
 \ Errors stop the run (lfa-fail) with author/errors.fs's codes: 80, 89,
 \ 90, 91, 92 for a record whose steps do not nest as the reader makes
 \ them (checked before any step runs), 93 for a type inference or
@@ -90,7 +99,9 @@
 \ running, the universe arguments being built) and the slabs trun-frames,
 \ trun-saves, trun-steps, trun-xs and
 \ trun-locals (one declaration's run), trun-parts and trun-text (the
-\ open parts of the whole run, emptied by lfa-run-fresh), in the checker
+\ open parts of the whole run, emptied by lfa-run-fresh), trun-log,
+\ trun-log-spans, trun-log-text and trun-log-decls (the step log of the
+\ whole run, emptied with them), in the checker
 \ context (ADR 0009); the table of rows lfr-rows is shared, set while the
 \ modules load (lf-tactic-action!) and read-only afterwards (a test may
 \ change a row in its own single-threaded run). Loads in decimal whatever
@@ -128,6 +139,9 @@ begin-structure /trun
   field: trun-step       \ the step running, for its errors
   field: trun-cut        \ true when an open part's text found no room
   field: trun-record     \ the step record running (trun-steps), or -1
+  field: trun-log-on     \ true: the step log is kept (lf-steps-record!)
+  field: trun-entry      \ the step log's newest entry of this run, or -1
+  field: trun-log-first  \ the declaration's first entry
   4 cells +field trun-pair  \ universe arguments (sorryAx, congrArg): level, identity
 end-structure
 /trun context-record: trun
@@ -142,6 +156,7 @@ begin-structure /tfr      \ an open block
   field: tfr-step         \ its step in the record
   field: tfr-next         \ the first step not looked at yet
   field: tfr-rest         \ the goals outside it (a run), put back at its end
+  field: tfr-log          \ its step's step-log entry, or -1
 end-structure
 /tfr context-slab: trun-frames
 begin-structure /tsv      \ a saved state
@@ -152,6 +167,9 @@ begin-structure /tsv      \ a saved state
   field: tsv-text         \ and their text's length
   field: tsv-view         \ the current local context (a tactic may set it)
   field: tsv-steps        \ how many step records there were
+  field: tsv-log          \ step-log entries, their goal spans, their text
+  field: tsv-log-spans
+  field: tsv-log-text
 end-structure
 /tsv context-slab: trun-saves
 1 cells context-slab: trun-xs       \ the binders' free variables (Lean's xs)
@@ -165,6 +183,25 @@ begin-structure /top      \ an open part
 end-structure
 /top context-slab: trun-parts
 1 chars context-slab: trun-text
+begin-structure /tlg      \ a step-log entry (S2 6): one per step run
+  field: tlg-kind         \ its step's kind (tactic-syntax.fs)
+  field: tlg-at           \ its position
+  field: tlg-parent       \ the entry of the block it runs in, or -1
+  field: tlg-before       \ the main goal before, printed: a span of
+  field: tlg-before#      \ trun-log-text, first -1 for none
+  field: tlg-after        \ the goals after: their first span in trun-log-spans
+  field: tlg-after#       \ and how many
+end-structure
+/tlg context-slab: trun-log
+2 cells context-slab: trun-log-spans   \ a goal's text: first, length
+1 chars context-slab: trun-log-text
+begin-structure /tld      \ a declaration's step log
+  field: tld-name         \ its full name: a span of trun-log-text
+  field: tld-name#
+  field: tld-first        \ its first entry
+  field: tld-count        \ and how many
+end-structure
+/tld context-slab: trun-log-decls
 
 \ ---- Fuel: one unit a step.
 : lf-tactic-fuel! ( n -- ) trun tuck trun-limit ! true swap trun-given ! ;
@@ -297,7 +334,8 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-depth ( -- n ) trun-frames slab-count ;
 : lfr-frame ( k -- addr ) trun-frames slab-at ;
 : lfr-top ( -- addr ) trun-frames slab-last ;
-: lfr-frame! ( i rest addr -- ) tuck tfr-rest ! over 1+ over tfr-next ! tfr-step ! ;
+: lfr-frame! ( i rest addr -- )
+  trun trun-entry @ over tfr-log ! tuck tfr-rest ! over 1+ over tfr-next ! tfr-step ! ;
 : lf-tac-block ( i rest -- ) 1 trun-frames slab-claim lfr-must lfr-frame lfr-frame! ;
 : lfr-inside? ( b j -- flag )
   dup lf-tactic-count < if lfr-parent swap < 0= else 2drop false then ;
@@ -307,8 +345,46 @@ s" by-sorry" tac-k-sorry lfr-spell
   dup tfr-step @ swap tfr-next @ lfr-scan tuck lfr-inside? dup 0= if nip then ;
 \ A step: its fuel, then its row's action.
 : lfr-act ( i -- ) dup lfr-kind lfr-row trow-run @ execute ;
+\ ---- The step log (S2 6; front/step-log.fs writes it): with
+\ lf-steps-record! on, each step the loop runs gets an entry, its kind,
+\ position and block's entry, the main goal before and the goals after as
+\ goal-print.fs prints them, in slabs that outlive the stores (as the open
+\ parts); a restore drops the entries made since its save (lfr-back).
+: lf-steps-record! ( flag -- ) trun trun-log-on ! ;
+: lfg-on? ( -- flag ) trun trun-log-on @ ;
+: lfg-text# ( -- n ) trun-log-text slab-count ;
+: lfg-text+ ( c-addr u -- )
+  dup trun-log-text slab-claim ok? if trun-log-text slab-at swap move
+  else drop 2drop true trun trun-cut ! then ;
+\ A goal printed into trun-log-text: its span; full when the text found
+\ no room.
+\ (The span's length: the text's count now less its first.)
+: lfg-len ( first outcome -- n outcome ) swap lfg-text# swap - swap ;
+: lfg-cut ( outcome -- outcome' ) trun trun-cut @ if drop outcome-full then ;
+: lfg-print ( goal -- first n outcome )
+  false trun trun-cut ! lfg-text# tuck swap ['] lf-goal-print ['] lfg-text+ lf-print-with
+  lfg-len lfg-cut ;
+: lfg-entry ( -- addr ) trun-log slab-last ;
+: lfg-before ( -- )
+  lf-main-goal ok-then? if lfg-print lfr-must else drop -1 0 then
+  lfg-entry tuck tlg-before# ! tlg-before ! ;
+: lfg-fill ( i addr -- )
+  over lfr-kind over tlg-kind ! swap lfr-at over tlg-at !
+  lfr-top tfr-log @ swap tlg-parent ! ;
+: lfg-open ( i -- )
+  lfg-on? 0= if drop exit then
+  1 trun-log slab-claim lfr-must dup trun trun-entry ! trun-log slab-at lfg-fill
+  lfg-before ;
+: lfg-span+ ( first n -- )
+  1 trun-log-spans slab-claim lfr-must trun-log-spans slab-at 2! ;
+: lfg-goal+ ( goal -- outcome ) lfg-print ok-then? if lfg-span+ outcome-ok else nip then ;
+: lfg-after ( -- )
+  trun-log-spans slab-count lfg-entry tlg-after !
+  lfr-unsolved dup run-count lfg-entry tlg-after# ! ['] lfg-goal+ run-each lfr-must ;
+: lfg-close ( -- ) lfg-on? if lfg-after then ;
 : lfr-step ( i -- )
-  dup trun trun-step ! lfr-spend? 0= if drop lfa-e-tac-fuel lf-tac-fail then lfr-act ;
+  dup trun trun-step ! lfr-spend? 0= if drop lfa-e-tac-fuel lf-tac-fail then
+  dup lfg-open lfr-act lfg-close ;
 : lfr-go ( j -- ) dup 1+ lfr-top tfr-next ! lfr-step ;
 \ A block's end: done at its place, the goals outside it put back.
 : lfr-pop ( -- ) trun-frames slab-drop ;
@@ -424,10 +500,13 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-saves ( -- n ) trun-saves slab-count ;
 : lfr-save ( k -- addr ) trun-saves slab-at ;
 : lfr-latest? ( save -- flag ) dup 0< 0= swap lfr-saves 1- = and ;
+: lfr-fill-log ( addr -- )
+  trun-log slab-count over tsv-log ! trun-log-spans slab-count over tsv-log-spans !
+  lfg-text# swap tsv-log-text ! ;
 : lfr-fill ( mark addr -- )
   tuck tsv-mark ! lf-goals over tsv-goals ! lfr-depth over tsv-frames !
   trun-parts slab-count over tsv-parts ! lfr-text# over tsv-text !
-  lf-tac-records over tsv-steps ! lf-mctx-view swap tsv-view ! ;
+  lf-tac-records over tsv-steps ! lf-mctx-view over tsv-view ! lfr-fill-log ;
 \ The metavariable context's trail (front/mvars.fs's marks, last in,
 \ first out): the one place to change when the trail's interface does.
 : lfr-trail-mark ( -- mark outcome ) lf-mctx-mark ;
@@ -441,10 +520,13 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-drop-save ( -- ) trun-saves slab-drop ;
 \ The slabs' counts back to the save's (blocks, parts and text only grow
 \ in a try).
+: lfr-back-log ( addr -- )
+  dup tsv-log @ trun-log slab-cut dup tsv-log-spans @ trun-log-spans slab-cut
+  tsv-log-text @ trun-log-text slab-cut ;
 : lfr-back ( addr -- )
   dup tsv-frames @ trun-frames slab-cut dup tsv-parts @ trun-parts slab-cut
   dup tsv-text @ trun-text slab-cut dup tsv-steps @ trun-steps slab-cut
-  tsv-goals @ lf-goals! drop ;
+  dup lfr-back-log tsv-goals @ lf-goals! drop ;
 : lfr-rolled ( addr -- outcome )
   dup lfr-back dup tsv-view @ lf-mctx-view! tsv-mark @ lfr-trail-undo ;
 : lf-tac-restore ( save -- outcome )
@@ -462,7 +544,8 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ ---- The run: the root goal, the steps, the end.
 : lfr-fresh ( -- )
   trun-frames slab-clear trun-saves slab-clear trun-steps slab-clear lfr-fuel-start
-  lf-pst-reset 0 trun trun-step ! -1 lfr-running ! ;
+  lf-pst-reset 0 trun trun-step ! -1 lfr-running ! -1 trun trun-entry !
+  trun-log slab-count trun trun-log-first ! ;
 : lfr-root ( type -- )
   lf-instantiate-mvars lfr-close-must 0 lf-mctx-view lf-goal-new lfr-close-must
   lf-pst-open lfr-must ;
@@ -508,14 +591,27 @@ defer lf-front-by-statement ( -- type )
 \ way.
 : lf-front-close ( type value -- type' value' ) lfr-xs lfr-assemble ;
 : lf-front-close-type ( type -- type' ) lfr-xs ['] lf-term-pi lfr-close ;
+: lfg-name ( addr -- )
+  false trun trun-cut ! lfg-text# over tld-name ! lfa-full lfg-text+
+  lfg-text# over tld-name @ - swap tld-name# !
+  trun trun-cut @ if outcome-full lfr-must then ;
+: lfg-counts ( addr -- )
+  trun trun-log-first @ 2dup swap tld-first !
+  trun-log slab-count swap - swap tld-count ! ;
+: lfg-decl ( -- )
+  lfg-on? 0= if exit then
+  1 trun-log-decls slab-claim lfr-must trun-log-decls slab-at dup lfg-name lfg-counts ;
 : lfr-proof-end ( -- )
   lf-front-by-statement lfr-xs dup lf-tactic-by lfr-assemble lf-front-hand-over
-  lfa-declared ;
+  lfg-decl lfa-declared ;
 ' lfr-proof-end is lf-tactic-proof-end
 
 \ ---- The open parts, after the verdicts (ADR 0021 Amendment 1).
 : lf-open-parts ( -- n ) trun-parts slab-count ;
-: lfr-parts-reset ( -- ) trun-parts slab-clear trun-text slab-clear ;
+: lfr-log-reset ( -- )
+  trun-log slab-clear trun-log-spans slab-clear trun-log-text slab-clear
+  trun-log-decls slab-clear ;
+: lfr-parts-reset ( -- ) trun-parts slab-clear trun-text slab-clear lfr-log-reset ;
 action-of lfa-run-fresh constant lfr-run-fresh-before
 : lfr-run-fresh ( -- ) lfr-run-fresh-before execute lfr-parts-reset ;
 ' lfr-run-fresh is lfa-run-fresh
@@ -531,4 +627,14 @@ action-of lfa-run-fresh constant lfr-run-fresh-before
   ." note: everything else in a declaration with open parts was checked by the kernel;" cr
   ." note: accepted, it holds if each of its open parts is true, and is NOT PROVED" cr ;
 : lf-open-parts. ( -- ) lf-open-parts ?dup if 0 do i lfr-.part loop lfr-.note then ;
+
+\ ---- The step log's records, read by front/step-log.fs after the
+\ verdicts: the declarations logged, an entry, a goal's span, a span's
+\ text, a kind's word. Unchecked: indexes below the counts.
+: lf-steps-decls ( -- n ) trun-log-decls slab-count ;
+: lf-steps-decl ( k -- addr ) trun-log-decls slab-at ;
+: lf-steps-entry ( k -- addr ) trun-log slab-at ;
+: lf-steps-span ( k -- first n ) trun-log-spans slab-at 2@ ;
+: lf-steps-text ( first n -- c-addr u ) swap trun-log-text slab-at swap ;
+: lf-tac-word ( kind -- c-addr u ) lfr-row dup trow-chars swap trow-length @ ;
 base !   \ the BASE this file was loaded with

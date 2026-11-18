@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/pmilford/LeanForth/schemas/tactic-steps-1.schema.json",
+  "title": "LeanForth tactic step log, format version 1: one line",
+  "description": "Every line of the step log `leanforth check --steps FILE|- TEXT.lf` writes (plan S2, branch s2-steps; docs/design/S2_INTERFACE.md section 6; src/front/step-log.fs): for each declaration of the text with a tactic proof that the kernel accepted, in the text's order, one header line ({\"tactic_steps\": ...}) and then one line per step, in the order the steps took effect. A step's goals are printed as `.goals` prints them (Lean's trace_state): the case tag, the hypotheses and the target, lines joined by line feeds. Presentation data: nothing reads it to decide, and it changes no verdict. Version 1 does not yet carry each tactic's rule fields, the constants and hypotheses a step used, or the goals in kernel form (docs/design/S2_INTERFACE.md appendix C).",
+  "$comment": "Uses only the keywords that tests/support/schema_subset.py implements.",
+  "anyOf": [
+    {
+      "$ref": "#/$defs/header"
+    },
+    {
+      "$ref": "#/$defs/step"
+    }
+  ],
+  "$defs": {
+    "header": {
+      "type": "object",
+      "required": [
+        "tactic_steps"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "tactic_steps": {
+          "type": "object",
+          "required": [
+            "declaration",
+            "format",
+            "format_version",
+            "steps"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "declaration": {
+              "description": "The declaration's full name, dotted.",
+              "type": "string",
+              "minLength": 1
+            },
+            "format": {
+              "const": "leanforth-tactic-steps"
+            },
+            "format_version": {
+              "const": 1
+            },
+            "steps": {
+              "description": "How many step lines follow.",
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    },
+    "goal": {
+      "description": "One goal as .goals prints it.",
+      "type": "string",
+      "minLength": 1
+    },
+    "step": {
+      "type": "object",
+      "required": [
+        "goal_before",
+        "goals_after",
+        "parent",
+        "source",
+        "step",
+        "tactic",
+        "word"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "goal_before": {
+          "description": "The main goal before the step, or null when the step ran with no goal in focus (an alternative or case taking its goal).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/goal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "goals_after": {
+          "description": "The goals in focus once the step took effect.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/goal"
+          }
+        },
+        "parent": {
+          "description": "The step of the block the step ran in (an induction's with, an alternative, a case), 0 for the proof's own steps.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "source": {
+          "description": "The step's word in the text: line:column, from 1.",
+          "type": "string",
+          "pattern": "^[1-9][0-9]*:[1-9][0-9]*$"
+        },
+        "step": {
+          "description": "The step's number in its declaration, from 1, in the order taking effect.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "tactic": {
+          "enum": [
+            "rfl",
+            "exact",
+            "intro",
+            "induction",
+            "alternative",
+            "case",
+            "rewrite",
+            "rw",
+            "sorry"
+          ]
+        },
+        "word": {
+          "description": "The LeanForth word that wrote the step.",
+          "enum": [
+            "by-rfl",
+            "by-exact",
+            "by-intro:",
+            "by-induction",
+            "by-induction-with",
+            "|",
+            "by-case:",
+            "by-rewrite[",
+            "by-rw[",
+            "by-sorry"
+          ]
+        }
+      }
+    }
+  }
+}

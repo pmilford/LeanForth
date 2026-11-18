@@ -353,6 +353,13 @@ T{ s2 @ lf-tac-commit s1 @ lf-tac-restore lfr-saves -> outcome-ok outcome-ok 0 }
   0 0 lf-tac-block lfa-e-tac-unsolved lfa-fail ;
 T{ two-goals lf-open-parts lfr-depth ' part-fail lf-tac-try drop lf-open-parts lfr-depth
    -> 0 0 0 0 }T
+\ So are step-log entries, their goals' spans and text (S2 6).
+: log-fail ( -- ) 1 trun-log slab-claim 2drop 1 trun-log-spans slab-claim 2drop
+  3 trun-log-text slab-claim 2drop lfa-e-tac-unsolved lfa-fail ;
+: log-counts ( -- a b c )
+  trun-log slab-count trun-log-spans slab-count trun-log-text slab-count ;
+T{ two-goals log-counts ' log-fail lf-tac-try drop lf-tac-forget log-counts
+   -> 0 0 0 0 0 0 }T
 \ No room for a second save (the slab limited to one): full, its mark
 \ given back, the first save still open; a try then stops the run full.
 : must-be-ok ( outcome -- ) ok? 0= abort" not ok" ;
@@ -415,12 +422,37 @@ T{ lf-open-parts 0 part-name s" zero_add_sorry" compare 0 part top-at @ lfa-pos>
 \ The same again in the same process: the same verdicts.
 T{ s" tests/front/06-sorry.lf" check outcome-ok tally cli-not-proved @ lf-open-parts
    -> 0 49 2 1 }T
+\ The step log (check --steps -, front/step-log.fs): the accepted
+\ declaration's header and its one step; none with a test that accepts
+\ nothing.
+variable lines#
+: count-lines ( c-addr u -- ) s\" \n" compare 0= if 1 lines# +! then ;
+: logged ( xt -- n outcome ) 0 lines# ! ['] count-lines swap lf-steps-write lines# @ swap ;
+: none-accepted ( c-addr u -- flag ) 2drop false ;
+: check-steps ( c-addr u -- code )
+  cli-options library cli-state opt-env 2! s" -" cli-state opt-steps 2! cli-check ;
+: all-accepted ( c-addr u -- flag ) 2drop true ;
+T{ s" tests/front/06-sorry.lf" check-steps lf-steps-decls -> 0 1 }T
+T{ ' all-accepted logged ' none-accepted logged -> 2 outcome-ok 0 outcome-ok }T
+[defined] >string-execute [if]
+: sorry-steps ( -- c-addr u ) s" tests/front/06-sorry.lf" check-steps drop ;
+: steps-written? ( -- flag )
+  ['] sorry-steps >string-execute s\" {\"tactic_steps\":" search nip nip ;
+T{ steps-written? -> true }T
+[then]
+\ Without --steps nothing is kept.
+T{ s" tests/front/06-sorry.lf" check lf-steps-decls -> 0 0 }T
 \ A front-end fault that closes the goal with a wrong term (Bool.false,
-\ not a proof of p) reaches the kernel, which rejects it (exit 1).
+\ not a proof of p) reaches the kernel, which rejects it (exit 1); the
+\ step log leaves the rejected declaration out.
 : wrong-close ( i -- )
   drop lf-tac-main s" Bool.false" 0 cst lf-mvar-assign made 0 lf-replace-main made ;
 ' wrong-close tac-k-sorry lf-tactic-action!
 T{ s" tests/front/06-sorry.lf" check outcome-rejected tally outcome-ok tally -> 1 1 48 }T
+T{ s" tests/front/06-sorry.lf" check-steps lf-steps-decls -> 1 1 }T
+[defined] >string-execute [if]
+T{ steps-written? -> false }T
+[then]
 ' lfr-sorry tac-k-sorry lf-tactic-action!
 ' lfr-unelaborated stating
 T{ lfc-library-close -> }T

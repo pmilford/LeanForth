@@ -5537,8 +5537,8 @@ reason = "L4: the refused records' message is lost (caught on Gforth 1.0, where 
 [[fault]]
 id = "lf-text-flags-stale"
 file = "src/cli/leanforth.fs"
-old = '''  cli-elab-fuel-set lfc-fresh cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check'''
-new = '''  cli-elab-fuel-set cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check'''
+old = '''  lfc-fresh cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check'''
+new = '''  cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "N3: an earlier text's failure flag stays for the next run of the session, which then reports that text's error instead of its own (a snapshot that does not open)"
 
@@ -19963,3 +19963,35 @@ old = '''  lf-term-tag@ dup lf-tag-projection = swap lf-tag-annotation = or'''
 new = '''  lf-term-tag@ lf-tag-projection ='''
 test = "$GFORTH tests/front/s2-units.fs"
 reason = "S2 merge B: Meta.check passes a smart-unfolding marker unchecked"
+
+[[fault]]
+id = "fe-steps-rolled-back"
+file = "src/front/tactic-run.fs"
+old = '''  dup lfr-back-log tsv-goals @ lf-goals! drop ;'''
+new = '''  tsv-goals @ lf-goals! drop ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "S2 s2-steps: a failed attempt's step-log entries are kept after the restore"
+
+[[fault]]
+id = "fe-steps-rejected-logged"
+file = "src/front/step-log.fs"
+old = ''': lsl-accepted? ( decl -- flag ) lsl-name lsl lsl-test @ execute ;'''
+new = ''': lsl-accepted? ( decl -- flag ) drop true ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "S2 s2-steps: the step log holds a declaration the kernel rejected"
+
+[[fault]]
+id = "fe-steps-parent-lost"
+file = "src/front/tactic-run.fs"
+old = '''  trun trun-entry @ over tfr-log ! tuck tfr-rest ! over 1+ over tfr-next ! tfr-step ! ;'''
+new = '''  -1 over tfr-log ! tuck tfr-rest ! over 1+ over tfr-next ! tfr-step ! ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --steps-of tests/front/04-nested-ih.lf"
+reason = "S2 s2-steps: every step's parent is the proof (0), not the alternative or induction it ran in"
+
+[[fault]]
+id = "fe-steps-goals-after-skipped"
+file = "src/front/tactic-run.fs"
+old = ''': lfg-close ( -- ) lfg-on? if lfg-after then ;'''
+new = ''': lfg-close ( -- ) ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --steps-of tests/front/04-nested-ih.lf"
+reason = "S2 s2-steps: a step's goals after are never recorded (the log's spans point nowhere)"

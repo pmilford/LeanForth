@@ -137,6 +137,7 @@ require ./check-lf.fs
 require ./check-json.fs
 require ../front/meta-config.fs
 require ../front/elab-decl.fs
+require ../front/step-log.fs
 
 100000000 constant cli-default-fuel   \ fuel of each declaration's check
 : cli-version-text ( -- c-addr u ) s" 0.1.0-dev" ;   \ LeanForth's version
@@ -183,6 +184,10 @@ begin-structure /cli-run
   2 cells +field opt-elab       \ the library's elaboration data (--elab-data), or 0 0
   field: opt-elab-fuel          \ elaboration steps of a declaration (--elab-fuel)
   field: opt-elab-fuel-given    \ true: --elab-fuel was given
+  2 cells +field opt-steps      \ the step log's file, or - (--steps), or 0 0
+  2 cells +field run-step-name  \ the declaration the step log asks about
+  field: run-steps-fid          \ the step log's file while it is written
+  field: run-steps-bad          \ true: writing it failed
 end-structure
 /cli-run context-record: cli-state
 manifest: cli-manifest
@@ -1048,11 +1053,43 @@ variable cli-info#
 : cli-checks-only? ( -- flag )
   lfc-failed? lf-author-code lfa-e-nothing = and lf-elab-checks 0> and ;
 : cli-checks-only ( -- ) ." nothing checked by the kernel" cr ;
+\ --steps FILE or --steps - (plan S2, s2-steps; docs/design/S2_INTERFACE.md
+\ 6): the step log of the text's tactic proofs (front/step-log.fs), for
+\ the declarations accepted, written after the report to FILE or to
+\ standard output. It changes no verdict; a log that cannot be written
+\ is an error (exit 3).
+: cli-steps ( -- c-addr u ) cli-state opt-steps 2@ ;
+: cli-steps? ( -- flag ) cli-steps nip 0<> ;
+\ Accepted: the newest input declaration of that full name (the text's
+\ come after the library's).
+: cli-step-name ( -- c-addr u ) cli-state run-step-name 2@ ;
+: cli-step-named? ( d -- flag )
+  lf-input-name nt-name if cli-step-name compare 0= else 2drop false then ;
+: cli-step-newest ( -- d|-1 )
+  -1 lf-input-count 0 ?do i cli-step-named? if drop i then loop ;
+: cli-step-ok? ( c-addr u -- flag )
+  cli-state run-step-name 2! cli-step-newest
+  dup 0< if drop false else lf-env-outcome ok? then ;
+: cli-steps-put ( c-addr u -- )
+  cli-state run-steps-fid @ write-file if true cli-state run-steps-bad ! then ;
+: cli-steps-bad ( outcome -- outcome' )
+  cli-state run-steps-bad @ if drop outcome-full then ;
+: cli-steps-file ( -- outcome )
+  cli-steps w/o create-file if drop outcome-full exit then cli-state run-steps-fid !
+  ['] cli-steps-put ['] cli-step-ok? lf-steps-write cli-steps-bad
+  cli-state run-steps-fid @ close-file if drop outcome-full then ;
+: cli-steps-out ( -- outcome )
+  cli-steps s" -" compare if cli-steps-file exit then
+  ['] type ['] cli-step-ok? lf-steps-write ;
+: cli-steps-write ( -- )
+  cli-steps? 0= if exit then cli-steps-out ok? if exit then
+  ." error: the step log could not be written: " cli-steps type cr
+  outcome-full outcome>code cli-code! ;
 : cli-text-report ( -- )
   lfc-elab-failed? if cli-elab-error exit then
   cli-checks-only? if cli-checks-only exit then
   lfc-failed? if cli-text-error exit then lfc-refused? if cli-records-error exit then
-  cli-fed-tally cli-fed-report cli-open-parts ;
+  cli-fed-tally cli-fed-report cli-open-parts cli-steps-write ;
 \ --jobs N with a text: no worker can share the run's input (the words'
 \ run moved this context's stores on, see ck-workers-made), so the text
 \ is checked one declaration at a time, and a note says so first.
@@ -1073,7 +1110,8 @@ variable cli-info#
   cli-state opt-elab-fuel-given @ if cli-state opt-elab-fuel @ else lf-meta-default-budget
   then lf-elab-fuel! ;
 : cli-text-run ( -- )
-  cli-elab-fuel-set lfc-fresh cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check
+  cli-steps? lf-steps-record! cli-elab-fuel-set
+  lfc-fresh cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check
   then cli-text-report ;
 : cli-text-misused? ( -- flag )
   cli-record? cli-save? or cli-json? or cli-snapshot? cli-library-file nip 0<> and or ;
@@ -1095,8 +1133,11 @@ variable cli-info#
 : cli-elab-misuse ( -- code | 0 )
   cli-elab-alone? if cli-elab-alone exit then
   cli-elab-layered? if cli-elab-layers exit then 0 ;
+: cli-steps-misplaced? ( -- code true | false )
+  cli-steps? 0= if false exit then
+  s" --steps goes only with a LeanForth text (FILE.lf)" cli-misuse-snap true ;
 : cli-elab-fuel-misplaced? ( -- code true | false )
-  cli-state opt-elab-fuel-given @ 0= if false exit then
+  cli-state opt-elab-fuel-given @ 0= if cli-steps-misplaced? exit then
   s" --elab-fuel goes only with a LeanForth text (FILE.lf)" cli-misuse-snap true ;
 : cli-elab-misplaced? ( -- code true | false )
   cli-state opt-elab @ 0= if cli-elab-fuel-misplaced? exit then
@@ -1385,7 +1426,7 @@ variable cli-info#
   ."       the same for a small export, and write its run record to RECORD" cr
   ."   check [--env EXPORT | --snapshot FILE] [--fuel N] [--resources] [--jobs N]" cr
   ."         [--strict-axioms] [--no-manifest] [--memory-per-check MB]" cr
-  ."         [--elab-data DATA] [--elab-fuel N] FILE.lf" cr
+  ."         [--elab-data DATA] [--elab-fuel N] [--steps FILE|-] FILE.lf" cr
   ."       check a LeanForth text, against Lean's library EXPORT or a snapshot" cr
   ."       FILE of one: its declarations built by the words, checked as an export's;" cr
   ."       DATA: the library's elaboration data (scripts/export-elab.sh); N: the" cr
@@ -1539,6 +1580,7 @@ end-structure
   dup cli-fuel-most > if drop c" an elaboration fuel above 9007199254740991" cli-wrong
     exit then
   cli-state opt-elab-fuel ! 2drop true cli-state opt-elab-fuel-given ! ;
+: cli-steps-option ( c-addr u -- ) cli-state opt-steps cli-text! ;
 : cli-elab-fuel-option ( c-addr u -- )
   cli-value 0= if exit then 2dup cli-decimal
   if cli-elab-fuel-value else c" not an elaboration fuel amount" cli-wrong then ;
@@ -1625,6 +1667,7 @@ create cli-option-table
   ' cli-env-option takes-env 0 cli-entry, --env
   ' cli-elab-option takes-elab 0 cli-entry, --elab-data
   ' cli-elab-fuel-option takes-elab 0 cli-entry, --elab-fuel
+  ' cli-steps-option takes-elab 0 cli-entry, --steps
   0 ,
 : cli-takes? ( entry -- flag ) cli-entry-first @ cli-state arg-set @ and 0<> ;
 : cli-taken ( c-addr u entry -- )
