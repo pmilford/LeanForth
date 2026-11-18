@@ -125,6 +125,17 @@ def code_of(path, text):
     return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith(mark))
 
 
+def forth_loads(path, text):
+    """The files a Forth file loads (require, include, needs; beside it or from the root)."""
+    found = set()
+    for name in FORTH_LOAD.findall(text):
+        for base in (os.path.dirname(path), "."):
+            candidate = os.path.normpath(os.path.join(base, name))
+            if os.path.isfile(candidate):
+                found.add(candidate)
+    return found
+
+
 def used_files(path, text):
     """The files one program uses: named paths, Forth loads, Python imports."""
     found = named_files(code_of(path, text))
@@ -133,11 +144,7 @@ def used_files(path, text):
             found |= named_files("/".join(re.findall(r"""["']([^"'\n]+)["']""", joined)))
     folder = os.path.dirname(path)
     if path.endswith(".fs"):
-        for name in FORTH_LOAD.findall(text):
-            for base in (folder, "."):
-                candidate = os.path.normpath(os.path.join(base, name))
-                if os.path.isfile(candidate):
-                    found.add(candidate)
+        found |= forth_loads(path, text)
     if path.endswith(".py"):
         for first, second in PY_IMPORT.findall(text):
             bases = [folder, "scripts", SUPPORT] + SYS_PATH.findall(text)
@@ -173,7 +180,8 @@ def closure(start, cache):
 # program could read through a path built at run time is in it, or the target is marked
 # unresolved and is never reused. More files only cost reuse; a missed file would be unsafe.
 QUOTED = re.compile(r"""["']([\w.+-]+(?:/[\w.+-]+)*/?)["']""")
-BASENAME = re.compile(r"(?<![\w.+-])([\w+-][\w.+-]*\.[A-Za-z]\w*)(?![\w+-])")
+# A bare file name (not the last part of a path, which PATH and the literals resolve exactly).
+BASENAME = re.compile(r"(?<![\w./+-])([\w+-][\w.+-]*\.[A-Za-z]\w*)(?![\w/+-])")
 GLOB_EXT = re.compile(r"""\*(\.\w+)|endswith\(\s*\(?\s*["'](\.\w+)["']""")
 LISTING = re.compile(r"\b(?:r?glob|os\.walk|listdir|iterdir|scandir)\b|\bfor \w+ in [^;\n]*\*")
 TEMPLATE = re.compile(r"((?:src|tests|scripts|docs|bin)/(?:[\w.+-]+/)*)[\w.+-]*(?:\{|\$|%|[\"']\s*\+)")
@@ -212,10 +220,14 @@ def program_inputs(path, text, tracked, index):
     its own folder's files (a test of tests/), every file under a folder a literal names,
     every file of a basename it names, of a folder whose name it quotes, of an extension it
     lists, under the folder a path template starts in. A listing of a folder none of these
-    names is unresolved, as are the UNRESOLVED markers. INDEX is file_index(TRACKED)."""
+    names is unresolved, as are the UNRESOLVED markers. INDEX is file_index(TRACKED).
+    A Forth source of src/ (the product, which reads only what it loads and the files its
+    command line names, which the recipe or test names) contributes its loads alone."""
     code = ROOT_VARIABLE.sub(" ", code_of(path, text))
     folder = os.path.dirname(path)
     runs, found = set(), set()
+    if path.startswith("src/") and path.endswith(".fs"):
+        return set(), set(), [f"{path} {why}" for rule, why in UNRESOLVED if rule.search(code)]
     reasons = [f"{path} {why}" for rule, why in UNRESOLVED if rule.search(code)]
     if path.startswith("tests/"):
         found |= under(folder, tracked)
@@ -279,7 +291,9 @@ def input_files(start, tracked, cache, index=None):
                 cache[path] = (set(), set(), [f"{path} cannot be read"])
             else:
                 runs, data, why = program_inputs(path, text, tracked, index)
-                cache[path] = (used_files(path, text) | runs, data, why)
+                uses = forth_loads(path, text) if path.startswith("src/") and path.endswith(".fs") \
+                    else used_files(path, text)
+                cache[path] = (uses | runs, data, why)
         files, data, why = cache[path]
         reasons += why
         read |= data
