@@ -118,7 +118,7 @@ T{ lf-pst-root lf-mvar-value drop dup tag swap lf-term-second@ lf-term-first@ lf
    drop nip nip -> lf-tag-lam 1 }T
 \ intro _: inaccessible, named as the binder (a); the goal as pinned Lean's
 \ trace_state prints it (tactic-run.lean t3: p : Prop / a✝ : p / ⊢ p).
-: part-goal ( k -- c-addr u ) trun-parts slab-at dup top-goal @ swap top-goal# @ lfr-chars ;
+: part-goal ( k -- c-addr u ) trun-parts slab-at top-goal 2@ lfr-chars ;
 T{ s" by-intro: _ by-sorry end t" proof nrun new-local lf-local-name s" a" name= -> outcome-ok true }T
 T{ new-local lf-local-inaccessible? 0 part-goal s\" p : Prop\na✝ : p\n⊢ p" compare -> true 0 }T
 

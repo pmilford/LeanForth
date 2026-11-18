@@ -87,9 +87,14 @@ end-structure
     dup >r pr-part-text pr-ends? 0= if r> drop 2drop false exit then
     r> lf-name-prefix@ dup if >r pr-dot? 0= if r> drop 2drop false exit then r> then
   repeat drop nip 0= ;
-\ The first declaration named c-addr u: (i true), or false.
+\ The first declaration named c-addr u: (i true), or false; pr-newest
+\ the newest, sought from the last (a text's declarations come last).
 : pr-find ( c-addr u -- i true | false )
   lf-input-count 0 ?do 2dup i lf-input-name pr-named? if 2drop i true unloop exit then loop
+  2drop false ;
+: pr-newest ( c-addr u -- i true | false )
+  lf-input-count ?dup 0= if 2drop false exit then
+  0 swap 1- do 2dup i lf-input-name pr-named? if 2drop i true unloop exit then -1 +loop
   2drop false ;
 
 \ Checking declaration i (lf-env-step): whether the run must stop, as

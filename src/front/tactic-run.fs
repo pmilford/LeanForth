@@ -84,11 +84,14 @@
 \ (cli: check --steps); then each step the loop runs gets an entry
 \ (/tlg: its kind, position, the entry of its block, the main goal before
 \ and the goals after, printed), a restore drops those made since its
-\ save, and a declaration handed over records its name and entries
-\ (/tld); lf-steps-decls ( -- n ), lf-steps-decl ( k -- addr ),
-\ lf-steps-entry ( k -- addr ), lf-steps-span ( k -- first n ),
-\ lf-steps-text ( first n -- c-addr u ) and lf-tac-word ( kind -- c-addr u )
-\ read them for front/step-log.fs; emptied with the open parts.
+\ save, and a declaration handed over records its name, entries and open
+\ parts (/tld); a log record or text that finds no room cuts the log
+\ (nothing more is logged in the run; the run, its verdicts and its exit
+\ code are as without the log); lf-steps-decls ( -- n ), lf-steps-decl
+\ ( k -- addr ), lf-steps-entry ( k -- addr ), lf-steps-span ( k -- first
+\ n ), lf-steps-text ( first n -- c-addr u ), lf-steps-cut? ( -- flag ) and
+\ lf-tac-word ( kind -- c-addr u ) read them for front/step-log.fs;
+\ emptied with the open parts.
 \ Errors stop the run (lfa-fail) with author/errors.fs's codes: 80, 89,
 \ 90, 91, 92 for a record whose steps do not nest as the reader makes
 \ them (checked before any step runs), 93 for a type inference or
@@ -99,9 +102,9 @@
 \ running, the universe arguments being built) and the slabs trun-frames,
 \ trun-saves, trun-steps, trun-xs and
 \ trun-locals (one declaration's run), trun-parts and trun-text (the
-\ open parts of the whole run, emptied by lfa-run-fresh), trun-log,
-\ trun-log-spans, trun-log-text and trun-log-decls (the step log of the
-\ whole run, emptied with them), in the checker
+\ open parts of the whole run and the step log's text, emptied by
+\ lfa-run-fresh), trun-log, trun-log-spans and trun-log-decls (the step
+\ log of the whole run, emptied with them), in the checker
 \ context (ADR 0009); the table of rows lfr-rows is shared, set while the
 \ modules load (lf-tactic-action!) and read-only afterwards (a test may
 \ change a row in its own single-threaded run). Loads in decimal whatever
@@ -142,6 +145,8 @@ begin-structure /trun
   field: trun-log-on     \ true: the step log is kept (lf-steps-record!)
   field: trun-entry      \ the step log's newest entry of this run, or -1
   field: trun-log-first  \ the declaration's first entry
+  field: trun-parts-first \ and the open parts before it
+  field: trun-log-cut    \ true once the step log found no room (L4)
   4 cells +field trun-pair  \ universe arguments (sorryAx, congrArg): level, identity
 end-structure
 /trun context-record: trun
@@ -167,19 +172,16 @@ begin-structure /tsv      \ a saved state
   field: tsv-text         \ and their text's length
   field: tsv-view         \ the current local context (a tactic may set it)
   field: tsv-steps        \ how many step records there were
-  field: tsv-log          \ step-log entries, their goal spans, their text
+  field: tsv-log          \ step-log entries and their goal spans
   field: tsv-log-spans
-  field: tsv-log-text
 end-structure
 /tsv context-slab: trun-saves
 1 cells context-slab: trun-xs       \ the binders' free variables (Lean's xs)
 1 cells context-slab: trun-locals   \ and their locals
 begin-structure /top      \ an open part
   field: top-at           \ the position of its by-sorry
-  field: top-name         \ its declaration's name: first character in trun-text
-  field: top-name#        \ and how many
-  field: top-goal         \ the goal as printed: first character
-  field: top-goal#        \ and how many
+  2 cells +field top-name \ its declaration's name: a span of trun-text (2@: first n)
+  2 cells +field top-goal \ the goal as printed: likewise
 end-structure
 /top context-slab: trun-parts
 1 chars context-slab: trun-text
@@ -187,19 +189,19 @@ begin-structure /tlg      \ a step-log entry (S2 6): one per step run
   field: tlg-kind         \ its step's kind (tactic-syntax.fs)
   field: tlg-at           \ its position
   field: tlg-parent       \ the entry of the block it runs in, or -1
-  field: tlg-before       \ the main goal before, printed: a span of
-  field: tlg-before#      \ trun-log-text, first -1 for none
+  2 cells +field tlg-before  \ the main goal before, printed: a span of
+                             \ trun-text, first -1 for none
   field: tlg-after        \ the goals after: their first span in trun-log-spans
   field: tlg-after#       \ and how many
 end-structure
 /tlg context-slab: trun-log
 2 cells context-slab: trun-log-spans   \ a goal's text: first, length
-1 chars context-slab: trun-log-text
 begin-structure /tld      \ a declaration's step log
-  field: tld-name         \ its full name: a span of trun-log-text
-  field: tld-name#
+  2 cells +field tld-name \ its full name: a span of trun-text
   field: tld-first        \ its first entry
   field: tld-count        \ and how many
+  field: tld-parts        \ its open parts (by-sorry)
+  field: tld-cut          \ true: the log was cut before its end
 end-structure
 /tld context-slab: trun-log-decls
 
@@ -345,43 +347,50 @@ s" by-sorry" tac-k-sorry lfr-spell
   dup tfr-step @ swap tfr-next @ lfr-scan tuck lfr-inside? dup 0= if nip then ;
 \ A step: its fuel, then its row's action.
 : lfr-act ( i -- ) dup lfr-kind lfr-row trow-run @ execute ;
+\ ---- Text: the open parts' and the step log's, in trun-text, which
+\ outlives the stores. A span is where a text begins in trun-text and how
+\ long it is: the declaration's full name, or a goal as goal-print.fs
+\ prints it; full when the text found no room (trun-cut).
+: lfr-text# ( -- n ) trun-text slab-count ;
+: lfr-text-cut ( c-addr u i -- ) 2drop drop true trun trun-cut ! ;
+: lfr-text+ ( c-addr u -- )
+  dup trun-text slab-claim ok? if trun-text slab-at swap move else lfr-text-cut then ;
+: lfr-goal-text ( goal -- outcome ) ['] lf-goal-print ['] lfr-text+ lf-print-with ;
+: lfr-cut? ( outcome -- outcome' ) trun trun-cut @ if drop outcome-full then ;
+: lfr-span ( first outcome -- first n outcome ) >r lfr-text# over - r> lfr-cut? ;
+: lfr-text-from ( -- first ) false trun trun-cut ! lfr-text# ;
+: lfr-name+ ( -- first n outcome ) lfr-text-from lfa-full lfr-text+ outcome-ok lfr-span ;
+: lfr-goal+ ( goal -- first n outcome ) lfr-text-from swap lfr-goal-text lfr-span ;
+
 \ ---- The step log (S2 6; front/step-log.fs writes it): with
 \ lf-steps-record! on, each step the loop runs gets an entry, its kind,
-\ position and block's entry, the main goal before and the goals after as
-\ goal-print.fs prints them, in slabs that outlive the stores (as the open
-\ parts); a restore drops the entries made since its save (lfr-back).
+\ position and block's entry, the main goal before and the goals after,
+\ in slabs that outlive the stores (as the open parts); a restore drops
+\ the entries made since its save (lfr-back). A record or text that finds
+\ no room cuts the log (L4): the entry under way is dropped, nothing more
+\ is logged in the run, and the run goes on as without the log.
 : lf-steps-record! ( flag -- ) trun trun-log-on ! ;
-: lfg-on? ( -- flag ) trun trun-log-on @ ;
-: lfg-text# ( -- n ) trun-log-text slab-count ;
-: lfg-text+ ( c-addr u -- )
-  dup trun-log-text slab-claim ok? if trun-log-text slab-at swap move
-  else drop 2drop true trun trun-cut ! then ;
-\ A goal printed into trun-log-text: its span; full when the text found
-\ no room.
-\ (The span's length: the text's count now less its first.)
-: lfg-len ( first outcome -- n outcome ) swap lfg-text# swap - swap ;
-\ Full when a text found no room (the open parts' and the step log's).
-: lfr-cut? ( outcome -- outcome' ) trun trun-cut @ if drop outcome-full then ;
-: lfg-print ( goal -- first n outcome )
-  false trun trun-cut ! lfg-text# tuck swap ['] lf-goal-print ['] lfg-text+ lf-print-with
-  lfg-len lfr-cut? ;
+: lf-steps-cut? ( -- flag ) trun trun-log-cut @ ;
+: lfg-on? ( -- flag ) trun trun-log-on @ lf-steps-cut? 0= and ;
 : lfg-entry ( -- addr ) trun-log slab-last ;
+: lfg-cut ( -- ) true trun trun-log-cut ! ;
+: lfg-kept? ( outcome -- flag ) ok? dup 0= if trun-log slab-drop lfg-cut then ;
 : lfg-before ( -- )
-  lf-main-goal ok-then? if lfg-print lfr-must else drop -1 0 then
-  lfg-entry tuck tlg-before# ! tlg-before ! ;
+  lf-main-goal ok-then? if lfr-goal+ else drop -1 0 outcome-ok then
+  lfg-kept? if lfg-entry tlg-before 2! else 2drop then ;
 : lfg-fill ( i addr -- )
-  over lfr-kind over tlg-kind ! swap lfr-at over tlg-at !
+  0 over tlg-after# ! over lfr-kind over tlg-kind ! swap lfr-at over tlg-at !
   lfr-top tfr-log @ swap tlg-parent ! ;
 : lfg-open ( i -- )
   lfg-on? 0= if drop exit then
-  1 trun-log slab-claim lfr-must dup trun trun-entry ! trun-log slab-at lfg-fill
-  lfg-before ;
-: lfg-span+ ( first n -- )
-  1 trun-log-spans slab-claim lfr-must trun-log-spans slab-at 2! ;
-: lfg-goal+ ( goal -- outcome ) lfg-print ok-then? if lfg-span+ outcome-ok else nip then ;
+  1 trun-log slab-claim ok-then? 0= if 2drop lfg-cut exit then
+  dup trun trun-entry ! trun-log slab-at lfg-fill lfg-before ;
+: lfg-goal+ ( goal -- outcome )
+  lfr-goal+ ok-then2? if trun-log-spans slab-2push then ;
 : lfg-after ( -- )
   trun-log-spans slab-count lfg-entry tlg-after !
-  lfr-unsolved dup run-count lfg-entry tlg-after# ! ['] lfg-goal+ run-each lfr-must ;
+  lfr-unsolved dup run-count lfg-entry tlg-after# ! ['] lfg-goal+ run-each
+  lfg-kept? drop ;
 : lfg-close ( -- ) lfg-on? if lfg-after then ;
 : lfr-step ( i -- )
   dup trun trun-step ! lfr-spend? 0= if drop lfa-e-tac-fuel lf-tac-fail then
@@ -422,23 +431,14 @@ s" by-sorry" tac-k-sorry lfr-spell
   lf-tactic-count 0> if lfr-root-ok? lfr-steps-ok? and else false then ;
 : lfr-checked ( -- ) lfr-record-ok? 0= if lfa-e-tac-record lfa-fail then ;
 
-\ ---- by-sorry (Lean's sorry tactic). First the open part: the
-\ declaration's name and the goal as printed, in trun-text.
-: lfr-text# ( -- n ) trun-text slab-count ;
-: lfr-text-cut ( c-addr u i -- ) 2drop drop true trun trun-cut ! ;
-: lfr-text+ ( c-addr u -- )
-  dup trun-text slab-claim ok? if trun-text slab-at swap move else lfr-text-cut then ;
-: lfr-goal-text ( goal -- outcome ) ['] lf-goal-print ['] lfr-text+ lf-print-with ;
+\ ---- by-sorry (Lean's sorry tactic). First the open part: its
+\ position, the declaration's name and the goal as printed (spans of
+\ trun-text).
 : lfr-part ( -- addr ) trun-parts slab-last ;
-\ A span of trun-text: where it begins, then its length once written.
-: lfr-span-end ( first addr -- length ) tuck ! lfr-text# swap @ - ;
-: lfr-name-kept ( -- )
-  lfr-text# lfa-full lfr-text+ lfr-part top-name lfr-span-end lfr-part top-name# ! ;
-: lfr-goal-kept ( goal -- outcome )
-  lfr-text# swap lfr-goal-text >r lfr-part top-goal lfr-span-end lfr-part top-goal# ! r> ;
+: lf-open-parts ( -- n ) trun-parts slab-count ;
 : lfr-open-part ( goal -- )
   1 trun-parts slab-claim lfr-must drop lf-tac-step lfr-at lfr-part top-at !
-  false trun trun-cut ! lfr-name-kept lfr-goal-kept lfr-cut? lfr-must ;
+  lfr-name+ lfr-must lfr-part top-name 2! lfr-goal+ lfr-must lfr-part top-goal 2! ;
 \ The term: sorryAx.{u} T Bool.false, its constants by name.
 : lfr-pair ( -- addr ) trun trun-pair ;
 : lfr-pair-at! ( level addr -- )
@@ -501,8 +501,7 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-save ( k -- addr ) trun-saves slab-at ;
 : lfr-latest? ( save -- flag ) dup 0< 0= swap lfr-saves 1- = and ;
 : lfr-fill-log ( addr -- )
-  trun-log slab-count over tsv-log ! trun-log-spans slab-count over tsv-log-spans !
-  lfg-text# swap tsv-log-text ! ;
+  trun-log slab-count over tsv-log ! trun-log-spans slab-count swap tsv-log-spans ! ;
 : lfr-fill ( mark addr -- )
   tuck tsv-mark ! lf-goals over tsv-goals ! lfr-depth over tsv-frames !
   trun-parts slab-count over tsv-parts ! lfr-text# over tsv-text !
@@ -521,8 +520,7 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ The slabs' counts back to the save's (blocks, parts and text only grow
 \ in a try).
 : lfr-back-log ( addr -- )
-  dup tsv-log @ trun-log slab-cut dup tsv-log-spans @ trun-log-spans slab-cut
-  tsv-log-text @ trun-log-text slab-cut ;
+  dup tsv-log @ trun-log slab-cut tsv-log-spans @ trun-log-spans slab-cut ;
 : lfr-back ( addr -- )
   dup tsv-frames @ trun-frames slab-cut dup tsv-parts @ trun-parts slab-cut
   dup tsv-text @ trun-text slab-cut dup tsv-steps @ trun-steps slab-cut
@@ -545,7 +543,7 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-fresh ( -- )
   trun-frames slab-clear trun-saves slab-clear trun-steps slab-clear lfr-fuel-start
   lf-pst-reset 0 trun trun-step ! -1 lfr-running ! -1 trun trun-entry !
-  trun-log slab-count trun trun-log-first ! ;
+  trun-log slab-count trun trun-log-first ! lf-open-parts trun trun-parts-first ! ;
 : lfr-root ( type -- )
   lf-instantiate-mvars lfr-close-must 0 lf-mctx-view lf-goal-new lfr-close-must
   lf-pst-open lfr-must ;
@@ -591,26 +589,29 @@ defer lf-front-by-statement ( -- type )
 \ way.
 : lf-front-close ( type value -- type' value' ) lfr-xs lfr-assemble ;
 : lf-front-close-type ( type -- type' ) lfr-xs ['] lf-term-pi lfr-close ;
-: lfg-name ( addr -- )
-  false trun trun-cut ! lfg-text# over tld-name ! lfa-full lfg-text+
-  lfg-text# over tld-name @ - swap tld-name# !
-  trun trun-cut @ if outcome-full lfr-must then ;
+\ The declaration's step log, also when the log was cut (it says so); a
+\ declaration whose record or name finds no room cuts the log, left out.
+: lfg-entries ( addr -- addr )
+  trun trun-log-first @ over tld-first ! trun-log slab-count over tld-first @ -
+  over tld-count ! ;
 : lfg-counts ( addr -- )
-  trun trun-log-first @ 2dup swap tld-first !
-  trun-log slab-count swap - swap tld-count ! ;
+  lfg-entries lf-open-parts trun trun-parts-first @ - over tld-parts !
+  lf-steps-cut? swap tld-cut ! ;
+: lfg-record ( first n addr -- ) dup lfg-counts tld-name 2! ;
 : lfg-decl ( -- )
-  lfg-on? 0= if exit then
-  1 trun-log-decls slab-claim lfr-must trun-log-decls slab-at dup lfg-name lfg-counts ;
+  trun trun-log-on @ 0= if exit then
+  lfr-name+ ok-then2? 0= if drop lfg-cut exit then
+  1 trun-log-decls slab-claim ok-then? if trun-log-decls slab-at lfg-record exit then
+  drop 2drop lfg-cut ;
 : lfr-proof-end ( -- )
   lf-front-by-statement lfr-xs dup lf-tactic-by lfr-assemble lf-front-hand-over
   lfg-decl lfa-declared ;
 ' lfr-proof-end is lf-tactic-proof-end
 
 \ ---- The open parts, after the verdicts (ADR 0021 Amendment 1).
-: lf-open-parts ( -- n ) trun-parts slab-count ;
 : lfr-log-reset ( -- )
-  trun-log slab-clear trun-log-spans slab-clear trun-log-text slab-clear
-  trun-log-decls slab-clear ;
+  trun-log slab-clear trun-log-spans slab-clear trun-log-decls slab-clear
+  false trun trun-log-cut ! ;
 : lfr-parts-reset ( -- ) trun-parts slab-clear trun-text slab-clear lfr-log-reset ;
 action-of lfa-run-fresh constant lfr-run-fresh-before
 : lfr-run-fresh ( -- ) lfr-run-fresh-before execute lfr-parts-reset ;
@@ -619,9 +620,9 @@ action-of lfa-run-fresh constant lfr-run-fresh-before
 : lfr-.pos ( pos -- ) lfa-pos> swap lfa-.n ." :" lfa-.n ;
 : lfr-.place ( addr -- ) ." (by-sorry at line:col " top-at @ lfr-.pos ." )" ;
 : lfr-.head ( k addr -- )
-  ." open part " swap 1+ lfa-.n ."  of " dup top-name @ over top-name# @ lfr-chars type
+  ." open part " swap 1+ lfa-.n ."  of " dup top-name 2@ lfr-chars type
   space lfr-.place ." :" ;
-: lfr-.goal ( addr -- ) dup top-goal @ swap top-goal# @ lfr-chars type ;
+: lfr-.goal ( addr -- ) top-goal 2@ lfr-chars type ;
 : lfr-.part ( k -- ) dup trun-parts slab-at tuck lfr-.head cr lfr-.goal cr ;
 : lfr-.note ( -- )
   ." note: everything else in a declaration with open parts was checked by the kernel;" cr
@@ -635,6 +636,6 @@ action-of lfa-run-fresh constant lfr-run-fresh-before
 : lf-steps-decl ( k -- addr ) trun-log-decls slab-at ;
 : lf-steps-entry ( k -- addr ) trun-log slab-at ;
 : lf-steps-span ( k -- first n ) trun-log-spans slab-at 2@ ;
-: lf-steps-text ( first n -- c-addr u ) swap trun-log-text slab-at swap ;
+: lf-steps-text ( first n -- c-addr u ) lfr-chars ;
 : lf-tac-word ( kind -- c-addr u ) lfr-row dup trow-chars swap trow-length @ ;
 base !   \ the BASE this file was loaded with

@@ -287,7 +287,13 @@ s2-steps). With a text whose proofs use tactics, `--steps FILE` writes,
 after the report, one JSON line per tactic step of every declaration the
 kernel accepted, and `--steps -` writes the same lines to standard output
 after the report. For each such declaration there is first a header line,
-then its steps in the order they took effect: the step's number, the step
+which says whether it is proved: `axioms` lists every axiom it depends on,
+as `#print axioms` names them, and `open_parts` counts its `by-sorry`
+parts. Accepted is not proved: a declaration is proved only when
+`open_parts` is 0 and its axioms are among `propext`, `Classical.choice`
+and `Quot.sound`; a `by-sorry` proof shows `"axioms":["sorryAx"]` and
+`"open_parts":1`, as the report calls it NOT PROVED. Then come its
+steps in the order they took effect: the step's number, the step
 of the block it ran in (an induction's `with`, an alternative `|`, a
 `by-case:`; 0 for the proof's own), the tactic, the LeanForth word and
 its `line:column`, the main goal before the step and the goals in focus
@@ -296,10 +302,13 @@ that runs with no goal in focus, an alternative taking its case). The
 format is `leanforth-tactic-steps` version 1, described by
 [schemas/tactic-steps-1.schema.json](../../schemas/tactic-steps-1.schema.json).
 A rejected declaration, a term proof and a text that stops write no
-lines; nothing reads the log to decide, so it changes no verdict, but
-keeping it takes room: a run whose log finds no room stops with no room
-(error 88, exit 3) as any tactic run out of room does, and a log that
-cannot be written is an error (exit 3). Version 1
+lines. Nothing reads the log to decide, and it changes no verdict and no
+exit code: when keeping it finds no room while the text runs, the log is
+cut (nothing more is logged in the run) and says so, with `"cut":true`
+and no step lines in the header of each declaration it reaches after
+that (a declaration whose header finds no room at all is missing), while
+the run goes on as without the log. Only a log that cannot be written
+(the file, or an axiom's name, finds no room) is an error (exit 3). Version 1
 does not yet carry each tactic's rule (the eliminator, the rewrite rule
 and its place, the closing term), the constants and hypotheses a step
 used, or the goals in kernel form; a later version adds them. `--steps`
@@ -307,7 +316,7 @@ goes only with a text (exit 4 otherwise, as `--elab-data`):
 
 ```console
 $ bin/leanforth check --env tests/front/s2-slice.ndjson --elab-data tests/front/s2-slice.elab.ndjson --steps - tests/front/02-add-zero-rfl.lf | tail -2
-{"tactic_steps":{"declaration":"add_zero'","format":"leanforth-tactic-steps","format_version":1,"steps":1}}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"add_zero'","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
 {"goal_before":"n : Nat\n⊢ n + 0 = n","goals_after":[],"parent":0,"source":"5:58","step":1,"tactic":"rfl","word":"by-rfl"}
 ```
 

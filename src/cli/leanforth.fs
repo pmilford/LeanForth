@@ -185,9 +185,8 @@ begin-structure /cli-run
   field: opt-elab-fuel          \ elaboration steps of a declaration (--elab-fuel)
   field: opt-elab-fuel-given    \ true: --elab-fuel was given
   2 cells +field opt-steps      \ the step log's file, or - (--steps), or 0 0
-  2 cells +field run-step-name  \ the declaration the step log asks about
   field: run-steps-fid          \ the step log's file while it is written
-  field: run-steps-bad          \ true: writing it failed
+  field: run-steps-bad          \ true: writing it (or an axiom's name) failed
 end-structure
 /cli-run context-record: cli-state
 manifest: cli-manifest
@@ -1055,32 +1054,33 @@ variable cli-info#
 : cli-checks-only ( -- ) ." nothing checked by the kernel" cr ;
 \ --steps FILE or --steps - (plan S2, s2-steps; docs/design/S2_INTERFACE.md
 \ 6): the step log of the text's tactic proofs (front/step-log.fs), for
-\ the declarations accepted, written after the report to FILE or to
-\ standard output. It changes no verdict; a log that cannot be written
-\ is an error (exit 3).
+\ the declarations accepted, with each one's axioms and open parts,
+\ written after the report to FILE or to standard output. It changes no
+\ verdict and no exit code (a log that ran out of room while the text ran
+\ is cut and says so); only a log that cannot be written is an error
+\ (exit 3).
 : cli-steps ( -- c-addr u ) cli-state opt-steps 2@ ;
 : cli-steps? ( -- flag ) cli-steps nip 0<> ;
+: cli-steps-fail ( -- ) true cli-state run-steps-bad ! ;
 \ Accepted: the newest input declaration of that full name (the text's
-\ come after the library's).
-: cli-step-name ( -- c-addr u ) cli-state run-step-name 2@ ;
-: cli-step-named? ( d -- flag )
-  lf-input-name nt-name if cli-step-name compare 0= else 2drop false then ;
-: cli-step-newest ( -- d|-1 )
-  -1 lf-input-count 0 ?do i cli-step-named? if drop i then loop ;
-: cli-step-ok? ( c-addr u -- flag )
-  cli-state run-step-name 2! cli-step-newest
-  dup 0< if drop false else lf-env-outcome ok? then ;
+\ come after the library's: pr-newest finds them first).
+: cli-step-find ( c-addr u -- d true | false )
+  pr-newest 0= if false exit then dup lf-env-outcome ok? dup 0= if nip then ;
+: cli-step-axiom ( d -- )
+  lf-input-name nt-name if lf-steps-axiom else 2drop cli-steps-fail then ;
+: cli-step-axioms ( d -- outcome ) ['] cli-step-axiom lf-env-axiom-deps ;
 : cli-steps-put ( c-addr u -- )
-  cli-state run-steps-fid @ write-file if true cli-state run-steps-bad ! then ;
+  cli-state run-steps-fid @ write-file if cli-steps-fail then ;
 : cli-steps-bad ( outcome -- outcome' )
   cli-state run-steps-bad @ if drop outcome-full then ;
+: cli-steps-to ( sink -- outcome )
+  ['] cli-step-find ['] cli-step-axioms lf-steps-write cli-steps-bad ;
 : cli-steps-file ( -- outcome )
   cli-steps w/o create-file if drop outcome-full exit then cli-state run-steps-fid !
-  ['] cli-steps-put ['] cli-step-ok? lf-steps-write cli-steps-bad
+  ['] cli-steps-put cli-steps-to
   cli-state run-steps-fid @ close-file if drop outcome-full then ;
 : cli-steps-out ( -- outcome )
-  cli-steps s" -" compare if cli-steps-file exit then
-  ['] type ['] cli-step-ok? lf-steps-write ;
+  cli-steps s" -" compare if cli-steps-file exit then ['] type cli-steps-to ;
 : cli-steps-write ( -- )
   cli-steps? 0= if exit then cli-steps-out ok? if exit then
   ." error: the step log could not be written: " cli-steps type cr

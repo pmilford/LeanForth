@@ -93,6 +93,7 @@ TIER_READERS = {
     "tag-app": "a tag", "tag-bvar": "a tag", "tag-const": "a tag", "tag-lam": "a tag",
     "tag-let": "a tag", "tag-let-nondep": "a tag", "tag-nat": "a tag", "tag-pi": "a tag",
     "tag-proj": "a tag", "tag-sort": "a tag", "tag-name-num": "a tag",
+    "tag-mdata": "a tag", "tag-str": "a tag",
     "tag-level-zero": "a tag", "tag-level-succ": "a tag", "tag-level-max": "a tag",
     "tag-level-imax": "a tag", "tag-level-param": "a tag",
 }

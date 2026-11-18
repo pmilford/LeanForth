@@ -16532,8 +16532,8 @@ reason = "review s1-meta-b M3 (F19): lfc-library-close leaves the run mode bound
 [[fault]]
 id = "fe-libdec-unsupported"
 file = "src/front/lib-decode.fs"
-old = '''    nip outcome-unsupported no-result rot endcase ;'''
-new = '''    nip outcome-invalid no-result rot endcase ;'''
+old = ''': lbd-no-mdata ( e -- -1 outcome ) drop outcome-unsupported no-result ;'''
+new = ''': lbd-no-mdata ( e -- -1 outcome ) drop outcome-invalid no-result ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b M3: an mdata expression decoded as malformed, not as not supported yet"
 
@@ -19975,8 +19975,8 @@ reason = "S2 s2-steps: a failed attempt's step-log entries are kept after the re
 [[fault]]
 id = "fe-steps-rejected-logged"
 file = "src/front/step-log.fs"
-old = ''': lsl-accepted? ( decl -- flag ) lsl-name lsl lsl-test @ execute ;'''
-new = ''': lsl-accepted? ( decl -- flag ) drop true ;'''
+old = ''': lsl-accepted ( decl -- d true | false ) lsl-name lsl lsl-find @ execute ;'''
+new = ''': lsl-accepted ( decl -- d true | false ) drop 0 true ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "S2 s2-steps: the step log holds a declaration the kernel rejected"
 
@@ -20011,3 +20011,77 @@ old = '''    if drop true outcome-ok exit then lf-term-first@'''
 new = '''    drop lf-term-first@'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "review s2-finish M3: the smart path goes on with a marker in e1's arguments, which Lean's go would walk"
+
+# --- s2-finish-2 (review s2-finish M5, B1, M2, L4; 2026-11-17) ------------
+
+[[fault]]
+id = "fe-smart-rec-arg-unbounded"
+file = "src/front/whnf.fs"
+old = '''  dup wc-args slab-count u< 0= if 2drop wc-sfail exit then'''
+new = '''  dup wc-args slab-count 2drop false if 2drop wc-sfail exit then'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-finish M5 (P5): a recursion argument past e1's arguments read beyond them instead of giving none"
+
+[[fault]]
+id = "fe-smart-stuck-mvar-none"
+file = "src/front/whnf.fs"
+old = '''  if drop outcome-unsupported wc-fail else wc-sfail then ;'''
+new = '''  if drop wc-sfail else wc-sfail then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-finish M5 (P8): a smart match stuck on a metavariable gives none, not unsupported"
+
+[[fault]]
+id = "fe-sunfold-param-unbounded"
+file = "src/front/lib-decode.fs"
+old = '''  elab-level-a dup lbd lbd-snames# @ u< 0= if drop outcome-invalid no-result exit then'''
+new = '''  elab-level-a'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-finish M5 (P7): a smart-unfolding body's universe parameter past the names given is read beyond them"
+
+[[fault]]
+id = "fe-sunfold-children-shifted"
+file = "src/front/lib-decode.fs"
+old = '''  swap lbd-c-kinds lbd-kind-in? 2 and or ;'''
+new = '''  swap lbd-c-kinds lbd-kind-in? 1 and or ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-finish B1: an mdata or projection node's term read from field b, not c"
+
+[[fault]]
+id = "fe-libdec-child-swapped"
+file = "src/front/lib-decode.fs"
+old = '''  lbd-tier swap case 0 of expr-a@ endof 1 of expr-b@ endof drop expr-body@ 0 endcase ;'''
+new = '''  lbd-tier swap case 0 of expr-b@ endof 1 of expr-a@ endof drop expr-body@ 0 endcase ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s2-finish B1: a tier expression's first two children swapped"
+
+[[fault]]
+id = "fe-steps-cut-unmarked"
+file = "src/front/tactic-run.fs"
+old = ''': lfg-cut ( -- ) true trun trun-log-cut ! ;'''
+new = ''': lfg-cut ( -- ) ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review s2-finish L4: a step log that ran out of room is not marked cut"
+
+[[fault]]
+id = "fe-steps-parts-dropped"
+file = "src/front/tactic-run.fs"
+old = '''  lfg-entries lf-open-parts trun trun-parts-first @ - over tld-parts !'''
+new = '''  lfg-entries 0 over tld-parts !'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review s2-finish M2: a by-sorry declaration's step log shows no open part"
+
+[[fault]]
+id = "fe-steps-cut-steps-written"
+file = "src/front/step-log.fs"
+old = ''': lsl-steps# ( decl -- n ) dup tld-cut @ if drop 0 else tld-count @ then ;'''
+new = ''': lsl-steps# ( decl -- n ) tld-count @ ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review s2-finish L4: a cut declaration's partial steps written as if whole"
+
+[[fault]]
+id = "cli-steps-axioms-dropped"
+file = "src/cli/leanforth.fs"
+old = ''': cli-step-axioms ( d -- outcome ) ['] cli-step-axiom lf-env-axiom-deps ;'''
+new = ''': cli-step-axioms ( d -- outcome ) drop outcome-ok ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review s2-finish M2: the step log's header lists no axiom, so a by-sorry declaration looks proved"

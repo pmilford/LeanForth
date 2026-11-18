@@ -280,6 +280,23 @@ T{ dite lf-tr-default kept-at -> true outcome-ok }T
 \ An auxiliary recursor unfolds (deltaBetaDefinition, S2 merge B): Nat.casesOn
 \ with its motive alone is a lambda.
 T{ lv1 1 s" Nat.casesOn" cn fk app lf-whnf-core tag-out -> lf-tag-lam outcome-ok }T
+\ The smart path's guards (review s2-finish M5): a recursion argument
+\ past e1's arguments gives none (P5, the rec_arg bound; the data's
+\ rec_arg of Nat.add's body made 99 for the test); a match stuck on a
+\ metavariable answers unsupported, never none (P8, wc-sstuck); a body's
+\ universe parameter past the names given is invalid (P7, lbd-sparam).
+: sun-of ( t -- s ) lf-meta-const-decl drop lf-menv-sunfold drop ;
+: add-rec ( -- addr ) 0 s" Nat.add" cn sun-of ed-sun ed-sun-rec ;
+T{ fk zero nat-add dup lf-meta-unfold kept? -> false true outcome-ok }T
+: add-k0-kept ( -- flag flag outcome ) fk zero nat-add dup lf-meta-unfold kept? ;
+: rec-99 ( -- flag flag outcome ) add-rec @ >r 99 add-rec ! add-k0-kept r> add-rec ! ;
+T{ rec-99 -> true false outcome-ok }T
+\ (It reduces no argument: fewer steps of the budget than Nat.add k 0's
+\ unfolding, which reduces its recursion argument 0.)
+: used ( xt -- n ) 1000000 lf-meta-budget! execute 2drop drop 1000000 lf-meta-budget - ;
+T{ lf-meta-budget ' rec-99 used ' add-k0-kept used < swap lf-meta-budget! -> true }T
+T{ fk ?n nat-add lf-meta-unfold -> -1 false outcome-unsupported }T
+T{ lv1 1 s" List.append" cn sun-of pad 0 lf-libdec-sunfold -> -1 outcome-invalid }T
 \ (Nat.add k x: reduceNat? gets no value for an operand that holds a free
 \ variable, Lean's withNatValue, and reducible leaves Nat.add; s2-tactics.)
 T{ 0 s" Nat.add" cn fk app fx app dup lf-meta-whnf-r drop same? -> true }T

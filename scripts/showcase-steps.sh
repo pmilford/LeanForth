@@ -30,6 +30,7 @@ fi
 # place and parent, its goal before and its goals after, indented.
 format='
 import json, sys
+ALLOWED = {"propext", "Classical.choice", "Quot.sound"}
 def goal(text, lead):
     return "\n".join(lead + line for line in text.splitlines())
 for line in sys.stdin:
@@ -37,7 +38,12 @@ for line in sys.stdin:
     if "tactic_steps" in record:
         head = record["tactic_steps"]
         name, count = head["declaration"], head["steps"]
-        print(f"  theorem {name}: {count} checked steps")
+        axioms, parts = head["axioms"], head["open_parts"]
+        proved = "NOT PROVED" if parts or any(a not in ALLOWED for a in axioms) else "proved"
+        print(f"  theorem {name}: {count} checked steps; {proved} (axioms: "
+              f"{', '.join(axioms) or 'none'}; open parts: {parts})")
+        if head["cut"]:
+            print("  (the step log ran out of room: its steps are left out)")
         continue
     step, word, tactic, source = record["step"], record["word"], record["tactic"], record["source"]
     parent = record["parent"]

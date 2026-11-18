@@ -349,7 +349,9 @@ reviewer's own probes q1 and q2, in `.claude/work/s2-review/`, confirm p4's find
 
 ## Appendix C. Step-log record, version 1
 
-Header: `{"tactic_steps":{"format":"leanforth-tactic-steps","format_version":1,"declaration":NAME,"steps":N}}`. Step:
+Header: `{"tactic_steps":{"axioms":[AXIOM,...],"cut":false,"declaration":NAME,"format":"leanforth-tactic-steps","format_version":1,"open_parts":P,"steps":N}}`
+(review M2 and L4, 2026-11-17: the axioms and open parts say whether the declaration is proved; `cut` true, with `N` 0,
+when the log ran out of room before its end, which never changes a verdict or the exit code). Step:
 `step` (from 1, in the order taking effect), `parent` (0 for the proof), `tactic` (`induction`, `alternative`, `case`,
 `rfl`, `exact`, `intro`, `rewrite`, `rfl-after-rw`, `sorry`), `rule` (`induction` with `eliminator` and `target`;
 `case-split` with `case` and `names`; `defeq-refl`; `exact` with `term`; `intro` with `name`; `rewrite` with

@@ -77,6 +77,44 @@ require ../import/stage.fs
 require ./dag-walk.fs
 require ./elab-data.fs
 
+\ Sources of nodes. Two families are decoded by the same walks: the
+\ stage's tier (a library declaration's type, value and rules) and
+\ front/elab-data.fs's smart-unfolding bodies (below). A source is a walk
+\ record (dag-walk.fs; first, so that a source is its walk) and the words
+\ that read one of its nodes as the tier holds it: its tier tag (tag-*,
+\ tag-level-*) and its children in the tier's order (an application's
+\ function and argument, a binder's type and body, a let's type, value
+\ and body, a projection's or an mdata's term). A level source has the
+\ words up to lbs-param.
+begin-structure /lbs
+  /dw +field lbs-walk  \ first: a source's address is its walk's
+  field: lbs-tag       \ ( x -- tag ) its tier tag
+  field: lbs-child     \ ( x i -- x' ) its children (i 0 1 2), in the tier's order
+  field: lbs-count     \ ( -- n ) the source's nodes: the walk's size
+  field: lbs-param     \ levels ( l -- index outcome ): a universe parameter
+  field: lbs-levels    \ terms ( -- src ): the source of their levels
+  field: lbs-name      \ ( e -- name outcome ) a constant's or projection's run name
+  field: lbs-field     \ ( e -- i ) a projection's field
+  field: lbs-arg#      \ ( e -- n ) a constant's universe arguments
+  field: lbs-arg       \ ( e i -- l ) its i-th, i < n
+  field: lbs-text      \ ( e -- c-addr u ) a natural literal's digits
+  field: lbs-label     \ ( term e -- term outcome ) a binder's name, if any
+  field: lbs-mdata     \ ( e -- term outcome ) an mdata node's term
+end-structure
+: src-tag ( x src -- tag ) lbs-tag @ execute ;
+: src-child ( x i src -- x' ) lbs-child @ execute ;
+: src-a ( x src -- x' ) 0 swap src-child ;
+: src-b ( x src -- x' ) 1 swap src-child ;
+: src-c ( x src -- x' ) 2 swap src-child ;
+: src-count ( src -- n ) lbs-count @ execute ;
+: src-param ( l src -- index outcome ) lbs-param @ execute ;
+: src-name ( e src -- name outcome ) lbs-name @ execute ;
+: src-field ( e src -- i ) lbs-field @ execute ;
+: src-arg# ( e src -- n ) lbs-arg# @ execute ;
+: src-arg ( e i src -- l ) lbs-arg @ execute ;
+: src-text ( e src -- c-addr u ) lbs-text @ execute ;
+: src-label ( term e src -- term outcome ) lbs-label @ execute ;
+: src-mdata ( e src -- term outcome ) lbs-mdata @ execute ;
 begin-structure /lbd
   field: lbd-stage        \ the library's stage, or 0
   field: lbd-count        \ its declarations when bound: the memo's size
@@ -84,10 +122,10 @@ begin-structure /lbd
   field: lbd-levels-gen
   field: lbd-names-gen
   field: lbd-memo         \ heap: per declaration of the stage, its record + 1
-  /dw +field lbd-xwalk    \ expressions; its memo kept for the run
-  /dw +field lbd-lwalk    \ levels; likewise
-  /dw +field lbd-sxwalk   \ smart-unfolding bodies' nodes; likewise
-  /dw +field lbd-slwalk   \ and their levels
+  /lbs +field lbd-xwalk    \ expressions; its memo kept for the run
+  /lbs +field lbd-lwalk    \ levels; likewise
+  /lbs +field lbd-sxwalk   \ smart-unfolding bodies' nodes; likewise
+  /lbs +field lbd-slwalk   \ and their levels
   field: lbd-data-gen     \ the elaboration data's generation they are for
   field: lbd-snames       \ the body's definition's universe parameters
   field: lbd-snames#
@@ -181,7 +219,8 @@ end-structure
 \ ---- The walks kept for the run (dag-walk.fs): their tables made at the
 \ first use, for every node the tier holds; a walk that stops erases the
 \ memo (its nodes under way would read as a cycle), a done node is read.
-: lbd-refuse ( x outcome walk -- image ) over ok? if 2drop else dw-refuse drop -1 then ;
+: lbd-refuse ( walk x outcome -- image )
+  dup ok? if drop nip else nip swap dw-refuse -1 then ;
 : lbd-tables ( n walk -- outcome )
   dup dw-memo @ if 2drop outcome-ok exit then
   tuck dw-size ! dup dw-tables if dw-memo-erase outcome-ok else dw-free outcome-full then
@@ -195,240 +234,234 @@ end-structure
 : lbd-kept ( root n walk -- image outcome )
   tuck lbd-tables ok-then? if lbd-walk else nip no-result then ;
 
-\ ---- Levels: zero is the store's 0, a parameter its run name's.
-: lbd-lwalk@ ( -- walk ) lbd lbd-lwalk ;
-: lbd-ltag ( l -- tag ) lbd-tier level-tag@ ;
-: lbd-la ( l -- l' ) lbd-tier level-a@ ;
-: lbd-lb ( l -- l' ) lbd-tier level-b@ ;
-: lbd-a? ( l walk -- child true | false ) swap lbd-la swap dw-want ;
-: lbd-ab? ( l walk -- child true | false ) >r dup lbd-la swap lbd-lb r> dw-want2 ;
-: lbd-max-tag? ( tag -- flag ) dup tag-level-max = swap tag-level-imax = or ;
-: lbd-l-pending ( l walk -- child true | false )
-  over lbd-ltag dup tag-level-succ = if drop lbd-a? exit then
-  lbd-max-tag? if lbd-ab? else 2drop false then ;
-: lbd-limg ( l -- index ) lbd-lwalk@ dw-image ;
-: lbd-two ( l -- left right ) dup lbd-la lbd-limg swap lbd-lb lbd-limg ;
-: lbd-param ( l -- index outcome )
-  lbd-tier level-name@ lf-libdec-run-name ok-then? if lf-level-param lbd-made else
-    no-result then ;
-: lbd-succ ( l -- index outcome ) lbd-la lbd-limg lf-level-succ lbd-made ;
-: lbd-max ( l -- index outcome ) lbd-two lf-level-max lbd-made ;
-: lbd-imax ( l -- index outcome ) lbd-two lf-level-imax lbd-made ;
-: lbd-l-make ( l -- index outcome )
-  dup lbd-ltag case
-    tag-level-zero of drop 0 outcome-ok endof  tag-level-succ of lbd-succ endof
-    tag-level-max of lbd-max endof  tag-level-imax of lbd-imax endof
-    tag-level-param of lbd-param endof  nip outcome-invalid no-result rot endcase ;
-: lbd-l-build ( l walk -- index ) >r lbd-l-make r> lbd-refuse ;
-: lbd-levels# ( -- n ) lbd-tier tier-levels cons-numbers ;
-: lbd-level ( l -- index outcome ) lbd-levels# lbd-lwalk@ lbd-kept ;
+\ ---- One walk over either source: the images of x's children, made
+\ (dw-done?) before x is built; the pending tests, x's first child not
+\ made yet among a, a b, a b c.
+: src-a-img ( x src -- image ) tuck src-a swap dw-image ;
+: src-b-img ( x src -- image ) tuck src-b swap dw-image ;
+: src-c-img ( x src -- image ) tuck src-c swap dw-image ;
+: src-ab-img ( x src -- a b ) 2dup src-b-img >r src-a-img r> ;
+: src-ac-img ( x src -- a c ) 2dup src-c-img >r src-a-img r> ;
+: lbd-a? ( x src -- child true | false ) tuck src-a swap dw-want ;
+: lbd-ab? ( x src -- child true | false ) 2dup src-a -rot tuck src-b swap dw-want2 ;
+: lbd-abc? ( x src -- child true | false )
+  2dup lbd-ab? if nip nip true else tuck src-c swap dw-want then ;
+\ A source's image of node x, the walk's tables made at the first use.
+: lbd-run ( x src -- image outcome ) dup src-count swap lbd-kept ;
 
-\ ---- Expressions: children first (an application's and a binder's two,
-\ a letE's type, value and body, a projection's structure).
-: lbd-xwalk@ ( -- walk ) lbd lbd-xwalk ;
-: lbd-tag ( e -- tag ) lbd-tier expr-tag@ ;
-: lbd-ea ( e -- e' ) lbd-tier expr-a@ ;
-: lbd-eb ( e -- e' ) lbd-tier expr-b@ ;
-: lbd-ebody ( e -- e' ) lbd-tier expr-body@ ;
-: lbd-xa? ( e walk -- child true | false ) swap lbd-ea swap dw-want ;
-: lbd-xab? ( e walk -- child true | false ) >r dup lbd-ea swap lbd-eb r> dw-want2 ;
-: lbd-xabc? ( e walk -- child true | false )
-  2dup lbd-xab? if nip nip true else swap lbd-ebody swap dw-want then ;
+\ Levels: zero is the store's 0, a parameter what the source says.
+: lbd-max-tag? ( tag -- flag ) dup tag-level-max = swap tag-level-imax = or ;
+: lbd-l-pending ( l src -- child true | false )
+  2dup src-tag dup tag-level-succ = if drop lbd-a? exit then
+  lbd-max-tag? if lbd-ab? else 2drop false then ;
+: lbd-succ ( l src -- index outcome ) src-a-img lf-level-succ lbd-made ;
+: lbd-max ( l src -- index outcome ) src-ab-img lf-level-max lbd-made ;
+: lbd-imax ( l src -- index outcome ) src-ab-img lf-level-imax lbd-made ;
+: lbd-l-make ( l src -- index outcome )
+  2dup src-tag case
+    tag-level-zero of 2drop 0 outcome-ok endof  tag-level-succ of lbd-succ endof
+    tag-level-max of lbd-max endof  tag-level-imax of lbd-imax endof
+    tag-level-param of src-param endof  drop 2drop outcome-invalid no-result 0 endcase ;
+: lbd-l-build ( l src -- index ) tuck lbd-l-make lbd-refuse ;
+\ Level l of an expression source's levels.
+: src-level ( l src -- index outcome ) lbs-levels @ execute lbd-run ;
+
+\ Expressions: children first.
 : lbd-pair-tag? ( tag -- flag ) dup tag-app = swap binder-tag? or ;
-: lbd-x-pending ( e walk -- child true | false )
-  over lbd-tag dup lbd-pair-tag? if drop lbd-xab? exit then
-  dup let-tag? if drop lbd-xabc? exit then tag-proj = if lbd-xa? else 2drop false then ;
-: lbd-img ( e -- term ) lbd-xwalk@ dw-image ;
-: lbd-app ( e -- term outcome ) dup lbd-ea lbd-img swap lbd-eb lbd-img lf-term-app
-  lbd-made ;
-: lbd-bvar ( e -- term outcome ) lbd-ea lf-term-bvar lbd-made ;
-: lbd-sort ( e -- term outcome )
-  lbd-ea lbd-level ok-then? if lf-term-symbolic-sort lbd-made else no-result then ;
-: lbd-nat ( e -- term outcome )
-  lbd-ea lbd-tier tier-texts text@ lf-hterm-decimal if drop outcome-ok else -1
-    outcome-full then ;
+: lbd-one-tag? ( tag -- flag ) dup tag-proj = swap tag-mdata = or ;
+: lbd-x-pending ( e src -- child true | false )
+  2dup src-tag dup lbd-pair-tag? if drop lbd-ab? exit then
+  dup let-tag? if drop lbd-abc? exit then lbd-one-tag? if lbd-a? else 2drop false then ;
+: lbd-app ( e src -- term outcome ) src-ab-img lf-term-app lbd-made ;
+: lbd-bvar ( e src -- term outcome ) src-a lf-term-bvar lbd-made ;
+: lbd-sort ( e src -- term outcome )
+  tuck src-a swap src-level ok-then? if lf-term-symbolic-sort lbd-made else no-result
+  then ;
+: lbd-nat ( e src -- term outcome )
+  src-text lf-hterm-decimal if drop outcome-ok else -1 outcome-full then ;
 \ A constant: its universe arguments as level pairs (index, identity),
 \ then its reference and its term.
 : lbd-pair, ( index -- outcome )
   dup lf-level-identity 0= if drop outcome-full exit then swap
   1 lbd-pairs slab-claim ok-then? if lbd-pairs slab-at 2! outcome-ok else nip nip then ;
-: lbd-arg ( t i -- outcome ) swap lbd-tuples tuple-item lbd-level ok-then? if lbd-pair,
-  then ;
-: lbd-args ( t -- outcome )
-  lbd-pairs slab-clear outcome-ok over lbd-tuples tuple-length 0 ?do
-    drop dup i lbd-arg dup ok? 0= if nip unloop exit then
-  loop nip ;
+: lbd-arg ( e src i -- outcome )
+  swap dup >r src-arg r> src-level ok-then? if lbd-pair, then ;
+: lbd-args ( e src -- outcome )
+  lbd-pairs slab-clear 2dup src-arg# 0 ?do
+    2dup i lbd-arg dup ok? 0= if nip nip unloop exit then drop
+  loop 2drop outcome-ok ;
 : lbd-cterm ( name -- term outcome )
   lf-name-generation @ 0 lbd-pairs slab-at lbd-pairs slab-count lf-cref-new
   if lf-cterm-new if drop outcome-ok exit then then -1 outcome-full ;
-: lbd-const ( e -- term outcome )
-  dup lbd-eb lbd-args ok-then? 0= if no-result exit then
-  lbd-ea lf-libdec-run-name ok-then? if lbd-cterm else no-result then ;
-: lbd-proj ( e -- term outcome )
-  dup lbd-tier expr-payload@ lf-libdec-run-name ok-then? 0= if nip no-result exit then
-  over lbd-eb rot lbd-ea lbd-img -rot lf-proj-of ;
-\ A binder, named as the tier names it when its node has no name yet.
-: lbd-node ( e tag -- term true | false )
-  >r dup lbd-ea lbd-img swap lbd-eb lbd-img r> tag-pi < if lf-term-lam else lf-term-pi
-    then ;
+: lbd-const ( e src -- term outcome )
+  2dup lbd-args dup ok? 0= if nip nip no-result exit then drop
+  src-name ok-then? if lbd-cterm else no-result then ;
+\ A projection: its structure's image and field, then its name.
+: src-proj ( e src -- image i ) 2dup src-field >r src-a-img r> ;
+: lbd-proj ( e src -- term outcome )
+  2dup src-proj 2swap src-name ok-then? if swap lf-proj-of else nip nip no-result then ;
+\ A binder: lam below tag-pi, named as the source names it.
+: lbd-node ( e src tag -- term true | false )
+  tag-pi < if src-ab-img lf-term-lam else src-ab-img lf-term-pi then ;
+: lbd-binder ( e src tag -- term outcome )
+  >r 2dup r> lbd-node if -rot src-label else 2drop -1 outcome-full then ;
+\ A letE: the let of its value and the lambda of its type and body
+\ (core/let-terms.fs), with its nonDep flag.
+: lbd-let-lam ( e src -- lam true | false ) src-ac-img lf-term-lam ;
+: lbd-let-named ( e src -- lam outcome )
+  2dup lbd-let-lam if -rot src-label else 2drop -1 outcome-full then ;
+: lbd-let ( e src tag -- term outcome )
+  tag-let-nondep = >r 2dup lbd-let-named ok-then?
+  if -rot src-b-img swap r> lf-let-make lbd-made else nip nip r> drop no-result then ;
+\ Any other tag (a string literal, plan S5; a free variable) answers
+\ unsupported.
+: lbd-plain ( e src tag -- term outcome )
+  case tag-app of lbd-app endof  tag-bvar of lbd-bvar endof  tag-sort of lbd-sort endof
+    tag-const of lbd-const endof  tag-proj of lbd-proj endof  tag-nat of lbd-nat endof
+    tag-mdata of src-mdata endof  drop 2drop outcome-unsupported no-result 0 endcase ;
+: lbd-x-make ( e src -- term outcome )
+  2dup src-tag dup binder-tag? if lbd-binder exit then
+  dup let-tag? if lbd-let exit then lbd-plain ;
+: lbd-x-build ( e src -- term ) tuck lbd-x-make lbd-refuse ;
+\ A source's walk words: a level source's; a term source's, with the
+\ word that gives the source of its levels (a context's records move as
+\ it grows: a source keeps no address).
+: lbd-level-walk ( src -- src )
+  ['] lbd-l-pending over dw-pending ! ['] lbd-l-build over dw-build ! ;
+: lbd-term-walk ( xt src -- src )
+  tuck lbs-levels ! ['] lbd-x-pending over dw-pending ! ['] lbd-x-build over dw-build ! ;
+
+\ ---- The tier's source: a library declaration's levels and expressions.
+: lbd-lsrc ( -- src ) lbd lbd-lwalk ;
+: lbd-xsrc ( -- src ) lbd lbd-xwalk ;
+: lbd-ltag ( l -- tag ) lbd-tier level-tag@ ;
+: lbd-lchild ( l i -- l' ) lbd-tier swap if level-b@ else level-a@ then ;
+: lbd-levels# ( -- n ) lbd-tier tier-levels cons-numbers ;
+: lbd-param ( l -- index outcome )
+  lbd-tier level-name@ lf-libdec-run-name ok-then? if lf-level-param lbd-made else
+    no-result then ;
+: lbd-level ( l -- index outcome ) lbd-lsrc lbd-run ;
+: lbd-tag ( e -- tag ) lbd-tier expr-tag@ ;
+: lbd-ea ( e -- e' ) lbd-tier expr-a@ ;
+: lbd-eb ( e -- e' ) lbd-tier expr-b@ ;
+: lbd-echild ( e i -- e' )
+  lbd-tier swap case 0 of expr-a@ endof 1 of expr-b@ endof drop expr-body@ 0 endcase ;
+: lbd-exprs# ( -- n ) lbd-tier tier-exprs cons-numbers ;
+\ A constant's name is its a, a projection's its payload.
+: lbd-ename ( e -- name outcome )
+  dup lbd-tag tag-proj = if lbd-tier expr-payload@ else lbd-ea then lf-libdec-run-name ;
+: lbd-earg# ( e -- n ) lbd-eb lbd-tuples tuple-length ;
+: lbd-earg ( e i -- l ) swap lbd-eb lbd-tuples tuple-item ;
+: lbd-etext ( e -- c-addr u ) lbd-ea lbd-tier tier-texts text@ ;
+\ A binder named as the tier names it when its node has no name yet, its
+\ kind the tag's offset (Lean's BinderInfo; a let's lambda: 0).
 : lbd-unnamed? ( term -- flag ) lf-pres-binder@ if 2drop false else true then ;
 : lbd-label ( term name kind -- outcome )
   rot dup lbd-unnamed? if -rot lf-pres-binder! else drop 2drop outcome-ok then ;
-: lbd-named ( term e kind -- term outcome )
-  >r lbd-tier expr-payload@ lf-libdec-run-name ok-then? 0= if r> drop exit then
-  over swap r> lbd-label ;
-: lbd-binder ( e tag -- term outcome )
-  2dup lbd-node 0= if 2drop -1 outcome-full exit then -rot tag-lam - 3 and lbd-named ;
-\ A letE: the let of its value and the lambda of its type and body
-\ (core/let-terms.fs), with its nonDep flag.
-: lbd-let-lam ( e -- lam true | false ) dup lbd-ea lbd-img swap lbd-ebody lbd-img
-  lf-term-lam ;
-: lbd-let-named ( e -- lam outcome )
-  dup lbd-let-lam if swap 0 lbd-named else drop -1 outcome-full then ;
-: lbd-let ( e tag -- term outcome )
-  tag-let-nondep = >r dup lbd-let-named ok-then? 0= if nip r> drop no-result exit then
-  swap lbd-eb lbd-img swap r> lf-let-make lbd-made ;
-: lbd-plain ( e tag -- term outcome )
-  case tag-app of lbd-app endof  tag-bvar of lbd-bvar endof  tag-sort of lbd-sort endof
-    tag-const of lbd-const endof  tag-proj of lbd-proj endof  tag-nat of lbd-nat endof
-    nip outcome-unsupported no-result rot endcase ;
-: lbd-x-make ( e -- term outcome )
-  dup lbd-tag dup binder-tag? if lbd-binder exit then
-  dup let-tag? if lbd-let exit then lbd-plain ;
-: lbd-x-build ( e walk -- term ) >r lbd-x-make r> lbd-refuse ;
-: lbd-exprs# ( -- n ) lbd-tier tier-exprs cons-numbers ;
-: lbd-term ( e -- term outcome ) lbd-exprs# lbd-xwalk@ lbd-kept ;
-:noname ( -- )
-  ['] lbd-l-pending lbd-lwalk@ dw-pending ! ['] lbd-l-build lbd-lwalk@ dw-build !
-  ['] lbd-x-pending lbd-xwalk@ dw-pending ! ['] lbd-x-build lbd-xwalk@ dw-build ! ;
-    context-setup
+: lbd-kind ( e -- kind ) lbd-tag dup binder-tag? if tag-lam - 3 and else drop 0 then ;
+: lbd-named ( term e -- term outcome )
+  dup lbd-kind >r lbd-tier expr-payload@ lf-libdec-run-name
+  ok-then? 0= if r> drop exit then over swap r> lbd-label ;
+\ An mdata expression (Lean's exporter writes none unless asked).
+: lbd-no-mdata ( e -- -1 outcome ) drop outcome-unsupported no-result ;
+: lbd-term ( e -- term outcome ) lbd-xsrc lbd-run ;
+: lbd-tier-levels ( -- )
+  lbd-lsrc lbd-level-walk ['] lbd-ltag over lbs-tag ! ['] lbd-lchild over lbs-child !
+  ['] lbd-levels# over lbs-count ! ['] lbd-param swap lbs-param ! ;
+: lbd-tier-walk ( -- src )
+  ['] lbd-lsrc lbd-xsrc lbd-term-walk ['] lbd-tag over lbs-tag !
+  ['] lbd-echild over lbs-child ! ['] lbd-exprs# over lbs-count ! ;
+: lbd-tier-terms ( -- )
+  lbd-tier-walk ['] lbd-ename over lbs-name ! ['] lbd-eb over lbs-field !
+  ['] lbd-earg# over lbs-arg# ! ['] lbd-earg over lbs-arg ! ['] lbd-etext over lbs-text !
+  ['] lbd-named over lbs-label ! ['] lbd-no-mdata swap lbs-mdata ! ;
+' lbd-tier-levels context-setup
+' lbd-tier-terms context-setup
 
 \ ---- Smart-unfolding bodies (S2 merge B; docs/design/S2_INTERFACE.md
 \ §3): a sunfold record's value, from front/elab-data.fs's nodes and
-\ levels (numbered across records), decoded into the run's stores by two
-\ walks kept as the library's, forgotten with them and when the data is
-\ read again. A universe parameter k is the definition's k-th (the names
-\ given), a constant the run's name of its declaration (the stage's own
-\ outside a text's run), a sunfoldMatch or sunfoldMatchAlt entry an
-\ annotation (core/annotations.fs), a borrowed mark its term (the
-\ compiler's, never read by Meta). Unsupported: a string literal (plan
-\ S5), a constant or structure the library lacks.
-\ Binders get no presentation names (a body is shown only in messages).
-: lbd-sxwalk@ ( -- walk ) lbd lbd-sxwalk ;
-: lbd-slwalk@ ( -- walk ) lbd lbd-slwalk ;
+\ levels (numbered across records), decoded into the run's stores by the
+\ same walks over sources of their own, kept as the library's, forgotten
+\ with them and when the data is read again. A universe parameter k is
+\ the definition's k-th (the names given), a constant the run's name of
+\ its declaration (the stage's own outside a text's run), a sunfoldMatch
+\ or sunfoldMatchAlt entry an annotation (core/annotations.fs), a
+\ borrowed mark its term (the compiler's, never read by Meta).
+\ Unsupported: a string literal (plan S5), a constant or structure the
+\ library lacks. Binders get no presentation names (a body is shown only
+\ in messages).
+: lbd-slsrc ( -- src ) lbd lbd-slwalk ;
+: lbd-sxsrc ( -- src ) lbd lbd-sxwalk ;
 : lbd-sun-forget ( -- )
-  lbd-sxwalk@ dw-free lbd-slwalk@ dw-free elab-generation lbd lbd-data-gen ! ;
+  lbd-sxsrc dw-free lbd-slsrc dw-free elab-generation lbd lbd-data-gen ! ;
 : lbd-sun-current ( -- )
   lbd-current elab-generation lbd lbd-data-gen @ <> if lbd-sun-forget then ;
-\ Levels.
-: lbd-sla? ( l walk -- child true | false ) swap elab-level-a swap dw-want ;
-: lbd-slab? ( l walk -- child true | false )
-  drop dup elab-level-a swap elab-level-b lbd-slwalk@ dw-want2 ;
-: lbd-sl-two? ( kind -- flag ) dup elab-level-max = swap elab-level-imax = or ;
-: lbd-sl-pending ( l walk -- child true | false )
-  over elab-level-kind dup elab-level-succ = if drop lbd-sla? exit then
-  lbd-sl-two? if lbd-slab? else 2drop false then ;
-: lbd-slimg ( l -- index ) lbd-slwalk@ dw-image ;
-: lbd-sltwo ( l -- left right ) dup elab-level-a lbd-slimg swap elab-level-b lbd-slimg ;
+\ Levels: their kinds are the tier's tags.
+elab-level-zero tag-level-zero <> elab-level-succ tag-level-succ <> or
+elab-level-max tag-level-max <> or elab-level-imax tag-level-imax <> or
+elab-level-param tag-level-param <> or
+[if] .( lib-decode.fs: elab-level-* must be the tier's tag-level-*) cr abort [then]
 : lbd-sname@ ( k -- name ) cells lbd lbd-snames @ + @ ;
 : lbd-sparam ( l -- index outcome )
   elab-level-a dup lbd lbd-snames# @ u< 0= if drop outcome-invalid no-result exit then
   lbd-sname@ lf-level-param lbd-made ;
-: lbd-slsucc ( l -- index outcome ) elab-level-a lbd-slimg lf-level-succ lbd-made ;
-: lbd-slmax ( l -- index outcome ) lbd-sltwo lf-level-max lbd-made ;
-: lbd-slimax ( l -- index outcome ) lbd-sltwo lf-level-imax lbd-made ;
-: lbd-sl-make ( l -- index outcome )
-  dup elab-level-kind case
-    elab-level-zero of drop 0 outcome-ok endof  elab-level-succ of lbd-slsucc endof
-    elab-level-max of lbd-slmax endof  elab-level-imax of lbd-slimax endof
-    drop lbd-sparam 0 endcase ;
-: lbd-sl-build ( l walk -- index ) drop lbd-sl-make lbd-slwalk@ lbd-refuse ;
-: lbd-slevel ( l -- index outcome ) elab-levels slab-count lbd-slwalk@ lbd-kept ;
-\ Nodes: children first (an application's two, a binder's type and body,
-\ a let's type, value and body, a projection's or an entry's term).
-: lbd-sxa? ( n walk -- child true | false ) swap elab-node-a swap dw-want ;
-: lbd-sxc? ( n walk -- child true | false ) swap elab-node-c swap dw-want ;
-: lbd-sxab? ( n walk -- child true | false )
-  drop dup elab-node-a swap elab-node-b lbd-sxwalk@ dw-want2 ;
-: lbd-sxbc? ( n walk -- child true | false )
-  drop dup elab-node-b swap elab-node-c lbd-sxwalk@ dw-want2 ;
-: lbd-sxbcd? ( n walk -- child true | false )
-  2dup lbd-sxbc? if nip nip true else swap elab-node-d swap dw-want then ;
-\ Node kinds by their children, a bit each.
-1 elab-node-lam lshift 1 elab-node-forall lshift or constant lbd-bc-kinds
-1 elab-node-let lshift 1 elab-node-have lshift or constant lbd-bcd-kinds
+: lbd-slevels# ( -- n ) elab-levels slab-count ;
+: lbd-slchild ( l i -- l' ) if elab-level-b else elab-level-a then ;
+\ Nodes (elab-node-bvar .. elab-node-have, which the reader checks): a
+\ node's tier tag, and its children from a (an application's), from b (a
+\ binder's type and body, a let's type, value and body) or from c (a
+\ projection's or an mdata's term).
+: lbd-ntag-low ( kind -- tag )
+  case elab-node-bvar of tag-bvar endof  elab-node-sort of tag-sort endof
+    elab-node-app of tag-app endof  elab-node-lam of tag-lam endof
+    elab-node-forall of tag-pi endof  drop tag-let 0 endcase ;
+: lbd-ntag-high ( kind -- tag )
+  case elab-node-lit of tag-nat endof  elab-node-str of tag-str endof
+    elab-node-proj of tag-proj endof  elab-node-mdata of tag-mdata endof
+    elab-node-const of tag-const endof  drop tag-let-nondep 0 endcase ;
+: lbd-ntag ( n -- tag )
+  elab-node-kind dup elab-node-lit < if lbd-ntag-low else lbd-ntag-high then ;
+1 elab-node-lam lshift 1 elab-node-forall lshift or 1 elab-node-let lshift or
+  1 elab-node-have lshift or constant lbd-b-kinds
 1 elab-node-proj lshift 1 elab-node-mdata lshift or constant lbd-c-kinds
 : lbd-kind-in? ( kind mask -- flag ) swap 1 swap lshift and 0<> ;
-: lbd-sx-pending ( n walk -- child true | false )
-  over elab-node-kind dup elab-node-app = if drop lbd-sxab? exit then
-  dup lbd-bc-kinds lbd-kind-in? if drop lbd-sxbc? exit then
-  dup lbd-bcd-kinds lbd-kind-in? if drop lbd-sxbcd? exit then
-  lbd-c-kinds lbd-kind-in? if lbd-sxc? else 2drop false then ;
-: lbd-simg ( n -- term ) lbd-sxwalk@ dw-image ;
-: lbd-s-app ( n -- term outcome )
-  dup elab-node-a lbd-simg swap elab-node-b lbd-simg lf-term-app lbd-made ;
-: lbd-s-bvar ( n -- term outcome ) elab-node-a lf-term-bvar lbd-made ;
-: lbd-s-sort ( n -- term outcome )
-  elab-node-a lbd-slevel ok-then? if lf-term-symbolic-sort lbd-made else no-result then ;
-: lbd-s-binder ( n -- type body ) dup elab-node-b lbd-simg swap elab-node-c lbd-simg ;
-: lbd-s-lam ( n -- term outcome ) lbd-s-binder lf-term-lam lbd-made ;
-: lbd-s-pi ( n -- term outcome ) lbd-s-binder lf-term-pi lbd-made ;
-: lbd-s-let-lam ( n -- lam true | false )
-  dup elab-node-b lbd-simg swap elab-node-d lbd-simg lf-term-lam ;
-: lbd-s-vl ( n -- v lam true | v false ) dup elab-node-c lbd-simg swap lbd-s-let-lam ;
-: lbd-s-let ( n -- term outcome )
-  lbd-s-vl if false lf-let-make lbd-made else drop -1 outcome-full then ;
-: lbd-s-have ( n -- term outcome )
-  lbd-s-vl if true lf-let-make lbd-made else drop -1 outcome-full then ;
+: lbd-nfirst ( n -- k )
+  elab-node-kind dup lbd-b-kinds lbd-kind-in? 1 and
+  swap lbd-c-kinds lbd-kind-in? 2 and or ;
+: lbd-nfield ( n k -- x )
+  case 0 of elab-node-a endof  1 of elab-node-b endof  2 of elab-node-c endof
+    drop elab-node-d 0 endcase ;
+: lbd-nchild ( n i -- x ) over lbd-nfirst + lbd-nfield ;
+: lbd-snodes# ( -- n ) elab-nodes slab-count ;
 \ A declaration's name in the run (lf-libdec-run-name in a text's run).
 : lbd-sdecl ( d' -- name outcome )
   elab-decl-name lbd-stage@ if lf-libdec-run-name else outcome-ok then ;
 : lbd-sknown ( n -- name outcome )
   elab-node-a dup 0< if drop outcome-unsupported no-result else lbd-sdecl then ;
-: lbd-sarg ( addr i -- outcome ) cells + @ lbd-slevel ok-then? if lbd-pair, then ;
-: lbd-sargs ( n -- outcome )
-  elab-node-levels lbd-pairs slab-clear outcome-ok swap 0 ?do
-    drop dup i lbd-sarg dup ok? 0= if nip unloop exit then
-  loop nip ;
-: lbd-s-const ( n -- term outcome )
-  dup lbd-sargs ok-then? 0= if nip no-result exit then
-  lbd-sknown ok-then? if lbd-cterm else no-result then ;
-\ A projection: its leaf (core/projections.fs), then the node of it and
-\ the structure's image.
-: lbd-s-leaf ( n name -- n leaf outcome )
-  over elab-node-b lf-hterm-proj if drop outcome-ok else -1 outcome-full then ;
-: lbd-s-proj ( n -- term outcome )
-  dup lbd-sknown ok-then? 0= if nip no-result exit then
-  lbd-s-leaf ok-then? 0= if nip no-result exit then
-  swap elab-node-c lbd-simg lf-tag-projection lf-term-binary lbd-made ;
+: lbd-narg# ( n -- k ) elab-node-levels nip ;
+: lbd-narg ( n i -- l ) swap elab-node-levels drop swap cells + @ ;
+: lbd-ntext ( n -- c-addr u ) elab-node-a elab-key-text ;
+: lbd-anonymous ( term n -- term outcome ) drop outcome-ok ;
 : lbd-s-key ( kind -- key )
   elab-sunfold-match = if lf-annot-match else lf-annot-match-alt then ;
-: lbd-s-mdata ( n -- term outcome )
-  dup elab-node-c lbd-simg swap elab-node-a
+: lbd-nmdata ( n -- term outcome )
+  dup elab-node-c lbd-sxsrc dw-image swap elab-node-a
   dup elab-borrowed = if drop outcome-ok else lbd-s-key lf-annot then ;
-\ A natural literal from its digits (as lbd-nat); a string literal
-\ (plan S5) is not decoded yet.
-: lbd-s-lit ( n -- term outcome )
-  elab-node-a elab-key-text lf-hterm-decimal
-  if drop outcome-ok else -1 outcome-full then ;
-: lbd-s-str ( n -- -1 outcome ) drop outcome-unsupported no-result ;
-\ By node kind (elab-node-bvar .. elab-node-have, which the reader checks).
-: lbd-s-shape ( n kind -- term outcome )
-  case elab-node-bvar of lbd-s-bvar endof  elab-node-sort of lbd-s-sort endof
-    elab-node-app of lbd-s-app endof  elab-node-lam of lbd-s-lam endof
-    elab-node-forall of lbd-s-pi endof  drop lbd-s-let 0 endcase ;
-: lbd-s-other ( n kind -- term outcome )
-  case elab-node-lit of lbd-s-lit endof  elab-node-str of lbd-s-str endof
-    elab-node-proj of lbd-s-proj endof  elab-node-mdata of lbd-s-mdata endof
-    elab-node-const of lbd-s-const endof  drop lbd-s-have 0 endcase ;
-: lbd-s-make ( n -- term outcome )
-  dup elab-node-kind dup elab-node-lit < if lbd-s-shape else lbd-s-other then ;
-: lbd-s-build ( n walk -- term ) drop lbd-s-make lbd-sxwalk@ lbd-refuse ;
-: lbd-snode ( n -- term outcome ) elab-nodes slab-count lbd-sxwalk@ lbd-kept ;
-:noname ( -- )
-  ['] lbd-sl-pending lbd-slwalk@ dw-pending ! ['] lbd-sl-build lbd-slwalk@ dw-build !
-  ['] lbd-sx-pending lbd-sxwalk@ dw-pending ! ['] lbd-s-build lbd-sxwalk@ dw-build ! ;
-    context-setup
+: lbd-snode ( n -- term outcome ) lbd-sxsrc lbd-run ;
+: lbd-elab-levels ( -- )
+  lbd-slsrc lbd-level-walk ['] elab-level-kind over lbs-tag !
+  ['] lbd-slchild over lbs-child ! ['] lbd-slevels# over lbs-count !
+  ['] lbd-sparam swap lbs-param ! ;
+: lbd-elab-walk ( -- src )
+  ['] lbd-slsrc lbd-sxsrc lbd-term-walk ['] lbd-snodes# over lbs-count !
+  ['] lbd-nchild over lbs-child ! ['] lbd-ntag over lbs-tag !
+  ['] lbd-sknown over lbs-name ! ;
+: lbd-elab-terms ( -- )
+  lbd-elab-walk ['] elab-node-b over lbs-field !
+  ['] lbd-narg# over lbs-arg# ! ['] lbd-narg over lbs-arg ! ['] lbd-ntext over lbs-text !
+  ['] lbd-anonymous over lbs-label ! ['] lbd-nmdata swap lbs-mdata ! ;
+' lbd-elab-levels context-setup
+' lbd-elab-terms context-setup
 \ The body of sunfold record s, for a definition whose universe
 \ parameters are the n names at addr.
 : lf-libdec-sunfold ( s addr n -- body outcome )

@@ -5,9 +5,15 @@
 \ (schemas/tactic-steps-1.schema.json), for the declarations the kernel
 \ accepted only. Per declaration, in the order the text made them, one
 \ header line
-\   {"tactic_steps":{"declaration":NAME,"format":"leanforth-tactic-steps",
-\    "format_version":1,"steps":N}}
-\ then one line per step, in the order they took effect:
+\   {"tactic_steps":{"axioms":[AXIOM,...],"cut":false,"declaration":NAME,
+\    "format":"leanforth-tactic-steps","format_version":1,"open_parts":P,
+\    "steps":N}}
+\ AXIOM each axiom the declaration depends on (as #print axioms, sorryAx
+\ for a by-sorry), P its open parts (by-sorry): a declaration is proved
+\ only when P is 0 and every axiom is allowlisted. cut true: the log ran
+\ out of room while the text ran (front/tactic-run.fs) before this
+\ declaration's end; its steps are left out (N 0). Then one line per
+\ step, in the order they took effect:
 \   {"goal_before":TEXT|null,"goals_after":[TEXT,...],"parent":P,
 \    "source":"LINE:COL","step":K,"tactic":T,"word":W}
 \ K counts from 1; P is the step of the block it ran in (an alternative,
@@ -19,13 +25,15 @@
 \ each (lib/json-write.fs). Not built yet of appendix C: each tactic's
 \ rule fields, the constants and hypotheses it used and the goals in
 \ kernel form (a later version adds them).
-\ lf-steps-write ( sink accepted -- outcome ): sink ( c-addr u -- ) takes
-\ each piece of a line, then its line feed; accepted ( c-addr u -- flag )
-\ tells whether the declaration of that full name was accepted. ok, or
-\ the writer's first refusal (full for no room in its key pool).
+\ lf-steps-write ( sink find axioms -- outcome ): sink ( c-addr u -- )
+\ takes each piece of a line, then its line feed; find ( c-addr u -- d
+\ true | false ) gives the accepted declaration of that full name;
+\ axioms ( d -- outcome ) calls lf-steps-axiom ( c-addr u -- ) for each
+\ axiom d depends on. ok, or the first refusal (the writer's, full for no
+\ room in its key pool, or axioms').
 \ Presentation data: nothing reads it to decide; it changes no verdict.
-\ Example: ' type ['] accepted? lf-steps-write drop
-\ State: the record lsl (the sink, the test, the declaration's first
+\ Example: ' type ' accepted ' axioms-of lf-steps-write drop
+\ State: the record lsl (the sink, the two words, the declaration's first
 \ entry, the writer, the text of a position), in the checker context.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
@@ -36,12 +44,13 @@ require ../author/source.fs
 require ./tactic-syntax.fs
 require ./tactic-run.fs
 
-4 constant lsl-depth      \ a header: two objects; a step: an object, an array
+4 constant lsl-depth      \ a header: two objects, an array; a step: an object, an array
 64 constant lsl-key-room
 24 constant lsl-pos-room  \ "LINE:COL"
 begin-structure /lsl
   field: lsl-sink
-  field: lsl-test
+  field: lsl-find
+  field: lsl-axioms
   field: lsl-first        \ the declaration's first entry
   field: lsl-pos#
   lsl-pos-room chars +field lsl-pos
@@ -63,13 +72,19 @@ end-structure
 : lsl-span ( first n -- )
   over 0< if 2drop lsl-w jw-null else lf-steps-text lsl-w jw-string then ;
 
-\ ---- The header.
-: lsl-name ( decl -- c-addr u ) dup tld-name @ swap tld-name# @ lf-steps-text ;
-: lsl-header ( decl -- outcome )
-  lsl-begin s" tactic_steps" lsl-key lsl-w jw-open-object
-  dup lsl-name s" declaration" lsl-text s" leanforth-tactic-steps" s" format" lsl-text
-  1 s" format_version" lsl-number tld-count @ s" steps" lsl-number
-  lsl-w jw-close-object lsl-end ;
+\ ---- The header: the axioms first (their outcome kept), then the rest.
+: lsl-name ( decl -- c-addr u ) tld-name 2@ lf-steps-text ;
+: lf-steps-axiom ( c-addr u -- ) lsl-w jw-string ;
+: lsl-axiom-list ( d -- outcome )
+  s" axioms" lsl-key lsl-w jw-open-array lsl lsl-axioms @ execute lsl-w jw-close-array ;
+: lsl-steps# ( decl -- n ) dup tld-cut @ if drop 0 else tld-count @ then ;
+: lsl-rest ( decl -- )
+  dup tld-cut @ s" cut" lsl-key lsl-w jw-bool dup lsl-name s" declaration" lsl-text
+  s" leanforth-tactic-steps" s" format" lsl-text 1 s" format_version" lsl-number
+  dup tld-parts @ s" open_parts" lsl-number lsl-steps# s" steps" lsl-number ;
+: lsl-header ( d decl -- outcome )
+  lsl-begin s" tactic_steps" lsl-key lsl-w jw-open-object swap lsl-axiom-list
+  swap lsl-rest lsl-w jw-close-object lsl-end outcome-and ;
 
 \ ---- A step.
 \ The tactic's name, Lean's; two CASEs (the last: by-induction and
@@ -94,7 +109,7 @@ end-structure
   dup tlg-after @ swap tlg-after# @ over + swap ?do i lf-steps-span lsl-span loop
   lsl-w jw-close-array ;
 : lsl-goals ( entry -- )
-  s" goal_before" lsl-key dup tlg-before @ over tlg-before# @ lsl-span lsl-afters ;
+  s" goal_before" lsl-key dup tlg-before 2@ lsl-span lsl-afters ;
 : lsl-kind ( entry -- )
   tlg-kind @ dup lsl-tactic s" tactic" lsl-text lf-tac-word s" word" lsl-text ;
 : lsl-step ( k -- outcome )
@@ -105,14 +120,14 @@ end-structure
 
 \ ---- A declaration, then the log.
 : lsl-steps ( decl -- outcome )
-  dup tld-first @ dup lsl lsl-first ! swap tld-count @ over + swap
+  dup tld-first @ dup lsl lsl-first ! swap lsl-steps# over + swap
   ?do i lsl-step dup ok? 0= if unloop exit then drop loop outcome-ok ;
-: lsl-accepted? ( decl -- flag ) lsl-name lsl lsl-test @ execute ;
+: lsl-accepted ( decl -- d true | false ) lsl-name lsl lsl-find @ execute ;
 : lsl-decl ( k -- outcome )
-  lf-steps-decl dup lsl-accepted? 0= if drop outcome-ok exit then
-  dup lsl-header ok-then? if lsl-steps then ;
-: lf-steps-write ( sink accepted -- outcome )
-  lsl tuck lsl-test ! lsl-sink !
+  lf-steps-decl dup lsl-accepted 0= if drop outcome-ok exit then
+  over lsl-header ok-then? if lsl-steps then ;
+: lf-steps-write ( sink find axioms -- outcome )
+  lsl tuck lsl-axioms ! tuck lsl-find ! lsl-sink !
   lf-steps-decls 0 ?do i lsl-decl dup ok? 0= if unloop exit then drop loop outcome-ok ;
 
 base !   \ the BASE this file was loaded with

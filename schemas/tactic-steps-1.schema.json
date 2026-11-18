@@ -23,13 +23,28 @@
         "tactic_steps": {
           "type": "object",
           "required": [
+            "axioms",
+            "cut",
             "declaration",
             "format",
             "format_version",
+            "open_parts",
             "steps"
           ],
           "additionalProperties": false,
           "properties": {
+            "axioms": {
+              "description": "Every axiom the declaration depends on, as #print axioms names them (sorryAx for a by-sorry). The declaration is proved only when open_parts is 0 and each axiom is one of the allowlisted propext, Classical.choice and Quot.sound; otherwise the report calls it NOT PROVED.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "cut": {
+              "description": "true when the step log ran out of room while the text ran, before this declaration's end: its steps are left out (steps is 0), and any declaration whose header found no room is missing. The verdicts and the exit code are as without the log.",
+              "type": "boolean"
+            },
             "declaration": {
               "description": "The declaration's full name, dotted.",
               "type": "string",
@@ -41,10 +56,15 @@
             "format_version": {
               "const": 1
             },
-            "steps": {
-              "description": "How many step lines follow.",
+            "open_parts": {
+              "description": "The declaration's open parts (by-sorry, Lean's sorry): each one makes it NOT PROVED.",
               "type": "integer",
-              "minimum": 1
+              "minimum": 0
+            },
+            "steps": {
+              "description": "How many step lines follow (0 when cut).",
+              "type": "integer",
+              "minimum": 0
             }
           }
         }
