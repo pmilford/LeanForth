@@ -5,11 +5,14 @@
 \ Name.toString (Lean 4.35.0, Init/Data/ToString/Name.lean), its
 \ components joined by dots from the root, numeric ones in decimal, a
 \ component that is not an identifier between « and » (an empty one as
-\ «»), the anonymous name as [anonymous]; names of any depth. As Lean's
-\ formatter writes an identifier (Name.toString with isToken), a root
-\ component that is a token of Init's syntax (nt-tokens: fun, let, Type,
-\ ...) is between « » too: «fun», but Foo.fun; the tokens a file's own
-\ imports add (Mathlib's notation) are not known here. Three
+\ «»), the anonymous name as [anonymous]; names of any depth. The term
+\ printer's components (nt-part) follow Lean's formatter (ppExpr: the
+\ delaborator's Name.toString with isToken), so a root component that is
+\ a token of Init's syntax (nt-tokens: fun, let, Type, ...) is between « »
+\ there too: «fun», but Foo.fun; the reports' names (nt-name) are
+\ Name.toString itself, fun (review F3, as pinned Lean writes them,
+\ tests/cli/odd-names.lean.out). The tokens a file's own imports add
+\ (Mathlib's notation) are not known here. Three
 \ differences make the text show exactly what the name holds, so that no
 \ name can start a line of its own, look like the start of another line
 \ or reorder what follows it:
@@ -194,13 +197,15 @@ s" while" nt-token, s" with" nt-token, s" with_weak_namespace" nt-token,
 : nt-token? ( c-addr u -- flag ) nt-tokens name-table-find 0<> ;
 
 \ ---- Components: a string one as it is when an identifier (and, as the
-\ root, no token), else escaped between « and »; a numeric one in decimal.
+\ root of a printed term's name, no token), else escaped between « and »;
+\ a numeric one in decimal.
 : nt-root? ( id -- flag ) lf-name-prefix@ 0= ;
 : nt-token-root? ( id -- flag )
   dup nt-root? if lf-name-text nt-token? else drop false then ;
 : nt-plain? ( id -- flag ) dup lf-name-text nt-ident? swap nt-token-root? 0= and ;
 : nt-quoted ( c-addr u -- ) s" «" nt-put nt-escaped s" »" nt-put ;
-: nt-str ( id -- ) dup nt-plain? if lf-name-text nt-put else lf-name-text nt-quoted then ;
+\ In a report's name (Name.toString): bare when an identifier, token or not.
+: nt-str ( id -- ) lf-name-text 2dup nt-ident? if nt-put else nt-quoted then ;
 : nt-component ( id -- )
   dup lf-name-str? if nt-str else lf-name-payload nt-decimal then ;
 : nt-part ( id -- c-addr u flag )

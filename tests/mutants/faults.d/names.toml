@@ -38,6 +38,15 @@ test = "$GFORTH tests/cli/leanforth.fs"
 reason = "nt-text given its own result reads the block it is rewriting, and shows what it rewrote (review F1)"
 
 [[fault]]
+id = "report-name-token-quoted"
+file = "src/present/name-text.fs"
+old = ''': nt-str ( id -- ) lf-name-text 2dup nt-ident? if nt-put else nt-quoted then ;'''
+new = ''': nt-str ( id -- ) dup nt-plain? if lf-name-text nt-put else lf-name-text nt-quoted then ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "check's text and JSON write fun and inferInstanceAs as «fun» and «inferInstanceAs», where Lean's Name.toString writes them bare (review F3)"
+quick = true
+
+[[fault]]
 id = "outline-input-name-raw"
 file = "src/present/proof-outline.fs"
 old = '''  else lf-lv-put-text then ;'''

@@ -160,12 +160,14 @@ T{ hygienic nt-name drop s" x.«_@»._hyg" compare -> 0 }T
 T{ s\" fake: accepted\xe2\x9c\x9d" shows s\" \xc2\xabfake: accepted\xe2\x9c\x9d\xc2\xbb" compare
   -> 0 }T
 T{ s" _" shows s" _" compare s" #x y" shows s" «#x y»" compare -> 0 0 }T
-\ A root component that is a token of Init's syntax, as Lean's formatter
-\ writes it (review PB1): «fun», but Foo.fun; a component holding a dot.
+\ A report's name is Lean's Name.toString (review F3): a root component
+\ that is a token of Init's syntax is bare (fun, Type), as Lean writes it;
+\ only the term printer's nt-part puts it between « » (below). A
+\ component holding a dot is between « ».
 : foo-shows ( c-addr u -- c-addr' u' ) 0 s" Foo" lf-name-str drop -rot lf-name-str drop
   nt-name drop ;
-T{ s" fun" shows s" «fun»" compare s" fun" foo-shows s" Foo.fun" compare -> 0 0 }T
-T{ s" Type" shows s" «Type»" compare s" funny" shows s" funny" compare -> 0 0 }T
+T{ s" fun" shows s" fun" compare s" fun" foo-shows s" Foo.fun" compare -> 0 0 }T
+T{ s" Type" shows s" Type" compare s" funny" shows s" funny" compare -> 0 0 }T
 T{ s" a.b" foo-shows s" Foo.«a.b»" compare -> 0 }T
 \ A step log whose writing failed ends at its last whole line (review
 \ N14): nothing after the failure is written, and the file is cut back.
@@ -180,10 +182,13 @@ T{ s" a.b" foo-shows s" Foo.«a.b»" compare -> 0 }T
 T{ outcome-full steps-try s\" {a}\n" compare -> 0 }T
 T{ outcome-ok steps-try s\" {a}\n{b" compare -> 0 }T
 false cli-state run-steps-bad !
-\ A name's last component as the printer asks for it (nt-part).
+\ A name's last component as the printer asks for it (nt-part), as Lean's
+\ formatter writes it (review PB1): «fun» as the root, but Foo.fun.
 : root ( c-addr u -- id ) 0 -rot lf-name-str drop ;
 : under-foo ( c-addr u -- id ) s" Foo" root -rot lf-name-str drop ;
 T{ s" fun" under-foo nt-part drop s" fun" compare s" fun" root nt-part drop s" «fun»" compare
+  -> 0 0 }T
+T{ s" Type" root nt-part drop s" «Type»" compare s" funny" root nt-part drop s" funny" compare
   -> 0 0 }T
 T{ s" x" root nt-part -rot s" x" compare s" a.b" under-foo nt-part drop s" «a.b»" compare
   -> true 0 0 }T

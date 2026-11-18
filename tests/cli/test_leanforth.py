@@ -1884,6 +1884,23 @@ class OddNames(unittest.TestCase):
                              "$\\mathsf{%s} = \\mathsf{%s}$ \\\\" % tuple(statement.split(" = ")),
                              k)
 
+    def test_report_names(self):
+        """check's text and JSON and print's plain titles name a declaration
+        by Lean's Name.toString: fun, not «fun» (review F3); the term
+        printer's names, LaTeX's titles among them, follow ppExpr."""
+        status, out, _ = run("check", ODD)
+        self.assertEqual(status, 0)
+        status, got, _ = report(ODD)
+        names = [d["name"] for d in got["declarations"]]
+        status, plain, _ = run("print", ODD)
+        status, tex, _ = run("print", "--latex", ODD)
+        for k, (name, statement) in self.lean.items():
+            self.assertIn(f"\n{name}: accepted; axioms: none\n", out, k)
+            self.assertEqual(names[names.index(f"oddThm{k}") - 1], name, k)
+            self.assertIn(f"\nDefinition {name}\n", plain, k)
+            self.assertIn("\\textbf{Definition }$\\mathsf{%s}$ \\\\" % statement.split(" = ")[0],
+                          odd_untex(tex), k)
+
     def test_input_name_escaped(self):
         """The input's file name, the one text the outline escapes itself."""
         with tempfile.TemporaryDirectory() as folder:

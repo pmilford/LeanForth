@@ -538,15 +538,19 @@ explain a limit that was reached.
 it (`src/present/name-text.fs`): its components joined by dots, numeric ones
 in decimal, a component that is not an identifier between `«` and `»`
 (`ReexportKinds.«with space»`; an empty component is `«»`), and the
-anonymous name as `[anonymous]`; names of any depth. As Lean's
-formatter does, a first component that is a word of Init's syntax is
-between `«` and `»` too (`«fun»`, but `Foo.fun`); words that a file's
-own imports add, such as Mathlib's notation, are not known. Since
-2026-11-18 (review PB1) `print`, the goals of `.goals` and every other
-term the printer writes spell names by the same rule: before, a
-component holding a dot printed bare, so `Foo.«a.b»` showed as the
-different name `Foo.a.b`, and a bidirectional control in a goal's name
-reached the output raw. Three differences
+anonymous name as `[anonymous]`; names of any depth. A first component
+that is a word of Lean's syntax is bare here, as `Name.toString` writes
+it (`fun`, `inferInstanceAs`, `Prop`). Since 2026-11-18 (review PB1)
+`print`, the goals of `.goals` and every other term the printer writes
+spell names by the same rule, with one more, as Lean's term printer
+(`ppExpr`) does: a first component that is a word of Init's syntax is
+between `«` and `»` too (`«fun» = «fun»`, but `Foo.fun`); words that a
+file's own imports add, such as Mathlib's notation, are not known.
+Before, a component holding a dot printed bare, so `Foo.«a.b»` showed as
+the different name `Foo.a.b`, and a bidirectional control in a goal's
+name reached the output raw. `tests/cli/odd-names.lean` holds 22 such
+names with what pinned Lean prints for each, which the tests compare
+with `check`, its JSON and `print` in plain text and LaTeX. Three differences
 from Lean's text make the line show exactly what the name holds, so that
 no name, however crafted, can start a line of its own, look like the
 start of another declaration's line, move the cursor or reorder the
