@@ -5,7 +5,10 @@ folder (LF_TESTED_DIR): a pass recorded and reused; a failed run, a dirty worktr
 tree changed during the run record nothing; another Gforth, Lean or weaker cache mode
 misses; what make check and make coverage-check stand for; the tier runner reusing,
 reducing and running; the daily full run; push.sh's dry run, its refusals, a push to a
-fake remote and its record of what ran and what was reused."""
+fake remote and its record of what ran and what was reused, its choice of JOBS. PerTarget:
+a target's pass reused while the files it reads are unchanged (owner, 2026-11-17), and never
+when a file it loads through two requires, a data or golden file it reads, its Makefile rule,
+an exported variable or the engine changed, or when what it reads cannot be known."""
 import json
 import pathlib
 import shutil
@@ -91,13 +94,15 @@ class Records(Base):
         self.assertIn("the tree changed during the run", run.stderr)
         self.assertEqual(self.records(), [])
 
-    def test_same_tree_hits_full_change_misses(self):
-        self.assertRan(self.records_tool("record", "--", "make", "test-lib"))
+    def test_same_tree_hits_full_change_misses_what_it_reaches(self):
+        self.assertRan(self.records_tool("record", "--", "make", "test-lib", "test-core"))
         self.repo.commit("an empty commit keeps the tree")
-        self.assertIn("(make test-lib)", self.assertRan(self.records_tool("lookup", "--", "make", "test-lib")))
+        self.assertIn("(make test-lib test-core)", self.assertRan(self.records_tool("lookup", "--", "make", "test-lib")))
         self.repo.write("src/lib/used.fs", ": used 2 ;\n")
         self.repo.commit("a change src/main.fs loads: the full tier")
-        self.assertRan(self.records_tool("lookup", "--", "make", "test-lib"), 1)
+        self.assertRan(self.records_tool("lookup", "--", "make", "test-core"), 1)
+        self.assertIn("inputs unchanged", self.assertRan(self.records_tool("lookup", "--", "make", "test-lib")),
+                      "test-lib reads nothing of src/main.fs's")
 
     def test_earlier_commit_stands_for_what_the_change_cannot_reach(self):
         self.assertRan(self.records_tool("record", "--", "make", "check"))
@@ -207,7 +212,9 @@ class Tier(Base):
         self.assertEqual((self.records(), self.repo.logged()), ([], []))
         out = self.assertRan(self.tier())
         self.assertIn("targets ran: exit 0", out)
-        self.assertIn("not run (tier docs does not reach them): coverage-check, testfast, check-rest, test073", out)
+        self.assertIn("not run (tier docs does not reach them): test, testfast, check-rest", out)
+        self.assertIn("not run in a tier (make daily runs them): make coverage-check of every file, "
+                      "make test-unit on Gforth 0.7.3", out)
         self.assertEqual(self.repo.logged(), ["check-docs"])
         out = self.assertRan(self.tier())
         self.assertIn("targets reused: ", out)
@@ -217,10 +224,10 @@ class Tier(Base):
         self.repo.write("src/lib/free.fs", ": free-word 1 ;\n")
         self.repo.commit("library")
         summary = self.repo.path.parent / "summary.txt"
-        self.assertRan(self.tier("--with-073", "--summary", str(summary)))
+        self.assertRan(self.tier("--summary", str(summary)))
         log = self.repo.logged()
         self.assertIn("gforth10 coverage-focus src/lib/free.fs over smoke test-lib test-front", log)
-        self.assertIn("gforth073 tests/lib/a.fs", log)
+        self.assertNotIn("gforth073 tests/lib/a.fs", log)
         self.assertIn("gforthfast tests/lib/a.fs", log)
         self.assertIn("gforth10 mutants free-one,alone-one", log)
         self.assertNotIn("gforth10 tests/lib/a.fs", log, "the instrumented run stands for the plain one")
@@ -230,18 +237,18 @@ class Tier(Base):
         self.assertIn("coverage-focus ran: exit 0", line)
         self.assertEqual(len(line.splitlines()), 1)
 
-    def test_branch_tier_leaves_073_to_the_push(self):
-        # Owner, 2026-11-14: Gforth 0.7.3 runs at the push and in the daily run, not on a branch.
+    def test_no_tier_runs_073(self):
+        # Owner, 2026-11-17: Gforth 0.7.3 runs only in make daily and make tag-check; --with-073
+        # is accepted and ignored.
         self.repo.write("src/lib/free.fs", ": free-word 1 ;\n")
         self.repo.commit("library")
         out = self.assertRan(self.tier())
-        self.assertNotIn("gforth073", " ".join(self.repo.logged()))
         self.assertIn("gforthfast tests/lib/a.fs", self.repo.logged(), "gforth-fast runs on a branch")
-        self.assertIn("not run on a branch (Gforth 0.7.3 runs at the push and in the daily run): targets073", out)
-        self.assertNotIn("targets073 ran", out)
-        out = self.assertRan(self.tier("--with-073"))
-        self.assertIn("targets073 ran: exit 0", out)
-        self.assertIn("gforth073 tests/lib/a.fs", self.repo.logged())
+        out += self.assertRan(self.tier("--with-073", "--dry-run"))
+        self.assertIn("--with-073 is ignored", out)
+        self.assertNotIn("073 ran", out)
+        self.assertNotIn("073 would run", out)
+        self.assertNotIn("gforth073", " ".join(self.repo.logged()))
 
     def test_partly_covered_suite_runs_the_rest(self):
         self.repo.write("tests/lib/a.fs", "require ../../src/lib/free.fs\n\\ more\n")
@@ -326,32 +333,31 @@ class Tier(Base):
     def test_full_tier_after_a_documentation_commit(self):
         self.repo.write("Makefile", self.repo.path.joinpath("Makefile").read_text() + "\n")
         self.repo.commit("Makefile")
-        gforth073 = str(self.repo.path / ".tools/gforth073")
-        for argv in (["coverage-check"], ["check-rest"], ["test-unit", f"GFORTH={gforth073}"],
-                     ["test-unit", f"GFORTH={self.fast()}"]):
+        for argv in (["test"], ["check-rest"], ["test-unit", f"GFORTH={self.fast()}"]):
             self.assertRan(self.records_tool("record", "--", "make", *argv))
         self.repo.write("./docs/A.md", "# the review log, after the merge\n")
         self.repo.commit("docs")
         before = len(self.repo.logged())
-        out = self.assertRan(self.tier("--with-073"))
+        out = self.assertRan(self.tier())
         self.assertIn("tier full", out)
-        self.assertIn("coverage-check ran: exit 0", out)
+        self.assertIn("test ran: exit 0", out)
         self.assertIn("make check-docs JOBS=2 LEAN_CACHE=1; the rest reused: ", out)
-        self.assertIn("changes since are tier docs", out)
+        self.assertIn("inputs unchanged", out)
         self.assertIn("check-rest reused", out)
-        # check-docs on Gforth 1.0 (instrumented), gforth-fast and 0.7.3: a unit test on each engine.
-        self.assertEqual(self.repo.logged()[before:], ["check-docs", "check-docs", "check-docs"])
-        self.assertIn("reused", self.assertRan(self.tier("--with-073")))
+        # check-docs (whose recipe names no file: never reused across commits) on Gforth 1.0 and
+        # gforth-fast: a unit test on each engine of a tier.
+        self.assertEqual(self.repo.logged()[before:], ["check-docs", "check-docs"])
+        self.assertIn("reused", self.assertRan(self.tier()))
 
     def test_full_tier_reuses_a_make_check(self):
         self.repo.write("Makefile", self.repo.path.joinpath("Makefile").read_text() + "\n")
         self.repo.commit("Makefile")
         self.assertRan(self.records_tool("record", "--", "make", "check"))
-        out = self.assertRan(self.tier("--with-073", "--dry-run"))
+        out = self.assertRan(self.tier("--dry-run"))
+        self.assertIn("test reused", out)
         self.assertIn("check-rest reused", out)
-        self.assertIn("coverage-check would run", out)
         self.assertIn("testfast would run", out)
-        self.assertIn("test073 would run", out)
+        self.assertNotIn("073", out.replace("Gforth 0.7.3\n", ""))
 
     def test_fast_engine_records_are_its_own(self):
         """gforth-fast prints Gforth 1.0's version; its records name the engine."""
@@ -361,6 +367,92 @@ class Tier(Base):
         self.assertEqual(self.repo.logged(), ["gforthfast tests/lib/a.fs"])
         self.assertRan(self.records_tool("lookup", "--", "make", "test-lib"), 1)
         self.assertRan(self.records_tool("lookup", "--", "make", "test-lib", f"GFORTH={self.fast()}"))
+
+
+class PerTarget(Base):
+    """Owner, 2026-11-17: a target's recorded pass stands while the files it reads are unchanged."""
+
+    def record(self, *goals):
+        self.assertRan(self.records_tool("record", "--", "make", *goals))
+
+    def lookup(self, *goals, code=0, **env):
+        return self.assertRan(self.records_tool("lookup", "--", "make", *goals, **env), code)
+
+    def change(self, files):
+        for name, text in files.items():
+            self.repo.write(name, text)
+        self.repo.commit("change")
+
+    def makefile(self, old, new):
+        text = self.repo.path.joinpath("Makefile").read_text()
+        self.assertIn(old, text)
+        self.change({"Makefile": text.replace(old, new)})
+
+    def test_reused_when_an_unrelated_file_changes(self):
+        self.record("test-lib", "test-core", "reference-front")
+        # A full-tier change (a script, a Forth file of src/ no test here loads): nothing is reached.
+        self.change({"scripts/check.py": "print('changed')\n", "src/program/p.fs": ": p 2 ;\n"})
+        out = self.lookup("test-lib", "test-core", "reference-front")
+        self.assertIn("inputs unchanged", out)
+        [record] = self.records()
+        self.assertEqual(sorted(record["inputs"]), ["reference-front", "test-core", "test-lib"])
+
+    def test_not_reused_through_two_levels_of_require(self):
+        # tests/core/c.fs requires src/main.fs, which requires src/core/c.fs, which requires used.fs.
+        self.record("test-lib", "test-core")
+        self.change({"src/lib/used.fs": ": used 5 ;\n"})
+        self.lookup("test-core", code=1)
+        self.lookup("test-lib")
+
+    def test_not_reused_when_data_or_golden_files_change(self):
+        self.repo.write("tests/front/expected.golden", "golden\n")
+        self.repo.commit("a golden file the test finds by its folder")
+        self.record("reference-front", "test-lib")
+        self.change({"tests/front/data.txt": "other data\n"})
+        self.lookup("reference-front", code=1)
+        self.lookup("test-lib")
+        self.record("reference-front")
+        self.change({"tests/front/expected.golden": "other golden\n"})
+        self.lookup("reference-front", code=1)
+
+    def test_not_reused_when_its_rule_changes(self):
+        self.record("test-lib", "test-core")
+        self.makefile("\t$(GFORTH) tests/lib/a.fs\n", "\t$(GFORTH) tests/lib/a.fs --twice\n")
+        self.lookup("test-lib", code=1)
+        self.lookup("test-core")
+        self.makefile("COVERAGE_ENGINE_DIFFERS", "export SOMETHING := 1\nCOVERAGE_ENGINE_DIFFERS")
+        self.lookup("test-core", code=1)
+
+    def test_not_reused_on_another_engine_version(self):
+        self.record("test-lib")
+        self.change({"./docs/A.md": "# docs\n", "scripts/check.py": "print(2)\n"})
+        self.lookup("test-lib")
+        self.lookup("test-lib", code=1, STUB_GFORTH_VERSION="gforth 1.0.1")
+        self.lookup("test-lib", code=1, STUB_LEAN_VERSION="Lean (version 4.36.0)")
+
+    def test_unresolvable_inputs_force_a_run(self):
+        self.change({"tests/front/check_front.py": 'import subprocess\nsubprocess.run(["git", "ls-files"])\n'})
+        self.record("reference-front", "check-docs", "test-lib")
+        [record] = self.records()
+        self.assertEqual(sorted(record["inputs"]), ["test-lib"], "git's index and a recipe naming nothing")
+        self.change({"scripts/check.py": "print(3)\n"})
+        self.lookup("reference-front", code=1)
+        self.lookup("check-docs", code=1)
+        self.lookup("test-lib")
+
+    def test_faults_reused_while_what_their_test_reads_is_unchanged(self):
+        self.record("mutants", "FAULTS=free-one,core-one")
+        self.change({"src/lib/used.fs": ": used 6 ;\n"})
+        self.lookup("mutants", "FAULTS=free-one")
+        self.lookup("mutants", "FAULTS=core-one", code=1)
+
+    def test_records_of_another_branch_are_not_used(self):
+        self.repo.git("checkout", "-q", "-b", "other")
+        self.change({"scripts/check.py": "print(4)\n"})
+        self.record("test-lib")
+        self.repo.git("checkout", "-q", "main")
+        self.change({"scripts/check.py": "print(5)\n"})
+        self.lookup("test-lib", code=1)
 
 
 class Push(Base):
@@ -419,16 +511,34 @@ class Push(Base):
         self.assertIn("warning: no daily run recorded", out)
         self.assertEqual((self.remote_head(), self.records(), self.repo.logged()), (before, [], []))
 
-    def test_code_push_keeps_the_cache(self):
+    def test_code_push_keeps_the_cache_and_never_runs_073(self):
         self.code_change()
         out = self.assertRan(self.push("--dry-run"))
         self.assertIn("tier full", out)
-        for text in ("coverage-check would run: make coverage-check JOBS=2 LEAN_CACHE=1",
+        for text in ("test would run: make test JOBS=2 LEAN_CACHE=1",
                      "testfast would run: make test-unit JOBS=2 LEAN_CACHE=1",
-                     "check-rest would run: make check-rest JOBS=2 LEAN_CACHE=1",
-                     "test073 would run: make test-unit JOBS=2 LEAN_CACHE=1"):
+                     "check-rest would run: make check-rest JOBS=2 LEAN_CACHE=1"):
             self.assertIn(text, out)
-        self.assertNotIn("LEAN_CACHE=0", out)
+        for text in ("LEAN_CACHE=0", "test073", "gforth073", "coverage-check would run"):
+            self.assertNotIn(text, out)
+        self.repo.write("src/lib/free.fs", ": free-word 7 ;\n")
+        self.repo.commit("a library")
+        out = self.assertRan(self.push("--dry-run"))
+        self.assertNotIn("gforth073", out)
+        self.assertNotIn("073 would run", out)
+
+    def test_jobs_follow_the_load(self):
+        """Owner, 2026-11-17: 5 jobs when at most two heavy processes run, else 2; CPU mode day 2;
+        JOBS from the environment wins."""
+        self.code_change()
+        self.repo.write(".claude/work/CPU_MODE", "full\n")
+        for env, jobs in (({"LF_HEAVY_COUNT": "0"}, "5"), ({"LF_HEAVY_COUNT": "2"}, "5"),
+                          ({"LF_HEAVY_COUNT": "3"}, "2"), ({"LF_HEAVY_COUNT": "0", "JOBS": "7"}, "7")):
+            out = self.assertRan(self.push("--dry-run", **env))
+            self.assertIn(f"push.sh: JOBS={jobs} ", out, env)
+            self.assertIn(f"make check-rest JOBS={jobs} ", out, env)
+        self.repo.write(".claude/work/CPU_MODE", "day\n")
+        self.assertIn("push.sh: JOBS=2 (CPU mode day)", self.assertRan(self.push("--dry-run", LF_HEAVY_COUNT="0")))
 
     def test_push_warns_of_a_stale_daily_run(self):
         self.assertRan(self.records_tool("daily", "--jobs", "2", LF_TESTED_NOW="2026-11-11 20:00:00"))
@@ -450,7 +560,7 @@ class Push(Base):
         self.assertEqual(self.repo.git("log", "-1", "--format=%s"), f"Record the local CI of {tested_head[:7]}")
         line = (self.repo.path / "docs/development/ci-results.log").read_text().splitlines()[-1]
         for text in ("progress 0; forth-quality 0; suites exit 0", "tier docs", "targets ran: exit 0",
-                     "not run (tier docs does not reach them): coverage-check, testfast, check-rest, test073",
+                     "not run (tier docs does not reach them): test, testfast, check-rest",
                      "daily run: none recorded", "gforth 1.0.0 stub"):
             self.assertIn(text, line)
         self.assertEqual([r["suite"] for r in self.records()], ["check-docs"])
@@ -459,17 +569,17 @@ class Push(Base):
         tested_head = self.repo.git("rev-parse", "HEAD")
         self.assertRan(self.push())
         line = (self.repo.path / "docs/development/ci-results.log").read_text().splitlines()[-1]
-        for text in ("tier full", "coverage-check ran: exit 0", "testfast ran: exit 0", "check-rest ran: exit 0",
-                     "test073 ran: exit 0"):
+        for text in ("tier full", "test ran: exit 0", "testfast ran: exit 0", "check-rest ran: exit 0"):
             self.assertIn(text, line)
         self.assertNotIn("LEAN_CACHE=0", line)
+        self.assertNotIn("test073 ran", line)
         self.assertTrue((self.repo.path / f".claude/work/ci/{tested_head[:7]}-check-rest.log").exists())
 
     def test_failure_is_not_pushed(self):
         before = self.remote_head()
         self.code_change()
-        out = self.assertRan(self.push(STUB_FAIL_ON="coverage-check"), 1)
-        self.assertIn("coverage-check ran: exit 2", out)
+        out = self.assertRan(self.push(STUB_FAIL_ON="tests/lib/a.fs"), 1)
+        self.assertIn("test ran: exit 2", out)
         self.assertIn("not pushed", out)
         self.assertEqual(self.remote_head(), before)
         self.assertIn("not pushed", self.assertRan(self.push(STUB_PROGRESS="1"), 1))

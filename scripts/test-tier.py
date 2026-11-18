@@ -63,6 +63,7 @@ but does not test, and documents a test reads through a path built at run
 time. Exit status 0, or 2 for a usage or git error.
 """
 import argparse
+import hashlib
 import importlib.util
 import json
 import os
@@ -80,6 +81,7 @@ _spec = importlib.util.spec_from_file_location("test_classes", os.path.join(HERE
 test_classes = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(test_classes)
 
+PROGRAMS = (".fs", ".py", ".sh")
 TIERS = ("none", "docs", "tests", "library", "front", "full")
 DOC_FOLDERS = ("docs/", ".claude/", ".codex/", "prompts/")
 DOC_FILES = {"LICENSE", ".gitignore"}
@@ -95,7 +97,20 @@ TARGET_VARIABLE = changed_tests.TARGET_VARIABLE
 # users' default, and Gforth 0.7.3, CI's portability host (only at the push and in the daily
 # run: tested-tree.py tier --with-073). End-to-end tests run once, on Gforth 1.0.
 ENGINES = {"fast": "gforth-fast", "073": "Gforth 0.7.3"}
+# The engines of a tier (make tier, scripts/push.sh): gforth-fast only. Gforth 0.7.3 runs in
+# make daily and make tag-check alone (owner, 2026-11-17).
+TIER_ENGINES = ("fast",)
+# The full tier (owner, 2026-11-17): make test on Gforth 1.0 (plain; the coverage of the changed
+# files runs first, as a coverage-focus suite, and stands for its own targets), make test-unit
+# on gforth-fast and make check-rest; tested-tree.py reuses each target whose inputs are
+# unchanged. The whole coverage ratchet (make coverage-check) runs in make daily.
 FULL_SUITES = (
+    {"label": "test", "goals": ["test"]},
+    {"label": "testfast", "goals": ["test-unit"], "engine": "fast"},
+    {"label": "check-rest", "goals": ["check-rest"]},
+)
+# The daily full run (make daily) and what make tag-check requires: every suite, cache off.
+DAILY_SUITES = (
     {"label": "coverage-check", "goals": ["coverage-check"]},
     {"label": "testfast", "goals": ["test-unit"], "engine": "fast"},
     {"label": "check-rest", "goals": ["check-rest"]},
@@ -301,6 +316,116 @@ class Reach:
         return found
 
 
+# --- what a target reads: per-target reuse (owner, 2026-11-17) ------------------------
+
+DIGEST_VERSION = 1
+# Make lines that change how every recipe runs (the shell, exported variables come from make).
+MAKE_SPECIAL = re.compile(r"^\s*(?:SHELL|\.SHELLFLAGS|\.ONESHELL|\.POSIX|\.EXPORT_ALL_VARIABLES|unexport|"
+                          r"vpath|-?include|MAKEFLAGS)\b.*$", re.MULTILINE)
+# Toolchain placeholders: a record's Gforth, Lean and cache mode are keyed by their versions and
+# mode (scripts/tested-tree.py), so a digest names none of their paths.
+PLACEHOLDERS = ("GFORTH=@GFORTH@", "LEAN=@LEAN@", "LEAN_CACHE=1")
+# Exported variables that only locate a toolchain or the shared Lean cache.
+TOOL_LOCATIONS = {"LEANFORTH_GFORTH", "LEANFORTH_LEAN", "LEANFORTH_LEAN_CACHE_DIR", "LEANFORTH_LEAN_CACHE"}
+COVERAGE_TOOL = ("scripts/coverage.py", "scripts/coverage-gforth.sh", "scripts/coverage-prelude.fs")
+FAULT_RUNNER = ("scripts/mutants.py", "scripts/gforth-strict.sh")
+
+
+def digest_of(*parts):
+    return hashlib.sha256(json.dumps(parts, sort_keys=True).encode()).hexdigest()
+
+
+class Inputs:
+    """What each target of make check reads in HEAD's tree, and a digest of it: its recipe as
+    make -n prints it (prerequisites' recipes included, the checkout's path and the toolchain
+    left out), the variables make exports to every recipe and the special make lines, and the
+    git blob of every file changed-tests.py's input_files() finds from the recipe (programs
+    followed through loads, imports and named paths; data by folder, name, extension and
+    template). None, never reused, when a reason makes the inputs unknowable: a program or the
+    recipe reads git's index or history, files outside the checkout or an export the
+    environment names, or lists a folder the finder cannot name."""
+
+    def __init__(self):
+        self.top = os.getcwd()
+        self.tracked = changed_tests.tracked_files()
+        self.index = changed_tests.file_index(self.tracked)
+        self.cache, self.recipes, self.digests, self.reasons = {}, {}, {}, {}
+        exported = self.environment()
+        makefile = read_worktree("Makefile") or ""
+        self.global_text = exported + "\n".join(MAKE_SPECIAL.findall(makefile))
+        self.global_files, self.global_reasons = changed_tests.input_files(
+            changed_tests.named_files(exported), self.tracked, self.cache, self.index)
+
+    def normal(self, text):
+        return text.replace(self.top + "/", "").replace(self.top, ".")
+
+    def environment(self):
+        """The variables make exports to every recipe (beyond the caller's own), normalized."""
+        env = {k: v for k, v in changed_tests.make_env().items() if k != "LF_TIMING_LOG"}
+        run = subprocess.run(["make", "-s", "--no-print-directory", "--eval", "__lf_inputs_env: ; @env -0",
+                              "__lf_inputs_env", *PLACEHOLDERS], capture_output=True, text=True, env=env)
+        lines = []
+        for item in run.stdout.split("\0"):
+            name, _, value = item.partition("=")
+            if name and env.get(name) != value and name not in TOOL_LOCATIONS and not name.startswith(("MAKE", "MFLAGS")):
+                lines.append(f"{name}={self.normal(value)}")
+        return "\n".join(sorted(lines)) + "\n"
+
+    def recipe(self, target):
+        if target not in self.recipes:
+            env = {k: v for k, v in changed_tests.make_env().items() if k != "LF_TIMING_LOG"}
+            run = subprocess.run(["make", "-n", "--no-print-directory", "-j1", target, *PLACEHOLDERS],
+                                 capture_output=True, text=True, env=env)
+            self.recipes[target] = self.normal(run.stdout) if run.returncode == 0 else None
+        return self.recipes[target]
+
+    def files(self, start):
+        """(input files, reasons) of programs and files START, the exported ones included."""
+        files, reasons = changed_tests.input_files(start, self.tracked, self.cache, self.index)
+        return files | self.global_files, reasons + self.global_reasons
+
+    def blobs(self, files):
+        return sorted((p, self.tracked[p]) for p in files)
+
+    def target(self, name):
+        """The digest of target NAME's inputs, or None (its reasons in self.reasons[NAME])."""
+        if name not in self.digests:
+            text = self.recipe(name)
+            if text is None:
+                files, reasons = set(), [f"make -n {name} failed"]
+            else:
+                named = changed_tests.named_files(text)
+                files, reasons = self.files(named)
+                reasons = [f"its recipe {why}" for rule, why in changed_tests.UNRESOLVED if rule.search(text)] + reasons
+                if not named & set(self.tracked):
+                    reasons.append("its recipe names no file of the tree, so what it reads is unknown")
+            self.reasons[name] = reasons
+            self.digests[name] = None if reasons else digest_of(DIGEST_VERSION, "target", text, self.global_text,
+                                                                 self.blobs(files))
+        return self.digests[name]
+
+    def fault(self, entry):
+        """The digest of a planted fault: its entry, its file and what its test command reads, and
+        the runner (whose own git listing only copies the tree the test then reads)."""
+        if not entry or entry.get("file") not in self.tracked:
+            return None
+        files, reasons = self.files(changed_tests.named_files(str(entry.get("test", ""))) | {entry["file"]})
+        if reasons:
+            return None
+        files |= {p for p in FAULT_RUNNER if p in self.tracked}
+        return digest_of(DIGEST_VERSION, "fault", entry, self.global_text, self.blobs(files))
+
+    def coverage(self, path, targets, baseline):
+        """The digest of the coverage ratchet of PATH over TARGETS: their digests, the baseline's
+        entry for PATH and the coverage tool's files; None when a target's is."""
+        digests = [self.target(t) for t in sorted(set(targets))]
+        if None in digests or path not in self.tracked:
+            return None
+        entry = (baseline or {}).get("files", {}).get(path)
+        return digest_of(DIGEST_VERSION, "coverage", path, self.tracked[path], entry, digests,
+                         self.blobs(p for p in COVERAGE_TOOL if p in self.tracked))
+
+
 # --- planted faults --------------------------------------------------------------
 
 def is_fault_file(path):
@@ -411,11 +536,13 @@ def touched_faults(changed, base_rev):
     return chosen
 
 
-def full_result(result, changed, base_rev):
-    """The full tier's suites, and its faults (none for an empty range)."""
+def full_result(result, changed, base_rev, reach=None, loaded=()):
+    """The full tier's suites, and its faults (none for an empty range): the coverage of the
+    changed source files first, then FULL_SUITES, then the faults."""
     if result["tier"] == "full":
         result["faults"] = touched_faults(changed, base_rev)
-        result["suites"] = [dict(s) for s in FULL_SUITES]
+        result["coverage"] = coverage_need(result["files"], reach or Reach(make_database()[0]), loaded, base_rev)
+        result["suites"] = coverage_suites(result["coverage"]) + [dict(s) for s in FULL_SUITES]
         if result["faults"]:
             result["suites"].append({"label": "faults", "goals": ["mutants"],
                                      "vars": {"FAULTS": ",".join(result["faults"])}})
@@ -451,9 +578,11 @@ def plan(changed, merge_base, full=False, reach=None):
         tier = "full"
     result = {"base": merge_base, "tier": tier, "files": files, "targets": [], "engine_targets": [],
               "faults": [], "coverage": None, "suites": []}
-    if tier in ("full", "none"):
-        return full_result(result, changed, base_rev)
+    if tier == "none":
+        return result
     reach_ = reach or Reach(make_database()[0])
+    if tier == "full":
+        return full_result(result, changed, base_rev, reach_, loaded)
     chosen = set()
     for f in files:
         path, users = f["path"], reach_.users(f["path"])
@@ -477,13 +606,13 @@ def plan(changed, merge_base, full=False, reach=None):
     tier = max((f["tier"] for f in files), key=TIERS.index)
     result["tier"] = tier
     if tier == "full":
-        return full_result(result, changed, base_rev)
+        return full_result(result, changed, base_rev, reach_, loaded)
     result["targets"] = [u for u in reach_.every if u in chosen] + sorted(chosen - set(reach_.every))
     engine_unit = engine_units(reach_)
     result["engine_targets"] = [u for u in reach_.of_test if u in chosen and engine_unit(u)]
     if tier != "docs":
         result["faults"] = selected_faults(changed, base_rev)
-        result["coverage"] = coverage_need(files, reach_, loaded)
+        result["coverage"] = coverage_need(files, reach_, loaded, base_rev)
     result["suites"] = suites_of(result)
     problems = engine_problems(result, engine_unit, end_to_end())
     if problems:
@@ -507,14 +636,15 @@ def engine_units(reach_):
 
 def engine_problems(result, engine_unit, e2e):
     """Why RESULT's suites break the owner's split (2026-11-14), or []: in a smaller tier each
-    reached target for which ENGINE_UNIT holds runs on every engine and no target of E2E (the
-    end-to-end tests) runs on one; the full tier runs make test-unit on every engine."""
+    reached target for which ENGINE_UNIT holds runs on every engine of a tier (TIER_ENGINES) and
+    no target of E2E (the end-to-end tests) runs on one; the full tier runs make test-unit on
+    each; no tier runs Gforth 0.7.3 (make daily does)."""
     on = {s["engine"]: s["goals"] for s in result["suites"] if s.get("engine")}
+    problems = [f"a tier runs {ENGINES[e]} (only make daily does)" for e in on if e not in TIER_ENGINES]
     if result["tier"] == "full":
-        return [f"the full tier runs no make test-unit on {name}" for engine, name in ENGINES.items()
-                if on.get(engine) != ["test-unit"]]
-    problems = []
-    for engine, name in ENGINES.items():
+        return problems + [f"the full tier runs no make test-unit on {ENGINES[engine]}" for engine in TIER_ENGINES
+                           if on.get(engine) != ["test-unit"]]
+    for engine, name in ((e, ENGINES[e]) for e in TIER_ENGINES):
         goals = on.get(engine, [])
         problems += [f"unit test {u} would not run on {name}" for u in result["targets"]
                      if engine_unit(u) and u not in goals]
@@ -522,42 +652,72 @@ def engine_problems(result, engine_unit, e2e):
     return problems
 
 
-def coverage_need(files, reach_, loaded):
-    """None, {"kind": "all"} (make coverage-check) or {"kind": "focus", files, targets}."""
+def baseline_changes(base_rev):
+    """The files whose entries of tests/coverage-baseline.json differ from BASE_REV's, or None
+    when the run count differs or either side does not parse (then all of make coverage-check)."""
+    try:
+        now = json.loads(read_worktree(COVERAGE_BASELINE) or "")
+        before = json.loads(git("show", f"{base_rev}:{COVERAGE_BASELINE}", check=False) or "")
+        if now.get("runs") != before.get("runs"):
+            return None
+        a, b = now.get("files", {}), before.get("files", {})
+        return {p for p in set(a) | set(b) if a.get(p) != b.get(p)}
+    except (ValueError, AttributeError):
+        return None
+
+
+def coverage_need(files, reach_, loaded, base_rev="HEAD"):
+    """None, {"kind": "all"} (make coverage-check) or {"kind": "focus", files, targets}: the
+    ratchet of the changed source files (owner, 2026-11-17): every Forth file of src/ the change
+    touches, the files a changed test drives and the files whose baseline entry changed, over
+    the unit tests of make test that load them (tests/test-classes.txt; the end-to-end tests of
+    make test that load a file no unit test loads). Only a change of the baseline's run count
+    needs all of make coverage-check, which make daily runs. LOADED is kept for the callers."""
     focus = set()
     for f in files:
+        if f["status"] == "D" and f["path"].startswith("tests/") and f["path"].endswith(PROGRAMS):
+            return {"kind": "all", "why": f"{f['path']} was deleted: what it drove is known only from the base"}
         if f["status"] == "D":
             continue
         if f["path"] == COVERAGE_BASELINE:
-            return {"kind": "all", "why": f"{COVERAGE_BASELINE} changed"}
-        if f["tier"] in ("library", "front"):
+            changed = baseline_changes(base_rev)
+            if changed is None:
+                return {"kind": "all", "why": f"{COVERAGE_BASELINE}'s run count changed"}
+            focus |= {p for p in changed if os.path.isfile(p)}
+        elif f["path"].startswith("src/") and f["path"].endswith(".fs"):
             focus.add(f["path"])
         elif f["tier"] == "tests":
             focus |= reach_.driven(f["path"])
     focus = {p for p in focus if p.endswith(".fs")}
     if not focus:
         return None
-    if focus & (loaded | {MAIN}):
-        return {"kind": "all", "why": "a changed test drives files src/main.fs loads: "
-                + " ".join(sorted(focus & (loaded | {MAIN}))[:3])}
-    targets = [u for u in reach_.of_test if any(p in reach_.uses[u] for p in focus)]
+    e2e = end_to_end()
+    targets = [u for u in reach_.of_test if u not in e2e and any(p in reach_.uses[u] for p in focus)]
+    # smoke only loads each module: a file no other unit test loads is measured by the
+    # end-to-end tests of make test that load it, or the ratchet would fail on blocks they run.
+    alone = {p for p in focus if not any(p in reach_.uses[u] for u in targets if u != "smoke")}
+    targets += [u for u in reach_.of_test if u not in targets and any(p in reach_.uses[u] for p in alone)]
     targets += [u for u in ("smoke",) if u not in targets]
     return {"kind": "focus", "files": sorted(focus), "targets": targets}
+
+
+def coverage_suites(cover):
+    if cover and cover["kind"] == "all":
+        return [{"label": "coverage-check", "goals": ["coverage-check"]}]
+    if cover:
+        return [{"label": "coverage-focus", "goals": ["coverage-focus"],
+                 "vars": {"COVERAGE_FILES": " ".join(cover["files"]),
+                          "COVERAGE_TARGETS": " ".join(cover["targets"])}}]
+    return []
 
 
 def suites_of(result):
     """The suites of a tier smaller than full, the instrumented run first (its record then
     stands in for the plain runs of the same targets)."""
-    suites, cover = [], result["coverage"]
-    if cover and cover["kind"] == "all":
-        suites.append({"label": "coverage-check", "goals": ["coverage-check"]})
-    elif cover:
-        suites.append({"label": "coverage-focus", "goals": ["coverage-focus"],
-                       "vars": {"COVERAGE_FILES": " ".join(cover["files"]),
-                                "COVERAGE_TARGETS": " ".join(cover["targets"])}})
+    suites = coverage_suites(result["coverage"])
     if result["targets"]:
         suites.append({"label": "targets", "goals": result["targets"]})
-    for engine in ENGINES if result["engine_targets"] else ():
+    for engine in TIER_ENGINES if result["engine_targets"] else ():
         suites.append({"label": f"targets{engine}", "goals": result["engine_targets"], "engine": engine})
     if result["faults"]:
         suites.append({"label": "faults", "goals": ["mutants"], "vars": {"FAULTS": ",".join(result["faults"])}})
