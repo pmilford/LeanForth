@@ -12,6 +12,15 @@
 # Stderr is replayed after the run ends (not live). The Makefile and
 # scripts/mutants.py use this wrapper as $GFORTH for every Forth test run
 # (docs/development/TESTING_STRATEGY.md, "Gforth exit status").
+#
+# When Gforth cannot be started it says so distinctly, with the user's
+# threads and process limit (scripts/start-limit.sh): bash ends a script
+# whose fork is refused with status 254, after its own "fork: Resource
+# temporarily unavailable", and runs the EXIT trap, which reports it; an
+# exec that failed (126, 127) is reported after the wait.
+case ${BASH_SOURCE[0]} in */*) . "${BASH_SOURCE[0]%/*}/start-limit.sh" ;; *) . ./start-limit.sh ;; esac
+errf=
+trap 'status=$?; [ "$status" -eq 254 ] && lf_start_report gforth-strict 254; [ -z "$errf" ] || rm -f "$errf"' EXIT
 here=$(cd "$(dirname "$0")/.." && pwd -P)
 # Never take a wrapper of scripts/ (this file or scripts/gforth-fast) as the
 # real Gforth, and never nest more than a few wrappers: either would start
@@ -33,7 +42,6 @@ if [ -z "$real" ]; then
   [ -x "$real" ] || real=gforth
 fi
 errf=$(mktemp) || exit 1
-trap 'rm -f "$errf"' EXIT
 exec 9<&0
 "$real" "$@" <&9 9<&- 2>"$errf" &
 pid=$!
@@ -41,6 +49,7 @@ trap 'kill -TERM "$pid" 2>/dev/null' TERM INT HUP
 wait "$pid"; status=$?
 trap - TERM INT HUP
 cat "$errf" >&2
+lf_start_report gforth-strict "$status"
 if [ "$status" -eq 0 ] && grep -q -e '^Backtrace:' -e 'uncaught exception' "$errf"; then
   echo "gforth-strict: Gforth exited 0 after reporting an error" >&2
   exit 1

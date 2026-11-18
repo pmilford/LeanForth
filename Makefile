@@ -322,6 +322,7 @@ test-differential: test-inductive-table
 
 test-harness:
 	GFORTH=$(GFORTH) $(RUN) bash tests/harness/check.sh
+	$(RUN) python3 tests/scripts/test_start_limit.py
 
 # The general Forth library in src/lib. The job pool is not loaded by
 # src/main.fs, so it gets its own silent-load check; task.fs tests the

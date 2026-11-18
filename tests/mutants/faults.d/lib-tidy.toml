@@ -127,3 +127,11 @@ old = '''lf-lib set-current
 new = ''': job-submit ( context xt -- job ior )'''
 test = "$GFORTH tests/core/environment-tasks.fs"
 reason = "job-submit filed private: a program that loads task.fs cannot submit a job"
+
+[[fault]]
+id = "lt3-refused-fork-unexplained"
+file = "scripts/start-limit.sh"
+old = '''    254) lf_why="resource limit (a process could not be started)" ;;'''
+new = '''    255) lf_why="resource limit (a process could not be started)" ;;'''
+test = "python3 tests/scripts/test_start_limit.py Report"
+reason = "a refused fork (bash's status 254) reported as a plain Gforth status again (review note 9)"
