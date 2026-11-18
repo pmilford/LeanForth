@@ -67,9 +67,11 @@ require ./apply.fs
 : mco-const ( head name -- e ) swap lf-const-levels lf-mk-const-id ;
 
 \ ---- observing? inside withoutModifyingState: a Lean error is false.
-: mco-lean-error? ( code -- flag )
-  dup lf-author-throw = if drop lf-author-code lf-author-outcome outcome-invalid = exit then
+: mco-authored? ( -- flag ) lf-author-code lf-author-outcome outcome-invalid = ;
+: mco-rejected? ( code -- flag )
   dup lf-meta-thrown? if lf-meta-outcome outcome-rejected = else drop false then ;
+: mco-lean-error? ( code -- flag )
+  dup lf-author-throw = if drop mco-authored? else mco-rejected? then ;
 : mco-caught ( code -- false )
   dup mco-lean-error? 0= if throw then drop lf-tac-forget false ;
 : mco-probe ( goal e -- applies? false )

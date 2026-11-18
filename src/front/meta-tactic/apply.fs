@@ -108,7 +108,7 @@ end-structure
 : ap-d! ( e -- )
   dup lf-term-const? if lf-const-name lf-menv-find lf-must else drop -1 then ap ap-d ! ;
 : ap-range ( -- )
-  ap ap-etype @ lf-expected-num-args swap dup ap ap-upper ! swap if ap ap-lower ! exit then
+  ap ap-etype @ lf-expected-num-args over ap ap-upper ! if ap ap-lower ! exit then
   ap ap-target @ lf-expected-num-args drop - 0 max ap ap-lower ! ;
 
 \ ---- One count: the telescope, then isDefEqApply.
@@ -126,26 +126,29 @@ end-structure
 : ap-head. ( x -- outcome ) drop ap-what lf-pp-emit ap ap-e @ lf-tac-inline. ;
 : ap-concl ( -- t ) ap-conclusion? if ap ap-lower @ ap-telescope else ap ap-etype @ then ;
 : ap-full. ( -- outcome ) s\"  is\n" ap ap-etype @ lf-tac-line. ;
+: ap-full-of. ( -- outcome )
+  s\" \n\nNote: The full type of " lf-pp-emit ap ap-e @ lf-tac-inline. ;
 : ap-note. ( -- outcome )
-  ap-conclusion? 0= if outcome-ok exit then
-  s\" \n\nNote: The full type of " lf-pp-emit ap ap-e @ lf-tac-inline. ['] ap-full. ok-and ;
+  ap-conclusion? 0= if outcome-ok exit then ap-full-of. ['] ap-full. ok-and ;
 : ap-with. ( -- outcome ) s\" \nwith the goal\n" ap ap-target @ lf-tac-line. ;
 : ap-goal. ( -- outcome ) s\" \n" lf-pp-emit ap ap-goal @ lf-tac-goal-of. ;
 : ap-unify. ( concl -- outcome )
   lf-tac-indented. ['] ap-with. ok-and ['] ap-note. ok-and ['] ap-goal. ok-and ;
+: ap-unify-detail ( -- ) ap-concl ['] ap-unify. lf-tac-detail ;
 : ap-unify-fail ( -- )
-  0 ['] ap-head. lf-tac-inline ap-concl ['] ap-unify. lf-tac-detail lfa-e-apply lf-tac-stop ;
+  0 ['] ap-head. lf-tac-inline ap-unify-detail lfa-e-apply lf-tac-stop ;
 : ap-search ( -- )
   ap ap-upper @ 1+ ap ap-lower @ ?do i ap-fits? if unloop exit then loop ap-unify-fail ;
 
 \ ---- synthAppInstances: rounds over the instance metavariables.
-: ap-insts ( -- ) ap-todo slab-clear
-  ap-new# 0 ?do i ap-inst? if i ap-new drop ap-todo slab-push lf-must then loop ;
+: ap-todo+ ( mvar -- ) ap-todo slab-push lf-must ;
+: ap-insts ( -- )
+  ap-todo slab-clear ap-new# 0 ?do i ap-inst? if i ap-new drop ap-todo+ then loop ;
 : ap-type. ( mvar -- outcome ) lf-mvar-type drop lf-tac-indented. ;
 : ap-no-instance ( mvar -- ) ['] ap-type. lf-tac-detail lfa-e-elab-synth lf-tac-stop ;
-: ap-assign-inst ( mvar inst -- )
-  lf-defeq! 0= if ap ap-goal @ ['] lf-tac-goal-of. lf-tac-detail lfa-e-apply-inst lf-tac-stop
-  then ;
+: ap-inst-fail ( -- )
+  ap ap-goal @ ['] lf-tac-goal-of. lf-tac-detail lfa-e-apply-inst lf-tac-stop ;
+: ap-assign-inst ( mvar inst -- ) lf-defeq! 0= if ap-inst-fail then ;
 \ One metavariable: found (true), else put off (false).
 : ap-synth-one ( mvar -- found? )
   dup lf-infer! lf-synth-instance lf-must if ap-assign-inst true exit then
@@ -158,12 +161,13 @@ end-structure
   ap-later slab-clear 0 false
   ap-todo slab-count 0 ?do i ap-todo slab-at @ dup ap-synth-one ap-tried loop ;
 : ap-again ( -- )
-  ap-todo slab-clear ap-later slab-count 0 ?do i ap-later slab-at @ ap-todo slab-push lf-must
-  loop ;
+  ap-todo slab-clear ap-later slab-count 0 ?do i ap-later slab-at @ ap-todo+ loop ;
+\ A round's end: none failed, done; else again after progress, else Lean's throw.
+: ap-settle ( failed progress -- )
+  over 0= if 2drop ap-todo slab-clear exit then
+  if drop ap-again else ap-no-instance then ;
 : ap-synth-instances ( -- )
-  ap-insts begin ap-todo slab-count while ap-round
-    over 0= if 2drop ap-todo slab-clear else if drop ap-again else ap-no-instance then then
-  repeat ;
+  ap-insts begin ap-todo slab-count while ap-round ap-settle repeat ;
 
 \ ---- The goal assigned, the new goals.
 : ap-applied ( -- e )
@@ -189,16 +193,17 @@ end-structure
 \ ---- reorderGoals nonDependentFirst, then headBetaType.
 : ap-sought? ( leaf -- flag )   \ (inside lf-term-holds?'s walk: throws nothing)
   dup lf-mvar? if lf-term-first@ ap ap-sought @ = else drop false then ;
+: ap-sought! ( mvar -- ) lf-term-first@ ap ap-sought ! ;
+: ap-holds? ( t -- flag ) ['] ap-sought? lf-term-holds? lf-must ;
 : ap-names? ( mvar other -- flag )   \ other's type, as stored, holds mvar
-  2dup = if 2drop false exit then
-  swap lf-term-first@ ap ap-sought ! lf-mvar-type drop ['] ap-sought? lf-term-holds? lf-must ;
+  2dup = if 2drop false exit then swap ap-sought! lf-mvar-type drop ap-holds? ;
 : ap-dependent? ( mvar -- flag )
   ap-goals slab-count 0 ?do dup i ap-goal@ ap-names? if drop true unloop exit then loop
   drop false ;
 : ap-push ( run mvar -- run ) lf-goal-head-beta-type run-push lf-must ;
+: ap-in? ( dependent? k -- flag ) ap-goal@ ap-dependent? = ;
 : ap-those ( run dependent? -- run )
-  ap-goals slab-count 0 ?do i ap-goal@ dup ap-dependent? 2 pick = if swap >r ap-push r>
-    else drop then loop drop ;
+  ap-goals slab-count 0 ?do dup i ap-in? if swap i ap-goal@ ap-push swap then loop drop ;
 : ap-result ( -- goals ) 0 false ap-those true ap-those ;
 
 \ (The goal's type and e's are instantiated first: LeanForth's Meta words

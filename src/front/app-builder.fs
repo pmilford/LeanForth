@@ -74,7 +74,8 @@ abl-most cells context-record: abl-cells
   dup 0 ?do dup 1- i - cells abl-cells + rot swap ! loop abl-cells swap ;
 
 \ ---- mkConst, mkApp, mkAppN.
-: abl-const-at ( name addr n -- e ) 2>r lf-name-generation @ 2r> lf-meta-const-at lf-must ;
+: abl-const-at ( name addr n -- e )
+  2>r lf-name-generation @ 2r> lf-meta-const-at lf-must ;
 : lf-mk-const ( c-addr u l1..ln n -- e ) abl-stored 2>r lfa-intern 2r> abl-const-at ;
 : lf-mk-const-id ( name l1..ln n -- e ) abl-stored abl-const-at ;
 \ Expr.constLevels!: a constant node's universe arguments.
