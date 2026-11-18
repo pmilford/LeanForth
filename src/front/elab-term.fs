@@ -137,6 +137,13 @@ end-structure
 : et-head ( node -- f outcome )
   dup syn-a@ swap syn-kind@ case syn-k-const of et-const endof syn-k-var of et-var endof
     syn-k-hyp of et-hyp endof nip -1 outcome-invalid rot endcase ;
+\ Lean's Term.resolveId? for an identifier (Elab/Tactic/ElabTerm.lean's
+\ elabTermForApply): a constant at new level metavariables with no
+\ argument inserted, a variable or a hypothesis; lf-elab-ident? says
+\ whether a node is one.
+: lf-elab-ident? ( node -- flag )
+  syn-kind@ dup syn-k-const = over syn-k-var = or swap syn-k-hyp = or ;
+: lf-elab-ident ( node -- e outcome ) et-head ;
 
 \ ---- elabNumLit.
 : et-type-mvar ( -- T outcome )   \ mkFreshTypeMVar synthetic

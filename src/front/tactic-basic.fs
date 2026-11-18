@@ -200,6 +200,9 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 \ error whose detail xt ( x -- outcome ) prints, at the step running.
 : lf-tac-line. ( c-addr u term -- outcome ) lfb-line. ;
 : lf-tac-goal. ( -- outcome ) lfb-the-goal. ;
+\ A detail that is the goal alone, after the message's line and a blank
+\ one (Lean's throwTacticEx with no message: "Tactic `t` failed\n\ngoal").
+: lf-tac-goal-after. ( x -- outcome ) lfb-blank-goal. ;
 : lf-tac-failed ( xt code -- ) lfb-failed ;
 \ A detail xt ( x -- outcome ) prints that ends the message's own line.
 : lf-tac-inline ( x xt -- ) lf-author-code if 2drop exit then lf-tac-detail lfa-inline ;

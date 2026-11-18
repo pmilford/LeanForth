@@ -1,0 +1,16 @@
+\ by-constructor on And: And.intro, its goals left and right (slice
+\ a2-iii; tests/front/tactics/goal-layer.lean). The term is
+\ And.intro h1 h2.
+\ Lean: theorem co_and (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) : a ≤ b ∧ b ≤ a := by
+\         constructor
+\         exact h1
+\         exact h2
+theorem co_and
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1  b a ≤ explicit: h2
+  a b ≤ b a ≤ And
+:= by
+  by-constructor
+  ' h1 by-exact
+  ' h2 by-exact
+end co_and

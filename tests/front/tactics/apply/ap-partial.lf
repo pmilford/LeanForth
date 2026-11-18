@@ -1,0 +1,15 @@
+\ by-apply of an application whose implicit argument k only the goal fixes
+\ (slice a2-iii; tests/front/tactics/goal-layer.lean): elabTermForApply
+\ leaves ?k, isDefEq of the conclusion with the goal assigns it, and one
+\ goal is left, h₂'s. The term is @Nat.le_trans a b c h1 h2.
+\ Lean: theorem ap_partial (a b c : Nat) (h1 : a ≤ b) (h2 : b ≤ c) : a ≤ c := by
+\         apply Nat.le_trans h1
+\         exact h2
+theorem ap_partial
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b ≤ explicit: h1  b c ≤ explicit: h2
+  a c ≤
+:= by
+  ' Nat.le_trans ' h1 $ by-apply
+  ' h2 by-exact
+end ap_partial

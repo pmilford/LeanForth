@@ -58,7 +58,7 @@ require ../app-builder.fs
 
 \ ---- headBetaType.
 : mtg-kind ( goal -- kind ) lf-mvar-kind 0= if outcome-invalid lf-must then ;
-: mtg-tag! ( goal tag -- ) ?dup if lf-mvar-tag! lf-must else drop then ;
+: mtg-tag! ( goal tag -- ) lf-mvar-tag! lf-must ;
 : mtg-like ( type goal -- goal' )   \ a new metavariable as goal, of type
   >r r@ mtg-kind r@ mtg-view lf-mvar-new-at lf-must dup r> mtg-tag mtg-tag! ;
 : lf-goal-head-beta-type ( goal -- goal' )

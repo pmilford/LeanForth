@@ -1,0 +1,11 @@
+\ A wrong twin of ap-hyp.lf (slice a2-iii; tests/front/tactics/apply/
+\ wrong.lean): the hypothesis's type is not the goal's, and apply fails
+\ with Lean's message (error 380, "the type of", no note).
+\ Lean: theorem w_ap_hyp (a b : Nat) (h : a ≤ b) : b ≤ a := by apply h
+theorem w_ap_hyp
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  b a ≤
+:= by
+  ' h by-apply
+end w_ap_hyp

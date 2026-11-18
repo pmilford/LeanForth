@@ -1,0 +1,19 @@
+\ by-apply leaving goals in Lean's order (slice a2-iii;
+\ tests/front/tactics/goal-layer.lean): Nat.le_trans's h₁ and h₂ first,
+\ its m last (h₁'s and h₂'s types name it), each tagged by its binder;
+\ by-apply h1 fixes m (by-exact h1 cannot yet: the elaborator refuses an
+\ expected type that holds m, error 139). The term is
+\ @Nat.le_trans a b c h1 h2.
+\ Lean: theorem ap_le_trans (a b c : Nat) (h1 : a ≤ b) (h2 : b ≤ c) : a ≤ c := by
+\         apply Nat.le_trans
+\         apply h1
+\         apply h2
+theorem ap_le_trans
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b ≤ explicit: h1  b c ≤ explicit: h2
+  a c ≤
+:= by
+  ' Nat.le_trans by-apply
+  ' h1 by-apply
+  ' h2 by-apply
+end ap_le_trans

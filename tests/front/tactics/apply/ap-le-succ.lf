@@ -1,0 +1,9 @@
+\ by-apply of a theorem whose one argument the goal fixes (slice a2-iii;
+\ tests/front/tactics/goal-layer.lean). The term is Nat.le_succ n.
+\ Lean: theorem ap_le_succ (n : Nat) : n ≤ n + 1 := by apply Nat.le_succ
+theorem ap_le_succ
+  Nat explicit: n
+  n n 1 + ≤
+:= by
+  ' Nat.le_succ by-apply
+end ap_le_succ

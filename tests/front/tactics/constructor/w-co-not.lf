@@ -1,0 +1,10 @@
+\ A wrong twin (slice a2-iii; tests/front/tactics/goal-layer-wrong.lean): ¬ a = b
+\ unfolds to a function type, no inductive type, and constructor fails with
+\ Lean's message (error 382).
+\ Lean: theorem w_co_not (a b : Nat) : ¬ a = b := by constructor
+theorem w_co_not
+  Nat explicit: a  Nat explicit: b
+  a b = Not
+:= by
+  by-constructor
+end w_co_not

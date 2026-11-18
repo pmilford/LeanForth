@@ -1,0 +1,11 @@
+\ A wrong twin of as-one.lf (slice a2-iii; tests/front/tactics/apply/
+\ wrong.lean): no hypothesis has the goal's type, and assumption fails
+\ with Lean's message (error 381) and the goal.
+\ Lean: theorem w_as (a b : Nat) (h : a ≤ b) : b ≤ a := by assumption
+theorem w_as
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  b a ≤
+:= by
+  by-assumption
+end w_as

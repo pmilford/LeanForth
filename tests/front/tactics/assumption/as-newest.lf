@@ -1,0 +1,11 @@
+\ by-assumption takes the newest hypothesis that fits, as Lean's
+\ findLocalDeclWithType? walks the context from its end (slice a2-iii;
+\ tests/front/tactics/goal-layer.lean). The term is h2, not h1.
+\ Lean: theorem as_newest (a b : Nat) (h1 : a ≤ b) (h2 : a ≤ b) : a ≤ b := by assumption
+theorem as_newest
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1  a b ≤ explicit: h2
+  a b ≤
+:= by
+  by-assumption
+end as_newest
