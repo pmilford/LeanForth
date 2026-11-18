@@ -268,46 +268,60 @@ class Tier(Base):
     def fast(self):
         return str(self.repo.path / ".tools/gforth/bin/gforth-fast")
 
-    def test_daily_full_run(self):
+    def test_daily_command_runs_the_full_tier_without_the_cache(self):
+        """Owner, 2026-11-17: the daily full run is its own command, never forced by a tier."""
         self.repo.write("./docs/A.md", "# docs\n")
         self.repo.commit("docs")
-        out = self.assertRan(self.tier("--daily", "--with-073", "--dry-run"))
-        self.assertIn("daily full run: none recorded today (2026-11-13)", out)
-        self.assertIn("coverage-check would run: make coverage-check JOBS=2 LEAN_CACHE=0", out)
-        self.assertIn("check-rest would run: make check-rest JOBS=2 LEAN_CACHE=0", out)
-        self.assertIn("test073 would run: make test-unit JOBS=2 LEAN_CACHE=0 GFORTH=", out)
-        self.assertIn("testfast would run: make test-unit JOBS=2 LEAN_CACHE=0 GFORTH=", out)
-        gforth073 = str(self.repo.path / ".tools/gforth073")
-        self.daily(["coverage-check"], ["check-rest", "LEAN_CACHE=1"], ["test-unit", f"GFORTH={gforth073}"])
-        self.assertIn("of make test-unit on gforth-fast", self.assertRan(self.tier("--daily", "--dry-run")))
-        self.daily(["test-unit", f"GFORTH={self.fast()}"])
-        out = self.assertRan(self.tier("--daily", "--with-073", "--dry-run"))
-        self.assertIn("of make check-rest with LEAN_CACHE=0", out, "a cached check-rest is no daily run")
-        self.daily(["check", "LEAN_CACHE=0"])
-        out = self.assertRan(self.tier("--daily", "--with-073", "--dry-run"))
-        self.assertNotIn("daily full run", out)
+        out = self.assertRan(self.tier("--with-073", "--dry-run"))
         self.assertIn("tier docs", out)
+        self.assertNotIn("LEAN_CACHE=0", out)
+        out = self.assertRan(self.records_tool("daily", "--jobs", "2", "--dry-run"))
+        for text in ("coverage-check would run: make coverage-check JOBS=2 LEAN_CACHE=0",
+                     "testfast would run: make test-unit JOBS=2 LEAN_CACHE=0 GFORTH=",
+                     "check-rest would run: make check-rest JOBS=2 LEAN_CACHE=0",
+                     "test073 would run: make test-unit JOBS=2 LEAN_CACHE=0 GFORTH="):
+            self.assertIn(text, out)
+        self.assertEqual(self.records(), [])
+        self.assertRan(self.records_tool("daily", "--jobs", "2"))
+        self.assertEqual(sorted((r["suite"], r["lean_cache"]) for r in self.records()),
+                         [("check-rest", "0"), ("coverage-check", "0"), ("test-unit", "0"), ("test-unit", "0")])
+        self.assertIn("already recorded", self.assertRan(self.records_tool("daily", "--jobs", "2")))
 
-    def test_daily_run_with_changing_variables_does_not_count(self):
+    def test_daily_run_needs_every_suite_without_narrowing(self):
         gforth073 = str(self.repo.path / ".tools/gforth073")
         self.daily(["coverage-check"], ["test-unit", f"GFORTH={gforth073}"], ["test-unit", f"GFORTH={self.fast()}"],
-                   ["check-rest", "LEAN_CACHE=0", "FAULTS=free-one"])
-        self.repo.write("./docs/A.md", "# docs\n")
+                   ["check-rest", "LEAN_CACHE=1"], ["check-rest", "LEAN_CACHE=0", "FAULTS=free-one"])
+        out = self.assertRan(self.records_tool("tag-check"), 1)
+        self.assertIn("missing make check-rest with LEAN_CACHE=0", out)
+        self.daily(["check", "LEAN_CACHE=0"])
+        self.assertIn("may be tagged", self.assertRan(self.records_tool("tag-check")))
+
+    def test_tag_needs_a_daily_run_of_its_exact_tree(self):
+        self.assertIn("no complete daily run", self.assertRan(self.records_tool("tag-check"), 1))
+        self.assertRan(self.records_tool("daily", "--jobs", "2"))
+        self.assertRan(self.records_tool("tag-check"))
+        self.repo.write("./docs/A.md", "# a documentation commit after the daily run\n")
         self.repo.commit("docs")
-        out = self.assertRan(self.tier("--daily", "--dry-run"))
-        self.assertIn("of make check-rest with LEAN_CACHE=0", out)
+        self.assertIn("no complete daily run", self.assertRan(self.records_tool("tag-check"), 1),
+                      "a daily run of an earlier tree does not let this one be tagged")
+
+    def test_daily_status_and_its_warning(self):
+        out = self.assertRan(self.records_tool("daily-status", "--warn-hours", "36"))
+        self.assertIn("daily run: none recorded", out)
+        self.assertIn("warning: no daily run recorded", out)
+        self.assertRan(self.records_tool("daily", "--jobs", "2", LF_TESTED_NOW="2026-11-11 08:00:00"))
+        out = self.assertRan(self.records_tool("daily-status", "--warn-hours", "36"))
+        self.assertIn("daily run: last complete 2026-11-11 08:00:00", out)
+        self.assertIn("52 hours ago", out)
+        self.assertIn("warning: the last daily run is older than 36 hours", out)
+        out = self.assertRan(self.records_tool("daily-status", "--warn-hours", "36",
+                                               LF_TESTED_NOW="2026-11-12 08:00:00"))
+        self.assertIn("24 hours ago", out)
+        self.assertNotIn("warning", out)
 
     def test_untracked_root_file_makes_the_tree_dirty(self):
         self.repo.write("lean-toolchain", "leanprover/lean4:v4.35.0\n")
         self.assertEqual(self.tier().returncode, 3)
-
-    def test_daily_run_of_yesterday_does_not_count(self):
-        gforth073 = str(self.repo.path / ".tools/gforth073")
-        for argv in (["coverage-check"], ["check-rest", "LEAN_CACHE=0"], ["test", f"GFORTH={gforth073}"]):
-            self.assertRan(self.records_tool("record", "--", "make", *argv, LF_TESTED_NOW="2026-11-12 23:59:00"))
-        self.repo.write("./docs/A.md", "# docs\n")
-        self.repo.commit("docs")
-        self.assertIn("daily full run", self.assertRan(self.tier("--daily", "--dry-run")))
 
     def test_full_tier_after_a_documentation_commit(self):
         self.repo.write("Makefile", self.repo.path.joinpath("Makefile").read_text() + "\n")
@@ -378,51 +392,82 @@ class Push(Base):
     def test_refusals(self):
         self.assertIn("nothing to push", self.assertRan(self.push()))
         self.repo.git("checkout", "-q", "-b", "work")
+        self.repo.write("./docs/A.md", "# on a branch\n")
+        self.repo.commit("branch")
         self.assertIn("not on main", self.assertRan(self.push(), 1))
+        self.assertIn("tier docs", self.assertRan(self.push("--dry-run")), "a dry run works on a branch")
         self.repo.git("checkout", "-q", "main")
         self.repo.write("./docs/A.md", "# dirty\n")
         self.assertIn("uncommitted changes", self.assertRan(self.push(), 1))
         self.assertEqual(self.push("--bogus").returncode, 2)
 
-    def test_dry_run_pushes_nothing(self):
+    def code_change(self):
+        self.repo.write("Makefile", self.repo.path.joinpath("Makefile").read_text() + "\n")
+        self.repo.commit("Makefile")
+
+    def test_docs_push_plans_only_the_docs_tier(self):
+        """Owner, 2026-11-17: the first push of a day runs its own tier, no daily full run."""
         before = self.remote_head()
         self.repo.write("./docs/A.md", "# docs\n")
         self.repo.commit("docs")
         out = self.assertRan(self.push("--dry-run"))
-        self.assertIn("daily full run", out)
-        self.assertIn("would run", out)
+        self.assertIn("tier docs", out)
+        self.assertIn("targets would run: make check-docs JOBS=2 LEAN_CACHE=1", out)
+        for text in ("coverage-check would run", "check-rest would run", "test073 would run", "LEAN_CACHE=0",
+                     "tier full"):
+            self.assertNotIn(text, out)
+        self.assertIn("warning: no daily run recorded", out)
         self.assertEqual((self.remote_head(), self.records(), self.repo.logged()), (before, [], []))
+
+    def test_code_push_keeps_the_cache(self):
+        self.code_change()
+        out = self.assertRan(self.push("--dry-run"))
+        self.assertIn("tier full", out)
+        for text in ("coverage-check would run: make coverage-check JOBS=2 LEAN_CACHE=1",
+                     "testfast would run: make test-unit JOBS=2 LEAN_CACHE=1",
+                     "check-rest would run: make check-rest JOBS=2 LEAN_CACHE=1",
+                     "test073 would run: make test-unit JOBS=2 LEAN_CACHE=1"):
+            self.assertIn(text, out)
+        self.assertNotIn("LEAN_CACHE=0", out)
+
+    def test_push_warns_of_a_stale_daily_run(self):
+        self.assertRan(self.records_tool("daily", "--jobs", "2", LF_TESTED_NOW="2026-11-11 20:00:00"))
+        self.repo.write("./docs/A.md", "# docs\n")
+        self.repo.commit("docs")
+        out = self.assertRan(self.push("--dry-run"))
+        self.assertIn("daily run: last complete 2026-11-11 20:00:00", out)
+        self.assertIn("warning: the last daily run is older than 36 hours", out)
+        out = self.assertRan(self.push("--dry-run", LF_TESTED_NOW="2026-11-12 20:00:00"))
+        self.assertIn("24 hours ago", out)
+        self.assertNotIn("warning", out)
 
     def test_push_runs_records_and_reuses(self):
         self.repo.write("./docs/A.md", "# docs\n")
         self.repo.commit("docs")
         tested_head = self.repo.git("rev-parse", "HEAD")
         out = self.assertRan(self.push())
-        self.assertIn("daily full run", out)
         self.assertEqual(self.remote_head(), self.repo.git("rev-parse", "HEAD"))
         self.assertEqual(self.repo.git("log", "-1", "--format=%s"), f"Record the local CI of {tested_head[:7]}")
         line = (self.repo.path / "docs/development/ci-results.log").read_text().splitlines()[-1]
-        for text in ("progress 0; forth-quality 0; suites exit 0", "tier full", "coverage-check ran: exit 0",
-                     "testfast ran: exit 0", "check-rest ran: exit 0", "LEAN_CACHE=0", "test073 ran: exit 0",
-                     "gforth 1.0.0 stub"):
+        for text in ("progress 0; forth-quality 0; suites exit 0", "tier docs", "targets ran: exit 0",
+                     "not run (tier docs does not reach them): coverage-check, testfast, check-rest, test073",
+                     "daily run: none recorded", "gforth 1.0.0 stub"):
             self.assertIn(text, line)
-        self.assertEqual(sorted(r["suite"] for r in self.records()),
-                         ["check-rest", "coverage-check", "test-unit", "test-unit"])
-        self.assertTrue((self.repo.path / f".claude/work/ci/{tested_head[:7]}-check-rest.log").exists())
-        # Today's full run is recorded: a documentation commit now runs its own tier only.
-        self.repo.write("./docs/A.md", "# docs again\n")
-        self.repo.commit("docs again")
-        out = self.assertRan(self.push())
-        self.assertNotIn("daily full run", out)
+        self.assertEqual([r["suite"] for r in self.records()], ["check-docs"])
+        # A code change: its full tier, once, with the cache; the daily run stays its own command.
+        self.code_change()
+        tested_head = self.repo.git("rev-parse", "HEAD")
+        self.assertRan(self.push())
         line = (self.repo.path / "docs/development/ci-results.log").read_text().splitlines()[-1]
-        self.assertIn("tier docs", line)
-        self.assertIn("targets ran: exit 0", line)
-        self.assertIn("not run (tier docs does not reach them): coverage-check, testfast, check-rest, test073", line)
+        for text in ("tier full", "coverage-check ran: exit 0", "testfast ran: exit 0", "check-rest ran: exit 0",
+                     "test073 ran: exit 0"):
+            self.assertIn(text, line)
+        self.assertNotIn("LEAN_CACHE=0", line)
+        self.assertTrue((self.repo.path / f".claude/work/ci/{tested_head[:7]}-check-rest.log").exists())
 
     def test_failure_is_not_pushed(self):
         before = self.remote_head()
-        self.repo.write("./docs/A.md", "# docs\n")
-        self.repo.commit("docs")
+        self.code_change()
         out = self.assertRan(self.push(STUB_FAIL_ON="coverage-check"), 1)
         self.assertIn("coverage-check ran: exit 2", out)
         self.assertIn("not pushed", out)

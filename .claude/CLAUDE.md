@@ -54,14 +54,18 @@ OpenAI Codex. Codex-era docs (`docs/project/CODEX_HANDOFF.md`, `prompts/FIRST_CO
 - Reviewers probe and plant their own faults; they do not repeat the
   implementer's recorded suite runs on the same head.
 - GitHub CI is off at the owner's request (2026-11-11). Before every push run
-  its jobs locally under `ulimit -u 500`: `make check` (Lean cache on for
-  merges, `LEAN_CACHE=0` once a day), `make test-unit` on gforth-fast and
+  its jobs locally under `ulimit -u 500`: `make check` (Lean cache on),
+  `make test-unit` on gforth-fast and
   `make test-unit GFORTH=$PWD/.claude/work/A/gforth073.sh` (Gforth 0.7.3,
   unit tests only); check the exit codes and record them, as `AGENTS.md`
-  requires. `scripts/push.sh` does this by change tier: its full tier is
-  `make coverage-check`, `make test-unit` on gforth-fast, `make check-rest`
+  requires. `scripts/push.sh` does this by change tier, its own tier only (a
+  documentation push: the documentation and progress checks): its full tier
+  is `make coverage-check`, `make test-unit` on gforth-fast, `make check-rest`
   and the 0.7.3 `make test-unit`, and it reuses passes recorded for the
   identical tree (`scripts/push.sh --dry-run` shows the plan).
+- The cache-off full run is `make daily` (owner, 2026-11-17): once a night,
+  by itself, and before a tag; `make tag-check` must pass for the tree to be
+  tagged. `scripts/push.sh` only reports its age and warns past 36 hours.
 
 ## Reviews
 

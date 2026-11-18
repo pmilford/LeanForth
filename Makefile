@@ -1412,6 +1412,14 @@ tier:
 test-tiers:
 	$(RUN) python3 tests/scripts/test_test_tier.py
 	$(RUN) python3 tests/scripts/test_tested_tree.py
+# The daily full run (owner, 2026-11-17: its own command, once a night and before a tag;
+# a push only reports its age): the full tier of HEAD with LEAN_CACHE=0 and Gforth 0.7.3,
+# each suite recorded for this exact tree; DRY_RUN=1 prints what would run. make tag-check
+# exits 0 only when this tree has a complete daily run (a tag requires one).
+daily:
+	@python3 scripts/tested-tree.py daily --make $(MAKE) --jobs $(JOBS) $(if $(DRY_RUN),--dry-run)
+tag-check:
+	@python3 scripts/tested-tree.py tag-check
 
-.PHONY: once tier test-tiers
+.PHONY: once tier test-tiers daily tag-check
 test: test-tiers
