@@ -1,0 +1,14 @@
+# Planted faults of src/core/terms.fs whose blocks only a direct test reaches
+# (branch terms-cov, 2026-11-18: the coverage ratchet lost terms.fs:372 when
+# the tactic library's telescope stopped asking a store pi for its input
+# binder). Read with tests/mutants/faults.toml, which holds the file's
+# other faults, as one list.
+
+[[fault]]
+id = "terms-input-binder-store-node"
+file = "src/core/terms.fs"
+old = ''': lf-term-input-binder@ ( index -- name kind true | false )
+  dup lf-term-input? 0= if drop false exit then'''
+new = ''': lf-term-input-binder@ ( index -- name kind true | false )'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "a store lambda, the base or -1 is read as an input record (past the tier): an odd one past the input is taken for an input binder with a name and kind"
