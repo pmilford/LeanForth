@@ -172,7 +172,8 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
 
 \ ---- forallMetaTelescopeReducing over declaration d's type, its binder
 \ kinds d's own (telescope.fs; the metavariables are not kept).
-: it-body ( d -- body ) 0 over lf-menv-type rot ['] 2drop lf-forall-meta-telescope-reducing nip ;
+: it-body ( d -- body )
+  0 over lf-menv-type rot ['] 2drop lf-forall-meta-telescope-reducing nip ;
 : lf-inst-telescope ( d -- body outcome ) ['] it-body 1 1 lf-meta-catch ;
 
 \ ---- isClass? by isClassQuick? (an undefined answer is unsupported).

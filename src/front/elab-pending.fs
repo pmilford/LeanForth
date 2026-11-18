@@ -389,7 +389,8 @@ defer ep-c-call ( first x frames cont -- ... frames next )
 \ forallMetaTelescopeReducing over the attempt's type (telescope.fs), the
 \ binders' kinds from its declared type, the instance applied to each
 \ metavariable, an instance binder's pushed on ep-goals.
-: ep-t-goal ( mvar kind -- ) lf-binder-instance = if ep-goals slab-push lf-must else drop then ;
+: ep-t-goal ( mvar kind -- )
+  lf-binder-instance = if ep-goals slab-push lf-must else drop then ;
 : ep-t-mvar ( app mvar kind -- app' ) over swap ep-t-goal lf-mk-app ;
 : ep-t-walk ( -- )
   epb epb-app @ epb epb-type @ epb epb-d @ ['] ep-t-mvar lf-forall-meta-telescope-reducing

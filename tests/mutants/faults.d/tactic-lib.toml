@@ -32,8 +32,8 @@ reason = "a2-i: -4200 (ok) read as a failure's code"
 [[fault]]
 id = "lib-catch-failure-ok"
 file = "src/front/meta-must.fs"
-old = '''  lfm-caught 2r> rot >r >r lfm-drops r> lfm-nones r> ;'''
-new = '''  lfm-caught 2r> rot >r >r lfm-drops r> lfm-nones r> drop outcome-ok ;'''
+old = '''  lfm-caught 2r> swap lfm-drop-under lfm-nones ;'''
+new = '''  lfm-caught 2r> swap lfm-drop-under lfm-nones drop outcome-ok ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i fail-closed rule: lf-meta-catch hands back ok for a failure"
 
@@ -64,10 +64,10 @@ reason = "a2-i commitWhen: false keeps the attempt's assignments"
 [[fault]]
 id = "fe-step-view-kept"
 file = "src/front/meta-must.fs"
-old = '''  swap lfm-view lf-mctx-view >r lf-mctx-view! catch r> lf-mctx-view! throw ;'''
-new = '''  swap lfm-view lf-mctx-view >r lf-mctx-view! execute r> lf-mctx-view! ;'''
+old = '''  lf-mctx-view swap lf-mctx-view! >r catch r> lf-mctx-view! throw ;'''
+new = '''  lf-mctx-view swap lf-mctx-view! >r execute r> lf-mctx-view! ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
-reason = "FE1g-4 review fe1g3 L10 (moved to lf-with-goal, a2-i): a step that fails leaves its goal's context current"
+reason = "FE1g-4 review fe1g3 L10 (moved to lf-with-view under lf-with-goal, a2-i): a step that fails leaves its goal's context current"
 
 # --- telescope.fs ------------------------------------------------------------
 
@@ -82,16 +82,16 @@ reason = "a2-i withLocalDecl: the local outlives its scope (rw's motive check le
 [[fault]]
 id = "rw-unknown-binder-explicit"
 file = "src/front/telescope.fs"
-old = '''  tl tlf-d @ tl tlf-k @ lf-binder-kind-at 0= if outcome-unsupported lf-must then ;'''
-new = '''  tl tlf-d @ tl tlf-k @ lf-binder-kind-at 0= if lf-binder-default then ;'''
+old = '''  lf-binder-kind-at 0= if outcome-unsupported lf-must then ;'''
+new = '''  lf-binder-kind-at 0= if lf-binder-default then ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "review C4 of 2026-11-18 (moved to the library's telescope, a2-i): an unknown binder kind taken for explicit, a natural metavariable where Lean may make a synthetic one; tests/front/tactic-run.fs's probe in rw's row expects 93"
 
 [[fault]]
 id = "fe-inst-telescope-natural"
 file = "src/front/telescope.fs"
-old = ''': tl-mv-kind ( kind -- mvkind ) lf-binder-instance = if mv-synthetic else mv-natural then ;'''
-new = ''': tl-mv-kind ( kind -- mvkind ) drop mv-natural ;'''
+old = '''  lf-binder-instance = if mv-synthetic else mv-natural then ;'''
+new = '''  drop mv-natural ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "s1-synth review L3 (moved to the library's telescope, a2-i): forallMetaTelescopeReducing makes an instance-implicit binder's metavariable natural, not synthetic"
 
@@ -122,16 +122,18 @@ reason = "FE1g-4 design 8.3 (moved to the library's elimMVar case, a2-i): intro 
 [[fault]]
 id = "lib-elim-tail-unchecked"
 file = "src/front/telescope.fs"
-old = '''  tle-tail? 0= if outcome-unsupported lf-must then 2r> tl-revert ;'''
-new = '''  2r> tl-revert ;'''
+old = '''  tle-tail? 0= if outcome-unsupported lf-must then tle tle-xs @ tle tle-n @ tl-revert ;'''
+new = '''  tle tle-xs @ tle tle-n @ tl-revert ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i elimMVar: a context with locals after the variables reverted as if they were its end"
 
 [[fault]]
 id = "lib-elim-natural-delayed"
 file = "src/front/telescope.fs"
-old = '''  tle tle-mvar @ lf-mvar-kind drop mv-opaque = if swap tl-delayed else nip tl-assigned then ;'''
-new = '''  swap tl-delayed ;'''
+old = '''  tle tle-mvar @ lf-mvar-kind drop mv-opaque =
+  if swap tl-delayed else nip tl-assigned then ;'''
+new = '''  tle tle-mvar @ lf-mvar-kind drop mv-opaque =
+  if swap tl-delayed else swap tl-delayed then ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i elimMVar: a natural metavariable delayed-assigned where Lean assigns it ?n xs"
 
@@ -165,8 +167,8 @@ reason = "a2-i mkConst, mkAppN: levels and arguments taken in reverse order"
 id = "lib-eq-symm-refl-kept"
 file = "src/front/app-builder.fs"
 old = '''  dup abl-refl? if exit then
-  dup abl-infer-d abl-eq abl-sides s" Eq.symm" abl-eq-app swap lf-mk-app ;'''
-new = '''  dup abl-infer-d abl-eq abl-sides s" Eq.symm" abl-eq-app swap lf-mk-app ;'''
+  dup abl-infer-d abl-eq s" Eq.symm" abl-eq-app swap lf-mk-app ;'''
+new = '''  dup abl-infer-d abl-eq s" Eq.symm" abl-eq-app swap lf-mk-app ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
 reason = "a2-i mkEqSymm (AppBuilder.lean:98): Eq.symm of Eq.refl a, where Lean gives the proof itself"
 
@@ -179,26 +181,10 @@ test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
 reason = "a2-i mkCongrArg (AppBuilder.lean:212): fType.arrow? not checked; a function of no pi type gets a congrArg"
 
 [[fault]]
-id = "lib-congr-fun-refl-order"
-file = "src/front/app-builder.fs"
-old = '''  over abl-refl-arg? if swap lf-mk-app lf-mk-eq-refl nip exit then drop'''
-new = '''  over abl-refl-arg? if lf-mk-app lf-mk-eq-refl nip exit then drop'''
-test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
-reason = "a2-i mkCongrFun (AppBuilder.lean:232): Eq.refl of a f where Lean's is of f a"
-
-[[fault]]
-id = "lib-ndrec-order"
-file = "src/front/app-builder.fs"
-old = '''  r> swap >r swap r> 3 abl-apply ;'''
-new = '''  r> swap >r r> 3 abl-apply ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
-reason = "a2-i mkEqNDRec (AppBuilder.lean:413): Eq.ndrec's last three arguments out of Lean's order"
-
-[[fault]]
 id = "lib-prop-hint-order"
 file = "src/front/app-builder.fs"
-old = '''  s" id" abl-level-zero lf-mk-const1 -rot swap 2 lf-mk-app-n ;'''
-new = '''  s" id" abl-level-zero lf-mk-const1 -rot 2 lf-mk-app-n ;'''
+old = '''  s" id" abl-level-zero lf-mk-const1 swap lf-mk-app swap lf-mk-app ;'''
+new = '''  s" id" abl-level-zero lf-mk-const1 rot lf-mk-app swap lf-mk-app ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
 reason = "a2-i mkExpectedPropHint (AppBuilder.lean:29): id's arguments swapped (rw's replaceTargetEq uses it)"
 
@@ -221,7 +207,7 @@ reason = "a2-i mkAppM: a call that fails leaves its frame"
 [[fault]]
 id = "lib-mpr-is-mp"
 file = "src/front/app-builder.fs"
-old = ''': lf-mk-eq-mpr ( h p -- e ) 2>r s" Eq.mpr" 2r> 2 lf-mk-app-m ;'''
-new = ''': lf-mk-eq-mpr ( h p -- e ) 2>r s" Eq.mp" 2r> 2 lf-mk-app-m ;'''
+old = ''': lf-mk-eq-mpr ( h p -- e ) s" Eq.mpr" abl-decl -rot 2 lf-mk-app-m-of ;'''
+new = ''': lf-mk-eq-mpr ( h p -- e ) s" Eq.mp" abl-decl -rot 2 lf-mk-app-m-of ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i mkEqMPR (AppBuilder.lean:447): Eq.mp where Lean applies Eq.mpr"

@@ -4,8 +4,9 @@
 \ two styles, for the tactic library (app-builder.fs, telescope.fs) and
 \ the code that calls it.
 \ Public words (the Lean function each ports, where there is one):
-\   lf-must ( outcome -- )            a failure thrown (Lean's throw)
-\   lf-must: ( xt "name" -- )         a throwing face of an outcome word
+\   lf-must ( outcome -- )            a failure thrown (Lean's throw): an
+\                                     outcome word's throwing face is the
+\                                     word followed by lf-must
 \   lf-made! ( flag -- )              a term store's false thrown as full
 \   lf-whnf! lf-whnf-r! lf-whnf-d! ( e -- e' )  whnf, whnfR, whnfD
 \   lf-infer! ( e -- type )           inferType
@@ -19,6 +20,7 @@
 \   lf-commit-when ( i*x xt -- j*x flag ) commitWhen (Util/MonadBacktrack
 \                                     .lean:50)
 \   lf-with-goal ( i*x goal xt -- j*x ) MVarId.withContext (Meta/Basic.lean)
+\   lf-with-view ( i*x xt view -- j*x ) xt in that local context (withLCtx)
 \ Fail-closed (the design's rule): a failure is thrown as the code
 \ lf-meta-throw-base - outcome (-4201 to -4206), never for ok, so CATCH
 \ gives 0 only when the code ran to its end; lf-meta-catch hands back
@@ -53,26 +55,24 @@ require ./defeq.fs
 : lf-must ( outcome -- )
   dup ok? if drop exit then outcome-sane lf-meta-throw-base swap - throw ;
 : lf-made! ( flag -- ) 0= if outcome-full lf-must then ;
-: lf-must: ( xt "name" -- ) create , does> @ execute lf-must ;
 \ A failure's outcome, any other code thrown on.
 : lfm-caught ( code -- outcome ) dup lf-meta-thrown? 0= if throw then lf-meta-outcome ;
-: lfm-drops ( i*x n -- ) 0 ?do drop loop ;
-: lfm-nones ( n -- -1 .. -1 ) 0 ?do -1 loop ;
+: lfm-drop-under ( i*x o out in -- o out ) 0 ?do rot drop loop ;
+: lfm-nones ( o out -- -1 .. -1 o ) 0 ?do -1 swap loop ;
 \ xt takes in cells and gives out; after a failure its in cells (as
 \ CATCH leaves them) give way to out cells of -1, then the outcome.
 : lf-meta-catch ( i*x xt in out -- j*x outcome )
   2>r catch ?dup 0= if 2r> 2drop outcome-ok exit then
-  lfm-caught 2r> rot >r >r lfm-drops r> lfm-nones r> ;
+  lfm-caught 2r> swap lfm-drop-under lfm-nones ;
 
 \ ---- The Meta core's throwing faces.
-' lf-meta-whnf lf-must: lf-whnf!
-' lf-meta-whnf-r lf-must: lf-whnf-r!
+: lf-whnf! ( e -- e' ) lf-meta-whnf lf-must ;
+: lf-whnf-r! ( e -- e' ) lf-meta-whnf-r lf-must ;
 : lf-whnf-d! ( e -- e' ) ['] lf-whnf! lf-tr-default lf-meta-at ;
-' lf-infer lf-must: lf-infer!
-' lf-get-level lf-must: lf-level!
-: lfm-defeq ( t s -- flag outcome ) lf-meta-defeq outcome-sane ;
-' lfm-defeq lf-must: lf-defeq!
-' lf-instantiate-mvars lf-must: lf-instantiate!
+: lf-infer! ( e -- type ) lf-infer lf-must ;
+: lf-level! ( type -- level ) lf-get-level lf-must ;
+: lf-defeq! ( t s -- flag ) lf-meta-defeq outcome-sane lf-must ;
+: lf-instantiate! ( e -- e' ) lf-instantiate-mvars lf-must ;
 
 \ ---- commitWhen: the metavariable context marked, xt run; its changes
 \ kept on true, rolled back on false and on a THROW (thrown on). A
@@ -83,9 +83,10 @@ require ./defeq.fs
 : lf-commit-when ( i*x xt -- j*x flag )
   lf-mctx-mark lf-must >r catch ?dup if r> lfm-undo throw then r> lfm-settle ;
 
-\ ---- withContext: xt run in the goal's local context, the current one
-\ put back however xt ends.
+\ ---- withLCtx and withContext: xt run in a local context (a view) or the
+\ goal's, the current one put back however xt ends.
+: lf-with-view ( i*x xt view -- j*x )
+  lf-mctx-view swap lf-mctx-view! >r catch r> lf-mctx-view! throw ;
 : lfm-view ( goal -- view ) lf-mvar-view 0= if outcome-invalid lf-must then ;
-: lf-with-goal ( i*x goal xt -- j*x )
-  swap lfm-view lf-mctx-view >r lf-mctx-view! catch r> lf-mctx-view! throw ;
+: lf-with-goal ( i*x goal xt -- j*x ) swap lfm-view lf-with-view ;
 base !   \ the BASE this file was loaded with

@@ -294,7 +294,8 @@ defer et-go-call ( node x frames cont -- ... frames next )
 \ unsupported).
 : et-mk-app-m ( d max -- e ) dup dup 3 lf-mk-app-m-of ;
 : et-app-m ( d max -- type outcome )
-  ['] et-mk-app-m 2 1 lf-meta-catch dup outcome-rejected = if 2drop -1 outcome-ok exit then
+  ['] et-mk-app-m 2 1 lf-meta-catch
+  dup outcome-rejected = if 2drop -1 outcome-ok exit then
   lf-elab-meta ;
 
 \ ---- hasHomogeneousInstance (Extra.lean:387): the operator's class (its

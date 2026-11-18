@@ -604,7 +604,8 @@ lfr-states# 2* 0 xt-table: lfr-states
 \ the term instantiated, then closed over them.
 : lfr-let? ( fvar -- flag ) dup lf-fvar-let? swap lf-fvar-nondep? or ;
 : lfr-x+ ( local -- )
-  lf-local-fvar dup lfr-let? if drop lfa-e-tac-meta lfa-fail then trun-xs slab-push lfr-ok ;
+  lf-local-fvar dup lfr-let? if drop lfa-e-tac-meta lfa-fail then
+  trun-xs slab-push lfr-ok ;
 : lfr-binder+ ( view i -- ) lf-view-local dup lf-local-detail? if drop else lfr-x+ then ;
 : lfr-xs ( -- )
   trun-xs slab-clear lf-mctx-view dup lf-view-count 0 ?do dup i lfr-binder+ loop drop ;

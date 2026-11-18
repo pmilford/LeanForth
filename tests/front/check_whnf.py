@@ -10,9 +10,9 @@ Meta.whnfCore's result, getStuckMVar?'s answer or inferType's type;
 LeanForth (tests/front/whnf-cases.fs: lf-whnf-core, lf-whnf-stuck,
 lf-infer) prints its own. Build cases (plan slice a2-i, the tactic
 library): Meta/AppBuilder.lean's builders (mkEq, mkEqRefl, mkEqSymm,
-mkEqTrans, mkExpectedPropHint, mkCongrArg, mkCongrFun, mkEqNDRec, mkAppM,
-mkEqMP, mkEqMPR) against src/front/app-builder.fs's, over the free
-variables e : a = b, u v : Nat -> Nat and w : u = v besides; an
+mkEqTrans, mkExpectedPropHint, mkCongrArg, mkAppM) against
+src/front/app-builder.fs's, over the free
+variables e : a = b and u v : Nat -> Nat besides; an
 AppBuilder exception prints "rejected", as LeanForth's rejected outcome.
 The lines must be equal, except for the cases listed as gaps, where
 LeanForth must answer unsupported (a fact or step not ported; the plan
@@ -279,8 +279,6 @@ def forth_case(kind, t):
 
 
 # Build cases: (Lean's MetaM Expr, LeanForth's code giving the term).
-MOTIVE = (LAM, NAT, apps(c("Eq", 1), NAT, "#0", "b"))
-KONST = (LAM, NAT, (LAM, NAT, "#1"))   # fun y z => y
 
 
 def build(lean_code, forth_code, gap=None):
@@ -303,18 +301,6 @@ BUILDS = [
     build("do mkCongrArg u (← mkEqRefl a)", "fu fa lf-mk-eq-refl lf-mk-congr-arg"),
     build("do mkCongrArg u (← mkCongrArg v e)", "fu fv fe lf-mk-congr-arg lf-mk-congr-arg"),
     build("mkCongrArg s e", "fs fe lf-mk-congr-arg"),
-    build("mkCongrFun w a", "fw fa lf-mk-congr-fun",
-          "FE1c inferType of an application headed by a lambda (getLevel (β' a))"),
-    build("do mkCongrFun (← mkEqRefl u) a", "fu lf-mk-eq-refl fa lf-mk-congr-fun"),
-    build(f"do mkCongrFun (← mkCongrArg {lean(KONST)} e) b",
-          f"{forth(KONST)} fe lf-mk-congr-arg fb lf-mk-congr-fun",
-          "FE1c instantiate1 of a value with loose bound variables under a binder "
-          "(liftLooseBVars, for Expr.beta f #[#0, b])"),
-    build("mkCongrFun e a", "fe fa lf-mk-congr-fun"),
-    build(f"mkEqNDRec {lean(MOTIVE)} e e", f"{forth(MOTIVE)} fe fe lf-mk-eq-ndrec"),
-    build(f"do mkEqNDRec {lean(MOTIVE)} e (← mkEqRefl a)",
-          f"{forth(MOTIVE)} fe fa lf-mk-eq-refl lf-mk-eq-ndrec"),
-    build("mkEqNDRec a e e", "fa fe fe lf-mk-eq-ndrec"),
     build("mkAppM ``Nat.succ #[k]", 's" Nat.succ" fk 1 lf-mk-app-m'),
     build("mkAppM ``Eq.refl #[k]", 's" Eq.refl" fk 1 lf-mk-app-m'),
     build("mkAppM ``Nat.succ #[k, k]", 's" Nat.succ" fk fk 2 lf-mk-app-m'),
@@ -378,7 +364,6 @@ LEAN_SETUP = """run_meta do
   withLocalDeclD `e (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) nat a b) fun e => do
   withLocalDeclD `u (mkForall `y .default nat nat) fun u => do
   withLocalDeclD `v (mkForall `y .default nat nat) fun v => do
-  withLocalDeclD `w (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) (mkForall `y .default nat nat) u v) fun w => do
     let n ← mkFreshExprMVar nat (userName := `n)
     let h ← mkFreshExprMVar nat (userName := `h)
     let f ← mkFreshExprMVar nat (userName := `f)

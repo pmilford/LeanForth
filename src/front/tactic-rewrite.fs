@@ -207,7 +207,8 @@ end-structure
 \ ---- replaceTargetEq (Replace.lean:21-32): Eq.mpr.{u} target new
 \ (mkExpectedPropHint proof (mkEq target new)) ?new, u target's level.
 : lfw-want ( -- t ) tb tb-want @ ;
-: lfw-hint ( -- h ) trw trw-proof @ lfw-want trw trw-new @ lf-mk-eq lf-mk-expected-prop-hint ;
+: lfw-hint ( -- h )
+  trw trw-proof @ lfw-want trw trw-new @ lf-mk-eq lf-mk-expected-prop-hint ;
 : lfw-mpr ( goal -- value )
   >r s" Eq.mpr" lfw-want lf-level! lf-mk-const1 lfw-want trw trw-new @ lfw-hint r>
   4 lf-mk-app-n ;

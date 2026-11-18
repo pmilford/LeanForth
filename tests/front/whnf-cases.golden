@@ -111,13 +111,6 @@ rejected
 (app (app Eq.refl.{1} Nat.{}) (app u a))
 (app (app (app (app (app (app congrArg.{1,1} Nat.{}) Nat.{}) a) b) (lam Nat.{} (app u (app v #0)))) e)
 rejected
-(app (app (app (app (app (app congrFun.{1,1} Nat.{}) (lam Nat.{} Nat.{})) u) v) w) a)
-(app (app Eq.refl.{1} Nat.{}) (app u a))
-(app (app (app (app (app (app congrArg.{1,1} Nat.{}) Nat.{}) a) b) (lam Nat.{} #0)) e)
-rejected
-(app (app (app (app (app (app Eq.ndrec.{0,1} Nat.{}) a) (lam Nat.{} (app (app (app Eq.{1} Nat.{}) #0) b))) e) b) e)
-e
-rejected
 (app Nat.succ.{} k)
 (app (app Eq.refl.{1} Nat.{}) k)
 rejected

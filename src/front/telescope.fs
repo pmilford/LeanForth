@@ -7,6 +7,12 @@
 \       name and kind as recorded (present/binder-table.fs's
 \       lf-pres-binder@: an input binder's record, else the presentation
 \       table's), false when none is
+\   lf-binder-name ( pi -- name ) its recorded name, else 0 (anonymous)
+\   lf-binder-kind! ( pi d k -- kind ) lf-binder-kind-at, unknown thrown
+\       unsupported; lf-walk-kind ( pi addr -- kind ) the same of d and k
+\       kept in two cells at addr (a walk's frame)
+\   lf-binder-mvar ( pi kind -- mvar ) mkFreshExprMVar of the binder's type,
+\       synthetic for an instance binder, else natural, named as the binder
 \   lf-binder-kind-at ( pi d k -- kind true | false )  the kind of binder
 \       pi, the k-th (from 0) of declaration d's type: THE source of
 \       binder kinds for a telescope; see below
@@ -65,19 +71,23 @@ require ./meta-must.fs
 
 \ ---- Binder kinds: the declaration's, else the node's.
 : lf-binder-of ( pi -- name kind true | false ) lf-pres-binder@ ;
-: tl-decl-kind ( d k -- kind true | false ) over 0< if 2drop false else lf-menv-kind@ then ;
-: tl-node-kind ( pi -- kind true | false ) lf-binder-of if nip true else false then ;
+: tl-decl-kind ( d k -- kind true | false )
+  over 0< if 2drop false else lf-menv-kind@ then ;
+: tl-node-kind ( pi -- kind true | false ) lf-binder-of dup if >r nip r> then ;
 : lf-binder-kind-at ( pi d k -- kind true | false )
   tl-decl-kind if nip true else tl-node-kind then ;
+: lf-binder-kind! ( pi d k -- kind )
+  lf-binder-kind-at 0= if outcome-unsupported lf-must then ;
+\ A walk's binder kind: d and k in two cells at addr (d first).
+: lf-walk-kind ( pi addr -- kind ) 2@ swap lf-binder-kind! ;
+: lf-binder-name ( pi -- name ) lf-binder-of if drop else 0 then ;
 
 \ ---- withLocalDecl.
 : tl-mark ( -- mark ) lf-term-base lf-term-count @ + ;   \ lf-lctx-drop's
 : tl-local ( type name bi -- fvar view' )
   rot lf-lctx-local lf-must dup >r -rot lf-local-new lf-must
   lf-mctx-view swap lf-view-push lf-must r> swap ;
-: tl-in-view ( i*x fvar xt view -- j*x )
-  lf-mctx-view >r lf-mctx-view! catch r> lf-mctx-view! throw ;
-: tl-opened ( i*x type name bi xt -- j*x ) >r tl-local r> swap tl-in-view ;
+: tl-opened ( i*x type name bi xt -- j*x ) >r tl-local r> swap lf-with-view ;
 : lf-with-local-decl ( i*x type name bi xt -- j*x )
   tl-mark >r ['] tl-opened catch r> lf-lctx-drop throw ;
 
@@ -94,13 +104,12 @@ end-structure
 : tl-open ( acc type d xt -- )
   1 tl-frames slab-claim lf-must tl-frames slab-at
   tuck tlf-xt ! tuck tlf-d ! tuck tlf-type ! tuck tlf-acc ! 0 swap tlf-k ! ;
-: tl-kind ( pi -- kind )
-  tl tlf-d @ tl tlf-k @ lf-binder-kind-at 0= if outcome-unsupported lf-must then ;
-: tl-mv-kind ( kind -- mvkind ) lf-binder-instance = if mv-synthetic else mv-natural then ;
-: tl-name ( pi -- name ) lf-binder-of if drop else 0 then ;
+: tl-kind ( pi -- kind ) tl tlf-d lf-walk-kind ;
+: tl-mv-kind ( kind -- mvkind )
+  lf-binder-instance = if mv-synthetic else mv-natural then ;
 : lf-binder-mvar ( pi kind -- mvar )
   tl-mv-kind over lf-term-first@ swap lf-mvar-new lf-must
-  dup rot tl-name lf-mvar-tag! lf-must ;
+  dup rot lf-binder-name lf-mvar-tag! lf-must ;
 : tl-call ( mvar kind -- ) tl tlf-acc @ -rot tl tlf-xt @ execute tl tlf-acc ! ;
 : tl-binder ( pi -- )
   dup tl-kind 2dup lf-binder-mvar tuck swap tl-call lf-meta-open lf-must tl tlf-type !
@@ -108,7 +117,8 @@ end-structure
 : tl-reduced ( -- more? )
   tl tlf-type @ lf-whnf! dup lf-term-pi? 0= if drop false exit then
   tl tlf-type ! -1 tl tlf-d ! true ;
-: tl-step ( -- more? ) tl tlf-type @ lf-term-pi? if tl tlf-type @ tl-binder true else tl-reduced then ;
+: tl-step ( -- more? )
+  tl tlf-type @ lf-term-pi? if tl tlf-type @ tl-binder true else tl-reduced then ;
 : tl-walk ( -- ) begin tl-step 0= until ;
 : tl-close ( -- acc body ) tl dup tlf-acc @ swap tlf-type @ tl-frames slab-drop ;
 : lf-forall-meta-telescope-reducing ( acc type d xt -- acc' body )
@@ -121,7 +131,8 @@ begin-structure /tlb
   field: tlb-xt          \ lf-term-lam or lf-term-pi ( dom body -- t flag )
 end-structure
 /tlb context-record: tlb
-: tl-x ( i -- x ) cells tlb tlb-xs @ + @ ;
+: tl-cell ( addr i -- x ) cells + @ ;
+: tl-x ( i -- x ) tlb tlb-xs @ swap tl-cell ;
 : tl-plain ( x -- x )
   dup dup lf-fvar-let? swap lf-fvar-nondep? or if outcome-unsupported lf-must then ;
 : tl-local-of ( fvar view -- local )
@@ -145,12 +156,12 @@ end-structure
 \ of the n variables, all at its end (else unsupported).
 begin-structure /tle
   field: tle-mvar        \ e
-  field: tle-xs          \ the variables' address
-  field: tle-n           \ and their count
+  field: tle-n           \ the variables' count
+  field: tle-xs          \ and address (2! stores the pair)
 end-structure
 /tle context-record: tle
-: tle! ( mvar addr n -- ) tle tuck tle-n ! tuck tle-xs ! tle-mvar ! ;
-: tle-x ( i -- x ) cells tle tle-xs @ + @ ;
+: tle! ( mvar addr n -- ) tle tle-n 2! tle tle-mvar ! ;
+: tle-x ( i -- x ) tle tle-xs @ swap tl-cell ;
 : tle-view ( -- view ) tle tle-mvar @ lf-mvar-view 0= if outcome-invalid lf-must then ;
 : tle-index ( i -- k true | false ) tle-view swap tle-x lf-view-find ;
 : tle-misses? ( i -- flag ) tle-index if drop false else true then ;
@@ -172,16 +183,16 @@ end-structure
   tle tle-mvar @ tle tle-n @ lf-mvar-delay lf-must ;
 : tl-assigned ( r -- r ) tle tle-mvar @ over lf-mvar-assign lf-must ;
 : tl-settle ( aux r -- r )
-  tle tle-mvar @ lf-mvar-kind drop mv-opaque = if swap tl-delayed else nip tl-assigned then ;
+  tle tle-mvar @ lf-mvar-kind drop mv-opaque =
+  if swap tl-delayed else nip tl-assigned then ;
 defer tl-bind-in ( e addr n view xt -- e' )
 : tl-aux-type ( mvar addr n -- type )
   >r >r dup lf-mvar-type drop swap lf-mvar-view drop r> r> rot ['] lf-term-pi tl-bind-in ;
 : tl-revert ( mvar addr n -- r )
   2>r dup 2r@ tl-aux-type swap 2r> tle! tl-aux dup tl-applied tl-settle ;
 : tl-elim ( e addr n -- e' )
-  2>r dup tl-open-mvar? 0= if 2r> 2drop exit then
-  dup 2r@ tle! tle-sees? 0= if 2r> 2drop exit then
-  tle-tail? 0= if outcome-unsupported lf-must then 2r> tl-revert ;
+  >r over swap r> tle! dup tl-open-mvar? 0= if exit then tle-sees? 0= if exit then
+  tle-tail? 0= if outcome-unsupported lf-must then tle tle-xs @ tle tle-n @ tl-revert ;
 : tl-binding ( e addr n view xt -- e' )
   2>r 2>r lf-instantiate! 2r@ tl-elim 2r> 2r> tl-bound ;
 ' tl-binding is tl-bind-in

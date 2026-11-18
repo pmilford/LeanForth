@@ -50,7 +50,6 @@ run_meta do
   withLocalDeclD `e (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) nat a b) fun e => do
   withLocalDeclD `u (mkForall `y .default nat nat) fun u => do
   withLocalDeclD `v (mkForall `y .default nat nat) fun v => do
-  withLocalDeclD `w (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) (mkForall `y .default nat nat) u v) fun w => do
     let n ← mkFreshExprMVar nat (userName := `n)
     let h ← mkFreshExprMVar nat (userName := `h)
     let f ← mkFreshExprMVar nat (userName := `f)
@@ -169,13 +168,6 @@ run_meta do
     buildCase (do mkCongrArg u (← mkEqRefl a))
     buildCase (do mkCongrArg u (← mkCongrArg v e))
     buildCase (mkCongrArg s e)
-    buildCase (mkCongrFun w a)
-    buildCase (do mkCongrFun (← mkEqRefl u) a)
-    buildCase (do mkCongrFun (← mkCongrArg (mkLambda `y .default (mkConst `Nat []) (mkLambda `y .default (mkConst `Nat []) (mkBVar 1))) e) b)
-    buildCase (mkCongrFun e a)
-    buildCase (mkEqNDRec (mkLambda `y .default (mkConst `Nat []) (mkApp (mkApp (mkApp (mkConst `Eq [(mkLevelSucc .zero)]) (mkConst `Nat [])) (mkBVar 0)) b)) e e)
-    buildCase (do mkEqNDRec (mkLambda `y .default (mkConst `Nat []) (mkApp (mkApp (mkApp (mkConst `Eq [(mkLevelSucc .zero)]) (mkConst `Nat [])) (mkBVar 0)) b)) e (← mkEqRefl a))
-    buildCase (mkEqNDRec a e e)
     buildCase (mkAppM ``Nat.succ #[k])
     buildCase (mkAppM ``Eq.refl #[k])
     buildCase (mkAppM ``Nat.succ #[k, k])

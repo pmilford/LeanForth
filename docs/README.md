@@ -84,6 +84,7 @@ See also [obsolete/README.md](obsolete/README.md) for documents that a newer one
 ## `development/` — contributing, testing and tooling
 
 - [ARCHITECTURE.md](development/ARCHITECTURE.md) — diagrams of the layers and trust boundary, tasks and contexts with the shared environment, the principal records, and one stored term.
+- [FRONT_LAYERS.md](development/FRONT_LAYERS.md) — the front end's layers as Lean's (Meta, AppBuilder, binders and telescopes, MVarId, Elab): which file and public word ports each Lean function a tactic calls, and what is not ported yet.
 - [TESTING_STRATEGY.md](development/TESTING_STRATEGY.md) — test layers, harness and CI; the pinned-Lean comparisons that replaced the retired tests of superseded code.
 - [FORTH_STYLE.md](development/FORTH_STYLE.md) — the project's Forth style rules: short words, the stack over globals, structures, one error convention.
 - [FORTH_REVIEWER.md](development/FORTH_REVIEWER.md) — checklist for reviewing Forth changes.
