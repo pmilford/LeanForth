@@ -247,7 +247,7 @@ end-structure
 \ trw-mvars in a tactic's saved state (tactic-run.fs's tac-state:).
 1 cells context-slab: trw-mvars-kept
 : lfw-keep ( -- outcome ) trw-mvars trw-mvars-kept slab-keep ;
-: lfw-kept ( undo? -- outcome ) trw-mvars trw-mvars-kept lf-tac-slab-back ;
+: lfw-kept ( undo? -- outcome ) trw-mvars trw-mvars-kept slab-kept ;
 ' lfw-keep ' lfw-kept tac-state:
 : lfw-rule ( j i -- ) ['] lfw-rewrite lf-tac-step-run ;
 : lfw-rules ( i -- )

@@ -780,7 +780,7 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 21,
-  "shuffles": 4,
+  "shuffles": 3,
   "words": 161
  },
  "src/front/tactic-syntax.fs": {
@@ -1460,7 +1460,7 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 38,
-  "shuffles": 8,
+  "shuffles": 9,
   "words": 83
  },
  "src/lib/sort.fs": {

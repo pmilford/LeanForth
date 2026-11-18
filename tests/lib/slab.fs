@@ -255,6 +255,14 @@ s3 slab-free  1 cells 1- 10 s3 slab-init drop
 T{ s3 s3 slab-keep s3 slab-count -> outcome-invalid 0 }T
 s3 slab-free  1 cells 2 s3 slab-init drop
 T{ 1 s1 slab-push s1 s3 slab-keep s3 slab-count s1-cells -> outcome-ok outcome-full 0 5 1 2 }T
+\ slab-kept: put back (true) or forgotten (false, ok), the copy dropped.
+s3 slab-free  1 cells 100 s3 slab-init drop
+T{ s1 s3 slab-keep 9 s1 slab-push true s1 s3 slab-kept s1-cells s3 slab-count
+   -> outcome-ok outcome-ok outcome-ok 5 1 2 0 }T
+T{ s1 s3 slab-keep 9 s1 slab-push false s1 s3 slab-kept s1-cells s3 slab-count
+   -> outcome-ok outcome-ok outcome-ok 5 1 9 3 0 }T
+0 s1 slab-cut 5 s1 slab-push drop 1 s1 slab-push drop
+s3 slab-free  1 cells 2 s3 slab-init drop
 \ With no copy kept: slab-underflow, nothing changed.
 T{ s3 ' slab-forget underflow? s1 s3 ' slab-restore catch nip nip s3 slab-count
    s1 slab-count -> true slab-underflow 0 2 }T

@@ -102,8 +102,8 @@ end-structure
   tind-alts tind-alts-kept slab-keep dup ok? 0= if exit then drop
   tind-withs tind-withs-kept slab-keep dup ok? if exit then tind-alts-kept slab-forget ;
 : lfi-kept ( undo? -- outcome )
-  dup tind-alts tind-alts-kept lf-tac-slab-back
-  swap tind-withs tind-withs-kept lf-tac-slab-back outcome-and ;
+  dup tind-alts tind-alts-kept slab-kept
+  swap tind-withs tind-withs-kept slab-kept outcome-and ;
 ' lfi-keep ' lfi-kept tac-state:
 begin-structure /tind     \ the step's fields, after tb's
   /tb +field tind-tb

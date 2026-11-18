@@ -575,11 +575,9 @@ is ep-c-call
 : lf-elab-pending-keep ( -- outcome )
   ep-pending ep-saved slab-keep dup ok? 0= if exit then drop
   ep ep-base @ 0 ep-saved slab-2push dup ok? if exit then ep-saved slab-forget ;
-: ep-base-back ( undo? -- ) ep-saved slab-2pop drop swap if ep ep-base ! else drop then ;
-: ep-pending-back ( -- outcome ) ep-pending ep-saved slab-restore ;
-: ep-pending-forget ( -- outcome ) ep-saved slab-forget outcome-ok ;
-: lf-elab-pending-kept ( undo? -- outcome )
-  dup ep-base-back if ep-pending-back else ep-pending-forget then ;
+: ep-base-back ( undo? -- undo? )
+  ep-saved slab-2pop drop over if ep ep-base ! else drop then ;
+: lf-elab-pending-kept ( undo? -- outcome ) ep-base-back ep-pending ep-saved slab-kept ;
 
 \ ---- The reset.
 : lf-elab-pending-reset ( -- )

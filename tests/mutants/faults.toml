@@ -1669,7 +1669,7 @@ reason = "capabilities does not list checking a LeanForth text (check [--env EXP
 [[fault]]
 id = "cli-same-file-text-only"
 file = "src/cli/leanforth.fs"
-old = ''': cli-plain-place? ( a b -- flag ) cli-indices if cli-same-pair? else false then ;'''
+old = ''': cli-plain-place? ( a b -- flag ) cli-indices dup if drop cli-same-pair? then ;'''
 new = ''': cli-plain-place? ( a b -- flag ) 2drop false ;'''
 test = "python3 tests/cli/test_leanforth.py Overwrites"
 reason = "review B1 of 2026-11-18: an output compared with the inputs only as text, so ./ex.ndjson or a link overwrites the export"
@@ -20472,7 +20472,7 @@ reason = "fix-batch-3: a run that stopped inside a try leaves its kept states on
 [[fault]]
 id = "tac-induction-withs-not-restored"
 file = "src/front/tactic-induction.fs"
-old = '''  swap tind-withs tind-withs-kept lf-tac-slab-back outcome-and ;'''
+old = '''  swap tind-withs tind-withs-kept slab-kept outcome-and ;'''
 new = '''  nip ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "review C2 of 2026-11-18: a failed try leaves the induction blocks it opened open"
@@ -20480,7 +20480,7 @@ reason = "review C2 of 2026-11-18: a failed try leaves the induction blocks it o
 [[fault]]
 id = "tac-rw-mvars-not-kept"
 file = "src/front/tactic-rewrite.fs"
-old = ''': lfw-kept ( undo? -- outcome ) trw-mvars trw-mvars-kept lf-tac-slab-back ;'''
+old = ''': lfw-kept ( undo? -- outcome ) trw-mvars trw-mvars-kept slab-kept ;'''
 new = ''': lfw-kept ( undo? -- outcome ) drop trw-mvars-kept slab-forget outcome-ok ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "review C2 of 2026-11-18: a failed try leaves trw-mvars as the attempt's rw made it"
@@ -20488,16 +20488,16 @@ reason = "review C2 of 2026-11-18: a failed try leaves trw-mvars as the attempt'
 [[fault]]
 id = "tac-pending-base-not-restored"
 file = "src/front/elab-pending.fs"
-old = ''': ep-base-back ( undo? -- ) ep-saved slab-2pop drop swap if ep ep-base ! else drop then ;'''
-new = ''': ep-base-back ( undo? -- ) ep-saved slab-2pop drop 2drop ;'''
+old = '''  ep-saved slab-2pop drop over if ep ep-base ! else drop then ;'''
+new = '''  ep-saved slab-2pop drop drop ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "reviews C2 and N4 of 2026-11-18: a failed try leaves the elaborator's synthesis window where the attempt opened it"
 
 [[fault]]
 id = "tac-pending-not-restored"
 file = "src/front/elab-pending.fs"
-old = ''': ep-pending-back ( -- outcome ) ep-pending ep-saved slab-restore ;'''
-new = ''': ep-pending-back ( -- outcome ) ep-saved slab-forget outcome-ok ;'''
+old = ''': lf-elab-pending-kept ( undo? -- outcome ) ep-base-back ep-pending ep-saved slab-kept ;'''
+new = ''': lf-elab-pending-kept ( undo? -- outcome ) ep-base-back drop ep-saved slab-forget outcome-ok ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "review N4 of 2026-11-18: a failed try keeps the pending instance problems the attempt added"
 
@@ -20524,3 +20524,11 @@ old = ''': me-lib-d? ( d -- flag ) lf-libdec-count u< ;'''
 new = ''': me-lib-d? ( d -- flag ) lf-libdec-count 1+ u< ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review F11 of 2026-11-18: the declaration one past the bound library's count reads as one of its own (unsupported, not unknown)"
+
+[[fault]]
+id = "slab-kept-always-restores"
+file = "src/lib/slab.fs"
+old = '''  rot if slab-restore else nip slab-forget outcome-ok then ;'''
+new = '''  rot drop slab-restore ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "fix-batch-3: a committed save puts its copy back, undoing the attempt that succeeded"

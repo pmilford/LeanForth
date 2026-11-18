@@ -74,7 +74,7 @@
 \ slab-reserve slab-claim slab-commit slab-cut slab-remove slab-bad-cut slab-trim
 \ slab-clear slab-bytes slab-used-bytes slab-limit-max slab-offset
 \ slab-push slab-pop slab-2push slab-2pop slab-last slab-drop
-\ slab-keep slab-restore slab-forget
+\ slab-keep slab-restore slab-forget slab-kept
 \ slab-underflow slab-all? slab-2all?
 \ slab-generation /slab-mark slab-mark slab-mark-valid? slab-rollback
 \ slab-mark-count. State: none of its own; every word takes a slab record
@@ -413,7 +413,9 @@ lf-lib-private set-current
 \ unit, store unchanged. slab-restore ( slab store -- outcome ) makes
 \ slab's units the newest copy's and drops it (full when slab cannot hold
 \ them again; the copy is dropped all the same); slab-forget ( store -- )
-\ drops it. With no copy kept both throw slab-underflow, nothing changed.
+\ drops it; slab-kept ( undo? slab store -- outcome ) restores (true) or
+\ forgets (false, ok). With no copy kept they throw slab-underflow,
+\ nothing changed.
 : slab-same-unit? ( slab store -- flag )
   slab-unit swap slab-unit over = swap cell < 0= and ;
 : slab-count-after ( slab addr -- ) over slab-used-bytes + swap slab-count swap ! ;
@@ -434,6 +436,8 @@ lf-lib set-current
 : slab-restore ( slab store -- outcome )
   dup slab-last @ rot dup 0 swap slab-cut tuck slab-claim
   ok-then? 0= if nip swap slab-forget exit then drop slab-restored outcome-ok ;
+: slab-kept ( undo? slab store -- outcome )
+  rot if slab-restore else nip slab-forget outcome-ok then ;
 lf-lib-private set-current
 
 \ Taking a unit out of the middle: the units after unit i move down one

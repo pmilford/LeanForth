@@ -60,8 +60,8 @@
 \ synthesis window (elab-pending.fs, registered by elab-decl.fs), the
 \ induction blocks and their cases (tactic-induction.fs) and rw's
 \ metavariables (tactic-rewrite.fs), as Lean's saveState holds the whole
-\ Term and Meta state; lf-tac-slab-back ( undo? slab store -- outcome )
-\ is a back-xt's work for a slab kept with lib/slab.fs's slab-keep. A run
+\ Term and Meta state; lib/slab.fs's slab-keep and slab-kept do a
+\ back-xt's work for a slab. A run
 \ that stops inside a try has its open saves forgotten when the next
 \ starts. A save that cannot be put back or kept stops the
 \ run (THROW lfr-state-lost, an internal fault). Fuel is not given back
@@ -536,8 +536,8 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ tac-state: ( save-xt back-xt -- ), while the modules load, adds one;
 \ save-xt ( -- outcome ) keeps it, back-xt ( undo? -- outcome ) puts the
 \ newest kept back (true) or forgets it (false); each module keeps its
-\ own, last in, first out (lib/slab.fs's slab-keep, slab-restore and
-\ slab-forget do so for a slab). A table of pairs, 0 where none is set.
+\ own, last in, first out (lib/slab.fs's slab-keep and slab-kept do so
+\ for a slab). A table of pairs, 0 where none is set.
 8 constant lfr-states#
 lfr-states# 2* 0 xt-table: lfr-states
 : lfr-state-xt ( k -- xt|0 ) lfr-states xt-table@ ;
@@ -545,9 +545,6 @@ lfr-states# 2* 0 xt-table: lfr-states
 : tac-state: ( save-xt back-xt -- )
   lfr-states-used dup lfr-states# < 0= abort" tac-state: no room for another state"
   2* tuck 1+ lfr-states xt-table! lfr-states xt-table! ;
-\ A back-xt's work for a slab kept on store: put back (undo?) or forgotten.
-: lf-tac-slab-back ( undo? slab store -- outcome )
-  rot if slab-restore else nip slab-forget outcome-ok then ;
 : lfr-state-back ( undo? k -- outcome ) 2* 1+ lfr-state-xt execute ;
 \ The first n states put back or forgotten, all of them: the first refusal.
 : lfr-states-back ( undo? n -- outcome )

@@ -1218,22 +1218,23 @@ end-structure
 : cli-stem ( c-addr u -- c-addr u' ) manifest-suffix nip - ;
 : cli-manifest-text? ( c-addr1 u1 c-addr2 u2 -- flag )
   2dup cli-suffixed? 0= if 2drop 2drop false exit then cli-stem compare 0= ;
-: cli-manifests? ( a b -- flag ) path-manifest? @ swap path-manifest? @ = ;
+\ How many of paths a and b are manifests, negated (true is -1).
+: cli-manifests ( a b -- n ) path-manifest? @ swap path-manifest? @ + ;
 \ Paths a and b name one text: a manifest's name is its export's with
 \ manifest-suffix (the manifest first, when only one is).
 : cli-manifest-first ( a b -- a' b' ) dup path-manifest? @ if swap then ;
 : cli-same-text? ( a b -- flag )
-  2dup cli-manifests? if cli-texts compare 0= exit then
-  cli-manifest-first cli-texts cli-manifest-text? ;
+  2dup cli-manifests -1 = if cli-manifest-first cli-texts cli-manifest-text? exit then
+  cli-texts compare 0= ;
 : cli-path-addr ( path -- c-addr ) path-text 2@ drop ;
 : cli-path-index ( path -- i true | false ) cli-path-addr cli-arg-index ;
 : cli-indices ( a b -- i j true | false )
   cli-path-index if swap cli-path-index if swap true exit then then drop false ;
 \ Argument i, or the manifest m of argument i, and argument j are one
 \ file. Two manifests are only ever read, never compared (cli-clash?).
-: cli-plain-place? ( a b -- flag ) cli-indices if cli-same-pair? else false then ;
+: cli-plain-place? ( a b -- flag ) cli-indices dup if drop cli-same-pair? then ;
 : cli-manifest-place? ( m b -- flag )
-  cli-indices if cli-mpair cli-listed? else false then ;
+  cli-indices dup if drop cli-mpair cli-listed? then ;
 : cli-same-place? ( a b -- flag )
   cli-manifest-first over path-manifest? @
   if cli-manifest-place? else cli-plain-place? then ;
