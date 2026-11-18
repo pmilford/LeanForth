@@ -1480,3 +1480,17 @@ Asked in plain language after the Forth review of `s2-finish` and its re-check
    unchanged, to be noted here and not gated.
 
 Not yet done: S2's merge, its push and its done check.
+
+## Tactics are ports of Lean's, by function; keep working overnight (2026-11-17, late)
+
+Asked whether tactics should be exact ports of Lean's (so Lean and Mathlib proof scripts behave the same) or shorter
+LeanForth-native ones, the owner: "we want 100% lean compatibility, so ports for tactics", and: "I don't see why
+they would be particularly larger than other approaches, in Forth ... we are copying functionality, not line by line
+C++." So: a tactic is a port of what Lean's tactic does (the same choices, the same order, the same proof term),
+written as well-factored Forth on a shared tactic library, never a line-by-line transcription. Size estimates scaled
+from Lean's source are to be checked against what is actually written (Forth lines per Lean function ported), and a
+tactic's design first lists the Lean primitives it uses and the Forth words that exist for them.
+
+The owner also asked that the `simp` work start if there is time, long Mathlib exports included, and that small tasks
+continue overnight without waiting for guidance. The [import]/[format] gate for elaboration data format 4 is not
+approved yet: the extraction tool and its data stay on a branch until the owner answers the design's five questions.
