@@ -6,9 +6,10 @@
 \       runner (tactic-run.fs; until its run word is set it answers error
 \       80, not supported yet), the spelling added to the printer's
 \       reserved words (present/print-forth.fs) and to LF-WORDS
-\       (author/words.fs: error 72 in the kernel form), its natural meaning
-\       a reader made for the kind and the shape (tactic-syntax.fs's
-\       tac-shape-plain, tac-shape-term). Usage:
+\       (author/words.fs: error 72 in the kernel form), its shape
+\       (tactic-syntax.fs's tac-shape-plain, tac-shape-term) kept in the
+\       row, its natural meaning tap-read, which finds the row by the
+\       token's spelling and reads the shape. Usage:
 \         tac-shape-plain lf-tactic: by-assumption constant tac-k-assumption
 \         s" assumption" tac-k-assumption lf-tactic-lean!
 \         ' run-word tac-k-assumption lf-tactic-action!
@@ -43,13 +44,22 @@ require ./meta-tactic/apply.fs
 require ./meta-tactic/assumption.fs
 require ./meta-tactic/constructor.fs
 
-\ The spelling is read four times: >in put back before each.
+\ The spelling is read three times: >in put back before each.
 : tap-again ( in -- in ) dup >in ! ;
 : tap-kind ( c-addr u -- kind )   \ the row, answering 80 until its run word is set
   lf-tactic-free dup >r lfr-spell ['] lf-tac-later 0 r@ lfr-set r> ;
 : tap-row ( in c-addr u -- in kind )
   2dup lf-pf-reserved? abort" lf-tactic: a word reserved already"
   2dup lf-pf-reserve-more tap-kind ;
+\ Every registered word's natural meaning: the row whose spelling is the
+\ token run (the words are few and a row's spelling is unique, lf-tactic:).
+: tap-spelled? ( c-addr u kind -- flag ) lf-tac-word compare 0= ;
+: tap-row? ( c-addr u kind -- flag )
+  dup lf-tactic-row? if tap-spelled? else drop 2drop false then ;
+: tap-kind-of ( c-addr u -- kind )
+  lf-tactic-kinds# 1+ tac-k-sorry 1+ ?do 2dup i tap-row? if 2drop i unloop exit then loop
+  2drop lfa-e-tactic lfa-fail 0 ;
+: tap-read ( -- ) lfa-token tap-kind-of dup lf-tactic-shape@ lft-read-as ;
 : lf-tactic: ( shape "spelling" -- kind )
-  >in @ parse-name tap-row >r tap-again r@ rot lft-reader,
-  tap-again ['] lfa-w-tactic lfa-word tap-again lft-reader swap >in ! lfa-natural! r> ;
+  >in @ parse-name tap-row rot over lf-tactic-shape! >r
+  tap-again ['] lfa-w-tactic lfa-word >in ! ['] tap-read lfa-natural! r> ;

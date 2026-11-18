@@ -251,16 +251,10 @@ end-structure
 : lft-term-done ( t kind -- ) lft-term-step lft-done ;
 create tac-shape-plain 0 , ' lft-plain ,
 create tac-shape-term 1 , ' lft-term-done ,
-\ A registered word's reader: a word of lft-readers named as its
-\ spelling, its body the shape then the kind. It checks the values above
-\ the frame before it puts the kind on the stack (as lft-w-exact does).
-wordlist constant lft-readers
-: lft-read ( body -- )
-  >r r@ @ shape-want @ lft-tactic r@ cell+ @ r> @ shape-build @ execute ;
-: lft-reader, ( kind shape "name" -- )
-  get-current >r lft-readers set-current create , , r> set-current does> lft-read ;
-: lft-reader ( "name" -- xt )
-  parse-name lft-readers search-wordlist 0= abort" tactic-syntax: no reader" ;
+\ A registered word of kind and shape is read so: the values above the
+\ frame checked before the kind is put on the stack (as lft-w-exact does).
+: lft-read-as ( kind shape -- )
+  swap >r >r r@ shape-want @ lft-tactic r> r> swap shape-build @ execute ;
 
 \ Names given to hypotheses: _, or a name that is no LeanForth word,
 \ which the block's text can use until the block ends (groups.fs).
