@@ -934,6 +934,10 @@ cli-options  0 0 cli-save!
 T{ t-y cli-save! cli-partial-out t-y t-export-in cli-clash -> false }T
 T{ 0 cli-path 2 cli-path cli-same-text? 0 cli-path 2 cli-path cli-both-text? -> false false }T
 cli-options  0 0 cli-save!
+\ Two manifests: one name when their exports' names are one text.
+T{ t-ex t-export-in t-ex t-export-in t-new t-export-in -> }T
+T{ 1 cli-path 3 cli-path cli-same-text? 1 cli-path 5 cli-path cli-same-text? -> true false }T
+cli-options
 
 cases-done
 bye
