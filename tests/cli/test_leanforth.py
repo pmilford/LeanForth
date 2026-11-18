@@ -790,7 +790,15 @@ class Overwrites(unittest.TestCase):
                              "lib.elab.ndjson", "--steps", "missing/log.ndjson", "victim.lf",
                              cwd=self.dir)
         self.assertEqual(status, 3, out)
-        self.assertIn("error: the step log could not be written: missing/log.ndjson", out)
+        self.assertIn("error: the step log could not be written: missing/log.ndjson\n", out)
+        # A file that takes no byte (/dev/full): its close fails, and the error
+        # says it may end inside a line, never that it was cut (review N3).
+        status, out, _ = run("check", "--no-manifest", "--env", "lib.ndjson", "--elab-data",
+                             "lib.elab.ndjson", "--steps", "/dev/full", "victim.lf",
+                             cwd=self.dir)
+        self.assertEqual(status, 3, out)
+        self.assertIn("error: the step log could not be written: /dev/full; it may end inside "
+                      "a line\n", out)
 
 
 class ForthFaults(unittest.TestCase):

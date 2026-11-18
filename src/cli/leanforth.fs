@@ -190,6 +190,7 @@ begin-structure /cli-run
   field: run-steps-bad          \ true: writing it (or an axiom's name) failed
   field: run-steps-axiom        \ xt ( c-addr u -- ): where an axiom's name goes
   2field: run-steps-whole       \ the step log's bytes through its last line feed
+  field: run-steps-uncut        \ true: the failed log could not be cut back
   field: arg-seen               \ every argument read, 0 the command: its address each
   field: arg-seen#              \ how many
   field: arg-paths              \ the files the command reads and writes (/cli-path each)
@@ -1105,29 +1106,44 @@ variable cli-info#
   cli-state run-steps-axiom ! ['] cli-step-axiom lf-env-axiom-deps cli-steps-bad ;
 \ A FILE whose writing failed ends at its last whole line, never in the
 \ middle of one (review N14): nothing is written after the first failure,
-\ and the file is cut back to the bytes through its last line feed.
+\ and the file is cut back to the bytes through its last line feed, the
+\ end of the last write that ended in one. The file holds no mark of its
+\ own that it was cut (the step log's format, schema 1, has no record for
+\ one): a complete log is one in which every header's step count is
+\ followed by that many step lines. When the cut itself fails (its
+\ position, flush or resize, or the close), the error says the file may
+\ end inside a line (review N3); the code is 3 either way.
 : cli-steps-fid ( -- fid ) cli-state run-steps-fid @ ;
-: cli-steps-whole! ( -- ) cli-steps-fid file-position drop cli-state run-steps-whole 2! ;
-: cli-steps-mark ( c-addr u -- ) s\" \n" compare 0= if cli-steps-whole! then ;
+: cli-steps-uncut ( -- ) true cli-state run-steps-uncut ! ;
+: cli-steps-whole! ( -- )
+  cli-steps-fid file-position if 2drop cli-steps-uncut else cli-state run-steps-whole 2! then ;
+: cli-line-end? ( c-addr u -- flag ) dup if + 1- c@ 10 = else nip then ;
+: cli-steps-mark ( c-addr u -- ) cli-line-end? if cli-steps-whole! then ;
 : cli-steps-put ( c-addr u -- )
   cli-state run-steps-bad @ if 2drop exit then
   2dup cli-steps-fid write-file if 2drop cli-steps-fail else cli-steps-mark then ;
 : cli-steps-cut ( outcome -- outcome )
-  dup ok? if exit then cli-steps-fid flush-file drop
-  cli-state run-steps-whole 2@ cli-steps-fid resize-file drop ;
+  dup ok? if exit then cli-steps-fid flush-file
+  cli-state run-steps-whole 2@ cli-steps-fid resize-file or if cli-steps-uncut then ;
 : cli-steps-to ( sink -- outcome )
   ['] cli-step-find ['] cli-step-axioms lf-steps-write cli-steps-bad ;
+: cli-steps-closed ( outcome -- outcome )
+  cli-steps-fid close-file if drop cli-steps-uncut outcome-full then ;
 : cli-steps-file ( -- outcome )
   cli-steps w/o create-file if drop outcome-full exit then cli-state run-steps-fid !
   0 0 cli-state run-steps-whole 2! ['] cli-steps-put cli-steps-to cli-steps-cut
-  cli-steps-fid close-file if drop outcome-full then ;
+  cli-steps-closed ;
 : cli-stdout? ( -- flag ) cli-steps s" -" compare 0= ;
 : cli-steps-out ( -- outcome )
   cli-stdout? if ['] type cli-steps-to else cli-steps-file then ;
+\ What is left of a FILE: nothing when it could not be made.
+: cli-steps-left. ( -- )
+  cli-stdout? cli-steps-fid 0= or if exit then
+  cli-state run-steps-uncut @ if ." ; it may end inside a line" exit then
+  ." ; it ends at its last whole line" ;
 : cli-steps-write ( -- )
   cli-steps? 0= if exit then cli-steps-out ok? if exit then
-  ." error: the step log could not be written: " cli-steps type
-  cli-stdout? 0= if ." ; it ends at its last whole line" then cr
+  ." error: the step log could not be written: " cli-steps type cli-steps-left. cr
   outcome-full outcome>code cli-code! ;
 : cli-text-report ( -- )
   lfc-elab-failed? if cli-elab-error exit then

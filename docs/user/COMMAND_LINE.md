@@ -332,7 +332,13 @@ memory: the log's text shares room with the open parts' text, so a later
 (the file, or an axiom's name, finds no room) is an error (exit 3); then
 nothing more is written, and a FILE is cut back to its last whole line,
 which the error message says (since 2026-11-18, review N14: before, a
-failed write could leave half a line). Version 1
+failed write could leave half a line). When the cut itself fails (the
+flush, the cut or the close of the file), the message says instead that
+the file may end inside a line; the exit status is 3 either way. The file
+holds no mark of its own that it was cut (format version 1 has no record
+for one): a complete log is one in which each header's `steps` count is
+followed by that many step lines, and a reader that needs certainty
+checks that, or the exit status. Version 1
 does not yet carry each tactic's rule (the eliminator, the rewrite rule
 and its place, the closing term), the constants and hypotheses a step
 used, or the goals in kernel form; a later version adds them. `--steps`

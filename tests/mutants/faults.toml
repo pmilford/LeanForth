@@ -2941,8 +2941,8 @@ reason = "the fuel reported is not what the check used: that budget no longer ac
 [[fault]]
 id = "cli-steps-not-cut"
 file = "src/cli/leanforth.fs"
-old = '''  dup ok? if exit then cli-steps-fid flush-file drop'''
-new = '''  exit cli-steps-fid flush-file drop'''
+old = '''  dup ok? if exit then cli-steps-fid flush-file'''
+new = '''  exit cli-steps-fid flush-file'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "a step log whose writing failed is left ending in half a line (review N14)"
 

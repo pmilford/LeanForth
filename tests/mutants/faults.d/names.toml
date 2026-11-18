@@ -55,6 +55,30 @@ test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py OddNames.test_print_s
 reason = "a format character above U+FFFF in a string literal (U+E0041, U+1D173) is left out of what print shows, not written as \\u{X} (review F4)"
 
 [[fault]]
+id = "cli-steps-cut-unchecked"
+file = "src/cli/leanforth.fs"
+old = '''  cli-state run-steps-whole 2@ cli-steps-fid resize-file or if cli-steps-uncut then ;'''
+new = '''  cli-state run-steps-whole 2@ cli-steps-fid resize-file 2drop ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a step log whose cut-back failed (flush or resize) is said to end at its last whole line (review N3)"
+
+[[fault]]
+id = "cli-steps-close-unsaid"
+file = "src/cli/leanforth.fs"
+old = '''  cli-steps-fid close-file if drop cli-steps-uncut outcome-full then ;'''
+new = '''  cli-steps-fid close-file if drop outcome-full then ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Overwrites.test_steps_unwritable"
+reason = "a step log whose close failed (/dev/full) is said to end at its last whole line (review N3)"
+
+[[fault]]
+id = "cli-steps-line-end-alone"
+file = "src/cli/leanforth.fs"
+old = ''': cli-line-end? ( c-addr u -- flag ) dup if + 1- c@ 10 = else nip then ;'''
+new = ''': cli-line-end? ( c-addr u -- flag ) s\" \n" compare 0= ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a write that ends a line with more before it in the same write is not marked, so the cut goes back a whole line too far (review N3)"
+
+[[fault]]
 id = "outline-input-name-raw"
 file = "src/present/proof-outline.fs"
 old = '''  else lf-lv-put-text then ;'''

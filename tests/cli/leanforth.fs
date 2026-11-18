@@ -179,9 +179,20 @@ T{ s" a.b" foo-shows s" Foo.«a.b»" compare -> 0 }T
   false cli-state run-steps-bad ! s" {a}" cli-steps-put s\" \n" cli-steps-put s" {b" cli-steps-put
   cli-steps-fail s\" }\n" cli-steps-put cli-steps-cut drop cli-steps-fid close-file throw
   steps-text steps-file delete-file throw ;
-T{ outcome-full steps-try s\" {a}\n" compare -> 0 }T
+T{ outcome-full steps-try s\" {a}\n" compare cli-state run-steps-uncut @ -> 0 false }T
 T{ outcome-ok steps-try s\" {a}\n{b" compare -> 0 }T
-false cli-state run-steps-bad !
+\ A line end at the end of a longer write marks it too, one inside it not
+\ (review N3: the sink need not write the line feed alone).
+T{ s\" {a}\n" cli-line-end? s\" {a}\n{b" cli-line-end? 0 0 cli-line-end? -> true false false }T
+\ When the cut itself fails (/dev/full: the flush finds no room, the
+\ resize is refused), that is recorded, and the error says the file may
+\ end inside a line.
+: full-cut ( -- uncut? )
+  false cli-state run-steps-uncut ! s" /dev/full" w/o open-file throw cli-state run-steps-fid !
+  false cli-state run-steps-bad ! s\" {a}\n{b" cli-steps-put cli-steps-fail
+  outcome-full cli-steps-cut drop cli-steps-fid close-file drop cli-state run-steps-uncut @ ;
+T{ full-cut -> true }T
+false cli-state run-steps-bad !  false cli-state run-steps-uncut !
 \ A name's last component as the printer asks for it (nt-part), as Lean's
 \ formatter writes it (review PB1): «fun» as the root, but Foo.fun.
 : root ( c-addr u -- id ) 0 -rot lf-name-str drop ;
