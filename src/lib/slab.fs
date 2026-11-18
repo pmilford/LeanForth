@@ -281,7 +281,6 @@ lf-lib set-current
 : slab-last ( slab -- addr ) 1 swap slab-newest-unit ;
 lf-lib-private set-current
 
-
 \ Drains (a worklist): one step run on the newest value or pair popped,
 \ the slab and the xt kept below; the loop, on a live slab, until it is
 \ empty or ok-true? stops it (outcome.fs); then false and the outcome
@@ -419,23 +418,26 @@ lf-lib-private set-current
 : slab-same-unit? ( slab store -- flag )
   slab-unit swap slab-unit over = swap cell < 0= and ;
 : slab-count-after ( slab addr -- ) over slab-used-bytes + swap slab-count swap ! ;
-: slab-copy-in ( slab addr -- )
-  2dup slab-count-after swap dup slab-base swap slab-used-bytes rot swap move ;
+: slab-in-use ( slab -- addr u ) dup slab-base swap slab-used-bytes ;
+: slab-copy-in ( slab addr -- ) 2dup slab-count-after swap slab-in-use rot swap move ;
 : slab-kept-first ( store -- i ) dup slab-count 1- swap slab-last @ - ;
 lf-lib set-current
 : slab-forget ( store -- ) dup slab-kept-first swap slab-cut ;
 lf-lib-private set-current
-: slab-restored ( store slab -- )
-  swap dup slab-kept-first over slab-at rot dup slab-base swap slab-used-bytes move
-  slab-forget ;
+: slab-kept-at ( store -- addr ) dup slab-kept-first swap slab-at ;
+: slab-restored ( store slab -- ) over slab-kept-at swap slab-in-use move slab-forget ;
+\ Slab emptied, then as many units claimed as the newest copy holds (its
+\ count read first: with no copy, slab-underflow and nothing changed).
+: slab-refill ( slab store -- slab store i outcome )
+  2dup slab-last @ over 0 swap slab-cut swap slab-claim ;
 lf-lib set-current
 : slab-keep ( slab store -- outcome )
   2dup slab-same-unit? 0= if 2drop outcome-invalid exit then
   over slab-count 1+ over slab-claim ok-then? 0= if nip nip exit then
   swap slab-at slab-copy-in outcome-ok ;
 : slab-restore ( slab store -- outcome )
-  dup slab-last @ rot dup 0 swap slab-cut tuck slab-claim
-  ok-then? 0= if nip swap slab-forget exit then drop slab-restored outcome-ok ;
+  slab-refill ok-then? 0= if swap slab-forget nip exit then
+  drop swap slab-restored outcome-ok ;
 : slab-kept ( undo? slab store -- outcome )
   rot if slab-restore else nip slab-forget outcome-ok then ;
 lf-lib-private set-current

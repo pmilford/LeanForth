@@ -20446,8 +20446,8 @@ reason = "review F5 of 2026-11-18: a text's error is said as an internal fault w
 [[fault]]
 id = "slab-keep-no-count"
 file = "src/lib/slab.fs"
-old = '''  2dup slab-count-after swap dup slab-base swap slab-used-bytes rot swap move ;'''
-new = '''  swap dup slab-base swap slab-used-bytes rot swap move ;'''
+old = ''': slab-copy-in ( slab addr -- ) 2dup slab-count-after swap slab-in-use rot swap move ;'''
+new = ''': slab-copy-in ( slab addr -- ) swap slab-in-use rot swap move ;'''
 test = "$GFORTH tests/lib/slab.fs"
 reason = "fix-batch-3 (reviews C2, N4 of 2026-11-18): a kept copy has no count, so slab-restore and slab-forget read whatever lies past the units"
 
@@ -20462,10 +20462,8 @@ reason = "fix-batch-3: slab-keep copies into a store of another unit, so a copy 
 [[fault]]
 id = "slab-restore-keeps-copy"
 file = "src/lib/slab.fs"
-old = '''  swap dup slab-kept-first over slab-at rot dup slab-base swap slab-used-bytes move
-  slab-forget ;'''
-new = '''  swap dup slab-kept-first over slab-at rot dup slab-base swap slab-used-bytes move
-  drop ;'''
+old = ''': slab-restored ( store slab -- ) over slab-kept-at swap slab-in-use move slab-forget ;'''
+new = ''': slab-restored ( store slab -- ) over slab-kept-at swap slab-in-use move drop ;'''
 test = "$GFORTH tests/lib/slab.fs"
 reason = "fix-batch-3: a restored copy stays on the store, so the next restore puts back the wrong state"
 

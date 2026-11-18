@@ -1460,7 +1460,7 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 38,
-  "shuffles": 9,
+  "shuffles": 7,
   "words": 83
  },
  "src/lib/sort.fs": {

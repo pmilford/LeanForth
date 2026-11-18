@@ -44,7 +44,7 @@ NEEDED = ["sections.fs", "portability.fs", "module.fs", "outcome.fs", "u32.fs", 
 PUBLIC = {"/sections", "sections:", "sections-init", "sections-field!", "sections-field@",
           "sections-add", "sections-write", "sections-open", "sections-count",
           "sections-info", "sections-read", "sections-close", "sections-align",
-          "sections-max"}
+          "sections-max", "sections-suffix"}
 OK, INVALID, REJECTED = "0", "1", "4"
 
 
