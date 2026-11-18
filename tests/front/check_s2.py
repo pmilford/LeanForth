@@ -185,6 +185,21 @@ def self_test(want):
     wrong[key] = wrong[key].replace("#0", "#1", 1)
     if wrong == want:
         raise Failure("harness self-test: a changed line is not told apart")
+    schema_self_test()
+
+
+def schema_self_test():
+    """The step schema's names ([format], owner 2026-11-17): any well-formed Lean or Mathlib
+    tactic name and any non-blank word validate; a malformed name or a blank word does not."""
+    step = {"goal_before": None, "goals_after": [], "parent": 0, "source": "1:1", "step": 1,
+            "tactic": "rfl", "word": "by-rfl"}
+    for tactic, word in (("norm_num", "by-norm-num"), ("exact?", "by-exact?"), ("cases'", "|")):
+        if list(STEPS_SCHEMA.errors(dict(step, tactic=tactic, word=word))):
+            raise Failure(f"harness self-test: the step schema refuses tactic {tactic!r}")
+    for tactic, word in (("Norm_num", "by-rfl"), ("norm num", "by-rfl"), ("?rfl", "by-rfl"),
+                         ("rfl", ""), ("rfl", "by rfl")):
+        if not list(STEPS_SCHEMA.errors(dict(step, tactic=tactic, word=word))):
+            raise Failure(f"harness self-test: the step schema takes {tactic!r} {word!r}")
 
 
 def check_files(want):

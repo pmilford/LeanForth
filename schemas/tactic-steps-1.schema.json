@@ -122,32 +122,14 @@
           "minimum": 1
         },
         "tactic": {
-          "enum": [
-            "rfl",
-            "exact",
-            "intro",
-            "induction",
-            "alternative",
-            "case",
-            "rewrite",
-            "rw",
-            "sorry"
-          ]
+          "description": "The tactic's name as Lean or Mathlib names it (owner [format] decision, 2026-11-17: any well-formed name, not a fixed list, so that later tactics such as norm_num, exact? or cases' need no new format). LeanForth writes rfl, exact, intro, induction, alternative, case, rewrite, rw and sorry today.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*[?!']*$"
         },
         "word": {
-          "description": "The LeanForth word that wrote the step.",
-          "enum": [
-            "by-rfl",
-            "by-exact",
-            "by-intro:",
-            "by-induction",
-            "by-induction-with",
-            "|",
-            "by-case:",
-            "by-rewrite[",
-            "by-rw[",
-            "by-sorry"
-          ]
+          "description": "The LeanForth word that wrote the step: any non-blank token (by-rfl, by-exact, by-intro:, by-induction, by-induction-with, |, by-case:, by-rewrite[, by-rw[ and by-sorry today).",
+          "type": "string",
+          "pattern": "^\\S+$"
         }
       }
     }

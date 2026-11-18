@@ -299,6 +299,11 @@ of the block it ran in (an induction's `with`, an alternative `|`, a
 its `line:column`, the main goal before the step and the goals in focus
 after it, each goal printed as `.goals` prints it (null before a step
 that runs with no goal in focus, an alternative taking its case). The
+tactic is named as Lean or Mathlib names it, and the schema takes any
+well-formed name (a lower-case letter, then lower-case letters, digits
+and `_`, then any of `?`, `!` and `'`: `norm_num`, `exact?` and `cases'`
+validate) and any
+non-blank LeanForth word, so a later tactic needs no new format. The
 format is `leanforth-tactic-steps` version 1, described by
 [schemas/tactic-steps-1.schema.json](../../schemas/tactic-steps-1.schema.json).
 A rejected declaration, a term proof and a text that stops write no
