@@ -501,8 +501,8 @@ cli-options
 : unfinal-run ( -- ) false planted-run 0 lf-env lf-env-slot lf-slot-state 0 swap ! ;
 : unfinal ( -- raw-ok? accepted? outcome bits )
   unfinal-run 0 lf-env lf-env-slot lf-slot-outcome@ ok? 0 decl-accepted? 0 decl-outcome
-  0 decl-axioms rr-release ;
-T{ unfinal -> true false outcome-invalid axioms-unknown }T
+  0 decl-axioms 0 decl-ok-outcome rr-release ;
+T{ unfinal -> true false outcome-invalid axioms-unknown outcome-invalid }T
 T{ false planted-run 0 decl-accepted? 0 decl-outcome 0 decl-axioms rr-release
   -> true outcome-ok 8 }T
 \ Axioms not read count as NOT PROVED, apart from the axioms used, and

@@ -514,13 +514,11 @@ lf-walk-room context-walk: lf-ol-premises
   lf-diag-name lf-lv-put
   s"  (" lf-lv-put swap lf-lv-n s" , " lf-lv-put lf-lv-n s" )" lf-ol-line ;
 \ NOT PROVED, as the command line's reports mark it (review N11): an axiom
-\ outside the allowlist, or axioms not read (-1).
-: lf-ol-not-proved-why ( bits -- c-addr u )
-  0< if s" ; NOT PROVED: its axioms could not be read" exit then
-  s" ; NOT PROVED: depends on an axiom" ;
+\ outside the allowlist. Axioms not read (-1) would be marked so too, after
+\ "axioms: ?"; the caller gives -1 only with an outcome not ok (print.fs).
 : lf-ol-not-proved. ( -- )
-  0 lf-olr-axioms lf-ol-field @ dup lf-allowlist-bits invert and
-  if lf-ol-not-proved-why lf-lv-put else drop then ;
+  0 lf-olr-axioms lf-ol-field @ lf-allowlist-bits invert and
+  if s" ; NOT PROVED: depends on an axiom" lf-lv-put then ;
 : lf-ol-verdict ( -- )
   s"   " lf-lv-put lf-ol-accepted?
   if s" accepted; " lf-lv-put lf-ol-axioms lf-ol-not-proved. 0 lf-lv-flush lf-lv-eol exit

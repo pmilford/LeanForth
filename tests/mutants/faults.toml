@@ -2867,7 +2867,7 @@ id = "cli-prints-accepted-itself"
 file = "src/cli/leanforth.fs"
 old = '''  dup cli-name. ." : " dup cli-verdict. dup cli-not-proved. cr'''
 new = '''  dup cli-name. ." : accepted; axioms: none" cr'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py ExitCodes"
 reason = "trust boundary: the command line prints accepted itself, not the slot's verdict"
 quick = true
 
@@ -3031,7 +3031,7 @@ id = "cli-fuel-given-up-counted"
 file = "src/cli/check-run.fs"
 old = ''': ck-gave-up? ( outcome left -- flag ) 0= swap ck-ran-out? 0= and ;'''
 new = ''': ck-gave-up? ( outcome left -- flag ) 2drop false ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py JsonReport Fuel"
 reason = "a failed inference's zeroed counter is reported as the whole budget used"
 
 [[fault]]
@@ -3149,7 +3149,7 @@ id = "cli-name-raw"
 file = "src/present/name-text.fs"
 old = ''': nt-quoted ( c-addr u -- ) s" «" nt-put nt-escaped s" »" nt-put ;'''
 new = ''': nt-quoted ( c-addr u -- ) nt-put ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "$GFORTH tests/cli/leanforth.fs"
 reason = "a component that is not an identifier is printed raw: a line feed in it forges a line such as 'x: accepted ...'"
 quick = true
 

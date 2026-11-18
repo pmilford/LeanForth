@@ -472,6 +472,11 @@ T{ s" αβγ" one. s" αβγ" shows -> }T
 T{ s" _" one. s" _" shows -> }T
 T{ s" a_b}" one. s" «a_b}»" shows -> }T
 T{ s\" a\xe2\x80\xaeb" one. s" «a\u{202E}b»" shows -> }T
+\ A part the speller has no room to escape ends the print full, never
+\ with the part bare (the speller's text held to 4 bytes, then freed).
+: tight ( -- ) nt-free 1 chars 4 nt-out slab-init drop ;
+T{ tight s" a.b" foo. fuel lf-print-term nt-free -> outcome-full }T
+T{ s" a.b" foo. s" Foo.«a.b»" shows -> }T
 \ A binder: its name spelled the same way, in the binder and the body.
 : odd-lam ( c-addr u -- t ) 2>r t-prop 0 t-var t-lam 2r> ex. ;
 T{ s" a_b}" odd-lam s" fun «a_b}» ↦ «a_b}»" shows -> }T
