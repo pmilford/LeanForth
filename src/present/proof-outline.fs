@@ -126,8 +126,10 @@ end-structure
 \ Where the next outlines go: an xt ( c-addr u -- ), or 0 for TYPE.
 : lf-outline-sink! ( xt|0 -- ) lf-ol-style cell+ ! ;
 \ How plain-style outlines show names: namer ( id -- c-addr u flag ) for a
-\ declaration's name and escape ( c-addr u -- c-addr' u' flag ) for any other
-\ text, each an xt or 0 (as they are, the default); the text of either is
+\ declaration's name and escape ( c-addr u -- c-addr' u' flag ) for text
+\ from outside, the input's file name (never the term printer's, which is
+\ escaped already: log-view.fs lf-lv-put), each an xt or 0 (as they are,
+\ the default); the text of either is
 \ valid until the next call, and a false flag means it must not be shown.
 : lf-outline-names! ( namer escape -- ) lf-ol-style 3 cells + ! lf-ol-style 2 cells + ! ;
 : lf-ol-set-names ( -- ) lf-ol-style 2 cells + @ lf-lv lf-lv-decl-namer !
@@ -536,7 +538,7 @@ lf-walk-room context-walk: lf-ol-premises
 \ The input's name: as it is, or escaped in the typewriter font (LaTeX).
 : lf-ol-source-name. ( c-addr u -- )
   lf-lv-tex? if s" \texttt{" lf-lv-put 0 lf-lv-flush lf-sf-tex s" }" lf-lv-put
-  else lf-lv-put then ;
+  else lf-lv-put-text then ;
 : lf-ol-source ( -- )
   lf-ol-source-name dup 0= if 2drop exit then s"   Input:     " lf-lv-put
   lf-ol-source-name.

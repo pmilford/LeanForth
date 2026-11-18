@@ -3228,7 +3228,8 @@ reason = "LaTeX gets the « » of a name part raw, which LaTeX's default font en
 [[fault]]
 id = "pp-name-part-raw"
 file = "src/present/name-text.fs"
-old = '''  dup nt-plain? if lf-name-text true exit then lf-name-text nt-start nt-quoted nt-text@ ;'''
+old = '''  dup nt-plain? if lf-name-text true exit then
+  lf-name-text nt-names nt-start nt-quoted nt-text@ ;'''
 new = '''  lf-name-text true ;'''
 test = "$GFORTH tests/present/term-printer.fs"
 reason = "the printer writes a component that is no identifier bare: Foo.«a.b» prints as Foo.a.b, U+202E raw (review PB1)"

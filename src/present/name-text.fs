@@ -38,14 +38,19 @@
 \ name id) as it shows: its text itself when it is shown bare, else
 \ between « » and escaped (flag false: no room).
 \ nt-text ( c-addr u -- c-addr' u' flag ) any bytes with the escapes of 2
-\ and 3, without « » (an export's file name). A text stays valid until the
-\ next call. nt-free frees the heap blocks; the command line does not
+\ and 3, without « » (an export's file name), in a block of its own. Never
+\ give it text that is already escaped (a name's, the term printer's): it
+\ would escape it twice; its own last result it refuses (flag false). A
+\ text of nt-name or nt-part stays valid until the next call of either,
+\ one of nt-text until the next nt-text. nt-free frees the heap blocks; the command line does not
 \ call it: one process runs one command, the blocks are as large as the
 \ longest name shown, and the host takes them back when the process
 \ leaves. A Forth session that wants the memory back calls it; the next
 \ call makes them again.
-\ State: one shared record, nt-state (/nt): two slabs, the text's bytes
-\ and the name's components, and whether a byte found no room. One text at
+\ State: one shared record, nt-state (/nt): three slabs (a name's text,
+\ other text escaped, the name's components), which of the first two is
+\ being written, whether a byte found no room, and the table of Init's
+\ tokens, laid while loading. One text at
 \ a time, in any context. It reads bytes (c@) to decode UTF-8. Loads in
 \ decimal whatever BASE is, then restores it.
 
@@ -59,22 +64,28 @@ require ../lib/name-table.fs
 require ../core/names.fs
 
 begin-structure /nt
-  /slab +field nts-text      \ the text's bytes
+  /slab +field nts-names     \ a name's text (nt-name, nt-part)
+  /slab +field nts-raw       \ other text escaped (nt-text), never the text it reads
   /slab +field nts-parts     \ the name's component IDs, from the name to the root
+  field: nts-into            \ the slab the text being built goes to
   field: nts-short           \ true once a byte found no room
   2 cells +field nts-tokens  \ Init's tokens (lib/name-table.fs), laid while loading
 end-structure
 create nt-state /nt allot  nt-state /nt erase
-: nt-out ( -- slab ) nt-state nts-text ;
+: nt-names ( -- slab ) nt-state nts-names ;
+: nt-raw ( -- slab ) nt-state nts-raw ;
+: nt-out ( -- slab ) nt-state nts-into @ ;
 : nt-parts ( -- slab ) nt-state nts-parts ;
 : nt-short ( -- addr ) nt-state nts-short ;
 \ The slabs, made when first used, freed by nt-free.
 : nt-make ( unit slab -- )
   dup slab-live? if 2drop exit then over slab-limit-max swap slab-init drop ;
 : nt-unmade ( slab -- ) dup slab-free /slab erase ;
-: nt-free ( -- ) nt-out nt-unmade nt-parts nt-unmade ;
-: nt-start ( -- )
-  1 chars nt-out nt-make 1 cells nt-parts nt-make nt-out slab-clear false nt-short ! ;
+: nt-free ( -- ) nt-names nt-unmade nt-raw nt-unmade nt-parts nt-unmade ;
+\ A new text, built in slab (nt-names or nt-raw).
+: nt-start ( slab -- )
+  dup nt-state nts-into ! 1 chars swap nt-make 1 cells nt-parts nt-make
+  nt-out slab-clear false nt-short ! ;
 
 \ ---- The text being built: bytes added, a refused one marks it short.
 : nt-put ( c-addr u -- )
@@ -193,7 +204,8 @@ s" while" nt-token, s" with" nt-token, s" with_weak_namespace" nt-token,
 : nt-component ( id -- )
   dup lf-name-str? if nt-str else lf-name-payload nt-decimal then ;
 : nt-part ( id -- c-addr u flag )
-  dup nt-plain? if lf-name-text true exit then lf-name-text nt-start nt-quoted nt-text@ ;
+  dup nt-plain? if lf-name-text true exit then
+  lf-name-text nt-names nt-start nt-quoted nt-text@ ;
 
 \ The name's components, from the name up to the root (k = 0 the last);
 \ full when the heap has no room for them.
@@ -207,8 +219,14 @@ s" while" nt-token, s" with" nt-token, s" with_weak_namespace" nt-token,
 : nt-dot ( k -- ) nt-count 1- <> if s" ." nt-put then ;
 : nt-components ( -- ) 0 nt-count 1- do i nt-dot i nt-part-id nt-component -1 +loop ;
 : nt-name ( id -- c-addr u flag )
-  nt-start ?dup 0= if s" [anonymous]" true exit then
+  nt-names nt-start ?dup 0= if s" [anonymous]" true exit then
   nt-gather ok? 0= if nt-text@ drop false exit then nt-components nt-text@ ;
-: nt-text ( c-addr u -- c-addr' u' flag ) nt-start nt-escaped nt-text@ ;
+\ Other text, escaped into a slab of its own (nt-raw): a name's text
+\ (nt-name, nt-part) given to it is read from another slab; text inside
+\ nt-raw, its own last result, is refused (flag false), never read while
+\ it is rewritten (review F1).
+: nt-own? ( c-addr -- flag ) nt-raw slab-offset 0< 0= ;
+: nt-text ( c-addr u -- c-addr' u' flag )
+  over nt-own? if false exit then nt-raw nt-start nt-escaped nt-text@ ;
 
 base !   \ the BASE this file was loaded with

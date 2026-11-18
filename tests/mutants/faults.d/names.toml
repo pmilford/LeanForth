@@ -1,0 +1,46 @@
+# Planted faults of the name speller and the outline's text (src/present/name-text.fs,
+# log-view.fs, statement-forms.fs, proof-outline.fs) and of the reports that read
+# a declaration's axioms (src/cli/tally.fs): branch fix-cli-present-2, reviews F1-F4
+# of fix-cli-present (2026-11-18). Read with tests/mutants/faults.toml as one list.
+
+[[fault]]
+id = "outline-term-text-escaped-again"
+file = "src/present/log-view.fs"
+old = ''': lf-lv-printer ( -- ) ['] lf-lv-put lf-lv-mode lf-print-setup ;'''
+new = ''': lf-lv-printer ( -- ) ['] lf-lv-put-text lf-lv-mode lf-print-setup ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py OddNames"
+reason = "the term printer's text, its names already escaped, is escaped again in the outline's proof lines: Foo.«a.b» shows as Foo.«a.b\\u{BB} (review F1)"
+quick = true
+
+[[fault]]
+id = "statement-line-escaped-again"
+file = "src/present/statement-forms.fs"
+old = ''': lf-sf-line-sink ( c-addr u -- ) lf-lv-tex? if lf-sf-tex else lf-lv-out then ;'''
+new = ''': lf-sf-line-sink ( c-addr u -- ) lf-lv-tex? if lf-sf-tex else lf-lv-safe lf-lv-out then ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py OddNames"
+reason = "print's statement lines escape the printer's already escaped names again: » becomes \\u{BB} and a backslash a run of them (review F1)"
+quick = true
+
+[[fault]]
+id = "nt-text-shares-names-block"
+file = "src/present/name-text.fs"
+old = '''  over nt-own? if false exit then nt-raw nt-start nt-escaped nt-text@ ;'''
+new = '''  over nt-own? if false exit then nt-names nt-start nt-escaped nt-text@ ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "nt-text rewrites the block a name's text is in while reading it, and the name's text is lost (review F1)"
+
+[[fault]]
+id = "nt-text-reads-own-result"
+file = "src/present/name-text.fs"
+old = '''  over nt-own? if false exit then nt-raw nt-start nt-escaped nt-text@ ;'''
+new = '''  over nt-own? 0 and if false exit then nt-raw nt-start nt-escaped nt-text@ ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "nt-text given its own result reads the block it is rewriting, and shows what it rewrote (review F1)"
+
+[[fault]]
+id = "outline-input-name-raw"
+file = "src/present/proof-outline.fs"
+old = '''  else lf-lv-put-text then ;'''
+new = '''  else lf-lv-put then ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py OddNames"
+reason = "the outline's Input line shows the export's file name raw: a line feed or a bidirectional control in it reaches the output"

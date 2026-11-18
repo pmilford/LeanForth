@@ -91,7 +91,9 @@ end-structure
 : lf-sf-backslash ( -- c-addr u ) s" \textbackslash{}" ;
 create lf-sf-tex-mode ' lf-lv-out , ' lf-sf-tex-byte , ' lf-sf-backslash ,
 : lf-sf-tex ( c-addr u -- ) lf-sf-tex-mode lf-tex-text ;
-: lf-sf-line-sink ( c-addr u -- ) lf-lv-tex? if lf-sf-tex else lf-lv-safe lf-lv-out then ;
+\ The term printer's text is already escaped (names, strings): written as it
+\ is in plain style, never escaped again (review F1).
+: lf-sf-line-sink ( c-addr u -- ) lf-lv-tex? if lf-sf-tex else lf-lv-out then ;
 \ The block: indentation is written before the first byte of a line.
 : lf-sf-bol! ( flag -- ) lf-sf lf-sf-bol ! ;
 : lf-sf-indent ( -- ) lf-sf lf-sf-bol @ 0= if exit then false lf-sf-bol!

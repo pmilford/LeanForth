@@ -189,6 +189,14 @@ T{ s" x" root nt-part -rot s" x" compare s" a.b" under-foo nt-part drop s" «a.b
   -> true 0 0 }T
 \ An export's file name: the same escapes, no « ».
 T{ s\" a b\x01\xff" nt-text drop s" a b\u{1}\x{FF}" compare -> 0 }T
+\ nt-text writes a block of its own (review F1): a name's text given to it
+\ is read, not rewritten while read, and stays as it was; its own result
+\ given back to it is refused, never read while it is rewritten.
+: part-then-text ( -- c-addr u ) s" a.b" under-foo nt-part drop 2dup nt-text drop 2drop ;
+T{ part-then-text s" «a.b»" compare -> 0 }T
+T{ s" a.b" under-foo nt-part drop nt-text drop s" «a.b\u{BB}" compare -> 0 }T
+T{ s" x\y" nt-text drop nt-text nip nip -> false }T
+T{ s" x\y" nt-text drop 2drop s" x\y" nt-text -rot s" x\\y" compare -> true 0 }T
 
 \ The codes of the check, with the declarations counted by verdict.
 cli-options

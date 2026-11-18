@@ -1810,6 +1810,90 @@ class Names(unittest.TestCase):
                              (0, f"{folder}/caf\\x{{FF}}\\u{{A}}.ndjson", "", []))
 
 
+# tests/cli/odd-names.lean: 22 names Lean writes with « », with a word of its
+# syntax or with a character a line must never show raw, each a definition N
+# with a theorem oddThmK : N = N. odd-names.lean.out holds what pinned Lean
+# prints for each (K, Name.toString, ppExpr of the statement); make
+# reference-cli (export-check.sh) checks that Lean prints it still.
+ODD = "tests/cli/odd-names.ndjson"
+# Where LeanForth's text differs from Lean's on purpose (COMMAND_LINE.md
+# "Names", differences 1-3): K -> (Lean's text, LeanForth's), in every name.
+ODD_DIFFERS = {1: [("‮", "\\u{202E}")],                  # 2: a banned character
+               3: [("Foo.a«b»c", "Foo.«a«b\\u{BB}c»")],       # 1 and 2: » inside
+               17: [("a\\b", "a\\\\b")]}                      # 3: a backslash
+# LaTeX's spelling of what the names hold, read back (latex-text.fs).
+ODD_TEX = {"\\ensuremath{\\ll}": "«", "\\ensuremath{\\gg}": "»", "\\textbackslash{}": "\\",
+           "\\backslash{}": "\\", "\\{": "{", "\\}": "}", "\\_": "_", "\\#": "#", "~": " "}
+
+
+def odd_lean():
+    """K -> (Name.toString, ppExpr of oddThmK's statement), as LeanForth spells them."""
+    shown = {}
+    for line in (ROOT / "tests/cli/odd-names.lean.out").read_text(encoding="utf-8").splitlines():
+        k, name, statement = line.split("\t")
+        for lean, ours in ODD_DIFFERS.get(int(k), []):
+            name, statement = name.replace(lean, ours), statement.replace(lean, ours)
+        shown[int(k)] = (name, statement)
+    return shown
+
+
+def odd_untex(text):
+    return re.sub("|".join(re.escape(key) for key in ODD_TEX), lambda m: ODD_TEX[m[0]], text)
+
+
+def odd_lines(out, k, title):
+    """The lines of oddThmK's outline that begin with "  Statement in "."""
+    lines = out.splitlines()
+    start = lines.index(title.format(k=k))
+    return {line.split(":", 1)[0].strip(): line.split(":", 1)[1].strip()
+            for line in lines[start + 1:start + 6] if line.lstrip().startswith("Statement in ")}
+
+
+class OddNames(unittest.TestCase):
+    """Names that need « », against what pinned Lean prints (reviews F1 and
+    F3 of fix-cli-present): every statement print shows is Lean's ppExpr
+    (« » around a word of Lean's syntax), in plain text, LaTeX and the
+    Markdown mathematics line, with only the differences COMMAND_LINE.md
+    "Names" states."""
+    lean = odd_lean()
+
+    def test_lean_cases(self):
+        self.assertEqual(len(self.lean), 22)
+        self.assertEqual(self.lean[4], ("fun", "«fun» = «fun»"))
+
+    def test_print_plain(self):
+        status, out, err = run("print", ODD)
+        self.assertEqual((status, err), (0, ""))
+        for k, (_, statement) in self.lean.items():
+            got = odd_lines(out, k, "Theorem oddThm{k}")
+            self.assertEqual((got["Statement in Lean"], got["Statement in math text"]),
+                             (statement, statement), k)
+            self.assertEqual(odd_untex(got["Statement in mathematics"]),
+                             "$\\mathsf{%s} = \\mathsf{%s}$" % tuple(statement.split(" = ")), k)
+            # The proof's own lines, through the outline's line buffer.
+            self.assertIn(f"  Then Eq.refl {statement.split(' = ')[0]} : {statement},", out, k)
+
+    def test_print_latex(self):
+        status, out, err = run("print", "--latex", ODD)
+        self.assertEqual((status, err), (0, ""))
+        for k, (_, statement) in self.lean.items():
+            got = odd_lines(out, k, "\\textbf{{Theorem }}$\\mathsf{{oddThm{k}}}$ \\\\")
+            self.assertEqual(odd_untex(got["Statement in Lean (ASCII)"]),
+                             "{\\ttfamily %s} \\\\" % statement, k)
+            self.assertEqual(odd_untex(got["Statement in mathematics"]),
+                             "$\\mathsf{%s} = \\mathsf{%s}$ \\\\" % tuple(statement.split(" = ")),
+                             k)
+
+    def test_input_name_escaped(self):
+        """The input's file name, the one text the outline escapes itself."""
+        with tempfile.TemporaryDirectory() as folder:
+            export = Path(folder) / "odd‮\n.ndjson"
+            export.write_bytes((ROOT / ODD).read_bytes())
+            status, out, _ = run("print", "--no-manifest", "--name", "oddThm0", str(export))
+            self.assertEqual(status, 0)
+            self.assertIn(f"\n  Input:     {folder}/odd\\u{{202E}}\\u{{A}}.ndjson line ", out)
+
+
 class Resources(unittest.TestCase):
     """check --resources (plan task 6.5.2, the command line's part)."""
 
