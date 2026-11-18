@@ -68,9 +68,11 @@ end-structure
 : dw-state ( node walk -- n ) dup dw-array? if dw-cell @ else dw-seen@ then ;
 : dw-seen-cell ( node walk -- addr | 0 )
   tuck 0 swap dw-seen memo-claim dup ok? if drop nip else nip swap dw-refuse 0 then ;
-: dw-state-cell ( node walk -- addr | 0 )
-  dup dw-array? if dw-cell else dw-seen-cell then ;
-: dw-state! ( n addr | n 0 -- ) ?dup if ! else drop then ;
+: dw-seen! ( n node walk -- ) dw-seen-cell ?dup if ! else drop then ;
+: dw-state! ( n node walk -- ) dup dw-array? if dw-cell ! else dw-seen! then ;
+\ Under way (state 1).
+: dw-seen-mark ( node walk -- ) dw-seen-cell ?dup if 1 swap ! then ;
+: dw-mark ( node walk -- ) dup dw-array? if dw-cell 1 swap ! else dw-seen-mark then ;
 : dw-in? ( node walk -- flag ) dw-size @ index? ;
 : dw-done? ( node walk -- flag ) 2dup dw-in? if dw-state 1 > else 2drop false then ;
 \ A pending word's test of one child: the child and true when its image
@@ -82,13 +84,11 @@ end-structure
   rot over dw-want if nip nip true else dw-want then ;
 \ The same for a binary term's two parts (core/terms.fs).
 : dw-want-parts ( node walk -- child true | false )
-  over lf-term-first@ over dw-want if nip nip true exit then
-  swap lf-term-second@ swap dw-want ;
+  >r dup lf-term-first@ swap lf-term-second@ r> dw-want2 ;
 \ Never met: neither under way nor made; a node beyond the memo counts as
 \ new, so pushing it ends the walk invalid.
 : dw-new? ( node walk -- flag ) 2dup dw-in? if dw-state 0= else 2drop true then ;
 : dw-image ( node walk -- image ) dw-state 2 - ;
-: dw-made ( image node walk -- ) dw-state-cell swap 2 + swap dw-state! ;
 
 \ The stack.
 : dw-slot ( i walk -- addr ) dw-stack @ swap cells + ;
@@ -100,10 +100,10 @@ end-structure
 : dw-roomy ( walk -- flag )
   dup dw-top @ over dw-room @ < if drop true else dw-grown then ;
 : dw-top-slot ( walk -- addr ) dup dw-top @ swap dw-slot ;
-: dw-put ( node walk -- ) tuck dw-top-slot ! 1 swap dw-top +! ;
+: dw-put ( node walk -- ) tuck dw-top-slot ! dw-top 1 swap +! ;
 : dw-push ( node walk -- )
   dup dw-roomy 0= if nip outcome-full swap dw-refuse exit then
-  2dup dw-state-cell 1 swap dw-state! dw-put ;
+  2dup dw-mark dw-put ;
 
 \ The tables, for every node there is when the walk starts.
 : dw-block ( u addr -- flag ) swap 1 max allocate if drop 0 then dup rot ! 0<> ;
@@ -130,7 +130,7 @@ end-structure
 : dw-descend ( child walk -- )
   2dup dw-cycle? if nip outcome-invalid swap dw-refuse exit then dw-push ;
 : dw-make ( node walk -- )
-  dup >r 2dup dup dw-build @ execute -rot dw-made r> dw-drop ;
+  tuck 2dup dup dw-build @ execute 2 + -rot dw-state! dw-drop ;
 : dw-top-node ( walk -- node walk ) dup dw-peek swap ;
 : dw-step ( walk -- )
   dw-top-node 2dup dw-pending? if over dw-descend 2drop else dw-make then ;
