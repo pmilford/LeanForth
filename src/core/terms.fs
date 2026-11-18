@@ -131,8 +131,10 @@ require ./scratch-meter.fs
 \ A smart-unfolding marker, ANNOTATION(child, key) (core/annotations.fs):
 \ front-end only, not binary; its data word is its child's.
 17 constant lf-tag-annotation
-\ A tag's bit (tags above 31 share bit 31, which no binary tag has).
-: lf-tag-bit ( tag -- mask ) 1 swap 31 min lshift ;
+\ A tag's bit (tags above 31 share bit 31, which no binary tag has; a
+\ negative tag, which no node has, gets bit 0, which no tag has, never a
+\ shift by a negative count).
+: lf-tag-bit ( tag -- mask ) 0 max 31 min 1 swap lshift ;
 lf-tag-app lf-tag-bit lf-tag-lam lf-tag-bit or lf-tag-pi lf-tag-bit or
 lf-tag-let lf-tag-bit or lf-tag-projection lf-tag-bit or lf-tag-let-nondep lf-tag-bit or
 constant lf-binary-tags

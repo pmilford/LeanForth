@@ -8964,6 +8964,14 @@ test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5B: a projection is no binary node, so the passes treat it as an unknown leaf"
 
 [[fault]]
+id = "tag-bit-negative-unclamped"
+file = "src/core/terms.fs"
+old = ''': lf-tag-bit ( tag -- mask ) 0 max 31 min 1 swap lshift ;'''
+new = ''': lf-tag-bit ( tag -- mask ) 31 min 1 swap lshift ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "plan 9.4.8n (6): a negative tag shifts by a negative count (undefined in Forth-2012) instead of getting bit 0, which no tag has"
+
+[[fault]]
 id = "s5b-proj-of-swapped"
 file = "src/core/projections.fs"
 old = '''  drop swap lf-tag-projection lf-term-binary room-result ;'''

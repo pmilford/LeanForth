@@ -270,6 +270,13 @@ T{ lf-term-default lf-term-capacity! lf-terms store-capacity @ -> outcome-ok 64 
 \ Pi, no room at max-n, the same depth under any other tag.
 T{ 5 lf-tag-lam lf-term-inner 5 lf-tag-pi lf-term-inner 5 lf-tag-app lf-term-inner -> 6 true 6 true 5 true }T
 T{ max-n lf-tag-pi lf-term-inner max-n lf-tag-app lf-term-inner -> false max-n true }T
+\ lf-tag-bit (integration review 2026-11-18, plan 9.4.8n (6)): a tag's own
+\ bit; above 31, bit 31; a negative tag, bit 0, which no tag has, so it is
+\ in no tag set (never a shift by a negative count).
+T{ lf-tag-app lf-tag-bit 31 lf-tag-bit 99 lf-tag-bit -> 8 1 31 lshift 1 31 lshift }T
+T{ -1 lf-tag-bit max-n invert lf-tag-bit 0 lf-tag-bit -> 1 1 1 }T
+T{ -1 lf-term-binary-tag? max-n invert lf-term-binary-tag? lf-tag-pi lf-term-binary-tag?
+   -> false false true }T
 \ A hash table that cannot take one more entry (here frozen: htab-ready
 \ answers invalid) leaves a shared node unshared: lf-term-cons appends it
 \ as a new node, ok, and finds no node of the table (reuse-front-a2, the
