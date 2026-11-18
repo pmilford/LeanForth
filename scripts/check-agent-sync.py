@@ -31,6 +31,11 @@ KEY_PHRASES = {
         "emulated locals", "BEGIN-STRUCTURE", "PICK/ROLL", "Trace all success and failure paths",
         "Forth-2012 portability", "human review of trusted semantics",
     ),
+    "architect": (
+        "You do not review a diff", "change no file except the report", "docs/development/FORTH_LIBRARY.md",
+        "private words inside feature files", "What the next five slices need in common", "Density",
+        "Collisions", "Interfaces", "Estimates", "at most ten recommendations", "only the kernel accepts a proof",
+    ),
 }
 
 

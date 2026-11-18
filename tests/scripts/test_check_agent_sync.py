@@ -23,8 +23,8 @@ class Sync(unittest.TestCase):
         self.assertEqual(cas.sync_problems(*REAL), [])
 
     def test_both_agents_found_with_either_spelling(self):
-        self.assertEqual(sorted(REAL[0]), ["done-checker", "forth-reviewer"])
-        self.assertEqual(sorted(REAL[1]), ["done_checker", "forth_reviewer"])
+        self.assertEqual(sorted(REAL[0]), ["architect", "done-checker", "forth-reviewer"])
+        self.assertEqual(sorted(REAL[1]), ["architect", "done_checker", "forth_reviewer"])
 
     def test_agent_only_on_one_side(self):
         claude, codex = pair()
