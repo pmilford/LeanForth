@@ -228,9 +228,10 @@ T{ eqab lf-meta-is-prop nat lf-meta-is-prop -> true outcome-ok false outcome-ok 
 T{ succ 1 lf-meta-fun-info 0 lf-meta-param -> 1 outcome-ok lf-binder-default false }T
 T{ nat l0 sort lf-meta-class-none? fk lf-meta-class-none? -> nat true true }T
 T{ nat lf-meta-class-none? -> false }T
-T{ fk lf-meta-is-prop fp 0 proj lf-meta-is-prop -> false outcome-ok false outcome-unsupported }T
+\ (A projection's type is inferred since S2 merge B: p.0 : Nat is no proof.)
+T{ fk lf-meta-is-prop fp 0 proj lf-meta-is-prop -> false outcome-ok false outcome-ok }T
 T{ fs 1 lf-meta-fun-info ?t 1 lf-meta-fun-info fp 0 proj 1 lf-meta-fun-info
-   -> 0 outcome-ok 1 outcome-ok -1 outcome-unsupported }T
+   -> 0 outcome-ok 1 outcome-ok 0 outcome-ok }T
 : hadd3 ( -- f ) l0 l0 l0 3 s" HAdd.hAdd" cn ;
 T{ hadd3 6 lf-meta-fun-info 0 lf-meta-param 3 lf-meta-param 5 lf-meta-param
    -> 6 outcome-ok lf-binder-implicit false lf-binder-instance false lf-binder-default false }T
@@ -315,8 +316,9 @@ T{ s" ab" slit s" ab" slit dq s" ab" slit s" ac" slit dq -> true outcome-ok fals
 T{ s" ab" slit s" ab" slit lf-meta-eqv s" ab" slit s" ac" slit lf-meta-eqv
    -> true outcome-ok false outcome-ok }T
 \ ?n =?= n + k: first-order approximation without arguments fails (no
-\ unfolding needed), but processAssignment' asks whnf (FE1d2; Lean: false).
-T{ ?n ?n fk nat-add dq ?n free? -> false outcome-unsupported true }T
+\ unfolding needed), and processAssignment' asks whnf, whose reduceNat?
+\ has no value for ?n (withNatValue, S2 merge B): false, as Lean.
+T{ ?n ?n fk nat-add dq ?n free? -> false outcome-ok true }T
 \ checkAssignment: ?n in an xi's type, in a metavariable's type, through
 \ a delayed assignment; ?z's context less j is a prefix of ?n's.
 T{ ?n xq 1 fk chk -> fk false outcome-ok }T
@@ -437,7 +439,9 @@ T{ lv1 1 s" id" cn lv2 1 s" id" cn dq -> false outcome-ok }T
 T{ own-mark ?n fx nat-add id1 fk fx nat-add dq ?n fk assigns? own-back clean?
    -> true outcome-ok true true }T
 T{ ?n outp nat dq ?n free? clean? nat outp fk dq -> false outcome-ok true true false outcome-ok }T
-T{ fk fx hadd fx fk hadd dq clean? -> false outcome-unsupported true }T
+\ (k + x =?= x + k: Nat.add's smart unfolding is stuck on x, false as Lean;
+\ S2 merge B.)
+T{ fk fx hadd fx fk hadd dq clean? -> false outcome-ok true }T
 \ Fuel: too few steps is exhausted, nothing left assigned; the
 \ transparency of the call is back after it.
 T{ 4 lf-defeq-fuel! ?n fx hadd fk fx add-add dq ?n free? clean? 0 lf-defeq-fuel!
