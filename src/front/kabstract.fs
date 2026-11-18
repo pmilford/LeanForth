@@ -69,17 +69,19 @@ end-structure
 \ same name; a projection, the same structure and field (its leaf); a
 \ literal, the same value (Lean's HeadIndex .lit compares the Literal;
 \ review C3 of 2026-11-18: authoring runs share no nodes); a free
-\ variable or metavariable, the same node.
+\ variable or metavariable, the same node; every Sort, concrete or
+\ symbolic, one head (HeadIndex .sort; review F2 of 2026-11-18).
 : kab-tag= ( h1 h2 -- flag ) lf-term-tag@ swap lf-term-tag@ = ;
+: kab-sorts? ( h1 h2 -- flag ) lf-sort? swap lf-sort? and ;
 : kab-names= ( h1 h2 -- flag ) lf-const-name swap lf-const-name = ;
 : kab-fields= ( h1 h2 -- flag ) lf-term-first@ swap lf-term-first@ = ;
-: kab-tag-only? ( tag -- flag )
-  dup lf-tag-sort = over lf-tag-lam = or swap lf-tag-pi = or ;
+: kab-tag-only? ( tag -- flag ) dup lf-tag-lam = swap lf-tag-pi = or ;
 : kab-same ( h1 h2 tag -- flag )
   case lf-tag-constant of kab-names= endof  lf-tag-projection of kab-fields= endof
     lf-tag-lit of lf-lit-same? endof  lf-tag-str of lf-str-same? endof
     >r = r> endcase ;
 : kab-heads= ( h1 h2 -- flag )
+  2dup kab-sorts? if 2drop true exit then
   2dup kab-tag= 0= if 2drop false exit then
   dup lf-term-tag@ dup kab-tag-only? if drop 2drop true else kab-same then ;
 \ e has p's head and number of arguments.

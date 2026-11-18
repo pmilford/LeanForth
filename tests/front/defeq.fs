@@ -521,6 +521,15 @@ false lf-term-sharing!
 T{ 2 lit-of 2 lit-of heads-apart 2 lit-of 3 lit-of kab-heads= -> true true false }T
 T{ s" ab" slit s" ab" slit heads-apart s" ab" slit s" b" slit kab-heads=
    -> true true false }T
+\ Every Sort is one head, HeadIndex .sort (review F2 of 2026-11-18): two
+\ symbolic Sorts in nodes of their own, a concrete one against a symbolic
+\ one, and Prop against Type; no Sort is a literal's or a pi's head.
+: ssort ( level -- t ) lf-term-symbolic-sort 0= abort" sort" ;
+: csort ( level -- t ) lf-term-sort 0= abort" sort" ;
+T{ 0 ssort 0 ssort heads-apart 0 csort 0 ssort kab-heads= 0 ssort 0 csort kab-heads=
+   -> true true true true }T
+T{ 0 csort 1 csort heads-apart 0 csort 0 lit-of kab-heads= 2 lit-of 1 ssort kab-heads=
+   -> true true false false }T
 true lf-term-sharing!
 
 bye

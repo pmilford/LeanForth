@@ -74,9 +74,10 @@ variable dq-xt  ' lf-meta-defeq dq-xt !
   ['] lf-meta-defeq-guarded dq-xt ! stuck-dq ['] lf-meta-defeq dq-xt ! ;
 \ kabs-dq: kabstract e p at reducible transparency (rw's), "true" and the
 \ abstracted term when an instance was found, else "false" (review C3 of
-\ 2026-11-18); fresh-nlit a literal in a node of its own, as authoring
-\ runs (no sharing) make them.
+\ 2026-11-18); fresh-nlit a literal and fresh-sort a Sort in a node of
+\ its own, as authoring runs (no sharing) make them.
 : fresh-nlit ( u -- t ) false lf-term-sharing! nlit true lf-term-sharing! ;
+: fresh-sort ( level -- t ) false lf-term-sharing! sort true lf-term-sharing! ;
 : kabs-show ( abst found outcome -- )
   dup ok? 0= if nip nip .outcome cr exit then drop
   if ." true " .t else drop ." false" then cr ;

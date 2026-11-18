@@ -20359,3 +20359,20 @@ old = '''    lf-tag-lit of lf-lit-same? endof  lf-tag-str of lf-str-same? endof
 new = ''''''
 test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
 reason = "fix-batch-2 (review C3 of 2026-11-18): kabstract compares literal heads by node; the pinned-Lean kabs cases of check_defeq.py (two equal literals in nodes of their own) must find both"
+
+[[fault]]
+id = "kab-sorts-by-tag"
+file = "src/front/kabstract.fs"
+old = '''  2dup kab-sorts? if 2drop true exit then
+'''
+new = ''''''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review F2 of 2026-11-18: kabstract compares a symbolic Sort head by node and a concrete one against a symbolic one by tag, where Lean's HeadIndex .sort is one head for every Sort"
+
+[[fault]]
+id = "kab-sorts-by-tag-lean"
+file = "src/front/kabstract.fs"
+old = ''': kab-sorts? ( h1 h2 -- flag ) lf-sort? swap lf-sort? and ;'''
+new = ''': kab-sorts? ( h1 h2 -- flag ) 2drop false ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "review F2 of 2026-11-18: a Sort pattern in a node of its own is not found where pinned Lean's kabstract abstracts it (check_defeq.py's kabs cases)"

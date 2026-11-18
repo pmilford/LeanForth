@@ -272,3 +272,6 @@ run_meta do
   kabsCase (mkApp (mkApp (mkConst `Nat.add []) (mkRawNatLit 2)) (mkRawNatLit 2)) (mkRawNatLit 2)
   kabsCase (mkApp (mkApp (mkConst `Nat.add []) (mkRawNatLit 2)) (mkRawNatLit 3)) (mkRawNatLit 3)
   kabsCase (mkApp (mkApp (mkConst `Nat.add []) (mkRawNatLit 2)) (mkRawNatLit 3)) (mkRawNatLit 4)
+  kabsCase (mkApp (mkApp (mkConst `id [(mkLevelSucc Level.one)]) (mkSort Level.one)) (mkConst `Nat [])) (mkSort lu)
+  kabsCase (mkApp (mkApp (mkConst `id [(mkLevelSucc Level.one)]) (mkSort Level.one)) (mkConst `Nat [])) (mkSort Level.one)
+  kabsCase (mkApp (mkApp (mkConst `id [Level.one]) (mkSort Level.zero)) (mkConst `True [])) (mkSort Level.one)
