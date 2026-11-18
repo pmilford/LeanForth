@@ -42,6 +42,7 @@
 \ State: the record pst in the checker context (ADR 0009).
 
 require ../lib/lib.fs
+require ../lib/find.fs
 require ../lib/runs.fs
 require ./lctx-views.fs
 require ./mvars.fs

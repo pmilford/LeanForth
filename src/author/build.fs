@@ -15,6 +15,7 @@
 \ passed by address to the lookups.
 
 require ../lib/lib.fs
+require ../lib/find.fs
 require ../core/terms.fs
 require ../core/literals.fs
 require ../core/projections.fs

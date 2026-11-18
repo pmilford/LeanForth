@@ -11,6 +11,7 @@
 \ State: the store lfa-decls, in the checker context (ADR 0009).
 
 require ../lib/lib.fs
+require ../lib/find.fs
 require ../present/binder-table.fs
 require ../present/print-forth.fs
 require ./errors.fs

@@ -75,7 +75,7 @@ reason = "reuse pass F8: an unknown constant reads as firm (an inductive) where 
 
 [[fault]]
 id = "rfa-find-index-off-by-one"
-file = "src/lib/outcome.fs"
+file = "src/lib/find.fs"
 old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute if drop i true unloop unloop exit then'''
 new = '''  dup 1+ swap ?do 0 max 0 ?do i j execute if drop i 1+ true unloop unloop exit then'''
 test = "$GFORTH tests/lib/lib.fs"

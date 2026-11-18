@@ -1047,7 +1047,7 @@ own, to be moved onto it in the scheduled reuse pass (review R1).
   test-lib` loads the file alone by its full path in hexadecimal and
   checks that BASE comes back.
 
-`find-index ( x n xt -- k true | false )` (`outcome.fs`, front reuse pass
+`find-index ( x n xt -- k true | false )` (`find.fs`, front reuse pass
 part A, 2026-11-18, review F4 and the author review's R3) is `any?` giving
 the place: the first k whose test xt ( x k -- x flag ) holds, x dropped.
 *Algorithm*: a counted loop that stops at the first hit; the xt is kept

@@ -119,6 +119,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
+require ../lib/find.fs
 require ../core/terms.fs
 require ../core/levels.fs
 require ../core/local-context.fs
