@@ -2851,7 +2851,7 @@ id = "cli-strict-axioms-dropped"
 file = "src/cli/leanforth.fs"
 old = '''  cli-strict? cli-strict-axioms! cli-misused? if cli-misuse-record exit then'''
 new = '''  cli-misused? if cli-misuse-record exit then'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py ExitCodes"
 reason = "check ignores --strict-axioms: the report says strictAxioms false and NOT PROVED keeps 0"
 
 [[fault]]
@@ -4224,6 +4224,14 @@ new = '''"source": None})'''
 test = "python3 tests/lean-cache/test_lean_cache.py"
 reason = "a changed source text replays the old text's run"
 quick = true
+
+[[fault]]
+id = "lc-bare-name-not-found"
+file = "scripts/lean-cache.py"
+old = '''        lean = shutil.which(lean) or lean'''
+new = '''        pass'''
+test = "python3 tests/lean-cache/test_lean_cache.py"
+reason = "fix-batch-4: LEANFORTH_LEAN=lean (no .tools beside a worktree) is exec'd as a path, so every pinned-Lean target of check-rest fails with lean-not-found"
 
 [[fault]]
 id = "lc-key-without-module"

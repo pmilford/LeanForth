@@ -141,6 +141,16 @@ class CacheTest(unittest.TestCase):
         self.assertEqual((status, stderr), (0, b""))
         self.assertEqual(stdout, b"elaborated A.lean: theorem a \n")
 
+    def test_bare_name_found_on_path(self):
+        """LEANFORTH_LEAN=lean (the Makefile's default with no .tools beside the checkout) is
+        the lean on PATH, cached or not (fix-batch-4: execv of a bare name failed)."""
+        name = self.source("B.lean", "theorem b")
+        path = str(self.prefix / "bin") + os.pathsep + os.environ.get("PATH", "")
+        for mode in ("0", "1"):
+            status, stdout, stderr = self.lean(name, LEANFORTH_LEAN="lean", PATH=path,
+                                               LEANFORTH_LEAN_CACHE=mode)
+            self.assertEqual((status, stdout, stderr), (0, b"elaborated B.lean: theorem b \n", b""))
+
     def test_changed_source_misses(self):
         name = self.source("A.lean", "theorem a")
         self.assert_cached(name)
