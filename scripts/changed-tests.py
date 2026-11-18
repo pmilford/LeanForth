@@ -198,6 +198,68 @@ UNRESOLVED = (
 )
 
 
+# When a quoted word with no path separator is used as a path (used_as_path): fail-safe, every
+# use is a path but those that are plainly a value. A value: a subscript ("x"]), a dict key
+# ("x":), a dict entry's value or a keyword argument whose name says nothing of a path, an
+# operand of == or != or a member of a tuple after "in", an argument of a call that takes text
+# (WORD_CALLS); in shell, an operand of = == != or a case pattern. Joined with / is always a path.
+PATHISH = re.compile(r"path|dir|folder|file|root|src|cwd|out|dest|where|base|prefix|name", re.IGNORECASE)
+WORD_CALLS = {"get", "pop", "setdefault", "startswith", "endswith", "count", "index", "find", "rfind",
+              "split", "rsplit", "replace", "strip", "format", "print", "add_argument", "update",
+              "assertEqual", "assertNotEqual", "assertIn", "assertNotIn", "assertRegex", "assertTrue",
+              "assertFalse", "assertIs", "dict", "set", "frozenset", "fail", "error", "warn", "log",
+              "encode", "decode", "dumps", "loads", "match", "search", "fullmatch", "compile", "sub",
+              "subTest", "isinstance", "getattr", "hasattr", "refused", "Exception", "ValueError",
+              "SystemExit", "KeyError", "TypeError"}
+
+
+def used_as_path(language, code, start, end):
+    """Whether the quoted literal at CODE[START:END] may be used as a path (see WORD_CALLS)."""
+    head = code[code.rfind("\n", 0, start) + 1:start]
+    tail = code[end:code.find("\n", end) if code.find("\n", end) >= 0 else len(code)]
+    if re.search(r"/\s*$", head) or re.match(r"\s*/", tail):
+        return True
+    if language == ".sh":
+        return not (re.search(r"(?:^|\s)(?:==?|!=)\s*$", head) or re.match(r"\s*(?:==?|!=)\s", tail)
+                    or re.match(r"\s*(?:\||\))", tail))
+    if re.search(r"\[\s*$", head) and re.match(r"\s*\]", tail):
+        return False
+    if re.match(r"\s*:(?!:)", tail) or re.match(r"\s*(?:==|!=|(?:not\s+)?in\b)", tail) \
+            or re.search(r"(?:==|!=)\s*$", head):
+        return False
+    opened = enclosing_call(head)
+    # A dict entry's value, or a keyword argument (inside a bracket: a plain assignment
+    # "top = 'docs'" stays a path).
+    key = re.search(r"""(?:["'](\w+)["']\s*:|\b(\w+)\s*=)\s*$""", head)
+    if key and not PATHISH.search(key[1] or key[2]) and not re.search(r"[=!<>]=\s*$", head) \
+            and (key[1] or opened is not None):
+        return False
+    if opened is not None:
+        name, before = opened
+        # A membership test's tuple ("x" in ("a", "b")), not a loop's ("for p in ("src", ...)").
+        if name == "in" and not re.search(r"\bfor\b[^:]*\bin\s*$", before) or name in WORD_CALLS:
+            return False
+    return True
+
+
+def enclosing_call(head):
+    """(the word just before the innermost bracket HEAD leaves open: a call's name, "in", or ""
+    for a bare bracket; the text before that bracket), or None outside every bracket."""
+    depth = 0
+    for at in range(len(head) - 1, -1, -1):
+        char = head[at]
+        if char in ")]}":
+            depth += 1
+        elif char in "([{":
+            if depth == 0:
+                before = head[:at]
+                name = re.search(r"(\w+)\s*$", before)
+                word = name[1] if name and (char == "(" or name[1] == "in") else ""
+                return word, before
+            depth -= 1
+    return None
+
+
 def tracked_files():
     """{path: blob id} of every file of HEAD's tree."""
     listing = subprocess.run(["git", "ls-tree", "-r", "HEAD"], capture_output=True, text=True, check=True).stdout
@@ -232,16 +294,21 @@ def program_inputs(path, text, tracked, index):
     if path.startswith("tests/"):
         found |= under(folder, tracked)
     bounded = False
-    for literal in QUOTED.findall(code) + PATH.findall(code):
+    literals = [(m[1], used_as_path(kind(path), code, m.start(), m.end())) for m in QUOTED.finditer(code)]
+    for literal, as_path in literals + [(p, True) for p in PATH.findall(code)]:
         for base in (folder, "."):
             candidate = os.path.normpath(os.path.join(base, literal))
             if candidate in tracked:
                 runs.add(candidate)
-            elif under(candidate, tracked):
+            elif under(candidate, tracked) and (as_path or "/" in literal):
                 found |= under(candidate, tracked)
                 bounded = True
-        if kind(path) in (".py", ".sh") and "/" not in literal.strip("/"):
-            named = index["folder"].get(literal.strip("/"), set())
+        # A word equal to a folder's name anywhere: that folder, when the word has a path
+        # separator ("lib/") or is used as a path (2026-11-18: a mode "development" read all
+        # of docs/development before).
+        bare = literal.strip("/")
+        if kind(path) in (".py", ".sh") and "/" not in bare and (as_path or bare != literal):
+            named = index["folder"].get(bare, set())
             found |= named
             bounded = bounded or bool(named)
     for name in BASENAME.findall(code):

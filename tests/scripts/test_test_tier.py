@@ -412,6 +412,50 @@ class Reaches(Fixture):
         self.assertEqual(result["faults"], ["free-one"])
 
 
+class BareWords(unittest.TestCase):
+    """A quoted word equal to a folder's name is an input only when used as a path (2026-11-18:
+    the mode "development" made test-cli read all of docs/development, ci-results.log too)."""
+    TRACKED = {p: "0" for p in ("docs/development/ci-results.log", "docs/development/A.md", "docs/user/B.md",
+                                "tests/cli/t.py", "tests/support/h.py", "src/lib/x.fs", "README.md")}
+
+    def used(self, line, language=".py"):
+        ct = tt.changed_tests
+        at = line.index('"development"') if '"development"' in line else line.index('"')
+        end = line.index('"', at + 1) + 1
+        return ct.used_as_path(language, line, at, end)
+
+    def inputs(self, code, path="tests/cli/t.py"):
+        ct = tt.changed_tests
+        runs, data, _ = ct.program_inputs(path, code, self.TRACKED, ct.file_index(self.TRACKED))
+        return {p for p in runs | data if not p.startswith(os.path.dirname(path) + "/")}
+
+    def test_values_are_not_paths(self):
+        for line in ('self.assertEqual(loaded["mode"], "development")', 'd["check"].update(mode="development")',
+                     'x = d["development"]', '{"str": "development", "in": 3}', '{"development": 1}',
+                     'if mode == "development":', 'if "development" != mode:', 'ok = "development" in modes',
+                     'if mode in ("user", "development"):', 'print("development")', 'p.get("development")'):
+            self.assertFalse(self.used(line), line)
+
+    def test_paths_and_doubt_are_inputs(self):
+        for line in ('ROOT / "development" / "x.md"', 'os.path.join(ROOT, "docs", "development")',
+                     'Path("development")', 'top = "development"', 'for p in ("development", "user"):',
+                     'run(["check", "development"])', 'f(where="development")', 'self.repo.commit("development")'):
+            self.assertTrue(self.used(line), line)
+        for line in ('cd "development"', 'ls "$root"/"development"'):
+            self.assertTrue(self.used(line, ".sh"), line)
+        for line in ('[ "$mode" = "development" ]', 'case $m in "development") ;;'):
+            self.assertFalse(self.used(line, ".sh"), line)
+
+    def test_program_inputs(self):
+        folder = {"docs/development/ci-results.log", "docs/development/A.md"}
+        self.assertEqual(self.inputs('assert out["mode"] == "development"\n'), set())
+        self.assertEqual(self.inputs('page = DOCS / "development" / name\n'), folder)
+        self.assertEqual(self.inputs('check(root, "development/")\n'), folder, "a path separator")
+        self.assertEqual(self.inputs('assertEqual(tier, "docs")\n'), set(), "a root folder's name as a value")
+        self.assertEqual(self.inputs('walk("docs")\n'), folder | {"docs/user/B.md"})
+        self.assertEqual(self.inputs('run("check", "README.md")\n'), {"README.md"}, "a file name stays")
+
+
 class Units(unittest.TestCase):
     def test_category(self):
         loaded = {"src/lib/used.fs"}
