@@ -149,15 +149,18 @@ This prints `ba7816bf...f20015ad`, the SHA-256 of "abc".
 - Every file loads on its own: `make test-lib-standalone` copies each one
   with exactly the files it requires into a folder outside the project,
   loads it on Gforth and gforth-fast, and checks that `BASE` and the search
-  order are as before. Six headers (`bignum.fs`, `bounds.fs`, `bytes.fs`,
-  `json.fs`, `json-write.fs`, `u32.fs`) have an example that test runs as
-  written; the others' examples are not run yet (plan task 1.1.8).
+  order are as before. Every header has an example ending in the text it
+  prints, and that test runs each one as written there, on both engines
+  (and on Gforth 0.7.3), so an example cannot go stale.
+- `make lib-bench` measures each library at a small and a large size on
+  gforth-fast and gforth; the figures, with what each library costs as
+  inputs grow and the sizes LeanForth really passes it on `Init`, are in
+  [FORTH_LIBRARY.md](../../docs/development/FORTH_LIBRARY.md#measured-profiles-2026-11-18).
 - `bytes.fs`'s reader reads ordinary text by default (a last line without
   a line feed, CRLF line ends, a leading byte-order mark); `reader-strict`
   gives the strict framing LeanForth uses for Lean's exports.
 - `context.fs` and `task.fs` were designed around the checker's needs.
   They are general, but less polished as stand-alone tools than the rest.
-- `frame.fs`, `task.fs`, `blocks.fs`, `outcome.fs` and `node.fs` still
-  keep every word public, and several files (`frame.fs`, `task.fs`,
-  `htab.fs`, `slab.fs`, `store.fs` and others) lack the measured profile
-  of [FORTH_LIBRARY.md](../../docs/development/FORTH_LIBRARY.md).
+- `task.fs` still keeps every word public (about 130, most of them the
+  pool's internals; plan task 1.1.8). `blocks.fs`, `outcome.fs` and
+  `node.fs` have no helpers: every word they define is used elsewhere.

@@ -190,6 +190,12 @@ Hash tables in use are healthy: 1.19 occupied slots compared per `htab-find` ove
 million finds (p1m). Callers' real sizes for the remaining libraries are plan 9.4.8g's
 work; the counter patch used here (`tools/patch.py`) is a template for it.
 
+**Update (2026-11-18, branch `lib-tidy-2`):** every library now has the five parts in
+[FORTH_LIBRARY.md, "Measured profiles"](FORTH_LIBRARY.md#measured-profiles-2026-11-18):
+speed at a small and a large size from `make lib-bench` (both engines), and the sizes
+LeanForth passes each library on a check of `Init`, counted by
+[the lib-profiles patch](measurements/lib-profiles-2026-11-18/).
+
 ## PROFILING.md: what still works
 
 `scripts/profile-existing.sh 1` (`make profile-existing`'s script) still runs: 48 matching

@@ -979,6 +979,15 @@ test-sections:
 test-lib-standalone:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_standalone.py
 
+# Report only (not part of make test): each library's speed at a small and a
+# large size, on gforth-fast (the Gforth named, with -fast) and then Gforth,
+# with the machine's load; the figures of FORTH_LIBRARY.md's "Measured
+# profiles" (tests/lib/lib-bench.fs, a few minutes).
+lib-bench:
+	@mkdir -p build
+	@for g in $(LEANFORTH_GFORTH)-fast $(LEANFORTH_GFORTH); do echo "$$g, load $$(cut -d' ' -f1-3 /proc/loadavg 2>/dev/null)"; \
+	  $$g tests/lib/lib-bench.fs -e 'lib-bench bye' || exit 1; done
+
 test-manifest:
 	$(RUN) $(GFORTH) tests/core/manifest.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_export_manifest.py
@@ -989,7 +998,7 @@ test-manifest:
 reference-manifest:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/reference/manifest-check.sh
 
-.PHONY: test-sha256 test-sections test-lib-standalone test-manifest reference-manifest
+.PHONY: test-sha256 test-sections test-lib-standalone test-manifest reference-manifest lib-bench
 test: test-sha256 test-sections test-lib-standalone test-manifest
 test-differential: reference-manifest
 

@@ -1,0 +1,53 @@
+0 sha256-update: bytes a piece
+1 json-parse: bytes a text
+2 jw-start: texts written
+3 jw-end: bytes a text
+4 bignum operation: limbs of the larger operand
+5 htab-find: slots of the table
+6 memo-put: entries already held
+7 memo-find: entries held
+8 slab-init: slabs made
+9 slab growth: capacity before
+10 sort-records: records
+11 pq-push: cells queued
+12 reader-line: lines
+13 u>decimal and kin: numbers written
+14 sections-add: bytes a section
+15 sections-read: sections read
+16 job-submit: jobs
+17 cons-commit: records already held
+18 cons-find: finds
+19 text-intern: bytes a text
+20 run-push: cells pushed
+21 store-grow: growths
+22 store-heap-init: capacity
+23 walk-run: walks
+24 frame-run: passes
+25 frame-call: child visits
+26 context-new: contexts
+27 tr-rule?: bytes a text
+28 xt-table@: lookups
+29 block-resize: bytes asked
+30 allocate0: bytes asked
+31 hash-bytes: bytes
+32 lower-bound: range
+33 cells-index: cells
+34 ok-each: steps
+35 utf8-valid?: bytes
+36 text-any?: characters
+37 node-new: nodes
+38 columns-grow: growths
+39 digits>u: digits
+41 big-compare: comparisons
+45 decimal>big: digits
+48 htab-init: tables
+49 memo-init: memos
+50 tuple-end: tuples
+52 frame-grow: cells needed
+53 run-cat: joins
+54 pq-init: queues
+55 bigint operation
+56 jw-copy: values copied
+57 context-catch: catches
+58 slab-push: units held
+59 u32s>le: fields

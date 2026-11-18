@@ -15,7 +15,9 @@ Every library's section here gives, as [Sorting](#sorting) does: **algorithm** (
 data); **scaling** (cost for small and large inputs, cut-overs, scratch memory, recursion or host-stack depth);
 **measured speed** at a small and a large size, with the machine and Gforth version; and **callers and their mix**
 (each calling module and the sizes it passes, measured on a real run such as Init or Mathlib, updated when a caller
-is added). The library audit of 2026-11-13 (plan 9.4.8) lists which libraries lack which part.
+is added). The library audit of 2026-11-13 (plan 9.4.8) listed which libraries lacked which part; since
+2026-11-18 every library has all five, in [Measured profiles](#measured-profiles-2026-11-18) (`make lib-bench`
+re-measures the speeds).
 
 ## What exists
 
@@ -83,8 +85,8 @@ LeanForth, unless coupling gains a lot. Audit of `src/lib/` on 2026-11-03:
 | `json.fs` (RFC 8259 reader), `json-write.fs` | yes | since 2026-11-18 (plan 1.1.8, branch `lib-tidy`) each requires exactly what it uses (`portability.fs`, `bounds.fs`, `outcome.fs`, `store.fs`, `blocks.fs`, `bytes.fs`, `decimal.fs`, `module.fs`); helpers in `lf-lib-private`; the public words and a runnable example in each header |
 | `bytes.fs` (bounded line reader, UTF-8) | yes | since 2026-11-18 requires `portability.fs`, `bounds.fs`, `outcome.fs`, `store.fs`, `blocks.fs` and `module.fs`, not `lib.fs`; the framing rules are options (`reader-rules!`): a zeroed reader reads ordinary text (a last line without a line feed, CRLF ends, a leading byte-order mark dropped), `reader-strict` is Lean's exports' framing, which the NDJSON and elaboration-data readers pass; helpers private |
 | `u32.fs` (32-bit access) | yes | none beyond `portability.fs` |
-| `store.fs`, `node.fs`, `walk.fs`, `frame.fs` (bounded stores, records, explicit-stack walks) | yes | the shared outcome vocabulary |
-| `context.fs`, `task.fs` (per-task contexts, job pool) | partly: a general job pool and context mechanism, designed around the checker's per-check state | the checker's context model (ADR 0009) |
+| `store.fs`, `node.fs`, `walk.fs`, `frame.fs` (bounded stores, records, explicit-stack walks) | yes | the shared outcome vocabulary; since 2026-11-18 (branch `lib-tidy-2`) `frame.fs`'s eleven helpers (the stack's growth, the steps that open and end a visit) are private, its other words public in the word list current when it loads, as `walk.fs`'s |
+| `context.fs`, `task.fs` (per-task contexts, job pool) | partly: a general job pool and context mechanism, designed around the checker's per-check state | the checker's context model (ADR 0009); since 2026-11-18 `task.fs` requires `portability.fs`, `blocks.fs` and `context.fs`, not all of `lib.fs`; its about 130 words are all still public |
 | `outcome.fs` (ok, invalid, exhausted, unknown, rejected, unsupported, full) | LeanForth's shared result vocabulary | deliberately shared: one vocabulary for every module |
 | `sections.fs` (sectioned binary files) | yes, written to this rule (2026-11-11): requires `portability.fs`, `module.fs`, `outcome.fs`, `u32.fs`, `sha256.fs`; helpers private; 14 public words, all `sections…`; an example in its header, run with the interface checked from a folder outside the project by `make test-sections` |
 | `sha256.fs` (SHA-256) | yes, written to this rule (2026-11-03) | requires `portability.fs`, `bits.fs`, `decimal.fs` and `module.fs`; helpers in `lf-lib-private`, 17 public words (the hashing interface and FIPS 180-4's functions), all named `sha-…` or `sha256…`; an example in its header and [below](#sha-256), run with the interface checked from a folder outside the project by `make test-sha256` |
@@ -92,15 +94,21 @@ LeanForth, unless coupling gains a lot. Audit of `src/lib/` on 2026-11-03:
 | `sort.fs` (stable sorting) | yes, written to this rule (2026-11-12) | requires `portability.fs`, `bounds.fs`, `outcome.fs`, `u32.fs` and `module.fs`; helpers in `lf-lib-private`, 11 public words, all named `sort…` or `sorter…`; an example in its header, run by `tests/lib/sort.fs` without the checker |
 | `memo.fs` (keyed memo tables) | yes, written to this rule (2026-11-13) | requires `portability.fs`, `bounds.fs`, `outcome.fs`, `u32.fs`, `hash32.fs`, `slab.fs`, `htab.fs` and `module.fs`; helpers in `lf-lib-private`, 17 public words, all named `memo…`; an example in its header, run by `tests/lib/memo.fs` without the checker |
 | `pqueue.fs` (priority queues) | yes, written to this rule (2026-11-13) | requires `portability.fs`, `outcome.fs`, `slab.fs` and `module.fs`; helpers in `lf-lib-private`, 8 public words, all named `pq…` or `/pqueue`; an example in its header, run by `tests/lib/pqueue.fs` without the checker |
-| `text-rule.fs` (visible text) | yes, written to this rule (2026-11-03): a UTF-8 hygiene rule with nothing of Lean | requires `bounds.fs`, `bytes.fs` (and through it `lib.fs`) and `module.fs`; helpers in `lf-lib-private`, three public words (`tr-banned?` since 2026-11-04, for callers that decode text themselves); an example in its header; `tests/lib/text-rule.fs` runs without the checker |
+| `text-rule.fs` (visible text) | yes, written to this rule (2026-11-03): a UTF-8 hygiene rule with nothing of Lean | requires `bounds.fs`, `bytes.fs` and `module.fs`; helpers in `lf-lib-private`, three public words (`tr-banned?` since 2026-11-04, for callers that decode text themselves); an example in its header; `tests/lib/text-rule.fs` runs without the checker |
 | coming: the compact store (ADR 0016) | written to this rule from the start | — |
 
-**Why they are not yet packaged as standalone libraries.** They were built
-just in time for the checker, with correctness and fail-closed behaviour
-first; their headers already say "a general tool with no Lean knowledge",
-but nothing required minimal `require` lines, private helper names, a
-standalone example or tests runnable outside the project. Plan task 1.1.8
-does that, together with ADR 0010's word lists for the library.
+**Packaging them as standalone libraries (plan task 1.1.8).** They were
+built just in time for the checker, with correctness and fail-closed
+behaviour first. Since 2026-11-18 (branches `lib-tidy` and `lib-tidy-2`):
+every file loads alone, with exactly the files it requires, from a folder
+outside the project, and every file requires each library file whose
+words it uses (an audit of words against `require` lines found none
+required and unused); every header has an example ending in what it
+prints, run as written by `make test-lib-standalone` on both engines; the
+helpers of every file but `task.fs` are private (ADR 0010); and every
+library's speed is measured at two sizes with its callers' real sizes
+([below](#measured-profiles-2026-11-18)). Still open: `task.fs`'s public
+list.
 
 ## JSON and NDJSON
 
@@ -322,6 +330,95 @@ leave the old file and no partial; Python reads every file written with
 field-by-field and Forth-2012 u32 paths write byte-identical files; two
 writes are identical; the header's example and the exact public interface
 are checked from a folder outside the project.
+
+## Measured profiles (2026-11-18)
+
+The five parts of [each library's profile](#what-each-library-documents-owner-2026-11-13),
+for every file of `src/lib` (plan task 1.1.8). `memo`, `pqueue`, `sort` and `cons` also
+have sections of their own below, with more detail. **Speed**: `make lib-bench`
+(`tests/lib/lib-bench.fs`) on this machine (10 logical cores under WSL2, shared with
+other agents, load average 3 to 5), Gforth 1.0.0, the better of two runs of at least
+0.2 s each; raw output in
+[measurements/lib-profiles-2026-11-18/bench.txt](measurements/lib-profiles-2026-11-18/bench.txt).
+**Callers**: every call of 54 library words counted, with the sizes passed, on a check
+of `Init` (59,349 declarations, `check --json --jobs 1 --save-snapshot`, 1,078 s with
+the counters), by the patch of
+[measurements/lib-profiles-2026-11-18/](measurements/lib-profiles-2026-11-18/README.md)
+on a scratch copy; "most" gives the power of two that holds most calls.
+
+| Library: operation (time per item) | gforth-fast, small | large | gforth, small | large |
+| --- | --- | --- | --- | --- |
+| sha256: hash a message (a byte) | 64: 29.9 ns | 1 MiB: 12.8 ns | 160.1 ns | 68.8 ns |
+| json: parse objects (a byte) | 64: 14.2 ns | 1 MiB: 12.4 ns | 53.0 ns | 55.9 ns |
+| json-write: an array of integers (a value) | 8: 83.0 ns | 100,000: 75.7 ns | 242.0 ns | 254.9 ns |
+| bignum: multiply n by n limbs (a call) | 2: 150 ns | 1,000: 772 µs | 549 ns | 2,765 µs |
+| bignum: divide 2n by n limbs (a call) | 2: 244 ns | 1,000: 2,165 µs | 781 ns | 8,084 µs |
+| bigint: ediv, -2n by n limbs (a call) | 2: 550 ns | 1,000: 2,340 µs | 1,723 ns | 7,678 µs |
+| htab: insert, then find (an operation) | 1,000: 55.2 ns | 10^6: 87.0 ns | 179.8 ns | 244.6 ns |
+| memo: put, then find (an operation) | 1,000: 157.9 ns | 10^6: 393.5 ns | 404.5 ns | 749.2 ns |
+| slab: push, then pop (an operation) | 1,000: 28.0 ns | 10^6: 24.5 ns | 63.9 ns | 67.4 ns |
+| sort: random cells, with their copy (a cell) | 16: 185.7 ns | 10^6: 698.6 ns | 433.4 ns | 1,823.9 ns |
+| pqueue: push, then pop (an operation) | 1,000: 207.7 ns | 10^6: 491.5 ns | 492.8 ns | 1,068.4 ns |
+| bytes: utf8-valid? (a byte) | 64: 6.0 ns | 1 MiB: 5.7 ns | 24.2 ns | 25.0 ns |
+| bytes: reader, lines of 80 bytes (a byte) | 10 lines: 7.5 ns | 50,000: 0.8 ns | 9.1 ns | 1.5 ns |
+| decimal: u>decimal of n digits (a call) | 2: 24.7 ns | 20: 114.7 ns | 76.4 ns | 310.8 ns |
+| decimal: u>decimal, then digits>u (a call) | 2: 30.2 ns | 20: 120.2 ns | 92.1 ns | 341.4 ns |
+| sections: write, open, read one section (a byte) | 1 KiB: 279.5 ns | 4 MiB: 27.8 ns | 1,107.6 ns | 144.9 ns |
+| hash32: hash-bytes (a byte) | 64: 2.1 ns | 1 MiB: 2.2 ns | 3.9 ns | 3.7 ns |
+| bounds: cells-index, absent (a cell) | 16: 1.2 ns | 10^6: 0.9 ns | 5.0 ns | 3.6 ns |
+| bits: lower-bound over n cells (a search) | 16: 29.1 ns | 10^6: 131.6 ns | 106.1 ns | 522.0 ns |
+| u32: u32! then u32@ (a field) | 1,000: 1.4 ns | 10^6: 1.4 ns | 3.2 ns | 3.1 ns |
+| pools: text-intern of distinct texts (a text) | 1,000: 230.0 ns | 10^6: 573.4 ns | 585.1 ns | 1,232.3 ns |
+| pools: tuples of two (a tuple) | 1,000: 424.2 ns | 10^6: 597.6 ns | 1,170.0 ns | 1,491.7 ns |
+| runs: run-push (a cell) | 1,000: 108.7 ns | 10^6: 109.0 ns | 305.1 ns | 321.6 ns |
+| store, node: node-new, growing (a node) | 1,000: 32.8 ns | 10^6: 37.3 ns | 106.3 ns | 106.9 ns |
+| walk: a chain of n nodes (a visit) | 1,000: 23.2 ns | 10^6: 23.4 ns | 80.7 ns | 83.0 ns |
+| frame: a tree of n levels (a visit) | 10 (177 visits): 44.3 ns | 25 (242,785): 44.3 ns | 158.8 ns | 156.6 ns |
+| context: new, then free (a context) | 1: 147.4 ns | 100: 155.7 ns | 334.0 ns | 341.0 ns |
+| text-rule: tr-rule? (a byte) | 64: 6.2 ns | 1 MiB: 5.6 ns | 24.2 ns | 24.3 ns |
+| text-run: text-any?, no match (a byte) | 10: 3.2 ns | 1 MiB: 2.4 ns | 7.7 ns | 6.1 ns |
+| xt-table: xt-table@ in n entries (a lookup) | 16: 3.0 ns | 4,096: 3.5 ns | 7.6 ns | 10.6 ns |
+| blocks: allocate0 and free of n bytes (a call) | 64: 20.3 ns | 1 MiB: 8.8 µs | 23.7 ns | 8.1 µs |
+| outcome: ok-each (a step) | 16: 3.1 ns | 10^6: 2.9 ns | 6.1 ns | 5.1 ns |
+| task: empty jobs, 8 in flight (a job) | 1: 47.9 µs | 1,000: 32.2 µs | 50.6 µs | 33.5 µs |
+
+| Library | Algorithm, and why | Generic over | Cost as inputs grow | Callers on `Init` (counted) |
+| --- | --- | --- | --- | --- |
+| `sha256.fs` | FIPS 180-4's compression of 64-byte blocks, incremental; a 68-row window instead of moving eight variables, the round functions written in place on 64-bit cells ([above](#sha-256)) | any bytes, in pieces of any size; cells of 32 bits or more | linear: 64 rounds a block, plus one or two padding blocks at the end, so a 64-byte message costs 2.3 times a long one's rate; no heap, no recursion | 12.9 million updates, 479 MB: the manifest hashes each of the export's 6.45 million lines (most 32 to 63 bytes) and its line feed; the snapshot's 17 sections (up to 97.8 MB) |
+| `json.fs` | one pass, no recursion, into a token tape; numbers kept as digit text; fails closed | any RFC 8259 text; limits on depth, tokens, string and digit length | linear in bytes; the tape grows by doubling, /token bytes a token, to the token limit; a depth stack of one cell a level | 6.45 million texts (each export line), 339 MB; most 32 to 63 bytes, largest 3,272 |
+| `json-write.fs` | writes straight to the caller's sink; a stack of open containers and, sorted, a pool of each object's last key; jw-copy a loop | any sink, depth, key room; Python's or Lean's escapes | linear in output; memory fixed by depth and key room | one text, the 7.5 MB `--json` report |
+| `bignum.fs` | schoolbook with Karatsuba from 48 limbs, Knuth's algorithm D, Lehmer's gcd: Lean's `Nat` operations ([below](#big-natural-numbers)) | one-cell limbs of any width; the caller's arena | + linear; * n^1.58 above 48 limbs; / n·m; recursion log n (Karatsuba, powers) | 148,179 operations, all of one or two limbs; 91,717 comparisons; 277 literals read (at most 20 digits) |
+| `bigint.fs` | sign and magnitude over `bignum.fs`, Euclidean division as Lean's `Int` | as `bignum.fs` | `bignum.fs`'s, plus a copy of the operands | none yet (planned: `by-omega`, `by-decide`) |
+| `htab.fs` | open addressing, linear probing, doubling at 3/4 full, Knuth's Algorithm R to delete | the owner's rehash and compare hooks; records live elsewhere | a few probes whatever the size (1.19 slots a find on p1m); 4 bytes a slot, 1.3 to 2.7 slots an entry; a doubling rehashes all | 1.54 billion finds; 17,406 tables; most finds in tables of 2^17 slots, the largest 2^24 |
+| `memo.fs` | entries in a slab, found by `htab.fs` ([below](#keyed-memo-tables)) | key and value cells; check and admit hooks | as `htab.fs`, plus the key compare | 380 million finds and 215 million puts on 14 memos, most holding 2^8 to 2^12 entries, the largest 469,297 |
+| `slab.fs` | one heap block doubled by RESIZE, with seals and a stack of marks | any unit size and limit | push amortized constant; up to twice the memory while doubling; a growth may move the block | 17,665 slabs; 143,787 growths, most below 1,024 units, the largest from 4,194,304; 3.6 million pushes |
+| `sort.fs` | insertion up to 32 records, bottom-up merge above ([below](#sorting)) | record size, the caller's order or key | n^2/4 below 32, n log n above, n records of scratch | 16.3 million sorts, 61% of 0 or 1 record, 92% below 32 (insertion), the largest 2,259 |
+| `pqueue.fs` | binary min-heap on a slab ([below](#priority-queues)) | the caller's order of cells | log n a step | only with `--jobs` above 1: one push a declaration (59,349 on `Init`) |
+| `bytes.fs` | the reader keeps whole lines in one buffer grown to a limit and finds line ends with Gforth's `scan`; UTF-8 decoded by hand, no tables | any file; framing rules; UTF-8 per RFC 3629 | linear; the buffer the longest line; a refill moves the tail | 6.45 million lines; 476,742 UTF-8 checks, most 4 to 15 bytes, the largest 230 |
+| `decimal.fs` | pictured numeric output and digit loops inside `in-base`, which restores `BASE` even after a THROW | any `BASE` at the caller | linear in digits | 20.3 million `digits>u` (export indices, most 4 to 7 digits); 13,011 numbers written |
+| `sections.fs` | a 4,096-byte header, each section and the header under a SHA-256; written to a partial file and renamed | any sections of units | linear, dominated by SHA-256 and the file system; about 0.29 ms a file fixed | one snapshot: 17 sections, 133 MB |
+| `task.fs` | a fixed pool of POSIX threads fed from a bounded queue under one mutex and two condition variables; tasker on Gforth 0.7.3 | any word as a job, in its own context | about 32 µs a job with 8 in flight, 48 µs alone: a job should take milliseconds | only with `--jobs` above 1 (the scheduler, `env-schedule.fs`); not counted |
+| `hash32.fs` | Murmur3's finaliser for cells, FNV-1a for bytes, masked to 32 bits: the same values on 32- and 64-bit hosts | any bytes or cells | linear in bytes | 580,577 texts hashed, most 2 to 7 bytes |
+| `bounds.fs` | signed range checks; linear searches of cells | any cells | constant; searches linear | 77.5 million `cells-index`, most of 0 to 3 cells, the largest 62 |
+| `bits.fs` | binary search (Knuth's algorithm B), bit sets in cells | the caller's test; any cell width | log2 n tests | 147 million searches, most over 16 to 31 elements, the largest 2,259 |
+| `u32.fs` | Gforth's `l@`/`l!` when a load-time check shows them sound, else four bytes; little-endian block copies for files | any cell size | constant | not counted (every packed field of the compact store); the snapshot's 4 conversions, 24 million fields |
+| `cons.fs`, `pools.fs` | hash-consing in a slab found by `htab.fs`, in a read-only tier and a scratch tier ([below](#the-compact-store)) | record classes with their own hooks | as `htab.fs`; records and bytes in slabs | 6.46 million records added (the input tier grows to 6.1 million), 30.4 million finds; 178,671 tuples, 2,099 texts |
+| `runs.fs` | append-only cells shared between runs; a push in place at the top, else a copy | cells | constant, a copy when not at the top | the `.lf` front end only; none on an export |
+| `store.fs`, `node.fs`, `store-columns.fs` | fixed-width records with identities and a sealed shape; heap stores double (at least 16); columns grow with their store | record width, base, limit | constant a record; a growth copies | 13 heap stores (capacity 16 to 64 at first), 1.3 million growths; 222,310 nodes; 18 column growths |
+| `walk.fs` | depth-first walk on a bounded, growable work stack, with fuel | the visitor; node or (node, context) items | one visit a node a path, host stacks constant | 68.7 million walks |
+| `frame.fs` | each visit a chain of steps on a growable stack, so no pass recurses on the host | the visitor; a context cell | a few cells a visit; host stacks constant | 31.8 million passes, 325 million child visits; the stack grew 54 times |
+| `context.fs` | one ALLOCATEd record a worker, members declared while loading | members of any kind | one allocation and the setup words a context | the main context only with `--jobs 1` |
+| `text-rule.fs` | UTF-8 decoded, each code point looked up in range tables made from Unicode 15.1 | any UTF-8 text | linear | none on a check of an export (run records, the printer) |
+| `text-run.fs` | `/STRING` loops to the first match; the interpreter's settings saved and restored | a test word per character | linear to the first match | 6 scans of at most 64 characters |
+| `xt-table.fs` | a cell array with a default, indexed with one unsigned compare | any xts | constant | none counted on a check of an export (printers, the snapshot) |
+| `blocks.fs` | ALLOCATE or RESIZE, then ERASE, held in a cell | any size | the erase, linear | 3.4 million zeroed blocks, 14.4 GB in all, most 4 to 8 KiB; 1,174 resizes |
+| `outcome.fs` | loops that stop at the first failure | any steps | constant a step | 96 million `ok-each`, most of 2 or 3 steps, the largest 59,953 |
+| `lib.fs`, `module.fs`, `portability.fs` | loading only | — | none at run time | — |
+
+What the counts say: the hash tables and memos carry the check (1.54 billion finds; at
+the benchmark's 55 to 90 ns an operation on gforth-fast, 85 to 140 s); sorts are
+almost all short, so the insertion path matters, not the merge; `allocate0` zeroes
+14.4 GB in 3.3 million blocks of 4 to 8 KiB (55 a declaration), worth a look; big numbers on `Init` never exceed two limbs.
 
 ## Sorting
 
