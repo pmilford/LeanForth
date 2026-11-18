@@ -8,7 +8,7 @@ Usage (from the repository root):
 
 The list (default tests/mutants/faults.toml) holds one [[fault]] table per
 planted fault; every *.toml file of the folder faults.d beside it (tests/mutants/faults.d/,
-one file per tactic or module: docs/design/TACTIC_PLUGINS.md, slice (a1)) is read as part of
+one file per tactic or module: the tactic plug-in design, slice (a1)) is read as part of
 the same list, in name order. An id given twice, in one file or in two, a file that does not
 parse and a file with anything but [[fault]] tables make the whole list malformed (exit 2):
 a fault file is never skipped. Each entry has:

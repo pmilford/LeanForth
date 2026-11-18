@@ -83,7 +83,7 @@ class Tier(unittest.TestCase):
                  "src/front/tactics/all.fs": "require ./decide.fs\nrequire ./rfl.fs\n",
                  "tests/front/tactics/decide/test.fs": "require ../../../../src/main.fs\n",
                  "tests/mutants/faults.d/decide.toml": "",
-                 "docs/user/TACTICS.md": "# by-decide\n"}
+                 "TACTICS.md": "# by-decide\n"}
         files.update(extra or {})
         for name, body in files.items():
             self.repo.write(name, body)

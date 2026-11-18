@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Whether a branch's tactic plug-ins are confined (tactic plug-in design, slice (a1);
-docs/design/TACTIC_PLUGINS.md, sections 2.4 and 3, decision 2 approved by the owner 2026-11-17).
+TACTIC_PLUGINS.md of branch tactic-plugin-design, sections 2.4 and 3, decision 2 approved by the owner 2026-11-17).
 
 Usage (from the repository root):
   python3 scripts/check-tactic-plugins.py [--base REF] [--files FILE...]

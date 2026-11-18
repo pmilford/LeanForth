@@ -1043,7 +1043,7 @@ test: test-author test-author-e2e
 # instance search; tests/front/check_elab.py against pinned Lean's golden
 # terms through leanforth check). Its modules load alone, printing nothing.
 # The modules whose silent load test-front checks are found from the files (tactic plug-in
-# design, slice (a1); docs/design/TACTIC_PLUGINS.md): every front-end file, of src/front/ and of
+# design, slice (a1); branch tactic-plugin-design): every front-end file, of src/front/ and of
 # its tactics/ and meta-tactic/ folders, but those test-instances and test-elab-data load
 # (FRONT_LOADED_ELSEWHERE), and the two core modules only the front end uses.
 FRONT_LOADED_ELSEWHERE := src/front/discr-keys.fs src/front/elab-data.fs src/front/elab-keys.fs \
