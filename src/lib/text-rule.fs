@@ -44,6 +44,7 @@
 \ then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
+require ./portability.fs
 require ./bounds.fs
 require ./bytes.fs
 require ./module.fs

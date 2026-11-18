@@ -975,9 +975,12 @@ test-sections:
 # Every src/lib file alone (plan task 1.1.8): copied with exactly the files it
 # requires into a folder outside the project, loaded with BASE 7 on Gforth and
 # gforth-fast, BASE and the search order restored, every number read in
-# decimal, and each header's example run as written (tests/lib/test_standalone.py).
+# decimal, and each header's example run as written (tests/lib/test_standalone.py);
+# and each file requires directly every library file whose words it uses
+# (tests/lib/test_requires.py).
 test-lib-standalone:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_standalone.py
+	$(RUN) python3 tests/lib/test_requires.py
 
 # Report only (not part of make test): each library's speed at a small and a
 # large size, on gforth-fast (the Gforth named, with -fast) and then Gforth,

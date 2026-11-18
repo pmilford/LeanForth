@@ -148,8 +148,10 @@ This prints `ba7816bf...f20015ad`, the SHA-256 of "abc".
   correctness audit.
 - Every file loads on its own: `make test-lib-standalone` copies each one
   with exactly the files it requires into a folder outside the project,
-  loads it on Gforth and gforth-fast, and checks that `BASE` and the search
-  order are as before. Every header has an example ending in the text it
+  loads it on Gforth and gforth-fast with `BASE` set to 7, and checks that
+  `BASE` and the search order are as before; every number in the source is
+  read in decimal, and each file requires directly every file whose words it
+  uses (`tests/lib/test_requires.py`), not only through another file. Every header has an example ending in the text it
   prints, and that test runs each one as written there, on both engines
   (and on Gforth 0.7.3), so an example cannot go stale.
 - `make lib-bench` measures each library at a small and a large size on

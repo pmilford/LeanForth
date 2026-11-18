@@ -18,3 +18,12 @@ new = '''base @   \ the numbers below are decimal; the BASE kept here returns at
 '''
 test = "python3 tests/lib/test_standalone.py"
 reason = "frame.fs's numbers (-4111, 16) read in the loading BASE: the source check finds them, and with BASE 7 the file does not load"
+
+[[fault]]
+id = "lt3-bytes-without-blocks"
+file = "src/lib/bytes.fs"
+old = '''require ./blocks.fs
+'''
+new = ''''''
+test = "python3 tests/lib/test_requires.py"
+reason = "bytes.fs uses heap-claim of blocks.fs, reached only through store.fs: the standalone load passes, the requires check refuses it"
