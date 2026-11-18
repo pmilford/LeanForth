@@ -225,6 +225,7 @@ T{ 20 1 left-key 44 1 left-key elab-key= -> false }T
 \ The fixture's Nat.add body: after its root, nodes 24-32 of every other
 \ form; 29 projects Prod, which the slice lacks, so the body is foreign.
 T{ 0 elab-sunfold-foreign? 0 elab-sunfold-value -> true 23 }T
+T{ 0 elab-sunfold-inert? 0 elab-sunfold-usable? -> false false }T
 T{ 24 elab-node-kind 24 elab-node-a elab-level-kind -> elab-node-sort elab-level-succ }T
 T{ 25 elab-node-kind 25 elab-node-b 25 elab-node-c 25 elab-node-d
    -> elab-node-forall 24 0 3 }T
@@ -243,6 +244,25 @@ T{ 33 elab-node-a dup elab-level-kind over elab-level-a rot elab-level-b
    -> elab-level-max 0 1 }T
 T{ 34 elab-node-a dup elab-level-kind over elab-level-a rot elab-level-b
    -> elab-level-imax 1 0 }T
+
+\ Format 3.1 (MATHLIB_FRONT.md O1, O2; test_elab_data.py writes the
+\ fixture): Nat.add's body with an inert node of each kind after its root
+\ (24-26) and a lambda with an anonymous binder (27): read, the body inert
+\ and not usable, not foreign; an inert node an mdata of elab-inert around
+\ its term. instHAdd a default instance of HAdd at ranks 0 and 1: both kept.
+: v31 ( -- c-addr u ) s" tests/front/format31.elab.ndjson" ;
+T{ v31 lib digest elab-read counts -> outcome-ok 3 3 18 0 54 3 10 4 3 1 }T
+T{ 0 elab-sunfold-inert? 0 elab-sunfold-foreign? 0 elab-sunfold-usable? 0 elab-sunfold-value
+   -> true false false 23 }T
+T{ 24 elab-node-kind 24 elab-node-a 24 elab-node-c 25 elab-node-c 26 elab-node-a
+   -> elab-node-mdata elab-inert 0 24 elab-inert }T
+T{ 25 ed-loose 27 elab-node-kind 27 elab-node-a elab-key-text nip -> 0 elab-node-lam 0 }T
+T{ 0 elab-default@ 0 elab-default-rank -> s" HAdd" top s" instHAdd" top 1000 0 }T
+T{ 1 elab-default@ 1 elab-default-rank -> s" HAdd" top s" instHAdd" top 1000 1 }T
+T{ 2 elab-default@ 2drop -> s" OfNat" top }T
+\ A format-3 read after it: the version and every body usable again.
+T{ elab elab-v31 @ good lib digest elab-read elab elab-v31 @ 0 elab-sunfold-usable?
+   -> true outcome-ok false true }T
 
 \ A refused read keeps nothing; the next read works and replaces it.
 : forgotten? ( d -- flag )
@@ -272,6 +292,7 @@ T{ 0 ed-message s" none" compare 1 ed-message s" file missing or unreadable" com
    38 ed-message s" a record kind this reader does not read yet" compare
    45 ed-message s" an annotation this reader does not know" compare 46 ed-message nip
    -> 0 0 0 0 0 }T
+T{ 16 ed-message s" a default instance of two classes" compare -> 0 }T
 \ elab-unhashed: error 26 at line 0, the outcome kept, nothing loaded.
 T{ good lib digest elab-read outcome-full elab-unhashed elab-error-code elab-error-line
    empty? -> outcome-ok outcome-full 26 0 true }T

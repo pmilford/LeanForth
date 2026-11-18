@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/pmilford/LeanForth/schemas/elab-data-3.schema.json",
-  "title": "LeanForth elaboration data, format version 3: one line",
-  "description": "Every line of an elaboration-data file (plan rows FE1d and FE1e1; ADR 0021 D10), written by scripts/export-elab.sh with pinned Lean 4.35.0 for a Lean export and read by `leanforth check --elab-data FILE` (src/front/elab-data.fs). Line 1 is the header ({\"elab_data\": ...}); every later line is one record: a class, an instance, an instance left out, a default instance, a reducibility status, an eliminator, a tag, a matcher, a projection function or a smart-unfolding body (plan S2). A name is the array of its parts, root first (Nat.add is [\"Nat\",\"add\"]); a part is a string or a natural number. A key is one of Lean's discrimination-tree keys (DiscrTree.Key) as the instance tree stores it. Documented in docs/programming/ELABORATION_DATA.md. The Forth reader also refuses what a schema cannot say: a header anywhere but on line 1 or a record on line 1, a name that is not exactly one declaration of the export or of the wrong kind, a declaration named twice, an instance or default instance of a declaration with no class record before it, a key list that is not one term, two values of a root key's tree with one rank or ranks with a gap, two default instances of a class with one rank, a left-out instance that the export has, numbers of records or a SHA-256 of the records that differ from the header, another export's SHA-256, and repeated keys. and, in a smart-unfolding body, universe parameters other than its definition's, a recursion argument beyond the definition's arity, a loose bound variable at the root, and a definition with two bodies. Format versions 1 and 2 (schemas/elab-data-1.schema.json, elab-data-2.schema.json) are refused as another format version: a format-2 file says \"sunfold\":0 for a library whose definitions have smart-unfolding bodies, which would read as \"none has one\".",
+  "title": "LeanForth elaboration data, format versions 3 and 3.1: one line",
+  "description": "Every line of an elaboration-data file (plan rows FE1d and FE1e1; ADR 0021 D10), written by scripts/export-elab.sh with pinned Lean 4.35.0 for a Lean export and read by `leanforth check --elab-data FILE` (src/front/elab-data.fs). Line 1 is the header ({\"elab_data\": ...}); every later line is one record: a class, an instance, an instance left out, a default instance, a reducibility status, an eliminator, a tag, a matcher, a projection function or a smart-unfolding body (plan S2). A name is the array of its parts, root first (Nat.add is [\"Nat\",\"add\"]); a part is a string or a natural number. A key is one of Lean's discrimination-tree keys (DiscrTree.Key) as the instance tree stores it. Documented in docs/programming/ELABORATION_DATA.md. The Forth reader also refuses what a schema cannot say: a header anywhere but on line 1 or a record on line 1, a name that is not exactly one declaration of the export or of the wrong kind, a declaration named twice (a default instance may be, of one class at two ranks, as Lean keeps it), an instance or default instance of a declaration with no class record before it, a key list that is not one term, two values of a root key's tree with one rank or ranks with a gap, two default instances of a class with one rank, a left-out instance that the export has, numbers of records or a SHA-256 of the records that differ from the header, another export's SHA-256, and repeated keys. and, in a smart-unfolding body, universe parameters other than its definition's, a recursion argument beyond the definition's arity, a loose bound variable at the root, a definition with two bodies, and an inert node in a format-3 file. Format versions 1 and 2 (schemas/elab-data-1.schema.json, elab-data-2.schema.json) are refused as another format version: a format-2 file says \"sunfold\":0 for a library whose definitions have smart-unfolding bodies, which would read as \"none has one\".",
   "$comment": "Uses only the keywords that tests/support/schema_subset.py implements.",
   "anyOf": [
     {
@@ -180,7 +180,11 @@
               "const": "leanforth-elab-data"
             },
             "format_version": {
-              "const": 3
+              "description": "The number 3, or the text \"3.1\" when a smart-unfolding body holds an inert node (the reader refuses an inert node in a format-3 file as malformed).",
+              "enum": [
+                3,
+                "3.1"
+              ]
             },
             "lean_version": {
               "const": "4.35.0"
@@ -710,7 +714,7 @@
       ]
     },
     "node": {
-      "description": "A node of a smart-unfolding body's table (Lean's Expr): a bound variable (de Bruijn index), a sort of a level of the table, a constant with levels of the table, an application, a lambda, a pi (forall), a let, a natural-number literal (its decimal digits), a string literal, a projection, or an annotation (Lean's mdata: one entry sunfoldMatch, sunfoldMatchAlt or borrowed, true). Numbers are places of earlier nodes. No free variable or metavariable.",
+      "description": "A node of a smart-unfolding body's table (Lean's Expr): a bound variable (de Bruijn index), a sort of a level of the table, a constant with levels of the table, an application, a lambda, a pi (forall), a let, a natural-number literal (its decimal digits), a string literal, a projection, an annotation (Lean's mdata: one entry sunfoldMatch, sunfoldMatchAlt or borrowed, true) or, in format 3.1, an inert node. Numbers are places of earlier nodes. No free variable or metavariable.",
       "anyOf": [
         {
           "type": "object",
@@ -959,6 +963,36 @@
                 },
                 "expr": {
                   "$ref": "#/$defs/index"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "inert"
+          ],
+          "properties": {
+            "inert": {
+              "description": "Format 3.1: metadata LeanForth does not carry, of one of three kinds (Lean's save_info and noImplicitLambda annotations, Mathlib's TermCongr hole), around the node expr; the front end does not use a body holding one.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "expr",
+                "key"
+              ],
+              "properties": {
+                "expr": {
+                  "$ref": "#/$defs/index"
+                },
+                "key": {
+                  "enum": [
+                    "save_info",
+                    "noImplicitLambda",
+                    "congrHole"
+                  ]
                 }
               }
             }

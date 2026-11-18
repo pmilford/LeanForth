@@ -1526,3 +1526,10 @@ Asked in plain language with recommendations (2026-11-18, about 11:30), the owne
   listed first, each worktree checked for a `.tools` link first, the unmerged branches' worktrees kept.
 - **Small rules:** the step log's [format] approval covers the [bypass] gate its design listed (the log never
   changes a verdict); a tactic-only branch may also change documentation and keep the tactic tier.
+- **[kernel], in form: tag bits clamped** (branch `small-fixes-1118`, approved later the same day): a term tag
+  outside 0-31 is clamped before it becomes a bit mask (`lf-tag-place`, `lf-tag-set+` in `src/core/terms.fs`);
+  valid tags behave as before.
+- **LeanForth-specific libraries are prioritised** (plan PD20; the owner, 2026-11-18: "we are starting to use what
+  would be the contents of several"): in the order listed there, the elaborator library and the simp and rewriting
+  library first, designed and architected together with the tactic library and the tactics that will call them,
+  while the tactic work continues.
