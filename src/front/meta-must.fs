@@ -30,10 +30,15 @@
 \ invalid. tactic-run.fs's lfr-meta-code stays the one mapping of a
 \ failure to an authoring error. Every with- word puts its state back
 \ on both paths.
-\ Rule: no throwing word may run inside a dw-run walk (dag-walk.fs),
-\ whose heap memo and stack are freed only on a normal return: builders
-\ call walks, never the reverse. Every word above but lf-meta-thrown?,
-\ lf-meta-outcome and lf-meta-catch throws.
+\ Rule: no throwing word may run inside code that frees its state only
+\ on a normal return: a dw-run walk (dag-walk.fs: its heap memo and
+\ stack, so no lf-term-holds? predicate throws), defeq.fs's machine (its
+\ saved frames around the synth hooks lf-meta-synth and
+\ lf-meta-synth-pending), synth.fs's search between sy-enter and
+\ sy-leave, and the elaborator's frames (elab-*.fs). Builders call
+\ those, never the reverse; outcome code that calls a builder wraps it
+\ in lf-meta-catch. Every word above but lf-meta-thrown?, lf-meta-outcome
+\ and lf-meta-catch throws.
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own. Loads in decimal whatever BASE is, then
 \ restores it.
