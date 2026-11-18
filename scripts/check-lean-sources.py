@@ -34,6 +34,10 @@ ALLOWED = {
     **{("tests/reference/mixed-convert-table.lean", "axiom", name):
        "opaque test constant in a Lean-only comparison table"
        for name in ("mixedConvertC", "mixedConvertD", "mixedConvertF")},
+    **{("tests/cli/odd-string.lean", "axiom", name):
+       "opaque prelude constant of a print fixture (a string literal's escapes, review F4 "
+       "re-check S1): it keeps the export at 1 KB; print marks the theorem NOT PROVED"
+       for name in ("String", "P")},
 }
 FLAG = "-DwarningAsError=true"
 # A call is the Lean executable followed directly by its first argument.

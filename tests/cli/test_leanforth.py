@@ -1828,7 +1828,7 @@ class Names(unittest.TestCase):
 # prints for each (K, Name.toString, ppExpr of the statement); make
 # reference-cli (export-check.sh) checks that Lean prints it still.
 ODD = "tests/cli/odd-names.ndjson"
-# oddStr of the same file: a string literal holding U+E0041 and U+1D173, which
+# tests/cli/odd-string.lean: a string literal holding U+E0041 and U+1D173, which
 # Lean prints as themselves and LeanForth as \u{X} (review F4).
 ODD_STRING = "tests/cli/odd-string.ndjson"
 ODD_WIDE = {"\U000e0041": "\\u{E0041}", "\U0001d173": "\\u{1D173}"}
@@ -1852,8 +1852,6 @@ def odd_lean():
     """K -> (Name.toString, ppExpr of oddThmK's statement), as LeanForth spells them."""
     shown = {}
     for k, name, statement in odd_out():
-        if k == "str":
-            continue
         for lean, ours in ODD_DIFFERS.get(int(k), []):
             name, statement = name.replace(lean, ours), statement.replace(lean, ours)
         shown[int(k)] = (name, statement)
@@ -1928,29 +1926,33 @@ class OddNames(unittest.TestCase):
         """A string literal's format characters above U+FFFF show as \\u{X} in
         every line print writes, plain, LaTeX and the Markdown mathematics
         line (review F4), and the input's file name in LaTeX escapes them
-        too (the fault latex-name-banned-unescaped)."""
-        (lean,) = [statement for k, _, statement in odd_out() if k == "str"]
-        shown = re.sub("|".join(ODD_WIDE), lambda m: ODD_WIDE[m[0]], lean)
-        self.assertNotEqual(shown, lean)
-        halves = tuple(shown.split(" = "))
-        status, out, _ = run("print", "--name", "oddStr", ODD_STRING)
-        got = odd_lines(out, 0, "Theorem oddStr")
-        self.assertEqual((status, got["Statement in Lean"], got["Statement in math text"],
-                          odd_untex(got["Statement in mathematics"])),
-                         (0, shown, shown, "$\\texttt{%s} = \\texttt{%s}$" % halves))
+        too (the fault latex-name-banned-unescaped). tests/cli/odd-string.lean:
+        strUse (h : P "a…b…c") : P "a…b…c", the literal holding the two
+        characters themselves."""
+        source = (ROOT / "tests/cli/odd-string.lean").read_text(encoding="utf-8")
+        (lean,) = set(re.findall(r'"a[^"]*c"', source))
+        literal = re.sub("|".join(ODD_WIDE), lambda m: ODD_WIDE[m[0]], lean)
+        self.assertEqual(literal, '"a\\u{E0041}b\\u{1D173}c"')
+        status, out, _ = run("print", "--name", "strUse", ODD_STRING)
+        got = odd_lines(out, 0, "Theorem strUse")
+        self.assertEqual(status, 0)
+        for label in ("Statement in Lean", "Statement in math text"):
+            self.assertEqual(got[label].count(f"P {literal}"), 2, label)
+        self.assertEqual(odd_untex(got["Statement in mathematics"]).count(
+            f"\\mathsf{{P}}\\ \\texttt{{{literal}}}"), 2)
         with tempfile.TemporaryDirectory() as folder:
             export = Path(folder) / "s\U000e0041.ndjson"
             export.write_bytes((ROOT / ODD_STRING).read_bytes())
-            status, out, _ = run("print", "--latex", "--no-manifest", "--name", "oddStr",
+            status, tex, _ = run("print", "--latex", "--no-manifest", "--name", "strUse",
                                  str(export))
-        got = odd_lines(out, 0, "\\textbf{{Theorem }}$\\mathsf{{oddStr}}$ \\\\")
-        self.assertEqual((status, odd_untex(got["Statement in Lean (ASCII)"]),
-                          odd_untex(got["Statement in mathematics"])),
-                         (0, "{\\ttfamily %s} \\\\" % shown,
-                          "$\\texttt{%s} = \\texttt{%s}$ \\\\" % halves))
-        self.assertIn("/s\\u{E0041}.ndjson} line ", odd_untex(out))
+        got = odd_lines(tex, 0, "\\textbf{{Theorem }}$\\mathsf{{strUse}}$ \\\\")
+        self.assertEqual(status, 0)
+        self.assertEqual(odd_untex(got["Statement in Lean (ASCII)"]).count(f"P {literal}"), 2)
+        self.assertEqual(odd_untex(got["Statement in mathematics"]).count(
+            f"\\texttt{{{literal}}}"), 2)
+        self.assertIn("/s\\u{E0041}.ndjson} line ", odd_untex(tex))
         for wide in ODD_WIDE:
-            self.assertNotIn(wide, out)
+            self.assertNotIn(wide, out + tex)
 
     def test_input_name_escaped(self):
         """The input's file name, the one text the outline escapes itself."""

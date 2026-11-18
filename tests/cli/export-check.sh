@@ -12,10 +12,10 @@
 # dependent.lean and sibling.lean (two libraries importing inductive.lean,
 # for check --snapshot), let-zd.lean and let-b.lean (lets equal but for
 # their names, cross_snapshot.py's let pair), each
-# without axioms, and odd-names.lean (22 names that need « » and a string
-# literal with format characters above U+FFFF, whose Name.toString and
-# ppExpr it prints as odd-names.lean.out records, exported as odd-names and
-# odd-string), and scripts/export.sh reproduces the committed
+# without axioms, odd-names.lean (22 names that need « », whose
+# Name.toString and ppExpr it prints as odd-names.lean.out records) and
+# odd-string.lean (a prelude file: a string literal with format characters
+# above U+FFFF, its axioms String and P), and scripts/export.sh reproduces the committed
 # exports and their manifests byte for byte. LEAN names the pinned Lean
 # 4.35.0 binary.
 set -eu
@@ -38,7 +38,7 @@ cleanup() {
     dependent.ndjson dependent.ndjson.manifest.json sibling.ndjson sibling.ndjson.manifest.json \
     let-zd.ndjson let-zd.ndjson.manifest.json let-b.ndjson let-b.ndjson.manifest.json \
     LeanForthOddNames.olean odd-names.lean.out odd-names.ndjson odd-names.ndjson.manifest.json \
-    odd-string.ndjson odd-string.ndjson.manifest.json; do
+    LeanForthOddString.olean odd-string.ndjson odd-string.ndjson.manifest.json; do
     rm -f "$temporary/$name"
   done
   rmdir "$temporary"
@@ -87,8 +87,14 @@ LEAN="$lean" LEAN_PATH="$temporary" bash scripts/export.sh "$temporary/odd-names
   LeanForthOddNames -- oddThm{0..21} >/dev/null
 cmp tests/cli/odd-names.ndjson "$temporary/odd-names.ndjson"
 cmp tests/cli/odd-names.ndjson.manifest.json "$temporary/odd-names.ndjson.manifest.json"
+out=$(LEAN_PATH="$temporary" "$lean" -DwarningAsError=true \
+  -o "$temporary/LeanForthOddString.olean" tests/cli/odd-string.lean)
+if [ "$out" != "'strUse' depends on axioms: [P, String]" ]; then
+  printf 'Unexpected output from Lean for odd-string: %s\n' "$out" >&2
+  exit 1
+fi
 LEAN="$lean" LEAN_PATH="$temporary" bash scripts/export.sh "$temporary/odd-string.ndjson" \
-  LeanForthOddNames -- oddStr >/dev/null
+  LeanForthOddString -- strUse >/dev/null
 cmp tests/cli/odd-string.ndjson "$temporary/odd-string.ndjson"
 cmp tests/cli/odd-string.ndjson.manifest.json "$temporary/odd-string.ndjson.manifest.json"
 # shared-depths.lean: 53 rows (rvS36 P1, P2; agent PF P3; agent R5 P4; CK P5; CT P6) checked by pinned
