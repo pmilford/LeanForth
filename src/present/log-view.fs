@@ -109,9 +109,10 @@ end-structure
 : lf-lv-put ( c-addr u -- )
   dup lf-lv-line slab-claim ok?
   if lf-lv-line slab-at swap move else drop 2drop 1 lf-lv lf-lv-bad +! then ;
+\ Plain style only: LaTeX style writes such text through statement-forms.fs's
+\ lf-sf-tex instead (proof-outline.fs lf-ol-source-name.).
 : lf-lv-safe ( c-addr u -- c-addr' u' )
-  lf-lv lf-lv-escape @ ?dup 0= if exit then lf-lv lf-lv-tex @ if drop exit then
-  execute 0= if 2drop s" ?" then ;
+  lf-lv lf-lv-escape @ ?dup 0= if exit then execute 0= if 2drop s" ?" then ;
 : lf-lv-put-text ( c-addr u -- ) lf-lv-safe lf-lv-put ;
 : lf-lv-out ( c-addr u -- ) lf-lv lf-lv-sink @ ?dup if execute else type then ;
 : lf-lv-n ( n -- ) dup 0< if s" -" lf-lv-put negate then u>decimal lf-lv-put ;
