@@ -50,7 +50,7 @@ Status: proposed for the [kernel] gate (branch `names-index`, from main
 the change goes through the gate in `AGENTS.md`; it changes no typing or
 conversion rule and no outcome of a well-formed run. Plan: the
 performance scan's item 1 (A1, A2;
-[PERFORMANCE_SCAN.md](../development/PERFORMANCE_SCAN.md) on branch
+the scan's report, PERFORMANCE_SCAN.md, on branch
 `perf-scan`).
 
 ### The change
@@ -165,6 +165,13 @@ or prefix.
 All on the shared 10-core WSL2 machine, load average 3 to 6, Gforth 1.0.0,
 git archives of main `b403ac21` and the branch at `4535e786`
 (evidence in the branch worktree's `.claude/work/names-index/`).
+**Again after the review's fixes** (the chain check, the hand-over audit,
+`hash-3`), branch at `15d1983f`: all of Init 59,349 accepted, none
+differing from main in any field, fuel 654,719,715, the snapshot byte for
+byte main's (`e120cf67…`; 595 s wall, 1,156 s CPU); the seven `.lf` texts
+byte for byte main's with the same exit codes, those that check in
+13.1–15.5 s; 37 name-related faults run, all caught. The figures below
+are the first head's.
 
 - **Kernel identity on all of Init** (`bin/leanforth check --json --jobs 2
   --save-snapshot`, `gforth-fast`): 59,349 declarations accepted in both,
