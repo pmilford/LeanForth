@@ -27,3 +27,27 @@ old = '''require ./blocks.fs
 new = ''''''
 test = "python3 tests/lib/test_requires.py"
 reason = "bytes.fs uses heap-claim of blocks.fs, reached only through store.fs: the standalone load passes, the requires check refuses it"
+
+[[fault]]
+id = "lt3-export-reader-final-lf-only"
+file = "src/import/ndjson.fs"
+old = '''  export-reader reader-strict over reader-rules!'''
+new = '''  export-reader reader-final-lf over reader-rules!'''
+test = "python3 tests/core/test_ndjson_reader.py FramingFailures"
+reason = "the export reader drops carriage returns and a byte-order mark from its lines, so a CRLF export is read where Lean's exports are refused"
+
+[[fault]]
+id = "lt3-export-reader-ordinary-text"
+file = "src/import/ndjson.fs"
+old = '''  export-reader reader-strict over reader-rules!'''
+new = '''  export-reader reader-text over reader-rules!'''
+test = "python3 tests/core/test_ndjson_reader.py FramingFailures ExitStatus"
+reason = "the export reader reads ordinary text: a last line without its line feed is accepted, and carriage returns are dropped"
+
+[[fault]]
+id = "lt3-elab-reader-ordinary-text"
+file = "src/front/elab-data.fs"
+old = '''  reader-strict elab elab-reader reader-rules!'''
+new = '''  reader-text elab elab-reader reader-rules!'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "the elaboration data's reader takes a last line without its line feed, which the strict framing refuses"
