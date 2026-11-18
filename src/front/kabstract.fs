@@ -48,6 +48,8 @@ require ../lib/slab.fs
 require ../core/terms.fs
 require ../core/constant-term-boundary.fs
 require ../core/let-terms.fs
+require ../core/literals.fs
+require ../core/string-literals.fs
 require ./mvars.fs
 require ./meta-config.fs
 require ./meta-spine.fs
@@ -65,7 +67,9 @@ end-structure
 
 \ ---- Heads (Lean's toHeadIndex): the same tag and, for a constant, the
 \ same name; a projection, the same structure and field (its leaf); a
-\ free variable, metavariable or literal, the same node.
+\ literal, the same value (Lean's HeadIndex .lit compares the Literal;
+\ review C3 of 2026-11-18: authoring runs share no nodes); a free
+\ variable or metavariable, the same node.
 : kab-tag= ( h1 h2 -- flag ) lf-term-tag@ swap lf-term-tag@ = ;
 : kab-names= ( h1 h2 -- flag ) lf-const-name swap lf-const-name = ;
 : kab-fields= ( h1 h2 -- flag ) lf-term-first@ swap lf-term-first@ = ;
@@ -73,6 +77,7 @@ end-structure
   dup lf-tag-sort = over lf-tag-lam = or swap lf-tag-pi = or ;
 : kab-same ( h1 h2 tag -- flag )
   case lf-tag-constant of kab-names= endof  lf-tag-projection of kab-fields= endof
+    lf-tag-lit of lf-lit-same? endof  lf-tag-str of lf-str-same? endof
     >r = r> endcase ;
 : kab-heads= ( h1 h2 -- flag )
   2dup kab-tag= 0= if 2drop false exit then

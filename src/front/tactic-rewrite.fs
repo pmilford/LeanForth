@@ -110,8 +110,17 @@ end-structure
   if ['] lfw-occurs. lfa-e-tac-occurs lfw-failed then ;
 
 \ ---- forallMetaTelescopeReducing over the rule's type.
+\ The rule's binder name and kind, the presentation table's, else its
+\ input record's; an unknown kind is refused, 99 (review C4 of 2026-11-18:
+\ Lean makes an instance binder's metavariable synthetic, so a guess of
+\ explicit is no port).
+: lfw-known? ( pi -- flag )
+  dup lf-pres-binder@ if 2drop drop true exit then
+  lf-term-input-binder@ dup if nip nip then ;
+: lfw-binder ( pi -- name kind )
+  dup lfw-known? 0= if lfa-e-tac-form lfw-stop then lf-tac-binder ;
 : lfw-mvar ( pi -- mvar )
-  dup lf-tac-binder lf-binder-instance = if lfa-e-tac-form lfw-stop then
+  dup lfw-binder lf-binder-instance = if lfa-e-tac-form lfw-stop then
   swap lf-term-first@ mv-natural lf-mvar-new lf-tac-must tuck swap lf-mvar-tag!
     lf-tac-must ;
 : lfw-applied ( mvar -- ) trw trw-heq @ swap lf-tac-app trw trw-heq ! ;

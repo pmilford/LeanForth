@@ -268,11 +268,30 @@ T{ 3 lf-elab-fuel! s" theorem e6 Nat.zero Nat.zero = := by by-rfl end e6" nfails
 T{ lf-meta-default-budget lf-elab-fuel!
    s" theorem e7 Nat.zero Nat.zero = := by by-rfl end e7" nrun -> outcome-ok }T
 \ The elaborator's own visits spend the budget too (Lean's
-\ maxHeartbeats counts them): axiom a6 Nat takes seven steps, two of
-\ them the elaborator's visits; six are not enough.
-T{ 7 lf-elab-fuel! s" axiom a6 Nat end a6" nrun -> outcome-ok }T
-T{ 6 lf-elab-fuel! s" axiom a7 Nat end a7" nfails -> 138 1 14 }T
+\ maxHeartbeats counts them): axiom a6 Nat takes six steps, two of
+\ them the elaborator's visits; five are not enough (ensureType's isType
+\ answers for Nat : Type, no isDefEq with Sort ?u: review N2 of 2026-11-18).
+T{ 6 lf-elab-fuel! s" axiom a6 Nat end a6" nrun -> outcome-ok }T
+T{ 5 lf-elab-fuel! s" axiom a7 Nat end a7" nfails -> 138 1 14 }T
 lf-meta-default-budget lf-elab-fuel!
+\ Sorts as the front end makes them, symbolic (review N2 of 2026-11-18):
+\ Lean's isSort and isProp (core's lf-sort?, lf-prop?); ensureType's isType
+\ (et-is-type?); propagateExpectedType's test of an expected Prop after
+\ instantiateMVars (ea-prop?); the induction hints' isProp and isType.
+: sort-of ( level -- t ) lf-term-symbolic-sort 0= abort" sort" ;
+: prop0 ( -- t ) 0 sort-of ;
+: type1 ( -- t ) 0 lf-level-succ drop sort-of ;
+: sort-u ( -- t level ) lf-level-mvar-new drop dup sort-of swap ;
+T{ prop0 lf-sort? prop0 lf-prop? type1 lf-sort? type1 lf-prop? -> true true true false }T
+T{ nat lf-sort? nat lf-prop? sort-u drop lf-prop? -> false false false }T
+T{ lf-tag-sort 0 0 lf-term-add drop dup lf-sort? swap lf-prop? -> true true }T
+T{ lf-tag-sort 1 0 lf-term-add drop dup lf-sort? swap lf-prop? -> true false }T
+lf-meta-default-budget lf-meta-budget!
+T{ nat et-is-type? prop0 et-is-type? 0 nlit et-is-type? -> true outcome-ok true outcome-ok
+   false outcome-ok }T
+T{ prop0 ea-prop? type1 ea-prop? -> true outcome-ok false outcome-ok }T
+T{ sort-u 0 lf-level-mvar-assign drop ea-prop? -> true outcome-ok }T
+T{ prop0 lfi-succ-sort? type1 lfi-succ-sort? sort-u drop lfi-succ-sort? -> false true false }T
 
 \ ---- 2. Malformed and unknown: a variable no parameter gives; a name
 \ the library lacks is the reader's (error 1, before elaboration); the

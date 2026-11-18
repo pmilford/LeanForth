@@ -20253,3 +20253,53 @@ old = ''': me-lib-d? ( d -- flag ) lf-libdec-count u< ;'''
 new = ''': me-lib-d? ( d -- flag ) drop true ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "a declaration of a stage grown past the bound library reads as unsupported, not as unknown"
+
+[[fault]]
+id = "core-prop-symbolic-never"
+file = "src/core/tagged-sort-boundary.fs"
+old = ''': lf-symbolic-prop? ( t -- flag ) lf-term-first@ lf-level-tag@ lf-level-tag-zero = ;'''
+new = ''': lf-symbolic-prop? ( t -- flag ) drop false ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "review N2 of 2026-11-18: no symbolic Sort is Prop, so propagateExpectedType propagates an expected Prop, which Lean refuses on purpose"
+
+[[fault]]
+id = "elab-prop-not-instantiated"
+file = "src/front/elab-app.fs"
+old = '''  lf-instantiate-mvars lf-elab-meta ok-then? if lf-prop? outcome-ok else false swap then ;'''
+new = '''  lf-prop? outcome-ok ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "review N2 of 2026-11-18: an expected Sort ?u with ?u := 0 is not seen as Prop (Lean instantiates first)"
+
+[[fault]]
+id = "elab-is-type-concrete-only"
+file = "src/front/elab-term.fs"
+old = '''  ok-then? if lf-sort? outcome-ok else false swap then ;'''
+new = '''  ok-then? if lf-term-tag@ lf-tag-sort = outcome-ok else false swap then ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "review N2 of 2026-11-18: ensureType's isType never fires on the front end's symbolic Sorts"
+
+[[fault]]
+id = "induction-type-hint-any-sort"
+file = "src/front/tactic-induction.fs"
+old = '''  lf-term-first@ lf-level-tag@ lf-level-tag-succ = ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "review N2 of 2026-11-18: the type-universe hint shows for Sort u, where Lean's isType (a succ level) gives none"
+
+[[fault]]
+id = "kab-literal-by-node"
+file = "src/front/kabstract.fs"
+old = '''    lf-tag-lit of lf-lit-same? endof  lf-tag-str of lf-str-same? endof
+'''
+new = ''''''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review C3 of 2026-11-18: kabstract compares literal heads by node, so with sharing off (authoring runs) an equal literal is never tried"
+
+[[fault]]
+id = "rw-unknown-binder-explicit"
+file = "src/front/tactic-rewrite.fs"
+old = '''  dup lfw-known? 0= if lfa-e-tac-form lfw-stop then lf-tac-binder ;'''
+new = '''  lf-tac-binder ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review C4 of 2026-11-18: rw takes an unknown binder kind for explicit and makes a natural metavariable where Lean may make a synthetic one"
+gap = "no test reaches a rule binder of unknown kind yet: a pi built in a unit test may meet a stale input record (fix-batch report); the check_s2 rules all carry their kinds"

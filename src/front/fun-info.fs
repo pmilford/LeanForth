@@ -175,8 +175,8 @@ end-structure
 \ isClassQuick? answers none for these heads: no class.
 : fi-not-class? ( head -- flag )
   dup lf-mvar? if lf-meta-unassigned? exit then
-  lf-term-tag@ dup lf-tag-fvar = over lf-tag-symbolic-sort = or over lf-tag-sort = or
-  over lf-tag-lit = or swap lf-tag-bvar = or ;
+  dup lf-sort? if drop true exit then
+  lf-term-tag@ dup lf-tag-fvar = over lf-tag-lit = or swap lf-tag-bvar = or ;
 : lf-meta-class-none? ( type -- flag ) lf-meta-forall-body lf-meta-head fi-not-class? ;
 : fi-ho? ( i -- flag outcome )
   dup lf-meta-param drop lf-binder-default = if drop false outcome-ok exit then

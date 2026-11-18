@@ -275,8 +275,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
   dup wc-unassigned? if wc-delayed? 0= else drop false then ;
 : wc-plain-fvar? ( term -- flag )
   dup lf-fvar-live? if lf-fvar-let? 0= else drop false then ;
-: wc-sort? ( term -- flag )
-  lf-term-tag@ dup lf-tag-sort = swap lf-tag-symbolic-sort = or ;
+: wc-sort? ( term -- flag ) lf-sort? ;
 : wc-inert? ( term -- flag )
   dup wc-plain-fvar? over wc-plain-mvar? or over lf-term-binder? or swap wc-sort? or ;
 \ Nat.succ applied to one argument that whnf might fold (reduceNat?).

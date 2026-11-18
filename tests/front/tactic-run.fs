@@ -505,6 +505,12 @@ T{ steps-written? -> false }T
 [then]
 ' lfr-sorry tac-k-sorry lf-tactic-action!
 ' lfr-unelaborated stating
+\ rw's telescope over the rule's type (review C4 of 2026-11-18): a known
+\ binder gives its name and kind (an unknown kind is refused, 99; no
+\ test reaches one yet: a pi made here may meet a stale input record).
+: named-pi ( -- pi )
+  nat nat lf-term-pi 0= abort" pi" dup s" a" lfa-intern 3 lf-pres-binder! made ;
+T{ lf-author-begin named-pi lfw-binder swap s" a" lfa-intern = -> 3 true }T
 T{ lfc-library-close -> }T
 T{ depth -> 0 }T
 cr .( tactic-run.fs: all tests passed) cr
