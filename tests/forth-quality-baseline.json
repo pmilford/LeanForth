@@ -531,8 +531,8 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 52,
-  "shuffles": 14,
+  "rstack": 56,
+  "shuffles": 15,
   "words": 162
  },
  "src/front/elab-term.fs": {
@@ -776,11 +776,11 @@
   "words": 61
  },
  "src/front/tactic-run.fs": {
-  "globals": 1,
+  "globals": 2,
   "long lines": 0,
   "long words": 0,
   "rstack": 21,
-  "shuffles": 3,
+  "shuffles": 4,
   "words": 161
  },
  "src/front/tactic-syntax.fs": {
@@ -1460,7 +1460,7 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 38,
-  "shuffles": 5,
+  "shuffles": 8,
   "words": 83
  },
  "src/lib/sort.fs": {

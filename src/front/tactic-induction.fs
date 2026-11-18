@@ -49,7 +49,9 @@
 \ Errors stop the run (author/errors.fs) at the step's word, an
 \ alternative's at its |. Untrusted: the kernel checks the finished term.
 \ State: the slabs tind-withs (the open by-induction-with blocks) and
-\ tind-alts (their cases), in the checker context (ADR 0009); the step's
+\ tind-alts (their cases), kept in a tactic's saved state on
+\ tind-withs-kept and tind-alts-kept (tac-state:), in the checker
+\ context (ADR 0009); the step's
 \ own fields in its step record (tactic-run.fs, review fe1g3 M2). Loads in
 \ decimal whatever BASE is, then restores it.
 
@@ -92,6 +94,17 @@ begin-structure /tiw      \ an open by-induction-with block
 end-structure
 /tiw context-slab: tind-withs
 1 cells context-slab: tind-js   \ a with block's alternatives: their steps
+\ The open blocks and their cases in a tactic's saved state (tactic-run.fs's
+\ tac-state:; review C2 of 2026-11-18: a failed block left them open).
+/tia context-slab: tind-alts-kept
+/tiw context-slab: tind-withs-kept
+: lfi-keep ( -- outcome )
+  tind-alts tind-alts-kept slab-keep dup ok? 0= if exit then drop
+  tind-withs tind-withs-kept slab-keep dup ok? if exit then tind-alts-kept slab-forget ;
+: lfi-kept ( undo? -- outcome )
+  dup tind-alts tind-alts-kept lf-tac-slab-back
+  swap tind-withs tind-withs-kept lf-tac-slab-back outcome-and ;
+' lfi-keep ' lfi-kept tac-state:
 begin-structure /tind     \ the step's fields, after tb's
   /tb +field tind-tb
   field: tind-target      \ the target: a free variable

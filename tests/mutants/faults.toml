@@ -20380,16 +20380,17 @@ reason = "review F2 of 2026-11-18: a Sort pattern in a node of its own is not fo
 [[fault]]
 id = "fe-run-rolled-old-order"
 file = "src/front/tactic-run.fs"
-old = '''  dup tsv-mark @ lfr-trail-undo ok-then? 0= if exit then
-  dup tsv-view @ lf-mctx-view! lfr-back ;'''
-new = '''  dup lfr-back drop dup tsv-view @ lf-mctx-view! tsv-mark @ lfr-trail-undo ;'''
+old = '''  dup tsv-mark @ lfr-trail-undo ok-then? 0= if true lfr-states-all drop exit then
+  dup tsv-view @ lf-mctx-view! lfr-back true lfr-states-all outcome-and ;'''
+new = '''  dup lfr-back drop dup tsv-view @ lf-mctx-view! tsv-mark @ lfr-trail-undo
+  true lfr-states-all outcome-and ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "review F4 of 2026-11-18: a restore puts the goal list back before the trail and drops lf-goals!'s refusal, so a lost goal list goes on silently"
 
 [[fault]]
 id = "fe-run-trail-refusal-ignored"
 file = "src/front/tactic-run.fs"
-old = '''  dup tsv-mark @ lfr-trail-undo ok-then? 0= if exit then'''
+old = '''  dup tsv-mark @ lfr-trail-undo ok-then? 0= if true lfr-states-all drop exit then'''
 new = '''  dup tsv-mark @ lfr-trail-undo drop'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "review F4 of 2026-11-18: a failed attempt that rolled back its save's own mark is restored as if the trail had taken it back"
@@ -20409,3 +20410,117 @@ old = '''  dup outcome? if outcome-text type else drop ." internal fault" then ;
 new = '''  drop ." internal fault" ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "review F5 of 2026-11-18: a text's error is said as an internal fault whatever its outcome, so a heap refusal (error 300, full) reads as LeanForth's fault"
+
+[[fault]]
+id = "slab-keep-no-count"
+file = "src/lib/slab.fs"
+old = '''  2dup slab-count-after swap dup slab-base swap slab-used-bytes rot swap move ;'''
+new = '''  swap dup slab-base swap slab-used-bytes rot swap move ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "fix-batch-3 (reviews C2, N4 of 2026-11-18): a kept copy has no count, so slab-restore and slab-forget read whatever lies past the units"
+
+[[fault]]
+id = "slab-keep-any-unit"
+file = "src/lib/slab.fs"
+old = '''  2dup slab-same-unit? 0= if 2drop outcome-invalid exit then'''
+new = ''''''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "fix-batch-3: slab-keep copies into a store of another unit, so a copy is cut or read across units"
+
+[[fault]]
+id = "slab-restore-keeps-copy"
+file = "src/lib/slab.fs"
+old = '''  swap dup slab-kept-first over slab-at rot dup slab-base swap slab-used-bytes move
+  slab-forget ;'''
+new = '''  swap dup slab-kept-first over slab-at rot dup slab-base swap slab-used-bytes move
+  drop ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "fix-batch-3: a restored copy stays on the store, so the next restore puts back the wrong state"
+
+[[fault]]
+id = "tac-state-not-kept"
+file = "src/front/tactic-run.fs"
+old = '''  tuck lfr-save lfr-fill lfr-states-save dup ok? 0= if lfr-unsaved then ;'''
+new = '''  tuck lfr-save lfr-fill outcome-ok ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "reviews C2 and N4 of 2026-11-18: a save holds only the runner's slabs, so a failed try leaves the other modules' states changed"
+
+[[fault]]
+id = "tac-state-not-restored"
+file = "src/front/tactic-run.fs"
+old = '''  dup tsv-view @ lf-mctx-view! lfr-back true lfr-states-all outcome-and ;'''
+new = '''  dup tsv-view @ lf-mctx-view! lfr-back false lfr-states-all outcome-and ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "reviews C2 and N4 of 2026-11-18: a failed try forgets the other modules' kept states instead of putting them back"
+
+[[fault]]
+id = "tac-entry-not-restored"
+file = "src/front/tactic-run.fs"
+old = '''  tsv-entry @ trun trun-entry ! ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review C2 of 2026-11-18: after a failed try trun-entry names a step-log entry the restore cut"
+
+[[fault]]
+id = "tac-saves-left-at-fresh"
+file = "src/front/tactic-run.fs"
+old = '''  lfr-saves 0 ?do false lfr-states-all drop loop trun-saves slab-clear ;'''
+new = '''  trun-saves slab-clear ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "fix-batch-3: a run that stopped inside a try leaves its kept states on the modules' stores for the next run"
+
+[[fault]]
+id = "tac-induction-withs-not-restored"
+file = "src/front/tactic-induction.fs"
+old = '''  swap tind-withs tind-withs-kept lf-tac-slab-back outcome-and ;'''
+new = '''  nip ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review C2 of 2026-11-18: a failed try leaves the induction blocks it opened open"
+
+[[fault]]
+id = "tac-rw-mvars-not-kept"
+file = "src/front/tactic-rewrite.fs"
+old = ''': lfw-kept ( undo? -- outcome ) trw-mvars trw-mvars-kept lf-tac-slab-back ;'''
+new = ''': lfw-kept ( undo? -- outcome ) drop trw-mvars-kept slab-forget outcome-ok ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review C2 of 2026-11-18: a failed try leaves trw-mvars as the attempt's rw made it"
+
+[[fault]]
+id = "tac-pending-base-not-restored"
+file = "src/front/elab-pending.fs"
+old = ''': ep-base-back ( undo? -- ) ep-saved slab-2pop drop swap if ep ep-base ! else drop then ;'''
+new = ''': ep-base-back ( undo? -- ) ep-saved slab-2pop drop 2drop ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "reviews C2 and N4 of 2026-11-18: a failed try leaves the elaborator's synthesis window where the attempt opened it"
+
+[[fault]]
+id = "tac-pending-not-restored"
+file = "src/front/elab-pending.fs"
+old = ''': ep-pending-back ( -- outcome ) ep-pending ep-saved slab-restore ;'''
+new = ''': ep-pending-back ( -- outcome ) ep-saved slab-forget outcome-ok ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review N4 of 2026-11-18: a failed try keeps the pending instance problems the attempt added"
+
+[[fault]]
+id = "elab-with-synth-window-open"
+file = "src/front/elab-pending.fs"
+old = '''  lf-elab-window{ >r ['] ep-synth-run catch r> }lf-elab-window throw ;'''
+new = '''  lf-elab-window{ >r ['] ep-synth-run catch r> drop throw ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "review C2 of 2026-11-18: a rule that throws inside withSynthesize leaves the pending list set aside"
+
+[[fault]]
+id = "elab-step-failure-loses-window"
+file = "src/front/elab-pending.fs"
+old = '''  ep-resume-all dup ok? 0= if ep-unstepped exit then drop'''
+new = '''  ep-resume-all dup ok? 0= if nip ep-abandon exit then drop'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "review N4 of 2026-11-18: a synthesis pass that fails part-way loses the window's instance problems"
+
+[[fault]]
+id = "menv-undecoded-off-by-one"
+file = "src/front/meta-env.fs"
+old = ''': me-lib-d? ( d -- flag ) lf-libdec-count u< ;'''
+new = ''': me-lib-d? ( d -- flag ) lf-libdec-count 1+ u< ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review F11 of 2026-11-18: the declaration one past the bound library's count reads as one of its own (unsupported, not unknown)"

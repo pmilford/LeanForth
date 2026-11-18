@@ -74,6 +74,7 @@
 \ slab-reserve slab-claim slab-commit slab-cut slab-remove slab-bad-cut slab-trim
 \ slab-clear slab-bytes slab-used-bytes slab-limit-max slab-offset
 \ slab-push slab-pop slab-2push slab-2pop slab-last slab-drop
+\ slab-keep slab-restore slab-forget
 \ slab-underflow slab-all? slab-2all?
 \ slab-generation /slab-mark slab-mark slab-mark-valid? slab-rollback
 \ slab-mark-count. State: none of its own; every word takes a slab record
@@ -280,6 +281,7 @@ lf-lib set-current
 : slab-last ( slab -- addr ) 1 swap slab-newest-unit ;
 lf-lib-private set-current
 
+
 \ Drains (a worklist): one step run on the newest value or pair popped,
 \ the slab and the xt kept below; the loop, on a live slab, until it is
 \ empty or ok-true? stops it (outcome.fs); then false and the outcome
@@ -402,6 +404,36 @@ lf-lib set-current
 \ caller kept, so this is a fault in the caller, never an outcome.
 : slab-cut ( n slab -- )
   2dup slab-cut? 0= if slab-bad-cut throw then 2dup slab-unmark-above slab-used ! ;
+lf-lib-private set-current
+
+\ Copies kept as a stack (a choice point's saved state): slab-keep
+\ ( slab store -- outcome ) pushes onto store, a slab of the same unit at
+\ least a cell wide, a copy of slab's units and then one unit whose first
+\ cell is their count, in one claim: ok; full, or invalid for another
+\ unit, store unchanged. slab-restore ( slab store -- outcome ) makes
+\ slab's units the newest copy's and drops it (full when slab cannot hold
+\ them again; the copy is dropped all the same); slab-forget ( store -- )
+\ drops it. With no copy kept both throw slab-underflow, nothing changed.
+: slab-same-unit? ( slab store -- flag )
+  slab-unit swap slab-unit over = swap cell < 0= and ;
+: slab-count-after ( slab addr -- ) over slab-used-bytes + swap slab-count swap ! ;
+: slab-copy-in ( slab addr -- )
+  2dup slab-count-after swap dup slab-base swap slab-used-bytes rot swap move ;
+: slab-kept-first ( store -- i ) dup slab-count 1- swap slab-last @ - ;
+lf-lib set-current
+: slab-forget ( store -- ) dup slab-kept-first swap slab-cut ;
+lf-lib-private set-current
+: slab-restored ( store slab -- )
+  swap dup slab-kept-first over slab-at rot dup slab-base swap slab-used-bytes move
+  slab-forget ;
+lf-lib set-current
+: slab-keep ( slab store -- outcome )
+  2dup slab-same-unit? 0= if 2drop outcome-invalid exit then
+  over slab-count 1+ over slab-claim ok-then? 0= if nip nip exit then
+  swap slab-at slab-copy-in outcome-ok ;
+: slab-restore ( slab store -- outcome )
+  dup slab-last @ rot dup 0 swap slab-cut tuck slab-claim
+  ok-then? 0= if nip swap slab-forget exit then drop slab-restored outcome-ok ;
 lf-lib-private set-current
 
 \ Taking a unit out of the middle: the units after unit i move down one

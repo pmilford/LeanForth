@@ -41,7 +41,8 @@
 \ 217's inner error texts (LeanForth names the application that did not
 \ fit), and binderNameHint (no rule of Init's proof set has one).
 \ Untrusted: only the kernel's check of the finished term decides.
-\ State: the slab trw-mvars (the rule's new metavariables) in the checker
+\ State: the slab trw-mvars (the rule's new metavariables), kept in a
+\ tactic's saved state on trw-mvars-kept (tac-state:), in the checker
 \ context (ADR 0009); everything else in the step record. Loads in
 \ decimal whatever BASE is, then restores it.
 
@@ -83,7 +84,6 @@ begin-structure /trw
   field: trw-etype       \ the target's type
   field: trw-motive      \ fun _a => abst
   field: trw-proof       \ congrArg's proof of target = new
-  field: trw-saved       \ the elaborator's pending list, set aside
 end-structure
 /trw lf-tac-work-cells cells >
 [if] .( tactic-rewrite.fs: trw is wider than a step record) cr abort [then]
@@ -235,13 +235,20 @@ end-structure
 
 \ ---- One rule (Lean's rewriteTarget inside Term.withSynthesize).
 : lfw-begin ( j -- )
-  trw trw-rule ! trw-mvars slab-clear lf-elab-synth{ trw trw-saved !
+  trw trw-rule ! trw-mvars slab-clear
   lfw-want lf-instantiate-mvars lf-tac-must trw trw-e ! ;
 : lfw-core ( -- )
   lfw-elaborated lfw-occurs-free lfw-telescope lfw-matched lfw-pattern-ok lfw-abstracted
   lfw-new lfw-motive! lfw-checked lfw-independent lfw-proof! ;
-: lfw-synthesized ( -- ) trw trw-saved @ lf-postpone-no }lf-elab-synth lf-tac-must ;
-: lfw-rewrite ( j i -- ) drop lfw-begin lfw-core lfw-synthesized lfw-closed lfw-replaced ;
+\ The pending list set aside around the rule and put back however it
+\ ends (review C2 of 2026-11-18: a failed rule left the window open).
+: lfw-synthesized ( -- ) ['] lfw-core lf-postpone-no lf-elab-with-synth lf-tac-must ;
+: lfw-rewrite ( j i -- ) drop lfw-begin lfw-synthesized lfw-closed lfw-replaced ;
+\ trw-mvars in a tactic's saved state (tactic-run.fs's tac-state:).
+1 cells context-slab: trw-mvars-kept
+: lfw-keep ( -- outcome ) trw-mvars trw-mvars-kept slab-keep ;
+: lfw-kept ( undo? -- outcome ) trw-mvars trw-mvars-kept lf-tac-slab-back ;
+' lfw-keep ' lfw-kept tac-state:
 : lfw-rule ( j i -- ) ['] lfw-rewrite lf-tac-step-run ;
 : lfw-rules ( i -- )
   dup lf-tactic-step dup tac-first @ swap tac-count @ over + swap ?do i over lfw-rule loop

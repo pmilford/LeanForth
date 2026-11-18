@@ -410,6 +410,39 @@ lf-tac-forget
 T{ two-goals ' kill-goals ' lf-tac-try catch nip lfr-saves lf-mctx-marks
    -> lfr-state-lost 0 0 }T
 lf-tac-forget
+\ The other modules' states join every save (tac-state:, reviews C2 and
+\ N4 of 2026-11-18): rw's metavariables (trw-mvars), the induction
+\ blocks and their cases, the step log's newest entry and the pending
+\ instance list with its window. An attempt that changes each and fails
+\ leaves each as it was; a success keeps the changes; nested tries too.
+: cells@ ( slab -- x... n ) dup slab-count 0 ?do i over slab-at @ swap loop slab-count ;
+: seed ( -- )
+  trw-mvars slab-clear tind-alts slab-clear tind-withs slab-clear lf-elab-pending-reset
+  5 trw-mvars slab-push drop 1 tind-alts slab-claim 2drop 3 trun trun-entry !
+  g1 @ lf-elab-pend drop ;
+: states ( -- x n alts withs entry window pending )
+  trw-mvars cells@ tind-alts slab-count tind-withs slab-count trun trun-entry @
+  lf-elab-pending# ep-pending slab-count ;
+: change ( -- )
+  trw-mvars slab-clear 8 trw-mvars slab-push drop 2 tind-alts slab-claim 2drop
+  1 tind-withs slab-claim 2drop 42 trun trun-entry ! lf-elab-window{ drop
+  g2 @ lf-elab-pend drop ;
+: change-fail ( -- ) change lfa-e-tac-unsolved lfa-fail ;
+: kept# ( -- n ) trw-mvars-kept slab-count tind-alts-kept slab-count +
+  tind-withs-kept slab-count + ep-saved slab-count + ;
+T{ two-goals seed states -> 5 1 1 0 3 1 1 }T
+T{ ' change-fail lf-tac-try lf-tac-forget states kept# -> lf-author-throw 5 1 1 0 3 1 1 0 }T
+T{ ' change lf-tac-try states kept# -> 0 8 1 3 1 42 1 2 0 }T
+: nested ( -- ) ['] change-fail lf-tac-try drop lf-tac-forget 6 trw-mvars slab-push drop ;
+: nested-fail ( -- ) nested lfa-e-tac-unsolved lfa-fail ;
+T{ two-goals seed ' nested lf-tac-try states kept# -> 0 5 6 2 1 0 3 1 1 0 }T
+T{ seed ' nested-fail lf-tac-try lf-tac-forget states kept# -> lf-author-throw 5 1 1 0 3 1 1 0 }T
+\ No room to keep a state: the save is refused full, nothing kept, no
+\ mark or save left open.
+: kept-most ( n -- ) ep-saved dup slab-free 2 cells -rot slab-init drop ;
+T{ two-goals seed 1 kept-most lf-tac-save nip lfr-saves lf-mctx-marks kept#
+   -> outcome-full 0 0 0 }T
+max-n 2 cells / kept-most
 \ Saves are last in, first out; another is refused, nothing changed.
 variable s1  variable s2
 T{ two-goals lf-tac-save swap s1 ! lf-tac-save swap s2 ! -> outcome-ok outcome-ok }T

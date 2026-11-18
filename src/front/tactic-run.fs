@@ -53,13 +53,17 @@
 \ error stays recorded until lf-tac-forget); any other THROW passes on,
 \ the state put back. A save holds exactly: a mark of the metavariable
 \ context (rolled back through every scope opened since, lf-mctx-rollback-to),
-\ the current local context, the goal list, and trun's open blocks, open
-\ parts, step records, step log and its text. It does NOT yet hold the
-\ elaborator's pending list and synthesis window, the induction blocks
-\ (tind-withs, tind-alts), trw-mvars or trun-entry (reviews C2 and N4 of
-\ 2026-11-18): they must join it before FE5's combinators (first, try,
-\ <;>) run attempts that can fail inside them; today only rw's closing
-\ rfl runs in a try. A save that cannot be put back or kept stops the
+\ the current local context, the goal list, trun's open blocks, open
+\ parts, step records, step log, its text and newest entry (trun-entry),
+\ and the states other modules add with tac-state: ( save-xt back-xt -- )
+\ (reviews C2 and N4 of 2026-11-18): the elaborator's pending list and
+\ synthesis window (elab-pending.fs, registered by elab-decl.fs), the
+\ induction blocks and their cases (tactic-induction.fs) and rw's
+\ metavariables (tactic-rewrite.fs), as Lean's saveState holds the whole
+\ Term and Meta state; lf-tac-slab-back ( undo? slab store -- outcome )
+\ is a back-xt's work for a slab kept with lib/slab.fs's slab-keep. A run
+\ that stops inside a try has its open saves forgotten when the next
+\ starts. A save that cannot be put back or kept stops the
 \ run (THROW lfr-state-lost, an internal fault). Fuel is not given back
 \ (nor are Lean's heartbeats); nodes made by a failed attempt stay,
 \ reached by nothing.
@@ -123,6 +127,8 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/runs.fs
+require ../lib/slab.fs
+require ../lib/xt-table.fs
 require ../core/terms.fs
 require ../core/levels.fs
 require ../core/names.fs
@@ -184,6 +190,7 @@ begin-structure /tsv      \ a saved state
   field: tsv-steps        \ how many step records there were
   field: tsv-log          \ step-log entries and their goal spans
   field: tsv-log-spans
+  field: tsv-entry        \ the step log's newest entry (trun-entry)
 end-structure
 /tsv context-slab: trun-saves
 1 cells context-slab: trun-xs       \ the binders' free variables (Lean's xs)
@@ -513,7 +520,8 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-save ( k -- addr ) trun-saves slab-at ;
 : lfr-latest? ( save -- flag ) dup 0< 0= swap lfr-saves 1- = and ;
 : lfr-fill-log ( addr -- )
-  trun-log slab-count over tsv-log ! trun-log-spans slab-count swap tsv-log-spans ! ;
+  trun-log slab-count over tsv-log ! trun-log-spans slab-count over tsv-log-spans !
+  trun trun-entry @ swap tsv-entry ! ;
 : lfr-fill ( mark addr -- )
   tuck tsv-mark ! lf-goals over tsv-goals ! lfr-depth over tsv-frames !
   trun-parts slab-count over tsv-parts ! lfr-text# over tsv-text !
@@ -524,29 +532,59 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-trail-undo ( mark -- outcome ) lf-mctx-rollback-to ;
 : lfr-trail-keep ( mark -- outcome ) lf-mctx-commit ;
 : lfr-unmark ( mark outcome -- -1 outcome ) swap lfr-trail-undo drop no-result ;
+\ Other modules' state in every save (reviews C2 and N4 of 2026-11-18):
+\ tac-state: ( save-xt back-xt -- ), while the modules load, adds one;
+\ save-xt ( -- outcome ) keeps it, back-xt ( undo? -- outcome ) puts the
+\ newest kept back (true) or forgets it (false); each module keeps its
+\ own, last in, first out (lib/slab.fs's slab-keep, slab-restore and
+\ slab-forget do so for a slab). A table of pairs, 0 where none is set.
+8 constant lfr-states#
+lfr-states# 2* 0 xt-table: lfr-states
+: lfr-state-xt ( k -- xt|0 ) lfr-states xt-table@ ;
+: lfr-states-used ( -- n ) 0 begin dup 2* lfr-state-xt while 1+ repeat ;
+: tac-state: ( save-xt back-xt -- )
+  lfr-states-used dup lfr-states# < 0= abort" tac-state: no room for another state"
+  2* tuck 1+ lfr-states xt-table! lfr-states xt-table! ;
+\ A back-xt's work for a slab kept on store: put back (undo?) or forgotten.
+: lf-tac-slab-back ( undo? slab store -- outcome )
+  rot if slab-restore else nip slab-forget outcome-ok then ;
+: lfr-state-back ( undo? k -- outcome ) 2* 1+ lfr-state-xt execute ;
+\ The first n states put back or forgotten, all of them: the first refusal.
+: lfr-states-back ( undo? n -- outcome )
+  outcome-ok swap 0 ?do over i lfr-state-back outcome-and loop nip ;
+: lfr-states-undo ( k outcome -- outcome ) swap false swap lfr-states-back drop ;
+\ Each state kept; on a refusal those kept before it forgotten.
+: lfr-states-save ( -- outcome )
+  lfr-states-used 0 ?do i 2* lfr-state-xt execute
+    dup ok? 0= if i swap lfr-states-undo unloop exit then drop loop outcome-ok ;
+: lfr-states-all ( undo? -- outcome ) lfr-states-used lfr-states-back ;
+: lfr-drop-save ( -- ) trun-saves slab-drop ;
+: lfr-unsaved ( save outcome -- -1 outcome )
+  swap lfr-save tsv-mark @ lfr-drop-save swap lfr-unmark ;
 : lf-tac-save ( -- save outcome )
   lfr-trail-mark ok-then? 0= if no-result exit then
   1 trun-saves slab-claim ok-then? 0= if lfr-unmark exit then
-  tuck lfr-save lfr-fill outcome-ok ;
-: lfr-drop-save ( -- ) trun-saves slab-drop ;
+  tuck lfr-save lfr-fill lfr-states-save dup ok? 0= if lfr-unsaved then ;
 \ The slabs' counts back to the save's (blocks, parts and text only grow
-\ in a try).
+\ in a try), and the step log's newest entry.
 : lfr-back-log ( addr -- )
-  dup tsv-log @ trun-log slab-cut tsv-log-spans @ trun-log-spans slab-cut ;
+  dup tsv-log @ trun-log slab-cut dup tsv-log-spans @ trun-log-spans slab-cut
+  tsv-entry @ trun trun-entry ! ;
 : lfr-back ( addr -- outcome )
   dup tsv-frames @ trun-frames slab-cut dup tsv-parts @ trun-parts slab-cut
   dup tsv-text @ trun-text slab-cut dup tsv-steps @ trun-steps slab-cut
   dup lfr-back-log tsv-goals @ lf-goals! ;
 \ The trail first, through every scope opened since (review C1 of
-\ 2026-11-18), then the view, the goal list and the slabs.
+\ 2026-11-18), then the view, the goal list, the slabs and the other
+\ modules' states (each of them, whatever the goal list's outcome).
 : lfr-rolled ( addr -- outcome )
-  dup tsv-mark @ lfr-trail-undo ok-then? 0= if exit then
-  dup tsv-view @ lf-mctx-view! lfr-back ;
+  dup tsv-mark @ lfr-trail-undo ok-then? 0= if true lfr-states-all drop exit then
+  dup tsv-view @ lf-mctx-view! lfr-back true lfr-states-all outcome-and ;
 : lf-tac-restore ( save -- outcome )
   dup lfr-latest? 0= if drop outcome-invalid exit then lfr-save lfr-rolled lfr-drop-save ;
 : lf-tac-commit ( save -- outcome )
   dup lfr-latest? 0= if drop outcome-invalid exit then
-  lfr-save tsv-mark @ lfr-trail-keep lfr-drop-save ;
+  lfr-save tsv-mark @ lfr-trail-keep false lfr-states-all outcome-and lfr-drop-save ;
 \ A save that cannot be put back or kept is LeanForth's fault: the run
 \ stops with a THROW no try catches (an internal fault, error 41).
 -4134 constant lfr-state-lost   \ THROW code: a choice point refused
@@ -559,8 +597,12 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lf-tac-forget ( -- ) lfa-error-reset ;
 
 \ ---- The run: the root goal, the steps, the end.
+\ Saves a run left open (it stopped inside a try): forgotten, with the
+\ other modules' states kept for them.
+: lfr-forget-saves ( -- )
+  lfr-saves 0 ?do false lfr-states-all drop loop trun-saves slab-clear ;
 : lfr-fresh ( -- )
-  trun-frames slab-clear trun-saves slab-clear trun-steps slab-clear lfr-fuel-start
+  trun-frames slab-clear lfr-forget-saves trun-steps slab-clear lfr-fuel-start
   lf-pst-reset 0 trun trun-step ! -1 lfr-running ! -1 trun trun-entry !
   trun-log slab-count trun trun-log-first ! lf-open-parts trun trun-parts-first ! ;
 : lfr-root ( type -- )
