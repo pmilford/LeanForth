@@ -270,4 +270,14 @@ T{ lf-term-default lf-term-capacity! lf-terms store-capacity @ -> outcome-ok 64 
 \ Pi, no room at max-n, the same depth under any other tag.
 T{ 5 lf-tag-lam lf-term-inner 5 lf-tag-pi lf-term-inner 5 lf-tag-app lf-term-inner -> 6 true 6 true 5 true }T
 T{ max-n lf-tag-pi lf-term-inner max-n lf-tag-app lf-term-inner -> false max-n true }T
+\ A hash table that cannot take one more entry (here frozen: htab-ready
+\ answers invalid) leaves a shared node unshared: lf-term-cons appends it
+\ as a new node, ok, and finds no node of the table (reuse-front-a2, the
+\ path that the front end's walks once reached through a heap refusal).
+true lf-term-sharing!  lf-term-capacity lf-term-count @ - 3 < [if] cr .( no room) bye [then]
+9 lf-term-bvar drop constant shared-9
+T{ 9 lf-term-bvar drop shared-9 = -> true }T
+lf-term-table htab-freeze
+T{ 9 lf-term-bvar nip 9 lf-term-bvar drop shared-9 <> -> true true }T
+T{ 9 lf-term-bvar drop 9 lf-term-bvar drop <> -> true }T
 bye
