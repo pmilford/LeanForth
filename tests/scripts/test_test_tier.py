@@ -118,6 +118,17 @@ class Tiers(Fixture):
         result = self.change({"src/program/p.fs": ": p 3 ;\n"})
         self.assertEqual(result["coverage"]["targets"], ["smoke", "test-cli"])
 
+    def test_end_to_end_tests_count_beside_unit_tests(self):
+        """The baseline counts all of make test: a file a unit test loads is measured over the
+        end-to-end tests that load it too (fix-batch-4: cli/leanforth.fs over test-cli-forth
+        alone showed 561 never-run blocks against make test's 117)."""
+        self.repo.write("tests/cli/cli.fs", "require ../../src/core/c.fs\n")
+        self.repo.commit("an end-to-end test loads c.fs too")
+        self.repo.git("tag", "-f", "base")
+        result = self.change({"src/core/c.fs": "require ../lib/used.fs\n\\ changed again\n"})
+        self.assertEqual(result["coverage"], {"kind": "focus", "files": ["src/core/c.fs"],
+                                              "targets": ["smoke", "test-core", "test-cli"]})
+
     def test_changed_baseline_entries_are_measured(self):
         self.repo.write("tests/coverage-baseline.json", '{"runs": 5, "files": {}}\n')
         self.repo.commit("a baseline")

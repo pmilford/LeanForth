@@ -82,6 +82,13 @@ class Pure(unittest.TestCase):
         self.assertEqual(kept, {"src/a.fs": [5, 2]})
         self.assertEqual(missing, ["src/c.fs: no run of the command loaded it"])
 
+    def test_focus_passes_a_load_list_that_compiles_no_block(self):
+        # src/main.fs only requires modules: no run can show it loaded (fix-batch-4).
+        kept, missing = tool.focus({}, ["src/main.fs", "src/lib/slab.fs"])
+        self.assertEqual((kept, missing), ({}, ["src/lib/slab.fs: no run of the command loaded it"]))
+        self.assertFalse(tool.compiles_blocks("src/main.fs"))
+        self.assertTrue(tool.compiles_blocks("src/lib/slab.fs"))
+
     def test_only_needs_check(self):
         for args in (["--only", "src/a.fs"], ["--only", "src/a.fs", "--check", "--update-baseline"]):
             with self.assertRaises(SystemExit):
