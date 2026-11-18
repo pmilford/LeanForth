@@ -754,6 +754,24 @@ class Overwrites(unittest.TestCase):
                               "--steps", name, "victim.lf"],
                              "STEPS must not be the --env export's manifest")
 
+    def test_partial(self):
+        """--save-snapshot FILE writes FILE.partial first and renames it
+        (review R2 of 2026-11-18), so FILE.partial is written too: an export
+        or a snapshot read by that name, as text or through a link, is
+        refused, never overwritten."""
+        for name in ["y.partial", "y.partial" + MANIFEST, "z.partial"]:
+            source = "ex.ndjson" + (MANIFEST if name.endswith(MANIFEST) else "")
+            (self.dir / name).write_bytes((self.dir / source).read_bytes())
+        (self.dir / "sub" / "y.partial").symlink_to(self.dir / "y.partial")
+        (self.dir / "sub" / "z.partial").symlink_to(self.dir / "z.partial")
+        self.before = {p.name: p.read_bytes() for p in self.dir.iterdir() if p.is_file()}
+        for save in ["y", "sub/y"]:
+            self.refused(["check", "--save-snapshot", save, "y.partial"],
+                         "FILE.partial must not be EXPORT")
+        for save in ["z", "sub/z"]:
+            self.refused(["check", "--snapshot", "z.partial", "--save-snapshot", save,
+                          "ex.ndjson"], "FILE.partial must not be the snapshot read")
+
     def test_inputs_may_repeat(self):
         """Files only read may be one file: replay EXPORT EXPORT is no clash."""
         status, out, _ = run("replay", "ex.ndjson", "sub/link-ex.ndjson", cwd=self.dir)

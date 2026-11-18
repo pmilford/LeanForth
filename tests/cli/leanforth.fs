@@ -895,21 +895,45 @@ cli-options
 \ manifest one file with argument J.
 : t-exm ( -- c-addr u ) s" ex.ndjson.manifest.json" ;
 : t-manifest ( -- c-addr ) c" M" ;
-T{ 3 12 cli-mpair s"  3m:12 " compare -> 0 }T
+T{ 3 char m 12 cli-dpair s"  3m:12 " compare -> 0 }T
 : t-export-in ( c-addr u -- ) 2dup t-export cli-in+ t-manifest cli-manifest-in ;
 T{ t-ex t-export-in t-exm t-record cli-out+ cli-state arg-paths# @ -> 3 }T
-T{ 0 cli-path path-manifest? @ 1 cli-path path-manifest? @ 2 cli-path path-manifest? @
-   -> false true false }T
+T{ 0 cli-path cli-derived? 1 cli-path cli-derived? 2 cli-path cli-derived? -> false true false }T
+T{ 1 cli-path cli-mark 1 cli-path cli-suffix s" .manifest.json" compare -> char m 0 }T
 T{ 1 cli-path 2 cli-path cli-same-text? 2 cli-path 1 cli-path cli-same-text? -> true true }T
 T{ 0 cli-path 2 cli-path cli-same-text? 0 cli-path 1 cli-path cli-same-text? -> false false }T
 T{ cli-clash -> 1 2 true }T
 cli-options
 T{ t-new t-export-in t-dot-ex t-record cli-out+ cli-clash -> false }T
-T{ t-ex s" .manifest.json" cli-manifest-text? t-ex s" json" cli-manifest-text? -> false false }T
-T{ t-ex t-exm cli-manifest-text? s" ex.ndjso" t-exm cli-manifest-text? -> true false }T
-T{ 0 0 t-manifest cli-manifest-in cli-state arg-paths# @ 1 cli-path path-manifest? @
-   -> 3 true }T
+\ Derived path c-addr1 u1 (a manifest) against written text c-addr2 u2:
+\ one name only when as long, the stem first and the suffix last.
+: t-pair ( c-addr1 u1 c-addr2 u2 -- flag )
+  cli-options 2swap t-manifest cli-manifest-in t-record cli-out+
+  0 cli-path 1 cli-path cli-same-text? ;
+T{ t-ex s" .manifest.json" t-pair t-ex s" json" t-pair s" ex" s" x" t-pair -> false false false }T
+T{ t-ex t-exm t-pair s" ex.ndjso" t-exm t-pair s" fx.ndjson" t-exm t-pair -> true false false }T
+T{ t-ex s" ex.ndjson.manifest.jsox" t-pair -> false }T
+\ A shorter text is never read past its end: "ex" in memory that goes on
+\ as the manifest's name.
+T{ t-ex t-exm drop 2 t-pair -> false }T
 cli-options
+T{ t-ex t-export-in 0 0 t-manifest cli-manifest-in cli-state arg-paths# @ 1 cli-path cli-derived?
+   -> 2 true }T
+cli-options
+\ --save-snapshot FILE writes FILE.partial first (lib/sections.fs; review
+\ R2 of 2026-11-18): a derived output, " Ip:J " in the pairs, that no
+\ input may be, by text or by place; two derived files of one stem with
+\ different suffixes are two names.
+: t-y ( -- c-addr u ) s" y" ;  : t-yp ( -- c-addr u ) s" y.partial" ;
+T{ 1 char p 2 cli-dpair s"  1p:2 " compare -> 0 }T
+T{ cli-partial-out cli-state arg-paths# @ -> 0 }T
+T{ t-y cli-save! cli-partial-out cli-state arg-paths# @ 0 cli-path path-out? @ -> 1 true }T
+T{ 0 cli-path cli-mark 0 cli-path cli-suffix s" .partial" compare -> char p 0 }T
+T{ t-yp t-export cli-in+ cli-clash -> 0 1 true }T
+cli-options  0 0 cli-save!
+T{ t-y cli-save! cli-partial-out t-y t-export-in cli-clash -> false }T
+T{ 0 cli-path 2 cli-path cli-same-text? 0 cli-path 2 cli-path cli-both-text? -> false false }T
+cli-options  0 0 cli-save!
 
 cases-done
 bye

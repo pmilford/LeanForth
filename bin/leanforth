@@ -122,17 +122,22 @@ export LEANFORTH_ENGINE
 # inode, through symbolic links and relative names), as " I:J " pairs of
 # their indices, the command 0 and I < J, in LEANFORTH_SAME_FILES, and as
 # " Im:J " when the manifest an export argument I would have
-# (I.manifest.json, read with it) is argument J. The Forth side, which
+# (I.manifest.json, read with it) is argument J, and " Ip:J " when
+# I.partial (written first by --save-snapshot I, then renamed) is argument
+# J. The Forth side, which
 # alone knows each option's role, refuses a file written that is one read
 # or written by another argument (cli-same-file?), exit 4, before anything
 # runs.
 same=' '
 arguments=("$@")
 for ((i = 1; i < ${#arguments[@]}; i++)); do
-  manifest="${arguments[i]}.manifest.json"
+  manifest="${arguments[i]}.manifest.json" partial="${arguments[i]}.partial"
   for ((j = 1; j < ${#arguments[@]}; j++)); do
     if [ "$j" != "$i" ] && [ -e "$manifest" ] && [ "$manifest" -ef "${arguments[j]}" ]; then
       same+="${i}m:$j "
+    fi
+    if [ "$j" != "$i" ] && [ -e "$partial" ] && [ "$partial" -ef "${arguments[j]}" ]; then
+      same+="${i}p:$j "
     fi
     if [ "$j" -gt "$i" ] && [ -e "${arguments[i]}" ] &&
        [ "${arguments[i]}" -ef "${arguments[j]}" ]; then same+="$i:$j "; fi

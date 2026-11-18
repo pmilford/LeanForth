@@ -1653,7 +1653,13 @@ read beside the export and beside `--env`, `EXPORT.manifest.json`, even
 under `--no-manifest`) or another file it writes, with status 4 and
 `error: STEPS must not be FILE.lf` or `error: RECORD must not be EXPORT's
 manifest` (the names as in the usage; review B1, B2 and F1 of
-2026-11-18). Two names are one file
+2026-11-18). The files a command writes, all of them: `check` writes
+RECORD (`--record`), FILE and `FILE.partial` (`--save-snapshot`: the
+snapshot goes to `FILE.partial` first and is renamed to FILE when
+complete, the partial deleted on failure) and STEPS (`--steps`, not
+`-`); `reexport` writes COPY. `FILE.partial` is checked like the rest:
+`check --save-snapshot y y.partial` is refused with `error: FILE.partial
+must not be EXPORT` (review R2). Two names are one file
 when they are the same text or the same file by device and inode, so a
 relative name (`./x`, `../d/x`) or a symbolic link to the file is refused
 too; options before the file name, such as `--jobs N`, change nothing.

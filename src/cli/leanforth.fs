@@ -411,9 +411,12 @@ end-structure
 \ cli/tally.fs's verdict order.
 : cli-kind. ( verdict -- )
   dup not-checked = if drop ." not checked" else verdict-name type then ;
+\ A comma before every item after the first: first? from under x and n.
+: cli-comma ( first? n -- n ) swap 0= if ." , " then ;
+: cli-comma-under ( first? x n -- x n ) rot swap cli-comma ;
 : cli-item ( first? verdict -- first? )
   dup cli-count-of @ ?dup 0= if drop exit then
-  rot 0= if ." , " then .decimal space cli-kind. false ;
+  cli-comma-under .decimal space cli-kind. false ;
 \ In a run with a snapshot (development mode), how many verdicts came
 \ from it (review rvSN3 m6).
 : cli-from-snapshot# ( -- n ) 0 lf-input-count 0 ?do i lf-env-origin lf-origin-saved = -
@@ -784,9 +787,8 @@ here cli-plain-chars - 2 cells / constant cli-plain-chars#
 \ A carry run (plan step 6.2.5c3): the declarations checked again, by why
 \ (env-import.fs why-*), each group after the first after a comma.
 : cli-again# ( -- n ) 0 lf-input-count 0 ?do i ck-reason 0<> - loop ;
-: cli-comma ( first? n -- n ) swap 0= if ." , " then ;
 : cli-reach-group ( first? k -- first? )
-  dup step-why ck-again# ?dup 0= if drop exit then rot swap cli-comma
+  dup step-why ck-again# ?dup 0= if drop exit then cli-comma-under
   .decimal ."  inside the reach of verdict version " .decimal ." 's change" false ;
 : cli-outcome-group ( first? -- first? )
   why-outcome ck-again# ?dup if
@@ -1191,53 +1193,68 @@ variable cli-info#
 \ when bin/leanforth found them one file by device and inode (test -ef,
 \ through symbolic links and relative names): it lists those arguments in
 \ LEANFORTH_SAME_FILES as " I:J " pairs of their indices (cli-seen),
-\ I < J, and as " Im:J " when argument I's manifest is argument J.
+\ I < J, as " Im:J " when argument I's manifest is argument J, and as
+\ " Ip:J " when I.partial (--save-snapshot I writes it first) is.
 begin-structure /cli-path
   2 cells +field path-text      \ the file's name, as given
   field: path-label             \ counted string: what the messages call it
   field: path-out?              \ true: the command writes it
-  field: path-manifest?         \ true: the file is path-text's manifest
+  field: path-derived           \ 0, or ( -- c-addr u ): the file is path-text + suffix
 end-structure
 : cli-arg-index ( c-addr -- i true | false ) cli-seen cells-index ;
 : cli-hold# ( n -- ) s>d #s 2drop ;
 : cli-pair-to ( i j -- i ) <# bl hold cli-hold# [char] : hold ;
 : cli-pair-from ( i -- c-addr u ) s>d #s bl hold #> ;
 : cli-pair-text ( i j -- c-addr u ) cli-pair-to cli-pair-from ;
-: cli-mpair-text ( i j -- c-addr u ) cli-pair-to [char] m hold cli-pair-from ;
+: cli-dpair-text ( i char j -- c-addr u ) cli-pair-to hold cli-pair-from ;
 : cli-pair ( i j -- c-addr u ) ['] cli-pair-text in-decimal ;
-: cli-mpair ( i j -- c-addr u ) ['] cli-mpair-text in-decimal ;
+: cli-dpair ( i char j -- c-addr u ) ['] cli-dpair-text in-decimal ;
 : cli-same-files ( -- c-addr u ) s" LEANFORTH_SAME_FILES" cli-env ;
 : cli-listed? ( c-addr u -- flag ) cli-same-files 2swap search nip nip ;
 : cli-same-pair? ( i j -- flag ) 2dup > if swap then cli-pair cli-listed? ;
 : cli-path ( i -- addr ) /cli-path * cli-state arg-paths @ + ;
 : cli-texts ( a b -- c-addr1 u1 c-addr2 u2 ) swap path-text 2@ rot path-text 2@ ;
-\ Text c-addr2 u2 names the manifest of the export named c-addr1 u1.
-: cli-suffixed? ( c-addr u -- flag )
-  dup manifest-suffix nip u< if 2drop false exit then
-  + manifest-suffix nip - manifest-suffix tuck compare 0= ;
-: cli-stem ( c-addr u -- c-addr u' ) manifest-suffix nip - ;
-: cli-manifest-text? ( c-addr1 u1 c-addr2 u2 -- flag )
-  2dup cli-suffixed? 0= if 2drop 2drop false exit then cli-stem compare 0= ;
-\ How many of paths a and b are manifests, negated (true is -1).
-: cli-manifests ( a b -- n ) path-manifest? @ swap path-manifest? @ + ;
-\ Paths a and b name one text: a manifest's name is its export's with
-\ manifest-suffix (the manifest first, when only one is).
-: cli-manifest-first ( a b -- a' b' ) dup path-manifest? @ if swap then ;
-: cli-same-text? ( a b -- flag )
-  2dup cli-manifests -1 = if cli-manifest-first cli-texts cli-manifest-text? exit then
-  cli-texts compare 0= ;
+\ A derived path d (an export's manifest, a snapshot's FILE.partial) is
+\ the file named by its text, the stem, then its suffix; its letter in
+\ the pairs is m or p.
+: cli-derived? ( path -- flag ) path-derived @ 0<> ;
+: cli-suffix ( d -- c-addr u ) path-derived @ execute ;
+: cli-manifest? ( d -- flag ) path-derived @ ['] manifest-suffix = ;
+: cli-mark ( d -- char ) cli-manifest? if [char] m else [char] p then ;
 : cli-path-addr ( path -- c-addr ) path-text 2@ drop ;
+: cli-name# ( d -- u ) dup path-text @ swap cli-suffix nip + ;
+\ Plain path p's text is derived path d's name: as long, d's stem first,
+\ d's suffix last (the last two read p's text only when it is as long).
+: cli-length-of? ( d p -- flag ) path-text @ swap cli-name# = ;
+: cli-stem-of? ( d p -- flag ) cli-path-addr swap path-text 2@ tuck compare 0= ;
+: cli-suffix-of? ( d p -- flag )
+  cli-path-addr over path-text @ + swap cli-suffix tuck compare 0= ;
+: cli-derived-text? ( d p -- flag )
+  2dup cli-length-of? 0= if 2drop false exit then
+  2dup cli-stem-of? if cli-suffix-of? else 2drop false then ;
+\ How many of paths a and b are derived, negated (true is -1).
+: cli-manifests ( a b -- n ) cli-derived? swap cli-derived? + ;
+\ Two derived paths: the same suffix of the same stem.
+: cli-both-text? ( a b -- flag )
+  2dup path-derived @ swap path-derived @ <> if 2drop false exit then
+  cli-texts compare 0= ;
+\ Paths a and b name one text (the derived one first, when only one is).
+: cli-manifest-first ( a b -- a' b' ) dup cli-derived? if swap then ;
+: cli-same-text? ( a b -- flag )
+  2dup cli-manifests dup 0= if drop cli-texts compare 0= exit then
+  -1 = if cli-manifest-first cli-derived-text? else cli-both-text? then ;
 : cli-path-index ( path -- i true | false ) cli-path-addr cli-arg-index ;
 : cli-indices ( a b -- i j true | false )
   cli-path-index if swap cli-path-index if swap true exit then then drop false ;
-\ Argument i, or the manifest m of argument i, and argument j are one
-\ file. Two manifests are only ever read, never compared (cli-clash?).
+\ Argument i, or the derived file d of argument i, and argument j are
+\ one file. Two derived files are compared by text alone: two manifests
+\ are only read (cli-clash?), and FILE.partial is no manifest's name.
 : cli-plain-place? ( a b -- flag ) cli-indices dup if drop cli-same-pair? then ;
-: cli-manifest-place? ( m b -- flag )
-  cli-indices dup if drop cli-mpair cli-listed? then ;
+: cli-marked ( i j d -- i char j ) cli-mark swap ;
+: cli-manifest-place? ( d b -- flag )
+  over swap cli-indices if rot cli-marked cli-dpair cli-listed? else drop false then ;
 : cli-same-place? ( a b -- flag )
-  cli-manifest-first over path-manifest? @
-  if cli-manifest-place? else cli-plain-place? then ;
+  cli-manifest-first over cli-derived? if cli-manifest-place? else cli-plain-place? then ;
 : cli-same-file? ( a b -- flag )
   2dup cli-same-text? if 2drop true else cli-same-place? then ;
 : cli-written? ( a b -- flag ) path-out? @ swap path-out? @ or ;
@@ -1255,10 +1272,15 @@ end-structure
 : cli-layer-in ( i -- )
   2* cells cli-state opt-layers @ + 2@ c" the snapshot read" cli-in+ ;
 : cli-layers-in ( -- ) cli-state opt-layers# @ 0 ?do i cli-layer-in loop ;
-\ An export's manifest, read with it: the export's name, flagged.
+\ An export's manifest, read with it, and the snapshot's FILE.partial,
+\ written first (lib/sections.fs): the stem's name, derived.
 : cli-last-path ( -- addr ) cli-state arg-paths# @ 1- cli-path ;
+: cli-derive ( xt -- ) cli-last-path path-derived ! ;
 : cli-manifest-in ( c-addr u label -- )
-  over 0= if drop 2drop exit then cli-in+ true cli-last-path path-manifest? ! ;
+  over 0= if drop 2drop exit then cli-in+ ['] manifest-suffix cli-derive ;
+: cli-partial-out ( -- )
+  cli-save? 0= if exit then
+  cli-state opt-save 2@ c" FILE.partial" cli-out+ ['] sections-suffix cli-derive ;
 : cli-steps-out+ ( -- )
   cli-steps 2dup s" -" compare if c" STEPS" cli-out+ else 2drop then ;
 \ The file names, set by the command line or by cli-check (cli-files
@@ -1276,7 +1298,7 @@ end-structure
   cli-state opt-snapshot 2@ c" the snapshot read" cli-in+ cli-layers-in ;
 : cli-outputs ( copy? -- )
   cli-copy-out+ cli-record 2@ c" RECORD" cli-out+
-  cli-state opt-save 2@ c" FILE" cli-out+ cli-steps-out+ ;
+  cli-state opt-save 2@ c" FILE" cli-out+ cli-partial-out cli-steps-out+ ;
 : cli-paths ( copy? -- ) 0 cli-state arg-paths# ! cli-inputs cli-outputs ;
 : cli-clash-in ( i -- j true | false )
   cli-state arg-paths# @ over 1+ ?do

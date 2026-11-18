@@ -1701,7 +1701,7 @@ reason = "review F1 of 2026-11-18: an export's manifest is not an input, so --st
 [[fault]]
 id = "cli-manifest-unflagged"
 file = "src/cli/leanforth.fs"
-old = '''  over 0= if drop 2drop exit then cli-in+ true cli-last-path path-manifest? ! ;'''
+old = '''  over 0= if drop 2drop exit then cli-in+ ['] manifest-suffix cli-derive ;'''
 new = '''  over 0= if drop 2drop exit then cli-in+ ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "review F1 of 2026-11-18: a manifest path is kept as its export's name, so the manifest itself is never an input and is overwritten"
@@ -1709,10 +1709,42 @@ reason = "review F1 of 2026-11-18: a manifest path is kept as its export's name,
 [[fault]]
 id = "cli-manifest-text-unsuffixed"
 file = "src/cli/leanforth.fs"
-old = '''  2dup cli-suffixed? 0= if 2drop 2drop false exit then cli-stem compare 0= ;'''
-new = '''  compare 0= ;'''
+old = '''  2dup cli-stem-of? if cli-suffix-of? else 2drop false then ;'''
+new = '''  2dup cli-stem-of? if 2drop true else 2drop false then ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
-reason = "review F1 of 2026-11-18: a written name is compared with the export's own name, not its manifest's, so cli-check (no wrapper) writes --record EXPORT.manifest.json over the manifest"
+reason = "review F1 of 2026-11-18: a written name is compared with the export's name and length, not its manifest's suffix, so any name of that length and stem is taken for the manifest"
+
+[[fault]]
+id = "cli-derived-length-unchecked"
+file = "src/cli/leanforth.fs"
+old = '''  2dup cli-length-of? 0= if 2drop false exit then'''
+new = '''  ( length unchecked )'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review R2 of 2026-11-18: a derived file's name is taken for any text that begins with its stem and ends with its suffix, so ex.ndjso clashes with ex.ndjson.manifest.json"
+
+[[fault]]
+id = "cli-partial-not-written"
+file = "src/cli/leanforth.fs"
+old = '''  cli-state opt-save 2@ c" FILE" cli-out+ cli-partial-out cli-steps-out+ ;'''
+new = '''  cli-state opt-save 2@ c" FILE" cli-out+ cli-steps-out+ ;'''
+test = "python3 tests/cli/test_leanforth.py Overwrites.test_partial"
+reason = "review R2 of 2026-11-18: --save-snapshot FILE writes FILE.partial first, which is then on no list, so check --save-snapshot y y.partial overwrites the export and exits 0"
+
+[[fault]]
+id = "cli-derived-mark-one"
+file = "src/cli/leanforth.fs"
+old = ''': cli-mark ( d -- char ) cli-manifest? if [char] m else [char] p then ;'''
+new = ''': cli-mark ( d -- char ) drop [char] m ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review R2 of 2026-11-18: FILE.partial is sought in the wrapper's pairs as a manifest (m), so a link to an input named FILE.partial is overwritten"
+
+[[fault]]
+id = "cli-wrapper-no-partial-pairs"
+file = "bin/leanforth"
+old = '''      same+="${i}p:$j "'''
+new = '''      :'''
+test = "python3 tests/cli/test_leanforth.py Overwrites.test_partial"
+reason = "review R2 of 2026-11-18: the wrapper lists no FILE.partial one file with an argument, so --save-snapshot sub/y with sub/y.partial a link to the export overwrites it"
 
 [[fault]]
 id = "cli-wrapper-no-manifest-pairs"
