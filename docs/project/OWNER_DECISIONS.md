@@ -1423,3 +1423,21 @@ each asked in plain language with a recommendation:
 
 Unchanged: pinned-Lean comparisons, planted faults, the trust part of every Forth review, the owner's gates, and the
 done checker.
+
+## Tactic plug-ins: the step log's names, a tactic tier, the order (2026-11-17)
+
+Asked with the design docs/design/TACTIC_PLUGINS.md (branch `tactic-plugin-design`, in revision after its design
+review, .claude/work/pending-reports/2026-11-17-tactic-plugins-design-review.md) and its measurement: of 18 front-end
+branches since 2026-11-12, `tests/mutants/faults.toml` was changed by 18, the `Makefile` by 17, `src/main.fs` by 12 and
+`src/author/errors.fs` by 11. The owner approved:
+
+1. **[format] The step log's tactic names are a pattern, not a list.** `schemas/tactic-steps-1.schema.json` accepts
+   any name matching `^[a-z][a-z0-9_]*[?!']*$`, so a new tactic needs no schema change. Nothing reads the log back.
+2. **A lighter tier for a confined tactic branch.** A branch that an automatic check confirms only adds files in the
+   tactics folder (a private wordlist, no writes to shared hooks) runs the front-end tests, every `.lf` end-to-end run
+   and the S1/S2 comparisons; the nightly full run is the safety net. Not in force until that check exists.
+3. **Order:** after the plug-in interface lands, `by-decide`, `apply` and `constructor` in parallel; `by-omega`
+   starting with one shared-services branch; and the design of `simp`'s lemma data started now, because its [import]
+   gate is the long step towards `norm_num`, `ring` and proofs about real numbers.
+
+The owner also asked for the plug-in interface itself ("do the tactics plug in and keep going").
