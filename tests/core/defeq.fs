@@ -332,5 +332,22 @@ dq frame-free
 \ refuse it, invalid, no node given.
 : no-node ( -- node ) lf-term-count @ 100 + ;
 T{ no-node whnf no-node core -> -1 outcome-invalid -1 outcome-invalid }T
+\ An application headed by a free variable that no local declaration
+\ names (outside the passes' precondition: their inputs' free variables
+\ are live): whnf and whnf_core refuse it, invalid (whnf.fs lf-wc-fvar).
+: dead-app ( -- node ) lf-tag-fvar 1000 0 lf-term-add must 0 make-sort make-app ;
+T{ dead-app whnf dead-app core -> -1 outcome-invalid -1 outcome-invalid }T
+\ An application's arguments that the heap cannot hold (whnf.fs's array
+\ trimmed, its growth refused): whnf, whnf_core and a comparison that
+\ needs them are full, never an answer; with room, (fun x y z => x) applied
+\ to Sort 0, Sort 1, Sort 0 is Sort 0.
+: lam3 ( -- node )
+  0 make-sort 0 make-sort 0 make-sort 2 make-var make-lam make-lam make-lam ;
+: app3 ( -- node ) lam3 0 make-sort make-app 1 make-sort make-app 0 make-sort make-app ;
+: trimmed ( -- ) lf-whnf-args slab-trim drop 1 heap-refusals ! ;
+: refused ( xt -- node outcome left ) >r app3 trimmed r> execute heap-refusals @ ;
+T{ ' whnf refused ' core refused -> -1 outcome-full 0 -1 outcome-full 0 }T
+T{ app3 app3 1 make-sort make-app trimmed defeq heap-refusals @ -> false outcome-full 0 }T
+T{ app3 whnf swap 0 make-sort same? -> outcome-ok true }T
 dq frame-free
 bye

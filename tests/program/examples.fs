@@ -209,9 +209,11 @@ check-range-frames
   depth 1 <> abort" underflow check needs an otherwise empty data stack"
   catch -4 <> abort" expected the host stack-underflow exception -4"
   depth 0<> abort" underflow check left data-stack items" ;
+host-checks-depth? [if]
 ' underflow-add check-underflow
 ' underflow-abs check-underflow
 ' underflow-factorial check-underflow
 ' underflow-gcd check-underflow
 ' underflow-range check-underflow
+[then]
 bye

@@ -16,7 +16,8 @@ golden tests read, each into a word list of its own under CATCH: the
 load must not throw, must leave the data stack as it was, and the words
 must give the values of their IR. Three refused files are loaded too, to
 pin down why they are refused: Gforth ends a line at a lone CR, and
-stops loading at a division before CONSTANT (THROW -10 and -11). Finite
+stops loading at a division before CONSTANT (THROW -10 and -11; gforth-fast
+reports -10 for both). Finite
 tests on the Gforth that GFORTH names, not a proof.
 """
 import os
@@ -79,8 +80,10 @@ CASES = {
     "cr-inside": (F7 + b" \r: g 8 ;\r\n", 5, f"unsupported @1:9: {CHARACTER}", None, None),
     "divide-by-zero": (b"1 0 / constant junk\n: lf-five 5 ;\n", 5,
                        "unsupported @1:5: a division outside a definition: /", -10, None),
+    # The smallest number divided by -1: Gforth's checking engine (1.0 and 0.7.3) throws -11
+    # (result out of range), gforth-fast -10 (its division reports every fault so).
     "divide-smallest": (b"-1 1 rshift invert -1 / constant junk\n", 5,
-                        "unsupported @1:23: a division outside a definition: /", -11, None),
+                        "unsupported @1:23: a division outside a definition: /", (-11, -10), None),
 }
 
 
@@ -177,21 +180,21 @@ def main():
             problems += check_reader(name, result, outcome, expected)
             if isinstance(run, str):
                 loads.append((paths[name], run))
-                wanted.append((name, 0, values))
-            elif isinstance(run, int):
+                wanted.append((name, (0,), values))
+            elif isinstance(run, (int, tuple)):
                 loads.append((paths[name], ""))
-                wanted.append((name, run, ""))
+                wanted.append((name, run if isinstance(run, tuple) else (run,), ""))
         for path, run, values in FIXTURES:
             loads.append((ROOT / path, run))
-            wanted.append((path, 0, values))
+            wanted.append((path, (0,), values))
         found = load_all(gforth_path, loads, directory)
         if len(found) != len(wanted):
             raise SystemExit(f"{len(found)} host loads for {len(wanted)} files")
-        for (name, code, values), (got_code, left, got_values) in zip(wanted, found):
-            if (got_code, left, got_values) != (code, 0, values):
+        for (name, codes, values), (got_code, left, got_values) in zip(wanted, found):
+            if got_code not in codes or (left, got_values) != (0, values):
                 problems.append(f"{name}: host load gave throw {got_code}, {left} cells "
-                                f"left, values '{got_values}'; expected throw {code}, 0, "
-                                f"'{values}'")
+                                f"left, values '{got_values}'; expected throw "
+                                f"{' or '.join(map(str, codes))}, 0, '{values}'")
     for problem in problems:
         print(problem, file=sys.stderr)
     if problems:

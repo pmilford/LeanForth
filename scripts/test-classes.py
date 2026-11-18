@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""The unit and end-to-end classes of the tests (owner, 2026-11-14): tests/test-classes.txt.
+
+Usage (from the repository root):
+  python3 scripts/test-classes.py               (make check-test-classes)
+  python3 scripts/test-classes.py --list CLASS  (unit, e2e or manual: the names of that class)
+
+tests/test-classes.txt is the one list of the classes (docs/development/TESTING_STRATEGY.md,
+"Unit and end-to-end tests"): each row is a target of the Makefile or a test program's path, its
+class (unit, e2e or manual) and a note; # starts a comment line. The Makefile reads it for make
+test-unit and make test-e2e, scripts/test-tier.py for the suites of a change tier: unit tests run
+on Gforth 1.0 (instrumented), on gforth-fast and at the push on Gforth 0.7.3, end-to-end tests
+once.
+
+Without --list it checks the table against the Makefile and the tree, and exits 1 naming every
+problem: a malformed row, an unknown class, a name given twice; a leaf target of make check
+(scripts/changed-tests.py's) with no row, or a target row that names no leaf target of make
+check; a tracked test program under tests/ (.fs, .py, .sh) that no target of make check runs
+(scripts/changed-tests.py's closure of the recipes: named paths, Forth loads, Python imports)
+and that no row names; a path row whose file is missing or that a target already reaches (the
+row is then stale); a target row classed manual. Exit status 0, 1 for problems, 2 for a usage
+error.
+"""
+import argparse
+import importlib.util
+import os
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+TABLE = "tests/test-classes.txt"
+CLASSES = ("unit", "e2e", "manual")
+PROGRAMS = (".fs", ".py", ".sh")
+
+
+def module(name, file):
+    spec = importlib.util.spec_from_file_location(name, os.path.join(HERE, file))
+    loaded = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(loaded)
+    return loaded
+
+
+def is_path(name):
+    return "/" in name
+
+
+def parse(text):
+    """({name: class}, [problem]) of the table's TEXT, in its order."""
+    rows, problems = {}, []
+    for number, line in enumerate(text.splitlines(), 1):
+        words = line.split()
+        if not words or words[0].startswith("#"):
+            continue
+        if len(words) < 2 or words[1] not in CLASSES:
+            problems.append(f"{TABLE}:{number}: not 'NAME CLASS [note]' with a class of {', '.join(CLASSES)}")
+        elif words[0] in rows:
+            problems.append(f"{TABLE}:{number}: {words[0]} is given twice")
+        else:
+            rows[words[0]] = words[1]
+    return rows, problems
+
+
+def read(path=TABLE):
+    """({name: class}, [problem]) of the table in this tree; a missing table is one problem."""
+    try:
+        with open(path, encoding="utf-8") as stream:
+            return parse(stream.read())
+    except OSError:
+        return {}, [f"{path}: missing: every test target needs a class"]
+
+
+def of_class(rows, wanted):
+    """The target names (not paths) of class WANTED, in the table's order."""
+    return [name for name, kind in rows.items() if kind == wanted and not is_path(name)]
+
+
+def problems_of(rows, leaves, reached, programs):
+    """The table's problems against LEAVES (make check's leaf targets), REACHED (every file their
+    recipes reach) and PROGRAMS (the tracked test programs under tests/)."""
+    found = []
+    targets = {n: k for n, k in rows.items() if not is_path(n)}
+    paths = {n: k for n, k in rows.items() if is_path(n)}
+    found += [f"target {t}: in no class (add a row to {TABLE})" for t in leaves if t not in targets]
+    found += [f"row {t}: no leaf target of make check has that name" for t in targets if t not in leaves]
+    found += [f"row {t}: a target is unit or e2e, never manual" for t, k in targets.items() if k == "manual"]
+    for path in programs:
+        if path not in reached and path not in paths:
+            found.append(f"test file {path}: in neither class: no target of make check runs it and no "
+                         f"row of {TABLE} names it")
+    for path in paths:
+        if path not in programs:
+            found.append(f"row {path}: no such tracked test program")
+        elif path in reached:
+            found.append(f"row {path}: a target already runs it; its class is that target's (stale row)")
+    return found
+
+
+def tracked_programs():
+    listed = subprocess.run(["git", "ls-files", "tests"], capture_output=True, text=True, check=True).stdout
+    return sorted(p for p in listed.splitlines() if os.path.splitext(p)[1] in PROGRAMS)
+
+
+def check():
+    """Every problem of this tree's table, Makefile and tests."""
+    rows, found = read()
+    test_tier = module("test_tier", "test-tier.py")
+    reach = test_tier.Reach(test_tier.make_database()[0])
+    reached = set().union(*reach.uses.values()) if reach.uses else set()
+    return found + problems_of(rows, reach.every, reached, tracked_programs())
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--list", choices=CLASSES)
+    args = parser.parse_args(argv)
+    if args.list:
+        rows, found = read()
+        print(" ".join(n for n, k in rows.items() if k == args.list))
+        return 1 if found else 0
+    found = check()
+    for problem in found:
+        print(f"test-classes: {problem}", file=sys.stderr)
+    if not found:
+        rows = read()[0]
+        print(f"test-classes: {len(of_class(rows, 'unit'))} unit and {len(of_class(rows, 'e2e'))} end-to-end "
+              f"targets; every test program in a class")
+    return 1 if found else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

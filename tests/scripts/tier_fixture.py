@@ -16,6 +16,9 @@ MAKEFILE = """\
 GFORTH ?= .tools/gforth/bin/gforth
 NOTE = echo $@ >> $${STUB_LOG:-/dev/null}
 COVERAGE_ENGINE_DIFFERS := test-cli
+test-class = $(shell awk '$$1 ~ /^[a-z][a-z0-9-]*$$/ && $$2 == "$(1)" { print $$1 }' tests/test-classes.txt)
+test-unit: $(call test-class,unit)
+test-e2e: $(call test-class,e2e)
 test: check-docs check-portable-forth check-forth-quality smoke test-lib test-front test-core test-cli
 check: test check-rest
 check-rest: test-differential mutants-check $(COVERAGE_ENGINE_DIFFERS)
@@ -45,7 +48,7 @@ mutants:
 \t$(GFORTH) mutants $(FAULTS)
 sneaky:
 \techo changed >> ./docs/A.md
-.PHONY: test check check-rest test-differential check-docs check-portable-forth check-forth-quality \\
+.PHONY: test-unit test-e2e test check check-rest test-differential check-docs check-portable-forth check-forth-quality \\
 \treference-core mutants-check smoke test-lib test-front test-core test-cli reference-front \\
 \tcoverage-check coverage-focus mutants sneaky
 """
@@ -89,6 +92,21 @@ test = "$GFORTH tests/front/f.fs"
 reason = "stub"
 """
 
+CLASSES = """\
+# The fixture's classes, as tests/test-classes.txt
+check-docs unit
+check-portable-forth unit
+check-forth-quality unit
+smoke unit
+test-lib unit
+test-front unit
+test-core unit
+mutants-check unit
+test-cli e2e
+reference-front e2e
+reference-core e2e
+"""
+
 FILES = {
     "Makefile": MAKEFILE,
     ".gitignore": ".tools/\n/.claude/work/\n__pycache__/\n",
@@ -110,6 +128,7 @@ FILES = {
     "tests/cli/cli.fs": "\\ the command line\n",
     "tests/mutants/faults.toml": FAULTS,
     "tests/coverage-baseline.json": "{}\n",
+    "tests/test-classes.txt": CLASSES,
     "scripts/check.py": "print('stub')\n",
     "bin/tool": "#!/bin/sh\n",
 }
@@ -137,10 +156,12 @@ class Repo:
         self.log = pathlib.Path(self.top) / "stub.log"
         self.path.mkdir()
         self.env = make_env(HOME=self.top, LF_TESTED_DIR=str(self.records), LF_TESTED_NOW=f"{TODAY} 12:00:00",
-                            LF_GFORTH073=str(self.path / ".tools/gforth073"), STUB_LOG=str(self.log))
+                            LF_GFORTH073=str(self.path / ".tools/gforth073"),
+                            LF_GFORTH_FAST=str(self.path / ".tools/gforth/bin/gforth-fast"), STUB_LOG=str(self.log))
         for name, text in (files or FILES).items():
             self.write(name, text)
         self.stub(".tools/gforth/bin/gforth", GFORTH_STUB % ("gforth 1.0.0 stub", "gforth10"))
+        self.stub(".tools/gforth/bin/gforth-fast", GFORTH_STUB % ("gforth 1.0.0 stub", "gforthfast"))
         self.stub(".tools/gforth073", GFORTH_STUB % ("gforth 0.7.3", "gforth073"))
         self.stub(".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean", LEAN_STUB)
         self.git("init", "-q", "-b", "main")

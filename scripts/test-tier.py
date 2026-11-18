@@ -17,15 +17,18 @@ Each file gets a tier; the range gets the largest:
            .gitignore: make check-docs, the targets that use the file (a
            page whose examples run, a catalogue a test reads) and, run by
            make tier itself, the progress check.
-  tests    any other file under tests/: the targets that use it, on Gforth
-           1.0 and 0.7.3, its planted faults (those whose test command names
-           it, and fault entries new or changed in tests/mutants/faults.toml)
-           and the block coverage of the source files the changed tests
-           drive (make coverage-check when one of them is loaded by
-           src/main.fs). A test file no target uses selects the targets that
-           use a file of its folder; with none, the range is full.
+  tests    any other file under tests/: the targets that use it on Gforth
+           1.0, and those of them that are unit tests (tests/test-classes.txt)
+           and run Gforth also on gforth-fast and Gforth 0.7.3; its planted
+           faults (those whose test command names it, and fault entries new
+           or changed in tests/mutants/faults.toml) and the block coverage of
+           the source files the changed tests drive (make coverage-check when
+           one of them is loaded by src/main.fs). A test file no target uses
+           selects the targets that use a file of its folder; with none, the
+           range is full.
   library  a Forth file of src/lib/ that src/main.fs does not load: the
-           targets that use it on both Gforths, its faults and its coverage.
+           targets that use it (the unit tests on all three engines), its
+           faults and its coverage.
   front    a Forth file of src/front/ that src/main.fs does not load: the
            same, and make test-front and reference-front.
   full     everything else: any file src/main.fs loads, at HEAD or at the
@@ -34,9 +37,11 @@ Each file gets a tier; the range gets the largest:
            the Makefile, scripts/, bin/, schemas/, lean-toolchain, .github/
            any deleted or renamed-away file but documents (what used it is
            known only from the base tree) and any file not named above. Suites: make coverage-check (make
-           test once, instrumented, and the coverage ratchet), make
-           check-rest (the rest of make check, every pinned-Lean comparison
-           included), make test on Gforth 0.7.3, and the planted faults
+           test once, instrumented, and the coverage ratchet: every unit
+           test on Gforth 1.0 and every end-to-end test of make test), make
+           test-unit on gforth-fast, make check-rest (the rest of make check,
+           every pinned-Lean comparison included), make test-unit on Gforth
+           0.7.3 (at the push), and the planted faults
            whose entries are new or changed, or whose old text lies on or
            next to a changed line of its file (plan 9.4.8j); a fault of a
            changed file whose text was left alone is left to the stale
@@ -48,7 +53,10 @@ scripts/changed-tests.py finds (the files its recipe names, followed through
 Forth loads, Python imports and named repository paths); every changed
 Forth source also selects smoke, check-portable-forth and
 check-forth-quality. A target of make test that runs Gforth (its recipe
-names it) runs on Gforth 0.7.3 too. A smaller tier is a heuristic over
+names it) and is no end-to-end test (tests/test-classes.txt; owner,
+2026-11-14) runs on gforth-fast and Gforth 0.7.3 too; plan() fails (exit 2)
+when a suite would drop such a unit test from an engine or run an end-to-end
+test on one. A smaller tier is a heuristic over
 named files: when in doubt the tier is the larger one. What it leaves to
 the daily full run: block coverage of files a changed library or test loads
 but does not test, and documents a test reads through a path built at run
@@ -68,6 +76,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 _spec = importlib.util.spec_from_file_location("changed_tests", os.path.join(HERE, "changed-tests.py"))
 changed_tests = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(changed_tests)
+_spec = importlib.util.spec_from_file_location("test_classes", os.path.join(HERE, "test-classes.py"))
+test_classes = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(test_classes)
 
 TIERS = ("none", "docs", "tests", "library", "front", "full")
 DOC_FOLDERS = ("docs/", ".claude/", ".codex/", "prompts/")
@@ -76,13 +87,18 @@ MAIN = "src/main.fs"
 FAULTS = "tests/mutants/faults.toml"
 COVERAGE_BASELINE = "tests/coverage-baseline.json"
 SOURCE_RULE_TARGETS = ("smoke", "check-portable-forth", "check-forth-quality")
-FRONT_TARGETS = ("test-front", "reference-front")
+FRONT_TARGETS = ("test-front", "test-front-e2e", "reference-front")
 FORTH_LOAD = re.compile(r"\b(?:require|include|needs)\s+(\S+\.fs)\b", re.IGNORECASE)
 TARGET_VARIABLE = changed_tests.TARGET_VARIABLE
+# The engines unit tests run on besides Gforth 1.0 (owner, 2026-11-14): gforth-fast, the
+# users' default, and Gforth 0.7.3, CI's portability host (only at the push and in the daily
+# run: tested-tree.py tier --with-073). End-to-end tests run once, on Gforth 1.0.
+ENGINES = {"fast": "gforth-fast", "073": "Gforth 0.7.3"}
 FULL_SUITES = (
     {"label": "coverage-check", "goals": ["coverage-check"]},
+    {"label": "testfast", "goals": ["test-unit"], "engine": "fast"},
     {"label": "check-rest", "goals": ["check-rest"]},
-    {"label": "test073", "goals": ["test"], "gforth073": True},
+    {"label": "test073", "goals": ["test-unit"], "engine": "073"},
 )
 
 
@@ -401,7 +417,7 @@ def plan(changed, merge_base, full=False, reach=None):
     tier = max((f["tier"] for f in files), key=TIERS.index, default="none")
     if full:
         tier = "full"
-    result = {"base": merge_base, "tier": tier, "files": files, "targets": [], "targets073": [],
+    result = {"base": merge_base, "tier": tier, "files": files, "targets": [], "engine_targets": [],
               "faults": [], "coverage": None, "suites": []}
     if tier in ("full", "none"):
         return full_result(result, changed, base_rev)
@@ -431,12 +447,47 @@ def plan(changed, merge_base, full=False, reach=None):
     if tier == "full":
         return full_result(result, changed, base_rev)
     result["targets"] = [u for u in reach_.every if u in chosen] + sorted(chosen - set(reach_.every))
-    result["targets073"] = [u for u in reach_.of_test if u in chosen and reach_.runs_gforth(u)]
+    engine_unit = engine_units(reach_)
+    result["engine_targets"] = [u for u in reach_.of_test if u in chosen and engine_unit(u)]
     if tier != "docs":
         result["faults"] = selected_faults(changed, base_rev)
         result["coverage"] = coverage_need(files, reach_, loaded)
     result["suites"] = suites_of(result)
+    problems = engine_problems(result, engine_unit, end_to_end())
+    if problems:
+        print("test-tier: " + "; ".join(problems), file=sys.stderr)
+        raise SystemExit(2)
     return result
+
+
+def end_to_end():
+    """The end-to-end targets of tests/test-classes.txt. A target the table lacks counts as a
+    unit test here, so the engines run more, never less (make check-test-classes refuses it)."""
+    return set(test_classes.of_class(test_classes.read()[0], "e2e"))
+
+
+def engine_units(reach_):
+    """( target -- flag ): whether a target is a unit test of make test whose recipe runs Gforth,
+    which every engine runs."""
+    e2e, of_test = end_to_end(), set(reach_.of_test)
+    return lambda u: u in of_test and u not in e2e and reach_.runs_gforth(u)
+
+
+def engine_problems(result, engine_unit, e2e):
+    """Why RESULT's suites break the owner's split (2026-11-14), or []: in a smaller tier each
+    reached target for which ENGINE_UNIT holds runs on every engine and no target of E2E (the
+    end-to-end tests) runs on one; the full tier runs make test-unit on every engine."""
+    on = {s["engine"]: s["goals"] for s in result["suites"] if s.get("engine")}
+    if result["tier"] == "full":
+        return [f"the full tier runs no make test-unit on {name}" for engine, name in ENGINES.items()
+                if on.get(engine) != ["test-unit"]]
+    problems = []
+    for engine, name in ENGINES.items():
+        goals = on.get(engine, [])
+        problems += [f"unit test {u} would not run on {name}" for u in result["targets"]
+                     if engine_unit(u) and u not in goals]
+        problems += [f"end-to-end test {u} would run on {name}" for u in goals if u in e2e]
+    return problems
 
 
 def coverage_need(files, reach_, loaded):
@@ -474,8 +525,8 @@ def suites_of(result):
                                 "COVERAGE_TARGETS": " ".join(cover["targets"])}})
     if result["targets"]:
         suites.append({"label": "targets", "goals": result["targets"]})
-    if result["targets073"]:
-        suites.append({"label": "targets073", "goals": result["targets073"], "gforth073": True})
+    for engine in ENGINES if result["engine_targets"] else ():
+        suites.append({"label": f"targets{engine}", "goals": result["engine_targets"], "engine": engine})
     if result["faults"]:
         suites.append({"label": "faults", "goals": ["mutants"], "vars": {"FAULTS": ",".join(result["faults"])}})
     return suites
@@ -488,7 +539,7 @@ def describe(result):
         lines.append(f"  {f['status']} {f['path']}: {f['tier']}, {f['why']}")
     for s in result["suites"]:
         extra = " ".join(f"{k}='{v}'" for k, v in s.get("vars", {}).items())
-        gforth = " (Gforth 0.7.3)" if s.get("gforth073") else ""
+        gforth = f" ({ENGINES[s['engine']]})" if s.get("engine") else ""
         lines.append(f"suite {s['label']}{gforth}: make {' '.join(s['goals'])} {extra}".rstrip())
     return "\n".join(lines)
 

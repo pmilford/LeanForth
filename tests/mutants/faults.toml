@@ -19725,3 +19725,19 @@ old = '''  lf-tac-main swap lf-goal-clear dup outcome-invalid = if 2drop exit th
 new = '''  lf-tac-main swap lf-goal-clear ok? if lfi-only else drop then ;'''
 test = "$GFORTH tests/front/s2-sweeps.fs"
 reason = "review s2-tactics re-check M4: tryClear's full or exhausted read as cannot clear, a runtime failure swallowed (Lean's <|> never catches one)"
+
+[[fault]]
+id = "cov2-whnf-dead-fvar-kept"
+file = "src/kernel/whnf.fs"
+old = '''  over lf-fvar-live? 0= if nip outcome-invalid swap lf-whnf-failed exit then'''
+new = '''  over lf-fvar-live? 0= if lf-whnf-keep exit then'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "whnf_core takes a free variable no local declaration names as normal at an application's head instead of refusing it"
+
+[[fault]]
+id = "cov2-whnf-args-refusal-unknown"
+file = "src/kernel/whnf.fs"
+old = '''  if drop lf-whnf-collect outcome-ok else nip nip then ;'''
+new = '''  if drop lf-whnf-collect outcome-ok else nip nip drop outcome-unknown then ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "an application's arguments the heap cannot hold read as undecided, not out of room"

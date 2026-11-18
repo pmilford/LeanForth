@@ -1,0 +1,178 @@
+# The class of every test target of make check, and of every test program no target runs
+# (owner, 2026-11-14: "split the tests"; docs/development/TESTING_STRATEGY.md, "Unit and
+# end-to-end tests"). The one list of the classes: the Makefile reads it for make test-unit and
+# make test-e2e, scripts/test-tier.py for the suites of each change tier, and
+# scripts/test-classes.py (make check-test-classes, part of make test) fails when a leaf target
+# of make check, or a test program under tests/, is in no class, or a row names nothing.
+#
+# Columns: a target of the Makefile (or a test program's path), its class, a note.
+#   unit    a Forth test file that loads a module and runs its cases, or a Python test of a
+#           script (and the checks that run no Forth). Runs on Gforth 1.0, instrumented (make
+#           coverage-check), on gforth-fast (make test-unit GFORTH=.tools/gforth/bin/gforth-fast)
+#           and, at the push and in the daily run, on Gforth 0.7.3; the tiers' engine runs take
+#           those whose recipe runs Gforth.
+#   e2e     runs bin/leanforth on an export, a snapshot or .lf files, compares with pinned Lean,
+#           runs all of Init, or plants faults in a copy of the tree: once, on Gforth 1.0 (make
+#           coverage-check for those of make test, make check-rest for the others).
+#   manual  a test program no target of make check runs: benchmarks and measurements run by hand.
+
+# make test: unit
+check-tools-untracked              unit
+check-docs                         unit
+check-lean-sources                 unit
+check-portable-forth               unit
+check-forth-quality                unit
+check-test-classes                 unit
+smoke                              unit
+test-harness                       unit
+test-lib                           unit
+test-core                          unit
+test-composition-fixture           unit
+test-program                       unit
+test-present                       unit
+check-doc-examples                 unit    the pages' Forth examples; COMMAND_LINE.md's console blocks also run bin/leanforth
+test-demos                         unit    the page against its golden file, no Lean, no checker run
+test-program-ir                    unit
+test-program-verify                unit
+test-program-ir-run                unit
+test-program-verify-driver         unit    the verify driver with stand-ins for Lean, the exporter and the checker
+test-program-verify-driver-input   unit
+test-environment                   unit
+test-check-block                   unit
+test-kernel-reduction              unit
+test-kernel-blocks                 unit
+test-kernel-nested                 unit
+test-kernel-passes                 unit
+test-run-records                   unit    one premise check runs bin/leanforth check --record
+test-bignum                        unit
+test-bigint                        unit
+test-sha256                        unit
+test-sections                      unit
+test-manifest                      unit
+test-elab-data                     unit
+test-instances                     unit
+test-author                        unit
+test-front                         unit
+test-coverage                      unit
+test-mutants                       unit
+test-reexport                      unit
+test-compact                       unit
+test-stage                         unit
+test-log                           unit
+test-cli-forth                     unit
+test-lean-cache                    unit
+test-tiers                         unit
+
+# make test: end to end (once, in make coverage-check)
+test-cli-1                         e2e     bin/leanforth itself, every exit code, from other folders
+test-cli-2                         e2e
+test-cli-3                         e2e
+test-cli-4                         e2e
+test-cli-engines                   e2e     also in make check-rest (COVERAGE_ENGINE_DIFFERS): gforth-fast against the checking engine
+test-elab-data-e2e                 e2e     leanforth check --elab-data, damaged data refused
+test-author-e2e                    e2e     the example files through bin/leanforth check and print
+test-front-e2e                     e2e     .lf files through bin/leanforth check: tactics, elaborator, S2
+test-program-verify-command        e2e     bin/leanforth verify, --json, --write-ir, replay
+
+# make check-rest: unit
+mutants-check                      unit    the fault list's stale check (Python)
+
+# make check-rest: end to end (once, in make check-rest)
+program-clamp-record               e2e
+reference-program-verify-clamp     e2e
+reference-program-verify-refuted   e2e
+reference-program-sha-export       e2e
+reference-demos                    e2e
+reference-program-ir-run           e2e
+reference-program-mutants          e2e
+reference-author                   e2e
+reference                          e2e
+reference-compact-init             e2e
+test-inductive-table               e2e
+reference-inductive                e2e
+reference-cli                      e2e
+test-doc-examples-lean             e2e
+test-depth-differential            e2e
+test-depth-fed-differential        e2e
+test-depth-deep-differential       e2e
+test-universe-many-differential    e2e
+test-universe-many-fed-differential e2e
+reference-bignum                   e2e
+reference-bigint                   e2e
+test-compact-faults                e2e     faults planted in a copy of the compact store, as make mutants
+reference-export                   e2e
+reference-first-checker            e2e
+reference-binder-domains           e2e
+reference-definitional-equality    e2e
+test-definitional-equality-differential e2e
+test-name-differential             e2e
+test-level-differential            e2e
+test-level-assignment-differential e2e
+test-level-compare-differential    e2e
+test-level-substitute-differential e2e
+test-mixed-shift-differential      e2e
+test-mixed-instantiate-differential e2e
+test-mixed-beta-differential       e2e
+test-mixed-convert-differential    e2e
+test-mixed-level-substitute-differential e2e
+test-mixed-signature-differential  e2e
+test-mixed-infer-differential      e2e
+test-constant-term-scope-differential e2e
+test-mixed-shift-plain-differential e2e
+test-mixed-instantiate-plain-differential e2e
+test-mixed-beta-plain-differential e2e
+test-mixed-convert-plain-differential e2e
+test-mixed-infer-plain-differential e2e
+test-mixed-definition-differential e2e
+test-mixed-level-substitute-plain-differential e2e
+test-mixed-infer-constant-differential e2e
+test-export-signature-differential e2e
+test-export-specialization-differential e2e
+test-first-checker-differential    e2e
+test-binder-domains-differential   e2e
+test-universe-scope-differential   e2e
+test-first-checker-large-differential e2e
+test-binder-domains-large-differential e2e
+test-universe-scope-large-differential e2e
+test-first-checker-fed-differential e2e
+test-binder-domains-fed-differential e2e
+test-universe-scope-fed-differential e2e
+reference-deep-recursion           e2e
+test-dependencies-differential     e2e
+test-dependencies-fed-differential e2e
+test-program-differential          e2e
+test-program-stack-differential    e2e
+test-program-values-differential   e2e
+test-program-depth-differential    e2e
+test-example-reference-differential e2e
+test-add-reference-differential    e2e
+test-abs-reference-differential    e2e
+test-factorial-reference-differential e2e
+test-gcd-reference-differential    e2e
+test-range-64-differential         e2e
+test-memory-reference-differential e2e
+test-memory-frame-differential     e2e
+test-printer-differential          e2e
+reference-program-ir               e2e
+reference-manifest                 e2e
+reference-elab-data                e2e
+reference-synth                    e2e
+reference-front                    e2e
+reference-constructions            e2e
+reference-reexport                 e2e
+
+# Test programs a target runs through a path built at run time (in the class of that target)
+tests/harness/bad-depth.fs         unit    test-harness: check.sh runs bad-$case.fs, a deliberate failure
+tests/harness/bad-value.fs         unit    test-harness: check.sh runs bad-$case.fs, a deliberate failure
+tests/present/fixture-reader.fs    unit    test-present: check_golden.py runs HERE / "fixture-reader.fs"
+tests/present/print-cases.fs       unit    test-present: check_golden.py runs HERE / "print-cases.fs"
+
+# Test programs no target of make check runs
+tests/core/compact-bench.fs        manual  report-only benchmark
+tests/lib/bignum-bench.fs          manual  report-only benchmark
+tests/lib/bignum_bench.py          manual  report-only benchmark against Python
+tests/lib/sha256-bench.fs          manual  report-only benchmark
+tests/lib/task-bench.fs            manual  report-only benchmark
+tests/front/check_binder_kinds.py  manual  make reference-binder-kinds, a measurement on all of Init
+tests/support/gforth-log.sh        manual  make check-log-identity's wrapper
+tests/support/tier-both-ways.fs    manual  a driver for comparisons on all of Init, run by hand

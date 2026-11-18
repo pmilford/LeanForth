@@ -265,5 +265,5 @@ check-clamp-nested-domain
   depth 0<> abort" underflow check needs an empty data stack"
   ['] underflow-clamp catch -4 <> abort" expected host stack underflow -4"
   depth 0<> abort" underflow check left data-stack items" ;
-check-clamp-underflow
+host-checks-depth? [if] check-clamp-underflow [then]
 bye

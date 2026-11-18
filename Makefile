@@ -70,6 +70,25 @@ export TEST_TIMEOUT
 # so the same test run at once by another worktree or make never shares them.
 SCRATCH = scripts/with-scratch.sh
 
+# Unit and end-to-end tests (owner, 2026-11-14; TESTING_STRATEGY.md, "Unit and
+# end-to-end tests"): tests/test-classes.txt gives every test target of make
+# check its class, the one list the Makefile and scripts/test-tier.py read
+# (scripts/test-classes.py, make check-test-classes, fails on a target or test
+# file in neither class). Unit tests run on Gforth 1.0 (instrumented, in make
+# coverage-check), on gforth-fast and, at the push, on Gforth 0.7.3:
+#   make test-unit GFORTH=.tools/gforth/bin/gforth-fast
+# End-to-end tests run once, on Gforth 1.0: make test-e2e.
+TEST_CLASSES := tests/test-classes.txt
+test-class = $(shell awk '$$1 ~ /^[a-z][a-z0-9-]*$$/ && $$2 == "$(1)" { print $$1 }' $(TEST_CLASSES))
+UNIT_TARGETS := $(call test-class,unit)
+E2E_TARGETS := $(call test-class,e2e)
+test-unit: $(UNIT_TARGETS)
+test-e2e: $(E2E_TARGETS)
+check-test-classes:
+	$(RUN) python3 tests/scripts/test_test_classes.py
+	$(RUN) python3 scripts/test-classes.py
+.PHONY: test-unit test-e2e check-test-classes
+
 # Every pinned-Lean oracle and differential comparison. Excludes the
 # profiling targets.
 DIFFERENTIAL_TARGETS := \
@@ -113,10 +132,13 @@ DIFFERENTIAL_TARGETS := \
 	forth-metrics $(DIFFERENTIAL_TARGETS)
 
 # Gforth and Python 3 only; run on every CI host and before every commit.
-# The slowest targets first (see check below).
+# The slowest targets first (see check below): the command line's parts take
+# about 60-125 s each under make coverage-check (2026-11-14).
+TEST_CLI_PARTS := test-cli-4 test-cli-1 test-cli-3 test-cli-2 test-cli-engines test-cli-forth
+test: $(TEST_CLI_PARTS) test-elab-data-e2e test-author-e2e test-front-e2e
 test: test-core test-composition-fixture test-bignum test-run-records test-environment
 test: check-tools-untracked check-docs check-lean-sources check-portable-forth check-forth-quality smoke test-harness test-lib test-core \
-	test-composition-fixture test-program test-present check-doc-examples
+	test-composition-fixture test-program test-present check-doc-examples check-test-classes
 
 # Fails on broken documentation links or missing docs/ paths.
 check-docs:
@@ -190,7 +212,7 @@ test-differential: $(DIFFERENTIAL_TARGETS)
 # to end (about 100 s, 2 workers).
 CHECK_FIRST := program-clamp-record reference-program-verify-clamp \
 	reference-program-verify-refuted reference-program-sha-export reference-demos \
-	reference-program-ir-run reference-program-mutants reference-author reference test-cli \
+	reference-program-ir-run reference-program-mutants reference-author reference $(TEST_CLI_PARTS) \
 	reference-compact-init test-inductive-table reference-inductive reference-cli test-doc-examples-lean \
 	test-depth-differential test-depth-fed-differential test-universe-many-differential \
 	reference-bignum test-compact-faults
@@ -198,15 +220,18 @@ CHECK_FIRST := program-clamp-record reference-program-verify-clamp \
 # instrumented make test of make coverage-check does not stand in for. That is
 # every pinned-Lean comparison and other target of make check outside make
 # test, and the targets of make test whose Gforth changes under coverage
-# (COVERAGE_ENGINE_DIFFERS: test-cli's --fast runs use gforth-fast, which make
-# coverage replaces by the counting Gforth 1.0). The full change tier (plan
-# 9.4.6; scripts/test-tier.py) runs make coverage-check and make check-rest,
-# so make test runs once, instrumented. tests/scripts/test_test_tier.py checks
-# that check-rest holds no other target of make test.
-COVERAGE_ENGINE_DIFFERS := test-cli
+# (COVERAGE_ENGINE_DIFFERS: test-cli-engines compares bin/leanforth's
+# gforth-fast with its checking engine, and make coverage replaces gforth-fast
+# by the counting Gforth 1.0). The full change tier (plan 9.4.6;
+# scripts/test-tier.py) runs make coverage-check, make test-unit on
+# gforth-fast and make check-rest, so make test runs once, instrumented, and
+# every end-to-end test of make test (test-cli's parts among them) only
+# there. tests/scripts/test_test_tier.py checks that check-rest holds no other
+# target of make test.
+COVERAGE_ENGINE_DIFFERS := test-cli-engines
 check: $(CHECK_FIRST)
 check: test check-rest
-check-rest: $(CHECK_FIRST) $(COVERAGE_ENGINE_DIFFERS)
+check-rest: $(filter-out $(TEST_CLI_PARTS),$(CHECK_FIRST)) $(COVERAGE_ENGINE_DIFFERS)
 check-rest: test-differential mutants-check test-depth-deep-differential
 .PHONY: check-rest
 
@@ -945,6 +970,7 @@ test-differential: reference-manifest
 test-elab-data:
 	$(RUN) $(GFORTH) tests/front/elab-data.fs
 	$(RUN) $(GFORTH) tests/front/elab-check-lf.fs
+test-elab-data-e2e:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/test_elab_data.py
 # With pinned Lean: scripts/export-elab.sh reproduces the init slice's data
 # byte for byte, and for all of Init its records equal pinned Lean's own
@@ -952,8 +978,8 @@ test-elab-data:
 reference-elab-data: RUN := timeout 1500
 reference-elab-data:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/front/elab-init.sh
-.PHONY: test-elab-data reference-elab-data
-test: test-elab-data
+.PHONY: test-elab-data test-elab-data-e2e reference-elab-data
+test: test-elab-data test-elab-data-e2e
 test-differential: reference-elab-data
 
 # The instance table (plans FE1e2 and FE1e3; S1_INTERFACE.md §9): keys,
@@ -989,6 +1015,8 @@ test-author:
 	@out=$$($(RUN) $(GFORTH) src/author/runner.fs -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	if [ -n "$$out" ]; then printf 'src/author/runner.fs printed while loading:\n%s\n' "$$out" >&2; exit 1; fi
 	$(RUN) $(GFORTH) tests/author/author.fs
+# The example files and round trips, also through bin/leanforth check and print.
+test-author-e2e:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/author/check_author.py
 
 # The example files' declarations against pinned Lean's, term for term
@@ -999,8 +1027,8 @@ reference-author:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/author/check_author.py --lean
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/author/check_author.py --faults
 
-.PHONY: test-author reference-author
-test: test-author
+.PHONY: test-author test-author-e2e reference-author
+test: test-author test-author-e2e
 
 # The front end's first steps (plan FE1a-c, FE1f, FE1g-2, FE6a, ADR 0021):
 # the natural reader's syntax trees and refusals, the metavariable context,
@@ -1054,11 +1082,15 @@ test-front:
 	@out=$$($(RUN) $(GFORTH) tests/front/menv-run.fs 2>&1) || \
 	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "menv-run.fs: all tests passed"
 	$(RUN) python3 tests/front/test_front_imports.py
-	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_tactics.py
 	$(RUN) $(GFORTH) tests/front/goals.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_goals.py
 	@out=$$($(RUN) $(GFORTH) tests/front/elab.fs 2>&1) || \
 	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "elab.fs: all tests passed"
+
+# The front end end to end: LeanForth text (.lf) checked by bin/leanforth
+# check against the tactic, S1 and S2 slices, golden (tactics, elaborator, S2).
+test-front-e2e:
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_tactics.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_elab.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_s2.py
 
@@ -1095,8 +1127,8 @@ reference-binder-kinds:
 	LEAN=$(LEAN) $(RUN) python3 tests/front/check_binder_kinds.py \
 	  $(if $(INIT_EXPORT),--export $(INIT_EXPORT))
 
-.PHONY: test-front reference-front reference-constructions reference-binder-kinds
-test: test-front
+.PHONY: test-front test-front-e2e reference-front reference-constructions reference-binder-kinds
+test: test-front test-front-e2e
 test-differential: reference-front
 test-differential: reference-constructions
 test-differential: reference-author
@@ -1306,13 +1338,16 @@ DOC_EXAMPLE_PAGES += docs/user/PROOF_OUTLINE.md
 # with a broken Gforth. The page's console examples run in check-doc-examples.
 # Gforth and Python 3 only.
 # The command-line tests run as four parts that make can run at once
-# (tests/cli/run_group.py; 236 s on one core in one part, 2026-11-12).
-test-cli: test-cli-forth test-cli-1 test-cli-2 test-cli-3 test-cli-4
+# (tests/cli/run_group.py; 236 s on one core in one part, 2026-11-12), and the
+# engine tests (the Engines class: gforth-fast against the checking engine) as
+# a fifth, which make check-rest runs again without coverage (COVERAGE_ENGINE_DIFFERS).
+# test-cli-forth is the Forth side's unit tests; the others are end to end.
+test-cli: $(TEST_CLI_PARTS)
 test-cli-forth:
 	$(RUN) $(GFORTH) tests/cli/leanforth.fs
-test-cli-1 test-cli-2 test-cli-3 test-cli-4:
+test-cli-1 test-cli-2 test-cli-3 test-cli-4 test-cli-engines:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/cli/run_group.py $(subst test-cli-,,$@)
-.PHONY: test-cli-forth test-cli-1 test-cli-2 test-cli-3 test-cli-4
+.PHONY: test-cli-forth test-cli-1 test-cli-2 test-cli-3 test-cli-4 test-cli-engines
 
 # Pinned Lean accepts the two Lean fixtures of the command line's tests and
 # scripts/export.sh reproduces their exports and manifests byte for byte.
@@ -1330,7 +1365,7 @@ engine-gate:
 
 .PHONY: engine-gate
 .PHONY: test-cli reference-cli
-test: test-cli
+# make test names test-cli's parts at its start (TEST_CLI_PARTS), the slowest first.
 test-differential: reference-cli
 DOC_EXAMPLE_PAGES += docs/user/COMMAND_LINE.md
 
@@ -1377,6 +1412,14 @@ tier:
 test-tiers:
 	$(RUN) python3 tests/scripts/test_test_tier.py
 	$(RUN) python3 tests/scripts/test_tested_tree.py
+# The daily full run (owner, 2026-11-17: its own command, once a night and before a tag;
+# a push only reports its age): the full tier of HEAD with LEAN_CACHE=0 and Gforth 0.7.3,
+# each suite recorded for this exact tree; DRY_RUN=1 prints what would run. make tag-check
+# exits 0 only when this tree has a complete daily run (a tag requires one).
+daily:
+	@python3 scripts/tested-tree.py daily --make $(MAKE) --jobs $(JOBS) $(if $(DRY_RUN),--dry-run)
+tag-check:
+	@python3 scripts/tested-tree.py tag-check
 
-.PHONY: once tier test-tiers
+.PHONY: once tier test-tiers daily tag-check
 test: test-tiers
