@@ -1,0 +1,119 @@
+# Planted faults of elaboration-data format 3.1 (slice MF1 of
+# docs/design/MATHLIB_FRONT.md, O1 and O2): inert nodes, the version, a
+# default instance named twice, and the exporter's side. Read with
+# tests/mutants/faults.toml, which holds the reader's other faults, as one
+# list.
+
+[[fault]]
+id = "fe-ed31-inert-decoded"
+file = "src/front/lib-decode.fs"
+old = '''  dup elab-sunfold-usable? 0= if drop outcome-unsupported no-result exit then'''
+new = '''  dup elab-sunfold-foreign? if drop outcome-unsupported no-result exit then'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "MF1 O1: a body holding an inert node is decoded (its inert node read as a sunfoldMatchAlt annotation) and Nat.add unfolds by it, where it must answer unsupported"
+
+[[fault]]
+id = "fe-ed31-inert-unmarked"
+file = "src/front/elab-data.fs"
+old = '''  true ed-sun-now ed-sun-inert ! elab-inert outcome-ok ['] ed-node-a ed-nd-put ;'''
+new = '''  elab-inert outcome-ok ['] ed-node-a ed-nd-put ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "MF1 O1: an inert node is read but its body is not marked, so elab-sunfold-usable? says it may be decoded"
+
+[[fault]]
+id = "fe-ed31-inert-any-version"
+file = "src/front/elab-data.fs"
+old = '''  ed-v31? 0= if drop ed-malformed exit then'''
+new = ''''''
+test = "python3 tests/front/test_elab_data.py"
+reason = "MF1 O1: an inert node is read in a format-3 file, which the readers of format 3 refuse as malformed"
+
+[[fault]]
+id = "fe-ed31-inert-any-key"
+file = "src/front/elab-data.fs"
+old = '''  if outcome-ok else ed-unknown-mark then ;
+: ed-inert-mark'''
+new = '''  if outcome-ok else 0 outcome-ok then ;
+: ed-inert-mark'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "MF1 O1: an inert node of any key is read (S2's sunfoldMatch or Lean's noindex written as inert), where the allowlist gives error 45"
+
+[[fault]]
+id = "fe-ed31-v31-unmarked"
+file = "src/front/elab-data.fs"
+old = ''': ed-head-v31 ( index -- flag ) s" 3.1" ed-text= dup elab elab-v31 ! ;'''
+new = ''': ed-head-v31 ( index -- flag ) s" 3.1" ed-text= ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "MF1 O1: a format-3.1 header does not allow inert nodes, so Mathlib's data is refused as malformed"
+
+[[fault]]
+id = "fe-ed31-v31-any-text"
+file = "src/front/elab-data.fs"
+old = ''': ed-head-v31 ( index -- flag ) s" 3.1" ed-text= dup elab elab-v31 ! ;'''
+new = ''': ed-head-v31 ( index -- flag ) ed-text dup if nip nip then dup elab elab-v31 ! ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "MF1 O1: any text is taken for format 3.1 (\"3.2\", \"3.10\", \"3\")"
+
+[[fault]]
+id = "fe-ed31-default-repeat-refused"
+file = "src/front/elab-data.fs"
+old = '''  2dup ed-dflt-same-decl? if ed-dflt-same-class? 0= else 2drop false then ;'''
+new = '''  ed-dflt-same-decl? ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "MF1 O2: a default instance named again at another rank of its class is refused, as before MF1, so Mathlib's data (instHSMul twice) is refused"
+
+[[fault]]
+id = "fe-ed31-default-any-first"
+file = "src/front/elab-data.fs"
+old = '''  over 0 ?do 2dup i swap execute if 2drop unloop true exit then loop 2drop false ;'''
+new = '''  over 1 min 0 ?do 2dup i swap execute if 2drop unloop true exit then loop 2drop false ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "MF1 O2: each default instance is compared with the first alone, so a repeat of a later one at its rank or with another class is read"
+
+[[fault]]
+id = "fe-ed31-finisher-mdata-kept"
+file = "scripts/export_elab.py"
+old = '''    return node if kind is None else {"inert": {"expr": node["mdata"]["expr"], "key": kind}}'''
+new = '''    return node'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "MF1 O1: the exporter writes save_info, noImplicitLambda and TermCongr metadata as mdata, which the reader refuses (error 45)"
+
+[[fault]]
+id = "fe-ed31-finisher-version-3"
+file = "scripts/export_elab.py"
+old = '''    version = FORMAT_INERT if INERT_NODE in body else VERSION'''
+new = '''    version = VERSION'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "MF1 O1: data holding inert nodes says format 3, which the reader refuses as malformed"
+
+[[fault]]
+id = "fe-ed31-finisher-always-31"
+file = "scripts/export_elab.py"
+old = '''    version = FORMAT_INERT if INERT_NODE in body else VERSION'''
+new = '''    version = FORMAT_INERT'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "MF1 O1: data without inert nodes says format 3.1, so a reader before 3.1 refuses Init's data, which it reads"
+
+[[fault]]
+id = "fe-ed31-finisher-any-metadata"
+file = "scripts/export_elab.py"
+old = '''            ok = annotation(part["entries"]) or inert_kind(part["entries"]) is not None'''
+new = '''            ok = True'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "MF1 O1: the exporter takes any metadata (noindex, save_info false, a malformed TermCongr hole) where only the three kinds may become inert nodes"
+
+[[fault]]
+id = "fe-ed31-finisher-hole-any-value"
+file = "scripts/export_elab.py"
+old = '''        return kind == "nat" and isinstance(value, str) and DIGITS.fullmatch(value) is not None'''
+new = '''        return kind == "nat"'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "MF1 O1: a TermCongr hole whose index is no natural number's digits is taken for one"
+
+[[fault]]
+id = "fe-ed31-finisher-anonymous-refused"
+file = "scripts/export_elab.py"
+old = '''    return () if value == [] else name_of(value)'''
+new = '''    return name_of(value)'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "MF1 O1: the exporter refuses a binder's anonymous name (Mathlib's Ring.ExProd.evalIntCast), which format 3 already allows"

@@ -384,8 +384,9 @@ end-structure
 \ or sunfoldMatchAlt entry an annotation (core/annotations.fs), a
 \ borrowed mark its term (the compiler's, never read by Meta).
 \ Unsupported: a string literal (plan S5), a constant or structure the
-\ library lacks. Binders get no presentation names (a body is shown only
-\ in messages).
+\ library lacks, a body holding an inert node (format 3.1: metadata not
+\ carried, MATHLIB_FRONT.md O1). Binders get no presentation names (a
+\ body is shown only in messages).
 : lbd-slsrc ( -- src ) lbd lbd-slwalk ;
 : lbd-sxsrc ( -- src ) lbd lbd-sxwalk ;
 : lbd-sun-forget ( -- )
@@ -462,7 +463,7 @@ elab-level-param tag-level-param <> or
 \ parameters are the n names at addr.
 : lf-libdec-sunfold ( s addr n -- body outcome )
   lbd lbd-snames# ! lbd lbd-snames ! lbd-sun-current
-  dup elab-sunfold-foreign? if drop outcome-unsupported no-result exit then
+  dup elab-sunfold-usable? 0= if drop outcome-unsupported no-result exit then
   elab-sunfold-value lbd-snode ;
 
 \ ---- Binder kinds (S1 §4): e's leading Pi binders, from the tier's tags.
