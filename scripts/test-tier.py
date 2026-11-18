@@ -85,6 +85,7 @@ DOC_FOLDERS = ("docs/", ".claude/", ".codex/", "prompts/")
 DOC_FILES = {"LICENSE", ".gitignore"}
 MAIN = "src/main.fs"
 FAULTS = "tests/mutants/faults.toml"
+FAULTS_DIR = "tests/mutants/faults.d"   # read with FAULTS as one list (scripts/mutants.py)
 COVERAGE_BASELINE = "tests/coverage-baseline.json"
 SOURCE_RULE_TARGETS = ("smoke", "check-portable-forth", "check-forth-quality")
 FRONT_TARGETS = ("test-front", "test-front-e2e", "reference-front")
@@ -302,11 +303,42 @@ class Reach:
 
 # --- planted faults --------------------------------------------------------------
 
-def fault_entries(text):
-    try:
-        return {f["id"]: f for f in tomllib.loads(text).get("fault", []) if "id" in f}
-    except (tomllib.TOMLDecodeError, TypeError):
-        return {}
+def is_fault_file(path):
+    """Whether PATH is a file of the fault list: FAULTS or a *.toml of FAULTS_DIR."""
+    return path == FAULTS or (os.path.dirname(path) == FAULTS_DIR and path.endswith(".toml"))
+
+
+def fault_list(rev=None):
+    """{id: entry} of the whole fault list (FAULTS and FAULTS_DIR's files) in the worktree, or at
+    commit REV. A worktree file that does not parse, or an id given twice, stops the plan (exit 2;
+    make mutants refuses such a list too); at REV it gives None, so every entry counts as new."""
+    if rev is None:
+        listed = sorted(os.listdir(FAULTS_DIR)) if os.path.isdir(FAULTS_DIR) else []
+        names = [FAULTS] + [f"{FAULTS_DIR}/{n}" for n in listed]
+        read = read_worktree
+    else:
+        listed = git("ls-tree", "--name-only", f"{rev}:{FAULTS_DIR}", check=False).split()
+        names = [FAULTS] + [f"{FAULTS_DIR}/{n}" for n in sorted(listed)]
+
+        def read(name):
+            return git("show", f"{rev}:{name}", check=False)
+    found = {}
+    for name in (n for n in names if is_fault_file(n)):
+        try:
+            entries = [f for f in tomllib.loads(read(name) or "").get("fault", []) if "id" in f]
+        except (tomllib.TOMLDecodeError, TypeError, AttributeError) as error:
+            if rev is not None:
+                return None
+            print(f"test-tier: {name}: malformed fault file: {error}", file=sys.stderr)
+            raise SystemExit(2)
+        for entry in entries:
+            if entry["id"] in found:
+                if rev is not None:
+                    return None
+                print(f"test-tier: fault {entry['id']} is given twice ({name})", file=sys.stderr)
+                raise SystemExit(2)
+            found[entry["id"]] = entry
+    return found
 
 
 def selected_faults(changed, base_rev):
@@ -316,10 +348,10 @@ def selected_faults(changed, base_rev):
     helpers such as tester.fs), through changed-tests.py's closure."""
     paths = {p for _, p in changed}
     cache = {}
-    now = fault_entries(read_worktree(FAULTS) or "")
+    now = fault_list()
     before = None
-    if FAULTS in paths:
-        before = fault_entries(git("show", f"{base_rev}:{FAULTS}", check=False))
+    if any(is_fault_file(p) for p in paths):
+        before = fault_list(base_rev) or {}
     chosen = []
     for ident, fault in now.items():
         if not os.path.isfile(str(fault.get("file", ""))):
@@ -358,10 +390,10 @@ def touched_faults(changed, base_rev):
     before (mutants.py's stale check confirms its old text); the daily full run of make
     mutants covers it."""
     paths = {p for s, p in changed if s != "D"}
-    now = fault_entries(read_worktree(FAULTS) or "")
+    now = fault_list()
     before = None
-    if FAULTS in paths:
-        before = fault_entries(git("show", f"{base_rev}:{FAULTS}", check=False))
+    if any(is_fault_file(p) for _, p in changed):
+        before = fault_list(base_rev) or {}
     hunks, chosen = {}, []
     for ident, fault in now.items():
         path, old = str(fault.get("file", "")), str(fault.get("old", ""))

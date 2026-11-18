@@ -266,7 +266,7 @@ class Make:
 
 
 def all_faults():
-    return list(test_tier.fault_entries(test_tier.read_worktree(test_tier.FAULTS) or ""))
+    return list(test_tier.fault_list())
 
 
 # --- records --------------------------------------------------------------------------

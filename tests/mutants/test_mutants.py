@@ -11,7 +11,10 @@ as listed, survived unexpectedly, caught though listed as surviving, stale,
 timed out, a failing control, a malformed list, a temporary directory inside
 the tree), and after every run that the tree is exactly as before: the same
 files with the same bytes and modification times. The last case checks that
-the checked-in list, tests/mutants/faults.toml, is well formed. Needs only
+the checked-in list, tests/mutants/faults.toml with tests/mutants/faults.d/, is well formed.
+The files of a faults.d folder beside a list are read as part of it: their faults run, an id
+given in two files and a malformed file refuse the whole list (fail closed), and the history
+rule follows a fault across files. Needs only
 Python 3.11 and bash; runs no Forth.
 """
 import contextlib
@@ -153,6 +156,45 @@ class RunnerTest(unittest.TestCase):
             self.assertEqual(status, 2, (text, output))
             self.assertIn("bad fault list", output)
 
+    def faults_d(self, **files):
+        folder = self.list.parent / mutants.FAULTS_DIR
+        folder.mkdir(exist_ok=True)
+        for name, text in files.items():
+            (folder / f"{name}.toml").write_text(text)
+
+    def test_faults_d_files_are_part_of_the_list(self):
+        self.faults_d(tactic=EQUIVALENT)
+        (self.list.parent / mutants.FAULTS_DIR / "notes.txt").write_text("not a fault file\n")
+        status, output = self.run_list(CAUGHT)
+        self.assertEqual(status, 0, output)
+        self.assertRegex(output, r"(?m)^caught +drops-alpha")
+        self.assertRegex(output, r"(?m)^survived \(known equivalent\) +changes-beta")
+        self.assertIn("2 run, 1 caught, 1 survived as listed", output)
+        status, output = self.run_list(CAUGHT, "--only", "changes-beta")
+        self.assertEqual(status, 0, output)
+        self.assertEqual([f["id"] for f in mutants.load_list(self.list)], ["drops-alpha", "changes-beta"])
+
+    def test_faults_d_id_given_twice_refused(self):
+        self.faults_d(tactic=CAUGHT.replace("gamma", "epsilon"))
+        status, output = self.run_list(CAUGHT)
+        self.assertEqual(status, 2, output)
+        self.assertIn("bad fault list", output)
+        self.assertIn("faults.d/tactic.toml: fault drops-alpha: id must be unique", output)
+        self.faults_d(tactic=SURVIVOR, other=SURVIVOR.replace("delta", "eta"))
+        status, output = self.run_list(CAUGHT)
+        self.assertEqual(status, 2, output)
+        self.assertIn("other.toml gives it too", output)
+
+    def test_malformed_faults_d_file_refused(self):
+        for text in ("[[fault]\nid = broken\n", "title = 1\n" + SURVIVOR, '[[fault]]\nid = "x"\n', ""):
+            self.faults_d(tactic=text)
+            status, output = self.run_list(CAUGHT)
+            self.assertEqual(status, 2, (text, output))
+            self.assertIn("bad fault list", output)
+            self.assertIn("tactic.toml", output)
+            status, output = self.run_list(CAUGHT, "--check")
+            self.assertEqual(status, 2, (text, output))
+
     def test_checked_in_list_keeps_the_history_rule(self):
         status = mutants.main(["--root", str(ROOT), "--history"])
         self.assertEqual(status, 0)
@@ -269,6 +311,23 @@ class HistoryTest(unittest.TestCase):
         self.git("checkout", "-q", "work")
         self.git("merge", "-q", "--no-edit", "main")
         self.assertEqual(self.check("--history")[0], 0)
+
+    def commit_d(self, name, text, message):
+        folder = self.root / Path(mutants.DEFAULT_LIST).parent / mutants.FAULTS_DIR
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / f"{name}.toml").write_text(text)
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", message)
+
+    def test_history_follows_faults_d(self):
+        # A fault moved unchanged into faults.d is no change; one changed there needs its name.
+        (self.root / mutants.DEFAULT_LIST).write_text(SURVIVOR)
+        self.commit_d("tactic", CAUGHT, "move a fault into faults.d")
+        self.assertEqual(self.check("--history")[0], 0)
+        self.commit_d("tactic", CAUGHT.replace("gamma", "epsilon"), "rewrite it quietly")
+        status, output = self.check("--history")
+        self.assertEqual(status, 1, output)
+        self.assertRegex(output, r"(?m)^REPLACED UNNAMED +drops-alpha +commit [0-9a-f]+ ")
 
     def test_no_repository_passes(self):
         self.git("checkout", "-q", "main")
