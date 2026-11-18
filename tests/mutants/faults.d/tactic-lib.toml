@@ -219,6 +219,14 @@ test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
 reason = "a2-i review F3: a builder writes a binder record for an input node, which keeps its own; check_whnf.py's two-identity fusion meets one"
 
 [[fault]]
+id = "lib-domain-not-head-beta"
+file = "src/front/telescope.fs"
+old = '''  dup tl-x lf-fvar-type lf-instantiate! lf-meta-head-beta lf-must'''
+new = '''  dup tl-x lf-fvar-type lf-instantiate!'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "a2-i review note 12: mkBinding keeps a binder type's head beta-redex (Lean's mkBinding reduces it; tactic-lib.fs's lam-j pins pinned Lean's fun j : Nat => j)"
+
+[[fault]]
 id = "lib-domain-unabstracted"
 file = "src/front/telescope.fs"
 old = '''  tlb tlb-xs @ rot lf-meta-abstract lf-must ;'''

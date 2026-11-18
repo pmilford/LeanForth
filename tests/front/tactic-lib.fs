@@ -158,6 +158,13 @@ T{ ' lam-x in-view1 dup lf-term-lam? swap lf-term-second@ lf-term-second@ lf-ter
 T{ ' lam-x in-view1 binder? fx lf-fvar-type = rot s" x" name= -> lf-binder-default true true }T
 T{ ' pi-x in-view1 lf-term-pi? -> true }T
 T{ succ-x xs 0 lf-mk-lambda-fvars succ-x lf-term-second@ swap lf-term-second@ = -> true }T
+\ mkBinding head-beta reduces a binder's type (a2-i; pinned Lean 4.35.0,
+\ run_meta: mkLambdaFVars #[j] j over j : (fun y : Nat => Nat) k is
+\ fun j : Nat => j, (lam Nat.{} #0)).
+: beta-type ( -- t ) nat nat lf-term-lam lf-made! zero lf-mk-app ;
+: lam-j ( -- lam ) beta-type s" j" binder dup xs ! xs 1 lf-mk-lambda-fvars view0 lf-mctx-view! ;
+T{ lam-j dup lf-term-first@ s" Nat" lf-meta-const-named? swap lf-term-second@ lf-term-bvar?
+   -> true true }T
 \ Malformed: a variable outside the current view (invalid), a let
 \ variable (unsupported).
 : outside ( -- code ) succ-x xs 1 ['] lf-mk-lambda-fvars catch dup if nip nip nip then ;
