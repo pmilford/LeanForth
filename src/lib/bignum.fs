@@ -742,8 +742,8 @@ begin-structure /pair
   field: pair-p
   field: pair-q
 end-structure
-: cofactors! ( p q pair -- ) tuck pair-q ! pair-p ! ;
-: cofactors@ ( pair -- p q ) dup pair-p @ swap pair-q @ ;
+: row! ( p q pair -- ) tuck pair-q ! pair-p ! ;
+: row@ ( pair -- p q ) dup pair-p @ swap pair-q @ ;
 begin-structure /euclid
   field: euclid-u          \ u >= v
   field: euclid-v
@@ -778,7 +778,7 @@ limb-bits 3 - constant lead-bits
 \ The leading bits, and the cofactors a b c d = 1 0 0 1.
 : lehmer-leading! ( job -- )
   >r r@ euclid-u @ big-bits lead-bits - dup r@ euclid-u @ bits-at r@ euclid-x !
-  r@ euclid-v @ bits-at r@ euclid-y ! 1 0 r@ euclid-ab cofactors! 0 1 r> euclid-cd cofactors! ;
+  r@ euclid-v @ bits-at r@ euclid-y ! 1 0 r@ euclid-ab row! 0 1 r> euclid-cd row! ;
 \ A column of the cofactors, by the field xt: a and c (pair-p), or b and d.
 : column ( job xt -- top bottom ) >r dup euclid-ab r@ execute swap euclid-cd r> execute ;
 \ The two quotients of a step, when they agree and neither divisor is 0:
@@ -811,7 +811,7 @@ limb-bits 3 - constant lead-bits
 \ subtracted one: p u - (-q) v, or q v - (-p) u; one of p and q is
 \ positive and the other not.
 : cofactor-terms ( pair job -- c1 big1 c2 big2 )
-  >r cofactors@ over 0> if negate r@ euclid-u @ swap r> euclid-v @ exit then
+  >r row@ over 0> if negate r@ euclid-u @ swap r> euclid-v @ exit then
   swap negate r@ euclid-v @ swap r> euclid-u @ ;
 \ dst = a u + b v (or c u + d v), known to be at least 0, with u's count
 \ + 1 limbs.
