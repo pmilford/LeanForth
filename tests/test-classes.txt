@@ -20,7 +20,6 @@
 # design, slice (a1)): a pattern row classes every one of them.
 test-tactic-*-e2e                  e2e     tests/front/tactics/NAME/check.py: its .lf runs
 test-tactic-*                      unit    tests/front/tactics/NAME/test.fs: its unit tests
-tests/front/tactics/tactic_check.py e2e    the harness each tests/front/tactics/NAME/check.py imports
 
 # make test: unit
 check-tools-untracked              unit
