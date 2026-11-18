@@ -80,6 +80,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -91,8 +92,11 @@ test_tier = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(test_tier)
 
 VERSION = 1
-LOCAL_GFORTH = ".tools/gforth/bin/gforth"
-LOCAL_LEAN = ".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean"
+LOCAL_GFORTH = "gforth/bin/gforth"
+LOCAL_LEAN = "elan/toolchains/leanprover--lean4---v4.35.0/bin/lean"
+# The Gforth and Lean of the suites (--gforth, --lean; make tier passes its own, absolute):
+# every suite's command names them, so an inner make never falls back to a bare name.
+TOOLS = {"gforth": None, "lean": None}
 WATCHED = ("src", "tests", "scripts", "bin", "schemas", "docs")
 NEUTRAL = {"JOBS", "TEST_TIMEOUT", "MUTANTS_TIMEOUT", "GFORTH", "LEAN", "LEAN_CACHE", "LEAN_CACHE_DIR",
            "FAULTS", "COVERAGE_FILES", "COVERAGE_TARGETS"}
@@ -133,7 +137,13 @@ def gforth073():
 
 
 def gforth_fast():
-    return os.environ.get("LF_GFORTH_FAST") or os.path.join(checkout(), ".tools/gforth/bin/gforth-fast")
+    """gforth-fast: LF_GFORTH_FAST, else the one beside the suites' Gforth, else the toolchain
+    folders' (local_tool)."""
+    if os.environ.get("LF_GFORTH_FAST"):
+        return os.environ["LF_GFORTH_FAST"]
+    beside = os.path.join(os.path.dirname(default_gforth()), "gforth-fast")
+    return beside if os.path.isabs(beside) and os.path.exists(beside) else local_tool(
+        "gforth/bin/gforth-fast", "gforth-fast")
 
 
 def engine_gforth(engine):
@@ -194,10 +204,31 @@ def version(program):
     return _versions[program]
 
 
+def local_tool(relative, bare):
+    """A pinned program's absolute path, as the Makefile finds it: in this checkout's .tools,
+    else under LEANFORTH_TOOLS, else on PATH (else the bare name)."""
+    for folder in (".tools", os.environ.get("LEANFORTH_TOOLS")):
+        if folder and os.path.exists(os.path.join(folder, relative)):
+            return os.path.abspath(os.path.join(folder, relative))
+    return shutil.which(bare) or bare
+
+
+def absolute(program):
+    return os.path.abspath(program) if "/" in program else (shutil.which(program) or program)
+
+
+def default_gforth():
+    return TOOLS["gforth"] or local_tool(LOCAL_GFORTH, "gforth")
+
+
+def default_lean():
+    return TOOLS["lean"] or local_tool(LOCAL_LEAN, "lean")
+
+
 def toolchain(variables):
     """{"gforth", "lean", "lean_cache"} of a command, as its make run would use them."""
-    gforth = variables.get("GFORTH") or (LOCAL_GFORTH if os.path.exists(LOCAL_GFORTH) else "gforth")
-    lean = variables.get("LEAN") or (LOCAL_LEAN if os.path.exists(LOCAL_LEAN) else "lean")
+    gforth = variables.get("GFORTH") or default_gforth()
+    lean = variables.get("LEAN") or default_lean()
     cache = variables.get("LEAN_CACHE") or os.environ.get("LEAN_CACHE") or ("0" if os.environ.get("CI") else "1")
     found = version(gforth)
     if found is None:
@@ -621,9 +652,11 @@ def estimate(argv, missing, make, jobs, times):
 
 
 def suite_argv(suite, make_program, jobs, cache):
-    argv = [make_program, *suite["goals"], *(f"{k}={v}" for k, v in suite.get("vars", {}).items()),
-            f"JOBS={jobs}", f"LEAN_CACHE={cache}"]
-    return argv + ([f"GFORTH={engine_gforth(suite['engine'])}"] if suite.get("engine") else [])
+    """A suite's make command: its goals and variables, the jobs, the cache mode, and the
+    toolchain as absolute paths (the suite's engine, else the suites' Gforth; their Lean)."""
+    gforth = engine_gforth(suite["engine"]) if suite.get("engine") else default_gforth()
+    return [make_program, *suite["goals"], *(f"{k}={v}" for k, v in suite.get("vars", {}).items()),
+            f"JOBS={jobs}", f"LEAN_CACHE={cache}", f"GFORTH={gforth}", f"LEAN={default_lean()}"]
 
 
 def run_tier(args):
@@ -717,7 +750,10 @@ def main(argv=None):
     parser.add_argument("--summary")
     parser.add_argument("--no-progress", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--gforth", help="the suites' Gforth 1.0 (default: .tools, LEANFORTH_TOOLS, PATH)")
+    parser.add_argument("--lean", help="the suites' Lean 4.35.0 (default: .tools, LEANFORTH_TOOLS, PATH)")
     args = parser.parse_args(options)
+    TOOLS.update(gforth=args.gforth and absolute(args.gforth), lean=args.lean and absolute(args.lean))
     try:
         if args.action == "list":
             return list_records(args.all)

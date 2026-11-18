@@ -110,9 +110,11 @@ with Lean's message: `| suc k ih =>` is error 206, "Invalid alternative name `su
 pattern, the target and the goal. The owner's proof set (`tests/front/ps-*.lf`: $\mathrm{succ}\,n + m =
 \mathrm{succ}(n + m)$, $n + m = m + n$, $n + (m + k) = (n + m) + k$, $n(m + k) = nm + nk$ and
 $|xs \mathbin{+\!\!+} ys| = |xs| + |ys|$) is accepted the same way; where appendix G of
-`docs/design/S2_INTERFACE.md` closes a case by `rfl` that needs `Nat.add`'s smart unfolding (S2 merge B), the
-files rewrite with `Nat.add_zero` or `Nat.mul_zero` instead, the form pinned Lean accepts. Not yet: `by-case:`
-(merge B), `++` as a word (`HAppend.hAppend` is written out), `←`, `at h`, `using`, `generalizing`.
+`docs/design/S2_INTERFACE.md` closes a case by `rfl` (for $n + (m + k)$ and $n(m + k)$, goal
+`n + (m + 0) = n + m + 0`), `by-rfl` still stops there with error 93, "not supported yet", although S2 merge B
+(smart unfolding) is merged; the files rewrite with `Nat.add_zero` or `Nat.mul_zero` instead, a form pinned Lean
+accepts too. Not yet: `by-case:` (still error 80 now that merge B is merged; plan FE1g-5), `++` as a word
+(`HAppend.hAppend` is written out), `←`, `at h`, `using`, `generalizing`.
 
 The unit tests (`tests/front/elab.fs`) also pin the order of events against pinned Lean's (golden traces of
 `0 + 0 = 0` and `0 + n = n`): the problems made, the default instances tried and rolled back, and where lazy

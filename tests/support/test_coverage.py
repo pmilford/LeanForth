@@ -80,12 +80,26 @@ class Pure(unittest.TestCase):
         files = {"src/a.fs": [5, 2], "src/b.fs": [4, 4]}
         kept, missing = tool.focus(files, ["src/a.fs", "src/c.fs"])
         self.assertEqual(kept, {"src/a.fs": [5, 2]})
-        self.assertEqual(missing, ["src/c.fs: no run of the command loaded it"])
+        self.assertEqual(missing, ["src/c.fs: no run of these targets loaded it; make daily's full coverage run "
+                                   "measures it"])
+
+    def test_per_target_counts_give_any_focused_run(self):
+        blocks = {("src/a.fs", 1, 1): 3, ("src/a.fs", 2, 1): 0, ("src/a.fs", 3, 1): 1, ("src/b.fs", 1, 1): 0}
+        targets = {"t1": {("src/a.fs", 1, 1): 3, ("src/a.fs", 2, 1): 0, ("src/a.fs", 3, 1): 0},
+                   "t2": {("src/a.fs", 1, 1): 0, ("src/a.fs", 2, 1): 0, ("src/a.fs", 3, 1): 1,
+                          ("src/b.fs", 1, 1): 0}}
+        files = tool.per_target(blocks, targets)
+        self.assertEqual((files["src/a.fs"]["blocks"], files["src/a.fs"]["never_run"]), (3, 1))
+        self.assertEqual(files["src/a.fs"]["targets"]["t1"], {"compiled": 3, "ran": [0]})
+        self.assertEqual(tool.focused_never_run(files["src/a.fs"], ["t1", "t2"]), (3, 1))
+        self.assertEqual(tool.focused_never_run(files["src/a.fs"], ["t1"]), (3, 2), "t2's block unseen")
+        self.assertEqual(tool.focused_never_run(files["src/b.fs"], ["t1"]), None, "t1 never loads b.fs")
 
     def test_focus_passes_a_load_list_that_compiles_no_block(self):
         # src/main.fs only requires modules: no run can show it loaded (fix-batch-4).
         kept, missing = tool.focus({}, ["src/main.fs", "src/lib/slab.fs"])
-        self.assertEqual((kept, missing), ({}, ["src/lib/slab.fs: no run of the command loaded it"]))
+        self.assertEqual((kept, missing), ({}, ["src/lib/slab.fs: no run of these targets loaded it; make daily's "
+                                                "full coverage run measures it"]))
         self.assertFalse(tool.compiles_blocks("src/main.fs"))
         self.assertTrue(tool.compiles_blocks("src/lib/slab.fs"))
 
@@ -141,13 +155,22 @@ class EndToEnd(unittest.TestCase):
             result = self.run_tool(*options, "--check", "--", *command)
             self.assertEqual(result.returncode, 1, result.stdout)
             self.assertIn("only 1 Gforth runs", result.stdout)
-            # --only: the same run is enough for its file, and a file it never loaded fails.
+            # --only: the same run is enough for its file; a file it never loaded is noted, as the
+            # full run (make daily) measures it.
             result = self.run_tool(*options, "--check", "--only", "src/lib/outcome.fs", "--", *command)
             self.assertEqual(result.returncode, 0, result.stdout)
             self.assertIn("no file of src/lib/outcome.fs has more never-run blocks", result.stdout)
             result = self.run_tool(*options, "--check", "--only", "src/lib/sort.fs", "--", *command)
-            self.assertEqual(result.returncode, 1, result.stdout)
-            self.assertIn("src/lib/sort.fs: no run of the command loaded it", result.stdout)
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertIn("note: src/lib/sort.fs: no run of these targets loaded it", result.stdout)
+            # --per-target: the run is attributed to LF_MAKE_TARGET (the Makefile's RUN sets it).
+            counts = Path(folder) / "per-target.json"
+            result = self.run_tool(*options, "--check", "--only", "src/lib/outcome.fs", "--per-target",
+                                   str(counts), "--", "env", "LF_MAKE_TARGET=test-x", *command)
+            self.assertEqual(result.returncode, 0, result.stdout)
+            entry = json.loads(counts.read_text())["files"]["src/lib/outcome.fs"]
+            self.assertEqual(list(entry["targets"]), ["test-x"])
+            self.assertEqual(tool.focused_never_run(entry, ["test-x"]), (entry["blocks"], entry["never_run"]))
             data["files"]["src/lib/outcome.fs"]["never_run"] = -1
             baseline.write_text(json.dumps(data))
             result = self.run_tool(*options, "--check", "--only", "src/lib/outcome.fs", "--", *command)

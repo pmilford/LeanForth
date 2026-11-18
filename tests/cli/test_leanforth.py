@@ -1128,14 +1128,14 @@ class Behaviour(unittest.TestCase):
     def capabilities_match_facts(self, out):
         """The capabilities text states what is true: nested inductive types are
         accepted (checked here), so they are not listed as unsupported; the
-        Mathlib line gives the count and build PROJECT_PROGRESS.md records and
+        Mathlib line gives the count and build of the full Mathlib run and
         does not say that nothing was checked."""
+        # That the progress page records the same count and build is checked by the
+        # documentation-facts test (make test-doc-facts), apart from this slow target.
         lacks = out.split("not yet supported")[1].split("limits (")[0]
         self.assertNotIn("nested", lacks)
         self.assertEqual(run("check", "tests/cli/nested.ndjson")[0], 0)
         self.assertNotIn("0 of 729,263", out)
-        progress = (ROOT / "docs/project/PROJECT_PROGRESS.md").read_text()
-        self.assertRegex(progress, r"729,263 of\s+729,263 accepted\*\* on build `b74a04d`")
         mathlib = out.split("Mathlib: ")[1].split("not re-run since")[0]
         for fact in ("all 729,263 declarations of its Lean export accepted", "b74a04d",
                      "fuel 250M", "--memory-per-check 8192", "--no-manifest"):
@@ -1175,9 +1175,10 @@ class Behaviour(unittest.TestCase):
         self.assertIn("needs Python 3 and the\n      pinned Lean 4.35.0 (V1 only)", out)
 
     def help_codes_match_tally(self, out):
-        """help's exit codes and their order of severity are tally.fs's, and the
-        command line's manual gives the same order (FRP review C2: user text that
-        restates the codes must not go stale)."""
+        """help's exit codes and their order of severity are tally.fs's (FRP review
+        C2: user text that restates the codes must not go stale)."""
+        # That the manual gives the same order is checked by the documentation-facts
+        # test (make test-doc-facts), apart from this slow target.
         tally = (ROOT / "src/cli/tally.fs").read_text()
         codes = {name: int(code) for code, name
                  in re.findall(r"^(\d+) constant (exit-[a-z-]+)", tally, re.M)}
@@ -1194,8 +1195,6 @@ class Behaviour(unittest.TestCase):
                         "3 a resource limit", "4 malformed input or command line",
                         "5 an internal fault", "6 all accepted but some NOT PROVED"):
             self.assertIn(meaning, text)
-        manual = " ".join((ROOT / "docs/user/COMMAND_LINE.md").read_text().split())
-        self.assertIn(f"the order {', '.join(str(code) for code in order)}:", manual)
 
 
 class Tampered(unittest.TestCase):
@@ -2751,7 +2750,7 @@ class Snapshots(unittest.TestCase):
 
 
 class Progress(unittest.TestCase):
-    """check --progress[=SECONDS] (docs/user/COMMAND_LINE.md): a status line
+    """check --progress[=SECONDS] (the command line's manual): a status line
     on standard error every SECONDS (default 60; 0: after every report) and a
     last one; standard output, the JSON report and the exit status are what
     they are without it, serial and with --jobs; the text report's lines are
@@ -2831,7 +2830,7 @@ class Progress(unittest.TestCase):
 
 
 class Slice(unittest.TestCase):
-    """scripts/export-slice.py EXPORT NAME... (docs/development/TESTING_STRATEGY.md):
+    """scripts/export-slice.py EXPORT NAME... (the testing strategy's slices):
     the smallest export holding the named declarations and what they need,
     in the original order with the original header, accepted by check
     --no-manifest with the same verdicts; an unknown name is exit 2."""

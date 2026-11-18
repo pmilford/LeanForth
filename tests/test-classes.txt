@@ -24,6 +24,7 @@ test-tactic-*                      unit    tests/front/tactics/NAME/test.fs: its
 # make test: unit
 check-tools-untracked              unit
 check-docs                         unit
+test-doc-facts                     unit    tests/docs/test_doc_facts.py: facts the pages restate, apart from the slow tests
 check-lean-sources                 unit
 check-portable-forth               unit
 check-forth-quality                unit
@@ -77,6 +78,7 @@ test-cli-engines                   e2e     also in make check-rest (COVERAGE_ENG
 test-elab-data-e2e                 e2e     leanforth check --elab-data, damaged data refused
 test-author-e2e                    e2e     the example files through bin/leanforth check and print
 test-front-e2e                     e2e     .lf files through bin/leanforth check: tactics, elaborator, S2
+test-showcase                      e2e     scripts/showcase-steps.sh on the S2 slice against its golden output
 test-program-verify-command        e2e     bin/leanforth verify, --json, --write-ir, replay
 
 # make check-rest: unit

@@ -541,26 +541,56 @@ every file: `make daily` runs both, and `make tag-check` requires them.
   in its file (`git diff -U0`); a fault of a changed file whose text was left
   alone still applies as before (the stale check confirms its old text) and
   is left to the daily full `make mutants`.
-- Coverage in every tier (owner, 2026-11-17): `make coverage-focus
-  COVERAGE_FILES=... COVERAGE_TARGETS=...` runs under instrumentation every
-  target of `make test` that loads the touched files, unit and end-to-end,
-  and `smoke` — the touched files being every Forth file of `src/` the change
-  touches, the files a changed test drives, the files whose entry of
-  `tests/coverage-baseline.json` changed — and applies the ratchet to those
-  files alone (`scripts/coverage.py --only`). The end-to-end targets count
-  because the baseline counts all of `make test`: over its unit tests alone,
-  `src/cli/leanforth.fs` showed 561 never-run blocks against 117
-  (2026-11-18). A file that defines no word, such as `src/main.fs`, compiles
-  no block and is not required in the counts. `make coverage-check` (every file) runs in a tier only when the
-  baseline's run count changes or a test program is deleted (what it drove
-  is known only from the base); otherwise in `make daily`.
+- Coverage in every tier (owner, 2026-11-17; rule of 2026-11-18): `make
+  coverage-focus COVERAGE_FILES=... COVERAGE_TARGETS=...` measures the
+  touched files — every Forth file of `src/` the change touches, the files a
+  changed test drives (the source files its programs name or load first),
+  the files whose entry of `tests/coverage-baseline.json` changed — over
+  **every target of `make test` that loads or runs one of them**, unit and
+  end-to-end alike, as the per-target reuse's finder (`Inputs`, below) finds
+  them, and applies the ratchet to those files alone (`scripts/coverage.py
+  --only`). The baseline counts a file's never-run blocks over all of `make
+  test`, and only the targets that load a file run its blocks, so the
+  focused count equals the full run's: a focused run reports more never-run
+  blocks than the baseline only when `make coverage-check` would. (Until
+  2026-11-18 it took unit tests only, and failed correct branches and main
+  itself on `src/main.fs`, `src/front/elab-data.fs` and
+  `src/cli/leanforth.fs`, whose blocks end-to-end tests run.) A file no
+  target of `make test` reads is not measured: the plan prints a line that
+  `make daily`'s full run measures it, and `coverage.py` notes, never fails,
+  a named file no run loaded; a file that defines no word, such as
+  `src/main.fs` (a load list), compiles no block and gets no note. A test change that drives `src/main.fs` thus
+  measures most of `make test` under instrumentation, which stands in for
+  the plain runs of those targets. `make coverage-check` (every file) runs in
+  a tier only when the baseline's run count changes or a test program is
+  deleted (what it drove is known only from the base); otherwise in `make
+  daily`. `scripts/coverage.py --per-target FILE` writes each target's
+  compiled and run blocks of each file (each Gforth run attributed to its
+  target through `scripts/timed.sh`'s `LF_MAKE_TARGET`), so the focused
+  result of any set of targets can be computed from one full run (this is
+  how the rule was checked on 2026-11-18, for the three failing cases and
+  five past commits: every focused count equal to the full run's).
 - Left to the daily full run: (1) a change in file A that stops running part
   of file B lowers B's coverage, which only the whole measurement sees; (2)
-  blocks of a touched file that only an end-to-end test of `make test` runs
-  are not counted in the focused run, so its ratchet can fail where `make
-  coverage-check` passes (a false alarm, never a miss: run `make
-  coverage-check` to confirm); (3) the coverage of files a changed library
-  or test loads but does not drive; (4) Gforth 0.7.3.
+  a file a target loads through a path the finder cannot see (a file name
+  built at run time), whose focused count may then be higher than the full
+  run's (a false alarm, never a miss); (3) the coverage of files a changed
+  library or test loads but does not drive; (4) Gforth 0.7.3.
+
+**Toolchains** (2026-11-18). Every target takes Gforth and Lean the same
+way: `GFORTH=` and `LEAN=` given to make win; else the pinned copies in
+the checkout's `.tools/`; else those under the folder `LEANFORTH_TOOLS`
+names, laid out as `.tools` is; else the PATH's. The Makefile exports both
+as absolute paths (`LEANFORTH_GFORTH`, `LEANFORTH_LEAN`), and
+`GFORTH_FAST` is the gforth-fast beside that Gforth (`reference-cli` runs
+it); test scripts take them from the environment
+(`tests/support/toolchain.py`). `make tier` and `make daily` hand the
+toolchain to `scripts/tested-tree.py` (`--gforth`, `--lean`), which names
+it in every suite's command, so an inner make never falls back to a bare
+name (the Lean cache resolves one on PATH, or refuses it by name). An
+agent's worktree has no `.tools` and must never link one: it runs `make
+tier GFORTH=/abs/gforth LEAN=/abs/lean` or sets
+`LEANFORTH_TOOLS=/path/to/main/checkout/.tools`.
 
 **Tested-tree records.** `scripts/tested-tree.py` writes one JSON record per
 passing scripted run, in the main checkout's `.claude/work/ci/tested/`
@@ -603,8 +633,22 @@ coverage-check` the ratchet and `make test`'s targets but those of
   names, followed through Forth loads, Python imports, named paths (also
   behind `$root/`, `{ROOT}/`), and literal names beside a program; as data,
   every file of a test program's own folder, every file of a basename a
-  program names, of a folder whose name it quotes, of an extension it globs,
-  under the folder a path template starts in. A record of an earlier commit
+  program names, of a folder whose name it quotes as a path, of an extension
+  it globs, under the folder a path template starts in. A quoted word without
+  a path separator names a folder only when it may be used as a path
+  (2026-11-18; `changed-tests.py`'s `used_as_path`): joined with `/`, an
+  argument of a call not known to take text, a plain assignment, a loop's
+  tuple, any shell use but a comparison or a `case` pattern. It is a value —
+  not an input — as a subscript (`d["ir"]`), a dict key, a dict value or
+  keyword argument whose name says nothing of a path (`mode="development"`),
+  an operand of `==`, `!=` or `in`, or an argument of a call that takes text
+  (`assertEqual`, `get`, `startswith` ...). Before, the mode `"development"`
+  in two CLI tests made `test-cli-*` and `test-run-records` read all of
+  `docs/development`, so every "Record the local CI" commit re-ran them;
+  `docs/development/ci-results.log` is now read only by `check-docs` and by
+  targets never reused anyway (`test-tiers`, `check-lean-sources`,
+  `check-test-classes`). A file name with an extension stays an input
+  wherever it appears (`"README.md"`, which the CLI tests pass as a file). A record of an earlier commit
   of HEAD's history stands for each item whose digest is unchanged, whatever
   the tier: a Makefile change invalidates only the targets whose recipe or
   exported variables it changes, a script change only the targets that run

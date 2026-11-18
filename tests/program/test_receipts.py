@@ -45,7 +45,6 @@ EXAMPLES_01 = EXAMPLES / "0.1"
 EXAMPLES_02 = EXAMPLES / "0.2"
 GENERATED = EXAMPLES / "generated" / "lf-clamp.json"
 DOC = Path("docs/programming/PROGRAM_RECEIPTS.md")
-AI_DOC = Path("docs/user/AI_TOOLS.md")
 BASE = EXAMPLES / "valid-clamp-lean-reference.json"
 LEANFORTH = EXAMPLES / "valid-clamp-leanforth.json"
 GCD = EXAMPLES / "valid-gcd-nothing-yet.json"
@@ -606,7 +605,9 @@ class Examples(unittest.TestCase):
 
 
 class Documentation(unittest.TestCase):
-    """Finding 2: the documents an AI reads describe the generated receipt."""
+    """Finding 2: the receipts' own page describes the generated receipt."""
+    # The AI guide and the pages of the current state are checked by
+    # tests/docs/test_doc_facts.py (make test-doc-facts), apart from this slower target.
 
     def test_documented_receipt_is_the_generated_one(self):
         blocks = re.findall(r"```json\n(.*?)```", DOC.read_text(encoding="utf-8"), re.S)
@@ -623,23 +624,6 @@ class Documentation(unittest.TestCase):
                        f"schema version {receipt['schemaVersion']}"):
             with self.subTest(figure=figure):
                 self.assertIn(figure, text)
-
-    def test_ai_guide_names_the_current_schema(self):
-        text = AI_DOC.read_text(encoding="utf-8")
-        self.assertIn(str(SCHEMA), text)
-        self.assertNotIn("no receipt is generated yet", text)
-
-    def test_current_state_documents_do_not_name_the_superseded_schema(self):
-        """Re-review D: documents of the current state say 0.2 (DECISIONS.md keeps history)."""
-        stale = re.compile(r"schema,? 0\.1\b|0\.1 kept readable")
-        for path in (AI_DOC, Path("docs/README.md"), Path("docs/user/WORKFLOWS.md"),
-                     Path("docs/programming/INTERFACE_CONTRACTS.md"),
-                     Path("docs/programming/PROGRAM_VC.md"),
-                     Path("docs/development/MINIFORTH_REVIEW.md"),
-                     Path("docs/project/DEVELOPMENT_ROADMAP.md"),
-                     Path("docs/project/PROJECT_PROGRESS.md")):
-            with self.subTest(path=str(path)):
-                self.assertEqual(stale.findall(path.read_text(encoding="utf-8")), [])
 
 
 class Reader(unittest.TestCase):

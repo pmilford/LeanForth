@@ -272,6 +272,19 @@ class Reach:
         self.cache = {}
         self.uses = {u: changed_tests.closure(changed_tests.named_files(self.text[u]), self.cache)
                      for u in self.every}
+        self.inputs = None
+
+    def loaders(self, path):
+        """The targets of make test that may load or run PATH: those whose programs, as the finder
+        of the per-target reuse (Inputs) follows them, run or load it, unit and end-to-end alike,
+        and any whose recipe make -n cannot print. A target that only reads PATH as data (a style
+        check's glob) runs none of its blocks. A file's block counts over them are those of all of
+        make test (checked on 2026-11-18 for every file: each target that compiled a file in a full
+        run was chosen)."""
+        if self.inputs is None:
+            self.inputs = Inputs()
+            self.inputs.prefetch(self.of_test)
+        return [u for u in self.of_test if self.inputs.read(u, True) is None or path in self.inputs.read(u, True)]
 
     def users(self, path):
         return [u for u in self.every if path in self.uses[u]]
@@ -331,7 +344,7 @@ MAKE_SPECIAL = re.compile(r"^\s*(?:SHELL|\.SHELLFLAGS|\.ONESHELL|\.POSIX|\.EXPOR
                           r"vpath|-?include|MAKEFLAGS)\b.*$", re.MULTILINE)
 # Toolchain placeholders: a record's Gforth, Lean and cache mode are keyed by their versions and
 # mode (scripts/tested-tree.py), so a digest names none of their paths.
-PLACEHOLDERS = ("GFORTH=@GFORTH@", "LEAN=@LEAN@", "LEAN_CACHE=1")
+PLACEHOLDERS = ("GFORTH=@GFORTH@", "GFORTH_FAST=@GFORTH_FAST@", "LEAN=@LEAN@", "LEAN_CACHE=1")
 # Exported variables that only locate a toolchain or the shared Lean cache.
 TOOL_LOCATIONS = {"LEANFORTH_GFORTH", "LEANFORTH_LEAN", "LEANFORTH_LEAN_CACHE_DIR", "LEANFORTH_LEAN_CACHE"}
 COVERAGE_TOOL = ("scripts/coverage.py", "scripts/coverage-gforth.sh", "scripts/coverage-prelude.fs")
@@ -364,7 +377,7 @@ class Inputs:
         self.top = os.getcwd()
         self.tracked = changed_tests.tracked_files()
         self.index = changed_tests.file_index(self.tracked)
-        self.cache, self.recipes, self.digests, self.reasons = {}, {}, {}, {}
+        self.cache, self.recipes, self.digests, self.reasons, self.reads = {}, {}, {}, {}, {}
         exported = self.environment()
         makefile = read_worktree("Makefile") or ""
         self.global_text = exported + "\n".join(MAKE_SPECIAL.findall(makefile))
@@ -388,11 +401,32 @@ class Inputs:
 
     def recipe(self, target):
         if target not in self.recipes:
-            env = clean_env()
-            run = subprocess.run(["make", "-n", "--no-print-directory", "-j1", target, *PLACEHOLDERS],
-                                 capture_output=True, text=True, env=env)
-            self.recipes[target] = self.normal(run.stdout) if run.returncode == 0 else None
+            self.recipes[target] = self._recipe(target)
         return self.recipes[target]
+
+    def prefetch(self, targets):
+        """make -n of every target of TARGETS, eight at a time (each takes a fraction of a second)."""
+        todo = [t for t in targets if t not in self.recipes]
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            for name, text in zip(todo, pool.map(self._recipe, todo)):
+                self.recipes[name] = text
+
+    def _recipe(self, target):
+        run = subprocess.run(["make", "-n", "--no-print-directory", "-j1", target, *PLACEHOLDERS],
+                             capture_output=True, text=True, env=clean_env())
+        return self.normal(run.stdout) if run.returncode == 0 else None
+
+    def read(self, name, loaded_only=False):
+        """The files target NAME may read (the files its digest covers), or with LOADED_ONLY
+        those it may run or load (not those it only reads as data); None when make -n fails."""
+        if name not in self.reads:
+            text = self.recipe(name)
+            followed = set()
+            files = None if text is None else changed_tests.input_files(
+                changed_tests.named_files(text), self.tracked, self.cache, self.index, followed)[0]
+            self.reads[name] = None if files is None else (files | self.global_files, followed)
+        found = self.reads[name]
+        return None if found is None else found[1 if loaded_only else 0]
 
     def files(self, start):
         """(input files, reasons) of programs and files START, the exported ones included."""
@@ -716,13 +750,15 @@ def baseline_changes(base_rev):
 
 
 def coverage_need(files, reach_, loaded, base_rev="HEAD"):
-    """None, {"kind": "all"} (make coverage-check) or {"kind": "focus", files, targets}: the
-    ratchet of the changed source files (owner, 2026-11-17): every Forth file of src/ the change
-    touches, the files a changed test drives and the files whose baseline entry changed, over
-    every target of make test that loads them, unit and end-to-end (the baseline counts all of
-    make test; unit tests alone left blocks of e2e-only paths uncounted, fix-batch-4), and
-    smoke. Only a change of the baseline's run count
-    needs all of make coverage-check, which make daily runs. LOADED is kept for the callers."""
+    """None, {"kind": "all"} (make coverage-check) or {"kind": "focus", files, targets, skipped}:
+    the ratchet of the changed source files (owner, 2026-11-17): every Forth file of src/ the
+    change touches, the files a changed test drives and the files whose baseline entry changed,
+    over every target of make test that loads or runs one of them, unit and end-to-end
+    (Reach.loaders, 2026-11-18): tests/coverage-baseline.json counts a file's never-run blocks
+    over all of make test, and only these targets run its blocks, so the focused count is the
+    full run's. A file no target of make test reads ("skipped") is left to make daily's full
+    run. Only a change of the baseline's run count needs all of make coverage-check, which make
+    daily runs. LOADED is kept for the callers."""
     focus = set()
     for f in files:
         if f["status"] == "D" and f["path"].startswith("tests/") and f["path"].endswith(PROGRAMS):
@@ -741,20 +777,17 @@ def coverage_need(files, reach_, loaded, base_rev="HEAD"):
     focus = {p for p in focus if p.endswith(".fs")}
     if not focus:
         return None
-    # Every target of make test that loads a focused file, end-to-end ones too: the
-    # baseline's counts are those of the whole make test, so a file whose blocks only an
-    # end-to-end test runs (bin/leanforth's, a .lf run) would look uncovered over its unit
-    # tests alone (fix-batch-4, 2026-11-18: cli/leanforth.fs 561 never-run blocks over
-    # test-cli-forth against 117 over make test). scripts/coverage.py --only states the same.
-    targets = [u for u in reach_.of_test if any(p in reach_.uses[u] for p in focus)]
-    targets += [u for u in ("smoke",) if u not in targets]
-    return {"kind": "focus", "files": sorted(focus), "targets": targets}
+    loaders = {p: reach_.loaders(p) for p in sorted(focus)}
+    measured = sorted(p for p in focus if loaders[p])
+    targets = [u for u in reach_.of_test if any(u in loaders[p] for p in measured)]
+    return {"kind": "focus", "files": measured, "targets": targets,
+            "skipped": sorted(p for p in focus if not loaders[p])}
 
 
 def coverage_suites(cover):
     if cover and cover["kind"] == "all":
         return [{"label": "coverage-check", "goals": ["coverage-check"]}]
-    if cover:
+    if cover and cover["files"]:
         return [{"label": "coverage-focus", "goals": ["coverage-focus"],
                  "vars": {"COVERAGE_FILES": " ".join(cover["files"]),
                           "COVERAGE_TARGETS": " ".join(cover["targets"])}}]
@@ -783,6 +816,8 @@ def describe(result):
     if tactic:
         lines.append("tactic plug-in check: " + ("confined" if tactic["confined"] else
                                                  "; ".join(tactic["problems"] + tactic["reasons"])))
+    for path in (result.get("coverage") or {}).get("skipped", []):
+        lines.append(f"coverage of {path}: no target of make test reads it; make daily's full run measures it")
     for s in result["suites"]:
         extra = " ".join(f"{k}='{v}'" for k, v in s.get("vars", {}).items())
         gforth = f" ({ENGINES[s['engine']]})" if s.get("engine") else ""
