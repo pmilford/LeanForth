@@ -58,6 +58,15 @@ def instCase (t s : Expr) : MetaM Unit :=
 def implCase (t s : Expr) : MetaM Unit :=
   answer t s (withTransparency .implicit (isDefEq t s))
 
+def kabsCase (e p : Expr) : MetaM Unit := do
+  let saved ← saveState
+  try
+    let r ← withReducible (kabstract e p)
+    let shown ← sx r
+    IO.println (if r.hasLooseBVars then s!"true {shown}" else "false")
+  catch _ => IO.println "error"
+  saved.restore
+
 def nat : Expr := mkConst ``Nat
 
 run_meta do
@@ -260,3 +269,6 @@ run_meta do
   dstuckCase (mkSort lu) (mkSort Level.one)
   dstuckCase (mkSort lu) (mkSort lu)
   stuckCase (mkSort lu) (mkSort Level.one)
+  kabsCase (mkApp (mkApp (mkConst `Nat.add []) (mkRawNatLit 2)) (mkRawNatLit 2)) (mkRawNatLit 2)
+  kabsCase (mkApp (mkApp (mkConst `Nat.add []) (mkRawNatLit 2)) (mkRawNatLit 3)) (mkRawNatLit 3)
+  kabsCase (mkApp (mkApp (mkConst `Nat.add []) (mkRawNatLit 2)) (mkRawNatLit 3)) (mkRawNatLit 4)

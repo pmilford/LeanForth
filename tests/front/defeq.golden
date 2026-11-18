@@ -166,3 +166,6 @@ false
 stuck
 true Sort ?l Sort ?l
 true Sort 1 Sort 1
+true (app (app Nat.add.{} #0) #0)
+true (app (app Nat.add.{} 2) #0)
+false

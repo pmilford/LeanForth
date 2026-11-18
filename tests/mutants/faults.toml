@@ -20318,3 +20318,12 @@ old = '''  lf-elab-defeq lf-elab-meta ok-then? if if outcome-ok else et-not-sort
 new = '''  lf-elab-defeq lf-elab-meta ok-then? if drop et-not-sort then ;'''
 test = "$GFORTH tests/front/elab.fs"
 reason = "fix-batch-2 (review N2 of 2026-11-18): ensureType ignores isDefEq(type, Sort ?u) and calls a term whose type is a metavariable no type"
+
+[[fault]]
+id = "kab-literal-by-node-lean"
+file = "src/front/kabstract.fs"
+old = '''    lf-tag-lit of lf-lit-same? endof  lf-tag-str of lf-str-same? endof
+'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "fix-batch-2 (review C3 of 2026-11-18): kabstract compares literal heads by node; the pinned-Lean kabs cases of check_defeq.py (two equal literals in nodes of their own) must find both"

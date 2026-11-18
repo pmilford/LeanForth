@@ -23,6 +23,7 @@
 \ whnf-cases.fs) would move the context under the loaded slice.
 require ../../src/front/defeq.fs
 require ../../src/front/defeq-delta.fs
+require ../../src/front/kabstract.fs
 require ./whnf-cases.fs
 require ./depth.fs
 
@@ -71,3 +72,14 @@ variable dq-xt  ' lf-meta-defeq dq-xt !
 : dstuck-dq ( t s -- ) stuck-flags false lf-mctx-depth{ drop >r dq-case r> }lf-mctx-depth drop ;
 : guard-dq ( t s -- )
   ['] lf-meta-defeq-guarded dq-xt ! stuck-dq ['] lf-meta-defeq dq-xt ! ;
+\ kabs-dq: kabstract e p at reducible transparency (rw's), "true" and the
+\ abstracted term when an instance was found, else "false" (review C3 of
+\ 2026-11-18); fresh-nlit a literal in a node of its own, as authoring
+\ runs (no sharing) make them.
+: fresh-nlit ( u -- t ) false lf-term-sharing! nlit true lf-term-sharing! ;
+: kabs-show ( abst found outcome -- )
+  dup ok? 0= if nip nip .outcome cr exit then drop
+  if ." true " .t else drop ." false" then cr ;
+: kabs-dq ( e p -- )
+  lf-tr-reducible lf-defeq-mode! lf-mctx-mark drop >r lf-meta-kabstract kabs-show
+  r> lf-mctx-rollback drop lf-tr-default lf-defeq-mode! ;
