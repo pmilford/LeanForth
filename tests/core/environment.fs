@@ -36,6 +36,24 @@ T{ n.A-twin n.B lf-name-equal? -> false }T
 n.A 3 num constant n.A.3
 n.A 4 num constant n.A.4
 T{ n.A.3 n.A.3 lf-name-equal? n.A.3 n.A.4 lf-name-equal? n.A.3 n.A lf-name-equal? -> true false false }T
+\ A name corrupted after the store's audit passed it (ADR 0005 Amendment
+\ 1): equality checks both chains (lf-name-chain-ok?). A hand-made A.4
+\ whose prefix is pointed forward, at a later twin of A, would walk equal
+\ to n.A.4 unchecked; checked it is false. A twin of A whose text runs
+\ past the bytes in use is false too.
+: hand-num ( n -- id )
+  0 lf-name-tag-num lf-name-new nip >r r@ lf-name-slot lf-entry-payload !
+  0 r@ lf-name-slot lf-entry-length ! r> ;
+4 hand-num constant n.fwd.4
+twin constant n.A-later
+T{ lf-name-storage-valid? -> true }T
+n.A-later n.fwd.4 lf-name-slot lf-entry-prefix !
+T{ n.fwd.4 n.A.4 lf-name-equal? n.A.4 n.fwd.4 lf-name-equal? -> false false }T
+0 n.fwd.4 lf-name-slot lf-entry-prefix !
+lf-name-used @ 1+ n.A-later lf-name-slot lf-entry-length !
+T{ n.A-later n.A lf-name-equal? n.A n.A lf-name-equal? -> false true }T
+1 n.A-later lf-name-slot lf-entry-length !
+T{ n.A-later n.A lf-name-equal? -> true }T
 \ A corrupted name store fails closed.
 lf-name-count @ constant names-now
 names-now 1+ lf-name-count !

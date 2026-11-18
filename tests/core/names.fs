@@ -301,6 +301,16 @@ T{ 3 lf-name-chain-ok? lf-name-audit-all? -> true true }T
 T{ lf-name-storage-valid? lf-name-hashes-ok? lf-name-audit-all? -> true false false }T
 hash-2 2 lf-name-slot lf-entry-hash !
 T{ lf-name-hashes-ok? -> true }T
+\ The newest entry's hash, and the first's, are checked too.
+3 lf-name-slot lf-entry-hash @ constant hash-3-kept
+5 3 lf-name-slot lf-entry-hash !
+T{ lf-name-hashes-ok? lf-name-audit-all? -> false false }T
+hash-3-kept 3 lf-name-slot lf-entry-hash !
+1 lf-name-slot lf-entry-hash @ constant hash-1-kept
+5 1 lf-name-slot lf-entry-hash !
+T{ lf-name-hashes-ok? -> false }T
+hash-1-kept 1 lf-name-slot lf-entry-hash !
+T{ lf-name-hashes-ok? -> true }T
 
 \ The index with no table block (the heap refused it): every name is
 \ refused as names full, a name already made too, and nothing is read; a

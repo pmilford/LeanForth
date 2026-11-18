@@ -14805,6 +14805,22 @@ new = '''  lf-pp-checked-name-to ;'''
 test = "$GFORTH tests/present/term-printer.fs"
 reason = "review finding 1: the printer walks a name corrupted after the audit: it cycles (main's test hung) instead of printing invalid"
 
+[[fault]]
+id = "ni-equal-chain-unchecked"
+file = "src/core/name-equal.fs"
+old = '''  lf-name-chain-ok? swap lf-name-chain-ok? and lf-name-storage-valid? and ;'''
+new = '''  lf-name-valid? swap lf-name-valid? and lf-name-storage-valid? and ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "re-check F10: name equality walks a name corrupted after the audit unchecked: a prefix pointed forward at an equal twin compares equal"
+
+[[fault]]
+id = "ni-hashes-skip-newest"
+file = "src/core/names.fs"
+old = '''  1 lf-name-count @ 1- ['] lf-name-hash-kept? all? nip ;'''
+new = '''  1 lf-name-count @ 2 - ['] lf-name-hash-kept? all? nip ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "re-check F12: the hand-over audit checks every kept hash but the newest entry's"
+
 # --- the front end's isDefEq (src/front/defeq.fs and its helpers; plan FE1c)
 
 [[fault]]
