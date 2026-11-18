@@ -144,8 +144,8 @@ texts-end constant no-ops6
 
 \ ---- evalNat: the terms to evaluate on no-stack, the first argument on
 \ top; each value adds to no-acc. A step's code: 0 go on, 1 no value.
-: no-push ( t -- outcome ) no-stack lf-meta-push ;
-: no-pop ( -- t ) no-stack lf-meta-pop ;
+: no-push ( t -- outcome ) no-stack slab-push ;
+: no-pop ( -- t ) no-stack slab-pop ;
 : no-add-acc ( u -- outcome )
   no no-acc @ 2dup + tuck u> if 2drop outcome-unsupported exit then
   nip no no-acc ! outcome-ok ;

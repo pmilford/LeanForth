@@ -1653,11 +1653,9 @@
   "tokens": 6
  },
  "a53c96283e2c": {
-  "copies": 5,
+  "copies": 3,
   "kind": "shape",
   "members": [
-   "src/front/assign-check.fs:ac-pending-child",
-   "src/front/assign-check.fs:ac-dep-pending",
    "src/front/mvars.fs:mv-hole-pending",
    "src/front/whnf.fs:wc-project",
    "src/program/program-depth.fs:lf-depth-storage?"
@@ -1803,16 +1801,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
- },
- "b3ce5130f54c": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/lib-decode.fs:lbd-pop",
-   "src/front/meta-spine.fs:lf-meta-pop"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 9
  },
  "b441222231c7": {
   "copies": 21,
@@ -1962,6 +1950,16 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
  },
+ "c0d6944876ba": {
+  "copies": 2,
+  "kind": "copy",
+  "members": [
+   "src/front/meta-env.fs:lf-menv-sunfold",
+   "src/front/meta-env.fs:lf-menv-matcher"
+  ],
+  "tokens": 6,
+  "reason": "accepted: two readers of different records (sunfold, matcher) of the data's declaration, both on lf-menv-elab; a shared word would take an xt and be no shorter"
+ },
  "c1696d534b1d": {
   "copies": 2,
   "kind": "copy",
@@ -2001,16 +1999,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 10
- },
- "c415ad239134": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/lib-decode.fs:lbd-push",
-   "src/front/meta-env.fs:me-push"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 13
  },
  "c4a25193753b": {
   "copies": 2,
@@ -2132,10 +2120,9 @@
   "tokens": 9
  },
  "c8ea52d268a9": {
-  "copies": 4,
+  "copies": 3,
   "kind": "shape",
   "members": [
-   "src/front/assign-check.fs:ac-undone",
    "src/front/goal-print.fs:gp-undone",
    "src/front/level-params.fs:lp-undone",
    "src/front/term-find.fs:tf-undone"
@@ -2176,16 +2163,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
- },
- "cb2dc9d72640": {
-  "copies": 2,
-  "kind": "copy",
-  "members": [
-   "src/front/discr-keys.fs:dk-matcher",
-   "src/front/meta-env.fs:lf-menv-sunfold"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front): discr-keys.fs's matcher fact and meta-env.fs's sunfold fact read the data the same way: one meta-env.fs word (S2 merge B)",
-  "tokens": 7
  },
  "cb3247c9476a": {
   "copies": 2,
@@ -2474,16 +2451,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
- },
- "e41f7bc1c7c1": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/assign-check.fs:ac-parts",
-   "src/front/level-params.fs:lp-parts-pending"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 14
  },
  "e50147925318": {
   "copies": 7,

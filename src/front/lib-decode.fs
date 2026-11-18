@@ -154,9 +154,6 @@ end-structure
 : lf-libdec-stage ( -- stage ) lbd-stage@ ;
 : lf-libdec-count ( -- n ) lbd lbd-count @ ;
 : lbd-in? ( d -- flag ) lf-libdec-count u< ;
-: lbd-push ( x slab -- outcome )
-  1 over slab-claim ok-then? if swap slab-at ! outcome-ok else nip nip then ;
-: lbd-pop ( slab -- x ) dup slab-count 1- over slab-at @ -1 rot slab-commit ;
 : lbd-made ( x true | false -- x outcome ) if outcome-ok else -1 outcome-full then ;
 
 \ ---- Forgetting: every record's blocks, the memo, the walks' tables;
@@ -186,7 +183,7 @@ end-structure
 \ candidate it compares); a tier name made in the run's store.
 : lbd-parts! ( n xt -- outcome )
   >r lbd-parts slab-clear begin dup while
-    dup lbd-parts lbd-push ok-then? 0= if r> drop exit then r@ execute
+    dup lbd-parts slab-push ok-then? 0= if r> drop exit then r@ execute
   repeat r> 2drop outcome-ok ;
 : lbd-tier-prefix ( n -- n' ) lbd-tier name-prefix@ ;
 : lbd-num? ( id -- flag ) lf-name-tag@ lf-name-tag-num = ;
@@ -195,7 +192,7 @@ end-structure
   lf-name-text lbd-tier name-seek-str ;
 : lbd-sought ( -- n outcome )
   0 begin lbd-parts slab-count over 0< 0= and while
-    lbd-parts lbd-pop lbd-seek ok-then? 0= if no-result exit then
+    lbd-parts slab-pop lbd-seek ok-then? 0= if no-result exit then
   repeat outcome-ok ;
 : lbd-tier-name ( id -- n outcome )
   ['] lf-name-prefix@ lbd-parts! dup ok? if drop lbd-sought else no-result then ;
@@ -205,7 +202,7 @@ end-structure
     lf-name-str then ;
 : lbd-run-parts ( -- id outcome )
   0 begin lbd-parts slab-count while
-    lbd-parts lbd-pop lbd-run-part 0= if -1 outcome-full exit then
+    lbd-parts slab-pop lbd-run-part 0= if -1 outcome-full exit then
   repeat outcome-ok ;
 : lf-libdec-run-name ( n -- name outcome )
   ['] lbd-tier-prefix lbd-parts! dup ok? if drop lbd-run-parts else no-result then ;
@@ -282,8 +279,7 @@ end-structure
 \ A constant: its universe arguments as level pairs (index, identity),
 \ then its reference and its term.
 : lbd-pair, ( index -- outcome )
-  dup lf-level-identity 0= if drop outcome-full exit then swap
-  1 lbd-pairs slab-claim ok-then? if lbd-pairs slab-at 2! outcome-ok else nip nip then ;
+  dup lf-level-identity 0= if drop outcome-full exit then swap lbd-pairs slab-2push ;
 : lbd-arg ( e src i -- outcome )
   swap dup >r src-arg r> src-level ok-then? if lbd-pair, then ;
 : lbd-args ( e src -- outcome )
@@ -471,7 +467,7 @@ elab-level-param tag-level-param <> or
 
 \ ---- Binder kinds (S1 §4): e's leading Pi binders, from the tier's tags.
 : lbd-pi-in? ( e tier -- flag ) expr-tag@ tag-pi tag-let within ;
-: lbd-kind+ ( e tier slab -- e tier outcome ) >r 2dup expr-tag@ tag-pi - r> lbd-push ;
+: lbd-kind+ ( e tier slab -- e tier outcome ) >r 2dup expr-tag@ tag-pi - r> slab-push ;
 : lf-tier-kinds ( e tier slab -- outcome )
   dup slab-clear >r begin 2dup lbd-pi-in? while
     r@ lbd-kind+ ok-then? 0= if nip r> drop exit then tuck expr-b@ swap
@@ -548,7 +544,7 @@ kind-recursor kind-axiom - 1+ lbd-kinds# <>
 \ all rules (count, then constructor, fields and right side of each). One
 \ step ( r -- outcome ) per item, the first run, the rest chained with
 \ ok-with.
-: lbd-d, ( x -- outcome ) lbd-data lbd-push ;
+: lbd-d, ( x -- outcome ) lbd-data slab-push ;
 : lbd-item ( r k -- u ) swap lbd-d lbd-stage@ staged-item ;
 : lbd-n, ( r k -- outcome ) lbd-item lbd-d, ;
 : lbd-name, ( n -- outcome ) lf-libdec-run-name ok-then? if lbd-d, then ;
@@ -624,7 +620,7 @@ create lbd-steps   \ ( r -- outcome ) each, in order (outcome-steps); 0 ends the
   lbd lbd-memo @ if outcome-ok exit then
   lf-libdec-count cells 1 max dup allocate if 2drop outcome-full exit then
   tuck swap erase lbd lbd-memo ! outcome-ok ;
-: lbd-giveback ( r -- ) lbd-free-record -1 lbd-records slab-commit ;
+: lbd-giveback ( r -- ) lbd-free-record lbd-records slab-drop ;
 : lbd-decode ( d -- r outcome )
   lbd-new ok-then? 0= if no-result exit then
   dup lbd-fill dup ok? if drop dup lbd-remember outcome-ok exit then

@@ -282,9 +282,9 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-meta-tags constant 
 : if-xs-at ( -- addr ) 0 if-xs slab-at ;
 : if-holes? ( term -- flag ) lf-meta-mvar-free? 0= ;
 : if-open ( lam -- body outcome )
-  dup if-lams lf-meta-push ok-then? 0= if no-result exit then
+  dup if-lams slab-push ok-then? 0= if no-result exit then
   dup lf-term-first@ lf-lctx-local ok-then? 0= if if-fail exit then
-  dup if-xs lf-meta-push ok-then? 0= if if-fail exit then
+  dup if-xs slab-push ok-then? 0= if if-fail exit then
   lf-meta-open ;
 : if-telescope ( term -- body outcome )
   if-xs slab-clear if-lams slab-clear

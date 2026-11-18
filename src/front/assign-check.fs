@@ -114,13 +114,9 @@ end-structure
 \ visit of its parts; a let's parts in Lean's order (type, value, body).
 : ac-inner? ( node -- flag )
   dup lf-term-binary? if lf-meta-fvar-free? 0= else drop false then ;
-: ac-undone ( child walk -- child true | false )
-  over swap dw-done? if drop false else true then ;
-: ac-parts ( node walk -- child true | false )
-  over lf-term-first@ over ac-undone if nip nip true exit then
-  swap lf-term-second@ swap ac-undone ;
-: ac-pending-child ( node walk -- child true | false )
-  over ac-inner? if ac-parts else 2drop false then ;
+: ac-parts-if ( node walk flag -- child true | false )
+  if lf-meta-want-parts else 2drop false then ;
+: ac-pending-child ( node walk -- child true | false ) over ac-inner? ac-parts-if ;
 : ac-first-fail ( i1 i2 -- image ) over if drop else nip then ;
 : ac-img ( node -- image ) ac-wk dw-image ;
 : ac-let ( let -- image )
@@ -193,8 +189,7 @@ end-structure
 \ whose data word is known holds no metavariable).
 : ac-dep-inner? ( node -- flag )
   dup lf-term-binary? if lf-term-data@ dup if nip then 0= else drop false then ;
-: ac-dep-pending ( node walk -- child true | false )
-  over ac-dep-inner? if ac-parts else 2drop false then ;
+: ac-dep-pending ( node walk -- child true | false ) over ac-dep-inner? ac-parts-if ;
 : ac-dep-leaf ( node -- 0|1 )
   dup lf-mvar? if ac-sees-x? 1 and else drop 0 then ;
 : ac-dep-build ( node walk -- 0|1 )

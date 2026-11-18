@@ -13588,8 +13588,8 @@ gap = "no inductive type of Init is recursive with one constructor and no indice
 [[fault]]
 id = "fe-spine-levels-first-only"
 file = "src/front/meta-spine.fs"
-old = '''    2dup i ms-level swap lf-meta-push dup ok? 0= if nip nip unloop exit then drop'''
-new = '''    2dup 0 ms-level swap lf-meta-push dup ok? 0= if nip nip unloop exit then drop'''
+old = '''    2dup i ms-level swap slab-push dup ok? 0= if nip nip unloop exit then drop'''
+new = '''    2dup 0 ms-level swap slab-push dup ok? 0= if nip nip unloop exit then drop'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "review fe1c-2 re-check: every universe argument of a constant is read as its first (Quot.lift.{1,2} would get Sort 1 for beta)"
 
@@ -16542,8 +16542,8 @@ reason = "S1 §1: a library declaration decoded again at every find, the memo ne
 [[fault]]
 id = "fe-env-cross"
 file = "src/front/lib-decode.fs"
-old = '''    dup lbd-parts lbd-push ok-then? 0= if r> drop exit then r@ execute'''
-new = '''    dup lbd-parts lbd-push ok-then? 0= if r> drop exit then drop 0'''
+old = '''    dup lbd-parts slab-push ok-then? 0= if r> drop exit then r@ execute'''
+new = '''    dup lbd-parts slab-push ok-then? 0= if r> drop exit then drop 0'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "S1 §1: names crossed by their last part only, not by content"
 
@@ -16622,8 +16622,8 @@ reason = "S2 merge B: reduceMatcher? drops the arguments after the alternatives"
 [[fault]]
 id = "fe-kinds-tag"
 file = "src/front/lib-decode.fs"
-old = ''': lbd-kind+ ( e tier slab -- e tier outcome ) >r 2dup expr-tag@ tag-pi - r> lbd-push ;'''
-new = ''': lbd-kind+ ( e tier slab -- e tier outcome ) >r 2dup expr-tag@ tag-lam - r> lbd-push ;'''
+old = ''': lbd-kind+ ( e tier slab -- e tier outcome ) >r 2dup expr-tag@ tag-pi - r> slab-push ;'''
+new = ''': lbd-kind+ ( e tier slab -- e tier outcome ) >r 2dup expr-tag@ tag-lam - r> slab-push ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "S1 §4: a library binder's kind read off the wrong tag base"
 
@@ -16782,7 +16782,7 @@ reason = "review s1-meta-b M3 (F5): a text declaration's universe parameters nev
 [[fault]]
 id = "fe-env-add-giveback"
 file = "src/front/meta-env.fs"
-old = '''  me-texts slab-at dup /mtx erase me-text-made dup ok? 0= if -1 me-texts slab-commit then'''
+old = '''  me-texts slab-at dup /mtx erase me-text-made dup ok? 0= if me-texts slab-drop then'''
 new = '''  me-texts slab-at dup /mtx erase me-text-made'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b M3 (F7): a text declaration refused room stays visible, half made"
@@ -16790,8 +16790,8 @@ reason = "review s1-meta-b M3 (F7): a text declaration refused room stays visibl
 [[fault]]
 id = "fe-libdec-giveback-leak"
 file = "src/front/lib-decode.fs"
-old = ''': lbd-giveback ( r -- ) lbd-free-record -1 lbd-records slab-commit ;'''
-new = ''': lbd-giveback ( r -- ) drop -1 lbd-records slab-commit ;'''
+old = ''': lbd-giveback ( r -- ) lbd-free-record lbd-records slab-drop ;'''
+new = ''': lbd-giveback ( r -- ) drop lbd-records slab-drop ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b M3 (F8): a refused declaration's blocks leak when its record is given back"
 
@@ -16856,8 +16856,8 @@ reason = "review s1-meta-b L3: an imax level decoded as a max"
 [[fault]]
 id = "fe-libdec-seek-room"
 file = "src/front/lib-decode.fs"
-old = '''    lbd-parts lbd-pop lbd-seek ok-then? 0= if no-result exit then'''
-new = '''    lbd-parts lbd-pop lbd-seek drop'''
+old = '''    lbd-parts slab-pop lbd-seek ok-then? 0= if no-result exit then'''
+new = '''    lbd-parts slab-pop lbd-seek drop'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b L1: a sought part refused room reads as an unknown constant (invalid), not full"
 

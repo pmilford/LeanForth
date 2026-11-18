@@ -270,10 +270,8 @@ end-structure
   0= or loop ;
 : dk-match-span ( m -- from to ) elab-matcher@ rot drop swap 1+ tuck + ;
 : dk-match-arity ( m -- n ) dup elab-matcher-alts nip swap elab-matcher@ rot drop + 1+ + ;
-: dk-matcher ( d -- m true | false )
-  lf-menv-name lf-menv-data-decl if elab-matcher-of else false then ;
 : dk-matcher-stuck? ( d -- flag )
-  dk-matcher 0= if false exit then
+  lf-menv-matcher 0= if false exit then
   dup dk-match-arity dk dk-n @ > if drop false else dk-match-span dk-mvar-in? then ;
 : dk-rec? ( d -- flag ) lf-menv-kind lf-kind-recursor = ;
 : dk-stuck-const? ( d -- flag outcome )

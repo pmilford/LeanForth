@@ -327,10 +327,12 @@ end-structure
 : mv-binary? ( term -- flag ) lf-term-tag@ lf-term-binary-tag? ;
 : mv-value-of ( term -- value true | false )
   dup lf-mvar-live? if lf-mvar-value else drop false then ;
-: mv-pair-pending ( node walk -- child true | false )
+\ A binary node's first part, else its second, whose image is pending
+\ (dw-want2); assign-check.fs's walks share it.
+: lf-meta-want-parts ( node walk -- child true | false )
   >r dup lf-term-first@ swap lf-term-second@ r> dw-want2 ;
 : mv-term-pending ( node walk -- child true | false )
-  over mv-binary? if mv-pair-pending exit then
+  over mv-binary? if lf-meta-want-parts exit then
   swap mv-value-of if swap dw-want else drop false then ;
 : mv-pair-images ( node walk -- i1 i2 )
   over lf-term-first@ over dw-image >r swap lf-term-second@ swap dw-image r> swap ;
@@ -551,15 +553,14 @@ end-structure
   mv-snap-index 0= if false exit then mvp mvp-at @ dup mv-under? dup 0= if nip then ;
 \ The switch: the common ancestor c of the current state a and the target
 \ b, b's records above c on mv-redos; then down from a to c, up to b.
-: mv-redo-push ( i -- outcome )
-  1 mv-redos slab-claim ok-then? if mv-redos slab-at ! outcome-ok else nip then ;
+: mv-redo-push ( i -- outcome ) mv-redos slab-push ;
 : mv-climb ( a b -- a' b' outcome )
   2dup > if swap mv-parent swap outcome-ok exit then
   dup mv-redo-push dup ok? if drop mv-parent outcome-ok then ;
 : mv-climbs ( a b -- c outcome )
   begin 2dup <> while mv-climb ok-then? 0= if nip -1 swap exit then repeat
   drop outcome-ok ;
-: mv-redo-pop ( -- i ) mv-redos dup slab-count 1- swap slab-at @ -1 mv-redos slab-commit ;
+: mv-redo-pop ( -- i ) mv-redos slab-pop ;
 : mv-redo-all ( -- ) begin mv-redos slab-count while mv-redo-pop mv-redo repeat ;
 : mv-goto ( i -- outcome )
   mv-redos slab-clear mv-at swap mv-climbs
@@ -722,7 +723,7 @@ end-structure
   2dup mv-term-pending if nip nip true exit then
   over mv-app? if mv-app-pending else 2drop false then ;
 : mv-hole-pending ( node walk -- child true | false )
-  over mv-binary? if mv-pair-pending else 2drop false then ;
+  over mv-binary? if lf-meta-want-parts else 2drop false then ;
 : mv-hole-build ( node walk -- 0|1 )
   over mv-binary? if mv-pair-images or else drop lf-mvar? 1 and then ;
 : mv-holes? ( term -- flag outcome )

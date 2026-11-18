@@ -169,8 +169,6 @@ end-structure
 : lf-menv-stage! ( stage -- ) menv menv-stage ! ;
 : me-stage ( -- stage ) menv menv-stage @ ;
 : me-run? ( -- flag ) menv menv-run @ ;
-: me-push ( x slab -- outcome )
-  1 over slab-claim ok-then? if swap slab-at ! outcome-ok else nip nip then ;
 
 \ ---- The text list, stamped with the term store's generation.
 : me-gen ( -- n ) lf-term-generation @ ;
@@ -450,10 +448,12 @@ texts-end constant me-uint-op-texts
   me-run? if me-run-data-decl else elab-decl-of then ;
 : lf-menv-of-data ( d' -- d outcome )
   me-run? if me-decoded else elab-decl-name lf-menv-find then ;
+\ The elaboration data's declaration of d's name; false when it has none.
+: lf-menv-elab ( d -- d' true | false ) lf-menv-name lf-menv-data-decl ;
 \ A definition's sunfold record (Lean's find? of f._sunfold) and its
 \ rec_arg (getStructuralRecArgPos?, S2 merge B); false when none.
 : lf-menv-sunfold ( d -- s true | false )
-  lf-menv-name lf-menv-data-decl if elab-sunfold-of else false then ;
+  lf-menv-elab if elab-sunfold-of else false then ;
 : lf-menv-rec-arg ( d -- k true | false )
   lf-menv-sunfold if elab-sunfold-rec-arg else false then ;
 \ getMatcherInfo? (S2 merge B), from format 2's matcher record: the
@@ -461,9 +461,10 @@ texts-end constant me-uint-op-texts
 \ discriminants) and its alternatives; false when the data has none.
 : me-prefix ( m -- n ) elab-matcher@ + 1+ nip ;
 : me-alts ( m -- n ) elab-matcher-alts nip ;
+: lf-menv-matcher ( d -- m true | false )
+  lf-menv-elab if elab-matcher-of else false then ;
 : lf-menv-matcher-sizes ( d -- prefix alts true | false )
-  lf-menv-name lf-menv-data-decl 0= if false exit then
-  elab-matcher-of 0= if false exit then dup me-prefix swap me-alts true ;
+  lf-menv-matcher 0= if false exit then dup me-prefix swap me-alts true ;
 
 \ ---- A text declaration made visible (lf-menv-add): its name, kind,
 \ type, value, universe parameters and the kinds of its type's leading Pi
@@ -485,7 +486,7 @@ create me-text-kinds-of   \ per lf-decl-* kind (present/print-forth.fs); 0: none
 : me-pi? ( term -- flag ) dup 0< if drop false else lf-term-tag@ lf-tag-pi = then ;
 : me-kind@ ( term -- kind true | false ) lf-pres-binder@ if nip true else false then ;
 : me-kind+ ( pi -- pushed? outcome )
-  me-kind@ if me-tkinds me-push true swap else false outcome-ok then ;
+  me-kind@ if me-tkinds slab-push true swap else false outcome-ok then ;
 : me-kinds-of-type ( type -- n outcome )
   0 swap begin dup me-pi? while
     dup me-kind+ ok-then? 0= if nip exit then 0= if drop outcome-ok exit then
@@ -498,7 +499,7 @@ create me-text-kinds-of   \ per lf-decl-* kind (present/print-forth.fs); 0: none
   2dup swap me-fill tuck swap me-params! ok-then? if me-kinds! then ;
 : me-add ( decl -- outcome )
   me-texts-current 1 me-texts slab-claim ok-then? 0= if nip exit then
-  me-texts slab-at dup /mtx erase me-text-made dup ok? 0= if -1 me-texts slab-commit then
+  me-texts slab-at dup /mtx erase me-text-made dup ok? 0= if me-texts slab-drop then
     ;
 : lf-menv-add ( decl -- outcome ) dup me-kind-known? if me-add else drop-invalid then ;
 

@@ -446,7 +446,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 : wc-take-at ( v k y -- v' outcome ) + wc-take ;
 : wc-new-h ( lam -- lam x outcome )
   dup lf-term-first@ lf-lctx-local ok-then? 0= if no-result exit then
-  dup wc-hs lf-meta-push ;
+  dup wc-hs slab-push ;
 : wc-open-h ( v k y -- v' outcome )
   2drop dup lf-term-lam? 0= if drop outcome-unsupported no-result exit then
   wc-new-h ok-then? 0= if nip no-result exit then lf-meta-open ;
@@ -602,8 +602,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ getAuxParentProjectionInfo?) are not in the data: a definition named
 \ S.toP answers unsupported.
 : ws-params ( d -- n true | false )
-  lf-menv-name lf-menv-data-decl 0= if false exit then elab-projection-of 0= if false exit
-    then
+  lf-menv-elab 0= if false exit then elab-projection-of 0= if false exit then
   elab-projection@ drop nip true ;
 : ws-to-name? ( d -- flag )
   lf-menv-name dup lf-name-tag@ lf-name-tag-str <> if drop false exit then

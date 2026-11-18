@@ -2,8 +2,6 @@
 \ for the front end's Meta files (plan FE1c; front/whnf.fs, infer.fs,
 \ beta-inst.fs), one copy of what each needed (Forth review of fe1c-2,
 \ S2). Untrusted.
-\ - lf-meta-push ( x slab -- outcome ): x as the slab's next cell; full
-\   when the slab has no room.
 \ - lf-meta-app? ( term -- flag ): an application.
 \ - lf-meta-spine ( term slab -- head outcome ): the arguments of
 \   f a1 .. an into the slab, emptied first, an first; the head f. A
@@ -60,13 +58,12 @@
 \ - lf-meta-forall-body ( term -- body ): what is under its leading pis
 \   (the term itself when it is no pi), its loose bound variables those
 \   binders' (Lean's getForallBody of each, unreduced).
-\ - lf-meta-pop ( slab -- x ): the slab's last cell, taken off.
 \ - lf-meta-app ( f a -- f' outcome ): the application f a (Lean's
 \   mkApp); full, with -1, when the term store has no room.
 \ - lf-meta-apply-all ( f slab -- f' outcome ): f applied to a spine's
 \   arguments, a0 first (Lean's mkAppN f args); full as above.
 \ Unchecked: the terms are live, the constant is one, the slab is a cell
-\ slab (not empty for lf-meta-pop). State: none of its own; every word
+\ slab. State: none of its own; every word
 \ takes its slab. Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
@@ -81,11 +78,9 @@ require ../core/mvar-leaves.fs
 require ../present/binder-table.fs
 require ../core/let-terms.fs
 
-: lf-meta-push ( x slab -- outcome )
-  tuck 1 swap slab-claim ok-then? if rot slab-at ! outcome-ok else nip nip then ;
 : lf-meta-app? ( term -- flag ) lf-term-tag@ lf-tag-app = ;
 : ms-peel ( term slab -- f outcome )
-  over lf-term-second@ swap lf-meta-push swap lf-term-first@ swap ;
+  over lf-term-second@ swap slab-push swap lf-term-first@ swap ;
 : lf-meta-spine ( term slab -- head outcome )
   dup slab-clear swap begin dup lf-meta-app? while
     over ms-peel ok-then? 0= if nip -1 swap exit then
@@ -104,7 +99,7 @@ require ../core/let-terms.fs
 : ms-level ( slot i -- level ) swap lf-cref-pairs drop swap lf-cref-pair@ drop ;
 : lf-meta-levels-fill ( const slab -- outcome )
   dup slab-clear swap lf-const-slot dup lf-cref-pairs nip 0 ?do
-    2dup i ms-level swap lf-meta-push dup ok? 0= if nip nip unloop exit then drop
+    2dup i ms-level swap slab-push dup ok? 0= if nip nip unloop exit then drop
   loop 2drop outcome-ok ;
 : ms-full ( outcome -- outcome' ) outcome-full = if outcome-full else outcome-ok then ;
 : lf-meta-named ( new old -- new outcome )
@@ -129,7 +124,6 @@ require ../core/let-terms.fs
 : lf-meta-args# ( term -- n ) lf-meta-head-args nip ;
 : lf-meta-forall-body ( term -- body )
   begin dup lf-term-pi? while lf-term-second@ repeat ;
-: lf-meta-pop ( slab -- x ) dup slab-count 1- over slab-at @ -1 rot slab-commit ;
 : lf-meta-app ( f a -- f' outcome ) lf-term-app if outcome-ok else -1 outcome-full then ;
 : ms-apply-at ( f i slab -- f' outcome ) lf-meta-arg lf-meta-app ;
 : lf-meta-apply-all ( f slab -- f' outcome )
