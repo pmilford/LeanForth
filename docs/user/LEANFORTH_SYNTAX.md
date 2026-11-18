@@ -814,10 +814,17 @@ own words are unknown names too: `A dup` in a proof stops at `dup`.
   stores, which start with 64 terms, 64 levels, 64 names and 32 constant
   references; `leanforth check` gives them as much room as the heap has.
   Equal subterms share one node (which keeps the position where it was
-  first written), found by a search through the store, so a text of many
-  thousand nodes is slow (plan 8.2.1b); a step with a label or note always
-  has a node of its own. The authoring tables hold 1,024 declarations and
-  1,024 names in scope.
+  first written), found through a hash index of the store's nodes (since
+  2026-11-18; before, a search through the whole store made a statement
+  of 500 arrows take minutes); a step with a label or note always has a
+  node of its own. A declaration may hold any number of values, as the
+  heap allows. The authoring tables hold 1,024 declarations and 1,024
+  names in scope.
+- **Depth.** A statement nested very deeply stops with error 300 (out of
+  room: a Forth stack; exit 3), never with another term: `P -> P -> … ->
+  P` of 900 arrows is checked in about 3 s with `gforth-fast`, one of
+  1,000 stops at once, because the words that build `A B ->` shift `B`'s
+  variables recursively (planned: a walk on the heap instead).
 - **Not supported yet** (each stops with a "not supported yet" error):
   string literals and natural-number literals above one cell, `let`/`have`,
   holes `_`, tactic blocks `by` in the kernel form (natural LeanForth

@@ -149,8 +149,10 @@ T{ s" kernel-form Nat Nat ->" nfails -> 4 1 21 }T
 T{ base @ get-current s" theorem t Nat explicit: n n := n end t" nrun drop
    base @ get-current rot = -rot = -> true true }T
 
-\ Out of room: the numerals' positions (author/form.fs) hold 512; a 513th
-\ number in one declaration stops the run full (64), on the line it ends.
+\ Out of room: the numerals' positions (author/form.fs) grow (the author
+\ review's R5): 513 numbers in one declaration are not too many; at a
+\ limit set (here 512) the 513th stops the run full (64), on the line it
+\ ends.
 create text 4096 allot  variable text#
 : text0 ( -- ) 0 text# ! ;
 : text+ ( c-addr u -- ) tuck text text# @ + swap move text# +! ;
@@ -159,7 +161,17 @@ create text 4096 allot  variable text#
 text0 s\" theorem t\n" text+ s" 1 " 300 times s\" \n" text+ s" 1 " 212 times s\" \n" text+
 T{ text$ nfails drop drop lf-author-code lf-author-outcome -> 33 outcome-invalid }T
 text0 s\" theorem t\n" text+ s" 1 " 300 times s\" \n" text+ s" 1 " 213 times s\" \n" text+
+T{ text$ nfails drop drop lf-author-code lf-author-outcome -> 33 outcome-invalid }T
+lfa-form-reset  512 lfa-numerals store-limit! drop
 T{ text$ nfails drop lf-author-code lf-author-outcome -> 64 3 outcome-full }T
+lf-author-begin  1 cells lfa-store-limit lfa-numerals store-limit! drop
+\ Values grow (author/values.fs, the author review's R5): a statement of
+\ 256 arrows, 513 values in one declaration, once full (64) at 512.
+\ (The term store's limit raised for the run's 513 nodes, then put back.)
+lf-term-capacity constant terms-were  lf-author-begin  4096 lf-term-capacity! drop
+text0 s" def t 0 Type := Prop" text+ s"  Prop ->" 256 times s"  end t" text+
+T{ lf-author-begin lf-author-kernel text$ lf-author-text -> outcome-ok }T
+lf-author-begin  terms-were lf-term-capacity! drop
 
 \ Out of room: a syntax store that may hold 3 nodes stops the run full
 \ (68) at the word that needed a fourth; nothing is left on the stack.
@@ -676,6 +688,62 @@ T{ lfc-library-close -> }T
 create dw-probe /dw allot  5 dw-probe dw-size !
 T{ 0 dw-probe dw-in? 4 dw-probe dw-in? 5 dw-probe dw-in? -> true true false }T
 T{ -1 dw-probe dw-in? max-n negate dw-probe dw-in? -> false false }T
+\ A node beyond the memo is new and reads no cell past it (re-check of
+\ fe1c-lnorm R1, fault fe-walk-new-unbounded): the cell past this memo
+\ of five holds a made image, which an unbounded read would take as done.
+create dw-probe-memo 6 cells allot  dw-probe-memo 6 cells erase
+7 dw-probe-memo 3 cells + !  7 dw-probe-memo 5 cells + !  dw-probe-memo dw-probe dw-memo !
+T{ 5 dw-probe dw-new? 3 dw-probe dw-new? 0 dw-probe dw-new? -> true false true }T
+T{ 5 dw-probe dw-done? 3 dw-probe dw-done? 5 dw-probe dw-cycle? -> false true true }T
+
+\ dag-walk.fs's two kinds of states (performance scan, 2026-11-18): a walk
+\ of more than dw-array-most nodes keeps them in a memo of the nodes it
+\ meets, a smaller one in an array of all. instantiateMVars and the occurs
+\ check of 300 random terms (lambdas, pis, applications, Prop, a loose
+\ variable, assigned and unassigned metavariables, assignments through
+\ others) give the same terms (Expr.eqv) and answers with the array as
+\ with the memo, after the store grew past the cut-over.
+lf-author-begin lf-mctx-reset
+T{ 0 lf-term-sort -> prop true }T
+variable wt-seed  20261118 wt-seed !
+: wt-rnd ( n -- u ) wt-seed @ 1103515245 * 12345 + 2147483647 and dup wt-seed ! 16 rshift
+  swap mod ;
+create wt-mvars 6 cells allot
+: wt-mvar ( i -- m ) cells wt-mvars + @ ;
+: wt-bvar ( -- t ) 0 lf-term-bvar 0= abort" bvar" ;
+: wt-leaf ( limit -- t )
+  dup 0> 2 wt-rnd and if wt-rnd wt-mvar else drop 3 wt-rnd if prop else wt-bvar then then ;
+: wt-tag ( -- tag ) 3 wt-rnd dup 2 = if drop lf-tag-app else lf-tag-lam + then ;
+defer wt-term ( depth limit -- t )
+: wt-kids ( depth limit -- a b ) swap 1- swap 2dup wt-term >r wt-term r> ;
+: wt-node ( depth limit -- t )
+  over 0= 3 wt-rnd 0= or if nip wt-leaf else wt-kids wt-tag lf-term-binary 0= abort" bin" then ;
+' wt-node is wt-term
+: wt-mvars! ( -- ) 6 0 do mv-natural new i cells wt-mvars + ! loop ;
+: wt-assign ( -- ) 6 1 do 2 wt-rnd if i wt-mvar 3 i wt-term lf-mvar-assign drop then loop ;
+300 constant wt-n
+create wt-terms wt-n 3 * cells allot
+: wt-at ( i k -- addr ) swap 3 * + cells wt-terms + ;
+: wt-inst ( t -- t' ) lf-instantiate-mvars ok? 0= abort" instantiate" ;
+: wt-occurs ( t -- flag ) 1 wt-mvar swap lf-mvar-occurs? ok? 0= abort" occurs" ;
+: wt-make ( i -- ) 4 6 wt-term 2dup swap 0 wt-at ! dup wt-inst 2 pick 1 wt-at !
+  wt-occurs swap 2 wt-at ! ;
+: wt-again? ( i -- flag )
+  dup 0 wt-at @ dup wt-inst 2 pick 1 wt-at @ lf-meta-eqv drop
+  swap wt-occurs rot 2 wt-at @ = and ;
+: wt-all? ( -- flag ) true wt-n 0 do i wt-again? and loop ;
+: wt-make-all ( -- ) wt-n 0 do i wt-make loop ;
+wt-mvars! wt-assign wt-make-all
+T{ lf-term-count @ dw-array-most < wt-all? -> true true }T
+: wt-fill ( n -- ) 0 ?do i 7 + lf-term-bvar 2drop loop ;
+dw-array-most wt-fill
+T{ lf-term-count @ dw-array-most > wt-all? -> true true }T
+\ Which kind a run uses: a build that answers 1 when it finds the array.
+create wt-walk /dw allot  wt-walk /dw erase
+:noname ( node walk -- child true | false ) 2drop false ; wt-walk dw-pending !
+:noname ( node walk -- image ) nip dw-array? 1 and ; wt-walk dw-build !
+: wt-kind ( size -- image outcome ) wt-walk dw-size ! 0 wt-walk dw-run ;
+T{ dw-array-most wt-kind dw-array-most 1+ wt-kind -> 1 outcome-ok 0 outcome-ok }T
 T{ depth -> 0 }T
 cr .( front.fs: all tests passed) cr
 bye

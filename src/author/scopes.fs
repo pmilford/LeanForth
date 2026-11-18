@@ -26,12 +26,10 @@ begin-structure /lfa-binder
   field: lfa-binder-entries   \ names defined before this binder's (groups.fs)
 end-structure
 store-header context-record: lfa-binders
-\ The first room, and the largest limit a store of binders takes.
-16 constant lfa-binder-room
-max-n store-header - /lfa-binder cell+ / constant lfa-binder-limit
+/lfa-binder lfa-store-limit constant lfa-binder-limit
 : lfa-binders-make ( -- )
-  lfa-binder-room /lfa-binder 0 lfa-binders store-heap-init ok? 0= abort" author: no heap"
-  lfa-binder-limit lfa-binders store-limit! ok? 0= abort" author: binder limit" ;
+  lfa-store-room /lfa-binder 0 lfa-binders store-heap-init lfa-heap-must
+  lfa-binder-limit lfa-binders store-limit! lfa-heap-must ;
 ' lfa-binders-make context-setup
 :noname ( -- ) lfa-binders store-heap-free ; context-teardown
 

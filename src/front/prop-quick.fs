@@ -60,8 +60,8 @@ require ./term-eqv.fs
 
 \ ---- The type of a head: a constant's (inferConstType), a free
 \ variable's or a metavariable's.
-: pq-head? ( t -- flag )
-  lf-term-tag@ dup lf-tag-constant = over lf-tag-fvar = or swap lf-tag-mvar = or ;
+lf-tag-constant lf-tag-fvar lf-tag-mvar 3 lf-meta-tags constant pq-head-tags
+: pq-head? ( t -- flag ) pq-head-tags lf-meta-tag-in? ;
 : pq-type ( head -- type outcome )
   dup lf-term-tag@ case lf-tag-constant of lf-infer endof
     lf-tag-fvar of lf-fvar-type outcome-ok endof
@@ -96,16 +96,14 @@ require ./term-eqv.fs
 : pq-prop-app ( e -- lbool outcome )
   pq-app-head over pq-head? if pq-head-arrow exit then
   drop lf-term-lam? if lf-lb-false else lf-lb-undef then outcome-ok ;
-: pq-no-prop? ( e -- flag )
-  dup lf-sort? if drop true exit then lf-term-tag@ dup lf-tag-lit = swap lf-tag-lam = or ;
+lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-lam 4 lf-meta-tags constant pq-no-props
+: pq-no-prop? ( e -- flag ) pq-no-props lf-meta-tag-in? ;
 : pq-prop-leaf ( e -- lbool outcome )
   dup pq-head? if 0 pq-head-arrow exit then
   pq-no-prop? if lf-lb-false else lf-lb-undef then outcome-ok ;
-: pq-into ( e -- e' flag )
-  dup lf-let? if lf-let-body true exit then dup lf-term-pi? if lf-term-second@ true
-  else false then ;
 : lf-meta-prop-quick ( e -- lbool outcome )
-  begin pq-into 0= until dup lf-term-app? if pq-prop-app else pq-prop-leaf then ;
+  begin lf-tag-pi lf-meta-under 0= until
+  dup lf-term-app? if pq-prop-app else pq-prop-leaf then ;
 
 \ ---- isArrowProposition: its result an LBool or a bound variable k, as
 \ pq-bvar + k; each binder passed on the way back turns #0 into its
@@ -148,8 +146,8 @@ require ./term-eqv.fs
 \ ---- isProofQuick: lambdas and lets passed to their bodies; an
 \ application's head as above, where a lambda with no argument left goes
 \ on as isProofQuick of its body.
-: pq-no-proof? ( e -- flag )
-  dup lf-sort? if drop true exit then lf-term-tag@ dup lf-tag-lit = swap lf-tag-pi = or ;
+lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-pi 4 lf-meta-tags constant pq-no-proofs
+: pq-no-proof? ( e -- flag ) pq-no-proofs lf-meta-tag-in? ;
 : pq-proof-leaf ( e -- lbool outcome )
   dup pq-head? if 0 pq-proof-arrow exit then
   pq-no-proof? if lf-lb-false else lf-lb-undef then outcome-ok ;
@@ -158,7 +156,6 @@ require ./term-eqv.fs
   over lf-term-lam? if drop lf-term-second@ true exit then
   2drop lf-lb-undef outcome-ok false ;
 : pq-proof-round ( e -- e' true | lbool outcome false )
-  dup lf-term-lam? over lf-let? or if dup lf-let? if lf-let-body
-  else lf-term-second@ then true exit then
+  lf-tag-lam lf-meta-under if true exit then
   dup lf-term-app? if pq-proof-app else pq-proof-leaf false then ;
 : lf-meta-proof-quick ( e -- lbool outcome ) begin pq-proof-round 0= until ;

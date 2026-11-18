@@ -71,6 +71,8 @@ This prints `ba7816bf...f20015ad`, the SHA-256 of "abc".
 | `bigint.fs` | Arbitrary-size signed integers. |
 | `decimal.fs` | Decimal and hex text conversion, independent of `BASE`. |
 | `bits.fs` | Bit sets, the width of a cell, base-2 logarithm, and binary search. |
+| `find.fs` | The first index of a linear search by a caller's test (`find-index`). |
+| `texts.fs` | Tables of short texts in the dictionary and their search by a caller's test (`texts-find`). |
 | `u32.fs` | Reading and writing packed unsigned 32-bit fields on any cell size. |
 | `bytes.fs` | Bounded line reader and UTF-8 checks. |
 | `name-table.fs` | Small read-only tables of names laid down while loading, each entry some data cells and a counted name, found by exact bytes. |

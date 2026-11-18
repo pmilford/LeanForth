@@ -42,6 +42,7 @@
 \ State: the record pst in the checker context (ADR 0009).
 
 require ../lib/lib.fs
+require ../lib/find.fs
 require ../lib/runs.fs
 require ./lctx-views.fs
 require ./mvars.fs
@@ -87,8 +88,7 @@ end-structure
 : gl-dep-at ( view fvar i -- view fvar flag outcome )
   >r over r> gl-fvar-at over 2dup = if 2drop false outcome-ok else gl-local-dep then ;
 : gl-others-dep ( view fvar -- flag outcome )
-  over lf-view-count 0 ?do i gl-dep-at gl-decided? if 2swap 2drop unloop exit then loop
-  2drop false outcome-ok ;
+  over lf-view-count ['] gl-dep-at ok-any? 2swap 2drop ;
 : gl-none ( flag outcome -- outcome ) dup ok? if drop 0= flag>outcome else nip then ;
 : gl-target-dep ( goal fvar -- flag outcome ) swap lf-mvar-type drop swap lf-depends-on? ;
 : gl-free-of ( goal fvar -- outcome )
@@ -126,9 +126,9 @@ end-structure
   lf-goals ['] lf-goal-unassigned? run-filter ok-then? if dup gl-set outcome-ok else
   no-result then ;
 \ The place of the first goal not assigned, or the count.
-: gl-open-at? ( list i -- flag ) run@ lf-goal-unassigned? ;
+: gl-open-at? ( list i -- list flag ) over swap run@ lf-goal-unassigned? ;
 : gl-first-open ( list -- k )
-  dup run-count 0 ?do dup i gl-open-at? if drop i unloop exit then loop run-count ;
+  dup run-count tuck ['] gl-open-at? find-index if nip then ;
 : gl-main ( list -- goal outcome )
   dup run-count 0= if drop -1 outcome-invalid exit then
   dup gl-set 0 run@ outcome-ok ;

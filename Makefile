@@ -343,6 +343,7 @@ test-lib:
 	$(RUN) $(GFORTH) tests/lib/pqueue.fs
 	$(RUN) $(GFORTH) tests/lib/decimal.fs
 	$(RUN) $(GFORTH) tests/lib/bits.fs
+	$(RUN) $(GFORTH) tests/lib/texts.fs
 	$(RUN) $(GFORTH) tests/lib/blocks.fs
 	$(RUN) $(GFORTH) tests/lib/runs.fs
 	$(RUN) $(GFORTH) tests/lib/lib.fs
@@ -1103,6 +1104,7 @@ test-front:
 	$(RUN) $(GFORTH) tests/front/front.fs
 	$(RUN) $(GFORTH) tests/front/meta.fs
 	$(RUN) $(GFORTH) tests/front/meta-heap.fs
+	$(RUN) $(GFORTH) tests/front/offset-walk.fs
 	$(RUN) $(GFORTH) tests/front/constructions.fs
 	@out=$$($(RUN) $(GFORTH) tests/front/handover.fs 2>&1) || \
 	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "handover.fs: all tests passed"

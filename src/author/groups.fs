@@ -132,7 +132,7 @@ end-structure
 : lfa-order-wid ( i -- wid ) cells lfa-groups lfa-groups-order + @ ;
 : lfa-order# ( -- n ) lfa-groups lfa-groups-order# @ ;
 : lfa-order-index ( wid -- i )
-  lfa-order# 0 ?do dup i lfa-order-wid = if drop i unloop exit then loop drop lfa-order# ;
+  lfa-groups lfa-groups-order lfa-order# cells-index 0= if lfa-order# then ;
 \ Run the word that the wordlists after wid have for the current token,
 \ or stop: no LeanForth word has it.
 : lfa-pass ( wid -- )

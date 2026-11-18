@@ -297,6 +297,15 @@ T{ rec-99 -> true false outcome-ok }T
 T{ lf-meta-budget ' rec-99 used ' add-k0-kept used < swap lf-meta-budget! -> true }T
 T{ fk ?n nat-add lf-meta-unfold -> -1 false outcome-unsupported }T
 T{ lv1 1 s" List.append" cn sun-of pad 0 lf-libdec-sunfold -> -1 outcome-invalid }T
+\ A marked head that is no matcher's application gives none (review
+\ reuse-front-a finding 2): a constant of no declaration (a binder's name
+\ of the slice), one that is no matcher, a variable; the term itself,
+\ false, ok, and the smart path's state none.
+: smatch ( m -- flag flag outcome flag )
+  dup >r wc-smatch rot r> = -rot wc wc-sm-out @ wc-sm-fail = ;
+T{ 0 s" motive" cn fk app smatch -> true false outcome-ok true }T
+T{ 0 s" Nat.succ" cn fk app smatch -> true false outcome-ok true }T
+T{ fk fx app smatch -> true false outcome-ok true }T
 \ A let and a have of a smart-unfolding body (review re-check N1; no
 \ slice's body has one): the let of the value (field c) and the lambda
 \ of the type (b) and body (d), the have's nonDep; nodes made here, then
@@ -487,6 +496,16 @@ T{ s" Acc.rec" lf-tr-reducible bumped s" WellFounded.rec" lf-tr-instances bumped
 \ one at the term and at an application's head (whnfEasyCases).
 : ann ( t -- t' ) lf-annot-match lf-annot ok? 0= abort" annotation" ;
 T{ fk ann ann fk whnf= nat 0 bv lam ann fk app fk whnf= -> true outcome-ok true outcome-ok }T
+
+\ ---- Spines (meta-spine.fs): f k x a in a slab, a first; mkAppRange
+\ over a part (none when to <= from), mkAppN over all, the arguments'
+\ cells one below the other.
+: spine ( -- head ) fk fk app fx app fa app wc-args lf-meta-spine drop ;
+: range ( from to -- t ) spine -rot over - swap wc-args lf-meta-apply-from drop ;
+T{ 0 3 range fk fk app fx app fa app same? 1 3 range fk fx app fa app same? -> true true }T
+T{ 1 2 range fk fx app same? 2 2 range fk = 3 1 range fk = -> true true true }T
+T{ spine wc-args lf-meta-apply-all drop fk fk app fx app fa app same? -> true }T
+T{ 2 wc-args lf-meta-arg fa = 0 wc-args lf-meta-arg-at 1 wc-args lf-meta-arg-at - -> true cell }T
 
 \ ---- Stale leaves: after the contexts are emptied, every metavariable
 \ and free variable made before is invalid.

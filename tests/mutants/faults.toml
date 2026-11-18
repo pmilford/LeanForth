@@ -5606,8 +5606,8 @@ reason = "TAB, which separates tokens as a space does, is refused as a control c
 [[fault]]
 id = "author-lines-cumulative"
 file = "src/author/runner.fs"
-old = '''  lfa-lines-restart lfa-save decimal depth lfa-floor! ['] lfa-lines catch'''
-new = '''  lfa-save decimal depth lfa-floor! ['] lfa-lines catch'''
+old = '''  lfa-lines-restart decimal depth lfa-floor! ['] lfa-lines catch lfa-restore lfa-caught ;'''
+new = '''  decimal depth lfa-floor! ['] lfa-lines catch lfa-restore lfa-caught ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "a second text in one run counts its lines on from the first, so its errors point at the wrong line (p12)"
 
@@ -10867,7 +10867,7 @@ reason = "FE1c: instantiate1 keeps a loose index above the value instead of lowe
 
 [[fault]]
 id = "fe-inst-binder-depth-lost"
-file = "src/front/instantiate.fs"
+file = "src/front/offset-walk.fs"
 old = '''  over lf-term-binder? - swap lf-term-second@ swap ;'''
 new = '''  swap lf-term-second@ swap ;'''
 test = "$GFORTH tests/front/meta.fs"
@@ -10875,16 +10875,16 @@ reason = "FE1c: instantiate1 does not count a binder, so it replaces a variable 
 
 [[fault]]
 id = "fe-inst-binder-name-lost"
-file = "src/front/instantiate.fs"
-old = ''': in-named ( new old -- new ) lf-meta-named in-fail ;'''
-new = ''': in-named ( new old -- new ) drop ;'''
+file = "src/front/offset-walk.fs"
+old = '''  >r r@ lf-term-tag@ lf-term-binary if r> lf-meta-named exit then'''
+new = '''  >r r@ lf-term-tag@ lf-term-binary if r> drop outcome-ok exit then'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: a rebuilt binder loses its name and kind, so the term differs from Lean's"
 
 [[fault]]
 id = "fe-inst-loose-value"
 file = "src/front/instantiate.fs"
-old = '''  0> in-state in-lifts @ and if outcome-unsupported in-fail then ;'''
+old = '''  0> in-state in-lifts @ and if outcome-unsupported ow-fail then ;'''
 new = '''  drop ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c (narrowed by FE1g-4, which puts such a value in where no binder lies around it): a value with loose bound variables is put in under a binder without the lifting Lean does, so it is captured"
@@ -10908,8 +10908,8 @@ reason = "FE1c: abstract does not count the binders above a free variable, so it
 [[fault]]
 id = "fe-abst-mvar-kept"
 file = "src/front/instantiate.fs"
-old = ''': in-hole? ( leaf -- flag ) lf-term-tag@ dup lf-tag-fvar = swap lf-tag-mvar = or ;'''
-new = ''': in-hole? ( leaf -- flag ) lf-term-tag@ lf-tag-fvar = ;'''
+old = '''lf-tag-fvar lf-tag-mvar 2 lf-meta-tags constant in-holes'''
+new = '''lf-tag-fvar 1 lf-meta-tags constant in-holes'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: abstract keeps a metavariable it was given, where Lean's abstract replaces it too"
 
@@ -11169,16 +11169,16 @@ reason = "FE1b: instantiation leaves assigned metavariables in place"
 
 [[fault]]
 id = "fe-binder-names-lost"
-file = "src/front/mvars.fs"
-old = ''': mv-named ( new old -- new ) lf-meta-named mv-refuse ;'''
-new = ''': mv-named ( new old -- new ) drop ;'''
+file = "src/front/meta-spine.fs"
+old = '''  lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! ms-full else outcome-ok then ;'''
+new = '''  drop outcome-ok ;'''
 test = "$GFORTH tests/front/front.fs"
-reason = "FE1b: a rebuilt binder loses its name and kind (Lean's terms keep them)"
+reason = "FE1b: a rebuilt binder loses its name and kind (Lean's terms keep them); re-targeted to the shared lf-meta-named (reuse pass F2)"
 
 [[fault]]
 id = "fe-sort-level-kept"
 file = "src/front/mvars.fs"
-old = ''': mv-sort-build ( node -- image ) ['] mv-level-image lf-meta-sort-remap mv-remapped ;'''
+old = ''': mv-sort-build ( node -- image ) ['] mv-level-image lf-meta-sort-remap mv-refuse ;'''
 new = ''': mv-sort-build ( node -- image ) ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1b: Sort ?u keeps ?u after ?u is assigned"
@@ -11186,7 +11186,7 @@ reason = "FE1b: Sort ?u keeps ?u after ?u is assigned"
 [[fault]]
 id = "fe-const-levels-kept"
 file = "src/front/mvars.fs"
-old = ''': mv-const-build ( node -- image ) ['] mv-level-image lf-meta-const-remap mv-remapped ;'''
+old = ''': mv-const-build ( node -- image ) ['] mv-level-image lf-meta-const-remap mv-refuse ;'''
 new = ''': mv-const-build ( node -- image ) ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1b: a constant over ?u keeps ?u after ?u is assigned"
@@ -12421,7 +12421,7 @@ reason = "FE1c review L3: max (u+1) 1 stays a max, where Lean's mkLevelMax' subs
 
 [[fault]]
 id = "fe-inst-let-deeper"
-file = "src/front/instantiate.fs"
+file = "src/front/offset-walk.fs"
 old = '''  over lf-term-binder? - swap lf-term-second@ swap ;'''
 new = '''  over lf-term-tag@ dup lf-term-binder-tag? swap lf-tag-let = or - swap lf-term-second@ swap ;'''
 test = "python3 tests/front/check_meta.py"
@@ -13271,16 +13271,16 @@ reason = "FE1c: Eq.ndrec, which Lean's isAuxRecursor names itself, answers unsup
 [[fault]]
 id = "fe-whnf-iota-prefix-dropped"
 file = "src/front/whnf.fs"
-old = ''': wc-prefixed ( rhs -- rhs' outcome ) wc-args wc-from 0 wc-prefix wc-apply ;'''
-new = ''': wc-prefixed ( rhs -- rhs' outcome ) wc-args wc-from 0 0 wc-apply ;'''
+old = ''': wc-prefixed ( rhs -- rhs' outcome ) wc-prefix 0 wc-args lf-meta-apply-from ;'''
+new = ''': wc-prefixed ( rhs -- rhs' outcome ) 0 0 wc-args lf-meta-apply-from ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "FE1c: iota applies the rule's right side without the recursor's parameters, motives and minor premises"
 
 [[fault]]
 id = "fe-whnf-iota-rest-dropped"
 file = "src/front/whnf.fs"
-old = '''  wc-args wc-from wc-major-at 1+ wc-args slab-count wc-apply ;'''
-new = '''  wc-args wc-from wc-major-at 1+ dup wc-apply ;'''
+old = '''  wc-major-at 1+ wc-args slab-count over - swap wc-args lf-meta-apply-from ;'''
+new = '''  wc-major-at 1+ 0 swap wc-args lf-meta-apply-from ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "FE1c: iota drops the arguments after the major premise (Nat.rec m z s Nat.zero x gives z, not z x)"
 
@@ -13368,8 +13368,8 @@ reason = "FE1c: a constant with the wrong number of universe levels gets a type,
 [[fault]]
 id = "fe-infer-args-left-loose"
 file = "src/front/infer.fs"
-old = '''  if-n if-flush ;'''
-new = '''  outcome-ok ;'''
+old = '''  0 if-n ['] if-enter ok-each ok-then? if if-n swap if-flush else if-fail then ;'''
+new = '''  0 if-n ['] if-enter ok-each ok-then? if drop outcome-ok else if-fail then ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: the arguments after the last whnf point are never put in, so the type keeps loose bound variables"
 
@@ -13499,8 +13499,8 @@ reason = "review fe1c-2 L1, re-targeted by S2: a constant no declaration has is 
 [[fault]]
 id = "fe-whnf-fields-no-max"
 file = "src/front/whnf.fs"
-old = '''  wc-margs wc-from wc-margs slab-count tuck swap - 0 max swap wc-apply ;'''
-new = '''  wc-margs wc-from wc-margs slab-count tuck swap - swap wc-apply ;'''
+old = '''  wc-margs slab-count tuck swap - 0 max tuck - swap wc-margs lf-meta-apply-from ;'''
+new = '''  wc-margs slab-count tuck swap - tuck - swap wc-margs lf-meta-apply-from ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "review fe1c-2 L1: a constructor with fewer arguments than its rule's fields (Nat.succ alone) makes the rule read before its arguments (Lean's Nat subtraction gives 0)"
 
@@ -13539,16 +13539,16 @@ reason = "review fe1c-2 L2: a stale metavariable answers unsupported instead of 
 [[fault]]
 id = "fe-infer-lambda-type-unsupported"
 file = "src/front/infer.fs"
-old = '''  over lf-tag-symbolic-sort = or swap lf-tag-lam = or ;'''
-new = '''  over lf-tag-symbolic-sort = or nip ;'''
+old = '''lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-meta-tags constant if-inerts'''
+new = '''lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort 3 lf-meta-tags constant if-inerts'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "review fe1c-2 L2: a function whose type is a lambda answers unsupported, where Lean throws function expected"
 
 [[fault]]
 id = "fe-env-ndrecon-forgotten"
 file = "src/front/meta-env.fs"
-old = '''  dup s" ndrec" me-str? over s" ndrec_symm" me-str? or swap s" ndrecOn" me-str? or ;'''
-new = '''  dup s" ndrec" me-str? swap s" ndrec_symm" me-str? or ;'''
+old = '''texts-begin texts+ ndrec ndrec_symm ndrecOn'''
+new = '''texts-begin texts+ ndrec ndrec_symm'''
 test = "$GFORTH tests/front/meta-env.fs"
 reason = "review fe1c-2 L3: Eq.ndrecOn, which isAuxRecursor names, answers unsupported"
 
@@ -13588,8 +13588,8 @@ gap = "no inductive type of Init is recursive with one constructor and no indice
 [[fault]]
 id = "fe-spine-levels-first-only"
 file = "src/front/meta-spine.fs"
-old = '''    2dup i ms-level swap lf-meta-push dup ok? 0= if nip nip unloop exit then drop'''
-new = '''    2dup 0 ms-level swap lf-meta-push dup ok? 0= if nip nip unloop exit then drop'''
+old = '''    2dup i ms-level swap slab-push dup ok? 0= if nip nip unloop exit then drop'''
+new = '''    2dup 0 ms-level swap slab-push dup ok? 0= if nip nip unloop exit then drop'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "review fe1c-2 re-check: every universe argument of a constant is read as its first (Quot.lift.{1,2} would get Sort 1 for beta)"
 
@@ -15397,17 +15397,17 @@ reason = "FE1c review M1: a rebuilt binder loses its kind when the binder table 
 
 [[fault]]
 id = "fe-defeq-inst-copy-drops-full"
-file = "src/front/instantiate.fs"
-old = ''': in-named ( new old -- new ) lf-meta-named in-fail ;'''
-new = ''': in-named ( new old -- new ) lf-meta-named drop ;'''
+file = "src/front/offset-walk.fs"
+old = ''': ow-pair-image ( node depth -- image ) over swap ow-images rot lf-meta-rebuilt ow-fail ;'''
+new = ''': ow-pair-image ( node depth -- image ) over swap ow-images rot lf-meta-rebuilt drop ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M1: instantiate1 drops a full binder table and loses the kind"
 
 [[fault]]
 id = "fe-defeq-mvars-copy-drops-full"
 file = "src/front/mvars.fs"
-old = ''': mv-named ( new old -- new ) lf-meta-named mv-refuse ;'''
-new = ''': mv-named ( new old -- new ) lf-meta-named drop ;'''
+old = '''  over >r mv-pair-images r> lf-meta-rebuilt mv-refuse ;'''
+new = '''  over >r mv-pair-images r> lf-meta-rebuilt drop ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M1: instantiateMVars drops a full binder table and loses the kind"
 
@@ -16713,8 +16713,8 @@ reason = "S1 §1: a library declaration decoded again at every find, the memo ne
 [[fault]]
 id = "fe-env-cross"
 file = "src/front/lib-decode.fs"
-old = '''    dup lbd-parts lbd-push ok-then? 0= if r> drop exit then r@ execute'''
-new = '''    dup lbd-parts lbd-push ok-then? 0= if r> drop exit then drop 0'''
+old = '''    dup lbd-parts slab-push ok-then? 0= if r> drop exit then r@ execute'''
+new = '''    dup lbd-parts slab-push ok-then? 0= if r> drop exit then drop 0'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "S1 §1: names crossed by their last part only, not by content"
 
@@ -16777,24 +16777,24 @@ reason = "S2 merge B: toCtorIfLit makes the literal 5 Nat.succ 5"
 [[fault]]
 id = "fe-match-first-alt"
 file = "src/front/whnf.fs"
-old = '''  wc wc-malts @ 0 ?do dup i wc-h@ = if drop i true unloop exit then loop drop false ;'''
-new = '''  wc wc-malts @ 0 ?do dup i wc-h@ = if drop 0 true unloop exit then loop drop false ;'''
+old = ''': wc-alt-of ( head -- i true | false ) wc wc-malts @ ['] wc-h-is? find-index ;'''
+new = ''': wc-alt-of ( head -- i true | false ) wc wc-malts @ ['] wc-h-is? find-index if drop 0 true else false then ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S2 merge B: reduceMatcher? always takes the first alternative (Nat.add.match_1 m k (x + 1) z s gives z k x)"
 
 [[fault]]
 id = "fe-match-extra-args-dropped"
 file = "src/front/whnf.fs"
-old = '''  wc-args wc-from wc wc-mpre @ wc wc-malts @ + wc-args slab-count wc-apply'''
-new = '''  wc-args wc-from wc wc-mpre @ dup wc-apply'''
+old = '''  wc wc-mpre @ wc wc-malts @ + wc-args slab-count over - swap wc-args lf-meta-apply-from'''
+new = '''  wc wc-mpre @ 0 swap wc-args lf-meta-apply-from'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S2 merge B: reduceMatcher? drops the arguments after the alternatives"
 
 [[fault]]
 id = "fe-kinds-tag"
 file = "src/front/lib-decode.fs"
-old = ''': lbd-kind+ ( e tier slab -- e tier outcome ) >r 2dup expr-tag@ tag-pi - r> lbd-push ;'''
-new = ''': lbd-kind+ ( e tier slab -- e tier outcome ) >r 2dup expr-tag@ tag-lam - r> lbd-push ;'''
+old = ''': lbd-kind+ ( e tier slab -- e tier outcome ) >r 2dup expr-tag@ tag-pi - r> slab-push ;'''
+new = ''': lbd-kind+ ( e tier slab -- e tier outcome ) >r 2dup expr-tag@ tag-lam - r> slab-push ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "S1 §4: a library binder's kind read off the wrong tag base"
 
@@ -16953,7 +16953,7 @@ reason = "review s1-meta-b M3 (F5): a text declaration's universe parameters nev
 [[fault]]
 id = "fe-env-add-giveback"
 file = "src/front/meta-env.fs"
-old = '''  me-texts slab-at dup /mtx erase me-text-made dup ok? 0= if -1 me-texts slab-commit then'''
+old = '''  me-texts slab-at dup /mtx erase me-text-made dup ok? 0= if me-texts slab-drop then'''
 new = '''  me-texts slab-at dup /mtx erase me-text-made'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b M3 (F7): a text declaration refused room stays visible, half made"
@@ -16961,8 +16961,8 @@ reason = "review s1-meta-b M3 (F7): a text declaration refused room stays visibl
 [[fault]]
 id = "fe-libdec-giveback-leak"
 file = "src/front/lib-decode.fs"
-old = ''': lbd-giveback ( r -- ) lbd-free-record -1 lbd-records slab-commit ;'''
-new = ''': lbd-giveback ( r -- ) drop -1 lbd-records slab-commit ;'''
+old = ''': lbd-giveback ( r -- ) lbd-free-record lbd-records slab-drop ;'''
+new = ''': lbd-giveback ( r -- ) drop lbd-records slab-drop ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b M3 (F8): a refused declaration's blocks leak when its record is given back"
 
@@ -17027,8 +17027,8 @@ reason = "review s1-meta-b L3: an imax level decoded as a max"
 [[fault]]
 id = "fe-libdec-seek-room"
 file = "src/front/lib-decode.fs"
-old = '''    lbd-parts lbd-pop lbd-seek ok-then? 0= if no-result exit then'''
-new = '''    lbd-parts lbd-pop lbd-seek drop'''
+old = '''    lbd-parts slab-pop lbd-seek ok-then? 0= if no-result exit then'''
+new = '''    lbd-parts slab-pop lbd-seek drop'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b L1: a sought part refused room reads as an unknown constant (invalid), not full"
 
@@ -17100,8 +17100,8 @@ reason = "review s1-meta-b: a decoded expression or level is never walked (every
 [[fault]]
 id = "fe-declevel-assign-kept"
 file = "src/front/infer.fs"
-old = '''  rot swap lf-level-mvar-assign dup ok? 0= if nip no-result then ;'''
-new = '''  rot swap lf-level-mvar-assign ;'''
+old = '''  lf-level-mvar-assign dup ok? 0= if nip no-result then ;'''
+new = '''  lf-level-mvar-assign ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "getDecLevel's assignment refused room still answers the fresh ?w, not -1"
 
@@ -19939,19 +19939,19 @@ reason = "review s2-unfold-a re-check M1-new: isExprDefEqExpensive's whnfCore ru
 
 [[fault]]
 id = "fe-fi-defn-decode-flag"
-file = "src/front/fun-info.fs"
-old = '''  ok-then? if lf-menv-kind lf-kind-definition = outcome-ok else true swap then ;'''
-new = '''  ok-then? if lf-menv-kind lf-kind-definition = outcome-ok else drop true outcome-ok then ;'''
+file = "src/front/meta-spine.fs"
+old = '''  swap lf-meta-const-known ok-then? 0= if exit then if nip lf-menv-kind then outcome-ok ;'''
+new = '''  swap lf-meta-const-known ok-then? 0= if drop outcome-ok exit then if nip lf-menv-kind then outcome-ok ;'''
 test = "$GFORTH tests/front/menv-run.fs"
-reason = "review s2-unfold-a L5: a declaration whose decode was refused room reads as a definition (callers answer unsupported) instead of passing full on"
+reason = "review s2-unfold-a L5: a declaration whose decode was refused room reads as a definition (callers answer unsupported) instead of passing full on (re-targeted to the shared lf-meta-kind-or, reuse pass F8)"
 
 [[fault]]
 id = "fe-if-firm-decode-flag"
-file = "src/front/infer.fs"
-old = '''  ok-then? if lf-menv-kind lf-kind-definition <> outcome-ok else false swap then ;'''
-new = '''  ok-then? if lf-menv-kind lf-kind-definition <> outcome-ok else drop false outcome-ok then ;'''
+file = "src/front/meta-spine.fs"
+old = ''': ms-unknown-ok ( outcome -- outcome' ) dup outcome-invalid = if drop outcome-ok then ;'''
+new = ''': ms-unknown-ok ( outcome -- outcome' ) drop outcome-ok ;'''
 test = "$GFORTH tests/front/menv-run.fs"
-reason = "review s2-unfold-a L5: inferType of v 0 with v : Nat.add, Nat.add's decode refused room, answers unsupported instead of full"
+reason = "review s2-unfold-a L5: inferType of v 0 with v : Nat.add, Nat.add's decode refused room, answers unsupported instead of full (re-targeted to the shared lf-meta-const-known: every failure read as an unknown constant, reuse pass F8)"
 
 [[fault]]
 id = "fe-meta-arity-ignored"
@@ -20275,19 +20275,19 @@ reason = "an application's arguments the heap cannot hold read as undecided, not
 
 [[fault]]
 id = "fe-annotation-instantiate-leaf"
-file = "src/front/instantiate.fs"
-old = '''  over lf-annot? if in-step-annot else 2dup in-leaf in-done then ;'''
-new = '''  2dup in-leaf in-done ;'''
+file = "src/front/offset-walk.fs"
+old = '''  over lf-annot? if ow-step-annot else ow-step-leaf then ;'''
+new = '''  ow-step-leaf ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "S2 merge B: instantiate1 takes a smart-unfolding annotation for a leaf, so its child's bound variables stay unreplaced"
 
 [[fault]]
 id = "fe-annotation-beta-inst-leaf"
-file = "src/front/beta-inst.fs"
-old = '''  over lf-annot? if ib-step-annot else 2dup ib-leaf ib-done then ;'''
-new = '''  2dup ib-leaf ib-done ;'''
+file = "src/front/offset-walk.fs"
+old = '''  over lf-annot-child swap ow-image swap lf-meta-annot-over ow-fail ;'''
+new = '''  drop ;'''
 test = "$GFORTH tests/front/infer.fs"
-reason = "S2 merge B: instantiateBetaRevRange takes a smart-unfolding annotation for a leaf"
+reason = "S2 merge B: instantiateBetaRevRange keeps a smart-unfolding annotation as it is, its child's bound variables not put in (re-targeted to offset-walk.fs's shared annotation step, reuse pass F2)"
 
 [[fault]]
 id = "fe-annotation-beta-always-strips"

@@ -60,6 +60,7 @@ BYTE_WORDS = {
 # Files allowed to use byte access, with the reason: text modules, and the one
 # module of packed 32-bit fields, whose layout is defined by arithmetic.
 BYTE_MODULES = {
+    "src/lib/texts.fs": "a table of counted texts: count bytes laid down and read",
     "src/lib/bytes.fs": "line reader and UTF-8 checks read and write text bytes",
     "src/lib/json.fs": "JSON tokenizer reads text bytes and decodes escapes in place",
     "src/lib/decimal.fs": "decimal digits are read character by character, so BASE never matters",

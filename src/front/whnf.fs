@@ -99,6 +99,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
+require ../lib/find.fs
 require ../core/terms.fs
 require ../core/local-context.fs
 require ../core/constant-references.fs
@@ -130,8 +131,6 @@ begin-structure /wc
   field: wc-unfolded \ lf-meta-unfold's answer: whether its term unfolded
   field: wc-mode0    \ the transparency on entry
   field: wc-flags0   \ and the configuration's flags
-  field: wc-src      \ the slab wc-apply reads arguments from (set just
-                     \ before each use: wc-from; one step's register)
   field: wc-e        \ the recursor step's term,
   field: wc-head     \ its head constant,
   field: wc-data     \ the recursor's inductive data
@@ -141,7 +140,6 @@ begin-structure /wc
                      \ its outcome (full, unsupported), else ok
   field: wc-mpre     \ a matcher's parameters, motive and discriminants
   field: wc-malts    \ and its alternatives
-  field: wc-mkind    \ the frame kind of a matcher's part
   field: wc-sm-out   \ the smart path's reduceMatcher?: wc-sm-fail .. -reduced
 end-structure
 /wc context-record: wc
@@ -168,18 +166,13 @@ end-structure
 
 \ ---- Results of a step ( -- term flag outcome ): flag true goes on.
 : wc-done ( term -- term false outcome ) false outcome-ok ;
-: wc-fail ( outcome -- -1 false outcome ) -1 false rot ;
+: wc-fail ( outcome -- -1 false outcome ) -1 swap false swap ;
 : wc-go ( term outcome -- term flag outcome )
   ok-then? if true outcome-ok else wc-fail then ;
 : wc-drop-fail ( x outcome -- -1 false outcome ) nip wc-fail ;
 : wc-2drop-fail ( x y outcome -- -1 false outcome ) nip nip wc-fail ;
 
 \ ---- Spines: the arguments of f a1 .. an in a slab, an first.
-: wc-nth ( i -- term ) wc wc-src @ lf-meta-arg ;
-\ f applied to arguments from to to-1 of the slab wc-src names.
-: wc-app-at ( f k from -- f' outcome ) + wc-nth lf-meta-app ;
-: wc-apply ( f from to -- f' outcome ) over - swap ['] wc-app-at ok-fold ;
-: wc-from ( slab -- ) wc wc-src ! ;
 : wc-rebuild ( head -- term outcome ) wc-args lf-meta-apply-all ;
 
 \ ---- Frames: a step that needs the whnf of a part keeps (term, aux,
@@ -237,10 +230,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ declaration that could not be decoded is no unknown constant: wc-kind
 \ keeps its outcome as the call's fault, which ends the call (wc-checked).
 0 constant wc-no-kind   \ not a constant, or one no declaration has
-: wc-fault! ( d outcome -- )
-  nip dup outcome-invalid = if drop else wc wc-fault outcome-first! then ;
-: wc-const-kind ( const -- kind )
-  lf-meta-const-decl ok-then? if lf-menv-kind else -1 swap wc-fault! wc-no-kind then ;
+: wc-const-kind ( const -- kind ) wc-no-kind lf-meta-kind-or wc wc-fault outcome-first! ;
 : wc-kind ( term -- kind )
   dup lf-term-const? if wc-const-kind else drop wc-no-kind then ;
 : wc-faulted ( -- outcome ) wc wc-fault @ ;
@@ -297,10 +287,10 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ rhs applied to the prefix, the constructor's fields (the last nfields
 \ of its arguments, all when it has fewer) and the rest.
 : wc-fields ( rhs nfields -- rhs' outcome )
-  wc-margs wc-from wc-margs slab-count tuck swap - 0 max swap wc-apply ;
+  wc-margs slab-count tuck swap - 0 max tuck - swap wc-margs lf-meta-apply-from ;
 : wc-rest ( rhs -- rhs' outcome )
-  wc-args wc-from wc-major-at 1+ wc-args slab-count wc-apply ;
-: wc-prefixed ( rhs -- rhs' outcome ) wc-args wc-from 0 wc-prefix wc-apply ;
+  wc-major-at 1+ wc-args slab-count over - swap wc-args lf-meta-apply-from ;
+: wc-prefixed ( rhs -- rhs' outcome ) wc-prefix 0 wc-args lf-meta-apply-from ;
 : wc-fire ( rule -- term outcome )
   dup lf-irule-nfields swap lf-irule-rhs wc-rhs-levels
   ok-then? 0= if nip no-result exit then
@@ -449,7 +439,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 : wc-take-at ( v k y -- v' outcome ) + wc-take ;
 : wc-new-h ( lam -- lam x outcome )
   dup lf-term-first@ lf-lctx-local ok-then? 0= if no-result exit then
-  dup wc-hs lf-meta-push ;
+  dup wc-hs slab-push ;
 : wc-open-h ( v k y -- v' outcome )
   2drop dup lf-term-lam? 0= if drop outcome-unsupported no-result exit then
   wc-new-h ok-then? 0= if nip no-result exit then lf-meta-open ;
@@ -459,23 +449,24 @@ wc-smatch-kind 1+ constant wc-srec-kind
 : wc-match-value ( -- value outcome )
   wc wc-aux @ wc wc-head @ lf-unfold-value
   ok-then? if wc-nested-dite else no-result then ;
-: wc-match-keep ( e head d kind -- ) wc wc-mkind ! wc wc-aux ! wc wc-head ! wc wc-e ! ;
+: wc-match-keep ( e head d kind -- kind )
+  swap wc wc-aux ! swap wc wc-head ! swap wc wc-e ! ;
 : wc-match-part ( e head d kind -- e' flag outcome )
-  wc-match-keep wc-match-value ok-then? 0= if wc-fail exit then
-  wc-match-body ok-then? 0= if wc-fail exit then
-  wc-term wc wc-aux @ wc wc-mkind @ wc-frame wc-at-matcher wc-go ;
+  wc-match-keep wc-match-value ok-then? 0= if wc-drop-fail exit then
+  wc-match-body ok-then? 0= if wc-drop-fail exit then
+  swap wc-term wc wc-aux @ rot wc-frame wc-at-matcher wc-go ;
 : wc-matcher ( e head d -- e' flag outcome )
   dup wc-minfo! dup ok? 0= if wc-defn-fail exit then drop
   wc-partial? if 2drop wc-done else wc-match-kind wc-match-part then ;
 \ Resumed with the body's whnf r: hs[i] at r's head, or none.
 : wc-h@ ( i -- x ) wc-hs slab-count wc wc-malts @ - + wc-hs slab-at @ ;
-: wc-alt-of ( head -- i true | false )
-  wc wc-malts @ 0 ?do dup i wc-h@ = if drop i true unloop exit then loop drop false ;
+: wc-h-is? ( head i -- head flag ) wc-h@ over = ;
+: wc-alt-of ( head -- i true | false ) wc wc-malts @ ['] wc-h-is? find-index ;
 : wc-hs-drop ( -- ) wc wc-malts @ negate wc-hs slab-commit ;
 : wc-alt-apply ( i -- e' outcome )
   wc wc-mpre @ + wc-args lf-meta-arg wc-margs lf-meta-apply-all
   ok-then? 0= if no-result exit then
-  wc-args wc-from wc wc-mpre @ wc wc-malts @ + wc-args slab-count wc-apply
+  wc wc-mpre @ wc wc-malts @ + wc-args slab-count over - swap wc-args lf-meta-apply-from
   ok-then? if lf-meta-head-beta else no-result then ;
 : wc-match-frame ( -- outcome )
   wc wc-aux @ wc-minfo! dup ok? 0= if exit then drop
@@ -504,10 +495,9 @@ wc-smatch-kind 1+ constant wc-srec-kind
   lf-kind-quotient = if drop wc-unsupported exit then
   dup wc-recursor? if wc-iota else 2drop wc-done then ;
 \ A constant no declaration has stays; one that could not be decoded fails.
-: wc-unknown-head ( e head outcome -- e' flag outcome )
-  dup outcome-invalid = if 2drop wc-done else nip nip wc-fail then ;
 : wc-const-head ( e head -- e' flag outcome )
-  dup lf-meta-const-decl ok-then? if wc-decl-head else wc-unknown-head then ;
+  dup lf-meta-const-known ok-then? 0= if nip nip wc-fail exit then
+  if wc-decl-head else drop wc-done then ;
 
 \ ---- One step of whnfCore. An annotation (a smart-unfolding marker,
 \ core/annotations.fs) is looked through, at the term or at the head of
@@ -606,8 +596,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ getAuxParentProjectionInfo?) are not in the data: a definition named
 \ S.toP answers unsupported.
 : ws-params ( d -- n true | false )
-  lf-menv-name lf-menv-data-decl 0= if false exit then elab-projection-of 0= if false exit
-    then
+  lf-menv-elab 0= if false exit then elab-projection-of 0= if false exit then
   elab-projection@ drop nip true ;
 : ws-to-name? ( d -- flag )
   lf-menv-name dup lf-name-tag@ lf-name-tag-str <> if drop false exit then
@@ -651,10 +640,10 @@ wc-smatch-kind 1+ constant wc-srec-kind
   dup lf-menv-kind dup lf-kind-quotient = if drop 2drop false outcome-unsupported exit
     then
   lf-kind-definition = if ws-defn else 2drop false outcome-ok then ;
-: ws-unknown ( e head outcome -- false outcome )
-  nip nip dup outcome-invalid = if drop outcome-ok then false swap ;
+: ws-unknown ( e head outcome -- false outcome ) nip nip false swap ;
 : ws-const ( e head -- mvar true outcome | false outcome )
-  dup lf-meta-const-decl ok-then? 0= if ws-unknown exit then
+  dup lf-meta-const-known ok-then? 0= if ws-unknown exit then
+  0= if outcome-ok ws-unknown exit then
   dup wc-recursor? if rot drop ws-rec else nip ws-kind then ;
 \ A projection (Lean: getStuckMVar? of its structure's whnf): a structure
 \ whose head is a plain metavariable is stuck on it, as whnf leaves it;
@@ -703,8 +692,8 @@ wc-smatch-kind 1+ constant wc-srec-kind
   if wc-smatch-sizes else 2drop wc-sm-none then ;
 : wc-smatch-head ( m head -- e' flag outcome )
   dup lf-term-const? 0= if drop wc-sm-none exit then
-  dup lf-meta-const-decl ok-then? if wc-smatch-decl exit then
-  dup outcome-invalid = if 2drop wc-sm-none else wc-2drop-fail then ;
+  dup lf-meta-const-known ok-then? 0= if wc-2drop-fail exit then
+  if wc-smatch-decl else drop wc-sm-none then ;
 : wc-smatch ( m -- e' flag outcome )
   dup wc-args lf-meta-spine ok-then? if wc-smatch-head else wc-drop-fail then ;
 : wc-smart-m ( e1 -- m true | false ) lf-meta-head lf-annot-match lf-annot-keyed? ;

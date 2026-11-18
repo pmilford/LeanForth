@@ -75,7 +75,6 @@ end-structure
 : kab-sorts? ( h1 h2 -- flag ) lf-sort? swap lf-sort? and ;
 : kab-names= ( h1 h2 -- flag ) lf-const-name swap lf-const-name = ;
 : kab-fields= ( h1 h2 -- flag ) lf-term-first@ swap lf-term-first@ = ;
-: kab-tag-only? ( tag -- flag ) dup lf-tag-lam = swap lf-tag-pi = or ;
 : kab-same ( h1 h2 tag -- flag )
   case lf-tag-constant of kab-names= endof  lf-tag-projection of kab-fields= endof
     lf-tag-lit of lf-lit-same? endof  lf-tag-str of lf-str-same? endof
@@ -83,7 +82,7 @@ end-structure
 : kab-heads= ( h1 h2 -- flag )
   2dup kab-sorts? if 2drop true exit then
   2dup kab-tag= 0= if 2drop false exit then
-  dup lf-term-tag@ dup kab-tag-only? if drop 2drop true else kab-same then ;
+  dup lf-term-tag@ dup lf-term-binder-tag? if drop 2drop true else kab-same then ;
 \ e has p's head and number of arguments.
 : kab-shaped? ( e -- flag )
   lf-meta-head-args kab kab-args @ = swap kab kab-head @ kab-heads= and ;
@@ -130,19 +129,12 @@ end-structure
   over kab-unported? if 2drop outcome-unsupported exit then
   over lf-term-binary? if kab-open else drop kab-image then ;
 
-\ ---- Rebuilding: e's tag over the two images, the same node when they
-\ are e's own parts; a new binder keeps e's name and kind.
-: kab-parts ( e -- f s ) dup lf-term-first@ swap lf-term-second@ ;
-\ (The two parts compared as one pair of cells.)
-: kab-parts= ( e f s -- flag ) rot kab-parts d= ;
-: kab-node ( e f s -- e' outcome )
-  rot >r r@ lf-term-tag@ lf-term-binary if r> lf-meta-named else r> drop
-    outcome-full no-result then ;
-: kab-rebuilt ( e f s -- e' outcome )
-  >r 2dup r@ kab-parts= if drop r> drop outcome-ok else r> kab-node then ;
+\ ---- Rebuilding: e over the two images (offset-walk.fs's lf-meta-rebuilt:
+\ the same node when they are e's own parts; a new binder keeps e's name
+\ and kind).
 : kab-pair ( -- f s ) kab-images slab-pop kab-images slab-pop swap ;
 : kab-build ( e off -- outcome )
-  drop kab-pair kab-rebuilt ok-then? if kab-image then ;
+  drop >r kab-pair r> lf-meta-rebuilt ok-then? if kab-image then ;
 
 \ ---- The loop (lib/slab.fs's worklist drain): one unit of the budget a
 \ visit.

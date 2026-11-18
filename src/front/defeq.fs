@@ -204,7 +204,7 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
   false lf-mctx-depth{ de-must if de-frame fr-scope ! else drop then ;
 : de-pop ( -- k scope )
   de-frame dup fr-regs df df-k de-regs move fr-scope @ df df-k @ swap
-  -1 de-frames slab-commit ;
+  de-frames slab-drop ;
 : de-shallow ( scope -- flag )
   ?dup 0= if true exit then }lf-mctx-depth dup ok? if drop true else de-abort false then ;
 : de-resume ( -- ) de-pop de-shallow if df df-result @ swap execute else drop then ;
@@ -229,7 +229,7 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 \ ---- Cells: arrays of an activation, from de-x on.
 : de-cell ( i -- addr ) de-cells slab-at ;
 : de-push ( x -- flag )
-  de-cells lf-meta-push dup ok? if drop true else de-abort false then ;
+  de-cells slab-push dup ok? if drop true else de-abort false then ;
 : de-truncate ( n -- ) de-cells slab-cut ;
 \ An answer, with the activation's cells (from de-x on) given back.
 : de-cells-return ( r -- ) de-x de-truncate de-return ;
@@ -247,9 +247,7 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-pi? ( t -- flag ) lf-tag-pi lf-meta-tag? ;
 \ A constant's declaration: none for an unknown name; a declaration that
 \ could not be decoded (full, unsupported) aborts with its outcome.
-: de-decl ( const -- d true | false )
-  lf-meta-const-decl dup outcome-invalid = if 2drop false exit then
-  de-must dup 0= if nip then ;
+: de-decl ( const -- d true | false ) lf-meta-const-known de-must drop ;
 : de-kind? ( head kind -- flag )
   over de-const? if swap de-decl if lf-menv-kind = else drop false then
   else 2drop false then ;

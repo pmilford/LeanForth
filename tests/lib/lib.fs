@@ -6,6 +6,7 @@ include ../support/tester.fs
 include ../support/checks.fs
 include ../support/heap-watch.fs
 require ../../src/lib/lib.fs
+hex require ../../src/lib/find.fs base @ decimal constant find-base
 
 \ Portability: comparisons and the largest cell.
 T{ 2 1 >= -> true }T
@@ -620,6 +621,19 @@ T{ neg-cells 4 5 ' cell-neg? any-in? nip neg-cells 3 3 ' cell-neg? any-in? nip -
 T{ neg-cells 4 2 ' cell-neg? any-in? nip neg-cells 2 4 ' cell-neg? ' any-in? rs-checked nip
    -> false true }T
 T{ 7 2 6 ' test-3 ' any-in? rs-checked 0 step-trail ! 7 4 6 ' test-3 any-in? -> 7 true 7 false }T
+\ find-index (find.fs, loaded under HEX with BASE kept; review F4 of
+\ 2026-11-18): the first k whose test holds, x
+\ dropped; none after it runs; false when none holds or n <= 0; the
+\ return stack balanced (rs-checked); the header's example.
+: found ( x n xt -- k true trail | false trail ) 0 step-trail ! find-index step-trail @ ;
+T{ 7 6 ' test-3 found 7 3 ' test-3 found 7 6 ' test-k found -> 3 true 1234 false 123 0 true 1 }T
+T{ 7 0 ' test-3 found 7 -5 ' test-3 found 7 max-n invert ' test-3 found
+   -> false 0 false 0 false 0 }T
+T{ 7 6 ' test-3 ' find-index rs-checked -> 3 true }T
+T{ neg-cells 3 ' cell-neg? find-index neg-cells 5 ' cell-neg? find-index -> false 3 true }T
+create neg-example 5 , -2 , -7 ,
+T{ neg-example 3 ' cell-neg? find-index -> 1 true }T
+T{ find-base [defined] find-index -> 16 true }T
 \ A true flag other than -1 counts as true; the answer is a well-formed flag.
 T{ 4 ' test-one any? 0 ' test-one any? -> true false }T
 \ Nested: whether some k < n has some j < k at 3 or above, and with all?.

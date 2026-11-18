@@ -107,7 +107,7 @@ class Standalone(unittest.TestCase):
 
     def test_every_file_loads_alone_and_restores_the_interpreter(self):
         files = sorted(p.name for p in LIB.glob("*.fs"))
-        self.assertEqual(len(files), 36)
+        self.assertEqual(len(files), 38)
         for name in files:
             folder = self.folder(name)
             # Ends in decimal: under make coverage Gforth writes its block counts with "."

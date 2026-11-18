@@ -45,6 +45,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
+require ../lib/texts.fs
 require ../core/terms.fs
 require ../core/names.fs
 require ../core/compact-names.fs
@@ -121,31 +122,30 @@ end-structure
   dup 2 s" instHAdd" lf-meta-app-of?
   if 1 2 lf-meta-nth-arg no-inst-addnat? else drop false then ;
 : no-inst-ofnat? ( t -- flag ) 1 s" instOfNatNat" lf-meta-app-of? ;
-: no-sub? ( t -- flag )
-  dup 2 s" Nat.sub" lf-meta-app-of? over 4 s" Sub.sub" lf-meta-app-of? or
-  swap 6 s" HSub.hSub" lf-meta-app-of? or ;
-: no-mul? ( t -- flag )
-  dup 2 s" Nat.mul" lf-meta-app-of? over 4 s" Mul.mul" lf-meta-app-of? or
-  swap 6 s" HMul.hMul" lf-meta-app-of? or ;
-: no-div? ( t -- flag )
-  dup 2 s" Nat.div" lf-meta-app-of? over 4 s" Div.div" lf-meta-app-of? or
-  swap 6 s" HDiv.hDiv" lf-meta-app-of? or ;
-: no-mod? ( t -- flag )
-  dup 2 s" Nat.mod" lf-meta-app-of? over 4 s" Mod.mod" lf-meta-app-of? or
-  swap 6 s" HMod.hMod" lf-meta-app-of? or ;
-: no-pow? ( t -- flag )
-  dup 2 s" Nat.pow" lf-meta-app-of? over 4 s" NatPow.pow" lf-meta-app-of? or
-  over 5 s" Pow.pow" lf-meta-app-of? or
-  swap 6 s" HPow.hPow" lf-meta-app-of? or ;
+\ evalNat's other operations, by their number of arguments (Lean's
+\ match_expr arms of Nat.sub, Sub.sub, HSub.hSub and the like): tables of
+\ lib/texts.fs, one per count (review F10 of 2026-11-18).
+texts-begin texts+ Nat.sub Nat.mul Nat.div Nat.mod Nat.pow
+texts-end constant no-ops2
+texts-begin texts+ Sub.sub Mul.mul Div.div Mod.mod NatPow.pow
+texts-end constant no-ops4
+texts-begin texts+ Pow.pow
+texts-end constant no-ops5
+texts-begin texts+ HSub.hSub HMul.hMul HDiv.hDiv HMod.hMod HPow.hPow
+texts-end constant no-ops6
+: no-ops ( n -- table | 0 )
+  case 2 of no-ops2 endof 4 of no-ops4 endof 5 of no-ops5 endof 6 of no-ops6 endof
+    0 swap endcase ;
 : no-unported? ( t -- flag )
-  dup no-sub? over no-mul? or over no-div? or over no-mod? or swap no-pow? or ;
+  lf-meta-head-args no-ops ?dup if ['] lf-meta-const-named? swap texts-find 0<>
+  else drop false then ;
 \ The last two arguments of an addition.
 : no-sides ( e -- a b ) dup lf-term-first@ lf-term-second@ swap lf-term-second@ ;
 
 \ ---- evalNat: the terms to evaluate on no-stack, the first argument on
 \ top; each value adds to no-acc. A step's code: 0 go on, 1 no value.
-: no-push ( t -- outcome ) no-stack lf-meta-push ;
-: no-pop ( -- t ) no-stack lf-meta-pop ;
+: no-push ( t -- outcome ) no-stack slab-push ;
+: no-pop ( -- t ) no-stack slab-pop ;
 : no-add-acc ( u -- outcome )
   no no-acc @ 2dup + tuck u> if 2drop outcome-unsupported exit then
   nip no no-acc ! outcome-ok ;

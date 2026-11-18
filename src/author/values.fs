@@ -21,7 +21,6 @@ require ./build.fs
 require ./constants.fs
 require ./scopes.fs
 
-512 constant lfa-item-capacity
 1 constant lfa-kind-term
 2 constant lfa-kind-level
 3 constant lfa-kind-name
@@ -38,12 +37,17 @@ begin-structure /lfa-item
   field: lfa-item-at       \ position of the word that made it
   field: lfa-item-taken    \ true once a word has used the value
 end-structure
-lfa-item-capacity /lfa-item 0 context-store: lfa-items
+store-header context-record: lfa-items
+: lfa-items-make ( -- )
+  lfa-store-room /lfa-item 0 lfa-items store-heap-init lfa-heap-must
+  /lfa-item lfa-store-limit lfa-items store-limit! lfa-heap-must ;
+' lfa-items-make context-setup
+:noname ( -- ) lfa-items store-heap-free ; context-teardown
 
 : lfa-items-reset ( -- ) lfa-items store-clear ;
 \ A new item made at the current token; too many stop the run.
 : lfa-item-new ( kind first second -- value )
-  lfa-items store-new-slot lfa-e-values-full lfa-must >r
+  lfa-items store-ready drop lfa-items store-new-slot lfa-e-values-full lfa-must >r
   tuck lfa-item-second ! tuck lfa-item-first ! tuck lfa-item-kind !
   -1 over lfa-item-third ! 0 over lfa-item-taken ! lfa-here swap lfa-item-at !
   r> 1+ negate ;

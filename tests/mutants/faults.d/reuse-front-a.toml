@@ -1,0 +1,323 @@
+# Planted faults of the front reuse pass, part A (branch reuse-front-a,
+# 2026-11-18): the shared words that replace the front end's copies.
+
+[[fault]]
+id = "rfa-ow-current-not-restored"
+file = "src/front/offset-walk.fs"
+old = '''  ow-current @ >r dup ow-current ! ow-go r> ow-current ! ;'''
+new = '''  dup ow-current ! ow-go ;'''
+test = "$GFORTH tests/front/offset-walk.fs"
+reason = "reuse pass F2: a walk run inside another's hook leaves its own record in use, so the outer walk goes on with the inner one's stack and memo"
+
+[[fault]]
+id = "rfa-ow-kept-ignored"
+file = "src/front/offset-walk.fs"
+old = '''  2dup ow-hooks owk-kept @ execute if drop true exit then ow ow-memo memo@ ;'''
+new = '''  ow ow-memo memo@ ;'''
+test = "$GFORTH tests/front/offset-walk.fs"
+reason = "reuse pass F2: a pair the kind keeps (instantiate1's closed subterm, Lean's looseBVarRange test) is walked and rebuilt instead"
+
+[[fault]]
+id = "rfa-ow-own-skipped"
+file = "src/front/offset-walk.fs"
+old = '''  ow-hooks owk-own @ execute if exit then'''
+new = '''  ow-hooks drop'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "reuse pass F2: the walk's own case (instantiateBetaRevRange's beta of a bound-variable head) is never tried"
+
+[[fault]]
+id = "rfa-ow-stack-kept"
+file = "src/front/offset-walk.fs"
+old = '''  dup slab-live? if slab-clear outcome-ok else ow-stack-make then ;'''
+new = '''  dup slab-live? if drop outcome-ok else ow-stack-make then ;'''
+test = "$GFORTH tests/front/offset-walk.fs"
+reason = "reuse pass F2: a failed walk's pending pairs stay on the stack and the next run visits them"
+
+[[fault]]
+id = "rfa-ow-memo-leaked"
+file = "src/front/offset-walk.fs"
+old = ''': ow-memo-make ( memo -- outcome ) dup memo-free 2 1 rot memo-init ;'''
+new = ''': ow-memo-make ( memo -- outcome ) 2 1 rot memo-init ;'''
+test = "$GFORTH tests/front/offset-walk.fs"
+reason = "reuse pass F2: each run's memo is made over the last one's without giving its blocks back"
+
+[[fault]]
+id = "rfa-rebuilt-always-new"
+file = "src/front/offset-walk.fs"
+old = '''  >r 2dup r@ ow-parts d= if 2drop r> outcome-ok else r> ow-binary then ;'''
+new = '''  ow-binary ;'''
+test = "$GFORTH tests/front/offset-walk.fs"
+reason = "reuse pass F2: a node whose parts stay is copied (Lean's update keeps it), so authoring runs, which share no node, change every term"
+
+[[fault]]
+id = "rfa-annot-over-always-new"
+file = "src/front/offset-walk.fs"
+old = '''  2dup lf-annot-child = if nip outcome-ok exit then lf-annot-key lf-annot ;'''
+new = '''  lf-annot-key lf-annot ;'''
+test = "$GFORTH tests/front/offset-walk.fs"
+reason = "reuse pass F2: an annotation whose child stays is copied (Lean's updateMData! keeps it)"
+
+[[fault]]
+id = "rfa-const-known-invalid-kept"
+file = "src/front/meta-spine.fs"
+old = ''': ms-unknown-ok ( outcome -- outcome' ) dup outcome-invalid = if drop outcome-ok then ;'''
+new = ''': ms-unknown-ok ( outcome -- outcome' ) ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "reuse pass F8: an unknown constant answers invalid where Lean's find? gives none, so whnf, defeq, inferType and getFunInfo fail instead of going on"
+
+[[fault]]
+id = "rfa-kind-or-default-lost"
+file = "src/front/meta-spine.fs"
+old = '''  lf-kind-definition lf-meta-kind-or swap lf-kind-definition <> swap ;'''
+new = '''  lf-kind-inductive lf-meta-kind-or swap lf-kind-definition <> swap ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "reuse pass F8: an unknown constant reads as firm (an inductive) where Lean's inferType and getFunInfo take it as one whnf may unfold"
+
+[[fault]]
+id = "rfa-find-index-off-by-one"
+file = "src/lib/find.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute if drop i true unloop unloop exit then'''
+new = '''  dup 1+ swap ?do 0 max 0 ?do i j execute if drop i 1+ true unloop unloop exit then'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "reuse pass F4: find-index gives the place after the one found, so every linear find (declarations, levels, references, goals, marks) names the wrong entry"
+
+[[fault]]
+id = "rfa-texts-next-skips"
+file = "src/lib/texts.fs"
+old = ''': text-next ( entry -- entry' ) count chars + ;'''
+new = ''': text-next ( entry -- entry' ) count chars + 1+ ;'''
+test = "$GFORTH tests/lib/texts.fs"
+reason = "reuse pass F10: a table's walk steps one byte too far, so it reads a text from the middle of the next"
+
+[[fault]]
+id = "rfa-tag-of-inverted"
+file = "src/front/meta-spine.fs"
+old = ''': lf-meta-tag-of? ( tag mask -- flag ) swap lf-tag-bit and 0<> ;'''
+new = ''': lf-meta-tag-of? ( tag mask -- flag ) swap lf-tag-bit and 0= ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "reuse pass F3: a tag set answers for the tags outside it (isProofQuick, isPropQuick, getFunInfo, inferType's inert heads)"
+
+[[fault]]
+id = "rfa-under-let-kept"
+file = "src/front/meta-spine.fs"
+old = '''  over lf-let? if drop lf-let-body true exit then'''
+new = '''  over lf-let? if drop false exit then'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "reuse pass F7: isProofQuick and isPropQuick stop at a let instead of going on with its body (Lean's letE case)"
+
+[[fault]]
+id = "rfa-pq-pi-a-proof"
+file = "src/front/prop-quick.fs"
+old = '''lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-pi 4 lf-meta-tags constant pq-no-proofs'''
+new = '''lf-tag-sort lf-tag-symbolic-sort lf-tag-lit 3 lf-meta-tags constant pq-no-proofs'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review T2 of 2026-11-18: isProofQuick of a pi answers undef where Lean's answers false (a type is no proof), so defeq's proof irrelevance tries more"
+
+[[fault]]
+id = "rfa-matcher-name-lost"
+file = "src/front/meta-env.fs"
+old = '''  texts+ Mod.mod'''
+new = '''  texts+ Mod.modulo'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "s2-finish L1: canUnfoldAtMatcher's Mod.mod is not unfolded at a matcher, unlike Lean"
+
+[[fault]]
+id = "rfa2-app-range-up"
+file = "src/front/meta-spine.fs"
+old = ''': ms-app-down ( f k addr -- f' outcome ) swap cells - @ lf-meta-app ;'''
+new = ''': ms-app-down ( f k addr -- f' outcome ) swap cells + @ lf-meta-app ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "reuse pass part A2, F11: mkAppRange walks the spine the wrong way, so a recursor's fields, its rest and a matcher's alternatives get the wrong arguments"
+
+[[fault]]
+id = "rfa2-app-range-count"
+file = "src/front/meta-spine.fs"
+old = '''  lf-meta-arg-at ['] ms-app-down ok-fold ;'''
+new = '''  lf-meta-arg-at swap 1- swap ['] ms-app-down ok-fold ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "reuse pass part A2, F11: mkAppRange leaves off its last argument"
+
+[[fault]]
+id = "rfa2-infer-j-skips"
+file = "src/front/infer.fs"
+old = '''  dup >r swap if-flushed r> swap ;'''
+new = '''  dup 1+ >r swap if-flushed r> swap ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "reuse pass part A2, F11: inferAppType's j skips the argument at a whnf point, so it is never put in"
+
+[[fault]]
+id = "rfa2-infer-pi-body-type"
+file = "src/front/infer.fs"
+old = '''  2 pick if-pi? if drop swap lf-term-second@ swap outcome-ok exit then'''
+new = '''  2 pick if-pi? if drop swap lf-term-first@ swap outcome-ok exit then'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "reuse pass part A2, F11: inferAppType steps into a pi's domain instead of its body"
+
+[[fault]]
+id = "rfa2-dot-offset"
+file = "src/author/source.fs"
+old = ''': lfa-dot ( c-addr u -- n ) ['] lfa-dot? text-scan ;'''
+new = ''': lfa-dot ( c-addr u -- n ) ['] lfa-blank? text-scan ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A2, R2: a dotted name is not split at its first dot, so namespaces and short names are lost"
+
+[[fault]]
+id = "rfa2-values-fixed"
+file = "src/author/values.fs"
+old = '''  /lfa-item lfa-store-limit lfa-items store-limit! lfa-heap-must ;'''
+new = '''  512 lfa-items store-limit! lfa-heap-must ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "reuse pass part A2, R5: a declaration holds 512 values again, so a statement of 256 arrows stops full"
+
+[[fault]]
+id = "rfa2-values-not-grown"
+file = "src/author/values.fs"
+old = '''  lfa-items store-ready drop lfa-items store-new-slot lfa-e-values-full lfa-must >r'''
+new = '''  lfa-items store-new-slot lfa-e-values-full lfa-must >r'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A2, R5: the value store never grows past its first room"
+
+[[fault]]
+id = "rfa2-numerals-fixed"
+file = "src/author/form.fs"
+old = '''  1 cells lfa-store-limit lfa-numerals store-limit! lfa-heap-must ;'''
+new = '''  512 lfa-numerals store-limit! lfa-heap-must ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "reuse pass part A2, R5: a declaration holds 512 numbers again"
+
+[[fault]]
+id = "rfa2-heap-must-silent"
+file = "src/author/form.fs"
+old = ''': lfa-heap-must ( outcome -- ) ok? 0= abort" author: no heap for a store" ;'''
+new = ''': lfa-heap-must ( outcome -- ) drop ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A2, R5: a heap store the heap could not start goes on unnoticed"
+
+# Part A3 (branch reuse-front-a3): the index of terms a node may be shared
+# with (review reuse-front-a finding 1), author/build.fs.
+[[fault]]
+id = "rfa3-share-identity-unchecked"
+file = "src/author/build.fs"
+old = '''  dup lfa-link-term @ dup lfa-count < if lfa-identity swap lfa-link-identity @ ='''
+new = '''  dup lfa-link-term @ dup lfa-count < if 2drop true'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A3, finding 1: a link of a term given back by a rollback still answers, for the new term made at its number"
+
+[[fault]]
+id = "rfa3-share-noted"
+file = "src/author/build.fs"
+old = '''  lfa-link dup lfa-link-live? if lfa-link-term @ lfa-shareable? else drop false then ;'''
+new = '''  lfa-link lfa-link-live? ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A3, findings 1 and 2: a term with a label or note is shared, so a label appears at two places"
+
+[[fault]]
+id = "rfa3-share-rollback-unseen"
+file = "src/author/build.fs"
+old = ''': lfa-kept? ( k -- flag ) 1- lfa-identity lfa-shares lfa-shares-last @ > 0= ;'''
+new = ''': lfa-kept? ( k -- flag ) drop true ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A3, finding 1: after a rollback the terms made again at the numbers given back are never entered"
+
+[[fault]]
+id = "rfa3-share-constants-unsought"
+file = "src/author/build.fs"
+old = '''lf-tag-symbolic-sort lf-tag-bit or lf-tag-constant lf-tag-bit or lf-tag-lit lf-tag-bit or'''
+new = '''lf-tag-symbolic-sort lf-tag-bit or lf-tag-lit lf-tag-bit or'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A3, finding 1: constants are not entered, so a constant written twice is two nodes"
+
+[[fault]]
+id = "rfa3-share-newest-first"
+file = "src/author/build.fs"
+old = '''  dup @ if 2dup cell+ @ lfa-link lfa-link-next ! else 2dup ! then cell+ ! ;'''
+new = '''  2dup ! cell+ ! ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A3, finding 1: a chain keeps only its newest term, so a lookup finds a copy made for a label instead of the first term"
+
+[[fault]]
+id = "rfa3-share-never-renewed"
+file = "src/author/build.fs"
+old = ''': lfa-stale? ( -- flag ) lfa-stale @ lfa-done @ > ;'''
+new = ''': lfa-stale? ( -- flag ) false ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A3, finding 1: the links of terms given back pile up and the index is never made again"
+
+[[fault]]
+id = "rfa3-share-room-ignored"
+file = "src/author/build.fs"
+old = ''': lfa-room ( outcome -- ) ok? lfa-e-terms-full lfa-must ;'''
+new = ''': lfa-room ( outcome -- ) drop ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A3, finding 1: a memo or link the heap refused goes unnoticed and the run goes on with a broken index"
+
+# Part A3: the branches the review's finding 2 found untested (build.fs's
+# shareable test is rfa3-share-noted above).
+[[fault]]
+id = "rfa3-smatch-unknown-unsupported"
+file = "src/front/whnf.fs"
+old = '''  if wc-smatch-decl else drop wc-sm-none then ;'''
+new = '''  if wc-smatch-decl else 2drop outcome-unsupported wc-fail then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "reuse pass part A3, finding 2: a marked head that is a constant of no declaration answers unsupported instead of none"
+
+[[fault]]
+id = "rfa3-order-index-missing-first"
+file = "src/author/groups.fs"
+old = '''  lfa-groups lfa-groups-order lfa-order# cells-index 0= if lfa-order# then ;'''
+new = '''  lfa-groups lfa-groups-order lfa-order# cells-index 0= if 0 then ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "reuse pass part A3, finding 2: a wordlist not in the search order counts as the first, so every list after it is searched"
+
+# Part A3, finding 4: the parts step shared by mvars.fs's and
+# assign-check.fs's walks (dag-walk.fs).
+[[fault]]
+id = "rfa3-want-parts-second-skipped"
+file = "src/front/dag-walk.fs"
+old = '''  >r dup lf-term-first@ swap lf-term-second@ r> dw-want2 ;'''
+new = '''  >r lf-term-first@ dup r> dw-want2 ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "reuse pass part A3, finding 4: a binary term's second part is never walked, so a metavariable there is not instantiated or found"
+
+# Part A3, note 8: a \ comment after texts+ is no text.
+[[fault]]
+id = "rfa3-texts-comment-kept"
+file = "src/lib/texts.fs"
+old = ''': texts-comment? ( c-addr u -- flag ) s" \" compare 0= ;'''
+new = ''': texts-comment? ( c-addr u -- flag ) 2drop false ;'''
+test = "$GFORTH tests/lib/texts.fs"
+reason = "reuse pass part A3, note 8: a comment on a line of texts+ is laid down as texts"
+
+# Part A3, the performance scan's dag-walk item: a walk of more than
+# dw-array-most nodes keeps its states in a memo of the nodes it meets.
+[[fault]]
+id = "rfa3-dw-always-array"
+file = "src/front/dag-walk.fs"
+old = '''  dup dw-size @ dw-array-most > if dw-seen-run else dw-array-run then ;'''
+new = '''  dw-array-run ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "reuse pass part A3, dag-walk: every walk makes and erases an array of the whole term store again"
+
+[[fault]]
+id = "rfa3-dw-memo-kept"
+file = "src/front/dag-walk.fs"
+old = ''': dw-seen-end ( walk -- ) dup dw-stack heap-release dw-seen memo-free ;'''
+new = ''': dw-seen-end ( walk -- ) dw-stack heap-release ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "reuse pass part A3, dag-walk: a walk's memo is never given back (and the next run formats it over its blocks)"
+
+[[fault]]
+id = "rfa3-dw-claim-refusal-lost"
+file = "src/front/dag-walk.fs"
+old = '''  tuck 0 swap dw-seen memo-claim dup ok? if drop nip else nip swap dw-refuse 0 then ;'''
+new = '''  tuck 0 swap dw-seen memo-claim drop nip ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "reuse pass part A3, dag-walk: a state the heap had no room for is written at address 0 and the walk goes on"
+
+[[fault]]
+id = "rfa3-dw-seen-made-unchecked"
+file = "src/front/dag-walk.fs"
+old = ''': dw-seen-made ( walk -- flag ) 1 1 rot dw-seen memo-init ok? ;'''
+new = ''': dw-seen-made ( walk -- flag ) 1 1 rot dw-seen memo-init drop true ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "reuse pass part A3, dag-walk: a memo the heap refused at its start is used as if made"

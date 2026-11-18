@@ -152,8 +152,21 @@ T{ s" Nat.pred" nm lf-menv-find pred lf-meta-const-decl
    -> -1 outcome-unsupported -1 outcome-unsupported }T
 T{ pred lf-infer nip pred lf-meta-whnf nip -> outcome-unsupported outcome-unsupported }T
 T{ pred lf-class? nip s" No.such" 0 cst lf-meta-const-decl -> outcome-unsupported -1 outcome-invalid }T
+\ The shared "unknown constant" words (meta-spine.fs, review F8): an
+\ unknown name is false and ok, a malformed declaration passes its
+\ outcome on, never read as unknown.
+T{ pred lf-meta-const-known s" No.such" 0 cst lf-meta-const-known
+   -> false outcome-unsupported false outcome-ok }T
+T{ pred 7 lf-meta-kind-or s" No.such" 0 cst 7 lf-meta-kind-or
+   -> 7 outcome-unsupported 7 outcome-ok }T
+T{ pred lf-meta-firm-const? s" No.such" 0 cst lf-meta-firm-const?
+   -> false outcome-unsupported false outcome-ok }T
 unspoil
 T{ s" Nat.pred" d-of lf-menv-kind -> lf-kind-definition }T
+T{ pred lf-meta-const-known nip nip pred 7 lf-meta-kind-or pred lf-meta-firm-const?
+   -> outcome-ok lf-kind-definition outcome-ok false outcome-ok }T
+T{ s" Nat" 0 cst lf-meta-firm-const? s" Nat.zero" 0 cst 7 lf-meta-kind-or
+   -> true outcome-ok lf-kind-constructor outcome-ok }T
 \ The bound is exact (review F11 of 2026-11-18): the library's last
 \ declaration is one of its own, the next index past it is not.
 T{ lf-libdec-count 1- outcome-invalid me-undecoded nip lf-libdec-count outcome-invalid

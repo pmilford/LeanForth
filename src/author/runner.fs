@@ -60,11 +60,8 @@ begin-structure /lfa-run
   field: lfa-run-rest#       \ and length
   field: lfa-run-file        \ the file being run, or 0
   field: lfa-run-floats      \ floating-point stack depth when the line began
-  field: lfa-run-base        \ the caller's BASE
-  field: lfa-run-current     \ the caller's compilation wordlist
   field: lfa-run-recognizer  \ the host's recognizer (Gforth 1.0)
-  field: lfa-run-order#      \ the caller's search order
-  lfa-order-capacity cells +field lfa-run-order
+  /run-settings +field lfa-run-settings  \ the caller's BASE, order and current
   lfa-line-capacity +field lfa-run-line
 end-structure
 /lfa-run context-record: lfa-run
@@ -88,15 +85,11 @@ end-structure
 : lfa-recognizer-back ( -- ) ;
 [then]
 
-\ The caller's settings.
-: lfa-saved-wid ( i -- addr ) cells lfa-run lfa-run-order + ;
-: lfa-save ( -- )
-  base @ lfa-run lfa-run-base ! get-current lfa-run lfa-run-current !
-  get-order dup lfa-run lfa-run-order# ! 0 ?do i lfa-saved-wid ! loop lfa-recognizer! ;
-: lfa-restore ( -- )
-  lfa-recognizer-back
-  lfa-run lfa-run-order# @ dup 0 ?do dup 1- i - lfa-saved-wid @ swap loop set-order
-  lfa-run lfa-run-current @ set-current lfa-run lfa-run-base @ base ! ;
+\ The caller's settings (lib/text-run.fs) and recognizer: false, nothing
+\ saved, for a search order of more than run-settings-order-max lists.
+: lfa-settings ( -- settings ) lfa-run lfa-run-settings ;
+: lfa-save ( -- flag ) lfa-settings run-settings-save dup if lfa-recognizer! then ;
+: lfa-restore ( -- ) lfa-recognizer-back lfa-settings run-settings-restore ;
 
 \ Floating-point numbers, on hosts whose interpreter reads them: dropped
 \ after an error (a float token is refused like any number form).
@@ -105,15 +98,13 @@ end-structure
 : lfa-floats! ( -- ) floats-depth lfa-run lfa-run-floats ! ;
 : lfa-floats-clear ( -- ) lfa-run lfa-run-floats @ floats-drop-to ;
 
-\ Lines of text, split at LF; a CR before it is dropped.
-: lfa-eol ( c-addr u -- n )
-  dup >r 0 ?do dup i chars + c@ 10 = if drop i unloop r> drop exit then loop drop r> ;
-: lfa-strip-cr ( c-addr u -- c-addr u' ) dup if 2dup + 1- c@ 13 = if 1- then then ;
+\ Lines of text, split at LF; a CR before it is dropped (lib/text-run.fs).
 : lfa-rest ( -- c-addr u ) lfa-run dup lfa-run-rest @ swap lfa-run-rest# @ ;
 : lfa-rest! ( c-addr u -- ) lfa-run tuck lfa-run-rest# ! lfa-run-rest ! ;
 : lfa-text-line ( -- c-addr u true | false )
   lfa-rest dup 0= if 2drop false exit then
-  2dup lfa-eol >r over r@ lfa-strip-cr 2swap r> 1+ over min /string lfa-rest! true ;
+  2dup text-line-end drop >r over r@ text-cr-drop 2swap r> 1+ over min /string
+  lfa-rest! true ;
 \ Lines of a file, of fewer than lfa-line-capacity characters; a longer
 \ one stops the run at its first token.
 : lfa-buffer ( -- c-addr ) lfa-run lfa-run-line ;
@@ -220,16 +211,13 @@ end-structure
   0 0 0 lfa-e-compiling lfa-record lfa-e-compiling lf-author-outcome ;
 \ Refused before anything runs: the caller's search order is too long to save
 \ (an outcome, not an abort: the caller's own order is left alone).
-: lfa-order-fits? ( -- flag )
-  get-order dup >r 0 ?do drop loop r> lfa-order-capacity > 0= ;
 : lfa-order-full ( -- outcome )
   0 0 0 lfa-e-search-order lfa-record lfa-e-search-order lf-author-outcome ;
 \ A run: the lines of a new text, counted from 1.
 : lfa-go ( -- outcome )
   lfa-error-reset lfa-interpreting? 0= if lfa-compiling exit then
-  lfa-order-fits? 0= if lfa-order-full exit then
-  lfa-lines-restart lfa-save decimal depth lfa-floor! ['] lfa-lines catch
-    lfa-restore lfa-caught ;
+  lfa-save 0= if lfa-order-full exit then
+  lfa-lines-restart decimal depth lfa-floor! ['] lfa-lines catch lfa-restore lfa-caught ;
 
 \ Public words; see the header.
 \ The term store's own hash-consing is turned off for the run (terms.fs):
@@ -249,7 +237,7 @@ end-structure
 : lf-author-kernel ( -- ) lfa-kernel-form! ;
 : lf-author-text ( c-addr u -- outcome ) lfa-rest! 0 lfa-run lfa-run-file ! lfa-go ;
 : lf-author-file ( c-addr u -- outcome )
-  lfa-error-reset 2dup r/o open-file
+  lfa-error-reset 2dup r/o bin open-file
   if drop 0 lfa-e-file lfa-record lfa-e-file lf-author-outcome exit then
   nip nip dup lfa-run lfa-run-file ! lfa-go swap close-file drop 0 lfa-run lfa-run-file
     ! ;

@@ -235,6 +235,12 @@ T{ tf prop 0 lf-term-bvar must lf-term-lam must lf-mvar-assign -> outcome-ok }T
 tf 100 apps constant tf-spine
 : mvinst-op ( -- term outcome ) tf-spine lf-instantiate-mvars ;
 T{ ' mvinst-op refusing 0> swap ok? rot 99 firsts -> true true x }T
+\ The same past dag-walk.fs's cut-over, its states in a memo of the nodes
+\ met (performance scan, 2026-11-18): each refusal full, no block kept.
+: grown ( n -- ) 0 ?do i 7 + lf-term-bvar must drop loop ;
+dw-array-most grown
+T{ lf-term-count @ dw-array-most > -> true }T
+T{ ' mvinst-op refusing 0> swap ok? rot 99 firsts -> true true x }T
 
 T{ depth -> 0 }T
 cr .( meta-heap.fs: all tests passed) cr

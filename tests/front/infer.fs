@@ -96,6 +96,10 @@ T{ rec nat nat lam app fz app fs app fk app nat infer= -> true outcome-ok }T
 T{ rec nat 0 bv 0 bv eq lam app fz app fs app fk app fk fk eq infer= -> true outcome-ok }T
 T{ rec nat nat lam app fz app fs app nat>nat infer= -> true outcome-ok }T
 T{ rec nat nat 1 bv 0 bv eq tpi lam app fz app fs app lf-infer -> -1 outcome-unsupported }T
+\ A whnf point inside the spine (inferAppType's j): `motive k` is no pi
+\ until beta makes it one, and the argument after it is put in last.
+T{ rec nat nat 0 bv 0 bv eq tpi lam app fz app fs app fk app fa app fa fa eq infer=
+   -> true outcome-ok }T
 \ The type is no pi and whnfD unfolds it, as Lean's inferAppType does:
 \ fq : outParam (Nat -> Nat), fq k : Nat (branch s2-tactics).
 lv1 1 s" outParam" cn nat>nat app lf-lctx-local made constant fq
