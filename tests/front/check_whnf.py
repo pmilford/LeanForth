@@ -344,9 +344,6 @@ def stuckCase (e : Expr) : MetaM Unit := do
   | some id => IO.println (← sx (mkMVar id))
   | none => IO.println "none"
 
-def buildCase (x : MetaM Expr) : MetaM Unit := do
-  try IO.println (← sx (← x)) catch _ => IO.println "rejected"
-
 def nat : Expr := mkConst ``Nat
 """
 
@@ -361,9 +358,6 @@ LEAN_SETUP = """run_meta do
   withLocalDeclD `p (mkApp2 (mkConst ``Prod [Level.zero, Level.zero]) nat nat) fun p => do
   let sfun := mkLambda `y .default nat (mkApp s (mkBVar 0))
   withLetDecl `g nat sfun fun g => do
-  withLocalDeclD `e (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) nat a b) fun e => do
-  withLocalDeclD `u (mkForall `y .default nat nat) fun u => do
-  withLocalDeclD `v (mkForall `y .default nat nat) fun v => do
     let n ← mkFreshExprMVar nat (userName := `n)
     let h ← mkFreshExprMVar nat (userName := `h)
     let f ← mkFreshExprMVar nat (userName := `f)
@@ -372,9 +366,21 @@ LEAN_SETUP = """run_meta do
 """
 
 
+# The build cases' own definition and variables, after the shared setup
+# (check_unfold.py reuses LEAN_HEAD and LEAN_SETUP), as whnf-builds.fs adds them.
+BUILD_HEAD = """
+def buildCase (x : MetaM Expr) : MetaM Unit := do
+  try IO.println (← sx (← x)) catch _ => IO.println "rejected"
+"""
+BUILD_SETUP = """    withLocalDeclD `e (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) nat a b) fun e => do
+    withLocalDeclD `u (mkForall `y .default nat nat) fun u => do
+    withLocalDeclD `v (mkForall `y .default nat nat) fun v => do
+"""
+
+
 def lean_source():
     calls = "\n".join(f"    {kind}Case {lean_case(kind, t)}" for kind, t, _ in CASES)
-    return LEAN_HEAD + "\n" + LEAN_SETUP + calls + "\n"
+    return LEAN_HEAD + BUILD_HEAD + "\n" + LEAN_SETUP + BUILD_SETUP + calls + "\n"
 
 
 def run(command):

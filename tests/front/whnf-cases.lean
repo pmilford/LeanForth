@@ -31,10 +31,10 @@ def stuckCase (e : Expr) : MetaM Unit := do
   | some id => IO.println (← sx (mkMVar id))
   | none => IO.println "none"
 
+def nat : Expr := mkConst ``Nat
+
 def buildCase (x : MetaM Expr) : MetaM Unit := do
   try IO.println (← sx (← x)) catch _ => IO.println "rejected"
-
-def nat : Expr := mkConst ``Nat
 
 run_meta do
   withLocalDeclD `m nat fun m => do
@@ -47,14 +47,14 @@ run_meta do
   withLocalDeclD `p (mkApp2 (mkConst ``Prod [Level.zero, Level.zero]) nat nat) fun p => do
   let sfun := mkLambda `y .default nat (mkApp s (mkBVar 0))
   withLetDecl `g nat sfun fun g => do
-  withLocalDeclD `e (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) nat a b) fun e => do
-  withLocalDeclD `u (mkForall `y .default nat nat) fun u => do
-  withLocalDeclD `v (mkForall `y .default nat nat) fun v => do
     let n ← mkFreshExprMVar nat (userName := `n)
     let h ← mkFreshExprMVar nat (userName := `h)
     let f ← mkFreshExprMVar nat (userName := `f)
     let q ← mkFreshExprMVar nat (userName := `q)
     f.mvarId!.assign sfun
+    withLocalDeclD `e (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) nat a b) fun e => do
+    withLocalDeclD `u (mkForall `y .default nat nat) fun u => do
+    withLocalDeclD `v (mkForall `y .default nat nat) fun v => do
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkApp (mkConst `Nat.succ []) k))
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkConst `Nat.zero []))
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) k)
