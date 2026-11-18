@@ -415,7 +415,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
   then ;
 : sy-binder ( val pi -- val' type outcome )
   sy-binder-mvar ok-then? 0= if nip nip sy-no2 exit then
-  tuck lf-meta-open ok-then? 0= if nip nip sy-no2 exit then >r lf-term-app sy-made r>
+  tuck lf-meta-open ok-then? 0= if nip nip sy-no2 exit then >r lf-meta-app r>
   swap ;
 : sy-stop ( outcome -- -1 -1 false outcome ) sy-no2 false swap ;
 : sy-inst-step ( val type -- val' type' more? outcome )
@@ -527,7 +527,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
 : sy-outs? ( k -- flag ) dup elab-class-out-params nip swap elab-class-out-levels nip or
   0<> ;
 : sy-arg-addr ( i -- addr ) sy-args slab-count 1- swap - sy-args slab-at ;
-: sy-app-arg ( f k y -- f' outcome ) drop sy-args lf-meta-arg lf-term-app sy-made ;
+: sy-app-arg ( f k y -- f' outcome ) drop sy-args lf-meta-arg lf-meta-app ;
 : sy-rebuild ( head -- t outcome ) sy-args slab-count 0 ['] sy-app-arg ok-fold ;
 : sy-lv-put ( xt j addr -- xt outcome )   \ out-level addr[j] the xt's new level
   swap cells + @ dup sy-lv slab-count index? 0= if drop outcome-invalid exit then

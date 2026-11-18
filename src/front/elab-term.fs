@@ -77,6 +77,9 @@ require ./infer.fs
 require ./fun-info.fs
 require ./elab-pending.fs
 require ./elab-app.fs
+require ./meta-spine.fs
+require ./meta-must.fs
+require ./app-builder.fs
 
 begin-structure /tn      \ a node of a binop% tree
   field: tn-f            \ an operator's function, or -1 for a leaf
@@ -100,22 +103,11 @@ begin-structure /eo      \ an elabOp or elabBinRelCore in progress
 end-structure
 /eo context-slab: et-ops
 1 cells context-slab: et-vars
-begin-structure /am      \ mkAppM's walk
-  field: am-d            \ the class
-  field: am-app          \ the application so far
-  field: am-type         \ the rest of its type
-  field: am-k            \ binders passed
-  field: am-xs           \ explicit arguments given
-  field: am-max          \ the argument
-end-structure
-/am context-record: et-am
 1 cells context-record: et-u   \ a numeral's level u, for OfNat.{u} and OfNat.ofNat.{u}
 
 : et-at! ( node -- ) syn-at@ lf-elab-at! ;
-: et-app1 ( f a -- t outcome )
-  lf-term-app if outcome-ok else outcome-full no-result then ;
-: et-app2 ( f a b -- t outcome )
-  -rot et-app1 ok-then? if swap et-app1 else nip no-result then ;
+: et-app2 ( f a b -- t outcome )   \ mkApp2 (meta-spine.fs's lf-meta-app, mkApp)
+  -rot lf-meta-app ok-then? if swap lf-meta-app else nip no-result then ;
 : et-resolve ( name -- d outcome )
   lf-menv-find dup outcome-invalid = if drop lfa-e-unknown-constant lf-elab-fail exit then
   lf-elab-meta ;
@@ -170,7 +162,7 @@ end-structure
 : et-type-args ( type -- T lit ) dup lf-term-first@ lf-term-second@ swap lf-term-second@ ;
 : et-of-nat-value ( type i -- term outcome )
   s" OfNat.ofNat" et-at-u ok-then? 0= if nip nip no-result exit then
-  rot et-type-args et-app2 ok-then? if swap et-app1 else nip no-result then ;
+  rot et-type-args et-app2 ok-then? if swap lf-meta-app else nip no-result then ;
 : et-of-nat ( T lit -- term outcome )
   et-of-nat-type ok-then? 0= if no-result exit then
   dup lf-elab-inst-mvar ok-then? if et-of-nat-value else nip no-result then ;
@@ -294,54 +286,16 @@ defer et-go-call ( node x frames cont -- ... frames next )
   drop et-analyze. outcome-ok ;
 : et-no-max? ( -- flag ) eo eo-uncomp @ eo eo-max @ 0< or ;
 
-\ ---- mkAppM (AppBuilder.lean:345) of a class at the max type, as many
-\ times as it takes explicit arguments up to three, in a new depth: -1
-\ (ok) where Lean's app builder throws (an argument whose type does not
-\ fit, too many arguments). An instance binder, which mkAppMFinal fills
-\ by synthInstance, and a result with metavariables left (Lean throws
-\ only for those of the new depth) are 139.
-: et-am-dom ( -- dom ) et-am am-type @ lf-term-first@ ;
-: et-am-none ( -- outcome ) -1 et-am am-app ! outcome-ok ;
-: et-am-enter ( x -- outcome )
-  et-am am-type @ lf-term-second@ swap lf-meta-instantiate1 lf-elab-meta
-  ok-then? if et-am am-type ! 1 et-am am-k +! outcome-ok then ;
-: et-am-put ( x -- outcome )
-  et-am am-app @ over lf-term-app 0= if drop outcome-full exit then
-  et-am am-app ! et-am-enter ;
-: et-am-hole ( kind -- outcome )
-  et-am-dom swap lf-mvar-new lf-elab-meta ok-then? if et-am-put then ;
-: et-am-fits ( flag -- outcome )
-  if 1 et-am am-xs +! et-am am-max @ et-am-put else et-am-none then ;
-: et-am-explicit ( -- outcome )
-  et-am am-max @ lf-infer lf-elab-meta ok-then? 0= if exit then
-  et-am-dom swap lf-elab-defeq lf-elab-meta ok-then? if et-am-fits then ;
-: et-am-binder ( kind -- outcome )
-  case lf-binder-default of et-am-explicit endof
-    lf-binder-instance of lfa-e-elab-step lf-elab-fail endof
-    >r mv-natural et-am-hole r> endcase ;
-: et-am-kind ( -- kind true | false ) et-am am-d @ et-am am-k @ lf-menv-kind@ ;
-: et-am-reduce ( -- outcome )
-  et-am am-type @ lf-meta-whnf lf-elab-meta ok-then? 0= if exit then
-  lf-term-pi? if lfa-e-elab-binder lf-elab-fail else et-am-none then ;
-: et-am-step ( -- outcome )
-  et-am am-type @ lf-term-pi? 0= if et-am-reduce exit then
-  et-am-kind if et-am-binder else lfa-e-elab-binder lf-elab-fail then ;
-: et-am-going? ( -- flag ) et-am am-xs @ 3 < et-am am-app @ 0< 0= and ;
-: et-am-final ( -- type outcome )
-  et-am am-app @ dup 0< if outcome-ok exit then lf-instantiate-mvars lf-elab-meta
-  ok-then? 0= if no-result exit then lfa-e-elab-step lf-elab-closed
-  dup ok? 0= if nip no-result then ;
-: et-am-start ( d max -- outcome )
-  et-am /am erase et-am am-max ! dup et-am am-d !
-  lf-meta-const-fresh ok-then? 0= if exit then
-  dup et-am am-app ! lf-infer lf-elab-meta ok-then? if et-am am-type ! outcome-ok then ;
-: et-am-run ( d max -- type outcome )
-  et-am-start dup ok? 0= if no-result exit then drop
-  begin et-am-going? while et-am-step dup ok? 0= if no-result exit then drop repeat
-  et-am-final ;
+\ ---- mkAppM className #[max, max, max] (Extra.lean:391; the tactic
+\ library's lf-mk-app-m-of, app-builder.fs): -1 (ok) where Lean's app
+\ builder throws (rejected: an argument whose type does not fit, too
+\ many arguments, no instance, a metavariable of the new depth left),
+\ which hasHomogeneousInstance catches; anything else recorded (139 for
+\ unsupported).
+: et-mk-app-m ( d max -- e ) dup dup 3 lf-mk-app-m-of ;
 : et-app-m ( d max -- type outcome )
-  false lf-mctx-depth{ ok-then? 0= if nip nip no-result exit then
-  -rot et-am-run rot }lf-mctx-depth outcome-and ;
+  ['] et-mk-app-m 2 1 lf-meta-catch dup outcome-rejected = if 2drop -1 outcome-ok exit then
+  lf-elab-meta ;
 
 \ ---- hasHomogeneousInstance (Extra.lean:387): the operator's class (its
 \ name's prefix; none: false) at the max type, synthesized.

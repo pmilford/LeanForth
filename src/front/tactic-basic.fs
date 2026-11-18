@@ -15,7 +15,8 @@
 \   with the old goal's tag, takes the old goal's place, which is
 \   assigned fun x => ?n x, ?n a new synthetic opaque metavariable of
 \   type (x : domain) -> body in the old context, delayed-assigned [x] :=
-\   the new goal (Lean's mkLambdaFVars through elimMVar). No pi: error 94
+\   the new goal (Lean's mkLambdaFVars through elimMVar: telescope.fs's
+\   lf-mk-lambda-fvars in the new goal's context). No pi: error 94
 \   with the goal (Lean's introN error); where whnf's delta might still
 \   make one (a definition at the head, front/infer.fs lf-whnf-firm?):
 \   93. Not supported yet (99): a let to introduce, the name rfl (Lean's
@@ -70,7 +71,9 @@
 \ with the kind given (introN for an alternative's fields); and the
 \ message and term helpers lf-tac-line., lf-tac-goal., lf-tac-failed,
 \ lf-tac-inline, lf-tac-inline., lf-tac-eq?, lf-tac-hole?,
-\ lf-tac-made, lf-tac-binder ( pi -- name kind ).
+\ lf-tac-binder ( pi -- name kind ).
+\ Terms are built by the tactic library (app-builder.fs, telescope.fs),
+\ whose failures the runner makes authoring errors (tactic-run.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: tb, the running step record's fields (tactic-run.fs's
 \ lf-tac-record, review fe1g3 M2: the step's goal, terms and context, the
@@ -106,6 +109,9 @@ require ./defeq.fs
 require ./defeq-delta.fs
 require ./tactic-syntax.fs
 require ./tactic-run.fs
+require ./meta-must.fs
+require ./app-builder.fs
+require ./telescope.fs
 
 begin-structure /tb
   field: tb-goal        \ the goal the step works on
@@ -159,20 +165,18 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 : lfb-holds? ( term xt -- flag ) lf-term-holds? lf-tac-must ;
 : lf-tac-hole? ( leaf -- flag ) lfb-hole? ;
 
-\ ---- The step's goal and context (Lean's withMainContext); the row's
-\ action leaves the current context as it found it, also when it fails.
-: lfb-start ( goal -- )
-  dup tb tb-goal ! dup lf-mvar-type drop tb tb-want ! lf-mvar-view drop
-  dup tb tb-view ! lf-mctx-view! lf-mvar-count tb tb-from ! ;
+\ ---- The step's goal and context (Lean's withMainContext, meta-must.fs's
+\ lf-with-goal); the row's action leaves the current context as it found
+\ it, also when it fails.
+: lfb-start ( goal -- goal )
+  dup tb tb-goal ! dup lf-mvar-type drop tb tb-want ! dup lf-mvar-view drop tb tb-view !
+  lf-mvar-count tb tb-from ! ;
 \ A step's action xt ( i*x i -- j*x ) runs in a new step record.
-: lfb-run ( i*x xt i -- j*x )
-  lf-mctx-view >r swap lf-tac-main lfb-start catch r> lf-mctx-view! throw ;
+: lfb-run ( i*x xt i -- j*x ) swap lf-tac-main lfb-start swap lf-with-goal ;
 : lfb-step ( i*x i xt -- j*x ) swap ['] lfb-run lf-tac-in-record ;
 \ For the other tactics: the same, the step's goal and context in tb.
 : lf-tac-step-run ( i*x i xt -- j*x ) lfb-step ;
 : lfb-popped ( -- ) 0 lf-replace-main lf-tac-must ;
-: lfb-made ( flag -- ) 0= if outcome-full lf-tac-must then ;
-: lf-tac-made ( flag -- ) lfb-made ;   \ a term store's false: no room (60)
 \ A pi's binder name and kind: the presentation table's, else its input
 \ record's, else the anonymous name, explicit.
 : lf-tac-binder ( pi -- name kind )
@@ -234,25 +238,13 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
   lf-meta-head-beta lf-tac-must ;
 : lfb-new ( body view -- )
   >r tb tb-goal @ lf-mvar-tag drop r> lf-goal-new lf-tac-must tb tb-new ! ;
-\ Binders over the hypothesis, named as its local (Lean's mkForallFVars
-\ and mkLambdaFVars of one variable).
-: lfb-binder-kind ( -- kind ) tb tb-flags @ lf-local-binder-mask and ;
-: lfb-name-on ( t -- t )
-  dup tb tb-name @ lfb-binder-kind lf-pres-binder! lf-tac-must ;
-: lfb-abstract ( e -- e' ) tb tb-x 1 lf-meta-abstract lf-tac-must ;
-: lfb-over ( body xt -- t )
-  >r lfb-abstract tb tb-dom @ swap r> execute lfb-made lfb-name-on ;
-\ ?n : (x : domain) -> body in the old context, delayed [x] := the new goal.
-: lfb-aux-type ( -- type ) tb tb-new @ lf-mvar-type drop ['] lf-term-pi lfb-over ;
-: lfb-aux ( -- mvar ) lfb-aux-type mv-opaque tb tb-view @ lf-mvar-new-at lf-tac-must ;
-: lfb-delayed ( mvar -- )
-  tb tb-x @ lf-delay-fvar lf-tac-must tb tb-new @ 1 lf-mvar-delay lf-tac-must ;
-: lfb-value ( mvar -- value ) tb tb-x @ lf-term-app lfb-made ['] lf-term-lam lfb-over ;
+\ fun x => ?n x: mkLambdaFVars [x] of the new goal in its context.
+: lfb-closed ( -- value ) tb tb-new @ tb tb-x 1 lf-mk-lambda-fvars ;
+: lfb-value ( -- value ) tb tb-new @ ['] lfb-closed lf-with-goal ;
 : lfb-assigned ( value -- ) tb tb-goal @ swap lf-mvar-assign lf-tac-must ;
 : lfb-replaced ( -- ) 0 tb tb-new @ run-push lf-tac-must lf-replace-main lf-tac-must ;
 : lfb-introduced ( -- )
-  lfb-hyp lfb-view lfb-body swap lfb-new lfb-aux dup lfb-delayed lfb-value lfb-assigned
-  lfb-replaced ;
+  lfb-hyp lfb-view lfb-body swap lfb-new lfb-value lfb-assigned lfb-replaced ;
 : lfb-intro ( i -- )
   lfb-arg tb tb-want @ lfb-binder tb tb-pi ! lfb-plain lfb-dom lfb-name! lfb-introduced ;
 : lfb-w-intro ( i -- ) ['] lfb-intro lfb-step ;
@@ -337,13 +329,13 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 : lfb-unequal ( -- )
   lfb-sides-hold? if lfa-e-tac-meta lf-tac-fail then
   ['] lfb-rfl. lfa-e-tac-rfl lfb-failed ;
-\ @Eq.refl.{u} α lhs, u and α those of the goal's Eq.
+\ @Eq.refl.{u} α lhs, u and α those of the goal's Eq (Refl.lean:25:
+\ mkConst Eq.refl us, mkApp2).
 : lfb-level ( t -- level ) lf-meta-head-args drop lf-const-slot lf-cref-pairs drop
   0 lf-cref-pair@ drop ;
 : lfb-alpha ( t -- α ) lf-term-first@ lf-term-first@ lf-term-second@ ;
 : lfb-refl ( t -- term )
-  dup lfb-level s" Eq.refl" lf-tac-const1 swap lfb-alpha lf-tac-app
-  tb tb-term @ lf-tac-app ;
+  dup lfb-level >r s" Eq.refl" r> lf-mk-const1 swap lfb-alpha tb tb-term @ 2 lf-mk-app-n ;
 \ isDefEq at the transparency the step runs at (default; reducible under
 \ by-rw[ 's with_reducible).
 : lfb-defeq ( t s -- flag outcome )

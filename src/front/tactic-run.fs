@@ -75,9 +75,7 @@
 \ lf-tac-stop ( code -- ) (the same without the goals), lf-tac-must
 \ ( outcome -- ) (a Meta step's failure stops the run), lf-tac-detail
 \ ( x xt -- ) (xt's printing as the error's detail), lf-tac-later ( i -- )
-\ (a step not ported yet), lf-tac-const0 ( c-addr u -- term ),
-\ lf-tac-const1 ( level c-addr u -- term ), lf-tac-const2 ( c-addr u l1 l2
-\ -- term ), lf-tac-app ( f a -- t ), lf-tactic-end! ( xt kind -- ) (what
+\ (a step not ported yet), lf-tactic-end! ( xt kind -- ) (what
 \ a block of the kind does at its end, before done: xt ( i -- )),
 \ lf-tac-stop-at and lf-tac-fail-at ( j code -- ) (an error at step j's
 \ word and place, without or with the goals), the step records (review
@@ -110,12 +108,16 @@
 \ 90, 91, 92 for a record whose steps do not nest as the reader makes
 \ them (checked before any step runs), 93 for a type inference or
 \ reduction not ported yet (plan FE1c), 88 or 60 for no room, 71 and the
-\ hand-over's 74-77. Untrusted: only the kernel's check of the finished
+\ hand-over's 74-77. A failure the tactic library throws (meta-must.fs)
+\ out of a step or a try becomes, at once, the authoring error
+\ lf-tac-must makes of its outcome (lfr-authored: lfr-meta-code stays the
+\ one mapping); at the end of a proof, the closing's (lfr-close-code).
+\ Terms are built by the library (app-builder.fs, telescope.fs).
+\ Untrusted: only the kernel's check of the finished
 \ term decides anything.
 \ State: the record trun (fuel, the step running, the step record
-\ running, the universe arguments being built) and the slabs trun-frames,
-\ trun-saves, trun-steps, trun-xs and
-\ trun-locals (one declaration's run), trun-parts and trun-text (the
+\ running) and the slabs trun-frames, trun-saves, trun-steps and trun-xs
+\ (one declaration's run), trun-parts and trun-text (the
 \ open parts of the whole run and the step log's text, emptied by
 \ lfa-run-fresh), trun-log, trun-log-spans and trun-log-decls (the step
 \ log of the whole run, emptied with them), in the checker
@@ -149,6 +151,9 @@ require ./instantiate.fs
 require ./infer.fs
 require ./handover.fs
 require ./tactic-syntax.fs
+require ./meta-must.fs
+require ./app-builder.fs
+require ./telescope.fs
 
 100000 constant lfr-default-fuel   \ tactic steps a run may take by default
 begin-structure /trun
@@ -163,7 +168,6 @@ begin-structure /trun
   field: trun-log-first  \ the declaration's first entry
   field: trun-parts-first \ and the open parts before it
   field: trun-log-cut    \ true once the step log found no room (L4)
-  4 cells +field trun-pair  \ universe arguments (sorryAx, congrArg): level, identity
 end-structure
 /trun context-record: trun
 32 constant lf-tac-work-cells   \ the room of a tactic's own fields in a step record
@@ -194,7 +198,6 @@ begin-structure /tsv      \ a saved state
 end-structure
 /tsv context-slab: trun-saves
 1 cells context-slab: trun-xs       \ the binders' free variables (Lean's xs)
-1 cells context-slab: trun-locals   \ and their locals
 begin-structure /top      \ an open part
   field: top-at           \ the position of its by-sorry
   2 cells +field top-name \ its declaration's name: a span of trun-text (2@: first n)
@@ -313,6 +316,10 @@ s" by-sorry" tac-k-sorry lfr-spell
     lfa-e-tac-meta swap endcase ;
 : lfr-meta-must ( outcome -- ) dup ok? if drop else lfr-meta-code lf-tac-fail then ;
 : lf-tac-must ( outcome -- ) lfr-meta-must ;
+\ A library failure's THROW code made that authoring error's; any other
+\ code as it is.
+: lfr-authored ( code -- code' )
+  dup lf-meta-thrown? 0= if exit then lf-meta-outcome ['] lfr-meta-must catch nip ;
 \ At end NAME (the current token): making the root goal and closing the
 \ value, as the hand-over's errors (no room 60, a step not ported 77,
 \ else malformed 76).
@@ -411,9 +418,10 @@ s" by-sorry" tac-k-sorry lfr-spell
   lfr-unsolved dup run-count lfg-entry tlg-after# ! ['] lfg-goal+ run-each
   lfg-kept? drop ;
 : lfg-close ( -- ) lfg-on? if lfg-after then ;
+: lfr-acted ( i -- ) ['] lfr-act catch ?dup if nip lfr-authored throw then ;
 : lfr-step ( i -- )
   dup trun trun-step ! lfr-spend? 0= if drop lfa-e-tac-fuel lf-tac-fail then
-  dup lfg-open lfr-act lfg-close ;
+  dup lfg-open lfr-acted lfg-close ;
 : lfr-go ( j -- ) dup 1+ lfr-top tfr-next ! lfr-step ;
 \ A block's end: done at its place, the goals outside it put back.
 : lfr-pop ( -- ) trun-frames slab-drop ;
@@ -458,28 +466,10 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-open-part ( goal -- )
   1 trun-parts slab-claim lfr-must drop lf-tac-step lfr-at lfr-part top-at !
   lfr-name+ lfr-must lfr-part top-name 2! lfr-goal+ lfr-must lfr-part top-goal 2! ;
-\ The term: sorryAx.{u} T Bool.false, its constants by name.
-: lfr-pair ( -- addr ) trun trun-pair ;
-: lfr-pair-at! ( level addr -- )
-  2dup ! swap lf-level-identity 0= if 0 then swap cell+ ! ;
-: lfr-pair! ( level -- ) lfr-pair lfr-pair-at! ;
-: lfr-made ( flag -- ) 0= if outcome-full lfr-meta-must then ;
-: lfr-const ( c-addr u n -- term )
-  >r lfa-intern lf-name-generation @ lfr-pair r> lf-cref-new lfr-made
-  lf-cterm-new lfr-made drop ;
-: lfr-app ( f a -- t ) lf-term-app lfr-made ;
-\ For the tactics: a constant with no universe argument or one, an
-\ application.
-: lf-tac-const0 ( c-addr u -- term ) 0 lfr-const ;
-: lf-tac-const1 ( level c-addr u -- term ) 2>r lfr-pair! 2r> 1 lfr-const ;
-\ (The name first: c-addr u l1 l2, the levels in order.)
-: lf-tac-const2 ( c-addr u l1 l2 -- term )
-  lfr-pair 2 cells + lfr-pair-at! lfr-pair! 2 lfr-const ;
-: lf-tac-app ( f a -- t ) lfr-app ;
+\ The term: sorryAx.{u} T Bool.false (mkConst, mkApp2).
 : lfr-sorry-term ( type level -- term )
-  lfr-pair! s" sorryAx" 1 lfr-const swap lfr-app s" Bool.false" 0 lfr-const lfr-app ;
-: lfr-level ( type -- level ) lf-get-level lfr-meta-must ;
-: lfr-sorry-of ( goal -- term ) lf-mvar-type drop dup lfr-level lfr-sorry-term ;
+  >r s" sorryAx" r> lf-mk-const1 swap s" Bool.false" lf-mk-const0 2 lf-mk-app-n ;
+: lfr-sorry-of ( goal -- term ) lf-mvar-type drop dup lf-level! lfr-sorry-term ;
 \ (Lean takes the goal off the list first and puts it back when the term
 \ fails; here the term is made first, with the same goals at a failure,
 \ and the open part is recorded only once it is made.)
@@ -590,7 +580,7 @@ lfr-states# 2* 0 xt-table: lfr-states
 : lfr-undone ( save code -- code ) swap lf-tac-restore lfr-sure ;
 : lfr-caught ( save code -- code )
   ?dup 0= if 0 lfr-kept exit then lfr-undone dup lf-author-throw <> if throw then ;
-: lf-tac-try ( xt -- code ) lf-tac-save lfr-must swap catch lfr-caught ;
+: lf-tac-try ( xt -- code ) lf-tac-save lfr-must swap catch lfr-authored lfr-caught ;
 : lf-tac-forget ( -- ) lfa-error-reset ;
 
 \ ---- The run: the root goal, the steps, the end.
@@ -608,45 +598,31 @@ lfr-states# 2* 0 xt-table: lfr-states
 : lf-tactic-by ( type -- goal )
   lfr-fresh lfr-checked lfr-root 0 0 lf-tac-block lfr-loop lf-pst-root ;
 
-\ ---- Closing over the binders (Lean's mkForallFVars, mkLambdaFVars): the
-\ term instantiated, its binders' free variables abstracted, then a
-\ binder per variable from the last, each named as its local, its domain
-\ the variable's type abstracted over the variables before it.
+\ ---- Closing over the binders (Lean's mkForallFVars, mkLambdaFVars,
+\ telescope.fs): the binders' free variables (Lean's xs) are the current
+\ view's locals but its details (a let among them: 93), oldest first;
+\ the term instantiated, then closed over them.
 : lfr-let? ( fvar -- flag ) dup lf-fvar-let? swap lf-fvar-nondep? or ;
-: lfr-close-push ( x slab -- ) slab-push lfr-ok ;
 : lfr-x+ ( local -- )
-  dup lf-local-fvar lfr-let? if drop lfa-e-tac-meta lfa-fail then
-  dup lf-local-fvar trun-xs lfr-close-push trun-locals lfr-close-push ;
+  lf-local-fvar dup lfr-let? if drop lfa-e-tac-meta lfa-fail then trun-xs slab-push lfr-ok ;
 : lfr-binder+ ( view i -- ) lf-view-local dup lf-local-detail? if drop else lfr-x+ then ;
 : lfr-xs ( -- )
-  trun-xs slab-clear trun-locals slab-clear
-  lf-mctx-view dup lf-view-count 0 ?do dup i lfr-binder+ loop drop ;
-: lfr-n ( -- n ) trun-xs slab-count ;
-: lfr-abstract ( e k -- e' ) 0 trun-xs slab-at swap lf-meta-abstract lfr-close-must ;
-: lfr-type ( k -- type )
-  trun-xs slab-at @ lf-fvar-type lf-instantiate-mvars lfr-close-must ;
-: lfr-domain ( k -- d ) dup lfr-type swap lfr-abstract ;
-: lfr-named ( t k -- t )
-  trun-locals slab-at @ dup lf-local-name swap lf-local-binder >r over swap r>
-  lf-pres-binder! lfr-ok ;
-: lfr-around ( body k xt -- body' )
-  >r tuck lfr-domain swap r> execute 0= if outcome-full lfr-ok then swap lfr-named ;
-: lfr-wraps ( body xt -- body' )
-  >r lfr-n begin dup while 1- swap over r@ lfr-around swap repeat drop r> drop ;
-: lfr-close ( e xt -- e' )
-  >r lf-instantiate-mvars lfr-close-must lfr-n lfr-abstract r> lfr-wraps ;
+  trun-xs slab-clear lf-mctx-view dup lf-view-count 0 ?do dup i lfr-binder+ loop drop ;
+: lfr-close ( e xt -- e' )   \ xt lf-mk-lambda-fvars or lf-mk-forall-fvars
+  >r lf-instantiate-mvars lfr-close-must 0 trun-xs slab-at trun-xs slab-count r> 3 1
+  lf-meta-catch lfr-close-must ;
 
 \ ---- End NAME of a tactic proof (tactic-syntax.fs's lf-tactic-proof-end).
 defer lf-front-by-statement ( -- type )
 : lfr-unelaborated ( -- type ) lfa-e-elaborate lfa-fail ;
 ' lfr-unelaborated is lf-front-by-statement
 : lfr-assemble ( type goal -- type' value )
-  ['] lf-term-lam lfr-close >r ['] lf-term-pi lfr-close r> ;
+  ['] lf-mk-lambda-fvars lfr-close >r ['] lf-mk-forall-fvars lfr-close r> ;
 \ For a term proof or an axiom (front/elab-decl.fs): the type and value,
 \ or the type alone, closed over the current view's binders in the same
 \ way.
 : lf-front-close ( type value -- type' value' ) lfr-xs lfr-assemble ;
-: lf-front-close-type ( type -- type' ) lfr-xs ['] lf-term-pi lfr-close ;
+: lf-front-close-type ( type -- type' ) lfr-xs ['] lf-mk-forall-fvars lfr-close ;
 \ The declaration's step log, also when the log was cut (it says so); a
 \ declaration whose record or name finds no room cuts the log, left out.
 : lfg-entries ( addr -- addr )

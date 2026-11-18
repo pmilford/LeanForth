@@ -4,13 +4,16 @@
 \ line per case: the term lf-whnf-core gives, as an S-expression ((app F
 \ A), (lam T B), (let T V B), #i, Name.{levels}, x, ?n), or what
 \ lf-whnf-stuck finds (?n or none), or the type lf-infer gives (Sort n
-\ for a sort); "unsupported" or the outcome's name
+\ for a sort), or the term a tactic library builder makes (build-run:
+\ src/front/app-builder.fs, "rejected" for Lean's AppBuilder exception);
+\ "unsupported" or the outcome's name
 \ otherwise. Test support only: printing recurses on the host stack,
 \ which the small cases allow.
 
 require ./menv-slice.fs
 require ../../src/front/whnf.fs
 require ../../src/front/infer.fs
+require ../../src/front/app-builder.fs
 menv-load lf-mctx-reset lf-lctx-reset
 
 : must ( x flag -- x ) 0= abort" whnf-cases: no room" ;
@@ -51,6 +54,11 @@ nat char b local constant fb
 l0 l0 2 s" Prod" cn nat app nat app char p local constant fp
 nat fs 0 bv app lam constant sfun
 nat sfun lf-lctx-let made in-view constant fg  fg char g named
+\ For the build cases: e : a = b, u v : Nat -> Nat, w : u = v.
+: eq1 ( α a b -- t ) >r >r lv1 1 s" Eq" cn swap app r> app r> app ;
+nat fa fb eq1 char e local constant fe
+nat nat tpi char u local constant fu   nat nat tpi char v local constant fv
+nat nat tpi fu fv eq1 char w local constant fw
 nat mv-natural lf-mvar-new made constant ?n  ?n char n named
 nat mv-natural lf-mvar-new made constant ?h  ?h char h named
 nat mv-natural lf-mvar-new made constant ?f  ?f char f named
@@ -105,6 +113,8 @@ create rxs-buf 8 cells allot
   if ." 1 " .t else drop ." 0" then cr ;
 : mwhnf-run ( term mode -- )
   ['] lf-meta-whnf at-mode dup ok? if drop .t else nip .outcome then cr ;
+: .built ( outcome -- ) dup outcome-rejected = if drop ." rejected" else .outcome then ;
+: build-run ( xt -- ) 0 1 lf-meta-catch dup ok? if drop .t else nip .built then cr ;
 : stuck-run ( term -- )
   lf-whnf-stuck dup ok? 0= if nip .outcome cr exit then
   drop if .t else ." none" then cr ;

@@ -23,6 +23,7 @@ include ../support/heap-watch.fs
 \ move the context under the loaded slice.
 require ../../src/front/instances.fs
 require ./whnf-cases.fs
+require ../../src/author/declarations.fs
 
 : names= ( name c-addr u -- flag ) menv-name = ;
 : inst-named ( c-addr u -- i ) menv-name elab-decl-of drop elab-instance-of drop ;
@@ -153,10 +154,16 @@ T{ nat add0 nat app s" instAddNat" inst-named it-class-verdict lf-inst-error
    -> outcome-invalid 115 }T
 T{ fx 0 it-default-verdict ghost 0 it-default-verdict lf-inst-error
    -> outcome-invalid outcome-invalid 116 }T
-\ forallMetaTelescopeReducing enters a pi that whnf makes (a let's body:
-\ zeta), and stops at a type whnf leaves.
-: let-pi ( -- t ) lv1 sort nat 0 bv 1 bv tpi let ;
-T{ let-pi lf-inst-telescope swap lf-term-tag@ -> outcome-ok lf-tag-constant }T
+\ forallMetaTelescopeReducing (telescope.fs, which lf-inst-telescope runs
+\ over a declaration's type) enters a pi that whnf makes (a let's body:
+\ zeta), and stops at a type whnf leaves; past whnf a binder's kind is
+\ its node's record (the rebuild keeps it), and none known is refused.
+: let-pi ( -- t ) lv1 sort nat 0 bv 0 bv tpi let ;   \ a pi no other test records
+: named-pi ( -- t ) 0 bv 1 bv tpi dup s" x" lfa-intern lf-binder-default lf-pres-binder! drop ;
+: let-named-pi ( -- t ) lv1 sort nat named-pi let ;
+: tel ( type -- body ) 0 swap -1 ['] 2drop lf-forall-meta-telescope-reducing nip ;
+T{ let-named-pi ' tel 1 1 lf-meta-catch swap lf-term-tag@ -> outcome-ok lf-tag-constant }T
+T{ let-pi ' tel 1 1 lf-meta-catch nip -> outcome-unsupported }T
 
 \ ---- getInstances on S1's problems (Lean: OfNat Nat 0 has three
 \ candidates, the last instOfNatNat; HAdd Nat Nat ?c one, instHAdd; Add
@@ -446,12 +453,20 @@ T{ inst-hadd ' lf-meta-whnf-d lf-tr-reducible lf-meta-at swap lf-meta-args# swap
 : same-config? ( flags mode -- flag ) lf-meta-config d= ;
 : config-kept? ( xt -- ior flag ) lf-meta-config rot execute -rot same-config? ;
 T{ ' meta-at-throw config-kept? ' meta-with-throw config-kept? -> 77 true 77 true }T
-\ forallMetaTelescopeReducing's metavariables: synthetic for an
-\ instance-implicit binder of the declared type (Decidable.decide's
-\ [h : Decidable p]), natural for another, a store pi or none.
-T{ s" Decidable.decide" menv-decl lf-menv-type dup it-mv-kind
-   swap lf-term-second@ it-mv-kind -1 it-mv-kind nat nat tpi it-mv-kind
-   -> mv-natural mv-synthetic mv-natural mv-natural }T
+\ forallMetaTelescopeReducing's binder kinds (telescope.fs's
+\ lf-binder-kind-at, which lf-inst-telescope reads with the declaration):
+\ Decidable.decide's (p : Prop) [h : Decidable p], the declaration's own;
+\ its metavariables natural, then synthetic for the instance binder.
+: decide-kinds ( -- k0 k1 )
+  s" Decidable.decide" menv-decl dup lf-menv-type swap 2dup 0 lf-binder-kind-at drop
+  -rot swap lf-term-second@ swap 1 lf-binder-kind-at drop ;
+T{ decide-kinds -> lf-binder-default lf-binder-instance }T
+create mv-kinds 4 cells allot
+: mv-kind+ ( k mvar kind -- k+1 ) drop lf-mvar-kind drop over cells mv-kinds + ! 1+ ;
+: decide-mvars ( -- n k0 k1 )
+  0 s" Decidable.decide" menv-decl dup lf-menv-type swap ['] mv-kind+
+  lf-forall-meta-telescope-reducing drop mv-kinds 2@ swap ;
+T{ decide-mvars -> 2 mv-natural mv-synthetic }T
 
 \ ---- Default instances, in rank order.
 T{ s" OfNat" menv-name elab-decl-of drop lf-default-instances rot drop -> 1 outcome-ok }T

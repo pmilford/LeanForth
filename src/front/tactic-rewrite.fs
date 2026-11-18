@@ -12,15 +12,17 @@
 \   equation theorems Lean would use, is not supported yet (99, FE8); the
 \   occurs check (220); MVarId.rewrite: the rule's type instantiated, a
 \   natural metavariable for each binder, named as it, the proof applied
-\   to them (forallMetaTelescopeReducing: whnf where no pi is left; an
-\   instance binder 99, FE5); an Iff 99 (propext, FE5); an Eq, after whnf
+\   to them (telescope.fs's forallMetaTelescopeReducing: whnf where no pi
+\   is left; a binder of unknown kind unsupported, 93; an instance binder
+\   99, FE5); an Iff 99 (propext, FE5); an Eq, after whnf
 \   when it is none (matchEq?), else 218; a pattern headed by a
 \   metavariable 219; kabstract (kabstract.fs) at reducible transparency
 \   in the tactics' configuration: no occurrence 215 with the pattern, the
 \   target and the goal; the new target, the abstracted one with the
 \   right side put in, instantiated; the motive fun _a : α => abstracted,
 \   checked by Meta.check at transparency all (meta-check.fs; 216) and
-\   for dependence (217); the proof congrArg.{u1, u2} α T lhs rhs motive
+\   for dependence (217, under withLocalDeclD _a α); the proof
+\   congrArg.{u1, u2} α T lhs rhs motive
 \   rule, u1 and u2 the levels of α and T, the target's type; then the
 \   pending problems synthesized with no postponing (the default
 \   instances); a metavariable of the rule left unassigned (Lean's new
@@ -40,6 +42,8 @@
 \ be), addPPExplicitToExposeDiff in 215's text (plan 8.6), 216's and
 \ 217's inner error texts (LeanForth names the application that did not
 \ fit), and binderNameHint (no rule of Init's proof set has one).
+\ Terms, binders and the telescope come from the tactic library
+\ (app-builder.fs, telescope.fs), as the Lean functions named.
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: the slab trw-mvars (the rule's new metavariables), kept in a
 \ tactic's saved state on trw-mvars-kept (tac-state:), in the checker
@@ -69,6 +73,9 @@ require ./elab-pending.fs
 require ./tactic-syntax.fs
 require ./tactic-run.fs
 require ./tactic-basic.fs
+require ./meta-must.fs
+require ./app-builder.fs
+require ./telescope.fs
 
 begin-structure /trw
   /tb +field trw-tb      \ the step's goal, its type and context (tb)
@@ -109,37 +116,17 @@ end-structure
   tb tb-goal @ trw trw-heq @ lf-mvar-occurs? lf-tac-must
   if ['] lfw-occurs. lfa-e-tac-occurs lfw-failed then ;
 
-\ ---- forallMetaTelescopeReducing over the rule's type.
-\ The rule's binder name and kind, the presentation table's, else its
-\ input record's; an unknown kind is refused, 99 (review C4 of 2026-11-18:
-\ Lean makes an instance binder's metavariable synthetic, so a guess of
-\ explicit is no port). No text reaches the refusal today: every pi of a
-\ rule's type carries a record, from the author's build, the library's
-\ decoder (lib-decode.fs's lbd-named), a view's input record, or a
-\ rebuild that copies it (lf-meta-named), each refusing when the heap is
-\ full; the unrecorded binders, lf-meta-mk-lambda's and isDefEq's eta
-\ lambdas (Lean's mkLambdaFVars takes the local's kind), never become a
-\ rule's pi while no text writes a lambda (plan FE2). Defensive, fail
-\ closed; tests/front/tactic-run.fs probes it in rw's row.
-: lfw-known? ( pi -- flag )
-  dup lf-pres-binder@ if 2drop drop true exit then
-  lf-term-input-binder@ dup if nip nip then ;
-: lfw-binder ( pi -- name kind )
-  dup lfw-known? 0= if lfa-e-tac-form lfw-stop then lf-tac-binder ;
-: lfw-mvar ( pi -- mvar )
-  dup lfw-binder lf-binder-instance = if lfa-e-tac-form lfw-stop then
-  swap lf-term-first@ mv-natural lf-mvar-new lf-tac-must tuck swap lf-mvar-tag!
-    lf-tac-must ;
-: lfw-applied ( mvar -- ) trw trw-heq @ swap lf-tac-app trw trw-heq ! ;
-: lfw-enter ( pi -- body )
-  dup lfw-mvar dup trw-mvars slab-push lf-tac-must dup lfw-applied lf-meta-open
-    lf-tac-must ;
-: lfw-pi ( t -- t' flag )   \ a pi, or one whnf makes; else the type as it was
-  dup lf-term-pi? if true exit then
-  dup lf-meta-whnf lf-tac-must dup lf-term-pi? if nip true else drop false then ;
+\ ---- forallMetaTelescopeReducing over the rule's type (telescope.fs:
+\ binder kinds from the nodes' records; an unknown one unsupported,
+\ review C4 of 2026-11-18): each new metavariable kept in trw-mvars and
+\ the rule applied to it (mkAppN heq newMVars). An instance binder is
+\ refused, 99: Lean synthesizes it (postprocessAppMVars, FE5).
+: lfw-mvar+ ( heq mvar kind -- heq' )
+  lf-binder-instance = if lfa-e-tac-form lfw-stop then
+  dup trw-mvars slab-push lf-tac-must lf-mk-app ;
 : lfw-telescope ( -- )
-  trw trw-heq @ lf-infer lf-tac-must lf-instantiate-mvars lf-tac-must
-  begin lfw-pi while lfw-enter repeat trw trw-htype ! ;
+  trw trw-heq @ dup lf-infer! lf-instantiate! -1 ['] lfw-mvar+
+  lf-forall-meta-telescope-reducing trw trw-htype ! trw trw-heq ! ;
 
 \ ---- matchEq?: Eq α lhs rhs, after whnf when it is none.
 : lfw-iff? ( t -- flag ) 2 s" Iff" lf-meta-app-of? ;
@@ -185,7 +172,7 @@ end-structure
 
 \ ---- The motive: fun _a : α => abst, type correct at all, not dependent.
 : lfw-motive! ( -- )
-  trw trw-alpha @ trw trw-abst @ lf-term-lam lf-tac-made dup s" _a" lfa-intern
+  trw trw-alpha @ trw trw-abst @ lf-term-lam lf-made! dup s" _a" lfa-intern
   lf-binder-default lf-pres-binder! lf-tac-must trw trw-motive ! ;
 : lfw-app. ( -- outcome )
   lf-meta-check-bad dup 0< if drop outcome-ok exit then
@@ -195,21 +182,21 @@ end-structure
   trw trw-motive @ lf-tr-all ['] lf-meta-check lf-defeq-elab lf-defeq-mode lf-meta-with
   dup outcome-invalid = if drop ['] lfw-motive. lfa-e-tac-motive lfw-failed then
     lf-tac-must ;
-: lfw-at ( -- type ) trw trw-abst @ trw trw-alpha @ lf-lctx-local lf-tac-must
-  lf-meta-instantiate1 lf-tac-must lf-infer lf-tac-must ;
+: lfw-at ( a -- flag )   \ isDefEq (inferType (eAbst.instantiate1 a)) eType
+  trw trw-abst @ swap lf-meta-instantiate1 lf-tac-must lf-infer! trw trw-etype @
+  lf-tac-defeq lf-tac-must ;
 : lfw-nothing. ( -- outcome ) outcome-ok ;
 : lfw-dependent. ( x -- outcome ) drop trw trw-motive @ ['] lfw-nothing. lfw-framed. ;
 : lfw-independent ( -- )
-  lfw-at trw trw-etype @ lf-tac-defeq lf-tac-must 0= if
-    ['] lfw-dependent. lfa-e-tac-motive-dep lfw-failed then ;
+  trw trw-alpha @ s" _a" lfa-intern lf-binder-default ['] lfw-at lf-with-local-decl
+  0= if ['] lfw-dependent. lfa-e-tac-motive-dep lfw-failed then ;
 
-\ ---- The proof: congrArg.{u1, u2} α T lhs rhs motive rule.
-: lfw-level ( t -- level ) lf-get-level lf-tac-must ;
+\ ---- The proof: congrArg.{u1, u2} α T lhs rhs motive rule (mkApp6).
 : lfw-args ( f -- t )
-  trw trw-alpha @ lf-tac-app trw trw-etype @ lf-tac-app trw trw-lhs @ lf-tac-app
-  trw trw-rhs @ lf-tac-app trw trw-motive @ lf-tac-app trw trw-heq @ lf-tac-app ;
+  trw trw-alpha @ trw trw-etype @ trw trw-lhs @ trw trw-rhs @ trw trw-motive @
+  trw trw-heq @ 6 lf-mk-app-n ;
 : lfw-proof! ( -- )
-  s" congrArg" trw trw-alpha @ lfw-level trw trw-etype @ lfw-level lf-tac-const2 lfw-args
+  s" congrArg" trw trw-alpha @ lf-level! trw trw-etype @ lf-level! 2 lf-mk-const lfw-args
   trw trw-proof ! ;
 \ Lean's new goals: a metavariable of the rule left unassigned.
 : lfw-closed ( -- )
@@ -217,16 +204,13 @@ end-structure
     lf-tac-must
   if lfa-e-tac-form lfw-stop then ;
 
-\ ---- replaceTargetEq: Eq.mpr.{u} target new (id.{0} (target = new) proof) ?new.
+\ ---- replaceTargetEq (Replace.lean:21-32): Eq.mpr.{u} target new
+\ (mkExpectedPropHint proof (mkEq target new)) ?new, u target's level.
 : lfw-want ( -- t ) tb tb-want @ ;
-: lfw-eq-term ( -- eq )
-  lfw-want lf-infer lf-tac-must dup lfw-level s" Eq" lf-tac-const1 swap lf-tac-app
-  lfw-want lf-tac-app trw trw-new @ lf-tac-app ;
-: lfw-hint ( -- t ) 0 s" id" lf-tac-const1 lfw-eq-term lf-tac-app trw trw-proof @
-  lf-tac-app ;
+: lfw-hint ( -- h ) trw trw-proof @ lfw-want trw trw-new @ lf-mk-eq lf-mk-expected-prop-hint ;
 : lfw-mpr ( goal -- value )
-  >r lfw-want lfw-level s" Eq.mpr" lf-tac-const1 lfw-want lf-tac-app trw trw-new @
-  lf-tac-app lfw-hint lf-tac-app r> lf-tac-app ;
+  >r s" Eq.mpr" lfw-want lf-level! lf-mk-const1 lfw-want trw trw-new @ lfw-hint r>
+  4 lf-mk-app-n ;
 : lfw-goal ( -- goal )
   trw trw-new @ tb tb-goal @ lf-mvar-tag drop tb tb-view @ lf-goal-new lf-tac-must ;
 : lfw-replaced ( -- )

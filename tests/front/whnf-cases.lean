@@ -31,6 +31,9 @@ def stuckCase (e : Expr) : MetaM Unit := do
   | some id => IO.println (← sx (mkMVar id))
   | none => IO.println "none"
 
+def buildCase (x : MetaM Expr) : MetaM Unit := do
+  try IO.println (← sx (← x)) catch _ => IO.println "rejected"
+
 def nat : Expr := mkConst ``Nat
 
 run_meta do
@@ -44,6 +47,10 @@ run_meta do
   withLocalDeclD `p (mkApp2 (mkConst ``Prod [Level.zero, Level.zero]) nat nat) fun p => do
   let sfun := mkLambda `y .default nat (mkApp s (mkBVar 0))
   withLetDecl `g nat sfun fun g => do
+  withLocalDeclD `e (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) nat a b) fun e => do
+  withLocalDeclD `u (mkForall `y .default nat nat) fun u => do
+  withLocalDeclD `v (mkForall `y .default nat nat) fun v => do
+  withLocalDeclD `w (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) (mkForall `y .default nat nat) u v) fun w => do
     let n ← mkFreshExprMVar nat (userName := `n)
     let h ← mkFreshExprMVar nat (userName := `h)
     let f ← mkFreshExprMVar nat (userName := `f)
@@ -148,3 +155,28 @@ run_meta do
     stuckCase (mkApp (mkProj `Prod 0 q) k)
     stuckCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkLambda `y .default (mkConst `Nat []) (mkBVar 0)))
     stuckCase (mkApp f k)
+    buildCase (mkEq a b)
+    buildCase (mkEqRefl a)
+    buildCase (mkEqSymm e)
+    buildCase (do mkEqSymm (← mkEqRefl a))
+    buildCase (mkEqSymm k)
+    buildCase (do mkEqTrans e (← mkEqSymm e))
+    buildCase (do mkEqTrans (← mkEqRefl a) e)
+    buildCase (do mkEqTrans e (← mkEqRefl b))
+    buildCase (mkEqTrans e k)
+    buildCase (do return mkExpectedPropHint e (← mkEq a b))
+    buildCase (mkCongrArg u e)
+    buildCase (do mkCongrArg u (← mkEqRefl a))
+    buildCase (do mkCongrArg u (← mkCongrArg v e))
+    buildCase (mkCongrArg s e)
+    buildCase (mkCongrFun w a)
+    buildCase (do mkCongrFun (← mkEqRefl u) a)
+    buildCase (do mkCongrFun (← mkCongrArg (mkLambda `y .default (mkConst `Nat []) (mkLambda `y .default (mkConst `Nat []) (mkBVar 1))) e) b)
+    buildCase (mkCongrFun e a)
+    buildCase (mkEqNDRec (mkLambda `y .default (mkConst `Nat []) (mkApp (mkApp (mkApp (mkConst `Eq [(mkLevelSucc .zero)]) (mkConst `Nat [])) (mkBVar 0)) b)) e e)
+    buildCase (do mkEqNDRec (mkLambda `y .default (mkConst `Nat []) (mkApp (mkApp (mkApp (mkConst `Eq [(mkLevelSucc .zero)]) (mkConst `Nat [])) (mkBVar 0)) b)) e (← mkEqRefl a))
+    buildCase (mkEqNDRec a e e)
+    buildCase (mkAppM ``Nat.succ #[k])
+    buildCase (mkAppM ``Eq.refl #[k])
+    buildCase (mkAppM ``Nat.succ #[k, k])
+    buildCase (mkAppM ``Nat.succ #[e])

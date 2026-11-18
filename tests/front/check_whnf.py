@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The front end's whnfCore, getStuckMVar? and inferType against pinned Lean (plan FE1c).
+"""The front end's whnfCore, getStuckMVar?, inferType and term builders against pinned Lean.
 
 Each case is a term over Init's Nat, Prod, Eq and Quot (the slice
 tests/front/whnf-slice.ndjson), free variables m z s k x a b, p : Prod Nat
@@ -8,7 +8,12 @@ and ?f := fun y => s y. Pinned Lean 4.35.0 (tests/front/whnf-cases.lean,
 which this script writes with --write and checks is up to date) prints
 Meta.whnfCore's result, getStuckMVar?'s answer or inferType's type;
 LeanForth (tests/front/whnf-cases.fs: lf-whnf-core, lf-whnf-stuck,
-lf-infer) prints its own.
+lf-infer) prints its own. Build cases (plan slice a2-i, the tactic
+library): Meta/AppBuilder.lean's builders (mkEq, mkEqRefl, mkEqSymm,
+mkEqTrans, mkExpectedPropHint, mkCongrArg, mkCongrFun, mkEqNDRec, mkAppM,
+mkEqMP, mkEqMPR) against src/front/app-builder.fs's, over the free
+variables e : a = b, u v : Nat -> Nat and w : u = v besides; an
+AppBuilder exception prints "rejected", as LeanForth's rejected outcome.
 The lines must be equal, except for the cases listed as gaps, where
 LeanForth must answer unsupported (a fact or step not ported; the plan
 item is named) and Lean's answer is shown. A harness self-test first checks
@@ -253,6 +258,8 @@ def forth(t):
 
 
 def lean_case(kind, t):
+    if kind == "build":
+        return f"({t[0]})"
     if kind != "ibeta":
         return lean(t)
     body, args = t
@@ -260,11 +267,62 @@ def lean_case(kind, t):
 
 
 def forth_case(kind, t):
-    """An ibeta case's arguments, the last first: bound variable 0's first."""
+    """An ibeta case's arguments, the last first: bound variable 0's first; a
+    build case's code in a word of its own (bcN), whose token build-run runs."""
+    if kind == "build":
+        n = [b[1] for b in BUILDS].index(t)
+        return f": bc{n} {t[1]} ; ' bc{n}"
     if kind != "ibeta":
         return forth(t)
     body, args = t
     return f"{forth(body)} {' '.join(forth(a) for a in reversed(args))} {len(args)} rxs"
+
+
+# Build cases: (Lean's MetaM Expr, LeanForth's code giving the term).
+MOTIVE = (LAM, NAT, apps(c("Eq", 1), NAT, "#0", "b"))
+KONST = (LAM, NAT, (LAM, NAT, "#1"))   # fun y z => y
+
+
+def build(lean_code, forth_code, gap=None):
+    return ("build", (lean_code, forth_code), gap)
+
+
+BUILDS = [
+    build("mkEq a b", "fa fb lf-mk-eq"),
+    build("mkEqRefl a", "fa lf-mk-eq-refl"),
+    build("mkEqSymm e", "fe lf-mk-eq-symm"),
+    build("do mkEqSymm (← mkEqRefl a)", "fa lf-mk-eq-refl lf-mk-eq-symm"),
+    build("mkEqSymm k", "fk lf-mk-eq-symm"),
+    build("do mkEqTrans e (← mkEqSymm e)", "fe fe lf-mk-eq-symm lf-mk-eq-trans"),
+    build("do mkEqTrans (← mkEqRefl a) e", "fa lf-mk-eq-refl fe lf-mk-eq-trans"),
+    build("do mkEqTrans e (← mkEqRefl b)", "fe fb lf-mk-eq-refl lf-mk-eq-trans"),
+    build("mkEqTrans e k", "fe fk lf-mk-eq-trans"),
+    build("do return mkExpectedPropHint e (← mkEq a b)",
+          "fe fa fb lf-mk-eq lf-mk-expected-prop-hint"),
+    build("mkCongrArg u e", "fu fe lf-mk-congr-arg"),
+    build("do mkCongrArg u (← mkEqRefl a)", "fu fa lf-mk-eq-refl lf-mk-congr-arg"),
+    build("do mkCongrArg u (← mkCongrArg v e)", "fu fv fe lf-mk-congr-arg lf-mk-congr-arg"),
+    build("mkCongrArg s e", "fs fe lf-mk-congr-arg"),
+    build("mkCongrFun w a", "fw fa lf-mk-congr-fun",
+          "FE1c inferType of an application headed by a lambda (getLevel (β' a))"),
+    build("do mkCongrFun (← mkEqRefl u) a", "fu lf-mk-eq-refl fa lf-mk-congr-fun"),
+    build(f"do mkCongrFun (← mkCongrArg {lean(KONST)} e) b",
+          f"{forth(KONST)} fe lf-mk-congr-arg fb lf-mk-congr-fun",
+          "FE1c instantiate1 of a value with loose bound variables under a binder "
+          "(liftLooseBVars, for Expr.beta f #[#0, b])"),
+    build("mkCongrFun e a", "fe fa lf-mk-congr-fun"),
+    build(f"mkEqNDRec {lean(MOTIVE)} e e", f"{forth(MOTIVE)} fe fe lf-mk-eq-ndrec"),
+    build(f"do mkEqNDRec {lean(MOTIVE)} e (← mkEqRefl a)",
+          f"{forth(MOTIVE)} fe fa lf-mk-eq-refl lf-mk-eq-ndrec"),
+    build("mkEqNDRec a e e", "fa fe fe lf-mk-eq-ndrec"),
+    build("mkAppM ``Nat.succ #[k]", 's" Nat.succ" fk 1 lf-mk-app-m'),
+    build("mkAppM ``Eq.refl #[k]", 's" Eq.refl" fk 1 lf-mk-app-m'),
+    build("mkAppM ``Nat.succ #[k, k]", 's" Nat.succ" fk fk 2 lf-mk-app-m'),
+    build("mkAppM ``Nat.succ #[e]", 's" Nat.succ" fe 1 lf-mk-app-m'),
+    # (mkEqMP and mkEqMPR are mkAppM of Eq.mp and Eq.mpr, which this slice
+    # lacks: tests/front/tactic-lib.fs checks their terms over the S2 slice.)
+]
+CASES += BUILDS
 
 
 LEAN_HEAD = """import Lean
@@ -300,6 +358,9 @@ def stuckCase (e : Expr) : MetaM Unit := do
   | some id => IO.println (← sx (mkMVar id))
   | none => IO.println "none"
 
+def buildCase (x : MetaM Expr) : MetaM Unit := do
+  try IO.println (← sx (← x)) catch _ => IO.println "rejected"
+
 def nat : Expr := mkConst ``Nat
 """
 
@@ -314,6 +375,10 @@ LEAN_SETUP = """run_meta do
   withLocalDeclD `p (mkApp2 (mkConst ``Prod [Level.zero, Level.zero]) nat nat) fun p => do
   let sfun := mkLambda `y .default nat (mkApp s (mkBVar 0))
   withLetDecl `g nat sfun fun g => do
+  withLocalDeclD `e (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) nat a b) fun e => do
+  withLocalDeclD `u (mkForall `y .default nat nat) fun u => do
+  withLocalDeclD `v (mkForall `y .default nat nat) fun v => do
+  withLocalDeclD `w (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) (mkForall `y .default nat nat) u v) fun w => do
     let n ← mkFreshExprMVar nat (userName := `n)
     let h ← mkFreshExprMVar nat (userName := `h)
     let f ← mkFreshExprMVar nat (userName := `f)
@@ -413,7 +478,7 @@ def main():
     except Failure as error:
         print(f"check_whnf: {error}")
         return 1
-    print(f"whnfCore, getStuckMVar?, inferType and instantiateBetaRevRange: "
+    print(f"whnfCore, getStuckMVar?, inferType, instantiateBetaRevRange and the term builders: "
           f"{len(CASES) - len(gaps)} of {len(CASES)} "
           "cases equal to "
           f"pinned Lean's; {len(gaps)} gaps answer unsupported, Lean's answer shown: "
