@@ -85,6 +85,7 @@ tactic_plugins = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(tactic_plugins)
 
 PROGRAMS = (".fs", ".py", ".sh")
+TOOL_TESTS = ("tests/scripts/", "tests/mutants/", "tests/lean-cache/", "tests/test-classes.txt")
 TIERS = ("none", "docs", "tests", "library", "front", "tactic", "full")
 # The tactic tier (owner, 2026-11-17, the tactic plug-in design's decision 2): only for a branch
 # scripts/check-tactic-plugins.py finds confined. Its S1/S2 pinned-Lean comparisons:
@@ -679,6 +680,19 @@ def engine_problems(result, engine_unit, e2e):
     return problems
 
 
+def runs_forth(path):
+    """Whether a changed test file can run Forth code: a Forth file, data, or a program that
+    names Gforth (a Python test of a script that only names source files as text runs none).
+    The tests of the test tooling (TOOL_TESTS: the scripts' tests on throw-away repositories,
+    the fault runner's, the Lean cache's, the class table) run no Forth of src/."""
+    if path.startswith(TOOL_TESTS):
+        return False
+    if os.path.splitext(path)[1] not in (".py", ".sh"):
+        return True
+    return re.search(r"gforth|\.fs\b.*(?:run|include|require)|leanforth", read_worktree(path) or "",
+                     re.IGNORECASE) is not None
+
+
 def baseline_changes(base_rev):
     """The files whose entries of tests/coverage-baseline.json differ from BASE_REV's, or None
     when the run count differs or either side does not parse (then all of make coverage-check)."""
@@ -713,7 +727,7 @@ def coverage_need(files, reach_, loaded, base_rev="HEAD"):
             focus |= {p for p in changed if os.path.isfile(p)}
         elif f["path"].startswith("src/") and f["path"].endswith(".fs"):
             focus.add(f["path"])
-        elif f["tier"] == "tests":
+        elif f["tier"] == "tests" and runs_forth(f["path"]):
             focus |= reach_.driven(f["path"])
     focus = {p for p in focus if p.endswith(".fs")}
     if not focus:
