@@ -1,5 +1,5 @@
 {
- "runs": 2665,
+ "runs": 2759,
  "files": {
   "src/author/build.fs": {
    "blocks": 242,
@@ -84,9 +84,9 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/cli/leanforth.fs": {
-   "blocks": 1662,
-   "never_run": 105,
-   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+   "blocks": 1714,
+   "never_run": 115,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed; S2 coverage debt, owner 2026-11-17 (s2-finish, paid in the slice's batch test pass): 105->115: the step log's refusals (a file that cannot be created or written, an axiom's name that finds no room) and S2's text paths that make check runs but make test does not"
   },
   "src/cli/name-text.fs": {
    "blocks": 104,
@@ -99,13 +99,18 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/cli/print.fs": {
-   "blocks": 104,
-   "never_run": 3,
-   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+   "blocks": 114,
+   "never_run": 4,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed; S2 coverage debt, owner 2026-11-17 (s2-finish, paid in the slice's batch test pass): 3->4: pr-newest's empty input"
   },
   "src/cli/tally.fs": {
    "blocks": 56,
    "never_run": 0
+  },
+  "src/core/annotations.fs": {
+   "blocks": 16,
+   "never_run": 1,
+   "reason": "S2 coverage debt, owner 2026-11-17 (s2-finish, paid in the slice's batch test pass): new file, 1: lf-annot-keyed?'s other key (a marker of another key never met at a keyed test)"
   },
   "src/core/axiom-allowlist.fs": {
    "blocks": 100,
@@ -142,7 +147,7 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/constant-term-boundary.fs": {
-   "blocks": 481,
+   "blocks": 484,
    "never_run": 15,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -214,7 +219,7 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/reach.fs": {
-   "blocks": 102,
+   "blocks": 104,
    "never_run": 0
   },
   "src/core/scratch-marks.fs": {
@@ -262,9 +267,9 @@
    "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front): never run are the walks' full and invalid branches (a dead free variable, an occurs check or instantiation refused for room), a delayed-assigned metavariable in the value (no fixture makes a delayed assignment), an assigned metavariable left after instantiation (unreachable: lf-instantiate-mvars replaces every one) and a let's parts when its binder holds no free variable"
   },
   "src/front/beta-inst.fs": {
-   "blocks": 212,
-   "never_run": 6,
-   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the context teardown, the memo table rehash (no test body makes enough pairs to grow it), the branches where the heap or a store refuses room (full) in the memo, the stack, the spine, a beta step or a rebuild, and a leaf that is no bound variable (always kept as closed)"
+   "blocks": 228,
+   "never_run": 8,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the context teardown, the memo table rehash (no test body makes enough pairs to grow it), the branches where the heap or a store refuses room (full) in the memo, the stack, the spine, a beta step or a rebuild, and a leaf that is no bound variable (always kept as closed); S2 coverage debt, owner 2026-11-17 (s2-finish, paid in the slice's batch test pass): 6->8: the annotation rebuild refused room"
   },
   "src/front/cases-several.fs": {
    "blocks": 218,
@@ -292,18 +297,18 @@
    "reason": "new file (plan S2 merge A, branch s2-unfold, 2026-11-13; after review s2-unfold-a and its re-check, measured over make test-front, check_defeq.py --golden's 162 cases): never run are the refusals for a fact meta-env.fs does not have (a text declaration's height in dd-key and tryHeuristic's test, a reducibility, projection or unfoldable answer, the aborted branches after them, a definition without its value) and isSimple's walk refused (room or fuel); and decision branches no case reaches today: the opaque key and tryHeuristic's opaque hint (only a theorem has one, at transparency all, and proof irrelevance compares proofs first), an unknown constant inside packedInstanceOf?'s loop (values name declarations), isSimple's projection and unknown leaves (no regular definition of height at most 2 in the slice has a projection in its value), and two constants of one name with other levels whose left side does not unfold (a universe-polymorphic smart-unfolding constant: none in the slice)"
   },
   "src/front/defeq.fs": {
-   "blocks": 1411,
-   "never_run": 130,
+   "blocks": 1409,
+   "never_run": 126,
    "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front, with tests/front/defeq.fs and check_defeq.py --golden's 90 cases): never run are failure branches inside the machine's steps that the two allocation-refusal scans do not reach (a frame, cell, mark or new term refused, an eqv, whnfCore, inferType or instantiation failing midway), the steps after an earlier abort (aborts are sticky, the step only returns), the stalled-step guard (a broken step), and Lean paths the slice's fixtures do not meet: instance-implicit arguments with a stuck metavariable (trySynthPending), eta-unassigned implicit arguments, a first-order approximation whose lhs cannot be built, quasi-pattern arguments (isTypeCorrect), processAssignment' retrying after a tainted level comparison"
   },
   "src/front/discr-keys.fs": {
    "blocks": 438,
-   "never_run": 22,
-   "reason": "plan FE1e2, branch s1-synth (lowered at the review fix, 2026-11-13; measured over make test-instances): never run are getUnifyKeyArgs' stuck tests that reduceDT never lets a key reach today: a reducible constant (reduceDT unfolds it first, unsupported until plan S2's delta) and a matcher with a metavariable discriminant (whnfCore refuses a matcher head until plan S3), with their status and matcher lookups; and two refusals of Meta lookups of a constant the data's stage has (lf-meta-const-decl, dk-declared after whnf found it): the stage and the context are one library; plan S2 merge A: the refusal of dk-decl's lookup now reaches its caller (lf-meta-const-decl passes the lookup's outcome on)"
+   "never_run": 25,
+   "reason": "plan FE1e2, branch s1-synth (lowered at the review fix, 2026-11-13; measured over make test-instances): never run are getUnifyKeyArgs' stuck tests that reduceDT never lets a key reach today: a reducible constant (reduceDT unfolds it first, unsupported until plan S2's delta) and a matcher with a metavariable discriminant (whnfCore refuses a matcher head until plan S3), with their status and matcher lookups; and two refusals of Meta lookups of a constant the data's stage has (lf-meta-const-decl, dk-declared after whnf found it): the stage and the context are one library; plan S2 merge A: the refusal of dk-decl's lookup now reaches its caller (lf-meta-const-decl passes the lookup's outcome on); S2 coverage debt, owner 2026-11-17 (s2-finish, paid in the slice's batch test pass): 22->25: matcher and smart-unfolding lookups refused or missing"
   },
   "src/front/elab-app.fs": {
    "blocks": 597,
-   "never_run": 97,
+   "never_run": 95,
    "reason": "plan S1, branch s1-elab, after review s1-elab H2 and its re-check M2 (2026-11-14; measured over tests/front/elab.fs with its heap-refusal sweep and the focused tests of the fix round): never run are (a) refusals of the heap and the Meta layer at each step (lf-elab-app-new, ea-started, ea-fargs-at, ea-param-type, ea-add, ea-inst-args, ea-instance, ea-implicit, ea-mvar-typed?, ea-r-start, ea-r-reduced, ea-resulting, ea-prop-*, ea-expected-done, ea-out-done, ea-try-*, ea-explicit, the frames' unused visitor); (b) optional and auto parameters, which no slice declaration has (ea-opt-*, ea-r-last, the optParam branches of ea-r-pi and ea-no-arg: 134), an explicit binder left without an argument (ea-no-arg: the reader gives every explicit binder one), a strict-implicit binder (ea-strict, ea-r-pi), a function type that only synthesis or a coercion makes a pi (ea-normalize, ea-normalized, ea-synth-yes: 131), postponing (ea-postpone?'s 132 through syntax: a head whose type is a metavariable is tested directly); (c) the out-parameter walk's corners (ea-class-outs, ea-dom-hit?, ea-outs-hit?, ea-pos-hit?, ea-binder-out?: an instance binder of a class without data or with no out-parameter at the result, a binder of unknown kind, 136), the data's tag test without a stage (ea-tagged?: every S1 run has the library), and a binder index no kind covers (ea-binder, 136)"
   },
   "src/front/elab-data.fs": {
@@ -322,12 +327,12 @@
   },
   "src/front/elab-pending.fs": {
    "blocks": 627,
-   "never_run": 46,
+   "never_run": 44,
    "reason": "plan S1, branch s1-elab, after review s1-elab H2 and its re-check M2 (2026-11-14; measured over tests/front/elab.fs with its heap-refusal sweep and the focused tests of the fix round): never run are (a) refusals of the heap and the Meta layer inside the steps (ep-chars, ep-b-new, ep-defs+, ep-c-new, ep-b-start's const and inferType, ep-t-apply, ep-telescope, lf-elab-holes?, lf-elab-closed, lf-elab-inst-mvar, ep-again's instantiation, ep-judged's Meta failure, ep-step, ep-merge, ep-back, ep-prios-sort, ep-c-inst's mark refused, ep-b-try's mark refused, the frames' unused visitor); (b) what Init's default instances never ask: a gap in a class's default list (ep-b-hit?, the 139 in ep-b-next), a default instance whose type has a binder of unknown kind or a pi only whnf shows (ep-t-binder, ep-t-end, 136), a subgoal of no class (ep-b-class), synthesizePending's default instance for a subgoal whose class has default instances of its own (ep-prio, ep-prios#, ep-c-after's success: Init's instHPow [Pow a b] with instPowNat, and no natural word writes ^), elaboration data not loaded (ep-prios-ready's 139: every S1 run reads it); (c) a second error while one is recorded (ep-record and lf-elab-fail-term keep the first), the trace's none line, ep-synth-code?'s code of another outcome, and synthesizeSyntheticMVarsUsingDefault (lf-elab-synthesize-default, ep-default-loop's refusals), which only finalize's out-parameter path calls (elab-app.fs ea-out-done) when the result's out-parameter is still open after synthesis"
   },
   "src/front/elab-term.fs": {
-   "blocks": 760,
-   "never_run": 119,
+   "blocks": 755,
+   "never_run": 90,
    "reason": "plan S1, branch s1-elab, after review s1-elab H2 and its re-check M2 (2026-11-14; measured over tests/front/elab.fs with its heap-refusal sweep and the focused tests of the fix round): never run are (a) refusals of the heap and the Meta layer at each step (the et-*-fail and et-failed branches of et-atom, et-app, et-visit, et-go-op, et-op-*, et-rel-*, et-x-*, et-numeral, et-of-nat*, et-type-mvar, et-sort-mvar, et-leaf-*, et-analyze*, et-is-type?, et-sorted, lf-elab-type); (b) forms natural LeanForth cannot write yet (plan S5): a hypothesis a tactic introduced named in a term (et-hyp: needs -> or a binder the reader does not take, error 70), an expected type that is a pi (et-lambda?, 133), a universe-polymorphic expected type for a numeral (128), a syntax kind the reader never makes (et-head); (c) what Init's arithmetic classes never meet in mkAppM (et-am-*: an implicit or instance binder in the class's type, an argument whose type does not fit, a type no pi after whnf, a result with metavariables left) and hasHomogeneousInstance's refusals; (d) binop% corners: an uncomparable pair with no CoeT (the slice has CoeT), an operator below a predicate root with no homogeneous instance (139) and a leaf that is not the max type's (131: et-coe-op, et-fits), a leaf kept by a heterogeneous default instance (et-kept?, et-coe-leaf: Init's data has no class with two default instances; et-def-hit? is tested directly) and the default-instance shapes et-args3 refuses; (e) ensureType's quick yes and its coercion to a sort (CoeSort is not in the slice)"
   },
   "src/front/expr-remap.fs": {
@@ -341,7 +346,7 @@
    "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front): never run are the full and unsupported branches of a telescope (a local, a record, an instantiation or whnfCore refused; a type whnf would unfold), a parameter type that is a pi or might become one under a class head (no fixture has a higher-order out-parameter), and isProp's failures after isPropQuick (inferType or whnfCore refused)"
   },
   "src/front/goal-print.fs": {
-   "blocks": 272,
+   "blocks": 273,
    "never_run": 3,
    "reason": "new file (plan FE1g-1, branch fe1g1, 2026-11-13): never run are only the branches where the heap refuses a slab's growth inside an operation (a run's cells or record, a local, a view's copy, the goal list, a group's places, the names' codes, a let value's depth walk); tests/front/goals.fs reaches the refusal of a run's push, of the trail and of each allocation of a clear"
   },
@@ -351,14 +356,14 @@
    "reason": "new file (plan FE1g-1, branch fe1g1, 2026-11-13): never run are only the branches where the heap refuses a slab's growth inside an operation (a run's cells or record, a local, a view's copy, the goal list, a group's places, the names' codes, a let value's depth walk); tests/front/goals.fs reaches the refusal of a run's push, of the trail and of each allocation of a clear"
   },
   "src/front/handover.fs": {
-   "blocks": 84,
+   "blocks": 96,
    "never_run": 1,
    "reason": "S1 merge B: lf-menv-add refusing for want of room at a hand-over (error 60), which no heap-refusal scan of a text reaches"
   },
   "src/front/infer.fs": {
-   "blocks": 375,
-   "never_run": 22,
-   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) in a level list, a Sort's level, a spine, a telescope, an abstraction, a pi or a normalized level; S2 (branch s2-tactics' review fix round (2026-11-14)): if-whnf-d's branch at transparency all (inferType's withAtLeastTransparency .default keeps all; no test's Meta.check meets a definition at a binder type's head) and if-sort-level's refusal"
+   "blocks": 495,
+   "never_run": 32,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) in a level list, a Sort's level, a spine, a telescope, an abstraction, a pi or a normalized level; S2 (branch s2-tactics' review fix round (2026-11-14)): if-whnf-d's branch at transparency all (inferType's withAtLeastTransparency .default keeps all; no test's Meta.check meets a definition at a binder type's head) and if-sort-level's refusal; S2 coverage debt, owner 2026-11-17 (s2-finish, paid in the slice's batch test pass): 22->32: inferProjType's refusals (if-shape count mismatch, if-ctor, if-data, if-struct, if-params-in, if-pi-whnf, if-skip)"
   },
   "src/front/instances.fs": {
    "blocks": 680,
@@ -366,12 +371,12 @@
    "reason": "plan FE1e3, branch s1-synth (lowered at the review fix, 2026-11-13; measured over make test-instances): never run are only refusals inside Meta calls: lf-mvar-new (a telescope's metavariable) and lf-mctx-depth{ (a check's depth scope) finding no heap room, and lf-menv-find of an instance's or default instance's declaration, which the data names in the library itself (found in a fed context; S1 merge B's library route can refuse a declaration it cannot decode); and (branch s1-elab, 2026-11-14) the class's declaration refused while the local-instance test looks its name up in the run mode (it-class-name)"
   },
   "src/front/instantiate.fs": {
-   "blocks": 262,
-   "never_run": 4,
-   "reason": "measured 2026-11-12 on fe1c-lnorm after review L4 (meta-heap.fs refuses each allocation): never run are in-instantiate-leaf's non-variable leaf at a depth whose range test kept nothing (157), a failing loose-range walk inside instantiate1's value check (190: the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)), and head beta's application refused by the term store after the lambdas were taken (221); FE1g-3/4 (branch fe1g3, 016d1bd1, 2026-11-13): a loose value whose range walk the heap refuses (in-value-ok) is not reached"
+   "blocks": 294,
+   "never_run": 5,
+   "reason": "measured 2026-11-12 on fe1c-lnorm after review L4 (meta-heap.fs refuses each allocation): never run are in-instantiate-leaf's non-variable leaf at a depth whose range test kept nothing (157), a failing loose-range walk inside instantiate1's value check (190: the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)), and head beta's application refused by the term store after the lambdas were taken (221); FE1g-3/4 (branch fe1g3, 016d1bd1, 2026-11-13): a loose value whose range walk the heap refuses (in-value-ok) is not reached; S2 coverage debt, owner 2026-11-17 (s2-finish, paid in the slice's batch test pass): 4->5: the annotation rebuild refused room"
   },
   "src/front/kabstract.fs": {
-   "blocks": 152,
+   "blocks": 153,
    "never_run": 20,
    "reason": "S2 (branch s2-tactics, branch s2-tactics' review fix round (2026-11-14)): never run are the walk's failure branches -- a refusal of room at a bound variable, a node's rebuild or a binder's second part (kab-bvar, kab-node, kab-open, kab-second+), isDefEq's and the loose-variable test's failures, and the head comparisons of projections and literals (kab-fields=, kab-same), which S2's patterns do not have; tests/front/s2-units.fs runs the rest"
   },
@@ -405,13 +410,13 @@
    "reason": "measured 2026-11-12 on fe1c-lnorm after review L4: never run are ld-same? on two different records of equal fields (37: the tests' unshared equal levels differ in a field first) and the full branches of level equality, isNeverZero, mkLevelMax''s rules and lm-take's ended code (56, 65, 73, 82, 85, 95, 113, 120, 121), each needing the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)"
   },
   "src/front/lib-decode.fs": {
-   "blocks": 587,
-   "never_run": 37,
-   "reason": "S1 merge B (lib-decode.fs, the library route): refusal paths the slice's decodes do not reach (full at some allocations, an mdata or string expression unsupported, a block's kind invalid), owed to s1-elab's Init runs"
+   "blocks": 754,
+   "never_run": 49,
+   "reason": "S1 merge B (lib-decode.fs, the library route): refusal paths the slice's decodes do not reach (full at some allocations, an mdata or string expression unsupported, a block's kind invalid), owed to s1-elab's Init runs; S2 coverage debt, owner 2026-11-17 (s2-finish, paid in the slice's batch test pass): 37->49: the decoder's refusals (full at a store, slab or heap), malformed sunfold records (invalid kinds), a string literal and an mdata expression (unsupported), a constant or structure the library lacks"
   },
   "src/front/meta-check.fs": {
-   "blocks": 153,
-   "never_run": 19,
+   "blocks": 154,
+   "never_run": 16,
    "reason": "S2 (branch s2-tactics, branch s2-tactics' review fix round (2026-11-14)): never run are the failure branches of the walk's steps -- refusals of room past the first (mck-full), and inferType's, whnf's and getLevel's failures inside an application, a binder or a constant (mck-app, mck-fn-type, mck-fits?, mck-pi-domain, mck-pi-body, mck-const); tests/front/s2-units.fs runs every outcome once"
   },
   "src/front/meta-config.fs": {
@@ -419,8 +424,8 @@
    "never_run": 0
   },
   "src/front/meta-env.fs": {
-   "blocks": 440,
-   "never_run": 31,
+   "blocks": 510,
+   "never_run": 28,
    "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are an input declaration the named stage does not hold (unreachable: the feed makes the input from the stage's declarations, and only that stage is accepted) and the name tests of a numeric part and of a prefix that is not top-level, which no declaration of the slice named succ or ndrec has; S2 (branch s2-tactics and branch s2-tactics' review fix round (2026-11-14)): lf-menv-kinds-in's rows -- a text declaration's kinds, which are not recorded (me-text-kinds-in), and a binder k past the type (me-tier-kinds-in, me-lib-kinds-in's false branch); tests/front/meta-env.fs's kinds-in cases run the fed row"
   },
   "src/front/meta-spine.fs": {
@@ -434,8 +439,8 @@
    "reason": "measured 2026-11-12 on fe1c-lnorm: never run are the load-time aborts of a heap that cannot hold the stores (130, 131), store-new-slot failing after store-ready succeeded (178), a delayed assignment's trail note refused (359), and in instantiateMVars the term store refusing an application (407), the argument slab and the metavariable search refused (437, 467: the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use))"
   },
   "src/front/nat-offset.fs": {
-   "blocks": 320,
-   "never_run": 31,
+   "blocks": 360,
+   "never_run": 30,
    "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front): never run are the failures of making a constant (a name the context lacks, a level store without zero, a reference or term refused), a literal or sum beyond a cell, an evaluation stack refused, the offset layer codes for an Add.add or HAdd.hAdd whose instance comparison fails for room, and the forms of Lean's evalNat left unported (division, modulo, power, Sub and HSub through Add's path)"
   },
   "src/front/prop-quick.fs": {
@@ -448,6 +453,11 @@
    "never_run": 7,
    "reason": "new file (plan FE1a-b, branch fe1, 2026-11-12): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded, a child beyond the walk memo and the reader default finder before cli/check-lf.fs sets it are never run; since FE1g-2 (branch fe1g2, 2026-11-13) src/front/tactic-syntax.fs ends := by proofs itself, so lfn-w-end and the by branches of lfn-proof-shape and lfn-last (3 blocks) wait for FE1g-3's runner"
   },
+  "src/front/step-log.fs": {
+   "blocks": 106,
+   "never_run": 5,
+   "reason": "S2 coverage debt, owner 2026-11-17 (s2-finish, paid in the slice's batch test pass): new file, 5: the writer's refusal mid-declaration, a position past its room, and tactic names make test's units do not log (check_s2 logs them)"
+  },
   "src/front/syntax.fs": {
    "blocks": 36,
    "never_run": 3,
@@ -455,11 +465,11 @@
   },
   "src/front/synth.fs": {
    "blocks": 1001,
-   "never_run": 83,
+   "never_run": 74,
    "reason": "new file (plan FE1e5, branch s1-synth-b, 2026-11-13; measured over make test-instances and test-front after review s1-synth-b H1 and M3 and its re-check's M-a and L-a: heap-refusal sweeps over four goals, budget sweeps over three, term-store room sweeps over two): never run are (a) what plan S2 merge A reaches: preprocessOutParam's and the cache key's paths for a class with an out-parameter (on main its searches stop at unification's lazy delta; make reference-synth gives them with S2), cacheResult's answer for one (sy-cache-value), assignOutParams answering false, and error 111 (a class type with fewer binders than arguments); (b) failure branches no sweep reaches: a level store, metavariable, snapshot, switch, instantiation, inferType or whnf refused midway (the heap sweeps refuse blocks while the stores have room; the room sweeps limit only the term store, whose refusals they reach), a dead metavariable's type, a table entry missing or its test failing (sy-hit), an instance type that only whnf makes a pi, and canonInstances popping a generator inside a search"
   },
   "src/front/tactic-basic.fs": {
-   "blocks": 281,
+   "blocks": 255,
    "never_run": 16,
    "reason": "new file (plan FE1g-4, branch fe1g3, 2026-11-13), not yet reviewed: refusals of the heap or stores inside a step (lfb-made, a walk refused, a local or view not made), the detail a refused heap cuts, and Meta steps that answer unsupported only where FE1c leaves gaps; scripts/coverage.py --uncovered lists them; 10 after s1-elab's re-check B2 (2026-11-14: lf-tac-defeq on lf-meta-with); S2 (branch s2-tactics): lf-tac-failed's and lf-tac-inline's refusals of the message's room, lf-tac-binder's anonymous-name branch (a binder with neither a presentation nor an input name) and lfb-own's (an inaccessible binder named a)"
   },
@@ -470,13 +480,13 @@
   },
   "src/front/tactic-rewrite.fs": {
    "blocks": 180,
-   "never_run": 27,
+   "never_run": 25,
    "reason": "S2 (branch s2-tactics, branch s2-tactics' review fix round (2026-11-14)): never run are the paths no LeanForth text reaches yet -- an Iff rule, a metavariable pattern (219), a motive not type correct (216) or dependent (217; unreachable while only the target is rewritten), the rule holding the goal itself (220: no text names the goal's metavariable), new goals, and the failure branches of inferType, whnf and isDefEq inside the step (lfw-eq, lfw-pi, lfw-matched, lfw-closed)"
   },
   "src/front/tactic-run.fs": {
-   "blocks": 392,
-   "never_run": 23,
-   "reason": "new file (plan FE1g-3, branch fe1g3, 2026-11-13), not yet reviewed: refusals of the heap in the runner's slabs (frames, saves, open parts, binders), the outcomes of the goal list a well-formed run never meets (lfr-own-code 92, lf-tac-main full), the closing's failures (lfr-close-code), and lf-tac-later for rows no kind reaches yet; scripts/coverage.py --uncovered lists them; S2 (branch s2-tactics and branch s2-tactics' review fix round (2026-11-14)): lf-tac-fail-at's and lfr-pair-at!'s refusals, and lfr-recent's guard when no step record exists (defensive: every caller runs inside a step)"
+   "blocks": 467,
+   "never_run": 26,
+   "reason": "new file (plan FE1g-3, branch fe1g3, 2026-11-13), not yet reviewed: refusals of the heap in the runner's slabs (frames, saves, open parts, binders), the outcomes of the goal list a well-formed run never meets (lfr-own-code 92, lf-tac-main full), the closing's failures (lfr-close-code), and lf-tac-later for rows no kind reaches yet; scripts/coverage.py --uncovered lists them; S2 (branch s2-tactics and branch s2-tactics' review fix round (2026-11-14)): lf-tac-fail-at's and lfr-pair-at!'s refusals, and lfr-recent's guard when no step record exists (defensive: every caller runs inside a step); S2 coverage debt, owner 2026-11-17 (s2-finish, paid in the slice's batch test pass): 23->26: the step log cut at a goal's text and at a declaration's name (L4)"
   },
   "src/front/tactic-syntax.fs": {
    "blocks": 194,
@@ -484,19 +494,23 @@
    "reason": "new file (plan FE1g-2, branch fe1g2, 2026-11-13): the two load-time aborts of tac-heap (no heap for the tactic stores) and the defensive branch of lft-bracketed? (a hypothesis read outside a tactic proof, which the hypotheses' scopes rule out) are never run"
   },
   "src/front/term-eqv.fs": {
-   "blocks": 157,
+   "blocks": 159,
    "never_run": 3,
    "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front): never run are the pair stack refused (full), level comparisons failing for room, two equal leaves of distinct nodes that only an unshared store makes (constants with levels, literals, projection leaves, other leaves), and etaExpanded?'s loose-range walk refused"
   },
+  "src/front/term-find.fs": {
+   "blocks": 26,
+   "never_run": 0
+  },
   "src/front/unfold.fs": {
-   "blocks": 159,
-   "never_run": 13,
-   "reason": "new file (plan S2 merge A, branch s2-unfold, 2026-11-13; after review s2-unfold-a, measured over make test-front): never run are the refusals of the facts unfoldDefinition? asks (a declaration's lookup, a class projection, a matcher, a smart-unfolding body: unsupported without data or a refused decode) and of room (a level list, a spine, mkAppN), a definition without its value, and two decision branches no slice case reaches: a value that is no lambda applied to arguments, and a reducible class projection function at reducible transparency (Init's class projections are semireducible)"
+   "blocks": 181,
+   "never_run": 19,
+   "reason": "new file (plan S2 merge A, branch s2-unfold, 2026-11-13; after review s2-unfold-a, measured over make test-front): never run are the refusals of the facts unfoldDefinition? asks (a declaration's lookup, a class projection, a matcher, a smart-unfolding body: unsupported without data or a refused decode) and of room (a level list, a spine, mkAppN), a definition without its value, and two decision branches no slice case reaches: a value that is no lambda applied to arguments, and a reducible class projection function at reducible transparency (Init's class projections are semireducible); S2 coverage debt, owner 2026-11-17 (s2-finish, paid in the slice's batch test pass): 13->19: smart-unfolding and matcher lookups refused (store or heap), unknown heads"
   },
   "src/front/whnf.fs": {
-   "blocks": 818,
-   "never_run": 36,
-   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) inside a rebuild, a level list, a spine, a rule's application or a frame, defensive defaults no well-formed input reaches (a recursor whose block names no declaration), and the recursive-type test of a structure-like type, which no inductive type of Init has; and (plan S2 merge A, branch s2-unfold, 2026-11-13) the frame machine's refusals (a frame or a spine refused room while a recursor's major premise, a projection's structure or a class field's structure is reduced), a recursor whose inductive type no declaration has, the class field's failures (a literal structure, a refused rebuild, a kept unfolding whose structure is no constructor), and the whnf loop's fault check, which the part's delta always reaches first (its fault fe-whnf-fault-dropped is a known equivalent); S2 (branch s2-tactics and branch s2-tactics' review fix round (2026-11-14)): getStuckMVar?'s projection branches no test meets -- a projection record that is missing (ws-params), an instance argument past the arguments, a projection's or a constant's decode refused inside ws-inner-decl?, and wm-args-none?'s refusal"
+   "blocks": 1124,
+   "never_run": 89,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) inside a rebuild, a level list, a spine, a rule's application or a frame, defensive defaults no well-formed input reaches (a recursor whose block names no declaration), and the recursive-type test of a structure-like type, which no inductive type of Init has; and (plan S2 merge A, branch s2-unfold, 2026-11-13) the frame machine's refusals (a frame or a spine refused room while a recursor's major premise, a projection's structure or a class field's structure is reduced), a recursor whose inductive type no declaration has, the class field's failures (a literal structure, a refused rebuild, a kept unfolding whose structure is no constructor), and the whnf loop's fault check, which the part's delta always reaches first (its fault fe-whnf-fault-dropped is a known equivalent); S2 (branch s2-tactics and branch s2-tactics' review fix round (2026-11-14)): getStuckMVar?'s projection branches no test meets -- a projection record that is missing (ws-params), an instance argument past the arguments, a projection's or a constant's decode refused inside ws-inner-decl?, and wm-args-none?'s refusal; S2 coverage debt, owner 2026-11-17 (s2-finish, paid in the slice's batch test pass): 36->89: the smart path's and reduceMatcher?'s refusals (a frame, spine or rebuild refused room, fuel exhausted), unknown or non-constant matcher heads, too few lambdas, a universe-argument count that does not match, string and too-large literals in cleanupNatOffsetMajor"
   },
   "src/import/checker-input.fs": {
    "blocks": 292,
@@ -899,7 +913,7 @@
   },
   "src/lib/store.fs": {
    "blocks": 235,
-   "never_run": 9,
+   "never_run": 8,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/lib/task.fs": {
@@ -960,7 +974,7 @@
   },
   "src/present/print-analysis.fs": {
    "blocks": 387,
-   "never_run": 35,
+   "never_run": 27,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/print-forth.fs": {
