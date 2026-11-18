@@ -355,6 +355,7 @@ test-lib:
 	$(RUN) $(GFORTH) tests/lib/bytes.fs
 	$(RUN) $(GFORTH) tests/lib/text-rule.fs
 	$(RUN) $(GFORTH) tests/lib/name-table.fs
+	$(RUN) $(GFORTH) -e hex $(CURDIR)/src/lib/name-table.fs -e "base @ decimal 16 <> throw bye"
 	$(RUN) $(GFORTH) tests/lib/json.fs
 	$(RUN) $(GFORTH) tests/lib/json-write.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_json_write.py

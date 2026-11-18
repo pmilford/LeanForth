@@ -13,9 +13,9 @@
 \ address. Any two cells set to 0 serve as an empty table too, such as
 \ a field of a module's own record.
 \ name-entry ( c-addr u table -- ) appends an entry named c-addr
-\ u (at most 255 bytes) to the table; the caller then lays down the
-\ entry's data, if any, in the data space (`,`, `c,`, `allot`), before the
-\ next entry.
+\ u (at most 255 bytes; a longer name aborts, the table unchanged) to the
+\ table; the caller then lays down the entry's data, if any, in the data
+\ space (`,`, `c,`, `allot`), before the next entry.
 \ name-table-find ( c-addr u table -- entry | 0 ) the first entry, in the
 \ order laid down, whose name is c-addr u byte for byte; 0 when none is.
 \ name-entry-name ( entry -- c-addr u ) and name-entry-data ( entry --
@@ -52,6 +52,7 @@ lf-lib set-current
 : name-entry-name ( entry -- c-addr u ) cell+ count ;
 : name-entry-data ( entry -- a-addr ) name-entry-name + aligned ;
 : name-entry ( c-addr u table -- )
+  over 255 > abort" name-entry: a name over 255 bytes"
   align here over ntab-tail ! here swap ntab-last ! 0 , counted, ;
 : name-table-find ( c-addr u table -- entry | 0 )
   @ begin dup while ntab-named? if nip nip exit then @ repeat nip nip ;

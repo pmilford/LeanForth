@@ -3,7 +3,9 @@
 \ a name absent, a prefix and an extension of a name, the empty name, a
 \ name of 255 bytes, the first of two equal names; entries with no data
 \ and with three cells, and entries laid apart; each entry visited once,
-\ in order, with the stack below kept; the stack depth after every word.
+\ in order, with the stack below kept; a name over 255 bytes refused; the
+\ stack depth after every word. make test-lib also loads the file alone
+\ from outside the checkout, in hexadecimal, and checks that BASE returns.
 include ../support/tester.fs
 include ../support/checks.fs
 require ../../src/lib/name-table.fs
@@ -54,6 +56,14 @@ T{ seen @ -> 10203040 }T
 : count-names ( entry -- ) drop 1 seen +! ;
 T{ keywords ' count-names name-table-each seen @ -> 3 }T
 T{ name-table: empty  empty ' count-names name-table-each seen @ -> 3 }T
+
+\ A name over 255 bytes is refused (ABORT", -2) before it is linked: the
+\ table keeps its four entries, the last still found (review N7).
+create longer 256 allot  longer 256 char y fill
+: too-long ( -- ior ) longer 256 wide ['] name-entry catch >r 2drop drop r> ;
+T{ too-long -> -2 }T
+T{ 0 seen ! wide ' count-names name-table-each seen @ -> 4 }T
+T{ s" b" wide name-table-find name-entry-data @ longer 255 wide name-table-find -> 40 0 }T
 
 T{ depth -> 0 }T
 cases-done
