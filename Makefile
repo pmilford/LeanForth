@@ -972,6 +972,13 @@ test-sections:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_sections.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/scripts/test_with_scratch.py
 
+# Every src/lib file alone (plan task 1.1.8): copied with exactly the files it
+# requires into a folder outside the project, loaded under HEX on Gforth and
+# gforth-fast, BASE and the search order restored, and each header's example
+# run as written (tests/lib/test_standalone.py).
+test-lib-standalone:
+	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_standalone.py
+
 test-manifest:
 	$(RUN) $(GFORTH) tests/core/manifest.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_export_manifest.py
@@ -982,8 +989,8 @@ test-manifest:
 reference-manifest:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/reference/manifest-check.sh
 
-.PHONY: test-sha256 test-sections test-manifest reference-manifest
-test: test-sha256 test-sections test-manifest
+.PHONY: test-sha256 test-sections test-lib-standalone test-manifest reference-manifest
+test: test-sha256 test-sections test-lib-standalone test-manifest
 test-differential: reference-manifest
 
 # The elaboration data (plan row FE1d; docs/programming/ELABORATION_DATA.md):

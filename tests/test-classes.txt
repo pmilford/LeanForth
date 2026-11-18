@@ -54,6 +54,7 @@ test-bignum                        unit
 test-bigint                        unit
 test-sha256                        unit
 test-sections                      unit
+test-lib-standalone                unit
 test-manifest                      unit
 test-elab-data                     unit
 test-instances                     unit
