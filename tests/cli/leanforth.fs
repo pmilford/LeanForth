@@ -868,6 +868,27 @@ cli-options
 T{ t-ex cli-seen+ 2drop t-new cli-seen+ 2drop cli-seen nip -> 2 }T
 T{ t-new drop cli-arg-index t-ex drop cli-arg-index t-dot-ex drop cli-arg-index -> 1 true 0 true false }T
 cli-options
+\ An export's manifest is read with it (review F1 of 2026-11-18): its path
+\ is the export's name, flagged, and a written name equal to the export's
+\ plus .manifest.json clashes with it; " Im:J " names argument I's
+\ manifest one file with argument J.
+: t-exm ( -- c-addr u ) s" ex.ndjson.manifest.json" ;
+: t-manifest ( -- c-addr ) c" M" ;
+T{ 3 12 cli-mpair s"  3m:12 " compare -> 0 }T
+: t-export-in ( c-addr u -- ) 2dup t-export cli-in+ t-manifest cli-manifest-in ;
+T{ t-ex t-export-in t-exm t-record cli-out+ cli-state arg-paths# @ -> 3 }T
+T{ 0 cli-path path-manifest? @ 1 cli-path path-manifest? @ 2 cli-path path-manifest? @
+   -> false true false }T
+T{ 1 cli-path 2 cli-path cli-same-text? 2 cli-path 1 cli-path cli-same-text? -> true true }T
+T{ 0 cli-path 2 cli-path cli-same-text? 0 cli-path 1 cli-path cli-same-text? -> false false }T
+T{ cli-clash -> 1 2 true }T
+cli-options
+T{ t-new t-export-in t-dot-ex t-record cli-out+ cli-clash -> false }T
+T{ t-ex s" .manifest.json" cli-manifest-text? t-ex s" json" cli-manifest-text? -> false false }T
+T{ t-ex t-exm cli-manifest-text? s" ex.ndjso" t-exm cli-manifest-text? -> true false }T
+T{ 0 0 t-manifest cli-manifest-in cli-state arg-paths# @ 1 cli-path path-manifest? @
+   -> 3 true }T
+cli-options
 
 cases-done
 bye

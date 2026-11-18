@@ -1184,29 +1184,59 @@ variable cli-info#
 \ No file a command writes may be one it reads or another it writes,
 \ checked before anything runs (exit 4): RECORD (--record), FILE
 \ (--save-snapshot), STEPS (--steps, not -) and reexport's COPY against
-\ EXPORT or FILE.lf, --env, --elab-data and every --snapshot. Two names
-\ are one file when they are the same text, or when bin/leanforth found
-\ them one file by device and inode (test -ef, through symbolic links and
-\ relative names): it lists those arguments in LEANFORTH_SAME_FILES as
-\ " I:J " pairs of their indices (cli-seen), I < J.
+\ EXPORT or FILE.lf, --env, --elab-data, every --snapshot, and the
+\ manifests of EXPORT and of --env, which the command reads beside them
+\ ("<export>.manifest.json", import/manifest.fs; listed even under
+\ --no-manifest). Two names are one file when they are the same text, or
+\ when bin/leanforth found them one file by device and inode (test -ef,
+\ through symbolic links and relative names): it lists those arguments in
+\ LEANFORTH_SAME_FILES as " I:J " pairs of their indices (cli-seen),
+\ I < J, and as " Im:J " when argument I's manifest is argument J.
 begin-structure /cli-path
   2 cells +field path-text      \ the file's name, as given
   field: path-label             \ counted string: what the messages call it
   field: path-out?              \ true: the command writes it
+  field: path-manifest?         \ true: the file is path-text's manifest
 end-structure
 : cli-arg-index ( c-addr -- i true | false ) cli-seen cells-index ;
-: cli-pair-text ( i j -- c-addr u )
-  <# bl hold s>d #s 2drop [char] : hold s>d #s bl hold #> ;
+: cli-hold# ( n -- ) s>d #s 2drop ;
+: cli-pair-to ( i j -- i ) <# bl hold cli-hold# [char] : hold ;
+: cli-pair-from ( i -- c-addr u ) s>d #s bl hold #> ;
+: cli-pair-text ( i j -- c-addr u ) cli-pair-to cli-pair-from ;
+: cli-mpair-text ( i j -- c-addr u ) cli-pair-to [char] m hold cli-pair-from ;
 : cli-pair ( i j -- c-addr u ) ['] cli-pair-text in-decimal ;
+: cli-mpair ( i j -- c-addr u ) ['] cli-mpair-text in-decimal ;
 : cli-same-files ( -- c-addr u ) s" LEANFORTH_SAME_FILES" cli-env ;
-: cli-same-pair? ( i j -- flag )
-  2dup > if swap then cli-pair cli-same-files 2swap search nip nip ;
-: cli-same-index? ( c-addr1 c-addr2 -- flag )
-  cli-arg-index if swap cli-arg-index if cli-same-pair? exit then then drop false ;
+: cli-listed? ( c-addr u -- flag ) cli-same-files 2swap search nip nip ;
+: cli-same-pair? ( i j -- flag ) 2dup > if swap then cli-pair cli-listed? ;
 : cli-path ( i -- addr ) /cli-path * cli-state arg-paths @ + ;
-: cli-same-text? ( a b -- flag ) path-text 2@ rot path-text 2@ compare 0= ;
+: cli-texts ( a b -- c-addr1 u1 c-addr2 u2 ) swap path-text 2@ rot path-text 2@ ;
+\ Text c-addr2 u2 names the manifest of the export named c-addr1 u1.
+: cli-suffixed? ( c-addr u -- flag )
+  dup manifest-suffix nip u< if 2drop false exit then
+  + manifest-suffix nip - manifest-suffix tuck compare 0= ;
+: cli-stem ( c-addr u -- c-addr u' ) manifest-suffix nip - ;
+: cli-manifest-text? ( c-addr1 u1 c-addr2 u2 -- flag )
+  2dup cli-suffixed? 0= if 2drop 2drop false exit then cli-stem compare 0= ;
+: cli-manifests? ( a b -- flag ) path-manifest? @ swap path-manifest? @ = ;
+\ Paths a and b name one text: a manifest's name is its export's with
+\ manifest-suffix (the manifest first, when only one is).
+: cli-manifest-first ( a b -- a' b' ) dup path-manifest? @ if swap then ;
+: cli-same-text? ( a b -- flag )
+  2dup cli-manifests? if cli-texts compare 0= exit then
+  cli-manifest-first cli-texts cli-manifest-text? ;
 : cli-path-addr ( path -- c-addr ) path-text 2@ drop ;
-: cli-same-place? ( a b -- flag ) cli-path-addr swap cli-path-addr cli-same-index? ;
+: cli-path-index ( path -- i true | false ) cli-path-addr cli-arg-index ;
+: cli-indices ( a b -- i j true | false )
+  cli-path-index if swap cli-path-index if swap true exit then then drop false ;
+\ Argument i, or the manifest m of argument i, and argument j are one
+\ file. Two manifests are only ever read, never compared (cli-clash?).
+: cli-plain-place? ( a b -- flag ) cli-indices if cli-same-pair? else false then ;
+: cli-manifest-place? ( m b -- flag )
+  cli-indices if cli-mpair cli-listed? else false then ;
+: cli-same-place? ( a b -- flag )
+  cli-manifest-first over path-manifest? @
+  if cli-manifest-place? else cli-plain-place? then ;
 : cli-same-file? ( a b -- flag )
   2dup cli-same-text? if 2drop true else cli-same-place? then ;
 : cli-written? ( a b -- flag ) path-out? @ swap path-out? @ or ;
@@ -1215,7 +1245,7 @@ end-structure
 : cli-paths-room ( -- outcome )
   cli-state arg-paths# @ 1+ /cli-path * cli-state arg-paths block-resize ;
 : cli-path! ( c-addr u label out? addr -- )
-  tuck path-out? ! tuck path-label ! path-text 2! ;
+  dup /cli-path erase tuck path-out? ! tuck path-label ! path-text 2! ;
 : cli-path+ ( c-addr u label out? -- )   \ THROW -59 when there is no room
   cli-paths-room ok? 0= if -59 throw then
   cli-state arg-paths# @ cli-path cli-path! 1 cli-state arg-paths# +! ;
@@ -1224,17 +1254,24 @@ end-structure
 : cli-layer-in ( i -- )
   2* cells cli-state opt-layers @ + 2@ c" the snapshot read" cli-in+ ;
 : cli-layers-in ( -- ) cli-state opt-layers# @ 0 ?do i cli-layer-in loop ;
+\ An export's manifest, read with it: the export's name, flagged.
+: cli-last-path ( -- addr ) cli-state arg-paths# @ 1- cli-path ;
+: cli-manifest-in ( c-addr u label -- )
+  over 0= if drop 2drop exit then cli-in+ true cli-last-path path-manifest? ! ;
 : cli-steps-out+ ( -- )
   cli-steps 2dup s" -" compare if c" STEPS" cli-out+ else 2drop then ;
 \ The file names, set by the command line or by cli-check (cli-files
 \ counts only those of the command line).
 : cli-first-in ( -- )
-  0 cli-file cli-text-file? if c" FILE.lf" else c" EXPORT" then cli-in+ ;
+  0 cli-file cli-text-file? if c" FILE.lf" cli-in+ exit then
+  2dup c" EXPORT" cli-in+ c" EXPORT's manifest" cli-manifest-in ;
+: cli-env-in ( -- )
+  cli-library-file 2dup c" the --env export" cli-in+
+  c" the --env export's manifest" cli-manifest-in ;
 \ The command's second file, when it writes one (reexport's COPY).
 : cli-copy-out+ ( copy? -- ) if 1 cli-file c" COPY" cli-out+ then ;
 : cli-inputs ( -- )
-  cli-first-in cli-library-file c" the --env export" cli-in+
-  cli-elab-file c" the --elab-data file" cli-in+
+  cli-first-in cli-env-in cli-elab-file c" the --elab-data file" cli-in+
   cli-state opt-snapshot 2@ c" the snapshot read" cli-in+ cli-layers-in ;
 : cli-outputs ( copy? -- )
   cli-copy-out+ cli-record 2@ c" RECORD" cli-out+

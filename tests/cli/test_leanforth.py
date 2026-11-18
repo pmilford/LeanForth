@@ -92,6 +92,7 @@ _gforth = os.environ.get("GFORTH", "gforth")
 GFORTH = str(Path(_gforth).resolve()) if os.sep in _gforth else _gforth
 CASES = "tests/core/check-declaration-cases"
 COMPOSITION = "tests/reference/composition.ndjson"
+MANIFEST = ".manifest.json"   # an export's manifest: its name plus this
 FIXTURE = "tests/reference/constant-fixture.ndjson"
 LABEL = "accepted; axioms: none"
 INDUCTIVE = "tests/cli/inductive.ndjson"
@@ -681,10 +682,13 @@ class Overwrites(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.dir = Path(self.temp.name)
         for source, name in [(COMPOSITION, "ex.ndjson"), (self.TEXT, "victim.lf"),
-                             (self.LIBRARY, "lib.ndjson"), (self.DATA, "lib.elab.ndjson")]:
+                             (self.LIBRARY, "lib.ndjson"), (self.DATA, "lib.elab.ndjson"),
+                             (COMPOSITION + MANIFEST, "ex.ndjson" + MANIFEST),
+                             (self.LIBRARY + MANIFEST, "lib.ndjson" + MANIFEST)]:
             (self.dir / name).write_bytes((ROOT / source).read_bytes())
         (self.dir / "sub").mkdir()
-        for name in ["ex.ndjson", "victim.lf", "lib.ndjson", "lib.elab.ndjson"]:
+        for name in ["ex.ndjson", "victim.lf", "lib.ndjson", "lib.elab.ndjson",
+                     "ex.ndjson" + MANIFEST, "lib.ndjson" + MANIFEST]:
             (self.dir / "sub" / ("link-" + name)).symlink_to(self.dir / name)
         self.before = {p.name: p.read_bytes() for p in self.dir.iterdir() if p.is_file()}
 
@@ -730,6 +734,25 @@ class Overwrites(unittest.TestCase):
         self.refused(["check", "--env", "lib.ndjson", "--record", "new.json", "--steps", "new.json",
                       "victim.lf"], "STEPS must not be RECORD")
         self.assertFalse((self.dir / "new.json").exists())
+
+    def test_manifests(self):
+        """An export's manifest is read with it, so it is an input too (review
+        F1 of 2026-11-18): EXPORT's and the --env export's, by text (the
+        export's name plus .manifest.json) and by file (a link, ./)."""
+        for name in ["ex.ndjson" + MANIFEST, "./ex.ndjson" + MANIFEST,
+                     "sub/link-ex.ndjson" + MANIFEST]:
+            for option, what in [("--record", "RECORD"), ("--save-snapshot", "FILE")]:
+                for first in [[], ["--no-manifest"]]:
+                    self.refused(["check", *first, option, name, "ex.ndjson"],
+                                 f"{what} must not be EXPORT's manifest")
+            self.refused(["reexport", "ex.ndjson", name], "COPY must not be EXPORT's manifest")
+        self.refused(["check", "--record", "ex.ndjson" + MANIFEST, "sub/link-ex.ndjson"],
+                     "RECORD must not be EXPORT's manifest")
+        for name in ["lib.ndjson" + MANIFEST, "sub/link-lib.ndjson" + MANIFEST]:
+            for env in ["lib.ndjson", "./lib.ndjson"]:
+                self.refused(["check", "--env", env, "--elab-data", "lib.elab.ndjson",
+                              "--steps", name, "victim.lf"],
+                             "STEPS must not be the --env export's manifest")
 
     def test_inputs_may_repeat(self):
         """Files only read may be one file: replay EXPORT EXPORT is no clash."""

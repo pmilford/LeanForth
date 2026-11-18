@@ -1648,9 +1648,12 @@ both reads check it.
 Before anything runs, a command that writes a file — `check --record
 RECORD`, `--save-snapshot FILE`, `--steps STEPS` (not `-`), `reexport
 EXPORT COPY` — refuses one that is a file it reads (the export or
-`FILE.lf`, `--env`, `--elab-data`, every `--snapshot`) or another file it
-writes, with status 4 and `error: STEPS must not be FILE.lf` (the names
-as in the usage; review B1, B2 of 2026-11-18). Two names are one file
+`FILE.lf`, `--env`, `--elab-data`, every `--snapshot`, and the manifest
+read beside the export and beside `--env`, `EXPORT.manifest.json`, even
+under `--no-manifest`) or another file it writes, with status 4 and
+`error: STEPS must not be FILE.lf` or `error: RECORD must not be EXPORT's
+manifest` (the names as in the usage; review B1, B2 and F1 of
+2026-11-18). Two names are one file
 when they are the same text or the same file by device and inode, so a
 relative name (`./x`, `../d/x`) or a symbolic link to the file is refused
 too; options before the file name, such as `--jobs N`, change nothing.

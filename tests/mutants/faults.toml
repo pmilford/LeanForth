@@ -1669,8 +1669,8 @@ reason = "capabilities does not list checking a LeanForth text (check [--env EXP
 [[fault]]
 id = "cli-same-file-text-only"
 file = "src/cli/leanforth.fs"
-old = '''  cli-arg-index if swap cli-arg-index if cli-same-pair? exit then then drop false ;'''
-new = '''  2drop false ;'''
+old = ''': cli-plain-place? ( a b -- flag ) cli-indices if cli-same-pair? else false then ;'''
+new = ''': cli-plain-place? ( a b -- flag ) 2drop false ;'''
 test = "python3 tests/cli/test_leanforth.py Overwrites"
 reason = "review B1 of 2026-11-18: an output compared with the inputs only as text, so ./ex.ndjson or a link overwrites the export"
 
@@ -1685,10 +1685,42 @@ reason = "review B2 of 2026-11-18: --steps is not counted as a file written, so 
 [[fault]]
 id = "cli-wrapper-no-same-files"
 file = "bin/leanforth"
-old = '''    if [ "${arguments[i]}" -ef "${arguments[j]}" ]; then same+="$i:$j "; fi'''
-new = '''    :'''
+old = '''       [ "${arguments[i]}" -ef "${arguments[j]}" ]; then same+="$i:$j "; fi'''
+new = '''       false; then :; fi'''
 test = "python3 tests/cli/test_leanforth.py Overwrites"
 reason = "review B1 of 2026-11-18: the wrapper lists no names of one file, so a link or a relative name over an input is written"
+
+[[fault]]
+id = "cli-export-manifest-not-read"
+file = "src/cli/leanforth.fs"
+old = '''  2dup c" EXPORT" cli-in+ c" EXPORT's manifest" cli-manifest-in ;'''
+new = '''  c" EXPORT" cli-in+ ;'''
+test = "python3 tests/cli/test_leanforth.py Overwrites.test_manifests"
+reason = "review F1 of 2026-11-18: an export's manifest is not an input, so --steps, --record, --save-snapshot or reexport's COPY overwrite it"
+
+[[fault]]
+id = "cli-manifest-unflagged"
+file = "src/cli/leanforth.fs"
+old = '''  over 0= if drop 2drop exit then cli-in+ true cli-last-path path-manifest? ! ;'''
+new = '''  over 0= if drop 2drop exit then cli-in+ ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review F1 of 2026-11-18: a manifest path is kept as its export's name, so the manifest itself is never an input and is overwritten"
+
+[[fault]]
+id = "cli-manifest-text-unsuffixed"
+file = "src/cli/leanforth.fs"
+old = '''  2dup cli-suffixed? 0= if 2drop 2drop false exit then cli-stem compare 0= ;'''
+new = '''  compare 0= ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "review F1 of 2026-11-18: a written name is compared with the export's own name, not its manifest's, so cli-check (no wrapper) writes --record EXPORT.manifest.json over the manifest"
+
+[[fault]]
+id = "cli-wrapper-no-manifest-pairs"
+file = "bin/leanforth"
+old = '''      same+="${i}m:$j "'''
+new = '''      :'''
+test = "python3 tests/cli/test_leanforth.py Overwrites.test_manifests"
+reason = "review F1 of 2026-11-18: the wrapper lists no manifest one file with an argument, so ./EXPORT.manifest.json or a link to it is overwritten"
 
 [[fault]]
 id = "cli-check-direct-unguarded"
