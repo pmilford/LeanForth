@@ -137,7 +137,7 @@ FILES = {
 def make_env(**extra):
     """The environment without an enclosing make's or test run's settings: under make
     coverage GFORTH names the counting wrapper, which the stub Makefile would use."""
-    dropped = ("MAKEFLAGS", "MAKELEVEL", "MFLAGS", "MAKEOVERRIDES", "CI", "GFORTH", "LEAN", "LEANEXPORT")
+    dropped = ("MAKEFLAGS", "MAKELEVEL", "MFLAGS", "MAKEOVERRIDES", "CI", "GFORTH", "LEAN", "LEANEXPORT", "JOBS")
     env = {k: v for k, v in os.environ.items()
            if k not in dropped and not k.startswith(("LF_", "LEANFORTH_", "LEAN_", "STUB_"))}
     env.update(GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@example.invalid", GIT_COMMITTER_NAME="t",
