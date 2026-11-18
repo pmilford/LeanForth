@@ -481,6 +481,12 @@ def main(args):
     lean = os.environ.get("LEANFORTH_LEAN")
     if not lean:
         sys.exit("lean-cache: LEANFORTH_LEAN must name the real Lean binary")
+    if os.sep not in lean:
+        # A bare name (a make run without the pinned toolchain): the PATH's, as a shell would.
+        found = shutil.which(lean)
+        if not found:
+            sys.exit(f"lean-cache: LEANFORTH_LEAN names {lean}, which is not on PATH")
+        lean = found
     mode = os.environ.get("LEANFORTH_LEAN_CACHE", "1")
     if mode not in ("0", "1", "verify"):
         sys.exit(f"lean-cache: LEANFORTH_LEAN_CACHE must be 0, 1 or verify, not {mode}")

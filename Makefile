@@ -1,18 +1,30 @@
-# Toolchains. Prefer the project-local copies under .tools/ (see
-# docs/development/INSTALLATION_LOG.md); override with GFORTH=... or LEAN=... .
+# Toolchains (TESTING_STRATEGY.md, "Toolchains"): GFORTH=... and LEAN=... win;
+# else the pinned copies in this checkout's .tools/ (see
+# docs/development/INSTALLATION_LOG.md); else those of the folder
+# LEANFORTH_TOOLS names, laid out as .tools is (a worktree without .tools sets
+# it to the main checkout's .tools, and never links one); else the PATH's.
+# Every recipe and script gets them as absolute paths: LEANFORTH_GFORTH and
+# LEANFORTH_LEAN (exported), GFORTH_FAST (gforth-fast beside that Gforth).
 # LEAN names the pinned toolchain binary directly rather than the elan proxy,
 # so no ELAN_HOME is needed and nothing is downloaded into ~/.elan.
-LOCAL_GFORTH := .tools/gforth/bin/gforth
-LOCAL_LEAN := $(CURDIR)/.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean
-GFORTH ?= $(if $(wildcard $(LOCAL_GFORTH)),$(LOCAL_GFORTH),gforth)
+TOOLS_DIRS := $(CURDIR)/.tools $(LEANFORTH_TOOLS)
+find_tool = $(firstword $(wildcard $(addsuffix /$(1),$(TOOLS_DIRS))))
+# A program's absolute path: a path made absolute, a bare name looked up on PATH.
+tool_path = $(if $(findstring /,$(1)),$(abspath $(1)),$(or $(shell command -v $(1) 2>/dev/null),$(1)))
+LOCAL_GFORTH := $(call find_tool,gforth/bin/gforth)
+LOCAL_LEAN := $(call find_tool,elan/toolchains/leanprover--lean4---v4.35.0/bin/lean)
+GFORTH ?= $(or $(LOCAL_GFORTH),gforth)
 # Every Forth run goes through scripts/gforth-strict.sh, which fails when
 # Gforth 1.0 exits 0 after an error whose report itself crashed (BASE 0).
 # A GFORTH that already names a wrapper of scripts/ (a nested make, a test
 # runner) is replaced by the real Gforth, or the wrapper would call itself.
 ifneq ($(filter %/scripts/gforth-strict.sh %/scripts/gforth-fast,$(abspath $(GFORTH))),)
-override GFORTH := $(or $(LEANFORTH_GFORTH),$(if $(wildcard $(LOCAL_GFORTH)),$(LOCAL_GFORTH),gforth))
+override GFORTH := $(or $(LEANFORTH_GFORTH),$(LOCAL_GFORTH),gforth)
 endif
-export LEANFORTH_GFORTH := $(if $(filter .tools/%,$(GFORTH)),$(CURDIR)/$(GFORTH),$(GFORTH))
+export LEANFORTH_GFORTH := $(call tool_path,$(GFORTH))
+# The fast engine for the tests that run it by name (reference-cli).
+GFORTH_FAST ?= $(firstword $(wildcard $(dir $(LEANFORTH_GFORTH))gforth-fast) \
+	$(call find_tool,gforth/bin/gforth-fast) $(call tool_path,gforth-fast))
 # make coverage sets GFORTH to scripts/coverage-gforth.sh, which runs the strict
 # wrapper itself around its Gforth 1.0, so that name is kept as it is.
 ifeq ($(filter %/scripts/coverage-gforth.sh,$(abspath $(GFORTH))),)
@@ -20,8 +32,10 @@ override GFORTH := $(CURDIR)/scripts/gforth-strict.sh
 else
 override GFORTH := $(abspath $(GFORTH))
 endif
-LEAN ?= $(if $(wildcard $(LOCAL_LEAN)),$(LOCAL_LEAN),lean)
-LEAN_BINARY := $(LEAN)
+LEAN ?= $(or $(LOCAL_LEAN),lean)
+LEAN_BINARY := $(call tool_path,$(LEAN))
+override LEAN := $(LEAN_BINARY)
+export LEANFORTH_LEAN := $(LEAN_BINARY)
 
 # Parallel runs (docs/development/TESTING_STRATEGY.md, "Running the suites"):
 # every target of make test and make check can run beside any other (each
@@ -50,7 +64,6 @@ ifneq ($(LEAN_CACHE),0)
 GIT_COMMON := $(shell git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
 CHECKOUT := $(if $(filter %/.git,$(GIT_COMMON)),$(patsubst %/.git,%,$(GIT_COMMON)),$(CURDIR))
 LEAN_CACHE_DIR ?= $(CHECKOUT)/.claude/work/lean-cache
-export LEANFORTH_LEAN := $(LEAN_BINARY)
 export LEANFORTH_LEAN_CACHE := $(LEAN_CACHE)
 export LEANFORTH_LEAN_CACHE_DIR := $(LEAN_CACHE_DIR)
 export LEANEXPORT := $(CURDIR)/scripts/leanexport-cache.py
@@ -1377,7 +1390,7 @@ test-cli-1 test-cli-2 test-cli-3 test-cli-4 test-cli-engines:
 # Pinned Lean accepts the two Lean fixtures of the command line's tests and
 # scripts/export.sh reproduces their exports and manifests byte for byte.
 reference-cli:
-	LEAN=$(LEAN) $(RUN) bash tests/cli/export-check.sh
+	LEAN=$(LEAN) GFORTH=$(GFORTH_FAST) $(RUN) bash tests/cli/export-check.sh
 
 # The default engine of bin/leanforth, gforth-fast, against Gforth's checking
 # engine (--checked): all of Init (--jobs 8) and the arena tests, verdict lines
@@ -1433,7 +1446,7 @@ once:
 	GFORTH=$(LEANFORTH_GFORTH) LEAN=$(LEAN_BINARY) LEAN_CACHE=$(LEAN_CACHE)
 tier:
 	@python3 scripts/tested-tree.py tier --make $(MAKE) --base $(BASE) --jobs $(JOBS) \
-	--lean-cache $(LEAN_CACHE) $(if $(DRY_RUN),--dry-run)
+	--lean-cache $(LEAN_CACHE) --gforth $(LEANFORTH_GFORTH) --lean $(LEAN_BINARY) $(if $(DRY_RUN),--dry-run)
 test-tiers:
 	$(RUN) python3 tests/scripts/test_test_tier.py
 	$(RUN) python3 tests/scripts/test_tested_tree.py
@@ -1443,7 +1456,8 @@ test-tiers:
 # each suite recorded for this exact tree; DRY_RUN=1 prints what would run. make tag-check
 # exits 0 only when this tree has a complete daily run (a tag requires one).
 daily:
-	@python3 scripts/tested-tree.py daily --make $(MAKE) --jobs $(JOBS) $(if $(DRY_RUN),--dry-run)
+	@python3 scripts/tested-tree.py daily --make $(MAKE) --jobs $(JOBS) \
+	--gforth $(LEANFORTH_GFORTH) --lean $(LEAN_BINARY) $(if $(DRY_RUN),--dry-run)
 tag-check:
 	@python3 scripts/tested-tree.py tag-check
 

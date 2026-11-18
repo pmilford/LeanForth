@@ -10,6 +10,7 @@ a target's pass reused while the files it reads are unchanged (owner, 2026-11-17
 when a file it loads through two requires, a data or golden file it reads, its Makefile rule,
 an exported variable or the engine changed, or when what it reads cannot be known."""
 import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -220,6 +221,25 @@ class Tier(Base):
         self.assertIn("targets reused: ", out)
         self.assertEqual(self.repo.logged(), ["check-docs"])
 
+    def test_toolchain_without_tools_folder(self):
+        """A worktree has no .tools (2026-11-18): every suite names the toolchain as absolute
+        paths, from --gforth/--lean, else LEANFORTH_TOOLS; gforth-fast is the one beside."""
+        elsewhere = self.repo.path.parent / "tools-elsewhere"
+        os.rename(self.repo.path / ".tools", elsewhere)
+        self.repo.write("Makefile", self.repo.path.joinpath("Makefile").read_text() + "\n")
+        self.repo.commit("Makefile")
+        out = self.assertRan(self.tier("--dry-run", LEANFORTH_TOOLS=str(elsewhere), LF_GFORTH_FAST=""))
+        lean = f"LEAN={elsewhere}/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean"
+        self.assertIn(f"test would run: make test JOBS=2 LEAN_CACHE=1 GFORTH={elsewhere}/gforth/bin/gforth {lean}",
+                      out)
+        self.assertIn(f"testfast would run: make test-unit JOBS=2 LEAN_CACHE=1 "
+                      f"GFORTH={elsewhere}/gforth/bin/gforth-fast {lean}", out)
+        given = elsewhere / "gforth/bin/gforth"
+        out = self.assertRan(self.tier("--dry-run", "--gforth", str(given), "--lean", "lean-stub-on-path",
+                                       LF_GFORTH_FAST=""))
+        self.assertIn(f"make test JOBS=2 LEAN_CACHE=1 GFORTH={given} LEAN=lean-stub-on-path", out)
+        self.assertIn(f"GFORTH={elsewhere}/gforth/bin/gforth-fast", out)
+
     def test_library_tier_runs_each_suite(self):
         self.repo.write("src/lib/free.fs", ": free-word 1 ;\n")
         self.repo.commit("library")
@@ -341,7 +361,7 @@ class Tier(Base):
         out = self.assertRan(self.tier())
         self.assertIn("tier full", out)
         self.assertIn("test ran: exit 0", out)
-        self.assertIn("make check-docs JOBS=2 LEAN_CACHE=1; the rest reused: ", out)
+        self.assertRegex(out, r"make check-docs JOBS=2 LEAN_CACHE=1 GFORTH=\S+ LEAN=\S+; the rest reused: ")
         self.assertIn("inputs unchanged", out)
         self.assertIn("check-rest reused", out)
         # check-docs (whose recipe names no file: never reused across commits) on Gforth 1.0 and
@@ -357,7 +377,7 @@ class Tier(Base):
         self.assertIn("test reused", out)
         self.assertIn("check-rest reused", out)
         self.assertIn("testfast would run", out)
-        self.assertNotIn("073", out.replace("Gforth 0.7.3\n", ""))
+        self.assertNotIn("gforth073", out)   # no suite runs Gforth 0.7.3 (a hash may hold "073")
 
     def test_fast_engine_records_are_its_own(self):
         """gforth-fast prints Gforth 1.0's version; its records name the engine."""

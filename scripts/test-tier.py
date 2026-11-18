@@ -331,7 +331,7 @@ MAKE_SPECIAL = re.compile(r"^\s*(?:SHELL|\.SHELLFLAGS|\.ONESHELL|\.POSIX|\.EXPOR
                           r"vpath|-?include|MAKEFLAGS)\b.*$", re.MULTILINE)
 # Toolchain placeholders: a record's Gforth, Lean and cache mode are keyed by their versions and
 # mode (scripts/tested-tree.py), so a digest names none of their paths.
-PLACEHOLDERS = ("GFORTH=@GFORTH@", "LEAN=@LEAN@", "LEAN_CACHE=1")
+PLACEHOLDERS = ("GFORTH=@GFORTH@", "GFORTH_FAST=@GFORTH_FAST@", "LEAN=@LEAN@", "LEAN_CACHE=1")
 # Exported variables that only locate a toolchain or the shared Lean cache.
 TOOL_LOCATIONS = {"LEANFORTH_GFORTH", "LEANFORTH_LEAN", "LEANFORTH_LEAN_CACHE_DIR", "LEANFORTH_LEAN_CACHE"}
 COVERAGE_TOOL = ("scripts/coverage.py", "scripts/coverage-gforth.sh", "scripts/coverage-prelude.fs")

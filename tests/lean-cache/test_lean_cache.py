@@ -141,6 +141,16 @@ class CacheTest(unittest.TestCase):
         self.assertEqual((status, stderr), (0, b""))
         self.assertEqual(stdout, b"elaborated A.lean: theorem a \n")
 
+    def test_bare_name_found_on_path(self):
+        """A bare LEANFORTH_LEAN (a make run without .tools, 2026-11-18) is the PATH's Lean;
+        one not on PATH is refused by name, never run from the wrong place."""
+        name = self.source("A.lean", "theorem a")
+        path = f"{self.prefix / 'bin'}{os.pathsep}{self.env.get('PATH', '')}"
+        self.assertEqual(self.assert_cached(name, LEANFORTH_LEAN="lean", PATH=path)[0], 0)
+        status, _, stderr = self.lean(name, LEANFORTH_LEAN="no-such-lean-binary")
+        self.assertNotEqual(status, 0)
+        self.assertIn(b"no-such-lean-binary, which is not on PATH", stderr)
+
     def test_changed_source_misses(self):
         name = self.source("A.lean", "theorem a")
         self.assert_cached(name)
