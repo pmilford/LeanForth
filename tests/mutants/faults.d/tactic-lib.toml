@@ -80,6 +80,14 @@ test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i withLocalDecl: the local outlives its scope (rw's motive check left one before a2-i)"
 
 [[fault]]
+id = "lib-rejected-not-supported"
+file = "src/front/tactic-run.fs"
+old = '''    outcome-rejected of lfa-e-tac-mismatch endof lfa-e-tac-meta swap endcase ;'''
+new = '''    lfa-e-tac-meta swap endcase ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "a2-i review F7: a tactic library rejection (Lean's error) told as 93, not supported yet, which rw's try passes on where Lean's try catches it"
+
+[[fault]]
 id = "rw-lib-local-not-dropped"
 file = "src/front/telescope.fs"
 old = '''  tl-mark >r ['] tl-opened catch r> lf-lctx-drop throw ;'''

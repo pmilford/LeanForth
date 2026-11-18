@@ -385,6 +385,20 @@ T{ ' spoil lf-tac-try state? -> 0 true tagged mv-natural 0 }T
 \ Nested: an inner failure undone, the outer success kept.
 : inner ( -- ) ['] spoil-fail lf-tac-try drop lf-tac-forget ;
 T{ two-goals ' inner lf-tac-try state? -> 0 false 0 mv-opaque 2 }T
+\ A tactic library failure (meta-must.fs's throw) inside try is the
+\ authoring error lfr-meta-code names: rejected (Lean's AppBuilder or
+\ application type mismatch, an instance not found) is 96, a Lean error
+\ (invalid) that try catches and undoes; unsupported stays 93, which try
+\ catches too but lfw-caught passes on (a gap of LeanForth's); full and
+\ exhausted keep 60 and 91 (review F7 of a2-i).
+variable lib-outcome
+: lib-fails ( -- ) spoil lib-outcome @ lf-must ;
+: lib-code ( outcome -- code outcome' )
+  lib-outcome ! two-goals ['] lib-fails lf-tac-try drop lf-author-code dup lf-author-outcome
+  lf-tac-forget ;
+T{ outcome-rejected lib-code state? -> 96 outcome-invalid false 0 mv-opaque 2 }T
+T{ outcome-unsupported lib-code outcome-full lib-code outcome-exhausted lib-code
+   -> 93 outcome-unsupported 60 outcome-full 91 outcome-exhausted }T
 \ A failed attempt that leaves an inner mark or depth scope open (review
 \ C1 of 2026-11-18): every scope opened since the save is undone with it,
 \ the assignments before the goal list, and no mark stays open.

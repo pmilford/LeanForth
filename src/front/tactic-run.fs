@@ -305,15 +305,18 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lf-tac-stop ( code -- ) lfr-fail ;
 : lfr-block-fail ( i code -- ) >r dup lfr-block-word rot lfr-block-at r> lfa-fail-at ;
 \ An outcome other than ok stops the run: the run's own stores (no room
-\ 88, else 92), or a Meta step (no room for terms 60, fuel 91, anything
-\ else 93, not supported yet: the step works on goals Lean's invariants
-\ keep well formed, so a refusal there is a gap of LeanForth's).
+\ 88, else 92), or a Meta step (no room for terms 60, fuel 91; rejected,
+\ the tactic library's Lean error (AppBuilder's exception, an application
+\ type mismatch, an instance not found), 96 "Type mismatch", whose
+\ outcome is invalid, so that try catches it as Lean's does; anything else
+\ 93, not supported yet: the step works on goals Lean's invariants keep
+\ well formed, so a refusal there is a gap of LeanForth's).
 : lfr-own-code ( outcome -- code )
   outcome-full = if lfa-e-tac-full else lfa-e-tac-record then ;
 : lfr-must ( outcome -- ) dup ok? if drop else lfr-own-code lfr-fail then ;
 : lfr-meta-code ( outcome -- code )
   case outcome-full of lfa-e-terms-full endof outcome-exhausted of lfa-e-tac-fuel endof
-    lfa-e-tac-meta swap endcase ;
+    outcome-rejected of lfa-e-tac-mismatch endof lfa-e-tac-meta swap endcase ;
 : lfr-meta-must ( outcome -- ) dup ok? if drop else lfr-meta-code lf-tac-fail then ;
 : lf-tac-must ( outcome -- ) lfr-meta-must ;
 \ A library failure's THROW code made that authoring error's; any other
