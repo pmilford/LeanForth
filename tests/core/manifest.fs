@@ -11,6 +11,7 @@
 include ../support/tester.fs
 include ../support/heap-watch.fs
 hex require ../../src/import/manifest.fs base @ decimal constant base-after-load
+lf-lib-private order+   \ the reader's fields (ADR 0010)
 
 T{ base-after-load manifest-size-limit manifest-name-room -> 16 65536 4096 }T
 live-blocks @ constant blocks-at-start

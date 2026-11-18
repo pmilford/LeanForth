@@ -9,6 +9,7 @@ include ../support/tester.fs
 include ../support/checks.fs
 include ../support/heap-watch.fs
 hex require ../../src/lib/bytes.fs base @ decimal constant base-after-load
+lf-lib-private order+   \ the tests reach helpers (ADR 0010)
 
 T{ base-after-load lf-byte cr-byte -> 16 10 13 }T
 
@@ -208,6 +209,63 @@ T{ rd reader-buffer @ finish rd reader-size @ swap last-freed @ =
 variable claimed
 T{ 16 heap-claim swap claimed ! -> true }T
 T{ claimed heap-release claimed @ claimed heap-release claimed @ -> 0 0 }T
+
+\ Rules. reader-rules.txt is a byte-order mark, "ab" CR LF, CR LF, a mark and "c" LF
+\ and "d" CR without a line feed (16 bytes); reader-noeol.txt is "abcd".
+\ The composition fixture reads the same under every rule (above: rules
+\ 0 of a zeroed reader).
+: rules-file ( -- c-addr u ) s" tests/lib/reader-rules.txt" ;
+: open-rules ( rules size limit -- outcome )
+  rd reader-init drop rd reader-rules! rules-file rd reader-open ;
+: next= ( c-addr u -- flag ) rd reader-line ok? >r compare 0= r> and ;
+T{ rd reader-free rd reader-rules @ -> 0 }T
+T{ reader-text reader-strict reader-final-lf reader-keep-cr or reader-keep-bom or = -> 0 true }T
+\ Ordinary text: the mark, each carriage return before a line feed and
+\ the one ending the last line are dropped; the last line is a line.
+T{ reader-text 4 64 open-rules -> outcome-ok }T
+T{ s" ab" next= s" " next= s\" \xef\xbb\xbfc" next= rd reader-more? s" d" next= -> true true true true true }T
+T{ rd reader-position -> 14 0 4 }T
+T{ rd reader-more? rd reader-line -> false 0 0 outcome-invalid }T
+T{ finish -> }T
+\ Strict (Lean's exports): everything stays, and the last line is invalid.
+T{ reader-strict 4 64 open-rules -> outcome-ok }T
+T{ s\" \xef\xbb\xbfab\r" next= s\" \r" next= s\" \xef\xbb\xbfc" next= rd reader-more? -> true true true true }T
+T{ rd reader-line -> 0 0 outcome-invalid }T
+T{ finish -> }T
+\ One bit at a time.
+T{ reader-final-lf 4 64 open-rules -> outcome-ok }T
+T{ s" ab" next= s" " next= s\" \xef\xbb\xbfc" next= rd reader-line -> true true true 0 0 outcome-invalid }T
+T{ finish -> }T
+T{ reader-keep-cr 4 64 open-rules -> outcome-ok }T
+T{ s\" ab\r" next= s\" \r" next= s\" \xef\xbb\xbfc" next= s\" d\r" next= -> true true true true }T
+T{ finish -> }T
+T{ reader-keep-bom 4 64 open-rules -> outcome-ok }T
+T{ s\" \xef\xbb\xbfab" next= s" " next= -> true true }T
+T{ finish -> }T
+\ A dropped byte counts in the limit: the first line is 6 bytes.
+T{ reader-text 4 6 open-rules -> outcome-ok }T
+T{ s" ab" next= -> true }T
+T{ finish -> }T
+T{ reader-text 4 5 open-rules -> outcome-ok }T
+T{ rd reader-line -> 0 0 outcome-full }T
+T{ finish -> }T
+\ The rules survive reader-init and reader-open; reader-free clears them.
+T{ reader-strict 4 64 open-rules finish -> outcome-ok }T
+T{ 4 64 rd reader-init rules-file rd reader-open rd reader-rules @ -> outcome-ok outcome-ok 0 }T
+T{ finish reader-keep-cr rd reader-rules! 4 64 rd reader-init rd reader-rules @ -> outcome-ok reader-keep-cr }T
+T{ finish -> }T
+\ A last line that fills the buffer: the line feed it is given grows it
+\ (a buffer of 4 for "abcd", limit 4), or is full at the limit's end.
+: open-noeol ( size limit -- outcome )
+  rd reader-init drop s" tests/lib/reader-noeol.txt" rd reader-open ;
+T{ 4 4 open-noeol s" abcd" next= rd reader-more? -> outcome-ok true false }T
+T{ finish -> }T
+T{ 1 4 open-noeol s" abcd" next= -> outcome-ok true }T
+T{ finish -> }T
+T{ 4 3 open-noeol rd reader-line -> outcome-ok 0 0 outcome-full }T
+T{ finish -> }T
+T{ reader-strict rd reader-rules! 4 4 open-noeol rd reader-line -> outcome-ok 0 0 outcome-invalid }T
+T{ finish -> }T
 
 \ FNV-style mixing: one step is h xor x, times 16777619, modulo the cell;
 \ bytes-mix takes the bytes one at a time, in order, with that step.

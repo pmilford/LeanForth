@@ -1444,6 +1444,7 @@ create ed-head-steps
 \ freed on every path (a THROW passes on after that), and everything
 \ forgotten when it is not ok.
 : ed-views ( -- outcome )
+  reader-strict elab elab-reader reader-rules!
   4096 elab-line-limit elab elab-reader reader-init dup ok? 0= if exit then drop
   elab-depth-limit ed-view json-init
   dup ok? if elab-token-limit ed-view json-token-limit ! then ;

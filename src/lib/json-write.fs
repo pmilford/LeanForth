@@ -2,8 +2,6 @@
 \ one NDJSON line, written to the caller's sink. A general tool with no Lean
 \ knowledge, for receipts, the derivation log, the API and the round trip
 \ of decoded export records. Untrusted.
-\ Requires: json.fs (the integer grammar and token tapes, for jw-copy) and
-\ bytes.fs (UTF-8 checks), which json.fs loads; outcome.fs.
 \ State: none of its own. Every word takes a writer record made by
 \ json-writer: or jw-init, so separate writers are independent; one writer
 \ is single-threaded. A writer may be a context member: declare it with
@@ -74,11 +72,33 @@
 \ keeps the capacity and room jw-init gave it; a view given to jw-copy
 \ holds a successful parse. The file loads in decimal whatever BASE is,
 \ then restores it.
+\
+\ Example: an object with sorted keys, written by TYPE.
+\   2 64 json-writer: w   true w jw-sorted !
+\   : text ( -- outcome ) ['] type w jw-start  w jw-open-object
+\     s" a" w jw-key 1 w jw-u  s" b" w jw-key s\" x\ny" w jw-string
+\     w jw-close-object  w jw-end ;
+\   text space .   \ prints: {"a":1,"b":"x\ny"} 0
+\
+\ Interface: json-writer: jw-size jw-plan? jw-init and the settings
+\ jw-limit jw-sorted jw-lean, with jw-written (bytes given to the sink so
+\ far); jw-start jw-reset jw-end jw-outcome jw-fail; values jw-null
+\ jw-bool jw-n jw-u jw-digits jw-string jw-key jw-open-object
+\ jw-close-object jw-open-array jw-close-array jw-copy. Requires
+\ portability.fs, bounds.fs, outcome.fs, bytes.fs (UTF-8 checks), json.fs
+\ (the integer grammar and token tapes, for jw-copy), decimal.fs and
+\ module.fs; helpers are private in lf-lib-private (ADR 0010).
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
+require ./portability.fs
+require ./bounds.fs
+require ./outcome.fs
+require ./bytes.fs
 require ./json.fs
 require ./decimal.fs
-require ./outcome.fs
+require ./module.fs
+
+lf-lib-private module-open
 
 \ Writer states: what may come next.
 0 constant jw-idle                 \ nothing: before jw-start, or after jw-end
@@ -95,11 +115,13 @@ begin-structure /jw-header
   field: jw-status                 \ ok, or the first failure since jw-start
   field: jw-state                  \ what may come next
   field: jw-busy                   \ true while the sink runs
+lf-lib set-current
   field: jw-written                \ bytes given to the sink since jw-start
   field: jw-limit                  \ setting: most bytes in one text
   field: jw-sorted                 \ setting: true when keys must increase
   field: jw-lean                   \ setting: true for Lean's string escapes
-  field: jw-depth                 \ containers open
+lf-lib-private set-current
+  field: jw-depth                \ containers open
   field: jw-capacity               \ most containers open at once
   field: jw-room                   \ bytes in the key pool
   jw-scratch-size +field jw-scratch   \ digits or an escape being written
@@ -132,11 +154,14 @@ end-structure
 \ caller may store; they are kept from text to text. The nests and key
 \ pool take at most jw-most bytes, so that a record's size fits in a cell.
 max-n /jw-header - constant jw-most
+lf-lib set-current
 : jw-size ( depth room -- u ) swap /jw-nest * + /jw-header + ;
 : jw-plan? ( depth room -- flag )
   dup 0 jw-most between? 0= if 2drop false exit then jw-most swap - /jw-nest / upto? ;
+lf-lib-private set-current
 : jw-format ( depth room writer -- )
   >r 2dup jw-size r@ swap erase r@ jw-room ! r@ jw-capacity ! max-n r> jw-limit ! ;
+lf-lib set-current
 : jw-init ( depth room writer -- flag )
   >r 2dup jw-plan? if r> jw-format true else 2drop r> drop false then ;
 : json-writer: ( depth room "name" -- )
@@ -146,6 +171,7 @@ max-n /jw-header - constant jw-most
 \ Outcomes. The first failure since jw-start wins.
 : jw-outcome ( writer -- outcome ) jw-status @ outcome-sane ;
 : jw-fail ( outcome writer -- ) jw-status outcome-first! ;
+lf-lib-private set-current
 : jw-invalid ( writer -- ) outcome-invalid swap jw-fail ;
 \ Keep a true flag; for a false one, fail the writer with outcome.
 : jw-check ( flag outcome writer -- flag ) rot if 2drop true else jw-fail false then ;
@@ -158,6 +184,7 @@ max-n /jw-header - constant jw-most
   swap jw-state @ jw-idle jw-want-end between? and ;
 : jw-ready? ( writer -- flag )
   dup jw-busy @ over jw-sane? 0= or if jw-invalid false exit then jw-outcome ok? ;
+lf-lib set-current
 
 \ Starting and ending a text. jw-start begins a new text for the sink; a
 \ call from inside the sink is refused. jw-reset, after a THROW out of a
@@ -173,6 +200,7 @@ max-n /jw-header - constant jw-most
 : jw-end ( writer -- outcome )
   dup jw-ready? if dup jw-state @ jw-want-end = over jw-expect
     if jw-idle over jw-state ! then then jw-outcome ;
+lf-lib-private set-current
 
 \ Giving bytes to the sink, counting them; busy while it runs. A sink that
 \ cleared busy has called jw-reset or jw-init, restarting the writer under
@@ -216,11 +244,15 @@ max-n /jw-header - constant jw-most
   2dup jw-value? if dup jw-comma dup >r jw-type r> jw-done else drop 2drop then ;
 
 \ Literals. jw-bool takes a flag, true or false; any other value is invalid.
+lf-lib set-current
 : jw-null ( writer -- ) s" null" rot jw-scalar ;
+lf-lib-private set-current
 : jw-flag? ( x -- flag ) dup true = swap false = or ;
 : jw-bool-text ( flag -- c-addr u ) if s" true" else s" false" then ;
+lf-lib set-current
 : jw-bool ( flag writer -- )
   over jw-flag? if swap jw-bool-text rot jw-scalar else nip jw-invalid then ;
+lf-lib-private set-current
 
 \ Integers, in decimal whatever BASE is: digits built backwards from the
 \ end of the scratch by division, without BASE or pictured output.
@@ -230,17 +262,21 @@ max-n /jw-header - constant jw-most
 : jw-minus ( c-addr n -- c-addr' n' ) swap 1- [char] - over c! swap 1+ ;
 : jw-n>text ( n end -- c-addr n )
   over 0< if swap negate swap jw-u>text jw-minus else jw-u>text then ;
+lf-lib set-current
 : jw-n ( n writer -- )
   dup jw-ready? if tuck jw-scratch-end jw-n>text rot jw-scalar else 2drop then ;
 : jw-u ( u writer -- )
   dup jw-ready? if tuck jw-scratch-end jw-u>text rot jw-scalar else 2drop then ;
+lf-lib-private set-current
 \ Integer text of any size: an optional minus sign, then 0 or digits
 \ without a leading zero (canonical-natural?); -0 is written 0.
 : jw-minus? ( c-addr u -- flag ) if c@ [char] - = else drop false then ;
 : jw-integer? ( c-addr u -- flag ) 2dup jw-minus? if 1 /string then canonical-natural? ;
 : jw-unminus-zero ( c-addr u -- c-addr' u' ) 2dup s" -0" compare 0= if 1 /string then ;
+lf-lib set-current
 : jw-digits ( c-addr u writer -- )
   >r 2dup jw-integer? if jw-unminus-zero r> jw-scalar else 2drop r> jw-invalid then ;
+lf-lib-private set-current
 
 \ String escapes, by byte, in a table for each style: 256 letters after
 \ the backslash (u for \u00xx), or 0 for a byte that stands for itself;
@@ -301,8 +337,10 @@ create jw-quote-mark quote-byte c,
   dup jw-value-next? 0= if jw-refuse exit then
   >r 2dup r@ jw-text? 0= if r> jw-refuse exit then
   r@ jw-escapes jw-escaped-size r> jw-value? ;
+lf-lib set-current
 : jw-string ( c-addr u writer -- )
   >r 2dup r@ jw-string? if r@ jw-comma r@ jw-quoted r> jw-done else 2drop r> drop then ;
+lf-lib-private set-current
 
 \ Keys. In sorted mode a key must come after its object's last key (else
 \ invalid) and fit in the key pool after the keys of the objects around
@@ -336,9 +374,11 @@ create jw-quote-mark quote-byte c,
 : jw-member ( c-addr u writer -- )
   >r r@ jw-comma 2dup r@ jw-quoted r@ jw-colon r@ jw-keep-key
   jw-want-value r> jw-state ! ;
+lf-lib set-current
 \ The key of the next member; its value follows.
 : jw-key ( c-addr u writer -- )
   >r 2dup r@ jw-key? if r> jw-member else 2drop r> drop then ;
+lf-lib-private set-current
 
 \ Containers. An open is a value that nests one level deeper (else full);
 \ a close must match the innermost open and may not follow a key.
@@ -364,10 +404,12 @@ create jw-quote-mark quote-byte c,
 : jw-closer ( kind -- c-addr 1 ) jw-marks drop char+ 1 ;
 : jw-close ( kind writer -- )
   2dup jw-close? if >r jw-closer r@ jw-type -1 r@ jw-depth +! r> jw-done else 2drop then ;
+lf-lib set-current
 : jw-open-object ( writer -- ) json-object -1 rot jw-open-to ;
 : jw-close-object ( writer -- ) json-object swap jw-close ;
 : jw-open-array ( writer -- ) json-array -1 rot jw-open-to ;
 : jw-close-array ( writer -- ) json-array swap jw-close ;
+lf-lib-private set-current
 
 \ Copying the value at a token index of a json.fs view, with everything in
 \ it, as the calls above would write it: keys in the tape's order (in
@@ -423,8 +465,10 @@ create jw-copiers 8 cells allot   \ indexed by token kind
 : jw-copy-tokens ( end first view writer -- )
   2swap ?do i jw-copy-step dup jw-outcome ok? 0= if leave then loop 2drop ;
 : jw-token? ( index view -- flag ) json-kind-at json-object json-null between? ;
+lf-lib set-current
 : jw-copy ( index view writer -- )
   >r 2dup jw-token? if 2dup json-next -rot r> jw-copy-tokens
   else 2drop r> jw-invalid then ;
 
+module-close
 base !   \ the BASE this file was loaded with

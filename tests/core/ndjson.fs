@@ -12,6 +12,7 @@ include ../support/tester.fs
 include ../support/checks.fs
 include ../support/heap-watch.fs
 hex require ../../src/import/ndjson.fs base @ decimal constant base-after-load
+lf-lib-private order+   \ the reader's and the view's fields (ADR 0010)
 
 T{ base-after-load export-line-limit export-token-limit export-depth-limit kind-count
    -> 16 67108864 65536 64 27 }T

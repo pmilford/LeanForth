@@ -9,6 +9,8 @@
 include ../support/tester.fs
 include ../support/checks.fs
 hex require ../../src/lib/json-write.fs base @ decimal constant base-after-load
+lf-lib-private order+   \ the tests reach helpers (ADR 0010)
+require ../../src/lib/context.fs   \ a writer as a context member, below
 
 T{ base-after-load -> 16 }T
 T{ jw-scratch-size cell-digits 2 + aligned = jw-longest max-n 4 - 6 / = -> true true }T

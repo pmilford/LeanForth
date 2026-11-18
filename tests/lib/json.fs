@@ -8,6 +8,7 @@ include ../support/tester.fs
 include ../support/checks.fs
 include ../support/heap-watch.fs
 hex require ../../src/lib/json.fs base @ decimal constant base-after-load
+lf-lib-private order+   \ the tests reach helpers (ADR 0010)
 
 T{ base-after-load s" 10" digits>u cell-digits max-n 0 <# #s #> nip = -> 16 10 true true }T
 live-blocks @ constant blocks-at-start
