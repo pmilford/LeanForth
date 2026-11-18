@@ -19688,7 +19688,7 @@ reason = "review s2-tactics H1 (m5): kabstract tries a subterm with a loose boun
 [[fault]]
 id = "s2-kab-let-walked"
 file = "src/front/kabstract.fs"
-old = '''  over lf-let? if 2drop outcome-unsupported exit then
+old = '''  over kab-unported? if 2drop outcome-unsupported exit then
   over lf-term-binary? if kab-open else drop kab-image then ;'''
 new = '''  over lf-term-binary? if kab-open else drop kab-image then ;'''
 test = "$GFORTH tests/front/s2-units.fs"
@@ -19923,3 +19923,43 @@ old = '''  over lf-term-binary? if tf-images or else drop tf-leaf then ;'''
 new = '''  over lf-term-binary? if tf-images and else drop tf-leaf then ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "S2 merge B: a leaf found in one part of an application is missed unless both parts hold one"
+
+[[fault]]
+id = "fe-annotation-to-writer"
+file = "src/author/export.fs"
+old = '''    >r drop outcome-unsupported lfx-refuse r> endcase ;'''
+new = '''    >r drop r> endcase ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "S2 merge B: the export writer leaves a node no record holds (a smart-unfolding marker) out of the export without refusing it"
+
+[[fault]]
+id = "fe-annotation-handed-over"
+file = "src/front/handover.fs"
+old = '''  lf-reach-annotations? 0= if outcome-ok exit then'''
+new = '''  true if outcome-ok exit then'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "S2 merge B: a declaration reaching a smart-unfolding marker is handed over (error 200 never given)"
+
+[[fault]]
+id = "fe-annotation-unreached"
+file = "src/core/reach.fs"
+old = ''': lr-annot? ( term -- flag ) dup lf-reached? swap lf-term-tag@ lf-tag-annotation = and ;'''
+new = ''': lr-annot? ( term -- flag ) drop false ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "S2 merge B: reach.fs never reports a reached smart-unfolding marker, so the hand-over cannot refuse it"
+
+[[fault]]
+id = "fe-annotation-kabstract"
+file = "src/front/kabstract.fs"
+old = ''': kab-unported? ( e -- flag ) dup lf-let? swap lf-term-tag@ lf-tag-annotation = or ;'''
+new = ''': kab-unported? ( e -- flag ) lf-let? ;'''
+test = "$GFORTH tests/front/s2-units.fs"
+reason = "S2 merge B: kabstract keeps a smart-unfolding marker unvisited where Lean visits mdata's term"
+
+[[fault]]
+id = "fe-annotation-meta-check"
+file = "src/front/meta-check.fs"
+old = '''  lf-term-tag@ dup lf-tag-projection = swap lf-tag-annotation = or'''
+new = '''  lf-term-tag@ lf-tag-projection ='''
+test = "$GFORTH tests/front/s2-units.fs"
+reason = "S2 merge B: Meta.check passes a smart-unfolding marker unchecked"

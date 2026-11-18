@@ -115,9 +115,12 @@ end-structure
 \ Lean visits a let's type, value and body in that order (KAbstract.lean:
 \ 43), where a metavariable pattern's first match assigns it; this walk's
 \ order differs: any let answers unsupported until it is ported.
+\ A smart-unfolding marker (core/annotations.fs) answers unsupported too:
+\ Lean visits mdata's term, this walk would keep it unvisited.
+: kab-unported? ( e -- flag ) dup lf-let? swap lf-term-tag@ lf-tag-annotation = or ;
 : kab-visit ( e off -- outcome )
   over kab-matched? ok-then? 0= if nip nip exit then if nip kab-bvar exit then
-  over lf-let? if 2drop outcome-unsupported exit then
+  over kab-unported? if 2drop outcome-unsupported exit then
   over lf-term-binary? if kab-open else drop kab-image then ;
 
 \ ---- Rebuilding: e's tag over the two images, the same node when they

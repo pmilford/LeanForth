@@ -169,6 +169,29 @@ T{ s\" \"imax\":[" caught caught# @ 2swap search nip nip -> true }T
 \ add_zero's records again, the reference for the hand-over below.
 T{ kernel all-records -> outcome-ok }T keep
 
+\ ---- A smart-unfolding marker (core/annotations.fs, S2 merge B; its key
+\ either kind) never reaches a declaration: reach.fs finds one the roots
+\ reach, the writers refuse it unsupported before or at its line, the
+\ hand-over refuses it with error 200 before it looks for holes.
+: marked ( t key -- t' ) lf-annot drop ;
+T{ kernel va lf-annot-match marked drop reached-records same-records? -> outcome-ok true }T
+T{ all-records -> outcome-unsupported }T
+T{ kernel va lf-annot-match-alt marked d0 lf-fdecl-value ! reached-records
+   -> outcome-unsupported }T
+T{ ty va lf-annot-match marked lf-reach-open drop lf-reach-term lf-reach-term
+   lf-reach-sweep lf-reach-annotations? lf-reach-close -> true }T
+T{ ty va lf-holes-reached? lf-reach-open drop ty lf-reach-term lf-reach-sweep
+   lf-reach-annotations? lf-reach-close -> false outcome-ok false }T
+\ A marker in the value, around a hole as well: unsupported (200), the
+\ declaration unchanged; in the type alone too.
+T{ kernel d0 ty va lf-annot-match marked counts! lf-handover counts? va
+   -> outcome-unsupported true va0 @ }T
+T{ outcome-unsupported lfh-code -> lfa-e-annotation }T
+T{ d0 ty ty hole lf-annot-match-alt marked lf-handover lfh-code -> lfa-e-annotation }T
+T{ d0 ty lf-annot-match marked va lf-handover lfh-code -> lfa-e-annotation }T
+\ An instantiation step not ported is still 77 after a marker's refusal.
+T{ d0 lfh-start outcome-unsupported lfh-code -> lfa-e-instantiate }T
+
 \ ---- The hand-over (front/handover.fs).
 \ Complete: the kernel-form terms are kept as they are.
 T{ kernel d0 ty va lf-handover ty va -> outcome-ok ty0 @ va0 @ }T

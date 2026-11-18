@@ -9,7 +9,9 @@
 \   type and value the elaborator gives (plan FE1e), each closed over the
 \   declaration's parameters, an axiom's value -1.
 \ - lf-handover ( decl type value -- outcome ) instantiates both
-\   (front/mvars.fs), refuses them when either still reaches a metavariable,
+\   (front/mvars.fs), refuses them when either reaches a smart-unfolding
+\   marker (core/annotations.fs: unsupported, error 200; S2 merge B), or
+\   still reaches a metavariable,
 \   term or level (core/reach.fs: only what they reach counts, so a hole
 \   left elsewhere in the stores blocks nothing) or when a universe
 \   parameter decl names is unused (Lean's sortDeclLevelParams: "unused
@@ -22,15 +24,15 @@
 \   invalid for a hole left (elaboration incomplete), an unused universe
 \   parameter, a term that is no node, or a value that does not fit decl's
 \   kind (a theorem's or definition's must be a node, an axiom's -1);
-\   unsupported for an instantiation
+\   unsupported for a marker reached or an instantiation
 \   step not ported yet (the beta step and delayed assignments, plan
 \   FE1c); full for no room.
 \ - In natural text, end NAME runs the elaborator (lf-front-elaborate, a
 \   deferred word front/elab-decl.fs sets; error 71, not supported yet,
 \   without it), then lf-front-hand-over, which stops the run at end NAME on
-\   a refusal: error 74 for a hole left, 75 for an unused universe
-\   parameter, 76 for terms that are malformed (no node, a value unfit for
-\   the kind), 77 for an instantiation step not ported yet, 60 for no
+\   a refusal: error 200 for a smart-unfolding marker reached, 74 for a
+\   hole left, 75 for an unused universe parameter, 76 for terms that
+\   are malformed (no node, a value unfit for the kind), 77 for an instantiation step not ported yet, 60 for no
 \   room. A declaration handed over is made visible to the next, as
 \   Lean's addDecl makes it (front/meta-env.fs, lf-menv-add; no room:
 \   60). The run's records then go to the kernel by the path of every
@@ -86,9 +88,15 @@ end-structure
 : lfh-def? ( -- flag ) lfh-decl@ lf-fdecl-kind @ lf-decl-def = ;
 : lfh-unused-of ( type-unused? -- flag ) lfh-def? if drop lfh-names lfh-unused? then ;
 : lfh-refuse ( code -- outcome ) lfh-why! outcome-invalid ;
+\ A marker (Lean's mdata, which lean4export does not write) is refused
+\ before anything else: it is no part of Lean's declaration.
+: lfh-marked? ( -- outcome )
+  lf-reach-annotations? 0= if outcome-ok exit then
+  lfa-e-annotation lfh-why! outcome-unsupported ;
 \ An unused parameter is told before a hole, as pinned Lean tells only it
 \ for theorem t5.{v} : True := _ and def d3.{v} : Nat := _.
 : lfh-judge ( type-unused? -- outcome )
+  lfh-marked? dup ok? 0= if nip exit then drop
   lfh-unused-of if lfa-e-unused-universe lfh-refuse exit then
   lf-reach-holes? if lfa-e-incomplete lfh-refuse else outcome-ok then ;
 : lfh-type-unused? ( type -- flag ) lf-reach-term lf-reach-sweep lfh-names lfh-unused? ;
@@ -124,10 +132,12 @@ defer lf-front-elaborate ( -- type value )
 ' lfh-later is lf-front-elaborate
 \ A refusal's error at end NAME: the hand-over's own for invalid (a hole
 \ 74, an unused universe parameter 75, else malformed 76), no room 60, an
-\ instantiation step not ported 77.
+\ instantiation step not ported 77, a marker reached 200.
+: lfh-unported ( -- code )
+  lfh lfh-why @ dup lfa-e-annotation <> if drop lfa-e-instantiate then ;
 : lfh-code ( outcome -- code )
   case outcome-invalid of lfh lfh-why @ endof outcome-full of lfa-e-terms-full endof
-    lfa-e-instantiate swap endcase ;
+    lfh-unported swap endcase ;
 : lfh-visible ( -- ) lfh-decl@ lf-menv-add ok? 0= if lfa-e-terms-full lfa-fail then ;
 : lf-front-hand-over ( type value -- )
   lf-front-header -rot lf-handover dup ok? 0= if lfh-code lfa-fail then

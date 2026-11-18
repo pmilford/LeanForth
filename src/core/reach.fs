@@ -21,7 +21,10 @@
 \ -1 for an axiom's missing value, is ignored); lf-reach-sweep ( -- )
 \ marks what the roots reach; lf-reached? ( term -- flag ),
 \ lf-level-reached? ( level -- flag ); lf-reach-holes? ( -- flag ) whether
-\ a reached node is a metavariable; lf-reach-param? ( name -- flag )
+\ a reached node is a metavariable; lf-reach-annotations? ( -- flag )
+\ whether a reached term is a smart-unfolding marker (core/annotations.fs:
+\ a front-end node no declaration may hold; its child is no part, so the
+\ hand-over refuses it first); lf-reach-param? ( name -- flag )
 \ whether a reached level is the universe parameter name (Lean's
 \ collectLevelParams, asked of one name); lf-holes-reached? ( term1 term2 --
 \ flag outcome ) all of it for two roots: ok, or full when the heap has
@@ -115,6 +118,9 @@ end-structure
 : lr-term-holes? ( -- flag ) lf-reach lf-reach-term# @ ['] lr-term-hole? any? ;
 : lr-level-holes? ( -- flag ) lf-reach lf-reach-level# @ ['] lr-level-hole? any? ;
 : lf-reach-holes? ( -- flag ) lr-term-holes? lr-level-holes? or ;
+\ A reached smart-unfolding marker.
+: lr-annot? ( term -- flag ) dup lf-reached? swap lf-term-tag@ lf-tag-annotation = and ;
+: lf-reach-annotations? ( -- flag ) lf-reach lf-reach-term# @ ['] lr-annot? any? ;
 
 \ A reached universe parameter of that name.
 : lr-param= ( name level -- flag )

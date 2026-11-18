@@ -13,7 +13,9 @@ meta-check.fs; docs/design/S2_INTERFACE.md 4, 5, 9 and appendix G).
    the error code and Lean's first message (the first lines of the error,
    as LeanForth prints them); the proofs not supported yet (UNSUPPORTED):
    exit 2 and the code.
-3. tests/front/s2-units.fs (kabstract, Meta.check) and s2-sweeps.fs (the
+3. No file under src/kernel/ or src/import/ names the smart-unfolding
+   marker (core/annotations.fs, S2 merge B) outside a comment.
+4. tests/front/s2-units.fs (kabstract, Meta.check) and s2-sweeps.fs (the
    heap refusing each allocation of 01-zero-add-rw.lf's run, isDefEq's
    fuel at each limit): exit 0, no failed test.
 A harness self-test first checks that a changed golden line is told apart.
@@ -26,6 +28,7 @@ Usage: GFORTH=... python3 tests/front/check_s2.py
 """
 import os
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -178,6 +181,31 @@ def check_units():
             raise Failure(f"{path}: exit {done.returncode}\n{done.stdout}{done.stderr}")
 
 
+# The smart-unfolding marker (src/core/annotations.fs, core tag 17; S2
+# merge B) is front-end only: no kernel or importer file may name it.
+MARKER = re.compile(r"lf-annot|lf-tag-annotation|annotations\.fs")
+BOUNDARY = ["src/kernel", "src/import"]
+
+
+def marker_lines(texts):
+    """(path, line number) of each line that names the marker, comment
+    lines (a backslash first) left out."""
+    return [(path, n) for path, text in texts for n, line in enumerate(text.splitlines(), 1)
+            if not line.lstrip().startswith("\\") and MARKER.search(line)]
+
+
+def check_boundary():
+    planted = [("x.fs", ": t ( -- ) lf-tag-annotation drop ;"), ("y.fs", "\\ annotations.fs")]
+    if marker_lines(planted) != [("x.fs", 1)]:
+        raise Failure("harness self-test: a marker named in code is not told apart from a comment")
+    texts = [(str(f.relative_to(ROOT)), f.read_text(encoding="utf-8"))
+             for d in BOUNDARY for f in sorted((ROOT / d).rglob("*.fs"))]
+    found = marker_lines(texts)
+    if found or not texts:
+        raise Failure(f"the smart-unfolding marker named under {BOUNDARY}: {found}")
+    return len(texts)
+
+
 def check_lean(write):
     done = run([LEAN, "-DwarningAsError=true", "tests/front/s2-proofs.lean"])
     if done.returncode != 0:
@@ -201,10 +229,12 @@ def main():
         print(f"check_s2 --lean: s2-proofs.lean gives {GOLDEN.name}; s2-wrong.lean gives "
               f"the {len(LEAN_WRONG)} messages; harness self-test passed")
         return
+    files = check_boundary()
     check_files(want)
     check_wrong()
     check_units()
-    print(f"check_s2: {len(FILES)} files accepted, their {len(want)} type and value lines "
+    print(f"check_s2: no kernel or importer file ({files}) names the smart-unfolding marker; "
+          f"{len(FILES)} files accepted, their {len(want)} type and value lines "
           f"equal pinned Lean's node for node; {len(WRONG)} wrong proofs refused with Lean's "
           f"messages; {len(UNSUPPORTED)} unsupported; {len(UNITS)} unit files pass; "
           f"harness self-test passed")
