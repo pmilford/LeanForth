@@ -203,6 +203,9 @@ require ./source.fs
 \ (215-220; 214 and 221-224 kept). Each prints Lean's first message, its
 \ names on the message's line (lfa-inline) and, for a tactic's failure,
 \ the goals after it.
+\ A smart-unfolding marker (core/annotations.fs, S2 merge B) that a
+\ declaration's type or value reaches at the hand-over (front/handover.fs).
+200 constant lfa-e-annotation       \ unsupported: a smart-unfolding marker reached it
 205 constant lfa-e-tac-not-inductive \ induction: the target's type is no inductive type
 206 constant lfa-e-tac-alt-name     \ an alternative named as no case of the eliminator
 207 constant lfa-e-tac-alt-missing  \ an alternative not written
@@ -464,6 +467,9 @@ create lfa-catalogue
   lfa-e-check-here s" unexpected token '#check'; expected term" lfa-invalid,
   here lfa-e-check-in-by s" #check is a command: Lean would end the tactic block here; "
   lfa-invalid, s" put it after end" lfa-more,
+  lfa-e-annotation
+  s" not supported yet: a smart-unfolding marker reached the declaration (plan S2)"
+  lfa-unsupported,
   lfa-e-tac-not-inductive
   s" Tactic `induction` failed: major premise type is not an inductive type" lfa-invalid,
   lfa-e-tac-alt-name s" Invalid alternative name" lfa-invalid,

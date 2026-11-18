@@ -27,6 +27,11 @@
 \   closed arguments the same term as Lean's instantiate of them all at
 \   once) and the arguments left over are applied to the result; any other
 \   term is itself. One step, as Lean's headBeta (whnfCore repeats it).
+\   A smart-unfolding annotation (core/annotations.fs) is looked through
+\   at the head and between lambdas while arguments are left (betaRev);
+\   lf-meta-head-beta-keep ( term -- term' outcome ) keeps it there
+\   instead (preserveMData, deltaBetaDefinition's smart path). Every walk
+\   here carries an annotation with its key (Lean's mdata).
 \ Each walk keeps its pending (node, depth) items on a heap stack and
 \ makes the image of each pair once (a memo table, as the cache of Lean's
 \ replace), so a DAG costs its size and no depth needs the host's stacks
@@ -49,6 +54,7 @@ require ../lib/hash32.fs
 require ../core/terms.fs
 require ../core/local-context.fs
 require ../core/mvar-leaves.fs
+require ../core/annotations.fs
 require ../present/binder-table.fs
 require ./dag-walk.fs
 require ./meta-spine.fs
@@ -60,6 +66,7 @@ begin-structure /in
   field: in-xs#                \ and how many
   field: in-outcome            \ ok, or the walk's first failure
   field: in-lifts              \ true: the value has loose bound variables
+  field: in-mdata              \ head beta: true keeps an annotation (preserveMData)
   2 cells +field in-key        \ the (node depth) sought in the memo
   /htab-hooks +field in-hooks  \ the memo table's hooks
   /htab +field in-table        \ the memo: (node depth) to its entry
@@ -74,18 +81,20 @@ end-structure
 : in-fail ( outcome -- ) in-state in-outcome outcome-first! ;
 
 \ Loose ranges (Lean's looseBVarRange): a leaf's from itself, a node's
-\ from its data word when known.
+\ (an annotation's too: core/annotations.fs) from its data word when
+\ known.
 : in-leaf-range ( leaf -- range )
   dup lf-term-bvar? if lf-term-first@ 1+ else drop 0 then ;
+: in-inner? ( node -- flag ) dup lf-term-binary? swap lf-annot? or ;
 : in-range ( node -- range true | false )
-  dup lf-term-binary? 0= if in-leaf-range true exit then
+  dup in-inner? 0= if in-leaf-range true exit then
   lf-term-data@ if lf-data-loose true else false then ;
 : in-closed? ( node depth -- flag ) swap in-range if < 0= else drop false then ;
 \ For abstract: a node known to hold no free variable or metavariable
 \ (a metavariable makes a data word unknown).
 : in-hole? ( leaf -- flag ) lf-term-tag@ dup lf-tag-fvar = swap lf-tag-mvar = or ;
 : in-solid? ( node -- flag )
-  dup lf-term-binary? 0= if in-hole? 0= exit then
+  dup in-inner? 0= if in-hole? 0= exit then
   lf-term-data@ if lf-data-fvar? 0= else false then ;
 : in-abstracting? ( -- flag ) in-state in-abstracting @ ;
 : in-kept? ( node depth -- flag ) in-abstracting? if drop in-solid? else in-closed? then ;
@@ -94,13 +103,15 @@ end-structure
 : in-undone ( child walk -- child true | false )
   over swap dw-done? if drop false else true then ;
 : in-loose-pending ( node walk -- child true | false )
-  over lf-term-binary? 0= if 2drop false exit then
+  over in-inner? 0= if 2drop false exit then
   over lf-term-first@ over in-undone if nip nip true exit then
+  over lf-annot? if 2drop false exit then
   swap lf-term-second@ swap in-undone ;
 : in-loose-pair ( node walk -- range )
   over lf-term-first@ over dw-image >r swap dup lf-term-second@ rot dw-image
   swap lf-term-binder? + 0 max r> max ;
 : in-loose-build ( node walk -- range )
+  over lf-annot? if swap lf-annot-child swap dw-image exit then
   over lf-term-binary? if in-loose-pair else drop in-leaf-range then ;
 : in-loose-walk ( -- walk )
   in-state in-walk ['] in-loose-build over dw-build !
@@ -181,9 +192,19 @@ end-structure
 : in-step-pair ( node depth -- )
   2dup in-first in-push-if if 2drop exit then
   2dup in-second in-push-if if 2drop exit then 2dup in-pair-image in-done ;
+\ An annotation: its child's image under the same key, itself when the
+\ child stays (Lean's preserveMData).
+: in-annot-rebuild ( image node -- image' )
+  2dup lf-annot-child = if nip exit then
+  lf-annot-key lf-annot ok-then? 0= if in-fail -1 then ;
+: in-annot-image ( node depth -- image )
+  over lf-annot-child swap in-image swap in-annot-rebuild ;
+: in-step-annot ( node depth -- )
+  2dup in-first in-push-if if 2drop exit then 2dup in-annot-image in-done ;
 : in-step ( -- )
   in-top 2dup in-ready? if 2drop in-pop exit then
-  over lf-term-binary? if in-step-pair else 2dup in-leaf in-done then ;
+  over lf-term-binary? if in-step-pair exit then
+  over lf-annot? if in-step-annot else 2dup in-leaf in-done then ;
 : in-busy? ( -- flag ) in-pending slab-count 0> in-state in-outcome @ ok? and ;
 : in-start ( value abstracting? -- outcome )
   in-state tuck in-abstracting ! tuck in-value ! outcome-ok swap in-outcome !
@@ -208,24 +229,33 @@ end-structure
   -rot in-xs! 0 true in-start ok-then? if in-run else no-result then ;
 
 \ Head beta: the arguments of f a1 .. an, last first, in in-args; each
-\ lambda of f takes the next one; the rest are applied.
+\ lambda of f takes the next one; the rest are applied. An annotation
+\ met while arguments are left is looked through (betaRev's
+\ preserveMData false), or ends the lambdas (true, in-mdata).
 : hb-arg ( i -- arg ) in-args slab-at @ ;
-: hb-beta ( f i -- f' i' outcome )
-  >r lf-term-second@ r@ hb-arg lf-meta-instantiate1 r> 1- swap ;
+: hb-in ( f -- f' ) in-state in-mdata @ if exit then lf-annot-strip ;
+\ isHeadBetaTargetFn: a lambda, also under annotations (headBeta);
+\ with in-mdata (deltaBetaDefinition's betaRev) the head itself.
+: hb-lam? ( f -- flag ) hb-in lf-term-lam? ;
+: hb-open ( f -- body ) hb-in lf-term-second@ ;
+: hb-beta ( f i -- f' i' outcome ) >r hb-open r@ hb-arg lf-meta-instantiate1 r> 1- swap ;
 \ The lambdas f opens with, at most n: betaRev's go counts them on f
 \ itself, never on what an instantiation makes.
 : hb-depth ( f n -- m )
-  0 swap 0 ?do over lf-term-lam? 0= if leave then 1+ swap lf-term-second@ swap loop nip ;
+  0 swap 0 ?do over hb-lam? 0= if leave then 1+ swap hb-open swap loop nip ;
 : hb-beta-k ( f i k -- f' i' outcome ) drop hb-beta ;
 : hb-lams ( f i m -- f' i' outcome ) ['] hb-beta-k ok-each ;
 : hb-apply ( f i -- f' outcome )
   begin dup 0< 0= while >r r@ hb-arg lf-term-app 0= if r> drop -1 outcome-full exit then
   r> 1- repeat drop outcome-ok ;
+: hb-rest ( f i -- f' outcome ) dup 0< 0= if swap hb-in swap then hb-apply ;
 : hb-reduce ( f -- f' outcome )
   dup in-args slab-count hb-depth >r in-args slab-count 1- r> hb-lams
-  ok-then2? if hb-apply else no-result then ;
+  ok-then2? if hb-rest else no-result then ;
 : hb-target ( term -- term' outcome )
   dup in-args lf-meta-spine ok-then? 0= if nip no-result exit then
-  dup lf-term-lam? if nip hb-reduce else drop outcome-ok then ;
-: lf-meta-head-beta ( term -- term' outcome )
-  dup lf-term-root? if hb-target else drop -1 outcome-invalid then ;
+  dup hb-lam? if nip hb-reduce else drop outcome-ok then ;
+: hb-run ( term keep -- term' outcome )
+  in-state in-mdata ! dup lf-term-root? if hb-target else drop -1 outcome-invalid then ;
+: lf-meta-head-beta ( term -- term' outcome ) false hb-run ;
+: lf-meta-head-beta-keep ( term -- term' outcome ) true hb-run ;

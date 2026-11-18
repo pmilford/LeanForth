@@ -86,7 +86,6 @@ lv1 1 s" outParam" cn lf-lctx-local made constant fo
 T{ fdom nat lf-term-pi must lf-infer fo nat lf-term-pi must lf-infer
    -> -1 outcome-unsupported -1 outcome-invalid }T
 T{ nat fk 0 bv let lf-infer -> -1 outcome-unsupported }T
-T{ fa fb pair 0 proj lf-infer -> -1 outcome-unsupported }T
 T{ nat 0 bv lam fk app lf-infer -> -1 outcome-unsupported }T
 \ A lambda argument put in for a bound variable at an application's head
 \ is applied by a beta step: Nat.rec's type `motive t` with a lambda
@@ -128,6 +127,47 @@ lv1 1 s" outParam" cn lf-lctx-local made constant ft
 T{ ft fk app lf-infer -> -1 outcome-invalid }T
 T{ 0 bv fk app lf-infer -> -1 outcome-invalid }T
 
+\ ---- Projections (inferProjType; S2 merge B). check_whnf.py compares
+\ the accepted cases with pinned Lean's; here every other outcome.
+: fin-mk ( -- t ) 0 s" Fin.mk" cn fk app fa app fb app ;
+: add-nat ( -- t ) 0 s" instAddNat" cn ;
+T{ fa fb pair 0 proj nat infer= fa fb pair 1 proj nat infer= -> true outcome-ok true outcome-ok }T
+T{ fp 0 proj nat infer= add-nat 0 s" Add" projn fk app fx app nat infer=
+   -> true outcome-ok true outcome-ok }T
+\ The field after val names it as fin-mk.0 (Lean's mkProj).
+: lt ( a b -- t ) >r >r l0 1 s" LT.lt" cn nat app 0 s" instLTNat" cn app r> app r> app ;
+T{ fin-mk 1 s" Fin" projn fin-mk 0 s" Fin" projn fk lt infer= -> true outcome-ok }T
+\ The structure's type is whnf'd first: outParam (Prod Nat Nat).
+lv1 1 s" outParam" cn l0 l0 2 s" Prod" cn nat app nat app app char r local constant fop
+T{ fop 1 proj nat infer= -> true outcome-ok }T
+\ Invalid ("invalid projection"): a structure of another name, a type
+\ that is no structure (two constructors, Or's first with a field; no
+\ constant at the head), a field index past the constructor's fields,
+\ an unknown constant.
+T{ fp 0 s" Fin" projn lf-infer fk 0 proj lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
+0 s" True" cn constant tru
+0 s" Or" cn tru app tru app char o local constant f-or
+T{ f-or 0 s" Or" projn lf-infer -> -1 outcome-invalid }T
+lv1 1 s" List" cn nat app char l local constant fls
+T{ fls 0 s" List" projn lf-infer fl 0 proj lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
+T{ fp 2 proj lf-infer unknown 0 proj lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
+\ Unsupported: a structure with an index (Eq's one constructor), a
+\ projection of a projection, of a let, of a lambda applied.
+lv1 1 s" Eq" cn nat app fk app fk app char e local constant feq
+T{ feq 0 s" Eq" projn lf-infer fp 0 proj 0 proj lf-infer
+   -> -1 outcome-unsupported -1 outcome-unsupported }T
+T{ nat fp 0 bv let 0 proj lf-infer nat fp lam fk app 0 proj lf-infer
+   -> -1 outcome-unsupported -1 outcome-unsupported }T
+\ Invalid answers of the steps: an ill-typed structure (Nat Nat) has no
+\ type; a free variable of no structure type at all.
+T{ nat nat app 0 proj lf-infer fs 0 proj lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
+\ Full: each allocation refused in turn gives full, never another answer.
+: proj-at ( k -- outcome )
+  fin-mk 1 s" Fin" projn swap heap-refusals ! lf-infer nip 0 heap-refusals ! ;
+: ok-or-full? ( outcome -- flag ) dup ok? swap outcome-full = or ;
+: proj-sweep ( -- flag ) true 12 1 do i proj-at ok-or-full? and loop ;
+T{ proj-sweep 1 proj-at -> true outcome-full }T
+
 \ ---- Exhausted: whnfCore's fuel runs out on a type that is no pi.
 T{ 1 lf-whnf-fuel! fh fk app lf-infer 0 lf-whnf-fuel! -> -1 outcome-exhausted }T
 T{ fh fk app nat infer= -> true outcome-ok }T
@@ -163,6 +203,11 @@ T{ 0 bv chain fk x1 fk chain rb= -> true outcome-ok }T
 \ body has no binder around its variable (plan FE1g-4), else unsupported.
 T{ 0 bv 0 bv x1 lf-meta-instantiate-rev-beta -> -1 outcome-unsupported }T
 T{ nat 1 bv 0 bv app lam sfun x1 sfun rb= -> true outcome-ok }T
+\ An annotation (core/annotations.fs, S2 merge B) keeps its key around its
+\ child's image, and is the same node when the child stays.
+: ann ( t -- t' ) lf-annot-match lf-annot ok? 0= abort" annotation" ;
+T{ 0 bv ann fk x1 fk ann rb= fk ann dup fa x1 lf-meta-instantiate-rev-beta drop =
+   -> true outcome-ok true }T
 : deep-fun ( -- t ) nat nat 1 bv tpi lam ;   \ fun x => Nat -> x, a binder around x
 T{ nat 1 bv 0 bv app lam deep-fun x1 lf-meta-instantiate-rev-beta -> -1 outcome-unsupported }T
 \ Invalid: no body, no argument, a negative m.

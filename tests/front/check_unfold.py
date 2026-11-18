@@ -25,7 +25,9 @@ error is LeanForth's invalid), except for the gaps listed, where LeanForth
 answers unsupported and Lean's answer is shown (plan S2 merge B: smart
 unfolding and reduceNat?'s guard).
 
-Usage: LEAN=... GFORTH=... python3 tests/front/check_unfold.py [--write]
+Usage: LEAN=... GFORTH=... python3 tests/front/check_unfold.py [--write | --write-golden]
+       GFORTH=... python3 tests/front/check_unfold.py --golden   (Lean's recorded lines,
+         tests/front/unfold-env.golden and unfold-terms.golden; make test)
 """
 import os
 import pathlib
@@ -99,8 +101,10 @@ OUTP = c("outParam", 1)
 INST = apps(c("instHAdd", 0), NAT, c("instAddNat"))
 HADD3 = apps(c("HAdd.hAdd", 0, 0, 0), NAT, NAT, NAT, INST)
 ADD_ADD = apps(c("Add.add", 0), NAT, c("instAddNat"))
-SMART = "S2 merge B smart unfolding (Nat.add._sunfold)"
-NAT_GUARD = "S2 merge B reduceNat?'s guard (Nat.add k x)"
+OFNAT = c("OfNat.ofNat", 0)
+OFNAT0 = apps(OFNAT, NAT, ("lit", 0), apps(c("instOfNatNat"), ("lit", 0)))
+OFNAT1 = apps(OFNAT, NAT, ("lit", 1), apps(c("instOfNatNat"), ("lit", 1)))
+MATCH1 = apps(c("Nat.add.match_1", 1), "m")
 MODES = {"all": "all", "default": "default", "reducible": "reducible",
          "instances": "instances", "none": "none", "implicit": "implicit"}
 
@@ -133,7 +137,18 @@ TERMS = [
     ("unfold", "reducible", apps(ADD_ADD, "k", "x"), None),
     ("unfold", "instances", apps(ADD_ADD, "k", "x"), None),
     ("unfold", "default", c("instAddNat"), None),
-    ("unfold", "default", apps(cw.ADD, "k", "x"), SMART),
+    # The smart path (S2 merge B): Nat.add k x is stuck on x (none);
+    # Nat.add k 0 and Nat.add k (x + 1) reduce, rec_arg a constructor.
+    ("unfold", "default", apps(cw.ADD, "k", "x"), None),
+    ("unfold", "default", apps(cw.ADD, "k", cw.ZERO), None),
+    ("unfold", "default", apps(cw.ADD, "k", apps(cw.SUCC, "x")), None),
+    ("unfold", "default", apps(cw.ADD, "k", ("lit", 0)), None),
+    ("unfold", "default", apps(cw.ADD, "k", apps(c("OfNat.ofNat", 0), cw.NAT, ("lit", 0),
+                                                apps(c("instOfNatNat"), ("lit", 0)))), None),
+    ("mwhnf", "default", apps(cw.ADD, "k", cw.ZERO), None),
+    ("mwhnf", "default", apps(HADD3, "k", apps(c("OfNat.ofNat", 0), cw.NAT, ("lit", 0),
+                                              apps(c("instOfNatNat"), ("lit", 0)))), None),
+    ("mwhnf", "default", apps(c("Nat.mul"), "k", apps(cw.SUCC, "x")), None),
     ("unfold", "default", cw.ADD, None),
     ("unfold", "default", apps(c("Nat.add.match_1", 1), "k"), None),
     ("unfold", "all", c("Nat.zero_add"), None),
@@ -150,12 +165,46 @@ TERMS = [
     ("mwhnf", "instances", INST, None),
     ("mwhnf", "default", (cw.PROJ, 0, INST), None),
     ("mwhnf", "default", apps(c("id", 1), NAT, "k"), None),
-    ("mwhnf", "default", apps(HADD3, "k", "x"), NAT_GUARD),
-    ("mwhnf", "instances", apps(HADD3, "k", "x"), NAT_GUARD),
+    ("mwhnf", "default", apps(HADD3, "k", "x"), None),
+    ("mwhnf", "instances", apps(HADD3, "k", "x"), None),
     ("mwhnf", "all", c("Nat.zero_add"), None),
+    # reduceMatcher? and an auxiliary recursor's deltaBetaDefinition in
+    # whnfCore (S2 merge B): Nat.add.match_1 and Nat.casesOn.
+    ("mwhnf", "default", apps(MATCH1, "k", cw.ZERO, "z", "s"), None),
+    ("mwhnf", "default", apps(MATCH1, "k", apps(cw.SUCC, "x"), "z", "s"), None),
+    ("mwhnf", "default", apps(MATCH1, "k", "x", "z", "s"), None),
+    ("mwhnf", "default", apps(MATCH1, "k", cw.ZERO, "z", "s", "a"), None),
+    ("mwhnf", "all", apps(MATCH1, "k", ("lit", 2), "z", "s"), None),
+    ("mwhnf", "default", apps(MATCH1, "k", cw.ZERO, "z"), None),
+    ("mwhnf", "default", apps(c("Nat.casesOn", 1), "m", cw.ZERO, "z", "s"), None),
+    ("mwhnf", "default", apps(c("Nat.casesOn", 1), "m", apps(cw.SUCC, "k"), "z", "s"), None),
+    # At reducible, instances and implicit transparency (whnfMatcher with
+    # canUnfoldAtMatcher, S2 merge B): a constructor discriminant; a
+    # numeral (OfNat.ofNat, one of Lean's names) and k + 1 (HAdd.hAdd,
+    # Add.add and Nat.add, @[match_pattern]) unfolded only there; the
+    # same at default.
+    ("mwhnf", "reducible", apps(MATCH1, "k", cw.ZERO, "z", "s"), None),
+    ("mwhnf", "instances", apps(MATCH1, "k", cw.ZERO, "z", "s"), None),
+    ("mwhnf", "implicit", apps(MATCH1, "k", apps(cw.SUCC, "x"), "z", "s"), None),
+    ("mwhnf", "reducible", apps(MATCH1, "k", OFNAT0, "z", "s"), None),
+    ("mwhnf", "instances", apps(MATCH1, "k", OFNAT0, "z", "s"), None),
+    ("mwhnf", "default", apps(MATCH1, "k", OFNAT0, "z", "s"), None),
+    ("mwhnf", "reducible", apps(MATCH1, "k", apps(HADD3, "x", OFNAT1), "z", "s"), None),
+    ("mwhnf", "default", apps(MATCH1, "k", apps(HADD3, "x", OFNAT1), "z", "s"), None),
+    # (k + 1 is a Nat offset, Nat.succ k without unfolding; Nat.add 0
+    # (Nat.succ x) is none, and unfolds by its smart unfolding.)
+    ("mwhnf", "reducible", apps(MATCH1, "k", apps(cw.ADD, cw.ZERO, apps(cw.SUCC, "x")), "z", "s"),
+     None),
+    ("mwhnf", "reducible", apps(OFNAT, NAT, ("lit", 0), apps(c("instOfNatNat"), ("lit", 0))), None),
+    # canUnfoldAtMatcher ends with the matcher's part: the alternative's
+    # numeral stays.
+    ("mwhnf", "reducible", apps(MATCH1, "k", cw.ZERO, (cw.LAM, NAT, OFNAT0), "s"), None),
 ]
 
 TERMS_FILE = ROOT / "tests/front/unfold-terms.lean"
+# Pinned Lean's lines, recorded for make test's run without Lean (--golden).
+ENV_GOLDEN = ROOT / "tests/front/unfold-env.golden"
+TERMS_GOLDEN = ROOT / "tests/front/unfold-terms.golden"
 TERMS_HEAD = """
 def unfoldCase (m : TransparencyMode) (e : Expr) : MetaM Unit := do
   try
@@ -190,8 +239,10 @@ def terms_lines(command, source=None):
 
 def terms_compare():
     """The term cases: a list of the gaps' texts; raise on a difference."""
-    want = terms_lines([LEAN, "-DwarningAsError=true", str(TERMS_FILE.relative_to(ROOT))],
-                       terms_source())
+    want = golden(TERMS_GOLDEN, lambda: terms_lines(
+        [LEAN, "-DwarningAsError=true", str(TERMS_FILE.relative_to(ROOT))], terms_source()))
+    if len(want) != len(TERMS):
+        raise Failure(f"{TERMS_GOLDEN.relative_to(ROOT)}: {len(want)} lines for {len(TERMS)} cases")
     calls = " ".join(f"{cw.forth(t)} lf-tr-{MODES[mode]} {kind}-run"
                      for kind, mode, t, _ in TERMS)
     got = terms_lines([GFORTH, "tests/front/whnf-cases.fs", "-e", calls + " bye"])
@@ -206,6 +257,20 @@ def terms_compare():
         elif w != g and not (w == "error" and g == "invalid"):
             raise Failure(f"{name}:\n  Lean:      {w}\n  LeanForth: {g}")
     return gaps
+
+
+def golden(path, lines):
+    """Pinned Lean's lines as recorded (--golden: make test, without Lean);
+    with Lean, its lines must equal the record (--write-golden writes it)."""
+    if "--golden" in sys.argv:
+        return path.read_text(encoding="utf-8").splitlines()
+    lines = lines()
+    if "--write-golden" in sys.argv:
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if path.read_text(encoding="utf-8").splitlines() != lines:
+        raise Failure(f"{path.relative_to(ROOT)} differs from pinned Lean's lines: "
+                      f"{sys.argv[0]} --write-golden")
+    return lines
 
 
 def lean_source():
@@ -276,7 +341,10 @@ def main():
     try:
         self_test()
         gaps = []
-        for lean, forth in zip(lean_lines(), forth_lines()):
+        want = golden(ENV_GOLDEN, lean_lines)
+        if len(want) != len(NAMES):
+            raise Failure(f"{ENV_GOLDEN.relative_to(ROOT)}: {len(want)} lines for {len(NAMES)} names")
+        for lean, forth in zip(want, forth_lines()):
             gaps += compare(lean, forth)
         term_gaps = terms_compare()
     except Failure as error:

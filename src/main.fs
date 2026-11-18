@@ -81,6 +81,7 @@ require ./front/level-params.fs
 require ./front/level-normalize.fs
 require ./front/lib-decode.fs
 require ./front/meta-env.fs
+require ./front/term-find.fs
 require ./front/unfold.fs
 require ./front/whnf.fs
 require ./front/beta-inst.fs
@@ -104,6 +105,8 @@ require ./front/kabstract.fs
 require ./front/meta-check.fs
 require ./front/tactic-rewrite.fs
 require ./front/tactic-induction.fs
+\ The step log the runner keeps (branch s2-steps), written by check --steps.
+require ./front/step-log.fs
 
 \ The command line: check, replay, print, count, reexport, version,
 \ capabilities. It loads the staging of exports into the checker's input,

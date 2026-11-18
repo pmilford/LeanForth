@@ -67,7 +67,11 @@ nat mv-natural lf-mvar-new made constant ?q  ?q char q named
 : .levels ( slot -- )
   lf-cref-pairs 0 ?do i if ." ," then dup i lf-cref-pair@ drop .lv loop drop ;
 : .const ( t -- ) lf-term-first@ lf-cref-slot dup lf-cref-name@ drop .nm ." .{" .levels ." }" ;
+: nat-lit ( u -- t ) lf-hterm-cell 0= abort" whnf-cases: not made" drop ;
+\ A natural literal as Lean's sx prints it (its fallback, ?? and the value).
+: .lit ( t -- ) ." ?? " lf-lit-cell 0 .r ;
 : .leaf ( t -- )
+  dup lf-lit-leaf? over lf-lit-small? and if .lit exit then
   dup case-name 0= if drop ." ??" exit then
   over lf-term-tag@ lf-tag-mvar = if ." ?" then emit drop ;
 defer .t
@@ -75,7 +79,8 @@ defer .t
 : .let ( t -- )
   ." (let " dup lf-let-type .t space dup lf-let-value .t space lf-let-body .t ." )" ;
 : .proj ( t -- ) ." (proj " dup lf-proj-leaf lf-proj-idx 0 .r space lf-proj-struct .t ." )" ;
-: proj ( e i -- t ) >r s" Prod" menv-name r> lf-proj-of made ;
+: projn ( e i c-addr u -- t ) menv-name swap lf-proj-of made ;
+: proj ( e i -- t ) s" Prod" projn ;
 :noname ( t -- )
   dup lf-let? if .let exit then
   dup lf-proj? if .proj exit then

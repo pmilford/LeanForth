@@ -90,11 +90,8 @@ def lam(body, dom=NAT):
 ADD_ADD = apps(c("Add.add", 0), NAT, c("instAddNat"))
 HADD_MK = apps(c("HAdd.mk", 0, 0, 0), NAT, NAT, NAT,
                (LAM, NAT, (LAM, NAT, apps(ADD_ADD, "#1", "#0"))))
-SMART = "S2 merge B smart unfolding (Nat.add._sunfold)"
-SMART_MUL = "S2 merge B smart unfolding (Nat.mul._sunfold, the greater height unfolded first)"
 ID1, FST, MUL, PRED = c("id", 1), c("Prod.fst", 0, 0), c("Nat.mul"), c("Nat.pred")
 UNIT_TYPE, DEC_LT = c("Unit"), c("Nat.decLt")
-PROJ_TYPE = "FE1c inferType of a projection (proof irrelevance)"
 PROD_F = apps(c("Prod", 0, 0), NAT2, NAT)
 STUCK_PROJ = "FE1c getStuckMVar? of a projection whose structure needs whnf (isDefEqOnFailure)"
 
@@ -199,15 +196,24 @@ CASES = [
     # Nat offsets and values.
     ("eq", succ("?h"), succ(succ("k")), None),
     ("eq", succ("?h"), succ(succ("?r")), None),
-    ("eq", succ(succ("?h")), succ("k"), SMART),
+    ("eq", succ(succ("?h")), succ("k"), None),
     ("eq", succ("k"), succ("x"), None),
     ("eq", succ("?h"), (LIT, 3), None),
     ("eq", succ("k"), (LIT, 0), None),
     ("eq", (LIT, 0), ZERO, None),
     ("eq", (LIT, 1), ZERO, None),
     ("eq", (LIT, 3), succ(succ(succ(ZERO))), "FE1c reduceNat? (isDefEqNat)"),
-    ("eq", succ("?h"), hadd(ofnat(0), hadd("k", ofnat(1))),
-     SMART + " after lazy delta (FE1's acceptance case)"),
+    # FE1's acceptance case: smart unfolding after lazy delta (merge B);
+    # 00-add-zero.lf's and 02-add-zero-rfl.lf's k + 0 = k, both ways:
+    # after HAdd.hAdd and Add.add unfold, isDefEqProofIrrel infers the
+    # type of instAddNat.1 k 0 (inferProjType); Nat.add k 0 = k itself.
+    ("eq", succ("?h"), hadd(ofnat(0), hadd("k", ofnat(1))), None),
+    ("eq", hadd("k", ofnat(0)), "k", None),
+    ("eq", "k", hadd("k", ofnat(0)), None),
+    ("eq", hadd("k", ofnat(0)), hadd("x", ofnat(0)), None),
+    ("eq", apps(ADD, "k", ofnat(0)), "k", None),
+    ("eq", "k", apps(ADD, "k", ofnat(0)), None),
+    ("eq", apps(ADD, "k", ZERO), apps(ADD, "x", (LIT, 0)), None),
     ("eq", hadd("k", ofnat(1)), succ("k"), None),
     # Depth: a metavariable of the outer depth is read-only.
     ("deep", "?n", "k", None),
@@ -217,7 +223,7 @@ CASES = [
     ("eq", ADD, c("Nat.mul"), None),
     ("red", apps(ADD, "k", "x"), apps(ADD, "k", "x"), None),
     ("red", apps(ADD, "k", "x"), apps(ADD, "x", "k"), None),  # hints: Init's, S2
-    ("eq", apps(ADD, "k", "x"), apps(ADD, "x", "k"), SMART),
+    ("eq", apps(ADD, "k", "x"), apps(ADD, "x", "k"), None),
     # Instances and implicit transparency, with arguments; at reducible,
     # an assignment's types compared at implicit (id Nat unfolds there).
     ("inst", apps("u", "k"), apps("u", "x"), None),
@@ -226,7 +232,7 @@ CASES = [
     ("red", "?t", lam("#0", apps(c("id", 2), (SORT, 1), NAT)), None),
     ("red", apps(c("Eq.refl", 1), ADD, "a"), apps(c("Eq.refl", 1), c("Nat.mul"), "a"), None),
     ("red", ADD, "k", None),  # hints: Init's (s2-tactics)
-    ("eq", "?n", apps(ADD, "?n", "k"), "S2 merge B reduceNat?'s guard (whnf of Nat.add ?n k)"),
+    ("eq", "?n", apps(ADD, "?n", "k"), None),
     # Lazy delta (S2 merge A, ExprDefEq.lean:1544-1849): one side unfolds
     # (outParam, Lean's p4b and p4f; at implicit with a level
     # metavariable); a reducible side first; class projections unpacked
@@ -242,7 +248,7 @@ CASES = [
     ("eq", apps(ADD_ADD, "k", "x"), hadd("k", "x"), None),
     ("eq", hadd("k", "x"), apps(ADD, "k", "x"), None),
     ("eq", hadd("?n", "x"), apps(ADD_ADD, "k", "x"), None),
-    ("eq", hadd("k", "x"), hadd("x", "k"), SMART),
+    ("eq", hadd("k", "x"), hadd("x", "k"), None),
     ("eq", c("id", 1), c("id", 2), None),
     ("eq", apps(c("outParam", 1), "?n"), apps(ADD, "k", "x"), None),
     ("eq", apps(c("outParam", 1), "?n"), NAT, None),
@@ -266,9 +272,8 @@ CASES = [
     # 2, a value that is not simple).
     ("meta", apps(ID1, NAT, "?n"), apps(FST, NAT, NAT, pair("a", "b")), None),
     ("meta", apps(FST, NAT, NAT, pair("a", "b")), apps(ID1, NAT, "?n"), None),
-    ("eq", apps(ID1, NAT, apps(MUL, "k", "x")), apps(MUL, "k", "x"), SMART_MUL),
-    ("eq", apps(MUL, "k", "x"), apps(ID1, NAT, apps(MUL, "k", "x")),
-     "S3 evalNat's Nat.mul (isDefEqOffsetNat, nat-offset.fs; folding literals)"),
+    ("eq", apps(ID1, NAT, apps(MUL, "k", "x")), apps(MUL, "k", "x"), None),
+    ("eq", apps(MUL, "k", "x"), apps(ID1, NAT, apps(MUL, "k", "x")), None),
     ("eq", apps(ID1, NAT, apps(ADD, "k", "x")),
      apps(c("Function.comp", 1, 1, 1), NAT, NAT, NAT, apps(ID1, NAT), apps(ADD, "k"), "x"), None),
     ("eq", apps(PRED, "x"), apps(PRED, apps(ID1, NAT, "x")), None),
@@ -294,7 +299,7 @@ CASES = [
      " asks isDefEq at instances)"),
     ("eq", apps(ID1, NAT, "x"), apps(ID1, NAT, apps(ID1, NAT, "x")), None),
     ("eq", apps(DEC_LT, "k", "x"), apps(DEC_LT, "k", apps(ID1, NAT, "x")), None),
-    ("eq", hadd("k", "x"), hadd("k", apps(ID1, NAT, "x")), PROJ_TYPE),
+    ("eq", hadd("k", "x"), hadd("k", apps(ID1, NAT, "x")), None),
     ("eq", c("id", 1, 1), c("id", 2), None),
     ("eq", ID1, apps(ID1, NAT), None),
     # (review s2-unfold-a re-check M3-new) packedInstanceOf? reaching a
@@ -305,12 +310,12 @@ CASES = [
     ("eq", apps(ID1, NAT, apps("u", "k")), HMUL_U, None),
     ("eq", c("id", "u"), ID1, None),
     ("eq", apps(c("Nat.isValidChar"), "k"), apps(c("Nat.isValidChar"), apps(ID1, NAT, "k")),
-     PROJ_TYPE),
+     None),
     # isExprDefEqExpensive's whnfCore reduces a projection's structure by
     # whnf (proj := yesWithDelta: id unfolds at default), where
     # isExprDefEqAux's whnfCoreAtDefEq does not (review s2-unfold-a M1).
     ("meta", "k", ID_FST_K, None),
-    ("meta", ID_FST_K, "k", PROJ_TYPE),
+    ("meta", ID_FST_K, "k", None),
     # At reducible and instances id stays: whnfCore leaves the projection
     # stuck (Lean: false), where a whnfCore at default would unfold it
     # (review s2-unfold-a re-check M1-new).

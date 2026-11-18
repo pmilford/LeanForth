@@ -33,6 +33,7 @@ require ../lib/htab.fs
 require ../lib/hash32.fs
 require ../core/terms.fs
 require ../core/mvar-leaves.fs
+require ../core/annotations.fs
 require ../present/binder-table.fs
 require ./instantiate.fs
 require ./meta-spine.fs
@@ -62,7 +63,7 @@ end-structure
 : ib-leaf-range ( leaf -- range )
   dup lf-term-bvar? if lf-term-first@ 1+ else drop 0 then ;
 : ib-range ( node -- range true | false )
-  dup lf-term-binary? 0= if ib-leaf-range true exit then
+  dup in-inner? 0= if ib-leaf-range true exit then
   lf-term-data@ if lf-data-loose true else false then ;
 : ib-closed? ( node depth -- flag ) swap ib-range if < 0= else drop false then ;
 
@@ -153,10 +154,20 @@ end-structure
 : ib-step-pair ( node depth -- )
   2dup ib-first ib-push-if if 2drop exit then
   2dup ib-second ib-push-if if 2drop exit then 2dup ib-pair-image ib-done ;
+\ An annotation (core/annotations.fs): its child's image under its key,
+\ itself when the child stays.
+: ib-annot-rebuild ( image node -- image' )
+  2dup lf-annot-child = if nip exit then
+  lf-annot-key lf-annot ok-then? 0= if ib-fail -1 then ;
+: ib-annot-image ( node depth -- image )
+  over lf-annot-child swap ib-image swap ib-annot-rebuild ;
+: ib-step-annot ( node depth -- )
+  2dup ib-first ib-push-if if 2drop exit then 2dup ib-annot-image ib-done ;
 : ib-step ( -- )
   ib-top 2dup ib-ready? if 2drop ib-pop exit then
   over ib-beta? if ib-step-beta exit then
-  over lf-term-binary? if ib-step-pair else 2dup ib-leaf ib-done then ;
+  over lf-term-binary? if ib-step-pair exit then
+  over lf-annot? if ib-step-annot else 2dup ib-leaf ib-done then ;
 : ib-busy? ( -- flag ) ib-pending slab-count 0> ib-state ib-outcome @ ok? and ;
 : ib-start ( -- outcome )
   outcome-ok ib-state ib-outcome ! ib-memo slab-clear ib-pending slab-clear

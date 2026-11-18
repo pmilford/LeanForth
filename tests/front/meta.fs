@@ -250,6 +250,7 @@ T{ flip x app lf-meta-head-beta swap dup tag swap lf-term-second@ parts
 \ One step only, as Lean: (fun a => a) (fun b => b) x is (fun b => b) x.
 T{ id-fun id-fun app x app lf-meta-head-beta swap parts -> outcome-ok id-fun x }T
 
+
 \ ---- Abstraction (Lean's Expr.abstract): x y become #1 #0 in order; under
 \ a binder one more; the last of two equal entries wins; a metavariable
 \ is abstracted too; a term without them is kept, the same node.
@@ -259,6 +260,28 @@ create xs 4 cells allot
 : xs2 ( a b -- addr 2 ) xs cell+ ! xs ! xs 2 ;
 : abst ( term addr n -- term' ) lf-meta-abstract ok? 0= abort" abst" ;
 : bvar# ( t -- i ) dup tag lf-tag-bvar <> abort" no bvar" lf-term-first@ ;
+
+\ ---- Smart-unfolding annotations (core/annotations.fs, S2 merge B): kept
+\ by instantiate1 and abstract with their key, the same node when the
+\ child stays; their data word is their child's, so a closed one is kept
+\ and an open one rebuilt. Head beta looks through one between lambdas
+\ (betaRev), keeps it with lf-meta-head-beta-keep (preserveMData) and
+\ keeps one after the last lambda either way.
+: ann ( t key -- t' ) lf-annot ok? 0= abort" annotation" ;
+T{ 0 bv lf-annot-match ann x inst dup lf-annot? swap parts -> true x lf-annot-match }T
+T{ x lf-annot-match-alt ann dup y inst = -> true }T
+T{ 1 bv lf-annot-match ann lf-meta-loose -> 2 outcome-ok }T
+T{ x lf-annot-match ann x xs1 abst dup lf-annot? swap lf-annot-child bvar# -> true 0 }T
+T{ prop 0 bv lf-annot-match-alt ann lam x app lf-meta-head-beta swap
+   lf-annot-match-alt lf-annot-keyed? -> outcome-ok x true }T
+prop prop 0 bv lam lf-annot-match ann lam constant ann-k
+T{ ann-k x app y app lf-meta-head-beta -> y outcome-ok }T
+T{ ann-k x app y app lf-meta-head-beta-keep swap parts swap lf-annot? -> outcome-ok y true }T
+T{ ann-k lf-annot-match ann x app lf-meta-head-beta swap lf-annot? -> outcome-ok true }T
+T{ ann-k lf-annot-match ann x app lf-meta-head-beta-keep swap parts nip -> outcome-ok x }T
+T{ x lf-annot-match ann lf-annot-match ann lf-annot-strip x lf-annot-match lf-annot-keyed?
+   -> x false }T
+
 x y app constant fxy0
 T{ fxy0 x xs1 abst parts swap bvar# -> y 0 }T
 T{ fxy0 x y xs2 abst parts bvar# swap bvar# -> 0 1 }T

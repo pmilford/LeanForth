@@ -9,7 +9,8 @@
 \ is not ported); no term: invalid. Meta.check: a type correct
 \ application, pi and lambda; an argument of the wrong type (invalid,
 \ the application kept); a pi whose body is no type; a constant with the
-\ wrong number of universe arguments; a let (unsupported); the budget
+\ wrong number of universe arguments; a let and a smart-unfolding marker
+\ (unsupported, in kabstract too); the budget
 \ spent (exhausted) and a refused allocation (full), each call after
 \ them answering as before. Every T{ }T checks the data stack's depth.
 include ../support/tester.fs
@@ -34,6 +35,10 @@ T{ nat nat 0 bv 0 bv let lam succ ?n app lf-meta-kabstract
    -> -1 false outcome-unsupported }T
 T{ -1 sk lf-meta-kabstract -> -1 false outcome-invalid }T
 T{ sk fk succ 0 bv app abs= -> true true outcome-ok }T
+\ A smart-unfolding marker (core/annotations.fs, S2 merge B) answers
+\ unsupported: Lean visits mdata's term, this walk does not.
+: ann ( t -- t' ) lf-annot-match lf-annot drop ;
+T{ fs sk ann app sk lf-meta-kabstract -> -1 false outcome-unsupported }T
 
 \ ---- Meta.check, at transparency all.
 : chk ( e -- outcome ) lf-tr-all lf-meta-check ;
@@ -43,6 +48,7 @@ T{ bad-app chk lf-meta-check-bad bad-app = -> outcome-invalid true }T
 T{ nat fk tpi chk lf-meta-check-bad -> outcome-invalid -1 }T
 T{ l0 1 s" Nat" cn chk -> outcome-invalid }T
 T{ nat fk 0 bv let chk -> outcome-unsupported }T
+T{ sk ann chk succ sk ann app chk -> outcome-unsupported outcome-unsupported }T
 T{ lf-meta-budget 0 lf-meta-budget! sk chk swap lf-meta-budget! sk chk
    -> outcome-exhausted outcome-ok }T
 T{ 1 heap-refusals ! nat succ 0 bv app lam chk 0 heap-refusals ! -> outcome-full }T

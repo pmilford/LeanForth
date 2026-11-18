@@ -282,6 +282,57 @@ note: --jobs does not apply to LeanForth text yet; checking one declaration at a
 Nat: accepted; axioms: none
 ```
 
+**The step log** (`--steps FILE` or `--steps -`, plan S2, branch
+s2-steps). With a text whose proofs use tactics, `--steps FILE` writes,
+after the report, one JSON line per tactic step of every declaration the
+kernel accepted, and `--steps -` writes the same lines to standard output
+after the report. For each such declaration there is first a header line,
+which says whether it is proved: `axioms` lists every axiom it depends on,
+as `#print axioms` names them, and `open_parts` counts its `by-sorry`
+parts. Accepted is not proved: a declaration is proved only when
+`open_parts` is 0 and its axioms are among `propext`, `Classical.choice`
+and `Quot.sound`; a `by-sorry` proof shows `"axioms":["sorryAx"]` and
+`"open_parts":1`, as the report calls it NOT PROVED. Then come its
+steps in the order they took effect: the step's number, the step
+of the block it ran in (an induction's `with`, an alternative `|`, a
+`by-case:`; 0 for the proof's own), the tactic, the LeanForth word and
+its `line:column`, the main goal before the step and the goals in focus
+after it, each goal printed as `.goals` prints it (null before a step
+that runs with no goal in focus, an alternative taking its case). The
+tactic is named as Lean or Mathlib names it, and the schema takes any
+well-formed name (a lower-case letter, then lower-case letters, digits
+and `_`, then any of `?`, `!` and `'`: `norm_num`, `exact?` and `cases'`
+validate) and any
+non-blank LeanForth word, so a later tactic needs no new format. The
+format is `leanforth-tactic-steps` version 1, described by
+[schemas/tactic-steps-1.schema.json](../../schemas/tactic-steps-1.schema.json).
+A rejected declaration, a term proof and a text that stops write no
+lines. Nothing reads the log to decide, and it changes no verdict and no
+exit code: when keeping it finds no room while the text runs, the log is
+cut (nothing more is logged in the run) and says so, with `"cut":true`
+and no step lines in the header of each declaration it reaches after
+that (a declaration whose header finds no room at all is missing), while
+the run goes on as without the log. The one exception is exhausted
+memory: the log's text shares room with the open parts' text, so a later
+`by-sorry` may then find no room (error 88, exit 3) where a run without
+`--steps` would have had it. Only a log that cannot be written
+(the file, or an axiom's name, finds no room) is an error (exit 3). Version 1
+does not yet carry each tactic's rule (the eliminator, the rewrite rule
+and its place, the closing term), the constants and hypotheses a step
+used, or the goals in kernel form; a later version adds them. `--steps`
+goes only with a text (exit 4 otherwise, as `--elab-data`):
+
+```console
+$ bin/leanforth check --env tests/front/s2-slice.ndjson --elab-data tests/front/s2-slice.elab.ndjson --steps - tests/front/02-add-zero-rfl.lf | tail -2
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"add_zero'","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"n : Nat\n⊢ n + 0 = n","goals_after":[],"parent":0,"source":"5:58","step":1,"tactic":"rfl","word":"by-rfl"}
+```
+
+`tests/front/s2-steps.golden` holds the logs of S2's proof set
+(`tests/front/check_s2.py` checks them, with the schema); a script that
+prints each of those theorems with its checked steps and goals is
+`scripts/showcase-steps.sh`.
+
 What runs: the file runs through Forth's own interpreter with only
 LeanForth's words visible ([ADR 0017 Amendment 1, A5](../adr/0017-leanforth-syntax.md#a5-sealed-text-what-must-be-shut-and-the-probes));
 the declarations it makes are written as export records (in the export
@@ -313,7 +364,7 @@ wrong word builds a different term, which the checker checks as it is.
 
 | Command | What it does |
 | --- | --- |
-| `check [--env EXPORT \| --snapshot FILE] [--no-manifest] [--fuel N] [--resources] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--memory-per-check MB] [--elab-data DATA] FILE.lf` | Check a [LeanForth text](#checking-leanforth-text): its declarations built by LeanForth's words and checked as an export's, against the library export EXPORT (its manifest checked unless `--no-manifest`) or a snapshot FILE when one is given; a text that stops with an error is not checked; DATA, the library's [elaboration data](../programming/ELABORATION_DATA.md), is checked against the library first, and refused data stops the run |
+| `check [--env EXPORT \| --snapshot FILE] [--no-manifest] [--fuel N] [--resources] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--memory-per-check MB] [--elab-data DATA] [--elab-fuel N] [--steps FILE\|-] FILE.lf` | Check a [LeanForth text](#checking-leanforth-text): its declarations built by LeanForth's words and checked as an export's, against the library export EXPORT (its manifest checked unless `--no-manifest`) or a snapshot FILE when one is given; a text that stops with an error is not checked; DATA, the library's [elaboration data](../programming/ELABORATION_DATA.md), is checked against the library first, and refused data stops the run |
 | `check [--no-manifest] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--memory-per-check MB] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs); with `--memory-per-check MB`, give each check [at most MB megabytes of scratch](#memory-per-check---memory-per-check); with `--progress`, write [a status line](#progress-and-partial-results---progress) to standard error every minute; with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
 | `check --snapshot FILE [--snapshot LAYER ...] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--no-manifest] [--jobs N] [--save-snapshot LAYER] [--snapshot-stale-ok] [EXPORT]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) and its layers hold, each labelled as taken from it and not re-checked (of one of the two previous verdict versions, [carrying](#older-snapshots-two-verdict-versions-back) what this build's changes cannot reach and checking the rest); with EXPORT, check it against them, taking what they vouch for and checking the rest, and with `--save-snapshot`, write what was checked as a layer; without EXPORT, `--save-snapshot NEW` writes the snapshot again with this build's versions (an upgrade): for development and research only |
 | `check [--no-manifest] [--fuel N] [--checked] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |

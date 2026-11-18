@@ -483,6 +483,7 @@ below it).
 | 139 | unsupported | not supported yet: an elaboration step (plans FE2-FE5, S2) |
 | 140 | invalid | unexpected token '#check'; expected term |
 | 141 | invalid | #check is a command: Lean would end the tactic block here; put it after end |
+| 200 | unsupported | not supported yet: a smart-unfolding marker reached the declaration (plan S2) |
 | 205 | invalid | Tactic `induction` failed: major premise type is not an inductive type |
 | 206 | invalid | Invalid alternative name |
 | 207 | invalid | Alternative |

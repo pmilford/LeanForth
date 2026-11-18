@@ -328,12 +328,15 @@ T{ fx 2 num hadd-add add0 keys-of tag1 fx fz nat-add add0 keys-of tag1
 T{ nat nat tpi fx 2 num add-add add0 keys-of tag1 nip -> elab-key-const }T
 \ A projection: its key, its structure first on the todo list, a class's
 \ too under getUnifyKeyArgs; under mkPath a class's structure is no_index,
-\ but getFunInfoNArgs infers the projection's type there: unsupported
-\ until FE1c's inferType has projections.
+\ but getFunInfoNArgs infers the projection's type there (inferProjType,
+\ S2 merge B): a projection of Add on a Nat is Lean's "invalid
+\ projection" (invalid), one on an Add Nat has a path.
 T{ fp 0 proj true lf-dt-nil lf-dt-key drop lf-dt-first fp = swap elab-key-tag
    -> true elab-key-proj }T
 T{ fx 0 cproj true lf-dt-nil lf-dt-key drop nip lf-dt-first fx = -> true }T
-T{ fx 0 cproj lf-dt-path nip nip -> outcome-unsupported }T
+T{ fx 0 cproj lf-dt-path nip nip -> outcome-invalid }T
+nat add0 char i local constant f-add
+T{ f-add 0 cproj lf-dt-path nip nip -> outcome-ok }T
 \ Unsupported: a string literal (S5); a definition reduceDT would
 \ unfold (GE.ge, reducible: plan S2's delta).
 : str-hi ( -- t ) s" hi" lf-str-new made drop ;
@@ -368,8 +371,8 @@ T{ ghost true lf-dt-nil lf-dt-key nip nip ghost lf-dt-path nip nip
 T{ ghost ?n app sub-key -> outcome-invalid }T
 \ ignoreArg reads getFunInfoNArgs: an argument beyond the parameters it
 \ found is kept unless a proof (@id (Nat -> Nat) s x: Add, id, arrow, Nat,
-\ s, x); where inferType or whnfD cannot tell (a projection, a type that
-\ is a reducible definition) the path is unsupported.
+\ s, x); a projection's type is inferred (inferProjType, S2 merge B), so
+\ Eq on fp.0 has its path.
 : id3 ( -- t ) lv1 1 s" id" cn nat nat tpi app fs app fx app ;
 : ge-local ( -- fvar ) ge-nat lf-lctx-local made ;
 T{ id3 add0 keys-of nip -> 6 }T
@@ -378,16 +381,19 @@ T{ id3 add0 keys-of nip -> 6 }T
 \ (A type that is a reducible definition: inferType's whnfD now unfolds
 \ GE.ge, so ge-eq's arguments are proofs, ignored; branch s2-tactics.)
 T{ fp 0 proj fx fx eq3 lf-dt-path nip nip ge-eq lf-dt-path rot drop
-   -> outcome-unsupported 4 outcome-ok }T
+   -> outcome-ok 4 outcome-ok }T
 : id-twice ( a -- t ) lv1 1 s" id" cn over app swap app ;
-T{ lv1 1 s" id" cn fp 0 proj app fx app add0 lf-dt-path nip nip
-   ge-local id-twice add0 lf-dt-path nip nip
-   fp 0 proj add0 lf-dt-path nip nip
-   -> outcome-unsupported outcome-unsupported outcome-unsupported }T
+T{ lv1 1 s" id" cn fp 0 proj app fx app add0 lf-dt-path nip nip -> outcome-ok }T
+T{ ge-local id-twice add0 lf-dt-path nip nip -> outcome-unsupported }T
+T{ fp 0 proj add0 lf-dt-path nip nip -> outcome-ok }T
 \ reduceDT: strict eta (fun x => s x is s), a lambda that is no eta form
-\ is other; whnfCore that cannot tell (a matcher, S3) is unsupported.
+\ is other; a matcher, reduced at reducible since S2 merge B (here a
+\ partial application, left as it is), has its path; at a wrong number of
+\ universe arguments its value cannot be instantiated (invalid, as Lean
+\ throws).
 T{ sfun keys-of tag0 nat 0 bv lam keys-of tag0 -> elab-key-fvar 1 elab-key-other 1 }T
-T{ 0 s" Nat.add.match_1" cn fk app lf-dt-path nip nip -> outcome-unsupported }T
+T{ lv1 1 s" Nat.add.match_1" cn fk app lf-dt-path nip nip -> outcome-ok }T
+T{ 0 s" Nat.add.match_1" cn fk app lf-dt-path nip nip -> outcome-invalid }T
 \ isOffset: Add.add of no numeral is its constant; at a type whnf cannot
 \ tell (Lean.SyntaxNodeKind, a reducible definition: S2) unsupported; a
 \ numeral below the root (Nat.succ Nat.zero) a literal.
@@ -414,7 +420,7 @@ lf-defeq-elab lf-defeq-stuck or lf-defeq-flags!
 : path-refusals-ok? ( t -- flag )
   true 100 1 do over i path-refused swap answered? rot and swap 0= if leave then
   loop nip ;
-T{ nat nat tpi path-refusals-ok? fx 0 cproj path-refusals-ok? -> true true }T
+T{ nat nat tpi path-refusals-ok? f-add 0 cproj path-refusals-ok? -> true true }T
 : fill-texts ( -- )
   begin elab-texts slab-count elab-texts slab-capacity <
   while 1 elab-texts slab-claim 2drop repeat ;

@@ -67,7 +67,8 @@ lf-walk-room context-walk: lf-cterm-walker
 \ parameter bit of their levels (levels.fs keeps it per level), when the
 \ level, or the reference and its levels, are valid when the node is
 \ made, else no data; a projection, literal, string literal or let leaf
-\ nothing (0); any other leaf (a concrete Sort, an unsupported form) no
+\ nothing (0); a smart-unfolding annotation (core/annotations.fs) its
+\ child's; any other leaf (a concrete Sort, an unsupported form) no
 \ data.
 : lf-data-params ( flag -- data ) 0 swap false lf-data ;
 : lf-cterm-sort-data ( level second -- data )
@@ -89,6 +90,7 @@ lf-walk-room context-walk: lf-cterm-walker
     lf-tag-fvar of 2drop 0 false true lf-data endof
     lf-tag-proj of 2drop 0 endof  lf-tag-lit of 2drop 0 endof
     lf-tag-str of 2drop 0 endof
+    lf-tag-annotation of drop lf-term-child-data endof
     >r 2drop lf-data-unknown r> endcase ;
 ' lf-cterm-leaf-data is lf-term-leaf-data
 

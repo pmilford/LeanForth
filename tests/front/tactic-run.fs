@@ -120,8 +120,8 @@ T{ sorry-app lf-term-first@ lf-term-first@ dup cname s" sorryAx" name= swap cons
 T{ lfa-front-made? -> true }T
 \ Its open part: the declaration, the position of by-sorry, the goal.
 : part ( k -- addr ) trun-parts slab-at ;
-: part-name ( k -- c-addr u ) part dup top-name @ swap top-name# @ lfr-chars ;
-: part-goal ( k -- c-addr u ) part dup top-goal @ swap top-goal# @ lfr-chars ;
+: part-name ( k -- c-addr u ) part top-name 2@ lfr-chars ;
+: part-goal ( k -- c-addr u ) part top-goal 2@ lfr-chars ;
 T{ lf-open-parts 0 part top-at @ lfa-pos> -> 1 1 43 }T
 T{ 0 part-name s" t" compare 0 part-goal s\" p : Prop\n⊢ p" compare -> 0 0 }T
 [defined] >string-execute [if]
@@ -353,6 +353,13 @@ T{ s2 @ lf-tac-commit s1 @ lf-tac-restore lfr-saves -> outcome-ok outcome-ok 0 }
   0 0 lf-tac-block lfa-e-tac-unsolved lfa-fail ;
 T{ two-goals lf-open-parts lfr-depth ' part-fail lf-tac-try drop lf-open-parts lfr-depth
    -> 0 0 0 0 }T
+\ So are step-log entries, their goals' spans and text (S2 6).
+: log-fail ( -- ) 1 trun-log slab-claim 2drop 1 trun-log-spans slab-claim 2drop
+  3 trun-text slab-claim 2drop lfa-e-tac-unsolved lfa-fail ;
+: log-counts ( -- a b c )
+  trun-log slab-count trun-log-spans slab-count trun-text slab-count ;
+T{ two-goals log-counts ' log-fail lf-tac-try drop lf-tac-forget log-counts
+   -> 0 0 0 0 0 0 }T
 \ No room for a second save (the slab limited to one): full, its mark
 \ given back, the first save still open; a try then stops the run full.
 : must-be-ok ( outcome -- ) ok? 0= abort" not ok" ;
@@ -415,12 +422,69 @@ T{ lf-open-parts 0 part-name s" zero_add_sorry" compare 0 part top-at @ lfa-pos>
 \ The same again in the same process: the same verdicts.
 T{ s" tests/front/06-sorry.lf" check outcome-ok tally cli-not-proved @ lf-open-parts
    -> 0 49 2 1 }T
+\ The step log (check --steps -, front/step-log.fs): the accepted
+\ declaration's header and its one step; none with a test that accepts
+\ nothing.
+variable lines#
+: count-lines ( c-addr u -- ) s\" \n" compare 0= if 1 lines# +! then ;
+: no-axioms ( d xt -- outcome ) 2drop outcome-ok ;
+: logged-with ( find axioms -- n outcome )
+  0 lines# ! ['] count-lines -rot lf-steps-write lines# @ swap ;
+: logged ( find -- n outcome ) ['] no-axioms logged-with ;
+: none-found ( c-addr u -- false ) 2drop false ;
+: check-steps ( c-addr u -- code )
+  cli-options library cli-state opt-env 2! s" -" cli-state opt-steps 2! cli-check ;
+: all-found ( c-addr u -- d true ) 2drop 0 true ;
+T{ s" tests/front/06-sorry.lf" check-steps lf-steps-decls -> 0 1 }T
+T{ ' all-found logged ' none-found logged -> 2 outcome-ok 0 outcome-ok }T
+\ The header says what is not proved (review M2): the declaration's open
+\ parts, and its axioms as the command line gives them (sorryAx); an
+\ axioms word's refusal is the writer's outcome, the header ended.
+: logged0 ( -- addr ) 0 lf-steps-decl ;
+T{ logged0 tld-parts @ logged0 tld-cut @ logged0 tld-count @ -> 1 false 1 }T
+: axioms-full ( d xt -- outcome ) 2drop outcome-full ;
+T{ ' all-found ' axioms-full logged-with -> 1 outcome-full }T
+\ A log that runs out of room is cut (review L4): the run, its verdicts
+\ and its exit code as without it; a declaration logged after the cut
+\ says so (steps 0); one whose record finds no room is left out.
+: most ( n unit slab -- ) dup slab-free >r swap r> slab-init must-be-ok ;
+: sorry-cut ( -- code n cut decls )
+  s" tests/front/06-sorry.lf" check-steps ['] all-found logged drop lf-steps-cut?
+  lf-steps-decls ;
+T{ 0 /tlg trun-log most sorry-cut logged0 tld-cut @ -> 0 1 true 1 true }T
+T{ outcome-ok tally cli-not-proved @ -> 49 2 }T
+T{ max-n /tlg / /tlg trun-log most 0 /tld trun-log-decls most sorry-cut
+   -> 0 0 true 0 }T
+T{ max-n /tld / /tld trun-log-decls most sorry-cut -> 0 2 false 1 }T
+\ A declaration cut after some of its steps were logged: the header alone.
+T{ true logged0 tld-cut ! ' all-found logged false logged0 tld-cut ! -> 1 outcome-ok }T
+[defined] >string-execute [if]
+: sorry-steps ( -- c-addr u ) s" tests/front/06-sorry.lf" check-steps drop ;
+: steps-written? ( -- flag )
+  ['] sorry-steps >string-execute s\" {\"tactic_steps\":" search nip nip ;
+T{ steps-written? -> true }T
+: sorry-header? ( c-addr u -- flag )
+  ['] sorry-steps >string-execute 2swap search nip nip ;
+T{ s\" \"axioms\":[\"sorryAx\"],\"cut\":false," sorry-header? -> true }T
+T{ s\" \"open_parts\":1,\"steps\":1}}" sorry-header? -> true }T
+\ An axiom whose name cannot be given: "axioms":null, never a short list
+\ (review re-check N2), and the writer's outcome the refusal.
+: null-steps ( -- c-addr u ) ['] type ['] all-found ['] axioms-full lf-steps-write drop ;
+T{ ' null-steps >string-execute s\" \"axioms\":null," search nip nip -> true }T
+[then]
+\ Without --steps nothing is kept.
+T{ s" tests/front/06-sorry.lf" check lf-steps-decls -> 0 0 }T
 \ A front-end fault that closes the goal with a wrong term (Bool.false,
-\ not a proof of p) reaches the kernel, which rejects it (exit 1).
+\ not a proof of p) reaches the kernel, which rejects it (exit 1); the
+\ step log leaves the rejected declaration out.
 : wrong-close ( i -- )
   drop lf-tac-main s" Bool.false" 0 cst lf-mvar-assign made 0 lf-replace-main made ;
 ' wrong-close tac-k-sorry lf-tactic-action!
 T{ s" tests/front/06-sorry.lf" check outcome-rejected tally outcome-ok tally -> 1 1 48 }T
+T{ s" tests/front/06-sorry.lf" check-steps lf-steps-decls -> 1 1 }T
+[defined] >string-execute [if]
+T{ steps-written? -> false }T
+[then]
 ' lfr-sorry tac-k-sorry lf-tactic-action!
 ' lfr-unelaborated stating
 T{ lfc-library-close -> }T

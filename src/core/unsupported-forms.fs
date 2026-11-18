@@ -16,6 +16,12 @@
 \ unknown), so such a leaf must never reach one: the audit runs first.
 \ Free variables and metavariables are not forms of this kind: an export
 \ cannot hold them, and an importer refuses them as invalid input (V1).
+\ Nor is the smart-unfolding marker (core/annotations.fs, tag 17; S2 merge
+\ B): only the front end makes one, from the elaboration data's bodies;
+\ no importer stages it (an export's mdata is the leaf above), the
+\ hand-over refuses a declaration that reaches one (error 200,
+\ front/handover.fs) and the export writer refuses to write one
+\ (author/export.fs), so no kernel pass, export or snapshot meets it.
 \ Untrusted [import] data.
 \ State: none of its own; the leaves go into the term store (terms.fs).
 

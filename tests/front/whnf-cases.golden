@@ -1,0 +1,99 @@
+(app (app s k) (app (app (app (app Nat.rec.{1} m) z) s) k))
+z
+(app (app (app (app Nat.rec.{1} m) z) s) k)
+(app (app (app Nat.rec.{1} m) z) s)
+(app z x)
+(lam Nat.{} (app (app s #0) (app (app (app (app Nat.rec.{1} m) z) s) #0)))
+(app (app (app (app Nat.rec.{1} m) z) s) ?n)
+(app (app s ?n) (app (app (app (app Nat.rec.{1} m) z) s) ?n))
+(app (app s (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) (app (app (app OfNat.ofNat.{0} Nat.{}) ?? 1) (app instOfNatNat.{} ?? 1)))) (app (app (app (app Nat.rec.{1} m) z) s) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) (app (app (app OfNat.ofNat.{0} Nat.{}) ?? 1) (app instOfNatNat.{} ?? 1)))))
+(app (app s (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) (app (app (app OfNat.ofNat.{0} Nat.{}) ?? 2) (app instOfNatNat.{} ?? 2)))) (app (app (app (app Nat.rec.{1} m) z) s) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) (app (app (app OfNat.ofNat.{0} Nat.{}) ?? 2) (app instOfNatNat.{} ?? 2)))))
+z
+(app (app s ?? 2) (app (app (app (app Nat.rec.{1} m) z) s) ?? 2))
+(app (app s ?? 3) (app (app (app (app Nat.rec.{1} m) z) s) ?? 3))
+(app (app s a) b)
+(app (app s (app (app (app Prod.fst.{0,0} Nat.{}) Nat.{}) p)) (app (app (app Prod.snd.{0,0} Nat.{}) Nat.{}) p))
+k
+a
+(app s k)
+(app s k)
+(app s k)
+(app ?h k)
+(app s k)
+(lam Nat.{} (app s #0))
+(lam Nat.{} (app s #0))
+(app (app Nat.add.{} k) k)
+(app Nat.succ.{} k)
+(app (app Classical.choice.{1} Nat.{}) x)
+x
+(app s a)
+a
+b
+(proj 0 p)
+(proj 2 (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b))
+(app s k)
+k
+(proj 0 (app (app Nat.add.{} k) k))
+(lam Nat.{} (lam Nat.{} (app (app (app (app Add.add.{0} Nat.{}) instAddNat.{}) #1) #0)))
+(app (app (app (app Add.add.{0} Nat.{}) instAddNat.{}) k) x)
+z
+(app (app s k) (app (app (app (app Nat.rec.{1} m) z) s) k))
+(app (app (app (app Nat.rec.{1} m) z) s) (app (lam Nat.{} #0) k))
+(app (app s z) (app (app (app (app Nat.rec.{1} m) z) s) z))
+(app (app (app (app Nat.rec.{1} m) z) s) (app (app Nat.add.{} k) k))
+(app (app (app (app Nat.noConfusion.{0} True.{}) Nat.zero.{}) Nat.zero.{}) (app (app Eq.refl.{1} Nat.{}) Nat.zero.{}))
+(pi <md>Nat.{} (pi <md>Nat.{} Nat.{}))
+(pi <md>Nat.{} Nat.{})
+Nat.{}
+(app m k)
+Nat.{}
+Nat.{}
+Nat.{}
+Sort 1
+Sort 1
+Nat.{}
+(app (app (app Eq.{1} Nat.{}) a) a)
+(pi Sort 1 (pi Sort 1 (pi (app outParam.{2} Sort 1) (pi (app (app (app HAdd.{0,0,0} #2) #1) #0) (pi #3 (pi #3 #3))))))
+Nat.{}
+(app (app Prod.{0,0} Nat.{}) Nat.{})
+(pi Sort 1 (pi (pi #0 (pi #1 Sort 0)) (pi Sort 1 (pi (pi #2 #1) (pi (pi #3 (pi #4 (pi (app (app #4 #1) #0) (app (app (app Eq.{1} #4) (app #3 #2)) (app #3 #1))))) (pi (app (app Quot.{1} #4) #3) #3))))))
+(pi Sort 1 (pi (pi #0 (pi #1 Sort 0)) (pi Sort 2 (pi (pi #2 #1) (pi (pi #3 (pi #4 (pi (app (app #4 #1) #0) (app (app (app Eq.{2} #4) (app #3 #2)) (app #3 #1))))) (pi (app (app Quot.{1} #4) #3) #3))))))
+(pi Nat.{} Nat.{})
+(pi Nat.{} (pi Nat.{} Nat.{}))
+(pi Nat.{} (app (app (app Eq.{1} Nat.{}) #0) #0))
+(pi Nat.{} Nat.{})
+(pi Nat.{} (pi (app (app (app Eq.{1} Nat.{}) #0) #0) (app (app (app Eq.{1} Nat.{}) #1) #1)))
+Sort 1
+Sort 0
+Sort 1
+Sort 2
+Sort 1
+Nat.{}
+Nat.{}
+Nat.{}
+Nat.{}
+Nat.{}
+(app (app (app (app LT.lt.{0} Nat.{}) instLTNat.{}) (proj 0 (app (app (app Fin.mk.{} k) a) b))) k)
+Nat.{}
+Nat.{}
+(app (app (app Eq.{1} Nat.{}) k) k)
+(pi Nat.{} Nat.{})
+#1
+#2
+#3
+(lam Nat.{} #2)
+(app s a)
+(app (app a (lam Nat.{} (app s #0))) #0)
+(lam Nat.{} (app s #0))
+?n
+?n
+none
+?h
+none
+none
+none
+none
+?q
+?q
+none
+none

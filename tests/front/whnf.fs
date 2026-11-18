@@ -14,6 +14,7 @@ require ./whnf-cases.fs
 
 \ Terms equal node for node (test only: recursion on the host stack).
 : leaf= ( t1 t2 -- flag )
+  over lf-lit-leaf? if lf-lit-same? exit then
   over lf-term-first@ over lf-term-first@ = >r lf-term-second@ swap lf-term-second@ = r> and ;
 : same? ( t1 t2 -- flag )
   2dup = if 2drop true exit then
@@ -25,6 +26,9 @@ require ./whnf-cases.fs
 : same-out ( a b outcome -- flag outcome ) >r same? r> ;
 : tag-out ( t outcome -- tag outcome ) >r lf-term-tag@ r> ;
 : recm ( major -- t ) >r rec fm app fz app fs app r> app ;
+\ Whether a call gave its term back: ( e e' outcome ) and ( e e' flag outcome ).
+: same-term? ( e e' outcome -- flag outcome ) >r = r> ;
+: kept? ( e e' flag outcome -- flag flag outcome ) >r >r = r> r> ;
 
 \ ---- Full: the first call's first allocation (its spine's slab)
 \ refused; the same call again works.
@@ -86,7 +90,10 @@ T{ lv1 lv1 2 s" Eq.rec" cn nat app fa app fm app fx app fa app fk app lf-whnf-co
    -> -1 outcome-unsupported }T
 : prod-rec ( -- t ) lv1 l0 l0 3 s" Prod.rec" cn nat app nat app fm app fs app ;
 T{ prod-rec fp app lf-whnf-core -> -1 outcome-unsupported }T
-T{ fk succ swap app succ swap app recm lf-whnf-core -> -1 outcome-unsupported }T
+\ cleanupNatOffsetMajor (S2 merge B): Nat.succ (Nat.succ k) is the offset
+\ (k, 2), the major premise Nat.succ (k + 1).
+: k+1 ( -- t ) fk 1 lf-meta-mk-offset drop ;
+T{ fk succ swap app succ swap app recm fs k+1 app k+1 recm app whnf= -> true outcome-ok }T
 
 \ ---- Invalid: no term, a loose bound variable, a malformed let.
 T{ -1 lf-whnf-core 0 bv lf-whnf-core -> -1 outcome-invalid -1 outcome-invalid }T
@@ -230,12 +237,83 @@ T{ inst-hadd hadd-mk meta-whnf= inst-hadd lf-meta-whnf-r nip inst-hadd dup lf-wh
    -> true outcome-ok outcome-ok true outcome-ok }T
 T{ inst-hadd dup lf-meta-whnf-r drop same? lf-defeq-mode -> true lf-tr-default }T
 \ A projection function (semireducible in the data): unfolded at default,
-\ left at reducible; a matcher, an auxiliary recursor, Nat operations
-\ reduceNat? might fold; Nat.succ of a variable stays.
-T{ hadd-kx lf-meta-whnf hadd-kx dup lf-meta-whnf-r drop same?
-   -> -1 outcome-unsupported true }T
-T{ 0 s" Nat.add.match_1" cn fk app lf-meta-whnf -> -1 outcome-unsupported }T
-T{ lv1 1 s" Nat.casesOn" cn fk app lf-meta-whnf -> -1 outcome-unsupported }T
+\ left at reducible; Nat.add k x by the smart path (S2 merge B) is stuck
+\ on x, so whnf ends there; Nat.add k 0 and Nat.add k (x + 1) reduce.
+: nat-add ( a b -- t ) >r >r 0 s" Nat.add" cn r> app r> app ;
+T{ hadd-kx fk fx nat-add meta-whnf= hadd-kx dup lf-meta-whnf-r drop same?
+   -> true outcome-ok true }T
+T{ fk zero nat-add fk meta-whnf= fk fx succ swap app nat-add succ fk fx nat-add app meta-whnf=
+   -> true outcome-ok true outcome-ok }T
+T{ fk zero nat-add lf-meta-unfold rot fk = -> true outcome-ok true }T
+T{ fk fx nat-add dup lf-meta-unfold kept? -> true false outcome-ok }T
+\ reduceMatcher? (S2 merge B): Nat.add.match_1 m k 0 z s is z k, with x + 1
+\ for 0 it is s k x, with a stuck discriminant it stays; fewer arguments
+\ than the alternatives stay (partialApp).
+: m1 ( a b -- t ) >r >r lv1 1 s" Nat.add.match_1" cn fm app r> app r> app fz app fs app ;
+T{ fk zero m1 fz fk app whnf= fk fx succ swap app m1 fs fk app fx app whnf=
+   -> true outcome-ok true outcome-ok }T
+T{ fk fx m1 dup whnf= fk zero m1 fa app fz fk app fa app whnf= -> true outcome-ok true outcome-ok }T
+T{ 0 s" Nat.add.match_1" cn fk app dup meta-whnf= -> true outcome-ok }T
+\ unfoldDefinition? leaves a matcher to whnfCore (none).
+T{ fk zero m1 dup lf-meta-unfold kept? -> true false outcome-ok }T
+\ At reducible, instances or implicit transparency the matcher reduces
+\ too, its part under lf-meta-at-matcher (canUnfoldAtMatcher), which is
+\ given back with the configuration when the call ends (check_unfold.py
+\ compares the answers with pinned Lean's).
+T{ fk zero m1 lf-meta-whnf-r swap fz fk app same? lf-defeq-flags -> outcome-ok true lf-meta-default }T
+\ unfoldNestedDIte (not ported): at reducible a matcher's value naming
+\ dite answers unsupported, one without is itself; at default dite stays
+\ (no Init matcher of the slices names dite: wc-nested-dite directly).
+: dite ( -- t ) lv1 1 s" dite" cn ;
+: nested ( t mode -- t' outcome ) lf-defeq-mode >r lf-defeq-mode! wc-nested-dite r> lf-defeq-mode! ;
+: kept-at ( t mode -- flag outcome ) over swap nested >r = r> ;
+\ The smart path refuses a marker in e1's arguments, not at its head
+\ (review s2-finish M3): a marked argument, and a marked head alone.
+: marked ( t -- t' ) lf-annot-match lf-annot drop ;
+T{ fk marked fk app fx marked app lf-whnf-args-marked? -> true outcome-ok }T
+T{ fk marked fk app fx app lf-whnf-args-marked? nat fk marked lam fx app lf-whnf-args-marked?
+   -> false outcome-ok false outcome-ok }T
+T{ fs nat fk marked lam app lf-whnf-args-marked? -> true outcome-ok }T
+T{ nat dite fk app lam lf-tr-reducible nested nat fk lam lf-tr-instances kept-at
+   -> -1 outcome-unsupported true outcome-ok }T
+T{ dite lf-tr-default kept-at -> true outcome-ok }T
+\ An auxiliary recursor unfolds (deltaBetaDefinition, S2 merge B): Nat.casesOn
+\ with its motive alone is a lambda.
+T{ lv1 1 s" Nat.casesOn" cn fk app lf-whnf-core tag-out -> lf-tag-lam outcome-ok }T
+\ The smart path's guards (review s2-finish M5): a recursion argument
+\ past e1's arguments gives none (P5, the rec_arg bound; the data's
+\ rec_arg of Nat.add's body made 99 for the test); a match stuck on a
+\ metavariable answers unsupported, never none (P8, wc-sstuck); a body's
+\ universe parameter past the names given is invalid (P7, lbd-sparam).
+: sun-of ( t -- s ) lf-meta-const-decl drop lf-menv-sunfold drop ;
+: add-rec ( -- addr ) 0 s" Nat.add" cn sun-of ed-sun ed-sun-rec ;
+T{ fk zero nat-add dup lf-meta-unfold kept? -> false true outcome-ok }T
+: add-k0-kept ( -- flag flag outcome ) fk zero nat-add dup lf-meta-unfold kept? ;
+: rec-99 ( -- flag flag outcome ) add-rec @ >r 99 add-rec ! add-k0-kept r> add-rec ! ;
+T{ rec-99 -> true false outcome-ok }T
+\ (It reduces no argument: fewer steps of the budget than Nat.add k 0's
+\ unfolding, which reduces its recursion argument 0.)
+: used ( xt -- n ) 1000000 lf-meta-budget! execute 2drop drop 1000000 lf-meta-budget - ;
+T{ lf-meta-budget ' rec-99 used ' add-k0-kept used < swap lf-meta-budget! -> true }T
+T{ fk ?n nat-add lf-meta-unfold -> -1 false outcome-unsupported }T
+T{ lv1 1 s" List.append" cn sun-of pad 0 lf-libdec-sunfold -> -1 outcome-invalid }T
+\ A let and a have of a smart-unfolding body (review re-check N1; no
+\ slice's body has one): the let of the value (field c) and the lambda
+\ of the type (b) and body (d), the have's nonDep; nodes made here, then
+\ given back.
+: lbv ( i -- t ) lf-term-bvar drop ;
+: want-let ( nondep -- t ) >r 8 lbv 7 lbv 9 lbv lf-term-lam drop r> lf-let-make drop ;
+: enode ( kind -- n ) 1 elab-nodes slab-claim drop tuck ed-node ed-node-kind ! ;
+: efield! ( x n xt -- ) swap ed-node swap execute ! ;
+: ebvar ( i -- n ) elab-node-bvar enode tuck ['] ed-node-a efield! ;
+: elet ( kind -- n )
+  enode 0 over ['] ed-node-a efield! 7 ebvar over ['] ed-node-b efield!
+  8 ebvar over ['] ed-node-c efield! 9 ebvar over ['] ed-node-d efield! ;
+: decoded ( kind -- t outcome )
+  elab-nodes slab-count >r lbd-sun-forget elet lbd-snode
+  r> elab-nodes slab-cut lbd-sun-forget ;
+T{ elab-node-let decoded swap false want-let same? -> outcome-ok true }T
+T{ elab-node-have decoded swap true want-let same? -> outcome-ok true }T
 \ (Nat.add k x: reduceNat? gets no value for an operand that holds a free
 \ variable, Lean's withNatValue, and reducible leaves Nat.add; s2-tactics.)
 T{ 0 s" Nat.add" cn fk app fx app dup lf-meta-whnf-r drop same? -> true }T
@@ -253,8 +331,11 @@ T{ nat-div dup meta-whnf= nat-div lf-tr-all in-mode tag-out
    -> true outcome-ok lf-tag-lam outcome-ok }T
 T{ 0 s" Nat.zero_add" cn dup meta-whnf= 0 s" Nat.zero_add" cn dup lf-tr-all in-mode same-out
    -> true outcome-ok true outcome-ok }T
-T{ hadd-kx lf-tr-instances in-mode l0 l0 l0 3 s" HAdd.hAdd" cn lf-tr-instances in-mode nip
-   -> -1 outcome-unsupported outcome-ok }T
+\ (k + x at instances: HAdd.hAdd and Add.add unfold to Nat.add k x, whose
+\ smart unfolding reduces its match at instances; S2 merge B.)
+T{ hadd-kx lf-tr-instances in-mode swap 0 s" Nat.add" cn fk app fx app same?
+   l0 l0 l0 3 s" HAdd.hAdd" cn lf-tr-instances in-mode nip
+   -> outcome-ok true outcome-ok }T
 \ At instances, an application of a definition that is no projection and
 \ that the transparency does not unfold stays (three arguments: no Nat
 \ operation reduceNat? reads).
@@ -270,16 +351,19 @@ menv-lib lf-menv-stage!
 T{ 0 lf-meta-budget! nat lf-meta-whnf lf-meta-budget lf-meta-default-budget lf-meta-budget!
    -> -1 outcome-exhausted 0 }T
 \ whnfForall: a pi from whnf, else the term itself; a failure passes on.
-T{ nat nat tpi fk app lf-meta-whnf-forall nat lf-meta-whnf-forall hadd-kx lf-meta-whnf-forall
+T{ nat nat tpi fk app lf-meta-whnf-forall nat lf-meta-whnf-forall
+   quot lv1 1 s" Quot.mk" cn nat app fx app fa app app lf-meta-whnf-forall
    -> nat nat tpi fk app lf-whnf-core drop outcome-ok nat outcome-ok -1 outcome-unsupported }T
+T{ hadd-kx dup lf-meta-whnf-forall same-term? -> true outcome-ok }T
 T{ nat nat nat tpi lam fk app lf-meta-whnf-forall swap nat nat tpi same? -> outcome-ok true }T
 \ A constant no declaration has stays (getUnfoldableConstNoEx?); applied,
 \ it is invalid (Lean: unknown constant); a type whnf cannot decide
 \ passes its failure on through instantiateForall, one that is no pi is
 \ invalid.
 T{ unknown dup meta-whnf= unknown fk app lf-meta-whnf -> true outcome-ok -1 outcome-invalid }T
-T{ hadd-kx fx 1 rxs lf-meta-instantiate-forall inst-hadd fx 1 rxs lf-meta-instantiate-forall
-   -> -1 outcome-unsupported -1 outcome-invalid }T
+T{ quot lv1 1 s" Quot.mk" cn nat app fx app fa app app fx 1 rxs lf-meta-instantiate-forall
+   inst-hadd fx 1 rxs lf-meta-instantiate-forall hadd-kx fx 1 rxs lf-meta-instantiate-forall
+   -> -1 outcome-unsupported -1 outcome-invalid -1 outcome-invalid }T
 \ instantiateForall: (a : Sort 1) -> a with Nat is Nat; (fun _ => Nat ->
 \ Nat) k, a pi only after whnf, with x is Nat; one parameter too many is
 \ invalid (Lean throws); none leaves the term.
@@ -310,9 +394,10 @@ T{ match1 lf-tr-default stays 0 s" Nat.zero_add" cn lf-tr-all stays
    -> false outcome-ok true false outcome-ok true }T
 T{ nat fk lam lf-tr-default stays unknown lf-tr-default stays lv1 lv1 2 s" outParam" cn nat app
    lf-tr-default stays -> false outcome-ok true false outcome-ok true false outcome-ok true }T
-\ Unsupported: Nat.add applied has a `_sunfold` (the smart path, merge B);
-\ without the facts (no data read against the stage) any definition.
-T{ 0 s" Nat.add" cn fk app fx app lf-meta-unfold -> -1 false outcome-unsupported }T
+\ Nat.add k x takes the smart path (merge B) and gives none, stuck on x;
+\ unsupported without the facts (no data read against the stage) for
+\ any definition.
+T{ fk fx nat-add dup lf-meta-unfold kept? -> true false outcome-ok }T
 0 lf-menv-stage!
 T{ nat outp lf-meta-unfold -> -1 false outcome-unsupported }T
 menv-lib lf-menv-stage!
@@ -365,16 +450,22 @@ T{ id-ab fa whnf= id-ab dup lf-whnf-core-at-defeq same-out lf-defeq-mode
 \ At implicit transparency too (id is implicit-reducible: whnf at
 \ implicit would unfold it, whnfAtMostI does not; review s2-unfold-a H1).
 T{ id-ab dup lf-tr-implicit ' lf-whnf-core-at-defeq at-mode same-out -> true outcome-ok }T
-\ A part that fails (Nat.add k x by whnfAtMostI: reduceNat?'s guard) still
-\ gives the caller its transparency back.
-T{ 0 s" Nat.add" cn fk app fx app 0 proj lf-whnf-core-at-defeq nip lf-defeq-mode
+\ A part that fails (Nat.add ?f ?f by whnfAtMostI, ?f assigned:
+\ reduceNat?'s guard does not instantiate yet) still gives the caller its
+\ transparency back. reduceNat? gives none for an unassigned
+\ metavariable or a free variable as either argument (withNatValue).
+T{ 0 s" Nat.add" cn ?f app ?f app 0 proj lf-whnf-core-at-defeq nip lf-defeq-mode
    -> outcome-unsupported lf-tr-default }T
-T{ lv1 1 s" id" cn nat app zero app recm fz whnf= 5 nlit recm lf-whnf-core
-   -> true outcome-ok -1 outcome-unsupported }T
+: nadd ( a b -- t ) >r >r 0 s" Nat.add" cn r> app r> app ;
+T{ ?n fx nadd dup lf-meta-whnf-r drop = zero fx nadd dup lf-meta-whnf-r drop =
+   ?n ?h nadd lf-meta-whnf-r nip -> true true outcome-ok }T
+\ toCtorIfLit (S2 merge B): the literal 5 is Nat.succ 4, 0 is Nat.zero.
+T{ lv1 1 s" id" cn nat app zero app recm fz whnf= 5 nlit recm fs 4 nlit app 4 nlit recm app
+   whnf= 0 nlit recm fz whnf= -> true outcome-ok true outcome-ok true outcome-ok }T
 \ whnf goes on after an unfolding: outParam Nat is Nat; instHAdd's
-\ projection applied reaches Add.add's field, Nat.add k x, where
-\ reduceNat?'s guard answers unsupported (merge B).
-T{ nat outp nat meta-whnf= hadd-kx lf-meta-whnf -> true outcome-ok -1 outcome-unsupported }T
+\ projection applied reaches Add.add's field, Nat.add k x, which
+\ reduceNat?'s guard and the smart path (merge B) leave.
+T{ nat outp nat meta-whnf= hadd-kx fk fx nat-add meta-whnf= -> true outcome-ok true outcome-ok }T
 
 \ ---- isWFRec (reduceRec, WHNF.lean:229): Acc.rec and WellFounded.rec
 \ reduce their major premise at transparency all when the configured one
@@ -391,6 +482,11 @@ T{ s" Acc.rec" lf-tr-default bumped s" WellFounded.rec" lf-tr-default bumped
 T{ s" Acc.rec" lf-tr-reducible bumped s" WellFounded.rec" lf-tr-instances bumped
    s" Acc.rec" lf-tr-all bumped lf-defeq-mode -> lf-tr-reducible lf-tr-instances lf-tr-all
    lf-tr-default }T
+
+\ ---- Smart-unfolding annotations (S2 merge B): whnfCore looks through
+\ one at the term and at an application's head (whnfEasyCases).
+: ann ( t -- t' ) lf-annot-match lf-annot ok? 0= abort" annotation" ;
+T{ fk ann ann fk whnf= nat 0 bv lam ann fk app fk whnf= -> true outcome-ok true outcome-ok }T
 
 \ ---- Stale leaves: after the contexts are emptied, every metavariable
 \ and free variable made before is invalid.

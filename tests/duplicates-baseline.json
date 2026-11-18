@@ -30,11 +30,12 @@
   "tokens": 14
  },
  "0255f35c17e8": {
-  "copies": 2,
+  "copies": 3,
   "kind": "shape",
   "members": [
    "src/core/reach.fs:lr-term-holes?",
-   "src/core/reach.fs:lr-level-holes?"
+   "src/core/reach.fs:lr-level-holes?",
+   "src/core/reach.fs:lf-reach-annotations?"
   ],
   "reason": "false positive: an any? (outcome.fs) over a different count and test, the shared word already",
   "tokens": 6
@@ -75,7 +76,7 @@
   "members": [
    "src/front/goal-print.fs:gp-images",
    "src/front/mvars.fs:mv-pair-images",
-   "src/front/tactic-basic.fs:lfb-images"
+   "src/front/term-find.fs:tf-images"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 11
@@ -142,14 +143,15 @@
   "tokens": 11
  },
  "0fddcf55ce5f": {
-  "copies": 5,
+  "copies": 6,
   "kind": "shape",
   "members": [
    "src/front/assign-check.fs:ac-x",
    "src/front/beta-inst.fs:ib-x",
    "src/front/instantiate.fs:in-x",
    "src/front/level-params.fs:lp-name",
-   "src/front/level-params.fs:lp-arg"
+   "src/front/level-params.fs:lp-arg",
+   "src/front/lib-decode.fs:lbd-sname@"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
@@ -307,6 +309,16 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
+ },
+ "26354411e11f": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/whnf.fs:wc-matcher",
+   "src/front/whnf.fs:wc-smatch-sizes"
+  ],
+  "reason": "planned: 9.4.8k front batch (reuse-front): the smart path's matcher step (wc-smatch-sizes) and whnfCore's (wc-matcher) share one sizes-and-part word (S2 merge B)",
+  "tokens": 18
  },
  "26dd46e981f2": {
   "copies": 2,
@@ -625,6 +637,16 @@
   "reason": "planned: 9.4.8k guard word (one word in lib/outcome.fs for `dup 0< if drop outcome-ok else xt then`, from review s1-elab; the kernel member under [kernel])",
   "tokens": 8
  },
+ "4269527a7890": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/infer.fs:if-const",
+   "src/front/whnf.fs:wc-const-head"
+  ],
+  "reason": "false positive: the guarded declaration lookup idiom (lf-meta-const-decl ok-then?), with unrelated continuations (a type, a whnf step)",
+  "tokens": 8
+ },
  "463da21283da": {
   "copies": 2,
   "kind": "shape",
@@ -646,16 +668,6 @@
    "src/present/log-check.fs:lf-lc-declaration?"
   ],
   "reason": "false positive: a two-way choice on a test of the top item (dup X if Y else Z then), each with its own test and words; a word taking three xts would be no shorter",
-  "tokens": 7
- },
- "46add6576f0e": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/lib-decode.fs:lbd-ab?",
-   "src/front/lib-decode.fs:lbd-xab?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
  },
  "47757cd38ad0": {
@@ -793,6 +805,16 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 9
  },
+ "526a341cbecf": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/cli/leanforth.fs:cli-steps-bad",
+   "src/front/tactic-run.fs:lfr-cut?"
+  ],
+  "reason": "false positive: a sticky failure flag turned into full, two different flags (the CLI's write error, the runner's cut text)",
+  "tokens": 7
+ },
  "53ddb804ea99": {
   "copies": 3,
   "kind": "shape",
@@ -808,7 +830,7 @@
   "copies": 2,
   "kind": "shape",
   "members": [
-   "src/front/infer.fs:if-app",
+   "src/front/infer.fs:if-params-in",
    "src/front/infer.fs:if-lambda"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
@@ -977,6 +999,16 @@
   "reason": "family, table-driven later: the term, level and constant-reference stores (terms.fs, levels.fs, constant-references.fs) keep parallel interfaces over their own store, table and columns; one store-family record would serve them (9.4.8k follow-up 4)",
   "tokens": 16
  },
+ "6262f7e98086": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/nat-offset.fs:no-plus",
+   "src/kernel/whnf.fs:lf-whnf-reapply"
+  ],
+  "reason": "false positive: front-end Nat offset and kernel whnf rebuild an application in the same shape, different stores and meanings",
+  "tokens": 8
+ },
  "631a9f55bad7": {
   "copies": 2,
   "kind": "shape",
@@ -1058,6 +1090,16 @@
   "reason": "false positive: the guarded test `dup a? if b else drop false then` (or with 2dup/2drop) of two different words",
   "tokens": 7
  },
+ "6a18ab970b1c": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/beta-inst.fs:ib-step-annot",
+   "src/front/instantiate.fs:in-step-annot"
+  ],
+  "reason": "planned: 9.4.8k front batch (reuse-front): instantiate.fs and beta-inst.fs carry smart-unfolding annotations alike: one shared annotation step (S2 merge B)",
+  "tokens": 10
+ },
  "6a44becdbbb5": {
   "copies": 2,
   "kind": "shape",
@@ -1098,6 +1140,16 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
  },
+ "6bb5d0984ebb": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/tactic-run.fs:lf-tac-word",
+   "src/program/verify-report.fs:pv-path"
+  ],
+  "reason": "false positive: a record's counted text read (address and length fields), two unrelated records (a tactic row, a report path)",
+  "tokens": 6
+ },
  "6c6885378440": {
   "copies": 2,
   "kind": "shape",
@@ -1117,6 +1169,26 @@
   ],
   "reason": "accepted: the same test in derivation-log.fs, whose allow-list (tests/core/check_log_isolation.py, ADR 0013 L5) admits no other module's words",
   "tokens": 8
+ },
+ "717e3ed1c9c3": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/beta-inst.fs:ib-annot-image",
+   "src/front/instantiate.fs:in-annot-image"
+  ],
+  "reason": "planned: 9.4.8k front batch (reuse-front): instantiate.fs and beta-inst.fs carry smart-unfolding annotations alike: one shared annotation image (S2 merge B)",
+  "tokens": 6
+ },
+ "719a2248d5cc": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/whnf.fs:wc-app",
+   "src/front/whnf.fs:wc-smatch"
+  ],
+  "reason": "planned: 9.4.8k front batch (reuse-front): wc-smatch and wc-app spine then dispatch alike: one spine-then word in whnf.fs (S2 merge B)",
+  "tokens": 9
  },
  "74022d8a67db": {
   "copies": 2,
@@ -1248,6 +1320,16 @@
   ],
   "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with/ok-and/ok-then?, already the shared words",
   "tokens": 12
+ },
+ "7db9c55dfa3c": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/beta-inst.fs:ib-annot-rebuild",
+   "src/front/instantiate.fs:in-annot-rebuild"
+  ],
+  "reason": "planned: 9.4.8k front batch (reuse-front): instantiate.fs and beta-inst.fs carry smart-unfolding annotations alike: one shared annotation rebuild (S2 merge B)",
+  "tokens": 15
  },
  "7e3f53f99edc": {
   "copies": 2,
@@ -1793,7 +1875,7 @@
   "members": [
    "src/front/instantiate.fs:in-loose-walk",
    "src/front/level-params.fs:lp-walk",
-   "src/front/tactic-basic.fs:lfb-walk"
+   "src/front/term-find.fs:tf-walk@"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 19
@@ -1916,7 +1998,7 @@
   "tokens": 9
  },
  "b441222231c7": {
-  "copies": 20,
+  "copies": 21,
   "kind": "shape",
   "members": [
    "src/cli/leanforth.fs:cli-fed-report",
@@ -1925,6 +2007,7 @@
    "src/front/elab-app.fs:ea-strict",
    "src/front/instantiate.fs:in-leaf",
    "src/front/tactic-basic.fs:lfb-types.",
+   "src/front/whnf.fs:wc-srec",
    "src/import/run-replay.fs:rp-verdict-code",
    "src/kernel/env-schedule.fs:lf-sch-settled",
    "src/kernel/environment.fs:lf-env-origin",
@@ -2249,7 +2332,7 @@
    "src/front/instantiate.fs:in-undone",
    "src/front/level-params.fs:lp-undone",
    "src/front/mvars.fs:mv-undone",
-   "src/front/tactic-basic.fs:lfb-undone"
+   "src/front/term-find.fs:tf-undone"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 9
@@ -2263,6 +2346,16 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 8
+ },
+ "c9ddc1f565e5": {
+  "copies": 2,
+  "kind": "copy",
+  "members": [
+   "src/front/beta-inst.fs:ib-range",
+   "src/front/instantiate.fs:in-range"
+  ],
+  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "tokens": 15
  },
  "ca01f3ffe72b": {
   "copies": 4,
@@ -2287,6 +2380,16 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
+ },
+ "cae0572a1926": {
+  "copies": 2,
+  "kind": "copy",
+  "members": [
+   "src/front/discr-keys.fs:dk-matcher",
+   "src/front/meta-env.fs:lf-menv-sunfold"
+  ],
+  "reason": "planned: 9.4.8k front batch (reuse-front): discr-keys.fs's matcher fact and meta-env.fs's sunfold fact read the data the same way: one meta-env.fs word (S2 merge B)",
+  "tokens": 7
  },
  "cb3247c9476a": {
   "copies": 2,
@@ -2334,12 +2437,11 @@
   "tokens": 10
  },
  "cd00161ee80b": {
-  "copies": 3,
+  "copies": 2,
   "kind": "shape",
   "members": [
    "src/front/goal-print.fs:gp-child",
-   "src/front/instantiate.fs:in-loose-pending",
-   "src/front/tactic-basic.fs:lfb-pending"
+   "src/front/term-find.fs:tf-pending"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 22
@@ -2645,16 +2747,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after the front branches merge; came with main's s2-unfold and s1-synth-b)",
   "tokens": 6
  },
- "e5d964117b30": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-range",
-   "src/front/instantiate.fs:in-range"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 15
- },
  "e5e8935a1b22": {
   "copies": 2,
   "kind": "shape",
@@ -2684,16 +2776,6 @@
   ],
   "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with, already the shared word",
   "tokens": 11
- },
- "e6a274160a4d": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/beta-inst.fs:ib-head",
-   "src/front/term-eqv.fs:lf-meta-head"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 6
  },
  "e818d61beb24": {
   "copies": 2,
@@ -2929,6 +3011,16 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 8
+ },
+ "fe132db8322b": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/core/annotations.fs:lf-annot-strip",
+   "src/present/proof-outline.fs:lf-ol-head"
+  ],
+  "reason": "false positive: a loop down first children, over different node kinds (smart-unfolding annotations, an outline's application heads)",
+  "tokens": 6
  },
  "ffe486f9eeae": {
   "copies": 2,

@@ -95,8 +95,11 @@ end-structure
 : mck-arity ( d e -- outcome ) lf-meta-arity? if outcome-ok else outcome-invalid then ;
 : mck-const ( e -- outcome ) dup lf-meta-const-decl ok-then? if swap mck-arity else nip
   then ;
+\ A projection, and a smart-unfolding marker (core/annotations.fs: Lean
+\ checks mdata's term, not ported), answer unsupported.
 : mck-leaf ( e -- outcome )
-  lf-term-tag@ lf-tag-projection = if outcome-unsupported else outcome-ok then ;
+  lf-term-tag@ dup lf-tag-projection = swap lf-tag-annotation = or
+  if outcome-unsupported else outcome-ok then ;
 : mck-node ( e -- outcome )
   dup lf-term-tag@ case lf-tag-app of mck-app endof
     lf-tag-pi of mck-k-body mck-binder endof  lf-tag-lam of mck-k-check mck-binder endof

@@ -86,7 +86,10 @@
 \ lf-menv-kinds-in ( d k -- addr n ) the same for the leading binders of
 \ the domain of its type's binder k (S2 §4; none for a text declaration);
 \ lf-menv-status ( d -- status outcome ) an elab-* status;
-\ lf-menv-can-unfold ( d mode -- flag outcome ) canUnfoldDefault;
+\ lf-menv-can-unfold ( d mode -- flag outcome ) canUnfoldDefault, and
+\ canUnfoldAtMatcher under meta-config.fs's lf-meta-at-matcher (S2 merge
+\ B: also a @[match_pattern] definition, lf-menv-match-pattern? ( d --
+\ flag outcome ) from the data's tag, and 21 names Lean lists);
 \ lf-menv-unfoldable ( name mode -- d flag outcome ) getUnfoldableConst?:
 \ flag true when the name is a definition that mode unfolds (a theorem
 \ or any other kind: false); lf-menv-matcher?, lf-menv-proj-fn?,
@@ -109,7 +112,8 @@
 \ lf-menv-nat-succ? ( name -- flag ) whether a name is Nat.succ,
 \ lf-menv-nat-name? ( name -- flag ) whether it is in Nat's namespace,
 \ lf-menv-wf-rec? ( name -- flag ) whether it is Acc.rec or
-\ WellFounded.rec (reduceRec's isWFRec).
+\ WellFounded.rec (reduceRec's isWFRec), lf-menv-dite? ( name -- flag )
+\ whether it is dite (unfoldNestedDIte).
 \ Outcomes: ok; invalid for a declaration number beyond the input, a
 \ mode beyond the six, a name that is not valid or that no declaration
 \ has, or a declaration the stage does not hold; unsupported as above.
@@ -133,6 +137,7 @@ require ../core/levels.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/input.fs
+require ../core/statement-match.fs
 require ../import/stage.fs
 require ./elab-data.fs
 require ./meta-config.fs
@@ -283,35 +288,6 @@ end-structure
 : lf-menv-status ( d -- status outcome )
   dup me-decl? if me-statuses me-ask else drop -1 outcome-invalid then ;
 
-\ ---- canUnfoldDefault: per mode, the statuses it unfolds (bit k for
-\ status k: semireducible, reducible, irreducible, implicit-reducible,
-\ instance-reducible); all and none need no status.
-: me-bit ( status -- mask ) 1 swap lshift ;
-: me-every ( -- mask ) elab-instance-reducible 1+ me-bit 1- ;
-: me-default ( -- mask ) me-every elab-irreducible me-bit invert and ;
-: me-reducible ( -- mask ) elab-reducible me-bit ;
-: me-instances ( -- mask ) me-reducible elab-instance-reducible me-bit or ;
-: me-implicit ( -- mask ) me-instances elab-implicit-reducible me-bit or ;
-: me-mask ( mode -- mask )
-  case lf-tr-all of me-every endof lf-tr-default of me-default endof
-    lf-tr-reducible of me-reducible endof lf-tr-instances of me-instances endof
-    lf-tr-implicit of me-implicit endof 0 swap endcase ;
-: me-status-free? ( mode -- flag ) dup lf-tr-all = swap lf-tr-none = or ;
-: me-unfolds? ( status mode -- flag ) me-mask swap rshift 1 and 0<> ;
-: me-by-status ( d mode -- flag outcome )
-  swap lf-menv-status ok-then? if swap me-unfolds? outcome-ok else nip false swap then ;
-: me-bad? ( d mode -- flag ) lf-tr-modes u< swap me-decl? and 0= ;
-: lf-menv-can-unfold ( d mode -- flag outcome )
-  2dup me-bad? if 2drop false outcome-invalid exit then
-  dup me-status-free? if nip me-mask 0<> outcome-ok else me-by-status then ;
-
-\ ---- getUnfoldableConst?: a definition the mode unfolds; a theorem or
-\ any other kind never.
-: me-unfoldable ( d mode -- d flag outcome )
-  over me-defn? if over swap lf-menv-can-unfold else drop false outcome-ok then ;
-: lf-menv-unfoldable ( name mode -- d flag outcome )
-  dup lf-tr-modes u< 0= if 2drop -1 false outcome-invalid exit then
-  swap lf-menv-find ok-then? if swap me-unfoldable else nip -1 false rot then ;
 
 \ ---- Facts of a definition from the data (format 3): the stage's
 \ declaration of the same name asked with xt ( d -- x true | false );
@@ -356,6 +332,75 @@ end-structure
 : lf-menv-aux-recursor? ( d -- flag outcome )
   dup me-decl? if dup me-ndrec? if drop true outcome-ok exit then then
   ['] me-aux-tag me-defn-fact ;
+\ isAuxDef (WHNF.lean:79-81): isAuxRecursor alone; a noConfusion is not
+\ one (pinned Lean: whnfCore leaves Nat.noConfusion's application).
+: lf-menv-aux-def? ( d -- flag outcome ) lf-menv-aux-recursor? ;
+\ canUnfoldAtMatcher's own names (GetUnfoldableConst.lean:44-57).
+: me-matcher-a? ( name -- name flag )
+  dup s" OfNat.ofNat" lf-name-dotted? over s" NatCast.natCast" lf-name-dotted? or
+  over s" Zero.zero" lf-name-dotted? or over s" One.one" lf-name-dotted? or ;
+: me-matcher-b? ( name -- name flag )
+  dup s" decEq" lf-name-dotted? over s" Nat.decEq" lf-name-dotted? or
+  over s" Char.ofNat" lf-name-dotted? or over s" Char.ofNatAux" lf-name-dotted? or ;
+: me-matcher-c? ( name -- name flag )
+  dup s" String.decEq" lf-name-dotted? over s" List.hasDecEq" lf-name-dotted? or
+  over s" Fin.ofNat" lf-name-dotted? or over s" HMod.hMod" lf-name-dotted? or
+  over s" Mod.mod" lf-name-dotted? or ;
+: me-uint? ( prefix -- flag )
+  dup s" UInt8" lf-name-dotted? over s" UInt16" lf-name-dotted? or
+  over s" UInt32" lf-name-dotted? or swap s" UInt64" lf-name-dotted? or ;
+: me-uint-op? ( name -- flag )
+  dup s" ofNat" me-str? over s" decEq" me-str? or
+  if lf-name-prefix@ me-uint? else drop false then ;
+: me-matcher-name? ( name -- flag )
+  me-matcher-a? if drop true exit then  me-matcher-b? if drop true exit then
+  me-matcher-c? if drop true exit then  me-uint-op? ;
+\ Lean's hasMatchPatternAttribute: the data's match_pattern tag.
+: me-pattern-tag ( d' -- 0 true | false )
+  elab-tag-match-pattern elab-tagged? dup if 0 swap then ;
+: lf-menv-match-pattern? ( d -- flag outcome ) ['] me-pattern-tag me-defn-fact ;
+\ ---- canUnfoldDefault: per mode, the statuses it unfolds (bit k for
+\ status k: semireducible, reducible, irreducible, implicit-reducible,
+\ instance-reducible); all and none need no status.
+: me-bit ( status -- mask ) 1 swap lshift ;
+: me-every ( -- mask ) elab-instance-reducible 1+ me-bit 1- ;
+: me-default ( -- mask ) me-every elab-irreducible me-bit invert and ;
+: me-reducible ( -- mask ) elab-reducible me-bit ;
+: me-instances ( -- mask ) me-reducible elab-instance-reducible me-bit or ;
+: me-implicit ( -- mask ) me-instances elab-implicit-reducible me-bit or ;
+: me-mask ( mode -- mask )
+  case lf-tr-all of me-every endof lf-tr-default of me-default endof
+    lf-tr-reducible of me-reducible endof lf-tr-instances of me-instances endof
+    lf-tr-implicit of me-implicit endof 0 swap endcase ;
+: me-status-free? ( mode -- flag ) dup lf-tr-all = swap lf-tr-none = or ;
+: me-unfolds? ( status mode -- flag ) me-mask swap rshift 1 and 0<> ;
+: me-by-status ( d mode -- flag outcome )
+  swap lf-menv-status ok-then? if swap me-unfolds? outcome-ok else nip false swap then ;
+: me-bad? ( d mode -- flag ) lf-tr-modes u< swap me-decl? and 0= ;
+: me-can-default ( d mode -- flag outcome )
+  dup me-status-free? if nip me-mask 0<> outcome-ok else me-by-status then ;
+\ canUnfoldAtMatcher (GetUnfoldableConst.lean:37), under meta-config.fs's
+\ lf-meta-at-matcher: what canUnfoldDefault does not unfold, a
+\ @[match_pattern] definition or one of Lean's names above does.
+: me-matcher-extra ( d -- flag outcome )
+  dup lf-menv-name me-matcher-name? if drop true outcome-ok exit then
+  lf-menv-match-pattern? ;
+\ Done: canUnfoldDefault's yes, or no predicate at matchers.
+: me-more? ( flag -- flag' ) lf-meta-at-matcher lf-meta-flag? 0= or ;
+: me-can-more ( d flag outcome -- flag outcome )
+  ok-then? 0= if nip false swap exit then
+  dup me-more? if nip outcome-ok else drop me-matcher-extra then ;
+: lf-menv-can-unfold ( d mode -- flag outcome )
+  2dup me-bad? if 2drop false outcome-invalid exit then
+  over swap me-can-default me-can-more ;
+
+\ ---- getUnfoldableConst?: a definition the mode unfolds; a theorem or
+\ any other kind never.
+: me-unfoldable ( d mode -- d flag outcome )
+  over me-defn? if over swap lf-menv-can-unfold else drop false outcome-ok then ;
+: lf-menv-unfoldable ( name mode -- d flag outcome )
+  dup lf-tr-modes u< 0= if 2drop -1 false outcome-invalid exit then
+  swap lf-menv-find ok-then? if swap me-unfoldable else nip -1 false rot then ;
 \ ---- Binder kinds (S1 §4), into me-kinds.
 : me-kinds-out ( -- addr n ) 0 me-kinds slab-at me-kinds slab-count ;
 : me-fed-kinds ( d -- )
@@ -399,6 +444,20 @@ end-structure
   me-run? if me-run-data-decl else elab-decl-of then ;
 : lf-menv-of-data ( d' -- d outcome )
   me-run? if me-decoded else elab-decl-name lf-menv-find then ;
+\ A definition's sunfold record (Lean's find? of f._sunfold) and its
+\ rec_arg (getStructuralRecArgPos?, S2 merge B); false when none.
+: lf-menv-sunfold ( d -- s true | false )
+  lf-menv-name lf-menv-data-decl if elab-sunfold-of else false then ;
+: lf-menv-rec-arg ( d -- k true | false )
+  lf-menv-sunfold if elab-sunfold-rec-arg else false then ;
+\ getMatcherInfo? (S2 merge B), from format 2's matcher record: the
+\ arguments before a matcher's alternatives (its parameters, motive and
+\ discriminants) and its alternatives; false when the data has none.
+: me-prefix ( m -- n ) elab-matcher@ + 1+ nip ;
+: me-alts ( m -- n ) elab-matcher-alts nip ;
+: lf-menv-matcher-sizes ( d -- prefix alts true | false )
+  lf-menv-name lf-menv-data-decl 0= if false exit then
+  elab-matcher-of 0= if false exit then dup me-prefix swap me-alts true ;
 
 \ ---- A text declaration made visible (lf-menv-add): its name, kind,
 \ type, value, universe parameters and the kinds of its type's leading Pi
@@ -448,5 +507,7 @@ create me-text-kinds-of   \ per lf-decl-* kind (present/print-forth.fs); 0: none
 : me-wf? ( prefix -- flag ) dup s" Acc" me-top? swap s" WellFounded" me-top? or ;
 : lf-menv-wf-rec? ( name -- flag )
   dup s" rec" me-str? if lf-name-prefix@ me-wf? else drop false then ;
+\ Whether a name is dite (reduceMatcher?'s unfoldNestedDIte).
+: lf-menv-dite? ( name -- flag ) s" dite" me-top? ;
 
 base !   \ the BASE this file was loaded with

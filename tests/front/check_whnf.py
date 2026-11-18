@@ -20,7 +20,9 @@ never has it; Lean's lines mark it <md>, and a line equal once the marks
 are dropped is counted and listed apart, as equal up to the export's
 missing mdata (plan row FE1d2).
 
-Usage: LEAN=... GFORTH=... python3 tests/front/check_whnf.py [--write]
+Usage: LEAN=... GFORTH=... python3 tests/front/check_whnf.py [--write | --write-golden]
+       GFORTH=... python3 tests/front/check_whnf.py --golden   (Lean's recorded lines,
+         tests/front/whnf-cases.golden; make test)
 """
 import os
 import pathlib
@@ -32,6 +34,8 @@ LEAN = os.environ.get("LEAN", ".tools/elan/toolchains/leanprover--lean4---v4.35.
 GFORTH = os.environ.get("GFORTH", "gforth")
 LIMIT = 300
 LEAN_FILE = ROOT / "tests/front/whnf-cases.lean"
+# Pinned Lean's lines, recorded for make test's run without Lean (--golden).
+GOLDEN = ROOT / "tests/front/whnf-cases.golden"
 
 FVARS = "mzskxabpg"
 MVARS = {"?n": "n", "?h": "h", "?f": "f", "?q": "q"}
@@ -77,7 +81,13 @@ CASES = [
     ("whnf", rec(SUCC), None),
     ("whnf", rec("?n"), None),
     ("whnf", rec(apps(SUCC, "?n")), None),
-    ("whnf", rec(apps(SUCC, apps(SUCC, "k"))), "FE1c Nat offsets (cleanupNatOffsetMajor)"),
+    # reduceRec's clean-up (S2 merge B): cleanupNatOffsetMajor and
+    # toCtorIfLit.
+    ("whnf", rec(apps(SUCC, apps(SUCC, "k"))), None),
+    ("whnf", rec(apps(SUCC, apps(SUCC, apps(SUCC, "k")))), None),
+    ("whnf", rec(("lit", 0)), None),
+    ("whnf", rec(("lit", 3)), None),
+    ("whnf", rec(apps(SUCC, ("lit", 3))), "S3 reduceNat? folding literals (Nat.succ 3)"),
     ("whnf", apps(PROD_REC, NAT, NAT, "m", "s", apps(PROD_MK, NAT, NAT, "a", "b")), None),
     ("whnf", apps(PROD_REC, NAT, NAT, "m", "s", "p"), "FE1c inferType (toCtorWhenStructure)"),
     ("whnf", apps((LAM, NAT, "#0"), "k"), None),
@@ -102,7 +112,7 @@ CASES = [
     ("whnf", (PROJ, 2, pair("a", "b")), None),
     ("whnf", apps((PROJ, 0, pair(SFUN, "b")), "k"), None),
     ("whnf", (PROJ, 0, apps(SUCC, "k")), None),
-    ("whnf", (PROJ, 0, apps(ADD, "k", "k")), "FE1d2 smart unfolding and matcher facts"),
+    ("whnf", (PROJ, 0, apps(ADD, "k", "k")), None),
     # A projection's structure by whnf (proj := yesWithDelta, S2 merge A):
     # the instance unfolds to its constructor, the field is taken.
     ("whnf", (PROJ, 0, apps(c("instHAdd", 0), NAT, c("instAddNat"))), None),
@@ -111,7 +121,11 @@ CASES = [
     ("whnf", rec((LET, NAT, "k", apps(SUCC, "#0"))), None),
     ("whnf", rec(apps((LAM, NAT, "#0"), "k")), None),
     ("whnf", rec(apps(REC, "m", apps(SUCC, "z"), "s", ZERO)), None),
-    ("whnf", rec(apps(ADD, "k", "k")), "FE1d2 smart unfolding and matcher facts"),
+    ("whnf", rec(apps(ADD, "k", "k")), None),
+    # isAuxDef is isAuxRecursor alone: whnfCore leaves a noConfusion
+    # (review s2-finish M1).
+    ("whnf", apps(c("Nat.noConfusion", 0), c("True"), ZERO, ZERO, apps(c("Eq.refl", 1), NAT, ZERO)),
+     None),
     ("infer", ADD, None),
     ("infer", apps(ADD, "k"), None),
     ("infer", apps(ADD, "k", "k"), None),
@@ -139,7 +153,17 @@ CASES = [
     ("infer", (PI, (SORT, 0), (SORT, 0)), None),
     ("infer", (PI, (SORT, 1), NAT), None),
     ("infer", (PI, (PI, NAT, NAT), NAT), "FE1c a nested telescope for a pi domain"),
-    ("infer", (PROJ, 0, pair("a", "b")), "FE1c inferProjType"),
+    # inferProjType (S2 merge B: n + 0 unfolds to instAddNat.1 n 0): a
+    # field, a field applied, a field whose type names an earlier field
+    # (Fin.mk's isLt over val, put in as a projection; ill-typed
+    # arguments, as inferType does not check).
+    ("infer", (PROJ, 0, pair("a", "b")), None),
+    ("infer", (PROJ, 1, pair("a", "b")), None),
+    ("infer", (PROJ, 0, "p"), None),
+    ("infer", apps((PROJ, 0, apps(c("instHAdd", 0), NAT, c("instAddNat")), "HAdd"), "k", "x"),
+     None),
+    ("infer", apps((PROJ, 0, c("instAddNat"), "Add"), "k", "x"), None),
+    ("infer", (PROJ, 1, apps(c("Fin.mk"), "k", "a", "b"), "Fin"), None),
     ("infer", (LET, NAT, "k", "#0"), "FE1c inferLambdaType for let"),
     ("infer", apps(REC, (LAM, NAT, NAT), "z", "s", "k"), None),
     ("infer", apps(REC, (LAM, NAT, apps(c("Eq", 1), NAT, "#0", "#0")), "z", "s", "k"), None),
@@ -169,6 +193,11 @@ CASES = [
 ]
 
 
+def proj_name(t):
+    """A projection's structure: Prod unless the case names another."""
+    return t[3] if len(t) > 3 else "Prod"
+
+
 LEAN_LEVELS = {0: "Level.zero", 1: "(mkLevelSucc .zero)", 2: "(mkLevelSucc (mkLevelSucc .zero))"}
 FORTH_LEVELS = {0: "l0", 1: "lv1", 2: "lv2"}
 
@@ -186,9 +215,11 @@ def lean(t):
     if isinstance(t, tuple) and t[0] == LAM:
         return f"(mkLambda `y .default {lean(t[1])} {lean(t[2])})"
     if isinstance(t, tuple) and t[0] == PROJ:
-        return f"(mkProj `Prod {t[1]} {lean(t[2])})"
+        return f"(mkProj `{proj_name(t)} {t[1]} {lean(t[2])})"
     if isinstance(t, tuple) and t[0] == SORT:
         return "(mkSort Level.zero)" if t[1] == 0 else "(mkSort (mkLevelSucc .zero))"
+    if isinstance(t, tuple) and t[0] == "lit":
+        return f"(mkRawNatLit {t[1]})"
     if isinstance(t, tuple) and t[0] == PI:
         return f"(mkForall `y .default {lean(t[1])} {lean(t[2])})"
     if isinstance(t, tuple):
@@ -207,9 +238,11 @@ def forth(t):
     if isinstance(t, tuple) and t[0] == LAM:
         return f"{forth(t[1])} {forth(t[2])} lam"
     if isinstance(t, tuple) and t[0] == PROJ:
-        return f"{forth(t[2])} {t[1]} proj"
+        return f'{forth(t[2])} {t[1]} s" {proj_name(t)}" projn'
     if isinstance(t, tuple) and t[0] == SORT:
         return "l0 sort" if t[1] == 0 else "lv1 sort"
+    if isinstance(t, tuple) and t[0] == "lit":
+        return f"{t[1]} nat-lit"
     if isinstance(t, tuple) and t[0] == PI:
         return f"{forth(t[1])} {forth(t[2])} tpi"
     if isinstance(t, tuple):
@@ -315,6 +348,20 @@ def forth_lines():
     return run([GFORTH, "tests/front/whnf-cases.fs", "-e", calls + " bye"])
 
 
+def golden(path, lines):
+    """Pinned Lean's lines as recorded (--golden: make test, without Lean);
+    with Lean, its lines must equal the record (--write-golden writes it)."""
+    if "--golden" in sys.argv:
+        return path.read_text(encoding="utf-8").splitlines()
+    lines = lines()
+    if "--write-golden" in sys.argv:
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if path.read_text(encoding="utf-8").splitlines() != lines:
+        raise Failure(f"{path.relative_to(ROOT)} differs from pinned Lean's lines: "
+                      f"{sys.argv[0]} --write-golden")
+    return lines
+
+
 def self_test():
     if lean(apps("s", "?n")) != "(mkApp s n)" or forth(apps("s", "?n")) != "fs ?n app":
         raise Failure("harness self-test: terms not written as expected")
@@ -353,7 +400,10 @@ def main():
     try:
         self_test()
         gaps, mdata = [], []
-        for (kind, term, gap), want, got in zip(CASES, lean_lines(), forth_lines()):
+        wanted = golden(GOLDEN, lean_lines)
+        if len(wanted) != len(CASES):
+            raise Failure(f"{GOLDEN.relative_to(ROOT)}: {len(wanted)} lines for {len(CASES)} cases")
+        for (kind, term, gap), want, got in zip(CASES, wanted, forth_lines()):
             text = judge(f"{kind} {forth_case(kind, term)}", gap, want, got)
             if text:
                 gaps.append(f"{kind} {text}")

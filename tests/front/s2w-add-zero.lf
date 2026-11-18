@@ -1,0 +1,9 @@
+\ A wrong twin of 00-add-zero.lf (tests/front/check_s2.py): Eq.refl n has
+\ type n = n, not n + 0 = n + 1 (Lean's type mismatch, error 96).
+\ Lean: theorem w_add_zero (n : Nat) : n + 0 = n + 1 := Eq.refl n
+theorem w_add_zero
+  Nat explicit: n
+  n 0 + n 1 + =
+:=
+  n Eq.refl
+end w_add_zero

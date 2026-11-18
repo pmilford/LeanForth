@@ -6,7 +6,10 @@
 -- (tests/front/elab-dump.fs) and keeps in tests/front/s2-proofs.golden.
 -- Where a step of appendix G needs smart unfolding (S2 merge B), the
 -- form here rewrites with Init lemmas instead (Nat.add_zero, Nat.mul_zero
--- for rfl on n + 0 = n and n * 0 = 0), as the LeanForth files do.
+-- for rfl on n + 0 = n and n * 0 = 0), as the LeanForth files do. Merge
+-- B's midpoint files (tests/front/00-add-zero.lf, 02-add-zero-rfl.lf)
+-- prove n + 0 = n by unfolding: add_zero' and add_zero_rfl' (the second
+-- file's add_zero', renamed here so that both have a line).
 import Lean
 open Lean Meta
 
@@ -45,6 +48,8 @@ theorem ps_length_append (xs ys : List Nat) : (xs ++ ys).length = xs.length + ys
   induction xs with
   | nil => rw [List.nil_append, List.length_nil, ps_zero_add]
   | cons x t ih => rw [List.cons_append, List.length_cons, List.length_cons, ih, ps_succ_add]
+theorem add_zero' (n : Nat) : n + 0 = n := Eq.refl n
+theorem add_zero_rfl' (n : Nat) : n + 0 = n := by rfl
 
 def pl (l : Level) : String := match l.toNat with
   | some n => toString n
@@ -67,5 +72,5 @@ def dump (n : Name) : MetaM Unit := do
 
 #eval do
   for n in [``zero_add'', ``zero_add_nested, ``ps_zero_add, ``ps_succ_add, ``ps_add_comm,
-      ``ps_add_assoc, ``ps_mul_add, ``ps_length_append] do
+      ``ps_add_assoc, ``ps_mul_add, ``ps_length_append, ``add_zero', ``add_zero_rfl'] do
     dump n

@@ -128,6 +128,9 @@ require ./scratch-meter.fs
 12 constant lf-tag-let
 14 constant lf-tag-projection
 15 constant lf-tag-let-nondep
+\ A smart-unfolding marker, ANNOTATION(child, key) (core/annotations.fs):
+\ front-end only, not binary; its data word is its child's.
+17 constant lf-tag-annotation
 \ A tag's bit (tags above 31 share bit 31, which no binary tag has).
 : lf-tag-bit ( tag -- mask ) 1 swap 31 min lshift ;
 lf-tag-app lf-tag-bit lf-tag-lam lf-tag-bit or lf-tag-pi lf-tag-bit or
