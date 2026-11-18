@@ -338,12 +338,9 @@ end-structure
 : cli-depends. ( d -- )
   ." depends on " 0 cli-axioms-named !
   ['] cli-axiom-named lf-env-axiom-deps drop cli-axioms-named @ 0= if ." an axiom" then ;
-\ Axioms not read are NOT PROVED too (tally.fs not-proved?).
-: cli-unproved-why. ( d -- )
-  ." ; NOT PROVED: " dup decl-axioms axioms-unknown =
-  if drop ." its axioms could not be read" else cli-depends. then ;
 : cli-not-proved. ( d -- )
-  dup decl-outcome over decl-axioms not-proved? if cli-unproved-why. else drop then ;
+  dup decl-outcome over decl-axioms not-proved?
+  if ." ; NOT PROVED: " cli-depends. else drop then ;
 \ Declaration d's line: its name and the verdict its slot holds.
 \ In a run of a snapshot (ADR 0020 D4, OQ-3) a verdict says where it comes
 \ from: taken from the snapshot, not re-checked; or checked in this run
@@ -373,10 +370,10 @@ end-structure
     ." , uses results from the " ck-stale? if ." stale " then ." snapshot" then ;
 : cli-origin. ( d origin -- d )
   over swap lf-origin-saved = if cli-taken-from. else cli-here. then ;
-: cli-axioms-of. ( bits -- )
-  dup axioms-unknown = if drop ." axioms: ?" else lf-check-axioms. then ;
+\ The axioms of an accepted declaration, never unknown (tally.fs
+\ decl-axioms: axioms it cannot read are an internal fault).
 : cli-accepted-from. ( d origin -- )
-  ." accepted (" cli-origin. ." ); " decl-axioms cli-axioms-of. ;
+  ." accepted (" cli-origin. ." ); " decl-axioms lf-check-axioms. ;
 : cli-failed-from. ( d origin -- )
   over dup decl-outcome lf-check-failed. ."  (" cli-origin. drop ." )" ;
 : cli-labelled. ( d origin -- )
@@ -385,7 +382,7 @@ end-structure
 \ Unlabelled, as check-declaration's lf-check-verdict. prints it, accepted
 \ only as tally.fs's decl-accepted? means it.
 : cli-plain. ( d -- )
-  dup decl-accepted? if ." accepted; " decl-axioms cli-axioms-of. exit then
+  dup decl-accepted? if ." accepted; " decl-axioms lf-check-axioms. exit then
   dup decl-outcome lf-check-failed. ;
 : cli-verdict. ( d -- )
   dup cli-labelled? if dup lf-env-origin cli-labelled. else cli-plain. then ;
@@ -449,17 +446,12 @@ end-structure
 : cli-listed. ( bits -- )
   lf-axiom-propext lf-check-axiom. lf-axiom-choice lf-check-axiom.
   lf-axiom-sound lf-check-axiom. drop ."  (allowlisted); " ;
-: cli-unproved-of. ( -- )
-  ."  NOT PROVED (they depend on an axiom"
-  cli-axioms-unread @ if ." , or theirs were not read" then ." )" ;
 : cli-unproved. ( -- )
-  cli-not-proved @ ?dup 0= if ." none NOT PROVED" exit then .decimal cli-unproved-of. ;
-\ Axioms that could not be read come first, as "?" with their count.
-: cli-unread. ( -- ) cli-axioms-unread @ ?dup if ." ? (" .decimal ."  not read); " then ;
-: cli-axioms-any? ( -- flag ) cli-axioms-used @ cli-axioms-unread @ or 0<> ;
+  cli-not-proved @ ?dup 0= if ." none NOT PROVED" exit then
+  .decimal ."  NOT PROVED (they depend on an axiom)" ;
 : cli-axioms. ( -- )
-  ." axioms: " cli-unread. cli-axioms-any? 0= if ." none" exit then
-  cli-axioms-used @ lf-allowlist-bits and ?dup if cli-listed. then cli-unproved. ;
+  ." axioms: " cli-axioms-used @ ?dup 0= if ." none" exit then
+  lf-allowlist-bits and ?dup if cli-listed. then cli-unproved. ;
 : cli-accepted. ( -- )
   outcome-ok cli-count-of @ ?dup 0= if exit then
   ." accepted: " .decimal ." ; " cli-axioms. cr ;

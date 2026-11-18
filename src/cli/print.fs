@@ -108,10 +108,9 @@ end-structure
 : pr-due? ( i -- flag ) lf-env-published? 0= ;
 \ Its verdict, read in a view of the environment as every report reads it
 \ (tally.fs decl-outcome, decl-axioms): the outcome and, when accepted,
-\ the axiom set (axioms-unknown, -1, otherwise); invalid when no view can
-\ be had.
+\ the axiom set (0 otherwise); invalid when no view can be had.
 : pr-verdict ( i -- outcome axioms )
-  lf-env-view ok? 0= if drop outcome-invalid axioms-unknown exit then
+  lf-env-view ok? 0= if drop outcome-invalid 0 exit then
   dup decl-outcome swap decl-axioms ;
 : pr-line ( i -- line )
   dup print-state pr-decls @ < if pr-lines slab-at @ else drop 0 then ;

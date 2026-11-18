@@ -505,40 +505,26 @@ cli-options
 
 \ "Accepted" is the kernel's test for every report (tally.fs
 \ decl-accepted?; reviews N1, PB2): an ok outcome on a slot that is not
-\ final is not accepted, reads invalid, and has no axioms (axioms-unknown).
+\ final is not accepted, reads invalid, and has no axioms (0).
 : unfinal-run ( -- ) false planted-run 0 lf-env lf-env-slot lf-slot-state 0 swap ! ;
 : unfinal ( -- raw-ok? accepted? outcome bits )
   unfinal-run 0 lf-env lf-env-slot lf-slot-outcome@ ok? 0 decl-accepted? 0 decl-outcome
   0 decl-axioms 0 decl-ok-outcome rr-release ;
-T{ unfinal -> true false outcome-invalid axioms-unknown outcome-invalid }T
+T{ unfinal -> true false outcome-invalid 0 outcome-invalid }T
 T{ false planted-run 0 decl-accepted? 0 decl-outcome 0 decl-axioms rr-release
   -> true outcome-ok 8 }T
-\ Axioms not read count as NOT PROVED, apart from the axioms used, and
-\ never as none; under --strict-axioms with code 6.
-cli-start
-T{ outcome-ok axioms-unknown cli-tally-proved cli-not-proved @ cli-axioms-unread @
-  cli-axioms-used @ cli-worst @ -> 1 1 0 0 }T
-T{ outcome-rejected axioms-unknown cli-tally-proved cli-not-proved @ cli-axioms-unread @
-  -> 1 1 }T
-cli-start true cli-strict-axioms!
-T{ outcome-ok axioms-unknown cli-tally-proved cli-worst @ -> 6 }T
-cli-start
+\ An accepted declaration whose axioms cannot be read is an internal fault,
+\ never a report with axioms unknown (review F2). decl-axioms reads them
+\ under decl-accepted?'s own test, so no run reaches that; its refusal,
+\ decl-unread, is run here for an accepted declaration and for one not
+\ accepted (0, no axioms), and the command line's THROW handler turns the
+\ fault into code 5.
+: unread-caught ( -- ior ) false planted-run 0 ['] decl-unread catch nip rr-release ;
+T{ unread-caught -> axioms-unread }T
+T{ unfinal-run 0 decl-unread rr-release -> 0 }T
 [defined] >string-execute [if]
-\ The text says "axioms: ?" and the JSON null, for the same bits.
-T{ axioms-unknown ' cli-axioms-of. >string-execute s" axioms: ?" compare -> 0 }T
-T{ 8 ' cli-axioms-of. >string-execute s" axioms: unlisted" compare -> 0 }T
-: bits-json ( bits -- c-addr u )
-  ['] type cj-writer jw-start cj-object cj-bits cj-end-object cj-writer jw-end drop ;
-: json-of ( bits -- c-addr u ) ['] bits-json >string-execute ;
-T{ axioms-unknown json-of s\" {\"axiomBits\":null}" compare -> 0 }T
-T{ 9 json-of s\" {\"axiomBits\":9}" compare -> 0 }T
-T{ axioms-unknown cj-unproved? 0 cj-unproved? 1 cj-unproved? -> true false false }T
-\ The summary: "?" with how many were not read, then NOT PROVED with why.
-: unread-line ( -- c-addr u )
-  cli-start 1 outcome-ok cli-count-of ! 1 cli-not-proved ! 1 cli-axioms-unread !
-  ['] cli-accepted. >string-execute ;
-T{ unread-line s\" accepted: 1; axioms: ? (1 not read); 1 NOT PROVED (they depend on an axiom, or theirs were not read)\n"
-  compare -> 0 }T
+T{ axioms-unread ' cli-thrown >string-execute
+  s\" internal fault: a Forth exception (THROW -4135)\n" compare -> 5 0 }T
 [then]
 cli-start
 

@@ -601,14 +601,15 @@ and counted apart in the summary, never as proved. The summary names
 the allowlisted axioms the accepted declarations use, then the count:
 `axioms: none` when they use no axiom, else for example `axioms:
 propext, Classical.choice, Quot.sound (allowlisted); none NOT PROVED`
-or `axioms: 2 NOT PROVED (they depend on an axiom)`. An accepted
-declaration whose axiom set cannot be read prints `axioms: ?` and is
-NOT PROVED too (`NOT PROVED: its axioms could not be read`; the summary
-begins `axioms: ? (N not read); `, and the JSON report gives `axiomBits`
-null); no check today leaves such a set, since every report reads
-"accepted" with the kernel's own test (final and ok). `print`'s outline
-marks the declaration the same way (`accepted; axioms: unlisted; NOT
-PROVED: depends on an axiom`). The mark is
+or `axioms: 2 NOT PROVED (they depend on an axiom)`. Every report reads
+"accepted" with the kernel's own test (final and ok) and an accepted
+declaration's axiom set under that same test, so the set of an accepted
+declaration is always known. Should it ever not be, that is an internal
+fault, exit 5 (`internal fault: a Forth exception (THROW -4135)`), in
+the text and the JSON alike, never a report with axioms unknown (since
+2026-11-18, review F2; no report schema has a value for them).
+`print`'s outline marks the declaration the same way (`accepted; axioms:
+unlisted; NOT PROVED: depends on an axiom`). The mark is
 presentation, never a different verdict. So, by the
 owner's decision of 2026-11-04, a
 run whose declarations are all accepted, some of them NOT PROVED, keeps
@@ -1130,7 +1131,7 @@ exit status 0
 | `exportMeta` | only when the export's metadata named another exporter or Lean version (with `--any-lean-version`) and it was staged: `exporter` (`name`, `version`), `format` (`version`) and `lean` (`githash`, `version`), as the export's own metadata record has them, each as escaped display text. Optional members added within version 0.1 (2026-11-10): a report without the option is as before |
 | `run` | the run's outcome: `ok` when every slot ended final and the run did not stop, `invalid` when it stopped, `not-run` when the export was not read |
 | `stopped` | true when the run stopped on an internal fault (a check threw, or publishing failed), as the text's `internal fault: the run stopped` line says; the run is then `invalid` and the status 5 |
-| `declarations` | each declaration in file order: `index` (its place in the export, which identifies it), `name` (escaped display text, as the text shows it), `verdict` (`accepted`, `skipped`, an outcome, or `not-checked`), `fuel` (null when not known); an accepted one's `axiomBits` (0: none; 1 `propext`, 2 `Classical.choice`, 4 `Quot.sound`, each with Lean's statement, 8 any other axiom; null when the set could not be read) and `notProved` (bit 8 set, or the set not read), with `notProvedBy`, the unlisted axioms' names, when it is true; any other's `diagnostic` (code, reason, site, two numbers, step) |
+| `declarations` | each declaration in file order: `index` (its place in the export, which identifies it), `name` (escaped display text, as the text shows it), `verdict` (`accepted`, `skipped`, an outcome, or `not-checked`), `fuel` (null when not known); an accepted one's `axiomBits` (0: none; 1 `propext`, 2 `Classical.choice`, 4 `Quot.sound`, each with Lean's statement, 8 any other axiom) and `notProved` (bit 8 set), with `notProvedBy`, the unlisted axioms' names, when it is true; any other's `diagnostic` (code, reason, site, two numbers, step) |
 | `counts` | the declarations by verdict (`skipped` among them since version 0.2), `notChecked` and `notProved`; null when no verdict could be read |
 | `fuel` | `perDeclaration`, `total` (of the known), `unknown` (how many are not known) and `top` (the ten that used the most) |
 | `input` | declarations, term numbers (two per expression record read in place: the record and the lambda or leaf a let or projection carries; then the store's own nodes), levels and constant references fed, and the stage's names; null when nothing was fed |

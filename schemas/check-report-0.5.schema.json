@@ -867,15 +867,8 @@
           "$ref": "#/$defs/verdict"
         },
         "axiomBits": {
-          "description": "The axiom set read from the accepted slot, as bits (src/core/axiom-allowlist.fs, version 1): 1 propext, 2 Classical.choice, 4 Quot.sound, each with Lean's statement, and 8 any other axiom; 0 for none; null when the set could not be read (the text's \"axioms: ?\"), which is NOT PROVED.",
-          "anyOf": [
-            {
-              "type": "null"
-            },
-            {
-              "$ref": "#/$defs/count"
-            }
-          ]
+          "description": "The axiom set read from the accepted slot, as bits (src/core/axiom-allowlist.fs, version 1): 1 propext, 2 Classical.choice, 4 Quot.sound, each with Lean's statement, and 8 any other axiom; 0 for none.",
+          "$ref": "#/$defs/count"
         },
         "notProved": {
           "description": "true for an accepted declaration that depends on an axiom outside the allowlist (bit 8): Lean's verdict, labelled NOT PROVED and never counted as proved (owner, 2026-11-04).",
@@ -988,7 +981,6 @@
             ],
             "properties": {
               "axiomBits": {
-                "type": "integer",
                 "maximum": 7
               }
             }

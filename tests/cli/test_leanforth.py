@@ -1568,8 +1568,11 @@ class JsonReport(unittest.TestCase):
             (good, lambda r: r["settings"].pop("strictAxioms")),
             (good, lambda r: r["measured"].pop("engine")),
             (good, lambda r: r["measured"].update(engine="")),
-            # Axioms not read (null) are NOT PROVED (review N1).
+            # Axioms not known have no value in the schema (review F2: that
+            # is an internal fault, exit 5, never a report).
             (good, lambda r: r["declarations"][0].update(axiomBits=None)),
+            (good, lambda r: not_proved(r) or r["declarations"][0].update(
+                axiomBits=None, notProvedBy=[])),
         ]
         for base, edit in cases:
             self.assertNotEqual(changed(base, edit), [], cases.index((base, edit)))
@@ -1582,9 +1585,6 @@ class JsonReport(unittest.TestCase):
         self.assertEqual(changed(good, lambda r: not_proved(r, strict=False)), [])
         self.assertEqual(changed(good, lambda r: not_proved(r) or rejected(r, 1)), [])
         self.assertEqual(changed(good, lambda r: r["measured"].update(engine=None)), [])
-        # Axioms that could not be read: null, NOT PROVED by no axiom named.
-        self.assertEqual(changed(good, lambda r: not_proved(r) or r["declarations"][0].update(
-            axiomBits=None, notProvedBy=[])), [])
 
     def test_deterministic(self):
         for args in [[INDUCTIVE], ["--no-manifest", "tests/core/reexport/kinds.ndjson"]]:
