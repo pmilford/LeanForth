@@ -66,8 +66,9 @@ require ./defeq.fs
 : lfm-nones ( o out -- -1 .. -1 o ) 0 ?do -1 swap loop ;
 \ The depth xt must leave when it ends: the cells under xt, less in, plus
 \ out; another depth is a wrong count, an internal fault (invalid thrown).
-: lfm-want ( xt in out -- xt in out d ) depth 3 - 2 pick - over + ;
-: lfm-left ( j*x d -- j*x outcome ) depth 1- = if outcome-ok else outcome-invalid lf-must then ;
+: lfm-want ( xt in out -- xt in out d ) 2dup - depth 4 - swap - ;
+: lfm-left ( j*x d -- j*x outcome )
+  depth 1- = if outcome-ok else outcome-invalid lf-must then ;
 \ xt takes in cells and gives out; after a failure its in cells (as
 \ CATCH leaves them) give way to out cells of -1, then the outcome.
 : lf-meta-catch ( i*x xt in out -- j*x outcome )

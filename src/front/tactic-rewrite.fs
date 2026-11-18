@@ -130,9 +130,7 @@ end-structure
 
 \ ---- matchEq?: Eq α lhs rhs, after whnf when it is none.
 : lfw-iff? ( t -- flag ) 2 s" Iff" lf-meta-app-of? ;
-: lfw-sides ( eq -- )
-  dup lf-term-second@ trw trw-rhs ! lf-term-first@ dup lf-term-second@ trw trw-lhs !
-  lf-term-first@ lf-term-second@ trw trw-alpha ! ;
+: lfw-sides ( eq -- ) lf-eq? drop trw trw-rhs ! trw trw-lhs ! trw trw-alpha ! ;
 : lfw-prop? ( -- flag ) trw trw-htype @ lf-get-level ok-then? if 0= else drop false then ;
 : lfw-descr ( -- c-addr u )
   lfw-prop? if s"  is a proof of" else s"  is a value of type" then ;

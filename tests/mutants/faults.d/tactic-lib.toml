@@ -40,8 +40,8 @@ reason = "a2-i fail-closed rule: lf-meta-catch hands back ok for a failure"
 [[fault]]
 id = "lib-catch-count-trusted"
 file = "src/front/meta-must.fs"
-old = ''': lfm-left ( j*x d -- j*x outcome ) depth 1- = if outcome-ok else outcome-invalid lf-must then ;'''
-new = ''': lfm-left ( j*x d -- j*x outcome ) drop outcome-ok ;'''
+old = '''  depth 1- = if outcome-ok else outcome-invalid lf-must then ;'''
+new = '''  drop outcome-ok ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i review F8: lf-meta-catch trusts its in and out counts, so a wrong count eats a caller's cell silently"
 
@@ -308,6 +308,14 @@ old = '''  dup lf-meta-has-mvar? lf-must if outcome-unsupported lf-must then ;''
 new = '''  dup lf-meta-has-mvar? lf-must drop ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
 reason = "a2-i review F4: a result with a level or outer metavariable answered as a term, where LeanForth cannot yet tell Lean's verdict (a listed gap must answer unsupported)"
+
+[[fault]]
+id = "lib-eq-sides-swapped"
+file = "src/front/app-builder.fs"
+old = '''  lf-term-second@ r> true ;'''
+new = '''  lf-term-second@ swap r> true ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "a2-i review F10: Expr.eq? (lf-eq?) gives α and a swapped, so every builder and tactic reading an Eq takes the wrong argument"
 
 [[fault]]
 id = "lib-congr-fun-wrong-h"

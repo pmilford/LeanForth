@@ -317,8 +317,8 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 : lf-tac-eq? ( t -- flag ) lfb-eq? ;
 : lfb-target ( -- t )
   tb tb-want @ lf-instantiate-mvars lf-tac-must lf-whnf-core lf-tac-must ;
-: lfb-side ( t -- t' ) lf-term-second@ lf-instantiate-mvars lf-tac-must ;
-: lfb-sides ( t -- ) dup lfb-side tb tb-type ! lf-term-first@ lfb-side tb tb-term ! ;
+: lfb-inst ( t -- t' ) lf-instantiate-mvars lf-tac-must ;
+: lfb-sides ( t -- ) lf-eq? drop lfb-inst tb tb-type ! lfb-inst tb tb-term ! drop ;
 \ applyRfl's message: the two sides, then the goal.
 : lfb-rhs. ( -- outcome )
   s\" \nis not definitionally equal to the right-hand side\n" tb tb-type @ lfb-line. ;
@@ -333,7 +333,7 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 \ mkConst Eq.refl us, mkApp2).
 : lfb-level ( t -- level ) lf-meta-head-args drop lf-const-slot lf-cref-pairs drop
   0 lf-cref-pair@ drop ;
-: lfb-alpha ( t -- α ) lf-term-first@ lf-term-first@ lf-term-second@ ;
+: lfb-alpha ( t -- α ) lf-eq? drop 2drop ;
 : lfb-refl ( t -- term )
   dup lfb-level >r s" Eq.refl" r> lf-mk-const1 swap lfb-alpha tb tb-term @ 2 lf-mk-app-n ;
 \ isDefEq at the transparency the step runs at (default; reducible under

@@ -19,6 +19,7 @@
 \                                         ( d x1..xn n -- e ) of a declaration
 \   lf-mk-eq-mp ( h p -- e ), lf-mk-eq-mpr ( h p -- e )  mkEqMP, mkEqMPR
 \                                         (444-447)
+\   lf-eq? ( t -- α a b true | false )     Expr.eq?: Eq α a b's arguments
 \   lf-meta-has-mvar? ( e -- flag outcome ) Expr.hasMVar: a term or level
 \                                         metavariable reached (core/reach.fs)
 \ Levels pass on the stack (never through a global); at most abl-most
@@ -76,15 +77,18 @@ abl-most cells context-record: abl-cells
 : lf-mk-app ( f a -- e ) lf-term-app lf-made! ;
 : abl-fold ( f addr n -- e ) 0 ?do dup i cells + @ >r swap r> lf-mk-app swap loop drop ;
 : lf-mk-app-n ( f a1..an n -- e ) abl-stored abl-fold ;
+: abl-app2 ( a b f -- e ) >r swap r> swap lf-mk-app swap lf-mk-app ;   \ mkApp2 f a b
 
 \ ---- Shapes and AppBuilder's helpers.
 : abl-fail ( -- ) outcome-rejected lf-must ;   \ throwAppBuilderException
 : abl-decl ( c-addr u -- d ) lfa-intern lf-menv-find lf-must ;   \ getConstVal's
 : abl-infer-d ( e -- type ) lf-infer! lf-whnf-d! ;
-: abl-eq ( t -- t ) dup 3 s" Eq" lf-meta-app-of? 0= if abl-fail then ;   \ Expr.eq?
-: abl-alpha ( eq -- α ) lf-term-first@ lf-term-first@ lf-term-second@ ;
-: abl-lhs ( eq -- a ) lf-term-first@ lf-term-second@ ;
-: abl-rhs ( eq -- b ) lf-term-second@ ;
+\ Expr.eq?: Eq α a b's three arguments.
+: lf-eq? ( t -- α a b true | false )
+  dup 3 s" Eq" lf-meta-app-of? 0= if drop false exit then
+  dup lf-term-second@ >r lf-term-first@ dup lf-term-first@ lf-term-second@ swap
+  lf-term-second@ r> true ;
+: abl-eq ( t -- α a b ) lf-eq? 0= if abl-fail then ;
 : abl-refl? ( h -- flag ) lf-meta-head s" Eq.refl" lf-meta-const-named? ;   \ isAppOf
 : abl-refl-arg? ( h -- a true | h false )   \ isRefl?
   dup 2 s" Eq.refl" lf-meta-app-of? if lf-term-second@ true else false then ;
@@ -93,9 +97,8 @@ abl-most cells context-record: abl-cells
 : abl-const-named ( level name -- c )
   swap abl-cells ! lf-name-generation @ abl-cells 1 lf-meta-const-at lf-must ;
 : abl-const-of ( α c-addr u -- c ) lfa-intern swap lf-level! swap abl-const-named ;
-: abl-eq-app ( eq c-addr u -- e )
-  2>r dup abl-alpha 2r> abl-const-of over abl-alpha lf-mk-app over abl-lhs lf-mk-app
-  swap abl-rhs lf-mk-app ;
+: abl-eq-app ( α a b c-addr u -- e )
+  2>r rot dup 2r> abl-const-of swap lf-mk-app -rot 2 lf-mk-app-n ;
 : abl-bvar0 ( -- e ) 0 lf-term-bvar lf-made! ;
 \ Expr.beta f #[x]: a lambda's body opened with x, else f applied to x.
 : abl-beta1 ( f x -- e ) over lf-term-lam? if lf-meta-open lf-must else lf-mk-app then ;
@@ -117,10 +120,12 @@ abl-most cells context-record: abl-cells
 : lf-mk-eq-symm ( h -- h' )
   dup abl-refl? if exit then
   dup abl-infer-d abl-eq s" Eq.symm" abl-eq-app swap lf-mk-app ;
+\ Eq.trans.{u} α a b c h1 h2.
+: abl-trans ( h1 h2 α a b c -- h )
+  >r s" Eq.trans" abl-eq-app r> lf-mk-app abl-app2 ;
 : lf-mk-eq-trans ( h1 h2 -- h )
   over abl-refl? if nip exit then dup abl-refl? if drop exit then
-  over abl-infer-d over abl-infer-d swap abl-eq swap abl-eq
-  swap s" Eq.trans" abl-eq-app swap abl-rhs lf-mk-app -rot 2 lf-mk-app-n ;
+  over abl-infer-d over abl-infer-d >r abl-eq r> abl-eq >r 2drop r> abl-trans ;
 : lf-mk-expected-prop-hint ( h p -- h' )
   s" id" abl-level-zero lf-mk-const1 swap lf-mk-app swap lf-mk-app ;
 
@@ -147,8 +152,8 @@ abl-most cells context-record: abl-cells
   2dup abl-levels 2>r s" congrArg" 2r> 2 lf-mk-const -rot 2 lf-mk-app-n ;
 \ (hType, then fType, inferred first, as Lean's; arrow? checked before eq?)
 : abl-congr-plain ( f h -- h' )
-  dup abl-infer-d >r over abl-infer-d abl-arrow abl-congr-head r> abl-eq dup abl-lhs
-  swap abl-rhs 2 lf-mk-app-n -rot 2 lf-mk-app-n ;
+  dup abl-infer-d >r over abl-infer-d abl-arrow abl-congr-head r> abl-eq >r nip r>
+  2 lf-mk-app-n abl-app2 ;
 : abl-congr-step ( f h -- f' h' true | h' false )
   abl-refl-arg? if lf-mk-app lf-mk-eq-refl false exit then
   abl-congr-arg? if abl-fused true exit then abl-congr-plain false ;
