@@ -201,6 +201,26 @@ T{ many-levels -> -4201 }T
 T{ no-such abm-frames slab-count lf-mctx-marks -> -4201 0 0 }T
 : mismatch ( -- code ) s" Nat.succ" refl-nat 1 ['] lf-mk-app-m catch dup if nip nip nip nip then ;
 T{ mismatch abm-frames slab-count lf-mctx-marks -> -4204 0 0 }T
+\ mkAppM at transparency all keeps it (withAtLeastTransparency).
+: refl-zero ( -- e ) s" Eq.refl" zero 1 lf-mk-app-m ;
+T{ ' refl-zero lf-tr-all lf-meta-at 2 s" Eq.refl" lf-meta-app-of? -> true }T
+\ An instance binder (HAdd.hAdd's [self]): a synthetic metavariable
+\ filled at the end by instance search, which this run (no elaboration
+\ data) cannot do: a failure, the frame and context put back.
+: hadd-code ( -- code ) s" HAdd.hAdd" zero zero 2 ['] lf-mk-app-m catch dup if >r 2drop 2drop
+  drop r> then ;
+T{ hadd-code 0<> abm-frames slab-count lf-mctx-marks -> true 0 0 }T
+\ mkCongrArg: a dependent function is no arrow (rejected); a congrFun
+\ proof is fused through congrArg? (Expr.beta with a loose #0, which
+\ instantiate1 does not lift yet: refused, as in check_whnf.py's gap).
+: refl-fun ( -- f ) s" Eq.refl" nat lf-infer! lf-level! lf-mk-const1 nat lf-mk-app ;
+nat0 zero zero lf-mk-eq s" h" binder constant fh
+: dependent ( -- code ) refl-fun fh ['] lf-mk-congr-arg catch dup if nip nip then ;
+T{ dependent -> -4204 }T
+: fun-proof ( -- h ) s" congrFun" 0 0 2 lf-mk-const nat nat zero zero fh zero 6 lf-mk-app-n ;
+: fused ( -- code ) s" Nat.succ" lf-mk-const0 fun-proof ['] lf-mk-congr-arg catch dup if nip nip then ;
+T{ fused lf-meta-thrown? -> true }T   \ a refusal, never a term
+T{ nat dup lf-whnf-r! = -> true }T
 lf-author-begin
 .( tactic-lib.fs: all tests passed) cr
 bye
