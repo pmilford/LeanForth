@@ -16,6 +16,7 @@ include ../support/tester.fs
 include ../support/checks.fs
 include ../support/heap-watch.fs
 hex require ../../src/lib/bigint.fs base @ decimal constant base-after-load
+lf-lib-private order+   \ bignum.fs's arena fields and big-end (ADR 0010)
 
 T{ base-after-load -> 16 }T
 

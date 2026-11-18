@@ -94,6 +94,22 @@
 \ separate arenas are independent; one arena is single-threaded. The
 \ constants computed while loading (limb-bits, chunk-base, chunk-digits)
 \ are read-only. Loads in decimal whatever BASE is, and restores it.
+\
+\ Example: n = 2^100 + 1; n * n / n is n again, and n in decimal.
+\   create mem 4096 allot  create arena /big-arena allot
+\   mem 4096 arena big-arena-init
+\   s" 1267650600228229401496703205377" arena decimal>big drop constant n
+\   n n arena big* drop  n arena big/ drop  n big= .
+\   n arena big>decimal drop type   \ prints: -1 1267650600228229401496703205377
+\
+\ Interface: arenas /big-arena big-arena-init big-limit! big-lean-bits
+\ big-max-limit big-mark big-release arena-claim; numbers big-limbs
+\ big-vector big-valid? big-live? big-bits limb-bits bit-length; u>big
+\ big>u decimal>big big>decimal; big-compare big= big<=; big+ big- big*
+\ big/ big-mod big-gcd big-and big-or big-xor big-lshift big-rshift
+\ big-pow. Requires bits.fs, bounds.fs, decimal.fs, outcome.fs,
+\ portability.fs and module.fs; helpers are private in lf-lib-private
+\ (ADR 0010).
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./bits.fs
@@ -101,7 +117,11 @@ require ./bounds.fs
 require ./decimal.fs
 require ./outcome.fs
 require ./portability.fs
+require ./module.fs
 
+lf-lib-private module-open
+
+lf-lib set-current
 \ ---- Limbs ----
 
 \ Bits in a limb: a cell's, counted rather than assumed (bits.fs).
@@ -111,6 +131,7 @@ cell-bits constant limb-bits
 : bit-length ( u -- n )
   0 swap limb-bits begin dup 1 > while 1+ 2/ 2dup rshift
   if >r r@ rshift swap r@ + swap r> then repeat drop + ;
+lf-lib-private set-current
 \ The largest power of ten that fits a limb, and its number of digits.
 : ten-power ( -- u n )
   1 0 begin over -1 0 10 um/mod nip u> 0= while swap 10 * swap 1+ repeat ;
@@ -186,10 +207,12 @@ cell negate constant back-cell
 : limbs-or! ( src dst n -- ) limbs-paired ?do dup i + @ i @ or i ! cell +loop drop ;
 : limbs-xor! ( src dst n -- ) limbs-paired ?do dup i + @ i @ xor i ! cell +loop drop ;
 
+lf-lib set-current
 \ ---- Numbers ----
 
 : big-limbs ( big -- addr ) cell+ ;
 : big-vector ( big -- addr n ) cell-count ;
+lf-lib-private set-current
 \ The top limb's address (count at least 1), and the address after the number.
 : big-top ( big -- addr ) dup @ cells + ;
 : big-end ( big -- addr ) dup @ 1+ cells + ;
@@ -197,6 +220,7 @@ cell negate constant back-cell
 : big-move ( src dst -- ) over @ 1+ cells move ;
 \ Copy a number's limbs into dst's first limbs.
 : limbs-into ( big dst -- ) swap big-vector rot big-limbs swap copy-limbs ;
+lf-lib set-current
 \ Whether a number is well formed: a count of at least 0 and, unless it is
 \ 0, a top limb that is not 0.
 : big-valid? ( big -- flag )
@@ -207,6 +231,7 @@ cell negate constant back-cell
 \ The number as one cell, when it fits.
 : big>u ( big -- u true | false )
   dup @ dup 0= if 2drop 0 true exit then 1 = if big-limbs @ true else drop false then ;
+lf-lib-private set-current
 \ Drop leading zero limbs.
 : top-zero? ( big -- flag ) dup @ 0> if big-top @ 0= else drop false then ;
 : big-normalize ( big -- big ) begin dup top-zero? while -1 over +! repeat ;
@@ -221,6 +246,7 @@ cell negate constant back-cell
 \ -1, 0 or 1 as a is below, equal to or above b; big= and big<= are
 \ Lean's Nat.beq and Nat.ble. They trust their arguments (big-valid?).
 : size-order ( a b -- n ) @ swap @ swap 2dup = if 2drop 0 exit then < 2* 1+ ;
+lf-lib set-current
 : big-compare ( a b -- n )
   2dup size-order ?dup if nip nip exit then over @ >r big-limbs swap big-limbs swap
   r> limbs-compare ;
@@ -230,12 +256,14 @@ cell negate constant back-cell
 \ ---- Arenas ----
 
 begin-structure /big-arena
+lf-lib-private set-current
   field: arena-top         \ next free cell
   field: arena-end         \ address after the last whole cell
   field: arena-start       \ first cell
   field: arena-limit       \ most bits a result may have
 end-structure
 
+lf-lib set-current
 \ Lean 4.35.0's default numeral limit, 128 MiB, is exactly 2^30 bits (header).
 1073741824 constant big-lean-bits
 \ The largest limit an arena takes: sums of two bit counts then fit a cell.
@@ -248,6 +276,7 @@ max-n 2/ 1+ constant big-max-limit
   r@ arena-end ! dup r@ arena-start ! r@ arena-top ! big-lean-bits r> arena-limit ! ;
 \ Set the most bits a result may have, kept between 0 and big-max-limit.
 : big-limit! ( bits arena -- ) swap 0 max big-max-limit min swap arena-limit ! ;
+lf-lib-private set-current
 \ Whether a <= b <= c, unsigned (addresses).
 : addresses-ordered? ( a b c -- flag ) over u< 0= >r swap u< 0= r> and ;
 : cell-aligned? ( addr -- flag ) dup aligned = ;
@@ -258,21 +287,27 @@ max-n 2/ 1+ constant big-max-limit
 : arena-valid? ( arena -- flag )
   dup arena-span addresses-ordered? over arena-top @ cell-aligned? and
   swap arena-limit @ 0 big-max-limit between? and ;
+lf-lib set-current
 \ A mark is the arena's top; big-release gives back everything made after
 \ it, or is invalid, changing nothing, for a mark outside start..top.
 : big-mark ( arena -- mark ) arena-top @ ;
+lf-lib-private set-current
 : mark? ( mark arena -- flag )
   >r dup cell-aligned? swap r@ arena-start @ swap r> arena-top @ addresses-ordered? and ;
+lf-lib set-current
 : big-release ( mark arena -- outcome )
   2dup mark? if arena-top ! outcome-ok else 2drop outcome-invalid then ;
+lf-lib-private set-current
 \ Cells free above the top.
 : arena-room ( arena -- n ) dup arena-end @ swap arena-top @ - cell / 0 max ;
 \ Whether a number of limbs limbs fits, with its count cell.
 : arena-room? ( limbs arena -- flag ) arena-room u< ;
+lf-lib set-current
 \ Make a number of limbs limbs (count set, limbs not) at the top.
 : arena-claim ( limbs arena -- big true | false )
   2dup arena-room? 0= if 2drop false exit then
   dup arena-top @ >r over 1+ cells swap arena-top +! r@ ! r> true ;
+lf-lib-private set-current
 \ The failure of an operation that has no room.
 : no-room ( -- -1 outcome ) outcome-full no-result ;
 \ Go on with a and b when flag is true; otherwise drop them and fail.
@@ -294,12 +329,14 @@ max-n 2/ 1+ constant big-max-limit
 \ A copy of a number at the top.
 : big-copy ( a arena -- c outcome )
   over @ over result-claim 0= if exit then rot over big-move swap big-finish ;
+lf-lib set-current
 \ Whether a number stays clear of the arena's free part, from its top to
 \ its end. One reaching into it was released (in part), and the result
 \ would overwrite it. An O(1) test of addresses only: a released number
 \ whose memory was claimed again cannot be told from a live one.
 : big-live? ( big arena -- flag )
   >r dup big-end r@ arena-top @ u> 0= swap r> arena-end @ u< 0= or ;
+lf-lib-private set-current
 \ Whether a number is well formed and live.
 : operand? ( big arena -- flag ) over big-valid? if big-live? else 2drop false then ;
 \ Whether two numbers and an arena are well formed, the numbers live.
@@ -705,8 +742,8 @@ begin-structure /pair
   field: pair-p
   field: pair-q
 end-structure
-: pair! ( p q pair -- ) tuck pair-q ! pair-p ! ;
-: pair@ ( pair -- p q ) dup pair-p @ swap pair-q @ ;
+: cofactors! ( p q pair -- ) tuck pair-q ! pair-p ! ;
+: cofactors@ ( pair -- p q ) dup pair-p @ swap pair-q @ ;
 begin-structure /euclid
   field: euclid-u          \ u >= v
   field: euclid-v
@@ -741,7 +778,7 @@ limb-bits 3 - constant lead-bits
 \ The leading bits, and the cofactors a b c d = 1 0 0 1.
 : lehmer-leading! ( job -- )
   >r r@ euclid-u @ big-bits lead-bits - dup r@ euclid-u @ bits-at r@ euclid-x !
-  r@ euclid-v @ bits-at r@ euclid-y ! 1 0 r@ euclid-ab pair! 0 1 r> euclid-cd pair! ;
+  r@ euclid-v @ bits-at r@ euclid-y ! 1 0 r@ euclid-ab cofactors! 0 1 r> euclid-cd cofactors! ;
 \ A column of the cofactors, by the field xt: a and c (pair-p), or b and d.
 : column ( job xt -- top bottom ) >r dup euclid-ab r@ execute swap euclid-cd r> execute ;
 \ The two quotients of a step, when they agree and neither divisor is 0:
@@ -774,7 +811,7 @@ limb-bits 3 - constant lead-bits
 \ subtracted one: p u - (-q) v, or q v - (-p) u; one of p and q is
 \ positive and the other not.
 : cofactor-terms ( pair job -- c1 big1 c2 big2 )
-  >r pair@ over 0> if negate r@ euclid-u @ swap r> euclid-v @ exit then
+  >r cofactors@ over 0> if negate r@ euclid-u @ swap r> euclid-v @ exit then
   swap negate r@ euclid-v @ swap r> euclid-u @ ;
 \ dst = a u + b v (or c u + d v), known to be at least 0, with u's count
 \ + 1 limbs.
@@ -853,12 +890,14 @@ limb-bits 3 - constant lead-bits
   dup r@ digits-fit? room-then? 0= if r> drop exit then
   dup digit-limbs r@ result-claim 0= if r> drop exit then
   0 over ! parse-into r> big-finish ;
+lf-lib set-current
 \ The number whose decimal digits are at addr u: invalid unless the text is
 \ one or more digits 0-9 (leading zeros are allowed).
 : decimal>big ( addr u arena -- big outcome )
   dup arena-valid? 0= if drop 2drop outcome-invalid no-result exit then
   >r 2dup digits? if r> parse-decimal else 2drop r> drop outcome-invalid no-result then ;
 
+lf-lib-private set-current
 \ Write the chunk-digits digits of u (below chunk-base) before end.
 : digits! ( u end -- start )
   chunk-digits 0 do 1 chars - swap 0 10 um/mod swap [char] 0 + rot tuck c! loop nip ;
@@ -885,6 +924,7 @@ limb-bits 3 - constant lead-bits
   2dup text-room? 0= if 2drop 0 0 outcome-full exit then
   dup >r text-and-copy over digits-out over r> arena-top !
   tuck - 1 chars / skip-zeros outcome-ok ;
+lf-lib set-current
 \ The decimal digits of a number, without leading zeros ("0" for 0), at
 \ the arena's top; they stay until released like a number. The number is
 \ left as it was. A failure gives 0 0, an empty text.
@@ -912,4 +952,5 @@ limb-bits 3 - constant lead-bits
 : big-rshift ( a b arena -- c outcome ) ['] rshift-core big-binary ;
 : big-pow ( a b arena -- c outcome ) ['] pow-core big-binary ;
 
+module-close
 base !   \ the BASE this file was loaded with

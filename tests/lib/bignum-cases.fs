@@ -15,6 +15,7 @@
 \ file then uses instead of the original. Test-only; global state is fine.
 [undefined] big+ [if] require ../../src/lib/bignum.fs [then]
 decimal
+lf-lib-private order+   \ big-copy and the arena's fields (ADR 0010)
 
 \ One arena of 64 MiB for all cases; each case gives its numbers back.
 create arena /big-arena allot
