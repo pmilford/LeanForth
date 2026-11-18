@@ -77,7 +77,8 @@
 \ axiom's step 7 included; a check that began no step used none.
 \ So a declaration accepted with fuel used u is accepted with a budget of
 \ u and exhausted with u - 1 (tests/cli/leanforth.fs and
-\ test_leanforth.py check it), and one exhausted used the budget. A
+\ test_leanforth.py check it), and one exhausted used the budget: that
+\ is what it reports, whichever counter ran out (ck-spent-all?). A
 \ failed inference gives its counter up (mixed-infer's lf-minfer-failed
 \ leaves zero): a check that failed with no fuel left but not exhausted
 \ used an amount not known, kept as ck-fuel-unknown (-1), counted apart
@@ -558,8 +559,16 @@ create ck-line ck-line-room 2 + allot
 \ the counter up (an accepted one used exactly its budget).
 : ck-ran-out? ( outcome -- flag ) dup ok? swap outcome-exhausted = or ;
 : ck-gave-up? ( outcome left -- flag ) 0= swap ck-ran-out? 0= and ;
-: ck-used ( outcome d -- n )
+: ck-left-used ( outcome d -- n )
   ck-left tuck ck-gave-up? if drop ck-fuel-unknown else ck-fuel-budget swap - 0 max then ;
+\ A block member after the first counts no fuel of its own.
+: ck-later-member? ( d -- flag ) dup ck-member? swap lf-ind-first@ <> and ;
+\ An exhausted check used its whole budget, whichever counter ran out:
+\ one that ran out in step 1 (lf-cterm-check) spent none of the counters
+\ ck-left reads (review B1, 2026-11-18).
+: ck-spent-all? ( outcome d -- flag ) ck-later-member? 0= swap outcome-exhausted = and ;
+: ck-used ( outcome d -- n )
+  2dup ck-spent-all? if 2drop ck-fuel-budget else ck-left-used then ;
 : ck-step-reached ( d -- step ) ck-member? if lf-block-step@ else lf-check-step@ then ;
 
 \ ---- Checking, one declaration at a time.

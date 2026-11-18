@@ -2939,6 +2939,14 @@ test = "$GFORTH tests/cli/leanforth.fs"
 reason = "the fuel reported is not what the check used: that budget no longer accepts exactly"
 
 [[fault]]
+id = "cli-fuel-exhausted-early-unspent"
+file = "src/cli/check-run.fs"
+old = '''  2dup ck-spent-all? if 2drop ck-fuel-budget else ck-left-used then ;'''
+new = '''  ck-left-used ;'''
+test = "python3 tests/cli/test_leanforth.py Fuel.test_exhausted_used_budget"
+reason = "a check that ran out of fuel in step 1 reports fuel 0 (or too little), not its budget (review B1)"
+
+[[fault]]
 id = "cli-fuel-given-up-counted"
 file = "src/cli/check-run.fs"
 old = ''': ck-gave-up? ( outcome left -- flag ) 0= swap ck-ran-out? 0= and ;'''

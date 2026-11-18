@@ -1916,6 +1916,21 @@ class Fuel(unittest.TestCase):
                 self.assertEqual(again["declarations"][most["index"]]["verdict"], verdict,
                                  (export, budget))
 
+    def test_exhausted_used_budget(self):
+        """A check that runs out of fuel used its whole budget, in JSON and
+        text alike, also when it ran out in step 1 (the constant-term
+        check) or 2, before the counters read after a check (review B1)."""
+        for budget in [50, 100, 200]:
+            status, got, _ = report("--fuel", str(budget), CHAIN)
+            (chain,) = got["declarations"]
+            self.assertEqual((status, chain["verdict"], chain["fuel"], got["fuel"]["total"],
+                              [top["fuel"] for top in got["fuel"]["top"]]),
+                             (3, "exhausted", budget, budget, [budget]), budget)
+            status, out, _ = run("check", "--resources", "--fuel", str(budget), CHAIN)
+            self.assertEqual(status, 3)
+            self.assertIn(f"  fuel: {budget} steps in all, at most {budget} per declaration\n"
+                          f"  most fuel used:\n    {budget} chain (exhausted)\n", out)
+
     def test_most(self):
         """--fuel takes at most 2^53 - 1, the largest integer every JSON
         reader holds exactly; a report with it is valid and says it."""

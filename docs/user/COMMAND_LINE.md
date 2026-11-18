@@ -1076,7 +1076,9 @@ resources:
 after each check. For an accepted declaration it is exact: with a budget
 of exactly that much (`--fuel N`) it is accepted, with one less it is not
 (`make test` checks this on the fixtures). An exhausted check used the
-whole budget. The block's fuel is counted on its first member (`Two`
+whole budget, and the text and JSON reports both say so, wherever in the
+check it ran out (before 2026-11-18 one that ran out in its first step
+was reported with too little). The block's fuel is counted on its first member (`Two`
 above); its other members show none of their own. A check that failed
 inside inference gives its counter up (the checker sets it to zero), so
 its fuel is *not known*: the report counts those declarations apart and
