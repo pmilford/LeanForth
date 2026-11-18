@@ -99,9 +99,9 @@ OUTP = c("outParam", 1)
 INST = apps(c("instHAdd", 0), NAT, c("instAddNat"))
 HADD3 = apps(c("HAdd.hAdd", 0, 0, 0), NAT, NAT, NAT, INST)
 ADD_ADD = apps(c("Add.add", 0), NAT, c("instAddNat"))
-SMART = "S2 merge B smart unfolding (Nat.add._sunfold)"
-NAT_GUARD = "S2 merge B reduceNat?'s guard (Nat.add k x)"
-CAN_UNFOLD = "S2 merge B canUnfoldAtMatcher and unfoldNestedDIte (whnfMatcher)"
+OFNAT = c("OfNat.ofNat", 0)
+OFNAT0 = apps(OFNAT, NAT, ("lit", 0), apps(c("instOfNatNat"), ("lit", 0)))
+OFNAT1 = apps(OFNAT, NAT, ("lit", 1), apps(c("instOfNatNat"), ("lit", 1)))
 MATCH1 = apps(c("Nat.add.match_1", 1), "m")
 MODES = {"all": "all", "default": "default", "reducible": "reducible",
          "instances": "instances", "none": "none", "implicit": "implicit"}
@@ -164,7 +164,7 @@ TERMS = [
     ("mwhnf", "default", (cw.PROJ, 0, INST), None),
     ("mwhnf", "default", apps(c("id", 1), NAT, "k"), None),
     ("mwhnf", "default", apps(HADD3, "k", "x"), None),
-    ("mwhnf", "instances", apps(HADD3, "k", "x"), CAN_UNFOLD),
+    ("mwhnf", "instances", apps(HADD3, "k", "x"), None),
     ("mwhnf", "all", c("Nat.zero_add"), None),
     # reduceMatcher? and an auxiliary recursor's deltaBetaDefinition in
     # whnfCore (S2 merge B): Nat.add.match_1 and Nat.casesOn.
@@ -176,8 +176,27 @@ TERMS = [
     ("mwhnf", "default", apps(MATCH1, "k", cw.ZERO, "z"), None),
     ("mwhnf", "default", apps(c("Nat.casesOn", 1), "m", cw.ZERO, "z", "s"), None),
     ("mwhnf", "default", apps(c("Nat.casesOn", 1), "m", apps(cw.SUCC, "k"), "z", "s"), None),
-    ("mwhnf", "reducible", apps(MATCH1, "k", cw.ZERO, "z", "s"), CAN_UNFOLD),
-    ("mwhnf", "instances", apps(MATCH1, "k", cw.ZERO, "z", "s"), CAN_UNFOLD),
+    # At reducible, instances and implicit transparency (whnfMatcher with
+    # canUnfoldAtMatcher, S2 merge B): a constructor discriminant; a
+    # numeral (OfNat.ofNat, one of Lean's names) and k + 1 (HAdd.hAdd,
+    # Add.add and Nat.add, @[match_pattern]) unfolded only there; the
+    # same at default.
+    ("mwhnf", "reducible", apps(MATCH1, "k", cw.ZERO, "z", "s"), None),
+    ("mwhnf", "instances", apps(MATCH1, "k", cw.ZERO, "z", "s"), None),
+    ("mwhnf", "implicit", apps(MATCH1, "k", apps(cw.SUCC, "x"), "z", "s"), None),
+    ("mwhnf", "reducible", apps(MATCH1, "k", OFNAT0, "z", "s"), None),
+    ("mwhnf", "instances", apps(MATCH1, "k", OFNAT0, "z", "s"), None),
+    ("mwhnf", "default", apps(MATCH1, "k", OFNAT0, "z", "s"), None),
+    ("mwhnf", "reducible", apps(MATCH1, "k", apps(HADD3, "x", OFNAT1), "z", "s"), None),
+    ("mwhnf", "default", apps(MATCH1, "k", apps(HADD3, "x", OFNAT1), "z", "s"), None),
+    # (k + 1 is a Nat offset, Nat.succ k without unfolding; Nat.add 0
+    # (Nat.succ x) is none, and unfolds by its smart unfolding.)
+    ("mwhnf", "reducible", apps(MATCH1, "k", apps(cw.ADD, cw.ZERO, apps(cw.SUCC, "x")), "z", "s"),
+     None),
+    ("mwhnf", "reducible", apps(OFNAT, NAT, ("lit", 0), apps(c("instOfNatNat"), ("lit", 0))), None),
+    # canUnfoldAtMatcher ends with the matcher's part: the alternative's
+    # numeral stays.
+    ("mwhnf", "reducible", apps(MATCH1, "k", cw.ZERO, (cw.LAM, NAT, OFNAT0), "s"), None),
 ]
 
 TERMS_FILE = ROOT / "tests/front/unfold-terms.lean"

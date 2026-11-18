@@ -256,9 +256,20 @@ T{ fk fx m1 dup whnf= fk zero m1 fa app fz fk app fa app whnf= -> true outcome-o
 T{ 0 s" Nat.add.match_1" cn fk app dup meta-whnf= -> true outcome-ok }T
 \ unfoldDefinition? leaves a matcher to whnfCore (none).
 T{ fk zero m1 dup lf-meta-unfold kept? -> true false outcome-ok }T
-\ Not ported yet: a matcher at reducible, instances or implicit
-\ transparency (canUnfoldAtMatcher, unfoldNestedDIte).
-T{ fk zero m1 lf-meta-whnf-r -> -1 outcome-unsupported }T
+\ At reducible, instances or implicit transparency the matcher reduces
+\ too, its part under lf-meta-at-matcher (canUnfoldAtMatcher), which is
+\ given back with the configuration when the call ends (check_unfold.py
+\ compares the answers with pinned Lean's).
+T{ fk zero m1 lf-meta-whnf-r swap fz fk app same? lf-defeq-flags -> outcome-ok true lf-meta-default }T
+\ unfoldNestedDIte (not ported): at reducible a matcher's value naming
+\ dite answers unsupported, one without is itself; at default dite stays
+\ (no Init matcher of the slices names dite: wc-nested-dite directly).
+: dite ( -- t ) lv1 1 s" dite" cn ;
+: nested ( t mode -- t' outcome ) lf-defeq-mode >r lf-defeq-mode! wc-nested-dite r> lf-defeq-mode! ;
+: kept-at ( t mode -- flag outcome ) over swap nested >r = r> ;
+T{ nat dite fk app lam lf-tr-reducible nested nat fk lam lf-tr-instances kept-at
+   -> -1 outcome-unsupported true outcome-ok }T
+T{ dite lf-tr-default kept-at -> true outcome-ok }T
 \ An auxiliary recursor unfolds (deltaBetaDefinition, S2 merge B): Nat.casesOn
 \ with its motive alone is a lambda.
 T{ lv1 1 s" Nat.casesOn" cn fk app lf-whnf-core tag-out -> lf-tag-lam outcome-ok }T
@@ -279,8 +290,11 @@ T{ nat-div dup meta-whnf= nat-div lf-tr-all in-mode tag-out
    -> true outcome-ok lf-tag-lam outcome-ok }T
 T{ 0 s" Nat.zero_add" cn dup meta-whnf= 0 s" Nat.zero_add" cn dup lf-tr-all in-mode same-out
    -> true outcome-ok true outcome-ok }T
-T{ hadd-kx lf-tr-instances in-mode l0 l0 l0 3 s" HAdd.hAdd" cn lf-tr-instances in-mode nip
-   -> -1 outcome-unsupported outcome-ok }T
+\ (k + x at instances: HAdd.hAdd and Add.add unfold to Nat.add k x, whose
+\ smart unfolding reduces its match at instances; S2 merge B.)
+T{ hadd-kx lf-tr-instances in-mode swap 0 s" Nat.add" cn fk app fx app same?
+   l0 l0 l0 3 s" HAdd.hAdd" cn lf-tr-instances in-mode nip
+   -> outcome-ok true outcome-ok }T
 \ At instances, an application of a definition that is no projection and
 \ that the transparency does not unfold stays (three arguments: no Nat
 \ operation reduceNat? reads).
@@ -395,10 +409,15 @@ T{ id-ab fa whnf= id-ab dup lf-whnf-core-at-defeq same-out lf-defeq-mode
 \ At implicit transparency too (id is implicit-reducible: whnf at
 \ implicit would unfold it, whnfAtMostI does not; review s2-unfold-a H1).
 T{ id-ab dup lf-tr-implicit ' lf-whnf-core-at-defeq at-mode same-out -> true outcome-ok }T
-\ A part that fails (Nat.add k x by whnfAtMostI: reduceNat?'s guard) still
-\ gives the caller its transparency back.
-T{ 0 s" Nat.add" cn fk app fx app 0 proj lf-whnf-core-at-defeq nip lf-defeq-mode
+\ A part that fails (Nat.add ?f ?f by whnfAtMostI, ?f assigned:
+\ reduceNat?'s guard does not instantiate yet) still gives the caller its
+\ transparency back. reduceNat? gives none for an unassigned
+\ metavariable or a free variable as either argument (withNatValue).
+T{ 0 s" Nat.add" cn ?f app ?f app 0 proj lf-whnf-core-at-defeq nip lf-defeq-mode
    -> outcome-unsupported lf-tr-default }T
+: nadd ( a b -- t ) >r >r 0 s" Nat.add" cn r> app r> app ;
+T{ ?n fx nadd dup lf-meta-whnf-r drop = zero fx nadd dup lf-meta-whnf-r drop =
+   ?n ?h nadd lf-meta-whnf-r nip -> true true outcome-ok }T
 \ toCtorIfLit (S2 merge B): the literal 5 is Nat.succ 4, 0 is Nat.zero.
 T{ lv1 1 s" id" cn nat app zero app recm fz whnf= 5 nlit recm fs 4 nlit app 4 nlit recm app
    whnf= 0 nlit recm fz whnf= -> true outcome-ok true outcome-ok true outcome-ok }T

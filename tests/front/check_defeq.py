@@ -232,7 +232,7 @@ CASES = [
     ("red", "?t", lam("#0", apps(c("id", 2), (SORT, 1), NAT)), None),
     ("red", apps(c("Eq.refl", 1), ADD, "a"), apps(c("Eq.refl", 1), c("Nat.mul"), "a"), None),
     ("red", ADD, "k", None),  # hints: Init's (s2-tactics)
-    ("eq", "?n", apps(ADD, "?n", "k"), "S2 merge B reduceNat?'s guard (whnf of Nat.add ?n k)"),
+    ("eq", "?n", apps(ADD, "?n", "k"), None),
     # Lazy delta (S2 merge A, ExprDefEq.lean:1544-1849): one side unfolds
     # (outParam, Lean's p4b and p4f; at implicit with a level
     # metavariable); a reducible side first; class projections unpacked

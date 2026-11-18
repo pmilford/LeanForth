@@ -81,6 +81,7 @@ require ./front/level-params.fs
 require ./front/level-normalize.fs
 require ./front/lib-decode.fs
 require ./front/meta-env.fs
+require ./front/term-find.fs
 require ./front/unfold.fs
 require ./front/whnf.fs
 require ./front/beta-inst.fs

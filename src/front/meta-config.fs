@@ -14,6 +14,11 @@
 \   processed, which the front end answers unsupported (level-defeq.fs):
 \   the flag is kept, it changes no answer yet. assignSyntheticOpaque is
 \   read by the tactics' comparison of types (S1 §10, branch s1-elab).
+\   lf-meta-at-matcher (128) is Lean's canUnfoldPredicateConfig :=
+\   .atMatcher (withCanUnfoldAtMatcherPred, Basic.lean:1207), set by
+\   whnf.fs while it reduces a matcher at reducible, instances or implicit
+\   transparency (whnfMatcher): meta-env.fs's canUnfold then also unfolds
+\   canUnfoldAtMatcher's definitions (S2 merge B).
 \   lf-defeq-flags! sets them; lf-meta-flag? ( bit -- flag ) reads one.
 \ - Transparency, numbered as Lean's TransparencyMode constructors:
 \   lf-tr-all, lf-tr-default (the default), lf-tr-reducible,
@@ -53,7 +58,7 @@ require ../lib/lib.fs
 
 1 constant lf-defeq-fo   2 constant lf-defeq-ctx   4 constant lf-defeq-quasi
 8 constant lf-defeq-const   16 constant lf-defeq-stuck   32 constant lf-defeq-univ
-64 constant lf-defeq-opaque
+64 constant lf-defeq-opaque   128 constant lf-meta-at-matcher
 lf-defeq-univ constant lf-meta-default
 lf-meta-default lf-defeq-fo or lf-defeq-ctx or constant lf-defeq-elab
 16 constant lf-meta-stuck

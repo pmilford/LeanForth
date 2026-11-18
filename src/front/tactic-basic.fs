@@ -61,8 +61,6 @@
 \ lf-tac-defeq ( t s -- flag outcome ), the tactics' isDefEq;
 \ lf-tac-indented. ( term -- outcome ), a term of a message, instantiated
 \ and indented on its own line (Lean's indentExpr), to the message's sink;
-\ lf-tac-holds? ( term xt -- flag outcome ), whether a term holds a leaf
-\ xt ( leaf -- flag ) accepts (heap stacks of dag-walk.fs).
 \ For S2's tactics (tactic-rewrite.fs, tactic-induction.fs):
 \ lf-tac-step-run ( i*x i xt -- j*x ) xt in a new step record, the main
 \ goal's fields in tb and its context current; lf-tac-rfl-reducible
@@ -76,9 +74,8 @@
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: tb, the running step record's fields (tactic-run.fs's
 \ lf-tac-record, review fe1g3 M2: the step's goal, terms and context, the
-\ metavariable count when the step began), and the record tbw (the leaf
-\ test and walk) in the checker context (ADR 0009). Loads in decimal
-\ whatever BASE is, then restores it.
+\ metavariable count when the step began) in the checker context (ADR
+\ 0009). Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -94,7 +91,7 @@ require ../present/term-printer.fs
 require ../present/print-job.fs
 require ../author/errors.fs
 require ../author/declarations.fs
-require ./dag-walk.fs
+require ./term-find.fs
 require ./mvars.fs
 require ./lctx-views.fs
 require ./goals.fs
@@ -131,11 +128,6 @@ end-structure
 \ The step's fields: in the running step record (tactic-run.fs's
 \ lf-tac-record, review fe1g3 M2), else the last one's.
 : tb ( -- addr ) lf-tac-record ;
-begin-structure /tbw      \ lf-tac-holds?'s walk, apart: it holds heap blocks
-  field: tbw-test         \ the leaf test ( leaf -- flag )
-  /dw +field tbw-walk     \ and its walk
-end-structure
-/tbw context-record: tbw
 
 \ ---- Hooks.
 defer lf-tac-elab ( node expected postpone? -- term outcome )
@@ -149,23 +141,7 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 : lf-tac-defeq ( t s -- flag outcome )
   ['] lf-meta-defeq lf-defeq-elab lf-tr-default lf-meta-with outcome-sane ;
 
-\ ---- Leaves: a bottom-up walk (dag-walk.fs) whose image is 1 where a
-\ leaf passes the test.
-: lfb-undone ( child walk -- child true | false )
-  over swap dw-done? if drop false else true then ;
-: lfb-pending ( node walk -- child true | false )
-  over lf-term-binary? 0= if 2drop false exit then
-  over lf-term-first@ over lfb-undone if nip nip true exit then
-  swap lf-term-second@ swap lfb-undone ;
-: lfb-images ( node walk -- i1 i2 )
-  over lf-term-first@ over dw-image >r swap lf-term-second@ swap dw-image r> swap ;
-: lfb-leaf ( leaf -- 0|1 ) tbw tbw-test @ execute 1 and ;
-: lfb-build ( node walk -- 0|1 )
-  over lf-term-binary? if lfb-images or else drop lfb-leaf then ;
-: lfb-walk ( -- walk )
-  tbw tbw-walk ['] lfb-build over dw-build ! ['] lfb-pending over dw-pending !
-  lf-term-base lf-term-count @ + over dw-size ! ;
-: lf-tac-holds? ( term xt -- flag outcome ) tbw tbw-test ! lfb-walk dw-run swap 0<> swap ;
+\ ---- Leaves (front/term-find.fs's lf-term-holds?).
 \ The tests: a metavariable not assigned (a delayed one counts as
 \ assigned, as Lean's isAssigned and isDelayedAssigned together), one
 \ also synthetic opaque, one also new; a free variable outside the
@@ -180,7 +156,7 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 : lfb-seen? ( fvar -- flag ) tb tb-view @ swap lf-view-find dup if nip then ;
 : lfb-outside? ( leaf -- flag )
   dup lf-term-tag@ lf-tag-fvar = if lfb-seen? 0= else drop false then ;
-: lfb-holds? ( term xt -- flag ) lf-tac-holds? lf-tac-must ;
+: lfb-holds? ( term xt -- flag ) lf-term-holds? lf-tac-must ;
 : lf-tac-hole? ( leaf -- flag ) lfb-hole? ;
 
 \ ---- The step's goal and context (Lean's withMainContext); the row's

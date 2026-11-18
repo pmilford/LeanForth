@@ -19,7 +19,7 @@
 \    (with Lean's text), 95, 96 (with Lean's text), 97 (with Lean's text),
 \    98, 99, 93, 71, and 91 when isDefEq or whnfCore runs out of fuel;
 \ 2. malformed: a binder with no known kind, an implicit binder, a let;
-\ 3. stack effects (every T{ }T checks the depth) and lf-tac-holds?;
+\ 3. stack effects (every T{ }T checks the depth) and lf-term-holds?;
 \ 4. through cli-check: tests/front/07-intro-exact.lf, 08-rfl.lf;
 \ 5. resources: the heap refusing each allocation of an intro-exact run;
 \ 6. state: an intro undone at a choice point leaves no assignment, the
@@ -283,10 +283,10 @@ T{ 1 lf-defeq-fuel! s" by-rfl end t" proof nrun err 0 lf-defeq-fuel!
 T{ 1 lf-whnf-fuel! s" by-intro: h end t" proof nrun err 0 lf-whnf-fuel!
    -> outcome-exhausted 91 1 43 }T
 
-\ ---- 3. lf-tac-holds?: a leaf found, none, and the outcome of the walk.
+\ ---- 3. lf-term-holds?: a leaf found, none, and the outcome of the walk.
 : fvar? ( leaf -- flag ) lf-term-tag@ lf-tag-fvar = ;
-T{ prop ' fvar? lf-tac-holds? p @ ' fvar? lf-tac-holds? -> false outcome-ok true outcome-ok }T
-T{ 1 heap-refusals ! p @ prop app ' fvar? lf-tac-holds? nip -> outcome-full }T
+T{ prop ' fvar? lf-term-holds? p @ ' fvar? lf-term-holds? -> false outcome-ok true outcome-ok }T
+T{ 1 heap-refusals ! p @ prop app ' fvar? lf-term-holds? nip -> outcome-full }T
 
 \ ---- 5. The heap refusing each allocation of an intro-exact run in turn:
 \ never accepted, ok or full each time; past the last one, made.

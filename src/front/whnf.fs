@@ -57,9 +57,9 @@
 \ literal becomes constructors (toCtorIfLit), an offset s + k Nat.succ of
 \ s + (k - 1) (cleanupNatOffsetMajor).
 \ Never a guess: unsupported for what Lean decides with a fact or a step
-\ not ported yet -- a matcher at reducible, instances or implicit
-\ transparency (canUnfoldAtMatcher), a definition with a `_sunfold` or
-\ not known to have none (unfold.fs), a quotient's lift or ind, a
+\ not ported yet -- a matcher's value naming dite at reducible,
+\ instances or implicit transparency (unfoldNestedDIte), a definition
+\ not known to have a `_sunfold` or not (unfold.fs), a quotient's lift or ind, a
 \ delayed-assigned metavariable at the head, a string literal or a
 \ literal beyond a cell as a major premise, and, for a recursor: K-like
 \ ones (toCtorWhenK infers the major premise's type), a stuck major
@@ -91,7 +91,7 @@
 \ n is negative.
 \ Untrusted: only the kernel's check of a finished term decides anything.
 \ State: the record wc (fuel, the activation, the projection mode,
-\ lf-meta-unfold's answer, the transparency on entry, the recursor or
+\ lf-meta-unfold's answer, the transparency and flags on entry, the recursor or
 \ matcher step's term, head, data and declaration, a matcher's sizes) and
 \ the slabs wc-args, wc-margs, wc-levels, wc-hs (the open matchers'
 \ alternative variables) and wc-frames, in the checker context. Loads
@@ -119,6 +119,7 @@ require ./meta-spine.fs
 require ./term-eqv.fs
 require ./nat-offset.fs
 require ./unfold.fs
+require ./term-find.fs
 
 100000 constant lf-whnf-default-fuel
 begin-structure /wc
@@ -128,6 +129,7 @@ begin-structure /wc
   field: wc-proj-i   \ true: projections' structures by whnfAtMostI
   field: wc-unfolded \ lf-meta-unfold's answer: whether its term unfolded
   field: wc-mode0    \ the transparency on entry
+  field: wc-flags0   \ and the configuration's flags
   field: wc-src      \ the slab wc-apply reads arguments from (set just
                      \ before each use: wc-from; one step's register)
   field: wc-e        \ the recursor step's term,
@@ -153,6 +155,7 @@ begin-structure /wcf
   field: wcf-aux     \ a recursor's declaration, a class field's unfolded term
   field: wcf-act     \ the activation the frame resumes
   field: wcf-mode    \ the transparency it resumes at
+  field: wcf-flags   \ and the flags (lf-meta-at-matcher)
 end-structure
 /wcf context-slab: wc-frames      \ the frames, the newest last
 0 constant wc-core-act   1 constant wc-full-act   2 constant wc-unfold-act
@@ -188,13 +191,16 @@ lf-unfold-ask-none 1+ constant wc-match-kind
 wc-match-kind 1+ constant wc-smart-kind   wc-smart-kind 1+ constant wc-smatch-kind
 wc-smatch-kind 1+ constant wc-srec-kind
 : wc-top ( -- frame ) wc-frames slab-last ;
-: wc-keep ( frame -- ) wc wc-act @ over wcf-act ! lf-defeq-mode swap wcf-mode ! ;
+: wc-keep ( frame -- )
+  wc wc-act @ over wcf-act ! lf-defeq-mode over wcf-mode !
+  lf-defeq-flags swap wcf-flags ! ;
 \ One frame claimed whole, or none (full); the part's activation is whnf.
 : wc-frame ( e aux kind -- outcome )
   1 wc-frames slab-claim nip dup ok? 0= if nip nip nip exit then drop
   wc-top tuck wcf-kind ! tuck wcf-aux ! tuck wcf-term ! wc-keep
   wc-full-act wc wc-act ! outcome-ok ;
-: wc-restore ( frame -- ) dup wcf-act @ wc wc-act ! wcf-mode @ lf-defeq-mode! ;
+: wc-restore ( frame -- )
+  dup wcf-act @ wc wc-act ! dup wcf-mode @ lf-defeq-mode! wcf-flags @ lf-defeq-flags! ;
 : wc-pop ( -- kind )
   wc-top dup wc-restore dup wcf-aux @ wc wc-aux ! dup wcf-term @ wc wc-e ! wcf-kind @
   wc-frames slab-drop ;
@@ -413,9 +419,13 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ arguments after the alternatives, with head beta, and whnfCore goes on;
 \ any other head leaves e (stuck), as do fewer arguments than prefix and
 \ alts (partialApp). A value with fewer lambdas answers unsupported. At
-\ reducible, instances and implicit transparency Lean also unfolds dite
-\ in the value (unfoldNestedDIte) and whnfMatcher canUnfoldAtMatcher's
-\ names: not ported yet, unsupported.
+\ reducible, instances and implicit transparency the part runs with
+\ meta-config.fs's lf-meta-at-matcher (whnfMatcher's
+\ withCanUnfoldAtMatcherPred: meta-env.fs's canUnfoldAtMatcher), kept
+\ in its frame and given back when it resumes; Lean also unfolds every
+\ dite in the value there (unfoldNestedDIte): a value naming dite
+\ answers unsupported (not ported yet: plan S3, literal patterns), one
+\ without is its own unfoldNestedDIte.
 : wc-defn-fail ( e head d outcome -- -1 false outcome ) nip nip nip wc-fail ;
 : wc-minfo! ( d -- outcome )
   lf-menv-matcher-sizes 0= if outcome-unsupported exit then
@@ -425,6 +435,16 @@ wc-smatch-kind 1+ constant wc-srec-kind
 1 lf-tr-all lshift 1 lf-tr-default lshift or
 1 lf-tr-none lshift or constant wc-plain-modes
 : wc-plain-mode? ( -- flag ) 1 lf-defeq-mode lshift wc-plain-modes and 0<> ;
+\ whnfMatcher's predicate for the part just framed (wc-frame keeps the
+\ flags it gives back).
+: wc-at-matcher ( -- )
+  wc-plain-mode? 0= if lf-defeq-flags lf-meta-at-matcher or lf-defeq-flags! then ;
+: wc-dite? ( leaf -- flag )
+  dup lf-term-const? if lf-const-name lf-menv-dite? else drop false then ;
+: wc-nested-dite ( value -- value outcome )
+  wc-plain-mode? if outcome-ok exit then
+  dup ['] wc-dite? lf-term-holds? ok-then? 0= if nip no-result exit then
+  if drop -1 outcome-unsupported else outcome-ok then ;
 : wc-take ( v i -- v' outcome )
   over lf-term-lam? 0= if 2drop outcome-unsupported no-result exit then
   wc-args lf-meta-arg swap lf-term-second@ swap lf-meta-instantiate1 ;
@@ -438,14 +458,15 @@ wc-smatch-kind 1+ constant wc-srec-kind
 : wc-match-body ( value -- part outcome )
   wc wc-mpre @ 0 ['] wc-take-at ok-fold ok-then? 0= if no-result exit then
   wc wc-malts @ 0 ['] wc-open-h ok-fold ;
-: wc-match-value ( -- value outcome ) wc wc-aux @ wc wc-head @ lf-unfold-value ;
+: wc-match-value ( -- value outcome )
+  wc wc-aux @ wc wc-head @ lf-unfold-value
+  ok-then? if wc-nested-dite else no-result then ;
 : wc-match-keep ( e head d kind -- ) wc wc-mkind ! wc wc-aux ! wc wc-head ! wc wc-e ! ;
 : wc-match-part ( e head d kind -- e' flag outcome )
   wc-match-keep wc-match-value ok-then? 0= if wc-fail exit then
   wc-match-body ok-then? 0= if wc-fail exit then
-  wc-term wc wc-aux @ wc wc-mkind @ wc-frame wc-go ;
+  wc-term wc wc-aux @ wc wc-mkind @ wc-frame wc-at-matcher wc-go ;
 : wc-matcher ( e head d -- e' flag outcome )
-  wc-plain-mode? 0= if drop wc-unsupported exit then
   dup wc-minfo! dup ok? 0= if wc-defn-fail exit then drop
   wc-partial? if 2drop wc-done else wc-match-kind wc-match-part then ;
 \ Resumed with the body's whnf r: hs[i] at r's head, or none.
@@ -523,14 +544,18 @@ wc-smatch-kind 1+ constant wc-srec-kind
   if lf-term-second@ wc-inert? else drop false then ;
 \ Lean's withNatValue (WHNF.lean:976) gives no value for an argument that
 \ holds a free variable and no metavariable, so reduceNat? folds nothing
-\ when its first argument does, or its second after a literal first
-\ (branch s2-tactics: rewriting's kabstract compares k + 1 with
-\ 0 + Nat.succ k).
-: wm-no-value? ( a -- flag ) dup lf-meta-mvar-free? if lf-meta-has-fvar? else drop false
-  then ;
+\ when either argument does: the first at once, the second after the
+\ first's value or none (branch s2-tactics: rewriting's kabstract
+\ compares k + 1 with 0 + Nat.succ k; S2 merge B: Nat.add 0 (Nat.succ x)
+\ as a discriminant at reducible). An unassigned metavariable stays one
+\ when instantiated: no value either. Not ported yet: an argument holding
+\ an assigned one (instantiateMVars first; unsupported).
+: wm-no-value? ( a -- flag )
+  dup wc-unassigned? if drop true exit then
+  dup lf-meta-mvar-free? if lf-meta-has-fvar? else drop false then ;
 : wm-args-none? ( e -- flag )
-  dup lf-term-first@ lf-term-second@ dup wm-no-value? if 2drop true exit then
-  lf-lit-leaf? if lf-term-second@ wm-no-value? else drop false then ;
+  dup lf-term-first@ lf-term-second@ wm-no-value? if drop true exit then
+  lf-term-second@ wm-no-value? ;
 : wm-none? ( e -- flag )
   dup lf-meta-args# dup 2 = if drop wm-args-none? exit then
   1 = if lf-term-second@ wm-no-value? else drop false then ;
@@ -666,8 +691,9 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ constructor's application after whnf (whnfMatcher, a part;
 \ isConstructorApp with toCtorIfLit), else none. Not ported yet,
 \ unsupported: a marker elsewhere in e1 (go's walk under lambdas, lets and
-\ arguments), a reduced result without an alternative marker at its top,
-\ and the parts at reducible, instances or implicit transparency.
+\ arguments) and a reduced result without an alternative marker at its
+\ top. At reducible, instances and implicit transparency the parts run
+\ with lf-meta-at-matcher, as the matchers above.
 0 constant wc-sm-fail   1 constant wc-sm-stuck   2 constant wc-sm-reduced
 : wc-sm! ( state -- ) wc wc-sm-out ! ;
 : wc-sm-none ( m -- m false outcome ) wc-sm-fail wc-sm! wc-done ;
@@ -675,7 +701,6 @@ wc-smatch-kind 1+ constant wc-srec-kind
   dup wc-minfo! dup ok? 0= if wc-defn-fail exit then drop
   wc-partial? if 2drop wc-sm-none else wc-smatch-kind wc-match-part then ;
 : wc-smatch-decl ( m head d -- e' flag outcome )
-  wc-plain-mode? 0= if drop wc-unsupported exit then
   dup lf-menv-matcher? ok-then? 0= if wc-defn-fail exit then
   if wc-smatch-sizes else 2drop wc-sm-none then ;
 : wc-smatch-head ( m head -- e' flag outcome )
@@ -709,10 +734,8 @@ wc-smatch-kind 1+ constant wc-srec-kind
 : wc-srec-arg ( r k -- e' flag outcome )
   wc-term wc-args lf-meta-spine ok-then? 0= if nip wc-drop-fail exit then drop
   dup wc-args slab-count < 0= if 2drop wc-sfail exit then
-  wc-args lf-meta-arg swap wc-term swap wc-srec-kind wc-frame wc-go ;
-: wc-srec ( r -- e' flag outcome )
-  wc-rec-pos 0= if wc-advance exit then
-  wc-plain-mode? 0= if 2drop outcome-unsupported wc-fail exit then wc-srec-arg ;
+  wc-args lf-meta-arg swap wc-term swap wc-srec-kind wc-frame wc-at-matcher wc-go ;
+: wc-srec ( r -- e' flag outcome ) wc-rec-pos if wc-srec-arg else wc-advance then ;
 : wc-sreduced ( t -- e' flag outcome )
   lf-annot-match-alt lf-annot-keyed? 0= if outcome-unsupported wc-fail exit then
   wc-s-extra ok-then? if wc-srec else wc-fail then ;
@@ -788,8 +811,9 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ A call: the activation, the projection mode and the facts flag set, the
 \ transparency on entry restored at the end.
 : wc-enter ( act proj-i -- )
-  wc wc-proj-i ! wc wc-act ! false wc wc-unfolded ! lf-defeq-mode wc wc-mode0 ! wc-start ;
-: wc-leave ( -- ) wc wc-mode0 @ lf-defeq-mode! ;
+  wc wc-proj-i ! wc wc-act ! false wc wc-unfolded ! lf-defeq-mode wc wc-mode0 !
+  lf-defeq-flags wc wc-flags0 ! wc-start ;
+: wc-leave ( -- ) wc wc-mode0 @ lf-defeq-mode! wc wc-flags0 @ lf-defeq-flags! ;
 : wc-run ( e act proj-i -- e' outcome )
   wc-enter dup lf-term-root? if wc-loop else drop -1 outcome-invalid then wc-leave ;
 : lf-whnf-core ( term -- term' outcome ) wc-core-act false wc-run ;

@@ -17835,8 +17835,8 @@ reason = "S2 §2: a projection's structure is reduced by whnfCore alone, where L
 [[fault]]
 id = "fe-whnf-mode-leaks"
 file = "src/front/whnf.fs"
-old = ''': wc-leave ( -- ) wc wc-mode0 @ lf-defeq-mode! ;'''
-new = ''': wc-leave ( -- ) ;'''
+old = ''': wc-leave ( -- ) wc wc-mode0 @ lf-defeq-mode! wc wc-flags0 @ lf-defeq-flags! ;'''
+new = ''': wc-leave ( -- ) wc wc-flags0 @ lf-defeq-flags! ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S2: a call leaves the transparency its last part ran at (instances after whnfAtMostI), not the caller's"
 
@@ -19859,3 +19859,67 @@ old = '''  if-e ['] if-leaf-type if-body-by ok-then? if if-whnf-d else no-result
 new = '''  if-e ['] if-leaf-type if-body-by ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "S2 merge B: the structure's type is not whnf'd (outParam (Prod Nat Nat)), so the projection is refused where Lean infers it"
+
+[[fault]]
+id = "fe-matcher-pred-unset"
+file = "src/front/whnf.fs"
+old = '''  wc-plain-mode? 0= if lf-defeq-flags lf-meta-at-matcher or lf-defeq-flags! then ;'''
+new = '''  ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_unfold.py"
+reason = "S2 merge B: whnfMatcher at reducible runs without canUnfoldAtMatcher, so a numeral discriminant (OfNat.ofNat) stays and the match is stuck where Lean reduces it"
+
+[[fault]]
+id = "fe-matcher-pred-kept"
+file = "src/front/whnf.fs"
+old = '''  dup wcf-act @ wc wc-act ! dup wcf-mode @ lf-defeq-mode! wcf-flags @ lf-defeq-flags! ;'''
+new = '''  dup wcf-act @ wc wc-act ! wcf-mode @ lf-defeq-mode! ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_unfold.py"
+reason = "S2 merge B: canUnfoldAtMatcher stays on after the matcher's part, so the alternative's numeral unfolds where Lean's whnf leaves it"
+
+[[fault]]
+id = "fe-matcher-names-ignored"
+file = "src/front/meta-env.fs"
+old = '''  dup lf-menv-name me-matcher-name? if drop true outcome-ok exit then'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/front/check_unfold.py"
+reason = "S2 merge B: canUnfoldAtMatcher without Lean's list of names (OfNat.ofNat), so a numeral discriminant stays at reducible"
+
+[[fault]]
+id = "fe-matcher-pattern-ignored"
+file = "src/front/meta-env.fs"
+old = ''': lf-menv-match-pattern? ( d -- flag outcome ) ['] me-pattern-tag me-defn-fact ;'''
+new = ''': lf-menv-match-pattern? ( d -- flag outcome ) drop false outcome-ok ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_unfold.py"
+reason = "S2 merge B: canUnfoldAtMatcher without @[match_pattern] definitions, so k + 1 as a discriminant stays at reducible"
+
+[[fault]]
+id = "fe-matcher-dite-ignored"
+file = "src/front/whnf.fs"
+old = '''  if drop -1 outcome-unsupported else outcome-ok then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2 merge B: a matcher's value naming dite is reduced at reducible without unfoldNestedDIte, where Lean unfolds dite first"
+
+[[fault]]
+id = "fe-nat-guard-second-ignored"
+file = "src/front/whnf.fs"
+old = '''  lf-term-second@ wm-no-value? ;'''
+new = '''  drop false ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_unfold.py"
+reason = "S2 merge B: reduceNat? reads Nat.add 0 (Nat.succ x) as foldable (unsupported) though its second argument has no value (withNatValue), where Lean goes on to unfold it"
+
+[[fault]]
+id = "fe-nat-guard-mvar-ignored"
+file = "src/front/whnf.fs"
+old = '''  dup wc-unassigned? if drop true exit then'''
+new = ''''''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2 merge B: an unassigned metavariable read as a possible value of reduceNat? (unsupported), where withNatValue gives none"
+
+[[fault]]
+id = "fe-term-find-both-parts"
+file = "src/front/term-find.fs"
+old = '''  over lf-term-binary? if tf-images or else drop tf-leaf then ;'''
+new = '''  over lf-term-binary? if tf-images and else drop tf-leaf then ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "S2 merge B: a leaf found in one part of an application is missed unless both parts hold one"
