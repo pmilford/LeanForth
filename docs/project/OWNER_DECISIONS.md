@@ -1494,3 +1494,35 @@ tactic's design first lists the Lean primitives it uses and the Forth words that
 The owner also asked that the `simp` work start if there is time, long Mathlib exports included, and that small tasks
 continue overnight without waiting for guidance. The [import]/[format] gate for elaboration data format 4 is not
 approved yet: the extraction tool and its data stay on a branch until the owner answers the design's five questions.
+
+## Decisions of 2026-11-18 (morning page)
+
+Asked in plain language with recommendations (2026-11-18, about 11:30), the owner approved each of these:
+
+- **[kernel] the name store's index** (branch `names-index`): a hash index for finding names; each name checked once
+  when made, lookups checking what they touch, and the full audit at each hand-over to the kernel. Accepted loss:
+  damage to an old entry is noticed at the next hand-over, not at the next new name.
+- **[kernel]/[import], in form: the library tidy-up** (branch `lib-tidy-3`), as a change of wordlists with no change
+  of behaviour; `bytes.fs`'s reader gains options and LeanForth's callers pass the strict one.
+- **[import]/[format] binder kinds** (plan FE1c-bk): the elaboration data carries Lean's own binder kinds, because
+  the exporter merges expressions equal up to them.
+- **[import]/[format] simp data, format 4** (`docs/design/SIMP_DATA.md`), all five questions as recommended: the
+  format and its checks; Lean's on-demand theorems added at the next library export, the helpers of a user's own
+  bracket lemmas made in Forth; simprocs ported family by family, an unported one that matches answering
+  unsupported; Mathlib's simp data read lazily; the order SP1a-SP2b, MF, S8a1, S7, S8a2, S8b.
+- **The Mathlib front end** (`docs/design/MATHLIB_FRONT.md`), all five questions as recommended: data format 3.1;
+  instance records checked when first needed (the owner was offered a check once per data file and no check, as
+  Lean, and chose this; it is done with the slice that loads Mathlib's data rather than as a large slice of its
+  own); on-demand theorems checked as a layer on today's snapshot at the next export; no load target until a
+  successful Mathlib run is profiled; the full-Mathlib front-end test only by hand, as a slice's done check.
+- **Interface changes:** the command line's exit codes as the fix batch left them (a Forth fault in a run 5, an
+  overflow 3, an output over an input, a manifest or `FILE.partial` 4, a full binder table 3); the step log's end
+  record as step-log format version 2; U+202E stays printed escaped, a documented difference from Lean's printer.
+- **[parser]:** the words `by-apply`, `by-assumption` and `by-constructor` (ports of Lean's, each compared with
+  pinned Lean); and the front end's limit of 512 values in one expression lifted.
+- **The nightly run** (`make daily`) is started by the agent each night a session is open, by itself; no system timer.
+- **`src/program/verify-alias.fs` is retired** with its tests, in a reviewed commit (a superseded variant).
+- **Disk:** finished agents' temporary data and the worktrees of merged branches may be deleted, the exact paths
+  listed first, each worktree checked for a `.tools` link first, the unmerged branches' worktrees kept.
+- **Small rules:** the step log's [format] approval covers the [bypass] gate its design listed (the log never
+  changes a verdict); a tactic-only branch may also change documentation and keep the tactic tier.
