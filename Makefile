@@ -150,6 +150,14 @@ check-docs:
 	$(RUN) python3 tests/scripts/test_lib_index.py
 	$(RUN) python3 scripts/lib-index.py
 
+# Facts the pages restate (the progress page's Mathlib run, the manual's exit-code order,
+# the receipt schema the AI guide names) against what they restate: kept apart from the
+# slow tests, so that a page's edit re-runs only this under per-target reuse.
+test-doc-facts:
+	$(RUN) python3 tests/docs/test_doc_facts.py
+.PHONY: test-doc-facts
+test: test-doc-facts
+
 # The Forth examples of the user pages print exactly the output shown.
 DOC_EXAMPLE_PAGES := docs/user/CONCEPTS.md docs/user/TERM_PRINTER.md \
 	docs/user/READING_A_LEAN_PROOF.md

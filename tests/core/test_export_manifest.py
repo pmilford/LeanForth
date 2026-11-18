@@ -40,7 +40,7 @@ TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make export
 
 GFORTH = os.environ.get("GFORTH", "gforth")
 COUNT_FS = "src/import/ndjson-count.fs"
-COUNT_PY = ROOT / "docs" / "development" / "measurements" / "scale-2026-11-02" / "count.py"
+COUNT_PY = ROOT / "docs/development/measurements/scale-2026-11-02/count.py"
 REFERENCE = ROOT / "tests" / "reference"
 FIXTURES = sorted(REFERENCE.glob("*.ndjson"))
 SCHEMA = ROOT / "schemas" / "export-manifest-1.schema.json"

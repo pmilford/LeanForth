@@ -24,6 +24,7 @@ test-tactic-*                      unit    tests/front/tactics/NAME/test.fs: its
 # make test: unit
 check-tools-untracked              unit
 check-docs                         unit
+test-doc-facts                     unit    tests/docs/test_doc_facts.py: facts the pages restate, apart from the slow tests
 check-lean-sources                 unit
 check-portable-forth               unit
 check-forth-quality                unit
