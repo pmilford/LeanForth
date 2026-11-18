@@ -1109,8 +1109,10 @@ variable cli-info#
 \ and the file is cut back to the bytes through its last line feed, the
 \ end of the last write that ended in one. The file holds no mark of its
 \ own that it was cut (the step log's format, schema 1, has no record for
-\ one): a complete log is one in which every header's step count is
-\ followed by that many step lines. When the cut itself fails (its
+\ one): a header's step count followed by fewer step lines finds a cut
+\ inside a declaration, but a cut between declarations looks whole, so
+\ only the exit status shows that a log is complete (re-check S2). When
+\ the cut itself fails (its
 \ position, flush or resize, or the close), the error says the file may
 \ end inside a line (review N3); the code is 3 either way.
 : cli-steps-fid ( -- fid ) cli-state run-steps-fid @ ;

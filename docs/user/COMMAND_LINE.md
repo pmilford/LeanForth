@@ -336,9 +336,11 @@ failed write could leave half a line). When the cut itself fails (the
 flush, the cut or the close of the file), the message says instead that
 the file may end inside a line; the exit status is 3 either way. The file
 holds no mark of its own that it was cut (format version 1 has no record
-for one): a complete log is one in which each header's `steps` count is
-followed by that many step lines, and a reader that needs certainty
-checks that, or the exit status. Version 1
+for one). Each header's `steps` count is followed by that many step lines
+in a whole declaration, so a reader can find a cut inside a declaration;
+a cut between declarations leaves a log that looks whole with the later
+declarations missing, and only the exit status shows that a log is
+complete. Version 1
 does not yet carry each tactic's rule (the eliminator, the rewrite rule
 and its place, the closing term), the constants and hypotheses a step
 used, or the goals in kernel form; a later version adds them. `--steps`
