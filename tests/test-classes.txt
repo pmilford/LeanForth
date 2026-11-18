@@ -178,6 +178,7 @@ tests/present/print-cases.fs       unit    test-present: check_golden.py runs HE
 # Test programs no target of make check runs
 tests/core/compact-bench.fs        manual  report-only benchmark
 tests/lib/bignum-bench.fs          manual  report-only benchmark
+tests/lib/lib-bench.fs             manual  report-only benchmark of every library (make lib-bench)
 tests/lib/bignum_bench.py          manual  report-only benchmark against Python
 tests/lib/sha256-bench.fs          manual  report-only benchmark
 tests/lib/task-bench.fs            manual  report-only benchmark
