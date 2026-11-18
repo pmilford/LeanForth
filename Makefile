@@ -684,6 +684,7 @@ test-program-ir-run:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/program/ir_run_differential.py
 	$(RUN) python3 tests/program/vc_check.py
 	$(RUN) python3 tests/program/receipt_check.py
+	$(RUN) python3 tests/support/toolchain.py
 	$(RUN) python3 tests/program/clamp_mutants.py --test
 
 # The clamp receipt's evidence recorded afresh once per make (plan 5.5.1): Lean

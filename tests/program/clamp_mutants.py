@@ -54,6 +54,8 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tests" / "support"))
+import toolchain  # noqa: E402
 CHILDREN = {"app": ("fn", "arg"), "lam": ("type", "body"), "forallE": ("type", "body"),
             "letE": ("type", "value", "body"), "proj": ("struct",), "mdata": ("expr",)}
 DECLARATIONS = ("axiom", "def", "thm", "opaque")
@@ -253,7 +255,8 @@ def leanforth(export, *options):
     """(exit status, the JSON report) of bin/leanforth check --json on an export."""
     done = subprocess.run(["bash", str(ROOT / "bin" / "leanforth"), "check", "--json", *options,
                            str(export)], capture_output=True, text=True, stdin=subprocess.DEVNULL,
-                          timeout=int(os.environ.get("TEST_TIMEOUT", "1800")))
+                          timeout=int(os.environ.get("TEST_TIMEOUT", "1800")),
+                          env=toolchain.gforth_env())
     try:
         return done.returncode, json.loads(done.stdout)
     except ValueError:

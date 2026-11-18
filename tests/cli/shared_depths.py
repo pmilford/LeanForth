@@ -29,6 +29,8 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tests" / "support"))
+import toolchain  # noqa: E402
 SOURCE = ROOT / "tests" / "cli" / "shared-depths.lean"
 MEMO_OFF = ROOT / "tests" / "cli" / "audit-memo-off.fs"
 EXPECTED_ROWS = 53   # P1 has 12, P2 has 7, P3 has 6, P4 has 2, P5 has 11, P6 has 15
@@ -87,15 +89,14 @@ def fuel_of(path, name):
     """The fuel `leanforth check --json` reports for declaration name."""
     run = subprocess.run([str(ROOT / "bin" / "leanforth"), "check", "--no-manifest", "--fast",
                           "--json", str(path)], stdin=subprocess.DEVNULL, capture_output=True,
-                         text=True, timeout=600)
+                         text=True, timeout=600, env=toolchain.gforth_env())
     fuel = {d["name"]: d["fuel"] for d in json.loads(run.stdout)["declarations"]}
     return fuel[name]
 
 
 def main():
     lean = sys.argv[1]
-    gforth = sys.argv[2] if len(sys.argv) > 2 else os.environ.get(
-        "GFORTH", str(ROOT / ".tools" / "gforth" / "bin" / "gforth-fast"))
+    gforth = sys.argv[2] if len(sys.argv) > 2 else toolchain.gforth("gforth-fast")
     if os.sep in gforth:
         gforth = str(Path(gforth).resolve())
     failures = 0
