@@ -1421,6 +1421,7 @@ tier:
 test-tiers:
 	$(RUN) python3 tests/scripts/test_test_tier.py
 	$(RUN) python3 tests/scripts/test_tested_tree.py
+	$(RUN) python3 tests/scripts/test_check_tactic_plugins.py
 # The daily full run (owner, 2026-11-17: its own command, once a night and before a tag;
 # a push only reports its age): the full tier of HEAD with LEAN_CACHE=0 and Gforth 0.7.3,
 # each suite recorded for this exact tree; DRY_RUN=1 prints what would run. make tag-check

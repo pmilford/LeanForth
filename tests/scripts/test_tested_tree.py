@@ -463,7 +463,8 @@ class Push(Base):
         self.remote = self.repo.path.parent / "remote.git"
         subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(self.remote)], check=True,
                        capture_output=True)
-        for name in ("push.sh", "tested-tree.py", "test-tier.py", "changed-tests.py", "test-classes.py"):
+        for name in ("push.sh", "tested-tree.py", "test-tier.py", "changed-tests.py", "test-classes.py",
+                     "check-tactic-plugins.py"):
             shutil.copy(ROOT / "scripts" / name, self.repo.path / "scripts" / name)
         self.repo.stub("scripts/check-progress.py", "import os, sys\nprint('progress stub')\n"
                        "sys.exit(int(os.environ.get('STUB_PROGRESS', '0')))\n")

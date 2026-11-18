@@ -641,6 +641,10 @@ def run_tier(args):
     for note in notes:
         print(note)
     make, lines, status, tree_hash = Make(), [], 0, tree()
+    tactic = result.get("tactic_check")
+    if tactic and tactic["problems"]:
+        lines.append("tactic plug-in check failed: " + "; ".join(tactic["problems"]))
+        status = 1
     times = target_seconds() if args.dry_run else {}
     for suite in result["suites"]:
         argv = suite_argv(suite, args.make, args.jobs, cache)

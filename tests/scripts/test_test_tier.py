@@ -153,6 +153,29 @@ class Tiers(Fixture):
         self.assertEqual(result["tier"], "tests")
         self.assertEqual(result["faults"], ["free-one"])
 
+    def test_faults_d_file_is_part_of_the_list(self):
+        """Slice (a1): tests/mutants/faults.d/*.toml is read with faults.toml as one list."""
+        moved = tier_fixture.FAULTS.split("[[fault]]\nid = \"core-one\"")[0]
+        rest = "[[fault]]\nid = \"core-one\"" + tier_fixture.FAULTS.split("[[fault]]\nid = \"core-one\"")[1]
+        self.repo.write("tests/mutants/faults.toml", rest)
+        self.repo.write("tests/mutants/faults.d/free.toml", moved)
+        self.repo.commit("move a fault")
+        self.repo.git("tag", "-f", "base")
+        result = self.change({"tests/mutants/faults.d/free.toml": moved.replace('new = "eerf"', 'new = "eref"')})
+        self.assertEqual(result["tier"], "tests")
+        self.assertEqual(result["faults"], ["free-one"])
+        self.assertEqual(self.change({"tests/lib/a.fs": "require ../../src/lib/free.fs\n\\ x\n"})["faults"],
+                         ["free-one"], "a fault of faults.d whose test names a changed file")
+
+    def test_malformed_or_repeated_faults_d_stops_the_plan(self):
+        for text in ("[[fault]\nid = broken\n", tier_fixture.FAULTS):
+            with self.subTest(text=text[:20]):
+                self.repo.write("tests/mutants/faults.d/bad.toml", text)
+                self.repo.commit("a fault file")
+                run = self.repo.script("test-tier.py", "--base", "base", "--json")
+                self.assertEqual(run.returncode, 2, run.stdout)
+                self.assertIn("test-tier: ", run.stderr)
+
     def test_library_nothing_loads(self):
         result = self.change({"src/lib/free.fs": ": free-word 1 ;\n"})
         self.assertEqual(result["tier"], "library")

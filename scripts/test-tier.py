@@ -80,9 +80,15 @@ _spec.loader.exec_module(changed_tests)
 _spec = importlib.util.spec_from_file_location("test_classes", os.path.join(HERE, "test-classes.py"))
 test_classes = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(test_classes)
+_spec = importlib.util.spec_from_file_location("tactic_plugins", os.path.join(HERE, "check-tactic-plugins.py"))
+tactic_plugins = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(tactic_plugins)
 
 PROGRAMS = (".fs", ".py", ".sh")
-TIERS = ("none", "docs", "tests", "library", "front", "full")
+TIERS = ("none", "docs", "tests", "library", "front", "tactic", "full")
+# The tactic tier (owner, 2026-11-17, the tactic plug-in design's decision 2): only for a branch
+# scripts/check-tactic-plugins.py finds confined. Its S1/S2 pinned-Lean comparisons:
+TACTIC_REFERENCE = ("reference-front",)
 DOC_FOLDERS = ("docs/", ".claude/", ".codex/", "prompts/")
 DOC_FILES = {"LICENSE", ".gitignore"}
 MAIN = "src/main.fs"
@@ -566,8 +572,13 @@ def plan(changed, merge_base, full=False, reach=None):
     if any(s == "D" for s, _ in changed):
         loaded |= forth_closure([MAIN], reader_at(base_rev))
     files = []
+    tactic = None
+    if not full and any(p.startswith(tactic_plugins.TACTICS) for _, p in changed):
+        tactic = tactic_plugins.check(changed)
     for status, path in changed:
         tier, why = category(path, loaded)
+        if tactic and tactic["confined"] and tier != "docs":
+            tier, why = "tactic", "a confined tactic plug-in's own file (scripts/check-tactic-plugins.py)"
         if status == "D" and tier != "docs":
             # What used a deleted file (or a rename's old half) is known only from the base
             # tree, which Reach does not read: the safe answer is the full tier.
@@ -577,7 +588,7 @@ def plan(changed, merge_base, full=False, reach=None):
     if full:
         tier = "full"
     result = {"base": merge_base, "tier": tier, "files": files, "targets": [], "engine_targets": [],
-              "faults": [], "coverage": None, "suites": []}
+              "faults": [], "coverage": None, "suites": [], "tactic_check": tactic}
     if tier == "none":
         return result
     reach_ = reach or Reach(make_database()[0])
@@ -588,12 +599,18 @@ def plan(changed, merge_base, full=False, reach=None):
         path, users = f["path"], reach_.users(f["path"])
         if f["tier"] == "tests" and os.path.splitext(path)[1] not in changed_tests.COMMENT:
             users = users + reach_.data_users(path)
+        if is_fault_file(path):
+            users = users + reach_.users(FAULTS)   # a faults.d file is part of the one list
         if path.startswith("src/") and path.endswith(".fs"):
             users += SOURCE_RULE_TARGETS
         if path.endswith(".md"):
             users.append("check-docs")
         if f["tier"] == "front":
             users += FRONT_TARGETS
+        if f["tier"] == "tactic":
+            users += tactic_targets(reach_)
+            if os.path.splitext(path)[1] not in changed_tests.COMMENT:
+                users += reach_.data_users(path)
         if f["tier"] == "tests" and not users:
             users = reach_.folder_users(path)
             f["why"] += "; no target names it, so the targets of its folder"
@@ -619,6 +636,16 @@ def plan(changed, merge_base, full=False, reach=None):
         print("test-tier: " + "; ".join(problems), file=sys.stderr)
         raise SystemExit(2)
     return result
+
+
+def tactic_targets(reach_):
+    """The tactic tier's targets (the design's decision 2): the front end's unit tests (the unit
+    targets of make test that run a program of tests/front/), every end-to-end run of .lf files
+    (an end-to-end target that reads a .lf file) and the S1/S2 pinned-Lean comparisons."""
+    e2e = end_to_end()
+    units = [u for u in reach_.of_test if u not in e2e and any(p.startswith("tests/front/") for p in reach_.uses[u])]
+    lf_runs = [u for u in reach_.every if u in e2e and any(p.endswith(".lf") for p in reach_.uses[u])]
+    return units + lf_runs + [t for t in TACTIC_REFERENCE if t in reach_.every]
 
 
 def end_to_end():
@@ -729,6 +756,10 @@ def describe(result):
     lines = [f"tier: {result['tier']} ({len(result['files'])} changed files since {result['base'] or 'the given list'})"]
     for f in result["files"]:
         lines.append(f"  {f['status']} {f['path']}: {f['tier']}, {f['why']}")
+    tactic = result.get("tactic_check")
+    if tactic:
+        lines.append("tactic plug-in check: " + ("confined" if tactic["confined"] else
+                                                 "; ".join(tactic["problems"] + tactic["reasons"])))
     for s in result["suites"]:
         extra = " ".join(f"{k}='{v}'" for k, v in s.get("vars", {}).items())
         gforth = f" ({ENGINES[s['engine']]})" if s.get("engine") else ""
