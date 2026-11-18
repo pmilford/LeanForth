@@ -1116,7 +1116,8 @@ variable cli-info#
 : cli-steps-fid ( -- fid ) cli-state run-steps-fid @ ;
 : cli-steps-uncut ( -- ) true cli-state run-steps-uncut ! ;
 : cli-steps-whole! ( -- )
-  cli-steps-fid file-position if 2drop cli-steps-uncut else cli-state run-steps-whole 2! then ;
+  cli-steps-fid file-position
+  if 2drop cli-steps-uncut else cli-state run-steps-whole 2! then ;
 : cli-line-end? ( c-addr u -- flag ) dup if + 1- c@ 10 = else nip then ;
 : cli-steps-mark ( c-addr u -- ) cli-line-end? if cli-steps-whole! then ;
 : cli-steps-put ( c-addr u -- )
