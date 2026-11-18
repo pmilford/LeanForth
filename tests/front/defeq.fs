@@ -265,6 +265,15 @@ T{ nat lf-meta-prop-quick nat fk lam lf-meta-prop-quick
    -> lf-lb-false outcome-ok lf-lb-false outcome-ok }T
 T{ nat fk fe let lf-meta-proof-quick nat fe lam lf-meta-proof-quick
    -> lf-lb-true outcome-ok lf-lb-true outcome-ok }T
+\ evalNat's unported operations, a table per number of arguments
+\ (nat-offset.fs, review F10): each count's table, a known name with a
+\ count of no table, and a term with no arguments.
+: k-args ( f n -- t ) 0 ?do fk app loop ;
+T{ 0 s" Nat.sub" cn 2 k-args no-unported? 0 s" Sub.sub" cn 4 k-args no-unported?
+   0 s" Pow.pow" cn 5 k-args no-unported? 0 s" HPow.hPow" cn 6 k-args no-unported?
+   -> true true true true }T
+T{ 0 s" Pow.pow" cn 4 k-args no-unported? 0 s" Nat.sub" cn 9 k-args no-unported?
+   fk no-unported? -> false false false }T
 : lmax ( a b -- l ) lf-level-tag-max lf-level-binary drop ;
 : limax ( a b -- l ) lf-level-tag-imax lf-level-binary drop ;
 T{ l0 l0 lmax lf-meta-always-zero? lv1 l0 limax lf-meta-always-zero? l0 lv1 lmax lf-meta-always-zero?
