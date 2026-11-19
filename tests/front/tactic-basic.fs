@@ -219,6 +219,12 @@ T{ s" by-rw[ 0 ] end t" proof nrun err see@ -> outcome-unsupported 99 1 43 1 50 
 \ equation) gets the rule's place too.
 ' p-term chosen !
 T{ s" by-rw[ 0 ] end t" proof nrun err see@ -> outcome-invalid 218 1 43 1 50 }T
+\ lf-tac-goal. (tactic-core.fs): the last step's goal after a blank line
+\ (induction's messages print it; no S2 text reaches them).
+: goal-x ( x -- outcome ) drop lf-tac-goal. ;
+lf-tac-forget
+T{ 0 ' goal-x lf-tac-detail detail s\" \n\np : Prop\n⊢ p = p" compare -> 0 }T
+lf-tac-forget
 \ A goal type holding an open synthetic opaque metavariable (Lean compares
 \ with it assignable): 93 before isDefEq.
 : so-p ( -- type ) p-prop prop mv-opaque lf-mvar-new made ;

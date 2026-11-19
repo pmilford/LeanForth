@@ -15,10 +15,10 @@
 \       tactic may use (tb-term, tb-new: induction's until it moves, plan
 \       9.4.8l-I C4; tb-name, tb-kind, tb-x: lf-tac-intro1's)
 \   lf-tac-pop-main ( -- )  the main goal off the list (popMainGoal)
-\   lf-tac-goal. ( -- outcome )  the step's goal after a blank line;
-\   lf-tac-framed. ( term xt -- outcome )  term indented, what xt ( --
-\       outcome ) prints, then the step's goal (Lean's throwTacticEx with
-\       a message: its text, then the goal)
+\   lf-tac-goal. ( -- outcome )  the step's goal after a blank line
+\       (Lean's throwTacticEx with a message: its text, then the goal;
+\       a framed term with the goal is tactic-msg.fs's
+\       lf-tac-framed-with.)
 \   lf-lift-meta-tactic ( i*x i xt -- )  liftMetaTactic (Basic.lean:581):
 \       step i runs in a new step record, xt ( i*x goal -- goals ) gets the
 \       main goal and its new goals (a run) take the main goal's place
@@ -119,9 +119,6 @@ end-structure
 : lf-tac-step-run ( i*x i xt -- j*x ) swap ['] tcr-run lf-tac-in-record ;
 : lf-tac-pop-main ( -- ) 0 lf-replace-main lf-tac-must ;
 : lf-tac-goal. ( -- outcome ) tb tb-goal @ lf-tac-goal-below. ;
-\ A term indented, what xt ( -- outcome ) prints, then the step's goal.
-: lf-tac-framed. ( term xt -- outcome )
-  swap lf-tac-indented. swap ok-and ['] lf-tac-goal. ok-and ;
 
 \ ---- liftMetaTactic.
 : tcr-lifted ( i*x xt i -- ) drop tb tb-goal @ swap execute lf-replace-main lf-tac-must ;
