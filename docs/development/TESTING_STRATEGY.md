@@ -989,7 +989,7 @@ kinds of test hold it:
   at `--jobs 8` and at `--jobs 1`, each twice (text with `--resources` and
   `--save-snapshot`, then `--json`). It requires the same exit codes, the same
   verdict text up to the resource report, the same JSON report but for
-  `"measured"`, the same snapshot but for its information section (kind 16:
+  `"measured"`, the same snapshot but for its information section (kind 17:
   version, commit, host, engine; compared section by section from the
   sectioned file's table), and in the parallel run's resource report not
   ready, forced and workers replaced all 0. It prints both wall times and the
@@ -998,7 +998,14 @@ kinds of test hold it:
   Init export is machine-local, found as `make engine-gate` finds it
   (`PARALLEL_INIT=FILE` names another); without it the target says so and
   exits 4 (skipped, never a pass), so the daily run on such a machine is not
-  complete. A floor for the speed-up is not set yet (plan 9.4.8p (1)).
+  complete. A floor for the speed-up is not set yet (plan 9.4.8p (1)). First run
+  (2026-11-18, branch `parallel-1`, 10 cores shared with other agents, load
+  11-16): `--jobs 8` 320 s, `--jobs 1` 1,159 s (text runs; JSON 292 s and
+  1,185 s), a speed-up of 3.6; 57,919 checks handed out, none run again, not
+  ready, forced or replaced; everything identical (the run itself failed on
+  a bug of the script, the information section taken as kind 16; with 17, the
+  comparison of the saved outputs found no difference). About 50 minutes
+  in all.
 
 ## Failure paths and allocation-failure injection (plan tasks 2.2.4, 1.4.6)
 

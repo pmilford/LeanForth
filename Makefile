@@ -1443,7 +1443,7 @@ engine-gate:
 # compared, the parallel run's not ready, forced and replaced counts 0; both wall
 # times and the speed-up printed and recorded (scripts/parallel-init.py). Needs
 # the machine-local Init export (as engine-gate); without it, exit 4 (skipped,
-# not a pass). About 15 minutes. Part of make daily only, never of make check.
+# not a pass). About 50 minutes (four runs of Init, two serial). Part of make daily only, never of make check.
 parallel-init: RUN := timeout 14400
 parallel-init:
 	ulimit -u 500; GFORTH_FAST=$(GFORTH_FAST) $(RUN) python3 scripts/parallel-init.py \

@@ -25,7 +25,7 @@ It requires, between --jobs N and --jobs 1:
   - the same exit code of each pair;
   - the same text up to the resource report (the snapshot line's file name aside);
   - the same JSON report but for "measured" (times, memory, workers);
-  - the same snapshot but for its information section (kind 16: LeanForth's
+  - the same snapshot but for its information section (kind 17: LeanForth's
     version, commit, host and engine), section by section: kind, unit size,
     count and SHA-256 from the table, and the caller's header fields;
   - in the parallel run's resource report: not ready 0, forced 0, workers
@@ -50,7 +50,7 @@ import sys
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-INFO_KIND = 16  # src/kernel/env-snapshot.fs: the information section
+INFO_KIND = 17  # src/kernel/env-snapshot.fs: the information section (position 16, kind 17)
 SCHED = re.compile(r"checks handed out (\d+), run again (\d+), not ready (\d+), "
                    r"forced (\d+), workers replaced (\d+)")
 SNAPSHOT_LINE = re.compile(r"^snapshot: written to .*$", re.MULTILINE)
