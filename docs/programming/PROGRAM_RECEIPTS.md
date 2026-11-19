@@ -410,7 +410,7 @@ The generated clamp receipt (`tests/program/receipts/generated/lf-clamp.json`):
       },
       {
         "path": "tests/program/ir_run_differential.py",
-        "sha256": "be074390110925e9b32f83a223be300b6e4f9e1a881dc261ca1c7f29010b2a26"
+        "sha256": "455bb0ca4ecc4e694d9661a4621a979d3ef7515f6e8c0581896da3fd3709e0c1"
       },
       {
         "path": "tests/reference/program-ir-run.lean",
