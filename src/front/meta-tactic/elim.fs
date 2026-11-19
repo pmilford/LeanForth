@@ -79,6 +79,7 @@ require ../infer.fs
 require ../tactic-run.fs
 require ../tactic-msg.fs
 require ../meta-must.fs
+require ../app-builder.fs
 require ../telescope.fs
 require ./goal.fs
 

@@ -49,6 +49,8 @@ require ../lib/find.fs
 require ../lib/runs.fs
 require ../lib/slab.fs
 require ../lib/context.fs
+require ../present/binder-table.fs
+require ../present/print-job.fs
 require ../author/errors.fs
 require ./goals.fs
 require ./tactic-syntax.fs
@@ -167,11 +169,10 @@ end-structure
 \ ---- evalAlt: the alternative step j in its own record, then its block.
 : tal-block ( -- addr ) tal-blocks slab-last ;
 : tal-case-name@ ( -- name ) tal-k@ tal-case-name ;
-: tal-n. ( n -- ) u>decimal lf-pp-emit ;
 : tal-too-many. ( x -- outcome )
-  drop s"  " lf-pp-emit tal-case-name@ lf-tac-.name s" : " lf-pp-emit tal-given# tal-n.
-  s"  provided, but " lf-pp-emit tal-explicit# tal-n. s"  expected" lf-pp-emit
-  outcome-ok ;
+  drop s"  " lf-pp-emit tal-case-name@ lf-tac-.name s" : " lf-pp-emit
+  tal-given# lf-pp-number s"  provided, but " lf-pp-emit
+  tal-explicit# lf-pp-number s"  expected" lf-pp-emit outcome-ok ;
 : tal-names-fit ( -- )
   tal-explicit# tal-given# < if 0 ['] tal-too-many. lf-tac-inline
     tal tal-step @ lfa-e-tac-alt-names lf-tac-stop-at then ;
