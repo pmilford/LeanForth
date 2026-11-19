@@ -269,7 +269,7 @@ Merge A writes the sub-ranges into `author/errors.fs`'s header. A Meta step not 
   damaged `sunfold` records refused; a format-2 data file refused (stale data never read as "no `_sunfold`"); the
   annotation node refused by the writer and by each fail-closed walker; `--steps` validated by its schema,
   golden logs, no log for a refused declaration, the same log with `--jobs 2`; 1,000 nested `by-case:` blocks; a
-  10,000-deep target for `kabstract` and `Meta.check`; fuel exhausted, never accepted.
+  10,000-deep target for `kabstract` and `Meta.check` (`tests/front/s2-units.fs`); fuel exhausted, never accepted.
 - **Faults** (`tests/mutants/faults.toml`): FE1G §8.3's list (those not planted yet), plus `fe-delta-no-sunfold`
   (`Nat.add` by its `brecOn` value), `fe-delta-both-sides` (both unfolded where Lean unfolds one),
   `fe-offset-cleanup-skipped`, `fe-annotation-to-writer`, `fe-motive-unchecked` (p7's motive reaches the kernel, which
