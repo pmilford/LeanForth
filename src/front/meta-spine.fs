@@ -55,7 +55,11 @@
 \   lf-meta-args# ( term -- n ): that number alone.
 \ - lf-meta-forall-body ( term -- body ): what is under its leading pis
 \   (the term itself when it is no pi), its loose bound variables those
-\   binders' (Lean's getForallBody of each, unreduced).
+\   binders' (Lean's getForallBody of each, unreduced);
+\   lf-meta-forall-body# ( term -- body n ): the same and how many pis it
+\   passed (Lean's getForallArity of a term with no let in its telescope;
+\   review tactic-move-c4 B3: one walk for the eliminator's arity and the
+\   elaborator's output-type test).
 \ - lf-meta-app ( f a -- f' outcome ): the application f a (Lean's
 \   mkApp); full, with -1, when the term store has no room.
 \ - lf-meta-apply-all ( f slab -- f' outcome ): f applied to a spine's
@@ -123,8 +127,9 @@ require ../core/let-terms.fs
 : lf-meta-head-args ( term -- head n )
   0 swap begin dup lf-meta-app? while lf-term-first@ swap 1+ swap repeat swap ;
 : lf-meta-args# ( term -- n ) lf-meta-head-args nip ;
-: lf-meta-forall-body ( term -- body )
-  begin dup lf-term-pi? while lf-term-second@ repeat ;
+: lf-meta-forall-body# ( term -- body n )
+  0 swap begin dup lf-term-pi? while lf-term-second@ swap 1+ swap repeat swap ;
+: lf-meta-forall-body ( term -- body ) lf-meta-forall-body# drop ;
 : lf-meta-app ( f a -- f' outcome ) lf-term-app if outcome-ok else -1 outcome-full then ;
 : ms-app-down ( f k addr -- f' outcome ) swap cells - @ lf-meta-app ;
 : lf-meta-apply-from ( f n from slab -- f' outcome )

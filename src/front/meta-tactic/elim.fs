@@ -165,8 +165,6 @@ require ./goal.fs
   2dup mel-custom? if nip nip exit then mel-recursor ;
 
 \ ---- getElimExprInfo, from d's declared type.
-: mel-past ( t -- body n )
-  0 swap begin dup lf-term-pi? while lf-term-second@ swap 1+ swap repeat swap ;
 : mel-shape? ( concl -- flag )   \ a bound variable applied to one
   dup lf-meta-head-args 1 = swap lf-term-bvar? and swap lf-term-second@ lf-term-bvar?
   and ;
@@ -180,14 +178,15 @@ require ./goal.fs
 : mel-alt? ( info k -- flag )   \ explicit, neither the motive nor the target
   2dup mel-special? if 2drop false exit then mel-kind lf-binder-default = ;
 : mel-alt+ ( info pi k -- info' )
-  >r dup lf-binder-name rot swap mel+ r> mel+ swap lf-term-first@ mel-past nip mel+ ;
+  >r tuck lf-binder-name mel+ r> mel+ swap lf-term-first@ lf-meta-forall-body# nip mel+ ;
 : mel-binder ( info pi k -- info' )
   >r over r@ mel-alt? r> swap if mel-alt+ else 2drop then ;
 : mel-alts ( info -- info' )
   dup lf-elim-decl lf-menv-type over mel-binders 0 ?do
     tuck i mel-binder swap lf-term-second@ loop drop ;
-: lf-elim-info ( d -- info )
-  0 over mel+ swap lf-menv-type mel-past rot swap mel+ swap mel-ends mel-alts ;
+: mel-head ( d -- info concl )   \ d and how many binders, and the conclusion
+  0 over mel+ swap lf-menv-type lf-meta-forall-body# rot swap mel+ swap ;
+: lf-elim-info ( d -- info ) mel-head mel-ends mel-alts ;
 
 \ ---- mkElimApp: a frame per call (lf-with-record), in the current context.
 begin-structure /mea

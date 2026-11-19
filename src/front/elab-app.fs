@@ -277,8 +277,7 @@ defer lf-elab-arg-call ( node expected frames cont -- ... frames next )
 \ instance binder of the rest, of a class with out-parameters, has the
 \ binder (bound variable j at the depth j of that binder) at an
 \ out-parameter position.
-: ea-result? ( type -- flag )
-  0 begin over lf-term-pi? while 1+ swap lf-term-second@ swap repeat lf-term-bvar-is? ;
+: ea-result? ( type -- flag ) lf-meta-forall-body# lf-term-bvar-is? ;
 : ea-pos-hit? ( j p -- j flag )
   dup ea-spine slab-count < 0= if drop false exit then
   ea-spine lf-meta-arg over lf-term-bvar-is? ;

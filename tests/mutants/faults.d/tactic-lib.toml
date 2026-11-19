@@ -727,3 +727,13 @@ old = '''  dup 1+ swap ?do 0 max 0 swap 0 ?do i j execute 0<> - loop loop ;'''
 new = '''  dup 1+ swap ?do 0 max 0 swap 0 ?do i j execute - loop loop ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "review tactic-move-c4 B4: count-index subtracts the test's answer itself, so a true flag other than -1 (a why code of cli-again#) counts wrong"
+
+# --- review tactic-move-c4: meta-spine.fs's lf-meta-forall-body# (B3) ---------
+
+[[fault]]
+id = "fe-meta-forall-count-none"
+file = "src/front/meta-spine.fs"
+old = '''  0 swap begin dup lf-term-pi? while lf-term-second@ swap 1+ swap repeat swap ;'''
+new = '''  0 swap begin dup lf-term-pi? while lf-term-second@ repeat swap ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "review tactic-move-c4 B3: lf-meta-forall-body# passes the pis without counting them, so an eliminator's alternatives have no fields and an output type's bound variable is never its own binder's"

@@ -480,6 +480,11 @@ T{ nat outp nat lf-term-pi drop dup consumed = -> true }T
 : pi2 ( -- t ) nat nat bool lf-term-pi drop lf-term-pi drop ;
 T{ pi2 lf-meta-forall-body bool same? nat dup lf-meta-forall-body = -> true true }T
 T{ nat nat outp lf-term-pi drop lf-meta-forall-body nat outp same? -> true }T
+\ lf-meta-forall-body# also counts the pis it passes (review
+\ tactic-move-c4 B3): two, none, one.
+T{ pi2 lf-meta-forall-body# swap bool same? nat dup lf-meta-forall-body# swap rot =
+   -> 2 true 0 true }T
+T{ nat nat outp lf-term-pi drop lf-meta-forall-body# swap nat outp same? -> 1 true }T
 \ Binder kinds by index (lf-menv-kind@): HAdd.hAdd {α β γ} [self] (a b);
 \ k = n, a negative k and a declaration with no binder give none.
 : decl-of ( c-addr u -- d ) lfa-intern lf-menv-find ok? 0= abort" decl" ;

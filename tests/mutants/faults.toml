@@ -18151,8 +18151,8 @@ reason = "review s1-elab re-check H2: outParam with no argument or two taken for
 [[fault]]
 id = "fe-meta-forall-body-one"
 file = "src/front/meta-spine.fs"
-old = '''  begin dup lf-term-pi? while lf-term-second@ repeat ;'''
-new = '''  dup lf-term-pi? if lf-term-second@ then ;'''
+old = '''  0 swap begin dup lf-term-pi? while lf-term-second@ swap 1+ swap repeat swap ;'''
+new = '''  0 swap dup lf-term-pi? if lf-term-second@ swap 1+ swap then swap ;'''
 test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
 reason = "review s1-elab re-check H2: getForallBody under one pi only: Nat -> Nat -> Bool gives Nat -> Bool"
 
