@@ -1203,9 +1203,15 @@ its case tag. It looks for the tag itself first, then for a tag that ends
 with it (`zero` finds `succ.zero`), then for one that starts with it
 (`succ` finds `succ.zero`). The names rename the goal's hidden hypotheses
 (shown `n✝`), newest first: the last name goes to the newest one. An older
-hypothesis hidden by a newer one of the same name is renamed too. `_` skips
-a hypothesis. The block then works on that goal alone and must close it.
-The other goals come back after `by-end`.
+hypothesis hidden by a newer one of the same name is renamed too. A newer
+hidden hypothesis does not hide an older visible one. `_` skips a
+hypothesis. Names that are all `_` change nothing, so they are never too
+many. The block then works on that goal alone and must close it. The
+other goals come back after `by-end`, in their order.
+
+The tag must be a name. Lean's other tag forms are refused, not supported
+yet (error 72, plan FE5): the tag `_`, a tag written `@tag`, and a second
+tag (`case t1 | t2 =>`).
 
 Errors: 210 "Case tag `suc` not found.", then Lean's note or hint ("There
 are no cases to select.", "The only available case tag is `succ`." or
@@ -1226,11 +1232,13 @@ end zero_add'
 ```
 
 More cases are in `tests/front/s2-case.lf` (cases in another order, a tag
-found by its end or its start, a hidden older `k`, `_`). Wrong twins:
+found by its end or its start, the exact tag before a tag that ends with
+it, a hidden older `k`, `_`, the other goals in their order). Wrong twins:
 `s2w-case-tag.lf`, `s2w-case-tags.lf`, `s2w-case-none.lf`,
-`s2w-case-suffix.lf` (210), `s2w-case-names.lf` (211),
-`s2w-case-unsolved.lf` and `s2w-case-shadow.lf` (89), each refused with
-Lean's first message.
+`s2w-case-suffix.lf` (210), `s2w-case-names.lf` and `s2w-case-newer.lf`
+(211), `s2w-case-unsolved.lf` and `s2w-case-shadow.lf` (89),
+`s2w-case-under.lf` (97: three `_` are not too many, then `rfl` fails),
+each refused with Lean's first message.
 
 ### D.7 `by-decide`, `by-omega`, `by-native-decide`, combinators (`**`)
 
