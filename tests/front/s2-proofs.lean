@@ -7,8 +7,9 @@
 -- The proof set is appendix G's exactly (its zero cases by rfl, through
 -- smart unfolding, S2 merge B). FE1's case form (tests/front/01-zero-add.lf)
 -- is zero_add'; tests/front/s2-case.lf's c_* use case's tag matching (in
--- order, by suffix, by prefix), its renaming of a shadowed hypothesis and
--- of _. Merge B's midpoint files (tests/front/00-add-zero.lf,
+-- order, by suffix, by prefix, the exact pass first), its renaming of a
+-- shadowed hypothesis and of _, and the other goals kept in their order
+-- (c_order, c_rest). Merge B's midpoint files (tests/front/00-add-zero.lf,
 -- 02-add-zero-rfl.lf) prove n + 0 = n by unfolding: add_zero' and
 -- add_zero_rfl' (the second file's add_zero', renamed here so that both
 -- have a line).
@@ -49,6 +50,18 @@ theorem c_under (n : Nat) : 0 + n = n := by
   induction n
   case zero => rfl
   case succ _ ih => exact congrArg Nat.succ ih
+theorem c_order (n m : Nat) : 0 + n = n := by
+  induction n
+  induction m
+  case succ k ih => exact congrArg Nat.succ ih
+  case zero => rfl
+  case zero j ih2 => exact ih2
+theorem c_rest (n m : Nat) : 0 + n = n := by
+  induction n
+  induction m
+  case zero.succ j ih2 => exact ih2
+  rfl
+  case succ k ih => exact congrArg Nat.succ ih
 
 theorem zero_add'' (n : Nat) : 0 + n = n := by
   induction n with
@@ -108,7 +121,7 @@ def dump (n : Name) : MetaM Unit := do
   IO.println s!"{n} value {← sx i.value}"
 
 #eval do
-  for n in [``zero_add', ``c_rev, ``c_suffix, ``c_prefix, ``c_shadow, ``c_under,
+  for n in [``zero_add', ``c_rev, ``c_suffix, ``c_prefix, ``c_shadow, ``c_under, ``c_order, ``c_rest,
       ``zero_add'', ``zero_add_nested, ``ps_zero_add, ``ps_succ_add, ``ps_add_comm,
       ``ps_add_assoc, ``ps_mul_add, ``ps_length_append, ``add_zero', ``add_zero_rfl'] do
     dump n

@@ -1,0 +1,13 @@
+\ A wrong proof for S2's tactics (tests/front/check_s2.py; its Lean twin is
+\ tests/front/s2-wrong.lean's w_case_under): names that are all _ rename
+\ nothing, so three of them for two hypotheses are not too many (no error
+\ 211, Lean's renameInaccessibles returns at once); rfl then fails, with
+\ Lean's first message.
+theorem w_case_under
+  Nat explicit: n  Nat explicit: m
+  0 n + n =
+:= by
+  n by-induction
+  by-case: zero =>        by-rfl  by-end
+  by-case: succ _ _ _ =>  by-rfl  by-end
+end w_case_under

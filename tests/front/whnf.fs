@@ -218,6 +218,18 @@ variable want
 succ lf-term-first@ fvar-at constant ftwin
 T{ ftwin lf-term-first@ succ lf-term-first@ = -> true }T
 T{ ftwin zero app recm lf-whnf-stuck -> false outcome-ok }T
+\ A let variable is no shortcut (review 2026-11-19-s2-rest, finding 4):
+\ Lean's whnf unfolds it (zetaDelta), so a major premise fy := ?n is
+\ stuck on ?n; the walk does not whnf a major premise yet: unsupported,
+\ never none; so for fyy := fy, a let reaching it through another, and
+\ for fg := sfun, whose value holds a free variable (Lean: none). A have
+\ (fh) keeps its value hidden and f0 := Nat.zero reaches nothing: none.
+nat ?n lf-lctx-let made in-view constant fy
+nat fy lf-lctx-let made in-view constant fyy
+nat zero lf-lctx-let made in-view constant f0
+T{ fy recm lf-whnf-stuck fyy recm lf-whnf-stuck -> false outcome-unsupported false outcome-unsupported }T
+T{ fg fk app recm lf-whnf-stuck -> false outcome-unsupported }T
+T{ fh recm lf-whnf-stuck f0 recm lf-whnf-stuck -> false outcome-ok false outcome-ok }T
 
 \ ---- whnf (lf-meta-whnf, S1 appendix D) in the fed environment, with the
 \ slice's format 2 facts: what whnfCore leaves, a definition that is no

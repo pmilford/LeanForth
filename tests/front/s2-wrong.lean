@@ -72,3 +72,11 @@ theorem w_case_shadow (n m : Nat) : 0 + n = n := by
     | zero => rw [Nat.add_succ, ih]
     | succ k ih2 =>
       case succ x => rw [Nat.add_succ]
+theorem w_case_under (n m : Nat) : 0 + n = n := by
+  induction n
+  case zero => rfl
+  case succ _ _ _ => rfl
+theorem w_case_newer (n m : Nat) : 0 + m = m := by
+  induction m
+  case zero => rfl
+  case succ x y z => exact congrArg Nat.succ y

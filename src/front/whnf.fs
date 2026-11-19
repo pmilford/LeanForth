@@ -80,8 +80,11 @@
 \ lf-whnf-stuck ( term -- mvar true outcome | false outcome ), Lean's
 \ getStuckMVar? for the same cases: the unassigned metavariable at the
 \ head, a recursor's major premise or a projection's structure that is
-\ one; unsupported where it would need whnf or a definition's facts.
-\ lf-meta-whnf-r is whnfR (reducible), lf-meta-whnf-d whnfD (default), each
+\ one; none at once for a term with no metavariable and no let variable
+\ whose value holds one or a free variable (nothing whnf reaches holds
+\ one); unsupported where it would need whnf
+\ or a definition's facts; full when the walk for let variables has no
+\ room. lf-meta-whnf-r is whnfR (reducible), lf-meta-whnf-d whnfD (default), each
 \ at its transparency whatever the configured one, which it gives back;
 \ lf-meta-whnf-forall ( e -- e' outcome ) whnfForall (whnf's result when
 \ it is a pi, else e); lf-meta-instantiate-forall ( e addr n -- e'
@@ -661,13 +664,27 @@ wc-smatch-kind 1+ constant wc-srec-kind
 : ws-run ( term -- mvar true outcome | false outcome )
   dup lf-term-tag@ case lf-tag-mvar of ws-mvar endof  lf-tag-app of ws-app endof
     lf-tag-projection of ws-proj endof  >r drop true ws-none? r> endcase ;
-\ A term without metavariables has none stuck: every branch of Lean's
-\ getStuckMVar? answers a metavariable of e or of whnf of a part of e, and
-\ whnf of a term without metavariables makes none (definitions' values
-\ hold none), as its definition branch's `unless e.hasExprMVar` says.
+\ A term that reaches no metavariable has none stuck: every branch of
+\ Lean's getStuckMVar? answers a metavariable of e or of whnf of a part of
+\ e, and whnf of such a term makes none (definitions' values hold none), as
+\ its definition branch's `unless e.hasExprMVar` says. Such a term holds no
+\ metavariable and no let variable whose value may reach one: Lean's whnf
+\ unfolds a let variable to its value (zetaDelta, Meta/Basic.lean:196,
+\ WHNF.lean:400; a have keeps its value hidden). A value with a
+\ metavariable or a free variable (another let, perhaps) may; such a term
+\ takes the walk below.
+: ws-open? ( value -- flag ) dup lf-meta-mvar-free? 0= swap lf-meta-has-fvar? or ;
+: ws-let? ( leaf -- flag )
+  dup lf-meta-fvar? 0= if drop false exit then
+  dup lf-fvar-let? if lf-fvar-value ws-open? else drop false then ;
+: ws-reaches-none? ( term -- flag outcome )
+  dup lf-meta-mvar-free? 0= if drop false outcome-ok exit then
+  dup lf-meta-has-fvar? 0= if drop true outcome-ok exit then
+  ['] ws-let? lf-term-holds? swap 0= swap ;
 : lf-whnf-stuck ( term -- mvar true outcome | false outcome )
   dup lf-term-root? 0= if drop false outcome-invalid exit then
-  dup lf-meta-mvar-free? if drop false outcome-ok exit then
+  dup ws-reaches-none? ok-then? 0= if nip nip false swap exit then
+  if drop false outcome-ok exit then
   outcome-ok wc wc-fault ! ws-run ws-checked ;
 
 \ ---- The smart path of unfoldDefinition? (WHNF.lean:851-905, plan S2

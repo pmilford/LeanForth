@@ -37,7 +37,6 @@ require ../lib/runs.fs
 require ../lib/find.fs
 require ../core/names.fs
 require ../core/name-equal.fs
-require ../present/print-tokens.fs
 require ../present/print-names.fs
 require ../present/print-job.fs
 require ../author/errors.fs
@@ -73,23 +72,22 @@ end-structure
   tcs-exact-or-suffix ?dup if exit then ['] lf-name-prefix-of? tcs-first ;
 
 \ ---- notFound: the message and its note or hint.
-: tcs-.tag ( name -- ) s" `" lf-pp-emit lf-pp-name s" `" lf-pp-emit ;
 : tcs-named? ( x k -- x flag ) tcs-tag-at 0<> ;
 : tcs-goals# ( -- n ) tc tcs-goals @ run-count ;
 : tcs-named# ( -- n ) 0 tcs-goals# 0 ?do 0 i tcs-named? nip - loop ;
 : tcs-only ( -- name ) 0 tcs-goals# ['] tcs-named? find-index drop tcs-tag-at ;
-: tcs-only. ( -- ) tcs-only tcs-.tag s" ." lf-pp-emit ;
+: tcs-only. ( -- ) tcs-only lf-tac-.name s" ." lf-pp-emit ;
 : tcs-one. ( -- ) s\" \n\nHint: The only available case tag is " lf-pp-emit tcs-only. ;
 : tcs-none. ( -- ) s\" \n\nNote: There are no cases to select." lf-pp-emit ;
 : tcs-many. ( -- ) s\" \n\nHint: Available tags:" lf-pp-emit ;
 : tcs-hint. ( n -- ) ?dup 0= if tcs-none. exit then 1 = if tcs-one. else tcs-many. then ;
-: tcs-not-found. ( -- ) s"  " lf-pp-emit tcs-tag tcs-.tag s"  not found." lf-pp-emit ;
+: tcs-not-found. ( -- ) s"  " lf-pp-emit tcs-tag lf-tac-.name s"  not found." lf-pp-emit ;
 : tcs-missing. ( x -- outcome ) drop tcs-not-found. tcs-named# tcs-hint. outcome-ok ;
 : tcs-not-found ( -- ) 0 ['] tcs-missing. lf-tac-inline lfa-e-tac-case-tag lf-tac-stop ;
 
 \ ---- renameInaccessibles. The names: the step's arguments (0 for _).
 : tcs-names ( -- n ) tc tcs-step @ lf-tac-args# ;
-: tcs-arg ( k -- name ) tc tcs-step @ lf-tactic-step tac-first @ + lf-tactic-arg drop ;
+: tcs-arg ( k -- name ) tc tcs-step @ swap lf-tac-arg ;
 : tcs-ident? ( x k -- x flag ) tcs-arg 0<> ;
 : tcs-any? ( -- flag ) 0 tcs-names ['] tcs-ident? find-index dup if nip then ;
 : tcs-local ( j -- local ) tc tcs-goal @ lf-goal-view swap lf-view-local ;

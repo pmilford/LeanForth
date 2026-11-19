@@ -1,0 +1,13 @@
+\ A wrong proof for S2's tactics (tests/front/check_s2.py; its Lean twin is
+\ tests/front/s2-wrong.lean's w_case_newer): a newer inaccessible local of
+\ the same name (n✝, the m inducted on) does not shadow n, so n takes no
+\ name; z and y name the two inaccessible hypotheses and x is one too many
+\ (error 211, Lean's first message).
+theorem w_case_newer
+  Nat explicit: n  Nat explicit: m
+  0 m + m =
+:= by
+  m by-induction
+  by-case: zero =>          by-rfl                          by-end
+  by-case: succ x y z =>    ' Nat.succ y congrArg by-exact  by-end
+end w_case_newer

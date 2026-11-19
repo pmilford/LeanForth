@@ -38,7 +38,7 @@ end-structure
 
 : tap-inner ( -- )
   tap tap-node @ lf-tac-elab-for-apply tb tb-goal @ swap lf-goal-apply tap tap-goals ! ;
-: tap-node! ( i -- ) lf-tactic-step tac-first @ lf-tactic-arg drop tap tap-node ! ;
+: tap-node! ( i -- ) 0 lf-tac-arg tap tap-node ! ;
 : tap-tac ( i goal -- goals )
   drop tap-node! ['] tap-inner lf-postpone-no lf-elab-with-synth lf-tac-must
   tap tap-goals @ ;
