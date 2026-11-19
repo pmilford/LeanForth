@@ -20270,9 +20270,8 @@ id = "s2-alt-field-kinds-ignored"
 file = "src/front/tactic-alts.fs"
 old = ''': tal-explicit? ( f -- flag ) tal-kind lf-binder-default = ;'''
 new = ''': tal-explicit? ( f -- flag ) drop true ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
-reason = "S2 4 (introN): an alternative's fields all taken as explicit, whatever the eliminator's type says"
-gap = "review s2-tactics H1 (m8): every eliminator S2's inputs reach (Nat.rec_add_one's cases, List.rec) has only explicit fields; one with an implicit field (Nat.le.rec's m) needs an index target, which answers 99, or a type written with forall (plan FE2)"
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S2 4 (introN): an alternative's fields all taken as explicit, whatever the eliminator's type says (review tactic-move-c4 L4: tactic-lib.fs's Nat.le.rec step, its implicit m)"
 
 [[fault]]
 id = "s2-hint-fuel-unsupported"

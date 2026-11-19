@@ -33,7 +33,13 @@
 \       alternative no | wrote is 207 at i's word (Lean's first message
 \       there); the block's record dropped
 \ A field's kind is the eliminator's declared type's (elim.fs's
-\ lf-elim-alt-kinds), never the goal's node: unknown kinds are 99.
+\ lf-elim-alt-kinds), never the goal's node: unknown kinds are 99. A
+\ difference from Lean kept from S2 (review tactic-move-c4 L4): Lean
+\ 4.35.0's getNumExplicitFields (Induction.lean:317) introduces the
+\ fields first and counts the explicit locals, a let-bound one among
+\ them (introN names it as explicit); LeanForth counts the declared
+\ kinds, which agree for every eliminator a text reaches (recursors and
+\ casesOn have no let field).
 \ Errors stop the run (author/errors.fs) at the step's word, an
 \ alternative's at its |.
 \ Untrusted: only the kernel's check of the finished term decides.

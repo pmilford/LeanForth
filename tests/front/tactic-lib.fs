@@ -653,6 +653,11 @@ s" Lean.Syntax" lf-mk-const0 s" s" binder constant fs9
 fn9 fn9 lf-mk-eq goal-of constant g9
 T{ 0 g9 run-push made lf-goals! -> outcome-ok }T
 : elim-name? ( target induction? c-addr u -- flag ) 2>r lf-elim-for lf-menv-name 2r> name= ;
+\ (Nat.casesOn for cases because the slice's elaboration data holds no
+\ cases eliminator; Lean 4.35.0 with all of Init takes Nat.casesAuxOn,
+\ @[cases_eliminator] at Init/Data/Nat/Basic.lean:47-48. mel-custom's
+\ branch that finds an elab-cases record is never run here: review
+\ tactic-move-c4 L6.)
 T{ fn9 true s" Nat.recAux" elim-name? fn9 false s" Nat.casesOn" elim-name? -> true true }T
 T{ fl9 true s" List.rec" elim-name? -> true }T
 : elim-code-of ( target induction? -- code ) ['] lf-elim-for catch dup if nip nip then ;
@@ -794,6 +799,20 @@ T{ nat-info s" c" alt+ expected s" Expected `zero`, `succ`, or `c`" compare -> 0
 T{ nat-info 0 ' kind-in lf-tac-in-record lf-author-code -> lf-author-throw 99 }T
 lf-tac-forget
 T{ lf-binder-implicit tal-name-for -> 0 }T
+\ An alternative with an implicit field (review tactic-move-c4 L4; the
+\ known gap s2-alt-field-kinds-ignored closed): Nat.le.rec's step,
+\ forall {m} (a : n.le m), motive m a -> motive m.succ _, by an
+\ information made by hand (Nat.le.rec's own conclusion has two
+\ targets, which lf-elim-info refuses, 99): one implicit field and two
+\ explicit, so two names fit and the first field takes none.
+: info+ ( run x -- run' ) run-push made ;
+: le-info ( -- info )
+  0 s" Nat.le.rec" decl info+ 6 info+ 1 info+ 5 info+ s" step" lfa-intern info+ 3 info+ 3 info+ ;
+: explicit-in ( info i -- n f0 f1 f2 )
+  drop tal tal-info ! 0 tal tal-k ! tal-explicit# 0 tal-explicit? 1 tal-explicit? 2 tal-explicit? ;
+T{ le-info lf-elim-alts# le-info 0 ' explicit-in lf-tac-in-record -> 1 2 false true true }T
+T{ s" Nat.le.rec" decl ' lf-elim-info code1 lf-author-code -> lf-author-throw 99 }T
+lf-tac-forget
 : cleared-in ( target i -- goal ) drop tal tal-target ! tal-cleared lf-goals 0 run@ ;
 T{ fn9 0 ' cleared-in lf-tac-in-record g9 = -> true }T
 
