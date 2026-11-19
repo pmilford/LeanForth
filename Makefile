@@ -1016,6 +1016,7 @@ test-differential: reference-manifest
 test-elab-data:
 	$(RUN) $(GFORTH) tests/front/elab-data.fs
 	$(RUN) $(GFORTH) tests/front/elab-check-lf.fs
+	$(RUN) python3 tests/scripts/test_mathlib_slice.py
 test-elab-data-e2e:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/test_elab_data.py
 # With pinned Lean: scripts/export-elab.sh reproduces the init slice's data
@@ -1027,9 +1028,12 @@ reference-elab-data:
 # The front end on the Mathlib slice fixture (plan MF1; MATHLIB_FRONT.md section 6):
 # scripts/mathlib-slice.py cuts the slice of tests/front/mathlib-slice.roots from the
 # machine's Mathlib export and writes its data with pinned Lean (cached in the main
-# checkout's .claude/work/mathlib-slice: about 10 minutes and 9 GB the first time,
-# nothing after), checked against tests/front/mathlib-slice.sha256; then the slice's
-# snapshot and four texts against it (about 1 minute). Never a run on all of Mathlib.
+# checkout's .claude/work/mathlib-slice), checked against tests/front/mathlib-slice.sha256;
+# then the slice's snapshot and four texts against it (about 1 minute). Never a run on all
+# of Mathlib. A cold cache is filled (about 10 minutes and 9 GB) only with
+# MATHLIB_SLICE_BUILD=1; else the target says SKIPPED, NOT A PASS and exits 3, which a tier
+# counts as failed (nothing recorded). tests/scripts/test_mathlib_slice.py (test-elab-data)
+# tests the cache.
 reference-mathlib-slice:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_mathlib_slice.py
 .PHONY: test-elab-data test-elab-data-e2e reference-elab-data reference-mathlib-slice

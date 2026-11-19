@@ -13,7 +13,10 @@ section 6). Never a run on all of Mathlib.
 
 Usage: GFORTH=... [LEANFORTH_LEAN=...] [MATHLIB_EXPORT=...] python3 tests/front/check_mathlib_slice.py
 The fixture's inputs are found as scripts/mathlib-slice.py finds them; without a
-Mathlib export the test fails (exit 1) and says so, never passing unrun.
+Mathlib export the test fails (exit 1) and says so, never passing unrun. With the
+fixture's cache cold it never starts the Mathlib import unless MATHLIB_SLICE_BUILD=1:
+it prints "SKIPPED, NOT A PASS" and exits 3, which a tier counts as a failure
+(nothing recorded) until the cache is filled.
 """
 import os
 import pathlib
@@ -25,6 +28,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))
 AXIOMS = "axioms: propext, Classical.choice, Quot.sound"
 CHECKED = ": accepted (checked in this run, uses results from the snapshot); "
+SKIPPED = 3   # scripts/mathlib-slice.py: a cold cache entry without MATHLIB_SLICE_BUILD=1
 # Each text: its path, the exit status, the lines its report must hold.
 TEXTS = [("tests/front/s1-rfl.lf", 0, ["t" + CHECKED + "axioms: none\n"]),
          ("tests/front/03-zero-add-exact.lf", 0, ["zero_add_ex" + CHECKED + "axioms: none\n"]),
@@ -38,6 +42,9 @@ def run(argv):
 
 def fixture():
     done = run([sys.executable, "scripts/mathlib-slice.py"])
+    if done.returncode == SKIPPED:
+        print(f"check_mathlib_slice: SKIPPED, NOT A PASS (exit {SKIPPED}): {done.stderr.strip()}")
+        sys.exit(SKIPPED)
     if done.returncode != 0:
         sys.exit(f"check_mathlib_slice: no fixture (exit {done.returncode}): {done.stderr.strip()}")
     return pathlib.Path(done.stdout.strip())

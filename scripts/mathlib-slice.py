@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The Mathlib slice fixture: a small cut of Mathlib for the tests.
 
-    python3 scripts/mathlib-slice.py [--export FILE] [--lake DIR] [--lean LEAN] [--cache DIR]
+    python3 scripts/mathlib-slice.py [--export FILE] [--lake DIR] [--lean LEAN] [--cache DIR] [--build]
 
 prints the folder that holds the fixture (docs/design/MATHLIB_FRONT.md section 6;
 plan MF1): `slice.ndjson`, its manifest `slice.ndjson.manifest.json` (which names
@@ -18,9 +18,19 @@ by what it reads:
 the slice by the export's size and time, the root list and the slicer; the RAW
 by Lean's revision, export_elab.lean and Mathlib.olean's size and time; the data
 by both and export_elab.py. A step is written in a temporary folder and renamed
-into place, so a stopped run leaves no half fixture. Without a cache the steps
-take about 6 minutes (the slicer reads the whole 6 GB export) and 3 minutes and
-9 GB (Lean importing Mathlib); with it, nothing runs.
+into place, so a stopped run leaves no half fixture; when two runs fill the same
+entry, the one that loses the rename uses the winner's folder. Without a cache the
+steps take about 6 minutes (the slicer reads the whole 6 GB export) and 3 minutes
+and 9 GB (Lean importing Mathlib); with it, nothing runs.
+
+Those two cold steps run only when asked (--build or MATHLIB_SLICE_BUILD=1; review
+data-bk L3): a test suite or a change tier never starts a 9 GB Mathlib import by
+itself. Without the opt-in, a cold slice or RAW entry is SKIPPED, NOT A PASS: the
+script says so and exits 3, and tests/front/check_mathlib_slice.py
+(make reference-mathlib-slice) exits 3 too, so a tier (scripts/tested-tree.py)
+counts the target as failed and records nothing for the tree. Fill the cache once,
+by itself: MATHLIB_SLICE_BUILD=1 make reference-mathlib-slice. The data step (a
+few seconds) always runs when its entry is missing.
 
 The result is checked against tests/front/mathlib-slice.sha256: the slice's
 SHA-256 and the data's records SHA-256. Another Mathlib, slicer or exporter gives
@@ -34,7 +44,8 @@ mathlib/mathlib4/.lake beside the export), the pinned Lean binary (--lean,
 $LEANFORTH_LEAN, else the toolchain under the same tools folder; never an elan
 proxy: scripts/lean_pin.py judges it). Reads them only; writes only the cache.
 Exit 0 with the folder printed; 1 when a step or the check fails; 2 for a missing
-input. Never part of a run of LeanForth on all of Mathlib.
+input; 3 skipped (a cold step without the opt-in). Never part of a run of
+LeanForth on all of Mathlib.
 """
 import argparse
 import hashlib
@@ -104,15 +115,31 @@ def run(argv, out=None, env=None):
         raise SystemExit(f"mathlib-slice: {argv[0]} {argv[1]} exited {done.returncode}")
 
 
-def cached(cache, name, build):
-    """CACHE/NAME, made by BUILD(folder) in a temporary folder first."""
+SKIPPED = 3
+BUILD_HINT = "MATHLIB_SLICE_BUILD=1 make reference-mathlib-slice"
+
+
+class Skipped(Exception):
+    """A cold step that may not run without the opt-in."""
+
+
+def cached(cache, name, build, allowed=True):
+    """CACHE/NAME, made by BUILD(folder) in a temporary folder first; Skipped when it
+    is missing and not ALLOWED. A run that loses the rename to another run filling
+    the same entry keeps the other's folder."""
     final = cache / name
     if not final.exists():
+        if not allowed:
+            raise Skipped(name)
         cache.mkdir(parents=True, exist_ok=True)
         work = pathlib.Path(tempfile.mkdtemp(prefix=name + ".", dir=cache))
         try:
             build(work)
-            work.rename(final)
+            try:
+                work.rename(final)
+            except OSError:
+                if not final.is_dir():
+                    raise
         finally:
             if work.exists():
                 shutil.rmtree(work)
@@ -167,7 +194,11 @@ def main(argv):
     ap.add_argument("--lake", help="Mathlib's .lake folder, for its .olean files (read only)")
     ap.add_argument("--lean", help="the pinned Lean 4.35.0 binary")
     ap.add_argument("--cache", help="the cache folder (default: the main checkout's)")
+    ap.add_argument("--build", action="store_true",
+                    help="run the cold steps (slicing the export; Lean importing Mathlib, "
+                         "9 GB) when their cache entry is missing; also MATHLIB_SLICE_BUILD=1")
     args = ap.parse_args(argv)
+    build = args.build or os.environ.get("MATHLIB_SLICE_BUILD") == "1"
     export = find(args.export, "MATHLIB_EXPORT", "mathlib/mathlib.ndjson")
     if export is None or not export.is_file():
         sys.stderr.write("mathlib-slice: no Mathlib export (--export, $MATHLIB_EXPORT or "
@@ -183,11 +214,17 @@ def main(argv):
                          checkout() / ".claude/work/mathlib-slice")
     scripts = [sha_file(ROOT / "scripts" / s) for s in ("export-slice.py", "export_manifest.py")]
     k_slice = key(stamp(export), roots(), scripts)
-    sliced = cached(cache, "slice-" + k_slice, lambda f: slice_step(export, f))
     githash = subprocess.run([str(lean), "--githash"], capture_output=True, text=True).stdout
     k_raw = key(githash.strip(), sha_file(ROOT / "scripts/export_elab.lean"),
                 stamp(lake / "build/lib/lean/Mathlib.olean"))
-    raw = cached(cache, "raw-" + k_raw, lambda f: raw_step(lean, lake, f))
+    try:
+        sliced = cached(cache, "slice-" + k_slice, lambda f: slice_step(export, f), build)
+        raw = cached(cache, "raw-" + k_raw, lambda f: raw_step(lean, lake, f), build)
+    except Skipped as missing:
+        sys.stderr.write(f"mathlib-slice: SKIPPED, NOT A PASS: {cache}/{missing} is not cached, "
+                         "and filling it slices the 6 GB export or imports all of Mathlib "
+                         f"(9 GB); fill the cache once, by itself: {BUILD_HINT}\n")
+        return SKIPPED
     k_data = key(k_slice, k_raw, sha_file(ROOT / "scripts/export_elab.py"))
     fixture = cached(cache, "data-" + k_data, lambda f: data_step(sliced, raw, f))
     check(fixture)

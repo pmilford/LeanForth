@@ -729,12 +729,15 @@ create ed-v3-kinds
 \ universe parameters.
 : ed-pi? ( e -- flag ) ed-tier expr-tag@ tag-pi dup 4 + within ;
 : ed-let? ( e -- flag ) ed-tier expr-tag@ let-tag? ;
-\ One binder: a Pi counts one; a let (a matcher's type may hold lets
-\ among its parameters: 13 of Init's) counts none, its body follows.
-: ed-binder ( n e -- n' e' true | n false )
-  dup ed-pi? if ed-tier expr-b@ swap 1+ swap true exit then
-  dup ed-let? if ed-tier expr-body@ true exit then drop false ;
-: ed-pis ( e -- n ) 0 swap begin ed-binder 0= until ;
+\ ed-pis+ counts the leading Pis on n and leaves the first other node;
+\ ed-lead, a type's leading Pis (the binders binder kinds describe);
+\ ed-pis, its parameters, where a let (a matcher's type may hold lets
+\ among its parameters: 13 of Init's) counts none and its body follows.
+: ed-pi-next ( n e -- n+1 e' ) ed-tier expr-b@ swap 1+ swap ;
+: ed-pis+ ( n e -- n' e' ) begin dup ed-pi? while ed-pi-next repeat ;
+: ed-lead ( e -- n ) 0 swap ed-pis+ drop ;
+: ed-pis ( e -- n )
+  0 swap begin ed-pis+ dup ed-let? while ed-tier expr-body@ repeat drop ;
 : ed-type-pis ( d -- n ) ed-stage staged-type@ ed-pis ;
 : ed-levels ( d -- n ) ed-stage staged-params@ ed-stage stage-tuples tuple-length ;
 
@@ -1417,6 +1420,9 @@ create ed-sun-steps
   ed-bk ed-bk-kinds swap c" kinds" ed-member ['] ed-bk-lead ed-span-items ;
 : ed-dom-digit ( c-addr k -- c-addr outcome ) over + ed-kind@ elab-orders ed-push ;
 : ed-dom-digits ( c-addr u -- outcome ) 1 /string ['] ed-dom-digit ok-each nip ;
+\ A domain's digits, after its kind's: the item's text is not checked
+\ again, ed-bk-kinds! (run first, ed-bk-steps) refused any item that is
+\ no text of digits 0-3 (ed-kind-text), so ed-text's flag is dropped.
 : ed-dom-span ( item span -- outcome )
   dup elab-orders ed-span-open swap ed-text drop ed-dom-digits
   swap elab-orders ed-span-close ;
@@ -1425,14 +1431,14 @@ create ed-sun-steps
 : ed-bk-doms! ( value b -- outcome )
   elab-bk-doms slab-count over ed-bk ed-bk-doms ! drop
   c" kinds" ed-member ed-view json-contents ['] ed-dom-item ed-items ;
-\ The fit: as many leading Pis as kinds, each domain's as its own.
-: ed-lead ( e -- n )
-  0 swap begin dup ed-pi? while ed-tier expr-b@ swap 1+ swap repeat drop ;
-: ed-nth-dom ( e k -- e' ) 0 ?do ed-tier expr-b@ loop ed-tier expr-a@ ;
-: ed-dom-fits? ( b e k -- flag )
-  tuck ed-nth-dom ed-lead >r elab-binder-domain nip r> = ;
-: ed-dom-at? ( b e k -- b e flag ) 2dup-under ed-dom-fits? ;
-: ed-doms-fit? ( b e -- flag ) over elab-binder-kinds nip ['] ed-dom-at? all? nip nip ;
+\ The fit: as many leading Pis as kinds (ed-lead), each domain's as its
+\ own: the record's domain spans (from b's first, span) walked beside the
+\ type's leading Pis (ed-pi-next), once ed-lead-fits? holds.
+: ed-dom-fit? ( span e -- flag )
+  ed-tier expr-a@ ed-lead swap elab-bk-doms slab-at ed-span@ nip = ;
+: ed-doms-fit? ( b e -- flag )
+  swap ed-bk ed-bk-doms @ swap begin dup ed-pi? while
+    2dup ed-dom-fit? 0= if 2drop false exit then ed-pi-next repeat 2drop true ;
 : ed-lead-fits? ( b e -- flag ) ed-lead swap elab-binder-kinds nip tuck = swap 0<> and ;
 : ed-bk-fit ( value b -- outcome )
   nip dup elab-binder-decl ed-stage staged-type@

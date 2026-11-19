@@ -331,6 +331,10 @@ writes 3.2 only when it writes such a record, so data whose export holds
 Lean's own kinds stays format 3 or 3.1, byte for byte. A `binder_kinds`
 record in a format-3 or 3.1 file is an unknown record kind (error 11);
 readers before 3.2 refuse a 3.2 file as another format version (error 7).
+The rule that a 3.2 file holds at least one `binder_kinds` record is the
+writer's alone: the reader accepts a 3.2 label with none (its header then
+counts 0), which is harmless, since such a file means exactly what the
+same records labelled 3.1 mean (review data-bk L4).
 
 ## Reading it: `leanforth check --elab-data`
 
@@ -782,10 +786,16 @@ out with the data byte for byte as before, others kept as 3.2, four
 refusals; the schema; 18 damaged files: in a format-3 or 3.1 file, digits
 beyond 3, letters, empty texts, numbers, other shapes, an unknown name,
 fewer, more or no binders, a domain the type lacks or that lacks one, a
-record twice, headers that count the kind wrongly); `tests/front/menv-run.fs`
+record twice, headers that count the kind wrongly; a 3.2 file holding format
+3.1's inert nodes beside binder kinds, read); `tests/front/menv-run.fs`
 (`BK.expl` of `tests/front/binder-merge.lean`, merged by the exporter
 with `BK.impl`, explicit with its data, `tests/front/binder-merge.elab.ndjson`;
-a domain's kinds); `tests/front/check_bk_init.py`, run by
+a domain's kinds; `lfc-arity` of `Nat.add` and of `Nat.rec`, kinds 1 0 0 0:
+three values); `tests/front/meta-env.fs` (the fed mode over the whnf slice,
+whose data is format 3.2 with seven records: `Nat.eq_or_lt_of_le`'s kinds
+and a private matcher's motive's domain kinds are the records', the
+export's after a refused read and for data read against another stage of
+the same export); `tests/front/check_bk_init.py`, run by
 `make reference-elab-data` on all of `Init`: `bk_mod`
 (`Nat.mod_eq_sub_mul_div`), `bk_not_lt` (`Nat.not_lt_eq`) and `bk_lt_one`
 (`Nat.lt_one_iff`) of `tests/front/bk-init.lf` elaborated node for node as
@@ -793,8 +803,6 @@ pinned Lean's (`tests/front/bk-init.golden`), each stopping without the
 records (error 3 or 86: the word takes the wrong number of values), and
 the wrong twin `bk-init-wrong.lf` refused with Lean's "Type mismatch"
 (error 96). Planted faults `fe-bk-*` (`tests/mutants/faults.d/data-bk.toml`).
-Not tested: the fed mode's use of a record (`me-fed-kinds`), which no
-fixture reaches (the fed tests read the whnf slice).
 
 ## Unification hints: not in the data
 

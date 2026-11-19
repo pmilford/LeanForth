@@ -428,8 +428,11 @@ T{ s" tests/author/init-slice.ndjson" true lfc-library-open s" Nat.rec" d-of 2
 T{ f32-data s" Nat.rec" d-of 2 lf-menv-kinds-in kinds-list s" Nat.rec" d-of 9
    lf-menv-kinds-in nip s" Nat.add" one-kind -> outcome-ok 1 0 2 0 1 2 }T
 \ The natural reader's count of a name's explicit arguments (cli's
-\ lfc-arity) follows the record too: Nat.add takes one value, two without.
-T{ s" Nat.add" nm lfc-arity elab-reset s" Nat.add" nm lfc-arity -> 1 true true 2 true true }T
+\ lfc-arity) follows the record too: Nat.add takes one value, two without;
+\ Nat.rec, kinds 1 0 0 0, three: the explicit binders are counted, not
+\ the others (review data-bk L1; fault fe-bk-arity-nonzero).
+T{ s" Nat.add" nm lfc-arity s" Nat.rec" nm lfc-arity elab-reset s" Nat.add" nm lfc-arity
+   -> 1 true true 3 false true 2 true true }T
 
 \ ---- 4. lfc-library-close leaves the run mode; a failed re-open leaves
 \ none bound to the stage it freed.

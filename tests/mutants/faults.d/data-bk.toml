@@ -105,3 +105,43 @@ old = ''': lfc-zeros ( addr n -- k ) 0 swap 0 ?do over i cells + @ 0= - loop nip
 new = ''': lfc-zeros ( addr n -- k ) nip ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "FE1c-bk: every binder of a record is counted explicit, implicit and instance ones too"
+
+[[fault]]
+id = "fe-bk-fed-kinds"
+file = "src/front/meta-env.fs"
+old = ''': me-fed-data-kinds ( d' -- ) me-data? if me-data-kinds else drop then ;'''
+new = ''': me-fed-data-kinds ( d' -- ) drop ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c-bk review M1: in the fed mode a declaration's binder kinds are the export's even where the data has Lean's own, so Nat.eq_or_lt_of_le's m reads explicit"
+
+[[fault]]
+id = "fe-bk-fed-domain"
+file = "src/front/meta-env.fs"
+old = ''': me-fed-data-domain ( k d' -- ) me-data? if me-data-domain else 2drop then ;'''
+new = ''': me-fed-data-domain ( k d' -- ) 2drop ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c-bk review M1: in the fed mode a binder's domain kinds are the export's even where the data has Lean's own, so a matcher's motive reads an implicit binder"
+
+[[fault]]
+id = "fe-bk-fed-no-data"
+file = "src/front/meta-env.fs"
+old = ''': me-fed-data-kinds ( d' -- ) me-data? if me-data-kinds else drop then ;'''
+new = ''': me-fed-data-kinds ( d' -- ) me-data-kinds ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c-bk review M1: the fed mode reads binder_kinds records of data not read against its stage (a refused read, another stage's numbering)"
+
+[[fault]]
+id = "fe-bk-arity-nonzero"
+file = "src/cli/check-lf.fs"
+old = ''': lfc-zeros ( addr n -- k ) 0 swap 0 ?do over i cells + @ 0= - loop nip ;'''
+new = ''': lfc-zeros ( addr n -- k ) 0 swap 0 ?do over i cells + @ 0<> - loop nip ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "FE1c-bk review L1: the natural reader counts a record's implicit and instance binders as its explicit arguments, so Nat.rec (kinds 1 0 0 0) takes one value, not three"
+
+[[fault]]
+id = "fe-bk-v32-not-v31"
+file = "src/front/elab-data.fs"
+old = '''  dup ed-head-v32 swap s" 3.1" ed-text= or dup elab elab-v31 ! ;'''
+new = '''  dup ed-head-v32 swap s" 3.1" ed-text= dup elab elab-v31 ! or ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "FE1c-bk review L2: a format-3.2 file is read without format 3.1's records, so an inert node (Mathlib's data holds them) is malformed"

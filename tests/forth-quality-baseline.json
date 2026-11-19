@@ -515,9 +515,9 @@
   "globals": 69,
   "long lines": 0,
   "long words": 0,
-  "rstack": 26,
+  "rstack": 24,
   "shuffles": 26,
-  "words": 412
+  "words": 462
  },
  "src/front/elab-decl.fs": {
   "globals": 0,

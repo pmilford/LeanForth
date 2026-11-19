@@ -1114,6 +1114,19 @@ def command_line(work):
     status, out = check(work / "plain31.ndjson")
     if status != 0 or COUNTS not in out:
         fail(f"format 3.1 without an inert node: exit {status}: {out[-300:]}")
+    # Format 3.2 holds format 3.1's records too (review data-bk L2; fault
+    # fe-bk-v32-not-v31): inert nodes and binder kinds in one file, read.
+    (work / "both32.ndjson").write_text(
+        assemble(format31_records() + [BK_ADD, BK_REC], format_version="3.2"))
+    status, out = check(work / "both32.ndjson")
+    if status != 0 or "3 default instances" not in out or "1 smart-unfolding bodies" not in out:
+        fail(f"format 3.2 with inert nodes and binder kinds: exit {status}: {out[-300:]}")
+    # A 3.2 label with no binder_kinds record (the writer never makes one): read as
+    # the same records labelled 3.1 are (review data-bk L4, ELABORATION_DATA.md).
+    (work / "plain32.ndjson").write_text(assemble(GOOD_RECORDS, format_version="3.2"))
+    status, out = check(work / "plain32.ndjson")
+    if status != 0 or COUNTS not in out:
+        fail(f"format 3.2 without a binder_kinds record: exit {status}: {out[-300:]}")
     snapshot = work / "slice.lfsnap"
     made = subprocess.run([str(LEANFORTH), "check", "--save-snapshot", str(snapshot), str(SLICE)],
                           stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=LIMIT)
