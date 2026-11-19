@@ -612,7 +612,11 @@ def lean_axioms(output, theorems):
     return axioms
 
 
-from lean_pin import pinned_lean  # noqa: E402,F401  $LEAN, else the pinned Lean; refused unless pinned
+def pinned_lean():
+    """$LEAN, else the project's pinned Lean 4.35.0 (lean_pin.DEFAULT), unchecked: the program
+    verifier refuses another Lean itself, with its own messages (tests/program/test_program_verify.py)."""
+    import lean_pin
+    return os.environ.get("LEAN", lean_pin.DEFAULT)
 
 
 LEANFORTH = ["bash", str(ROOT / "bin" / "leanforth")]   # the checker, as the CLI starts it
