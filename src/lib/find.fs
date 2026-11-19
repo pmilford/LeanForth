@@ -26,11 +26,11 @@
 \ two of the three cells are negative.
 \   create sample 5 , -2 , -7 ,
 \   : cell-neg? ( addr k -- addr flag ) cells over + @ 0< ;
+\   : sample-neg? ( k -- flag ) sample swap cell-neg? nip ;
 \   sample 3 ' cell-neg? find-index . .
 \   sample 0 ' cell-neg? find-index .
-\   sample 3 ' cell-neg? find-last-index . .   \ prints: -1 1 0 -1 2
-\   : sample-neg? ( k -- flag ) sample swap cell-neg? nip ;
-\   3 ' sample-neg? count-index .              \ prints: 2
+\   sample 3 ' cell-neg? find-last-index . .
+\   3 ' sample-neg? count-index .   \ prints: -1 1 0 -1 2 2
 \
 \ Interface: find-index, find-last-index, count-index.
 \ State: none. Requires module.fs (ADR 0010). Loads in decimal whatever
