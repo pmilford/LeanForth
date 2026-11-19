@@ -14,7 +14,9 @@ tier: Markdown, docs/, ...); and every tactic file it adds or changes
   - writes no data word another file defines: no `W !`, `W +!`, `W c!`, `W 2!` or `to W` for a W
     that a variable, value, create, buffer: or 2variable of another Forth file of src/ defines,
   - calls a row setter (lf-tactic-...!) only for its own kinds: the word before it is defined in
-    the same file.
+    the same file, or it is one of the eleven fixed kinds of the runner (tactic-syntax.fs: kinds 1-11,
+    which the step-log goldens fix, so they are never re-registered through lf-tactic:) and FIXED_KINDS
+    gives it to this tactic file (by-intro: to intro.fs, plan 9.4.8l-I).
 Comments and strings are left out. Only a confined branch gets the "tactic" change tier
 (scripts/test-tier.py): the front end's unit tests, every end-to-end run of .lf files, the S1/S2
 pinned-Lean comparisons (reference-front), the source rules, the changed files' coverage and
@@ -41,6 +43,19 @@ DEFINES = re.compile(r"(?i)^(?::|2?variable|2?value|2?constant|create|defer|buff
 STORES = {"!", "+!", "c!", "2!", "w!", "l!", "f!"}
 HOOKS = {"is", "defer!"}
 SETTER = re.compile(r"(?i)^lf-tactic-[\w-]*!$")
+# The runner's fixed kinds (src/front/tactic-syntax.fs, kinds 1-11) and the tactic file that owns
+# each one's row (its action and end); None: the runner's own (by, by-sorry).
+FIXED_KINDS = {
+    "tac-k-by": None, "tac-k-rfl": "rfl", "tac-k-exact": "exact", "tac-k-intro": "intro",
+    "tac-k-induction": "induction", "tac-k-with": "induction", "tac-k-alt": "induction",
+    "tac-k-case": "case", "tac-k-rw": "rewrite", "tac-k-rewrite": "rewrite", "tac-k-sorry": None,
+}
+
+
+def owns(path, kind, own):
+    """Whether the tactic file PATH may set a row of KIND: its own kind, or a fixed kind given to it."""
+    name = os.path.splitext(os.path.basename(path))[0]
+    return kind in own or (path.startswith(TACTICS) and FIXED_KINDS.get(kind) == name)
 
 
 def git(*args):
@@ -111,7 +126,7 @@ def rule_problems(path, text, foreign):
             problems.append(f"{path}: writes {before} ({before} {word}), a data word of another file")
         elif word == "to" and k + 1 < len(toks) and toks[k + 1] in foreign and toks[k + 1] not in own:
             problems.append(f"{path}: writes {toks[k + 1]} (to {toks[k + 1]}), a data word of another file")
-        elif SETTER.match(word) and before not in own:
+        elif SETTER.match(word) and not owns(path, before, own):
             problems.append(f"{path}: calls {word} for {before or 'nothing'}, not a kind this file defines")
     return problems
 

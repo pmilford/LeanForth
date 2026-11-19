@@ -31,7 +31,7 @@
 \   Eq.mpr.{u} target new (id.{0} (target = new) proof) new-goal, target
 \   the goal's type as stored, and the new goal in its place.
 \ - by-rw[: the same, then try (with_reducible rfl): by-rfl at reducible
-\   transparency (tactic-basic.fs) from a saved state, its failure
+\   transparency (tactics/rfl.fs) from a saved state, its failure
 \   undone and forgotten, except one that is not supported yet, which
 \   stops the run (where Lean's rfl might still succeed).
 \ Each rule runs in its own step record (tactic-run.fs, review fe1g3 M2),
@@ -112,7 +112,7 @@ end-structure
     drop false then ;
 : lfw-elaborated ( -- )
   lfw-node dup lfw-definition? if drop lfa-e-tac-form lfw-stop then
-  -1 true lf-tac-elab lf-tac-must trw trw-heq ! ;
+  -1 true lf-tac-elab-term trw trw-heq ! ;
 : lfw-occurs. ( x -- outcome ) drop trw trw-heq @ lf-tac-indented. ;
 : lfw-occurs-free ( -- )
   tb tb-goal @ trw trw-heq @ lf-mvar-occurs? lf-tac-must

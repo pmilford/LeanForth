@@ -20,7 +20,7 @@
 \   both over the parameters (tactic-run.fs's lf-front-close; an axiom's
 \   value is -1).
 \ - lf-tac-elab ( node expected postpone? -- term outcome )
-\   (tactic-basic.fs's hook, S2_INTERFACE 7): Lean's Tactic.elabTerm,
+\   (tactic-core.fs's hook, S2_INTERFACE 7): Lean's Tactic.elabTerm,
 \   elabTerm against expected (-1: none; any other value is a term), then
 \   synthesizeSyntheticMVars, postponing when postpone? is true (Lean's
 \   mayPostpone) else not, the term instantiated. A failure stops the run

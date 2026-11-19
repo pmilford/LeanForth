@@ -438,3 +438,43 @@ old = '''  dup lf-mvar? if lf-term-first@ over = else drop false then ;'''
 new = '''  dup lf-mvar? if drop true else drop false then ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/apply/check.py"
 reason = "9.4.8l-I plan L5: reorderGoals's findMVar? takes any metavariable for the one sought, so every new goal counts as dependent"
+
+[[fault]]
+id = "lib-intro-n-view-kept"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mti-fill mti mti-goal @ ['] mti-run lf-with-goal ;'''
+new = '''  mti-fill mti-run ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l-I C2 introN: the context made current for the new locals is not put back (Lean's withContext), so the caller's context grows"
+
+[[fault]]
+id = "lib-intro-n-index-stuck"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mti-x! ( fvar -- ) mti mti-xs @ mti-at ! 1 mti mti-i +! ;'''
+new = ''': mti-x! ( fvar -- ) mti mti-xs @ mti-at ! ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l-I C2 introN of n > 1: every binder takes the first name and cell, so the second hypothesis is named x too"
+
+[[fault]]
+id = "lib-intro-n-kinds-ignored"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mti mti-kinds @ ?dup if mti-at @ else lf-binder-default then ;'''
+new = '''  lf-binder-default ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l-I C2 introN: the kinds an alternative's eliminator gives are dropped, every field explicit"
+
+[[fault]]
+id = "lib-detail-n-drops-short"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-drops ( i*x n -- ) 0 ?do drop loop ;'''
+new = ''': lfr-drops ( i*x n -- ) 1 ?do drop loop ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l-I C2 lf-tac-detail-n: while an error is recorded one of the n cells is left on the stack"
+
+[[fault]]
+id = "lib-checked-assign-invalid-kept"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  2dup lf-mvar-assign dup outcome-invalid = if drop mtg-unassignable exit then'''
+new = '''  2dup lf-mvar-assign dup outcome-invalid = if drop 2drop exit then'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l-I C2 checkedAssign: an assignment the metavariable context refuses (a goal assigned already) passes silently instead of Lean's occurs-check error 98"

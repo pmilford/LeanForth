@@ -38,7 +38,6 @@ require ./tactic-syntax.fs
 require ./tactic-run.fs
 require ./tactic-msg.fs
 require ./tactic-core.fs
-require ./tactic-basic.fs
 require ./meta-must.fs
 require ./app-builder.fs
 require ./telescope.fs

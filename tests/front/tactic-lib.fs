@@ -382,5 +382,86 @@ T{ 1 lf-defeq-fuel! fx-beta lf-infer! nat lf-tac-defeq nip ok? 0 lf-defeq-fuel! 
 T{ ' author-fails catch detail# 0 ' shout. lf-tac-inline detail# = -> lf-author-throw true }T
 lf-tac-forget
 T{ lf-author-code -> 0 }T
+
+\ ---- 7. The goal words of commit C2 (plan 9.4.8l-I), called directly:
+\ lf-goal-intro-n (names, _, a binder with no name, n > 1, kinds given or
+\ read, no binder 94 with the goal, the context and the frames put back
+\ on both paths), lf-goal-checked-assign (assigned; 98 for a variable
+\ outside the context and for a goal assigned already, with Lean's text;
+\ 93 for an open metavariable), lf-goal-refl (Eq.refl; 97 with Lean's
+\ text; 93 for no Eq), lf-tac-detail-n (n cells dropped once an error is
+\ recorded). Errors thrown outside a tactic run are authoring errors at
+\ the current token.
+lf-author-begin
+: goal-of ( type -- goal ) 0 lf-mctx-view lf-goal-new made ;
+: pi-named ( dom body c-addr u kind -- t )
+  >r lfa-intern >r lf-term-pi lf-made! dup r> r> lf-pres-binder! made ;
+: nat2 ( -- t ) nat nat nat s" b" lf-binder-default pi-named s" a" lf-binder-default pi-named ;
+create names 2 cells allot  create kinds2 2 cells allot  create xs2 2 cells allot
+: names! ( n0 n1 -- ) names cell+ ! names ! ;
+: local-at ( view k -- local ) over lf-view-count + 2 - lf-view-local ;
+: intro-code ( goal names kinds2 n -- code ) xs2 ['] lf-goal-intro-n catch dup if >r 2drop 2drop
+  drop r> else nip then ;
+lf-mctx-view constant view-c2
+: prop ( -- t ) 0 lf-term-symbolic-sort lf-made! ;
+: frames0? ( -- flag ) mti-frames slab-count 0= lf-mctx-view view-c2 = and ;
+nat2 goal-of constant g2
+s" x" lfa-intern 0 names!
+g2 names 0 2 xs2 lf-goal-intro-n constant g2'
+: new-local ( k -- local ) g2' lf-goal-view swap local-at ;
+T{ g2' lf-goal-type nat lf-meta-eqv made g2 lf-goal-assigned? frames0? -> true true true }T
+T{ 0 new-local dup lf-local-name s" x" name= swap lf-local-flags -> true 0 }T
+T{ 1 new-local dup lf-local-name s" b" name= swap lf-local-flags -> true lf-local-inaccessible }T
+T{ 0 new-local lf-local-fvar xs2 @ = 1 new-local lf-local-fvar xs2 cell+ @ = -> true true }T
+\ Kinds given (an alternative's fields): the local's flags carry them.
+lf-binder-implicit kinds2 !  lf-binder-default kinds2 cell+ !  s" y" lfa-intern 0 names!
+nat2 goal-of names kinds2 2 xs2 lf-goal-intro-n lf-goal-view constant v-k
+T{ v-k 0 local-at lf-local-flags v-k 1 local-at lf-local-flags
+   -> lf-binder-implicit lf-local-inaccessible }T
+\ A binder with no name: a, inaccessible; with no kind known either: 99.
+: bare ( -- t ) nat prop lf-term-pi lf-made! ;
+0 0 names!
+T{ bare goal-of names kinds2 1 xs2 lf-goal-intro-n lf-goal-view 1 local-at dup lf-local-name
+   s" a" name= swap lf-local-flags lf-local-inaccessible and 0<> -> true true }T
+T{ bare goal-of names 0 1 intro-code lf-author-code frames0? -> lf-author-throw 99 true }T
+lf-tac-forget
+\ No binder (Nat, or Prop -> Nat's second): 94 with the goal; the
+\ context and the frames put back.
+: detail$ ( -- c-addr u ) 0 lfa-detail slab-at lfa-detail slab-count ;
+: detail-has? ( c-addr u -- flag ) detail$ 2swap search nip nip ;
+T{ nat goal-of names 0 1 intro-code lf-author-code frames0? -> lf-author-throw 94 true }T
+T{ s" ⊢ Nat" detail-has? -> true }T
+lf-tac-forget
+T{ prop nat s" c" lf-binder-default pi-named goal-of names 0 2 intro-code lf-author-code frames0?
+   -> lf-author-throw 94 true }T
+lf-tac-forget
+\ checkedAssign: assigned; assigned again or a variable outside the
+\ context: 98 with the term, Lean's line and the goal; an open
+\ metavariable: 93's unsupported.
+: assign-code ( goal e -- code ) ['] lf-goal-checked-assign catch dup if nip nip then ;
+nat goal-of constant ga
+T{ ga zero assign-code ga lf-goal-assigned? -> 0 true }T
+T{ ga zero assign-code lf-author-code -> lf-author-throw 98 }T
+T{ s" occurs-check failure" detail-has? -> true }T
+lf-tac-forget
+T{ nat goal-of nat lf-lctx-local made assign-code lf-author-code -> lf-author-throw 98 }T
+T{ s\" this is often due to an occurs-check failure\n\n" detail-has? -> true }T
+lf-tac-forget
+T{ nat goal-of nat mv-natural lf-mvar-new made assign-code -> -4205 }T
+\ MVarId.refl: 0 = 0 closed by Eq.refl; r = s, two variables: 97 with
+\ Lean's text; Nat: no Eq, 93's unsupported.
+zero zero lf-mk-eq goal-of constant gr
+T{ gr lf-goal-refl gr lf-mvar-value drop 2 s" Eq.refl" lf-meta-app-of? -> true }T
+nat s" r" binder constant fr  nat s" s" binder constant fs
+T{ fr fs lf-mk-eq goal-of ' lf-goal-refl code1 lf-author-code -> lf-author-throw 97 }T
+T{ s\" r\nis not definitionally equal to the right-hand side\n  s\n\n" detail-has? -> true }T
+lf-tac-forget
+T{ nat goal-of ' lf-goal-refl code1 -> -4205 }T
+\ lf-tac-detail-n: n cells printed, or dropped while an error is recorded.
+: pair. ( a b -- outcome ) + 11 = if s" eleven" lf-pp-emit then outcome-ok ;
+T{ 5 6 2 ' pair. lf-tac-detail-n s" eleven" detail-has? -> true }T
+lf-tac-forget
+T{ ' author-fails catch 7 8 9 3 ' shout. lf-tac-detail-n -> lf-author-throw }T
+lf-tac-forget
 .( tactic-lib.fs: all tests passed) cr
 bye

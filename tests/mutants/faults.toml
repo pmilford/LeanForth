@@ -16082,48 +16082,50 @@ reason = "POOL: --resources does not say that the system refused worker tasks"
 
 [[fault]]
 id = "fe-intro-name-accessible"
-file = "src/front/tactic-basic.fs"
-old = '''  ?dup if nip 0 exit then lfb-own lf-local-inaccessible ;'''
-new = '''  ?dup if nip 0 exit then lfb-own 0 ;'''
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mti mti-names @ mti-at @ ?dup if nip 0 exit then mti-own lf-local-inaccessible ;'''
+new = '''  mti mti-names @ mti-at @ ?dup if nip 0 exit then mti-own 0 ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: intro _ makes an accessible hypothesis where Lean's is hygienic (printed a✝)"
 
 [[fault]]
 id = "fe-rfl-no-defeq"
-file = "src/front/tactic-basic.fs"
-old = '''  tb tb-term @ tb tb-type @ lfb-defeq lf-tac-must'''
-new = '''  true'''
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mrf-equal? if mrf-closed else mrf-unequal then ;'''
+new = '''  true if mrf-closed else mrf-unequal then ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 (design 8.3): rfl closes p = q with Eq.refl without isDefEq"
 
 [[fault]]
 id = "fe-rfl-non-eq"
-file = "src/front/tactic-basic.fs"
-old = ''': lfb-eq? ( t -- flag ) lf-eq? dup if >r 2drop drop r> then ;'''
-new = ''': lfb-eq? ( t -- flag ) lf-meta-args# 3 = ;'''
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mtg-is-eq ( t -- t ) dup lf-eq? if 2drop drop exit then outcome-unsupported lf-must ;'''
+new = ''': mtg-is-eq ( t -- t ) dup lf-meta-head-args nip 3 = if exit then outcome-unsupported lf-must ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 (design 8.3): the Eq head check dropped, so Ne p q reaches eq_refl and fails as invalid where Lean's apply_rfl would look for @[refl] lemmas"
 
 [[fault]]
 id = "fe-exact-mismatch-kept"
-file = "src/front/tactic-basic.fs"
-old = '''  0= if ['] lfb-mismatch. lfa-e-tac-mismatch lfb-failed then ;'''
-new = '''  drop ;'''
+file = "src/front/tactic-core.fs"
+old = '''  2dup lf-tac-defeq lf-tac-must if 2drop exit then tcr-mismatch ;'''
+new = '''  2drop ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: exact assigns a term whose type is not the goal's"
 
 [[fault]]
 id = "fe-exact-new-holes-ignored"
-file = "src/front/tactic-basic.fs"
-old = '''  dup tb tb-from @ ['] lfb-new? lfb-holds-with? if lfa-e-tac-unassigned lf-tac-fail then ;'''
+file = "src/front/tactic-core.fs"
+old = '''  dup tb tb-from @ ['] tcr-new? lf-term-holds-with? lf-tac-must
+  if lfa-e-tac-unassigned lf-tac-fail then ;'''
 new = '''  ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: a metavariable exact's term made and left unassigned is not reported as Lean's don't know how to synthesize"
 
 [[fault]]
 id = "fe-exact-scope-ignored"
-file = "src/front/tactic-basic.fs"
-old = '''  dup tb tb-view @ ['] lfb-outside? lfb-holds-with? if lfb-unassignable then ;'''
+file = "src/front/meta-tactic/goal.fs"
+old = '''  2dup swap lf-goal-view ['] mtg-outside? lf-term-holds-with? lf-must
+  if 2dup mtg-unassignable then ;'''
 new = '''  ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: exact assigns a term with a free variable outside the goal's context (Lean's checkAssignment refuses it)"
@@ -16138,26 +16140,25 @@ reason = "FE1g-4: the type mismatch text leaves out the sorts Lean names when th
 
 [[fault]]
 id = "fe-rfl-refl-rhs"
-file = "src/front/tactic-basic.fs"
-old = ''': lfb-refl ( t -- term ) dup lfb-refl-const swap lfb-alpha tb tb-term @ 2 lf-mk-app-n ;'''
-new = ''': lfb-refl ( t -- term ) dup lfb-refl-const swap lfb-alpha tb tb-type @ 2 lf-mk-app-n ;'''
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mrf mrf-eq @ dup mtg-refl-const swap mtg-alpha lf-mk-app mrf mrf-lhs @ lf-mk-app ;'''
+new = '''  mrf mrf-eq @ dup mtg-refl-const swap mtg-alpha lf-mk-app mrf mrf-rhs @ lf-mk-app ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L3 (F2): rfl's Eq.refl takes the right side where Lean's MVarId.refl takes the left (Refl.lean:39); the kernel accepts both"
 
 [[fault]]
 id = "fe-intro-domain-unreduced"
-file = "src/front/tactic-basic.fs"
-old = ''': lfb-dom ( -- ) tb tb-pi @ lf-term-first@ lf-meta-head-beta lf-tac-must tb tb-dom ! ;'''
-new = ''': lfb-dom ( -- ) tb tb-pi @ lf-term-first@ tb tb-dom ! ;'''
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mti-dom ( pi -- dom ) lf-term-first@ lf-meta-head-beta lf-must ;'''
+new = ''': mti-dom ( pi -- dom ) lf-term-first@ ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L4 (F13): intro's hypothesis keeps the domain's beta redex where Lean's introNCore head-beta reduces it"
 
 [[fault]]
 id = "fe-intro-body-unreduced"
-file = "src/front/tactic-basic.fs"
-old = '''  tb tb-pi @ lf-term-second@ tb tb-x @ lf-meta-instantiate1 lf-tac-must
-  lf-meta-head-beta lf-tac-must ;'''
-new = '''  tb tb-pi @ lf-term-second@ tb tb-x @ lf-meta-instantiate1 lf-tac-must ;'''
+file = "src/front/meta-tactic/goal.fs"
+old = '''  swap lf-term-second@ swap lf-meta-instantiate1 lf-must lf-meta-head-beta lf-must ;'''
+new = '''  swap lf-term-second@ swap lf-meta-instantiate1 lf-must ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L4 (F14): intro's new goal keeps the body's beta redex where Lean's introNCore head-beta reduces it"
 

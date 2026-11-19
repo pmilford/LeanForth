@@ -11,8 +11,9 @@
 \       record (tactic-run.fs's lf-tac-in-record), the main goal's fields
 \       in tb, its context current (withMainContext); tb's fields: the
 \       goal, its type, its context and the metavariable count when the
-\       step began (tb-goal, tb-want, tb-view, tb-from), then the older
-\       tactics' own until they move (plan 9.4.8l-I)
+\       step began (tb-goal, tb-want, tb-view, tb-from), then cells a
+\       tactic may use (tb-term, tb-new: induction's until it moves, plan
+\       9.4.8l-I C4; tb-name, tb-kind, tb-x: lf-tac-intro1's)
 \   lf-tac-pop-main ( -- )  the main goal off the list (popMainGoal)
 \   lf-tac-goal. ( -- outcome )  the step's goal after a blank line;
 \   lf-tac-framed. ( term xt -- outcome )  term indented, what xt ( --
@@ -37,6 +38,28 @@
 \       error (tactic-msg.fs's lf-tac-lean-error?) undone and forgotten,
 \       false; anything else (not supported, no room, no fuel, a fault)
 \       thrown on, never turned into success
+\   lf-tac-elab-term ( node expected postpone? -- e )  Tactic.elabTerm
+\       (ElabTerm.lean:45): lf-tac-elab, its failure thrown as the
+\       runner's error (Term codes 125-139, 71 without an elaborator)
+\   lf-tac-elab-ensuring ( node expected -- e )  elabTermEnsuringType
+\       (ElabTerm.lean:51) with no postponing: e's type inferred and
+\       compared with expected by isDefEq (meta-must.fs's lf-tac-defeq);
+\       false is error 96 with Lean's text (tactic-msg.fs's
+\       lf-has-type-but-expected.). Lean compares with synthetic opaque
+\       metavariables assignable; this does not, so either type holding an
+\       unassigned one answers 93 first (plan 9.4.8l-I fix J)
+\   lf-close-main-goal-using ( i*x i xt -- )  closeMainGoalUsing
+\       (ElabTerm.lean:85): step i runs in a new step record, xt ( i*x
+\       type tag -- e ) gets the main goal's type and tag; e instantiated
+\       must hold no metavariable the step made and left unassigned
+\       (filterOldMVars and logUnassignedAndAbort: error 95), then closes
+\       the goal (meta-tactic/goal.fs's lf-goal-checked-assign) and leaves
+\       the list
+\   lf-tac-intro1 ( name kind i -- )  liftMetaTactic of introN 1
+\       (meta-tactic/goal.fs's lf-goal-intro-n): step i's main goal's
+\       first binder introduced, named name (0: its own, inaccessible), of
+\       kind kind (-1: the node's, explicit only), in its place the new
+\       goal (intro NAME; an alternative's field, tactic-induction.fs)
 \   lf-tac-elab-for-apply ( node -- e )  elabTermForApply
 \       (ElabTerm.lean:264) as evalApplyLikeTactic calls it (:284-292): an
 \       identifier resolved with no argument inserted (elab-term.fs's
@@ -63,6 +86,9 @@ require ./tactic-syntax.fs
 require ./tactic-run.fs
 require ./tactic-msg.fs
 require ./meta-must.fs
+require ./term-find.fs
+require ./infer.fs
+require ./meta-tactic/goal.fs
 
 \ ---- The elaborator's hook.
 defer lf-tac-elab ( node expected postpone? -- term outcome )
@@ -70,20 +96,17 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
   2drop drop lfa-e-elaborate lf-tac-fail -1 outcome-unsupported ;
 ' tcr-unelaborated is lf-tac-elab
 
-\ ---- The step record: the main goal's fields, then the older tactics'.
+\ ---- The step record: the main goal's fields, then a tactic's cells.
 begin-structure /tb
   field: tb-goal        \ the goal the step works on
   field: tb-view        \ its context
   field: tb-from        \ the metavariable count when the step began
   field: tb-want        \ the goal's type
-  field: tb-term        \ exact's term, or rfl's left side
-  field: tb-type        \ its type, or rfl's right side
-  field: tb-pi          \ intro's binder
-  field: tb-dom         \ its domain, head-beta reduced
-  field: tb-x           \ its free variable
-  field: tb-name        \ the hypothesis's name
-  field: tb-flags       \ and its local's flags
-  field: tb-new         \ the goal in its place
+  field: tb-term        \ induction's major premise, its motive
+  field: tb-new         \ induction's new goals
+  field: tb-name        \ lf-tac-intro1's name, kind and free variable
+  field: tb-kind
+  field: tb-x
 end-structure
 /tb lf-tac-work-cells cells >
 [if] .( tactic-core.fs: tb is wider than a step record) cr abort [then]
@@ -95,7 +118,7 @@ end-structure
 : tcr-run ( i*x xt i -- j*x ) swap lf-tac-main tcr-start swap lf-with-goal ;
 : lf-tac-step-run ( i*x i xt -- j*x ) swap ['] tcr-run lf-tac-in-record ;
 : lf-tac-pop-main ( -- ) 0 lf-replace-main lf-tac-must ;
-: lf-tac-goal. ( -- outcome ) s\" \n\n" lf-pp-emit tb tb-goal @ lf-goal-print ;
+: lf-tac-goal. ( -- outcome ) tb tb-goal @ lf-tac-goal-below. ;
 \ A term indented, what xt ( -- outcome ) prints, then the step's goal.
 : lf-tac-framed. ( term xt -- outcome )
   swap lf-tac-indented. swap ok-and ['] lf-tac-goal. ok-and ;
@@ -103,6 +126,14 @@ end-structure
 \ ---- liftMetaTactic.
 : tcr-lifted ( i*x xt i -- ) drop tb tb-goal @ swap execute lf-replace-main lf-tac-must ;
 : lf-lift-meta-tactic ( i*x i xt -- ) swap ['] tcr-lifted lf-tac-step-run ;
+
+\ ---- introN of one binder: its name, kind and variable in tb's cells.
+: tcr-kinds ( -- kinds ) tb tb-kind dup @ 0< if drop 0 then ;
+: tcr-cells! ( name kind -- ) tb tb-kind ! tb tb-name ! ;
+: tcr-intro1 ( name kind goal -- goals )
+  drop tcr-cells! tb tb-goal @ tb tb-name tcr-kinds 1 tb tb-x lf-goal-intro-n
+  0 swap run-push lf-tac-must ;
+: lf-tac-intro1 ( name kind i -- ) ['] tcr-intro1 lf-lift-meta-tactic ;
 
 \ ---- getArg, setGoals.
 : lf-tac-args# ( i -- n ) lf-tactic-step tac-count @ ;
@@ -121,9 +152,36 @@ end-structure
 : lf-tac-try-lean ( xt -- flag )
   lf-tac-try ?dup 0= if true exit then lf-tac-forget-lean false ;
 
+\ ---- Tactic.elabTerm, elabTermEnsuringType.
+: lf-tac-elab-term ( node expected postpone? -- e ) lf-tac-elab lf-tac-must ;
+: tcr-opaque? ( leaf -- flag )
+  dup lf-mvar-open? if lf-mvar-kind drop mv-opaque = else drop false then ;
+: tcr-opaque-free ( t -- t )
+  dup ['] tcr-opaque? lf-term-holds? lf-tac-must if lfa-e-tac-meta lf-tac-fail then ;
+: tcr-typed ( e expected -- e type expected )
+  over lf-infer lf-tac-must tcr-opaque-free swap tcr-opaque-free ;
+: tcr-mismatch ( e type expected -- )
+  3 ['] lf-has-type-but-expected. lf-tac-detail-n lfa-e-tac-mismatch lf-tac-stop ;
+: tcr-ensured ( e type expected -- e )
+  2dup lf-tac-defeq lf-tac-must if 2drop exit then tcr-mismatch ;
+: lf-tac-elab-ensuring ( node expected -- e )
+  tuck false lf-tac-elab-term swap tcr-typed tcr-ensured ;
+
+\ ---- closeMainGoalUsing: the step's new metavariables (numbered from
+\ tb-from) that the term leaves unassigned are Lean's logUnassigned.
+: tcr-new? ( from leaf -- from flag )
+  dup lf-mvar-open? if lf-term-first@ over < 0= else drop false then ;
+: tcr-fresh-free ( e -- e )
+  dup tb tb-from @ ['] tcr-new? lf-term-holds-with? lf-tac-must
+  if lfa-e-tac-unassigned lf-tac-fail then ;
+: tcr-closing ( i*x xt i -- )
+  drop tb tb-want @ swap tb tb-goal @ lf-goal-tag swap execute lf-instantiate!
+  tcr-fresh-free tb tb-goal @ swap lf-goal-checked-assign lf-tac-pop-main ;
+: lf-close-main-goal-using ( i*x i xt -- ) swap ['] tcr-closing lf-tac-step-run ;
+
 \ ---- elabTermForApply.
 : tcr-ident ( node -- e ) lf-elab-ident lf-tac-must ;
-: tcr-term ( node -- e ) -1 true lf-tac-elab lf-tac-must ;
+: tcr-term ( node -- e ) -1 true lf-tac-elab-term ;
 : tcr-not-mvar ( e -- e ) dup lf-mvar? if lfa-e-tac-form lf-tac-fail then ;
 : lf-tac-elab-for-apply ( node -- e )
   dup lf-elab-ident? if tcr-ident else tcr-term then lf-instantiate! tcr-not-mvar ;

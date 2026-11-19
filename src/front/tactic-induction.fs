@@ -79,7 +79,6 @@ require ./tactic-syntax.fs
 require ./tactic-run.fs
 require ./tactic-msg.fs
 require ./tactic-core.fs
-require ./tactic-basic.fs
 require ./meta-must.fs
 require ./app-builder.fs
 require ./telescope.fs
@@ -129,7 +128,7 @@ end-structure
 
 \ ---- The target.
 : lfi-target! ( i -- )
-  0 lf-tac-arg -1 false lf-tac-elab lf-tac-must dup lf-meta-fvar? 0= if lfa-e-tac-form
+  0 lf-tac-arg -1 false lf-tac-elab-term dup lf-meta-fvar? 0= if lfa-e-tac-form
     lf-tac-fail
   then dup lf-fvar-let? if lfa-e-tac-form lf-tac-fail then ti tind-target ! ;
 : lfi-target-type ( -- t ) ti tind-target @ lf-infer lf-tac-must ;
@@ -213,7 +212,7 @@ end-structure
 : lfi-alt-new ( -- addr ) 1 tind-alts slab-claim lf-tac-must tind-alts slab-at dup /tia
   erase ;
 : lfi-case+ ( pi k -- )
-  lfi-alt-new tuck tia-pos ! over lf-tac-binder drop over tia-name !
+  lfi-alt-new tuck tia-pos ! over lf-binder-name over tia-name !
   swap lf-term-first@ lfi-past nip swap tia-fields ! ;
 : lfi-binder ( pi k -- )
   dup lfi-special? if 2drop exit then
@@ -385,7 +384,7 @@ end-structure
 : lfi-name-for ( kind -- name ) lf-binder-default = if lfi-next-name else 0 then ;
 : lfi-field ( f -- )
   ta talt-case @ swap lfi-field-kind dup lfi-name-for swap ta talt-step @
-    lf-tac-intro-as ;
+    lf-tac-intro1 ;
 : lfi-intros ( case -- ) tia-fields @ 0 ?do i lfi-field loop ;
 \ tryClear: a refusal (invalid) keeps the goal; fuel, room or a gap is
 \ thrown, as Lean's <|> never catches a runtime exception.

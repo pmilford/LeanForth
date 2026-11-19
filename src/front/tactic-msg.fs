@@ -10,6 +10,12 @@
 \       indented on the next line
 \   lf-tac-goal-of. ( goal -- outcome )  a goal after a line break (Lean's
 \       throwTacticEx with no message: "Tactic `t` failed\n\ngoal")
+\   lf-tac-goal-below. ( goal -- outcome )  a goal after a blank line
+\       (throwTacticEx with a message: its text, then the goal)
+\   lf-tac-framed-with. ( goal x xt term -- outcome )  term indented,
+\       what xt ( x -- outcome ) prints of x, then the goal after a blank
+\       line; the first part that does not print ends the message, its
+\       outcome kept
 \   lf-tac-.name ( name -- )  a name between backquotes, m!"`{n}`"
 \   lf-has-type-but-expected. ( e type expected -- outcome )
 \       throwTypeMismatchError's text (Elab/Term/TermElabM.lean:1134) with
@@ -49,11 +55,15 @@ require ./meta-must.fs
 : lf-tac-line. ( c-addr u term -- outcome ) >r lf-pp-emit r> lf-tac-indented. ;
 : lf-tac-inline. ( term -- outcome ) s" `" lf-pp-emit tmg-term. s" `" lf-pp-emit ;
 : lf-tac-goal-of. ( goal -- outcome ) s\" \n" lf-pp-emit lf-goal-print ;
+: lf-tac-goal-below. ( goal -- outcome ) s\" \n\n" lf-pp-emit lf-goal-print ;
 : lf-tac-.name ( name -- ) s" `" lf-pp-emit lf-pp-name s" `" lf-pp-emit ;
 
 \ ---- mkHasTypeButIsExpectedMsg. A step after another: xt ( x -- outcome )
 \ when the outcome so far is ok, else x dropped and the outcome kept.
 : tmg-then ( x outcome xt -- outcome' ) swap dup ok? if drop execute else nip nip then ;
+\ A term framed: indented, x as xt prints it, the goal.
+: lf-tac-framed-with. ( goal x xt term -- outcome )
+  lf-tac-indented. swap tmg-then ['] lf-tac-goal-below. tmg-then ;
 : tmg-has. ( type -- outcome ) >r s\" \nhas type\n" r> lf-tac-line. ;
 : tmg-but. ( expected -- outcome )
   >r s\" \nbut is expected to have type\n" r> lf-tac-line. ;

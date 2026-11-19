@@ -1,5 +1,6 @@
 \ Unit and end-to-end tests of the first tactics (plan FE1g-4;
-\ src/front/tactic-basic.fs, design docs/design/FE1G_TACTICS.md 5.1-5.3),
+\ src/front/tactics/intro.fs, exact.fs and rfl.fs on the tactic
+\ library's goal words, design docs/design/FE1G_TACTICS.md 5.1-5.3),
 \ by the classes of docs/development/TEST_COVERAGE_REVIEW.md. Until plan
 \ FE1e elaborates statements and terms, stand-ins build them directly:
 \ the statement (lf-front-by-statement) and by-exact's term (lf-tac-elab:
@@ -108,10 +109,12 @@ T{ va tag va lf-term-second@ tag va lf-term-second@ lf-term-second@ dup tag swap
 T{ va bname s" p" name= va lf-term-second@ bname s" h" name= -> true true }T
 T{ va lf-term-second@ lf-term-first@ dup tag swap lf-term-first@ -> lf-tag-bvar 0 }T
 T{ ty tag ty lf-term-second@ dup tag swap lf-term-first@ tag -> lf-tag-pi lf-tag-pi lf-tag-bvar }T
-\ The hypothesis's local: the given name, accessible, explicit (intro's
-\ step record, the first of the run: review fe1g3 M2).
-: new-local ( -- local )
-  0 lf-tac-record-at tb-new @ lf-mvar-view drop dup lf-view-count 1- lf-view-local ;
+\ The hypothesis's local: the given name, accessible, explicit (the
+\ newest of the new goal's context, the goal ?n of the root's value fun
+\ h => ?n h is delayed-assigned).
+: new-goal ( -- goal )
+  lf-pst-root lf-mvar-value drop lf-term-second@ lf-term-first@ lf-mvar-delayed drop 2drop ;
+: new-local ( -- local ) new-goal lf-mvar-view drop dup lf-view-count 1- lf-view-local ;
 T{ new-local dup lf-local-name s" h" name= swap lf-local-flags -> true 0 }T
 \ The goal's value before instantiation: fun h => ?n h, ?n delayed [h].
 T{ lf-pst-root lf-mvar-value drop dup tag swap lf-term-second@ lf-term-first@ lf-mvar-delayed
@@ -305,7 +308,7 @@ T{ outcome-ok worst ! each-refused 1 > worst @ -> true outcome-ok }T
 \ and by-sorry closes the goal as it was.
 variable tried  variable goal0  variable seen
 variable main-after  variable open-after  variable goals-after
-: intro-fails ( -- ) tried @ lfb-w-intro lfa-e-tac-unsolved lfa-fail ;
+: intro-fails ( -- ) tried @ tin-run lfa-e-tac-unsolved lfa-fail ;
 : noted ( -- )
   lf-tac-main main-after ! goal0 @ lf-goal-assigned? open-after ! lf-goals run-count goals-after ! ;
 : try-intro ( i -- )
@@ -315,7 +318,7 @@ variable main-after  variable open-after  variable goals-after
 T{ s" by-intro: h by-sorry end t" proof nrun seen @ -> outcome-ok 89 }T
 T{ main-after @ goal0 @ = open-after @ goals-after @ -> true false 1 }T
 T{ 0 part-goal s\" p : Prop\n⊢ p → p" compare -> 0 }T
-' lfb-w-intro tac-k-intro lf-tactic-action!
+' tin-run tac-k-intro lf-tactic-action!
 
 \ ---- 6. Settings put back however a step ends (review fe1g3 L10): the
 \ current context after a failed step on a goal of another context, the

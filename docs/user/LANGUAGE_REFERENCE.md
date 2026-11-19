@@ -1042,9 +1042,10 @@ theorem t   0 0 + 0 =   := by   end t
 ### D.3 `by-rfl`, `by-exact`, `by-intro:`, `by-sorry`
 
 `by-rfl` is Lean's `rfl`: it closes `a = b` when both sides are
-definitionally equal and builds `Eq.refl` (`lfb-w-rfl`,
-`src/front/tactic-basic.fs:381`). `by-exact` takes a term from the
-stack and closes the goal with it (`lfb-w-exact`, line 344); a type mismatch is
+definitionally equal and builds `Eq.refl` (`src/front/tactics/rfl.fs`, on
+the tactic library's `lf-goal-refl`). `by-exact` takes a term from the
+stack and closes the goal with it (`src/front/tactics/exact.fs`, on
+`lf-close-main-goal-using`); a type mismatch is
 error 96. `by-intro: HYP-NAME` reads NAME, makes it a hypothesis word and, when
 run, introduces the goal's first binder as a hypothesis named NAME, usable
 until the block ends; with no binder left it is error 94. `by-sorry` closes
@@ -1071,7 +1072,7 @@ theorem t   0 0 + 1 =   := by   by-rfl   end t
 ```
 
 Lean: `rfl`; `exact Nat.zero_add n`; the wrong twin gives Lean's
-"Tactic `rfl` failed: The left-hand side 0 + 0 is not definitionally equal to the right-hand side 1". `by-intro:` is defined (`src/front/tactic-basic.fs`)
+"Tactic `rfl` failed: The left-hand side 0 + 0 is not definitionally equal to the right-hand side 1". `by-intro:` is defined (`src/front/tactics/intro.fs`)
 and run by that module's tests with a stand-in statement `p -> p`, because
 natural `Prop` and `->` are still FE2; `tests/front/07-intro-exact.lf` shows
 its form (not an end-to-end checked file today):
@@ -1397,7 +1398,7 @@ end composition
 | --- | --- |
 | declarations, kernel form, names | `src/author/words.fs`, `declarations.fs`, `namespaces.fs`, `runner.fs` |
 | natural form, syntax tree | `src/front/reader.fs`, `syntax.fs` |
-| tactics | `src/front/tactic-syntax.fs` (reading), `tactic-run.fs` (runner, `by-sorry`), `tactic-basic.fs` (`by-intro:`, `by-exact`, `by-rfl`), `tactic-induction.fs`, `tactic-rewrite.fs` |
+| tactics | `src/front/tactic-syntax.fs` (reading), `tactic-run.fs` (runner, `by-sorry`), `tactics/intro.fs`, `exact.fs`, `rfl.fs` (`by-intro:`, `by-exact`, `by-rfl`, on `meta-tactic/goal.fs`), `tactic-induction.fs`, `tactic-rewrite.fs` |
 | elaboration and `#check` | `src/front/elab-*.fs` |
 | printing | `src/present/` |
 | command line | `src/cli/leanforth.fs`, `check-lf.fs` |
