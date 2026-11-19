@@ -629,5 +629,98 @@ T{ g-done2 fhab rw-of lf-author-code rw-put-back? -> -4201 0 true }T
   mrw mrw-goal @ 4242 = zero zero lf-mk-eq goal-of fhab rw-of mrw mrw-goal @ 4242 = ;
 T{ mrw-frames ' rw-nested lf-with-record rw-put-back? -> 1 true lf-author-throw true true }T
 lf-tac-forget
+
+\ ---- 9. Eliminators (meta-tactic/elim.fs, plan 9.4.8l-I commit C4),
+\ called directly over n : Nat, l : List Nat, b : Bool, p : Prop, α :
+\ Type, x : α, f : Nat -> Nat, s : Lean.Syntax, the main goal n = n:
+\ lf-elim-for (the data's Nat.recAux; Nat.casesOn for cases; List.rec;
+\ 205 with each hint and the goal; 209 for a nested type), lf-elim-info
+\ (Nat.rec's alternatives; index targets 99), lf-elim-app (Nat.rec's
+\ application, its goals tagged t.zero and t.succ, the motive; a target
+\ of another type 99; no pi left 93; an instance binder 99; a binder of
+\ no known kind 99), lf-elim-set-motive (the motive assigned; 212).
+\ Every frame put back.
+lf-author-begin
+: list-nat ( -- t ) s" List" 0 lf-mk-const1 nat lf-mk-app ;
+nat s" n" binder constant fn9   list-nat s" l" binder constant fl9
+s" Bool" lf-mk-const0 s" b" binder constant fb9
+prop s" p" binder constant fp9   type0 s" α" binder constant fal9
+fal9 s" x" binder constant fx9   nat nat lf-term-pi lf-made! s" f" binder constant ff9
+s" Lean.Syntax" lf-mk-const0 s" s" binder constant fs9
+fn9 fn9 lf-mk-eq goal-of constant g9
+T{ 0 g9 run-push made lf-goals! -> outcome-ok }T
+: elim-name? ( target induction? c-addr u -- flag ) 2>r lf-elim-for lf-menv-name 2r> name= ;
+T{ fn9 true s" Nat.recAux" elim-name? fn9 false s" Nat.casesOn" elim-name? -> true true }T
+T{ fl9 true s" List.rec" elim-name? -> true }T
+: elim-code ( target -- code ) true ['] lf-elim-for catch dup if nip nip then ;
+T{ fp9 elim-code lf-author-code -> lf-author-throw 205 }T
+T{ s" by_cases" detail-has? s" ⊢ n = n" detail-has? -> true true }T
+lf-tac-forget
+T{ fal9 elim-code lf-author-code s" Type universes" detail-has? -> lf-author-throw 205 true }T
+lf-tac-forget
+T{ fx9 elim-code lf-author-code s" Consider" detail-has? s" Type universes" detail-has?
+   -> lf-author-throw 205 false false }T
+T{ s" registered theorem." detail-has? -> true }T
+lf-tac-forget
+T{ ff9 elim-code lf-author-code -> lf-author-throw 205 }T
+lf-tac-forget
+T{ fs9 elim-code lf-author-code s" a nested inductive type" detail-has? -> lf-author-throw 209 true }T
+T{ s" Hint: Consider using the `cases` tactic instead" detail-has? -> true }T
+lf-tac-forget
+\ getElimExprInfo: Nat.rec {motive} (zero) (succ) (t): zero with no field,
+\ succ with two, both explicit; Eq.refl's conclusion is no motive applied
+\ to a target (99).
+s" Nat.rec" decl lf-elim-info constant nat-info
+T{ nat-info lf-elim-decl s" Nat.rec" decl = nat-info lf-elim-alts# -> true 2 }T
+T{ nat-info 0 lf-elim-alt-name s" zero" name= nat-info 0 lf-elim-alt-fields
+   nat-info 0 lf-elim-alt-pos -> true 0 1 }T
+T{ nat-info 1 lf-elim-alt-name s" succ" name= nat-info 1 lf-elim-alt-fields
+   nat-info 1 lf-elim-alt-pos -> true 2 2 }T
+T{ nat-info s" succ" lfa-intern lf-elim-alt-find nat-info s" one" lfa-intern lf-elim-alt-find
+   -> 1 true false }T
+T{ nat-info 1 lf-elim-alt-kinds swap 2@ -> 2 lf-binder-default lf-binder-default }T
+T{ refl-d ' lf-elim-info code1 lf-author-code -> lf-author-throw 99 }T
+lf-tac-forget
+\ mkElimApp: @Nat.rec ?motive ?zero ?succ n, the alternatives' goals in
+\ order with the goal's tag appended, the motive synthetic opaque.
+: frames9? ( -- flag ) mea-frames slab-count mes-frames slab-count or 0= ;
+nat-info fn9 s" t" lfa-intern lf-elim-app constant motive9 constant alts9 constant f9
+T{ f9 4 s" Nat.rec" lf-meta-app-of? f9 lf-term-second@ fn9 = alts9 run-count frames9?
+   -> true true 2 true }T
+T{ alts9 0 run@ lf-goal-tag s" t.zero" name= alts9 1 run@ lf-goal-tag s" t.succ" name=
+   motive9 lf-goal-kind -> true true mv-opaque }T
+: app-code ( info target -- code ) 0 ['] lf-elim-app catch dup if >r 2drop drop r> else
+  nip nip nip then ;
+T{ nat-info fb9 app-code lf-author-code frames9? -> lf-author-throw 99 true }T
+lf-tac-forget
+\ (an information that counts one binder more than Nat.rec has: no pi
+\ for it, 93)
+: one-more ( info -- info' )
+  0 over lf-elim-decl run-push made over mel-binders 1+ run-push made
+  swap dup run-count 2 ?do dup i run@ rot swap run-push made swap loop drop ;
+T{ nat-info one-more fn9 app-code lf-author-code frames9? -> lf-author-throw 93 true }T
+lf-tac-forget
+\ (an implicit binder: an instance one refused, 99, as is a binder whose
+\ kind is not known)
+: hadd-info ( -- info ) 0 s" HAdd.hAdd" decl run-push made ;
+: implicit-run ( k -- code )
+  hadd-info mea mea-info ! fresh-pi swap ['] mea-implicit catch ?dup if nip nip else drop 0 then ;
+: implicit-at ( k -- code ) mea-frames ['] implicit-run lf-with-record ;
+T{ 3 implicit-at lf-author-code -> lf-author-throw 99 }T
+lf-tac-forget
+T{ 1 implicit-at -> 0 }T
+: kind-code ( info k -- code ) ['] mel-kind catch dup if nip nip then ;
+T{ hadd-info 99 kind-code lf-author-code -> lf-author-throw 99 }T
+lf-tac-forget
+\ setMotiveArg: fun x => x = x assigned to the motive; a motive of type
+\ Nat -> Prop against the goal Nat (fun x => Nat : Nat -> Type): 212 with
+\ the motive.
+T{ g9 motive9 fn9 lf-elim-set-motive motive9 lf-mvar-value drop lf-term-lam? frames9?
+   -> true true }T
+nat prop lf-term-pi lf-made! mv-natural lf-mvar-new made constant motive-p
+: motive-code ( goal motive target -- code ) ['] lf-elim-set-motive catch dup if nip nip nip then ;
+T{ nat goal-of motive-p fn9 motive-code lf-author-code frames9? -> lf-author-throw 212 true }T
+T{ s" ↦ Nat" detail-has? -> true }T
+lf-tac-forget
 .( tactic-lib.fs: all tests passed) cr
 bye
