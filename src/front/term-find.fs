@@ -11,7 +11,7 @@
 \ getMVars with a closure, plan 9.4.8l L5), so that no test reads a
 \ register set for it.
 \ Users: meta-tactic/goal.fs and tactic-core.fs (open holes, outside variables),
-\ front/tactic-rewrite.fs, meta-tactic/apply.fs, telescope.fs,
+\ meta-tactic/rewrite.fs, meta-tactic/apply.fs, telescope.fs,
 \ app-builder.fs, front/whnf.fs (dite in a matcher's value,
 \ unfoldNestedDIte). Moved from tactic-basic.fs (S2 merge B) so that
 \ whnf.fs, loaded before it, can use it.

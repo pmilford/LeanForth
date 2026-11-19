@@ -478,11 +478,6 @@
    "never_run": 83,
    "reason": "S2 (branch s2-tactics, branch s2-tactics' review fix round (2026-11-14)): never run are the paths no LeanForth text reaches yet -- a major premise whose type is no inductive type (205: Prop and forall in natural form are plan FE2), a mutual or nested type (209: none in the S2 slice), a motive whose type does not fit (212: not met with Nat's or List's eliminators), index targets and generalizeVars (99: a hypothesis used as a term is error 73), a custom eliminator's instance binders, and refusals of room or decode inside the step past those tests/front/s2-sweeps.fs reaches"
   },
-  "src/front/tactic-rewrite.fs": {
-   "blocks": 180,
-   "never_run": 26,
-   "reason": "S2 (branch s2-tactics, branch s2-tactics' review fix round (2026-11-14)): never run are the paths no LeanForth text reaches yet -- an Iff rule, a metavariable pattern (219), a motive not type correct (216) or dependent (217; unreachable while only the target is rewritten), the rule holding the goal itself (220: no text names the goal's metavariable), new goals, and the failure branches of inferType, whnf and isDefEq inside the step (lfw-eq, lfw-pi, lfw-matched, lfw-closed); fix-batch coverage debt, owner 2026-11-17 rule (branch fix-batch, 2026-11-18; paid in its batch test pass): 25->30: lfw-binder's input-record and unknown-kind paths (review C4; the fault rw-unknown-binder-explicit is a listed gap) fix-batch-4 (2026-11-18, measured over make test at 111b433f): 30->26: lfw-binder's 99 and the build's refused kind are tested; left new, lfw-known?'s input-record branch (126: only fed input has input nodes, no rw test runs over it; plan: test with review F8's lf-tac-binder? in the reuse pass)."
-  },
   "src/front/tactic-run.fs": {
    "blocks": 467,
    "never_run": 27,

@@ -161,7 +161,7 @@ is elaborated yet:
 | `by-end` | `( -- )` | closes the innermost `by-induction-with` or `by-case:` |
 | `by-rw[`, `by-rewrite[` … `]` | `( -- )`, `( r1 .. rn -- )` | the values built between the brackets are the rules, in order; a hypothesis there takes no values (applied with `$`: `ih k $`) |
 | `t by-induction`, `t by-induction-with`, `\|`, run | | as Lean's `induction t` and `induction t with \| …` (plan S2, `src/front/tactic-induction.fs`): `t` a variable of an inductive type, the eliminator the data's (`Nat.recAux`) or `T.rec`; each alternative takes its case's goal, names its explicit fields and runs as a block; 205 no inductive type, 206 a name of no case, 207 a case not written, 208 too many names, 209 a mutual or nested type, 212 the motive's type, 213 a name written twice, 99 a form not ported (a target that is no variable, hypotheses that depend on it, index targets, instance binders); `by-case:` stays 80 (plan S2 merge B) |
-| `by-rewrite[ r … ]`, `by-rw[ r … ]`, run | | as Lean's `rewrite [r, …]` and `rw [r, …]` (plan S2, `src/front/tactic-rewrite.fs`, on `kabstract.fs` and `meta-check.fs`): each rule a hypothesis or a theorem, its equation's left side abstracted wherever it occurs (`kabstract` at reducible transparency), the motive type-checked, `Eq.mpr` and `congrArg` as Lean builds them; `by-rw[` then tries `rfl` at reducible transparency; 215 no occurrence, 216 a motive not type correct, 217 a dependent motive, 218 no equation, 219 a metavariable pattern, 220 the occurs check, 99 a form not ported (a definition as a rule, `Iff`, an instance binder, a rule's argument left to a new goal) |
+| `by-rewrite[ r … ]`, `by-rw[ r … ]`, run | | as Lean's `rewrite [r, …]` and `rw [r, …]` (plan S2, `src/front/tactics/rewrite.fs` on the tactic library's `meta-tactic/rewrite.fs`, `lf-goal-rewrite`, since plan 9.4.8l I; on `kabstract.fs` and `meta-check.fs`): each rule a hypothesis or a theorem, its equation's left side abstracted wherever it occurs (`kabstract` at reducible transparency), the motive type-checked, `Eq.mpr` and `congrArg` as Lean builds them; `by-rw[` then tries `rfl` at reducible transparency; 215 no occurrence, 216 a motive not type correct, 217 a dependent motive, 218 no equation, 219 a metavariable pattern, 220 the occurs check, 99 a form not ported (a definition as a rule, `Iff`, an instance binder, a rule's argument left to a new goal) |
 | `=>` | | ends a header; alone, error 84 |
 | the tactic words in kernel-form text | | not supported (72) |
 | the other kernel-form words (`Prop`, `fun`, `var#`, `^`, ...) | | not supported yet in natural form (70) |
@@ -521,7 +521,7 @@ as FE1E_APPLICATIONS.md §4 says); 125 to 139 the elaborator's (S1,
 a term position (Lean's parser error) or in a tactic block (where Lean
 would end the block before it; the first of FE2's command codes); 205 to
 220 S2's induction and rewriting (`src/front/tactic-induction.fs`,
-`tactic-rewrite.fs`: Lean's texts, the names they hold ending the
+`meta-tactic/rewrite.fs` and `tactics/rewrite.fs`: Lean's texts, the names they hold ending the
 message's own line, as in "Invalid alternative name `suc`: Expected
 `succ`"; 210 and 211 `by-case:`'s, `src/front/tactic-case.fs`; 214
 kept); the rest of 100 on free. Codes 81 to

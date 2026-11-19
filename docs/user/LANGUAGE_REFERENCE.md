@@ -1155,8 +1155,9 @@ hypothesis (written by name) or a theorem written `' NAME`; its equation's
 left side is abstracted wherever it occurs in the goal (`kabstract` at
 reducible transparency), the motive is type-checked, and the goal becomes
 the rewritten one; then `rfl` is tried at reducible transparency
-(`lfw-w-rw`, `src/front/tactic-rewrite.fs:242`).
-`by-rewrite[ ... ]` is `rewrite` and does not try `rfl` (line 241). The rules
+(`trw-w-rw`, `src/front/tactics/rewrite.fs`, on the tactic library's
+`lf-goal-rewrite`, `src/front/meta-tactic/rewrite.fs`).
+`by-rewrite[ ... ]` is `rewrite` and does not try `rfl` (`trw-rules`). The rules
 are the values built between `by-rw[` and `]`; each stays on the stack until
 `]` takes them, in order. Every value between the brackets is a rule, so an
 applied hypothesis is written with `$`: `ih k $` is Lean's `ih k`. No tactic
@@ -1398,7 +1399,7 @@ end composition
 | --- | --- |
 | declarations, kernel form, names | `src/author/words.fs`, `declarations.fs`, `namespaces.fs`, `runner.fs` |
 | natural form, syntax tree | `src/front/reader.fs`, `syntax.fs` |
-| tactics | `src/front/tactic-syntax.fs` (reading), `tactic-run.fs` (runner, `by-sorry`), `tactics/intro.fs`, `exact.fs`, `rfl.fs` (`by-intro:`, `by-exact`, `by-rfl`, on `meta-tactic/goal.fs`), `tactic-induction.fs`, `tactic-rewrite.fs` |
+| tactics | `src/front/tactic-syntax.fs` (reading), `tactic-run.fs` (runner, `by-sorry`), `tactics/intro.fs`, `exact.fs`, `rfl.fs` (`by-intro:`, `by-exact`, `by-rfl`, on `meta-tactic/goal.fs`), `tactics/rewrite.fs` (`by-rewrite[`, `by-rw[`, on `meta-tactic/rewrite.fs`), `tactic-induction.fs` |
 | elaboration and `#check` | `src/front/elab-*.fs` |
 | printing | `src/present/` |
 | command line | `src/cli/leanforth.fs`, `check-lf.fs` |

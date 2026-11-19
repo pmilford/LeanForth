@@ -20135,11 +20135,11 @@ reason = "S2 5 (kabstract): a node that is no occurrence is kept whole, its part
 
 [[fault]]
 id = "s2-rw-sides-swapped"
-file = "src/front/tactic-rewrite.fs"
-old = '''  trw trw-alpha @ trw trw-etype @ trw trw-lhs @ trw trw-rhs @ trw trw-motive @'''
-new = '''  trw trw-alpha @ trw trw-etype @ trw trw-rhs @ trw trw-lhs @ trw trw-motive @'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
-reason = "S2 5 (MVarId.rewrite): congrArg's sides swapped, a proof the kernel refuses"
+file = "src/front/meta-tactic/rewrite.fs"
+old = '''  mrw mrw-alpha @ mrw mrw-etype @ mrw mrw-lhs @ mrw mrw-rhs @ mrw mrw-motive @'''
+new = '''  mrw mrw-alpha @ mrw mrw-etype @ mrw mrw-rhs @ mrw mrw-lhs @ mrw mrw-motive @'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S2 5 (MVarId.rewrite): congrArg's two sides swapped, so the proof proves the rewrite backwards (moved to meta-tactic/rewrite.fs by plan 9.4.8l-I C3; the library's unit test checks the proof's type)"
 
 [[fault]]
 id = "s2-rw-mpr-new-twice"
@@ -20151,11 +20151,11 @@ reason = "S2 5 (replaceTargetEq): Eq.mpr's first argument the new target where L
 
 [[fault]]
 id = "s2-rw-rfl-skipped"
-file = "src/front/tactic-rewrite.fs"
-old = ''': lfw-w-rw ( i -- ) lfw-rules lfw-try-rfl ;'''
-new = ''': lfw-w-rw ( i -- ) lfw-rules ;'''
+file = "src/front/tactics/rewrite.fs"
+old = ''': trw-w-rw ( i -- ) trw-rules ['] trw-rfl lf-tac-try-lean drop ;'''
+new = ''': trw-w-rw ( i -- ) trw-rules ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
-reason = "S2 5 (the rw macro): by-rw[ without try (with_reducible rfl), so FE1's succ case is left open"
+reason = "S2 5 (rw's macro): rw never tries rfl after rewriting, so a goal rw closes in Lean is left open (moved to tactics/rewrite.fs by plan 9.4.8l-I C3)"
 
 [[fault]]
 id = "s2-alt-names-unchecked"
@@ -20249,22 +20249,20 @@ reason = "review s2-tactics M2: try (with_reducible rfl) forgets a run out of fu
 
 [[fault]]
 id = "s2-rw-motive-unchecked"
-file = "src/front/tactic-rewrite.fs"
-old = '''  dup outcome-invalid = if drop ['] lfw-motive. lfa-e-tac-motive lfw-failed then
-    lf-tac-must ;'''
+file = "src/front/meta-tactic/rewrite.fs"
+old = '''  dup outcome-invalid = if drop ['] mrw-motive. lfa-e-tac-motive lf-tac-failed then
+  lf-must ;'''
 new = '''  drop ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
-reason = "S2 5 (MVarId.rewrite): the motive used without Meta.check, so a motive that is not type correct reaches the kernel"
-gap = "review s2-tactics H1 (m2, error 216): no LeanForth text reaches a motive that is not type correct yet: Lean's case (h : n + 0 = n) : h = h by rw [Nat.add_zero] needs a hypothesis used as a term, which natural LeanForth refuses (error 73), and forall in natural form (plan FE2); meta-check.fs's own refusal is caught in tests/front/s2-units.fs"
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S2 5 (MVarId.rewrite): the motive used without Meta.check, so a motive that is not type correct reaches the kernel; caught since plan 9.4.8l-I C3 by the library's unit test (h = h rewritten by h : a = b, error 216)"
 
 [[fault]]
 id = "s2-rw-dependence-unchecked"
-file = "src/front/tactic-rewrite.fs"
-old = '''  0= if ['] lfw-dependent. lfa-e-tac-motive-dep lfw-failed then ;'''
+file = "src/front/meta-tactic/rewrite.fs"
+old = '''  0= if ['] mrw-dependent. lfa-e-tac-motive-dep lf-tac-failed then ;'''
 new = '''  drop ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
-reason = "S2 5 (MVarId.rewrite): the motive's dependence on the pattern not checked"
-gap = "review s2-tactics H1 (m3, error 217): unreachable while rw rewrites only the target: the target's type is a sort, which mentions no term, so the motive's body always has the target's type (rw at a hypothesis or a term, plan S3 or later)"
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S2 5 (MVarId.rewrite): a dependent motive accepted; caught since plan 9.4.8l-I C3 by the library's unit test (Eq.refl a rewritten by h : a = b, error 217)"
 
 [[fault]]
 id = "s2-alt-field-kinds-ignored"
@@ -20885,11 +20883,11 @@ reason = "review C2 of 2026-11-18: a failed try leaves the induction blocks it o
 
 [[fault]]
 id = "tac-rw-mvars-not-kept"
-file = "src/front/tactic-rewrite.fs"
-old = ''': lfw-kept ( undo? -- outcome ) trw-mvars trw-mvars-kept slab-kept ;'''
-new = ''': lfw-kept ( undo? -- outcome ) drop trw-mvars-kept slab-forget outcome-ok ;'''
-test = "$GFORTH tests/front/tactic-run.fs"
-reason = "review C2 of 2026-11-18: a failed try leaves trw-mvars as the attempt's rw made it"
+file = "src/front/meta-tactic/rewrite.fs"
+old = '''  mrw mrw-mvars @ over run-push lf-must mrw mrw-mvars ! lf-mk-app ;'''
+new = '''  lf-mk-app ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "rw's new metavariables not kept (since plan 9.4.8l-I C3 a run in the call's frame, no saved state of their own): a binder the rewrite leaves unassigned is no new goal, so rw goes on where Lean opens a goal (or LeanForth refuses, 99)"
 
 [[fault]]
 id = "tac-pending-base-not-restored"

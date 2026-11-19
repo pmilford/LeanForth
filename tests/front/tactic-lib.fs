@@ -527,5 +527,94 @@ T{ ' zero. lfa-e-tac-form ' lf-tac-failed catch nip nip inline@ detail# 0 ' shou
    detail# = swap inline@ = -> lf-author-throw true true }T
 T{ inline@ detail# < -> true }T
 lf-tac-forget
+\ ---- 8. MVarId.rewrite (meta-tactic/rewrite.fs's lf-goal-rewrite, plan
+\ 9.4.8l-I commit C3), called directly over a : Nat, b : Nat, h : a = b:
+\ a = a rewritten to b = b, the proof congrArg's, of type (a = a) = (b =
+\ b), no new goal, the goal not assigned; each error of its own with
+\ Lean's text: no occurrence 215, a motive not type correct 216 (pa : P
+\ b in @Eq (a = b) h h), a dependent one 217 (the term Eq.refl a, whose
+\ type holds a), no equality 218 (a value, a proof), a pattern that is a
+\ metavariable 219; not supported yet, 99: an Iff, symm, an instance
+\ binder; an assigned goal invalid. Every frame and the current view put
+\ back. A rewrite inside an open frame of its own slab (a nested call)
+\ leaves the outer frame's fields as they were, also when it fails.
+lf-author-begin
+nat s" a" binder constant fa   nat s" b" binder constant fb
+fa fb lf-mk-eq s" h" binder constant fhab
+\ (the rules of the failing cases below: t : True, hm : ?m = b,
+\ hi : True <-> True, hx : [x : Nat] -> a = b)
+s" True" lf-mk-const0 s" t" binder constant ft
+nat mv-natural lf-mvar-new made fb lf-mk-eq s" hm" binder constant fhm
+s" Iff" lf-mk-const0 s" True" lf-mk-const0 lf-mk-app s" True" lf-mk-const0 lf-mk-app
+  s" hi" binder constant fhi
+nat fa fb lf-mk-eq s" x" lf-binder-instance pi-named s" hx" binder constant fhx
+\ (and rules with a binder: hs : forall x, Nat.succ x = b, whose x the
+\ pattern assigns; hu : forall x : Nat, a = b, whose x stays a new goal)
+create rw-xs 1 cells allot
+: nat-succ ( t -- t' ) s" Nat.succ" lf-mk-const0 swap lf-mk-app ;
+nat s" x" binder constant fx-rw   fx-rw rw-xs !
+fx-rw nat-succ fb lf-mk-eq rw-xs 1 lf-mk-forall-fvars s" hs" binder constant fhs
+fa fb lf-mk-eq rw-xs 1 lf-mk-forall-fvars s" hu" binder constant fhu
+lf-mctx-view constant view-rw
+: aa ( -- t ) fa fa lf-mk-eq ;
+: rw-target ( goal heq -- new proof goals ) over lf-goal-type swap false lf-goal-rewrite ;
+: rw-code ( goal e heq symm? -- code )
+  ['] lf-goal-rewrite catch ?dup if >r 2drop 2drop r> else drop 2drop 0 then ;
+: rw-of ( goal heq -- code ) over lf-goal-type swap false rw-code ;
+: rw-put-back? ( -- flag ) mrw-frames slab-count 0= lf-mctx-view view-rw = and ;
+aa goal-of constant g-aa
+: rw-aa ( -- app? typed? new? n )
+  g-aa fhab rw-target run-count >r dup 6 s" congrArg" lf-meta-app-of? swap lf-infer!
+  aa fb fb lf-mk-eq lf-mk-eq lf-meta-eqv made rot fb fb lf-mk-eq lf-meta-eqv made r> ;
+T{ rw-aa -> true true true 0 }T
+T{ g-aa lf-goal-assigned? rw-put-back? -> false true }T
+\ A rule's new metavariables: assigned by the pattern (Nat.succ a =
+\ Nat.succ a to b = b), no goal; one the rewrite leaves, a goal (Lean's
+\ newMVarIds).
+fa nat-succ dup lf-mk-eq goal-of constant g-ss
+T{ g-ss fhs rw-target run-count nip swap fb dup lf-mk-eq lf-meta-eqv made -> 0 true }T
+T{ g-aa fhu rw-target run-count nip nip rw-put-back? -> 1 true }T
+\ 215, with the pattern, the target and the goal.
+T{ zero zero lf-mk-eq goal-of fhab rw-of lf-author-code rw-put-back? -> lf-author-throw 215 true }T
+T{ s\" a\nin the target expression\n  Nat.zero = Nat.zero\n\n" detail-has? -> true }T
+lf-tac-forget
+\ 216: fun _a => @Eq (_a = b) h h is not type correct (Lean's case
+\ (h : n + 0 = n) : h = h by rw [Nat.add_zero], which no LeanForth text
+\ reaches yet: a hypothesis used as a term).
+T{ fhab fhab lf-mk-eq goal-of fhab rw-of lf-author-code rw-put-back? -> lf-author-throw 216 true }T
+T{ s\" fun _a ↦ h = h\nError: Application type mismatch in the application\n" detail-has? -> true }T
+lf-tac-forget
+\ 217: Eq.refl a's type a = a depends on a.
+T{ g-aa fa lf-mk-eq-refl fhab false rw-code lf-author-code rw-put-back? -> lf-author-throw 217 true }T
+lf-tac-forget
+\ 218: a value (a : Nat), a proof (t : True).
+T{ g-aa fa rw-of lf-author-code -> lf-author-throw 218 }T
+T{ s"  `a` is a value of type" detail-has? -> true }T
+lf-tac-forget
+T{ g-aa ft rw-of lf-author-code rw-put-back? -> lf-author-throw 218 true }T
+T{ s"  `t` is a proof of" detail-has? -> true }T
+lf-tac-forget
+\ 219: ?m = b.
+T{ g-aa fhm rw-of lf-author-code rw-put-back? -> lf-author-throw 219 true }T
+T{ s" in this equality" detail-has? -> true }T
+lf-tac-forget
+\ 99: an Iff (True <-> True), symm, an instance binder ([x : Nat] -> a = b).
+T{ g-aa fhi rw-of lf-author-code rw-put-back? -> lf-author-throw 99 true }T
+lf-tac-forget
+T{ g-aa aa fhab true rw-code lf-author-code rw-put-back? -> lf-author-throw 99 true }T
+lf-tac-forget
+T{ g-aa fhx rw-of lf-author-code rw-put-back? -> lf-author-throw 99 true }T
+lf-tac-forget
+\ An assigned goal: invalid.
+aa goal-of constant g-done2
+T{ g-done2 fa lf-mk-eq-refl lf-mvar-assign -> outcome-ok }T
+T{ g-done2 fhab rw-of lf-author-code rw-put-back? -> -4201 0 true }T
+\ Inside an open frame of mrw-frames: the outer frame's fields kept
+\ across a nested rewrite that succeeds and one that fails.
+: rw-nested ( -- n kept? code kept? )
+  4242 mrw mrw-goal ! g-aa fhab rw-target 2drop drop mrw-frames slab-count
+  mrw mrw-goal @ 4242 = zero zero lf-mk-eq goal-of fhab rw-of mrw mrw-goal @ 4242 = ;
+T{ mrw-frames ' rw-nested lf-with-record rw-put-back? -> 1 true lf-author-throw true true }T
+lf-tac-forget
 .( tactic-lib.fs: all tests passed) cr
 bye

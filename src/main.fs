@@ -100,11 +100,11 @@ require ./front/elab-pending.fs
 require ./front/elab-app.fs
 require ./front/elab-term.fs
 require ./front/elab-decl.fs
-\ S2's tactics (branch s2-tactics): rewriting (kabstract, Meta.check) and
-\ induction with its alternatives, and case, rows of the runner.
+\ S2's tactics (branch s2-tactics): induction with its alternatives, and
+\ case, rows of the runner (rewriting moved to front/tactics/rewrite.fs on
+\ the tactic library's meta-tactic/rewrite.fs, plan 9.4.8l I).
 require ./front/kabstract.fs
 require ./front/meta-check.fs
-require ./front/tactic-rewrite.fs
 require ./front/tactic-induction.fs
 require ./front/tactic-case.fs
 \ The step log the runner keeps (branch s2-steps), written by check --steps.

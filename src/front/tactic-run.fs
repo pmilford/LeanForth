@@ -58,8 +58,8 @@
 \ and the states other modules add with tac-state: ( save-xt back-xt -- )
 \ (reviews C2 and N4 of 2026-11-18): the elaborator's pending list and
 \ synthesis window (elab-pending.fs, registered by elab-decl.fs), the
-\ induction blocks and their cases (tactic-induction.fs) and rw's
-\ metavariables (tactic-rewrite.fs), as Lean's saveState holds the whole
+\ induction blocks and their cases (tactic-induction.fs), as Lean's
+\ saveState holds the whole
 \ Term and Meta state; lib/slab.fs's slab-keep and slab-kept do a
 \ back-xt's work for a slab. A run
 \ that stops inside a try has its open saves forgotten when the next

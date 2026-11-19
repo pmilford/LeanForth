@@ -105,11 +105,11 @@ reason = "a2-i review F6: withLocalDecl never drops its local, seen in rw's own 
 
 [[fault]]
 id = "rw-independent-bare-local"
-file = "src/front/tactic-rewrite.fs"
-old = '''  trw trw-alpha @ s" _a" lfa-intern lf-binder-default ['] lfw-at lf-with-local-decl'''
-new = '''  trw trw-alpha @ lf-lctx-local lf-tac-must lfw-at'''
+file = "src/front/meta-tactic/rewrite.fs"
+old = '''  mrw mrw-alpha @ s" _a" lfa-intern lf-binder-default ['] mrw-at lf-with-local-decl'''
+new = '''  mrw mrw-alpha @ lf-lctx-local lf-must mrw-at'''
 test = "$GFORTH tests/front/tactic-run.fs"
-reason = "a2-i review F6: rw's motive independence check makes its local without withLocalDecl's scope, so the local outlives the rule (the state before a2-i)"
+reason = "rw's dependence test opens its local for _a without withLocalDeclD's scope, so the local stays in the local context (moved to meta-tactic/rewrite.fs by plan 9.4.8l-I C3)"
 
 [[fault]]
 id = "rw-unknown-binder-explicit"
@@ -552,3 +552,53 @@ old = ''': lf-tac-inline ( x xt -- ) lf-author-code if 2drop exit then lf-tac-de
 new = ''': lf-tac-inline ( x xt -- ) lf-tac-detail lfa-inline ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "review tactic-move M3: a detail given while an error is recorded moves the recorded message's line end (lfa-err-inline), so its first line is cut at the wrong place"
+
+# --- slice 9.4.8l-I, C3: MVarId.rewrite on the goal layer -------------------
+
+[[fault]]
+id = "lib-rw-mvar-pattern-taken"
+file = "src/front/meta-tactic/rewrite.fs"
+old = '''  mrw mrw-lhs @ lf-meta-head-args drop lf-mvar? 0= if exit then'''
+new = '''  exit'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l-I C3 MVarId.rewrite: a pattern headed by a metavariable is abstracted instead of Lean's error 219"
+
+[[fault]]
+id = "lib-rw-iff-taken"
+file = "src/front/meta-tactic/rewrite.fs"
+old = '''  mrw mrw-htype @ dup mrw-iff? if lfa-e-tac-form lf-tac-stop then'''
+new = '''  mrw mrw-htype @'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l-I C3 MVarId.rewrite: an Iff rule is not refused (99) though propext is not ported, and answers 218"
+
+[[fault]]
+id = "lib-rw-symm-ignored"
+file = "src/front/meta-tactic/rewrite.fs"
+old = ''': mrw-symm-refused ( -- ) mrw mrw-symm @ if lfa-e-tac-form lf-tac-stop then ;'''
+new = ''': mrw-symm-refused ( -- ) ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l-I C3 MVarId.rewrite: symm? is ignored, so a right-to-left rewrite asked for rewrites left to right"
+
+[[fault]]
+id = "lib-rw-instance-binder-taken"
+file = "src/front/meta-tactic/rewrite.fs"
+old = '''  lf-binder-instance = if lfa-e-tac-form lf-tac-stop then'''
+new = '''  drop'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l-I C3 MVarId.rewrite: an instance binder becomes a plain new metavariable, never synthesized (postprocessAppMVars is not ported), instead of 99"
+
+[[fault]]
+id = "lib-rw-goals-unfiltered"
+file = "src/front/meta-tactic/rewrite.fs"
+old = ''': mrw-goals ( -- goals ) mrw mrw-mvars @ ['] lf-meta-unassigned? run-filter lf-must ;'''
+new = ''': mrw-goals ( -- goals ) mrw mrw-mvars @ ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l-I C3 MVarId.rewrite: a new metavariable the pattern assigned is still given as a new goal"
+
+[[fault]]
+id = "tac-rw-rule-place-lost"
+file = "src/front/tactics/rewrite.fs"
+old = ''': trw-placed ( code k -- ) over lf-author-throw = if trw-see else drop then throw ;'''
+new = ''': trw-placed ( code k -- ) drop throw ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+reason = "9.4.8l-I C3 rw: an error of MVarId.rewrite's own (215, 218) loses the rule's place, which Lean's message gives"

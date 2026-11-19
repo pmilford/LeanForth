@@ -461,7 +461,7 @@ marked ~); "exists" names the file. Forth estimates use 1.9 file lines per Lean 
 | `getMatchLoop`, `getMatch`, `getMatchWithExtra` | DiscrTree/Main.lean:438-520 | ~90 | `lf-dt-get-match`, `-extra` | SP1b-i | 170 |
 | `mkPath`, `getKeyArgs` | DiscrTree/Main.lean:329, 350 | ~250 | `lf-dt-path`, `lf-dt-key` | exists (`discr-keys.fs`); match mode in SP1a | — |
 | `kabstract` with `toHeadIndex`, `headNumArgs` | KAbstract.lean:30; HeadIndex.lean:55-115 | ~85 | `lf-meta-kabstract` | exists | — |
-| `MVarId.rewrite` | Meta/Tactic/Rewrite.lean:28-104 | 73 | `lf-goal-rewrite` | in `tactic-rewrite.fs:120-213`; LA moves it and adds `symm`, Iff, instances, new goals | moved + 60 |
+| `MVarId.rewrite` | Meta/Tactic/Rewrite.lean:28-104 | 73 | `lf-goal-rewrite` | in `tactic-rewrite.fs:120-213`; LA moves it and adds `symm`, Iff, instances, new goals (2026-11-19: moved to `meta-tactic/rewrite.fs` by plan 9.4.8l I, commit C3, with LA's stack effect; symm, Iff and instance binders answer 99, new goals are returned and the tactic refuses them) | moved + 60 |
 | `replaceTargetEq`, `replaceLocalDecl` | Replace.lean:21, 76 | ~50 | `lf-goal-replace-target-eq`, `-local-decl` | first on a2-ii; second LA | 65 |
 | `elabRewrite`, `rewriteTarget`, `rewriteLocalDecl`, `withRWRulesSeq` | Elab/Tactic/Rewrite.lean:25-133 | ~100 | `lf-rw-rules` | partly in `tactic-rewrite.fs`; LA | 120 |
 | `expandLocation`, `withLocation` | Elab/Tactic/Location.lean:32, 58 | ~45 | `lf-with-location` | LA | 85 |
