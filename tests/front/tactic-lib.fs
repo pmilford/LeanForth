@@ -555,6 +555,8 @@ create rw-xs 1 cells allot
 nat s" x" binder constant fx-rw   fx-rw rw-xs !
 fx-rw nat-succ fb lf-mk-eq rw-xs 1 lf-mk-forall-fvars s" hs" binder constant fhs
 fa fb lf-mk-eq rw-xs 1 lf-mk-forall-fvars s" hu" binder constant fhu
+\ (hq : ?T, ?T : ?S, ?S : Type: a rule whose type has no level known)
+type0 mv-natural lf-mvar-new made mv-natural lf-mvar-new made s" hq" binder constant fhq
 lf-mctx-view constant view-rw
 : aa ( -- t ) fa fa lf-mk-eq ;
 : rw-target ( goal heq -- new proof goals ) over lf-goal-type swap false lf-goal-rewrite ;
@@ -584,6 +586,13 @@ lf-tac-forget
 T{ fhab fhab lf-mk-eq goal-of fhab rw-of lf-author-code rw-put-back? -> lf-author-throw 216 true }T
 T{ s\" fun _a ↦ h = h\nError: Application type mismatch in the application\n" detail-has? -> true }T
 lf-tac-forget
+\ A motive Meta.check refuses with no application kept (Nat.zero given a
+\ universe argument it has no parameter for: checkConstant): 216 with the
+\ motive alone.
+s" Nat.zero" 0 1 lf-mk-const constant zero-u
+T{ fa zero-u lf-mk-eq goal-of fhab rw-of lf-author-code -> lf-author-throw 216 }T
+T{ s\" fun _a ↦ _a = Nat.zero\n\na b : Nat" detail-has? -> true }T
+lf-tac-forget
 \ 217: Eq.refl a's type a = a depends on a.
 T{ g-aa fa lf-mk-eq-refl fhab false rw-code lf-author-code rw-put-back? -> lf-author-throw 217 true }T
 lf-tac-forget
@@ -593,6 +602,10 @@ T{ s"  `a` is a value of type" detail-has? -> true }T
 lf-tac-forget
 T{ g-aa ft rw-of lf-author-code rw-put-back? -> lf-author-throw 218 true }T
 T{ s"  `t` is a proof of" detail-has? -> true }T
+lf-tac-forget
+\ (a type whose level is not known: not a proof, as Lean's isProp says)
+T{ g-aa fhq rw-of lf-author-code -> lf-author-throw 218 }T
+T{ s"  `hq` is a value of type" detail-has? -> true }T
 lf-tac-forget
 \ 219: ?m = b.
 T{ g-aa fhm rw-of lf-author-code rw-put-back? -> lf-author-throw 219 true }T

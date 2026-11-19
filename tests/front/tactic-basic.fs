@@ -202,6 +202,19 @@ T{ s" by-intro: h n by-exact end t" proof nrun err -> outcome-unsupported 93 1 5
 T{ s" by-intro: h n by-exact end t" proof nrun err -> outcome-invalid 98 1 57 }T
 T{ detail drop 8 s"   _fvar." compare -> 0 }T
 T{ detail s\" occurs-check failure\n\np : Prop\nh : p\n⊢ p" search nip nip -> true }T
+\ rw's own refusals at the rule (plan 9.4.8l-I C3, tactics/rewrite.fs),
+\ the rule's place second: a rule holding the goal itself (220, Lean's
+\ occurs check; no LeanForth text names the goal's metavariable, so the
+\ stand-in gives it) and a rule left with an open metavariable (Lean's
+\ new goals, 99). A place set already is kept.
+: the-goal ( -- t ) lf-main-goal made ;
+: open-eq ( -- t ) p @ p @ eq-of mv-natural lf-mvar-new made ;
+: see@ ( -- line col ) lfa-error lfa-err-see @ lfa-pos> ;
+' eq-pp stating  ' the-goal chosen !
+T{ s" by-rw[ 0 ] end t" proof nrun err see@ -> outcome-invalid 220 1 43 1 50 }T
+T{ 0 trw-see see@ -> 1 50 }T
+' open-eq chosen !
+T{ s" by-rw[ 0 ] end t" proof nrun err see@ -> outcome-unsupported 99 1 43 1 50 }T
 \ A goal type holding an open synthetic opaque metavariable (Lean compares
 \ with it assignable): 93 before isDefEq.
 : so-p ( -- type ) p-prop prop mv-opaque lf-mvar-new made ;

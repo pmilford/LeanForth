@@ -602,3 +602,27 @@ old = ''': trw-placed ( code k -- ) over lf-author-throw = if trw-see else drop 
 new = ''': trw-placed ( code k -- ) drop throw ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
 reason = "9.4.8l-I C3 rw: an error of MVarId.rewrite's own (215, 218) loses the rule's place, which Lean's message gives"
+
+[[fault]]
+id = "tac-rw-occurs-unchecked"
+file = "src/front/tactics/rewrite.fs"
+old = '''  tb tb-goal @ over lf-mvar-occurs? lf-tac-must 0= if exit then'''
+new = '''  exit'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "9.4.8l-I C3 rw: a rule holding the goal itself is rewritten with instead of Lean's occurs check (220), so the goal would be assigned a term holding itself"
+
+[[fault]]
+id = "tac-rw-new-goals-taken"
+file = "src/front/tactics/rewrite.fs"
+old = '''  over swap trw-open? if 2drop lfa-e-tac-form trw-stop then rot drop ;'''
+new = '''  drop rot drop ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "9.4.8l-I C3 rw: a rule left with an open metavariable (Lean's new goals) is not refused (99), so the goal is replaced by a proof with a hole"
+
+[[fault]]
+id = "tac-rw-place-overwritten"
+file = "src/front/tactics/rewrite.fs"
+old = ''': trw-see ( k -- ) lfa-error lfa-err-see @ 0< if trw-at lfa-see! else drop then ;'''
+new = ''': trw-see ( k -- ) trw-at lfa-see! ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "9.4.8l-I C3 rw: the rule's place overwrites the second place of an error recorded already"
