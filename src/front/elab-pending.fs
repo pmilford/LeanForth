@@ -119,6 +119,7 @@ require ./defeq.fs
 require ./defeq-delta.fs
 require ./instances.fs
 require ./synth.fs
+require ./handover.fs
 require ../lib/decimal.fs
 require ./meta-must.fs
 require ./app-builder.fs
@@ -200,6 +201,10 @@ end-structure
 : ep-data-kept ( outcome -- outcome )
   lf-inst-refusal if drop outcome-invalid ep-data-refused then ;
 : ep-settle ( -- ) ep ep-code @ 0= if outcome-ok ep-data-kept drop then ;
+\ At end NAME (handover.fs's last word before the hand-over): refused
+\ data stops the declaration, whatever caught a failure on the way.
+: ep-closing ( -- ) lf-inst-refusal ?dup if lfa-fail then ;
+' ep-closing is lf-front-closing
 : lf-elab-meta ( outcome -- outcome )
   dup ok? if exit then dup ep-data-refused? if ep-data-refused exit then
   dup ep-meta-code ep-record ;

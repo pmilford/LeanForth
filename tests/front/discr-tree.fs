@@ -110,9 +110,40 @@ T{ nat add0 keys 13 tree ' lf-dt-insert catch nat add0 tree outs ' lf-dt-get-uni
    outs slab-count -> 0 0 4 }T
 T{ ?n tree outs ' lf-dt-get-unify catch nip nip nip lf-meta-throw-base outcome-unsupported - = -> true }T
 
+\ ---- getStarResult (Main.lean:561): the values under the star root
+\ (a bare metavariable's path) come first, before the key's root's.
+create tree5 /dtree allot   tree5 /dtree erase
+T{ ?n 40 tree5 put nat add0 50 tree5 put nat add0 tree5 unify-in 0 v@ 1 v@
+   -> outcome-ok outcome-ok 2 outcome-ok 40 50 }T
+T{ nat mul0 tree5 unify-in 0 v@ -> 1 outcome-ok 40 }T
+
+\ ---- A builder that queries another tree: the outer query's values go
+\ to its own output, the inner query's to the other's.
+create tree6 /dtree allot   tree6 /dtree erase
+create outs2 /slab allot   1 cells 1000 outs2 slab-init drop
+: nest ( r tr -- outcome )
+  2drop nat add0 tree outs2 lf-dtree-unify drop nat mul0 21 tree6 put ;
+tree6 lf-dtree-ready drop  ' nest tree6 lf-dtree-builder!  nat mul0 keys drop tree6 lf-dtree-root-add 2drop
+T{ nat mul0 tree6 unify-in 0 v@ outs2 slab-count -> 1 outcome-ok 21 4 }T
+
+\ ---- Tables that may not grow (htab-limit): the 13th child of a node,
+\ or the 13th root, finds the 16 slots full (3/4); full, not another
+\ answer.
+create tree7 /dtree allot   tree7 /dtree erase
+: put-in ( i tr -- outcome ) >r dup path rot r> lf-dtree-insert ;
+: oks ( xt -- n outcome )   \ xt ( i -- outcome ) for i = 0, 1, ... until it fails
+  0 300 0 do i 2 pick execute dup ok? 0= if rot drop unloop exit then drop 1+ loop nip outcome-ok ;
+: put7 ( i -- outcome ) tree7 put-in ;
+: root7 ( i -- outcome ) 200000 + own-key tree7 lf-dtree-root-add nip ;
+tree7 lf-dtree-ready drop  2 tree7 dt-edges htab-limit
+T{ ' put7 oks -> 12 outcome-full }T
+tree7 lf-dtree-free tree7 lf-dtree-ready drop  2 tree7 dt-roots-index htab-limit
+T{ ' root7 oks -> 12 outcome-full }T
+
 \ ---- Free and ready: nothing kept, made again empty.
 T{ tree lf-dtree-free tree lf-dtree-live? tree lf-dtree-ready tree lf-dtree-roots# nat add0 unify
    -> false outcome-ok 0 0 outcome-ok }T
 tree lf-dtree-free tree2 lf-dtree-free tree3 lf-dtree-free tree4 lf-dtree-free
+tree5 lf-dtree-free tree6 lf-dtree-free tree7 lf-dtree-free
 T{ lf-mctx-depth lf-mctx-marks -> 0 0 }T
 bye

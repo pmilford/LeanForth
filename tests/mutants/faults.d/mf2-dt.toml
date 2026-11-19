@@ -10,7 +10,7 @@ id = "mf2-step1-skipped"
 file = "src/front/instances.fs"
 old = '''  ['] it-class-pass it-ranks-pass ['] it-keys-ranks ok-and ;'''
 new = '''  it-keys-ranks ;'''
-test = "$GFORTH tests/front/instances-bad.fs && $GFORTH tests/front/instances.fs"
+test = "$GFORTH tests/front/instances-late.fs && $GFORTH tests/front/instances.fs"
 reason = "a record used unchecked: a root's build skips step 1, so instMulNat (class Add, filed under Mul) goes into Mul's tree unchecked and Mul's query answers instead of refusing (115)"
 
 [[fault]]
@@ -72,8 +72,8 @@ reason = "a node's child is never found by its key: every insertion makes a new 
 [[fault]]
 id = "dt-edge-key-ignored"
 file = "src/front/discr-tree.fs"
-old = '''  rot swap dt-edge-node over @ over dn-parent @ = if swap cell+ @ swap dn-key @ elab-key='''
-new = '''  rot swap dt-edge-node over @ over dn-parent @ = if 2drop true'''
+old = '''  swap dp-key @ swap dn-key @ elab-key= else 2drop false then ;'''
+new = '''  2drop true else 2drop false then ;'''
 test = "$GFORTH tests/front/discr-tree.fs"
 reason = "the child table compares the parent only: Add Nat's values go under the star child (or the reverse)"
 
@@ -100,3 +100,86 @@ old = ''': dt-root-same ( r k htab -- flag ) rot swap lf-dtree-root-key elab-key
 new = ''': dt-root-same ( r k htab -- flag ) 2drop drop false ;'''
 test = "$GFORTH tests/front/discr-tree.fs && $GFORTH tests/front/instances.fs"
 reason = "the roots table never finds a root: every value's root key is made a root again, and no query finds its root"
+
+# The Forth review of mf2-dt (2026-11-18): B2, B3, M1, m1.
+
+[[fault]]
+id = "dt-star-results-skipped"
+file = "src/front/discr-tree.fs"
+old = '''  dtq dt-star-root @ ?dup 0= if outcome-ok exit then'''
+new = '''  outcome-ok exit'''
+test = "$GFORTH tests/front/discr-tree.fs && $GFORTH tests/front/instances-bad.fs"
+reason = "getUnify drops getStarResult: values under the star root are never given, and a record filed there is never checked or refused (115)"
+
+[[fault]]
+id = "dt-star-root-unmarked"
+file = "src/front/discr-tree.fs"
+old = '''  dup dr@ dr-key @ elab-key-star? if dup 1+ dtq dt-star-root ! then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/discr-tree.fs && $GFORTH tests/front/instances-bad.fs"
+reason = "the star root is not kept apart, so getUnify never finds it and its values are lost"
+
+[[fault]]
+id = "dt-builder-out-lost"
+file = "src/front/discr-tree.fs"
+old = '''dq 2@ 2>r dtq dup dt-builder @ execute 2r> dq 2! ;'''
+new = '''dtq tuck dup dt-builder @ execute swap dt-use ;'''
+test = "$GFORTH tests/front/discr-tree.fs"
+reason = "a builder that queries another tree leaves that tree's output slab as the query's: the outer query's values go to the other output"
+
+[[fault]]
+id = "mf2-catch-forgets-refusal"
+file = "src/front/elab-pending.fs"
+old = '''  lf-inst-refusal 0= and ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "a try ... catch (lf-elab-catch) forgets a Lean error recorded while the data is refused, so elaboration may go on"
+
+[[fault]]
+id = "mf2-meta-refusal-ignored"
+file = "src/front/elab-pending.fs"
+old = '''  dup ok? if exit then dup ep-data-refused? if ep-data-refused exit then'''
+new = '''  dup ok? if exit then'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "a Meta failure while the data is refused is recorded as malformed (76), not the refusal (115) naming the record"
+
+[[fault]]
+id = "mf2-synth-refusal-ignored"
+file = "src/front/elab-pending.fs"
+old = '''  dup ep-data-refused? if ep-data-refused exit then
+  dup ep-synth-code?'''
+new = '''  dup ep-synth-code?'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "a failed search's own code (here 110) is recorded instead of the refusal (115)"
+
+[[fault]]
+id = "mf2-defaults-unhooked"
+file = "src/front/elab-pending.fs"
+old = '''' ep-default-instances is lf-elab-default-instances'''
+new = ''''''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "the elaborator's default instances answer the refusal without recording it (no 115)"
+
+[[fault]]
+id = "mf2-synthesize-refusal-passed"
+file = "src/front/elab-pending.fs"
+old = '''  lf-elab-at >r ep-loop r> lf-elab-at! ep-data-kept ;'''
+new = '''  lf-elab-at >r ep-loop r> lf-elab-at! ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "the synthesis step answers ok while the data is refused, so a declaration can go on"
+
+[[fault]]
+id = "mf2-settle-skipped"
+file = "src/front/elab-pending.fs"
+old = ''': ep-settle ( -- ) ep ep-code @ 0= if outcome-ok ep-data-kept drop then ;'''
+new = ''': ep-settle ( -- ) ;'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "a failure no step recorded is reported as malformed (76) with no record, though the data was refused"
+
+[[fault]]
+id = "mf2-end-name-unguarded"
+file = "src/front/elab-pending.fs"
+old = '''' ep-closing is lf-front-closing'''
+new = ''''''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "end NAME hands a declaration to the kernel though the data was refused (a caught failure on the way)"

@@ -236,7 +236,7 @@ an instance problem first needs it (its class, root key and keys; a
 default instance's class): one that differs stops the text, exit 4, with
 the data error and the record's name on the next line, and no
 declaration of the text is reported accepted. A record no problem needs
-is never checked. For example, with `tests/front/bad-keys.elab.ndjson`,
+is never checked. For example, with `tests/front/mul-wrong.elab.ndjson`,
 whose `instMulNat` is recorded as an instance of `Add` under `Mul`'s root,
 a text whose second theorem multiplies (`tests/front/check_elab.py`):
 

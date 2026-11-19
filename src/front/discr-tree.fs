@@ -37,14 +37,18 @@
 \   inserts root r's values (and no other root's) by lf-dtree-insert; on
 \   a failure every node and value made since is forgotten and r has no
 \   trie again, so the next query builds it anew. No builder (0): a root
-\   with no trie has no values.
+\   with no trie has no values. The builder may query or fill other
+\   trees (the query's tree and output slab are put back after it), not
+\   its own tree but by lf-dtree-insert under root r.
 \ - lf-dtree-unify ( e tree out -- outcome ): getUnify (Main.lean:567) at
 \   the transparency in force (the caller's withReducible): the values
 \   whose keys may unify with e appended to the slab out (one cell
 \   each), in Lean's order; on a key scope (lf-dt-scoped). The root key
-\   is getUnifyKeyArgs' (discr-keys.fs's lf-dt-key); a root no value has
-\   answers none; a star root (e a bare metavariable: Lean folds over
-\   every root) is unsupported. Below the root a key is made only where a
+\   is getUnifyKeyArgs' (discr-keys.fs's lf-dt-key); first come the
+\   values under the star root (getStarResult, Main.lean:561; built by
+\   the builder when it has no trie), then the walk of the key's root; a
+\   root no value has adds none; a star root key (e a bare metavariable:
+\   Lean folds over every root) is unsupported. Below the root a key is made only where a
 \   node has children, as Lean makes it; a star key visits every child,
 \   any other the star child, then the child of its key.
 \ - lf-dt-insert ( keys n v tree -- ) and lf-dt-get-unify ( e tree out
@@ -80,13 +84,15 @@ end-structure
 begin-structure /dtval  field: dv-value  field: dv-next  end-structure
 begin-structure /dtroot  field: dr-key  field: dr-trie  end-structure
 begin-structure /dtframe  field: df-todo  field: df-node  field: df-skip  end-structure
+begin-structure /dtprobe  field: dp-node  field: dp-key  end-structure   \ an edge sought
 begin-structure /dtree
   /htab +field dt-roots-index   \ first: its hooks find the tree at its address
   /htab +field dt-edges         \ a node's child by (node, key)
   /slab +field dt-roots   /slab +field dt-nodes   /slab +field dt-vals
   /slab +field dt-stack         \ getUnify's frames
   field: dt-live   field: dt-builder
-  2 cells +field dt-probe       \ an edge looked up: node, key
+  field: dt-star-root           \ the star root's number plus one, 0 for none
+  /dtprobe +field dt-probe
 end-structure
 begin-structure /dq  field: dq-tree  field: dq-out  end-structure
 /dq context-record: dq
@@ -113,10 +119,12 @@ create dt-root-hooks /htab-hooks allot
 ' dt-root-rehash ' dt-root-same dt-root-hooks htab-hooks!
 : dt-edge-hash ( node k -- h ) elab-key-hash swap hash-step ;
 : dt-edge-node ( c htab -- addr ) [ 0 dt-edges ] literal - dt-nodes slab-at ;
-: dt-edge-rehash ( c htab -- h ) dt-edge-node dup dn-parent @ swap dn-key @ dt-edge-hash ;
+\ A node's edge hash, as dt-edge-hash of its parent and key.
+: dn-hash ( addr -- h ) dup dn-key @ elab-key-hash swap dn-parent @ hash-step ;
+: dt-edge-rehash ( c htab -- h ) dt-edge-node dn-hash ;
 : dt-edge-same ( c probe htab -- flag )
-  rot swap dt-edge-node over @ over dn-parent @ = if swap cell+ @ swap dn-key @ elab-key=
-  else 2drop false then ;
+  rot swap dt-edge-node over dp-node @ over dn-parent @ = if
+  swap dp-key @ swap dn-key @ elab-key= else 2drop false then ;
 create dt-edge-hooks /htab-hooks allot
 ' dt-edge-rehash ' dt-edge-same dt-edge-hooks htab-hooks!
 
@@ -135,16 +143,23 @@ create dt-edge-hooks /htab-hooks allot
   dup /dtree erase dup dt-slabs-made ['] dt-roots-made ok-with ['] dt-edges-made ok-with
   dup ok? if drop true swap dt-live ! outcome-ok else swap lf-dtree-free then ;
 : lf-dtree-ready ( tree -- outcome )
-  dup lf-dtree-live? if drop outcome-ok else dt-made then ;
+  dup lf-dtree-live? 0= if dt-made exit then drop outcome-ok ;
 
 \ ---- Nodes and children: a new child is linked last, its edge in the
 \ table, and kept as the star child when its key is the star.
 : dts ( -- slab ) dtq dt-stack ;
-: dt-node-init ( k parent addr -- ) dup /dtnode -1 fill tuck dn-parent ! dn-key ! ;
+\ A new unit of slab, made by xt ( x addr -- ) from x.
+: dt-claimed ( x slab xt -- i outcome )
+  >r 1 over slab-claim ok-then? 0= if r> drop nip nip no-result exit then
+  tuck swap slab-at rot swap r> execute outcome-ok ;
+\ A new record of size bytes at addr: x in its first field, every other
+\ cell -1 (none).
+: dt-fresh ( x addr size -- ) over swap -1 fill ! ;
+: dn-init ( k addr -- ) /dtnode dt-fresh ;
 : dt-node-new ( k parent -- n outcome )
-  1 dtq dt-nodes slab-claim ok-then? 0= if nip nip no-result exit then
-  dup >r dn@ dt-node-init r> outcome-ok ;
-: dt-probe! ( k node -- probe ) dtq dt-probe tuck ! tuck cell+ ! ;
+  swap dtq dt-nodes ['] dn-init dt-claimed ok-then? 0= if nip no-result exit then
+  tuck dn@ dn-parent ! outcome-ok ;
+: dt-probe! ( k node -- probe ) dtq dt-probe >r r@ dp-node ! r@ dp-key ! r> ;
 : dt-edge-find ( k node -- c true | i false )
   2dup swap dt-edge-hash >r dt-probe! r> dtq dt-edges htab-find ;
 : dt-find-child ( k node -- c | -1 )
@@ -169,9 +184,8 @@ create dt-edge-hooks /htab-hooks allot
 : dt-val-find ( v n -- cell | -1 )
   dn@ dn-first @ begin dup 0< 0= while 2dup dv@ dv-value @ = if nip exit then
   dv@ dv-next @ repeat nip ;
-: dt-val-new ( v -- cell outcome )
-  1 dtq dt-vals slab-claim ok-then? 0= if nip no-result exit then
-  tuck dv@ tuck dv-value ! -1 swap dv-next ! outcome-ok ;
+: dv-init ( v addr -- ) /dtval dt-fresh ;
+: dt-val-new ( v -- cell outcome ) dtq dt-vals ['] dv-init dt-claimed ;
 : dt-append ( v n -- outcome )
   swap dt-val-new ok-then? 0= if nip exit then swap dn@
   dup dn-first @ 0< if 2dup dn-first ! else 2dup dn-last @ dv@ dv-next ! then
@@ -185,18 +199,18 @@ create dt-edge-hooks /htab-hooks allot
 : dt-path-from ( keys n node -- node' outcome )
   -rot dt-keys-rest tuck - swap ['] dt-descend-at ok-fold ;
 : dt-insert-at ( v keys n node -- outcome )
-  dt-path-from ok-then? if dt-insert-val else nip then ;
+  dt-path-from ok-then? 0= if nip exit then dt-insert-val ;
 
 \ ---- Roots (Lean's root map, a PersistentHashMap there).
 : dt-root-find ( k -- r true | i false ) dup elab-key-hash dtq dt-roots-index htab-find ;
 : lf-dtree-root ( k tree -- r true | false )
   dup lf-dtree-live? 0= if 2drop false exit then dt-use dt-root-find dup 0= if nip then ;
-: dt-root-claim ( k -- r outcome )
-  1 dtq dt-roots slab-claim ok-then? 0= if nip no-result exit then
-  tuck dr@ tuck dr-key ! -1 swap dr-trie ! outcome-ok ;
+: dr-init ( k addr -- ) /dtroot dt-fresh ;
+: dt-star-mark ( r -- r )   \ the star root kept apart (getStarResult)
+  dup dr@ dr-key @ elab-key-star? if dup 1+ dtq dt-star-root ! then ;
 : dt-root-put ( k i -- r outcome )
-  >r dt-root-claim ok-then? if dup r> dtq dt-roots-index htab-put outcome-ok
-  else r> drop no-result then ;
+  >r dtq dt-roots ['] dr-init dt-claimed ok-then? 0= if r> drop no-result exit then
+  dt-star-mark dup r> dtq dt-roots-index htab-put outcome-ok ;
 : dt-root-add ( k -- r outcome )
   dtq dt-roots-index htab-ready dup ok? 0= if nip no-result exit then drop
   dup dt-root-find if nip outcome-ok else dt-root-put then ;
@@ -207,13 +221,13 @@ create dt-edge-hooks /htab-hooks allot
   dup dr@ dr-trie @ dup 0< 0= if nip outcome-ok exit then drop
   dup dt-trie-new ok-then? if dr@ dr-trie @ outcome-ok else no-result then ;
 : dt-root-trie ( k -- node outcome )
-  dt-root-add ok-then? if dt-trie-of else no-result then ;
+  dt-root-add ['] dt-trie-of ok-and ;
 : dt-insert ( v keys n -- outcome )
   over dt-root-trie ok-then? if dt-insert-at else nip nip nip then ;
 : dt-ready-use ( tree -- outcome )
   dup lf-dtree-ready dup ok? if swap dt-use else nip then ;
 : lf-dtree-root-add ( k tree -- r outcome )
-  dt-ready-use ok-then? if dt-root-add else no-result then ;
+  dt-ready-use ['] dt-root-add ok-and ok-or-none ;
 : lf-dtree-insert ( keys n v tree -- outcome )
   dt-ready-use ok-then? if -rot dt-insert else nip nip then ;
 
@@ -223,12 +237,15 @@ create dt-edge-hooks /htab-hooks allot
 : dt-mark ( -- nodes vals ) dtq dt-nodes slab-count dtq dt-vals slab-count ;
 : dt-unedge ( n -- )
   dup dn@ dn-parent @ 0< if drop exit then
-  dup dn@ dup dn-parent @ swap dn-key @ dt-edge-hash dtq dt-edges htab-remove drop ;
+  dup dn@ dn-hash dtq dt-edges htab-remove drop ;
 : dt-back ( nodes vals -- )
   dtq dt-vals slab-cut dup dtq dt-nodes slab-count swap ?do i dt-unedge loop
   dtq dt-nodes slab-cut ;
-: dt-build-run ( r -- outcome )   \ the builder may use other trees: this one is put back
-  dup dt-trie-new ok-then? 0= if exit then dtq tuck dup dt-builder @ execute swap dt-use ;
+\ The builder may query or fill other trees: this query's tree and
+\ output are put back after it.
+: dt-build-run ( r -- outcome )
+  dup dt-trie-new ok-then? 0= if exit then
+  dq 2@ 2>r dtq dup dt-builder @ execute 2r> dq 2! ;
 : dt-built ( r -- outcome )
   dt-mark 2>r dup dt-build-run dup ok? if nip 2r> 2drop exit then
   swap -1 swap dr@ dr-trie ! 2r> dt-back ;
@@ -250,10 +267,10 @@ create dt-edge-hooks /htab-hooks allot
 : dt-push ( todo node skip -- outcome )
   over 0< if drop 2drop outcome-ok exit then
   1 dts slab-claim ok-then? 0= if nip nip nip exit then dt-frame! outcome-ok ;
-: dt-frame@ ( addr -- todo node skip ) dup df-todo @ over df-node @ rot df-skip @ ;
-: dt-pop ( -- todo node skip ) dts slab-last dt-frame@ dts slab-drop ;
-: dt-values-out ( node -- outcome )
-  dn@ dn-first @ begin dup 0< 0= while
+: dt-pop ( -- todo node skip )
+  dts slab-last dup df-todo @ over df-node @ rot df-skip @ dts slab-drop ;
+: dt-values-out ( node -- outcome )   \ none for a node below 0
+  dup 0< if drop outcome-ok exit then dn@ dn-first @ begin dup 0< 0= while
     dup dv@ dv-value @ dq dq-out @ slab-push dup ok? 0= if nip exit then drop
     dv@ dv-next @ repeat drop outcome-ok ;
 : dt-child ( n -- c ) dn@ dn-child @ ;
@@ -285,11 +302,17 @@ create dt-edge-hooks /htab-hooks allot
 
 \ ---- getUnify.
 : dt-walk-from ( list node -- outcome ) 0 dt-push dup ok? if drop dt-walk then ;
+\ getStarResult (Main.lean:561): the star root's values come first.
+: dt-star-results ( -- outcome )
+  dtq dt-star-root @ ?dup 0= if outcome-ok exit then
+  1- dt-root-ready ok-then? if dt-values-out then ;
+: dt-key-root ( list k -- outcome )
+  dt-root-find 0= if 2drop outcome-ok exit then
+  dt-root-ready ok-then? if dt-walk-from else nip then ;
 : dt-unify-run ( e -- outcome )
   true lf-dt-nil lf-dt-key ok-then2? 0= if exit then
   over elab-key-star? if 2drop outcome-unsupported exit then
-  swap dt-root-find 0= if 2drop outcome-ok exit then
-  dt-root-ready ok-then? if dt-walk-from else nip then ;
+  dt-star-results ok-then? if swap dt-key-root else nip then ;
 : lf-dtree-unify ( e tree out -- outcome )
   dq dq-out ! dup dt-use lf-dtree-live? 0= if drop outcome-ok exit then
   dts slab-clear ['] dt-unify-run lf-dt-scoped ;

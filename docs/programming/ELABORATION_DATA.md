@@ -521,7 +521,8 @@ and every later one, whatever its root, until the data is read again
 (`elab-generation` changes) or `lf-inst-reset`; `leanforth check` then
 stops the text (exit 4) with the error and the refused record's name. A
 record filed under a root no query asks is never checked and never
-found. A record whose star
+found; the star root's records are read, so checked, by every query, as
+Lean's getStarResult reads them. A record whose star
 covers a term the type gives, as a `no_index` annotation the export
 drops leaves it, makes that instance unverified (error 114). `make
 reference-synth` recomputes every Init instance and compares getInstances

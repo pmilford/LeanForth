@@ -1039,6 +1039,7 @@ test-instances:
 	$(RUN) $(GFORTH) tests/front/discr-tree.fs
 	$(RUN) $(GFORTH) tests/front/instances.fs
 	$(RUN) $(GFORTH) tests/front/instances-bad.fs
+	$(RUN) $(GFORTH) tests/front/instances-late.fs
 	$(RUN) $(GFORTH) tests/front/instances-odd.fs
 	$(RUN) $(GFORTH) tests/front/synth.fs
 reference-synth: RUN := timeout 3000

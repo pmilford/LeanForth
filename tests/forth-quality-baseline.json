@@ -499,9 +499,9 @@
   "globals": 2,
   "long lines": 0,
   "long words": 0,
-  "rstack": 27,
-  "shuffles": 8,
-  "words": 85
+  "rstack": 34,
+  "shuffles": 9,
+  "words": 91
  },
  "src/front/elab-app.fs": {
   "globals": 0,

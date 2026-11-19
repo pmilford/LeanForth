@@ -1802,19 +1802,25 @@ caller.
   insertion order (Lean's stored order when inserted in Lean's rank order,
   as the instance data are), the star child is kept apart, and a child is
   found through a second `htab` keyed by (node, key) (performance scan
-  A5). `getUnify` is Lean's process on an explicit frame stack: no host
-  recursion.
+  A5). `getUnify` gives the star root's values first (Lean's
+  `getStarResult`, Main.lean:561; the star root is kept apart, so this
+  is one read), then runs Lean's process from the key's root on an
+  explicit frame stack: no host recursion.
 - **Genericity.** Values are one cell, compared by `=`; any key of
   `elab-keys.fs`; any number of trees, each in its owner's record. A
   root can be built at its first query by the owner's builder (the
-  instance table checks the root's records first); a failed build keeps
-  nothing (nodes, cells and child-table entries since its mark).
+  instance table checks the root's records first; the star root is
+  built at every root's first query); a failed build keeps nothing
+  (nodes, cells and child-table entries since its mark). Not reentrant
+  on one tree; a builder may query or fill other trees, the query's tree
+  and output slab being put back after it.
 - **Cost.** An insertion costs one root lookup and one child lookup per
   key (each a few probes), plus a walk of the node's values (as Lean's
   `insertVal`); a query visits the nodes whose keys may unify. Memory: 8
   cells a node, 2 a value, 2 a root, and the two tables' 4-byte slots
   (at most 3/4 full).
-- **Measured** (gforth-fast, this machine, `.claude/work/mf2` harness): n
+- **Measured** (gforth-fast, this machine; `tests/front/dt-bench.fs`, and
+  `tests/front/inst-time.fs` for Init's sizes below): n
   values under one root, each with a child of its own, inserted then
   inserted again (every child found): 300 in 0.35 ms then 0.16 ms; 3,594
   (Mathlib's largest root) in 4.8 ms then 1.7 ms; 7,000 in 9.8 ms then

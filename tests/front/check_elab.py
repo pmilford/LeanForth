@@ -173,12 +173,12 @@ def check_limits():
 
 
 # MF2's rule (docs/design/MATHLIB_FRONT.md 3): instance records are checked
-# when first needed. tests/front/bad-keys.elab.ndjson holds a wrong record
+# when first needed. tests/front/mul-wrong.elab.ndjson holds a wrong record
 # (instMulNat, its class Add, filed under Mul's root) under the root only the
 # second theorem queries: the first theorem alone is accepted (exit 0); the
 # file with both stops at the second (exit 4) with the data error naming the
 # record, and no theorem of the text is reported accepted.
-REFUSED_DATA = "tests/front/bad-keys.elab.ndjson"
+REFUSED_DATA = "tests/front/mul-wrong.elab.ndjson"
 REFUSED_ENV = "tests/front/whnf-slice.ndjson"
 FIRST = "theorem t1\n  Nat explicit: n\n  Nat explicit: m\n  n m + n m + =\n:= by\n  by-rfl\nend t1\n"
 SECOND = "theorem t2\n  Nat explicit: n\n  Nat explicit: m\n  n m * n m * =\n:= by\n  by-rfl\nend t2\n"

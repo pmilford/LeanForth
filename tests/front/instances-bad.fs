@@ -11,9 +11,11 @@
 \ SHA-256 recomputed, so the reader accepts it). lf-inst-check answers
 \ invalid with error 113, 112 and 115, and unsupported (unverified) with
 \ error 114; lf-default-check invalid with error 116; the other records
-\ still check. A root key that is no constant, or another class's, is refused
-\ (error 115) by the first query, which refuses the data, and every later
-\ one, through each query word. Every T{ }T checks the data stack's depth.
+\ still check. A record under the star root is refused (error 115) by the
+\ first query of any root (Lean's getStarResult reads that root first),
+\ which refuses the data, and every later one, through each query word;
+\ a default instance of another class by that class's default instances.
+\ Every T{ }T checks the data stack's depth.
 include ../support/tester.fs
 \ Every module first: a context member declared after menv-load would
 \ move the context under the loaded slice.
@@ -39,46 +41,31 @@ T{ s" instMulNat" inst-named it-root-class? s" Nat.instMod" inst-named it-root-c
    s" instAddNat" inst-named it-root-class? -> false false true }T
 T{ lf-mctx-depth lf-mctx-marks -> 0 0 }T
 
-\ Each record is checked when first needed (MATHLIB_FRONT.md §3): the
-\ first query, of Add's root, whose records are right, answers in full
-\ although other roots' are wrong; the second, of Mul's root, meets
-\ instMulNat (its class Add): refused (115), the record named
+\ Each record is checked when first needed (MATHLIB_FRONT.md §3; the
+\ second query's refusal is tests/front/instances-late.fs's). Every
+\ getUnify reads the star root first (getStarResult, Main.lean:561), so
+\ the first query of any root builds it and meets Nat.instMod, filed
+\ under the star root: refused (115), the record named
 \ (lf-inst-refused-decl), and every later query by each word, the
 \ refusal kept (not found again: its code stays when the last error is
 \ cleared).
 : add-nat ( -- t ) l0 1 s" Add" cn nat app ;
-: mul-nat ( -- t ) l0 1 s" Mul" cn nat app ;
 : decl-named ( c-addr u -- d ) menv-name elab-decl-of drop ;
+: refused-by ( c-addr u -- flag ) decl-named lf-inst-refused-decl = ;
 : class-defaults ( c-addr u -- n outcome ) decl-named lf-default-instances rot drop ;
-T{ add-nat lf-inst-candidates rot drop lf-inst-error lf-inst-refusal -> 3 outcome-ok 0 0 }T
-T{ mul-nat lf-inst-candidates nip nip lf-inst-error lf-inst-refusal
-   lf-inst-refused-decl s" instMulNat" decl-named =
+T{ add-nat lf-inst-candidates nip nip lf-inst-error lf-inst-refusal s" Nat.instMod" refused-by
    -> outcome-invalid 115 115 true }T
 T{ 0 it it-error ! add-nat lf-inst-unify nip nip lf-inst-error -> outcome-invalid 115 }T
-T{ 0 it it-error ! s" Add" class-defaults nip lf-inst-error -> outcome-invalid 115 }T
+T{ 0 it it-error ! s" HAdd" class-defaults nip lf-inst-error -> outcome-invalid 115 }T
 T{ lf-inst-classes lf-mctx-depth lf-mctx-marks -> outcome-invalid 0 0 }T
-\ The other wrong records, each by the first query that needs it, the
-\ tables made anew before each (lf-inst-reset, as a new read): a key
-\ difference by its root's query (instOfNatNat, 113), a default
-\ instance of another class by that class's default instances (Pow's
-\ instOfNatNat, 116, then every query refused); the wide record is no
-\ refusal (114: unverified). A record filed under a root no query asks
-\ is never found, never refused (MATHLIB_FRONT.md §3, "what is lost"):
-\ instHDiv under HDiv of four arguments, Nat.instMod under the star root.
-: num ( u -- t ) lf-hterm-cell must drop ;
-: ofnat-nat ( -- t ) l0 1 s" OfNat" cn nat app 0 num app ;
-: refused-by ( c-addr u -- flag ) decl-named lf-inst-refused-decl = ;
-T{ lf-inst-reset ofnat-nat lf-inst-candidates nip nip lf-inst-error s" instOfNatNat" refused-by
-   -> outcome-invalid 113 true }T
+\ A default instance of another class, by that class's default
+\ instances, which read no root (Pow's instOfNatNat, 116, then every
+\ query refused); HAdd's are right. The tables are made anew before
+\ each (lf-inst-reset, as a new read).
 T{ lf-inst-reset s" Pow" class-defaults nip lf-inst-error s" instOfNatNat" refused-by
    -> outcome-invalid 116 true }T
 T{ 0 it it-error ! add-nat lf-inst-candidates nip nip lf-inst-error -> outcome-invalid 116 }T
-T{ lf-inst-reset s" HAdd" class-defaults -> 1 outcome-ok }T
-T{ l0 1 s" Sub" cn nat app lf-inst-candidates nip nip lf-inst-error lf-inst-refusal
-   -> outcome-ok 114 0 }T
-T{ l0 l0 l0 3 s" HDiv" cn nat app nat app nat app lf-inst-unify nip nip
-   l0 1 s" Mod" cn nat app lf-inst-unify nip nip lf-inst-refusal
-   -> outcome-ok outcome-ok 0 }T
+T{ lf-inst-reset s" HAdd" class-defaults lf-inst-refusal -> 1 outcome-ok 0 }T
 \ A record the pass of its root never reached is refused by its root key
 \ alone (instMulNat under Mul).
 T{ s" instMulNat" inst-named it-class-pass lf-inst-error -> outcome-invalid 115 }T

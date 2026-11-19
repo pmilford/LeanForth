@@ -390,11 +390,11 @@ end-structure
 \ ---- The roots: every value's root key, made once per data read
 \ (lf-inst-classes), by lib/htab.fs in the tree (discr-tree.fs).
 : it-value-root ( k -- outcome ) it-value it-root-key it-dt lf-dtree-root-add nip ;
-: it-roots-made ( -- outcome ) it-values# ['] it-value-root ok-each ;
 : it-tree-ready ( -- outcome )
   it-dt lf-dtree-ready dup ok? if ['] it-root-build it-dt lf-dtree-builder! then ;
-: it-pass-run ( -- outcome )
-  it-records-ready ['] it-tree-ready ok-and ['] it-roots-made ok-and ;
+: it-roots-made ( -- outcome ) it-values# ['] it-value-root ok-each ;
+: it-pass-run ( -- outcome )   \ the slabs, the tree with its builder, its roots
+  it-records-ready ['] it-tree-ready ok-and dup ok? if drop it-roots-made then ;
 : lf-inst-classes ( -- outcome )
   it-query it it-pass @ ?dup 0= if it-pass-run it-pass-keep exit then
   dup it-passed = if drop outcome-ok else it-fail then ;
