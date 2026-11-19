@@ -183,3 +183,11 @@ old = '''' ep-closing is lf-front-closing'''
 new = ''''''
 test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
 reason = "end NAME hands a declaration to the kernel though the data was refused (a caught failure on the way)"
+
+[[fault]]
+id = "mf2-hand-over-unguarded"
+file = "src/front/handover.fs"
+old = '''  lf-front-closing lf-front-header -rot lf-handover dup ok? 0= if lfh-code lfa-fail then'''
+new = '''  lf-front-header -rot lf-handover dup ok? 0= if lfh-code lfa-fail then'''
+test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
+reason = "the hand-over at end NAME no longer runs lf-front-closing: a declaration goes to the kernel though the data was refused (re-check N1)"

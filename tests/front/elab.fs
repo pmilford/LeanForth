@@ -524,7 +524,11 @@ T{ lf-elab-error-reset lf-elab-pending-reset lf-postpone-no lf-elab-synthesize c
    -> outcome-invalid 115 }T
 T{ lf-elab-error-reset outcome-invalid lf-elab-code drop termed? -> 115 true }T
 T{ ' lf-front-closing catch 0<> lf-inst-reset ' lf-front-closing catch -> true 0 }T
-lf-elab-error-reset
+\ The hand-over itself runs it first: refused data stops it with 115
+\ before the declaration is looked at.
+T{ refuse 0 lfa-error lfa-err-code ! -1 -1 ' lf-front-hand-over catch nip nip 0<> lf-author-code
+   -> true 115 }T
+lf-inst-reset lf-elab-error-reset
 T{ depth -> 0 }T
 cr .( elab.fs: all tests passed) cr
 bye
