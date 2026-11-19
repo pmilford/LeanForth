@@ -240,7 +240,7 @@ is never checked. For example, with `tests/front/mul-wrong.elab.ndjson`,
 whose `instMulNat` is recorded as an instance of `Add` under `Mul`'s root,
 a text whose second theorem multiplies (`tests/front/check_elab.py`):
 
-```console
+```text
 error: invalid: the LeanForth text was not checked: error 115 at line:col 14:1 (token `end`): elaboration data refused: an instance is filed under another root key than its class; see line:col 11:15
   instMulNat
 ```
