@@ -59,5 +59,15 @@ T{ solved ' lf-goal-assumption code1 -> -4201 }T
 \ evalTactic `assumption`, answers m := b.
 nat mv-opaque lf-mvar-new made constant ?o
 T{ fa ?o le goal closes h2 = ?o lf-instantiate! fb = -> true true }T
+\ defeq.fs's isAssignable under each flag: a synthetic opaque one only
+\ under assignSyntheticOpaque; a leaf with no record (not live) never.
+: assignable? ( mvar flags -- flag ) ['] de-assignable-mvar? swap lf-defeq-mode lf-meta-with ;
+: opaque-flags ( -- flags ) lf-defeq-flags lf-defeq-opaque or ;
+nat mv-opaque lf-mvar-new made constant ?o2
+: gone ( -- mvar ) 50000 mctx-epoch@ lf-mvar-leaf 0= abort" no leaf" ;   \ no record
+T{ ?o2 opaque-flags assignable? ?o2 lf-defeq-flags assignable? -> true false }T
+T{ gone opaque-flags assignable? gone lf-defeq-flags assignable? -> false false }T
+\ lf-mvar-open? (mvars.fs): an unassigned, not delayed metavariable only.
+T{ ?o2 lf-mvar-open? ?o lf-mvar-open? fa lf-mvar-open? -> true false false }T
 .( assumption test.fs: all tests passed) cr
 bye

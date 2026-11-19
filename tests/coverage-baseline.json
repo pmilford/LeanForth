@@ -1085,23 +1085,21 @@
   },
   "src/front/meta-tactic/apply.fs": {
    "blocks": 172,
-   "never_run": 10,
-   "reason": "coverage debt of slices a2-ii and a2-iii (owner rule of 2026-11-17), branch tactic-lib-a2ii, 2026-11-18; new file, 10: synthAppInstances' 384 (an instance found that isDefEq refuses, 149-151) and its second round (an instance found after one not found, 163-168), and appendParentTag passing an instance binder (183): no theorem of the S2 slice reaches them; plan 9.4.8l K"
+   "never_run": 0
   },
   "src/front/meta-tactic/constructor.fs": {
-   "blocks": 50,
+   "blocks": 49,
    "never_run": 1,
-   "reason": "coverage debt of slices a2-ii and a2-iii (owner rule of 2026-11-17), branch tactic-lib-a2ii, 2026-11-18; new file, 1: an inductive type with no data record (a malformed record, 62)"
+   "reason": "coverage debt of slices a2-ii and a2-iii (owner rule of 2026-11-17), branch tactic-lib-a2ii, 2026-11-18; new file, 1: an inductive type with no data record (a malformed record, mco-ctors); review tactic-a2ii (2026-11-18): the behaviour branches of apply.fs and tactic-core.fs are tested (debt 15 -> 4)"
   },
   "src/front/tactic-api.fs": {
-   "blocks": 25,
+   "blocks": 34,
    "never_run": 3,
-   "reason": "coverage debt of slices a2-ii and a2-iii (owner rule of 2026-11-17), branch tactic-lib-a2ii, 2026-11-18; new file, 3: a registered word whose spelling no row has (unreachable: lf-tactic: makes both) and a row-less kind before it (58-61)"
+   "reason": "coverage debt of slices a2-ii and a2-iii (owner rule of 2026-11-17), branch tactic-lib-a2ii, 2026-11-18; new file, 3: a registered word whose spelling no row has (unreachable: lf-tactic: makes both) and a row-less kind before it (tap-kind-of)"
   },
   "src/front/tactic-core.fs": {
    "blocks": 12,
-   "never_run": 1,
-   "reason": "coverage debt of slices a2-ii and a2-iii (owner rule of 2026-11-17), branch tactic-lib-a2ii, 2026-11-18; new file, 1: a term that elaborates to a bare metavariable (Lean synthesizes it, not ported: 99; plan 9.4.8l K)"
+   "never_run": 0
   }
  }
 }

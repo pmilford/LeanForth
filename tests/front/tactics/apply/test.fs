@@ -115,6 +115,14 @@ T{ s" a._@.Init._hyg.5" tagged dup s" zero" lfa-intern lf-goal-tag-append tag@
    s" zero.a" lfa-intern = -> true }T
 T{ s" left" tagged dup s" x._@.M._hyg.1" lfa-intern lf-goal-tag-append tag@
    s" x.left._@.M._hyg.1" lfa-intern = -> true }T
+\ The name store refusing the new tag (no room): thrown full (-4206),
+\ the goal's tag unchanged.
+: names-full ( -- ) lf-name-count @ lf-name-capacity! drop ;
+: names-back ( cap -- ) lf-name-capacity! drop ;
+: full-append ( goal parent -- code )
+  lf-name-capacity >r names-full ['] lf-goal-tag-append catch nip nip r> names-back ;
+T{ s" right" tagged dup s" fresh9" lfa-intern full-append swap tag@ s" right" lfa-intern =
+   -> -4206 true }T
 \ ---- A type whose conclusion is a metavariable (Lean's hasMVarHead):
 \ the range is numArgs alone. Lean applies h : ?P to a ≤ b with no
 \ argument, ?P := a ≤ b; LeanForth's isDefEq answers ?P =?= a ≤ b not
@@ -177,10 +185,9 @@ T{ true0 goal rounds-hyp 2dup lf-goal-apply run-count rot goal-value rot rounds-
   type0  0 bv add  true0  true0  3 bv hadd pit s" h2" lf-binder-default rec
   pit s" h1" lf-binder-default rec  pit s" i" lf-binder-instance rec
   pit s" al" lf-binder-implicit rec hyp ;
-: tag-text ( goals k -- c-addr u ) run@ tag@ lf-name-text ;
 : zero-goal ( -- goal ) nat hadd goal dup s" zero" lfa-intern lf-mvar-tag! made ;
 T{ zero-goal skip-hyp lf-goal-apply dup run-count over 0 run@ tag@ s" zero.h1" lfa-intern =
-   rot 1 tag-text s" h2" compare -> 2 true 0 }T
+   rot 1 run@ tag@ s" h2" lfa-intern = -> 2 true true }T
 lf-tac-forget
 \ elabTermForApply's term that is still a metavariable (Lean then
 \ synthesizes; not ported): error 99. No LeanForth term elaborates to a

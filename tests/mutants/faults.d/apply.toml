@@ -136,7 +136,7 @@ id = "goal-tag-suffix-hygienic"
 file = "src/front/meta-tactic/goal.fs"
 old = ''': mtg-plus ( tag base -- base' ) swap lf-pp-unhygienic dup lf-name-depth rot mtg-graft ;'''
 new = ''': mtg-plus ( tag base -- base' ) swap dup lf-name-depth rot mtg-graft ;'''
-test = "GFORTH=$GFORTH python3 tests/front/tactics/apply/check.py"
+test = "$GFORTH tests/front/tactics/apply/test.fs"
 reason = "review tactic-a2ii M1: the goal's tag keeps its macro scopes (zero.a._@... where Lean's appendTag erases them: zero.a)"
 
 [[fault]]
@@ -178,3 +178,11 @@ old = '''  over lf-view-count ['] lv-named? find-last-index if nip true else dro
 new = '''  over lf-view-count ['] lv-named? find-index if nip true else drop false then ;'''
 test = "$GFORTH tests/front/goals.fs"
 reason = "review tactic-a2ii B3b: a name finds the oldest local of that name, not the newest (Lean's findFromUserName?)"
+
+[[fault]]
+id = "goal-tag-full-silent"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mtg-graft ( name t base -- name' ) lf-name-graft 0= if outcome-full lf-must then ;'''
+new = ''': mtg-graft ( name t base -- name' ) lf-name-graft 0= if 0 then ;'''
+test = "$GFORTH tests/front/tactics/apply/test.fs"
+reason = "review tactic-a2ii M1: a tag the name store refuses becomes the anonymous tag, silently, instead of a full store thrown"

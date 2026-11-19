@@ -229,7 +229,7 @@
   "long words": 2,
   "rstack": 28,
   "shuffles": 13,
-  "words": 126
+  "words": 128
  },
  "src/core/constant-term-scope.fs": {
   "globals": 0,
@@ -419,9 +419,9 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 36,
+  "rstack": 34,
   "shuffles": 9,
-  "words": 70
+  "words": 69
  },
  "src/front/assign-check.fs": {
   "globals": 0,
@@ -485,7 +485,7 @@
   "long words": 0,
   "rstack": 9,
   "shuffles": 5,
-  "words": 300
+  "words": 301
  },
  "src/front/discr-keys.fs": {
   "globals": 0,
@@ -619,7 +619,7 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 20,
+  "rstack": 19,
   "shuffles": 5,
   "words": 50
  },
@@ -700,8 +700,8 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 2,
-  "shuffles": 2,
-  "words": 24
+  "shuffles": 0,
+  "words": 30
  },
  "src/front/meta-tactic/apply.fs": {
   "globals": 0,
@@ -716,32 +716,32 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 0,
-  "shuffles": 3,
-  "words": 5
+  "shuffles": 0,
+  "words": 7
  },
  "src/front/meta-tactic/constructor.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 4,
-  "shuffles": 3,
+  "rstack": 2,
+  "shuffles": 1,
   "words": 17
  },
  "src/front/meta-tactic/goal.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 16,
-  "shuffles": 5,
+  "rstack": 8,
+  "shuffles": 2,
   "words": 17
  },
  "src/front/mvars.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 31,
+  "rstack": 26,
   "shuffles": 2,
-  "words": 237
+  "words": 238
  },
  "src/front/nat-offset.fs": {
   "globals": 0,
@@ -787,17 +787,17 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 6,
+  "rstack": 4,
   "shuffles": 1,
-  "words": 4
+  "words": 10
  },
  "src/front/tactic-basic.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 14,
+  "rstack": 10,
   "shuffles": 0,
-  "words": 119
+  "words": 104
  },
  "src/front/tactic-core.fs": {
   "globals": 0,
@@ -873,11 +873,11 @@
  },
  "src/front/telescope.fs": {
   "globals": 0,
-  "long lines": 1,
+  "long lines": 0,
   "long words": 0,
   "rstack": 33,
   "shuffles": 7,
-  "words": 64
+  "words": 63
  },
  "src/front/term-eqv.fs": {
   "globals": 0,

@@ -56,7 +56,7 @@ require ./apply.fs
 
 \ ---- matchConstInduct on getType''s head: the head constant and its
 \ inductive type's constructors, else error 382.
-: mco-failed ( goal code -- ) >r ['] lf-tac-goal-of. lf-tac-detail r> lf-tac-stop ;
+: mco-failed ( goal code -- ) swap ['] lf-tac-goal-of. lf-tac-detail lf-tac-stop ;
 : mco-decl ( c -- d ) lf-const-name lf-menv-find lf-must ;
 : mco-inductive? ( head -- flag )
   dup lf-term-const? if mco-decl lf-menv-kind lf-kind-inductive = else drop false then ;
@@ -66,7 +66,7 @@ require ./apply.fs
   dup lf-goal-type lf-instantiate! lf-whnf! lf-instantiate! lf-meta-head
   dup mco-inductive? if nip exit then drop lfa-e-ctor-target mco-failed 0 ;
 \ Constructor k at the head's levels (mkConst ctor us).
-: mco-ctor ( head k -- name ) >r mco-ctors drop r> cells + @ ;
+: mco-ctor ( head k -- name ) swap mco-ctors drop swap cells + @ ;
 : mco-const ( head name -- e ) swap lf-const-levels lf-mk-const-id ;
 : mco-at ( head k -- e ) over swap mco-ctor mco-const ;
 
@@ -84,7 +84,7 @@ require ./apply.fs
   >r 2dup r> mco-at ['] mco-probe lf-commit-when drop ;
 
 \ The first constructor that applies, applied again for real; none: error 383.
-: mco-apply ( head goal k -- goals ) >r swap r> mco-at lf-goal-apply ;
+: mco-apply ( head goal k -- goals ) rot swap mco-at lf-goal-apply ;
 : mco-none ( head goal -- 0 ) nip lfa-e-ctor-none mco-failed 0 ;
 : lf-goal-constructor ( goal -- goals )
   lf-goal-not-assigned dup mco-head tuck dup mco-ctors nip ['] mco-tried? find-index
