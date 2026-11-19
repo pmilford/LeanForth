@@ -92,7 +92,7 @@ See also [obsolete/README.md](obsolete/README.md) for documents that a newer one
 - [DONE_CHECKER.md](development/DONE_CHECKER.md) — the independent check that work called done is integrated and works end to end; status stages.
 - [ADDING_A_TACTIC.md](development/ADDING_A_TACTIC.md) — how to add a tactic word as a plug-in: the Lean call list, `lf-tactic:`, codes, tests and faults.
 - [forth-reviews/](development/forth-reviews/LOG.md) — the Forth review log and every review report (required for each Forth change).
-- [done-checks/](development/done-checks/2026-11-12-audit.md) — done-checker reports, starting with the first audit of 2026-11-12.
+- [done-checks/](development/done-checks/2026-11-12-audit.md) — done-checker reports, starting with the first audit of 2026-11-12; the second done check of slice S2 is [done-checks/2026-11-19-s2.md](development/done-checks/2026-11-19-s2.md) (the first: [2026-11-18-s2.md](development/done-checks/2026-11-18-s2.md)).
 - [process-audits/](development/process-audits/2026-11-12-agents-md.md) — audits of the AGENTS.md rules against practice.
 - [ci-results.log](development/ci-results.log) — every push's local CI results with the Gforth and Lean versions (written by `scripts/push.sh`).
 - [src/lib/README.md](../src/lib/README.md) — the reusable Forth libraries: what each file is, the most useful ones for other projects, how to load them.
