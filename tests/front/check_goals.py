@@ -29,7 +29,7 @@ import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an e
 
 
 @functools.lru_cache(maxsize=None)
-def lean():
+def lean_binary():
     """The Lean to run: scripts/lean_pin.py's pinned_lean ($LEAN, else this
     checkout's pinned toolchain), refused before it runs when it is an elan
     proxy or not Lean 4.35.0 (Forth review of reuse-b, finding 4)."""
@@ -75,7 +75,7 @@ def blocks(text):
 
 
 def lean_text():
-    run = subprocess.run([lean(), LEAN_FILE], cwd=ROOT, stdin=subprocess.DEVNULL,
+    run = subprocess.run([lean_binary(), LEAN_FILE], cwd=ROOT, stdin=subprocess.DEVNULL,
                          capture_output=True, text=True, timeout=LIMIT)
     if run.returncode != 0 or run.stderr:
         raise Failure(f"lean {LEAN_FILE}: exit {run.returncode}\n{run.stdout}{run.stderr}")

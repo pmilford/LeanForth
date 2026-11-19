@@ -32,7 +32,7 @@ import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an e
 
 
 @functools.lru_cache(maxsize=None)
-def lean():
+def lean_binary():
     """The Lean to run: scripts/lean_pin.py's pinned_lean ($LEAN, else this
     checkout's pinned toolchain), refused before it runs when it is an elan
     proxy or not Lean 4.35.0 (Forth review of reuse-b, finding 4)."""
@@ -111,12 +111,12 @@ def check(export, data):
 
 
 def check_lean():
-    done = run([lean(), "-DwarningAsError=true", "tests/front/bk-init.lean"])
+    done = run([lean_binary(), "-DwarningAsError=true", "tests/front/bk-init.lean"])
     failures = [] if done.returncode == 0 and done.stdout.splitlines() == \
         GOLDEN.read_text(encoding="utf-8").splitlines() else [f"bk-init.lean: {done.stdout[-600:]}"]
     if "--write-golden" in sys.argv:
         GOLDEN.write_text(done.stdout, encoding="utf-8")
-    done = run([lean(), "-DwarningAsError=true", "tests/front/bk-init-wrong.lean"])
+    done = run([lean_binary(), "-DwarningAsError=true", "tests/front/bk-init-wrong.lean"])
     if done.returncode != 1 or "Type mismatch" not in done.stdout:
         failures.append(f"bk-init-wrong.lean: exit {done.returncode}: {done.stdout[-400:]}")
     return failures

@@ -30,7 +30,7 @@ import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an e
 
 
 @functools.lru_cache(maxsize=None)
-def lean():
+def lean_binary():
     """The Lean to run: scripts/lean_pin.py's pinned_lean ($LEAN, else this
     checkout's pinned toolchain), refused before it runs when it is an elan
     proxy or not Lean 4.35.0 (Forth review of reuse-b, finding 4)."""
@@ -47,7 +47,7 @@ class Mismatch(Exception):
 
 
 def lean_output(path):
-    result = subprocess.run([lean(), "-DwarningAsError=true", str(path)], capture_output=True,
+    result = subprocess.run([lean_binary(), "-DwarningAsError=true", str(path)], capture_output=True,
                             text=True, timeout=TEST_LIMIT)
     if result.returncode != 0:
         raise Mismatch(f"Lean failed on {path}:\n{result.stdout}{result.stderr}")

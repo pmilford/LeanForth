@@ -43,7 +43,7 @@ import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an e
 
 
 @functools.lru_cache(maxsize=None)
-def lean():
+def lean_binary():
     """The Lean to run: scripts/lean_pin.py's pinned_lean ($LEAN, else this
     checkout's pinned toolchain), refused before it runs when it is an elan
     proxy or not Lean 4.35.0 (Forth review of reuse-b, finding 4)."""
@@ -229,7 +229,7 @@ MISUSES = (
 
 
 def lean(path):
-    done = run([lean(), "-j", "2", "-DwarningAsError=true", path])
+    done = run([lean_binary(), "-j", "2", "-DwarningAsError=true", path])
     return done.returncode, done.stdout + done.stderr
 
 

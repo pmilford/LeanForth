@@ -73,7 +73,7 @@ import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an e
 
 
 @functools.lru_cache(maxsize=None)
-def lean():
+def lean_binary():
     """The Lean to run: scripts/lean_pin.py's pinned_lean ($LEAN, else this
     checkout's pinned toolchain), refused before it runs when it is an elan
     proxy or not Lean 4.35.0 (Forth review of reuse-b, finding 4)."""
@@ -406,14 +406,14 @@ def check_boundary():
 
 
 def check_lean(write):
-    done = run([lean(), "-DwarningAsError=true", "tests/front/s2-proofs.lean"])
+    done = run([lean_binary(), "-DwarningAsError=true", "tests/front/s2-proofs.lean"])
     if done.returncode != 0:
         raise Failure(f"s2-proofs.lean: exit {done.returncode}\n{done.stdout}{done.stderr}")
     if write:
         GOLDEN.write_text(done.stdout, encoding="utf-8")
     elif done.stdout.splitlines() != GOLDEN.read_text(encoding="utf-8").splitlines():
         raise Failure("s2-proofs.lean: pinned Lean's output is not s2-proofs.golden")
-    done = run([lean(), "-DwarningAsError=true", "tests/front/s2-wrong.lean"])
+    done = run([lean_binary(), "-DwarningAsError=true", "tests/front/s2-wrong.lean"])
     out = done.stdout + done.stderr
     missing = [text for text in LEAN_WRONG if text not in out]
     if done.returncode == 0 or missing:

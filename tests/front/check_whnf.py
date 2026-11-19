@@ -39,7 +39,7 @@ import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an e
 
 
 @functools.lru_cache(maxsize=None)
-def lean():
+def lean_binary():
     """The Lean to run: scripts/lean_pin.py's pinned_lean ($LEAN, else this
     checkout's pinned toolchain), refused before it runs when it is an elan
     proxy or not Lean 4.35.0 (Forth review of reuse-b, finding 4)."""
@@ -440,7 +440,7 @@ def lean_lines():
     if LEAN_FILE.read_text(encoding="utf-8") != lean_source():
         raise Failure(f"{LEAN_FILE.relative_to(ROOT)} differs from the cases: "
                       "python3 tests/front/check_whnf.py --write")
-    return run([lean(), "-DwarningAsError=true", str(LEAN_FILE.relative_to(ROOT))])
+    return run([lean_binary(), "-DwarningAsError=true", str(LEAN_FILE.relative_to(ROOT))])
 
 
 def forth_lines():

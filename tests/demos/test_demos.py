@@ -33,7 +33,7 @@ import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an e
 
 
 @functools.lru_cache(maxsize=None)
-def lean():
+def lean_binary():
     """The Lean to run: scripts/lean_pin.py's pinned_lean ($LEAN, else this
     checkout's pinned toolchain), refused before it runs when it is an elan
     proxy or not Lean 4.35.0 (Forth review of reuse-b, finding 4)."""
@@ -53,13 +53,13 @@ def run(command, **extra):
 
 def lean_check(demo, work):
     """Pinned Lean's #check line for the demo's theorem."""
-    code, text = run([lean(), "-DwarningAsError=true", "-o", f"{work}/{demo['module']}.olean",
+    code, text = run([lean_binary(), "-DwarningAsError=true", "-o", f"{work}/{demo['module']}.olean",
                       str(HERE / f"{demo['module']}.lean")])
     if code != 0:
         raise Mismatch(f"{demo['module']}: Lean failed:\n{text}")
     probe = pathlib.Path(work) / f"Probe_{demo['module']}.lean"
     probe.write_text(f"import {demo['module']}\n#check @{demo['theorem']}\n", encoding="utf-8")
-    code, text = run([lean(), "-DwarningAsError=true", str(probe)], env={"LEAN_PATH": work})
+    code, text = run([lean_binary(), "-DwarningAsError=true", str(probe)], env={"LEAN_PATH": work})
     if code != 0:
         raise Mismatch(f"{demo['module']}: Lean's #check failed:\n{text}")
     return text.strip()
@@ -68,7 +68,7 @@ def lean_check(demo, work):
 def export(demo, work):
     path = f"{work}/{demo['id']}.ndjson"
     code, text = run(["bash", "scripts/export.sh", path, demo["module"], "--", demo["theorem"]],
-                     env={"LEAN_PATH": work, "LEAN": lean()})
+                     env={"LEAN_PATH": work, "LEAN": lean_binary()})
     if code != 0:
         raise Mismatch(f"{demo['module']}: export failed:\n{text}")
     return path
