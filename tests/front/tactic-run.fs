@@ -180,6 +180,15 @@ T{ printed unsolved-line compare -> 0 }T
 T{ s" n by-induction end t" later -> 76 1 45 0 }T
 T{ token s" by-induction" compare -> 0 }T
 T{ s" n by-induction-with | zero => by-rfl by-end end t" later -> 76 1 45 0 }T
+\ (an alternative whose name its block's eliminator lacks, which the
+\ names' check never lets through: the record refused, 92; step 2 is
+\ the | zero of the record just read, the information has no case)
+: header-info ( -- info ) 0 4 0 do 0 run-push made loop ;
+: k-in ( i -- code ) drop header-info tal tal-info ! 2 tal tal-step ! ['] tal-k! catch ;
+lf-tac-forget
+T{ 2 lf-tactic-step tac-name @ s" zero" lfa-intern = -> true }T
+T{ 0 ' k-in lf-tac-in-record lf-author-code -> lf-author-throw 92 }T
+lf-tac-forget
 \ (by-case: runs since branch s2-rest, src/front/tactics/case.fs, end to end
 \ in check_s2.py; its row is set back to not ported here, for 80.)
 ' lf-tac-later 5 tac-k-case lfr-set

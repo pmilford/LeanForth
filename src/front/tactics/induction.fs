@@ -29,9 +29,9 @@ require ../tactic-api.fs
 
 \ ---- The target: a free variable that is not a let.
 : tind-refused ( -- ) lfa-e-tac-form lf-tac-fail ;
-: tind-target ( i -- fvar )
-  0 lf-tac-arg -1 false lf-tac-elab-term dup lf-meta-fvar? 0= if tind-refused then
-  dup lf-fvar-let? if tind-refused then ;
+: tind-fvar ( e -- fvar )
+  dup lf-meta-fvar? 0= if tind-refused then dup lf-fvar-let? if tind-refused then ;
+: tind-target ( i -- fvar ) 0 lf-tac-arg -1 false lf-tac-elab-term tind-fvar ;
 \ generalizeVars: a hypothesis whose type depends on the target.
 : tind-depends? ( target local -- target flag )
   lf-local-fvar 2dup = if drop false exit then

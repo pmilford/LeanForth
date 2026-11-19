@@ -626,3 +626,94 @@ old = ''': trw-see ( k -- ) lfa-error lfa-err-see @ 0< if trw-at lfa-see! else d
 new = ''': trw-see ( k -- ) trw-at lfa-see! ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "9.4.8l-I C3 rw: the rule's place overwrites the second place of an error recorded already"
+
+# --- meta-tactic/elim.fs, tactic-alts.fs, tactic-run.fs's lf-tactic-alt!, meta-tactic/rename.fs
+# (plan 9.4.8l-I commit C4) ------------------------------------------------------
+
+[[fault]]
+id = "lib-elim-custom-ignored"
+file = "src/front/meta-tactic/elim.fs"
+old = '''  if swap mel-custom else drop false then ;'''
+new = '''  if drop then drop false ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "C4: getCustomEliminator? never consulted, so Nat's induction takes Nat.rec, not the data's Nat.recAux"
+
+[[fault]]
+id = "lib-elim-cases-rec"
+file = "src/front/meta-tactic/elim.fs"
+old = '''  >r lf-menv-name r> if s" rec" else s" casesOn" then lfa-intern-part lf-menv-find'''
+new = '''  >r lf-menv-name r> drop s" rec" lfa-intern-part lf-menv-find'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "C4: cases (induction? false) takes T.rec, where Lean's builtin eliminator is T.casesOn"
+
+[[fault]]
+id = "lib-elim-nested-taken"
+file = "src/front/meta-tactic/elim.fs"
+old = '''  lf-ity-nested lf-more-field if over ['] mel-nested. mel-unsupported then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "C4: a nested inductive type (Lean.Syntax) taken, where Lean refuses it with 209 and its hint"
+
+[[fault]]
+id = "lib-elim-alt-tag-plain"
+file = "src/front/meta-tactic/elim.fs"
+old = '''  mea mea-tag @ mea-info@ mea-next lf-elim-alt-name lf-name-append-tag ;'''
+new = '''  mea-info@ mea-next lf-elim-alt-name ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "C4: mkElimApp's alternatives keep their bare names, not the goal's tag appended (appendTag: t.zero)"
+
+[[fault]]
+id = "lib-elim-target-type-unchecked"
+file = "src/front/meta-tactic/elim.fs"
+old = '''  lf-term-first@ mea mea-target @ lf-infer! lf-tac-defeq lf-must 0= if'''
+new = '''  lf-term-first@ mea mea-target @ lf-infer! lf-tac-defeq lf-must drop false if'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "C4: a target whose type is not the eliminator's major premise's (b : Bool for Nat.rec) is applied, not refused (99)"
+
+[[fault]]
+id = "lib-elim-motive-unchecked"
+file = "src/front/meta-tactic/elim.fs"
+old = '''  over lf-goal-type over lf-infer! swap lf-tac-defeq lf-must 0= if'''
+new = '''  over lf-goal-type over lf-infer! swap lf-tac-defeq lf-must drop false if'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "C4: setMotiveArg assigns a motive whose type does not fit (Nat -> Type for Nat -> Prop), not 212"
+
+[[fault]]
+id = "lib-elim-frame-kept"
+file = "src/front/meta-tactic/elim.fs"
+old = '''  mea-frames ['] mea-framed lf-with-record ;'''
+new = '''  mea-frames 1 over slab-claim 2drop ['] mea-framed lf-with-record ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "C4: mkElimApp leaves a frame behind on the slab (a call nested in another reads the wrong one)"
+
+[[fault]]
+id = "lib-alts-twice-unchecked"
+file = "src/front/tactic-alts.fs"
+old = '''  tal-js slab-count 0 ?do i tal-earlier? if'''
+new = '''  tal-js slab-count 0 ?do false if'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
+reason = "C4: checkAltNames lets an alternative name come twice (Lean's 213, Duplicate alternative name)"
+
+[[fault]]
+id = "lib-alts-names-unfit"
+file = "src/front/tactic-alts.fs"
+old = '''  tal-explicit# tal-given# < if 0 ['] tal-too-many. lf-tac-inline'''
+new = '''  false if 0 ['] tal-too-many. lf-tac-inline'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
+reason = "C4: an alternative with more names than explicit fields is not refused (Lean's 208, Too many variable names)"
+
+[[fault]]
+id = "tac-alt-row-unset"
+file = "src/front/tactic-run.fs"
+old = '''  lfr-row trow-alt ! ['] lfr-alt tac-k-alt lf-tactic-action! ;'''
+new = '''  lfr-row trow-alt ! ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
+reason = "C4: lf-tactic-alt! records the block's alternative but leaves | not ported (80)"
+
+[[fault]]
+id = "lib-rename-frame-kept"
+file = "src/front/meta-tactic/rename.fs"
+old = '''  dup mrn-any? 0= if drop exit then mrn-frames ['] mrn-framed lf-with-record ;'''
+new = '''  dup mrn-any? 0= if drop exit then mrn-frames 1 over slab-claim 2drop ['] mrn-framed lf-with-record ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "C4: renameInaccessibles leaves a frame behind on its slab"

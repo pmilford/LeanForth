@@ -689,6 +689,11 @@ T{ f9 4 s" Nat.rec" lf-meta-app-of? f9 lf-term-second@ fn9 = alts9 run-count fra
    -> true true 2 true }T
 T{ alts9 0 run@ lf-goal-tag s" t.zero" name= alts9 1 run@ lf-goal-tag s" t.succ" name=
    motive9 lf-goal-kind -> true true mv-opaque }T
+\ (List.rec's {α} an implicit binder: a natural metavariable, which the
+\ target's type assigns Nat)
+s" List.rec" decl lf-elim-info fl9 0 lf-elim-app drop run-count swap lf-term-first@ lf-term-first@
+  lf-term-first@ lf-term-first@ lf-term-second@ constant alpha9 constant alts#9
+T{ alts#9 alpha9 lf-instantiate! nat lf-meta-eqv made frames9? -> 2 true true }T
 : app-code ( info target -- code ) 0 ['] lf-elim-app catch dup if >r 2drop drop r> else
   nip nip nip then ;
 T{ nat-info fb9 app-code lf-author-code frames9? -> lf-author-throw 99 true }T
@@ -731,6 +736,41 @@ nat s" m" binder constant fm9   fm9 fm9 lf-mk-eq s" hm" binder drop
 T{ fm9 0 ' indep lf-tac-in-record lf-author-code -> lf-author-throw 99 }T
 lf-tac-forget
 T{ fn9 0 ' indep lf-tac-in-record -> 0 }T
+\ The target: a term that is no free variable, or a let variable (flet
+\ of part 2), refused (99).
+T{ zero ' tind-fvar code1 lf-author-code -> lf-author-throw 99 }T
+lf-tac-forget
+T{ flet ' tind-fvar code1 lf-author-code fn9 tind-fvar fn9 = -> lf-author-throw 99 true }T
+lf-tac-forget
+\ The branches no proof text reaches: 205's message cut when the type
+\ does not print; a head constant that names no declaration, or no
+\ inductive type (no recursor); a declaration with no inductive data
+\ (93); mkElimApp past the last alternative (an information of Nat.rec
+\ that lists zero alone: succ's binder an implicit argument).
+T{ -1 ' mel-major. sunk 2drop -> outcome-invalid }T
+T{ s" No.such.type" lfa-intern 0 lf-mk-const-id mel-inductive s" Nat.add" lf-mk-const0
+   mel-inductive -> false false }T
+: simple-code ( -- code ) nat s" Nat.add" decl ['] mel-simple catch dup if nip nip then ;
+T{ simple-code lf-author-code -> lf-author-throw 93 }T
+lf-tac-forget
+: first-cells ( info n -- info' ) 0 swap 0 ?do over i run@ run-push made loop nip ;
+T{ nat-info 7 first-cells fn9 0 lf-elim-app drop run-count nip frames9? -> 1 true }T
+\ tactic-alts.fs, in a step record: Lean's orList of the alternatives not
+\ written (none here: tal-js empty) for none, two and three; a field past
+\ the kinds the eliminator gives (99); a field that is not explicit takes
+\ no name; a target the goal depends on is not cleared (tryClear).
+: alt+ ( info c-addr u -- info' ) lfa-intern run-push made 0 run-push made 0 run-push made ;
+: expected-in ( info i -- c-addr u ) drop tal tal-info ! tal-js slab-clear ['] tal-expected. sunk ;
+: expected ( info -- c-addr u ) 0 ['] expected-in lf-tac-in-record ;
+T{ nat-info 4 first-cells expected s" There are no unhandled alternatives" compare -> 0 }T
+T{ nat-info expected s" Expected `zero` or `succ`" compare -> 0 }T
+T{ nat-info s" c" alt+ expected s" Expected `zero`, `succ`, or `c`" compare -> 0 }T
+: kind-in ( info i -- code ) drop tal tal-info ! 0 tal tal-k ! 0 ['] tal-kind code1 ;
+T{ nat-info 0 ' kind-in lf-tac-in-record lf-author-code -> lf-author-throw 99 }T
+lf-tac-forget
+T{ lf-binder-implicit tal-name-for -> 0 }T
+: cleared-in ( target i -- goal ) drop tal tal-target ! tal-cleared lf-goals 0 run@ ;
+T{ fn9 0 ' cleared-in lf-tac-in-record g9 = -> true }T
 
 \ ---- 10. A mutual type (209, Lean's text and hint): FE6.Even of
 \ tests/front/several.ndjson, a library of its own.
