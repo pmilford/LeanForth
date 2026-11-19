@@ -123,16 +123,36 @@ and checked for shape and references; nothing is type-checked. A bad file
 gives one line instead, for example `error: invalid: unexpected character
 (line 1, byte 0)`, and exit status 1; a report ends with exit status 0.
 
-Translate a Forth file into the program IR (from inside Gforth, after
-`.tools/gforth/bin/gforth src/main.fs`):
+Translate a Forth file into the program IR. The IR 0.1 reader,
+`src/program/ir-reader.fs`, is the tests' oracle and not part of
+`src/main.fs`: load it by itself (`$GFORTH` is
+`.tools/gforth/bin/gforth`), or with `require src/program/ir-reader.fs`
+at the Gforth prompt:
 
-```forth
-: type-line ( c-addr u -- ) type cr ;
-' type-line s" src/program/clamp.fs" lf-ir-read-file .
+```console
+$ $GFORTH src/program/ir-reader.fs -e ": type-line ( c-addr u -- ) type cr ; ' type-line s\" src/program/clamp.fs\" lf-ir-read-file . bye"
+lf-ir 0.1
+source src/program/clamp.fs
+word lf-clamp @12:1
+  prim 2dup @13:3
+  prim > @13:8
+  if @13:10
+    prim 2drop @13:13
+    prim drop @13:19
+    prim false @13:24
+    exit @13:30
+  then @13:35
+  prim >r @14:3
+  prim max @14:6
+  prim r> @14:10
+  prim min @14:13
+  prim true @14:17
+end @14:22
+0
 ```
 
 It prints the IR text shown in [program IR](../programming/PROGRAM_IR.md)
-and then the outcome, 0. Any word outside IR 0.1 stops it with one
+and then the outcome, 0 (`make check-doc-examples` runs this example). Any word outside IR 0.1 stops it with one
 diagnostic line and *unsupported*, *invalid* or *full*.
 
 Print the proof outline of every declaration of a Lean export (or of the

@@ -184,6 +184,8 @@ DOC_EXAMPLE_PAGES := docs/user/CONCEPTS.md docs/user/TERM_PRINTER.md \
 	docs/user/READING_A_LEAN_PROOF.md
 # Its LeanForth examples run through the authoring words (src/author/).
 DOC_EXAMPLE_PAGES += docs/user/LEANFORTH_SYNTAX.md
+# Its console example runs the IR 0.1 reader by itself (review reuse-b, 1).
+DOC_EXAMPLE_PAGES += docs/user/RUNNING_THE_CHECKS.md
 check-doc-examples:
 	$(RUN) python3 scripts/check-doc-examples.py --gforth $(GFORTH) $(DOC_EXAMPLE_PAGES)
 
