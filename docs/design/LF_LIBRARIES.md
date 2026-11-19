@@ -1,13 +1,14 @@
 # LeanForth's own libraries: the elaborator library and the simp and rewriting library
 
-Design (2026-11-18), not yet reviewed; nothing built. Plan row PD20 of [PLAN_DRAFT.md](../project/PLAN_DRAFT.md) and
-the owner's decision of 2026-11-18: LeanForth-specific libraries in PD20's order, the first two being (1) an
-**elaborator library** and (2) a **simp and rewriting library**, designed with their interactions with the tactic
-library and the tactics. Builds on [TACTIC_PLUGINS.md](TACTIC_PLUGINS.md) (the tactic library),
-[SIMP_DATA.md](SIMP_DATA.md) (simp's data, slices SP1a-SP4, S7, S8), [MATHLIB_FRONT.md](MATHLIB_FRONT.md) (MF) and
-[FE2_TERMS.md](FE2_TERMS.md) (FE2), and does not repeat them. Lean references are to pinned Lean 4.35.0's
-`src/lean/Lean/`. Every size marked *estimate* is one; every measurement names its command in appendix C. Appendices:
-A and B the two libraries' public words and Lean functions, C measurements, D which tactic calls what.
+Design (2026-11-18), revised after its architecture review (section 10); nothing built. Plan row PD20 of
+[PLAN_DRAFT.md](../project/PLAN_DRAFT.md) and the owner's decision of 2026-11-18: LeanForth-specific libraries in
+PD20's order, the first two being (1) an **elaborator library** and (2) a **simp and rewriting library**, designed
+with their interactions with the tactic library and the tactics. Builds on [TACTIC_PLUGINS.md](TACTIC_PLUGINS.md) (the
+tactic library), [SIMP_DATA.md](SIMP_DATA.md) (simp's data, slices SP1a-SP4, S7, S8),
+[MATHLIB_FRONT.md](MATHLIB_FRONT.md) (MF) and [FE2_TERMS.md](FE2_TERMS.md) (FE2), and does not repeat them. Lean
+references are to pinned Lean 4.35.0's `src/lean/Lean/`. Every size marked *estimate* is one; every measurement names
+its command in appendix C. Appendices: A and B the two libraries' public words and Lean functions, C measurements, D
+which tactic calls what, E the words used here (read it first if a term is new), F libraries 3-8 of PD20.
 
 ## For the owner (one page)
 
@@ -16,9 +17,11 @@ order, same resulting term), that several tactics and the term front end call, s
 copy. The tactic library (term builders, binders, goal operations) is the first; this design adds two more.
 
 **Library 1, the elaborator library.** Turning what the user wrote into a Lean term: inserting hidden (implicit)
-arguments, unifying, passing the expected type down, finding instances, and, new, inserting coercions. Most of it
-(about 70%, an estimate) exists already, under other names (`elab-term.fs`, `elab-app.fs`, `elab-pending.fs`, 1,691
-lines). What is missing is (a) its face for tactics: today the tactics reach it through a hook in the declaration
+arguments, unifying, passing the expected type down, finding instances, and, new, inserting coercions. What exists is
+the S1/S2 core, about a third of appendix A's Lean functions by Lean lines (*estimate*: about 1,100 of 2,900;
+`elab-term.fs`, `elab-app.fs`, `elab-pending.fs`, 1,691 lines): elabTerm, the instance calls, synthesis, binop% and
+most of elabAppArgs. Most of the rest is FE2's (binders, `fun`, `let`, implicit lambdas, postponement, field
+notation). What is missing is (a) its face for tactics: today the tactics reach it through a hook in the declaration
 glue; (b) a registry of term forms, so the many forms of FE2 can be written in separate files at the same time; (c)
 one saved state across the layers, so a failed attempt is undone everywhere; (d) coercions (plan FE4).
 
@@ -32,42 +35,20 @@ call it; `ring` and `omega` do not need it.
 lemma, and side goals left by a rule, each node for node Lean's. Then `simp only [...]` (SP1b, in two parts, the
 second rewriting under binders), coercions such as `n + i` with `n : Nat`, `i : Int` (FE4a), and FE2's statements.
 
-**Five changes to the tactic library, now rather than later** (section 4.2): one saved state across Meta, Term and
-Tactic; library words that can be re-entered (simp calls itself); the elaboration hook replaced by library words; a
-shared reader for rule lists and `at h`; a rebuild walk that may throw. Each is small today and costly later.
+**Six changes to the tactic library, all in package LA** (section 4.2): one saved state across Meta, Term and Tactic;
+library words that can be re-entered (simp calls itself); the elaboration hook replaced by library words; a shared
+reader for rule lists and `at h`; frames freed when a word throws; a public depth scope. Each is small today and
+costly later.
 
-**Sizes (estimates).** Library 1 grows by about 1,000 lines of Forth (LA's part and FE4a) plus FE2's own; library 2
+**Sizes (estimates).** Library 1 grows by about 1,000 lines of Forth in LA and FE4a, plus about 2,300 in FE2's slices
+(about 1,200 Lean lines: binders, implicit lambdas, postponement, overloads, fields, `runTactic`); library 2
 by about 4,000 (LA's part, the index, SP1b, SP1c), each with tests about as large. Measured yardstick: 1.3-2.1 file
-lines of Forth per Lean line ported (appendix C); SIMP_DATA's slice sizes used 1.2 with tests and are about half
-of this.
+lines of Forth per Lean line ported (appendix C); SIMP_DATA's SP1b figure (1,400 with tests) is
+about 37% of this design's (3,700).
 
-**Recommendation.** Approve the layers and the two scopes; build package LA first, beside MF2 and S3; then SP1b,
-FE4a and FE2's forms in parallel (section 6). Seven questions (section 10).
-
-## 0. Words used here
-
-- **Term, type, metavariable.** A term is Lean's data for an expression; its type is another term. A *metavariable*
-  is a hole in a term, to be filled later (by unification, an instance search or a tactic).
-- **Elaboration.** Turning written text into a complete term. *Implicit arguments* are those the user does not
-  write (`@id Nat 3` written `id 3`); the elaborator inserts a metavariable for each. The *expected type* is the type
-  the context wants; passing it down lets the elaborator fill holes earlier. *Unification* (`isDefEq`) makes two terms
-  equal by filling metavariables. *Instance synthesis* finds a value for a class argument (`Add Nat`).
-  A *coercion* is a conversion Lean inserts when types differ (`↑n : Int` for `n : Nat`).
-- **Layers.** Lean's code is in layers: `Meta` (terms, whnf, isDefEq, inferType), `Elab.Term` (the term
-  elaborator), `Meta.Tactic` (operations on one goal), `Elab.Tactic` (tactics as the user writes them). A lower layer
-  never calls a higher one, except through a named hook.
-- **Outcome word, throwing word.** LeanForth's Meta core returns an outcome (ok, invalid, unsupported, exhausted,
-  full); the tactic library's words throw on failure as Lean's do (`meta-must.fs`); the throw code keeps the outcome.
-- **Discrimination tree.** An index from a term's shape (its *keys*) to stored values, used to find the instances or
-  simp lemmas that may apply to a term without trying all of them.
-- **Simp lemma, simp set, simproc.** An equation `simp` may use left to right; a named collection of them; a built-in
-  procedure that rewrites (`2 + 3` to `5`).
-- **Simp.Result and Simp.Step.** `Result` is a new term with a proof that it equals the old one (or no proof, when
-  they are equal by definition). `Step` says what to do next with a result: stop, visit its parts, or continue.
-- **Congruence.** Turning proofs about parts into a proof about the whole (`a = b` gives `f a = f b`); *under
-  binders*, inside `fun x => …` or `∀ x, …`, which needs `funext` or `forall_congr`.
-- **Motive.** In `rw`, the function `fun _a => target-with-_a` whose two applications are the old and new goal.
-- **Frame.** A record on a heap stack, which LeanForth uses instead of host recursion (`lib/frame.fs`).
+**Recommendation.** Approve the layers and the two scopes; build package LA first, beside MF2 and S3; then SP1b, FE4a
+and FE2's forms in parallel (section 6). Seven questions (section 9); the review's findings in section 10. Terms are
+defined in appendix E.
 
 ## 1. The layers
 
@@ -134,7 +115,8 @@ by instances (1) and simp (2), as in Lean (`Meta/DiscrTree`).
 
 **Scope.** Lean's `Elab.Term` for the forms LeanForth reads, and its tactic face, `Elab/Tactic/ElabTerm.lean`. The
 Lean functions, with where each stands, are in appendix A. Instance search itself (`synth.fs`, Meta/SynthInstance)
-stays Meta core; the elaborator's calls to it (`mkInstMVar`, `synthesizeInstMVarCore`, default instances) are library 1.
+stays Meta core; the elaborator's calls to it (`mkInstMVar`, `synthesizeInstMVarCore`, default instances) are library
+1.
 
 **Public words** (stack effects in appendix A.1). Existing outcome words stay: `lf-elab-term`, `lf-elab-ensuring`,
 `lf-elab-type`, `lf-elab-ensure`, the `lf-elab-app-*` activations, `lf-elab-inst-mvar`, `lf-elab-synth-core`,
@@ -143,30 +125,33 @@ stays Meta core; the elaborator's calls to it (`mkInstMVar`, `synthesizeInstMVar
 `lf-tac-elab-for-apply` (moved), `lf-tac-collecting-goals`, `lf-close-main-goal-using`. FE4a adds `lf-coerce`,
 `lf-coerce-to-fun`, `lf-coerce-to-sort` and `lf-elab-mk-coe`; FE2's words (FE2_TERMS §5.5) become registered forms.
 
-**Data structures.** The syntax store (`syntax.fs`); application activations and their slabs on frames (`elab-app.fs`);
-the pending list with windows and the first-error record (`elab-pending.fs`); binop trees (`elab-term.fs`); new: the
-form registry (an `lib/xt-table.fs` table by syntax kind, a chain per kind tried newest first, as the tactic rows);
-the Term part of the saved state (pending window, first error, later FE2c's postponed list).
+**Data structures.** The syntax store (`syntax.fs`); application activations and their slabs on frames
+(`elab-app.fs`); the pending list with windows and the first-error record (`elab-pending.fs`); binop trees
+(`elab-term.fs`); new: the form registry (an `lib/xt-table.fs` table by syntax kind, a chain per kind tried newest
+first, as the tactic rows); the Term part of the saved state (pending window, first error, later FE2c's postponed
+list).
 
-**Needs.** From the Meta core: whnf, isDefEq, inferType, instantiateMVars, synth, the environment view. From the tactic
-library: `lf-mk-app-m` (binop%), telescopes (default instances). From the data: instances, default instances,
+**Needs.** From the Meta core: whnf, isDefEq, inferType, instantiateMVars, synth, the environment view. From the
+tactic library: `lf-mk-app-m` (binop%), telescopes (default instances). From the data: instances, default instances,
 reducibility, binder kinds (FE1c-bk), and, for FE4a, the `coe_decl` tag that `expandCoe` reads (Coe.lean:21-29), which
-no data format carries yet (question 6). No kernel word: the kernel checks the finished term only.
+no data format carries yet (question 6; `Init/Coe.lean:135-254` tags ten declarations). No kernel word: the kernel
+checks the finished term only.
 
 **Outcomes.** Lean's errors keep their codes (125-139, FE2's 140-199) and stay invalid; a form or case not ported is
 unsupported (99, 131-139), never accepted; fuel gives exhausted, no room full. The tactic face throws with the outcome
 in the code (`meta-must.fs`), so unsupported never turns into a Lean error.
 
 **Size** (*estimates*, file lines of Forth at the measured 1.9 per Lean line, appendix C; tests about as large): LA's
-part about 450 (240 Lean lines: the tactic face, saved state, the registry) plus moving the seven kinds; FE4a about 570
-(300 Lean lines). FE2 keeps its own design's sizes.
+part about 450 (240 Lean lines: the tactic face, saved state, the registry) plus moving the seven kinds; FE4a about
+570 (300 Lean lines). FE2 keeps its own design's sizes.
 
 ## 3. Library 2: the simp and rewriting library
 
-**Scope.** Lean's `Meta/DiscrTree` (queries), `Meta/KAbstract`, `Meta/Tactic/Rewrite`, `Replace`, `Meta/Tactic/Simp/*`,
-`Meta/CongrTheorems`, `Meta/ACLt` and `Meta/Transform`; its Elab face is `Elab/Tactic/Rewrite.lean`,
-`Elab/Tactic/Location.lean` and `Elab/Tactic/Simp.lean`'s argument reader (`elabSimpArgs`, `mkSimpContext`), which
-`simp`, `simp_all`, `simpa`, `norm_num` and `field_simp` share. Appendix B lists the functions.
+**Scope.** Lean's `Meta/DiscrTree` (queries), `Meta/KAbstract`, `Meta/Tactic/Rewrite`, `Replace`,
+`Meta/Tactic/Simp/*`, `Meta/CongrTheorems`, `Meta/ACLt` and `Meta/Transform`; its Elab face is
+`Elab/Tactic/Rewrite.lean`, `Elab/Tactic/Location.lean` and `Elab/Tactic/Simp.lean`'s argument reader (`elabSimpArgs`,
+`mkSimpContext`), which `simp`, `simp_all`, `simpa`, `norm_num` and `field_simp` share. Appendix B lists the
+functions.
 
 **Public words** (all throw, as Lean's MetaM; stack effects in appendix B.1), by group: the index (`lf-dt-insert`,
 `lf-dt-get-unify`, `lf-dt-get-match`, `lf-dt-get-match-extra`); rewriting (`lf-meta-rewrite`,
@@ -178,15 +163,21 @@ part about 450 (240 Lean lines: the tactic face, saved state, the registry) plus
 `lf-simp-goal`); simprocs (`lf-simproc:`); the Elab face (`lf-simp-elab-args`).
 
 **Data structures.** `Result` and `Step` records on frames; the simp context (configuration as `Simp.Config`, sets,
-congruence lemmas) and methods (pre, post, discharge as execution tokens, so `norm_num1` plugs its `derive` in as Lean's
-does, Mathlib `NormNum/Core.lean:220-248`); the cache, a `lib/memo.fs` table from term to result per call (Lean's
-`Cache`, Types.lean:57); simp sets as discrimination trees with `lib/htab.fs` maps by name and origin; the "used"
-list for `simp?` later. The traversal runs on `lib/frame.fs` frames, no host recursion; a simp call re-entered (from a
-discharger or a congruence hypothesis) opens new frames, never shares a record.
+congruence lemmas) and methods (pre, post, discharge as execution tokens, so `norm_num1` plugs its `derive` in as
+Lean's does, Mathlib `NormNum/Core.lean:220-248`); Lean's `State` as it is (Types.lean:248-255): three caches in one
+state shared by the whole call, nested discharges included (`cache` term to result, `congrCache`, `dsimpCache`;
+`lib/memo.fs` tables), the used-theorems list and the step count; a discharge runs with the cache preserved and the
+used list put back (`withPreservedCache`, Rewrite.lean:45-47), nesting capped by `maxDischargeDepth`
+(Rewrite.lean:40); new local lemmas get a fresh cache (`withFreshCache`, Main.lean:270, 287). Simp sets are
+discrimination trees with `lib/htab.fs` maps by name and origin. The traversal runs on `lib/frame.fs` frames, no host
+recursion; a nested simp call pushes its own frames on the same shared state, as Lean's does. SP1b-i ports the state
+and the cache; SP2b the discharge rules.
 
 **Needs.** From the Meta core: whnfCore, isDefEq, inferType, instantiateMVars, `fun-info.fs` (extended with Lean's
 `ParamInfo` dependency fields for `getCongrSimpKinds`), `meta-config.fs` (transparency and `simpGlobalConfig`), a
-throw-safe rebuild walk (`transform.fs`, section 4.2 item 5). From the tactic library: `mkCongrArg`, `mkEqTrans`,
+throw-safe rebuild walk (`transform.fs`, section 4.2 item 5), `lf-with-new-depth` (`withNewMCtxDepth`,
+Simp/Rewrite.lean:179, 188, 257, Main.lean:586) and `lf-meta-at` for `withSimpContext`'s `withReducible`
+(Types.lean:963-966). From the tactic library: `mkCongrArg`, `mkEqTrans`,
 `mkEqMPR`, telescopes, `mkLambdaFVars`; new builders `mkCongr`, `mkCongrFun`, `mkFunExt`, `mkPropExt`, `mkImpCongr`,
 `mkForallCongr`, `mkOfEqTrue`, `mkEqTrue` (AppBuilder.lean:255, 232, 598, 602, 669, 678, 636, 648) with their first
 callers. From the data: format 4 (SIMP_DATA §3) through SP1a's reader. From the hand-over: helper theorems (Lean's
@@ -229,19 +220,26 @@ Rewrite 300, lemma intake 45); SP1c about 1,330 (700 Lean: congruence 385, prepr
 2. **Library words can be re-entered.** `meta-tactic/apply.fs` says "one apply runs at a time"; `kabstract.fs` keeps
    one record `kab`. Lean's simp calls itself (its discharger, congruence hypotheses), `norm_num`'s `derive` recurses,
    Mathlib's `gcongr` and `positivity` nest `apply`. Rule: a library word keeps its working record on a frame stack
-   (as `elab-app.fs` does); one not yet re-entrant detects re-entry and answers unsupported. Change `apply.fs`'s record
-   now, while it is new. (The Meta core's leaf calls, finished before the next starts, may stay as they are.)
+   (as `elab-app.fs` does); one not yet re-entrant detects re-entry and answers unsupported. Change `apply.fs`'s
+   record in LA, once `tactic-lib-a2ii` has merged. (The Meta core's leaf calls, finished before the next starts, may
+   stay as they are.)
 3. **The elaboration hook goes.** `lf-tac-elab` (`tactic-basic.fs:139`, set at `elab-decl.fs:152`) becomes the word
-   `lf-tac-elab-term` of library 1's tactic face (`elab/tactic-term.fs`), with `lf-tac-elab-for-apply` moved there from
-   `tactic-core.fs`. `tactic-core.fs` already requires `elab-term.fs`, so the hook only hides the dependency.
+   `lf-tac-elab-term` of library 1's tactic face (`elab/tactic-term.fs`), with `lf-tac-elab-for-apply` moved there
+   from `tactic-core.fs`. `tactic-core.fs` already requires `elab-term.fs`, so the hook only hides the dependency.
 4. **A shared reader for rule lists and locations.** `by-rw[` has its own reader (`tactic-syntax.fs:232-240`). `simp`,
-   `simp_rw`, `norm_num [..]`, `field_simp` and `ring_nf at h` need the same list with `←` (later `-name`, `*`, `↓`) and
-   `at h`/`at *` (Lean's `rwRuleSeq`, `simpArgs`, `location`). Change: a "rule list" shape with a location suffix, in
-   the registry's shape records (TACTIC_PLUGINS §3.2), before any of those words is added.
-5. **A rebuild walk that may throw.** No throwing word may run inside a `dw-run` walk (`dag-walk.fs:149`,
+   `simp_rw`, `norm_num [..]`, `field_simp` and `ring_nf at h` need the same list with `←` (later `-name`, `*`, `↓`)
+   and `at h`/`at *` (Lean's `rwRuleSeq`, `simpArgs`, `location`). Change: a "rule list" shape with a location suffix,
+   in the registry's shape records (TACTIC_PLUGINS §3.2), before any of those words is added.
+5. **Frames freed when a word throws.** No throwing word may run inside a `dw-run` walk (`dag-walk.fs:149`,
    `meta-must.fs:34`). `dsimp`, `zetaReduce` (S3) and `expandCoe` (FE4a) are Lean's `Meta.transform`
-   (Transform.lean:98, 179) with callbacks that throw. Change: the reuse pass's planned single rebuild walk is written
-   CATCH-safe (its memo freed on both paths) in `transform.fs`; S3 builds it first and the others reuse it.
+   (Transform.lean:98, 179) with callbacks that throw. The rule is wider than walks (`meta-must.fs:31-37`: also
+   defeq's machine, synth's search and the elaborator's frames), and simp's own traversal frames will be such code.
+   Change: every frame stack a library word opens is freed on both paths (a CATCH at its entry word); the reuse pass's
+   planned rebuild walk is written so in `transform.fs`, S3 building it first, and simp's frames from SP1b-i.
+6. **A public, throw-safe depth scope.** Simp tries lemmas and congruence theorems in a new metavariable depth
+   (`withNewMCtxDepth`, Simp/Rewrite.lean:179, 188, 257; Main.lean:586); today only `app-builder.fs`'s private
+   `abm-deeper` (`:224-226`) opens one under throws. Change: `lf-with-new-depth ( i*x xt -- j*x )` in `meta-must.fs`,
+   `abm-deeper` on it, in LA.
 
 Not changes, but rules for both libraries: their state lives in their own frame records, never in a tactic's step
 record (32 cells, `tactic-run.fs:173`); `mkAuxLemma` (AuxLemma.lean:43) is one word in `handover.fs`, built by S4's
@@ -284,10 +282,10 @@ words, `by-rw[`, `by-exact`, …) beside their pinned-Lean twins.
 
 | Slice | Command at the end (`bin/leanforth check --env init.ndjson --elab-data init.elab.ndjson FILE.lf`, or a slice of `Init` holding the lemmas named) | Contains | Forth + tests | Gates | Needs |
 | --- | --- | --- | ---: | --- | --- |
-| **LA** the elaboration API and the rewrite library | a file with `rw [← h] at h2`, `rw [Nat.lt_iff_add_one_le]` (an Iff rule, `propext` in the axiom report), `rw [Nat.sub_add_cancel]` leaving the side goal `m ≤ n` closed by `exact h`: accepted, node for node Lean's; wrong twins exit 4 with Lean's texts; every S1/S2 dump byte-identical | §4.2 items 1-4; `elab/tactic-term.fs`; the form registry with the seven kinds moved; `meta-tactic/rewrite.fs` (moved from `tactic-rewrite.fs`, plus `symm`, Iff, instance binders, new goals); `replaceLocalDecl`; locations | 1,000 + 900 | [parser]: `at`, `←`, no other text changes meaning | a2-ii, a2-iii merged |
-| **MF2+DT** | MF2's command (MATHLIB_FRONT §8) | MF2; the trie moved to `discr-tree.fs` with insertion that replaces in place, `instances.fs` on it | 600 + 400 | MF2's | `names-index` (merged) |
-| **SP1a** (reader) | SIMP_DATA's SP1a | format 4 read and checked | per SIMP_DATA | [import]/[format] approved | the tool (`simp-data-tool`), FE1c-bk merged |
-| **SP1b-i** simp core | `by-simp-only[ Nat.add_zero ]` proves `n + 0 + 0 = n` and `f (n + 0) = f n`; `by-simp-only[ ]` on a goal it cannot change failing with Lean's "simp made no progress" | Result, Step, congrArgs with automatic congruence, `getMatch`/`getMatchWithExtra`, `rewrite?` and `tryTheorem?` for unconditional Eq lemmas, the cache, `simpTarget`, `applySimpResult`, `of_eq_true` | 1,250 + 900 | [parser] (`by-simp-only[`) | LA, MF2+DT, SP1a |
+| **LA** the elaboration API and the rewrite library | a file with `rw [← h] at h2`, `rw [Nat.lt_iff_add_one_le]` (an Iff rule, `propext` in the axiom report), `rw [Nat.sub_add_cancel]` leaving the side goal `m ≤ n` closed by `exact h`: accepted, node for node Lean's; wrong twins exit 4 with Lean's texts; every S1/S2 dump byte-identical | §4.2 items 1-4 and 6; `elab/tactic-term.fs`; the form registry with the seven kinds moved; `meta-tactic/rewrite.fs` (moved from `tactic-rewrite.fs`, plus `symm`, Iff, instance binders, new goals); `replaceLocalDecl`; locations | 1,000 + 900 | [parser]: `at`, `←`, no other text changes meaning | a2-ii, a2-iii merged; S2's done-check fixes merged (the baseline dumps are then a done state) |
+| **MF2+DT** | MF2's command (MATHLIB_FRONT §8) | MF2; the trie moved to `discr-tree.fs` with insertion that replaces in place, `instances.fs` on it (taken from SP1a's row, so `instances.fs` is edited in one slice) | 600 + 400 | MF2's | `names-index` (merged) |
+| **SP1a** (reader) | SIMP_DATA's SP1a | format 4 read and checked; no longer the trie's move (now MF2+DT) | per SIMP_DATA less the move | [import]/[format] approved | the tool (`simp-data-tool`), FE1c-bk merged |
+| **SP1b-i** simp core | `by-simp-only[ Nat.add_zero ]` proves `n + 0 + 0 = n` and `f (n + 0) = f n`; `by-simp-only[ ]` on a goal it cannot change failing with Lean's "simp made no progress" | Result, Step, congrArgs with automatic congruence, `getMatch`/`getMatchWithExtra` (with their first caller, moved from SP1a), `rewrite?` and `tryTheorem?` for unconditional Eq lemmas, the cache, `simpTarget`, `applySimpResult`, `of_eq_true` | 1,250 + 900 | [parser] (`by-simp-only[`) | LA, MF2+DT, SP1a |
 | **SP1b-ii** under binders | `(fun x => x + 0) = (fun x => x)` and `(∀ x, x + 0 = 1) ↔ (∀ x, x = 1)` by `by-simp-only[ Nat.add_zero ]` | `simpLambda` (funext), `simpForall`, `simpArrow`, `simpLet`, `simpProj`, `dsimp` on `transform.fs`, `rfl` lemmas without proof steps | 850 + 700 | — | SP1b-i, S3's walk |
 | **FE4a** coercions | `theorem t (n : Nat) (i : Int) : n + i = i + n := by rw [Int.add_comm]` accepted, the statement `↑n + i = i + ↑n` node for node Lean's; `#check` lines of `Int.natCast_add` | `coerce?`, `coerceSimple?`, `expandCoe`, to-function, to-sort, `mkCoe`, the four 131 sites | 570 + 600 | [parser]; [format] for the `coe_decl` tag (question 6) | LA, S3's walk |
 | **SP1c** | SIMP_DATA's SP1c: `↔`, `¬`, `←`, hypotheses, through `if` | `mkCongrSimp?`, `@[congr]`, `preprocess` with helper theorems, `isPerm`, `acLt` | 1,330 + 1,000 | [parser]; helper theorems as S4 decides | SP1b-ii, S4's services |
@@ -296,58 +294,34 @@ Then SP2a, SP2b, SP3, SP4, MF3a, MF3b, S8a1, S7, S8a2 and S8b as SIMP_DATA and M
 S6 as FE2_TERMS cuts them, each form a file on the registry.
 
 **SIMP_DATA's estimates.** On the measured yardstick SP1b is about 3,700 lines with tests, not 1,400, and SP1c about
-2,300, not 1,200: hence SP1b's two parts, each about the size of a tactic-library piece.
+2,300, not 1,200 (about 37% and 52%): hence SP1b's two parts, each about the size of a tactic-library piece.
 
 **Order and parallel work** (recommended; at most three front-end agents at a time, no shared file twice):
 
-1. Now, in flight: a2-ii and a2-iii (`tactic-lib-a2ii`), SP1a's tool (`simp-data-tool`), FE1c-bk (`data-bk`), MF2.
-2. After a2-ii/a2-iii merge: **LA** ∥ **MF2+DT** ∥ **S3** (`by-decide`, which builds `transform.fs`). Disjoint files:
-   LA claims `elab-term.fs`, `elab-decl.fs`, `tactic-rewrite.fs`, `tactic-syntax.fs`, `meta-must.fs`; MF2+DT
-   `instances.fs`; S3 `app-builder.fs` (LA adds `mkPropExt` after S3, or in its own section) and `whnf.fs`'s trace hook.
-3. Then **SP1b-i** ∥ **FE4a** ∥ **S5's first forms** (binders, `fun`, `∀`) on the registry; SP1a's reader before SP1b-i.
+1. Now, in flight: a2-ii and a2-iii (`tactic-lib-a2ii`), SP1a's tool (`simp-data-tool`), FE1c-bk (`data-bk`). MF2 can
+   start (`names-index` is on main) but is not in flight; it becomes MF2+DT.
+2. After a2-ii/a2-iii and S2's done-check fixes merge: **LA** ∥ **MF2+DT** ∥ **S3** (`by-decide`, which builds
+   `transform.fs`). Disjoint files: LA claims `elab-term.fs`, `elab-decl.fs`, `tactic-rewrite.fs`, `tactic-syntax.fs`,
+   `meta-must.fs`; MF2+DT `instances.fs`; S3 `app-builder.fs` (LA adds `mkPropExt` after S3, or in its own section)
+   and `whnf.fs`'s trace hook. The front reuse pass's follow-ups (plan 9.4.8n: `meta-spine.fs`, `meta-check.fs`,
+   `instantiate.fs`, `term-eqv.fs`) claim none of LA's files and may run beside it; the next front reuse pass waits
+   for LA where it would touch `tactic-rewrite.fs`, `elab-*.fs` or `tactic-syntax.fs`, since LA moves code out of
+   them.
+3. Then **SP1b-i** ∥ **FE4a** ∥ **S5's first forms** (binders, `fun`, `∀`) on the registry; SP1a's reader before
+   SP1b-i.
 4. Then **SP1b-ii** ∥ **S4's services** (helper theorems, `getLocalHyps`, Int literals: library 3's design first) ∥
    **MF3a**; then **SP1c** ∥ S5's other forms ∥ MF3b; then SP2a onwards.
 
-How they interleave with what is planned: S3 and S4 keep their plan rows and use the libraries; MF2 absorbs the
-trie's move; FE2's sub-steps FE2a-e become forms on the registry (FE2d after FE4a, both in `elab-app.fs`); FE3's
-remaining part (classes and instances declared in text) is not needed for statements about ℝ (MATHLIB_FRONT §5) and
-can follow FE4a (question 7).
+How they interleave with what is planned: S3 and S4 keep their plan rows and use the libraries; MF2 absorbs the trie's
+move (SIMP_DATA's SP1a row amended in this branch); FE2's sub-steps FE2a-e become forms on the registry (FE2d after
+FE4a, both in `elab-app.fs`); FE3's remaining part (classes and instances declared in text) is not needed for
+statements about ℝ (MATHLIB_FRONT §5) and can follow FE4a (question 7).
 
-## 7. Libraries 3-8 of PD20
+## 7. Reuse
 
-**(3) Numerals and arithmetic normal forms.** Literals and `OfNat`/`OfScientific`, Int and rational arithmetic with
-proofs, polynomial normal forms. First caller: S4's services (Int literals for `omega`), then `norm_num`'s `IsNat`,
-`IsInt`, `IsRat` and `derive` (S8a1) and `ring`'s `ExSum` (S7); `Nat` simprocs (SP2a) call its evaluation. Absorbs
-`nat-offset.fs`'s literal (`:105`), `elab-term.fs`'s `elabNumLit`, `lib/bigint.fs`'s first caller. Design: next, before
-S4's services start.
-
-**(4) Goal and proof-state library.** Combinators (`first`, `try`, `<;>`, `all_goals`), focusing, backtracking, error
-messages as Lean words them. First caller: slice (b) of TACTIC_PLUGINS, then `ring` (`first | ring1 | ring_nf`).
-Absorbs `tactic-run.fs`'s focus, saved states and choice points (`:322-541`), the step record. Design: with (b), before
-S7; it uses §4.2 item 1's state registry.
-
-**(5) Pinned-Lean comparison library (tests).** Run a text in pinned Lean and in LeanForth, compare terms node for
-node, make wrong twins, cache Lean's runs. First caller: LA's and SP1b's tests. Absorbs `tests/author/lean_terms.py`
-and the runners each written per slice (`check_defeq.py` 648 lines, `check_meta.py` 555, `check_whnf.py` 516,
-`check_s2.py` 397, `check_tactics.py` 346 …). Design: now, small; Python, no gate.
-
-**(6) Lean-printing library.** Names, terms, goals and messages as Lean prints them. First caller: simp's messages
-and, later, `simp?` and `Try this` (PD11). Absorbs `present/term-printer.fs` and its `print-*.fs`, `goal-print.fs`, the
-message words of `tactic-basic.fs:193-278` and the error terms of `elab-pending.fs`. Design: before SP2a.
-
-**(7) Library-data access layer.** One reader for the snapshot, elaboration data and simp data, lazy by class or
-branch. First caller: SP2a/SP4's lazy simp branches on Mathlib. Absorbs `elab-data.fs` (1,534 lines, 65 globals),
-`lib-decode.fs`, `meta-env.fs`'s data side, MF2's lazy checks. Design: with MATHLIB_FRONT's load design (its question
-4), after MF2's profile.
-
-**(8) Verified-programs library.** Stack-effect and memory models for the parked V2-V4 path (`src/program/`). First
-caller: V2. Design: when V2 restarts; it shares nothing with the front end's libraries.
-
-## 8. Reuse
-
-**Used:** `lib/frame.fs` (all traversals), `lib/memo.fs` (simp's cache, per-lemma checks), `lib/htab.fs` (sets by name,
-lemmas by origin), `lib/sort.fs` (stable descending priority sort, SIMP_DATA §1), `lib/slab.fs`, `lib/runs.fs` (goal
-lists), `lib/xt-table.fs` (the form registry, simprocs), `lib/module.fs` (private wordlists); in the front end
+**Used:** `lib/frame.fs` (all traversals), `lib/memo.fs` (simp's cache, per-lemma checks), `lib/htab.fs` (sets by
+name, lemmas by origin), `lib/sort.fs` (stable descending priority sort, SIMP_DATA §1), `lib/slab.fs`, `lib/runs.fs`
+(goal lists), `lib/xt-table.fs` (the form registry, simprocs), `lib/module.fs` (private wordlists); in the front end
 `meta-must.fs`, `app-builder.fs`, `telescope.fs`, `kabstract.fs`, `discr-keys.fs`, `fun-info.fs` (extended),
 `elab-pending.fs`'s window, `synth.fs`, `handover.fs`, `offset-walk.fs` (under `transform.fs`), the goal layer.
 **New:** `discr-tree.fs` (moved, not copied), `transform.fs` (S3), `elab/tactic-term.fs`, `elab/coe.fs`, the form
@@ -356,7 +330,7 @@ registry, the state registry, `simp/*.fs`, `meta-tactic/rewrite.fs`. No new `src
 rewrite core `tactic-rewrite.fs:120-213`; the trie `instances.fs:358-490`; the `case` dispatch `elab-term.fs:138,
 197`; the four 131 refusals (FE4a); every later private copy is a review finding (AGENTS.md "Reuse first").
 
-## 9. Risks
+## 8. Risks
 
 1. **Moves change terms.** Each moved word calls what Lean calls there; acceptance requires byte-identical dumps and
    goldens of every S1/S2 file before and after LA, and unchanged fuel counts.
@@ -371,12 +345,13 @@ rewrite core `tactic-rewrite.fs:120-213`; the trie `instances.fs:358-490`; the `
 6. **Layers drift back.** A tactic writing a private Meta copy again; the architect role checks FRONT_LAYERS.md and
    the tactic plug-in check keeps tactic branches confined.
 
-## 10. Questions for the owner
+## 9. Questions for the owner
 
 1. **Approve the layers and the two libraries' scope** (section 1.2: the elaborator library is Lean's term elaborator
    plus its face for tactics; the simp and rewriting library is Lean's `rw` and `simp` machinery, with the lemma index
    shared with instance search)? *Recommendation: yes.* It is Lean's own split, so a port stays a port.
-2. **Make the five tactic-library changes of section 4.2 in package LA, before more tactics are written?**
+2. **Make the six tactic-library changes of section 4.2 in package LA (item 5's walk in S3), before more tactics
+   are written?**
    *Recommendation: yes.* Today about ten tactics use the present interface; after `simp`, `norm_num` and the
    combinators, each change would touch dozens of files.
 3. **Package sizes:** packages of about 1,500-2,500 lines of Forth with their tests, one agent each, a command at
@@ -388,12 +363,31 @@ rewrite core `tactic-rewrite.fs:120-213`; the trie `instances.fs:358-490`; the `
 5. **File claims and new folders:** one open branch at a time per shared file (section 5's table), new files in
    `elab/`, `simp/`, `num/`, and no mass move of existing files? *Recommendation: yes.* It removes the collisions you
    noted without breaking work in flight.
-6. **Data format numbers ([format]):** add Lean's `coe_decl` tag (which coercions read) to format 4 now, in the
-   `simp-data-tool` branch, and give FE2's structure records the next number (5), since 4 is simp's?
-   *Recommendation: yes.* One more tag kind, checked like the others; it saves a later format change and gate.
-7. **Order:** LA ∥ MF2+DT ∥ S3; then SP1b-i ∥ FE4a ∥ FE2's first forms; library 3's design before S4's services; and
-   coercions (FE4a) before the rest of FE3? *Recommendation: yes.* Statements about real numbers need coercions far
-   sooner than classes declared in LeanForth text; each slice still ends in a command compared with pinned Lean.
+6. **A new [format] approval: the `coe_decl` tag.** Coercions unfold the declarations Lean marks `coe_decl`
+   (`Coe.coe`, `CoeT.coe` and eight more in `Init/Coe.lean`), a mark the export lacks. Add it as one more value of the
+   data's `tag` record, checked like the others, in the next format the tool writes? This is an addition to format 4
+   as you approved it, so it needs its own approval. *Recommendation: yes.* It can only make a coercion unfold as
+   Lean's does; the kernel checks the result. (Separately, and not a question: FE2_TERMS.md's structure records,
+   planned as format 4 before simp's format 4 was approved, are renumbered format 5 in this branch.)
+7. **Order, with one change to an approved slice:** LA ∥ MF2+DT ∥ S3; then SP1b-i ∥ FE4a ∥ FE2's first forms; library
+   3's design before S4's services; coercions (FE4a) before the rest of FE3; and the discrimination tree's move out of
+   `instances.fs` taken from SP1a into MF2 (so that file is edited once), its two lookups going to SP1b-i, their first
+   caller? *Recommendation: yes.* Statements about real numbers need coercions far sooner than classes declared in
+   LeanForth text; each slice still ends in a command compared with pinned Lean.
+
+## 10. Review
+
+Architecture review of `baeb2568` (2026-11-18, "ready after fixes", 7 findings, all taken):
+
+| # | Finding | Answered in |
+| --- | --- | --- |
+| 1 | library 1 is not 70% built: the S1/S2 core, about a third by Lean lines | owner page; library 1's growth now counts FE2's share |
+| 2 | the trie's move was in both SP1a (approved) and MF2+DT | section 6 (MF2+DT and SP1a rows), SIMP_DATA.md's SP1a row amended, question 7 |
+| 3 | question 6 reopened an approved format | question 6 is now its own `coe_decl` approval; FE2_TERMS.md's structures renumbered format 5 |
+| 4 | missing API: a public depth scope, frames freed on throw beyond walks, Lean's simp state and caches | section 4.2 items 2, 5, 6 (all in LA); section 3's data structures and needs |
+| 5 | order against the progress file: MF2 not in flight; S2 not done; the reuse passes | section 6 order step 1-2 and LA's needs |
+| 6 | SIMP_DATA's SP1b is about 37% of this estimate, not half | owner page; section 6 |
+| 7 | main text too long | word list and libraries 3-8 moved to appendices E and F |
 
 ## Appendix A. Library 1: public words and Lean functions
 
@@ -525,3 +519,58 @@ main...tactic-lib-a2ii -- src` (23 files, 845 lines added). Lean function lines:
 | `exact`, `apply`, `refine` (ElabTerm.lean:100, 282, 207) | `elabTermEnsuringType`, `elabTermForApply`, `withCollectingNewGoalsFrom` → LA; `MVarId.apply` → a2-iii; `closeMainGoalUsing` → LA |
 | `constructor` (Constructor.lean:23) | `whnfR`, `MVarId.apply` under `observing?` → exist / a2-iii |
 | `cases`, `induction` (Induction.lean, Meta/Tactic/Cases.lean) | `ElimApp`, `evalAlts` → `meta-tactic/elim.fs`; `Tactic.elabTerm` for targets → LA; `MVarId.cases`, `subst`, `injection` → goal layer, FE5 |
+
+## Appendix E. Words used here
+
+- **Term, type, metavariable.** A term is Lean's data for an expression; its type is another term. A *metavariable*
+  is a hole in a term, to be filled later (by unification, an instance search or a tactic).
+- **Elaboration.** Turning written text into a complete term. *Implicit arguments* are those the user does not
+  write (`@id Nat 3` written `id 3`); the elaborator inserts a metavariable for each. The *expected type* is the type
+  the context wants; passing it down lets the elaborator fill holes earlier. *Unification* (`isDefEq`) makes two terms
+  equal by filling metavariables. *Instance synthesis* finds a value for a class argument (`Add Nat`).
+  A *coercion* is a conversion Lean inserts when types differ (`↑n : Int` for `n : Nat`).
+- **Layers.** Lean's code is in layers: `Meta` (terms, whnf, isDefEq, inferType), `Elab.Term` (the term
+  elaborator), `Meta.Tactic` (operations on one goal), `Elab.Tactic` (tactics as the user writes them). A lower layer
+  never calls a higher one, except through a named hook.
+- **Outcome word, throwing word.** LeanForth's Meta core returns an outcome (ok, invalid, unsupported, exhausted,
+  full); the tactic library's words throw on failure as Lean's do (`meta-must.fs`); the throw code keeps the outcome.
+- **Discrimination tree.** An index from a term's shape (its *keys*) to stored values, used to find the instances or
+  simp lemmas that may apply to a term without trying all of them.
+- **Simp lemma, simp set, simproc.** An equation `simp` may use left to right; a named collection of them; a built-in
+  procedure that rewrites (`2 + 3` to `5`).
+- **Simp.Result and Simp.Step.** `Result` is a new term with a proof that it equals the old one (or no proof, when
+  they are equal by definition). `Step` says what to do next with a result: stop, visit its parts, or continue.
+- **Congruence.** Turning proofs about parts into a proof about the whole (`a = b` gives `f a = f b`); *under
+  binders*, inside `fun x => …` or `∀ x, …`, which needs `funext` or `forall_congr`.
+- **Motive.** In `rw`, the function `fun _a => target-with-_a` whose two applications are the old and new goal.
+- **Frame.** A record on a heap stack, which LeanForth uses instead of host recursion (`lib/frame.fs`).
+
+## Appendix F. Libraries 3-8 of PD20
+
+**(3) Numerals and arithmetic normal forms.** Literals and `OfNat`/`OfScientific`, Int and rational arithmetic with
+proofs, polynomial normal forms. First caller: S4's services (Int literals for `omega`), then `norm_num`'s `IsNat`,
+`IsInt`, `IsRat` and `derive` (S8a1) and `ring`'s `ExSum` (S7); `Nat` simprocs (SP2a) call its evaluation. Absorbs
+`nat-offset.fs`'s literal (`:105`), `elab-term.fs`'s `elabNumLit`, `lib/bigint.fs`'s first caller. Design: next,
+before S4's services start.
+
+**(4) Goal and proof-state library.** Combinators (`first`, `try`, `<;>`, `all_goals`), focusing, backtracking, error
+messages as Lean words them. First caller: slice (b) of TACTIC_PLUGINS, then `ring` (`first | ring1 | ring_nf`).
+Absorbs `tactic-run.fs`'s focus, saved states and choice points (`:322-541`), the step record. Design: with (b),
+before S7; it uses §4.2 item 1's state registry.
+
+**(5) Pinned-Lean comparison library (tests).** Run a text in pinned Lean and in LeanForth, compare terms node for
+node, make wrong twins, cache Lean's runs. First caller: LA's and SP1b's tests. Absorbs `tests/author/lean_terms.py`
+and the runners each written per slice (`check_defeq.py` 648 lines, `check_meta.py` 555, `check_whnf.py` 516,
+`check_s2.py` 397, `check_tactics.py` 346 …). Design: now, small; Python, no gate.
+
+**(6) Lean-printing library.** Names, terms, goals and messages as Lean prints them. First caller: simp's messages
+and, later, `simp?` and `Try this` (PD11). Absorbs `present/term-printer.fs` and its `print-*.fs`, `goal-print.fs`,
+the message words of `tactic-basic.fs:193-278` and the error terms of `elab-pending.fs`. Design: before SP2a.
+
+**(7) Library-data access layer.** One reader for the snapshot, elaboration data and simp data, lazy by class or
+branch. First caller: SP2a/SP4's lazy simp branches on Mathlib. Absorbs `elab-data.fs` (1,534 lines, 65 globals),
+`lib-decode.fs`, `meta-env.fs`'s data side, MF2's lazy checks. Design: with MATHLIB_FRONT's load design (its question
+4), after MF2's profile.
+
+**(8) Verified-programs library.** Stack-effect and memory models for the parked V2-V4 path (`src/program/`). First
+caller: V2. Design: when V2 restarts; it shares nothing with the front end's libraries.
