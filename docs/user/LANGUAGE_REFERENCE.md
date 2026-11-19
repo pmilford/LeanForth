@@ -952,8 +952,14 @@ order, and build the same proof term (each is compared with pinned Lean
   takes a number `n` and concludes `n ≤ n + 1`. `t by-apply` closes the main
   goal with `t` when `t`'s conclusion is the goal. Arguments the goal does
   not fix become new goals. Lean's order is kept: first the goals that no
-  other new goal mentions, then the others. Each new goal is named after
-  `t`'s argument (`case left`). No fit is error 380, with Lean's message.
+  other new goal mentions, then the others. When there are several new
+  goals, each is named after `t`'s argument (`case left`), put after the
+  goal's own name inside an `induction ... with` alternative (`case
+  zero.left`; `tests/front/tactics/apply/ap-tag-trans.lf`); a single new
+  goal keeps the goal's name. No fit is error 380, with Lean's message; an
+  instance argument that is found but differs from the one the goal fixes
+  is error 384; a term still unknown after it is elaborated, which Lean
+  would go on to work out, is not supported yet (error 99).
   Examples, from checked files: `' Nat.le_succ by-apply` proves
   `n ≤ n + 1` (`tests/front/tactics/apply/ap-le-succ.lf`); in
   `tests/front/tactics/apply/ap-and.lf`, `' And.intro by-apply` leaves the
@@ -990,7 +996,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-exact` | `( t -- )` | ordinary | read: a step holding the term. Run: elaborates t against the goal, assigns it, removes the goal | Closes the goal with the term t; a type mismatch is error 96, a wrong number of values 86 or 87. | `exact t` |
 | `by-intro: HYP-NAME` | `( -- )` | parsing: one name, or `_` | read: a step; HYP-NAME becomes a hypothesis word in the locals. Run: replaces the goal by one with the first binder introduced | Introduces one hypothesis HYP-NAME from the goal's first binder; `_` leaves it inaccessible (it cannot be written afterwards); error 94 when there is none, 84 when HYP-NAME is a LeanForth word. | `intro HYP-NAME` |
 | `by-sorry` | `( -- )` | ordinary | read: a step. Run: assigns the goal `sorryAx T Bool.false`, records an open part | Closes the goal with an open part; the declaration is accepted but reported NOT PROVED. | `sorry` |
-| `by-apply` | `( t -- )` | ordinary | read: a step holding t. Run: assigns the main goal t applied to new goals, which take its place | Closes the goal with t when t's conclusion fits it; t's arguments the goal does not fix become goals. No fit: error 380; an instance not found: 125. | `apply t` |
+| `by-apply` | `( t -- )` | ordinary | read: a step holding t. Run: assigns the main goal t applied to new goals, which take its place | Closes the goal with t when t's conclusion fits it; t's arguments the goal does not fix become goals. No fit: error 380; an instance not found: 125; an instance found that differs from the one the goal fixes: 384; t still unknown after elaboration: 99 (not supported yet). | `apply t` |
 | `by-assumption` | `( -- )` | ordinary | read: a step. Run: assigns the main goal the newest hypothesis whose type is the goal's, removes the goal | Closes the goal with a hypothesis; none fits: error 381. | `assumption` |
 | `by-constructor` | `( -- )` | ordinary | read: a step. Run: as `by-apply` with the first constructor of the goal's inductive type that fits | Proves an `And`, `Or`, `True`, `≤`... goal by one of its constructors; the goal is no inductive type: 382; none fits: 383. | `constructor` |
 | `by-induction` | `( t -- )` | ordinary | read: a step holding t. Run: replaces the main goal by one goal per case | Induction on the variable t; the cases are left open (alone it ends in error 89). | `induction t` |

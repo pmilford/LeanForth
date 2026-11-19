@@ -44,7 +44,8 @@ s" assumption" tac-k-assumption lf-tactic-lean!
 - `lf-tactic:` ( shape "spelling" -- kind ) registers the word: a new kind
   and row, the spelling reserved for the printer and added to LF-WORDS,
   its reader made for the shape (`tac-shape-plain`: no value;
-  `tac-shape-term`: one term). A spelling reserved already aborts the load.
+  `tac-shape-term`: one term). A spelling reserved already, or one not
+  spelt `by-` and at least one more character, aborts the load.
 - `lf-tactic-lean!` gives Lean's name for the step log; `lf-tactic-action!`
   the run word ( i -- ), step i of the record; `lf-tactic-plan!` a plan
   step to name while the word is not ported (error 80).
