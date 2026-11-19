@@ -51,9 +51,10 @@ end-structure
   tcs-exact-or-suffix ?dup if exit then ['] lf-name-prefix-of? tcs-first ;
 
 \ ---- notFound: the message and its note or hint.
-: tcs-named? ( x k -- x flag ) tcs-tag-at 0<> ;
+\ (tcs-named? reads k alone: under find-index, x stays below it.)
+: tcs-named? ( k -- flag ) tcs-tag-at 0<> ;
 : tcs-goals# ( -- n ) tc tcs-goals @ run-count ;
-: tcs-named# ( -- n ) 0 tcs-goals# 0 ?do 0 i tcs-named? nip - loop ;
+: tcs-named# ( -- n ) tcs-goals# ['] tcs-named? count-index ;
 : tcs-only ( -- name ) 0 tcs-goals# ['] tcs-named? find-index drop tcs-tag-at ;
 : tcs-only. ( -- ) tcs-only lf-tac-.name s" ." lf-pp-emit ;
 : tcs-one. ( -- ) s\" \n\nHint: The only available case tag is " lf-pp-emit tcs-only. ;

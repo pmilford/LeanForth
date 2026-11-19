@@ -728,6 +728,22 @@ T{ neg-cells 5 ' cell-neg? find-last-index neg-cells 3 ' cell-neg? find-last-ind
 T{ neg-example 3 ' cell-neg? find-last-index neg-example 1 ' cell-neg? find-last-index
    -> 2 true false }T
 T{ find-base [defined] find-last-index -> 16 true }T
+\ count-index (review tactic-move-c4 B4): how many k < n pass the test
+\ ( k -- flag ), every k tried once in order; 0 for n <= 0; a true flag
+\ other than -1 counts one; the return stack balanced; a test that counts
+\ in turn (the inner loop's j its own); the header's example.
+: odd-k ( k -- flag ) dup step-trail @ 10 * + 1+ step-trail ! 1 and ;
+: counted ( n xt -- m trail ) 0 step-trail ! count-index step-trail @ ;
+T{ 5 ' odd-k counted 6 ' odd-k counted -> 2 12345 3 123456 }T
+T{ 0 ' odd-k counted -5 ' odd-k counted max-n invert ' odd-k counted -> 0 0 0 0 0 0 }T
+T{ 4 ' test-one count-index 3 ' below-3? count-index 6 ' below-3? count-index -> 4 3 3 }T
+T{ 7 ' odd-k ' count-index rs-checked -> 3 }T
+: odd? ( k -- flag ) 1 and ;
+: two-odd-below? ( k -- flag ) ['] odd? count-index 2 = ;
+T{ 8 ' two-odd-below? count-index -> 2 }T
+: sample-neg? ( k -- flag ) neg-example swap cell-neg? nip ;
+T{ 3 ' sample-neg? count-index -> 2 }T
+T{ find-base [defined] count-index -> 16 true }T
 \ A true flag other than -1 counts as true; the answer is a well-formed flag.
 T{ 4 ' test-one any? 0 ' test-one any? -> true false }T
 \ Nested: whether some k < n has some j < k at 3 or above, and with all?.

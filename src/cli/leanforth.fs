@@ -110,6 +110,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
+require ../lib/find.fs
 require ../lib/bytes.fs
 require ../lib/blocks.fs
 require ../lib/bounds.fs
@@ -805,7 +806,7 @@ here cli-plain-chars - 2 cells / constant cli-plain-chars#
   ck-stale# .decimal ."  results are not this build's verdicts" cr ;
 \ A carry run (plan step 6.2.5c3): the declarations checked again, by why
 \ (env-import.fs why-*), each group after the first after a comma.
-: cli-again# ( -- n ) 0 lf-input-count 0 ?do i ck-reason 0<> - loop ;
+: cli-again# ( -- n ) lf-input-count ['] ck-reason count-index ;
 : cli-reach-group ( first? k -- first? )
   dup step-why ck-again# ?dup 0= if drop exit then cli-comma-under
   .decimal ."  inside the reach of verdict version " .decimal ." 's change" false ;

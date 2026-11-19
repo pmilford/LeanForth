@@ -717,3 +717,13 @@ old = '''  dup mrn-any? 0= if drop exit then mrn-frames ['] mrn-framed lf-with-r
 new = '''  dup mrn-any? 0= if drop exit then mrn-frames 1 over slab-claim 2drop ['] mrn-framed lf-with-record ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "C4: renameInaccessibles leaves a frame behind on its slab"
+
+# --- review tactic-move-c4: lib/find.fs's count-index (B4) -------------------
+
+[[fault]]
+id = "lib-count-index-raw-flag"
+file = "src/lib/find.fs"
+old = '''  dup 1+ swap ?do 0 max 0 swap 0 ?do i j execute 0<> - loop loop ;'''
+new = '''  dup 1+ swap ?do 0 max 0 swap 0 ?do i j execute - loop loop ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "review tactic-move-c4 B4: count-index subtracts the test's answer itself, so a true flag other than -1 (a why code of cli-again#) counts wrong"

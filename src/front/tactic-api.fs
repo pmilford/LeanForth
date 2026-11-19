@@ -14,7 +14,9 @@
 \         tac-shape-plain lf-tactic: by-assumption constant tac-k-assumption
 \         s" assumption" tac-k-assumption lf-tactic-lean!
 \         ' run-word tac-k-assumption lf-tactic-action!
-\ The rest of the interface is the words of the files below: the row
+\ The rest of the interface is the words of the files below: the
+\ general library (lib/lib.fs, and lib/find.fs's find-index,
+\ find-last-index and count-index), the row
 \ setters lf-tactic-action!, lf-tactic-lean!, lf-tactic-plan!,
 \ lf-tactic-end! and lf-tac-eval (tactic-run.fs), lfa-code: for a
 \ tactic's own error codes (author/errors.fs), the messages
@@ -32,6 +34,7 @@
 \ adds to are set while the modules load and read-only afterwards).
 
 require ../lib/lib.fs
+require ../lib/find.fs
 require ../author/errors.fs
 require ../author/words.fs
 require ../author/groups.fs

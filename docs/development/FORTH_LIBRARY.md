@@ -1189,6 +1189,29 @@ sizes: a goal's local context, a handful of locals in every checked
 `.lf` text (at most 6 in `tests/front/tactics/`). Tested in
 `tests/lib/lib.fs` (both engines); fault `lib-find-last-skips-last`.
 
+`count-index ( n xt -- m )` (`find.fs`, review tactic-move-c4 B4,
+2026-11-19) counts the k < n whose test xt ( k -- flag ) holds, any
+nonzero answer counting one; n <= 0 gives 0. It replaced four hand-written
+`0 n 0 ?do i test - loop` loops. *Algorithm*: the same one-pass outer
+loop holding xt as `find-index`'s, and a counted inner loop that runs
+every index, the count below k (so the test sees k alone, unlike
+`find-index`'s x). *Cost*: one test per index, always n; no memory; two
+loop frames on the return stack. *Speed* (2026-11-19, Gforth 1.0.0, WSL2
+on the development machine): 4 ns an index at 10 indices and 3 ns at
+10^6 on `gforth`, 2 ns at both on `gforth-fast`, whether the test holds
+never or every other time. *Callers*: an eliminator's alternatives no
+`|` wrote (`front/tactic-alts.fs`'s `tal-unhandled#`, for Lean's orList
+in errors 206 and 207: 2 for `Nat.rec`, `Nat.recAux` and `List.rec`,
+the only eliminators a checked text reaches) and an alternative's
+explicit fields (`tal-explicit#`, error 208's count: 0 to 2), the
+unsolved goals with a tag when `by-case:` finds none (`tactics/case.fs`'s
+`tcs-named#`, error 210's hint: 1 or 2 goals in
+`tests/front/s2w-case-*.lf`), and the declarations a carry run checks
+again (`cli/leanforth.fs`'s `cli-again#`: once per `check --snapshot`
+run, over the input's declarations, all of Init's 59,349 for a snapshot
+of Init). Tested in `tests/lib/lib.fs` (both engines); fault
+`lib-count-index-raw-flag`.
+
 ## Tables of texts
 
 `src/lib/texts.fs` (front reuse pass part A, 2026-11-18; review F10 and
