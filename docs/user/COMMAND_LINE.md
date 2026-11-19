@@ -387,7 +387,7 @@ file; `make test-showcase` compares the output with
 `SHOWCASE_LIBRARY="--snapshot INIT.lfsnap --elab-data INIT.elab.ndjson"`
 it runs on all of `Init` (65-100 s a file).
 [examples/s2-showcase.txt](examples/s2-showcase.txt) is its output on all
-of `Init`, run on 2026-11-18.
+of `Init`, run on 2026-11-19.
 
 What runs: the file runs through Forth's own interpreter with only
 LeanForth's words visible ([ADR 0017 Amendment 1, A5](../adr/0017-leanforth-syntax.md#a5-sealed-text-what-must-be-shut-and-the-probes));
