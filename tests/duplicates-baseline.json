@@ -60,16 +60,6 @@
   "reason": "accepted: the two freshness checks of a name differ in their pass and their lookup kind (two of nine words); a word taking both as xts would be no shorter",
   "tokens": 9
  },
- "03ddd755d471": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/ctor-idx.fs:digits",
-   "src/front/discr-keys.fs:dk-digits"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 11
- },
  "06404e0e84e2": {
   "copies": 3,
   "kind": "shape",
@@ -464,12 +454,10 @@
   "tokens": 6
  },
  "361de2c5b4ff": {
-  "copies": 5,
+  "copies": 3,
   "kind": "shape",
   "members": [
    "src/core/tagged-sort-boundary.fs:lf-repr-mode?",
-   "src/core/terms.fs:lf-term-binder-tag?",
-   "src/core/terms.fs:lf-term-let-tag?",
    "src/front/tactic-syntax.fs:lft-bracket?",
    "src/program/ir-run.fs:irx-ended?"
   ],
@@ -2349,16 +2337,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 8
- },
- "de205fa01c9c": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/program/ir-reader.fs:ir-copy",
-   "src/program/verify-report.fs:pv-copy"
-  ],
-  "reason": "accepted: program/ir-reader.fs (today's IR reader) and the program-words verifier (verify-*.fs) are kept independent on purpose: tests/program/verify_check.py cross-checks the two designs, which a shared word would weaken",
-  "tokens": 11
  },
  "df7d33eb0023": {
   "copies": 2,
