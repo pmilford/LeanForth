@@ -196,8 +196,7 @@ end-structure
   trw trw-proof ! ;
 \ Lean's new goals: a metavariable of the rule left unassigned.
 : lfw-closed ( -- )
-  trw trw-proof @ lf-instantiate-mvars lf-tac-must ['] lf-mvar-open? lf-term-holds?
-    lf-tac-must
+  trw trw-proof @ lf-instantiate-mvars lf-tac-must lf-has-open-mvar?
   if lfa-e-tac-form lfw-stop then ;
 
 \ ---- replaceTargetEq (meta-tactic/goal.fs), the new goal in the old's

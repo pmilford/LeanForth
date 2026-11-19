@@ -1,14 +1,15 @@
 \ Portability adapter: Forth-2012 definitions of the few words the project
-\ uses that are not in the Forth-2012 core word set (-ROT, BOUNDS, .S ...),
-\ plus the standard structure words and the standard streams. Each is
-\ compiled only when the host lacks it; under Gforth 1.0 this file
-\ defines only max-n. No state, no dependencies but the streams' (below).
+\ uses that are not in the Forth-2012 core word set (-ROT, BOUNDS, .S,
+\ NDROP ...), plus the standard structure words and the standard streams.
+\ Each is compiled only when the host lacks it; under Gforth 1.0 this file
+\ defines only max-n and ndrop. No state, no dependencies but the streams' (below).
 \ Host assumption: cells are two's complement and arithmetic wraps, as on
 \ every current host (Forth-2012 itself does not require it). upto? and
 \ max-n rely on this. tests/lib/lib.fs checks each one-line fallback
 \ against the host's own word.
 \ Example: words a Forth-2012 host may lack, the same everywhere.
-\   1 2 3 -rot . . .  5 3 >= .  max-n 0> .   \ prints: 2 1 3 -1 -1
+\   1 2 3 -rot . . .  5 3 >= .  max-n 0> .  7 8 9 2 ndrop .
+\   \ prints: 2 1 3 -1 -1 7
 
 \ Comparisons and stack words that Gforth provides as extensions.
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
@@ -18,6 +19,9 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 [undefined] 0<= [if] : 0<= ( n -- flag ) 0> 0= ; [then]
 [undefined] 0>= [if] : 0>= ( n -- flag ) 0< 0= ; [then]
 [undefined] -rot [if] : -rot ( x1 x2 x3 -- x3 x1 x2 ) rot rot ; [then]
+\ The n cells below n dropped, n >= 0 (a negative n is a fault of the
+\ caller's): a common extension, not Forth-2012; Gforth has none.
+[undefined] ndrop [if] : ndrop ( xn .. x1 n -- ) 0 ?do drop loop ; [then]
 \ A range for ?DO: the end and the start of u address units from addr.
 [undefined] bounds [if] : bounds ( addr u -- addr+u addr ) over + swap ; [then]
 

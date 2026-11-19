@@ -58,12 +58,12 @@ require ./meta-must.fs
 : lf-tac-goal-below. ( goal -- outcome ) s\" \n\n" lf-pp-emit lf-goal-print ;
 : lf-tac-.name ( name -- ) s" `" lf-pp-emit lf-pp-name s" `" lf-pp-emit ;
 
-\ ---- mkHasTypeButIsExpectedMsg. A step after another: xt ( x -- outcome )
-\ when the outcome so far is ok, else x dropped and the outcome kept.
-: tmg-then ( x outcome xt -- outcome' ) swap dup ok? if drop execute else nip nip then ;
+\ ---- mkHasTypeButIsExpectedMsg. A step after another (outcome.fs's
+\ ok-with, then nip): xt ( x -- outcome ) when the outcome so far is ok,
+\ else x dropped and the outcome kept.
 \ A term framed: indented, x as xt prints it, the goal.
 : lf-tac-framed-with. ( goal x xt term -- outcome )
-  lf-tac-indented. swap tmg-then ['] lf-tac-goal-below. tmg-then ;
+  lf-tac-indented. swap ok-with nip ['] lf-tac-goal-below. ok-with nip ;
 : tmg-has. ( type -- outcome ) >r s\" \nhas type\n" r> lf-tac-line. ;
 : tmg-but. ( expected -- outcome )
   >r s\" \nbut is expected to have type\n" r> lf-tac-line. ;
@@ -76,10 +76,10 @@ require ./meta-must.fs
 : tmg-sorts ( type expected -- type expected s1 s2 true | type expected false )
   over tmg-sort 0= if false exit then
   over tmg-sort 0= if drop false exit then tmg-differ? dup if exit then nip nip ;
-: tmg-plain. ( type expected -- outcome ) swap tmg-has. ['] tmg-but. tmg-then ;
+: tmg-plain. ( type expected -- outcome ) swap tmg-has. ['] tmg-but. ok-with nip ;
 \ (printed in the order type, s1, expected, s2: the next to print on top)
 : tmg-sorted. ( s2 expected s1 type -- outcome )
-  tmg-has. ['] tmg-of. tmg-then ['] tmg-but-sort. tmg-then ['] tmg-of. tmg-then ;
+  tmg-has. ['] tmg-of. ok-with nip ['] tmg-but-sort. ok-with nip ['] tmg-of. ok-with nip ;
 : tmg-order ( type expected s1 s2 -- s2 expected s1 type ) -rot 3 roll ;
 : tmg-types. ( type expected -- outcome )
   tmg-sorts if tmg-order tmg-sorted. exit then tmg-plain. ;

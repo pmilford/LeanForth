@@ -188,7 +188,7 @@ end-structure
   ap-tag 0= if exit then ap-goals slab-count 0 ?do i ap-tag-one loop ;
 \ getMVarsNoDelayed e: not ported; e instantiated must hold no open metavariable.
 : ap-alone ( -- )
-  ap ap-e @ lf-instantiate! ['] lf-mvar-open? lf-term-holds? lf-must
+  ap ap-e @ lf-instantiate! lf-has-open-mvar?
   if lfa-e-tac-form lf-tac-fail then ;
 
 \ ---- reorderGoals nonDependentFirst, then headBetaType.

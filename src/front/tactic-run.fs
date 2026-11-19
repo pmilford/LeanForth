@@ -325,9 +325,8 @@ s" sorry" tac-k-sorry lf-tactic-lean!
 \ lf-print-with: the printer's settings put back however xt ends),
 \ unless an error is recorded already (the n cells dropped);
 \ lf-tac-detail ( x xt -- ) the same of one cell.
-: lfr-drops ( i*x n -- ) 0 ?do drop loop ;
 : lf-tac-detail-n ( i*x n xt -- )
-  lf-author-code if drop lfr-drops exit then
+  lf-author-code if drop ndrop exit then
   nip ['] lfa-detail+ lf-print-with ok? 0= if lfa-detail-cut then ;
 : lf-tac-detail ( x xt -- ) 1 swap lf-tac-detail-n ;
 : lfr-goals-of ( x -- outcome ) drop lf-goals-text ;

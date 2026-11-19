@@ -130,8 +130,8 @@ reason = "s1-synth review L3 (moved to the library's telescope, a2-i): forallMet
 [[fault]]
 id = "lib-telescope-frame-kept"
 file = "src/front/meta-must.fs"
-old = '''  over dup slab-count 2>r swap mm-frame swap catch 2r> swap slab-cut throw ;'''
-new = '''  over dup slab-count 2>r swap mm-frame swap catch dup if 2r> 2drop throw then 2r> swap slab-cut throw ;'''
+old = '''  over dup slab-count 2>r swap mm-frame catch 2r> swap slab-cut throw ;'''
+new = '''  over dup slab-count 2>r swap mm-frame catch dup if 2r> 2drop throw then 2r> swap slab-cut throw ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i: a telescope that fails leaves its frame, and the next telescope reads the wrong one"
 
@@ -338,16 +338,16 @@ reason = "a2-i review F2: congrArg? takes congrFun's argument a for its proof h 
 [[fault]]
 id = "lib-record-frame-kept"
 file = "src/front/meta-must.fs"
-old = '''  over dup slab-count 2>r swap mm-frame swap catch 2r> swap slab-cut throw ;'''
-new = '''  over dup slab-count 2>r swap mm-frame swap catch 2r> 2drop throw ;'''
+old = '''  over dup slab-count 2>r swap mm-frame catch 2r> swap slab-cut throw ;'''
+new = '''  over dup slab-count 2>r swap mm-frame catch 2r> 2drop throw ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l-I lf-with-record: a call's frame never freed (the next call reads the wrong one)"
 
 [[fault]]
 id = "lib-record-not-erased"
 file = "src/front/meta-must.fs"
-old = '''  1 over slab-claim lf-must over slab-at dup rot slab-unit erase ;'''
-new = '''  1 over slab-claim lf-must over slab-at nip ;'''
+old = '''  1 over slab-claim lf-must over slab-at swap slab-unit erase ;'''
+new = '''  1 over slab-claim lf-must 2drop ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l-I lf-with-record: a new frame keeps an earlier call's fields"
 
@@ -442,8 +442,8 @@ reason = "9.4.8l-I plan L5: reorderGoals's findMVar? takes any metavariable for 
 [[fault]]
 id = "lib-intro-n-view-kept"
 file = "src/front/meta-tactic/goal.fs"
-old = '''  drop mti-fill ['] mti-run lf-with-goal ;'''
-new = '''  drop mti-fill drop mti-run ;'''
+old = ''': mti-framed ( goal names kinds n xs -- goal' ) mti-fill ['] mti-run lf-with-goal ;'''
+new = ''': mti-framed ( goal names kinds n xs -- goal' ) mti-fill drop mti-run ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l-I C2 introN: the context made current for the new locals is not put back (Lean's withContext), so the caller's context grows"
 
@@ -466,8 +466,8 @@ reason = "9.4.8l-I C2 introN: the kinds an alternative's eliminator gives are dr
 [[fault]]
 id = "lib-detail-n-drops-short"
 file = "src/front/tactic-run.fs"
-old = ''': lfr-drops ( i*x n -- ) 0 ?do drop loop ;'''
-new = ''': lfr-drops ( i*x n -- ) 1 ?do drop loop ;'''
+old = '''  lf-author-code if drop ndrop exit then'''
+new = '''  lf-author-code if drop 1- ndrop exit then'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l-I C2 lf-tac-detail-n: while an error is recorded one of the n cells is left on the stack"
 
@@ -478,3 +478,37 @@ old = '''  2dup lf-mvar-assign dup outcome-invalid = if drop mtg-unassignable ex
 new = '''  2dup lf-mvar-assign dup outcome-invalid = if drop 2drop exit then'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l-I C2 checkedAssign: an assignment the metavariable context refuses (a goal assigned already) passes silently instead of Lean's occurs-check error 98"
+
+# --- slice 9.4.8l-I, review tactic-move (2026-11-19): the shared words ---------
+
+[[fault]]
+id = "lib-view-has-all"
+file = "src/front/lctx-views.fs"
+old = ''': lf-view-has? ( view fvar -- flag ) lf-view-find dup if nip then ;'''
+new = ''': lf-view-has? ( view fvar -- flag ) 2drop true ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "review tactic-move B1: every free variable counts as in a context, so a cleared hypothesis stays visible and checkedAssign's scope test passes a variable from outside"
+
+[[fault]]
+id = "lib-open-mvar-none"
+file = "src/front/meta-must.fs"
+old = ''': lf-has-open-mvar? ( e -- flag ) ['] lf-mvar-open? lf-term-holds? lf-must ;'''
+new = ''': lf-has-open-mvar? ( e -- flag ) drop false ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-move B1: no term holds an open metavariable, so checkedAssign assigns a goal a term with a hole (93 never given)"
+
+[[fault]]
+id = "lib-defeq-elab-at-mode-dropped"
+file = "src/front/meta-must.fs"
+old = '''  ['] lf-meta-defeq lf-defeq-elab rot lf-meta-with outcome-sane ;'''
+new = '''  ['] lf-meta-defeq lf-defeq-elab rot drop lf-tr-all lf-meta-with outcome-sane ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-move B1: the tactics' isDefEq ignores the transparency asked for, so rfl under rw's with_reducible unfolds a definition Lean's would not"
+
+[[fault]]
+id = "lib-record-erases-outer"
+file = "src/front/meta-must.fs"
+old = '''  1 over slab-claim lf-must over slab-at swap slab-unit erase ;'''
+new = '''  1 over slab-claim lf-must drop 0 over slab-at swap slab-unit erase ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-move M1: a nested call's new frame is not its own (the slab's first unit erased), so the outer call's fields are lost when the inner one opens"

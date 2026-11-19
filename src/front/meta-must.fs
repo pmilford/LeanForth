@@ -13,6 +13,10 @@
 \   lf-level! ( type -- level )       getLevel
 \   lf-defeq! ( t s -- flag )         isDefEq (the configuration in force)
 \   lf-instantiate! ( e -- e' )       instantiateMVars
+\   lf-has-open-mvar? ( e -- flag )   whether e holds a metavariable
+\                                     neither assigned nor delayed-assigned
+\                                     (getMVarsNoDelayed e not empty;
+\                                     mvars.fs's lf-mvar-open? on each leaf)
 \   lf-meta-thrown? ( code -- flag )  whether a THROW code is a failure's
 \   lf-meta-outcome ( code -- outcome ) the outcome a failure's code carries
 \   lf-meta-catch ( i*x xt in out -- j*x outcome ) xt ( i*x -- j*x ) run
@@ -21,14 +25,18 @@
 \                                     .lean:50)
 \   lf-with-goal ( i*x goal xt -- j*x ) MVarId.withContext (Meta/Basic.lean)
 \   lf-with-view ( i*x xt view -- j*x ) xt in that local context (withLCtx)
-\   lf-with-record ( i*x slab xt -- j*x ) xt ( i*x frame -- j*x ) given a
-\                                     new frame, erased, on slab (a call's
-\                                     working record), freed however xt
-\                                     ends, with any frame left above it
-\   lf-tac-defeq ( t s -- flag outcome ) the tactics' isDefEq: the
-\                                     elaborator's flags at default
-\                                     transparency, the stuck signal made
-\                                     invalid (outcome-sane); no THROW
+\   lf-with-record ( i*x slab xt -- j*x ) xt ( i*x -- j*x ) run with a
+\                                     new frame, erased, on top of slab (a
+\                                     call's working record), freed however
+\                                     xt ends, with any frame left above it;
+\                                     xt reads its frame as slab-last, again
+\                                     after each word that may claim on slab
+\                                     (rule below)
+\   lf-defeq-elab-at ( t s mode -- flag outcome ) the tactics' isDefEq:
+\                                     the elaborator's flags at transparency
+\                                     mode, the stuck signal made invalid
+\                                     (outcome-sane); no THROW
+\   lf-tac-defeq ( t s -- flag outcome ) the same at default transparency
 \   lf-found ( x true | false -- x )  a lookup's answer, none thrown invalid
 \                                     (a record LeanForth made is missing: a fault)
 \   lf-goal-type lf-goal-tag lf-goal-view lf-goal-kind ( goal -- x )
@@ -65,6 +73,7 @@ require ./meta-config.fs
 require ./whnf.fs
 require ./infer.fs
 require ./defeq.fs
+require ./term-find.fs
 
 -4200 constant lf-meta-throw-base   \ a failure's code: base - outcome
 
@@ -98,11 +107,20 @@ require ./defeq.fs
 : lf-level! ( type -- level ) lf-get-level lf-must ;
 : lf-defeq! ( t s -- flag ) lf-meta-defeq outcome-sane lf-must ;
 : lf-instantiate! ( e -- e' ) lf-instantiate-mvars lf-must ;
-\ isDefEq in the elaborator's configuration at default transparency
+: lf-has-open-mvar? ( e -- flag ) ['] lf-mvar-open? lf-term-holds? lf-must ;
+\ isDefEq in the elaborator's configuration at transparency mode
 \ (lf-meta-with: defeq's own configuration and mode put back however it
 \ ends), an internal code such as the stuck signal made invalid.
-: lf-tac-defeq ( t s -- flag outcome )
-  ['] lf-meta-defeq lf-defeq-elab lf-tr-default lf-meta-with outcome-sane ;
+\ Fidelity gap, kept by the moves of plan 9.4.8l I and to be changed in
+\ its fidelity commit after them: the flags and the mode are set outright,
+\ as the moved code (tactic-basic.fs's lfb-defeq) set them, where Lean's
+\ scopes (withReducible, withAssignableSyntheticOpaque, approxDefEq) each
+\ change only their own part of the configuration in force; so a bit set
+\ around a caller, such as fix J's assignable synthetic opaque bit around
+\ tactic-core.fs's lf-tac-elab-ensuring, is lost here.
+: lf-defeq-elab-at ( t s mode -- flag outcome )
+  ['] lf-meta-defeq lf-defeq-elab rot lf-meta-with outcome-sane ;
+: lf-tac-defeq ( t s -- flag outcome ) lf-tr-default lf-defeq-elab-at ;
 
 \ ---- commitWhen: the metavariable context marked, xt run; its changes
 \ kept on true, rolled back on false and on a THROW (thrown on). A
@@ -126,9 +144,15 @@ require ./defeq.fs
 
 \ ---- A call's working record: a frame per call open on the slab, so
 \ that a call inside another has its own (slice LA item 5), freed on both
-\ paths.
-: mm-frame ( slab -- frame )
-  1 over slab-claim lf-must over slab-at dup rot slab-unit erase ;
+\ paths. Rule (review tactic-move M1): xt is given no address. A claim on
+\ the slab may move its block (slab.fs: an address is valid only until
+\ the next claim), and a call nested in xt claims its own frame on the
+\ same slab; so xt reads its frame afresh as the slab's last unit (its
+\ caller's accessor, such as goal.fs's mti), never keeping the address
+\ across a word that may nest a call. The frames are strictly nested,
+\ so the last unit is always the innermost open call's.
+: mm-frame ( slab -- )
+  1 over slab-claim lf-must over slab-at swap slab-unit erase ;
 : lf-with-record ( i*x slab xt -- j*x )
-  over dup slab-count 2>r swap mm-frame swap catch 2r> swap slab-cut throw ;
+  over dup slab-count 2>r swap mm-frame catch 2r> swap slab-cut throw ;
 base !   \ the BASE this file was loaded with

@@ -2439,6 +2439,14 @@ test = "$GFORTH tests/lib/lib.fs"
 reason = "review FRK 5: the portable BOUNDS gives start and end the other way round, so a ?DO over it runs no or wrong iterations"
 
 [[fault]]
+id = "portable-ndrop-short"
+file = "src/lib/portability.fs"
+old = '''[undefined] ndrop [if] : ndrop ( xn .. x1 n -- ) 0 ?do drop loop ; [then]'''
+new = '''[undefined] ndrop [if] : ndrop ( xn .. x1 n -- ) 1 ?do drop loop ; [then]'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "review tactic-move B1: the portable NDROP leaves one of the n cells, so a caller's stack (a dropped detail's cells, the search order's word lists) is one too deep"
+
+[[fault]]
 id = "portable-u-le-signed"
 file = "src/lib/portability.fs"
 old = ''': u<= ( u1 u2 -- flag ) u> 0= ; [then]'''
@@ -15507,7 +15515,7 @@ reason = "FE1g-1: a kind changed under a mark is not noted, so a rollback keeps 
 [[fault]]
 id = "fe-goal-sees-all"
 file = "src/front/mvars.fs"
-old = '''  swap lf-mvar-view if swap lf-view-find dup if nip then else drop false then ;'''
+old = '''  swap lf-mvar-view if swap lf-view-has? else drop false then ;'''
 new = '''  2drop true ;'''
 test = "$GFORTH tests/front/goals.fs"
 reason = "FE1g-1: every free variable counts as in a metavariable's context (the count model's flaw: a cleared hypothesis stays visible)"
@@ -16173,8 +16181,8 @@ reason = "FE1g-4 review fe1g3 L10: a message's printing that throws leaves the p
 [[fault]]
 id = "fe-tac-defeq-settings-kept"
 file = "src/front/meta-must.fs"
-old = '''  ['] lf-meta-defeq lf-defeq-elab lf-tr-default lf-meta-with outcome-sane ;'''
-new = '''  lf-defeq-elab lf-defeq-flags! lf-tr-default lf-defeq-mode! lf-meta-defeq outcome-sane ;'''
+old = '''  ['] lf-meta-defeq lf-defeq-elab rot lf-meta-with outcome-sane ;'''
+new = '''  lf-defeq-elab lf-defeq-flags! lf-defeq-mode! lf-meta-defeq outcome-sane ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L10: the tactics' isDefEq leaves defeq's configuration and mode set to the elaborator's"
 

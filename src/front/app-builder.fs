@@ -231,7 +231,7 @@ end-structure
 : abm-deeper ( -- e )
   false lf-mctx-depth{ lf-must >r ['] abm-run catch r> }lf-mctx-depth swap ?dup
   if nip throw then lf-must ;
-: abm-framed ( d addr n frame -- e ) abm-open abm-deeper ;
+: abm-framed ( d addr n -- e ) abm abm-open abm-deeper ;
 : abm-of ( d addr n -- e ) abm-frames ['] abm-framed lf-with-record ;
 : lf-mk-app-m-of ( d x1..xn n -- e ) abl-stored abm-of ;
 : lf-mk-app-m ( c-addr u x1..xn n -- e ) abl-stored 2>r abl-decl 2r> abm-of ;

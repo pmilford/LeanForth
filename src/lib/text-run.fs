@@ -58,7 +58,6 @@ end-structure
 \ Keep the n word lists GET-ORDER gave, the first searched on top.
 : run-settings-order! ( widn .. wid1 n settings -- )
   2dup run-settings-order# ! swap 0 ?do tuck i swap run-settings-wid ! loop drop ;
-: run-settings-drop ( widn .. wid1 n -- ) 0 ?do drop loop ;
 \ The saved search order on the stack, as SET-ORDER takes it.
 : run-settings-wid@ ( settings i -- wid settings i ) 2dup swap run-settings-wid @ -rot ;
 : run-settings-order@ ( settings -- widn .. wid1 n )
@@ -66,7 +65,7 @@ end-structure
 : run-settings-keep ( settings -- )
   >r get-order r@ run-settings-order! base @ r@ run-settings-base !
   get-current r> run-settings-current ! ;
-: run-settings-depth ( -- n ) get-order dup >r run-settings-drop r> ;
+: run-settings-depth ( -- n ) get-order dup >r ndrop r> ;
 
 lf-lib set-current
 /run-settings-layout constant /run-settings

@@ -643,7 +643,7 @@ end-structure
   irx-prim-domain @ ?dup if execute else true then ;
 : irx-outputs ( y1..ym r1..rk prim -- )
   dup irx-prim-out @ >r irx-prim-rout @ irx-rstack irx-give r> irx-data irx-give ;
-: irx-discard ( x... prim -- ) dup irx-prim-in @ swap irx-prim-rin @ + 0 ?do drop loop ;
+: irx-discard ( x... prim -- ) dup irx-prim-in @ swap irx-prim-rin @ + ndrop ;
 : irx-apply ( prim -- result )
   >r r@ irx-inputs r@ irx-in-domain? 0= if r> irx-discard irx-unmodeled exit then
   r@ irx-prim-action @ execute r> irx-outputs irx-going ;

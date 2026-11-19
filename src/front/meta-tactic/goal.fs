@@ -216,22 +216,19 @@ end-structure
   mti-new dup mti mti-xs @ mti mti-n @ lf-mk-lambda-fvars mti mti-goal @ mtg-set ;
 : mti-start ( -- ) mti mti-goal @ lf-goal-not-assigned lf-goal-type mti mti-type ! ;
 : mti-run ( -- goal' ) mti-start mti mti-n @ 0 ?do mti-step loop mti-close ;
-: mti-framed ( goal names kinds n xs frame -- goal' )
-  drop mti-fill ['] mti-run lf-with-goal ;
+: mti-framed ( goal names kinds n xs -- goal' ) mti-fill ['] mti-run lf-with-goal ;
 : lf-goal-intro-n ( goal names kinds n xs -- goal' )
   mti-frames ['] mti-framed lf-with-record ;
 
 \ ---- checkedAssign (ExprDefEq.lean:1341) as closeMainGoal calls it.
-: mtg-open? ( t -- flag ) ['] lf-mvar-open? lf-term-holds? lf-must ;
-: mtg-seen? ( view fvar -- view flag ) over swap lf-view-find dup if nip then ;
 : mtg-outside? ( view leaf -- view flag )
-  dup lf-term-tag@ lf-tag-fvar = if mtg-seen? 0= else drop false then ;
+  dup lf-term-tag@ lf-tag-fvar = if over swap lf-view-has? 0= else drop false then ;
 : mtg-occurs. ( x -- outcome )
   drop s\" \nthis is often due to an occurs-check failure" lf-pp-emit outcome-ok ;
 : mtg-assign. ( goal e -- outcome ) 0 swap ['] mtg-occurs. swap lf-tac-framed-with. ;
 : mtg-unassignable ( goal e -- )
   2 ['] mtg-assign. lf-tac-detail-n lfa-e-tac-assign lf-tac-stop ;
-: mtg-holes-free ( e -- e ) dup mtg-open? if outcome-unsupported lf-must then ;
+: mtg-holes-free ( e -- e ) dup lf-has-open-mvar? if outcome-unsupported lf-must then ;
 : mtg-in-scope ( goal e -- goal e )
   2dup swap lf-goal-view ['] mtg-outside? lf-term-holds-with? lf-must
   if 2dup mtg-unassignable then ;
@@ -254,10 +251,9 @@ end-structure
 : mtg-inst2 ( a b -- a' b' ) lf-instantiate! swap lf-instantiate! swap ;   \ b first
 : mrf-sides! ( -- ) mrf mrf-eq @ lf-eq? drop mtg-inst2 mrf mrf-sides 2! drop ;
 \ isDefEq at the transparency the step runs at (default; reducible under
-\ by-rw[ 's with_reducible).
-: mtg-defeq ( t s -- flag )
-  ['] lf-meta-defeq lf-defeq-elab lf-defeq-mode lf-meta-with outcome-sane lf-must ;
-: mrf-equal? ( -- flag ) mrf mrf-sides 2@ mtg-defeq ;
+\ by-rw[ 's with_reducible), the elaborator's flags set outright
+\ (meta-must.fs's lf-defeq-elab-at: a fidelity gap, plan 9.4.8l I).
+: mrf-equal? ( -- flag ) mrf mrf-sides 2@ lf-defeq-mode lf-defeq-elab-at lf-must ;
 : mrf-lhs ( -- lhs ) mrf mrf-sides 2@ drop ;
 \ @Eq.refl.{u} α lhs, u and α those of the goal's Eq (mkConst Eq.refl us,
 \ mkApp2).
@@ -274,13 +270,14 @@ end-structure
   lf-tac-indented. ;
 : mrf-rfl. ( x -- outcome )
   drop mrf mrf-goal @ mrf mrf-sides 2@ swap ['] mtg-rhs. swap lf-tac-framed-with. ;
-: mrf-open? ( -- flag ) mrf mrf-sides 2@ swap mtg-open? swap mtg-open? or ;
+: mrf-open? ( -- flag )
+  mrf mrf-sides 2@ swap lf-has-open-mvar? swap lf-has-open-mvar? or ;
 : mrf-unequal ( -- )
   mrf-open? if outcome-unsupported lf-must then
   0 ['] mrf-rfl. lf-tac-detail lfa-e-tac-rfl lf-tac-stop ;
 : mrf-run ( -- )
   mrf mrf-goal @ mtg-eq-of mtg-is-eq mrf mrf-eq ! mrf-sides!
   mrf-equal? if mrf-closed else mrf-unequal then ;
-: mrf-framed ( goal frame -- ) mrf-goal ! mrf-run ;
+: mrf-framed ( goal -- ) mrf mrf-goal ! mrf-run ;
 : lf-goal-refl ( goal -- ) lf-goal-not-assigned mrf-frames ['] mrf-framed lf-with-record ;
 base !   \ the BASE this file was loaded with

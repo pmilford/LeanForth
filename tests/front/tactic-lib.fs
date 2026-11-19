@@ -120,7 +120,7 @@ T{ fresh-pi lf-binder-name lf-binder-default named-pi lf-binder-name s" y" name=
 \ back after xt, also after a THROW.
 nat constant nat0
 lf-lctx-count @ constant count0
-: sees-x ( fvar -- type flag ) dup lf-fvar-type swap lf-mctx-view swap lf-view-find dup if nip then ;
+: sees-x ( fvar -- type flag ) dup lf-fvar-type swap lf-mctx-view swap lf-view-has? ;
 : local-ok ( -- type flag n view )
   nat0 s" z" lfa-intern lf-binder-default ['] sees-x lf-with-local-decl lf-lctx-count @
   lf-mctx-view ;
@@ -286,20 +286,29 @@ T{ ' config-fails ' lf-with-approx code1 config@ -> -4206 lf-meta-default lf-tr-
 lf-defeq-elab lf-tr-default lf-meta-config!
 \ lf-with-record: a frame erased for each call, nested calls their own,
 \ every frame freed when xt ends or throws (a frame xt leaves above its
-\ own too).
-create rec-slab /slab allot  2 cells 100 rec-slab slab-init drop
-: rec-sum ( x frame -- x' n ) @ + rec-slab slab-count ;
-: rec-dirty ( frame -- ) 7 swap ! ;
-: rec-fails ( frame -- ) rec-dirty outcome-full lf-must ;
-: rec-depth ( frame -- n ) drop rec-slab slab-count ;
-: rec-nested ( frame -- n m ) rec-dirty rec-slab ['] rec-depth lf-with-record rec-slab
+\ own too). xt reads its frame as the slab's last unit (review
+\ tactic-move M1): a nested call that grows the slab past its block (5000
+\ units) moves it, and the outer call's frame, read afresh, still holds
+\ what it wrote before and takes what it writes after.
+create rec-slab /slab allot  2 cells 10000 rec-slab slab-init drop
+: rec ( -- frame ) rec-slab slab-last ;
+: rec-sum ( x -- x' n ) rec @ + rec-slab slab-count ;
+: rec-dirty ( -- ) 7 rec ! ;
+: rec-fails ( -- ) rec-dirty outcome-full lf-must ;
+: rec-depth ( -- n ) rec-slab slab-count ;
+: rec-nested ( -- n m ) rec-dirty rec-slab ['] rec-depth lf-with-record rec-slab
   slab-count ;
-: rec-leaks ( frame -- ) drop 2 rec-slab slab-claim 2drop ;
+: rec-leaks ( -- ) 2 rec-slab slab-claim 2drop ;
 T{ 5 rec-slab ' rec-sum lf-with-record rec-slab slab-count -> 5 1 0 }T
 T{ rec-slab ' rec-dirty lf-with-record 0 rec-slab ' rec-sum lf-with-record -> 0 1 }T
 T{ rec-slab ' rec-fails ' lf-with-record catch nip nip rec-slab slab-count -> -4206 0 }T
 T{ rec-slab ' rec-nested lf-with-record rec-slab slab-count -> 2 1 0 }T
 T{ rec-slab ' rec-leaks lf-with-record rec-slab slab-count -> 0 }T
+: rec-grows ( -- ) 9 rec ! 5000 rec-slab slab-claim lf-must drop ;
+: rec-outer ( -- before after cap-grew? n )
+  rec-slab slab-capacity rec-dirty rec-slab ['] rec-grows lf-with-record rec @
+  8 rec ! rec @ rot rec-slab slab-capacity < rec-slab slab-count ;
+T{ rec-slab ' rec-outer lf-with-record rec-slab slab-count -> 7 8 true 1 0 }T
 rec-slab slab-free
 \ lf-term-holds-with?: the test reads its context x, which is not left.
 : same? ( x leaf -- x flag ) over = ;
@@ -348,6 +357,14 @@ T{ hadd-kk hadd-lean lf-meta-eqv abm-frames slab-count lf-mctx-marks -> true out
 : types2 ( c-addr u -- code ) nat nat 2 ['] lf-mk-app-m catch dup if >r 2drop 2drop drop r> then ;
 T{ s" Append.append" types2 abm-frames slab-count lf-mctx-marks -> -4204 0 0 }T
 T{ s" HAdd.hAdd" types2 lf-synth-error abm-frames slab-count -> -4205 119 0 }T
+\ lf-defeq-elab-at: isDefEq at the transparency asked for, the
+\ configuration in force put back (with the slice's
+\ elaboration data, which holds the reducibility attributes): id Nat is Nat at default, not at
+\ reducible (id is no reducible definition); lf-tac-defeq at default.
+: id-nat ( -- t ) s" id" nat 1 lf-mk-app-m ;
+T{ id-nat nat lf-tr-default lf-defeq-elab-at id-nat nat lf-tr-reducible lf-defeq-elab-at config@
+   -> true outcome-ok false outcome-ok lf-defeq-elab lf-tr-default }T
+T{ id-nat nat lf-tac-defeq -> true outcome-ok }T
 lf-author-begin
 
 \ ---- 6. tactic-msg.fs's branches that a well-formed proof never takes

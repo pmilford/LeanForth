@@ -134,7 +134,7 @@ end-structure
   tl tlf-type @ lf-term-pi? if tl tlf-type @ tl-binder true else tl-reduced then ;
 : tl-walk ( -- ) begin tl-step 0= until ;
 : tl-run ( -- acc body ) tl-walk tl dup tlf-acc @ swap tlf-type @ ;
-: tl-framed ( acc type d max xt frame -- acc' body ) tl-fill tl-run ;
+: tl-framed ( acc type d max xt -- acc' body ) tl tl-fill tl-run ;
 \ With maxMVars? some max (Basic.lean:1755): at most max binders, the
 \ rest of the type returned as it is once max are passed; -1 for none.
 : lf-forall-meta-bounded-telescope ( acc type d max xt -- acc' body )
@@ -199,7 +199,7 @@ end-structure
 : tle-placed? ( i -- flag )
   dup tle-index 0= if drop false exit then swap tle-view lf-view-count tle tle-n @ - + = ;
 \ Whether a context holds one of the variables.
-: tle-holds? ( view i -- view flag ) tle-x over swap lf-view-find dup if nip then ;
+: tle-holds? ( view i -- view flag ) tle-x over swap lf-view-has? ;
 : tle-sees? ( view -- flag ) tle tle-n @ ['] tle-holds? find-index dup if nip then ;
 : tle-tail? ( -- flag ) tle tle-n @ ['] tle-placed? all? ;
 \ ?n's type, kind and context; ?n xs; e delayed-assigned or assigned.
