@@ -1299,7 +1299,18 @@ reaches and says nothing about whether the tests check what the code does,
 which is what `make mutants` asks. The 2026-11-02 review's figure (90.7% of
 5,532 blocks) measured `make test-core` alone, over the code of that day.
 
-### Paying coverage debt (owner, 2026-11-19)
+### Before a tier: the pre-tier check
+
+`scripts/pre-tier.sh` (2026-11-19) runs every cheap whole-repository check in one keep-going pass of about two
+minutes and prints one line for each: a clean tree, the test classes, duplicates, the style ratchet and review
+log, library callers, the progress check, the agents' definitions, the planted-fault table, documentation links
+and examples, portable Forth, the Lean source citations, the export list, the standalone libraries, no runner
+falling back to an unpinned `lean`, and a scan of the Python scripts for undefined, shadowed or twice-defined
+names. An implementing agent runs it before handing a branch back, and it is run before every `make tier`: a
+tier is then never the first place such a failure shows. In a worktree without `.tools`, give `GFORTH=` and
+`LEAN=` as absolute paths.
+
+## Paying coverage debt (owner, 2026-11-19)
 
 Finding a file's never-run blocks used to need the 6-minute run of all of
 `make test`. Now, in order (`tests/scripts/test_coverage_debt.py` tests the
