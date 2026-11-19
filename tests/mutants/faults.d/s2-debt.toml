@@ -36,3 +36,35 @@ old = '''  if outcome-unsupported else outcome-ok then ;'''
 new = '''  drop outcome-ok ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "s2-debt: the smart path goes on with a sunfoldMatch marker in e1's arguments, which Lean's go would visit (not ported: unsupported)"
+
+[[fault]]
+id = "fe-decode-foreign-read"
+file = "src/front/lib-decode.fs"
+old = '''  elab-node-a dup 0< if drop outcome-unsupported no-result else lbd-sdecl then ;'''
+new = '''  elab-node-a lbd-sdecl ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "s2-debt: a smart-unfolding body's constant that the export lacks (its declaration -1) is decoded as a declaration, where it is unsupported at use"
+
+[[fault]]
+id = "fe-unify-matcher-unstuck"
+file = "src/front/discr-keys.fs"
+old = '''  lf-menv-matcher 0= if false exit then'''
+new = '''  drop false exit'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "s2-debt: getUnifyKeyArgs keys a matcher stuck on a metavariable discriminant as a constant, where Lean's isMatcher test makes it stuck"
+
+[[fault]]
+id = "fe-infer-proj-arity-unchecked"
+file = "src/front/infer.fs"
+old = '''  dup if-arity tuck + if-n <> if drop if-bad exit then'''
+new = '''  dup if-arity tuck + drop'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "s2-debt: inferProjType reads a structure type with fewer arguments than the structure's parameters (Prod Nat), where Lean throws invalid projection"
+
+[[fault]]
+id = "cli-steps-bad-ignored"
+file = "src/cli/leanforth.fs"
+old = '''  cli-state run-steps-bad @ if drop outcome-full then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "s2-debt: a step log whose file refused a write is reported as written when the writer itself succeeded"

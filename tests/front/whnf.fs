@@ -13,8 +13,7 @@
 \ compares the results with pinned Lean's.
 include ../support/tester.fs
 include ../support/heap-watch.fs
-\ (Loaded before the input: a module loaded later grows the context.)
-require ../../src/core/scratch-marks.fs
+include ../support/meta-sweeps.fs
 require ./whnf-cases.fs
 
 \ Terms equal node for node (test only: recursion on the host stack).
@@ -595,56 +594,19 @@ T{ fk wc-sreduced -> -1 false outcome-unsupported }T
 T{ 0 ' kept-kx1 with-rec kept? -> true false outcome-ok }T
 T{ -1 ' unf-kx1 with-rec rot unf-kx1 2drop same? -> true outcome-ok true }T
 
-\ ---- Resources (class 5) on S2's paths: each scenario below -- iota, a
-\ projection, a matcher, an auxiliary recursor, the smart path, a class
-\ field, getStuckMVar? of a recursor and of a class projection -- is run
-\ (1) with each heap allocation refused in turn, every k until a run
-\ makes fewer than k, with whnf's and unfold.fs's slabs given back to the
-\ heap before each run, so that each slab's first claim allocates (a
-\ frame, a spine, the levels, the alternatives' variables); (2) with room
-\ for j more terms in the term store, every j from 0 until the run makes
-\ its answer, the store rolled back after each run. Every run must give
-\ the scenario's answer or end full: a refusal never becomes another
-\ answer (a frame refused room read as a stuck term, say). The counts of
-\ full runs pin that the refusals were reached.
-: slab-anew ( slab -- )
-  dup slab-unit over slab-limit rot dup slab-free slab-init ok? 0= abort" slab-anew" ;
+\ ---- Resources (class 5) on S2's paths (tests/support/meta-sweeps.fs):
+\ each scenario below -- iota, a projection, a matcher, an auxiliary
+\ recursor, the smart path, a class field, getStuckMVar? of a recursor
+\ and of a class projection -- is run with each heap allocation refused in
+\ turn, whnf's and unfold.fs's slabs given back to the heap before each
+\ run so that each slab's first claim allocates (a frame, a spine, the
+\ levels, the alternatives' variables), and with each term refused in
+\ turn: the scenario's answer or full, never another answer (a frame
+\ refused room read as a stuck term, say), and some runs full.
 : whnf-slabs-anew ( -- )
   wc-frames slab-anew wc-args slab-anew wc-margs slab-anew wc-levels slab-anew
   wc-hs slab-anew uf-args slab-anew uf-levels slab-anew ;
-\ A scenario: its term e, made before, and its pass ( e -- x outcome ).
-variable sweep-e  variable sweep-xt
-variable sweep-x  variable sweep-out  variable sweep-fulls  variable sweep-bad
-: sweep-run ( -- x outcome ) sweep-e @ sweep-xt @ execute ;
-: sweep-normal ( e xt -- )
-  sweep-xt ! sweep-e ! sweep-run sweep-out ! sweep-x ! 0 sweep-fulls ! 0 sweep-bad ! ;
-: sweep-bad+ ( -- ) 1 sweep-bad +! ;
-\ The answers equal: the same cell, or terms equal up to their nodes'
-\ identities (term-eqv.fs: a run with sharing off makes new ones).
-: sweep-same? ( x x' -- flag ) 2dup = if 2drop true exit then lf-meta-eqv drop ;
-: sweep-tally ( x outcome -- )
-  dup outcome-full = if 2drop 1 sweep-fulls +! exit then
-  sweep-out @ <> if drop sweep-bad+ exit then sweep-x @ sweep-same? 0= if sweep-bad+ then ;
-\ (1) the k-th allocation refused; true when the refusal fired.
-: refused-run ( k -- fired? )
-  whnf-slabs-anew heap-refusals ! sweep-run heap-refusals @ 0= 0 heap-refusals !
-  >r sweep-tally r> ;
-: heap-sweep ( e xt -- fulls bad ) sweep-normal 0 begin 1+ dup refused-run 0= until drop
-  sweep-fulls @ sweep-bad @ ;
-\ (2) room for j more terms, with sharing off (so that every node the
-\ pass makes is new, as on its first run: the scenario's normal run has
-\ made them all before) and the scratch rolled back after the run
-\ (core/scratch-marks.fs: the terms, levels, references and the local
-\ context's new entries); true when the run gave its answer.
-create sweep-mark /lf-scratch allot
-: room-run ( j -- done? )
-  sweep-mark lf-scratch-mark ok? 0= abort" room-run: mark"
-  false lf-term-sharing! lf-term-capacity >r lf-term-count @ + lf-term-capacity! drop
-  sweep-run r> lf-term-capacity! drop true lf-term-sharing!
-  dup outcome-full <> >r sweep-tally r>
-  sweep-mark lf-scratch-rollback ok? 0= abort" room-run: rollback" ;
-: room-sweep ( e xt -- fulls bad ) sweep-normal -1 begin 1+ dup room-run until drop
-  sweep-fulls @ sweep-bad @ ;
+' whnf-slabs-anew sweep-slabs-xt !
 \ The scenarios ( -- e xt ).
 : field-pass ( e -- x outcome ) lf-tr-instances unf nip ;
 \ getStuckMVar?'s answer as one cell: the metavariable, or 0 for none.
@@ -658,7 +620,6 @@ create sweep-mark /lf-scratch allot
 : s-stuck-rec ( -- e xt ) ?n recm ['] stuck-pass ;
 : s-stuck-class ( -- e xt ) nat ?q fk fk add-of ['] stuck-pass ;
 : s-stuck-proj ( -- e xt ) ?q 0 proj fk app ['] stuck-pass ;
-: swept? ( fulls bad -- flag ) 0= swap 0> and ;
 T{ s-iota heap-sweep swept? s-iota room-sweep swept? -> true true }T
 T{ s-proj heap-sweep swept? s-proj room-sweep swept? -> true true }T
 T{ s-match heap-sweep swept? s-match room-sweep swept? -> true true }T
@@ -728,6 +689,22 @@ T{ 0 ' huge-kx1 with-rec -> -1 false outcome-unsupported }T
   elab-reducible hadd-bits +! lf-tr-reducible unf elab-reducible negate hadd-bits +! ;
 T{ hadd-kx reducible-hadd rot add-kx same? -> true outcome-ok true }T
 T{ hadd-kkx reducible-hadd rot k1kx same? -> true outcome-ok true }T
+\ The decoder's guards on a smart-unfolding body (lib-decode.fs, S2's
+\ coverage debt; the record changed for the test, then put back): a
+\ constant the export lacks (a foreign `_proof_` lemma, its declaration
+\ -1 in the data) is unsupported at use; an mdata node Lean borrows (no
+\ smart-unfolding marker) is read through. Without a run's library the
+\ decoder finds no declaration by name: invalid.
+: add-first ( kind -- n )
+  >r add-s ed-sun ed-sun-nodes @ begin dup elab-node-kind r@ <> while 1+ repeat r> drop ;
+: const-a ( -- addr ) elab-node-const add-first ed-node ed-node-a ;
+: add-decoded ( -- body outcome ) lbd-sun-forget add-s pad 0 lf-libdec-sunfold ;
+: foreign-decode ( -- body outcome ) const-a @ >r -1 const-a ! add-decoded r> const-a ! lbd-sun-forget ;
+: borrowed-decode ( -- body outcome )
+  add-mark @ >r elab-borrowed add-mark ! add-decoded r> add-mark ! lbd-sun-forget ;
+T{ foreign-decode borrowed-decode nip -> -1 outcome-unsupported outcome-ok }T
+T{ fk zero nat-add dup lf-meta-unfold kept? -> false true outcome-ok }T
+T{ s" Nat" menv-name lf-libdec-find -> -1 outcome-invalid }T
 \ ---- Stale leaves: after the contexts are emptied, every metavariable
 \ and free variable made before is invalid.
 lf-mctx-reset

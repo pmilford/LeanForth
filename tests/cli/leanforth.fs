@@ -51,6 +51,9 @@ decimal
 : chain ( -- c-addr u ) s" tests/cli/chain.ndjson" ;
 : tally ( k -- n ) cli-count-of @ ;
 
+\ Before any input is fed: no declaration has a name (print's pr-newest),
+\ and the step log finds no declaration to log (S2's coverage debt).
+T{ lf-input-count s" Nat" pr-newest s" Nat" cli-step-find -> 0 false false }T
 \ Each outcome's code; a value outside the vocabulary is a fault.
 T{ outcome-ok outcome>code outcome-rejected outcome>code -> 0 1 }T
 T{ outcome-unknown outcome>code outcome-unsupported outcome>code -> 2 2 }T
@@ -192,6 +195,26 @@ T{ s\" {a}\n" cli-line-end? s\" {a}\n{b" cli-line-end? 0 0 cli-line-end? -> true
   false cli-state run-steps-bad ! s\" {a}\n{b" cli-steps-put cli-steps-fail
   outcome-full cli-steps-cut drop cli-steps-fid close-file drop cli-state run-steps-uncut @ ;
 T{ full-cut -> true }T
+false cli-state run-steps-bad !  false cli-state run-steps-uncut !
+\ A log the writer or the file refused is full whatever the writer said
+\ (S2's coverage debt); a write the file refuses (one opened for reading)
+\ fails the log, and nothing more is written; a file whose position
+\ cannot be read (a pipe) leaves the cut unplaced: uncut.
+T{ true cli-state run-steps-bad ! outcome-ok cli-steps-bad false cli-state run-steps-bad !
+   -> outcome-full }T
+: ro-put ( -- bad? )
+  steps-file w/o create-file throw close-file throw steps-file r/o open-file throw
+  cli-state run-steps-fid ! false cli-state run-steps-bad ! s\" {a}\n" cli-steps-put
+  cli-steps-fid close-file drop steps-file delete-file throw cli-state run-steps-bad @ ;
+T{ ro-put -> true }T
+false cli-state run-steps-bad !
+[defined] open-pipe [if]
+: pipe-put ( -- uncut? )
+  false cli-state run-steps-uncut ! s" cat > /dev/null" w/o open-pipe throw
+  cli-state run-steps-fid ! false cli-state run-steps-bad ! s\" {a}\n" cli-steps-put
+  cli-steps-fid close-pipe 2drop cli-state run-steps-uncut @ ;
+T{ pipe-put -> true }T
+[then]
 false cli-state run-steps-bad !  false cli-state run-steps-uncut !
 \ A name's last component as the printer asks for it (nt-part), as Lean's
 \ formatter writes it (review PB1): «fun» as the root, but Foo.fun.
@@ -375,6 +398,9 @@ T{ s" fixtureUse" cli-name! fixture cli-print -> 0 }T
 T{ s" noSuch" cli-name! fixture cli-print -> 4 }T
 cli-options cli-detail
 T{ composition cli-print -> 0 }T
+\ --lf with an option that shapes outlines (--detail) is a mistake: 4.
+true cli-state opt-lf !
+T{ composition cli-print -> 4 }T
 cli-options
 \ wrong has no manifest beside it; irrelevance's theorem is accepted
 \ (proof irrelevance, plan task 4.2.5).
