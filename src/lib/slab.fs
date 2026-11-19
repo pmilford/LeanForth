@@ -59,6 +59,7 @@
 \   1 chars 1048576 pool slab-init drop
 \   here-mark pool slab-mark drop
 \   s" Nat" dup pool slab-claim drop pool slab-at swap move    \ units 0 .. 2
+\   pool slab-data type                  \ Nat: unit 0's address and the count
 \   here-mark pool slab-rollback drop    \ the count is 0 again
 \   pool slab-free
 \   create todo /slab allot   1 cells 1000 todo slab-init drop
@@ -67,10 +68,10 @@
 \   : small? ( n -- flag outcome )
 \     dup 100 < swap 2/ ?dup if todo slab-push else outcome-ok then ;
 \   40 todo slab-push drop  todo ' small? slab-all? . .   \ 0 (ok) -1 (true)
-\   todo slab-free                              \ prints: 8 7 0 0 -1
+\   todo slab-free                              \ prints: Nat8 7 0 0 -1
 \
 \ Interface: /slab slab-init slab-free slab-live? slab-valid? slab-count
-\ slab-capacity slab-limit slab-unit slab-at slab-base slab-top slab-room
+\ slab-capacity slab-limit slab-unit slab-at slab-base slab-data slab-top slab-room
 \ slab-reserve slab-hold slab-claim slab-commit slab-cut slab-remove
 \ slab-bad-cut slab-trim
 \ slab-clear slab-bytes slab-used-bytes slab-limit-max slab-offset
@@ -163,6 +164,9 @@ lf-lib set-current
 : slab-at ( i slab -- addr ) tuck slab-unit * swap slab-block @ + ;
 \ Unit 0's address, for callers that step through units themselves.
 : slab-base ( slab -- addr ) slab-block @ ;
+\ The units in use: unit 0's address and the count (a block that moves when
+\ the slab grows: a reader of the units in place watches both).
+: slab-data ( slab -- addr n ) dup slab-base swap slab-count ;
 : slab-top ( slab -- addr ) dup slab-count swap slab-at ;
 \ Address units held, and in use.
 : slab-bytes ( slab -- u ) dup slab-capacity swap slab-unit * ;
