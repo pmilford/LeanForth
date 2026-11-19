@@ -736,11 +736,13 @@ nat s" m" binder constant fm9   fm9 fm9 lf-mk-eq s" hm" binder drop
 T{ fm9 0 ' indep lf-tac-in-record lf-author-code -> lf-author-throw 99 }T
 lf-tac-forget
 T{ fn9 0 ' indep lf-tac-in-record -> 0 }T
-\ The target: a term that is no free variable, or a let variable (flet
-\ of part 2), refused (99).
+\ The target: a term that is no free variable, or a let variable,
+\ refused (99).
 T{ zero ' tind-fvar code1 lf-author-code -> lf-author-throw 99 }T
 lf-tac-forget
-T{ flet ' tind-fvar code1 lf-author-code fn9 tind-fvar fn9 = -> lf-author-throw 99 true }T
+nat zero lf-lctx-let made constant flet9
+T{ flet9 lf-meta-fvar? flet9 ' tind-fvar code1 lf-author-code fn9 tind-fvar fn9 =
+   -> true lf-author-throw 99 true }T
 lf-tac-forget
 \ The branches no proof text reaches: 205's message cut when the type
 \ does not print; a head constant that names no declaration, or no
