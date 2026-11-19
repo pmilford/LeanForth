@@ -366,7 +366,7 @@ end-structure
 : lfi-explicit? ( case f -- flag ) lfi-field-kind lf-binder-default = ;
 : lfi-explicit# ( case -- n )
   0 swap dup tia-fields @ 0 ?do dup i lfi-explicit? if swap 1+ swap then loop drop ;
-: lfi-given# ( -- n ) ta talt-step @ lf-tactic-step tac-count @ ;
+: lfi-given# ( -- n ) ta talt-step @ lf-tac-args# ;
 : lfi-n. ( n -- ) u>decimal lf-pp-emit ;
 : lfi-too-many. ( case -- outcome )
   s"  " lf-pp-emit dup tia-name @ lfi-.name s" : " lf-pp-emit lfi-given# lfi-n.
@@ -386,14 +386,13 @@ end-structure
   ta talt-case @ swap lfi-field-kind dup lfi-name-for swap ta talt-step @
     lf-tac-intro-as ;
 : lfi-intros ( case -- ) tia-fields @ 0 ?do i lfi-field loop ;
-: lfi-only ( goal -- ) 0 swap run-push lf-tac-must lf-goals! lf-tac-must ;
 \ tryClear: a refusal (invalid) keeps the goal; fuel, room or a gap is
 \ thrown, as Lean's <|> never catches a runtime exception.
 : lfi-cleared ( fvar -- )
   lf-tac-main swap lf-goal-clear dup outcome-invalid = if 2drop exit then
-  lf-tac-must lfi-only ;
+  lf-tac-must lf-tac-only ;
 : lfi-case-goal! ( case fvar -- )
-  >r dup tia-goal @ lfi-only lfi-intros r> lfi-cleared ;
+  >r dup tia-goal @ lf-tac-only lfi-intros r> lfi-cleared ;
 : lfi-alt ( j -- )
   dup ta talt-step ! 0 ta talt-given ! lfi-top tiw-elim @ ta talt-elim !
   lfi-tag-of lfi-case-named dup ta talt-case ! lfi-names-fit true over tia-used !

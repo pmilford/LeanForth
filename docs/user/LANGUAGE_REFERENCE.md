@@ -1007,7 +1007,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-rw[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: a block step. Run: rewrites the goal with each rule, then tries `by-rfl` | Starts a list of rewrite rules; every value built until `]` is a rule. | `rw [` |
 | `by-rewrite[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, no `by-rfl` | The same without the closing `rfl`. | `rewrite [` |
 | `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules, in order; closes it | Ends the rule list of `by-rw[` or `by-rewrite[`; with none open, error 83. | `]` |
-| `**` `by-case: CASE-TAG HYP-NAME ...  =>` | `( -- )` | parsing: as `\|`; closed by `by-end` | read: a case block. Run: error 80 | One case after `by-induction`; read today, running stops with error 80. | `case tag names =>` |
+| `by-case: CASE-TAG HYP-NAME ...  =>` | `( -- )` | parsing: as `\|`; closed by `by-end` | read: a case block. Run: takes the goal of that tag (or whose tag ends or starts with it), renames its hidden hypotheses with the names, newest first | Works on one case after `by-induction`; errors 210 (no such tag), 211 (too many names), 89 (goal left at `=>`). | `case tag names =>` |
 | `**` `by-decide` | `( -- )` | designed | n/a | Close a closed goal by evaluation. | `decide` |
 | `**` `by-omega` | `( -- )` | designed | n/a | Linear arithmetic over `Nat` and `Int`. | `omega` |
 | `**` `by-native-decide` | `( -- )` | designed; permanently unsupported (exit 2): it rests on `Lean.ofReduceBool` | n/a | n/a | `native_decide` |
@@ -1103,8 +1103,8 @@ be LeanForth words. Blocks nest; an inner `ih` hides the outer one. Errors:
 form not ported (a target that is no variable, hypotheses depending on it,
 index targets). Plain `n by-induction` is defined too: it makes one goal per
 case and leaves them open, so alone it ends in error 89
-(`tests/front/s2w-induction-plain.lf`); its cases are meant for `by-case:`,
-which is `**` (D.6). Use `by-induction-with`.
+(`tests/front/s2w-induction-plain.lf`); its cases are meant for `by-case:`
+(D.6), or use `by-induction-with`.
 
 ```text
 \ tests/front/01-zero-add-rw.lf: accepted by the kernel with the S2 slice, term equal to Lean's
@@ -1172,11 +1172,17 @@ theorem ps_succ_add
   n Nat.succ m + n m + Nat.succ =
 := by
   m by-induction-with
-  | zero =>       by-rw[ ' Nat.add_zero ' Nat.add_zero ]
+  | zero =>       by-rfl
   | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
   by-end
 end ps_succ_add
 ```
+
+The zero case is closed by `by-rfl`: `Nat.succ n + 0` unfolds to
+`Nat.succ n` and `Nat.succ (n + 0)` to `Nat.succ n`. `by-rfl` also closes
+`n + (m + 0) = n + m + 0` (`ps-mul-add.lf`): `Nat.add n (m + 0)` does not
+unfold (its match is stuck on `m`), the other side does, and the two then
+agree, as in Lean.
 
 ```text
 \ tests/front/ps-length-append.lf (excerpt: rewriting with earlier theorems)
@@ -1189,20 +1195,42 @@ Wrong twins: `s2w-rw-empty.lf` (`by-rw[ ]` leaves the goal: 89),
 `s2w-rw-definition.lf` (a definition as a rule, 99), and `s2w-rw-unsolved.lf`,
 `s2w-not-eq.lf`, `s2w-pattern.lf`, each refused with Lean's first message.
 
-### D.6 `by-case:` (`**`)
+### D.6 `by-case:`
 
-`by-case: CASE-TAG HYP-NAME ... =>` ... `by-end` is read today (it checks the shape,
-FE1g-2: `lft-w-case`, `tactic-syntax.fs:289`) but running it stops with
-error 80, "not supported yet" (plan S2 merge B). Design:
-[FE1G_TACTICS.md](../design/FE1G_TACTICS.md) §3.2,
-[S2_INTERFACE.md](../design/S2_INTERFACE.md). Lean: `case succ k ih => ...`.
+`by-case: CASE-TAG HYP-NAME ... =>` ... `by-end` is Lean's `case CASE-TAG
+HYP-NAME ... =>` (`src/front/tactic-case.fs`). It picks one open goal by
+its case tag. It looks for the tag itself first, then for a tag that ends
+with it (`zero` finds `succ.zero`), then for one that starts with it
+(`succ` finds `succ.zero`). The names rename the goal's hidden hypotheses
+(shown `n✝`), newest first: the last name goes to the newest one. An older
+hypothesis hidden by a newer one of the same name is renamed too. `_` skips
+a hypothesis. The block then works on that goal alone and must close it.
+The other goals come back after `by-end`.
+
+Errors: 210 "Case tag `suc` not found.", then Lean's note or hint ("There
+are no cases to select.", "The only available case tag is `succ`." or
+"Available tags:"; Lean's previews of each tag after the hint are not
+printed); 211 "too many variable names provided"; 89 unsolved goals at the
+block's `=>`.
 
 ```text
-\ tests/front/01-zero-add.lf (read; stops at end with error 80 until merge B)
-n by-induction
-by-case: zero =>       by-rfl                           by-end
-by-case: succ k ih =>  ' Nat.succ ih congrArg by-exact  by-end
+\ tests/front/01-zero-add.lf: accepted with the S2 slice, term equal to Lean's
+theorem zero_add'
+  Nat explicit: n
+  0 n + n =
+:= by
+  n by-induction
+  by-case: zero =>       by-rfl                           by-end
+  by-case: succ k ih =>  ' Nat.succ ih congrArg by-exact  by-end
+end zero_add'
 ```
+
+More cases are in `tests/front/s2-case.lf` (cases in another order, a tag
+found by its end or its start, a hidden older `k`, `_`). Wrong twins:
+`s2w-case-tag.lf`, `s2w-case-tags.lf`, `s2w-case-none.lf`,
+`s2w-case-suffix.lf` (210), `s2w-case-names.lf` (211),
+`s2w-case-unsolved.lf` and `s2w-case-shadow.lf` (89), each refused with
+Lean's first message.
 
 ### D.7 `by-decide`, `by-omega`, `by-native-decide`, combinators (`**`)
 

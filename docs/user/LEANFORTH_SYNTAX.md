@@ -134,7 +134,7 @@ Without the elaboration data (`--elab-data`) the statement's numerals and
 `+` cannot be elaborated, and the text stops at `end` (error 139, exit 2).
 
 The words (the design is [FE1G_TACTICS.md](../design/FE1G_TACTICS.md));
-all of them are read, and all but `by-case:` run (see "Running" below):
+all of them are read and run (see "Running" below):
 
 | Word | Stack effect | Lean | Read as |
 | --- | --- | --- | --- |
@@ -183,8 +183,8 @@ texts for a goal with nothing to introduce, a term of another type and
 two sides that are not equal), and so do `by-induction`,
 `by-induction-with` with its `|` alternatives, `by-rw[ ]` and
 `by-rewrite[ ]` (plan S2, integrated 2026-11-17: Lean's `induction`,
-`rw` and `rewrite`). `by-case:` still stops at its word, "not supported
-yet" (error 80, plan FE1g-5), followed by the goals at that point. A goal
+`rw` and `rewrite`) and `by-case:` (Lean's `case`: the goal of that tag,
+its hidden hypotheses renamed; errors 210 and 211). A goal
 left when the proof ends is Lean's "unsolved goals" at `by` (error 89),
 the goals printed as Lean prints them; a tactic with no goal left is
 Lean's "No goals to be solved" (error 90); each step spends one unit of

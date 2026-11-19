@@ -6,8 +6,8 @@ cannot break silently again (done check 2026-11-18-s2.md: it exited 1 and printe
    tests/front/showcase.golden (reviewed by reading it; --write writes it again). Every
    theorem of the golden has a verdict "accepted; axioms: none", and every tactic theorem
    its statement and steps.
-2. A file whose check stops (tests/front/01-zero-add.lf, `by-case:`, error 80): the script
-   exits 1 and shows the error and exit 2.
+2. A file whose check stops (tests/front/s2w-rw-definition.lf, rewriting by a definition,
+   error 99): the script exits 1 and shows the error and exit 2.
 3. The formatter fails closed: a step-log line that is not JSON, or a step without its
    source, exits 1; a wrong usage exits 1.
 A self-test first checks that a changed golden line is told apart.
@@ -67,9 +67,9 @@ def golden_part(write):
 
 
 def stopped_part():
-    status, out, _ = run(["bash", SCRIPT, "tests/front/01-zero-add.lf"])
+    status, out, _ = run(["bash", SCRIPT, "tests/front/s2w-rw-definition.lf"])
     check(status == 1, f"a file whose check stops: script exit 1, got {status}")
-    check("error 80 at line:col 15:3 (token `by-case:`)" in out and "--- exit 2" in out,
+    check("error 99 at line:col 8:3 (token `by-rw[`)" in out and "--- exit 2" in out,
           "the stopped file's error and exit 2 are shown")
     check("Verdict: none (the run stopped before it)" in out, "a theorem with no verdict says so")
 

@@ -25,6 +25,15 @@
 \       Lean's eraseMacroScopes), inside a hygienic parent's macro scopes
 \       (Name.modifyBase): zero and a._@.M._hyg.3 give zero.a, x._@.M._hyg.1
 \       and left give x.left._@.M._hyg.1; an anonymous tag gives parent
+\   lf-name-suffix-of? ( s n -- flag )  Name.isSuffixOf (Init/Meta/
+\       Defs.lean): s's components the last ones of n (zero of succ.zero;
+\       the anonymous name of any name)
+\   lf-name-prefix-of? ( p n -- flag )  Name.isPrefixOf: p is n or one of
+\       its prefixes (succ of succ.zero; su of su.x, not of succ: a
+\       component compares whole)
+\       (findTag?'s name tests, tactic-case.fs; general Name functions,
+\       whose home is core/name-equal.fs once the [kernel] gate's next
+\       batch takes them, plan 9.4.8l B)
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own. Loads in decimal whatever BASE is, then
 \ restores it.
@@ -32,6 +41,7 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../../lib/lib.fs
 require ../../core/names.fs
+require ../../core/name-equal.fs
 require ../../present/print-names.fs
 require ../../author/declarations.fs
 require ../mvars.fs
@@ -80,4 +90,13 @@ require ../app-builder.fs
   over lf-pp-unhygienic mtg-plus >r mtg-scopes r> mtg-graft ;
 : lf-goal-tag-append ( goal parent -- )
   over lf-goal-tag mtg-appended lf-mvar-tag! lf-must ;
+
+\ ---- Name.isSuffixOf and Name.isPrefixOf, component by component
+\ (core/name-equal.fs's lf-name-part= and lf-name-same?).
+: lf-name-suffix-of? ( s n -- flag )
+  begin over while 2dup lf-name-part= 0= if 2drop false exit then lf-name-prefixes
+  repeat 2drop true ;
+: lf-name-prefix-of? ( p n -- flag )
+  begin 2dup lf-name-same? 0= while dup 0= if 2drop false exit then lf-name-prefix@
+  repeat 2drop true ;
 base !   \ the BASE this file was loaded with

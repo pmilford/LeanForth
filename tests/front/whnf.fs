@@ -115,8 +115,10 @@ T{ 0 s" Nat.add" cn fk app fk app lf-whnf-stuck -> false outcome-ok }T
 \ With a metavariable, a definition that is no projection function has no
 \ stuck one (getProjectionFnInfo? none; branch s2-tactics).
 T{ 0 s" Nat.add" cn ?n app fk app lf-whnf-stuck -> false outcome-ok }T
+\ A term without metavariables has none stuck (branch s2-rest: Lean's
+\ whnf of a projection's structure fp is fp, a free variable: none).
 T{ ?f lf-whnf-stuck fp s" Prod" menv-name 0 lf-proj-of made lf-whnf-stuck
-   -> false outcome-unsupported false outcome-unsupported }T
+   -> false outcome-unsupported false outcome-ok }T
 T{ -1 lf-whnf-stuck fk lf-whnf-stuck -> false outcome-invalid false outcome-ok }T
 \ A class's projection function (Add.add, getProjectionFnInfo? fromClass;
 \ WHNF.lean:345-370): stuck on a plain metavariable instance; with the
@@ -196,12 +198,17 @@ T{ succ recm  nat fs 0 bv app rec fm app fz app fs app 0 bv app app lam whnf=
 T{ fk fs fk app 0 lf-let-make must lf-whnf-core -> -1 outcome-invalid }T
 : syntax-rec ( n -- t ) >r lv1 1 s" Lean.Syntax.rec" cn r> 0 ?do fk app loop ;
 T{ 11 syntax-rec lf-whnf-core 10 syntax-rec dup whnf= -> -1 outcome-unsupported true outcome-ok }T
-T{ quot fa app lf-whnf-stuck -> false outcome-unsupported }T
+\ (No metavariable in it: none, branch s2-rest; with one, a quotient's
+\ lift or ind is not ported.)
+T{ quot fa app lf-whnf-stuck quot ?n app lf-whnf-stuck
+   -> false outcome-ok false outcome-unsupported }T
 T{ ?n succ swap app succ swap app recm lf-whnf-stuck -> false outcome-unsupported }T
 \ A projection of a metavariable, alone or applied, is stuck on it (review
-\ fe1c-2 M1); of anything else it would need whnf.
+\ fe1c-2 M1); of anything else holding one it would need whnf; with none
+\ in it, none (branch s2-rest).
 T{ ?q 0 proj fk app lf-whnf-stuck ?q 0 proj lf-whnf-stuck -> ?q true outcome-ok ?q true outcome-ok }T
-T{ fa fb pair 0 proj fk app lf-whnf-stuck -> false outcome-unsupported }T
+T{ fa fb pair 0 proj fk app lf-whnf-stuck fa ?n pair 0 proj fk app lf-whnf-stuck
+   -> false outcome-ok false outcome-unsupported }T
 \ A major premise whose head is no constant is never read as one (review
 \ M2): a lambda; a free variable whose number is Nat.succ's reference's.
 T{ nat 0 bv lam recm lf-whnf-stuck -> false outcome-ok }T

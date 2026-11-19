@@ -68,7 +68,9 @@
 \ ( i -- ) rfl at reducible transparency (by-rfl decides at the
 \ transparency it runs at); lf-tac-intro-as ( given kind i -- ) the main
 \ goal's first binder introduced as given (0: its own name, inaccessible)
-\ with the kind given (introN for an alternative's fields); and the
+\ with the kind given (introN for an alternative's fields); lf-tac-only
+\ ( goal -- ) setGoals [goal] (an alternative's or a case's); lf-tac-args#
+\ ( i -- n ) how many arguments step i has (names, rules); and the
 \ message and term helpers lf-tac-line., lf-tac-goal., lf-tac-failed,
 \ lf-tac-inline, lf-tac-inline., lf-tac-eq?, lf-tac-hole?,
 \ lf-tac-binder ( pi -- name kind ).
@@ -177,12 +179,16 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 \ For the other tactics: the same, the step's goal and context in tb.
 : lf-tac-step-run ( i*x i xt -- j*x ) lfb-step ;
 : lfb-popped ( -- ) 0 lf-replace-main lf-tac-must ;
+\ setGoals [goal]: the goal list that goal alone (an alternative's or a
+\ case's).
+: lf-tac-only ( goal -- ) 0 swap run-push lf-tac-must lf-goals! lf-tac-must ;
 \ A pi's binder name and kind: the presentation table's, else its input
 \ record's, else the anonymous name, explicit.
 : lf-tac-binder ( pi -- name kind )
   dup lf-pres-binder@ if 2>r drop 2r> exit then
   lf-term-input-binder@ 0= if 0 lf-binder-default then ;
 : lfb-arg ( i -- x ) lf-tactic-step tac-first @ lf-tactic-arg drop ;
+: lf-tac-args# ( i -- n ) lf-tactic-step tac-count @ ;   \ step i's arguments
 
 \ ---- Messages: terms printed as goals print them (notation on, the
 \ printer's flag put back however printing ends), indented as Lean's

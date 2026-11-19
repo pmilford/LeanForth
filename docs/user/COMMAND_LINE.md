@@ -110,11 +110,11 @@ read into syntax trees and elaborated at each `end` (plan S1, branch
 with the library's elaboration data (`--elab-data`; without it every
 natural declaration stops with error 139), names, applications, `=`,
 binders, numerals, `+`, term proofs and tactic proofs work today (plan S2,
-integrated 2026-11-17): `by-rfl`, `by-exact`, `by-induction-with` with its
-`|` cases, `by-rw[ ]` and `by-rewrite[ ]`, with Lean's smart unfolding of
-recursive definitions such as `Nat.add`. `by-case:` stops with error 80
-and a kernel-form word such as `Prop` with error 70, both "not supported
-yet" (exit 2), and nothing is checked
+integrated 2026-11-17): `by-rfl`, `by-exact`, `by-induction` with
+`by-case:`, `by-induction-with` with its `|` cases, `by-rw[ ]` and
+`by-rewrite[ ]`, with Lean's smart unfolding of recursive definitions such
+as `Nat.add`. A kernel-form word such as `Prop` stops with error 70, "not
+supported yet" (exit 2), and nothing is checked
 ([two forms](LEANFORTH_SYNTAX.md#two-forms-kernel-form-and-natural-leanforth),
 [tactic proofs](LEANFORTH_SYNTAX.md#tactic-proofs-read-and-run-once-statements-are-elaborated)).
 FE1's theorem $0 + n = n$ in natural LeanForth, by induction and

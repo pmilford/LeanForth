@@ -1,0 +1,9 @@
+\ A wrong proof for S2's tactics (tests/front/check_s2.py; its Lean twin is
+\ tests/front/s2-wrong.lean's w_case_tags): refused with Lean's first message.
+theorem w_case_tags
+  Nat explicit: n
+  0 n + n =
+:= by
+  n by-induction
+  by-case: suc k ih =>  ' Nat.succ ih congrArg by-exact  by-end
+end w_case_tags

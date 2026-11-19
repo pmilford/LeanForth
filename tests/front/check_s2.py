@@ -3,7 +3,9 @@
 src/front/tactic-induction.fs, tactic-rewrite.fs, kabstract.fs,
 meta-check.fs; docs/design/S2_INTERFACE.md 4, 5, 9 and appendix G).
 
-1. FE1's rewriting form, the nested induction, the owner's proof set and
+1. FE1's case form and by-case:'s tag matching and renaming
+   (tests/front/01-zero-add.lf, s2-case.lf), FE1's rewriting form, the
+   nested induction, the owner's proof set (appendix G's forms) and
    merge B's midpoint, n + 0 = n by Eq.refl and by rfl (FILES) through
    `bin/leanforth check --env tests/front/s2-slice.ndjson --elab-data
    tests/front/s2-slice.elab.ndjson --steps -`: exit 0, each theorem
@@ -33,6 +35,8 @@ message the LeanForth file must print.
 Usage: GFORTH=... python3 tests/front/check_s2.py [--write-steps]
        GFORTH=... python3 tests/front/check_s2.py --tactics   (1 and 2 only: the
          planted faults' quick test, without the step log's extra runs and 4)
+       GFORTH=... python3 tests/front/check_s2.py --case   (by-case:'s files and twins
+         alone: the quick test of tactic-case.fs's planted faults)
        GFORTH=... python3 tests/front/check_s2.py --steps-of FILE  (one log)
        LEAN=... python3 tests/front/check_s2.py --lean [--write-golden]
 """
@@ -57,7 +61,9 @@ sys.path.insert(0, str(ROOT / "tests/support"))
 from schema_subset import Validator, load_strict  # noqa: E402
 STEPS_SCHEMA = Validator(load_strict((ROOT / "schemas/tactic-steps-1.schema.json").read_text()))
 # Each file and the theorems it declares, in order.
-FILES = [("tests/front/01-zero-add-rw.lf", ["zero_add''"]),
+FILES = [("tests/front/01-zero-add.lf", ["zero_add'"]),
+         ("tests/front/s2-case.lf", ["c_rev", "c_suffix", "c_prefix", "c_shadow", "c_under"]),
+         ("tests/front/01-zero-add-rw.lf", ["zero_add''"]),
          ("tests/front/04-nested-ih.lf", ["zero_add_nested"]),
          ("tests/front/ps-succ-add.lf", ["ps_succ_add"]),
          ("tests/front/ps-add-comm.lf", ["ps_zero_add", "ps_succ_add", "ps_add_comm"]),
@@ -67,11 +73,22 @@ FILES = [("tests/front/01-zero-add-rw.lf", ["zero_add''"]),
          # S2 merge B's midpoint (smart unfolding: n + 0 unfolds to n).
          ("tests/front/00-add-zero.lf", ["add_zero'"]),
          ("tests/front/02-add-zero-rfl.lf", ["add_zero'"])]
+# by-case:'s files (--case: the planted faults' quick test of tactic-case.fs).
+CASE_FILES = ["tests/front/01-zero-add.lf", "tests/front/s2-case.lf"]
 # A file whose theorem has another name in tests/front/s2-proofs.lean,
 # which declares both add_zero' forms.
 ALIASES = {"tests/front/02-add-zero-rfl.lf": {"add_zero'": "add_zero_rfl'"}}
 ADD_ZERO_RFL = ("Tactic `rfl` failed: The left-hand side\n  n + 0\nis not definitionally equal "
                 "to the right-hand side\n  n + 1\n\nn : Nat\n\u22a2 n + 0 = n + 1")
+# case's messages (Lean's hint then previews each tag as an edit of the one
+# written, which LeanForth does not print: src/front/tactic-case.fs); a
+# case's goal has no tag, so its unsolved goals show none.
+CASE_TAG = "Case tag `suc` not found.\n\nHint: The only available case tag is `succ`."
+CASE_TAGS = "Case tag `suc` not found.\n\nHint: Available tags:"
+CASE_NONE = "Case tag `zero` not found.\n\nNote: There are no cases to select."
+CASE_UNSOLVED = "unsolved goals\nk : Nat\nih : 0 + k = k\n⊢ "
+CASE_SUFFIX = "Case tag `foo.zero` not found.\n\nHint: Available tags:"
+CASE_SHADOW = "unsolved goals\nx : Nat\nih : 0 + x = x\nk : Nat\nih2 : 0 + (x + 1) = x + 1\n⊢ "
 # The wrong twins: file, code, Lean's message as LeanForth prints it.
 GOAL = "case succ\nk : Nat\nih : 0 + k = k\n\u22a2 0 + (k + 1) = k + 1"
 PLAIN = ("case zero\n\u22a2 0 + 0 = 0\n\ncase succ\nn\u271d : Nat\na\u271d : 0 + n\u271d = n\u271d\n"
@@ -92,7 +109,14 @@ WRONG = [("tests/front/s2w-pattern.lf", 215,
          ("tests/front/s2w-rw-unsolved.lf", 89, "unsolved goals", "case succ\nk : Nat"),
          ("tests/front/s2w-induction-plain.lf", 89, "unsolved goals", PLAIN),
          ("tests/front/s2w-rw-empty.lf", 89, "unsolved goals", "n : Nat\n\u22a2 0 + n = n"),
-         ("tests/front/s2w-add-zero-rfl.lf", 97, ADD_ZERO_RFL, "")]
+         ("tests/front/s2w-add-zero-rfl.lf", 97, ADD_ZERO_RFL, ""),
+         ("tests/front/s2w-case-tag.lf", 210, CASE_TAG, ""),
+         ("tests/front/s2w-case-tags.lf", 210, CASE_TAGS, ""),
+         ("tests/front/s2w-case-none.lf", 210, CASE_NONE, ""),
+         ("tests/front/s2w-case-names.lf", 211, "too many variable names provided", ""),
+         ("tests/front/s2w-case-unsolved.lf", 89, CASE_UNSOLVED, ""),
+         ("tests/front/s2w-case-suffix.lf", 210, CASE_SUFFIX, ""),
+         ("tests/front/s2w-case-shadow.lf", 89, CASE_SHADOW, "")]
 # Forth unit tests and resource sweeps of S2's words (tester.fs).
 UNITS = ["tests/front/s2-units.fs", "tests/front/s2-sweeps.fs"]
 # Proofs LeanForth does not support yet: exit 2, the code and its text.
@@ -116,7 +140,9 @@ LEAN_WRONG = ["Tactic `rewrite` failed: Did not find an occurrence of the patter
               "unsolved goals\nn : Nat\n\u22a2 0 + n = n",
               ADD_ZERO_RFL,
               "Type mismatch\n  Eq.refl n\nhas type\n  n = n\nbut is expected to have type\n"
-              "  n + 0 = n + 1"]
+              "  n + 0 = n + 1",
+              CASE_TAG, CASE_TAGS, CASE_NONE, "too many variable names provided", CASE_UNSOLVED,
+              CASE_SUFFIX, CASE_SHADOW]
 
 
 class Failure(Exception):
@@ -179,8 +205,8 @@ def golden():
 
 
 def self_test(want):
-    if len(want) != 20:
-        raise Failure(f"harness self-test: {len(want)} golden lines, expected 20")
+    if len(want) != 32:
+        raise Failure(f"harness self-test: {len(want)} golden lines, expected 32")
     wrong = dict(want)
     key = next(iter(wrong))
     wrong[key] = wrong[key].replace("#0", "#1", 1)
@@ -203,9 +229,9 @@ def schema_self_test():
             raise Failure(f"harness self-test: the step schema takes {tactic!r} {word!r}")
 
 
-def check_files(want):
+def check_files(want, files=FILES):
     logs = []
-    for path, names in FILES:
+    for path, names in files:
         code, out = check(path, "--steps", "-")
         if code != 0:
             raise Failure(f"{path}: exit {code}\n{out}")
@@ -249,14 +275,14 @@ def check_steps(logs):
         raise Failure(f"--steps with an export: exit {done.returncode}\n{done.stdout}")
 
 
-def check_wrong():
-    for path, number, message, detail in WRONG:
+def check_wrong(wrong=WRONG, unsupported=UNSUPPORTED):
+    for path, number, message, detail in wrong:
         code, out = check(path)
         line = f"error {number} at "
         if code != 4 or line not in out or message not in out or detail not in out:
             raise Failure(f"{path}: exit {code}, expected 4 with {line}{message!r} "
                           f"and {detail!r}\n{out}")
-    for path, number, message in UNSUPPORTED:
+    for path, number, message in unsupported:
         code, out = check(path)
         if code != 2 or f"error {number} at " not in out or message not in out:
             raise Failure(f"{path}: exit {code}, expected 2 with error {number}, {message!r}\n{out}")
@@ -369,6 +395,12 @@ def main():
         check_lean("--write-golden" in sys.argv)
         print(f"check_s2 --lean: s2-proofs.lean gives {GOLDEN.name}; s2-wrong.lean gives "
               f"the {len(LEAN_WRONG)} messages; harness self-test passed")
+        return
+    if "--case" in sys.argv:
+        check_files(want, [f for f in FILES if f[0] in CASE_FILES])
+        check_wrong([w for w in WRONG if "case" in w[0]], [])
+        print(f"check_s2 --case: {CASE_FILES} accepted as pinned Lean's, "
+              "the case twins refused with Lean's messages")
         return
     files = check_boundary()
     logs = check_files(want)

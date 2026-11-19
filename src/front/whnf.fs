@@ -661,8 +661,13 @@ wc-smatch-kind 1+ constant wc-srec-kind
 : ws-run ( term -- mvar true outcome | false outcome )
   dup lf-term-tag@ case lf-tag-mvar of ws-mvar endof  lf-tag-app of ws-app endof
     lf-tag-projection of ws-proj endof  >r drop true ws-none? r> endcase ;
+\ A term without metavariables has none stuck: every branch of Lean's
+\ getStuckMVar? answers a metavariable of e or of whnf of a part of e, and
+\ whnf of a term without metavariables makes none (definitions' values
+\ hold none), as its definition branch's `unless e.hasExprMVar` says.
 : lf-whnf-stuck ( term -- mvar true outcome | false outcome )
   dup lf-term-root? 0= if drop false outcome-invalid exit then
+  dup lf-meta-mvar-free? if drop false outcome-ok exit then
   outcome-ok wc wc-fault ! ws-run ws-checked ;
 
 \ ---- The smart path of unfoldDefinition? (WHNF.lean:851-905, plan S2

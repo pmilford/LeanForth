@@ -174,44 +174,44 @@ theorem zero_add_nested  (lines 13-25)
 
 === tests/front/ps-succ-add.lf
 
-theorem ps_succ_add  (lines 9-17)
+theorem ps_succ_add  (lines 6-14)
   LeanForth:
-      9 | theorem ps_succ_add
-     10 |   Nat explicit: n  Nat explicit: m
-     11 |   n Nat.succ m + n m + Nat.succ =
-     12 | := by
-     13 |   m by-induction-with
-     14 |   | zero =>       by-rw[ ' Nat.add_zero ' Nat.add_zero ]
-     15 |   | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
-     16 |   by-end
-     17 | end ps_succ_add
+      6 | theorem ps_succ_add
+      7 |   Nat explicit: n  Nat explicit: m
+      8 |   n Nat.succ m + n m + Nat.succ =
+      9 | := by
+     10 |   m by-induction-with
+     11 |   | zero =>       by-rfl
+     12 |   | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
+     13 |   by-end
+     14 | end ps_succ_add
   Statement, as Lean prints the first goal:
     n m : Nat
     ⊢ Nat.succ n + m = Nat.succ (n + m)
   Steps (5 in the step log; axioms: none; open parts: 0):
-    1. m by-induction-with   [Lean: induction; line 13, column 5]
+    1. m by-induction-with   [Lean: induction; line 10, column 5]
        goal before:
          n m : Nat
          ⊢ Nat.succ n + m = Nat.succ (n + m)
        goals after: none listed here; each case's goal is on its alternative below
-      2. | zero =>   [Lean: alternative; line 14, column 3]
+      2. | zero =>   [Lean: alternative; line 11, column 3]
          opens the case:
            case zero
            n : Nat
            ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
-        3. by-rw[ ' Nat.add_zero ' Nat.add_zero ]   [Lean: rw; line 14, column 19]
+        3. by-rfl   [Lean: rfl; line 11, column 19]
            goal before:
              case zero
              n : Nat
              ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
            goals after: none (this goal is proved)
-      4. | succ k ih =>   [Lean: alternative; line 15, column 3]
+      4. | succ k ih =>   [Lean: alternative; line 12, column 3]
          opens the case:
            case succ
            n k : Nat
            ih : Nat.succ n + k = Nat.succ (n + k)
            ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
-        5. by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]   [Lean: rw; line 15, column 19]
+        5. by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]   [Lean: rw; line 12, column 19]
            goal before:
              case succ
              n k : Nat
@@ -276,7 +276,7 @@ theorem ps_succ_add  (lines 17-25)
      19 |   n Nat.succ m + n m + Nat.succ =
      20 | := by
      21 |   m by-induction-with
-     22 |   | zero =>       by-rw[ ' Nat.add_zero ' Nat.add_zero ]
+     22 |   | zero =>       by-rfl
      23 |   | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
      24 |   by-end
      25 | end ps_succ_add
@@ -294,7 +294,7 @@ theorem ps_succ_add  (lines 17-25)
            case zero
            n : Nat
            ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
-        3. by-rw[ ' Nat.add_zero ' Nat.add_zero ]   [Lean: rw; line 22, column 19]
+        3. by-rfl   [Lean: rfl; line 22, column 19]
            goal before:
              case zero
              n : Nat
@@ -322,14 +322,14 @@ theorem ps_add_comm  (lines 26-34)
      28 |   n m + m n + =
      29 | := by
      30 |   m by-induction-with
-     31 |   | zero =>       by-rw[ ' ps_zero_add ' Nat.add_zero ]
+     31 |   | zero =>       by-rw[ ' ps_zero_add ] by-rfl
      32 |   | succ k ih =>  by-rw[ ' Nat.add_succ ih ' ps_succ_add ]
      33 |   by-end
      34 | end ps_add_comm
   Statement, as Lean prints the first goal:
     n m : Nat
     ⊢ n + m = m + n
-  Steps (5 in the step log; axioms: none; open parts: 0):
+  Steps (6 in the step log; axioms: none; open parts: 0):
     1. m by-induction-with   [Lean: induction; line 30, column 5]
        goal before:
          n m : Nat
@@ -340,19 +340,28 @@ theorem ps_add_comm  (lines 26-34)
            case zero
            n : Nat
            ⊢ n + 0 = 0 + n
-        3. by-rw[ ' ps_zero_add ' Nat.add_zero ]   [Lean: rw; line 31, column 19]
+        3. by-rw[ ' ps_zero_add ]   [Lean: rw; line 31, column 19]
            goal before:
              case zero
              n : Nat
              ⊢ n + 0 = 0 + n
+           goals after (1):
+             case zero
+             n : Nat
+             ⊢ n + 0 = n
+        4. by-rw[ ' ps_zero_add ] by-rfl   [Lean: rfl; line 31, column 42]
+           goal before:
+             case zero
+             n : Nat
+             ⊢ n + 0 = n
            goals after: none (this goal is proved)
-      4. | succ k ih =>   [Lean: alternative; line 32, column 3]
+      5. | succ k ih =>   [Lean: alternative; line 32, column 3]
          opens the case:
            case succ
            n k : Nat
            ih : n + k = k + n
            ⊢ n + (k + 1) = k + 1 + n
-        5. by-rw[ ' Nat.add_succ ih ' ps_succ_add ]   [Lean: rw; line 32, column 19]
+        6. by-rw[ ' Nat.add_succ ih ' ps_succ_add ]   [Lean: rw; line 32, column 19]
            goal before:
              case succ
              n k : Nat
@@ -373,7 +382,7 @@ theorem ps_add_assoc  (lines 6-14)
       8 |   n m k + + n m + k + =
       9 | := by
      10 |   k by-induction-with
-     11 |   | zero =>       by-rw[ ' Nat.add_zero ' Nat.add_zero ]
+     11 |   | zero =>       by-rfl
      12 |   | succ j ih =>  by-rw[ ' Nat.add_succ ' Nat.add_succ ih ' Nat.add_succ ]
      13 |   by-end
      14 | end ps_add_assoc
@@ -391,7 +400,7 @@ theorem ps_add_assoc  (lines 6-14)
            case zero
            n m : Nat
            ⊢ n + (m + 0) = n + m + 0
-        3. by-rw[ ' Nat.add_zero ' Nat.add_zero ]   [Lean: rw; line 11, column 19]
+        3. by-rfl   [Lean: rfl; line 11, column 19]
            goal before:
              case zero
              n m : Nat
@@ -419,7 +428,7 @@ theorem ps_mul_add  (lines 15-23)
      17 |   n m k + * n m * n k * + =
      18 | := by
      19 |   k by-induction-with
-     20 |   | zero =>       by-rw[ ' Nat.add_zero ' Nat.mul_zero ' Nat.add_zero ]
+     20 |   | zero =>       by-rfl
      21 |   | succ j ih =>  by-rw[ ' Nat.add_succ ' Nat.mul_succ ih ' Nat.mul_succ ' ps_add_assoc ]
      22 |   by-end
      23 | end ps_mul_add
@@ -437,7 +446,7 @@ theorem ps_mul_add  (lines 15-23)
            case zero
            n m : Nat
            ⊢ n * (m + 0) = n * m + n * 0
-        3. by-rw[ ' Nat.add_zero ' Nat.mul_zero ' Nat.add_zero ]   [Lean: rw; line 20, column 19]
+        3. by-rfl   [Lean: rfl; line 20, column 19]
            goal before:
              case zero
              n m : Nat
@@ -514,7 +523,7 @@ theorem ps_succ_add  (lines 20-28)
      22 |   n Nat.succ m + n m + Nat.succ =
      23 | := by
      24 |   m by-induction-with
-     25 |   | zero =>       by-rw[ ' Nat.add_zero ' Nat.add_zero ]
+     25 |   | zero =>       by-rfl
      26 |   | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
      27 |   by-end
      28 | end ps_succ_add
@@ -532,7 +541,7 @@ theorem ps_succ_add  (lines 20-28)
            case zero
            n : Nat
            ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
-        3. by-rw[ ' Nat.add_zero ' Nat.add_zero ]   [Lean: rw; line 25, column 19]
+        3. by-rfl   [Lean: rfl; line 25, column 19]
            goal before:
              case zero
              n : Nat

@@ -493,6 +493,8 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 207 | invalid | Alternative |
 | 208 | invalid | Too many variable names provided at alternative |
 | 209 | invalid | The `induction` tactic does not support the type |
+| 210 | invalid | Case tag |
+| 211 | invalid | too many variable names provided |
 | 212 | invalid | Type mismatch when assigning motive |
 | 213 | invalid | Duplicate alternative name |
 | 215 | invalid | Tactic `rewrite` failed: Did not find an occurrence of the pattern |
@@ -521,7 +523,8 @@ would end the block before it; the first of FE2's command codes); 205 to
 220 S2's induction and rewriting (`src/front/tactic-induction.fs`,
 `tactic-rewrite.fs`: Lean's texts, the names they hold ending the
 message's own line, as in "Invalid alternative name `suc`: Expected
-`succ`"; 210, 211 and 214 kept for `by-case:`); the rest of 100 on free. Codes 81 to
+`succ`"; 210 and 211 `by-case:`'s, `src/front/tactic-case.fs`; 214
+kept); the rest of 100 on free. Codes 81 to
 88 are the reading of
 tactic proofs (`src/front/tactic-syntax.fs`, plan FE1g-2): 82 names the
 word and the open block's (by-induction-with for an alternative, by-rw[
