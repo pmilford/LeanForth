@@ -11,9 +11,8 @@
 \       record (tactic-run.fs's lf-tac-in-record), the main goal's fields
 \       in tb, its context current (withMainContext); tb's fields: the
 \       goal, its type, its context and the metavariable count when the
-\       step began (tb-goal, tb-want, tb-view, tb-from), then cells a
-\       tactic may use (tb-term, tb-new: induction's until it moves, plan
-\       9.4.8l-I C4; tb-name, tb-kind, tb-x: lf-tac-intro1's)
+\       step began (tb-goal, tb-want, tb-view, tb-from), then
+\       lf-tac-intro1's cells (tb-name, tb-kind, tb-x)
 \   lf-tac-pop-main ( -- )  the main goal off the list (popMainGoal)
 \   lf-tac-goal. ( -- outcome )  the step's goal after a blank line
 \       (Lean's throwTacticEx with a message: its text, then the goal;
@@ -102,8 +101,6 @@ begin-structure /tb
   field: tb-view        \ its context
   field: tb-from        \ the metavariable count when the step began
   field: tb-want        \ the goal's type
-  field: tb-term        \ induction's major premise, its motive
-  field: tb-new         \ induction's new goals
   field: tb-kind        \ lf-tac-intro1's kind, name
   field: tb-name
   field: tb-x           \ and free variable

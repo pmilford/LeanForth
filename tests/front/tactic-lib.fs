@@ -722,5 +722,23 @@ nat prop lf-term-pi lf-made! mv-natural lf-mvar-new made constant motive-p
 T{ nat goal-of motive-p fn9 motive-code lf-author-code frames9? -> lf-author-throw 212 true }T
 T{ s" ↦ Nat" detail-has? -> true }T
 lf-tac-forget
+\ generalizeVars (tactics/induction.fs's tind-independent, in a step
+\ record whose context is the current one): hm : m = m holds m, so m is
+\ refused (99); no hypothesis holds n.
+nat s" m" binder constant fm9   fm9 fm9 lf-mk-eq s" hm" binder drop
+: indep ( target i -- code )
+  drop lf-mctx-view tb tb-view ! ['] tind-independent catch ?dup if nip else drop 0 then ;
+T{ fm9 0 ' indep lf-tac-in-record lf-author-code -> lf-author-throw 99 }T
+lf-tac-forget
+T{ fn9 0 ' indep lf-tac-in-record -> 0 }T
+
+\ ---- 10. A mutual type (209, Lean's text and hint): FE6.Even of
+\ tests/front/several.ndjson, a library of its own.
+T{ s" tests/front/several.ndjson" true lfc-library-open -> outcome-ok }T
+lf-author-begin
+s" FE6.Even" lf-mk-const0 s" Nat.zero" lf-mk-const0 lf-mk-app s" e" binder constant fe10
+T{ fe10 elim-code lf-author-code s" `FE6.Even` because it is mutually inductive" detail-has?
+   -> lf-author-throw 209 true }T
+lf-tac-forget
 .( tactic-lib.fs: all tests passed) cr
 bye

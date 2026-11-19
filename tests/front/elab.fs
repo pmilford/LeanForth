@@ -302,7 +302,7 @@ T{ typed-hole swap et-ensure-type nip swap lf-mvar-value swap lf-sort?
    -> outcome-ok true true }T
 T{ prop0 ea-prop? type1 ea-prop? -> true outcome-ok false outcome-ok }T
 T{ sort-u 0 lf-level-mvar-assign drop ea-prop? -> true outcome-ok }T
-T{ prop0 lfi-succ-sort? type1 lfi-succ-sort? sort-u drop lfi-succ-sort? -> false true false }T
+T{ prop0 mel-succ-sort? type1 mel-succ-sort? sort-u drop mel-succ-sort? -> false true false }T
 
 \ ---- 2. Malformed and unknown: a variable no parameter gives; a name
 \ the library lacks is the reader's (error 1, before elaboration); the

@@ -473,11 +473,6 @@
    "never_run": 74,
    "reason": "new file (plan FE1e5, branch s1-synth-b, 2026-11-13; measured over make test-instances and test-front after review s1-synth-b H1 and M3 and its re-check's M-a and L-a: heap-refusal sweeps over four goals, budget sweeps over three, term-store room sweeps over two): never run are (a) what plan S2 merge A reaches: preprocessOutParam's and the cache key's paths for a class with an out-parameter (on main its searches stop at unification's lazy delta; make reference-synth gives them with S2), cacheResult's answer for one (sy-cache-value), assignOutParams answering false, and error 111 (a class type with fewer binders than arguments); (b) failure branches no sweep reaches: a level store, metavariable, snapshot, switch, instantiation, inferType or whnf refused midway (the heap sweeps refuse blocks while the stores have room; the room sweeps limit only the term store, whose refusals they reach), a dead metavariable's type, a table entry missing or its test failing (sy-hit), an instance type that only whnf makes a pi, and canonInstances popping a generator inside a search"
   },
-  "src/front/tactic-induction.fs": {
-   "blocks": 399,
-   "never_run": 83,
-   "reason": "S2 (branch s2-tactics, branch s2-tactics' review fix round (2026-11-14)): never run are the paths no LeanForth text reaches yet -- a major premise whose type is no inductive type (205: Prop and forall in natural form are plan FE2), a mutual or nested type (209: none in the S2 slice), a motive whose type does not fit (212: not met with Nat's or List's eliminators), index targets and generalizeVars (99: a hypothesis used as a term is error 73), a custom eliminator's instance binders, and refusals of room or decode inside the step past those tests/front/s2-sweeps.fs reaches"
-  },
   "src/front/tactic-run.fs": {
    "blocks": 467,
    "never_run": 27,

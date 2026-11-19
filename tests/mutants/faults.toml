@@ -20160,33 +20160,33 @@ reason = "S2 5 (rw's macro): rw never tries rfl after rewriting, so a goal rw cl
 
 [[fault]]
 id = "s2-alt-names-unchecked"
-file = "src/front/tactic-induction.fs"
-old = ''': lfi-names-checked ( i -- ) lfi-alts-of lfi-twice lfi-unknown ;'''
-new = ''': lfi-names-checked ( i -- ) lfi-alts-of lfi-twice ;'''
+file = "src/front/tactic-alts.fs"
+old = ''': lf-alt-names-check ( info i -- ) swap tal tal-info ! tal-alts-of tal-twice tal-unknown ;'''
+new = ''': lf-alt-names-check ( info i -- ) swap tal tal-info ! tal-alts-of tal-twice ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 4 (checkAltNames): an alternative that names no case is not refused with Lean's text"
 
 [[fault]]
 id = "s2-alt-missing-unchecked"
-file = "src/front/tactic-induction.fs"
-old = '''  over swap lfi-case dup tia-used @ if drop else rot swap lfi-missing then ;'''
-new = '''  over swap lfi-case drop ;'''
+file = "src/front/tactic-alts.fs"
+old = '''  over swap lf-elim-alt-name dup tal-written? if drop exit then'''
+new = '''  drop exit'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 4 (evalAlts): a case no alternative took is not Lean's 'has not been provided'"
 
 [[fault]]
 id = "s2-induction-target-kept"
-file = "src/front/tactic-induction.fs"
-old = '''  >r dup tia-goal @ lf-tac-only lfi-intros r> lfi-cleared ;'''
-new = '''  >r dup tia-goal @ lf-tac-only lfi-intros r> drop ;'''
+file = "src/front/tactic-alts.fs"
+old = ''': tal-case ( goal -- ) lf-tac-only tal-intros tal-cleared ;'''
+new = ''': tal-case ( goal -- ) lf-tac-only tal-intros ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 4 (evalAlts' tryClear): the target stays in each case's context, which Lean's goals do not show"
 
 [[fault]]
 id = "s2-motive-unabstracted"
-file = "src/front/tactic-induction.fs"
-old = ''': lfi-motive ( -- lam ) tb tb-want @ ti tind-target 1 lf-mk-lambda-fvars ;'''
-new = ''': lfi-motive ( -- lam ) tb tb-want @ ti tind-target 0 lf-mk-lambda-fvars ;'''
+file = "src/front/meta-tactic/elim.fs"
+old = ''': mes-lam ( goal -- lam ) lf-goal-type mes mes-target 1 lf-mk-lambda-fvars ;'''
+new = ''': mes-lam ( goal -- lam ) lf-goal-type mes mes-target 0 lf-mk-lambda-fvars ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 4 (setMotiveArg): the motive closed over no variable (mkLambdaFVars of none), so it is the goal itself"
 
@@ -20267,9 +20267,9 @@ reason = "S2 5 (MVarId.rewrite): a dependent motive accepted; caught since plan 
 
 [[fault]]
 id = "s2-alt-field-kinds-ignored"
-file = "src/front/tactic-induction.fs"
-old = ''': lfi-explicit? ( case f -- flag ) lfi-field-kind lf-binder-default = ;'''
-new = ''': lfi-explicit? ( case f -- flag ) 2drop true ;'''
+file = "src/front/tactic-alts.fs"
+old = ''': tal-explicit? ( f -- flag ) tal-kind lf-binder-default = ;'''
+new = ''': tal-explicit? ( f -- flag ) drop true ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 4 (introN): an alternative's fields all taken as explicit, whatever the eliminator's type says"
 gap = "review s2-tactics H1 (m8): every eliminator S2's inputs reach (Nat.rec_add_one's cases, List.rec) has only explicit fields; one with an implicit field (Nat.le.rec's m) needs an index target, which answers 99, or a type written with forall (plan FE2)"
@@ -20292,10 +20292,10 @@ reason = "review s2-tactics re-check M2: an explicit argument headed by a metava
 
 [[fault]]
 id = "s2-induction-clear-full-kept"
-file = "src/front/tactic-induction.fs"
-old = '''  lf-tac-main swap lf-goal-clear dup outcome-invalid = if 2drop exit then
+file = "src/front/tactic-alts.fs"
+old = '''  lf-tac-main tal tal-target @ lf-goal-clear dup outcome-invalid = if 2drop exit then
   lf-tac-must lf-tac-only ;'''
-new = '''  lf-tac-main swap lf-goal-clear ok? if lf-tac-only else drop then ;'''
+new = '''  lf-tac-main tal tal-target @ lf-goal-clear ok? if lf-tac-only else drop then ;'''
 test = "$GFORTH tests/front/s2-sweeps.fs"
 reason = "review s2-tactics re-check M4: tryClear's full or exhausted read as cannot clear, a runtime failure swallowed (Lean's <|> never catches one)"
 
@@ -20727,7 +20727,7 @@ reason = "review N2 of 2026-11-18: ensureType's isType never fires on the front 
 
 [[fault]]
 id = "induction-type-hint-any-sort"
-file = "src/front/tactic-induction.fs"
+file = "src/front/meta-tactic/elim.fs"
 old = '''  lf-term-first@ lf-level-tag@ lf-level-tag-succ = ;'''
 new = '''  drop true ;'''
 test = "$GFORTH tests/front/elab.fs"
@@ -20876,9 +20876,9 @@ reason = "fix-batch-3: a run that stopped inside a try leaves its kept states on
 
 [[fault]]
 id = "tac-induction-withs-not-restored"
-file = "src/front/tactic-induction.fs"
-old = '''  swap tind-withs tind-withs-kept slab-kept outcome-and ;'''
-new = '''  nip ;'''
+file = "src/front/tactic-alts.fs"
+old = ''': tal-kept ( undo? -- outcome ) tal-blocks tal-blocks-kept slab-kept ;'''
+new = ''': tal-kept ( undo? -- outcome ) drop outcome-ok ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "review C2 of 2026-11-18: a failed try leaves the induction blocks it opened open"
 

@@ -180,7 +180,7 @@ T{ printed unsolved-line compare -> 0 }T
 T{ s" n by-induction end t" later -> 76 1 45 0 }T
 T{ token s" by-induction" compare -> 0 }T
 T{ s" n by-induction-with | zero => by-rfl by-end end t" later -> 76 1 45 0 }T
-\ (by-case: runs since branch s2-rest, src/front/tactic-case.fs, end to end
+\ (by-case: runs since branch s2-rest, src/front/tactics/case.fs, end to end
 \ in check_s2.py; its row is set back to not ported here, for 80.)
 ' lf-tac-later 5 tac-k-case lfr-set
 T{ s" by-case: zero => by-rfl by-end end t" later -> 80 1 43 5 }T
@@ -457,29 +457,29 @@ T{ two-goals ' kill-goals ' lf-tac-try catch nip lfr-saves lf-mctx-marks
    -> lfr-state-lost 0 0 }T
 lf-tac-forget
 \ The other modules' states join every save (tac-state:, reviews C2 and
-\ N4 of 2026-11-18): the induction blocks and their cases, the step
+\ N4 of 2026-11-18): the open alternatives' blocks (tactic-alts.fs; the
+\ induction's cases are a run in each since plan 9.4.8l I, C4), the step
 \ log's newest entry and the pending instance list with its window (rw's
 \ new metavariables are a run in its frame since plan 9.4.8l I, C3: no
 \ state of their own). An attempt that changes each and fails leaves
 \ each as it was; a success keeps the changes; nested tries too.
 : seed ( -- )
-  tind-alts slab-clear tind-withs slab-clear lf-elab-pending-reset
-  1 tind-alts slab-claim 2drop 3 trun trun-entry ! g1 @ lf-elab-pend drop ;
-: states ( -- alts withs entry window pending )
-  tind-alts slab-count tind-withs slab-count trun trun-entry @
-  lf-elab-pending# ep-pending slab-count ;
+  tal-blocks slab-clear lf-elab-pending-reset
+  1 tal-blocks slab-claim 2drop 3 trun trun-entry ! g1 @ lf-elab-pend drop ;
+: states ( -- blocks entry window pending )
+  tal-blocks slab-count trun trun-entry @ lf-elab-pending# ep-pending slab-count ;
 : change ( -- )
-  2 tind-alts slab-claim 2drop 1 tind-withs slab-claim 2drop 42 trun trun-entry !
-  lf-elab-window{ drop g2 @ lf-elab-pend drop ;
+  2 tal-blocks slab-claim 2drop 42 trun trun-entry ! lf-elab-window{ drop g2 @ lf-elab-pend
+  drop ;
 : change-fail ( -- ) change lfa-e-tac-unsolved lfa-fail ;
-: kept# ( -- n ) tind-alts-kept slab-count tind-withs-kept slab-count + ep-saved slab-count + ;
-T{ two-goals seed states -> 1 0 3 1 1 }T
-T{ ' change-fail lf-tac-try lf-tac-forget states kept# -> lf-author-throw 1 0 3 1 1 0 }T
-T{ ' change lf-tac-try states kept# -> 0 3 1 42 1 2 0 }T
-: nested ( -- ) ['] change-fail lf-tac-try drop lf-tac-forget 1 tind-withs slab-claim 2drop ;
+: kept# ( -- n ) tal-blocks-kept slab-count ep-saved slab-count + ;
+T{ two-goals seed states -> 1 3 1 1 }T
+T{ ' change-fail lf-tac-try lf-tac-forget states kept# -> lf-author-throw 1 3 1 1 0 }T
+T{ ' change lf-tac-try states kept# -> 0 3 42 1 2 0 }T
+: nested ( -- ) ['] change-fail lf-tac-try drop lf-tac-forget 1 tal-blocks slab-claim 2drop ;
 : nested-fail ( -- ) nested lfa-e-tac-unsolved lfa-fail ;
-T{ two-goals seed ' nested lf-tac-try states kept# -> 0 1 1 3 1 1 0 }T
-T{ seed ' nested-fail lf-tac-try lf-tac-forget states kept# -> lf-author-throw 1 0 3 1 1 0 }T
+T{ two-goals seed ' nested lf-tac-try states kept# -> 0 2 3 1 1 0 }T
+T{ seed ' nested-fail lf-tac-try lf-tac-forget states kept# -> lf-author-throw 1 3 1 1 0 }T
 \ No room to keep a state: the save is refused full, nothing kept, no
 \ mark or save left open.
 : kept-most ( n -- ) ep-saved dup slab-free 2 cells -rot slab-init drop ;

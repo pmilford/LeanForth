@@ -92,7 +92,8 @@ require ./goal.fs
 : lf-elim-alt-name ( info k -- name ) 0 mel-alt@ ;
 : lf-elim-alt-pos ( info k -- pos ) 1 mel-alt@ ;
 : lf-elim-alt-fields ( info k -- n ) 2 mel-alt@ ;
-: lf-elim-alt-kinds ( info k -- addr n ) over lf-elim-decl -rot lf-elim-alt-pos lf-menv-kinds-in ;
+: lf-elim-alt-kinds ( info k -- addr n )
+  over lf-elim-decl -rot lf-elim-alt-pos lf-menv-kinds-in ;
 : lf-elim-alt-find ( info name -- k true | false )
   over lf-elim-alts# 0 ?do over i lf-elim-alt-name over = if 2drop i true unloop exit then
   loop 2drop false ;
@@ -129,11 +130,13 @@ require ./goal.fs
 : mel-unregistered. ( -- )
   s" The above type neither is an inductive type " lf-pp-emit
   s" nor has a registered theorem." lf-pp-emit ;
-: mel-explain. ( t -- outcome ) mel-explanation. mel-unregistered. mel-sort-hint. outcome-ok ;
+: mel-explain. ( t -- outcome )
+  mel-explanation. mel-unregistered. mel-sort-hint. outcome-ok ;
 : mel-goal. ( -- outcome ) lf-main-goal ok-then? if lf-tac-goal-below. then ;
 : mel-major. ( t -- outcome )
   dup lf-tac-indented. dup ok? if drop mel-explain. ['] mel-goal. ok-and else nip then ;
-: mel-not-inductive ( t -- ) ['] mel-major. lf-tac-detail lfa-e-tac-not-inductive lf-tac-stop ;
+: mel-not-inductive ( t -- )
+  ['] mel-major. lf-tac-detail lfa-e-tac-not-inductive lf-tac-stop ;
 : mel-inductive ( t -- d true | false )
   lf-meta-head-name 0= if false exit then
   lf-menv-find dup outcome-invalid = if 2drop false exit then
@@ -153,17 +156,20 @@ require ./goal.fs
   dup lf-ity-all@ nip 1 <> if drop over ['] mel-mutual. mel-unsupported then
   lf-ity-nested lf-more-field if over ['] mel-nested. mel-unsupported then ;
 : mel-rec ( d induction? -- d' )
-  >r lf-menv-name r> if s" rec" else s" casesOn" then lfa-intern-part lf-menv-find lf-must ;
+  >r lf-menv-name r> if s" rec" else s" casesOn" then lfa-intern-part lf-menv-find
+  lf-must ;
 : mel-recursor ( target induction? -- d )
   swap lf-infer! lf-whnf! dup mel-inductive 0= if mel-not-inductive then mel-simple nip
   swap mel-rec ;
-: lf-elim-for ( target induction? -- d ) 2dup mel-custom? if nip nip exit then mel-recursor ;
+: lf-elim-for ( target induction? -- d )
+  2dup mel-custom? if nip nip exit then mel-recursor ;
 
 \ ---- getElimExprInfo, from d's declared type.
 : mel-past ( t -- body n )
   0 swap begin dup lf-term-pi? while lf-term-second@ swap 1+ swap repeat swap ;
 : mel-shape? ( concl -- flag )   \ a bound variable applied to one
-  dup lf-meta-head-args 1 = swap lf-term-bvar? and swap lf-term-second@ lf-term-bvar? and ;
+  dup lf-meta-head-args 1 = swap lf-term-bvar? and swap lf-term-second@ lf-term-bvar?
+  and ;
 : mel-at ( info bvar -- info k ) lf-term-first@ over mel-binders swap - 1- ;
 : mel-ends ( info concl -- info' )
   dup mel-shape? 0= if lfa-e-tac-form lf-tac-fail then
@@ -175,10 +181,11 @@ require ./goal.fs
   2dup mel-special? if 2drop false exit then mel-kind lf-binder-default = ;
 : mel-alt+ ( info pi k -- info' )
   >r dup lf-binder-name rot swap mel+ r> mel+ swap lf-term-first@ mel-past nip mel+ ;
-: mel-binder ( info pi k -- info' ) >r over r@ mel-alt? r> swap if mel-alt+ else 2drop then ;
+: mel-binder ( info pi k -- info' )
+  >r over r@ mel-alt? r> swap if mel-alt+ else 2drop then ;
 : mel-alts ( info -- info' )
-  dup lf-elim-decl lf-menv-type over mel-binders 0 ?do tuck i mel-binder swap lf-term-second@
-  loop drop ;
+  dup lf-elim-decl lf-menv-type over mel-binders 0 ?do
+    tuck i mel-binder swap lf-term-second@ loop drop ;
 : lf-elim-info ( d -- info )
   0 over mel+ swap lf-menv-type mel-past rot swap mel+ swap mel-ends mel-alts ;
 
@@ -195,7 +202,8 @@ end-structure
 /mea context-slab: mea-frames
 : mea ( -- frame ) mea-frames slab-last ;
 : mea-info@ ( -- info ) mea mea-info @ ;
-: mea-motive-arg ( pi -- arg ) lf-term-first@ mv-opaque lf-mvar-new lf-must dup mea mea-motive ! ;
+: mea-motive-arg ( pi -- arg )
+  lf-term-first@ mv-opaque lf-mvar-new lf-must dup mea mea-motive ! ;
 : mea-target-arg ( pi -- arg )
   lf-term-first@ mea mea-target @ lf-infer! lf-tac-defeq lf-must 0= if
     lfa-e-tac-form lf-tac-fail then mea mea-target @ ;
@@ -205,9 +213,10 @@ end-structure
 \ The next alternative (one per explicit binder, in order) is at k.
 : mea-next ( -- k ) mea mea-alts @ run-count ;
 : mea-alt? ( k -- flag )
-  mea-next dup mea-info@ lf-elim-alts# < if mea-info@ swap lf-elim-alt-pos = else 2drop false
-  then ;
-: mea-alt-tag ( -- tag ) mea mea-tag @ mea-info@ mea-next lf-elim-alt-name lf-name-append-tag ;
+  mea-next dup mea-info@ lf-elim-alts# < if mea-info@ swap lf-elim-alt-pos = exit then
+  2drop false ;
+: mea-alt-tag ( -- tag )
+  mea mea-tag @ mea-info@ mea-next lf-elim-alt-name lf-name-append-tag ;
 : mea-alt ( pi -- arg )
   lf-term-first@ mea-alt-tag lf-mctx-view lf-goal-new lf-must
   mea mea-alts @ over mel+ mea mea-alts ! ;
@@ -221,30 +230,29 @@ end-structure
 : mea-applied ( pi arg -- )
   dup mea mea-f @ swap lf-mk-app mea mea-f ! lf-meta-open lf-must mea mea-ftype ! ;
 : mea-start ( -- )
-  mea-info@ lf-elim-decl lf-meta-const-fresh lf-must dup mea mea-f ! lf-infer! mea mea-ftype ! ;
+  mea-info@ lf-elim-decl lf-meta-const-fresh lf-must dup mea mea-f ! lf-infer!
+  mea mea-ftype ! ;
 : mea-run ( -- f alts motive )
   mea-start mea-info@ mel-binders 0 ?do mea-pi dup i mea-arg mea-applied loop
   mea mea-f @ mea mea-alts @ mea mea-motive @ ;
 : mea-framed ( info target tag -- f alts motive )
   mea mea-tag ! mea mea-target ! mea mea-info ! mea-run ;
-: lf-elim-app ( info target tag -- f alts motive ) mea-frames ['] mea-framed lf-with-record ;
+: lf-elim-app ( info target tag -- f alts motive )
+  mea-frames ['] mea-framed lf-with-record ;
 
 \ ---- setMotiveArg: fun x => the goal's type over the target (Lean's
 \ mkLambdaFVars targets type: the target outside the current context is
 \ invalid), a frame per call holding the target as mkLambdaFVars' xs.
 begin-structure /mes
   field: mes-target      \ the target (the xs of one)
-  field: mes-goal        \ the goal
-  field: mes-motive      \ the motive's metavariable
 end-structure
 /mes context-slab: mes-frames
 : mes ( -- frame ) mes-frames slab-last ;
-: mes-lam ( -- lam ) mes mes-goal @ lf-goal-type mes mes-target 1 lf-mk-lambda-fvars ;
-: mes-fits ( lam -- lam )
-  dup lf-infer! mes mes-motive @ lf-goal-type lf-tac-defeq lf-must 0= if
+: mes-lam ( goal -- lam ) lf-goal-type mes mes-target 1 lf-mk-lambda-fvars ;
+: mes-fits ( motive lam -- motive lam )
+  over lf-goal-type over lf-infer! swap lf-tac-defeq lf-must 0= if
     dup ['] lf-tac-indented. lf-tac-detail lfa-e-tac-elim-motive lf-tac-stop then ;
-: mes-run ( -- ) mes-lam mes-fits mes mes-motive @ swap lf-mvar-assign lf-must ;
 : mes-framed ( goal motive target -- )
-  mes mes-target ! mes mes-motive ! mes mes-goal ! mes-run ;
+  mes mes-target ! swap mes-lam mes-fits lf-mvar-assign lf-must ;
 : lf-elim-set-motive ( goal motive target -- ) mes-frames ['] mes-framed lf-with-record ;
 base !   \ the BASE this file was loaded with

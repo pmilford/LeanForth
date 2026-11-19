@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """S2's tactics against pinned Lean (plan S2, branch s2-tactics;
-src/front/tactic-induction.fs, tactics/rewrite.fs, meta-tactic/rewrite.fs, kabstract.fs,
+src/front/tactics/induction.fs, tactic-alts.fs, meta-tactic/elim.fs, tactics/rewrite.fs,
+meta-tactic/rewrite.fs, kabstract.fs,
 meta-check.fs; docs/design/S2_INTERFACE.md 4, 5, 9 and appendix G).
 
 1. FE1's case form and by-case:'s tag matching and renaming

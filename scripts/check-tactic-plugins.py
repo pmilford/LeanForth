@@ -47,10 +47,12 @@ STORES = {"!", "+!", "c!", "2!", "w!", "l!", "f!"}
 HOOKS = {"is", "defer!"}
 SETTER = re.compile(r"(?i)^lf-tactic-[\w-]*!$")
 # The runner's fixed kinds (src/front/tactic-syntax.fs, kinds 1-11) and the tactic file that owns
-# each one's row (its action and end); None: the runner's own (by, by-sorry).
+# each one's row (its action, end and alternatives); None: the runner's own (by, by-sorry, and the
+# alternative |, whose row tactic-run.fs's lf-tactic-alt! sets for the block holding it, plan 9.4.8l-I
+# commit C4: tactics/induction.fs sets it through its own tac-k-with).
 FIXED_KINDS = {
     "tac-k-by": None, "tac-k-rfl": "rfl", "tac-k-exact": "exact", "tac-k-intro": "intro",
-    "tac-k-induction": "induction", "tac-k-with": "induction", "tac-k-alt": "induction",
+    "tac-k-induction": "induction", "tac-k-with": "induction", "tac-k-alt": None,
     "tac-k-case": "case", "tac-k-rw": "rewrite", "tac-k-rewrite": "rewrite", "tac-k-sorry": None,
 }
 

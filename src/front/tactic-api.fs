@@ -47,6 +47,7 @@ require ./meta-tactic/assumption.fs
 require ./meta-tactic/constructor.fs
 require ./meta-tactic/rewrite.fs
 require ./meta-tactic/elim.fs
+require ./tactic-alts.fs
 
 \ The spelling is read three times: >in put back before each.
 : tap-again ( in -- in ) dup >in ! ;

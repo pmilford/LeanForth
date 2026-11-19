@@ -10,9 +10,10 @@
   "tokens": 7
  },
  "01252feaf76d": {
-  "copies": 2,
+  "copies": 3,
   "kind": "shape",
   "members": [
+   "src/front/tactic-alts.fs:tal-intros",
    "src/kernel/env-schedule.fs:lf-sch-fill",
    "src/kernel/env-schedule.fs:lf-sch-free-workers"
   ],
@@ -1773,10 +1774,9 @@
   "tokens": 7
  },
  "ca3a2c479aab": {
-  "copies": 4,
+  "copies": 3,
   "kind": "shape",
   "members": [
-   "src/front/tactic-induction.fs:lfi-setup",
    "src/front/tactic-syntax.fs:lft-header",
    "src/kernel/env-schedule.fs:lf-sch-builtins-make",
    "src/program/verify-runner.fs:pv-work"

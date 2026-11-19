@@ -66,9 +66,15 @@ class Tokens(unittest.TestCase):
                 problems = tp.rule_problems(path, f"' trf-run {kind} lf-tactic-action!\n", set())
                 self.assertEqual(len(problems), 1, problems)
                 self.assertIn(f"calls lf-tactic-action! for {kind}", problems[0])
-        self.assertEqual({tp.FIXED_KINDS[k] for k in ("tac-k-induction", "tac-k-with", "tac-k-alt")},
-                         {"induction"})
+        self.assertEqual({tp.FIXED_KINDS[k] for k in ("tac-k-induction", "tac-k-with")}, {"induction"})
         self.assertEqual(len(tp.FIXED_KINDS), 11)
+        # The alternative's row is the runner's (lf-tactic-alt!, plan 9.4.8l-I C4): induction.fs
+        # sets it through its own tac-k-with, never by naming tac-k-alt.
+        self.assertIsNone(tp.FIXED_KINDS["tac-k-alt"])
+        self.assertEqual(tp.rule_problems("src/front/tactics/induction.fs",
+                                          "' lf-alt-run tac-k-with lf-tactic-alt!\n", set()), [])
+        problems = tp.rule_problems("src/front/tactics/induction.fs", "' run tac-k-alt lf-tactic-action!\n", set())
+        self.assertEqual(len(problems), 1, problems)
 
     def test_an_alias_of_another_kind_is_not_own(self):
         # Review tactic-move L1: a constant, value or colon definition made from a fixed kind or

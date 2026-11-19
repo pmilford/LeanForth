@@ -264,6 +264,7 @@ begin-structure /trow
   lfr-room chars +field trow-chars
   lfr-room 1+ chars +field trow-lean   \ Lean's name, counted
   field: trow-shape               \ a registered word's shape (tactic-syntax.fs), or 0
+  field: trow-alt                 \ ( j -- ) its block's alternatives (|), or 0
 end-structure
 /trow aligned constant lfr-row-size
 create lfr-rows lfr-kinds cells allot   lfr-rows lfr-kinds cells erase
@@ -297,6 +298,13 @@ lfr-kinds constant lf-tactic-kinds#
 : lf-tac-lean ( kind -- c-addr u ) lfr-row trow-lean count ;
 : lf-tactic-shape! ( shape kind -- ) lfr-row trow-shape ! ;
 : lf-tactic-shape@ ( kind -- shape ) lfr-row trow-shape @ ;
+\ An alternative (|) runs by its block's row (Lean's evalAlts: the
+\ alternatives of an induction's or a cases' with): xt ( j -- ), set
+\ with lf-tactic-alt!, which makes it the | row's action.
+: lfr-alt ( j -- ) dup lfr-parent lfr-kind lfr-row trow-alt @ execute ;
+: lf-tactic-alt! ( xt kind -- )
+  lfr-row trow-alt ! ['] lfr-alt tac-k-alt lf-tactic-action! ;
+: lf-tactic-alt@ ( kind -- xt|0 ) lfr-row trow-alt @ ;
 \ The first kind with no row, from 12 (the S1/S2 kinds keep 1-11).
 : lf-tactic-free ( -- kind )
   tac-k-sorry 1+ begin dup lfr-kind? while 1+ repeat ;
