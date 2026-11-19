@@ -35,7 +35,8 @@ lf-tag-str tag-str lf-term-input-leaf-tag
 : lf-str-leaf? ( node -- flag ) lf-term-tag@ lf-tag-str = ;
 \ One of Lean's Expr.lit: a natural-number literal (core/literals.fs) or
 \ a string literal.
-: lf-literal-tag? ( tag -- flag ) dup lf-tag-lit = swap lf-tag-str = or ;
+lf-tag-lit lf-tag-str 2 lf-tags constant lf-literal-tags
+: lf-literal-tag? ( tag -- flag ) lf-literal-tags lf-tag-in? ;
 \ A literal leaf's bytes: their address (valid until the slab grows) and
 \ number.
 : lf-str-text ( leaf -- addr u ) lf-str-bytes lf-lit-payload ;

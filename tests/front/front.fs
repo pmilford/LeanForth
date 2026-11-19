@@ -744,6 +744,10 @@ create wt-walk /dw allot  wt-walk /dw erase
 :noname ( node walk -- image ) nip dw-array? 1 and ; wt-walk dw-build !
 : wt-kind ( size -- image outcome ) wt-walk dw-size ! 0 wt-walk dw-run ;
 T{ dw-array-most wt-kind dw-array-most 1+ wt-kind -> 1 outcome-ok 0 outcome-ok }T
+\ lf-fvar-mvar-tag? (core/mvar-leaves.fs, reuse-b): a free variable's and
+\ a metavariable's tag, no other tag from -2 to 40.
+: fm-others ( -- n ) 0 41 -2 do i lf-fvar-mvar-tag? - loop ;
+T{ lf-tag-fvar lf-fvar-mvar-tag? lf-tag-mvar lf-fvar-mvar-tag? fm-others -> true true 2 }T
 T{ depth -> 0 }T
 cr .( front.fs: all tests passed) cr
 bye

@@ -398,9 +398,9 @@ defer lf-pp-lam-groups ( node frames -- ... frames next )
 \ Dispatch on the node's tag. Variables and constants print through the
 \ application printer, which decides on @ for them too; a table by tag
 \ (lf-pp-steps, below) gives the visit's first step for each other tag.
-: lf-pp-applied-tag? ( tag -- flag )
-  dup lf-pp-app-tag? over lf-tag-bvar = or over lf-tag-fvar = or
-  swap lf-tag-constant = or ;
+lf-tag-app lf-tag-projection lf-tag-bvar lf-tag-fvar lf-tag-constant 5 lf-tags
+constant lf-pp-applied-tags
+: lf-pp-applied-tag? ( tag -- flag ) lf-pp-applied-tags lf-tag-in? ;
 \ A projection leaf (core/projections.fs; plan task 5.2.2) prints as its
 \ structure's name and Lean's field number from 1, the head of an
 \ application to the projected term: Prod.1 p for Lean's p.1. Not Lean's

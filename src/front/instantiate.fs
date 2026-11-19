@@ -84,8 +84,7 @@ end-structure
 : in-closed? ( node depth -- flag ) swap in-range if < 0= else drop false then ;
 \ For abstract: a node known to hold no free variable or metavariable
 \ (a metavariable makes a data word unknown).
-lf-tag-fvar lf-tag-mvar 2 lf-meta-tags constant in-holes
-: in-hole? ( leaf -- flag ) in-holes lf-meta-tag-in? ;
+: in-hole? ( leaf -- flag ) lf-fvar-mvar-tags lf-term-in? ;
 : in-solid? ( node -- flag )
   dup in-inner? 0= if in-hole? 0= exit then
   lf-term-data@ if lf-data-fvar? 0= else false then ;

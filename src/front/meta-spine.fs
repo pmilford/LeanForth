@@ -25,11 +25,8 @@
 \ - lf-meta-firm-const? ( const -- flag outcome ): neither a definition nor
 \   an unknown constant, so whnf cannot unfold it (false with a failure's
 \   outcome): infer's firm head and fun-info's final one.
-\ - lf-meta-tags ( tag1 .. tagn n -- mask ): the set of n term tags as a
-\   mask of core/terms.fs's lf-tag-bit (kept as a constant);
-\   lf-meta-tag-of? ( tag mask -- flag ) and lf-meta-tag-in? ( term mask
-\   -- flag ): a tag, a term's tag, in the set (review F3 of 2026-11-18:
-\   one test in place of the OR chains of tag comparisons).
+\ - (Tag sets: core/terms.fs's lf-tags, lf-tag-in? and lf-term-in?, once
+\   lf-meta-tags, lf-meta-tag-of? and lf-meta-tag-in? here; plan 9.4.8n (3).)
 \ - lf-meta-under ( e tag -- e' true | e false ): a let's body (Lean's
 \   letE passed with its body instantiated: core/let-terms.fs keeps it as
 \   a binder) or, for a binder of the tag (lambda or pi), its body; e and
@@ -116,9 +113,6 @@ require ../core/let-terms.fs
   dup lf-term-binary? if lf-term-data@ if lf-data-fvar? else false then exit then
   lf-term-tag@ lf-tag-fvar = ;
 : lf-meta-tag? ( term tag -- flag ) swap lf-term-tag@ = ;
-: lf-meta-tags ( tag1 .. tagn n -- mask ) 0 swap 0 ?do swap lf-tag-bit or loop ;
-: lf-meta-tag-of? ( tag mask -- flag ) swap lf-tag-bit and 0<> ;
-: lf-meta-tag-in? ( term mask -- flag ) swap lf-term-tag@ swap lf-meta-tag-of? ;
 : lf-meta-under ( e tag -- e' true | e false )
   over lf-let? if drop lf-let-body true exit then
   over swap lf-meta-tag? if lf-term-second@ true else false then ;

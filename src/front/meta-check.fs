@@ -97,9 +97,9 @@ end-structure
   then ;
 \ A projection, and a smart-unfolding marker (core/annotations.fs: Lean
 \ checks mdata's term, not ported), answer unsupported.
+lf-tag-projection lf-tag-annotation 2 lf-tags constant mck-unported
 : mck-leaf ( e -- outcome )
-  lf-term-tag@ dup lf-tag-projection = swap lf-tag-annotation = or
-  if outcome-unsupported else outcome-ok then ;
+  mck-unported lf-term-in? if outcome-unsupported else outcome-ok then ;
 : mck-node ( e -- outcome )
   dup lf-term-tag@ case lf-tag-app of mck-app endof
     lf-tag-pi of mck-k-body mck-binder endof  lf-tag-lam of mck-k-check mck-binder endof

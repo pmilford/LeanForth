@@ -84,7 +84,7 @@ require ./meta-spine.fs
   over lf-term-second@ over lf-term-second@ =
   if lf-term-first@ swap lf-term-first@ eq-name=
   else 2drop false then ;
-: eq-unshared? ( a -- flag ) lf-term-tag@ dup lf-tag-fvar = swap lf-tag-mvar = or ;
+: eq-unshared? ( a -- flag ) lf-fvar-mvar-tags lf-term-in? ;
 : eq-sorts ( a b -- flag outcome ) lf-term-first@ swap lf-term-first@ lf-meta-level= ;
 \ A literal, a projection's leaf or any other leaf.
 : eq-plain ( a b -- flag outcome )

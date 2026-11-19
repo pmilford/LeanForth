@@ -32,8 +32,7 @@ require ./terms.fs
 
 \ Whether node is a let term. Unchecked: node is valid (its children
 \ then are).
-: lf-let-tag? ( tag -- flag ) dup lf-tag-let = swap lf-tag-let-nondep = or ;
-: lf-let? ( node -- flag ) lf-term-tag@ lf-let-tag? ;
+: lf-let? ( node -- flag ) lf-let-tags lf-term-in? ;
 
 \ The parts of a let term (lf-let? holds): v, fun x : T => b, T, b and
 \ the nonDep flag; well formed when the second child is a lambda.

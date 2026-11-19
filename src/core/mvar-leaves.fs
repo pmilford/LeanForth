@@ -22,10 +22,16 @@
 require ../lib/lib.fs
 require ./terms.fs
 require ./levels.fs
+require ./local-context.fs
 
 16 constant lf-tag-mvar
 5 constant lf-level-tag-mvar
 lf-tag-mvar lf-term-unshare
+\ A free variable's or a metavariable's tag: a leaf that stands for a term
+\ the term does not hold, never shared (the front end's instantiation and
+\ term comparison, the printer's names; plan 9.4.8n (3)).
+lf-tag-fvar lf-tag-mvar 2 lf-tags constant lf-fvar-mvar-tags
+: lf-fvar-mvar-tag? ( tag -- flag ) lf-fvar-mvar-tags lf-tag-in? ;
 
 : lf-mvar-leaf ( n epoch -- term true | false ) lf-tag-mvar -rot lf-term-add ;
 : lf-level-mvar-leaf ( n epoch -- level true | false )

@@ -18,10 +18,12 @@ require ../core/local-context.fs
 require ../core/mvar-leaves.fs
 
 lf-walk-room context-walk2: lf-pp-scan-walk
-\ The front end's leaves, free variables and metavariables (plan FE1g-1),
-\ which are themselves: equal only to their own node, holding no bound
-\ variable; term-printer.fs prints them through lf-pp-open-leaf.
-: lf-pp-identity-tag? ( tag -- flag ) dup lf-tag-fvar = swap lf-tag-mvar = or ;
+\ The front end's leaves, free variables and metavariables (plan FE1g-1,
+\ core/mvar-leaves.fs's lf-fvar-mvar-tags), are themselves: equal only to
+\ their own node, holding no bound variable; term-printer.fs prints them
+\ through lf-pp-open-leaf. The leaves the scan stops at:
+lf-tag-sort lf-tag-symbolic-sort lf-tag-constant lf-tag-proj lf-tag-fvar lf-tag-mvar
+lf-tag-lit lf-tag-str 8 lf-tags constant lf-pp-leaf-tags
 
 \ A structured name as text, components joined by dots, sent to xt
 \ ( c-addr u -- ), from the first component on without recursion: the
@@ -98,9 +100,7 @@ lf-walk-room context-walk2: lf-pp-scan-walk
 : lf-pp-scan-binary ( first second walk tag -- outcome )
   over walk-context @ swap lf-term-inner if swap walk-children-at else drop 2drop
   outcome-full then ;
-: lf-pp-leaf-tag? ( tag -- flag )
-  dup lf-tag-sort = over lf-tag-symbolic-sort = or over lf-tag-constant = or
-  over lf-tag-proj = or over lf-pp-identity-tag? or swap lf-literal-tag? or ;
+: lf-pp-leaf-tag? ( tag -- flag ) lf-pp-leaf-tags lf-tag-in? ;
 : lf-pp-scan-other ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if lf-pp-scan-binary exit then
   lf-pp-leaf-tag? if drop 2drop outcome-ok else drop 2drop outcome-invalid then ;

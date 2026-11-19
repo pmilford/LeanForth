@@ -262,7 +262,7 @@ defer lf-dq-known-same? ( t s -- flag )
 \ The node kinds the steps test.
 : lf-dq-tag ( node -- tag ) lf-term-tag@ ;
 : lf-dq-tags? ( t s -- flag ) lf-dq-tag swap lf-dq-tag = ;
-: lf-dq-binder? ( node -- flag ) lf-dq-tag dup lf-tag-lam = swap lf-tag-pi = or ;
+: lf-dq-binder? ( node -- flag ) lf-dq-tag lf-term-binder-tag? ;
 \ Lean's is_proj, is_app, get_app_fn and get_app_num_args (see the
 \ header): a projection and a let term are no applications.
 : lf-dq-proj? ( node -- flag ) lf-proj? ;

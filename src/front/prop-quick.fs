@@ -60,8 +60,8 @@ require ./term-eqv.fs
 
 \ ---- The type of a head: a constant's (inferConstType), a free
 \ variable's or a metavariable's.
-lf-tag-constant lf-tag-fvar lf-tag-mvar 3 lf-meta-tags constant pq-head-tags
-: pq-head? ( t -- flag ) pq-head-tags lf-meta-tag-in? ;
+lf-tag-constant lf-tag-fvar lf-tag-mvar 3 lf-tags constant pq-head-tags
+: pq-head? ( t -- flag ) pq-head-tags lf-term-in? ;
 : pq-type ( head -- type outcome )
   dup lf-term-tag@ case lf-tag-constant of lf-infer endof
     lf-tag-fvar of lf-fvar-type outcome-ok endof
@@ -96,8 +96,8 @@ lf-tag-constant lf-tag-fvar lf-tag-mvar 3 lf-meta-tags constant pq-head-tags
 : pq-prop-app ( e -- lbool outcome )
   pq-app-head over pq-head? if pq-head-arrow exit then
   drop lf-term-lam? if lf-lb-false else lf-lb-undef then outcome-ok ;
-lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-lam 4 lf-meta-tags constant pq-no-props
-: pq-no-prop? ( e -- flag ) pq-no-props lf-meta-tag-in? ;
+lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-lam 4 lf-tags constant pq-no-props
+: pq-no-prop? ( e -- flag ) pq-no-props lf-term-in? ;
 : pq-prop-leaf ( e -- lbool outcome )
   dup pq-head? if 0 pq-head-arrow exit then
   pq-no-prop? if lf-lb-false else lf-lb-undef then outcome-ok ;
@@ -146,8 +146,8 @@ lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-lam 4 lf-meta-tags constant p
 \ ---- isProofQuick: lambdas and lets passed to their bodies; an
 \ application's head as above, where a lambda with no argument left goes
 \ on as isProofQuick of its body.
-lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-pi 4 lf-meta-tags constant pq-no-proofs
-: pq-no-proof? ( e -- flag ) pq-no-proofs lf-meta-tag-in? ;
+lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-pi 4 lf-tags constant pq-no-proofs
+: pq-no-proof? ( e -- flag ) pq-no-proofs lf-term-in? ;
 : pq-proof-leaf ( e -- lbool outcome )
   dup pq-head? if 0 pq-proof-arrow exit then
   pq-no-proof? if lf-lb-false else lf-lb-undef then outcome-ok ;

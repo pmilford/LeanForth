@@ -546,9 +546,9 @@ defer lf-wc-entry ( node frames -- ... frames next )
 : lf-wc-fvar ( node frames -- ... frames next )
   over lf-fvar-live? 0= if nip outcome-invalid swap lf-whnf-failed exit then
   over lf-fvar-let? if swap lf-fvar-value swap lf-wc-again else lf-whnf-keep then ;
-: lf-whnf-normal? ( tag -- flag )
-  dup lf-tag-lam = over lf-tag-pi = or over lf-tag-constant = or
-  over lf-tag-bvar = or over lf-literal-tag? or swap lf-tag-symbolic-sort = or ;
+lf-tag-lam lf-tag-pi lf-tag-constant lf-tag-bvar lf-tag-lit lf-tag-str lf-tag-symbolic-sort
+7 lf-tags constant lf-whnf-normal-tags
+: lf-whnf-normal? ( tag -- flag ) lf-whnf-normal-tags lf-tag-in? ;
 \ Any other leaf, a projection leaf alone among them (see the header),
 \ is malformed.
 : lf-wc-leaf ( node frames tag -- ... frames next )
@@ -586,9 +586,10 @@ defer lf-whnf-cored ( t1 outcome frames -- ... frames next )
   over ok? 0= if 0 exit then nip
   over lf-whnf-k7? if 2dup frame-save ['] lf-whnf-nat-back lf-whnf-nat-call exit then
   lf-whnf-delta-step ; is lf-whnf-cored
+lf-tag-bvar lf-tag-pi lf-tag-lit lf-tag-str lf-tag-symbolic-sort 5 lf-tags
+constant lf-whnf-easy-tags
 : lf-whnf-easy? ( node -- flag )
-  dup lf-term-tag@ dup lf-tag-bvar = over lf-tag-pi = or over lf-literal-tag? or
-  swap lf-tag-symbolic-sort = or if drop true exit then
+  dup lf-whnf-easy-tags lf-term-in? if drop true exit then
   dup lf-whnf-fvar? if lf-whnf-let? 0= else drop false then ;
 \ Its whnf_core runs without cheap_proj (731).
 : lf-whnf-visit ( node frames -- ... frames next )

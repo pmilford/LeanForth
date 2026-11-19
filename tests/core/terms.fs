@@ -277,6 +277,21 @@ T{ lf-tag-app lf-tag-bit 31 lf-tag-bit 99 lf-tag-bit -> 8 1 31 lshift 1 31 lshif
 T{ -1 lf-tag-bit max-n invert lf-tag-bit 0 lf-tag-bit -> 1 1 1 }T
 T{ -1 lf-term-binary-tag? max-n invert lf-term-binary-tag? lf-tag-pi lf-term-binary-tag?
    -> false false true }T
+\ lf-tags and lf-tag-in? (reuse-b, plan 9.4.8n (3)): a set of none, one
+\ and several tags, a tag twice; membership at the set's ends, a tag
+\ outside, a negative tag, and the sets made from them equal the old OR
+\ chains on every tag from -2 to 40.
+T{ 0 lf-tags lf-tag-app 1 lf-tags lf-tag-app lf-tag-lam 2 lf-tags -> 0 8 lf-tag-lam lf-tag-bit 8 or }T
+T{ lf-tag-pi lf-tag-pi 2 lf-tags lf-tag-pi 1 lf-tags = -> true }T
+T{ lf-tag-app lf-binary-tags lf-tag-in? lf-tag-let-nondep lf-binary-tags lf-tag-in? -> true true }T
+T{ lf-tag-bvar lf-binary-tags lf-tag-in? -1 lf-binary-tags lf-tag-in? 99 lf-binary-tags lf-tag-in?
+   -> false false false }T
+: old-binder? ( tag -- flag ) dup lf-tag-lam = swap lf-tag-pi = or ;
+: old-let? ( tag -- flag ) dup lf-tag-let = swap lf-tag-let-nondep = or ;
+: tags-agree? ( -- flag )
+  true 41 -2 do i lf-term-binder-tag? i old-binder? = and
+    i lf-term-let-tag? i old-let? = and loop ;
+T{ tags-agree? -> true }T
 \ The leaf-table tag set takes each tag's bit by lf-tag-bit (Forth review
 \ of small-fixes-1118, L3): a tag above 31 adds bit 31, a negative one bit 0.
 lf-tin-leaf-tags @ constant leaf-tags-before

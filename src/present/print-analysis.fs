@@ -21,7 +21,8 @@ require ../core/unsupported-forms.fs
 : lf-pp-is? ( term tag -- flag ) swap lf-pp-tag if = else drop false then ;
 \ An application, or a projection, which prints as its leaf applied to
 \ the projected term (core/projections.fs): Prod.1 p for Lean's p.1.
-: lf-pp-app-tag? ( tag -- flag ) dup lf-tag-app = swap lf-tag-projection = or ;
+lf-tag-app lf-tag-projection 2 lf-tags constant lf-pp-app-tags
+: lf-pp-app-tag? ( tag -- flag ) lf-pp-app-tags lf-tag-in? ;
 : lf-pp-applied? ( term -- flag ) lf-pp-tag if lf-pp-app-tag? else false then ;
 \ Unchecked: k bodies down a chain, k functions down a spine. A negative
 \ k (only after a forbidden reset from a sink) counts as none.
@@ -168,9 +169,10 @@ defer lf-pp-same-step ( a b frames -- ... frames next )
 : lf-pp-leaf= ( a b -- flag ) over lf-term-tag@ lf-pp-leaf-test execute ;
 : lf-pp-same-leaf ( a b frames -- outcome frames 0 )
   drop lf-pp-leaf= lf-pp-equal lf-pp-frames 0 ;
-: lf-pp-leaf-kind? ( tag -- flag )
-  dup lf-pp-identity-tag? over lf-literal-tag? or swap lf-tag-proj = or ;
-: lf-pp-pair-kind? ( tag -- flag ) dup lf-tag-projection = swap lf-let-tag? or ;
+lf-tag-fvar lf-tag-mvar lf-tag-lit lf-tag-str lf-tag-proj 5 lf-tags constant lf-pp-leaf-kinds
+lf-tag-projection lf-tag-let lf-tag-let-nondep 3 lf-tags constant lf-pp-pair-kinds
+: lf-pp-leaf-kind? ( tag -- flag ) lf-pp-leaf-kinds lf-tag-in? ;
+: lf-pp-pair-kind? ( tag -- flag ) lf-pp-pair-kinds lf-tag-in? ;
 : lf-pp-same-kind ( tag -- xt )
   dup lf-pp-leaf-kind? if drop ['] lf-pp-same-leaf exit then
   dup lf-pp-pair-kind? if drop ['] lf-pp-same-app else lf-pp-same-by then ;

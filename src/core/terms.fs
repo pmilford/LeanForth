@@ -138,12 +138,20 @@ require ./scratch-meter.fs
 : lf-tag-bit ( tag -- mask ) lf-tag-place 1 swap lshift ;
 \ Add a tag to the tag set at a-addr (lib/bits.fs's bit-on).
 : lf-tag-set+ ( tag a-addr -- ) swap lf-tag-place swap bit-on ;
-lf-tag-app lf-tag-bit lf-tag-lam lf-tag-bit or lf-tag-pi lf-tag-bit or
-lf-tag-let lf-tag-bit or lf-tag-projection lf-tag-bit or lf-tag-let-nondep lf-tag-bit or
+\ A set of n tags as one mask of their bits, made while loading and kept
+\ as a constant, and whether a tag is in such a set: the one way every
+\ module tests a tag against several (plan 9.4.8n (3); lf-tags moved
+\ here from front/meta-spine.fs's lf-meta-tags). lf-term-in?, below, does
+\ the same for a term's tag.
+: lf-tags ( tag1 .. tagn n -- mask ) 0 swap 0 ?do swap lf-tag-bit or loop ;
+: lf-tag-in? ( tag mask -- flag ) swap lf-tag-bit and 0<> ;
+lf-tag-app lf-tag-lam lf-tag-pi lf-tag-let lf-tag-projection lf-tag-let-nondep 6 lf-tags
 constant lf-binary-tags
+lf-tag-lam lf-tag-pi 2 lf-tags constant lf-binder-tags
+lf-tag-let lf-tag-let-nondep 2 lf-tags constant lf-let-tags
 \ Binary nodes: two children; binders: the second under one more binder.
-: lf-term-binary-tag? ( tag -- flag ) lf-tag-bit lf-binary-tags and 0<> ;
-: lf-term-binder-tag? ( tag -- flag ) dup lf-tag-lam = swap lf-tag-pi = or ;
+: lf-term-binary-tag? ( tag -- flag ) lf-binary-tags lf-tag-in? ;
+: lf-term-binder-tag? ( tag -- flag ) lf-binder-tags lf-tag-in? ;
 \ The binder depth of a node's body: one more under a lambda or Pi
 \ (false at max-n: no room), the same under any other tag.
 : lf-term-inner ( depth tag -- depth' true | false )
@@ -454,6 +462,9 @@ create lf-tbind-hooks /htab-hooks allot
 \ checked root; no field read checks the header.
 : lf-term-tag@ ( index -- tag )
   dup lf-term-input? if lf-tin-tag@ else lf-term-slot u32@ then ;
+\ Whether a term's tag is in a set of lf-tags (front/meta-spine.fs's
+\ lf-meta-tag-in?, moved here).
+: lf-term-in? ( index mask -- flag ) swap lf-term-tag@ swap lf-tag-in? ;
 : lf-term-first@ ( index -- first )
   dup lf-term-input? if lf-tin-first@ else lf-term-slot lf-term-first-at + u32@ then ;
 : lf-term-second@ ( index -- second )
@@ -789,7 +800,7 @@ defer lf-term-view-hook ( -- outcome )
 \ lambda LET(v, fun x : T => b) hold, one level deeper than the deepest of
 \ type, value and body, not than the lambda (which is one deeper than T
 \ and b; review rvS5B M1). An unknown word stays unknown.
-: lf-term-let-tag? ( tag -- flag ) dup lf-tag-let = swap lf-tag-let-nondep = or ;
+: lf-term-let-tag? ( tag -- flag ) lf-let-tags lf-tag-in? ;
 : lf-let-lam-data ( data -- data' )
   dup lf-data-known? if 1 22 lshift - then ;
 : lf-term-let-data ( value-data lam-data -- data )

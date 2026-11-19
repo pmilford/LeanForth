@@ -163,10 +163,10 @@ defer lf-delta-unfolded ( e -- )   \ a trace's hook; nothing by default
 \ simple); any other tag (an unsupported form) unsupported. The walk
 \ spends the call's fuel.
 lf-tag-bvar lf-tag-fvar lf-tag-mvar lf-tag-sort lf-tag-symbolic-sort lf-tag-lit
-  lf-tag-str 7 lf-meta-tags constant dd-simple-tags   \ isSimple's leaves
-: dd-leaf? ( tag -- flag ) dd-simple-tags lf-meta-tag-of? ;
-: dd-false? ( tag -- flag )
-  dup lf-term-binder-tag? over lf-term-let-tag? or swap lf-tag-constant = or ;
+  lf-tag-str 7 lf-tags constant dd-simple-tags   \ isSimple's leaves
+: dd-leaf? ( tag -- flag ) dd-simple-tags lf-tag-in? ;
+lf-tag-lam lf-tag-pi lf-tag-let lf-tag-let-nondep lf-tag-constant 5 lf-tags constant dd-false-tags
+: dd-false? ( tag -- flag ) dd-false-tags lf-tag-in? ;
 : dd-other ( tag -- outcome )
   dup dd-leaf? if drop outcome-ok exit then
   dd-false? if outcome-rejected else outcome-unsupported then ;

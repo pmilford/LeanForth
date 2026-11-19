@@ -44,3 +44,19 @@ new = '''    reason = None
         raise SystemExit'''
 test = "python3 scripts/lean_pin.py"
 reason = "reuse-b A9 (review fix-cli-present S3): the test runners' Lean is run whatever it is, an elan proxy included"
+
+[[fault]]
+id = "rb-tags-xor"
+file = "src/core/terms.fs"
+old = ''': lf-tags ( tag1 .. tagn n -- mask ) 0 swap 0 ?do swap lf-tag-bit or loop ;'''
+new = ''': lf-tags ( tag1 .. tagn n -- mask ) 0 swap 0 ?do swap lf-tag-bit xor loop ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "reuse-b B3 (plan 9.4.8n (3)): a tag given twice drops out of the set"
+
+[[fault]]
+id = "rb-fvar-mvar-no-mvar"
+file = "src/core/mvar-leaves.fs"
+old = '''lf-tag-fvar lf-tag-mvar 2 lf-tags constant lf-fvar-mvar-tags'''
+new = '''lf-tag-fvar lf-tag-fvar 2 lf-tags constant lf-fvar-mvar-tags'''
+test = "$GFORTH tests/front/front.fs"
+reason = "reuse-b B3: a metavariable is taken for a shared node by term comparison, instantiation and the printer"

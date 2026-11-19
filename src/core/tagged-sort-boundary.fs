@@ -35,7 +35,8 @@ lf-walk-room context-walk: lf-repr-walker
 \ Sort; lf-prop? is Sort 0 exactly, a concrete Sort of universe 0 or a
 \ symbolic Sort whose level is the zero node (a level metavariable or
 \ parameter is not zero: the caller instantiates first, as Lean does).
-: lf-sort? ( t -- flag ) lf-term-tag@ dup lf-tag-sort = swap lf-tag-symbolic-sort = or ;
+lf-tag-sort lf-tag-symbolic-sort 2 lf-tags constant lf-sort-tags
+: lf-sort? ( t -- flag ) lf-sort-tags lf-term-in? ;
 : lf-symbolic-prop? ( t -- flag ) lf-term-first@ lf-level-tag@ lf-level-tag-zero = ;
 : lf-prop? ( t -- flag )
   dup lf-tag-symbolic-sort lf-term-tag? if lf-symbolic-prop? exit then

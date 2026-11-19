@@ -250,9 +250,8 @@ end-structure
     lf-tag-pi of s" forallE" lfx-binder endof  dup >r lfx-other r> endcase ;
 \ Lean's key order: the members app, bvar, const and forallE come before
 \ "ie", the others after it.
-lf-tag-app lf-tag-bit lf-tag-bvar lf-tag-bit or lf-tag-constant lf-tag-bit or
-  lf-tag-pi lf-tag-bit or constant lfx-before-ie
-: lfx-ie-last? ( term -- flag ) lf-term-tag@ lf-tag-bit lfx-before-ie and 0<> ;
+lf-tag-app lf-tag-bvar lf-tag-constant lf-tag-pi 4 lf-tags constant lfx-before-ie
+: lfx-ie-last? ( term -- flag ) lfx-before-ie lf-term-in? ;
 : lfx-ie ( n -- ) s" ie" lfx-member ;
 : lfx-expr-members ( n term -- )
   dup lfx-ie-last? if lfx-body lfx-ie else swap lfx-ie lfx-body then ;

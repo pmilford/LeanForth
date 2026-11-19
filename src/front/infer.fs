@@ -149,8 +149,8 @@ end-structure
 \ A type that is no pi: whnfCore's result must be one; an inert head
 \ (no pi whnf could make) is "function expected", anything else needs
 \ whnf's delta.
-lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-meta-tags constant if-inerts
-: if-inert? ( term -- flag ) if-inerts lf-meta-tag-in? ;
+lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-inerts
+: if-inert? ( term -- flag ) if-inerts lf-term-in? ;
 : if-head ( term -- head ) begin dup lf-meta-app? while lf-term-first@ repeat ;
 \ A constant no declaration has is not firm; one whose declaration could
 \ not be decoded passes that outcome on (full as full): lf-meta-firm-const?.

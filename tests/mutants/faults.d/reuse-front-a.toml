@@ -91,9 +91,9 @@ reason = "reuse pass F10: a table's walk steps one byte too far, so it reads a t
 
 [[fault]]
 id = "rfa-tag-of-inverted"
-file = "src/front/meta-spine.fs"
-old = ''': lf-meta-tag-of? ( tag mask -- flag ) swap lf-tag-bit and 0<> ;'''
-new = ''': lf-meta-tag-of? ( tag mask -- flag ) swap lf-tag-bit and 0= ;'''
+file = "src/core/terms.fs"
+old = ''': lf-tag-in? ( tag mask -- flag ) swap lf-tag-bit and 0<> ;'''
+new = ''': lf-tag-in? ( tag mask -- flag ) swap lf-tag-bit and 0= ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "reuse pass F3: a tag set answers for the tags outside it (isProofQuick, isPropQuick, getFunInfo, inferType's inert heads)"
 
@@ -108,8 +108,8 @@ reason = "reuse pass F7: isProofQuick and isPropQuick stop at a let instead of g
 [[fault]]
 id = "rfa-pq-pi-a-proof"
 file = "src/front/prop-quick.fs"
-old = '''lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-pi 4 lf-meta-tags constant pq-no-proofs'''
-new = '''lf-tag-sort lf-tag-symbolic-sort lf-tag-lit 3 lf-meta-tags constant pq-no-proofs'''
+old = '''lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-pi 4 lf-tags constant pq-no-proofs'''
+new = '''lf-tag-sort lf-tag-symbolic-sort lf-tag-lit 3 lf-tags constant pq-no-proofs'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "review T2 of 2026-11-18: isProofQuick of a pi answers undef where Lean's answers false (a type is no proof), so defeq's proof irrelevance tries more"
 
@@ -222,8 +222,10 @@ reason = "reuse pass part A3, finding 1: after a rollback the terms made again a
 [[fault]]
 id = "rfa3-share-constants-unsought"
 file = "src/author/build.fs"
-old = '''lf-tag-symbolic-sort lf-tag-bit or lf-tag-constant lf-tag-bit or lf-tag-lit lf-tag-bit or'''
-new = '''lf-tag-symbolic-sort lf-tag-bit or lf-tag-lit lf-tag-bit or'''
+old = '''lf-tag-app lf-tag-projection lf-tag-bvar lf-tag-symbolic-sort lf-tag-constant lf-tag-lit
+lf-tag-proj 7 lf-tags constant lfa-sought-tags'''
+new = '''lf-tag-app lf-tag-projection lf-tag-bvar lf-tag-symbolic-sort lf-tag-lit
+lf-tag-proj 6 lf-tags constant lfa-sought-tags'''
 test = "$GFORTH tests/author/author.fs"
 reason = "reuse pass part A3, finding 1: constants are not entered, so a constant written twice is two nodes"
 

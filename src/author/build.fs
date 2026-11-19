@@ -65,9 +65,8 @@ require ./errors.fs
 \ two per node; per entered term a link of three cells and, per distinct
 \ fields, a memo entry of five. A heap that refuses the memo or a link
 \ stops the run as a full term store (60), never with another node.
-lf-tag-app lf-tag-bit lf-tag-projection lf-tag-bit or lf-tag-bvar lf-tag-bit or
-lf-tag-symbolic-sort lf-tag-bit or lf-tag-constant lf-tag-bit or lf-tag-lit lf-tag-bit or
-lf-tag-proj lf-tag-bit or constant lfa-sought-tags
+lf-tag-app lf-tag-projection lf-tag-bvar lf-tag-symbolic-sort lf-tag-constant lf-tag-lit
+lf-tag-proj 7 lf-tags constant lfa-sought-tags
 begin-structure /lfa-link
   field: lfa-link-term
   field: lfa-link-identity   \ the term's identity when it was entered
@@ -104,7 +103,7 @@ end-structure
 : lfa-chain+ ( n a-addr -- )
   dup @ if 2dup cell+ @ lfa-link lfa-link-next ! else 2dup ! then cell+ ! ;
 : lfa-key ( term -- key ) lfa-term-fields lfa-share-key dup >r node! r> ;
-: lfa-sought-tag? ( key -- flag ) node-tag @ lf-tag-bit lfa-sought-tags and 0<> ;
+: lfa-sought-tag? ( key -- flag ) node-tag @ lfa-sought-tags lf-tag-in? ;
 : lfa-enter-key ( term key -- )
   lfa-memo memo-put lfa-room swap lfa-link-new swap lfa-chain+ ;
 : lfa-enter ( term -- ) dup lfa-key dup lfa-sought-tag? if lfa-enter-key else 2drop then ;

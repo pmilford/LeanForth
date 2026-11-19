@@ -6585,8 +6585,10 @@ reason = "5.2.3 strings: quick_is_def_eq leaves a string and a natural-number li
 [[fault]]
 id = "str-whnf-core-not-normal"
 file = "src/kernel/whnf.fs"
-old = '''  over lf-tag-bvar = or over lf-literal-tag? or swap lf-tag-symbolic-sort = or ;'''
-new = '''  over lf-tag-bvar = or over lf-tag-lit = or swap lf-tag-symbolic-sort = or ;'''
+old = '''lf-tag-lit lf-tag-str lf-tag-symbolic-sort
+7 lf-tags constant lf-whnf-normal-tags'''
+new = '''lf-tag-lit lf-tag-symbolic-sort
+6 lf-tags constant lf-whnf-normal-tags'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "5.2.3 strings: whnf_core takes a string literal for malformed (invalid) instead of normal"
 
@@ -6732,9 +6734,10 @@ reason = "4.2.3: a let at the head of an application is not reduced first (whnf_
 [[fault]]
 id = "proj-leaf-normal"
 file = "src/kernel/whnf.fs"
-old = '''  over lf-tag-bvar = or over lf-literal-tag? or swap lf-tag-symbolic-sort = or ;'''
-new = '''  over lf-tag-bvar = or over lf-literal-tag? or over lf-tag-proj = or
-  swap lf-tag-symbolic-sort = or ;'''
+old = '''lf-tag-lit lf-tag-str lf-tag-symbolic-sort
+7 lf-tags constant lf-whnf-normal-tags'''
+new = '''lf-tag-lit lf-tag-str lf-tag-symbolic-sort lf-tag-proj
+8 lf-tags constant lf-whnf-normal-tags'''
 test = "$GFORTH tests/core/whnf.fs"
 reason = "5.2.2, S5: a projection leaf alone, malformed, is taken as a normal form instead of invalid (was let-leaf-head-normal: let leaves are gone)"
 
@@ -8983,7 +8986,7 @@ reason = "S5: binders read in place are not entered first, so a binder made equa
 [[fault]]
 id = "s5b-let-binder-depth"
 file = "src/core/terms.fs"
-old = ''': lf-term-binder-tag? ( tag -- flag ) dup lf-tag-lam = swap lf-tag-pi = or ;'''
+old = ''': lf-term-binder-tag? ( tag -- flag ) lf-binder-tags lf-tag-in? ;'''
 new = ''': lf-term-binder-tag? ( tag -- flag ) lf-tag-app <> ;'''
 test = "$GFORTH tests/core/whnf.fs"
 reason = "S5B: a let or projection node counts as a binder, so its second child (a let's lambda) is read one binder too deep"
@@ -8991,8 +8994,8 @@ reason = "S5B: a let or projection node counts as a binder, so its second child 
 [[fault]]
 id = "s5b-projection-not-binary"
 file = "src/core/terms.fs"
-old = '''lf-tag-let lf-tag-bit or lf-tag-projection lf-tag-bit or lf-tag-let-nondep lf-tag-bit or'''
-new = '''lf-tag-let lf-tag-bit or lf-tag-let-nondep lf-tag-bit or'''
+old = '''lf-tag-app lf-tag-lam lf-tag-pi lf-tag-let lf-tag-projection lf-tag-let-nondep 6 lf-tags'''
+new = '''lf-tag-app lf-tag-lam lf-tag-pi lf-tag-let lf-tag-let-nondep 5 lf-tags'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5B: a projection is no binary node, so the passes treat it as an unknown leaf"
 
@@ -9089,8 +9092,8 @@ reason = "S5B: the authors' $ applies a projection leaf as a function instead of
 [[fault]]
 id = "s5b-printer-proj-unknown"
 file = "src/present/print-analysis.fs"
-old = ''': lf-pp-app-tag? ( tag -- flag ) dup lf-tag-app = swap lf-tag-projection = or ;'''
-new = ''': lf-pp-app-tag? ( tag -- flag ) lf-tag-app = ;'''
+old = '''lf-tag-app lf-tag-projection 2 lf-tags constant lf-pp-app-tags'''
+new = '''lf-tag-app 1 lf-tags constant lf-pp-app-tags'''
 test = "$GFORTH tests/present/term-printer.fs"
 reason = "S5B: the printer no longer prints a projection as its leaf applied to the term"
 
@@ -10942,8 +10945,8 @@ reason = "FE1c: abstract does not count the binders above a free variable, so it
 [[fault]]
 id = "fe-abst-mvar-kept"
 file = "src/front/instantiate.fs"
-old = '''lf-tag-fvar lf-tag-mvar 2 lf-meta-tags constant in-holes'''
-new = '''lf-tag-fvar 1 lf-meta-tags constant in-holes'''
+old = ''': in-hole? ( leaf -- flag ) lf-fvar-mvar-tags lf-term-in? ;'''
+new = ''': in-hole? ( leaf -- flag ) lf-term-tag@ lf-tag-fvar = ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: abstract keeps a metavariable it was given, where Lean's abstract replaces it too"
 
@@ -13573,8 +13576,8 @@ reason = "review fe1c-2 L2: a stale metavariable answers unsupported instead of 
 [[fault]]
 id = "fe-infer-lambda-type-unsupported"
 file = "src/front/infer.fs"
-old = '''lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-meta-tags constant if-inerts'''
-new = '''lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort 3 lf-meta-tags constant if-inerts'''
+old = '''lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-inerts'''
+new = '''lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort 3 lf-tags constant if-inerts'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "review fe1c-2 L2: a function whose type is a lambda answers unsupported, where Lean throws function expected"
 
@@ -20494,8 +20497,8 @@ reason = "S2 merge B: kabstract keeps a smart-unfolding marker unvisited where L
 [[fault]]
 id = "fe-annotation-meta-check"
 file = "src/front/meta-check.fs"
-old = '''  lf-term-tag@ dup lf-tag-projection = swap lf-tag-annotation = or'''
-new = '''  lf-term-tag@ lf-tag-projection ='''
+old = '''lf-tag-projection lf-tag-annotation 2 lf-tags constant mck-unported'''
+new = '''lf-tag-projection 1 lf-tags constant mck-unported'''
 test = "$GFORTH tests/front/s2-units.fs"
 reason = "S2 merge B: Meta.check passes a smart-unfolding marker unchecked"
 
