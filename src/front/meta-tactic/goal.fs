@@ -153,21 +153,24 @@ require ../telescope.fs
 : lf-name-prefix-of? ( p n -- flag )
   begin 2dup lf-name-same? 0= while dup 0= if 2drop false exit then lf-name-prefix@
   repeat 2drop true ;
+\ An assignment that must be made (MVarId.assign).
+: mtg-set ( e goal -- ) swap lf-mvar-assign lf-must ;
+
 \ ---- introN (Intro.lean:15 introNImp, :102 mkAuxNameImp): a frame per
 \ call (meta-must.fs's lf-with-record), in the goal's context.
 begin-structure /mti
   field: mti-goal        \ the goal
   field: mti-type        \ the rest of its type
-  field: mti-names       \ the caller's n names (0: the binder's own)
   field: mti-kinds       \ the caller's n kinds, or 0: the node's
+  field: mti-names       \ the caller's n names (0: the binder's own)
   field: mti-xs          \ the caller's n cells for the free variables
-  field: mti-n
+  field: mti-n           \ (names and kinds, n and xs: pairs, as 2! stores them)
   field: mti-i           \ binders introduced
 end-structure
 /mti context-slab: mti-frames
 : mti ( -- frame ) mti-frames slab-last ;
-: mti-fill ( goal names kinds n xs frame -- )
-  tuck mti-xs ! tuck mti-n ! tuck mti-kinds ! tuck mti-names ! mti-goal ! ;
+: mti-fill ( goal names kinds n xs -- goal )
+  mti mti-xs 2! mti mti-kinds 2! dup mti mti-goal ! ;
 \ The binder: the type as it is, else instantiated, else put through
 \ whnfCore; no pi is Lean's introN error (94), or 93 where whnf's delta
 \ might still make one (infer.fs's lf-whnf-firm?).
@@ -210,12 +213,11 @@ end-structure
 : mti-new ( -- goal' )
   mti mti-type @ mti mti-goal @ lf-goal-tag lf-mctx-view lf-goal-new lf-must ;
 : mti-close ( -- goal' )
-  mti-new dup mti mti-xs @ mti mti-n @ lf-mk-lambda-fvars
-  mti mti-goal @ swap lf-mvar-assign lf-must ;
+  mti-new dup mti mti-xs @ mti mti-n @ lf-mk-lambda-fvars mti mti-goal @ mtg-set ;
 : mti-start ( -- ) mti mti-goal @ lf-goal-not-assigned lf-goal-type mti mti-type ! ;
 : mti-run ( -- goal' ) mti-start mti mti-n @ 0 ?do mti-step loop mti-close ;
 : mti-framed ( goal names kinds n xs frame -- goal' )
-  mti-fill mti mti-goal @ ['] mti-run lf-with-goal ;
+  drop mti-fill ['] mti-run lf-with-goal ;
 : lf-goal-intro-n ( goal names kinds n xs -- goal' )
   mti-frames ['] mti-framed lf-with-record ;
 
@@ -243,41 +245,41 @@ end-structure
 begin-structure /mrf
   field: mrf-goal        \ the goal
   field: mrf-eq          \ its type, instantiated, through whnfCore
-  field: mrf-lhs         \ its sides, instantiated
-  field: mrf-rhs
+  2 cells +field mrf-sides  \ its sides, instantiated: lhs rhs (2! and 2@)
 end-structure
 /mrf context-slab: mrf-frames
 : mrf ( -- frame ) mrf-frames slab-last ;
 : mtg-eq-of ( goal -- t ) lf-goal-type lf-instantiate! lf-whnf-core lf-must ;
 : mtg-is-eq ( t -- t ) dup lf-eq? if 2drop drop exit then outcome-unsupported lf-must ;
 : mtg-inst2 ( a b -- a' b' ) lf-instantiate! swap lf-instantiate! swap ;   \ b first
-: mrf-sides ( -- ) mrf mrf-eq @ lf-eq? drop mtg-inst2 mrf mrf-rhs ! mrf mrf-lhs ! drop ;
+: mrf-sides! ( -- ) mrf mrf-eq @ lf-eq? drop mtg-inst2 mrf mrf-sides 2! drop ;
 \ isDefEq at the transparency the step runs at (default; reducible under
 \ by-rw[ 's with_reducible).
 : mtg-defeq ( t s -- flag )
   ['] lf-meta-defeq lf-defeq-elab lf-defeq-mode lf-meta-with outcome-sane lf-must ;
-: mrf-equal? ( -- flag ) mrf mrf-lhs @ mrf mrf-rhs @ mtg-defeq ;
+: mrf-equal? ( -- flag ) mrf mrf-sides 2@ mtg-defeq ;
+: mrf-lhs ( -- lhs ) mrf mrf-sides 2@ drop ;
 \ @Eq.refl.{u} α lhs, u and α those of the goal's Eq (mkConst Eq.refl us,
 \ mkApp2).
 : mtg-refl-const ( t -- f )
   lf-meta-head s" Eq.refl" lfa-intern swap lf-const-levels lf-mk-const-id ;
 : mtg-alpha ( t -- α ) lf-eq? drop 2drop ;
 : mrf-term ( -- e )
-  mrf mrf-eq @ dup mtg-refl-const swap mtg-alpha lf-mk-app mrf mrf-lhs @ lf-mk-app ;
-: mrf-closed ( -- ) mrf mrf-goal @ mrf-term lf-mvar-assign lf-must ;
+  mrf mrf-eq @ dup mtg-refl-const swap mtg-alpha lf-mk-app mrf-lhs lf-mk-app ;
+: mrf-closed ( -- ) mrf-term mrf mrf-goal @ mtg-set ;
 \ applyRfl's message: the two sides, then the goal; a metavariable left in
 \ a side answers 93 instead.
 : mtg-rhs. ( rhs -- outcome )
   s\" \nis not definitionally equal to the right-hand side\n" lf-pp-emit
   lf-tac-indented. ;
 : mrf-rfl. ( x -- outcome )
-  drop mrf mrf-goal @ mrf mrf-rhs @ ['] mtg-rhs. mrf mrf-lhs @ lf-tac-framed-with. ;
-: mrf-open? ( -- flag ) mrf mrf-lhs @ mtg-open? mrf mrf-rhs @ mtg-open? or ;
+  drop mrf mrf-goal @ mrf mrf-sides 2@ swap ['] mtg-rhs. swap lf-tac-framed-with. ;
+: mrf-open? ( -- flag ) mrf mrf-sides 2@ swap mtg-open? swap mtg-open? or ;
 : mrf-unequal ( -- )
   mrf-open? if outcome-unsupported lf-must then
   0 ['] mrf-rfl. lf-tac-detail lfa-e-tac-rfl lf-tac-stop ;
 : mrf-run ( -- )
-  mrf mrf-goal @ mtg-eq-of mtg-is-eq mrf mrf-eq ! mrf-sides
+  mrf mrf-goal @ mtg-eq-of mtg-is-eq mrf mrf-eq ! mrf-sides!
   mrf-equal? if mrf-closed else mrf-unequal then ;
 : mrf-framed ( goal frame -- ) mrf-goal ! mrf-run ;
 : lf-goal-refl ( goal -- ) lf-goal-not-assigned mrf-frames ['] mrf-framed lf-with-record ;

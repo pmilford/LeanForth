@@ -442,8 +442,8 @@ reason = "9.4.8l-I plan L5: reorderGoals's findMVar? takes any metavariable for 
 [[fault]]
 id = "lib-intro-n-view-kept"
 file = "src/front/meta-tactic/goal.fs"
-old = '''  mti-fill mti mti-goal @ ['] mti-run lf-with-goal ;'''
-new = '''  mti-fill mti-run ;'''
+old = '''  drop mti-fill ['] mti-run lf-with-goal ;'''
+new = '''  drop mti-fill drop mti-run ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l-I C2 introN: the context made current for the new locals is not put back (Lean's withContext), so the caller's context grows"
 

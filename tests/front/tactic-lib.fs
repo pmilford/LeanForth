@@ -418,6 +418,11 @@ lf-binder-implicit kinds2 !  lf-binder-default kinds2 cell+ !  s" y" lfa-intern 
 nat2 goal-of names kinds2 2 xs2 lf-goal-intro-n lf-goal-view constant v-k
 T{ v-k 0 local-at lf-local-flags v-k 1 local-at lf-local-flags
    -> lf-binder-implicit lf-local-inaccessible }T
+\ A goal whose type is a metavariable assigned a pi: introN instantiates it.
+nat lf-infer! mv-natural lf-mvar-new made constant m-ty
+T{ m-ty prop prop s" d" lf-binder-default pi-named lf-mvar-assign -> outcome-ok }T
+0 0 names!
+T{ m-ty goal-of names 0 1 xs2 lf-goal-intro-n lf-goal-type prop lf-meta-eqv made frames0? -> true true }T
 \ A binder with no name: a, inaccessible; with no kind known either: 99.
 : bare ( -- t ) nat prop lf-term-pi lf-made! ;
 0 0 names!
@@ -462,6 +467,11 @@ T{ nat goal-of ' lf-goal-refl code1 -> -4205 }T
 T{ 5 6 2 ' pair. lf-tac-detail-n s" eleven" detail-has? -> true }T
 lf-tac-forget
 T{ ' author-fails catch 7 8 9 3 ' shout. lf-tac-detail-n -> lf-author-throw }T
+lf-tac-forget
+\ lf-tac-failed: an error at the step running, with xt's detail of 0.
+: zero. ( x -- outcome ) 0= if s" given 0" lf-pp-emit then outcome-ok ;
+T{ ' zero. lfa-e-tac-form ' lf-tac-failed catch nip nip lf-author-code s" given 0" detail-has?
+   -> lf-author-throw 99 true }T
 lf-tac-forget
 .( tactic-lib.fs: all tests passed) cr
 bye

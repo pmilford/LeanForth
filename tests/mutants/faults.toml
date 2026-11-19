@@ -16141,8 +16141,8 @@ reason = "FE1g-4: the type mismatch text leaves out the sorts Lean names when th
 [[fault]]
 id = "fe-rfl-refl-rhs"
 file = "src/front/meta-tactic/goal.fs"
-old = '''  mrf mrf-eq @ dup mtg-refl-const swap mtg-alpha lf-mk-app mrf mrf-lhs @ lf-mk-app ;'''
-new = '''  mrf mrf-eq @ dup mtg-refl-const swap mtg-alpha lf-mk-app mrf mrf-rhs @ lf-mk-app ;'''
+old = '''  mrf mrf-eq @ dup mtg-refl-const swap mtg-alpha lf-mk-app mrf-lhs lf-mk-app ;'''
+new = '''  mrf mrf-eq @ dup mtg-refl-const swap mtg-alpha lf-mk-app mrf mrf-sides 2@ nip lf-mk-app ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L3 (F2): rfl's Eq.refl takes the right side where Lean's MVarId.refl takes the left (Refl.lean:39); the kernel accepts both"
 
