@@ -375,9 +375,9 @@ lf-tr-default lf-defeq-mode!
 \ lf-tac-.name writes a name between backquotes to the message's sink.
 \ lf-tac-arg-at gives an argument's place: the second after the first.
 variable seen#  variable seen0  variable seen1  variable at0  variable at1
-: record-at ( i -- ) dup 0 lf-tac-arg-at at0 ! 1 lf-tac-arg-at at1 ! ;
+: note-places ( i -- ) dup 0 lf-tac-arg-at at0 ! 1 lf-tac-arg-at at1 ! ;
 : record-args ( i -- )
-  dup record-at dup lf-tac-args# seen# ! dup 0 lf-tac-arg seen0 ! 1 lf-tac-arg seen1 !
+  dup note-places dup lf-tac-args# seen# ! dup 0 lf-tac-arg seen0 ! 1 lf-tac-arg seen1 !
   lfa-e-tac-unsolved lfa-fail ;
 ' record-args tac-k-case lf-tactic-action!
 ' imp-p stating
