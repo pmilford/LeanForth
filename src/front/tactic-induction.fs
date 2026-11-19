@@ -77,10 +77,12 @@ require ./whnf.fs
 require ./infer.fs
 require ./tactic-syntax.fs
 require ./tactic-run.fs
-require ./tactic-basic.fs
+require ./tactic-msg.fs
+require ./tactic-core.fs
 require ./meta-must.fs
 require ./app-builder.fs
 require ./telescope.fs
+require ./meta-tactic/goal.fs
 
 begin-structure /tia      \ a case of the eliminator (Lean's ElimApp.Alt)
   field: tia-name         \ its name: its binder's
@@ -126,7 +128,7 @@ end-structure
 
 \ ---- The target.
 : lfi-target! ( i -- )
-  0 lf-tac-arg -1 false lf-tac-elab lf-tac-must dup lf-meta-fvar? 0= if lfa-e-tac-form
+  0 lf-tac-arg -1 false lf-tac-elab-term dup lf-meta-fvar? 0= if lfa-e-tac-form
     lf-tac-fail
   then dup lf-fvar-let? if lfa-e-tac-form lf-tac-fail then ti tind-target ! ;
 : lfi-target-type ( -- t ) ti tind-target @ lf-infer lf-tac-must ;
@@ -210,7 +212,7 @@ end-structure
 : lfi-alt-new ( -- addr ) 1 tind-alts slab-claim lf-tac-must tind-alts slab-at dup /tia
   erase ;
 : lfi-case+ ( pi k -- )
-  lfi-alt-new tuck tia-pos ! over lf-tac-binder drop over tia-name !
+  lfi-alt-new tuck tia-pos ! over lf-binder-name over tia-name !
   swap lf-term-first@ lfi-past nip swap tia-fields ! ;
 : lfi-binder ( pi k -- )
   dup lfi-special? if 2drop exit then
@@ -237,8 +239,7 @@ end-structure
 : lfi-case? ( k -- flag ) 0 tia-pos lfi-has? ;
 
 \ ---- mkElimApp.
-: lfi-tag ( name -- tag )
-  tb tb-goal @ lf-mvar-tag drop ?dup 0= if exit then swap lf-name-text lfa-intern-part ;
+: lfi-tag ( name -- tag ) tb tb-goal @ lf-goal-tag swap lf-name-append-tag ;
 : lfi-case-goal ( pi k -- arg )
   lfi-case-at >r lf-term-first@ r@ tia-name @ lfi-tag tb tb-view @ lf-goal-new lf-tac-must
   dup r> tia-goal ! ;
@@ -270,7 +271,7 @@ end-structure
 : lfi-motive ( -- lam ) tb tb-want @ ti tind-target 1 lf-mk-lambda-fvars ;
 : lfi-motive. ( x -- outcome ) drop tb tb-term @ lf-tac-indented. ;
 : lfi-motive-fits ( lam -- lam )
-  dup lf-infer lf-tac-must ti tind-motive @ lf-mvar-type drop lf-tac-defeq lf-tac-must
+  dup lf-infer lf-tac-must ti tind-motive @ lf-goal-type lf-tac-defeq lf-tac-must
   0= if dup tb tb-term ! ['] lfi-motive. lfa-e-tac-elim-motive lf-tac-failed then ;
 \ generalizeVars: a hypothesis whose type depends on the target.
 : lfi-depends? ( local -- flag )
@@ -281,7 +282,7 @@ end-structure
     lfa-e-tac-form lf-tac-fail then loop drop ;
 : lfi-assigned ( -- )
   lfi-motive lfi-motive-fits ti tind-motive @ swap lf-mvar-assign lf-tac-must
-  tb tb-goal @ ti tind-f @ lf-mvar-assign lf-tac-must lfb-popped ;
+  tb tb-goal @ ti tind-f @ lf-mvar-assign lf-tac-must lf-tac-pop-main ;
 : lfi-setup ( i -- )
   lfi-target! lfi-independent lfi-eliminator lfi-info lfi-elim-app lfi-assigned ;
 
@@ -383,7 +384,7 @@ end-structure
 : lfi-name-for ( kind -- name ) lf-binder-default = if lfi-next-name else 0 then ;
 : lfi-field ( f -- )
   ta talt-case @ swap lfi-field-kind dup lfi-name-for swap ta talt-step @
-    lf-tac-intro-as ;
+    lf-tac-intro1 ;
 : lfi-intros ( case -- ) tia-fields @ 0 ?do i lfi-field loop ;
 \ tryClear: a refusal (invalid) keeps the goal; fuel, room or a gap is
 \ thrown, as Lean's <|> never catches a runtime exception.

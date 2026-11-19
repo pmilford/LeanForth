@@ -65,6 +65,7 @@ v12 l3 lf-view-push made constant v123
 T{ v123 lf-view-count v123 0 lf-view-local v123 2 lf-view-local -> 3 lc1 l3 }T
 T{ v123 x2 lf-view-find v123 x3 lf-view-find v1 x3 lf-view-find -> 1 true 2 true false }T
 T{ 99 x1 lf-view-find lf-view-empty x1 lf-view-find -> false false }T
+T{ v123 x2 lf-view-has? v1 x3 lf-view-has? 99 x1 lf-view-has? -> true false false }T
 \ A free variable once only; a local that is none.
 T{ v12 x1 nx 0 lf-local-new made lf-view-push v1 99999 lf-view-push
    -> -1 outcome-invalid -1 outcome-invalid }T

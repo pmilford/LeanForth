@@ -179,15 +179,15 @@ reason = "s2-rest review F6: the other goals after the case's goal first (c_rest
 
 [[fault]]
 id = "tac-arg-first-only"
-file = "src/front/tactic-basic.fs"
-old = ''': lf-tac-arg ( i k -- x ) swap lf-tactic-step tac-first @ + lf-tactic-arg drop ;'''
-new = ''': lf-tac-arg ( i k -- x ) swap lf-tactic-step tac-first @ nip lf-tactic-arg drop ;'''
+file = "src/front/tactic-core.fs"
+old = ''': tcr-arg ( i k -- x pos ) swap lf-tactic-step tac-first @ + lf-tactic-arg ;'''
+new = ''': tcr-arg ( i k -- x pos ) swap lf-tactic-step tac-first @ nip lf-tactic-arg ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "s2-rest review finding 2: lf-tac-arg reads the step's first argument whatever k is (by-case:'s second name)"
 
 [[fault]]
 id = "tac-name-unquoted"
-file = "src/front/tactic-basic.fs"
+file = "src/front/tactic-msg.fs"
 old = ''': lf-tac-.name ( name -- ) s" `" lf-pp-emit lf-pp-name s" `" lf-pp-emit ;'''
 new = ''': lf-tac-.name ( name -- ) s" `" lf-pp-emit lf-pp-name ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"

@@ -45,7 +45,8 @@ require ./lctx-views.fs
 require ./goals.fs
 require ./tactic-syntax.fs
 require ./tactic-run.fs
-require ./tactic-basic.fs
+require ./tactic-msg.fs
+require ./tactic-core.fs
 require ./meta-must.fs
 require ./meta-tactic/goal.fs
 

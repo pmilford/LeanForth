@@ -5,3 +5,7 @@
 require ./apply.fs
 require ./assumption.fs
 require ./constructor.fs
+require ./exact.fs
+require ./intro.fs
+require ./rewrite.fs
+require ./rfl.fs

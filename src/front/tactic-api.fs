@@ -17,9 +17,10 @@
 \ The rest of the interface is the words of the files below: the row
 \ setters lf-tactic-action!, lf-tactic-lean!, lf-tactic-plan!,
 \ lf-tactic-end! and lf-tac-eval (tactic-run.fs), lfa-code: for a
-\ tactic's own error codes (author/errors.fs), the step record and
-\ messages (tactic-basic.fs), liftMetaTactic and elabTermForApply
-\ (tactic-core.fs), and the tactic library: meta-must.fs, app-builder.fs,
+\ tactic's own error codes (author/errors.fs), the messages
+\ (tactic-msg.fs), the step record, liftMetaTactic, elabTermForApply,
+\ getArg, withSynthesize and try (tactic-core.fs), and the tactic
+\ library: meta-must.fs, app-builder.fs,
 \ telescope.fs and the goal operations of meta-tactic/. A tactic file
 \ writes no hook and sets rows only for its own kinds
 \ (scripts/check-tactic-plugins.py); docs/development/ADDING_A_TACTIC.md
@@ -35,7 +36,7 @@ require ../author/groups.fs
 require ../present/print-forth.fs
 require ./tactic-syntax.fs
 require ./tactic-run.fs
-require ./tactic-basic.fs
+require ./tactic-msg.fs
 require ./tactic-core.fs
 require ./meta-must.fs
 require ./app-builder.fs
@@ -44,6 +45,7 @@ require ./meta-tactic/goal.fs
 require ./meta-tactic/apply.fs
 require ./meta-tactic/assumption.fs
 require ./meta-tactic/constructor.fs
+require ./meta-tactic/rewrite.fs
 
 \ The spelling is read three times: >in put back before each.
 : tap-again ( in -- in ) dup >in ! ;

@@ -58,8 +58,8 @@
 \ and the states other modules add with tac-state: ( save-xt back-xt -- )
 \ (reviews C2 and N4 of 2026-11-18): the elaborator's pending list and
 \ synthesis window (elab-pending.fs, registered by elab-decl.fs), the
-\ induction blocks and their cases (tactic-induction.fs) and rw's
-\ metavariables (tactic-rewrite.fs), as Lean's saveState holds the whole
+\ induction blocks and their cases (tactic-induction.fs), as Lean's
+\ saveState holds the whole
 \ Term and Meta state; lib/slab.fs's slab-keep and slab-kept do a
 \ back-xt's work for a slab. A run
 \ that stops inside a try has its open saves forgotten when the next
@@ -74,7 +74,8 @@
 \ lf-tac-fail ( code -- ) (an error at the step running, with the goals),
 \ lf-tac-stop ( code -- ) (the same without the goals), lf-tac-must
 \ ( outcome -- ) (a Meta step's failure stops the run), lf-tac-detail
-\ ( x xt -- ) (xt's printing as the error's detail), lf-tac-later ( i -- )
+\ ( x xt -- ) (xt's printing as the error's detail), lf-tac-detail-n
+\ ( i*x n xt -- ) (the same of n cells), lf-tac-later ( i -- )
 \ (a step not ported yet), lf-tactic-end! ( xt kind -- ) (what
 \ a block of the kind does at its end, before done: xt ( i -- )),
 \ lf-tac-stop-at and lf-tac-fail-at ( j code -- ) (an error at step j's
@@ -319,12 +320,15 @@ s" sorry" tac-k-sorry lf-tactic-lean!
 \ block's place; a tactic's error also shows the goals, kept as the
 \ error's detail (for the first error only: a later one is not kept).
 : lf-tac-step ( -- i ) trun trun-step @ ;
-\ lf-tac-detail ( x xt -- ): xt ( x -- outcome ) prints into the error's
-\ detail (present/term-printer.fs's lf-print-with: the printer's settings
-\ put back however xt ends), unless an error is recorded already.
-: lf-tac-detail ( x xt -- )
-  lf-author-code if 2drop exit then
-  ['] lfa-detail+ lf-print-with ok? 0= if lfa-detail-cut then ;
+\ lf-tac-detail-n ( i*x n xt -- ): xt ( i*x -- outcome ), given the n
+\ cells i*x, prints into the error's detail (present/term-printer.fs's
+\ lf-print-with: the printer's settings put back however xt ends),
+\ unless an error is recorded already (the n cells dropped);
+\ lf-tac-detail ( x xt -- ) the same of one cell.
+: lf-tac-detail-n ( i*x n xt -- )
+  lf-author-code if drop ndrop exit then
+  nip ['] lfa-detail+ lf-print-with ok? 0= if lfa-detail-cut then ;
+: lf-tac-detail ( x xt -- ) 1 swap lf-tac-detail-n ;
 : lfr-goals-of ( x -- outcome ) drop lf-goals-text ;
 : lfr-with-goals ( -- ) 0 ['] lfr-goals-of lf-tac-detail ;
 \ An error at step j's word and place (an alternative's |, an induction's

@@ -2439,6 +2439,14 @@ test = "$GFORTH tests/lib/lib.fs"
 reason = "review FRK 5: the portable BOUNDS gives start and end the other way round, so a ?DO over it runs no or wrong iterations"
 
 [[fault]]
+id = "portable-ndrop-short"
+file = "src/lib/portability.fs"
+old = '''[undefined] ndrop [if] : ndrop ( xn .. x1 n -- ) 0 ?do drop loop ; [then]'''
+new = '''[undefined] ndrop [if] : ndrop ( xn .. x1 n -- ) 1 ?do drop loop ; [then]'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "review tactic-move B1: the portable NDROP leaves one of the n cells, so a caller's stack (a dropped detail's cells, the search order's word lists) is one too deep"
+
+[[fault]]
 id = "portable-u-le-signed"
 file = "src/lib/portability.fs"
 old = ''': u<= ( u1 u2 -- flag ) u> 0= ; [then]'''
@@ -15508,7 +15516,7 @@ reason = "FE1g-1: a kind changed under a mark is not noted, so a rollback keeps 
 [[fault]]
 id = "fe-goal-sees-all"
 file = "src/front/mvars.fs"
-old = '''  swap lf-mvar-view if swap lf-view-find dup if nip then else drop false then ;'''
+old = '''  swap lf-mvar-view if swap lf-view-has? else drop false then ;'''
 new = '''  2drop true ;'''
 test = "$GFORTH tests/front/goals.fs"
 reason = "FE1g-1: every free variable counts as in a metavariable's context (the count model's flaw: a cleared hypothesis stays visible)"
@@ -16083,82 +16091,83 @@ reason = "POOL: --resources does not say that the system refused worker tasks"
 
 [[fault]]
 id = "fe-intro-name-accessible"
-file = "src/front/tactic-basic.fs"
-old = '''  ?dup if nip 0 exit then lfb-own lf-local-inaccessible ;'''
-new = '''  ?dup if nip 0 exit then lfb-own 0 ;'''
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mti mti-names @ mti-at @ ?dup if nip 0 exit then mti-own lf-local-inaccessible ;'''
+new = '''  mti mti-names @ mti-at @ ?dup if nip 0 exit then mti-own 0 ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: intro _ makes an accessible hypothesis where Lean's is hygienic (printed a✝)"
 
 [[fault]]
 id = "fe-rfl-no-defeq"
-file = "src/front/tactic-basic.fs"
-old = '''  tb tb-term @ tb tb-type @ lfb-defeq lf-tac-must'''
-new = '''  true'''
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mrf-equal? if mrf-closed else mrf-unequal then ;'''
+new = '''  true if mrf-closed else mrf-unequal then ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 (design 8.3): rfl closes p = q with Eq.refl without isDefEq"
 
 [[fault]]
 id = "fe-rfl-non-eq"
-file = "src/front/tactic-basic.fs"
-old = ''': lfb-eq? ( t -- flag ) 3 s" Eq" lf-meta-app-of? ;'''
-new = ''': lfb-eq? ( t -- flag ) lf-meta-args# 3 = ;'''
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mtg-is-eq ( t -- t ) dup lf-eq? if 2drop drop exit then outcome-unsupported lf-must ;'''
+new = ''': mtg-is-eq ( t -- t ) dup lf-meta-head-args nip 3 = if exit then outcome-unsupported lf-must ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 (design 8.3): the Eq head check dropped, so Ne p q reaches eq_refl and fails as invalid where Lean's apply_rfl would look for @[refl] lemmas"
 
 [[fault]]
 id = "fe-exact-mismatch-kept"
-file = "src/front/tactic-basic.fs"
-old = '''  0= if ['] lfb-mismatch. lfa-e-tac-mismatch lfb-failed then ;'''
-new = '''  drop ;'''
+file = "src/front/tactic-core.fs"
+old = '''  2dup lf-tac-defeq lf-tac-must if 2drop exit then tcr-mismatch ;'''
+new = '''  2drop ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: exact assigns a term whose type is not the goal's"
 
 [[fault]]
 id = "fe-exact-new-holes-ignored"
-file = "src/front/tactic-basic.fs"
-old = '''  dup ['] lfb-new? lfb-holds? if lfa-e-tac-unassigned lf-tac-fail then ;'''
+file = "src/front/tactic-core.fs"
+old = '''  dup tb tb-from @ ['] tcr-new? lf-term-holds-with? lf-tac-must
+  if lfa-e-tac-unassigned lf-tac-fail then ;'''
 new = '''  ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: a metavariable exact's term made and left unassigned is not reported as Lean's don't know how to synthesize"
 
 [[fault]]
 id = "fe-exact-scope-ignored"
-file = "src/front/tactic-basic.fs"
-old = ''': lfb-in-scope ( e -- e ) dup ['] lfb-outside? lfb-holds? if lfb-unassignable then ;'''
-new = ''': lfb-in-scope ( e -- e ) ;'''
+file = "src/front/meta-tactic/goal.fs"
+old = '''  2dup swap lf-goal-view ['] mtg-outside? lf-term-holds-with? lf-must
+  if 2dup mtg-unassignable then ;'''
+new = '''  ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: exact assigns a term with a free variable outside the goal's context (Lean's checkAssignment refuses it)"
 
 [[fault]]
 id = "fe-exact-sorts-ignored"
-file = "src/front/tactic-basic.fs"
-old = ''': lfb-types. ( -- outcome ) lfb-sorted? if lfb-sorted. else lfb-plain. then ;'''
-new = ''': lfb-types. ( -- outcome ) lfb-plain. ;'''
+file = "src/front/tactic-msg.fs"
+old = '''  tmg-sorts? 0= if tmg-plain. exit then tmg-sorted. ;'''
+new = '''  tmg-sorts? drop tmg-plain. ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: the type mismatch text leaves out the sorts Lean names when the two types' types differ"
 
 [[fault]]
 id = "fe-rfl-refl-rhs"
-file = "src/front/tactic-basic.fs"
-old = '''  dup lfb-level >r s" Eq.refl" r> lf-mk-const1 swap lfb-alpha tb tb-term @ 2 lf-mk-app-n ;'''
-new = '''  dup lfb-level >r s" Eq.refl" r> lf-mk-const1 swap lfb-alpha tb tb-type @ 2 lf-mk-app-n ;'''
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mrf mrf-eq @ dup mtg-refl-const swap mtg-alpha lf-mk-app mrf-lhs lf-mk-app ;'''
+new = '''  mrf mrf-eq @ dup mtg-refl-const swap mtg-alpha lf-mk-app mrf mrf-sides 2@ nip lf-mk-app ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L3 (F2): rfl's Eq.refl takes the right side where Lean's MVarId.refl takes the left (Refl.lean:39); the kernel accepts both"
 
 [[fault]]
 id = "fe-intro-domain-unreduced"
-file = "src/front/tactic-basic.fs"
-old = ''': lfb-dom ( -- ) tb tb-pi @ lf-term-first@ lf-meta-head-beta lf-tac-must tb tb-dom ! ;'''
-new = ''': lfb-dom ( -- ) tb tb-pi @ lf-term-first@ tb tb-dom ! ;'''
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mti-dom ( pi -- dom ) lf-term-first@ lf-meta-head-beta lf-must ;'''
+new = ''': mti-dom ( pi -- dom ) lf-term-first@ ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L4 (F13): intro's hypothesis keeps the domain's beta redex where Lean's introNCore head-beta reduces it"
 
 [[fault]]
 id = "fe-intro-body-unreduced"
-file = "src/front/tactic-basic.fs"
-old = '''  tb tb-pi @ lf-term-second@ tb tb-x @ lf-meta-instantiate1 lf-tac-must
-  lf-meta-head-beta lf-tac-must ;'''
-new = '''  tb tb-pi @ lf-term-second@ tb tb-x @ lf-meta-instantiate1 lf-tac-must ;'''
+file = "src/front/meta-tactic/goal.fs"
+old = '''  swap lf-term-second@ swap lf-meta-instantiate1 lf-must lf-meta-head-beta lf-must ;'''
+new = '''  swap lf-term-second@ swap lf-meta-instantiate1 lf-must ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L4 (F14): intro's new goal keeps the body's beta redex where Lean's introNCore head-beta reduces it"
 
@@ -16172,9 +16181,9 @@ reason = "FE1g-4 review fe1g3 L10: a message's printing that throws leaves the p
 
 [[fault]]
 id = "fe-tac-defeq-settings-kept"
-file = "src/front/tactic-basic.fs"
-old = '''  ['] lf-meta-defeq lf-defeq-elab lf-tr-default lf-meta-with outcome-sane ;'''
-new = '''  lf-defeq-elab lf-defeq-flags! lf-tr-default lf-defeq-mode! lf-meta-defeq outcome-sane ;'''
+file = "src/front/meta-must.fs"
+old = '''  ['] lf-meta-defeq lf-defeq-elab rot lf-meta-with outcome-sane ;'''
+new = '''  lf-defeq-elab lf-defeq-flags! lf-defeq-mode! lf-meta-defeq outcome-sane ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L10: the tactics' isDefEq leaves defeq's configuration and mode set to the elaborator's"
 
@@ -20127,11 +20136,11 @@ reason = "S2 5 (kabstract): a node that is no occurrence is kept whole, its part
 
 [[fault]]
 id = "s2-rw-sides-swapped"
-file = "src/front/tactic-rewrite.fs"
-old = '''  trw trw-alpha @ trw trw-etype @ trw trw-lhs @ trw trw-rhs @ trw trw-motive @'''
-new = '''  trw trw-alpha @ trw trw-etype @ trw trw-rhs @ trw trw-lhs @ trw trw-motive @'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
-reason = "S2 5 (MVarId.rewrite): congrArg's sides swapped, a proof the kernel refuses"
+file = "src/front/meta-tactic/rewrite.fs"
+old = '''  mrw mrw-alpha @ mrw mrw-etype @ mrw mrw-lhs @ mrw mrw-rhs @ mrw mrw-motive @'''
+new = '''  mrw mrw-alpha @ mrw mrw-etype @ mrw mrw-rhs @ mrw mrw-lhs @ mrw mrw-motive @'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S2 5 (MVarId.rewrite): congrArg's two sides swapped, so the proof proves the rewrite backwards (moved to meta-tactic/rewrite.fs by plan 9.4.8l-I C3; the library's unit test checks the proof's type)"
 
 [[fault]]
 id = "s2-rw-mpr-new-twice"
@@ -20143,11 +20152,11 @@ reason = "S2 5 (replaceTargetEq): Eq.mpr's first argument the new target where L
 
 [[fault]]
 id = "s2-rw-rfl-skipped"
-file = "src/front/tactic-rewrite.fs"
-old = ''': lfw-w-rw ( i -- ) lfw-rules lfw-try-rfl ;'''
-new = ''': lfw-w-rw ( i -- ) lfw-rules ;'''
+file = "src/front/tactics/rewrite.fs"
+old = ''': trw-w-rw ( i -- ) trw-rules ['] trw-rfl lf-tac-try-lean drop ;'''
+new = ''': trw-w-rw ( i -- ) trw-rules ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
-reason = "S2 5 (the rw macro): by-rw[ without try (with_reducible rfl), so FE1's succ case is left open"
+reason = "S2 5 (rw's macro): rw never tries rfl after rewriting, so a goal rw closes in Lean is left open (moved to tactics/rewrite.fs by plan 9.4.8l-I C3)"
 
 [[fault]]
 id = "s2-alt-names-unchecked"
@@ -20233,30 +20242,28 @@ reason = "review s2-tactics M3: kabstract walks a let's parts in its own order, 
 
 [[fault]]
 id = "s2-rw-try-forgets-fuel"
-file = "src/front/tactic-rewrite.fs"
-old = ''': lfw-caught ( code -- ) lfw-invalid? if drop lf-tac-forget else throw then ;'''
-new = ''': lfw-caught ( code -- ) drop lf-tac-forget ;'''
+file = "src/front/tactic-msg.fs"
+old = '''  dup lf-tac-lean-error? 0= if throw then drop lf-tac-forget ;'''
+new = '''  drop lf-tac-forget ;'''
 test = "$GFORTH tests/front/s2-sweeps.fs"
 reason = "review s2-tactics M2: try (with_reducible rfl) forgets a run out of fuel, so the goal is left open (89), where Lean's try never catches a runtime exception"
 
 [[fault]]
 id = "s2-rw-motive-unchecked"
-file = "src/front/tactic-rewrite.fs"
-old = '''  dup outcome-invalid = if drop ['] lfw-motive. lfa-e-tac-motive lfw-failed then
-    lf-tac-must ;'''
+file = "src/front/meta-tactic/rewrite.fs"
+old = '''  dup outcome-invalid = if drop ['] mrw-motive. lfa-e-tac-motive lf-tac-failed then
+  lf-must ;'''
 new = '''  drop ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
-reason = "S2 5 (MVarId.rewrite): the motive used without Meta.check, so a motive that is not type correct reaches the kernel"
-gap = "review s2-tactics H1 (m2, error 216): no LeanForth text reaches a motive that is not type correct yet: Lean's case (h : n + 0 = n) : h = h by rw [Nat.add_zero] needs a hypothesis used as a term, which natural LeanForth refuses (error 73), and forall in natural form (plan FE2); meta-check.fs's own refusal is caught in tests/front/s2-units.fs"
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S2 5 (MVarId.rewrite): the motive used without Meta.check, so a motive that is not type correct reaches the kernel; caught since plan 9.4.8l-I C3 by the library's unit test (h = h rewritten by h : a = b, error 216)"
 
 [[fault]]
 id = "s2-rw-dependence-unchecked"
-file = "src/front/tactic-rewrite.fs"
-old = '''  0= if ['] lfw-dependent. lfa-e-tac-motive-dep lfw-failed then ;'''
+file = "src/front/meta-tactic/rewrite.fs"
+old = '''  0= if ['] mrw-dependent. lfa-e-tac-motive-dep lf-tac-failed then ;'''
 new = '''  drop ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
-reason = "S2 5 (MVarId.rewrite): the motive's dependence on the pattern not checked"
-gap = "review s2-tactics H1 (m3, error 217): unreachable while rw rewrites only the target: the target's type is a sort, which mentions no term, so the motive's body always has the target's type (rw at a hypothesis or a term, plan S3 or later)"
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S2 5 (MVarId.rewrite): a dependent motive accepted; caught since plan 9.4.8l-I C3 by the library's unit test (Eq.refl a rewritten by h : a = b, error 217)"
 
 [[fault]]
 id = "s2-alt-field-kinds-ignored"
@@ -20877,11 +20884,11 @@ reason = "review C2 of 2026-11-18: a failed try leaves the induction blocks it o
 
 [[fault]]
 id = "tac-rw-mvars-not-kept"
-file = "src/front/tactic-rewrite.fs"
-old = ''': lfw-kept ( undo? -- outcome ) trw-mvars trw-mvars-kept slab-kept ;'''
-new = ''': lfw-kept ( undo? -- outcome ) drop trw-mvars-kept slab-forget outcome-ok ;'''
-test = "$GFORTH tests/front/tactic-run.fs"
-reason = "review C2 of 2026-11-18: a failed try leaves trw-mvars as the attempt's rw made it"
+file = "src/front/meta-tactic/rewrite.fs"
+old = '''  mrw mrw-mvars @ over run-push lf-must mrw mrw-mvars ! lf-mk-app ;'''
+new = '''  lf-mk-app ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "rw's new metavariables not kept (since plan 9.4.8l-I C3 a run in the call's frame, no saved state of their own): a binder the rewrite leaves unassigned is no new goal, so rw goes on where Lean opens a goal (or LeanForth refuses, 99)"
 
 [[fault]]
 id = "tac-pending-base-not-restored"

@@ -1,5 +1,6 @@
 \ Unit and end-to-end tests of the first tactics (plan FE1g-4;
-\ src/front/tactic-basic.fs, design docs/design/FE1G_TACTICS.md 5.1-5.3),
+\ src/front/tactics/intro.fs, exact.fs and rfl.fs on the tactic
+\ library's goal words, design docs/design/FE1G_TACTICS.md 5.1-5.3),
 \ by the classes of docs/development/TEST_COVERAGE_REVIEW.md. Until plan
 \ FE1e elaborates statements and terms, stand-ins build them directly:
 \ the statement (lf-front-by-statement) and by-exact's term (lf-tac-elab:
@@ -108,10 +109,12 @@ T{ va tag va lf-term-second@ tag va lf-term-second@ lf-term-second@ dup tag swap
 T{ va bname s" p" name= va lf-term-second@ bname s" h" name= -> true true }T
 T{ va lf-term-second@ lf-term-first@ dup tag swap lf-term-first@ -> lf-tag-bvar 0 }T
 T{ ty tag ty lf-term-second@ dup tag swap lf-term-first@ tag -> lf-tag-pi lf-tag-pi lf-tag-bvar }T
-\ The hypothesis's local: the given name, accessible, explicit (intro's
-\ step record, the first of the run: review fe1g3 M2).
-: new-local ( -- local )
-  0 lf-tac-record-at tb-new @ lf-mvar-view drop dup lf-view-count 1- lf-view-local ;
+\ The hypothesis's local: the given name, accessible, explicit (the
+\ newest of the new goal's context, the goal ?n of the root's value fun
+\ h => ?n h is delayed-assigned).
+: new-goal ( -- goal )
+  lf-pst-root lf-mvar-value drop lf-term-second@ lf-term-first@ lf-mvar-delayed drop 2drop ;
+: new-local ( -- local ) new-goal lf-mvar-view drop dup lf-view-count 1- lf-view-local ;
 T{ new-local dup lf-local-name s" h" name= swap lf-local-flags -> true 0 }T
 \ The goal's value before instantiation: fun h => ?n h, ?n delayed [h].
 T{ lf-pst-root lf-mvar-value drop dup tag swap lf-term-second@ lf-term-first@ lf-mvar-delayed
@@ -154,6 +157,17 @@ T{ s" by-intro: h end t" proof nrun err -> outcome-unsupported 99 1 43 }T
 T{ s" by-intro: h end t" proof nrun err -> outcome-unsupported 99 1 43 }T
 ' let-p stating
 T{ s" by-intro: h end t" proof nrun err -> outcome-unsupported 99 1 43 }T
+\ An alternative's field (lf-tac-intro1 given a kind, as induction's
+\ eliminator gives it; review tactic-move M3): the kind given, here
+\ implicit, is the local's; the node's own kind is not read (the binder
+\ refused above, 99, is introduced). intro's row stands in for the call.
+tac-k-intro lfr-row trow-run @ constant intro-action
+: intro-implicit ( i -- ) dup 0 lf-tac-arg lf-binder-implicit rot lf-tac-intro1 ;
+' intro-implicit tac-k-intro lf-tactic-action!
+' implicit-pi stating
+T{ s" by-intro: h by-sorry end t" proof nrun new-local dup lf-local-name s" h" name=
+   swap lf-local-flags -> outcome-ok true lf-binder-implicit }T
+intro-action tac-k-intro lf-tactic-action!
 
 \ ---- 1. exact: a term of another type, Lean's Type mismatch text (the
 \ term, its type, the type expected; tactic-run.lean's x1 shape).
@@ -188,6 +202,29 @@ T{ s" by-intro: h n by-exact end t" proof nrun err -> outcome-unsupported 93 1 5
 T{ s" by-intro: h n by-exact end t" proof nrun err -> outcome-invalid 98 1 57 }T
 T{ detail drop 8 s"   _fvar." compare -> 0 }T
 T{ detail s\" occurs-check failure\n\np : Prop\nh : p\n⊢ p" search nip nip -> true }T
+\ rw's own refusals at the rule (plan 9.4.8l-I C3, tactics/rewrite.fs),
+\ the rule's place second: a rule holding the goal itself (220, Lean's
+\ occurs check; no LeanForth text names the goal's metavariable, so the
+\ stand-in gives it) and a rule left with an open metavariable (Lean's
+\ new goals, 99). A place set already is kept.
+: the-goal ( -- t ) lf-main-goal made ;
+: open-eq ( -- t ) p @ p @ eq-of mv-natural lf-mvar-new made ;
+: see@ ( -- line col ) lfa-error lfa-err-see @ lfa-pos> ;
+' eq-pp stating  ' the-goal chosen !
+T{ s" by-rw[ 0 ] end t" proof nrun err see@ -> outcome-invalid 220 1 43 1 50 }T
+T{ 7 lfa-see! 0 trw-see lfa-error lfa-err-see @ -> 7 }T
+' open-eq chosen !
+T{ s" by-rw[ 0 ] end t" proof nrun err see@ -> outcome-unsupported 99 1 43 1 50 }T
+\ An error of MVarId.rewrite's own (lf-goal-rewrite's 218: p is no
+\ equation) gets the rule's place too.
+' p-term chosen !
+T{ s" by-rw[ 0 ] end t" proof nrun err see@ -> outcome-invalid 218 1 43 1 50 }T
+\ lf-tac-goal. (tactic-core.fs): the last step's goal after a blank line
+\ (induction's messages print it; no S2 text reaches them).
+: goal-x ( x -- outcome ) drop lf-tac-goal. ;
+lf-tac-forget
+T{ 0 ' goal-x lf-tac-detail detail s\" \n\np : Prop\n⊢ p = p" compare -> 0 }T
+lf-tac-forget
 \ A goal type holding an open synthetic opaque metavariable (Lean compares
 \ with it assignable): 93 before isDefEq.
 : so-p ( -- type ) p-prop prop mv-opaque lf-mvar-new made ;
@@ -195,7 +232,7 @@ T{ detail s\" occurs-check failure\n\np : Prop\nh : p\n⊢ p" search nip nip -> 
 T{ s" n by-exact end t" proof nrun err -> outcome-unsupported 93 1 45 }T
 \ No term elaborator (plan FE1e): 71 at the word.
 ' imp-p stating
-' lfb-unelaborated is lf-tac-elab
+' tcr-unelaborated is lf-tac-elab
 T{ s" by-intro: h n by-exact end t" proof nrun err -> outcome-unsupported 71 1 57 }T
 ' stand-in is lf-tac-elab
 
@@ -305,7 +342,7 @@ T{ outcome-ok worst ! each-refused 1 > worst @ -> true outcome-ok }T
 \ and by-sorry closes the goal as it was.
 variable tried  variable goal0  variable seen
 variable main-after  variable open-after  variable goals-after
-: intro-fails ( -- ) tried @ lfb-w-intro lfa-e-tac-unsolved lfa-fail ;
+: intro-fails ( -- ) tried @ tin-run lfa-e-tac-unsolved lfa-fail ;
 : noted ( -- )
   lf-tac-main main-after ! goal0 @ lf-goal-assigned? open-after ! lf-goals run-count goals-after ! ;
 : try-intro ( i -- )
@@ -315,7 +352,7 @@ variable main-after  variable open-after  variable goals-after
 T{ s" by-intro: h by-sorry end t" proof nrun seen @ -> outcome-ok 89 }T
 T{ main-after @ goal0 @ = open-after @ goals-after @ -> true false 1 }T
 T{ 0 part-goal s\" p : Prop\n⊢ p → p" compare -> 0 }T
-' lfb-w-intro tac-k-intro lf-tactic-action!
+' tin-run tac-k-intro lf-tactic-action!
 
 \ ---- 6. Settings put back however a step ends (review fe1g3 L10): the
 \ current context after a failed step on a goal of another context, the
@@ -326,7 +363,7 @@ T{ s" by-intro: h by-intro: k end t" proof nrun err lf-mctx-view lf-view-count
 2variable settings
 : sink-throws ( c-addr u -- ) 2drop -79 throw ;
 : throwing-sink ( -- ) lf-print-settings settings 2! ['] sink-throws lf-print-unicode lf-print-setup ;
-T{ false lf-print-notation! throwing-sink prop ' lfb-noted catch nip lf-print-notation? -> -79 false }T
+T{ false lf-print-notation! throwing-sink prop ' tmg-noted catch nip lf-print-notation? -> -79 false }T
 settings 2@ lf-print-setup
 T{ 0 lf-defeq-flags! lf-tr-all lf-defeq-mode! prop prop lf-tac-defeq lf-defeq-flags lf-defeq-mode
    -> true outcome-ok 0 lf-tr-all }T
@@ -336,13 +373,17 @@ lf-tr-default lf-defeq-mode!
 \ 2026-11-19-s2-rest, finding 2): lf-tac-arg reads step i's argument k (a
 \ name, 0 for _), as by-case: and the alternatives read their names;
 \ lf-tac-.name writes a name between backquotes to the message's sink.
-variable seen#  variable seen0  variable seen1
+\ lf-tac-arg-at gives an argument's place: the second after the first.
+variable seen#  variable seen0  variable seen1  variable at0  variable at1
+: record-at ( i -- ) dup 0 lf-tac-arg-at at0 ! 1 lf-tac-arg-at at1 ! ;
 : record-args ( i -- )
-  dup lf-tac-args# seen# ! dup 0 lf-tac-arg seen0 ! 1 lf-tac-arg seen1 ! lfa-e-tac-unsolved lfa-fail ;
+  dup record-at dup lf-tac-args# seen# ! dup 0 lf-tac-arg seen0 ! 1 lf-tac-arg seen1 !
+  lfa-e-tac-unsolved lfa-fail ;
 ' record-args tac-k-case lf-tactic-action!
 ' imp-p stating
 T{ s" by-case: succ k _ => by-sorry by-end end t" proof nrun drop seen# @ -> 2 }T
 T{ seen0 @ s" k" lfa-intern = seen1 @ -> true 0 }T
+T{ at0 @ 0> at1 @ at0 @ > -> true true }T
 ' tcs-w-case tac-k-case lf-tactic-action!
 : grab ( c-addr u -- ) text+ ;
 : named. ( c-addr u -- c-addr' u' )

@@ -62,7 +62,7 @@ defined in appendix E.
 | Generated definitions | `constructions`, `ctor-idx`, `cases-several`, `expr-remap` | 1,005 |
 | Tactic library (`Meta/AppBuilder`, `Meta/Basic`) | `meta-must`, `app-builder`, `telescope` | 550 |
 | `Elab.Term` (the elaborator) | `elab-pending`, `elab-app`, `elab-term`, `elab-decl` | 1,691 |
-| `Elab.Tactic`, reader, goals, hand-over | `reader`, `syntax`, `tactic-syntax`, `tactic-run`, `tactic-basic`, `tactic-induction`, `tactic-rewrite`, `goals`, `goal-print`, `step-log`, `handover` | 3,008 |
+| `Elab.Tactic`, reader, goals, hand-over | `reader`, `syntax`, `tactic-syntax`, `tactic-run`, `tactic-core`, `tactics/` (intro, exact, rfl), `tactic-induction`, `tactic-rewrite`, `goals`, `goal-print`, `step-log`, `handover` | 3,008 |
 | On `tactic-lib-a2ii` (in flight): goal layer, registry, glue | `meta-tactic/{goal,apply,assumption,constructor}`, `tactic-api`, `tactic-core`, `tactics/*` | 652 in new files |
 
 ### 1.2 Where the eight libraries sit, and which way calls go
@@ -100,7 +100,7 @@ by instances (1) and simp (2), as in Lean (`Meta/DiscrTree`).
 | Evidence (file:line on `main` unless said) | Is | Library |
 | --- | --- | --- |
 | `elab-term.fs` (elabTerm, elabType, binop%), `elab-app.fs` (elabAppArgs), `elab-pending.fs` (synthesizeSyntheticMVars, default instances, mkInstMVar) | the Term core, complete for S1/S2's forms | 1 |
-| `elab-decl.fs:143-152` `edc-tac-elab`, set into the hook `lf-tac-elab` declared at `tactic-basic.fs:139-142` | Lean's `Tactic.elabTerm` (ElabTerm.lean:45), buried in the declaration glue | 1 (tactic face) |
+| `elab-decl.fs:143-152` `edc-tac-elab`, set into the hook `lf-tac-elab` declared at `tactic-basic.fs:139-142` (2026-11-19: declared in `tactic-core.fs`; `tactic-basic.fs` deleted by plan 9.4.8l I) | Lean's `Tactic.elabTerm` (ElabTerm.lean:45), buried in the declaration glue | 1 (tactic face) |
 | `elab-decl.fs:155` registers the Term pending list with the Tactic runner's `tac-state:` | Term.SavedState, kept only at the Tactic layer | 1 |
 | `tactic-core.fs` `lf-tac-elab-for-apply` (branch `tactic-lib-a2ii`) | `elabTermForApply` (ElabTerm.lean:265) | 1 (tactic face) |
 | `elab-term.fs:138, 197`: `case`s over the seven syntax kinds it elaborates | Lean's term-elaborator table (`elabUsingElabFns`, TermElabM.lean:1691); every FE2 form would edit it | 1 |
@@ -154,7 +154,7 @@ part about 450 (240 Lean lines: the tactic face, saved state, the registry) plus
 functions.
 
 **Public words** (all throw, as Lean's MetaM; stack effects in appendix B.1), by group: the index (`lf-dt-insert`,
-`lf-dt-get-unify`, `lf-dt-get-match`, `lf-dt-get-match-extra`); rewriting (`lf-meta-rewrite`,
+`lf-dt-get-unify`, `lf-dt-get-match`, `lf-dt-get-match-extra`); rewriting (`lf-goal-rewrite`,
 `lf-goal-replace-local-decl`, `lf-rw-rules`, `lf-with-location`); results (`/simp-result`, `lf-simp-trans`,
 `lf-simp-congr-arg`, `-congr-fun`, `-congr`, `-congr-args`, `lf-simp-proof`, `lf-simp-add-lambdas`); the traversal
 (`lf-simp`, `lf-dsimp`, `lf-simp-methods`); lemmas (`lf-simp-rewrite?`, `lf-simp-try-theorem`,
@@ -198,7 +198,7 @@ Rewrite 300, lemma intake 45); SP1c about 1,330 (700 Lean: congruence 385, prepr
 
 | Tactic | Elaborator library (1) | Simp and rewriting (2) | Tactic library and goal layer | Others |
 | --- | --- | --- | --- | --- |
-| `rw` | rules by `lf-tac-elab-term`, side goals by `lf-tac-collecting-goals` | `lf-rw-rules`, `lf-with-location`, `lf-meta-rewrite`, `lf-goal-replace-target-eq`/`-local-decl`, kabstract | telescopes, `mkEqSymm`, `mkPropExt`, `synthAppInstances` | then `rfl` (`lf-tac-eval`) |
+| `rw` | rules by `lf-tac-elab-term`, side goals by `lf-tac-collecting-goals` | `lf-rw-rules`, `lf-with-location`, `lf-goal-rewrite`, `lf-goal-replace-target-eq`/`-local-decl`, kabstract | telescopes, `mkEqSymm`, `mkPropExt`, `synthAppInstances` | then `rfl` (`lf-tac-eval`) |
 | `simp`, `simp only`, `dsimp` | bracket terms (`lf-simp-elab-args`) | `lf-simp`, `lf-dsimp`, sets, congruence, `lf-simp-target`, `lf-simp-local-decl` | builders, `mkLambdaFVars` | simp data (7), simprocs (3) |
 | `norm_num` | — | `lf-simp` with norm_num's methods; the default set | builders | `derive`, `IsNat`/`IsInt`/`IsRat` (3); its table (7) |
 | `ring` (`ring1`), `ring_nf` | — | `ring_nf` only: `lf-simp` with ring's evaluation as a simproc | `mkAppM`, synth (`CommSemiring`) | normal form `ExSum` (3); `first` (4) |
@@ -223,7 +223,7 @@ Rewrite 300, lemma intake 45); SP1c about 1,330 (700 Lean: congruence 385, prepr
    (as `elab-app.fs` does); one not yet re-entrant detects re-entry and answers unsupported. Change `apply.fs`'s
    record in LA, once `tactic-lib-a2ii` has merged. (The Meta core's leaf calls, finished before the next starts, may
    stay as they are.)
-3. **The elaboration hook goes.** `lf-tac-elab` (`tactic-basic.fs:139`, set at `elab-decl.fs:152`) becomes the word
+3. **The elaboration hook goes.** `lf-tac-elab` (`tactic-basic.fs:139`, set at `elab-decl.fs:152`; 2026-11-19: declared in `tactic-core.fs`, `tactic-basic.fs` deleted by plan 9.4.8l I) becomes the word
    `lf-tac-elab-term` of library 1's tactic face (`elab/tactic-term.fs`), with `lf-tac-elab-for-apply` moved there
    from `tactic-core.fs`. `tactic-core.fs` already requires `elab-term.fs`, so the hook only hides the dependency.
 4. **A shared reader for rule lists and locations.** `by-rw[` has its own reader (`tactic-syntax.fs:232-240`). `simp`,
@@ -442,7 +442,7 @@ marked ~); "exists" names the file. Forth estimates use 1.9 file lines per Lean 
 | Group | Words ( stack ) | Lean | Slice |
 | --- | --- | --- | --- |
 | Index | `lf-dt-insert ( keys n v tree -- )` and `lf-dt-get-unify ( e tree out -- )` (the tree last, as the libraries take their table; written on `mf2-dt` over the outcome words `lf-dtree-insert`, `lf-dtree-unify`), `lf-dt-get-match ( tree e -- addr n )`, `lf-dt-get-match-extra ( tree e -- addr n )` | `insertCore` (DiscrTree/Basic.lean:176), `getUnify` (Main.lean:567), `getMatch` 483, `getMatchWithExtra` 489 | MF2+DT; the two matches with SP1b |
-| Rewrite | `lf-meta-rewrite ( goal e heq symm? -- new proof goals )`, `lf-goal-replace-local-decl ( goal fvar new h -- goal' )`, `lf-rw-rules ( i xt -- )`, `lf-with-location ( loc xt-hyp xt-target -- )` | `MVarId.rewrite` (Rewrite.lean:28), `replaceLocalDecl` (Replace.lean:76), `withRWRulesSeq` (Elab/Tactic/Rewrite.lean:117), `withLocation` (Location.lean:58) | LA |
+| Rewrite | `lf-goal-rewrite ( goal e heq symm? -- new proof goals )`, `lf-goal-replace-local-decl ( goal fvar new h -- goal' )`, `lf-rw-rules ( i xt -- )`, `lf-with-location ( loc xt-hyp xt-target -- )` | `MVarId.rewrite` (Rewrite.lean:28), `replaceLocalDecl` (Replace.lean:76), `withRWRulesSeq` (Elab/Tactic/Rewrite.lean:117), `withLocation` (Location.lean:58) | LA |
 | Result and Step | `/simp-result` (term, proof or none, cache flag), `lf-simp-trans ( r1 r2 -- r )`, `lf-simp-congr-arg ( f r -- r )`, `lf-simp-congr-fun ( r a -- r )`, `lf-simp-congr ( r1 r2 -- r )`, `lf-simp-congr-args ( r args n -- r )`, `lf-simp-proof ( r -- h )`, `lf-simp-add-lambdas ( r fvars n -- r )` | Simp/Types.lean: `Result` 25, `mkEqTrans` 47, `mkCongrArg` 603, `mkCongrFun` 598, `mkCongr` 608, `congrArgs` 649, `getProof` 560, `addLambdas` 942 | SP1b |
 | The traversal | `lf-simp ( e ctx methods -- r )`, `lf-dsimp ( e ctx -- e' )`, `lf-simp-methods ( pre post discharge -- m )` | `Simp.main` (Main.lean:749), `simpLoop` 677, `visitFn` 531, `congr` 637, `simpLambda`/`simpForall`/`simpArrow`/`simpLet` 299-470, `dsimp` 776, `Methods` (Types.lean:424) | SP1b |
 | Lemmas | `lf-simp-rewrite? ( e set rfl-only? -- r flag )`, `lf-simp-try-theorem ( e thm -- r flag )`, `lf-simp-discharge-default` | `rewrite?` (Simp/Rewrite.lean:207), `tryTheorem?` 187, `synthesizeArgs` 58, `dischargeDefault?` 637 | SP1b (Eq, no hypotheses); SP2b (discharger) |
@@ -461,7 +461,7 @@ marked ~); "exists" names the file. Forth estimates use 1.9 file lines per Lean 
 | `getMatchLoop`, `getMatch`, `getMatchWithExtra` | DiscrTree/Main.lean:438-520 | ~90 | `lf-dt-get-match`, `-extra` | SP1b-i | 170 |
 | `mkPath`, `getKeyArgs` | DiscrTree/Main.lean:329, 350 | ~250 | `lf-dt-path`, `lf-dt-key` | exists (`discr-keys.fs`); match mode in SP1a | — |
 | `kabstract` with `toHeadIndex`, `headNumArgs` | KAbstract.lean:30; HeadIndex.lean:55-115 | ~85 | `lf-meta-kabstract` | exists | — |
-| `MVarId.rewrite` | Meta/Tactic/Rewrite.lean:28-104 | 73 | `lf-meta-rewrite` | in `tactic-rewrite.fs:120-213`; LA moves it and adds `symm`, Iff, instances, new goals | moved + 60 |
+| `MVarId.rewrite` | Meta/Tactic/Rewrite.lean:28-104 | 73 | `lf-goal-rewrite` | in `tactic-rewrite.fs:120-213`; LA moves it and adds `symm`, Iff, instances, new goals (2026-11-19: moved to `meta-tactic/rewrite.fs` by plan 9.4.8l I, commit C3, with LA's stack effect; symm, Iff and instance binders answer 99, new goals are returned and the tactic refuses them) | moved + 60 |
 | `replaceTargetEq`, `replaceLocalDecl` | Replace.lean:21, 76 | ~50 | `lf-goal-replace-target-eq`, `-local-decl` | first on a2-ii; second LA | 65 |
 | `elabRewrite`, `rewriteTarget`, `rewriteLocalDecl`, `withRWRulesSeq` | Elab/Tactic/Rewrite.lean:25-133 | ~100 | `lf-rw-rules` | partly in `tactic-rewrite.fs`; LA | 120 |
 | `expandLocation`, `withLocation` | Elab/Tactic/Location.lean:32, 58 | ~45 | `lf-with-location` | LA | 85 |
@@ -510,7 +510,7 @@ main...tactic-lib-a2ii -- src` (23 files, 845 lines added). Lean function lines:
 
 | Tactic (Lean) | Lean calls → LeanForth word |
 | --- | --- |
-| `rw` (Elab/Tactic/Rewrite.lean, Meta/Tactic/Rewrite.lean) | `withRWRulesSeq`, `withLocation` → LA; `Tactic.elabTerm` → `lf-tac-elab-term` (LA); `MVarId.rewrite` → `lf-meta-rewrite` (LA); `forallMetaTelescopeReducing` → exists (`telescope.fs`); `kabstract` → exists; `postprocessAppMVars` → a2-iii; `getMVarsNoDelayed` → LA; `mkEqSymm` → exists; `propext` by `mkConst` → `mkPropExt` (LA); `replaceTargetEq` → a2-ii; `replaceLocalDecl` → LA; `rfl` after → `lf-tac-eval` |
+| `rw` (Elab/Tactic/Rewrite.lean, Meta/Tactic/Rewrite.lean) | `withRWRulesSeq`, `withLocation` → LA; `Tactic.elabTerm` → `lf-tac-elab-term` (LA); `MVarId.rewrite` → `lf-goal-rewrite` (LA); `forallMetaTelescopeReducing` → exists (`telescope.fs`); `kabstract` → exists; `postprocessAppMVars` → a2-iii; `getMVarsNoDelayed` → LA; `mkEqSymm` → exists; `propext` by `mkConst` → `mkPropExt` (LA); `replaceTargetEq` → a2-ii; `replaceLocalDecl` → LA; `rfl` after → `lf-tac-eval` |
 | `simp only` (Elab/Tactic/Simp.lean, Meta/Tactic/Simp/) | `mkSimpContext`, `elabSimpArgs` → SP1b-i; `Simp.main` → `lf-simp`; `getMatchWithExtra` → SP1b-i; `isDefEq`, `instantiateMVars`, `whnfCore` → exist; `mkCongr`, `mkCongrFun`, `mkFunExt`, `mkImpCongr`, `mkOfEqTrue` → SP1b; `mkCongrSimp?` → SP1c; `simpTarget`, `applySimpResult` → SP1b-i; `mkAuxLemma` → S4's services |
 | `norm_num1` (Mathlib NormNum/Core.lean) | `Simp.main` with methods → `lf-simp`, `lf-simp-methods`; `derive`, extension lookup (`getMatch`, Core.lean:106) → `lf-dt-get-match` + library 3; `IsNat.to_eq` builders → library 3 |
 | `ring1` (Mathlib Ring/Basic.lean:596) | `synthInstance` → exists; `NormNum.derive` → library 3; `isDefEq` at reducible (atoms) → exists; `mkAppM` → exists; `first` → library 4 |
@@ -565,7 +565,7 @@ and the runners each written per slice (`check_defeq.py` 648 lines, `check_meta.
 
 **(6) Lean-printing library.** Names, terms, goals and messages as Lean prints them. First caller: simp's messages
 and, later, `simp?` and `Try this` (PD11). Absorbs `present/term-printer.fs` and its `print-*.fs`, `goal-print.fs`,
-the message words of `tactic-basic.fs:193-278` and the error terms of `elab-pending.fs`. Design: before SP2a.
+the message words of `tactic-basic.fs:193-278` (2026-11-19: `tactic-msg.fs`, `tactic-basic.fs` deleted by plan 9.4.8l I) and the error terms of `elab-pending.fs`. Design: before SP2a.
 
 **(7) Library-data access layer.** One reader for the snapshot, elaboration data and simp data, lazy by class or
 branch. First caller: SP2a/SP4's lazy simp branches on Mathlib. Absorbs `elab-data.fs` (1,534 lines, 65 globals),

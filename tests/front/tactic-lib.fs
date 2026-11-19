@@ -120,7 +120,7 @@ T{ fresh-pi lf-binder-name lf-binder-default named-pi lf-binder-name s" y" name=
 \ back after xt, also after a THROW.
 nat constant nat0
 lf-lctx-count @ constant count0
-: sees-x ( fvar -- type flag ) dup lf-fvar-type swap lf-mctx-view swap lf-view-find dup if nip then ;
+: sees-x ( fvar -- type flag ) dup lf-fvar-type swap lf-mctx-view swap lf-view-has? ;
 : local-ok ( -- type flag n view )
   nat0 s" z" lfa-intern lf-binder-default ['] sees-x lf-with-local-decl lf-lctx-count @
   lf-mctx-view ;
@@ -265,6 +265,77 @@ nat0 zero zero lf-mk-eq s" h" binder constant fh
 T{ dependent -> -4204 }T
 T{ nat dup lf-whnf-r! = -> true }T
 
+\ ---- 5. Slice 9.4.8l-I's shared words (plan 9.4.8l-I).
+\ The configuration scopes: each sets only its own part on the
+\ configuration in force and gives it back on both paths.
+: config@ ( -- flags mode ) lf-meta-config ;
+: config-fails ( -- ) outcome-full lf-must ;
+lf-meta-default lf-tr-instances lf-meta-config!
+lf-defeq-fo lf-defeq-ctx or lf-defeq-quasi or constant approx-bits
+T{ ' config@ lf-with-reducible config@ -> lf-meta-default lf-tr-reducible lf-meta-default
+   lf-tr-instances }T
+T{ ' config@ lf-with-assignable-opaque config@
+   -> lf-meta-default lf-defeq-opaque or lf-tr-instances lf-meta-default lf-tr-instances }T
+T{ ' config@ lf-with-approx -> lf-meta-default approx-bits or lf-tr-instances }T
+: both ( -- flags mode ) ['] config@ lf-with-assignable-opaque ;
+T{ ' both lf-with-approx -> lf-meta-default approx-bits or lf-defeq-opaque or lf-tr-instances }T
+T{ ' config-fails ' lf-with-reducible code1 config@ -> -4206 lf-meta-default lf-tr-instances }T
+T{ ' config-fails ' lf-with-assignable-opaque code1 config@
+   -> -4206 lf-meta-default lf-tr-instances }T
+T{ ' config-fails ' lf-with-approx code1 config@ -> -4206 lf-meta-default lf-tr-instances }T
+lf-defeq-elab lf-tr-default lf-meta-config!
+\ lf-with-record: a frame erased for each call, nested calls their own,
+\ every frame freed when xt ends or throws (a frame xt leaves above its
+\ own too). xt reads its frame as the slab's last unit (review
+\ tactic-move M1): a nested call that grows the slab past its block (5000
+\ units) moves it, and the outer call's frame, read afresh, still holds
+\ what it wrote before and takes what it writes after.
+create rec-slab /slab allot  2 cells 10000 rec-slab slab-init drop
+: rec ( -- frame ) rec-slab slab-last ;
+: rec-sum ( x -- x' n ) rec @ + rec-slab slab-count ;
+: rec-dirty ( -- ) 7 rec ! ;
+: rec-fails ( -- ) rec-dirty outcome-full lf-must ;
+: rec-depth ( -- n ) rec-slab slab-count ;
+: rec-nested ( -- n m ) rec-dirty rec-slab ['] rec-depth lf-with-record rec-slab
+  slab-count ;
+: rec-leaks ( -- ) 2 rec-slab slab-claim 2drop ;
+T{ 5 rec-slab ' rec-sum lf-with-record rec-slab slab-count -> 5 1 0 }T
+T{ rec-slab ' rec-dirty lf-with-record 0 rec-slab ' rec-sum lf-with-record -> 0 1 }T
+T{ rec-slab ' rec-fails ' lf-with-record catch nip nip rec-slab slab-count -> -4206 0 }T
+T{ rec-slab ' rec-nested lf-with-record rec-slab slab-count -> 2 1 0 }T
+T{ rec-slab ' rec-leaks lf-with-record rec-slab slab-count -> 0 }T
+: rec-grows ( -- ) 9 rec ! 5000 rec-slab slab-claim lf-must drop ;
+: rec-outer ( -- before after cap-grew? n )
+  rec-slab slab-capacity rec-dirty rec-slab ['] rec-grows lf-with-record rec @
+  8 rec ! rec @ rot rec-slab slab-capacity < rec-slab slab-count ;
+T{ rec-slab ' rec-outer lf-with-record rec-slab slab-count -> 7 8 true 1 0 }T
+rec-slab slab-free
+\ lf-term-holds-with?: the test reads its context x, which is not left.
+: same? ( x leaf -- x flag ) over = ;
+nat s" w" binder constant fw   nat s" v" binder constant fv
+zero fw lf-mk-app constant zero-x
+T{ zero-x fw ' same? lf-term-holds-with? zero-x fv ' same? lf-term-holds-with?
+   -> true outcome-ok false outcome-ok }T
+\ lf-local-decl-new: a new variable of the type and its local, pushed on
+\ a new view; the current view not changed.
+lf-mctx-view constant view-q  nat constant ty-q
+ty-q s" q" lfa-intern lf-binder-default lf-local-decl-new constant view-q' constant fq
+T{ fq lf-fvar-type ty-q = view-q' lf-view-count view-q lf-view-count 1+ = lf-mctx-view view-q =
+   -> true true true }T
+T{ view-q' fq lf-view-find nip view-q fq lf-view-find -> true false }T
+\ appendTag on names: succ ++ zero, and an anonymous parent's tag as it is.
+T{ s" succ" lfa-intern s" zero" lfa-intern lf-name-append-tag s" succ.zero" name= -> true }T
+T{ 0 s" zero" lfa-intern lf-name-append-tag s" zero" name= -> true }T
+\ matchEq?: an Eq's three arguments, also after whnf (a beta-redex
+\ (fun p => p) (0 = 0)); no Eq after whnf, false.
+zero zero lf-mk-eq constant zz
+: prop-id ( -- f ) s" True" lf-mk-const0 lf-infer! 0 lf-term-bvar lf-made! lf-term-lam lf-made! ;
+: zero? ( t -- flag ) zero lf-meta-eqv made ;
+: zero-sides ( α a b true -- f f true ) >r zero? swap zero? rot drop r> ;
+T{ zz lf-match-eq? zero-sides -> true true true }T
+T{ prop-id zz lf-mk-app lf-match-eq? zero-sides -> true true true }T
+T{ nat lf-match-eq? zero-x ' lf-match-eq? code1 -> false 0 false }T
+
 \ ---- 4. mkAppM's instance binders (AppBuilder.lean's mkAppMFinal), with
 \ the S2 slice's elaboration data read, so that instance search
 \ (synth.fs's lf-synth-instance) is the lf-meta-synth hook, and the
@@ -286,6 +357,277 @@ T{ hadd-kk hadd-lean lf-meta-eqv abm-frames slab-count lf-mctx-marks -> true out
 : types2 ( c-addr u -- code ) nat nat 2 ['] lf-mk-app-m catch dup if >r 2drop 2drop drop r> then ;
 T{ s" Append.append" types2 abm-frames slab-count lf-mctx-marks -> -4204 0 0 }T
 T{ s" HAdd.hAdd" types2 lf-synth-error abm-frames slab-count -> -4205 119 0 }T
+\ lf-defeq-elab-at: isDefEq at the transparency asked for, the
+\ configuration in force put back (with the slice's
+\ elaboration data, which holds the reducibility attributes): id Nat is Nat at default, not at
+\ reducible (id is no reducible definition); lf-tac-defeq at default.
+: id-nat ( -- t ) s" id" nat 1 lf-mk-app-m ;
+T{ id-nat nat lf-tr-default lf-defeq-elab-at id-nat nat lf-tr-reducible lf-defeq-elab-at config@
+   -> true outcome-ok false outcome-ok lf-defeq-elab lf-tr-default }T
+T{ id-nat nat lf-tac-defeq -> true outcome-ok }T
+\ lf-tac-with-synth (Term.withSynthesize, review tactic-move M3): the
+\ stack passes through xt; the pending list is set aside while xt runs
+\ (none seen inside) and put back however xt ends; a problem xt leaves
+\ that no instance fills (Append Type: the elaborator records Lean's
+\ "failed to synthesize", 125) stops the run, as the runner's mapping of
+\ an invalid outcome gives it (93; the elaborator's own code is not
+\ carried, plan 9.4.8l), and the window is closed with the problem left.
+: type0 ( -- t ) nat lf-infer! ;
+: append-type ( -- mvar )
+  s" Append" type0 lf-level! lf-mk-const1 type0 lf-mk-app mv-synthetic lf-mvar-new made ;
+: pends ( -- n ) lf-elab-pending# ;
+: sum-pends ( a b -- a+b n ) + pends ;
+: pend-append ( -- ) append-type lf-elab-pend drop ;
+: pend-throws ( -- ) pend-append -77 throw ;
+T{ lf-elab-pending-reset pend-append 3 4 ' sum-pends lf-tac-with-synth pends -> 7 0 1 }T
+T{ lf-elab-pending-reset lf-elab-error-reset ' pend-append ' lf-tac-with-synth catch nip lf-author-code
+   lf-elab-error drop pends -> lf-author-throw 93 125 1 }T
+lf-tac-forget
+T{ lf-elab-pending-reset pend-append ' pend-throws ' lf-tac-with-synth catch nip lf-author-code pends
+   -> -77 0 2 }T
+lf-elab-pending-reset lf-elab-error-reset
 lf-author-begin
+
+\ ---- 6. tactic-msg.fs's branches that a well-formed proof never takes
+\ (S2 coverage debt, paid by slice 9.4.8l-I): a term that does not print
+\ (no term: an instantiation refused) cuts the message at once, each part
+\ after it left out and its outcome kept; a type whose own type cannot be
+\ inferred gives the plain form; isDefEq of the two sorts out of fuel
+\ gives the plain form; a detail while an error is recorded is left out.
+create text 4096 allot  variable text#
+: grab ( c-addr u -- ) tuck text text# @ + swap move text# +! ;
+2variable settings
+: sunk ( i*x xt -- j*x c-addr u )   \ what xt prints, the printer put back
+  lf-print-settings settings 2! 0 text# ! ['] grab lf-print-unicode lf-print-setup
+  execute settings 2@ lf-print-setup text text# @ ;
+: has. ( e type expected -- outcome c-addr u ) ['] lf-has-type-but-expected. sunk ;
+: has-type ( -- c-addr u ) s\"   Nat.zero\nhas type\n  " ;
+T{ zero -1 nat has. has-type compare -> outcome-invalid 0 }T
+T{ zero nat -1 has. s\"   Nat.zero\nhas type\n  Nat\nbut is expected to have type\n  " compare
+   -> outcome-invalid 0 }T
+T{ -1 nat nat has. s"   " compare -> outcome-invalid 0 }T
+\ (Nat.zero's sort Nat, against 0 = 0's Prop: named; x : (fun y => y) Nat
+\ against Nat.zero's Nat: equal, so plain, also when isDefEq runs out.)
+T{ zero zero zero zero lf-mk-eq has. s\" of sort `Nat`" search nip nip -> outcome-ok true }T
+: id-type ( -- f ) nat lf-infer! 0 lf-term-bvar lf-made! lf-term-lam lf-made! ;
+id-type nat lf-mk-app s" x" binder constant fx-beta
+: plain-x ( -- c-addr u ) s\"   Nat.zero\nhas type\n  x\nbut is expected to have type\n  Nat.zero" ;
+T{ zero fx-beta zero has. plain-x compare -> outcome-ok 0 }T
+T{ 1 lf-defeq-fuel! zero fx-beta zero has. plain-x compare 0 lf-defeq-fuel! -> outcome-ok 0 }T
+T{ 1 lf-defeq-fuel! fx-beta lf-infer! nat lf-tac-defeq nip ok? 0 lf-defeq-fuel! -> false }T
+: shout. ( x -- outcome ) drop s" late" lf-pp-emit outcome-ok ;
+: detail# ( -- n ) lfa-detail slab-count ;
+T{ ' author-fails catch detail# 0 ' shout. lf-tac-inline detail# = -> lf-author-throw true }T
+lf-tac-forget
+T{ lf-author-code -> 0 }T
+
+\ ---- 7. The goal words of commit C2 (plan 9.4.8l-I), called directly:
+\ lf-goal-intro-n (names, _, a binder with no name, n > 1, kinds given or
+\ read, no binder 94 with the goal, the context and the frames put back
+\ on both paths), lf-goal-checked-assign (assigned; 98 for a variable
+\ outside the context and for a goal assigned already, with Lean's text;
+\ 93 for an open metavariable), lf-goal-refl (Eq.refl; 97 with Lean's
+\ text; 93 for no Eq), lf-tac-detail-n (n cells dropped once an error is
+\ recorded). Errors thrown outside a tactic run are authoring errors at
+\ the current token.
+lf-author-begin
+: goal-of ( type -- goal ) 0 lf-mctx-view lf-goal-new made ;
+: pi-named ( dom body c-addr u kind -- t )
+  >r lfa-intern >r lf-term-pi lf-made! dup r> r> lf-pres-binder! made ;
+: nat2 ( -- t ) nat nat nat s" b" lf-binder-default pi-named s" a" lf-binder-default pi-named ;
+create names 2 cells allot  create kinds2 2 cells allot  create xs2 2 cells allot
+: names! ( n0 n1 -- ) names cell+ ! names ! ;
+: local-at ( view k -- local ) over lf-view-count + 2 - lf-view-local ;
+: intro-code ( goal names kinds2 n -- code ) xs2 ['] lf-goal-intro-n catch dup if >r 2drop 2drop
+  drop r> else nip then ;
+lf-mctx-view constant view-c2
+: prop ( -- t ) 0 lf-term-symbolic-sort lf-made! ;
+: frames0? ( -- flag ) mti-frames slab-count 0= lf-mctx-view view-c2 = and ;
+nat2 goal-of constant g2
+s" x" lfa-intern 0 names!
+g2 names 0 2 xs2 lf-goal-intro-n constant g2'
+: new-local ( k -- local ) g2' lf-goal-view swap local-at ;
+T{ g2' lf-goal-type nat lf-meta-eqv made g2 lf-goal-assigned? frames0? -> true true true }T
+T{ 0 new-local dup lf-local-name s" x" name= swap lf-local-flags -> true 0 }T
+T{ 1 new-local dup lf-local-name s" b" name= swap lf-local-flags -> true lf-local-inaccessible }T
+T{ 0 new-local lf-local-fvar xs2 @ = 1 new-local lf-local-fvar xs2 cell+ @ = -> true true }T
+\ Kinds given (an alternative's fields): the local's flags carry them.
+lf-binder-implicit kinds2 !  lf-binder-default kinds2 cell+ !  s" y" lfa-intern 0 names!
+nat2 goal-of names kinds2 2 xs2 lf-goal-intro-n lf-goal-view constant v-k
+T{ v-k 0 local-at lf-local-flags v-k 1 local-at lf-local-flags
+   -> lf-binder-implicit lf-local-inaccessible }T
+\ A goal whose type is a metavariable assigned a pi: introN instantiates it.
+nat lf-infer! mv-natural lf-mvar-new made constant m-ty
+T{ m-ty prop prop s" d" lf-binder-default pi-named lf-mvar-assign -> outcome-ok }T
+0 0 names!
+T{ m-ty goal-of names 0 1 xs2 lf-goal-intro-n lf-goal-type prop lf-meta-eqv made frames0? -> true true }T
+\ A binder with no name: a, inaccessible; with no kind known either: 99.
+: bare ( -- t ) nat prop lf-term-pi lf-made! ;
+0 0 names!
+T{ bare goal-of names kinds2 1 xs2 lf-goal-intro-n lf-goal-view 1 local-at dup lf-local-name
+   s" a" name= swap lf-local-flags lf-local-inaccessible and 0<> -> true true }T
+T{ bare goal-of names 0 1 intro-code lf-author-code frames0? -> lf-author-throw 99 true }T
+lf-tac-forget
+\ No binder (Nat, or Prop -> Nat's second): 94 with the goal; the
+\ context and the frames put back.
+: detail$ ( -- c-addr u ) 0 lfa-detail slab-at lfa-detail slab-count ;
+: detail-has? ( c-addr u -- flag ) detail$ 2swap search nip nip ;
+T{ nat goal-of names 0 1 intro-code lf-author-code frames0? -> lf-author-throw 94 true }T
+T{ s" ⊢ Nat" detail-has? -> true }T
+lf-tac-forget
+T{ prop nat s" c" lf-binder-default pi-named goal-of names 0 2 intro-code lf-author-code frames0?
+   -> lf-author-throw 94 true }T
+lf-tac-forget
+\ checkedAssign: assigned; assigned again or a variable outside the
+\ context: 98 with the term, Lean's line and the goal; an open
+\ metavariable: 93's unsupported.
+: assign-code ( goal e -- code ) ['] lf-goal-checked-assign catch dup if nip nip then ;
+nat goal-of constant ga
+T{ ga zero assign-code ga lf-goal-assigned? -> 0 true }T
+T{ ga zero assign-code lf-author-code -> lf-author-throw 98 }T
+T{ s" occurs-check failure" detail-has? -> true }T
+lf-tac-forget
+T{ nat goal-of nat lf-lctx-local made assign-code lf-author-code -> lf-author-throw 98 }T
+T{ s\" this is often due to an occurs-check failure\n\n" detail-has? -> true }T
+lf-tac-forget
+T{ nat goal-of nat mv-natural lf-mvar-new made assign-code -> -4205 }T
+\ MVarId.refl: 0 = 0 closed by Eq.refl; r = s, two variables: 97 with
+\ Lean's text; Nat: no Eq, 93's unsupported.
+zero zero lf-mk-eq goal-of constant gr
+T{ gr lf-goal-refl gr lf-mvar-value drop 2 s" Eq.refl" lf-meta-app-of? -> true }T
+nat s" r" binder constant fr  nat s" s" binder constant fs
+T{ fr fs lf-mk-eq goal-of ' lf-goal-refl code1 lf-author-code -> lf-author-throw 97 }T
+T{ s\" r\nis not definitionally equal to the right-hand side\n  s\n\n" detail-has? -> true }T
+lf-tac-forget
+T{ nat goal-of ' lf-goal-refl code1 -> -4205 }T
+\ checkNotAssigned first (review tactic-move M3): an assigned goal is
+\ refused, invalid, before its type is read, by introN (Nat: no binder,
+\ else 94) and by refl (Nat: no Eq, else 93's unsupported).
+nat goal-of constant g-done
+T{ g-done zero lf-mvar-assign -> outcome-ok }T
+lf-mctx-view constant view-g
+T{ g-done names 0 1 intro-code lf-author-code mti-frames slab-count lf-mctx-view view-g =
+   -> -4201 0 0 true }T
+T{ g-done ' lf-goal-refl code1 lf-author-code mrf-frames slab-count -> -4201 0 0 }T
+\ lf-tac-detail-n: n cells printed, or dropped while an error is recorded.
+: pair. ( a b -- outcome ) + 11 = if s" eleven" lf-pp-emit then outcome-ok ;
+T{ 5 6 2 ' pair. lf-tac-detail-n s" eleven" detail-has? -> true }T
+lf-tac-forget
+T{ ' author-fails catch 7 8 9 3 ' shout. lf-tac-detail-n -> lf-author-throw }T
+lf-tac-forget
+\ lf-tac-failed: an error at the step running, with xt's detail of 0.
+: zero. ( x -- outcome ) 0= if s" given 0" lf-pp-emit then outcome-ok ;
+T{ ' zero. lfa-e-tac-form ' lf-tac-failed catch nip nip lf-author-code s" given 0" detail-has?
+   -> lf-author-throw 99 true }T
+lf-tac-forget
+\ lf-tac-inline while an error is recorded: neither the detail nor the end
+\ of the message's line (lfa-err-inline) changes (review tactic-move M3).
+: inline@ ( -- n ) lfa-error lfa-err-inline @ ;
+T{ ' zero. lfa-e-tac-form ' lf-tac-failed catch nip nip inline@ detail# 0 ' shout. lf-tac-inline
+   detail# = swap inline@ = -> lf-author-throw true true }T
+T{ inline@ detail# < -> true }T
+lf-tac-forget
+\ ---- 8. MVarId.rewrite (meta-tactic/rewrite.fs's lf-goal-rewrite, plan
+\ 9.4.8l-I commit C3), called directly over a : Nat, b : Nat, h : a = b:
+\ a = a rewritten to b = b, the proof congrArg's, of type (a = a) = (b =
+\ b), no new goal, the goal not assigned; each error of its own with
+\ Lean's text: no occurrence 215, a motive not type correct 216 (pa : P
+\ b in @Eq (a = b) h h), a dependent one 217 (the term Eq.refl a, whose
+\ type holds a), no equality 218 (a value, a proof), a pattern that is a
+\ metavariable 219; not supported yet, 99: an Iff, symm, an instance
+\ binder; an assigned goal invalid. Every frame and the current view put
+\ back. A rewrite inside an open frame of its own slab (a nested call)
+\ leaves the outer frame's fields as they were, also when it fails.
+lf-author-begin
+nat s" a" binder constant fa   nat s" b" binder constant fb
+fa fb lf-mk-eq s" h" binder constant fhab
+\ (the rules of the failing cases below: t : True, hm : ?m = b,
+\ hi : True <-> True, hx : [x : Nat] -> a = b)
+s" True" lf-mk-const0 s" t" binder constant ft
+nat mv-natural lf-mvar-new made fb lf-mk-eq s" hm" binder constant fhm
+s" Iff" lf-mk-const0 s" True" lf-mk-const0 lf-mk-app s" True" lf-mk-const0 lf-mk-app
+  s" hi" binder constant fhi
+nat fa fb lf-mk-eq s" x" lf-binder-instance pi-named s" hx" binder constant fhx
+\ (and rules with a binder: hs : forall x, Nat.succ x = b, whose x the
+\ pattern assigns; hu : forall x : Nat, a = b, whose x stays a new goal)
+create rw-xs 1 cells allot
+: nat-succ ( t -- t' ) s" Nat.succ" lf-mk-const0 swap lf-mk-app ;
+nat s" x" binder constant fx-rw   fx-rw rw-xs !
+fx-rw nat-succ fb lf-mk-eq rw-xs 1 lf-mk-forall-fvars s" hs" binder constant fhs
+fa fb lf-mk-eq rw-xs 1 lf-mk-forall-fvars s" hu" binder constant fhu
+\ (hq : ?T, ?T : ?S, ?S : Type: a rule whose type has no level known)
+type0 mv-natural lf-mvar-new made mv-natural lf-mvar-new made s" hq" binder constant fhq
+lf-mctx-view constant view-rw
+: aa ( -- t ) fa fa lf-mk-eq ;
+: rw-target ( goal heq -- new proof goals ) over lf-goal-type swap false lf-goal-rewrite ;
+: rw-code ( goal e heq symm? -- code )
+  ['] lf-goal-rewrite catch ?dup if >r 2drop 2drop r> else drop 2drop 0 then ;
+: rw-of ( goal heq -- code ) over lf-goal-type swap false rw-code ;
+: rw-put-back? ( -- flag ) mrw-frames slab-count 0= lf-mctx-view view-rw = and ;
+aa goal-of constant g-aa
+: rw-aa ( -- app? typed? new? n )
+  g-aa fhab rw-target run-count >r dup 6 s" congrArg" lf-meta-app-of? swap lf-infer!
+  aa fb fb lf-mk-eq lf-mk-eq lf-meta-eqv made rot fb fb lf-mk-eq lf-meta-eqv made r> ;
+T{ rw-aa -> true true true 0 }T
+T{ g-aa lf-goal-assigned? rw-put-back? -> false true }T
+\ A rule's new metavariables: assigned by the pattern (Nat.succ a =
+\ Nat.succ a to b = b), no goal; one the rewrite leaves, a goal (Lean's
+\ newMVarIds).
+fa nat-succ dup lf-mk-eq goal-of constant g-ss
+T{ g-ss fhs rw-target run-count nip swap fb dup lf-mk-eq lf-meta-eqv made -> 0 true }T
+T{ g-aa fhu rw-target run-count nip nip rw-put-back? -> 1 true }T
+\ 215, with the pattern, the target and the goal.
+T{ zero zero lf-mk-eq goal-of fhab rw-of lf-author-code rw-put-back? -> lf-author-throw 215 true }T
+T{ s\" a\nin the target expression\n  Nat.zero = Nat.zero\n\n" detail-has? -> true }T
+lf-tac-forget
+\ 216: fun _a => @Eq (_a = b) h h is not type correct (Lean's case
+\ (h : n + 0 = n) : h = h by rw [Nat.add_zero], which no LeanForth text
+\ reaches yet: a hypothesis used as a term).
+T{ fhab fhab lf-mk-eq goal-of fhab rw-of lf-author-code rw-put-back? -> lf-author-throw 216 true }T
+T{ s\" fun _a ↦ h = h\nError: Application type mismatch in the application\n" detail-has? -> true }T
+lf-tac-forget
+\ A motive Meta.check refuses with no application kept (Nat.zero given a
+\ universe argument it has no parameter for: checkConstant): 216 with the
+\ motive alone.
+s" Nat.zero" 0 1 lf-mk-const constant zero-u
+T{ fa zero-u lf-mk-eq goal-of fhab rw-of lf-author-code -> lf-author-throw 216 }T
+T{ s\" fun _a ↦ _a = Nat.zero\n\na b : Nat" detail-has? -> true }T
+lf-tac-forget
+\ 217: Eq.refl a's type a = a depends on a.
+T{ g-aa fa lf-mk-eq-refl fhab false rw-code lf-author-code rw-put-back? -> lf-author-throw 217 true }T
+lf-tac-forget
+\ 218: a value (a : Nat), a proof (t : True).
+T{ g-aa fa rw-of lf-author-code -> lf-author-throw 218 }T
+T{ s"  `a` is a value of type" detail-has? -> true }T
+lf-tac-forget
+T{ g-aa ft rw-of lf-author-code rw-put-back? -> lf-author-throw 218 true }T
+T{ s"  `t` is a proof of" detail-has? -> true }T
+lf-tac-forget
+\ (a type whose level is not known: not a proof, as Lean's isProp says)
+T{ g-aa fhq rw-of lf-author-code -> lf-author-throw 218 }T
+T{ s"  `hq` is a value of type" detail-has? -> true }T
+lf-tac-forget
+\ 219: ?m = b.
+T{ g-aa fhm rw-of lf-author-code rw-put-back? -> lf-author-throw 219 true }T
+T{ s" in this equality" detail-has? -> true }T
+lf-tac-forget
+\ 99: an Iff (True <-> True), symm, an instance binder ([x : Nat] -> a = b).
+T{ g-aa fhi rw-of lf-author-code rw-put-back? -> lf-author-throw 99 true }T
+lf-tac-forget
+T{ g-aa aa fhab true rw-code lf-author-code rw-put-back? -> lf-author-throw 99 true }T
+lf-tac-forget
+T{ g-aa fhx rw-of lf-author-code rw-put-back? -> lf-author-throw 99 true }T
+lf-tac-forget
+\ An assigned goal: invalid.
+aa goal-of constant g-done2
+T{ g-done2 fa lf-mk-eq-refl lf-mvar-assign -> outcome-ok }T
+T{ g-done2 fhab rw-of lf-author-code rw-put-back? -> -4201 0 true }T
+\ Inside an open frame of mrw-frames: the outer frame's fields kept
+\ across a nested rewrite that succeeds and one that fails.
+: rw-nested ( -- n kept? code kept? )
+  4242 mrw mrw-goal ! g-aa fhab rw-target 2drop drop mrw-frames slab-count
+  mrw mrw-goal @ 4242 = zero zero lf-mk-eq goal-of fhab rw-of mrw mrw-goal @ 4242 = ;
+T{ mrw-frames ' rw-nested lf-with-record rw-put-back? -> 1 true lf-author-throw true true }T
+lf-tac-forget
 .( tactic-lib.fs: all tests passed) cr
 bye

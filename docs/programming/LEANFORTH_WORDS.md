@@ -156,12 +156,12 @@ is elaborated yet:
 | `by-rfl`, `by-intro: NAME` | `( -- )` | a tactic step; `by-intro:`'s name (or `_`) is a hypothesis until its block ends |
 | `by-sorry` | `( -- )` | Lean's `sorry` tactic: closes the main goal with `sorryAx` (an open part; the declaration is NOT PROVED); 90 when no goal is left |
 | `t by-apply`, `by-assumption`, `by-constructor` | `( t -- )`, `( -- )`, `( -- )` | ports of Lean's `apply`, `assumption` and `constructor` (tactic plug-in design, slice a2-iii; `src/front/tactics/`, on the goal layer `src/front/meta-tactic/`): 380 no argument count makes t's conclusion fit, 125 an instance not found, 384 an instance found but not fitting, 381 no hypothesis has the goal's type, 382 the goal is no inductive type, 383 no constructor applies, 99 a case not ported |
-| `by-intro: NAME`, `t by-exact`, `by-rfl`, run | | as Lean's `intro`, `exact` and `rfl` (plan FE1g-4, `src/front/tactic-basic.fs`): 94 no binder to introduce, 95 a metavariable left unassigned, 96 a type mismatch, 97 two sides not definitionally equal, 98 a term the goal cannot take, 99 a case not supported yet (`intro rfl`, a `let`, a binder not known explicit), 93 a step of the Meta layer not ported yet |
+| `by-intro: NAME`, `t by-exact`, `by-rfl`, run | | as Lean's `intro`, `exact` and `rfl` (plan FE1g-4, `src/front/tactics/intro.fs`, `exact.fs`, `rfl.fs`): 94 no binder to introduce, 95 a metavariable left unassigned, 96 a type mismatch, 97 two sides not definitionally equal, 98 a term the goal cannot take, 99 a case not supported yet (`intro rfl`, a `let`, a binder not known explicit), 93 a step of the Meta layer not ported yet |
 | `\| TAG NAMES… =>`, `by-case: TAG NAMES… =>` | `( -- )` | an alternative of the `by-induction-with` it is right inside (up to the next `\|` or `by-end`), a case block (up to its `by-end`); the header on one line, its names hypotheses of the block |
 | `by-end` | `( -- )` | closes the innermost `by-induction-with` or `by-case:` |
 | `by-rw[`, `by-rewrite[` … `]` | `( -- )`, `( r1 .. rn -- )` | the values built between the brackets are the rules, in order; a hypothesis there takes no values (applied with `$`: `ih k $`) |
 | `t by-induction`, `t by-induction-with`, `\|`, run | | as Lean's `induction t` and `induction t with \| …` (plan S2, `src/front/tactic-induction.fs`): `t` a variable of an inductive type, the eliminator the data's (`Nat.recAux`) or `T.rec`; each alternative takes its case's goal, names its explicit fields and runs as a block; 205 no inductive type, 206 a name of no case, 207 a case not written, 208 too many names, 209 a mutual or nested type, 212 the motive's type, 213 a name written twice, 99 a form not ported (a target that is no variable, hypotheses that depend on it, index targets, instance binders); `by-case:` stays 80 (plan S2 merge B) |
-| `by-rewrite[ r … ]`, `by-rw[ r … ]`, run | | as Lean's `rewrite [r, …]` and `rw [r, …]` (plan S2, `src/front/tactic-rewrite.fs`, on `kabstract.fs` and `meta-check.fs`): each rule a hypothesis or a theorem, its equation's left side abstracted wherever it occurs (`kabstract` at reducible transparency), the motive type-checked, `Eq.mpr` and `congrArg` as Lean builds them; `by-rw[` then tries `rfl` at reducible transparency; 215 no occurrence, 216 a motive not type correct, 217 a dependent motive, 218 no equation, 219 a metavariable pattern, 220 the occurs check, 99 a form not ported (a definition as a rule, `Iff`, an instance binder, a rule's argument left to a new goal) |
+| `by-rewrite[ r … ]`, `by-rw[ r … ]`, run | | as Lean's `rewrite [r, …]` and `rw [r, …]` (plan S2, `src/front/tactics/rewrite.fs` on the tactic library's `meta-tactic/rewrite.fs`, `lf-goal-rewrite`, since plan 9.4.8l I; on `kabstract.fs` and `meta-check.fs`): each rule a hypothesis or a theorem, its equation's left side abstracted wherever it occurs (`kabstract` at reducible transparency), the motive type-checked, `Eq.mpr` and `congrArg` as Lean builds them; `by-rw[` then tries `rfl` at reducible transparency; 215 no occurrence, 216 a motive not type correct, 217 a dependent motive, 218 no equation, 219 a metavariable pattern, 220 the occurs check, 99 a form not ported (a definition as a rule, `Iff`, an instance binder, a rule's argument left to a new goal) |
 | `=>` | | ends a header; alone, error 84 |
 | the tactic words in kernel-form text | | not supported (72) |
 | the other kernel-form words (`Prop`, `fun`, `var#`, `^`, ...) | | not supported yet in natural form (70) |
@@ -193,7 +193,7 @@ loading, the words a tactic's action uses (`lf-tac-main`, `lf-tac-fail`,
 `lf-tac-focus`, `lf-tac-unfocus`, `lf-tac-done`, `lf-tac-block`), the
 saved states (`lf-tac-save`, `lf-tac-restore`, `lf-tac-commit`,
 `lf-tac-try`, `lf-tac-forget`) and the open parts (`lf-open-parts`,
-`lf-open-parts.`); the first tactics (`src/front/tactic-basic.fs`) add
+`lf-open-parts.`); the tactic library (`src/front/tactic-core.fs`) adds
 `lf-tac-elab ( node expected -- term outcome )`, the term elaborator's
 hook plan FE1e fills (Lean's `Tactic.elabTerm`), `lf-tac-defeq ( t s --
 flag outcome )` (isDefEq as the tactics run it) and `lf-tac-holds? ( term
@@ -521,7 +521,7 @@ as FE1E_APPLICATIONS.md §4 says); 125 to 139 the elaborator's (S1,
 a term position (Lean's parser error) or in a tactic block (where Lean
 would end the block before it; the first of FE2's command codes); 205 to
 220 S2's induction and rewriting (`src/front/tactic-induction.fs`,
-`tactic-rewrite.fs`: Lean's texts, the names they hold ending the
+`meta-tactic/rewrite.fs` and `tactics/rewrite.fs`: Lean's texts, the names they hold ending the
 message's own line, as in "Invalid alternative name `suc`: Expected
 `succ`"; 210 and 211 `by-case:`'s, `src/front/tactic-case.fs`; 214
 kept); the rest of 100 on free. Codes 81 to
@@ -535,7 +535,7 @@ names `by` (the proof) or a block's `=>`, where Lean reports unsolved
 goals; 80, 89, 91 and 93 print the goals at that point on the lines after
 the message, as Lean prints them under a tactic's error (when the heap
 cannot hold them, a last line says the rest could not be shown). Codes
-94 to 99 are the first tactics' (`src/front/tactic-basic.fs`, plan
+94 to 99 are the first tactics' (`src/front/tactics/`, plan
 FE1g-4); 94, 96 and 97 continue with Lean's own lines (the goal after a
 blank line; the term and its type and the type expected, with their
 sorts when those differ; the two sides and the goal), so the message

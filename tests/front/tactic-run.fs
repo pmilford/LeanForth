@@ -219,7 +219,7 @@ variable probe-kind
 : probe-pi ( -- pi ) nat nat lf-term-pi 0= abort" pi" ;
 : probe-kind! ( acc mvar kind -- acc ) probe-kind ! drop ;
 : probe-read ( pi j i -- )
-  drop trw trw-rule ! 0 swap -1 ['] probe-kind! lf-forall-meta-telescope-reducing 2drop ;
+  2drop 0 swap -1 ['] probe-kind! lf-forall-meta-telescope-reducing 2drop ;
 : probe-unnamed ( j i -- ) probe-pi -rot probe-read ;
 : probe-named ( j i -- )
   probe-pi dup s" a" lfa-intern 3 lf-pres-binder! made -rot probe-read ;
@@ -405,7 +405,7 @@ T{ two-goals ' inner lf-tac-try state? -> 0 false 0 mv-opaque 2 }T
 \ application type mismatch, an instance not found) is 101 (plan 9.4.8l
 \ G), a Lean error
 \ (invalid) that try catches and undoes; unsupported stays 93, which try
-\ catches too but lfw-caught passes on (a gap of LeanForth's); full and
+\ catches too but lf-tac-try-lean passes on (a gap of LeanForth's); full and
 \ exhausted keep 60 and 91 (review F7 of a2-i).
 variable lib-outcome
 : lib-fails ( -- ) spoil lib-outcome @ lf-must ;
@@ -415,6 +415,18 @@ variable lib-outcome
 T{ outcome-rejected lib-code state? -> 101 outcome-invalid false 0 mv-opaque 2 }T
 T{ outcome-unsupported lib-code outcome-full lib-code outcome-exhausted lib-code
    -> 93 outcome-unsupported 60 outcome-full 91 outcome-exhausted }T
+\ lf-tac-try-lean (try, observing?): true and kept when xt ends; a Lean
+\ error (an authoring error whose outcome is invalid, a library
+\ rejection) false, undone and forgotten; anything else thrown on, never
+\ success: unsupported (93), full (60), exhausted (91), another code.
+: lean-try ( outcome -- flag ) lib-outcome ! two-goals ['] lib-fails lf-tac-try-lean ;
+: lean-code ( outcome -- code ) ['] lean-try catch dup if nip then lf-author-code lf-tac-forget ;
+T{ two-goals ' spoil lf-tac-try-lean state? -> true true tagged mv-natural 0 }T
+T{ two-goals ' spoil-fail lf-tac-try-lean state? lf-author-code -> false false 0 mv-opaque 2 0 }T
+T{ outcome-rejected lean-try state? lf-author-code -> false false 0 mv-opaque 2 0 }T
+T{ outcome-unsupported lean-code outcome-full lean-code outcome-exhausted lean-code
+   -> lf-author-throw 93 lf-author-throw 60 lf-author-throw 91 }T
+T{ two-goals ' spoil-throw ' lf-tac-try-lean catch nip lfr-saves -> -77 0 }T
 \ A failed attempt that leaves an inner mark or depth scope open (review
 \ C1 of 2026-11-18): every scope opened since the save is undone with it,
 \ the assignments before the goal list, and no mark stays open.
@@ -445,32 +457,29 @@ T{ two-goals ' kill-goals ' lf-tac-try catch nip lfr-saves lf-mctx-marks
    -> lfr-state-lost 0 0 }T
 lf-tac-forget
 \ The other modules' states join every save (tac-state:, reviews C2 and
-\ N4 of 2026-11-18): rw's metavariables (trw-mvars), the induction
-\ blocks and their cases, the step log's newest entry and the pending
-\ instance list with its window. An attempt that changes each and fails
-\ leaves each as it was; a success keeps the changes; nested tries too.
-: cells@ ( slab -- x... n ) dup slab-count 0 ?do i over slab-at @ swap loop slab-count ;
+\ N4 of 2026-11-18): the induction blocks and their cases, the step
+\ log's newest entry and the pending instance list with its window (rw's
+\ new metavariables are a run in its frame since plan 9.4.8l I, C3: no
+\ state of their own). An attempt that changes each and fails leaves
+\ each as it was; a success keeps the changes; nested tries too.
 : seed ( -- )
-  trw-mvars slab-clear tind-alts slab-clear tind-withs slab-clear lf-elab-pending-reset
-  5 trw-mvars slab-push drop 1 tind-alts slab-claim 2drop 3 trun trun-entry !
-  g1 @ lf-elab-pend drop ;
-: states ( -- x n alts withs entry window pending )
-  trw-mvars cells@ tind-alts slab-count tind-withs slab-count trun trun-entry @
+  tind-alts slab-clear tind-withs slab-clear lf-elab-pending-reset
+  1 tind-alts slab-claim 2drop 3 trun trun-entry ! g1 @ lf-elab-pend drop ;
+: states ( -- alts withs entry window pending )
+  tind-alts slab-count tind-withs slab-count trun trun-entry @
   lf-elab-pending# ep-pending slab-count ;
 : change ( -- )
-  trw-mvars slab-clear 8 trw-mvars slab-push drop 2 tind-alts slab-claim 2drop
-  1 tind-withs slab-claim 2drop 42 trun trun-entry ! lf-elab-window{ drop
-  g2 @ lf-elab-pend drop ;
+  2 tind-alts slab-claim 2drop 1 tind-withs slab-claim 2drop 42 trun trun-entry !
+  lf-elab-window{ drop g2 @ lf-elab-pend drop ;
 : change-fail ( -- ) change lfa-e-tac-unsolved lfa-fail ;
-: kept# ( -- n ) trw-mvars-kept slab-count tind-alts-kept slab-count +
-  tind-withs-kept slab-count + ep-saved slab-count + ;
-T{ two-goals seed states -> 5 1 1 0 3 1 1 }T
-T{ ' change-fail lf-tac-try lf-tac-forget states kept# -> lf-author-throw 5 1 1 0 3 1 1 0 }T
-T{ ' change lf-tac-try states kept# -> 0 8 1 3 1 42 1 2 0 }T
-: nested ( -- ) ['] change-fail lf-tac-try drop lf-tac-forget 6 trw-mvars slab-push drop ;
+: kept# ( -- n ) tind-alts-kept slab-count tind-withs-kept slab-count + ep-saved slab-count + ;
+T{ two-goals seed states -> 1 0 3 1 1 }T
+T{ ' change-fail lf-tac-try lf-tac-forget states kept# -> lf-author-throw 1 0 3 1 1 0 }T
+T{ ' change lf-tac-try states kept# -> 0 3 1 42 1 2 0 }T
+: nested ( -- ) ['] change-fail lf-tac-try drop lf-tac-forget 1 tind-withs slab-claim 2drop ;
 : nested-fail ( -- ) nested lfa-e-tac-unsolved lfa-fail ;
-T{ two-goals seed ' nested lf-tac-try states kept# -> 0 5 6 2 1 0 3 1 1 0 }T
-T{ seed ' nested-fail lf-tac-try lf-tac-forget states kept# -> lf-author-throw 5 1 1 0 3 1 1 0 }T
+T{ two-goals seed ' nested lf-tac-try states kept# -> 0 1 1 3 1 1 0 }T
+T{ seed ' nested-fail lf-tac-try lf-tac-forget states kept# -> lf-author-throw 1 0 3 1 1 0 }T
 \ No room to keep a state: the save is refused full, nothing kept, no
 \ mark or save left open.
 : kept-most ( n -- ) ep-saved dup slab-free 2 cells -rot slab-init drop ;

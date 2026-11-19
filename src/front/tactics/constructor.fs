@@ -11,19 +11,16 @@
 \ Lean call list: withMainContext, getMainGoal, replaceMainGoal ->
 \ lf-lift-meta-tactic (tactic-core.fs); constructorCore ->
 \ lf-goal-constructor (meta-tactic/constructor.fs); logWarning -> not
-\ ported; synthesizeSyntheticMVarsNoPostponing -> lf-elab-with-synth with
-\ lf-postpone-no (elab-pending.fs).
+\ ported; synthesizeSyntheticMVarsNoPostponing -> lf-tac-with-synth
+\ (tactic-core.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
-\ State: the new goals in the step record's tb-new.
+\ State: none of its own.
 
 require ../tactic-api.fs
-require ../elab-pending.fs
 
 tac-shape-plain lf-tactic: by-constructor constant tac-k-constructor
 s" constructor" tac-k-constructor lf-tactic-lean!
 
-: tco-inner ( -- ) tb tb-goal @ lf-goal-constructor tb tb-new ! ;
-: tco-tac ( goal -- goals )
-  drop ['] tco-inner lf-postpone-no lf-elab-with-synth lf-tac-must tb tb-new @ ;
+: tco-tac ( goal -- goals ) ['] lf-goal-constructor lf-tac-with-synth ;
 : tco-run ( i -- ) ['] tco-tac lf-lift-meta-tactic ;
 ' tco-run tac-k-constructor lf-tactic-action!

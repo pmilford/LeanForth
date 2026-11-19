@@ -1595,3 +1595,33 @@ in its area starts.
 of all of Mathlib the interesting result, not a list of well-known theorems inside it; associativity and
 commutativity are not interesting examples for a general audience.
 
+## Clean-up: the stack approved, and how the rest is done (2026-11-19, morning)
+
+Told that three clean-up batches had removed 42 duplicate groups for about 43,000 tokens a group (each replacement
+made by hand, each proven equivalent again in review, three stacked branches), the owner asked for a more
+efficient way and an easier way to fix unit-test coverage, and decided:
+
+- **[kernel], [import], in form: the clean-up stack (branches `reuse-b`, `reuse-c`, `reuse-d`) is approved**, each
+  change a replacement the independent reviewer showed identical: term-tag sets (`lf-tags`, `lf-tag-in?`,
+  `lf-term-in?`) in place of comparison chains in `core/terms.fs`, `let-terms.fs`, `string-literals.fs`,
+  `tagged-sort-boundary.fs` and the kernel's `whnf.fs`, `defeq.fs`, `mixed-compare.fs`, `inductive-nested.fs`;
+  `lf-fvar-mvar-tag?` in `core/mvar-leaves.fs`; four telescope words in `core/compact-exprs.fs`; the library's
+  `ok-and`, `ok-apply`, `ok-then2?` and `cell-at@` in place of hand-written copies in the kernel's
+  `mixed-infer.fs`, `mixed-level-substitute.fs`, `reduce-nat.fs`, `environment.fs`, `mixed-open.fs`; the kernel's
+  `level-normalize.fs` calling core's identical `lf-name-chain-ok?`; in import, the library's counted-list,
+  bounded-append, indexing and outcome words in `manifest.fs`, `run-record.fs`, `feed.fs`, `stage-records.fs`,
+  `snapshot-tier.fs`, and JSON kinds and strings read through bounds-checked readers (false outside the tape) in
+  `manifest.fs`, `ndjson.fs`, `run-replay.fs`.
+- **A standing rule for exact-phrase extractions.** When the duplicates script itself defines one word whose body
+  is exactly a copied phrase and rewrites every member, the result is identical by construction; such a change in
+  kernel, core or import files merges after the Forth review and the tier and is reported to the owner
+  afterwards. Any other change to those files still needs the owner's approval first.
+- **Tools first:** the duplicates script gains a mode that replaces a group by a named word; a fast per-file
+  coverage command lists a file's never-run blocks with line numbers, and a baseline entry can be updated per
+  file. Then the remaining groups and coverage debt.
+- **Order for 2026-11-19 and 2026-11-20:** the tools; the tactic move's last part (induction and case, S2's
+  remaining coverage debt, then S2's done check); on Friday a set of larger LeanForth proofs for the talk beside
+  the release work (plan 9.4.8q). The first real-number proof using a Mathlib lemma and further clean-up follow
+  next week. About 43% of the week's tokens remained on the morning of 2026-11-19: one implementing agent at a
+  time unless files are fully separate.
+

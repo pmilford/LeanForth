@@ -30,7 +30,8 @@
 \   the view does not hold it);
 \ - lf-view-rename ( view fvar name -- view' outcome ): setUserName in
 \   place (invalid when the view does not hold it);
-\ - lf-view-find ( view fvar -- i true | false ): its place (contains);
+\ - lf-view-find ( view fvar -- i true | false ): its place;
+\   lf-view-has? ( view fvar -- flag ): whether it holds it (contains);
 \   lf-view-named ( view name -- i true | false ): the newest accessible
 \   local of that name (findFromUserName?);
 \ - lf-view-sub-prefix? ( view1 view2 -- flag ): isSubPrefixOf, view1's
@@ -139,6 +140,7 @@ end-structure
 : lf-view-find ( view fvar -- i true | false )
   over lf-view-valid? 0= if 2drop false exit then
   over lf-view-count 0 ?do i lv-holds? if 2drop i true unloop exit then loop 2drop false ;
+: lf-view-has? ( view fvar -- flag ) lf-view-find dup if nip then ;
 : lf-view-push ( view local -- view' outcome )
   dup lf-local-valid? 0= if 2drop -1 outcome-invalid exit then
   2dup lf-local-fvar lf-view-find if drop 2drop -1 outcome-invalid exit then run-push ;

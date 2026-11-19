@@ -22,6 +22,8 @@
 \   lf-mk-eq-mp ( h p -- e ), lf-mk-eq-mpr ( h p -- e )  mkEqMP, mkEqMPR
 \                                         (444-447)
 \   lf-eq? ( t -- α a b true | false )     Expr.eq?: Eq α a b's arguments
+\   lf-match-eq? ( t -- α a b true | false ) matchEq? (MatchUtil.lean:28):
+\                                         the same after whnf when t is no Eq
 \   lf-meta-has-mvar? ( e -- flag outcome ) Expr.hasMVar: a term or level
 \                                         metavariable reached (core/reach.fs)
 \ Levels pass on the stack (never through a global); at most abl-most
@@ -41,7 +43,8 @@
 \ mkEqTrue (the simp core, which brings their first callers).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: abl-cells (one call's levels or arguments, read before any other
-\ builder runs) and abm-frames (a frame per mkAppM open), in the checker
+\ builder runs) and abm-frames (a frame per mkAppM open, meta-must.fs's
+\ lf-with-record), in the checker
 \ context (ADR 0009). Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
@@ -90,8 +93,9 @@ abl-most cells context-record: abl-cells
 : abl-decl ( c-addr u -- d ) lfa-intern lf-menv-find lf-must ;   \ getConstVal's
 : abl-infer-d ( e -- type ) lf-infer! lf-whnf-d! ;
 \ Expr.eq?: Eq α a b's three arguments.
+: abl-eq-app? ( t -- flag ) 3 s" Eq" lf-meta-app-of? ;
 : lf-eq? ( t -- α a b true | false )
-  dup 3 s" Eq" lf-meta-app-of? 0= if drop false exit then
+  dup abl-eq-app? 0= if drop false exit then
   dup lf-term-second@ >r lf-term-first@ dup lf-term-first@ lf-term-second@ swap
   lf-term-second@ r> true ;
 : abl-eq ( t -- α a b ) lf-eq? 0= if abl-fail then ;
@@ -185,10 +189,8 @@ begin-structure /abm
 end-structure
 /abm context-slab: abm-frames
 : abm ( -- addr ) abm-frames slab-last ;
-: abm-claim ( -- frame )
-  1 abm-frames slab-claim lf-must abm-frames slab-at dup /abm erase ;
 : abm-xs! ( addr n frame -- ) 2dup abm-n ! abm-xs swap cells move ;
-: abm-open ( d addr n -- ) abm-claim dup >r abm-xs! r> abm-d ! ;
+: abm-open ( d addr n frame -- ) dup >r abm-xs! r> abm-d ! ;
 : abm-done? ( -- flag ) abm abm-i @ abm abm-n @ < 0= ;
 : abm-x ( -- x ) abm abm-i @ cells abm abm-xs + @ ;
 : abm-enter ( pi x -- )
@@ -229,9 +231,15 @@ end-structure
 : abm-deeper ( -- e )
   false lf-mctx-depth{ lf-must >r ['] abm-run catch r> }lf-mctx-depth swap ?dup
   if nip throw then lf-must ;
-: abm-of ( d addr n -- e ) abm-open ['] abm-deeper catch abm-frames slab-drop throw ;
+: abm-framed ( d addr n -- e ) abm abm-open abm-deeper ;
+: abm-of ( d addr n -- e ) abm-frames ['] abm-framed lf-with-record ;
 : lf-mk-app-m-of ( d x1..xn n -- e ) abl-stored abm-of ;
 : lf-mk-app-m ( c-addr u x1..xn n -- e ) abl-stored 2>r abl-decl 2r> abm-of ;
 : lf-mk-eq-mp ( h p -- e ) s" Eq.mp" abl-decl -rot 2 lf-mk-app-m-of ;
 : lf-mk-eq-mpr ( h p -- e ) s" Eq.mpr" abl-decl -rot 2 lf-mk-app-m-of ;
+
+\ ---- matchEq? (Meta/MatchUtil.lean:28, matchHelper?): Expr.eq? of t,
+\ else of t put through whnf (the transparency in force; its failure
+\ thrown). Rewriting's equation; omega and simp later (plan 9.4.8l-I).
+: lf-match-eq? ( t -- α a b true | false ) dup abl-eq-app? 0= if lf-whnf! then lf-eq? ;
 base !   \ the BASE this file was loaded with

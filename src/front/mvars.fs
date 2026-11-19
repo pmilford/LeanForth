@@ -261,7 +261,7 @@ end-structure
   0 mvd-value mv-field dup if over 0< if 2drop false then then ;
 \ Whether the free variable is in the metavariable's local context.
 : lf-mvar-sees? ( mvar fvar -- flag )
-  swap lf-mvar-view if swap lf-view-find dup if nip then else drop false then ;
+  swap lf-mvar-view if swap lf-view-has? else drop false then ;
 
 \ New term metavariables, in the current local context or a given one.
 : mv-kind? ( kind -- flag ) mv-natural mv-opaque 1+ within ;

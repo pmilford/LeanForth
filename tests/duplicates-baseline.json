@@ -293,16 +293,6 @@
   "reason": "false positive: a child visit opened on the two sides, each with its own visit and continuation",
   "tokens": 6
  },
- "2d4ae8bcc4b9": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/tactic-basic.fs:lfb-assign.",
-   "src/front/tactic-basic.fs:lfb-rfl."
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 11
- },
  "2ddc9e2bcd0c": {
   "copies": 2,
   "kind": "shape",
@@ -476,16 +466,6 @@
   ],
   "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with/ok-and/ok-then?, already the shared words",
   "tokens": 10
- },
- "3d8d709ae604": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/tactic-basic.fs:lfb-of.",
-   "src/front/tactic-basic.fs:lfb-of-want."
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 6
  },
  "3de9126c2c79": {
   "copies": 2,
@@ -1276,16 +1256,6 @@
   "reason": "false positive: each declaration kind's JSON writer, its own members in Lean's order; equal length, different members",
   "tokens": 7
  },
- "9477caacbf7a": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/tactic-basic.fs:lfb-exact",
-   "src/import/run-record.fs:rr-body"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 10
- },
  "9543c2f4d860": {
   "copies": 2,
   "kind": "shape",
@@ -1559,7 +1529,7 @@
   "tokens": 6
  },
  "b441222231c7": {
-  "copies": 22,
+  "copies": 21,
   "kind": "shape",
   "members": [
    "src/cli/leanforth.fs:cli-fed-report",
@@ -1568,7 +1538,6 @@
    "src/core/names.fs:lf-name-ops",
    "src/front/elab-app.fs:ea-strict",
    "src/front/instantiate.fs:in-leaf",
-   "src/front/tactic-basic.fs:lfb-types.",
    "src/front/whnf.fs:wc-srec",
    "src/import/run-replay.fs:rp-verdict-code",
    "src/kernel/env-schedule.fs:lf-sch-settled",
@@ -1838,17 +1807,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 9
- },
- "cca32ef45c0a": {
-  "copies": 3,
-  "kind": "shape",
-  "members": [
-   "src/front/tactic-rewrite.fs:lfw-pattern.",
-   "src/front/tactic-rewrite.fs:lfw-motive.",
-   "src/front/tactic-rewrite.fs:lfw-dependent."
-  ],
-  "reason": "accepted: three message details of rewrite (S2), each its own field and continuation; the shared part is lfw-framed. already",
-  "tokens": 7
  },
  "ccfa4020f3d4": {
   "copies": 2,

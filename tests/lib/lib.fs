@@ -15,6 +15,9 @@ T{ 1 1 <= -> true }T
 T{ 0 0<= -> true }T
 T{ 1 0<= -> false }T
 T{ max-n 0> max-n 1+ 0< -> true true }T
+\ ndrop: the n cells below n, none for 0.
+T{ 1 2 3 4 3 ndrop -> 1 }T
+T{ 5 0 ndrop 6 1 ndrop -> 5 }T
 \ SYNONYM of an ordinary word, the host's or portability.fs's fallback
 \ (Gforth 0.7.3).
 synonym lib-dup dup
@@ -44,6 +47,7 @@ T{ 2 1 fb' >= execute 1 2 fb' >= execute 1 2 fb' <= execute 2 1 fb' <= execute
 T{ 0 fb' 0<= execute 1 fb' 0<= execute -1 fb' 0>= execute 0 fb' 0>= execute
    -> true false false true }T
 T{ 1 2 3 fb' -rot execute -> 3 1 2 }T
+T{ 1 2 3 4 3 fb' ndrop execute 5 0 fb' ndrop execute -> 1 5 }T
 T{ fb' max-n execute fb' cell execute -> max-n cell }T
 T{ s" " fb' stdout execute write-file s" " fb' stderr execute write-file -> 0 0 }T
 T{ stdout fb' flush-file execute -> 0 }T

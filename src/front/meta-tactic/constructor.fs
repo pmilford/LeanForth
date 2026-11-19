@@ -26,8 +26,9 @@
 \ matchConstInduct -> lf-menv-find, lf-menv-kind, lf-ity-ctors@ (meta-env.fs,
 \ core/input.fs); mkConst ctor us -> lf-mk-const-id with lf-const-levels
 \ (app-builder.fs); withoutModifyingState/observing? -> lf-commit-when
-\ answering false, with a CATCH; MVarId.apply -> lf-goal-apply
-\ (apply.fs); throwTacticEx -> lf-tac-failed (tactic-basic.fs).
+\ answering false, with a CATCH and lf-tac-forget-lean (tactic-msg.fs);
+\ MVarId.apply -> lf-goal-apply
+\ (apply.fs); throwTacticEx -> lf-tac-detail, lf-tac-stop (tactic-msg.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own (apply's). Loads in decimal whatever BASE is,
 \ then restores it.
@@ -43,7 +44,7 @@ require ../goals.fs
 require ../meta-env.fs
 require ../term-eqv.fs
 require ../tactic-run.fs
-require ../tactic-basic.fs
+require ../tactic-msg.fs
 require ../meta-must.fs
 require ../app-builder.fs
 require ./goal.fs
@@ -71,13 +72,7 @@ require ./apply.fs
 : mco-at ( head k -- e ) over swap mco-ctor mco-const ;
 
 \ ---- observing? inside withoutModifyingState: a Lean error is false.
-: mco-authored? ( -- flag ) lf-author-code lf-author-outcome outcome-invalid = ;
-: mco-rejected? ( code -- flag )
-  dup lf-meta-thrown? if lf-meta-outcome outcome-rejected = else drop false then ;
-: mco-lean-error? ( code -- flag )
-  dup lf-author-throw = if drop mco-authored? else mco-rejected? then ;
-: mco-caught ( code -- false )
-  dup mco-lean-error? 0= if throw then drop lf-tac-forget false ;
+: mco-caught ( code -- false ) lf-tac-forget-lean false ;
 : mco-probe ( goal e -- applies? false )
   ['] lf-goal-apply catch ?dup if nip nip mco-caught else drop true then false ;
 : mco-tried? ( goal head k -- goal head flag )

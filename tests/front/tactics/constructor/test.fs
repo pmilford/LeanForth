@@ -36,12 +36,12 @@ lf-author-begin
 nat s" a" binder constant fa
 nat s" b" binder constant fb
 
-\ ---- observing?'s verdict (mco-lean-error?): a Lean error or not.
-T{ -4204 mco-lean-error? -4201 mco-lean-error? -4205 mco-lean-error? 77 mco-lean-error?
+\ ---- observing?'s verdict (tactic-msg.fs's lf-tac-lean-error?): a Lean error or not.
+T{ -4204 lf-tac-lean-error? -4201 lf-tac-lean-error? -4205 lf-tac-lean-error? 77 lf-tac-lean-error?
    -> true false false false }T
-T{ s" " 0 lfa-e-assumption lfa-record lf-author-throw mco-lean-error? -> true }T
+T{ s" " 0 lfa-e-assumption lfa-record lf-author-throw lf-tac-lean-error? -> true }T
 lf-tac-forget
-T{ s" " 0 lfa-e-tac-meta lfa-record lf-author-throw mco-lean-error? -> false }T
+T{ s" " 0 lfa-e-tac-meta lfa-record lf-author-throw lf-tac-lean-error? -> false }T
 lf-tac-forget
 T{ -4205 ' mco-caught code1 77 ' mco-caught code1 -4204 mco-caught -> -4205 77 false }T
 

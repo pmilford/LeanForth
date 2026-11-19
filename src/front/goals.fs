@@ -94,7 +94,7 @@ end-structure
 : gl-free-of ( goal fvar -- outcome )
   over gl-view over gl-others-dep gl-none dup ok? if drop gl-target-dep gl-none
   else nip nip then ;
-: gl-has? ( goal fvar -- flag ) swap gl-view swap lf-view-find dup if nip then ;
+: gl-has? ( goal fvar -- flag ) swap gl-view swap lf-view-has? ;
 : gl-clearable ( goal fvar -- outcome )
   over gl-open? 0= if 2drop outcome-invalid exit then
   2dup gl-has? if gl-free-of else 2drop outcome-invalid then ;

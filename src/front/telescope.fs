@@ -23,6 +23,10 @@
 \       every local made inside xt, not only this one: nothing made
 \       inside may escape (a metavariable made there and kept would name
 \       a dead local, which lf-fvar-live? tells; Lean's keeps its context)
+\   lf-local-decl-new ( type name bi -- fvar view' )  mkFreshFVarId and
+\       LocalContext.mkLocalDecl: a new free variable of type and its local,
+\       named name, of kind bi, pushed on the current view (view' the
+\       result, not made current)
 \   lf-forall-meta-telescope-reducing ( acc type d xt -- acc' body )
 \       forallMetaTelescopeReducing (Basic.lean:1751-1791, maxMVars?
 \       none, kind natural): a new metavariable per binder, synthetic for
@@ -55,15 +59,17 @@
 \ or inside e) whose context holds one of the xs: all unsupported
 \ (Lean's elimMVarDeps would revert it).
 \ Untrusted: only the kernel's check of the finished term decides.
-\ State: tl-frames (a telescope's frame, one per telescope open, in the
-\ checker context, ADR 0009) and tlb (the binding loop's fields: not
-\ re-entrant within one binding, whose loop builds no other binding).
+\ State: tl-frames (a telescope's frame, one per telescope open,
+\ meta-must.fs's lf-with-record, in the checker context, ADR 0009) and
+\ tlb (the binding loop's fields: not re-entrant within one binding,
+\ whose loop builds no other binding).
 \ Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/runs.fs
 require ../lib/slab.fs
+require ../lib/find.fs
 require ../core/terms.fs
 require ../core/local-context.fs
 require ../present/binder-table.fs
@@ -89,10 +95,10 @@ require ./meta-must.fs
 
 \ ---- withLocalDecl.
 : tl-mark ( -- mark ) lf-term-base lf-term-count @ + ;   \ lf-lctx-drop's
-: tl-local ( type name bi -- fvar view' )
+: lf-local-decl-new ( type name bi -- fvar view' )
   rot lf-lctx-local lf-must dup >r -rot lf-local-new lf-must
   lf-mctx-view swap lf-view-push lf-must r> swap ;
-: tl-opened ( i*x type name bi xt -- j*x ) >r tl-local r> swap lf-with-view ;
+: tl-opened ( i*x type name bi xt -- j*x ) >r lf-local-decl-new r> swap lf-with-view ;
 : lf-with-local-decl ( i*x type name bi xt -- j*x )
   tl-mark >r ['] tl-opened catch r> lf-lctx-drop throw ;
 
@@ -107,9 +113,8 @@ begin-structure /tlf
 end-structure
 /tlf context-slab: tl-frames
 : tl ( -- addr ) tl-frames slab-last ;
-: tl-open ( acc type d xt -- )
-  1 tl-frames slab-claim lf-must tl-frames slab-at -1 over tlf-max !
-  tuck tlf-xt ! tuck tlf-d ! tuck tlf-type ! tuck tlf-acc ! 0 swap tlf-k ! ;
+: tl-fill ( acc type d max xt frame -- )
+  tuck tlf-xt ! tuck tlf-max ! tuck tlf-d ! tuck tlf-type ! tlf-acc ! ;
 : tl-kind ( pi -- kind ) tl tlf-d lf-walk-kind ;
 : tl-mv-kind ( kind -- mvkind )
   lf-binder-instance = if mv-synthetic else mv-natural then ;
@@ -128,14 +133,14 @@ end-structure
   tl-full? if false exit then
   tl tlf-type @ lf-term-pi? if tl tlf-type @ tl-binder true else tl-reduced then ;
 : tl-walk ( -- ) begin tl-step 0= until ;
-: tl-close ( -- acc body ) tl dup tlf-acc @ swap tlf-type @ tl-frames slab-drop ;
-: tl-run ( -- acc body )
-  ['] tl-walk catch ?dup if tl-frames slab-drop throw then tl-close ;
-: lf-forall-meta-telescope-reducing ( acc type d xt -- acc' body ) tl-open tl-run ;
-\ The same with maxMVars? some max (Basic.lean:1755): at most max binders,
-\ the rest of the type returned as it is once max are passed.
+: tl-run ( -- acc body ) tl-walk tl dup tlf-acc @ swap tlf-type @ ;
+: tl-framed ( acc type d max xt -- acc' body ) tl tl-fill tl-run ;
+\ With maxMVars? some max (Basic.lean:1755): at most max binders, the
+\ rest of the type returned as it is once max are passed; -1 for none.
 : lf-forall-meta-bounded-telescope ( acc type d max xt -- acc' body )
-  swap >r tl-open r> tl tlf-max ! tl-run ;
+  tl-frames ['] tl-framed lf-with-record ;
+: lf-forall-meta-telescope-reducing ( acc type d xt -- acc' body )
+  -1 swap lf-forall-meta-bounded-telescope ;
 
 \ ---- getExpectedNumArgsAux (Meta/Tactic/Apply.lean:21): the binders of
 \ e under forallTelescopeReducing at default transparency, and whether the
@@ -191,10 +196,11 @@ end-structure
 : tle-x ( i -- x ) tle tle-xs @ swap tl-cell ;
 : tle-view ( -- view ) tle tle-mvar @ lf-goal-view ;
 : tle-index ( i -- k true | false ) tle-view swap tle-x lf-view-find ;
-: tle-misses? ( i -- flag ) tle-index if drop false else true then ;
 : tle-placed? ( i -- flag )
   dup tle-index 0= if drop false exit then swap tle-view lf-view-count tle tle-n @ - + = ;
-: tle-sees? ( -- flag ) tle tle-n @ ['] tle-misses? all? 0= ;
+\ Whether a context holds one of the variables.
+: tle-holds? ( view i -- view flag ) tle-x over swap lf-view-has? ;
+: tle-sees? ( view -- flag ) tle tle-n @ ['] tle-holds? find-index dup if nip then ;
 : tle-tail? ( -- flag ) tle tle-n @ ['] tle-placed? all? ;
 \ ?n's type, kind and context; ?n xs; e delayed-assigned or assigned.
 : tl-aux-kind ( -- kind )
@@ -215,17 +221,18 @@ defer tl-bind-in ( e addr n view xt -- e' )
 : tl-revert ( mvar addr n -- r )
   2>r dup 2r@ tl-aux-type swap 2r> tle! tl-aux dup tl-applied tl-settle ;
 : tl-elim ( e addr n -- e' )
-  >r over swap r> tle! dup lf-mvar-open? 0= if exit then tle-sees? 0= if exit then
+  >r over swap r> tle! dup lf-mvar-open? 0= if exit then
+  tle-view tle-sees? 0= if exit then
   tle-tail? 0= if outcome-unsupported lf-must then tle tle-xs @ tle tle-n @ tl-revert ;
 \ elimMVarDeps beyond that case: a metavariable left in e (delayed-
 \ assigned, or inside e) that sees one of the variables, or has no
 \ context, is refused (unsupported; Lean would revert it). The test
-\ throws nothing (it runs inside lf-term-holds?'s walk).
-: tl-sees-xs? ( leaf -- flag )
-  dup lf-mvar? 0= if drop false exit then
-  dup lf-mvar-view nip 0= if drop true exit then tle tle-mvar ! tle-sees? ;
+\ throws nothing and writes nothing (it runs inside lf-term-holds-with?'s
+\ walk); its context is unused.
+: tl-sees-xs? ( x leaf -- x flag )
+  dup lf-mvar? 0= if drop false exit then lf-mvar-view 0= if true exit then tle-sees? ;
 : tl-closed ( e -- e )
-  dup ['] tl-sees-xs? lf-term-holds? lf-must if outcome-unsupported lf-must then ;
+  dup 0 ['] tl-sees-xs? lf-term-holds-with? lf-must if outcome-unsupported lf-must then ;
 : tl-binding ( e addr n view xt -- e' )
   2>r 2>r lf-instantiate! 2r@ tl-elim tl-closed 2r> 2r> tl-bound ;
 ' tl-binding is tl-bind-in

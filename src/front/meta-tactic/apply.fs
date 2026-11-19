@@ -40,12 +40,12 @@
 \ lf-infer! (meta-must.fs); getExpectedNumArgsAux, getExpectedNumArgs ->
 \ lf-expected-num-args (telescope.fs); saveState/restore -> lf-commit-when;
 \ forallMetaTelescopeReducing -> lf-forall-meta-bounded-telescope;
-\ approxDefEq isDefEqGuarded -> lf-meta-defeq-guarded under lf-meta-with;
+\ approxDefEq isDefEqGuarded -> lf-meta-defeq-guarded under lf-with-approx;
 \ synthInstance -> lf-synth-instance (synth.fs); isDefEq -> lf-defeq!;
 \ instantiateMVars -> lf-instantiate!; mkAppN -> lf-mk-app-n's fold
 \ (app-builder.fs); assign -> lf-mvar-assign; isAssigned ->
 \ lf-goal-assigned?; getTag/setTag/appendTag -> lf-goal-tag-append
-\ (goal.fs); findMVar? -> lf-term-holds?; getMVarsNoDelayed
+\ (goal.fs); findMVar? -> lf-term-holds-with?; getMVarsNoDelayed
 \ (in part) -> lf-mvar-open? (mvars.fs); headBetaType ->
 \ lf-goal-head-beta-type (goal.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
@@ -73,7 +73,7 @@ require ../term-find.fs
 require ../defeq.fs
 require ../synth.fs
 require ../tactic-run.fs
-require ../tactic-basic.fs
+require ../tactic-msg.fs
 require ../meta-must.fs
 require ../app-builder.fs
 require ../telescope.fs
@@ -91,7 +91,6 @@ begin-structure /ap
   field: ap-d            \ e's declaration when e is a constant, else -1
   field: ap-lower        \ the range of argument counts
   field: ap-upper
-  field: ap-sought       \ the metavariable findMVar? looks for (its number)
 end-structure
 /ap context-record: ap
 2 cells context-slab: ap-news   \ (mvar, kind): Lean's newMVars and binderInfos
@@ -113,9 +112,7 @@ end-structure
   ap ap-target @ lf-expected-num-args drop - 0 max ap ap-lower ! ;
 
 \ ---- One count: the telescope, then isDefEqApply.
-: ap-flags ( -- flags ) lf-defeq-flags lf-defeq-fo or lf-defeq-ctx or lf-defeq-quasi or ;
-: ap-defeq ( t s -- flag )
-  ['] lf-meta-defeq-guarded ap-flags lf-defeq-mode lf-meta-with outcome-sane lf-must ;
+: ap-defeq ( t s -- flag ) ['] lf-meta-defeq-guarded lf-with-approx outcome-sane lf-must ;
 : ap-telescope ( i -- body )
   >r 0 ap ap-etype @ ap ap-d @ r> ['] ap-new+ lf-forall-meta-bounded-telescope nip ;
 : ap-try ( i -- flag ) ap-news slab-clear ap-telescope ap ap-target @ ap-defeq ;
@@ -191,16 +188,15 @@ end-structure
   ap-tag 0= if exit then ap-goals slab-count 0 ?do i ap-tag-one loop ;
 \ getMVarsNoDelayed e: not ported; e instantiated must hold no open metavariable.
 : ap-alone ( -- )
-  ap ap-e @ lf-instantiate! ['] lf-mvar-open? lf-term-holds? lf-must
+  ap ap-e @ lf-instantiate! lf-has-open-mvar?
   if lfa-e-tac-form lf-tac-fail then ;
 
 \ ---- reorderGoals nonDependentFirst, then headBetaType.
-: ap-sought? ( leaf -- flag )   \ (inside lf-term-holds?'s walk: throws nothing)
-  dup lf-mvar? if lf-term-first@ ap ap-sought @ = else drop false then ;
-: ap-sought! ( mvar -- ) lf-term-first@ ap ap-sought ! ;
-: ap-holds? ( t -- flag ) ['] ap-sought? lf-term-holds? lf-must ;
+: ap-sought? ( n leaf -- n flag )   \ metavariable n (in the walk: throws nothing)
+  dup lf-mvar? if lf-term-first@ over = else drop false then ;
 : ap-names? ( mvar other -- flag )   \ other's type, as stored, holds mvar
-  2dup = if 2drop false exit then swap ap-sought! lf-goal-type ap-holds? ;
+  2dup = if 2drop false exit then
+  lf-goal-type swap lf-term-first@ ['] ap-sought? lf-term-holds-with? lf-must ;
 : ap-dependent? ( mvar -- flag )
   ap-goals slab-count 0 ?do dup i ap-goal@ ap-names? if drop true unloop exit then loop
   drop false ;

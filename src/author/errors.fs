@@ -148,7 +148,7 @@ require ./source.fs
 91 constant lfa-e-tac-fuel       \ exhausted: the tactic run's fuel is spent
 92 constant lfa-e-tac-record     \ a tactic record or proof state not as made
 93 constant lfa-e-tac-meta       \ unsupported: an inference, reduction or binder
-\ The first tactics (src/front/tactic-basic.fs, plan FE1g-4).
+\ The first tactics (src/front/tactics/, plan FE1g-4).
 94 constant lfa-e-tac-no-intro   \ intro with no binder or let to introduce
 95 constant lfa-e-tac-unassigned \ exact's term leaves a new metavariable unassigned
 96 constant lfa-e-tac-mismatch   \ exact's term has another type than the goal
