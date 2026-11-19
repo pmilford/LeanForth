@@ -62,7 +62,7 @@ defined in appendix E.
 | Generated definitions | `constructions`, `ctor-idx`, `cases-several`, `expr-remap` | 1,005 |
 | Tactic library (`Meta/AppBuilder`, `Meta/Basic`) | `meta-must`, `app-builder`, `telescope` | 550 |
 | `Elab.Term` (the elaborator) | `elab-pending`, `elab-app`, `elab-term`, `elab-decl` | 1,691 |
-| `Elab.Tactic`, reader, goals, hand-over | `reader`, `syntax`, `tactic-syntax`, `tactic-run`, `tactic-core`, `tactics/` (intro, exact, rfl), `tactic-induction`, `tactic-rewrite`, `goals`, `goal-print`, `step-log`, `handover` | 3,008 |
+| `Elab.Tactic`, reader, goals, hand-over | `reader`, `syntax`, `tactic-syntax`, `tactic-run`, `tactic-core`, `tactics/` (intro, exact, rfl), `tactic-induction`, `tactic-rewrite` (2026-11-19: both deleted by plan 9.4.8l I; `tactics/` holds rewrite, induction and case, `tactic-alts`), `goals`, `goal-print`, `step-log`, `handover` | 3,008 |
 | On `tactic-lib-a2ii` (in flight): goal layer, registry, glue | `meta-tactic/{goal,apply,assumption,constructor}`, `tactic-api`, `tactic-core`, `tactics/*` | 652 in new files |
 
 ### 1.2 Where the eight libraries sit, and which way calls go

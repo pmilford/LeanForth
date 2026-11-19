@@ -21,7 +21,9 @@
 \ (tactic-msg.fs), the step record, liftMetaTactic, elabTermForApply,
 \ getArg, withSynthesize and try (tactic-core.fs), and the tactic
 \ library: meta-must.fs, app-builder.fs,
-\ telescope.fs and the goal operations of meta-tactic/. A tactic file
+\ telescope.fs and the goal operations of meta-tactic/ (goal, apply,
+\ assumption, constructor, rewrite, elim, rename), and the alternatives'
+\ glue tactic-alts.fs. A tactic file
 \ writes no hook and sets rows only for its own kinds
 \ (scripts/check-tactic-plugins.py); docs/development/ADDING_A_TACTIC.md
 \ is the guide.

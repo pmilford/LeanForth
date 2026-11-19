@@ -286,6 +286,8 @@ rfl (`tactic-basic.fs:359`); `tactic-induction.fs:373` runs intro (`:267`); `tac
 | `by-case:` | 193 | 91, 289-291, 346 | none yet (error 80) | 210, 211 kept | 93 |
 | `by-rw[`, `by-rewrite[` | 200-201 | 92-93, 190, 231-239, 350-352 | tactic-rewrite.fs 243-244 | 215-220 (216-221, 481-489) | 97-98 |
 
+(Note of 2026-11-19, plan 9.4.8l I, commit C4: `tactic-induction.fs` and `tactic-case.fs` were deleted; induction and case are now `src/front/tactics/induction.fs` and `case.fs` on `meta-tactic/elim.fs` (`lf-elim-for`, `lf-elim-info`, `lf-elim-app`, `lf-elim-set-motive`), `meta-tactic/rename.fs` (`lf-goal-rename-inaccessibles`) and the Elab glue `tactic-alts.fs` (`lf-eval-alts`, `lf-alt-names-check`, `lf-alt-run`, `lf-alts-missing`); the row of `|` is the runner's, set for a block's kind by `lf-tactic-alt!`.)
+
 ### A3. Duplicate groups (`tests/duplicates-baseline.json` on this branch)
 
 167 groups have a member in `src/front/`; 15 involve the tactic files. Per file: instantiate 31, beta-inst 27, mvars 23,

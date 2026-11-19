@@ -58,7 +58,7 @@
 \ and the states other modules add with tac-state: ( save-xt back-xt -- )
 \ (reviews C2 and N4 of 2026-11-18): the elaborator's pending list and
 \ synthesis window (elab-pending.fs, registered by elab-decl.fs), the
-\ induction blocks and their cases (tactic-induction.fs), as Lean's
+\ open alternatives' blocks (tactic-alts.fs), as Lean's
 \ saveState holds the whole
 \ Term and Meta state; lib/slab.fs's slab-keep and slab-kept do a
 \ back-xt's work for a slab. A run
@@ -70,6 +70,9 @@
 \ Words: lf-front-by-statement, lf-tactic-by, lf-tactic-fuel! ( n -- )
 \ (steps a run may take, from 0), lf-tactic-fuel-default ( -- ),
 \ lf-tactic-fuel-left ( -- n ), lf-tactic-action! ( xt kind -- ),
+\ lf-tactic-alt! ( xt kind -- ) (the alternatives | right inside a block of
+\ the kind run by xt ( j -- ), Lean's evalAlts; tactic-alts.fs's
+\ lf-alt-run), lf-tactic-alt@ ( kind -- xt|0 ),
 \ lf-tac-step ( -- i ) the step running, lf-tac-main ( -- goal ),
 \ lf-tac-fail ( code -- ) (an error at the step running, with the goals),
 \ lf-tac-stop ( code -- ) (the same without the goals), lf-tac-must

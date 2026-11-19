@@ -1200,7 +1200,7 @@ Wrong twins: `s2w-rw-empty.lf` (`by-rw[ ]` leaves the goal: 89),
 ### D.6 `by-case:`
 
 `by-case: CASE-TAG HYP-NAME ... =>` ... `by-end` is Lean's `case CASE-TAG
-HYP-NAME ... =>` (`src/front/tactic-case.fs`). It picks one open goal by
+HYP-NAME ... =>` (`src/front/tactics/case.fs`). It picks one open goal by
 its case tag. It looks for the tag itself first, then for a tag that ends
 with it (`zero` finds `succ.zero`), then for one that starts with it
 (`succ` finds `succ.zero`). The names rename the goal's hidden hypotheses
@@ -1399,7 +1399,7 @@ end composition
 | --- | --- |
 | declarations, kernel form, names | `src/author/words.fs`, `declarations.fs`, `namespaces.fs`, `runner.fs` |
 | natural form, syntax tree | `src/front/reader.fs`, `syntax.fs` |
-| tactics | `src/front/tactic-syntax.fs` (reading), `tactic-run.fs` (runner, `by-sorry`), `tactics/intro.fs`, `exact.fs`, `rfl.fs` (`by-intro:`, `by-exact`, `by-rfl`, on `meta-tactic/goal.fs`), `tactics/rewrite.fs` (`by-rewrite[`, `by-rw[`, on `meta-tactic/rewrite.fs`), `tactic-induction.fs` |
+| tactics | `src/front/tactic-syntax.fs` (reading), `tactic-run.fs` (runner, `by-sorry`), `tactics/intro.fs`, `exact.fs`, `rfl.fs` (`by-intro:`, `by-exact`, `by-rfl`, on `meta-tactic/goal.fs`), `tactics/rewrite.fs` (`by-rewrite[`, `by-rw[`, on `meta-tactic/rewrite.fs`), `tactics/induction.fs` and `case.fs` (`by-induction`, `by-induction-with`, `by-case:`, on `meta-tactic/elim.fs`, `rename.fs` and `tactic-alts.fs`) |
 | elaboration and `#check` | `src/front/elab-*.fs` |
 | printing | `src/present/` |
 | command line | `src/cli/leanforth.fs`, `check-lf.fs` |

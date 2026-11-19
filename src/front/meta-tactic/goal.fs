@@ -34,7 +34,7 @@
 \   lf-name-prefix-of? ( p n -- flag )  Name.isPrefixOf: p is n or one of
 \       its prefixes (succ of succ.zero; su of su.x, not of succ: a
 \       component compares whole)
-\       (findTag?'s name tests, tactic-case.fs; general Name functions,
+\       (findTag?'s name tests, tactics/case.fs; general Name functions,
 \       whose home is core/name-equal.fs once the [kernel] gate's next
 \       batch takes them, plan 9.4.8l B)
 \   lf-goal-intro-n ( goal names kinds n xs -- goal' )  MVarId.introN

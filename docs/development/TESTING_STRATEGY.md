@@ -1332,7 +1332,7 @@ commands on a tiny Forth file with a known never-run branch):
    count is not above the baseline's. It counts unit tests only: end-to-end
    targets run code too, so it can list more blocks than the ratchet; a block
    the last full run also left never run is real debt. On 2026-11-19
-   `make cover FILE=src/front/tactic-induction.fs` took 14 s (5 of 29 test
+   `make cover FILE=src/front/tactic-induction.fs` (a file plan 9.4.8l I deleted the same day) took 14 s (5 of 29 test
    files, 3.5 s of runs) and listed 168 blocks, the baseline 83.
 3. Write the tests, re-run step 2 until the block is gone.
 4. Lower the entry without a full run: `python3 scripts/coverage.py

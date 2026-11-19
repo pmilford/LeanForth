@@ -44,7 +44,7 @@ Usage: GFORTH=... python3 tests/front/check_s2.py [--write-steps]
        GFORTH=... python3 tests/front/check_s2.py --tactics   (1 and 2 only: the
          planted faults' quick test, without the step log's extra runs and 4)
        GFORTH=... python3 tests/front/check_s2.py --case   (by-case:'s files and twins
-         alone: the quick test of tactic-case.fs's planted faults)
+         alone: the quick test of tactics/case.fs's and rename.fs's planted faults)
        GFORTH=... python3 tests/front/check_s2.py --lambda   (4 alone: the quick
          test of ea-no-lambda?'s planted faults)
        GFORTH=... python3 tests/front/check_s2.py --steps-of FILE  (one log)
@@ -96,7 +96,7 @@ FILES = [("tests/front/01-zero-add.lf", ["zero_add'"]),
          # S2 merge B's midpoint (smart unfolding: n + 0 unfolds to n).
          ("tests/front/00-add-zero.lf", ["add_zero'"]),
          ("tests/front/02-add-zero-rfl.lf", ["add_zero'"])]
-# by-case:'s files (--case: the planted faults' quick test of tactic-case.fs).
+# by-case:'s files (--case: the planted faults' quick test of tactics/case.fs).
 CASE_FILES = ["tests/front/01-zero-add.lf", "tests/front/s2-case.lf"]
 # A file whose theorem has another name in tests/front/s2-proofs.lean,
 # which declares both add_zero' forms.
@@ -104,7 +104,7 @@ ALIASES = {"tests/front/02-add-zero-rfl.lf": {"add_zero'": "add_zero_rfl'"}}
 ADD_ZERO_RFL = ("Tactic `rfl` failed: The left-hand side\n  n + 0\nis not definitionally equal "
                 "to the right-hand side\n  n + 1\n\nn : Nat\n\u22a2 n + 0 = n + 1")
 # case's messages (Lean's hint then previews each tag as an edit of the one
-# written, which LeanForth does not print: src/front/tactic-case.fs); a
+# written, which LeanForth does not print: src/front/tactics/case.fs); a
 # case's goal has no tag, so its unsolved goals show none.
 CASE_TAG = "Case tag `suc` not found.\n\nHint: The only available case tag is `succ`."
 CASE_TAGS = "Case tag `suc` not found.\n\nHint: Available tags:"

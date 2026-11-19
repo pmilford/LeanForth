@@ -58,7 +58,7 @@
 \       (meta-tactic/goal.fs's lf-goal-intro-n): step i's main goal's
 \       first binder introduced, named name (0: its own, inaccessible), of
 \       kind kind (-1: the node's, explicit only), in its place the new
-\       goal (intro NAME; an alternative's field, tactic-induction.fs)
+\       goal (intro NAME; an alternative's field, tactic-alts.fs)
 \   lf-tac-elab-for-apply ( node -- e )  elabTermForApply
 \       (ElabTerm.lean:264) as evalApplyLikeTactic calls it (:284-292): an
 \       identifier resolved with no argument inserted (elab-term.fs's
