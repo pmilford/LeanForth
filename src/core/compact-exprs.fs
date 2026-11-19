@@ -137,9 +137,10 @@ require ./compact-levels.fs
 \ leading Pis. k is unsigned: a negative k passes every leading Pi.
 : expr-pi-after ( e tier k -- e' tier )
   0 ?do 2dup expr-pi? 0= if leave then tuck expr-b@ swap loop ;
+\ expr-pis leaves its loop at the first non-Pi, with the index; no
+\ telescope reaches max-n binders, so the loop never runs out.
 : expr-pis ( e tier -- n )
-  max-n 0 do 2dup expr-pi? 0= if 2drop i unloop exit then tuck expr-b@ swap loop
-  2drop max-n ;
+  max-n 0 do 2dup expr-pi? 0= if i leave then tuck expr-b@ swap loop nip nip ;
 : expr-pi-end ( e tier -- e' ) max-n expr-pi-after drop ;
 : expr-domain ( e tier k -- e' true | false )
   expr-pi-after 2dup expr-pi? if expr-a@ true else 2drop false then ;

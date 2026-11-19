@@ -4,8 +4,8 @@
 [[fault]]
 id = "rc-expr-pis-off-by-one"
 file = "src/core/compact-exprs.fs"
-old = '''  max-n 0 do 2dup expr-pi? 0= if 2drop i unloop exit then tuck expr-b@ swap loop'''
-new = '''  max-n 0 do 2dup expr-pi? 0= if 2drop i 1+ unloop exit then tuck expr-b@ swap loop'''
+old = '''  max-n 0 do 2dup expr-pi? 0= if i leave then tuck expr-b@ swap loop nip nip ;'''
+new = '''  max-n 0 do 2dup expr-pi? 0= if i 1+ leave then tuck expr-b@ swap loop nip nip ;'''
 test = "$GFORTH tests/core/compact.fs"
 reason = "one leading Pi too many: a telescope of two binders counts three"
 
