@@ -129,3 +129,4 @@ Owner, 2026-11-12: Forth style reviews were not run for the changes merged betwe
 stopped collecting counts. The backlog review of the whole of `src/` (reviewers FRK: `src/kernel`; FRI: `src/import`,
 `src/core`, `src/lib`; FRP: `src/cli`, `src/present`, `src/author`, `src/program`) is in progress; its reports and
 the refactoring batches that follow are logged here as they land (plan task 9.4.5).
+| 2026-11-19 | `f3ce00d1..c20ff23f` | s2-rest: Lean's `case` tactic (`by-case:`, new `src/front/tactic-case.fs`, errors 210 and 211), useImplicitLambda's explicit-binder exception (`elab-app.fs`), rfl on a stuck smart unfolding (`whnf.fs` `lf-whnf-stuck`) | forth-reviewer (Opus), independent: 31 snapshot probes with Lean twins, 6 faults of its own; no suite | [report](2026-11-19-s2-rest.md) | 2 blocking (1 high test gap, 1 reuse), 2 medium, 3 low | fix round pending |
