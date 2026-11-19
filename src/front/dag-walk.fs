@@ -15,8 +15,12 @@
 \     child true | false ) the first of two, dw-want-parts ( node walk --
 \     child true | false ) the first of a binary term's two parts), nodes
 \     below the size only;
-\   build ( node walk -- image )  the image, from the children's (dw-image);
-\     it may end the walk with dw-refuse ( outcome walk -- ).
+\   build ( node walk -- image )  the image, from the children's (dw-image,
+\     dw-part-images ( node walk -- i1 i2 ) for a binary term's parts);
+\     it may end the walk with dw-refuse ( outcome walk -- ), or with
+\     dw-made ( x true | false walk -- x ) when a result needed room.
+\ dw-on-terms and dw-on-levels ( build pending walk -- walk ) set a walk's
+\ two words and its size: every term, or every level, there is now.
 \ dw-run ( root walk -- image outcome ) runs a walk; its stack and its
 \ states are heap blocks made when it starts and freed before it returns,
 \ so a walk keeps no address between runs. The states are an array of
@@ -37,6 +41,7 @@ require ../lib/lib.fs
 require ../lib/bytes.fs
 require ../lib/memo.fs
 require ../core/terms.fs
+require ../core/levels.fs
 
 16 constant dw-first-room
 begin-structure /dw
@@ -84,11 +89,31 @@ end-structure
   rot over dw-want if nip nip true else dw-want then ;
 \ The same for a binary term's two parts (core/terms.fs).
 : dw-want-parts ( node walk -- child true | false )
-  >r dup lf-term-first@ swap lf-term-second@ r> dw-want2 ;
+  over lf-term-first@ over dw-want if nip nip true exit then
+  swap lf-term-second@ swap dw-want ;
+\ A pending word of a walk down binary terms only: a leaf has no child.
+: dw-want-binary ( node walk -- child true | false )
+  over lf-term-binary? if dw-want-parts else 2drop false then ;
 \ Never met: neither under way nor made; a node beyond the memo counts as
 \ new, so pushing it ends the walk invalid.
 : dw-new? ( node walk -- flag ) 2dup dw-in? if dw-state 0= else 2drop true then ;
 : dw-image ( node walk -- image ) dw-state 2 - ;
+\ The images of a binary term's two parts, the first first (the build
+\ step after dw-want-parts).
+: dw-part-images ( node walk -- i1 i2 )
+  over lf-term-second@ over dw-image >r swap lf-term-first@ swap dw-image r> ;
+\ A build step's result that needed room ( x true | false ): x, or a
+\ full walk and the image 0.
+: dw-made ( x true | false walk -- x )
+  swap if drop else outcome-full swap dw-refuse 0 then ;
+
+\ A walk set up over every term, or every level, there is now, with its
+\ build and pending words (a walk's two words are best kept as one
+\ 2constant, ' build ' pending 2constant name).
+: dw-hooks ( build pending walk -- walk ) tuck dw-pending ! tuck dw-build ! ;
+: dw-on-terms ( build pending walk -- walk )
+  dw-hooks lf-term-base lf-term-count @ + over dw-size ! ;
+: dw-on-levels ( build pending walk -- walk ) dw-hooks lf-level-count @ over dw-size ! ;
 
 \ The stack.
 : dw-slot ( i walk -- addr ) dw-stack @ swap cells + ;

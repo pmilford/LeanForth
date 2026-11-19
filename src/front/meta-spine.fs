@@ -80,6 +80,9 @@ require ../present/binder-table.fs
 require ../core/let-terms.fs
 
 : lf-meta-app? ( term -- flag ) lf-term-tag@ lf-tag-app = ;
+\ The head of an application spine, down the first parts (Lean's
+\ Expr.getAppFn); a term that is no application is its own head.
+: lf-meta-app-head ( term -- head ) begin dup lf-meta-app? while lf-term-first@ repeat ;
 : ms-peel ( term slab -- f outcome )
   over lf-term-second@ swap slab-push swap lf-term-first@ swap ;
 : lf-meta-spine ( term slab -- head outcome )

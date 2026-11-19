@@ -276,8 +276,8 @@ reason = "reuse pass part A3, finding 2: a wordlist not in the search order coun
 [[fault]]
 id = "rfa3-want-parts-second-skipped"
 file = "src/front/dag-walk.fs"
-old = '''  >r dup lf-term-first@ swap lf-term-second@ r> dw-want2 ;'''
-new = '''  >r lf-term-first@ dup r> dw-want2 ;'''
+old = '''  swap lf-term-second@ swap dw-want ;'''
+new = '''  2drop false ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "reuse pass part A3, finding 4: a binary term's second part is never walked, so a metavariable there is not instantiated or found"
 

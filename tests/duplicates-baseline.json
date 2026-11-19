@@ -60,17 +60,6 @@
   "reason": "accepted: the two freshness checks of a name differ in their pass and their lookup kind (two of nine words); a word taking both as xts would be no shorter",
   "tokens": 9
  },
- "06404e0e84e2": {
-  "copies": 3,
-  "kind": "shape",
-  "members": [
-   "src/front/goal-print.fs:gp-images",
-   "src/front/mvars.fs:mv-pair-images",
-   "src/front/term-find.fs:tf-images"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 11
- },
  "06c692a526f9": {
   "copies": 3,
   "kind": "shape",
@@ -660,16 +649,6 @@
   "reason": "false positive: the difference of two fields, different records",
   "tokens": 7
  },
- "50c4f8f07dd3": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/level-normalize.fs:ln-limb-ok?",
-   "src/kernel/level-normalize.fs:lf-lnorm-limb-ok?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 8
- },
  "51522cd1516d": {
   "copies": 2,
   "kind": "shape",
@@ -1015,16 +994,6 @@
   "reason": "false positive: a record's counted text read (address and length fields), two unrelated records (a tactic row, a report path)",
   "tokens": 6
  },
- "6c6885378440": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/level-normalize.fs:ln-name-ok?",
-   "src/kernel/level-normalize.fs:lf-lnorm-name-ok?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 15
- },
  "6cc684092f8a": {
   "copies": 2,
   "kind": "shape",
@@ -1044,16 +1013,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front): wc-smatch and wc-app spine then dispatch alike: one spine-then word in whnf.fs (S2 merge B)",
   "tokens": 9
- },
- "74022d8a67db": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/level-params.fs:lp-l-parts",
-   "src/front/level-params.fs:lp-parts"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 7
  },
  "74e0a562ad5c": {
   "copies": 4,
@@ -1660,17 +1619,6 @@
   "reason": "accepted: program/sha-words.fs is the text of lib/sha256.fs's helper words character for character, proved by tests/reference/program-ir.lean; plan row SHA-2 has the library load it (planned)",
   "tokens": 11
  },
- "a97b0b74a7e7": {
-  "copies": 3,
-  "kind": "shape",
-  "members": [
-   "src/front/instantiate.fs:in-loose-walk",
-   "src/front/level-params.fs:lp-walk",
-   "src/front/term-find.fs:tf-walk@"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 19
- },
  "aa7d81a10b99": {
   "copies": 2,
   "kind": "shape",
@@ -1816,16 +1764,6 @@
    "src/front/elab-pending.fs:lf-elab-error"
   ],
   "reason": "false positive: two fields of one record read (the arguments seen, an elaboration error); equal shape, unrelated meaning",
-  "tokens": 6
- },
- "bb31b2c77ac3": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/level-normalize.fs:ln-made",
-   "src/front/mvars.fs:mvl-made"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
  },
  "bb4de2499c6d": {
@@ -2076,17 +2014,6 @@
   "reason": "family, table-driven later: the term, level and constant-reference stores (terms.fs, levels.fs, constant-references.fs) keep parallel interfaces over their own store, table and columns; one store-family record would serve them (9.4.8k follow-up 4)",
   "tokens": 9
  },
- "c8ea52d268a9": {
-  "copies": 3,
-  "kind": "shape",
-  "members": [
-   "src/front/goal-print.fs:gp-undone",
-   "src/front/level-params.fs:lp-undone",
-   "src/front/term-find.fs:tf-undone"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 9
- },
  "c9a5284c385c": {
   "copies": 2,
   "kind": "shape",
@@ -2175,26 +2102,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 10
- },
- "cd00161ee80b": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/goal-print.fs:gp-child",
-   "src/front/term-find.fs:tf-pending"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 22
- },
- "ce076b492da2": {
-  "copies": 2,
-  "kind": "copy",
-  "members": [
-   "src/front/infer.fs:if-head",
-   "src/front/mvars.fs:mv-spine-head"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 6
  },
  "ce6289a7e339": {
   "copies": 3,
@@ -2379,16 +2286,6 @@
   "reason": "false positive: the guarded test `dup a? if b else drop false then` (or with 2dup/2drop) of two different words",
   "tokens": 9
  },
- "e36b9e9a2aff": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/mvars.fs:mv-holes?",
-   "src/front/mvars.fs:mv-dep-walk"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 11
- },
  "e4044ddceb2d": {
   "copies": 2,
   "kind": "shape",
@@ -2454,16 +2351,6 @@
   ],
   "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with, already the shared word",
   "tokens": 11
- },
- "e818d61beb24": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/level-normalize.fs:ln-walk",
-   "src/front/level-params.fs:lp-lwalk"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 17
  },
  "eb7510a045b4": {
   "copies": 6,

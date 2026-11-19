@@ -744,6 +744,32 @@ create wt-walk /dw allot  wt-walk /dw erase
 :noname ( node walk -- image ) nip dw-array? 1 and ; wt-walk dw-build !
 : wt-kind ( size -- image outcome ) wt-walk dw-size ! 0 wt-walk dw-run ;
 T{ dw-array-most wt-kind dw-array-most 1+ wt-kind -> 1 outcome-ok 0 outcome-ok }T
+\ The shared walk words of reuse-d: dw-on-terms and dw-on-levels set the
+\ two words and the size; dw-want-binary and dw-part-images walk a binary
+\ term's parts, first part first; dw-made keeps a made result or refuses
+\ the walk full with the image 0.
+create rd-walk /dw allot  rd-walk /dw erase
+' 2drop ' drop 2constant rd-hooks
+T{ rd-hooks rd-walk dw-on-terms rd-walk = -> true }T
+T{ rd-walk dw-build @ ' 2drop = rd-walk dw-pending @ ' drop = -> true true }T
+T{ rd-walk dw-size @ lf-term-base lf-term-count @ + = -> true }T
+T{ rd-hooks rd-walk dw-on-levels drop rd-walk dw-size @ lf-level-count @ = -> true }T
+\ The image: a leaf its bound variable's index, a node its first part's
+\ image times 10 plus its second's, so the order of the parts shows.
+: rd-leaf ( node -- n ) lf-term-first@ ;
+: rd-build ( node walk -- n )
+  over lf-term-binary? if dw-part-images swap 10 * + else drop rd-leaf then ;
+' rd-build ' dw-want-binary 2constant rd-sum
+: rd-run ( term -- n outcome ) rd-sum rd-walk dw-on-terms dw-run ;
+: rd-bv ( i -- t ) lf-term-bvar 0= abort" bvar" ;
+T{ 1 rd-bv 2 rd-bv app 3 rd-bv app rd-run -> 123 outcome-ok }T
+T{ 4 rd-bv rd-run -> 4 outcome-ok }T
+T{ outcome-ok rd-walk dw-outcome !  7 true rd-walk dw-made rd-walk dw-ok? -> 7 true }T
+T{ false rd-walk dw-made rd-walk dw-outcome @ -> 0 outcome-full }T
+T{ outcome-unknown rd-walk dw-outcome !  false rd-walk dw-made rd-walk dw-outcome @
+   -> 0 outcome-unknown }T
+\ lf-meta-app-head (meta-spine.fs): Lean's getAppFn, down the first parts.
+T{ 1 rd-bv 2 rd-bv app 3 rd-bv app lf-meta-app-head rd-leaf 6 rd-bv dup lf-meta-app-head = -> 1 true }T
 \ lf-fvar-mvar-tag? (core/mvar-leaves.fs, reuse-b): a free variable's and
 \ a metavariable's tag, no other tag from -2 to 40.
 : fm-others ( -- n ) 0 41 -2 do i lf-fvar-mvar-tag? - loop ;

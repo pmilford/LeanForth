@@ -12814,7 +12814,7 @@ reason = "review of fe1c-lnorm M1: the delayed step applies fun xs => value to t
 [[fault]]
 id = "fe-inst-second-pass-ignored"
 file = "src/front/mvars.fs"
-old = '''  mv-delays? if mv-spine-head mv-delay-rec dup if nip then else drop false then ;'''
+old = '''  mv-delays? if lf-meta-app-head mv-delay-rec dup if nip then else drop false then ;'''
 new = '''  drop false ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "review of fe1c-lnorm M1: an assigned head's beta result with a ready delayed metavariable at a head is returned as it is, where Lean's second pass puts its value in; it must answer unsupported"
@@ -13453,7 +13453,7 @@ reason = "FE1c: a function type that is no pi (a let variable, a metavariable) i
 [[fault]]
 id = "fe-infer-no-pi-accepted"
 file = "src/front/infer.fs"
-old = ''': if-no-pi ( type -- outcome ) if-head if-firm-or ;'''
+old = ''': if-no-pi ( type -- outcome ) lf-meta-app-head if-firm-or ;'''
 new = ''': if-no-pi ( type -- outcome ) drop outcome-unsupported ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a function expected (Lean throws) answers unsupported instead of invalid"
@@ -13493,7 +13493,7 @@ reason = "FE1c: a pi's sort leaves out its domains' levels (Type -> Nat would be
 [[fault]]
 id = "fe-infer-type-expected"
 file = "src/front/infer.fs"
-old = '''  if-head dup if-tag lf-tag-mvar = if drop outcome-unsupported exit then'''
+old = '''  lf-meta-app-head dup if-tag lf-tag-mvar = if drop outcome-unsupported exit then'''
 new = '''  drop outcome-unsupported exit'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a domain whose type is no sort, where Lean throws type expected, answers unsupported instead of invalid"
@@ -15439,8 +15439,8 @@ reason = "FE1c review M1: instantiate1 drops a full binder table and loses the k
 [[fault]]
 id = "fe-defeq-mvars-copy-drops-full"
 file = "src/front/mvars.fs"
-old = '''  over >r mv-pair-images r> lf-meta-rebuilt mv-refuse ;'''
-new = '''  over >r mv-pair-images r> lf-meta-rebuilt drop ;'''
+old = '''  over >r dw-part-images r> lf-meta-rebuilt mv-refuse ;'''
+new = '''  over >r dw-part-images r> lf-meta-rebuilt drop ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M1: instantiateMVars drops a full binder table and loses the kind"
 
@@ -15628,8 +15628,8 @@ reason = "FE1g-1: hypotheses share a line only when their types are one node, wh
 [[fault]]
 id = "fe-goal-let-depth-rule"
 file = "src/front/goal-print.fs"
-old = '''  over >r gp-images r> lf-let? if 1- 0 max then max 1+ gp-depth-most min ;'''
-new = '''  over >r gp-images r> drop max 1+ gp-depth-most min ;'''
+old = '''  over >r dw-part-images r> lf-let? if 1- 0 max then max 1+ gp-depth-most min ;'''
+new = '''  over >r dw-part-images r> drop max 1+ gp-depth-most min ;'''
 test = "$GFORTH tests/front/goals.fs"
 reason = "a let counts its type and body at the lambda's depth plus one, not the lambda's (Lean's approxDepth): two nested lets push a value past 254 (review N16)"
 

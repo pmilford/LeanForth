@@ -62,7 +62,7 @@ end-structure
 1 cells context-slab: ln-todo   \ levels still to flatten
 
 : ln-refuse ( outcome -- ) ln-state ln-dw dw-refuse ;
-: ln-made ( level true | false -- level ) 0= if outcome-full ln-refuse 0 then ;
+: ln-made ( level true | false -- level ) ln-state ln-dw dw-made ;
 : ln-succs ( level k -- level' ) 0 ?do lf-level-succ ln-made loop ;
 : ln-tag ( level -- tag ) lf-level-tag@ ;
 : ln-zero? ( level -- flag ) ln-tag lf-level-tag-zero = ;
@@ -93,11 +93,6 @@ end-structure
   0= swap 0= swap - ;
 : lf-meta-name-cmp ( a b -- n )
   0 -rot begin 2dup ln-going? while ln-keep ln-up repeat ln-ends ?dup if nip then ;
-\ A name each of whose components is valid (names.fs).
-: ln-limb-ok? ( id -- flag ) dup lf-name-valid? if lf-name-part-ok? else drop false then ;
-: ln-name-ok? ( id -- flag )
-  begin dup while dup ln-limb-ok? 0= if drop false exit then lf-name-prefix@ repeat
-  drop true ;
 
 \ normLt. ln-strip gives the bases and k1 - k2 (Lean's k1 < k2 is d 0<).
 : ln-strip ( l1 l2 -- b1 b2 d ) ld-offset >r swap ld-offset r> - >r swap r> ;
@@ -111,7 +106,7 @@ end-structure
 : ln-pairs< ( b1 b2 d -- flag true | l1 l2 false )
   >r 2dup ln-eq? if 2drop r> 0< true exit then r> drop ln-sides false ;
 : ln-names< ( b1 b2 -- flag )
-  ln-firsts 2dup ln-name-ok? swap ln-name-ok? and
+  ln-firsts 2dup lf-name-chain-ok? swap lf-name-chain-ok? and
   if lf-meta-name-cmp 0< else 2drop outcome-invalid ln-refuse false then ;
 : ln-leaves< ( b1 b2 d -- flag )
   >r 2dup ln-firsts = if 2drop r> 0< exit then r> drop
@@ -181,9 +176,8 @@ end-structure
 : ln-build ( node walk -- image )
   over ln-open? 0= if drop exit then over ln-offset >r
   over ld-base ln-max? if ln-images r> ln-max-image exit then ln-imax r> ln-succs ;
-: ln-walk ( -- walk )
-  ln-state ln-dw ['] ln-build over dw-build ! ['] ln-pending over dw-pending !
-  lf-level-count @ over dw-size ! ;
+' ln-build ' ln-pending 2constant ln-hooks
+: ln-walk ( -- walk ) ln-hooks ln-state ln-dw dw-on-levels ;
 : lf-meta-level-normalize ( level -- level' outcome )
   dup lf-level-root? 0= if drop -1 outcome-invalid exit then
   dup ln-open? if ln-walk dw-run else outcome-ok then ;

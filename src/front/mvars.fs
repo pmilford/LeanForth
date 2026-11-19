@@ -134,6 +134,7 @@ require ./dag-walk.fs
 require ../core/let-terms.fs
 require ./level-map.fs
 require ./instantiate.fs
+require ./meta-spine.fs
 require ./lctx-views.fs
 
 0 constant mv-natural
@@ -331,10 +332,6 @@ end-structure
 : mv-term-pending ( node walk -- child true | false )
   over lf-term-binary? if dw-want-parts exit then
   swap mv-value-of if swap dw-want else drop false then ;
-: mv-pair-images ( node walk -- i1 i2 )
-  over lf-term-first@ over dw-image >r swap lf-term-second@ swap dw-image r> swap ;
-: mv-walk ( build pending walk -- walk )
-  tuck dw-pending ! tuck dw-build ! lf-term-base lf-term-count @ + over dw-size ! ;
 : mv-target ( -- addr ) mctx mctx-target ;
 \ As Lean's occursCheck, a delayed metavariable leads on to its pending
 \ one (and that to its value).
@@ -350,9 +347,9 @@ end-structure
   mv-pending-of if swap dw-image else drop 0 then ;
 : mv-occurs-build ( node walk -- 0|1 )
   over mv-target @ = if 2drop 1 exit then
-  over lf-term-binary? if mv-pair-images or else mv-leaf-hit then ;
+  over lf-term-binary? if dw-part-images or else mv-leaf-hit then ;
 : lf-mvar-occurs? ( mvar term -- flag outcome )
-  swap mv-target ! ['] mv-occurs-build ['] mv-occurs-pending mctx mctx-walk mv-walk
+  swap mv-target ! ['] mv-occurs-build ['] mv-occurs-pending mctx mctx-walk dw-on-terms
   dw-run swap 0<> swap ;
 
 : mvl-first ( level -- child ) lf-level-slot node-first @ ;
@@ -370,9 +367,7 @@ end-structure
   swap mvl-value-of if swap dw-want else drop false then ;
 : mvl-pair-images ( node walk -- i1 i2 )
   over mvl-first over dw-image >r swap mvl-second swap dw-image r> swap ;
-: mvl-walk ( build -- walk )
-  mctx mctx-lwalk tuck dw-build ! ['] mvl-pending over dw-pending !
-  lf-level-count @ over dw-size ! ;
+: mvl-walk ( build -- walk ) ['] mvl-pending mctx mctx-lwalk dw-on-levels ;
 \ The level walk seeks the target, or with the target -1 an assignable
 \ metavariable (Lean's isLevelMVarAssignable: live, made at the
 \ context's levelAssignDepth or deeper), with -2 a stale one.
@@ -631,8 +626,7 @@ end-structure
 
 \ ---- Instantiation. Levels: a part that changes is rebuilt; an assigned
 \ metavariable is its value's image.
-: mvl-refuse ( outcome -- ) mctx mctx-lwalk dw-refuse ;
-: mvl-made ( new true | false -- level ) 0= if outcome-full mvl-refuse 0 then ;
+: mvl-made ( new true | false -- level ) mctx mctx-lwalk dw-made ;
 : mvl-same-pair? ( i1 i2 node -- i1 i2 flag )
   >r 2dup r@ mvl-second = swap r> mvl-first = and ;
 : mvl-pair-build ( node walk -- image )
@@ -672,14 +666,13 @@ end-structure
 : mv-unported ( -- -1 ) outcome-unsupported mv-refuse -1 ;
 \ (A refusal with ok changes nothing: mv-refuse also keeps a made image.)
 : mv-rebuild ( node walk -- image )
-  over >r mv-pair-images r> lf-meta-rebuilt mv-refuse ;
+  over >r dw-part-images r> lf-meta-rebuilt mv-refuse ;
 : mv-node-rebuild ( node -- image ) mv-twalk mv-rebuild ;
 : mv-made ( term true | false -- term ) room-result mv-refuse ;
 
 \ Spines, walking down the first parts; delayed heads ready for their
 \ step (mctx-delays: some delayed assignment's pending one is assigned).
 : mv-app? ( node -- flag ) lf-term-tag@ lf-tag-app = ;
-: mv-spine-head ( term -- head ) begin dup mv-app? while lf-term-first@ repeat ;
 : mv-assigned? ( head -- flag ) mv-value-of dup if nip then ;
 : mv-delay-rec ( head -- rec true | false )
   mv-of 0= if false exit then dup mvd-pending @ 0< if drop false exit then
@@ -724,12 +717,11 @@ end-structure
 : mv-inst-pending ( node walk -- child true | false )
   2dup mv-term-pending if nip nip true exit then
   over mv-app? if mv-app-pending else 2drop false then ;
-: mv-hole-pending ( node walk -- child true | false )
-  over lf-term-binary? if dw-want-parts else 2drop false then ;
 : mv-hole-build ( node walk -- 0|1 )
-  over lf-term-binary? if mv-pair-images or else drop lf-mvar? 1 and then ;
-: mv-holes? ( term -- flag outcome )
-  ['] mv-hole-build ['] mv-hole-pending mctx mctx-hwalk mv-walk dw-run swap 0<> swap ;
+  over lf-term-binary? if dw-part-images or else drop lf-mvar? 1 and then ;
+: mv-hole-walk ( term build -- flag outcome )
+  ['] dw-want-binary mctx mctx-hwalk dw-on-terms dw-run swap 0<> swap ;
+: mv-holes? ( term -- flag outcome ) ['] mv-hole-build mv-hole-walk ;
 
 \ mv-spine puts an application's argument images in mv-args, the last
 \ first (a_j is n - j there).
@@ -758,7 +750,7 @@ end-structure
 \ where a ready delayed metavariable is the spine head of f or of an
 \ argument (it gains arguments there): not ported.
 : mv-lands? ( term -- flag )
-  mv-delays? if mv-spine-head mv-delay-rec dup if nip then else drop false then ;
+  mv-delays? if lf-meta-app-head mv-delay-rec dup if nip then else drop false then ;
 : mv-args-land? ( -- flag ) false mv-args# 0 ?do i mv-args slab-at @ mv-lands? or loop ;
 : mv-headed ( term -- image ) lf-meta-head-beta mv-refuse ;
 : mv-beta-all ( node f -- image )
@@ -836,7 +828,7 @@ end-structure
   if drop false exit then mctx mctx-spine ! true ;
 : mv-inst-run ( term -- term' outcome )
   mv-any-delay mctx mctx-delays !
-  ['] mv-build ['] mv-inst-pending mv-twalk mv-walk dw-run ;
+  ['] mv-build ['] mv-inst-pending mv-twalk dw-on-terms dw-run ;
 : lf-instantiate-mvars ( term -- term' outcome )
   mv-spine-block 0= if drop -1 outcome-full exit then
   mv-inst-run mctx mctx-spine heap-release ;
@@ -859,9 +851,8 @@ end-structure
   dup lf-mvar? if mv-target @ lf-mvar-sees? else drop false then ;
 : mv-dep-build ( node walk -- 0|1 )
   over mv-dep-hit? if 2drop 1 exit then
-  over lf-term-binary? if mv-pair-images or else 2drop 0 then ;
-: mv-dep-walk ( term -- flag outcome )
-  ['] mv-dep-build ['] mv-hole-pending mctx mctx-hwalk mv-walk dw-run swap 0<> swap ;
+  over lf-term-binary? if dw-part-images or else 2drop 0 then ;
+: mv-dep-walk ( term -- flag outcome ) ['] mv-dep-build mv-hole-walk ;
 : lf-depends-on? ( term fvar -- flag outcome )
   swap lf-instantiate-mvars ok-then? 0= if nip false swap exit then
   swap mv-target ! mv-dep-walk ;

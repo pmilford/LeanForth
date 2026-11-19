@@ -9,3 +9,45 @@ old = ''': json-kind-at? ( index view kind -- flag ) >r json-kind-at r> = ;'''
 new = ''': json-kind-at? ( index view kind -- flag ) >r json-kind-at r> over = swap 0< or ;'''
 test = "$GFORTH tests/lib/json.fs"
 reason = "an index outside the tape reads as a token of every kind"
+
+# --- front/dag-walk.fs's shared walk words and meta-spine.fs's app head (tests/front/front.fs).
+
+[[fault]]
+id = "rd-dw-part-images-swapped"
+file = "src/front/dag-walk.fs"
+old = '''  over lf-term-second@ over dw-image >r swap lf-term-first@ swap dw-image r> ;'''
+new = '''  over lf-term-second@ over dw-image >r swap lf-term-first@ swap dw-image r> swap ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "a binary term's two part images come second first: an application's function and argument trade places"
+
+[[fault]]
+id = "rd-dw-made-no-refusal"
+file = "src/front/dag-walk.fs"
+old = '''  swap if drop else outcome-full swap dw-refuse 0 then ;'''
+new = '''  swap if drop else drop 0 then ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "a result the store had no room for reads as the image 0 and the walk goes on as ok"
+
+[[fault]]
+id = "rd-dw-on-levels-term-size"
+file = "src/front/dag-walk.fs"
+old = ''': dw-on-levels ( build pending walk -- walk ) dw-hooks lf-level-count @ over dw-size ! ;'''
+new = ''': dw-on-levels ( build pending walk -- walk ) dw-hooks lf-term-base lf-term-count @ + over dw-size ! ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "a level walk sized by the term store: levels beyond it are no node of the walk, or a walk reads past the level states"
+
+[[fault]]
+id = "rd-dw-want-binary-leaf"
+file = "src/front/dag-walk.fs"
+old = '''  over lf-term-binary? if dw-want-parts else 2drop false then ;'''
+new = '''  over lf-term-binary? 0= if dw-want-parts else 2drop false then ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "a leaf's fields are read as parts, and a node's parts are never visited"
+
+[[fault]]
+id = "rd-app-head-one-step"
+file = "src/front/meta-spine.fs"
+old = ''': lf-meta-app-head ( term -- head ) begin dup lf-meta-app? while lf-term-first@ repeat ;'''
+new = ''': lf-meta-app-head ( term -- head ) dup lf-meta-app? if lf-term-first@ then ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "the head of f a b is f a: one step down the spine only"

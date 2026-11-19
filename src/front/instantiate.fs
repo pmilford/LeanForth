@@ -103,9 +103,8 @@ end-structure
 : in-loose-build ( node walk -- range )
   over lf-annot? if swap lf-annot-child swap dw-image exit then
   over lf-term-binary? if in-loose-pair else drop in-leaf-range then ;
-: in-loose-walk ( -- walk )
-  in-state in-walk ['] in-loose-build over dw-build !
-  ['] in-loose-pending over dw-pending ! lf-term-base lf-term-count @ + over dw-size ! ;
+' in-loose-build ' in-loose-pending 2constant in-loose-hooks
+: in-loose-walk ( -- walk ) in-loose-hooks in-state in-walk dw-on-terms ;
 : lf-meta-loose ( term -- range outcome )
   dup lf-term-root? 0= if drop -1 outcome-invalid exit then
   dup in-range if nip outcome-ok else in-loose-walk dw-run then ;

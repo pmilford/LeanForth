@@ -128,21 +128,12 @@ end-structure
 \ ---- A let value's depth: Lean's approxDepth, a leaf 0, a node one more
 \ than its deepest part, at most 255; a let (its value, then a lambda of
 \ its type and body) counts its type and body at the lambda's depth.
-: gp-undone ( child walk -- child true | false )
-  over swap dw-done? if drop false else true then ;
-: gp-child ( node walk -- child true | false )
-  over lf-term-binary? 0= if 2drop false exit then
-  over lf-term-first@ over gp-undone if nip nip true exit then
-  swap lf-term-second@ swap gp-undone ;
-: gp-images ( node walk -- i1 i2 )
-  over lf-term-first@ over dw-image >r swap lf-term-second@ swap dw-image r> swap ;
 : gp-deeper ( node walk -- depth )
-  over >r gp-images r> lf-let? if 1- 0 max then max 1+ gp-depth-most min ;
+  over >r dw-part-images r> lf-let? if 1- 0 max then max 1+ gp-depth-most min ;
 : gp-depth-build ( node walk -- depth )
   over lf-term-binary? if gp-deeper else 2drop 0 then ;
-: gp-depth ( term -- depth outcome )
-  gp gp-walk ['] gp-depth-build over dw-build ! ['] gp-child over dw-pending !
-  lf-term-base lf-term-count @ + over dw-size ! dw-run ;
+' gp-depth-build ' dw-want-binary 2constant gp-depth-hooks
+: gp-depth ( term -- depth outcome ) gp-depth-hooks gp gp-walk dw-on-terms dw-run ;
 : gp-atomic? ( term -- flag ) lf-term-binary? 0= ;
 : gp-shown? ( value -- flag outcome )
   dup gp-atomic? if drop true outcome-ok exit then

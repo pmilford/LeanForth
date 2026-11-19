@@ -151,7 +151,6 @@ end-structure
 \ whnf's delta.
 lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-inerts
 : if-inert? ( term -- flag ) if-inerts lf-term-in? ;
-: if-head ( term -- head ) begin dup lf-meta-app? while lf-term-first@ repeat ;
 \ A constant no declaration has is not firm; one whose declaration could
 \ not be decoded passes that outcome on (full as full): lf-meta-firm-const?.
 : if-firm ( head -- flag outcome )
@@ -160,13 +159,13 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
 \ delta might go on, a refused decode passed on.
 : if-firm-or ( head -- outcome )
   if-firm ok-then? if if outcome-invalid else outcome-unsupported then then ;
-: if-no-pi ( type -- outcome ) if-head if-firm-or ;
+: if-no-pi ( type -- outcome ) lf-meta-app-head if-firm-or ;
 \ Where whnfCore leaves a definition at the head, Lean's whnfD unfolds it
 \ (inferAppType's whnf, getLevel's whnfD: outParam (Type) in HAdd.hAdd's
 \ binders; branch s2-tactics, with merge A's delta).
 \ (A declaration that could not be decoded passes its outcome on.)
 : if-unfolds? ( type -- flag outcome )
-  if-head dup if-tag lf-tag-constant = 0= if drop false outcome-ok exit then
+  lf-meta-app-head dup if-tag lf-tag-constant = 0= if drop false outcome-ok exit then
   lf-meta-firm-const? ok-then? if 0= outcome-ok else false swap then ;
 \ At least default transparency (withAtLeastTransparency .default,
 \ InferType.lean:229): all stays all.
@@ -203,7 +202,7 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
 \ A term, its head's type by xt ( head -- type outcome ).
 : if-body-by ( term xt -- type outcome )
   over lf-meta-app? 0= if execute exit then
-  over if-head swap execute ok-then? if if-app-of else nip no-result then ;
+  over lf-meta-app-head swap execute ok-then? if if-app-of else nip no-result then ;
 
 \ ---- Projections (inferProjType, InferType.lean:128): e.i of the
 \ structure S has the type of field i of S's one constructor applied to
@@ -315,7 +314,8 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
 \ metavariable Sort ?u.
 : if-sort? ( term -- flag ) if-tag lf-tag-symbolic-sort = ;
 : if-no-sort ( type -- outcome )
-  if-head dup if-tag lf-tag-mvar = if drop outcome-unsupported exit then if-firm-or ;
+  lf-meta-app-head dup if-tag lf-tag-mvar = if drop outcome-unsupported exit then
+  if-firm-or ;
 : if-sort-of ( T -- level outcome )
   dup if-sort? if lf-term-first@ outcome-ok else dup if-no-sort if-fail then ;
 : if-sort-level ( T -- level outcome )
@@ -349,7 +349,7 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
 \ the input that is no definition; false where delta might go on (a
 \ definition, or a constant the input does not hold); a head whose
 \ declaration could not be decoded passes that outcome on.
-: lf-whnf-firm? ( term -- flag outcome ) if-head if-firm ;
+: lf-whnf-firm? ( term -- flag outcome ) lf-meta-app-head if-firm ;
 \ Lean's getLevel (Meta/InferType.lean): the level u of a type's type,
 \ which whnf must make Sort u; the cases as inferForallType's above.
 : lf-get-level ( type -- level outcome )

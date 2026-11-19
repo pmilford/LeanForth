@@ -60,16 +60,14 @@ end-structure
 
 \ Levels: Lean's substParams. A level's parts are visited when it holds
 \ a parameter (hasParam); a named parameter is its level.
-: lp-undone ( child walk -- child true | false )
-  over swap dw-done? if drop false else true then ;
 : lp-arity ( level -- n )
   dup ls-succ? if drop 1 else ls-tag lf-level-binary-tag? 2 and then ;
 : lp-second-pending ( node walk n -- child true | false )
-  1 = if 2drop false else swap lf-level-second@ swap lp-undone then ;
+  1 = if 2drop false else swap lf-level-second@ swap dw-want then ;
 : lp-open-arity ( level -- n ) dup lf-level-params? swap lp-arity and ;
 : lp-l-pending ( node walk -- child true | false )
   over lp-open-arity ?dup 0= if 2drop false exit then
-  >r over lf-level-first@ over lp-undone if nip nip r> drop true exit then
+  >r over lf-level-first@ over dw-want if nip nip r> drop true exit then
   r> lp-second-pending ;
 : lp-lrefuse ( outcome -- ) lp-state lp-ldw dw-refuse ;
 : lp-l-result ( w outcome -- w ) dup ok? if drop else lp-lrefuse then ;
@@ -93,9 +91,8 @@ end-structure
   over ls-tag case lf-level-tag-param of drop lp-l-param endof
     lf-level-tag-succ of lp-l-succ endof  lf-level-tag-max of lp-l-max endof
     lf-level-tag-imax of lp-l-imax endof  >r drop r> endcase ;
-: lp-lwalk ( -- walk )
-  lp-state lp-ldw ['] lp-l-build over dw-build ! ['] lp-l-pending over dw-pending !
-  lf-level-count @ over dw-size ! ;
+' lp-l-build ' lp-l-pending 2constant lp-l-hooks
+: lp-lwalk ( -- walk ) lp-l-hooks lp-state lp-ldw dw-on-levels ;
 : lp-level ( level -- level' outcome )
   dup lf-level-params? if lp-lwalk dw-run else outcome-ok then ;
 : lp-count-ok? ( n -- flag ) 0< 0= ;
@@ -107,24 +104,19 @@ end-structure
 \ shows no parameter.
 : lp-refuse ( outcome -- ) lp-state lp-dw dw-refuse ;
 : lp-fixed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else false then ;
-: lp-parts-pending ( node walk -- child true | false )
-  over lf-term-first@ over lp-undone if nip nip true exit then
-  swap lf-term-second@ swap lp-undone ;
 : lp-pending ( node walk -- child true | false )
   over dup lp-fixed? swap lf-term-binary? 0= or
-  if 2drop false else lp-parts-pending then ;
+  if 2drop false else dw-want-parts then ;
 
 \ Images of a binary node: rebuilt, with its binder's name, when a part
 \ changes.
-: lp-images ( node walk -- i1 i2 )
-  over lf-term-first@ over dw-image -rot swap lf-term-second@ swap dw-image ;
 : lp-same? ( i1 i2 node -- i1 i2 flag )
   >r 2dup r@ lf-term-second@ = swap r> lf-term-first@ = and ;
 : lp-named ( new old -- new ) lf-meta-named lp-refuse ;
 : lp-rebuild ( i1 i2 node -- image )
   dup >r lf-term-tag@ lf-term-binary if r> lp-named exit then
   r> drop outcome-full lp-refuse -1 ;
-: lp-parts ( node walk -- i1 i2 node kept? ) over >r lp-images r@ lp-same? r> swap ;
+: lp-parts ( node walk -- i1 i2 node kept? ) over >r dw-part-images r@ lp-same? r> swap ;
 : lp-pair-build ( node walk -- image ) lp-parts if nip nip else lp-rebuild then ;
 
 \ A Sort's level and a constant's universe arguments get their images
@@ -140,9 +132,8 @@ end-structure
 : lp-build ( node walk -- image )
   over lp-fixed? if drop exit then
   over lf-term-binary? if lp-pair-build else drop lp-leaf-build then ;
-: lp-walk ( -- walk )
-  lp-state lp-dw ['] lp-build over dw-build ! ['] lp-pending over dw-pending !
-  lf-term-base lf-term-count @ + over dw-size ! ;
+' lp-build ' lp-pending 2constant lp-hooks
+: lp-walk ( -- walk ) lp-hooks lp-state lp-dw dw-on-terms ;
 \ No names: the term as it is (Lean's test of empty lists; the Level
 \ version has none and simplifies even then).
 : lp-run ( term -- term' outcome ) lp-count if lp-walk dw-run else outcome-ok then ;

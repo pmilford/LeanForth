@@ -454,7 +454,7 @@ lf-lib set-current
 \ The item count of the token at any index, when it is a container of
 \ this kind (json-object or json-array).
 : json-items-of ( index kind view -- n true | false )
-  >r over r@ json-kind-at = if r> json-items@ true else r> 2drop false then ;
+  swap >r 2dup r> json-kind-at? if json-items@ true else 2drop false then ;
 \ The index after the value at index, skipping a container's contents.
 : json-next ( index view -- index' )
   over swap json-token dup token-kind @ json-array >
