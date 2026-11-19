@@ -9,7 +9,7 @@ AWKWARD below) is printed back as Forth source, in another layout (calls
 and keywords in upper or mixed case, tabs, comments, several instructions
 to a line, literals with leading zeros or in Forth-2012's # $ % 'c' forms;
 a version's IR name, show'1, as a name of its own, which gives the same
-IR), run in correctness mode by both designs, and must give the
+IR), run in correctness mode by the mode shift, and must give the
 same IR apart from the locations and the source line. AWKWARD uses names
 that Gforth 1.0 reads in other syntaxes (->x, "x", forth:dup), names with
 odd characters, a name of 31 characters, and Gforth words that Forth-2012
@@ -26,10 +26,9 @@ BEGIN/WHILE/REPEAT nested up to three deep, EXIT, comments and random case
 and spacing; a fifth of them carry one planted mistake (an unknown word, a
 bad literal, a structure out of place, a name too long, a redefinition, a
 character outside ASCII ...; a redefinition and the literals $10, 'a' and
-2147483648, which IR 0.2 accepts). The mode shift and the separate
-vocabulary must write the same lines and give the same verdict on every
-one, and today's reader too but for the differences verify_check.py's rules
-explain. Finite tests on the Gforth that GFORTH names, not a proof.
+2147483648, which IR 0.2 accepts). The mode shift must write the same
+lines and give the same verdict as today's reader on every one, but for
+the differences verify_check.py's rules explain. Finite tests on the Gforth that GFORTH names, not a proof.
 """
 import argparse
 import os
@@ -182,17 +181,12 @@ def round_trip(gforth):
         results = verify_check.run_driver(gforth, entries, directory)
     problems = []
     for n, (name, ir) in enumerate(wanted):
-        for who in ("NEW", "ALIAS"):
-            lines, verdict = results[n][who]
-            if verdict[0] != 0 or stripped(lines) != stripped(ir.splitlines()):
-                problems.append(f"round trip {name} ({who}): {verdict}\n" +
-                                "\n".join(lines[-3:]))
+        lines, verdict = results[n]["NEW"]
+        if verdict[0] != 0 or stripped(lines) != stripped(ir.splitlines()):
+            problems.append(f"round trip {name}: {verdict}\n" + "\n".join(lines[-3:]))
     for n, text in enumerate(REFUSED, len(wanted)):
-        for who in ("NEW", "ALIAS"):
-            if results[n][who][1][0] == 0:
-                problems.append(f"accepted ({who}): {text!r}")
-        if results[n]["NEW"] != results[n]["ALIAS"]:
-            problems.append(f"the designs differ on {text!r}")
+        if results[n]["NEW"][1][0] == 0:
+            problems.append(f"accepted: {text!r}")
     return problems, len(wanted), len(REFUSED)
 
 
@@ -317,9 +311,9 @@ def random_programs(gforth, seed, count):
         outcomes[r["NEW"][1][:2]] = outcomes.get(r["NEW"][1][:2], 0) + 1
         rule = "identical" if r["OLD"] == r["NEW"] else verify_check.intended(r["OLD"], r["NEW"])
         rules[rule] = rules.get(rule, 0) + 1
-        if rule is None or r["NEW"] != r["ALIAS"]:
+        if rule is None:
             problems.append(f"program {n} differs:\n{text.decode('latin-1')}\n"
-                            f"  old {r['OLD']}\n  new {r['NEW']}\n  alias {r['ALIAS']}")
+                            f"  old {r['OLD']}\n  new {r['NEW']}")
         if r["depth"] != 0:
             problems.append(f"program {n}: data stack depth {r['depth']}")
     return problems, outcomes, rules
@@ -341,9 +335,9 @@ def main():
                     for (o, w), v in sorted(outcomes.items()))
     agree = ", ".join(f"{k or 'unexplained'} {v}" for k, v in sorted(rules.items(),
                                                                        key=str))
-    print(f"program words round trip: {trips} IR files identical in both designs, "
+    print(f"program words round trip: {trips} IR files identical, "
           f"{refused} sources refused; {args.programs} random programs (seed {args.seed}; "
-          f"{mix}): both designs identical, against today's reader {agree}; "
+          f"{mix}): against today's reader {agree}; "
           f"{len(random_problems)} problems")
     return 1 if problems else 0
 

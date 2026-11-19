@@ -14,7 +14,11 @@ was answered the same day: "If we have both already prototyped, Keep
 working in both. With precidence on mode shift" — the portable mode shift
 (b2) is built first and is the primary design; the separate vocabulary is
 kept working beside it, sharing the words' actions, and both must give the
-same IR. Proposed the same day, answering the owner's decision
+same IR. **The separate vocabulary was retired** on 2026-11-18
+([decisions](../project/OWNER_DECISIONS.md#decisions-of-2026-11-18-morning-page)) as a superseded second design: `verify-alias.fs`, its
+tests and its two planted faults were removed, its reason 27 is not reused,
+and it remains in the repository's history; the mode shift is the only
+design. Proposed the same day, answering the owner's decision
 "[Program correctness the Forth way: words in two modes](../project/OWNER_DECISIONS.md#gate-answers-and-working-guidelines-2026-11-03)",
 which paused the [parser] gate of today's program reader (plan task
 2.5.3). It changes how Forth source becomes the [program IR](../programming/PROGRAM_IR.md);

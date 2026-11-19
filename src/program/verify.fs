@@ -16,17 +16,17 @@
 \ SEARCH-WORDLIST gives now must be the one the table kept for that name
 \ when verify-semantics.fs loaded. So a standard word redefined after the
 \ program words loaded and before the run is refused ("a standard word
-\ redefined before the run"), which the separate vocabulary cannot
-\ notice; but not one redefined before they loaded, nor, on Gforth 0.7.3,
-\ which gives every compile-only word (IF, THEN, ; ...) one shared token,
-\ a compile-only word redefined after (tests/program/verify.fs shows
-\ both). The check concerns only the verifying session: no host word runs
-\ there, and run mode is another Forth, so a tampered host stays an
-\ assumption. The name is part of the identity because of that shared
-\ token. A reserved word (outside IR 0.2) is known by its name alone. A
-\ host word with no verification semantics, LeanForth's own included, is
-\ refused as unknown; no host word ever runs, and the host converts no
-\ number, so no recognizer of Gforth 1.0 acts. The file's own words, every
+\ redefined before the run"); but not one redefined before they loaded,
+\ nor, on Gforth 0.7.3, which gives every compile-only word (IF, THEN, ;
+\ ...) one shared token, a compile-only word redefined after
+\ (tests/program/verify.fs shows both). The check concerns only the
+\ verifying session: no host word runs there, and run mode is another
+\ Forth, so a tampered host stays an assumption. The name is part of the
+\ identity because of that shared token. A reserved word (outside IR 0.2)
+\ is known by its name alone. A host word with no verification semantics,
+\ LeanForth's own included, is refused as unknown; no host word ever runs,
+\ and the host converts no number, so no recognizer of Gforth 1.0 acts.
+\ The file's own words, every
 \ version of them, live in the file's word list, never in FORTH-WORDLIST,
 \ so they can neither trigger the identity check nor hide a host word.
 \

@@ -39,7 +39,6 @@ lf-walk-room context-walk2: lf-pp-scan-walk
 \ (or, as the root, a token), so Foo.«a.b» is never Foo.a.b and no
 \ bidirectional control reaches the sink raw; one the heap has no room to
 \ escape marks the pool full.
-: lf-pp-full! ( -- ) true lf-pjob lf-pjob-full ! ;
 : lf-pp-shown-to ( c-addr u flag xt -- )
   swap if execute else drop 2drop lf-pp-full! then ;
 : lf-pp-part ( id xt -- )

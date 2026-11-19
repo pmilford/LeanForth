@@ -12,8 +12,11 @@ scripts/export-elab.sh runs this after scripts/export_elab.lean, with pinned
 Lean, has written RAW for the modules of the Lean export EXPORT (made by
 scripts/export.sh, so with its manifest beside it). It writes OUTPUT, the
 elaboration data LeanForth reads (`leanforth check --elab-data OUTPUT`;
-src/front/elab-data.fs), format version 3, documented in
-docs/programming/ELABORATION_DATA.md and schemas/elab-data-3.schema.json:
+src/front/elab-data.fs), format version 3, or 3.1 when a smart-unfolding
+body holds metadata LeanForth does not carry (Lean's save_info and
+noImplicitLambda annotations, Mathlib's TermCongr hole: each written as
+an inert node of its kind, which the front end refuses to use), documented
+in docs/programming/ELABORATION_DATA.md and schemas/elab-data-3.schema.json:
 
   line 1    {"elab_data": {...}}: the format and its version, the export's
             SHA-256 (as its manifest records it), the Lean version and
@@ -242,10 +245,54 @@ BINDER_MEMBERS = {"name", "info", "type", "body"}
 LET_MEMBERS = {"name", "type", "value", "body", "non_dep"}
 INFOS = ("default", "implicit", "strict", "inst")
 ANNOTATIONS = (["sunfoldMatch"], ["sunfoldMatchAlt"], ["borrowed"])
+# Format 3.1 (docs/design/MATHLIB_FRONT.md O1): three kinds of metadata
+# LeanForth does not carry, each written as an inert node of its kind, which
+# the front end refuses to use: Lean's save_info and noImplicitLambda
+# annotations (one entry, true) and Mathlib's TermCongr hole (its two private
+# keys, a boolean and a number). Each entry: (key, the value's form).
+CONGR = ["_private", "Mathlib", "Tactic", "TermCongr", 0, "Mathlib", "Tactic", "TermCongr"]
+INERT = {"save_info": ((["save_info"], "true"),),
+         "noImplicitLambda": ((["noImplicitLambda"], "true"),),
+         "congrHole": ((CONGR + ["congrHoleForLhsKey"], "bool"),
+                       (CONGR + ["congrHoleIndex"], "nat"))}
+FORMAT_INERT = "3.1"   # the format version of a file holding an inert node (a
+                       # text: LeanForth's JSON formats hold no fractions)
+INERT_NODE = '{"inert":'   # its text in the data (a string's quotes are escaped)
 
 
 def below(value, limit):
     return natural(value) and value < limit
+
+
+def binder_name(value):
+    """A binder's name as a tuple of parts: a name, or Lean's anonymous
+    name, [] (a binder of Mathlib's Ring.ExProd.evalIntCast has one)."""
+    return () if value == [] else name_of(value)
+
+
+def entry_fits(entry, key, form):
+    """Whether an mdata entry is key with a value of the form given."""
+    if not (isinstance(entry, list) and len(entry) == 2 and isinstance(entry[1], dict)
+            and len(entry[1]) == 1 and name_of(entry[0]) == tuple(key)):
+        return False
+    (kind, value), = entry[1].items()
+    if form == "nat":
+        return kind == "nat" and isinstance(value, str) and DIGITS.fullmatch(value) is not None
+    return kind == "bool" and (value is True if form == "true" else isinstance(value, bool))
+
+
+def inert_kind(entries):
+    """The kind of inert metadata an mdata node's entries are, or None."""
+    return next((kind for kind, form in INERT.items()
+                 if isinstance(entries, list) and len(entries) == len(form)
+                 and all(entry_fits(e, k, f) for e, (k, f) in zip(entries, form))), None)
+
+
+def annotation(entries):
+    """Whether an mdata node's entries are one of S2's annotations, true."""
+    return (isinstance(entries, list) and len(entries) == 1 and isinstance(entries[0], list)
+            and len(entries[0]) == 2 and entries[0][0] in ANNOTATIONS
+            and entries[0][1] == {"bool": True} and entries[0][1]["bool"] is True)
 
 
 def check_level(level, i, params):
@@ -279,10 +326,10 @@ def node_names(node, i, levels):
         elif form == "app" and isinstance(part, list) and len(part) == 2:
             refs = part
         elif form in ("lam", "forall") and isinstance(part, dict) and set(part) == BINDER_MEMBERS:
-            name_of(part["name"])
+            binder_name(part["name"])
             refs = [part["type"], part["body"]] if part["info"] in INFOS else None
         elif form == "let" and isinstance(part, dict) and set(part) == LET_MEMBERS:
-            name_of(part["name"])
+            binder_name(part["name"])
             ok = isinstance(part["non_dep"], bool)
             refs = [part["type"], part["value"], part["body"]] if ok else None
         elif form == "lit" and isinstance(part, str) and DIGITS.fullmatch(part):
@@ -292,10 +339,7 @@ def node_names(node, i, levels):
         elif form == "proj" and isinstance(part, dict) and set(part) == {"struct", "idx", "expr"}:
             refs = [part["expr"]] if natural(part["idx"]) else None
         elif form == "mdata" and isinstance(part, dict) and set(part) == {"entries", "expr"}:
-            entries = part["entries"]
-            ok = (isinstance(entries, list) and len(entries) == 1 and isinstance(entries[0], list)
-                  and len(entries[0]) == 2 and entries[0][0] in ANNOTATIONS
-                  and entries[0][1] == {"bool": True} and entries[0][1]["bool"] is True)
+            ok = annotation(part["entries"]) or inert_kind(part["entries"]) is not None
             refs = [part["expr"]] if ok else None
         if refs is not None and all(below(k, i) for k in refs):
             return [(name_of(part["struct"]), "type")] if form == "proj" else []
@@ -452,6 +496,17 @@ def foreign_body(body, decls):
     return not all(name in decls for name, _ in names)
 
 
+def written_node(node):
+    """A node as the data writes it: inert metadata as an inert node."""
+    kind = inert_kind(node["mdata"]["entries"]) if "mdata" in node else None
+    return node if kind is None else {"inert": {"expr": node["mdata"]["expr"], "key": kind}}
+
+
+def written(kind, body):
+    """A kept record as the data writes it."""
+    return dict(body, nodes=[written_node(n) for n in body["nodes"]]) if kind == "sunfold" else body
+
+
 def finish(raw, export):
     """The text of the elaboration data, the records left out of each kind
     and the smart-unfolding bodies kept that name what the export lacks."""
@@ -470,9 +525,10 @@ def finish(raw, export):
     left = {k: sum(1 for x, _ in records if x == k) for k in RAW_KINDS}
     for kind, _ in keep:
         left[kind if kind != "instance_left_out" else "instance"] -= 1
-    lines = sorted((KINDS.index(k), text({k: b})) for k, b in keep)
+    lines = sorted((KINDS.index(k), text({k: written(k, b)})) for k, b in keep)
     body = "".join(line + "\n" for _, line in lines)
-    head = {"elab_data": {"export_sha256": digest, "format": FORMAT, "format_version": VERSION,
+    version = FORMAT_INERT if INERT_NODE in body else VERSION
+    head = {"elab_data": {"export_sha256": digest, "format": FORMAT, "format_version": version,
                           "lean_githash": LEAN_GITHASH, "lean_version": LEAN_VERSION,
                           "modules": modules,
                           "records": {k: sum(1 for x, _ in keep if x == k) for k in KINDS},
@@ -512,11 +568,13 @@ def main(argv=None):
     write(args.output, data)
     if args.bind:
         bind(args.export, data)
-    counts = json.loads(data.split("\n", 1)[0])["elab_data"]["records"]
+    head = json.loads(data.split("\n", 1)[0])["elab_data"]
+    counts, version = head["records"], head["format_version"]
     print(f"{args.output}: " + ", ".join(f"{counts[k]} {k}" for k in KINDS)
           + "; left out (not declarations of the export): "
           + ", ".join(f"{left_out_counts[k]} {k}" for k in RAW_KINDS)
-          + f"; {foreign} sunfold bodies naming what the export lacks")
+          + f"; {foreign} sunfold bodies naming what the export lacks"
+          + f"; {data.count(INERT_NODE)} inert markers (format {version})")
     return 0
 
 

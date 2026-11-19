@@ -686,7 +686,7 @@ test: test-program-ir
 test-differential: reference-program-ir
 
 # The program words in two modes (ADR 0019; docs/programming/PROGRAM_IR.md):
-# their library, the mode shift and the separate vocabulary, their
+# their library, the mode shift, its
 # cross-check against today's reader, round trip and random programs.
 # Gforth and Python 3 only.
 test-program-verify:

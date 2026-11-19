@@ -524,8 +524,8 @@
    "src/author/form.fs:lfa-store-limit",
    "src/front/mvars.fs:mv-limit"
   ],
-  "tokens": 6,
-  "reason": "planned: 9.4.8k front batch: one store.fs word store-heap-open ( room width store -- outcome ), a heap store limited only by the address space, for mvars.fs mv-make/mv-limit, syntax.fs, tactic-syntax.fs, core/local-context.fs and author form.fs, scopes.fs and values.fs (store.fs was on the lib-tidy branch during reuse-front-a2)"
+  "reason": "planned: 9.4.8k front batch: one store.fs word store-heap-open ( room width store -- outcome ), a heap store limited only by the address space, for mvars.fs mv-make/mv-limit, syntax.fs, tactic-syntax.fs, core/local-context.fs and author form.fs, scopes.fs and values.fs (store.fs was on the lib-tidy branch during reuse-front-a2)",
+  "tokens": 6
  },
  "3a7e8de14c92": {
   "copies": 3,
@@ -672,16 +672,6 @@
   ],
   "reason": "false positive: the difference of two fields, different records",
   "tokens": 7
- },
- "4c5832d9a918": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/program/verify-alias.fs:pv-gap-scan",
-   "src/program/verify-semantics.fs:pv-reserve-all"
-  ],
-  "reason": "false positive: a token loop on lfa-next-token, each with its own step",
-  "tokens": 8
  },
  "50c4f8f07dd3": {
   "copies": 2,
@@ -916,16 +906,6 @@
   ],
   "reason": "false positive: front-end Nat offset and kernel whnf rebuild an application in the same shape, different stores and meanings",
   "tokens": 8
- },
- "631a9f55bad7": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/core/names.fs:lf-name-find-num",
-   "src/core/names.fs:lf-name-find-str"
-  ],
-  "reason": "planned: 9.4.8k, lib/outcome.fs's find? from the s1-synth-b re-check (one search with the match test as its xt)",
-  "tokens": 18
  },
  "63b55fabdfc5": {
   "copies": 2,
@@ -1427,16 +1407,6 @@
   "reason": "false positive: a field of a record or 0, different records",
   "tokens": 8
  },
- "8e488f6efdbb": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/program/ir-reader.fs:ir-unreadable",
-   "src/program/verify-alias.fs:pv-gap"
-  ],
-  "reason": "false positive: three different words in a row",
-  "tokens": 6
- },
  "8e4e15a62296": {
   "copies": 2,
   "kind": "shape",
@@ -1508,16 +1478,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 10
- },
- "948b53aef903": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/core/constant-references.fs:lf-cref-forget",
-   "src/core/terms.fs:lf-term-forget"
-  ],
-  "reason": "family, table-driven later: the term, level and constant-reference stores (terms.fs, levels.fs, constant-references.fs) keep parallel interfaces over their own store, table and columns; one store-family record would serve them (9.4.8k follow-up 4)",
-  "tokens": 7
  },
  "9543c2f4d860": {
   "copies": 2,
@@ -1664,10 +1624,9 @@
   "tokens": 6
  },
  "a53c96283e2c": {
-  "copies": 3,
+  "copies": 2,
   "kind": "shape",
   "members": [
-   "src/front/mvars.fs:mv-hole-pending",
    "src/front/whnf.fs:wc-project",
    "src/program/program-depth.fs:lf-depth-storage?"
   ],
@@ -1819,8 +1778,8 @@
   "members": [
    "src/cli/leanforth.fs:cli-fed-report",
    "src/cli/leanforth.fs:cli-reexported",
-   "src/core/names.fs:lf-name-ops",
    "src/core/names.fs:lf-name-part?",
+   "src/core/names.fs:lf-name-ops",
    "src/front/elab-app.fs:ea-strict",
    "src/front/instantiate.fs:in-leaf",
    "src/front/tactic-basic.fs:lfb-types.",
@@ -1830,14 +1789,14 @@
    "src/kernel/environment.fs:lf-env-origin",
    "src/kernel/mixed-infer.fs:lf-minfer-signature",
    "src/kernel/whnf.fs:lf-whnf-proj-call",
-   "src/present/log-view.fs:lf-lv-name-id",
-   "src/present/log-view.fs:lf-lv-name-of-node",
-   "src/present/log-view.fs:lf-lv-part-here",
    "src/present/log-view.fs:lf-lv-spaces",
+   "src/present/log-view.fs:lf-lv-part-here",
+   "src/present/log-view.fs:lf-lv-name-of-node",
+   "src/present/log-view.fs:lf-lv-name-id",
    "src/present/print-job.fs:lf-pp-mode",
    "src/program/ir-run.fs:irx-lit",
-   "src/program/verify-semantics.fs:pv-call",
    "src/program/verify-semantics.fs:pv-lit",
+   "src/program/verify-semantics.fs:pv-call",
    "src/program/verify-semantics.fs:pv-prim"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
@@ -1894,12 +1853,11 @@
   "tokens": 7
  },
  "bdc10859317a": {
-  "copies": 4,
+  "copies": 3,
   "kind": "shape",
   "members": [
    "src/front/elab-pending.fs:ep-found",
    "src/front/mvars.fs:mv-pair-build",
-   "src/front/mvars.fs:mv-build",
    "src/kernel/level-substitute.fs:lf-lsubst-dispatch"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
@@ -2619,11 +2577,10 @@
   "tokens": 6
  },
  "f139ab43a505": {
-  "copies": 4,
+  "copies": 3,
   "kind": "shape",
   "members": [
    "src/cli/leanforth.fs:cli-argument",
-   "src/present/name-text.fs:nt-str",
    "src/front/level-simp.fs:lm-subsumes",
    "src/import/feed.fs:feed-joined"
   ],

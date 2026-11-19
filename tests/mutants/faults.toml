@@ -1991,13 +1991,14 @@ new = '''  false if ir-why-unclosed ir-invalid exit then'''
 test = "$GFORTH tests/program/ir-reader.fs"
 reason = "a file that ends inside a definition is read as complete"
 
-# --- program words in two modes (src/program/verify*.fs, ADR 0019) ---------
-# The four faults of ADR 0019's prototype, then the gap check, a primitive's
-# effect, identities, number names, isolation, streaming and more; the
-# review rvPW's surviving faults are here too (re-targeted or listed as
-# equivalent). verify.fs holds the golden files, both designs' own checks
-# and the host oracle for number names; verify_check.py compares both
-# designs with each other and with today's reader.
+# --- program words in correctness mode (src/program/verify*.fs, ADR 0019) --
+# The four faults of ADR 0019's prototype, then a primitive's effect,
+# identities, number names, isolation, streaming and more; the review
+# rvPW's surviving faults are here too (re-targeted or listed as
+# equivalent). verify.fs holds the golden files, the mode shift's own
+# checks and the host oracle for number names; verify_check.py compares
+# the mode shift with today's reader. The separate vocabulary's two faults
+# (the gap check) went with verify-alias.fs, retired on 2026-11-18.
 
 [[fault]]
 id = "pv-else-as-then"
@@ -2005,7 +2006,7 @@ file = "src/program/verify-semantics.fs"
 old = ''': pv-else ( -- ) pv-inside pv-frame-if pv-frame-else pv-retag s" else" pv-beside ;'''
 new = ''': pv-else ( -- ) pv-inside pv-frame-if pv-frame-else pv-retag s" then" pv-beside ;'''
 test = "$GFORTH tests/program/verify.fs"
-reason = "ELSE is written as then: examples.fs's golden IR (lf-gcd) differs, in both designs"
+reason = "ELSE is written as then: examples.fs's golden IR (lf-gcd) differs"
 quick = true
 
 [[fault]]
@@ -2031,22 +2032,6 @@ old = '''31 constant pv-name-max          \ longest definition name'''
 new = '''99 constant pv-name-max          \ longest definition name'''
 test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
 reason = "a name of more than 31 characters is accepted, unlike today's reader"
-
-[[fault]]
-id = "pv-gap-values-unchecked"
-file = "src/program/verify-alias.fs"
-old = ''': pv-host-value ( x i -- ) >r s>d r> pv-gap-value 2@ d= 0= pv-host-literal? ;'''
-new = ''': pv-host-value ( x i -- ) 2drop ;'''
-test = "$GFORTH tests/program/verify.fs"
-reason = "the separate vocabulary takes the host's cells without comparing them with the text"
-
-[[fault]]
-id = "pv-gap-any-token"
-file = "src/program/verify-alias.fs"
-old = '''  2dup pv-token! pv-literal? 0= pv-why-unknown pv-?fail 2dup pv-gap-push pv-lit ;'''
-new = '''  2dup pv-token! pv-literal? 0= if 0 0 then 2dup pv-gap-push pv-lit ;'''
-test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
-reason = "the gap check reads any token as a literal: the separate vocabulary then disagrees with the mode shift"
 
 [[fault]]
 id = "pv-max-effect"
@@ -2146,6 +2131,31 @@ test = "$GFORTH tests/lib/text-run.fs"
 reason = "run-settings-restore leaves BASE as the run set it"
 
 [[fault]]
+id = "pv-design-handler-skipped"
+file = "src/program/verify-runner.fs"
+old = '''  dup pv-settled? if drop exit then ['] pv-design-handles pv-try
+  dup pv-settled?'''
+new = '''  dup pv-settled?'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "Forth review L2 of small-fixes-1118: the runner never asks the design's THROW handler, so a diagnostic it would record (full) becomes interrupted"
+
+[[fault]]
+id = "pv-rethrow-ends-ok"
+file = "src/program/verify-runner.fs"
+old = '''  dup pv-settled? if drop exit then ['] pv-interrupted pv-try drop ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "a design's THROW handler that throws again leaves the run ok, instead of stopped as interrupted"
+
+[[fault]]
+id = "pv-file-word-runs"
+file = "src/program/verify.fs"
+old = ''': pv-not-ours ( index -- ) drop pv-why-interrupted pv-fail-here ;'''
+new = ''': pv-not-ours ( index -- ) drop ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "a word of the file run by anyone but the verifier does nothing, instead of refusing"
+
+[[fault]]
 id = "pv-run-while-compiling"
 file = "src/program/verify-runner.fs"
 old = ''': pv-not-compiling ( -- ) state @ pv-why-compiling pv-?fail-here ;'''
@@ -2169,7 +2179,7 @@ old = '''  depth pv-floor @ <> pv-why-interrupted pv-?fail-here ;'''
 new = '''  ;'''
 test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
 reason = "rvPW L2: the data stack's depth is not checked after each line"
-equivalent = "defence in depth: the mode shift's host never pushes a value, and the separate vocabulary's gap check takes off every cell the host pushed before the line ends, so no input reaches the check"
+equivalent = "defence in depth: the mode shift's host never pushes a value, so no input reaches the check"
 
 [[fault]]
 id = "pv-recursion-accepted"
@@ -2181,12 +2191,20 @@ reason = "a word that calls itself with no earlier version is written as a recur
 
 [[fault]]
 id = "pv-reserved-ignored"
+file = "src/program/verify.fs"
+old = '''  over pv-entry-kind @ pv-kind-reserved = pv-why-not-ir pv-?fail'''
+new = ''''''
+test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
+reason = "a Forth word outside IR 0.1 (CELLS, @, DO ...) is not refused as such, so its IR means something else (re-targeted 2026-11-18 to the mode shift's own refusal; pv-perform's arm is fault pv-perform-reserved-written)"
+quick = true
+
+[[fault]]
+id = "pv-perform-reserved-written"
 file = "src/program/verify-semantics.fs"
 old = '''    pv-kind-reserved of drop pv-why-not-ir pv-fail endof'''
 new = '''    pv-kind-reserved of drop endof'''
-test = "$GFORTH tests/program/verify.fs && python3 tests/program/verify_check.py"
-reason = "a Forth word outside IR 0.1 (CELLS, @, DO ...) is skipped instead of refused, so its IR means something else"
-quick = true
+test = "$GFORTH tests/program/verify.fs"
+reason = "Forth review L1 of small-fixes-1118: a reserved entry handed to pv-perform is skipped instead of refused (tested with a design whose line word calls pv-perform on CELLS)"
 
 [[fault]]
 id = "pv-literal-too-large"
@@ -2884,7 +2902,7 @@ id = "cli-spent-context-ignored"
 file = "src/cli/check-run.fs"
 old = '''  lf-env-all-final? ck-faulted? 0= and flag>outcome ;'''
 new = '''  lf-env-all-final? flag>outcome ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_5_thrown ExitCodes.test_5_stopped_mid_run"
 reason = "a run whose last check threw ends ok: the report says run ok and stopped (review rvCLI2 L1)"
 
 [[fault]]
@@ -3039,7 +3057,7 @@ id = "cli-json-status-0"
 file = "src/cli/check-json.fs"
 old = ''': cj-status ( -- ) cli-worst @ s" exitStatus" cj-number ;'''
 new = ''': cj-status ( -- ) 0 s" exitStatus" cj-number ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py JsonReport.test_valid_and_as_the_text"
 reason = "the JSON report says status 0 whatever the verdicts"
 quick = true
 
@@ -3048,7 +3066,7 @@ id = "cli-json-all-accepted"
 file = "src/cli/check-json.fs"
 old = '''  dup cj-began? if verdict-of else drop not-checked then verdict-name ;'''
 new = '''  drop outcome-ok verdict-name ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py JsonReport.test_valid_and_as_the_text"
 reason = "trust boundary: the JSON report calls every declaration accepted, not its slot's verdict"
 quick = true
 
@@ -3057,7 +3075,7 @@ id = "cli-json-never-stopped"
 file = "src/cli/check-json.fs"
 old = ''': cj-stopped ( -- ) ck-stopped? s" stopped" cj-flag ;'''
 new = ''': cj-stopped ( -- ) false s" stopped" cj-flag ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_5_stopped_mid_run"
 reason = "the JSON report of a run that stopped on a fault does not say so"
 
 [[fault]]
@@ -3081,7 +3099,7 @@ id = "cli-replay-never-compares"
 file = "src/cli/leanforth.fs"
 old = '''  ok? if 1 cli-file rp-replay else rp-rerun-refused then ;'''
 new = '''  drop rp-start outcome-ok ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py RunRecords.test_replay"
 reason = "replay confirms any record without comparing it with the new run"
 
 [[fault]]
@@ -3123,7 +3141,7 @@ id = "wrapper-takes-host-status"
 file = "bin/leanforth"
 old = '''  10[0-6]) code=$((status - 100)) ;;'''
 new = '''  10[0-6] | [0-6]) code=$((status % 100)) ;;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_5_broken_gforth"
 reason = "Gforth's own exit status (0 after it ends early, 1 after an error) reads as a verdict"
 
 # --- names as Lean shows them (src/present/name-text.fs; review rvCLI2 M1, M2) --
@@ -3239,41 +3257,41 @@ id = "cli-fuel-unbounded"
 file = "src/cli/leanforth.fs"
 old = '''  dup cli-fuel-most > if drop c" a fuel amount above 9007199254740991" cli-wrong exit then'''
 new = '''  dup drop false if drop c" a fuel amount above 9007199254740991" cli-wrong exit then'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_4_command_line Fuel.test_most"
 reason = "--fuel above 2^53 - 1 is taken, and the report's fuel is beyond what JSON holds exactly"
 
 [[fault]]
 id = "cli-schema-status-0-loose"
-file = "schemas/check-report-0.1.schema.json"
+file = "schemas/check-report-0.4.schema.json"
 old = '''          "counts": {"$ref": "#/$defs/allAccepted"},'''
 new = '''          "counts": {"type": "object"},'''
-test = "python3 tests/cli/test_leanforth.py"
-reason = "the schema takes a status-0 report whose counts hold a rejected or not-checked declaration"
+test = "python3 tests/cli/test_leanforth.py JsonReport.test_schema_refuses"
+reason = "the schema takes a status-0 report whose counts hold a rejected or not-checked declaration (re-targeted 2026-11-18 from schema 0.1, kept unchanged for earlier reports, to 0.4, the one reports are written in)"
 
 [[fault]]
 id = "cli-schema-strict-0-loose"
-file = "schemas/check-report-0.1.schema.json"
+file = "schemas/check-report-0.4.schema.json"
 old = '''          "counts": {"properties": {"notProved": {"const": 0}}},
           "declarations": {"items": {"properties": {"notProved": {"const": false}}}}'''
 new = '''          "counts": {"type": "object"}'''
-test = "python3 tests/cli/test_leanforth.py"
-reason = "the schema takes a status-0 report with a NOT PROVED declaration under --strict-axioms"
+test = "python3 tests/cli/test_leanforth.py JsonReport.test_schema_refuses"
+reason = "the schema takes a status-0 report with a NOT PROVED declaration under --strict-axioms (re-targeted 2026-11-18 from schema 0.1, kept unchanged for earlier reports, to 0.4, the one reports are written in)"
 
 [[fault]]
 id = "cli-schema-6-unstrict"
-file = "schemas/check-report-0.1.schema.json"
+file = "schemas/check-report-0.4.schema.json"
 old = '''          "settings": {"properties": {"strictAxioms": {"const": true}}},
           "run": {"const": "ok"},'''
 new = '''          "run": {"const": "ok"},'''
-test = "python3 tests/cli/test_leanforth.py"
-reason = "the schema takes exit status 6 from a run without --strict-axioms"
+test = "python3 tests/cli/test_leanforth.py JsonReport.test_schema_refuses"
+reason = "the schema takes exit status 6 from a run without --strict-axioms (re-targeted 2026-11-18 from schema 0.1, kept unchanged for earlier reports, to 0.4, the one reports are written in)"
 
 [[fault]]
 id = "wrapper-checked-ignored"
 file = "bin/leanforth"
 old = '''if $checked; then engine=gforth; fi'''
 new = '''true'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py Engines.test_gforth_unset"
 reason = "--checked does not select the checking engine when GFORTH is not set"
 
 [[fault]]
@@ -3281,7 +3299,7 @@ id = "wrapper-fast-beside-ignored"
 file = "bin/leanforth"
 old = '''      GFORTH=$candidate'''
 new = '''      :'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py Engines.test_fast_same_reports"
 reason = "--fast keeps the checking engine when GFORTH names it: the report names gforth, not gforth-fast"
 
 # --- the importer stage (src/import/stage.fs, stage-records.fs) -----------
@@ -6459,7 +6477,7 @@ id = "log-aside-steps-kept"
 file = "src/kernel/mixed-infer.fs"
 old = ''': lf-minfer-logging? ( -- flag ) lf-log? 0<> lf-minfer-deciding? and ;'''
 new = ''': lf-minfer-logging? ( -- flag ) lf-log? 0<> ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py Print.test_0_binder_kinds"
 reason = "an inference aside (infer_proj's is_prop, defeq.fs's typer) logs application steps without their comparison; the log fails its structural check and print shows nothing of OfNat.ofNat"
 
 # --- literals (plan task 5.2.3) ---------------------------------------------
@@ -7066,7 +7084,7 @@ id = "env-axiom-deps-direct-only"
 file = "src/kernel/environment.fs"
 old = '''  over lf-axd-deps-or swap lf-slot-decl lf-idecl-kind @ lf-kind-axiom ='''
 new = '''  swap lf-slot-decl lf-idecl-kind @ lf-kind-axiom ='''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_0_not_proved"
 reason = "the axioms a declaration rests on through its dependencies are not named"
 
 # --- review rvAX (agent FX3): Lean's four quotient names, quotient records'
@@ -7504,7 +7522,7 @@ id = "skip-json-says-rejected"
 file = "src/cli/check-json.fs"
 old = '''  dup cj-began? if verdict-of else drop not-checked then verdict-name ;'''
 new = '''  dup cj-began? if lf-env-outcome else drop not-checked then verdict-name ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py JsonReport.test_valid_and_as_the_text"
 reason = "5.2.7: the JSON report calls a skipped declaration rejected, against its counts and status 0"
 
 [[fault]]
@@ -7580,7 +7598,7 @@ id = "fx8-unreached-line-plain"
 file = "src/cli/leanforth.fs"
 old = ''': cli-unreached ( d -- ) cli-name. ." : not checked (not reached: the run stopped)" cr ;'''
 new = ''': cli-unreached ( d -- ) cli-name. ." : not checked" cr ;'''
-test = "python3 tests/cli/test_leanforth.py"
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_5_stopped_mid_run"
 reason = "rvUNNI L5: a declaration a stopped run never reached reads like the skipped verdict's line"
 
 [[fault]]
@@ -8977,6 +8995,22 @@ old = '''lf-tag-let lf-tag-bit or lf-tag-projection lf-tag-bit or lf-tag-let-non
 new = '''lf-tag-let lf-tag-bit or lf-tag-let-nondep lf-tag-bit or'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5B: a projection is no binary node, so the passes treat it as an unknown leaf"
+
+[[fault]]
+id = "tin-leaf-tags-raw-shift"
+file = "src/core/terms.fs"
+old = ''': lf-tin-leaf-tags+ ( lftag -- ) lf-tin-leaf-tags lf-tag-set+ ;'''
+new = ''': lf-tin-leaf-tags+ ( lftag -- ) 1 swap lshift lf-tin-leaf-tags @ or lf-tin-leaf-tags ! ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "Forth review L3 of small-fixes-1118: the leaf-table tag set shifts by the raw tag, not through lf-tag-set+, so a tag above 31 or below 0 gets another bit than lf-tin-leaf-tag? reads"
+
+[[fault]]
+id = "tag-bit-negative-unclamped"
+file = "src/core/terms.fs"
+old = ''': lf-tag-place ( tag -- i ) 0 max 31 min ;'''
+new = ''': lf-tag-place ( tag -- i ) 31 min ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "plan 9.4.8n (6): a negative tag shifts by a negative count (undefined in Forth-2012) instead of getting bit 0, which no tag has"
 
 [[fault]]
 id = "s5b-proj-of-swapped"
@@ -11345,10 +11379,10 @@ reason = "review fe1d L3, S2: a record kind's own declaration named by two recor
 [[fault]]
 id = "fe-elab-default-twice"
 file = "src/front/elab-data.fs"
-old = '''  if drop ed-e-default ed-bad exit then'''
-new = '''  if drop outcome-ok exit then'''
+old = '''  nip dup ['] ed-dflt-clash? any? if drop ed-e-default ed-bad exit then'''
+new = '''  nip'''
 test = "python3 tests/front/test_elab_data.py"
-reason = "review fe1d L3: a default instance given twice is read"
+reason = "review fe1d L3, MF1 O2: a default instance named twice with two classes is read (a repeat of one class at another rank is Lean's and read)"
 
 [[fault]]
 id = "fe-elab-lean-unchecked"
@@ -11493,8 +11527,8 @@ quick = true
 [[fault]]
 id = "fe-ed2-default-rank-twice"
 file = "src/front/elab-data.fs"
-old = ''': ed-dflt-once ( value i -- outcome ) nip ed-dflt-new? ed-e-default-rank ed-or-bad ;'''
-new = ''': ed-dflt-once ( value i -- outcome ) 2drop outcome-ok ;'''
+old = '''  dup ['] ed-dflt-same? any? nip 0= ed-e-default-rank ed-or-bad ;'''
+new = '''  drop outcome-ok ;'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "two default instances of one class with one rank are read (error 33 never given)"
 
@@ -11541,8 +11575,8 @@ reason = "a projection whose field or parameters its types cannot have is read (
 [[fault]]
 id = "fe-ed2-sunfold-read"
 file = "src/front/elab-data.fs"
-old = '''  drop c" format_version" ed-member ed-view natural-at if s" 3" compare 0= else false then'''
-new = '''  drop c" format_version" ed-member ed-view natural-at if 2drop true else false then'''
+old = ''': ed-head-v3? ( index -- flag ) ed-view natural-at if s" 3" compare 0= else false then ;'''
+new = ''': ed-head-v3? ( index -- flag ) ed-view natural-at if 2drop true else false then ;'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "S2 B1: a format-2 file is read as format 3: its \"sunfold\":0 says no definition has a smart-unfolding body, so Nat.add would unfold by its brecOn value"
 
@@ -15086,7 +15120,7 @@ file = "src/present/print-names.fs"
 old = '''  over lf-name-chain-ok? if lf-pp-checked-name-to else lf-pp-bad-name then ;'''
 new = '''  lf-pp-checked-name-to ;'''
 test = "$GFORTH tests/present/term-printer.fs"
-reason = "review finding 1: the printer walks a name corrupted after the audit: it cycles (main's test hung) instead of printing invalid"
+reason = "review finding 1: the printer walks a name corrupted after the audit instead of printing invalid: a forward prefix to a valid name prints (the assertion before the entry beyond the table, on which it would loop; plan 9.4.8n (10))"
 
 [[fault]]
 id = "ni-equal-chain-unchecked"
@@ -18394,8 +18428,8 @@ reason = "S2: a body's universe parameters other than its definition's, as many,
 [[fault]]
 id = "fe-ed3-annotation-any"
 file = "src/front/elab-data.fs"
-old = '''  if ed-annotation-names ed-key-index else false then ;'''
-new = '''  if 2drop 0 true else false then ;'''
+old = '''  ed-first-item ed-annotation-names ed-text-index ;'''
+new = '''  drop 0 true ;'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "S2: an mdata entry other than Lean's three annotations is read as sunfoldMatch (error 45 never given)"
 

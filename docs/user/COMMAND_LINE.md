@@ -209,7 +209,11 @@ definitions, by which Lean's whnf unfolds a recursive definition such as
 for the export's modules with pinned Lean, beside the export
 ([ELABORATION_DATA.md](../programming/ELABORATION_DATA.md), format 3;
 formats 1 and 2 are refused as another format version: export the data
-again).
+again). A library some of whose smart-unfolding bodies hold metadata
+LeanForth does not carry (Mathlib: 11 of 1,844) gets format 3.1, in which
+each such body is marked and never used: where a proof would need it, the
+run answers "not supported" rather than anything Lean would not
+([format 3.1](../programming/ELABORATION_DATA.md#format-31-inert-metadata)).
 With `--elab-data DATA` and a library (`--env` or `--snapshot`), DATA is
 read after the library and before the text runs, and checked against the
 library:

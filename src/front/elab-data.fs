@@ -7,12 +7,14 @@
 \ eliminators; the tags the elaborator and Meta's whnf read; matchers and
 \ projection functions; the smart-unfolding bodies (f._sunfold) -- checked
 \ against the export's names and kept for the elaborator (FE1e: instances;
-\ FE1g: eliminators; FE1d2 and plan S2: whnf). Format version 3, one JSON
-\ object per line: docs/programming/ELABORATION_DATA.md and
-\ schemas/elab-data-3.schema.json; a version 1 or 2 file is refused as
-\ another format version (a format-2 file says "sunfold":0 for a library
-\ whose definitions have bodies). Untrusted and fail-closed: the data never
-\ reaches the kernel, and nothing it holds can make a declaration
+\ FE1g: eliminators; FE1d2 and plan S2: whnf). Format version 3 or 3.1
+\ (MATHLIB_FRONT.md O1: format 3 and inert nodes, metadata LeanForth does
+\ not carry, whose body is then not usable), one JSON object per line:
+\ docs/programming/ELABORATION_DATA.md and schemas/elab-data-3.schema.json;
+\ a version 1 or 2 file is refused as another format version (a format-2
+\ file says "sunfold":0 for a library whose definitions have bodies), an
+\ inert node in a format-3 file as malformed. Untrusted and fail-closed:
+\ the data never reaches the kernel, and nothing it holds can make a declaration
 \ accepted; it can change what a statement means. What is checked here is
 \ the file's form, its export's SHA-256, the names and kinds of the
 \ declarations it names, that keys make one term, that ranks under each
@@ -53,7 +55,8 @@
 \ has a class record before it. A left-out instance's name, when it is
 \ not_exported, is no declaration of the library, and a constant of its
 \ keys that no declaration has is kept as a foreign key. No declaration
-\ is named twice as one kind, no tag twice, no two eliminators of one
+\ is named twice as one kind (a default instance may be, of one class at
+\ two ranks, as Lean keeps it), no tag twice, no two eliminators of one
 \ kind have the same target types, no two values under one root key the
 \ same rank, no two default instances of a class the same rank. At the
 \ end the records of each kind and the SHA-256 must equal the header's,
@@ -69,7 +72,8 @@
 \ file, a sealed stage, or a call while a read is in progress;
 \ unsupported for another format version or Lean version, a number
 \ beyond 2^32 - 1 (no Lean library has one; plan row FE3 lifts it if one
-\ appears) and an annotation other than Lean's three (error 45); full
+\ appears) and an annotation other than Lean's three or an inert node's
+\ key other than its three (error 45); full
 \ when the heap has no room or a line
 \ passes elab-line-limit bytes. A read that is not ok keeps nothing: every
 \ table is empty afterwards, as after elab-reset.
@@ -101,7 +105,9 @@
 \ ( d -- s true | false ), elab-sunfold-decl ( s -- d ),
 \ elab-sunfold-value ( s -- n ) (its root node), elab-sunfold-rec-arg
 \ ( s -- k true | false ), elab-sunfold-foreign? ( s -- flag ) (a node
-\ names a constant the library lacks); its nodes, numbered across
+\ names a constant the library lacks), elab-sunfold-inert? ( s -- flag )
+\ (it holds an inert node), elab-sunfold-usable? ( s -- flag ) (neither:
+\ front/lib-decode.fs decodes no other); its nodes, numbered across
 \ records: elab-node-kind ( n -- kind ) (elab-node-bvar .. -have, below)
 \ and elab-node-a, -b, -c, -d ( n -- x ) as the table below says,
 \ elab-node-levels ( n -- addr k ) a constant's levels (cells); its
@@ -177,13 +183,14 @@ require ./elab-keys.fs
 \   lit, str: a a key of its digits or bytes     const: a its declaration (-1 when
 \   the library has none), its levels by elab-node-levels
 \   proj: a the structure (-1: none), b the field, c the term
-\   mdata: a the annotation (elab-sunfold-match, -match-alt, elab-borrowed), c the term
+\   mdata: a the annotation (elab-sunfold-match, -match-alt, elab-borrowed, or
+\   elab-inert: format 3.1's inert node, its body unusable), c the term
 0 constant elab-node-bvar   1 constant elab-node-sort   2 constant elab-node-app
 3 constant elab-node-lam   4 constant elab-node-forall   5 constant elab-node-let
 6 constant elab-node-lit   7 constant elab-node-str   8 constant elab-node-proj
 9 constant elab-node-mdata   10 constant elab-node-const   11 constant elab-node-have
 0 constant elab-sunfold-match   1 constant elab-sunfold-match-alt
-2 constant elab-borrowed
+2 constant elab-borrowed   3 constant elab-inert
 \ Levels: zero; succ (a); max, imax (a, b); param (a its place among the
 \ definition's universe parameters).
 0 constant elab-level-zero   1 constant elab-level-succ   2 constant elab-level-max
@@ -239,6 +246,7 @@ begin-structure /ed-sun
   field: ed-sun-value                              \ the root, a node number
   field: ed-sun-rec                                \ the recursion argument, or -1
   field: ed-sun-foreign                            \ true: a name the library lacks
+  field: ed-sun-inert                              \ true: an inert node (format 3.1)
 end-structure
 \ A node, or a level (kind, a and b alone).
 begin-structure /ed-node
@@ -248,7 +256,7 @@ begin-structure /ed-node
 end-structure
 \ What the data says of one declaration of the stage.
 begin-structure /ed-fact
-  field: ed-fact-bits      \ bits 0-2 its status, 3 a default instance, 4-11 its tags
+  field: ed-fact-bits      \ bits 0-2 its status, 4-11 its tags
   field: ed-fact-inst      \ its instance's number + 1, or 0
   field: ed-fact-class     \ its class's number + 1, or 0
   field: ed-fact-matcher   \ its matcher's number + 1, or 0
@@ -287,6 +295,7 @@ begin-structure /elab
   field: elab-bound-length           \ its length: 0 when none is named
   field: elab-modules#               \ the header's modules: how many
   field: elab-inits#                 \ and how many are Init
+  field: elab-v31                    \ true: the header says format 3.1
 end-structure
 /elab context-record: elab
 /ed-fact context-slab: elab-facts
@@ -350,7 +359,7 @@ create ed-messages
   s" a name several declarations have" counted,
   s" a declaration of the wrong kind" counted,
   s" an instance named twice" counted,
-  s" a default instance named twice" counted,
+  s" a default instance of two classes" counted,
   s" a reducibility named twice" counted,
   s" two eliminators for the same types" counted,
   s" a number beyond 2^32 - 1" counted,
@@ -396,7 +405,7 @@ create ed-messages
 : elab-error ( -- line c-addr u ) elab-error-line elab-error-why ;
 
 \ ---- Facts per declaration of the stage.
-7 constant ed-facts-status   8 constant ed-facts-default   4 constant ed-tag-shift
+7 constant ed-facts-status   4 constant ed-tag-shift
 : ed-fact ( d -- addr ) elab-facts slab-at ;
 \ A fact field of d (xt gives the field's address), 0 for a d beyond them.
 : ed-fact@ ( d xt -- x )
@@ -462,6 +471,9 @@ create ed-messages
 : elab-sunfold-value ( s -- n ) ed-sun ed-sun-value @ ;
 : elab-sunfold-rec-arg ( s -- k true | false ) ed-sun ed-sun-rec @ 1+ +1>number ;
 : elab-sunfold-foreign? ( s -- flag ) ed-sun ed-sun-foreign @ ;
+: elab-sunfold-inert? ( s -- flag ) ed-sun ed-sun-inert @ ;
+: elab-sunfold-usable? ( s -- flag )
+  dup elab-sunfold-foreign? swap elab-sunfold-inert? or 0= ;
 : elab-node-kind ( n -- kind ) ed-node ed-node-kind @ ;
 : elab-node-a ( n -- x ) ed-node ed-node-a @ ;
 : elab-node-b ( n -- x ) ed-node ed-node-b @ ;
@@ -535,7 +547,7 @@ create ed-rank-hooks /htab-hooks allot
 : elab-reset ( -- )
   ed-slabs-clear elab-keys-clear ed-tables-clear false elab elab-loaded !
   elab elab-counts elab-kinds cells erase 1 elab elab-gen +!
-  0 elab elab-modules# ! 0 elab elab-inits# ! ;
+  0 elab elab-modules# ! 0 elab elab-inits# ! false elab elab-v31 ! ;
 : elab-generation ( -- n ) elab elab-gen @ ;
 \ A caller that could not compute the export's SHA-256 refuses the data
 \ with error 26 at line 0, its outcome kept; nothing is loaded.
@@ -581,9 +593,11 @@ create ed-reason-names  s" erased" counted, s" not_exported" counted, 0 0 counte
   dup ed-null? if drop -1 outcome-ok exit then ed-u32 ;
 : ed-bool ( index -- flag outcome )
   ed-view json-bool if outcome-ok else 0 ed-malformed then ;
-\ One of the table's texts: its place.
+\ One of the table's texts: its place (ed-choice: else malformed).
+: ed-text-index ( index table -- k true | false )
+  >r ed-text r> swap if ed-key-index else drop false then ;
 : ed-choice ( index table -- k outcome )
-  >r ed-text if r> ed-key-index if outcome-ok exit then else r> drop then 0 ed-malformed ;
+  ed-text-index if outcome-ok else 0 ed-malformed then ;
 \ xt ( item -- outcome ) on each element of an array in turn, while ok.
 : ed-next ( item -- item' ) ed-view json-next ;
 : ed-items ( end first xt -- outcome )
@@ -875,17 +889,19 @@ create ed-left-steps
   dup ed-left-members ed-shape? 0= if drop ed-malformed exit then
   elab-lefts ed-claim ok-then? if ed-left-steps ed-steps else nip then ;
 
-\ ---- Default instances: class, name, priority, rank (one per class).
+\ ---- Default instances: class, name, priority, rank (one per class and
+\ rank). An instance may be named twice, of one class at two ranks, as
+\ Lean keeps it (addDefaultInstanceEntry conses each attribute onto the
+\ class's list: Mathlib makes instHSMul a default instance a second time);
+\ named again with another class it is refused (error 16).
 create ed-dflt-keys
   s" class" counted, s" name" counted, s" priority" counted, s" rank" counted,
   0 0 counted,
-: ed-dflt-fact ( d -- d outcome )
-  dup ed-fact ed-fact-bits dup @ ed-facts-default and
-  if drop ed-e-default ed-bad exit then
-  dup @ ed-facts-default or swap ! outcome-ok ;
-: ed-dflt-decl! ( value i -- outcome )
-  ed-dflt swap c" name" ed-member ed-no-type dup ok? if drop ed-dflt-fact then
-  ['] ed-dflt-decl ed-put ;
+\ A record's member name, a declaration that is no inductive type, into
+\ field xt of addr (default instances' and eliminators').
+: ed-decl-into ( addr value xt -- outcome )
+  swap c" name" ed-member ed-no-type rot ed-put ;
+: ed-dflt-decl! ( value i -- outcome ) ed-dflt swap ['] ed-dflt-decl ed-decl-into ;
 : ed-dflt-class! ( value i -- outcome )
   ed-dflt swap c" class" ed-member ed-a-class ['] ed-dflt-class ed-put ;
 : ed-dflt-priority! ( value i -- outcome )
@@ -898,12 +914,27 @@ create ed-dflt-keys
   over elab-default-rank-most u> over ok? and if drop ed-e-dflt-most ed-bad then ;
 : ed-dflt-rank! ( value i -- outcome )
   ed-dflt swap c" rank" ed-member ed-u32 ed-rank-most ['] ed-dflt-rank ed-put ;
-\ Default instances are few (34 in Init): each is compared with those before.
-: ed-dflt-key ( i -- class rank ) ed-dflt dup ed-dflt-class @ swap ed-dflt-rank @ ;
-: ed-dflt-same? ( i j -- flag ) ed-dflt-key rot ed-dflt-key d= ;
-: ed-dflt-new? ( i -- flag )
-  dup 0 ?do dup i ed-dflt-same? if drop unloop false exit then loop drop true ;
-: ed-dflt-once ( value i -- outcome ) nip ed-dflt-new? ed-e-default-rank ed-or-bad ;
+\ Default instances are few (34 in Init, 52 in Mathlib): record i is
+\ compared with each record k before it (lib's any?).
+: ed-dflt-decl@ ( i -- d ) ed-dflt ed-dflt-decl @ ;
+: ed-dflt-class@ ( i -- class ) ed-dflt ed-dflt-class @ ;
+: ed-dflt-rank@ ( i -- rank ) ed-dflt ed-dflt-rank @ ;
+: ed-same-decl? ( i j -- flag ) ed-dflt-decl@ swap ed-dflt-decl@ = ;
+: ed-same-class? ( i j -- flag ) ed-dflt-class@ swap ed-dflt-class@ = ;
+: ed-same-rank? ( i j -- flag ) ed-dflt-rank@ swap ed-dflt-rank@ = ;
+\ One class and one rank; one instance of two classes.
+: ed-same-slot? ( i j -- flag )
+  2dup ed-same-rank? 0= if 2drop false exit then ed-same-class? ;
+: ed-clash? ( i j -- flag )
+  2dup ed-same-decl? if ed-same-class? 0= else 2drop false then ;
+\ The tests any? runs, record i kept below.
+: ed-dflt-same? ( i k -- i flag ) over swap ed-same-slot? ;
+: ed-dflt-clash? ( i k -- i flag ) over swap ed-clash? ;
+\ After the rank: no earlier record of the instance with another class
+\ (error 16), none of the class with this rank (error 33).
+: ed-dflt-once ( value i -- outcome )
+  nip dup ['] ed-dflt-clash? any? if drop ed-e-default ed-bad exit then
+  dup ['] ed-dflt-same? any? nip 0= ed-e-default-rank ed-or-bad ;
 create ed-dflt-steps
   ' ed-dflt-decl! , ' ed-dflt-class! , ' ed-dflt-priority! , ' ed-dflt-rank! ,
   ' ed-dflt-once , 0 ,
@@ -926,8 +957,7 @@ create ed-red-keys  s" name" counted, s" status" counted, 0 0 counted,
 create ed-elim-keys  s" kind" counted, s" name" counted, s" types" counted, 0 0 counted,
 : ed-elim-kind! ( value i -- outcome )
   ed-elim swap c" kind" ed-member ed-elim-names ed-choice ['] ed-elim-kind ed-put ;
-: ed-elim-decl! ( value i -- outcome )
-  ed-elim swap c" name" ed-member ed-no-type ['] ed-elim-decl ed-put ;
+: ed-elim-decl! ( value i -- outcome ) ed-elim swap ['] ed-elim-decl ed-decl-into ;
 : ed-type-item ( item -- outcome ) ed-decl ok-then? if elab-types ed-push then ;
 : ed-types-span ( addr -- )
   elab-types slab-count over ed-elim-types @ - swap ed-elim-types# ! ;
@@ -1071,9 +1101,12 @@ create ed-proj-steps
 \ foreign: kept, and unsupported where it would be used (25 of Init's
 \ 387 name a `_proof_` lemma the export lacks). An annotation is one
 \ entry, sunfoldMatch, sunfoldMatchAlt or borrowed, true; any other is
-\ unsupported (error 45). A node's literal, string and binder name are
-\ keys of front/elab-keys.fs, for their texts (a name's parts as a
-\ foreign key's). The entry being read is the newest of its slab.
+\ unsupported (error 45). An inert node (format 3.1) makes the record
+\ inert: kept, and unsupported where it would be used, like a foreign
+\ one. A binder's name may be anonymous ([]). A node's literal, string
+\ and binder name are keys of front/elab-keys.fs, for their texts (a
+\ name's parts as a foreign key's). The entry being read is the newest
+\ of its slab.
 create ed-sun-members
   s" level_params" counted, s" levels" counted, s" name" counted, s" nodes" counted,
   s" rec_arg" counted, s" value" counted, 0 0 counted,
@@ -1225,19 +1258,37 @@ create ed-bool-members  s" bool" counted, 0 0 counted,
   dup ed-bool-members ed-shape? if c" bool" ed-member ed-view json-bool 0= if false then
   else drop false then ;
 : ed-annotation ( key -- k true | false )
-  dup 1 ed-items? if ed-first-item ed-text else drop false then
-  if ed-annotation-names ed-key-index else false then ;
+  dup 1 ed-items? 0= if drop false exit then
+  ed-first-item ed-annotation-names ed-text-index ;
 : ed-unknown-mark ( -- k outcome ) 0 ed-e-annotation outcome-unsupported ed-fail ;
+\ A mark's place, or error 45.
+: ed-known ( k true | false -- k outcome ) if outcome-ok else ed-unknown-mark then ;
 : ed-entry ( entry -- k outcome )
   dup 2 ed-items? 0= if drop 0 ed-malformed exit then
-  ed-first-item dup ed-next ed-true? if ed-annotation else drop false then
-  if outcome-ok else ed-unknown-mark then ;
+  ed-first-item dup ed-next ed-true? if ed-annotation else drop false then ed-known ;
 : ed-nd-entries ( value -- outcome )
   c" entries" ed-member dup 1 ed-items? if ed-first-item ed-entry
   else drop 0 ed-malformed then ['] ed-node-a ed-nd-put ;
 create ed-mdata-members  s" entries" counted, s" expr" counted, 0 0 counted,
 create ed-mdata-form  ed-mdata-members , ' ed-nd-entries , ' ed-nd-expr , 0 ,
 : ed-nd-mdata ( value -- outcome ) ed-mdata-form ed-nd-steps ;
+\ An inert node (format 3.1 alone; in a format-3 file malformed, as the
+\ readers of format 3 had it): {"expr":i,"key":KEY}, KEY one of three
+\ kinds of metadata LeanForth does not carry; any other is error 45. An
+\ mdata node of elab-inert; the body holding it is not usable.
+create ed-inert-names
+  s" save_info" counted, s" noImplicitLambda" counted, s" congrHole" counted, 0 0 counted,
+: ed-inert-key ( value -- k outcome )
+  c" key" ed-member ed-inert-names ed-text-index ed-known ;
+: ed-inert-mark ( -- outcome )
+  true ed-sun-now ed-sun-inert ! elab-inert outcome-ok ['] ed-node-a ed-nd-put ;
+: ed-nd-key ( value -- outcome ) ed-inert-key ok-then? if drop ed-inert-mark then ;
+create ed-inert-members  s" expr" counted, s" key" counted, 0 0 counted,
+create ed-inert-form  ed-inert-members , ' ed-nd-key , ' ed-nd-expr , 0 ,
+: ed-v31? ( -- flag ) elab elab-v31 @ ;
+: ed-nd-inert ( value -- outcome )
+  ed-v31? 0= if drop ed-malformed exit then
+  elab-node-mdata ed-nd-kind! ed-inert-form ed-nd-steps ;
 : ed-node-level ( item -- outcome ) ed-level-all ok-then? if elab-orders ed-push then ;
 : ed-nd-levels ( value -- outcome )
   ed-nd ed-node-b swap c" levels" ed-member ['] ed-node-level ed-span-items ;
@@ -1273,11 +1324,14 @@ create ed-loose-of   \ by node kind
 create ed-node-names
   s" bvar" counted, s" sort" counted, s" app" counted, s" lam" counted,
   s" forall" counted, s" let" counted, s" lit" counted, s" str" counted,
-  s" proj" counted, s" mdata" counted, 0 0 counted,
+  s" proj" counted, s" mdata" counted, s" inert" counted, 0 0 counted,
 create ed-node-readers
   ' ed-nd-bvar , ' ed-nd-sort , ' ed-nd-app , ' ed-nd-binder , ' ed-nd-binder ,
-  ' ed-nd-let , ' ed-nd-lit , ' ed-nd-str , ' ed-nd-proj , ' ed-nd-mdata ,
+  ' ed-nd-let , ' ed-nd-lit , ' ed-nd-str , ' ed-nd-proj , ' ed-nd-mdata , ' ed-nd-inert ,
 create ed-const-node-members  s" const" counted, s" levels" counted, 0 0 counted,
+\ A name's place is its node kind (elab-node-bvar .. -mdata), except
+\ inert's, 10: stored for a moment as elab-node-const, until ed-nd-inert
+\ makes the node an mdata (or the read fails).
 : ed-nd-form ( value k -- outcome ) dup ed-nd-kind! cells ed-node-readers + @ execute ;
 : ed-nd-read ( item -- outcome )
   dup ed-const-node-members ed-shape? if elab-node-const ed-nd-kind! ed-nd-const exit then
@@ -1335,8 +1389,11 @@ create ed-head-keys
 : ed-head-format ( value i -- outcome )
   drop c" format" ed-member s" leanforth-elab-data" ed-text=
   ed-e-format ed-or-bad ;
+\ Format 3 (the number), or 3.1 (the text; an inert node allowed: elab-v31).
+: ed-head-v31 ( index -- flag ) s" 3.1" ed-text= dup elab elab-v31 ! ;
+: ed-head-v3? ( index -- flag ) ed-view natural-at if s" 3" compare 0= else false then ;
 : ed-head-version ( value i -- outcome )
-  drop c" format_version" ed-member ed-view natural-at if s" 3" compare 0= else false then
+  drop c" format_version" ed-member dup ed-head-v31 if drop true else ed-head-v3? then
   ed-e-version ed-or-other ;
 : ed-head-shape ( value i -- outcome )
   drop ed-head-keys ed-shape? ed-e-malformed ed-or-bad ;

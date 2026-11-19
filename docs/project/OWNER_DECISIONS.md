@@ -1526,3 +1526,25 @@ Asked in plain language with recommendations (2026-11-18, about 11:30), the owne
   listed first, each worktree checked for a `.tools` link first, the unmerged branches' worktrees kept.
 - **Small rules:** the step log's [format] approval covers the [bypass] gate its design listed (the log never
   changes a verdict); a tactic-only branch may also change documentation and keep the tactic tier.
+- **[kernel], in form: tag bits clamped** (branch `small-fixes-1118`, approved later the same day): a term tag
+  outside 0-31 is clamped before it becomes a bit mask (`lf-tag-place`, `lf-tag-set+` in `src/core/terms.fs`);
+  valid tags behave as before.
+- **LeanForth-specific libraries are prioritised** (plan PD20; the owner, 2026-11-18: "we are starting to use what
+  would be the contents of several"): in the order listed there, the elaborator library and the simp and rewriting
+  library first, designed and architected together with the tactic library and the tactics that will call them,
+  while the tactic work continues.
+
+## LeanForth-specific libraries: the design approved (2026-11-18)
+
+On the design [LF_LIBRARIES.md](../design/LF_LIBRARIES.md), after the architect's independent review and its fixes,
+the owner approved, each as recommended:
+
+- **Scope and order.** Library 1, the elaborator (the S1/S2 core exists, about a third by Lean lines), and library
+  2, simp and rewriting; the six changes to the tactic library's interface, made in slice LA; the order LA beside
+  MF2+DT and S3, then SP1b-i beside FE4a (coercions) and FE2's first term forms, then SP1b-ii, then SP1c; the
+  lookup tree's move out of `instances.fs` belongs to MF2+DT, not SP1a. LA waits for S2's remaining fixes.
+- **Package size:** 1,500-2,500 lines with tests.
+- **Parallel work:** a registry for term forms, each form its own file; at most one open branch per shared file;
+  new code in the new folders `src/front/elab/`, `simp/` and `num/`; no mass moves of existing files.
+- **[format] the coercion tag:** Lean's `coe_decl` tag is one more record kind of elaboration-data format 4, added
+  before anything is built on that format; the term front end's structure records become format 5.

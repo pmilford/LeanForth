@@ -1063,11 +1063,6 @@
    "blocks": 7,
    "never_run": 0
   },
-  "src/program/verify-alias.fs": {
-   "blocks": 51,
-   "never_run": 1,
-   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
-  },
   "src/program/verify-report.fs": {
    "blocks": 147,
    "never_run": 1,

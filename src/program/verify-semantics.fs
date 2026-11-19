@@ -1,5 +1,5 @@
 \ Verification semantics of IR 0.2 (ADR 0019 §1-§3 and Amendment 1): what
-\ each Forth word does in correctness mode, shared by both designs. `DUP`
+\ each Forth word does in correctness mode, for the mode shift. `DUP`
 \ writes `prim dup`; `:` reads its name, as Forth's `:` does, defines it in
 \ the file's own word list and writes `word NAME`, leaving Forth
 \ interpreting; `IF` writes `if` and opens a frame; `.` writes `out .`; a
@@ -294,7 +294,7 @@ end-structure
 \ Define the name at offset in the line in the file's word list, as
 \ Forth's CREATE reads it from the input source. When Forth's interpreter
 \ runs such a word, the design says what it does (pv-word-runs): the
-\ separate vocabulary writes the call; the mode shift never lets one run.
+\ mode shift never lets one run.
 : pv-create ( index offset -- )
   pv-prefix# @ + >in ! get-current >r pv-words @ set-current create r> set-current ,
   does> @ pv-word-runs ;
@@ -438,7 +438,10 @@ end-structure
 : pv-s-quote ( -- ) pv-inside pv-quoted pv-then-type pv-out-text ;
 : pv-type-alone ( -- ) pv-why-not-ir pv-fail ;
 
-\ A table entry's verification semantics.
+\ A table entry's verification semantics; a reserved entry's is a
+\ refusal (the mode shift refuses those before, in pv-shift-entry of
+\ verify.fs, so this arm is defence in depth: no reserved entry is ever
+\ written as IR).
 : pv-perform ( entry -- )
   dup pv-entry-kind @ case
     pv-kind-action of pv-entry-datum @ execute endof

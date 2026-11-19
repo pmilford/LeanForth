@@ -384,8 +384,9 @@ end-structure
 \ or sunfoldMatchAlt entry an annotation (core/annotations.fs), a
 \ borrowed mark its term (the compiler's, never read by Meta).
 \ Unsupported: a string literal (plan S5), a constant or structure the
-\ library lacks. Binders get no presentation names (a body is shown only
-\ in messages).
+\ library lacks, a body holding an inert node (format 3.1: metadata not
+\ carried, MATHLIB_FRONT.md O1). Binders get no presentation names (a
+\ body is shown only in messages).
 : lbd-slsrc ( -- src ) lbd lbd-slwalk ;
 : lbd-sxsrc ( -- src ) lbd lbd-sxwalk ;
 : lbd-sun-forget ( -- )
@@ -440,7 +441,9 @@ elab-level-param tag-level-param <> or
 : lbd-anonymous ( term n -- term outcome ) drop outcome-ok ;
 : lbd-s-key ( kind -- key )
   elab-sunfold-match = if lf-annot-match else lf-annot-match-alt then ;
+\ An inert node is refused here too, never read as an annotation.
 : lbd-nmdata ( n -- term outcome )
+  dup elab-node-a elab-inert = if drop outcome-unsupported no-result exit then
   dup elab-node-c lbd-sxsrc dw-image swap elab-node-a
   dup elab-borrowed = if drop outcome-ok else lbd-s-key lf-annot then ;
 : lbd-snode ( n -- term outcome ) lbd-sxsrc lbd-run ;
@@ -462,7 +465,7 @@ elab-level-param tag-level-param <> or
 \ parameters are the n names at addr.
 : lf-libdec-sunfold ( s addr n -- body outcome )
   lbd lbd-snames# ! lbd lbd-snames ! lbd-sun-current
-  dup elab-sunfold-foreign? if drop outcome-unsupported no-result exit then
+  dup elab-sunfold-usable? 0= if drop outcome-unsupported no-result exit then
   elab-sunfold-value lbd-snode ;
 
 \ ---- Binder kinds (S1 §4): e's leading Pi binders, from the tier's tags.

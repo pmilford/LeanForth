@@ -131,8 +131,13 @@ require ./scratch-meter.fs
 \ A smart-unfolding marker, ANNOTATION(child, key) (core/annotations.fs):
 \ front-end only, not binary; its data word is its child's.
 17 constant lf-tag-annotation
-\ A tag's bit (tags above 31 share bit 31, which no binary tag has).
-: lf-tag-bit ( tag -- mask ) 1 swap 31 min lshift ;
+\ A tag's place in a tag set of one cell, and its bit (tags above 31
+\ share bit 31, which no binary tag has; a negative tag, which no node
+\ has, gets bit 0, which no tag has, never a shift by a negative count).
+: lf-tag-place ( tag -- i ) 0 max 31 min ;
+: lf-tag-bit ( tag -- mask ) lf-tag-place 1 swap lshift ;
+\ Add a tag to the tag set at a-addr (lib/bits.fs's bit-on).
+: lf-tag-set+ ( tag a-addr -- ) swap lf-tag-place swap bit-on ;
 lf-tag-app lf-tag-bit lf-tag-lam lf-tag-bit or lf-tag-pi lf-tag-bit or
 lf-tag-let lf-tag-bit or lf-tag-projection lf-tag-bit or lf-tag-let-nondep lf-tag-bit or
 constant lf-binary-tags
@@ -241,7 +246,7 @@ lf-term-input-codes head-tag-mask 1+ 2* cells erase
 : lf-term-input-twin! ( code tag -- ) 0 lf-tin-entry ! ;
 \ The checker's tags whose input nodes are in the leaf table, a bit each.
 variable lf-tin-leaf-tags   0 lf-tin-leaf-tags !
-: lf-tin-leaf-tags+ ( lftag -- ) 1 swap lshift lf-tin-leaf-tags @ or lf-tin-leaf-tags ! ;
+: lf-tin-leaf-tags+ ( lftag -- ) lf-tin-leaf-tags lf-tag-set+ ;
 : lf-term-input-leaf-tag ( lftag tag -- )
   over lf-tin-leaf-tags+ >r lf-tin-leaf-bit or r> lf-term-input-tag! ;
 \ The same for what a record of tag carries, read in mode.
@@ -539,8 +544,7 @@ defer lf-term-leaf-data ( tag first second -- data )
 \ Tags whose leaves are never shared, a bit each; set while loading.
 variable lf-term-unshared-tags   0 lf-term-unshared-tags !
 : lf-term-tag-bit ( tag -- mask ) lf-tag-bit ;
-: lf-term-unshare ( tag -- )
-  lf-term-tag-bit lf-term-unshared-tags @ or lf-term-unshared-tags ! ;
+: lf-term-unshare ( tag -- ) lf-term-unshared-tags lf-tag-set+ ;
 : lf-term-shared-tag? ( tag -- flag ) lf-term-tag-bit lf-term-unshared-tags @ and 0= ;
 \ The switch: sharing is on in a new context.
 : lf-term-sharing? ( -- flag ) lf-term-share-off @ 0= ;

@@ -142,9 +142,34 @@ def cut_off_text():
     return eliminators_text().rsplit("\n", 2)[0] + "\n"
 
 
+# Format 3.1 (docs/design/MATHLIB_FRONT.md O1, O2): after the root of
+# Nat.add's body, an inert node of each kind (nodes 24-26) and a lambda
+# with an anonymous binder (27); instHAdd a default instance of HAdd a
+# second time, at rank 1, as Mathlib makes instHSMul one twice.
+INERT_NODES = ('{"inert":{"expr":0,"key":"save_info"}}',
+               '{"inert":{"expr":24,"key":"noImplicitLambda"}}',
+               '{"inert":{"expr":0,"key":"congrHole"}}',
+               '{"lam":{"body":0,"info":"default","name":[],"type":0}}')
+DFLT_HADD = '{"default_instance":{"class":["HAdd"]'
+HADD_AGAIN = DFLT_HADD + ',"name":["instHAdd"],"priority":1000,"rank":1}}'
+FORMAT31 = ROOT / "tests/front/format31.elab.ndjson"
+
+
+def format31_records():
+    records = swap(SUN_END, "," + ",".join(INERT_NODES) + SUN_END)
+    i = records.index(first(DFLT_HADD)) + 1
+    return records[:i] + [HADD_AGAIN] + records[i:]
+
+
+def format31_text():
+    """The format-3.1 fixture: the slice's data with format31_records()."""
+    return assemble(format31_records(), format_version="3.1")
+
+
 # The fixtures this file writes (--write-fixtures) and checks.
 FIXTURES = {ELIMINATORS: eliminators_text,
-            ROOT / "tests/front/cut-off.elab.ndjson": cut_off_text}
+            ROOT / "tests/front/cut-off.elab.ndjson": cut_off_text,
+            FORMAT31: format31_text}
 
 
 def first(needle, records=None):
@@ -195,6 +220,20 @@ def raw_instance(name, cls, keys, rank, priority=1000, erased=False):
 
 ADD = {"arity": 1, "const": ["Add"]}
 NAT = {"arity": 0, "const": ["Nat"]}
+# Mathlib's TermCongr hole, as export_elab.lean writes its mdata entries.
+HOLE = [[export_elab.CONGR + ["congrHoleForLhsKey"], {"bool": False}],
+        [export_elab.CONGR + ["congrHoleIndex"], {"nat": "24"}]]
+
+
+def raw_inert_body(hole=None):
+    """Nat.add's body as export_elab.lean would write it with the three
+    kinds of inert metadata (mdata) and an anonymous binder after its root
+    (the format-3.1 fixture's INERT_NODES); hole replaces the TermCongr
+    hole's entries."""
+    marks = [[[["save_info"], {"bool": True}]], [[["noImplicitLambda"], {"bool": True}]],
+             HOLE if hole is None else hole]
+    nodes = [text({"mdata": {"entries": e, "expr": x}}) for e, x in zip(marks, (0, 24, 0))]
+    return first(SUN).replace(SUN_END, "," + ",".join(nodes + [INERT_NODES[3]]) + SUN_END)
 
 
 def finisher_cases(work):
@@ -238,9 +277,24 @@ def finisher_cases(work):
             != [("instAdd", "erased", 2), ("instAddInt", "not_exported", 0)]
             or json.loads(lines[0])["elab_data"]["records"]["reducibility"] != 1):
         fail(f"finisher: unexpected output {lines[:5]}")
+    if json.loads(lines[0])["elab_data"]["format_version"] != 3 or "inert" in first_bytes.decode():
+        fail(f"finisher: data without inert metadata not format 3: {lines[0][:120]}")
     done = run([RAW_HEAD, first(SUN).replace('{"const":["Nat","succ"]', '{"const":["Nat","noSuch"]')])
     if done.returncode != 0 or "1 sunfold bodies naming what the export lacks" not in done.stdout:
         fail(f"finisher on a body naming what the export lacks: {done.returncode} {done.stdout}")
+    # Format 3.1 (MATHLIB_FRONT.md O1): the three kinds of inert metadata
+    # written as inert nodes and an anonymous binder kept, the header
+    # format 3.1; the format-3.1 fixture's body exactly, which leanforth
+    # check reads.
+    done = run([RAW_HEAD, raw_inert_body()])
+    body = out.read_text().split("\n")[1] if out.exists() else ""
+    if (done.returncode != 0 or "3 inert markers (format 3.1)" not in done.stdout
+            or body != first(SUN, format31_records())
+            or json.loads(out.read_text().split("\n")[0])["elab_data"]["format_version"] != "3.1"):
+        fail(f"finisher on inert metadata: {done.returncode} {done.stdout} {done.stderr}")
+    status, said = check(out)
+    if status != 0 or "1 smart-unfolding bodies" not in said:
+        fail(f"the finisher's format-3.1 data refused: {status} {said[-300:]}")
     # One instance alone, rank 0: each change below is the only thing wrong.
     base = raw_instance(["instAddNat"], ["Add"], [ADD, NAT], 0)
     bad = {
@@ -277,6 +331,18 @@ def finisher_cases(work):
         "a body's unknown annotation": first(SUN).replace('"sunfoldMatch"]', '"noIndex"]'),
         "a body's root beyond its nodes": first(SUN).replace('"value":23', '"value":24'),
         "a body's binder info": first(SUN).replace('"default"', '"explicit"', 1),
+        "a body's binder name malformed": first(SUN).replace('"name":["a"]', '"name":[1.5]', 1),
+        "a body's save_info false": raw_inert_body().replace(
+            '[["save_info"],{"bool":true}]', '[["save_info"],{"bool":false}]'),
+        "Lean's noindex": raw_inert_body().replace('"save_info"', '"noindex"'),
+        "a TermCongr hole's keys swapped": raw_inert_body(list(reversed(HOLE))),
+        "a TermCongr hole without its index": raw_inert_body(HOLE[:1]),
+        "a TermCongr hole whose index is no number": raw_inert_body(
+            [HOLE[0], [HOLE[1][0], {"nat": "x"}]]),
+        "a TermCongr hole whose flag is a number": raw_inert_body(
+            [[HOLE[0][0], {"nat": "1"}], HOLE[1]]),
+        "save_info with a second entry": raw_inert_body().replace(
+            '[["save_info"],{"bool":true}]', '[["save_info"],{"bool":true}],[["borrowed"],{"bool":true}]'),
     }
     for what, line in bad.items():
         done = run([RAW_HEAD, line])
@@ -315,7 +381,7 @@ ERRORS = ["file missing or unreadable", "no line, or a line without its line fee
           "not elaboration data", "another format version", "another Lean version",
           "elaboration data of another export", "malformed line", "unknown record kind",
           "unknown name", "a name several declarations have", "a declaration of the wrong kind",
-          "an instance named twice", "a default instance named twice",
+          "an instance named twice", "a default instance of two classes",
           "a reducibility named twice", "two eliminators for the same types",
           "a number beyond 2^32 - 1", "records differ in number from the header",
           "records differ from their SHA-256", "no room", "name lookup failed",
@@ -442,7 +508,8 @@ def format1_cases():
                                              f'"rank":17,"synth_order":[{big}]'),
              2, "a number beyond 2^32 - 1"),
         case("instance twice", twice(INST_NAT), 4, "an instance named twice"),
-        case("default instance twice", twice(DFLT_OFNAT), 4, "a default instance named twice"),
+        case("default instance twice at one rank", twice(DFLT_OFNAT), 4,
+             "two default instances of one class with one rank"),
         ("reducibility twice", assemble(GOOD_RECORDS + [first('"name":["Id"]').replace(
             '"implicit_reducible"', '"irreducible"')]), 4, n + 2, "a reducibility named twice"),
         ("eliminator twice", assemble(GOOD_RECORDS + [text({"eliminator": {
@@ -803,6 +870,61 @@ def format3_cases():
     ]
 
 
+def format31_cases():
+    """Damaged files of format 3.1 (MATHLIB_FRONT.md O1, O2): inert nodes,
+    the version, a default instance named twice."""
+    records = format31_records()
+    sun_line = line_of(SUN, records)
+    again_line = line_of(HADD_AGAIN, records)
+
+    def v31(old, new):
+        return assemble(swap(old, new, records), format_version="3.1"), sun_line
+    save = '{"inert":{"expr":0,"key":"save_info"}}'
+    head31 = assemble(GOOD_RECORDS, format_version="3.1")
+    return [
+        # An inert node is format 3.1's: in a format-3 file it is
+        # malformed, as the readers of format 3 had it.
+        ("inert node in a format-3 file", assemble(records), 4, sun_line, "malformed line"),
+        case("inert node of S2's sunfoldMatch", v31(save, save.replace("save_info", "sunfoldMatch")),
+             2, "an annotation this reader"),
+        case("inert node of Lean's noindex", v31(save, save.replace("save_info", "noindex")), 2,
+             "an annotation this reader"),
+        case("inert key a name", v31(save, save.replace('"save_info"', '["save_info"]')), 2,
+             "an annotation this reader"),
+        case("inert node without its term", v31(save, '{"inert":{"key":"save_info"}}'), 4,
+             "malformed"),
+        case("inert node with another member", v31(save, save.replace("}}", ',"x":1}}')), 4,
+             "malformed"),
+        case("inert node naming itself", v31('{"expr":24,"key"', '{"expr":25,"key"'), 4,
+             "an index to no earlier"),
+        case("inert node of no object", v31(save, '{"inert":0}'), 4, "malformed"),
+        case("save_info as an annotation", v31(save, '{"mdata":{"entries":[[["save_info"],'
+                                                     '{"bool":true}]],"expr":0}}'), 2,
+             "an annotation this reader"),
+        # 16 and 33: a default instance named again.
+        ("a default instance of two classes", assemble(swap(HADD_AGAIN, HADD_AGAIN.replace(
+            '"HAdd"', '"OfNat"'), records), format_version="3.1"), 4, again_line,
+         "a default instance of two classes"),
+        ("a default instance twice at one rank", assemble(swap(HADD_AGAIN, HADD_AGAIN.replace(
+            '"rank":1', '"rank":0'), records), format_version="3.1"), 4, again_line,
+         "two default instances of one class with one rank"),
+        # 7: other versions (3.1 is a text, LeanForth's JSON having no fractions).
+        ("format version 3.1 as a number", head31.replace('"format_version":"3.1"',
+                                                          '"format_version":3.1', 1),
+         2, 1, "another format version"),
+        ("format version 3 as a text", assemble(GOOD_RECORDS, format_version="3"), 2, 1,
+         "another format version"),
+        ("format version 3.2", assemble(GOOD_RECORDS, format_version="3.2"), 2, 1,
+         "another format version"),
+        ("format version 3.10", assemble(GOOD_RECORDS, format_version="3.10"), 2, 1,
+         "another format version"),
+        ("format version 3.1 and a space", assemble(GOOD_RECORDS, format_version="3.1 "), 2, 1,
+         "another format version"),
+        ("format version 31", assemble(GOOD_RECORDS, format_version=31), 2, 1,
+         "another format version"),
+    ]
+
+
 def run_case(work, item):
     name, content, code, line, reason = item
     data = work / (re.sub(r"\W+", "-", name) + ".ndjson")
@@ -881,6 +1003,19 @@ def command_line(work):
         status, out = check(path)
         if status != 0:
             fail(f"{what} refused: {out[-300:]}")
+    # Format 3.1: the fixture (inert nodes, an anonymous binder, a default
+    # instance named twice at two ranks, both kept), and a 3.1 file
+    # without an inert node; the verdicts those of the run without data.
+    status, out = check(FORMAT31)
+    if status != 0 or "3 default instances" not in out or "1 smart-unfolding bodies" not in out:
+        fail(f"format-3.1 fixture: exit {status}: {out[-300:]}")
+    if [x for x in out.splitlines() if not x.startswith("elaboration data:")] != \
+            plain.stdout.splitlines():
+        fail("the verdicts with format-3.1 data differ from those without it")
+    (work / "plain31.ndjson").write_text(assemble(GOOD_RECORDS, format_version="3.1"))
+    status, out = check(work / "plain31.ndjson")
+    if status != 0 or COUNTS not in out:
+        fail(f"format 3.1 without an inert node: exit {status}: {out[-300:]}")
     snapshot = work / "slice.lfsnap"
     made = subprocess.run([str(LEANFORTH), "check", "--save-snapshot", str(snapshot), str(SLICE)],
                           stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=LIMIT)
@@ -910,7 +1045,7 @@ def command_line(work):
                               capture_output=True, text=True, timeout=LIMIT)
         if done.returncode != 4 or message not in done.stdout:
             fail(f"misuse {args}: exit {done.returncode}: {done.stdout}")
-    cases = format1_cases() + format2_cases() + format3_cases()
+    cases = format1_cases() + format2_cases() + format3_cases() + format31_cases()
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         for problem in pool.map(lambda c: run_case(work, c), cases):
             if problem:
@@ -960,7 +1095,8 @@ def bound_cases(work):
 
 def schema_cases():
     validator = Validator(load_strict((ROOT / "schemas/elab-data-3.schema.json").read_text()))
-    lines = GOOD.read_text().splitlines() + ELIMINATORS.read_text().splitlines()
+    lines = (GOOD.read_text().splitlines() + ELIMINATORS.read_text().splitlines()
+             + FORMAT31.read_text().splitlines())
     for line in lines:
         for error in validator.errors(load_strict(line)):
             fail(f"schema refuses a line of a fixture: {error}: {line[:80]}")
@@ -991,6 +1127,13 @@ def schema_cases():
               sun.replace('{"bool":true}', '{"bool":false}', 1), sun.replace('"rec_arg":1', '"rec_arg":"1"'),
               sun.replace('"value":23', '"value":-1'), sun.replace(',"rec_arg":1', ''),
               first('"match_pattern"').replace('"match_pattern"', '"match_patterns"')]
+    sun31 = first(SUN, format31_records())
+    wrong += [sun31.replace('"key":"save_info"', '"key":"sunfoldMatch"'),
+              sun31.replace('"key":"save_info"', '"key":["save_info"]'),
+              sun31.replace('{"expr":0,"key":"save_info"}', '{"key":"save_info"}'),
+              sun31.replace('"key":"save_info"', '"key":"save_info","x":1'),
+              lines[0].replace('"format_version":3', '"format_version":"3.2"'),
+              lines[0].replace('"format_version":3', '"format_version":"3"')]
     for line in wrong:
         if not validator.errors(load_strict(line)):
             fail(f"schema accepts {line[:80]}")

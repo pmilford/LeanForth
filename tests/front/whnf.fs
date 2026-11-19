@@ -306,6 +306,26 @@ T{ lv1 1 s" List.append" cn sun-of pad 0 lf-libdec-sunfold -> -1 outcome-invalid
 T{ 0 s" motive" cn fk app smatch -> true false outcome-ok true }T
 T{ 0 s" Nat.succ" cn fk app smatch -> true false outcome-ok true }T
 T{ fk fx app smatch -> true false outcome-ok true }T
+\ A body holding an inert node (format 3.1, MATHLIB_FRONT.md O1) is never
+\ used: decoding it and unfolding by it answer unsupported (the mark set
+\ on Nat.add's record here, then cleared: it unfolds again).
+: add-inert! ( flag -- ) 0 s" Nat.add" cn sun-of ed-sun ed-sun-inert ! ;
+: inert-decode ( -- body outcome )
+  true add-inert! 0 s" Nat.add" cn sun-of pad 0 lf-libdec-sunfold false add-inert! ;
+: inert-unfold ( -- e' flag outcome ) true add-inert! fk zero nat-add lf-meta-unfold false add-inert! ;
+T{ inert-decode inert-unfold -> -1 outcome-unsupported -1 false outcome-unsupported }T
+\ An inert node in a body not marked is refused by the decoder itself,
+\ never read as an annotation (review mf1 L1): Nat.add's first annotation
+\ made inert here, the decoded nodes forgotten before and after.
+: add-s ( -- s ) 0 s" Nat.add" cn sun-of ;
+: add-mark ( -- addr )
+  add-s ed-sun ed-sun-nodes @ begin dup elab-node-kind elab-node-mdata <> while 1+ repeat
+  ed-node ed-node-a ;
+: inert-node ( -- body outcome )
+  add-mark @ >r elab-inert add-mark ! lbd-sun-forget add-s pad 0 lf-libdec-sunfold
+  r> add-mark ! lbd-sun-forget ;
+T{ inert-node -> -1 outcome-unsupported }T
+T{ fk zero nat-add dup lf-meta-unfold kept? -> false true outcome-ok }T
 \ A let and a have of a smart-unfolding body (review re-check N1; no
 \ slice's body has one): the let of the value (field c) and the lambda
 \ of the type (b) and body (d), the have's nonDep; nodes made here, then
