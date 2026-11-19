@@ -55,6 +55,12 @@
 \   (0 -1: none); lf-elab-error-term ( -- term ) the first error's term
 \   (-1: none); lf-elab-error-reset; lf-elab-meta ( outcome -- outcome ) records a
 \   Meta step's failure: no room 60, fuel 138, unsupported 139, else 76.
+\   Elaboration data the instance table refused (instances.fs's
+\   lf-inst-refusal, MF2's rule) is recorded instead, its code with the
+\   refused record's constant as the term: by lf-elab-meta, the search's
+\   and default instances' failures, lf-elab-synthesize (which then fails,
+\   whatever its own answer) and, when no step recorded an error, by
+\   lf-elab-code and lf-elab-error-term; lf-elab-catch never forgets it.
 \   lf-elab-catch ( outcome -- flag ), Lean's try ... catch _ (commitWhen,
 \   trySynthesizeAppInstMVars): true for a Lean error (invalid with a
 \   recorded code other than 76), which is forgotten; false for anything

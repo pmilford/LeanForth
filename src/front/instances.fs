@@ -4,25 +4,35 @@
 \ data, its getUnify (DiscrTree/Main.lean:567), getInstances
 \ (SynthInstance.lean:202), getDefaultInstances (Instances.lean:430),
 \ isClass?'s quick test (Meta/Basic.lean:1384) and the check of the data
-\ against the types (FE1E §4).
-\ - lf-inst-classes ( -- outcome ): FE1E §4 "When", run by each query
-\   word below before anything else, once per data read: every instance
-\   record's root key must be the constant of its recorded class (error
-\   115), its class is recomputed from its type (step 1: forallTelescope-
-\   Reducing at default transparency, isClass?; error 112) and the root
-\   key's arity must be the type's number of arguments (else it is filed
-\   under another root, error 115), and every default instance's type
-\   must end in its recorded class (step 3, error 116). A difference,
-\   here or in a root's keys (error 113, below), refuses the data:
-\   invalid, and the same answer at every later query, whatever its root,
-\   until the data is read again (elab-data.fs's elab-generation) or
-\   lf-inst-reset. A check that cannot finish
-\   (unsupported) leaves the record unverified: trusted for its class, as
-\   the ranks are (S1 §9). Exhausted and full are answered with nothing
-\   kept of them: the pass runs again at the next query, the records it
-\   finished staying finished. Step 4 (a class's out-parameters
-\   recomputed by checkOutParam) is plan row FE1e3b; until then they rest
-\   on pinned Lean.
+\ against the types (FE1E §4), each record checked when first needed
+\ (MF2's rule, docs/design/MATHLIB_FRONT.md §3). The tree itself is
+\ src/front/discr-tree.fs's (plan slice MF2+DT).
+\ - lf-inst-classes ( -- outcome ): run by each query word below before
+\   anything else: once per data read, the tree's roots, every value's
+\   root key (a lib/htab.fs table in the tree); afterwards ok, or the
+\   refusal's invalid. The checks run when a record is first needed:
+\   before a root's tree is built, on each instance of the root, step 1
+\   (its root key must be the constant of its recorded class, error 115;
+\   its class recomputed from its type by forallTelescopeReducing at
+\   default transparency and isClass?, error 112; the root key's arity
+\   the type's number of arguments, else it is filed under another root,
+\   error 115), then step 2 (below); before lf-default-instances answers,
+\   on each default instance of the class, step 3 (its type must end in
+\   its recorded class, error 116). So every value a search can be given
+\   has been checked. A difference refuses the data: invalid, and the
+\   same answer at every later query, whatever its root, until the data
+\   is read again (elab-data.fs's elab-generation) or lf-inst-reset. A
+\   record filed under a root, or a default instance under a class, that
+\   no query asks is never checked (and never found). A check that cannot
+\   finish (unsupported) leaves the record unverified: trusted for its
+\   class, as the ranks are (S1 §9). Exhausted and full are answered
+\   with nothing kept of them, the records finished staying finished.
+\   Step 4 (a class's out-parameters recomputed by checkOutParam) is plan
+\   row FE1e3b; until then they rest on pinned Lean.
+\ - lf-inst-refusal ( -- code ): the refusal's code (112, 113, 115, 116),
+\   0 when the data is not refused; lf-inst-refused-decl ( -- d ): the
+\   data declaration of the record it refused (valid while the code is
+\   not 0), for the elaborator's error (elab-pending.fs).
 \ - lf-inst-telescope ( d -- body outcome ): forallMetaTelescopeReducing
 \   (Basic.lean) over declaration d's type: the tactic library's
 \   (telescope.fs: a new metavariable for each binder, synthetic for an
@@ -41,12 +51,13 @@
 \   transparency: the values whose keys may unify with type, in Lean's
 \   order, as cells: an instance i (0 or more) or a left-out instance j
 \   as j invert (below 0: lf-inst-left-out?). The root keys are those of
-\   the data's values (lf-inst-classes lists them): a query whose root key
+\   the data's values (lf-inst-classes makes them): a query whose root key
 \   none has answers no values at once. A root's tree is built at its
-\   first query, its values inserted in rank order so that every child
-\   list is in Lean's stored order (§3.2), after each instance of the root
-\   has its keys recomputed (§4 step 2, at default transparency in a new
-\   depth): they must equal the record's, else invalid (error 113); a
+\   first query (discr-tree.fs's builder), its values inserted in rank
+\   order so that every child list is in Lean's stored order (§3.2),
+\   after step 1 and then step 2 on each instance of the root (step 2:
+\   its keys recomputed at default transparency in a new depth): they
+\   must equal the record's, else invalid (error 113); a
 \   record whose star covers a term the type gives (Lean saw a no_index
 \   annotation, an mdata node the export drops) is unverified (error
 \   114). The tree counts only once complete: a failure keeps none of it.
@@ -90,14 +101,15 @@
 \   read of the data does too).
 \ Outcomes: ok; invalid as above; lf-meta-stuck from a query key (Meta
 \ layer only); unsupported; exhausted; full when a slab cannot grow.
-\ Untrusted. State: the record it (the last error, the counts, the pass,
-\ the data's generation, a key comparison's ends) and the slabs it-roots (root key, node),
-\ it-nodes, it-vals, it-status and it-dstatus (per instance and default
-\ record: unchecked, class ok, unverified or verified), it-ranked (a
-\ root's values by rank), it-defaults (lf-default-instances' answer),
-\ it-stack (the walk's frames) and it-out (a query's values), in the
-\ checker context (ADR 0009). Loads in decimal whatever BASE is, then
-\ restores it.
+\ Untrusted. State: the record it (the last error, the counts, the
+\ roots' pass or the refusal, the data's generation, the record checked
+\ last, a key comparison's ends, the sort, and the tree, given back by
+\ lf-inst-reset and the context's teardown) and the slabs it-status and
+\ it-dstatus (per instance and default record: unchecked, class ok,
+\ unverified or verified), it-ranked (a root's values by rank),
+\ it-defaults (lf-default-instances' answer) and it-out (a query's
+\ values), in the checker context (ADR 0009). Loads in decimal whatever
+\ BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/sort.fs
