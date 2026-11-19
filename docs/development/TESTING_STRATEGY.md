@@ -914,6 +914,32 @@ first three in `check-forth-quality`, the index in `check-docs`); each has unit 
 - `scripts/lib-index.py` writes [LIBRARY_WORDS.md](LIBRARY_WORDS.md), the index of the public words of `src/lib/`;
   `make check-docs` fails when it is stale: run `python3 scripts/lib-index.py --write` and commit it.
 
+### Removing a duplicate group (owner, 2026-11-19)
+
+A group is **exact** when its copies are the same tokens and each word in them names the same definition from
+every copy's file; only then can the script itself replace the copies by one word, identical by construction
+(the owner's standing rule for kernel, core and import files: [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md),
+"Clean-up: the stack approved"). Every other group is a **shape** group (the same code over different words),
+merged by hand as before. `tests/scripts/test_duplicates_extract.py` tests the commands on throw-away trees.
+
+1. `python3 scripts/check-duplicates.py --plan`: the groups that are no false positive, largest first (copies
+   x tokens), each exact or shape, its files and folders, the lowest folder every copy may load
+   (`src/README.md`'s layering), a file every copy loads that sees the phrase's words (the suggested home) and an
+   existing word: a copy the others can already call.
+2. `python3 scripts/check-duplicates.py --explain KEY` (a key or a unique prefix): the phrase, exact or shape and
+   why, and each copy's place, stack comment, folder, wordlist (`module-open`, `set-current`) and lines.
+3. `python3 scripts/check-duplicates.py --extract KEY --word NAME --stack "( a -- b )" --home FILE
+   [--after WORD] [--comment TEXT] --dry-run` shows the diff; without `--dry-run` it writes. It refuses a shape
+   group, a NAME defined with another body, a home that cannot see a word of the phrase, and a copy's file that
+   does not load the home (it names the `require`; `--add-require` adds it); a copy named NAME or one in the home
+   is used as the word. It works on a scratch copy of `src/` first: no other group may appear or grow; the
+   baseline loses the group. Many at once: `--extract-table FILE`, one `KEY NAME "( stack )" HOME [AFTER|-]
+   ["comment"]` per line, all or none.
+4. Re-target any planted fault it reports as moved, run `python3 scripts/forth-metrics.py` on the changed files
+   and their unit tests (`make test-changed`), and paste its "EXACT EXTRACTION BY SCRIPT" list (the copies
+   rewritten in `src/kernel`, `src/core`, `src/import`) into the report to the owner. The Forth review and the
+   tier still run.
+
 ## Re-running one root: the export slicer (`scripts/export-slice.py`)
 
 A failing declaration of a library run is re-run in seconds, not hours, by
@@ -1220,9 +1246,14 @@ command-line argument, `DOERROR`). The script then joins the counts of all
 runs and prints, for each folder of `src/`, the blocks compiled in any run and
 how many ran at least once; `make test`'s smoke check loads every module on
 its own, so modules that no test runs count too. Options: `--files` prints
-every file, `--uncovered FILE` writes each block that never ran as
-`file:line:column`, `--keep DIR` keeps the raw counts (about 3.5 GB for a
-full run), `--check`, `--update-baseline`, `--baseline FILE`.
+every file, `--uncovered OUTPUT` writes each block that never ran as
+`file:line:column` to a new output file (it refuses a path under `src/`,
+`tests/`, `scripts/` or `docs/` and any file git tracks: it once overwrote a
+source file), `--keep DIR` keeps the raw counts (about 3.5 GB for a
+full run), `--check`, `--update-baseline`, `--baseline FILE`, and
+`--save-full`, with which `make coverage` and `make coverage-check` keep each
+file's never-run blocks in the main checkout's untracked
+`.claude/work/coverage/last-full-run.json` for `make cover`.
 
 The tool cannot stop counting silently any more (it did, unnoticed, between
 2026-11-03 and 2026-11-12: the Makefile began to force the strict wrapper,
@@ -1267,6 +1298,38 @@ A block that ran is not a tested block: coverage finds code no test
 reaches and says nothing about whether the tests check what the code does,
 which is what `make mutants` asks. The 2026-11-02 review's figure (90.7% of
 5,532 blocks) measured `make test-core` alone, over the code of that day.
+
+### Paying coverage debt (owner, 2026-11-19)
+
+Finding a file's never-run blocks used to need the 6-minute run of all of
+`make test`. Now, in order (`tests/scripts/test_coverage_debt.py` tests the
+commands on a tiny Forth file with a known never-run branch):
+
+1. `make cover-debt`: the baseline's entries with never-run blocks, largest
+   first, with their reasons (the to-do list).
+2. `make cover FILE=src/x/y.fs [TESTS="tests/a.fs tests/b.fs"]` (`python3
+   scripts/coverage.py --file ... [--tests ...]`): runs only Forth unit test
+   files under coverage, in seconds, and prints the file's blocks, its
+   never-run blocks now, the baseline's count and reason, and each never-run
+   block: `file:line:column`, the word it is in, its source text, whether the
+   baseline's reason names its line, and, when a full run was kept
+   (`--save-full`), whether that run left it never run too. Without `TESTS` it
+   takes the Forth test files named by the unit targets of `make test` that
+   load the file (`scripts/test-tier.py`'s `Reach.loaders` and
+   `tests/test-classes.txt`) whose `require` closure holds it, narrowed to
+   those that name one of its words (`--all-tests` keeps all). Exit 0 when the
+   count is not above the baseline's. It counts unit tests only: end-to-end
+   targets run code too, so it can list more blocks than the ratchet; a block
+   the last full run also left never run is real debt. On 2026-11-19
+   `make cover FILE=src/front/tactic-induction.fs` took 14 s (5 of 29 test
+   files, 3.5 s of runs) and listed 168 blocks, the baseline 83.
+3. Write the tests, re-run step 2 until the block is gone.
+4. Lower the entry without a full run: `python3 scripts/coverage.py
+   --set-baseline src/x/y.fs --blocks N` (it prints the old and new entry;
+   raising needs `--reason`, and a file with no never-run block before needs a
+   reason naming each new block by its line; `--total M` for a new entry;
+   `--drop-baseline FILE` removes one). The tier's `make coverage-focus` then
+   checks the count over every target that loads the file.
 
 ## Self-verification
 

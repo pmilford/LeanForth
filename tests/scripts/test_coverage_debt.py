@@ -163,9 +163,10 @@ class Baseline(unittest.TestCase):
 
 class Uncovered(unittest.TestCase):
     def test_sources_and_tracked_files_are_refused(self):
-        for path in ("src/lib/bounds.fs", "src/new.txt", "tests/x.txt", "scripts/y", "docs/z.md"):
-            with self.subTest(path=path):
-                self.assertIsNotNone(tool.output_problem(ROOT / path))
+        for folder, name in (("src", "lib"), ("src", "new.txt"), ("tests", "x.txt"), ("scripts", "y"),
+                             ("docs", "new-output.txt")):
+            with self.subTest(folder=folder, name=name):
+                self.assertIsNotNone(tool.output_problem(ROOT / folder / name))
         self.assertIn("tracks", tool.output_problem(ROOT / "Makefile"))
         with tempfile.TemporaryDirectory() as folder:
             self.assertIsNone(tool.output_problem(Path(folder) / "uncovered.txt"))
