@@ -99,9 +99,9 @@ def lean_trees():
     if run.returncode != 0 or len(lines) != len(CASES):
         raise Failure(f"pinned Lean on operators.lean: exit {run.returncode}\n{run.stdout}{run.stderr}")
     source = (ROOT / "tests/front/operators.lean").read_text(encoding="utf-8")
-    for lean, _ in CASES:
-        if f"#expand {lean}\n" not in source:
-            raise Failure(f"operators.lean lacks #expand {lean}")
+    for case, _ in CASES:
+        if f"#expand {case}\n" not in source:
+            raise Failure(f"operators.lean lacks #expand {case}")
     return [parse(tokens(line)) for line in lines]
 
 
