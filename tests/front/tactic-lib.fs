@@ -797,6 +797,87 @@ T{ lf-binder-implicit tal-name-for -> 0 }T
 : cleared-in ( target i -- goal ) drop tal tal-target ! tal-cleared lf-goals 0 run@ ;
 T{ fn9 0 ' cleared-in lf-tac-in-record g9 = -> true }T
 
+\ ---- 9b. tactic-alts.fs's public words called directly (review
+\ tactic-move-c4 M1), on the step records a text leaves after its run
+\ (step 0 by, 1 the by-induction-with at col 61, then its steps in text
+\ order, the second | at col 96): lf-alt-names-check (213 at the second
+\ | of a name, before 206 for a name Nat.rec lacks, with Lean's orList of
+\ the names not written); lf-alts-missing (207 at the block's word for
+\ an alternative no | wrote, read from that block's own steps even when
+\ another block's were checked last; the block dropped when none is
+\ missing); lf-alt-run (208 at its | for more names than explicit
+\ fields); lf-eval-alts without alternatives (by-induction: each
+\ alternative's goal in order, its fields introduced inaccessible and
+\ the target cleared). Every T{ }T checks the depth.
+create lf-text 512 allot  variable lf-text#
+: lf-text+ ( c-addr u -- ) tuck lf-text lf-text# @ + swap move lf-text# +! ;
+\ theorem t (n m : Nat) : 0 + n = n := by STEPS end t, run; the error
+\ forgotten, the record kept.
+: ran ( c-addr u -- )
+  0 lf-text# ! s" theorem t Nat explicit: n Nat explicit: m 0 n + n = := by " lf-text+
+  lf-text+ s"  end t" lf-text+ lf-author-begin lf-text lf-text# @ lf-author-text drop
+  lf-tac-forget tal-blocks slab-clear ;
+: at-col ( -- code col ) lf-author-code lfa-error lfa-err-at @ lfa-pos> nip ;
+: token$ ( -- c-addr u ) lfa-error lfa-err-token lfa-error lfa-err-length @ ;
+: names-in ( info i -- code ) ['] lf-alt-names-check catch dup if nip nip then ;
+: checked ( info i -- code ) ['] names-in lf-tac-in-record ;
+: rec-info ( -- info ) s" Nat.rec" decl lf-elim-info ;
+\ lf-alt-names-check: | zero twice and | foo give 213 at the second zero
+\ (Lean's first message); zero and foo give 206 at foo, succ expected.
+s" n by-induction-with | zero => by-rfl | zero => by-rfl | foo => by-rfl by-end" ran
+T{ 4 lf-tactic-step tac-kind @ tac-k-alt = rec-info 1 checked at-col
+   -> true lf-author-throw 213 96 }T
+T{ token$ s" |" compare detail$ s"  `zero`" compare -> 0 0 }T
+s" n by-induction-with | zero => by-rfl | foo => by-rfl by-end" ran
+T{ rec-info 1 checked at-col detail$ s"  `foo`: Expected `succ`" compare
+   -> lf-author-throw 206 96 0 }T
+s" n by-induction-with | zero => by-rfl | succ k ih => by-rfl by-end" ran
+T{ rec-info 1 checked lf-author-code -> 0 0 }T
+\ lf-alts-missing, with a block of Nat.rec's information on tal-blocks:
+\ zero and succ written, nothing, the block dropped; | zero alone, 207
+\ at the by-induction-with, the block left for the run's end to drop.
+: block+ ( info -- ) 1 tal-blocks slab-claim made tal-blocks slab-at tab-info ! ;
+: blocks# ( -- n ) tal-blocks slab-count ;
+: missing ( i -- code ) ['] lf-alts-missing catch dup if nip then ;
+T{ rec-info block+ rec-info block+ 1 missing blocks# lf-author-code -> 0 1 0 }T
+s" n by-induction-with | zero => by-rfl by-end" ran
+T{ rec-info block+ 1 missing at-col blocks# -> lf-author-throw 207 61 1 }T
+T{ token$ s" by-induction-with" compare detail$ s"  `succ` has not been provided" compare
+   -> 0 0 }T
+\ The inner block (step 3) of | zero checked last, tal-js its steps: the
+\ outer block's end reads its own, so succ is missing (207 at col 61).
+s" n by-induction-with | zero => m by-induction-with | zero => by-rfl | succ j ih => ih by-exact by-end by-end" ran
+T{ 3 lf-tactic-step tac-kind @ tac-k-with = rec-info 3 checked -> true 0 }T
+T{ rec-info block+ 1 missing at-col -> lf-author-throw 207 61 }T
+\ lf-alt-run: | succ k ih x names three of succ's two explicit fields:
+\ 208 at its |, before any goal is touched.
+: alt-code ( j -- code ) ['] lf-alt-run catch dup if nip then ;
+s" n by-induction-with | zero => by-rfl | succ k ih x => by-rfl by-end" ran
+T{ rec-info block+ 4 alt-code at-col -> lf-author-throw 208 96 }T
+T{ token$ s" |" compare detail$ s"  `succ`: 3 provided, but 2 expected" compare -> 0 0 }T
+\ lf-eval-alts without alternatives (step 1 a by-induction): Nat.rec's
+\ application on n with the motive set; the goals zero's and succ's, in
+\ order, n cleared from both, succ's two fields new inaccessible locals.
+s" n by-induction" ran
+lf-tac-forget
+nat s" n" binder constant fn9b
+fn9b fn9b lf-mk-eq goal-of constant g9b
+rec-info constant info9b
+info9b fn9b s" t" lfa-intern lf-elim-app constant motive9b constant alts9b drop
+T{ g9b motive9b fn9b lf-elim-set-motive -> }T
+lf-mctx-view lf-view-count constant locals9b
+: plain-in ( i -- ) info9b alts9b fn9b lf-eval-alts ;
+: goal-locals ( k -- n ) lf-goals swap run@ lf-goal-view lf-view-count ;
+: last-flags ( k -- flags ) lf-goals swap run@ lf-goal-view dup lf-view-count 1- lf-view-local
+  lf-local-flags ;
+T{ 1 lf-tactic-step tac-kind @ tac-k-induction = 1 ' plain-in lf-tac-in-record
+   lf-goals run-count -> true 2 }T
+T{ 0 goal-locals 1 goal-locals 1 last-flags lf-local-inaccessible and 0<> -> locals9b 1- locals9b 1+ true }T
+: goal-tag? ( k c-addr u -- flag ) rot lf-goals swap run@ lf-goal-tag -rot name= ;
+T{ 0 s" t.zero" goal-tag? 1 s" t.succ" goal-tag? -> true true }T
+lf-tac-forget
+tal-blocks slab-clear
+
 \ ---- 10. A mutual type (209, Lean's text and hint): FE6.Even of
 \ tests/front/several.ndjson, a library of its own.
 T{ s" tests/front/several.ndjson" true lfc-library-open -> outcome-ok }T

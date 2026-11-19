@@ -1,5 +1,6 @@
 -- The Lean twins of S2's tactic files (tests/front/01-zero-add-rw.lf,
--- 04-nested-ih.lf and the owner's proof set, tests/front/ps-*.lf;
+-- 04-nested-ih.lf, 04-nested-first.lf (zero_add_inner, last in the list
+-- below) and the owner's proof set, tests/front/ps-*.lf;
 -- docs/design/S2_INTERFACE.md appendix G): each theorem's type and value
 -- as S-expressions (the printer of tests/front/s1-now.lean), which
 -- tests/front/check_tactics.py compares with LeanForth's
@@ -74,6 +75,13 @@ theorem zero_add_nested (n m : Nat) : 0 + n = n := by
     induction m with
     | zero => rw [Nat.add_succ, ih]
     | succ j ih => exact ih
+theorem zero_add_inner (n m : Nat) : 0 + n = n := by
+  induction n with
+  | zero =>
+    induction m with
+    | zero => rfl
+    | succ j ih => exact ih
+  | succ k ih => rw [Nat.add_succ, ih]
 theorem ps_zero_add (n : Nat) : 0 + n = n := by
   induction n with
   | zero => rfl
@@ -123,5 +131,6 @@ def dump (n : Name) : MetaM Unit := do
 #eval do
   for n in [``zero_add', ``c_rev, ``c_suffix, ``c_prefix, ``c_shadow, ``c_under, ``c_order, ``c_rest,
       ``zero_add'', ``zero_add_nested, ``ps_zero_add, ``ps_succ_add, ``ps_add_comm,
-      ``ps_add_assoc, ``ps_mul_add, ``ps_length_append, ``add_zero', ``add_zero_rfl'] do
+      ``ps_add_assoc, ``ps_mul_add, ``ps_length_append, ``add_zero', ``add_zero_rfl',
+      ``zero_add_inner] do
     dump n

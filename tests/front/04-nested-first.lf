@@ -1,0 +1,26 @@
+\ An induction inside the first alternative, followed by the outer one's
+\ second (review tactic-move-c4 M1: the outer block's alternatives are
+\ read again at its end, and the inner block is closed before | succ).
+\ Lean: theorem zero_add_inner (n m : Nat) : 0 + n = n := by
+\         induction n with
+\         | zero =>
+\           induction m with
+\           | zero => rfl
+\           | succ j ih => exact ih
+\         | succ k ih => rw [Nat.add_succ, ih]
+\ With the S2 slice and its elaboration data it is accepted, its term pinned
+\ Lean's (tests/front/check_s2.py; tests/front/s2-proofs.lean). Its wrong
+\ twin, which leaves out the outer succ, is tests/front/s2w-alt-inner.lf.
+theorem zero_add_inner
+  Nat explicit: n  Nat explicit: m
+  0 n + n =
+:= by
+  n by-induction-with
+  | zero =>
+    m by-induction-with
+    | zero =>       by-rfl
+    | succ j ih =>  ih by-exact
+    by-end
+  | succ k ih =>  by-rw[ ' Nat.add_succ ih ]
+  by-end
+end zero_add_inner

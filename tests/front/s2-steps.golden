@@ -137,3 +137,13 @@
 {"goal_before":"case cons\nys : @List Nat\nx : Nat\nt : @List Nat\nih : @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) t ys) = @List.length Nat t + @List.length Nat ys\n⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) (@List.cons Nat x t) ys) = @List.length Nat (@List.cons Nat x t) + @List.length Nat ys","goals_after":[],"parent":4,"source":"35:22","step":5,"tactic":"rw","word":"by-rw["}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"add_zero'","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
 {"goal_before":"n : Nat\n⊢ n + 0 = n","goals_after":[],"parent":0,"source":"5:58","step":1,"tactic":"rfl","word":"by-rfl"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"zero_add_inner","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":9}}
+{"goal_before":"n m : Nat\n⊢ 0 + n = n","goals_after":[],"parent":0,"source":"18:5","step":1,"tactic":"induction","word":"by-induction-with"}
+{"goal_before":null,"goals_after":["case zero\nm : Nat\n⊢ 0 + 0 = 0"],"parent":1,"source":"19:3","step":2,"tactic":"alternative","word":"|"}
+{"goal_before":"case zero\nm : Nat\n⊢ 0 + 0 = 0","goals_after":[],"parent":2,"source":"20:7","step":3,"tactic":"induction","word":"by-induction-with"}
+{"goal_before":null,"goals_after":["case zero.zero\n⊢ 0 + 0 = 0"],"parent":3,"source":"21:5","step":4,"tactic":"alternative","word":"|"}
+{"goal_before":"case zero.zero\n⊢ 0 + 0 = 0","goals_after":[],"parent":4,"source":"21:21","step":5,"tactic":"rfl","word":"by-rfl"}
+{"goal_before":null,"goals_after":["case zero.succ\nj : Nat\nih : 0 + 0 = 0\n⊢ 0 + 0 = 0"],"parent":3,"source":"22:5","step":6,"tactic":"alternative","word":"|"}
+{"goal_before":"case zero.succ\nj : Nat\nih : 0 + 0 = 0\n⊢ 0 + 0 = 0","goals_after":[],"parent":6,"source":"22:24","step":7,"tactic":"exact","word":"by-exact"}
+{"goal_before":null,"goals_after":["case succ\nm k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1"],"parent":1,"source":"24:3","step":8,"tactic":"alternative","word":"|"}
+{"goal_before":"case succ\nm k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1","goals_after":[],"parent":8,"source":"24:19","step":9,"tactic":"rw","word":"by-rw["}

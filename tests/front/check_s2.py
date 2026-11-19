@@ -6,7 +6,9 @@ meta-check.fs; docs/design/S2_INTERFACE.md 4, 5, 9 and appendix G).
 
 1. FE1's case form and by-case:'s tag matching and renaming
    (tests/front/01-zero-add.lf, s2-case.lf), FE1's rewriting form, the
-   nested induction, the owner's proof set (appendix G's forms) and
+   nested induction (also in the first alternative, 04-nested-first.lf,
+   whose wrong twin s2w-alt-inner.lf leaves out the outer succ), the
+   owner's proof set (appendix G's forms) and
    merge B's midpoint, n + 0 = n by Eq.refl and by rfl (FILES) through
    `bin/leanforth check --env tests/front/s2-slice.ndjson --elab-data
    tests/front/s2-slice.elab.ndjson --steps -`: exit 0, each theorem
@@ -95,7 +97,10 @@ FILES = [("tests/front/01-zero-add.lf", ["zero_add'"]),
                                               "ps_length_append"]),
          # S2 merge B's midpoint (smart unfolding: n + 0 unfolds to n).
          ("tests/front/00-add-zero.lf", ["add_zero'"]),
-         ("tests/front/02-add-zero-rfl.lf", ["add_zero'"])]
+         ("tests/front/02-add-zero-rfl.lf", ["add_zero'"]),
+         # An inner block in the first alternative, the outer second after it
+         # (review tactic-move-c4 M1; s2-proofs.lean lists it last).
+         ("tests/front/04-nested-first.lf", ["zero_add_inner"])]
 # by-case:'s files (--case: the planted faults' quick test of tactics/case.fs).
 CASE_FILES = ["tests/front/01-zero-add.lf", "tests/front/s2-case.lf"]
 # A file whose theorem has another name in tests/front/s2-proofs.lean,
@@ -145,7 +150,8 @@ WRONG = [("tests/front/s2w-pattern.lf", 215,
          ("tests/front/s2w-case-shadow.lf", 89, CASE_SHADOW, ""),
          ("tests/front/s2w-case-under.lf", 97, "Tactic `rfl` failed: The left-hand side",
           CASE_UNDER),
-         ("tests/front/s2w-case-newer.lf", 211, "too many variable names provided", "")]
+         ("tests/front/s2w-case-newer.lf", 211, "too many variable names provided", ""),
+         ("tests/front/s2w-alt-inner.lf", 207, "Alternative `succ` has not been provided", "")]
 # useImplicitLambda (4): the export, its data, each file, its exit, code and text.
 LAMBDA_ENV = "tests/front/implicit-lambda.ndjson"
 LAMBDA_DATA = "tests/front/implicit-lambda.elab.ndjson"
@@ -179,7 +185,8 @@ LEAN_WRONG = ["Tactic `rewrite` failed: Did not find an occurrence of the patter
               "  n + 0 = n + 1",
               CASE_TAG, CASE_TAGS, CASE_NONE, "too many variable names provided", CASE_UNSOLVED,
               CASE_SUFFIX, CASE_SHADOW, CASE_UNDER,
-              ":82:2: error: too many variable names provided"]  # w_case_newer's case
+              ":82:2: error: too many variable names provided",  # w_case_newer's case
+              ":84:2: error: Alternative `succ` has not been provided"]  # w_alt_inner's
 
 
 class Failure(Exception):
@@ -242,8 +249,8 @@ def golden():
 
 
 def self_test(want):
-    if len(want) != 36:
-        raise Failure(f"harness self-test: {len(want)} golden lines, expected 36")
+    if len(want) != 38:
+        raise Failure(f"harness self-test: {len(want)} golden lines, expected 38")
     wrong = dict(want)
     key = next(iter(wrong))
     wrong[key] = wrong[key].replace("#0", "#1", 1)

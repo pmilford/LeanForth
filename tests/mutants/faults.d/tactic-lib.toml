@@ -755,3 +755,22 @@ old = ''': mel-tactic ( induction? -- c-addr u ) if s" induction" else s" cases"
 new = ''': mel-tactic ( induction? -- c-addr u ) drop s" induction" ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "review tactic-move-c4 B1: 205's explanation names induction and @[induction_eliminator] for cases too, where Lean's names the tactic"
+
+# --- review tactic-move-c4: the block stack at a block's end (M1, R7 and R8) ---
+
+[[fault]]
+id = "lib-alts-missing-stale-js"
+file = "src/front/tactic-alts.fs"
+old = '''  dup tal-alts-of tal-block tab-info @ dup lf-elim-alts# 0 ?do i tal-unused loop 2drop'''
+new = '''  tal-block tab-info @ dup lf-elim-alts# 0 ?do i tal-unused loop 2drop'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-move-c4 R7: a block's end reads the alternatives last checked (a nested block's), so an outer block missing succ after a complete inner one is not refused (207)"
+
+[[fault]]
+id = "lib-alts-block-kept"
+file = "src/front/tactic-alts.fs"
+old = '''  tal-blocks slab-drop ;'''
+new = ''' ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-move-c4 R8: a block's record stays open after its end, so the next | of the outer block runs on the inner block's goals"
+

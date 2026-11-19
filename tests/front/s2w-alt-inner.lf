@@ -1,0 +1,17 @@
+\ A wrong proof for S2's tactics (tests/front/check_s2.py; its Lean twin is
+\ tests/front/s2-wrong.lean's w_alt_inner): the outer block leaves out succ
+\ after a complete inner block in its zero alternative, refused with Lean's
+\ first message (review tactic-move-c4 M1: the outer block's own
+\ alternatives, not the inner one's, are read at its end).
+theorem w_alt_inner
+  Nat explicit: n  Nat explicit: m
+  0 n + n =
+:= by
+  n by-induction-with
+  | zero =>
+    m by-induction-with
+    | zero =>       by-rfl
+    | succ j ih =>  ih by-exact
+    by-end
+  by-end
+end w_alt_inner

@@ -80,3 +80,9 @@ theorem w_case_newer (n m : Nat) : 0 + m = m := by
   induction m
   case zero => rfl
   case succ x y z => exact congrArg Nat.succ y
+theorem w_alt_inner (n m : Nat) : 0 + n = n := by
+  induction n with
+  | zero =>
+    induction m with
+    | zero => rfl
+    | succ j ih => exact ih
