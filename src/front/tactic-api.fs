@@ -1,7 +1,8 @@
 \ The tactic plug-in interface (docs/design/TACTIC_PLUGINS.md 3; slice
 \ a2-ii): what a tactic file of src/front/tactics/ requires, and the word
 \ by which it registers itself when it loads, as Lean's tactics do.
-\   lf-tactic: ( shape "spelling" -- kind )  a new tactic word: the next
+\   lf-tactic: ( shape "spelling" -- kind )  a new tactic word, spelt by-
+\       and at least one more character (else the load aborts): the next
 \       free kind (from 12; the S1/S2 kinds keep 1-11) and its row in the
 \       runner (tactic-run.fs; until its run word is set it answers error
 \       80, not supported yet), the spelling added to the printer's
@@ -46,9 +47,14 @@ require ./meta-tactic/constructor.fs
 
 \ The spelling is read three times: >in put back before each.
 : tap-again ( in -- in ) dup >in ! ;
+: tap-later ( kind -- kind ) ['] lf-tac-later over lf-tactic-action! ;
 : tap-kind ( c-addr u -- kind )   \ the row, answering 80 until its run word is set
-  lf-tactic-free dup >r lfr-spell ['] lf-tac-later 0 r@ lfr-set r> ;
+  lf-tactic-free dup >r lfr-spell r> tap-later ;
+\ A tactic word is spelt by- and at least one more character.
+: tap-by? ( c-addr u -- flag )
+  dup 3 > if drop 3 s" by-" compare 0= else 2drop false then ;
 : tap-row ( in c-addr u -- in kind )
+  2dup tap-by? 0= abort" lf-tactic: a tactic word is spelt by-..."
   2dup lf-pf-reserved? abort" lf-tactic: a word reserved already"
   2dup lf-pf-reserve-more tap-kind ;
 \ Every registered word's natural meaning: the row whose spelling is the

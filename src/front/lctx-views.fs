@@ -61,6 +61,7 @@ require ../core/name-equal.fs
 require ../core/local-context.fs
 require ../present/binder-table.fs
 require ../lib/runs.fs
+require ../lib/find.fs
 
 begin-structure /loc
   field: loc-fvar      \ the free variable
@@ -146,12 +147,11 @@ end-structure
 \ scopes in Lean, so it never equals a name the user writes).
 : lv-name-is? ( name local -- flag )
   dup lf-local-inaccessible? if 2drop false else lf-local-name lf-name-same? then ;
-: lv-named? ( view name i -- view name i flag )
-  >r over r@ lf-view-local over swap lv-name-is? r> swap ;
+: lv-named? ( view name i -- view name flag )
+  >r over r> lf-view-local over swap lv-name-is? ;
 : lf-view-named ( view name -- i true | false )
   over lf-view-valid? over lf-user-name? and 0= if 2drop false exit then
-  over lf-view-count begin dup while 1- lv-named? if nip nip true exit then repeat
-  drop 2drop false ;
+  over lf-view-count ['] lv-named? find-last-index if nip true else drop false then ;
 
 \ Erasing and renaming: the locals before place i, the changed one if
 \ any, and the locals after it.

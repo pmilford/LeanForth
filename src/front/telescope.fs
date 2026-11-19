@@ -129,7 +129,8 @@ end-structure
   tl tlf-type @ lf-term-pi? if tl tlf-type @ tl-binder true else tl-reduced then ;
 : tl-walk ( -- ) begin tl-step 0= until ;
 : tl-close ( -- acc body ) tl dup tlf-acc @ swap tlf-type @ tl-frames slab-drop ;
-: tl-run ( -- acc body ) ['] tl-walk catch ?dup if tl-frames slab-drop throw then tl-close ;
+: tl-run ( -- acc body )
+  ['] tl-walk catch ?dup if tl-frames slab-drop throw then tl-close ;
 : lf-forall-meta-telescope-reducing ( acc type d xt -- acc' body ) tl-open tl-run ;
 \ The same with maxMVars? some max (Basic.lean:1755): at most max binders,
 \ the rest of the type returned as it is once max are passed.
@@ -162,8 +163,7 @@ end-structure
 : tl-x ( i -- x ) tlb tlb-xs @ swap tl-cell ;
 : tl-plain ( x -- x )
   dup dup lf-fvar-let? swap lf-fvar-nondep? or if outcome-unsupported lf-must then ;
-: tl-local-of ( fvar view -- local )
-  dup rot lf-view-find 0= if outcome-invalid lf-must then lf-view-local ;
+: tl-local-of ( fvar view -- local ) dup rot lf-view-find lf-found lf-view-local ;
 \ Binder i's domain: x_i's type instantiated, head-beta reduced and
 \ abstracted over x_0 .. x_i-1.
 : tl-domain ( i -- dom )
@@ -189,16 +189,13 @@ end-structure
 /tle context-record: tle
 : tle! ( mvar addr n -- ) tle tle-n 2! tle tle-mvar ! ;
 : tle-x ( i -- x ) tle tle-xs @ swap tl-cell ;
-: tle-view ( -- view ) tle tle-mvar @ lf-mvar-view 0= if outcome-invalid lf-must then ;
+: tle-view ( -- view ) tle tle-mvar @ lf-goal-view ;
 : tle-index ( i -- k true | false ) tle-view swap tle-x lf-view-find ;
 : tle-misses? ( i -- flag ) tle-index if drop false else true then ;
 : tle-placed? ( i -- flag )
   dup tle-index 0= if drop false exit then swap tle-view lf-view-count tle tle-n @ - + = ;
 : tle-sees? ( -- flag ) tle tle-n @ ['] tle-misses? all? 0= ;
 : tle-tail? ( -- flag ) tle tle-n @ ['] tle-placed? all? ;
-: tl-open-mvar? ( e -- flag )
-  dup lf-mvar? 0= if drop false exit then
-  dup lf-mvar-delayed if 2drop 2drop false exit then lf-mvar-value dup if nip then 0= ;
 \ ?n's type, kind and context; ?n xs; e delayed-assigned or assigned.
 : tl-aux-kind ( -- kind )
   tle tle-mvar @ dup lf-mvar-assignable? if lf-mvar-kind drop else drop mv-opaque then ;
@@ -214,11 +211,11 @@ end-structure
   if swap tl-delayed else nip tl-assigned then ;
 defer tl-bind-in ( e addr n view xt -- e' )
 : tl-aux-type ( mvar addr n -- type )
-  >r >r dup lf-mvar-type drop swap lf-mvar-view drop r> r> rot ['] lf-term-pi tl-bind-in ;
+  >r >r dup lf-goal-type swap lf-goal-view r> r> rot ['] lf-term-pi tl-bind-in ;
 : tl-revert ( mvar addr n -- r )
   2>r dup 2r@ tl-aux-type swap 2r> tle! tl-aux dup tl-applied tl-settle ;
 : tl-elim ( e addr n -- e' )
-  >r over swap r> tle! dup tl-open-mvar? 0= if exit then tle-sees? 0= if exit then
+  >r over swap r> tle! dup lf-mvar-open? 0= if exit then tle-sees? 0= if exit then
   tle-tail? 0= if outcome-unsupported lf-must then tle tle-xs @ tle tle-n @ tl-revert ;
 \ elimMVarDeps beyond that case: a metavariable left in e (delayed-
 \ assigned, or inside e) that sees one of the variables, or has no

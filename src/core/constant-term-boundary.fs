@@ -50,11 +50,17 @@ require ./terms.fs
 \ Whether a node is a constant, unchecked as lf-term-tag@.
 : lf-term-const? ( index -- flag ) lf-tag-constant lf-term-tag? ;
 \ A constant node's reference record (constant-references.fs), the name
-\ it refers to and its number of universe arguments; unchecked: const is
-\ a live constant node.
+\ it refers to, its number of universe arguments and the arguments
+\ themselves; unchecked: const is a live constant node.
 : lf-const-slot ( const -- slot ) lf-term-first@ lf-cref-slot ;
 : lf-const-name ( const -- name ) lf-const-slot lf-cref-name@ drop ;
 : lf-const-levels# ( const -- n ) lf-const-slot lf-cref-pairs nip ;
+\ Its universe argument i (0 the first; i below lf-const-levels#), and
+\ all of them in order (Lean's Expr.constLevels!).
+: lf-const-level@ ( const i -- level )
+  swap lf-const-slot lf-cref-pairs drop swap lf-cref-pair@ drop ;
+: lf-const-levels ( const -- l1..ln n )
+  dup lf-const-levels# 0 ?do dup i lf-const-level@ swap loop lf-const-levels# ;
 \ An input constant of a term view (terms.fs) has its reference in the
 \ leaf table.
 lf-tag-constant tag-const lf-term-input-leaf-tag

@@ -13622,8 +13622,8 @@ gap = "no inductive type of Init is recursive with one constructor and no indice
 [[fault]]
 id = "fe-spine-levels-first-only"
 file = "src/front/meta-spine.fs"
-old = '''    2dup i ms-level swap slab-push dup ok? 0= if nip nip unloop exit then drop'''
-new = '''    2dup 0 ms-level swap slab-push dup ok? 0= if nip nip unloop exit then drop'''
+old = '''    2dup i lf-const-level@ swap slab-push dup ok? 0= if nip nip unloop exit then drop'''
+new = '''    2dup 0 lf-const-level@ swap slab-push dup ok? 0= if nip nip unloop exit then drop'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "review fe1c-2 re-check: every universe argument of a constant is read as its first (Quot.lift.{1,2} would get Sort 1 for beta)"
 
@@ -15391,7 +15391,7 @@ reason = "FE1c review M3: isDefEqEtaStruct on Prod.mk Nat Nat a, short of an arg
 [[fault]]
 id = "fe-defeq-mvar-self-readonly"
 file = "src/front/defeq.fs"
-old = '''  de-mvar lf-mvar-assignable? 0= if lf-lb-false de-return exit then'''
+old = '''  de-mvar de-assignable-mvar? 0= if lf-lb-false de-return exit then'''
 new = '''  '''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M3: isDefEqMVarSelf tries constApprox on a read-only metavariable"
@@ -17448,8 +17448,8 @@ reason = "review s1-synth-b M1 (F6): spineMVarsAdmissible takes a projection as 
 [[fault]]
 id = "fe-defeq-opaque-not-read-only"
 file = "src/front/defeq.fs"
-old = '''  lf-mvar-kind drop mv-opaque = lf-defeq-opaque de-flag? 0= and ;'''
-new = '''  drop false ;'''
+old = '''  lf-defeq-opaque de-flag? if de-at-depth? else lf-mvar-assignable? then ;'''
+new = '''  lf-defeq-opaque de-flag? if de-at-depth? else de-at-depth? then ;'''
 test = "$GFORTH tests/front/synth.fs"
 reason = "review s1-synth-b M1 (F9): isReadOnlyOrSyntheticOpaque forgets the synthetic opaque metavariables of the current depth"
 
@@ -20135,8 +20135,8 @@ reason = "S2 5 (MVarId.rewrite): congrArg's sides swapped, a proof the kernel re
 [[fault]]
 id = "s2-rw-mpr-new-twice"
 file = "src/front/meta-tactic/goal.fs"
-old = '''  >r >r over mtg-mpr-const -rot 2dup r> mtg-hint r> 4 lf-mk-app-n ;'''
-new = '''  >r >r over mtg-mpr-const -rot nip dup 2dup r> mtg-hint r> 4 lf-mk-app-n ;'''
+old = '''  >r 2dup lf-goal-type swap lf-goal-type mtg-mpr swap lf-mk-app r> lf-mk-app'''
+new = '''  >r 2dup lf-goal-type swap drop dup mtg-mpr swap lf-mk-app r> lf-mk-app'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 5 (replaceTargetEq): Eq.mpr's first argument the new target where Lean's is the goal's type as stored"
 

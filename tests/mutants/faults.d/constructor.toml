@@ -23,8 +23,8 @@ reason = "a2-iii: observing? reads every success as a failure (no constructor ap
 [[fault]]
 id = "constructor-no-whnf"
 file = "src/front/meta-tactic/constructor.fs"
-old = '''  dup lf-mvar-type drop lf-instantiate! lf-whnf! lf-instantiate! lf-meta-head'''
-new = '''  dup lf-mvar-type drop lf-instantiate! lf-instantiate! lf-meta-head'''
+old = '''  dup lf-goal-type lf-instantiate! lf-whnf! lf-instantiate! lf-meta-head'''
+new = '''  dup lf-goal-type lf-instantiate! lf-instantiate! lf-meta-head'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/constructor/check.py"
 reason = "a2-iii: getType' without whnf: n ≤ n is no inductive type (Lean's constructor gives Nat.le.refl)"
 
@@ -59,3 +59,11 @@ old = '''create tac-shape-term 1 , ' lft-term-done ,'''
 new = '''create tac-shape-term 0 , ' lft-term-done ,'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/apply/check.py"
 reason = "a2-ii: a term-shaped word checks for no value above the frame (by-apply's term counted as a value left over)"
+
+[[fault]]
+id = "constructor-not-assigned-off"
+file = "src/front/meta-tactic/constructor.fs"
+old = '''  lf-goal-not-assigned dup mco-head tuck dup mco-ctors nip ['] mco-tried? find-index'''
+new = '''  dup mco-head tuck dup mco-ctors nip ['] mco-tried? find-index'''
+test = "$GFORTH tests/front/tactics/constructor/test.fs"
+reason = "review tactic-a2ii B2 (its ctor-not-assigned-off): no checkNotAssigned, so an assigned goal is searched (error 383, not the fault)"

@@ -101,10 +101,9 @@ require ../core/let-terms.fs
 : lf-meta-firm-const? ( const -- flag outcome )
   lf-kind-definition lf-meta-kind-or swap lf-kind-definition <> swap ;
 : lf-meta-arity? ( d const -- flag ) lf-const-levels# swap lf-menv-params nip = ;
-: ms-level ( slot i -- level ) swap lf-cref-pairs drop swap lf-cref-pair@ drop ;
 : lf-meta-levels-fill ( const slab -- outcome )
-  dup slab-clear swap lf-const-slot dup lf-cref-pairs nip 0 ?do
-    2dup i ms-level swap slab-push dup ok? 0= if nip nip unloop exit then drop
+  dup slab-clear swap dup lf-const-levels# 0 ?do
+    2dup i lf-const-level@ swap slab-push dup ok? 0= if nip nip unloop exit then drop
   loop 2drop outcome-ok ;
 : ms-full ( outcome -- outcome' ) outcome-full = if outcome-full else outcome-ok then ;
 : lf-meta-named ( new old -- new outcome )

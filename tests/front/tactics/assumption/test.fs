@@ -5,7 +5,8 @@
 \ docs/development/TEST_COVERAGE_REVIEW.md: 1. outcomes: the newest local
 \ that fits, an implementation detail passed over though it fits, none
 \ fits (error 381, thrown with no step running), an empty context;
-\ 2. malformed input: an assigned goal (a fault, invalid); 3. stack
+\ 2. malformed input: an assigned goal (a fault, invalid, before the
+\ search); 3. stack
 \ effects (each T{ }T checks the depth); 7. regression pins: the free
 \ variable chosen (Lean's findDeclRevM? order).
 \ Nothing here accepts a theorem: only the kernel's check does.
@@ -48,8 +49,15 @@ T{ fa fb le goal closes h2 = -> true }T
 T{ fb fa le goal dup ' lf-goal-assumption code1 lf-author-code rot lf-goal-assigned?
    -> lf-author-throw 381 false }T
 lf-tac-forget
-\ An assigned goal is a fault (checkNotAssigned): invalid.
-: solved ( -- goal ) nat goal dup fa lf-mvar-assign made ;
+\ An assigned goal is a fault (checkNotAssigned): invalid, before the
+\ search (b ≤ a fits no local: without the check, error 381).
+: solved ( -- goal ) fb fa le goal dup h1 lf-mvar-assign made ;
 T{ solved ' lf-goal-assumption code1 -> -4201 }T
+\ withAssignableSyntheticOpaque (evalAssumption, review tactic-a2ii B2):
+\ a goal a ≤ ?o with ?o synthetic opaque is closed by h2, ?o := b. Lean,
+\ for that goal made by mkFreshExprMVar .syntheticOpaque and closed by
+\ evalTactic `assumption`, answers m := b.
+nat mv-opaque lf-mvar-new made constant ?o
+T{ fa ?o le goal closes h2 = ?o lf-instantiate! fb = -> true true }T
 .( assumption test.fs: all tests passed) cr
 bye

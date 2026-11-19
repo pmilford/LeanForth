@@ -2,9 +2,9 @@
 \ (docs/design/TACTIC_PLUGINS.md 2.4; slice a2-iii), a port of Lean
 \ 4.35.0's src/lean/Lean/Meta/Tactic/Constructor.lean:
 \   lf-goal-constructor ( goal -- goals )  MVarId.constructorCore
-\       (Constructor.lean:23-40) with findAll, as evalConstructor calls it
-\       (Elab/Tactic/ElabTerm.lean:326; ConstructorConfig's first is
-\       false): in goal's context (checkNotAssigned first), the goal's
+\       (Constructor.lean:23-40), as evalConstructor calls it
+\       (Elab/Tactic/ElabTerm.lean:326): in goal's context (checkNotAssigned
+\       first), the goal's
 \       type put through whnf and instantiated (getType'); its head must be
 \       an inductive type's constant (matchConstInduct; else error 382,
 \       "target is not an inductive datatype"); each constructor in the
@@ -16,11 +16,12 @@
 \       no room, no fuel, a fault) stops the run, never a silent choice.
 \       None applies: error 383, "no applicable constructor found". The
 \       first that applies is applied again, for real; its goals are the
-\       result. Lean also logs a warning when several apply; LeanForth has
-\       no warnings, so it is not printed (the choice and the term are
-\       Lean's).
+\       result. Lean (findAll true) probes every constructor, to warn
+\       when several apply; LeanForth has no warnings and stops at the
+\       first that applies (lib/find.fs's find-index): the choice and the
+\       term are Lean's.
 \ Lean call list: withContext -> the caller's (tactic-core.fs);
-\ checkNotAssigned -> lf-goal-not-assigned (goal.fs); getType' ->
+\ checkNotAssigned -> lf-goal-not-assigned (goal.fs); getType' -> lf-goal-type,
 \ lf-whnf! then lf-instantiate! (meta-must.fs); getAppFn -> lf-meta-head;
 \ matchConstInduct -> lf-menv-find, lf-menv-kind, lf-ity-ctors@ (meta-env.fs,
 \ core/input.fs); mkConst ctor us -> lf-mk-const-id with lf-const-levels
@@ -33,6 +34,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../../lib/lib.fs
+require ../../lib/find.fs
 require ../../author/errors.fs
 require ../../core/input.fs
 require ../../core/constant-term-boundary.fs
@@ -61,10 +63,12 @@ require ./apply.fs
 : mco-ctors ( head -- items n )
   mco-decl lf-menv-data ?dup 0= if outcome-unsupported lf-must then lf-ity-ctors@ ;
 : mco-head ( goal -- head )
-  dup lf-mvar-type drop lf-instantiate! lf-whnf! lf-instantiate! lf-meta-head
+  dup lf-goal-type lf-instantiate! lf-whnf! lf-instantiate! lf-meta-head
   dup mco-inductive? if nip exit then drop lfa-e-ctor-target mco-failed 0 ;
-\ Constructor name at the head's levels (mkConst ctor us).
+\ Constructor k at the head's levels (mkConst ctor us).
+: mco-ctor ( head k -- name ) >r mco-ctors drop r> cells + @ ;
 : mco-const ( head name -- e ) swap lf-const-levels lf-mk-const-id ;
+: mco-at ( head k -- e ) over swap mco-ctor mco-const ;
 
 \ ---- observing? inside withoutModifyingState: a Lean error is false.
 : mco-authored? ( -- flag ) lf-author-code lf-author-outcome outcome-invalid = ;
@@ -76,15 +80,13 @@ require ./apply.fs
   dup mco-lean-error? 0= if throw then drop lf-tac-forget false ;
 : mco-probe ( goal e -- applies? false )
   ['] lf-goal-apply catch ?dup if nip nip mco-caught else drop true then false ;
-: mco-applies? ( goal head name -- flag ) mco-const ['] mco-probe lf-commit-when drop ;
+: mco-tried? ( goal head k -- goal head flag )
+  >r 2dup r> mco-at ['] mco-probe lf-commit-when drop ;
 
-\ The first constructor that applies, else error 383.
-: mco-name ( items i -- name ) cells + @ ;
-: mco-tried? ( goal head items i -- goal head items flag )
-  >r 2 pick 2 pick 2 pick r> mco-name mco-applies? ;
-: mco-none ( goal head items -- 0 ) 2drop lfa-e-ctor-none mco-failed 0 ;
-: mco-first ( goal head items n -- name )
-  0 ?do i mco-tried? if i mco-name nip nip unloop exit then loop mco-none ;
+\ The first constructor that applies, applied again for real; none: error 383.
+: mco-apply ( head goal k -- goals ) >r swap r> mco-at lf-goal-apply ;
+: mco-none ( head goal -- 0 ) nip lfa-e-ctor-none mco-failed 0 ;
 : lf-goal-constructor ( goal -- goals )
-  lf-goal-not-assigned dup mco-head 2dup dup mco-ctors mco-first mco-const lf-goal-apply ;
+  lf-goal-not-assigned dup mco-head tuck dup mco-ctors nip ['] mco-tried? find-index
+  if mco-apply else mco-none then ;
 base !   \ the BASE this file was loaded with

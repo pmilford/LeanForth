@@ -36,7 +36,7 @@
 \ mkUnfoldAxiomsNote (empty outside a module) are not printed.
 \ Lean call list (Apply.lean, one level down): withContext ->
 \ lf-with-goal's caller (tactic-core.fs); checkNotAssigned ->
-\ lf-goal-not-assigned (goal.fs); getType -> lf-mvar-type; inferType ->
+\ lf-goal-not-assigned (goal.fs); getType -> lf-goal-type (meta-must.fs); inferType ->
 \ lf-infer! (meta-must.fs); getExpectedNumArgsAux, getExpectedNumArgs ->
 \ lf-expected-num-args (telescope.fs); saveState/restore -> lf-commit-when;
 \ forallMetaTelescopeReducing -> lf-forall-meta-bounded-telescope;
@@ -45,7 +45,8 @@
 \ instantiateMVars -> lf-instantiate!; mkAppN -> lf-mk-app-n's fold
 \ (app-builder.fs); assign -> lf-mvar-assign; isAssigned ->
 \ lf-goal-assigned?; getTag/setTag/appendTag -> lf-goal-tag-append
-\ (goal.fs); findMVar? -> lf-term-holds?; headBetaType ->
+\ (goal.fs); findMVar? -> lf-term-holds?; getMVarsNoDelayed
+\ (in part) -> lf-mvar-open? (mvars.fs); headBetaType ->
 \ lf-goal-head-beta-type (goal.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: the record ap (the call's goal, term and types) and the slabs
@@ -144,14 +145,18 @@ end-structure
 : ap-todo+ ( mvar -- ) ap-todo slab-push lf-must ;
 : ap-insts ( -- )
   ap-todo slab-clear ap-new# 0 ?do i ap-inst? if i ap-new drop ap-todo+ then loop ;
-: ap-type. ( mvar -- outcome ) lf-mvar-type drop lf-tac-indented. ;
+: ap-type. ( mvar -- outcome ) lf-goal-type lf-tac-indented. ;
 : ap-no-instance ( mvar -- ) ['] ap-type. lf-tac-detail lfa-e-elab-synth lf-tac-stop ;
 : ap-inst-fail ( -- )
   ap ap-goal @ ['] lf-tac-goal-of. lf-tac-detail lfa-e-apply-inst lf-tac-stop ;
 : ap-assign-inst ( mvar inst -- ) lf-defeq! 0= if ap-inst-fail then ;
+\ synthInstance: a search stuck on a metavariable (Lean's isDefEqStuck)
+\ fails to synthesize, as a search that finds none (SynthInstance.lean:1026).
+: ap-synth ( type -- inst found? )
+  lf-synth-instance dup lf-meta-stuck = if 2drop false exit then lf-must ;
 \ One metavariable: found (true), else put off (false).
 : ap-synth-one ( mvar -- found? )
-  dup lf-infer! lf-synth-instance lf-must if ap-assign-inst true exit then
+  dup lf-infer! ap-synth if ap-assign-inst true exit then
   drop ap-later slab-push lf-must false ;
 \ A round: ( failed progress ), Lean's ex? (the last metavariable not
 \ found, else 0) and progressAfterEx (one found after a failure).
@@ -177,17 +182,16 @@ end-structure
   ap-goals slab-clear ap-new# 0 ?do i ap-new drop dup lf-goal-assigned?
     if drop else ap-goals slab-push lf-must then loop ;
 : ap-goal@ ( k -- mvar ) ap-goals slab-at @ ;
-: ap-tag ( -- tag ) ap ap-goal @ lf-mvar-tag drop ;
+: ap-tag ( -- tag ) ap ap-goal @ lf-goal-tag ;
 \ appendParentTag: binderInfos indexed as the unfiltered list (Lean's).
 : ap-tag-one ( k -- )
   dup ap-inst? if drop exit then ap-goal@ ap-tag lf-goal-tag-append ;
 : ap-parent-tag ( -- )
   ap-goals slab-count 1 = if 0 ap-goal@ ap-tag lf-mvar-tag! lf-must exit then
   ap-tag 0= if exit then ap-goals slab-count 0 ?do i ap-tag-one loop ;
-\ getMVarsNoDelayed e: not ported; e instantiated must hold no metavariable.
-: ap-open? ( leaf -- flag ) dup lf-mvar? if lf-goal-assigned? 0= else drop false then ;
+\ getMVarsNoDelayed e: not ported; e instantiated must hold no open metavariable.
 : ap-alone ( -- )
-  ap ap-e @ lf-instantiate! ['] ap-open? lf-term-holds? lf-must
+  ap ap-e @ lf-instantiate! ['] lf-mvar-open? lf-term-holds? lf-must
   if lfa-e-tac-form lf-tac-fail then ;
 
 \ ---- reorderGoals nonDependentFirst, then headBetaType.
@@ -196,7 +200,7 @@ end-structure
 : ap-sought! ( mvar -- ) lf-term-first@ ap ap-sought ! ;
 : ap-holds? ( t -- flag ) ['] ap-sought? lf-term-holds? lf-must ;
 : ap-names? ( mvar other -- flag )   \ other's type, as stored, holds mvar
-  2dup = if 2drop false exit then swap ap-sought! lf-mvar-type drop ap-holds? ;
+  2dup = if 2drop false exit then swap ap-sought! lf-goal-type ap-holds? ;
 : ap-dependent? ( mvar -- flag )
   ap-goals slab-count 0 ?do dup i ap-goal@ ap-names? if drop true unloop exit then loop
   drop false ;
@@ -210,7 +214,7 @@ end-structure
 \ take instantiated terms, Lean's isDefEq instantiates as it goes, and
 \ Lean's messages print them instantiated; nothing else differs.)
 : ap-run ( -- goals )
-  ap ap-goal @ lf-goal-not-assigned lf-mvar-type drop lf-instantiate! ap ap-target !
+  ap ap-goal @ lf-goal-not-assigned lf-goal-type lf-instantiate! ap ap-target !
   ap ap-e @ dup ap-d! lf-infer! lf-instantiate! ap ap-etype ! ap-range ap-search
   ap-synth-instances
   ap-assign ap-unassigned ap-parent-tag ap-alone ap-result ;

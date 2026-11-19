@@ -8,7 +8,7 @@
 \   lf-mk-const ( c-addr u l1..ln n -- e )  mkConst name [l1, ..., ln]
 \   lf-mk-const0 ( c-addr u -- e ), lf-mk-const1 ( c-addr u l -- e )
 \   lf-mk-const-id ( name l1..ln n -- e )  the same of a name ID
-\   lf-const-levels ( c -- l1..ln n )      Expr.constLevels! of a constant
+\       (Expr.constLevels! is core/constant-term-boundary.fs's lf-const-levels)
 \   lf-mk-app ( f a -- e ), lf-mk-app-n ( f a1..an n -- e )  mkApp, mkAppN
 \   lf-mk-eq ( a b -- e )                 mkEq (40)
 \   lf-mk-eq-refl ( a -- h )              mkEqRefl (65)
@@ -78,9 +78,6 @@ abl-most cells context-record: abl-cells
   2>r lf-name-generation @ 2r> lf-meta-const-at lf-must ;
 : lf-mk-const ( c-addr u l1..ln n -- e ) abl-stored 2>r lfa-intern 2r> abl-const-at ;
 : lf-mk-const-id ( name l1..ln n -- e ) abl-stored abl-const-at ;
-\ Expr.constLevels!: a constant node's universe arguments.
-: lf-const-levels ( c -- l1..ln n )
-  lf-const-slot lf-cref-pairs dup >r 0 ?do dup i lf-cref-pair@ drop swap loop drop r> ;
 : lf-mk-const0 ( c-addr u -- e ) 0 lf-mk-const ;
 : lf-mk-const1 ( c-addr u l -- e ) 1 lf-mk-const ;
 : lf-mk-app ( f a -- e ) lf-term-app lf-made! ;

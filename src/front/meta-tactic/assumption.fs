@@ -11,10 +11,11 @@
 \       opaque metavariables assignable); the goal assigned its free
 \       variable. None: Lean's throwTacticEx with no message, error 381,
 \       "Tactic `assumption` failed" and the goal.
-\ Lean call list: withContext -> the caller's (tactic-core.fs);
+\ Lean call list: withContext -> lf-with-goal (meta-must.fs);
 \ checkNotAssigned -> lf-goal-not-assigned (goal.fs); getType ->
-\ lf-mvar-type; getLCtx/findDeclRevM? -> the goal's view (lctx-views.fs,
-\ lf-view-count, lf-view-local) walked from its end; isImplementationDetail
+\ lf-goal-type; getLCtx/findDeclRevM? -> the goal's view (lctx-views.fs,
+\ lf-view-count, lf-view-local) searched from its end (lib/find.fs's
+\ find-last-index); isImplementationDetail
 \ -> lf-local-detail?; isDefEq -> lf-defeq! under lf-meta-with;
 \ assign -> lf-mvar-assign; throwTacticEx -> lf-tac-failed (tactic-basic.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
@@ -23,6 +24,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../../lib/lib.fs
+require ../../lib/find.fs
 require ../../author/errors.fs
 require ../../core/local-context.fs
 require ../mvars.fs
@@ -39,17 +41,17 @@ require ./goal.fs
 \ isDefEq with synthetic opaque metavariables assignable.
 : mas-defeq ( t s -- flag )
   ['] lf-defeq! lf-defeq-flags lf-defeq-opaque or lf-defeq-mode lf-meta-with ;
-\ Local i of view fits type: no implementation detail, its type defeq.
-: mas-fits? ( type view i -- flag )
-  lf-view-local dup lf-local-detail? if 2drop false exit then
-  lf-local-fvar lf-fvar-type mas-defeq ;
-: mas-find ( type view -- fvar true | false )
-  dup lf-view-count begin dup while 1-
-    2 pick 2 pick 2 pick mas-fits? if lf-view-local lf-local-fvar nip true exit then
-  repeat drop 2drop false ;
-: mas-view ( goal -- view ) lf-mvar-view lf-found ;
-: lf-goal-assumption ( goal -- )
-  lf-goal-not-assigned dup lf-mvar-type drop lf-instantiate! over mas-view mas-find
-  if lf-mvar-assign lf-must exit then
-  ['] lf-tac-goal-of. lf-tac-detail lfa-e-assumption lf-tac-stop ;
+\ Local k of the goal's context fits type: no implementation detail, its
+\ type defeq; findDeclRevM?: the last k that fits.
+: mas-fits? ( type k -- type flag )
+  lf-mctx-view swap lf-view-local dup lf-local-detail? if drop false exit then
+  lf-local-fvar lf-fvar-type over swap mas-defeq ;
+: mas-find ( type -- k true | false )
+  lf-mctx-view lf-view-count ['] mas-fits? find-last-index ;
+: mas-fvar ( k -- fvar ) lf-mctx-view swap lf-view-local lf-local-fvar ;
+: mas-none ( goal -- ) ['] lf-tac-goal-of. lf-tac-detail lfa-e-assumption lf-tac-stop ;
+: mas-run ( goal -- )
+  lf-goal-not-assigned dup lf-goal-type lf-instantiate! mas-find
+  if mas-fvar lf-mvar-assign lf-must exit then mas-none ;
+: lf-goal-assumption ( goal -- ) dup ['] mas-run lf-with-goal ;
 base !   \ the BASE this file was loaded with

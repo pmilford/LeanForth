@@ -63,8 +63,9 @@ lf-tac-forget
 : arrow ( -- t ) nat nat lf-term-pi lf-made! ;
 T{ arrow goal ' lf-goal-constructor code1 lf-author-code -> lf-author-throw 382 }T
 lf-tac-forget
-\ An assigned goal is a fault (checkNotAssigned): invalid.
-: solved ( -- goal ) nat goal dup fa lf-mvar-assign made ;
+\ An assigned goal is a fault (checkNotAssigned): invalid, before the
+\ search (False has no constructor: without the check, error 383).
+: solved ( -- goal ) s" False" lf-mk-const0 goal dup fa lf-mvar-assign made ;
 T{ solved ' lf-goal-constructor code1 -> -4201 }T
 \ a + 1 ≤ a: both of Nat.le's constructors are tried and fail (Lean's
 \ "no applicable constructor found"), each probe's error forgotten.
@@ -72,8 +73,12 @@ T{ solved ' lf-goal-constructor code1 -> -4201 }T
 T{ fa succ fa le goal ' lf-goal-constructor code1 lf-author-code
    -> lf-author-throw 383 }T
 lf-tac-forget
-\ Expr.constLevels! (app-builder.fs), for a constructor at its type's levels.
+\ Expr.constLevels! and one level (core/constant-term-boundary.fs), for a
+\ constructor at its type's levels.
+nat lf-level! constant lvl1
 T{ s" congrArg" 0 0 2 lf-mk-const lf-const-levels -> 0 0 2 }T
+: c1 ( -- c ) s" congrArg" lvl1 0 2 lf-mk-const ;
+T{ c1 lf-const-levels c1 0 lf-const-level@ c1 1 lf-const-level@ -> lvl1 0 2 lvl1 0 }T
 T{ s" Nat" lf-mk-const0 lf-const-levels -> 0 }T
 .( constructor test.fs: all tests passed) cr
 bye

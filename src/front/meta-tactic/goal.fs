@@ -19,9 +19,12 @@
 \       type that changes gives a new goal of the same kind, tag and
 \       context, goal assigned it (the instantiated proof term is the same
 \       node for node); an unchanged type gives goal itself
-\   lf-goal-tag-append ( goal tag -- )  appendTag's use in appendParentTag
-\       (Util.lean:29): goal's tag made tag.suffix, suffix its own last
-\       part (a name of one string part; another is thrown unsupported)
+\   lf-goal-tag-append ( goal parent -- )  appendTag's use in
+\       appendParentTag (Util.lean:29): goal's tag made parent ++ the tag
+\       with its macro scopes erased (print-names.fs's lf-pp-unhygienic,
+\       Lean's eraseMacroScopes), inside a hygienic parent's macro scopes
+\       (Name.modifyBase): zero and a._@.M._hyg.3 give zero.a, x._@.M._hyg.1
+\       and left give x.left._@.M._hyg.1; an anonymous tag gives parent
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own. Loads in decimal whatever BASE is, then
 \ restores it.
@@ -29,6 +32,7 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../../lib/lib.fs
 require ../../core/names.fs
+require ../../present/print-names.fs
 require ../../author/declarations.fs
 require ../mvars.fs
 require ../goals.fs
@@ -40,38 +44,40 @@ require ../app-builder.fs
 : lf-goal-not-assigned ( goal -- goal )
   dup lf-goal-assigned? if outcome-invalid lf-must then ;
 
-\ ---- replaceTargetEq: Eq.mpr.{u} target new (mkExpectedPropHint h
-\ (mkEq target new)) goal'.
-: mtg-type ( goal -- type ) lf-mvar-type lf-found ;
-: mtg-tag ( goal -- tag ) lf-mvar-tag lf-found ;
-: mtg-view ( goal -- view ) lf-mvar-view lf-found ;
+\ ---- replaceTargetEq: goal' new in goal's context with goal's tag, goal
+\ assigned Eq.mpr.{u} target new (mkExpectedPropHint h (mkEq target new)) goal'.
 : mtg-goal-new ( type goal -- goal' )
-  dup mtg-tag swap mtg-view lf-goal-new lf-must ;
-: mtg-hint ( target new h -- h' ) -rot lf-mk-eq lf-mk-expected-prop-hint ;
-: mtg-mpr-const ( target -- c ) lf-level! >r s" Eq.mpr" r> lf-mk-const1 ;
-: mtg-mpr ( target new h goal' -- value )
-  >r >r over mtg-mpr-const -rot 2dup r> mtg-hint r> 4 lf-mk-app-n ;
-: mtg-value ( new h goal goal' -- value ) >r mtg-type -rot r> mtg-mpr ;
+  dup lf-goal-tag swap lf-goal-view lf-goal-new lf-must ;
+: mtg-fresh ( goal new -- goal goal' ) over lf-goal-not-assigned mtg-goal-new ;
+: mtg-eq ( goal goal' -- eq ) lf-goal-type swap lf-goal-type swap lf-mk-eq ;
+: mtg-hint ( goal goal' h -- goal goal' h' )
+  >r 2dup mtg-eq r> swap lf-mk-expected-prop-hint ;
+: mtg-mpr ( target -- f )   \ Eq.mpr.{u} target, u target's level
+  s" Eq.mpr" lfa-intern over lf-level! 1 lf-mk-const-id swap lf-mk-app ;
+: mtg-value ( goal goal' h' -- goal goal' value )
+  >r 2dup lf-goal-type swap lf-goal-type mtg-mpr swap lf-mk-app r> lf-mk-app
+  over lf-mk-app ;
+: mtg-assign ( goal goal' value -- goal' ) rot swap lf-mvar-assign lf-must ;
 : lf-goal-replace-target-eq ( goal new h -- goal' )
-  rot lf-goal-not-assigned 2 pick over mtg-goal-new
-  dup >r over >r mtg-value r> swap lf-mvar-assign lf-must r> ;
+  >r mtg-fresh r> mtg-hint mtg-value mtg-assign ;
 
 \ ---- headBetaType.
-: mtg-kind ( goal -- kind ) lf-mvar-kind lf-found ;
-: mtg-tag! ( goal tag -- ) lf-mvar-tag! lf-must ;
+: mtg-tag-from ( goal' goal -- goal' ) lf-goal-tag over swap lf-mvar-tag! lf-must ;
 : mtg-like ( type goal -- goal' )   \ a new metavariable as goal, of type
-  >r r@ mtg-kind r@ mtg-view lf-mvar-new-at lf-must dup r> mtg-tag mtg-tag! ;
+  tuck dup lf-goal-kind swap lf-goal-view lf-mvar-new-at lf-must swap mtg-tag-from ;
 : lf-goal-head-beta-type ( goal -- goal' )
-  dup mtg-type dup lf-meta-head-beta lf-must tuck = if drop exit then
+  dup lf-goal-type dup lf-meta-head-beta lf-must tuck = if drop exit then
   over mtg-like tuck lf-mvar-assign lf-must ;
 
-\ ---- appendTag: parent ++ the goal's own tag (anonymous: parent), its
-\ one string part as the suffix (Lean's eraseMacroScopes of a name with
-\ no macro scope); a tag of more parts is not ported (unsupported).
-: mtg-suffix ( name -- c-addr u )
-  dup lf-name-prefix@ 0<> over lf-name-str? 0= or if outcome-unsupported lf-must then
-  lf-name-text ;
-: mtg-appended ( parent tag -- tag' ) ?dup if mtg-suffix lfa-intern-part then ;
+\ ---- appendTag (Util.lean:29): parent.modifyBase (· ++ tag's macro
+\ scopes erased); modifyBase (Init/Meta/Defs.lean:308) appends to the
+\ part before a hygienic parent's macro scopes and puts them back after.
+: mtg-graft ( name t base -- name' ) lf-name-graft 0= if outcome-full lf-must then ;
+: mtg-plus ( tag base -- base' ) swap lf-pp-unhygienic dup lf-name-depth rot mtg-graft ;
+: mtg-scopes ( parent -- parent n )   \ the macro scopes' parts
+  dup lf-name-depth over lf-pp-unhygienic lf-name-depth - ;
+: mtg-appended ( parent tag -- tag' )
+  over lf-pp-unhygienic mtg-plus >r mtg-scopes r> mtg-graft ;
 : lf-goal-tag-append ( goal parent -- )
-  over mtg-tag mtg-appended mtg-tag! ;
+  over lf-goal-tag mtg-appended lf-mvar-tag! lf-must ;
 base !   \ the BASE this file was loaded with
