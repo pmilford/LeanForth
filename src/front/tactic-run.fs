@@ -279,7 +279,13 @@ create lfr-rows lfr-kinds cells allot   lfr-rows lfr-kinds cells erase
 : lfr-row ( kind -- addr )
   dup lfr-kind? 0= abort" tactic-run: no such tactic kind" lfr-cell @ ;
 : lfr-roomy ( c-addr u -- c-addr u ) dup lfr-room > abort" tactic-run: a name too long" ;
-: lfr-row-new ( kind -- )
+\ Rows are written only while the modules load, before any context is
+\ made (lib/context.fs's context-sealed?): runs and workers read them in
+\ place (review tactic-move-c4 L2). Every writer goes through lfr-open.
+: lfr-open ( -- )
+  context-sealed? abort" tactic-run: a row set after context-new" ;
+: lfr-row! ( kind -- addr ) lfr-open lfr-row ;
+: lfr-row-new ( kind -- ) lfr-open
   dup 1 lfr-kinds 1+ within 0= abort" tactic-run: no room for another tactic kind"
   dup lfr-kind? abort" tactic-run: a kind spelt twice"
   align here lfr-row-size allot dup lfr-row-size erase swap lfr-cell ! ;
@@ -287,11 +293,11 @@ create lfr-rows lfr-kinds cells allot   lfr-rows lfr-kinds cells erase
 : lfr-spell ( c-addr u kind -- )
   >r lfr-roomy r@ lfr-row-new r> lfr-row ['] drop over trow-end ! 2dup trow-length !
   trow-chars swap chars move ;
-: lfr-set ( xt plan kind -- ) lfr-row tuck trow-plan ! trow-run ! ;
+: lfr-set ( xt plan kind -- ) lfr-row! tuck trow-plan ! trow-run ! ;
 : lf-tactic-action! ( xt kind -- ) 0 swap lfr-set ;
-: lf-tactic-end! ( xt kind -- ) lfr-row trow-end ! ;
-: lf-tactic-plan! ( plan kind -- ) lfr-row trow-plan ! ;
-: lf-tactic-lean! ( c-addr u kind -- ) >r lfr-roomy r> lfr-row trow-lean place ;
+: lf-tactic-end! ( xt kind -- ) lfr-row! trow-end ! ;
+: lf-tactic-plan! ( plan kind -- ) lfr-row! trow-plan ! ;
+: lf-tactic-lean! ( c-addr u kind -- ) >r lfr-roomy r> lfr-row! trow-lean place ;
 : lfr-spelling ( i -- c-addr u ) lfr-kind lfr-row dup trow-chars swap trow-length @ ;
 \ The registry read (tests/front/tactic-registry.fs, front/step-log.fs).
 lfr-kinds constant lf-tactic-kinds#
@@ -299,14 +305,8 @@ lfr-kinds constant lf-tactic-kinds#
 : lf-tactic-plan@ ( kind -- n ) lfr-row trow-plan @ ;
 : lf-tactic-run? ( kind -- flag ) lfr-row trow-run @ 0<> ;
 : lf-tac-lean ( kind -- c-addr u ) lfr-row trow-lean count ;
-: lf-tactic-shape! ( shape kind -- ) lfr-row trow-shape ! ;
+: lf-tactic-shape! ( shape kind -- ) lfr-row! trow-shape ! ;
 : lf-tactic-shape@ ( kind -- shape ) lfr-row trow-shape @ ;
-\ An alternative (|) runs by its block's row (Lean's evalAlts: the
-\ alternatives of an induction's or a cases' with): xt ( j -- ), set
-\ with lf-tactic-alt!, which makes it the | row's action.
-: lfr-alt ( j -- ) dup lfr-parent lfr-kind lfr-row trow-alt @ execute ;
-: lf-tactic-alt! ( xt kind -- )
-  lfr-row trow-alt ! ['] lfr-alt tac-k-alt lf-tactic-action! ;
 : lf-tactic-alt@ ( kind -- xt|0 ) lfr-row trow-alt @ ;
 \ The first kind with no row, from 12 (the S1/S2 kinds keep 1-11).
 : lf-tactic-free ( -- kind )
@@ -393,6 +393,17 @@ s" sorry" tac-k-sorry lf-tactic-lean!
 ' lf-tac-later 5 tac-k-induction lfr-set   ' lf-tac-later 5 tac-k-with lfr-set
 ' lf-tac-later 5 tac-k-alt lfr-set     ' lf-tac-later 5 tac-k-case lfr-set
 ' lf-tac-later 6 tac-k-rw lfr-set      ' lf-tac-later 6 tac-k-rewrite lfr-set
+\ An alternative (|) runs by its block's row (Lean's evalAlts: the
+\ alternatives of an induction's or a cases' with): xt ( j -- ), set
+\ with lf-tactic-alt!, which makes it the | row's action. A block's kind
+\ with none (a later lf-tactic-alt! for another kind, its file not
+\ loaded) fails closed: the record not as made, 92 (review
+\ tactic-move-c4 L1), never 0 executed.
+: lfr-alt-xt ( j -- xt )
+  lfr-parent lfr-kind lf-tactic-alt@ dup 0= if drop ['] lfr-misplaced then ;
+: lfr-alt ( j -- ) dup lfr-alt-xt execute ;
+: lf-tactic-alt! ( xt kind -- )
+  lfr-row! trow-alt ! ['] lfr-alt tac-k-alt lf-tactic-action! ;
 
 \ ---- The goals (Lean's getMainGoal, focus, done).
 : lfr-goals! ( list -- ) lf-goals! lfr-must ;

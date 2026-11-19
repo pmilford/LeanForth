@@ -189,6 +189,14 @@ lf-tac-forget
 T{ 2 lf-tactic-step tac-name @ s" zero" lfa-intern = -> true }T
 T{ 0 ' k-in lf-tac-in-record lf-author-code -> lf-author-throw 92 }T
 lf-tac-forget
+\ (a | whose block's kind has no alternatives' row, which only another
+\ kind's lf-tactic-alt! without its file loaded could leave: the record
+\ not as made, 92, never 0 executed; review tactic-move-c4 L1)
+0 tac-k-with lf-tactic-alt!
+T{ tac-k-with lf-tactic-alt@ 2 ' lfr-alt catch nip lf-author-code -> 0 lf-author-throw 92 }T
+lf-tac-forget
+' lf-alt-run tac-k-with lf-tactic-alt!
+T{ tac-k-with lf-tactic-alt@ ' lf-alt-run = tac-k-alt lfr-row trow-run @ ' lfr-alt = -> true true }T
 \ (by-case: runs since branch s2-rest, src/front/tactics/case.fs, end to end
 \ in check_s2.py; its row is set back to not ported here, for 80.)
 ' lf-tac-later 5 tac-k-case lfr-set
@@ -242,22 +250,8 @@ T{ -1 probe-kind ! s" by-rw[ n ] end t" proof nrun err probe-kind @
 ' named-row tac-k-rw lf-tactic-action!
 T{ s" by-rw[ n ] end t" proof nrun err probe-kind @ -> outcome-invalid 89 1 40 3 }T
 rw-action tac-k-rw lf-tactic-action!
-\ The author's build stops when the heap has no room for a binder's kind
-\ (60), so no pi of a text reaches rw unrecorded: a pi past the table's
-\ room, the heap refusing the table's growth (in a context of its own,
-\ whose table starts small).
-variable lit#
-: fresh-lit ( -- t ) 1 lit# +! 1000000 lit# @ + raw-lit ;
-: past-room ( -- t ) begin fresh-lit dup lf-pres-unit lf-pres-terms slab-capacity u< while
-    drop repeat ;
-: refused-kind ( -- throw? code )
-  lf-author-begin nat past-room lf-term-pi 0= abort" pi" 1 heap-refusals !
-  s" a" lfa-intern 0 ['] lfa-name! catch 0 heap-refusals ! dup if nip nip nip then
-  lf-author-code ;
-context-new throw constant kinds-context
-kinds-context context-use
-T{ refused-kind -> lf-author-throw lfa-e-terms-full }T
-context-main context-use  kinds-context context-free throw
+\ (The author's build when the heap has no room for a binder's kind: at
+\ the end, since a new context seals the rows, review tactic-move-c4 L2.)
 \ A let among the binders: not supported yet when the value is closed.
 ' let-x stating
 T{ s" by-sorry end t" proof nrun err -> outcome-unsupported 93 1 52 }T
@@ -671,6 +665,25 @@ T{ s" tests/front/s2-slice.elab.ndjson" lfc-elab-file! lfc-elab-read -> outcome-
 T{ 0 rw-runs ! 0 rw-locals ! rw-file rw-runs @ rw-locals @ -> outcome-ok 1 2 }T
 rw-action tac-k-rw lf-tactic-action!  ' lfr-unelaborated stating
 T{ lfc-library-close 0 0 lfc-elab-file! -> }T
+\ The author's build stops when the heap has no room for a binder's kind
+\ (60), so no pi of a text reaches rw unrecorded: a pi past the table's
+\ room, the heap refusing the table's growth (in a context of its own,
+\ whose table starts small). It comes last: a new context seals the
+\ runner's rows (lf-tactic-action! and the other setters abort after it,
+\ review tactic-move-c4 L2), which the tests above set.
+variable lit#
+: fresh-lit ( -- t ) 1 lit# +! 1000000 lit# @ + raw-lit ;
+: past-room ( -- t ) begin fresh-lit dup lf-pres-unit lf-pres-terms slab-capacity u< while
+    drop repeat ;
+: refused-kind ( -- throw? code )
+  lf-author-begin nat past-room lf-term-pi 0= abort" pi" 1 heap-refusals !
+  s" a" lfa-intern 0 ['] lfa-name! catch 0 heap-refusals ! dup if nip nip nip then
+  lf-author-code ;
+context-new throw constant kinds-context
+kinds-context context-use
+T{ refused-kind -> lf-author-throw lfa-e-terms-full }T
+context-main context-use  kinds-context context-free throw
+T{ ' lfr-misplaced tac-k-rfl ' lf-tactic-action! catch nip nip -> -2 }T
 T{ depth -> 0 }T
 cr .( tactic-run.fs: all tests passed) cr
 bye

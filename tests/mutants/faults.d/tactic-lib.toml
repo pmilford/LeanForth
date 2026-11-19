@@ -705,8 +705,8 @@ reason = "C4: an alternative with more names than explicit fields is not refused
 [[fault]]
 id = "tac-alt-row-unset"
 file = "src/front/tactic-run.fs"
-old = '''  lfr-row trow-alt ! ['] lfr-alt tac-k-alt lf-tactic-action! ;'''
-new = '''  lfr-row trow-alt ! ;'''
+old = '''  lfr-row! trow-alt ! ['] lfr-alt tac-k-alt lf-tactic-action! ;'''
+new = '''  lfr-row! trow-alt ! ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "C4: lf-tactic-alt! records the block's alternative but leaves | not ported (80)"
 
@@ -774,3 +774,20 @@ new = ''' ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "review tactic-move-c4 R8: a block's record stays open after its end, so the next | of the outer block runs on the inner block's goals"
 
+# --- review tactic-move-c4: the runner's rows (L1, L2) ------------------------
+
+[[fault]]
+id = "tac-alt-row-unchecked"
+file = "src/front/tactic-run.fs"
+old = '''  lfr-parent lfr-kind lf-tactic-alt@ dup 0= if drop ['] lfr-misplaced then ;'''
+new = '''  lfr-parent lfr-kind lf-tactic-alt@ ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review tactic-move-c4 L1: a | whose block's kind has no alternatives' row executes 0, a crash of the host, instead of failing closed (92)"
+
+[[fault]]
+id = "tac-row-set-after-context"
+file = "src/front/tactic-run.fs"
+old = '''  context-sealed? abort" tactic-run: a row set after context-new" ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "review tactic-move-c4 L2: a row of the load-time table is written after a context exists, while runs and workers read it in place"
