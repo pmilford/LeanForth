@@ -1,0 +1,38 @@
+# Planted faults of branch s2-debt (S2's coverage debt paid, 2026-11-19):
+# the guards of src/front/whnf.fs that answer unsupported where Lean would
+# take a step not ported or read data no export gives, each caught by a
+# case of tests/front/whnf.fs that reaches it; read with faults.toml as one
+# list (scripts/mutants.py).
+
+[[fault]]
+id = "fe-match-take-unchecked"
+file = "src/front/whnf.fs"
+old = '''  over lf-term-lam? 0= if 2drop outcome-unsupported no-result exit then'''
+new = '''  over drop'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "s2-debt: reduceMatcher?'s value with fewer lambdas than the matcher's prefix (its record's discriminants made more) is instantiated as though it had them, where the guard answers unsupported"
+
+[[fault]]
+id = "fe-match-open-unchecked"
+file = "src/front/whnf.fs"
+old = '''  2drop dup lf-term-lam? 0= if drop outcome-unsupported no-result exit then'''
+new = '''  2drop'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "s2-debt: reduceMatcher?'s value with fewer lambdas than the matcher's alternatives is opened as though it had them, where the guard answers unsupported"
+
+[[fault]]
+id = "fe-field-literal-read"
+file = "src/front/whnf.fs"
+old = '''  dup lf-lit-leaf? if drop outcome-unsupported wc-fail exit then
+  wc wc-aux @ lf-meta-head wc-project if true else -1 false then outcome-ok ;'''
+new = '''  wc wc-aux @ lf-meta-head wc-project if true else -1 false then outcome-ok ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "s2-debt: a class field whose structure is a literal (HAdd.hAdd Nat Nat Nat 5 k x at instances) is read as no constructor, where toCtorIfLit would make one (not ported: unsupported)"
+
+[[fault]]
+id = "fe-smart-marked-args-ignored"
+file = "src/front/whnf.fs"
+old = '''  if outcome-unsupported else outcome-ok then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "s2-debt: the smart path goes on with a sunfoldMatch marker in e1's arguments, which Lean's go would visit (not ported: unsupported)"

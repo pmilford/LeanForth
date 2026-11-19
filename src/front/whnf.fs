@@ -547,9 +547,9 @@ wc-smatch-kind 1+ constant wc-srec-kind
 : wm-args-none? ( e -- flag )
   dup lf-term-first@ lf-term-second@ wm-no-value? if drop true exit then
   lf-term-second@ wm-no-value? ;
+\ Called by wm-nat? only, for one or two arguments.
 : wm-none? ( e -- flag )
-  dup lf-meta-args# dup 2 = if drop wm-args-none? exit then
-  1 = if lf-term-second@ wm-no-value? else drop false then ;
+  dup lf-meta-args# 2 = if wm-args-none? else lf-term-second@ wm-no-value? then ;
 : wm-nat? ( e -- flag )
   dup lf-meta-args# 1 3 within over ['] lf-menv-nat-name? wm-head-named? and
   if dup wm-none? if drop false else wm-succ-inert? 0= then else drop false then ;
