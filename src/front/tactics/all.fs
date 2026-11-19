@@ -4,6 +4,7 @@
 \ src/main.fs loads it; a tactic registers itself as it loads.
 require ./apply.fs
 require ./assumption.fs
+require ./case.fs
 require ./constructor.fs
 require ./exact.fs
 require ./induction.fs

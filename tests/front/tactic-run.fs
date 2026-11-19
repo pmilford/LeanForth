@@ -367,17 +367,29 @@ T{ two-goals lf-tac-focus lf-tac-unfocus goals@ -> g1 @ g2 @ 2 }T
 \ focus with no goal: 90 (at the current token: no step runs).
 T{ fresh-state 0 lf-goals! ' lf-tac-focus catch lf-author-code
    -> outcome-ok lf-author-throw 90 }T
-\ by-case:'s renameInaccessibles (tactic-case.fs) takes no implementation
-\ detail, inaccessible or not (Lean's isImplementationDetail: continue);
-\ an inaccessible hypothesis it takes. Context p : Prop, h (a detail,
-\ inaccessible), k (inaccessible); the case's goal in it.
+\ by-case:'s renameInaccessibles (meta-tactic/rename.fs) takes no
+\ implementation detail, inaccessible or not (Lean's
+\ isImplementationDetail: continue); an inaccessible hypothesis it takes.
+\ Context p : Prop, h (a detail, inaccessible), k (inaccessible); the
+\ case's goal in it. Names [x]: k is x, h stays, the goal assigned the
+\ renamed one; names [x y]: k takes y, h and p none, so x is left: 211;
+\ names none or all _: the goal itself. No frame is left either way.
 : detail-goal ( -- )
   fresh-state 0 sort s" p" binder pp !
   pp @ lf-lctx-local made s" h" lf-local-impl-detail lf-local-inaccessible or local-of pushed
   pp @ lf-lctx-local made s" k" lf-local-inaccessible local-of pushed
   pp @ 0 lf-mctx-view lf-goal-new made g1 ! ;
-: turns ( i -- f1 f2 ) drop g1 @ tc tcs-goal ! 1 tcs-turn? 2 tcs-turn? ;
-T{ detail-goal 0 ' turns lf-tac-in-record -> false true }T
+: names1 ( c-addr u -- run ) lfa-intern 0 swap run-push made ;
+: rename1 ( names -- goal' ) g1 @ swap lf-goal-rename-inaccessibles ;
+: renamed ( names -- view ) rename1 lf-goal-view ;
+: name-is? ( view j c-addr u -- flag ) lfa-intern >r lf-view-local lf-local-name r> = ;
+: frames0? ( -- flag ) mrn-frames slab-count 0= ;
+T{ detail-goal s" x" names1 renamed dup 2 s" x" name-is? swap 1 s" h" name-is? frames0?
+   g1 @ lf-goal-assigned? -> true true true true }T
+T{ detail-goal s" x" names1 s" y" lfa-intern run-push made ' renamed catch nip lf-author-code
+   frames0? -> lf-author-throw 211 true }T
+lf-tac-forget
+T{ detail-goal 0 rename1 g1 @ = 0 0 run-push made rename1 g1 @ = -> true true }T
 
 \ ---- 6. Saved states: a failed attempt leaves no assignment, tag, kind
 \ or goal behind; a successful one keeps its changes; a Forth THROW that
