@@ -365,7 +365,9 @@ T{ twice stage-free -> }T
 \ never another outcome, and no block kept once the context is freed;
 \ then the next read in the main context is ok.
 : blocks ( -- n ) live-blocks @ ;
-: refused-read ( k -- outcome ) heap-refusals ! elims lib digest elab-read 0 heap-refusals ! ;
+defer refusal-data ( -- c-addr u )   ' elims is refusal-data
+: refused-read ( k -- outcome )
+  heap-refusals ! refusal-data lib digest elab-read 0 heap-refusals ! ;
 : full-or-ok? ( outcome -- flag ) dup ok? swap outcome-full = or ;
 : fresh-read ( k -- outcome flag )
   blocks >r context-new throw dup context-use swap refused-read
@@ -376,6 +378,11 @@ T{ twice stage-free -> }T
 : refusals ( -- fulls flag ) 0 true 160 1 do i fresh-read tally loop ;
 T{ refusals swap 0> -> true true }T
 T{ elims lib digest elab-read counts -> outcome-ok 3 2 18 4 54 3 10 4 3 1 }T
+\ The same for the format-3.2 fixture: its binder kinds' records and
+\ domain spans refused in turn too (plan FE1c-bk).
+' v32 is refusal-data
+T{ refusals swap 0> -> true true }T
+' elims is refusal-data
 
 \ The reader and the view give their blocks back after every read, ok or
 \ not; the data's slabs and tables keep theirs until the context goes.
