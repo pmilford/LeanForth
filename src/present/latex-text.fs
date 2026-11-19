@@ -45,6 +45,8 @@ require ../lib/text-rule.fs
   [char] ~ = if s" \textasciitilde{}" true else false then ;
 : lf-tex-text-form ( char -- c-addr u true | false )
   dup lf-tex-plain lf-tex-left ?dup if nip lf-tex-slashed true exit then lf-tex-named ;
+\ The same for the byte at c-addr.
+: lf-tex-text-byte ( c-addr -- c-addr' u true | false ) c@ lf-tex-text-form ;
 \ A mode: its sink ( c-addr u -- ), its step for a one-byte character
 \ ( c-addr -- ) and its backslash ( -- c-addr u ).
 begin-structure /lf-tex-mode
