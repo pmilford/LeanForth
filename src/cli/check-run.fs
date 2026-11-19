@@ -531,7 +531,7 @@ create ck-line ck-line-room 2 + allot
 : ck-shifted-at! ( -- ) lf-sched-final ck-state ck-shifted-at ! ;
 : ck-shifted! ( -- )
   true ck-state ck-shifted ! true ck-state ck-faulted ! ck-shifted-at! ;
-: ck-shift? ( -- flag ) ck-shifted? if true exit then ck-moved? dup if ck-shifted! then ;
+: ck-shift? ( -- flag ) ck-shifted? 0= ck-moved? and if ck-shifted! then ck-shifted? ;
 \ What a stopped run's verdicts are read below: n, or the slots final
 \ when the input moved.
 : ck-final ( n -- n' ) ck-shifted? if ck-state ck-shifted-at @ min then ;
