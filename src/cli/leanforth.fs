@@ -394,8 +394,13 @@ end-structure
 \ so that it cannot be read as skipped, the verdict of an unsafe or
 \ partial declaration (review rvUNNI L5).
 : cli-unreached ( d -- ) cli-name. ." : not checked (not reached: the run stopped)" cr ;
-\ Why a run stopped, as far as the parallel scheduler knows (its cause).
+\ Why a run stopped, as far as the parallel scheduler knows (its cause),
+\ or the input the workers read moved during the run (check-run.fs's
+\ ck-shift?).
+: cli-moved-reason ( -- c-addr u )
+  s" the input the workers read in place changed during the run" ;
 : cli-reason ( -- c-addr u )
+  ck-shifted? if cli-moved-reason exit then
   lf-sched-cause CASE
     1 OF s" every worker was lost after a check threw and none could be made again" ENDOF
     2 OF s" the job pool refused a check" ENDOF

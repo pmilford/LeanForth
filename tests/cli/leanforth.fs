@@ -631,10 +631,6 @@ T{ nested 3 edges-of 0> -> true }T
   fresh >r nested 3 run-with type-names rec-names ck-release r> back ;
 T{ last-names -> outcome-ok true true outcome-ok true true }T
 nested 1 facts-of 2drop drop constant serial-nested
-\ A stress run: the nested export, many small interleaved checks, at 8
-\ workers five times, each time the serial run's facts.
-: stress ( -- n ) 0 5 0 ?do nested 8 facts-of 2drop drop serial-nested = - loop ;
-T{ stress -> 5 }T
 40 throw-at !
 nested 1 facts-of 2drop drop constant serial-thrown
 T{ nested 3 facts-of nip nip swap serial-thrown = -> 1 true }T
@@ -736,6 +732,52 @@ create moved-mark /store-mark allot
   nested false ck-load drop moved-refs ck-check sched-facts lf-sched-workers ck-remades
   ck-release r> back ;
 T{ moved-run -> serial-nested 3 1 }T
+\ A stress run: the nested export, many small interleaved checks, at 8
+\ workers five times, each time the serial run's facts, and the driving
+\ context's borrowed input (input-digest above) the same after the run as
+\ before it (M2 of the re-entrancy audit of 2026-11-18).
+: stress-one ( -- same? )
+  fresh >r 20000000 ck-start 8 ck-jobs! ['] throwing-check ck-check-word!
+  nested false ck-load drop input-digest >r ck-check
+  sched-facts serial-nested = input-digest r> = and ck-release r> back ;
+: stress ( -- n ) 0 5 0 ?do stress-one - loop ;
+T{ stress -> 5 }T
+\ A move during the run (M1 of the audit): the driving context's input
+\ changed while workers read it, planted from the line word, which the
+\ driving task runs at a tick -- the references' count raised by one, as
+\ a reference made there would (the workers read copies of the store's
+\ header, so the planted change reaches none of them). The parallel run
+\ is stopped as a fault at the next hand-out or tick (check-run.fs's
+\ ck-shift?): no line written beyond the slots final then, its verdicts
+\ read only below them, every later fact unkept, the run not ok, and the
+\ report names the cause. A serial run, with no worker, checks nothing of
+\ the kind.
+variable move-at  10 move-at !
+: move-here? ( d -- flag ) move-at @ dup 0< if drop lf-input-count 1- then = ;
+: moving-line ( d -- flag ) move-here? if 1 lf-cref-count +! then true ;
+: shifted-at ( -- n ) ck-state ck-shifted-at @ ;
+: unkept? ( -- flag )
+  true lf-input-count ck-steps-begun ?do i ck-kept kept-outcome @ outcome-invalid = and loop ;
+: capped? ( -- flag )
+  ck-steps-begun shifted-at = ck-done shifted-at > 0= and move-at @ shifted-at < and ;
+: moved-facts ( -- shifted? faulted? capped? unkept? stopped? ok? )
+  ck-shifted? ck-faulted? capped? unkept? lf-sched-stop lf-input-count < ck-outcome ok? ;
+: moving-run ( jobs -- context )
+  fresh >r 20000000 ck-start ck-jobs! ['] throwing-check ck-check-word!
+  ['] moving-line ck-lines! nested false ck-load drop ck-check r> ;
+: moved-during ( jobs -- shifted? faulted? capped? unkept? stopped? ok? reason? )
+  moving-run >r moved-facts cli-reason cli-moved-reason compare 0= ck-release r> back ;
+T{ 3 moved-during -> true true true true true false true }T
+T{ 8 moved-during -> true true true true true false true }T
+\ Moved at the last line (move-at -1), given at the last tick: no
+\ declaration is handed out after it, and the tick's own check finds it.
+: last-moved ( -- shifted? ok? )
+  -1 move-at ! 3 moving-run >r ck-shifted? ck-outcome ok? ck-release r> back 10 move-at ! ;
+T{ last-moved -> true false }T
+: serial-moved ( -- shifted? )
+  fresh >r 20000000 ck-start ['] moving-line ck-lines! nested false ck-load drop
+  ck-check ck-shifted? ck-release r> back ;
+T{ serial-moved -> false }T
 
 \ FX10 (review rvS7): the worker count is cut to the cores and the pool's
 \ queue (a count above 1024 refused the first job and left "not checked"

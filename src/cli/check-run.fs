@@ -168,16 +168,13 @@ ck-phases constant ck-opening
 10 constant ck-top-room   \ declarations in the list of the most fuel used
 320 constant ck-pline-room   \ bytes of a progress line
 
-\ What workers reading this context's references depend on, as
-\ lf-cref-lending gives it (core/constant-references.fs; ck-lent!).
-begin-structure /ck-lend
-  field: ck-lend-records         \ the address of its store's records
-  field: ck-lend-pool            \ of its pool
-  field: ck-lend-slots           \ the size of its table
-  field: ck-lend-count           \ and the count
-end-structure
-/ck-lend lf-cref-lent# cells <>
-[if] .( check-run.fs: one field per cell lf-cref-lending gives) cr abort [then]
+\ What workers reading this context's input in place depend on (ck-lent!):
+\ per part they read, a pair of cells that changes when a record is made
+\ there or its block moves -- the view's three tables and its leaves, the
+\ declarations, their name index and inductive data -- and the references
+\ as lf-cref-lending gives them (core/constant-references.fs).
+14 lf-cref-lent# + constant ck-lent#
+ck-lent# cells constant /ck-lend
 
 begin-structure /ck
   field: ck-budget               \ fuel each check starts with
@@ -198,9 +195,11 @@ begin-structure /ck
   field: ck-pool-made            \ workers the pool ran with (ck-pool-started?)
   field: ck-pool-lacked          \ and those it started without: the host refused them
   field: ck-print                \ the fed input's fingerprint: every worker's must be it
-  /ck-lend +field ck-lent       \ the references the workers read (ck-lent!)
-  /ck-lend +field ck-lend-now   \ and as they are now (ck-moved?)
+  /ck-lend +field ck-lent       \ the input the workers read (ck-lent!)
+  /ck-lend +field ck-lend-now   \ and as it is now (ck-moved?)
   field: ck-remade               \ times the workers were made again (ck-relent)
+  field: ck-shifted              \ true: it moved during the run (ck-shift?)
+  field: ck-shifted-at           \ every slot below it was final then
   field: ck-checker              \ the check word ( -- ) (ck-check-word!)
   ck-switches# cells +field ck-switched    \ the checker's switches, for each worker
   ck-capacities# cells +field ck-saved   \ capacities before the feed
@@ -500,18 +499,42 @@ create ck-line ck-line-room 2 + allot
 \ resource report then says: the same output, only slower.
 : ck-worker-next ( k -- outcome ) drop ck-worker-add ;
 : ck-workers-made ( -- outcome ) ck-jobs ['] ck-worker-next ok-each ;
-\ The workers read this context's references in place; so that none reads
-\ a block given back, this context's references as the workers began to
-\ read them are kept (core/constant-references.fs's lf-cref-lending) and,
-\ when they moved before the run (a pass that made references here, as
-\ the import pass of a run against a snapshot may), the workers are made
-\ again (ck-relent; ck-remades counts it).
-: ck-lending ( addr -- )
-  >r lf-cref-lending r@ ck-lend-count ! r@ ck-lend-slots ! r@ ck-lend-pool !
-  r> ck-lend-records ! ;
-: ck-lent! ( -- ) ck-state ck-lent ck-lending ;
+\ The workers read this context's input in place; so that none reads a
+\ block given back or a record made after they began, the input as the
+\ workers began to read it is kept (ck-lent!: each part's block and
+\ count) and, when it moved before the run (a pass that made references
+\ here, as the import pass of a run against a snapshot may), the workers
+\ are made again (ck-relent; ck-remades counts it). During the run this
+\ context makes nothing there (the decision on readiness and the ticks
+\ only read it, publish into the environment and roll their own scratch
+\ back); that is checked after each (ck-shift?), and a run in which it
+\ moved is stopped as a fault, its verdicts read only below the slots
+\ final before the move (ck-final), never one a worker reached after it.
+: ck-store@ ( store -- addr n ) dup store-records swap store-count @ ;
+: ck-slab@ ( slab -- addr n ) 0 over slab-at swap slab-count ;
+: ck-htab@ ( htab -- slots n ) dup htab-slots swap htab-count ;
+: ck-view@ ( -- x*8 )
+  lf-term-view lf-tview-nodes ck-htab@ lf-term-view lf-tview-fields ck-htab@
+  lf-term-view lf-tview-binders ck-htab@ lf-term-view lf-tview-leaves ck-slab@ ;
+: ck-decls@ ( -- x*6 )
+  lf-inputs ck-store@ lf-input-names ck-slab@ lf-input-more ck-slab@ ;
+: ck-lent@ ( -- x*ck-lent# ) ck-view@ ck-decls@ lf-cref-lending ;
+\ The ck-lent# cells under addr stored from addr on, the top one first.
+: ck-cells! ( x*ck-lent# addr -- ) ck-lent# 0 ?do tuck ! cell+ loop drop ;
+: ck-lent! ( -- ) ck-lent@ ck-state ck-lent ck-cells! ;
+: ck-now ( -- addr ) ck-state ck-lend-now ;
 : ck-moved? ( -- flag )
-  ck-state ck-lend-now dup ck-lending /ck-lend ck-state ck-lent over compare 0<> ;
+  ck-lent@ ck-now ck-cells! ck-now /ck-lend ck-state ck-lent /ck-lend compare 0<> ;
+\ Once it moved during the run: the run stopped as a fault, at the slots
+\ final then.
+: ck-shifted? ( -- flag ) ck-state ck-shifted @ ;
+: ck-shifted-at! ( -- ) lf-sched-final ck-state ck-shifted-at ! ;
+: ck-shifted! ( -- )
+  true ck-state ck-shifted ! true ck-state ck-faulted ! ck-shifted-at! ;
+: ck-shift? ( -- flag ) ck-shifted? if true exit then ck-moved? dup if ck-shifted! then ;
+\ What a stopped run's verdicts are read below: n, or the slots final
+\ when the input moved.
+: ck-final ( n -- n' ) ck-shifted? if ck-state ck-shifted-at @ min then ;
 : ck-remades ( -- n ) ck-state ck-remade @ ;
 : ck-workers ( -- )
   ck-parallel? 0= if exit then
@@ -799,7 +822,10 @@ create ck-pline-parts
 : ck-finished ( -- )
   ck-faulted? 0= if ck-steps-begun ck-advance then
   ck-state ck-prog-on @ if ck-report then ;
-: ck-tick ( -- ) lf-sched-final ck-advance ;
+\ The parallel run's tick: the input checked before the lines are given
+\ out and after them (ck-shift?), as the line word runs here too.
+: ck-tick ( -- )
+  ck-shift? drop lf-sched-final ck-final ck-advance ck-shift? drop ;
 : ck-steps-run ( n -- ) 0 ?do i ck-next if unloop exit then i 1+ ck-advance loop ;
 
 \ ---- The parallel run (--jobs; kernel/env-schedule.fs): the same checks,
@@ -813,15 +839,21 @@ create ck-pline-parts
 \ make its plan (no heap) leaves the run to the serial one.
 : ck-unkeep ( n -- ) lf-input-count swap ?do i ck-kept dup /ck-step erase
   outcome-invalid swap kept-outcome ! loop ;
-: ck-jobs-stepped ( -- n )
+: ck-jobs-reached ( -- n )
   lf-sched-stop lf-input-count < if lf-sched-stop 1+ exit then
   lf-sched-broken? if lf-sched-reached else lf-input-count then ;
+: ck-jobs-stepped ( -- n ) ck-jobs-reached ck-final ;
 : ck-jobs-facts ( -- )
   ck-jobs-stepped dup ck-state ck-stepped ! dup lf-input-count < ck-stop! drop
   dup 0 ?do i ck-jobs-trail loop ck-unkeep ;
-\ A tick after each job gives out what became final (ck-advance).
-: ck-tick! ( -- ) ck-watching? if ['] ck-tick lf-sched-tick! then ;
-: ck-pre! ( -- ) ck-rechecking? if ['] ck-pre lf-sched-pre! then ;
+\ A tick after each job checks the input and gives out what became final
+\ (ck-advance); before each declaration is handed out the input is
+\ checked, and once it moved every answer is a stop (3), so that no
+\ worker starts a check after it.
+: ck-guarded ( n -- n' ) ck-shift? if drop 3 then ;
+: ck-pre-guarded ( d -- n ) ck-shift? if drop 3 else ck-pre ck-guarded then ;
+: ck-tick! ( -- ) ['] ck-tick lf-sched-tick! ;
+: ck-pre! ( -- ) ['] ck-pre-guarded lf-sched-pre! ;
 : ck-jobs-run ( -- )
   ck-tick! ck-pre! ck-check-word ['] ck-keep ['] ck-worker-new ['] lf-sched-run
   context-catch throw ck-jobs-facts ;

@@ -1,0 +1,37 @@
+# Planted faults of parallel checking as a routine, tested property (plan 9.4.8p, branch
+# parallel-1, 2026-11-18): the driving context's input checked during a --jobs run (M1 of the
+# re-entrancy audit of 2026-11-18, src/cli/check-run.fs ck-shift?). Read with
+# tests/mutants/faults.toml as one list.
+
+[[fault]]
+id = "parallel-moved-never"
+file = "src/cli/check-run.fs"
+old = '''  ck-lent@ ck-now ck-cells! ck-now /ck-lend ck-state ck-lent /ck-lend compare 0<> ;'''
+new = '''  ck-lent@ ck-now ck-cells! false ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the input the workers read is never found moved: neither the remaking before the run nor the stop during it happens"
+quick = true
+
+[[fault]]
+id = "parallel-moved-uncapped"
+file = "src/cli/check-run.fs"
+old = ''': ck-final ( n -- n' ) ck-shifted? if ck-state ck-shifted-at @ min then ;'''
+new = ''': ck-final ( n -- n' ) ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a run whose input moved reads verdicts beyond the slots final at the move, which workers reached after it"
+
+[[fault]]
+id = "parallel-moved-handed-out"
+file = "src/cli/check-run.fs"
+old = ''': ck-pre-guarded ( d -- n ) ck-shift? if drop 3 else ck-pre ck-guarded then ;'''
+new = ''': ck-pre-guarded ( d -- n ) ck-pre ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "declarations are still handed out to workers after the input moved: the scheduler is never stopped"
+
+[[fault]]
+id = "parallel-moved-tick-unchecked"
+file = "src/cli/check-run.fs"
+old = '''  ck-shift? drop lf-sched-final ck-final ck-advance ck-shift? drop ;'''
+new = '''  lf-sched-final ck-final ck-advance ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a move made at the last tick, with no hand-out after it, is never found: the run ends ok"
