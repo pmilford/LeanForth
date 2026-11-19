@@ -19,7 +19,7 @@
 # pinned too. Uses gforth-fast beside $GFORTH when there is one. Needs
 # pinned Lean 4.35.0 (LEAN), Gforth (GFORTH) and Python 3.
 set -eu
-lean=${LEAN:-lean}
+lean=$(python3 "$(dirname "$0")/../../scripts/lean_pin.py" pinned)   # $LEAN or the pinned Lean, never a proxy
 gforth=${GFORTH:-gforth}
 version=$("$lean" --version)
 case "$version" in

@@ -612,10 +612,7 @@ def lean_axioms(output, theorems):
     return axioms
 
 
-def pinned_lean():
-    """$LEAN, else the project's pinned Lean 4.35.0 (never an elan proxy)."""
-    return os.environ.get("LEAN", str(ROOT / ".tools/elan/toolchains/leanprover--lean4---v4.35.0"
-                                             "/bin/lean"))
+from lean_pin import pinned_lean  # noqa: E402,F401  $LEAN, else the pinned Lean; refused unless pinned
 
 
 LEANFORTH = ["bash", str(ROOT / "bin" / "leanforth")]   # the checker, as the CLI starts it

@@ -126,6 +126,10 @@ def main():
     parser.add_argument("--lean")
     parser.add_argument("pages", nargs="+", type=pathlib.Path)
     args = parser.parse_args()
+    if args.lean:   # never an elan proxy or another Lean (scripts/lean_pin.py)
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        from lean_pin import pinned_lean
+        args.lean = pinned_lean(args.lean)
     with tempfile.TemporaryDirectory(prefix="doc-examples-") as tmp:
         failures = sum(check_page(page, args.gforth, args.lean, pathlib.Path(tmp))
                        for page in args.pages)

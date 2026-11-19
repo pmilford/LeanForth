@@ -33,6 +33,8 @@ import sys
 import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts"))
+from lean_pin import pinned_lean   # noqa: E402
 INIT_SHA = "c1b2071a6d2132ace8c4711499f078aab2117d925213d5a222a1fe843a59a179"
 S1_DECLS = ["Eq", "Eq.refl", "HAdd", "HAdd.hAdd", "HAdd.mk", "OfNat", "OfNat.ofNat",
             "OfNat.mk", "Add", "Add.add", "Add.mk", "instHAdd", "instAddNat",
@@ -134,7 +136,7 @@ def read_lean(path):
 
 
 def lean_tool(name):
-    lean = os.environ.get("LEAN", "lean")
+    lean = pinned_lean()   # $LEAN or the pinned Lean, never an elan proxy
     prefix = subprocess.run([lean, "--print-prefix"], capture_output=True, text=True,
                             check=True).stdout.strip()
     return lean, pathlib.Path(prefix) / "bin" / name

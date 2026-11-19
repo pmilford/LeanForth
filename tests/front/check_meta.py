@@ -27,7 +27,8 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
-LEAN = os.environ.get("LEAN", ".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean")
+sys.path.insert(0, str(ROOT / "scripts"))
+from lean_pin import pinned_lean   # noqa: E402  $LEAN or the pinned Lean, never an elan proxy
 GFORTH = os.environ.get("GFORTH", "gforth")
 LIMIT = 300
 LEAN_FILE = ROOT / "tests/front/meta-cases.lean"
@@ -447,7 +448,7 @@ def lean_lines():
     if LEAN_FILE.read_text(encoding="utf-8") != lean_source():
         raise Failure(f"{LEAN_FILE.relative_to(ROOT)} differs from the cases: "
                       "python3 tests/front/check_meta.py --write")
-    run = subprocess.run([LEAN, "-DwarningAsError=true", str(LEAN_FILE.relative_to(ROOT))],
+    run = subprocess.run([pinned_lean(), "-DwarningAsError=true", str(LEAN_FILE.relative_to(ROOT))],
                          cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True, text=True,
                          timeout=LIMIT)
     lines = [line for line in run.stdout.splitlines() if line.strip()]

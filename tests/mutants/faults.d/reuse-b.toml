@@ -32,3 +32,15 @@ old = '''  >r lf-tex-plain tuck r> byte-scan nip dup if - true else 2drop false 
 new = '''  >r lf-tex-plain tuck r> byte-scan nip dup if - 1 max true else 2drop false then ;'''
 test = "$GFORTH tests/present/term-printer.fs"
 reason = "reuse-b A5 (review R10): an underscore in LaTeX text is written as \\# , the next special's form"
+
+[[fault]]
+id = "rb-pinned-lean-unchecked"
+file = "scripts/lean_pin.py"
+old = '''    reason = checked(lean)
+    if reason:
+        raise SystemExit'''
+new = '''    reason = None
+    if reason:
+        raise SystemExit'''
+test = "python3 scripts/lean_pin.py"
+reason = "reuse-b A9 (review fix-cli-present S3): the test runners' Lean is run whatever it is, an elan proxy included"

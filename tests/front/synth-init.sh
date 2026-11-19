@@ -9,7 +9,7 @@
 # 4.35.0 (LEAN), Gforth (GFORTH; gforth-fast beside it when there is one)
 # and Python 3.
 set -eu
-lean=${LEAN:-lean}
+lean=$(python3 "$(dirname "$0")/../../scripts/lean_pin.py" pinned)   # $LEAN or the pinned Lean, never a proxy
 toolchain=$("$lean" --print-prefix)
 leanexport=${LEANEXPORT:-$toolchain/bin/leanexport}   # the Makefile's may replay a cached run
 work=$(mktemp -d)

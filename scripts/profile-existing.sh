@@ -4,7 +4,7 @@
 # (workload mixed-level-substitution-48, a new timing series from 2026-11-02).
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-lean=${LEAN:-lean}
+lean=$(python3 scripts/lean_pin.py pinned)   # $LEAN or the pinned Lean, never an elan proxy
 gforth=${GFORTH:-gforth}
 repetitions=${1:-3}
 if [[ ! $repetitions =~ ^[1-9][0-9]?$ ]]; then

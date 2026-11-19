@@ -31,11 +31,22 @@ is a toolchain's own binary:
                     cache (scripts/lean-cache.py) runs LEANFORTH_LEAN, which
                     is checked instead.
 
+  pinned_lean(name) -> the Lean every test runner runs (review fix-cli-present
+                    S3, 2026-11-18): name, else $LEAN, else this checkout's
+                    pinned toolchain binary (DEFAULT); SystemExit with the
+                    reason when `checked` refuses it.
+
 Command line:
   python3 scripts/lean_pin.py check LEAN   exit 0 when LEAN may be run, else
                                            1 with the reason on stderr
                                            (scripts/export.sh,
-                                           scripts/export-elab.sh)
+                                           scripts/export-elab.sh, the
+                                           Makefile under LEAN_CACHE=0)
+  python3 scripts/lean_pin.py pinned       print pinned_lean()'s Lean, or exit 1
+                                           with the reason (the shell
+                                           runners: profile-existing.sh,
+                                           tests/front/synth-init.sh,
+                                           constructions-init.sh)
   python3 scripts/lean_pin.py              a self-test on made-up files in a
                                            temporary directory: a fake elan
                                            that records every run, reached
@@ -53,6 +64,8 @@ PINNED = "4.35.0"
 HERE = os.path.dirname(os.path.realpath(__file__))
 CACHE = os.path.join(HERE, "lean-cache.py")
 ELANS = ("elan", "elan.exe")
+DEFAULT = os.path.join(os.path.dirname(HERE), ".tools", "elan", "toolchains",
+                       "leanprover--lean4---v4.35.0", "bin", "lean")
 
 
 def proxy(path):
@@ -130,6 +143,14 @@ def checked(name):
             return f"{name} is the Lean cache, and LEANFORTH_LEAN, the Lean it runs, is not set"
         return checked(target)
     return refusal(path)
+
+
+def pinned_lean(name=None):
+    lean = name or os.environ.get("LEAN") or DEFAULT
+    reason = checked(lean)
+    if reason:
+        raise SystemExit(f"lean_pin: refused: {reason}")
+    return lean
 
 
 # ---- Self-test.
@@ -249,6 +270,20 @@ def self_test():
             if saved is not None:
                 os.environ["LEANFORTH_LEAN"] = saved
         assert "no file" in refusal(os.path.join(folder, "missing"))
+        assert pinned_lean(pinned) == pinned
+        # pinned_lean: a refused Lean stops the runner with the reason; $LEAN is
+        # used when no name is given.
+        saved = os.environ.get("LEAN")
+        os.environ["LEAN"] = os.path.join(folder, "missing")
+        try:
+            pinned_lean()
+            raise AssertionError("pinned_lean accepted a missing Lean")
+        except SystemExit as stop:
+            assert "refused" in str(stop) and "missing" in str(stop), stop
+        finally:
+            os.environ.pop("LEAN")
+            if saved is not None:
+                os.environ["LEAN"] = saved
     print("lean_pin.py: all tests passed")
 
 
@@ -256,8 +291,15 @@ def main(args):
     if not args:
         self_test()
         return 0
+    if args == ["pinned"]:
+        try:
+            print(pinned_lean())
+        except SystemExit as stop:
+            print(stop, file=sys.stderr)
+            return 1
+        return 0
     if len(args) != 2 or args[0] != "check":
-        print("usage: lean_pin.py [check LEAN]", file=sys.stderr)
+        print("usage: lean_pin.py [check LEAN | pinned]", file=sys.stderr)
         return 2
     reason = checked(args[1])
     if reason:

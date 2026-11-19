@@ -68,6 +68,14 @@ export LEANFORTH_LEAN_CACHE := $(LEAN_CACHE)
 export LEANFORTH_LEAN_CACHE_DIR := $(LEAN_CACHE_DIR)
 export LEANEXPORT := $(CURDIR)/scripts/leanexport-cache.py
 override LEAN := $(CURDIR)/scripts/lean-cache.py
+else ifneq ($(LEANFORTH_LEAN_PINNED),$(LEAN_BINARY))
+# Without the cache the recipes run LEAN_BINARY themselves: it is checked
+# once here by scripts/lean_pin.py (never run when it is an elan proxy;
+# review fix-cli-present S3), and the makes this one starts do not check it
+# again.
+LEAN_REFUSAL := $(shell python3 scripts/lean_pin.py check '$(LEAN_BINARY)' 2>&1 >/dev/null)
+$(if $(LEAN_REFUSAL),$(error $(LEAN_REFUSAL)))
+export LEANFORTH_LEAN_PINNED := $(LEAN_BINARY)
 endif
 
 # Every test command is stopped after TEST_TIMEOUT seconds and then fails,
