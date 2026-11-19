@@ -105,6 +105,18 @@ T{ s" " text-buf 8 cell-counted! s" ab" text-buf cell-counted+! s" cd" text-buf 
    buf-text s" abcd" compare -> true 0 }T
 T{ s" e" text-buf ' cell-counted+! rs-checked buf-text s" abcde" compare -> 0 }T
 T{ s" xy" text-buf 8 ' cell-counted! rs-checked buf-text s" xy" compare -> true 0 }T
+\ cell-counted-left and cell-counted+? (reuse-b): the room still free; an
+\ append that fits, one to the last byte, one a byte too long (refused,
+\ nothing changed), an empty one into a full buffer, and the rs check.
+T{ text-buf 8 cell-counted-left s" abcdef" text-buf 8 cell-counted+? -> 6 true }T
+T{ text-buf 8 cell-counted-left buf-text s" xyabcdef" compare -> 0 0 }T
+T{ s" " text-buf 8 cell-counted! s" abcde" text-buf 8 cell-counted+? -> true true }T
+T{ s" xyz" text-buf 8 cell-counted+? buf-text s" abcdexyz" compare -> true 0 }T
+T{ s" !" text-buf 8 cell-counted+? buf-text s" abcdexyz" compare -> false 0 }T
+T{ s" " text-buf 8 cell-counted+? text-buf 8 cell-counted-left -> true 0 }T
+T{ s" ab" text-buf 4 cell-counted+? buf-text nip -> false 8 }T
+T{ s" " text-buf 8 cell-counted! drop s" q" text-buf 8 ' cell-counted+? rs-checked
+   buf-text s" q" compare -> true 0 }T
 T{ -1 some-cells 2 ' cells-has? rs-checked -> true }T
 \ cells=: n cells compared cell by cell (review reuse-k1 B1); equal for
 \ n <= 0; a difference in the first or the last cell, or in the sign.

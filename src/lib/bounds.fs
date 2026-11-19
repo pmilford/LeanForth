@@ -3,7 +3,7 @@
 \ cell-counted records, laid down and read back. No state.
 \ Interface: between? upto? range-at in-ranges? cells-zero? cells= index?
 \ cells-index cells-has? cell-counted, cell-count cell-counted!
-\ cell-counted+!. Requires portability.fs, outcome.fs (any?, 2dup-under)
+\ cell-counted+! cell-counted-left cell-counted+?. Requires portability.fs, outcome.fs (any?, 2dup-under)
 \ and module.fs;
 \ helpers are private in lf-lib-private (ADR 0010).
 \ Example:
@@ -74,6 +74,15 @@ lf-lib set-current
 : cell-counted! ( c-addr u addr room -- flag )
   2 pick < if drop 2drop false exit then 2dup ! cell+ swap move true ;
 : cell-counted+! ( c-addr u addr -- ) >r tuck r@ cell-count + swap move r> +! ;
+\ The same buffer, bounded: cell-counted-left gives the bytes still free
+\ (room less the count), and cell-counted+? appends c-addr u only when it
+\ fits (true; false, nothing changed, when it does not), so the caller
+\ chooses to drop the text, clip it (`cell-counted-left min` first) or
+\ fail.
+: cell-counted-left ( addr room -- n ) swap @ - ;
+: cell-counted+? ( c-addr u addr room -- flag )
+  over swap cell-counted-left 2 pick < if drop 2drop false exit then
+  cell-counted+! true ;
 
 module-close
 base !   \ the BASE this file was loaded with

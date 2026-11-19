@@ -5271,8 +5271,8 @@ quick = true
 [[fault]]
 id = "cli-statement-forms-wrong-bit"
 file = "src/cli/print.fs"
-old = '''  lf-form-lean , s" lean" counted,'''
-new = '''  lf-form-mathematics , s" lean" counted,'''
+old = '''lf-form-lean s" lean" pr-form,'''
+new = '''lf-form-mathematics s" lean" pr-form,'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Print"
 reason = "--statement lean selects the mathematics line"
 quick = true
@@ -9953,8 +9953,8 @@ reason = "SN5: a check that made names beyond its input (a nested block) is publ
 [[fault]]
 id = "det-information-jobs"
 file = "src/cli/leanforth.fs"
-old = '''  s\" ,\"cellBits\":" cli-info+ cell-bits u>decimal cli-info+'''
-new = '''  s\" ,\"cellBits\":" cli-info+ cell-bits cli-jobs 1 > - u>decimal cli-info+'''
+old = '''  s" cellBits" cli-info-key cell-bits cli-iw jw-u ;'''
+new = '''  s" cellBits" cli-info-key cell-bits cli-jobs 1 > - cli-iw jw-u ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_same_bytes"
 reason = "DET (2026-11-13): the information section holds a figure of the run (here --jobs), so --jobs 4 writes other bytes than --jobs 1; test_same_bytes pins the commit, not the information, and compares every byte"
 
@@ -13813,8 +13813,8 @@ reason = "FRP C4: the rest of a --statement list keeps its comma"
 [[fault]]
 id = "pr-form-text-bit"
 file = "src/cli/print.fs"
-old = '''  lf-form-text , s" text" counted,'''
-new = '''  lf-form-lean , s" text" counted,'''
+old = '''lf-form-text s" text" pr-form,'''
+new = '''lf-form-lean s" text" pr-form,'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "FRP C3: --statement text selects the Lean form"
 
@@ -13880,8 +13880,8 @@ reason = "FRP D1: a layer's export digest is kept over its header's, so the repo
 [[fault]]
 id = "ck-progress-labels-dropped"
 file = "src/cli/check-run.fs"
-old = ''': ck-part+ ( part -- part' ) dup @ execute cell+ dup count ck-pl+ counted-next ;'''
-new = ''': ck-part+ ( part -- part' ) dup @ execute cell+ counted-next ;'''
+old = ''': ck-part+ ( entry -- ) dup name-entry-data @ execute name-entry-name ck-pl+ ;'''
+new = ''': ck-part+ ( entry -- ) name-entry-data @ execute ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Progress.test_counts_rejections"
 reason = "FRP D2: the progress line's numbers are written without their labels"
 

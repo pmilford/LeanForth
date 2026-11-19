@@ -208,9 +208,10 @@ end-structure
 : pv-token-text ( -- c-addr u )
   pv-token @ 0< if s" " exit then pv-text drop pv-token @ chars + pv-token# @ ;
 
-\ The output line under construction.
-: pv-room ( -- u ) pv-out-chars pv-out# @ - ;
-: pv-copy ( c-addr u -- ) pv-out pv-out# @ chars + swap dup pv-out# +! chars move ;
+\ The output line under construction, a cell-counted buffer (pv-out#,
+\ then pv-out; lib/bounds.fs).
+: pv-room ( -- u ) pv-out# pv-out-chars cell-counted-left ;
+: pv-copy ( c-addr u -- ) pv-out# cell-counted+! ;
 : pv-clipped ( c-addr u -- ) pv-room min pv-copy ;
 
 \ Numbers are written in decimal whatever BASE is.
@@ -287,7 +288,8 @@ end-structure
 : pv-flush ( -- ) pv-full? 0= if pv-send-lines then pv-send-said ;
 
 \ Pieces of an IR line. Text that would not fit stops the run as full.
-: pv-append ( c-addr u -- ) dup pv-room > pv-why-capacity pv-?fail pv-copy ;
+: pv-append ( c-addr u -- )
+  pv-out# pv-out-chars cell-counted+? 0= pv-why-capacity pv-?fail ;
 : pv-number ( n -- ) n>decimal pv-append ;
 : pv-number-d ( d -- ) d>decimal pv-append ;
 : pv-location ( line column -- )

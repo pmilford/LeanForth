@@ -116,6 +116,7 @@ require ../lib/bounds.fs
 require ../lib/decimal.fs
 require ../lib/bits.fs
 require ../lib/text-run.fs
+require ../lib/name-table.fs
 require ../core/diagnostics.fs
 require ../core/input.fs
 require ../kernel/environment.fs
@@ -430,18 +431,13 @@ end-structure
 : cli-item ( first? verdict -- first? )
   dup cli-count-of @ ?dup 0= if drop exit then
   cli-comma-under .decimal space cli-kind. false ;
-\ In a run with a snapshot (development mode), how many verdicts came
-\ from it (review rvSN3 m6).
-: cli-from-snapshot# ( -- n ) 0 lf-input-count 0 ?do i lf-env-origin lf-origin-saved = -
-  loop ;
 : cli-stale-of. ( n -- ) .decimal ck-stale? if ."  stale" then ;
-: cli-uncarried# ( -- n ) cli-from-snapshot# ck-carried# - ;
 : cli-from. ( -- )
-  ck-carrying? 0= if cli-from-snapshot# cli-stale-of. exit then ck-carried# .decimal
-  ."  carried" ck-stale? if ."  and " cli-uncarried# cli-stale-of. then ;
+  ck-carrying? 0= if ck-saved# cli-stale-of. exit then ck-carried# .decimal
+  ."  carried" ck-stale? if ."  and " ck-stale# cli-stale-of. then ;
 : cli-summary-label ( -- )
   ck-snapped? 0= if exit then ." ; " cli-from. ."  from the snapshot, "
-  lf-input-count cli-from-snapshot# - .decimal ."  checked in this run" ;
+  lf-input-count ck-saved# - .decimal ."  checked in this run" ;
 : cli-summary ( -- )
   lf-input-count dup .decimal ."  declaration" 1 <> if ." s" then ." : "
   true verdict-kinds 0 do i verdict-kind cli-item loop drop cli-summary-label cr ;
@@ -796,7 +792,7 @@ here cli-plain-chars - 2 cells / constant cli-plain-chars#
   ck-stale? 0= if exit then
   ." stale: --snapshot-stale-ok loaded a snapshot of an older verdict version than this" cr
   ." stale: build's (" lf-verdict-version .decimal ." ): its "
-  cli-uncarried# .decimal ."  results are not this build's verdicts" cr ;
+  ck-stale# .decimal ."  results are not this build's verdicts" cr ;
 \ A carry run (plan step 6.2.5c3): the declarations checked again, by why
 \ (env-import.fs why-*), each group after the first after a comma.
 : cli-again# ( -- n ) 0 lf-input-count 0 ?do i ck-reason 0<> - loop ;
@@ -826,7 +822,7 @@ here cli-plain-chars - 2 cells / constant cli-plain-chars#
   ."  results carried; to check again: " cli-at-most. cli-again. cr ;
 : cli-taken. ( -- )
   ck-carrying? if ck-carried# .decimal ."  results carried from it" exit then
-  cli-from-snapshot# .decimal ."  results taken from it"
+  ck-saved# .decimal ."  results taken from it"
   ck-layers# if ."  and its layers" then ;
 : cli-version. ( -- )
   ." , verdict version " ck-snap snap-verdict .decimal
@@ -861,25 +857,41 @@ here cli-plain-chars - 2 cells / constant cli-plain-chars#
 \ D3): never compared, only shown. A JSON text: the version, the commit
 \ bin/leanforth found (LEANFORTH_COMMIT, LEANFORTH_MODIFIED), the host, the
 \ engine and the cell width, each text kept only when it is plain (letters,
-\ digits, ".", "-", "_", " "), else null.
-create cli-info 512 allot
-variable cli-info#
-: cli-info+ ( c-addr u -- )
-  dup cli-info# @ + 512 > if 2drop exit then
-  tuck cli-info cli-info# @ + swap move cli-info# +! ;
+\ digits, ".", "-", "_", " ") and 1 to 128 bytes long, else null (review
+\ R2 of 2026-11-18: a long text no longer drops parts of the JSON).
+\ Written by lib/json-write.fs into a cell-counted buffer (lib/bounds.fs)
+\ that holds the longest such text (six members, four texts of 128 bytes),
+\ so the writer's limit is never reached; one record, set up while loading,
+\ used by the main task only.
+1024 constant cli-info-room
+begin-structure /cli-info
+  1 0 jw-size +field cli-info-writer
+  field: cli-info-count          \ the text: its length, then its bytes
+  cli-info-room +field cli-info-bytes
+end-structure
+create cli-info /cli-info allot
+: cli-iw ( -- writer ) cli-info cli-info-writer ;
+1 0 cli-iw jw-init 0= [if] .( leanforth.fs: the information writer) cr abort [then]
+cli-info-room cli-iw jw-limit !
+: cli-info-sink ( c-addr u -- ) cli-info cli-info-count cli-info-room cell-counted+? drop ;
+: cli-info-plain? ( c-addr u -- flag ) dup 1 129 within >r cli-plain? r> and ;
 : cli-info-text ( c-addr u -- )
-  2dup cli-plain? over 0<> and
-  if s\" \"" cli-info+ cli-info+ s\" \"" cli-info+ else 2drop s" null" cli-info+ then ;
+  2dup cli-info-plain? if cli-iw jw-string else 2drop cli-iw jw-null then ;
+: cli-info-key ( c-addr u -- ) cli-iw jw-key ;
 : cli-info-host ( -- c-addr u ) [defined] version-string [if] version-string [else] 0 0
   [then] ;
+: cli-info-members ( -- )
+  s" leanforth" cli-info-key cli-version-text cli-info-text
+  s" commit" cli-info-key s" LEANFORTH_COMMIT" cli-env cli-info-text
+  s" modified" cli-info-key cli-modified? cli-iw jw-bool
+  s" gforth" cli-info-key cli-info-host cli-info-text
+  s" engine" cli-info-key ck-engine cli-info-text
+  s" cellBits" cli-info-key cell-bits cli-iw jw-u ;
+\ The text; "{}" if the writer refused it, which the sizes above exclude.
 : cli-info-build ( -- c-addr u )
-  0 cli-info# ! s\" {\"leanforth\":" cli-info+ cli-version-text cli-info-text
-  s\" ,\"commit\":" cli-info+ s" LEANFORTH_COMMIT" cli-env cli-info-text
-  s\" ,\"modified\":" cli-info+ cli-modified? if s" true" else s" false" then cli-info+
-  s\" ,\"gforth\":" cli-info+ cli-info-host cli-info-text
-  s\" ,\"engine\":" cli-info+ ck-engine cli-info-text
-  s\" ,\"cellBits\":" cli-info+ cell-bits u>decimal cli-info+
-  s" }" cli-info+ cli-info cli-info# @ ;
+  0 cli-info cli-info-count ! ['] cli-info-sink cli-iw jw-start
+  cli-iw jw-open-object cli-info-members cli-iw jw-close-object
+  cli-iw jw-end ok? if cli-info cli-info-count cell-count else s" {}" then ;
 : cli-snapshot-save ( -- )
   cli-save? 0= if exit then cli-state opt-save 2@ cli-info-build ck-snapshot-save drop ;
 \ The text report's lines are written as the run goes (JSON is one text).
@@ -1710,21 +1722,16 @@ end-structure
 : cli-arg ( -- false ) false ;
 [then]
 
-\ Tables of names: entries laid down by a defining word, the name last,
-\ ending with a cell 0 where the next entry's word would be.
+\ Tables of names (lib/name-table.fs): each entry's data is a /cli-entry
+\ record, which cli-entry, lays down after the name that follows it.
 begin-structure /cli-entry
   field: cli-entry-run          \ the entry's word
   field: cli-entry-first        \ an option's bit; a command's number of file names
   field: cli-entry-second       \ a command's options, as bits; 0 for an option
-  0 +field cli-entry-name       \ counted string, then aligned
 end-structure
-: cli-entry, ( xt first second "name" -- ) rot , swap , , parse-name counted, ;
-: cli-entry-next ( entry -- entry' ) cli-entry-name count + aligned ;
-: cli-entry-named? ( c-addr u entry -- c-addr u entry flag )
-  dup >r cli-entry-name count 2over compare 0= r> swap ;
-: cli-entry-find ( c-addr u table -- entry | 0 )
-  begin dup @ while cli-entry-named? if nip nip exit then cli-entry-next repeat
-  drop 2drop 0 ;
+: cli-entry, ( xt first second table "name" -- ) parse-name rot name-entry rot , swap , , ;
+\ The record of the entry named c-addr u, or 0.
+: cli-entry-find ( c-addr u table -- entry | 0 ) name-table-find dup if name-entry-data then ;
 
 \ The options, as bits of the set a command takes. Each option's word
 \ ( c-addr u -- ) is given the option's own text, and reads its value.
@@ -1844,33 +1851,33 @@ max-n 20 rshift constant cli-per-check-most
   if c" an option this command does not take" cli-wrong exit then
   cli-progress-prefix nip /string 2dup cli-decimal
   if cli-progress-value else c" not a number of seconds" cli-wrong then ;
-create cli-option-table
-  ' cli-progress-option takes-progress 0 cli-entry, --progress
-  ' cli-manifest-option takes-no-manifest 0 cli-entry, --no-manifest
-  ' cli-fuel-option takes-fuel 0 cli-entry, --fuel
-  ' cli-record-option takes-record 0 cli-entry, --record
-  ' cli-detail-option takes-detail 0 cli-entry, --detail
-  ' cli-name-option takes-name 0 cli-entry, --name
-  ' cli-resources-option takes-resources 0 cli-entry, --resources
-  ' cli-json-option takes-json 0 cli-entry, --json
-  ' cli-latex-option takes-latex 0 cli-entry, --latex
-  ' cli-statement-option takes-statement 0 cli-entry, --statement
-  ' cli-strict-option takes-strict 0 cli-entry, --strict-axioms
-  ' cli-fast-option takes-fast 0 cli-entry, --fast
-  ' cli-checked-option takes-checked 0 cli-entry, --checked
-  ' cli-lf-option takes-lf 0 cli-entry, --lf
-  ' cli-kernel-option takes-kernel 0 cli-entry, --kernel
-  ' cli-any-lean-option takes-any-lean 0 cli-entry, --any-lean-version
-  ' cli-jobs-option takes-jobs 0 cli-entry, --jobs
-  ' cli-save-option takes-save 0 cli-entry, --save-snapshot
-  ' cli-snapshot-option takes-snapshot 0 cli-entry, --snapshot
-  ' cli-stale-option takes-stale 0 cli-entry, --snapshot-stale-ok
-  ' cli-per-check-option takes-memory 0 cli-entry, --memory-per-check
-  ' cli-env-option takes-env 0 cli-entry, --env
-  ' cli-elab-option takes-elab 0 cli-entry, --elab-data
-  ' cli-elab-fuel-option takes-elab 0 cli-entry, --elab-fuel
-  ' cli-steps-option takes-elab 0 cli-entry, --steps
-  0 ,
+name-table: cli-option-table
+: cli-option, ( xt bit "name" -- ) 0 cli-option-table cli-entry, ;
+' cli-progress-option takes-progress cli-option, --progress
+' cli-manifest-option takes-no-manifest cli-option, --no-manifest
+' cli-fuel-option takes-fuel cli-option, --fuel
+' cli-record-option takes-record cli-option, --record
+' cli-detail-option takes-detail cli-option, --detail
+' cli-name-option takes-name cli-option, --name
+' cli-resources-option takes-resources cli-option, --resources
+' cli-json-option takes-json cli-option, --json
+' cli-latex-option takes-latex cli-option, --latex
+' cli-statement-option takes-statement cli-option, --statement
+' cli-strict-option takes-strict cli-option, --strict-axioms
+' cli-fast-option takes-fast cli-option, --fast
+' cli-checked-option takes-checked cli-option, --checked
+' cli-lf-option takes-lf cli-option, --lf
+' cli-kernel-option takes-kernel cli-option, --kernel
+' cli-any-lean-option takes-any-lean cli-option, --any-lean-version
+' cli-jobs-option takes-jobs cli-option, --jobs
+' cli-save-option takes-save cli-option, --save-snapshot
+' cli-snapshot-option takes-snapshot cli-option, --snapshot
+' cli-stale-option takes-stale cli-option, --snapshot-stale-ok
+' cli-per-check-option takes-memory cli-option, --memory-per-check
+' cli-env-option takes-env cli-option, --env
+' cli-elab-option takes-elab cli-option, --elab-data
+' cli-elab-fuel-option takes-elab cli-option, --elab-fuel
+' cli-steps-option takes-elab cli-option, --steps
 : cli-takes? ( entry -- flag ) cli-entry-first @ cli-state arg-set @ and 0<> ;
 : cli-taken ( c-addr u entry -- )
   dup cli-takes? if cli-entry-run @ execute exit then
@@ -1898,19 +1905,19 @@ takes-memory or takes-env or takes-elab or constant check-set
 checking-set constant replay-set
 checking-set takes-detail or takes-name or takes-latex or takes-statement or
 takes-lf or takes-any-lean or takes-kernel or constant print-set
-create cli-commands
-  ' check-command 1 check-set cli-entry, check
-  ' replay-command 2 replay-set cli-entry, replay
-  ' print-command 1 print-set cli-entry, print
-  ' count-command 1 takes-no-manifest cli-entry, count
-  ' reexport-command 2 takes-no-manifest cli-entry, reexport
-  ' version-command 0 0 cli-entry, version
-  ' version-command 0 0 cli-entry, --version
-  ' capabilities-command 0 0 cli-entry, capabilities
-  ' help-command 0 0 cli-entry, help
-  ' help-command 0 0 cli-entry, --help
-  ' help-command 0 0 cli-entry, -h
-  0 ,
+name-table: cli-commands
+: cli-command, ( xt files set "name" -- ) cli-commands cli-entry, ;
+' check-command 1 check-set cli-command, check
+' replay-command 2 replay-set cli-command, replay
+' print-command 1 print-set cli-command, print
+' count-command 1 takes-no-manifest cli-command, count
+' reexport-command 2 takes-no-manifest cli-command, reexport
+' version-command 0 0 cli-command, version
+' version-command 0 0 cli-command, --version
+' capabilities-command 0 0 cli-command, capabilities
+' help-command 0 0 cli-command, help
+' help-command 0 0 cli-command, --help
+' help-command 0 0 cli-command, -h
 
 \ A mistake: what is wrong and its argument, then where help is; code 4.
 : cli-misuse ( -- code )

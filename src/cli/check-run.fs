@@ -108,6 +108,7 @@ require ../lib/decimal.fs
 require ../lib/bits.fs
 require ../lib/sha256.fs
 require ../lib/xt-table.fs
+require ../lib/name-table.fs
 require ../core/input.fs
 require ../core/diagnostics.fs
 require ../kernel/environment.fs
@@ -781,11 +782,10 @@ create ck-line ck-line-room 2 + allot
 : ck-flush ( -- )
   stdout flush-file drop 0 ck-state ck-unflushed !
   ck-wall-now ck-state ck-flush-mark 2! ;
-\ The progress line, built in ck-pline: texts and decimal numbers.
-: ck-pl-room? ( u -- flag ) ck-state ck-pline# @ + ck-pline-room > 0= ;
-: ck-pl+ ( c-addr u -- )
-  dup ck-pl-room? 0= if 2drop exit then
-  >r ck-state ck-pline ck-state ck-pline# @ + r@ move r> ck-state ck-pline# +! ;
+\ The progress line, built in ck-pline (a cell-counted buffer: ck-pline#,
+\ then its bytes): texts and decimal numbers, a piece that does not fit
+\ dropped.
+: ck-pl+ ( c-addr u -- ) ck-state ck-pline# ck-pline-room cell-counted+? drop ;
 : ck-n+ ( u -- ) u>decimal ck-pl+ ;
 : ck-elapsed-s ( -- s )
   ck-wall-now ck-state ck-run-mark clock-wall ck-since 1000000 um/mod nip ;
@@ -798,9 +798,9 @@ create ck-line ck-line-room 2 + allot
 : ck-eta+ ( -- ) ck-eta if ck-n+ s"  s" else s" unknown" then ck-pl+ ;
 : ck-resident+ ( -- )
   ck-resident if 1000000 / ck-n+ s"  MB" else s" ? MB" then ck-pl+ ;
-\ Its parts after "progress: ", read-only: an entry each, a cell, a word
-\ ( -- ) that adds a number or a text (0 ends the table), then the text
-\ that follows it, counted.
+\ Its parts after "progress: ", read-only (lib/name-table.fs): an entry
+\ each, named by the text that follows the part, its data the word ( -- )
+\ that adds the part, a number or a text.
 : ck-elapsed+ ( -- ) ck-elapsed-s ck-n+ ;
 : ck-done+ ( -- ) ck-done ck-n+ ;
 : ck-count+ ( -- ) lf-input-count ck-n+ ;
@@ -808,21 +808,21 @@ create ck-line ck-line-room 2 + allot
 : ck-accepted+ ( -- ) ck-state ck-accepted @ ck-n+ ;
 : ck-others+ ( -- ) ck-state ck-others @ ck-n+ ;
 : ck-rate+ ( -- ) ck-rate ck-n+ ;
-create ck-pline-parts
-  ' ck-elapsed+ , s"  s elapsed; " counted,
-  ' ck-done+ , s" /" counted,
-  ' ck-count+ , s"  declarations final (" counted,
-  ' ck-percent+ , s" %); " counted,
-  ' ck-accepted+ , s"  accepted, " counted,
-  ' ck-others+ , s"  other; " counted,
-  ' ck-rate+ , s"  declarations/s; eta " counted,
-  ' ck-eta+ , s" ; resident " counted,
-  ' ck-resident+ , s" " counted,
-  0 ,
-: ck-part+ ( part -- part' ) dup @ execute cell+ dup count ck-pl+ counted-next ;
+name-table: ck-pline-parts
+: ck-part, ( xt c-addr u -- ) ck-pline-parts name-entry , ;
+' ck-elapsed+ s"  s elapsed; " ck-part,
+' ck-done+ s" /" ck-part,
+' ck-count+ s"  declarations final (" ck-part,
+' ck-percent+ s" %); " ck-part,
+' ck-accepted+ s"  accepted, " ck-part,
+' ck-others+ s"  other; " ck-part,
+' ck-rate+ s"  declarations/s; eta " ck-part,
+' ck-eta+ s" ; resident " ck-part,
+' ck-resident+ s" " ck-part,
+: ck-part+ ( entry -- ) dup name-entry-data @ execute name-entry-name ck-pl+ ;
 : ck-progress-line ( -- )
   0 ck-state ck-pline# ! s" progress: " ck-pl+
-  ck-pline-parts begin dup @ while ck-part+ repeat drop s\" \n" ck-pl+ ;
+  ck-pline-parts ['] ck-part+ name-table-each s\" \n" ck-pl+ ;
 \ Written to stderr, whatever stdout holds, and the interval started again.
 : ck-report ( -- )
   ck-progress-line ck-state ck-pline ck-state ck-pline# @ stderr write-file drop

@@ -33,6 +33,7 @@
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
+require ../lib/name-table.fs
 require ../core/input.fs
 require ../core/derivation-log.fs
 require ../kernel/environment.fs
@@ -124,23 +125,18 @@ end-structure
 
 \ The statement forms of --statement: names joined by commas, as the mask
 \ lf-forms! takes (present/statement-forms.fs); false for a name that is
-\ none of them or for an empty list. The names, read-only, an entry each:
-\ a cell, the form's bit (0 ends the table), then its name, counted.
-create pr-form-names
-  lf-form-lean , s" lean" counted,
-  lf-form-text , s" text" counted,
-  lf-form-mathematics , s" mathematics" counted,
-  lf-form-leanforth , s" leanforth" counted,
-  lf-forms-all , s" all" counted,
-  0 ,
-: pr-form-name ( entry -- c-addr u ) cell+ count ;
-: pr-form-next ( entry -- entry' ) cell+ counted-next ;
-: pr-form-is? ( c-addr u entry -- c-addr u entry flag )
-  >r 2dup r@ pr-form-name compare 0= r> swap ;
+\ none of them or for an empty list. The names, read-only
+\ (lib/name-table.fs): an entry each, its data the form's bit.
+name-table: pr-form-names
+: pr-form, ( bit c-addr u -- ) pr-form-names name-entry , ;
+lf-form-lean s" lean" pr-form,
+lf-form-text s" text" pr-form,
+lf-form-mathematics s" mathematics" pr-form,
+lf-form-leanforth s" leanforth" pr-form,
+lf-forms-all s" all" pr-form,
 \ The bit of the form named c-addr u, or 0.
 : pr-form-bit ( c-addr u -- bit )
-  pr-form-names begin dup @ while pr-form-is? 0= while pr-form-next repeat then
-  nip nip @ ;
+  pr-form-names name-table-find dup if name-entry-data @ then ;
 \ The first name of a comma-separated list: the rest, then the name. The
 \ list c u cut at its first comma, at c2 u2.
 : pr-cut ( c u c2 u2 -- rest-addr rest-u c u' ) rot over - >r 1 /string rot r> ;

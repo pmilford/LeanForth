@@ -1146,5 +1146,17 @@ T{ t-ex t-export-in t-ex t-export-in t-new t-export-in -> }T
 T{ 1 cli-path 3 cli-path cli-same-text? 1 cli-path 5 cli-path cli-same-text? -> true false }T
 cli-options
 
+\ reuse-b: the snapshot's information, written by lib/json-write.fs: a plain
+\ text of 1 to 128 bytes kept, a longer, empty or odd one null (review R2);
+\ the option and command tables on lib/name-table.fs (review R1).
+create t-long 129 allot  t-long 129 char a fill
+T{ t-long 128 cli-info-plain? t-long 129 cli-info-plain? s" " cli-info-plain? -> true false false }T
+T{ s" a b" cli-info-plain? s\" a\"b" cli-info-plain? -> true false }T
+T{ cli-info-build drop 13 s\" {\"leanforth\":" compare -> 0 }T
+T{ cli-info-build + 1- c@ cli-info-build s" cellBits" search nip nip -> char } true }T
+T{ s" --fuel" cli-option-table cli-entry-find cli-entry-first @ -> takes-fuel }T
+T{ s" --fue" cli-option-table cli-entry-find s" checks" cli-commands cli-entry-find -> 0 0 }T
+T{ s" print" cli-commands cli-entry-find dup cli-entry-second @ swap cli-entry-first @ -> print-set 1 }T
+
 cases-done
 bye

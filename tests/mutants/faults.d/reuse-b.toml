@@ -1,0 +1,26 @@
+# Planted faults of branch reuse-b (2026-11-19): the shared words that
+# replace the command line's, the printer's and the core's copies.
+
+[[fault]]
+id = "rb-counted-append-one-over"
+file = "src/lib/bounds.fs"
+old = '''  over swap cell-counted-left 2 pick < if drop 2drop false exit then'''
+new = '''  over swap cell-counted-left 1+ 2 pick < if drop 2drop false exit then'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "reuse-b A2: a bounded append one byte longer than the room left is written past the buffer"
+
+[[fault]]
+id = "rb-info-text-unbounded"
+file = "src/cli/leanforth.fs"
+old = ''': cli-info-plain? ( c-addr u -- flag ) dup 1 129 within >r cli-plain? r> and ;'''
+new = ''': cli-info-plain? ( c-addr u -- flag ) dup 1 max-n within >r cli-plain? r> and ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "reuse-b A3 (review R2): a plain text of any length is kept in the snapshot's information, which can then outgrow its buffer"
+
+[[fault]]
+id = "rb-pv-append-unchecked"
+file = "src/program/verify-report.fs"
+old = '''  pv-out# pv-out-chars cell-counted+? 0= pv-why-capacity pv-?fail ;'''
+new = '''  pv-out# pv-out-chars cell-counted+? drop ;'''
+test = "$GFORTH tests/program/verify.fs"
+reason = "reuse-b A2: an IR line piece that does not fit is dropped silently instead of stopping the run as full"
