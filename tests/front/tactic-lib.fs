@@ -668,7 +668,7 @@ T{ s" Explanation: the `induction` tactic is for constructor-based reasoning as 
    detail-has? s" applying custom induction principles with a 'using' clause or a " detail-has?
    s" registered '@[induction_eliminator]' theorem. The above type" detail-has? -> true true true }T
 lf-tac-forget
-\ (cases, induction? false: Lean's tacticName in the explanation, Induction.lean:775-778;
+\ (cases, induction? false: Lean's tacticName in the explanation, Induction.lean:776-788;
 \ the header stays error 205's, induction's, until cases is ported: plan 9.4.8l W)
 T{ fp9 false elim-code-of lf-author-code -> lf-author-throw 205 }T
 T{ s" Explanation: the `cases` tactic is for constructor-based reasoning as well as for "

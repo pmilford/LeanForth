@@ -122,7 +122,7 @@ require ./goal.fs
 \ ---- getInductiveValFromMajor: not an inductive type (205): Lean's text
 \ with its hints (majorType.isProp and .isType: Sort 0; a Sort of a succ
 \ level), then the main goal. The explanation names the tactic (Lean's
-\ tacticName, Induction.lean:775): induction, or cases for induction?
+\ tacticName, Induction.lean:776): induction, or cases for induction?
 \ false.
 : mel-succ-sort? ( t -- flag )
   dup lf-tag-symbolic-sort lf-term-tag? 0= if lf-sort? exit then
