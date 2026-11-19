@@ -418,7 +418,7 @@ def check_lean(write):
     missing = [text for text in LEAN_WRONG if text not in out]
     if done.returncode == 0 or missing:
         raise Failure(f"s2-wrong.lean: exit {done.returncode}, missing {missing}\n{out}")
-    done = run([LEAN, "-DwarningAsError=true", LAMBDA_LEAN])
+    done = run([lean_binary(), "-DwarningAsError=true", LAMBDA_LEAN])
     if done.returncode != 0:
         raise Failure(f"{LAMBDA_LEAN}: exit {done.returncode}\n{done.stdout}{done.stderr}")
 
