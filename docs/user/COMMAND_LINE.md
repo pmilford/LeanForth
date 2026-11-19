@@ -910,14 +910,21 @@ exit status. How:
   while workers run; if it ever did (a fault of LeanForth, never of the
   export), the run stops as an internal fault, exit 5: "internal fault:
   the run stopped: the input the workers read in place changed during the
-  run", the declarations not final before the change listed "not checked
-  (not reached: the run stopped)", none reported from a check that could
-  have read the changed input.
+  run", the declarations not final at the last comparison that found no
+  change listed "not checked (not reached: the run stopped)", none reported
+  from a check that could have read the changed input, and no snapshot
+  written. The limit: a change undone before the next comparison (a record
+  made and given back between two of them) is not seen; the tests also
+  compare a digest of that input before and after a run.
+
+`bin/leanforth` runs Gforth with its start-up file turned off
+(`GFORTH_ENV=off`), so a file Gforth 1.0 would load first (the one
+`GFORTH_ENV` names, or `~/.config/gforthrc0`) cannot change a run.
 
 How this is tested: the command-line tests compare `--jobs 2` to `4` with
 `--jobs 1` on every small export, text and JSON; `make
-test-parallel-stress` checks 5,000 generated declarations 20 times with
-twice as many workers as cores against the serial run; and the daily run
+test-parallel-stress` checks 5,000 generated declarations 5 times (20 in
+the daily run) with twice as many workers as cores against the serial run; and the daily run
 (`make parallel-init`, [TESTING_STRATEGY.md](../development/TESTING_STRATEGY.md)) checks all of
 `Init` at `--jobs 8` and `--jobs 1` and requires the same exit status,
 verdict lines, JSON report but for `measured`, and snapshot but for its

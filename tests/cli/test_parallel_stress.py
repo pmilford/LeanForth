@@ -4,7 +4,8 @@ re-entrancy audit of 2026-11-18): make test-parallel-stress.
 An export of 5,000 tiny declarations is generated here (never committed): two axioms,
 then theorems that use an earlier theorem (so most wait for one), definitions, and
 theorems whose type unfolds a definition, with a rejected theorem every 500. It is
-checked once at --jobs 1 through bin/leanforth, then 20 times with twice as many
+checked once at --jobs 1 through bin/leanforth, then STRESS_REPEATS times (default 5,
+make test-parallel-stress; 20 in make parallel-init, the daily run) with twice as many
 workers as the machine has cores, and each run's text and exit status must be the
 serial run's.
 
@@ -12,8 +13,11 @@ Workers above the cores: bin/leanforth cuts --jobs to the cores (lib/task.fs's
 task-cores, check-run.fs's ck-jobs-most), so the parallel runs start Gforth on
 src/main.fs themselves, as bin/leanforth does, after defining task-cores-test, a
 word lib/task.fs reads only when it is defined before the file loads (the test-only
-override). bin/leanforth defines no such word and takes no option or environment
-variable for it, so nothing a user runs can raise the workers above the cores.
+override). bin/leanforth defines no such word, takes no option or environment variable
+for it and runs Gforth with its start-up file turned off (GFORTH_ENV=off: Gforth 1.0
+would otherwise load the file GFORTH_ENV names, or ~/.config/gforthrc0, before
+src/main.fs, which could define the word): a test sets GFORTH_ENV to a file that defines
+it and finds the workers still cut to the cores.
 Run from the repository root with GFORTH naming the engine; unittest.
 """
 import os
@@ -25,7 +29,7 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 GFORTH = os.environ.get("GFORTH", str(ROOT / ".tools/gforth/bin/gforth"))
 DECLARATIONS = 5000
-REPEATS = 20
+REPEATS = int(os.environ.get("STRESS_REPEATS", "5"))
 META = ('{"meta":{"exporter":{"name":"lean4export","version":"3.1.0"},"format":{"version":'
         '"3.1.0"},"lean":{"githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc",'
         '"version":"4.35.0"}}}')
@@ -88,9 +92,10 @@ def generated(count):
     return "\n".join(out.lines) + "\n"
 
 
-def leanforth(*args):
+def leanforth(*args, **env):
     result = subprocess.run([str(ROOT / "bin/leanforth"), "check", *args], capture_output=True,
-                            text=True, stdin=subprocess.DEVNULL, env=dict(os.environ, GFORTH=GFORTH))
+                            text=True, stdin=subprocess.DEVNULL,
+                            env=dict(os.environ, GFORTH=GFORTH, **env))
     return result.returncode, result.stdout
 
 
@@ -100,7 +105,7 @@ def oversubscribed(workers, *args):
     result = subprocess.run([GFORTH, "-e", f"{workers} constant task-cores-test",
                              str(ROOT / "src/main.fs"), "-e", "cli-main", "check",
                              "--jobs", str(workers), *args], capture_output=True, text=True,
-                            stdin=subprocess.DEVNULL)
+                            stdin=subprocess.DEVNULL, env=dict(os.environ, GFORTH_ENV="off"))
     return result.returncode - 100, result.stdout
 
 
@@ -126,7 +131,7 @@ class Stress(unittest.TestCase):
                       "10 rejected", out)
 
     def test_more_workers_than_cores(self):
-        """Twenty runs at twice the cores, each the serial run's text and status, and the
+        """STRESS_REPEATS runs at twice the cores, each the serial run's text and status, and the
         workers really above the cores (the resource report names them)."""
         for k in range(REPEATS):
             with self.subTest(run=k):
@@ -141,6 +146,18 @@ class Stress(unittest.TestCase):
                                 self.export)
         self.assertEqual(status, 1)
         self.assertNotIn(f"  workers: {self.workers} (--jobs)", out)
+
+    def test_start_up_file_ignored(self):
+        """A Gforth start-up file (GFORTH_ENV) that defines the test hook changes nothing
+        a user runs: bin/leanforth turns it off, so --jobs is still cut to the cores."""
+        rc0 = os.path.join(self.dir.name, "rc0.fs")
+        with open(rc0, "w", encoding="utf-8") as stream:
+            stream.write(f"{self.workers} constant task-cores-test\n")
+        status, out = leanforth("--no-manifest", "--resources", "--jobs", str(self.workers),
+                                self.export, GFORTH_ENV=rc0)
+        self.assertEqual(status, 1)
+        self.assertNotIn(f"  workers: {self.workers} (--jobs)", out)
+        self.assertNotIn(f"on {self.workers} cores", out)
 
 
 if __name__ == "__main__":

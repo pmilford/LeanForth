@@ -273,10 +273,14 @@ in the release build and five items; this amendment records what was done.
   count (the view's three tables and leaves, the declarations, their name
   index and inductive data, the references) when the workers are made,
   compares them before each hand-out and around each tick, and on a change
-  stops the run as an internal fault, its verdicts read only below the
-  slots final at the change (exit 5). A transient write that is rolled back
-  before the next comparison is not seen; the Forth stress test hashes the
-  borrowed input before and after a run as a second check.
+  stops the run as an internal fault (exit 5), its verdicts read only below
+  the slots final at the last comparison that found no change. A transient
+  write that is rolled back before the next comparison is not seen; the
+  Forth stress test hashes the borrowed input before and after a run as a
+  second check. Freezing the driving context's tables for the run would
+  refuse such a write where it happens; it needs a thaw for lib/htab.fs and
+  a freeze for stores and slabs (plan 9.4.8p). `bin/leanforth` runs Gforth
+  with `GFORTH_ENV=off`, so no start-up file can define a test hook.
 - **L2, load-time tables.** `core/terms.fs`'s tag tables
   (`lf-term-unshare`, `lf-tin-leaf-tags+`, `lf-term-input-tag!`,
   `lf-term-input-twin!`) and `lib/store-columns.fs`'s `column-add` abort

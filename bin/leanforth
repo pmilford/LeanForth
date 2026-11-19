@@ -169,6 +169,12 @@ case ${1:-} in
 esac
 export LEANFORTH_COMMIT=$commit LEANFORTH_MODIFIED=$modified
 
+# Gforth 1.0 loads a start-up file before src/main.fs: the one GFORTH_ENV
+# names, else ~/.config/gforthrc0; such a file could define a test hook
+# (lib/task.fs's task-cores-test, a planted fault) and change a run, so it
+# is turned off (GFORTH_ENV=off, Gforth 1.0's own switch; ~/.config/gforthrc
+# is read only by an interactive Gforth, and Gforth 0.7.3 reads neither).
+export GFORTH_ENV=off
 "$GFORTH" "$root/src/main.fs" -e cli-main "$@" </dev/null
 status=$?
 case $status in

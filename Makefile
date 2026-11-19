@@ -1414,8 +1414,9 @@ test-cli-1 test-cli-2 test-cli-3 test-cli-4 test-cli-engines:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/cli/run_group.py $(subst test-cli-,,$@)
 .PHONY: test-cli-forth test-cli-1 test-cli-2 test-cli-3 test-cli-4 test-cli-engines
 # check --jobs with twice as many workers as cores (lib/task.fs's test-only
-# task-cores-test) on a generated export of 5,000 declarations, 20 runs, each
-# the serial run's text and exit status (plan 9.4.8p). About a minute.
+# task-cores-test) on a generated export of 5,000 declarations, 5 runs (20 in
+# make parallel-init, the daily run), each the serial run's text and exit
+# status (plan 9.4.8p). About 20 seconds.
 test: test-parallel-stress
 test-parallel-stress:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/cli/test_parallel_stress.py
@@ -1441,11 +1442,13 @@ engine-gate:
 # checked with gforth-fast at --jobs 8 and at --jobs 1, the verdict lines, exit
 # codes, JSON report (but "measured") and snapshot (but its information section)
 # compared, the parallel run's not ready, forced and replaced counts 0; both wall
-# times and the speed-up printed and recorded (scripts/parallel-init.py). Needs
+# times and the speed-up printed and recorded (scripts/parallel-init.py); first
+# test-parallel-stress with 20 runs in place of 5. Needs
 # the machine-local Init export (as engine-gate); without it, exit 4 (skipped,
 # not a pass). About 50 minutes (four runs of Init, two serial). Part of make daily only, never of make check.
 parallel-init: RUN := timeout 14400
 parallel-init:
+	ulimit -u 500; STRESS_REPEATS=20 GFORTH=$(GFORTH) $(RUN) python3 tests/cli/test_parallel_stress.py
 	ulimit -u 500; GFORTH_FAST=$(GFORTH_FAST) $(RUN) python3 scripts/parallel-init.py \
 	$(if $(PARALLEL_INIT),--init $(PARALLEL_INIT))
 

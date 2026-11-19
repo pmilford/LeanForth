@@ -22,7 +22,8 @@ Usage (from anywhere in the checkout):
 bin/leanforth check runs four times on the same export with the same engine: text
 with --resources and --save-snapshot, and --json, each at --jobs N and at --jobs 1.
 It requires, between --jobs N and --jobs 1:
-  - the same exit code of each pair;
+  - the same exit code of each pair, and 0 (Init is all accepted: two equal failures
+    are no pass);
   - the same text up to the resource report (the snapshot line's file name aside);
   - the same JSON report but for "measured" (times, memory, workers);
   - the same snapshot but for its information section (kind 17: LeanForth's
@@ -199,6 +200,8 @@ def compare(args, found):
     """The differences found (empty when all hold), and the parallel run's counts."""
     n, problems = args.jobs, []
     for form in ("text", "json"):
+        if found[form, 1][0] != 0:
+            problems.append(f"{form}: the serial run exited {found[form, 1][0]}, not 0 (Init is all accepted)")
         if found[form, n][0] != found[form, 1][0]:
             problems.append(f"{form}: exit {found[form, n][0]} at --jobs {n}, {found[form, 1][0]} at 1")
     if verdict_text(found["text", n][1]) != verdict_text(found["text", 1][1]):
