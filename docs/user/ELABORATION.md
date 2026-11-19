@@ -109,12 +109,12 @@ with Lean's message: `| suc k ih =>` is error 206, "Invalid alternative name `su
 `by-rw[ ' Nat.mul_succ ]` is 215, "Tactic `rewrite` failed: Did not find an occurrence of the pattern", the
 pattern, the target and the goal. The owner's proof set (`tests/front/ps-*.lf`: $\mathrm{succ}\,n + m =
 \mathrm{succ}(n + m)$, $n + m = m + n$, $n + (m + k) = (n + m) + k$, $n(m + k) = nm + nk$ and
-$|xs \mathbin{+\!\!+} ys| = |xs| + |ys|$) is accepted the same way; where appendix G of
-`docs/design/S2_INTERFACE.md` closes a case by `rfl` (for $n + (m + k)$ and $n(m + k)$, goal
-`n + (m + 0) = n + m + 0`), `by-rfl` still stops there with error 93, "not supported yet", although S2 merge B
-(smart unfolding) is merged; the files rewrite with `Nat.add_zero` or `Nat.mul_zero` instead, a form pinned Lean
-accepts too. Not yet: `by-case:` (still error 80 now that merge B is merged; plan FE1g-5), `++` as a word
-(`HAppend.hAppend` is written out), `←`, `at h`, `using`, `generalizing`.
+$|xs \mathbin{+\!\!+} ys| = |xs| + |ys|$) is accepted the same way, written as appendix G of
+`docs/design/S2_INTERFACE.md` writes it: its zero cases close by `by-rfl` (for $n + (m + k)$ the goal
+`n + (m + 0) = n + m + 0`, where `Nat.add n (m + 0)` does not unfold, its match stuck on `m`, and the other side
+does). FE1's other form, `tests/front/01-zero-add.lf`, takes each case of a plain `n by-induction` with
+`by-case:` (Lean's `case`) and closes the `succ` case by `' Nat.succ ih congrArg by-exact`; its term is pinned
+Lean's too. Not yet: `++` as a word (`HAppend.hAppend` is written out), `←`, `at h`, `using`, `generalizing`.
 
 The unit tests (`tests/front/elab.fs`) also pin the order of events against pinned Lean's (golden traces of
 `0 + 0 = 0` and `0 + n = n`): the problems made, the default instances tried and rolled back, and where lazy
@@ -139,7 +139,9 @@ search tries an instance the slice leaves out answers 119 (not supported) where 
   is stuck, 127 and 128 numerals are data, 129 failed to assign a synthesized instance, 130 type expected; a
   search's own refusals keep their codes (110-121, `synth.fs`). Forms
   not ported yet answer *not supported* (exit 2) with the plan that ports them: 131 a coercion (FE4), 132
-  postponing (FE2), 133 an implicit lambda (FE2), 134 `optParam`/`autoParam` (FE2), 135 an eliminator (FE5), 136
+  postponing (FE2), 133 an implicit lambda (FE2; one exception: an explicit argument whose declared type is a pi
+  with an explicit or strict-implicit binder needs no lambda, so it is elaborated, as in Lean,
+  `tests/front/s2-lambda-strict.lf`), 134 `optParam`/`autoParam` (FE2), 135 an eliminator (FE5), 136
   a binder kind the declaration does not give (S5), 137 `#check` forms (FE2), 139 any other step (FE2-FE5, S2).
   The catalogue is [LEANFORTH_WORDS.md](../programming/LEANFORTH_WORDS.md).
 

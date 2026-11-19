@@ -527,6 +527,16 @@
   "reason": "planned: 9.4.8k guard word (one word in lib/outcome.fs for `dup 0< if drop outcome-ok else xt then`, from review s1-elab; the kernel member under [kernel])",
   "tokens": 8
  },
+ "42ba0ab00035": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/cli/check-run.fs:ck-look",
+   "src/front/elab-app.fs:ea-arg-call"
+  ],
+  "reason": "false positive: the two-way dispatch `a? if b exit then c ;` of different words (a run's moved input; an argument's implicit-lambda test)",
+  "tokens": 6
+ },
  "463da21283da": {
   "copies": 2,
   "kind": "shape",

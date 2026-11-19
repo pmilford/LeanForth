@@ -106,7 +106,6 @@ HADD_MK = apps(c("HAdd.mk", 0, 0, 0), NAT, NAT, NAT,
 ID1, FST, MUL, PRED = c("id", 1), c("Prod.fst", 0, 0), c("Nat.mul"), c("Nat.pred")
 UNIT_TYPE, DEC_LT = c("Unit"), c("Nat.decLt")
 PROD_F = apps(c("Prod", 0, 0), NAT2, NAT)
-STUCK_PROJ = "FE1c getStuckMVar? of a projection whose structure needs whnf (isDefEqOnFailure)"
 
 
 def mk_f(f, n):
@@ -331,9 +330,10 @@ CASES = [
     ("meta", ID_FST_K, "k", None),
     # At reducible and instances id stays: whnfCore leaves the projection
     # stuck (Lean: false), where a whnfCore at default would unfold it
-    # (review s2-unfold-a re-check M1-new).
-    ("red", "k", ID_FST_K, STUCK_PROJ),
-    ("inst", "k", ID_FST_K, STUCK_PROJ),
+    # (review s2-unfold-a re-check M1-new); isDefEqOnFailure's getStuckMVar?
+    # of it, a term without metavariables, is none (branch s2-rest).
+    ("red", "k", ID_FST_K, None),
+    ("inst", "k", ID_FST_K, None),
     # isExprDefEqAux's whnfCoreAtDefEq leaves the projection (id stays at
     # instances); Lean then reduces it in isExprDefEqExpensive, after
     # isDefEqProj.

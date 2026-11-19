@@ -1,0 +1,212 @@
+# Planted faults of branch s2-rest (S2's done-check gaps): by-case:
+# (src/front/tactic-case.fs, Lean's case), the name tests of findTag?
+# (src/front/meta-tactic/goal.fs), the implicit-lambda test of an explicit
+# argument (src/front/elab-app.fs) and getStuckMVar? of a term without
+# metavariables (src/front/whnf.fs); read with faults.toml as one list
+# (scripts/mutants.py).
+
+[[fault]]
+id = "case-no-suffix"
+file = "src/front/tactic-case.fs"
+old = '''  ['] lf-name-same? tcs-first ?dup if exit then ['] lf-name-suffix-of? tcs-first ;'''
+new = '''  ['] lf-name-same? tcs-first ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "s2-rest: findTag? without its suffix pass (c_suffix's zero does not find succ.zero)"
+
+[[fault]]
+id = "case-no-prefix"
+file = "src/front/tactic-case.fs"
+old = '''  tcs-exact-or-suffix ?dup if exit then ['] lf-name-prefix-of? tcs-first ;'''
+new = '''  tcs-exact-or-suffix ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "s2-rest: findTag? without its prefix pass (c_prefix's succ does not find succ.zero)"
+
+[[fault]]
+id = "case-prefix-first"
+file = "src/front/tactic-case.fs"
+old = '''  ['] lf-name-same? tcs-first ?dup if exit then ['] lf-name-suffix-of? tcs-first ;'''
+new = '''  ['] lf-name-same? tcs-first ?dup if exit then ['] lf-name-prefix-of? tcs-first ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "s2-rest: the prefix pass before the suffix pass (c_prefix's succ j ih2 takes succ.zero)"
+
+[[fault]]
+id = "case-suffix-last-part"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  begin over while 2dup lf-name-part= 0= if 2drop false exit then lf-name-prefixes'''
+new = '''  begin over while 2dup lf-name-part= 0= if 2drop false exit then 2drop true exit'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "s2-rest: isSuffixOf compares the last components only (succ.zero is a suffix of zero)"
+
+[[fault]]
+id = "case-no-shadow"
+file = "src/front/tactic-case.fs"
+old = ''': tcs-renames? ( j -- flag ) dup tcs-shadowed? swap tcs-local lf-local-inaccessible? or ;'''
+new = ''': tcs-renames? ( j -- flag ) tcs-local lf-local-inaccessible? ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "s2-rest: renameInaccessibles skips a shadowed hypothesis (c_shadow's x names none: 211)"
+
+[[fault]]
+id = "case-shadow-older"
+file = "src/front/tactic-case.fs"
+old = '''2dup < if tcs-newer else drop false then ;'''
+new = '''2dup <> if tcs-newer else drop false then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "s2-rest: an older local of the name counts as shadowing (c_shadow's newer k renamed, ih2 lost)"
+
+[[fault]]
+id = "case-oldest-first"
+file = "src/front/tactic-case.fs"
+old = '''  -1 tc tcs-left +! tc tcs-left @ tcs-arg ?dup if tcs-renamed else drop then ;'''
+new = '''  -1 tc tcs-left +! tcs-names tc tcs-left @ - 1- tcs-arg ?dup if tcs-renamed else drop then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "s2-rest: the names taken from the first, not the last (ih names the case's Nat)"
+
+[[fault]]
+id = "case-names-unchecked"
+file = "src/front/tactic-case.fs"
+old = ''': tcs-left? ( -- ) tc tcs-left @ if lfa-e-tac-case-names lf-tac-stop then ;'''
+new = ''': tcs-left? ( -- ) ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "s2-rest: names left over are not Lean's 'too many variable names provided' (211)"
+
+[[fault]]
+id = "case-tag-kept"
+file = "src/front/tactic-case.fs"
+old = '''tc tcs-goal @ dup 0 lf-mvar-tag! lf-tac-must lf-tac-only ;'''
+new = '''tc tcs-goal @ lf-tac-only ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "s2-rest: the case's goal keeps its tag (setTag anonymous; the unsolved goal shows case succ)"
+
+[[fault]]
+id = "case-rest-dropped"
+file = "src/front/tactic-case.fs"
+old = '''  tcs-found dup tcs-goal-at tc tcs-goal ! tcs-rest tcs-rename tcs-alone ;'''
+new = '''  tcs-found tcs-goal-at tc tcs-goal ! 0 tcs-rename tcs-alone ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "s2-rest: the other unsolved goals lost at the case's end (the next case finds none)"
+
+[[fault]]
+id = "case-not-renamed-goal"
+file = "src/front/tactic-case.fs"
+old = '''  tc tcs-goal @ dup tcs-like tuck lf-mvar-assign lf-tac-must tc tcs-goal ! ;'''
+new = '''  ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "s2-rest: the renamed context made but not used (ih is no hypothesis of the goal)"
+
+[[fault]]
+id = "elab-arg-kind-ignored"
+file = "src/front/elab-app.fs"
+old = '''  ea-no-lambda? if lf-elab-arg-call exit then lf-elab-term-call ;'''
+new = '''  lf-elab-term-call ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "s2-rest: an explicit argument's declared explicit pi still refused as an implicit lambda (congrArg's f: 133)"
+
+[[fault]]
+id = "whnf-stuck-no-shortcut"
+file = "src/front/whnf.fs"
+old = '''  dup ws-reaches-none? ok-then? 0= if nip nip false swap exit then
+  if drop false outcome-ok exit then
+  outcome-ok wc wc-fault ! ws-run ws-checked ;'''
+new = '''  outcome-ok wc wc-fault ! ws-run ws-checked ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --steps-of tests/front/ps-mul-add.lf"
+reason = "s2-rest: getStuckMVar? of a stuck match without metavariables answers unsupported (rfl on n + (m + 0) = n + m + 0: 93)"
+
+[[fault]]
+id = "whnf-stuck-shortcut-with-mvars"
+file = "src/front/whnf.fs"
+old = '''  dup ws-reaches-none? ok-then? 0= if nip nip false swap exit then
+  if drop false outcome-ok exit then
+  outcome-ok wc wc-fault ! ws-run ws-checked ;'''
+new = '''  drop false outcome-ok ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
+reason = "s2-rest: getStuckMVar? answers none for a term with metavariables too (?n is not stuck)"
+
+[[fault]]
+id = "case-detail-renamed"
+file = "src/front/tactic-case.fs"
+old = '''  dup tcs-local lf-local-detail? if drop false else tcs-renames? then ;'''
+new = '''  tcs-renames? ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "s2-rest: renameInaccessibles takes an implementation detail (Lean's continue skipped)"
+
+[[fault]]
+id = "elab-lambda-any-kind"
+file = "src/front/elab-app.fs"
+old = '''  ea-dom-kind 0= if false exit then dup lf-binder-default = swap lf-binder-strict = or ;'''
+new = '''  ea-dom-kind 0= if false exit then drop true ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --lambda"
+reason = "s2-rest review F3: an implicit pi domain skips the implicit-lambda refusal (s2-lambda-impl.lf: 131, not 133)"
+
+[[fault]]
+id = "elab-lambda-strict-refused"
+file = "src/front/elab-app.fs"
+old = '''  ea-dom-kind 0= if false exit then dup lf-binder-default = swap lf-binder-strict = or ;'''
+new = '''  ea-dom-kind 0= if false exit then lf-binder-default = ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --lambda"
+reason = "s2-rest: a strict-implicit pi domain refused as an implicit lambda (s2-lambda-strict.lf: 133 where Lean accepts)"
+
+[[fault]]
+id = "case-suffix-first"
+file = "src/front/tactic-case.fs"
+old = '''  ['] lf-name-same? tcs-first ?dup if exit then ['] lf-name-suffix-of? tcs-first ;'''
+new = '''  ['] lf-name-suffix-of? tcs-first ?dup if exit then ['] lf-name-same? tcs-first ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "s2-rest review F1: findTag?'s suffix pass before its exact pass (c_order's succ takes zero.succ)"
+
+[[fault]]
+id = "case-underscores-rename"
+file = "src/front/tactic-case.fs"
+old = ''': tcs-any? ( -- flag ) 0 tcs-names ['] tcs-ident? find-index dup if nip then ;'''
+new = ''': tcs-any? ( -- flag ) true ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "s2-rest review F2: names that are all _ still run renameInaccessibles (s2w-case-under.lf: 211, not rfl's 97)"
+
+[[fault]]
+id = "case-inaccessible-shadows"
+file = "src/front/tactic-case.fs"
+old = '''  tcs-local dup tcs-user? if tcs-named-as? else drop false then ;'''
+new = '''  tcs-local dup lf-local-detail? 0= if tcs-named-as? else drop false then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "s2-rest review F5: a newer inaccessible local counts as shadowing (s2w-case-newer.lf: n renamed, no 211)"
+
+[[fault]]
+id = "case-rest-reordered"
+file = "src/front/tactic-case.fs"
+old = ''': tcs-rest ( k -- rest ) dup tcs-before swap tcs-after run-cat lf-tac-must ;'''
+new = ''': tcs-rest ( k -- rest ) dup tcs-after swap tcs-before run-cat lf-tac-must ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "s2-rest review F6: the other goals after the case's goal first (c_rest's rfl meets succ, not zero.zero)"
+
+[[fault]]
+id = "tac-arg-first-only"
+file = "src/front/tactic-basic.fs"
+old = ''': lf-tac-arg ( i k -- x ) swap lf-tactic-step tac-first @ + lf-tactic-arg drop ;'''
+new = ''': lf-tac-arg ( i k -- x ) swap lf-tactic-step tac-first @ nip lf-tactic-arg drop ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "s2-rest review finding 2: lf-tac-arg reads the step's first argument whatever k is (by-case:'s second name)"
+
+[[fault]]
+id = "tac-name-unquoted"
+file = "src/front/tactic-basic.fs"
+old = ''': lf-tac-.name ( name -- ) s" `" lf-pp-emit lf-pp-name s" `" lf-pp-emit ;'''
+new = ''': lf-tac-.name ( name -- ) s" `" lf-pp-emit lf-pp-name ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "s2-rest review finding 2: a message's name without its closing backquote"
+
+[[fault]]
+id = "whnf-stuck-let-shortcut"
+file = "src/front/whnf.fs"
+old = ''': ws-let? ( leaf -- flag )
+  dup lf-meta-fvar? 0= if drop false exit then
+  dup lf-fvar-let? if lf-fvar-value ws-open? else drop false then ;'''
+new = ''': ws-let? ( leaf -- flag ) drop false ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "s2-rest review finding 4: a let variable whose value is a metavariable takes the shortcut (fy := ?n: none where Lean is stuck on ?n)"
+
+[[fault]]
+id = "whnf-stuck-let-value-closed"
+file = "src/front/whnf.fs"
+old = ''': ws-open? ( value -- flag ) dup lf-meta-mvar-free? 0= swap lf-meta-has-fvar? or ;'''
+new = ''': ws-open? ( value -- flag ) lf-meta-mvar-free? 0= ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "s2-rest review finding 4: a let whose value reaches another let is taken as closed (fyy := fy: none where Lean is stuck on ?n)"

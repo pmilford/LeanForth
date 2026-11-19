@@ -1,0 +1,10 @@
+\ An explicit argument whose expected type is a pi with an implicit binder:
+\ Lean adds an implicit lambda and accepts (theorem t_impl : True :=
+\ IL.impl IL.z, tests/front/implicit-lambda.lean); LeanForth does not add one
+\ yet and stops, not supported (error 133, plan FE2; src/front/elab-app.fs
+\ ea-no-lambda?), never accepting what it has not elaborated as Lean does.
+theorem t_impl
+  True
+:=
+  ' IL.z IL.impl
+end t_impl

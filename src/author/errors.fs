@@ -202,7 +202,7 @@ require ./source.fs
 140 constant lfa-e-check-here     \ #check inside a declaration, in a term position
 141 constant lfa-e-check-in-by    \ #check inside a tactic block
 \ S2's tactics (branch s2-tactics, S2_INTERFACE 8): induction and its
-\ alternatives (205-213; 210 and 211 kept for by-case:), rewriting
+\ alternatives (205-213; 210 and 211 by-case:'s), rewriting
 \ (215-220; 214 and 221-224 kept). Each prints Lean's first message, its
 \ names on the message's line (lfa-inline) and, for a tactic's failure,
 \ the goals after it.
@@ -214,6 +214,8 @@ require ./source.fs
 207 constant lfa-e-tac-alt-missing  \ an alternative not written
 208 constant lfa-e-tac-alt-names    \ more names at an alternative than its fields
 209 constant lfa-e-tac-mutual       \ induction on a mutual or nested inductive type
+210 constant lfa-e-tac-case-tag     \ by-case: no unsolved goal has the tag
+211 constant lfa-e-tac-case-names   \ by-case: more names than hypotheses to rename
 212 constant lfa-e-tac-elim-motive  \ the motive's type does not fit the eliminator's
 213 constant lfa-e-tac-alt-twice    \ an alternative written twice
 215 constant lfa-e-tac-no-pattern   \ rewrite: no occurrence of the pattern
@@ -490,6 +492,8 @@ create lfa-catalogue
   lfa-e-tac-alt-missing s" Alternative" lfa-invalid,
   lfa-e-tac-alt-names s" Too many variable names provided at alternative" lfa-invalid,
   lfa-e-tac-mutual s" The `induction` tactic does not support the type" lfa-invalid,
+  lfa-e-tac-case-tag s" Case tag" lfa-invalid,
+  lfa-e-tac-case-names s" too many variable names provided" lfa-invalid,
   lfa-e-tac-elim-motive s" Type mismatch when assigning motive" lfa-invalid,
   lfa-e-tac-alt-twice s" Duplicate alternative name" lfa-invalid,
   lfa-e-tac-no-pattern

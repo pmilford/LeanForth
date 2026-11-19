@@ -20168,8 +20168,8 @@ reason = "S2 4 (evalAlts): a case no alternative took is not Lean's 'has not bee
 [[fault]]
 id = "s2-induction-target-kept"
 file = "src/front/tactic-induction.fs"
-old = '''  >r dup tia-goal @ lfi-only lfi-intros r> lfi-cleared ;'''
-new = '''  >r dup tia-goal @ lfi-only lfi-intros r> drop ;'''
+old = '''  >r dup tia-goal @ lf-tac-only lfi-intros r> lfi-cleared ;'''
+new = '''  >r dup tia-goal @ lf-tac-only lfi-intros r> drop ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 4 (evalAlts' tryClear): the target stays in each case's context, which Lean's goals do not show"
 
@@ -20287,8 +20287,8 @@ reason = "review s2-tactics re-check M2: an explicit argument headed by a metava
 id = "s2-induction-clear-full-kept"
 file = "src/front/tactic-induction.fs"
 old = '''  lf-tac-main swap lf-goal-clear dup outcome-invalid = if 2drop exit then
-  lf-tac-must lfi-only ;'''
-new = '''  lf-tac-main swap lf-goal-clear ok? if lfi-only else drop then ;'''
+  lf-tac-must lf-tac-only ;'''
+new = '''  lf-tac-main swap lf-goal-clear ok? if lf-tac-only else drop then ;'''
 test = "$GFORTH tests/front/s2-sweeps.fs"
 reason = "review s2-tactics re-check M4: tryClear's full or exhausted read as cannot clear, a runtime failure swallowed (Lean's <|> never catches one)"
 

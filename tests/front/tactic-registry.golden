@@ -132,6 +132,8 @@
 207	1	Alternative
 208	1	Too many variable names provided at alternative
 209	1	The `induction` tactic does not support the type
+210	1	Case tag
+211	1	too many variable names provided
 212	1	Type mismatch when assigning motive
 213	1	Duplicate alternative name
 215	1	Tactic `rewrite` failed: Did not find an occurrence of the pattern
@@ -219,7 +221,7 @@ kind 4 by-intro: 0 intro run
 kind 5 by-induction 0 induction run
 kind 6 by-induction-with 0 induction run
 kind 7 | 0 alternative run
-kind 8 by-case: 5 case run
+kind 8 by-case: 0 case run
 kind 9 by-rw[ 0 rw run
 kind 10 by-rewrite[ 0 rewrite run
 kind 11 by-sorry 0 sorry run

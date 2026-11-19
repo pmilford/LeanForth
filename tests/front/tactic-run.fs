@@ -180,6 +180,9 @@ T{ printed unsolved-line compare -> 0 }T
 T{ s" n by-induction end t" later -> 76 1 45 0 }T
 T{ token s" by-induction" compare -> 0 }T
 T{ s" n by-induction-with | zero => by-rfl by-end end t" later -> 76 1 45 0 }T
+\ (by-case: runs since branch s2-rest, src/front/tactic-case.fs, end to end
+\ in check_s2.py; its row is set back to not ported here, for 80.)
+' lf-tac-later 5 tac-k-case lfr-set
 T{ s" by-case: zero => by-rfl by-end end t" later -> 80 1 43 5 }T
 T{ token s" by-case:" compare detail lean-goals compare -> 0 0 }T
 T{ s" by-rw[ ] end t" later -> 60 1 43 0 }T
@@ -341,7 +344,7 @@ text0 s\" theorem t Nat explicit: n 0 n + n =\n:= by\n" text+
 : ends ( n -- ) 0 ?do s\" by-end\n" text+ loop ;
 1000 cases s\" by-sorry\n" text+ 1000 ends s" end t" text+
 T{ text$ nrun lf-tactic-count -> outcome-ok 1002 }T
-' lf-tac-later 5 tac-k-case lfr-set
+' tcs-w-case tac-k-case lf-tactic-action!
 rfl-action tac-k-rfl lf-tactic-action!
 
 \ ---- 3. The words directly, on a proof state made by hand: goals g1 g2
@@ -364,6 +367,17 @@ T{ two-goals lf-tac-focus lf-tac-unfocus goals@ -> g1 @ g2 @ 2 }T
 \ focus with no goal: 90 (at the current token: no step runs).
 T{ fresh-state 0 lf-goals! ' lf-tac-focus catch lf-author-code
    -> outcome-ok lf-author-throw 90 }T
+\ by-case:'s renameInaccessibles (tactic-case.fs) takes no implementation
+\ detail, inaccessible or not (Lean's isImplementationDetail: continue);
+\ an inaccessible hypothesis it takes. Context p : Prop, h (a detail,
+\ inaccessible), k (inaccessible); the case's goal in it.
+: detail-goal ( -- )
+  fresh-state 0 sort s" p" binder pp !
+  pp @ lf-lctx-local made s" h" lf-local-impl-detail lf-local-inaccessible or local-of pushed
+  pp @ lf-lctx-local made s" k" lf-local-inaccessible local-of pushed
+  pp @ 0 lf-mctx-view lf-goal-new made g1 ! ;
+: turns ( i -- f1 f2 ) drop g1 @ tc tcs-goal ! 1 tcs-turn? 2 tcs-turn? ;
+T{ detail-goal 0 ' turns lf-tac-in-record -> false true }T
 
 \ ---- 6. Saved states: a failed attempt leaves no assignment, tag, kind
 \ or goal behind; a successful one keeps its changes; a Forth THROW that

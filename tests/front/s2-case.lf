@@ -1,0 +1,82 @@
+\ by-case: as Lean's case tactic (src/front/tactic-case.fs; its Lean twins
+\ are tests/front/s2-proofs.lean's c_*): the cases in another order; a tag
+\ found as the suffix of succ.zero and as the prefix of succ.zero; a
+\ hypothesis shadowed by a newer one of its name renamed (Lean shows the old
+\ k as k✝ until case names it x); _ taking a name's turn; the exact pass
+\ before the suffix pass (c_order: succ is the goal tagged succ, not
+\ zero.succ, of which it is a suffix); the other goals kept in their order
+\ (c_rest: after case zero.succ, rfl closes zero.zero, the main goal).
+theorem c_rev
+  Nat explicit: n
+  0 n + n =
+:= by
+  n by-induction
+  by-case: succ k ih =>  ' Nat.succ ih congrArg by-exact  by-end
+  by-case: zero =>       by-rfl                           by-end
+end c_rev
+theorem c_suffix
+  Nat explicit: n  Nat explicit: m
+  0 n + n =
+:= by
+  n by-induction-with
+  | zero =>       by-rfl
+  | succ k ih =>
+    m by-induction
+    by-case: zero =>         by-rw[ ' Nat.add_succ ih ]  by-end
+    by-case: succ j ih2 =>   ih2 by-exact                by-end
+  by-end
+end c_suffix
+theorem c_prefix
+  Nat explicit: n  Nat explicit: m
+  0 n + n =
+:= by
+  n by-induction-with
+  | zero =>       by-rfl
+  | succ k ih =>
+    m by-induction
+    by-case: succ j ih2 =>   ih2 by-exact                by-end
+    by-case: succ =>         by-rw[ ' Nat.add_succ ih ]  by-end
+  by-end
+end c_prefix
+theorem c_shadow
+  Nat explicit: n  Nat explicit: m
+  0 n + n =
+:= by
+  n by-induction-with
+  | zero =>       by-rfl
+  | succ k ih =>
+    m by-induction-with
+    | zero =>       by-rw[ ' Nat.add_succ ih ]
+    | succ k ih2 =>
+      by-case: succ x =>  ih2 by-exact  by-end
+    by-end
+  by-end
+end c_shadow
+theorem c_under
+  Nat explicit: n
+  0 n + n =
+:= by
+  n by-induction
+  by-case: zero =>       by-rfl                           by-end
+  by-case: succ _ ih =>  ' Nat.succ ih congrArg by-exact  by-end
+end c_under
+theorem c_order
+  Nat explicit: n  Nat explicit: m
+  0 n + n =
+:= by
+  n by-induction
+  m by-induction
+  by-case: succ k ih =>     ' Nat.succ ih congrArg by-exact  by-end
+  by-case: zero =>          by-rfl                           by-end
+  by-case: zero j ih2 =>    ih2 by-exact                     by-end
+end c_order
+theorem c_rest
+  Nat explicit: n  Nat explicit: m
+  0 n + n =
+:= by
+  n by-induction
+  m by-induction
+  by-case: zero.succ j ih2 =>  ih2 by-exact                     by-end
+  by-rfl
+  by-case: succ k ih =>        ' Nat.succ ih congrArg by-exact  by-end
+end c_rest

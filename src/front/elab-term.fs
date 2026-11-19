@@ -17,7 +17,9 @@
 \   elabAtom, an application elabApp: elabAppArgs (elab-app.fs); binop%
 \   and binrel% are Extra.lean's, their operator resolved at the root. An
 \   expected type whose whnfForall is a pi is unsupported (133: Lean's
-\   implicit lambda reads its binder's kind, plan FE2).
+\   implicit lambda reads its binder's kind, plan FE2), but for an
+\   application's explicit argument whose binder's declared kind is
+\   explicit or strict implicit (lf-elab-arg-call, elab-app.fs).
 \ - binop% (elabOp): toTree (operands that are binop% are entered,
 \   anything else elaborated with no expected type; then
 \   synthesizeSyntheticMVars, postponing), analyze (the leaves' types,
@@ -203,11 +205,16 @@ defer et-rel ( node expected -- ... frames next )
 : et-dispatch ( node expected -- ... frames next )
   over syn-kind@ case syn-k-num of et-num endof syn-k-app of et-app endof
     syn-k-binop of et-op endof syn-k-binrel of et-rel endof >r et-atom r> endcase ;
+: et-scoped ( node expected frames -- node expected ) drop swap et-at-scope swap ;
 : et-visit ( node expected frames -- ... frames next )
-  drop swap et-at-scope swap dup et-lambda? dup ok? 0= if nip nip et-failed exit then
-  drop et-dispatch ;
+  et-scoped dup et-lambda? dup ok? 0= if nip nip et-failed exit then drop et-dispatch ;
 :noname ( node expected frames cont -- ... frames next ) ['] et-visit lf-elab-open ;
 is lf-elab-term-call
+\ An argument whose binder's declared kind makes no implicit lambda
+\ (elab-app.fs's ea-arg-call): the visit without the test.
+: et-visit-known ( node expected frames -- ... frames next ) et-scoped et-dispatch ;
+:noname ( node expected frames cont -- ... frames next ) ['] et-visit-known lf-elab-open ;
+is lf-elab-arg-call
 : et-term-call ( node expected frames cont -- ... frames next ) lf-elab-term-call ;
 : lf-elab-term ( node expected -- term outcome ) ['] et-term-call lf-elab-visit ;
 

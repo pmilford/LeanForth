@@ -332,6 +332,25 @@ T{ 0 lf-defeq-flags! lf-tr-all lf-defeq-mode! prop prop lf-tac-defeq lf-defeq-fl
    -> true outcome-ok 0 lf-tr-all }T
 lf-tr-default lf-defeq-mode!
 
+\ ---- 1, 3. The shared step and message words of the tactics (review
+\ 2026-11-19-s2-rest, finding 2): lf-tac-arg reads step i's argument k (a
+\ name, 0 for _), as by-case: and the alternatives read their names;
+\ lf-tac-.name writes a name between backquotes to the message's sink.
+variable seen#  variable seen0  variable seen1
+: record-args ( i -- )
+  dup lf-tac-args# seen# ! dup 0 lf-tac-arg seen0 ! 1 lf-tac-arg seen1 ! lfa-e-tac-unsolved lfa-fail ;
+' record-args tac-k-case lf-tactic-action!
+' imp-p stating
+T{ s" by-case: succ k _ => by-sorry by-end end t" proof nrun drop seen# @ -> 2 }T
+T{ seen0 @ s" k" lfa-intern = seen1 @ -> true 0 }T
+' tcs-w-case tac-k-case lf-tactic-action!
+: grab ( c-addr u -- ) text+ ;
+: named. ( c-addr u -- c-addr' u' )
+  lf-print-settings settings 2! text0 ['] grab lf-print-unicode lf-print-setup
+  lfa-intern lf-tac-.name settings 2@ lf-print-setup text$ ;
+T{ s" succ.zero" named. s" `succ.zero`" compare -> 0 }T
+T{ s" x" named. s" `x`" compare -> 0 }T
+
 \ ---- 4. Through the command line and the kernel.
 : tally ( k -- n ) cli-count-of @ ;
 : check ( c-addr u -- code ) cli-options library cli-state opt-env 2! cli-check ;

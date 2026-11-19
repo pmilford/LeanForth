@@ -125,9 +125,8 @@ end-structure
 : ti ( -- addr ) lf-tac-record ;
 
 \ ---- The target.
-: lfi-arg ( i -- node ) lf-tactic-step tac-first @ lf-tactic-arg drop ;
 : lfi-target! ( i -- )
-  lfi-arg -1 false lf-tac-elab lf-tac-must dup lf-meta-fvar? 0= if lfa-e-tac-form
+  0 lf-tac-arg -1 false lf-tac-elab lf-tac-must dup lf-meta-fvar? 0= if lfa-e-tac-form
     lf-tac-fail
   then dup lf-fvar-let? if lfa-e-tac-form lf-tac-fail then ti tind-target ! ;
 : lfi-target-type ( -- t ) ti tind-target @ lf-infer lf-tac-must ;
@@ -304,18 +303,17 @@ end-structure
 \ The cases no alternative names, as Lean's orList: x, x or y, x, y, or z.
 : lfi-unhandled? ( k -- flag ) ti tind-first @ swap lfi-case tia-name @ lfi-written? 0= ;
 : lfi-unhandled# ( -- n ) 0 ti tind-first @ lfi-cases# 0 ?do i lfi-unhandled? - loop ;
-: lfi-.name ( name -- ) s" `" lf-pp-emit lf-pp-name s" `" lf-pp-emit ;
 : lfi-sep ( m n -- c-addr u )
   over 0= if 2drop s" " exit then dup 2 = if 2drop s"  or " exit then
   1- = if s" , or " else s" , " then ;
 : lfi-listed ( n m k -- n m' )
-  >r 2dup swap lfi-sep lf-pp-emit ti tind-first @ r> lfi-case tia-name @ lfi-.name 1+ ;
+  >r 2dup swap lfi-sep lf-pp-emit ti tind-first @ r> lfi-case tia-name @ lf-tac-.name 1+ ;
 : lfi-expected. ( -- )
   lfi-unhandled# dup 0= if drop s" There are no unhandled alternatives" lf-pp-emit exit
     then
   s" Expected " lf-pp-emit 0 ti tind-first @ lfi-cases# 0 ?do
     i lfi-unhandled? if i lfi-listed then loop 2drop ;
-: lfi-name. ( a -- outcome ) s"  " lf-pp-emit lfi-tag-at lfi-.name outcome-ok ;
+: lfi-name. ( a -- outcome ) s"  " lf-pp-emit lfi-tag-at lf-tac-.name outcome-ok ;
 : lfi-invalid. ( a -- outcome ) lfi-name. drop s" : " lf-pp-emit lfi-expected.
   outcome-ok ;
 : lfi-twice ( -- )
@@ -336,7 +334,8 @@ end-structure
 : lfi-top ( -- addr ) tind-withs slab-last ;
 : lfi-open-cases ( -- first n ) lfi-top tiw-first @ dup lfi-cases# ;
 : lfi-missing. ( case -- outcome )
-  s"  " lf-pp-emit tia-name @ lfi-.name s"  has not been provided" lf-pp-emit outcome-ok ;
+  s"  " lf-pp-emit tia-name @ lf-tac-.name
+  s"  has not been provided" lf-pp-emit outcome-ok ;
 : lfi-missing ( i case -- ) ['] lfi-missing. lf-tac-inline lfa-e-tac-alt-missing
   lf-tac-stop-at ;
 : lfi-unused ( i first k -- i first )   \ 207 for case k if no alternative took it
@@ -366,10 +365,10 @@ end-structure
 : lfi-explicit? ( case f -- flag ) lfi-field-kind lf-binder-default = ;
 : lfi-explicit# ( case -- n )
   0 swap dup tia-fields @ 0 ?do dup i lfi-explicit? if swap 1+ swap then loop drop ;
-: lfi-given# ( -- n ) ta talt-step @ lf-tactic-step tac-count @ ;
+: lfi-given# ( -- n ) ta talt-step @ lf-tac-args# ;
 : lfi-n. ( n -- ) u>decimal lf-pp-emit ;
 : lfi-too-many. ( case -- outcome )
-  s"  " lf-pp-emit dup tia-name @ lfi-.name s" : " lf-pp-emit lfi-given# lfi-n.
+  s"  " lf-pp-emit dup tia-name @ lf-tac-.name s" : " lf-pp-emit lfi-given# lfi-n.
   s"  provided, but " lf-pp-emit lfi-explicit# lfi-n. s"  expected" lf-pp-emit
     outcome-ok ;
 : lfi-names-fit ( case -- case )
@@ -379,21 +378,20 @@ end-structure
 \ binder's own name, inaccessible) for the others and past the names.
 : lfi-next-name ( -- name )
   lfi-given# ta talt-given @ > 0= if 0 exit then
-  ta talt-step @ lf-tactic-step tac-first @ ta talt-given @ + lf-tactic-arg drop
+  ta talt-step @ ta talt-given @ lf-tac-arg
   1 ta talt-given +! ;
 : lfi-name-for ( kind -- name ) lf-binder-default = if lfi-next-name else 0 then ;
 : lfi-field ( f -- )
   ta talt-case @ swap lfi-field-kind dup lfi-name-for swap ta talt-step @
     lf-tac-intro-as ;
 : lfi-intros ( case -- ) tia-fields @ 0 ?do i lfi-field loop ;
-: lfi-only ( goal -- ) 0 swap run-push lf-tac-must lf-goals! lf-tac-must ;
 \ tryClear: a refusal (invalid) keeps the goal; fuel, room or a gap is
 \ thrown, as Lean's <|> never catches a runtime exception.
 : lfi-cleared ( fvar -- )
   lf-tac-main swap lf-goal-clear dup outcome-invalid = if 2drop exit then
-  lf-tac-must lfi-only ;
+  lf-tac-must lf-tac-only ;
 : lfi-case-goal! ( case fvar -- )
-  >r dup tia-goal @ lfi-only lfi-intros r> lfi-cleared ;
+  >r dup tia-goal @ lf-tac-only lfi-intros r> lfi-cleared ;
 : lfi-alt ( j -- )
   dup ta talt-step ! 0 ta talt-given ! lfi-top tiw-elim @ ta talt-elim !
   lfi-tag-of lfi-case-named dup ta talt-case ! lfi-names-fit true over tia-used !

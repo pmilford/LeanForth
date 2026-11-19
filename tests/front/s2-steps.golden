@@ -1,3 +1,69 @@
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"zero_add'","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}
+{"goal_before":"n : Nat\n⊢ 0 + n = n","goals_after":["case zero\n⊢ 0 + 0 = 0","case succ\nn✝ : Nat\na✝ : 0 + n✝ = n✝\n⊢ 0 + (n✝ + 1) = n✝ + 1"],"parent":0,"source":"14:5","step":1,"tactic":"induction","word":"by-induction"}
+{"goal_before":"case zero\n⊢ 0 + 0 = 0","goals_after":["⊢ 0 + 0 = 0"],"parent":0,"source":"15:3","step":2,"tactic":"case","word":"by-case:"}
+{"goal_before":"⊢ 0 + 0 = 0","goals_after":[],"parent":2,"source":"15:26","step":3,"tactic":"rfl","word":"by-rfl"}
+{"goal_before":"case succ\nn✝ : Nat\na✝ : 0 + n✝ = n✝\n⊢ 0 + (n✝ + 1) = n✝ + 1","goals_after":["k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1"],"parent":0,"source":"16:3","step":4,"tactic":"case","word":"by-case:"}
+{"goal_before":"k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1","goals_after":[],"parent":4,"source":"16:49","step":5,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"c_rev","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}
+{"goal_before":"n : Nat\n⊢ 0 + n = n","goals_after":["case zero\n⊢ 0 + 0 = 0","case succ\nn✝ : Nat\na✝ : 0 + n✝ = n✝\n⊢ 0 + (n✝ + 1) = n✝ + 1"],"parent":0,"source":"13:5","step":1,"tactic":"induction","word":"by-induction"}
+{"goal_before":"case zero\n⊢ 0 + 0 = 0","goals_after":["k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1"],"parent":0,"source":"14:3","step":2,"tactic":"case","word":"by-case:"}
+{"goal_before":"k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1","goals_after":[],"parent":2,"source":"14:49","step":3,"tactic":"exact","word":"by-exact"}
+{"goal_before":"case zero\n⊢ 0 + 0 = 0","goals_after":["⊢ 0 + 0 = 0"],"parent":0,"source":"15:3","step":4,"tactic":"case","word":"by-case:"}
+{"goal_before":"⊢ 0 + 0 = 0","goals_after":[],"parent":4,"source":"15:26","step":5,"tactic":"rfl","word":"by-rfl"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"c_suffix","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":9}}
+{"goal_before":"n m : Nat\n⊢ 0 + n = n","goals_after":[],"parent":0,"source":"21:5","step":1,"tactic":"induction","word":"by-induction-with"}
+{"goal_before":null,"goals_after":["case zero\nm : Nat\n⊢ 0 + 0 = 0"],"parent":1,"source":"22:3","step":2,"tactic":"alternative","word":"|"}
+{"goal_before":"case zero\nm : Nat\n⊢ 0 + 0 = 0","goals_after":[],"parent":2,"source":"22:19","step":3,"tactic":"rfl","word":"by-rfl"}
+{"goal_before":null,"goals_after":["case succ\nm k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1"],"parent":1,"source":"23:3","step":4,"tactic":"alternative","word":"|"}
+{"goal_before":"case succ\nm k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1","goals_after":["case succ.zero\nk : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1","case succ.succ\nk : Nat\nih : 0 + k = k\nn✝ : Nat\na✝ : 0 + (k + 1) = k + 1\n⊢ 0 + (k + 1) = k + 1"],"parent":4,"source":"24:7","step":5,"tactic":"induction","word":"by-induction"}
+{"goal_before":"case succ.zero\nk : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1","goals_after":["k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1"],"parent":4,"source":"25:5","step":6,"tactic":"case","word":"by-case:"}
+{"goal_before":"k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1","goals_after":[],"parent":6,"source":"25:30","step":7,"tactic":"rw","word":"by-rw["}
+{"goal_before":"case succ.succ\nk : Nat\nih : 0 + k = k\nn✝ : Nat\na✝ : 0 + (k + 1) = k + 1\n⊢ 0 + (k + 1) = k + 1","goals_after":["k : Nat\nih : 0 + k = k\nj : Nat\nih2 : 0 + (k + 1) = k + 1\n⊢ 0 + (k + 1) = k + 1"],"parent":4,"source":"26:5","step":8,"tactic":"case","word":"by-case:"}
+{"goal_before":"k : Nat\nih : 0 + k = k\nj : Nat\nih2 : 0 + (k + 1) = k + 1\n⊢ 0 + (k + 1) = k + 1","goals_after":[],"parent":8,"source":"26:34","step":9,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"c_prefix","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":9}}
+{"goal_before":"n m : Nat\n⊢ 0 + n = n","goals_after":[],"parent":0,"source":"33:5","step":1,"tactic":"induction","word":"by-induction-with"}
+{"goal_before":null,"goals_after":["case zero\nm : Nat\n⊢ 0 + 0 = 0"],"parent":1,"source":"34:3","step":2,"tactic":"alternative","word":"|"}
+{"goal_before":"case zero\nm : Nat\n⊢ 0 + 0 = 0","goals_after":[],"parent":2,"source":"34:19","step":3,"tactic":"rfl","word":"by-rfl"}
+{"goal_before":null,"goals_after":["case succ\nm k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1"],"parent":1,"source":"35:3","step":4,"tactic":"alternative","word":"|"}
+{"goal_before":"case succ\nm k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1","goals_after":["case succ.zero\nk : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1","case succ.succ\nk : Nat\nih : 0 + k = k\nn✝ : Nat\na✝ : 0 + (k + 1) = k + 1\n⊢ 0 + (k + 1) = k + 1"],"parent":4,"source":"36:7","step":5,"tactic":"induction","word":"by-induction"}
+{"goal_before":"case succ.zero\nk : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1","goals_after":["k : Nat\nih : 0 + k = k\nj : Nat\nih2 : 0 + (k + 1) = k + 1\n⊢ 0 + (k + 1) = k + 1"],"parent":4,"source":"37:5","step":6,"tactic":"case","word":"by-case:"}
+{"goal_before":"k : Nat\nih : 0 + k = k\nj : Nat\nih2 : 0 + (k + 1) = k + 1\n⊢ 0 + (k + 1) = k + 1","goals_after":[],"parent":6,"source":"37:34","step":7,"tactic":"exact","word":"by-exact"}
+{"goal_before":"case succ.zero\nk : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1","goals_after":["k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1"],"parent":4,"source":"38:5","step":8,"tactic":"case","word":"by-case:"}
+{"goal_before":"k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1","goals_after":[],"parent":8,"source":"38:30","step":9,"tactic":"rw","word":"by-rw["}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"c_shadow","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":10}}
+{"goal_before":"n m : Nat\n⊢ 0 + n = n","goals_after":[],"parent":0,"source":"45:5","step":1,"tactic":"induction","word":"by-induction-with"}
+{"goal_before":null,"goals_after":["case zero\nm : Nat\n⊢ 0 + 0 = 0"],"parent":1,"source":"46:3","step":2,"tactic":"alternative","word":"|"}
+{"goal_before":"case zero\nm : Nat\n⊢ 0 + 0 = 0","goals_after":[],"parent":2,"source":"46:19","step":3,"tactic":"rfl","word":"by-rfl"}
+{"goal_before":null,"goals_after":["case succ\nm k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1"],"parent":1,"source":"47:3","step":4,"tactic":"alternative","word":"|"}
+{"goal_before":"case succ\nm k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1","goals_after":[],"parent":4,"source":"48:7","step":5,"tactic":"induction","word":"by-induction-with"}
+{"goal_before":null,"goals_after":["case succ.zero\nk : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1"],"parent":5,"source":"49:5","step":6,"tactic":"alternative","word":"|"}
+{"goal_before":"case succ.zero\nk : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1","goals_after":[],"parent":6,"source":"49:21","step":7,"tactic":"rw","word":"by-rw["}
+{"goal_before":null,"goals_after":["case succ.succ\nk✝ : Nat\nih : 0 + k✝ = k✝\nk : Nat\nih2 : 0 + (k✝ + 1) = k✝ + 1\n⊢ 0 + (k✝ + 1) = k✝ + 1"],"parent":5,"source":"50:5","step":8,"tactic":"alternative","word":"|"}
+{"goal_before":"case succ.succ\nk✝ : Nat\nih : 0 + k✝ = k✝\nk : Nat\nih2 : 0 + (k✝ + 1) = k✝ + 1\n⊢ 0 + (k✝ + 1) = k✝ + 1","goals_after":["x : Nat\nih : 0 + x = x\nk : Nat\nih2 : 0 + (x + 1) = x + 1\n⊢ 0 + (x + 1) = x + 1"],"parent":8,"source":"51:7","step":9,"tactic":"case","word":"by-case:"}
+{"goal_before":"x : Nat\nih : 0 + x = x\nk : Nat\nih2 : 0 + (x + 1) = x + 1\n⊢ 0 + (x + 1) = x + 1","goals_after":[],"parent":9,"source":"51:31","step":10,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"c_under","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}
+{"goal_before":"n : Nat\n⊢ 0 + n = n","goals_after":["case zero\n⊢ 0 + 0 = 0","case succ\nn✝ : Nat\na✝ : 0 + n✝ = n✝\n⊢ 0 + (n✝ + 1) = n✝ + 1"],"parent":0,"source":"59:5","step":1,"tactic":"induction","word":"by-induction"}
+{"goal_before":"case zero\n⊢ 0 + 0 = 0","goals_after":["⊢ 0 + 0 = 0"],"parent":0,"source":"60:3","step":2,"tactic":"case","word":"by-case:"}
+{"goal_before":"⊢ 0 + 0 = 0","goals_after":[],"parent":2,"source":"60:26","step":3,"tactic":"rfl","word":"by-rfl"}
+{"goal_before":"case succ\nn✝ : Nat\na✝ : 0 + n✝ = n✝\n⊢ 0 + (n✝ + 1) = n✝ + 1","goals_after":["n✝ : Nat\nih : 0 + n✝ = n✝\n⊢ 0 + (n✝ + 1) = n✝ + 1"],"parent":0,"source":"61:3","step":4,"tactic":"case","word":"by-case:"}
+{"goal_before":"n✝ : Nat\nih : 0 + n✝ = n✝\n⊢ 0 + (n✝ + 1) = n✝ + 1","goals_after":[],"parent":4,"source":"61:49","step":5,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"c_order","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":8}}
+{"goal_before":"n m : Nat\n⊢ 0 + n = n","goals_after":["case zero\nm : Nat\n⊢ 0 + 0 = 0","case succ\nm n✝ : Nat\na✝ : 0 + n✝ = n✝\n⊢ 0 + (n✝ + 1) = n✝ + 1"],"parent":0,"source":"67:5","step":1,"tactic":"induction","word":"by-induction"}
+{"goal_before":"case zero\nm : Nat\n⊢ 0 + 0 = 0","goals_after":["case zero.zero\n⊢ 0 + 0 = 0","case zero.succ\nn✝ : Nat\na✝ : 0 + 0 = 0\n⊢ 0 + 0 = 0","case succ\nm n✝ : Nat\na✝ : 0 + n✝ = n✝\n⊢ 0 + (n✝ + 1) = n✝ + 1"],"parent":0,"source":"68:5","step":2,"tactic":"induction","word":"by-induction"}
+{"goal_before":"case zero.zero\n⊢ 0 + 0 = 0","goals_after":["m k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1"],"parent":0,"source":"69:3","step":3,"tactic":"case","word":"by-case:"}
+{"goal_before":"m k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1","goals_after":[],"parent":3,"source":"69:52","step":4,"tactic":"exact","word":"by-exact"}
+{"goal_before":"case zero.zero\n⊢ 0 + 0 = 0","goals_after":["⊢ 0 + 0 = 0"],"parent":0,"source":"70:3","step":5,"tactic":"case","word":"by-case:"}
+{"goal_before":"⊢ 0 + 0 = 0","goals_after":[],"parent":5,"source":"70:29","step":6,"tactic":"rfl","word":"by-rfl"}
+{"goal_before":"case zero.succ\nn✝ : Nat\na✝ : 0 + 0 = 0\n⊢ 0 + 0 = 0","goals_after":["j : Nat\nih2 : 0 + 0 = 0\n⊢ 0 + 0 = 0"],"parent":0,"source":"71:3","step":7,"tactic":"case","word":"by-case:"}
+{"goal_before":"j : Nat\nih2 : 0 + 0 = 0\n⊢ 0 + 0 = 0","goals_after":[],"parent":7,"source":"71:33","step":8,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"c_rest","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":7}}
+{"goal_before":"n m : Nat\n⊢ 0 + n = n","goals_after":["case zero\nm : Nat\n⊢ 0 + 0 = 0","case succ\nm n✝ : Nat\na✝ : 0 + n✝ = n✝\n⊢ 0 + (n✝ + 1) = n✝ + 1"],"parent":0,"source":"77:5","step":1,"tactic":"induction","word":"by-induction"}
+{"goal_before":"case zero\nm : Nat\n⊢ 0 + 0 = 0","goals_after":["case zero.zero\n⊢ 0 + 0 = 0","case zero.succ\nn✝ : Nat\na✝ : 0 + 0 = 0\n⊢ 0 + 0 = 0","case succ\nm n✝ : Nat\na✝ : 0 + n✝ = n✝\n⊢ 0 + (n✝ + 1) = n✝ + 1"],"parent":0,"source":"78:5","step":2,"tactic":"induction","word":"by-induction"}
+{"goal_before":"case zero.zero\n⊢ 0 + 0 = 0","goals_after":["j : Nat\nih2 : 0 + 0 = 0\n⊢ 0 + 0 = 0"],"parent":0,"source":"79:3","step":3,"tactic":"case","word":"by-case:"}
+{"goal_before":"j : Nat\nih2 : 0 + 0 = 0\n⊢ 0 + 0 = 0","goals_after":[],"parent":3,"source":"79:36","step":4,"tactic":"exact","word":"by-exact"}
+{"goal_before":"case zero.zero\n⊢ 0 + 0 = 0","goals_after":["case succ\nm n✝ : Nat\na✝ : 0 + n✝ = n✝\n⊢ 0 + (n✝ + 1) = n✝ + 1"],"parent":0,"source":"80:3","step":5,"tactic":"rfl","word":"by-rfl"}
+{"goal_before":"case succ\nm n✝ : Nat\na✝ : 0 + n✝ = n✝\n⊢ 0 + (n✝ + 1) = n✝ + 1","goals_after":["m k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1"],"parent":0,"source":"81:3","step":6,"tactic":"case","word":"by-case:"}
+{"goal_before":"m k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1","goals_after":[],"parent":6,"source":"81:55","step":7,"tactic":"exact","word":"by-exact"}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"zero_add''","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}
 {"goal_before":"n : Nat\n⊢ 0 + n = n","goals_after":[],"parent":0,"source":"13:5","step":1,"tactic":"induction","word":"by-induction-with"}
 {"goal_before":null,"goals_after":["case zero\n⊢ 0 + 0 = 0"],"parent":1,"source":"14:3","step":2,"tactic":"alternative","word":"|"}
@@ -15,11 +81,11 @@
 {"goal_before":null,"goals_after":["case succ.succ\nk : Nat\nih✝ : 0 + k = k\nj : Nat\nih : 0 + (k + 1) = k + 1\n⊢ 0 + (k + 1) = k + 1"],"parent":5,"source":"22:5","step":8,"tactic":"alternative","word":"|"}
 {"goal_before":"case succ.succ\nk : Nat\nih✝ : 0 + k = k\nj : Nat\nih : 0 + (k + 1) = k + 1\n⊢ 0 + (k + 1) = k + 1","goals_after":[],"parent":8,"source":"22:24","step":9,"tactic":"exact","word":"by-exact"}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"ps_succ_add","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}
-{"goal_before":"n m : Nat\n⊢ Nat.succ n + m = Nat.succ (n + m)","goals_after":[],"parent":0,"source":"13:5","step":1,"tactic":"induction","word":"by-induction-with"}
-{"goal_before":null,"goals_after":["case zero\nn : Nat\n⊢ Nat.succ n + 0 = Nat.succ (n + 0)"],"parent":1,"source":"14:3","step":2,"tactic":"alternative","word":"|"}
-{"goal_before":"case zero\nn : Nat\n⊢ Nat.succ n + 0 = Nat.succ (n + 0)","goals_after":[],"parent":2,"source":"14:19","step":3,"tactic":"rw","word":"by-rw["}
-{"goal_before":null,"goals_after":["case succ\nn k : Nat\nih : Nat.succ n + k = Nat.succ (n + k)\n⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))"],"parent":1,"source":"15:3","step":4,"tactic":"alternative","word":"|"}
-{"goal_before":"case succ\nn k : Nat\nih : Nat.succ n + k = Nat.succ (n + k)\n⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))","goals_after":[],"parent":4,"source":"15:19","step":5,"tactic":"rw","word":"by-rw["}
+{"goal_before":"n m : Nat\n⊢ Nat.succ n + m = Nat.succ (n + m)","goals_after":[],"parent":0,"source":"10:5","step":1,"tactic":"induction","word":"by-induction-with"}
+{"goal_before":null,"goals_after":["case zero\nn : Nat\n⊢ Nat.succ n + 0 = Nat.succ (n + 0)"],"parent":1,"source":"11:3","step":2,"tactic":"alternative","word":"|"}
+{"goal_before":"case zero\nn : Nat\n⊢ Nat.succ n + 0 = Nat.succ (n + 0)","goals_after":[],"parent":2,"source":"11:19","step":3,"tactic":"rfl","word":"by-rfl"}
+{"goal_before":null,"goals_after":["case succ\nn k : Nat\nih : Nat.succ n + k = Nat.succ (n + k)\n⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))"],"parent":1,"source":"12:3","step":4,"tactic":"alternative","word":"|"}
+{"goal_before":"case succ\nn k : Nat\nih : Nat.succ n + k = Nat.succ (n + k)\n⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))","goals_after":[],"parent":4,"source":"12:19","step":5,"tactic":"rw","word":"by-rw["}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"ps_zero_add","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}
 {"goal_before":"n : Nat\n⊢ 0 + n = n","goals_after":[],"parent":0,"source":"12:5","step":1,"tactic":"induction","word":"by-induction-with"}
 {"goal_before":null,"goals_after":["case zero\n⊢ 0 + 0 = 0"],"parent":1,"source":"13:3","step":2,"tactic":"alternative","word":"|"}
@@ -29,25 +95,26 @@
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"ps_succ_add","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}
 {"goal_before":"n m : Nat\n⊢ Nat.succ n + m = Nat.succ (n + m)","goals_after":[],"parent":0,"source":"21:5","step":1,"tactic":"induction","word":"by-induction-with"}
 {"goal_before":null,"goals_after":["case zero\nn : Nat\n⊢ Nat.succ n + 0 = Nat.succ (n + 0)"],"parent":1,"source":"22:3","step":2,"tactic":"alternative","word":"|"}
-{"goal_before":"case zero\nn : Nat\n⊢ Nat.succ n + 0 = Nat.succ (n + 0)","goals_after":[],"parent":2,"source":"22:19","step":3,"tactic":"rw","word":"by-rw["}
+{"goal_before":"case zero\nn : Nat\n⊢ Nat.succ n + 0 = Nat.succ (n + 0)","goals_after":[],"parent":2,"source":"22:19","step":3,"tactic":"rfl","word":"by-rfl"}
 {"goal_before":null,"goals_after":["case succ\nn k : Nat\nih : Nat.succ n + k = Nat.succ (n + k)\n⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))"],"parent":1,"source":"23:3","step":4,"tactic":"alternative","word":"|"}
 {"goal_before":"case succ\nn k : Nat\nih : Nat.succ n + k = Nat.succ (n + k)\n⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))","goals_after":[],"parent":4,"source":"23:19","step":5,"tactic":"rw","word":"by-rw["}
-{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ps_add_comm","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ps_add_comm","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":6}}
 {"goal_before":"n m : Nat\n⊢ n + m = m + n","goals_after":[],"parent":0,"source":"30:5","step":1,"tactic":"induction","word":"by-induction-with"}
 {"goal_before":null,"goals_after":["case zero\nn : Nat\n⊢ n + 0 = 0 + n"],"parent":1,"source":"31:3","step":2,"tactic":"alternative","word":"|"}
-{"goal_before":"case zero\nn : Nat\n⊢ n + 0 = 0 + n","goals_after":[],"parent":2,"source":"31:19","step":3,"tactic":"rw","word":"by-rw["}
-{"goal_before":null,"goals_after":["case succ\nn k : Nat\nih : n + k = k + n\n⊢ n + (k + 1) = k + 1 + n"],"parent":1,"source":"32:3","step":4,"tactic":"alternative","word":"|"}
-{"goal_before":"case succ\nn k : Nat\nih : n + k = k + n\n⊢ n + (k + 1) = k + 1 + n","goals_after":[],"parent":4,"source":"32:19","step":5,"tactic":"rw","word":"by-rw["}
+{"goal_before":"case zero\nn : Nat\n⊢ n + 0 = 0 + n","goals_after":["case zero\nn : Nat\n⊢ n + 0 = n"],"parent":2,"source":"31:19","step":3,"tactic":"rw","word":"by-rw["}
+{"goal_before":"case zero\nn : Nat\n⊢ n + 0 = n","goals_after":[],"parent":2,"source":"31:42","step":4,"tactic":"rfl","word":"by-rfl"}
+{"goal_before":null,"goals_after":["case succ\nn k : Nat\nih : n + k = k + n\n⊢ n + (k + 1) = k + 1 + n"],"parent":1,"source":"32:3","step":5,"tactic":"alternative","word":"|"}
+{"goal_before":"case succ\nn k : Nat\nih : n + k = k + n\n⊢ n + (k + 1) = k + 1 + n","goals_after":[],"parent":5,"source":"32:19","step":6,"tactic":"rw","word":"by-rw["}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"ps_add_assoc","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}
 {"goal_before":"n m k : Nat\n⊢ n + (m + k) = n + m + k","goals_after":[],"parent":0,"source":"10:5","step":1,"tactic":"induction","word":"by-induction-with"}
 {"goal_before":null,"goals_after":["case zero\nn m : Nat\n⊢ n + (m + 0) = n + m + 0"],"parent":1,"source":"11:3","step":2,"tactic":"alternative","word":"|"}
-{"goal_before":"case zero\nn m : Nat\n⊢ n + (m + 0) = n + m + 0","goals_after":[],"parent":2,"source":"11:19","step":3,"tactic":"rw","word":"by-rw["}
+{"goal_before":"case zero\nn m : Nat\n⊢ n + (m + 0) = n + m + 0","goals_after":[],"parent":2,"source":"11:19","step":3,"tactic":"rfl","word":"by-rfl"}
 {"goal_before":null,"goals_after":["case succ\nn m j : Nat\nih : n + (m + j) = n + m + j\n⊢ n + (m + (j + 1)) = n + m + (j + 1)"],"parent":1,"source":"12:3","step":4,"tactic":"alternative","word":"|"}
 {"goal_before":"case succ\nn m j : Nat\nih : n + (m + j) = n + m + j\n⊢ n + (m + (j + 1)) = n + m + (j + 1)","goals_after":[],"parent":4,"source":"12:19","step":5,"tactic":"rw","word":"by-rw["}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"ps_mul_add","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}
 {"goal_before":"n m k : Nat\n⊢ n * (m + k) = n * m + n * k","goals_after":[],"parent":0,"source":"19:5","step":1,"tactic":"induction","word":"by-induction-with"}
 {"goal_before":null,"goals_after":["case zero\nn m : Nat\n⊢ n * (m + 0) = n * m + n * 0"],"parent":1,"source":"20:3","step":2,"tactic":"alternative","word":"|"}
-{"goal_before":"case zero\nn m : Nat\n⊢ n * (m + 0) = n * m + n * 0","goals_after":[],"parent":2,"source":"20:19","step":3,"tactic":"rw","word":"by-rw["}
+{"goal_before":"case zero\nn m : Nat\n⊢ n * (m + 0) = n * m + n * 0","goals_after":[],"parent":2,"source":"20:19","step":3,"tactic":"rfl","word":"by-rfl"}
 {"goal_before":null,"goals_after":["case succ\nn m j : Nat\nih : n * (m + j) = n * m + n * j\n⊢ n * (m + (j + 1)) = n * m + n * (j + 1)"],"parent":1,"source":"21:3","step":4,"tactic":"alternative","word":"|"}
 {"goal_before":"case succ\nn m j : Nat\nih : n * (m + j) = n * m + n * j\n⊢ n * (m + (j + 1)) = n * m + n * (j + 1)","goals_after":[],"parent":4,"source":"21:19","step":5,"tactic":"rw","word":"by-rw["}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"ps_zero_add","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}
@@ -59,7 +126,7 @@
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"ps_succ_add","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}
 {"goal_before":"n m : Nat\n⊢ Nat.succ n + m = Nat.succ (n + m)","goals_after":[],"parent":0,"source":"24:5","step":1,"tactic":"induction","word":"by-induction-with"}
 {"goal_before":null,"goals_after":["case zero\nn : Nat\n⊢ Nat.succ n + 0 = Nat.succ (n + 0)"],"parent":1,"source":"25:3","step":2,"tactic":"alternative","word":"|"}
-{"goal_before":"case zero\nn : Nat\n⊢ Nat.succ n + 0 = Nat.succ (n + 0)","goals_after":[],"parent":2,"source":"25:19","step":3,"tactic":"rw","word":"by-rw["}
+{"goal_before":"case zero\nn : Nat\n⊢ Nat.succ n + 0 = Nat.succ (n + 0)","goals_after":[],"parent":2,"source":"25:19","step":3,"tactic":"rfl","word":"by-rfl"}
 {"goal_before":null,"goals_after":["case succ\nn k : Nat\nih : Nat.succ n + k = Nat.succ (n + k)\n⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))"],"parent":1,"source":"26:3","step":4,"tactic":"alternative","word":"|"}
 {"goal_before":"case succ\nn k : Nat\nih : Nat.succ n + k = Nat.succ (n + k)\n⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))","goals_after":[],"parent":4,"source":"26:19","step":5,"tactic":"rw","word":"by-rw["}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"ps_length_append","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}

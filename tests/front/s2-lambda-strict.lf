@@ -1,0 +1,10 @@
+\ An explicit argument whose expected type is a pi with a strict-implicit
+\ binder: no implicit lambda (Lean's useImplicitLambda; src/front/elab-app.fs
+\ ea-no-lambda?), so IL.zs is elaborated as it is and the text is accepted.
+\ Lean: theorem t_strict : True := IL.strict IL.zs (tests/front/implicit-lambda.lean,
+\ whose export tests/front/implicit-lambda.ndjson this text is checked against).
+theorem t_strict
+  True
+:=
+  ' IL.zs IL.strict
+end t_strict

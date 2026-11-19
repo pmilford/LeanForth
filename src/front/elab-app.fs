@@ -24,7 +24,9 @@
 \   newest activation (a b ignored) and gives ( term outcome ). A syntax
 \   argument is elaborated against its binder's domain by the deferred
 \   visit lf-elab-term-call ( node expected frames cont -- ... ) that
-\   elab-term.fs sets, an elaborated one taken as it is; either must then
+\   elab-term.fs sets (or lf-elab-arg-call, the same without its
+\   implicit-lambda test, where the binder's declared kinds settle it:
+\   ea-arg-call), an elaborated one taken as it is; either must then
 \   have that type (ensureArgType).
 \ - lf-elab-ensure ( e expected -- e outcome ), ensureHasType: isDefEq of
 \   e's type and the expected type (-1: none, ok); false is a coercion
@@ -109,6 +111,7 @@ end-structure
   ea-acts slab-clear ea-args slab-clear ea-insts slab-clear ea-xargs slab-clear
   ea-frames frame-reset ;
 defer lf-elab-term-call ( node expected frames cont -- ... frames next )
+defer lf-elab-arg-call ( node expected frames cont -- ... frames next )
 
 \ ---- Activations.
 : ea ( -- addr ) ea-acts slab-last ;
@@ -412,11 +415,25 @@ defer ea-main ( frames -- ... frames next )
   >r ea ea-ftype @ ea-inst-args ok-then? if ea-opt-walk else false swap then
   ok-then? 0= if r> ea-fail exit then
   if lfa-e-elab-opt-param r> ea-error else r> ea-finalize then ;
+\ useImplicitLambda (Term/TermElabM.lean:1771) for an explicit argument:
+\ a domain that is a pi as it stands is its own whnfForall, and its
+\ binder's kind is the head's declared one (lf-menv-kinds-in, never a term
+\ node's): explicit or strict implicit makes no implicit lambda, so the
+\ argument is elaborated without elab-term.fs's test (lf-elab-arg-call);
+\ any other domain takes that test (133 where whnfForall gives a pi).
+: ea-dom-kind ( -- kind true | false )
+  ea ea-dom @ lf-term-pi? 0= if false exit then
+  ea ea-head @ dup 0< if drop false exit then ea-paramidx lf-menv-kinds-in
+  dup 0= if 2drop false exit then drop @ true ;
+: ea-no-lambda? ( -- flag )
+  ea-dom-kind 0= if false exit then dup lf-binder-default = swap lf-binder-strict = or ;
+: ea-arg-call ( node expected frames cont -- ... frames next )
+  ea-no-lambda? if lf-elab-arg-call exit then lf-elab-term-call ;
 : ea-explicit ( frames -- ... frames next )
   ea-left? 0= if ea-no-arg exit then
   ea-syntax? 0= if ea-take-term outcome-ok rot ea-added exit then
   >r ea-propagate-arg dup ok? 0= if r> ea-fail exit then drop
-  ea-take-syntax ea ea-dom @ r> ['] ea-added lf-elab-term-call ;
+  ea-take-syntax ea ea-dom @ r> ['] ea-added ea-arg-call ;
 : ea-implicit-step ( frames -- ... frames next ) >r ea-implicit r> ea-step-done ;
 : ea-instance-step ( frames -- ... frames next ) >r ea-instance r> ea-step-done ;
 : ea-strict ( frames -- ... frames next )

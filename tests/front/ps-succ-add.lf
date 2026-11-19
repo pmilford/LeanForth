@@ -1,17 +1,14 @@
 \ The owner's proof set (docs/design/S2_INTERFACE.md appendix G): (n + 1) + m = (n + m) + 1.
 \ Lean: theorem ps_succ_add (n m : Nat) : Nat.succ n + m = Nat.succ (n + m) := by
 \         induction m with
-\         | zero => rw [Nat.add_zero, Nat.add_zero]
+\         | zero => rfl
 \         | succ k ih => rw [Nat.add_succ, ih, Nat.add_succ]
-\ (Appendix G closes the zero case by rfl, which needs Nat.add's smart
-\ unfolding, S2 merge B; Nat.add_zero rewrites it instead, a form pinned
-\ Lean accepts: tests/front/s2-proofs.lean.)
 theorem ps_succ_add
   Nat explicit: n  Nat explicit: m
   n Nat.succ m + n m + Nat.succ =
 := by
   m by-induction-with
-  | zero =>       by-rw[ ' Nat.add_zero ' Nat.add_zero ]
+  | zero =>       by-rfl
   | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
   by-end
 end ps_succ_add

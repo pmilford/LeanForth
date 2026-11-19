@@ -68,8 +68,13 @@
 \ ( i -- ) rfl at reducible transparency (by-rfl decides at the
 \ transparency it runs at); lf-tac-intro-as ( given kind i -- ) the main
 \ goal's first binder introduced as given (0: its own name, inaccessible)
-\ with the kind given (introN for an alternative's fields); and the
-\ message and term helpers lf-tac-line., lf-tac-goal., lf-tac-failed,
+\ with the kind given (introN for an alternative's fields); lf-tac-only
+\ ( goal -- ) setGoals [goal] (an alternative's or a case's); lf-tac-args#
+\ ( i -- n ) how many arguments step i has (names, rules); lf-tac-arg
+\ ( i k -- x ) step i's argument k, from 0 (a syntax node or a name, 0 for
+\ _); and the message and term helpers lf-tac-.name ( name -- ), a name
+\ between backquotes as Lean's messages write m!"`{n}`", lf-tac-line.,
+\ lf-tac-goal., lf-tac-failed,
 \ lf-tac-inline, lf-tac-inline., lf-tac-eq?, lf-tac-hole?,
 \ lf-tac-binder ( pi -- name kind ).
 \ Terms are built by the tactic library (app-builder.fs, telescope.fs),
@@ -90,6 +95,7 @@ require ../core/let-terms.fs
 require ../core/constant-references.fs
 require ../core/mvar-leaves.fs
 require ../present/binder-table.fs
+require ../present/print-tokens.fs
 require ../present/term-printer.fs
 require ../present/print-job.fs
 require ../author/errors.fs
@@ -177,12 +183,17 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 \ For the other tactics: the same, the step's goal and context in tb.
 : lf-tac-step-run ( i*x i xt -- j*x ) lfb-step ;
 : lfb-popped ( -- ) 0 lf-replace-main lf-tac-must ;
+\ setGoals [goal]: the goal list that goal alone (an alternative's or a
+\ case's).
+: lf-tac-only ( goal -- ) 0 swap run-push lf-tac-must lf-goals! lf-tac-must ;
 \ A pi's binder name and kind: the presentation table's, else its input
 \ record's, else the anonymous name, explicit.
 : lf-tac-binder ( pi -- name kind )
   dup lf-pres-binder@ if 2>r drop 2r> exit then
   lf-term-input-binder@ 0= if 0 lf-binder-default then ;
-: lfb-arg ( i -- x ) lf-tactic-step tac-first @ lf-tactic-arg drop ;
+: lf-tac-args# ( i -- n ) lf-tactic-step tac-count @ ;   \ step i's arguments
+\ Step i's argument k (from 0): a syntax node or a name (0 for _).
+: lf-tac-arg ( i k -- x ) swap lf-tactic-step tac-first @ + lf-tactic-arg drop ;
 
 \ ---- Messages: terms printed as goals print them (notation on, the
 \ printer's flag put back however printing ends), indented as Lean's
@@ -204,6 +215,8 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 \ error whose detail xt ( x -- outcome ) prints, at the step running.
 : lf-tac-line. ( c-addr u term -- outcome ) lfb-line. ;
 : lf-tac-goal. ( -- outcome ) lfb-the-goal. ;
+\ A name between backquotes (Lean's m!"`{n}`"), to the message's sink.
+: lf-tac-.name ( name -- ) s" `" lf-pp-emit lf-pp-name s" `" lf-pp-emit ;
 : lf-tac-failed ( xt code -- ) lfb-failed ;
 \ A detail xt ( x -- outcome ) prints that ends the message's own line.
 : lf-tac-inline ( x xt -- ) lf-author-code if 2drop exit then lf-tac-detail lfa-inline ;
@@ -250,7 +263,8 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 : lfb-introduced ( -- )
   lfb-hyp lfb-view lfb-body swap lfb-new lfb-value lfb-assigned lfb-replaced ;
 : lfb-intro ( i -- )
-  lfb-arg tb tb-want @ lfb-binder tb tb-pi ! lfb-plain lfb-dom lfb-name! lfb-introduced ;
+  0 lf-tac-arg tb tb-want @ lfb-binder tb tb-pi !
+  lfb-plain lfb-dom lfb-name! lfb-introduced ;
 : lfb-w-intro ( i -- ) ['] lfb-intro lfb-step ;
 \ For an alternative's fields (tactic-induction.fs, Lean's introN): the
 \ main goal's first binder introduced as given (0: its own name,
@@ -265,7 +279,7 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 \ ---- t by-exact.
 : lfb-opaque-free ( t -- ) ['] lfb-opaque? lfb-holds? if lfa-e-tac-meta lf-tac-fail then ;
 : lfb-elaborated ( i -- )
-  lfb-arg tb tb-want @ false lf-tac-elab lf-tac-must tb tb-term ! ;
+  0 lf-tac-arg tb tb-want @ false lf-tac-elab lf-tac-must tb tb-term ! ;
 : lfb-typed ( -- ) tb tb-term @ lf-infer lf-tac-must tb tb-type ! ;
 : lfb-guarded ( -- ) tb tb-type @ lfb-opaque-free tb tb-want @ lfb-opaque-free ;
 \ Lean's throwTypeMismatchError: the term, its type, the type expected.

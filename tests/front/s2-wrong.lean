@@ -40,3 +40,43 @@ theorem w_rw_empty (n : Nat) : 0 + n = n := by
   rw []
 theorem w_add_zero_rfl (n : Nat) : n + 0 = n + 1 := by rfl
 theorem w_add_zero (n : Nat) : n + 0 = n + 1 := Eq.refl n
+theorem w_case_tag (n : Nat) : 0 + n = n := by
+  induction n
+  case zero => rfl
+  case suc k ih => exact congrArg Nat.succ ih
+theorem w_case_tags (n : Nat) : 0 + n = n := by
+  induction n
+  case suc k ih => exact congrArg Nat.succ ih
+theorem w_case_none (n : Nat) : 0 + n = n := by
+  case zero => rfl
+theorem w_case_names (n : Nat) : 0 + n = n := by
+  induction n
+  case zero => rfl
+  case succ k ih extra => exact congrArg Nat.succ ih
+theorem w_case_unsolved (n : Nat) : 0 + n = n := by
+  induction n
+  case zero => rfl
+  case succ k ih => rw [Nat.add_succ]
+theorem w_case_suffix (n m : Nat) : 0 + n = n := by
+  induction n with
+  | zero => rfl
+  | succ k ih =>
+    induction m
+    case foo.zero => rw [Nat.add_succ, ih]
+    case succ j ih2 => exact ih2
+theorem w_case_shadow (n m : Nat) : 0 + n = n := by
+  induction n with
+  | zero => rfl
+  | succ k ih =>
+    induction m with
+    | zero => rw [Nat.add_succ, ih]
+    | succ k ih2 =>
+      case succ x => rw [Nat.add_succ]
+theorem w_case_under (n m : Nat) : 0 + n = n := by
+  induction n
+  case zero => rfl
+  case succ _ _ _ => rfl
+theorem w_case_newer (n m : Nat) : 0 + m = m := by
+  induction m
+  case zero => rfl
+  case succ x y z => exact congrArg Nat.succ y

@@ -1,0 +1,17 @@
+\ A wrong proof for S2's tactics (tests/front/check_s2.py; its Lean twin is
+\ tests/front/s2-wrong.lean's w_case_shadow): case renames the older k,
+\ which the newer k shadows, to x; the unsolved goal shows it.
+theorem w_case_shadow
+  Nat explicit: n  Nat explicit: m
+  0 n + n =
+:= by
+  n by-induction-with
+  | zero =>       by-rfl
+  | succ k ih =>
+    m by-induction-with
+    | zero =>       by-rw[ ' Nat.add_succ ih ]
+    | succ k ih2 =>
+      by-case: succ x =>  by-rw[ ' Nat.add_succ ]  by-end
+    by-end
+  by-end
+end w_case_shadow

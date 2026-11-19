@@ -302,14 +302,16 @@ punit lf-lctx-local made constant fv  punit lf-lctx-local made constant fw
 : unit-note ( flag outcome -- outcome ) tuck unit-ok? 0= if dup worst ! then ;
 : unit-refused ( -- k ) 0 begin 1+ dup unit-at unit-note ok? until ;
 T{ outcome-ok worst ! unit-refused 1 > worst @ -> true outcome-ok }T
-\ getStuckMVar? of Nat.rec over the constant Nat.add, the library's
-\ decodes forgotten and each allocation refused in turn: full whenever a
-\ refusal fired (Nat.add's decode among them, which whnf.fs keeps as its
-\ fault), else unsupported (Nat.add is no constructor), never another.
+\ getStuckMVar? of Nat.rec over Nat.add ?n, the library's decodes
+\ forgotten and each allocation refused in turn: full whenever a refusal
+\ fired (Nat.add's decode among them, which whnf.fs keeps as its fault),
+\ else unsupported (Nat.add is no constructor), never another. (The major
+\ holds a metavariable: a term without one has none stuck at once, branch
+\ s2-rest, and decodes nothing.)
 : rec-on ( major -- t ) >r level1 0 u! s" Nat.rec" 1 cst nat app nat app nat app r> app ;
-s" Nat.add" 0 cst rec-on constant stuck-term
+: stuck-term ( -- t ) nat mv-natural lf-mvar-new made s" Nat.add" 0 cst swap app rec-on ;
 : stuck-at ( k -- flag outcome fired? )
-  ck-stage lf-menv-library! heap-refusals ! stuck-term lf-whnf-stuck heap-refusals @ 0=
+  ck-stage lf-menv-library! stuck-term swap heap-refusals ! lf-whnf-stuck heap-refusals @ 0=
   0 heap-refusals ! ;
 : stuck-ok? ( flag outcome fired? -- flag )
   if outcome-full = else outcome-unsupported = then swap 0= and ;
@@ -320,7 +322,7 @@ T{ outcome-ok worst ! stuck-refused 2 > worst @ -> true outcome-ok }T
 \ it: Nat.add's decode is the one that needs room, refused: full.
 : stuck-full ( -- flag outcome )
   ck-stage lf-menv-library! s" Nat.rec" d-of drop lbd-records slab-trim drop
-  1 heap-refusals ! stuck-term lf-whnf-stuck 0 heap-refusals ! ;
+  stuck-term 1 heap-refusals ! lf-whnf-stuck 0 heap-refusals ! ;
 T{ stuck-full -> false outcome-full }T
 \ The same refusal through whnf's fixed-point test of Nat.add and
 \ inferType of v 0 with v : Nat.add (whnfCore leaves the constant as it
@@ -380,10 +382,14 @@ T{ s" ReexportKinds.kept" valued? s" ReexportKinds.twice" valued? s" ReexportKin
 \ pass unsupported on, as do whnfCore of a recursor whose major premise
 \ is the constant Nat.add alone (the premise's unfolding asks first) and
 \ getStuckMVar? of it (the premise's kind asked: whnf.fs's fault).
+\ getStuckMVar? is asked of Nat.add ?n: a term without a metavariable has
+\ none stuck at once (branch s2-rest), Nat.add 1 2 among them.
 : add-12 ( -- t ) s" Nat.add" 0 cst 1 nlit app 2 nlit app ;
-T{ add-12 lf-whnf-core add-12 lf-whnf-stuck s" Nat.add" 0 cst lf-infer nip
+: add-m ( -- t ) s" Nat.add" 0 cst nat mv-natural lf-mvar-new made app ;
+T{ add-12 lf-whnf-core add-m lf-whnf-stuck s" Nat.add" 0 cst lf-infer nip
    -> -1 outcome-unsupported false outcome-unsupported outcome-unsupported }T
-T{ s" Nat.add" 0 cst rec-on dup lf-whnf-core rot lf-whnf-stuck
+T{ add-12 lf-whnf-stuck -> false outcome-ok }T
+T{ s" Nat.add" 0 cst rec-on lf-whnf-core add-m rec-on lf-whnf-stuck
    -> -1 outcome-unsupported false outcome-unsupported }T
 \ Nat.rec over Nat.zero (iota) with each allocation refused in turn, the
 \ library's decodes forgotten first: full or the minor premise (the
