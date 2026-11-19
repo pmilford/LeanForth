@@ -43,7 +43,7 @@
 \ json-init json-free and the settings json-token-limit json-depth-limit
 \ json-string-limit json-digit-limit json-why; json-parse json-offset
 \ json-reason; reading the tape: json-kind@ json-text@ json-items@
-\ json-kind-at json-string-at? json-string-of json-items-of json-next
+\ json-kind-at json-kind-at? json-string-at? json-string-of json-items-of json-next
 \ json-contents json-find json-find-last json-bool json-natural json-u;
 \ digits: canonical-natural?
 \ digits-end. Requires portability.fs, bounds.fs, outcome.fs, store.fs
@@ -445,8 +445,10 @@ lf-lib set-current
 \ The kind of the token at any index, or -1 outside the tape.
 : json-kind-at ( index view -- kind )
   2dup json-count @ u< if json-kind@ else 2drop -1 then ;
-\ Whether the token at any index is a string; and its text when it is.
-: json-string-at? ( index view -- flag ) json-kind-at json-string = ;
+\ Whether the token at any index is of this kind (false outside the
+\ tape); whether it is a string, and its text when it is.
+: json-kind-at? ( index view kind -- flag ) >r json-kind-at r> = ;
+: json-string-at? ( index view -- flag ) json-string json-kind-at? ;
 : json-string-of ( index view -- c-addr u true | false )
   2dup json-string-at? if json-text@ true else 2drop false then ;
 \ The item count of the token at any index, when it is a container of

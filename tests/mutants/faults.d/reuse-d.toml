@@ -1,0 +1,11 @@
+# Planted faults of the library-first clean-up reuse-d (plans 9.4.8k, 9.4.8n): json-kind-at? of
+# lib/json.fs (Forth review of reuse-c, finding 2) and the shared words that replace the
+# duplicate groups of tests/duplicates-baseline.json.
+
+[[fault]]
+id = "rd-json-kind-at-outside"
+file = "src/lib/json.fs"
+old = ''': json-kind-at? ( index view kind -- flag ) >r json-kind-at r> = ;'''
+new = ''': json-kind-at? ( index view kind -- flag ) >r json-kind-at r> over = swap 0< or ;'''
+test = "$GFORTH tests/lib/json.fs"
+reason = "an index outside the tape reads as a token of every kind"

@@ -135,6 +135,10 @@ require ./compact-levels.fs
 \ expr-pis counts them all; expr-pi-end is the expression after them;
 \ expr-domain is binder k's domain (from 0), false when e has at most k
 \ leading Pis. k is unsigned: a negative k passes every leading Pi.
+\ Precondition of a walk to binder k: k <= expr-pis. A larger k stops at
+\ expr-pi-end, where the copies it replaced (constructions.fs's nth-pi)
+\ walked on into the body of whatever followed (a let, a lambda), so the
+\ two agree only within the telescope (tests/front/constructions.fs).
 : expr-pi-after ( e tier k -- e' tier )
   0 ?do 2dup expr-pi? 0= if leave then tuck expr-b@ swap loop ;
 \ expr-pis leaves its loop at the first non-Pi, with the index; no

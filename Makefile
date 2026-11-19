@@ -321,6 +321,7 @@ reference-inductive: inductive-expected-output
 INDUCTIVE_OUT := $(CURDIR)/build/inductive-expected.out
 inductive-expected-output:
 	mkdir -p build
+	python3 scripts/lean_pin.py check '$(LEAN)'
 	LEAN=$(LEAN) $(RUN) sh -c '"$$LEAN" -DwarningAsError=true \
 	  tests/reference/inductive-expected.lean >$(INDUCTIVE_OUT) 2>&1' \
 	  || { cat $(INDUCTIVE_OUT) >&2; echo 'Lean failed on inductive-expected.lean' >&2; exit 1; }

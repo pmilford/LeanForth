@@ -310,7 +310,7 @@ defer rp-value ( n o -- )   \ compare value n of the new record with value o of 
   0 rp-old rp-find 0= if 2drop false exit then
   dup rp-string? if rp-old json-text@ compare 0= else drop 2drop false then ;
 : rp-format? ( -- flag )
-  0 rp-old json-kind@ json-object <> if false exit then
+  0 rp-old json-object json-kind-at? 0= if false exit then
   rr-schema s" schema" rp-member= rr-version s" schemaVersion" rp-member= and ;
 
 \ The replay itself.

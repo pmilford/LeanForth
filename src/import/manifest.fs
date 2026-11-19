@@ -147,7 +147,7 @@ end-structure
 : member-at ( key m -- value view ) tuck member swap manifest-json ;
 \ A natural number in canonical decimal: no sign, no leading zero.
 : natural-at ( value view -- c-addr u true | false )
-  2dup json-kind-at json-integer <> if 2drop false exit then
+  2dup json-integer json-kind-at? 0= if 2drop false exit then
   json-text@ 2dup canonical-natural? if true else 2drop false then ;
 \ Whether c is no lowercase hexadecimal digit.
 : hex-odd? ( c -- flag )
@@ -229,7 +229,7 @@ kind-keys keys-size kind-count <>
 \ The type of each member, ( key m -- flag ): true when well formed.
 : digest? ( key m -- flag ) member-at json-string-of if 64 hex-text? else false then ;
 : commit? ( key m -- flag )
-  member-at 2dup json-kind-at json-null = if 2drop true exit then
+  member-at 2dup json-null json-kind-at? if 2drop true exit then
   json-string-of if 40 hex-text? else false then ;
 : natural-member? ( key m -- flag ) member-at natural-at dup if nip nip then ;
 \ The records object: exactly the record kinds, each a natural number.

@@ -228,9 +228,12 @@ job3 aux-free
 \ copies they replaced, kept here as the model, word for word with the
 \ job or the module's tier as an argument: constructions.fs's pi-count
 \ and nth-pi, lib-decode.fs's lf-tier-domain, elab-data.fs's ed-pis+.
-\ Over every declaration's type of the slice, the count, the end, the
-\ walk past k binders and binder k's domain agree for k from 0 to two
-\ past the count.
+\ Over every declaration's type of the slice, the count and the end
+\ agree, the walk past k binders for k from 0 to the count (nth-pi's
+\ precondition, k <= the count), and binder k's domain for k from 0 to
+\ one past the count. Past the count the walks differ, by design: the
+\ old walk went on into the body of what follows the telescope, the new
+\ one stays at its end (pinned below).
 : old-pi? ( e tier -- flag ) expr-tag@ tag-pi - 4 u< ;
 : old-pi-count ( e tier -- n )
   >r 0 swap begin dup r@ old-pi? while r@ expr-b@ swap 1+ swap repeat drop r> drop ;
@@ -258,9 +261,15 @@ job3 aux-free
   drop true ;
 : same-telescope? ( e -- flag )
   dup same-count? over same-end? and over same-walks? and swap same-domains? and ;
+\ Past the count (one to three binders more), expr-pi-after is the end.
+: stays-at-end? ( e -- flag )
+  dup tier expr-pi-end swap dup tier expr-pis
+  4 1 do 2dup i + tier swap expr-pi-after drop 3 pick <> if 2drop drop false unloop exit then
+  loop 2drop drop true ;
 variable differ  variable binders
 : compare-type ( e -- )
-  dup tier expr-pis binders +! same-telescope? 0= if 1 differ +! then ;
+  dup tier expr-pis binders +! dup same-telescope? swap stays-at-end? and
+  0= if 1 differ +! then ;
 \ A block's record has no type (all ones): skipped.
 : compare-types ( -- )
   0 differ ! 0 binders !

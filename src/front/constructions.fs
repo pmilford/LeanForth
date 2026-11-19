@@ -162,6 +162,12 @@ end-structure
 : app? ( e job -- flag ) aux-tier expr-tag@ tag-app = ;
 : pi-parts ( e job -- head dom ) aux-tier 2dup expr-head@ -rot expr-a@ ;
 \ The telescope words of core/compact-exprs.fs, on the job's tier.
+\ nth-pi requires n <= pi-count (expr-pi-after's precondition; past it
+\ the walk stops at the end). Its callers stay within: rec-pi and rec-end
+\ in the recursor's type, which rec-whole? finds long enough before any
+\ binder is made; m-pi, ctor-idx.fs's type-pi and field-pi and
+\ cases-several.fs's ih-pi at binders counted from the same declarations
+\ (Forth review of reuse-c, finding 3).
 : nth-pi ( e n job -- e' ) aux-tier swap expr-pi-after drop ;
 : pi-count ( e job -- n ) aux-tier expr-pis ;
 : app-head ( e job -- f ) >r begin dup r@ app? while r@ aux-tier expr-a@ repeat r> drop ;

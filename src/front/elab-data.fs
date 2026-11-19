@@ -617,7 +617,7 @@ create ed-v3-kinds
 : ed-text ( index -- c-addr u true | false ) ed-view json-string-of ;
 : ed-text= ( index c-addr u -- flag ) rot ed-text if compare 0= else 2drop false then ;
 : ed-array? ( index -- flag ) json-array ed-view json-items-of dup if nip then ;
-: ed-null? ( index -- flag ) ed-view json-kind-at json-null = ;
+: ed-null? ( index -- flag ) ed-view json-null json-kind-at? ;
 : ed-string? ( index -- flag ) ed-view json-string-at? ;
 \ A natural number of at most 32 bits; one or none (null, -1); a boolean.
 : ed-u32 ( index -- u outcome )
@@ -656,7 +656,7 @@ create ed-v3-kinds
   dup u32-mask u> if 2drop -1 outcome-ok exit then ed-tier name-seek-num ed-looked ;
 : ed-part ( prefix item -- n outcome )
   dup ed-string? if ed-part-text exit then
-  dup ed-view json-kind@ json-integer = if ed-part-number exit then
+  dup ed-view json-integer json-kind-at? if ed-part-number exit then
   2drop -1 ed-malformed ;
 \ The parts from first to end in turn, each under the name before it.
 : ed-parts ( end first -- n outcome )
@@ -1458,7 +1458,7 @@ create ed-kind-handlers
   ' ed-on-left-out , ' ed-on-class , ' ed-on-tag , ' ed-on-matcher , ' ed-on-projection ,
   ' ed-on-sunfold , ' ed-on-binder-kinds ,
 : ed-one-member? ( -- flag ) 0 ed-sole? ;
-: ed-object-value? ( -- flag ) 2 ed-view json-kind-at json-object = ;
+: ed-object-value? ( -- flag ) 2 ed-view json-object json-kind-at? ;
 : ed-wrapped? ( -- flag ) ed-one-member? if ed-object-value? else false then ;
 : ed-tally ( kind -- ) cells elab elab-counts + 1 swap +! ;
 : ed-dispatch ( value kind -- outcome )

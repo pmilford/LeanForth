@@ -156,6 +156,17 @@ T{ 1 jv json-string-at? 2 jv json-string-at? 3 jv json-string-at? 0 jv json-stri
 T{ 1 jv json-string-of rot rot s" ab" compare -> true 0 }T
 T{ 2 jv json-string-of 0 jv json-string-of 4 jv json-string-of -1 jv json-string-of -> false false false false }T
 T{ 4 jv json-string-at? -1 jv json-string-at? -> false false }T
+\ json-kind-at?: the token's own kind only; false outside the tape for
+\ every token kind.
+T{ 0 jv json-array json-kind-at? 2 jv json-integer json-kind-at? 3 jv json-array json-kind-at?
+   -> true true true }T
+T{ 0 jv json-object json-kind-at? 1 jv json-integer json-kind-at? 2 jv json-real json-kind-at?
+   -> false false false }T
+: kind-outside? ( index -- flag )
+  false json-null 1+ 0 do over jv i json-kind-at? or loop nip ;
+T{ 4 kind-outside? -1 kind-outside? 1000000 kind-outside? -> false false false }T
+T{ s" null" parsed -> outcome-ok }T
+T{ 0 jv json-null json-kind-at? 0 jv json-object json-kind-at? -> true false }T
 
 \ Stack and return-stack balance of a whole parse.
 : copied ( c-addr u -- c-addr' u ) tuck text-buffer swap move text-buffer swap ;

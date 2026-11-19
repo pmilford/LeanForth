@@ -359,7 +359,7 @@ end-structure
   >r table-entries begin dup entry-last? 0= while
     2dup r@ export-entry dup ok? 0= if nip nip r> drop exit then drop entry-next
   repeat 2drop r> drop outcome-ok ;
-: export-object? ( object export -- flag ) export-json json-kind@ json-object = ;
+: export-object? ( object export -- flag ) export-json json-object json-kind-at? ;
 : export-shape ( object table export -- outcome )
   >r over r@ export-object? if r> export-entries exit then
   2drop r> c" expected an object" export-bad ;
@@ -448,7 +448,7 @@ end-structure
   dup num-exp-minus @ if minus-exponent else plus-exponent then ;
 : real-digits ( addr u number -- addr u outcome ) dup >r number-scan r> real-natural ;
 : natural-digits ( value export -- addr u outcome )
-  dup export-number >r export-json 2dup json-kind@ json-real =
+  dup export-number >r export-json 2dup json-real json-kind-at?
   if json-text@ r> real-digits exit then
   r> drop json-natural if outcome-ok else 0 0 outcome-invalid then ;
 
@@ -562,7 +562,7 @@ end-structure
   rot over export-json json-contents ?do
     2dup i -rot visit-item dup ok? 0= if nip nip unloop exit then drop
     dup export-json i swap json-next i - +loop 2drop outcome-ok ;
-: export-array? ( value export -- flag ) export-json json-kind@ json-array = ;
+: export-array? ( value export -- flag ) export-json json-array json-kind-at? ;
 : array-of ( value export -- list outcome )
   2dup export-array? if drop outcome-ok exit then
   nip c" expected a list" export-bad no-result ;
@@ -1193,7 +1193,7 @@ here families - cell / constant #families
 \ least 0) inverts to an index outside the tape, and an unset field (-1)
 \ to the line's object, token 0, so neither reads as an array.
 : array-in ( list view -- index view true | false )
-  >r invert dup r@ json-kind-at json-array = if r> true else r> 2drop false then ;
+  >r invert dup r@ json-array json-kind-at? if r> true else r> 2drop false then ;
 \ The same for a list field of a record; false too when the record is
 \ not of the current line, whose JSON view no longer holds its lists.
 : list-array ( list record -- index view true | false )

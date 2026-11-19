@@ -44,7 +44,7 @@ reason = "a lambda after the telescope counts as binder k: a domain where Lean's
 [[fault]]
 id = "rc-json-string-at-number"
 file = "src/lib/json.fs"
-old = ''': json-string-at? ( index view -- flag ) json-kind-at json-string = ;'''
+old = ''': json-string-at? ( index view -- flag ) json-string json-kind-at? ;'''
 new = ''': json-string-at? ( index view -- flag ) json-kind-at json-string 1+ u< ;'''
 test = "$GFORTH tests/lib/json.fs"
 reason = "an object, an array and a string all read as strings"
