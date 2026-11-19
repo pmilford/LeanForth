@@ -13864,8 +13864,8 @@ reason = "FRP D4: a huge --progress interval wraps to a negative time, so a line
 [[fault]]
 id = "ck-lending-count-only"
 file = "src/cli/check-run.fs"
-old = ''': ck-lent@ ( -- x*ck-lent# ) ck-view@ ck-decls@ lf-cref-lending ;'''
-new = ''': ck-lent@ ( -- x*ck-lent# ) ck-view@ ck-decls@ lf-cref-lending >r 2drop drop 0 0 0 r> ;'''
+old = ''': ck-ref-table@ ( -- addr n ) lf-cref-table ck-htab@ ;'''
+new = ''': ck-ref-table@ ( -- addr n ) lf-cref-table htab-count 0 swap ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "FRP D1: only the references' count is kept, so workers are not made again when the blocks they read move"
 

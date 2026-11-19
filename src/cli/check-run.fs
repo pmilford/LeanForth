@@ -169,12 +169,28 @@ ck-phases constant ck-opening
 320 constant ck-pline-room   \ bytes of a progress line
 
 \ What workers reading this context's input in place depend on (ck-lent!):
-\ per part they read, a pair of cells that changes when a record is made
-\ there or its block moves -- the view's three tables and its leaves, the
-\ declarations, their name index and inductive data -- and the references
-\ as lf-cref-lending gives them (core/constant-references.fs).
-14 lf-cref-lent# + constant ck-lent#
-ck-lent# cells constant /ck-lend
+\ each part they read (import/feed.fs's lf-feed-shared), as its block's
+\ address and its count, a pair that changes when a record is made there
+\ or its block moves -- the view's three tables and its leaves, the
+\ declarations, their name index and inductive data, and the references'
+\ store, pairs and table. ck-parts lists a word ( -- addr n ) per part.
+: ck-store@ ( store -- addr n ) dup store-records swap store-count @ ;
+: ck-htab@ ( htab -- addr n ) dup htab-base swap htab-count ;
+: ck-nodes@ ( -- addr n ) lf-term-view lf-tview-nodes ck-htab@ ;
+: ck-fields@ ( -- addr n ) lf-term-view lf-tview-fields ck-htab@ ;
+: ck-binders@ ( -- addr n ) lf-term-view lf-tview-binders ck-htab@ ;
+: ck-leaves@ ( -- addr n ) lf-term-view lf-tview-leaves slab-data ;
+: ck-decls@ ( -- addr n ) lf-inputs ck-store@ ;
+: ck-names@ ( -- addr n ) lf-input-names slab-data ;
+: ck-more@ ( -- addr n ) lf-input-more slab-data ;
+: ck-refs@ ( -- addr n ) lf-crefs ck-store@ ;
+: ck-ref-pairs@ ( -- addr n ) lf-cref-pool slab-data ;
+: ck-ref-table@ ( -- addr n ) lf-cref-table ck-htab@ ;
+create ck-parts  ' ck-nodes@ , ' ck-fields@ , ' ck-binders@ , ' ck-leaves@ ,
+  ' ck-decls@ , ' ck-names@ , ' ck-more@ ,
+  ' ck-refs@ , ' ck-ref-pairs@ , ' ck-ref-table@ ,
+here ck-parts - 1 cells / constant ck-parts#
+ck-parts# 2* cells constant /ck-lend
 
 begin-structure /ck
   field: ck-budget               \ fuel each check starts with
@@ -200,6 +216,8 @@ begin-structure /ck
   field: ck-remade               \ times the workers were made again (ck-relent)
   field: ck-shifted              \ true: it moved during the run (ck-shift?)
   field: ck-shifted-at           \ every slot below it was final then
+  field: ck-clean-at             \ the same at the last comparison that found no change
+  field: ck-pre-xt               \ ( d -- n ) the decision on readiness (ck-pre-word!)
   field: ck-checker              \ the check word ( -- ) (ck-check-word!)
   ck-switches# cells +field ck-switched    \ the checker's switches, for each worker
   ck-capacities# cells +field ck-saved   \ capacities before the feed
@@ -510,28 +528,26 @@ create ck-line ck-line-room 2 + allot
 \ back); that is checked after each (ck-shift?), and a run in which it
 \ moved is stopped as a fault, its verdicts read only below the slots
 \ final before the move (ck-final), never one a worker reached after it.
-: ck-store@ ( store -- addr n ) dup store-records swap store-count @ ;
-: ck-slab@ ( slab -- addr n ) 0 over slab-at swap slab-count ;
-: ck-htab@ ( htab -- slots n ) dup htab-slots swap htab-count ;
-: ck-view@ ( -- x*8 )
-  lf-term-view lf-tview-nodes ck-htab@ lf-term-view lf-tview-fields ck-htab@
-  lf-term-view lf-tview-binders ck-htab@ lf-term-view lf-tview-leaves ck-slab@ ;
-: ck-decls@ ( -- x*6 )
-  lf-inputs ck-store@ lf-input-names ck-slab@ lf-input-more ck-slab@ ;
-: ck-lent@ ( -- x*ck-lent# ) ck-view@ ck-decls@ lf-cref-lending ;
-\ The ck-lent# cells under addr stored from addr on, the top one first.
-: ck-cells! ( x*ck-lent# addr -- ) ck-lent# 0 ?do tuck ! cell+ loop drop ;
-: ck-lent! ( -- ) ck-lent@ ck-state ck-lent ck-cells! ;
+\ Each part's pair stored from addr on (/ck-lend bytes).
+: ck-lend+ ( addr xt -- addr' ) swap >r execute r@ 2! r> 2 cells + ;
+: ck-lent-part ( k -- xt ) cells ck-parts + @ ;
+: ck-lending ( addr -- ) ck-parts# 0 ?do i ck-lent-part ck-lend+ loop drop ;
+: ck-lent! ( -- ) ck-state ck-lent ck-lending ;
 : ck-now ( -- addr ) ck-state ck-lend-now ;
 : ck-moved? ( -- flag )
-  ck-lent@ ck-now ck-cells! ck-now /ck-lend ck-state ck-lent /ck-lend compare 0<> ;
-\ Once it moved during the run: the run stopped as a fault, at the slots
-\ final then.
+  ck-now dup ck-lending /ck-lend ck-state ck-lent /ck-lend compare 0<> ;
+\ Each comparison that finds no change keeps the slots final then
+\ (ck-clean-at); once one finds a change, the run is stopped as a fault at
+\ the last such slots (ck-shifted-at): what became final since may come
+\ from a check that read the changed input.
 : ck-shifted? ( -- flag ) ck-state ck-shifted @ ;
-: ck-shifted-at! ( -- ) lf-sched-final ck-state ck-shifted-at ! ;
+: ck-clean! ( -- ) lf-sched-final ck-state ck-clean-at ! ;
+: ck-clean@ ( -- n ) ck-state ck-clean-at @ ;
+: ck-shifted-at! ( -- ) ck-clean@ ck-state ck-shifted-at ! ;
 : ck-shifted! ( -- )
   true ck-state ck-shifted ! true ck-state ck-faulted ! ck-shifted-at! ;
-: ck-shift? ( -- flag ) ck-shifted? 0= ck-moved? and if ck-shifted! then ck-shifted? ;
+: ck-look ( -- ) ck-moved? if ck-shifted! exit then ck-clean! ;
+: ck-shift? ( -- flag ) ck-shifted? 0= if ck-look then ck-shifted? ;
 \ What a stopped run's verdicts are read below: n, or the slots final
 \ when the input moved.
 : ck-final ( n -- n' ) ck-shifted? if ck-state ck-shifted-at @ min then ;
@@ -652,6 +668,9 @@ create ck-line ck-line-room 2 + allot
   dup ck-deferred? 0= if drop 0 exit then
   dup ck-import imp-decide over ok? 0= if drop ck-pre-failed exit then
   nip dup 1 = if drop ck-span-facts 1 else nip then ;
+\ The decision a parallel run asks before handing d out: ck-pre, which
+\ ck-start sets; a test may set another after ck-start.
+: ck-pre-word! ( xt -- ) ck-state ck-pre-xt ! ;
 : ck-next ( d -- stop? )
   dup 1+ ck-state ck-stepped ! dup ck-turn if drop true exit then
   dup ck-taken? if drop false exit then
@@ -851,7 +870,8 @@ create ck-pline-parts
 \ checked, and once it moved every answer is a stop (3), so that no
 \ worker starts a check after it.
 : ck-guarded ( n -- n' ) ck-shift? if drop 3 then ;
-: ck-pre-guarded ( d -- n ) ck-shift? if drop 3 else ck-pre ck-guarded then ;
+: ck-pre-word ( -- xt ) ck-state ck-pre-xt @ ;
+: ck-pre-guarded ( d -- n ) ck-shift? if drop 3 else ck-pre-word execute ck-guarded then ;
 : ck-tick! ( -- ) ['] ck-tick lf-sched-tick! ;
 : ck-pre! ( -- ) ['] ck-pre-guarded lf-sched-pre! ;
 : ck-jobs-run ( -- )
@@ -930,7 +950,7 @@ create ck-pline-parts
 : ck-start ( fuel -- )
   ck-release ck-state /ck erase ck-state ck-budget ! -1 ck-state ck-failed !
   outcome-invalid dup ck-outcome! dup ck-state ck-loaded ! ck-state ck-snap-saved !
-  ['] lf-check-declaration ck-check-word! ck-clock-start ;
+  ['] lf-check-declaration ck-check-word! ['] ck-pre ck-pre-word! ck-clock-start ;
 
 \ ---- Snapshots (ADR 0020; plan task 6.2.5, step SN3; kernel/env-snapshot.fs).
 \ ck-snapshot-save ( file-addr file-u info-addr info-u -- outcome ), after

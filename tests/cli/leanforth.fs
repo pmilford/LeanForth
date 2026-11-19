@@ -751,10 +751,14 @@ T{ stress -> 5 }T
 \ ck-shift?): no line written beyond the slots final then, its verdicts
 \ read only below them, every later fact unkept, the run not ok, and the
 \ report names the cause. A serial run, with no worker, checks nothing of
-\ the kind.
+\ the kind. The count is put back after the run (moved-back), so that the
+\ facts are read from the input as it was fed (a count raised also makes
+\ the environment no longer the input's: no verdict could be read).
 variable move-at  10 move-at !
+variable moves  0 moves !
 : move-here? ( d -- flag ) move-at @ dup 0< if drop lf-input-count 1- then = ;
-: moving-line ( d -- flag ) move-here? if 1 lf-cref-count +! then true ;
+: moving-line ( d -- flag ) move-here? if 1 lf-cref-count +! 1 moves +! then true ;
+: moved-back ( -- ) moves @ negate lf-cref-count +! 0 moves ! ;
 : shifted-at ( -- n ) ck-state ck-shifted-at @ ;
 : unkept? ( -- flag )
   true lf-input-count ck-steps-begun ?do i ck-kept kept-outcome @ outcome-invalid = and loop ;
@@ -764,7 +768,7 @@ variable move-at  10 move-at !
   ck-shifted? ck-faulted? capped? unkept? lf-sched-stop lf-input-count < ck-outcome ok? ;
 : moving-run ( jobs -- context )
   fresh >r 20000000 ck-start ck-jobs! ['] throwing-check ck-check-word!
-  ['] moving-line ck-lines! nested false ck-load drop ck-check r> ;
+  ['] moving-line ck-lines! nested false ck-load drop ck-check moved-back r> ;
 : moved-during ( jobs -- shifted? faulted? capped? unkept? stopped? ok? reason? )
   moving-run >r moved-facts cli-reason cli-moved-reason compare 0= ck-release r> back ;
 T{ 3 moved-during -> true true true true true false true }T
@@ -775,12 +779,93 @@ T{ 8 moved-during -> true true true true true false true }T
 T{ guarded-after -> 3 3 }T
 \ Moved at the last line (move-at -1), given at the last tick: no
 \ declaration is handed out after it, and the tick's own check finds it.
-: last-moved ( -- shifted? ok? )
-  -1 move-at ! 3 moving-run >r ck-shifted? ck-outcome ok? ck-release r> back 10 move-at ! ;
-T{ last-moved -> true false }T
+: last-moved ( -- shifted? faulted? stopped? ok? )
+  -1 move-at ! 3 moving-run >r ck-shifted? ck-faulted? ck-stopped? ck-outcome ok?
+  ck-release r> back 10 move-at ! ;
+T{ last-moved -> true true true false }T
+\ After a move: the report says the run stopped (ck-stopped?, which the
+\ text and the JSON report's "stopped" read) and no snapshot is written.
+: never-file ( -- c-addr u ) s" tests/cli/moved-never.lfsn" ;
+: absent? ( c-addr u -- flag ) r/o open-file if drop true else close-file drop false then ;
+: stop-json ( -- ) ['] type cj-writer jw-start cj-object cj-stopped cj-end-object
+  cj-writer jw-end drop ;
+[defined] >string-execute [if]
+: stop-said? ( -- flag ) ['] stop-json >string-execute s" true" search nip nip ;
+[else]
+: stop-said? ( -- flag ) true ;
+[then]
+: moved-reports ( -- stopped? json? saved never? )
+  3 moving-run >r ck-stopped? stop-said? never-file s" {}" ck-snapshot-save
+  never-file absent? ck-release r> back ;
+T{ moved-reports -> true true outcome-invalid true }T
+\ Every part the workers read is watched, both its block and its count
+\ (check-run.fs's ck-parts): each of the driving context's header cells,
+\ moved by one cell and back, is found moved, then not (no worker reads
+\ the driving context's headers: they hold copies).
+lf-lib-private order+
+: htab-cells ( htab -- a c ) dup htab-block swap htab-entries ;
+: slab-cells ( slab -- a c ) dup slab-block swap slab-used ;
+: store-cells ( store -- a c ) dup store-block swap store-count ;
+order-
+: nodes-cells ( -- a c ) lf-term-view lf-tview-nodes htab-cells ;
+: fields-cells ( -- a c ) lf-term-view lf-tview-fields htab-cells ;
+: binders-cells ( -- a c ) lf-term-view lf-tview-binders htab-cells ;
+: leaves-cells ( -- a c ) lf-term-view lf-tview-leaves slab-cells ;
+: decls-cells ( -- a c ) lf-inputs store-cells ;
+: names-cells ( -- a c ) lf-input-names slab-cells ;
+: more-cells ( -- a c ) lf-input-more slab-cells ;
+: refs-cells ( -- a c ) lf-crefs store-cells ;
+: pairs-cells ( -- a c ) lf-cref-pool slab-cells ;
+: table-cells ( -- a c ) lf-cref-table htab-cells ;
+create part-cells ' nodes-cells , ' fields-cells , ' binders-cells , ' leaves-cells ,
+  ' decls-cells , ' names-cells , ' more-cells , ' refs-cells , ' pairs-cells , ' table-cells ,
+: bumped? ( addr -- seen? ) 1 cells over +! ck-moved? swap -1 cells swap +! ck-moved? 0= and ;
+: part-seen? ( k -- flag ) cells part-cells + @ execute bumped? swap bumped? and ;
+: parts-seen ( -- n ) 0 10 0 do i part-seen? - loop ;
+: watched ( -- parts unmoved? seen )
+  fresh >r 20000000 ck-start 3 ck-jobs! nested false ck-load drop
+  ck-parts# ck-moved? 0= parts-seen ck-release r> back ;
+T{ watched -> 10 true 10 }T
+\ ck-final: n unless the input moved, then at most the slots final at the
+\ last comparison that found no change.
+: final-unit ( -- n1 n2 n3 )
+  20000000 ck-start 9 ck-final true ck-state ck-shifted ! 5 ck-state ck-shifted-at !
+  9 ck-final 3 ck-final ck-release ;
+T{ final-unit -> 9 5 3 }T
+\ A tick after the move gives out lines only below the cut (ck-final), not
+\ up to the slots final now: here the cut lowered to 2 and the lines given
+\ out taken back to none.
+: tick-cut ( -- n )
+  3 moving-run >r 1000 move-at ! 0 ck-state ck-cursor ! 2 ck-state ck-shifted-at !
+  ck-tick ck-done ck-release r> back 10 move-at ! ;
+T{ tick-cut -> 2 }T
+\ The decision on readiness (ck-pre-word!, here a word that moves the
+\ input as a carry run's taking could): its answer becomes a stop, the run
+\ faulted, cut at the slots final at the last clean comparison; one that
+\ moves nothing keeps its answer and records the slots final then.
+: still-pre ( d -- n ) drop 2 ;
+: moving-pre ( d -- n ) drop 1 lf-cref-count +! 0 ;
+: pre-facts ( -- n clean? n' shifted? faulted? at )
+  ['] still-pre ck-pre-word! 5 ck-pre-guarded ck-state ck-clean-at @ lf-sched-final =
+  ['] moving-pre ck-pre-word! 5 ck-pre-guarded ck-shifted? ck-faulted?
+  shifted-at ck-state ck-clean-at @ = -1 lf-cref-count +! ;
+\ ck-shifted! cuts at the last clean comparison's slots, not at those
+\ final when the change was found.
+: cut-at ( -- n ) 3 ck-state ck-clean-at ! ck-shifted! shifted-at ;
+: pre-guarded ( -- n clean? n' shifted? faulted? at cut )
+  fresh >r 20000000 ck-start 3 ck-jobs! nested false ck-load drop pre-facts cut-at
+  ck-release r> back ;
+T{ pre-guarded -> 2 true 3 true true true 3 }T
+\ A clean comparison keeps lf-sched-final, which a stop lowers below the
+\ frontier (a check that threw at declaration 40).
+: clean-after-throw ( -- below? clean? )
+  40 throw-at ! fresh >r nested 3 run-with lf-sched-final lf-sched-reached <
+  ck-lent! ck-shift? 0= ck-state ck-clean-at @ lf-sched-final = and
+  ck-release r> back -1 throw-at ! ;
+T{ clean-after-throw -> true true }T
 : serial-moved ( -- shifted? )
   fresh >r 20000000 ck-start ['] moving-line ck-lines! nested false ck-load drop
-  ck-check ck-shifted? ck-release r> back ;
+  ck-check moved-back ck-shifted? ck-release r> back ;
 T{ serial-moved -> false }T
 
 \ FX10 (review rvS7): the worker count is cut to the cores and the pool's

@@ -399,14 +399,14 @@ end-structure
 \ ck-shift?).
 : cli-moved-reason ( -- c-addr u )
   s" the input the workers read in place changed during the run" ;
-: cli-reason ( -- c-addr u )
-  ck-shifted? if cli-moved-reason exit then
+: cli-sched-reason ( -- c-addr u )
   lf-sched-cause CASE
     1 OF s" every worker was lost after a check threw and none could be made again" ENDOF
     2 OF s" the job pool refused a check" ENDOF
     3 OF s" waiting for a worker failed" ENDOF
     >r s" a check threw, or publishing failed" r>
   ENDCASE ;
+: cli-reason ( -- c-addr u ) ck-shifted? if cli-moved-reason else cli-sched-reason then ;
 : cli-stopped ( -- )
   ." internal fault: the run stopped: " cli-reason type cr
   lf-input-count cli-stepped ?do i cli-unreached loop ;
