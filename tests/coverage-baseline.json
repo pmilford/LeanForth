@@ -1099,8 +1099,7 @@
   },
   "src/front/tactic-msg.fs": {
    "blocks": 67,
-   "never_run": 7,
-   "reason": "new file (plan 9.4.8l-I C1, branch tactic-move, 2026-11-19; measured over the targets that load it, coverage-focus): the 7 never-run blocks are S2 coverage debt moved unchanged from tactic-basic.fs: a printing refusal of the message's room (tmg-then's else 56, lf-has-type-but-expected.'s else 77), a type's sort that inferType cannot give (tmg-sort 63, tmg-sorts 67-68: every type a tactic prints is type-correct), lf-tac-defeq refusing on two sorts (65: fuel or room) and lf-tac-inline's second error while one is recorded (80); resource or unreachable branches"
+   "never_run": 0
   },
   "src/front/tactic-core.fs": {
    "blocks": 12,

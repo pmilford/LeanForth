@@ -349,5 +349,38 @@ T{ hadd-kk hadd-lean lf-meta-eqv abm-frames slab-count lf-mctx-marks -> true out
 T{ s" Append.append" types2 abm-frames slab-count lf-mctx-marks -> -4204 0 0 }T
 T{ s" HAdd.hAdd" types2 lf-synth-error abm-frames slab-count -> -4205 119 0 }T
 lf-author-begin
+
+\ ---- 6. tactic-msg.fs's branches that a well-formed proof never takes
+\ (S2 coverage debt, paid by slice 9.4.8l-I): a term that does not print
+\ (no term: an instantiation refused) cuts the message at once, each part
+\ after it left out and its outcome kept; a type whose own type cannot be
+\ inferred gives the plain form; isDefEq of the two sorts out of fuel
+\ gives the plain form; a detail while an error is recorded is left out.
+create text 4096 allot  variable text#
+: grab ( c-addr u -- ) tuck text text# @ + swap move text# +! ;
+2variable settings
+: sunk ( i*x xt -- j*x c-addr u )   \ what xt prints, the printer put back
+  lf-print-settings settings 2! 0 text# ! ['] grab lf-print-unicode lf-print-setup
+  execute settings 2@ lf-print-setup text text# @ ;
+: has. ( e type expected -- outcome c-addr u ) ['] lf-has-type-but-expected. sunk ;
+: has-type ( -- c-addr u ) s\"   Nat.zero\nhas type\n  " ;
+T{ zero -1 nat has. has-type compare -> outcome-invalid 0 }T
+T{ zero nat -1 has. s\"   Nat.zero\nhas type\n  Nat\nbut is expected to have type\n  " compare
+   -> outcome-invalid 0 }T
+T{ -1 nat nat has. s"   " compare -> outcome-invalid 0 }T
+\ (Nat.zero's sort Nat, against 0 = 0's Prop: named; x : (fun y => y) Nat
+\ against Nat.zero's Nat: equal, so plain, also when isDefEq runs out.)
+T{ zero zero zero zero lf-mk-eq has. s\" of sort `Nat`" search nip nip -> outcome-ok true }T
+: id-type ( -- f ) nat lf-infer! 0 lf-term-bvar lf-made! lf-term-lam lf-made! ;
+id-type nat lf-mk-app s" x" binder constant fx-beta
+: plain-x ( -- c-addr u ) s\"   Nat.zero\nhas type\n  x\nbut is expected to have type\n  Nat.zero" ;
+T{ zero fx-beta zero has. plain-x compare -> outcome-ok 0 }T
+T{ 1 lf-defeq-fuel! zero fx-beta zero has. plain-x compare 0 lf-defeq-fuel! -> outcome-ok 0 }T
+T{ 1 lf-defeq-fuel! fx-beta lf-infer! nat lf-tac-defeq nip ok? 0 lf-defeq-fuel! -> false }T
+: shout. ( x -- outcome ) drop s" late" lf-pp-emit outcome-ok ;
+: detail# ( -- n ) lfa-detail slab-count ;
+T{ ' author-fails catch detail# 0 ' shout. lf-tac-inline detail# = -> lf-author-throw true }T
+lf-tac-forget
+T{ lf-author-code -> 0 }T
 .( tactic-lib.fs: all tests passed) cr
 bye
