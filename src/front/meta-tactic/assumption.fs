@@ -49,7 +49,7 @@ require ./goal.fs
   repeat drop 2drop false ;
 : mas-view ( goal -- view ) lf-mvar-view lf-found ;
 : lf-goal-assumption ( goal -- )
-  lf-goal-not-assigned dup lf-mvar-type drop over mas-view mas-find
+  lf-goal-not-assigned dup lf-mvar-type drop lf-instantiate! over mas-view mas-find
   if lf-mvar-assign lf-must exit then
   ['] lf-tac-goal-of. lf-tac-detail lfa-e-assumption lf-tac-stop ;
 base !   \ the BASE this file was loaded with

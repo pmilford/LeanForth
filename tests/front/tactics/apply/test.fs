@@ -108,5 +108,19 @@ T{ beta-pair swap goal-value = -> true }T
 T{ s" left" tagged dup succ-tag lf-goal-tag-append tag@ s" succ.left" lfa-intern = -> true }T
 T{ nat goal dup succ-tag lf-goal-tag-append tag@ succ-tag = -> true }T
 T{ s" a.b" tagged succ-tag ' lf-goal-tag-append catch nip nip -> -4205 }T
+\ ---- A type whose conclusion is a metavariable (Lean's hasMVarHead):
+\ the range is numArgs alone. Lean applies h : ?P to a ≤ b with no
+\ argument, ?P := a ≤ b; LeanForth's isDefEq answers ?P =?= a ≤ b not
+\ supported yet here (a gap, plan 9.4.8l L): unsupported, never accepted.
+: prop ( -- t ) 0 lf-term-sort lf-made! ;
+prop mv-natural lf-mvar-new made constant ?p
+?p s" h" binder constant fh
+T{ fa fb le goal dup fh ' lf-goal-apply catch nip nip swap lf-goal-assigned? -> -4205 false }T
+\ ---- getMVarsNoDelayed is not ported: e that is still an unassigned
+\ metavariable after apply (?x : Nat on a goal Nat) is not supported yet
+\ (error 99, thrown: no step running), never a goal left out silently.
+T{ nat goal nat mv-natural lf-mvar-new made ' lf-goal-apply catch nip nip lf-author-code
+   -> lf-author-throw 99 }T
+lf-tac-forget
 .( apply test.fs: all tests passed) cr
 bye

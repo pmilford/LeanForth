@@ -61,7 +61,7 @@ require ./apply.fs
 : mco-ctors ( head -- items n )
   mco-decl lf-menv-data ?dup 0= if outcome-unsupported lf-must then lf-ity-ctors@ ;
 : mco-head ( goal -- head )
-  dup lf-mvar-type drop lf-whnf! lf-instantiate! lf-meta-head
+  dup lf-mvar-type drop lf-instantiate! lf-whnf! lf-instantiate! lf-meta-head
   dup mco-inductive? if nip exit then drop lfa-e-ctor-target mco-failed 0 ;
 \ Constructor name at the head's levels (mkConst ctor us).
 : mco-const ( head name -- e ) swap lf-const-levels lf-mk-const-id ;

@@ -66,5 +66,14 @@ lf-tac-forget
 \ An assigned goal is a fault (checkNotAssigned): invalid.
 : solved ( -- goal ) nat goal dup fa lf-mvar-assign made ;
 T{ solved ' lf-goal-constructor code1 -> -4201 }T
+\ a + 1 ≤ a: both of Nat.le's constructors are tried and fail (Lean's
+\ "no applicable constructor found"), each probe's error forgotten.
+: succ ( a -- t ) s" Nat.succ" lf-mk-const0 swap lf-mk-app ;
+T{ fa succ fa le goal ' lf-goal-constructor code1 lf-author-code
+   -> lf-author-throw 383 }T
+lf-tac-forget
+\ Expr.constLevels! (app-builder.fs), for a constructor at its type's levels.
+T{ s" congrArg" 0 0 2 lf-mk-const lf-const-levels -> 0 0 2 }T
+T{ s" Nat" lf-mk-const0 lf-const-levels -> 0 }T
 .( constructor test.fs: all tests passed) cr
 bye

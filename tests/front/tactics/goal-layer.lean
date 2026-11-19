@@ -20,6 +20,10 @@ theorem ap_hyp (a b : Nat) (h : a ≤ b) : a ≤ b := by apply h
 theorem ap_partial (a b c : Nat) (h1 : a ≤ b) (h2 : b ≤ c) : a ≤ c := by
   apply Nat.le_trans h1
   exact h2
+theorem ap_tag (n : Nat) : True ∧ True := by
+  induction n with
+  | zero => apply And.intro; constructor; constructor
+  | succ k ih => apply And.intro; constructor; constructor
 theorem ap_and (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) : a ≤ b ∧ b ≤ a := by
   apply And.intro
   exact h1
@@ -59,6 +63,6 @@ def dump (n : Name) : MetaM Unit := do
   IO.println s!"{n} value {← sx i.value}"
 
 #eval do
-  for n in [``ap_le_succ, ``ap_le_trans, ``ap_hyp, ``ap_partial, ``ap_and, ``as_one, ``as_newest,
+  for n in [``ap_le_succ, ``ap_le_trans, ``ap_hyp, ``ap_partial, ``ap_tag, ``ap_and, ``as_one, ``as_newest,
       ``as_defeq, ``co_and, ``co_true, ``co_or, ``co_le] do
     dump n
