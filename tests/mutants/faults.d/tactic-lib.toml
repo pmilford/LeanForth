@@ -791,3 +791,19 @@ old = '''  context-sealed? abort" tactic-run: a row set after context-new" ;'''
 new = '''  ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "review tactic-move-c4 L2: a row of the load-time table is written after a context exists, while runs and workers read it in place"
+
+[[fault]]
+id = "tac-alt-set-after-context"
+file = "src/front/tactic-run.fs"
+old = '''  lfr-row! trow-alt ! ['] lfr-alt tac-k-alt lf-tactic-action! ;'''
+new = '''  lfr-row trow-alt ! ['] lfr-alt tac-k-alt lfr-row ['] lfr-alt over trow-run ! 0 swap trow-plan ! ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "re-check tactic-move-c4 R2: the alternatives' row is written after a context exists"
+
+[[fault]]
+id = "tac-row-new-after-context"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-row-new ( kind -- ) lfr-open'''
+new = ''': lfr-row-new ( kind -- )'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "re-check tactic-move-c4 R2: a new kind's row is made after a context exists"

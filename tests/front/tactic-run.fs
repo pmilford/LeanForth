@@ -683,7 +683,16 @@ context-new throw constant kinds-context
 kinds-context context-use
 T{ refused-kind -> lf-author-throw lfa-e-terms-full }T
 context-main context-use  kinds-context context-free throw
-T{ ' lfr-misplaced tac-k-rfl ' lf-tactic-action! catch nip nip -> -2 }T
+\ Each row writer refuses once a context exists (re-check R2): a writer
+\ that went through would leave an empty stack and no throw, not an underflow.
+: refused2? ( x kind xt -- flag ) catch dup if nip nip then -2 = ;
+T{ ' lfr-misplaced tac-k-rfl ' lf-tactic-action! refused2? -> true }T
+T{ ' drop tac-k-rfl ' lf-tactic-end! refused2? -> true }T
+T{ 0 tac-k-rfl ' lf-tactic-plan! refused2? -> true }T
+T{ 0 tac-k-rfl ' lf-tactic-shape! refused2? -> true }T
+T{ ' lf-alt-run tac-k-with ' lf-tactic-alt! refused2? -> true }T
+: refused1? ( kind xt -- flag ) catch dup if nip then -2 = ;
+T{ 1000 lfr-kind? 1000 ' lfr-row-new refused1? 1000 lfr-kind? -> false true false }T
 T{ depth -> 0 }T
 cr .( tactic-run.fs: all tests passed) cr
 bye

@@ -285,3 +285,116 @@ Fixed on the branch by the implementer, each finding with its commit; three item
 - **L4: fixed** (`510932ad`). tactic-lib.fs counts the fields of Nat.le.rec's step (an information made by hand, since `lf-elim-info` refuses Nat.le.rec's two targets with 99): one implicit, two explicit. The gap line of `s2-alt-field-kinds-ignored` is removed and its test is tactic-lib.fs (caught). tactic-alts.fs's header states the Lean difference (getNumExplicitFields counts after introN, let-bound fields as explicit).
 - **L5: fixed** (`4f579af9`, `20266f76`, this commit). tactic-alts.fs requires present/binder-table.fs and present/print-job.fs, elim.fs requires app-builder.fs; the header says `lf-alt-names-check` writes the running record's `tal-info`; FRONT_LAYERS.md's Meta/Tactic row lists the information's readers and each word's file.
 - **L6: fixed** (`510932ad`). The comment says the slice's data has no cases eliminator, Lean with all of Init takes `Nat.casesAuxOn` (Init/Data/Nat/Basic.lean:47-48), and `mel-custom`'s cases branch is not run.
+
+## Re-check of the fix commits (2026-11-19, 54e20bcc..570fb338)
+
+## Re-check (2026-11-19, fix commits 54e20bcc..570fb338)
+
+Range `54e20bcc..570fb338` of `tactic-move-c4` (12 commits); reviewer forth-reviewer (Opus), independent of the implementer.
+
+**Verdict: every finding is closed as the Fixes section says. The fixes add no behaviour change beyond B1, no new module-level state and no new duplicate group. New findings: 0 high, 0 medium, 2 low. Merge after R1 is fixed or has a plan row, as B4 was allowed. R2 does not block.**
+
+### Earlier findings
+- **B1. Closed.**
+  - `mel-checked` (elim.fs:182) runs `mel-simple` only under induction, so mutual and nested types are refused only under induction. This is Lean 4.35.0's order: Induction.lean:833-836 refuses after `getInductiveValFromMajor` and only under `induction &&`.
+  - 205's explanation (`mel-explanation.`, :146) now matches Lean's `{tacticName}` text word for word in all three places (Induction.lean:775-778, read in the pinned source).
+  - 205's header stays the catalogue's induction text. It is documented in elim.fs's header and is plan 9.4.8l (W), which the original review allowed.
+  - Tests: `fe10 false` gives `FE6.Even.casesOn`, `fs9 false` is never 209, and the cases explanation contains no "induction".
+  - Re-planted: the flag inverted (r7) and "custom induction" on the cases path (r8). Both are caught by tactic-lib.fs.
+- **B2. Closed.** `tal-n.` is gone. `lf-pp-number` is the same `u>decimal lf-pp-emit`, and tactic-alts.fs requires print-job.fs.
+- **B3. Closed.**
+  - `lf-meta-forall-body#` (meta-spine.fs:130) is `mel-past`'s loop; `lf-meta-forall-body` is its first result.
+  - `ea-result?` is the old loop's equivalent (elab-app.fs requires meta-spine.fs). `mel-past` is deleted.
+  - Tests in elab.fs check counts of 2, 0 and 1. A miscount (r3) is caught.
+- **B4. Closed for the four listed copies.** `count-index` (find.fs:56) is documented, with a header example and a FORTH_LIBRARY.md profile, and is in LIBRARY_WORDS.md.
+  - It is tested in lib.fs: order, n <= 0, flags that are not -1, the return stack, nesting and the example.
+  - The header example, run as one program, prints `-1 1 0 -1 2 2`.
+  - The four callers are equivalent (each xt gives a flag, and `0<>` is kept).
+  - Faults: `lib-count-index-raw-flag`, my index off by one (r1) and the dropped `0 max` (r2, a timeout) are caught by lib.fs. `tcs-named#` off by one (r11) is caught by `check_s2.py --case`. `cli-again#` off by one (r12) is caught by `OlderSnapshots.test_carried`, which passes unfaulted.
+  - Leftover copies: see R1.
+- **M1. Closed.** Tactic-lib.fs part 9b calls `lf-alt-names-check` (213 before 206), `lf-alts-missing` (207, R7's stale tal-js, the block dropped), `lf-alt-run` (208) and plain `lf-eval-alts` (order, tags, inaccessible fields).
+  - 04-nested-first.lf and s2w-alt-inner.lf are in check_s2.py with their Lean twins.
+  - R7 and R8 are re-planted and caught by tactic-lib.fs.
+- **M2. Closed.** `mel-head#`, `mel-alt-cells`, `mel-motive-at` and `mel-target-at` replace the run offsets. `mel-special?` and `mea-arg` are equivalent, and the tests use the names.
+- **M3. Closed for tactic-alts.fs.**
+  - `tal-begin` (tactic-alts.fs:169) fills the step record. `tal-with` and `tal-plain` take nothing, and no PICK or 2OVER is left.
+  - Writing tal-step, tal-target and tal-given in with mode is harmless: induction.fs keeps nothing in the record, and `tal-alt` runs in j's own record.
+  - Re-planted: `tal-begin` dropping alts (r9) and `tal-with` opening the block on the wrong run (r10). Both are caught.
+  - `tind-app` is plan 9.4.8l (Y).
+- **L1. Closed.** `lfr-alt-xt` (tactic-run.fs:402) gives `lfr-misplaced ( i -- )`, which is 92. A planted fallback to `drop` (r6) is caught.
+- **L2. Closed.**
+  - `lfr-open` guards `lfr-row!` and `lfr-row-new`, which every writer of `lfr-rows` goes through.
+  - `context-new` is called only at run time (check-run.fs:507-510).
+  - The only test setter after `context-new` is the guard's own test (tests/front/tactic-run.fs:686).
+- **L3.** Plan 9.4.8l (X).
+- **L4. Closed.** Nat.le.rec's step counts one implicit field and two explicit. The gap line is removed, and `s2-alt-field-kinds-ignored`, re-planted, is caught by tactic-lib.fs. The header states the getNumExplicitFields difference.
+- **L5 and L6. Closed.**
+
+### New findings
+- **R1 (low, reuse: fix or cite a plan row, as B4).** Other copies of the counting loop remain beside the four replaced. The B4 search pattern missed the `1 and +` and `if 1+ then` spellings.
+  - **Four count without a value, and `count-index` replaces them as it is.** Check that each test answers a well-formed flag: `1 and +` and `0<> -` differ on other values.
+    - check-run.fs:1085 `ck-stage-slots`;
+    - check-run.fs:1242 `ck-checked#` (five lines below `ck-again#`);
+    - check-run.fs:1246 `ck-saved#`;
+    - print-forth.fs:249 `lf-pf-inner#`.
+    ```forth
+    : ck-fresh? ( d -- flag ) dup lf-env-final? swap ck-taken? 0= and ;
+    : ck-checked# ( -- n ) ck-verdicts? 0= if 0 exit then lf-input-count ['] ck-fresh? count-index ;
+    : ck-saved? ( d -- flag ) lf-env-origin lf-origin-saved = ;
+    : ck-saved# ( -- n ) ck-verdicts? 0= if 0 exit then lf-input-count ['] ck-saved? count-index ;
+    : ck-slot? ( k -- flag ) ck-stage staged-at ck-stage slot-record? ;
+    : ck-stage-slots ( -- n ) ck-stage stage-decls ['] ck-slot? count-index ;
+    : lf-pf-inner# ( j -- n ) ['] lf-pf-visible? count-index ;
+    ```
+  - **Question (3): `ck-again#` (check-run.fs:1239).** The claim is fair for `count-index` as written, since its test sees k alone. But four more copies need a value the same way:
+    - check-lf.fs:142 `lfc-zeros` (addr);
+    - cases-several.fs:44 `kept-before` (job);
+    - print-analysis.fs:272 `lf-pp-shown#` (app);
+    - `ck-again#` itself (why).
+
+    find.fs's own convention already passes one: `find-index ( x n xt )` with xt `( x k -- x flag )`, x dropped. Give `count-index` that form before callers grow. A test `( k -- flag )` still works under it, because x stays below, which is how `tcs-named?` already serves `find-index`. Probed on Gforth 1.0.0 (counts 3 1 0 3 0 0, stack balanced):
+    ```forth
+    \ How many k < n for which xt ( x k -- x flag ) answers true, x dropped.
+    : count-index ( x n xt -- m )
+      dup 1+ swap ?do 0 max 0 rot rot 0 ?do i j execute 0<> rot swap - swap loop drop loop ;
+    : ck-why? ( why d -- why flag ) ck-reason over = ;
+    : ck-again# ( why -- n ) lf-input-count ['] ck-why? count-index ;
+    ```
+    The current callers then pass `0`, as `tcs-only` does. Alternatively, keep the signature and record the five value-taking copies as a plan row. goal-print.fs:99 `gp-like` counts over a range that starts at an offset, so neither form serves it.
+- **R2 (low, tests; not blocking).** The L2 guard is pinned only through `lf-tactic-action!`.
+  - Two planted faults survive tactic-run.fs:
+    - r4: `lf-tactic-alt!` (tactic-run.fs:405) back on `lfr-row`;
+    - r5: `lfr-row-new` (:288) without `lfr-open`.
+  - Add one `T{ }T` per setter after the final `context-new`. Example: `T{ ' lf-alt-run tac-k-with ' lf-tactic-alt! catch nip nip -> -2 }T`, and the same for `lf-tactic-end!`, `-plan!`, `-shape!`, `-lean!` and `lfr-spell`.
+  - Also, :686's `catch nip nip` turns a missing abort into a stack underflow rather than an INCORRECT RESULT. `catch dup if nip nip then` reads better.
+
+### Reuse, re-entrancy and style
+- Reuse:
+  - Searched LIBRARY_WORDS.md, FORTH_LIBRARY.md and find.fs, and grepped `src/` for the counting shapes (`- loop`, `1 and + loop`, `if 1+ then loop`), `lf-term-pi? while` and `u>decimal lf-pp-emit`. Results: R1.
+  - `check-duplicates.py` on clean archives of both ends: "205 baseline groups, … none new or grown".
+  - `check-lib-callers.py`: clean (bigint.fs planned).
+- Re-entrancy: no new VARIABLE, VALUE or written CREATE in `src/`. `tal-alts` is a step-record field, and `mel-head#` and `mel-alt-cells` are constants. The `lf-text` buffer of tactic-lib.fs part 9b is test-only.
+- `forth-metrics.py --words 10` over the nine changed source files, base to head:
+  - words 1020 to 1035;
+  - deep shuffles 30 to 27, return-stack operations 98 to 96;
+  - globals 9 to 9 (all existing), constants 43 to 45;
+  - over five lines 16 to 16 (all leanforth.fs's existing usage words);
+  - tactic-alts.fs: deep shuffles 4 to 1, return-stack operations 6 to 4.
+
+  No new long words.
+
+### What I ran
+- On clean `git archive` copies of 570fb338 and 54e20bcc (Gforth 1.0.0, stdin `/dev/null`, `ulimit -u 500`): tests/lib/lib.fs, tests/front/tactic-lib.fs, tactic-run.fs and elab.fs (all pass).
+- The find.fs header example, the `count-index ( x n xt )` probe, and forth-metrics, check-duplicates and check-lib-callers.
+- 17 planted faults, in 18 runs:
+  - mine: r1-r12, with r11 run twice (its first run did not start);
+  - the implementer's: raw flag, row guard, R7, R8 and `s2-alt-field-kinds-ignored`.
+  - All are caught except r4 and r5 (R2).
+- Not run: the implementer's suites, make targets and coverage; `check_s2.py` unfaulted; pinned Lean (Lean source read instead; the twins' goldens are the implementer's); gforth-fast and Gforth 0.7.3; Init and Mathlib.
+
+This AI review does not replace the human review AGENTS.md requires.
+
+### After the re-check
+
+- **R1: planned** as plan 9.4.8l (Z): `count-index` takes `find-index`'s convention and the eight remaining copies are converted, as the first family of the clean-up by family.
+- **R2: fixed.** tests/front/tactic-run.fs tests every row writer after `context-new` through `refused2?` and `refused1?` (a writer that went through fails the test cleanly); faults `tac-alt-set-after-context` and `tac-row-new-after-context` are caught.
