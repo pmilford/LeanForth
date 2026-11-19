@@ -26,7 +26,7 @@ end zero_add''
 (Lean: `induction n with | zero => rfl | succ k ih => rw [Nat.add_succ, ih]`; in words: by induction on $n$, $0 + 0 =
 0$ by computation, and $0 + (k + 1) = (0 + k) + 1 = k + 1$ by the definition of $+$ and the induction hypothesis.)
 `bin/leanforth check --snapshot init.lfsnap --elab-data init.elab.ndjson --steps - tests/front/01-zero-add-rw.lf` prints
-`zero_add'': accepted; axioms: none` and the proof's seven steps as data (what `leanforth print` will turn into English,
+`zero_add'': accepted; axioms: none` and the proof's five steps as data (what `leanforth print` will turn into English,
 plan 8.6.12). LeanForth builds Lean's proof term node for node and its kernel checks it; no Lean tool runs. The plan's
 other form of FE1 (`by-case:` and `by-exact` of `congrArg Nat.succ ih`) is accepted too. A wrong proof stops at the step
 where Lean stops, with Lean's message and the goals, and nothing is checked.

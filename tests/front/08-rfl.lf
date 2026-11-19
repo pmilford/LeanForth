@@ -1,13 +1,13 @@
 \ by-rfl (plan FE1g-4; docs/design/FE1G_TACTICS.md 2.4 and 5.3).
 \ Lean: theorem refl_p (p : Prop) : p = p := by rfl
 \ gives fun (p : Prop) => @Eq.refl.{1} Prop p. Natural LeanForth cannot
-\ write Prop yet (plan FE2), and 0 and + below wait for plans FE1e5 and
-\ S2: the text stops at end with error 139, exit 2.
+\ write Prop yet (plan FE2). Without the library's elaboration data the
+\ text stops at end with error 139, exit 2; with it (--elab-data) by-rfl
+\ stops with error 97, exit 4, Lean's own message for 0 + n = n (pinned
+\ Lean's rfl fails there too: 0 + n does not reduce to n).
 \ tests/front/tactic-basic.fs runs it with a stand-in that gives the
 \ statement forall (p : Prop), p = p (whatever the words below say); the
-\ kernel accepts it. Theorems whose sides need a library definition
-\ unfolded (0 + n = n) need the Meta layer to see the library while a
-\ text runs (plan FE1e).
+\ kernel accepts it.
 theorem refl_p
   Nat explicit: n
   0 n + n =
