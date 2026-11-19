@@ -159,6 +159,7 @@ require ../lib/sha256.fs
 require ../lib/hash32.fs
 require ../lib/htab.fs
 require ../lib/text-run.fs
+require ../lib/decimal.fs
 require ../import/stage.fs
 require ./elab-keys.fs
 
@@ -1409,7 +1410,7 @@ create ed-sun-steps
 : ed-kinds? ( c-addr u -- flag ) dup if ['] ed-not-kind? text-any? 0= else nip then ;
 : ed-kind-text ( item -- c-addr u true | false )
   ed-text 0= if false exit then 2dup ed-kinds? dup 0= if nip nip then ;
-: ed-kind@ ( c-addr -- kind ) c@ [char] 0 - ;
+: ed-kind@ ( c-addr -- kind ) 1 decimal>u ;
 : ed-bk-lead ( item -- outcome )
   ed-kind-text if drop ed-kind@ elab-orders ed-push else ed-malformed then ;
 : ed-bk-kinds! ( value b -- outcome )

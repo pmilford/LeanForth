@@ -11122,8 +11122,8 @@ reason = "FE1a, review fe1ab L1: a type that is a beta redex (d : (fun a => a ->
 [[fault]]
 id = "fe-type-head-unfold-ignored"
 file = "src/cli/check-lf.fs"
-old = '''  dup lfc-def? swap ck-stage staged-type@ lfc-telescope lfc-unfolds? if drop -1 then'''
-new = '''  false swap ck-stage staged-type@ lfc-telescope lfc-unfolds? if drop -1 then'''
+old = '''  lfc-name lfc-decl 0= if false exit then dup lfc-count swap lfc-def? true ;'''
+new = '''  lfc-name lfc-decl 0= if false exit then dup lfc-count swap drop false true ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1a: a variable whose type is headed by a definition (Nat.add) gets argument count 0, guessing what whnf may change"
 
@@ -17778,8 +17778,8 @@ reason = "s1-synth re-check M3' (reviewer's fault): a strict-implicit literal or
 [[fault]]
 id = "fe-elab-generation-fixed"
 file = "src/front/elab-data.fs"
-old = '''  elab elab-counts elab-kinds cells erase 1 elab elab-gen +!'''
-new = '''  elab elab-counts elab-kinds cells erase'''
+old = '''  ed-head-clear 1 elab elab-gen +! ;'''
+new = '''  ed-head-clear ;'''
 test = "$GFORTH tests/front/elab-data.fs && $GFORTH tests/front/instances-odd.fs"
 reason = "s1-synth re-check L3': a reset or a new read leaves elab-generation as it was, so the instance table keeps another read's checks"
 

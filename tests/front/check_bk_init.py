@@ -100,12 +100,12 @@ def check(export, data):
 
 
 def check_lean():
-    done = run([LEAN, "tests/front/bk-init.lean"])
+    done = run([LEAN, "-DwarningAsError=true", "tests/front/bk-init.lean"])
     failures = [] if done.returncode == 0 and done.stdout.splitlines() == \
         GOLDEN.read_text(encoding="utf-8").splitlines() else [f"bk-init.lean: {done.stdout[-600:]}"]
     if "--write-golden" in sys.argv:
         GOLDEN.write_text(done.stdout, encoding="utf-8")
-    done = run([LEAN, "tests/front/bk-init-wrong.lean"])
+    done = run([LEAN, "-DwarningAsError=true", "tests/front/bk-init-wrong.lean"])
     if done.returncode != 1 or "Type mismatch" not in done.stdout:
         failures.append(f"bk-init-wrong.lean: exit {done.returncode}: {done.stdout[-400:]}")
     return failures

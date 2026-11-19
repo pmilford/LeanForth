@@ -39,16 +39,16 @@ reason = "MF1 O1: an inert node of any key is read (S2's sunfoldMatch or Lean's 
 [[fault]]
 id = "fe-ed31-v31-unmarked"
 file = "src/front/elab-data.fs"
-old = ''': ed-head-v31 ( index -- flag ) s" 3.1" ed-text= dup elab elab-v31 ! ;'''
-new = ''': ed-head-v31 ( index -- flag ) s" 3.1" ed-text= ;'''
+old = '''  dup ed-head-v32 swap s" 3.1" ed-text= or dup elab elab-v31 ! ;'''
+new = '''  dup ed-head-v32 swap s" 3.1" ed-text= or ;'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "MF1 O1: a format-3.1 header does not allow inert nodes, so Mathlib's data is refused as malformed"
 
 [[fault]]
 id = "fe-ed31-v31-any-text"
 file = "src/front/elab-data.fs"
-old = ''': ed-head-v31 ( index -- flag ) s" 3.1" ed-text= dup elab elab-v31 ! ;'''
-new = ''': ed-head-v31 ( index -- flag ) ed-text dup if nip nip then dup elab elab-v31 ! ;'''
+old = '''  dup ed-head-v32 swap s" 3.1" ed-text= or dup elab elab-v31 ! ;'''
+new = '''  ed-text dup if nip nip then dup elab elab-v31 ! ;'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "MF1 O1: any text is taken for format 3.1 (\"3.2\", \"3.10\", \"3\")"
 
