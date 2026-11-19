@@ -600,7 +600,7 @@ id = "tac-rw-rule-place-lost"
 file = "src/front/tactics/rewrite.fs"
 old = ''': trw-placed ( code k -- ) over lf-author-throw = if trw-see else drop then throw ;'''
 new = ''': trw-placed ( code k -- ) drop throw ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_s2.py"
+test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "9.4.8l-I C3 rw: an error of MVarId.rewrite's own (215, 218) loses the rule's place, which Lean's message gives"
 
 [[fault]]

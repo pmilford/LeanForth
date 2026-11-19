@@ -215,6 +215,10 @@ T{ s" by-rw[ 0 ] end t" proof nrun err see@ -> outcome-invalid 220 1 43 1 50 }T
 T{ 7 lfa-see! 0 trw-see lfa-error lfa-err-see @ -> 7 }T
 ' open-eq chosen !
 T{ s" by-rw[ 0 ] end t" proof nrun err see@ -> outcome-unsupported 99 1 43 1 50 }T
+\ An error of MVarId.rewrite's own (lf-goal-rewrite's 218: p is no
+\ equation) gets the rule's place too.
+' p-term chosen !
+T{ s" by-rw[ 0 ] end t" proof nrun err see@ -> outcome-invalid 218 1 43 1 50 }T
 \ A goal type holding an open synthetic opaque metavariable (Lean compares
 \ with it assignable): 93 before isDefEq.
 : so-p ( -- type ) p-prop prop mv-opaque lf-mvar-new made ;
