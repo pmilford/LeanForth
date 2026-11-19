@@ -88,6 +88,7 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/u32.fs
+require ../lib/slab.fs
 require ../lib/sections.fs
 require ../lib/sort.fs
 require ../lib/blocks.fs
