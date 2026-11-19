@@ -5218,8 +5218,9 @@ reason = "6.2.0: a rebuild during a block's check leaves that block's constructo
 [[fault]]
 id = "forms-latex-underscore-unescaped"
 file = "src/present/statement-forms.fs"
-old = '''  case 32 of s" ~" true endof 10 of lf-sf-newline true endof'''
-new = '''  case 32 of s" ~" true endof 10 of lf-sf-newline true endof [char] _ of s" _" true endof'''
+old = '''  dup 10 = if drop lf-sf-newline true exit then lf-tex-text-form ;'''
+new = '''  dup 10 = if drop lf-sf-newline true exit then
+  dup [char] _ = if drop s" _" true exit then lf-tex-text-form ;'''
 test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
 reason = "the typewriter block leaves an underscore unescaped, so poly_identity breaks the LaTeX it is printed in"
 quick = true
@@ -6585,10 +6586,8 @@ reason = "5.2.3 strings: quick_is_def_eq leaves a string and a natural-number li
 [[fault]]
 id = "str-whnf-core-not-normal"
 file = "src/kernel/whnf.fs"
-old = '''lf-tag-lit lf-tag-str lf-tag-symbolic-sort
-7 lf-tags constant lf-whnf-normal-tags'''
-new = '''lf-tag-lit lf-tag-symbolic-sort
-6 lf-tags constant lf-whnf-normal-tags'''
+old = '''lf-tag-lit lf-tag-str lf-tag-symbolic-sort 7 lf-tags constant lf-whnf-normal-tags'''
+new = '''lf-tag-lit lf-tag-symbolic-sort 6 lf-tags constant lf-whnf-normal-tags'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "5.2.3 strings: whnf_core takes a string literal for malformed (invalid) instead of normal"
 
@@ -6734,10 +6733,9 @@ reason = "4.2.3: a let at the head of an application is not reduced first (whnf_
 [[fault]]
 id = "proj-leaf-normal"
 file = "src/kernel/whnf.fs"
-old = '''lf-tag-lit lf-tag-str lf-tag-symbolic-sort
-7 lf-tags constant lf-whnf-normal-tags'''
-new = '''lf-tag-lit lf-tag-str lf-tag-symbolic-sort lf-tag-proj
-8 lf-tags constant lf-whnf-normal-tags'''
+old = '''lf-tag-lit lf-tag-str lf-tag-symbolic-sort 7 lf-tags constant lf-whnf-normal-tags'''
+new = '''lf-tag-lit lf-tag-str lf-tag-symbolic-sort lf-tag-proj 8 lf-tags
+constant lf-whnf-normal-tags'''
 test = "$GFORTH tests/core/whnf.fs"
 reason = "5.2.2, S5: a projection leaf alone, malformed, is taken as a normal form instead of invalid (was let-leaf-head-normal: let leaves are gone)"
 

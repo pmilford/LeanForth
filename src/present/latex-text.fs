@@ -34,16 +34,17 @@ require ../lib/text-rule.fs
 \ in LaTeX's text mode (string literals, print-strings.fs; the statement
 \ forms, statement-forms.fs; review R10): _ # % & { } $ after a backslash,
 \ \ ^ ~ by name; false for any other character.
+\ The slashed characters, and their forms last first: the character that
+\ byte-scan finds with u bytes left of the table has its form at 2(u-1).
 : lf-tex-plain ( -- c-addr u ) s" _#%&{}$" ;
-: lf-tex-slashed ( i -- c-addr u ) 2* s" \_\#\%\&\{\}\$" drop + 2 ;
-: lf-tex-slash-index ( char -- i true | false )
-  >r lf-tex-plain tuck r> byte-scan nip dup if - true else 2drop false then ;
+: lf-tex-slashed ( u -- c-addr 2 ) 1- 2* s" \$\}\{\&\%\#\_" drop + 2 ;
+: lf-tex-left ( char c-addr u -- u' ) rot byte-scan nip ;
 : lf-tex-named ( char -- c-addr u true | false )
-  case [char] \ of s" \textbackslash{}" true endof
-    [char] ^ of s" \textasciicircum{}" true endof
-    [char] ~ of s" \textasciitilde{}" true endof >r false r> endcase ;
+  dup [char] \ = if drop s" \textbackslash{}" true exit then
+  dup [char] ^ = if drop s" \textasciicircum{}" true exit then
+  [char] ~ = if s" \textasciitilde{}" true else false then ;
 : lf-tex-text-form ( char -- c-addr u true | false )
-  dup lf-tex-slash-index if nip lf-tex-slashed true exit then lf-tex-named ;
+  dup lf-tex-plain lf-tex-left ?dup if nip lf-tex-slashed true exit then lf-tex-named ;
 \ A mode: its sink ( c-addr u -- ), its step for a one-byte character
 \ ( c-addr -- ) and its backslash ( -- c-addr u ).
 begin-structure /lf-tex-mode

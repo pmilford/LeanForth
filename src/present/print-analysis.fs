@@ -169,7 +169,8 @@ defer lf-pp-same-step ( a b frames -- ... frames next )
 : lf-pp-leaf= ( a b -- flag ) over lf-term-tag@ lf-pp-leaf-test execute ;
 : lf-pp-same-leaf ( a b frames -- outcome frames 0 )
   drop lf-pp-leaf= lf-pp-equal lf-pp-frames 0 ;
-lf-tag-fvar lf-tag-mvar lf-tag-lit lf-tag-str lf-tag-proj 5 lf-tags constant lf-pp-leaf-kinds
+lf-tag-fvar lf-tag-mvar lf-tag-lit lf-tag-str lf-tag-proj 5 lf-tags
+constant lf-pp-leaf-kinds
 lf-tag-projection lf-tag-let lf-tag-let-nondep 3 lf-tags constant lf-pp-pair-kinds
 : lf-pp-leaf-kind? ( tag -- flag ) lf-pp-leaf-kinds lf-tag-in? ;
 : lf-pp-pair-kind? ( tag -- flag ) lf-pp-pair-kinds lf-tag-in? ;

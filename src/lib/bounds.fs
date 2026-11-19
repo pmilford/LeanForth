@@ -3,8 +3,8 @@
 \ cell-counted records, laid down and read back. No state.
 \ Interface: between? upto? range-at in-ranges? cells-zero? cells= index?
 \ cells-index cells-has? cell-counted, cell-count cell-counted!
-\ cell-counted+! cell-counted-left cell-counted+?. Requires portability.fs, outcome.fs (any?, 2dup-under)
-\ and module.fs;
+\ cell-counted+! cell-counted-left cell-counted+?. Requires portability.fs,
+\ outcome.fs (any?, 2dup-under) and module.fs;
 \ helpers are private in lf-lib-private (ADR 0010).
 \ Example:
 \   create primes 2 , 3 , 5 , 7 ,   create odds 3 , 5 , 7 ,

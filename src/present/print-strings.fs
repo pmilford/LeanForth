@@ -27,7 +27,7 @@ require ../core/string-literals.fs
 \ Text in the current mode: in LaTeX a byte at a time, as latex-text.fs's
 \ lf-tex-text-form writes it; else as it is.
 : lf-pq-tex-byte ( c-addr -- )
-  dup c@ lf-tex-text-form if rot drop lf-pp-emit else 1 lf-pp-emit then ;
+  dup c@ lf-tex-text-form if lf-pp-emit drop else 1 lf-pp-emit then ;
 : lf-pq-out ( c-addr u -- )
   lf-pp-latex? 0= if lf-pp-emit exit then
   over + swap ?do i lf-pq-tex-byte loop ;

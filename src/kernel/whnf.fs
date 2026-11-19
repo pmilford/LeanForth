@@ -546,8 +546,8 @@ defer lf-wc-entry ( node frames -- ... frames next )
 : lf-wc-fvar ( node frames -- ... frames next )
   over lf-fvar-live? 0= if nip outcome-invalid swap lf-whnf-failed exit then
   over lf-fvar-let? if swap lf-fvar-value swap lf-wc-again else lf-whnf-keep then ;
-lf-tag-lam lf-tag-pi lf-tag-constant lf-tag-bvar lf-tag-lit lf-tag-str lf-tag-symbolic-sort
-7 lf-tags constant lf-whnf-normal-tags
+lf-tag-lam lf-tag-pi lf-tag-constant lf-tag-bvar
+lf-tag-lit lf-tag-str lf-tag-symbolic-sort 7 lf-tags constant lf-whnf-normal-tags
 : lf-whnf-normal? ( tag -- flag ) lf-whnf-normal-tags lf-tag-in? ;
 \ Any other leaf, a projection leaf alone among them (see the header),
 \ is malformed.

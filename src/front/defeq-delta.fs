@@ -165,7 +165,8 @@ defer lf-delta-unfolded ( e -- )   \ a trace's hook; nothing by default
 lf-tag-bvar lf-tag-fvar lf-tag-mvar lf-tag-sort lf-tag-symbolic-sort lf-tag-lit
   lf-tag-str 7 lf-tags constant dd-simple-tags   \ isSimple's leaves
 : dd-leaf? ( tag -- flag ) dd-simple-tags lf-tag-in? ;
-lf-tag-lam lf-tag-pi lf-tag-let lf-tag-let-nondep lf-tag-constant 5 lf-tags constant dd-false-tags
+lf-tag-lam lf-tag-pi lf-tag-let lf-tag-let-nondep lf-tag-constant 5 lf-tags
+constant dd-false-tags
 : dd-false? ( tag -- flag ) dd-false-tags lf-tag-in? ;
 : dd-other ( tag -- outcome )
   dup dd-leaf? if drop outcome-ok exit then

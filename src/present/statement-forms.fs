@@ -78,10 +78,10 @@ end-structure
 \ A blank and a line end in the typewriter block, else latex-text.fs's
 \ text-mode form (^ as \textasciicircum{} since review R10).
 : lf-sf-tex-form ( char -- c-addr u true | false )
-  case 32 of s" ~" true endof 10 of lf-sf-newline true endof
-    >r r@ lf-tex-text-form r> endcase ;
+  dup 32 = if drop s" ~" true exit then
+  dup 10 = if drop lf-sf-newline true exit then lf-tex-text-form ;
 : lf-sf-tex-byte ( c-addr -- )
-  dup c@ lf-sf-tex-form if rot drop lf-lv-out else 1 lf-lv-out then ;
+  dup c@ lf-sf-tex-form if lf-lv-out drop else 1 lf-lv-out then ;
 \ Text a character at a time: a character the text rule bans and a byte that
 \ starts no UTF-8 character are written as \textbackslash{}u\{X\} and
 \ \textbackslash{}x\{X\}, so that no name can end a line or reorder the text.

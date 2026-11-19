@@ -1388,7 +1388,7 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 3,
-  "shuffles": 3,
+  "shuffles": 4,
   "words": 14
  },
  "src/lib/bytes.fs": {
@@ -1652,7 +1652,7 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 53,
-  "shuffles": 3,
+  "shuffles": 4,
   "words": 41
  },
  "src/present/log-check.fs": {

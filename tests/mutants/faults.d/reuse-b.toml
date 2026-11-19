@@ -28,8 +28,8 @@ reason = "reuse-b A2: an IR line piece that does not fit is dropped silently ins
 [[fault]]
 id = "rb-tex-slashed-shifted"
 file = "src/present/latex-text.fs"
-old = '''  >r lf-tex-plain tuck r> byte-scan nip dup if - true else 2drop false then ;'''
-new = '''  >r lf-tex-plain tuck r> byte-scan nip dup if - 1 max true else 2drop false then ;'''
+old = ''': lf-tex-slashed ( u -- c-addr 2 ) 1- 2* s" \$\}\{\&\%\#\_" drop + 2 ;'''
+new = ''': lf-tex-slashed ( u -- c-addr 2 ) 2* s" \$\}\{\&\%\#\_" drop + 2 ;'''
 test = "$GFORTH tests/present/term-printer.fs"
 reason = "reuse-b A5 (review R10): an underscore in LaTeX text is written as \\# , the next special's form"
 

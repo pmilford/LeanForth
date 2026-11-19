@@ -873,7 +873,8 @@ create cli-info /cli-info allot
 : cli-iw ( -- writer ) cli-info cli-info-writer ;
 1 0 cli-iw jw-init 0= [if] .( leanforth.fs: the information writer) cr abort [then]
 cli-info-room cli-iw jw-limit !
-: cli-info-sink ( c-addr u -- ) cli-info cli-info-count cli-info-room cell-counted+? drop ;
+: cli-info-sink ( c-addr u -- )
+  cli-info cli-info-count cli-info-room cell-counted+? drop ;
 : cli-info-plain? ( c-addr u -- flag ) dup 1 129 within >r cli-plain? r> and ;
 : cli-info-text ( c-addr u -- )
   2dup cli-info-plain? if cli-iw jw-string else 2drop cli-iw jw-null then ;
@@ -1729,9 +1730,11 @@ begin-structure /cli-entry
   field: cli-entry-first        \ an option's bit; a command's number of file names
   field: cli-entry-second       \ a command's options, as bits; 0 for an option
 end-structure
-: cli-entry, ( xt first second table "name" -- ) parse-name rot name-entry rot , swap , , ;
+: cli-entry, ( xt first second table "name" -- )
+  parse-name rot name-entry rot , swap , , ;
 \ The record of the entry named c-addr u, or 0.
-: cli-entry-find ( c-addr u table -- entry | 0 ) name-table-find dup if name-entry-data then ;
+: cli-entry-find ( c-addr u table -- entry | 0 )
+  name-table-find dup if name-entry-data then ;
 
 \ The options, as bits of the set a command takes. Each option's word
 \ ( c-addr u -- ) is given the option's own text, and reads its value.
