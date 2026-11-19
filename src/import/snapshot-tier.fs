@@ -105,7 +105,6 @@ create tier-units 4 , 1 , 16 , 16 , 4 , 1 , 8 , 16 , /staged , 4 ,
 create tier-slab-xts ' tf-name-bytes , ' tf-names , ' tf-levels , ' tf-tuples ,
   ' tf-text-bytes , ' tf-texts , ' tf-exprs , ' stage-decl-records , ' stage-lines ,
 : tier-slab ( i stage -- slab ) swap 1- cells tier-slab-xts + @ execute ;
-: tf-slab-data ( slab -- addr n ) 0 over slab-at swap slab-count ;
 \ A family's set from its records slab (the table comes first in a set).
 : records>cons ( slab -- cons ) 0 cons-records - ;
 \ The section's name, for a refusal.

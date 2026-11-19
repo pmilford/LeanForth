@@ -81,6 +81,8 @@ def assemble(lines, **head):
     head's members replacing the header's."""
     body = "".join(r + "\n" for r in lines)
     counts = dict.fromkeys(KINDS, 0)
+    if head.get("format_version") != "3.2":
+        del counts["binder_kinds"]   # formats 3 and 3.1 have no such kind
     for line in lines:
         try:
             kind = next(iter(json.loads(line)))
@@ -166,10 +168,24 @@ def format31_text():
     return assemble(format31_records(), format_version="3.1")
 
 
+# Format 3.2 (plan FE1c-bk): binder kinds of two declarations of the
+# slice: Nat.add's first binder implicit, and the first field of Nat.rec's
+# minor premise succ (the reader takes any kinds whose numbers
+# fit the export's type; the finisher writes only those that differ).
+BK_ADD = '{"binder_kinds":{"kinds":["1","0"],"name":["Nat","add"]}}'
+BK_REC = '{"binder_kinds":{"kinds":["10","0","010","0"],"name":["Nat","rec"]}}'
+FORMAT32 = ROOT / "tests/front/format32.elab.ndjson"
+
+
+def format32_text():
+    """The format-3.2 fixture: the slice's data with BK_ADD and BK_REC."""
+    return assemble(GOOD_RECORDS + [BK_ADD, BK_REC], format_version="3.2")
+
+
 # The fixtures this file writes (--write-fixtures) and checks.
 FIXTURES = {ELIMINATORS: eliminators_text,
             ROOT / "tests/front/cut-off.elab.ndjson": cut_off_text,
-            FORMAT31: format31_text}
+            FORMAT31: format31_text, FORMAT32: format32_text}
 
 
 def first(needle, records=None):
@@ -236,6 +252,34 @@ def raw_inert_body(hole=None):
     return first(SUN).replace(SUN_END, "," + ",".join(nodes + [INERT_NODES[3]]) + SUN_END)
 
 
+def binder_finisher_cases(run, out):
+    """Format 3.2 (plan FE1c-bk): binder kinds equal to the export's are left
+    out, the data byte for byte as without them; others are kept, format
+    3.2, and leanforth check reads them; other numbers of binders, or a
+    malformed text, are refused."""
+    rec_same = BK_REC.replace('"010"', '"000"')
+    run([RAW_HEAD, first(SUN)])
+    plain = out.read_bytes() if out.exists() else b""
+    done = run([RAW_HEAD, first(SUN), BK_ADD.replace('"1"', '"0"'), rec_same])
+    if (done.returncode != 0 or out.read_bytes() != plain
+            or "2 binder_kinds as the export's, left out" not in done.stdout):
+        fail(f"finisher: binder kinds as the export's not left out: {done.stdout} {done.stderr}")
+    done = run([RAW_HEAD, first(SUN), BK_ADD, BK_REC])
+    lines = out.read_text().split("\n") if out.exists() else [""]
+    head = json.loads(lines[0])["elab_data"] if lines[0] else {}
+    if (done.returncode != 0 or head.get("format_version") != "3.2"
+            or head["records"].get("binder_kinds") != 2 or lines[2:4] != [BK_ADD, BK_REC]):
+        fail(f"finisher: binder kinds that differ not kept as 3.2: {done.stdout} {lines[:4]}")
+    status, said = check(out)
+    if status != 0:
+        fail(f"the finisher's format-3.2 data refused: {status} {said[-300:]}")
+    for bad in (BK_ADD.replace('["1","0"]', '["1"]'), BK_REC.replace('"010"', '"01"'),
+                BK_ADD.replace('"1"', '"4"'), BK_ADD.replace('["1","0"]', '[]')):
+        done = run([RAW_HEAD, bad])
+        if done.returncode != 1 or out.exists():
+            fail(f"finisher: binder kinds {bad} not refused: {done.returncode}")
+
+
 def finisher_cases(work):
     outside = '{"reducibility":{"name":["Nat","noSuchName"],"status":"reducible"}}'
     raw_ok = [RAW_HEAD,
@@ -259,9 +303,11 @@ def finisher_cases(work):
         return subprocess.run([sys.executable, str(ROOT / "scripts/export_elab.py"), str(raw),
                                str(export), str(out)], capture_output=True, text=True,
                               timeout=LIMIT)
+    binder_finisher_cases(run, out)
     done = run(raw_ok)
     want = ("left out (not declarations of the export): 1 class, 1 instance, 0 default_instance, "
-            "1 reducibility, 0 eliminator, 0 tag, 0 matcher, 0 projection, 1 sunfold; "
+            "1 reducibility, 0 eliminator, 0 tag, 0 matcher, 0 projection, 1 sunfold, "
+            "0 binder_kinds; "
             "0 sunfold bodies naming what the export lacks")
     if done.returncode != 0 or want not in done.stdout:
         fail(f"finisher on a good RAW: {done.returncode} {done.stdout} {done.stderr}")
@@ -398,7 +444,7 @@ ERRORS = ["file missing or unreadable", "no line, or a line without its line fee
           "a default instance's rank beyond 65535", "a smart-unfolding body named twice",
           "an index to no earlier entry", "a loose bound variable",
           "universe parameters other than the definition's",
-          "an annotation this reader does not know"]
+          "an annotation this reader does not know", "binder kinds named twice"]
 
 
 def refusal(line, reason):
@@ -889,8 +935,11 @@ def format31_cases():
              2, "an annotation this reader"),
         case("inert node of Lean's noindex", v31(save, save.replace("save_info", "noindex")), 2,
              "an annotation this reader"),
-        case("inert key a name", v31(save, save.replace('"save_info"', '["save_info"]')), 2,
-             "an annotation this reader"),
+        # A key that is no text is malformed, not an unknown key (review L3 of MF1).
+        case("inert key a name", v31(save, save.replace('"save_info"', '["save_info"]')), 4,
+             "malformed"),
+        case("inert key a number", v31(save, save.replace('"save_info"', '7')), 4, "malformed"),
+        case("inert key null", v31(save, save.replace('"save_info"', 'null')), 4, "malformed"),
         case("inert node without its term", v31(save, '{"inert":{"key":"save_info"}}'), 4,
              "malformed"),
         case("inert node with another member", v31(save, save.replace("}}", ',"x":1}}')), 4,
@@ -914,7 +963,7 @@ def format31_cases():
          2, 1, "another format version"),
         ("format version 3 as a text", assemble(GOOD_RECORDS, format_version="3"), 2, 1,
          "another format version"),
-        ("format version 3.2", assemble(GOOD_RECORDS, format_version="3.2"), 2, 1,
+        ("format version 3.3", assemble(GOOD_RECORDS, format_version="3.3"), 2, 1,
          "another format version"),
         ("format version 3.10", assemble(GOOD_RECORDS, format_version="3.10"), 2, 1,
          "another format version"),
@@ -922,6 +971,55 @@ def format31_cases():
          "another format version"),
         ("format version 31", assemble(GOOD_RECORDS, format_version=31), 2, 1,
          "another format version"),
+    ]
+
+
+def format32_cases():
+    """Damaged files of format 3.2 (plan FE1c-bk): binder kinds malformed,
+    named twice, not fitting the export's type, in a file of another
+    version, and headers that count them wrongly."""
+    records = GOOD_RECORDS + [BK_ADD, BK_REC]
+    add_line = len(GOOD_RECORDS) + 2
+
+    def v32(new, old=BK_ADD):
+        return assemble([new if r == old else r for r in records], format_version="3.2"), add_line
+
+    def kinds(*texts):
+        return v32(BK_ADD.replace('["1","0"]', text(list(texts))))
+    head32 = json.loads(format32_text().split("\n", 1)[0])["elab_data"]
+    no_count = dict(head32["records"])
+    del no_count["binder_kinds"]
+    return [
+        case("binder kinds in a format-3.1 file",
+             (assemble(records, format_version="3.1"), add_line), 4, "unknown record kind"),
+        case("binder kinds in a format-3 file", (assemble(records), add_line), 4,
+             "unknown record kind"),
+        case("binder kinds of a digit 4", kinds("4", "0"), 4, "malformed"),
+        case("binder kinds of a letter", kinds("i", "0"), 4, "malformed"),
+        case("binder kinds with an empty text", kinds("", "0"), 4, "malformed"),
+        case("binder kinds of a number", v32(BK_ADD.replace('"1","0"', '1,0')), 4, "malformed"),
+        case("binder kinds not a list", v32(BK_ADD.replace('["1","0"]', '"10"')), 4, "malformed"),
+        case("binder kinds with another member", v32(BK_ADD.replace("]}}", '],"x":1}}')), 4,
+             "malformed"),
+        case("binder kinds without a name", v32('{"binder_kinds":{"kinds":["1","0"]}}'), 4,
+             "malformed"),
+        case("binder kinds of no declaration", v32(BK_ADD.replace('"add"', '"noSuch"')), 4,
+             "unknown name"),
+        case("binder kinds for fewer binders", kinds("1"), 4, "numbers that do not fit"),
+        case("binder kinds for more binders", kinds("1", "0", "0"), 4, "numbers that do not fit"),
+        case("binder kinds none", kinds(), 4, "numbers that do not fit"),
+        case("binder kinds of a domain the type lacks", kinds("10", "0"), 4,
+             "numbers that do not fit"),
+        ("binder kinds missing a domain's binder",
+         v32(BK_REC.replace('"010"', '"01"'), BK_REC)[0], 4, add_line + 1,
+         "numbers that do not fit"),
+        ("binder kinds named twice", v32(BK_ADD + "\n" + BK_ADD.replace('"1"', '"0"'))[0], 4,
+         add_line + 1, "binder kinds named twice"),
+        ("a 3.2 header without the binder kinds' count",
+         assemble(records, format_version="3.2", records=no_count), 4, 1, "malformed"),
+        ("a 3.1 header with the binder kinds' count",
+         assemble(GOOD_RECORDS, format_version="3.1", records=dict(no_count, binder_kinds=0)),
+         4, 1, "malformed"),
     ]
 
 
@@ -1016,6 +1114,19 @@ def command_line(work):
     status, out = check(work / "plain31.ndjson")
     if status != 0 or COUNTS not in out:
         fail(f"format 3.1 without an inert node: exit {status}: {out[-300:]}")
+    # Format 3.2 holds format 3.1's records too (review data-bk L2; fault
+    # fe-bk-v32-not-v31): inert nodes and binder kinds in one file, read.
+    (work / "both32.ndjson").write_text(
+        assemble(format31_records() + [BK_ADD, BK_REC], format_version="3.2"))
+    status, out = check(work / "both32.ndjson")
+    if status != 0 or "3 default instances" not in out or "1 smart-unfolding bodies" not in out:
+        fail(f"format 3.2 with inert nodes and binder kinds: exit {status}: {out[-300:]}")
+    # A 3.2 label with no binder_kinds record (the writer never makes one): read as
+    # the same records labelled 3.1 are (review data-bk L4, ELABORATION_DATA.md).
+    (work / "plain32.ndjson").write_text(assemble(GOOD_RECORDS, format_version="3.2"))
+    status, out = check(work / "plain32.ndjson")
+    if status != 0 or COUNTS not in out:
+        fail(f"format 3.2 without a binder_kinds record: exit {status}: {out[-300:]}")
     snapshot = work / "slice.lfsnap"
     made = subprocess.run([str(LEANFORTH), "check", "--save-snapshot", str(snapshot), str(SLICE)],
                           stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=LIMIT)
@@ -1045,7 +1156,7 @@ def command_line(work):
                               capture_output=True, text=True, timeout=LIMIT)
         if done.returncode != 4 or message not in done.stdout:
             fail(f"misuse {args}: exit {done.returncode}: {done.stdout}")
-    cases = format1_cases() + format2_cases() + format3_cases() + format31_cases()
+    cases = format1_cases() + format2_cases() + format3_cases() + format31_cases() + format32_cases()
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         for problem in pool.map(lambda c: run_case(work, c), cases):
             if problem:
@@ -1096,7 +1207,7 @@ def bound_cases(work):
 def schema_cases():
     validator = Validator(load_strict((ROOT / "schemas/elab-data-3.schema.json").read_text()))
     lines = (GOOD.read_text().splitlines() + ELIMINATORS.read_text().splitlines()
-             + FORMAT31.read_text().splitlines())
+             + FORMAT31.read_text().splitlines() + FORMAT32.read_text().splitlines())
     for line in lines:
         for error in validator.errors(load_strict(line)):
             fail(f"schema refuses a line of a fixture: {error}: {line[:80]}")
@@ -1132,18 +1243,40 @@ def schema_cases():
               sun31.replace('"key":"save_info"', '"key":["save_info"]'),
               sun31.replace('{"expr":0,"key":"save_info"}', '{"key":"save_info"}'),
               sun31.replace('"key":"save_info"', '"key":"save_info","x":1'),
-              lines[0].replace('"format_version":3', '"format_version":"3.2"'),
+              lines[0].replace('"format_version":3', '"format_version":"3.3"'),
               lines[0].replace('"format_version":3', '"format_version":"3"')]
+    wrong += [BK_ADD.replace('"1"', '"4"'), BK_ADD.replace('"1"', '""'),
+              BK_ADD.replace('["1","0"]', '[]'), BK_ADD.replace('"1","0"', '1,0'),
+              BK_ADD.replace("]}}", '],"x":1}}'), '{"binder_kinds":{"kinds":["1","0"]}}']
     for line in wrong:
         if not validator.errors(load_strict(line)):
             fail(f"schema accepts {line[:80]}")
     print(f"schema: {len(lines)} fixture lines valid, {len(wrong)} wrong lines invalid")
 
 
+HINTS = ROOT / "tests/front/unif-hints-mathlib.golden"
+
+
+def unif_hints():
+    """Mathlib's unification hints (MATHLIB_FRONT.md O7): pinned Lean's list
+    (tests/front/unif-hints.lean on pinned Mathlib) holds Init's one and
+    Mathlib's 27, and each is keyed at a definition or a projection, the
+    heads at which src/front/defeq.fs (de-hint-key?) answers unsupported."""
+    rows = HINTS.read_text().splitlines()
+    if rows[-1] != "28 hints, 26 not keyed at a definition" or len(rows) != 29:
+        fail(f"{HINTS.name}: not pinned Lean's 28 hints: {rows[-1]}")
+    for row in rows[:-1]:
+        name, *key = row.split(" ")
+        if not (row.endswith(" definition") or key[0] == "Lean.Meta.DiscrTree.Key.proj"):
+            fail(f"unification hint {name} keyed where LeanForth would answer false: {row}")
+    print(f"unification hints: {len(rows) - 1}, each keyed at a definition or a projection")
+
+
 def main():
     for path, made in FIXTURES.items():
         if path.read_text() != made():
             fail(f"{path} is not what {made.__name__}() writes")
+    unif_hints()
     schema_cases()
     errors_documented()
     with tempfile.TemporaryDirectory() as work:

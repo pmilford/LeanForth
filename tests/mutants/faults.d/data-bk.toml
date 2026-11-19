@@ -1,0 +1,147 @@
+# Planted faults of branch data-bk: MF1's last items (unification hints keyed at a
+# projection, an inert key that is no text) and plan FE1c-bk (Lean's binder kinds in
+# the elaboration data). Read with tests/mutants/faults.toml as one list.
+
+[[fault]]
+id = "fe-hint-proj-key"
+file = "src/front/defeq.fs"
+old = '''  dup de-head-defn? if drop true else lf-meta-head lf-proj? then ;'''
+new = '''  de-head-defn? ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "MF1 O7: a failure with a projection node at the head is taken to match no unification hint, where 26 of Mathlib's 27 hints are keyed at one (Lean's .proj key)"
+
+[[fault]]
+id = "fe-ed31-inert-key-type"
+file = "src/front/elab-data.fs"
+old = '''  c" key" ed-member dup ed-string? 0= if drop 0 ed-malformed exit then'''
+new = '''  c" key" ed-member'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "MF1 review L3: an inert node whose key is no JSON text answers error 45 (unsupported) where it is malformed (error 10)"
+
+[[fault]]
+id = "fe-bk-any-version"
+file = "src/front/elab-data.fs"
+old = '''  ed-v32? 0= if drop ed-e-kind ed-bad exit then'''
+new = ''''''
+test = "python3 tests/front/test_elab_data.py"
+reason = "FE1c-bk: a binder_kinds record is read in a format-3 or 3.1 file, whose readers have no such kind (error 11)"
+
+[[fault]]
+id = "fe-bk-fit-skipped"
+file = "src/front/elab-data.fs"
+old = '''  2dup ed-lead-fits? if ed-doms-fit? else 2drop false then ed-e-unfit ed-or-bad ;'''
+new = '''  2drop outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "FE1c-bk: binder kinds for other numbers of binders than the export's type has are read (error 37), so a kind would stand for another binder"
+
+[[fault]]
+id = "fe-bk-domains-unchecked"
+file = "src/front/elab-data.fs"
+old = '''  2dup ed-lead-fits? if ed-doms-fit? else 2drop false then ed-e-unfit ed-or-bad ;'''
+new = '''  2dup ed-lead-fits? if 2drop true else 2drop false then ed-e-unfit ed-or-bad ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "FE1c-bk: a binder's domain kinds are not checked against the export's domain (error 37)"
+
+[[fault]]
+id = "fe-bk-digit-any"
+file = "src/front/elab-data.fs"
+old = ''': ed-not-kind? ( char -- flag ) [char] 0 - 4 u< 0= ;'''
+new = ''': ed-not-kind? ( char -- flag ) [char] 0 - 10 u< 0= ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "FE1c-bk: a kind digit beyond 3, no BinderInfo of Lean's, is read as a kind (malformed, error 10)"
+
+[[fault]]
+id = "fe-bk-v3-header"
+file = "src/front/elab-data.fs"
+old = '''  ed-v32? if ed-kind-names elab-kinds else ed-v3-kinds elab-binders then ;'''
+new = '''  ed-kind-names elab-kinds ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "FE1c-bk: a format-3 or 3.1 header is asked for a binder_kinds count it has not, so every existing data file is refused"
+
+[[fault]]
+id = "fe-bk-finisher-keeps-all"
+file = "scripts/export_elab.py"
+old = '''            keep += [(kind, body)] if differs else []'''
+new = '''            keep += [(kind, body)]'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "FE1c-bk: binder kinds equal to the export's are written, so data whose export holds Lean's kinds is no longer byte for byte format 3"
+
+[[fault]]
+id = "fe-bk-finisher-shape"
+file = "scripts/export_elab.py"
+old = '''    if [len(t) for t in have] != [len(t) for t in want]:'''
+new = '''    if len(have) != len(want):'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "FE1c-bk: the finisher writes binder kinds whose domains have other numbers of binders than the export's"
+
+[[fault]]
+id = "fe-bk-menv-ignored"
+file = "src/front/meta-env.fs"
+old = '''  dup me-kinds lf-libdec-kinds drop me-run-data? if me-data-kinds else drop then ;'''
+new = '''  me-kinds lf-libdec-kinds drop ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "FE1c-bk: a library declaration's binder kinds are the export's even where the data has Lean's own, so BK.expl's n reads implicit"
+
+[[fault]]
+id = "fe-bk-menv-domain-ignored"
+file = "src/front/meta-env.fs"
+old = '''  me-run-data? if me-data-domain else 2drop then ;'''
+new = '''  2drop ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "FE1c-bk: a binder's domain kinds (the induction tactic's fields) are the export's even where the data has Lean's own"
+
+[[fault]]
+id = "fe-bk-arity-ignored"
+file = "src/cli/check-lf.fs"
+old = '''  elab-binder-kinds-of if nip elab-binder-kinds lfc-zeros then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "FE1c-bk: the natural reader counts a name's explicit arguments from the export's kinds even where the data has Lean's own, so Nat.lt_one_iff takes a value from the stack"
+
+[[fault]]
+id = "fe-bk-arity-zeros"
+file = "src/cli/check-lf.fs"
+old = ''': lfc-zeros ( addr n -- k ) 0 swap 0 ?do over i cells + @ 0= - loop nip ;'''
+new = ''': lfc-zeros ( addr n -- k ) nip ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "FE1c-bk: every binder of a record is counted explicit, implicit and instance ones too"
+
+[[fault]]
+id = "fe-bk-fed-kinds"
+file = "src/front/meta-env.fs"
+old = ''': me-fed-data-kinds ( d' -- ) me-data? if me-data-kinds else drop then ;'''
+new = ''': me-fed-data-kinds ( d' -- ) drop ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c-bk review M1: in the fed mode a declaration's binder kinds are the export's even where the data has Lean's own, so Nat.eq_or_lt_of_le's m reads explicit"
+
+[[fault]]
+id = "fe-bk-fed-domain"
+file = "src/front/meta-env.fs"
+old = ''': me-fed-data-domain ( k d' -- ) me-data? if me-data-domain else 2drop then ;'''
+new = ''': me-fed-data-domain ( k d' -- ) 2drop ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c-bk review M1: in the fed mode a binder's domain kinds are the export's even where the data has Lean's own, so a matcher's motive reads an implicit binder"
+
+[[fault]]
+id = "fe-bk-fed-no-data"
+file = "src/front/meta-env.fs"
+old = ''': me-fed-data-kinds ( d' -- ) me-data? if me-data-kinds else drop then ;'''
+new = ''': me-fed-data-kinds ( d' -- ) me-data-kinds ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c-bk review M1: the fed mode reads binder_kinds records of data not read against its stage (a refused read, another stage's numbering)"
+
+[[fault]]
+id = "fe-bk-arity-nonzero"
+file = "src/cli/check-lf.fs"
+old = ''': lfc-zeros ( addr n -- k ) 0 swap 0 ?do over i cells + @ 0= - loop nip ;'''
+new = ''': lfc-zeros ( addr n -- k ) 0 swap 0 ?do over i cells + @ 0<> - loop nip ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "FE1c-bk review L1: the natural reader counts a record's implicit and instance binders as its explicit arguments, so Nat.rec (kinds 1 0 0 0) takes one value, not three"
+
+[[fault]]
+id = "fe-bk-v32-not-v31"
+file = "src/front/elab-data.fs"
+old = '''  dup ed-head-v32 swap s" 3.1" ed-text= or dup elab elab-v31 ! ;'''
+new = '''  dup ed-head-v32 swap s" 3.1" ed-text= dup elab elab-v31 ! or ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "FE1c-bk review L2: a format-3.2 file is read without format 3.1's records, so an inert node (Mathlib's data holds them) is malformed"

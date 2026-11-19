@@ -242,11 +242,16 @@ end-structure
 create lf-term-input-codes head-tag-mask 1+ 2* cells allot
 lf-term-input-codes head-tag-mask 1+ 2* cells erase
 : lf-tin-entry ( tag parity -- addr ) swap 2* + cells lf-term-input-codes + ;
-: lf-term-input-tag! ( code tag -- ) 1 lf-tin-entry ! ;
-: lf-term-input-twin! ( code tag -- ) 0 lf-tin-entry ! ;
+\ The tag tables here are read by every context's checks, in any task:
+\ written only while loading, they abort once a context was made
+\ (lib/context.fs's context-sealed?), as context members do.
+: lf-term-tags-open ( -- )
+  context-sealed? abort" terms: tag table written after context-new" ;
+: lf-term-input-tag! ( code tag -- ) lf-term-tags-open 1 lf-tin-entry ! ;
+: lf-term-input-twin! ( code tag -- ) lf-term-tags-open 0 lf-tin-entry ! ;
 \ The checker's tags whose input nodes are in the leaf table, a bit each.
 variable lf-tin-leaf-tags   0 lf-tin-leaf-tags !
-: lf-tin-leaf-tags+ ( lftag -- ) lf-tin-leaf-tags lf-tag-set+ ;
+: lf-tin-leaf-tags+ ( lftag -- ) lf-term-tags-open lf-tin-leaf-tags lf-tag-set+ ;
 : lf-term-input-leaf-tag ( lftag tag -- )
   over lf-tin-leaf-tags+ >r lf-tin-leaf-bit or r> lf-term-input-tag! ;
 \ The same for what a record of tag carries, read in mode.
@@ -544,7 +549,7 @@ defer lf-term-leaf-data ( tag first second -- data )
 \ Tags whose leaves are never shared, a bit each; set while loading.
 variable lf-term-unshared-tags   0 lf-term-unshared-tags !
 : lf-term-tag-bit ( tag -- mask ) lf-tag-bit ;
-: lf-term-unshare ( tag -- ) lf-term-unshared-tags lf-tag-set+ ;
+: lf-term-unshare ( tag -- ) lf-term-tags-open lf-term-unshared-tags lf-tag-set+ ;
 : lf-term-shared-tag? ( tag -- flag ) lf-term-tag-bit lf-term-unshared-tags @ and 0= ;
 \ The switch: sharing is on in a new context.
 : lf-term-sharing? ( -- flag ) lf-term-share-off @ 0= ;

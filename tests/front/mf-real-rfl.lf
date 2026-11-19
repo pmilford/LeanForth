@@ -1,0 +1,11 @@
+\ The first statement about real numbers written in LeanForth (plan MF1;
+\ docs/design/MATHLIB_FRONT.md, the measurements' run 14): x + 0 = x + 0 by rfl.
+\ Lean: theorem real_refl (x : ℝ) : x + 0 = x + 0 := by rfl
+\ Accepted on the Mathlib slice (tests/front/check_mathlib_slice.py), with the
+\ axioms Lean reports for it: propext, Classical.choice, Quot.sound.
+theorem real_refl
+  Real explicit: x
+  x 0 + x 0 + =
+:= by
+  by-rfl
+end real_refl

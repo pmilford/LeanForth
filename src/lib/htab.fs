@@ -51,7 +51,7 @@
 \ htab-free htab-limit htab-find htab-ready htab-put htab-remove htab-holds? htab-clear
 \ htab-small-slots htab-small? htab-renew htab-presize
 \ htab-spread htab-freeze htab-frozen? htab-live?
-\ htab-count htab-slots htab-stats. State: none of its own; every word
+\ htab-count htab-slots htab-base htab-stats. State: none of its own; every word
 \ takes a table record, which owns its slot block until htab-free. Its
 \ memory is host-specific and never written to a file. Loads in decimal
 \ whatever BASE is, then restores it.
@@ -96,6 +96,9 @@ cell-bits 3 - 32 min constant htab-log2-max
 lf-lib set-current
 : htab-count ( htab -- n ) htab-entries @ ;
 : htab-slots ( htab -- n ) htab-mask @ 1+ ;
+\ The slots' block, or 0: a new one after any growth, htab-spread or
+\ htab-renew (a reader of the slots in place, such as another task, watches it).
+: htab-base ( htab -- addr ) htab-block @ ;
 \ Finds, occupied slots compared by them, and doublings so far (a frozen
 \ table counts nothing).
 : htab-stats ( htab -- finds compared grows )

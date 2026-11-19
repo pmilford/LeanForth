@@ -27,6 +27,12 @@ module where a library belongs, or a library with no caller is a blocking
 finding that names the word or library to use and every copy it replaces; it
 is fixed before the merge or cites a plan row, never left as a note. Every
 report has a Reuse section saying what was searched, even when nothing is found.
+Re-entrancy (owner, 2026-11-18; FORTH_REVIEWER.md step 4a, plan 9.4.8p): no new
+module-level mutable state. A plain VARIABLE or VALUE, or a CREATEd table
+written after loading, is a blocking finding unless it is written only before
+the first context-new and sealed (it aborts once context-sealed? is true);
+state a check or a run changes lives in a context record (lib/context.fs,
+ADR 0009). Name each new global and who writes it when.
 Trace all success and failure paths, resources, overflow, bounds, stale handles,
 rollback, input aliasing, reentrancy and stack prefixes where relevant. Check
 Forth-2012 portability and isolate any Gforth dependencies. Verify tests cover

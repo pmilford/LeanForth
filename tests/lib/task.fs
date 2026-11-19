@@ -163,6 +163,16 @@ T{ ' leaves effect-ior ' eats effect-ior ' swaps effect-ior -> task-unbalanced d
 T{ victim-intact? -> true }T
 T{ submit-all wait-all wrong-count free-all -> 0 0 0 0 }T
 
+\ task+! (re-entrancy audit L1): jobs on every worker each add 1 to one
+\ cell 100,000 times, and no addition is lost.
+variable tally
+: adds ( -- ) 100000 0 do 1 tally task+! loop ;
+: adders ( -- ctx job ... ) task-cores 0 ?do
+  context-new throw dup ['] adds job-submit throw loop ;
+: adders-done ( ctx job ... -- ) task-cores 0 ?do job-wait throw context-free throw loop ;
+T{ 0 tally ! adders adders-done tally @ -> task-cores 100000 * }T
+T{ 5 tally ! -2 tally task+! tally @ -> 3 }T
+
 \ Refusals: an address that is not a context, the main context, the
 \ caller's current context; nothing is claimed, so each can be freed.
 create not-a-context 4 cells allot  not-a-context 4 cells erase

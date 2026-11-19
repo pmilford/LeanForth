@@ -88,6 +88,7 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/u32.fs
+require ../lib/slab.fs
 require ../lib/sections.fs
 require ../lib/sort.fs
 require ../lib/blocks.fs
@@ -459,12 +460,12 @@ create snap-outers /outers allot  snap-outers /outers erase
   /quad +loop drop ;
 : names-joined ( snap stage -- outcome )
   /quad snap-outers outers-unit ! over snap-tf 2 swap tf-data
-  canon tier-names cons-records tf-slab-data join-units ok-then2? 0= if nip nip exit then
+  canon tier-names cons-records slab-data join-units ok-then2? 0= if nip nip exit then
   over snap-outers outers-names ! 2dup canon-part 4 pick stage-bytes# offsets-moved
   2 4 pick snap-tf tier-joined! 2drop outcome-ok ;
 : bytes-joined ( snap -- outcome )
   1 snap-outers outers-unit ! dup snap-tf 1 swap tf-data
-  canon tier-names cons-bytes tf-slab-data join-units ok-then2? 0= if nip exit then
+  canon tier-names cons-bytes slab-data join-units ok-then2? 0= if nip exit then
   over snap-outers outers-bytes ! 1 3 pick snap-tf tier-joined! drop outcome-ok ;
 : outers-joined ( snap stage -- outcome )
   canon 0= if 2drop outcome-ok exit then canon# 0= if 2drop outcome-ok exit then

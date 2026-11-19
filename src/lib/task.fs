@@ -87,7 +87,7 @@
 \
 \ Interface (public, in lf-lib): job-submit job-wait job-wait-any
 \ pool-start pool-stop pool-workers! pool-size pool-running?
-\ workers-running job-stacks-cover? spawn-limit! task-yield; the settings
+\ workers-running job-stacks-cover? spawn-limit! task-yield task+!; the settings
 \ task-data-cells task-return-cells task-slack-cells task-guard-cells
 \ task-queue-jobs task-cores task-workers; the host, task-host, one of
 \ task-serial task-cooperative task-threads; and the THROW codes
@@ -156,7 +156,12 @@ lf-lib-private set-current
   cpu-number 2dup cpu-dash? if cpu-range else rot drop 1 -rot then cpu-skip ;
 : cpu-count ( c-addr u -- n ) 0 -rot begin dup 0> while cpu-item 2>r + 2r> repeat 2drop ;
 lf-lib set-current
-cpu-read cpu-count 1 max constant task-cores
+\ Test builds only: a program that defines task-cores-test ( -- n ) before
+\ this file loads gets n cores instead, so that a test can run more
+\ workers than the machine has (tests/cli/test_parallel_stress.py, which
+\ starts Gforth itself); bin/leanforth defines no such word.
+[defined] task-cores-test [if] task-cores-test 1 max
+[else] cpu-read cpu-count 1 max [then] constant task-cores
 \ Workers the pool starts: every core unless changed with TO while the
 \ pool is stopped; kept between 1 and task-cores.
 task-cores value task-workers
@@ -287,6 +292,18 @@ lf-lib-private set-current
 : task-self ( -- task ) 0 ;
 : stacks-ior ( task -- ior ) drop 0 ;
 [then] [then]
+lf-lib set-current
+\ Add n to the cell at addr so that no other task's addition is lost: an
+\ atomic add with threads (Gforth 1.0's atomic+!@, a locked xadd; its
+\ +!@ is not atomic: 40% of the additions of tests/lib/task.fs were lost),
+\ a plain +! where one task runs at a time (a counter every check adds
+\ to, such as kernel/environment.fs's test-build lf-i2-misses).
+task-host task-threads = [if]
+: task+! ( n addr -- ) atomic+!@ drop ;
+[else]
+: task+! ( n addr -- ) +! ;
+[then]
+lf-lib-private set-current
 task-host task-threads <> [if]
 \ One task runs at a time: no lock is needed, and waiting is yielding.
 : pool-lock ( -- ) ;

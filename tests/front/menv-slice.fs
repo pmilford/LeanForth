@@ -3,8 +3,9 @@
 \ pinned Lean's Init export (scripts/export-slice.py: Nat.add, HAdd.hAdd,
 \ instHAdd, id, Nat.div, Nat.zero_add, Quot.lift, Eq.ndrec, ... and their
 \ closure), staged with its manifest, its elaboration data
-\ (tests/front/whnf-slice.elab.ndjson, scripts/export-elab.sh: format 3,
-\ with the smart-unfolding bodies of the slice's definitions) read
+\ (tests/front/whnf-slice.elab.ndjson, scripts/export-elab.sh: format 3.2,
+\ with the smart-unfolding bodies of the slice's definitions and seven
+\ binder_kinds records) read
 \ against the stage, sealed and fed to this context. menv-load does it
 \ all and names the stage to meta-env.fs; menv-name ( c-addr u -- name )
 \ gives the name of a dotted text, string parts only, looked up through

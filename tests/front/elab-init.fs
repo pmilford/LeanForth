@@ -38,7 +38,8 @@ create init /stage allot
   s" tag" elab-tag elab-count line
   s" matcher" elab-matcher elab-count line
   s" projection" elab-projection elab-count line
-  s" sunfold" elab-sunfold elab-count line ;
+  s" sunfold" elab-sunfold elab-count line
+  s" binder_kinds" elab-binders elab-count line ;
 \ The declarations of status s.
 : with-status ( s -- n )
   0 init stage-decls 0 ?do over i elab-status = - loop nip ;

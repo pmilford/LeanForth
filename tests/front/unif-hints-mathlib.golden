@@ -1,0 +1,29 @@
+AlgebraicGeometry.Scheme.forgetToTop_obj_eq_coe Lean.Meta.DiscrTree.Key.proj `CategoryTheory.Functor 0 1 not a constant
+AlgebraicGeometry.Scheme.forget_obj_eq_coe Lean.Meta.DiscrTree.Key.proj `CategoryTheory.Functor 0 1 not a constant
+CategoryTheory.Functor.IsCoverDense.Types.hint._@.Mathlib.CategoryTheory.Sites.DenseSubsite.Basic.2169523090._hygCtx._hyg.7 Lean.Meta.DiscrTree.Key.proj `CategoryTheory.Functor 0 1 not a constant
+CategoryTheory.FunctorToTypes.hint._@.Mathlib.CategoryTheory.ShrinkYoneda.766384341._hygCtx._hyg.3 Shrink/2 definition
+CategoryTheory.coyoneda_obj_obj_eq_hom Lean.Meta.DiscrTree.Key.proj `CategoryTheory.Functor 0 1 not a constant
+CategoryTheory.coyoneda_obj_obj_eq_hom' Lean.Meta.DiscrTree.Key.proj `CategoryTheory.Functor 0 1 not a constant
+CategoryTheory.hint._@.Mathlib.CategoryTheory.Limits.Indization.LocallySmall.533175050._hygCtx._hyg.13 Lean.Meta.DiscrTree.Key.proj `CategoryTheory.Functor 0 1 not a constant
+CategoryTheory.uliftCoyoneda_obj_obj_eq_hom Lean.Meta.DiscrTree.Key.proj `CategoryTheory.Functor 0 1 not a constant
+CategoryTheory.uliftCoyoneda_obj_obj_eq_hom' Lean.Meta.DiscrTree.Key.proj `CategoryTheory.Functor 0 1 not a constant
+CategoryTheory.uliftYoneda_obj_obj_eq_hom Lean.Meta.DiscrTree.Key.proj `CategoryTheory.Functor 0 1 not a constant
+CategoryTheory.uliftYoneda_obj_obj_eq_hom' Lean.Meta.DiscrTree.Key.proj `CategoryTheory.Functor 0 1 not a constant
+CategoryTheory.yoneda_obj_obj_eq_hom Lean.Meta.DiscrTree.Key.proj `CategoryTheory.Functor 0 1 not a constant
+CategoryTheory.yoneda_obj_obj_eq_hom' Lean.Meta.DiscrTree.Key.proj `CategoryTheory.Functor 0 1 not a constant
+CommRingCat.forget_obj_eq_coe Lean.Meta.DiscrTree.Key.proj `CategoryTheory.Functor 0 1 not a constant
+CommSemiRingCat.forget_obj_eq_coe Lean.Meta.DiscrTree.Key.proj `CategoryTheory.Functor 0 1 not a constant
+Rep.barComplex.hint._@.Mathlib.RepresentationTheory.Homological.Resolution.2103993132._hygCtx._hyg.13 Lean.Meta.DiscrTree.Key.proj `Action 0 0 not a constant
+Rep.barComplex.hint._@.Mathlib.RepresentationTheory.Homological.Resolution.2103993132._hygCtx._hyg.23 Lean.Meta.DiscrTree.Key.proj `Rep 0 0 not a constant
+Rep.standardComplex.hint._@.Mathlib.RepresentationTheory.Homological.Resolution.927499924._hygCtx._hyg.13 Lean.Meta.DiscrTree.Key.proj `Action 0 0 not a constant
+Representation.LinearizeMonoidal.hint._@.Mathlib.RepresentationTheory.Action.2404471388._hygCtx._hyg.3 Lean.Meta.DiscrTree.Key.proj `Action 0 0 not a constant
+Representation.LinearizeMonoidal.hint._@.Mathlib.RepresentationTheory.Action.2467604204._hygCtx._hyg.3 Lean.Meta.DiscrTree.Key.proj `Action 0 0 not a constant
+Representation.LinearizeMonoidal.hint._@.Mathlib.RepresentationTheory.Action.2975906440._hygCtx._hyg.7 Lean.Meta.DiscrTree.Key.proj `Action 0 0 not a constant
+RingCat.forget_obj_eq_coe Lean.Meta.DiscrTree.Key.proj `CategoryTheory.Functor 0 1 not a constant
+SSet.Subcomplex.N.hint._@.Mathlib.AlgebraicTopology.SimplicialSet.NonDegenerateSimplicesSubcomplex.2723449048._hygCtx._hyg.3 Lean.Meta.DiscrTree.Key.proj `SSet.S 0 0 not a constant
+SSet.Subcomplex.N.hint._@.Mathlib.AlgebraicTopology.SimplicialSet.NonDegenerateSimplicesSubcomplex.956822911._hygCtx._hyg.3 Lean.Meta.DiscrTree.Key.proj `SSet.S 0 0 not a constant
+SSet.Subcomplex.Pairing.hint._@.Mathlib.AlgebraicTopology.SimplicialSet.AnodyneExtensions.Pairing.1340996045._hygCtx._hyg.3 Lean.Meta.DiscrTree.Key.proj `SSet.Subcomplex.Pairing 1 0 not a constant
+SSet.Subcomplex.Pairing.hint._@.Mathlib.AlgebraicTopology.SimplicialSet.AnodyneExtensions.Pairing.1405576849._hygCtx._hyg.3 Lean.Meta.DiscrTree.Key.proj `SSet.Subcomplex.Pairing 0 0 not a constant
+SemiRingCat.forget_obj_eq_coe Lean.Meta.DiscrTree.Key.proj `CategoryTheory.Functor 0 1 not a constant
+hint._@.Init.Hints.1215944719._hygCtx._hyg.3 Not/1 definition
+28 hints, 26 not keyed at a definition

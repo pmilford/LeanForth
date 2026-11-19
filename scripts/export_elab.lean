@@ -63,6 +63,11 @@ holds them after the import (global entries; nothing scoped is active):
                     (getStructuralRecArgPos?, Meta/WHNF.lean:46, which is
                     getStructuralRecArgPosImp?, Structural/Eqns.lean:191)
                     or null
+  binder_kinds      every constant whose type has a leading Pi binder:
+                    one text per such binder, its kind (0 default, 1
+                    implicit, 2 strictImplicit, 3 instImplicit) and then
+                    the kinds of its domain's leading Pi binders; the
+                    finisher keeps those that differ from the export's
 
 A name is a JSON array of its parts, strings and natural numbers, root
 first (`Nat.add` is ["Nat","add"]). A key is "star", "other", "arrow",
@@ -357,12 +362,45 @@ def sunfoldRecords (env : Environment) : MetaM (Array Json) := do
         out := out.push (← sunfoldRecord f info)
   return out
 
+/-- A binder's kind as the data writes it, the place of Lean's BinderInfo
+constructor: default 0, implicit 1, strictImplicit 2, instImplicit 3. -/
+def binderDigit : BinderInfo → Char
+  | .default => '0' | .implicit => '1' | .strictImplicit => '2' | .instImplicit => '3'
+
+/-- The kinds of e's leading Pi binders (forallE nodes, nothing unfolded;
+through metadata, which lean4export does not write and whnfCore steps
+through). -/
+partial def leadKinds : Expr → List Char
+  | .forallE _ _ b bi => binderDigit bi :: leadKinds b
+  | .mdata _ e => leadKinds e
+  | _ => []
+
+/-- One text per leading Pi binder of a type: its kind, then the kinds of
+its domain's leading Pi binders (where the induction tactic reads an
+alternative's fields). -/
+partial def binderTexts : Expr → Array Json
+  | .forallE _ d b bi => #[Json.str (String.ofList (binderDigit bi :: leadKinds d))] ++ binderTexts b
+  | .mdata _ e => binderTexts e
+  | _ => #[]
+
+/-- Every constant's binder kinds, as its type holds them (format 3.2; plan
+FE1c-bk): lean4export writes one node for expressions equal up to binder
+kinds and names (Expr.eqv), so the finisher keeps the records whose kinds
+differ from the export's. -/
+def binderKindRecords (env : Environment) : Array Json := Id.run do
+  let mut out := #[]
+  for (name, info) in env.constants.toList do
+    let texts := binderTexts info.type
+    unless texts.isEmpty do
+      out := out.push (record "binder_kinds" [("name", nameJson name), ("kinds", Json.arr texts)])
+  return out
+
 def allRecords : MetaM (Array Json) := do
   let env ← getEnv
   let insts ← instanceRecords
   return insts ++ defaultInstanceRecords env ++ reducibilityRecords env
     ++ eliminatorRecords env ++ classRecords env ++ constantRecords env
-    ++ (← sunfoldRecords env)
+    ++ (← sunfoldRecords env) ++ binderKindRecords env
 
 def main (args : List String) : IO UInt32 := do
   if args.isEmpty then

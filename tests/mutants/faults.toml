@@ -8999,8 +8999,8 @@ reason = "S5B: a projection is no binary node, so the passes treat it as an unkn
 [[fault]]
 id = "tin-leaf-tags-raw-shift"
 file = "src/core/terms.fs"
-old = ''': lf-tin-leaf-tags+ ( lftag -- ) lf-tin-leaf-tags lf-tag-set+ ;'''
-new = ''': lf-tin-leaf-tags+ ( lftag -- ) 1 swap lshift lf-tin-leaf-tags @ or lf-tin-leaf-tags ! ;'''
+old = ''': lf-tin-leaf-tags+ ( lftag -- ) lf-term-tags-open lf-tin-leaf-tags lf-tag-set+ ;'''
+new = ''': lf-tin-leaf-tags+ ( lftag -- ) lf-term-tags-open 1 swap lshift lf-tin-leaf-tags @ or lf-tin-leaf-tags ! ;'''
 test = "$GFORTH tests/core/terms.fs"
 reason = "Forth review L3 of small-fixes-1118: the leaf-table tag set shifts by the raw tag, not through lf-tag-set+, so a tag above 31 or below 0 gets another bit than lf-tin-leaf-tag? reads"
 
@@ -11122,8 +11122,8 @@ reason = "FE1a, review fe1ab L1: a type that is a beta redex (d : (fun a => a ->
 [[fault]]
 id = "fe-type-head-unfold-ignored"
 file = "src/cli/check-lf.fs"
-old = '''  dup lfc-def? swap ck-stage staged-type@ lfc-telescope lfc-unfolds? if drop -1 then'''
-new = '''  false swap ck-stage staged-type@ lfc-telescope lfc-unfolds? if drop -1 then'''
+old = ''': lfc-arity-of ( d -- arity unfolds? ) dup lfc-count swap lfc-def? ;'''
+new = ''': lfc-arity-of ( d -- arity unfolds? ) lfc-count false ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1a: a variable whose type is headed by a definition (Nat.add) gets argument count 0, guessing what whnf may change"
 
@@ -13864,10 +13864,8 @@ reason = "FRP D4: a huge --progress interval wraps to a negative time, so a line
 [[fault]]
 id = "ck-lending-count-only"
 file = "src/cli/check-run.fs"
-old = '''  >r lf-cref-lending r@ ck-lend-count ! r@ ck-lend-slots ! r@ ck-lend-pool !
-  r> ck-lend-records ! ;'''
-new = '''  >r lf-cref-lending r@ ck-lend-count ! drop 2drop
-  r> drop ;'''
+old = ''': ck-ref-table@ ( -- addr n ) lf-cref-table ck-htab@ ;'''
+new = ''': ck-ref-table@ ( -- addr n ) lf-cref-table htab-count 0 swap ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "FRP D1: only the references' count is kept, so workers are not made again when the blocks they read move"
 
@@ -17778,8 +17776,8 @@ reason = "s1-synth re-check M3' (reviewer's fault): a strict-implicit literal or
 [[fault]]
 id = "fe-elab-generation-fixed"
 file = "src/front/elab-data.fs"
-old = '''  elab elab-counts elab-kinds cells erase 1 elab elab-gen +!'''
-new = '''  elab elab-counts elab-kinds cells erase'''
+old = '''  ed-head-clear 1 elab elab-gen +! ;'''
+new = '''  ed-head-clear ;'''
 test = "$GFORTH tests/front/elab-data.fs && $GFORTH tests/front/instances-odd.fs"
 reason = "s1-synth re-check L3': a reset or a new read leaves elab-generation as it was, so the instance table keeps another read's checks"
 

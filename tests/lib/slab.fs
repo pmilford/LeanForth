@@ -216,6 +216,12 @@ T{ s1 ' slab-2pop underflow? s1 slab-count s1 slab-pop -> true 1 7 }T
 T{ 0 s3 slab-claim 2drop s3 ' slab-pop underflow? -> true }T
 1 s3 slab-claim 2drop
 T{ s3 ' slab-pop underflow? s3 slab-count s3 slab-last s3 slab-base = -> true 1 true }T
+\ slab-data: unit 0's address and the count, after a claim and after growth
+\ (a new block).
+T{ s3 slab-data swap s3 slab-base = -> 1 true }T
+: grown ( -- base? n ) 5 s3 slab-claim 2drop s3 slab-data swap s3 slab-base = swap ;
+T{ grown -> true 6 }T
+1 s3 slab-cut
 T{ s3 ' slab-drop rs-checked s3 slab-count -> 0 }T
 s2 slab-free
 T{ 1 s2 slab-push s2 ' slab-pop underflow? s2 ' slab-last underflow? -> outcome-invalid true true }T

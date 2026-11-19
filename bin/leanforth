@@ -47,6 +47,14 @@ root=$(cd "$(dirname "$self")/.." && pwd -P) || {
 }
 . "$root/scripts/start-limit.sh"
 
+# Gforth 1.0 loads a start-up file before src/main.fs: the one GFORTH_ENV
+# names, else ~/.config/gforthrc0; such a file could define a test hook
+# (lib/task.fs's task-cores-test, a planted fault) and change a run, so it
+# is turned off (GFORTH_ENV=off, Gforth 1.0's own switch; ~/.config/gforthrc
+# is read only by an interactive Gforth, and Gforth 0.7.3 reads neither).
+# (set here, before verify below starts its own Gforth runs.)
+export GFORTH_ENV=off
+
 # verify (plan 8.4.1c): checking a Forth word against its contract runs the driver
 # scripts/program_verify.py, which needs Python 3 and the pinned Lean 4.35.0 (the owner
 # allowed both for V1 only, 2026-11-13) and starts this command's check itself. Its exit

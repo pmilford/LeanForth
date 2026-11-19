@@ -1,0 +1,29 @@
+\ Three Init statements whose lemma's binder kinds lean4export gives
+\ otherwise than Lean (plan FE1c-bk; tests/front/check_bk_init.py, run
+\ by tests/front/elab-init.sh on all of Init). The export writes one node for
+\ types equal up to binder kinds: Nat.mod_eq_sub_mul_div there takes (x k)
+\ where Lean's takes {x k}, Nat.not_lt_eq {a b} for (a b), Nat.lt_one_iff
+\ (n) for {n}. With the elaboration data's binder_kinds records (format 3.2)
+\ each is elaborated as pinned Lean elaborates tests/front/bk-init.lean,
+\ node for node, and accepted by the kernel; without them each stops.
+\ Lean: theorem bk_mod (x k : Nat) : x % k = x - k * (x / k) := by exact Nat.mod_eq_sub_mul_div
+theorem bk_mod
+  Nat explicit: x   Nat explicit: k
+  x k HMod.hMod   x  k  x k HDiv.hDiv HMul.hMul  HSub.hSub =
+:= by
+  Nat.mod_eq_sub_mul_div by-exact
+end bk_mod
+\ Lean: theorem bk_not_lt (a b : Nat) : (¬ a < b) = (b ≤ a) := by exact Nat.not_lt_eq a b
+theorem bk_not_lt
+  Nat explicit: a   Nat explicit: b
+  a b LT.lt Not  b a LE.le =
+:= by
+  a b Nat.not_lt_eq by-exact
+end bk_not_lt
+\ Lean: theorem bk_lt_one (n : Nat) : n < 1 ↔ n = 0 := by exact Nat.lt_one_iff
+theorem bk_lt_one
+  Nat explicit: n
+  n 1 LT.lt  n 0 =  Iff
+:= by
+  Nat.lt_one_iff by-exact
+end bk_lt_one

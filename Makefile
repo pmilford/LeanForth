@@ -1016,6 +1016,7 @@ test-differential: reference-manifest
 test-elab-data:
 	$(RUN) $(GFORTH) tests/front/elab-data.fs
 	$(RUN) $(GFORTH) tests/front/elab-check-lf.fs
+	$(RUN) python3 tests/scripts/test_mathlib_slice.py
 test-elab-data-e2e:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/test_elab_data.py
 # With pinned Lean: scripts/export-elab.sh reproduces the init slice's data
@@ -1024,9 +1025,20 @@ test-elab-data-e2e:
 reference-elab-data: RUN := timeout 1500
 reference-elab-data:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/front/elab-init.sh
-.PHONY: test-elab-data test-elab-data-e2e reference-elab-data
+# The front end on the Mathlib slice fixture (plan MF1; MATHLIB_FRONT.md section 6):
+# scripts/mathlib-slice.py cuts the slice of tests/front/mathlib-slice.roots from the
+# machine's Mathlib export and writes its data with pinned Lean (cached in the main
+# checkout's .claude/work/mathlib-slice), checked against tests/front/mathlib-slice.sha256;
+# then the slice's snapshot and four texts against it (about 1 minute). Never a run on all
+# of Mathlib. A cold cache is filled (about 10 minutes and 9 GB) only with
+# MATHLIB_SLICE_BUILD=1; else the target says SKIPPED, NOT A PASS and exits 3, which a tier
+# counts as failed (nothing recorded). tests/scripts/test_mathlib_slice.py (test-elab-data)
+# tests the cache.
+reference-mathlib-slice:
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_mathlib_slice.py
+.PHONY: test-elab-data test-elab-data-e2e reference-elab-data reference-mathlib-slice
 test: test-elab-data test-elab-data-e2e
-test-differential: reference-elab-data
+test-differential: reference-elab-data reference-mathlib-slice
 
 # The instance table (plans FE1e2 and FE1e3; S1_INTERFACE.md §9): keys,
 # isClass?, getUnify and getInstances over the Init slice, the
@@ -1417,6 +1429,14 @@ test-cli-forth:
 test-cli-1 test-cli-2 test-cli-3 test-cli-4 test-cli-engines:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/cli/run_group.py $(subst test-cli-,,$@)
 .PHONY: test-cli-forth test-cli-1 test-cli-2 test-cli-3 test-cli-4 test-cli-engines
+# check --jobs with twice as many workers as cores (lib/task.fs's test-only
+# task-cores-test) on a generated export of 5,000 declarations, 5 runs (20 in
+# make parallel-init, the daily run), each the serial run's text and exit
+# status (plan 9.4.8p). About 20 seconds.
+test: test-parallel-stress
+test-parallel-stress:
+	GFORTH=$(GFORTH) $(RUN) python3 tests/cli/test_parallel_stress.py
+.PHONY: test-parallel-stress
 
 # Pinned Lean accepts the two Lean fixtures of the command line's tests and
 # scripts/export.sh reproduces their exports and manifests byte for byte.
@@ -1433,6 +1453,22 @@ engine-gate:
 	$(RUN) bash scripts/engine-gate.sh $(ENGINE_GATE_INIT) $(ENGINE_GATE_ARENA)
 
 .PHONY: engine-gate
+
+# Parallel checking as a routine, tested property (plan 9.4.8p (1)): all of Init
+# checked with gforth-fast at --jobs 8 and at --jobs 1, the verdict lines, exit
+# codes, JSON report (but "measured") and snapshot (but its information section)
+# compared, the parallel run's not ready, forced and replaced counts 0; both wall
+# times and the speed-up printed and recorded (scripts/parallel-init.py); first
+# test-parallel-stress with 20 runs in place of 5. Needs
+# the machine-local Init export (as engine-gate); without it, exit 4 (skipped,
+# not a pass). About 50 minutes (four runs of Init, two serial). Part of make daily only, never of make check.
+parallel-init: RUN := timeout 14400
+parallel-init:
+	ulimit -u 500; STRESS_REPEATS=20 GFORTH=$(GFORTH) $(RUN) python3 tests/cli/test_parallel_stress.py
+	ulimit -u 500; GFORTH_FAST=$(GFORTH_FAST) $(RUN) python3 scripts/parallel-init.py \
+	$(if $(PARALLEL_INIT),--init $(PARALLEL_INIT))
+
+.PHONY: parallel-init
 .PHONY: test-cli reference-cli
 # make test names test-cli's parts at its start (TEST_CLI_PARTS), the slowest first.
 test-differential: reference-cli

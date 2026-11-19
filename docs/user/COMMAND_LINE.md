@@ -214,6 +214,13 @@ LeanForth does not carry (Mathlib: 11 of 1,844) gets format 3.1, in which
 each such body is marked and never used: where a proof would need it, the
 run answers "not supported" rather than anything Lean would not
 ([format 3.1](../programming/ELABORATION_DATA.md#format-31-inert-metadata)).
+A library whose export gives some declarations another declaration's
+binder kinds (lean4export writes one node for types equal up to them;
+`Init`: 687 declarations, such as `Nat.lt_one_iff`, whose `{n}` the export
+writes `(n)`) gets format 3.2, which carries Lean's own kinds for those
+declarations, so that a text applying them takes its arguments as Lean
+does ([format 3.2](../programming/ELABORATION_DATA.md#format-32-binder-kinds));
+an older LeanForth refuses format 3.2 as another format version.
 With `--elab-data DATA` and a library (`--env` or `--snapshot`), DATA is
 read after the library and before the text runs, and checked against the
 library:
@@ -915,7 +922,33 @@ exit status. How:
   (a name met only after unfolding a definition) is thrown away and run
   again later, never published; each check starts from the input alone,
   with empty caches, so its fuel does not depend on the other checks its
-  worker ran.
+  worker ran;
+- the input the workers read in place is checked during the run (plan
+  9.4.8p, 2026-11-18): its blocks and counts are kept when the workers are
+  made and compared before each declaration is handed out and around each
+  report of what became final. The task that publishes never writes it
+  while workers run; if it ever did (a fault of LeanForth, never of the
+  export), the run stops as an internal fault, exit 5: "internal fault:
+  the run stopped: the input the workers read in place changed during the
+  run", the declarations not final at the last comparison that found no
+  change listed "not checked (not reached: the run stopped)", none reported
+  from a check that could have read the changed input, and no snapshot
+  written. The limit: a change undone before the next comparison (a record
+  made and given back between two of them) is not seen; the tests also
+  compare a digest of that input before and after a run.
+
+`bin/leanforth` runs Gforth with its start-up file turned off
+(`GFORTH_ENV=off`), so a file Gforth 1.0 would load first (the one
+`GFORTH_ENV` names, or `~/.config/gforthrc0`) cannot change a run.
+
+How this is tested: the command-line tests compare `--jobs 2` to `4` with
+`--jobs 1` on every small export, text and JSON; `make
+test-parallel-stress` checks 5,000 generated declarations 5 times (20 in
+the daily run) with twice as many workers as cores against the serial run; and the daily run
+(`make parallel-init`, [TESTING_STRATEGY.md](../development/TESTING_STRATEGY.md)) checks all of
+`Init` at `--jobs 8` and `--jobs 1` and requires the same exit status,
+verdict lines, JSON report but for `measured`, and snapshot but for its
+information section, recording both wall times and the speed-up.
 
 All of `Init` (59,349 declarations, all accepted), `check --fast --json
 --jobs N`, on this 10-core WSL2 machine, which other agents' runs shared,

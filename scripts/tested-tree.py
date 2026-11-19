@@ -58,7 +58,9 @@ daily is the daily full run (owner, 2026-11-17: its own command, run once a nigh
 a tag, never forced by a push): the full tier of HEAD with LEAN_CACHE=0 and Gforth 0.7.3,
 each suite recorded per tree as tier records it. A daily run of a tree is complete when that
 tree has records of make coverage-check, make test-unit on gforth-fast, make check-rest (or
-make check) with LEAN_CACHE=0 and make test-unit on Gforth 0.7.3, none narrowed by a variable.
+make check) with LEAN_CACHE=0, make test-unit on Gforth 0.7.3 and make parallel-init (all of
+Init at --jobs 8 against --jobs 1, plan 9.4.8p; it needs the machine-local Init export and
+fails without it, so such a machine has no complete daily run), none narrowed by a variable.
 daily-status prints the newest complete daily run (its date, commit and age) and, with
 --warn-hours H, a warning when there is none or it is older than H hours; it always exits 0
 (push.sh reports it, never refuses on it). tag-check exits 0 when HEAD's exact tree has a
@@ -529,6 +531,7 @@ def daily_needs():
         and r["gforth"] == chain["gforth"] and r["lean_cache"] in ("0", "verify"),
         "make test-unit on Gforth 0.7.3": lambda r: r["suite"] in ("test-unit", "test")
         and r["gforth"] == engines["073"],
+        "make parallel-init": lambda r: r["suite"] == "parallel-init",
     }, chain["lean"]
 
 
@@ -595,7 +598,8 @@ def run_daily(args):
         return 0
     status, lines = 0, []
     need_of = {"coverage-check": "make coverage-check", "testfast": "make test-unit on gforth-fast",
-               "check-rest": "make check-rest with LEAN_CACHE=0", "test073": "make test-unit on Gforth 0.7.3"}
+               "check-rest": "make check-rest with LEAN_CACHE=0", "test073": "make test-unit on Gforth 0.7.3",
+               "parallel-init": "make parallel-init"}
     for suite in test_tier.DAILY_SUITES:
         need = need_of[suite["label"]]
         argv = suite_argv(suite, args.make, args.jobs, "0")
@@ -706,7 +710,7 @@ def run_tier(args):
     if skipped and result["tier"] != "full":
         lines.append(f"not run (tier {result['tier']} does not reach them): {', '.join(skipped)}")
     lines.append("not run in a tier (make daily runs them): make coverage-check of every file, "
-                 "make test-unit on Gforth 0.7.3")
+                 "make test-unit on Gforth 0.7.3, make parallel-init")
     if not args.no_progress:
         code = subprocess.run([sys.executable, os.path.join(HERE, "check-progress.py"), args.base]).returncode
         lines.append(f"progress check exit {code}")

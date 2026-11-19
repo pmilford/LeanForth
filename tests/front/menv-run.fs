@@ -410,12 +410,35 @@ T{ outcome-ok worst ! iota-refused 1 > worst @ iota-term lf-whnf-core swap lf-te
 \ shares no node (author/runner.fs) and the decode memo is keyed by the
 \ tier's expression, whose identity holds the kind (core/compact-exprs.fs).
 \ But lean4export 3.1.0 itself writes one node for both (Lean's
-\ Expr.eqv ignores binder kinds and names): BK.expl reads implicit.
-\ KNOWN GAP (plan row FE1c-bk): Lean's BK.expl is explicit, 0 1.
+\ Expr.eqv ignores binder kinds and names): without data, BK.expl reads
+\ implicit. Its elaboration data (format 3.2, plan FE1c-bk) has a
+\ binder_kinds record of BK.expl, explicit, which lf-menv-kinds then
+\ gives, as Lean's: 0 1; BK.impl has none and stays implicit. A later
+\ reset of the data gives the export's again.
 : one-kind ( c-addr u -- kind n ) d-of lf-menv-kinds >r @ r> ;
+: bk-data ( -- outcome )
+  s" tests/front/binder-merge.elab.ndjson" ck-stage lfc-export-sha drop elab-read ;
 T{ s" tests/front/binder-merge.ndjson" true lfc-library-open -> outcome-ok }T
 T{ s" BK.impl" one-kind s" BK.expl" one-kind -> 1 1 1 1 }T
 T{ s" BK.impl" d-of lf-menv-type s" BK.expl" d-of lf-menv-type = -> true }T
+T{ bk-data s" BK.impl" one-kind s" BK.expl" one-kind -> outcome-ok 1 1 0 1 }T
+T{ elab-reset s" BK.expl" one-kind -> 1 1 }T
+\ A binder's domain (lf-menv-kinds-in, the induction tactic's fields):
+\ the format-3.2 fixture makes the first field of Nat.rec's succ implicit
+\ (the export: explicit); Nat.add's first binder implicit.
+: kinds-list ( addr n -- k0 .. kn-1 n ) dup >r cells bounds ?do i @ 1 cells +loop r> ;
+: f32-data ( -- outcome )
+  s" tests/front/format32.elab.ndjson" ck-stage lfc-export-sha drop elab-read ;
+T{ s" tests/author/init-slice.ndjson" true lfc-library-open s" Nat.rec" d-of 2
+   lf-menv-kinds-in kinds-list -> outcome-ok 0 0 2 }T
+T{ f32-data s" Nat.rec" d-of 2 lf-menv-kinds-in kinds-list s" Nat.rec" d-of 9
+   lf-menv-kinds-in nip s" Nat.add" one-kind -> outcome-ok 1 0 2 0 1 2 }T
+\ The natural reader's count of a name's explicit arguments (cli's
+\ lfc-arity) follows the record too: Nat.add takes one value, two without;
+\ Nat.rec, kinds 1 0 0 0, three: the explicit binders are counted, not
+\ the others (review data-bk L1; fault fe-bk-arity-nonzero).
+T{ s" Nat.add" nm lfc-arity s" Nat.rec" nm lfc-arity elab-reset s" Nat.add" nm lfc-arity
+   -> 1 true true 3 false true 2 true true }T
 
 \ ---- 4. lfc-library-close leaves the run mode; a failed re-open leaves
 \ none bound to the stage it freed.

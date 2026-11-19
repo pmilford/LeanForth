@@ -53,6 +53,8 @@ as it is, so the same input always gives the same bytes. It runs at export
 time, on the developer's machine: nothing on a LeanForth user's path needs it.
 """
 import argparse
+from array import array
+import bisect
 import hashlib
 import json
 import os
@@ -67,9 +69,9 @@ LEAN_GITHASH = "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"
 # The kinds of records, in the order of the file; sunfold (smart-unfolding
 # bodies, plan S2) is written from format 3 on, every one of the modules.
 KINDS = ("class", "instance", "instance_left_out", "default_instance", "reducibility",
-         "eliminator", "tag", "matcher", "projection", "sunfold")
+         "eliminator", "tag", "matcher", "projection", "sunfold", "binder_kinds")
 RAW_KINDS = ("class", "instance", "default_instance", "reducibility", "eliminator", "tag",
-             "matcher", "projection", "sunfold")
+             "matcher", "projection", "sunfold", "binder_kinds")
 STATUSES = ("reducible", "irreducible", "implicit_reducible", "instance_reducible")
 ELIMINATOR_KINDS = ("induction", "cases")
 TAGS = ("elab_as_elim", "elab_without_expected_type", "aux_recursor", "no_confusion",
@@ -93,7 +95,8 @@ NAMES = {"class": {"name": "type"},
          "tag": {"name": "not-type"},
          "matcher": {"name": "def"},
          "projection": {"name": "not-type", "ctor": "ctor"},
-         "sunfold": {"name": "def"}}
+         "sunfold": {"name": "def"},
+         "binder_kinds": {"name": None}}
 MEMBERS = {"class": {"name", "out_params", "out_level_params"},
            "instance": {"name", "class", "priority", "synth_order", "keys", "rank"},
            "instance_left_out": {"name", "keys", "priority", "rank", "reason"},
@@ -104,7 +107,9 @@ MEMBERS = {"class": {"name", "out_params", "out_level_params"},
            "matcher": {"name", "num_params", "num_discrs", "u_elim_pos", "alt_infos",
                        "discr_names"},
            "projection": {"name", "ctor", "num_params", "idx", "from_class"},
-           "sunfold": {"name", "level_params", "levels", "nodes", "value", "rec_arg"}}
+           "sunfold": {"name", "level_params", "levels", "nodes", "value", "rec_arg"},
+           "binder_kinds": {"name", "kinds"}}
+KINDS_TEXT = re.compile("[0-3]+")   # one binder's kind, then its domain's binders'
 ALT_MEMBERS = {"num_fields", "num_overlaps", "has_unit_thunk"}
 RAW_MEMBERS = dict(MEMBERS, instance=MEMBERS["instance"] | {"erased"})
 DECLS = {b'{"axiom":': "axiom", b'{"def":': "def", b'{"thm":': "thm",
@@ -188,12 +193,17 @@ def key_names(keys):
 
 
 def export_decls(path):
-    """The export's declarations, {name: kind}, and its SHA-256 and size."""
-    names, decls = {0: ()}, {}
+    """The export's declarations, {name: kind}, its SHA-256, and its Pi nodes
+    with each declaration's type node (Pis, types {name: node})."""
+    names, decls, pis = {0: ()}, {}, Pis()
+    pis.types = {}
     digest = hashlib.sha256()
     with open(path, "rb") as export:
         for line in export:
             digest.update(line)
+            if line.startswith(b'{"forallE":'):
+                pis.add(line)
+                continue
             if line.startswith(b'{"in":'):
                 record = json.loads(line)
                 part = record.get("str") or record.get("num")
@@ -206,9 +216,12 @@ def export_decls(path):
                 for key, member in BLOCK.items():
                     for decl in block.get(key, []):
                         decls[names[decl["name"]]] = member
+                        pis.types[names[decl["name"]]] = decl["type"]
             elif kind is not None:
-                decls[names[json.loads(line)[kind]["name"]]] = kind
-    return decls, digest.hexdigest()
+                decl = json.loads(line)[kind]
+                decls[names[decl["name"]]] = kind
+                pis.types[names[decl["name"]]] = decl["type"]
+    return decls, digest.hexdigest(), pis
 
 
 def manifest_sha(path):
@@ -258,6 +271,59 @@ INERT = {"save_info": ((["save_info"], "true"),),
 FORMAT_INERT = "3.1"   # the format version of a file holding an inert node (a
                        # text: LeanForth's JSON formats hold no fractions)
 INERT_NODE = '{"inert":'   # its text in the data (a string's quotes are escaped)
+FORMAT_KINDS = "3.2"   # a file holding a binder_kinds record (and perhaps inert nodes)
+# lean4export's binder kinds, as the data writes them (Lean's BinderInfo constructors).
+BINDER_DIGITS = {b"default": "0", b"implicit": "1", b"strictImplicit": "2", b"instImplicit": "3"}
+PI_LINE = re.compile(rb'\{"forallE":\{"binderInfo":"(\w+)","body":(\d+),"name":\d+,'
+                     rb'"type":(\d+)\},"ie":(\d+)\}')
+
+
+class Pis:
+    """The export's Pi nodes (forallE): kind, domain and body by expression index,
+    in arrays (Mathlib has 5.4 million), found by bisection (lean4export writes
+    the indices in increasing order)."""
+
+    def __init__(self):
+        self.ie, self.kind = array("I"), array("B")
+        self.dom, self.body = array("I"), array("I")
+
+    def add(self, line):
+        match = PI_LINE.fullmatch(line.rstrip(b"\n"))
+        if match is None or match[1] not in BINDER_DIGITS:
+            raise ElabError(f"a Pi node not as lean4export writes it: {line[:80]!r}")
+        self.ie.append(int(match[4]))
+        self.kind.append(int(BINDER_DIGITS[match[1]]))
+        self.dom.append(int(match[3]))
+        self.body.append(int(match[2]))
+
+    def find(self, e):
+        i = bisect.bisect_left(self.ie, e)
+        return i if i < len(self.ie) and self.ie[i] == e else None
+
+    def lead(self, e):
+        """The kinds of e's leading Pi binders, as a text, and their nodes."""
+        kinds, nodes = "", []
+        while (i := self.find(e)) is not None:
+            kinds += str(self.kind[i])
+            nodes.append(i)
+            e = self.body[i]
+        return kinds, nodes
+
+    def texts(self, e):
+        """binderTexts of export_elab.lean on the export's type node e."""
+        kinds, nodes = self.lead(e)
+        return [k + self.lead(self.dom[i])[0] for k, i in zip(kinds, nodes)]
+
+
+def binder_record(body, export):
+    """Whether Lean's kinds of a declaration differ from the export's (keep the
+    record); ElabError when they do not fit its type: other numbers of binders."""
+    have = export.texts(export.types[name_of(body["name"])])
+    want = body["kinds"]
+    if [len(t) for t in have] != [len(t) for t in want]:
+        raise ElabError(f"binder_kinds {text(body['name'])}: {len(want)} binders, the "
+                        f"export's type has {len(have)} or their domains differ")
+    return have != want
 
 
 def below(value, limit):
@@ -392,6 +458,10 @@ def check_shape(kind, body, members=MEMBERS):
         check_matcher(body)
     if kind == "sunfold":
         sunfold_names(body)
+    if kind == "binder_kinds" and not (
+            isinstance(body["kinds"], list) and body["kinds"]
+            and all(isinstance(t, str) and KINDS_TEXT.fullmatch(t) for t in body["kinds"])):
+        raise ElabError(f"binder_kinds: kinds is not a list of texts of the digits 0-3")
     if kind == "eliminator":
         if body["kind"] not in ELIMINATOR_KINDS:
             raise ElabError(f"eliminator: unknown kind {text(body['kind'])}")
@@ -511,29 +581,38 @@ def finish(raw, export):
     """The text of the elaboration data, the records left out of each kind
     and the smart-unfolding bodies kept that name what the export lacks."""
     modules, records = read_raw(raw)
-    decls, digest = export_decls(export)
+    decls, digest, pis = export_decls(export)
     if manifest_sha(export) != digest:
         raise ElabError(f"{export} differs from its manifest's SHA-256")
     keep = []
-    foreign = 0
+    foreign = same = 0
     for kind, body in records:
         if kind == "instance":
             keep += [r for r in [tree_record(body, decls)] if r is not None]
+        elif kind == "binder_kinds" and kept(kind, body, decls):
+            differs = binder_record(body, pis)
+            keep += [(kind, body)] if differs else []
+            same += not differs
         elif kept(kind, body, decls):
             keep.append((kind, body))
             foreign += kind == "sunfold" and foreign_body(body, decls)
     left = {k: sum(1 for x, _ in records if x == k) for k in RAW_KINDS}
+    left["binder_kinds"] -= same
     for kind, _ in keep:
         left[kind if kind != "instance_left_out" else "instance"] -= 1
     lines = sorted((KINDS.index(k), text({k: written(k, b)})) for k, b in keep)
     body = "".join(line + "\n" for _, line in lines)
+    counts = {k: sum(1 for x, _ in keep if x == k) for k in KINDS}
     version = FORMAT_INERT if INERT_NODE in body else VERSION
+    if counts["binder_kinds"]:
+        version = FORMAT_KINDS
+    else:
+        del counts["binder_kinds"]   # format 3 and 3.1 have no such kind
     head = {"elab_data": {"export_sha256": digest, "format": FORMAT, "format_version": version,
                           "lean_githash": LEAN_GITHASH, "lean_version": LEAN_VERSION,
-                          "modules": modules,
-                          "records": {k: sum(1 for x, _ in keep if x == k) for k in KINDS},
+                          "modules": modules, "records": counts,
                           "records_sha256": hashlib.sha256(body.encode()).hexdigest()}}
-    return text(head) + "\n" + body, left, foreign
+    return text(head) + "\n" + body, left, foreign, same
 
 
 def write(path, data):
@@ -561,7 +640,7 @@ def main(argv=None):
                         help="also name the data's records SHA-256 in EXPORT's manifest")
     args = parser.parse_args(argv)
     try:
-        data, left_out_counts, foreign = finish(args.raw, args.export)
+        data, left_out_counts, foreign, same = finish(args.raw, args.export)
     except (ElabError, OSError, ValueError, KeyError, TypeError) as error:
         print(f"export_elab.py: {error}", file=sys.stderr)
         return 1
@@ -570,11 +649,12 @@ def main(argv=None):
         bind(args.export, data)
     head = json.loads(data.split("\n", 1)[0])["elab_data"]
     counts, version = head["records"], head["format_version"]
-    print(f"{args.output}: " + ", ".join(f"{counts[k]} {k}" for k in KINDS)
+    print(f"{args.output}: " + ", ".join(f"{counts.get(k, 0)} {k}" for k in KINDS)
           + "; left out (not declarations of the export): "
           + ", ".join(f"{left_out_counts[k]} {k}" for k in RAW_KINDS)
           + f"; {foreign} sunfold bodies naming what the export lacks"
-          + f"; {data.count(INERT_NODE)} inert markers (format {version})")
+          + f"; {data.count(INERT_NODE)} inert markers (format {version})"
+          + f"; {same} binder_kinds as the export's, left out")
     return 0
 
 

@@ -409,16 +409,6 @@ create lf-cref-hooks /htab-hooks allot
 : lf-cref-borrow ( source -- outcome )
   dup lf-cref-lendable? if lf-cref-copy outcome-ok else drop outcome-invalid then ;
 
-\ What a worker reading this context's references depends on: the
-\ addresses of its store's records and pool and the size of its table
-\ (a table grows only into a new block) and the count. When a pass makes
-\ references here after workers began to read (cli/check-run.fs: the
-\ import pass of a run against a snapshot), they may have moved, and the
-\ workers must be made again before they read.
-4 constant lf-cref-lent#
-: lf-cref-lending ( -- records pool slots count )
-  lf-crefs store-records 0 lf-cref-pool slab-at lf-cref-table htab-slots lf-cref-count @ ;
-
 \ The input's references for its fingerprint (core/input.fs): the
 \ source's store and count when this context reads one, else the count
 \ and store given (this context's, below its input mark); and the pairs

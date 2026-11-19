@@ -293,4 +293,20 @@ T{ 9 lf-term-bvar drop shared-9 = -> true }T
 lf-term-table htab-freeze
 T{ 9 lf-term-bvar nip 9 lf-term-bvar drop shared-9 <> -> true true }T
 T{ 9 lf-term-bvar drop 9 lf-term-bvar drop <> -> true }T
+\ The tag tables are sealed with the context layout (re-entrancy audit of
+\ 2026-11-18, L2): once a context was made, every word that registers a
+\ tag aborts and the tables stay as loading left them.
+lf-term-unshared-tags @ constant unshared-before
+lf-tin-leaf-tags @ constant leaf-before
+tag-app 1 lf-tin-entry @ constant app-code
+tag-app 0 lf-tin-entry @ constant app-twin
+context-new throw context-free throw
+T{ lf-tag-sort ' lf-term-unshare catch nip -> -2 }T
+T{ lf-tag-app ' lf-tin-leaf-tags+ catch nip -> -2 }T
+T{ 0 tag-app ' lf-term-input-tag! catch nip nip -> -2 }T
+T{ 0 tag-app ' lf-term-input-twin! catch nip nip -> -2 }T
+T{ lf-tag-app tag-app ' lf-term-input-leaf-tag catch nip nip -> -2 }T
+T{ lf-tag-app 0 tag-app ' lf-term-input-leaf-twin catch nip nip nip -> -2 }T
+T{ lf-term-unshared-tags @ lf-tin-leaf-tags @ tag-app 1 lf-tin-entry @ tag-app 0 lf-tin-entry @
+   -> unshared-before leaf-before app-code app-twin }T
 bye

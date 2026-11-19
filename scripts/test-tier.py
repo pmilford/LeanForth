@@ -30,7 +30,7 @@ Each file gets a tier; the range gets the largest:
            targets that use it (the unit tests on all three engines), its
            faults and its coverage.
   front    a Forth file of src/front/ that src/main.fs does not load: the
-           same, and make test-front and reference-front.
+           same, and make test-front, reference-front and reference-mathlib-slice.
   full     everything else: any file src/main.fs loads, at HEAD or at the
            base (so a library that becomes loaded is full), src/main.fs,
            src/kernel, core, import, cli and every other folder of src/,
@@ -97,7 +97,7 @@ FAULTS = "tests/mutants/faults.toml"
 FAULTS_DIR = "tests/mutants/faults.d"   # read with FAULTS as one list (scripts/mutants.py)
 COVERAGE_BASELINE = "tests/coverage-baseline.json"
 SOURCE_RULE_TARGETS = ("smoke", "check-portable-forth", "check-forth-quality")
-FRONT_TARGETS = ("test-front", "test-front-e2e", "reference-front")
+FRONT_TARGETS = ("test-front", "test-front-e2e", "reference-front", "reference-mathlib-slice")
 FORTH_LOAD = re.compile(r"\b(?:require|include|needs)\s+(\S+\.fs)\b", re.IGNORECASE)
 TARGET_VARIABLE = changed_tests.TARGET_VARIABLE
 # The engines unit tests run on besides Gforth 1.0 (owner, 2026-11-14): gforth-fast, the
@@ -116,12 +116,14 @@ FULL_SUITES = (
     {"label": "testfast", "goals": ["test-unit"], "engine": "fast"},
     {"label": "check-rest", "goals": ["check-rest"]},
 )
-# The daily full run (make daily) and what make tag-check requires: every suite, cache off.
+# The daily full run (make daily) and what make tag-check requires: every suite, cache off, and
+# all of Init at --jobs 8 against --jobs 1 (make parallel-init, plan 9.4.8p; owner, 2026-11-18).
 DAILY_SUITES = (
     {"label": "coverage-check", "goals": ["coverage-check"]},
     {"label": "testfast", "goals": ["test-unit"], "engine": "fast"},
     {"label": "check-rest", "goals": ["check-rest"]},
     {"label": "test073", "goals": ["test-unit"], "engine": "073"},
+    {"label": "parallel-init", "goals": ["parallel-init"]},
 )
 
 

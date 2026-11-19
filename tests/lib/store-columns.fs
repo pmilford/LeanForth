@@ -76,5 +76,13 @@ T{ 0 covered ! covered thing-columns columns-ready column-units -> false units0 
 cap0 things store-capacity !
 T{ 0 covered ! covered thing-columns columns-ready column-units -> true units0 }T
 
+\ Once a context was made (in-new above), the layout is sealed (re-entrancy
+\ audit of 2026-11-18, L2): a column added then aborts before anything is
+\ laid down, as a context member's declaration does.
+T{ context-sealed? -> true }T
+: add-sealed ( -- ior same-here? )
+  here >r 1 cells ['] marks thing-columns ['] column-add catch nip nip nip here r> = ;
+T{ add-sealed -> -2 true }T
+
 cases-done
 bye
