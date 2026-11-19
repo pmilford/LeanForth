@@ -1004,7 +1004,7 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
   2dup lf-env-seek lf-env-n2 dup ok? 0= if nip nip exit then drop
   lf-env-reserving lf-env-n2-held ;
 : lf-env-unheld-pass ( name limit -- outcome )
-  2dup lf-env-unskipped dup ok? 0= if nip nip exit then drop lf-env-unused ;
+  2dup lf-env-unskipped ok-then2? if lf-env-unused then ;
 : lf-env-unquot ( name limit outcome -- outcome )
   dup ok? 0= if nip nip exit then drop lf-env-quot-holding lf-env-n2-quot ;
 \ An N2 query's answer, recorded under name with kind ("Lookups").

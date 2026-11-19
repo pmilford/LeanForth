@@ -716,10 +716,14 @@ create ed-v3-kinds
 \ A record form: a table of its members' names (ed-shape?), the slab its
 \ records go to (an xt), then its steps, as ed-steps reads them;
 \ ed-on-form reads one record of the form into a unit claimed for it.
-: ed-form-steps ( form -- table ) 2 cells + ;
-: ed-form-claim ( form -- i outcome ) cell+ @ execute ed-claim ;
+begin-structure /ed-form
+  field: ed-form-keys      \ the table of its members' names
+  field: ed-form-slab      \ xt ( -- slab ) of the slab its records go to
+  0 +field ed-form-steps   \ its steps, from here to the 0 that ends them
+end-structure
+: ed-form-claim ( form -- i outcome ) ed-form-slab @ execute ed-claim ;
 : ed-on-form ( value form -- outcome )
-  2dup @ ed-shape? 0= if 2drop ed-malformed exit then
+  2dup ed-form-keys @ ed-shape? 0= if 2drop ed-malformed exit then
   dup ed-form-claim ok-then? if swap ed-form-steps ed-steps else nip nip then ;
 \ A span's first number and count, the units of slab claimed between.
 : ed-span-open ( span slab -- ) slab-count swap ! ;
@@ -923,7 +927,7 @@ create ed-left-members
 : ed-has? ( n -- flag ) ed-decls dup if nip then ;
 : ed-left-has? ( reason n -- flag ) ed-has? swap elab-not-exported = and ;
 : ed-left-name ( reason index -- outcome )
-  dup ed-name-shape dup ok? 0= if nip nip exit then drop
+  dup ed-name-shape ok-then2? 0= if exit then
   ed-name ok-then? if ed-left-has? 0= ed-e-left-out ed-or-bad else nip then ;
 : ed-left-reason! ( value j -- outcome )
   ed-left swap c" reason" ed-member ed-reason-names ed-choice ['] ed-left-reason ed-put ;

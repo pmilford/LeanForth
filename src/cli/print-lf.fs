@@ -86,7 +86,7 @@ create fl-reason-texts
 here   \ the table's end, for the check below
 \ The counted string of reason (unchecked: 0 .. fl-reasons), and a
 \ reason's text, "?" for any other number.
-: fl-reason-at ( reason -- c-addr ) fl-reason-texts swap 0 ?do counted-next loop ;
+: fl-reason-at ( reason -- c-addr ) fl-reason-texts swap counted-nth ;
 fl-reasons fl-reason-at <> [if] .( print-lf.fs: one text per reason) cr abort [then]
 : fl-reason-text ( reason -- c-addr u )
   dup 0 fl-reasons within 0= if drop s" ?" exit then fl-reason-at count ;

@@ -125,7 +125,7 @@ end-structure
 
 \ Reading the job from the frames of the visit.
 : lf-open-n ( frames -- n ) lf-openjob-count @ ;
-: lf-open-s ( i frames -- node ) drop lf-open-terms slab-base swap cells + @ ;
+: lf-open-s ( i frames -- node ) drop lf-open-terms slab-base cell-at@ ;
 : lf-open-mode ( frames -- mode ) lf-openjob-mode @ ;
 : lf-open-abstract? ( frames -- flag ) lf-open-mode lf-open-mode-abstract = ;
 

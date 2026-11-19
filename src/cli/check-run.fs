@@ -1062,11 +1062,11 @@ create ck-manifest-path manifest-name-room 16 + allot
   ck-snapped? ck-importing? 0= and if ck-old-export ck-old-manifest outcome-ok exit then
   ck-snap-export dup ok? 0= if exit then drop ck-snap-manifest ;
 : ck-snap-prepared ( info-addr info-u -- outcome )
-  ck-out snap-begin dup ok? 0= if nip nip exit then drop ck-out snap-info!
+  ck-out snap-begin ok-then2? 0= if exit then ck-out snap-info!
   ['] ck-fact ck-out snap-facts! ck-export-id dup ok? ck-importing? and
   if drop ck-layer-set then ;
 : ck-snap-written ( file-addr file-u info-addr info-u -- outcome )
-  ck-snap-prepared dup ok? 0= if nip nip exit then drop
+  ck-snap-prepared ok-then2? 0= if exit then
   ck-fuel-budget ck-stage ck-out snap-save ;
 : ck-snapshot-save ( file-addr file-u info-addr info-u -- outcome )
   ck-saveable? 0= if 2drop 2drop outcome-invalid else ck-snap-written then

@@ -183,7 +183,7 @@ here feed-settings - /feed-setting / constant feed-settings#
   dup feed-levels# over feed-levels feed-block dup ok? 0= if nip exit then
   drop feed-expr-map ;
 : feed-level! ( index l feed -- ) feed-levels @ swap cells + ! ;
-: feed-level@ ( l feed -- index ) feed-levels @ swap cells + @ ;
+: feed-level@ ( l feed -- index ) feed-levels @ cell-at@ ;
 : feed-handle ( l feed -- index identity )
   feed-level@ lf-level-handle ;
 
@@ -442,7 +442,7 @@ lf-form-mdata tag-mdata feed-form!
   dup feed-merging? 0= if 2drop false exit then
   feed-let-fields lf-tin-leaf-find dup if nip then ;
 : feed-enter-let ( e feed -- outcome )
-  over 2* lf-term-input-binder dup ok? 0= if nip nip exit then drop
+  over 2* lf-term-input-binder ok-then2? 0= if exit then
   2dup feed-let-merged? if feed-dirty! outcome-ok else feed-let-leaf then ;
 : feed-enter ( e feed tag -- outcome )
   dup binder-tag? if drop feed-enter-binder exit then

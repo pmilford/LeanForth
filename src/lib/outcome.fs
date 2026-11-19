@@ -58,14 +58,15 @@ get-current lf-lib set-current   \ every word below is public, in lf-lib
   dup ok? if drop true else nip nip false then ;
 : ok-then3? ( x1 x2 x3 outcome -- x1 x2 x3 true | outcome false )
   dup ok? if drop true else nip nip nip false then ;
-\ Two outcomes as one: the first that is not ok, else ok.
+\ Two outcomes as one: the first that is not ok, else ok (the same code
+\ as bounds.fs's first-nonzero, as outcome-ok is 0; this one for outcomes).
 : outcome-and ( outcome1 outcome2 -- outcome ) over ok? if nip else drop then ;
 \ Run the steps ( x -- outcome ) listed at a (0 ends the list) in order
 \ until one is not ok: that outcome, or ok. Example: `create checks
 \ ' size-ok , ' sum-ok , 0 ,` then `file checks outcome-steps`.
 : outcome-steps ( x a -- outcome )
   dup @ 0= if 2drop outcome-ok exit then
-  2dup @ execute dup ok? 0= if nip nip exit then drop cell+ recurse ;
+  2dup @ execute ok-then2? 0= if exit then cell+ recurse ;
 \ Run the step xt ( i*x -- j*x outcome ) only when the outcome so far is
 \ ok; else keep that outcome, the values below it untouched. Example:
 \ `outcome-ok ['] size-ok ok-and ['] sum-ok ok-and`.

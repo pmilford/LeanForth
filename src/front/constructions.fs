@@ -204,7 +204,7 @@ end-structure
 : rec-whole? ( job -- flag ) dup rec-type over pi-count swap rec-total < 0= ;
 
 \ ---- The block of binders made, outermost first, and folds.
-: aux-slot ( i job -- addr ) aux-block @ swap 2* cells + ;
+: aux-slot ( i job -- addr ) aux-block @ pair-at ;
 : binder@ ( i job -- head dom ) aux-slot 2@ ;
 : aux-reserve ( n job -- outcome )
   2dup aux-room @ > 0= if 2drop outcome-ok exit then

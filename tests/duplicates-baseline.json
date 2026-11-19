@@ -91,6 +91,16 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 11
  },
+ "0bbd9a413392": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/instances.fs:it-both-verdict",
+   "src/kernel/environment.fs:lf-env-unheld-pass"
+  ],
+  "reason": "false positive: an outcome chain of two different steps on outcome.fs's ok-then2? (the shared word; the kernel's took it in reuse-d, Forth review finding 1)",
+  "tokens": 6
+ },
  "0cfdc52c7ceb": {
   "copies": 2,
   "kind": "shape",
@@ -924,6 +934,16 @@
   "reason": "planned: 9.4.8k front batch (reuse-front): wc-smatch and wc-app spine then dispatch alike: one spine-then word in whnf.fs (S2 merge B)",
   "tokens": 9
  },
+ "73a7638b224b": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/mvars.fs:lf-mvar-assign",
+   "src/front/mvars.fs:lf-level-mvar-assign"
+  ],
+  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "tokens": 11
+ },
  "74e0a562ad5c": {
   "copies": 4,
   "kind": "shape",
@@ -977,17 +997,6 @@
   ],
   "reason": "family, table-driven later: the replace walks (mixed-instantiate.fs, mixed-shift.fs, mixed-open.fs, inductive-nested.fs) keep their visit, pair, memo and keep words per walk; one walk record of xts would serve them (9.4.8k follow-up 5); their shared leaf, clean and rebuild steps are in mixed-rebuild.fs",
   "tokens": 13
- },
- "7d8b2bee54c6": {
-  "copies": 3,
-  "kind": "shape",
-  "members": [
-   "src/import/snapshot-tier.fs:tf-family",
-   "src/import/snapshot-tier.fs:tf-decls",
-   "src/kernel/environment.fs:lf-env-unheld-pass"
-  ],
-  "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with/ok-and/ok-then?, already the shared words",
-  "tokens": 12
  },
  "7e3f53f99edc": {
   "copies": 2,
@@ -1943,16 +1952,6 @@
   ],
   "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with/ok-and/ok-then?, already the shared words",
   "tokens": 7
- },
- "dcb7a55d1145": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/mvars.fs:lf-mvar-assign",
-   "src/front/mvars.fs:lf-level-mvar-assign"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 15
  },
  "dd3adb4fa8c6": {
   "copies": 2,

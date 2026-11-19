@@ -57,8 +57,8 @@ reason = "the head of f a b is f a: one step down the spine only"
 [[fault]]
 id = "rd-ed-on-form-unshaped"
 file = "src/front/elab-data.fs"
-old = '''  2dup @ ed-shape? 0= if 2drop ed-malformed exit then'''
-new = '''  2dup @ 2drop'''
+old = '''  2dup ed-form-keys @ ed-shape? 0= if 2drop ed-malformed exit then'''
+new = '''  2dup 2drop'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "a record with a member too many or one missing is read as if well formed"
 
@@ -219,3 +219,37 @@ old = '''  dup lf-fdecl-universe swap lf-fdecl-universes @ ;'''
 new = '''  lf-fdecl-universe 0 ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "a declaration's universe parameters read as none: a universe name in its statement is unknown"
+
+# --- The Forth review of reuse-d, finding 3: faults for first-nonzero, dw-on-terms/dw-hooks and aux-run.
+
+[[fault]]
+id = "rd-first-nonzero-last"
+file = "src/lib/bounds.fs"
+old = ''': first-nonzero ( x1 x2 -- x ) over if drop else nip then ;'''
+new = ''': first-nonzero ( x1 x2 -- x ) dup if nip else drop then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "of two failures the last is kept: a teardown's or a job's later ior hides the first (the reviewer's fault)"
+
+[[fault]]
+id = "rd-dw-hooks-swapped"
+file = "src/front/dag-walk.fs"
+old = ''': dw-hooks ( build pending walk -- walk ) tuck dw-pending ! tuck dw-build ! ;'''
+new = ''': dw-hooks ( build pending walk -- walk ) tuck dw-build ! tuck dw-pending ! ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "a walk's build word runs as its pending word and the other way round"
+
+[[fault]]
+id = "rd-dw-on-terms-level-size"
+file = "src/front/dag-walk.fs"
+old = '''  dw-hooks lf-term-base lf-term-count @ + over dw-size ! ;'''
+new = '''  dw-hooks lf-level-count @ over dw-size ! ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "a term walk sized by the level store: terms past it are no nodes of the walk"
+
+[[fault]]
+id = "rd-aux-run-no-reason"
+file = "src/front/constructions.fs"
+old = ''': aux-run ( d job xt -- outcome ) >r tuck aux-begin r> ok-with swap aux-because ;'''
+new = ''': aux-run ( d job xt -- outcome ) >r tuck aux-begin r> ok-with nip ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "a construction refused without its reason (aux-because): the refusal reads as unexplained"

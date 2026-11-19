@@ -435,7 +435,7 @@ elab-level-param tag-level-param <> or
 : lbd-sknown ( n -- name outcome )
   elab-node-a dup 0< if drop outcome-unsupported no-result else lbd-sdecl then ;
 : lbd-narg# ( n -- k ) elab-node-levels nip ;
-: lbd-narg ( n i -- l ) swap elab-node-levels drop swap cells + @ ;
+: lbd-narg ( n i -- l ) swap elab-node-levels drop cell-at@ ;
 : lbd-ntext ( n -- c-addr u ) elab-node-a elab-key-text ;
 : lbd-anonymous ( term n -- term outcome ) drop outcome-ok ;
 : lbd-s-key ( kind -- key )

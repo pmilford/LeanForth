@@ -560,7 +560,7 @@ is ep-c-call
   lf-postpone-no = if ep-oldest-at lfa-e-elab-stuck lf-elab-fail else outcome-ok then ;
 : ep-loop ( mode -- outcome )
   begin lf-elab-pending# while
-    dup ep-rounds dup ok? 0= if nip nip exit then drop 0= if ep-stuck exit then
+    dup ep-rounds ok-then2? 0= if exit then 0= if ep-stuck exit then
   repeat drop outcome-ok ;
 : lf-elab-synthesize ( mode -- outcome )
   lf-elab-at >r ep-loop r> lf-elab-at! ep-data-kept ;

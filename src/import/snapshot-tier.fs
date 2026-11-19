@@ -189,7 +189,7 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
 \ A layer (ADR 0020 amendment 1, F5; plan step SN4) writes each family's
 \ records from a first unit on (tier-from!), and declarations and lines
 \ the caller gives (tier-given!); a base writes every record.
-: tf-from@ ( i tf -- u ) tf-from swap cells + @ ;
+: tf-from@ ( i tf -- u ) tf-from cell-at@ ;
 : tf-given? ( i tf -- flag ) tf-given cell+ @ 0<> swap tp-decls < 0= and ;
 : tf-given@ ( i tf -- addr n )
   swap tp-decls = if tf-given 2@ else dup tf-given-lines @ swap tf-given @ then ;
@@ -197,7 +197,7 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
 \ environment's snapshot appends the names a check made beyond the input
 \ to the names and their bytes; the caller keeps the block until the file
 \ is written).
-: tf-join ( i tf -- addr ) tf-joins swap 2* cells + ;
+: tf-join ( i tf -- addr ) tf-joins pair-at ;
 : tf-data ( i tf -- addr n )
   2dup tf-join 2@ over if 2swap 2drop exit then 2drop
   2dup tf-given? if tf-given@ exit then
@@ -479,19 +479,19 @@ create tf-steps   \ the step ( stage tf -- outcome ) entering one record
 : tf-step ( i tf -- outcome ) dup tf-stage@ swap rot cells tf-steps + @ execute ;
 : tf-left? ( i tf -- flag ) 2dup tf-slab slab-count -rot tf-units u< ;
 : tf-adopt-all ( i tf -- outcome )
-  begin 2dup tf-left? while 2dup tf-step dup ok? 0= if nip nip exit then drop repeat
+  begin 2dup tf-left? while 2dup tf-step ok-then2? 0= if exit then repeat
   2drop outcome-ok ;
-: tf-family ( i tf -- outcome )
-  2dup tf-fill dup ok? 0= if nip nip exit then drop tf-adopt-all ;
+\ After a section's records are read (outcome), every one adopted.
+: tf-adopt-after ( i tf outcome -- outcome ) ok-then2? if tf-adopt-all then ;
+: tf-family ( i tf -- outcome ) 2dup tf-fill tf-adopt-after ;
 \ A family whose records point into the pool before it: every byte used.
 : pool-used? ( pool tf -- flag ) tf-pos @ swap slab-count = ;
 : tf-pooled ( i tf -- outcome )
-  0 over tf-pos ! 2dup tf-family dup ok? 0= if nip nip exit then drop
+  0 over tf-pos ! 2dup tf-family ok-then2? 0= if exit then
   swap 1- over tf-slab swap pool-used? flag>outcome ;
-: tf-decls ( i tf -- outcome )
-  2dup tf-plain dup ok? 0= if nip nip exit then drop tf-adopt-all ;
+: tf-decls ( i tf -- outcome ) 2dup tf-plain tf-adopt-after ;
 : tf-lines ( i tf -- outcome )
-  2dup tf-plain dup ok? 0= if nip nip exit then drop
+  2dup tf-plain ok-then2? 0= if exit then
   tuck tf-units over tf-stage@ stage-lines rot tf-stage@ lines-commit ;
 create tf-loads   \ by position, from 1
   ' tf-pool , ' tf-pooled , ' tf-family , ' tf-family , ' tf-pool , ' tf-pooled ,

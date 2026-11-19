@@ -201,7 +201,7 @@ lf-lib set-current
   dup walk-spend? if walk-next else 2drop outcome-exhausted then ;
 : walk-loop ( xt walk -- outcome )
   begin dup walk-pending @ 0> while
-    2dup walk-step dup ok? 0= if nip nip exit then drop
+    2dup walk-step ok-then2? 0= if exit then
   repeat 2drop outcome-ok ;
 : walk-clear ( walk -- ) 0 over walk-pending ! -1 swap walk-node ! ;
 : walk-start ( root walk -- flag ) dup walk-clear walk-push ;

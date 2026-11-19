@@ -210,7 +210,7 @@ lf-lib set-current
 \ table ready for one more entry: ok, full, or invalid for a sealed set.
 : cons-room ( units bytes cons -- outcome )
   dup cons-open? 0= if drop 2drop outcome-invalid exit then
-  tuck cons-bytes-room dup ok? 0= if nip nip exit then drop
+  tuck cons-bytes-room ok-then2? 0= if exit then
   tuck cons-records slab-room dup ok? 0= if nip exit then drop
   cons-table htab-ready ;
 \ The candidate's text, kept in cons-key: addr u, and where addr lies in

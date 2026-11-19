@@ -1179,7 +1179,7 @@ here families - cell / constant #families
 \ record, or an element of an inductive block. Aborts for a number that
 \ is not a record kind, as export-handler does.
 : export-kind-count ( kind export -- n )
-  over kind-count u< 0= abort" ndjson: no such record kind" export-kinds swap cells + @ ;
+  over kind-count u< 0= abort" ndjson: no such record kind" export-kinds cell-at@ ;
 
 \ Reading decoded records inside a handler.
 : record-view ( record -- view ) record-export @ export-json ;

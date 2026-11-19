@@ -234,7 +234,7 @@ end-structure
   >r dup r@ lf-pbind-offset ! lf-pp-pending nip r@ lf-pbind-length !
   r> lf-pbind-domain ! ;
 : lf-pp-bind ( domain mark -- outcome )
-  lf-pp-depth 1+ lf-pp-scope-table slab-hold dup ok? 0= if nip nip exit then drop
+  lf-pp-depth 1+ lf-pp-scope-table slab-hold ok-then2? 0= if exit then
   lf-pp-depth lf-pp-bind-at lf-pp-bind-set 1 lf-pjob lf-pjob-binders +! outcome-ok ;
 \ Leave the innermost n binders; their names leave the pool. Nothing is
 \ left when none is in scope.

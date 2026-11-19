@@ -74,7 +74,8 @@ lf-lib set-current
 : pair-at ( i a-addr -- addr ) swap 2* cells + ;
 : record-at ( i size a-addr -- addr ) >r * r> + ;
 \ The first of two values that is not zero, else zero: the first failure
-\ of two steps that give 0 for success (an ior, an image).
+\ of two steps that give 0 for success (an ior, an image). The same code
+\ as outcome.fs's outcome-and, whose ok is 0; that one names outcomes.
 : first-nonzero ( x1 x2 -- x ) over if drop else nip then ;
 \ One more in cell i of an array of counts at a-addr (unchecked, as
 \ cell-at@).

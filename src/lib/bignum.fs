@@ -843,7 +843,7 @@ limb-bits 3 - constant lead-bits
   drop lehmer-turn outcome-ok ;
 : lehmer ( job arena -- outcome )
   begin over euclid-v @ @ 1 > while
-    2dup lehmer-round dup ok? 0= if nip nip exit then drop repeat 2drop outcome-ok ;
+    2dup lehmer-round ok-then2? 0= if exit then repeat 2drop outcome-ok ;
 \ Euclid on cells, and the end: v has at most one limb, u mod v in place.
 : cell-gcd ( u1 u2 -- u ) begin dup while tuck limb-mod repeat drop ;
 : u-mod-v ( job -- v u-mod-v )

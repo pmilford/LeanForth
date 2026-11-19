@@ -510,6 +510,27 @@ T{ 5 6 outcome-ok ' ok-or-none rs-checked 5 6 outcome-full ' ok-or-none rs-check
 : rd-all-same? ( xt -- flag )
   true outcome-full 2 + -1 do over i swap execute and loop nip ;
 T{ ' rd-and-same? rd-all-same? ' rd-apply-same? rd-all-same? -> true true }T
+\ The Forth review of reuse-d, findings 1 and 2: ok-then2? in place of
+\ `dup ok? 0= if nip nip exit then drop` (kernel environment.fs's
+\ lf-env-unheld-pass and the import files), and cell-at@ and pair-at in
+\ place of `swap cells + @` and `swap 2* cells +` (kernel mixed-open.fs's
+\ lf-open-s; import feed.fs, stage-records.fs, snapshot-tier.fs,
+\ ndjson.fs): the old text, kept here as the model, gives the same for
+\ every outcome and every index.
+: rd-old-ch ( a b outcome -- x ) dup ok? 0= if nip nip exit then drop + ;
+: rd-new-ch ( a b outcome -- x ) ok-then2? 0= if exit then + ;
+: rd-new-ch2 ( a b outcome -- x ) ok-then2? if + then ;
+: rd-ch-same? ( outcome -- flag )
+  3 4 2 pick rd-old-ch 3 4 3 pick rd-new-ch 3 4 4 pick rd-new-ch2
+  >r over = swap r> = and nip ;
+T{ ' rd-ch-same? rd-all-same? 3 4 outcome-ok rd-new-ch2 -> true 7 }T
+: rd-old-at ( i a-addr -- x ) swap cells + @ ;
+: rd-old-pair ( i a-addr -- addr ) swap 2* cells + ;
+: rd-at-same? ( -- flag )
+  true 5 0 do i some-cells cell-at@ i some-cells rd-old-at = and loop ;
+: rd-pair-same? ( -- flag )
+  true 9 -2 do i some-cells pair-at i some-cells rd-old-pair = and loop ;
+T{ rd-at-same? rd-pair-same? -> true true }T
 T{ 5 outcome-ok ' rd-step ok-apply 5 outcome-rejected ' rd-step ok-apply
    -> 15 outcome-unknown -1 outcome-rejected }T
 T{ 4 5 outcome-ok ' rd-step ' ok-apply rs-checked -> 4 15 outcome-unknown }T

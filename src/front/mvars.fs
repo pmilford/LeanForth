@@ -570,7 +570,7 @@ end-structure
   dup lf-term-valid? 0= if 2drop outcome-invalid exit then
   over mv-free? 0= if 2drop outcome-invalid exit then lf-mvar-occurs? mv-occurs-outcome ;
 : lf-mvar-assign ( mvar value -- outcome )
-  2dup mv-sound dup ok? 0= if nip nip exit then drop
+  2dup mv-sound ok-then2? 0= if exit then
   swap mv-number mv-was-value mv-change ;
 : mvl-free? ( level -- flag )
   dup lf-level-mvar-live? if mvl-number mvl-decl mvl-value @ 0< else drop false then ;
@@ -579,7 +579,7 @@ end-structure
   over mvl-free? 0= if 2drop outcome-invalid exit then
   lf-level-mvar-occurs? mv-occurs-outcome ;
 : lf-level-mvar-assign ( level value -- outcome )
-  2dup mvl-sound dup ok? 0= if nip nip exit then drop
+  2dup mvl-sound ok-then2? 0= if exit then
   swap mvl-number mv-was-level mv-change ;
 
 \ A tag (a name ID, or 0 for none) and a kind, set on a live metavariable

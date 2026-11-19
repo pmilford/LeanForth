@@ -320,9 +320,9 @@ here meta-fields - cell / constant #meta
 \ of the export it came from kept (staged-line@; the presentation reads it,
 \ the checker never does).
 : draft-open ( record stage -- outcome )
-  1 over stage-decl-records slab-room dup ok? 0= if nip nip exit then drop
+  1 over stage-decl-records slab-room ok-then2? 0= if exit then
   over record-line @ dup staged-none u< 0= if drop dup too-wide nip nip nip exit then
-  over stage-lines fields-push dup ok? 0= if nip nip exit then drop
+  over stage-lines fields-push ok-then2? 0= if exit then
   swap record-kind @ swap draft draft-blank outcome-ok ;
 
 \ Gathering a tuple's items in the stage, then making the tuple: full for
@@ -330,7 +330,7 @@ here meta-fields - cell / constant #meta
 : items-clear ( stage -- ) 0 swap stage-item-count ! ;
 : item, ( u stage -- )
   dup >r stage-item-count @ cells r@ stage-items + ! 1 r> stage-item-count +! ;
-: item@ ( k stage -- u ) stage-items swap cells + @ ;
+: item@ ( k stage -- u ) stage-items cell-at@ ;
 : number-add ( u stage -- outcome )
   over u32-mask u> if nip too-wide nip else stage-tuples tuple-add then ;
 : item-add ( stage k -- stage outcome ) over item@ over number-add ;
@@ -457,14 +457,14 @@ create kind-steps axiom-steps , def-steps , thm-steps , opaque-steps , quot-step
 : stage-decls ( stage -- n ) stage-decl-records slab-count ;
 : by-name-cover ( n stage -- outcome ) stage-by-name fields-cover ;
 : draft-chain ( n stage -- outcome )
-  2dup by-name-cover dup ok? 0= if nip nip exit then drop
+  2dup by-name-cover ok-then2? 0= if exit then
   tuck stage-by-name fields@ swap draft staged-prev u32! outcome-ok ;
 : draft-keep ( stage -- d ) dup stage-decls 1 rot stage-decl-records slab-commit ;
 : newest! ( d n stage -- ) >r swap 1+ swap r> stage-by-name fields! ;
 : draft-close ( stage -- outcome )
   dup draft-valid? 0= if drop outcome-invalid exit then
   dup draft staged-name u32@ ?dup 0= if draft-keep drop outcome-ok exit then
-  2dup swap draft-chain dup ok? 0= if nip nip exit then drop
+  2dup swap draft-chain ok-then2? 0= if exit then
   over draft-keep swap rot newest! outcome-ok ;
 \ Stage a declaration record with the steps of its kind.
 : put-decl ( record -- outcome )

@@ -5311,8 +5311,8 @@ quick = true
 [[fault]]
 id = "stage-keeps-no-line"
 file = "src/import/stage-records.fs"
-old = '''  over stage-lines fields-push dup ok? 0= if nip nip exit then drop'''
-new = '''  drop 0 over stage-lines fields-push dup ok? 0= if nip nip exit then drop'''
+old = '''  over stage-lines fields-push ok-then2? 0= if exit then'''
+new = '''  drop 0 over stage-lines fields-push ok-then2? 0= if exit then'''
 test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
 reason = "the stage forgets the line of each declaration it stages, so every outline reads line 0"
 quick = true
@@ -11692,7 +11692,7 @@ reason = "FRI B6: of two failures the second is kept, so a full layer field hide
 [[fault]]
 id = "outcome-steps-past-failure"
 file = "src/lib/outcome.fs"
-old = '''  2dup @ execute dup ok? 0= if nip nip exit then drop cell+ recurse ;'''
+old = '''  2dup @ execute ok-then2? 0= if exit then cell+ recurse ;'''
 new = '''  2dup @ execute drop cell+ recurse ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "FRI B6: a failing step is ignored and the steps after it run; a sections file read with a bad header loads"

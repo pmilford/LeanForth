@@ -297,7 +297,7 @@ lf-lib set-current
 : store-limit-set ( limit store -- ) tuck store-limit ! store-seal! ;
 : store-limit! ( limit store -- outcome )
   2dup store-limit-ok? 0= if 2drop outcome-invalid exit then
-  2dup store-capacity @ < if 2dup store-resize dup ok? 0= if nip nip exit then drop then
+  2dup store-capacity @ < if 2dup store-resize ok-then2? 0= if exit then then
   store-limit-set outcome-ok ;
 
 \ Marks (plan task 1.1.3). store-mark records where a store's allocation
