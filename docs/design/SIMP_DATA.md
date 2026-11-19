@@ -263,7 +263,7 @@ its tests). Sizes are estimates (about 1.2 lines of Forth per line of Lean porte
 
 | Slice | Command at the end | Contains | Forth | Needs |
 | --- | --- | --- | ---: | --- |
-| SP1a | `scripts/export-elab.sh init.elab.ndjson init.ndjson Init` writes format 4; `leanforth check --elab-data` accepts it and refuses each planted fault | the tool for every kind (Lean, Python: about 300 lines), the reader and load checks, `discr-tree.fs` moved out of `instances.fs` with `getMatch`, `getMatchWithExtra`, replace in place | 1,200 | the gate |
+| SP1a | `scripts/export-elab.sh init.elab.ndjson init.ndjson Init` writes format 4; `leanforth check --elab-data` accepts it and refuses each planted fault | the tool for every kind (Lean, Python: about 300 lines), the reader and load checks (amended 2026-11-18 by [LF_LIBRARIES.md](LF_LIBRARIES.md) §6, pending the owner's answer to its question 7: `discr-tree.fs`'s move out of `instances.fs` with replace in place goes to MF2, `getMatch` and `getMatchWithExtra` to SP1b with their first caller) | 1,200 less the move | the gate |
 | SP1b | `by-simp-only[ Nat.add_zero ]` proves `n + 0 + 0 = n`, terms node for node Lean's | the core with `Eq` bracket lemmas only; other lemma forms and functions with `@[congr]` lemmas answer unsupported | 1,400 | SP1a, plug-ins (a2) |
 | SP1c | `by-simp-only[ ]` with `↔`, `¬`, `←` and hypotheses, through `if` | `@[congr]`; `preprocess` and bracket helpers handed to the kernel | 1,200 | SP1b |
 | SP2a | `by-simp` on one-line `by simp` proofs of `Init`, "K of N" | the default set, lazy branches, per-lemma checks, `simp_left_out`, unfolding, the 5 generic and 25 `Nat` simprocs | 1,500 | SP1c |
