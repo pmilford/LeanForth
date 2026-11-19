@@ -16,8 +16,9 @@
 \ lf-goal-type; getLCtx/findDeclRevM? -> the goal's view (lctx-views.fs,
 \ lf-view-count, lf-view-local) searched from its end (lib/find.fs's
 \ find-last-index); isImplementationDetail
-\ -> lf-local-detail?; isDefEq -> lf-defeq! under lf-meta-with;
-\ assign -> lf-mvar-assign; throwTacticEx -> lf-tac-failed (tactic-basic.fs).
+\ -> lf-local-detail?; isDefEq -> lf-defeq! under lf-with-assignable-opaque
+\ (meta-config.fs);
+\ assign -> lf-mvar-assign; throwTacticEx -> lf-tac-detail, lf-tac-stop (tactic-msg.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own. Loads in decimal whatever BASE is, then
 \ restores it.
@@ -32,15 +33,14 @@ require ../meta-config.fs
 require ../lctx-views.fs
 require ../goals.fs
 require ../defeq.fs
-require ../tactic-basic.fs
+require ../tactic-msg.fs
 require ../meta-must.fs
 require ./goal.fs
 
 381 outcome-invalid s" Tactic `assumption` failed" lfa-code: lfa-e-assumption
 
 \ isDefEq with synthetic opaque metavariables assignable.
-: mas-defeq ( t s -- flag )
-  ['] lf-defeq! lf-defeq-flags lf-defeq-opaque or lf-defeq-mode lf-meta-with ;
+: mas-defeq ( t s -- flag ) ['] lf-defeq! lf-with-assignable-opaque ;
 \ Local k of the goal's context fits type: no implementation detail, its
 \ type defeq; findDeclRevM?: the last k that fits.
 : mas-fits? ( type k -- type flag )

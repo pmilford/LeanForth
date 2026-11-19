@@ -195,7 +195,7 @@ T{ detail s\" occurs-check failure\n\np : Prop\nh : p\n⊢ p" search nip nip -> 
 T{ s" n by-exact end t" proof nrun err -> outcome-unsupported 93 1 45 }T
 \ No term elaborator (plan FE1e): 71 at the word.
 ' imp-p stating
-' lfb-unelaborated is lf-tac-elab
+' tcr-unelaborated is lf-tac-elab
 T{ s" by-intro: h n by-exact end t" proof nrun err -> outcome-unsupported 71 1 57 }T
 ' stand-in is lf-tac-elab
 
@@ -326,7 +326,7 @@ T{ s" by-intro: h by-intro: k end t" proof nrun err lf-mctx-view lf-view-count
 2variable settings
 : sink-throws ( c-addr u -- ) 2drop -79 throw ;
 : throwing-sink ( -- ) lf-print-settings settings 2! ['] sink-throws lf-print-unicode lf-print-setup ;
-T{ false lf-print-notation! throwing-sink prop ' lfb-noted catch nip lf-print-notation? -> -79 false }T
+T{ false lf-print-notation! throwing-sink prop ' tmg-noted catch nip lf-print-notation? -> -79 false }T
 settings 2@ lf-print-setup
 T{ 0 lf-defeq-flags! lf-tr-all lf-defeq-mode! prop prop lf-tac-defeq lf-defeq-flags lf-defeq-mode
    -> true outcome-ok 0 lf-tr-all }T
@@ -336,13 +336,17 @@ lf-tr-default lf-defeq-mode!
 \ 2026-11-19-s2-rest, finding 2): lf-tac-arg reads step i's argument k (a
 \ name, 0 for _), as by-case: and the alternatives read their names;
 \ lf-tac-.name writes a name between backquotes to the message's sink.
-variable seen#  variable seen0  variable seen1
+\ lf-tac-arg-at gives an argument's place: the second after the first.
+variable seen#  variable seen0  variable seen1  variable at0  variable at1
+: record-at ( i -- ) dup 0 lf-tac-arg-at at0 ! 1 lf-tac-arg-at at1 ! ;
 : record-args ( i -- )
-  dup lf-tac-args# seen# ! dup 0 lf-tac-arg seen0 ! 1 lf-tac-arg seen1 ! lfa-e-tac-unsolved lfa-fail ;
+  dup record-at dup lf-tac-args# seen# ! dup 0 lf-tac-arg seen0 ! 1 lf-tac-arg seen1 !
+  lfa-e-tac-unsolved lfa-fail ;
 ' record-args tac-k-case lf-tactic-action!
 ' imp-p stating
 T{ s" by-case: succ k _ => by-sorry by-end end t" proof nrun drop seen# @ -> 2 }T
 T{ seen0 @ s" k" lfa-intern = seen1 @ -> true 0 }T
+T{ at0 @ 0> at1 @ at0 @ > -> true true }T
 ' tcs-w-case tac-k-case lf-tactic-action!
 : grab ( c-addr u -- ) text+ ;
 : named. ( c-addr u -- c-addr' u' )

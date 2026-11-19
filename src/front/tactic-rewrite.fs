@@ -72,7 +72,8 @@ require ./meta-check.fs
 require ./elab-pending.fs
 require ./tactic-syntax.fs
 require ./tactic-run.fs
-require ./tactic-basic.fs
+require ./tactic-msg.fs
+require ./tactic-core.fs
 require ./meta-must.fs
 require ./app-builder.fs
 require ./telescope.fs
@@ -84,7 +85,7 @@ begin-structure /trw
   field: trw-heq         \ its proof, applied to its new metavariables
   field: trw-htype       \ that proof's type
   field: trw-alpha       \ the equation's type, left and right sides
-  field: trw-lhs
+  field: trw-lhs         \ (lhs and rhs a pair: lfw-sides stores them with 2!)
   field: trw-rhs
   field: trw-e           \ the target, instantiated
   field: trw-abst        \ the target, the pattern abstracted
@@ -99,12 +100,12 @@ end-structure
 1 cells context-slab: trw-mvars
 
 \ ---- Errors at the rule (its place second), with or without the goal.
-: lfw-rule-at ( -- pos ) trw trw-rule @ lf-tactic-arg nip ;
+: lfw-rule-at ( -- pos ) lf-tac-step trw trw-rule @ lf-tac-arg-at ;
 : lfw-stop ( code -- ) lf-author-code 0= if lfw-rule-at lfa-see! then lf-tac-stop ;
 : lfw-failed ( xt code -- ) >r 0 swap lf-tac-detail r> lfw-stop ;
 
 \ ---- The rule: elaborated with no expected type, postponing allowed.
-: lfw-node ( -- node ) trw trw-rule @ lf-tactic-arg drop ;
+: lfw-node ( -- node ) lf-tac-step trw trw-rule @ lf-tac-arg ;
 : lfw-definition? ( node -- flag )
   dup syn-kind@ syn-k-const <> if drop false exit then
   syn-a@ lfa-decl-name lf-menv-find ok-then? if lf-menv-kind lf-kind-definition = else
@@ -129,9 +130,9 @@ end-structure
   trw trw-heq @ dup lf-infer! lf-instantiate! -1 ['] lfw-mvar+
   lf-forall-meta-telescope-reducing trw trw-htype ! trw trw-heq ! ;
 
-\ ---- matchEq?: Eq α lhs rhs, after whnf when it is none.
+\ ---- matchEq? (app-builder.fs): Eq α lhs rhs, after whnf when it is none.
 : lfw-iff? ( t -- flag ) 2 s" Iff" lf-meta-app-of? ;
-: lfw-sides ( eq -- ) lf-eq? drop trw trw-rhs ! trw trw-lhs ! trw trw-alpha ! ;
+: lfw-sides ( α lhs rhs -- ) swap trw trw-lhs 2! trw trw-alpha ! ;   \ (lhs, rhs a pair)
 : lfw-prop? ( -- flag ) trw trw-htype @ lf-get-level ok-then? if 0= else drop false then ;
 : lfw-descr ( -- c-addr u )
   lfw-prop? if s"  is a proof of" else s"  is a value of type" then ;
@@ -141,11 +142,9 @@ end-structure
 : lfw-not-eq ( -- )
   0 ['] lfw-value. lf-tac-inline 0 ['] lfw-htype. lf-tac-detail lfa-e-tac-not-eq
     lfw-stop ;
-: lfw-eq ( -- eq )
-  trw trw-htype @ dup lf-tac-eq? if exit then lf-meta-whnf lf-tac-must
-  dup lf-tac-eq? 0= if drop lfw-not-eq then ;
 : lfw-matched ( -- )
-  trw trw-htype @ lfw-iff? if lfa-e-tac-form lfw-stop then lfw-eq lfw-sides ;
+  trw trw-htype @ dup lfw-iff? if lfa-e-tac-form lfw-stop then
+  lf-match-eq? 0= if lfw-not-eq then lfw-sides ;
 \ A pattern whose head is a metavariable (219).
 : lfw-lhs. ( x -- outcome )
   drop s"  (" lf-pp-emit trw trw-lhs @ lf-tac-inline. s" ) in this equality" lf-pp-emit ;
@@ -156,10 +155,7 @@ end-structure
 
 \ ---- kabstract, at reducible transparency.
 : lfw-target. ( -- outcome ) s\" \nin the target expression\n" trw trw-e @ lf-tac-line. ;
-\ A term indented, what xt ( -- outcome ) prints, then the goal.
-: lfw-framed. ( term xt -- outcome )
-  swap lf-tac-indented. swap ok-and ['] lf-tac-goal. ok-and ;
-: lfw-pattern. ( x -- outcome ) drop trw trw-lhs @ ['] lfw-target. lfw-framed. ;
+: lfw-pattern. ( x -- outcome ) drop trw trw-lhs @ ['] lfw-target. lf-tac-framed. ;
 : lfw-no-pattern ( -- ) ['] lfw-pattern. lfa-e-tac-no-pattern lfw-failed ;
 : lfw-abstracted ( -- )
   trw trw-e @ trw trw-lhs @ ['] lf-meta-kabstract lf-defeq-elab lf-tr-reducible
@@ -176,7 +172,8 @@ end-structure
 : lfw-app. ( -- outcome )
   lf-meta-check-bad dup 0< if drop outcome-ok exit then
   >r s\" \nError: Application type mismatch in the application\n" r> lf-tac-line. ;
-: lfw-motive. ( x -- outcome ) drop trw trw-motive @ ['] lfw-app. lfw-framed. ;
+: lfw-motive-framed. ( xt -- outcome ) trw trw-motive @ swap lf-tac-framed. ;
+: lfw-motive. ( x -- outcome ) drop ['] lfw-app. lfw-motive-framed. ;
 : lfw-checked ( -- )
   trw trw-motive @ lf-tr-all ['] lf-meta-check lf-defeq-elab lf-defeq-mode lf-meta-with
   dup outcome-invalid = if drop ['] lfw-motive. lfa-e-tac-motive lfw-failed then
@@ -185,7 +182,7 @@ end-structure
   trw trw-abst @ swap lf-meta-instantiate1 lf-tac-must lf-infer! trw trw-etype @
   lf-tac-defeq lf-tac-must ;
 : lfw-nothing. ( -- outcome ) outcome-ok ;
-: lfw-dependent. ( x -- outcome ) drop trw trw-motive @ ['] lfw-nothing. lfw-framed. ;
+: lfw-dependent. ( x -- outcome ) drop ['] lfw-nothing. lfw-motive-framed. ;
 : lfw-independent ( -- )
   trw trw-alpha @ s" _a" lfa-intern lf-binder-default ['] lfw-at lf-with-local-decl
   0= if ['] lfw-dependent. lfa-e-tac-motive-dep lfw-failed then ;
@@ -199,7 +196,7 @@ end-structure
   trw trw-proof ! ;
 \ Lean's new goals: a metavariable of the rule left unassigned.
 : lfw-closed ( -- )
-  trw trw-proof @ lf-instantiate-mvars lf-tac-must ['] lf-tac-hole? lf-term-holds?
+  trw trw-proof @ lf-instantiate-mvars lf-tac-must ['] lf-mvar-open? lf-term-holds?
     lf-tac-must
   if lfa-e-tac-form lfw-stop then ;
 
@@ -219,25 +216,21 @@ end-structure
   lfw-new lfw-motive! lfw-checked lfw-independent lfw-proof! ;
 \ The pending list set aside around the rule and put back however it
 \ ends (review C2 of 2026-11-18: a failed rule left the window open).
-: lfw-synthesized ( -- ) ['] lfw-core lf-postpone-no lf-elab-with-synth lf-tac-must ;
-: lfw-rewrite ( j i -- ) drop lfw-begin lfw-synthesized lfw-closed lfw-replaced ;
+: lfw-rewrite ( k i -- )
+  drop lfw-begin ['] lfw-core lf-tac-with-synth lfw-closed lfw-replaced ;
 \ trw-mvars in a tactic's saved state (tactic-run.fs's tac-state:).
 1 cells context-slab: trw-mvars-kept
 : lfw-keep ( -- outcome ) trw-mvars trw-mvars-kept slab-keep ;
 : lfw-kept ( undo? -- outcome ) trw-mvars trw-mvars-kept slab-kept ;
 ' lfw-keep ' lfw-kept tac-state:
-: lfw-rule ( j i -- ) ['] lfw-rewrite lf-tac-step-run ;
-: lfw-rules ( i -- )
-  dup lf-tactic-step dup tac-first @ swap tac-count @ over + swap ?do i over lfw-rule loop
-  drop ;
+: lfw-rule ( k i -- ) ['] lfw-rewrite lf-tac-step-run ;
+: lfw-rules ( i -- ) dup lf-tac-args# 0 ?do i over lfw-rule loop drop ;
 
-\ ---- try (with_reducible rfl): a failure (invalid) undone; anything else
-\ thrown again, as Lean's try never catches a runtime exception (fuel,
-\ room; CoreM.lean:806-810) and a gap of LeanForth's stays one.
-: lfw-invalid? ( -- flag ) lf-author-code lf-author-outcome outcome-invalid = ;
-: lfw-caught ( code -- ) lfw-invalid? if drop lf-tac-forget else throw then ;
-: lfw-rfl ( -- ) lf-tac-step lf-tac-rfl-reducible ;
-: lfw-try-rfl ( -- ) ['] lfw-rfl lf-tac-try ?dup if lfw-caught then ;
+\ ---- try (with_reducible rfl): by-rfl's row (lf-tac-eval) at reducible
+\ transparency; a Lean error undone and forgotten, anything else thrown
+\ again (tactic-core.fs's lf-tac-try-lean).
+: lfw-rfl ( -- ) lf-tac-step tac-k-rfl ['] lf-tac-eval lf-with-reducible ;
+: lfw-try-rfl ( -- ) ['] lfw-rfl lf-tac-try-lean drop ;
 : lfw-w-rewrite ( i -- ) lfw-rules ;
 : lfw-w-rw ( i -- ) lfw-rules lfw-try-rfl ;
 ' lfw-w-rewrite tac-k-rewrite lf-tactic-action!

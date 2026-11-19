@@ -21,6 +21,14 @@
 \                                     .lean:50)
 \   lf-with-goal ( i*x goal xt -- j*x ) MVarId.withContext (Meta/Basic.lean)
 \   lf-with-view ( i*x xt view -- j*x ) xt in that local context (withLCtx)
+\   lf-with-record ( i*x slab xt -- j*x ) xt ( i*x frame -- j*x ) given a
+\                                     new frame, erased, on slab (a call's
+\                                     working record), freed however xt
+\                                     ends, with any frame left above it
+\   lf-tac-defeq ( t s -- flag outcome ) the tactics' isDefEq: the
+\                                     elaborator's flags at default
+\                                     transparency, the stuck signal made
+\                                     invalid (outcome-sane); no THROW
 \   lf-found ( x true | false -- x )  a lookup's answer, none thrown invalid
 \                                     (a record LeanForth made is missing: a fault)
 \   lf-goal-type lf-goal-tag lf-goal-view lf-goal-kind ( goal -- x )
@@ -51,6 +59,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
+require ../lib/slab.fs
 require ./mvars.fs
 require ./meta-config.fs
 require ./whnf.fs
@@ -89,6 +98,11 @@ require ./defeq.fs
 : lf-level! ( type -- level ) lf-get-level lf-must ;
 : lf-defeq! ( t s -- flag ) lf-meta-defeq outcome-sane lf-must ;
 : lf-instantiate! ( e -- e' ) lf-instantiate-mvars lf-must ;
+\ isDefEq in the elaborator's configuration at default transparency
+\ (lf-meta-with: defeq's own configuration and mode put back however it
+\ ends), an internal code such as the stuck signal made invalid.
+: lf-tac-defeq ( t s -- flag outcome )
+  ['] lf-meta-defeq lf-defeq-elab lf-tr-default lf-meta-with outcome-sane ;
 
 \ ---- commitWhen: the metavariable context marked, xt run; its changes
 \ kept on true, rolled back on false and on a THROW (thrown on). A
@@ -109,4 +123,12 @@ require ./defeq.fs
 : lf-goal-view ( goal -- view ) lf-mvar-view lf-found ;
 : lf-goal-kind ( goal -- kind ) lf-mvar-kind lf-found ;
 : lf-with-goal ( i*x goal xt -- j*x ) swap lf-goal-view lf-with-view ;
+
+\ ---- A call's working record: a frame per call open on the slab, so
+\ that a call inside another has its own (slice LA item 5), freed on both
+\ paths.
+: mm-frame ( slab -- frame )
+  1 over slab-claim lf-must over slab-at dup rot slab-unit erase ;
+: lf-with-record ( i*x slab xt -- j*x )
+  over dup slab-count 2>r swap mm-frame swap catch 2r> swap slab-cut throw ;
 base !   \ the BASE this file was loaded with

@@ -265,6 +265,68 @@ nat0 zero zero lf-mk-eq s" h" binder constant fh
 T{ dependent -> -4204 }T
 T{ nat dup lf-whnf-r! = -> true }T
 
+\ ---- 5. Slice 9.4.8l-I's shared words (plan 9.4.8l-I).
+\ The configuration scopes: each sets only its own part on the
+\ configuration in force and gives it back on both paths.
+: config@ ( -- flags mode ) lf-meta-config ;
+: config-fails ( -- ) outcome-full lf-must ;
+lf-meta-default lf-tr-instances lf-meta-config!
+lf-defeq-fo lf-defeq-ctx or lf-defeq-quasi or constant approx-bits
+T{ ' config@ lf-with-reducible config@ -> lf-meta-default lf-tr-reducible lf-meta-default
+   lf-tr-instances }T
+T{ ' config@ lf-with-assignable-opaque config@
+   -> lf-meta-default lf-defeq-opaque or lf-tr-instances lf-meta-default lf-tr-instances }T
+T{ ' config@ lf-with-approx -> lf-meta-default approx-bits or lf-tr-instances }T
+: both ( -- flags mode ) ['] config@ lf-with-assignable-opaque ;
+T{ ' both lf-with-approx -> lf-meta-default approx-bits or lf-defeq-opaque or lf-tr-instances }T
+T{ ' config-fails ' lf-with-reducible code1 config@ -> -4206 lf-meta-default lf-tr-instances }T
+T{ ' config-fails ' lf-with-assignable-opaque code1 config@
+   -> -4206 lf-meta-default lf-tr-instances }T
+T{ ' config-fails ' lf-with-approx code1 config@ -> -4206 lf-meta-default lf-tr-instances }T
+lf-defeq-elab lf-tr-default lf-meta-config!
+\ lf-with-record: a frame erased for each call, nested calls their own,
+\ every frame freed when xt ends or throws (a frame xt leaves above its
+\ own too).
+create rec-slab /slab allot  2 cells 100 rec-slab slab-init drop
+: rec-sum ( x frame -- x' n ) @ + rec-slab slab-count ;
+: rec-dirty ( frame -- ) 7 swap ! ;
+: rec-fails ( frame -- ) rec-dirty outcome-full lf-must ;
+: rec-depth ( frame -- n ) drop rec-slab slab-count ;
+: rec-nested ( frame -- n m ) rec-dirty rec-slab ['] rec-depth lf-with-record rec-slab
+  slab-count ;
+: rec-leaks ( frame -- ) drop 2 rec-slab slab-claim 2drop ;
+T{ 5 rec-slab ' rec-sum lf-with-record rec-slab slab-count -> 5 1 0 }T
+T{ rec-slab ' rec-dirty lf-with-record 0 rec-slab ' rec-sum lf-with-record -> 0 1 }T
+T{ rec-slab ' rec-fails ' lf-with-record catch nip nip rec-slab slab-count -> -4206 0 }T
+T{ rec-slab ' rec-nested lf-with-record rec-slab slab-count -> 2 1 0 }T
+T{ rec-slab ' rec-leaks lf-with-record rec-slab slab-count -> 0 }T
+rec-slab slab-free
+\ lf-term-holds-with?: the test reads its context x, which is not left.
+: same? ( x leaf -- x flag ) over = ;
+nat s" w" binder constant fw   nat s" v" binder constant fv
+zero fw lf-mk-app constant zero-x
+T{ zero-x fw ' same? lf-term-holds-with? zero-x fv ' same? lf-term-holds-with?
+   -> true outcome-ok false outcome-ok }T
+\ lf-local-decl-new: a new variable of the type and its local, pushed on
+\ a new view; the current view not changed.
+lf-mctx-view constant view-q  nat constant ty-q
+ty-q s" q" lfa-intern lf-binder-default lf-local-decl-new constant view-q' constant fq
+T{ fq lf-fvar-type ty-q = view-q' lf-view-count view-q lf-view-count 1+ = lf-mctx-view view-q =
+   -> true true true }T
+T{ view-q' fq lf-view-find nip view-q fq lf-view-find -> true false }T
+\ appendTag on names: succ ++ zero, and an anonymous parent's tag as it is.
+T{ s" succ" lfa-intern s" zero" lfa-intern lf-name-append-tag s" succ.zero" name= -> true }T
+T{ 0 s" zero" lfa-intern lf-name-append-tag s" zero" name= -> true }T
+\ matchEq?: an Eq's three arguments, also after whnf (a beta-redex
+\ (fun p => p) (0 = 0)); no Eq after whnf, false.
+zero zero lf-mk-eq constant zz
+: prop-id ( -- f ) s" True" lf-mk-const0 lf-infer! 0 lf-term-bvar lf-made! lf-term-lam lf-made! ;
+: zero? ( t -- flag ) zero lf-meta-eqv made ;
+: zero-sides ( α a b true -- f f true ) >r zero? swap zero? rot drop r> ;
+T{ zz lf-match-eq? zero-sides -> true true true }T
+T{ prop-id zz lf-mk-app lf-match-eq? zero-sides -> true true true }T
+T{ nat lf-match-eq? zero-x ' lf-match-eq? code1 -> false 0 false }T
+
 \ ---- 4. mkAppM's instance binders (AppBuilder.lean's mkAppMFinal), with
 \ the S2 slice's elaboration data read, so that instance search
 \ (synth.fs's lf-synth-instance) is the lf-meta-synth hook, and the

@@ -70,7 +70,8 @@ require ./meta-config.fs
 require ./reader.fs
 require ./handover.fs
 require ./tactic-run.fs
-require ./tactic-basic.fs
+require ./tactic-msg.fs
+require ./tactic-core.fs
 require ./elab-pending.fs
 require ./elab-app.fs
 require ./elab-term.fs

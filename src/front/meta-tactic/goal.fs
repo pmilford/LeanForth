@@ -25,6 +25,9 @@
 \       Lean's eraseMacroScopes), inside a hygienic parent's macro scopes
 \       (Name.modifyBase): zero and a._@.M._hyg.3 give zero.a, x._@.M._hyg.1
 \       and left give x.left._@.M._hyg.1; an anonymous tag gives parent
+\   lf-name-append-tag ( parent tag -- tag' )  appendTag itself, on names:
+\       the tag lf-goal-tag-append gives (an anonymous parent gives tag
+\       with its macro scopes erased; mkElimApp's alternatives' tags)
 \   lf-name-suffix-of? ( s n -- flag )  Name.isSuffixOf (Init/Meta/
 \       Defs.lean): s's components the last ones of n (zero of succ.zero;
 \       the anonymous name of any name)
@@ -86,10 +89,10 @@ require ../app-builder.fs
 : mtg-plus ( tag base -- base' ) swap lf-pp-unhygienic dup lf-name-depth rot mtg-graft ;
 : mtg-scopes ( parent -- parent n )   \ the macro scopes' parts
   dup lf-name-depth over lf-pp-unhygienic lf-name-depth - ;
-: mtg-appended ( parent tag -- tag' )
+: lf-name-append-tag ( parent tag -- tag' )
   over lf-pp-unhygienic mtg-plus >r mtg-scopes r> mtg-graft ;
 : lf-goal-tag-append ( goal parent -- )
-  over lf-goal-tag mtg-appended lf-mvar-tag! lf-must ;
+  over lf-goal-tag lf-name-append-tag lf-mvar-tag! lf-must ;
 
 \ ---- Name.isSuffixOf and Name.isPrefixOf, component by component
 \ (core/name-equal.fs's lf-name-part= and lf-name-same?).

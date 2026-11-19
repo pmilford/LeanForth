@@ -29,8 +29,8 @@ reason = "a2-iii: the goal is left open when a hypothesis fits (the hand-over re
 [[fault]]
 id = "assumption-no-opaque"
 file = "src/front/meta-tactic/assumption.fs"
-old = '''  ['] lf-defeq! lf-defeq-flags lf-defeq-opaque or lf-defeq-mode lf-meta-with ;'''
-new = '''  ['] lf-defeq! lf-defeq-flags lf-defeq-mode lf-meta-with ;'''
+old = ''': mas-defeq ( t s -- flag ) ['] lf-defeq! lf-with-assignable-opaque ;'''
+new = ''': mas-defeq ( t s -- flag ) lf-defeq! ;'''
 test = "$GFORTH tests/front/tactics/assumption/test.fs"
 reason = "review tactic-a2ii B2 (its assume-no-opaque): assumption without withAssignableSyntheticOpaque (a ≤ ?o is not closed by h : a ≤ b)"
 

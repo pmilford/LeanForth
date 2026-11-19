@@ -14,34 +14,19 @@
 \ lf-lift-meta-tactic (tactic-core.fs); elabTermForApply ->
 \ lf-tac-elab-for-apply (tactic-core.fs); instantiateMVars ->
 \ lf-instantiate!; MVarId.apply -> lf-goal-apply (meta-tactic/apply.fs);
-\ synthesizeSyntheticMVarsNoPostponing -> lf-elab-with-synth with
-\ lf-postpone-no (elab-pending.fs).
+\ withSynthesize -> lf-tac-with-synth (tactic-core.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
-\ State: the step record's fields after tb's (tap). Loads in decimal
-\ whatever BASE is, then restores it.
+\ State: none of its own. Loads in decimal whatever BASE is, then
+\ restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../tactic-api.fs
-require ../elab-pending.fs
 
 tac-shape-term lf-tactic: by-apply constant tac-k-apply
 s" apply" tac-k-apply lf-tactic-lean!
 
-begin-structure /tap      \ the step's fields, after tb's
-  /tb +field tap-tb
-  field: tap-node         \ t, a syntax node
-  field: tap-goals        \ the new goals, a run
-end-structure
-/tap lf-tac-work-cells cells >
-[if] .( tactics/apply.fs: its fields are wider than a step record) cr abort [then]
-: tap ( -- addr ) lf-tac-record ;
-
-: tap-inner ( -- )
-  tap tap-node @ lf-tac-elab-for-apply tb tb-goal @ swap lf-goal-apply tap tap-goals ! ;
-: tap-node! ( i -- ) 0 lf-tac-arg tap tap-node ! ;
-: tap-tac ( i goal -- goals )
-  drop tap-node! ['] tap-inner lf-postpone-no lf-elab-with-synth lf-tac-must
-  tap tap-goals @ ;
+: tap-inner ( goal node -- goals ) lf-tac-elab-for-apply lf-goal-apply ;
+: tap-tac ( i goal -- goals ) swap 0 lf-tac-arg ['] tap-inner lf-tac-with-synth ;
 : tap-run ( i -- ) dup ['] tap-tac lf-lift-meta-tactic ;
 ' tap-run tac-k-apply lf-tactic-action!
 base !   \ the BASE this file was loaded with

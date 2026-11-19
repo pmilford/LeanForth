@@ -30,6 +30,11 @@
 \   back (withTransparency alone); lf-meta-with ( i*x xt flags mode --
 \   j*x ) runs xt in another configuration, flags and transparency, and
 \   gives both back (withConfig); both give it back on a THROW too.
+\   lf-with-reducible, lf-with-assignable-opaque and lf-with-approx
+\   ( i*x xt -- j*x ) set only their own part on the configuration in
+\   force: Lean's withReducible (Basic.lean:1225),
+\   withAssignableSyntheticOpaque (:1346, assignSyntheticOpaque) and
+\   approxDefEq (:2125, foApprox, ctxApprox and quasiPatternApprox).
 \ - The budget (S1 §8, Lean's maxHeartbeats): the steps of elaboration,
 \   synthesis, unification and whnf one context may take (per context
 \   until s1-elab resets it per declaration), default
@@ -90,6 +95,13 @@ end-structure
 \ this transparency, the configured ones given back after.
 : lf-meta-with ( i*x xt flags mode -- j*x )
   lf-meta-config 2>r lf-meta-config! catch 2r> lf-meta-config! throw ;
+\ Lean's scopes that set one part of the configuration in force and leave
+\ the rest, each given back on both paths as lf-meta-with gives it.
+: lf-with-reducible ( i*x xt -- j*x ) lf-tr-reducible lf-meta-at ;
+: mcfg-with-bits ( i*x xt bits -- j*x ) lf-defeq-flags or lf-defeq-mode lf-meta-with ;
+: lf-with-assignable-opaque ( i*x xt -- j*x ) lf-defeq-opaque mcfg-with-bits ;
+: lf-with-approx ( i*x xt -- j*x )
+  lf-defeq-fo lf-defeq-ctx or lf-defeq-quasi or mcfg-with-bits ;
 : lf-meta-budget ( -- n ) mcfg mcfg-budget @ ;
 : lf-meta-spend? ( -- flag )
   lf-meta-budget dup 0> if 1- lf-meta-budget! true else drop false then ;

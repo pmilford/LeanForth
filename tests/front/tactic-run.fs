@@ -405,7 +405,7 @@ T{ two-goals ' inner lf-tac-try state? -> 0 false 0 mv-opaque 2 }T
 \ application type mismatch, an instance not found) is 101 (plan 9.4.8l
 \ G), a Lean error
 \ (invalid) that try catches and undoes; unsupported stays 93, which try
-\ catches too but lfw-caught passes on (a gap of LeanForth's); full and
+\ catches too but lf-tac-try-lean passes on (a gap of LeanForth's); full and
 \ exhausted keep 60 and 91 (review F7 of a2-i).
 variable lib-outcome
 : lib-fails ( -- ) spoil lib-outcome @ lf-must ;
@@ -415,6 +415,18 @@ variable lib-outcome
 T{ outcome-rejected lib-code state? -> 101 outcome-invalid false 0 mv-opaque 2 }T
 T{ outcome-unsupported lib-code outcome-full lib-code outcome-exhausted lib-code
    -> 93 outcome-unsupported 60 outcome-full 91 outcome-exhausted }T
+\ lf-tac-try-lean (try, observing?): true and kept when xt ends; a Lean
+\ error (an authoring error whose outcome is invalid, a library
+\ rejection) false, undone and forgotten; anything else thrown on, never
+\ success: unsupported (93), full (60), exhausted (91), another code.
+: lean-try ( outcome -- flag ) lib-outcome ! two-goals ['] lib-fails lf-tac-try-lean ;
+: lean-code ( outcome -- code ) ['] lean-try catch dup if nip then lf-author-code lf-tac-forget ;
+T{ two-goals ' spoil lf-tac-try-lean state? -> true true tagged mv-natural 0 }T
+T{ two-goals ' spoil-fail lf-tac-try-lean state? lf-author-code -> false false 0 mv-opaque 2 0 }T
+T{ outcome-rejected lean-try state? lf-author-code -> false false 0 mv-opaque 2 0 }T
+T{ outcome-unsupported lean-code outcome-full lean-code outcome-exhausted lean-code
+   -> lf-author-throw 93 lf-author-throw 60 lf-author-throw 91 }T
+T{ two-goals ' spoil-throw ' lf-tac-try-lean catch nip lfr-saves -> -77 0 }T
 \ A failed attempt that leaves an inner mark or depth scope open (review
 \ C1 of 2026-11-18): every scope opened since the save is undone with it,
 \ the assignments before the goal list, and no mark stays open.

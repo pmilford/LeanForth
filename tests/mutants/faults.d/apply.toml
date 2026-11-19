@@ -46,8 +46,8 @@ reason = "a2-iii: getExpectedNumArgsAux takes the telescope's own metavariables 
 [[fault]]
 id = "apply-telescope-unbounded"
 file = "src/front/telescope.fs"
-old = '''  swap >r tl-open r> tl tlf-max ! tl-run ;'''
-new = '''  swap >r tl-open r> drop tl-run ;'''
+old = '''  tl-frames ['] tl-framed lf-with-record ;'''
+new = '''  nip -1 swap tl-frames ['] tl-framed lf-with-record ;'''
 test = "$GFORTH tests/front/tactics/apply/test.fs"
 reason = "a2-iii: forallMetaTelescopeReducing's maxMVars ignored"
 
@@ -110,8 +110,8 @@ reason = "review tactic-a2ii B1 (its tag-inst-not-skipped): appendParentTag tags
 [[fault]]
 id = "apply-approx-off"
 file = "src/front/meta-tactic/apply.fs"
-old = ''': ap-flags ( -- flags ) lf-defeq-flags lf-defeq-fo or lf-defeq-ctx or lf-defeq-quasi or ;'''
-new = ''': ap-flags ( -- flags ) lf-defeq-flags ;'''
+old = ''': ap-defeq ( t s -- flag ) ['] lf-meta-defeq-guarded lf-with-approx outcome-sane lf-must ;'''
+new = ''': ap-defeq ( t s -- flag ) lf-meta-defeq-guarded outcome-sane lf-must ;'''
 test = "$GFORTH tests/front/tactics/apply/test.fs"
 reason = "review tactic-a2ii B2 (its approx-off): isDefEqApply without approxDefEq (congrArg on Nat.succ a = Nat.succ b fails)"
 

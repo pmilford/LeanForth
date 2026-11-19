@@ -16099,7 +16099,7 @@ reason = "FE1g-4 (design 8.3): rfl closes p = q with Eq.refl without isDefEq"
 [[fault]]
 id = "fe-rfl-non-eq"
 file = "src/front/tactic-basic.fs"
-old = ''': lfb-eq? ( t -- flag ) 3 s" Eq" lf-meta-app-of? ;'''
+old = ''': lfb-eq? ( t -- flag ) lf-eq? dup if >r 2drop drop r> then ;'''
 new = ''': lfb-eq? ( t -- flag ) lf-meta-args# 3 = ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 (design 8.3): the Eq head check dropped, so Ne p q reaches eq_refl and fails as invalid where Lean's apply_rfl would look for @[refl] lemmas"
@@ -16115,7 +16115,7 @@ reason = "FE1g-4: exact assigns a term whose type is not the goal's"
 [[fault]]
 id = "fe-exact-new-holes-ignored"
 file = "src/front/tactic-basic.fs"
-old = '''  dup ['] lfb-new? lfb-holds? if lfa-e-tac-unassigned lf-tac-fail then ;'''
+old = '''  dup tb tb-from @ ['] lfb-new? lfb-holds-with? if lfa-e-tac-unassigned lf-tac-fail then ;'''
 new = '''  ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: a metavariable exact's term made and left unassigned is not reported as Lean's don't know how to synthesize"
@@ -16123,24 +16123,24 @@ reason = "FE1g-4: a metavariable exact's term made and left unassigned is not re
 [[fault]]
 id = "fe-exact-scope-ignored"
 file = "src/front/tactic-basic.fs"
-old = ''': lfb-in-scope ( e -- e ) dup ['] lfb-outside? lfb-holds? if lfb-unassignable then ;'''
-new = ''': lfb-in-scope ( e -- e ) ;'''
+old = '''  dup tb tb-view @ ['] lfb-outside? lfb-holds-with? if lfb-unassignable then ;'''
+new = '''  ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: exact assigns a term with a free variable outside the goal's context (Lean's checkAssignment refuses it)"
 
 [[fault]]
 id = "fe-exact-sorts-ignored"
-file = "src/front/tactic-basic.fs"
-old = ''': lfb-types. ( -- outcome ) lfb-sorted? if lfb-sorted. else lfb-plain. then ;'''
-new = ''': lfb-types. ( -- outcome ) lfb-plain. ;'''
+file = "src/front/tactic-msg.fs"
+old = '''  tmg-sorts if tmg-order tmg-sorted. exit then tmg-plain. ;'''
+new = '''  tmg-sorts if 2drop then tmg-plain. ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: the type mismatch text leaves out the sorts Lean names when the two types' types differ"
 
 [[fault]]
 id = "fe-rfl-refl-rhs"
 file = "src/front/tactic-basic.fs"
-old = '''  dup lfb-level >r s" Eq.refl" r> lf-mk-const1 swap lfb-alpha tb tb-term @ 2 lf-mk-app-n ;'''
-new = '''  dup lfb-level >r s" Eq.refl" r> lf-mk-const1 swap lfb-alpha tb tb-type @ 2 lf-mk-app-n ;'''
+old = ''': lfb-refl ( t -- term ) dup lfb-refl-const swap lfb-alpha tb tb-term @ 2 lf-mk-app-n ;'''
+new = ''': lfb-refl ( t -- term ) dup lfb-refl-const swap lfb-alpha tb tb-type @ 2 lf-mk-app-n ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L3 (F2): rfl's Eq.refl takes the right side where Lean's MVarId.refl takes the left (Refl.lean:39); the kernel accepts both"
 
@@ -16171,7 +16171,7 @@ reason = "FE1g-4 review fe1g3 L10: a message's printing that throws leaves the p
 
 [[fault]]
 id = "fe-tac-defeq-settings-kept"
-file = "src/front/tactic-basic.fs"
+file = "src/front/meta-must.fs"
 old = '''  ['] lf-meta-defeq lf-defeq-elab lf-tr-default lf-meta-with outcome-sane ;'''
 new = '''  lf-defeq-elab lf-defeq-flags! lf-tr-default lf-defeq-mode! lf-meta-defeq outcome-sane ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
@@ -20232,9 +20232,9 @@ reason = "review s2-tactics M3: kabstract walks a let's parts in its own order, 
 
 [[fault]]
 id = "s2-rw-try-forgets-fuel"
-file = "src/front/tactic-rewrite.fs"
-old = ''': lfw-caught ( code -- ) lfw-invalid? if drop lf-tac-forget else throw then ;'''
-new = ''': lfw-caught ( code -- ) drop lf-tac-forget ;'''
+file = "src/front/tactic-msg.fs"
+old = '''  dup lf-tac-lean-error? 0= if throw then drop lf-tac-forget ;'''
+new = '''  drop lf-tac-forget ;'''
 test = "$GFORTH tests/front/s2-sweeps.fs"
 reason = "review s2-tactics M2: try (with_reducible rfl) forgets a run out of fuel, so the goal is left open (89), where Lean's try never catches a runtime exception"
 
