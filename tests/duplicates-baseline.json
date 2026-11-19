@@ -1088,6 +1088,16 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 8
  },
+ "75809a9196dc": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/elab-data.fs:ed-foreign-part",
+   "src/front/elab-data.fs:ed-key-item"
+  ],
+  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "tokens": 7
+ },
  "7668d3dc0215": {
   "copies": 2,
   "kind": "shape",
@@ -1107,16 +1117,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 8
- },
- "799cc5e4dcba": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/elab-data.fs:ed-foreign-part",
-   "src/front/elab-data.fs:ed-key-item"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 10
  },
  "7c11570642a7": {
   "copies": 7,
@@ -1926,16 +1926,6 @@
   "reason": "accepted: two readers of different records (sunfold, matcher) of the data's declaration, both on lf-menv-elab; a shared word would take an xt and be no shorter",
   "tokens": 6
  },
- "c1696d534b1d": {
-  "copies": 2,
-  "kind": "copy",
-  "members": [
-   "src/front/constructions.fs:rec-pi",
-   "src/front/ctor-idx.fs:type-pi"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 6
- },
  "c24c8ecb19c0": {
   "copies": 2,
   "kind": "shape",
@@ -2141,6 +2131,16 @@
   "reason": "false positive: a flag's two outcomes, each module its own failure record",
   "tokens": 7
  },
+ "cb7e31446b6c": {
+  "copies": 2,
+  "kind": "copy",
+  "members": [
+   "src/front/constructions.fs:rec-pi",
+   "src/front/ctor-idx.fs:type-pi"
+  ],
+  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "tokens": 6
+ },
  "cc681a2bd39b": {
   "copies": 6,
   "kind": "shape",
@@ -2318,16 +2318,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
- },
- "dbcdef2236aa": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/core/compact-names.fs:name-up",
-   "src/front/constructions.fs:nth-pi"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 8
  },
  "dcb7a55d1145": {
   "copies": 2,
@@ -2648,11 +2638,10 @@
   "tokens": 8
  },
  "fe132db8322b": {
-  "copies": 3,
+  "copies": 2,
   "kind": "shape",
   "members": [
    "src/core/annotations.fs:lf-annot-strip",
-   "src/front/elab-data.fs:ed-pis+",
    "src/present/proof-outline.fs:lf-ol-head"
   ],
   "reason": "false positive: a loop down one child, over different node kinds (smart-unfolding annotations, an outline's application heads, a type's leading Pis)",

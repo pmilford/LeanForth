@@ -53,8 +53,9 @@
 \ expr-bvar expr-sort expr-const expr-app expr-nat expr-str expr-fvar
 \ expr-mdata expr-next expr-resolve!
 \ expr-valid? expr-head@ expr-tag@ expr-pi? expr-payload@ expr-a@ expr-b@ expr-data@
-\ expr-body@ data-range data-depth data-params? data-fvars? range-max
-\ depth-max bvar-fits?. Outcomes: ok, full, invalid. State: expr-class and the check
+\ expr-body@ expr-pi-after expr-pis expr-pi-end expr-domain data-range
+\ data-depth data-params? data-fvars? range-max depth-max bvar-fits?.
+\ Outcomes: ok, full, invalid. State: expr-class and the check
 \ table, made while loading, read-only afterwards.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
@@ -126,6 +127,22 @@ require ./compact-levels.fs
 : expr-data@ ( e tier -- d ) expr-record quad-data u32@ ;
 \ A letE's body, from its second record.
 : expr-body@ ( e tier -- body ) expr-record /quad + quad-a u32@ ;
+
+\ Telescopes: e's leading Pis, Lean's forallE spine read without
+\ unfolding (Expr.getForallArity's count, Expr.bindingDomain! of the
+\ k-th). The walks loop, never recurse; each is linear in the binders
+\ passed. expr-pi-after passes at most k leading Pis and keeps the tier;
+\ expr-pis counts them all; expr-pi-end is the expression after them;
+\ expr-domain is binder k's domain (from 0), false when e has at most k
+\ leading Pis. k is unsigned: a negative k passes every leading Pi.
+: expr-pi-after ( e tier k -- e' tier )
+  0 ?do 2dup expr-pi? 0= if leave then tuck expr-b@ swap loop ;
+: expr-pis ( e tier -- n )
+  max-n 0 do 2dup expr-pi? 0= if 2drop i unloop exit then tuck expr-b@ swap loop
+  2drop max-n ;
+: expr-pi-end ( e tier -- e' ) max-n expr-pi-after drop ;
+: expr-domain ( e tier k -- e' true | false )
+  expr-pi-after 2dup expr-pi? if expr-a@ true else 2drop false then ;
 \ Whether e is an expression of the tier (or of the input under it).
 : expr-valid? ( e tier -- flag )
   2dup tier-exprs cons-in? if expr-tag@ tag-let-body <> else 2drop false then ;

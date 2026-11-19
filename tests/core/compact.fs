@@ -103,6 +103,18 @@ T{ lam input expr-tag@ pi1 input expr-tag@ lam input expr-payload@ -> tag-lam 1 
 u-name 0 pi-head prop b1 input expr-make ex constant pi0
 T{ pi0 input expr-pi? pi1 input expr-pi? lam input expr-pi? succ-b0 input expr-pi? c-succ input expr-pi?
    -> true true false false false }T
+\ Telescopes: pi2 = Pi (implicit) Prop, Pi Prop, lam; a lambda's own
+\ binder is no Pi, and every binder info counts.
+u-name 0 pi-head prop lam input expr-make ex constant pi-lam
+u-name 1 pi-head prop pi-lam input expr-make ex constant pi2
+T{ pi2 input expr-pis pi-lam input expr-pis lam input expr-pis c-succ input expr-pis -> 2 1 0 0 }T
+T{ pi2 input expr-pi-end pi-lam input expr-pi-end lam input expr-pi-end -> lam lam lam }T
+T{ pi2 input 0 expr-pi-after pi2 input 1 expr-pi-after pi2 input 9 expr-pi-after
+   -> pi2 input pi-lam input lam input }T
+T{ pi2 input 0 expr-domain pi2 input 1 expr-domain pi1 input 0 expr-domain -> prop true prop true prop true }T
+T{ pi2 input 2 expr-domain pi2 input 9 expr-domain lam input 0 expr-domain -> false false false }T
+\ k is unsigned: a negative k is beyond every telescope.
+T{ pi1 input 1 expr-domain pi1 input -1 expr-domain pi2 input -1 expr-pi-after -> false false lam input }T
 T{ u-name 1 lam-head prop succ-b0 input expr-make u-name 2 lam-head prop succ-b0 input expr-make nip -> lam 0 0 }T
 \ letE: a second record holds the body; the range is the body's lowered.
 u-name false let-head prop b0 b1 input expr-let ex constant let1

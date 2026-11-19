@@ -159,13 +159,11 @@ end-structure
   dup >r more-rec-rules swap rec-item rule-fields-item swap r> aux-tuples tuple-item ;
 
 \ ---- Expressions.
-: pi? ( e job -- flag ) aux-tier expr-tag@ tag-pi - 4 u< ;
 : app? ( e job -- flag ) aux-tier expr-tag@ tag-app = ;
-: pi-body ( e job -- e' ) aux-tier expr-b@ ;
 : pi-parts ( e job -- head dom ) aux-tier 2dup expr-head@ -rot expr-a@ ;
-: nth-pi ( e n job -- e' ) swap 0 ?do tuck pi-body swap loop drop ;
-: pi-count ( e job -- n )
-  >r 0 swap begin dup r@ pi? while r@ pi-body swap 1+ swap repeat drop r> drop ;
+\ The telescope words of core/compact-exprs.fs, on the job's tier.
+: nth-pi ( e n job -- e' ) aux-tier swap expr-pi-after drop ;
+: pi-count ( e job -- n ) aux-tier expr-pis ;
 : app-head ( e job -- f ) >r begin dup r@ app? while r@ aux-tier expr-a@ repeat r> drop ;
 : var-index ( e job -- b )
   aux-tier 2dup expr-tag@ tag-bvar = if expr-a@ else 2drop -1 then ;
@@ -179,7 +177,7 @@ end-structure
 : apply-var ( f b job -- e outcome )
   tuck aux-var ok-keep? if swap aux-tier expr-app else failed-past then ;
 \ The end of type e's Pi telescope.
-: pi-end ( e job -- e' ) 2dup pi-count swap nth-pi ;
+: pi-end ( e job -- e' ) aux-tier expr-pi-end ;
 : prop-sort? ( e job -- flag )
   aux-tier 2dup expr-tag@ tag-sort = if expr-a@ level-zero = else 2drop false then ;
 

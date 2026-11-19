@@ -436,13 +436,15 @@ texts-end constant me-uint-op-texts
 \ The kinds of the leading binders of the domain of d's binder k (S2 §4:
 \ an eliminator's alternatives' fields), as lf-menv-kinds; a text
 \ declaration's are not recorded (none).
-: me-tier-kinds-in ( e tier k -- )
-  lf-tier-domain if me-kinds lf-tier-kinds drop else 2drop me-kinds slab-clear then ;
+: me-fed-tier ( -- tier ) me-stage stage-tier ;
+: me-tier-kinds-in ( k e -- )
+  me-fed-tier rot expr-domain
+  if me-fed-tier me-kinds lf-tier-kinds drop else me-kinds slab-clear then ;
 : me-fed-data-domain ( k d' -- ) me-data? if me-data-domain else 2drop then ;
 : me-fed-kinds-in ( k d -- )
   me-stage 0= if 2drop me-kinds slab-clear exit then
   me-staged 0= if drop me-kinds slab-clear exit then
-  2dup me-stage staged-type@ me-stage stage-tier rot me-tier-kinds-in me-fed-data-domain ;
+  2dup me-stage staged-type@ me-tier-kinds-in me-fed-data-domain ;
 : me-lib-kinds-in ( k d -- )
   2dup swap lf-libdec-domain if me-kinds lf-tier-kinds drop else me-kinds slab-clear then
   me-run-data? if me-data-domain else 2drop then ;

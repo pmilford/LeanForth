@@ -1,0 +1,58 @@
+# Planted faults of the library-first clean-up reuse-c (plans 9.4.8n, 9.4.8o, 9.4.8k): the
+# telescope words of core/compact-exprs.fs and the JSON string readers of lib/json.fs.
+
+[[fault]]
+id = "rc-expr-pis-off-by-one"
+file = "src/core/compact-exprs.fs"
+old = '''  max-n 0 do 2dup expr-pi? 0= if 2drop i unloop exit then tuck expr-b@ swap loop'''
+new = '''  max-n 0 do 2dup expr-pi? 0= if 2drop i 1+ unloop exit then tuck expr-b@ swap loop'''
+test = "$GFORTH tests/core/compact.fs"
+reason = "one leading Pi too many: a telescope of two binders counts three"
+
+[[fault]]
+id = "rc-expr-pi-after-past-non-pi"
+file = "src/core/compact-exprs.fs"
+old = '''  0 ?do 2dup expr-pi? 0= if leave then tuck expr-b@ swap loop ;'''
+new = '''  0 ?do 2dup expr-pi? 0= if tuck expr-b@ swap leave then tuck expr-b@ swap loop ;'''
+test = "$GFORTH tests/core/compact.fs"
+reason = "the walk takes one step past the telescope's end, into a lambda's body or an application's argument"
+
+[[fault]]
+id = "rc-expr-pi-end-stops-early"
+file = "src/core/compact-exprs.fs"
+old = ''': expr-pi-end ( e tier -- e' ) max-n expr-pi-after drop ;'''
+new = ''': expr-pi-end ( e tier -- e' ) 1 expr-pi-after drop ;'''
+test = "$GFORTH tests/core/compact.fs"
+reason = "the end after one binder only: a two-binder telescope ends at its second Pi"
+
+[[fault]]
+id = "rc-expr-domain-body"
+file = "src/core/compact-exprs.fs"
+old = '''  expr-pi-after 2dup expr-pi? if expr-a@ true else 2drop false then ;'''
+new = '''  expr-pi-after 2dup expr-pi? if expr-b@ true else 2drop false then ;'''
+test = "$GFORTH tests/core/compact.fs"
+reason = "binder k's body in place of its domain"
+
+[[fault]]
+id = "rc-expr-domain-any-binder"
+file = "src/core/compact-exprs.fs"
+old = '''  expr-pi-after 2dup expr-pi? if expr-a@ true else 2drop false then ;'''
+new = '''  expr-pi-after 2dup expr-tag@ binder-tag? if expr-a@ true else 2drop false then ;'''
+test = "$GFORTH tests/core/compact.fs"
+reason = "a lambda after the telescope counts as binder k: a domain where Lean's bindingDomain! of the type has none"
+
+[[fault]]
+id = "rc-json-string-at-number"
+file = "src/lib/json.fs"
+old = ''': json-string-at? ( index view -- flag ) json-kind-at json-string = ;'''
+new = ''': json-string-at? ( index view -- flag ) json-kind-at json-string 1+ u< ;'''
+test = "$GFORTH tests/lib/json.fs"
+reason = "an object, an array and a string all read as strings"
+
+[[fault]]
+id = "rc-json-string-of-any-kind"
+file = "src/lib/json.fs"
+old = '''  2dup json-string-at? if json-text@ true else 2drop false then ;'''
+new = '''  2dup json-count @ u< if json-text@ true else 2drop false then ;'''
+test = "$GFORTH tests/lib/json.fs"
+reason = "a number's digits read as a string's text"

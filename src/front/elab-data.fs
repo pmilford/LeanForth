@@ -614,10 +614,11 @@ create ed-v3-kinds
 \ table's keys; ed-member gives a key's value, -1 when absent.
 : ed-member ( value key -- index ) swap ed-view json-find 0= if -1 then ;
 : ed-shape? ( value table -- flag ) swap ed-view exact-keys? ;
-: ed-text ( index -- c-addr u true | false ) ed-view string-value ;
+: ed-text ( index -- c-addr u true | false ) ed-view json-string-of ;
 : ed-text= ( index c-addr u -- flag ) rot ed-text if compare 0= else 2drop false then ;
 : ed-array? ( index -- flag ) json-array ed-view json-items-of dup if nip then ;
 : ed-null? ( index -- flag ) ed-view json-kind-at json-null = ;
+: ed-string? ( index -- flag ) ed-view json-string-at? ;
 \ A natural number of at most 32 bits; one or none (null, -1); a boolean.
 : ed-u32 ( index -- u outcome )
   ed-view json-u 0= if 0 ed-malformed exit then
@@ -654,7 +655,7 @@ create ed-v3-kinds
   ed-view json-u 0= if drop -1 ed-malformed exit then
   dup u32-mask u> if 2drop -1 outcome-ok exit then ed-tier name-seek-num ed-looked ;
 : ed-part ( prefix item -- n outcome )
-  dup ed-view json-kind@ json-string = if ed-part-text exit then
+  dup ed-string? if ed-part-text exit then
   dup ed-view json-kind@ json-integer = if ed-part-number exit then
   2drop -1 ed-malformed ;
 \ The parts from first to end in turn, each under the name before it.
@@ -669,7 +670,7 @@ create ed-v3-kinds
   dup ed-name-array? 0= if drop -1 ed-malformed exit then ed-view json-contents ed-parts ;
 \ A name's form alone, every part: a string or a natural number.
 : ed-part-shape ( item -- outcome )
-  dup ed-view json-kind@ json-string = if drop outcome-ok exit then
+  dup ed-string? if drop outcome-ok exit then
   ed-view json-natural if 2drop outcome-ok else ed-malformed then ;
 : ed-name-shape ( index -- outcome )
   dup ed-name-array? if ['] ed-part-shape ed-array-items else drop ed-malformed then ;
@@ -727,15 +728,16 @@ create ed-v3-kinds
 \ ---- Types, as far as the checks below read them: the leading Pi
 \ binders of a declaration's type, written out (no unfolding), and its
 \ universe parameters.
-: ed-pi? ( e -- flag ) ed-tier expr-tag@ tag-pi dup 4 + within ;
+: ed-pi? ( e -- flag ) ed-tier expr-pi? ;
 : ed-let? ( e -- flag ) ed-tier expr-tag@ let-tag? ;
-\ ed-pis+ counts the leading Pis on n and leaves the first other node;
+\ The telescope words of core/compact-exprs.fs on the stage's tier:
 \ ed-lead, a type's leading Pis (the binders binder kinds describe);
-\ ed-pis, its parameters, where a let (a matcher's type may hold lets
-\ among its parameters: 13 of Init's) counts none and its body follows.
+\ ed-pis+ adds them to n and leaves the first other node; ed-pis, its
+\ parameters, where a let (a matcher's type may hold lets among its
+\ parameters: 13 of Init's) counts none and its body follows.
 : ed-pi-next ( n e -- n+1 e' ) ed-tier expr-b@ swap 1+ swap ;
-: ed-pis+ ( n e -- n' e' ) begin dup ed-pi? while ed-pi-next repeat ;
-: ed-lead ( e -- n ) 0 swap ed-pis+ drop ;
+: ed-lead ( e -- n ) ed-tier expr-pis ;
+: ed-pis+ ( n e -- n' e' ) tuck ed-lead + swap ed-tier expr-pi-end ;
 : ed-pis ( e -- n )
   0 swap begin ed-pis+ dup ed-let? while ed-tier expr-body@ repeat drop ;
 : ed-type-pis ( d -- n ) ed-stage staged-type@ ed-pis ;
@@ -760,7 +762,7 @@ create ed-word-tags  elab-key-star , elab-key-other , elab-key-arrow ,
 : ed-foreign-number ( item -- outcome )
   ed-u32 ok-then? 0= if exit then 1 ed-text-u32 ok-then? if ed-text-u32 then ;
 : ed-foreign-part ( item -- outcome )
-  dup ed-view json-kind@ json-string = if ed-foreign-text exit then ed-foreign-number ;
+  dup ed-string? if ed-foreign-text exit then ed-foreign-number ;
 : ed-foreign-key ( index -- k outcome )
   elab-key-foreign elab-key-new ok-then? 0= if nip no-result exit then
   dup elab-key-text-start swap ['] ed-foreign-part ed-array-items
@@ -828,7 +830,7 @@ create ed-key-readers  ' ed-key-const , ' ed-key-proj , ' ed-key-lit , ' ed-key-
 : ed-key-object ( value -- outcome )
   dup ed-key-form if cells ed-key-readers + @ execute else drop ed-malformed then ;
 : ed-key-item ( item -- outcome )
-  dup ed-view json-kind@ json-string = if ed-key-word exit then ed-key-object ;
+  dup ed-string? if ed-key-word exit then ed-key-object ;
 \ A value's keys: kept in order, one term.
 : ed-one-term ( value -- outcome ) ed-keys@ elab-one-term? ed-e-term ed-or-bad ;
 : ed-keys-read ( value index -- outcome )
@@ -1220,7 +1222,7 @@ create ed-level-readers  ' ed-lv-succ , ' ed-lv-pair , ' ed-lv-pair , ' ed-lv-pa
 : ed-lv-zero ( item -- outcome ) s" zero" ed-text= ed-e-malformed ed-or-bad ;
 : ed-level-item ( item -- outcome )
   elab-levels ed-entry-new dup ok? 0= if nip exit then drop
-  dup ed-view json-kind@ json-string = if ed-lv-zero else ed-lv-object then ;
+  dup ed-string? if ed-lv-zero else ed-lv-object then ;
 : ed-sun-levels! ( value s -- outcome )
   ed-sun ed-sun-levels dup elab-levels ed-span-open swap c" levels" ed-member
   ['] ed-level-item ed-array-items swap elab-levels ed-span-close ;
@@ -1317,7 +1319,6 @@ create ed-mdata-form  ed-mdata-members , ' ed-nd-entries , ' ed-nd-expr , 0 ,
 \ elab-inert; the body holding it is not usable.
 create ed-inert-names
   s" save_info" counted, s" noImplicitLambda" counted, s" congrHole" counted, 0 0 counted,
-: ed-string? ( index -- flag ) ed-view json-kind-at json-string = ;
 : ed-inert-key ( value -- k outcome )
   c" key" ed-member dup ed-string? 0= if drop 0 ed-malformed exit then
   ed-inert-names ed-text-index ed-known ;
@@ -1524,7 +1525,7 @@ create ed-head-keys
 : ed-module-count ( item -- )
   1 elab elab-modules# +! s" Init" ed-text= if 1 elab elab-inits# +! then ;
 : ed-module-item ( item -- outcome )
-  dup ed-view json-kind@ json-string = if ed-module-count outcome-ok else drop
+  dup ed-string? if ed-module-count outcome-ok else drop
     ed-malformed
   then ;
 : ed-head-modules ( value i -- outcome )

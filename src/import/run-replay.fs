@@ -263,7 +263,7 @@ defer rp-value ( n o -- )   \ compare value n of the new record with value o of 
 : rp-verdicts ( n o -- nv ov true | false )
   swap rp-new rp-verdict-of 0= if drop false exit then
   swap rp-old rp-verdict-of 0= if drop false exit then true ;
-: rp-string? ( o -- flag ) rp-old json-kind@ json-string = ;
+: rp-string? ( o -- flag ) rp-old json-string-at? ;
 : rp-same-verdict? ( nv ov -- flag )
   dup rp-string? if rp-texts compare 0= else 2drop false then ;
 : rp-accepted? ( value view -- flag ) json-text@ s" accepted" compare 0= ;

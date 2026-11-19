@@ -223,5 +223,50 @@ T{ s" Nat" ind job3 aux-rec-on ok? -> false }T
 T{ s" Nat" ind job3 aux-ctor-idx ok? -> false }T
 job3 aux-free
 
+\ ---- The telescope words of core/compact-exprs.fs (expr-pis,
+\ expr-pi-end, expr-pi-after, expr-domain; plan 9.4.8n (12)) against the
+\ copies they replaced, kept here as the model, word for word with the
+\ job or the module's tier as an argument: constructions.fs's pi-count
+\ and nth-pi, lib-decode.fs's lf-tier-domain, elab-data.fs's ed-pis+.
+\ Over every declaration's type of the slice, the count, the end, the
+\ walk past k binders and binder k's domain agree for k from 0 to two
+\ past the count.
+: old-pi? ( e tier -- flag ) expr-tag@ tag-pi - 4 u< ;
+: old-pi-count ( e tier -- n )
+  >r 0 swap begin dup r@ old-pi? while r@ expr-b@ swap 1+ swap repeat drop r> drop ;
+: old-nth-pi ( e n tier -- e' ) swap 0 ?do tuck expr-b@ swap loop drop ;
+: old-in? ( e tier -- flag ) expr-tag@ tag-pi tag-let within ;
+: old-tier-domain ( e tier k -- e' tier flag )
+  0 ?do 2dup old-in? 0= if false unloop exit then tuck expr-b@ swap loop
+  2dup old-in? if tuck expr-a@ swap true else false then ;
+: old-ed-pi? ( e tier -- flag ) expr-tag@ tag-pi dup 4 + within ;
+: old-ed-lead ( e tier -- n )
+  0 -rot begin 2dup old-ed-pi? while tuck expr-b@ swap rot 1+ -rot repeat 2drop ;
+: old-domain ( e k -- e' true | false ) tier swap old-tier-domain if drop true else 2drop false then ;
+: as-pair ( e' true | false -- e' flag ) dup 0= if 0 swap then ;
+: same-domain? ( e k -- flag )
+  2dup old-domain as-pair 2swap tier swap expr-domain as-pair d= ;
+: same-after? ( e k -- flag ) 2dup tier old-nth-pi -rot tier swap expr-pi-after drop = ;
+: same-count? ( e -- flag )
+  dup tier old-pi-count over tier old-ed-lead over = swap rot tier expr-pis = and ;
+: same-end? ( e -- flag ) dup dup tier old-pi-count tier old-nth-pi swap tier expr-pi-end = ;
+: same-walks? ( e -- flag )
+  dup tier old-pi-count 1+ 0 ?do dup i same-after? 0= if drop false unloop exit then loop
+  drop true ;
+: same-domains? ( e -- flag )
+  dup tier old-pi-count 2 + 0 ?do dup i same-domain? 0= if drop false unloop exit then loop
+  drop true ;
+: same-telescope? ( e -- flag )
+  dup same-count? over same-end? and over same-walks? and swap same-domains? and ;
+variable differ  variable binders
+: compare-type ( e -- )
+  dup tier expr-pis binders +! same-telescope? 0= if 1 differ +! then ;
+\ A block's record has no type (all ones): skipped.
+: compare-types ( -- )
+  0 differ ! 0 binders !
+  lib stage-decls 0 ?do i lib staged-type@ dup tier expr-valid? if compare-type else drop then loop ;
+\ 49 types, 198 leading binders in all.
+T{ compare-types differ @ binders @ -> 0 198 }T
+
 job aux-free  lib stage-free
 bye

@@ -149,6 +149,13 @@ T{ 0 json-array jv json-items-of 0 json-object jv json-items-of -> 2 true false 
 T{ 2 json-object jv json-items-of 1 json-array jv json-items-of -> 0 true false }T
 T{ 3 json-array jv json-items-of -1 json-array jv json-items-of -> false false }T
 T{ -1 jv json-kind-at 3 jv json-kind-at 1 jv json-kind-at -> -1 -1 json-integer }T
+\ json-string-at? and json-string-of: a string token, never a number,
+\ a container or an index outside the tape.
+T{ s\" [\"ab\",1,[]]" parsed -> outcome-ok }T
+T{ 1 jv json-string-at? 2 jv json-string-at? 3 jv json-string-at? 0 jv json-string-at? -> true false false false }T
+T{ 1 jv json-string-of rot rot s" ab" compare -> true 0 }T
+T{ 2 jv json-string-of 0 jv json-string-of 4 jv json-string-of -1 jv json-string-of -> false false false false }T
+T{ 4 jv json-string-at? -1 jv json-string-at? -> false false }T
 
 \ Stack and return-stack balance of a whole parse.
 : copied ( c-addr u -- c-addr' u ) tuck text-buffer swap move text-buffer swap ;

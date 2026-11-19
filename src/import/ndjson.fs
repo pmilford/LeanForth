@@ -487,8 +487,7 @@ end-structure
 ' level-of slot-check: v-level  ' expr-of slot-check: v-expr  ' bool-of slot-check: v-bool
 \ Texts: their decoders give addr u true, or the outcome and false;
 \ text-slot! stores the text with 2!, and text-check: makes their checks.
-: string-at ( value export -- addr u true | false )
-  export-json 2dup json-kind@ json-string = if json-text@ true else 2drop false then ;
+: string-at ( value export -- addr u true | false ) export-json json-string-of ;
 : text-slot! ( slot addr u true | slot outcome false -- outcome )
   if rot 2! outcome-ok else nip then ;
 : text-check: ( xt "name" -- ) ['] text-slot! checker: ;

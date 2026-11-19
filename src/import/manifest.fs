@@ -145,8 +145,6 @@ end-structure
 \ and the same with the manifest's JSON view.
 : member ( key m -- value ) 0 swap manifest-json json-find 0= if -1 then ;
 : member-at ( key m -- value view ) tuck member swap manifest-json ;
-: string-value ( value view -- c-addr u true | false )
-  2dup json-kind-at json-string = if json-text@ true else 2drop false then ;
 \ A natural number in canonical decimal: no sign, no leading zero.
 : natural-at ( value view -- c-addr u true | false )
   2dup json-kind-at json-integer <> if 2drop false exit then
@@ -202,7 +200,7 @@ kind-keys keys-size kind-count <>
 \ Checking the manifest before the export is read: its format, then the
 \ type of each member, then the versions.
 : manifest-name? ( m -- flag )
-  c" format" swap member-at string-value
+  c" format" swap member-at json-string-of
   if s" leanforth-export-manifest" compare 0= else false then ;
 : version? ( m -- flag )
   c" format_version" swap member-at natural-at if s" 1" compare 0= else false then ;
@@ -229,10 +227,10 @@ kind-keys keys-size kind-count <>
   dup version? if keys-check else version-bad then ;
 
 \ The type of each member, ( key m -- flag ): true when well formed.
-: digest? ( key m -- flag ) member-at string-value if 64 hex-text? else false then ;
+: digest? ( key m -- flag ) member-at json-string-of if 64 hex-text? else false then ;
 : commit? ( key m -- flag )
   member-at 2dup json-kind-at json-null = if 2drop true exit then
-  string-value if 40 hex-text? else false then ;
+  json-string-of if 40 hex-text? else false then ;
 : natural-member? ( key m -- flag ) member-at natural-at dup if nip nip then ;
 \ The records object: exactly the record kinds, each a natural number.
 : elab-digest? ( key m -- flag ) dup elab-named? if digest? else 2drop true then ;
@@ -252,7 +250,7 @@ create type-checks
 \ entry's xt ( -- c-addr u ) gives: malformed when it is no string,
 \ another version when it differs.
 : pinned-check ( c-addr u key m -- outcome )
-  2dup member-at string-value 0= if 2swap 2drop manifest-broken exit then
+  2dup member-at json-string-of 0= if 2swap 2drop manifest-broken exit then
   2rot compare 0= if 2drop outcome-ok exit then
   c" manifest names another exporter or Lean version" swap manifest-bad ;
 create version-checks
@@ -264,7 +262,7 @@ create version-checks
 \ When the export reads any version (export-any-version?), only the
 \ format version must be the pinned one; the others need only be strings.
 : string-check ( key m -- outcome )
-  2dup member-at string-value if 2drop 2drop outcome-ok else manifest-broken then ;
+  2dup member-at json-string-of if 2drop 2drop outcome-ok else manifest-broken then ;
 : loose? ( entry m -- flag )
   manifest-export @ export-any-version? swap @ ['] pinned-format-version <> and ;
 : version-entry ( entry m -- outcome )
@@ -272,7 +270,7 @@ create version-checks
   >r dup @ execute rot check-key r> pinned-check ;
 : versions-check ( m -- outcome ) version-checks swap ['] version-entry each-check ;
 \ Keep the optional member's text: the manifest's is released after the read.
-: elab-text ( m -- c-addr u ) elab-key swap member-at string-value 0= if 0 0 then ;
+: elab-text ( m -- c-addr u ) elab-key swap member-at json-string-of 0= if 0 0 then ;
 : elab-place ( c-addr u m -- ) 2dup manifest-elab-length ! manifest-elab swap move ;
 : elab-keep ( m -- ) dup elab-text rot elab-place ;
 : checked-keep ( outcome m -- outcome ) over ok? if elab-keep else drop then ;
@@ -317,7 +315,7 @@ create version-checks
   loop 2drop outcome-ok ;
 \ The file's digest, as hexadecimal text, against the manifest's.
 : sha-same? ( m -- flag )
-  >r c" sha256" r@ member r@ manifest-json string-value
+  >r c" sha256" r@ member r@ manifest-json json-string-of
   if r> manifest-hex sha-digest-bytes 2* compare 0= else r> drop false then ;
 : sha-check ( m -- outcome )
   dup manifest-digest over manifest-sha sha256-final

@@ -469,26 +469,21 @@ elab-level-param tag-level-param <> or
   elab-sunfold-value lbd-snode ;
 
 \ ---- Binder kinds (S1 §4): e's leading Pi binders, from the tier's tags.
-: lbd-pi-in? ( e tier -- flag ) expr-tag@ tag-pi tag-let within ;
 : lbd-kind+ ( e tier slab -- e tier outcome ) >r 2dup expr-tag@ tag-pi - r> slab-push ;
 : lf-tier-kinds ( e tier slab -- outcome )
-  dup slab-clear >r begin 2dup lbd-pi-in? while
+  dup slab-clear >r begin 2dup expr-pi? while
     r@ lbd-kind+ ok-then? 0= if nip r> drop exit then tuck expr-b@ swap
   repeat 2drop r> drop outcome-ok ;
 : lf-libdec-kinds ( d slab -- outcome )
   over lbd-in? 0= if slab-clear drop outcome-invalid exit then
   >r lbd-stage@ staged-type@ lbd-tier r> lf-tier-kinds ;
-\ The domain of e's binder k (from 0), whose kinds lf-tier-kinds reads:
-\ an eliminator's alternative's fields (S2_INTERFACE 4); false when e has
-\ no binder k; lf-libdec-domain the same for library declaration d's
-\ type, false for d beyond the library.
-: lbd-body ( e tier -- e' tier ) tuck expr-b@ swap ;
-: lf-tier-domain ( e tier k -- e' tier flag )
-  0 ?do 2dup lbd-pi-in? 0= if false unloop exit then lbd-body loop
-  2dup lbd-pi-in? if tuck expr-a@ swap true else false then ;
+\ The domain of library declaration d's binder k (from 0, compact-exprs.fs's
+\ expr-domain), whose kinds lf-tier-kinds reads: an eliminator's
+\ alternative's fields (S2_INTERFACE 4); false when d's type has no
+\ binder k or d is beyond the library.
 : lf-libdec-domain ( d k -- e tier true | false )
   swap dup lbd-in? 0= if 2drop false exit then
-  lbd-stage@ staged-type@ lbd-tier rot lf-tier-domain dup 0= if nip nip then ;
+  lbd-stage@ staged-type@ lbd-tier rot expr-domain dup if lbd-tier swap then ;
 
 \ ---- A declaration's record, filled step by step ( r -- outcome ): the
 \ steps read the stage's declaration the record names (lbr-decl).
