@@ -4,7 +4,8 @@
 \ checkAltNames :283, getNumExplicitFields :317, evalAlt :83); the
 \ eliminator and its alternatives' goals are meta-tactic/elim.fs's:
 \   lf-eval-alts ( i info alts target -- )  evalAlts for step i, in its
-\       step record, alts the alternatives' goals (lf-elim-app's run):
+\       step record (which keeps the four), alts the alternatives' goals
+\       (lf-elim-app's run):
 \       when i's kind holds alternatives (tactic-run.fs's lf-tactic-alt!),
 \       their names checked (lf-alt-names-check) and the block's record
 \       opened for them (the caller opens the runner's block after it);
@@ -12,7 +13,8 @@
 \       inaccessible names and the target cleared, in order, is the goal
 \       list (the caller unfocuses)
 \   lf-alt-names-check ( info i -- )  checkAltNames over the alternatives
-\       right inside step i, in text order: a name written twice 213 at
+\       right inside step i, in text order (info kept as the running step
+\       record's tal-info, which the messages read): a name written twice 213 at
 \       the second (Lean's "Duplicate alternative name"), before a name
 \       that is no alternative of info, 206 with the alternatives not
 \       written (Lean's orList: "Expected `zero` or `succ`")
@@ -76,6 +78,7 @@ end-structure
 begin-structure /tal
   /tb +field tal-tb
   field: tal-info         \ the eliminator's information
+  field: tal-alts         \ the alternatives' goals (lf-eval-alts), a run
   field: tal-target       \ the target
   field: tal-step         \ the step whose names the fields take
   field: tal-given        \ the names taken so far
@@ -85,6 +88,9 @@ end-structure
 [if] .( tactic-alts.fs: its fields are wider than a step record) cr abort [then]
 : tal ( -- addr ) lf-tac-record ;
 : tal-info@ ( -- info ) tal tal-info @ ;
+: tal-alts@ ( -- alts ) tal tal-alts @ ;
+: tal-target@ ( -- target ) tal tal-target @ ;
+: tal-i ( -- i ) tal tal-step @ ;
 : tal-start ( i info target -- )
   tal tal-target ! tal tal-info ! tal tal-step ! 0 tal tal-given ! ;
 : tal-case-name ( k -- name ) tal-info@ swap lf-elim-alt-name ;
@@ -135,14 +141,14 @@ end-structure
 : tal-explicit? ( f -- flag ) tal-kind lf-binder-default = ;
 : tal-fields ( -- n ) tal-info@ tal-k@ lf-elim-alt-fields ;
 : tal-explicit# ( -- n ) tal-fields ['] tal-explicit? count-index ;
-: tal-given# ( -- n ) tal tal-step @ lf-tac-args# ;
+: tal-given# ( -- n ) tal-i lf-tac-args# ;
 \ introN: the names given for the explicit fields, in order; 0 (the
 \ binder's own name, inaccessible) for the others and past the names.
 : tal-next-name ( -- name )
   tal-given# tal tal-given @ > 0= if 0 exit then
-  tal tal-step @ tal tal-given @ lf-tac-arg 1 tal tal-given +! ;
+  tal-i tal tal-given @ lf-tac-arg 1 tal tal-given +! ;
 : tal-name-for ( kind -- name ) lf-binder-default = if tal-next-name else 0 then ;
-: tal-field ( f -- ) tal-kind dup tal-name-for swap tal tal-step @ lf-tac-intro1 ;
+: tal-field ( f -- ) tal-kind dup tal-name-for swap tal-i lf-tac-intro1 ;
 : tal-intros ( -- ) tal-fields 0 ?do i tal-field loop ;
 : tal-cleared ( -- )
   lf-tac-main tal tal-target @ lf-goal-clear dup outcome-invalid = if 2drop exit then
@@ -152,19 +158,22 @@ end-structure
 \ ---- evalAlts: with alternatives, the block's record; without, every
 \ alternative's goal (the step's arguments counted as names already
 \ taken, so none is given), gathered as the goal list.
-: tal-open ( i info alts target -- )
+\ (The step record holds i, info, alts and target from tal-begin on; review
+\ tactic-move-c4 M3: no word takes the four cells.)
+: tal-begin ( i info alts target -- ) swap tal tal-alts ! tal-start ;
+: tal-open ( info alts target -- )
   1 tal-blocks slab-claim lf-tac-must tal-blocks slab-at tuck tab-target ! tuck tab-alts !
-  tab-info ! drop ;
-: tal-checked ( i info alts target -- i info alts target ) 2over swap lf-alt-names-check ;
-: tal-plain-case ( run alts k -- run' alts )
-  dup tal tal-k ! over swap run@ tal-case lf-tac-main rot swap run-push lf-tac-must swap ;
+  tab-info ! ;
+: tal-with ( -- )
+  tal-info@ tal-i lf-alt-names-check tal-info@ tal-alts@ tal-target@ tal-open ;
+: tal-plain-case ( run k -- run' )
+  dup tal tal-k ! tal-alts@ swap run@ tal-case lf-tac-main run-push lf-tac-must ;
 : tal-unnamed ( -- ) tal-given# tal tal-given ! ;
-: tal-plain ( i info alts target -- )
-  swap >r tal-start tal-unnamed 0 r> dup run-count 0 ?do i tal-plain-case loop drop
-  lf-goals! lf-tac-must ;
+: tal-plain ( -- )
+  tal-unnamed 0 tal-alts@ run-count 0 ?do i tal-plain-case loop lf-goals! lf-tac-must ;
 : tal-holder? ( i -- flag ) lf-tactic-step tac-kind @ lf-tactic-alt@ 0<> ;
 : lf-eval-alts ( i info alts target -- )
-  3 pick tal-holder? if tal-checked tal-open else tal-plain then ;
+  tal-begin tal-i tal-holder? if tal-with else tal-plain then ;
 
 \ ---- evalAlt: the alternative step j in its own record, then its block.
 : tal-block ( -- addr ) tal-blocks slab-last ;
@@ -175,9 +184,9 @@ end-structure
   tal-explicit# lf-pp-number s"  expected" lf-pp-emit outcome-ok ;
 : tal-names-fit ( -- )
   tal-explicit# tal-given# < if 0 ['] tal-too-many. lf-tac-inline
-    tal tal-step @ lfa-e-tac-alt-names lf-tac-stop-at then ;
+    tal-i lfa-e-tac-alt-names lf-tac-stop-at then ;
 : tal-k! ( -- )
-  tal-info@ tal tal-step @ tal-tag lf-elim-alt-find 0= if
+  tal-info@ tal-i tal-tag lf-elim-alt-find 0= if
     lfa-e-tac-record lf-tac-stop 0 then tal tal-k ! ;
 : tal-goal ( -- goal ) tal-block tab-alts @ tal-k@ run@ ;
 : tal-alt ( j -- )
