@@ -15,12 +15,12 @@
 \ findRev?, findDeclRevM?), at the same cost from the end.
 \
 \ Example: the first negative cell of a table 5 -2 -7 is at index 1; a
-\ search of no cells finds none.
+\ search of no cells finds none; the last negative cell is at index 2.
 \   create sample 5 , -2 , -7 ,
 \   : cell-neg? ( addr k -- addr flag ) cells over + @ 0< ;
 \   sample 3 ' cell-neg? find-index . .
-\   sample 0 ' cell-neg? find-index .   \ prints: -1 1 0
-\   sample 3 ' cell-neg? find-last-index . .   \ prints: -1 2
+\   sample 0 ' cell-neg? find-index .
+\   sample 3 ' cell-neg? find-last-index . .   \ prints: -1 1 0 -1 2
 \
 \ Interface: find-index, find-last-index.
 \ State: none. Requires module.fs (ADR 0010). Loads in decimal whatever
