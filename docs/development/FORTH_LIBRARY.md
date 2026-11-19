@@ -1033,7 +1033,7 @@ units and the claim of 50 again together 122–134 ns. *Callers* (2026-11-13): t
 metavariable context's trail and snapshots at a scope's end
 (`mvars.fs`), the tactic runner's restore of blocks, parts and text
 (`tactic-run.fs`), the discrimination tree's list cells, keys and texts
-(`discr-keys.fs`, `elab-keys.fs`), the instance tree's nodes and values
+(`discr-keys.fs`, `elab-keys.fs`), the discrimination tree's nodes and values on a failed build (`discr-tree.fs`, since MF2+DT)
 and the filtered candidates (`instances.fs`), isDefEq's cells and saved
 machines (`defeq.fs`), and instance search's seven scoped slabs at each
 search's end (`synth.fs`). The kernel's `lf-sch-empty`
@@ -1170,6 +1170,20 @@ searches of at most 7 declarations (4.45 on average), `gl-open-at?` 33
 searches of 1 goal; the other callers were not reached by that text.
 Tested in `tests/lib/lib.fs` (both engines); fault
 `rfa-find-index-off-by-one`.
+
+`find-last-index ( x n xt -- k true | false )` (`find.fs`, review
+tactic-a2ii B3b, 2026-11-18) is the same search from the end, k = n-1 down
+to 0 (Lean's `findDeclRevM?`, `findRev?`): the last k whose test holds.
+*Algorithm*: the same one-pass outer loop and a counted inner loop
+stepping by -1, after a guard for n <= 0. *Cost*: one test per index from
+the end down to the hit; no memory. *Speed* (2026-11-18, a test that
+never holds): 5 ns an index at 10 indices and 4 ns at 10^6 on `gforth`,
+3 and 2 ns on `gforth-fast`. *Callers*: the hypothesis `by-assumption`
+takes (`front/meta-tactic/assumption.fs`, the goal's locals, newest first)
+and a local found by its name (`front/lctx-views.fs`'s `lf-view-named`);
+sizes: a goal's local context, a handful of locals in every checked
+`.lf` text (at most 6 in `tests/front/tactics/`). Tested in
+`tests/lib/lib.fs` (both engines); fault `lib-find-last-skips-last`.
 
 ## Tables of texts
 
@@ -1779,6 +1793,57 @@ table 2²⁴ slots, 36% full; nanoseconds per build):
 
 Each build checks its record (C8), computes its data word and, for a new
 record, keeps it; the prototype did the same work without the checks.
+
+## The discrimination tree (front end)
+
+`src/front/discr-tree.fs` (plan slice MF2+DT, branch `mf2-dt`, tested alone,
+2026-11-18) is the index of the simp and rewriting library
+([LF_LIBRARIES.md](../design/LF_LIBRARIES.md) §3, appendix B): Lean
+4.35.0's `DiscrTree` over the elaboration data's keys
+(`src/front/elab-keys.fs`). LeanForth-specific, so a front-end module, not
+a `src/lib` library: its keys are Lean's, made by `discr-keys.fs`
+(`mkPath`, `getUnifyKeyArgs`). Moved out of `src/front/instances.fs`, where
+the same trie was private (FE1e3); simp's lemma sets (SP1b) are its next
+caller.
+
+- **Algorithm.** A tree record holds Lean's root map (a `lib/htab.fs`
+  table of root numbers, keyed by `elab-key=` and `elab-key-hash`) and the
+  tries: nodes (key, parent, children, values) and value cells in slabs.
+  `insertCore` descends by the keys after the root's, making missing
+  children; `insertVal` replaces an equal value in place, else appends.
+  Lean keeps a node's children sorted by `Key.lt` and finds one by binary
+  search; `Key.lt` needs Lean's `Name.hash`, so here children stay in
+  insertion order (Lean's stored order when inserted in Lean's rank order,
+  as the instance data are), the star child is kept apart, and a child is
+  found through a second `htab` keyed by (node, key) (performance scan
+  A5). `getUnify` gives the star root's values first (Lean's
+  `getStarResult`, Main.lean:561; the star root is kept apart, so this
+  is one read), then runs Lean's process from the key's root on an
+  explicit frame stack: no host recursion.
+- **Genericity.** Values are one cell, compared by `=`; any key of
+  `elab-keys.fs`; any number of trees, each in its owner's record. A
+  root can be built at its first query by the owner's builder (the
+  instance table checks the root's records first; the star root is
+  built at every root's first query); a failed build keeps nothing
+  (nodes, cells and child-table entries since its mark). Not reentrant
+  on one tree; a builder may query or fill other trees, the query's tree
+  and output slab being put back after it.
+- **Cost.** An insertion costs one root lookup and one child lookup per
+  key (each a few probes), plus a walk of the node's values (as Lean's
+  `insertVal`); a query visits the nodes whose keys may unify. Memory: 8
+  cells a node, 2 a value, 2 a root, and the two tables' 4-byte slots
+  (at most 3/4 full).
+- **Measured** (gforth-fast, this machine; `tests/front/dt-bench.fs`, and
+  `tests/front/inst-time.fs` for Init's sizes below): n
+  values under one root, each with a child of its own, inserted then
+  inserted again (every child found): 300 in 0.35 ms then 0.16 ms; 3,594
+  (Mathlib's largest root) in 4.8 ms then 1.7 ms; 7,000 in 9.8 ms then
+  2.6 ms.
+- **Callers and sizes.** The instance table (`instances.fs`): on Init
+  (2,938 instances and left-out ones: 277 roots), S1's 13 getInstances
+  problems and 29 searches build 35 roots, 896 nodes and 579 values, the
+  widest node with 114 children; Mathlib's roots hold up to 3,594 records
+  (MATHLIB_FRONT appendix B; not measured here).
 
 ## Missing for a usable checker at Mathlib scale
 

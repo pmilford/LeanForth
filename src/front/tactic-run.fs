@@ -246,33 +246,59 @@ end-structure
   lf-tactic-step dup tac-arrow @ dup 0< if drop tac-at @ else nip then ;
 : lfr-block-word ( i -- c-addr u ) lfr-kind tac-k-by = if s" by" else s" =>" then ;
 
-\ ---- The rows: per kind (1 to 11, tactic-syntax.fs's), its step's
-\ action ( i -- ), the plan step that will port it (FE1g-N; 0: it runs
-\ here) and its word's spelling.
-11 constant lfr-kinds
-24 constant lfr-room              \ characters of a spelling
+\ ---- The rows (tactic plug-in design 3.1): per kind (tactic-syntax.fs's
+\ 1 to 11, then those lf-tactic: registers, up to lfr-kinds), its step's
+\ action ( i -- ), what a block of the kind does at its end, the plan
+\ step that will port it (FE1g-N; 0: it runs), its word's spelling and
+\ Lean's name of the tactic (the step log's). Rows are allotted in the
+\ dictionary while the modules load, through a table of lfr-kinds cells
+\ (0: no row), and read-only afterwards.
+1024 constant lfr-kinds
+24 constant lfr-room              \ characters of a spelling or a Lean name
 begin-structure /trow
   field: trow-run
   field: trow-end                 \ ( i -- ) at its block's end, before done
   field: trow-plan
   field: trow-length
   lfr-room chars +field trow-chars
+  lfr-room 1+ chars +field trow-lean   \ Lean's name, counted
+  field: trow-shape               \ a registered word's shape (tactic-syntax.fs), or 0
 end-structure
 /trow aligned constant lfr-row-size
-create lfr-rows lfr-kinds lfr-row-size * allot
-\ A kind outside 1 to 11 has no row: a load-time slip (lf-tactic-action!),
-\ since a run checks its record first.
-: lfr-kind? ( kind -- flag ) 1 lfr-kinds 1+ within ;
+create lfr-rows lfr-kinds cells allot   lfr-rows lfr-kinds cells erase
+: lfr-cell ( kind -- addr ) 1- cells lfr-rows + ;
+\ A kind with no row: a load-time slip (lf-tactic-action!), since a run
+\ checks its record first.
+: lfr-kind? ( kind -- flag )
+  dup 1 lfr-kinds 1+ within if lfr-cell @ 0<> else drop false then ;
 : lfr-row ( kind -- addr )
-  dup lfr-kind? 0= abort" tactic-run: no such tactic kind" 1- lfr-row-size * lfr-rows + ;
-\ (Spelling a kind also gives its block's end nothing to do.)
+  dup lfr-kind? 0= abort" tactic-run: no such tactic kind" lfr-cell @ ;
+: lfr-roomy ( c-addr u -- c-addr u ) dup lfr-room > abort" tactic-run: a name too long" ;
+: lfr-row-new ( kind -- )
+  dup 1 lfr-kinds 1+ within 0= abort" tactic-run: no room for another tactic kind"
+  dup lfr-kind? abort" tactic-run: a kind spelt twice"
+  align here lfr-row-size allot dup lfr-row-size erase swap lfr-cell ! ;
+\ A new kind's row (with nothing to do at a block's end) and its spelling.
 : lfr-spell ( c-addr u kind -- )
-  over lfr-room > abort" tactic-run: a spelling too long"
-  lfr-row ['] drop over trow-end ! 2dup trow-length ! trow-chars swap chars move ;
+  >r lfr-roomy r@ lfr-row-new r> lfr-row ['] drop over trow-end ! 2dup trow-length !
+  trow-chars swap chars move ;
 : lfr-set ( xt plan kind -- ) lfr-row tuck trow-plan ! trow-run ! ;
 : lf-tactic-action! ( xt kind -- ) 0 swap lfr-set ;
 : lf-tactic-end! ( xt kind -- ) lfr-row trow-end ! ;
+: lf-tactic-plan! ( plan kind -- ) lfr-row trow-plan ! ;
+: lf-tactic-lean! ( c-addr u kind -- ) >r lfr-roomy r> lfr-row trow-lean place ;
 : lfr-spelling ( i -- c-addr u ) lfr-kind lfr-row dup trow-chars swap trow-length @ ;
+\ The registry read (tests/front/tactic-registry.fs, front/step-log.fs).
+lfr-kinds constant lf-tactic-kinds#
+: lf-tactic-row? ( kind -- flag ) lfr-kind? ;
+: lf-tactic-plan@ ( kind -- n ) lfr-row trow-plan @ ;
+: lf-tactic-run? ( kind -- flag ) lfr-row trow-run @ 0<> ;
+: lf-tac-lean ( kind -- c-addr u ) lfr-row trow-lean count ;
+: lf-tactic-shape! ( shape kind -- ) lfr-row trow-shape ! ;
+: lf-tactic-shape@ ( kind -- shape ) lfr-row trow-shape @ ;
+\ The first kind with no row, from 12 (the S1/S2 kinds keep 1-11).
+: lf-tactic-free ( -- kind )
+  tac-k-sorry 1+ begin dup lfr-kind? while 1+ repeat ;
 s" by" tac-k-by lfr-spell              s" by-rfl" tac-k-rfl lfr-spell
 s" by-exact" tac-k-exact lfr-spell     s" by-intro:" tac-k-intro lfr-spell
 s" by-induction" tac-k-induction lfr-spell
@@ -280,6 +306,14 @@ s" by-induction-with" tac-k-with lfr-spell
 s" |" tac-k-alt lfr-spell              s" by-case:" tac-k-case lfr-spell
 s" by-rw[" tac-k-rw lfr-spell          s" by-rewrite[" tac-k-rewrite lfr-spell
 s" by-sorry" tac-k-sorry lfr-spell
+\ Lean's names (the step log's "tactic"; by is never logged).
+s" by" tac-k-by lf-tactic-lean!           s" rfl" tac-k-rfl lf-tactic-lean!
+s" exact" tac-k-exact lf-tactic-lean!     s" intro" tac-k-intro lf-tactic-lean!
+s" induction" tac-k-induction lf-tactic-lean!
+s" induction" tac-k-with lf-tactic-lean!
+s" alternative" tac-k-alt lf-tactic-lean! s" case" tac-k-case lf-tactic-lean!
+s" rw" tac-k-rw lf-tactic-lean!           s" rewrite" tac-k-rewrite lf-tactic-lean!
+s" sorry" tac-k-sorry lf-tactic-lean!
 
 \ ---- Errors: at the step running (its word and position) or at a
 \ block's place; a tactic's error also shows the goals, kept as the
@@ -307,8 +341,9 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ An outcome other than ok stops the run: the run's own stores (no room
 \ 88, else 92), or a Meta step (no room for terms 60, fuel 91; rejected,
 \ the tactic library's Lean error (AppBuilder's exception, an application
-\ type mismatch, an instance not found), 96 "Type mismatch", whose
-\ outcome is invalid, so that try catches it as Lean's does; anything else
+\ type mismatch, an instance not found), 101 "AppBuilder failed" (plan
+\ 9.4.8l G), whose outcome is invalid, so that try catches it as Lean's
+\ does; anything else
 \ 93, not supported yet: the step works on goals Lean's invariants keep
 \ well formed, so a refusal there is a gap of LeanForth's).
 : lfr-own-code ( outcome -- code )
@@ -316,7 +351,7 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-must ( outcome -- ) dup ok? if drop else lfr-own-code lfr-fail then ;
 : lfr-meta-code ( outcome -- code )
   case outcome-full of lfa-e-terms-full endof outcome-exhausted of lfa-e-tac-fuel endof
-    outcome-rejected of lfa-e-tac-mismatch endof lfa-e-tac-meta swap endcase ;
+    outcome-rejected of lfa-e-app-builder endof lfa-e-tac-meta swap endcase ;
 : lfr-meta-must ( outcome -- ) dup ok? if drop else lfr-meta-code lf-tac-fail then ;
 : lf-tac-must ( outcome -- ) lfr-meta-must ;
 \ A library failure's THROW code made that authoring error's; any other
@@ -373,7 +408,8 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-next ( frame -- j true | false )
   dup tfr-step @ swap tfr-next @ lfr-scan tuck lfr-inside? dup 0= if nip then ;
 \ A step: its fuel, then its row's action.
-: lfr-act ( i -- ) dup lfr-kind lfr-row trow-run @ execute ;
+: lf-tac-eval ( i kind -- ) lfr-row trow-run @ execute ;   \ kind's run word on step i
+: lfr-act ( i -- ) dup lfr-kind lf-tac-eval ;
 \ ---- Text: the open parts' and the step log's, in trun-text, which
 \ outlives the stores. A span is where a text begins in trun-text and how
 \ long it is: the declaration's full name, or a goal as goal-print.fs

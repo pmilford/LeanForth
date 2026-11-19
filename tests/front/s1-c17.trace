@@ -5,86 +5,86 @@ synth @OfNat ?m.1 0: stuck
 pending ?1
 leaf @OfNat.ofNat ?m.1 0 ?m.2
 num 0
-synth @OfNat ?m.99 0: stuck
-pending ?99
-leaf @OfNat.ofNat ?m.99 0 ?m.100
+synth @OfNat ?m.26 0: stuck
+pending ?26
+leaf @OfNat.ofNat ?m.26 0 ?m.27
 synth @OfNat ?m.1 0: stuck
 resume ?1: not ready
-synth @OfNat ?m.99 0: stuck
-resume ?99: not ready
+synth @OfNat ?m.26 0: stuck
+resume ?26: not ready
 num 0
-synth @OfNat ?m.116 0: stuck
-pending ?116
-leaf @OfNat.ofNat ?m.116 0 ?m.117
+synth @OfNat ?m.43 0: stuck
+pending ?43
+leaf @OfNat.ofNat ?m.43 0 ?m.44
 synth @OfNat ?m.1 0: stuck
 resume ?1: not ready
-synth @OfNat ?m.99 0: stuck
-resume ?99: not ready
-synth @OfNat ?m.116 0: stuck
-resume ?116: not ready
+synth @OfNat ?m.26 0: stuck
+resume ?26: not ready
+synth @OfNat ?m.43 0: stuck
+resume ?43: not ready
 analyze max none
 app HAdd.hAdd
- implicit ?137
- arg 0: ?m.138
- implicit ?138
- arg 1: ?m.139
- implicit ?139
- arg 2: ?m.140
- instance ?140
- arg 3: ?m.141
+ implicit ?64
+ arg 0: ?m.65
+ implicit ?65
+ arg 1: ?m.66
+ implicit ?66
+ arg 2: ?m.67
+ instance ?67
+ arg 3: ?m.68
  arg 4: @OfNat.ofNat ?m.1 0 ?m.2
- arg 5: @OfNat.ofNat ?m.99 0 ?m.100
+ arg 5: @OfNat.ofNat ?m.26 0 ?m.27
  finalize
-synth @HAdd ?m.138 ?m.139 ?m.140: stuck
-pending ?140
+synth @HAdd ?m.65 ?m.66 ?m.67: stuck
+pending ?67
 app Eq
- implicit ?145
- arg 0: ?m.146
- arg 1: @HAdd.hAdd ?m.138 ?m.139 ?m.140 ?m.141 (@OfNat.ofNat ?m.1 0 ?m.2) (@OfNat.ofNat ?m.99 0 ?m.100)
- arg 2: @OfNat.ofNat ?m.116 0 ?m.117
+ implicit ?74
+ arg 0: ?m.75
+ arg 1: @HAdd.hAdd ?m.65 ?m.66 ?m.67 ?m.68 (@OfNat.ofNat ?m.1 0 ?m.2) (@OfNat.ofNat ?m.26 0 ?m.27)
+ arg 2: @OfNat.ofNat ?m.43 0 ?m.44
  finalize
-synth @OfNat ?m.138 0: stuck
+synth @OfNat ?m.65 0: stuck
 resume ?1: not ready
-synth @OfNat ?m.139 0: stuck
-resume ?99: not ready
-synth @OfNat ?m.146 0: stuck
-resume ?116: not ready
-synth @HAdd ?m.138 ?m.139 ?m.146: stuck
-resume ?140: not ready
-synth @OfNat ?m.138 0: stuck
+synth @OfNat ?m.66 0: stuck
+resume ?26: not ready
+synth @OfNat ?m.75 0: stuck
+resume ?43: not ready
+synth @HAdd ?m.65 ?m.66 ?m.75: stuck
+resume ?67: not ready
+synth @OfNat ?m.65 0: stuck
 resume ?1: not ready
-synth @OfNat ?m.139 0: stuck
-resume ?99: not ready
-synth @OfNat ?m.146 0: stuck
-resume ?116: not ready
-synth @HAdd ?m.138 ?m.139 ?m.146: stuck
-resume ?140: not ready
-synth @OfNat ?m.138 0: stuck
+synth @OfNat ?m.66 0: stuck
+resume ?26: not ready
+synth @OfNat ?m.75 0: stuck
+resume ?43: not ready
+synth @HAdd ?m.65 ?m.66 ?m.75: stuck
+resume ?67: not ready
+synth @OfNat ?m.65 0: stuck
 resume ?1: not ready
-synth @OfNat ?m.139 0: stuck
-resume ?99: not ready
-synth @OfNat ?m.146 0: stuck
-resume ?116: not ready
-synth @HAdd ?m.138 ?m.139 ?m.146: stuck
-resume ?140: not ready
+synth @OfNat ?m.66 0: stuck
+resume ?26: not ready
+synth @OfNat ?m.75 0: stuck
+resume ?43: not ready
+synth @HAdd ?m.65 ?m.66 ?m.75: stuck
+resume ?67: not ready
 synth @Add ?α: stuck
-default ?140 instHAdd: rolled back
+default ?67 instHAdd: rolled back
 default ?1 instOfNatNat: ok
-synth @OfNat ?m.139 0: stuck
-resume ?99: not ready
-synth @OfNat ?m.146 0: stuck
-resume ?116: not ready
-synth @HAdd Nat ?m.139 ?m.146: stuck
-resume ?140: not ready
-synth @OfNat ?m.139 0: stuck
-resume ?99: not ready
-synth @OfNat ?m.146 0: stuck
-resume ?116: not ready
-synth @HAdd Nat ?m.139 ?m.146: stuck
-resume ?140: not ready
+synth @OfNat ?m.66 0: stuck
+resume ?26: not ready
+synth @OfNat ?m.75 0: stuck
+resume ?43: not ready
+synth @HAdd Nat ?m.66 ?m.75: stuck
+resume ?67: not ready
+synth @OfNat ?m.66 0: stuck
+resume ?26: not ready
+synth @OfNat ?m.75 0: stuck
+resume ?43: not ready
+synth @HAdd Nat ?m.66 ?m.75: stuck
+resume ?67: not ready
 synth @Add Nat: found
-default ?140 instHAdd: ok
+default ?67 instHAdd: ok
 synth @OfNat Nat 0: found
-resume ?99: succeeded
+resume ?26: succeeded
 synth @OfNat Nat 0: found
-resume ?116: succeeded
+resume ?43: succeeded

@@ -4,25 +4,35 @@
 \ data, its getUnify (DiscrTree/Main.lean:567), getInstances
 \ (SynthInstance.lean:202), getDefaultInstances (Instances.lean:430),
 \ isClass?'s quick test (Meta/Basic.lean:1384) and the check of the data
-\ against the types (FE1E §4).
-\ - lf-inst-classes ( -- outcome ): FE1E §4 "When", run by each query
-\   word below before anything else, once per data read: every instance
-\   record's root key must be the constant of its recorded class (error
-\   115), its class is recomputed from its type (step 1: forallTelescope-
-\   Reducing at default transparency, isClass?; error 112) and the root
-\   key's arity must be the type's number of arguments (else it is filed
-\   under another root, error 115), and every default instance's type
-\   must end in its recorded class (step 3, error 116). A difference,
-\   here or in a root's keys (error 113, below), refuses the data:
-\   invalid, and the same answer at every later query, whatever its root,
-\   until the data is read again (elab-data.fs's elab-generation) or
-\   lf-inst-reset. A check that cannot finish
-\   (unsupported) leaves the record unverified: trusted for its class, as
-\   the ranks are (S1 §9). Exhausted and full are answered with nothing
-\   kept of them: the pass runs again at the next query, the records it
-\   finished staying finished. Step 4 (a class's out-parameters
-\   recomputed by checkOutParam) is plan row FE1e3b; until then they rest
-\   on pinned Lean.
+\ against the types (FE1E §4), each record checked when first needed
+\ (MF2's rule, docs/design/MATHLIB_FRONT.md §3). The tree itself is
+\ src/front/discr-tree.fs's (plan slice MF2+DT).
+\ - lf-inst-classes ( -- outcome ): run by each query word below before
+\   anything else: once per data read, the tree's roots, every value's
+\   root key (a lib/htab.fs table in the tree); afterwards ok, or the
+\   refusal's invalid. The checks run when a record is first needed:
+\   before a root's tree is built, on each instance of the root, step 1
+\   (its root key must be the constant of its recorded class, error 115;
+\   its class recomputed from its type by forallTelescopeReducing at
+\   default transparency and isClass?, error 112; the root key's arity
+\   the type's number of arguments, else it is filed under another root,
+\   error 115), then step 2 (below); before lf-default-instances answers,
+\   on each default instance of the class, step 3 (its type must end in
+\   its recorded class, error 116). So every value a search can be given
+\   has been checked. A difference refuses the data: invalid, and the
+\   same answer at every later query, whatever its root, until the data
+\   is read again (elab-data.fs's elab-generation) or lf-inst-reset. A
+\   record filed under a root, or a default instance under a class, that
+\   no query asks is never checked (and never found). A check that cannot
+\   finish (unsupported) leaves the record unverified: trusted for its
+\   class, as the ranks are (S1 §9). Exhausted and full are answered
+\   with nothing kept of them, the records finished staying finished.
+\   Step 4 (a class's out-parameters recomputed by checkOutParam) is plan
+\   row FE1e3b; until then they rest on pinned Lean.
+\ - lf-inst-refusal ( -- code ): the refusal's code (112, 113, 115, 116),
+\   0 when the data is not refused; lf-inst-refused-decl ( -- d ): the
+\   data declaration of the record it refused (valid while the code is
+\   not 0), for the elaborator's error (elab-pending.fs).
 \ - lf-inst-telescope ( d -- body outcome ): forallMetaTelescopeReducing
 \   (Basic.lean) over declaration d's type: the tactic library's
 \   (telescope.fs: a new metavariable for each binder, synthetic for an
@@ -41,12 +51,13 @@
 \   transparency: the values whose keys may unify with type, in Lean's
 \   order, as cells: an instance i (0 or more) or a left-out instance j
 \   as j invert (below 0: lf-inst-left-out?). The root keys are those of
-\   the data's values (lf-inst-classes lists them): a query whose root key
+\   the data's values (lf-inst-classes makes them): a query whose root key
 \   none has answers no values at once. A root's tree is built at its
-\   first query, its values inserted in rank order so that every child
-\   list is in Lean's stored order (§3.2), after each instance of the root
-\   has its keys recomputed (§4 step 2, at default transparency in a new
-\   depth): they must equal the record's, else invalid (error 113); a
+\   first query (discr-tree.fs's builder), its values inserted in rank
+\   order so that every child list is in Lean's stored order (§3.2),
+\   after step 1 and then step 2 on each instance of the root (step 2:
+\   its keys recomputed at default transparency in a new depth): they
+\   must equal the record's, else invalid (error 113); a
 \   record whose star covers a term the type gives (Lean saw a no_index
 \   annotation, an mdata node the export drops) is unverified (error
 \   114). The tree counts only once complete: a failure keeps none of it.
@@ -90,14 +101,15 @@
 \   read of the data does too).
 \ Outcomes: ok; invalid as above; lf-meta-stuck from a query key (Meta
 \ layer only); unsupported; exhausted; full when a slab cannot grow.
-\ Untrusted. State: the record it (the last error, the counts, the pass,
-\ the data's generation, a key comparison's ends) and the slabs it-roots (root key, node),
-\ it-nodes, it-vals, it-status and it-dstatus (per instance and default
-\ record: unchecked, class ok, unverified or verified), it-ranked (a
-\ root's values by rank), it-defaults (lf-default-instances' answer),
-\ it-stack (the walk's frames) and it-out (a query's values), in the
-\ checker context (ADR 0009). Loads in decimal whatever BASE is, then
-\ restores it.
+\ Untrusted. State: the record it (the last error, the counts, the
+\ roots' pass or the refusal, the data's generation, the record checked
+\ last, a key comparison's ends, the sort, and the tree, given back by
+\ lf-inst-reset and the context's teardown) and the slabs it-status and
+\ it-dstatus (per instance and default record: unchecked, class ok,
+\ unverified or verified), it-ranked (a root's values by rank),
+\ it-defaults (lf-default-instances' answer) and it-out (a query's
+\ values), in the checker context (ADR 0009). Loads in decimal whatever
+\ BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/sort.fs
@@ -107,10 +119,11 @@ require ./discr-keys.fs
 require ./lctx-views.fs
 require ./meta-must.fs
 require ./telescope.fs
+require ./discr-tree.fs
 
 0 constant it-unchecked   1 constant it-class-ok   2 constant it-unverified
 3 constant it-verified
-1 constant it-passed      \ (it-pass) the pass found nothing; 0: not run; else its error
+1 constant it-passed      \ (it-pass) the roots made; 0: not yet; else a refusal's code
 begin-structure /kcmp     \ a comparison of recorded keys with recomputed ones
   field: kc-d-end         \ the recorded keys' end
   field: kc-wide          \ true once a recorded star covered a term
@@ -119,32 +132,25 @@ begin-structure /it
   field: it-error         \ the last error code, or 0
   field: it-checked       \ instances whose check is final
   field: it-unverified-n  \ of which unverified
-  field: it-pass          \ lf-inst-classes: 0 not run, it-passed, or the refusal's code
+  field: it-pass          \ lf-inst-classes: 0 not yet, it-passed, or a refusal's code
   field: it-data          \ the data's elab-generation the tables were made from
+  field: it-blamed        \ the data declaration of the record checked last
   /kcmp +field it-kcmp
   /sorter +field it-sort-rec   \ getInstances' priority sort (lib/sort.fs)
+  /dtree +field it-tree   \ the instance tree (discr-tree.fs), its roots the data's
 end-structure
-begin-structure /troot  field: tr-key  field: tr-node  end-structure   \ -1: not built
-begin-structure /tnode    \ a tree node; -1 for none
-  field: tn-key   field: tn-child   field: tn-sibling
-  field: tn-first   field: tn-last   \ its values: the first and last value cells
-end-structure
-begin-structure /tval  field: tv-value  field: tv-next  end-structure
-begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-structure
 /it context-record: it
-/troot context-slab: it-roots
-/tnode context-slab: it-nodes
-/tval context-slab: it-vals
 1 cells context-slab: it-status
 1 cells context-slab: it-dstatus
 1 cells context-slab: it-ranked
 1 cells context-slab: it-defaults
-/tframe context-slab: it-stack
 1 cells context-slab: it-out
+: it-dt ( -- tree ) it it-tree ;
+:noname ( -- ) it-dt lf-dtree-free ; context-teardown
 
 : lf-inst-reset ( -- )   \ tables of the data as it is now
-  it-roots slab-clear it-nodes slab-clear it-vals slab-clear it-status slab-clear
-  it-dstatus slab-clear it /it erase elab-generation it it-data ! ;
+  it-dt lf-dtree-free it-status slab-clear it-dstatus slab-clear it /it erase
+  elab-generation it it-data ! ;
 \ Tables of the data as it is: another read, or a reset of it
 \ (elab-generation), forgets them before any query or count reads them.
 : it-same-data ( -- ) elab-generation it it-data @ <> if lf-inst-reset then ;
@@ -303,35 +309,25 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
   dup slab-count if 2drop outcome-ok exit then
   2dup slab-claim nip ok-then? 0= if nip exit then slab-base swap cells erase outcome-ok ;
 
-\ ---- The pass (lf-inst-classes): the roots, steps 1 and 3.
-: it-root@ ( r -- addr ) it-roots slab-at ;
-: it-root-index ( k -- r | -1 )
-  it-roots slab-count 0 ?do dup i it-root@ tr-key @ elab-key= if drop i unloop exit then
-  loop drop -1 ;
-: it-root-add ( k -- outcome )   \ a data root key, once
-  dup it-root-index 0< 0= if drop outcome-ok exit then
-  1 it-roots slab-claim ok-then? 0= if nip exit then
-  it-root@ tuck tr-key ! -1 swap tr-node ! outcome-ok ;
-: it-value-root ( k -- outcome ) it-value it-root-key it-root-add ;
-: it-roots-made ( -- outcome ) it-roots slab-clear it-values# ['] it-value-root ok-each ;
+\ ---- Each record checked when first needed (MATHLIB_FRONT.md §3): step
+\ 1 by its root's build, step 3 by its class's default instances; the
+\ record a check is about is blamed first (lf-inst-refused-decl).
+: it-blame ( d -- ) it it-blamed ! ;
 : it-root-class? ( i -- flag )   \ its root key is its recorded class's constant
   dup it-root-key swap it-record-class swap
   dup elab-key-tag elab-key-const = if elab-key-decl = else 2drop false then ;
 : it-class-pass ( i -- outcome )
   dup it-status@ it-unchecked <> if drop outcome-ok exit then
+  dup elab-instance@ 2drop it-blame
   dup it-root-class? 0= if drop lfa-e-inst-root it-fail exit then
   dup ['] it-class-verdict it-checked-by swap it-class-ok it-record ;
 : it-default-pass ( j -- outcome )
   dup it-dstatus@ it-unchecked <> if drop outcome-ok exit then
+  dup elab-default@ drop nip it-blame
   dup lf-default-check it-verified rot it-dstatus slab-at it-keep ;
 : it-records-ready ( -- outcome )
   elab-instance elab-count it-status it-slab-ready
   dup ok? if drop elab-default elab-count it-dstatus it-slab-ready then ;
-: it-instances-pass ( -- outcome ) elab-instance elab-count ['] it-class-pass ok-each ;
-: it-defaults-pass ( -- outcome ) elab-default elab-count ['] it-default-pass ok-each ;
-: it-pass-run ( -- outcome )
-  it-records-ready ['] it-roots-made ok-and ['] it-instances-pass ok-and
-  ['] it-defaults-pass ok-and ;
 \ A refusal of the data, an invalid answer with a refusal's code (112,
 \ 113, 115, 116), answers every later query the same until another read
 \ or lf-inst-reset; any other invalid (no code: a term or context view
@@ -346,52 +342,16 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
 \ Each query starts with no error code, and with tables of the data as it
 \ is (it-same-data).
 : it-query ( -- ) it-same-data it-no-error ;
-: lf-inst-classes ( -- outcome )
-  it-query it it-pass @ ?dup 0= if it-pass-run it-pass-keep exit then
-  dup it-passed = if drop outcome-ok else it-fail then ;
 : lf-inst-verified? ( v -- flag )
   it-same-data dup it-status slab-count index? if it-status@ it-verified = else drop false
   then ;
+\ The refusal's code (0: none) and the record it refused.
+: lf-inst-refusal ( -- code ) it-same-data it it-pass @ dup it-passed = if drop 0 then ;
+: lf-inst-refused-decl ( -- d ) it it-blamed @ ;
 
-\ ---- The trees: nodes (key, first child, next sibling, first and last
-\ value cell) and value cells (value, next), -1 for none.
-: tn@ ( n -- addr ) it-nodes slab-at ;
-: tv@ ( v -- addr ) it-vals slab-at ;
-: it-key@ ( n -- k ) tn@ tn-key @ ;
-: it-child ( n -- c ) tn@ tn-child @ ;
-: it-sibling ( n -- s ) tn@ tn-sibling @ ;
-: it-node-new ( k -- n outcome )
-  1 it-nodes slab-claim ok-then? 0= if nip no-result exit then
-  tuck tn@ dup /tnode -1 fill tn-key ! outcome-ok ;
-: it-find-child ( k n -- c | -1 )
-  it-child begin dup 0< 0= while 2dup it-key@ elab-key= if nip exit then it-sibling
-  repeat nip ;
-: it-star-child ( n -- c | -1 )   \ n has a child: its first is the star, if any
-  it-child dup it-key@ elab-key-star? 0= if drop -1 then ;
-: it-last-sibling ( c -- addr )   \ the sibling field of c's last sibling
-  begin dup it-sibling dup 0< 0= while nip repeat drop tn@ tn-sibling ;
-: it-link ( c n -- ) dup it-child 0< if tn@ tn-child ! else it-child it-last-sibling !
-  then ;
-: it-descend ( k n -- c outcome )
-  2dup it-find-child dup 0< 0= if nip nip outcome-ok exit then drop
-  swap it-node-new ok-then? 0= if nip no-result exit then tuck swap it-link outcome-ok ;
-: it-val-new ( v -- cell outcome )
-  1 it-vals slab-claim ok-then? 0= if nip no-result exit then
-  tuck tv@ tuck tv-value ! -1 swap tv-next ! outcome-ok ;
-: it-append ( v n -- outcome )   \ v after n's last value
-  swap it-val-new ok-then? 0= if nip exit then swap tn@
-  dup tn-first @ 0< if 2dup tn-first ! else 2dup tn-last @ tv@ tv-next ! then
-  tn-last ! outcome-ok ;
-\ A value goes in by its keys after the root key.
-: it-below-root ( v -- end start ) it-keys over + swap 1+ ;
-: it-descend-at ( node k start -- node' outcome ) + swap it-descend ;
-: it-insert ( v node -- outcome )
-  over it-below-root tuck - swap ['] it-descend-at ok-fold
-  ok-then? if it-append else nip then ;
-
-\ ---- A root's tree: its values placed by rank, step 2 for its instances,
-\ inserted under a new node, registered at the end; nothing kept of a
-\ failure.
+\ ---- A root's tree (discr-tree.fs's builder): its values placed by rank,
+\ step 1 for its instances, then step 2, then inserted in rank order, so
+\ that every child list is Lean's stored order; nothing kept of a failure.
 : it-grow-to ( n slab -- outcome )   \ at least n cells, the new ones -1
   tuck slab-count - dup 0> 0= if 2drop outcome-ok exit then
   2dup swap slab-claim ok-then? 0= if nip nip exit then
@@ -412,84 +372,38 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
 : it-ranked@ ( r -- v ) it-ranked slab-at @ ;
 : it-keys-pass ( i -- outcome )
   dup it-status@ it-class-ok <> if drop outcome-ok exit then
+  dup elab-instance@ 2drop it-blame
   dup ['] it-keys-verdict it-checked-by swap it-verified it-record ;
-: it-rank-pass ( r -- outcome )
-  it-ranked@ dup 0< if drop outcome-ok else it-keys-pass then ;
-: it-insert-rank ( node r -- node outcome ) it-ranked@ over it-insert ;
-: it-insert-ranked ( node -- node outcome )
-  it-ranked slab-count ['] it-insert-rank ok-each ;
-: it-filled ( k -- node outcome )
-  it-node-new ok-then? 0= if no-result exit then it-insert-ranked ;
-: it-tree-mark ( -- nodes vals ) it-nodes slab-count it-vals slab-count ;
-: it-tree-back ( nodes vals -- )
-  it-vals slab-cut it-nodes slab-cut ;
-: it-tree ( k -- node outcome )
-  it-tree-mark 2>r it-filled dup ok? if 2r> 2drop else 2r> it-tree-back then ;
-: it-prepared ( k -- outcome )   \ its values by rank, step 2 for its instances
-  it-gather nip dup ok? if drop it-ranked slab-count ['] it-rank-pass ok-each then ;
-: it-root-key@ ( r -- k ) it-root@ tr-key @ ;
-: it-built ( r -- node outcome )
-  dup it-root-key@ dup it-prepared it-refused ok-then? 0= if nip no-result exit then
-  it-tree ok-then? if tuck swap it-root@ tr-node ! outcome-ok else nip no-result then ;
-: it-root-get ( k -- node outcome )
-  it-root-index dup 0< if outcome-ok exit then
-  dup it-root@ tr-node @ dup 0< if drop it-built else nip outcome-ok then ;
+\ Step xt ( i -- outcome ) on each instance of the root's ranks.
+: it-on-rank ( xt r -- xt outcome )
+  it-ranked@ dup 0< if drop outcome-ok else over execute then ;
+: it-ranks-pass ( xt -- outcome ) it-ranked slab-count ['] it-on-rank ok-each nip ;
+: it-keys-ranks ( -- outcome ) ['] it-keys-pass it-ranks-pass ;
+: it-root-checks ( -- outcome )   \ step 1 on every instance of the root, then step 2
+  ['] it-class-pass it-ranks-pass ['] it-keys-ranks ok-and ;
+: it-prepared ( k -- outcome ) it-gather nip ['] it-root-checks ok-and ;
+: it-insert-rank ( r -- outcome ) it-ranked@ dup it-keys rot it-dt lf-dtree-insert ;
+: it-insert-ranked ( -- outcome ) it-ranked slab-count ['] it-insert-rank ok-each ;
+: it-root-build ( r tree -- outcome )
+  lf-dtree-root-key it-prepared it-refused ['] it-insert-ranked ok-and ;
 
-\ ---- getUnify's process (Main.lean:577-605) on a heap stack of frames
-\ (todo, node, skip): skip 0 or more visits a node; skip below 0 visits
-\ the siblings from node, each with skip (skip invert) plus its arity. A
-\ node below 0 has nothing to visit and gets no frame. A frame's visit
-\ puts its first new frame in the slot its pop freed (it-refill: the room
-\ is there), any second one on top (it-push, which may find no room).
-: tf@ ( i -- addr ) it-stack slab-at ;
-: it-frame! ( todo node skip i -- ) tf@ tuck tf-skip ! tuck tf-node ! tf-todo ! ;
-: it-refill ( todo node skip -- )
-  over 0< if drop 2drop exit then it-stack slab-count it-frame! 1 it-stack slab-commit ;
-: it-push ( todo node skip -- outcome )
-  over 0< if drop 2drop outcome-ok exit then
-  1 it-stack slab-claim ok-then? 0= if nip nip nip exit then it-frame! outcome-ok ;
-: it-pop ( -- todo node skip )
-  it-stack slab-last dup tf-todo @ over tf-node @ rot tf-skip @ it-stack slab-drop ;
-: it-values-out ( node -- outcome )
-  tn@ tn-first @ begin dup 0< 0= while
-    dup tv@ tv-value @ it-out slab-push dup ok? 0= if nip exit then drop
-    tv@ tv-next @ repeat drop outcome-ok ;
-: it-visit-skip ( todo node skip -- outcome )
-  swap it-child swap 1- invert it-refill outcome-ok ;
-: it-key-of ( todo -- rest k args outcome )
-  dup lf-dt-rest tuck swap lf-dt-first false rot lf-dt-key ;
-\ Lean visits the star child first, then the child of the key: their
-\ frames go on in the other order. A star key visits every child.
-: it-on-key ( rest k args node -- outcome )
-  >r swap dup elab-key-star? if 2drop r> it-child -1 it-refill outcome-ok exit then
-  r@ it-find-child 0 it-refill r> it-star-child 0 it-push ;
-: it-visit-key ( todo node -- outcome )
-  >r it-key-of ok-then3? if r> it-on-key else r> drop then ;
-\ A node's values when no term is left, else its children by the next
-\ term's key (a value's keys are one term: a node has children exactly
-\ while terms are left, so the key is made only where Lean makes it).
-: it-visit-zero ( todo node -- outcome )
-  over lf-dt-nil = if nip it-values-out else it-visit-key then ;
-: it-arity ( s -- n ) it-key@ elab-key-arity ;
-\ The next sibling's frame goes on first, so that s is visited first.
-: it-siblings ( todo s base -- outcome )
-  >r 2dup it-sibling r@ invert it-refill dup it-arity r> + it-push ;
-: it-frame ( todo node skip -- outcome )
-  dup 0< if invert it-siblings exit then ?dup if it-visit-skip else it-visit-zero then ;
-: it-walk ( -- outcome )
-  begin it-stack slab-count while it-pop it-frame dup ok? 0= if exit then drop repeat
-  outcome-ok ;
+\ ---- The roots: every value's root key, made once per data read
+\ (lf-inst-classes), by lib/htab.fs in the tree (discr-tree.fs).
+: it-value-root ( k -- outcome ) it-value it-root-key it-dt lf-dtree-root-add nip ;
+: it-tree-ready ( -- outcome )
+  it-dt lf-dtree-ready dup ok? if ['] it-root-build it-dt lf-dtree-builder! then ;
+: it-roots-made ( -- outcome ) it-values# ['] it-value-root ok-each ;
+: it-pass-run ( -- outcome )   \ the slabs, the tree with its builder, its roots
+  it-records-ready ['] it-tree-ready ok-and dup ok? if drop it-roots-made then ;
+: lf-inst-classes ( -- outcome )
+  it-query it it-pass @ ?dup 0= if it-pass-run it-pass-keep exit then
+  dup it-passed = if drop outcome-ok else it-fail then ;
 
-\ ---- getUnify.
-: it-walk-from ( list node -- outcome ) 0 it-push dup ok? if drop it-walk then ;
-: it-unify-run ( type -- outcome )
-  true lf-dt-nil lf-dt-key ok-then2? 0= if exit then
-  over elab-key-star? if 2drop outcome-unsupported exit then
-  swap it-root-get ok-then? if it-walk-from else nip then ;
-: it-unify-scoped ( type -- outcome ) ['] it-unify-run lf-dt-scoped ;
+\ ---- getUnify (discr-tree.fs), at reducible transparency.
+: it-unify ( type -- outcome ) it-dt it-out lf-dtree-unify ;
 : lf-inst-unify ( type -- addr n outcome )
-  it-out slab-clear it-stack slab-clear lf-inst-classes ok-then?
-  if ['] it-unify-scoped lf-tr-reducible lf-meta-at then it-out it-cells ;
+  it-out slab-clear lf-inst-classes ok-then?
+  if ['] it-unify lf-tr-reducible lf-meta-at then it-out it-cells ;
 
 \ ---- getInstances.
 : it-goal-body ( type -- body outcome )
@@ -529,16 +443,18 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
 : lf-inst-candidates ( type -- addr n outcome )
   it-out slab-clear lf-inst-classes ok-then? if it-candidates then it-out it-cells ;
 
-\ ---- getDefaultInstances: the class's default instances by rank.
+\ ---- getDefaultInstances: the class's default instances by rank, each
+\ checked (step 3) before it is placed.
 -1 constant it-gap
 : lf-default-gap? ( v -- flag ) 0< ;
 : it-dvalue ( j -- v ) dup it-dstatus@ it-verified <> if drop it-gap then ;
 : it-dplace ( j -- outcome ) dup it-dvalue swap elab-default-rank it-defaults it-put ;
 : it-default-of? ( class j -- flag ) it-default-class = ;
 : it-default-one ( class j -- class outcome )
-  2dup it-default-of? if it-dplace else drop outcome-ok then ;
+  2dup it-default-of? if dup it-default-pass ok-then? if it-dplace then
+  else drop outcome-ok then ;
 : it-defaults-of ( class -- outcome )
-  elab-default elab-count ['] it-default-one ok-each nip ;
+  elab-default elab-count ['] it-default-one ok-each nip it-refused ;
 : lf-default-instances ( class -- addr n outcome )
   it-defaults slab-clear lf-inst-classes ok-then? if it-defaults-of then
   it-defaults it-cells ;

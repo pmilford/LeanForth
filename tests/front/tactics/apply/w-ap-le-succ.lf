@@ -1,0 +1,10 @@
+\ A wrong twin of ap-le-succ.lf (slice a2-iii; tests/front/tactics/apply/
+\ wrong.lean): no count of arguments makes Nat.le_succ's conclusion fit,
+\ and apply fails with Lean's message (error 380).
+\ Lean: theorem w_ap_le_succ (n : Nat) : n + 1 ≤ n := by apply Nat.le_succ
+theorem w_ap_le_succ
+  Nat explicit: n
+  n 1 + n ≤
+:= by
+  ' Nat.le_succ by-apply
+end w_ap_le_succ

@@ -90,6 +90,7 @@ See also [obsolete/README.md](obsolete/README.md) for documents that a newer one
 - [FORTH_STYLE.md](development/FORTH_STYLE.md) — the project's Forth style rules: short words, the stack over globals, structures, one error convention.
 - [FORTH_REVIEWER.md](development/FORTH_REVIEWER.md) — checklist for reviewing Forth changes.
 - [DONE_CHECKER.md](development/DONE_CHECKER.md) — the independent check that work called done is integrated and works end to end; status stages.
+- [ADDING_A_TACTIC.md](development/ADDING_A_TACTIC.md) — how to add a tactic word as a plug-in: the Lean call list, `lf-tactic:`, codes, tests and faults.
 - [forth-reviews/](development/forth-reviews/LOG.md) — the Forth review log and every review report (required for each Forth change).
 - [done-checks/](development/done-checks/2026-11-12-audit.md) — done-checker reports, starting with the first audit of 2026-11-12.
 - [process-audits/](development/process-audits/2026-11-12-agents-md.md) — audits of the AGENTS.md rules against practice.

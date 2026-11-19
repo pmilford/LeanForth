@@ -1,0 +1,10 @@
+\ by-assumption with one hypothesis that fits (slice a2-iii;
+\ tests/front/tactics/goal-layer.lean). The term is h.
+\ Lean: theorem as_one (a b : Nat) (h : a ≤ b) : a ≤ b := by assumption
+theorem as_one
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  by-assumption
+end as_one

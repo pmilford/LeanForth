@@ -55,6 +55,12 @@
 \   (0 -1: none); lf-elab-error-term ( -- term ) the first error's term
 \   (-1: none); lf-elab-error-reset; lf-elab-meta ( outcome -- outcome ) records a
 \   Meta step's failure: no room 60, fuel 138, unsupported 139, else 76.
+\   Elaboration data the instance table refused (instances.fs's
+\   lf-inst-refusal, MF2's rule) is recorded instead, its code with the
+\   refused record's constant as the term: by lf-elab-meta, the search's
+\   and default instances' failures, lf-elab-synthesize (which then fails,
+\   whatever its own answer) and, when no step recorded an error, by
+\   lf-elab-code and lf-elab-error-term; lf-elab-catch never forgets it.
 \   lf-elab-catch ( outcome -- flag ), Lean's try ... catch _ (commitWhen,
 \   trySynthesizeAppInstMVars): true for a Lean error (invalid with a
 \   recorded code other than 76), which is forgotten; false for anything
@@ -113,6 +119,7 @@ require ./defeq.fs
 require ./defeq-delta.fs
 require ./instances.fs
 require ./synth.fs
+require ./handover.fs
 require ../lib/decimal.fs
 require ./meta-must.fs
 require ./app-builder.fs
@@ -172,7 +179,6 @@ end-structure
 : lf-elab-at ( -- pos ) ep ep-at @ ;
 : lf-elab-error ( -- code pos ) ep ep-code @ ep ep-where @ ;
 : lf-elab-error-reset ( -- ) 0 ep ep-code ! -1 ep ep-where ! -1 ep ep-term ! ;
-: lf-elab-error-term ( -- term ) ep ep-term @ ;
 : ep-error. ( code -- code ) s" error " lf-elab-note dup lf-elab-n. lf-elab-nl ;
 : ep-record ( code -- )
   ep ep-code @ if drop exit then ep-error. ep ep-code ! lf-elab-at ep ep-where ! ;
@@ -182,14 +188,35 @@ end-structure
 : ep-meta-code ( outcome -- code )
   case outcome-full of lfa-e-terms-full endof outcome-exhausted of lfa-e-elab-fuel endof
     outcome-unsupported of lfa-e-elab-step endof lfa-e-malformed swap endcase ;
-: lf-elab-meta ( outcome -- outcome ) dup ok? if exit then dup ep-meta-code ep-record ;
+\ Elaboration data the instance table refused (instances.fs, MF2's rule,
+\ MATHLIB_FRONT.md §3): the text stops with the refusal's code, the
+\ refused record's constant the error's term, whatever the step that met
+\ it answered; no try ... catch forgets it.
+: ep-data-refused? ( outcome -- flag ) outcome-invalid = lf-inst-refusal 0<> and ;
+: ep-decl-term ( d -- term )   \ its constant, or -1
+  lf-menv-of-data ok-then? 0= if drop -1 exit then
+  lf-meta-const-fresh ok? 0= if drop -1 then ;
+: ep-data-refused ( outcome -- outcome )
+  lf-inst-refused-decl ep-decl-term lf-inst-refusal lf-elab-fail-term drop ;
+: ep-data-kept ( outcome -- outcome )
+  lf-inst-refusal if drop outcome-invalid ep-data-refused then ;
+: ep-settle ( -- ) ep ep-code @ 0= if outcome-ok ep-data-kept drop then ;
+\ At end NAME (handover.fs's last word before the hand-over): refused
+\ data stops the declaration, whatever caught a failure on the way.
+: ep-closing ( -- ) lf-inst-refusal ?dup if lfa-fail then ;
+' ep-closing is lf-front-closing
+: lf-elab-meta ( outcome -- outcome )
+  dup ok? if exit then dup ep-data-refused? if ep-data-refused exit then
+  dup ep-meta-code ep-record ;
 \ A failure's error: the one recorded with its position, else the
-\ outcome's code at no position (-1).
+\ outcome's code at no position (-1); refused data's when none is.
 : lf-elab-code ( outcome -- code pos )
-  lf-elab-error over if rot drop else 2drop ep-meta-code -1 then ;
+  ep-settle lf-elab-error over if rot drop else 2drop ep-meta-code -1 then ;
+: lf-elab-error-term ( -- term ) ep-settle ep ep-term @ ;
 \ A Lean error that a caller's try ... catch takes (commitWhen): forgotten.
 : ep-lean-error? ( outcome -- flag )
-  outcome-invalid = ep ep-code @ dup 0<> swap lfa-e-malformed <> and and ;
+  outcome-invalid = ep ep-code @ dup 0<> swap lfa-e-malformed <> and and
+  lf-inst-refusal 0= and ;
 : lf-elab-catch ( outcome -- flag ) ep-lean-error? dup if lf-elab-error-reset then ;
 : lf-elab-spend ( -- outcome )
   lf-meta-spend? if outcome-ok else lfa-e-elab-fuel lf-elab-fail then ;
@@ -209,7 +236,9 @@ end-structure
 defer lf-elab-class? ( type -- class true outcome | false outcome )
 ' lf-class? is lf-elab-class?
 defer lf-elab-default-instances ( class -- addr n outcome )
-' lf-default-instances is lf-elab-default-instances
+: ep-default-instances ( class -- addr n outcome )
+  lf-default-instances dup ep-data-refused? if ep-data-refused then ;
+' ep-default-instances is lf-elab-default-instances
 
 \ ---- Whether a term reaches a metavariable, term or level
 \ (core/reach.fs's tables, made for the question and freed).
@@ -242,6 +271,7 @@ defer lf-elab-default-instances ( class -- addr n outcome )
   lf-synth-error dup 0= if 2drop false exit then
   tuck lf-author-outcome = if true else drop false then ;
 : ep-synth-failed ( outcome -- outcome )
+  dup ep-data-refused? if ep-data-refused exit then
   dup ep-synth-code? if ep-record else lf-elab-meta then ;
 : ep-assigned? ( mvar -- flag ) lf-mvar-value dup if nip then ;
 : ep-judged ( flag outcome code -- flag outcome )
@@ -532,7 +562,8 @@ is ep-c-call
   begin lf-elab-pending# while
     dup ep-rounds dup ok? 0= if nip nip exit then drop 0= if ep-stuck exit then
   repeat drop outcome-ok ;
-: lf-elab-synthesize ( mode -- outcome ) lf-elab-at >r ep-loop r> lf-elab-at! ;
+: lf-elab-synthesize ( mode -- outcome )
+  lf-elab-at >r ep-loop r> lf-elab-at! ep-data-kept ;
 \ synthesizeUsingDefaultLoop, synthesizeSyntheticMVarsUsingDefault.
 : ep-default-loop ( -- outcome )
   begin ep-using-default dup ok? 0= if nip exit then drop

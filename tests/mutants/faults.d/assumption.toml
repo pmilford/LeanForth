@@ -1,0 +1,43 @@
+# Planted faults of by-assumption and the goal layer's assumption (slice
+# a2-iii; src/front/tactics/assumption.fs, src/front/meta-tactic/assumption.fs),
+# read with faults.toml as one list (scripts/mutants.py).
+
+[[fault]]
+id = "assumption-detail-taken"
+file = "src/front/meta-tactic/assumption.fs"
+old = '''  lf-mctx-view swap lf-view-local dup lf-local-detail? if drop false exit then'''
+new = '''  lf-mctx-view swap lf-view-local'''
+test = "$GFORTH tests/front/tactics/assumption/test.fs"
+reason = "a2-iii: findLocalDeclWithType? takes an implementation detail"
+
+[[fault]]
+id = "assumption-oldest-first"
+file = "src/front/meta-tactic/assumption.fs"
+old = '''  lf-mctx-view lf-view-count ['] mas-fits? find-last-index ;'''
+new = '''  lf-mctx-view lf-view-count ['] mas-fits? find-index ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/assumption/check.py"
+reason = "a2-iii: the oldest local that fits is taken, not the newest (as_newest takes h1)"
+
+[[fault]]
+id = "assumption-not-assigned"
+file = "src/front/meta-tactic/assumption.fs"
+old = '''  if mas-fvar lf-mvar-assign lf-must exit then mas-none ;'''
+new = '''  if 2drop exit then mas-none ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/assumption/check.py"
+reason = "a2-iii: the goal is left open when a hypothesis fits (the hand-over refuses the hole)"
+
+[[fault]]
+id = "assumption-no-opaque"
+file = "src/front/meta-tactic/assumption.fs"
+old = '''  ['] lf-defeq! lf-defeq-flags lf-defeq-opaque or lf-defeq-mode lf-meta-with ;'''
+new = '''  ['] lf-defeq! lf-defeq-flags lf-defeq-mode lf-meta-with ;'''
+test = "$GFORTH tests/front/tactics/assumption/test.fs"
+reason = "review tactic-a2ii B2 (its assume-no-opaque): assumption without withAssignableSyntheticOpaque (a ≤ ?o is not closed by h : a ≤ b)"
+
+[[fault]]
+id = "assumption-assigned-ok"
+file = "src/front/meta-tactic/assumption.fs"
+old = '''  lf-goal-not-assigned dup lf-goal-type lf-instantiate! mas-find'''
+new = '''  dup lf-goal-type lf-instantiate! mas-find'''
+test = "$GFORTH tests/front/tactics/assumption/test.fs"
+reason = "review tactic-a2ii B2 (its assume-assigned-ok): no checkNotAssigned, so an assigned goal is searched (error 381, not the fault)"

@@ -231,6 +231,19 @@ library:
 The values themselves (which class an instance serves, ranks, priorities,
 reducibility) are pinned Lean's, taken on trust
 ([what is checked](../programming/ELABORATION_DATA.md#what-it-is-and-why)).
+An instance record is also checked against its declaration's type when
+an instance problem first needs it (its class, root key and keys; a
+default instance's class): one that differs stops the text, exit 4, with
+the data error and the record's name on the next line, and no
+declaration of the text is reported accepted. A record no problem needs
+is never checked. For example, with `tests/front/mul-wrong.elab.ndjson`,
+whose `instMulNat` is recorded as an instance of `Add` under `Mul`'s root,
+a text whose second theorem multiplies (`tests/front/check_elab.py`):
+
+```text
+error: invalid: the LeanForth text was not checked: error 115 at line:col 14:1 (token `end`): elaboration data refused: an instance is filed under another root key than its class; see line:col 11:15
+  instMulNat
+```
 The counts read are printed first. Natural text needs the data: the
 elaborator and the tactics read it ([above](#checking-leanforth-text)). A
 kernel-form text, such as this one, does not use it, and its verdicts are

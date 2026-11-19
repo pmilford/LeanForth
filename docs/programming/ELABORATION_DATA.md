@@ -509,13 +509,20 @@ no data key has); its header documents them.
 alone).** `src/front/discr-keys.fs` recomputes Lean's keys (`lf-dt-path`,
 mkPath; `lf-dt-key`, getUnifyKeyArgs) and `src/front/instances.fs`
 rebuilds Lean's instance tree from the ranks and answers getInstances
-(`lf-inst-candidates`) and getDefaultInstances (`lf-default-instances`).
-The first query checks every record's class and root key (the class's
-constant, with the type's number of arguments) and every default
-instance's class (`lf-inst-classes`); a root's first query checks its
-instances' keys. A difference refuses the data (errors 112, 113, 115,
-116) at that query and every later one, whatever its root, until the
-data is read again (`elab-generation` changes) or `lf-inst-reset`; a record whose star
+(`lf-inst-candidates`) and getDefaultInstances (`lf-default-instances`),
+its tree `src/front/discr-tree.fs`'s. Each record is checked when first
+needed (plan slice MF2+DT; [MATHLIB_FRONT.md](../design/MATHLIB_FRONT.md)
+§3): a root's first query checks each of its instances' class and root
+key (the class's constant, with the type's number of arguments), then
+their keys, before the root's tree is built; a class's default
+instances are checked before `lf-default-instances` gives them. A
+difference refuses the data (errors 112, 113, 115, 116) at that query
+and every later one, whatever its root, until the data is read again
+(`elab-generation` changes) or `lf-inst-reset`; `leanforth check` then
+stops the text (exit 4) with the error and the refused record's name. A
+record filed under a root no query asks is never checked and never
+found; the star root's records are read, so checked, by every query, as
+Lean's getStarResult reads them. A record whose star
 covers a term the type gives, as a `no_index` annotation the export
 drops leaves it, makes that instance unverified (error 114). `make
 reference-synth` recomputes every Init instance and compares getInstances

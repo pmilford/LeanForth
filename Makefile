@@ -1029,14 +1029,17 @@ test: test-elab-data test-elab-data-e2e
 test-differential: reference-elab-data
 
 # The instance table (plans FE1e2 and FE1e3; S1_INTERFACE.md §9): keys,
-# isClass?, getUnify and getInstances over the Init slice, and instance
+# isClass?, getUnify and getInstances over the Init slice, the
+# discrimination tree (plan MF2+DT, tests/front/discr-tree.fs) and instance
 # search (FE1e5, tests/front/synth.fs), Gforth only; with pinned Lean,
 # every Init instance's class and keys recomputed, getInstances and 30
 # searches (answers and the candidates tried) compared with pinned Lean's
 # #synth traces (a few minutes).
 test-instances:
+	$(RUN) $(GFORTH) tests/front/discr-tree.fs
 	$(RUN) $(GFORTH) tests/front/instances.fs
 	$(RUN) $(GFORTH) tests/front/instances-bad.fs
+	$(RUN) $(GFORTH) tests/front/instances-late.fs
 	$(RUN) $(GFORTH) tests/front/instances-odd.fs
 	$(RUN) $(GFORTH) tests/front/synth.fs
 reference-synth: RUN := timeout 3000
@@ -1125,6 +1128,7 @@ test-front:
 	@out=$$($(RUN) $(GFORTH) tests/front/menv-run.fs 2>&1) || \
 	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "menv-run.fs: all tests passed"
 	$(RUN) python3 tests/front/test_front_imports.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_registry.py
 	$(RUN) $(GFORTH) tests/front/goals.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_goals.py
 	@out=$$($(RUN) $(GFORTH) tests/front/elab.fs 2>&1) || \

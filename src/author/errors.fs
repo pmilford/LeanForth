@@ -155,8 +155,9 @@ require ./source.fs
 97 constant lfa-e-tac-rfl        \ rfl's two sides are not definitionally equal
 98 constant lfa-e-tac-assign     \ exact's term cannot be assigned to the goal
 99 constant lfa-e-tac-form       \ unsupported: this case of a tactic (a later step)
-\ The Meta layer's errors a user sees (S1, branch s1-meta; 101-109 free).
+\ The Meta layer's errors a user sees (S1, branch s1-meta; 102-109 free).
 100 constant lfa-e-universe-level \ getDecLevel: a level that is not greater than 0
+101 constant lfa-e-app-builder   \ the tactic library's Lean error (AppBuilder.lean)
 \ The instance table and its check of the elaboration data
 \ (src/front/instances.fs, plan FE1e3; FE1E_APPLICATIONS.md 4).
 110 constant lfa-e-not-class     \ getInstances' goal is no class application
@@ -417,6 +418,9 @@ create lfa-catalogue
   s" not supported yet: this case of the tactic (FE1G_TACTICS.md 5 names its step)"
   lfa-unsupported,
   lfa-e-universe-level s" invalid universe level: not greater than 0" lfa-invalid,
+  here lfa-e-app-builder s" AppBuilder failed: a term the tactic library builds does not "
+  lfa-invalid, dup s" fit (an equality proof expected, an application type mismatch, no "
+  lfa-more, s" instance found)" lfa-more,
   lfa-e-not-class s" type class instance expected" lfa-invalid,
   lfa-e-synth-args
   s" type class resolution failed, insufficient number of arguments" lfa-invalid,
@@ -504,9 +508,37 @@ create lfa-catalogue
 
 \ The catalogue record of a code; an unknown code gives the closing record.
 : lfa-last? ( message -- flag ) lfa-message-code @ 0= ;
-: lfa-message-of ( code -- message )
-  lfa-catalogue begin dup lfa-last? 0= while 2dup lfa-message-code @ <> while
+: lfa-find-in ( code message -- message' )
+  begin dup lfa-last? 0= while 2dup lfa-message-code @ <> while
     lfa-message-next repeat then nip ;
+
+\ ---- Codes a tactic file adds (tactic plug-in design 3.5): lfa-code: ( n
+\ outcome c-addr u "name" -- ) defines the constant name as n with its
+\ message, appended to a chain of records (a link cell, then the message)
+\ after the catalogue, in load order. The load aborts on a code 0 or
+\ below, or one registered anywhere already. The chain is set while the
+\ modules load and read-only afterwards, as the catalogue is.
+create lfa-codes-more 0 ,         \ the chain's first record, or 0
+: lfa-link-end ( -- addr ) lfa-codes-more begin dup @ while @ repeat ;
+: lfa-chained ( link -- message ) cell+ ;
+: lfa-more-hit? ( code link -- flag ) lfa-chained lfa-message-code @ = ;
+: lfa-more-find ( code -- message true | false )
+  lfa-codes-more @ begin dup while 2dup lfa-more-hit? if nip lfa-chained true exit then
+    @ repeat nip ;
+: lfa-message-of ( code -- message )
+  dup lfa-catalogue lfa-find-in dup lfa-last? 0= if nip exit then
+  swap lfa-more-find if nip then ;
+: lfa-code-new? ( n -- flag ) dup 0> swap lfa-message-of lfa-last? and ;
+: lfa-code: ( n outcome c-addr u "name" -- )
+  3 pick lfa-code-new? 0= abort" lfa-code: a code 0 or below, or registered already"
+  2>r over constant here 0 , lfa-link-end ! 2r> lfa-message, ;
+\ Every code's record, the catalogue's first, then the chain's: xt (
+\ message -- ) for each.
+: lfa-each-in ( xt message -- )
+  begin dup lfa-last? 0= while 2dup 2>r swap execute 2r> lfa-message-next repeat 2drop ;
+: lfa-each-chained ( xt -- )
+  lfa-codes-more @ begin dup while 2dup 2>r lfa-chained swap execute 2r> @ repeat 2drop ;
+: lf-author-each-message ( xt -- ) dup lfa-catalogue lfa-each-in lfa-each-chained ;
 : lf-author-message ( code -- c-addr u ) lfa-message-of lfa-message-text ;
 : lf-author-outcome ( code -- outcome ) lfa-message-of lfa-message-outcome @ ;
 

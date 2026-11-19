@@ -1558,4 +1558,12 @@ the owner approved, each as recommended:
   important as is speed from multiple internal threads." So: parallel checking is tested at scale every night and
   its speed-up recorded; module-level mutable state is audited and removed; reviews check re-entrancy; the front
   end is made re-entrant and `--jobs` then applies to LeanForth text (plan 9.4.8p).
+- **[kernel], in form (branch `parallel-1`, approved 2026-11-18):** the term-tag sets of `src/core/terms.fs` cannot
+  be changed once the first context exists; the test build's counter `lf-i2-misses` of
+  `src/kernel/environment.fs` is added to atomically; `src/kernel/env-snapshot.fs` uses the library's `slab-data`.
+- **The nightly speed-up** (Init at `--jobs 8` against `--jobs 1`) is recorded every night; a floor below which
+  the run fails is proposed after about five runs on a quiet machine and needs the owner's approval.
+- **Pace** (the owner will not work on Saturday or Sunday, whose share may be spent earlier): two implementing
+  agents at a time on separate files, the orchestrator running the long tests. **Order:** S2's remaining fixes and
+  its done check beside the simp data (format 4 with the coercion tag); then slice LA; then SP1b-i beside FE4a.
 

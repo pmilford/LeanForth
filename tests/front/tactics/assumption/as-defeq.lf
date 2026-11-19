@@ -1,0 +1,10 @@
+\ by-assumption up to definitional equality: a + 0 unfolds to a (slice
+\ a2-iii; tests/front/tactics/goal-layer.lean). The term is h.
+\ Lean: theorem as_defeq (a : Nat) (h : a ≤ a) : a ≤ a + 0 := by assumption
+theorem as_defeq
+  Nat explicit: a
+  a a ≤ explicit: h
+  a a 0 + ≤
+:= by
+  by-assumption
+end as_defeq

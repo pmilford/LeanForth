@@ -13622,8 +13622,8 @@ gap = "no inductive type of Init is recursive with one constructor and no indice
 [[fault]]
 id = "fe-spine-levels-first-only"
 file = "src/front/meta-spine.fs"
-old = '''    2dup i ms-level swap slab-push dup ok? 0= if nip nip unloop exit then drop'''
-new = '''    2dup 0 ms-level swap slab-push dup ok? 0= if nip nip unloop exit then drop'''
+old = '''    2dup i lf-const-level@ swap slab-push dup ok? 0= if nip nip unloop exit then drop'''
+new = '''    2dup 0 lf-const-level@ swap slab-push dup ok? 0= if nip nip unloop exit then drop'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "review fe1c-2 re-check: every universe argument of a constant is read as its first (Quot.lift.{1,2} would get Sort 1 for beta)"
 
@@ -15389,7 +15389,7 @@ reason = "FE1c review M3: isDefEqEtaStruct on Prod.mk Nat Nat a, short of an arg
 [[fault]]
 id = "fe-defeq-mvar-self-readonly"
 file = "src/front/defeq.fs"
-old = '''  de-mvar lf-mvar-assignable? 0= if lf-lb-false de-return exit then'''
+old = '''  de-mvar de-assignable-mvar? 0= if lf-lb-false de-return exit then'''
 new = '''  '''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M3: isDefEqMVarSelf tries constApprox on a read-only metavariable"
@@ -15986,8 +15986,8 @@ reason = "FE1g-3 review fe1g3 L1: a step whose parent is a block already closed 
 [[fault]]
 id = "fe-run-row-unchecked"
 file = "src/front/tactic-run.fs"
-old = '''  dup lfr-kind? 0= abort" tactic-run: no such tactic kind" 1- lfr-row-size * lfr-rows + ;'''
-new = '''  1- lfr-row-size * lfr-rows + ;'''
+old = '''  dup lfr-kind? 0= abort" tactic-run: no such tactic kind" lfr-cell @ ;'''
+new = '''  lfr-cell @ ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "FE1g-3 review fe1g3 L2: lf-tactic-action! with kind 0 or 12 writes outside the table of rows"
 
@@ -16559,10 +16559,10 @@ reason = "getUnifyKeyArgs: a read-only metavariable is other under isDefEqStuckE
 
 [[fault]]
 id = "fe-inst-star-last"
-file = "src/front/instances.fs"
-old = '''  r@ it-find-child 0 it-refill r> it-star-child 0 it-push ;'''
-new = '''  rot r@ it-star-child 0 it-refill r> it-find-child 0 it-push ;'''
-test = "$GFORTH tests/front/instances.fs"
+file = "src/front/discr-tree.fs"
+old = '''  r@ dt-find-child 0 dt-refill r> dn@ dn-star @ 0 dt-push ;'''
+new = '''  rot r@ dn@ dn-star @ 0 dt-refill r> dt-find-child 0 dt-push ;'''
+test = "$GFORTH tests/front/instances.fs && $GFORTH tests/front/discr-tree.fs"
 reason = "getUnify: the star child is visited after the matching one (Lean's order lost)"
 
 [[fault]]
@@ -16615,10 +16615,10 @@ reason = "a recorded star over a term the export lost a no_index on refuses the 
 
 [[fault]]
 id = "fe-inst-partial-tree"
-file = "src/front/instances.fs"
-old = '''  it-tree ok-then? if tuck swap it-root@ tr-node ! outcome-ok else nip no-result then ;'''
-new = '''  it-tree >r tuck swap it-root@ tr-node ! r> ;'''
-test = "$GFORTH tests/front/instances.fs"
+file = "src/front/discr-tree.fs"
+old = '''  swap -1 swap dr@ dr-trie ! 2r> dt-back ;'''
+new = '''  nip 2r> 2drop ;'''
+test = "$GFORTH tests/front/instances.fs && $GFORTH tests/front/discr-tree.fs"
 reason = "s1-synth review H1: a root's tree counts before it is complete: after a refused heap request the same query answers with candidates missing"
 
 [[fault]]
@@ -16656,10 +16656,10 @@ reason = "s1-synth review M4: every value reads as verified, a left-out one and 
 
 [[fault]]
 id = "fe-inst-star-root-searched"
-file = "src/front/instances.fs"
+file = "src/front/discr-tree.fs"
 old = '''  over elab-key-star? if 2drop outcome-unsupported exit then'''
 new = ''''''
-test = "$GFORTH tests/front/instances.fs"
+test = "$GFORTH tests/front/instances.fs && $GFORTH tests/front/discr-tree.fs"
 reason = "s1-synth review M4: a bare metavariable goal (a star root) is searched and answers no candidates"
 
 [[fault]]
@@ -16700,7 +16700,7 @@ file = "src/front/instances.fs"
 old = '''  it-query it it-pass @ ?dup 0= if it-pass-run it-pass-keep exit then'''
 new = '''  it-query it it-pass @ ?dup 0= if outcome-ok exit then'''
 test = "$GFORTH tests/front/instances-bad.fs"
-reason = "s1-synth review H2: the first query does not check every record (FE1E 4, When): misfiled data answers"
+reason = "s1-synth review H2 (MF2: the roots are made there): no root is made, so a root holding a wrong record is never built nor checked and its query answers no candidates"
 
 [[fault]]
 id = "fe-default-class-unchecked"
@@ -17270,8 +17270,8 @@ reason = "s1-synth re-check H1': an instance filed under its class's root key wi
 [[fault]]
 id = "fe-inst-key-refusal-forgotten"
 file = "src/front/instances.fs"
-old = '''  dup it-root-key@ dup it-prepared it-refused ok-then? 0= if nip no-result exit then'''
-new = '''  dup it-root-key@ dup it-prepared ok-then? 0= if nip no-result exit then'''
+old = '''  lf-dtree-root-key it-prepared it-refused ['] it-insert-ranked ok-and ;'''
+new = '''  lf-dtree-root-key it-prepared ['] it-insert-ranked ok-and ;'''
 test = "$GFORTH tests/front/instances-odd.fs"
 reason = "s1-synth re-check M1': a key difference (113) refuses only its own root, and queries of other roots still answer"
 
@@ -17446,8 +17446,8 @@ reason = "review s1-synth-b M1 (F6): spineMVarsAdmissible takes a projection as 
 [[fault]]
 id = "fe-defeq-opaque-not-read-only"
 file = "src/front/defeq.fs"
-old = '''  lf-mvar-kind drop mv-opaque = lf-defeq-opaque de-flag? 0= and ;'''
-new = '''  drop false ;'''
+old = '''  lf-defeq-opaque de-flag? if de-at-depth? else lf-mvar-assignable? then ;'''
+new = '''  lf-defeq-opaque de-flag? if de-at-depth? else de-at-depth? then ;'''
 test = "$GFORTH tests/front/synth.fs"
 reason = "review s1-synth-b M1 (F9): isReadOnlyOrSyntheticOpaque forgets the synthetic opaque metavariables of the current depth"
 
@@ -17743,10 +17743,10 @@ reason = "s1-synth re-check M2': a default instance's rank of up to 2^32 - 1 is 
 
 [[fault]]
 id = "rc-tree-no-rollback"
-file = "src/front/instances.fs"
-old = '''  it-tree-mark 2>r it-filled dup ok? if 2r> 2drop else 2r> it-tree-back then ;'''
-new = '''  it-tree-mark 2drop it-filled ;'''
-test = "$GFORTH tests/front/instances.fs"
+file = "src/front/discr-tree.fs"
+old = '''  dtq dt-nodes slab-cut ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/instances.fs && $GFORTH tests/front/discr-tree.fs"
 reason = "s1-synth re-check M3' (reviewer's fault): a failed build keeps its nodes and value cells"
 
 [[fault]]
@@ -17760,8 +17760,8 @@ reason = "s1-synth re-check M3' (reviewer's fault): an exhausted or refused step
 [[fault]]
 id = "rc-roots-instances-only"
 file = "src/front/instances.fs"
-old = ''': it-value-root ( k -- outcome ) it-value it-root-key it-root-add ;'''
-new = ''': it-value-root ( k -- outcome ) it-value dup 0< if drop outcome-ok exit then it-root-key it-root-add ;'''
+old = ''': it-value-root ( k -- outcome ) it-value it-root-key it-dt lf-dtree-root-add nip ;'''
+new = ''': it-value-root ( k -- outcome ) it-value dup 0< if drop outcome-ok exit then it-root-key it-dt lf-dtree-root-add nip ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "s1-synth re-check M3' (reviewer's fault): a root only left-out values have is unknown, its query answers no values"
 
@@ -17926,8 +17926,10 @@ reason = "review s1-elab H1 F2: commitWhen's try never catches: a failed to synt
 [[fault]]
 id = "fe-elab-catch-malformed"
 file = "src/front/elab-pending.fs"
-old = '''  outcome-invalid = ep ep-code @ dup 0<> swap lfa-e-malformed <> and and ;'''
-new = '''  outcome-invalid = ;'''
+old = '''  outcome-invalid = ep ep-code @ dup 0<> swap lfa-e-malformed <> and and
+  lf-inst-refusal 0= and ;'''
+new = '''  outcome-invalid =
+  lf-inst-refusal 0= and ;'''
 test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
 reason = "review s1-elab M3: commitWhen's try also forgets malformed or corrupt state (76), which then reads as a plain failure"
 
@@ -20132,9 +20134,9 @@ reason = "S2 5 (MVarId.rewrite): congrArg's sides swapped, a proof the kernel re
 
 [[fault]]
 id = "s2-rw-mpr-new-twice"
-file = "src/front/tactic-rewrite.fs"
-old = '''  >r s" Eq.mpr" lfw-want lf-level! lf-mk-const1 lfw-want trw trw-new @ lfw-hint r>'''
-new = '''  >r s" Eq.mpr" lfw-want lf-level! lf-mk-const1 trw trw-new @ trw trw-new @ lfw-hint r>'''
+file = "src/front/meta-tactic/goal.fs"
+old = '''  >r 2dup lf-goal-type swap lf-goal-type mtg-mpr swap lf-mk-app r> lf-mk-app'''
+new = '''  >r 2dup lf-goal-type swap drop dup mtg-mpr swap lf-mk-app r> lf-mk-app'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 5 (replaceTargetEq): Eq.mpr's first argument the new target where Lean's is the goal's type as stored"
 

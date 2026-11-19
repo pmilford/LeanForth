@@ -108,6 +108,10 @@ require ./front/tactic-rewrite.fs
 require ./front/tactic-induction.fs
 \ The step log the runner keeps (branch s2-steps), written by check --steps.
 require ./front/step-log.fs
+\ The tactics that register themselves (tactic plug-in design, slices
+\ a2-ii and a2-iii): by-apply, by-assumption, by-constructor, on the
+\ tactic library and its goal operations (front/meta-tactic/).
+require ./front/tactics/all.fs
 
 \ The command line: check, replay, print, count, reexport, version,
 \ capabilities. It loads the staging of exports into the checker's input,
