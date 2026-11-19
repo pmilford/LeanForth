@@ -63,3 +63,13 @@ old = '''[defined] task-cores-test [if] task-cores-test 1 max'''
 new = '''[defined] task-cores-test [if] cpu-read cpu-count 1 max'''
 test = "python3 tests/cli/test_parallel_stress.py Stress.test_more_workers_than_cores"
 reason = "the stress test's workers are cut to the cores again, so it never runs more workers than cores"
+
+# The atomic add of the task adapter (lib/task.fs, L1 of the audit).
+
+[[fault]]
+id = "parallel-task-add-not-atomic"
+file = "src/lib/task.fs"
+old = ''': task+! ( n addr -- ) atomic+!@ drop ;'''
+new = ''': task+! ( n addr -- ) +!@ drop ;'''
+test = "$GFORTH tests/lib/task.fs"
+reason = "Gforth's +!@ is not atomic: additions of jobs on several workers to one counter are lost"
