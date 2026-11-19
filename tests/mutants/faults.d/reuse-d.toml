@@ -51,3 +51,171 @@ old = ''': lf-meta-app-head ( term -- head ) begin dup lf-meta-app? while lf-ter
 new = ''': lf-meta-app-head ( term -- head ) dup lf-meta-app? if lf-term-first@ then ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "the head of f a b is f a: one step down the spine only"
+
+# --- elab-data.fs's record forms and shared member readers (tests/front/elab-data.fs).
+
+[[fault]]
+id = "rd-ed-on-form-unshaped"
+file = "src/front/elab-data.fs"
+old = '''  2dup @ ed-shape? 0= if 2drop ed-malformed exit then'''
+new = '''  2dup @ 2drop'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "a record with a member too many or one missing is read as if well formed"
+
+[[fault]]
+id = "rd-ed-push-ok-after-failure"
+file = "src/front/elab-data.fs"
+old = ''': ed-push-ok ( x outcome slab -- outcome ) swap ok-then? if ed-push else nip then ;'''
+new = ''': ed-push-ok ( x outcome slab -- outcome ) nip ed-push ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "an item that failed to read is pushed anyway, and its failure is lost"
+
+[[fault]]
+id = "rd-ed-failed-code-lost"
+file = "src/front/elab-data.fs"
+old = ''': ed-failed ( outcome code -- outcome ) over ok? if drop else swap ed-fail then ;'''
+new = ''': ed-failed ( outcome code -- outcome ) drop ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "a full slab or a failed lookup refuses the data without its error code and line"
+
+[[fault]]
+id = "rd-ed-class-at-name"
+file = "src/front/elab-data.fs"
+old = ''': ed-class-at ( value addr -- addr d outcome ) swap c" class" ed-member ed-a-class ;'''
+new = ''': ed-class-at ( value addr -- addr d outcome ) swap c" name" ed-member ed-a-class ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "an instance's class is read from its own name"
+
+[[fault]]
+id = "rd-ed-params-at-discriminants"
+file = "src/front/elab-data.fs"
+old = ''': ed-params-at ( value addr -- addr u outcome ) swap c" num_params" ed-member ed-u32 ;'''
+new = ''': ed-params-at ( value addr -- addr u outcome ) swap c" num_discrs" ed-member ed-u32 ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "a matcher's and a projection's parameter count is read from another member"
+
+# --- constructions.fs's shared words (tests/front/constructions.fs).
+
+[[fault]]
+id = "rd-type-decl-recursor"
+file = "src/front/constructions.fs"
+old = ''': type-decl ( job -- d stage ) dup aux-type @ swap decl-of ;'''
+new = ''': type-decl ( job -- d stage ) dup aux-rec @ swap decl-of ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "the type's name, type and parameters are read from its recursor"
+
+[[fault]]
+id = "rd-pi-at-first-binder"
+file = "src/front/constructions.fs"
+old = ''': pi-at ( j e job -- e' ) >r swap r> nth-pi ;'''
+new = ''': pi-at ( j e job -- e' ) >r nip 0 r> nth-pi ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "every binder read is the first: recOn's and casesOn's binders all take the first domain"
+
+[[fault]]
+id = "rd-aux-fold-one-short"
+file = "src/front/constructions.fs"
+old = ''': aux-fold ( body job xt -- e outcome ) over aux-count @ -rot ok-fold ;'''
+new = ''': aux-fold ( body job xt -- e outcome ) over aux-count @ 1- -rot ok-fold ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "the outermost binder is never wrapped around the body"
+
+[[fault]]
+id = "rd-tuple-of-empty"
+file = "src/front/constructions.fs"
+old = ''': tuple-of ( job xt -- t outcome ) over tuple-begin swap ok-with tuple-done ;'''
+new = ''': tuple-of ( job xt -- t outcome ) drop dup tuple-begin tuple-done ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "the universe parameters' tuple is made empty"
+
+# --- lib/bounds.fs's array words, first-nonzero and epoch+ (tests/lib/lib.fs).
+
+[[fault]]
+id = "rd-cell-at-next"
+file = "src/lib/bounds.fs"
+old = ''': cell-at@ ( i a-addr -- x ) swap cells + @ ;'''
+new = ''': cell-at@ ( i a-addr -- x ) swap 1+ cells + @ ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "element i reads element i + 1: a metavariable's or a parameter's neighbour"
+
+[[fault]]
+id = "rd-pair-at-cells"
+file = "src/lib/bounds.fs"
+old = ''': pair-at ( i a-addr -- addr ) swap 2* cells + ;'''
+new = ''': pair-at ( i a-addr -- addr ) swap cells + ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "pair i is read at cell i: pairs overlap"
+
+[[fault]]
+id = "rd-record-at-size-ignored"
+file = "src/lib/bounds.fs"
+old = ''': record-at ( i size a-addr -- addr ) >r * r> + ;'''
+new = ''': record-at ( i size a-addr -- addr ) >r drop cells r> + ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "records are taken a cell apart whatever their size"
+
+[[fault]]
+id = "rd-epoch-wraps"
+file = "src/lib/bounds.fs"
+old = '''  dup 0< if exit then dup max-n = if drop -1 else 1+ then ;'''
+new = '''  dup 0< if exit then 1+ ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a generation at max-n wraps to a negative one instead of saturating to -1 (poisoned)"
+
+# --- lib/outcome.fs's ok-apply, lib/bytes.fs's counted-nth, lib/store.fs's store-most.
+
+[[fault]]
+id = "rd-ok-apply-on-failure"
+file = "src/lib/outcome.fs"
+old = '''  over ok? if nip execute else drop nip no-result then ;'''
+new = '''  nip execute ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a step runs on what a failed step left, and the failure is lost"
+
+[[fault]]
+id = "rd-ok-apply-keeps-value"
+file = "src/lib/outcome.fs"
+old = '''  over ok? if nip execute else drop nip no-result then ;'''
+new = '''  over ok? if nip execute else drop then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a failure hands on the half-made value in place of -1"
+
+[[fault]]
+id = "rd-counted-nth-one-short"
+file = "src/lib/bytes.fs"
+old = ''': counted-nth ( c-addr n -- c-addr' ) 0 ?do counted-next loop ;'''
+new = ''': counted-nth ( c-addr n -- c-addr' ) 1 ?do counted-next loop ;'''
+test = "$GFORTH tests/lib/bytes.fs"
+reason = "every name of a table after the first is its predecessor's: messages and kind names one off"
+
+[[fault]]
+id = "rd-store-most-no-identity"
+file = "src/lib/store.fs"
+old = ''': store-most ( width -- n ) cell+ max-n store-header - swap / ;'''
+new = ''': store-most ( width -- n ) max-n store-header - swap / ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "the limit leaves out each record's identity cell, so a store at its limit needs more than max-n bytes"
+
+[[fault]]
+id = "rd-cell-tally-twice"
+file = "src/lib/bounds.fs"
+old = ''': cell-tally ( i a-addr -- ) swap cells + 1 swap +! ;'''
+new = ''': cell-tally ( i a-addr -- ) swap cells + 2 swap +! ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "each event counts twice"
+
+[[fault]]
+id = "rd-ac-each-from-true"
+file = "src/front/assign-check.fs"
+old = ''': ac-each ( xt -- flag outcome ) false swap ac ac-n @ swap ok-each ;'''
+new = ''': ac-each ( xt -- flag outcome ) true swap ac ac-n @ swap ok-each ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "every assignment reads as if a variable occurred in its value, so none is made"
+
+[[fault]]
+id = "rd-fdecl-universe-names-none"
+file = "src/present/print-forth.fs"
+old = '''  dup lf-fdecl-universe swap lf-fdecl-universes @ ;'''
+new = '''  lf-fdecl-universe 0 ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "a declaration's universe parameters read as none: a universe name in its statement is unknown"

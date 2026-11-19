@@ -112,7 +112,7 @@ end-structure
 
 \ ---------------------------------------------------------------------------
 \ Lean's name order: -1, 0 or 1. Unchecked: both names passed
-\ lf-lnorm-name-ok?, so every prefix chain ends at the anonymous name.
+\ lf-name-chain-ok?, so every prefix chain ends at the anonymous name.
 : lf-lnorm-sign ( n -- -1|0|1 ) dup 0> 1 and swap 0< or ;
 \ One component each (203-215): a string after a number; strings by bytes
 \ and then length (Forth's COMPARE), numbers by value.
@@ -135,13 +135,6 @@ end-structure
 : lf-lnorm-name-cmp ( a b -- n )
   2dup lf-lnorm-depths 2dup - lf-lnorm-sign >r lf-lnorm-trimmed lf-lnorm-level-cmp
   ?dup if r> drop else r> then ;
-\ A name whose every component is valid and well formed, in either mode
-\ of the name store (lf-name-part-ok?).
-: lf-lnorm-limb-ok? ( id -- flag )
-  dup lf-name-valid? if lf-name-part-ok? else drop false then ;
-: lf-lnorm-name-ok? ( id -- flag )
-  begin dup while dup lf-lnorm-limb-ok? 0= if drop false exit then lf-name-prefix@ repeat
-  drop true ;
 
 \ ---------------------------------------------------------------------------
 \ is_norm_lt: by base (the level under its successors), then offset.
@@ -155,7 +148,9 @@ end-structure
   2dup lf-lnorm-lefts lf-lmk-same? if lf-lnorm-rights else lf-lnorm-lefts then ;
 \ Two different parameters need their names: an ID that is not a valid
 \ name leaves the comparison undecided (unknown).
-: lf-lnorm-named? ( a b -- flag ) lf-lnorm-name-ok? swap lf-lnorm-name-ok? and ;
+\ Both names have every component valid and well formed, in either mode
+\ of the name store (core/names.fs's lf-name-chain-ok?).
+: lf-lnorm-named? ( a b -- flag ) lf-name-chain-ok? swap lf-name-chain-ok? and ;
 : lf-lnorm-unnamed ( a b -- false ) 2drop outcome-unknown lf-lnorm-fail false ;
 : lf-lnorm-names< ( ba bb -- flag )
   lf-lnorm-lefts 2dup lf-lnorm-named? if lf-lnorm-name-cmp 0< else lf-lnorm-unnamed then ;

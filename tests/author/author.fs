@@ -183,7 +183,7 @@ T{ text$ fails drop drop -> 33 }T
 lfa-items-reset  16 lfa-items store-limit! drop
 text0 s" theorem t" text+ s"  Prop" 17 times
 T{ text$ fails drop drop -> 64 }T
-lfa-items-reset  /lfa-item lfa-store-limit lfa-items store-limit! drop
+lfa-items-reset  /lfa-item store-most lfa-items store-limit! drop
 \ Sharing (build.fs's index, review reuse-front-a finding 1): a lookup
 \ finds what a scan of the whole term store finds, the first term with the
 \ node's fields and no label or note, after random statements with labels,

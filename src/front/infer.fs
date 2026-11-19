@@ -323,7 +323,7 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
   lf-whnf-core ok-then? 0= if no-result exit then
   if-delta ok-then? if if-sort-of else no-result then ;
 : if-get-level ( type -- level outcome )
-  if-body ok-then? if if-sort-level else no-result then ;
+  if-body ['] if-sort-level ok-apply ;
 : if-pi-telescope ( term -- body outcome )
   if-xs slab-clear if-lams slab-clear
   begin dup if-pi? while if-open ok-then? 0= if no-result exit then repeat outcome-ok ;
@@ -353,7 +353,7 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
 \ Lean's getLevel (Meta/InferType.lean): the level u of a type's type,
 \ which whnf must make Sort u; the cases as inferForallType's above.
 : lf-get-level ( type -- level outcome )
-  lf-infer ok-then? if if-sort-level else no-result then ;
+  lf-infer ['] if-sort-level ok-apply ;
 
 \ ---- getDecLevel. Below the root a bottom-up walk (dag-walk.fs) whose
 \ image is the decrement + 1, 0 for none (a walk's images are not

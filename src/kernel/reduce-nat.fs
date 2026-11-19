@@ -44,7 +44,7 @@ require ../core/terms.fs
 : lf-rn-const ( id -- node outcome )
   lf-name-generation @ 0 0 lf-cref-new 0= if -1 outcome-full exit then lf-cterm-new lf-rn-node ;
 : lf-rn-named ( prefix c-addr u -- node outcome )
-  lf-rn-name ok-then? if lf-rn-const else no-result then ;
+  lf-rn-name ['] lf-rn-const ok-apply ;
 : lf-rn-in ( part-addr part-u prefix-addr prefix-u -- node outcome )
   0 -rot lf-rn-name ok-then? 0= if >r 2drop r> no-result exit then -rot lf-rn-named ;
 \ A literal's type (infer_lit, 315-321), Nat.zero, Nat.succ, and Nat.beq's

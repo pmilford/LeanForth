@@ -48,7 +48,7 @@ end-structure
 : lmap-moves? ( flag addr i -- flag' ) lf-cref-pair@ drop dup lmap-image <> or ;
 : lmap-moved? ( term -- flag )
   lf-const-slot lf-cref-pairs false swap 0 ?do over i lmap-moves? loop nip ;
-: lmap-at ( i -- addr ) 2* cells lmap lmap-pairs @ + ;
+: lmap-at ( i -- addr ) lmap lmap-pairs @ pair-at ;
 : lmap-pair! ( level addr -- ) >r dup lmap-identity swap r> 2! ;
 : lmap-fill ( addr count -- )
   0 ?do dup i lf-cref-pair@ drop lmap-image i lmap-at lmap-pair! loop drop ;

@@ -223,8 +223,6 @@ defer store-refuse? ( store -- flag )
 
 \ Reset. The generation grows by one per reset, saturates to -1 (poisoned)
 \ instead of wrapping, and once negative stays unchanged.
-: epoch+ ( generation -- generation' )
-  dup 0< if exit then dup max-n = if drop -1 else 1+ then ;
 : store-epoch+ ( store -- ) store-generation dup @ epoch+ swap ! ;
 : store-clear ( store -- ) dup store-base @ over store-count ! store-epoch+ ;
 : store-poison ( store -- ) 0 over store-count ! -1 swap store-generation ! ;
@@ -232,6 +230,10 @@ defer store-refuse? ( store -- flag )
 \ Heap stores (see the header). A store is a heap store when it names a
 \ block of its own; a zeroed header names none.
 : store-heap? ( store -- flag ) store-block @ 0<> ;
+\ The most records of width bytes a heap store can hold (a limit for
+\ store-limit!): each record with its identity cell, the header beside
+\ them, in at most max-n bytes. width > 0.
+: store-most ( width -- n ) cell+ max-n store-header - swap / ;
 \ Make a heap store of capacity records in a zeroed block, its limit the
 \ capacity: ok; invalid for an unsound shape or full when the heap has no
 \ room, the header then zero (no check accepts it). The header must not

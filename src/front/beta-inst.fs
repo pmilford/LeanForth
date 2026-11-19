@@ -54,7 +54,7 @@ end-structure
 \ argument; a larger one m less. A pair with no loose bound variable at
 \ its depth is kept (in-closed?, instantiate.fs).
 : ib-made ( index true | false -- image ) room-result ow-fail ;
-: ib-x ( k -- x ) cells ib-state ib-xs @ + @ ;
+: ib-x ( k -- x ) ib-state ib-xs @ cell-at@ ;
 : ib-m ( -- m ) ib-state ib-xs# @ ;
 : ib-bvar ( node depth -- image )
   over lf-term-first@ swap - dup 0< if drop exit then

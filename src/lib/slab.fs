@@ -322,11 +322,9 @@ lf-lib-private set-current
 
 \ Clearing: the count and the mark stack go to 0 and the generation grows
 \ by one, saturating to -1 (poisoned), which stays.
-: slab-epoch+ ( generation -- generation' )
-  dup 0< if exit then dup max-n = if drop -1 else 1+ then ;
 lf-lib set-current
 : slab-clear ( slab -- )
-  0 over slab-used ! 0 over slab-depth ! slab-epoch dup @ slab-epoch+ swap ! ;
+  0 over slab-used ! 0 over slab-depth ! slab-epoch dup @ epoch+ swap ! ;
 lf-lib-private set-current
 
 \ The mark stack. Entry k (from 0, the oldest) is at slab-entry.

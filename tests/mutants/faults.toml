@@ -3400,8 +3400,8 @@ reason = "a declaration's value is not checked when it is kept, so a theorem who
 [[fault]]
 id = "context-teardown-skipped"
 file = "src/lib/context.fs"
-old = '''  dup context-torn swap context-discard ior-earlier ;'''
-new = '''  0 swap context-discard ior-earlier ;'''
+old = '''  dup context-torn swap context-discard first-nonzero ;'''
+new = '''  0 swap context-discard first-nonzero ;'''
 test = "$GFORTH tests/lib/context.fs"
 reason = "context-free runs no teardown word, so a member's heap blocks leak"
 quick = true
@@ -3409,8 +3409,8 @@ quick = true
 [[fault]]
 id = "context-new-failure-leaks"
 file = "src/lib/context.fs"
-old = '''  over context-torn ior-earlier swap context-discard ior-earlier ;'''
-new = '''  swap context-discard ior-earlier ;'''
+old = '''  over context-torn first-nonzero swap context-discard first-nonzero ;'''
+new = '''  swap context-discard first-nonzero ;'''
 test = "$GFORTH tests/lib/context.fs"
 reason = "a context-new whose setup word fails gives back its block but not the heap blocks earlier setup words made"
 
@@ -3508,9 +3508,9 @@ reason = "under a name view a string name can no longer be interned"
 
 [[fault]]
 id = "lnorm-name-part-from-entries"
-file = "src/kernel/level-normalize.fs"
-old = '''  dup lf-name-valid? if lf-name-part-ok? else drop false then ;'''
-new = '''  dup lf-name-valid? if lf-name-entry-ok? else drop false then ;'''
+file = "src/core/names.fs"
+old = '''    dup lf-name-part-ok? 0= if drop false exit then lf-name-prefix@'''
+new = '''    dup lf-name-entry-ok? 0= if drop false exit then lf-name-prefix@'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "the review's H1: under a name view the name order audits the entry store, so a fed max v u against max u v is unknown where Lean accepts"
 
@@ -3546,7 +3546,7 @@ file = "src/lib/context.fs"
 old = ''': teardown-in ( context teardown -- ior ) swap lf-context ! teardown-xt @ teardown-call ;
 : teardowns-run ( context -- ior )
   0 context-layout layout-teardowns @ begin ?dup while
-    dup >r 2 pick swap teardown-in ior-earlier r> teardown-link @
+    dup >r 2 pick swap teardown-in first-nonzero r> teardown-link @
   repeat nip ;
 \ Every teardown word in context; the current context is restored
 \ afterwards.
@@ -3554,7 +3554,7 @@ old = ''': teardown-in ( context teardown -- ior ) swap lf-context ! teardown-xt
 new = ''': teardown-in ( context teardown -- ior ) nip teardown-xt @ teardown-call ;
 : teardowns-run ( context -- ior )
   0 context-layout layout-teardowns @ begin ?dup while
-    dup >r 2 pick swap teardown-in ior-earlier r> teardown-link @
+    dup >r 2 pick swap teardown-in first-nonzero r> teardown-link @
   repeat nip ;
 : context-torn ( context -- ior ) lf-context @ >r dup lf-context ! teardowns-run r> lf-context ! ;'''
 test = "$GFORTH tests/lib/context.fs"
@@ -3562,9 +3562,9 @@ reason = "the context is selected once for all teardown words, so after one thro
 
 [[fault]]
 id = "context-ior-last"
-file = "src/lib/context.fs"
-old = ''': ior-earlier ( ior1 ior2 -- ior ) over if drop else nip then ;'''
-new = ''': ior-earlier ( ior1 ior2 -- ior ) dup if nip else drop then ;'''
+file = "src/lib/bounds.fs"
+old = ''': first-nonzero ( x1 x2 -- x ) over if drop else nip then ;'''
+new = ''': first-nonzero ( x1 x2 -- x ) dup if nip else drop then ;'''
 test = "$GFORTH tests/lib/context.fs"
 reason = "the context review's L1 (a): of two teardown words that throw, context-free gives the last code, not the first"
 
@@ -3579,8 +3579,8 @@ reason = "the context review's L1 (c): a context's walk that grew into a heap bl
 [[fault]]
 id = "context-new-ior-order"
 file = "src/lib/context.fs"
-old = '''  over context-torn ior-earlier swap context-discard ior-earlier ;'''
-new = '''  over context-torn swap ior-earlier swap context-discard ior-earlier ;'''
+old = '''  over context-torn first-nonzero swap context-discard first-nonzero ;'''
+new = '''  over context-torn swap first-nonzero swap context-discard first-nonzero ;'''
 test = "$GFORTH tests/lib/context.fs"
 reason = "the context review's L1 (b): a failed context-new gives a teardown word's code instead of the setup word's, which came first"
 
@@ -5671,7 +5671,7 @@ reason = "a VALUE in LF-WORDS, which Gforth 1.0's ->x recognizer writes from pro
 [[fault]]
 id = "lf-failed-text-checked"
 file = "src/cli/check-lf.fs"
-old = ''': lfc-made ( c-addr u -- outcome ) lfc-run dup ok? if drop lfc-records then ;'''
+old = ''': lfc-made ( c-addr u -- outcome ) lfc-run ['] lfc-records ok-and ;'''
 new = ''': lfc-made ( c-addr u -- outcome ) lfc-run drop lfc-records ;'''
 test = "GFORTH=$GFORTH python3 tests/author/check_author.py"
 reason = "8.2.1c: a text that stopped with an error is still checked; the declarations before the error get verdicts (accepted lines) beside the error"
@@ -7651,7 +7651,7 @@ reason = "S0/S3: a listed term is never entered in the set, so a term is listed 
 [[fault]]
 id = "s0-mls-build-unsorted"
 file = "src/kernel/mixed-level-substitute.fs"
-old = ''': lf-mls-ready ( -- outcome ) lf-mls-image-room dup ok? if drop lf-mls-sorted then ;'''
+old = ''': lf-mls-ready ( -- outcome ) lf-mls-image-room ['] lf-mls-sorted ok-and ;'''
 new = ''': lf-mls-ready ( -- outcome ) lf-mls-image-room ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
 reason = "S0: the build follows the audit's order, so a parent is built before its children"
@@ -10959,7 +10959,7 @@ reason = "FE1c: a parameter named twice takes the last level, where Lean's getPa
 [[fault]]
 id = "fe-lparams-offset-lost"
 file = "src/front/level-params.fs"
-old = '''  nip lf-level-succ lm-made lp-l-result ;'''
+old = '''  nip lf-level-succ room-result lp-l-result ;'''
 new = '''  nip ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: u + 1 with u := 1 becomes 1, the successor above the parameter dropped"
@@ -11337,8 +11337,8 @@ quick = true
 [[fault]]
 id = "fe-priority-ignored"
 file = "src/front/elab-data.fs"
-old = '''  ed-inst swap c" priority" ed-member ed-u32 ['] ed-inst-priority ed-put ;'''
-new = '''  ed-inst swap c" priority" ed-member ed-u32 nip 0 swap ['] ed-inst-priority ed-put ;'''
+old = '''  swap c" priority" ed-member ed-u32 ;'''
+new = '''  swap c" priority" ed-member ed-u32 nip 0 swap ;'''
 test = "$GFORTH tests/front/elab-data.fs"
 reason = "design 8.4: an instance's priority is kept as 0"
 
@@ -13036,7 +13036,7 @@ quick = true
 [[fault]]
 id = "fe-handover-no-hole-check"
 file = "src/front/handover.fs"
-old = '''  lfh-pair dup ok? if drop lfh-whole then ;'''
+old = '''  lfh-pair ['] lfh-whole ok-and ;'''
 new = '''  lfh-pair ;'''
 test = "$GFORTH tests/front/handover.fs"
 reason = "FE1f, ADR 0021 D3: a declaration with a hole left is recorded"
@@ -13427,8 +13427,8 @@ reason = "FE1c: a loose bound variable above the arguments keeps its index inste
 [[fault]]
 id = "fe-binst-order"
 file = "src/front/beta-inst.fs"
-old = ''': ib-x ( k -- x ) cells ib-state ib-xs @ + @ ;'''
-new = ''': ib-x ( k -- x ) ib-state ib-xs# @ 1- swap - cells ib-state ib-xs @ + @ ;'''
+old = ''': ib-x ( k -- x ) ib-state ib-xs @ cell-at@ ;'''
+new = ''': ib-x ( k -- x ) ib-state ib-xs# @ 1- swap - ib-state ib-xs @ cell-at@ ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: the arguments are put in in the wrong order (instantiate, not instantiateRev)"
 
@@ -19536,8 +19536,8 @@ reason = "a text longer than the buffer is written past it (the run record's fil
 [[fault]]
 id = "r3-cell-counted-append-uncounted"
 file = "src/lib/bounds.fs"
-old = ''': cell-counted+! ( c-addr u addr -- ) >r tuck r@ cell-count + swap move r> +! ;'''
-new = ''': cell-counted+! ( c-addr u addr -- ) >r tuck r@ cell-count + swap move r> 2drop ;'''
+old = ''': cell-counted+! ( c-addr u addr -- ) 2dup +! cell-count + over - swap move ;'''
+new = ''': cell-counted+! ( c-addr u addr -- ) 2dup 2drop cell-count + over - swap move ;'''
 test = "$GFORTH tests/lib/lib.fs && $GFORTH tests/core/run-record.fs"
 reason = "an appended text is not counted: the run record's and the replay's texts lose what was appended"
 
@@ -19737,8 +19737,8 @@ reason = "a constructor's fields filled with its type's index domains"
 [[fault]]
 id = "r3-keys-all-unchecked"
 file = "src/import/manifest.fs"
-old = '''    dup 2r@ 4 pick execute 0= if 2drop 2r> 2drop false exit then key-next'''
-new = '''    dup 2r@ 4 pick execute drop key-next'''
+old = '''    dup 2r@ 4 pick execute 0= if 2drop 2r> 2drop false exit then counted-next'''
+new = '''    dup 2r@ 4 pick execute drop counted-next'''
 test = "$GFORTH tests/core/manifest.fs && GFORTH=$GFORTH python3 tests/core/test_export_manifest.py"
 reason = "a manifest missing a member, or a count that is not a natural, passes"
 
@@ -20625,8 +20625,8 @@ reason = "review s2-finish M2: the step log's header lists no axiom, so a by-sor
 [[fault]]
 id = "fe-libdec-let-value-body-swapped"
 file = "src/front/lib-decode.fs"
-old = '''  if -rot src-b-img swap r> lf-let-make lbd-made else nip nip r> drop no-result then ;'''
-new = '''  if -rot src-c-img swap r> lf-let-make lbd-made else nip nip r> drop no-result then ;'''
+old = '''  if -rot src-b-img swap r> lf-let-make room-result else nip nip r> drop no-result then ;'''
+new = '''  if -rot src-c-img swap r> lf-let-make room-result else nip nip r> drop no-result then ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "review s2-finish re-check N1 (D1): a let decoded with its body as its value, both sources"
 

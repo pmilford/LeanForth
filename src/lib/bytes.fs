@@ -48,7 +48,7 @@
 \ reader-strict reader-final-lf reader-keep-cr reader-keep-bom reader-free
 \ reader-attach reader-open reader-close reader-line reader-more?
 \ reader-position reader-line# byte-scan text-framed utf8-length utf8-valid?
-\ utf8-decode utf8-size utf8-put counted, counted-next counted-or-empty
+\ utf8-decode utf8-size utf8-put counted, counted-next counted-nth counted-or-empty
 \ fnv-step bytes-mix. Requires portability.fs, bounds.fs (between?),
 \ outcome.fs, store.fs (store-zeroed,), blocks.fs (heap-claim and
 \ heap-release) and module.fs; helpers are private in lf-lib-private
@@ -247,6 +247,9 @@ lf-lib set-current
 \ The address after a counted string counted, laid down: the next one of a
 \ table of them.
 : counted-next ( c-addr -- c-addr' ) count + aligned ;
+\ The n-th counted string of such a table, from 0 (n >= 0; unchecked: the
+\ table holds more than n).
+: counted-nth ( c-addr n -- c-addr' ) 0 ?do counted-next loop ;
 \ The text of a counted string, or empty text for 0 (an absent string: a
 \ table entry, a field name or a reason not given).
 : counted-or-empty ( c-addr|0 -- c-addr u ) ?dup if count else s" " then ;

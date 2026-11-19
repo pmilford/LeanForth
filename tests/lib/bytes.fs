@@ -142,6 +142,9 @@ create two-names s" ab" counted, s" " counted, s" xyz" counted,  here constant n
 T{ two-names counted-next count s" " compare -> 0 }T
 T{ two-names counted-next counted-next count s" xyz" compare -> 0 }T
 T{ two-names counted-next counted-next counted-next names-end = -> true }T
+\ counted-nth (reuse-d): the n-th of the table, from 0; 0 is the first.
+T{ two-names 0 counted-nth two-names = two-names 1 counted-nth count nip -> true 0 }T
+T{ two-names 2 counted-nth count s" xyz" compare two-names 3 counted-nth names-end = -> 0 true }T
 \ counted-or-empty (reuse-out-2): a counted string's text, empty for 0.
 T{ greeting counted-or-empty s" hello" compare 0 counted-or-empty nip -> 0 0 }T
 T{ 0 ' counted-or-empty rs-checked nip -> 0 }T

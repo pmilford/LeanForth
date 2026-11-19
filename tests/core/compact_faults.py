@@ -45,7 +45,7 @@ FAULTS = [
     ("a set's rollback keeps the table entries of the records it gives back",
      "src/lib/cons.fs", "slab-mark-count @ over cons-forget", "slab-mark-count @ drop outcome-ok"),
     ("a reset does not move the generation, so old marks stay valid", "src/lib/slab.fs",
-     "slab-epoch dup @ slab-epoch+ swap ! ;", "slab-epoch drop ;"),
+     "slab-epoch dup @ epoch+ swap ! ;", "slab-epoch drop ;"),
     ("off by one 32-bit field: a list item read one field early", "src/lib/pools.fs",
      ": tuple-item ( i t cons -- u ) cons-at swap 1+ u32s + u32@ ;",
      ": tuple-item ( i t cons -- u ) cons-at swap u32s + u32@ ;"),

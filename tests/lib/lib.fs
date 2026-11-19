@@ -89,6 +89,29 @@ T{ 9 some-cells 5 ' cells-index rs-checked -> 2 true }T
 \ reuse-1a L1); none in an empty or negative range.
 T{ 9 some-cells 5 cells-has? 7 some-cells 5 cells-has? 4 some-cells 0 cells-has? -> true false false }T
 T{ 0 some-cells 5 cells-has? 0 some-cells 4 cells-has? 4 some-cells -1 cells-has? -> true false false }T
+\ cell-at@, pair-at, record-at (reuse-d): element i of an array of
+\ cells, the address of pair i, of record i of a size; with the rs check.
+T{ 0 some-cells cell-at@ 4 some-cells cell-at@ 2 some-cells ' cell-at@ rs-checked -> 4 0 9 }T
+T{ 0 some-cells pair-at some-cells = 2 some-cells pair-at some-cells 4 cells + = -> true true }T
+T{ 2 some-cells pair-at @ 1 some-cells pair-at 2@ -> 0 -1 9 }T
+T{ 0 24 some-cells record-at some-cells = 3 24 some-cells record-at some-cells 72 + = -> true true }T
+T{ 2 5 some-cells ' record-at rs-checked some-cells - -> 10 }T
+\ cell-tally (reuse-d): one more in cell i of an array of counts.
+create tallies 0 , 5 , 0 ,
+T{ 1 tallies cell-tally 1 tallies cell-tally 2 tallies cell-tally -> }T
+T{ 0 tallies cell-at@ 1 tallies cell-at@ 2 tallies cell-at@ -> 0 7 1 }T
+\ first-nonzero (reuse-d): the first of two that is not zero, else zero.
+T{ 3 4 first-nonzero 0 4 first-nonzero -2 0 first-nonzero 0 0 first-nonzero -> 3 4 -2 0 }T
+\ epoch+ (reuse-d; was store.fs's and slab.fs's): one step on, max-n
+\ saturates to -1, and a negative generation stays.
+T{ 0 epoch+ 41 epoch+ max-n 1- epoch+ max-n epoch+ -1 epoch+ -7 epoch+ -> 1 42 max-n -1 -1 -7 }T
+\ store-most (reuse-d; was author/form.fs's and front/mvars.fs's): the
+\ most records of a width, each with its identity cell, that fit with the
+\ header in max-n bytes; one more does not.
+: most-fits? ( width -- flag1 flag2 )
+  dup store-most over cell+ * store-header + max-n u> 0=
+  swap dup store-most 1+ swap cell+ * store-header + max-n u> ;
+T{ 1 cells most-fits? 8 cells most-fits? 3 most-fits? -> true true true true true true }T
 \ cell-count (reuse-out-2): the cells after a count cell, and the count.
 create counted-cells 3 , 7 , 8 , 9 ,
 T{ counted-cells cell-count swap counted-cells cell+ = -> 3 true }T
@@ -472,6 +495,24 @@ T{ 7 outcome-unsupported ok-or-none 7 99 ok-or-none -1 outcome-ok ok-or-none
    -> -1 outcome-unsupported -1 99 -1 outcome-ok }T
 T{ 5 6 outcome-ok ' ok-or-none rs-checked 5 6 outcome-full ' ok-or-none rs-checked
    -> 5 6 outcome-ok 5 -1 outcome-full }T
+\ ok-and in place of the hand-written step `dup ok? if drop y then`
+\ (reuse-d: seven sites, three in the kernel) and ok-apply in place of
+\ `ok-then? if y else no-result then` (five sites, one in the kernel):
+\ the old text, kept here as the model, and the word leave the same stack
+\ for every outcome and one outside the vocabulary.
+: rd-step ( x -- x' outcome ) 10 + outcome-unknown ;
+: rd-old-and ( x outcome -- x' outcome' ) dup ok? if drop rd-step then ;
+: rd-old-apply ( x outcome -- x' outcome' ) ok-then? if rd-step else no-result then ;
+: rd-and-same? ( outcome -- flag )
+  5 over rd-old-and rot 5 swap ['] rd-step ok-and d= ;
+: rd-apply-same? ( outcome -- flag )
+  5 over rd-old-apply rot 5 swap ['] rd-step ok-apply d= ;
+: rd-all-same? ( xt -- flag )
+  true outcome-full 2 + -1 do over i swap execute and loop nip ;
+T{ ' rd-and-same? rd-all-same? ' rd-apply-same? rd-all-same? -> true true }T
+T{ 5 outcome-ok ' rd-step ok-apply 5 outcome-rejected ' rd-step ok-apply
+   -> 15 outcome-unknown -1 outcome-rejected }T
+T{ 4 5 outcome-ok ' rd-step ' ok-apply rs-checked -> 4 15 outcome-unknown }T
 \ room-result: a store's x true is x and ok, its false is -1 and full;
 \ any nonzero flag counts as true (IF's reading), the values below untouched.
 T{ 5 7 true room-result 5 false room-result -> 5 7 outcome-ok 5 -1 outcome-full }T

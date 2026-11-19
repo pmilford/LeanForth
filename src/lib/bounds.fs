@@ -4,7 +4,8 @@
 \ bounded writers compare a length unsigned, so a length with the top bit
 \ set (a negative u) never fits. No state.
 \ Interface: between? upto? range-at in-ranges? cells-zero? cells= index?
-\ cells-index cells-has? cell-counted, cell-count cell-counted!
+\ cells-index cells-has? cell-at@ pair-at record-at first-nonzero cell-tally epoch+
+\ cell-counted, cell-count cell-counted!
 \ cell-counted+! cell-counted-left cell-counted+?. Requires portability.fs,
 \ outcome.fs (any?, 2dup-under) and module.fs;
 \ helpers are private in lf-lib-private (ADR 0010).
@@ -65,6 +66,23 @@ lf-lib set-current
   0 max 0 ?do 2dup i cells + @ = if 2drop i true unloop exit then loop 2drop false ;
 \ Whether one of the n cells from addr holds x.
 : cells-has? ( x addr n -- flag ) cells-index dup if nip then ;
+\ Element i of an array of cells at a-addr; the address of pair i of an
+\ array of cell pairs (2@ and 2! read and write it); the address of
+\ record i, of size bytes each, from a-addr. Unchecked: the caller keeps
+\ i within the array (index? first).
+: cell-at@ ( i a-addr -- x ) swap cells + @ ;
+: pair-at ( i a-addr -- addr ) swap 2* cells + ;
+: record-at ( i size a-addr -- addr ) >r * r> + ;
+\ The first of two values that is not zero, else zero: the first failure
+\ of two steps that give 0 for success (an ior, an image).
+: first-nonzero ( x1 x2 -- x ) over if drop else nip then ;
+\ One more in cell i of an array of counts at a-addr (unchecked, as
+\ cell-at@).
+: cell-tally ( i a-addr -- ) swap cells + 1 swap +! ;
+\ A generation counter one step on: 1+, saturating to -1 (poisoned)
+\ instead of wrapping at max-n, and once negative it stays.
+: epoch+ ( generation -- generation' )
+  dup 0< if exit then dup max-n = if drop -1 else 1+ then ;
 \ A cell-counted array or text: its count in the first cell, its cells
 \ or bytes after it. cell-counted, compiles text of any length as one
 \ (its length in a cell, then its bytes), then aligns: for tables of
@@ -79,7 +97,7 @@ lf-lib set-current
 \ (unchecked: the caller made sure it fits). Lengths compare unsigned.
 : cell-counted! ( c-addr u addr room -- flag )
   2 pick u< if drop 2drop false exit then 2dup ! cell+ swap move true ;
-: cell-counted+! ( c-addr u addr -- ) >r tuck r@ cell-count + swap move r> +! ;
+: cell-counted+! ( c-addr u addr -- ) 2dup +! cell-count + over - swap move ;
 \ The same buffer, bounded: cell-counted-left gives the bytes still free
 \ (room less the count), and cell-counted+? appends c-addr u only when it
 \ fits (true; false, nothing changed, when it does not), so the caller

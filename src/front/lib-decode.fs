@@ -154,7 +154,6 @@ end-structure
 : lf-libdec-stage ( -- stage ) lbd-stage@ ;
 : lf-libdec-count ( -- n ) lbd lbd-count @ ;
 : lbd-in? ( d -- flag ) lf-libdec-count u< ;
-: lbd-made ( x true | false -- x outcome ) if outcome-ok else -1 outcome-full then ;
 
 \ ---- Forgetting: every record's blocks, the memo, the walks' tables;
 \ then the stores' generations they are for.
@@ -251,9 +250,9 @@ end-structure
 : lbd-l-pending ( l src -- child true | false )
   2dup src-tag dup tag-level-succ = if drop lbd-a? exit then
   lbd-max-tag? if lbd-ab? else 2drop false then ;
-: lbd-succ ( l src -- index outcome ) src-a-img lf-level-succ lbd-made ;
-: lbd-max ( l src -- index outcome ) src-ab-img lf-level-max lbd-made ;
-: lbd-imax ( l src -- index outcome ) src-ab-img lf-level-imax lbd-made ;
+: lbd-succ ( l src -- index outcome ) src-a-img lf-level-succ room-result ;
+: lbd-max ( l src -- index outcome ) src-ab-img lf-level-max room-result ;
+: lbd-imax ( l src -- index outcome ) src-ab-img lf-level-imax room-result ;
 : lbd-l-make ( l src -- index outcome )
   2dup src-tag case
     tag-level-zero of 2drop 0 outcome-ok endof  tag-level-succ of lbd-succ endof
@@ -269,10 +268,10 @@ end-structure
 : lbd-x-pending ( e src -- child true | false )
   2dup src-tag dup lbd-pair-tag? if drop lbd-ab? exit then
   dup let-tag? if drop lbd-abc? exit then lbd-one-tag? if lbd-a? else 2drop false then ;
-: lbd-app ( e src -- term outcome ) src-ab-img lf-term-app lbd-made ;
-: lbd-bvar ( e src -- term outcome ) src-a lf-term-bvar lbd-made ;
+: lbd-app ( e src -- term outcome ) src-ab-img lf-term-app room-result ;
+: lbd-bvar ( e src -- term outcome ) src-a lf-term-bvar room-result ;
 : lbd-sort ( e src -- term outcome )
-  tuck src-a swap src-level ok-then? if lf-term-symbolic-sort lbd-made else no-result
+  tuck src-a swap src-level ok-then? if lf-term-symbolic-sort room-result else no-result
   then ;
 : lbd-nat ( e src -- term outcome )
   src-text lf-hterm-decimal if drop outcome-ok else -1 outcome-full then ;
@@ -308,7 +307,7 @@ end-structure
   2dup lbd-let-lam if -rot src-label else 2drop -1 outcome-full then ;
 : lbd-let ( e src tag -- term outcome )
   tag-let-nondep = >r 2dup lbd-let-named ok-then?
-  if -rot src-b-img swap r> lf-let-make lbd-made else nip nip r> drop no-result then ;
+  if -rot src-b-img swap r> lf-let-make room-result else nip nip r> drop no-result then ;
 \ Any other tag (a string literal, plan S5; a free variable) answers
 \ unsupported.
 : lbd-plain ( e src tag -- term outcome )
@@ -334,7 +333,7 @@ end-structure
 : lbd-lchild ( l i -- l' ) lbd-tier swap if level-b@ else level-a@ then ;
 : lbd-levels# ( -- n ) lbd-tier tier-levels cons-numbers ;
 : lbd-param ( l -- index outcome )
-  lbd-tier level-name@ lf-libdec-run-name ok-then? if lf-level-param lbd-made else
+  lbd-tier level-name@ lf-libdec-run-name ok-then? if lf-level-param room-result else
     no-result then ;
 : lbd-level ( l -- index outcome ) lbd-lsrc lbd-run ;
 : lbd-tag ( e -- tag ) lbd-tier expr-tag@ ;
@@ -398,10 +397,10 @@ elab-level-zero tag-level-zero <> elab-level-succ tag-level-succ <> or
 elab-level-max tag-level-max <> or elab-level-imax tag-level-imax <> or
 elab-level-param tag-level-param <> or
 [if] .( lib-decode.fs: elab-level-* differ from tier tags tag-level-*) cr abort [then]
-: lbd-sname@ ( k -- name ) cells lbd lbd-snames @ + @ ;
+: lbd-sname@ ( k -- name ) lbd lbd-snames @ cell-at@ ;
 : lbd-sparam ( l -- index outcome )
   elab-level-a dup lbd lbd-snames# @ u< 0= if drop outcome-invalid no-result exit then
-  lbd-sname@ lf-level-param lbd-made ;
+  lbd-sname@ lf-level-param room-result ;
 : lbd-slevels# ( -- n ) elab-levels slab-count ;
 : lbd-slchild ( l i -- l' ) if elab-level-b else elab-level-a then ;
 \ Nodes (elab-node-bvar .. elab-node-have, which the reader checks): a

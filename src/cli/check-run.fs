@@ -1105,7 +1105,7 @@ begin-structure /ck-layer-id
   sha-digest-bytes +field ck-lid-export   \ its export's
   field: ck-lid-verdict                   \ its verdict version, negated when stale
 end-structure
-: ck-layer-id ( k -- addr ) /ck-layer-id * ck-state ck-lay-ids @ + ;
+: ck-layer-id ( k -- addr ) /ck-layer-id ck-state ck-lay-ids @ record-at ;
 : ck-layer-verdict ( k -- n ) ck-layer-id ck-lid-verdict @ abs ;
 : ck-layer-stale? ( k -- flag ) ck-layer-id ck-lid-verdict @ 0< ;
 : ck-lay-version ( -- n )

@@ -408,7 +408,7 @@ create ed-messages
   s" an annotation this reader does not know" counted,
   s" binder kinds named twice" counted,
   0 0 counted,
-: ed-message ( code -- c-addr u ) ed-messages swap 0 ?do key-next loop count ;
+: ed-message ( code -- c-addr u ) ed-messages swap counted-nth count ;
 : ed-line ( -- n ) elab elab-reader reader-line# ;
 : ed-fail ( code outcome -- outcome ) ed-line elab elab-at ! swap elab elab-code ! ;
 : ed-bad ( code -- outcome ) outcome-invalid ed-fail ;
@@ -416,7 +416,9 @@ create ed-messages
 : ed-or-bad ( flag why -- outcome ) swap if drop outcome-ok else ed-bad then ;
 : ed-or-other ( flag why -- outcome )
   swap if drop outcome-ok else outcome-unsupported ed-fail then ;
-: ed-roomed ( outcome -- outcome ) dup ok? 0= if ed-e-room swap ed-fail then ;
+\ A failed outcome recorded with its code, an ok one passed on.
+: ed-failed ( outcome code -- outcome ) over ok? if drop else swap ed-fail then ;
+: ed-roomed ( outcome -- outcome ) ed-e-room ed-failed ;
 : elab-error-line ( -- line ) elab elab-at @ ;
 : elab-error-code ( -- code ) elab elab-code @ ;
 : elab-error-why ( -- c-addr u ) elab-error-code ed-message ;
@@ -587,7 +589,7 @@ create ed-rank-hooks /htab-hooks allot
 \ text's place in one.
 : ed-key-index ( c-addr u table -- k true | false )
   -rot 2>r 0 swap begin dup count nip while
-    dup count 2r@ compare 0= if drop 2r> 2drop true exit then key-next swap 1+ swap
+    dup count 2r@ compare 0= if drop 2r> 2drop true exit then counted-next swap 1+ swap
   repeat 2drop 2r> 2drop false ;
 create ed-kind-names
   s" instance" counted, s" default_instance" counted, s" reducibility" counted,
@@ -603,7 +605,7 @@ create ed-tag-names
   s" aux_recursor" counted, s" no_confusion" counted, s" cases_on" counted,
   s" rec_on" counted, s" brec_on" counted, s" match_pattern" counted, 0 0 counted,
 create ed-reason-names  s" erased" counted, s" not_exported" counted, 0 0 counted,
-: ed-kind-name ( kind -- c-addr ) ed-kind-names swap 0 ?do key-next loop ;
+: ed-kind-name ( kind -- c-addr ) ed-kind-names swap counted-nth ;
 \ The kinds of formats 3 and 3.1, which have no binder_kinds: the table's
 \ entries before it, copied when loaded.
 : ed-table-copy, ( addr u -- ) here swap dup allot move ;
@@ -647,8 +649,7 @@ create ed-v3-kinds
 \ natural number, looked up in the stage's tier without adding anything
 \ (-1: no such name; a part beyond 32 bits names none).
 : ed-tier ( -- tier ) ed-stage stage-tier ;
-: ed-looked ( n outcome -- n outcome )
-  dup ok? 0= if ed-e-lookup swap ed-fail then ;
+: ed-looked ( n outcome -- n outcome ) ed-e-lookup ed-failed ;
 : ed-part-text ( prefix item -- n outcome )
   ed-view json-text@ ed-tier name-seek-str ed-looked ;
 : ed-part-number ( prefix item -- n outcome )
@@ -681,7 +682,7 @@ create ed-v3-kinds
 : ed-one-decl ( u -- d outcome ) +1>number if outcome-ok else 0 ed-e-several ed-bad then ;
 : ed-name-decl ( n -- d outcome )
   ed-decls if ed-one-decl else 0 ed-e-unknown ed-bad then ;
-: ed-decl ( index -- d outcome ) ed-name dup ok? if drop ed-name-decl then ;
+: ed-decl ( index -- d outcome ) ed-name ['] ed-name-decl ok-and ;
 \ The same, of the kind wanted: an inductive type, or any but one; a
 \ definition, a constructor.
 : ed-type? ( d -- flag ) ed-stage staged-kind@ kind-type = ;
@@ -710,11 +711,21 @@ create ed-v3-kinds
 : ed-claim ( slab -- i outcome ) 1 swap slab-claim ed-roomed ;
 : ed-push ( x slab -- outcome )
   tuck ed-claim ok-then? if rot slab-at ! outcome-ok else nip nip then ;
+\ x pushed when the outcome before it is ok, else that outcome.
+: ed-push-ok ( x outcome slab -- outcome ) swap ok-then? if ed-push else nip then ;
+\ A record form: a table of its members' names (ed-shape?), the slab its
+\ records go to (an xt), then its steps, as ed-steps reads them;
+\ ed-on-form reads one record of the form into a unit claimed for it.
+: ed-form-steps ( form -- table ) 2 cells + ;
+: ed-form-claim ( form -- i outcome ) cell+ @ execute ed-claim ;
+: ed-on-form ( value form -- outcome )
+  2dup @ ed-shape? 0= if 2drop ed-malformed exit then
+  dup ed-form-claim ok-then? if swap ed-form-steps ed-steps else nip nip then ;
 \ A span's first number and count, the units of slab claimed between.
 : ed-span-open ( span slab -- ) slab-count swap ! ;
 : ed-span-close ( span slab -- ) slab-count over @ - swap cell+ ! ;
 \ An array of naturals of 32 bits into elab-orders, as the span at addr.
-: ed-number-item ( item -- outcome ) ed-u32 ok-then? if elab-orders ed-push then ;
+: ed-number-item ( item -- outcome ) ed-u32 elab-orders ed-push-ok ;
 \ The items of an array read by xt ( item -- outcome ), each pushing its
 \ number to elab-orders, as the span at addr.
 : ed-span-items ( span index xt -- outcome )
@@ -838,6 +849,14 @@ create ed-key-readers  ' ed-key-const , ' ed-key-proj , ' ed-key-lit , ' ed-key-
   ok-then? 0= if exit then dup elab-keys# over ed-value-keys @ - swap ed-value-keys# !
   ed-one-term ;
 : ed-value-rank! ( value index -- outcome ) ed-u32 ['] ed-value-rank ed-put ;
+\ Members several records share, read for ed-put ( value addr -- addr x
+\ outcome ): the priority, the class, the parameter count; the rank into
+\ the record's value ( value addr -- outcome ).
+: ed-priority-at ( value addr -- addr u outcome )
+  swap c" priority" ed-member ed-u32 ;
+: ed-class-at ( value addr -- addr d outcome ) swap c" class" ed-member ed-a-class ;
+: ed-params-at ( value addr -- addr u outcome ) swap c" num_params" ed-member ed-u32 ;
+: ed-rank-into ( value addr -- outcome ) swap c" rank" ed-member ed-value-rank! ;
 \ A value into the ranks' table, unless one of its root key and rank is there.
 : ed-place ( e -- outcome )
   ed-ranks htab-ready ed-roomed dup ok? 0= if nip exit then drop
@@ -882,23 +901,19 @@ create ed-owns   \ by kind (elab-instance .. elab-binders)
 create ed-inst-keys
   s" class" counted, s" keys" counted, s" name" counted, s" priority" counted,
   s" rank" counted, s" synth_order" counted, 0 0 counted,
-: ed-inst-class! ( value i -- outcome )
-  ed-inst swap c" class" ed-member ed-a-class ['] ed-inst-class ed-put ;
+: ed-inst-class! ( value i -- outcome ) ed-inst ed-class-at ['] ed-inst-class ed-put ;
 : ed-inst-priority! ( value i -- outcome )
-  ed-inst swap c" priority" ed-member ed-u32 ['] ed-inst-priority ed-put ;
+  ed-inst ed-priority-at ['] ed-inst-priority ed-put ;
 : ed-inst-order! ( value i -- outcome )
   ed-inst ed-inst-order swap c" synth_order" ed-member ed-numbers ;
 : ed-inst-path! ( value i -- outcome )
   ed-inst ed-inst-value swap c" keys" ed-member ed-keys-read ;
-: ed-inst-rank! ( value i -- outcome )
-  ed-inst ed-inst-value swap c" rank" ed-member ed-value-rank! ;
+: ed-inst-rank! ( value i -- outcome ) ed-inst ed-inst-value ed-rank-into ;
 : ed-inst-place ( value i -- outcome ) nip 2* ed-place ;
-create ed-inst-steps
+create ed-inst-form  ed-inst-keys , ' elab-insts ,
   ' ed-own-decl! , ' ed-inst-class! , ' ed-inst-priority! , ' ed-inst-order! ,
   ' ed-inst-path! , ' ed-inst-rank! , ' ed-inst-place , 0 ,
-: ed-on-instance ( value -- outcome )
-  dup ed-inst-keys ed-shape? 0= if drop ed-malformed exit then
-  elab-insts ed-claim ok-then? if ed-inst-steps ed-steps else nip then ;
+: ed-on-instance ( value -- outcome ) ed-inst-form ed-on-form ;
 
 \ ---- Instances left out: why, name, priority, keys (foreign constants
 \ allowed), rank.
@@ -915,19 +930,16 @@ create ed-left-members
 : ed-left-name! ( value j -- outcome )
   ed-left ed-left-reason @ swap c" name" ed-member ed-left-name ;
 : ed-left-priority! ( value j -- outcome )
-  ed-left swap c" priority" ed-member ed-u32 ['] ed-left-priority ed-put ;
+  ed-left ed-priority-at ['] ed-left-priority ed-put ;
 : ed-left-path! ( value j -- outcome )
   true elab elab-foreign ! ed-left ed-left-value swap c" keys" ed-member ed-keys-read
   false elab elab-foreign ! ;
-: ed-left-rank! ( value j -- outcome )
-  ed-left ed-left-value swap c" rank" ed-member ed-value-rank! ;
+: ed-left-rank! ( value j -- outcome ) ed-left ed-left-value ed-rank-into ;
 : ed-left-place ( value j -- outcome ) nip 2* 1+ ed-place ;
-create ed-left-steps
+create ed-left-form  ed-left-members , ' elab-lefts ,
   ' ed-left-reason! , ' ed-left-name! , ' ed-left-priority! , ' ed-left-path! ,
   ' ed-left-rank! , ' ed-left-place , 0 ,
-: ed-on-left-out ( value -- outcome )
-  dup ed-left-members ed-shape? 0= if drop ed-malformed exit then
-  elab-lefts ed-claim ok-then? if ed-left-steps ed-steps else nip then ;
+: ed-on-left-out ( value -- outcome ) ed-left-form ed-on-form ;
 
 \ ---- Default instances: class, name, priority, rank (one per class and
 \ rank). An instance may be named twice, of one class at two ranks, as
@@ -942,10 +954,9 @@ create ed-dflt-keys
 : ed-decl-into ( addr value xt -- outcome )
   swap c" name" ed-member ed-no-type rot ed-put ;
 : ed-dflt-decl! ( value i -- outcome ) ed-dflt swap ['] ed-dflt-decl ed-decl-into ;
-: ed-dflt-class! ( value i -- outcome )
-  ed-dflt swap c" class" ed-member ed-a-class ['] ed-dflt-class ed-put ;
+: ed-dflt-class! ( value i -- outcome ) ed-dflt ed-class-at ['] ed-dflt-class ed-put ;
 : ed-dflt-priority! ( value i -- outcome )
-  ed-dflt swap c" priority" ed-member ed-u32 ['] ed-dflt-priority ed-put ;
+  ed-dflt ed-priority-at ['] ed-dflt-priority ed-put ;
 \ A default instance's rank is at most elab-default-rank-most, so that
 \ FE1e3's answer, a cell per rank, stays small (ELABORATION_DATA.md; no
 \ Lean library has a class with that many default instances).
@@ -975,12 +986,10 @@ create ed-dflt-keys
 : ed-dflt-once ( value i -- outcome )
   nip dup ['] ed-dflt-clash? any? if drop ed-e-default ed-bad exit then
   dup ['] ed-dflt-same? any? nip 0= ed-e-default-rank ed-or-bad ;
-create ed-dflt-steps
+create ed-dflt-form  ed-dflt-keys , ' elab-dflts ,
   ' ed-dflt-decl! , ' ed-dflt-class! , ' ed-dflt-priority! , ' ed-dflt-rank! ,
   ' ed-dflt-once , 0 ,
-: ed-on-default ( value -- outcome )
-  dup ed-dflt-keys ed-shape? 0= if drop ed-malformed exit then
-  elab-dflts ed-claim ok-then? if ed-dflt-steps ed-steps else nip then ;
+: ed-on-default ( value -- outcome ) ed-dflt-form ed-on-form ;
 
 \ ---- Reducibility: name, status; no declaration twice.
 create ed-red-keys  s" name" counted, s" status" counted, 0 0 counted,
@@ -998,7 +1007,7 @@ create ed-elim-keys  s" kind" counted, s" name" counted, s" types" counted, 0 0 
 : ed-elim-kind! ( value i -- outcome )
   ed-elim swap c" kind" ed-member ed-elim-names ed-choice ['] ed-elim-kind ed-put ;
 : ed-elim-decl! ( value i -- outcome ) ed-elim swap ['] ed-elim-decl ed-decl-into ;
-: ed-type-item ( item -- outcome ) ed-decl ok-then? if elab-types ed-push then ;
+: ed-type-item ( item -- outcome ) ed-decl elab-types ed-push-ok ;
 : ed-types-span ( addr -- )
   elab-types slab-count over ed-elim-types @ - swap ed-elim-types# ! ;
 : ed-elim-types! ( value i -- outcome )
@@ -1029,11 +1038,9 @@ create ed-class-members
   ed-class dup ed-class-params over ed-class-decl @ ed-type-pis ed-below?
   swap dup ed-class-levels swap ed-class-decl @ ed-levels ed-below? and ;
 : ed-class-fit ( value k -- outcome ) nip ed-class-fits? ed-e-unfit ed-or-bad ;
-create ed-class-steps
+create ed-class-form  ed-class-members , ' elab-classes ,
   ' ed-own-decl! , ' ed-class-params! , ' ed-class-levels! , ' ed-class-fit , 0 ,
-: ed-on-class ( value -- outcome )
-  dup ed-class-members ed-shape? 0= if drop ed-malformed exit then
-  elab-classes ed-claim ok-then? if ed-class-steps ed-steps else nip then ;
+: ed-on-class ( value -- outcome ) ed-class-form ed-on-form ;
 
 \ ---- Tags: name (not an inductive type), tag; no tag of a declaration twice.
 create ed-tag-members  s" name" counted, s" tag" counted, 0 0 counted,
@@ -1058,7 +1065,7 @@ create ed-alt-members
   s" has_unit_thunk" counted, s" num_fields" counted, s" num_overlaps" counted,
   0 0 counted,
 : ed-match-params! ( value m -- outcome )
-  ed-match swap c" num_params" ed-member ed-u32 ['] ed-match-params ed-put ;
+  ed-match ed-params-at ['] ed-match-params ed-put ;
 : ed-match-discrs! ( value m -- outcome )
   ed-match swap c" num_discrs" ed-member ed-u32 ['] ed-match-discrs ed-put ;
 : ed-match-elim! ( value m -- outcome )
@@ -1069,10 +1076,9 @@ create ed-alt-members
   ed-alt swap c" num_overlaps" ed-member ed-u32 ['] ed-alt-overlaps ed-put ;
 : ed-alt-thunk! ( value a -- outcome )
   ed-alt swap c" has_unit_thunk" ed-member ed-bool ['] ed-alt-thunk ed-put ;
-create ed-alt-steps  ' ed-alt-fields! , ' ed-alt-overlaps! , ' ed-alt-thunk! , 0 ,
-: ed-alt-item ( item -- outcome )
-  dup ed-alt-members ed-shape? 0= if drop ed-malformed exit then
-  elab-alts ed-claim ok-then? if ed-alt-steps ed-steps else nip then ;
+create ed-alt-form  ed-alt-members , ' elab-alts ,
+  ' ed-alt-fields! , ' ed-alt-overlaps! , ' ed-alt-thunk! , 0 ,
+: ed-alt-item ( item -- outcome ) ed-alt-form ed-on-form ;
 : ed-match-alts! ( value m -- outcome )
   ed-match ed-match-alts dup elab-alts ed-span-open swap c" alt_infos" ed-member
   ['] ed-alt-item ed-array-items swap elab-alts ed-span-close ;
@@ -1093,12 +1099,10 @@ create ed-alt-steps  ' ed-alt-fields! , ' ed-alt-overlaps! , ' ed-alt-thunk! , 0
 : ed-match-fits? ( m -- flag )
   dup ed-match-arity over elab-matcher@ 2drop ed-type-pis = swap ed-elim-fits? and ;
 : ed-match-fit ( value m -- outcome ) nip ed-match-fits? ed-e-unfit ed-or-bad ;
-create ed-match-steps
+create ed-match-form  ed-match-members , ' elab-matches ,
   ' ed-own-decl! , ' ed-match-params! , ' ed-match-discrs! , ' ed-match-elim! ,
   ' ed-match-alts! , ' ed-match-names! , ' ed-match-fit , 0 ,
-: ed-on-matcher ( value -- outcome )
-  dup ed-match-members ed-shape? 0= if drop ed-malformed exit then
-  elab-matches ed-claim ok-then? if ed-match-steps ed-steps else nip then ;
+: ed-on-matcher ( value -- outcome ) ed-match-form ed-on-form ;
 
 \ ---- Projection functions: name (not an inductive type, once), the
 \ constructor, the structure's parameters, the field, whether a class.
@@ -1110,7 +1114,7 @@ create ed-proj-members
 : ed-proj-ctor! ( value p -- outcome )
   ed-proj swap c" ctor" ed-member ed-a-ctor ['] ed-proj-ctor ed-put ;
 : ed-proj-params! ( value p -- outcome )
-  ed-proj swap c" num_params" ed-member ed-u32 ['] ed-proj-params ed-put ;
+  ed-proj ed-params-at ['] ed-proj-params ed-put ;
 : ed-proj-idx! ( value p -- outcome )
   ed-proj swap c" idx" ed-member ed-u32 ['] ed-proj-idx ed-put ;
 : ed-proj-class! ( value p -- outcome )
@@ -1121,12 +1125,10 @@ create ed-proj-members
   ed-proj dup ed-proj-params @ over ed-proj-idx @ + swap ed-proj-ctor @ ed-type-pis < ;
 : ed-proj-fit ( value p -- outcome )
   nip dup ed-proj-takes? swap ed-proj-field? and ed-e-unfit ed-or-bad ;
-create ed-proj-steps
+create ed-proj-form  ed-proj-members , ' elab-projs ,
   ' ed-own-decl! , ' ed-proj-ctor! , ' ed-proj-params! , ' ed-proj-idx! ,
   ' ed-proj-class! , ' ed-proj-fit , 0 ,
-: ed-on-projection ( value -- outcome )
-  dup ed-proj-members ed-shape? 0= if drop ed-malformed exit then
-  elab-projs ed-claim ok-then? if ed-proj-steps ed-steps else nip then ;
+: ed-on-projection ( value -- outcome ) ed-proj-form ed-on-form ;
 
 \ ---- Smart-unfolding bodies (plan S2, format 3; S2_INTERFACE.md §3): the
 \ definition f, the record's own; the universe parameters of f._sunfold,
@@ -1278,7 +1280,7 @@ create ed-let-form  ed-let-members ,
 : ed-type-or-none ( d -- d outcome )
   dup 0< if outcome-ok exit then dup ed-type? if outcome-ok else ed-kind-bad then ;
 : ed-body-name ( index -- d outcome )
-  ed-name ok-then? if ed-body-decl else no-result then ;
+  ed-name ['] ed-body-decl ok-apply ;
 : ed-nd-struct ( value -- outcome )
   c" struct" ed-member ed-body-name
   ok-then? if ed-type-or-none else no-result then ['] ed-node-a ed-nd-put ;
@@ -1331,7 +1333,7 @@ create ed-inert-form  ed-inert-members , ' ed-nd-key , ' ed-nd-expr , 0 ,
 : ed-nd-inert ( value -- outcome )
   ed-v31? 0= if drop ed-malformed exit then
   elab-node-mdata ed-nd-kind! ed-inert-form ed-nd-steps ;
-: ed-node-level ( item -- outcome ) ed-level-all ok-then? if elab-orders ed-push then ;
+: ed-node-level ( item -- outcome ) ed-level-all elab-orders ed-push-ok ;
 : ed-nd-levels ( value -- outcome )
   ed-nd ed-node-b swap c" levels" ed-member ['] ed-node-level ed-span-items ;
 \ A constant: its declaration (-1: foreign), then its levels, as many as
@@ -1460,7 +1462,7 @@ create ed-kind-handlers
 : ed-one-member? ( -- flag ) 0 ed-sole? ;
 : ed-object-value? ( -- flag ) 2 ed-view json-object json-kind-at? ;
 : ed-wrapped? ( -- flag ) ed-one-member? if ed-object-value? else false then ;
-: ed-tally ( kind -- ) cells elab elab-counts + 1 swap +! ;
+: ed-tally ( kind -- ) elab elab-counts cell-tally ;
 : ed-dispatch ( value kind -- outcome )
   dup elab elab-kind ! dup ed-tally cells ed-kind-handlers + @ execute ;
 : ed-on-record ( -- outcome )

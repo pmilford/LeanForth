@@ -88,7 +88,7 @@ require ./term-eqv.fs
   dup lf-term-lam? swap uf-args lf-meta-apply-all
   ok-then? 0= if nip no-result exit then swap if lf-meta-head-beta else outcome-ok then ;
 : uf-delta-beta ( d const -- e' outcome )
-  uf-value ok-then? if uf-beta else no-result then ;
+  uf-value ['] uf-beta ok-apply ;
 \ instantiateValueLevelParams: d's value with const's universe arguments.
 : lf-unfold-value ( d const -- value outcome ) uf-value ;
 

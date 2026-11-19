@@ -103,6 +103,7 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./portability.fs
 require ./blocks.fs
+require ./bounds.fs
 require ./context.fs
 require ./module.fs
 
@@ -187,8 +188,6 @@ begin-structure /job
   field: job-ior          \ its result, as job-wait gives it
 end-structure
 
-\ The first nonzero ior of two, else 0.
-: ior-first ( ior1 ior2 -- ior ) over if drop else nip then ;
 \ Bytes of each stack of a 0.7.3 worker: the deeper of the two, its guard
 \ zone and the scratch room.
 : task-stack-bytes ( -- u )
@@ -283,7 +282,7 @@ lf-lib-private set-current
   dup guards-held? 0= if true task-pool pool-broken ! then
   dup guards-intact? if drop 0 else guards-fill task-overflow then ;
 : stacks-ior ( task -- ior )
-  guards-check task-pool pool-broken @ task-overflow and ior-first ;
+  guards-check task-pool pool-broken @ task-overflow and first-nonzero ;
 [else]
 lf-lib set-current
 task-serial constant task-host
@@ -336,7 +335,7 @@ task-host task-threads <> [if]
 \ Run a job and check the worker's stacks; an overflow takes precedence.
 \ The task and the job stay on the return stack while the word runs, out
 \ of the reach of a word with a wrong stack effect.
-: job-checked ( task job -- ior ) 2>r r@ job-run 2r> drop stacks-ior swap ior-first ;
+: job-checked ( task job -- ior ) 2>r r@ job-run 2r> drop stacks-ior swap first-nonzero ;
 : job-serve ( task job -- ) dup >r job-checked r> job-finish ;
 : worker-left ( -- ) pool-lock -1 task-pool pool-live +! change-broadcast pool-unlock ;
 : worker-loop ( task -- ) >r begin job-next ?dup while r@ swap job-serve repeat r> drop ;
@@ -514,7 +513,7 @@ lf-lib-private set-current
 lf-lib set-current
 : job-wait ( job -- ior )
   dup wait-refused? if drop task-refused exit then
-  dup job-await job-unclaim dup job-ior @ swap free ior-first ;
+  dup job-await job-unclaim dup job-ior @ swap free first-nonzero ;
 lf-lib-private set-current
 
 \ Waiting for the first of several jobs (a scheduler that keeps one job

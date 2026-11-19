@@ -59,7 +59,16 @@ T{ n-a n-aa cmp n-b n-aa cmp n-cap n-a cmp -> -1 1 -1 }T
 T{ n-a.2 n-a.10 cmp n-a.1 n-a.b cmp n-a.b n-a.1 cmp -> -1 -1 1 }T
 T{ n-a n-a.b cmp n-a.b n-a cmp n-a.1.x n-a.2 cmp -> -1 1 -1 }T
 T{ n-b n-a.b cmp n-a.10 n-aa cmp -> 1 -1 }T
-T{ 0 s" u" lf-name-str must lf-lnorm-name-ok? 99 lf-lnorm-name-ok? -> true false }T
+T{ 0 s" u" lf-name-str must lf-name-chain-ok? 99 lf-name-chain-ok? -> true false }T
+\ reuse-d, [kernel] in form: core/names.fs's lf-name-chain-ok? replaced
+\ the kernel's copy lf-lnorm-name-ok?, kept here as the model; the two
+\ agree on every ID of the store and on IDs around it.
+: old-limb-ok? ( id -- flag ) dup lf-name-valid? if lf-name-part-ok? else drop false then ;
+: old-name-ok? ( id -- flag )
+  begin dup while dup old-limb-ok? 0= if drop false exit then lf-name-prefix@ repeat
+  drop true ;
+: chain-differs ( hi lo -- n ) 0 -rot ?do i old-name-ok? i lf-name-chain-ok? <> - loop ;
+T{ lf-name-count @ 9 + -9 chain-differs lf-name-count @ 2 > -> 0 true }T
 
 \ ---------------------------------------------------------------------------
 \ mk_max and mk_imax (level.cpp 81-104, 112-123), one rule at a time. The

@@ -186,7 +186,6 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
 : lf-synth-error ( -- code ) sy sy-error @ ;
 : sy-refuse ( code -- -1 outcome ) dup sy sy-error ! lf-author-outcome -1 swap ;
 : lf-synth-tried ( -- addr n ) sy-tried slab-base sy-tried slab-count ;
-: sy-made ( x true | false -- x outcome ) if outcome-ok else -1 outcome-full then ;
 : sy-false ( x outcome -- false outcome ) nip false swap ;
 
 \ ---- The metavariables and free variables of a term, each once, in the
@@ -245,7 +244,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
 : sy-deep-mvar? ( t -- flag outcome ) sy-scan ['] sy-shallow-at? sy-found-all? 0= swap ;
 
 \ ---- Table keys (mkTableKey).
-: sy-tc ( i -- t outcome ) sy-tc-base + lf-term-bvar sy-made ;
+: sy-tc ( i -- t outcome ) sy-tc-base + lf-term-bvar room-result ;
 : sy-tcl-new ( -- outcome ) lf-level-mvar-new ok-then? if sy-tcl slab-push then ;
 : sy-tcl@ ( i -- level outcome )   \ the search's level placeholder i, made when new
   sy-c syc-tcl @ + dup sy-tcl slab-count = if sy-tcl-new dup ok? 0= if nip no-result exit
@@ -570,9 +569,9 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
   dup sy-head-class 0= if outcome-ok exit then
   dup sy-outs? if sy-out-type else drop outcome-ok then ;
 \ The cache key's wildcards (Lean's __wild__).
-: sy-wild ( -- t outcome ) sy-tc-base 1- lf-term-bvar sy-made ;
+: sy-wild ( -- t outcome ) sy-tc-base 1- lf-term-bvar room-result ;
 : sy-wild-level ( -- level outcome )
-  0 s" __wild__" lf-name-str if lf-level-param sy-made else -1 outcome-full then ;
+  0 s" __wild__" lf-name-str if lf-level-param room-result else -1 outcome-full then ;
 : sy-wild-at ( addr j -- addr outcome )
   over swap cells + @ dup sy-args slab-count index? 0= if drop outcome-ok exit then
   sy-wild ok-then? if swap sy-arg-addr ! outcome-ok else nip then ;

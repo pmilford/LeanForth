@@ -398,5 +398,11 @@ T{ 65535 outcome-ok ed-rank-most 65536 outcome-ok ed-rank-most elab-error-code
 T{ elab-generation elab-reset elab-generation swap -
    elab-generation good lib digest elab-read drop elab-generation swap - 0>
    -> 1 true }T
+\ ed-failed (reuse-d, the room and lookup failures): an ok outcome passes
+\ and records nothing; a failure records its code.
+T{ elab-reset outcome-ok ed-e-room ed-failed elab-error-code -> outcome-ok 0 }T
+T{ outcome-full ed-e-room ed-failed elab-error-code -> outcome-full ed-e-room }T
+T{ outcome-invalid ed-e-lookup ed-failed elab-error-code -> outcome-invalid ed-e-lookup }T
+T{ elab-reset -> }T
 T{ lib stage-free sealed stage-free -> }T
 bye

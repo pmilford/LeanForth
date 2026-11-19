@@ -12,7 +12,8 @@
 \ test); 2dup-under gives a step of these loops a copy of its two values;
 \ outcome-first! keeps a first
 \ failure in a cell and ok-store a step's result only on ok; no-result,
-\ ok-or-none and room-result give a step's result with its outcome.
+\ ok-or-none and room-result give a step's result with its outcome;
+\ ok-apply runs a step on a result made so far.
 \ No state, no dependencies.
 \ Example: each cell of a table checked, stopping at the first failure.
 \   create table 3 , 5 , -1 , 7 ,
@@ -84,6 +85,11 @@ get-current lf-lib set-current   \ every word below is public, in lf-lib
 \ A step's result kept only on ok: on any other outcome -1 takes its
 \ place, so a failure never hands on a half-made value.
 : ok-or-none ( x outcome -- x outcome | -1 outcome ) dup ok? 0= if nip no-result then ;
+\ A step xt ( x -- result outcome ) on a value made so far, only on ok;
+\ on any other outcome -1 and that outcome (ok-and on a value, as
+\ ok-or-none ends a failed step).
+: ok-apply ( x outcome xt -- result outcome )
+  over ok? if nip execute else drop nip no-result then ;
 \ A result that needed room, as a store gives it ( x true | false ): x and
 \ ok, or -1 and full.
 : room-result ( x true | false -- x outcome )

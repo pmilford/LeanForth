@@ -143,7 +143,7 @@ fl-reasons fl-reason-at <> [if] .( print-lf.fs: one text per reason) cr abort [t
 : fl-outcome-why ( outcome -- reason )
   case outcome-unsupported of fl-unsupported endof outcome-invalid of fl-invalid endof
     drop fl-fuel 0 endcase ;
-: fl-count! ( reason -- ) cells lf-fl lf-fl-counts + 1 swap +! ;
+: fl-count! ( reason -- ) lf-fl lf-fl-counts cell-tally ;
 
 \ Which stub stands in for idecl: 1 typed, 2 bare, 0 none.
 : fl-stub-kind ( idecl -- n )

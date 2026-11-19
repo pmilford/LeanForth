@@ -190,7 +190,7 @@ end-structure
   lfc lfc-elab-file @ 0= if outcome-ok exit then
   lfc-elab-read dup ok? 0= lfc lfc-elab-failed ! ;
 : lfc-library-ready ( checked? -- outcome )
-  lfc-stage-start dup ok? if drop lfc-elab-step then ;
+  lfc-stage-start ['] lfc-elab-step ok-and ;
 
 \ ---- The text: run by the words, a checked run with the library's finder.
 : lfc-finder ( -- xt|0 ) lfc-library? if ['] lfc-find else 0 then ;
@@ -232,7 +232,7 @@ end-structure
   lf-term-reset lf-level-reset lf-cref-reset lf-name-reset lfa-declarations-reset
   lf-menv-reset lf-mctx-reset ;
 : lfc-records ( -- outcome ) lfc-produce dup ok? 0= lfc lfc-refused ! ;
-: lfc-made ( c-addr u -- outcome ) lfc-run dup ok? if drop lfc-records then ;
+: lfc-made ( c-addr u -- outcome ) lfc-run ['] lfc-records ok-and ;
 \ The making xt ( c-addr u -- outcome ) runs under CATCH, so that the
 \ stores are emptied and given back their room and sharing whatever
 \ happens; a THROW then passes on (review N5; the stage has rolled back).

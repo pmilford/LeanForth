@@ -98,7 +98,7 @@ end-structure
   true lfa-this lf-fdecl-protected ! ;
 
 \ universe NAME, right after the declaration's name: a level parameter.
-: lfa-universes ( -- addr n ) lfa-this dup lf-fdecl-universe swap lf-fdecl-universes @ ;
+: lfa-universes ( -- addr n ) lfa-this lf-fdecl-universe-names ;
 : lfa-has-universe? ( name -- flag ) lfa-universes cells-has? ;
 : lfa-universe-add ( name -- )
   lfa-universes nip lf-decl-universe-capacity < lfa-e-many-levels lfa-must

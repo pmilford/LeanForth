@@ -164,7 +164,7 @@ text0 s\" theorem t\n" text+ s" 1 " 300 times s\" \n" text+ s" 1 " 213 times s\"
 T{ text$ nfails drop drop lf-author-code lf-author-outcome -> 33 outcome-invalid }T
 lfa-form-reset  512 lfa-numerals store-limit! drop
 T{ text$ nfails drop lf-author-code lf-author-outcome -> 64 3 outcome-full }T
-lf-author-begin  1 cells lfa-store-limit lfa-numerals store-limit! drop
+lf-author-begin  1 cells store-most lfa-numerals store-limit! drop
 \ Values grow (author/values.fs, the author review's R5): a statement of
 \ 256 arrows, 513 values in one declaration, once full (64) at 512.
 \ (The term store's limit raised for the run's 513 nodes, then put back.)
@@ -450,7 +450,7 @@ T{ prop mv-natural lf-mvar-new nip prop mv-natural lf-mvar-new mv-exprs store-co
    -> outcome-ok -1 outcome-full 1 }T
 T{ 1 mv-levels store-limit! lf-level-mvar-new nip lf-level-mvar-new
    -> outcome-ok outcome-ok -1 outcome-full }T
-T{ /mvd mv-limit mv-exprs store-limit! /mvl mv-limit mv-levels store-limit! -> outcome-ok outcome-ok }T
+T{ /mvd store-most mv-exprs store-limit! /mvl store-most mv-levels store-limit! -> outcome-ok outcome-ok }T
 \ Resources: a term 10,000 applications deep around a metavariable is
 \ instantiated on the heap stack (no host-stack depth), every node rebuilt.
 lf-mctx-reset 200000 lf-term-capacity! drop
@@ -532,7 +532,7 @@ T{ level-room lf-level-capacity! -> outcome-ok }T
 T{ r1p lf-instantiate-mvars nip -> outcome-ok }T
 \ The free variables of delayed assignments, out of room.
 T{ 1 mv-fvars store-limit! x lf-delay-fvar x lf-delay-fvar -> outcome-ok outcome-ok outcome-full }T
-T{ 1 cells mv-limit mv-fvars store-limit! -> outcome-ok }T
+T{ 1 cells store-most mv-fvars store-limit! -> outcome-ok }T
 
 \ Marks (Lean's checkpointDefEq): a rollback undoes the assignments made
 \ since its mark, plain, level and delayed, and only those; a commit keeps

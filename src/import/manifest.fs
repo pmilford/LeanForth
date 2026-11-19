@@ -125,14 +125,13 @@ end-structure
 
 \ Reading the parsed manifest. Tables of keys are counted strings that end
 \ with an empty one.
-: key-next ( c-addr -- c-addr' ) count + aligned ;
 : keys-size ( table -- n )
-  0 swap begin dup count nip while key-next swap 1+ swap repeat drop ;
+  0 swap begin dup count nip while counted-next swap 1+ swap repeat drop ;
 : has-key? ( key index view -- flag ) json-find dup if nip then ;
 \ Whether test ( key index view -- flag ) holds for every key of the table.
 : keys-all? ( table index view test -- flag )
   -rot 2>r swap begin dup count nip while
-    dup 2r@ 4 pick execute 0= if 2drop 2r> 2drop false exit then key-next
+    dup 2r@ 4 pick execute 0= if 2drop 2r> 2drop false exit then counted-next
   repeat 2drop 2r> 2drop true ;
 : all-keys? ( table index view -- flag ) ['] has-key? keys-all? ;   \ every key a member
 : object-size ( index view -- n true | false ) >r json-object r> json-items-of ;
@@ -176,7 +175,7 @@ create kind-keys
   0 0 counted,
 kind-keys keys-size kind-count <>
 [if] .( manifest.fs: one key per record kind) cr abort [then]
-: kind-member ( kind -- c-addr ) kind-keys swap 0 ?do key-next loop ;
+: kind-member ( kind -- c-addr ) kind-keys swap counted-nth ;
 \ The member key of the object at index as a natural number.
 : natural-found? ( key index view -- flag )
   >r r@ json-find if r> natural-at dup if nip nip then else r> drop false then ;

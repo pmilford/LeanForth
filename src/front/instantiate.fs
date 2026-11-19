@@ -119,7 +119,7 @@ end-structure
 : in-bvar ( node depth -- image )
   swap lf-term-first@ tuck = if in-unlifted in-state in-value @ exit then
   1- lf-term-bvar in-made ;
-: in-x ( i -- x ) cells in-state in-xs @ + @ ;
+: in-x ( i -- x ) in-state in-xs @ cell-at@ ;
 : in-count ( -- n ) in-state in-xs# @ ;
 : in-xs-index ( leaf -- i true | false )
   in-count begin dup while 1- 2dup in-x = if nip true exit then repeat 2drop false ;

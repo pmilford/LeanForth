@@ -164,7 +164,7 @@ reason = "reuse pass part A2, R2: a dotted name is not split at its first dot, s
 [[fault]]
 id = "rfa2-values-fixed"
 file = "src/author/values.fs"
-old = '''  /lfa-item lfa-store-limit lfa-items store-limit! lfa-heap-must ;'''
+old = '''  /lfa-item store-most lfa-items store-limit! lfa-heap-must ;'''
 new = '''  512 lfa-items store-limit! lfa-heap-must ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "reuse pass part A2, R5: a declaration holds 512 values again, so a statement of 256 arrows stops full"
@@ -180,7 +180,7 @@ reason = "reuse pass part A2, R5: the value store never grows past its first roo
 [[fault]]
 id = "rfa2-numerals-fixed"
 file = "src/author/form.fs"
-old = '''  1 cells lfa-store-limit lfa-numerals store-limit! lfa-heap-must ;'''
+old = '''  1 cells store-most lfa-numerals store-limit! lfa-heap-must ;'''
 new = '''  512 lfa-numerals store-limit! lfa-heap-must ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "reuse pass part A2, R5: a declaration holds 512 numbers again"

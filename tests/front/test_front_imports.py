@@ -64,7 +64,6 @@ ALLOWED = {
     # to it) and its JSON readers, functions of their arguments.
     "stage-manifest": "the stage's manifest record",
     "manifest-digest": "its SHA-256",
-    "key-next": "the next key of a constant key list",
     "exact-keys?": "whether a JSON object has exactly a list's keys",
     "natural-at": "a JSON value's digits",
     "hex-text?": "whether a text is n hex digits",

@@ -40,7 +40,7 @@ end-structure
 store-header context-record: lfa-items
 : lfa-items-make ( -- )
   lfa-store-room /lfa-item 0 lfa-items store-heap-init lfa-heap-must
-  /lfa-item lfa-store-limit lfa-items store-limit! lfa-heap-must ;
+  /lfa-item store-most lfa-items store-limit! lfa-heap-must ;
 ' lfa-items-make context-setup
 :noname ( -- ) lfa-items store-heap-free ; context-teardown
 

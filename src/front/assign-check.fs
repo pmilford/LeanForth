@@ -71,7 +71,7 @@ end-structure
 : ac-approx? ( -- flag ) lf-defeq-ctx lf-meta-flag? ;   \ ctxApprox
 
 \ Scopes: each metavariable's own local context (mvars.fs, lctx-views.fs).
-: ac-x ( i -- x ) cells ac ac-xs @ + @ ;
+: ac-x ( i -- x ) ac ac-xs @ cell-at@ ;
 : ac-xs? ( fvar -- flag ) false ac ac-n @ 0 ?do over i ac-x = or loop nip ;
 : ac-m ( -- mvar ) ac ac-target @ ;
 : ac-view ( mvar -- view ) lf-mvar-view 0= if lf-view-empty then ;
@@ -117,15 +117,14 @@ end-structure
 : ac-parts-if ( node walk flag -- child true | false )
   if dw-want-parts else 2drop false then ;
 : ac-pending-child ( node walk -- child true | false ) over ac-inner? ac-parts-if ;
-: ac-first-fail ( i1 i2 -- image ) over if drop else nip then ;
 : ac-img ( node -- image ) ac-wk dw-image ;
 : ac-let ( let -- image )
   dup lf-let-binder ac-inner? 0= if lf-let-value ac-img exit then
   dup lf-let-type ac-img
-  over lf-let-value ac-img ac-first-fail swap lf-let-body ac-img ac-first-fail ;
+  over lf-let-value ac-img first-nonzero swap lf-let-body ac-img first-nonzero ;
 : ac-pair ( node -- image )
   dup lf-let? if ac-let exit then
-  dup lf-term-first@ ac-img swap lf-term-second@ ac-img ac-first-fail ;
+  dup lf-term-first@ ac-img swap lf-term-second@ ac-img first-nonzero ;
 
 \ Applications: a failure under a lambda head Lean retries beta-reduced;
 \ ?f x1 .. xk with a variable out of scope, under ctxApprox, it solves
@@ -155,7 +154,9 @@ end-structure
   ok-then? if or outcome-ok else nip false swap then ;
 : ac-occurs-at ( flag k -- flag' outcome )
   ac-m swap ac-x lf-fvar-type lf-mvar-occurs? ac-or ;
-: ac-x-occurs? ( -- flag outcome ) false ac ac-n @ ['] ac-occurs-at ok-each ;
+\ A test of each variable in turn, ( flag i -- flag outcome ), from false.
+: ac-each ( xt -- flag outcome ) false swap ac ac-n @ swap ok-each ;
+: ac-x-occurs? ( -- flag outcome ) ['] ac-occurs-at ac-each ;
 : ac-locals? ( -- flag ) ac-m ac-sees-x? ;
 : ac-solid? ( v -- flag )
   dup lf-term-binary? if lf-meta-fvar-free? exit then lf-term-tag@
@@ -199,7 +200,7 @@ end-structure
 : ac-deps? ( term -- flag outcome )
   ['] ac-dep-pending ['] ac-dep-build ac-walk-set dw-run swap 0<> swap ;
 : ac-deps-at ( flag k -- flag' outcome ) ac-x lf-fvar-type ac-deps? ac-or ;
-: ac-types-deps? ( -- flag outcome ) false ac ac-n @ ['] ac-deps-at ok-each ;
+: ac-types-deps? ( -- flag outcome ) ['] ac-deps-at ac-each ;
 : ac-unported? ( v -- flag outcome )
   ac-let-between? if drop true outcome-ok exit then
   ac-deps? ok-then? 0= if false swap exit then if true outcome-ok

@@ -302,7 +302,7 @@ create lf-mls-set-hooks /htab-hooks allot
   lf-mls-reached @ lf-mls-image-cells slab-hold dup outcome-full = if
     lf-mls-reached @ lf-mls-image-cells slab-capacity lf-mls-site
     lf-diag-work-stack-full lf-diag-note then ;
-: lf-mls-ready ( -- outcome ) lf-mls-image-room dup ok? if drop lf-mls-sorted then ;
+: lf-mls-ready ( -- outcome ) lf-mls-image-room ['] lf-mls-sorted ok-and ;
 : lf-mls-build-all ( -- outcome ) lf-mls-reached @ ['] lf-mls-build-at ok-each ;
 : lf-mls-build ( -- outcome ) lf-mls-ready ['] lf-mls-build-all ok-and ;
 

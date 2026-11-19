@@ -52,8 +52,8 @@ end-structure
 
 \ The substitution: Lean's getParamSubst, the first equal name.
 : lp-count ( -- n ) lp-state lp-n @ ;
-: lp-name ( i -- name ) cells lp-state lp-names-at @ + @ ;
-: lp-arg ( i -- level ) cells lp-state lp-levels-at @ + @ ;
+: lp-name ( i -- name ) lp-state lp-names-at @ cell-at@ ;
+: lp-arg ( i -- level ) lp-state lp-levels-at @ cell-at@ ;
 : lp-index ( name -- i true | false )
   lp-count 0 ?do dup i lp-name = if drop i true unloop exit then loop drop false ;
 : lp-set ( names levels n -- ) lp-state tuck lp-n ! tuck lp-levels-at ! lp-names-at ! ;
@@ -82,7 +82,7 @@ end-structure
   lp-l-parts if lm-simp-imax else drop lf-meta-imax then lp-l-result ;
 : lp-l-succ ( node walk -- image )
   over lf-level-first@ swap dw-image 2dup swap lf-level-first@ = if drop exit then
-  nip lf-level-succ lm-made lp-l-result ;
+  nip lf-level-succ room-result lp-l-result ;
 : lp-mapped ( param -- level true | false )
   lf-level-first@ lp-index if lp-arg true else false then ;
 : lp-l-param ( node -- image ) dup lp-mapped if nip then ;

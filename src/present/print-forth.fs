@@ -71,6 +71,9 @@ begin-structure /lf-fdecl
   field: lf-fdecl-universes     \ number of universe parameters
   lf-decl-universe-capacity cells +field lf-fdecl-universe   \ their name IDs
 end-structure
+\ A declaration's universe parameters as an array of name IDs.
+: lf-fdecl-universe-names ( fdecl -- addr n )
+  dup lf-fdecl-universe swap lf-fdecl-universes @ ;
 
 90 constant lf-pf-width
 begin-structure /lf-pforth

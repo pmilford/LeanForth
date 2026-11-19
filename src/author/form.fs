@@ -30,15 +30,13 @@
 \ in the checker context (ADR 0009). The run's stores of numerals, binders
 \ (scopes.fs) and values (values.fs) are heap stores (lib/store.fs) of
 \ lfa-store-room records at first that grow as the heap allows, up to
-\ lfa-store-limit ( width -- n ) records (plan task 6.2.0).
+\ lib/store.fs's store-most ( width -- n ) records (plan task 6.2.0).
 
 require ../lib/lib.fs
 require ./errors.fs
 
-\ The first room of a run's heap store, and the most records of width
-\ bytes one can hold.
+\ The first room of a run's heap store.
 16 constant lfa-store-room
-: lfa-store-limit ( width -- n ) cell+ max-n store-header - swap / ;
 \ A heap store refused at its start (no heap, an unsound shape) aborts:
 \ no run could go on without it.
 : lfa-heap-must ( outcome -- ) ok? 0= abort" author: no heap for a store" ;
@@ -52,7 +50,7 @@ end-structure
 store-header context-record: lfa-numerals
 : lfa-numerals-make ( -- )
   lfa-store-room 1 cells 0 lfa-numerals store-heap-init lfa-heap-must
-  1 cells lfa-store-limit lfa-numerals store-limit! lfa-heap-must ;
+  1 cells store-most lfa-numerals store-limit! lfa-heap-must ;
 ' lfa-numerals-make context-setup
 :noname ( -- ) lfa-numerals store-heap-free ; context-teardown
 

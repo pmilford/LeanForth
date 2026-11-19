@@ -43,7 +43,7 @@ require ./constructions.fs
 : ind-ctors ( job -- t ) more-type-ctors swap type-item ;
 : ctor-count ( job -- n ) dup ind-ctors swap aux-tuples tuple-length ;
 : xs-count ( job -- n ) dup type-params swap type-indices + ;
-: type-pi ( j job -- e ) >r r@ type-type swap r> nth-pi ;
+: type-pi ( j job -- e ) dup type-type swap pi-at ;
 : type-binder ( j job -- head dom ) tuck type-pi swap pi-parts ;
 \ A binder made implicit: as a Pi, as a fun.
 : implicit ( head -- head' ) dup head-payload swap plain-binder 1+ swap pack-head ;
@@ -178,5 +178,4 @@ require ./constructions.fs
 : ctor-idx ( job -- outcome )
   dup idx-ready ['] x-ready ok-with ['] xs-binders ok-with ['] idx-type! ok-with
   ['] idx-value! ok-with nip ;
-: aux-ctor-idx ( d job -- outcome )
-  tuck aux-begin ['] ctor-idx ok-with swap aux-because ;
+: aux-ctor-idx ( d job -- outcome ) ['] ctor-idx aux-run ;

@@ -116,9 +116,8 @@ require ../core/levels.fs
 : lm-take ( u v code -- w outcome )
   dup lm-ends < if lm-u = if drop else nip then outcome-ok exit then
   lm-ends - nip nip -1 swap ;
-: lm-made ( level true | false -- w outcome ) if outcome-ok else -1 outcome-full then ;
 : lf-meta-max ( u v -- w outcome )
-  lm-rules ?dup if lm-take else lf-level-max lm-made then ;
+  lm-rules ?dup if lm-take else lf-level-max room-result then ;
 : lm-simp-max ( u v d -- w outcome )
   >r lm-rules ?dup if r> drop lm-take else 2drop r> outcome-ok then ;
 
@@ -130,6 +129,6 @@ require ../core/levels.fs
 : li-take ( u v code -- w outcome )
   dup lm-max = if drop lf-meta-max else lm-take then ;
 : lf-meta-imax ( u v -- w outcome )
-  li-rules ?dup if li-take else lf-level-imax lm-made then ;
+  li-rules ?dup if li-take else lf-level-imax room-result then ;
 : lm-simp-imax ( u v d -- w outcome )
   >r li-rules ?dup if r> drop li-take else 2drop r> outcome-ok then ;

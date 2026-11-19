@@ -1273,7 +1273,7 @@ end-structure
 : cli-same-files ( -- c-addr u ) s" LEANFORTH_SAME_FILES" cli-env ;
 : cli-listed? ( c-addr u -- flag ) cli-same-files 2swap search nip nip ;
 : cli-same-pair? ( i j -- flag ) 2dup > if swap then cli-pair cli-listed? ;
-: cli-path ( i -- addr ) /cli-path * cli-state arg-paths @ + ;
+: cli-path ( i -- addr ) /cli-path cli-state arg-paths @ record-at ;
 : cli-texts ( a b -- c-addr1 u1 c-addr2 u2 ) swap path-text 2@ rot path-text 2@ ;
 \ A derived path d (an export's manifest, a snapshot's FILE.partial) is
 \ the file named by its text, the stem, then its suffix; its letter in

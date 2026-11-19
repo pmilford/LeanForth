@@ -94,7 +94,7 @@ create init /stage allot
 create tag-names
   s" elab_as_elim" counted, s" elab_without_expected_type" counted, s" aux_recursor" counted,
   s" no_confusion" counted, s" cases_on" counted, s" rec_on" counted, s" brec_on" counted,
-: tag-name ( tag -- c-addr u ) tag-names swap 0 ?do key-next loop count ;
+: tag-name ( tag -- c-addr u ) tag-names swap counted-nth count ;
 : tags. ( c-addr u -- )
   ." sample tags " 2dup type ." :" dotted
   7 0 do dup i elab-tagged? if space i tag-name type then loop drop cr ;

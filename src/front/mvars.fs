@@ -205,10 +205,9 @@ end-structure
 
 \ The stores: heap stores that grow up to the heap (plan task 6.2.0).
 16 constant mv-room
-: mv-limit ( width -- n ) cell+ max-n store-header - swap / ;
 : mv-make ( width store -- )
   2dup mv-room -rot 0 swap store-heap-init ok? 0= abort" mvars: no heap"
-  swap mv-limit swap store-limit! ok? 0= abort" mvars: limit" ;
+  swap store-most swap store-limit! ok? 0= abort" mvars: limit" ;
 :noname ( -- )
   /mvd mv-exprs mv-make /mvl mv-levels mv-make 1 cells mv-fvars mv-make ; context-setup
 :noname ( -- )
@@ -691,7 +690,7 @@ end-structure
 \ each application's head and argument count, from its first part's, so
 \ a node finds them at once. mv-spine puts the arguments' images in
 \ mv-args, the last first (a_j is n - j there).
-: mv-head-cell ( node -- addr ) 2* cells mctx mctx-spine @ + ;
+: mv-head-cell ( node -- addr ) mctx mctx-spine @ pair-at ;
 : mv-count-cell ( node -- addr ) mv-head-cell cell+ ;
 : mv-first-head ( node -- head ) lf-term-first@ dup mv-app? if mv-head-cell @ then ;
 : mv-first-count ( node -- n )

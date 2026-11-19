@@ -83,7 +83,7 @@ end-structure
 \ that path only when the theorem's header type holds no metavariable
 \ once elaborated (MutualDef.lean); plan FE1e's elaborator must say when
 \ it does not. The type is marked and swept first, then the value.
-: lfh-names ( -- addr n ) lfh-decl@ dup lf-fdecl-universe swap lf-fdecl-universes @ ;
+: lfh-names ( -- addr n ) lfh-decl@ lf-fdecl-universe-names ;
 : lfh-free? ( addr k -- addr flag ) cells over + @ lf-reach-param? 0= ;
 : lfh-unused? ( addr n -- flag ) ['] lfh-free? any? nip ;
 : lfh-def? ( -- flag ) lfh-decl@ lf-fdecl-kind @ lf-decl-def = ;
@@ -107,7 +107,7 @@ end-structure
   lf-reach-open 0= if 2drop outcome-full exit then lfh-reached lf-reach-close ;
 : lfh-whole ( type value -- type value outcome ) 2dup lfh-checked ;
 : lfh-made ( type value -- type' value' outcome )
-  lfh-pair dup ok? if drop lfh-whole then ;
+  lfh-pair ['] lfh-whole ok-and ;
 
 \ Kept, or given back: a refusal stands whatever the rollback says.
 : lfh-keep ( type value -- ) lfh-decl@ tuck lf-fdecl-value ! lf-fdecl-type ! ;

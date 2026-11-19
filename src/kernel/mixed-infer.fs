@@ -665,7 +665,7 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 \ inductive.cpp 456-497): the comparison is structural on equal depths,
 \ and the typer closes what it infers with the whole scope.
 : lf-minfer-domain ( domain -- level status )
-  lf-minfer-walk dup ok? if drop lf-minfer-domain-sort then ;
+  lf-minfer-walk ['] lf-minfer-domain-sort ok-and ;
 : lf-minfer-push ( domain -- outcome ) lf-minfer-enter-binder ;
 \ A step that keeps base below its result: x and true, or -1, the failure
 \ and false.
@@ -943,7 +943,7 @@ defer lf-minfer-entry ( node frames -- ... frames next )
   lf-minfer-token @ lf-minfer-fuel @ lf-mixed-signature-audit outcome-sane
   dup ok? if lf-msa-fuel lf-minfer-refuel then ;
 : lf-minfer-preflight ( root identity -- status )
-  lf-minfer-scope dup ok? if drop lf-minfer-index then ;
+  lf-minfer-scope ['] lf-minfer-index ok-and ;
 
 \ The job's scratch mark before allocation (core/scratch-marks.fs), and
 \ the rollback to it after a failure: every term, level, reference and

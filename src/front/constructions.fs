@@ -128,13 +128,15 @@ end-structure
 
 \ ---- The declarations.
 : decl-of ( d job -- d stage ) aux-stage @ ;
-: type-name ( job -- n ) dup aux-type @ swap decl-of staged-name@ ;
-: type-type ( job -- e ) dup aux-type @ swap decl-of staged-type@ ;
-: type-rec? ( job -- flag ) dup aux-type @ swap decl-of staged-rec? ;
-: rec-item ( i job -- u ) dup aux-rec @ swap decl-of staged-item ;
-: rec-type ( job -- e ) dup aux-rec @ swap decl-of staged-type@ ;
-: recursor-name ( job -- n ) dup aux-rec @ swap decl-of staged-name@ ;
-: rec-params ( job -- t ) dup aux-rec @ swap decl-of staged-params@ ;
+: type-decl ( job -- d stage ) dup aux-type @ swap decl-of ;
+: rec-decl ( job -- d stage ) dup aux-rec @ swap decl-of ;
+: type-name ( job -- n ) type-decl staged-name@ ;
+: type-type ( job -- e ) type-decl staged-type@ ;
+: type-rec? ( job -- flag ) type-decl staged-rec? ;
+: rec-item ( i job -- u ) rec-decl staged-item ;
+: rec-type ( job -- e ) rec-decl staged-type@ ;
+: recursor-name ( job -- n ) rec-decl staged-name@ ;
+: rec-params ( job -- t ) rec-decl staged-params@ ;
 : params-count ( d job -- n )
   tuck decl-of staged-params@ swap aux-tuples tuple-length ;
 \ The declaration named T.s, T the type's name.
@@ -170,13 +172,15 @@ end-structure
 \ (Forth review of reuse-c, finding 3).
 : nth-pi ( e n job -- e' ) aux-tier swap expr-pi-after drop ;
 : pi-count ( e job -- n ) aux-tier expr-pis ;
+\ Binder j of e (nth-pi's order for a type read from the job).
+: pi-at ( j e job -- e' ) >r swap r> nth-pi ;
 : app-head ( e job -- f ) >r begin dup r@ app? while r@ aux-tier expr-a@ repeat r> drop ;
 : var-index ( e job -- b )
   aux-tier 2dup expr-tag@ tag-bvar = if expr-a@ else 2drop -1 then ;
 : pi>lam ( head -- head' ) tag-pi tag-lam - - ;
 : aux-var ( b job -- e outcome ) aux-tier expr-bvar ;
 \ After ok-keep? fails below x: x dropped, the failure kept.
-: failed-past ( x -1 outcome -- -1 outcome ) rot drop ;
+: failed-past ( x -1 outcome -- -1 outcome ) >r nip r> ;
 \ The binder with head and domain around body.
 : make-binder ( body job head dom -- e outcome ) 2swap aux-tier expr-make ;
 \ f applied to variable b.
@@ -192,7 +196,7 @@ end-structure
   dup aux-params @ over aux-motives @ + over aux-minors @ + swap aux-indices @ + 1+ ;
 : first-minor ( job -- j ) dup aux-params @ swap aux-motives @ + ;
 : first-index ( job -- j ) dup first-minor swap aux-minors @ + ;
-: rec-pi ( j job -- e ) >r r@ rec-type swap r> nth-pi ;
+: rec-pi ( j job -- e ) dup rec-type swap pi-at ;
 : rec-domain ( j job -- e ) tuck rec-pi swap aux-tier expr-a@ ;
 : rec-head ( j job -- head ) tuck rec-pi swap aux-tier expr-head@ ;
 : with-domain ( j job -- j dom job ) 2dup rec-domain swap ;
@@ -215,8 +219,9 @@ end-structure
 : block-pi ( body i job -- e outcome ) tuck aux-last over binder@ make-binder ;
 : block-lam ( body i job -- e outcome )
   tuck aux-last over binder@ swap pi>lam swap make-binder ;
-: aux-pis ( body job -- e outcome ) dup aux-count @ swap ['] block-pi ok-fold ;
-: aux-lams ( body job -- e outcome ) dup aux-count @ swap ['] block-lam ok-fold ;
+: aux-fold ( body job xt -- e outcome ) over aux-count @ -rot ok-fold ;
+: aux-pis ( body job -- e outcome ) ['] block-pi aux-fold ;
+: aux-lams ( body job -- e outcome ) ['] block-lam aux-fold ;
 
 \ ---- Renumbering (front/expr-remap.fs).
 : run-remap ( e job -- e' outcome ) aux-remap remap-run ;
@@ -265,12 +270,13 @@ end-structure
 : tuple-begin ( job -- outcome ) aux-tuples tuple-start ;
 : tuple-done ( job outcome -- t outcome )
   ok-then? if aux-tuples tuple-end else no-result then ;
-: type-names ( job -- t ) dup aux-type @ swap decl-of staged-params@ ;
+: type-names ( job -- t ) type-decl staged-params@ ;
 : rec-levels-add ( job -- outcome ) dup rec-params swap levels-add ;
 : type-levels-add ( job -- outcome ) dup type-names swap levels-add ;
-: rec-levels ( job -- t outcome ) dup tuple-begin ['] rec-levels-add ok-with tuple-done ;
-: type-levels ( job -- t outcome )
-  dup tuple-begin ['] type-levels-add ok-with tuple-done ;
+\ A tuple made by xt ( job -- outcome ), which adds its items.
+: tuple-of ( job xt -- t outcome ) over tuple-begin swap ok-with tuple-done ;
+: rec-levels ( job -- t outcome ) ['] rec-levels-add tuple-of ;
+: type-levels ( job -- t outcome ) ['] type-levels-add tuple-of ;
 : rec-const ( job -- e outcome )
   dup rec-levels ok-keep? if swap dup >r recursor-name swap r> aux-tier expr-const then ;
 \ Argument j of the recursor: its variable, renumbered as the conclusion's.
@@ -289,7 +295,7 @@ end-structure
 \ ---- Minor premise i: fields, then induction hypotheses, whose type
 \ ends in a motive (Lean's is_type_former_arg).
 : minor-type ( i job -- e ) tuck first-minor + swap rec-domain ;
-: m-pi ( q job -- e ) >r r@ aux-mtype @ swap r> nth-pi ;
+: m-pi ( q job -- e ) dup aux-mtype @ swap pi-at ;
 \ The variable type e's conclusion applies, seen from outside e.
 : target ( e job -- b ) 2dup pi-count >r tuck pi-end over app-head swap var-index r> - ;
 \ Whether index b, seen from the minor premise, names a motive.
@@ -404,7 +410,10 @@ end-structure
 : recon ( job -- outcome )
   dup sort-ready ['] recon-binders ok-with ['] built-type! ok-with
   ['] recon-value ok-with nip ;
-: aux-rec-on ( d job -- outcome ) tuck aux-begin ['] recon ok-with swap aux-because ;
+\ A construction of Lean's declaration d by xt ( job -- outcome ), its
+\ refusal explained (aux-because).
+: aux-run ( d job xt -- outcome ) >r tuck aux-begin r> ok-with swap aux-because ;
+: aux-rec-on ( d job -- outcome ) ['] recon aux-run ;
 \ casesOn (mk_cases_on; mkCasesOnViaProjs? for the structure case).
 : several-motives ( job -- outcome )
   c" several motives (a mutual or nested type)" swap aux-refuse ;
@@ -418,7 +427,7 @@ end-structure
 : cases ( job -- outcome )
   dup cases-ready ['] cases-binders ok-with ['] built-type! ok-with
   ['] cases-value ok-with nip ;
-: aux-cases-on ( d job -- outcome ) tuck aux-begin ['] cases ok-with swap aux-because ;
+: aux-cases-on ( d job -- outcome ) ['] cases aux-run ;
 
 \ ---- Comparing with Lean's declaration d of the same name: type, value
 \ and universe parameters, each one number (hash-consing).

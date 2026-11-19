@@ -26,7 +26,7 @@ begin-structure /lfa-binder
   field: lfa-binder-entries   \ names defined before this binder's (groups.fs)
 end-structure
 store-header context-record: lfa-binders
-/lfa-binder lfa-store-limit constant lfa-binder-limit
+/lfa-binder store-most constant lfa-binder-limit
 : lfa-binders-make ( -- )
   lfa-store-room /lfa-binder 0 lfa-binders store-heap-init lfa-heap-must
   lfa-binder-limit lfa-binders store-limit! lfa-heap-must ;

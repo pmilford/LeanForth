@@ -121,7 +121,7 @@ require ./constructions.fs
 : other-slot? ( x job -- flag ) 2dup aux-motives @ u< -rot main-slot <> and ;
 : other-ih? ( q job -- flag ) dup >r 2dup m-domain -rot ih-slot r> other-slot? ;
 : ih-last ( i job -- q ) aux-ih-span @ 1- swap - ;
-: ih-pi ( q job -- e ) >r r@ aux-ih @ swap r> nth-pi ;
+: ih-pi ( q job -- e ) dup aux-ih @ swap pi-at ;
 : ih-step ( body i job -- e outcome )
   tuck ih-last over ih-pi over pi-parts make-binder ;
 \ A fold inside the fold over the minor premise's binders.
@@ -195,5 +195,4 @@ require ./constructions.fs
   ['] several-indices ok-with ['] several-minors ok-with
   ['] several-type! ok-with ['] several-value! ok-with nip ;
 : cases-any ( job -- outcome ) dup aux-motives @ 1 = if cases else several-cases then ;
-: aux-cases-on-any ( d job -- outcome )
-  tuck aux-begin ['] cases-any ok-with swap aux-because ;
+: aux-cases-on-any ( d job -- outcome ) ['] cases-any aux-run ;

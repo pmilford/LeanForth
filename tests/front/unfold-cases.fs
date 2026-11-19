@@ -18,7 +18,7 @@ create uc-kinds
 create uc-statuses
   s" semireducible" counted, s" reducible" counted, s" irreducible" counted,
   s" implicit_reducible" counted, s" instance_reducible" counted, 0 0 counted,
-: uc-nth ( k table -- c-addr u ) swap 0 ?do key-next loop count ;
+: uc-nth ( k table -- c-addr u ) swap counted-nth count ;
 : uc-error ( outcome -- ) ." error " . ;
 : uc-bit ( flag outcome -- )
   dup ok? if drop if ." 1" else ." 0" then exit then

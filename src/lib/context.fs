@@ -319,15 +319,14 @@ lf-lib set-current
   align here /teardown allot tuck teardown-xt ! teardown-link-in ;
 lf-lib-private set-current
 \ Running them. teardown-call runs xt balanced and gives 0 or its THROW
-\ code; ior-earlier keeps the first nonzero code. Each teardown word runs
+\ code; first-nonzero (bounds.fs) keeps the first nonzero code. Each teardown word runs
 \ with the context selected afresh, so that one which threw while another
 \ context was selected cannot make the next free that context's blocks.
 : teardown-call ( xt -- ior ) 0 swap ['] call-balanced catch dup if nip nip then ;
-: ior-earlier ( ior1 ior2 -- ior ) over if drop else nip then ;
 : teardown-in ( context teardown -- ior ) swap lf-context ! teardown-xt @ teardown-call ;
 : teardowns-run ( context -- ior )
   0 context-layout layout-teardowns @ begin ?dup while
-    dup >r 2 pick swap teardown-in ior-earlier r> teardown-link @
+    dup >r 2 pick swap teardown-in first-nonzero r> teardown-link @
   repeat nip ;
 \ Every teardown word in context; the current context is restored
 \ afterwards.
@@ -385,7 +384,7 @@ lf-lib-private set-current
 : context-discard ( context -- ior ) 0 over context-size ! free ;
 \ Undo a context whose filling failed with ior: tear it down and free it.
 : context-undo ( context ior -- ior' )
-  over context-torn ior-earlier swap context-discard ior-earlier ;
+  over context-torn first-nonzero swap context-discard first-nonzero ;
 : context-made ( context -- context ior )
   dup context-fill dup 0= if exit then context-undo 0 swap ;
 lf-lib set-current
@@ -406,7 +405,7 @@ lf-lib set-current
 : context-free ( context -- ior )
   context-outside-job context-freeable
   dup lf-context @ = if context-main lf-context ! then
-  dup context-torn swap context-discard ior-earlier ;
+  dup context-torn swap context-discard first-nonzero ;
 lf-lib-private set-current
 
 \ Claiming for a job (task.fs). context-claim makes owner, a nonzero
