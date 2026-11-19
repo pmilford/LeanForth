@@ -769,6 +769,10 @@ variable move-at  10 move-at !
   moving-run >r moved-facts cli-reason cli-moved-reason compare 0= ck-release r> back ;
 T{ 3 moved-during -> true true true true true false true }T
 T{ 8 moved-during -> true true true true true false true }T
+\ Once it moved, any answer of the decision on readiness (made in the
+\ driving task, which a carry run's taking could move) is a stop.
+: guarded-after ( -- n n' ) 3 moving-run >r 0 ck-guarded 1 ck-guarded ck-release r> back ;
+T{ guarded-after -> 3 3 }T
 \ Moved at the last line (move-at -1), given at the last tick: no
 \ declaration is handed out after it, and the tick's own check finds it.
 : last-moved ( -- shifted? ok? )
