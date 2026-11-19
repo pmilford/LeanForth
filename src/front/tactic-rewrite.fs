@@ -85,7 +85,7 @@ begin-structure /trw
   field: trw-heq         \ its proof, applied to its new metavariables
   field: trw-htype       \ that proof's type
   field: trw-alpha       \ the equation's type, left and right sides
-  field: trw-lhs         \ (lhs and rhs a pair: lfw-sides stores them with 2!)
+  field: trw-lhs
   field: trw-rhs
   field: trw-e           \ the target, instantiated
   field: trw-abst        \ the target, the pattern abstracted
@@ -132,7 +132,6 @@ end-structure
 
 \ ---- matchEq? (app-builder.fs): Eq α lhs rhs, after whnf when it is none.
 : lfw-iff? ( t -- flag ) 2 s" Iff" lf-meta-app-of? ;
-: lfw-sides ( α lhs rhs -- ) swap trw trw-lhs 2! trw trw-alpha ! ;   \ (lhs, rhs a pair)
 : lfw-prop? ( -- flag ) trw trw-htype @ lf-get-level ok-then? if 0= else drop false then ;
 : lfw-descr ( -- c-addr u )
   lfw-prop? if s"  is a proof of" else s"  is a value of type" then ;
@@ -144,7 +143,7 @@ end-structure
     lfw-stop ;
 : lfw-matched ( -- )
   trw trw-htype @ dup lfw-iff? if lfa-e-tac-form lfw-stop then
-  lf-match-eq? 0= if lfw-not-eq then lfw-sides ;
+  lf-match-eq? 0= if lfw-not-eq then trw trw-rhs ! trw trw-lhs ! trw trw-alpha ! ;
 \ A pattern whose head is a metavariable (219).
 : lfw-lhs. ( x -- outcome )
   drop s"  (" lf-pp-emit trw trw-lhs @ lf-tac-inline. s" ) in this equality" lf-pp-emit ;

@@ -164,13 +164,13 @@ begin-structure /mti
   field: mti-kinds       \ the caller's n kinds, or 0: the node's
   field: mti-names       \ the caller's n names (0: the binder's own)
   field: mti-xs          \ the caller's n cells for the free variables
-  field: mti-n           \ (names and kinds, n and xs: pairs, as 2! stores them)
+  field: mti-n           \ and their count
   field: mti-i           \ binders introduced
 end-structure
 /mti context-slab: mti-frames
 : mti ( -- frame ) mti-frames slab-last ;
 : mti-fill ( goal names kinds n xs -- goal )
-  mti mti-xs 2! mti mti-kinds 2! dup mti mti-goal ! ;
+  mti mti-xs ! mti mti-n ! mti mti-kinds ! mti mti-names ! dup mti mti-goal ! ;
 \ The binder: the type as it is, else instantiated, else put through
 \ whnfCore; no pi is Lean's introN error (94), or 93 where whnf's delta
 \ might still make one (infer.fs's lf-whnf-firm?).

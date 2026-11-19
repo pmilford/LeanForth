@@ -60,7 +60,8 @@ class Tokens(unittest.TestCase):
         line = "' trf-run tac-k-rfl lf-tactic-action!\n"
         self.assertEqual(tp.rule_problems("src/front/tactics/rfl.fs", line, set()), [])
         for path, kind in (("src/front/tactics/intro.fs", "tac-k-rfl"), ("t.fs", "tac-k-rfl"),
-                           ("src/front/tactics/rfl.fs", "tac-k-sorry"), ("src/front/rfl.fs", "tac-k-rfl")):
+                           ("src/front/tactics/rfl.fs", "tac-k-sorry"), ("src/front/rfl.fs", "tac-k-rfl"),
+                           ("src/front/tactics/sub/rfl.fs", "tac-k-rfl")):
             with self.subTest(path=path, kind=kind):
                 problems = tp.rule_problems(path, f"' trf-run {kind} lf-tactic-action!\n", set())
                 self.assertEqual(len(problems), 1, problems)
@@ -68,6 +69,19 @@ class Tokens(unittest.TestCase):
         self.assertEqual({tp.FIXED_KINDS[k] for k in ("tac-k-induction", "tac-k-with", "tac-k-alt")},
                          {"induction"})
         self.assertEqual(len(tp.FIXED_KINDS), 11)
+
+    def test_an_alias_of_another_kind_is_not_own(self):
+        # Review tactic-move L1: a constant, value or colon definition made from a fixed kind or
+        # another file's kind is that kind under a new name, so this file may not set its rows.
+        for alias in ("tac-k-rfl constant my-k", "tac-k-exact value my-k", ": my-k ( -- k ) tac-k-intro ;",
+                      "tac-k-decide constant my-k"):
+            with self.subTest(alias=alias):
+                problems = tp.rule_problems("src/front/tactics/mine.fs",
+                                            f"{alias}\n' run my-k lf-tactic-action!\n", set())
+                self.assertEqual(len(problems), 1, problems)
+                self.assertIn("calls lf-tactic-action! for my-k", problems[0])
+        own = "tac-shape-plain lf-tactic: by-mine constant tac-k-mine\n' run tac-k-mine lf-tactic-action!\n"
+        self.assertEqual(tp.rule_problems("src/front/tactics/mine.fs", own, set()), [])
 
     def test_own_data_words_may_be_written(self):
         text = "variable lf-max-goals\n3 lf-max-goals !\n"

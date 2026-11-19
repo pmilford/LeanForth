@@ -16141,8 +16141,8 @@ reason = "FE1g-4: exact assigns a term with a free variable outside the goal's c
 [[fault]]
 id = "fe-exact-sorts-ignored"
 file = "src/front/tactic-msg.fs"
-old = '''  tmg-sorts if tmg-order tmg-sorted. exit then tmg-plain. ;'''
-new = '''  tmg-sorts if 2drop then tmg-plain. ;'''
+old = '''  tmg-sorts? 0= if tmg-plain. exit then tmg-sorted. ;'''
+new = '''  tmg-sorts? drop tmg-plain. ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: the type mismatch text leaves out the sorts Lean names when the two types' types differ"
 

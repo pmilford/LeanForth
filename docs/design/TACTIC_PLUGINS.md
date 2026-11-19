@@ -82,6 +82,7 @@ the tactic files' mkLambdaFVars copies (`tactic-run.fs:561-588`, `tactic-basic.f
 `withLocalDeclD` and LeanForth never drops: `lf-with-local-decl` cuts the local context back (`lf-lctx-drop`,
 `core/local-context.fs:139`) on both paths. The Meta files' six binder-local copies (`defeq.fs:348`, `meta-check.fs:84`,
 `fun-info.fs:144`, `infer.fs:291`, `whnf.fs:453`, `elab-decl.fs:114`) move to the library in the reuse pass (section 8).
+(Note of 2026-11-19, plan 9.4.8l I: `tactic-basic.fs` was deleted; intro, exact and rfl are now `src/front/tactics/intro.fs`, `exact.fs` and `rfl.fs` on the goal words of `meta-tactic/goal.fs` (`lf-goal-intro-n`, `lf-goal-checked-assign`, `lf-goal-refl`) and `tactic-core.fs` (the step record `tb`, `lf-tac-intro1`, `lf-close-main-goal-using`, `lf-tac-elab-ensuring`, the hook `lf-tac-elab`); their messages are in `tactic-msg.fs`.)
 
 **2.4 The goal layer, `src/front/meta-tactic/` (about 350).** Lean's `Meta/Tactic`: `goal.fs` (`lf-goal-assign-checked`,
 `lf-goal-replace-target-eq`, `lf-goal-replace-target-defeq`, `lf-goal-refl`, `lf-goal-intro-n`), `rewrite.fs`
@@ -94,6 +95,7 @@ constructor under `lf-commit-when`), in (a2-iii).
 (Lean's `liftMetaTactic`: the main goal to xt, its new goals in its place), `lf-close-main-goal-using`,
 `lf-with-main-context`, Lean's `throwTypeMismatchError`, the message words and the step record `tb`
 (`tactic-basic.fs:110-201`). A goal-operation tactic is then one line: `' lf-goal-assumption lf-lift-meta-tactic`.
+(Note of 2026-11-19, plan 9.4.8l I: `tactic-basic.fs` was deleted; intro, exact and rfl are now `src/front/tactics/intro.fs`, `exact.fs` and `rfl.fs` on the goal words of `meta-tactic/goal.fs` (`lf-goal-intro-n`, `lf-goal-checked-assign`, `lf-goal-refl`) and `tactic-core.fs` (the step record `tb`, `lf-tac-intro1`, `lf-close-main-goal-using`, `lf-tac-elab-ensuring`, the hook `lf-tac-elab`); their messages are in `tactic-msg.fs`.)
 
 ## 3. The plug-in interface
 
@@ -271,6 +273,7 @@ Common to all: `print-forth.fs:91-92`, `tactic-run.fs:256-262` and `:314-318`, `
 tactic-basic 13, tactic-induction 6, tactic-rewrite 6, step-log 2. Calls between tactics: `tactic-rewrite.fs:239` runs
 rfl (`tactic-basic.fs:359`); `tactic-induction.fs:373` runs intro (`:267`); `tactic-induction.fs:271` uses
 `tactic-basic`'s private `lfb-popped` and `tb`.
+(Note of 2026-11-19, plan 9.4.8l I: `tactic-basic.fs` was deleted; intro, exact and rfl are now `src/front/tactics/intro.fs`, `exact.fs` and `rfl.fs` on the goal words of `meta-tactic/goal.fs` (`lf-goal-intro-n`, `lf-goal-checked-assign`, `lf-goal-refl`) and `tactic-core.fs` (the step record `tb`, `lf-tac-intro1`, `lf-close-main-goal-using`, `lf-tac-elab-ensuring`, the hook `lf-tac-elab`); their messages are in `tactic-msg.fs`.) The table below and table A1's line naming `front/tactic-basic` describe the files before that move.
 
 | Tactic | words.fs | tactic-syntax.fs: kind, reader, meaning | run | codes (errors.fs lines) | step-log.fs |
 | --- | --- | --- | --- | --- | --- |

@@ -632,6 +632,7 @@ FE1g-3 as far as it goes before FE1e (`src/front/tactic-run.fs`; tests
 `src/front/tactic-basic.fs` sets the rows of `by-intro:`, `by-exact` and
 `by-rfl` (§5.1-5.3); tests `tests/front/tactic-basic.fs`, Lean twins in
 `tests/front/tactic-run.lean` (checked by `check_tactics.py --lean`).
+(Note of 2026-11-19, plan 9.4.8l I: `tactic-basic.fs` was deleted; intro, exact and rfl are now `src/front/tactics/intro.fs`, `exact.fs` and `rfl.fs` on the goal words of `meta-tactic/goal.fs` (`lf-goal-intro-n`, `lf-goal-checked-assign`, `lf-goal-refl`) and `tactic-core.fs` (the step record `tb`, `lf-tac-intro1`, `lf-close-main-goal-using`, `lf-tac-elab-ensuring`, the hook `lf-tac-elab`); their messages are in `tactic-msg.fs`.)
 
 - **`by-intro:`** as §5.1, its new goal's old goal assigned `fun x => ?n
   x` with `?n` delayed-assigned `[x] := new goal`, as Lean's `elimMVar`

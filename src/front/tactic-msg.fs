@@ -71,18 +71,22 @@ require ./meta-must.fs
 : tmg-but-sort. ( expected -- outcome )
   s"  but is expected to have type" lf-pp-emit >r s\" \n" r> lf-tac-line. ;
 : tmg-sort ( t -- sort true | false ) lf-infer ok? dup 0= if nip then ;
-\ Both types' sorts, when both can be inferred and are not defeq.
-: tmg-differ? ( s1 s2 -- s1 s2 flag ) 2dup lf-tac-defeq ok? if 0= else drop false then ;
-: tmg-sorts ( type expected -- type expected s1 s2 true | type expected false )
+\ Whether both types' sorts can be inferred and are not defeq.
+: tmg-differ? ( s1 s2 -- flag ) lf-tac-defeq ok? if 0= else drop false then ;
+: tmg-sorts? ( type expected -- type expected flag )
   over tmg-sort 0= if false exit then
-  over tmg-sort 0= if drop false exit then tmg-differ? dup if exit then nip nip ;
+  over tmg-sort 0= if drop false exit then tmg-differ? ;
 : tmg-plain. ( type expected -- outcome ) swap tmg-has. ['] tmg-but. ok-with nip ;
-\ (printed in the order type, s1, expected, s2: the next to print on top)
-: tmg-sorted. ( s2 expected s1 type -- outcome )
-  tmg-has. ['] tmg-of. ok-with nip ['] tmg-but-sort. ok-with nip ['] tmg-of. ok-with nip ;
-: tmg-order ( type expected s1 s2 -- s2 expected s1 type ) -rot 3 roll ;
+\ Each type with its sort (inferred again: the message is the only user,
+\ so the sorts tmg-sorts? compared are not carried across it, review
+\ tactic-move L2).
+: tmg-sort-of. ( type -- outcome ) lf-infer ok-then? if tmg-of. then ;
+: tmg-and-sort ( type outcome -- outcome' ) ['] tmg-sort-of. ok-with nip ;
+: tmg-but-sorted. ( expected -- outcome ) dup tmg-but-sort. tmg-and-sort ;
+: tmg-sorted. ( type expected -- outcome )
+  swap dup tmg-has. tmg-and-sort ['] tmg-but-sorted. ok-with nip ;
 : tmg-types. ( type expected -- outcome )
-  tmg-sorts if tmg-order tmg-sorted. exit then tmg-plain. ;
+  tmg-sorts? 0= if tmg-plain. exit then tmg-sorted. ;
 : lf-has-type-but-expected. ( e type expected -- outcome )
   rot lf-tac-indented. dup ok? if drop tmg-types. else nip nip then ;
 

@@ -104,7 +104,7 @@ begin-structure /tb
   field: tb-want        \ the goal's type
   field: tb-term        \ induction's major premise, its motive
   field: tb-new         \ induction's new goals
-  field: tb-kind        \ lf-tac-intro1's kind, name (2! stores them)
+  field: tb-kind        \ lf-tac-intro1's kind, name
   field: tb-name
   field: tb-x           \ and free variable
 end-structure
@@ -129,10 +129,9 @@ end-structure
 
 \ ---- introN of one binder: its name, kind and variable in tb's cells.
 : tcr-kinds ( -- kinds ) tb tb-kind dup @ 0< if drop 0 then ;
-: tcr-cells! ( name kind -- ) tb tb-kind 2! ;
 : tcr-intro1 ( name kind goal -- goals )
-  drop tcr-cells! tb tb-goal @ tb tb-name tcr-kinds 1 tb tb-x lf-goal-intro-n
-  0 swap run-push lf-tac-must ;
+  drop tb tb-kind ! tb tb-name ! tb tb-goal @ tb tb-name tcr-kinds 1 tb tb-x
+  lf-goal-intro-n 0 swap run-push lf-tac-must ;
 : lf-tac-intro1 ( name kind i -- ) ['] tcr-intro1 lf-lift-meta-tactic ;
 
 \ ---- getArg, setGoals.

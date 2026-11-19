@@ -100,7 +100,7 @@ by instances (1) and simp (2), as in Lean (`Meta/DiscrTree`).
 | Evidence (file:line on `main` unless said) | Is | Library |
 | --- | --- | --- |
 | `elab-term.fs` (elabTerm, elabType, binop%), `elab-app.fs` (elabAppArgs), `elab-pending.fs` (synthesizeSyntheticMVars, default instances, mkInstMVar) | the Term core, complete for S1/S2's forms | 1 |
-| `elab-decl.fs:143-152` `edc-tac-elab`, set into the hook `lf-tac-elab` declared at `tactic-basic.fs:139-142` | Lean's `Tactic.elabTerm` (ElabTerm.lean:45), buried in the declaration glue | 1 (tactic face) |
+| `elab-decl.fs:143-152` `edc-tac-elab`, set into the hook `lf-tac-elab` declared at `tactic-basic.fs:139-142` (2026-11-19: declared in `tactic-core.fs`; `tactic-basic.fs` deleted by plan 9.4.8l I) | Lean's `Tactic.elabTerm` (ElabTerm.lean:45), buried in the declaration glue | 1 (tactic face) |
 | `elab-decl.fs:155` registers the Term pending list with the Tactic runner's `tac-state:` | Term.SavedState, kept only at the Tactic layer | 1 |
 | `tactic-core.fs` `lf-tac-elab-for-apply` (branch `tactic-lib-a2ii`) | `elabTermForApply` (ElabTerm.lean:265) | 1 (tactic face) |
 | `elab-term.fs:138, 197`: `case`s over the seven syntax kinds it elaborates | Lean's term-elaborator table (`elabUsingElabFns`, TermElabM.lean:1691); every FE2 form would edit it | 1 |
@@ -223,7 +223,7 @@ Rewrite 300, lemma intake 45); SP1c about 1,330 (700 Lean: congruence 385, prepr
    (as `elab-app.fs` does); one not yet re-entrant detects re-entry and answers unsupported. Change `apply.fs`'s
    record in LA, once `tactic-lib-a2ii` has merged. (The Meta core's leaf calls, finished before the next starts, may
    stay as they are.)
-3. **The elaboration hook goes.** `lf-tac-elab` (`tactic-basic.fs:139`, set at `elab-decl.fs:152`) becomes the word
+3. **The elaboration hook goes.** `lf-tac-elab` (`tactic-basic.fs:139`, set at `elab-decl.fs:152`; 2026-11-19: declared in `tactic-core.fs`, `tactic-basic.fs` deleted by plan 9.4.8l I) becomes the word
    `lf-tac-elab-term` of library 1's tactic face (`elab/tactic-term.fs`), with `lf-tac-elab-for-apply` moved there
    from `tactic-core.fs`. `tactic-core.fs` already requires `elab-term.fs`, so the hook only hides the dependency.
 4. **A shared reader for rule lists and locations.** `by-rw[` has its own reader (`tactic-syntax.fs:232-240`). `simp`,
@@ -565,7 +565,7 @@ and the runners each written per slice (`check_defeq.py` 648 lines, `check_meta.
 
 **(6) Lean-printing library.** Names, terms, goals and messages as Lean prints them. First caller: simp's messages
 and, later, `simp?` and `Try this` (PD11). Absorbs `present/term-printer.fs` and its `print-*.fs`, `goal-print.fs`,
-the message words of `tactic-basic.fs:193-278` and the error terms of `elab-pending.fs`. Design: before SP2a.
+the message words of `tactic-basic.fs:193-278` (2026-11-19: `tactic-msg.fs`, `tactic-basic.fs` deleted by plan 9.4.8l I) and the error terms of `elab-pending.fs`. Design: before SP2a.
 
 **(7) Library-data access layer.** One reader for the snapshot, elaboration data and simp data, lazy by class or
 branch. First caller: SP2a/SP4's lazy simp branches on Mathlib. Absorbs `elab-data.fs` (1,534 lines, 65 globals),

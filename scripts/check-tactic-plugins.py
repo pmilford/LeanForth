@@ -14,9 +14,12 @@ tier: Markdown, docs/, ...); and every tactic file it adds or changes
   - writes no data word another file defines: no `W !`, `W +!`, `W c!`, `W 2!` or `to W` for a W
     that a variable, value, create, buffer: or 2variable of another Forth file of src/ defines,
   - calls a row setter (lf-tactic-...!) only for its own kinds: the word before it is defined in
-    the same file, or it is one of the eleven fixed kinds of the runner (tactic-syntax.fs: kinds 1-11,
-    which the step-log goldens fix, so they are never re-registered through lf-tactic:) and FIXED_KINDS
-    gives it to this tactic file (by-intro: to intro.fs, plan 9.4.8l-I).
+    the same file, and is no alias of another file's kind (a constant or value made from one, or a
+    colon definition that names one: review tactic-move L1), or it is one of the eleven fixed kinds
+    of the runner (tactic-syntax.fs: kinds 1-11, which the step-log goldens fix, so they are never
+    re-registered through lf-tactic:) and FIXED_KINDS gives it to this very file,
+    src/front/tactics/NAME.fs (by-intro: to src/front/tactics/intro.fs, plan 9.4.8l-I; a file of
+    another folder with the same name owns none).
 Comments and strings are left out. Only a confined branch gets the "tactic" change tier
 (scripts/test-tier.py): the front end's unit tests, every end-to-end run of .lf files, the S1/S2
 pinned-Lean comparisons (reference-front), the source rules, the changed files' coverage and
@@ -52,10 +55,31 @@ FIXED_KINDS = {
 }
 
 
+KIND_WORD = re.compile(r"(?i)^tac-k-")
+
+
 def owns(path, kind, own):
-    """Whether the tactic file PATH may set a row of KIND: its own kind, or a fixed kind given to it."""
-    name = os.path.splitext(os.path.basename(path))[0]
-    return kind in own or (path.startswith(TACTICS) and FIXED_KINDS.get(kind) == name)
+    """Whether the tactic file PATH may set a row of KIND: its own kind, or a fixed kind given to it
+    (the file src/front/tactics/NAME.fs itself, compared as a whole path)."""
+    name = FIXED_KINDS.get(kind)
+    return kind in own or (name is not None and os.path.normpath(path) == f"{TACTICS}{name}.fs")
+
+
+def aliases(toks, own):
+    """The words TOKS define from a kind they do not define (X constant W, X value W, or a colon
+    definition naming X, for X a fixed kind or another file's tac-k- word): never own kinds."""
+    foreign = lambda w: w in FIXED_KINDS or (KIND_WORD.match(w) and w not in own)
+    found, k = set(), 0
+    while k < len(toks) - 1:
+        if toks[k] == ":":
+            end = toks.index(";", k) if ";" in toks[k:] else len(toks)
+            if any(foreign(w) for w in toks[k + 2:end]):
+                found.add(toks[k + 1])
+            k = end
+        elif toks[k + 1] in ("constant", "value", "2constant") and k + 2 < len(toks) and foreign(toks[k]):
+            found.add(toks[k + 2])
+        k += 1
+    return found
 
 
 def git(*args):
@@ -118,6 +142,7 @@ def rule_problems(path, text, foreign):
     """The rule breaks of one tactic file; FOREIGN is the data words other files define."""
     toks, problems = tokens(text), []
     own = defined_in(toks)
+    own -= aliases(toks, own)
     for k, word in enumerate(toks):
         before = toks[k - 1] if k else ""
         if word in HOOKS:
