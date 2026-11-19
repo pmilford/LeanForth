@@ -183,7 +183,7 @@ T{ s" n by-induction-with | zero => by-rfl by-end end t" later -> 76 1 45 0 }T
 \ (an alternative whose name its block's eliminator lacks, which the
 \ names' check never lets through: the record refused, 92; step 2 is
 \ the | zero of the record just read, the information has no case)
-: header-info ( -- info ) 0 4 0 do 0 run-push made loop ;
+: header-info ( -- info ) 0 mel-head# 0 do 0 run-push made loop ;
 : k-in ( i -- code ) drop header-info tal tal-info ! 2 tal tal-step ! ['] tal-k! catch ;
 lf-tac-forget
 T{ 2 lf-tactic-step tac-name @ s" zero" lfa-intern = -> true }T

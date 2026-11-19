@@ -88,13 +88,19 @@ require ../app-builder.fs
 require ../telescope.fs
 require ./goal.fs
 
-\ ---- The information: a run of d, the binders, the motive's and the
-\ target's positions, then name, position and fields per alternative.
+\ ---- The information: a run of mel-head# cells, d, the binders, the
+\ motive's and the target's positions, then mel-alt-cells per alternative,
+\ its name, position and fields (review tactic-move-c4 M2: the layout
+\ named here, read only through these words).
+4 constant mel-head#        \ d, binders, the motive's and the target's positions
+3 constant mel-alt-cells    \ an alternative's name, position and fields
 : mel+ ( run x -- run' ) run-push lf-must ;
 : lf-elim-decl ( info -- d ) 0 run@ ;
 : mel-binders ( info -- n ) 1 run@ ;
-: lf-elim-alts# ( info -- n ) run-count 4 - 3 / ;
-: mel-alt@ ( info k field -- x ) swap 3 * + 4 + run@ ;
+: mel-motive-at ( info -- k ) 2 run@ ;
+: mel-target-at ( info -- k ) 3 run@ ;
+: lf-elim-alts# ( info -- n ) run-count mel-head# - mel-alt-cells / ;
+: mel-alt@ ( info k field -- x ) swap mel-alt-cells * + mel-head# + run@ ;
 : lf-elim-alt-name ( info k -- name ) 0 mel-alt@ ;
 : lf-elim-alt-pos ( info k -- pos ) 1 mel-alt@ ;
 : lf-elim-alt-fields ( info k -- n ) 2 mel-alt@ ;
@@ -191,7 +197,8 @@ require ./goal.fs
 : mel-ends ( info concl -- info' )
   dup mel-shape? 0= if lfa-e-tac-form lf-tac-fail then
   tuck lf-term-first@ mel-at mel+ swap lf-term-second@ mel-at mel+ ;
-: mel-special? ( info k -- flag ) over 2 run@ over = >r swap 3 run@ = r> or ;
+: mel-special? ( info k -- flag )   \ the motive's binder or the target's
+  2dup swap mel-motive-at = >r swap mel-target-at = r> or ;
 : mel-kind ( info k -- kind )
   swap lf-elim-decl swap lf-menv-kind@ 0= if lfa-e-tac-form lf-tac-fail then ;
 : mel-alt? ( info k -- flag )   \ explicit, neither the motive nor the target
@@ -239,8 +246,8 @@ end-structure
   lf-term-first@ mea-alt-tag lf-mctx-view lf-goal-new lf-must
   mea mea-alts @ over mel+ mea mea-alts ! ;
 : mea-arg ( pi k -- arg )
-  dup mea-info@ 2 run@ = if drop mea-motive-arg exit then
-  dup mea-info@ 3 run@ = if drop mea-target-arg exit then
+  dup mea-info@ mel-motive-at = if drop mea-motive-arg exit then
+  dup mea-info@ mel-target-at = if drop mea-target-arg exit then
   dup mea-alt? if drop mea-alt else mea-implicit then ;
 : mea-pi ( -- pi )
   mea mea-ftype @ lf-meta-whnf-forall lf-must dup lf-term-pi? 0= if
