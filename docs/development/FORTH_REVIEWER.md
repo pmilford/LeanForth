@@ -86,6 +86,19 @@ against the coverage classes of [the coverage review](TEST_COVERAGE_REVIEW.md) a
    Check array and arena bounds before access; identify caller-owned storage and
    aliasing assumptions. Check repeated calls, resets, stale handles and identity
    reuse, plus concurrent or nested calls if the contract permits them.
+
+   4a. Re-entrancy (owner, 2026-11-18: "re-entrancy is important as is speed
+   from multiple internal threads"; plan 9.4.8p, ADR 0009). No new
+   module-level mutable state: a plain `VARIABLE` or `VALUE`, or a `CREATE`d
+   table written after loading, is a blocking finding unless it is written
+   only while loading, before the first `context-new`, and sealed — its
+   writers abort once `context-sealed?` is true, as `lib/context.fs`'s
+   declarations, `lib/store-columns.fs`'s `column-add` and `core/terms.fs`'s
+   tag tables do. State that a check, a run or a session changes lives in a
+   context record (`context-record:`), so each worker and each context has
+   its own. Name every new global in the report with who writes it and when;
+   for a parallel path, also say which task runs each word (the driver or a
+   worker) and what the workers read in place.
 5. Follow every error path. Malformed input must fail closed, and exhaustion,
    invalid input, unknown results and success must stay distinct. Check stack
    cleanup, loop cleanup, rollback and what state may change on failure. Verify

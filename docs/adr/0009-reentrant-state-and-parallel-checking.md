@@ -253,6 +253,47 @@ grows, harmless because only equality uses them, found by `lookups.
 1` on all 388 test exports at 3 workers and on the first 1M lines of
 `Init` (9,202 declarations) at 4; full `Init`: see ADR 0012 Amendment 2.
 
+## Amendment 3 (2026-11-18): the re-entrancy audit, guarded and tested
+
+Approval status: proposed, awaiting the owner (gate: kernel in form, for
+the guards of `core/terms.fs` and the test-build counter of
+`kernel/environment.fs`; plan 9.4.8p, branch `parallel-1`)
+
+The audit of main `c240a927` found no definite race
+in the release build and five items; this amendment records what was done.
+
+- **M1, the borrowed input during a run.** The driving task never writes
+  the input the workers read in place while they run: the carry pass's
+  decision on readiness (`ck-pre`, env-import.fs `imp-decide`, `take`,
+  `imp-fill`) and the ticks (`ck-tick`, the line word) only read it,
+  publish into the environment (as designed), intern names in the driving
+  context's own name pool and roll their own scratch back to the input's
+  marks, which neither grows nor moves a block the workers read. That is
+  now checked, not assumed: `cli/check-run.fs` keeps each part's block and
+  count (the view's three tables and leaves, the declarations, their name
+  index and inductive data, the references) when the workers are made,
+  compares them before each hand-out and around each tick, and on a change
+  stops the run as an internal fault, its verdicts read only below the
+  slots final at the change (exit 5). A transient write that is rolled back
+  before the next comparison is not seen; the Forth stress test hashes the
+  borrowed input before and after a run as a second check.
+- **L2, load-time tables.** `core/terms.fs`'s tag tables
+  (`lf-term-unshare`, `lf-tin-leaf-tags+`, `lf-term-input-tag!`,
+  `lf-term-input-twin!`) and `lib/store-columns.fs`'s `column-add` abort
+  once `context-sealed?`, as context members do; every caller runs while
+  loading, before the first `context-new`, and behaves as before.
+- **L1, the test build's I2 counter.** `lf-i2-misses` (test build only)
+  adds with `lib/task.fs`'s `task+!`: Gforth 1.0's `atomic+!@` (a locked
+  `xadd`) with threads. Gforth's `+!@` is not atomic.
+- **L3, no fence.** Not changed: Gforth 1.0's `barrier` is a full fence (a
+  locked `or` on x86-64); threads still run only on x86-64
+  (`lf-sched-host-ok`), whose store order makes the publisher's protocol
+  correct. A `barrier` in a task.fs adapter around the final-state store
+  and its read stays a plan item for other hosts.
+- **M2, tests.** `make parallel-init` (daily) and `make
+  test-parallel-stress` (`docs/development/TESTING_STRATEGY.md`, "Parallel
+  checking").
+
 ## Rejected alternatives
 
 - **Pass a context on the stack to every word.** Most transparent and
