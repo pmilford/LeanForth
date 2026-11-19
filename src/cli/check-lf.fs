@@ -135,10 +135,19 @@ end-structure
 : lfc-unfolds? ( e -- flag )
   lfc-head dup lfc-tag dup tag-const =
   if drop lfc-const-unfolds? else nip lfc-redex-tag? then ;
+\ The explicit binders are Lean's own where the elaboration data read
+\ against the library has a binder_kinds record of d (format 3.2, plan
+\ FE1c-bk: lean4export may give d another declaration's kinds); the
+\ record has as many kinds as the telescope binders (elab-data.fs checks).
+: lfc-zeros ( addr n -- k ) 0 swap 0 ?do over i cells + @ 0= - loop nip ;
+: lfc-own-explicit ( n d -- n' )
+  ck-stage elab-read-against? 0= if drop exit then
+  elab-binder-kinds-of if nip elab-binder-kinds lfc-zeros then ;
+: lfc-count ( d -- n )
+  dup ck-stage staged-type@ lfc-telescope lfc-unfolds?
+  if 2drop -1 else swap lfc-own-explicit then ;
 : lfc-arity ( name -- arity unfolds? true | false )
-  lfc-name lfc-decl 0= if false exit then
-  dup lfc-def? swap ck-stage staged-type@ lfc-telescope lfc-unfolds? if drop -1 then
-  swap true ;
+  lfc-name lfc-decl 0= if false exit then dup lfc-count swap lfc-def? true ;
 ' lfc-arity is lfn-library-arity
 
 \ ---- The stage: the library export read (not sealed yet), or empty.

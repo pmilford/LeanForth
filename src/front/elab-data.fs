@@ -7,9 +7,13 @@
 \ eliminators; the tags the elaborator and Meta's whnf read; matchers and
 \ projection functions; the smart-unfolding bodies (f._sunfold) -- checked
 \ against the export's names and kept for the elaborator (FE1e: instances;
-\ FE1g: eliminators; FE1d2 and plan S2: whnf). Format version 3 or 3.1
+\ FE1g: eliminators; FE1d2 and plan S2: whnf). Format version 3, 3.1
 \ (MATHLIB_FRONT.md O1: format 3 and inert nodes, metadata LeanForth does
-\ not carry, whose body is then not usable), one JSON object per line:
+\ not carry, whose body is then not usable) or 3.2 (plan FE1c-bk: also
+\ Lean's own binder kinds of a declaration whose export gives others,
+\ elab-binder-kinds-of ( d -- b true | false ), elab-binder-kinds ( b --
+\ addr n ), elab-binder-domain ( b k -- addr n ), elab-binder-decl ( b --
+\ d ); their numbers checked against the export's type), one JSON object per line:
 \ docs/programming/ELABORATION_DATA.md and schemas/elab-data-3.schema.json;
 \ a version 1 or 2 file is refused as another format version (a format-2
 \ file says "sunfold":0 for a library whose definitions have bodies), an
@@ -154,6 +158,7 @@ require ../lib/json.fs
 require ../lib/sha256.fs
 require ../lib/hash32.fs
 require ../lib/htab.fs
+require ../lib/text-run.fs
 require ../import/stage.fs
 require ./elab-keys.fs
 
@@ -161,7 +166,8 @@ require ./elab-keys.fs
 0 constant elab-instance   1 constant elab-default
 2 constant elab-reducibility   3 constant elab-eliminator   4 constant elab-left-out
 5 constant elab-class   6 constant elab-tag   7 constant elab-matcher
-8 constant elab-projection   9 constant elab-sunfold   10 constant elab-kinds
+8 constant elab-projection   9 constant elab-sunfold   10 constant elab-binders
+11 constant elab-kinds
 \ Reducibility statuses (Lean's ReducibilityStatus; 0 is the default).
 0 constant elab-semireducible   1 constant elab-reducible   2 constant elab-irreducible
 3 constant elab-implicit-reducible   4 constant elab-instance-reducible
@@ -262,6 +268,13 @@ begin-structure /ed-fact
   field: ed-fact-matcher   \ its matcher's number + 1, or 0
   field: ed-fact-proj      \ its projection's number + 1, or 0
   field: ed-fact-sun       \ its smart-unfolding body's number + 1, or 0
+  field: ed-fact-bk        \ its binder kinds' number + 1, or 0
+end-structure
+\ Lean's binder kinds of a declaration (format 3.2): its type's leading Pi
+\ binders' kinds, a span of elab-orders, and each one's domain's, spans
+\ in elab-bk-doms from ed-bk-doms on.
+begin-structure /ed-bk
+  field: ed-bk-decl   2 cells +field ed-bk-kinds   field: ed-bk-doms
 end-structure
 \ An eliminator's key, kind and target types (cells), as the table
 \ compares it; ed-key-one holds the type of a key made for one type.
@@ -295,7 +308,8 @@ begin-structure /elab
   field: elab-bound-length           \ its length: 0 when none is named
   field: elab-modules#               \ the header's modules: how many
   field: elab-inits#                 \ and how many are Init
-  field: elab-v31                    \ true: the header says format 3.1
+  field: elab-v31                    \ true: the header says format 3.1 or 3.2
+  field: elab-v32                    \ true: it says 3.2 (binder kinds)
 end-structure
 /elab context-record: elab
 /ed-fact context-slab: elab-facts
@@ -312,6 +326,8 @@ end-structure
 /ed-sun context-slab: elab-suns
 /ed-node context-slab: elab-nodes
 /ed-node context-slab: elab-levels
+/ed-bk context-slab: elab-bks
+2 cells context-slab: elab-bk-doms
 
 : ed-view ( -- view ) elab elab-json ;
 : ed-stage ( -- stage ) elab elab-stage @ ;
@@ -341,7 +357,7 @@ end-structure
 36 constant ed-e-projection   37 constant ed-e-unfit
 39 constant ed-e-bound   40 constant ed-e-dflt-most   41 constant ed-e-sunfold
 42 constant ed-e-order   43 constant ed-e-loose   44 constant ed-e-params
-45 constant ed-e-annotation
+45 constant ed-e-annotation   46 constant ed-e-binders
 create ed-messages
   s" none" counted,
   s" file missing or unreadable" counted,
@@ -389,6 +405,7 @@ create ed-messages
   s" a loose bound variable" counted,
   s" universe parameters other than the definition's" counted,
   s" an annotation this reader does not know" counted,
+  s" binder kinds named twice" counted,
   0 0 counted,
 : ed-message ( code -- c-addr u ) ed-messages swap 0 ?do key-next loop count ;
 : ed-line ( -- n ) elab elab-reader reader-line# ;
@@ -421,6 +438,7 @@ create ed-messages
 : elab-matcher-of ( d -- m true | false ) ['] ed-fact-matcher ed-fact@ +1>number ;
 : elab-projection-of ( d -- p true | false ) ['] ed-fact-proj ed-fact@ +1>number ;
 : elab-sunfold-of ( d -- s true | false ) ['] ed-fact-sun ed-fact@ +1>number ;
+: elab-binder-kinds-of ( d -- b true | false ) ['] ed-fact-bk ed-fact@ +1>number ;
 : ed-tag-bit ( tag -- mask ) ed-tag-shift + 1 swap lshift ;
 : elab-tagged? ( d tag -- flag ) ed-tag-bit swap ed-bits@ and 0<> ;
 
@@ -483,6 +501,13 @@ create ed-messages
 : elab-level-kind ( l -- kind ) ed-level ed-node-kind @ ;
 : elab-level-a ( l -- x ) ed-level ed-node-a @ ;
 : elab-level-b ( l -- x ) ed-level ed-node-b @ ;
+: ed-bk ( b -- addr ) elab-bks slab-at ;
+: elab-binder-decl ( b -- d ) ed-bk ed-bk-decl @ ;
+: elab-binder-kinds ( b -- addr n ) ed-bk ed-bk-kinds ed-span@ ;
+\ The kinds of binder k's domain's leading binders; none for k beyond them.
+: ed-bk-dom ( b k -- span ) swap ed-bk ed-bk-doms @ + elab-bk-doms slab-at ;
+: elab-binder-domain ( b k -- addr n )
+  over elab-binder-kinds nip over u> if ed-bk-dom ed-span@ else 2drop 0 0 then ;
 
 \ ---- The eliminators' table (lib/htab.fs): entries are eliminator
 \ numbers, keyed by kind and target types; the hooks make an entry's key
@@ -540,14 +565,17 @@ create ed-rank-hooks /htab-hooks allot
   elab-facts slab-clear elab-insts slab-clear elab-orders slab-clear
   elab-dflts slab-clear elab-elims slab-clear elab-types slab-clear elab-lefts slab-clear
   elab-classes slab-clear elab-matches slab-clear elab-alts slab-clear
-  elab-projs slab-clear ed-bodies-clear ;
+  elab-projs slab-clear ed-bodies-clear elab-bks slab-clear elab-bk-doms slab-clear ;
 : ed-tables-clear ( -- )
   ed-table? if ed-table htab-clear then
   ed-ranks dup htab-live? if htab-clear else drop then ;
+: ed-head-clear ( -- )
+  elab elab-counts elab-kinds cells erase elab elab-expected elab-kinds cells erase
+  0 elab elab-modules# ! 0 elab elab-inits# !
+  false elab elab-v31 ! false elab elab-v32 ! ;
 : elab-reset ( -- )
   ed-slabs-clear elab-keys-clear ed-tables-clear false elab elab-loaded !
-  elab elab-counts elab-kinds cells erase 1 elab elab-gen +!
-  0 elab elab-modules# ! 0 elab elab-inits# ! false elab elab-v31 ! ;
+  ed-head-clear 1 elab elab-gen +! ;
 : elab-generation ( -- n ) elab elab-gen @ ;
 \ A caller that could not compute the export's SHA-256 refuses the data
 \ with error 26 at line 0, its outcome kept; nothing is loaded.
@@ -564,7 +592,7 @@ create ed-kind-names
   s" instance" counted, s" default_instance" counted, s" reducibility" counted,
   s" eliminator" counted, s" instance_left_out" counted, s" class" counted,
   s" tag" counted, s" matcher" counted, s" projection" counted, s" sunfold" counted,
-  0 0 counted,
+  s" binder_kinds" counted, 0 0 counted,
 create ed-status-names
   s" reducible" counted, s" irreducible" counted, s" implicit_reducible" counted,
   s" instance_reducible" counted, 0 0 counted,
@@ -575,6 +603,11 @@ create ed-tag-names
   s" rec_on" counted, s" brec_on" counted, s" match_pattern" counted, 0 0 counted,
 create ed-reason-names  s" erased" counted, s" not_exported" counted, 0 0 counted,
 : ed-kind-name ( kind -- c-addr ) ed-kind-names swap 0 ?do key-next loop ;
+\ The kinds of formats 3 and 3.1, which have no binder_kinds: the table's
+\ entries before it, copied when loaded.
+: ed-table-copy, ( addr u -- ) here swap dup allot move ;
+create ed-v3-kinds
+  ed-kind-names elab-binders ed-kind-name over - ed-table-copy, 0 0 counted,
 
 \ ---- Members of the object value: shape? holds when it has exactly the
 \ table's keys; ed-member gives a key's value, -1 when absent.
@@ -824,9 +857,10 @@ create ed-match-own
 create ed-proj-own
   ' ed-no-type , ' ed-fact-proj , ed-e-projection , ' ed-proj , ' ed-proj-decl ,
 create ed-sun-own  ' ed-a-def , ' ed-fact-sun , ed-e-sunfold , ' ed-sun , ' ed-sun-decl ,
-create ed-owns   \ by kind (elab-instance .. elab-sunfold)
+create ed-bk-own  ' ed-decl , ' ed-fact-bk , ed-e-binders , ' ed-bk , ' ed-bk-decl ,
+create ed-owns   \ by kind (elab-instance .. elab-binders)
   ed-inst-own , 0 , 0 , 0 , 0 , ed-class-own , 0 , ed-match-own , ed-proj-own ,
-  ed-sun-own ,
+  ed-sun-own , ed-bk-own ,
 : ed-own ( -- own ) elab elab-kind @ cells ed-owns + @ ;
 : ed-own-once ( d i -- outcome )
   over ed-own ed-own-fact @ ed-fact@ if 2drop ed-own ed-own-why @ ed-bad exit then
@@ -1365,12 +1399,56 @@ create ed-sun-steps
   elab-suns ed-claim ok-then? 0= if nip exit then
   dup ed-sun /ed-sun erase ed-sun-steps ed-steps ;
 
+\ ---- Binder kinds (format 3.2 alone; plan FE1c-bk): a declaration's name
+\ and one text per leading Pi binder of its type, its kind's digit (Lean's
+\ BinderInfo: 0 default, 1 implicit, 2 strict implicit, 3 instance) and
+\ then its domain's leading binders'. Their numbers must be the export's
+\ type's (error 37); a declaration has one record at most (error 46).
+: ed-v32? ( -- flag ) elab elab-v32 @ ;
+: ed-not-kind? ( char -- flag ) [char] 0 - 4 u< 0= ;
+: ed-kinds? ( c-addr u -- flag ) dup if ['] ed-not-kind? text-any? 0= else nip then ;
+: ed-kind-text ( item -- c-addr u true | false )
+  ed-text 0= if false exit then 2dup ed-kinds? dup 0= if nip nip then ;
+: ed-kind@ ( c-addr -- kind ) c@ [char] 0 - ;
+: ed-bk-lead ( item -- outcome )
+  ed-kind-text if drop ed-kind@ elab-orders ed-push else ed-malformed then ;
+: ed-bk-kinds! ( value b -- outcome )
+  ed-bk ed-bk-kinds swap c" kinds" ed-member ['] ed-bk-lead ed-span-items ;
+: ed-dom-digit ( c-addr k -- c-addr outcome ) over + ed-kind@ elab-orders ed-push ;
+: ed-dom-digits ( c-addr u -- outcome ) 1 /string ['] ed-dom-digit ok-each nip ;
+: ed-dom-span ( item span -- outcome )
+  dup elab-orders ed-span-open swap ed-text drop ed-dom-digits
+  swap elab-orders ed-span-close ;
+: ed-dom-item ( item -- outcome )
+  elab-bk-doms ed-claim ok-then? if elab-bk-doms slab-at ed-dom-span else nip then ;
+: ed-bk-doms! ( value b -- outcome )
+  elab-bk-doms slab-count over ed-bk ed-bk-doms ! drop
+  c" kinds" ed-member ed-view json-contents ['] ed-dom-item ed-items ;
+\ The fit: as many leading Pis as kinds, each domain's as its own.
+: ed-lead ( e -- n )
+  0 swap begin dup ed-pi? while ed-tier expr-b@ swap 1+ swap repeat drop ;
+: ed-nth-dom ( e k -- e' ) 0 ?do ed-tier expr-b@ loop ed-tier expr-a@ ;
+: ed-dom-fits? ( b e k -- flag )
+  tuck ed-nth-dom ed-lead >r elab-binder-domain nip r> = ;
+: ed-dom-at? ( b e k -- b e flag ) 2dup-under ed-dom-fits? ;
+: ed-doms-fit? ( b e -- flag ) over elab-binder-kinds nip ['] ed-dom-at? all? nip nip ;
+: ed-lead-fits? ( b e -- flag ) ed-lead swap elab-binder-kinds nip tuck = swap 0<> and ;
+: ed-bk-fit ( value b -- outcome )
+  nip dup elab-binder-decl ed-stage staged-type@
+  2dup ed-lead-fits? if ed-doms-fit? else 2drop false then ed-e-unfit ed-or-bad ;
+create ed-bk-members  s" kinds" counted, s" name" counted, 0 0 counted,
+create ed-bk-steps  ' ed-own-decl! , ' ed-bk-kinds! , ' ed-bk-doms! , ' ed-bk-fit , 0 ,
+: ed-on-binder-kinds ( value -- outcome )
+  ed-v32? 0= if drop ed-e-kind ed-bad exit then
+  dup ed-bk-members ed-shape? 0= if drop ed-malformed exit then
+  elab-bks ed-claim ok-then? if ed-bk-steps ed-steps else nip then ;
+
 \ ---- Lines. Each is one JSON object with one member: the header's key
 \ elab_data, or a record kind, whose value is an object.
 create ed-kind-handlers
   ' ed-on-instance , ' ed-on-default , ' ed-on-reducibility , ' ed-on-eliminator ,
   ' ed-on-left-out , ' ed-on-class , ' ed-on-tag , ' ed-on-matcher , ' ed-on-projection ,
-  ' ed-on-sunfold ,
+  ' ed-on-sunfold , ' ed-on-binder-kinds ,
 : ed-one-member? ( -- flag ) 0 ed-sole? ;
 : ed-object-value? ( -- flag ) 2 ed-view json-kind-at json-object = ;
 : ed-wrapped? ( -- flag ) ed-one-member? if ed-object-value? else false then ;
@@ -1392,8 +1470,11 @@ create ed-head-keys
 : ed-head-format ( value i -- outcome )
   drop c" format" ed-member s" leanforth-elab-data" ed-text=
   ed-e-format ed-or-bad ;
-\ Format 3 (the number), or 3.1 (the text; an inert node allowed: elab-v31).
-: ed-head-v31 ( index -- flag ) s" 3.1" ed-text= dup elab elab-v31 ! ;
+\ Format 3 (the number), or 3.1 (the text; an inert node allowed:
+\ elab-v31), or 3.2 (also binder kinds: elab-v32, plan FE1c-bk).
+: ed-head-v32 ( index -- flag ) s" 3.2" ed-text= dup elab elab-v32 ! ;
+: ed-head-v31 ( index -- flag )
+  dup ed-head-v32 swap s" 3.1" ed-text= or dup elab elab-v31 ! ;
 : ed-head-v3? ( index -- flag ) ed-view natural-at if s" 3" compare 0= else false then ;
 : ed-head-version ( value i -- outcome )
   drop c" format_version" ed-member dup ed-head-v31 if drop true else ed-head-v3? then
@@ -1413,10 +1494,14 @@ create ed-head-keys
 : ed-expect ( object kind -- outcome )
   tuck ed-kind-name ed-member ed-view json-u if swap ed-expected ! outcome-ok
   else drop ed-malformed then ;
+\ Format 3.2 counts every kind; 3 and 3.1 all but binder_kinds (none).
+: ed-kinds-named ( -- table n )
+  ed-v32? if ed-kind-names elab-kinds else ed-v3-kinds elab-binders then ;
+: ed-records-shaped? ( object -- flag ) ed-kinds-named drop ed-shape? ;
+: ed-expect-k ( object k -- object outcome ) over swap ed-expect ;
 : ed-head-records ( value i -- outcome )
-  drop c" records" ed-member dup ed-kind-names ed-shape? 0= if drop ed-malformed exit then
-  elab-kinds 0 do dup i ed-expect dup ok? 0= if nip unloop exit then drop loop
-  drop outcome-ok ;
+  drop c" records" ed-member dup ed-records-shaped? 0= if drop ed-malformed exit then
+  ed-kinds-named nip ['] ed-expect-k ok-each nip ;
 \ M6 (S1 note): the records SHA-256 the export's manifest names, if any,
 \ must be the header's (the records are then checked against it).
 : ed-bound ( -- c-addr u ) elab elab-bound elab elab-bound-length @ ;

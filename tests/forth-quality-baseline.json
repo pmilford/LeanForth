@@ -504,10 +504,10 @@
   "words": 112
  },
  "src/front/elab-data.fs": {
-  "globals": 65,
+  "globals": 69,
   "long lines": 0,
   "long words": 0,
-  "rstack": 25,
+  "rstack": 26,
   "shuffles": 26,
   "words": 412
  },

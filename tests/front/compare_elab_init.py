@@ -36,7 +36,7 @@ LEAN_KINDS = {"class": ("class",), "instance": ("instance", "instance_left_out")
               "eliminator": ("eliminator",), "tag": ("tag",), "matcher": ("matcher",),
               "projection": ("projection",), "sunfold": ("sunfold",)}
 KINDS = ("class", "instance", "instance_left_out", "default_instance", "reducibility",
-         "eliminator", "tag", "matcher", "projection", "sunfold")
+         "eliminator", "tag", "matcher", "projection", "sunfold", "binder_kinds")
 
 
 def pairs(text):

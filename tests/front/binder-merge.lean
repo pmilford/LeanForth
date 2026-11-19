@@ -13,8 +13,13 @@ this file's export by the pinned exporter:
 In Lean, `example (n : Nat) : n + 0 = n := by exact BK.expl n` is
 accepted and `... := by exact BK.expl` is refused (type mismatch).
 LeanForth reads the export's kinds (front/lib-decode.fs lf-tier-kinds),
-so tests/front/menv-run.fs pins BK.expl's kinds as implicit, Lean's
-explicit, until the elaboration data carries Lean's own kinds.
+implicit for BK.expl, unless the elaboration data carries Lean's own
+(format 3.2, plan FE1c-bk): tests/front/binder-merge.elab.ndjson, made by
+
+  LEAN_PATH=. lean --run scripts/export_elab.lean BK > bk.raw
+  python3 scripts/export_elab.py bk.raw binder-merge.ndjson binder-merge.elab.ndjson
+
+has BK.expl's record, explicit, which tests/front/menv-run.fs reads.
 In Init, 1405 pairs of declarations share a type node this way (for
 example `id` and `inferInstance`, whose instance-implicit binder the
 export writes as explicit; `congrArg` and `have_val_congr'`).

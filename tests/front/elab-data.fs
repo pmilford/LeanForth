@@ -22,7 +22,7 @@ include ../support/tester.fs
 include ../support/heap-watch.fs
 hex require ../../src/front/elab-data.fs base @ decimal constant base-after-load
 
-T{ base-after-load elab-kinds elab-instance-reducible elab-tag-brec-on -> 16 10 4 6 }T
+T{ base-after-load elab-kinds elab-instance-reducible elab-tag-brec-on -> 16 11 4 6 }T
 
 \ ---- The key store, on keys made by hand (it is empty before any read).
 : new-key ( tag -- k ) elab-key-new drop ;
@@ -88,7 +88,7 @@ T{ 12 lib stage-init slice lib stage-read -> outcome-ok outcome-ok }T
 : nat ( c-addr u -- d ) 0 s" Nat" part -rot part decl ;
 : dotted ( c-addr1 u1 c-addr2 u2 -- d ) 2swap 0 -rot part -rot part decl ;
 : why? ( c-addr u -- flag ) elab-error-why compare 0= ;
-: counts ( -- n1 .. n10 ) elab-kinds 0 do i elab-count loop ;
+: counts ( -- n1 .. n10 ) elab-binders 0 do i elab-count loop ;   \ format 3's kinds
 
 \ Before any read: nothing loaded, no eliminator found (the table is made
 \ by the first read), nothing failed.
@@ -250,6 +250,25 @@ T{ 34 elab-node-a dup elab-level-kind over elab-level-a rot elab-level-b
 \ (24-26) and a lambda with an anonymous binder (27): read, the body inert
 \ and not usable, not foreign; an inert node an mdata of elab-inert around
 \ its term. instHAdd a default instance of HAdd at ranks 0 and 1: both kept.
+\ Format 3.2 (plan FE1c-bk; test_elab_data.py writes the fixture): Lean's
+\ binder kinds of Nat.add (1 0) and Nat.rec (10, 0, 010, 0) read back, the
+\ domain of a binder beyond them none, a declaration without a record none.
+: v32 ( -- c-addr u ) s" tests/front/format32.elab.ndjson" ;
+: kinds@ ( d -- k0 .. kn-1 n ) elab-binder-kinds-of drop elab-binder-kinds dup >r
+  cells bounds ?do i @ 1 cells +loop r> ;
+: domain@ ( d k -- k0 .. kn-1 n )
+  swap elab-binder-kinds-of drop swap elab-binder-domain dup >r cells bounds ?do i @ 1 cells
+  +loop r> ;
+T{ v32 lib digest elab-read counts elab-binders elab-count
+   -> outcome-ok 3 2 18 0 54 3 10 4 3 1 2 }T
+T{ s" add" nat kinds@ s" rec" nat kinds@ -> 1 0 2 1 0 0 0 4 }T
+T{ s" rec" nat 0 domain@ s" rec" nat 2 domain@ s" rec" nat 1 domain@ s" rec" nat 4 domain@
+   -> 0 1 1 0 2 0 0 }T
+T{ s" add" nat elab-binder-kinds-of nip s" Nat" top elab-binder-kinds-of
+   0 elab-binder-decl s" add" nat = -> true false true }T
+\ A later read of format 3 has none.
+T{ good lib digest elab-read s" add" nat elab-binder-kinds-of elab-binders elab-count
+   -> outcome-ok false 0 }T
 : v31 ( -- c-addr u ) s" tests/front/format31.elab.ndjson" ;
 T{ v31 lib digest elab-read counts -> outcome-ok 3 3 18 0 54 3 10 4 3 1 }T
 T{ 0 elab-sunfold-inert? 0 elab-sunfold-foreign? 0 elab-sunfold-usable? 0 elab-sunfold-value
@@ -290,8 +309,9 @@ T{ s" tests/front/cut-off.elab.ndjson" lib digest elab-read empty? elab-error-li
 \ Every code has its text, the first and the last as documented.
 T{ 0 ed-message s" none" compare 1 ed-message s" file missing or unreadable" compare
    38 ed-message s" a record kind this reader does not read yet" compare
-   45 ed-message s" an annotation this reader does not know" compare 46 ed-message nip
-   -> 0 0 0 0 0 }T
+   45 ed-message s" an annotation this reader does not know" compare
+   46 ed-message s" binder kinds named twice" compare 47 ed-message nip
+   -> 0 0 0 0 0 0 }T
 T{ 16 ed-message s" a default instance of two classes" compare -> 0 }T
 \ elab-unhashed: error 26 at line 0, the outcome kept, nothing loaded.
 T{ good lib digest elab-read outcome-full elab-unhashed elab-error-code elab-error-line

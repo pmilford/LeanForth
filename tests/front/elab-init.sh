@@ -12,7 +12,9 @@
 # samples (tests/front/elab-init.fs), and the data's ranks and priorities
 # give Lean's own candidate order for 19 instance problems
 # (tests/reference/elab-instance-order.lean), all compared by
-# tests/front/compare_elab_init.py. Uses gforth-fast beside $GFORTH when
+# tests/front/compare_elab_init.py; and tests/front/check_bk_init.py
+# elaborates tests/front/bk-init.lf as pinned Lean does (plan FE1c-bk). Uses
+# gforth-fast beside $GFORTH when
 # there is one. Needs pinned Lean 4.35.0 (LEAN), Gforth (GFORTH) and
 # Python 3.
 set -eu
@@ -61,11 +63,12 @@ python3 scripts/export_manifest.py "$work/init.ndjson"
 LEAN="$lean" bash scripts/export-elab.sh "$work/init.elab.ndjson" "$work/init.ndjson" Init \
   >"$work/finish.txt"
 cat "$work/finish.txt"
-# The records' SHA-256 of format 3 for Init (2026-11-13, nodes shared by
-# Expr.equal, review s2-unfold-a M2): any change to the exporter's output
+# The records' SHA-256 of format 3.2 for Init (2026-11-18, plan FE1c-bk: the
+# format-3 records of 2026-11-13, nodes shared by Expr.equal, review
+# s2-unfold-a M2, and 687 binder_kinds): any change to the exporter's output
 # shows here first.
 records=$(head -1 "$work/init.elab.ndjson" | sed 's/.*"records_sha256":"\([0-9a-f]*\)".*/\1/')
-if [ "$records" != 9d9871422c1b2df727e93225480d3c3c7b443ceb40280584ae471aebb8c017b1 ]; then
+if [ "$records" != 7e1777381eb780bdef7fe2ba18198a54d65993cfc48def8564a8ffb97bd6e542 ]; then
   printf 'Unexpected records of Init'"'"'s elaboration data: %s\n' "$records" >&2
   exit 1
 fi
@@ -80,3 +83,8 @@ PATH="$toolchain/bin:$PATH" "$lean" -j 2 -DwarningAsError=true --run \
   elab-init-report bye" </dev/null >"$work/forth.txt"
 python3 tests/front/compare_elab_init.py "$work/finish.txt" "$work/lean.txt" "$work/forth.txt" \
   "$work/init.elab.ndjson" "$work/order.txt"
+# Lean's binder kinds (format 3.2, plan FE1c-bk): three Init statements
+# elaborated node for node as pinned Lean's with the data, stopped without it.
+GFORTH="$gforth" python3 tests/front/check_bk_init.py "$work/init.ndjson" \
+  "$work/init.elab.ndjson"
+LEAN="$lean" python3 tests/front/check_bk_init.py --lean

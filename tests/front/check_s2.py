@@ -273,7 +273,8 @@ INERT_RUNS = [("tests/front/02-add-zero-rfl.lf", 2, "error 93 at "),
 
 
 def inert_data():
-    """The slice's data with Nat.add's body holding an inert node, as format 3.1."""
+    """The slice's data with Nat.add's body holding an inert node, as format 3.1
+    (or 3.2, which also allows it, when the data holds binder kinds)."""
     head, body = (ROOT / DATA).read_text(encoding="utf-8").split("\n", 1)
     lines = body.split("\n")
     i = next(i for i, x in enumerate(lines) if x.startswith('{"sunfold":{') and
@@ -282,7 +283,8 @@ def inert_data():
     lines[i] = lines[i].replace(MATCH + expr + "}}", f'{{"inert":{{"expr":{expr},"key":"save_info"}}}}', 1)
     body = "\n".join(lines)
     header = json.loads(head)
-    header["elab_data"].update(format_version="3.1",
+    version = "3.2" if header["elab_data"]["format_version"] == "3.2" else "3.1"
+    header["elab_data"].update(format_version=version,
                                records_sha256=hashlib.sha256(body.encode()).hexdigest())
     return json.dumps(header, sort_keys=True, separators=(",", ":")) + "\n" + body
 

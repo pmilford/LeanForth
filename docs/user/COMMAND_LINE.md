@@ -214,6 +214,13 @@ LeanForth does not carry (Mathlib: 11 of 1,844) gets format 3.1, in which
 each such body is marked and never used: where a proof would need it, the
 run answers "not supported" rather than anything Lean would not
 ([format 3.1](../programming/ELABORATION_DATA.md#format-31-inert-metadata)).
+A library whose export gives some declarations another declaration's
+binder kinds (lean4export writes one node for types equal up to them;
+`Init`: 687 declarations, such as `Nat.lt_one_iff`, whose `{n}` the export
+writes `(n)`) gets format 3.2, which carries Lean's own kinds for those
+declarations, so that a text applying them takes its arguments as Lean
+does ([format 3.2](../programming/ELABORATION_DATA.md#format-32-binder-kinds));
+an older LeanForth refuses format 3.2 as another format version.
 With `--elab-data DATA` and a library (`--env` or `--snapshot`), DATA is
 read after the library and before the text runs, and checked against the
 library:
