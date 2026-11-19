@@ -11122,8 +11122,8 @@ reason = "FE1a, review fe1ab L1: a type that is a beta redex (d : (fun a => a ->
 [[fault]]
 id = "fe-type-head-unfold-ignored"
 file = "src/cli/check-lf.fs"
-old = '''  lfc-name lfc-decl 0= if false exit then dup lfc-count swap lfc-def? true ;'''
-new = '''  lfc-name lfc-decl 0= if false exit then dup lfc-count swap drop false true ;'''
+old = ''': lfc-arity-of ( d -- arity unfolds? ) dup lfc-count swap lfc-def? ;'''
+new = ''': lfc-arity-of ( d -- arity unfolds? ) lfc-count false ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1a: a variable whose type is headed by a definition (Nat.add) gets argument count 0, guessing what whnf may change"
 

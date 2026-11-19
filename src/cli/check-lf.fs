@@ -146,8 +146,9 @@ end-structure
 : lfc-count ( d -- n )
   dup ck-stage staged-type@ lfc-telescope lfc-unfolds?
   if 2drop -1 else swap lfc-own-explicit then ;
+: lfc-arity-of ( d -- arity unfolds? ) dup lfc-count swap lfc-def? ;
 : lfc-arity ( name -- arity unfolds? true | false )
-  lfc-name lfc-decl 0= if false exit then dup lfc-count swap lfc-def? true ;
+  lfc-name lfc-decl dup if drop lfc-arity-of true then ;
 ' lfc-arity is lfn-library-arity
 
 \ ---- The stage: the library export read (not sealed yet), or empty.

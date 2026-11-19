@@ -419,7 +419,9 @@ texts-end constant me-uint-op-texts
 : me-data-kinds ( d' -- ) elab-binder-kinds-of if elab-binder-kinds me-kinds-move then ;
 : me-data-domain ( k d' -- )
   elab-binder-kinds-of if swap elab-binder-domain me-kinds-move else drop then ;
-: me-fed-data-kinds ( d' -- ) me-data? if me-data-kinds else drop then ;
+\ The fed mode's data declaration, or -1 (none has a record) without data.
+: me-data-d ( d' -- d' | -1 ) me-data? 0= if drop -1 then ;
+: me-fed-data-kinds ( d' -- ) me-data-d me-data-kinds ;
 : me-fed-kinds ( d -- )
   me-stage 0= if drop me-kinds slab-clear exit then
   me-staged 0= if me-kinds slab-clear exit then
@@ -437,7 +439,7 @@ texts-end constant me-uint-op-texts
 \ declaration's are not recorded (none).
 : me-tier-kinds-in ( e tier k -- )
   lf-tier-domain if me-kinds lf-tier-kinds drop else 2drop me-kinds slab-clear then ;
-: me-fed-data-domain ( k d' -- ) me-data? if me-data-domain else 2drop then ;
+: me-fed-data-domain ( k d' -- ) me-data-d me-data-domain ;
 : me-fed-kinds-in ( k d -- )
   me-stage 0= if 2drop me-kinds slab-clear exit then
   me-staged 0= if drop me-kinds slab-clear exit then
