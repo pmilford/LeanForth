@@ -1273,13 +1273,27 @@ test-mutants:
 # test-coverage tests the tool itself (part of make test).
 COVERAGE_GFORTH = $(or $(LEANFORTH_GFORTH),$(GFORTH))
 coverage:
-	$(RUN) python3 scripts/coverage.py --gforth $(COVERAGE_GFORTH) -- make test JOBS=$(JOBS)
+	$(RUN) python3 scripts/coverage.py --gforth $(COVERAGE_GFORTH) --save-full -- make test JOBS=$(JOBS)
 
 coverage-check:
-	$(RUN) python3 scripts/coverage.py --gforth $(COVERAGE_GFORTH) --check -- make test JOBS=$(JOBS)
+	$(RUN) python3 scripts/coverage.py --gforth $(COVERAGE_GFORTH) --check --save-full -- make test JOBS=$(JOBS)
+
+# Paying coverage debt (TESTING_STRATEGY.md, "Paying coverage debt"): make cover FILE=src/x/y.fs
+# [TESTS="tests/a.fs ..."] runs only Forth unit tests under coverage, in seconds, and lists FILE's
+# never-run blocks with their lines, words and text against the baseline and the last full run
+# (kept by coverage and coverage-check, --save-full); make cover-debt lists the baseline's debt.
+# One file's entry changes without a run: python3 scripts/coverage.py --set-baseline FILE --blocks N.
+cover:
+	$(if $(FILE),,$(error make cover needs FILE=src/...fs))
+	python3 scripts/coverage.py --gforth $(COVERAGE_GFORTH) --jobs $(JOBS) --file $(FILE) \
+	$(if $(TESTS),--tests "$(TESTS)")
+
+cover-debt:
+	python3 scripts/coverage.py --debt
 
 test-coverage:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/support/test_coverage.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/scripts/test_coverage_debt.py
 
 # The ratchet for COVERAGE_FILES alone, over the targets COVERAGE_TARGETS only
 # (the smaller change tiers of scripts/test-tier.py name every target of make
@@ -1289,7 +1303,7 @@ coverage-focus:
 	$(RUN) python3 scripts/coverage.py --gforth $(COVERAGE_GFORTH) --check \
 	$(addprefix --only ,$(COVERAGE_FILES)) -- make $(COVERAGE_TARGETS) JOBS=$(JOBS)
 
-.PHONY: mutants mutants-quick mutants-check test-mutants coverage coverage-check test-coverage \
+.PHONY: mutants mutants-quick mutants-check test-mutants coverage coverage-check test-coverage cover cover-debt \
 	coverage-focus
 # The coverage ratchet runs in the full change tier (make tier, scripts/push.sh),
 # not in make check: it runs the whole of make test, instrumented (about 6 min at
