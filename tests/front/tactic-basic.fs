@@ -157,6 +157,17 @@ T{ s" by-intro: h end t" proof nrun err -> outcome-unsupported 99 1 43 }T
 T{ s" by-intro: h end t" proof nrun err -> outcome-unsupported 99 1 43 }T
 ' let-p stating
 T{ s" by-intro: h end t" proof nrun err -> outcome-unsupported 99 1 43 }T
+\ An alternative's field (lf-tac-intro1 given a kind, as induction's
+\ eliminator gives it; review tactic-move M3): the kind given, here
+\ implicit, is the local's; the node's own kind is not read (the binder
+\ refused above, 99, is introduced). intro's row stands in for the call.
+tac-k-intro lfr-row trow-run @ constant intro-action
+: intro-implicit ( i -- ) dup 0 lf-tac-arg lf-binder-implicit rot lf-tac-intro1 ;
+' intro-implicit tac-k-intro lf-tactic-action!
+' implicit-pi stating
+T{ s" by-intro: h by-sorry end t" proof nrun new-local dup lf-local-name s" h" name=
+   swap lf-local-flags -> outcome-ok true lf-binder-implicit }T
+intro-action tac-k-intro lf-tactic-action!
 
 \ ---- 1. exact: a term of another type, Lean's Type mismatch text (the
 \ term, its type, the type expected; tactic-run.lean's x1 shape).

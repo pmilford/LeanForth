@@ -365,6 +365,27 @@ T{ s" HAdd.hAdd" types2 lf-synth-error abm-frames slab-count -> -4205 119 0 }T
 T{ id-nat nat lf-tr-default lf-defeq-elab-at id-nat nat lf-tr-reducible lf-defeq-elab-at config@
    -> true outcome-ok false outcome-ok lf-defeq-elab lf-tr-default }T
 T{ id-nat nat lf-tac-defeq -> true outcome-ok }T
+\ lf-tac-with-synth (Term.withSynthesize, review tactic-move M3): the
+\ stack passes through xt; the pending list is set aside while xt runs
+\ (none seen inside) and put back however xt ends; a problem xt leaves
+\ that no instance fills (Append Type: the elaborator records Lean's
+\ "failed to synthesize", 125) stops the run, as the runner's mapping of
+\ an invalid outcome gives it (93; the elaborator's own code is not
+\ carried, plan 9.4.8l), and the window is closed with the problem left.
+: type0 ( -- t ) nat lf-infer! ;
+: append-type ( -- mvar )
+  s" Append" type0 lf-level! lf-mk-const1 type0 lf-mk-app mv-synthetic lf-mvar-new made ;
+: pends ( -- n ) lf-elab-pending# ;
+: sum-pends ( a b -- a+b n ) + pends ;
+: pend-append ( -- ) append-type lf-elab-pend drop ;
+: pend-throws ( -- ) pend-append -77 throw ;
+T{ lf-elab-pending-reset pend-append 3 4 ' sum-pends lf-tac-with-synth pends -> 7 0 1 }T
+T{ lf-elab-pending-reset lf-elab-error-reset ' pend-append ' lf-tac-with-synth catch nip lf-author-code
+   lf-elab-error drop pends -> lf-author-throw 93 125 1 }T
+lf-tac-forget
+T{ lf-elab-pending-reset pend-append ' pend-throws ' lf-tac-with-synth catch nip lf-author-code pends
+   -> -77 0 2 }T
+lf-elab-pending-reset lf-elab-error-reset
 lf-author-begin
 
 \ ---- 6. tactic-msg.fs's branches that a well-formed proof never takes
@@ -479,6 +500,15 @@ T{ fr fs lf-mk-eq goal-of ' lf-goal-refl code1 lf-author-code -> lf-author-throw
 T{ s\" r\nis not definitionally equal to the right-hand side\n  s\n\n" detail-has? -> true }T
 lf-tac-forget
 T{ nat goal-of ' lf-goal-refl code1 -> -4205 }T
+\ checkNotAssigned first (review tactic-move M3): an assigned goal is
+\ refused, invalid, before its type is read, by introN (Nat: no binder,
+\ else 94) and by refl (Nat: no Eq, else 93's unsupported).
+nat goal-of constant g-done
+T{ g-done zero lf-mvar-assign -> outcome-ok }T
+lf-mctx-view constant view-g
+T{ g-done names 0 1 intro-code lf-author-code mti-frames slab-count lf-mctx-view view-g =
+   -> -4201 0 0 true }T
+T{ g-done ' lf-goal-refl code1 lf-author-code mrf-frames slab-count -> -4201 0 0 }T
 \ lf-tac-detail-n: n cells printed, or dropped while an error is recorded.
 : pair. ( a b -- outcome ) + 11 = if s" eleven" lf-pp-emit then outcome-ok ;
 T{ 5 6 2 ' pair. lf-tac-detail-n s" eleven" detail-has? -> true }T
@@ -489,6 +519,13 @@ lf-tac-forget
 : zero. ( x -- outcome ) 0= if s" given 0" lf-pp-emit then outcome-ok ;
 T{ ' zero. lfa-e-tac-form ' lf-tac-failed catch nip nip lf-author-code s" given 0" detail-has?
    -> lf-author-throw 99 true }T
+lf-tac-forget
+\ lf-tac-inline while an error is recorded: neither the detail nor the end
+\ of the message's line (lfa-err-inline) changes (review tactic-move M3).
+: inline@ ( -- n ) lfa-error lfa-err-inline @ ;
+T{ ' zero. lfa-e-tac-form ' lf-tac-failed catch nip nip inline@ detail# 0 ' shout. lf-tac-inline
+   detail# = swap inline@ = -> lf-author-throw true true }T
+T{ inline@ detail# < -> true }T
 lf-tac-forget
 .( tactic-lib.fs: all tests passed) cr
 bye

@@ -512,3 +512,43 @@ old = '''  1 over slab-claim lf-must over slab-at swap slab-unit erase ;'''
 new = '''  1 over slab-claim lf-must drop 0 over slab-at swap slab-unit erase ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "review tactic-move M1: a nested call's new frame is not its own (the slab's first unit erased), so the outer call's fields are lost when the inner one opens"
+
+[[fault]]
+id = "lib-refl-assigned-goal"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': lf-goal-refl ( goal -- ) lf-goal-not-assigned mrf-frames ['] mrf-framed lf-with-record ;'''
+new = ''': lf-goal-refl ( goal -- ) mrf-frames ['] mrf-framed lf-with-record ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-move M3: MVarId.refl without checkNotAssigned (Refl.lean:25) reads an assigned goal's type and answers its own error, not the fault"
+
+[[fault]]
+id = "lib-intro-n-assigned-goal"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mti-start ( -- ) mti mti-goal @ lf-goal-not-assigned lf-goal-type mti mti-type ! ;'''
+new = ''': mti-start ( -- ) mti mti-goal @ lf-goal-type mti mti-type ! ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-move M3: introN without checkNotAssigned (Intro.lean:15) reads an assigned goal's type and answers introN's error, not the fault"
+
+[[fault]]
+id = "lib-with-synth-status-dropped"
+file = "src/front/tactic-core.fs"
+old = '''  ['] tcr-under lf-postpone-no lf-elab-with-synth lf-tac-must ;'''
+new = '''  ['] tcr-under lf-postpone-no lf-elab-with-synth drop ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-move M3: withSynthesize's failure dropped, so a problem no instance fills is left and the tactic goes on as if it had succeeded"
+
+[[fault]]
+id = "lib-intro1-kinds-ignored"
+file = "src/front/tactic-core.fs"
+old = ''': tcr-kinds ( -- kinds ) tb tb-kind dup @ 0< if drop 0 then ;'''
+new = ''': tcr-kinds ( -- kinds ) 0 ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "review tactic-move M3: lf-tac-intro1 drops the kind its caller gives (an alternative's field), so the node's own kind is read and an implicit field is refused"
+
+[[fault]]
+id = "lib-inline-unguarded"
+file = "src/front/tactic-msg.fs"
+old = ''': lf-tac-inline ( x xt -- ) lf-author-code if 2drop exit then lf-tac-detail lfa-inline ;'''
+new = ''': lf-tac-inline ( x xt -- ) lf-tac-detail lfa-inline ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-move M3: a detail given while an error is recorded moves the recorded message's line end (lfa-err-inline), so its first line is cut at the wrong place"
