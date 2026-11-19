@@ -212,7 +212,7 @@ T{ detail s\" occurs-check failure\n\np : Prop\nh : p\n⊢ p" search nip nip -> 
 : see@ ( -- line col ) lfa-error lfa-err-see @ lfa-pos> ;
 ' eq-pp stating  ' the-goal chosen !
 T{ s" by-rw[ 0 ] end t" proof nrun err see@ -> outcome-invalid 220 1 43 1 50 }T
-T{ 0 trw-see see@ -> 1 50 }T
+T{ 7 lfa-see! 0 trw-see lfa-error lfa-err-see @ -> 7 }T
 ' open-eq chosen !
 T{ s" by-rw[ 0 ] end t" proof nrun err see@ -> outcome-unsupported 99 1 43 1 50 }T
 \ A goal type holding an open synthetic opaque metavariable (Lean compares
