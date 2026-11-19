@@ -53,3 +53,13 @@ old = ''': columns-open ( -- ) context-sealed? abort" columns: added after conte
 new = ''': columns-open ( -- ) ;'''
 test = "$GFORTH tests/lib/store-columns.fs"
 reason = "a column added after a context was made, missing from every context made before, is laid down instead of refused"
+
+# The test-only override of the cores (lib/task.fs, M2 of the audit).
+
+[[fault]]
+id = "parallel-cores-override-ignored"
+file = "src/lib/task.fs"
+old = '''[defined] task-cores-test [if] task-cores-test 1 max'''
+new = '''[defined] task-cores-test [if] cpu-read cpu-count 1 max'''
+test = "python3 tests/cli/test_parallel_stress.py Stress.test_more_workers_than_cores"
+reason = "the stress test's workers are cut to the cores again, so it never runs more workers than cores"

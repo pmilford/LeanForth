@@ -156,7 +156,12 @@ lf-lib-private set-current
   cpu-number 2dup cpu-dash? if cpu-range else rot drop 1 -rot then cpu-skip ;
 : cpu-count ( c-addr u -- n ) 0 -rot begin dup 0> while cpu-item 2>r + 2r> repeat 2drop ;
 lf-lib set-current
-cpu-read cpu-count 1 max constant task-cores
+\ Test builds only: a program that defines task-cores-test ( -- n ) before
+\ this file loads gets n cores instead, so that a test can run more
+\ workers than the machine has (tests/cli/test_parallel_stress.py, which
+\ starts Gforth itself); bin/leanforth defines no such word.
+[defined] task-cores-test [if] task-cores-test 1 max
+[else] cpu-read cpu-count 1 max [then] constant task-cores
 \ Workers the pool starts: every core unless changed with TO while the
 \ pool is stopped; kept between 1 and task-cores.
 task-cores value task-workers

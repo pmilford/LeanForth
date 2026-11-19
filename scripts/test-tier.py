@@ -116,12 +116,14 @@ FULL_SUITES = (
     {"label": "testfast", "goals": ["test-unit"], "engine": "fast"},
     {"label": "check-rest", "goals": ["check-rest"]},
 )
-# The daily full run (make daily) and what make tag-check requires: every suite, cache off.
+# The daily full run (make daily) and what make tag-check requires: every suite, cache off, and
+# all of Init at --jobs 8 against --jobs 1 (make parallel-init, plan 9.4.8p; owner, 2026-11-18).
 DAILY_SUITES = (
     {"label": "coverage-check", "goals": ["coverage-check"]},
     {"label": "testfast", "goals": ["test-unit"], "engine": "fast"},
     {"label": "check-rest", "goals": ["check-rest"]},
     {"label": "test073", "goals": ["test-unit"], "engine": "073"},
+    {"label": "parallel-init", "goals": ["parallel-init"]},
 )
 
 
