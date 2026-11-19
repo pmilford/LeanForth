@@ -56,3 +56,38 @@ On archive copies, Gforth 1.0; no suites, Lean, Init or Mathlib.
 - All 68 tests/front `.lf` files: check output and elab-dump identical.
 - 17 planted faults: 12 caught, 5 survived (M3).
 - Plug-in rule probes. Coverage was not re-measured.
+
+## Re-check, and review of commit set C3 (2026-11-19, e82b7e51..dd03a525)
+
+Findings: 0 high, 0 medium, 2 low (not blocking). **VERDICT: ready to merge at dd03a525.**
+
+### A. Earlier findings
+- **B1: closed.** `check-duplicates.py` finds no new copies.
+  - `irx-discard` may wait: it predates the branch, a committed receipt pins its file, and plan (T) names it.
+  - The src/import copies (feed.fs:160, ndjson.fs:1021) also predate the branch, but have no plan row. **N1 (low):** add one.
+- **M1: closed; the rule is sound.**
+  - Frames nest strictly, and the exit cut makes the outer frame last again, after a throw too.
+  - Reproduced: the block moved, yet the outer frame's value read back correctly; an inner throw left count 1, then 0.
+  - Caveat: "last" is dynamic scope. An outer call's callback running while an inner frame of the same slab is open would read the inner's frame. No caller does this, and the comment states the rule.
+- **M2: closed.**
+- **M3: closed.** I re-planted M6, M7, M8, M14 and M20 on dd03a525: all caught.
+- **L1: closed.** `tactics/sub/rfl.fs` and the constant alias are now refused.
+- **L2, L3: closed.**
+
+### B. C3
+- `lf-goal-rewrite ( goal e heq symm? -- new proof goals )` is in meta-tactic/rewrite.fs, as the word list says.
+  - One frame per call; `trw-mvars` and its `tac-state:` are gone.
+  - Re-entrant: the nested test passes and fault N11 is caught.
+- tactics/rewrite.fs holds only rw's own words.
+- **N2 (low):** the new-goals test in `trw-open?` repeats the proof's open-metavariable test; a fault there survives as equivalent. Drop the test, or comment why it stays.
+- **No behaviour change:**
+  - No golden differs from 944f36e1.
+  - 20 rewrite probes on 944f36e1, e82b7e51 and dd03a525 give identical answers, texts, step logs and proof terms. They covered:
+    - a hypothesis rule; add_comm alone and with arguments;
+    - no pattern (215); a definition name (99);
+    - a failing second rule (the state after the first is shown);
+    - try-rfl closing and not closing; `by-rewrite[` then rfl;
+    - rw in induction cases; 218 twice; an empty bracket.
+  - No `.lf` text reaches `<-`, 216, 217 or 219; library tests cover them.
+- **Debt paid:** 9 of 10 planted rewrite faults caught; the tenth is N2.
+- Metrics clean; the ratchet holds.
