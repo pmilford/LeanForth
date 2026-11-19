@@ -58,6 +58,33 @@ T{ s" instAddNat" inst-named lf-inst-verified? -1 lf-inst-verified?
    100000 lf-inst-verified?
    -> false false false }T
 
+\ ---- MF2's rule (MATHLIB_FRONT.md §3): each record is checked when
+\ first needed. The roots made, nothing is checked; a root's query checks
+\ its own instances (steps 1 and 2: Add Nat's instAddNat, not Mul's
+\ instMulNat); a class's default instances are checked (step 3) by its
+\ own lf-default-instances (HAdd's one, not Pow's).
+: status-of ( c-addr u -- s ) inst-named it-status@ ;
+: unchecked# ( n slab -- k ) 0 rot 0 ?do over i swap slab-at @ it-unchecked <> - loop nip ;
+: ichecked# ( -- n ) elab-instance elab-count it-status unchecked# ;
+: dchecked# ( -- n ) elab-default elab-count it-dstatus unchecked# ;
+: defaults# ( c-addr u -- n outcome )
+  menv-name elab-decl-of drop lf-default-instances rot drop ;
+lf-inst-reset
+T{ lf-inst-classes ichecked# dchecked# -> outcome-ok 0 0 }T
+T{ nat add lf-inst-unify nip nip ichecked# s" instMulNat" status-of dchecked#
+   -> outcome-ok 1 it-unchecked 0 }T
+T{ s" HAdd" defaults# dchecked# ichecked# -> 1 outcome-ok 1 1 }T
+\ The roots (lib/htab.fs in discr-tree.fs's tree): one per distinct root
+\ key of the values, each value's found, each root found by its own key.
+: distinct? ( k -- flag )   \ value k's root key is no earlier value's
+  dup it-value it-root-key swap 0 ?do dup i it-value it-root-key elab-key= if
+  drop false unloop exit then loop drop true ;
+: distinct# ( -- n ) 0 it-values# 0 ?do i distinct? - loop ;
+: rooted? ( k -- flag ) it-value it-root-key it-dt lf-dtree-root dup if nip then ;
+: own? ( r -- flag ) dup it-dt lf-dtree-root-key it-dt lf-dtree-root if = else drop false then ;
+T{ it-dt lf-dtree-roots# distinct# = it-values# ' rooted? all? it-dt lf-dtree-roots# ' own? all?
+   -> true true true }T
+
 \ ---- Resources, on a fresh table: each heap request refused in turn
 \ answers full or ok, and the same query then answers in full (OfNat ?T
 \ 0: 23 candidates; no part of a tree is kept), until a run meets no
@@ -70,9 +97,8 @@ lf-defeq-elab lf-defeq-stuck or lf-defeq-flags!
 \ Every run starts with the table's slabs shrunk, so that each of its
 \ heap requests comes again.
 : shrink ( slab -- ) dup slab-clear slab-trim drop ;
-: fresh ( -- )
-  lf-inst-reset it-roots shrink it-nodes shrink it-vals shrink it-ranked shrink
-  it-stack shrink it-out shrink it-status shrink it-dstatus shrink
+: fresh ( -- )   \ the reset gives the tree's tables and slabs back
+  lf-inst-reset it-ranked shrink it-out shrink it-status shrink it-dstatus shrink
   dk-cells shrink dk-args shrink dk-kinds shrink ;
 : refused ( k -- outcome fired? )
   full-goal swap fresh heap-refusals ! lf-inst-candidates nip nip
@@ -81,9 +107,9 @@ lf-defeq-elab lf-defeq-stuck or lf-defeq-flags!
 : full-or-ok? ( outcome -- flag ) dup ok? swap outcome-full = or ;
 \ A failed build keeps no node and no value cell: no root's tree is
 \ built, or the slabs hold one (each run starts with them empty).
-: unbuilt? ( r -- flag ) it-root@ tr-node @ 0< ;
-: no-cells? ( -- flag ) it-nodes slab-count it-vals slab-count or 0= ;
-: nothing-kept? ( -- flag ) it-roots slab-count ['] unbuilt? all? 0= no-cells? or ;
+: unbuilt? ( r -- flag ) it-dt lf-dtree-root-trie 0< ;
+: no-cells? ( -- flag ) it-dt lf-dtree-nodes# it-dt lf-dtree-vals# or 0= ;
+: nothing-kept? ( -- flag ) it-dt lf-dtree-roots# ['] unbuilt? all? 0= no-cells? or ;
 \ Answered, nothing of a failure kept; then in full, instOfNatNat (OfNat's
 \ one instance) the one check counted.
 : one-checked? ( -- flag ) lf-inst-checked# 1 = ;
@@ -210,9 +236,10 @@ T{ let-pi lf-inst-candidates nip nip id-nat lf-inst-candidates nip nip
    -> outcome-unsupported outcome-unsupported outcome-unsupported }T
 \ A root's node refused (its slab shrunk and filled, each heap request
 \ of the build refused in turn): full or ok, then the same query in full.
-: fill-nodes ( -- )
-  begin it-nodes slab-count it-nodes slab-capacity < while 1 it-nodes slab-claim 2drop
-  repeat ;
+: nodes ( -- slab ) it-dt dt-nodes ;
+: fill-nodes ( -- )   \ the tree made and its roots, then its nodes' room filled
+  lf-inst-classes drop
+  begin nodes slab-count nodes slab-capacity < while 1 nodes slab-claim 2drop repeat ;
 : mul-nat ( -- t ) l0 1 s" Mul" cn nat app ;
 variable mul-n
 mul-nat cands nip mul-n !

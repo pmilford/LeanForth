@@ -1029,12 +1029,14 @@ test: test-elab-data test-elab-data-e2e
 test-differential: reference-elab-data
 
 # The instance table (plans FE1e2 and FE1e3; S1_INTERFACE.md §9): keys,
-# isClass?, getUnify and getInstances over the Init slice, and instance
+# isClass?, getUnify and getInstances over the Init slice, the
+# discrimination tree (plan MF2+DT, tests/front/discr-tree.fs) and instance
 # search (FE1e5, tests/front/synth.fs), Gforth only; with pinned Lean,
 # every Init instance's class and keys recomputed, getInstances and 30
 # searches (answers and the candidates tried) compared with pinned Lean's
 # #synth traces (a few minutes).
 test-instances:
+	$(RUN) $(GFORTH) tests/front/discr-tree.fs
 	$(RUN) $(GFORTH) tests/front/instances.fs
 	$(RUN) $(GFORTH) tests/front/instances-bad.fs
 	$(RUN) $(GFORTH) tests/front/instances-odd.fs

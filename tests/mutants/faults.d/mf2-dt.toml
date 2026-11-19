@@ -1,0 +1,102 @@
+# Planted faults of plan slice MF2+DT (branch mf2-dt, 2026-11-18): the
+# instance records checked when first needed (src/front/instances.fs,
+# docs/design/MATHLIB_FRONT.md section 3), the refusal reported by the
+# elaborator (src/front/elab-pending.fs), and the discrimination tree moved
+# into its own file (src/front/discr-tree.fs). Read with
+# tests/mutants/faults.toml, which holds the moved trie's earlier faults.
+
+[[fault]]
+id = "mf2-step1-skipped"
+file = "src/front/instances.fs"
+old = '''  ['] it-class-pass it-ranks-pass ['] it-keys-ranks ok-and ;'''
+new = '''  it-keys-ranks ;'''
+test = "$GFORTH tests/front/instances-bad.fs && $GFORTH tests/front/instances.fs"
+reason = "a record used unchecked: a root's build skips step 1, so instMulNat (class Add, filed under Mul) goes into Mul's tree unchecked and Mul's query answers instead of refusing (115)"
+
+[[fault]]
+id = "mf2-step3-skipped"
+file = "src/front/instances.fs"
+old = '''  2dup it-default-of? if dup it-default-pass ok-then? if it-dplace then'''
+new = '''  2dup it-default-of? if it-dplace'''
+test = "$GFORTH tests/front/instances-bad.fs && $GFORTH tests/front/instances.fs"
+reason = "a default instance used unchecked: lf-default-instances places Pow's records without step 3, so instOfNatNat recorded under Pow is never refused (116)"
+
+[[fault]]
+id = "mf2-default-refusal-forgotten"
+file = "src/front/instances.fs"
+old = '''  elab-default elab-count ['] it-default-one ok-each nip it-refused ;'''
+new = '''  elab-default elab-count ['] it-default-one ok-each nip ;'''
+test = "$GFORTH tests/front/instances-bad.fs"
+reason = "a default instance's refusal (116) is the query's alone: later queries of other roots answer, the data no longer refused for the rest of the run"
+
+[[fault]]
+id = "mf2-blame-dropped"
+file = "src/front/instances.fs"
+old = ''': it-blame ( d -- ) it it-blamed ! ;'''
+new = ''': it-blame ( d -- ) drop ;'''
+test = "$GFORTH tests/front/instances-bad.fs"
+reason = "the refused record is not kept: lf-inst-refused-decl does not name instMulNat, instOfNatNat"
+
+[[fault]]
+id = "mf2-refusal-not-kept"
+file = "src/front/elab-pending.fs"
+old = '''  lf-inst-refusal if drop outcome-invalid ep-data-refused then ;'''
+new = '''  ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_elab.py"
+reason = "a refusal no step recorded is reported as malformed elaboration (76), not the data error naming the record (115, instMulNat)"
+
+[[fault]]
+id = "mf2-record-unnamed"
+file = "src/front/elab-pending.fs"
+old = '''  lf-menv-of-data ok-then? 0= if drop -1 exit then'''
+new = '''  drop -1 exit'''
+test = "GFORTH=$GFORTH python3 tests/front/check_elab.py"
+reason = "the data error does not name the refused record (no instMulNat line under error 115)"
+
+[[fault]]
+id = "dt-value-duplicated"
+file = "src/front/discr-tree.fs"
+old = '''  2dup dt-val-find dup 0< if drop dt-append else nip dv@ dv-value ! outcome-ok then ;'''
+new = '''  dt-append ;'''
+test = "$GFORTH tests/front/discr-tree.fs"
+reason = "insertVal appends an equal value again instead of replacing it in place (a second value cell)"
+
+[[fault]]
+id = "dt-child-never-found"
+file = "src/front/discr-tree.fs"
+old = '''  dup dn@ dn-child @ 0< if 2drop -1 exit then dt-edge-find 0= if drop -1 then ;'''
+new = '''  2drop -1 ;'''
+test = "$GFORTH tests/front/discr-tree.fs"
+reason = "a node's child is never found by its key: every insertion makes a new child, and getUnify misses the key's child"
+
+[[fault]]
+id = "dt-edge-key-ignored"
+file = "src/front/discr-tree.fs"
+old = '''  rot swap dt-edge-node over @ over dn-parent @ = if swap cell+ @ swap dn-key @ elab-key='''
+new = '''  rot swap dt-edge-node over @ over dn-parent @ = if 2drop true'''
+test = "$GFORTH tests/front/discr-tree.fs"
+reason = "the child table compares the parent only: Add Nat's values go under the star child (or the reverse)"
+
+[[fault]]
+id = "dt-edges-kept-on-failure"
+file = "src/front/discr-tree.fs"
+old = '''  dup dn@ dn-parent @ 0< if drop exit then'''
+new = '''  drop exit'''
+test = "$GFORTH tests/front/discr-tree.fs"
+reason = "a failed build leaves its children's entries in the child table: the next build finds stale entries and refuses its new children"
+
+[[fault]]
+id = "dt-star-unkept"
+file = "src/front/discr-tree.fs"
+old = ''': dt-star! ( c n -- ) over dn@ dn-key @ elab-key-star? if dn@ dn-star ! else 2drop then ;'''
+new = ''': dt-star! ( c n -- ) 2drop ;'''
+test = "$GFORTH tests/front/discr-tree.fs && $GFORTH tests/front/instances.fs"
+reason = "the star child is not kept: getUnify with a key misses every value under a star (Add Nat's left-out instances)"
+
+[[fault]]
+id = "dt-root-never-same"
+file = "src/front/discr-tree.fs"
+old = ''': dt-root-same ( r k htab -- flag ) rot swap lf-dtree-root-key elab-key= ;'''
+new = ''': dt-root-same ( r k htab -- flag ) 2drop drop false ;'''
+test = "$GFORTH tests/front/discr-tree.fs && $GFORTH tests/front/instances.fs"
+reason = "the roots table never finds a root: every value's root key is made a root again, and no query finds its root"

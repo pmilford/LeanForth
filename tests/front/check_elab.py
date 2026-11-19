@@ -17,6 +17,9 @@ elab-app.fs, elab-term.fs, elab-decl.fs; docs/design/S1_INTERFACE.md 11).
 3. --elab-fuel 3: exhausted, error 138, exit 3; its misuses refused (exit
    4); a text of only #check lines exits 0 with "nothing checked by the
    kernel"; #check inside a declaration is error 140 (exit 4).
+4. MF2's rule: elaboration data with a wrong instance record under the
+   root only a text's second theorem queries: the first theorem alone
+   exits 0; both stop at the second (exit 4, error 115 naming the record).
 A harness self-test first checks that a changed golden line is told apart.
 With --lean: pinned Lean writes the golden again (--write-golden keeps
 it) and it must be unchanged; the S1 twins give the answers above:
@@ -169,6 +172,41 @@ def check_limits():
                           f"expected 4 with {said!r}\n{done.stdout}{done.stderr}")
 
 
+# MF2's rule (docs/design/MATHLIB_FRONT.md 3): instance records are checked
+# when first needed. tests/front/bad-keys.elab.ndjson holds a wrong record
+# (instMulNat, its class Add, filed under Mul's root) under the root only the
+# second theorem queries: the first theorem alone is accepted (exit 0); the
+# file with both stops at the second (exit 4) with the data error naming the
+# record, and no theorem of the text is reported accepted.
+REFUSED_DATA = "tests/front/bad-keys.elab.ndjson"
+REFUSED_ENV = "tests/front/whnf-slice.ndjson"
+FIRST = "theorem t1\n  Nat explicit: n\n  Nat explicit: m\n  n m + n m + =\n:= by\n  by-rfl\nend t1\n"
+SECOND = "theorem t2\n  Nat explicit: n\n  Nat explicit: m\n  n m * n m * =\n:= by\n  by-rfl\nend t2\n"
+REFUSED = ("error 115 at line:col 14:1 (token `end`): elaboration data refused: an instance is "
+           "filed under another root key than its class")
+
+
+def refused_run(path):
+    done = run(["bin/leanforth", "check", "--env", REFUSED_ENV, "--elab-data", REFUSED_DATA, path])
+    return done.returncode, done.stdout + done.stderr
+
+
+def check_refused():
+    with tempfile.TemporaryDirectory() as work:
+        first = pathlib.Path(work) / "first.lf"
+        first.write_text(FIRST, encoding="utf-8")
+        code, out = refused_run(str(first))
+        if code != 0 or "t1: accepted" not in out:
+            raise Failure(f"the first theorem alone on {REFUSED_DATA}: exit {code}, expected 0\n{out}")
+        both = pathlib.Path(work) / "both.lf"
+        both.write_text(FIRST + SECOND, encoding="utf-8")
+        code, out = refused_run(str(both))
+        named = REFUSED in out and "\n  instMulNat" in out
+        if code != 4 or not named or ": accepted" in out:
+            raise Failure(f"both theorems on {REFUSED_DATA}: exit {code}, expected 4 with "
+                          f"{REFUSED!r} naming instMulNat and nothing accepted\n{out}")
+
+
 # --elab-fuel's misuses: each refused before anything runs (exit 4).
 MISUSES = (
     (["--elab-fuel", "5", SLICE], "--elab-fuel goes only with a LeanForth text (FILE.lf)"),
@@ -221,10 +259,12 @@ def main():
     check_now(want)
     check_s1(want)
     check_limits()
+    check_refused()
     print(f"check_elab: {NOW}: {len(THEOREMS)} theorems accepted, their terms equal pinned "
           f"Lean's node for node, #check lines as Lean's ({len(PRINTER_GAPS)} printer gap); "
           f"{len(S1_FILES)} S1 files as Lean's (s1-rfl.lf's t node for node); --elab-fuel, "
-          f"#check-only and #check-inside exits; harness self-test passed")
+          f"#check-only and #check-inside exits; a record refused at the second theorem's "
+          f"query, the first alone accepted; harness self-test passed")
 
 
 if __name__ == "__main__":
