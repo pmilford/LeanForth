@@ -8999,8 +8999,8 @@ reason = "S5B: a projection is no binary node, so the passes treat it as an unkn
 [[fault]]
 id = "tin-leaf-tags-raw-shift"
 file = "src/core/terms.fs"
-old = ''': lf-tin-leaf-tags+ ( lftag -- ) lf-tin-leaf-tags lf-tag-set+ ;'''
-new = ''': lf-tin-leaf-tags+ ( lftag -- ) 1 swap lshift lf-tin-leaf-tags @ or lf-tin-leaf-tags ! ;'''
+old = ''': lf-tin-leaf-tags+ ( lftag -- ) lf-term-tags-open lf-tin-leaf-tags lf-tag-set+ ;'''
+new = ''': lf-tin-leaf-tags+ ( lftag -- ) lf-term-tags-open 1 swap lshift lf-tin-leaf-tags @ or lf-tin-leaf-tags ! ;'''
 test = "$GFORTH tests/core/terms.fs"
 reason = "Forth review L3 of small-fixes-1118: the leaf-table tag set shifts by the raw tag, not through lf-tag-set+, so a tag above 31 or below 0 gets another bit than lf-tin-leaf-tag? reads"
 
@@ -13864,10 +13864,8 @@ reason = "FRP D4: a huge --progress interval wraps to a negative time, so a line
 [[fault]]
 id = "ck-lending-count-only"
 file = "src/cli/check-run.fs"
-old = '''  >r lf-cref-lending r@ ck-lend-count ! r@ ck-lend-slots ! r@ ck-lend-pool !
-  r> ck-lend-records ! ;'''
-new = '''  >r lf-cref-lending r@ ck-lend-count ! drop 2drop
-  r> drop ;'''
+old = ''': ck-ref-table@ ( -- addr n ) lf-cref-table ck-htab@ ;'''
+new = ''': ck-ref-table@ ( -- addr n ) lf-cref-table htab-count 0 swap ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "FRP D1: only the references' count is kept, so workers are not made again when the blocks they read move"
 

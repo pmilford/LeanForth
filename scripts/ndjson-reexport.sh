@@ -31,6 +31,9 @@ if [ -z "${GFORTH:-}" ]; then
   GFORTH=.tools/gforth/bin/gforth-fast
   [ -x "$GFORTH" ] || GFORTH=gforth-fast
 fi
+# No start-up file (Gforth 1.0's GFORTH_ENV or ~/.config/gforthrc0), as in
+# bin/leanforth: it could define a test hook and change the run.
+export GFORTH_ENV=off
 case "$source_file$copy" in
   *'"'*) printf 'file names may not hold a double quote\n' >&2; exit 2 ;;
 esac

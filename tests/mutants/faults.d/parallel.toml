@@ -1,0 +1,165 @@
+# Planted faults of parallel checking as a routine, tested property (plan 9.4.8p, branch
+# parallel-1, 2026-11-18): the driving context's input checked during a --jobs run (M1 of the
+# re-entrancy audit of 2026-11-18, src/cli/check-run.fs ck-shift?). Read with
+# tests/mutants/faults.toml as one list.
+
+[[fault]]
+id = "parallel-moved-never"
+file = "src/cli/check-run.fs"
+old = '''  ck-now dup ck-lending /ck-lend ck-state ck-lent /ck-lend compare 0<> ;'''
+new = '''  ck-now ck-lending false ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the input the workers read is never found moved: neither the remaking before the run nor the stop during it happens"
+quick = true
+
+[[fault]]
+id = "parallel-moved-uncapped"
+file = "src/cli/check-run.fs"
+old = ''': ck-final ( n -- n' ) ck-shifted? if ck-state ck-shifted-at @ min then ;'''
+new = ''': ck-final ( n -- n' ) ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a run whose input moved reads verdicts beyond the slots final at the move, which workers reached after it"
+
+[[fault]]
+id = "parallel-moved-handed-out"
+file = "src/cli/check-run.fs"
+old = ''': ck-pre-guarded ( d -- n ) ck-shift? if drop 3 else ck-pre-word execute ck-guarded then ;'''
+new = ''': ck-pre-guarded ( d -- n ) ck-pre-word execute ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "declarations are still handed out to workers after the input moved: the scheduler is never stopped"
+
+[[fault]]
+id = "parallel-moved-tick-unchecked"
+file = "src/cli/check-run.fs"
+old = '''  ck-shift? drop lf-sched-final ck-final ck-advance ck-shift? drop ;'''
+new = '''  lf-sched-final ck-final ck-advance ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a move made at the last tick, with no hand-out after it, is never found: the run ends ok"
+
+[[fault]]
+id = "parallel-view-part-unwatched"
+file = "src/cli/check-run.fs"
+old = ''': ck-nodes@ ( -- addr n ) lf-term-view lf-tview-nodes ck-htab@ ;'''
+new = ''': ck-nodes@ ( -- addr n ) lf-term-view lf-tview-nodes ck-htab@ 2drop 0 0 ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the view's node table, read in place by every worker, is not watched: a change there goes unseen"
+
+[[fault]]
+id = "parallel-decls-part-unwatched"
+file = "src/cli/check-run.fs"
+old = ''': ck-decls@ ( -- addr n ) lf-inputs ck-store@ ;'''
+new = ''': ck-decls@ ( -- addr n ) lf-inputs ck-store@ 2drop 0 0 ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the declarations, read in place by every worker, are not watched: a record made or a block moved goes unseen"
+
+[[fault]]
+id = "parallel-table-block-unwatched"
+file = "src/cli/check-run.fs"
+old = ''': ck-htab@ ( htab -- addr n ) dup htab-base swap htab-count ;'''
+new = ''': ck-htab@ ( htab -- addr n ) 0 swap htab-count ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a table whose block moved (grown, spread or renewed) with the same entries is not found moved"
+
+[[fault]]
+id = "parallel-tick-uncut"
+file = "src/cli/check-run.fs"
+old = '''  ck-shift? drop lf-sched-final ck-final ck-advance ck-shift? drop ;'''
+new = '''  ck-shift? drop lf-sched-final ck-advance ck-shift? drop ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "after a move the ticks write the lines of checks that may have read the changed input"
+
+[[fault]]
+id = "parallel-pre-unguarded"
+file = "src/cli/check-run.fs"
+old = ''': ck-pre-guarded ( d -- n ) ck-shift? if drop 3 else ck-pre-word execute ck-guarded then ;'''
+new = ''': ck-pre-guarded ( d -- n ) ck-shift? if drop 3 else ck-pre-word execute then ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a move made by the decision on readiness itself is not found before the declaration is handed out"
+
+[[fault]]
+id = "parallel-clean-at-reached"
+file = "src/cli/check-run.fs"
+old = ''': ck-clean! ( -- ) lf-sched-final ck-state ck-clean-at ! ;'''
+new = ''': ck-clean! ( -- ) lf-sched-reached ck-state ck-clean-at ! ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the clean slots are taken from the frontier, past a stop: verdicts beyond the serial run's stop could be read"
+
+[[fault]]
+id = "parallel-shifted-not-faulted"
+file = "src/cli/check-run.fs"
+old = '''  true ck-state ck-shifted ! true ck-state ck-faulted ! ck-shifted-at! ;'''
+new = '''  true ck-state ck-shifted ! ck-shifted-at! ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a run whose input moved at the last tick ends ok, exit 0, as if nothing happened"
+
+[[fault]]
+id = "parallel-shifted-at-now"
+file = "src/cli/check-run.fs"
+old = ''': ck-shifted-at! ( -- ) ck-clean@ ck-state ck-shifted-at ! ;'''
+new = ''': ck-shifted-at! ( -- ) lf-sched-final ck-state ck-shifted-at ! ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the run is cut where the change was found, keeping verdicts that became final after the last clean comparison"
+
+# The tables written while loading, sealed with the context layout (L2 of the audit).
+
+[[fault]]
+id = "parallel-term-tags-unsealed"
+file = "src/core/terms.fs"
+old = '''  context-sealed? abort" terms: tag table written after context-new" ;'''
+new = '''  ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "a tag registered after a context was made (read by every context's checks, in any task) is written instead of refused"
+
+[[fault]]
+id = "parallel-columns-unsealed"
+file = "src/lib/store-columns.fs"
+old = ''': columns-open ( -- ) context-sealed? abort" columns: added after context-new" ;'''
+new = ''': columns-open ( -- ) ;'''
+test = "$GFORTH tests/lib/store-columns.fs"
+reason = "a column added after a context was made, missing from every context made before, is laid down instead of refused"
+
+# The test-only override of the cores (lib/task.fs, M2 of the audit).
+
+[[fault]]
+id = "parallel-cores-override-ignored"
+file = "src/lib/task.fs"
+old = '''[defined] task-cores-test [if] task-cores-test 1 max'''
+new = '''[defined] task-cores-test [if] cpu-read cpu-count 1 max'''
+test = "python3 tests/cli/test_parallel_stress.py Stress.test_more_workers_than_cores"
+reason = "the stress test's workers are cut to the cores again, so it never runs more workers than cores"
+
+# The atomic add of the task adapter (lib/task.fs, L1 of the audit).
+
+[[fault]]
+id = "parallel-task-add-not-atomic"
+file = "src/lib/task.fs"
+old = ''': task+! ( n addr -- ) atomic+!@ drop ;'''
+new = ''': task+! ( n addr -- ) +!@ drop ;'''
+test = "$GFORTH tests/lib/task.fs"
+reason = "Gforth's +!@ is not atomic: additions of jobs on several workers to one counter are lost"
+
+[[fault]]
+id = "parallel-start-up-file-read"
+file = "bin/leanforth"
+old = '''export GFORTH_ENV=off'''
+new = '''export GFORTH_ENV=${GFORTH_ENV:-off}'''
+test = "python3 tests/cli/test_parallel_stress.py Stress.test_start_up_file_ignored"
+reason = "a start-up file named by GFORTH_ENV is loaded before src/main.fs and can define a test hook: --jobs above the cores"
+
+# The library words the watch reads (lib/slab.fs slab-data, lib/htab.fs htab-base).
+
+[[fault]]
+id = "slab-data-capacity"
+file = "src/lib/slab.fs"
+old = ''': slab-data ( slab -- addr n ) dup slab-base swap slab-count ;'''
+new = ''': slab-data ( slab -- addr n ) dup slab-base swap slab-capacity ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "slab-data gives the capacity, not the units in use"
+
+[[fault]]
+id = "htab-base-stale"
+file = "src/lib/htab.fs"
+old = ''': htab-base ( htab -- addr ) htab-block @ ;'''
+new = ''': htab-base ( htab -- addr ) drop 0 ;'''
+test = "$GFORTH tests/lib/htab.fs"
+reason = "htab-base gives no block, so a reader cannot see the table move"

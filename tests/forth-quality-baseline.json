@@ -128,7 +128,7 @@
   "words": 61
  },
  "src/cli/check-run.fs": {
-  "globals": 19,
+  "globals": 20,
   "long lines": 5,
   "long words": 0,
   "rstack": 67,

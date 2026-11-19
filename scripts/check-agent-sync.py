@@ -30,6 +30,7 @@ KEY_PHRASES = {
         "forth-metrics.py --words 10", "words longer than five lines", "VARIABLEs used as registers",
         "emulated locals", "BEGIN-STRUCTURE", "PICK/ROLL", "Trace all success and failure paths",
         "Forth-2012 portability", "human review of trusted semantics",
+        "no new module-level mutable state", "context-sealed?",
     ),
     "architect": (
         "You do not review a diff", "change no file except the report", "docs/development/FORTH_LIBRARY.md",

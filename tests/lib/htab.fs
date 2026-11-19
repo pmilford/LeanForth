@@ -36,8 +36,12 @@ T{ 2 spread-hooks start t htab-count t htab-slots -> outcome-ok 0 4 }T
 T{ 42 key-find nip -> false }T
 T{ 42 key-add 42 key-add 43 key-add t htab-count -> 0 0 1 2 }T
 T{ 42 key-find 43 key-find 44 key-find nip -> 0 true 1 true false }T
-\ Growth: the third entry fits 4 slots (3/4), the fourth doubles them.
+\ Growth: the third entry fits 4 slots (3/4), the fourth doubles them,
+\ into a new block (htab-base, the slots' block).
+t htab-base constant small-block
+T{ small-block 0<> small-block t htab-block @ = -> true true }T
 T{ 44 key-add t htab-slots 45 key-add t htab-slots t htab-count -> 2 4 3 8 4 }T
+T{ t htab-base t htab-block @ = -> true }T
 T{ 42 key-find 45 key-find -> 0 true 3 true }T
 T{ t htab-stats nip nip -> 1 }T
 

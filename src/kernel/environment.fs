@@ -352,13 +352,15 @@ u32-mask constant lf-look-outside   \ the key of names beyond the input (publish
 \ lookup with lf-env-look!.
 : lf-env-look! ( answer key -- ) lf-look-add ;
 \ I2 in a test build: a slot read in a check must be one a recorded
-\ query answered.
+\ query answered. The misses of every check, in any worker, add up in one
+\ counter, atomically (lib/task.fs's task+!; re-entrancy audit L1).
 [defined] lf-env-i2-checks [if]
+require ../lib/task.fs
 variable lf-i2-misses  0 lf-i2-misses !
 : lf-look-gave? ( d -- flag )
   1+ false lf-cand-looked@ 0 ?do over i lf-look-at cell+ @ lf-look-slot+1 = or loop nip ;
 : lf-env-i2 ( d -- d )
-  lf-look-on? if dup lf-look-gave? 0= if 1 lf-i2-misses +! then then ;
+  lf-look-on? if dup lf-look-gave? 0= if 1 lf-i2-misses task+! then then ;
 [else]
 : lf-env-i2 ( d -- d ) ;
 [then]
