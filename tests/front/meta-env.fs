@@ -7,7 +7,9 @@
 \ (invalid: a declaration beyond the input, a mode beyond the six, a name
 \ that is not valid or not declared); no elaboration data, and a refused
 \ read of it, answer unsupported where the status is needed and nothing
-\ else changes; the queries allocate nothing. Every T{ }T checks the data
+\ else changes; the queries allocate nothing; binder kinds, the data's
+\ binder_kinds records (format 3.2) replacing the export's only while the
+\ data is this context's. Every T{ }T checks the data
 \ stack's depth. tests/front/check_unfold.py compares the answers with
 \ pinned Lean. Loaded under HEX: loading must not depend on BASE.
 include ../support/tester.fs
@@ -125,6 +127,22 @@ menv-lib lf-menv-stage!
   s" Eq.ndrec" ['] lf-menv-aux-recursor? fact 2drop ;
 T{ live-blocks @ queries live-blocks @ - -> 0 }T
 
+\ ---- Lean's own binder kinds in the fed mode (format 3.2's binder_kinds
+\ records, plan FE1c-bk; review data-bk M1): where the data has a record,
+\ its kinds replace the export's, of the type's binders and of a binder's
+\ domain. Nat.eq_or_lt_of_le {n m} (h) (export: {n} (m h)); the private
+\ matcher Nat.eq_or_lt_of_le.match_1_3, whose motive's three binders are
+\ explicit (export: the middle one implicit). After a refused read below,
+\ the export's (faults fe-bk-fed-kinds, fe-bk-fed-domain).
+: kinds3 ( addr n -- k0 k1 k2 n ) >r dup @ over cell+ @ rot 2 cells + @ r> ;
+: bk-matcher ( -- d )
+  s" _private.Init.Prelude" menv-name 0 lf-name-num drop s" Nat" lf-name-str drop
+  s" eq_or_lt_of_le" lf-name-str drop s" match_1_3" lf-name-str drop lf-menv-find menv-must ;
+: bk-lemma ( -- addr n ) s" Nat.eq_or_lt_of_le" menv-decl lf-menv-kinds ;
+: bk-motive ( -- addr n ) bk-matcher 0 lf-menv-kinds-in ;
+T{ bk-lemma kinds3 -> lf-binder-implicit lf-binder-implicit lf-binder-default 3 }T
+T{ bk-motive kinds3 -> lf-binder-default lf-binder-default lf-binder-default 3 }T
+
 \ ---- Without elaboration data the status is a missing fact: unsupported
 \ where it is needed, all and none still answered; naming the stage
 \ again restores every answer. A refused read (here of a sealed stage,
@@ -157,6 +175,9 @@ T{ lf-input-intact? lf-menv-reset lf-input-intact? -> true true }T
 \ HAdd.hAdd {α β γ} [self] (a b), none without a stage.
 menv-lib lf-menv-stage!
 T{ s" HAdd.hAdd" menv-decl lf-menv-kinds nip -> 6 }T
+\ The data's read was refused above: the export's kinds, not the records'.
+T{ bk-lemma kinds3 -> lf-binder-implicit lf-binder-default lf-binder-default 3 }T
+T{ bk-motive kinds3 -> lf-binder-default lf-binder-implicit lf-binder-default 3 }T
 \ The kinds of the leading binders of binder k's domain (S2 4, an
 \ eliminator's fields): Nat.rec's succ case (binder 2) has two explicit
 \ ones, its motive one, its major premise and a binder past the type
@@ -177,5 +198,15 @@ T{ s" OfNat" s" ofNat" nm2 me-matcher-name? s" Mod" s" mod" nm2 me-matcher-name?
    s" UInt64" s" add" nm2 me-matcher-name? -> true true true false false }T
 T{ 0 s" ndrecOn" lf-name-str drop me-ndrec-text? 0 s" ndrecOff" lf-name-str drop me-ndrec-text?
    -> true false }T
+
+\ Data read against another stage of the same export (its records numbered
+\ by that stage) is not this context's: named, it gives the export's kinds
+\ (fault fe-bk-fed-no-data).
+create twin /stage allot
+T{ 14 twin stage-init menv-slice twin stage-read -> outcome-ok outcome-ok }T
+T{ menv-data twin twin stage-manifest manifest-digest elab-read -> outcome-ok }T
+twin lf-menv-stage!
+T{ bk-lemma kinds3 -> lf-binder-implicit lf-binder-default lf-binder-default 3 }T
+menv-lib lf-menv-stage!
 
 bye

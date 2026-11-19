@@ -512,12 +512,12 @@
   "words": 112
  },
  "src/front/elab-data.fs": {
-  "globals": 65,
+  "globals": 69,
   "long lines": 0,
   "long words": 0,
-  "rstack": 25,
+  "rstack": 24,
   "shuffles": 26,
-  "words": 412
+  "words": 462
  },
  "src/front/elab-decl.fs": {
   "globals": 0,

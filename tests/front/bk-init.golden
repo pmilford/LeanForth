@@ -1,0 +1,6 @@
+bk_mod type (pi Nat.{} (pi Nat.{} (app (app (app Eq.{1} Nat.{}) (app (app (app (app (app (app HMod.hMod.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHMod.{0} Nat.{}) Nat.instMod.{})) #1) #0)) (app (app (app (app (app (app HSub.hSub.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHSub.{0} Nat.{}) instSubNat.{})) #1) (app (app (app (app (app (app HMul.hMul.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHMul.{0} Nat.{}) instMulNat.{})) #0) (app (app (app (app (app (app HDiv.hDiv.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHDiv.{0} Nat.{}) Nat.instDiv.{})) #1) #0))))))
+bk_mod value (lam Nat.{} (lam Nat.{} (app (app Nat.mod_eq_sub_mul_div.{} #1) #0)))
+bk_not_lt type (pi Nat.{} (pi Nat.{} (app (app (app Eq.{1} Sort 0) (app Not.{} (app (app (app (app LT.lt.{0} Nat.{}) instLTNat.{}) #1) #0))) (app (app (app (app LE.le.{0} Nat.{}) instLENat.{}) #0) #1))))
+bk_not_lt value (lam Nat.{} (lam Nat.{} (app (app Nat.not_lt_eq.{} #1) #0)))
+bk_lt_one type (pi Nat.{} (app (app Iff.{} (app (app (app (app LT.lt.{0} Nat.{}) instLTNat.{}) #0) (app (app (app OfNat.ofNat.{0} Nat.{}) 1) (app instOfNatNat.{} 1)))) (app (app (app Eq.{1} Nat.{}) #0) (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0)))))
+bk_lt_one value (lam Nat.{} (app Nat.lt_one_iff.{} #0))

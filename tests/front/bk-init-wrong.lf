@@ -1,0 +1,10 @@
+\ The wrong twin of tests/front/bk-init.lf (plan FE1c-bk): the sides of
+\ Nat.not_lt_eq's ≤ swapped. Lean refuses tests/front/bk-init-wrong.lean
+\ with a type mismatch; LeanForth, with the data's binder kinds, takes a and
+\ b as Lean does and refuses it at by-exact with the same message (exit 4).
+theorem bk_not_lt_wrong
+  Nat explicit: a   Nat explicit: b
+  a b LT.lt Not  a b LE.le =
+:= by
+  a b Nat.not_lt_eq by-exact
+end bk_not_lt_wrong

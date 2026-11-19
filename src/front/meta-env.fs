@@ -79,7 +79,9 @@
 \ layout), unchecked: d from lf-menv-find; lf-menv-kinds ( d -- addr n )
 \ the kinds (0-3, Lean's BinderInfo) of its type's leading Pi binders (S1
 \ §4): a library declaration's from the tier's binder tags (in the fed
-\ mode, of the stage named, else none), a text declaration's as its binder
+\ mode, of the stage named, else none), or Lean's own where the data read
+\ against that stage has a binder_kinds record of it (format 3.2, plan
+\ FE1c-bk), a text declaration's as its binder
 \ words wrote them, recorded by lf-menv-add; never read from a shared term
 \ node; the answer holds until the next call, and fewer kinds than binders
 \ (none known, no room) leave the rest unknown to the caller;
@@ -405,16 +407,28 @@ texts-end constant me-uint-op-texts
 : lf-menv-unfoldable ( name mode -- d flag outcome )
   dup lf-tr-modes u< 0= if 2drop -1 false outcome-invalid exit then
   swap lf-menv-find ok-then? if swap me-unfoldable else nip -1 false rot then ;
-\ ---- Binder kinds (S1 §4), into me-kinds.
+\ ---- Binder kinds (S1 §4), into me-kinds. A library declaration's are
+\ the export's tags, but where the elaboration data has a binder_kinds
+\ record (format 3.2, plan FE1c-bk), Lean's own: lean4export writes one
+\ node for types equal up to binder kinds, so the export may hold another
+\ declaration's.
 : me-kinds-out ( -- addr n ) 0 me-kinds slab-at me-kinds slab-count ;
+: me-kinds-move ( addr n -- )
+  me-kinds slab-clear dup me-kinds slab-claim ok-then? 0= if drop 2drop exit then
+  drop swap 0 me-kinds slab-at rot cells move ;
+: me-data-kinds ( d' -- ) elab-binder-kinds-of if elab-binder-kinds me-kinds-move then ;
+: me-data-domain ( k d' -- )
+  elab-binder-kinds-of if swap elab-binder-domain me-kinds-move else drop then ;
+\ The fed mode's record of the staged declaration d', when there is data.
+: me-fed-data-kinds ( d' -- ) me-data? if me-data-kinds else drop then ;
 : me-fed-kinds ( d -- )
   me-stage 0= if drop me-kinds slab-clear exit then
-  me-staged if me-stage staged-type@ me-stage stage-tier me-kinds lf-tier-kinds drop
-  else me-kinds slab-clear then ;
-: me-lib-kinds ( d -- ) me-kinds lf-libdec-kinds drop ;
-: me-kinds-copy ( first n -- )
-  me-kinds slab-clear dup me-kinds slab-claim ok-then? 0= if drop 2drop exit then
-  drop swap me-tkinds slab-at 0 me-kinds slab-at rot cells move ;
+  me-staged 0= if me-kinds slab-clear exit then
+  dup me-stage staged-type@ me-stage stage-tier me-kinds lf-tier-kinds drop
+  me-fed-data-kinds ;
+: me-lib-kinds ( d -- )
+  dup me-kinds lf-libdec-kinds drop me-run-data? if me-data-kinds else drop then ;
+: me-kinds-copy ( first n -- ) swap me-tkinds slab-at swap me-kinds-move ;
 : me-kinds-span ( mtx -- first n ) dup mtx-kinds @ swap mtx-kinds# @ ;
 : me-text-kinds ( d -- ) me-text me-kinds-span me-kinds-copy ;
 ' me-fed-kinds ' me-lib-kinds ' me-text-kinds me-table me-binders
@@ -424,12 +438,14 @@ texts-end constant me-uint-op-texts
 \ declaration's are not recorded (none).
 : me-tier-kinds-in ( e tier k -- )
   lf-tier-domain if me-kinds lf-tier-kinds drop else 2drop me-kinds slab-clear then ;
+: me-fed-data-domain ( k d' -- ) me-data? if me-data-domain else 2drop then ;
 : me-fed-kinds-in ( k d -- )
   me-stage 0= if 2drop me-kinds slab-clear exit then
-  me-staged if me-stage staged-type@ me-stage stage-tier rot me-tier-kinds-in
-  else drop me-kinds slab-clear then ;
+  me-staged 0= if drop me-kinds slab-clear exit then
+  2dup me-stage staged-type@ me-stage stage-tier rot me-tier-kinds-in me-fed-data-domain ;
 : me-lib-kinds-in ( k d -- )
-  swap lf-libdec-domain if me-kinds lf-tier-kinds drop else me-kinds slab-clear then ;
+  2dup swap lf-libdec-domain if me-kinds lf-tier-kinds drop else me-kinds slab-clear then
+  me-run-data? if me-data-domain else 2drop then ;
 : me-text-kinds-in ( k d -- ) 2drop me-kinds slab-clear ;
 ' me-fed-kinds-in ' me-lib-kinds-in ' me-text-kinds-in me-table me-binders-in
 : lf-menv-kinds-in ( d k -- addr n ) swap me-binders-in me-ask me-kinds-out ;

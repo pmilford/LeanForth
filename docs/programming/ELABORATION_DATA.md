@@ -28,6 +28,12 @@ Status (2026-11-13), in the stages of
   Works end to end on all of Mathlib (run by the implementer on
   2026-11-18, under [Format 3.1](#format-31-inert-metadata)); the done
   checker has not run it.
+- Format 3.2 (plan FE1c-bk, 2026-11-18, the owner's [import]/[format]
+  approval of that day; branch `data-bk`) is format 3.1 with
+  [Lean's own binder kinds](#format-32-binder-kinds) of the declarations
+  whose export gives others: **written** (the exporter, the reader and the
+  front end's use, tested; three `Init` statements elaborated node for
+  node as pinned Lean's); no review or done check yet.
 - `leanforth check` reads the data but no verdict uses it yet: the
   instance table (FE1e3) and Meta's whnf are tested alone; the
   elaborator (s1-elab) is not merged.
@@ -291,6 +297,7 @@ kind by text:
 | `matcher` | `name` (the matcher), `num_params`, `num_discrs`, `u_elim_pos` (the place of the universe parameter it eliminates into, or `null` when it eliminates only into `Prop`), `alt_infos` (each alternative's `num_fields`, `num_overlaps` and `has_unit_thunk`), `discr_names` (each discriminant's `h :` name, or `null`). Lean's `overlaps` map, which only the splitter reads, is not written |
 | `projection` | `name` (the projection function), `ctor` (the structure's constructor), `num_params` (the structure's parameters), `idx` (the field), `from_class` (whether the structure is a class) |
 | `sunfold` | a [smart-unfolding body](#smart-unfolding-bodies-format-3): `name` (the definition `f`), `level_params` (the universe parameters of `f._sunfold`, which are `f`'s), `levels` and `nodes` (its value, as tables), `value` (the root, a node's place), `rec_arg` (`f`'s structural recursion argument, or `null`). Every `f._sunfold` of the modules has one, so a definition with no record has none |
+| `binder_kinds` | format 3.2 only: [Lean's own binder kinds](#format-32-binder-kinds) of a declaration whose export gives others: `name`, `kinds` (one text per leading Pi binder of its type: its kind's digit, then its domain's leading binders') |
 
 A default instance the export lacks leaves a gap in its class's ranks
 (none does in `Init`); the instance tree's ranks have none, since every
@@ -315,6 +322,19 @@ far is format 3, byte for byte as before. The reader takes both: in a
 format-3 file an inert node is malformed (error 10), as it is to the
 readers of format 3 before 3.1, which refuse a 3.1 file as another format
 version (error 7, unsupported) and read format 3 alike.
+
+Format 3.2 (`"format_version":"3.2"`; plan FE1c-bk, the owner's
+[import]/[format] approval of 2026-11-18) is format 3.1 with one more
+record kind, [`binder_kinds`](#format-32-binder-kinds), counted in the
+header's `records` (formats 3 and 3.1 have no such member). The exporter
+writes 3.2 only when it writes such a record, so data whose export holds
+Lean's own kinds stays format 3 or 3.1, byte for byte. A `binder_kinds`
+record in a format-3 or 3.1 file is an unknown record kind (error 11);
+readers before 3.2 refuse a 3.2 file as another format version (error 7).
+The rule that a 3.2 file holds at least one `binder_kinds` record is the
+writer's alone: the reader accepts a 3.2 label with none (its header then
+counts 0), which is harmless, since such a file means exactly what the
+same records labelled 3.1 mean (review data-bk L4).
 
 ## Reading it: `leanforth check --elab-data`
 
@@ -384,11 +404,11 @@ printed with its text (`at line 2 (error 12): unknown name`):
 | 4 | `not one JSON value within the limits` | invalid (full past 65,536 tokens or 8 levels) | a line that is not JSON |
 | 5 | `no header` | invalid | line 1 is not `{"elab_data": {...}}` |
 | 6 | `not elaboration data` | invalid | the header's format is another |
-| 7 | `another format version` | unsupported | `format_version` is neither the number 3 nor the text `"3.1"` (formats 1 and 2 among them) |
+| 7 | `another format version` | unsupported | `format_version` is none of the number 3 and the texts `"3.1"` and `"3.2"` (formats 1 and 2 among them) |
 | 8 | `another Lean version` | unsupported | written by another Lean version or revision |
 | 9 | `elaboration data of another export` | invalid | `export_sha256` is not the library's |
-| 10 | `malformed line` | invalid | a member missing, added or of the wrong type; a malformed name or key; discriminant names that are not one per discriminant; an inert node in a format-3 file |
-| 11 | `unknown record kind` | invalid | a record of a kind this format does not have |
+| 10 | `malformed line` | invalid | a member missing, added or of the wrong type; a malformed name or key; discriminant names that are not one per discriminant; an inert node in a format-3 file, or whose `key` is no text |
+| 11 | `unknown record kind` | invalid | a record of a kind this format does not have (a `binder_kinds` record in a format-3 or 3.1 file among them) |
 | 12 | `unknown name` | invalid | no declaration of the library has the name |
 | 13 | `a name several declarations have` | invalid | the library has more than one declaration of the name |
 | 14 | `a declaration of the wrong kind` | invalid | a class that is no inductive type, an instance or eliminator that is one, and the other kinds above |
@@ -414,7 +434,7 @@ printed with its text (`at line 2 (error 12): unknown name`):
 | 34 | `a left-out instance the library has` | invalid | a `not_exported` left-out instance whose name is a declaration of the library |
 | 35 | `a matcher named twice` | invalid | two matcher records of one declaration |
 | 36 | `a projection named twice` | invalid | two projection records of one declaration |
-| 37 | `numbers that do not fit the declaration's type` | invalid | a matcher's, projection's or class's numbers that its type, its constructor's or its universe parameters cannot have; a smart-unfolding body's constant with other than its declaration's number of universe arguments (a constant the library lacks: any number) |
+| 37 | `numbers that do not fit the declaration's type` | invalid | a matcher's, projection's or class's numbers that its type, its constructor's or its universe parameters cannot have; a smart-unfolding body's constant with other than its declaration's number of universe arguments (a constant the library lacks: any number); binder kinds for none, or for other numbers of leading Pi binders than the export's type or a binder's domain has |
 | 38 | `a record kind this reader does not read yet` | unsupported | not given since format 3, which reads every kind (format 2's readers gave it for a `sunfold` record) |
 | 39 | `other records than the export's manifest names` | invalid | the library's manifest has `elab_records_sha256` (M6) and the header's `records_sha256` differs |
 | 40 | `a default instance's rank beyond 65535` | invalid | a `default_instance` record's `rank` above 65,535 (`elab-default-rank-most`) |
@@ -423,6 +443,7 @@ printed with its text (`at line 2 (error 12): unknown name`):
 | 43 | `a loose bound variable` | invalid | the root of a smart-unfolding body has a loose bound variable |
 | 44 | `universe parameters other than the definition's` | invalid | `level_params` that are not the definition's, in order, or a `param` level that is none of them |
 | 45 | `an annotation this reader does not know` | unsupported | an `mdata` node other than one entry `sunfoldMatch`, `sunfoldMatchAlt` or `borrowed` with the value true (no other is in `Init`), or an inert node whose `key` is not `save_info`, `noImplicitLambda` or `congrHole` |
+| 46 | `binder kinds named twice` | invalid | two `binder_kinds` records of one declaration (format 3.2) |
 
 Misuse is refused before anything runs:
 
@@ -459,7 +480,7 @@ Example, in three forms, of what the words give for the slice's data:
 | `elab-unhashed` | `( outcome -- outcome )` | for a caller that could not hash the export: refuse with error 26 at line 0, nothing loaded |
 | `elab-loaded?` | `( -- flag )` | the last read was ok |
 | `elab-reset` | `( -- )` | forget everything |
-| `elab-count` | `( kind -- n )` | records of a kind: `elab-instance`, `elab-default`, `elab-reducibility`, `elab-eliminator`, `elab-left-out`, `elab-class`, `elab-tag`, `elab-matcher`, `elab-projection`, `elab-sunfold` |
+| `elab-count` | `( kind -- n )` | records of a kind: `elab-instance`, `elab-default`, `elab-reducibility`, `elab-eliminator`, `elab-left-out`, `elab-class`, `elab-tag`, `elab-matcher`, `elab-projection`, `elab-sunfold`, `elab-binders` (format 3.2) |
 | `elab-instance@` | `( i -- d class priority )` | instance `i` |
 | `elab-instance-order` | `( i -- addr n )` | its synthesis order, `n` cells |
 | `elab-instance-keys` | `( i -- k n )` | its keys, `k` .. `k+n-1` |
@@ -485,6 +506,8 @@ Example, in three forms, of what the words give for the slice's data:
 | `elab-projection@`, `elab-projection-decl`, `elab-projection-class?` | `( p -- ctor params idx )`, `( p -- d )`, `( p -- flag )` | projection `p` |
 | `elab-sunfold-of` | `( d -- s true \| false )` | the smart-unfolding body of a definition |
 | `elab-sunfold-decl`, `elab-sunfold-value`, `elab-sunfold-rec-arg`, `elab-sunfold-foreign?` | `( s -- d )`, `( s -- n )`, `( s -- k true \| false )`, `( s -- flag )` | body `s`: its definition, its root node, the recursion argument (false: null), whether a node names a constant the library lacks |
+| `elab-binder-kinds-of` | `( d -- b true \| false )` | the [binder-kinds record](#format-32-binder-kinds) of a declaration (format 3.2) |
+| `elab-binder-kinds`, `elab-binder-domain`, `elab-binder-decl` | `( b -- addr n )`, `( b k -- addr n )`, `( b -- d )` | record `b`: its leading binders' kinds (0-3, Lean's `BinderInfo`), `n` cells; binder `k`'s domain's (none for `k` beyond them); its declaration |
 | `elab-sunfold-inert?`, `elab-sunfold-usable?` | `( s -- flag )` | body `s` holds an [inert node](#format-31-inert-metadata) (format 3.1); it is neither foreign nor inert, the only bodies `lf-libdec-sunfold` decodes (any other answers *unsupported*) |
 | `elab-node-kind`, `elab-node-a` .. `elab-node-d`, `elab-node-levels` | `( n -- kind )`, `( n -- x )`, `( n -- addr k )` | node `n` (numbered across bodies): `elab-node-bvar`, `-sort`, `-app`, `-lam`, `-forall`, `-let`, `-have`, `-lit`, `-str`, `-proj`, `-mdata`, `-const`, and its fields as `src/front/elab-data.fs` tabulates them (a binder's name, a literal's digits and a string's bytes are keys, read with `elab-key-text`; a constant's or structure's declaration is -1 when the library has none; an inert node is an `-mdata` whose annotation is `elab-inert`); a constant's levels, `k` cells |
 | `elab-level-kind`, `elab-level-a`, `elab-level-b` | `( l -- kind )`, `( l -- x )` | level `l`: `elab-level-zero`, `-succ`, `-max`, `-imax` (earlier levels in `a`, `b`), `-param` (its place among the definition's universe parameters in `a`) |
@@ -686,6 +709,134 @@ anonymous binder; the other three of the 11 are bodies of definitions the
 export lacks, left out as before. The data has both `instHSMul` default
 instances of `HSMul`.
 
+## Format 3.2: binder kinds
+
+**The problem.** A binder's kind says how an argument is given: explicit
+`(x : α)`, implicit `{x : α}`, strict implicit `⦃x : α⦄` or instance
+`[x : α]`. lean4export 3.1.0 writes one node for expressions equal up to
+binder kinds and names (Lean's `BEq Expr` is `Expr.eqv`, which ignores
+both), so a declaration whose type equals another's in all but kinds reads
+the other's kinds in the export. The kernel ignores kinds, so nothing
+false is accepted; but the front end inserts implicit arguments by them,
+and so read a text otherwise than Lean. Example, in three forms:
+
+- mathematics: a natural number $n$ is below 1 exactly when $n = 0$;
+- Lean: `theorem Nat.lt_one_iff {n : Nat} : n < 1 ↔ n = 0`, so
+  `theorem bk_lt_one (n : Nat) : n < 1 ↔ n = 0 := by exact Nat.lt_one_iff`
+  fills `n` in itself;
+- LeanForth: `theorem bk_lt_one Nat explicit: n   n 1 LT.lt  n 0 =  Iff
+  := by  Nat.lt_one_iff by-exact  end bk_lt_one`. The export of `Init`
+  writes `Nat.lt_one_iff`'s type as a private lemma's, whose `n` is
+  explicit, so without the record the word `Nat.lt_one_iff` takes a value
+  from the stack and the proof stops (error 3); with the record
+  `{"binder_kinds":{"kinds":["1"],"name":["Nat","lt_one_iff"]}}` the
+  theorem is elaborated as Lean's, node for node
+  (`tests/front/bk-init.lf`).
+
+**The encoding, and why.** A record names a declaration and gives one
+text per leading Pi binder of its type (Pi nodes written out, nothing
+unfolded; through metadata, which lean4export drops): the binder's kind as
+the digit of Lean's `BinderInfo` constructor (0 `default`, 1 `implicit`,
+2 `strictImplicit`, 3 `instImplicit`), then the kinds of the leading Pi
+binders of its domain. These are exactly the kinds the front end reads of
+a constant: Lean's application elaborator, `getFunInfo` and `forallTelescope`
+read a constant's kinds from its type's telescope as `instantiateTypeLevelParams`
+gives it (`lf-menv-kinds`), and the `induction` tactic reads an
+alternative's fields from the eliminator's minor premise, a binder's domain
+(`lf-menv-kinds-in`). A kind deeper in a type, or in a value, is read from
+a term node, where the front end answers *unsupported* (`fun-info.fs`, FE1c
+review M1). The records are written only where Lean's kinds differ from the
+export's (687 of the 55,659 `Init` declarations with a leading binder; all
+the kinds of one, not a list of changes, so a record is checked whole
+against its type), so data of an export with none is byte for byte format
+3 or 3.1. Rejected: kinds of every declaration (a record for 55,659
+`Init` and about 700,000 Mathlib declarations, nearly all repeating the
+export); a list of (binder, kind) changes (no shorter for the 687, and a
+partial record cannot be checked against the type's binder count); every
+Pi of the type in tree order (a type can share subterms, so a tree walk can
+be far larger than the type, and the front end reads no deeper kind).
+
+**Making it.** `scripts/export_elab.lean` writes a `binder_kinds` record
+for every constant with a leading binder; `scripts/export_elab.py` reads
+the export's Pi nodes (5.4 million for Mathlib, kept in arrays) and each
+declaration's type node, computes the export's texts the same way, keeps a
+record only when they differ, and stops (exit 1) when their numbers
+differ: the export and the modules do not belong together. For `Init`
+(2026-11-18): 687 records kept, 54,972 left out as the export's, 5,566 of
+declarations the export lacks; Lean's part 3 s, the finisher 7 s.
+
+**Reading it.** The reader takes a record in a format-3.2 file only. It
+checks the name (one declaration of the library, error 12 or 13), the
+member shapes and that each text is one or more of the digits 0-3 (error
+10), that the declaration has no other record (error 46), and that there
+are as many texts as the export's type has leading Pi binders, at least
+one, and each text's domain kinds as many as that binder's domain has
+(error 37). Then, whenever data read against the library's stage is
+loaded, a library declaration's kinds are the record's, the export's where
+it has none, in the two places that read them: Meta's environment
+(`src/front/meta-env.fs`: `lf-menv-kinds`, `lf-menv-kinds-in`, which the
+application elaborator, `getFunInfo` and the `induction` tactic ask) and
+the natural reader's count of a name's explicit arguments
+(`src/cli/check-lf.fs`, `lfc-arity`: how many values the word takes).
+
+**Tests.** `tests/front/elab-data.fs` (the format-3.2 fixture read back,
+a domain beyond the binders none, a later format-3 read none);
+`tests/front/test_elab_data.py` (the finisher: kinds as the export's left
+out with the data byte for byte as before, others kept as 3.2, four
+refusals; the schema; 18 damaged files: in a format-3 or 3.1 file, digits
+beyond 3, letters, empty texts, numbers, other shapes, an unknown name,
+fewer, more or no binders, a domain the type lacks or that lacks one, a
+record twice, headers that count the kind wrongly; a 3.2 file holding format
+3.1's inert nodes beside binder kinds, read); `tests/front/menv-run.fs`
+(`BK.expl` of `tests/front/binder-merge.lean`, merged by the exporter
+with `BK.impl`, explicit with its data, `tests/front/binder-merge.elab.ndjson`;
+a domain's kinds; `lfc-arity` of `Nat.add` and of `Nat.rec`, kinds 1 0 0 0:
+three values); `tests/front/meta-env.fs` (the fed mode over the whnf slice,
+whose data is format 3.2 with seven records: `Nat.eq_or_lt_of_le`'s kinds
+and a private matcher's motive's domain kinds are the records', the
+export's after a refused read and for data read against another stage of
+the same export); `tests/front/check_bk_init.py`, run by
+`make reference-elab-data` on all of `Init`: `bk_mod`
+(`Nat.mod_eq_sub_mul_div`), `bk_not_lt` (`Nat.not_lt_eq`) and `bk_lt_one`
+(`Nat.lt_one_iff`) of `tests/front/bk-init.lf` elaborated node for node as
+pinned Lean's (`tests/front/bk-init.golden`), each stopping without the
+records (error 3 or 86: the word takes the wrong number of values), and
+the wrong twin `bk-init-wrong.lf` refused with Lean's "Type mismatch"
+(error 96). Planted faults `fe-bk-*` (`tests/mutants/faults.d/data-bk.toml`).
+
+## Unification hints: not in the data
+
+Lean keeps every `unif_hint` in `unificationHintExtension`'s discrimination
+tree (Meta/UnificationHint.lean:37), keyed by the hint's left-hand side, and
+`isDefEqOnFailure` tries them when a unification would fail (:99). The data
+does not carry them. Instead the front end's `isDefEq` answers *unsupported*,
+never "not equal", for a failure whose side has a definition or a projection
+node at its head (`src/front/defeq.fs`, `de-hint-key?`; with data of `Init`
+alone, whose one hint is `Not p =?= p → False`, it asks whether the side is a
+`Not`). That covers every hint of pinned Mathlib, as pinned Lean lists them
+(`tests/front/unif-hints.lean`, run on 2026-11-18 with Mathlib's `.lake`
+build: 6.9 s, 8.8 GB; its output is `tests/front/unif-hints-mathlib.golden`,
+which `make test-elab-data-e2e` checks):
+
+| Key (Lean's `DiscrTree.Key`) | Kind | Hints |
+| --- | --- | ---: |
+| `Not`, 1 argument | definition | 1 (`Init`'s) |
+| `Shrink`, 2 arguments | definition | 1 (`CategoryTheory.FunctorToTypes`, in `ShrinkYoneda`) |
+| projection 0 of `CategoryTheory.Functor`, 1 argument | projection | 16 (`yoneda_obj_obj_eq_hom` and its `'`, `ulift` and `coyoneda` forms, `forget_obj_eq_coe` of `RingCat`, `CommRingCat`, `SemiRingCat`, `CommSemiRingCat` and `AlgebraicGeometry.Scheme`, `Scheme.forgetToTop_obj_eq_coe`, two hints of `Sites.DenseSubsite` and `Limits.Indization`) |
+| projection 0 of `Action` | projection | 4 (`Rep.barComplex`, `Rep.standardComplex`, `Representation.LinearizeMonoidal`) |
+| projection 0 of `Rep` | projection | 1 (`Rep.barComplex`) |
+| projection 0 of `SSet.S` | projection | 2 (`SSet.Subcomplex.N`) |
+| projections 0 and 1 of `SSet.Subcomplex.Pairing` | projection | 2 |
+
+So 27 hints of Mathlib's own (all in category theory, representation theory
+and simplicial sets) and `Init`'s one: one keyed at a definition, 26 at a
+projection. The design (MATHLIB_FRONT.md O7) had taken their keys for
+definitions (`Prefunctor.obj`, `Quiver.Hom`); Lean keys a hint by its side
+reduced at reducible transparency, where a projection function unfolds to a
+projection node, so `de-hint-key?` also takes a projection node at the head
+(slice MF1, branch `data-bk`). A table of hints in the data waits for a
+theorem that needs one.
+
 ## Tests and evidence
 
 - `make test-elab-data` (in `make test`):
@@ -729,6 +880,9 @@ instances of `HSMul`.
       lacks kept and counted; a RAW body with the three kinds of inert
       metadata and an anonymous binder written as format 3.1, exactly the
       format-3.1 fixture's body, and read by `leanforth check`;
+    - pinned Lean's list of Mathlib's unification hints
+      (`tests/front/unif-hints-mathlib.golden`): 28, each keyed at a
+      definition or a projection ([above](#unification-hints-not-in-the-data));
     - the schema: 302 good lines and 39 wrong ones;
     - the [error catalogue](#errors) against the reader's;
     - the command line: the good data with an export, a snapshot and
@@ -742,14 +896,15 @@ instances of `HSMul`.
       universe-polymorphic definition), the format-3.1 fixture and a 3.1
       file without an inert node, the verdicts
       unchanged, and 4 misuses (a layered snapshot among them);
-    - 196 damaged files, each refused with its line, code, text and exit
+    - 198 damaged files, each refused with its line, code, text and exit
       status and never "accepted": format 1's checks, format 2's (codes
       27-37, the key forms, ranks, matchers, projections, every record
       kind with a member added), format 3's (codes 41-45, 12 and 14,
       malformed nodes, levels, references and annotations of a body,
       max and imax levels, and a polymorphic body with no or other
       universe parameters), format 3.1's (an inert node in a format-3
-      file, of another key, malformed or naming itself, `save_info` as an
+      file, of another key, with a key that is no text (a name, a number,
+      null: malformed, review L3), malformed or naming itself, `save_info` as an
       annotation, a default instance of two classes or twice at one rank,
       and six other versions: 3.1 as a number, "3", "3.2", "3.10", "3.1 "
       and 31), and a format-1 and a format-2 file.
@@ -765,6 +920,21 @@ instances of `HSMul`.
     - a let among a matcher's parameters (13 of `Init`'s matchers, read
       by `make reference-elab-data`; no slice has one);
     - a THROW inside a read.
+- `make reference-mathlib-slice` (in `make check` and the front end's
+  tier; `tests/front/check_mathlib_slice.py`, plan MF1): the Mathlib slice
+  fixture ([MATHLIB_FRONT.md](../design/MATHLIB_FRONT.md#6-measuring-and-the-mathlib-slice-fixture)
+  §6). `scripts/mathlib-slice.py` cuts the declarations of
+  `tests/front/mathlib-slice.roots` and what they need (5,469 declarations: real
+  numbers, `add_zero`, `add_comm`) from the machine's Mathlib export and
+  writes their data from pinned Lean's records of all of Mathlib, cached
+  in the main checkout's `.claude/work/mathlib-slice` (362 s and 9.2 GB
+  the first time, on 2026-11-18; nothing after) and checked against
+  `tests/front/mathlib-slice.sha256`. The test saves the slice's snapshot
+  and checks four texts against it: `s1-rfl.lf` (`0 + 0 = 0`) and
+  `03-zero-add-exact.lf` accepted with no axiom, `mf-real-rfl.lf` (`x + 0
+  = x + 0` for a real `x`) accepted with `propext`, `Classical.choice`
+  and `Quot.sound`, `s1-rfl-wrong.lf` refused (exit 4); about 100 s on
+  Gforth 1.0. Never a run on all of Mathlib.
 - `make reference-elab-data` (in `make check`, pinned Lean):
   `tests/front/elab-init.sh`, about 4 minutes on a busy machine (2026-11-12).
   - `scripts/export-elab.sh` reproduces

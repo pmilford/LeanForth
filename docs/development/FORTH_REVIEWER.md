@@ -32,7 +32,7 @@ against the coverage classes of [the coverage review](TEST_COVERAGE_REVIEW.md) a
 3. Before judging factoring, look for existing words in the generated word index
    ([LIBRARY_WORDS.md](LIBRARY_WORDS.md)) and read the duplicate report
    (`python3 scripts/check-duplicates.py --report`; plan 9.4.8f): a new copy of an indexed word or a new
-   duplicate group is a finding.
+   duplicate group is a finding. Such a finding blocks the merge (owner, 2026-11-18): it is fixed on the branch, never deferred to a later pass. The reviewer is given the slice's word list from its architect step and checks it: each library word exists with its tests, every listed copy is gone, and the caller files hold only words specific to them.
    Check idiom and factoring against [the Forth style guide](FORTH_STYLE.md),
    which is the project standard. Run
    `python3 scripts/forth-metrics.py --words 10 <files>` on the reviewed files

@@ -1348,6 +1348,16 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
  },
+ "8bdc1df0007e": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/meta-env.fs:me-fed-data-kinds",
+   "src/program/ir-run.fs:irx-define"
+  ],
+  "reason": "false positive: the guarded step `a? if b else drop then` of two different words (the fed mode's binder-kinds record when its data is read, an IR definition)",
+  "tokens": 6
+ },
  "8c62bb325216": {
   "copies": 6,
   "kind": "shape",
@@ -1991,10 +2001,11 @@
   "tokens": 7
  },
  "c5df28d2b77a": {
-  "copies": 3,
+  "copies": 4,
   "kind": "shape",
   "members": [
    "src/front/elab-pending.fs:lf-elab-note",
+   "src/front/meta-env.fs:me-fed-data-domain",
    "src/kernel/environment.fs:lf-env-noted",
    "src/program/ir-reader.fs:ir-stop"
   ],
@@ -2637,13 +2648,14 @@
   "tokens": 8
  },
  "fe132db8322b": {
-  "copies": 2,
+  "copies": 3,
   "kind": "shape",
   "members": [
    "src/core/annotations.fs:lf-annot-strip",
+   "src/front/elab-data.fs:ed-pis+",
    "src/present/proof-outline.fs:lf-ol-head"
   ],
-  "reason": "false positive: a loop down first children, over different node kinds (smart-unfolding annotations, an outline's application heads)",
+  "reason": "false positive: a loop down one child, over different node kinds (smart-unfolding annotations, an outline's application heads, a type's leading Pis)",
   "tokens": 6
  },
  "ffe486f9eeae": {
