@@ -100,7 +100,8 @@
 \ -- outcome ), lf-mvar-kind! ( mvar kind -- outcome ), lf-mvar-assignable?,
 \ lf-mvar-assign ( mvar value -- outcome ), lf-delay-fvar ( fvar --
 \ outcome ), lf-mvar-delay ( mvar pending n -- outcome ), lf-mvar-delayed
-\ ( mvar -- pending addr n true | false ), lf-level-mvar-new ( -- level
+\ ( mvar -- pending addr n true | false ), lf-mvar-open? ( t -- flag ),
+\ lf-level-mvar-new ( -- level
 \ outcome ), lf-meta-const-fresh ( d -- term outcome )
 \ (mkConstWithFreshMVarLevels), lf-level-mvar-live?, lf-level-mvar-value,
 \ lf-level-mvar-depth ( level -- depth ), lf-level-mvar-assign
@@ -622,6 +623,11 @@ end-structure
 : lf-mvar-delayed ( mvar -- pending addr n true | false )
   mv-of 0= if false exit then dup mvd-pending @ dup 0< if 2drop false exit then
   swap dup mvd-fvars @ mv-fvars store-slot swap mvd-fvars# @ true ;
+\ A metavariable leaf neither assigned nor delayed-assigned (the ones
+\ Lean's getMVarsNoDelayed keeps, elimMVar's case); any other term false.
+: lf-mvar-open? ( t -- flag )
+  dup lf-mvar? 0= if drop false exit then
+  dup lf-mvar-delayed if 2drop 2drop false exit then lf-mvar-value dup if nip then 0= ;
 
 \ ---- Instantiation. Levels: a part that changes is rebuilt; an assigned
 \ metavariable is its value's image.

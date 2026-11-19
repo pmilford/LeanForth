@@ -76,6 +76,7 @@ require ./tactic-basic.fs
 require ./meta-must.fs
 require ./app-builder.fs
 require ./telescope.fs
+require ./meta-tactic/goal.fs
 
 begin-structure /trw
   /tb +field trw-tb      \ the step's goal, its type and context (tb)
@@ -202,18 +203,11 @@ end-structure
     lf-tac-must
   if lfa-e-tac-form lfw-stop then ;
 
-\ ---- replaceTargetEq (Replace.lean:21-32): Eq.mpr.{u} target new
-\ (mkExpectedPropHint proof (mkEq target new)) ?new, u target's level.
+\ ---- replaceTargetEq (meta-tactic/goal.fs), the new goal in the old's
+\ place.
 : lfw-want ( -- t ) tb tb-want @ ;
-: lfw-hint ( -- h )
-  trw trw-proof @ lfw-want trw trw-new @ lf-mk-eq lf-mk-expected-prop-hint ;
-: lfw-mpr ( goal -- value )
-  >r s" Eq.mpr" lfw-want lf-level! lf-mk-const1 lfw-want trw trw-new @ lfw-hint r>
-  4 lf-mk-app-n ;
-: lfw-goal ( -- goal )
-  trw trw-new @ tb tb-goal @ lf-mvar-tag drop tb tb-view @ lf-goal-new lf-tac-must ;
 : lfw-replaced ( -- )
-  lfw-goal dup lfw-mpr tb tb-goal @ swap lf-mvar-assign lf-tac-must
+  tb tb-goal @ trw trw-new @ trw trw-proof @ lf-goal-replace-target-eq
   0 swap run-push lf-tac-must lf-replace-main lf-tac-must ;
 
 \ ---- One rule (Lean's rewriteTarget inside Term.withSynthesize).

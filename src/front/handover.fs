@@ -140,6 +140,10 @@ defer lf-front-elaborate ( -- type value )
   case outcome-invalid of lfh lfh-why @ endof outcome-full of lfa-e-terms-full endof
     lfh-unported swap endcase ;
 : lfh-visible ( -- ) lfh-decl@ lf-menv-add ok? 0= if lfa-e-terms-full lfa-fail then ;
+\ The last word before the hand-over at end NAME, which may stop the run
+\ (elab-pending.fs: refused elaboration data); none here.
+defer lf-front-closing ( -- )
+' noop is lf-front-closing
 : lf-front-hand-over ( type value -- )
-  lf-front-header -rot lf-handover dup ok? 0= if lfh-code lfa-fail then
+  lf-front-closing lf-front-header -rot lf-handover dup ok? 0= if lfh-code lfa-fail then
   drop lfh-visible lfa-front-made! ;

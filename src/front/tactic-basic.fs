@@ -193,7 +193,11 @@ defer lf-tac-elab ( node expected postpone? -- term outcome )
 : lf-tac-indented. ( term -- outcome ) s"   " lf-pp-emit lfb-term. ;
 : lfb-line. ( c-addr u term -- outcome ) >r lf-pp-emit r> lf-tac-indented. ;
 : lfb-the-goal. ( -- outcome ) s\" \n\n" lf-pp-emit tb tb-goal @ lf-goal-print ;
-: lfb-blank-goal. ( x -- outcome ) drop s\" \n" lf-pp-emit tb tb-goal @ lf-goal-print ;
+\ A goal after a line break: as the whole detail, the goal after the
+\ message's line and a blank one (Lean's throwTacticEx with no message:
+\ "Tactic `t` failed\n\ngoal"); it needs no step record.
+: lf-tac-goal-of. ( goal -- outcome ) s\" \n" lf-pp-emit lf-goal-print ;
+: lfb-blank-goal. ( x -- outcome ) drop tb tb-goal @ lf-tac-goal-of. ;
 : lfb-failed ( xt code -- ) >r 0 swap lf-tac-detail r> lf-tac-stop ;
 \ For the other tactics' messages (tactic-rewrite.fs, tactic-induction.fs):
 \ a label and a term on the next line, the goal after a blank line, an

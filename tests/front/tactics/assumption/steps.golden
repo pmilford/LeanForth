@@ -1,0 +1,6 @@
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"as_one","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh : a ≤ b\n⊢ a ≤ b","goals_after":[],"parent":0,"source":"9:3","step":1,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"as_newest","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh1 h2 : a ≤ b\n⊢ a ≤ b","goals_after":[],"parent":0,"source":"10:3","step":1,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"as_defeq","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a : Nat\nh : a ≤ a\n⊢ a ≤ a + 0","goals_after":[],"parent":0,"source":"9:3","step":1,"tactic":"assumption","word":"by-assumption"}

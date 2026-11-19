@@ -1548,3 +1548,14 @@ the owner approved, each as recommended:
   new code in the new folders `src/front/elab/`, `simp/` and `num/`; no mass moves of existing files.
 - **[format] the coercion tag:** Lean's `coe_decl` tag is one more record kind of elaboration-data format 4, added
   before anything is built on that format; the term front end's structure records become format 5.
+
+## Parallel running and re-entrancy (2026-11-18)
+
+- **[kernel], in form:** `lf-const-levels` moves unchanged into `src/core/constant-term-boundary.fs` beside a new
+  `lf-const-level@` (branch `tactic-lib-a2ii`); approved.
+- The owner, on learning that large parallel runs were not routine and that the front end is not re-entrant: "I
+  don't understand why parallel internal running hasn't been either routine or regularly tested. Re-entrancy is
+  important as is speed from multiple internal threads." So: parallel checking is tested at scale every night and
+  its speed-up recorded; module-level mutable state is audited and removed; reviews check re-entrancy; the front
+  end is made re-entrant and `--jobs` then applies to LeanForth text (plan 9.4.8p).
+

@@ -7,6 +7,8 @@
 \ Public words (stack effect; the Lean function, AppBuilder.lean line):
 \   lf-mk-const ( c-addr u l1..ln n -- e )  mkConst name [l1, ..., ln]
 \   lf-mk-const0 ( c-addr u -- e ), lf-mk-const1 ( c-addr u l -- e )
+\   lf-mk-const-id ( name l1..ln n -- e )  the same of a name ID
+\       (Expr.constLevels! is core/constant-term-boundary.fs's lf-const-levels)
 \   lf-mk-app ( f a -- e ), lf-mk-app-n ( f a1..an n -- e )  mkApp, mkAppN
 \   lf-mk-eq ( a b -- e )                 mkEq (40)
 \   lf-mk-eq-refl ( a -- h )              mkEqRefl (65)
@@ -49,6 +51,8 @@ require ../core/terms.fs
 require ../core/levels.fs
 require ../core/names.fs
 require ../core/reach.fs
+require ../core/constant-references.fs
+require ../core/constant-term-boundary.fs
 require ../core/tagged-sort-boundary.fs
 require ../present/binder-table.fs
 require ../author/declarations.fs
@@ -70,8 +74,10 @@ abl-most cells context-record: abl-cells
   dup 0 ?do dup 1- i - cells abl-cells + rot swap ! loop abl-cells swap ;
 
 \ ---- mkConst, mkApp, mkAppN.
-: lf-mk-const ( c-addr u l1..ln n -- e )
-  abl-stored 2>r lfa-intern lf-name-generation @ 2r> lf-meta-const-at lf-must ;
+: abl-const-at ( name addr n -- e )
+  2>r lf-name-generation @ 2r> lf-meta-const-at lf-must ;
+: lf-mk-const ( c-addr u l1..ln n -- e ) abl-stored 2>r lfa-intern 2r> abl-const-at ;
+: lf-mk-const-id ( name l1..ln n -- e ) abl-stored abl-const-at ;
 : lf-mk-const0 ( c-addr u -- e ) 0 lf-mk-const ;
 : lf-mk-const1 ( c-addr u l -- e ) 1 lf-mk-const ;
 : lf-mk-app ( f a -- e ) lf-term-app lf-made! ;

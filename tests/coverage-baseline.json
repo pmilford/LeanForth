@@ -1082,6 +1082,24 @@
    "blocks": 28,
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/front/meta-tactic/apply.fs": {
+   "blocks": 172,
+   "never_run": 0
+  },
+  "src/front/meta-tactic/constructor.fs": {
+   "blocks": 49,
+   "never_run": 1,
+   "reason": "coverage debt of slices a2-ii and a2-iii (owner rule of 2026-11-17), branch tactic-lib-a2ii, 2026-11-18; new file, 1: an inductive type with no data record (a malformed record, mco-ctors); review tactic-a2ii (2026-11-18): the behaviour branches of apply.fs and tactic-core.fs are tested (debt 15 -> 4)"
+  },
+  "src/front/tactic-api.fs": {
+   "blocks": 34,
+   "never_run": 3,
+   "reason": "coverage debt of slices a2-ii and a2-iii (owner rule of 2026-11-17), branch tactic-lib-a2ii, 2026-11-18; new file, 3: a registered word whose spelling no row has (unreachable: lf-tactic: makes both) and a row-less kind before it (tap-kind-of)"
+  },
+  "src/front/tactic-core.fs": {
+   "blocks": 12,
+   "never_run": 0
   }
  }
 }

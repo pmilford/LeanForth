@@ -1,0 +1,10 @@
+\ by-constructor through whnf: n ≤ n unfolds to Nat.le n n, whose first
+\ constructor Nat.le.refl applies (slice a2-iii;
+\ tests/front/tactics/goal-layer.lean).
+\ Lean: theorem co_le (n : Nat) : n ≤ n := by constructor
+theorem co_le
+  Nat explicit: n
+  n n ≤
+:= by
+  by-constructor
+end co_le

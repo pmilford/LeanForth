@@ -186,3 +186,5 @@ tests/lib/task-bench.fs            manual  report-only benchmark
 tests/front/check_binder_kinds.py  manual  make reference-binder-kinds, a measurement on all of Init
 tests/support/gforth-log.sh        manual  make check-log-identity's wrapper
 tests/support/tier-both-ways.fs    manual  a driver for comparisons on all of Init, run by hand
+tests/front/dt-bench.fs            manual  report-only benchmark of the discrimination tree
+tests/front/inst-time.fs           manual  report-only timing of the instance checks on all of Init

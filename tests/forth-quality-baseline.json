@@ -24,12 +24,12 @@
   "words": 67
  },
  "src/author/errors.fs": {
-  "globals": 1,
+  "globals": 2,
   "long lines": 0,
   "long words": 0,
-  "rstack": 2,
-  "shuffles": 3,
-  "words": 41
+  "rstack": 8,
+  "shuffles": 4,
+  "words": 52
  },
  "src/author/export.fs": {
   "globals": 0,
@@ -143,14 +143,6 @@
   "shuffles": 9,
   "words": 419
  },
- "src/present/name-text.fs": {
-  "globals": 3,
-  "long lines": 0,
-  "long words": 0,
-  "rstack": 10,
-  "shuffles": 0,
-  "words": 29
- },
  "src/cli/print-lf.fs": {
   "globals": 1,
   "long lines": 2,
@@ -237,7 +229,7 @@
   "long words": 2,
   "rstack": 28,
   "shuffles": 13,
-  "words": 126
+  "words": 128
  },
  "src/core/constant-term-scope.fs": {
   "globals": 0,
@@ -423,6 +415,14 @@
   "shuffles": 0,
   "words": 2
  },
+ "src/front/app-builder.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 34,
+  "shuffles": 9,
+  "words": 69
+ },
  "src/front/assign-check.fs": {
   "globals": 0,
   "long lines": 0,
@@ -485,7 +485,7 @@
   "long words": 0,
   "rstack": 9,
   "shuffles": 5,
-  "words": 300
+  "words": 301
  },
  "src/front/discr-keys.fs": {
   "globals": 0,
@@ -494,6 +494,14 @@
   "rstack": 19,
   "shuffles": 14,
   "words": 102
+ },
+ "src/front/discr-tree.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 34,
+  "shuffles": 9,
+  "words": 91
  },
  "src/front/elab-app.fs": {
   "globals": 0,
@@ -619,7 +627,7 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 20,
+  "rstack": 19,
   "shuffles": 5,
   "words": 50
  },
@@ -700,16 +708,48 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 2,
+  "shuffles": 0,
+  "words": 30
+ },
+ "src/front/meta-tactic/apply.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 2,
+  "shuffles": 1,
+  "words": 56
+ },
+ "src/front/meta-tactic/assumption.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 7
+ },
+ "src/front/meta-tactic/constructor.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 2,
+  "shuffles": 1,
+  "words": 17
+ },
+ "src/front/meta-tactic/goal.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 8,
   "shuffles": 2,
-  "words": 24
+  "words": 17
  },
  "src/front/mvars.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 31,
+  "rstack": 26,
   "shuffles": 2,
-  "words": 237
+  "words": 238
  },
  "src/front/nat-offset.fs": {
   "globals": 0,
@@ -751,13 +791,29 @@
   "shuffles": 9,
   "words": 190
  },
+ "src/front/tactic-api.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 4,
+  "shuffles": 1,
+  "words": 10
+ },
  "src/front/tactic-basic.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 14,
+  "rstack": 10,
   "shuffles": 0,
-  "words": 119
+  "words": 104
+ },
+ "src/front/tactic-core.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 6
  },
  "src/front/tactic-induction.fs": {
   "globals": 0,
@@ -784,12 +840,52 @@
   "words": 161
  },
  "src/front/tactic-syntax.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 19,
+  "shuffles": 3,
+  "words": 109
+ },
+ "src/front/tactics/all.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 13,
-  "shuffles": 3,
-  "words": 105
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 0
+ },
+ "src/front/tactics/apply.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 5
+ },
+ "src/front/tactics/assumption.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 2
+ },
+ "src/front/tactics/constructor.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 3
+ },
+ "src/front/telescope.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 33,
+  "shuffles": 7,
+  "words": 63
  },
  "src/front/term-eqv.fs": {
   "globals": 0,
@@ -1575,6 +1671,14 @@
   "shuffles": 7,
   "words": 182
  },
+ "src/present/name-text.fs": {
+  "globals": 3,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 10,
+  "shuffles": 0,
+  "words": 29
+ },
  "src/present/notation-table.fs": {
   "globals": 1,
   "long lines": 0,
@@ -1600,12 +1704,12 @@
   "words": 89
  },
  "src/present/print-forth.fs": {
-  "globals": 4,
+  "globals": 5,
   "long lines": 0,
   "long words": 2,
-  "rstack": 141,
+  "rstack": 149,
   "shuffles": 16,
-  "words": 151
+  "words": 157
  },
  "src/present/print-job.fs": {
   "globals": 0,

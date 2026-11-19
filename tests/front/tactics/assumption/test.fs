@@ -1,0 +1,73 @@
+\ Unit tests of the goal layer's assumption (slice a2-iii;
+\ src/front/meta-tactic/assumption.fs) over the S2 slice in an authoring
+\ run, for what the .lf files of check.py cannot write (an implementation
+\ detail in the context), by the classes of
+\ docs/development/TEST_COVERAGE_REVIEW.md: 1. outcomes: the newest local
+\ that fits, an implementation detail passed over though it fits, none
+\ fits (error 381, thrown with no step running), an empty context;
+\ 2. malformed input: an assigned goal (a fault, invalid, before the
+\ search); 3. stack
+\ effects (each T{ }T checks the depth); 7. regression pins: the free
+\ variable chosen (Lean's findDeclRevM? order).
+\ Nothing here accepts a theorem: only the kernel's check does.
+require ../../../support/tester.fs
+require ../../../../src/main.fs
+decimal
+
+4000000 lf-term-capacity! drop  100000 lf-cref-capacity! drop
+T{ s" tests/front/s2-slice.ndjson" true lfc-library-open -> outcome-ok }T
+T{ s" tests/front/s2-slice.elab.ndjson" lfc-elab-file! lfc-elab-read lfc-rooms
+   -> outcome-ok outcome-ok }T
+lf-author-begin
+: made ( x outcome -- x ) ok? 0= abort" assumption test: not made" ;
+: nat ( -- t ) s" Nat" lf-mk-const0 ;
+\ A local of the type, named and of the flags given, pushed on the view.
+: local ( type c-addr u flags -- fvar )
+  >r lfa-intern swap lf-lctx-local made tuck swap r> lf-local-new made
+  lf-mctx-view swap lf-view-push made lf-mctx-view! ;
+: goal ( type -- goal ) 0 lf-mctx-view lf-goal-new made ;
+: closes ( goal -- e ) dup lf-goal-assumption lf-instantiate! ;
+: code1 ( x xt -- code ) catch dup if nip then ;
+: le ( a b -- t ) >r >r s" LE.le" 0 lf-mk-const1 nat lf-mk-app s" instLENat" lf-mk-const0
+  lf-mk-app r> lf-mk-app r> lf-mk-app ;
+
+\ No local at all: error 381.
+T{ nat goal ' lf-goal-assumption code1 lf-author-code -> lf-author-throw 381 }T
+lf-tac-forget
+nat s" a" 0 local constant fa
+nat s" b" 0 local constant fb
+fa fb le s" h1" 0 local constant h1
+fa fb le s" h2" 0 local constant h2
+\ The newest that fits: h2; for a goal Nat, b (isDefEq Nat (a ≤ b) is
+\ false for h2 and h1, as Lean's).
+T{ fa fb le goal closes h2 = -> true }T
+T{ nat goal closes fb = -> true }T
+\ An implementation detail (Lean's auxDecl) newer than h2 is passed over.
+fa fb le s" aux" lf-local-aux-decl local constant aux
+T{ fa fb le goal closes h2 = -> true }T
+\ None fits: fb ≤ fa (error 381), nothing assigned.
+T{ fb fa le goal dup ' lf-goal-assumption code1 lf-author-code rot lf-goal-assigned?
+   -> lf-author-throw 381 false }T
+lf-tac-forget
+\ An assigned goal is a fault (checkNotAssigned): invalid, before the
+\ search (b ≤ a fits no local: without the check, error 381).
+: solved ( -- goal ) fb fa le goal dup h1 lf-mvar-assign made ;
+T{ solved ' lf-goal-assumption code1 -> -4201 }T
+\ withAssignableSyntheticOpaque (evalAssumption, review tactic-a2ii B2):
+\ a goal a ≤ ?o with ?o synthetic opaque is closed by h2, ?o := b. Lean,
+\ for that goal made by mkFreshExprMVar .syntheticOpaque and closed by
+\ evalTactic `assumption`, answers m := b.
+nat mv-opaque lf-mvar-new made constant ?o
+T{ fa ?o le goal closes h2 = ?o lf-instantiate! fb = -> true true }T
+\ defeq.fs's isAssignable under each flag: a synthetic opaque one only
+\ under assignSyntheticOpaque; a leaf with no record (not live) never.
+: assignable? ( mvar flags -- flag ) ['] de-assignable-mvar? swap lf-defeq-mode lf-meta-with ;
+: opaque-flags ( -- flags ) lf-defeq-flags lf-defeq-opaque or ;
+nat mv-opaque lf-mvar-new made constant ?o2
+: gone ( -- mvar ) 50000 mctx-epoch@ lf-mvar-leaf 0= abort" no leaf" ;   \ no record
+T{ ?o2 opaque-flags assignable? ?o2 lf-defeq-flags assignable? -> true false }T
+T{ gone opaque-flags assignable? gone lf-defeq-flags assignable? -> false false }T
+\ lf-mvar-open? (mvars.fs): an unassigned, not delayed metavariable only.
+T{ ?o2 lf-mvar-open? ?o lf-mvar-open? fa lf-mvar-open? -> true false false }T
+.( assumption test.fs: all tests passed) cr
+bye

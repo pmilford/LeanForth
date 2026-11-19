@@ -238,6 +238,24 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 : lft-w-bracket-end ( v1 .. vn -- )
   lft-in-bracket lft-rules lft-past lft-close lft-from! ;
 
+\ Shapes (tactic plug-in design 3.2): how the word of a tactic that
+\ registers itself (tactic-api.fs's lf-tactic:) is read. A shape is a
+\ record: the values the word takes, then its builder ( v1 .. vn kind
+\ -- ), which records the step. tac-shape-plain takes none (by-rfl's
+\ shape), tac-shape-term one term (by-exact's). Shapes with headers,
+\ names, rules or blocks are core work of their own branch.
+begin-structure /lft-shape
+  field: shape-want
+  field: shape-build
+end-structure
+: lft-term-done ( t kind -- ) lft-term-step lft-done ;
+create tac-shape-plain 0 , ' lft-plain ,
+create tac-shape-term 1 , ' lft-term-done ,
+\ A registered word of kind and shape is read so: the values above the
+\ frame checked before the kind is put on the stack (as lft-w-exact does).
+: lft-read-as ( kind shape -- )
+  swap >r >r r@ shape-want @ lft-tactic r> r> swap shape-build @ execute ;
+
 \ Names given to hypotheses: _, or a name that is no LeanForth word,
 \ which the block's text can use until the block ends (groups.fs).
 : lft-hole? ( c-addr u -- flag ) s" _" lfa-token= ;

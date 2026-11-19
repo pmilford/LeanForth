@@ -61,7 +61,10 @@ create us 4 2* cells allot
 
 \ ---- Stand-ins (each test that sets one puts the real word back).
 : real-synth ( -- ) ['] lf-synth-instance is lf-meta-synth ;
-: real-defaults ( -- ) ['] lf-default-instances is lf-elab-default-instances ;
+\ The default-instances word elab-pending.fs installs, kept before any
+\ stand-in replaces it.
+action-of lf-elab-default-instances constant shipped-defaults
+: real-defaults ( -- ) shipped-defaults is lf-elab-default-instances ;
 : no-defaults ( class -- addr n outcome ) drop 0 0 outcome-ok ;
 : head-named? ( t c-addr u -- flag ) rot lf-meta-head -rot lf-meta-const-named? ;
 \ No instance of Add (Lean's failed to synthesize, inside commitWhen);
@@ -496,6 +499,36 @@ T{ -1 lf-menv-of-data lf-libdec-count lf-menv-of-data -> -1 outcome-invalid -1 o
 \ a fresh run; the stack is as it was.
 T{ s" theorem z8 0 0 = := by by-rfl end z8" nrun ty 0 num 0 num eq-nat same?
    -> outcome-ok true }T
+
+\ ---- 7. Refused elaboration data (MF2's rule, src/front/instances.fs;
+\ MATHLIB_FRONT.md §3), set by hand: instAddNat refused with 115. Each
+\ path that meets it records 115 with the record's constant as the
+\ error's term (a Meta failure, a search's failure even with a code of
+\ its own, the shipped default-instances word, the synthesis step,
+\ which fails whatever it found, and an error read with none recorded);
+\ no try ... catch forgets it; end NAME's last word stops the run.
+: data-decl ( c-addr u -- d ) lfa-intern lf-menv-data-decl 0= abort" decl" ;
+: refuse ( -- )
+  lf-inst-classes drop lfa-e-inst-root it it-pass ! s" instAddNat" data-decl it it-blamed ! ;
+: code@ ( -- code ) lf-elab-error drop ;
+: termed? ( -- flag ) lf-elab-error-term 0< 0= ;
+refuse
+T{ lf-elab-error-reset lfa-e-elab-instance lf-elab-fail lf-elab-catch code@
+   -> false lfa-e-elab-instance }T
+T{ lf-elab-error-reset outcome-invalid lf-elab-meta code@ termed? -> outcome-invalid 115 true }T
+T{ lf-elab-error-reset lfa-e-not-class sy sy-error ! outcome-invalid ep-synth-failed code@
+   0 sy sy-error ! -> outcome-invalid 115 }T
+T{ real-defaults lf-elab-error-reset s" HAdd" data-decl lf-elab-default-instances nip nip code@
+   -> outcome-invalid 115 }T
+T{ lf-elab-error-reset lf-elab-pending-reset lf-postpone-no lf-elab-synthesize code@
+   -> outcome-invalid 115 }T
+T{ lf-elab-error-reset outcome-invalid lf-elab-code drop termed? -> 115 true }T
+T{ ' lf-front-closing catch 0<> lf-inst-reset ' lf-front-closing catch -> true 0 }T
+\ The hand-over itself runs it first: refused data stops it with 115
+\ before the declaration is looked at.
+T{ refuse 0 lfa-error lfa-err-code ! -1 -1 ' lf-front-hand-over catch nip nip 0<> lf-author-code
+   -> true 115 }T
+lf-inst-reset lf-elab-error-reset
 T{ depth -> 0 }T
 cr .( elab.fs: all tests passed) cr
 bye

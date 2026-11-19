@@ -228,6 +228,12 @@ agent. Sizes are lines of Forth with tests (*estimates*).
 **What can start now:** MF1 (no dependency besides the gate). **Chains:** `names-index → MF2 → MFR`, `MF2 → MF3a →
 MF3b`; SIMP_DATA's `MF → S8a1` becomes `MF3a → S8a1`, and `SP2b + MF3b → SP4`.
 
+**Status (2026-11-18):** MF2 is written and tested alone with the trie's move (LF_LIBRARIES.md's MF2+DT, branch
+`mf2-dt`, not yet integrated): section 3's rule in `instances.fs`, the roots in a `lib/htab.fs` table,
+`discr-tree.fs`, and section 3's refusal test (`tests/front/check_elab.py`: exit 4 naming `instMulNat`, the first
+theorem alone exit 0). On Init (gforth-fast) the eager pass's 172 ms before the first answer is gone; S1's 13
+problems take 30 ms with their roots' checks. MF2's command on all of Mathlib is not yet run (its done check).
+
 **Acceptance target** (MF3a and MF3b's done checks), in three forms:
 
 | | |
