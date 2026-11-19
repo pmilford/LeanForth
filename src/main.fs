@@ -43,12 +43,14 @@ require ./kernel/verdict-version.fs
 require ./kernel/env-snapshot.fs
 require ./kernel/env-import.fs
 
-\ Verified-program track: example words, the stack-depth analyzer, the
-\ reader from restricted Forth source to the program IR and its interpreter.
+\ Verified-program track: example words, the stack-depth analyzer and the
+\ program IR's interpreter. The IR 0.1 reader (program/ir-reader.fs) is
+\ the tests' oracle only and is not loaded here (review R1, 2026-11-18):
+\ leanforth verify reads Forth with program/verify.fs, which
+\ scripts/program_verify.py loads.
 require ./program/clamp.fs
 require ./program/examples.fs
 require ./program/program-depth.fs
-require ./program/ir-reader.fs
 require ./program/ir-run.fs
 
 \ Presentation: the term printer and its side table, and the proof outline

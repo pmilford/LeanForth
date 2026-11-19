@@ -33,6 +33,7 @@
 \ tests/front/constructions-init.sh.
 \ State: none of its own; the job record (/aux) holds everything.
 
+require ../lib/decimal.fs
 require ./constructions.fs
 
 \ ---- T's numbers, binders and constructors.
@@ -56,9 +57,8 @@ require ./constructions.fs
 : ctor-type ( job -- e ) dup aux-ctor @ swap decl-of staged-type@ ;
 
 \ ---- Small terms.
-: digits ( u -- c-addr u ) base @ >r decimal 0 <# #s #> r> base ! ;
 : nat-literal ( u job -- e outcome )
-  >r digits r@ aux-tier tier-texts text-intern
+  >r u>decimal r@ aux-tier tier-texts text-intern
   ok-then? if r> aux-tier expr-nat else r> drop no-result then ;
 \ A top-level name, made in the scratch tier when the input lacks it: its
 \ number and ok, or -1 and full.

@@ -56,6 +56,7 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/slab.fs
+require ../lib/decimal.fs
 require ../core/terms.fs
 require ../core/literals.fs
 require ../core/string-literals.fs
@@ -143,13 +144,12 @@ end-structure
 \ ---- Making keys.
 : dk-new ( tag -- k outcome ) lf-meta-spend? if elab-key-new else drop -1
   outcome-exhausted then ;
-: dk-digits ( u -- c-addr n ) base @ >r decimal 0 <# #s #> r> base ! ;
 : dk-text ( c-addr n k -- outcome )
   dup elab-key-text-start >r dup elab-text-room ok-then? 0= if nip nip r> drop exit then
   swap move r> elab-key-text-end outcome-ok ;
 : dk-lit-key ( u -- k outcome )
   elab-key-lit dk-new ok-then? 0= if nip no-result exit then
-  tuck >r dk-digits r> dk-text ;
+  tuck >r u>decimal r> dk-text ;
 : dk-declared ( name -- d outcome )
   lf-menv-data-decl if outcome-ok else -1 outcome-invalid then ;
 : dk-ref-key ( d n tag -- k outcome )

@@ -24,3 +24,11 @@ old = '''  pv-out# pv-out-chars cell-counted+? 0= pv-why-capacity pv-?fail ;'''
 new = '''  pv-out# pv-out-chars cell-counted+? drop ;'''
 test = "$GFORTH tests/program/verify.fs"
 reason = "reuse-b A2: an IR line piece that does not fit is dropped silently instead of stopping the run as full"
+
+[[fault]]
+id = "rb-tex-slashed-shifted"
+file = "src/present/latex-text.fs"
+old = '''  >r lf-tex-plain tuck r> byte-scan nip dup if - true else 2drop false then ;'''
+new = '''  >r lf-tex-plain tuck r> byte-scan nip dup if - 1 max true else 2drop false then ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "reuse-b A5 (review R10): an underscore in LaTeX text is written as \\# , the next special's form"

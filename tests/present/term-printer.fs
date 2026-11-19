@@ -330,6 +330,17 @@ T{ cap-reset s\" a\nb\xe2\x80\xaeC" lf-tex-ident
    s" \mathit{a\backslash{}u\{A\}b\backslash{}u\{202E\}C}" expect-text -> }T
 T{ cap-reset s" α" lf-tex-ident s" \alpha" expect-text -> }T
 T{ cap-reset s" x₀" lf-tex-ident s" x_{0}" expect-text -> }T
+\ lf-tex-text-form (reuse-b, review R10): text mode's form of each of the
+\ ten specials, the first and the last slashed one, none for other bytes.
+: tex-form= ( char c-addr u -- flag ) rot lf-tex-text-form 0= if 2drop false exit then compare 0= ;
+T{ char _ s" \_" tex-form= char $ s" \$" tex-form= char % s" \%" tex-form= -> true true true }T
+T{ char { s" \{" tex-form= char } s" \}" tex-form= char # s" \#" tex-form= -> true true true }T
+T{ char & s" \&" tex-form= char ^ s" \textasciicircum{}" tex-form= -> true true }T
+T{ char \ s" \textbackslash{}" tex-form= char ~ s" \textasciitilde{}" tex-form= -> true true }T
+T{ char a lf-tex-text-form 32 lf-tex-text-form 0 lf-tex-text-form 255 lf-tex-text-form -> 0 0 0 0 }T
+\ lf-pp-super (review R11): the superscript digits, two and three bytes.
+T{ 0 lf-pp-super s" ⁰" compare 1 lf-pp-super s" ¹" compare 3 lf-pp-super s" ³" compare -> 0 0 0 }T
+T{ 4 lf-pp-super s" ⁴" compare 9 lf-pp-super s" ⁹" compare -> 0 0 }T
 
 \ A constant's LaTeX spelling goes into the name pool behind the binder
 \ names, past the 4,096 bytes the pool once held, and prints; in Unicode

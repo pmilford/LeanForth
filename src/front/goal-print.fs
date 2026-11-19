@@ -75,17 +75,9 @@ end-structure
 : gp-emit ( c-addr u -- ) lf-pp-emit ;
 : gp-line ( -- ) gp gp-lines @ if s\" \n" gp-emit then true gp gp-lines ! ;
 : gp-term ( term -- outcome ) gp-fuel lf-print-term ;
-\ Superscript digits, two CASE tables of five.
-: gp-super-low ( d -- c-addr u )
-  case 0 of s" ⁰" endof 1 of s" ¹" endof 2 of s" ²" endof 3 of s" ³" endof
-    s" ⁴" rot endcase ;
-: gp-super ( d -- c-addr u )
-  dup 5 < if gp-super-low exit then
-  case 5 of s" ⁵" endof 6 of s" ⁶" endof 7 of s" ⁷" endof 8 of s" ⁸" endof
-    s" ⁹" rot endcase ;
 : gp-place ( n -- p ) 1 begin over 9 > while 10 * swap 10 / swap repeat nip ;
 : gp-supers ( n -- )
-  dup gp-place begin dup while 2dup / 10 mod gp-super gp-emit 10 / repeat 2drop ;
+  dup gp-place begin dup while 2dup / 10 mod lf-pp-super gp-emit 10 / repeat 2drop ;
 \ Lean's tombstone: ✝ and, after the first, its number in superscript.
 : gp-suffix ( code -- ) dup 0< if drop exit then s" ✝" gp-emit ?dup if gp-supers then ;
 

@@ -5218,8 +5218,8 @@ reason = "6.2.0: a rebuild during a block's check leaves that block's constructo
 [[fault]]
 id = "forms-latex-underscore-unescaped"
 file = "src/present/statement-forms.fs"
-old = '''[char] _ of s" \_" true endof'''
-new = '''[char] _ of s" _" true endof'''
+old = '''  case 32 of s" ~" true endof 10 of lf-sf-newline true endof'''
+new = '''  case 32 of s" ~" true endof 10 of lf-sf-newline true endof [char] _ of s" _" true endof'''
 test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
 reason = "the typewriter block leaves an underscore unescaped, so poly_identity breaks the LaTeX it is printed in"
 quick = true

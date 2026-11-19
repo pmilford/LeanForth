@@ -16,6 +16,7 @@ include ../support/checks.fs
 here constant dict-start
 require ../../src/lib/task.fs
 require ../../src/main.fs
+require ../../src/program/ir-reader.fs   \ the tests' IR 0.1 reader, not in main.fs
 variable planted  0 planted !   \ a shared cell for a planted fault (below)
 here constant dict-end
 \ The main context right after loading, before any test changes it: its

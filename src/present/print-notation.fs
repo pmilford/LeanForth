@@ -127,7 +127,7 @@ require ./notation-table.fs
 \ (lf-pn-digit).
 : lf-pn-sup-width ( d -- u ) 1 4 within if 2 else 3 then ;
 : lf-pn-sups ( -- c-addr ) s" ⁰¹ ² ³ ⁴⁵⁶⁷⁸⁹" drop ;
-: lf-pn-sup-digit ( d -- c-addr u ) dup 3 * lf-pn-sups + swap lf-pn-sup-width ;
+: lf-pp-super ( d -- c-addr u ) dup 3 * lf-pn-sups + swap lf-pn-sup-width ;
 : lf-pn-digit ( term row -- d true | false )
   lf-pp-mode lf-print-mathtext <> if 2drop false exit then
   lf-pn-b lf-pn-numeral? 0= if false exit then
@@ -143,7 +143,7 @@ require ./notation-table.fs
   lf-pp-mode case lf-print-latex of ['] lf-pn-braced endof
     lf-print-mathtext of ['] lf-pn-raised endof ['] lf-pn-infix swap endcase ;
 : lf-pn-power ( frames -- ... frames next )
-  dup lf-pn-kept lf-pn-digit if lf-pn-sup-digit lf-pp-emit lf-pn-done exit then
+  dup lf-pn-kept lf-pn-digit if lf-pp-super lf-pp-emit lf-pn-done exit then
   lf-pn-power-text execute ;
 : lf-pn-rest-xt ( kind -- xt )
   case lf-nt-suffix of ['] lf-pn-suffix endof lf-nt-power of ['] lf-pn-power endof

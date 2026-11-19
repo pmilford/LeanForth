@@ -75,14 +75,11 @@ end-structure
 \ typewriter font. The LeanForth block goes four columns in (two ems in
 \ LaTeX), a new line after each of the printer's line ends.
 : lf-sf-newline ( -- c-addr u ) s\"  \\\\\n" ;
+\ A blank and a line end in the typewriter block, else latex-text.fs's
+\ text-mode form (^ as \textasciicircum{} since review R10).
 : lf-sf-tex-form ( char -- c-addr u true | false )
   case 32 of s" ~" true endof 10 of lf-sf-newline true endof
-    [char] \ of s" \textbackslash{}" true endof [char] ^ of s" \^{}" true endof
-    [char] ~ of s" \textasciitilde{}" true endof [char] _ of s" \_" true endof
-    [char] # of s" \#" true endof [char] % of s" \%" true endof
-    [char] & of s" \&" true endof [char] { of s" \{" true endof
-    [char] } of s" \}" true endof [char] $ of s" \$" true endof
-    >r false r> endcase ;
+    >r r@ lf-tex-text-form r> endcase ;
 : lf-sf-tex-byte ( c-addr -- )
   dup c@ lf-sf-tex-form if rot drop lf-lv-out else 1 lf-lv-out then ;
 \ Text a character at a time: a character the text rule bans and a byte that

@@ -30,6 +30,20 @@ require ../lib/text-rule.fs
   s" ^" lf-tex-is? if drop s" \hat{}" lf-pp-emit exit then
   s" ~" lf-tex-is? if drop s" \sim{}" lf-pp-emit exit then
   s" \" lf-tex-is? if drop s" \backslash{}" lf-pp-emit exit then 1 lf-pp-emit ;
+\ lf-tex-text-form ( char -- c-addr u true | false ): one ASCII character
+\ in LaTeX's text mode (string literals, print-strings.fs; the statement
+\ forms, statement-forms.fs; review R10): _ # % & { } $ after a backslash,
+\ \ ^ ~ by name; false for any other character.
+: lf-tex-plain ( -- c-addr u ) s" _#%&{}$" ;
+: lf-tex-slashed ( i -- c-addr u ) 2* s" \_\#\%\&\{\}\$" drop + 2 ;
+: lf-tex-slash-index ( char -- i true | false )
+  >r lf-tex-plain tuck r> byte-scan nip dup if - true else 2drop false then ;
+: lf-tex-named ( char -- c-addr u true | false )
+  case [char] \ of s" \textbackslash{}" true endof
+    [char] ^ of s" \textasciicircum{}" true endof
+    [char] ~ of s" \textasciitilde{}" true endof >r false r> endcase ;
+: lf-tex-text-form ( char -- c-addr u true | false )
+  dup lf-tex-slash-index if nip lf-tex-slashed true exit then lf-tex-named ;
 \ A mode: its sink ( c-addr u -- ), its step for a one-byte character
 \ ( c-addr -- ) and its backslash ( -- c-addr u ).
 begin-structure /lf-tex-mode
