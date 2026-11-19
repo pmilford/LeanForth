@@ -984,7 +984,7 @@ def extract(root, specs, base, dry_run=False, add_requires=False):
         print("".join(diff), end="")
         if base_path.exists() and base_path.read_text() != base_text:
             print(f"(and tests/duplicates-baseline.json: {len(done)} group(s) removed, {len(moves)} re-keyed)")
-        report(done, texts, diff, root, dry_run=True)
+        extraction_report(done, texts, diff, root, dry_run=True)
         return 0
     originals = {rel: (root / rel).read_text(encoding="utf-8") for rel in texts}
     old_base = base_path.read_text() if base_path.exists() else None
@@ -999,11 +999,11 @@ def extract(root, specs, base, dry_run=False, add_requires=False):
             base_path.write_text(old_base)
         print("refused: the written tree's groups differ from the checked copy's; every file restored")
         return 1
-    report(done, texts, diff, root)
+    extraction_report(done, texts, diff, root)
     return 0
 
 
-def report(done, texts, diff, root, dry_run=False):
+def extraction_report(done, texts, diff, root, dry_run=False):
     added = sum(1 for d in diff if d.startswith("+") and not d.startswith("+++"))
     removed = sum(1 for d in diff if d.startswith("-") and not d.startswith("---"))
     print(f"{'would change' if dry_run else 'changed'} {len(texts)} file(s), +{added} -{removed} lines: "
