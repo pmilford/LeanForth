@@ -1567,3 +1567,31 @@ the owner approved, each as recommended:
   agents at a time on separate files, the orchestrator running the long tests. **Order:** S2's remaining fixes and
   its done check beside the simp data (format 4 with the coercion tag); then slice LA; then SP1b-i beside FE4a.
 
+## Libraries first (2026-11-18, late evening)
+
+The owner, on the state of the clean-up: "The libraries and their use should have more weight - more importantly is
+changing the coding approach to produce well factored code with reusable words in libraries, with general purpose or
+LeanForth specific. Why is the library port of existing tactics incomplete? Why is so much clean up work
+incomplete?" Asked three questions with recommendations, the owner chose:
+
+- **Duplication blocks a merge again**, for all new code. This replaces the deferral of "Faster merges"
+  (2026-11-17), under which about 30 review items and 250 duplicate groups had been left for a reuse pass that kept
+  being scheduled behind features. The coverage-debt and nightly-run parts of that decision stand.
+- **One of the two implementing slots is always on libraries and clean-up** until the backlog is cleared: the
+  older tactics (intro, rfl, rewrite, induction) onto the goal layer; copied words replaced by shared ones; the
+  deferred review items (plan 9.4.8l-o); then the duplicate groups reduced week by week.
+- **Library first, for every slice:** an architect step lists the words the slice needs, which exist, and which
+  new ones belong in a library; the implementer writes the library words and their tests first, then the caller; a
+  caller file holds only words specific to that caller; the review checks that list.
+
+The same evening: **S2's done list loses one item.** The wrong twin of the `Eq.refl` proof (`s2w-add-zero.lf`,
+which answers error 131, a coercion, where Lean says "Type mismatch") needs FE4's coercions; the owner agreed to
+move it to FE4's acceptance, so that S2 is checked as done once `by-case:` and the `by-rfl` gap are fixed. The owner
+also asked for better ordering: a slice that is integrated but not done is finished before the next feature slice
+in its area starts.
+
+**The talk.** The owner speaks about the project on Saturday 2026-11-21 and shows and releases the repository
+(plan 9.4.8q); slices merge through Thursday and the freeze is Friday. For the talk the owner finds the ingestion
+of all of Mathlib the interesting result, not a list of well-known theorems inside it; associativity and
+commutativity are not interesting examples for a general audience.
+
