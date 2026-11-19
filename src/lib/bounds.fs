@@ -1,6 +1,8 @@
 \ Range and memory predicates used to validate input before forming
-\ addresses. Signed comparisons only, so no bound can wrap around; and
-\ cell-counted records, laid down and read back. No state.
+\ addresses: index and range tests compare signed, so no bound wraps
+\ around; and cell-counted records, laid down and read back, whose
+\ bounded writers compare a length unsigned, so a length with the top bit
+\ set (a negative u) never fits. No state.
 \ Interface: between? upto? range-at in-ranges? cells-zero? cells= index?
 \ cells-index cells-has? cell-counted, cell-count cell-counted!
 \ cell-counted+! cell-counted-left cell-counted+?. Requires portability.fs,
@@ -9,7 +11,11 @@
 \ Example:
 \   create primes 2 , 3 , 5 , 7 ,   create odds 3 , 5 , 7 ,
 \   3 4 index? .  4 4 index? .  5 primes 4 cells-index . .
-\   primes cell+ odds 3 cells= .   \ prints: -1 0 -1 2 -1
+\   primes cell+ odds 3 cells= .
+\   create buf 0 , 8 allot            \ a buffer of 8 bytes after its count
+\   s" abc" buf 8 cell-counted+? .  buf 8 cell-counted-left .
+\   s" defghi" buf 8 cell-counted+? .  buf cell-count type
+\   \ prints: -1 0 -1 2 -1 -1 5 0 abc
 \ More cases, with their results:
 \   create primes 2 , 3 , 5 , 7 ,   create odds 3 , 5 , 7 ,
 \   3 4 index?  4 4 index?  0 -1 index?    \ true false false
@@ -70,9 +76,9 @@ lf-lib set-current
 \ The same as a buffer of room bytes after its count cell (a record's
 \ text field): cell-counted! puts the text c-addr u in it (true; false,
 \ nothing changed, when u is more than room), cell-counted+! appends it
-\ (unchecked: the caller made sure it fits).
+\ (unchecked: the caller made sure it fits). Lengths compare unsigned.
 : cell-counted! ( c-addr u addr room -- flag )
-  2 pick < if drop 2drop false exit then 2dup ! cell+ swap move true ;
+  2 pick u< if drop 2drop false exit then 2dup ! cell+ swap move true ;
 : cell-counted+! ( c-addr u addr -- ) >r tuck r@ cell-count + swap move r> +! ;
 \ The same buffer, bounded: cell-counted-left gives the bytes still free
 \ (room less the count), and cell-counted+? appends c-addr u only when it
@@ -81,7 +87,7 @@ lf-lib set-current
 \ fail.
 : cell-counted-left ( addr room -- n ) swap @ - ;
 : cell-counted+? ( c-addr u addr room -- flag )
-  over swap cell-counted-left 2 pick < if drop 2drop false exit then
+  over swap cell-counted-left 0 max 2 pick u< if drop 2drop false exit then
   cell-counted+! true ;
 
 module-close

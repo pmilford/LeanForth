@@ -148,6 +148,15 @@ require ../front/step-log.fs
 \ a host whose cells are smaller, the largest cell.
 : cli-fuel-limit ( -- n ) max-n 53 rshift if 1 53 lshift 1- else max-n then ;
 cli-fuel-limit constant cli-fuel-most
+\ A snapshot's build information (cli-info-build, below): its JSON
+\ writer and the text, cell-counted.
+1024 constant cli-info-room
+1 0 jw-plan? 0= [if] .( leanforth.fs: the information writer) cr abort [then]
+begin-structure /cli-info
+  1 0 jw-size +field cli-info-writer
+  field: cli-info-count          \ the text: its length, then its bytes
+  cli-info-room +field cli-info-bytes
+end-structure
 begin-structure /cli-run
   field: opt-unchecked          \ true: manifests are not checked (--no-manifest)
   field: opt-fuel               \ fuel each declaration's check starts with (--fuel)
@@ -197,6 +206,7 @@ begin-structure /cli-run
   field: arg-paths              \ the files the command reads and writes (/cli-path each)
   field: arg-paths#             \ how many
   field: opt-engines            \ 1: --fast given, 2: --checked given (both: a mistake)
+  /cli-info +field run-info     \ a snapshot's build information while it is written
 end-structure
 /cli-run context-record: cli-state
 manifest: cli-manifest
@@ -861,18 +871,12 @@ here cli-plain-chars - 2 cells / constant cli-plain-chars#
 \ R2 of 2026-11-18: a long text no longer drops parts of the JSON).
 \ Written by lib/json-write.fs into a cell-counted buffer (lib/bounds.fs)
 \ that holds the longest such text (six members, four texts of 128 bytes),
-\ so the writer's limit is never reached; one record, set up while loading,
-\ used by the main task only.
-1024 constant cli-info-room
-begin-structure /cli-info
-  1 0 jw-size +field cli-info-writer
-  field: cli-info-count          \ the text: its length, then its bytes
-  cli-info-room +field cli-info-bytes
-end-structure
-create cli-info /cli-info allot
+\ so the writer's limit is never reached; the run's record (/cli-info, a
+\ field of cli-state), its writer set up for each text.
+: cli-info ( -- addr ) cli-state run-info ;
 : cli-iw ( -- writer ) cli-info cli-info-writer ;
-1 0 cli-iw jw-init 0= [if] .( leanforth.fs: the information writer) cr abort [then]
-cli-info-room cli-iw jw-limit !
+: cli-info-start ( -- )
+  1 0 cli-iw jw-init drop cli-info-room cli-iw jw-limit ! 0 cli-info cli-info-count ! ;
 : cli-info-sink ( c-addr u -- )
   cli-info cli-info-count cli-info-room cell-counted+? drop ;
 : cli-info-plain? ( c-addr u -- flag ) dup 1 129 within >r cli-plain? r> and ;
@@ -890,7 +894,7 @@ cli-info-room cli-iw jw-limit !
   s" cellBits" cli-info-key cell-bits cli-iw jw-u ;
 \ The text; "{}" if the writer refused it, which the sizes above exclude.
 : cli-info-build ( -- c-addr u )
-  0 cli-info cli-info-count ! ['] cli-info-sink cli-iw jw-start
+  cli-info-start ['] cli-info-sink cli-iw jw-start
   cli-iw jw-open-object cli-info-members cli-iw jw-close-object
   cli-iw jw-end ok? if cli-info cli-info-count cell-count else s" {}" then ;
 : cli-snapshot-save ( -- )

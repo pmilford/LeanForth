@@ -56,3 +56,170 @@ old = '''  2dup json-string-at? if json-text@ true else 2drop false then ;'''
 new = '''  2dup json-count @ u< if json-text@ true else 2drop false then ;'''
 test = "$GFORTH tests/lib/json.fs"
 reason = "a number's digits read as a string's text"
+
+# --- The tag sets of reuse-b and reuse-c, each against its old chain (tests/core/tag-sets.fs;
+# Forth review of reuse-b, finding 5).
+
+[[fault]]
+id = "rc-term-in-index-as-tag"
+file = "src/core/terms.fs"
+old = ''': lf-term-in? ( index mask -- flag ) swap lf-term-tag@ swap lf-tag-in? ;'''
+new = ''': lf-term-in? ( index mask -- flag ) lf-tag-in? ;'''
+test = "$GFORTH tests/core/tag-sets.fs"
+reason = "the term's index is tested as if it were its tag"
+
+[[fault]]
+id = "rc-sort-tags-no-symbolic"
+file = "src/core/tagged-sort-boundary.fs"
+old = '''lf-tag-sort lf-tag-symbolic-sort 2 lf-tags constant lf-sort-tags'''
+new = '''lf-tag-sort 1 lf-tags constant lf-sort-tags'''
+test = "$GFORTH tests/core/tag-sets.fs"
+reason = "a Sort of a symbolic level is no Sort"
+
+[[fault]]
+id = "rc-literal-tags-no-str"
+file = "src/core/string-literals.fs"
+old = '''lf-tag-lit lf-tag-str 2 lf-tags constant lf-literal-tags'''
+new = '''lf-tag-lit 1 lf-tags constant lf-literal-tags'''
+test = "$GFORTH tests/core/tag-sets.fs"
+reason = "a string literal is no literal"
+
+[[fault]]
+id = "rc-let-tags-no-nondep"
+file = "src/core/terms.fs"
+old = '''lf-tag-let lf-tag-let-nondep 2 lf-tags constant lf-let-tags'''
+new = '''lf-tag-let 1 lf-tags constant lf-let-tags'''
+test = "$GFORTH tests/core/tag-sets.fs"
+reason = "a non-dependent let is no let"
+
+[[fault]]
+id = "rc-whnf-easy-no-str"
+file = "src/kernel/whnf.fs"
+old = '''lf-tag-bvar lf-tag-pi lf-tag-lit lf-tag-str lf-tag-symbolic-sort 5 lf-tags'''
+new = '''lf-tag-bvar lf-tag-pi lf-tag-lit lf-tag-symbolic-sort 4 lf-tags'''
+test = "$GFORTH tests/core/tag-sets.fs"
+reason = "[kernel]: a string literal is no longer a weak head normal form needing no step"
+
+[[fault]]
+id = "rc-dd-false-no-constant"
+file = "src/front/defeq-delta.fs"
+old = '''lf-tag-lam lf-tag-pi lf-tag-let lf-tag-let-nondep lf-tag-constant 5 lf-tags'''
+new = '''lf-tag-lam lf-tag-pi lf-tag-let lf-tag-let-nondep 4 lf-tags'''
+test = "$GFORTH tests/core/tag-sets.fs"
+reason = "a constant head no longer answers false in the delta step's quick test"
+
+[[fault]]
+id = "rc-pp-app-tags-no-projection"
+file = "src/present/print-analysis.fs"
+old = '''lf-tag-app lf-tag-projection 2 lf-tags constant lf-pp-app-tags'''
+new = '''lf-tag-app 1 lf-tags constant lf-pp-app-tags'''
+test = "$GFORTH tests/core/tag-sets.fs"
+reason = "a projection no longer prints as its leaf applied to the projected term"
+
+[[fault]]
+id = "rc-pp-leaf-kinds-no-proj"
+file = "src/present/print-analysis.fs"
+old = '''lf-tag-fvar lf-tag-mvar lf-tag-lit lf-tag-str lf-tag-proj 5 lf-tags'''
+new = '''lf-tag-fvar lf-tag-mvar lf-tag-lit lf-tag-str 4 lf-tags'''
+test = "$GFORTH tests/core/tag-sets.fs"
+reason = "a projection leaf is compared as a pair, not as a leaf"
+
+[[fault]]
+id = "rc-pp-pair-kinds-no-let"
+file = "src/present/print-analysis.fs"
+old = '''lf-tag-projection lf-tag-let lf-tag-let-nondep 3 lf-tags constant lf-pp-pair-kinds'''
+new = '''lf-tag-projection lf-tag-let 2 lf-tags constant lf-pp-pair-kinds'''
+test = "$GFORTH tests/core/tag-sets.fs"
+reason = "a non-dependent let is not compared as a pair"
+
+[[fault]]
+id = "rc-pp-leaf-tags-no-str"
+file = "src/present/print-names.fs"
+old = '''lf-tag-lit lf-tag-str 8 lf-tags constant lf-pp-leaf-tags'''
+new = '''lf-tag-lit 7 lf-tags constant lf-pp-leaf-tags'''
+test = "$GFORTH tests/core/tag-sets.fs"
+reason = "the name scan does not stop at a string literal"
+
+[[fault]]
+id = "rc-pp-applied-no-fvar"
+file = "src/present/term-printer.fs"
+old = '''lf-tag-app lf-tag-projection lf-tag-bvar lf-tag-fvar lf-tag-constant 5 lf-tags'''
+new = '''lf-tag-app lf-tag-projection lf-tag-bvar lf-tag-constant 4 lf-tags'''
+test = "$GFORTH tests/core/tag-sets.fs"
+reason = "a free variable no longer prints through the application printer"
+
+[[fault]]
+id = "rc-meq-one-head-no-sort"
+file = "src/kernel/mixed-compare.fs"
+old = '''lf-tag-constant lf-tag-symbolic-sort 2 lf-tags constant lf-meq-one-head-tags'''
+new = '''lf-tag-constant 1 lf-tags constant lf-meq-one-head-tags'''
+test = "$GFORTH tests/core/tag-sets.fs"
+reason = "[kernel]: two Sorts of symbolic levels are no longer compared by their first fields"
+
+[[fault]]
+id = "rc-nest-restore-no-constant"
+file = "src/kernel/inductive-nested.fs"
+old = '''lf-tag-app lf-tag-constant 2 lf-tags constant lf-nest-restore-tags'''
+new = '''lf-tag-app 1 lf-tags constant lf-nest-restore-tags'''
+test = "$GFORTH tests/core/tag-sets.fs"
+reason = "[kernel]: a constant of an auxiliary type is not restored to the nested type"
+
+# --- The LaTeX forms and the command line's tables (review of reuse-b, 5 and 6).
+
+[[fault]]
+id = "rc-tex-caret-math-form"
+file = "src/present/latex-text.fs"
+old = '''  dup [char] ^ = if drop s" \textasciicircum{}" true exit then'''
+new = '''  dup [char] ^ = if drop s" \^{}" true exit then'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "^ in a statement form's typewriter text as \\^{}, an accent on the next character, not the caret users see"
+
+[[fault]]
+id = "rc-tex-math-named-tilde"
+file = "src/present/latex-text.fs"
+old = '''  dup [char] ~ = if drop s" \sim{}" true exit then false ;'''
+new = '''  dup [char] ~ = if drop s" \textasciitilde{}" true exit then false ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "math mode writes ~ in text mode's form, which LaTeX refuses in math"
+
+[[fault]]
+id = "rc-tex-form-no-slashed"
+file = "src/present/latex-text.fs"
+old = '''  execute ?dup if exit then lf-tex-slashed ;'''
+new = '''  execute ?dup if exit then drop false ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "_ # % & { } $ are written as they are, which LaTeX reads as commands"
+
+[[fault]]
+id = "rc-cli-entry-swapped"
+file = "src/cli/leanforth.fs"
+old = '''  parse-name rot name-entry rot , swap , , ;'''
+new = '''  parse-name rot name-entry rot , , , ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a command's number of file names and its option set are laid down in each other's place"
+
+# --- Lengths compared unsigned (review of reuse-b, 8).
+
+[[fault]]
+id = "rc-counted-append-signed"
+file = "src/lib/bounds.fs"
+old = '''  over swap cell-counted-left 0 max 2 pick u< if drop 2drop false exit then'''
+new = '''  over swap cell-counted-left 0 max 2 pick < if drop 2drop false exit then'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a length with the top bit set passes the bound and MOVE runs with a huge count"
+
+[[fault]]
+id = "rc-counted-put-signed"
+file = "src/lib/bounds.fs"
+old = '''  2 pick u< if drop 2drop false exit then 2dup ! cell+ swap move true ;'''
+new = '''  2 pick < if drop 2drop false exit then 2dup ! cell+ swap move true ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a length with the top bit set passes the bound and MOVE runs with a huge count"
+
+[[fault]]
+id = "rc-counted-append-overfull"
+file = "src/lib/bounds.fs"
+old = '''  over swap cell-counted-left 0 max 2 pick u< if drop 2drop false exit then'''
+new = '''  over swap cell-counted-left 2 pick u< if drop 2drop false exit then'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a buffer holding more than its room (a negative room left) takes any append"

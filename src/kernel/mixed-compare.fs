@@ -243,9 +243,9 @@ create lf-meq-hooks /htab-hooks allot
 : lf-meq-children ( a b walk -- outcome )
   >r 2dup lf-mcompare-seconds r@ lf-meq-push dup ok?
   if drop lf-mcompare-firsts r> lf-meq-push else nip nip r> drop then ;
+lf-tag-constant lf-tag-symbolic-sort 2 lf-tags constant lf-meq-one-head-tags
 : lf-meq-one-head? ( a b tag -- flag )
-  dup lf-tag-constant = swap lf-tag-symbolic-sort = or
-  if lf-mcompare-firsts = else 2drop false then ;
+  lf-meq-one-head-tags lf-tag-in? if lf-mcompare-firsts = else 2drop false then ;
 : lf-meq-dispatch ( a b walk tag -- outcome )
   dup lf-term-binary-tag? if drop lf-meq-children exit then
   2over 2 pick lf-meq-one-head? if 2drop 2drop outcome-ok exit then

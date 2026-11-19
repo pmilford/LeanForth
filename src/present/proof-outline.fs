@@ -64,6 +64,7 @@ require ./log-check.fs
 require ./statement-forms.fs
 require ../core/axiom-allowlist.fs
 require ../core/diagnostics.fs
+require ../core/tagged-sort-boundary.fs
 
 32 constant lf-ol-set-capacity
 
@@ -221,7 +222,7 @@ end-structure
     lf-tag-sort of drop 0= endof lf-tag-symbolic-sort of drop lf-ol-level-zero? endof
     nip nip false swap endcase ;
 : lf-ol-sort? ( ref -- flag )
-  lf-lv-tag 0= if false exit then dup lf-tag-sort = swap lf-tag-symbolic-sort = or ;
+  lf-lv-tag 0= if false exit then lf-sort-tags lf-tag-in? ;
 
 \ Lambda chains. A lambda step's domain is its node's first field; its
 \ first inference premise infers the domain, its second the body.

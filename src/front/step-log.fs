@@ -94,12 +94,11 @@ end-structure
 \ ---- A step.
 \ The tactic's name, Lean's: its kind's row (tactic-run.fs, lf-tac-lean).
 : lsl-tactic ( kind -- c-addr u ) lf-tac-lean ;
-: lsl-pos+ ( c-addr u -- )
-  dup lsl lsl-pos# @ + lsl-pos-room > if 2drop exit then
-  lsl lsl-pos lsl lsl-pos# @ + swap dup lsl lsl-pos# +! move ;
+\ lsl-pos# and lsl-pos are one cell-counted buffer (lib/bounds.fs).
+: lsl-pos+ ( c-addr u -- ) lsl lsl-pos# lsl-pos-room cell-counted+? drop ;
 : lsl-source ( pos -- c-addr u )
   0 lsl lsl-pos# ! lfa-pos> swap u>decimal lsl-pos+ s" :" lsl-pos+ u>decimal lsl-pos+
-  lsl lsl-pos lsl lsl-pos# @ ;
+  lsl lsl-pos# cell-count ;
 \ An entry's number in its declaration, from 1; one before the first, 0.
 : lsl-number-of ( entry -- k ) lsl lsl-first @ - 1+ 0 max ;
 : lsl-afters ( entry -- )

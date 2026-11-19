@@ -376,6 +376,7 @@ test-lib:
 
 test-core:
 	$(RUN) $(GFORTH) tests/core/terms.fs
+	$(RUN) $(GFORTH) tests/core/tag-sets.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/infer_typed_trial.py
 	$(RUN) $(GFORTH) tests/core/tagged-sort-boundary.fs
 	$(RUN) $(GFORTH) tests/core/symbolic-session.fs

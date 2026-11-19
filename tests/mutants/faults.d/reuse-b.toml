@@ -4,8 +4,8 @@
 [[fault]]
 id = "rb-counted-append-one-over"
 file = "src/lib/bounds.fs"
-old = '''  over swap cell-counted-left 2 pick < if drop 2drop false exit then'''
-new = '''  over swap cell-counted-left 1+ 2 pick < if drop 2drop false exit then'''
+old = '''  over swap cell-counted-left 0 max 2 pick u< if drop 2drop false exit then'''
+new = '''  over swap cell-counted-left 0 max 1+ 2 pick u< if drop 2drop false exit then'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "reuse-b A2: a bounded append one byte longer than the room left is written past the buffer"
 
@@ -28,10 +28,10 @@ reason = "reuse-b A2: an IR line piece that does not fit is dropped silently ins
 [[fault]]
 id = "rb-tex-slashed-shifted"
 file = "src/present/latex-text.fs"
-old = ''': lf-tex-slashed ( u -- c-addr 2 ) 1- 2* s" \$\}\{\&\%\#\_" drop + 2 ;'''
-new = ''': lf-tex-slashed ( u -- c-addr 2 ) 2* s" \$\}\{\&\%\#\_" drop + 2 ;'''
+old = '''  s" \_\#\%\&\{\}\$" rot byte-scan if 1- 2 true else drop false then ;'''
+new = '''  s" \_\#\%\&\{\}\$" rot byte-scan if 2 true else drop false then ;'''
 test = "$GFORTH tests/present/term-printer.fs"
-reason = "reuse-b A5 (review R10): an underscore in LaTeX text is written as \\# , the next special's form"
+reason = "reuse-b A5 (review R10; lf-tex-slashed as the Forth review of reuse-b writes it, reuse-c): an underscore in LaTeX text is written as _\\ , without its backslash"
 
 [[fault]]
 id = "rb-pinned-lean-unchecked"

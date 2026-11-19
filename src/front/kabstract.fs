@@ -123,7 +123,8 @@ end-structure
 \ order differs: any let answers unsupported until it is ported.
 \ A smart-unfolding marker (core/annotations.fs) answers unsupported too:
 \ Lean visits mdata's term, this walk would keep it unvisited.
-: kab-unported? ( e -- flag ) dup lf-let? swap lf-term-tag@ lf-tag-annotation = or ;
+lf-tag-let lf-tag-let-nondep lf-tag-annotation 3 lf-tags constant kab-unported
+: kab-unported? ( e -- flag ) kab-unported lf-term-in? ;
 : kab-visit ( e off -- outcome )
   over kab-matched? ok-then? 0= if nip nip exit then if nip kab-bvar exit then
   over kab-unported? if 2drop outcome-unsupported exit then

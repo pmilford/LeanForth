@@ -550,8 +550,7 @@ rr-power 2constant rr-exact
 \ name buffer; a longer name fails the text as full.
 : rr-name ( -- c-addr u ) run-record rr-name-size cell-count ;
 : rr-name-sink ( c-addr u -- )
-  dup run-record rr-name-size @ + rr-name-room > if 2drop outcome-full rr-fail exit then
-  run-record rr-name-size cell-counted+! ;
+  run-record rr-name-size rr-name-room cell-counted+? 0= if outcome-full rr-fail then ;
 : rr-name-out ( d -- )
   0 run-record rr-name-size ! lf-input-name ['] rr-name-sink lf-pp-name-to
   rr-name rr-name-room rr-shown ;

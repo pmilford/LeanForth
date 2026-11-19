@@ -8722,8 +8722,8 @@ reason = "S4: == takes a pair met for the first time as met before, never walkin
 [[fault]]
 id = "s4-eq-one-head-any"
 file = "src/kernel/mixed-compare.fs"
-old = '''  if lf-mcompare-firsts = else 2drop false then ;'''
-new = '''  2drop true ;'''
+old = '''  lf-meq-one-head-tags lf-tag-in? if lf-mcompare-firsts = else 2drop false then ;'''
+new = '''  lf-meq-one-head-tags lf-tag-in? 2drop true ;'''
 test = "$GFORTH tests/core/mixed-convert.fs"
 reason = "S4: == takes any two constants or Sorts as one"
 
@@ -19528,7 +19528,7 @@ reason = "defeq's and whnf's frames open a visit the record refused (no fuel or 
 [[fault]]
 id = "r3-cell-counted-no-room-check"
 file = "src/lib/bounds.fs"
-old = '''  2 pick < if drop 2drop false exit then 2dup ! cell+ swap move true ;'''
+old = '''  2 pick u< if drop 2drop false exit then 2dup ! cell+ swap move true ;'''
 new = '''  drop 2dup ! cell+ swap move true ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "a text longer than the buffer is written past it (the run record's file name, the replay's old record)"
@@ -20487,8 +20487,8 @@ reason = "S2 merge B: reach.fs never reports a reached smart-unfolding marker, s
 [[fault]]
 id = "fe-annotation-kabstract"
 file = "src/front/kabstract.fs"
-old = ''': kab-unported? ( e -- flag ) dup lf-let? swap lf-term-tag@ lf-tag-annotation = or ;'''
-new = ''': kab-unported? ( e -- flag ) lf-let? ;'''
+old = '''lf-tag-let lf-tag-let-nondep lf-tag-annotation 3 lf-tags constant kab-unported'''
+new = '''lf-tag-let lf-tag-let-nondep 2 lf-tags constant kab-unported'''
 test = "$GFORTH tests/front/s2-units.fs"
 reason = "S2 merge B: kabstract keeps a smart-unfolding marker unvisited where Lean visits mdata's term"
 

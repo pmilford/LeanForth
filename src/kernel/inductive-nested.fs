@@ -547,8 +547,9 @@ end-structure
   drop lf-nest-none outcome-ok ;
 : lf-nest-restoring ( node frames -- ... frames next )
   ['] lf-nest-restore-node lf-nest-replaced ;
+lf-tag-app lf-tag-constant 2 lf-tags constant lf-nest-restore-tags
 : lf-nest-restore-visit ( node frames -- ... frames next )
-  over lf-term-valid? lf-rebuild-tag dup lf-tag-app = over lf-tag-constant = or
+  over lf-term-valid? lf-rebuild-tag dup lf-nest-restore-tags lf-tag-in?
   if drop ['] lf-nest-restoring lf-nest-again exit then
   lf-nest-other ;
 :noname ( -- ) ['] lf-nest-restore-visit lf-nest-restore-frames frame-init ; context-setup

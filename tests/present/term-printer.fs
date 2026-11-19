@@ -456,6 +456,17 @@ T{ args{ s" f" t-const s" Prod" 1 t-proj args{ s" a" t-const t-app s" Prod.2 f a
 : tex-text ( c-addr u -- ) ['] cap-sink 100 lf-lv-setup must cap-reset lf-sf-tex lf-lv-done ;
 T{ s\" a\xe2\x80\xaeb\xffc\\" tex-text
    s" a\textbackslash{}u\{202E\}b\textbackslash{}x\{FF\}c\textbackslash{}" expect-text -> }T
+\ The statement form's text mode writes ^ as \textasciicircum{} (review
+\ R10; Forth review of reuse-b, 5: the form users see), ~ and the
+\ slashed seven as text mode's, a blank as ~.
+T{ s" x^2~{a_b}" tex-text s" x\textasciicircum{}2\textasciitilde{}\{a\_b\}" expect-text -> }T
+T{ s" #%&$ y" tex-text s" \#\%\&\$~y" expect-text -> }T
+\ Math mode's forms of the same characters (lf-tex-math-form, the
+\ printer's lf-tex-byte); none for other bytes, in either mode.
+: math-form= ( char c-addr u -- flag ) rot lf-tex-math-form 0= if 2drop false exit then compare 0= ;
+T{ char ^ s" \hat{}" math-form= char ~ s" \sim{}" math-form= char \ s" \backslash{}" math-form= -> true true true }T
+T{ char _ s" \_" math-form= char $ s" \$" math-form= char } s" \}" math-form= -> true true true }T
+T{ char a lf-tex-math-form 0 lf-tex-math-form 255 lf-tex-math-form -> 0 0 0 }T
 \ A print to another sink for a while (lf-print-with, lf-print-to; review
 \ s1-elab re-check L5): in Unicode whatever the mode set, the notation
 \ flag as given; the sink, the options and the flag given back after,

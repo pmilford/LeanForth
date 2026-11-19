@@ -115,6 +115,10 @@ T{ s" xyz" text-buf 8 cell-counted+? buf-text s" abcdexyz" compare -> true 0 }T
 T{ s" !" text-buf 8 cell-counted+? buf-text s" abcdexyz" compare -> false 0 }T
 T{ s" " text-buf 8 cell-counted+? text-buf 8 cell-counted-left -> true 0 }T
 T{ s" ab" text-buf 4 cell-counted+? buf-text nip -> false 8 }T
+\ A length with the top bit set (a negative u) never fits, in either
+\ writer (review of reuse-b, 8): nothing is moved and nothing changes.
+T{ s" " text-buf 8 cell-counted! pad -1 text-buf 8 cell-counted+? buf-text nip -> true false 0 }T
+T{ pad -1 text-buf 8 cell-counted! pad max-n invert text-buf 8 cell-counted+? buf-text nip -> false false 0 }T
 T{ s" " text-buf 8 cell-counted! drop s" q" text-buf 8 ' cell-counted+? rs-checked
    buf-text s" q" compare -> true 0 }T
 T{ -1 some-cells 2 ' cells-has? rs-checked -> true }T

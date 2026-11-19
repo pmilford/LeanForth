@@ -25,26 +25,31 @@ require ../lib/text-rule.fs
 \ Escaping, one byte at a time.
 : lf-tex-in? ( c-addr hay u -- c-addr flag ) 2>r dup 1 2r> 2swap search nip nip ;
 : lf-tex-is? ( c-addr c-addr2 u2 -- c-addr flag ) 2>r dup 1 2r> compare 0= ;
-: lf-tex-byte ( c-addr -- )
-  s" _#%&{}$" lf-tex-in? if s" \" lf-pp-emit 1 lf-pp-emit exit then
-  s" ^" lf-tex-is? if drop s" \hat{}" lf-pp-emit exit then
-  s" ~" lf-tex-is? if drop s" \sim{}" lf-pp-emit exit then
-  s" \" lf-tex-is? if drop s" \backslash{}" lf-pp-emit exit then 1 lf-pp-emit ;
-\ lf-tex-text-form ( char -- c-addr u true | false ): one ASCII character
-\ in LaTeX's text mode (string literals, print-strings.fs; the statement
-\ forms, statement-forms.fs; review R10): _ # % & { } $ after a backslash,
-\ \ ^ ~ by name; false for any other character.
-\ The slashed characters, and their forms last first: the character that
-\ byte-scan finds with u bytes left of the table has its form at 2(u-1).
-: lf-tex-plain ( -- c-addr u ) s" _#%&{}$" ;
-: lf-tex-slashed ( u -- c-addr 2 ) 1- 2* s" \$\}\{\&\%\#\_" drop + 2 ;
-: lf-tex-left ( char c-addr u -- u' ) rot byte-scan nip ;
-: lf-tex-named ( char -- c-addr u true | false )
+\ One ASCII character in LaTeX: _ # % & { } $ after a backslash in
+\ either mode (lf-tex-slashed: the character's form is the two bytes
+\ from the backslash before it in the table); \ ^ ~ by name, in text mode
+\ (lf-tex-text-form: string literals, print-strings.fs; the statement
+\ forms, statement-forms.fs; review R10) or math mode (lf-tex-math-form:
+\ the printer's lf-tex-byte). False for any other character. The table
+\ holds backslashes, so \ is named before it is looked for there.
+: lf-tex-slashed ( char -- c-addr 2 true | false )
+  s" \_\#\%\&\{\}\$" rot byte-scan if 1- 2 true else drop false then ;
+: lf-tex-named ( char -- c-addr u true | char false )
   dup [char] \ = if drop s" \textbackslash{}" true exit then
   dup [char] ^ = if drop s" \textasciicircum{}" true exit then
-  [char] ~ = if s" \textasciitilde{}" true else false then ;
-: lf-tex-text-form ( char -- c-addr u true | false )
-  dup lf-tex-plain lf-tex-left ?dup if nip lf-tex-slashed true exit then lf-tex-named ;
+  dup [char] ~ = if drop s" \textasciitilde{}" true exit then false ;
+: lf-tex-math-named ( char -- c-addr u true | char false )
+  dup [char] \ = if drop s" \backslash{}" true exit then
+  dup [char] ^ = if drop s" \hat{}" true exit then
+  dup [char] ~ = if drop s" \sim{}" true exit then false ;
+\ A mode's form: by name (xt ( char -- c-addr u true | char false )),
+\ else slashed.
+: lf-tex-form ( char xt -- c-addr u true | false )
+  execute ?dup if exit then lf-tex-slashed ;
+: lf-tex-text-form ( char -- c-addr u true | false ) ['] lf-tex-named lf-tex-form ;
+: lf-tex-math-form ( char -- c-addr u true | false ) ['] lf-tex-math-named lf-tex-form ;
+: lf-tex-byte ( c-addr -- )
+  dup c@ lf-tex-math-form if lf-pp-emit drop else 1 lf-pp-emit then ;
 \ The same for the byte at c-addr.
 : lf-tex-text-byte ( c-addr -- c-addr' u true | false ) c@ lf-tex-text-form ;
 \ A mode: its sink ( c-addr u -- ), its step for a one-byte character
