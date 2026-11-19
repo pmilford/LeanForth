@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Syntax observations only: no theorem checking or general soundness claim.
 set -eu
-lean=${LEAN:-lean}
+. "$(dirname "${BASH_SOURCE[0]}")/../support/pinned-lean.sh"
 gforth=${GFORTH:-gforth}
 case "$("$lean" --version)" in 'Lean (version 4.35.0,'*) ;; *) printf '%s\n' 'Expected Lean 4.35.0' >&2; exit 1 ;; esac
 if [ "$("$lean" --githash)" != eb6cafb7290e8bd5f2937522d8d804f58f02bafc ]; then

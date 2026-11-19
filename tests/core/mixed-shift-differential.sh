@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Finite syntax comparison only; this is not a kernel correctness proof.
 set -eu
-lean=${LEAN:-lean}
+. "$(dirname "${BASH_SOURCE[0]}")/../support/pinned-lean.sh"
 gforth=${GFORTH:-gforth}
 version=$("$lean" --version)
 case "$version" in 'Lean (version 4.35.0,'*) ;; *) printf 'Unexpected Lean: %s\n' "$version" >&2; exit 1 ;; esac

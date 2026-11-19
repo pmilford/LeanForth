@@ -24,9 +24,20 @@ import re
 import subprocess
 import sys
 import tempfile
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
+
+
+@functools.lru_cache(maxsize=None)
+def lean():
+    """The Lean to run: scripts/lean_pin.py's pinned_lean ($LEAN, else this
+    checkout's pinned toolchain), refused before it runs when it is an elan
+    proxy or not Lean 4.35.0 (Forth review of reuse-b, finding 4)."""
+    return lean_pin.pinned_lean()
+
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
-LEAN = os.environ.get("LEAN", ".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean")
 GFORTH = os.environ.get("GFORTH", "gforth")
 LIMIT = 300
 
@@ -82,7 +93,7 @@ def parse(toks):
 
 
 def lean_trees():
-    run = subprocess.run([LEAN, "-DwarningAsError=true", "tests/front/operators.lean"], cwd=ROOT,
+    run = subprocess.run([lean(), "-DwarningAsError=true", "tests/front/operators.lean"], cwd=ROOT,
                          stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=LIMIT)
     lines = [line for line in run.stdout.splitlines() if line.strip()]
     if run.returncode != 0 or len(lines) != len(CASES):
@@ -118,8 +129,8 @@ def check_unfold_slice():
     """The fixture export and its manifest, made again by pinned Lean."""
     with tempfile.TemporaryDirectory() as work:
         work = pathlib.Path(work)
-        env = dict(os.environ, LEAN=LEAN, LEAN_PATH=str(work))
-        run = subprocess.run([LEAN, "-DwarningAsError=true", "-o", str(work / "FrontUnfold.olean"),
+        env = dict(os.environ, LEAN=lean(), LEAN_PATH=str(work))
+        run = subprocess.run([lean(), "-DwarningAsError=true", "-o", str(work / "FrontUnfold.olean"),
                               "tests/reference/front-unfold.lean"], cwd=ROOT, env=env,
                              stdin=subprocess.DEVNULL, capture_output=True, timeout=LIMIT)
         if run.returncode != 0:

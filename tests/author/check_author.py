@@ -68,12 +68,24 @@ import tempfile
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from lean_terms import (Export, ExportError, compile_and_export, parse_dumps,  # noqa: E402
                         structural)
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
+
+
+@functools.lru_cache(maxsize=None)
+def lean():
+    """The Lean to run: scripts/lean_pin.py's pinned_lean ($LEAN, else this
+    checkout's pinned toolchain), refused before it runs when it is an elan
+    proxy or not Lean 4.35.0 (Forth review of reuse-b, finding 4)."""
+    return lean_pin.pinned_lean()
+
+
 TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 GFORTH = os.environ.get("GFORTH", "gforth")
 if "/" in GFORTH:  # the planted faults run Gforth in a copy of the tree
     GFORTH = os.path.abspath(GFORTH)
-LEAN = os.environ.get("LEAN", "lean")
 HERE = pathlib.Path("tests/author")
 GOLDEN = HERE / "fixtures.golden"
 DOC = pathlib.Path("docs/programming/LEANFORTH_WORDS.md")
@@ -613,7 +625,7 @@ def lean_reference(texts):
             if not names:
                 raise Failure(f"{path.stem}: the fixture did not run; nothing to compare")
             try:
-                printed, dumps, export = compile_and_export(LEAN, source, names, workdir)
+                printed, dumps, export = compile_and_export(lean(), source, names, workdir)
                 exported = {name: export.declaration(name) for name in names}
             except ExportError as error:
                 raise Failure(str(error)) from error
@@ -985,7 +997,7 @@ def check_wrong_lean():
     with tempfile.TemporaryDirectory() as work:
         for path in sorted(WRONG.glob("*.lf")):
             source = pathlib.Path(f"tests/reference/author-wrong-{path.stem}.lean")
-            run = subprocess.run([LEAN, "-DwarningAsError=true", "-o",
+            run = subprocess.run([lean(), "-DwarningAsError=true", "-o",
                                   str(pathlib.Path(work) / "Wrong.olean"), str(source)],
                                  stdin=subprocess.DEVNULL, capture_output=True, text=True,
                                  timeout=TEST_LIMIT)
@@ -1001,8 +1013,8 @@ def check_slices():
     08-monoid (its Lean source compiled, then MyMonoid.mul_one exported)."""
     with tempfile.TemporaryDirectory() as work:
         work = pathlib.Path(work)
-        env = dict(os.environ, LEAN=LEAN, LEAN_PATH=str(work))
-        run = subprocess.run([LEAN, "-DwarningAsError=true", "-o", str(work / "AuthorMonoid.olean"),
+        env = dict(os.environ, LEAN=lean(), LEAN_PATH=str(work))
+        run = subprocess.run([lean(), "-DwarningAsError=true", "-o", str(work / "AuthorMonoid.olean"),
                               "tests/reference/author-08-monoid.lean"], stdin=subprocess.DEVNULL,
                              capture_output=True, timeout=TEST_LIMIT, env=env)
         if run.returncode != 0:

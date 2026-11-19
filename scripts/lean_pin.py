@@ -25,6 +25,11 @@ is a toolchain's own binary:
                     None; run with ELAN_HOME set to path's elan home. Only
                     after proxy and layout found nothing (refusal).
   refusal(path)  -> the first of the three reasons, or None.
+  unrun(name, shape=True) -> the refusal found without running anything: an
+                    elan proxy, and with shape one that is no toolchain's
+                    binary (scripts/program_verify.py, which passes shape
+                    False under its test switch for its stand-in Leans, and
+                    program_receipt.py).
   checked(name)  -> the reason the Lean that name runs is refused, or None:
                     a bare name is found on PATH (None when PATH has none:
                     running it then fails by itself); this checkout's Lean
@@ -133,16 +138,31 @@ def refusal(path):
     return proxy(path) or layout(path) or version(path)
 
 
-def checked(name):
+def resolved(name):
+    """(path, None): the file the Lean that name runs is (None when PATH has no such
+    name), the Lean cache standing for LEANFORTH_LEAN; or (None, reason)."""
     path = name if os.sep in name else shutil.which(name)
     if path is None:
-        return None
+        return None, None
     if os.path.exists(path) and os.path.realpath(path) == os.path.realpath(CACHE):
         target = os.environ.get("LEANFORTH_LEAN")
         if not target:
-            return f"{name} is the Lean cache, and LEANFORTH_LEAN, the Lean it runs, is not set"
-        return checked(target)
-    return refusal(path)
+            return None, f"{name} is the Lean cache, and LEANFORTH_LEAN, the Lean it runs, is not set"
+        return resolved(target)
+    return path, None
+
+
+def checked(name):
+    path, reason = resolved(name)
+    return reason or (path and refusal(path))
+
+
+def unrun(name, shape=True):
+    """checked's refusal found without running anything: an elan proxy, and with shape a
+    file that is no toolchain's binary (layout). The program verifier's test switch passes
+    shape False, so that its stand-in Leans reach its own wrong-Lean messages."""
+    path, reason = resolved(name)
+    return reason or (path and (proxy(path) or (layout(path) if shape else None)))
 
 
 def pinned_lean(name=None):
@@ -216,6 +236,13 @@ def self_test():
         os.link(elan, os.path.join(beside, "elan"))
         os.link(elan, os.path.join(beside, "lean"))
         assert "the same file as" in proxy(os.path.join(beside, "lean"))
+        # unrun: the same refusals with nothing run; without shape (the program
+        # verifier's stand-ins), the proxies themselves only.
+        for candidate in (linked, wrapper, copy, hard, in_home_copy, in_home_hard, shaped):
+            assert unrun(candidate) == refusal(candidate), candidate
+        assert "elan proxy" in unrun(linked, shape=False)
+        assert "elan proxy" in unrun(os.path.join(beside, "lean"), shape=False)
+        assert unrun(wrapper, shape=False) is None and unrun("no-such-lean-here") is None
         # The command line, and the scripts that call it, refuse them too.
         for candidate in (wrapper, copy, hard, in_home_copy):
             run = subprocess.run([sys.executable, __file__, "check", candidate],
@@ -235,7 +262,7 @@ def self_test():
         # A toolchain's binary is asked its version, with ELAN_HOME set.
         other = toolchain(home, "other", "#!/bin/sh\necho 'Lean (version 4.9.0, x86)'\n")
         assert proxy(other) is None and layout(other) is None
-        assert "is not Lean 4.35.0" in refusal(other)
+        assert "is not Lean 4.35.0" in refusal(other) and unrun(other) is None
         pinned = toolchain(home, "pinned", "#!/bin/sh\n[ \"$ELAN_HOME\" = '" + home + "' ] && "
                            "echo 'Lean (version 4.35.0, x86_64-unknown-linux-gnu, commit 0, "
                            "Release)'\n")

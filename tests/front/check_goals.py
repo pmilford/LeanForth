@@ -23,10 +23,21 @@ import os
 import pathlib
 import subprocess
 import sys
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
+
+
+@functools.lru_cache(maxsize=None)
+def lean():
+    """The Lean to run: scripts/lean_pin.py's pinned_lean ($LEAN, else this
+    checkout's pinned toolchain), refused before it runs when it is an elan
+    proxy or not Lean 4.35.0 (Forth review of reuse-b, finding 4)."""
+    return lean_pin.pinned_lean()
+
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 GFORTH = os.environ.get("GFORTH", "gforth")
-LEAN = os.environ.get("LEAN", ".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean")
 LEAN_FILE = "tests/front/goals-print.lean"
 EXPECTED = ROOT / "tests/front/goals-print.expected"
 TWIN = "tests/front/goals-print.fs"
@@ -64,7 +75,7 @@ def blocks(text):
 
 
 def lean_text():
-    run = subprocess.run([LEAN, LEAN_FILE], cwd=ROOT, stdin=subprocess.DEVNULL,
+    run = subprocess.run([lean(), LEAN_FILE], cwd=ROOT, stdin=subprocess.DEVNULL,
                          capture_output=True, text=True, timeout=LIMIT)
     if run.returncode != 0 or run.stderr:
         raise Failure(f"lean {LEAN_FILE}: exit {run.returncode}\n{run.stdout}{run.stderr}")

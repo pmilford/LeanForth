@@ -456,6 +456,21 @@ class Lean(unittest.TestCase):
             self.assertEqual((status, problem_codes(text)), (4, ["lean-not-found"]))
             self.assertIsNone(receipt_at(out, "lf-clamp"))
 
+    def test_elan_proxy_never_runs(self):
+        """Forth review of reuse-b, 4: an elan proxy as $LEAN, even under the test switch,
+        is lean-not-found before anything runs it (it would download a toolchain)."""
+        with scratch() as out:
+            ran = Path(out) / "elan-ran"
+            elan = Path(out) / "bin" / "elan"
+            elan.parent.mkdir()
+            elan.write_text(f"#!/bin/sh\necho ran > '{ran}'\nexit 9\n")
+            elan.chmod(0o755)
+            (elan.parent / "lean").symlink_to(elan)
+            status, text = verify("lf-clamp", Path(out) / "o", lean=str(elan.parent / "lean"))
+            self.assertEqual((status, problem_codes(text)), (4, ["lean-not-found"]), text)
+            self.assertIn("elan proxy", text)
+            self.assertFalse(ran.exists())
+
 
 class Checker(unittest.TestCase):
     """LeanForth's verdicts as the receipt's check status: only all accepted is positive."""

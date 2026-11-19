@@ -54,6 +54,10 @@ import re
 import subprocess
 import sys
 import tempfile
+import pathlib
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
 TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -473,7 +477,7 @@ def main():
             problems.append(f"{len(dots)} .S comparisons for {len(DOT_S_STACKS)} stacks")
         lean_note = ""
         if args.lean:
-            more, compared = lean_problems(os.environ.get("LEAN", "lean"), files, generated,
+            more, compared = lean_problems(lean_pin.pinned_lean(), files, generated,
                                            directory)
             problems += more
             lean_note = f"; Lean's model agrees on {compared} cases of 8 files"

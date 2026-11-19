@@ -23,8 +23,20 @@ sys.path.insert(0, "tests/support")
 from case_export import case_exports, case_params  # noqa: E402
 from export_definition import decode, encode, succ_chain  # noqa: E402
 from ndjson_preview import LEAN_HASH  # noqa: E402
+import pathlib
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
 
-LEAN = os.environ.get("LEAN", "lean")
+
+@functools.lru_cache(maxsize=None)
+def lean():
+    """The Lean to run: scripts/lean_pin.py's pinned_lean ($LEAN, else this
+    checkout's pinned toolchain), refused before it runs when it is an elan
+    proxy or not Lean 4.35.0 (Forth review of reuse-b, finding 4)."""
+    return lean_pin.pinned_lean()
+
+
 GFORTH = os.environ.get("GFORTH", "gforth")
 EQUAL, INVALID, UNKNOWN = "0", "1", "3"
 
@@ -43,9 +55,9 @@ class Mismatch(Exception):
 
 
 def check_toolchain():
-    version = subprocess.run([LEAN, "--version"], check=True, capture_output=True,
+    version = subprocess.run([lean(), "--version"], check=True, capture_output=True,
                              text=True).stdout
-    revision = subprocess.run([LEAN, "--githash"], check=True, capture_output=True,
+    revision = subprocess.run([lean(), "--githash"], check=True, capture_output=True,
                               text=True).stdout.strip()
     if not version.startswith("Lean (version 4.35.0,") or revision != LEAN_HASH:
         raise Mismatch("unexpected Lean toolchain")
@@ -56,7 +68,7 @@ def rows(text):
 
 
 def lean_rows(path, run=False, lean_path=None):
-    command = [LEAN, "-DwarningAsError=true"] + (["--run"] if run else []) + [path]
+    command = [lean(), "-DwarningAsError=true"] + (["--run"] if run else []) + [path]
     env = dict(os.environ, LEAN_PATH=lean_path) if lean_path else None
     return rows(subprocess.run(command, check=True, capture_output=True, text=True,
                                env=env).stdout)
@@ -180,7 +192,7 @@ def constant():
 def with_poly_identity(table):
     """Lean rows of a table that imports the compiled poly-identity fixture."""
     with tempfile.TemporaryDirectory() as temporary:
-        subprocess.run([LEAN, "-DwarningAsError=true", "-o",
+        subprocess.run([lean(), "-DwarningAsError=true", "-o",
                         str(Path(temporary) / "LeanForthPolyIdentity.olean"),
                         "tests/reference/poly-identity.lean"], check=True)
         return lean_rows(table, lean_path=temporary)
@@ -321,7 +333,7 @@ def rule_steps(rule):
 def compile_module(source, module, directory, lean_path=None):
     """Compile a reference file to module in directory; give its output."""
     env = dict(os.environ, LEAN_PATH=lean_path) if lean_path else None
-    return subprocess.run([LEAN, "-DwarningAsError=true", "-o",
+    return subprocess.run([lean(), "-DwarningAsError=true", "-o",
                            str(Path(directory) / f"{module}.olean"), source],
                           check=True, capture_output=True, text=True, env=env).stdout
 
@@ -508,7 +520,7 @@ def binder_domain_cases():
                                   "LeanForthBinderDomains", temporary)
         if compiled != Path("tests/reference/binder-domains.tsv").read_text():
             raise Mismatch("binder domains: Lean's rows differ from binder-domains.tsv")
-        text = subprocess.run([LEAN, "-DwarningAsError=true",
+        text = subprocess.run([lean(), "-DwarningAsError=true",
                                "tests/reference/binder-domains-terms.lean"],
                               check=True, capture_output=True, text=True,
                               env=dict(os.environ, LEAN_PATH=temporary)).stdout
@@ -553,7 +565,7 @@ def expect_table(source, count, prelude=(), name="universe scope", fed=False, pr
     known = known or {}
     with tempfile.TemporaryDirectory() as temporary:
         first_checker_modules(temporary)
-        output = subprocess.run([LEAN, "-DwarningAsError=true", source],
+        output = subprocess.run([lean(), "-DwarningAsError=true", source],
                                 check=True, capture_output=True, text=True,
                                 env=dict(os.environ, LEAN_PATH=temporary)).stdout
     lines = output.splitlines()
@@ -705,7 +717,7 @@ def definitional_equality_cases():
                                   "LeanForthDefinitionalEquality", temporary)
         if compiled != Path("tests/reference/definitional-equality.tsv").read_text():
             raise Mismatch("definitional equality: Lean's rows differ from the table")
-        text = subprocess.run([LEAN, "-DwarningAsError=true",
+        text = subprocess.run([lean(), "-DwarningAsError=true",
                                "tests/reference/definitional-equality-terms.lean"],
                               check=True, capture_output=True, text=True,
                               env=dict(os.environ, LEAN_PATH=temporary)).stdout

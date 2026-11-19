@@ -20,7 +20,7 @@
 # 4.35.0 binary.
 set -eu
 
-lean=${LEAN:-lean}
+. "$(dirname "${BASH_SOURCE[0]}")/../support/pinned-lean.sh"
 temporary=$(mktemp -d)
 # Delete exactly the files this script writes, by name, then the folder.
 cleanup() {

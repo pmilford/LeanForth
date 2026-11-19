@@ -5,7 +5,7 @@
 # levels equal and unknown (3) where it does not; then random level pairs
 # (level-kernel-differential.py) for is_equivalent, mk_max and mk_imax.
 set -eu
-lean=${LEAN:-lean}
+. "$(dirname "${BASH_SOURCE[0]}")/../support/pinned-lean.sh"
 gforth=${GFORTH:-gforth}
 case "$("$lean" --version)" in
   'Lean (version 4.35.0,'*) ;;

@@ -17,7 +17,7 @@
 #    must be rejected by the kernel, so the vector would catch such a slip.
 # Prints one summary line, or explains the failure and exits 1.
 set -eu
-lean=${LEAN:-lean}
+. "$(dirname "${BASH_SOURCE[0]}")/../support/pinned-lean.sh"
 spec=tests/reference/sha256-spec.lean
 work=$(mktemp -d)
 trap 'rm -r "$work"' EXIT

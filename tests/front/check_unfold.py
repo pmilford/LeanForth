@@ -36,9 +36,20 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import check_whnf as cw  # noqa: E402  (the term notation and the Lean setup)
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
+
+
+@functools.lru_cache(maxsize=None)
+def lean():
+    """The Lean to run: scripts/lean_pin.py's pinned_lean ($LEAN, else this
+    checkout's pinned toolchain), refused before it runs when it is an elan
+    proxy or not Lean 4.35.0 (Forth review of reuse-b, finding 4)."""
+    return lean_pin.pinned_lean()
+
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
-LEAN = os.environ.get("LEAN", ".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean")
 GFORTH = os.environ.get("GFORTH", "gforth")
 LIMIT = 300
 LEAN_FILE = ROOT / "tests/front/unfold-cases.lean"
@@ -240,7 +251,7 @@ def terms_lines(command, source=None):
 def terms_compare():
     """The term cases: a list of the gaps' texts; raise on a difference."""
     want = golden(TERMS_GOLDEN, lambda: terms_lines(
-        [LEAN, "-DwarningAsError=true", str(TERMS_FILE.relative_to(ROOT))], terms_source()))
+        [lean(), "-DwarningAsError=true", str(TERMS_FILE.relative_to(ROOT))], terms_source()))
     if len(want) != len(TERMS):
         raise Failure(f"{TERMS_GOLDEN.relative_to(ROOT)}: {len(want)} lines for {len(TERMS)} cases")
     calls = " ".join(f"{cw.forth(t)} lf-tr-{MODES[mode]} {kind}-run"
@@ -291,7 +302,7 @@ def lean_lines():
     if LEAN_FILE.read_text(encoding="utf-8") != lean_source():
         raise Failure(f"{LEAN_FILE.relative_to(ROOT)} differs from the cases: "
                       "python3 tests/front/check_unfold.py --write")
-    return run([LEAN, "-DwarningAsError=true", str(LEAN_FILE.relative_to(ROOT))])
+    return run([lean(), "-DwarningAsError=true", str(LEAN_FILE.relative_to(ROOT))])
 
 
 def forth_lines():

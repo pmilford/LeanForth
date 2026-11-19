@@ -98,6 +98,7 @@ sys.excepthook = crashed
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "tests" / "support"))
+import lean_pin  # noqa: E402
 import program_receipt as receipts  # noqa: E402
 import program_vc  # noqa: E402
 from schema_subset import InstanceError, load_strict  # noqa: E402
@@ -662,6 +663,12 @@ class Verify:
         if not runnable(lean):
             raise Problem("lean-not-found", f"{lean} is not a program; install the pinned Lean "
                           "4.35.0 with scripts/install-lean.sh")
+        # Judged by where it is before it is run (scripts/lean_pin.py): an elan proxy run
+        # without ELAN_HOME downloads a 3 GB toolchain (Forth review of reuse-b, 4).
+        refused = lean_pin.unrun(lean, shape=not test_tools())
+        if refused:
+            raise Problem("lean-not-found", f"{refused}; install the pinned Lean 4.35.0 with "
+                          "scripts/install-lean.sh")
         try:
             version = self.tools.run([lean, "--version"], 120).stdout
             commit = self.tools.run([lean, "--githash"], 120).stdout.strip()

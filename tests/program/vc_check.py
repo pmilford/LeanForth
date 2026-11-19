@@ -48,6 +48,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from check_program_ir import copy_problems, LOCATION  # noqa: E402
 import program_vc  # noqa: E402
+import pathlib
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
 TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 CONTRACTS = [f"tests/program/contracts/{name}.contract" for name in (
@@ -440,13 +444,13 @@ def main():
         GOLDEN_JSON.write_text(summary_text, encoding="utf-8")
         return 0
     if "--operators" in sys.argv:   # the operator comparison alone (its planted fault)
-        problems = operator_problems(os.environ.get("LEAN", "lean"))
+        problems = operator_problems(lean_pin.pinned_lean())
         for problem in problems:
             print(problem, file=sys.stderr)
         return 1 if problems else 0
     problems = offline_problems()
     if "--lean" in sys.argv and not problems:
-        problems = lean_problems(os.environ.get("LEAN", "lean"))
+        problems = lean_problems(lean_pin.pinned_lean())
     for problem in problems:
         print(problem, file=sys.stderr)
     if problems:

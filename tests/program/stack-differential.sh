@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -eu
-lean=${LEAN:-lean}
+. "$(dirname "${BASH_SOURCE[0]}")/../support/pinned-lean.sh"
 gforth=${GFORTH:-gforth}
 case "$("$lean" --version)" in
   'Lean (version 4.35.0,'*) ;;

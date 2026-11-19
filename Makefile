@@ -72,11 +72,19 @@ else ifneq ($(LEANFORTH_LEAN_PINNED),$(LEAN_BINARY))
 # Without the cache the recipes run LEAN_BINARY themselves: it is checked
 # once here by scripts/lean_pin.py (never run when it is an elan proxy;
 # review fix-cli-present S3), and the makes this one starts do not check it
-# again.
+# again. A refused Lean stops only the targets that run Lean (Forth review
+# of reuse-b, 9): every runner asks lean_pin.py itself
+# (tests/support/pinned-lean.sh, lean_pin.pinned_lean), and a recipe that
+# runs it directly does so through LEAN_CHECKED.
 LEAN_REFUSAL := $(shell python3 scripts/lean_pin.py check '$(LEAN_BINARY)' 2>&1 >/dev/null)
-$(if $(LEAN_REFUSAL),$(error $(LEAN_REFUSAL)))
+ifeq ($(LEAN_REFUSAL),)
 export LEANFORTH_LEAN_PINNED := $(LEAN_BINARY)
+else
+$(warning $(LEAN_REFUSAL): the targets that run Lean will stop)
 endif
+endif
+# A recipe's own run of Lean: refused by scripts/lean_pin.py before it starts.
+LEAN_CHECKED = python3 scripts/lean_pin.py check '$(LEAN)' && $(RUN) $(LEAN)
 
 # Every test command is stopped after TEST_TIMEOUT seconds and then fails,
 # so a looping test cannot stall a local run or CI. Uses GNU timeout(1).
@@ -553,7 +561,7 @@ test-depth-fed-differential:
 # docs/project/BEYOND_LEAN.md): pinned Lean's verdicts on application
 # chains at the limits for three settings.
 reference-deep-recursion:
-	$(RUN) $(LEAN) -DwarningAsError=true tests/reference/deep-recursion.lean
+	$(LEAN_CHECKED) -DwarningAsError=true tests/reference/deep-recursion.lean
 
 .PHONY: test-depth-deep-differential
 test-depth-deep-differential:

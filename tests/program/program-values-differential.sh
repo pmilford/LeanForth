@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Finite comparison only; it does not prove the Forth host or any program.
 set -eu
-lean=${LEAN:-lean}
+. "$(dirname "${BASH_SOURCE[0]}")/../support/pinned-lean.sh"
 gforth=${GFORTH:-gforth}
 case $("$lean" --version) in
   'Lean (version 4.35.0,'*) ;;

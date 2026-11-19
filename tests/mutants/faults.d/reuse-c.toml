@@ -223,3 +223,21 @@ old = '''  over swap cell-counted-left 0 max 2 pick u< if drop 2drop false exit 
 new = '''  over swap cell-counted-left 2 pick u< if drop 2drop false exit then'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "a buffer holding more than its room (a negative room left) takes any append"
+
+# --- No runner starts an elan proxy (review of reuse-b, 4).
+
+[[fault]]
+id = "rc-unrun-accepts-all"
+file = "scripts/lean_pin.py"
+old = '''    return reason or (path and (proxy(path) or (layout(path) if shape else None)))'''
+new = '''    return reason'''
+test = "python3 scripts/lean_pin.py"
+reason = "a Lean judged without running it is never refused: the program verifier's and receipts' guard is gone"
+
+[[fault]]
+id = "rc-verify-proxy-unchecked"
+file = "scripts/program_verify.py"
+old = '''        refused = lean_pin.unrun(lean, shape=not test_tools())'''
+new = '''        refused = None'''
+test = "python3 tests/program/test_program_verify.py Lean"
+reason = "the verifier runs $LEAN --version before refusing it, so an elan proxy would start its download"

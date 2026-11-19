@@ -23,7 +23,7 @@
 #   LEAN=.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean \
 #   GFORTH=.tools/gforth/bin/gforth bash tests/reference/inductive-check.sh
 set -eu
-lean=${LEAN:-lean}
+. "$(dirname "${BASH_SOURCE[0]}")/../support/pinned-lean.sh"
 gforth=${GFORTH:-.tools/gforth/bin/gforth}
 version=$("$lean" --version)
 case "$version" in

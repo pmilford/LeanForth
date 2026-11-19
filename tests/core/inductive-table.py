@@ -37,6 +37,10 @@ import re
 import subprocess
 import sys
 import tempfile
+import pathlib
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
 TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 LEAN_FILE = "tests/reference/inductive-expected.lean"
@@ -328,7 +332,7 @@ def stale_fixtures(cases):
 
 
 def main():
-    lean = os.environ.get("LEAN", "lean")
+    lean = lean_pin.pinned_lean()
     gforth = os.environ.get("GFORTH", "gforth")
     head, cases = split(run_lean(lean))
     with open(TSV, encoding="utf-8") as tsv:

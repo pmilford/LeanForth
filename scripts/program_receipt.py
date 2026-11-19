@@ -619,6 +619,20 @@ def pinned_lean():
     return os.environ.get("LEAN", lean_pin.DEFAULT)
 
 
+def checked_lean():
+    """pinned_lean(), refused before it is run when lean_pin finds it an elan proxy or no
+    toolchain's binary (nothing is run to find out): record and export run Lean themselves,
+    with no verifier before them (Forth review of reuse-b, 4). The refusal is the
+    verifier's lean-not-found."""
+    import lean_pin
+    lean = pinned_lean()
+    reason = lean_pin.unrun(lean)
+    if reason:
+        raise SystemExit(f"lean-not-found: {reason}; install the pinned Lean 4.35.0 with "
+                         "scripts/install-lean.sh")
+    return lean
+
+
 LEANFORTH = ["bash", str(ROOT / "bin" / "leanforth")]   # the checker, as the CLI starts it
 
 
@@ -737,7 +751,7 @@ def record(contract_path, manifest_out=None, keep=None):
     LeanForth's check also saves its snapshot there (KEPT_SNAPSHOT), which must then exist:
     make check records once, and the receipt's test and the clamp mutants' test both read
     the result. The files KEPT of an earlier run are removed first, by name."""
-    lean, gforth = pinned_lean(), os.environ.get("GFORTH", "gforth")
+    lean, gforth = checked_lean(), os.environ.get("GFORTH", "gforth")
     contract = program_vc.parse_contract(program_vc.read_contract(contract_path),
                                          contract_path)
     vc = vc_entry(contract["id"])
@@ -923,7 +937,7 @@ def main():
             parser.error("export needs one output file, OUT.ndjson")
         vc = vc_entry(program_vc.parse_contract(program_vc.read_contract(args.contract),
                                                 args.contract)["id"])
-        export_theorems(pinned_lean(), vc["theorems"], args.receipts[0])
+        export_theorems(checked_lean(), vc["theorems"], args.receipts[0])
         print(f"wrote {args.receipts[0]} and its manifest: {', '.join(vc['theorems'])} with "
               "every declaration they use; check it with bin/leanforth check")
         return 0

@@ -8,10 +8,14 @@ import sys
 
 sys.path.insert(0, "tests/support")
 from ndjson_preview import LEAN_HASH, preview
+import pathlib
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
 
 
 def main():
-    lean = os.environ.get("LEAN", "lean")
+    lean = lean_pin.pinned_lean()
     version = subprocess.run([lean, "--version"], check=True, capture_output=True, text=True).stdout
     revision = subprocess.run([lean, "--githash"], check=True, capture_output=True, text=True).stdout.strip()
     if not version.startswith("Lean (version 4.35.0,") or revision != LEAN_HASH:

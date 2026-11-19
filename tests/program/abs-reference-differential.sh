@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # From repository root. This is finite differential testing, not runtime proof.
 set -eu
-lean=${LEAN:-lean}
+. "$(dirname "${BASH_SOURCE[0]}")/../support/pinned-lean.sh"
 gforth=${GFORTH:-gforth}
 version=$("$lean" --version)
 case "$version" in

@@ -7,7 +7,7 @@
 # which it would read without the manifest.
 set -eu
 
-lean=${LEAN:-lean}
+. "$(dirname "${BASH_SOURCE[0]}")/../support/pinned-lean.sh"
 gforth=${GFORTH:-gforth}
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/LeanForthComposition.olean" "$temporary/composition.ndjson" "$temporary/composition.ndjson.manifest.json" "$temporary/changed.ndjson" "$temporary/changed.ndjson.manifest.json"; rmdir "$temporary"' EXIT

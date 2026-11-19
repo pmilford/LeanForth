@@ -45,10 +45,21 @@ import re
 import subprocess
 import sys
 import tempfile
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
+
+
+@functools.lru_cache(maxsize=None)
+def lean():
+    """The Lean to run: scripts/lean_pin.py's pinned_lean ($LEAN, else this
+    checkout's pinned toolchain), refused before it runs when it is an elan
+    proxy or not Lean 4.35.0 (Forth review of reuse-b, finding 4)."""
+    return lean_pin.pinned_lean()
+
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 GFORTH = os.environ.get("GFORTH", "gforth")
-LEAN = os.environ.get("LEAN", ".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean")
 SLICE_NAMES = ["Nat.add_succ", "Nat.zero_add", "congrArg"]
 GOLDEN = ROOT / "tests/front/tactics.golden"
 SLICE = "tests/front/tactic-slice.ndjson"
@@ -194,7 +205,7 @@ def check_slice(slice_=SLICE, names=SLICE_NAMES):
     with tempfile.TemporaryDirectory() as work:
         made = pathlib.Path(work) / pathlib.Path(slice_).name
         run = subprocess.run(["bash", "scripts/export.sh", str(made), "Init", "--", *names],
-                             cwd=ROOT, env=dict(os.environ, LEAN=LEAN), stdin=subprocess.DEVNULL,
+                             cwd=ROOT, env=dict(os.environ, LEAN=lean()), stdin=subprocess.DEVNULL,
                              capture_output=True, timeout=LIMIT)
         if run.returncode != 0:
             raise Failure(f"scripts/export.sh: exit {run.returncode}\n{run.stderr.decode()[-400:]}")
@@ -223,7 +234,7 @@ def theorem_at(lines, number):
 
 
 def check_shapes():
-    run = subprocess.run([LEAN, "-DwarningAsError=true", str(SHAPES)], cwd=ROOT,
+    run = subprocess.run([lean(), "-DwarningAsError=true", str(SHAPES)], cwd=ROOT,
                          stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=LIMIT)
     lines = SHAPES.read_text(encoding="utf-8").splitlines()
     first = {}
@@ -239,7 +250,7 @@ def check_shapes():
 
 def lean_messages(path):
     """Pinned Lean's messages on path: (line, kind, text, following lines)."""
-    run = subprocess.run([LEAN, "-DwarningAsError=true", str(path)], cwd=ROOT,
+    run = subprocess.run([lean(), "-DwarningAsError=true", str(path)], cwd=ROOT,
                          stdin=subprocess.DEVNULL, capture_output=True, text=True,
                          timeout=LIMIT)
     head = re.compile(r"^[^:]*:(\d+):\d+: (error|warning): (.*)$")

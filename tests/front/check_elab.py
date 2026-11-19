@@ -37,10 +37,21 @@ import pathlib
 import subprocess
 import sys
 import tempfile
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
+
+
+@functools.lru_cache(maxsize=None)
+def lean():
+    """The Lean to run: scripts/lean_pin.py's pinned_lean ($LEAN, else this
+    checkout's pinned toolchain), refused before it runs when it is an elan
+    proxy or not Lean 4.35.0 (Forth review of reuse-b, finding 4)."""
+    return lean_pin.pinned_lean()
+
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 GFORTH = os.environ.get("GFORTH", "gforth")
-LEAN = os.environ.get("LEAN", ".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean")
 LIMIT = 600
 SLICE = "tests/front/s1-slice.ndjson"
 DATA = "tests/front/s1-slice.elab.ndjson"
@@ -218,7 +229,7 @@ MISUSES = (
 
 
 def lean(path):
-    done = run([LEAN, "-j", "2", "-DwarningAsError=true", path])
+    done = run([lean(), "-j", "2", "-DwarningAsError=true", path])
     return done.returncode, done.stdout + done.stderr
 
 

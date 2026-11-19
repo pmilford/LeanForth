@@ -13,7 +13,7 @@
 #   LEAN=.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean \
 #     bash tests/reference/binder-domains-check.sh
 set -eu
-lean=${LEAN:-lean}
+. "$(dirname "${BASH_SOURCE[0]}")/../support/pinned-lean.sh"
 version=$("$lean" --version)
 case "$version" in
   'Lean (version 4.35.0,'*) ;;

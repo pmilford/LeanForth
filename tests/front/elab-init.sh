@@ -18,7 +18,7 @@
 # there is one. Needs pinned Lean 4.35.0 (LEAN), Gforth (GFORTH) and
 # Python 3.
 set -eu
-lean=${LEAN:-lean}
+. "$(dirname "${BASH_SOURCE[0]}")/../support/pinned-lean.sh"
 gforth=${GFORTH:-gforth}
 version=$("$lean" --version)
 case "$version" in

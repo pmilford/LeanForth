@@ -24,9 +24,21 @@ import tempfile
 
 sys.path.insert(0, "tests/present")
 from check_golden import FIXTURES, fixture_output, run_forth  # noqa: E402
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
+
+
+@functools.lru_cache(maxsize=None)
+def lean():
+    """The Lean to run: scripts/lean_pin.py's pinned_lean ($LEAN, else this
+    checkout's pinned toolchain), refused before it runs when it is an elan
+    proxy or not Lean 4.35.0 (Forth review of reuse-b, finding 4)."""
+    return lean_pin.pinned_lean()
+
+
 TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
-LEAN = os.environ.get("LEAN", "lean")
 HERE = pathlib.Path("tests/present")
 
 
@@ -35,7 +47,7 @@ class Mismatch(Exception):
 
 
 def lean_output(path):
-    result = subprocess.run([LEAN, "-DwarningAsError=true", str(path)], capture_output=True,
+    result = subprocess.run([lean(), "-DwarningAsError=true", str(path)], capture_output=True,
                             text=True, timeout=TEST_LIMIT)
     if result.returncode != 0:
         raise Mismatch(f"Lean failed on {path}:\n{result.stdout}{result.stderr}")

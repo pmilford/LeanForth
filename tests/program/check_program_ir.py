@@ -31,6 +31,10 @@ import re
 import subprocess
 import sys
 import unittest
+import pathlib
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
 TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 MODEL = Path("tests/reference/program-ir.lean")
@@ -250,7 +254,7 @@ def golden_text():
 
 
 def check_lean():
-    lean = os.environ.get("LEAN", "lean")
+    lean = lean_pin.pinned_lean()
     run = subprocess.run([lean, "-DwarningAsError=true", "--run", str(MODEL)],
                          capture_output=True, text=True, timeout=TEST_LIMIT)
     output = run.stdout + run.stderr

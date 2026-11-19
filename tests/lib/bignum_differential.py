@@ -37,6 +37,10 @@ import subprocess
 import sys
 import tempfile
 import threading
+import pathlib
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
 TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 if hasattr(sys, "set_int_max_str_digits"):
@@ -559,7 +563,7 @@ def main():
                 raise SystemExit(f"only {caught} of {len(FAULTS)} planted faults caught")
             print(f"All {len(FAULTS)} planted faults were caught by the {edges} edge cases.")
         if args.lean:
-            lean_check(os.environ.get("LEAN", "lean"), directory, items, lines,
+            lean_check(lean_pin.pinned_lean(), directory, items, lines,
                        random.Random(args.seed + 1))
 
 

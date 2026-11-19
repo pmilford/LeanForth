@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Compile the reference dependency in isolation; no checked Forth is implied.
 set -eu
-lean=${LEAN:-lean}
+. "$(dirname "${BASH_SOURCE[0]}")/../support/pinned-lean.sh"
 temporary=$(mktemp -d)
 trap 'rm -f "$temporary/program-contracts.olean" "$temporary/memory-program-reference.olean" "$temporary/memory-copy-reference.olean" "$temporary/memory-copy-properties.olean" "$temporary/memory-swap-reference.olean"; rmdir "$temporary"' EXIT
 "$lean" -DwarningAsError=true -o "$temporary/program-contracts.olean" tests/reference/program-contracts.lean

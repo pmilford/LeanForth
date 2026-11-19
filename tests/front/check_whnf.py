@@ -33,9 +33,20 @@ import os
 import pathlib
 import subprocess
 import sys
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
+
+
+@functools.lru_cache(maxsize=None)
+def lean():
+    """The Lean to run: scripts/lean_pin.py's pinned_lean ($LEAN, else this
+    checkout's pinned toolchain), refused before it runs when it is an elan
+    proxy or not Lean 4.35.0 (Forth review of reuse-b, finding 4)."""
+    return lean_pin.pinned_lean()
+
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
-LEAN = os.environ.get("LEAN", ".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean")
 GFORTH = os.environ.get("GFORTH", "gforth")
 LIMIT = 300
 LEAN_FILE = ROOT / "tests/front/whnf-cases.lean"
@@ -429,7 +440,7 @@ def lean_lines():
     if LEAN_FILE.read_text(encoding="utf-8") != lean_source():
         raise Failure(f"{LEAN_FILE.relative_to(ROOT)} differs from the cases: "
                       "python3 tests/front/check_whnf.py --write")
-    return run([LEAN, "-DwarningAsError=true", str(LEAN_FILE.relative_to(ROOT))])
+    return run([lean(), "-DwarningAsError=true", str(LEAN_FILE.relative_to(ROOT))])
 
 
 def forth_lines():

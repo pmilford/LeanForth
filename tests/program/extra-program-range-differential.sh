@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run from the repository root. Finite tests do not prove runtime behavior.
 set -eu
-lean=${LEAN:-lean}
+. "$(dirname "${BASH_SOURCE[0]}")/../support/pinned-lean.sh"
 gforth=${GFORTH:-gforth}
 case "$("$lean" --version)" in
   'Lean (version 4.35.0,'*) ;;

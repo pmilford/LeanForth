@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Finite inference observations under an assumed candidate; no theorem claims.
 set -eu
-lean=${LEAN:-lean}
+. "$(dirname "${BASH_SOURCE[0]}")/../support/pinned-lean.sh"
 gforth=${GFORTH:-.tools/gforth/bin/gforth}
 version=$("$lean" --version)
 case "$version" in 'Lean (version 4.35.0,'*) ;; *) printf '%s\n' 'Expected Lean 4.35.0' >&2; exit 1 ;; esac

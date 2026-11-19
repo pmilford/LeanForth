@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run at repository root; finite test-only comparison, not runtime proof.
 set -eu
-lean=${LEAN:-.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean}
+. "$(dirname "${BASH_SOURCE[0]}")/../support/pinned-lean.sh"
 gforth=${GFORTH:-.tools/gforth/bin/gforth}
 case "$("$lean" --version)" in 'Lean (version 4.35.0,'*) ;; *) echo 'Expected Lean 4.35.0' >&2; exit 1;; esac
 [ "$("$lean" --githash)" = eb6cafb7290e8bd5f2937522d8d804f58f02bafc ] || exit 1

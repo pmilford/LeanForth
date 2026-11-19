@@ -35,6 +35,10 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_program_ir import copy_problems  # noqa: E402
+import pathlib
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
 
 EVALUATOR = Path("tests/reference/program-ir-run.lean")
 TABLE = Path("tests/program/ir-run-table.fs")
@@ -248,7 +252,7 @@ def main():
     print(f"ir-run table: {summary[0][2:]}; {summary[1][2:]}; outcomes {outcome_mix(table)}")
     if not args.lean:
         return 0
-    lean = os.environ.get("LEAN", "lean")
+    lean = lean_pin.pinned_lean()
     with tempfile.TemporaryDirectory() as directory:
         found = differences(table, lean_cases(lean, write(directory, "table.txt", table)))
         if found:

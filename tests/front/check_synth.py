@@ -32,6 +32,10 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+import pathlib
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
 
 ROOT = Path(__file__).resolve().parents[2]
 PROBLEMS = [  # (LeanForth's label, Lean's #synth argument)
@@ -75,7 +79,7 @@ LIMIT = 1800
 
 def lean_lists():
     """Pinned Lean's root candidate list for each problem, by #synth line."""
-    lean = os.environ.get("LEAN", str(ROOT / ".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean"))
+    lean = lean_pin.pinned_lean()
     text = "set_option trace.Meta.synthInstance true\n" + "".join(
         f"#synth {arg}\n" for _, arg in PROBLEMS)
     with tempfile.TemporaryDirectory() as work:
@@ -106,7 +110,7 @@ def lean_name(text):
 
 def lean_searches():
     """Pinned Lean's answer and tried candidates for each search, by #synth."""
-    lean = os.environ.get("LEAN", str(ROOT / ".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean"))
+    lean = lean_pin.pinned_lean()
     text = "set_option pp.all true\nset_option trace.Meta.synthInstance true\n" + "".join(
         f"#synth {arg}\n" for _, arg in SEARCHES)
     with tempfile.TemporaryDirectory() as work:

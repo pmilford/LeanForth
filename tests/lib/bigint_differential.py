@@ -41,6 +41,10 @@ import re
 import subprocess
 import sys
 import tempfile
+import pathlib
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
 
 TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 if hasattr(sys, "set_int_max_str_digits"):
@@ -408,7 +412,7 @@ def main():
         lines = forth_lines(gforth, case_file)
         bad = compare("Forth against the model", lines, expected, pairs)
         if args.lean:
-            lean = lean_lines(os.environ.get("LEAN", "lean"), directory, pairs)
+            lean = lean_lines(lean_pin.pinned_lean(), directory, pairs)
             bad += compare("Forth against Lean", lines, lean, pairs)
             bad += compare("the model against Lean", expected, lean, pairs)
         for item in bad[:10]:
@@ -427,7 +431,7 @@ def main():
         if not args.lean:
             standalone(gforth)
         if args.lean:
-            kernel_check(os.environ.get("LEAN", "lean"), directory, pairs,
+            kernel_check(lean_pin.pinned_lean(), directory, pairs,
                          random.Random(args.seed + 1))
 
 

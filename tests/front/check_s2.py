@@ -47,7 +47,6 @@ import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 GFORTH = os.environ.get("GFORTH", "gforth")
-LEAN = os.environ.get("LEAN", ".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean")
 LIMIT = 600
 SLICE = "tests/front/s2-slice.ndjson"
 DATA = "tests/front/s2-slice.elab.ndjson"
@@ -55,6 +54,19 @@ GOLDEN = ROOT / "tests/front/s2-proofs.golden"
 STEPS_GOLDEN = ROOT / "tests/front/s2-steps.golden"
 sys.path.insert(0, str(ROOT / "tests/support"))
 from schema_subset import Validator, load_strict  # noqa: E402
+import functools
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
+
+
+@functools.lru_cache(maxsize=None)
+def lean():
+    """The Lean to run: scripts/lean_pin.py's pinned_lean ($LEAN, else this
+    checkout's pinned toolchain), refused before it runs when it is an elan
+    proxy or not Lean 4.35.0 (Forth review of reuse-b, finding 4)."""
+    return lean_pin.pinned_lean()
+
+
 STEPS_SCHEMA = Validator(load_strict((ROOT / "schemas/tactic-steps-1.schema.json").read_text()))
 # Each file and the theorems it declares, in order.
 FILES = [("tests/front/01-zero-add-rw.lf", ["zero_add''"]),
@@ -336,14 +348,14 @@ def check_boundary():
 
 
 def check_lean(write):
-    done = run([LEAN, "-DwarningAsError=true", "tests/front/s2-proofs.lean"])
+    done = run([lean(), "-DwarningAsError=true", "tests/front/s2-proofs.lean"])
     if done.returncode != 0:
         raise Failure(f"s2-proofs.lean: exit {done.returncode}\n{done.stdout}{done.stderr}")
     if write:
         GOLDEN.write_text(done.stdout, encoding="utf-8")
     elif done.stdout.splitlines() != GOLDEN.read_text(encoding="utf-8").splitlines():
         raise Failure("s2-proofs.lean: pinned Lean's output is not s2-proofs.golden")
-    done = run([LEAN, "-DwarningAsError=true", "tests/front/s2-wrong.lean"])
+    done = run([lean(), "-DwarningAsError=true", "tests/front/s2-wrong.lean"])
     out = done.stdout + done.stderr
     missing = [text for text in LEAN_WRONG if text not in out]
     if done.returncode == 0 or missing:
