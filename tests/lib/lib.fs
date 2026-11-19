@@ -634,6 +634,18 @@ T{ neg-cells 3 ' cell-neg? find-index neg-cells 5 ' cell-neg? find-index -> fals
 create neg-example 5 , -2 , -7 ,
 T{ neg-example 3 ' cell-neg? find-index -> 1 true }T
 T{ find-base [defined] find-index -> 16 true }T
+\ find-last-index: the last k whose test holds, tried from n-1 down
+\ (review tactic-a2ii B3b); the same refusals of n <= 0.
+: found-last ( x n xt -- k true trail | false trail )
+  0 step-trail ! find-last-index step-trail @ ;
+T{ 7 6 ' test-3 found-last 7 3 ' test-3 found-last -> 3 true 654 false 321 }T
+T{ 7 0 ' test-3 found-last 7 -5 ' test-3 found-last 7 max-n invert ' test-3 found-last
+   -> false 0 false 0 false 0 }T
+T{ 7 6 ' test-3 ' find-last-index rs-checked -> 3 true }T
+T{ neg-cells 5 ' cell-neg? find-last-index neg-cells 3 ' cell-neg? find-last-index -> 3 true false }T
+T{ neg-example 3 ' cell-neg? find-last-index neg-example 1 ' cell-neg? find-last-index
+   -> 2 true false }T
+T{ find-base [defined] find-last-index -> 16 true }T
 \ A true flag other than -1 counts as true; the answer is a well-formed flag.
 T{ 4 ' test-one any? 0 ' test-one any? -> true false }T
 \ Nested: whether some k < n has some j < k at 3 or above, and with all?.

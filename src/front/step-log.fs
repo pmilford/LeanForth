@@ -92,15 +92,8 @@ end-structure
   swap lsl-rest lsl-w jw-close-object lsl-end outcome-and ;
 
 \ ---- A step.
-\ The tactic's name, Lean's; two CASEs (the last: by-induction and
-\ by-induction-with).
-: lsl-blocks ( kind -- c-addr u )
-  case tac-k-alt of s" alternative" endof tac-k-case of s" case" endof
-    tac-k-sorry of s" sorry" endof s" induction" rot endcase ;
-: lsl-tactic ( kind -- c-addr u )
-  case tac-k-rfl of s" rfl" endof tac-k-exact of s" exact" endof
-    tac-k-intro of s" intro" endof tac-k-rw of s" rw" endof
-    tac-k-rewrite of s" rewrite" endof dup lsl-blocks rot endcase ;
+\ The tactic's name, Lean's: its kind's row (tactic-run.fs, lf-tac-lean).
+: lsl-tactic ( kind -- c-addr u ) lf-tac-lean ;
 : lsl-pos+ ( c-addr u -- )
   dup lsl lsl-pos# @ + lsl-pos-room > if 2drop exit then
   lsl lsl-pos lsl lsl-pos# @ + swap dup lsl lsl-pos# +! move ;

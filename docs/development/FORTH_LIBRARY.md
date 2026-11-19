@@ -1171,6 +1171,20 @@ searches of 1 goal; the other callers were not reached by that text.
 Tested in `tests/lib/lib.fs` (both engines); fault
 `rfa-find-index-off-by-one`.
 
+`find-last-index ( x n xt -- k true | false )` (`find.fs`, review
+tactic-a2ii B3b, 2026-11-18) is the same search from the end, k = n-1 down
+to 0 (Lean's `findDeclRevM?`, `findRev?`): the last k whose test holds.
+*Algorithm*: the same one-pass outer loop and a counted inner loop
+stepping by -1, after a guard for n <= 0. *Cost*: one test per index from
+the end down to the hit; no memory. *Speed* (2026-11-18, a test that
+never holds): 5 ns an index at 10 indices and 4 ns at 10^6 on `gforth`,
+3 and 2 ns on `gforth-fast`. *Callers*: the hypothesis `by-assumption`
+takes (`front/meta-tactic/assumption.fs`, the goal's locals, newest first)
+and a local found by its name (`front/lctx-views.fs`'s `lf-view-named`);
+sizes: a goal's local context, a handful of locals in every checked
+`.lf` text (at most 6 in `tests/front/tactics/`). Tested in
+`tests/lib/lib.fs` (both engines); fault `lib-find-last-skips-last`.
+
 ## Tables of texts
 
 `src/lib/texts.fs` (front reuse pass part A, 2026-11-18; review F10 and

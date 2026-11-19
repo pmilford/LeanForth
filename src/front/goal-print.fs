@@ -196,7 +196,10 @@ end-structure
 : gp-hyps ( -- outcome ) gp-view@ lf-view-count ['] gp-at ok-each ['] gp-flush ok-and ;
 
 \ ---- A goal: its tag line, its hypotheses, the turnstile and its type.
-: gp-case ( goal -- ) lf-mvar-tag drop ?dup if gp-line s" case " gp-emit lf-pp-name then ;
+\ The tag with its macro scopes erased (Lean's ppGoal, Meta/PPGoal.lean:
+\ "case " ++ userName.eraseMacroScopes; apply's a✝ binders tag goals so).
+: gp-case ( goal -- )
+  lf-mvar-tag drop ?dup if gp-line s" case " gp-emit lf-pp-unhygienic lf-pp-name then ;
 : gp-target ( goal -- outcome )
   gp-line s" ⊢ " gp-emit lf-mvar-type drop gp-inst ok-then? if gp-term then ;
 : gp-body ( goal -- outcome ) dup gp-case gp-hyps ok-then? if gp-target then ;

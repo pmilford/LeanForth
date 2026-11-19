@@ -1128,6 +1128,7 @@ test-front:
 	@out=$$($(RUN) $(GFORTH) tests/front/menv-run.fs 2>&1) || \
 	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "menv-run.fs: all tests passed"
 	$(RUN) python3 tests/front/test_front_imports.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_registry.py
 	$(RUN) $(GFORTH) tests/front/goals.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_goals.py
 	@out=$$($(RUN) $(GFORTH) tests/front/elab.fs 2>&1) || \

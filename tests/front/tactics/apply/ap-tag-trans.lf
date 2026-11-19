@@ -1,0 +1,20 @@
+\ by-apply under a tagged goal with anonymous binders (slice a2-iii, review
+\ tactic-a2ii M1; tests/front/tactics/goal-layer.lean): Nat.le_trans's
+\ arrows are anonymous (a✝, a hygienic a), so appendParentTag names the
+\ goals zero.a, zero.a and zero.m in the zero alternative (the tag's macro
+\ scopes erased, Lean's appendTag), succ.a, succ.a, succ.m in the succ
+\ one; pinned Lean's trace_state shows case zero.a, case zero.a, case zero.m.
+\ Lean: theorem ap_tag_trans (k a b c : Nat) (h1 : a ≤ b) (h2 : b ≤ c) : a ≤ c := by
+\         induction k with
+\         | zero => apply Nat.le_trans; apply h1; apply h2
+\         | succ j ih => apply Nat.le_trans; apply h1; apply h2
+theorem ap_tag_trans
+  Nat explicit: k  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b ≤ explicit: h1  b c ≤ explicit: h2
+  a c ≤
+:= by
+  k by-induction-with
+  | zero =>       ' Nat.le_trans by-apply  ' h1 by-apply  ' h2 by-apply
+  | succ j ih =>  ' Nat.le_trans by-apply  ' h1 by-apply  ' h2 by-apply
+  by-end
+end ap_tag_trans

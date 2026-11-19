@@ -1,0 +1,8 @@
+\ A wrong twin (slice a2-iii; tests/front/tactics/goal-layer-wrong.lean): False
+\ has no constructor, and constructor fails with Lean's message (error 383).
+\ Lean: theorem w_co_false : False := by constructor
+theorem w_co_false
+  False
+:= by
+  by-constructor
+end w_co_false

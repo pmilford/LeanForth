@@ -1,0 +1,8 @@
+\ by-constructor on True: True.intro, no goal left (slice a2-iii;
+\ tests/front/tactics/goal-layer.lean).
+\ Lean: theorem co_true : True := by constructor
+theorem co_true
+  True
+:= by
+  by-constructor
+end co_true

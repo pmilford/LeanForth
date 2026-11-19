@@ -1,0 +1,15 @@
+\ by-constructor when two constructors apply: the first, Or.inl, as Lean
+\ chooses (Lean also warns that Or.inr matches; LeanForth prints no
+\ warnings) (slice a2-iii; tests/front/tactics/goal-layer.lean). The
+\ term is Or.inl h.
+\ Lean: theorem co_or (a : Nat) (h : a ≤ a) : a ≤ a ∨ a ≤ a + 1 := by
+\         constructor
+\         exact h
+theorem co_or
+  Nat explicit: a
+  a a ≤ explicit: h
+  a a ≤ a a 1 + ≤ Or
+:= by
+  by-constructor
+  ' h by-exact
+end co_or

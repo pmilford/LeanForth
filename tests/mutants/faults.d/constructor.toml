@@ -1,0 +1,69 @@
+# Planted faults of by-constructor and the goal layer's constructor (slice
+# a2-iii; src/front/tactics/constructor.fs, src/front/meta-tactic/constructor.fs),
+# and of the tactic registry (slice a2-ii; src/front/tactic-api.fs,
+# tactic-run.fs, author/errors.fs, present/print-forth.fs), read with
+# faults.toml as one list (scripts/mutants.py).
+
+[[fault]]
+id = "constructor-gap-is-no"
+file = "src/front/meta-tactic/constructor.fs"
+old = '''  dup lf-meta-thrown? if lf-meta-outcome outcome-rejected = else drop false then ;'''
+new = '''  dup lf-meta-thrown? if drop true else drop false then ;'''
+test = "$GFORTH tests/front/tactics/constructor/test.fs"
+reason = "a2-iii fail-closed: a gap (unsupported) inside a probe read as 'does not apply', so another constructor may be chosen silently"
+
+[[fault]]
+id = "constructor-never-applies"
+file = "src/front/meta-tactic/constructor.fs"
+old = '''  ['] lf-goal-apply catch ?dup if nip nip mco-caught else drop true then false ;'''
+new = '''  ['] lf-goal-apply catch ?dup if nip nip mco-caught else drop false then false ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/constructor/check.py"
+reason = "a2-iii: observing? reads every success as a failure (no constructor applies)"
+
+[[fault]]
+id = "constructor-no-whnf"
+file = "src/front/meta-tactic/constructor.fs"
+old = '''  dup lf-goal-type lf-instantiate! lf-whnf! lf-instantiate! lf-meta-head'''
+new = '''  dup lf-goal-type lf-instantiate! lf-instantiate! lf-meta-head'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/constructor/check.py"
+reason = "a2-iii: getType' without whnf: n ≤ n is no inductive type (Lean's constructor gives Nat.le.refl)"
+
+[[fault]]
+id = "registry-code-twice"
+file = "src/author/errors.fs"
+old = '''  3 pick lfa-code-new? 0= abort" lfa-code: a code 0 or below, or registered already"'''
+new = '''  3 pick drop'''
+test = "GFORTH=$GFORTH python3 tests/front/check_registry.py"
+reason = "a2-ii: lfa-code: takes a code registered already (two messages for one code)"
+
+[[fault]]
+id = "registry-lean-name-is-word"
+file = "src/front/tactic-run.fs"
+old = ''': lf-tac-lean ( kind -- c-addr u ) lfr-row trow-lean count ;'''
+new = ''': lf-tac-lean ( kind -- c-addr u ) lfr-row dup trow-chars swap trow-length @ ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/constructor/check.py"
+reason = "a2-ii: the step log names the LeanForth word where Lean's tactic name belongs (the schema refuses by-constructor)"
+
+[[fault]]
+id = "registry-more-unreserved"
+file = "src/present/print-forth.fs"
+old = '''  2dup lf-pf-reserved lf-pf-in? if 2drop true else lf-pf-more? then ;'''
+new = '''  lf-pf-reserved lf-pf-in? ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_registry.py"
+reason = "a2-ii: a tactic file's word is not reserved (the printer would write a name spelt as it plainly)"
+
+[[fault]]
+id = "registry-shape-takes-none"
+file = "src/front/tactic-syntax.fs"
+old = '''create tac-shape-term 1 , ' lft-term-done ,'''
+new = '''create tac-shape-term 0 , ' lft-term-done ,'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/apply/check.py"
+reason = "a2-ii: a term-shaped word checks for no value above the frame (by-apply's term counted as a value left over)"
+
+[[fault]]
+id = "constructor-not-assigned-off"
+file = "src/front/meta-tactic/constructor.fs"
+old = '''  lf-goal-not-assigned dup mco-head tuck dup mco-ctors nip ['] mco-tried? find-index'''
+new = '''  dup mco-head tuck dup mco-ctors nip ['] mco-tried? find-index'''
+test = "$GFORTH tests/front/tactics/constructor/test.fs"
+reason = "review tactic-a2ii B2 (its ctor-not-assigned-off): no checkNotAssigned, so an assigned goal is searched (error 383, not the fault)"

@@ -159,6 +159,12 @@ end-structure
 : de-t! ( t -- ) df df-t ! ;   : de-s! ( s -- ) df df-s ! ;
 : de-y+ ( -- ) 1 df df-y +! ;
 : de-flag? ( bit -- flag ) lf-meta-flag? ;
+\ isAssignable, not isReadOnlyOrSyntheticOpaque (Meta/Basic.lean:1009,
+\ ExprDefEq.lean:1895): a live metavariable of the context's depth, a
+\ synthetic opaque one only under assignSyntheticOpaque (lf-defeq-opaque).
+: de-at-depth? ( mvar -- flag ) lf-mvar-depth if lf-mctx-depth = else false then ;
+: de-assignable-mvar? ( mvar -- flag )
+  lf-defeq-opaque de-flag? if de-at-depth? else lf-mvar-assignable? then ;
 
 \ ---- The machine.
 0 constant de-run  1 constant de-ret  2 constant de-done  3 constant de-stall
@@ -275,7 +281,7 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
   ['] lf-infer de-infer-mode lf-meta-at de-must ;
 : de-free-mvar? ( t -- flag )
   dup lf-mvar? 0= if drop false exit then
-  dup lf-mvar-assignable? swap lf-meta-unassigned? and ;
+  dup de-assignable-mvar? swap lf-meta-unassigned? and ;
 : de-whnf-d ( type -- type' flag ) lf-meta-whnf-d de-must ;
 
 \ ---- Level lists (isListLevelDefEqAux): pairwise, Lean's way with no
@@ -288,9 +294,8 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-level-defeq? ( l r -- flag )
   2dup lf-meta-level-defeq dup ok? 0= if de-abort drop 2drop false exit then drop
   dup if nip nip exit then drop de-level-taint false ;
-: de-level@ ( const i -- level )
-  swap lf-const-slot lf-cref-pairs drop swap lf-cref-pair@ drop ;
-: de-level-pair ( c1 c2 i -- flag ) tuck de-level@ >r de-level@ r> de-level-defeq? ;
+: de-level-pair ( c1 c2 i -- flag )
+  tuck lf-const-level@ >r lf-const-level@ r> de-level-defeq? ;
 \ isListLevelDefEqAux: pair by pair while both lists last; false when one
 \ ends first.
 : de-levels-min ( c1 c2 -- n ) lf-const-levels# swap lf-const-levels# min ;
@@ -552,9 +557,7 @@ defer de-args-post ( -- )
 \ unsupported: types that differ where ?m's type is a pi (Lean compares
 \ them at implicit transparency and the bodies under its binders), and a
 \ let on v's spine.
-: de-read-only? ( mvar -- flag )
-  dup lf-mvar-depth drop lf-mctx-depth <> if drop true exit then
-  lf-mvar-kind drop mv-opaque = lf-defeq-opaque de-flag? 0= and ;
+: de-read-only? ( mvar -- flag ) de-assignable-mvar? 0= ;
 : de-adm-mvar ( mvar -- e lbool )   \ a delayed one's pending one, or the verdict
   dup lf-mvar-delayed if 2drop nip lf-lb-undef exit then
   dup lf-mvar-inst? swap de-read-only? or lf-lb 0 swap ;
@@ -673,7 +676,7 @@ defer de-args-post ( -- )
 \ ---- isDefEqMVarSelf and isDefEqQuickMVarMVar.
 : de-ms-k ( r -- )
   lf-lb-true = if lf-lb-true de-return exit then
-  de-mvar lf-mvar-assignable? 0= if lf-lb-false de-return exit then
+  de-mvar de-assignable-mvar? 0= if lf-lb-false de-return exit then
   lf-defeq-const de-flag? if outcome-unsupported de-abort
   else lf-lb-false de-return then ;
 : de-mvar-self ( -- )
@@ -824,7 +827,7 @@ defer de-quick-x ( -- )
   dup de-inst 2dup de-eqv-of if drop false else nip true then ;
 : de-same-mvar? ( -- flag ) de-t lf-meta-head dup lf-mvar? swap de-s lf-meta-head = and ;
 : de-assignable? ( t -- flag )
-  lf-meta-head dup lf-mvar? if lf-mvar-assignable? else drop false then ;
+  lf-meta-head dup lf-mvar? if de-assignable-mvar? else drop false then ;
 : de-both-fixed-k ( r -- )
   dup lf-lb-undef <> if de-return exit then drop
   lf-defeq-stuck de-flag? if lf-meta-stuck de-abort else lf-lb-false de-return then ;

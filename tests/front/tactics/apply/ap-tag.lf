@@ -1,0 +1,19 @@
+\ by-apply under a tagged goal (slice a2-iii; tests/front/tactics/goal-layer.lean):
+\ appendParentTag names And.intro's two goals zero.left and zero.right in
+\ the zero alternative, succ.left and succ.right in the succ one; each is
+\ closed by by-constructor (True.intro). (With n ≤ n in place of True,
+\ constructor answers not supported yet: isDefEq of Nat.le.refl's
+\ conclusion with 0 ≤ 0 after induction, plan 9.4.8l L.)
+\ Lean: theorem ap_tag (n : Nat) : True ∧ True := by
+\         induction n with
+\         | zero => apply And.intro; constructor; constructor
+\         | succ k ih => apply And.intro; constructor; constructor
+theorem ap_tag
+  Nat explicit: n
+  True True And
+:= by
+  n by-induction-with
+  | zero =>       ' And.intro by-apply  by-constructor  by-constructor
+  | succ k ih =>  ' And.intro by-apply  by-constructor  by-constructor
+  by-end
+end ap_tag

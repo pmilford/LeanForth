@@ -304,12 +304,14 @@ def lean_records_differ(stem, text, export):
             for got, want in [(records.resolved(name), export.resolved(name))] if got != want]
 
 
-DUMP = (": dump ( -- ) lfa-catalogue begin dup lfa-last? 0= while dup lfa-message-code @ 0 .r"
-        " 9 emit dup lfa-message-text type cr lfa-message-next repeat drop ; dump bye")
+# The whole catalogue: errors.fs's and the codes tactic files add with
+# lfa-code: (tactic plug-in design 3.5), so after src/main.fs.
+DUMP = (": dump1 ( message -- ) dup lfa-message-code @ 0 .r 9 emit lfa-message-text type cr ;"
+        " ' dump1 lf-author-each-message bye")
 
 
 def check_catalogue():
-    run = subprocess.run([GFORTH, "src/author/errors.fs", "-e", DUMP], stdin=subprocess.DEVNULL,
+    run = subprocess.run([GFORTH, "src/main.fs", "-e", DUMP], stdin=subprocess.DEVNULL,
                          capture_output=True, text=True, timeout=120, check=True)
     forth = [tuple(line.split("\t", 1)) for line in run.stdout.splitlines() if "\t" in line]
     forth = [(int(code), text) for code, text in forth]

@@ -1,0 +1,35 @@
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ap_le_succ","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"n : Nat\n⊢ n ≤ n + 1","goals_after":[],"parent":0,"source":"8:17","step":1,"tactic":"apply","word":"by-apply"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ap_le_trans","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":3}}
+{"goal_before":"a b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ a ≤ c","goals_after":["case a\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ a ≤ ?m","case a\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ ?m ≤ c","case m\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ Nat"],"parent":0,"source":"16:18","step":1,"tactic":"apply","word":"by-apply"}
+{"goal_before":"case a\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ a ≤ ?m","goals_after":["case a\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ b ≤ c"],"parent":0,"source":"17:8","step":2,"tactic":"apply","word":"by-apply"}
+{"goal_before":"case a\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ b ≤ c","goals_after":[],"parent":0,"source":"18:8","step":3,"tactic":"apply","word":"by-apply"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ap_hyp","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh : a ≤ b\n⊢ a ≤ b","goals_after":[],"parent":0,"source":"9:7","step":1,"tactic":"apply","word":"by-apply"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ap_partial","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ a ≤ c","goals_after":["a b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ b ≤ c"],"parent":0,"source":"13:25","step":1,"tactic":"apply","word":"by-apply"}
+{"goal_before":"a b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ b ≤ c","goals_after":[],"parent":0,"source":"14:8","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ap_and","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":3}}
+{"goal_before":"a b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ a ≤ b ∧ b ≤ a","goals_after":["case left\na b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ a ≤ b","case right\na b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ b ≤ a"],"parent":0,"source":"13:15","step":1,"tactic":"apply","word":"by-apply"}
+{"goal_before":"case left\na b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ a ≤ b","goals_after":["case right\na b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ b ≤ a"],"parent":0,"source":"14:8","step":2,"tactic":"exact","word":"by-exact"}
+{"goal_before":"case right\na b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ b ≤ a","goals_after":[],"parent":0,"source":"15:8","step":3,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ap_tag","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":9}}
+{"goal_before":"n : Nat\n⊢ True ∧ True","goals_after":[],"parent":0,"source":"15:5","step":1,"tactic":"induction","word":"by-induction-with"}
+{"goal_before":null,"goals_after":["case zero\n⊢ True ∧ True"],"parent":1,"source":"16:3","step":2,"tactic":"alternative","word":"|"}
+{"goal_before":"case zero\n⊢ True ∧ True","goals_after":["case zero.left\n⊢ True","case zero.right\n⊢ True"],"parent":2,"source":"16:31","step":3,"tactic":"apply","word":"by-apply"}
+{"goal_before":"case zero.left\n⊢ True","goals_after":["case zero.right\n⊢ True"],"parent":2,"source":"16:41","step":4,"tactic":"constructor","word":"by-constructor"}
+{"goal_before":"case zero.right\n⊢ True","goals_after":[],"parent":2,"source":"16:57","step":5,"tactic":"constructor","word":"by-constructor"}
+{"goal_before":null,"goals_after":["case succ\nk : Nat\nih : True ∧ True\n⊢ True ∧ True"],"parent":1,"source":"17:3","step":6,"tactic":"alternative","word":"|"}
+{"goal_before":"case succ\nk : Nat\nih : True ∧ True\n⊢ True ∧ True","goals_after":["case succ.left\nk : Nat\nih : True ∧ True\n⊢ True","case succ.right\nk : Nat\nih : True ∧ True\n⊢ True"],"parent":6,"source":"17:31","step":7,"tactic":"apply","word":"by-apply"}
+{"goal_before":"case succ.left\nk : Nat\nih : True ∧ True\n⊢ True","goals_after":["case succ.right\nk : Nat\nih : True ∧ True\n⊢ True"],"parent":6,"source":"17:41","step":8,"tactic":"constructor","word":"by-constructor"}
+{"goal_before":"case succ.right\nk : Nat\nih : True ∧ True\n⊢ True","goals_after":[],"parent":6,"source":"17:57","step":9,"tactic":"constructor","word":"by-constructor"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ap_tag_trans","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":9}}
+{"goal_before":"k a b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ a ≤ c","goals_after":[],"parent":0,"source":"16:5","step":1,"tactic":"induction","word":"by-induction-with"}
+{"goal_before":null,"goals_after":["case zero\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ a ≤ c"],"parent":1,"source":"17:3","step":2,"tactic":"alternative","word":"|"}
+{"goal_before":"case zero\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ a ≤ c","goals_after":["case zero.a\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ a ≤ ?zero.m","case zero.a\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ ?zero.m ≤ c","case zero.m\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ Nat"],"parent":2,"source":"17:34","step":3,"tactic":"apply","word":"by-apply"}
+{"goal_before":"case zero.a\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ a ≤ ?zero.m","goals_after":["case zero.a\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ b ≤ c"],"parent":2,"source":"17:49","step":4,"tactic":"apply","word":"by-apply"}
+{"goal_before":"case zero.a\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\n⊢ b ≤ c","goals_after":[],"parent":2,"source":"17:64","step":5,"tactic":"apply","word":"by-apply"}
+{"goal_before":null,"goals_after":["case succ\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\nj : Nat\nih : a ≤ c\n⊢ a ≤ c"],"parent":1,"source":"18:3","step":6,"tactic":"alternative","word":"|"}
+{"goal_before":"case succ\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\nj : Nat\nih : a ≤ c\n⊢ a ≤ c","goals_after":["case succ.a\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\nj : Nat\nih : a ≤ c\n⊢ a ≤ ?succ.m","case succ.a\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\nj : Nat\nih : a ≤ c\n⊢ ?succ.m ≤ c","case succ.m\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\nj : Nat\nih : a ≤ c\n⊢ Nat"],"parent":6,"source":"18:34","step":7,"tactic":"apply","word":"by-apply"}
+{"goal_before":"case succ.a\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\nj : Nat\nih : a ≤ c\n⊢ a ≤ ?succ.m","goals_after":["case succ.a\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\nj : Nat\nih : a ≤ c\n⊢ b ≤ c"],"parent":6,"source":"18:49","step":8,"tactic":"apply","word":"by-apply"}
+{"goal_before":"case succ.a\na b c : Nat\nh1 : a ≤ b\nh2 : b ≤ c\nj : Nat\nih : a ≤ c\n⊢ b ≤ c","goals_after":[],"parent":6,"source":"18:64","step":9,"tactic":"apply","word":"by-apply"}

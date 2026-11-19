@@ -1,0 +1,16 @@
+\ by-apply of a constructor with implicit arguments the goal fixes
+\ (slice a2-iii; tests/front/tactics/goal-layer.lean): the goals left
+\ and right, closed in order. The term is And.intro h1 h2.
+\ Lean: theorem ap_and (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) : a ≤ b ∧ b ≤ a := by
+\         apply And.intro
+\         exact h1
+\         exact h2
+theorem ap_and
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1  b a ≤ explicit: h2
+  a b ≤ b a ≤ And
+:= by
+  ' And.intro by-apply
+  ' h1 by-exact
+  ' h2 by-exact
+end ap_and

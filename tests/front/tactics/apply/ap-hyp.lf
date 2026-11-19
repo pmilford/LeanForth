@@ -1,0 +1,10 @@
+\ by-apply of a hypothesis that is the goal itself, no argument added
+\ (slice a2-iii; tests/front/tactics/goal-layer.lean). The term is h.
+\ Lean: theorem ap_hyp (a b : Nat) (h : a ≤ b) : a ≤ b := by apply h
+theorem ap_hyp
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  ' h by-apply
+end ap_hyp

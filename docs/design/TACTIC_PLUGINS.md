@@ -1,7 +1,9 @@
 # Tactic plug-ins on a tactic library
 
 Design (2026-11-17), revised after its design review and the front end's architecture review of 2026-11-18 (section
-11); nothing built. Two owner requests: each tactic in its own files, registering itself, so several can be built at
+11). Built: (a1) and (a2-i) on main; branch `tactic-lib-a2ii` (2026-11-18) adds the registry (`lf-tactic:`, rows for
+1024 kinds, `lfa-code:`, shapes plain and term), the goal layer `meta-tactic/` and `by-apply`, `by-assumption`,
+`by-constructor` as plug-ins; the existing tactics are not yet moved into `tactics/` (plan 9.4.8l). Two owner requests: each tactic in its own files, registering itself, so several can be built at
 once (2026-11-17); and tactics as 100% Lean-compatible ports *of function* on a shared tactic library, never line-by-line
 transcriptions, most of a tactic's code being library calls (2026-11-17). Lean references: pinned Lean 4.35.0's
 `src/lean/`. Appendices: A measurements, B Lean notes, C codes, D the library's public words, E the Lean call lists,
