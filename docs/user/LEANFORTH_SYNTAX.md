@@ -63,20 +63,26 @@ the function itself, and `f a $` applies once more. At `end NAME` the
 elaborator (plan S1, branch `s1-elab`: written and tested alone; see
 [the elaborator](ELABORATION.md)) builds the declaration's terms as
 Lean's elaborator does, and the checker checks them. Given the library's
-elaboration data (`--elab-data`; without it every natural declaration
-stops with error 139), names, applications
-with their hidden arguments, `=`, binders, term proofs and tactic proofs
+elaboration data (`--elab-data`), names, applications
+with their hidden arguments, numerals, `+`, `=`, binders, term proofs and
+tactic proofs
 ([tactic proofs](#tactic-proofs-read-and-run-once-statements-are-elaborated))
-work today; numerals and `+` stop with error 139 at the step that is not
-there yet (instance search, plan FE1e5; unfolding, plan S2). A
+work (slice S2: `tests/front/ps-add-comm.lf` checked with
+`--env tests/front/s2-slice.ndjson --elab-data tests/front/s2-slice.elab.ndjson`
+exits 0, on 2026-11-19). Without `--elab-data`, a natural declaration
+stops at its `end` as not supported: error 139 (exit 2) for
+`tests/front/ps-add-comm.lf` and `tests/front/00-add-zero.lf`, and error 110
+(exit 4, "type class instance expected") for `tests/front/s1-rfl.lf`, whose
+numeral needs the instances in that data; nothing is checked. A
 kernel-form word used without the marker (such as `Prop`) stops with
-error 70. Both are "not supported yet", and nothing is checked.
+error 70, "not supported yet", and nothing is checked.
 
 ## Tactic proofs (read, and run once statements are elaborated)
 
-**Status (2026-11-13): read (plan FE1g-2); the runner written and tested
-alone (plan FE1g-3); it runs on statements the elaborator builds (plan
-S1, branch `s1-elab`), which do not have numerals or `+` yet.** A proof can be a
+**Status (2026-11-19): read (plan FE1g-2); the runner runs on statements the
+elaborator builds (plan S1, branch `s1-elab`), now with numerals and `+`
+when `--elab-data` is given (slice S2; its done check found it working end
+to end on all of `Init` and not yet done).** A proof can be a
 list of instructions, *tactics*, as in Lean: `:= by` and then tactic
 words, each named with the prefix `by-`. LeanForth reads such a proof
 whole, checks its shape (every block closed, each word given the values
@@ -85,8 +91,9 @@ column) and keeps a record of the steps. At `end NAME` the runner
 (plan FE1g-3) takes the statement the elaborator built and runs the
 steps in order on its goal (`by-rfl` and `by-exact` on
 `tests/front/s1-now.lf`, see [the elaborator](ELABORATION.md)); a
-statement with numerals or `+`, as below, stops with error 139, "not
-supported yet", and nothing is checked. A tactic never makes a theorem accepted,
+statement with numerals or `+`, as below, runs with `--elab-data`, and
+without it stops with error 139, "not supported yet", and nothing is
+checked. A tactic never makes a theorem accepted,
 now or later: only the checker's check of the term does.
 
 *Mathematics:* $0 + n = n$ for every natural number $n$, by induction on

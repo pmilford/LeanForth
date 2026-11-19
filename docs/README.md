@@ -23,7 +23,7 @@ describe plans, not implemented behavior.
 - [READING_A_LEAN_PROOF.md](user/READING_A_LEAN_PROOF.md) — for readers new to Lean and logic notation: every symbol; composition, "A and B implies B and A" and `2 + 2 = 4` read as textbook proofs; positional encoding and de Bruijn indices; each theorem as Lean source, `#print`, explicit form, kernel nodes, NDJSON, Forth words and printer output; where tactics fit (Lean and Forth examples checked by `make check` and `make test`).
 - [CONCEPTS.md](user/CONCEPTS.md) — level, `Sort`, `Prop`/`Type`, term, binder, de Bruijn index, constant, declaration, theorem and definition, kernel, outcomes: each as mathematics, LeanForth Forth (run on Gforth 1.0 and 0.7.3) and Lean (checked with pinned Lean).
 - [COMMAND_LINE.md](user/COMMAND_LINE.md) — the command line `bin/leanforth` (version 0): `check` a Lean export with the first checker (`--record` writes its run record), `replay`, `count`, `reexport`, `version`, `capabilities`; what it prints, exit statuses 0–5, manifests, and its limit to small exports; every example run by `make test` and `make check`.
-- [examples/s2-showcase.txt](user/examples/s2-showcase.txt) — the output of `scripts/showcase-steps.sh` on all of `Init` (2026-11-18): each theorem of the S1/S2 proof set with its LeanForth text, statement, checked tactic steps (goals before and after) and verdict.
+- [examples/s2-showcase.txt](user/examples/s2-showcase.txt) — the output of `scripts/showcase-steps.sh` on all of `Init` (2026-11-19): each theorem of the S1/S2 proof set with its LeanForth text, statement, checked tactic steps (goals before and after) and verdict.
 - [FIRST_CHECK.md](user/FIRST_CHECK.md) — the first checker (not through its review gate): `composition` read from its NDJSON export, checked and accepted, and a broken copy rejected, in mathematics, LeanForth Forth and Lean.
 - [WORKFLOWS.md](user/WORKFLOWS.md) — diagrams of checking a theorem and verifying a Forth program, marking what exists and what is planned.
 - [RUNNING_THE_CHECKS.md](user/RUNNING_THE_CHECKS.md) — the `make` targets and tools, what a pass shows and what it does not.
@@ -92,7 +92,7 @@ See also [obsolete/README.md](obsolete/README.md) for documents that a newer one
 - [DONE_CHECKER.md](development/DONE_CHECKER.md) — the independent check that work called done is integrated and works end to end; status stages.
 - [ADDING_A_TACTIC.md](development/ADDING_A_TACTIC.md) — how to add a tactic word as a plug-in: the Lean call list, `lf-tactic:`, codes, tests and faults.
 - [forth-reviews/](development/forth-reviews/LOG.md) — the Forth review log and every review report (required for each Forth change).
-- [done-checks/](development/done-checks/2026-11-12-audit.md) — done-checker reports, starting with the first audit of 2026-11-12.
+- [done-checks/](development/done-checks/2026-11-12-audit.md) — done-checker reports, starting with the first audit of 2026-11-12; the second done check of slice S2 is [done-checks/2026-11-19-s2.md](development/done-checks/2026-11-19-s2.md) (the first: [2026-11-18-s2.md](development/done-checks/2026-11-18-s2.md)).
 - [process-audits/](development/process-audits/2026-11-12-agents-md.md) — audits of the AGENTS.md rules against practice.
 - [ci-results.log](development/ci-results.log) — every push's local CI results with the Gforth and Lean versions (written by `scripts/push.sh`).
 - [src/lib/README.md](../src/lib/README.md) — the reusable Forth libraries: what each file is, the most useful ones for other projects, how to load them.

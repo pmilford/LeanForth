@@ -284,7 +284,7 @@ Merge A writes the sub-ranges into `author/errors.fs`'s header. A Meta step not 
 | 1A | `s2-unfold` merge A | §2 without the smart path (with `unfoldProjInst?`); §3's records and reader, data format 3, the `match_pattern` tag; `lf-menv-smart?` from them; the error ranges | with s1-elab: `03-zero-add-exact.lf` accepted; S1's `0 0 + 0 = #check` | [import] |
 | 1B | `s2-unfold` merge B | §2's smart path, matchers (with `canUnfoldAtMatcher`'s list, `unfoldNestedDIte`), `reduceRec`'s clean-up; §3's markers and `annotations.fs` | `00-add-zero.lf`, `02-add-zero-rfl.lf` accepted | — |
 | 2 | `s2-tactics` | §4, §5, `meta-check.fs`, `kabstract.fs`, M2's step records, codes 205-224, the user page | `01-zero-add-rw.lf` and `04-nested-ih.lf` accepted (A), `01-zero-add.lf` (with B) | — |
-| 3 | `s2-steps` | §6, `--steps`, the schema, `COMMAND_LINE.md`, the done check | `--steps -` on both FE1 files | [format], [bypass] |
+| 3 | `s2-steps` | §6, `--steps`, the schema, `COMMAND_LINE.md`, the done check | `--steps -` on both FE1 files | [format], [bypass] (owner record: [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md), "Small rules" of 2026-11-18) |
 
 Order: s1-meta-b and s1-synth; 1A (s1-elab is built beside it and merges after it); s1-elab; then 1B and 2 in parallel (different files; 2's `case`
 form waits for 1B); 3. Branches meet only in `author/errors.fs` (own ranges), `faults.toml`, the style baseline and
@@ -307,7 +307,9 @@ Sizes, *speculative*: 1A M, 1B M, 2 L, 3 S-M; about 2,500 Forth lines in all and
 4. **[bypass] Can a tactic make a false theorem pass?** No: tactics only build a term, the kernel checks it, a hole or a
    marker is refused before the kernel, a failed attempt is undone, and the log is never read. Evidence at S2's end: the
    planted faults of §9 caught (a wrong term rejected by the kernel, exit 1), every wrong proof stopping with nothing
-   checked, and an old data file refused. *Approve when that evidence is shown.*
+   checked, and an old data file refused. *Approve when that evidence is shown.* Owner record: the step log's [format]
+   approval covers this [bypass] gate ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md), "Decisions of 2026-11-18
+   (morning page)", item "Small rules").
 
 ## Appendix A. Probes (2026-11-13)
 

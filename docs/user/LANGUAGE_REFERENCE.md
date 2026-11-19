@@ -116,7 +116,7 @@ File: `tests/front/ps-add-comm.lf` (the owner's proof set; Lean twin in
 | 19 | `  n Nat.succ m + n m + Nat.succ =` | **statement**: `succ n + m = succ (n + m)` |
 | 20 | `:= by` | `:=`, `by` |
 | 21 | `  m by-induction-with` | **tactic**: induction on `m` |
-| 22 | `  \| zero =>       by-rw[ ' Nat.add_zero ' Nat.add_zero ]` | **case alternative** (zero) |
+| 22 | `  \| zero =>       by-rfl` | **case alternative** (zero) |
 | 23 | `  \| succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]` | **case alternative** (successor) |
 | 24 | `  by-end` | closes the alternatives |
 | 25 | `end ps_succ_add` | **end** |
@@ -125,7 +125,7 @@ File: `tests/front/ps-add-comm.lf` (the owner's proof set; Lean twin in
 | 28 | `  n m + m n + =` | **statement**: `n + m = m + n` |
 | 29 | `:= by` | `:=`, `by` |
 | 30 | `  m by-induction-with` | **tactic**: induction on `m` |
-| 31 | `  \| zero =>       by-rw[ ' ps_zero_add ' Nat.add_zero ]` | **case alternative**; `ps_zero_add` is the theorem of lines 8-16, **used as a rewrite rule** |
+| 31 | `  \| zero =>       by-rw[ ' ps_zero_add ] by-rfl` | **case alternative**; `ps_zero_add` is the theorem of lines 8-16, **used as a rewrite rule**; the second tactic, `by-rfl`, closes what is left |
 | 32 | `  \| succ k ih =>  by-rw[ ' Nat.add_succ ih ' ps_succ_add ]` | **case alternative**; uses `ps_succ_add`, lines 17-25 |
 | 33 | `  by-end` | closes the alternatives |
 | 34 | `end ps_add_comm` | **end** |
@@ -143,7 +143,7 @@ The Lean proof of `ps_add_comm`, for comparison:
 ```lean
 theorem ps_add_comm (n m : Nat) : n + m = m + n := by
   induction m with
-  | zero => rw [ps_zero_add, Nat.add_zero]
+  | zero => rw [ps_zero_add]; rfl
   | succ k ih => rw [Nat.add_succ, ih, ps_succ_add]
 ```
 
