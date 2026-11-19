@@ -228,6 +228,7 @@ check-forth-quality:
 	$(RUN) python3 tests/scripts/test_check_lib_callers.py
 	$(RUN) python3 scripts/check-lib-callers.py
 	$(RUN) python3 tests/scripts/test_check_duplicates.py
+	$(RUN) python3 tests/scripts/test_duplicates_extract.py
 	$(RUN) python3 scripts/check-duplicates.py
 
 # Report-only Forth style metrics (word length, globals, locals, shuffling);

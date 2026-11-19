@@ -2,6 +2,10 @@
 """Ratchet on duplicated Forth code (owner, 2026-11-13, plans 9.4.8f and 9.4.8k). Part of `make test`.
 
 Usage: python3 scripts/check-duplicates.py [--update-baseline] [--report] [--counts] [ROOT]
+       python3 scripts/check-duplicates.py --explain GROUP | --plan [ROOT]
+       python3 scripts/check-duplicates.py --extract GROUP --word NAME --stack "( a -- b )" --home FILE
+                                           [--after WORD] [--comment TEXT] [--add-require] [--dry-run] [ROOT]
+       python3 scripts/check-duplicates.py --extract-table FILE [--add-require] [--dry-run] [ROOT]
 
 Parses the colon definitions of ROOT/src/**/*.fs (comments `\\ ...` and `( ... )` dropped; strings after `s"`, `."`,
 `c"`, `abort"`, `s\\"`, `.(` and the word after `[char]`/`char` are single tokens) and lower-cases them. Words
@@ -41,14 +45,43 @@ went), or a group has no reason or a planned one without a plan row. Fixing a gr
 baseline with --update-baseline only in a reviewed commit, as for tests/forth-quality-baseline.json; it keeps the
 reason of every group whose key or member list is unchanged, and leaves new ones without, so the check then fails
 until each has a reason. --report prints every group, cross-file groups first; --counts the groups by folder.
+
+Removing a group (owner, 2026-11-19; TESTING_STRATEGY.md "Removing a duplicate group"). A group is exact when
+its members are the same tokens and each word in them names the same definition from every member's file
+(its own, else the one its require closure loads), and no unprefixed number sits in a file that changes BASE;
+else it is a shape group. GROUP is a key or a unique prefix of one.
+- --explain GROUP prints the phrase, exact or shape and why, and each member: file:line, name, stack comment,
+  folder, the wordlist in force there (module-open, set-current) and its source lines.
+- --plan lists every group whose reason is not a false positive, by copies x tokens: exact or shape, the
+  files and their folders, the lowest folder all members may require (src/README.md's layering; MAY_REQUIRE),
+  a file every member loads that sees the phrase's words (the suggested --home), and the existing word:
+  a member every other member's file loads, which they can call as it is.
+- --extract GROUP --word NAME --stack S --home FILE defines `: NAME S PHRASE ;` (a comment line above it) in
+  FILE, after --after WORD, else above the first member in FILE, else before its last module-close, else at
+  its end; public when a member lives in another file and the place is private (ADR 0010); and replaces the
+  phrase by NAME in every member, token for token, the rest of each line kept. It refuses a shape group, a
+  NAME that exists with another body, a home that does not see a word of the phrase, and a member's file that
+  does not load FILE, naming the require (--add-require adds it). A member named NAME, or one in FILE, is
+  used as the word instead of a new one. The whole is worked out on a scratch copy of src/ and checked with
+  the detector there: no group may appear or grow (the baseline drops the group and re-keys groups whose
+  members are unchanged); then written, checked again, and restored on any difference. It prints the files
+  and lines changed, planted faults whose text moved, and the members rewritten in src/kernel, src/core and
+  src/import under "EXACT EXTRACTION BY SCRIPT", for the owner's report. --dry-run prints the diff only.
+- --extract-table FILE applies one extraction per line (`group word "( stack )" home [after|-] ["comment"]`,
+  shell quoting, # comments), all or none.
 """
 import collections
+import difflib
 import hashlib
 import importlib.util
 import json
+import os
 import pathlib
 import re
+import shlex
+import shutil
 import sys
+import tempfile
 
 DEFAULT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 MIN_TOKENS = 6
@@ -74,37 +107,7 @@ PLAN_ID = plan_id()
 
 def tokens(text):
     """(token, line) pairs of Forth source with comments removed; a string literal is one token."""
-    out, i, line, n = [], 0, 1, len(text)
-    while i < n:
-        if text[i].isspace():
-            line += text[i] == "\n"
-            i += 1
-            continue
-        j = i
-        while j < n and not text[j].isspace():
-            j += 1
-        tok, start = text[i:j], line
-        i = j
-        low = tok.lower()
-        if low == "\\":
-            while i < n and text[i] != "\n":
-                i += 1
-        elif low == "(":
-            while i < n and text[i] != ")":
-                line += text[i] == "\n"
-                i += 1
-            i += 1
-        elif low in STRING_OPENERS:
-            end = ")" if low == ".(" else "\""
-            k = i + 1
-            while k < n and text[k] != end:
-                line += text[k] == "\n"
-                k += 1
-            out.append((low + " " + text[i + 1:k], start))
-            i = k + 1
-        else:
-            out.append((low, start))
-    return out
+    return [(tok, line) for tok, line, _, _ in spans(text)]
 
 
 def definer(word):
@@ -325,11 +328,756 @@ def report(now, base):
             print(f"    {f}:{line} {name}")
 
 
+# --- removing a group: explain, plan and extract (owner, 2026-11-19, "Tools first") -----------------
+#
+# A group is EXACT when its members' bodies are the same tokens and every word in them names the same
+# definition from each member's file (the file's own, else the one its require closure loads); only an
+# exact group can be replaced by one word without a review of meaning, since the word's body is then
+# the members' text itself (OWNER_DECISIONS.md, "Clean-up: the stack approved": exact-phrase
+# extractions made by this script merge after the Forth review and the tier). Any other group is a
+# SHAPE group: the same code over different words.
+
+# src/README.md's layering ("Rules" and the folder table): what a file of each folder may require.
+# kernel, core and lib as the rules say; present, author and front as their rows say (front reads
+# import only for the stage's names); import uses the kernel's public words (its row); cli all but
+# program; program's row names no rule, so the folders it loads today (lib, author) are taken.
+MAY_REQUIRE = {
+    "lib": {"lib"},
+    "core": {"lib", "core"},
+    "kernel": {"lib", "core", "kernel"},
+    "present": {"lib", "core", "present"},
+    "author": {"lib", "core", "present", "author"},
+    "front": {"lib", "core", "present", "author", "import", "front"},
+    "import": {"lib", "core", "kernel", "import"},
+    "program": {"lib", "author", "program"},
+    "cli": {"lib", "core", "kernel", "import", "present", "author", "front", "cli"},
+}
+LAYER_ORDER = ["lib", "core", "present", "kernel", "author", "import", "front", "program", "cli"]
+REVIEWED = ("src/kernel/", "src/core/", "src/import/")
+LOADERS = {"require", "include", "needs"}
+# Words a phrase cut out of a longer body may not hold: they reach the caller's frame.
+FRAME_WORDS = {"exit", ">r", "r>", "r@", "2>r", "2r>", "2r@", "rdrop", "i", "j", "leave", "unloop",
+               "recurse", "{:", "?leave"}
+LINE_LIMIT = 100
+# Words that may close a file after its last definition: the new word goes above them.
+CLOSERS = {"[then]", "[endif]", "module-close", "decimal"}     # and `base !`
+
+
+def spans(text):
+    """(token, line, start, end) of Forth source with comments removed: tokens() with each token's
+    offsets in TEXT (a string literal from its opener to its closing quote)."""
+    out, i, line, n = [], 0, 1, len(text)
+    while i < n:
+        if text[i].isspace():
+            line += text[i] == "\n"
+            i += 1
+            continue
+        j = i
+        while j < n and not text[j].isspace():
+            j += 1
+        tok, start, begin = text[i:j], line, i
+        i = j
+        low = tok.lower()
+        if low == "\\":
+            while i < n and text[i] != "\n":
+                i += 1
+        elif low == "(":
+            while i < n and text[i] != ")":
+                line += text[i] == "\n"
+                i += 1
+            i += 1
+        elif low in STRING_OPENERS:
+            end = ")" if low == ".(" else "\""
+            k = i + 1
+            while k < n and text[k] != end:
+                line += text[k] == "\n"
+                k += 1
+            out.append((low + " " + text[i + 1:k], start, begin, min(k + 1, n)))
+            i = k + 1
+        else:
+            out.append((low, start, begin, j))
+    return out
+
+
+class Definition:
+    """A colon definition of a Source: name, line, token range (the `:` and the `;`), wordlist."""
+
+    def __init__(self, source, colon, semi, context):
+        self.source, self.colon, self.semi, self.context = source, colon, semi, context
+        self.name = source.toks[colon + 1][0]
+        self.line = source.toks[colon][1]
+        self.body_range = (colon + 2, semi)
+
+    @property
+    def body(self):
+        return [t[0] for t in self.source.toks[slice(*self.body_range)]]
+
+    def raw(self, k):
+        """The source text of body token K."""
+        tok = self.source.toks[self.body_range[0] + k]
+        return self.source.text[tok[2]:tok[3]]
+
+    def stack_comment(self):
+        text, at = self.source.text, self.source.toks[self.colon + 1][3]
+        match = re.match(r"\s+(\(\s[^)]*\))", text[at:])
+        return " ".join(match[1].split()) if match else ""
+
+    def source_lines(self):
+        first = self.line
+        last = self.source.toks[self.semi][1] if self.semi < len(self.source.toks) else first
+        return self.source.text.split("\n")[first - 1:last]
+
+    def end_offset(self):
+        return self.source.toks[self.semi][3] if self.semi < len(self.source.toks) else len(self.source.text)
+
+
+class Source:
+    """One Forth file: its tokens with offsets, colon definitions, defined names, requires and the
+    wordlist in force at each top-level place (module-open, set-current, module-close; ADR 0010)."""
+
+    def __init__(self, root, rel, text=None):
+        self.rel, self.root = rel, root
+        self.text = text if text is not None else (root / rel).read_text(encoding="utf-8", errors="replace")
+        self.toks = spans(self.text)
+        self.defs, self.defined, self.requires, self.marks = [], {}, [], []
+        context, saved, i = "default", [], 0
+        while i < len(self.toks):
+            word, line = self.toks[i][0], self.toks[i][1]
+            before = self.toks[i - 1][0] if i else ""
+            if word == ":" and i + 1 < len(self.toks):
+                j = i + 2
+                while j < len(self.toks) and self.toks[j][0] != ";":
+                    j += 1
+                self.defs.append(Definition(self, i, j, context))
+                self.defined.setdefault(self.toks[i + 1][0], i)
+                i = j
+            elif definer(word) and i + 1 < len(self.toks):
+                self.defined.setdefault(self.toks[i + 1][0], i)
+            elif word == "module-open":
+                saved.append(context)
+                context = f"{before} (private: module-open at line {line})"
+                self.marks.append((self.toks[i][2], context))
+            elif word == "module-close":
+                context = saved.pop() if saved else "default"
+                self.marks.append((self.toks[i][2], context))
+            elif word == "set-current":
+                private = "private" in before or "internal" in before
+                context = (f"{before} ({'private' if private else 'public'}: set-current at line {line})"
+                           if re.fullmatch(r"[\w-]+", before) and before != "get-current"
+                           else f"restored at line {line} ({before} set-current)")
+                self.marks.append((self.toks[i][2], context))
+            elif word in LOADERS and i + 1 < len(self.toks):
+                self.requires.append(self.toks[i + 1][0])
+            i += 1
+
+    def context_at(self, offset):
+        found = "default"
+        for at, context in self.marks:
+            if at < offset:
+                found = context
+        return found
+
+    def public_wordlist(self):
+        """The public wordlist this file switches to with set-current (lf-lib in a library), or None."""
+        names = [c.split()[0] for _, c in self.marks if "(public:" in c]
+        return collections.Counter(names).most_common(1)[0][0] if names else None
+
+    def private_wordlist(self, context):
+        return context.split()[0] if context.split() and "private" in context else None
+
+
+class Workspace:
+    """Every Forth file of ROOT/src as Sources, with their require closures and word resolution."""
+
+    def __init__(self, root, texts=None):
+        self.root = pathlib.Path(root)
+        texts = texts or {}
+        names = sorted(str(p.relative_to(self.root)) for p in (self.root / "src").rglob("*.fs"))
+        self.sources = {rel: Source(self.root, rel, texts.get(rel)) for rel in names}
+        self.where = collections.defaultdict(list)          # name -> [file]
+        for rel, src in self.sources.items():
+            for name in src.defined:
+                self.where[name].append(rel)
+        self.closures = {}
+
+    def loads(self, rel):
+        """The files REL requires directly, as paths of the tree."""
+        out = []
+        for name in self.sources[rel].requires:
+            for base in (os.path.dirname(rel), "."):
+                candidate = os.path.normpath(os.path.join(base, name))
+                if candidate in self.sources:
+                    out.append(candidate)
+                    break
+        return out
+
+    def closure(self, rel):
+        """Every file REL loads, directly or not (not REL itself)."""
+        if rel not in self.closures:
+            seen, todo = set(), list(self.loads(rel))
+            while todo:
+                f = todo.pop()
+                if f not in seen and f != rel:
+                    seen.add(f)
+                    todo += self.loads(f)
+            self.closures[rel] = seen
+        return self.closures[rel]
+
+    def resolve(self, word, rel):
+        """The file whose definition of WORD a use in REL reaches: REL's own, else the one file of its
+        closure that defines it; a tuple of files when several do, None when none of src/ does (a
+        Gforth word), "?" when only files REL does not load define it."""
+        if word in self.sources[rel].defined:
+            return rel
+        seen = [f for f in self.where.get(word, []) if f in self.closure(rel)]
+        if len(seen) == 1:
+            return seen[0]
+        if seen:
+            return tuple(sorted(seen))
+        return "?" if word in self.where else None
+
+    def definition(self, rel, name, line=None):
+        found = [d for d in self.sources[rel].defs if d.name == name and (line is None or d.line == line)]
+        return found[-1] if found else None
+
+
+def layer(rel):
+    parts = pathlib.PurePath(rel).parts
+    return parts[1] if len(parts) > 2 and parts[0] == "src" else "main"
+
+
+def members_of(ws, group):
+    """The Definitions of a group's members, in order."""
+    return [ws.definition(f, name, line) or ws.definition(f, name) for f, line, name in group["members"]]
+
+
+def words_of(body):
+    """The tokens of a body that may name words: no string, no number, no character after char."""
+    out, skip = [], False
+    for t in body:
+        if skip:
+            skip = False
+        elif t in CHAR_WORDS:
+            skip = True
+        elif " " not in t and not NUMBER.fullmatch(t):
+            out.append(t)
+    return out
+
+
+def uses_base(src):
+    return any(t[0] in ("hex", "base") for t in src.toks)
+
+
+def exactness(ws, defs):
+    """(True, why) when DEFS are an exact group; else (False, the first difference)."""
+    bodies = [d.body for d in defs]
+    if any(b != bodies[0] for b in bodies):
+        k = next(i for i in range(max(map(len, bodies))) if len({tuple(b[i:i + 1]) for b in bodies}) > 1)
+        seen = ", ".join(f"{d.name}: {(d.body[k:k + 1] or ['(end)'])[0]}" for d in defs)
+        return False, f"token {k + 1} differs ({seen})"
+    for word in sorted(set(words_of(bodies[0]))):
+        reach = {d.source.rel: ws.resolve(word, d.source.rel) for d in defs}
+        if len(set(reach.values())) > 1:
+            return False, f"the same text, but `{word}` names " + "; ".join(
+                f"{where} in {rel}" for rel, where in reach.items())
+    if any(NUMBER.fullmatch(t) and t[0] not in "$#%-" for t in bodies[0]) and \
+            any(uses_base(d.source) for d in defs):
+        return False, "a number in a file that changes BASE may read differently"
+    return True, "identical tokens, each word the same definition from every member's file"
+
+
+def phrase_text(definition):
+    return " ".join(definition.raw(k) for k in range(len(definition.body)))
+
+
+def find_group(now, wanted):
+    hits = [k for k in now if k.startswith(wanted)]
+    if len(hits) != 1:
+        raise SystemExit(f"duplicates: {'no' if not hits else 'more than one'} group key starts with {wanted!r}"
+                         + (f" ({', '.join(sorted(hits))})" if hits else ""))
+    return hits[0]
+
+
+def explain(root, wanted, base):
+    now = groups(root)
+    key = find_group(now, wanted)
+    group, ws = now[key], Workspace(root)
+    defs = members_of(ws, group)
+    exact, why = exactness(ws, defs)
+    print(label(key, group))
+    print(f"  {'EXACT' if exact else 'SHAPE'}: {why}")
+    print(f"  phrase: {phrase_text(defs[0])}")
+    if base.get(key, {}).get("reason"):
+        print(f"  reason: {base[key]['reason']}")
+    for d in defs:
+        print(f"  {d.source.rel}:{d.line} {d.name} {d.stack_comment()}  [{layer(d.source.rel)}; wordlist: {d.context}]")
+        if not exact:
+            print(f"      tokens: {phrase_text(d)}")
+        for text in d.source_lines():
+            print(f"      | {text}")
+    return 0
+
+
+def home_files(ws, defs):
+    """Files of src/ that every member's file loads (or is) and that see every word of the phrase."""
+    files = [d.source.rel for d in defs]
+    common = set.intersection(*[ws.closure(f) | {f} for f in files])
+    needed = {ws.resolve(w, files[0]) for w in words_of(defs[0].body)} - {None}
+    return [f for f in common if ws.sources[f].defs
+            and all(isinstance(n, str) and (n == f or n in ws.closure(f)) for n in needed)]
+
+
+def suggested_layer(ws, defs):
+    """The lowest folder every member's folder may require (src/README.md) that may require the folders
+    of the phrase's words, or None."""
+    member_layers = {layer(d.source.rel) for d in defs}
+    needed = set()
+    for w in words_of(defs[0].body):
+        where = ws.resolve(w, defs[0].source.rel)
+        for f in (where if isinstance(where, tuple) else [where]):
+            if f not in (None, "?"):
+                needed.add(layer(f))
+    for name in LAYER_ORDER:
+        if all(name in MAY_REQUIRE.get(m, set()) for m in member_layers) and needed <= MAY_REQUIRE[name]:
+            return name
+    return None
+
+
+def existing_word(ws, defs):
+    """A member every other member's file loads: the word the others can call as it is."""
+    for d in defs:
+        if all(o is d or d.source.rel == o.source.rel or d.source.rel in ws.closure(o.source.rel) for o in defs):
+            return d
+    return None
+
+
+def plan_rows(root, base):
+    now, ws = groups(root), Workspace(root)
+    rows = []
+    for key, group in now.items():
+        reason = base.get(key, {}).get("reason", "")
+        if reason.startswith("false positive:"):
+            continue
+        defs = members_of(ws, group)
+        exact = exactness(ws, defs)[0]
+        homes = home_files(ws, defs) if exact else []
+        best = max(homes, key=lambda f: (len(ws.closure(f)), f)) if homes else None
+        found = existing_word(ws, defs) if exact else None
+        rows.append({"key": key, "exact": exact, "copies": len(defs), "tokens": group["tokens"],
+                     "score": len(defs) * group["tokens"],
+                     "files": sorted({f"{d.source.rel} ({layer(d.source.rel)})" for d in defs}),
+                     "layer": suggested_layer(ws, defs), "home": best,
+                     "existing": f"{found.source.rel}:{found.name}" if found else None,
+                     "reason": reason.split(":")[0] or "(none)"})
+    return sorted(rows, key=lambda r: (-r["score"], r["key"]))
+
+
+def plan(root, base):
+    rows = plan_rows(root, base)
+    print(f"{'score':>5} {'key':<12} {'kind':<5} {'n':>2}x{'tok':<3} reason / suggested home / existing word / files")
+    for r in rows:
+        home = r["home"] or (f"src/{r['layer']}/ (no file every member loads)" if r["layer"] else "none")
+        print(f"{r['score']:>5} {r['key']:<12} {'exact' if r['exact'] else 'shape':<5} "
+              f"{r['copies']:>2}x{r['tokens']:<3} {r['reason']}; home {home}"
+              + (f"; existing {r['existing']}" if r["existing"] else ""))
+        print("        " + ", ".join(r["files"]))
+    exact = [r for r in rows if r["exact"]]
+    print(f"{len(rows)} groups not false positive: {len(exact)} exact ({sum(1 for r in exact if r['existing'])} "
+          f"with an existing word every member can call), {len(rows) - len(exact)} shape")
+    return 0
+
+
+# --- extract ------------------------------------------------------------------------------------------
+
+class Refusal(Exception):
+    """An extraction the script will not make, with the reason."""
+
+
+def occurrences(body, phrase):
+    """Start indices of the non-overlapping occurrences of PHRASE in BODY (token lists)."""
+    out, k = [], 0
+    while k + len(phrase) <= len(body):
+        if body[k:k + len(phrase)] == phrase:
+            out.append(k)
+            k += len(phrase)
+        else:
+            k += 1
+    return out
+
+
+def replace_phrase(definition, phrase, name):
+    """Edits (start, end, text) that replace each occurrence of PHRASE in DEFINITION's body by NAME;
+    a phrase cut out of a longer body may not hold a word that reaches the caller's frame."""
+    body = definition.body
+    found = occurrences(body, phrase)
+    if len(found) * len(phrase) < len(body) and FRAME_WORDS & set(phrase):
+        raise Refusal(f"{definition.name}: the phrase is part of a longer body and holds "
+                      f"{', '.join(sorted(FRAME_WORDS & set(phrase)))}")
+    toks, first = definition.source.toks, definition.body_range[0]
+    return [(toks[first + k][2], toks[first + k + len(phrase) - 1][3], name) for k in found]
+
+
+def apply_edits(text, edits):
+    for start, end, new in sorted(edits, reverse=True):
+        text = text[:start] + new + text[end:]
+    return text
+
+
+def line_end(text, offset):
+    at = text.find("\n", offset)
+    return len(text) if at < 0 else at + 1
+
+
+def line_start(text, offset):
+    return text.rfind("\n", 0, offset) + 1
+
+
+def new_definition(name, stack, phrase, comment):
+    head = f": {name} {stack}".rstrip()
+    lines = [f"\\ {comment}"] if comment else []
+    one = f"{head} {phrase} ;"
+    if len(one) <= LINE_LIMIT:
+        return lines + [one]
+    lines.append(head)
+    current = " "
+    for word in phrase.split(" ") + [";"]:
+        if len(current) + 1 + len(word) > LINE_LIMIT and current.strip():
+            lines.append(current)
+            current = " "
+        current += " " + word
+    return lines + [current]
+
+
+def insertion_point(ws, home, after, defs):
+    """The offset in HOME where the new word goes, and what to say about it."""
+    src = ws.sources[home]
+    firsts = [d for d in defs if d.source.rel == home]
+    if after:
+        target = ws.definition(home, after.lower())
+        if target is None:
+            raise Refusal(f"--after {after}: {home} defines no word {after}")
+        at = line_end(src.text, target.end_offset())
+        late = [d for d in firsts if src.toks[d.colon][2] < at]
+        if late:
+            raise Refusal(f"--after {after} puts the word below {late[0].name} ({home}:{late[0].line}), "
+                          "a member that must call it; name an earlier word")
+        return at, f"after {after}"
+    if firsts:
+        first = min(firsts, key=lambda d: d.colon)
+        at = line_start(src.text, src.toks[first.colon][2])
+        while at > 0:   # above the comment lines directly over the first member
+            prev = line_start(src.text, at - 1)
+            if not src.text[prev:at].lstrip().startswith("\\") or src.text[prev:at].strip() == "\\":
+                break
+            at = prev
+        return at, f"above {first.name}, the first member in {home}"
+    closes = [t for t in src.toks if t[0] == "module-close"]
+    if closes:
+        return line_start(src.text, closes[-1][2]), "at the end, before module-close"
+    k = len(src.toks)      # above the closing lines: BASE given back, the load guard's [then]
+    while k:
+        if src.toks[k - 1][0] in CLOSERS:
+            k -= 1
+        elif k > 1 and [t[0] for t in src.toks[k - 2:k]] == ["base", "!"]:
+            k -= 2
+        else:
+            break
+    if k == len(src.toks):
+        return len(src.text), "at the end"
+    at = line_start(src.text, src.toks[k][2])
+    if k and src.toks[k - 1][2] >= at:
+        raise Refusal(f"the end of {src.rel} shares a line with its closing words: give --after WORD")
+    return at, f"at the end, before `{src.text[at:].strip().splitlines()[0]}`"
+
+
+def require_text(member, home):
+    rel = os.path.relpath(home, os.path.dirname(member))
+    return f"require {rel if rel.startswith('..') else './' + rel}"
+
+
+def add_require(src, line):
+    """(offset, text): the require line after SRC's last top-level require, else above its first code."""
+    loads = [t for t in src.toks if t[0] in LOADERS]
+    if loads:
+        at = line_end(src.text, loads[-1][2])
+    else:
+        at = line_start(src.text, src.toks[0][2]) if src.toks else len(src.text)
+    return at, line + "\n"
+
+
+class Extraction:
+    """One extraction worked out on a Workspace: the new texts of the files it changes."""
+
+    def __init__(self, ws, group_key, group, name, stack, home, after=None, comment=None, add_requires=False):
+        self.ws, self.key, self.name = ws, group_key, name.lower()
+        self.home = os.path.normpath(home)
+        self.texts, self.notes, self.rewritten = {}, [], []
+        if self.home not in ws.sources:
+            raise Refusal(f"--home {home} is no Forth file of src/")
+        defs = members_of(ws, group)
+        exact, why = exactness(ws, defs)
+        if not exact:
+            raise Refusal(f"group {group_key} is a shape group, not an exact one ({why}): "
+                          "its members differ, so one word cannot replace them unchanged; --explain shows them")
+        phrase, text = defs[0].body, phrase_text(defs[0])
+        users = self.word_in_use(defs, phrase)
+        edits = collections.defaultdict(list)
+        if users is None:
+            at, where = insertion_point(ws, self.home, after, defs)
+            self.check_visible(defs, phrase, at)
+            block = new_definition(name, stack, text, comment or f"{name}: shared by "
+                                   + ", ".join(d.name for d in defs) + " (check-duplicates.py --extract)")
+            block = self.in_public(at, block, defs)
+            lead = "\n" if at and not ws.sources[self.home].text[:at].endswith("\n") else ""
+            edits[self.home].append((at, at, lead + "\n".join(block) + "\n"))
+            self.notes.append(f"defined {name} in {self.home}, {where}")
+            callee = name
+        else:
+            callee = users.name
+            self.notes.append(f"used the existing word {users.name} ({users.source.rel}:{users.line})")
+        for d in defs:
+            if users is not None and d is users:
+                continue
+            edits[d.source.rel] += replace_phrase(d, phrase, callee)
+            self.rewritten.append(f"{d.source.rel}:{d.line} {d.name}")
+        target = users.source.rel if users is not None else self.home
+        for d in defs:
+            rel = d.source.rel
+            if rel == target or target in ws.closure(rel):
+                continue
+            if rel in ws.closure(target):
+                raise Refusal(f"{target} loads {rel}, so {rel} cannot load {target}: choose another --home")
+            line = require_text(rel, target)
+            if not add_requires:
+                raise Refusal(f"{rel} does not load {target}, directly or not: it needs `{line}` "
+                              "(give --add-require to add it)")
+            at = add_require(ws.sources[rel], line)[0]
+            edits[rel].append((at, at, line + "\n"))
+            self.notes.append(f"added `{line}` to {rel}")
+        for rel, changes in edits.items():
+            self.texts[rel] = apply_edits(ws.sources[rel].text, changes)
+
+    def word_in_use(self, defs, phrase):
+        """The member to call instead of a new word: one named NAME, or one in HOME; refuses a NAME that
+        exists with another body."""
+        for d in defs:
+            if d.name == self.name:
+                return d
+        for rel in self.ws.where.get(self.name, []):
+            other = self.ws.definition(rel, self.name)
+            raise Refusal(f"{self.name} already exists with another body ({rel}"
+                          + (f":{other.line})" if other else ", not a colon definition)"))
+        in_home = [d for d in defs if d.source.rel == self.home]
+        return in_home[0] if in_home else None
+
+    def check_visible(self, defs, phrase, at):
+        """Every word of the phrase that src/ defines must be one HOME loads, or defines above AT."""
+        closure = self.ws.closure(self.home)
+        for w in sorted(set(words_of(phrase))):
+            where = self.ws.resolve(w, defs[0].source.rel)
+            if where is None:
+                continue
+            if not isinstance(where, str) or where == "?" or (where != self.home and where not in closure):
+                raise Refusal(f"{self.home} cannot see `{w}` (defined in {where}): choose a --home that loads it")
+            src = self.ws.sources[self.home]
+            if where == self.home and src.toks[src.defined[w]][2] >= at:
+                raise Refusal(f"`{w}` is defined in {self.home} below the place of the new word")
+
+    def in_public(self, at, block, defs):
+        """BLOCK wrapped to compile into the public wordlist when the place is private and a member
+        lives in another file."""
+        src = self.ws.sources[self.home]
+        context = src.context_at(at)
+        private = src.private_wordlist(context)
+        if not private or all(d.source.rel == self.home for d in defs):
+            return block
+        public = src.public_wordlist()
+        if public is None:
+            raise Refusal(f"{self.home} is private at that place ({context}) and names no public wordlist")
+        self.notes.append(f"compiled into {public} (public): {self.home} is private there")
+        return [f"{public} set-current"] + block + [f"{private} set-current"]
+
+
+def write_texts(root, texts):
+    for rel, text in texts.items():
+        (pathlib.Path(root) / rel).write_text(text, encoding="utf-8")
+
+
+def diff_lines(root, texts):
+    out = []
+    for rel, new in sorted(texts.items()):
+        old = (pathlib.Path(root) / rel).read_text(encoding="utf-8", errors="replace")
+        out += difflib.unified_diff(old.splitlines(True), new.splitlines(True), "a/" + rel, "b/" + rel)
+    return out
+
+
+def rekeyed(before, after, removed):
+    """(problems, new baseline mapping): each group AFTER matched to one BEFORE by key or by member list;
+    a group matching none is new, one with members its match lacks has grown."""
+    by_members = {tuple(names_of(g)): k for k, g in before.items()}
+    problems, moves = [], {}
+    for key, group in after.items():
+        old = key if key in before and key not in removed else by_members.get(tuple(names_of(group)))
+        if old is None or old in removed:
+            problems.append(f"new group {label(key, group)}: " + ", ".join(names_of(group)))
+        elif added_members(group, {"members": names_of(before[old])}):
+            problems.append(f"group {key} grew: " + ", ".join(added_members(group, {"members": names_of(before[old])})))
+        elif old != key:
+            moves[old] = key
+    return problems, moves
+
+
+def fault_problems(root, texts):
+    """Planted faults (tests/mutants) whose old text the new texts no longer hold exactly once."""
+    try:
+        mutants = importlib.util.spec_from_file_location("mutants", pathlib.Path(root) / "scripts/mutants.py")
+        module = importlib.util.module_from_spec(mutants)
+        mutants.loader.exec_module(module)
+        faults = module.load_list(pathlib.Path(root) / "tests/mutants/faults.toml")
+    except Exception:       # no fault list or runner in this tree: nothing to check
+        return []
+    return [f"fault {f['id']} ({f['file']}): its old text now occurs {texts[f['file']].count(f['old'])} times; "
+            "re-target it" for f in faults if f["file"] in texts and texts[f["file"]].count(f["old"]) != 1]
+
+
+def extract(root, specs, base, dry_run=False, add_requires=False):
+    """Apply SPECS (dicts: group, word, stack, home, after, comment) in order, all or none: worked out
+    on a scratch copy of src/, checked there with the detector, then written. The exit status."""
+    root = pathlib.Path(root)
+    before = groups(root)
+    wanted = [(find_group(before, s["group"]), s) for s in specs]
+    with tempfile.TemporaryDirectory(prefix="leanforth-extract-") as scratch:
+        shutil.copytree(root / "src", pathlib.Path(scratch) / "src")
+        texts, done, current = {}, [], dict(before)
+        try:
+            for key, spec in wanted:
+                members = names_of(before[key])
+                live = next((k for k, g in current.items() if names_of(g) == members), None)
+                if live is None:
+                    raise Refusal(f"group {key} changed under an earlier extraction of the table")
+                one = Extraction(Workspace(scratch), live, current[live], spec["word"], spec.get("stack", ""),
+                                 spec["home"], spec.get("after"), spec.get("comment"), add_requires)
+                write_texts(scratch, one.texts)
+                texts.update(one.texts)
+                done.append((key, spec, one))
+                current = groups(pathlib.Path(scratch))
+        except Refusal as why:
+            print(f"refused: {why}")
+            return 1
+        problems, moves = rekeyed(before, current, {k for k, _, _ in done})
+        if problems:
+            print("refused: the extraction would change other groups (nothing written):")
+            print("\n".join("  " + p for p in problems))
+            return 1
+    new_base = {k: v for k, v in base.items() if k not in {key for key, _, _ in done}}
+    for old, new in moves.items():
+        if old in new_base:
+            entry = baseline_of({new: current[new]})[new]
+            if new_base[old].get("reason"):
+                entry["reason"] = new_base[old]["reason"]
+            del new_base[old]
+            new_base[new] = entry
+    base_text = json.dumps(new_base, indent=1, sort_keys=True) + "\n"
+    base_path = root / "tests/duplicates-baseline.json"
+    diff = diff_lines(root, texts)
+    if dry_run:
+        print("".join(diff), end="")
+        if base_path.exists() and base_path.read_text() != base_text:
+            print(f"(and tests/duplicates-baseline.json: {len(done)} group(s) removed, {len(moves)} re-keyed)")
+        report(done, texts, diff, root, dry_run=True)
+        return 0
+    originals = {rel: (root / rel).read_text(encoding="utf-8") for rel in texts}
+    old_base = base_path.read_text() if base_path.exists() else None
+    write_texts(root, texts)
+    base_path.write_text(base_text)
+    after = groups(root)
+    if {k: names_of(g) for k, g in after.items()} != {k: names_of(g) for k, g in current.items()}:
+        write_texts(root, originals)
+        if old_base is None:
+            base_path.unlink()
+        else:
+            base_path.write_text(old_base)
+        print("refused: the written tree's groups differ from the checked copy's; every file restored")
+        return 1
+    report(done, texts, diff, root)
+    return 0
+
+
+def report(done, texts, diff, root, dry_run=False):
+    added = sum(1 for d in diff if d.startswith("+") and not d.startswith("+++"))
+    removed = sum(1 for d in diff if d.startswith("-") and not d.startswith("---"))
+    print(f"{'would change' if dry_run else 'changed'} {len(texts)} file(s), +{added} -{removed} lines: "
+          + ", ".join(sorted(texts)))
+    reviewed = []
+    for key, spec, one in done:
+        for note in one.notes:
+            print(f"  {key}: {note}")
+        print(f"  {key}: members rewritten: " + ", ".join(one.rewritten))
+        reviewed += [(key, spec, m) for m in one.rewritten if m.startswith(REVIEWED)]
+    for problem in fault_problems(root, texts):
+        print("  warning: " + problem)
+    print("EXACT EXTRACTION BY SCRIPT (scripts/check-duplicates.py --extract; OWNER_DECISIONS.md "
+          "\"Clean-up: the stack approved\"): members rewritten in src/kernel, src/core and src/import:")
+    for key, spec, member in reviewed:
+        print(f"- {member} -> {spec['word']} (group {key}, in {spec['home']})")
+    if not reviewed:
+        print("- none")
+
+
+def table_specs(path):
+    """The extractions of an --extract-table file: one per line, `group word "( stack )" home [after]
+    ["comment"]` (shell quoting), blank lines and # comments skipped."""
+    specs = []
+    for number, line in enumerate(pathlib.Path(path).read_text().splitlines(), 1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        parts = shlex.split(line)
+        if not 4 <= len(parts) <= 6:
+            raise SystemExit(f"{path}:{number}: expected group word stack home [after] [comment]")
+        spec = dict(zip(("group", "word", "stack", "home", "after", "comment"), parts))
+        if spec.get("after") in ("", "-"):
+            spec["after"] = None
+        specs.append(spec)
+    return specs
+
+
+def option(argv, name):
+    if name not in argv:
+        return None
+    k = argv.index(name)
+    if k + 1 >= len(argv):
+        raise SystemExit(f"{name} needs a value")
+    return argv[k + 1]
+
+
+VALUED = ("--explain", "--extract", "--word", "--stack", "--home", "--after", "--comment", "--extract-table")
+
+
 def main(argv):
-    args = [a for a in argv if not a.startswith("--")]
+    values = {name: option(argv, name) for name in VALUED}
+    args, skip = [], False
+    for a in argv:
+        if skip or a in VALUED:
+            skip = not skip
+            continue
+        if not a.startswith("--"):
+            args.append(a)
     root = pathlib.Path(args[0]).resolve() if args else DEFAULT_ROOT
     path = root / "tests/duplicates-baseline.json"
     base = json.loads(path.read_text()) if path.exists() else {}
+    if values["--explain"]:
+        return explain(root, values["--explain"], base)
+    if "--plan" in argv:
+        return plan(root, base)
+    if values["--extract"] or values["--extract-table"]:
+        if values["--extract-table"]:
+            specs = table_specs(values["--extract-table"])
+        elif not (values["--word"] and values["--home"]):
+            raise SystemExit("--extract GROUP needs --word NAME and --home FILE (and --stack \"( a -- b )\")")
+        else:
+            specs = [{"group": values["--extract"], "word": values["--word"], "stack": values["--stack"] or "",
+                      "home": values["--home"], "after": values["--after"], "comment": values["--comment"]}]
+        return extract(root, specs, base, "--dry-run" in argv, "--add-require" in argv)
     now = groups(root)
     if "--update-baseline" in argv:
         new = baseline_of(now, base)
