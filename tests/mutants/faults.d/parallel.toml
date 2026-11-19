@@ -35,3 +35,21 @@ old = '''  ck-shift? drop lf-sched-final ck-final ck-advance ck-shift? drop ;'''
 new = '''  lf-sched-final ck-final ck-advance ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "a move made at the last tick, with no hand-out after it, is never found: the run ends ok"
+
+# The tables written while loading, sealed with the context layout (L2 of the audit).
+
+[[fault]]
+id = "parallel-term-tags-unsealed"
+file = "src/core/terms.fs"
+old = '''  context-sealed? abort" terms: tag table written after context-new" ;'''
+new = '''  ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "a tag registered after a context was made (read by every context's checks, in any task) is written instead of refused"
+
+[[fault]]
+id = "parallel-columns-unsealed"
+file = "src/lib/store-columns.fs"
+old = ''': columns-open ( -- ) context-sealed? abort" columns: added after context-new" ;'''
+new = ''': columns-open ( -- ) ;'''
+test = "$GFORTH tests/lib/store-columns.fs"
+reason = "a column added after a context was made, missing from every context made before, is laid down instead of refused"

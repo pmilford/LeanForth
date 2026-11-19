@@ -8999,8 +8999,8 @@ reason = "S5B: a projection is no binary node, so the passes treat it as an unkn
 [[fault]]
 id = "tin-leaf-tags-raw-shift"
 file = "src/core/terms.fs"
-old = ''': lf-tin-leaf-tags+ ( lftag -- ) lf-tin-leaf-tags lf-tag-set+ ;'''
-new = ''': lf-tin-leaf-tags+ ( lftag -- ) 1 swap lshift lf-tin-leaf-tags @ or lf-tin-leaf-tags ! ;'''
+old = ''': lf-tin-leaf-tags+ ( lftag -- ) lf-term-tags-open lf-tin-leaf-tags lf-tag-set+ ;'''
+new = ''': lf-tin-leaf-tags+ ( lftag -- ) lf-term-tags-open 1 swap lshift lf-tin-leaf-tags @ or lf-tin-leaf-tags ! ;'''
 test = "$GFORTH tests/core/terms.fs"
 reason = "Forth review L3 of small-fixes-1118: the leaf-table tag set shifts by the raw tag, not through lf-tag-set+, so a tag above 31 or below 0 gets another bit than lf-tin-leaf-tag? reads"
 

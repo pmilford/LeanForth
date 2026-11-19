@@ -31,7 +31,8 @@
 \
 \ State: each column is its owner's member (a lib/slab.fs record,
 \ heap-owning, usually a context member); the group and column
-\ descriptors are laid down while loading and read-only afterwards. The
+\ descriptors are laid down while loading and read-only afterwards
+\ (column-add aborts once lib/context.fs's layout is sealed). The
 \ owner registers one setup word, which sizes every column of the group,
 \ and one teardown word, which frees them. Single-threaded per member.
 \ Helpers are private (ADR 0010).
@@ -39,6 +40,7 @@
 require ./portability.fs
 require ./store.fs
 require ./slab.fs
+require ./context.fs
 require ./outcome.fs
 require ./module.fs
 
@@ -136,9 +138,16 @@ lf-lib-private set-current
 : column-link-in ( column group -- )
   2dup group-newest @ swap column-link ! group-newest ! ;
 lf-lib set-current
+\ Like a context member, a column is added only while the layout is open:
+\ column-add aborts once a context was made (lib/context.fs's
+\ context-sealed?), as the column would be missing from every context made
+\ before it.
+lf-lib-private set-current
+: columns-open ( -- ) context-sealed? abort" columns: added after context-new" ;
+lf-lib set-current
 : column-add ( width xt group -- )
-  >r align here /column allot tuck column-xt ! tuck column-width ! dup r@ column-link-in
-  dup column-setup r> group-capacity swap column-slab column-reserve
+  columns-open >r align here /column allot tuck column-xt ! tuck column-width !
+  dup r@ column-link-in dup column-setup r> group-capacity swap column-slab column-reserve
   ok? 0= abort" columns: no heap" ;
 
 module-close
