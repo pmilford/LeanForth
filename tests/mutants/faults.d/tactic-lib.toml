@@ -737,3 +737,21 @@ old = '''  0 swap begin dup lf-term-pi? while lf-term-second@ swap 1+ swap repea
 new = '''  0 swap begin dup lf-term-pi? while lf-term-second@ repeat swap ;'''
 test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
 reason = "review tactic-move-c4 B3: lf-meta-forall-body# passes the pis without counting them, so an eliminator's alternatives have no fields and an output type's bound variable is never its own binder's"
+
+# --- review tactic-move-c4: lf-elim-for's cases path (B1) ----------------------
+
+[[fault]]
+id = "lib-elim-cases-mutual-refused"
+file = "src/front/meta-tactic/elim.fs"
+old = ''': mel-checked ( t d induction? -- t d ) if mel-simple then ;'''
+new = ''': mel-checked ( t d induction? -- t d ) drop mel-simple ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-move-c4 B1: cases refuses a mutual or nested type (209), where Lean refuses it only under induction and takes C.casesOn"
+
+[[fault]]
+id = "lib-elim-explanation-induction-only"
+file = "src/front/meta-tactic/elim.fs"
+old = ''': mel-tactic ( induction? -- c-addr u ) if s" induction" else s" cases" then ;'''
+new = ''': mel-tactic ( induction? -- c-addr u ) drop s" induction" ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-move-c4 B1: 205's explanation names induction and @[induction_eliminator] for cases too, where Lean's names the tactic"

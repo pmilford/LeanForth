@@ -633,8 +633,11 @@ lf-tac-forget
 \ ---- 9. Eliminators (meta-tactic/elim.fs, plan 9.4.8l-I commit C4),
 \ called directly over n : Nat, l : List Nat, b : Bool, p : Prop, α :
 \ Type, x : α, f : Nat -> Nat, s : Lean.Syntax, the main goal n = n:
-\ lf-elim-for (the data's Nat.recAux; Nat.casesOn for cases; List.rec;
-\ 205 with each hint and the goal; 209 for a nested type), lf-elim-info
+\ lf-elim-for (the data's Nat.recAux; Nat.casesOn for cases, the slice's
+\ data holding no cases eliminator, where all of Init's names
+\ Nat.casesAuxOn: Init/Data/Nat/Basic.lean:48; List.rec; 205 with each
+\ hint and the goal, its explanation naming induction or cases; 209 for
+\ a nested type under induction only), lf-elim-info
 \ (Nat.rec's alternatives; index targets 99), lf-elim-app (Nat.rec's
 \ application, its goals tagged t.zero and t.succ, the motive; a target
 \ of another type 99; no pi left 93; an instance binder 99; a binder of
@@ -652,9 +655,21 @@ T{ 0 g9 run-push made lf-goals! -> outcome-ok }T
 : elim-name? ( target induction? c-addr u -- flag ) 2>r lf-elim-for lf-menv-name 2r> name= ;
 T{ fn9 true s" Nat.recAux" elim-name? fn9 false s" Nat.casesOn" elim-name? -> true true }T
 T{ fl9 true s" List.rec" elim-name? -> true }T
-: elim-code ( target -- code ) true ['] lf-elim-for catch dup if nip nip then ;
+: elim-code-of ( target induction? -- code ) ['] lf-elim-for catch dup if nip nip then ;
+: elim-code ( target -- code ) true elim-code-of ;
 T{ fp9 elim-code lf-author-code -> lf-author-throw 205 }T
 T{ s" by_cases" detail-has? s" ⊢ n = n" detail-has? -> true true }T
+T{ s" Explanation: the `induction` tactic is for constructor-based reasoning as well as for "
+   detail-has? s" applying custom induction principles with a 'using' clause or a " detail-has?
+   s" registered '@[induction_eliminator]' theorem. The above type" detail-has? -> true true true }T
+lf-tac-forget
+\ (cases, induction? false: Lean's tacticName in the explanation, Induction.lean:775-778;
+\ the header stays error 205's, induction's, until cases is ported: plan 9.4.8l W)
+T{ fp9 false elim-code-of lf-author-code -> lf-author-throw 205 }T
+T{ s" Explanation: the `cases` tactic is for constructor-based reasoning as well as for "
+   detail-has? s" applying custom cases principles with a 'using' clause or a " detail-has?
+   s" registered '@[cases_eliminator]' theorem. The above type" detail-has?
+   s" induction" detail-has? s" by_cases" detail-has? -> true true true false true }T
 lf-tac-forget
 T{ fal9 elim-code lf-author-code s" Type universes" detail-has? -> lf-author-throw 205 true }T
 lf-tac-forget
@@ -667,6 +682,10 @@ lf-tac-forget
 T{ fs9 elim-code lf-author-code s" a nested inductive type" detail-has? -> lf-author-throw 209 true }T
 T{ s" Hint: Consider using the `cases` tactic instead" detail-has? -> true }T
 lf-tac-forget
+\ (cases takes a nested type, as Lean's getElimNameInfo does: never 209;
+\ the slice holds no Lean.Syntax.casesOn, so its lookup is refused, the
+\ library's invalid)
+T{ fs9 false elim-code-of -> -4201 }T
 \ getElimExprInfo: Nat.rec {motive} (zero) (succ) (t): zero with no field,
 \ succ with two, both explicit; Eq.refl's conclusion is no motive applied
 \ to a target (99).
@@ -749,7 +768,8 @@ lf-tac-forget
 \ inductive type (no recursor); a declaration with no inductive data
 \ (93); mkElimApp past the last alternative (an information of Nat.rec
 \ that lists zero alone: succ's binder an implicit argument).
-T{ -1 ' mel-major. sunk 2drop -> outcome-invalid }T
+T{ -1 true ' mel-major. sunk 2drop -1 false ' mel-major. sunk 2drop
+   -> outcome-invalid outcome-invalid }T
 T{ s" No.such.type" lfa-intern 0 lf-mk-const-id mel-inductive s" Nat.add" lf-mk-const0
    mel-inductive -> false false }T
 : simple-code ( -- code ) nat s" Nat.add" decl ['] mel-simple catch dup if nip nip then ;
@@ -782,5 +802,8 @@ s" FE6.Even" lf-mk-const0 s" Nat.zero" lf-mk-const0 lf-mk-app s" e" binder const
 T{ fe10 elim-code lf-author-code s" `FE6.Even` because it is mutually inductive" detail-has?
    -> lf-author-throw 209 true }T
 lf-tac-forget
+\ (cases takes it: FE6.Even.casesOn, Lean's mkCasesOnName; review
+\ tactic-move-c4 B1)
+T{ fe10 false s" FE6.Even.casesOn" elim-name? -> true }T
 .( tactic-lib.fs: all tests passed) cr
 bye

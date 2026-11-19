@@ -11,10 +11,15 @@
 \       for the head constant of the target's type, instantiated and
 \       head-beta reduced (getCustomEliminator?: Nat.recAux for Nat); else
 \       the type put through whnf must be an inductive type (error 205,
-\       Lean's text with its hints for a proposition or a type universe,
-\       then the main goal), neither mutual nor nested (209, Lean's text
-\       and its hint), and its recursor C.rec (C.casesOn for induction?
-\       false) is the eliminator
+\       Lean's text, its explanation naming the tactic, induction or
+\       cases as the flag says, with its hints for a proposition or a type
+\       universe, then the main goal), under induction neither mutual nor
+\       nested (209, Lean's text and its hint; cases takes both, as
+\       getElimNameInfo's `induction &&` tests say), and its recursor
+\       C.rec (C.casesOn for induction? false) is the eliminator. 205's
+\       header, author/errors.fs's catalogue text, is induction's
+\       ("Tactic `induction` failed") whatever the flag, until cases is
+\       ported (plan 9.4.8l, item W)
 \   lf-elim-info ( d -- info )  getElimExprInfo, read from d's declared
 \       type: past its pis, the motive applied to one target, both bound
 \       variables (an eliminator with index targets: 99); the alternatives
@@ -110,7 +115,9 @@ require ./goal.fs
 
 \ ---- getInductiveValFromMajor: not an inductive type (205): Lean's text
 \ with its hints (majorType.isProp and .isType: Sort 0; a Sort of a succ
-\ level), then the main goal.
+\ level), then the main goal. The explanation names the tactic (Lean's
+\ tacticName, Induction.lean:775): induction, or cases for induction?
+\ false.
 : mel-succ-sort? ( t -- flag )
   dup lf-tag-symbolic-sort lf-term-tag? 0= if lf-sort? exit then
   lf-term-first@ lf-level-tag@ lf-level-tag-succ = ;
@@ -124,25 +131,32 @@ require ./goal.fs
   s" distinguishing feature of types is their cardinalities." lf-pp-emit ;
 : mel-sort-hint. ( t -- )
   dup lf-prop? if drop mel-prop-hint. exit then mel-succ-sort? if mel-type-hint. then ;
-: mel-explanation. ( -- )
-  s\" \n\nExplanation: the `induction` tactic is for constructor-based " lf-pp-emit
-  s" reasoning as well as for applying custom induction principles with a " lf-pp-emit
-  s" 'using' clause or a registered '@[induction_eliminator]' theorem. " lf-pp-emit ;
+: mel-tactic ( induction? -- c-addr u ) if s" induction" else s" cases" then ;
+: mel-tactic. ( c-addr u -- c-addr u ) 2dup lf-pp-emit ;
+: mel-custom. ( c-addr u -- )
+  s" for applying custom " lf-pp-emit mel-tactic. s"  principles with a " lf-pp-emit
+  s" 'using' clause or a registered '@[" lf-pp-emit lf-pp-emit
+  s" _eliminator]' theorem. " lf-pp-emit ;
+: mel-explanation. ( induction? -- )
+  mel-tactic s\" \n\nExplanation: the `" lf-pp-emit mel-tactic.
+  s" ` tactic is for constructor-based reasoning as well as " lf-pp-emit mel-custom. ;
 : mel-unregistered. ( -- )
   s" The above type neither is an inductive type " lf-pp-emit
   s" nor has a registered theorem." lf-pp-emit ;
-: mel-explain. ( t -- outcome )
+: mel-explain. ( t induction? -- outcome )
   mel-explanation. mel-unregistered. mel-sort-hint. outcome-ok ;
 : mel-goal. ( -- outcome ) lf-main-goal ok-then? if lf-tac-goal-below. then ;
-: mel-major. ( t -- outcome )
-  dup lf-tac-indented. dup ok? if drop mel-explain. ['] mel-goal. ok-and else nip then ;
-: mel-not-inductive ( t -- )
-  ['] mel-major. lf-tac-detail lfa-e-tac-not-inductive lf-tac-stop ;
+: mel-major. ( t induction? -- outcome )
+  over lf-tac-indented. dup ok? 0= if nip nip exit then
+  drop mel-explain. ['] mel-goal. ok-and ;
+: mel-not-inductive ( t induction? -- )
+  2 ['] mel-major. lf-tac-detail-n lfa-e-tac-not-inductive lf-tac-stop ;
 : mel-inductive ( t -- d true | false )
   lf-meta-head-name 0= if false exit then
   lf-menv-find dup outcome-invalid = if 2drop false exit then
   lf-must dup lf-menv-kind lf-kind-inductive = dup 0= if nip then ;
-\ Mutual or nested (209): Lean's text and its hint.
+\ Mutual or nested (209): Lean's text and its hint, under induction only
+\ (Induction.lean:833-836: cases takes C.casesOn of any inductive type).
 : mel-kind. ( t c-addr u -- outcome )
   s"  `" lf-pp-emit rot lf-meta-head-args drop lf-const-name lf-pp-name
   s" ` because it is " lf-pp-emit lf-pp-emit outcome-ok ;
@@ -159,9 +173,13 @@ require ./goal.fs
 : mel-rec ( d induction? -- d' )
   >r lf-menv-name r> if s" rec" else s" casesOn" then lfa-intern-part lf-menv-find
   lf-must ;
-: mel-recursor ( target induction? -- d )
-  swap lf-infer! lf-whnf! dup mel-inductive 0= if mel-not-inductive then mel-simple nip
-  swap mel-rec ;
+: mel-checked ( t d induction? -- t d ) if mel-simple then ;
+\ The inductive type of the target's type, its refusals checked (205
+\ throws with the flag's tactic named).
+: mel-inductive-of ( target induction? -- d )
+  swap lf-infer! lf-whnf! dup mel-inductive 0= if swap mel-not-inductive then
+  rot mel-checked nip ;
+: mel-recursor ( target induction? -- d ) tuck mel-inductive-of swap mel-rec ;
 : lf-elim-for ( target induction? -- d )
   2dup mel-custom? if nip nip exit then mel-recursor ;
 
