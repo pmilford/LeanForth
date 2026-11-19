@@ -74,6 +74,10 @@ T{ nat mul0 tree2 unify-in builds @ tree2 lf-dtree-vals# -> 1 outcome-ok 2 1 }T
 \ No builder: a root with no trie has no values.
 T{ tree2 lf-dtree-free tree2 lf-dtree-ready mul-root nat mul0 tree2 unify-in
    -> outcome-ok outcome-ok 0 outcome-ok }T
+\ So too the star root: declared with no trie, its values none.
+T{ ?n keys drop tree2 lf-dtree-root-add nip nat mul0 tree2 unify-in -> outcome-ok 0 outcome-ok }T
+\ A key no root has is not found in a made tree.
+T{ nat add0 keys drop tree2 lf-dtree-root -> false }T
 
 \ ---- Resources: each heap request of an insertion into a new tree
 \ refused in turn: full or ok, and then the insertion and the query in
@@ -102,6 +106,9 @@ create tree4 /dtree allot   tree4 /dtree erase
 : puts ( -- flag ) true 300 0 do i put4 ok? and loop ;
 T{ puts tree4 lf-dtree-nodes# tree4 lf-dtree-vals# -> true 301 300 }T
 T{ puts tree4 lf-dtree-nodes# tree4 lf-dtree-vals# -> true 301 300 }T
+\ A child's edge already in the table is refused, never put twice
+\ (node 1, the root's first child, has its edge).
+T{ tree4 dt-use 1 dt-edge-add tree4 dt-edges htab-count -> outcome-invalid 300 }T
 
 \ ---- The throwing faces: ok runs on; a failure is thrown as its
 \ outcome's code (meta-must.fs), here a star root's unsupported.

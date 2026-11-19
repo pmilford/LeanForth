@@ -191,3 +191,11 @@ old = '''  lf-front-closing lf-front-header -rot lf-handover dup ok? 0= if lfh-c
 new = '''  lf-front-header -rot lf-handover dup ok? 0= if lfh-code lfa-fail then'''
 test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
 reason = "the hand-over at end NAME no longer runs lf-front-closing: a declaration goes to the kernel though the data was refused (re-check N1)"
+
+[[fault]]
+id = "dt-edge-put-twice"
+file = "src/front/discr-tree.fs"
+old = '''  dup dn@ dup dn-key @ swap dn-parent @ dt-edge-find if 2drop outcome-invalid exit then'''
+new = '''  dup dn@ dup dn-key @ swap dn-parent @ dt-edge-find if 2drop outcome-ok exit then'''
+test = "$GFORTH tests/front/discr-tree.fs"
+reason = "a child whose edge is already in the table is accepted silently (a stale or doubled entry goes unnoticed)"
