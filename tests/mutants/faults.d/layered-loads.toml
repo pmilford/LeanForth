@@ -1,0 +1,50 @@
+# Planted faults of the layer entries' check (branch layered-loads; scripts/check-layers.py,
+# make check-layers): tests/scripts/test_check_layers.py must catch each.
+
+[[fault]]
+id = "ll-entry-layers-ignored"
+file = "scripts/check-layers.py"
+old = '''            elif where not in allowed:'''
+new = '''            elif where not in allowed and where == "cli":'''
+test = "python3 tests/scripts/test_check_layers.py CheckLayers"
+reason = "an entry that loads a higher layer passes: the kernel's tests would re-run for front-end changes"
+
+[[fault]]
+id = "ll-checker-present-open"
+file = "scripts/check-layers.py"
+old = '''            elif entry == "src/load/checker.fs" and where == "present" and path not in CHECKER_PRESENT:'''
+new = '''            elif entry == "src/load/checker.fs" and where == "present" and path in CHECKER_PRESENT:'''
+test = "python3 tests/scripts/test_check_layers.py CheckLayers"
+reason = "the checker entry may load all of present/ (the term printer, the proof outline)"
+
+[[fault]]
+id = "ll-closure-one-level"
+file = "scripts/check-layers.py"
+old = '''            todo += loads(path)'''
+new = '''            todo += loads(path) if path == start else []'''
+test = "python3 tests/scripts/test_check_layers.py CheckLayers"
+reason = "only an entry's own requires are checked: a module two requires down may load any layer"
+
+[[fault]]
+id = "ll-main-tests-unchecked"
+file = "scripts/check-layers.py"
+old = '''        if MAIN_LOAD.search(read(path) or "") and path not in WHOLE_LOADS:'''
+new = '''        if MAIN_LOAD.search(read(path) or "") and path in WHOLE_LOADS:'''
+test = "python3 tests/scripts/test_check_layers.py CheckLayers"
+reason = "a new test may require src/main.fs, and every change re-runs it"
+
+[[fault]]
+id = "ll-gforth-loads-unchecked"
+file = "scripts/check-layers.py"
+old = '''        for path in sorted(loaded - closure(entry)):'''
+new = '''        for path in sorted(loaded - closure(entry) - loaded):'''
+test = "python3 tests/scripts/test_check_layers.py CheckLayers"
+reason = "a file Gforth loads that the static closure misses (so tested-tree.py's inputs miss it) passes"
+
+[[fault]]
+id = "ll-lean-cache-reads-lib"
+file = "scripts/lean-cache.py"
+old = '''    library = os.path.join(prefix, "lib/lean")'''
+new = '''    library = os.path.join(prefix, "lib", "lean")'''
+test = "python3 tests/scripts/test_check_layers.py GlobalInputs"
+reason = "every target under the Lean cache reads src/lib again: a library change re-runs all of make check"

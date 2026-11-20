@@ -34,6 +34,6 @@ require ./load/front.fs
 \ The command line: check, replay, print, count, reexport, version,
 \ capabilities. It loads the staging of exports into the checker's input,
 \ the counter, the re-exporter, the manifest check and print's proof
-\ outlines (cli/print.fs), and the natural reader (cli/check-lf.fs).
+\ outlines (cli/print.fs), and the check of LeanForth text (cli/check-lf.fs).
 require ./cli/print.fs
 require ./cli/leanforth.fs

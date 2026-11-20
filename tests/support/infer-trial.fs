@@ -10,7 +10,7 @@
 \ gives ample fuel and room; 1 a random fuel below 3,000 per run; 2 a term
 \ store of the case's input plus up to 120. Test-only: nothing here
 \ accepts a theorem outside the code under test.
-require ../../src/main.fs
+require ../../src/load/kernel.fs
 include ./plain-terms.fs
 decimal
 

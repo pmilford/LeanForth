@@ -30,9 +30,11 @@ check-portable-forth               unit
 check-forth-quality                unit    with tests/scripts/test_check_duplicates.py and test_duplicates_extract.py (--explain, --plan, --extract)
 check-test-classes                 unit
 smoke                              unit
+check-layers                       unit    scripts/check-layers.py: the layer entries of src/load/ keep to their layers
 test-harness                       unit
 test-lib                           unit
 test-core                          unit
+test-core-whole                    unit    tests/core/tag-sets.fs and contexts-main.fs: the tag sets and contexts of every layer
 test-composition-fixture           unit
 test-program                       unit
 test-present                       unit

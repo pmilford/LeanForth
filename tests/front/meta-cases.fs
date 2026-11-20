@@ -6,7 +6,7 @@
 \ lf-meta-head-beta gives, as an S-expression ((app F A), (lam T B),
 \ (pi T B), #i, Prop, x, y, ?m). Test support only: printing recurses on
 \ the host stack, which the small cases allow.
-require ../../src/main.fs
+require ../../src/load/front.fs
 require ../../src/front/level-defeq.fs
 require ../../src/front/instantiate.fs
 require ../../src/front/level-params.fs

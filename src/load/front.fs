@@ -11,9 +11,10 @@
 \ and its discrimination-tree keys over the elaboration data (plans FE1e2,
 \ FE1e3); unfolding one definition (unfoldDefinition?) and lazy delta
 \ reduction in unification (isDefEqDelta, which sets defeq.fs's hook: plan
-\ S2). The natural reader (front/reader.fs) comes with the command line
-\ (cli/check-lf.fs); a test that reads natural LeanForth requires it after
-\ this file. src/main.fs loads it after src/load/present.fs.
+\ S2); and, through them, the natural reader (front/reader.fs). A test that
+\ opens a library or hands declarations to the kernel also requires
+\ src/load/checker.fs before this file and src/cli/check-lf.fs after it.
+\ src/main.fs loads it after src/load/present.fs.
 require ../front/level-map.fs
 require ../front/mvars.fs
 require ../front/meta-config.fs

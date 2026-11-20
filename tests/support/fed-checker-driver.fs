@@ -24,6 +24,7 @@
 \ code under test.
 
 require ./first-checker-driver.fs
+require ../../src/load/import.fs   \ the stage and the feed
 
 create fd-stage /stage allot
 create fd-feed /feed allot

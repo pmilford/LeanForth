@@ -2,7 +2,7 @@
 \ (Lean's instantiate1): five open sources, including bare variables and a
 \ loose variable lowered under a binder, times the replacements #0, #1, #2,
 \ Sort 0 and fun _ : Sort 0 => #0. Syntax only; no typing.
-require ../../src/main.fs
+require ../../src/load/kernel.fs
 include ../support/plain-terms.fs
 include ../support/plain-cases.fs
 

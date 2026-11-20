@@ -6,7 +6,9 @@
 \ Lean's node for node. The library and its elaboration data are the S1
 \ slice's (run mode, as the command line binds them).
 \ Usage: gforth tests/front/elab-dump.fs -e 's" FILE.lf" elab-dump bye'
-require ../../src/main.fs
+require ../../src/load/checker.fs
+require ../../src/load/front.fs
+require ../../src/cli/check-lf.fs
 decimal
 
 \ The S1 slice by default; s2-dump uses S2's (tests/front/check_s2.py).

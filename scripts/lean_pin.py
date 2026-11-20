@@ -90,11 +90,13 @@ def elan_home(real):
 
 
 def toolchain_shape(real):
+    # "lib/lean" as one literal here and below: scripts/changed-tests.py reads a bare "lib" as
+    # the repository's lib folders, and every target that runs under the Lean cache loads this.
     bin_dir = os.path.dirname(real)
     prefix = os.path.dirname(bin_dir)
     return (os.path.basename(real) in ("lean", "lean.exe") and os.path.basename(bin_dir) == "bin"
             and os.path.basename(os.path.dirname(prefix)) == "toolchains"
-            and os.path.isdir(os.path.join(prefix, "lib", "lean")))
+            and os.path.isdir(os.path.join(prefix, "lib/lean")))
 
 
 def elan_copy(real):
@@ -185,7 +187,7 @@ def toolchain(home, name, binary_text=None, link_to=None, copy_of=None):
     """HOME/toolchains/NAME/bin/lean with lib/lean beside it: a script, a link or a copy."""
     prefix = os.path.join(home, "toolchains", name)
     os.makedirs(os.path.join(prefix, "bin"))
-    os.makedirs(os.path.join(prefix, "lib", "lean"))
+    os.makedirs(os.path.join(prefix, "lib/lean"))
     lean = os.path.join(prefix, "bin", "lean")
     if binary_text is not None:
         executable(lean, binary_text)
@@ -220,7 +222,7 @@ def self_test():
         in_home_hard = toolchain(home, "linked", link_to=elan)
         # A toolchain's shape, bin/lean beside lib/lean, but in no toolchains folder.
         elsewhere = os.path.join(folder, "elsewhere", "x")
-        os.makedirs(os.path.join(elsewhere, "lib", "lean"))
+        os.makedirs(os.path.join(elsewhere, "lib/lean"))
         os.makedirs(os.path.join(elsewhere, "bin"))
         shaped = os.path.join(elsewhere, "bin", "lean")
         executable(shaped, f"#!/bin/sh\nexec '{elan}' \"$@\"\n")

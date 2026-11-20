@@ -17,7 +17,7 @@
 include ../support/tester.fs
 include ../support/checks.fs
 include ../support/heap-watch.fs
-require ../../src/main.fs
+require ../../src/load/kernel.fs
 include ../support/plain-terms.fs
 require ../support/store-faults.fs
 

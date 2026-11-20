@@ -2,7 +2,8 @@
 \ never code. It stages universe parameters, level records and expression
 \ records as handle terms in a fresh session. Used by
 \ tests/core/export-definition-stream.fs and export-signature-stream.fs;
-\ tests/support/export_definition.py writes the input. Requires src/main.fs.
+\ tests/support/export_definition.py writes the input. Requires the kernel's
+\ entry, src/load/kernel.fs.
 \ Protocol, every field a nonnegative signed 32-bit little-endian value:
 \   P, then P parameter names (length, then one field per byte);
 \   L, then L level records (tag first second): 0 zero (record 0 only),

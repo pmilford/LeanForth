@@ -8,7 +8,7 @@
 \ fuel. Then the deepest normalize the level store allows, at the deepest
 \ inference visit.
 include ../support/tester.fs
-require ../../src/main.fs
+require ../../src/load/kernel.fs
 \ The cases pin where the 64-node term store fills: they run with the
 \ store's hash-consing off (compact-store plan step S3), as before it. A
 \ hash-consed type shares the input's nodes, so the store fills later.

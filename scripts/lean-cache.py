@@ -222,7 +222,9 @@ def toolchain(lean, cache):
     """(fingerprint, prefix): SHA-256 naming the toolchain, memoized under the
     stat of the binary, its shared libraries and its library folder."""
     prefix = os.path.dirname(os.path.dirname(os.path.realpath(lean)))
-    library = os.path.join(prefix, "lib", "lean")
+    # One literal "lib/lean": scripts/changed-tests.py reads a bare "lib" as the repository's
+    # lib folders, which would make every target that runs under the cache read src/lib.
+    library = os.path.join(prefix, "lib/lean")
     shared = sorted(os.path.join(library, name) for name in os.listdir(library)
                     if name.endswith(".so"))
     memo_key = json.dumps([stat_key(lean), stat_key(library)] + [stat_key(p) for p in shared])

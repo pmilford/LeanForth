@@ -5,7 +5,7 @@
 \ section S through lf-msp-specialize, section T as the type that
 \ lf-mixed-infer gives the constant term c.{a0, a1}. 96 rows; the driver
 \ strips the section letter and compares each section with the 48 Lean rows.
-require ../../src/main.fs
+require ../../src/load/kernel.fs
 decimal
 create formals 2 cells allot
 create actuals 4 cells allot

@@ -12,7 +12,9 @@
 \ checks the data stack's depth. Nothing here checks or accepts a theorem.
 include ../support/heap-watch.fs
 require ../support/tester.fs
-require ../../src/main.fs
+require ../../src/load/checker.fs
+require ../../src/load/front.fs
+require ../../src/cli/check-lf.fs
 require ./tactic-dump.fs
 
 : nrun ( c-addr u -- outcome ) lf-author-begin lf-author-text ;

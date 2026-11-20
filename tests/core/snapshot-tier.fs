@@ -24,7 +24,8 @@
 include ../support/tester.fs
 include ../support/scratch.fs
 include ../support/heap-watch.fs
-require ../../src/main.fs
+require ../../src/load/checker.fs
+require ../../src/cli/check-run.fs
 decimal
 
 : must ( flag -- ) 0= abort" snapshot-tier test: refused" ;

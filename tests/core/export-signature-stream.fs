@@ -6,7 +6,7 @@
 \ handle must each be invalid, and afterwards the token of a replaced index
 \ too. A candidate signature is an assumption, not a checked declaration.
 \ Malformed input, or any guard that does not hold, prints nothing and fails.
-require ../../src/main.fs
+require ../../src/load/kernel.fs
 include ../support/export-reader.fs
 variable token
 
