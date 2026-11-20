@@ -67,7 +67,6 @@ s" native_decide" tac-k-native-decide lf-tactic-lean!
   dup lf-meta-has-fvar? if ['] tdc-revert. lfa-e-decide-fvars tdc-fail then ;
 
 \ ---- doElab: Bool.true gives the proof, anything else diagnose's error.
-: tdc-bool? ( r c-addr u -- flag ) lf-meta-const-named? ;
 \ id (decide P I = true) (Eq.refl true), mkExpectedPropHint reflBoolTrue.
 : tdc-refl ( dec -- h )
   s" Bool.true" lf-mk-const0 tuck lf-mk-eq swap lf-mk-eq-refl swap
@@ -79,12 +78,13 @@ s" native_decide" tac-k-native-decide lf-tactic-lean!
 : tdc-false. ( p -- outcome ) lf-tac-indented. s\" \nis false" lf-pp-emit ;
 : tdc-stuck. ( dec -- outcome ) lf-tac-indented. s\" \nto `true` or `false`." lf-pp-emit ;
 : tdc-diagnose ( p dec r -- )
-  s" Bool.false" tdc-bool? if drop ['] tdc-false. lfa-e-decide-false tdc-fail exit then
+  s" Bool.false" lf-meta-const-named?
+  if drop ['] tdc-false. lfa-e-decide-false tdc-fail exit then
   nip ['] tdc-stuck. lfa-e-decide-stuck tdc-fail ;
 : tdc-whnf ( dec -- r ) ['] lf-whnf! lf-tr-default lf-with-at-least ;
 : tdc-decide ( p -- e )
-  dup lf-mk-decide dup tdc-whnf dup s" Bool.true" tdc-bool? if drop tdc-proof exit then
-  tdc-diagnose ;
+  dup lf-mk-decide dup tdc-whnf dup s" Bool.true" lf-meta-const-named?
+  if drop tdc-proof exit then tdc-diagnose ;
 : tdc-elab ( type tag -- e ) drop tdc-pre tdc-decide ;
 : tdc-run ( i -- ) ['] tdc-elab lf-close-main-goal-using ;
 ' tdc-run tac-k-decide lf-tactic-action!

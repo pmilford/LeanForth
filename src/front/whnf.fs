@@ -807,19 +807,22 @@ wc-srec-kind 1+ constant wc-nat1-kind   wc-nat1-kind 1+ constant wc-nat2-kind
   else drop wc-field-none then ;
 : wc-field-resume ( r kind -- e' flag outcome )
   swap wc-field-arg ok-then2? if wc-field-got else nip wc-fail then ;
-: wc-core-resume ( r kind -- e' flag outcome )
-  wc-rec-kind = if wc-rec-resume else wc-proj-resume then wc-then-delta ;
-: wc-resume-plain ( r kind -- e' flag outcome )
-  dup lf-unfold-ask-keep < if wc-core-resume else wc-field-resume then ;
-: wc-resume-smart ( r kind -- e' flag outcome )
-  dup wc-smart-kind = if drop wc-smart-resume exit then
-  wc-smatch-kind = if wc-smatch-resume else wc-srec-resume then ;
-: wc-resume-nat ( r kind -- e' flag outcome )
-  wc-nat1-kind - if wc-nat2-resume else wc-nat1-resume then ;
-: wc-resume ( r -- e' flag outcome )
-  wc-pop dup wc-match-kind = if drop wc-match-resume wc-then-delta exit then
-  dup wc-nat1-kind < 0= if wc-resume-nat exit then
-  dup wc-smart-kind < if wc-resume-plain else wc-resume-smart then ;
+: wc-resume-proj ( r -- e' flag outcome ) wc-proj-resume wc-then-delta ;
+: wc-resume-rec ( r -- e' flag outcome ) wc-rec-resume wc-then-delta ;
+: wc-resume-keep ( r -- e' flag outcome ) lf-unfold-ask-keep wc-field-resume ;
+: wc-resume-none ( r -- e' flag outcome ) lf-unfold-ask-none wc-field-resume ;
+: wc-resume-match ( r -- e' flag outcome ) wc-match-resume wc-then-delta ;
+\ The resumer of each frame kind, by kind (0 .. wc-nat2-kind; review
+\ s3a-decide L4): a kind added without its entry stops the load.
+align here
+  ' wc-resume-proj , ' wc-resume-rec , ' wc-resume-keep , ' wc-resume-none ,
+  ' wc-resume-match , ' wc-smart-resume , ' wc-smatch-resume , ' wc-srec-resume ,
+  ' wc-nat1-resume , ' wc-nat2-resume ,
+dup here swap - cell / wc-nat2-kind 1+ =
+lf-unfold-ask-keep 2 = and lf-unfold-ask-none 3 = and
+0= [if] .( whnf.fs: one resumer per frame kind, in their order) cr abort [then]
+constant wc-resumers
+: wc-resume ( r -- e' flag outcome ) wc-pop cells wc-resumers + @ execute ;
 
 \ ---- The loop.
 : wc-spend ( -- flag ) wc wc-fuel @ dup 0> if 1- wc wc-fuel ! true else drop false then ;

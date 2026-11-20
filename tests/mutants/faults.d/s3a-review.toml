@@ -123,3 +123,21 @@ old = '''  rn-zero? if rn-zero else -1 false outcome-ok then ;'''
 new = '''  rn-zero? if rn-zero else 0 true outcome-ok then ;'''
 test = "$GFORTH tests/front/reduce-nat.fs"
 reason = "review s3a-decide M1: the front end's withNatValue gives a value for a node that is no literal and not Nat.zero, so the fold reads node 0 as a literal"
+
+# --- L4: whnf's frames resumed through a table by kind ------------------------
+
+[[fault]]
+id = "s3a-whnf-resume-proj-rec-swapped"
+file = "src/front/whnf.fs"
+old = '''  ' wc-resume-proj , ' wc-resume-rec , ' wc-resume-keep , ' wc-resume-none ,'''
+new = '''  ' wc-resume-rec , ' wc-resume-proj , ' wc-resume-keep , ' wc-resume-none ,'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s3a-decide L4: a projection's frame resumed as a recursor's and the converse (the table out of the kinds' order)"
+
+[[fault]]
+id = "s3a-whnf-resume-keep-none-swapped"
+file = "src/front/whnf.fs"
+old = '''  ' wc-resume-proj , ' wc-resume-rec , ' wc-resume-keep , ' wc-resume-none ,'''
+new = '''  ' wc-resume-proj , ' wc-resume-rec , ' wc-resume-none , ' wc-resume-keep ,'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s3a-decide L4: a class field's frame that keeps the unfolded term resumed as one that gives nothing, and the converse"

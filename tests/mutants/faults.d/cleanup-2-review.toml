@@ -62,8 +62,8 @@ reason = "review cleanup-families-2 r16: structure eta's failed inference of the
 [[fault]]
 id = "cf2r-rn-truth-failure-ok"
 file = "src/core/nat-ops.fs"
-old = '''  ['] lf-nat-lit-bool ok-apply ;'''
-new = '''  ok-then? if lf-nat-lit-bool else drop -1 outcome-ok then ;'''
+old = '''  ['] nop-bool ok-apply ;'''
+new = '''  ok-then? if nop-bool else drop -1 outcome-ok then ;'''
 test = "$GFORTH tests/core/nat-ops.fs"
 reason = "review cleanup-families-2 r17: Nat.beq's or Nat.ble's failed operation answers -1 and ok"
 

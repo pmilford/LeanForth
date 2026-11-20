@@ -155,7 +155,7 @@ reason = "S3a C2: an argument without a value ends whnf at the original term, wh
 [[fault]]
 id = "s3a-nat-frames-swapped"
 file = "src/front/whnf.fs"
-old = '''  wc-nat1-kind - if wc-nat2-resume else wc-nat1-resume then ;'''
-new = '''  wc-nat1-kind - if wc-nat1-resume else wc-nat2-resume then ;'''
+old = '''  ' wc-nat1-resume , ' wc-nat2-resume ,'''
+new = '''  ' wc-nat2-resume , ' wc-nat1-resume ,'''
 test = "$GFORTH tests/front/reduce-nat.fs"
 reason = "S3a C2: the first argument's whnf resumed as the second's (its frame's aux read as a literal)"

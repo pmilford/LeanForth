@@ -110,7 +110,7 @@ T{ lf-nat-op-pow lf-nat-op-shl s" pow" index-of s" shiftLeft" index-of -> 3 12 3
 
 \ ---- 1. The constants (each maker here ends with core/generation-handles.fs's
 \ lf-made-term, tested there).
-T{ true lf-nat-lit-bool swap true bool? -> outcome-ok true }T
+T{ true nop-bool swap true bool? -> outcome-ok true }T
 T{ s" zero" s" Nat" lf-nat-in swap const-name s" Nat" s" zero" dotted lf-name-same? -> outcome-ok true }T
 T{ 0 s" Nat" lf-nat-named swap const-name 0 s" Nat" named lf-name-same? -> outcome-ok true }T
 
@@ -137,7 +137,7 @@ T{ 3 nlit 70 nlit 12 lf-nat-lit-op ok? made 70 nlit 13 lf-nat-lit-op swap small-
 : arena-refused? ( a b i -- flag )
   >r lits r> lf-diag-clear 1 heap-refusals ! lf-nat-lit-op 0 heap-refusals ! full93? ;
 T{ 3 5 0 arena-refused? 3 5 7 arena-refused? 2 100 3 arena-refused? -> true true true }T
-: name-refused ( -- node outcome ) fresh 1 af-arm true lf-nat-lit-bool af-off ;
+: name-refused ( -- node outcome ) fresh 1 af-arm true nop-bool af-off ;
 T{ name-refused nip -> outcome-full }T
 : cref-refused ( -- node outcome ) fresh 0 s" Nat" named drop 1 af-arm 0 s" Nat"
    lf-nat-named af-off ;

@@ -5,15 +5,16 @@
 [[fault]]
 id = "fe-decide-skip-whnf"
 file = "src/front/tactics/decide.fs"
-old = '''  dup lf-mk-decide dup tdc-whnf dup s" Bool.true" tdc-bool? if drop tdc-proof exit then'''
+old = '''  dup lf-mk-decide dup tdc-whnf dup s" Bool.true" lf-meta-const-named?'''
 new = '''  dup lf-mk-decide tdc-proof exit'''
-test = 'GFORTH=$GFORTH bin/leanforth check --env tests/front/decide-slice.ndjson --elab-data tests/front/decide-slice.elab.ndjson tests/front/tactics/decide/w-dc-add.lf | grep -q "error 250 "'
-reason = "S3a: decide hands over of_decide_eq_true without reducing decide P to true, so 2 + 2 = 5 gets a proof term: the kernel is the judge and rejects it (the run reports no error 250)"
+test = 'out=$(GFORTH=$GFORTH bin/leanforth check --env tests/front/decide-slice.ndjson --elab-data tests/front/decide-slice.elab.ndjson tests/front/tactics/decide/w-dc-add.lf); echo "$out" | grep -q "error 250 " || ! echo "$out" | grep -q "w_dc_add: rejected"'
+reason = "S3a: decide hands over of_decide_eq_true without reducing decide P to true, so 2 + 2 = 5 gets a proof term: the kernel is the judge and rejects it. The test passes on error 250 and, without it, only when the run does not print w_dc_add: rejected, so the fault counts as caught only when the kernel rejects (review s3a-decide L3: a kernel that accepted would show as survived)"
 
 [[fault]]
 id = "decide-false-as-stuck"
 file = "src/front/tactics/decide.fs"
-old = '''  s" Bool.false" tdc-bool? if drop ['] tdc-false. lfa-e-decide-false tdc-fail exit then'''
+old = '''  s" Bool.false" lf-meta-const-named?
+  if drop ['] tdc-false. lfa-e-decide-false tdc-fail exit then'''
 new = '''  drop'''
 test = "$GFORTH tests/front/tactics/decide/test.fs"
 reason = "S3a: a statement decide reduces to false is reported as failed to reduce (253), not Lean's proved ... is false (250)"

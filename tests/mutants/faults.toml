@@ -6494,8 +6494,8 @@ reason = "an inference aside (infer_proj's is_prop, defeq.fs's typer) logs appli
 [[fault]]
 id = "lit-count-unchecked"
 file = "src/kernel/reduce-nat.fs"
-old = ''': lf-rn-pow ( a b i -- node outcome ) lf-rn-counted ;'''
-new = ''': lf-rn-pow ( a b i -- node outcome ) lf-nat-lit-op ;'''
+old = '''  dup lf-nat-op-pow = if lf-rn-counted exit then'''
+new = '''  dup lf-nat-op-pow = if lf-nat-lit-op exit then'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.3 L1: Nat.pow by 2^32 is computed (and is too large) instead of Lean's refusal; lit.pow-count-too-big is no longer rejected"
 
@@ -10398,8 +10398,8 @@ reason = "Nat.ble decided as Nat.beq: Nat.ble 3 5 is false"
 [[fault]]
 id = "cov-rn-shl-zero-counted"
 file = "src/kernel/reduce-nat.fs"
-old = '''  2 pick lf-term-second@ 0= if lf-nat-lit-op else lf-rn-counted then ;'''
-new = '''  lf-rn-counted ;'''
+old = '''  over lf-term-second@ 0= if lf-nat-op-shl lf-nat-lit-op exit then'''
+new = ''''''
 test = "$GFORTH tests/core/reduce-nat.fs"
 reason = "0 shifted left by 2^32 refused (rejected) where Lean's reduce_shift_left gives 0 first"
 

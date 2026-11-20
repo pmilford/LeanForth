@@ -42,17 +42,17 @@ require ../core/terms.fs
 : lf-rn-count? ( lit -- flag ) $FFFFFFFF lf-lit-u> 0= ;
 : lf-rn-counted ( a b i -- node outcome )
   over lf-rn-count? if lf-nat-lit-op else drop 2drop lf-rn-refuse then ;
-\ Nat.pow (reduce_pow, 633-648): the exponent's count first; Nat.shiftLeft
-\ (650-660): 0 at once, else the shift's count.
-: lf-rn-pow ( a b i -- node outcome ) lf-rn-counted ;
-: lf-rn-shl ( a b i -- node outcome )
-  2 pick lf-term-second@ 0= if lf-nat-lit-op else lf-rn-counted then ;
+\ Nat.pow (reduce_pow, 633-648) is lf-rn-counted: the exponent's count
+\ first; Nat.shiftLeft (650-660): 0 at once, else the shift's count.
+: lf-rn-shl ( a b -- node outcome )
+  over lf-term-second@ 0= if lf-nat-op-shl lf-nat-lit-op exit then
+  lf-nat-op-shl lf-rn-counted ;
 
 \ The public words. Binary operation i of core/nat-ops.fs's list on
 \ literals a and b; Nat.succ of a; a literal for Nat.zero (is_nat_lit_ext).
 : lf-reduce-nat-binary ( a b i -- node outcome )
-  dup lf-nat-op-pow = if lf-rn-pow exit then
-  dup lf-nat-op-shl = if lf-rn-shl exit then lf-nat-lit-op ;
+  dup lf-nat-op-pow = if lf-rn-counted exit then
+  dup lf-nat-op-shl = if drop lf-rn-shl exit then lf-nat-lit-op ;
 : lf-reduce-nat-literal ( u -- node outcome ) lf-nat-lit ;
 : lf-reduce-nat-succ ( a -- node outcome ) lf-nat-lit-succ ;
 \ The predecessor of a literal above 0 (is_def_eq_offset's is_nat_succ).

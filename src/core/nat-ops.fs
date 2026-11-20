@@ -25,7 +25,6 @@
 \       M1; failing closed is plan 9.4.8l (AW), the owner's gate)
 \   lf-nat-lit-succ ( a -- node outcome )  the literal a + 1 (Nat.succ)
 \   lf-nat-lit ( u -- node outcome )  the literal of a cell's value
-\   lf-nat-lit-bool ( flag -- node outcome )  Bool.true or Bool.false
 \   lf-nat-named ( prefix c-addr u -- node outcome )  the constant
 \       prefix.c-addr u (prefix a name ID, 0 for the root) with no
 \       universe arguments, its name interned in this context
@@ -66,7 +65,8 @@ require ./terms.fs
   nop-name ['] nop-const ok-apply ;
 : lf-nat-in ( part-addr part-u prefix-addr prefix-u -- node outcome )
   0 -rot nop-name ok-then? 0= if nip nip no-result exit then -rot lf-nat-named ;
-: lf-nat-lit-bool ( flag -- node outcome )
+\ Bool.true or Bool.false (Nat.beq's and Nat.ble's answers).
+: nop-bool ( flag -- node outcome )
   if s" true" else s" false" then s" Bool" lf-nat-in ;
 : lf-nat-lit ( u -- node outcome ) lf-hterm-cell lf-made-term ;
 
@@ -85,7 +85,7 @@ require ./terms.fs
   ok-then? 0= if outcome-full = if nop-too-big else -1 outcome-invalid then exit then
   lf-hterm-big lf-made-term ;
 : nop-truth ( flag outcome -- node outcome )
-  ['] lf-nat-lit-bool ok-apply ;
+  ['] nop-bool ok-apply ;
 : nop-in-arena ( a b op cells make -- node outcome )
   >r lf-lit-arena ok-then? 0= if r> 2drop 2drop drop nop-too-big exit then
   dup >r nop-apply 2r> >r execute r> lf-lit-arena-free ;
