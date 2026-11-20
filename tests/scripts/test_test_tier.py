@@ -44,16 +44,22 @@ class Fixture(unittest.TestCase):
     def labels(self, result):
         return [s["label"] for s in result["suites"]]
 
+    def base(self):
+        return self.repo.git("rev-parse", "base")
+
     def assertFull(self, result):
-        """The full tier (owner, 2026-11-17): the changed files' coverage (if any), make test, make
-        test-unit on gforth-fast, make check-rest, the faults; never Gforth 0.7.3 (make daily)."""
+        """The full tier (owner, 2026-11-17): the branch coverage check of the changed source files
+        (if any; owner 2026-11-19), make test, make test-unit on gforth-fast, make check-rest, the
+        faults; never Gforth 0.7.3 nor the whole-suite coverage ratchet (make daily)."""
         self.assertEqual(result["tier"], "full")
         faults = ["faults"] if result["faults"] else []
-        labels = [label for label in self.labels(result) if not label.startswith("coverage-")]
+        labels = [label for label in self.labels(result) if label != "cover-changed"]
         self.assertEqual(labels, ["test", "testfast", "check-rest"] + faults)
         self.assertEqual([(s["goals"], s.get("engine")) for s in result["suites"] if s["label"] in labels[:3]],
                          [(["test"], None), (["test-unit"], "fast"), (["check-rest"], None)])
         self.assertFalse([s for s in result["suites"] if s.get("engine") == "073"], "0.7.3 runs only in make daily")
+        self.assertFalse([s for s in result["suites"] if {"coverage-check", "coverage-focus"} & set(s["goals"])],
+                         "the whole-suite ratchet runs only in make daily")
 
 
 class Tiers(Fixture):
@@ -82,81 +88,66 @@ class Tiers(Fixture):
         self.assertEqual(result["targets"], ["test-lib"])
         self.assertEqual(result["engine_targets"], ["test-lib"])
         self.assertEqual(result["faults"], ["free-one"])
-        # Every target of make test that loads the file, test-front through src/front/alone.fs.
-        self.assertEqual(result["coverage"], {"kind": "focus", "files": ["src/lib/free.fs"],
-                                              "targets": ["smoke", "test-lib", "test-front"], "skipped": []})
-        self.assertEqual(self.labels(result), ["coverage-focus", "targets", "targetsfast", "faults"])
+        # Owner, 2026-11-19: the branch coverage check is of the source files the branch touches;
+        # what a test change does to the coverage of the files it drives is make daily's.
+        self.assertIsNone(result["coverage"])
+        self.assertEqual(self.labels(result), ["targets", "targetsfast", "faults"])
         engines = {s["engine"]: s["goals"] for s in result["suites"] if s.get("engine")}
         self.assertEqual(engines, {"fast": ["test-lib"]})
 
-    def test_tests_that_drive_main_measure_only_the_files_they_drive(self):
-        # Owner, 2026-11-17: the ratchet of the files a change reaches, over the targets of make
-        # test that load them (smoke loads src/*/*.fs, not src/main.fs).
+    def test_a_test_change_needs_no_branch_coverage_check(self):
+        # Owner, 2026-11-19: no tier measures the files a changed test drives (make daily does).
         result = self.change({"tests/core/c.fs": "require ../../src/main.fs\n\\ more\n"})
         self.assertEqual(result["tier"], "tests")
-        self.assertEqual(result["coverage"], {"kind": "focus", "files": ["src/main.fs"],
-                                              "targets": ["test-core"], "skipped": []})
-        self.assertEqual(self.labels(result)[0], "coverage-focus")
+        self.assertIsNone(result["coverage"])
+        self.assertEqual(self.labels(result)[0], "targets")
         self.assertEqual(result["faults"], ["core-one"])
 
-    def test_full_tier_measures_only_the_changed_files(self):
-        """The coverage of an untouched file is not measured again: only make daily does."""
+    def test_full_tier_checks_the_changed_files_first(self):
+        """Owner, 2026-11-19: make cover-changed from the range's merge base, before make test."""
         result = self.change({"src/core/c.fs": "require ../lib/used.fs\n\\ changed\n"})
         self.assertFull(result)
-        self.assertEqual(result["coverage"], {"kind": "focus", "files": ["src/core/c.fs"],
-                                              "targets": ["smoke", "test-core"], "skipped": []})
-        self.assertEqual(result["suites"][0]["vars"], {"COVERAGE_FILES": "src/core/c.fs",
-                                                       "COVERAGE_TARGETS": "smoke test-core"})
+        self.assertEqual(result["coverage"], {"kind": "changed", "base": self.base(), "files": ["src/core/c.fs"]})
+        self.assertEqual(result["suites"][0], {"label": "cover-changed", "goals": ["cover-changed"],
+                                               "vars": {"BASE": self.base()}})
         self.repo.git("reset", "-q", "--hard", "base")
         result = self.change({"Makefile": tier_fixture.MAKEFILE + "\n"})
         self.assertFull(result)
-        self.assertIsNone(result["coverage"], "a Makefile change measures no coverage")
+        self.assertIsNone(result["coverage"], "a Makefile change touches no source file")
+        self.assertNotIn("cover-changed", self.labels(result))
 
-    def test_end_to_end_tests_measure_a_file_no_unit_test_loads(self):
-        self.repo.write("tests/cli/cli.fs", "require ../../src/program/p.fs\n")
-        self.repo.commit("only an end-to-end test loads p.fs")
-        self.repo.git("tag", "-f", "base")
-        result = self.change({"src/program/p.fs": ": p 3 ;\n"})
-        self.assertEqual(result["coverage"]["targets"], ["smoke", "test-cli"])
-
-    def test_every_target_that_loads_a_file_measures_it(self):
-        """2026-11-18: the baseline counts a file over all of make test, so its focused count is
-        taken over every target that loads it, unit and end-to-end, or blocks only an end-to-end
-        test runs would look never run (src/cli/leanforth.fs, elab-data.fs on main)."""
-        self.repo.write("tests/cli/cli.fs", "require ../../src/lib/free.fs\n")
-        self.repo.commit("an end-to-end test loads free.fs too")
-        self.repo.git("tag", "-f", "base")
-        result = self.change({"src/lib/free.fs": ": free-word 2 ;\n"})
-        self.assertEqual(result["coverage"]["targets"], ["smoke", "test-lib", "test-front", "test-cli"])
-
-    def test_a_file_no_target_reads_is_left_to_the_daily_run(self):
-        result = self.change({"src/deep/er/x.fs": ": x 1 ;\n", "src/lib/free.fs": ": free-word 2 ;\n"})
-        self.assertEqual((result["coverage"]["files"], result["coverage"]["skipped"]),
-                         (["src/lib/free.fs"], ["src/deep/er/x.fs"]))
+    def test_every_touched_source_file_is_checked(self):
+        """Whoever loads it: a file no unit test loads fails make cover-changed itself."""
+        result = self.change({"src/deep/er/x.fs": ": x 1 ;\n", "src/lib/free.fs": ": free-word 2 ;\n",
+                              "src/program/p.fs": ": p 3 ;\n"})
+        self.assertEqual(result["coverage"]["files"], ["src/deep/er/x.fs", "src/lib/free.fs", "src/program/p.fs"])
         run = self.repo.script("test-tier.py", "--base", "base")
-        self.assertIn("coverage of src/deep/er/x.fs: no target of make test reads it; make daily's full run "
-                      "measures it", run.stdout)
+        self.assertIn(f"suite cover-changed: make cover-changed BASE='{self.base()}'", run.stdout)
+        self.assertNotIn("make daily's full run measures it", run.stdout)
 
-    def test_end_to_end_tests_count_beside_unit_tests(self):
-        """The baseline counts all of make test: a file a unit test loads is measured over the
-        end-to-end tests that load it too (fix-batch-4: cli/leanforth.fs over test-cli-forth
-        alone showed 561 never-run blocks against make test's 117)."""
-        self.repo.write("tests/cli/cli.fs", "require ../../src/core/c.fs\n")
-        self.repo.commit("an end-to-end test loads c.fs too")
-        self.repo.git("tag", "-f", "base")
-        result = self.change({"src/core/c.fs": "require ../lib/used.fs\n\\ changed again\n"})
-        self.assertEqual(result["coverage"], {"kind": "focus", "files": ["src/core/c.fs"],
-                                              "targets": ["smoke", "test-core", "test-cli"], "skipped": []})
+    def test_a_deleted_source_file_has_no_line_to_check(self):
+        self.repo.remove("src/program/p.fs")
+        result = self.change({"src/core/c.fs": "require ../lib/used.fs\n\\ x\n"})
+        self.assertFull(result)
+        self.assertEqual(result["coverage"]["files"], ["src/core/c.fs"])
+        self.repo.git("reset", "-q", "--hard", "base")
+        self.repo.remove("src/program/p.fs")
+        result = self.change({})
+        self.assertFull(result)
+        self.assertIsNone(result["coverage"])
 
-    def test_changed_baseline_entries_are_measured(self):
+    def test_a_baseline_change_needs_no_tier_coverage(self):
+        """The baseline is make daily's: neither a changed entry nor a changed run count makes a
+        tier run make coverage-check (owner, 2026-11-19)."""
         self.repo.write("tests/coverage-baseline.json", '{"runs": 5, "files": {}}\n')
         self.repo.commit("a baseline")
         self.repo.git("tag", "-f", "base")
         result = self.change({"tests/coverage-baseline.json":
                               '{"runs": 5, "files": {"src/lib/free.fs": {"blocks": 2, "never_run": 1}}}\n'})
-        self.assertEqual(result["coverage"]["files"], ["src/lib/free.fs"])
+        self.assertIsNone(result["coverage"])
         result = self.change({"tests/coverage-baseline.json": '{"runs": 6, "files": {}}\n'})
-        self.assertEqual(result["coverage"]["kind"], "all")
+        self.assertIsNone(result["coverage"])
+        self.assertNotIn("coverage-check", [g for s in result["suites"] for g in s["goals"]])
 
     def test_test_data(self):
         result = self.change({"tests/front/data.txt": "other data\n"})
@@ -171,10 +162,6 @@ class Tiers(Fixture):
 
     def test_unused_test_folder_is_full(self):
         self.assertFull(self.change({"tests/new/x.fs": "\\ new\n"}))
-
-    def test_coverage_baseline(self):
-        result = self.change({"tests/coverage-baseline.json": '{"runs": 1}\n'})
-        self.assertEqual(result["coverage"]["kind"], "all")
 
     def test_changed_fault_entry(self):
         text = tier_fixture.FAULTS.replace('reason = "stub"\n\n[[fault]]\nid = "core-one"',
@@ -213,8 +200,8 @@ class Tiers(Fixture):
                                              "test-lib", "test-front"])
         self.assertEqual(result["engine_targets"], ["smoke", "test-lib", "test-front"])
         self.assertEqual(result["faults"], ["free-one", "alone-one"])
-        self.assertEqual(result["coverage"], {"kind": "focus", "files": ["src/lib/free.fs"],
-                                              "targets": ["smoke", "test-lib", "test-front"], "skipped": []})
+        self.assertEqual(result["coverage"], {"kind": "changed", "base": self.base(), "files": ["src/lib/free.fs"]})
+        self.assertEqual(self.labels(result), ["cover-changed", "targets", "targetsfast", "faults"])
 
     def test_library_main_loads(self):
         self.assertFull(self.change({"src/lib/used.fs": ": used 1 ;\n"}))
@@ -307,13 +294,13 @@ class Tiers(Fixture):
         self.repo.remove("src/lib/free.fs")
         self.assertFull(self.change({}))
 
-    def test_deleted_test_needs_its_coverage(self):
-        # B4: a deleted test that drove a loaded file is the full tier, coverage included: what it
-        # drove is known only from the base tree, so all of make coverage-check runs.
+    def test_deleted_test_is_full_without_the_whole_ratchet(self):
+        # B4: a deleted test that drove a loaded file is the full tier (what it drove is known only
+        # from the base tree); since 2026-11-19 its coverage is make daily's whole-suite ratchet.
         self.repo.remove("tests/core/c.fs")
         result = self.change({})
         self.assertFull(result)
-        self.assertEqual(result["suites"][0]["goals"], ["coverage-check"])
+        self.assertIsNone(result["coverage"])
 
     def test_renamed_test_the_makefile_no_longer_finds(self):
         self.repo.git("mv", "tests/lib/a.fs", "tests/lib/b.fs")
@@ -343,6 +330,8 @@ class Tiers(Fixture):
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertIn("tier: library", run.stdout)
         self.assertNotIn("0.7.3", run.stdout)
+        self.assertIn("suite cover-changed: make cover-changed BASE=", run.stdout)
+        self.assertNotIn("coverage-focus", run.stdout)
         self.assertIn("suite targetsfast (gforth-fast): make smoke test-lib test-front", run.stdout)
 
     def test_bad_base(self):
