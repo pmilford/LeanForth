@@ -75,37 +75,67 @@ def noted(text, comment, mark="\\"):
     return f"{text:<{COLUMN - 1}}" + (" " if len(text) < COLUMN - 1 else "  ") + f"{mark} {comment}"
 
 
-def goal(text, lead, comment):
-    """A goal's lines after LEAD, the first with COMMENT on its right."""
-    parts = text.splitlines()
-    return [noted(lead + part, comment if n == 0 else "") for n, part in enumerate(parts)]
+def goal(text, lead, comment, given="", full=False):
+    """A goal's lines after LEAD. The first carries COMMENT; the line to prove is marked
+    (with the mark's reading when FULL); each line naming something given carries GIVEN."""
+    out = []
+    for n, part in enumerate(text.splitlines()):
+        if part.startswith("\u22a2"):
+            note = 'to prove (the mark \u22a2 reads "show that")' if full else "to prove"
+        elif part.startswith("case "):
+            note = "" if comment else "the case"
+        else:
+            note = given
+        if n == 0 and comment:
+            note = f"{comment}: {note}" if note else comment
+        out.append(noted(lead + part, note))
+    return out
+
+
+# What each tactic does, in a line: general, not about the theorem at hand.
+DOES = {
+    "rfl": "computes both sides of  a = b ; if they come out the same, the goal is proved",
+    "exact": "closes the goal with the proof term written before it",
+    "rw": "rewrites the goal with each equation named, left to right; then tries rfl",
+    "induction": "splits the goal into one case for each way the variable can be built",
+    "alternative": "starts one case of the induction above and names what it introduces",
+    "intro": "moves the goal's first assumption or variable up among what is given",
+    "apply": "reduces the goal to the assumptions of the theorem or term applied",
+    "assumption": "closes the goal with something given that states it",
+    "constructor": "reduces the goal to the parts its first constructor needs",
+    "case": "turns to the goal of the case named",
+    "sorry": "leaves the goal unproved (the theorem is then NOT PROVED)",
+}
 
 
 def lean_name(tactic):
-    return "a case of the induction above" if tactic == "alternative" else f"Lean's {tactic}"
+    return "a case of the induction" if tactic == "alternative" else f"Lean's {tactic}"
 
 
 def show_step(record, depth, lines):
     """The lines of one step, DEPTH steps deep: its own text from the file with its number
-    and Lean's name for it as a comment, then the goal it met and what it left."""
+    and Lean's name for it as a comment, what the tactic does, then the goal it met and
+    what it left."""
     pad = "    " + "    " * depth
     row, column = (int(part) for part in record["source"].split(":"))
     source = lines[row - 1] if 0 < row <= len(lines) else ""
     out = ["", noted(pad + step_text(source, column, record["word"]),
-                     f"step {record['step']}: {lean_name(record['tactic'])}")]
+                     f"step {record['step']} ({lean_name(record['tactic'])})")]
+    if record["tactic"] in DOES:
+        out.append(noted("", DOES[record["tactic"]]))
     after = record["goals_after"]
     if record["goal_before"] is None:
         for text in after:
-            out += goal(text, pad + "    ", "the goal of this case")
+            out += goal(text, pad + "    ", "the goal of this case", "given in this case")
         return out
-    out += goal(record["goal_before"], pad + "    ", "the goal before this step")
+    out += goal(record["goal_before"], pad + "    ", "the goal before this step", "")
     if after:
         for n, text in enumerate(after, 1):
-            out += goal(text, pad + "    ", f"left after it: goal {n} of {len(after)}")
+            out += goal(text, pad + "    ", f"left after the step, goal {n} of {len(after)}", "")
     elif record["tactic"] == "induction":
-        out.append(noted("", "after it: one goal for each case; the cases follow"))
+        out.append(noted("", "after the step: one goal for each case; the cases follow"))
     else:
-        out.append(noted("", "after it: nothing is left to prove here"))
+        out.append(noted("", "after the step: nothing is left to prove here"))
     return out
 
 
@@ -181,7 +211,8 @@ def show_work(name, first, last, lines, logs):
         return ["\\ No step was recorded: the run stopped first (its error is below)."]
     out = []
     if steps and steps[0]["goal_before"] is not None:
-        out += goal(steps[0]["goal_before"], "    ", "the statement as LeanForth read it: the first goal")
+        out += [noted("", "The statement of A as LeanForth read it. This is the first goal:"),
+                *goal(steps[0]["goal_before"], "    ", "", "given: a variable of the theorem", True)]
     if head["cut"]:
         out.append("\\ The step log ran out of room: its steps are left out.")
     depth = {0: -1}
@@ -203,8 +234,8 @@ def show_theorem(path, name, first, last, lines, logs, output):
             noted("", source, "--"), ""]
     out += twin
     out += ["", noted("C. What LeanForth did", "LeanForth's output: its step log, laid out by the showcase script."),
-            noted("", "Each step is the tactic as written in A; a step inside another is indented."),
-            noted("", "Goals are in Lean's notation:  name : type  is given,  \u22a2  marks what must be shown."), ""]
+            noted("", "LeanForth prints goals in Lean's notation. A goal is what is still to be proved."),
+            noted("", "Each step is a tactic as written in A; a step inside another is indented."), ""]
     out += show_work(name, first, last, lines, logs)
     verdicts = [line for line in output if line.startswith(f"{name}: ")]
     out += ["", noted("D. The verdict of LeanForth's kernel", "LeanForth's output, as printed"), ""]

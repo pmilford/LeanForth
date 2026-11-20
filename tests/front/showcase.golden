@@ -17,14 +17,16 @@ B. The same proof in Lean                         -- for comparison only. Not Le
     theorem t : 0 + 0 = 0 := by rfl
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ Each step is the tactic as written in A; a step inside another is indented.
-                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
 
-    ⊢ 0 + 0 = 0                                   \ the statement as LeanForth read it: the first goal
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    ⊢ 0 + 0 = 0                                   \ to prove (the mark ⊢ reads "show that")
 
-    by-rfl                                        \ step 1: Lean's rfl
-        ⊢ 0 + 0 = 0                               \ the goal before this step
-                                                  \ after it: nothing is left to prove here
+    by-rfl                                        \ step 1 (Lean's rfl)
+                                                  \ computes both sides of  a = b ; if they come out the same, the goal is proved
+        ⊢ 0 + 0 = 0                               \ the goal before this step: to prove
+                                                  \ after the step: nothing is left to prove here
 
 \ The one step is done. Parts left unproved: 0. Axioms used: none.
 
@@ -52,16 +54,18 @@ B. The same proof in Lean                         -- for comparison only. Not Le
     theorem zero_add_ex (n : Nat) : 0 + n = n := by exact Nat.zero_add n
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ Each step is the tactic as written in A; a step inside another is indented.
-                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
 
-    n : Nat                                       \ the statement as LeanForth read it: the first goal
-    ⊢ 0 + n = n
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    n : Nat                                       \ given: a variable of the theorem
+    ⊢ 0 + n = n                                   \ to prove (the mark ⊢ reads "show that")
 
-    n Nat.zero_add by-exact                       \ step 1: Lean's exact
+    n Nat.zero_add by-exact                       \ step 1 (Lean's exact)
+                                                  \ closes the goal with the proof term written before it
         n : Nat                                   \ the goal before this step
-        ⊢ 0 + n = n
-                                                  \ after it: nothing is left to prove here
+        ⊢ 0 + n = n                               \ to prove
+                                                  \ after the step: nothing is left to prove here
 
 \ The one step is done. Parts left unproved: 0. Axioms used: none.
 
@@ -100,38 +104,44 @@ B. The same proof in Lean                         -- for comparison only. Not Le
       | succ k ih => rw [Nat.add_succ, ih]
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ Each step is the tactic as written in A; a step inside another is indented.
-                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
 
-    n : Nat                                       \ the statement as LeanForth read it: the first goal
-    ⊢ 0 + n = n
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    n : Nat                                       \ given: a variable of the theorem
+    ⊢ 0 + n = n                                   \ to prove (the mark ⊢ reads "show that")
 
-    n by-induction-with                           \ step 1: Lean's induction
+    n by-induction-with                           \ step 1 (Lean's induction)
+                                                  \ splits the goal into one case for each way the variable can be built
         n : Nat                                   \ the goal before this step
-        ⊢ 0 + n = n
-                                                  \ after it: one goal for each case; the cases follow
+        ⊢ 0 + n = n                               \ to prove
+                                                  \ after the step: one goal for each case; the cases follow
 
-        | zero =>                                 \ step 2: a case of the induction above
+        | zero =>                                 \ step 2 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case zero                             \ the goal of this case
-            ⊢ 0 + 0 = 0
+            ⊢ 0 + 0 = 0                           \ to prove
 
-            by-rfl                                \ step 3: Lean's rfl
+            by-rfl                                \ step 3 (Lean's rfl)
+                                                  \ computes both sides of  a = b ; if they come out the same, the goal is proved
                 case zero                         \ the goal before this step
-                ⊢ 0 + 0 = 0
-                                                  \ after it: nothing is left to prove here
+                ⊢ 0 + 0 = 0                       \ to prove
+                                                  \ after the step: nothing is left to prove here
 
-        | succ k ih =>                            \ step 4: a case of the induction above
+        | succ k ih =>                            \ step 4 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case succ                             \ the goal of this case
-            k : Nat
-            ih : 0 + k = k
-            ⊢ 0 + (k + 1) = k + 1
+            k : Nat                               \ given in this case
+            ih : 0 + k = k                        \ given in this case
+            ⊢ 0 + (k + 1) = k + 1                 \ to prove
 
-            by-rw[ ' Nat.add_succ ih ]            \ step 5: Lean's rw
+            by-rw[ ' Nat.add_succ ih ]            \ step 5 (Lean's rw)
+                                                  \ rewrites the goal with each equation named, left to right; then tries rfl
                 case succ                         \ the goal before this step
                 k : Nat
                 ih : 0 + k = k
-                ⊢ 0 + (k + 1) = k + 1
-                                                  \ after it: nothing is left to prove here
+                ⊢ 0 + (k + 1) = k + 1             \ to prove
+                                                  \ after the step: nothing is left to prove here
 
 \ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
 
@@ -177,70 +187,80 @@ B. The same proof in Lean                         -- for comparison only. Not Le
         | succ j ih => exact ih
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ Each step is the tactic as written in A; a step inside another is indented.
-                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
 
-    n m : Nat                                     \ the statement as LeanForth read it: the first goal
-    ⊢ 0 + n = n
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    n m : Nat                                     \ given: a variable of the theorem
+    ⊢ 0 + n = n                                   \ to prove (the mark ⊢ reads "show that")
 
-    n by-induction-with                           \ step 1: Lean's induction
+    n by-induction-with                           \ step 1 (Lean's induction)
+                                                  \ splits the goal into one case for each way the variable can be built
         n m : Nat                                 \ the goal before this step
-        ⊢ 0 + n = n
-                                                  \ after it: one goal for each case; the cases follow
+        ⊢ 0 + n = n                               \ to prove
+                                                  \ after the step: one goal for each case; the cases follow
 
-        | zero =>                                 \ step 2: a case of the induction above
+        | zero =>                                 \ step 2 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case zero                             \ the goal of this case
-            m : Nat
-            ⊢ 0 + 0 = 0
+            m : Nat                               \ given in this case
+            ⊢ 0 + 0 = 0                           \ to prove
 
-            by-rfl                                \ step 3: Lean's rfl
+            by-rfl                                \ step 3 (Lean's rfl)
+                                                  \ computes both sides of  a = b ; if they come out the same, the goal is proved
                 case zero                         \ the goal before this step
                 m : Nat
-                ⊢ 0 + 0 = 0
-                                                  \ after it: nothing is left to prove here
+                ⊢ 0 + 0 = 0                       \ to prove
+                                                  \ after the step: nothing is left to prove here
 
-        | succ k ih =>                            \ step 4: a case of the induction above
+        | succ k ih =>                            \ step 4 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case succ                             \ the goal of this case
-            m k : Nat
-            ih : 0 + k = k
-            ⊢ 0 + (k + 1) = k + 1
+            m k : Nat                             \ given in this case
+            ih : 0 + k = k                        \ given in this case
+            ⊢ 0 + (k + 1) = k + 1                 \ to prove
 
-            m by-induction-with                   \ step 5: Lean's induction
+            m by-induction-with                   \ step 5 (Lean's induction)
+                                                  \ splits the goal into one case for each way the variable can be built
                 case succ                         \ the goal before this step
                 m k : Nat
                 ih : 0 + k = k
-                ⊢ 0 + (k + 1) = k + 1
-                                                  \ after it: one goal for each case; the cases follow
+                ⊢ 0 + (k + 1) = k + 1             \ to prove
+                                                  \ after the step: one goal for each case; the cases follow
 
-                | zero =>                         \ step 6: a case of the induction above
+                | zero =>                         \ step 6 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
                     case succ.zero                \ the goal of this case
-                    k : Nat
-                    ih : 0 + k = k
-                    ⊢ 0 + (k + 1) = k + 1
+                    k : Nat                       \ given in this case
+                    ih : 0 + k = k                \ given in this case
+                    ⊢ 0 + (k + 1) = k + 1         \ to prove
 
-                    by-rw[ ' Nat.add_succ ih ]    \ step 7: Lean's rw
+                    by-rw[ ' Nat.add_succ ih ]    \ step 7 (Lean's rw)
+                                                  \ rewrites the goal with each equation named, left to right; then tries rfl
                         case succ.zero            \ the goal before this step
                         k : Nat
                         ih : 0 + k = k
-                        ⊢ 0 + (k + 1) = k + 1
-                                                  \ after it: nothing is left to prove here
+                        ⊢ 0 + (k + 1) = k + 1     \ to prove
+                                                  \ after the step: nothing is left to prove here
 
-                | succ j ih =>                    \ step 8: a case of the induction above
+                | succ j ih =>                    \ step 8 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
                     case succ.succ                \ the goal of this case
-                    k : Nat
-                    ih✝ : 0 + k = k
-                    j : Nat
-                    ih : 0 + (k + 1) = k + 1
-                    ⊢ 0 + (k + 1) = k + 1
+                    k : Nat                       \ given in this case
+                    ih✝ : 0 + k = k               \ given in this case
+                    j : Nat                       \ given in this case
+                    ih : 0 + (k + 1) = k + 1      \ given in this case
+                    ⊢ 0 + (k + 1) = k + 1         \ to prove
 
-                    ih by-exact                   \ step 9: Lean's exact
+                    ih by-exact                   \ step 9 (Lean's exact)
+                                                  \ closes the goal with the proof term written before it
                         case succ.succ            \ the goal before this step
                         k : Nat
                         ih✝ : 0 + k = k
                         j : Nat
                         ih : 0 + (k + 1) = k + 1
-                        ⊢ 0 + (k + 1) = k + 1
-                                                  \ after it: nothing is left to prove here
+                        ⊢ 0 + (k + 1) = k + 1     \ to prove
+                                                  \ after the step: nothing is left to prove here
 
 \ All 9 steps are done. Parts left unproved: 0. Axioms used: none.
 
@@ -279,40 +299,46 @@ B. The same proof in Lean                         -- for comparison only. Not Le
       | succ k ih => rw [Nat.add_succ, ih, Nat.add_succ]
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ Each step is the tactic as written in A; a step inside another is indented.
-                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
 
-    n m : Nat                                     \ the statement as LeanForth read it: the first goal
-    ⊢ Nat.succ n + m = Nat.succ (n + m)
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    n m : Nat                                     \ given: a variable of the theorem
+    ⊢ Nat.succ n + m = Nat.succ (n + m)           \ to prove (the mark ⊢ reads "show that")
 
-    m by-induction-with                           \ step 1: Lean's induction
+    m by-induction-with                           \ step 1 (Lean's induction)
+                                                  \ splits the goal into one case for each way the variable can be built
         n m : Nat                                 \ the goal before this step
-        ⊢ Nat.succ n + m = Nat.succ (n + m)
-                                                  \ after it: one goal for each case; the cases follow
+        ⊢ Nat.succ n + m = Nat.succ (n + m)       \ to prove
+                                                  \ after the step: one goal for each case; the cases follow
 
-        | zero =>                                 \ step 2: a case of the induction above
+        | zero =>                                 \ step 2 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case zero                             \ the goal of this case
-            n : Nat
-            ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
+            n : Nat                               \ given in this case
+            ⊢ Nat.succ n + 0 = Nat.succ (n + 0)   \ to prove
 
-            by-rfl                                \ step 3: Lean's rfl
+            by-rfl                                \ step 3 (Lean's rfl)
+                                                  \ computes both sides of  a = b ; if they come out the same, the goal is proved
                 case zero                         \ the goal before this step
                 n : Nat
-                ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
-                                                  \ after it: nothing is left to prove here
+                ⊢ Nat.succ n + 0 = Nat.succ (n + 0)  \ to prove
+                                                  \ after the step: nothing is left to prove here
 
-        | succ k ih =>                            \ step 4: a case of the induction above
+        | succ k ih =>                            \ step 4 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case succ                             \ the goal of this case
-            n k : Nat
-            ih : Nat.succ n + k = Nat.succ (n + k)
-            ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
+            n k : Nat                             \ given in this case
+            ih : Nat.succ n + k = Nat.succ (n + k)  \ given in this case
+            ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))  \ to prove
 
-            by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]  \ step 5: Lean's rw
+            by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]  \ step 5 (Lean's rw)
+                                                  \ rewrites the goal with each equation named, left to right; then tries rfl
                 case succ                         \ the goal before this step
                 n k : Nat
                 ih : Nat.succ n + k = Nat.succ (n + k)
-                ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
-                                                  \ after it: nothing is left to prove here
+                ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))  \ to prove
+                                                  \ after the step: nothing is left to prove here
 
 \ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
 
@@ -351,38 +377,44 @@ B. The same proof in Lean                         -- for comparison only. Not Le
       | succ k ih => rw [Nat.add_succ, ih]
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ Each step is the tactic as written in A; a step inside another is indented.
-                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
 
-    n : Nat                                       \ the statement as LeanForth read it: the first goal
-    ⊢ 0 + n = n
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    n : Nat                                       \ given: a variable of the theorem
+    ⊢ 0 + n = n                                   \ to prove (the mark ⊢ reads "show that")
 
-    n by-induction-with                           \ step 1: Lean's induction
+    n by-induction-with                           \ step 1 (Lean's induction)
+                                                  \ splits the goal into one case for each way the variable can be built
         n : Nat                                   \ the goal before this step
-        ⊢ 0 + n = n
-                                                  \ after it: one goal for each case; the cases follow
+        ⊢ 0 + n = n                               \ to prove
+                                                  \ after the step: one goal for each case; the cases follow
 
-        | zero =>                                 \ step 2: a case of the induction above
+        | zero =>                                 \ step 2 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case zero                             \ the goal of this case
-            ⊢ 0 + 0 = 0
+            ⊢ 0 + 0 = 0                           \ to prove
 
-            by-rfl                                \ step 3: Lean's rfl
+            by-rfl                                \ step 3 (Lean's rfl)
+                                                  \ computes both sides of  a = b ; if they come out the same, the goal is proved
                 case zero                         \ the goal before this step
-                ⊢ 0 + 0 = 0
-                                                  \ after it: nothing is left to prove here
+                ⊢ 0 + 0 = 0                       \ to prove
+                                                  \ after the step: nothing is left to prove here
 
-        | succ k ih =>                            \ step 4: a case of the induction above
+        | succ k ih =>                            \ step 4 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case succ                             \ the goal of this case
-            k : Nat
-            ih : 0 + k = k
-            ⊢ 0 + (k + 1) = k + 1
+            k : Nat                               \ given in this case
+            ih : 0 + k = k                        \ given in this case
+            ⊢ 0 + (k + 1) = k + 1                 \ to prove
 
-            by-rw[ ' Nat.add_succ ih ]            \ step 5: Lean's rw
+            by-rw[ ' Nat.add_succ ih ]            \ step 5 (Lean's rw)
+                                                  \ rewrites the goal with each equation named, left to right; then tries rfl
                 case succ                         \ the goal before this step
                 k : Nat
                 ih : 0 + k = k
-                ⊢ 0 + (k + 1) = k + 1
-                                                  \ after it: nothing is left to prove here
+                ⊢ 0 + (k + 1) = k + 1             \ to prove
+                                                  \ after the step: nothing is left to prove here
 
 \ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
 
@@ -415,40 +447,46 @@ B. The same proof in Lean                         -- for comparison only. Not Le
       | succ k ih => rw [Nat.add_succ, ih, Nat.add_succ]
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ Each step is the tactic as written in A; a step inside another is indented.
-                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
 
-    n m : Nat                                     \ the statement as LeanForth read it: the first goal
-    ⊢ Nat.succ n + m = Nat.succ (n + m)
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    n m : Nat                                     \ given: a variable of the theorem
+    ⊢ Nat.succ n + m = Nat.succ (n + m)           \ to prove (the mark ⊢ reads "show that")
 
-    m by-induction-with                           \ step 1: Lean's induction
+    m by-induction-with                           \ step 1 (Lean's induction)
+                                                  \ splits the goal into one case for each way the variable can be built
         n m : Nat                                 \ the goal before this step
-        ⊢ Nat.succ n + m = Nat.succ (n + m)
-                                                  \ after it: one goal for each case; the cases follow
+        ⊢ Nat.succ n + m = Nat.succ (n + m)       \ to prove
+                                                  \ after the step: one goal for each case; the cases follow
 
-        | zero =>                                 \ step 2: a case of the induction above
+        | zero =>                                 \ step 2 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case zero                             \ the goal of this case
-            n : Nat
-            ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
+            n : Nat                               \ given in this case
+            ⊢ Nat.succ n + 0 = Nat.succ (n + 0)   \ to prove
 
-            by-rfl                                \ step 3: Lean's rfl
+            by-rfl                                \ step 3 (Lean's rfl)
+                                                  \ computes both sides of  a = b ; if they come out the same, the goal is proved
                 case zero                         \ the goal before this step
                 n : Nat
-                ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
-                                                  \ after it: nothing is left to prove here
+                ⊢ Nat.succ n + 0 = Nat.succ (n + 0)  \ to prove
+                                                  \ after the step: nothing is left to prove here
 
-        | succ k ih =>                            \ step 4: a case of the induction above
+        | succ k ih =>                            \ step 4 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case succ                             \ the goal of this case
-            n k : Nat
-            ih : Nat.succ n + k = Nat.succ (n + k)
-            ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
+            n k : Nat                             \ given in this case
+            ih : Nat.succ n + k = Nat.succ (n + k)  \ given in this case
+            ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))  \ to prove
 
-            by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]  \ step 5: Lean's rw
+            by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]  \ step 5 (Lean's rw)
+                                                  \ rewrites the goal with each equation named, left to right; then tries rfl
                 case succ                         \ the goal before this step
                 n k : Nat
                 ih : Nat.succ n + k = Nat.succ (n + k)
-                ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
-                                                  \ after it: nothing is left to prove here
+                ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))  \ to prove
+                                                  \ after the step: nothing is left to prove here
 
 \ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
 
@@ -481,48 +519,55 @@ B. The same proof in Lean                         -- for comparison only. Not Le
       | succ k ih => rw [Nat.add_succ, ih, ps_succ_add]
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ Each step is the tactic as written in A; a step inside another is indented.
-                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
 
-    n m : Nat                                     \ the statement as LeanForth read it: the first goal
-    ⊢ n + m = m + n
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    n m : Nat                                     \ given: a variable of the theorem
+    ⊢ n + m = m + n                               \ to prove (the mark ⊢ reads "show that")
 
-    m by-induction-with                           \ step 1: Lean's induction
+    m by-induction-with                           \ step 1 (Lean's induction)
+                                                  \ splits the goal into one case for each way the variable can be built
         n m : Nat                                 \ the goal before this step
-        ⊢ n + m = m + n
-                                                  \ after it: one goal for each case; the cases follow
+        ⊢ n + m = m + n                           \ to prove
+                                                  \ after the step: one goal for each case; the cases follow
 
-        | zero =>                                 \ step 2: a case of the induction above
+        | zero =>                                 \ step 2 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case zero                             \ the goal of this case
-            n : Nat
-            ⊢ n + 0 = 0 + n
+            n : Nat                               \ given in this case
+            ⊢ n + 0 = 0 + n                       \ to prove
 
-            by-rw[ ' ps_zero_add ]                \ step 3: Lean's rw
+            by-rw[ ' ps_zero_add ]                \ step 3 (Lean's rw)
+                                                  \ rewrites the goal with each equation named, left to right; then tries rfl
                 case zero                         \ the goal before this step
                 n : Nat
-                ⊢ n + 0 = 0 + n
-                case zero                         \ left after it: goal 1 of 1
+                ⊢ n + 0 = 0 + n                   \ to prove
+                case zero                         \ left after the step, goal 1 of 1
                 n : Nat
-                ⊢ n + 0 = n
+                ⊢ n + 0 = n                       \ to prove
 
-            by-rw[ ' ps_zero_add ] by-rfl         \ step 4: Lean's rfl
+            by-rw[ ' ps_zero_add ] by-rfl         \ step 4 (Lean's rfl)
+                                                  \ computes both sides of  a = b ; if they come out the same, the goal is proved
                 case zero                         \ the goal before this step
                 n : Nat
-                ⊢ n + 0 = n
-                                                  \ after it: nothing is left to prove here
+                ⊢ n + 0 = n                       \ to prove
+                                                  \ after the step: nothing is left to prove here
 
-        | succ k ih =>                            \ step 5: a case of the induction above
+        | succ k ih =>                            \ step 5 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case succ                             \ the goal of this case
-            n k : Nat
-            ih : n + k = k + n
-            ⊢ n + (k + 1) = k + 1 + n
+            n k : Nat                             \ given in this case
+            ih : n + k = k + n                    \ given in this case
+            ⊢ n + (k + 1) = k + 1 + n             \ to prove
 
-            by-rw[ ' Nat.add_succ ih ' ps_succ_add ]  \ step 6: Lean's rw
+            by-rw[ ' Nat.add_succ ih ' ps_succ_add ]  \ step 6 (Lean's rw)
+                                                  \ rewrites the goal with each equation named, left to right; then tries rfl
                 case succ                         \ the goal before this step
                 n k : Nat
                 ih : n + k = k + n
-                ⊢ n + (k + 1) = k + 1 + n
-                                                  \ after it: nothing is left to prove here
+                ⊢ n + (k + 1) = k + 1 + n         \ to prove
+                                                  \ after the step: nothing is left to prove here
 
 \ All 6 steps are done. Parts left unproved: 0. Axioms used: none.
 
@@ -561,40 +606,46 @@ B. The same proof in Lean                         -- for comparison only. Not Le
       | succ j ih => rw [Nat.add_succ, Nat.add_succ, ih, Nat.add_succ]
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ Each step is the tactic as written in A; a step inside another is indented.
-                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
 
-    n m k : Nat                                   \ the statement as LeanForth read it: the first goal
-    ⊢ n + (m + k) = n + m + k
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    n m k : Nat                                   \ given: a variable of the theorem
+    ⊢ n + (m + k) = n + m + k                     \ to prove (the mark ⊢ reads "show that")
 
-    k by-induction-with                           \ step 1: Lean's induction
+    k by-induction-with                           \ step 1 (Lean's induction)
+                                                  \ splits the goal into one case for each way the variable can be built
         n m k : Nat                               \ the goal before this step
-        ⊢ n + (m + k) = n + m + k
-                                                  \ after it: one goal for each case; the cases follow
+        ⊢ n + (m + k) = n + m + k                 \ to prove
+                                                  \ after the step: one goal for each case; the cases follow
 
-        | zero =>                                 \ step 2: a case of the induction above
+        | zero =>                                 \ step 2 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case zero                             \ the goal of this case
-            n m : Nat
-            ⊢ n + (m + 0) = n + m + 0
+            n m : Nat                             \ given in this case
+            ⊢ n + (m + 0) = n + m + 0             \ to prove
 
-            by-rfl                                \ step 3: Lean's rfl
+            by-rfl                                \ step 3 (Lean's rfl)
+                                                  \ computes both sides of  a = b ; if they come out the same, the goal is proved
                 case zero                         \ the goal before this step
                 n m : Nat
-                ⊢ n + (m + 0) = n + m + 0
-                                                  \ after it: nothing is left to prove here
+                ⊢ n + (m + 0) = n + m + 0         \ to prove
+                                                  \ after the step: nothing is left to prove here
 
-        | succ j ih =>                            \ step 4: a case of the induction above
+        | succ j ih =>                            \ step 4 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case succ                             \ the goal of this case
-            n m j : Nat
-            ih : n + (m + j) = n + m + j
-            ⊢ n + (m + (j + 1)) = n + m + (j + 1)
+            n m j : Nat                           \ given in this case
+            ih : n + (m + j) = n + m + j          \ given in this case
+            ⊢ n + (m + (j + 1)) = n + m + (j + 1)  \ to prove
 
-            by-rw[ ' Nat.add_succ ' Nat.add_succ ih ' Nat.add_succ ]  \ step 5: Lean's rw
+            by-rw[ ' Nat.add_succ ' Nat.add_succ ih ' Nat.add_succ ]  \ step 5 (Lean's rw)
+                                                  \ rewrites the goal with each equation named, left to right; then tries rfl
                 case succ                         \ the goal before this step
                 n m j : Nat
                 ih : n + (m + j) = n + m + j
-                ⊢ n + (m + (j + 1)) = n + m + (j + 1)
-                                                  \ after it: nothing is left to prove here
+                ⊢ n + (m + (j + 1)) = n + m + (j + 1)  \ to prove
+                                                  \ after the step: nothing is left to prove here
 
 \ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
 
@@ -627,40 +678,46 @@ B. The same proof in Lean                         -- for comparison only. Not Le
       | succ j ih => rw [Nat.add_succ, Nat.mul_succ, ih, Nat.mul_succ, ps_add_assoc]
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ Each step is the tactic as written in A; a step inside another is indented.
-                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
 
-    n m k : Nat                                   \ the statement as LeanForth read it: the first goal
-    ⊢ n * (m + k) = n * m + n * k
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    n m k : Nat                                   \ given: a variable of the theorem
+    ⊢ n * (m + k) = n * m + n * k                 \ to prove (the mark ⊢ reads "show that")
 
-    k by-induction-with                           \ step 1: Lean's induction
+    k by-induction-with                           \ step 1 (Lean's induction)
+                                                  \ splits the goal into one case for each way the variable can be built
         n m k : Nat                               \ the goal before this step
-        ⊢ n * (m + k) = n * m + n * k
-                                                  \ after it: one goal for each case; the cases follow
+        ⊢ n * (m + k) = n * m + n * k             \ to prove
+                                                  \ after the step: one goal for each case; the cases follow
 
-        | zero =>                                 \ step 2: a case of the induction above
+        | zero =>                                 \ step 2 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case zero                             \ the goal of this case
-            n m : Nat
-            ⊢ n * (m + 0) = n * m + n * 0
+            n m : Nat                             \ given in this case
+            ⊢ n * (m + 0) = n * m + n * 0         \ to prove
 
-            by-rfl                                \ step 3: Lean's rfl
+            by-rfl                                \ step 3 (Lean's rfl)
+                                                  \ computes both sides of  a = b ; if they come out the same, the goal is proved
                 case zero                         \ the goal before this step
                 n m : Nat
-                ⊢ n * (m + 0) = n * m + n * 0
-                                                  \ after it: nothing is left to prove here
+                ⊢ n * (m + 0) = n * m + n * 0     \ to prove
+                                                  \ after the step: nothing is left to prove here
 
-        | succ j ih =>                            \ step 4: a case of the induction above
+        | succ j ih =>                            \ step 4 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case succ                             \ the goal of this case
-            n m j : Nat
-            ih : n * (m + j) = n * m + n * j
-            ⊢ n * (m + (j + 1)) = n * m + n * (j + 1)
+            n m j : Nat                           \ given in this case
+            ih : n * (m + j) = n * m + n * j      \ given in this case
+            ⊢ n * (m + (j + 1)) = n * m + n * (j + 1)  \ to prove
 
-            by-rw[ ' Nat.add_succ ' Nat.mul_succ ih ' Nat.mul_succ ' ps_add_assoc ]  \ step 5: Lean's rw
+            by-rw[ ' Nat.add_succ ' Nat.mul_succ ih ' Nat.mul_succ ' ps_add_assoc ]  \ step 5 (Lean's rw)
+                                                  \ rewrites the goal with each equation named, left to right; then tries rfl
                 case succ                         \ the goal before this step
                 n m j : Nat
                 ih : n * (m + j) = n * m + n * j
-                ⊢ n * (m + (j + 1)) = n * m + n * (j + 1)
-                                                  \ after it: nothing is left to prove here
+                ⊢ n * (m + (j + 1)) = n * m + n * (j + 1)  \ to prove
+                                                  \ after the step: nothing is left to prove here
 
 \ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
 
@@ -699,38 +756,44 @@ B. The same proof in Lean                         -- for comparison only. Not Le
       | succ k ih => rw [Nat.add_succ, ih]
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ Each step is the tactic as written in A; a step inside another is indented.
-                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
 
-    n : Nat                                       \ the statement as LeanForth read it: the first goal
-    ⊢ 0 + n = n
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    n : Nat                                       \ given: a variable of the theorem
+    ⊢ 0 + n = n                                   \ to prove (the mark ⊢ reads "show that")
 
-    n by-induction-with                           \ step 1: Lean's induction
+    n by-induction-with                           \ step 1 (Lean's induction)
+                                                  \ splits the goal into one case for each way the variable can be built
         n : Nat                                   \ the goal before this step
-        ⊢ 0 + n = n
-                                                  \ after it: one goal for each case; the cases follow
+        ⊢ 0 + n = n                               \ to prove
+                                                  \ after the step: one goal for each case; the cases follow
 
-        | zero =>                                 \ step 2: a case of the induction above
+        | zero =>                                 \ step 2 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case zero                             \ the goal of this case
-            ⊢ 0 + 0 = 0
+            ⊢ 0 + 0 = 0                           \ to prove
 
-            by-rfl                                \ step 3: Lean's rfl
+            by-rfl                                \ step 3 (Lean's rfl)
+                                                  \ computes both sides of  a = b ; if they come out the same, the goal is proved
                 case zero                         \ the goal before this step
-                ⊢ 0 + 0 = 0
-                                                  \ after it: nothing is left to prove here
+                ⊢ 0 + 0 = 0                       \ to prove
+                                                  \ after the step: nothing is left to prove here
 
-        | succ k ih =>                            \ step 4: a case of the induction above
+        | succ k ih =>                            \ step 4 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case succ                             \ the goal of this case
-            k : Nat
-            ih : 0 + k = k
-            ⊢ 0 + (k + 1) = k + 1
+            k : Nat                               \ given in this case
+            ih : 0 + k = k                        \ given in this case
+            ⊢ 0 + (k + 1) = k + 1                 \ to prove
 
-            by-rw[ ' Nat.add_succ ih ]            \ step 5: Lean's rw
+            by-rw[ ' Nat.add_succ ih ]            \ step 5 (Lean's rw)
+                                                  \ rewrites the goal with each equation named, left to right; then tries rfl
                 case succ                         \ the goal before this step
                 k : Nat
                 ih : 0 + k = k
-                ⊢ 0 + (k + 1) = k + 1
-                                                  \ after it: nothing is left to prove here
+                ⊢ 0 + (k + 1) = k + 1             \ to prove
+                                                  \ after the step: nothing is left to prove here
 
 \ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
 
@@ -763,40 +826,46 @@ B. The same proof in Lean                         -- for comparison only. Not Le
       | succ k ih => rw [Nat.add_succ, ih, Nat.add_succ]
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ Each step is the tactic as written in A; a step inside another is indented.
-                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
 
-    n m : Nat                                     \ the statement as LeanForth read it: the first goal
-    ⊢ Nat.succ n + m = Nat.succ (n + m)
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    n m : Nat                                     \ given: a variable of the theorem
+    ⊢ Nat.succ n + m = Nat.succ (n + m)           \ to prove (the mark ⊢ reads "show that")
 
-    m by-induction-with                           \ step 1: Lean's induction
+    m by-induction-with                           \ step 1 (Lean's induction)
+                                                  \ splits the goal into one case for each way the variable can be built
         n m : Nat                                 \ the goal before this step
-        ⊢ Nat.succ n + m = Nat.succ (n + m)
-                                                  \ after it: one goal for each case; the cases follow
+        ⊢ Nat.succ n + m = Nat.succ (n + m)       \ to prove
+                                                  \ after the step: one goal for each case; the cases follow
 
-        | zero =>                                 \ step 2: a case of the induction above
+        | zero =>                                 \ step 2 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case zero                             \ the goal of this case
-            n : Nat
-            ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
+            n : Nat                               \ given in this case
+            ⊢ Nat.succ n + 0 = Nat.succ (n + 0)   \ to prove
 
-            by-rfl                                \ step 3: Lean's rfl
+            by-rfl                                \ step 3 (Lean's rfl)
+                                                  \ computes both sides of  a = b ; if they come out the same, the goal is proved
                 case zero                         \ the goal before this step
                 n : Nat
-                ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
-                                                  \ after it: nothing is left to prove here
+                ⊢ Nat.succ n + 0 = Nat.succ (n + 0)  \ to prove
+                                                  \ after the step: nothing is left to prove here
 
-        | succ k ih =>                            \ step 4: a case of the induction above
+        | succ k ih =>                            \ step 4 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case succ                             \ the goal of this case
-            n k : Nat
-            ih : Nat.succ n + k = Nat.succ (n + k)
-            ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
+            n k : Nat                             \ given in this case
+            ih : Nat.succ n + k = Nat.succ (n + k)  \ given in this case
+            ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))  \ to prove
 
-            by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]  \ step 5: Lean's rw
+            by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]  \ step 5 (Lean's rw)
+                                                  \ rewrites the goal with each equation named, left to right; then tries rfl
                 case succ                         \ the goal before this step
                 n k : Nat
                 ih : Nat.succ n + k = Nat.succ (n + k)
-                ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
-                                                  \ after it: nothing is left to prove here
+                ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))  \ to prove
+                                                  \ after the step: nothing is left to prove here
 
 \ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
 
@@ -829,44 +898,50 @@ B. The same proof in Lean                         -- for comparison only. Not Le
       | cons x t ih => rw [List.cons_append, List.length_cons, List.length_cons, ih, ps_succ_add]
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ Each step is the tactic as written in A; a step inside another is indented.
-                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
 
-    xs ys : @List Nat                             \ the statement as LeanForth read it: the first goal
-    ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) xs ys) = @List.length Nat xs + @List.length Nat ys
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    xs ys : @List Nat                             \ given: a variable of the theorem
+    ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) xs ys) = @List.length Nat xs + @List.length Nat ys  \ to prove (the mark ⊢ reads "show that")
 
-    xs by-induction-with                          \ step 1: Lean's induction
+    xs by-induction-with                          \ step 1 (Lean's induction)
+                                                  \ splits the goal into one case for each way the variable can be built
         xs ys : @List Nat                         \ the goal before this step
-        ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) xs ys) = @List.length Nat xs + @List.length Nat ys
-                                                  \ after it: one goal for each case; the cases follow
+        ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) xs ys) = @List.length Nat xs + @List.length Nat ys  \ to prove
+                                                  \ after the step: one goal for each case; the cases follow
 
-        | nil =>                                  \ step 2: a case of the induction above
+        | nil =>                                  \ step 2 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case nil                              \ the goal of this case
-            ys : @List Nat
-            ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) (@List.nil Nat) ys) = @List.length Nat (@List.nil Nat) + @List.length Nat ys
+            ys : @List Nat                        \ given in this case
+            ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) (@List.nil Nat) ys) = @List.length Nat (@List.nil Nat) + @List.length Nat ys  \ to prove
 
-            by-rw[ ' List.nil_append ' List.length_nil ' ps_zero_add ]  \ step 3: Lean's rw
+            by-rw[ ' List.nil_append ' List.length_nil ' ps_zero_add ]  \ step 3 (Lean's rw)
+                                                  \ rewrites the goal with each equation named, left to right; then tries rfl
                 case nil                          \ the goal before this step
                 ys : @List Nat
-                ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) (@List.nil Nat) ys) = @List.length Nat (@List.nil Nat) + @List.length Nat ys
-                                                  \ after it: nothing is left to prove here
+                ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) (@List.nil Nat) ys) = @List.length Nat (@List.nil Nat) + @List.length Nat ys  \ to prove
+                                                  \ after the step: nothing is left to prove here
 
-        | cons x t ih =>                          \ step 4: a case of the induction above
+        | cons x t ih =>                          \ step 4 (a case of the induction)
+                                                  \ starts one case of the induction above and names what it introduces
             case cons                             \ the goal of this case
-            ys : @List Nat
-            x : Nat
-            t : @List Nat
-            ih : @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) t ys) = @List.length Nat t + @List.length Nat ys
-            ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) (@List.cons Nat x t) ys) = @List.length Nat (@List.cons Nat x t) + @List.length Nat ys
+            ys : @List Nat                        \ given in this case
+            x : Nat                               \ given in this case
+            t : @List Nat                         \ given in this case
+            ih : @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) t ys) = @List.length Nat t + @List.length Nat ys  \ given in this case
+            ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) (@List.cons Nat x t) ys) = @List.length Nat (@List.cons Nat x t) + @List.length Nat ys  \ to prove
 
-            by-rw[ ' List.cons_append ' List.length_cons ' List.length_cons ih ' ps_succ_add ]  \ step 5: Lean's rw
+            by-rw[ ' List.cons_append ' List.length_cons ' List.length_cons ih ' ps_succ_add ]  \ step 5 (Lean's rw)
+                                                  \ rewrites the goal with each equation named, left to right; then tries rfl
                 case cons                         \ the goal before this step
                 ys : @List Nat
                 x : Nat
                 t : @List Nat
                 ih : @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) t ys) = @List.length Nat t + @List.length Nat ys
-                ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) (@List.cons Nat x t) ys) = @List.length Nat (@List.cons Nat x t) + @List.length Nat ys
-                                                  \ after it: nothing is left to prove here
+                ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) (@List.cons Nat x t) ys) = @List.length Nat (@List.cons Nat x t) + @List.length Nat ys  \ to prove
+                                                  \ after the step: nothing is left to prove here
 
 \ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
 
@@ -899,8 +974,8 @@ B. The same proof in Lean                         -- for comparison only. Not Le
     theorem add_zero' (n : Nat) : n + 0 = n := Eq.refl n
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ Each step is the tactic as written in A; a step inside another is indented.
-                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
 
 \ The proof is a term written out in full after := , not tactics: there are no steps.
 \ The kernel checks the term as it stands.
@@ -929,16 +1004,18 @@ B. The same proof in Lean                         -- for comparison only. Not Le
     theorem add_zero_rfl' (n : Nat) : n + 0 = n := by rfl
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ Each step is the tactic as written in A; a step inside another is indented.
-                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
 
-    n : Nat                                       \ the statement as LeanForth read it: the first goal
-    ⊢ n + 0 = n
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    n : Nat                                       \ given: a variable of the theorem
+    ⊢ n + 0 = n                                   \ to prove (the mark ⊢ reads "show that")
 
-    by-rfl                                        \ step 1: Lean's rfl
+    by-rfl                                        \ step 1 (Lean's rfl)
+                                                  \ computes both sides of  a = b ; if they come out the same, the goal is proved
         n : Nat                                   \ the goal before this step
-        ⊢ n + 0 = n
-                                                  \ after it: nothing is left to prove here
+        ⊢ n + 0 = n                               \ to prove
+                                                  \ after the step: nothing is left to prove here
 
 \ The one step is done. Parts left unproved: 0. Axioms used: none.
 

@@ -69,8 +69,8 @@ def golden_part(write):
     for part in ("A. The proof in LeanForth", "B. The same proof in Lean", "C. What LeanForth did",
                  "D. The verdict of LeanForth's kernel"):
         check(sum(line.startswith(part) for line in lines) == 15, f"each theorem has its part {part[:2]}")
-    tactic = out.count("\\ the statement as LeanForth read it: the first goal")
-    check(tactic == 14 and out.count("\\ step 1: ") == tactic, f"14 tactic theorems, each with its statement; got {tactic}")
+    tactic = out.count("\\ The statement of A as LeanForth read it. This is the first goal:")
+    check(tactic == 14 and out.count("\\ step 1 (") == tactic, f"14 tactic theorems, each with its statement; got {tactic}")
     twins = out.count("-- copied from tests/front/")
     noted = out.count("no test compares it with Lean yet")
     check(twins == 14 and noted == 1 and "no Lean twin is recorded" not in out,
