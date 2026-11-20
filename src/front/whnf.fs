@@ -111,6 +111,7 @@ require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/let-terms.fs
 require ../core/literals.fs
+require ../core/nat-ops.fs
 require ../core/string-literals.fs
 require ../core/projections.fs
 require ../core/mvar-leaves.fs
@@ -275,7 +276,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
   dup wc-plain-fvar? over wc-plain-mvar? or over lf-term-binder? or swap lf-sort? or ;
 \ Nat.succ applied to one argument that whnf might fold (reduceNat?).
 : wc-succ? ( head -- flag )
-  dup lf-term-const? if lf-const-name lf-menv-nat-succ? wc-margs slab-count 1 = and
+  dup lf-term-const? if lf-const-name lf-nat-succ-name? wc-margs slab-count 1 = and
   else drop false then ;
 : wc-foldable? ( head -- flag )
   wc-succ? 0= if false exit then

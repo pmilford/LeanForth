@@ -111,9 +111,7 @@
 \ data read against the library, has none); lf-menv-of-data ( d' -- d
 \ outcome ) the converse, as lf-menv-find (fed: the input's newest of
 \ that name; run: d', decoded);
-\ lf-menv-nat-succ? ( name -- flag ) whether a name is Nat.succ,
-\ lf-menv-nat-name? ( name -- flag ) whether it is in Nat's namespace,
-\ lf-menv-wf-rec? ( name -- flag ) whether it is Acc.rec or
+\ lf-menv-wf-rec? ( name -- flag ) whether a name is Acc.rec or
 \ WellFounded.rec (reduceRec's isWFRec), lf-menv-dite? ( name -- flag )
 \ whether it is dite (unfoldNestedDIte).
 \ Outcomes: ok; invalid for a declaration number beyond the input, a
@@ -521,13 +519,6 @@ create me-text-kinds-of   \ per lf-decl-* kind (present/print-forth.fs); 0: none
     ;
 : lf-menv-add ( decl -- outcome ) dup me-kind-known? if me-add else drop-invalid then ;
 
-\ Whether a name is Nat.succ (whnf's reduceNat? and Nat offsets know it
-\ by name).
-: lf-menv-nat-succ? ( name -- flag )
-  dup s" succ" me-str? if lf-name-prefix@ s" Nat" me-top? else drop false then ;
-\ Whether a name is in Nat's namespace, Nat.x (whnf's reduceNat?).
-: lf-menv-nat-name? ( name -- flag )
-  lf-name-prefix@ dup if s" Nat" me-top? else drop false then ;
 \ Whether a name is Acc.rec or WellFounded.rec (reduceRec's isWFRec).
 : me-wf? ( prefix -- flag ) dup s" Acc" me-top? swap s" WellFounded" me-top? or ;
 : lf-menv-wf-rec? ( name -- flag )

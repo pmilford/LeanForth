@@ -408,12 +408,12 @@ defer lf-whnf-valued ( decl const frames -- value outcome )
 \ as a constructor).
 \ The arguments are put in whnf by a visit of their own (lf-whnf-nat-call,
 \ below). The names and their operations' indices are core/nat-ops.fs's
-\ (lf-nat-name?, lf-nat-op), shared with the front end's reduceNat?.
+\ (lf-nat-succ-name?, lf-nat-op, each testing Nat's namespace), shared
+\ with the front end's reduceNat?.
 : lf-whnf-binary? ( name -- flag ) lf-nat-op 0< 0= ;
 : lf-whnf-op ( node -- i ) lf-whnf-head lf-const-name lf-nat-op ;
 : lf-whnf-matched? ( name n -- flag )
-  over lf-nat-name? 0= if 2drop false exit then
-  case 1 of s" succ" lf-name-str-is? endof  2 of lf-whnf-binary? endof
+  case 1 of lf-nat-succ-name? endof  2 of lf-whnf-binary? endof
     nip false swap endcase ;
 : lf-whnf-k7? ( node -- flag )
   lf-mhead-spine over lf-whnf-const? 0= if 2drop false exit then

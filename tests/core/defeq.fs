@@ -201,6 +201,18 @@ create one-level 2 cells allot
   0 one-level ! 0 lf-level-identity must one-level cell+ !
   lf-name-generation @ one-level 1 lf-cref-new must lf-cterm-new must drop ;
 T{ s" succ" nat-name leveled 0 make-sort make-app lf-whnf-k7? -> false }T
+\ The name test at arities 0 to 3 (review s3a-decide B1: core/nat-ops.fs's
+\ lf-nat-succ-name? and lf-nat-op, shared with the front end): Nat.succ at
+\ one argument and an operation at two only; Nat.pred, Nat.zero, Fin.succ
+\ and a root succ at none.
+: matched-at ( name -- f0 f1 f2 f3 ) 4 0 do dup i lf-whnf-matched? swap loop drop ;
+T{ s" succ" nat-name matched-at -> false true false false }T
+T{ s" add" nat-name matched-at s" shiftLeft" nat-name matched-at
+   -> false false true false false false true false }T
+T{ s" pred" nat-name matched-at s" zero" nat-name matched-at
+   -> false false false false false false false false }T
+T{ 0 s" Fin" lf-name-str must s" succ" lf-name-str must matched-at s" succ" name-of matched-at
+   -> false false false false false false false false }T
 
 \ Step 6: the same constant with equivalent universe arguments; with
 \ universe arguments that differ (Sort 1 and Sort 2 levels) not shown

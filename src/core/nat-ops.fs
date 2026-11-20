@@ -6,7 +6,9 @@
 \ those two kernel files, the kernel's behaviour unchanged).
 \ Public words:
 \   lf-nat-name? ( name -- flag )  whether a name is Nat.x, Nat a root name
-\   lf-nat-zero-name? ( name -- flag )  whether it is Nat.zero
+\   lf-nat-zero-name? lf-nat-succ-name? ( name -- flag )  whether it is
+\       Nat.zero, Nat.succ (the kernel's whnf, the front end's whnf and
+\       reduceNat? know them by name)
 \   lf-nat-op ( name -- i | -1 )  the index of the operation a name names:
 \       Nat.add 0, sub 1, mul 2, pow 3, gcd 4, mod 5, div 6, beq 7, ble 8,
 \       land 9, lor 10, xor 11, shiftLeft 12, shiftRight 13; -1 for any
@@ -159,8 +161,11 @@ constant nop-ops
 texts-begin texts+ add sub mul pow gcd mod div beq ble land lor xor shiftLeft shiftRight
 texts-end constant nop-names
 : lf-nat-name? ( name -- flag ) lf-name-prefix@ s" Nat" lf-name-top? ;
-: lf-nat-zero-name? ( name -- flag )
-  dup s" zero" lf-name-str-is? if lf-nat-name? else drop false then ;
+\ Whether a name is Nat.part (part one component).
+: nop-nat-part? ( name c-addr u -- flag )
+  2>r dup 2r> lf-name-str-is? if lf-nat-name? else drop false then ;
+: lf-nat-zero-name? ( name -- flag ) s" zero" nop-nat-part? ;
+: lf-nat-succ-name? ( name -- flag ) s" succ" nop-nat-part? ;
 \ The index of a name's last component in the table (lib/texts.fs), or -1.
 : nop-index ( name -- i | -1 ) ['] lf-name-str-is? nop-names texts-index ;
 : lf-nat-op ( name -- i | -1 ) dup lf-nat-name? 0= if drop -1 exit then nop-index ;

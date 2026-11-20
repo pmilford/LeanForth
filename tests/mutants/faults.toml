@@ -13508,8 +13508,8 @@ reason = "FE1c: a domain whose type is no sort, where Lean throws type expected,
 [[fault]]
 id = "fe-whnf-succ-name-unchecked"
 file = "src/front/whnf.fs"
-old = '''  dup lf-term-const? if lf-const-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
-new = '''  dup dup if lf-const-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
+old = '''  dup lf-term-const? if lf-const-name lf-nat-succ-name? wc-margs slab-count 1 = and'''
+new = '''  dup dup if lf-const-name lf-nat-succ-name? wc-margs slab-count 1 = and'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "review fe1c-2 M2: a major premise's head that is no constant is read as a constant reference (an unchecked store read; a free variable with Nat.succ's reference number answers unsupported)"
 
@@ -13604,11 +13604,11 @@ reason = "review fe1c-2 L3: HEq.ndrec is taken for an auxiliary recursor by its 
 
 [[fault]]
 id = "fe-env-nat-succ-any-prefix"
-file = "src/front/meta-env.fs"
-old = '''  dup s" succ" me-str? if lf-name-prefix@ s" Nat" me-top? else drop false then ;'''
-new = '''  dup s" succ" me-str? if drop true else drop false then ;'''
-test = "$GFORTH tests/front/meta-env.fs"
-reason = "review fe1c-2 L3: Fin.succ is taken for Nat.succ"
+file = "src/core/nat-ops.fs"
+old = '''  2>r dup 2r> lf-name-str-is? if lf-nat-name? else drop false then ;'''
+new = '''  2>r dup 2r> lf-name-str-is? if drop true else drop false then ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "review fe1c-2 L3: Fin.succ is taken for Nat.succ (and Int.zero for Nat.zero; core/nat-ops.fs's one test since review s3a-decide B1)"
 
 [[fault]]
 id = "fe-env-other-stage"

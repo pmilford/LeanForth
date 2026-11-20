@@ -20,3 +20,13 @@ old = '''    1+ swap text-next swap repeat 2drop 2drop -1 ;'''
 new = '''    1+ swap text-next swap repeat 2drop 2drop 0 ;'''
 test = "$GFORTH tests/lib/texts.fs"
 reason = "review s3a-decide B4: a search that finds no text answers 0, the first entry's index, instead of -1"
+
+# --- B1: one Nat.succ name test, core/nat-ops.fs's ---------------------------
+
+[[fault]]
+id = "s3a-kernel-succ-any-nat-name"
+file = "src/kernel/whnf.fs"
+old = '''  case 1 of lf-nat-succ-name? endof  2 of lf-whnf-binary? endof'''
+new = '''  case 1 of lf-nat-name? endof  2 of lf-whnf-binary? endof'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "review s3a-decide B1: the kernel's reduce_nat match takes any Nat.x of one argument (Nat.pred, Nat.zero) for Nat.succ"

@@ -108,6 +108,7 @@ require ../core/local-context.fs
 require ../core/mvar-leaves.fs
 require ../core/let-terms.fs
 require ../core/literals.fs
+require ../core/nat-ops.fs
 require ../core/projections.fs
 require ../core/input.fs
 require ../present/binder-table.fs
@@ -776,7 +777,7 @@ defer de-args-post ( -- )
 : de-delta? ( t -- flag )
   lf-meta-head dup de-const? 0= if drop false exit then
   lf-const-name df df-mode @ lf-menv-unfoldable de-must if nip else 2drop true then ;
-: de-nat-name? ( const -- flag ) lf-const-name lf-menv-nat-name? ;
+: de-nat-name? ( const -- flag ) lf-const-name lf-nat-name? ;
 : de-nat-op? ( t -- flag )
   dup lf-meta-args# 1 3 within 0= if drop false exit then
   lf-meta-head dup de-const? if de-nat-name? else drop false then ;

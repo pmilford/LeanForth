@@ -98,16 +98,11 @@ T{ -1 lf-menv-matcher? lf-input-count lf-menv-aux-recursor? -1 lf-menv-smart?
    -> false outcome-invalid false outcome-invalid false outcome-invalid }T
 T{ -1 lf-menv-proj-fn? -> false outcome-invalid }T
 \ The other two names isAuxRecursor lists; HEq.ndrec is no Eq.ndrec (the
-\ data's answer); Fin.succ is no Nat.succ (review fe1c-2 L3); Nat's
-\ namespace (reduceNat?).
+\ data's answer). (Nat.succ's and Nat's namespace's names are
+\ core/nat-ops.fs's since review s3a-decide B1: tests/core/nat-ops.fs.)
 T{ s" Eq.ndrec_symm" ' lf-menv-aux-recursor? fact s" Eq.ndrecOn" ' lf-menv-aux-recursor? fact
    -> true outcome-ok true outcome-ok }T
 T{ s" HEq.ndrec" ' lf-menv-aux-recursor? fact -> false outcome-ok }T
-T{ s" Nat.succ" menv-name lf-menv-nat-succ? s" Fin.succ" menv-name lf-menv-nat-succ?
-   s" Nat" menv-name lf-menv-nat-succ? -> true false false }T
-T{ s" Nat.add" menv-name lf-menv-nat-name? s" Fin.succ" menv-name lf-menv-nat-name?
-   s" Nat" menv-name lf-menv-nat-name? s" Nat.add.match_1" menv-name lf-menv-nat-name?
-   -> true false false false }T
 \ Without data read against the stage a definition's facts are unknown.
 0 lf-menv-stage!
 T{ s" Nat.add.match_1" ' lf-menv-matcher? fact s" HAdd.hAdd" ' lf-menv-proj-fn? fact

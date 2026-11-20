@@ -87,6 +87,16 @@ T{ 0 s" Foo" named s" Nat" named s" add" named lf-nat-op -> -1 }T
 T{ s" Nat" s" zero" dotted lf-nat-name? 0 s" Nat" named lf-nat-name? -> true false }T
 T{ s" Nat" s" zero" dotted lf-nat-zero-name? s" Nat" s" succ" dotted lf-nat-zero-name?
    0 s" zero" named lf-nat-zero-name? s" Int" s" zero" dotted lf-nat-zero-name? -> true false false false }T
+\ Nat.succ by its whole name (review s3a-decide B1: one test for the
+\ kernel's and the front end's whnf and reduceNat?): Fin.succ (review
+\ fe1c-2 L3), a root succ, Nat itself, Nat.zero, Foo.Nat.succ and
+\ Nat.succ.x are not; Nat.add.match_1 is not in Nat's namespace.
+T{ s" Nat" s" succ" dotted lf-nat-succ-name? s" Fin" s" succ" dotted lf-nat-succ-name?
+   0 s" succ" named lf-nat-succ-name? 0 s" Nat" named lf-nat-succ-name? -> true false false false }T
+T{ s" Nat" s" zero" dotted lf-nat-succ-name? 0 s" Foo" named s" Nat" named s" succ" named
+   lf-nat-succ-name? s" Nat" s" succ" dotted s" x" named lf-nat-succ-name? -> false false false }T
+T{ s" Nat" s" add" dotted s" match_1" named lf-nat-name? s" Nat" s" add" dotted lf-nat-name?
+   -> false true }T
 \ 7. The indices of the operations whose callers' policies differ.
 T{ lf-nat-op-pow lf-nat-op-shl s" pow" index-of s" shiftLeft" index-of -> 3 12 3 12 }T
 

@@ -46,7 +46,7 @@ require ./term-eqv.fs
 \ ---- The match: Nat.succ of one argument, an operation of two.
 : rn-succ ( e -- a b i true | false )
   dup lf-meta-head-name 0= if drop false exit then
-  lf-menv-nat-succ? if lf-term-second@ 0 lf-meta-nat-succ true else drop false then ;
+  lf-nat-succ-name? if lf-term-second@ 0 lf-meta-nat-succ true else drop false then ;
 : rn-args ( e -- a b ) dup lf-term-first@ lf-term-second@ swap lf-term-second@ ;
 : rn-binary ( e -- a b i true | false )
   dup lf-meta-head-name 0= if drop false exit then
