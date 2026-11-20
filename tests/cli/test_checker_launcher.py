@@ -3,7 +3,8 @@
 
 bin/leanforth-checker runs the command line on the checker's load alone
 (src/load/cli-checker.fs), and the export-only tests and pinned-Lean comparisons run it
-(the demos, the clamp's mutants, the run records; not the receipts, which run bin/leanforth), so that scripts/tested-tree.py reuses them across changes of the front end. This
+(scripts/program_receipt.py's LEANFORTH, which its receipts name, the demos, the clamp's mutants, leanforth verify's
+references), so that scripts/tested-tree.py reuses them across changes of the front end. This
 test is what makes that sound: on every command below, exports and snapshots only, both
 launchers give the same exit code, the same standard output and standard error and write the
 same files, byte for byte; only the JSON report's "measured" part (wall and CPU time, peak

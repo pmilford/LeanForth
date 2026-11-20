@@ -134,7 +134,7 @@ flowchart TD
   interp["IR interpreter vs host word vs Lean model<br/>src/program/ir-run.fs, task 2.5.4"]
   vc["Verification-condition generator v0<br/>obligations from IR and contract<br/>scripts/program_vc.py, untrusted, task 2.5.5"]
   leanchk["Proofs written and checked by Lean<br/>tactic scripts from the generator"]
-  lfchk["Lean's proofs exported with their closure<br/>re-checked by the LeanForth checker<br/>bin/leanforth check, task 5.5.1, clamp"]
+  lfchk["Lean's proofs exported with their closure<br/>re-checked by the LeanForth checker<br/>bin/leanforth-checker check, task 5.5.1, clamp"]
   run["RUN: tests on Gforth<br/>make test-program<br/>testing is not proof"]
   receipt["Receipt, schema 0.3<br/>check, verify and run kept apart<br/>clamp: LeanForth's verdict, task 5.5.1"]
 

@@ -75,11 +75,11 @@ Assumptions
       (scripts/program_vc.py). This is safe only because the contract theorem is stated
       against the IR semantics copied verbatim from tests/reference/program-ir.lean, and
       Lean prints the generated program back equal to the IR file.
-  A8  trusted-leanforth: LeanForth's checker (bin/leanforth check, 0.1.0-dev, verdict
-      version 9) checked every declaration of the export correctly: it accepted all 4,277
-      of them, the contract theorem, its obligations and every definition, inductive type
-      and lemma they use, directly or not, each with its axioms. It follows Lean 4.35.0's
-      kernel rules; it has no tactics and wrote no proof.
+  A8  trusted-leanforth: LeanForth's checker (bin/leanforth-checker check, 0.1.0-dev,
+      verdict version 9) checked every declaration of the export correctly: it accepted
+      all 4,277 of them, the contract theorem, its obligations and every definition,
+      inductive type and lemma they use, directly or not, each with its axioms. It follows
+      Lean 4.35.0's kernel rules; it has no tactics and wrote no proof.
 
 Proof outline (from the verification conditions)
   O1  If lower > upper: the word leaves false (bottom first), and the postcondition holds.

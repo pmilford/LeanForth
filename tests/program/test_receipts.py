@@ -626,6 +626,21 @@ class Documentation(unittest.TestCase):
                 self.assertIn(figure, text)
 
 
+class StatedLauncher(unittest.TestCase):
+    """A receipt names the launcher that ran (review M2 of layered-loads): the name comes from
+    program_receipt.LAUNCHER, which is also what the check step executes."""
+
+    def test_the_text_names_the_launcher_that_is_executed(self):
+        executed = Path(program_receipt.LEANFORTH[1]).relative_to(program_receipt.ROOT).as_posix()
+        self.assertEqual(executed, program_receipt.LAUNCHER)
+        self.assertEqual(program_receipt.leanforth_args("x.ndjson")[1], program_receipt.LEANFORTH[1])
+        text = program_receipt.leanforth_assumption({"version": "v", "verdictVersion": 1, "accepted": 2})["text"]
+        self.assertTrue(text.startswith(f"LeanForth's checker ({executed} check, v,"), text)
+
+    def test_the_launcher_is_the_checker_launcher(self):
+        self.assertEqual(program_receipt.LAUNCHER, "bin/leanforth-checker")
+
+
 class Reader(unittest.TestCase):
     """Finding 4 and the version rule: one strict reader for every receipt."""
 

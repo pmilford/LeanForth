@@ -165,7 +165,7 @@ flowchart TD
   sup["4b v1: proof export the user supplies<br/>--proofs, 8.4.1f"]
   tac["4c v2: LeanForth tactics<br/>FE5, FE9, FE10; 8.4.1l"]
   stmt["5 Statement pin, 8.4.1e-f<br/>contract restated in LeanForth text,<br/>semantics library pinned"]
-  kern["6 LeanForth's checker<br/>bin/leanforth check, final run<br/>the only judge"]
+  kern["6 LeanForth's checker<br/>bin/leanforth-checker check, final run<br/>the only judge"]
   dec["7 Outcome<br/>CHECK, VERIFY, RUN statuses<br/>exit status 0-6"]
   rec["8 Receipt, schema 0.3<br/>assumptions, hashes"]
   rep["Report: text or --json<br/>leanforth-verify-report 0.1"]
@@ -640,7 +640,7 @@ receipt's, abridged:
     {"id": "A5", "kind": "stack-capacity", "text": "The data and return stacks have room for the word's items; …"},
     {"id": "A6", "kind": "trusted-lean", "text": "Lean 4.35.0 elaborated verify-out/lf-clamp/obligations.lean and its exporter wrote the export faithfully: …"},
     {"id": "A7", "kind": "untrusted-generator", "text": "The obligations come from an untrusted generator (scripts/program_vc.py); safe because the contract theorem is stated against the IR semantics …"},
-    {"id": "A8", "kind": "trusted-leanforth", "text": "LeanForth's checker (bin/leanforth check, 0.1.0-dev, verdict version 9) checked every declaration of the export correctly: …"}],
+    {"id": "A8", "kind": "trusted-leanforth", "text": "LeanForth's checker (bin/leanforth-checker check, 0.1.0-dev, verdict version 9) checked every declaration of the export correctly: …"}],
   "tools": [{"name": "lean", "version": "4.35.0", "commit": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"},
     {"name": "leanforth", "version": "0.1.0-dev, verdict version 9"},
     {"name": "gforth", "version": "1.0.0"},
