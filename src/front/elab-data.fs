@@ -727,7 +727,7 @@ end-structure
   dup ed-form-claim ok-then? if swap ed-form-steps ed-steps else nip nip then ;
 \ A span's first number and count, the units of slab claimed between.
 : ed-span-open ( span slab -- ) slab-count swap ! ;
-: ed-span-close ( span slab -- ) slab-count over @ - swap cell+ ! ;
+: ed-span-close ( span slab -- ) over @ swap slab-since swap cell+ ! ;
 \ An array of naturals of 32 bits into elab-orders, as the span at addr.
 : ed-number-item ( item -- outcome ) ed-u32 elab-orders ed-push-ok ;
 \ The items of an array read by xt ( item -- outcome ), each pushing its
@@ -1013,7 +1013,7 @@ create ed-elim-keys  s" kind" counted, s" name" counted, s" types" counted, 0 0 
 : ed-elim-decl! ( value i -- outcome ) ed-elim swap ['] ed-elim-decl ed-decl-into ;
 : ed-type-item ( item -- outcome ) ed-decl elab-types ed-push-ok ;
 : ed-types-span ( addr -- )
-  elab-types slab-count over ed-elim-types @ - swap ed-elim-types# ! ;
+  dup ed-elim-types @ elab-types slab-since swap ed-elim-types# ! ;
 : ed-elim-types! ( value i -- outcome )
   ed-elim elab-types slab-count over ed-elim-types ! swap c" types" ed-member
   ['] ed-type-item ed-array-items swap ed-types-span ;
@@ -1199,7 +1199,7 @@ create ed-sun-members
 
 \ The universe parameters: their names in elab-orders, each f's next one.
 : ed-sun-decl@ ( -- d ) ed-sun-now ed-sun-decl @ ;
-: ed-params-read ( -- k ) elab-orders slab-count ed-sun-now ed-sun-params @ - ;
+: ed-params-read ( -- k ) ed-sun-now ed-sun-params @ elab-orders slab-since ;
 : ed-f-param ( k -- n )
   ed-sun-decl@ ed-stage staged-params@ ed-stage stage-tuples tuple-item ;
 : ed-next-param? ( n -- flag )

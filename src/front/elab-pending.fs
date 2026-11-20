@@ -403,7 +403,7 @@ defer ep-c-call ( first x frames cont -- ... frames next )
 : ep-only? ( -- flag ) epb epb-only @ 0< 0= ;
 : ep-prio ( -- p ) ep-only? if epb epb-only @ else epb epb-p @ ep-prio@ then ;
 : ep-prios# ( -- n ) ep-only? if 1 else ep-prios slab-count then ;
-: ep-defs# ( -- n ) ep-defs slab-count epb epb-defs @ - ;
+: ep-defs# ( -- n ) epb epb-defs @ ep-defs slab-since ;
 : ep-b-wrap ( -- )
   epb epb-j @ ep-defs# < if exit then 0 epb epb-j ! 1 epb epb-p +! ;
 : ep-b-done? ( -- flag ) epb epb-p @ ep-prios# < 0= ;
@@ -452,7 +452,7 @@ defer ep-b-next ( frames -- ... frames next )
 : ep-b-lost ( frames -- frames next | flag outcome frames 0 )
   false ep-b-default. drop ep-b-undo dup ok? 0= if false swap rot ep-b-end exit then
   drop ['] ep-b-next ;
-: ep-goals# ( -- n ) ep-goals slab-count epb epb-goals @ - ;
+: ep-goals# ( -- n ) epb epb-goals @ ep-goals slab-since ;
 : ep-b-after ( flag outcome frames -- ... frames next )
   over ok? 0= if ep-b-failed exit then rot if nip ep-b-won else nip ep-b-lost then ;
 : ep-b-tried ( flag outcome frames -- ... frames next )

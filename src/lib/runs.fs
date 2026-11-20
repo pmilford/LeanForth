@@ -164,7 +164,7 @@ lf-lib-private set-current
 : rn-test ( xt x -- keep? same? ) runs-cells >r swap execute runs-cells r> = ;
 : rn-kept ( first xt x -- first xt outcome )
   2dup rn-test 0= if 2drop outcome-invalid exit then if rn-put else drop outcome-ok then ;
-: rn-from ( first -- run outcome ) rn-cells slab-count over - rn-new ;
+: rn-from ( first -- run outcome ) dup rn-cells slab-since rn-new ;
 lf-lib set-current
 \ A new run of the cells the test xt ( x -- keep? ) keeps, in order; -1
 \ and the outcome when none is made (full; invalid for a handle that

@@ -21466,3 +21466,27 @@ old = ''': slab-since ( k slab -- n ) slab-count swap - ;'''
 new = ''': slab-since ( k slab -- n ) slab-count - ;'''
 test = "$GFORTH tests/lib/slab.fs"
 reason = "cleanup-families-2 (count since a mark): the units since k come out as k less the count"
+
+[[fault]]
+id = "cf2-span-close-whole"
+file = "src/front/elab-data.fs"
+old = ''': ed-span-close ( span slab -- ) over @ swap slab-since swap cell+ ! ;'''
+new = ''': ed-span-close ( span slab -- ) slab-count swap cell+ ! ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "cleanup-families-2 (count since a mark): an elaboration-data span's count is the whole slab's, not the units claimed since it opened"
+
+[[fault]]
+id = "cf2-rn-from-whole"
+file = "src/lib/runs.fs"
+old = ''': rn-from ( first -- run outcome ) dup rn-cells slab-since rn-new ;'''
+new = ''': rn-from ( first -- run outcome ) rn-cells slab-count rn-new ;'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "cleanup-families-2 (count since a mark): a run made from the cells pushed since first counts every cell of the slab"
+
+[[fault]]
+id = "cf2-pool-left-one-short"
+file = "src/import/snapshot-tier.fs"
+old = ''': pool-left ( pool tf -- u ) tf-pos @ swap slab-since ;'''
+new = ''': pool-left ( pool tf -- u ) tf-pos @ swap slab-since 1- ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "cleanup-families-2 (count since a mark): a tier pool's bytes left one short, so the last name, which ends the pool, is refused"

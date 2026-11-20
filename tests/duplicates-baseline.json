@@ -1606,20 +1606,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after the front branches merge; came with main's s2-unfold and s1-synth-b)",
   "tokens": 7
  },
- "c785f98ba48a": {
-  "copies": 6,
-  "kind": "shape",
-  "members": [
-   "src/front/elab-app.fs:ea-xn",
-   "src/front/elab-app.fs:ea-paramidx",
-   "src/front/elab-app.fs:ea-insts#",
-   "src/front/elab-data.fs:ed-params-read",
-   "src/front/elab-pending.fs:ep-defs#",
-   "src/front/elab-pending.fs:ep-goals#"
-  ],
-  "reason": "planned: 9.4.8k front batch (s1-elab's words, came with main's merge of s1-elab)",
-  "tokens": 6
- },
  "c8ab582adafb": {
   "copies": 2,
   "kind": "shape",

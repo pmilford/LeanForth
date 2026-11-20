@@ -692,7 +692,7 @@ defer lf-front-by-statement ( -- type )
 \ The declaration's step log, also when the log was cut (it says so); a
 \ declaration whose record or name finds no room cuts the log, left out.
 : lfg-entries ( addr -- addr )
-  trun trun-log-first @ over tld-first ! trun-log slab-count over tld-first @ -
+  trun trun-log-first @ over tld-first ! dup tld-first @ trun-log slab-since
   over tld-count ! ;
 : lfg-counts ( addr -- )
   lfg-entries lf-open-parts trun trun-parts-first @ - over tld-parts !
