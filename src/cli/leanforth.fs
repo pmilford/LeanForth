@@ -1138,7 +1138,8 @@ here cli-plain-chars - 2 cells / constant cli-plain-chars#
 \ exports and snapshots (src/load/cli-checker.fs) refuses a text: exit 4.
 defer cli-text-run ( -- )
 :noname ( -- )
-  ." error: bin/leanforth-checker checks exports and snapshots only; check a LeanForth text with bin/leanforth"
+  ." error: bin/leanforth-checker checks exports and snapshots only; "
+  ." check a LeanForth text with bin/leanforth"
   cr exit-malformed cli-code! ;
 is cli-text-run
 : cli-text-misused? ( -- flag )
