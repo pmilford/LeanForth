@@ -81,8 +81,9 @@ is kept. A match with a comment between its tokens, or inside the definition of 
 listed. A file that cannot see a word --to adds is refused with the require it needs; --add-require adds the
 require of the one file defining the word, or of FILE when given. Planted faults (tests/mutants/faults.toml and
 faults.d/*.toml) on a changed file whose old text no longer occurs once are carried over by the same rewrite of
-their old and new texts, and listed by id (those whose new text changed must be named in the commit message);
-one the rewrite cannot carry is named for a hand re-target. The result is checked with the detector on a
+their old and new texts, and listed by id: name each in the commit message (mutants.py's history rule);
+where the mutation lies inside the phrase, the old text alone is carried (the mutant then puts the old phrase back,
+mutated); one whose old text holds only part of the phrase is named for a hand re-target. The result is checked with the detector on a
 scratch copy first: a new or grown duplicate group refuses the whole (nothing written); groups it removes leave
 the baseline. It prints each site as file:line word and, under "REWRITE BY SCRIPT", the sites in src/kernel,
 src/core and src/import for the owner's report. --dry-run prints the diff only.
@@ -1196,10 +1197,12 @@ def fault_files(root):
 
 
 def fault_rewrites(root, pattern, texts):
-    """({toml path: new text}, [(id, new changed?)], [problems]): the planted faults on a changed file whose
-    old text the new file no longer holds, re-targeted by the same rewrite of their old and new texts."""
+    """({toml path: new text}, [(id, new changed?)], [notes]): the planted faults on a changed file whose
+    old text the new file no longer holds, re-targeted by the same rewrite of their old and new texts; where
+    the mutation lies inside the phrase (the rewrite does not apply to the new text), only the old text is
+    re-targeted, so the mutant puts the old phrase back with its mutation."""
     import tomllib
-    changed, done, problems = {}, [], []
+    changed, done, problems, kept = {}, [], [], []
     for path in fault_files(root):
         text = path.read_text(encoding="utf-8")
         entries = tomllib.loads(text).get("fault", [])
@@ -1214,10 +1217,13 @@ def fault_rewrites(root, pattern, texts):
                 continue
             old, n_old = pattern.apply(fault["old"])
             new, n_new = pattern.apply(fault["new"])
-            if n_old == 0 or n_old != n_new or new_file.count(old) != 1:
+            if n_old == 0 or new_file.count(old) != 1:
                 problems.append(f"fault {fault['id']} ({fault['file']}): its old text no longer occurs once "
                                 "and the rewrite cannot carry it over; re-target it by hand")
                 continue
+            if n_new != n_old:      # the mutation is inside the phrase: the mutant puts back the old,
+                new = fault["new"]  # mutated text in place of the rewritten one, which still tests the caller
+                kept.append(fault["id"])
             block = text[heads[k]:heads[k + 1]]
             for key, before, after in (("old", fault["old"], old), ("new", fault["new"], new)):
                 if before == after:
@@ -1238,6 +1244,8 @@ def fault_rewrites(root, pattern, texts):
                 problems.append(f"{path.relative_to(root)}: the re-targeted list does not parse back")
                 continue
             changed[path] = new_text
+    problems += [f"fault {i}: the mutation is inside the phrase; its new text, the old phrase mutated, now "
+                 "replaces the rewritten line" for i in kept]
     return changed, done, problems
 
 
@@ -1306,7 +1314,7 @@ def rewrite_report(one, diff, moved, problems, gone, dry_run):
         print(f"  warning: a line over {MEASURE_LIMIT} characters: {line.strip()[:60]}...")
     if gone:
         print(f"  duplicate groups gone: {', '.join(gone)}")
-    print("  planted faults re-targeted: " + (", ".join(f"{i}{' (new text changed)' if n else ''}"
+    print("  planted faults re-targeted (name each in the commit message): " + (", ".join(f"{i}{' (new text changed)' if n else ''}"
                                                        for i, n in moved) or "none"))
     for problem in problems:
         print("  warning: " + problem)

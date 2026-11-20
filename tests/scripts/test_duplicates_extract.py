@@ -423,10 +423,24 @@ class Rewrite(unittest.TestCase):
         faults = self.tree.text("tests/mutants/faults.toml")
         self.assertIn("old = ''': a-run ( a x o -- y o ) ['] a-step ok-apply2 ;'''", faults)
         self.assertIn("new = ''': a-run ( a x o -- y o ) drop ['] a-step ok-apply2 ;'''", faults)
-        self.assertIn("planted faults re-targeted: a-run-drops-first (new text changed)\n", out)
+        self.assertIn("planted faults re-targeted (name each in the commit message): a-run-drops-first (new text changed)\n", out)
         self.assertIn("old = ''': a-step ( x -- y ) 1+ 0 ;'''", faults)
         self.assertIn("fault b-run-no-drop (src/core/b.fs): its old text no longer occurs once", out)
         self.assertIn("old = '''  no-result exit then b-step ;'''", faults)
+
+    def test_a_mutation_inside_the_phrase_keeps_its_new_text(self):
+        (self.tree.root / "tests/mutants/faults.toml").write_text(
+            "[[fault]]\nid = \"a-run-tail\"\nfile = \"src/core/a.fs\"\n"
+            "old = \'\'\': a-run ( a x o -- y o ) " + GUARD + " a-step ;\'\'\'\n"
+            "new = \'\'\': a-run ( a x o -- y o ) " + GUARD + " drop 0 ;\'\'\'\n"
+            "test = \"true\"\nreason = \"r\"\n")
+        status, out = self.rewrite(GUARD + " $X ;", "['] $X ok-apply2 ;", "--paths", "src/core/a.fs")
+        self.assertEqual(status, 0, out)
+        faults = self.tree.text("tests/mutants/faults.toml")
+        self.assertIn("old = \'\'\': a-run ( a x o -- y o ) [\'] a-step ok-apply2 ;\'\'\'", faults)
+        self.assertIn("new = \'\'\': a-run ( a x o -- y o ) " + GUARD + " drop 0 ;\'\'\'", faults)
+        self.assertIn("planted faults re-targeted (name each in the commit message): a-run-tail\n", out)
+        self.assertIn("fault a-run-tail: the mutation is inside the phrase", out)
 
     def test_paths_limit_the_rewrite_and_the_dry_run_writes_nothing(self):
         before = self.tree.snapshot()
