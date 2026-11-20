@@ -488,6 +488,16 @@
   "reason": "false positive: the guarded test `x-tag if zero = else false then` of a view and of a level, different readers",
   "tokens": 7
  },
+ "3f63b99889cd": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/infer.fs:if-params-in",
+   "src/front/infer.fs:if-lambda"
+  ],
+  "reason": "false positive: a chain of two different steps after a first on outcome.fs's ok-apply (infer.fs's if-params-in and if-lambda), already the shared word",
+  "tokens": 7
+ },
  "41c780bc6e5c": {
   "copies": 2,
   "kind": "shape",
@@ -519,11 +529,12 @@
   "tokens": 17
  },
  "465b1376b48b": {
-  "copies": 4,
+  "copies": 5,
   "kind": "shape",
   "members": [
    "src/cli/check-run.fs:ck-left",
    "src/front/elab-term.fs:et-coe-at",
+   "src/front/infer.fs:if-induct-data",
    "src/kernel/defeq.fs:lf-lz-unknown",
    "src/present/log-check.fs:lf-lc-declaration?"
   ],
@@ -622,16 +633,6 @@
   ],
   "reason": "false positive: the guarded test `dup a? if b else drop true then`, each store's own two tests (terms, levels, references)",
   "tokens": 8
- },
- "55851178c722": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/infer.fs:if-params-in",
-   "src/front/infer.fs:if-lambda"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 14
  },
  "56076e76423f": {
   "copies": 2,

@@ -13411,8 +13411,8 @@ reason = "FE1c: a constant with the wrong number of universe levels gets a type,
 [[fault]]
 id = "fe-infer-args-left-loose"
 file = "src/front/infer.fs"
-old = '''  0 if-n ['] if-enter ok-each ok-then? if if-n swap if-flush else if-fail then ;'''
-new = '''  0 if-n ['] if-enter ok-each ok-then? if drop outcome-ok else if-fail then ;'''
+old = ''': if-flush-rest ( type j -- type' outcome ) if-n swap if-flush ;'''
+new = ''': if-flush-rest ( type j -- type' outcome ) drop outcome-ok ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: the arguments after the last whnf point are never put in, so the type keeps loose bound variables"
 
@@ -13452,9 +13452,9 @@ reason = "FE1c: an argument with a loose bound variable is put in without the li
 id = "fe-infer-no-whnf"
 file = "src/front/infer.fs"
 old = ''': if-to-pi ( type -- pi outcome )
-  lf-whnf-core ok-then? 0= if no-result exit then'''
+  lf-whnf-core ['] if-delta ok-apply'''
 new = ''': if-to-pi ( type -- pi outcome )
-  outcome-ok ok-then? 0= if no-result exit then'''
+  outcome-ok ['] if-delta ok-apply'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a function type that is no pi (a let variable, a metavariable) is not reduced by whnfCore first"
 
@@ -13493,8 +13493,8 @@ reason = "FE1c: only the innermost binder of a lambda is closed into a pi"
 [[fault]]
 id = "fe-infer-pi-imax-skipped"
 file = "src/front/infer.fs"
-old = '''  swap lf-meta-imax ;'''
-new = '''  drop outcome-ok ;'''
+old = ''': if-imax-of ( lvl level -- lvl' outcome ) swap lf-meta-imax ;'''
+new = ''': if-imax-of ( lvl level -- lvl' outcome ) drop outcome-ok ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a pi's sort leaves out its domains' levels (Type -> Nat would be Sort 1, not Sort 2)"
 
@@ -16851,8 +16851,8 @@ reason = "S1 §4: a text binder's name recorded as its kind"
 [[fault]]
 id = "fe-declevel-assign"
 file = "src/front/infer.fs"
-old = '''  dup idl-open? ok-then? 0= if nip no-result exit then if idl-fresh else idl-dec then ;'''
-new = '''  dup idl-open? ok-then? 0= if nip no-result exit then drop idl-dec ;'''
+old = ''': idl-by ( level flag -- level' outcome ) if idl-fresh else idl-dec then ;'''
+new = ''': idl-by ( level flag -- level' outcome ) drop idl-dec ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "S1 appendix D: decLevel never assigns ?u := succ ?w"
 
@@ -20397,7 +20397,7 @@ reason = "S2 merge B: an earlier field in a later field's type is put in as the 
 [[fault]]
 id = "fe-infer-proj-type-not-whnf"
 file = "src/front/infer.fs"
-old = '''  if-e ['] if-leaf-type if-body-by ok-then? if if-whnf-d else no-result then ;'''
+old = '''  if-e ['] if-leaf-type if-body-by ['] if-whnf-d ok-apply ;'''
 new = '''  if-e ['] if-leaf-type if-body-by ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "S2 merge B: the structure's type is not whnf'd (outParam (Prod Nat Nat)), so the projection is refused where Lean infers it"
@@ -21442,3 +21442,19 @@ old = '''  over ok? if nip execute else drop nip nip no-result then ;'''
 new = '''  nip execute ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "cleanup-families-2 (refusal tails): the step runs after a failure, on the failing outcome's values"
+
+[[fault]]
+id = "cf2-if-ctor-kind-any"
+file = "src/front/infer.fs"
+old = '''  dup lf-menv-kind lf-kind-constructor = if outcome-ok else if-bad then ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "cleanup-families-2 (infer.fs's refusal tails): a projection's structure whose constructor record names no constructor is taken as one"
+
+[[fault]]
+id = "cf2-if-skip-body-no-field"
+file = "src/front/infer.fs"
+old = '''  lf-term-second@ swap if-field ['] lf-meta-instantiate1 ok-apply2 ;'''
+new = '''  lf-term-second@ swap if-field drop drop outcome-ok ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "cleanup-families-2 (infer.fs's refusal tails): an earlier field j is not put into the next field's type"
