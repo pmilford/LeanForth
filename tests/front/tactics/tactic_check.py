@@ -60,9 +60,12 @@ def check_steps(name, logs):
 
 
 def check_files(files, want):
+    """Each file's check and dump run side by side (LEANFORTH_TEST_JOBS), read in order."""
     logs = []
+    finished = s2.run_many([argv for path, _ in files for argv in
+                            (s2.check_argv(path, "--steps", "-"), s2.dump_argv(path))])
     for path, names in files:
-        code, out = s2.check(path, "--steps", "-")
+        code, out = s2.outcome(next(finished))
         if code != 0:
             raise Failure(f"{path}: exit {code}\n{out}")
         logs += s2.step_lines(out)
@@ -73,7 +76,7 @@ def check_files(files, want):
         for name in names:
             if f"\n{name}: accepted; axioms: none" not in "\n" + out:
                 raise Failure(f"{path}: {name} not accepted with no axiom\n{out}")
-        lines = s2.dump(path)
+        lines = s2.dump_lines(path, next(finished))
         if len(lines) != 2 * len(names):
             raise Failure(f"{path}: {len(lines)} dumped lines for {names}")
         for line in lines:
@@ -85,19 +88,22 @@ def check_files(files, want):
 
 
 def check_refused(wrong, unsupported):
+    finished = s2.run_many([s2.check_argv(path) for path, *_ in list(wrong) + list(unsupported)])
     for path, number, first, detail in wrong:
-        code, out = s2.check(path)
+        code, out = s2.outcome(next(finished))
         if code != 4 or f"error {number} at " not in out or f"{first}\n{detail}" not in out:
             raise Failure(f"{path}: exit {code}, expected 4, error {number} and "
                           f"{first!r}\n{detail!r}\n{out}")
     for path, number, text in unsupported:
-        code, out = s2.check(path)
+        code, out = s2.outcome(next(finished))
         if code != 2 or f"error {number} at " not in out or text not in out:
             raise Failure(f"{path}: exit {code}, expected 2 with error {number}, {text!r}\n{out}")
 
 
 def check_lean(wrong, write):
-    done = s2.run([s2.lean_binary(), "tests/front/tactics/goal-layer.lean"])
+    done, wrong_done = s2.run_many([[s2.lean_binary(), source] for source in
+                                    ("tests/front/tactics/goal-layer.lean",
+                                     "tests/front/tactics/goal-layer-wrong.lean")])
     if done.returncode != 0:
         raise Failure(f"goal-layer.lean: exit {done.returncode}\n{done.stdout}{done.stderr}")
     lines = [line for line in done.stdout.splitlines() if DUMPED.match(line)]
@@ -105,11 +111,10 @@ def check_lean(wrong, write):
         GOLDEN.write_text("\n".join(lines) + "\n", encoding="utf-8")
     elif lines != GOLDEN.read_text(encoding="utf-8").splitlines():
         raise Failure("goal-layer.lean: pinned Lean's output is not goal-layer.golden")
-    done = s2.run([s2.lean_binary(), "tests/front/tactics/goal-layer-wrong.lean"])
-    out = done.stdout + done.stderr
+    out = wrong_done.stdout + wrong_done.stderr
     missing = [first for _, _, first, detail in wrong if f"{first}\n{detail}" not in out]
-    if done.returncode == 0 or missing:
-        raise Failure(f"goal-layer-wrong.lean: exit {done.returncode}, missing {missing}\n{out}")
+    if wrong_done.returncode == 0 or missing:
+        raise Failure(f"goal-layer-wrong.lean: exit {wrong_done.returncode}, missing {missing}\n{out}")
 
 
 def main(name, files, wrong, unsupported, extra=None):
