@@ -40,7 +40,7 @@
 \ lf-infer! (meta-must.fs); getExpectedNumArgsAux, getExpectedNumArgs ->
 \ lf-expected-num-args (telescope.fs); saveState/restore -> lf-commit-when;
 \ forallMetaTelescopeReducing -> lf-forall-meta-bounded-telescope;
-\ approxDefEq isDefEqGuarded -> lf-meta-defeq-guarded under lf-with-approx;
+\ approxDefEq isDefEqGuarded -> lf-defeq-approx! (meta-must.fs);
 \ synthInstance -> lf-synth-instance (synth.fs); isDefEq -> lf-defeq!;
 \ instantiateMVars -> lf-instantiate!; mkAppN -> lf-mk-app-n's fold
 \ (app-builder.fs); assign -> lf-mvar-assign; isAssigned ->
@@ -112,10 +112,9 @@ end-structure
   ap ap-target @ lf-expected-num-args drop - 0 max ap ap-lower ! ;
 
 \ ---- One count: the telescope, then isDefEqApply.
-: ap-defeq ( t s -- flag ) ['] lf-meta-defeq-guarded lf-with-approx outcome-sane lf-must ;
 : ap-telescope ( i -- body )
   >r 0 ap ap-etype @ ap ap-d @ r> ['] ap-new+ lf-forall-meta-bounded-telescope nip ;
-: ap-try ( i -- flag ) ap-news slab-clear ap-telescope ap ap-target @ ap-defeq ;
+: ap-try ( i -- flag ) ap-news slab-clear ap-telescope ap ap-target @ lf-defeq-approx! ;
 : ap-fits? ( i -- flag ) ['] ap-try lf-commit-when ;
 
 \ ---- throwApplyError (error 380).

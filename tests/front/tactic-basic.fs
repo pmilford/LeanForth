@@ -261,19 +261,31 @@ T{ refl-head lf-term-first@ lf-cref-slot lf-cref-pairs drop 0 lf-cref-pair@ drop
 T{ s" by-rfl end t" proof nrun err -> outcome-invalid 97 1 43 }T
 T{ detail s\"   p\nis not definitionally equal to the right-hand side\n  q\n\np q : Prop\n⊢ p = q"
    compare -> 0 }T
-\ Not an equation: 93 (p; Ne p q, a relation of three arguments too, which
-\ Lean's apply_rfl would try with @[refl] lemmas, plan FE5); not equal
-\ with a metavariable in a side: 93.
+\ Not an equation: 93 (p; Ne p q, whose whnf is p = q -> False and which
+\ Lean's applyRfl refuses as no binary relation, a message not ported:
+\ the macro's exact alternatives are not ported either, plan FE5); not
+\ equal with a metavariable in a side: applyRfl's approxDefEq says no too,
+\ 97 with the metavariable, as pinned Lean's 0 = ?n + 1 (plan 9.4.8l).
 ' just-p stating
 T{ s" by-rfl end t" proof nrun err -> outcome-unsupported 93 1 43 }T
 : ne-pq ( -- type )
   p-prop prop s" q" binder q ! level1 0 u! s" Ne" 1 cst prop app p @ app q @ app ;
 ' ne-pq stating
 T{ s" by-rfl end t" proof nrun err -> outcome-unsupported 93 1 43 }T
+\ A relation of three arguments other than Eq, which whnf leaves (R p p p,
+\ R a variable): Lean's applyRfl looks for @[refl] lemmas (plan FE5), 93.
+variable rr
+: r-ppp ( -- type )
+  p-prop prop prop prop prop arrow arrow arrow s" R" binder rr !
+  rr @ p @ app p @ app p @ app ;
+' r-ppp stating
+T{ s" by-rfl end t" proof nrun err -> outcome-unsupported 93 1 43 }T
 : eq-hole ( -- type )
   p-prop prop s" q" binder q ! p @ q @ prop mv-natural lf-mvar-new made arrow eq-of ;
 ' eq-hole stating
-T{ s" by-rfl end t" proof nrun err -> outcome-unsupported 93 1 43 }T
+T{ s" by-rfl end t" proof nrun err -> outcome-invalid 97 1 43 }T
+T{ detail s\"   p\nis not definitionally equal to the right-hand side\n  q → ?m.1\n\n"
+   search nip nip -> true }T
 
 \ Sides that differ but are definitionally equal (two proofs of p, by
 \ proof irrelevance): Lean's Eq.refl takes the left side (MVarId.refl,

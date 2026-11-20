@@ -59,15 +59,19 @@
 \       with e, Lean's occurs-check line and the goal; an unassigned
 \       metavariable in e answers 93 (Lean's checkAssignment would
 \       restrict it, not ported)
-\   lf-goal-refl ( goal -- )  MVarId.refl (Refl.lean:25) as applyRfl's Eq
-\       path reaches it (Rfl.lean:67-97): goal's type, instantiated and
-\       put through whnfCore, must be Eq applied to three arguments (any
-\       other goal: 93, Lean's @[refl] lemmas are plan FE5); its sides,
-\       instantiated, definitionally equal at the transparency in force
-\       (the elaborator's flags) close goal with @Eq.refl.{u} α lhs (Eq's
-\       own level and type); unequal is error 97 with Lean's text (the
-\       sides, the goal), or 93 with a metavariable left in a side
-\       (apply_rfl's approximations might still unify them)
+\   lf-goal-refl ( goal -- )  the rfl macro on an equation (Init/
+\       Tactics.lean:477-482): eq_refl, MVarId.refl (Refl.lean:25) under
+\       withAssignableSyntheticOpaque: goal's type through whnf at the
+\       transparency in force, instantiated (getType'), must be Eq applied
+\       to three arguments (any other goal: 93, exact Iff.rfl, exact
+\       HEq.rfl and @[refl] lemmas are plan FE5); its sides instantiated
+\       and definitionally equal close goal with @Eq.refl.{u} α lhs (Eq's
+\       own level and type); else applyRfl (Rfl.lean:67-97): the type
+\       instantiated through whnfR, a relation of two arguments or more
+\       (else 93), its last two compared by approxDefEq
+\       isDefEqGuarded (meta-must.fs's lf-defeq-approx!): unequal is error
+\       97 with Lean's text (the sides, the goal); equal sides of Eq close
+\       goal as above, of another relation 93 (@[refl] lemmas)
 \ Errors are thrown as authoring errors at the step running
 \ (tactic-run.fs's lf-tac-stop and lf-tac-fail), Meta failures as
 \ outcomes (meta-must.fs).
@@ -237,23 +241,42 @@ end-structure
   lf-must 2drop ;
 : lf-goal-checked-assign ( goal e -- ) mtg-holes-free mtg-in-scope mtg-assigned ;
 
-\ ---- MVarId.refl (Refl.lean:25) by applyRfl's Eq path (Rfl.lean:67-97):
-\ a frame per call (lf-with-record).
+\ ---- The rfl macro on an equation (Init/Tactics.lean:477-482): its
+\ alternatives exact Iff.rfl and exact HEq.rfl fail on a goal whose type
+\ is Eq after whnf (Iff, HEq and Eq: three inductive types, nothing
+\ unfolds), so eq_refl decides (MVarId.refl, Refl.lean:25, under
+\ withAssignableSyntheticOpaque, BuiltinTactic.lean:320), then on its
+\ failure applyRfl (Rfl.lean:67-97), whose error is the one Lean shows.
+\ A frame per call (lf-with-record).
 begin-structure /mrf
   field: mrf-goal        \ the goal
-  field: mrf-eq          \ its type, instantiated, through whnfCore
-  2 cells +field mrf-sides  \ its sides, instantiated: lhs rhs (2! and 2@)
+  field: mrf-eq          \ its type: getType' (eq_refl), then whnfR (applyRfl)
+  2 cells +field mrf-sides  \ that type's sides, instantiated: lhs rhs (2! and 2@)
 end-structure
 /mrf context-slab: mrf-frames
 : mrf ( -- frame ) mrf-frames slab-last ;
-: mtg-eq-of ( goal -- t ) lf-goal-type lf-instantiate! lf-whnf-core lf-must ;
+\ getType' (Util.lean:80): whnf at the transparency in force, instantiated.
+: mtg-eq-of ( goal -- t ) lf-goal-type lf-whnf! lf-instantiate! ;
 : mtg-is-eq ( t -- t ) dup lf-eq? if 2drop drop exit then outcome-unsupported lf-must ;
 : mtg-inst2 ( a b -- a' b' ) lf-instantiate! swap lf-instantiate! swap ;   \ b first
-: mrf-sides! ( -- ) mrf mrf-eq @ lf-eq? drop mtg-inst2 mrf mrf-sides 2! drop ;
-\ isDefEq at the transparency the step runs at (default; reducible under
-\ by-rw[ 's with_reducible), the elaborator's flags set outright
-\ (meta-must.fs's lf-defeq-elab-at: a fidelity gap, plan 9.4.8l I).
-: mrf-equal? ( -- flag ) mrf mrf-sides 2@ lf-defeq-mode lf-defeq-elab-at lf-must ;
+: mrf-eq! ( t -- ) dup mrf mrf-eq ! lf-eq? drop mtg-inst2 mrf mrf-sides 2! drop ;
+\ eq_refl's isDefEq: at the transparency the step runs at (default;
+\ reducible under by-rw[ 's with_reducible), the goals assignable.
+: mrf-sides-defeq ( -- flag outcome ) mrf mrf-sides 2@ lf-defeq-mode lf-defeq-elab-at ;
+: mrf-equal? ( -- flag ) ['] mrf-sides-defeq lf-with-assignable-opaque lf-must ;
+\ applyRfl's relation (Rfl.lean:69-86): t, the type instantiated through
+\ whnfR, applied to two arguments or more, its last two the sides (fewer:
+\ Lean's "binary relation" error, not ported, 93; HEq, whose HEq.refl
+\ path is not ported either, never comes here: its whnf is no Eq);
+\ approxDefEq isDefEqGuarded of the sides.
+: mrf-binary? ( t -- flag )
+  dup lf-term-app? if lf-term-first@ lf-term-app? else drop false then ;
+: mrf-rel ( t -- t ) dup mrf-binary? 0= if outcome-unsupported lf-must then ;
+: mrf-rel-sides ( t -- lhs rhs ) dup lf-term-first@ lf-term-second@ swap lf-term-second@ ;
+: mrf-whnf-r ( -- )
+  mrf mrf-goal @ lf-goal-type lf-instantiate! lf-whnf-r! mrf-rel
+  dup mrf mrf-eq ! mrf-rel-sides mrf mrf-sides 2! ;
+: mrf-approx? ( -- flag ) mrf mrf-sides 2@ lf-defeq-approx! ;
 : mrf-lhs ( -- lhs ) mrf mrf-sides 2@ drop ;
 \ @Eq.refl.{u} α lhs, u and α those of the goal's Eq (mkConst Eq.refl us,
 \ mkApp2).
@@ -263,21 +286,21 @@ end-structure
 : mrf-term ( -- e )
   mrf mrf-eq @ dup mtg-refl-const swap mtg-alpha lf-mk-app mrf-lhs lf-mk-app ;
 : mrf-closed ( -- ) mrf-term mrf mrf-goal @ mtg-set ;
-\ applyRfl's message: the two sides, then the goal; a metavariable left in
-\ a side answers 93 instead.
+\ applyRfl's message: the two sides, then the goal (addPPExplicitToExposeDiff
+\ not ported).
 : mtg-rhs. ( rhs -- outcome )
   s\" \nis not definitionally equal to the right-hand side\n" lf-pp-emit
   lf-tac-indented. ;
 : mrf-rfl. ( x -- outcome )
   drop mrf mrf-goal @ mrf mrf-sides 2@ swap ['] mtg-rhs. swap lf-tac-framed-with. ;
-: mrf-open? ( -- flag )
-  mrf mrf-sides 2@ swap lf-has-open-mvar? swap lf-has-open-mvar? or ;
-: mrf-unequal ( -- )
-  mrf-open? if outcome-unsupported lf-must then
-  0 ['] mrf-rfl. lf-tac-detail lfa-e-tac-rfl lf-tac-stop ;
+: mrf-unequal ( -- ) 0 ['] mrf-rfl. lf-tac-detail lfa-e-tac-rfl lf-tac-stop ;
+\ Equal sides of Eq close the goal; of another relation, Lean's @[refl]
+\ lemmas would (plan FE5): 93.
+: mrf-eq-closed ( -- ) mrf mrf-eq @ mtg-is-eq drop mrf-closed ;
+: mrf-apply-rfl ( -- ) mrf-whnf-r mrf-approx? 0= if mrf-unequal then mrf-eq-closed ;
 : mrf-run ( -- )
-  mrf mrf-goal @ mtg-eq-of mtg-is-eq mrf mrf-eq ! mrf-sides!
-  mrf-equal? if mrf-closed else mrf-unequal then ;
+  mrf mrf-goal @ mtg-eq-of mtg-is-eq mrf-eq!
+  mrf-equal? if mrf-closed else mrf-apply-rfl then ;
 : mrf-framed ( goal -- ) mrf mrf-goal ! mrf-run ;
 : lf-goal-refl ( goal -- ) lf-goal-not-assigned mrf-frames ['] mrf-framed lf-with-record ;
 base !   \ the BASE this file was loaded with

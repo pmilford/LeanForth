@@ -53,3 +53,71 @@ old = '''  ['] lf-meta-defeq lf-defeq-flags lf-defeq-elab or rot lf-meta-with ou
 new = '''  ['] lf-meta-defeq lf-defeq-elab rot lf-meta-with outcome-sane ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "review tactic-move M2 through exact: the opaque bit tcr-defeq sets lost inside lf-tac-defeq, Type mismatch where Lean closes ?o"
+
+# --- rfl: eq_refl's getType' and assignable goals, applyRfl's whnfR and
+# approxDefEq (Refl.lean:25, Rfl.lean:67-97, BuiltinTactic.lean:320) -------
+
+[[fault]]
+id = "tf-rfl-type-whnf-core"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mtg-eq-of ( goal -- t ) lf-goal-type lf-whnf! lf-instantiate! ;'''
+new = ''': mtg-eq-of ( goal -- t ) lf-goal-type lf-instantiate! lf-whnf-core lf-must ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l rfl: eq_refl's getType' by whnfCore, not whnf: id (r = r) answers 93 where Lean's rfl closes it"
+
+[[fault]]
+id = "tf-rfl-eq-refl-opaque-off"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mrf-equal? ( -- flag ) ['] mrf-sides-defeq lf-with-assignable-opaque lf-must ;'''
+new = ''': mrf-equal? ( -- flag ) mrf-sides-defeq lf-must ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l rfl: eq_refl without withAssignableSyntheticOpaque (BuiltinTactic.lean:320): ?o = r is 97 where Lean assigns ?o := r"
+
+[[fault]]
+id = "tf-rfl-apply-rfl-skipped"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mrf-equal? if mrf-closed else mrf-apply-rfl then ;'''
+new = '''  mrf-equal? if mrf-closed else mrf-unequal then ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l rfl: eq_refl's failure reported with its own sides, no applyRfl: id (r = s) prints r and s where Lean's message has Prop and r = s"
+
+[[fault]]
+id = "tf-rfl-apply-whnf-default"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mrf mrf-goal @ lf-goal-type lf-instantiate! lf-whnf-r! mrf-rel'''
+new = '''  mrf mrf-goal @ lf-goal-type lf-instantiate! lf-whnf! mrf-rel'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l rfl: applyRfl's whnfR made whnf (Rfl.lean:70): id unfolds, the message's sides r and s where Lean's are Prop and r = s"
+
+[[fault]]
+id = "tf-rfl-apply-whnf-default-e2e"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mrf mrf-goal @ lf-goal-type lf-instantiate! lf-whnf-r! mrf-rel'''
+new = '''  mrf mrf-goal @ lf-goal-type lf-instantiate! lf-whnf! mrf-rel'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
+reason = "9.4.8l rfl end to end: s2w-rfl-id.lf's message gives a and b where pinned Lean's gives Prop and a = b"
+
+[[fault]]
+id = "tf-rfl-no-approx"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mrf-approx? ( -- flag ) mrf mrf-sides 2@ lf-defeq-approx! ;'''
+new = ''': mrf-approx? ( -- flag ) mrf mrf-sides 2@ lf-defeq! ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l rfl: applyRfl without approxDefEq (Rfl.lean:89): the quasi pattern ?q r = s is 97 where Lean's applyRfl closes it (LeanForth: 93)"
+
+[[fault]]
+id = "tf-rfl-rel-unchecked"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mrf-rel ( t -- t ) dup mrf-binary? 0= if outcome-unsupported lf-must then ;'''
+new = ''': mrf-rel ( t -- t ) ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l rfl: a relation of fewer than two arguments read for sides (Lean's binary-relation error, not ported) instead of 93"
+
+[[fault]]
+id = "tf-rfl-other-rel-closed"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mrf-eq-closed ( -- ) mrf mrf-eq @ mtg-is-eq drop mrf-closed ;'''
+new = ''': mrf-eq-closed ( -- ) mrf-closed ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l rfl: equal sides of a relation other than Eq closed with Eq.refl where Lean looks for @[refl] lemmas (93; no slice goal reaches it, tactic-lib.fs drives mrf-eq-closed)"
+

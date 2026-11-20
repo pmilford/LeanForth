@@ -508,6 +508,52 @@ T{ fr fs lf-mk-eq goal-of ' lf-goal-refl code1 lf-author-code -> lf-author-throw
 T{ s\" r\nis not definitionally equal to the right-hand side\n  s\n\n" detail-has? -> true }T
 lf-tac-forget
 T{ nat goal-of ' lf-goal-refl code1 -> -4205 }T
+\ The rfl macro's two Eq alternatives (plan 9.4.8l, the rfl items):
+\ eq_refl reads the type through whnf (getType'), so id (r = r), whose
+\ whnfCore is itself, closes with @Eq.refl.{1} Nat r; id (r = s) fails
+\ there, and applyRfl's whnfR keeps id, a relation of two arguments: its
+\ sides Prop and r = s, unequal, are 97 (pinned Lean's text, tests/front/
+\ s2-wrong.lean's w_rfl_id; the goal printed @id Prop, where Lean's
+\ printer hides the implicit argument: plan 8.6).
+: id-eq ( a b -- t ) lf-mk-eq >r s" id" r> 1 lf-mk-app-m ;
+fr fr id-eq goal-of constant gid
+T{ gid lf-goal-refl gid lf-mvar-value drop dup 2 s" Eq.refl" lf-meta-app-of? swap lf-term-second@
+   -> true fr }T
+T{ fr fs id-eq goal-of ' lf-goal-refl code1 lf-author-code mrf-frames slab-count
+   -> lf-author-throw 97 0 }T
+T{ s\"   Prop\nis not definitionally equal to the right-hand side\n  r = s\n\n" detail-has?
+   s\" ⊢ @id Prop (r = s)" detail-has? -> true true }T
+lf-tac-forget
+\ applyRfl compares by approxDefEq: ?q r = s (r in ?q's context, a quasi
+\ pattern) is false for eq_refl, and Lean's applyRfl assigns ?q :=
+\ fun _ => s; LeanForth's quasi-patterns need isTypeCorrect (defeq.fs:
+\ not ported), 93: never eq_refl's false as 97.
+nat nat lf-term-pi lf-made! mv-natural lf-mvar-new made constant fq9
+T{ fq9 fr lf-mk-app fs lf-mk-eq goal-of ' lf-goal-refl code1 mrf-frames slab-count
+   -> -4205 0 }T
+\ A metavariable left in a side: applyRfl's false is 97 with it (pinned
+\ Lean: 0 = ?n + 1 after refine), no longer 93.
+nat mv-natural lf-mvar-new made constant fn9q
+: zero-succ ( -- goal ) zero s" Nat.succ" lf-mk-const0 fn9q lf-mk-app lf-mk-eq goal-of ;
+T{ zero-succ ' lf-goal-refl code1 lf-author-code fn9q lf-goal-assigned? -> lf-author-throw 97 false }T
+T{ s\" right-hand side\n  Nat.succ ?m." detail-has? -> true }T
+lf-tac-forget
+\ eq_refl compares with synthetic opaque metavariables assignable
+\ (BuiltinTactic.lean:320): ?o = r assigns ?o := r and closes.
+nat mv-opaque lf-mvar-new made constant fo9
+T{ fo9 fr lf-mk-eq goal-of lf-goal-refl fo9 lf-instantiate! -> fr }T
+\ A relation of fewer than two arguments after whnfR (a definition of an
+\ equation that whnfR does not unfold: Lean's "binary relation" error,
+\ not ported): 93; two arguments: the term itself.
+: rel-code ( t -- code ) ['] mrf-rel code1 ;
+: rel-same ( t -- flag code ) dup rel-code >r = r> ;
+T{ fr rel-code fr fs lf-mk-eq rel-same -> -4205 true 0 }T
+\ Equal sides of a relation other than Eq (no slice goal reaches it after
+\ eq_refl's failure): Lean's @[refl] lemmas, not ported, 93, the frame freed.
+: other-rel ( t -- ) mrf mrf-eq ! mrf-eq-closed ;
+: other-code ( t -- code )
+  mrf-frames ['] other-rel ['] lf-with-record catch dup if nip nip nip then ;
+T{ fr fr id-eq other-code mrf-frames slab-count -> -4205 0 }T
 \ checkNotAssigned first (review tactic-move M3): an assigned goal is
 \ refused, invalid, before its type is read, by introN (Nat: no binder,
 \ else 94) and by refl (Nat: no Eq, else 93's unsupported).

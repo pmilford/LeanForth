@@ -12,6 +12,11 @@
 \   lf-infer! ( e -- type )           inferType
 \   lf-level! ( type -- level )       getLevel
 \   lf-defeq! ( t s -- flag )         isDefEq (the configuration in force)
+\   lf-defeq-approx! ( t s -- flag )  approxDefEq <| isDefEqGuarded
+\                                     (Basic.lean:2125): foApprox, ctxApprox
+\                                     and quasiPatternApprox added to the
+\                                     configuration in force (meta-config.fs's
+\                                     lf-with-approx); apply's and rfl's test
 \   lf-instantiate! ( e -- e' )       instantiateMVars
 \   lf-has-open-mvar? ( e -- flag )   whether e holds a metavariable
 \                                     neither assigned nor delayed-assigned
@@ -107,6 +112,8 @@ require ./term-find.fs
 : lf-infer! ( e -- type ) lf-infer lf-must ;
 : lf-level! ( type -- level ) lf-get-level lf-must ;
 : lf-defeq! ( t s -- flag ) lf-meta-defeq outcome-sane lf-must ;
+: lf-defeq-approx! ( t s -- flag )
+  ['] lf-meta-defeq-guarded lf-with-approx outcome-sane lf-must ;
 : lf-instantiate! ( e -- e' ) lf-instantiate-mvars lf-must ;
 : lf-has-open-mvar? ( e -- flag ) ['] lf-mvar-open? lf-term-holds? lf-must ;
 \ isDefEq with the elaborator's flags (TermElabM's setElabConfig: foApprox

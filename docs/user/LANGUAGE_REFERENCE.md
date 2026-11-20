@@ -1049,7 +1049,12 @@ theorem t   0 0 + 0 =   := by   end t
 
 `by-rfl` is Lean's `rfl`: it closes `a = b` when both sides are
 definitionally equal and builds `Eq.refl` (`src/front/tactics/rfl.fs`, on
-the tactic library's `lf-goal-refl`). `by-exact` takes a term from the
+the tactic library's `lf-goal-refl`). As in Lean, the goal may become an
+equation only once a definition is unfolded: `a a = id`, Lean's
+`id (a = a)`, is closed (`tests/front/s2-rfl-id.lf`). When the sides
+differ, error 97 shows Lean's `apply_rfl` message, which unfolds only
+reducible definitions first: for `a b = id` its sides are `Prop` and
+`a = b`, the two arguments of `id` (`tests/front/s2w-rfl-id.lf`). `by-exact` takes a term from the
 stack and closes the goal with it (`src/front/tactics/exact.fs`, on
 `lf-close-main-goal-using`); a type mismatch is
 error 96. `by-intro: HYP-NAME` reads NAME, makes it a hypothesis word and, when

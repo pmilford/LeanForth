@@ -108,6 +108,9 @@ theorem ps_length_append (xs ys : List Nat) : (xs ++ ys).length = xs.length + ys
   | cons x t ih => rw [List.cons_append, List.length_cons, List.length_cons, ih, ps_succ_add]
 theorem add_zero' (n : Nat) : n + 0 = n := Eq.refl n
 theorem add_zero_rfl' (n : Nat) : n + 0 = n := by rfl
+-- rfl on an equation after whnf (plan 9.4.8l, tests/front/s2-rfl-id.lf):
+-- eq_refl's getType' unfolds id.
+theorem rfl_id (a : Nat) : id (a = a) := by rfl
 
 def pl (l : Level) : String := match l.toNat with
   | some n => toString n
@@ -132,5 +135,5 @@ def dump (n : Name) : MetaM Unit := do
   for n in [``zero_add', ``c_rev, ``c_suffix, ``c_prefix, ``c_shadow, ``c_under, ``c_order, ``c_rest,
       ``zero_add'', ``zero_add_nested, ``ps_zero_add, ``ps_succ_add, ``ps_add_comm,
       ``ps_add_assoc, ``ps_mul_add, ``ps_length_append, ``add_zero', ``add_zero_rfl',
-      ``zero_add_inner] do
+      ``zero_add_inner, ``rfl_id] do
     dump n
