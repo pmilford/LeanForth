@@ -4,7 +4,7 @@
 Usage (from the repository root):
   python3 scripts/mutants.py [--list FILE] [--root DIR] [--gforth GFORTH]
                              [--only ID,...] [--quick] [--check]
-                             [--timeout SECONDS] [--tmpdir DIR]
+                             [--timeout SECONDS] [--tmpdir DIR] [--jobs N]
 
 The list (default tests/mutants/faults.toml) holds one [[fault]] table per
 planted fault; every *.toml file of the folder faults.d beside it (tests/mutants/faults.d/,
@@ -46,6 +46,17 @@ unchanged copy, or the temporary directory would lie inside the root.
 nothing. --quick runs the faults marked quick (every entry is still checked
 for staleness); --only runs the named ones.
 
+--jobs N (default $LEANFORTH_TEST_JOBS, else min(4, cores), as tests/support/parallel_runs.py;
+`ulimit -u 500` holds for four) runs N faults at once, each in a copy of the tree of its own
+(the first copy, copied again N-1 times, with a scratch folder of its own); the controls run
+once, on the first copy; the results are printed in the listed order, so the output and the
+exit status are those of --jobs 1. A fault's test must not write a fixed file outside its copy
+(use LF_TEST_SCRATCH), or two runs at once could meet.
+
+A fault's test must not name the machine-local toolchain folder .tools/: a relative path of it
+exists only in the main checkout (a worktree has none); use $GFORTH and $LEAN. --check fails
+for such a test.
+
 The history rule (plan 9.4.8j; the s1-synth review's B1, where one commit
 overwrote 13 faults' replacement texts so that their files no longer
 loaded, unnoticed): a commit may change the file, the original text (old)
@@ -74,9 +85,12 @@ import sys
 import tempfile
 import time
 import tomllib
+import queue
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "tests" / "support"))
+import parallel_runs  # noqa: E402  (run_all: side-by-side runs, results in order; job_count)
 DEFAULT_LIST = "tests/mutants/faults.toml"
 FAULTS_DIR = "faults.d"   # beside the list: each *.toml in it is part of the list
 REQUIRED = ("id", "file", "old", "new", "test", "reason")
@@ -266,6 +280,16 @@ def history_problems(root, list_path, base):
         print(f"{'REPLACED UNNAMED':<34} {ident:<44} commit {commit} changes its file, old or "
               f"new text without naming it")
     return len(problems)
+
+
+# A relative .tools/ path (or one under $PWD): it exists only in the main checkout, never in a
+# linked checkout's copy of the tree, so such a fault's control fails there (2026-11-19, a tier).
+TOOLS_PATH = re.compile(r"""(?:^|[\s"'=:(;|&]|\$\{?PWD\}?/)(?:\./)?\.tools/""")
+
+
+def tools_path_faults(faults):
+    """The ids of the faults whose test command names a relative .tools/ path."""
+    return [f["id"] for f in faults if TOOLS_PATH.search(f["test"])]
 
 
 def expected(fault):
@@ -462,8 +486,41 @@ def inside(path, root):
         return False
 
 
+def make_slots(copy, work, env, count):
+    """COUNT scratch copies of the tree (the first is COPY itself) with their own environment and
+    scratch folder, as [(copy, env)]: faults run side by side each in a copy of its own."""
+    slots = []
+    for number in range(count):
+        place = copy if number == 0 else work / f"tree{number}"
+        if number:
+            shutil.copytree(copy, place, symlinks=True)
+        scratch = work / f"scratch{number}"
+        scratch.mkdir()
+        slots.append((place, dict(env, LF_TEST_SCRATCH=str(scratch))))
+    return slots
+
+
+def run_in_a_slot(slots, timeout):
+    """( fault -- (verdict, how, output, seconds) ): plant a fault in whichever copy is free."""
+    free = queue.Queue()
+    for slot in slots:
+        free.put(slot)
+
+    def run(fault):
+        copy, env = free.get()
+        try:
+            started = time.monotonic()
+            verdict, how, output = plant(copy, fault, env, timeout)
+            return verdict, how, output, time.monotonic() - started
+        finally:
+            free.put((copy, env))
+    return run
+
+
 def run_faults(root, chosen, args):
-    """Plant each chosen fault in a temporary copy: (exit status, counts)."""
+    """Plant each chosen fault in a temporary copy: (exit status, counts). With args.jobs above 1
+    that many copies are made and the faults run side by side, but the results are reported in
+    the listed order, as a serial run reports them; the controls run once, on the first copy."""
     gforth = resolve_gforth(root, args.gforth)
     env = test_environment(gforth)
     base = Path(args.tmpdir) if args.tmpdir else Path(tempfile.gettempdir())
@@ -475,16 +532,14 @@ def run_faults(root, chosen, args):
         copy = work / "tree"
         copy.mkdir()
         copy_tree(root, copy)
-        # The tests' scratch files (tests/support/scratch.fs) go to this run's own folder.
-        (work / "scratch").mkdir()
-        env["LF_TEST_SCRATCH"] = str(work / "scratch")
-        if not controls(chosen, copy, env, args.timeout):
+        # The tests' scratch files (tests/support/scratch.fs) go to each copy's own folder.
+        slots = make_slots(copy, work, env, max(1, min(args.jobs, len(chosen))))
+        if not controls(chosen, slots[0][0], slots[0][1], args.timeout):
             return 2, None
         counts = {"caught": 0, "known equivalent": 0, "known gap": 0, "unexpected": 0}
-        for fault in chosen:
-            started = time.monotonic()
-            verdict, how, output = plant(copy, fault, env, args.timeout)
-            if not report(fault, verdict, how, time.monotonic() - started, output):
+        results = parallel_runs.run_all(chosen, len(slots), run_in_a_slot(slots, args.timeout))
+        for fault, (verdict, how, output, seconds) in zip(chosen, results):
+            if not report(fault, verdict, how, seconds, output):
                 counts["unexpected"] += 1
             elif verdict == "caught":
                 counts["caught"] += 1
@@ -513,6 +568,9 @@ def main(argv=None):
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--history", action="store_true")
     parser.add_argument("--base", default="main")
+    parser.add_argument("--jobs", type=int, default=parallel_runs.job_count(),
+                        help="faults run at once, each in a copy of its own (default: "
+                             "$LEANFORTH_TEST_JOBS, else min(4, cores))")
     parser.add_argument("--timeout", type=float, default=120.0)
     parser.add_argument("--tmpdir", default=None)
     args = parser.parse_args(argv)
@@ -536,9 +594,13 @@ def main(argv=None):
             print(f"{'STALE':<34} {fault['id']:<44} {fault['file']}: {why}")
     if args.check:
         unnamed = history_problems(root, list_path, args.base)
+        tools = tools_path_faults(faults)
+        for ident in tools:
+            print(f"{'TOOLS PATH':<34} {ident:<44} its test names a relative .tools/ path; "
+                  f"use $GFORTH or $LEAN")
         print(f"mutants: {len(faults)} entries, {len(stale)} stale, {unnamed} replacement texts "
-              f"changed unnamed since {args.base}")
-        return 1 if stale or unnamed else 0
+              f"changed unnamed since {args.base}, {len(tools)} tests naming .tools/")
+        return 1 if stale or unnamed or tools else 0
     try:
         chosen = selected(faults, args, stale)
     except ListError as error:

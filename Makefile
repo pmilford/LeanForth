@@ -1276,9 +1276,12 @@ test-differential: reference-author
 # the seconds one test may take (a fault that times out counts as caught).
 MUTANTS_TIMEOUT ?= 3600
 MUTANT_TEST_TIMEOUT ?= 120
+# Faults run side by side, each in a copy of the tree (scripts/mutants.py --jobs): JOBS, at most 4
+# (the runs go under ulimit -u 500); MUTANT_JOBS=N overrides.
+MUTANT_JOBS ?= $(shell python3 -c 'print(max(1, min(4, int("$(JOBS)" or 1))))')
 mutants:
 	LEAN=$(LEAN_BINARY) timeout $(MUTANTS_TIMEOUT) python3 scripts/mutants.py --gforth $(GFORTH) \
-	--timeout $(MUTANT_TEST_TIMEOUT) $(if $(FAULTS),--only $(FAULTS))
+	--timeout $(MUTANT_TEST_TIMEOUT) --jobs $(MUTANT_JOBS) $(if $(FAULTS),--only $(FAULTS))
 
 mutants-quick:
 	LEAN=$(LEAN_BINARY) $(RUN) python3 scripts/mutants.py --gforth $(GFORTH) --quick

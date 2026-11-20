@@ -577,7 +577,12 @@ of `src/` (the front tier too) runs the branch coverage check first
   folder; a folder no target uses makes the range full.
 - Faults: those whose `file` or `test` command names a changed file, and,
   when `tests/mutants/faults.toml` or a `faults.d` file changed, the entries new or changed since
-  the base (`make mutants FAULTS=id,...`). The full tier (plan 9.4.8j, after
+  the base (`make mutants FAULTS=id,...`). An edit of the list selects only the entries added or
+  changed, plus the few faults whose test reads the list as data. The tier's text (`make tier
+  DRY_RUN=1`) prints `faults: N selected` and, below it, how many each changed file and the
+  changed entries selected, so a surprise shows before the run. A path that a Forth program only
+  prints (`." ... "`, `.( ... )`) is not a file it reads. The fault run goes side by side, at most
+  four at once (below). The full tier (plan 9.4.8j, after
   the s1-synth review's B1) runs the entries new or changed since the base
   and the faults whose old text lies on or next to a line the change touched
   in its file (`git diff -U0`); a fault of a changed file whose text was left
@@ -1273,6 +1278,19 @@ before and after the run and fails if anything changed, and
 `make test-mutants` (part of `make test`) checks every verdict and exit
 status on a small tree, and that the tree is untouched after each run.
 
+`--jobs N` runs N faults at once, each in a copy of the tree of its own (the first copy is copied
+N-1 times, each with its own `LF_TEST_SCRATCH` folder). The controls run once, on the first copy,
+and the results are printed in the listed order, so the output and the exit status are those of a
+serial run. The default is `$LEANFORTH_TEST_JOBS`, else the smaller of 4 and the cores, as
+`tests/support/parallel_runs.py`; `make mutants` passes `JOBS` capped at 4 (`MUTANT_JOBS=N`
+overrides), because of `ulimit -u 500`. A fault's test must not write a fixed file outside its
+copy, or two runs at once could meet. Measured on 2026-11-20, 40 faults of mixed kinds (every
+79th of the list), `--jobs 1`: 254 s; `--jobs 4`: 202 s, the same verdicts (about 80 s of both is the copy and the controls, and one fault that times out takes 120 s on its own; the other 39 took 54 s in all).
+
+A fault's test must not name a relative `.tools/` path: it exists only in the main checkout, so
+the control fails in a linked checkout (a tier of 2026-11-19 failed so). Use `$GFORTH` and
+`$LEAN`; `scripts/mutants.py --check` (and so the pre-tier check) fails for such a test.
+
 | Target | What it runs |
 | --- | --- |
 | `make mutants` | every fault (about 25 s on Gforth 1.0; not part of `make test` or `make check`) |
@@ -1419,7 +1437,7 @@ which is what `make mutants` asks. The 2026-11-02 review's figure (90.7% of
 
 `scripts/pre-tier.sh` (2026-11-19) runs every cheap whole-repository check in one keep-going pass of about two
 minutes and prints one line for each: a clean tree, the test classes, duplicates, new small copies, the style ratchet and review
-log, library callers, the steps of the outcome chains, the progress check, the agents' definitions, the planted-fault table, the layer entries (`scripts/check-layers.py`), the error catalogue
+log, library callers, the steps of the outcome chains, the progress check, the agents' definitions, the planted-fault table (stale entries, unnamed replacements, and a fault test naming `.tools/`), the layer entries (`scripts/check-layers.py`), the error catalogue
 (`docs/programming/LEANFORTH_WORDS.md` against the messages of `src/author/errors.fs`), documentation links
 and examples, portable Forth, the Lean source citations, the export list, the standalone libraries, no runner
 falling back to an unpinned `lean`, and a scan of the Python scripts for undefined, shadowed or twice-defined

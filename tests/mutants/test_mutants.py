@@ -20,6 +20,7 @@ Python 3.11 and bash; runs no Forth.
 import contextlib
 import io
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -119,6 +120,94 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual(status, 0, output)
         status, output = self.run_list(CAUGHT, "--only", "nonesuch")
         self.assertEqual(status, 2, output)
+
+    def test_tools_path_in_a_test_fails_the_check(self):
+        """A relative .tools/ path exists only in the main checkout: --check refuses it."""
+        for test in ("LEAN=.tools/elan/bin/lean sh check.sh", "./.tools/gforth/bin/gforth x.fs",
+                     'sh $PWD/.tools/x', "cd . && .tools/a/b"):
+            status, output = self.run_list(entry("uses-tools", "alpha", "gamma", test=test), "--check")
+            self.assertEqual(status, 1, (test, output))
+            self.assertRegex(output, r"(?m)^TOOLS PATH +uses-tools")
+            self.assertIn("1 tests naming .tools/", output)
+        for test in ("sh check.sh", "/home/me/.tools/gforth/bin/gforth check.sh", "$GFORTH check.sh",
+                     "sh check.sh # not.tools/ here"):
+            status, output = self.run_list(entry("fine", "alpha", "gamma", test=test), "--check")
+            self.assertEqual(status, 0, (test, output))
+            self.assertIn("0 tests naming .tools/", output)
+
+    def test_the_checked_in_list_names_no_tools_path(self):
+        self.assertEqual(mutants.tools_path_faults(mutants.load_list(ROOT / mutants.DEFAULT_LIST)), [])
+
+    def list_with_slow_first(self):
+        """Four faults, the first slowest, with every kind of result, for the parallel runs."""
+        slow = entry("slow-first", "alpha", "gamma", test="sh slow-caught.sh")
+        return slow + CAUGHT + EQUIVALENT + SURVIVOR + GAP_CAUGHT
+
+    def write_slow_caught(self):
+        (self.root / "slow-caught.sh").write_text("#!/bin/sh\nsleep 1\ngrep -qx alpha src/word.txt\n")
+        self.before = snapshot(self.root)
+
+    @staticmethod
+    def without_times(output):
+        return re.sub(r" +\d+\.\ds$", "", output, flags=re.M)
+
+    def test_parallel_output_is_the_serial_output(self):
+        self.write_slow_caught()
+        text = self.list_with_slow_first()
+        serial = self.run_list(text, "--jobs", "1")
+        for jobs in ("2", "4", "9"):
+            parallel = self.run_list(text, "--jobs", jobs)
+            self.assertEqual(parallel[0], serial[0], (jobs, parallel))
+            self.assertEqual(self.without_times(parallel[1]), self.without_times(serial[1]), jobs)
+        self.assertEqual(serial[0], 1, serial)
+        self.assertRegex(serial[1], r"(?m)^slow-first|^caught +slow-first")
+        order = re.findall(r"(?m)^(?:caught|survived|SURVIVED|CAUGHT)[^\n]*?(\S+) +exit", serial[1])
+        self.assertEqual(order, ["slow-first", "drops-alpha", "changes-beta", "unseen", "gap-but-caught"])
+
+    def test_faults_run_at_once_each_in_its_own_copy(self):
+        """Two tests that both see their own fault planted, and each other's marker: only side
+        by side, in copies of their own, can both find the other's marker in time."""
+        folder = self.list.parent / "markers"
+        folder.mkdir()
+        script = ("#!/bin/sh\nif ! grep -qx alpha src/word.txt; then\n  touch \"$1/run-$2\"\n"
+                  "  for i in 1 2 3 4 5 6 7 8 9 10 11 12; do [ -e \"$1/run-$3\" ] && break; sleep 0.2; done\n"
+                  "  [ -e \"$1/run-$3\" ] && touch \"$1/both-$2\"\n  exit 1\nfi\nexit 0\n")
+        (self.root / "meet.sh").write_text(script)
+        self.before = snapshot(self.root)
+        text = (entry("first-one", "alpha", "gamma", test=f"sh meet.sh {folder} a b") +
+                entry("second-one", "alpha", "delta", test=f"sh meet.sh {folder} b a"))
+        status, output = self.run_list(text, "--jobs", "2", "--timeout", "20")
+        self.assertEqual(status, 0, output)
+        self.assertEqual(sorted(p.name for p in folder.iterdir()), ["both-a", "both-b", "run-a", "run-b"])
+
+    def test_serial_run_does_not_meet(self):
+        folder = self.list.parent / "markers"
+        folder.mkdir()
+        (self.root / "meet.sh").write_text("#!/bin/sh\nif ! grep -qx alpha src/word.txt; then\n"
+                                           f"  touch {folder}/run-$1\n  [ -e {folder}/run-$2 ] && touch {folder}/both-$1\nfi\n"
+                                           "grep -qx alpha src/word.txt\n")
+        self.before = snapshot(self.root)
+        text = (entry("first-one", "alpha", "gamma", test="sh meet.sh a b") +
+                entry("second-one", "alpha", "delta", test="sh meet.sh b a"))
+        status, output = self.run_list(text, "--jobs", "1")
+        self.assertEqual(status, 0, output)
+        self.assertEqual(sorted(p.name for p in folder.iterdir()), ["both-b", "run-a", "run-b"],
+                         "serial: the second fault's run finds the first's marker, never the reverse")
+
+    def test_controls_run_once_whatever_the_jobs(self):
+        folder = self.list.parent / "controls"
+        folder.mkdir()
+        (self.root / "count.sh").write_text(f"#!/bin/sh\necho x >> {folder}/log\ngrep -qx alpha src/word.txt\n")
+        self.before = snapshot(self.root)
+        text = entry("one", "alpha", "gamma", test="sh count.sh") + entry("two", "alpha", "delta", test="sh count.sh")
+        status, output = self.run_list(text, "--jobs", "2")
+        self.assertEqual(status, 0, output)
+        self.assertEqual(len((folder / "log").read_text().split()), 3, "one control and two faults")
+
+    def test_parallel_failing_control_stops(self):
+        status, output = self.run_list(entry("broken", "alpha", "gamma", test="false"), "--jobs", "3")
+        self.assertEqual(status, 2, output)
+        self.assertIn("control FAILED", output)
 
     def test_timeout_counts_as_caught(self):
         status, output = self.run_list(entry("hangs", "alpha", "gamma", test="sh slow.sh"))
