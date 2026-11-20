@@ -119,12 +119,18 @@ def kind(path):
     return ".sh" if not ext and path.startswith("bin/") else ext
 
 
+# Text a Forth program only prints (." ... " and .( ... )): help texts that name files in passing.
+PRINTED = re.compile(r'(?<!\S)(?:\."\s[^"]*"|\.\([^)]*\))')
+
+
 def code_of(path, text):
-    """The text of a program without its comment lines and module docstring."""
+    """The text of a program without its comment lines and module docstring (a Forth program:
+    and without the text it only prints, which names a file without reading it)."""
     if path.endswith(".py"):
         text = DOCSTRING.sub("", text, count=1)
     mark = COMMENT[kind(path)]
-    return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith(mark))
+    code = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith(mark))
+    return PRINTED.sub(" ", code) if path.endswith(".fs") else code
 
 
 def forth_loads(path, text):

@@ -1387,7 +1387,7 @@ search unfolds reducible definitions in its keys, as Lean's does):
 | Form | Example |
 | --- | --- |
 | mathematics | $3^2 + 4^2 = 5^2$; $20 > 10 \land 10 \ge 10 \land 3 \ne 4$ |
-| LeanForth | `3 3 * 4 4 * + 5 5 * =`, `20 10 GT.gt 10 10 GE.ge 3 4 Ne And And`, proved by `by-decide` |
+| LeanForth | `3 3 * 4 4 * + 5 5 * =`, `20 10 GT.gt 10 10 GE.ge 3 4 Ne And And`, each with `by-decide` as its proof and checked by LeanForth's kernel |
 | Lean | `theorem d_compare : 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4 := by decide` |
 
 ```text

@@ -228,8 +228,8 @@ def side_by_side(function, items):
 
 
 class ExitCodes(unittest.TestCase):
-    def expect(self, args, code, lines):
-        status, out, err = run(*args)
+    def expect(self, args, code, lines, cwd=ROOT):
+        status, out, err = run(*args, cwd=cwd)
         self.assertEqual((status, out.splitlines(), err), (code, lines, ""), args)
 
     def test_0_accepted(self):
@@ -565,23 +565,36 @@ class ExitCodes(unittest.TestCase):
         self.assertEqual((status, out.splitlines()[0]),
                          (4, "usage: leanforth COMMAND [OPTION]... [FILE]..."))
 
+    def victim(self, folder):
+        """COMPOSITION and its manifest copied into folder, beside a folder sub: the export the
+        refused outputs below name, so that a run that drops the refusal writes over this copy,
+        never over tests/reference, which later tests read (2026-11-20, scripts/mutants.py)."""
+        for suffix in ("", MANIFEST):
+            (Path(folder) / ("composition.ndjson" + suffix)).write_bytes(
+                (ROOT / (COMPOSITION + suffix)).read_bytes())
+        (Path(folder) / "sub").mkdir()
+        return Path(folder) / "composition.ndjson"
+
     def test_4_copy_over_export(self):
-        self.expect(["reexport", COMPOSITION, COMPOSITION], 4, ["error: COPY must not be EXPORT"])
-        self.expect(["reexport", COMPOSITION, "tests/../" + COMPOSITION], 4,
-                    ["error: COPY must not be EXPORT"])
         with tempfile.TemporaryDirectory() as folder:
-            self.expect(["reexport", COMPOSITION, f"{folder}/missing/copy.ndjson"], 4,
-                        ["error: cannot create the copy"])
+            export = self.victim(folder)
+            for copy in ["composition.ndjson", "sub/../composition.ndjson"]:
+                self.expect(["reexport", "composition.ndjson", copy], 4,
+                            ["error: COPY must not be EXPORT"], cwd=folder)
+            self.assertEqual(export.read_bytes(), (ROOT / COMPOSITION).read_bytes())
+            self.expect(["reexport", "composition.ndjson", "missing/copy.ndjson"], 4,
+                        ["error: cannot create the copy"], cwd=folder)
 
     def test_4_record_over_export(self):
-        self.expect(["check", "--record", COMPOSITION, COMPOSITION], 4,
-                    ["error: RECORD must not be EXPORT"])
-        self.expect(["check", "--record", "tests/../" + COMPOSITION, COMPOSITION], 4,
-                    ["error: RECORD must not be EXPORT"])
         with tempfile.TemporaryDirectory() as folder:
-            self.expect(["check", "--record", f"{folder}/missing/run.json", COMPOSITION], 4,
+            export = self.victim(folder)
+            for record in ["composition.ndjson", "sub/../composition.ndjson"]:
+                self.expect(["check", "--record", record, "composition.ndjson"], 4,
+                            ["error: RECORD must not be EXPORT"], cwd=folder)
+            self.assertEqual(export.read_bytes(), (ROOT / COMPOSITION).read_bytes())
+            self.expect(["check", "--record", "missing/run.json", "composition.ndjson"], 4,
                         [f"composition: {LABEL}", "1 declaration: 1 accepted", accepted(1),
-                         "error: the run record was not written: invalid"])
+                         "error: the run record was not written: invalid"], cwd=folder)
 
     def test_5_broken_gforth(self):
         with tempfile.TemporaryDirectory() as folder:

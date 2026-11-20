@@ -1,5 +1,5 @@
 {
-  "comment": "The pinned-Lean twin of each LeanForth proof file: the Lean file that the tests compare against (check_elab.py for s1-rfl, check_s2.py --lean for s2-proofs.lean) and, where a theorem has another name there, that name. Read by tests/front/check_s2.py and scripts/showcase-steps-format.py. A file with no entry has no recorded twin.",
+  "comment": "The pinned-Lean twin of each LeanForth proof file: the Lean file that the tests compare against (check_elab.py for s1-rfl, check_s2.py --lean for s2-proofs.lean, tactics/decide/check.py --lean for goal-layer.lean) and, where a theorem has another name there, that name. Read by tests/front/check_s2.py and scripts/showcase-steps-format.py. A file with no entry has no recorded twin.",
   "twins": {
     "tests/front/s1-rfl.lf": {"lean": "tests/front/s1-rfl.lean", "names": {}},
     "tests/front/01-zero-add-rw.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
@@ -14,6 +14,11 @@
     "tests/front/01-zero-add.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
     "tests/front/s2-case.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
     "tests/front/04-nested-first.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
-    "tests/front/03-zero-add-exact.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}}
+    "tests/front/03-zero-add-exact.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
+    "tests/front/tactics/decide/dc-arith.lf": {"lean": "tests/front/tactics/goal-layer.lean", "names": {}},
+    "tests/front/tactics/decide/dc-logic.lf": {"lean": "tests/front/tactics/goal-layer.lean", "names": {}},
+    "tests/front/tactics/decide/dc-ops.lf": {"lean": "tests/front/tactics/goal-layer.lean", "names": {}},
+    "tests/front/tactics/decide/dc-init.lf": {"lean": "tests/front/tactics/goal-layer.lean", "names": {}},
+    "tests/front/tactics/decide/dc-ops-init.lf": {"lean": "tests/front/tactics/goal-layer.lean", "names": {}}
   }
 }

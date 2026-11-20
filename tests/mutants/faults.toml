@@ -4126,13 +4126,46 @@ reason = "a corrupted list length of 2^32 - 1 wraps its span on a 32-bit host, a
 [[fault]]
 id = "runner-plants-in-tree"
 file = "scripts/mutants.py"
-old = '''        copy = work / "tree"
-        copy.mkdir()
-        copy_tree(root, copy)'''
-new = '''        copy = root'''
+old = '''                verdict, how, output = plant(slot.copy, fault, slot.env, timeout)'''
+new = '''                verdict, how, output = plant(slot.reference, fault, slot.env, timeout)'''
 test = "python3 tests/mutants/test_mutants.py"
-reason = "the runner plants faults in the tree it was given instead of a copy"
+reason = "the runner plants faults and runs their tests in the pristine tree every copy is rebuilt from, not in a copy: what a test writes is never seen"
 quick = true
+
+[[fault]]
+id = "runner-copy-not-rebuilt"
+file = "scripts/mutants.py"
+old = '''        if changed or new:'''
+new = '''        if False:'''
+test = "python3 tests/mutants/test_mutants.py"
+reason = "a copy a fault's test wrote into is used again as it was left, so the faults after it are judged on a spoiled tree (2026-11-20)"
+
+[[fault]]
+id = "runner-scratch-kept"
+file = "scripts/mutants.py"
+old = '''            shutil.rmtree(folder)
+            folder.mkdir()'''
+new = '''            pass'''
+test = "python3 tests/mutants/test_mutants.py"
+reason = "the scratch and temporary folders keep what a test left there, so the next test does not start empty"
+
+[[fault]]
+id = "runner-copy-change-passes"
+file = "scripts/mutants.py"
+old = '''    good = (verdict != "broken" and not changed'''
+new = '''    good = (verdict != "broken"'''
+test = "python3 tests/mutants/test_mutants.py"
+reason = "a fault whose test changed files of its copy passes as caught, so the test that spoils the tree is never fixed"
+
+[[fault]]
+id = "runner-control-change-passes"
+file = "scripts/mutants.py"
+old = '''        if changed:
+            good = False'''
+new = '''        if False:
+            good = False'''
+test = "python3 tests/mutants/test_mutants.py"
+reason = "a control that changes the unchanged copy passes, so every fault runs after a test that writes into the tree"
 
 [[fault]]
 id = "runner-no-restore"
@@ -8124,20 +8157,23 @@ reason = "S2: the parameter and free-variable bits of the data word are swapped 
 
 # Review rvPSE M1 (agent FX7): the level passes check and push a shared node's
 # children only the first time a walk reaches it.
+# (Since 93f21729, 2026-11-11, the audit asks lf-mls-skip?, which also skips a term
+# without universe parameters; lf-mls-again? is called by nothing, so the two faults
+# below, planted there until 2026-11-20, changed nothing: they plant in lf-mls-skip?.)
 
 [[fault]]
 id = "fx7-mls-every-path"
 file = "src/kernel/mixed-level-substitute.fs"
-old = ''': lf-mls-again? ( walk -- flag ) walk-node @ lf-mls-reached? ;'''
-new = ''': lf-mls-again? ( walk -- flag ) drop false ;'''
+old = ''': lf-mls-skip? ( walk -- flag ) walk-node @ dup lf-mls-reached? swap lf-mls-closed? or ;'''
+new = ''': lf-mls-skip? ( walk -- flag ) walk-node @ lf-mls-closed? ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
 reason = "FX7: a term reached again is checked again and its children pushed, so the audit costs every path (C's levels twice)"
 
 [[fault]]
 id = "fx7-mls-every-path-cli"
 file = "src/kernel/mixed-level-substitute.fs"
-old = ''': lf-mls-again? ( walk -- flag ) walk-node @ lf-mls-reached? ;'''
-new = ''': lf-mls-again? ( walk -- flag ) drop false ;'''
+old = ''': lf-mls-skip? ( walk -- flag ) walk-node @ dup lf-mls-reached? swap lf-mls-closed? or ;'''
+new = ''': lf-mls-skip? ( walk -- flag ) walk-node @ lf-mls-closed? ;'''
 test = "python3 tests/cli/test_leanforth.py ExitCodes.test_1_shared_universe"
 reason = "FX7: the audit walks the 2^40 paths of sharedAndU's type, so useU runs out of fuel where Lean accepts"
 
@@ -9970,7 +10006,7 @@ reason = "DET (2026-11-13): the information section holds a figure of the run (h
 id = "sn5-outer-unordered"
 file = "src/kernel/env-snapshot.fs"
 old = '''  snap-outers outers-list @ swap outers-of 2dup o-sort'''
-new = '''  snap-outers outers-list @ swap outers-of'''
+new = '''  snap-outers outers-list @ swap outers-of outcome-ok'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots"
 reason = "SN5: the names beyond the input written in the order the publisher met them, so --jobs 4 writes other bytes than --jobs 1"
 gap = "no fixture yet has one slot whose names beyond the input a parallel run meets in another order than a serial one (nested.ndjson's --jobs 4 bytes are equal without the sort); a crafted multi-block nested export would catch it"
@@ -17054,8 +17090,7 @@ file = "src/front/lib-decode.fs"
 old = '''  dup lbd-kind-of dup 0= if 2drop outcome-invalid exit then'''
 new = '''  dup lbd-kind-of dup 0= if 2drop outcome-ok exit then'''
 test = "$GFORTH tests/front/menv-run.fs"
-reason = "review s1-meta-b M3: an inductive block decoded as a declaration of no kind"
-equivalent = "a block's type is none in the stage (stage-records.fs), so the type step refuses it invalid too: the kind check only refuses it first"
+reason = "review s1-meta-b M3: a declaration whose staged kind is a block's slot is decoded as one of no kind; a real block's type is none, so its type step refuses it too, but a declaration with a type and that kind (menv-run.fs's spoilt Nat.pred, review N3 of 2026-11-18) only the kind check refuses"
 
 [[fault]]
 id = "fe-libdec-imax"
@@ -17813,7 +17848,7 @@ id = "vc-python-fits-off-by-one"
 file = "scripts/program_vc.py"
 old = '''    return CMIN <= args[0] <= CMAX'''
 new = '''    return CMIN < args[0] <= CMAX'''
-test = "LEAN=.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean python3 tests/program/vc_check.py --operators"
+test = 'test -n "$LEAN" && python3 tests/program/vc_check.py --operators'
 reason = "review H1: Python's fits, which the counterexample search uses to decide refuted, disagrees with Lean's c.Fits at the smallest cell; the comparison with Lean's evaluation finds it"
 
 [[fault]]

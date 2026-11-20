@@ -184,6 +184,27 @@ class Tiers(Fixture):
         self.assertEqual(self.change({"tests/lib/a.fs": "require ../../src/lib/free.fs\n\\ x\n"})["faults"],
                          ["free-one"], "a fault of faults.d whose test names a changed file")
 
+    def test_fault_reach_counts_each_reason(self):
+        """The plan says how many faults each changed file, or the fault list's changed entries,
+        selected, so that a surprise shows in the dry run before the run."""
+        result = self.change({"tests/lib/a.fs": "require ../../src/lib/free.fs\n\\ x\n"})
+        self.assertEqual(result["fault_reach"], {"tests/lib/a.fs": 1})
+        run = self.repo.script("test-tier.py", "--base", "base")
+        self.assertIn("faults: 1 selected\n  1 by tests/lib/a.fs\n", run.stdout)
+
+    def test_fault_reach_of_a_changed_entry(self):
+        text = tier_fixture.FAULTS.replace('reason = "stub"\n\n[[fault]]\nid = "core-one"',
+                                           'reason = "changed"\n\n[[fault]]\nid = "core-one"')
+        result = self.change({"tests/mutants/faults.toml": text})
+        self.assertEqual(result["fault_reach"], {tt.ENTRY_REASON: 1})
+        self.assertEqual(result["faults"], ["free-one"], "only the changed entry, not every fault of the file")
+
+    def test_no_faults_no_reach_line(self):
+        result = self.change({"tests/front/data.txt": "other data\n"})
+        self.assertEqual((result["faults"], result["fault_reach"]), ([], {}))
+        run = self.repo.script("test-tier.py", "--base", "base")
+        self.assertNotIn("faults:", run.stdout)
+
     def test_malformed_or_repeated_faults_d_stops_the_plan(self):
         for text in ("[[fault]\nid = broken\n", tier_fixture.FAULTS):
             with self.subTest(text=text[:20]):
@@ -473,6 +494,26 @@ class BareWords(unittest.TestCase):
         self.assertEqual(self.inputs('assertEqual(tier, "docs")\n'), set(), "a root folder's name as a value")
         self.assertEqual(self.inputs('walk("docs")\n'), folder | {"docs/user/COMMAND_LINE.md"})
         self.assertEqual(self.inputs('run("check", "README.md")\n'), {"README.md"}, "a file name stays")
+
+
+class PrintedText(unittest.TestCase):
+    """A path inside text a Forth program only prints is not read (2026-11-20: a help text naming
+    docs/project/PROJECT_PROGRESS.md made 704 faults of leanforth.fs's users run for a progress edit)."""
+
+    def used(self, text, path="tests/x.fs"):
+        return tt.changed_tests.code_of(path, text)
+
+    def test_printed_strings_are_dropped(self):
+        for line in ('." see docs/README.md" cr', '.( docs/README.md)', ': h ." a\n  docs/README.md" cr ;'):
+            self.assertNotIn("docs/README.md", self.used(line), line)
+
+    def test_other_strings_are_kept(self):
+        for line in ('s" docs/README.md" r/o open-file', 'include docs/README.md', 'x." docs/README.md"',
+                     '." printed" s" docs/README.md" slurp'):
+            self.assertIn("docs/README.md", self.used(line), line)
+
+    def test_python_strings_are_kept(self):
+        self.assertIn("docs/README.md", self.used('print(". docs/README.md")', "tests/x.py"))
 
 
 class Units(unittest.TestCase):

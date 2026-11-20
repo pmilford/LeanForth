@@ -334,6 +334,7 @@ PLACEHOLDERS = ("GFORTH=@GFORTH@", "GFORTH_FAST=@GFORTH_FAST@", "LEAN=@LEAN@", "
 # Exported variables that only locate a toolchain or the shared Lean cache.
 TOOL_LOCATIONS = {"LEANFORTH_GFORTH", "LEANFORTH_LEAN", "LEANFORTH_LEAN_CACHE_DIR", "LEANFORTH_LEAN_CACHE"}
 COVERAGE_TOOL = ("scripts/coverage.py", "scripts/coverage-gforth.sh", "scripts/coverage-prelude.fs")
+ENTRY_REASON = "a new or changed entry of the fault list"
 FAULT_RUNNER = ("scripts/mutants.py", "scripts/gforth-strict.sh")
 
 
@@ -482,26 +483,44 @@ def fault_list(rev=None):
     return found
 
 
-def selected_faults(changed, base_rev):
-    """Fault ids whose file or test command names a changed file, or, when the fault list
-    changed, whose entry is new or differs from BASE_REV's; never a fault of a missing file.
-    A fault also counts when its test command's programs load a changed file (tests/support
-    helpers such as tester.fs), through changed-tests.py's closure."""
+def fault_reasons(changed, base_rev):
+    """{id: [reason, ...]} of the faults a change selects: a reason is a changed path that the
+    fault's file or test command names (or whose programs load it, through changed-tests.py's
+    closure: tests/support helpers such as tester.fs), or ENTRY_REASON when the fault list changed
+    and the entry is new or differs from BASE_REV's. Never a fault of a missing file."""
     paths = {p for _, p in changed}
     cache = {}
     now = fault_list()
     before = None
     if any(is_fault_file(p) for p in paths):
         before = fault_list(base_rev) or {}
-    chosen = []
+    chosen = {}
     for ident, fault in now.items():
         if not os.path.isfile(str(fault.get("file", ""))):
             continue
         named = set(changed_tests.PATH.findall(str(fault.get("test", "")))) | {fault.get("file")}
         named |= changed_tests.closure(changed_tests.named_files(str(fault.get("test", ""))), cache)
-        if named & paths or (before is not None and before.get(ident) != fault):
-            chosen.append(ident)
+        why = sorted(named & paths)
+        if before is not None and before.get(ident) != fault:
+            why.append(ENTRY_REASON)
+        if why:
+            chosen[ident] = why
     return chosen
+
+
+def selected_faults(changed, base_rev):
+    """Fault ids whose file or test command names a changed file, or, when the fault list
+    changed, whose entry is new or differs from BASE_REV's (see fault_reasons)."""
+    return list(fault_reasons(changed, base_rev))
+
+
+def fault_reach(reasons):
+    """{reason: how many faults it selected} of fault_reasons' result, for the plan's text."""
+    counts = {}
+    for why in reasons.values():
+        for reason in why:
+            counts[reason] = counts.get(reason, 0) + 1
+    return dict(sorted(counts.items()))
 
 
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", re.MULTILINE)
@@ -598,7 +617,8 @@ def plan(changed, merge_base, full=False, reach=None):
     if full:
         tier = "full"
     result = {"base": merge_base, "tier": tier, "files": files, "targets": [], "engine_targets": [],
-              "faults": [], "coverage": None, "suites": [], "tactic_check": tactic}
+              "faults": [], "fault_reach": {}, "coverage": None, "suites": [],
+              "tactic_check": tactic}
     if tier == "none":
         return result
     if tier == "full":
@@ -638,7 +658,8 @@ def plan(changed, merge_base, full=False, reach=None):
     engine_unit = engine_units(reach_)
     result["engine_targets"] = [u for u in reach_.of_test if u in chosen and engine_unit(u)]
     if tier != "docs":
-        result["faults"] = selected_faults(changed, base_rev)
+        reasons = fault_reasons(changed, base_rev)
+        result["faults"], result["fault_reach"] = list(reasons), fault_reach(reasons)
         result["coverage"] = coverage_need(files, base_rev)
     result["suites"] = suites_of(result)
     problems = engine_problems(result, engine_unit, end_to_end())
@@ -739,6 +760,9 @@ def describe(result):
     if tactic:
         lines.append("tactic plug-in check: " + ("confined" if tactic["confined"] else
                                                  "; ".join(tactic["problems"] + tactic["reasons"])))
+    if result.get("faults"):
+        lines.append(f"faults: {len(result['faults'])} selected" + "".join(
+            f"\n  {n} by {reason}" for reason, n in result.get("fault_reach", {}).items()))
     for s in result["suites"]:
         extra = " ".join(f"{k}='{v}'" for k, v in s.get("vars", {}).items())
         gforth = f" ({ENGINES[s['engine']]})" if s.get("engine") else ""
