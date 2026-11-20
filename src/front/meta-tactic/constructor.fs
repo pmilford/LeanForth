@@ -110,7 +110,7 @@ begin-structure /nth
   field: nth-idx         \ Lean's idx
 end-structure
 : mnc-bounded ( nth -- )
-  dup nth-idx @ swap nth-expected @ < 0= abort" lf-nth-constructor: idx >= expected" ;
+  dup nth-idx @ swap nth-expected @ u< 0= abort" lf-nth-constructor: idx >= expected" ;
 : lf-nth-constructor: ( idx expected target-code count-code "name" -- )
   create , , , , here /nth - mnc-bounded ;
 \ The head's inductive type has the count expected, else the count code.

@@ -233,6 +233,8 @@ end-structure
 \ this view, set the result, run, set the old view back.
 : lf-mctx-view ( -- view ) mctx mctx-view @ ;
 : lf-mctx-view! ( view -- ) mctx mctx-view ! ;
+\ Local k of the view in force, as a free variable.
+: lf-mctx-fvar ( k -- fvar ) lf-mctx-view swap lf-view-fvar ;
 : lf-mctx-reset ( -- )
   mv-exprs store-clear mv-levels store-clear mv-fvars store-clear mv-scopes-reset
   mctx-epoch@ 1+ mv-epoch-mask and mctx mctx-epoch !

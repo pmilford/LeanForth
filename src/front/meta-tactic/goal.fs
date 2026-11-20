@@ -274,9 +274,8 @@ end-structure
 \ leading pi and let of the type instantiated, as they are (no delta;
 \ LeanForth's terms carry no mdata), introduced at once with no names, in
 \ n cells of mti-cells (lf-with-cells, meta-must.fs).
-: mti-inner ( t -- t' ) dup lf-let? if lf-let-body else lf-term-second@ then ;
 : lf-intros-size ( type -- n )
-  0 swap begin dup mti-binding? while mti-inner swap 1+ swap repeat drop ;
+  0 swap begin lf-tag-pi lf-meta-under while swap 1+ swap repeat drop ;
 1 cells context-slab: mti-cells
 : mti-intros ( goal n xs -- goal' ) 0 0 2swap lf-goal-intro-n ;
 : lf-goal-intros ( goal -- goal' )
@@ -299,10 +298,10 @@ end-structure
 \ localDeclDependsOn of local k, fvar's own passed over (lctx.forM: the
 \ oldest first).
 : mcl-dep? ( fvar k -- fvar flag )
-  lf-mctx-view swap lf-view-fvar 2dup = if drop false exit then
+  lf-mctx-fvar 2dup = if drop false exit then
   over lf-local-depends-on? lf-must ;
 : mcl-dependent ( goal fvar k -- )
-  lf-mctx-view swap lf-view-fvar ['] mcl-fvar. lf-tac-inline
+  lf-mctx-fvar ['] mcl-fvar. lf-tac-inline
   ['] mcl-depends. lf-tac-inline lfa-e-clear-depends lf-tac-ex ;
 : mcl-locals ( goal fvar -- goal fvar )
   dup lf-mctx-view lf-view-count ['] mcl-dep? find-index if mcl-dependent then ;
