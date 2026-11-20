@@ -285,3 +285,41 @@ Uncertainty: whether an end-to-end target (test_leanforth.py, the pinned-Lean di
 Note for the coordinator: the branch touches src/kernel, src/core and src/import, so the full tier applies.
 
 This AI review does not replace the human review AGENTS.md requires for checker changes.
+
+## Fixes
+
+Made by the implementer of round 3 on branch `cleanup-families-2-fixed` (round 2 plus these fixes), each its
+own commit after `968ff251` (this report and its log row):
+
+- **B1** (`a14486e7`): `slab-since` in the five copies (`defeq.fs` `de-post#`, `de-bind-n`; `elab-pending.fs`
+  `ep-c#`; `author/errors.fs` `lfa-.detail`; `core/string-literals.fs` `lf-str-fields?`) and the four index sites
+  (`elab-pending.fs` `ep-kept`, `ep-tail`; `whnf.fs` `wc-rest`, `wc-alt-apply`), as the review wrote them. Faults
+  `str-fields-any`, `fe-whnf-iota-rest-dropped` and `fe-match-extra-args-dropped` re-targeted (old text only).
+- **B2** (`2bab4fa4`): `lf-meta-instantiate-forall` ends `ok-or-none`.
+- **M1** (`697a344e`): unit tests reach the first step's failure of each of the six kernel tails and pin `-1` and
+  the outcome with the inputs dropped: `lf-whnf-delta-of` with Bool.rec's slot forged not final and unsupported
+  (tests/core/iota.fs, beside the recursor's lookup tests); `lf-whnf-reapply` with `lf-whnf-args` made again with
+  limit 0, and `lf-iota-typed` on a malformed let (tests/core/whnf.fs); `lf-minfer-put-closed` and
+  `lf-minfer-typed` with no fuel to close a node not closed before (tests/core/mixed-infer.fs: node 7's closing is
+  remembered after the earlier test and costs nothing, which is why a fuel-less close of it did not fail);
+  `lf-rn-truth` on a failed operation (tests/core/reduce-nat.fs). The reviewer's r10, r11, r12, r14, r15, r16, r17
+  and r20 are recorded as `cf2r-*` in `tests/mutants/faults.d/cleanup-2-review.toml`: all 8 caught. None needed an
+  "unreachable" coverage entry.
+- **M2** (`1164f76a`): the reviewer's test of `site-of` in tests/core/env-snapshot.fs; fault
+  `cf2-site-paired-swapped` (r3), caught.
+- **L1**: nothing changed (the coordinator names the intermediate commits in the merge message).
+- **L2** (`b553c180`): `lf-sx-const0 ( id -- node outcome )` in the kernel's `string-literals.fs`, called by
+  `lf-sx-plain`, `lf-sx-char` and `lf-str-type` through `ok-apply`; plan 9.4.8l AK says "a single word" and lists
+  the 46 tails whose step is a phrase (a scan of the head: 49 before `lf-sx-const0`, 12 in the kernel, where the
+  review counted 34 and 11; the scan also finds `environment.fs`'s `lf-axd-kept`, the front end's `ok-or-none`-like
+  tails and the library's two). `OWNER_DECISIONS.md` names the kernel and core files these fixes touch.
+- **L3** (`155fe41d`): tests/core/ndjson.fs reads back `export-marks!`'s marks; tests/front/goals.fs prints three
+  inaccessible x's as `x✝² x✝¹ x✝` and two shadowed under an accessible one as `x✝¹ x✝ x`. Faults
+  `cf2r-export-marks-read-swapped` (r23; the id `cf2-export-marks-swapped` was taken by the writer's fault) and
+  `cf2r-gp-like-one-short` (r26), caught; `cf2-gp-like-inverted` is judged by the unit file now.
+- **L4** (`6aaf81d1`): `if-delta-if` is `if-delta-by`.
+- **L5** (this commit): FORTH_LIBRARY.md gives `ok-apply2`'s speed from part 5 and `slab-since`'s measured
+  (4.6 ns a call on `gforth`, 2.4 on `gforth-fast`, against 2.2 and 1.4 for the hand-written phrase).
+
+The fix commits that change Forth source (B1, B2, L2, L4) are not in this report's range: they need the next
+review's range (round 3's, from `3a5efff3`) or a re-check row before `main` is checked.
