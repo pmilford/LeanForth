@@ -1490,6 +1490,42 @@ no padded copy of the tail.
 - Speed for Mathlib: profile real literal workloads before tuning further
   (double-limb Lehmer steps for gcd; fewer claims for small powers).
 
+### The shared Nat table (`src/core/nat-ops.fs`)
+
+Plan S3a (2026-11-19) moved the kernel's operations on literal leaves out
+of `src/kernel/reduce-nat.fs` and the operation names out of
+`src/kernel/whnf.fs` into `src/core/nat-ops.fs`, so that the kernel's
+`reduce_nat` and the front end's `reduceNat?` (`src/front/reduce-nat.fs`)
+compute the same fourteen operations alike. LeanForth-specific: it reads
+literal leaves of the term store (`core/literals.fs`) and makes Lean's
+constants (`Bool.true`, `Bool.false`), so it lives in `core/`, not `lib/`.
+
+- **Algorithm.** `lf-nat-lit-op ( a b i -- node outcome )` copies the two
+  literals into a scratch arena on the heap, runs the `lib/bignum.fs`
+  word (`big+`, `big-`, `big*`, `big-pow`, `big-gcd`, `big-mod`, `big/`,
+  the bit operations and shifts, `big=` and `big<=` for `Nat.beq` and
+  `Nat.ble`), makes the result a new literal (or the Bool constant) and
+  frees the arena. `lf-nat-op ( name -- i | -1 )` maps `Nat.add` ...
+  `Nat.shiftRight` to the index (a `lib/texts.fs` table).
+- **Generic.** Any literals; the callers keep their policies: the kernel
+  refuses a count of 2^32 or more (`get_count_arg`), Meta answers an
+  exponent above 256 unsupported (`checkExponent`, plan S3b ports its
+  warning). A result over Lean's 2^30 bits, an estimate over it, or a
+  refused arena is full (diagnostic 93), never a value.
+- **Cost.** The arena is `8 (|a| + |b|) + 64` cells for an ordinary
+  operation; `pow` and `shiftLeft` size it from the result's estimated
+  bits (6 cells a limb, the operands twice, 4,096 more). Time is
+  `lib/bignum.fs`'s; no recursion.
+- **Measured** (2026-11-19, this machine, Gforth 1.0 / gforth-fast): 10,000
+  products of small literals 27 / 8 ms (about 2.7 / 0.8 µs each, the
+  arena's allocation included); `3 ^ 100000` (158,497 bits) 9 / 2 ms, its
+  square 13 / 3 ms, its gcd with 1000 under 1 ms.
+- **Callers.** The kernel (`kernel/reduce-nat.fs`'s `lf-reduce-nat-binary`,
+  `lf-reduce-nat-succ`; `kernel/whnf.fs`'s name tests), every literal
+  operation of a check (the sizes a check of Init passes are not measured
+  yet); the front end's `reduceNat?` (by-decide's group A: one-limb
+  operands, `2 ^ 64` the largest result).
+
 ## Signed big integers
 
 `src/lib/bigint.fs` (plan step FE1i-4, 2026-11-13; design

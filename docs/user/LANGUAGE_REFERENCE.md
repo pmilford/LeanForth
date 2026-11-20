@@ -1075,9 +1075,9 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-rewrite[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, no `by-rfl` | The same without the closing `rfl`. | `rewrite [` |
 | `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules, in order; closes it | Ends the rule list of `by-rw[` or `by-rewrite[`; with none open, error 83. | `]` |
 | `by-case: CASE-TAG HYP-NAME ...  =>` | `( -- )` | parsing: as `\|`; closed by `by-end` | read: a case block. Run: takes the goal of that tag (or whose tag ends or starts with it), renames its hidden hypotheses with the names, newest first | Works on one case after `by-induction`; errors 210 (no such tag), 211 (too many names), 89 (goal left at `=>`). | `case tag names =>` |
-| `**` `by-decide` | `( -- )` | designed | n/a | Close a closed goal by evaluation. | `decide` |
+| `by-decide` | `( -- )` | ordinary | read: a step. Run: assigns the main goal `of_decide_eq_true P I h` after `Decidable.decide P I` reduced to `true`, removes the goal | Proves a closed decidable statement (`2 + 2 = 4`, `10 < 20`, `¬`, `∧`, `∨`, Bool equality) by evaluation; false: error 250; a free variable in the goal: 251; a metavariable: 252; evaluation stuck: 253; no `Decidable` instance: 122; an exponent above 256: 93 (not supported yet). | `decide` |
 | `**` `by-omega` | `( -- )` | designed | n/a | Linear arithmetic over `Nat` and `Int`. | `omega` |
-| `**` `by-native-decide` | `( -- )` | designed; permanently unsupported (exit 2): it rests on `Lean.ofReduceBool` | n/a | n/a | `native_decide` |
+| `by-native-decide` | `( -- )` | ordinary; always refused, not supported (error 254, exit 2): it rests on `Lean.ofReduceBool` | read: a step. Run: error 254 | Never proves anything: Lean's `native_decide` trusts the compiler through an axiom LeanForth does not accept. | `native_decide` |
 | `**` `by-try`, `by-first`, `<;>` | | combinators; sketched in FE1G §4 and S2 §3 (the trail), no word fixed | n/a | n/a | `try`, `first`, `<;>` |
 | `**` `by-alt: CASE-TAG HYP-NAME ... =>` | | an open question of the design: spelling alternatives without `\|` | n/a | n/a | `\| tag names =>` |
 | `**` `by-refine`, `by-subst`, `by-cases` and others | | named in FE2 §3/FE5 as later tactics; no spelling is fixed | n/a | n/a | `refine`, `subst`, ... |
@@ -1320,24 +1320,79 @@ it, a hidden older `k`, `_`, the other goals in their order). Wrong twins:
 `s2w-case-under.lf` (97: three `_` are not too many, then `rfl` fails),
 each refused with Lean's first message.
 
-### D.7 `by-decide`, `by-omega`, `by-native-decide`, combinators (`**`)
+### D.7 `by-decide`, `by-native-decide`
 
-Designed in [FE1I_AUTOMATION.md](../design/FE1I_AUTOMATION.md): `by-decide`
-evaluates a closed decidable statement (`2 2 + 4 =`); `by-omega` closes
-linear arithmetic over `Nat` and `Int` with every hypothesis in context (a
-port of Lean's `omega`); `by-native-decide` always answers unsupported,
-exit 2. `by-try`, `by-first`, `<;>` are mentioned in
-[FE1G_TACTICS.md](../design/FE1G_TACTICS.md) §3 and §5 without a fixed
-spelling. None of these words exists on main; `src/front/tactic-run.fs`
-has rows for the eleven implemented kinds only.
+`by-decide` is Lean's `decide` (`src/front/tactics/decide.fs`, plan row
+S3, slice S3a). It proves a statement that mentions no variable by
+working it out. Lean keeps, for each decidable statement P, an instance I
+that says how to compute whether P holds: `Decidable.decide P I` is a
+`Bool`. `by-decide` finds that instance and reduces `decide P I`, the way
+the kernel will, with the numbers computed as numbers (the front end's
+`reduceNat?`, which shares the kernel's table of fourteen operations on
+natural numbers). When the result is `true`, the goal is closed by
+`of_decide_eq_true P I (id (decide P I = true) (Eq.refl true))`, the term
+Lean builds; the kernel then repeats the whole computation, so nothing the
+tactic did is trusted.
+
+The statement must be closed. A hypothesis in the context is allowed, but
+the goal may not use one: a free variable is error 251, with Lean's hint
+about `+revert` (which LeanForth does not have); `n + 0 = n` is true but
+needs `omega` or `simp`, not `decide`. A false statement is error 250,
+"Tactic `decide` proved that the proposition ... is false". A statement
+whose instance cannot be computed (one defined through `Classical.choice`)
+is 253, "failed to reduce" (Lean's further explanation, the unfolded
+instances and the hint, is plan S3b). A proposition with no `Decidable`
+instance (`Nonempty Nat`) is 122, "failed to synthesize". `2 ^ 300`
+answers not supported yet (93): Lean prints a warning and works out the
+power another way, plan S3b. A goal with a metavariable is 252; no text
+reaches it before FE2's holes.
+
+| Form | Example |
+| --- | --- |
+| mathematics | $\gcd(1071, 462) = 21$; $\neg(2 + 2 = 5)$ |
+| LeanForth | `1071 462 Nat.gcd 21 =`, `2 2 + 5 = Not`, proved by `by-decide` |
+| Lean | `theorem dc_gcd : Nat.gcd 1071 462 = 21 := by decide` |
 
 ```text
-\ (design, not run) FE1I_AUTOMATION.md section 1
-theorem two_add_two  2 2 + 4 =  := by  by-decide  end two_add_two
-theorem zero_add_auto  Nat explicit: n  0 n + n =  := by  by-omega  end zero_add_auto
+\ tests/front/tactics/decide/dc-arith.lf: accepted, term equal to Lean's
+theorem dc_gcd
+  1071 462 Nat.gcd 21 =
+:= by
+  by-decide
+end dc_gcd
 ```
 
-Lean: `decide`, `omega`.
+```text
+\ tests/front/tactics/decide/dc-logic.lf: accepted, term equal to Lean's
+theorem dc_and
+  7 8 = Not 2 2 ≤ And
+:= by
+  by-decide
+end dc_and
+```
+
+More: `dc-arith.lf` and `dc-logic.lf` (`2 + 2 = 4`, `10 < 20`, `3 ≤ 3`,
+`Nat.mul 12345 6789 = 83810205`, `100 % 7 = 2`, `¬`, `∨`, `True`, Bool
+`and`, a hypothesis beside a closed goal); `dc-init.lf` (`10 - 20 = 0`,
+`17 / 5 = 3`, `2 ^ 10 = 1024`, `2 ^ 64 = 2 ^ 32 * 2 ^ 32`), checked
+against all of Init (`tests/front/tactics/decide/check.py --init`). Wrong
+twins: `w-dc-add.lf`, `w-dc-lt.lf`, `w-dc-and.lf` (250), `w-dc-fvar.lf`,
+`w-dc-fvar0.lf` (251), `w-dc-nonempty.lf` (122), `w-dc-choice.lf`,
+`w-dc-choice-bool.lf` (253), `w-dc-none.lf` (90), each refused with
+Lean's first message. Not yet: `6 7 * 42 =` with `*` on numerals alone
+stops in elaboration (error 120), so `Nat.mul` is written there; a
+hypothesis whose type has numerals (`1 1 = explicit: h`) stops with 139
+(plan FE2).
+
+`by-native-decide` is Lean's `native_decide`. Lean runs the compiled
+decision procedure and trusts it through the axiom `Lean.ofReduceBool`,
+which LeanForth never accepts (ADR 0021 D7), so the word is always
+refused: error 254, not supported, exit 2 (`x-dc-native.lf`).
+
+Lean: `decide`, `native_decide`. Not built yet (`**`): `by-omega` (plan
+S4), and the combinators `by-try`, `by-first`, `<;>`, mentioned in
+[FE1G_TACTICS.md](../design/FE1G_TACTICS.md) §3 and §5 without a fixed
+spelling.
 
 ---
 
