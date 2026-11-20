@@ -26,9 +26,9 @@ tier runs or one command that finishes in under two minutes.
 | 8 | The kernel is the judge on the new statements | `python3 scripts/mutants.py --gforth $G --only fe-decide-skip-whnf-mul` | caught: the kernel rejects `6 * 7 = 43` | caught (exit 1, 9.9 s) |
 | 9 | Planted faults | `python3 scripts/mutants.py --check`; `python3 scripts/mutants.py --gforth $G --only dk-unfold-never,dk-root-ignores-badkey,dk-unfold-once,fe-decide-skip-whnf-mul` | 0 stale; each caught | `--check`: 3,135 entries, 0 stale; 4 run, 4 caught; decide.toml's 9 faults also caught on the larger slice |
 | 10 | No never-run block on a changed line | `make cover-changed BASE=main JOBS=3 GFORTH=$G` | exit 0 | exit 0 (17 s): discr-keys.fs, 10 changed code lines, 24 blocks, every one ran (19 unit test files) |
-| 11 | Style | `python3 scripts/forth-metrics.py src/front/discr-keys.fs` | no word over five lines, every word a stack comment | 101 words, 68 of 1-2 lines, 33 of 3-5, none longer; no missing stack comment |
+| 11 | Style | `python3 scripts/forth-metrics.py src/front/discr-keys.fs` | no word over five lines, every word a stack comment; shuffles within the ratchet | 101 words, 68 of 1-2 lines, 33 of 3-5, none longer; no missing stack comment; deep shuffles 13 (baseline 14), return-stack operations 17 as on main |
 | 12 | Docs and plan | `make check-docs`; `python3 scripts/check-progress.py` | exit 0 | see 13 (both are in pre-tier); LANGUAGE_REFERENCE's by-decide section (three forms, a sample from dc-ops.lf, "checked by LeanForth's kernel", the `6 7 * 42 =` note removed), PLAN_DRAFT S2 and S3 rows, S1_INTERFACE §9's counts |
-| 13 | Whole-repository checks | `GFORTH=$G LEAN=$L scripts/pre-tier.sh` | all passed | (filled below) |
+| 13 | Whole-repository checks | `GFORTH=$G LEAN=$L scripts/pre-tier.sh` | all passed | exit 0 on 5774af21, all 17 checks passed (the first run failed the style ratchet, discr-keys.fs shuffles 15 > 14, fixed in 5774af21: 13); rows 2, 3, 4 and 5 run again on 5774af21, the same results |
 | 14 | The tier | `make tier GFORTH=$G LEAN=$L` | all passed | the coordinator's |
 
 The slice: `tests/front/decide-slice.roots` gains GT.gt, GE.ge, Ne (already in its closure) and the
