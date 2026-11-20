@@ -10,7 +10,11 @@
 \    operations and of none, and the constants: each ( node outcome ),
 \    the stack as before (T{ }T checks the depth).
 \ 2. Malformed input: a helper's failure other than no room (invalid,
-\    never ok); an arena too small for the operands.
+\    never ok); an arena too small for the operands; an operand that is
+\    no literal leaf (review s3a-decide M1, plan 9.4.8l AW): the first,
+\    the second or both, a constant or an application, for each of the
+\    fourteen operations and Nat.succ, invalid and -1 with no node made
+\    and the cells under the call kept, and lf-nat-lits-by's step not run.
 \ 5. Resources, which are never a verdict here (the kernel's count refusal
 \    and Meta's threshold are their callers'): a result or an estimate
 \    over Lean's 2^30 bits (an exponent of more than a cell, a shift past
@@ -171,6 +175,39 @@ T{ -1 outcome-invalid nop-truth -> -1 outcome-invalid }T
 \ constant; on ok the flag picks it.
 T{ true outcome-full nop-truth 0 outcome-exhausted nop-truth -> -1 outcome-full -1 outcome-exhausted }T
 T{ true outcome-ok nop-truth nip 0 outcome-ok nop-truth nip -> outcome-ok outcome-ok }T
+
+\ ---- 2. An operand that is no literal leaf (review s3a-decide M1, plan
+\ 9.4.8l AW): the constant Nat and the application Nat 7, as the first
+\ operand, the second or both. Each of the fourteen operations and
+\ Nat.succ answers invalid and -1 and makes no node, the cells under the
+\ call kept (111); before, they answered ok with a made-up literal.
+: k-nat ( -- node ) 0 s" Nat" lf-nat-named ok? made ;
+: k-app ( -- node )
+  k-nat lf-term-handle 7 nlit lf-term-handle lf-hterm-app lf-made-term ok? made ;
+: refused? ( a b i -- flag )
+  lf-term-count @ >r lf-nat-lit-op outcome-invalid = swap -1 = and lf-term-count @ r> = and ;
+: all-refused? ( a b -- flag ) true 14 0 do >r 2dup i refused? r> and loop nip nip ;
+T{ 111 k-nat 3 nlit 0 lf-nat-lit-op -> 111 -1 outcome-invalid }T     \ the first
+T{ 111 3 nlit k-app 3 lf-nat-lit-op -> 111 -1 outcome-invalid }T     \ the second (pow)
+T{ 111 k-app k-nat 12 lf-nat-lit-op -> 111 -1 outcome-invalid }T     \ both (shiftLeft)
+T{ k-nat 3 nlit all-refused? k-app 300 nlit all-refused? -> true true }T
+T{ 3 nlit k-nat all-refused? 300 nlit k-app all-refused? -> true true }T
+T{ k-nat k-app all-refused? k-app k-app all-refused? -> true true }T
+: succ-refused? ( a -- flag )
+  lf-term-count @ >r lf-nat-lit-succ outcome-invalid = swap -1 = and lf-term-count @ r> = and ;
+T{ 111 k-nat lf-nat-lit-succ -> 111 -1 outcome-invalid }T
+T{ k-nat succ-refused? k-app succ-refused? -> true true }T
+\ lf-nat-lits-by runs its step only on two literals: ok, the step's
+\ answer; else invalid and -1, the step not run.
+: ran ( a b i -- node outcome ) drop 2drop 77 outcome-ok ;
+T{ 111 3 nlit 4 nlit 9 ' ran lf-nat-lits-by -> 111 77 outcome-ok }T
+T{ 111 k-nat 4 nlit 9 ' ran lf-nat-lits-by 3 nlit k-app 9 ' ran lf-nat-lits-by
+   -> 111 -1 outcome-invalid -1 outcome-invalid }T
+\ lf-nat-lit-by, its one-operand form (review B2 of AW: Nat.succ and the
+\ kernel's constructor form share it): the step only on a literal.
+: ran1 ( a -- node outcome ) drop 77 outcome-ok ;
+T{ 111 3 nlit ' ran1 lf-nat-lit-by 111 k-nat ' ran1 lf-nat-lit-by 111 k-app ' ran1 lf-nat-lit-by
+   -> 111 77 outcome-ok 111 -1 outcome-invalid 111 -1 outcome-invalid }T
 
 \ ---- 5. The kernel's words on the table (kernel/reduce-nat.fs, whose own
 \ tests are tests/core/reduce-nat.fs): the predecessor of a literal of

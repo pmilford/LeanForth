@@ -1070,11 +1070,21 @@ class WriteIr(unittest.TestCase):
         """Review R3: only a new .ir file, or one that already starts with 'lf-ir '."""
         clamp = (CONTRACTS / "lf-clamp.contract").read_text(encoding="utf-8")
         with scratch() as folder:
-            other = Path(folder) / "notes.txt"
-            other.write_text("mine\n", encoding="utf-8")
-            for name in ("src/main.fs", "AGENTS.md", rel(other)):
+            # Copies of checkout files, src/main.fs and AGENTS.md, in the scratch folder (the
+            # rule reads a file's name and first line, not where it lies): a run that drops the
+            # check overwrites a copy, never the checkout's own, which later tests load
+            # (2026-11-20, scripts/mutants.py: verify-write-ir-any-file wrote src/main.fs).
+            victims = []
+            for name in ("src/main.fs", "AGENTS.md"):
+                victims.append(Path(folder) / name)
+                victims[-1].parent.mkdir(parents=True, exist_ok=True)
+                victims[-1].write_bytes((ROOT / name).read_bytes())
+            victims.append(Path(folder) / "notes.txt")
+            victims[-1].write_text("mine\n", encoding="utf-8")
+            for victim in victims:
+                name = rel(victim)
                 with self.subTest(name):
-                    before = (ROOT / name).read_bytes()
+                    before = victim.read_bytes()
                     path = Path(folder) / "c.contract"
                     path.write_text(clamp.replace("ir tests/program/ir/clamp.ir", f"ir {name}"),
                                     encoding="utf-8")
@@ -1082,7 +1092,7 @@ class WriteIr(unittest.TestCase):
                                         "--write-ir"])
                     self.assertEqual((status, problem_codes(text)), (4, ["contract-malformed"]),
                                      text)
-                    self.assertEqual((ROOT / name).read_bytes(), before)
+                    self.assertEqual(victim.read_bytes(), before)
             target = Path(folder) / "other.ir"
             target.write_text("not an IR\n", encoding="utf-8")
             path.write_text(clamp.replace("ir tests/program/ir/clamp.ir", f"ir {rel(target)}"),

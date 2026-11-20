@@ -52,6 +52,24 @@ decimal
 : chain ( -- c-addr u ) s" tests/cli/chain.ndjson" ;
 : tally ( k -- n ) cli-count-of @ ;
 
+\ The outputs refused below for naming the export (RECORD, COPY) name a copy
+\ of composition and its manifest in the scratch folder, never the fixture:
+\ a planted fault that drops the refusal (cli-check-direct-unguarded) then
+\ writes over that copy only, not over tests/reference/composition.ndjson,
+\ which every later test reads (2026-11-20, a run of scripts/mutants.py).
+s" leanforth-cli-victim.ndjson" scratch-file 2constant victim
+s" leanforth-cli-victim.ndjson.manifest.json" scratch-file 2constant victim-manifest
+s" leanforth-cli-no-such-copy.ndjson" scratch-file 2constant no-such-copy
+: freed ( c-addr u -- ) drop free throw ;
+\ The file named from-addr from-u copied to the one named to-addr to-u.
+: copy-into ( from-addr from-u to-addr to-u -- )
+  w/o create-file throw >r slurp-file 2dup r@ write-file throw freed r> close-file throw ;
+composition victim copy-into
+s" tests/reference/composition.ndjson.manifest.json" victim-manifest copy-into
+\ Whether the copy still holds composition's bytes.
+: victim-intact? ( -- flag )
+  victim slurp-file composition slurp-file 2over 2over compare >r freed freed r> 0= ;
+
 \ Before any input is fed: no declaration has a name (print's pr-newest),
 \ and the step log finds no declaration to log (S2's coverage debt).
 T{ lf-input-count s" Nat" pr-newest s" Nat" cli-step-find -> 0 false false }T
@@ -175,7 +193,7 @@ T{ s" Type" shows s" Type" compare s" funny" shows s" funny" compare -> 0 0 }T
 T{ s" a.b" foo-shows s" Foo.«a.b»" compare -> 0 }T
 \ A step log whose writing failed ends at its last whole line (review
 \ N14): nothing after the failure is written, and the file is cut back.
-: steps-file ( -- c-addr u ) s" tests/cli/steps-cut.tmp" ;
+s" leanforth-cli-steps-cut.tmp" scratch-file 2constant steps-file
 : steps-text ( -- c-addr u )
   steps-file r/o open-file throw >r pad 64 r@ read-file throw pad swap r> close-file throw ;
 : steps-try ( outcome -- c-addr u )
@@ -335,8 +353,8 @@ cli-options
 \ The counter and the re-exporter: their codes, without writing a file.
 T{ composition cli-count kinds cli-count -> 0 4 }T
 T{ cli-no-manifest kinds cli-count cli-options -> 0 }T
-T{ composition composition cli-reexport -> 4 }T
-T{ s" tests/cli/no-such.ndjson" s" tests/cli/no-such-copy.ndjson" cli-reexport -> 4 }T
+T{ victim victim cli-reexport victim-intact? -> 4 true }T
+T{ s" tests/cli/no-such.ndjson" no-such-copy cli-reexport -> 4 }T
 T{ composition s" tests/cli/no-such-folder/copy.ndjson" cli-reexport -> 4 }T
 T{ cli-version cli-capabilities cli-help -> 0 0 0 }T
 
@@ -372,8 +390,8 @@ T{ wrong cli-check -> 1 }T
 T{ s\" \"name\":\"composition\",\"verdict\":\"rejected\"" holds? -> true }T
 cli-options s" tests/cli/no-such-folder/run.json" cli-record!
 T{ composition cli-check outcome-ok tally -> 4 1 }T
-cli-options composition cli-record!
-T{ composition cli-check outcome-ok tally -> 4 0 }T
+cli-options victim cli-record!
+T{ victim cli-check outcome-ok tally victim-intact? -> 4 0 true }T
 cli-options
 
 \ Only a check with --record reads the export for the record (rr-start: its

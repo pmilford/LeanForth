@@ -1,0 +1,132 @@
+# Planted faults of plan 9.4.8l AW (review s3a-decide M1; the owner's gate of 2026-11-20):
+# core/nat-ops.fs refuses an operand that is no literal leaf as invalid, and the kernel's
+# reduce_nat and the front end's fold test for literals before their policies read a count.
+# Read with faults.toml as one list (scripts/mutants.py).
+
+[[fault]]
+id = "aw-nat-ops-first-unchecked"
+file = "src/core/nat-ops.fs"
+old = ''': nop-lits? ( a b -- flag ) lf-lit-leaf? swap lf-lit-leaf? and ;'''
+new = ''': nop-lits? ( a b -- flag ) lf-lit-leaf? nip ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "AW: the first operand is not tested, so a constant or an application in its place is computed on as a made-up literal (ok) where it must be invalid"
+
+[[fault]]
+id = "aw-nat-ops-second-unchecked"
+file = "src/core/nat-ops.fs"
+old = ''': nop-lits? ( a b -- flag ) lf-lit-leaf? swap lf-lit-leaf? and ;'''
+new = ''': nop-lits? ( a b -- flag ) drop lf-lit-leaf? ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "AW: the second operand is not tested, so a constant or an application in its place is computed on as a made-up literal (ok) where it must be invalid"
+
+[[fault]]
+id = "aw-nat-ops-invalid-as-ok"
+file = "src/core/nat-ops.fs"
+old = '''  2over nop-lits? flag>outcome swap ok-apply3 ;'''
+new = '''  2over nop-lits? flag>outcome swap ok-apply3 dup outcome-invalid = if drop outcome-ok then ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "AW: an operand that is no literal is refused with ok and node -1, a failure reported as success (the kernel's whnf would read -1 ok as none)"
+
+[[fault]]
+id = "aw-nat-ops-refusal-keeps-a-cell"
+file = "src/core/nat-ops.fs"
+old = '''  2over nop-lits? flag>outcome swap ok-apply3 ;'''
+new = '''  2over nop-lits? flag>outcome swap ok-apply2 ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "AW: lf-nat-lits-by's refusal leaves the first operand under its answer, one cell of the caller's too many"
+
+[[fault]]
+id = "aw-nat-ops-succ-unchecked"
+file = "src/core/nat-ops.fs"
+old = ''': lf-nat-lit-succ ( a -- node outcome ) ['] nop-succ lf-nat-lit-by ;'''
+new = ''': lf-nat-lit-succ ( a -- node outcome ) nop-succ ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "AW: Nat.succ of a constant or an application is computed on as a made-up literal (ok) where it must be invalid"
+
+[[fault]]
+id = "aw-kernel-binary-unchecked"
+file = "src/kernel/reduce-nat.fs"
+old = ''': lf-reduce-nat-binary ( a b i -- node outcome ) ['] lf-rn-binary lf-nat-lits-by ;'''
+new = ''': lf-reduce-nat-binary ( a b i -- node outcome ) lf-rn-binary ;'''
+test = "$GFORTH tests/core/reduce-nat.fs"
+reason = "AW: the kernel reads get_count_arg's count of an operand that is no literal before nat-ops tests it, so pow and shiftLeft by an application are rejected (92), a verdict, where they must be invalid"
+
+[[fault]]
+id = "aw-front-fold-unchecked"
+file = "src/front/reduce-nat.fs"
+old = '''  ['] rn-fold-op lf-nat-lits-by ;'''
+new = '''  rn-fold-op ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
+reason = "AW: the front end's fold reads checkExponent's threshold on an exponent that is no literal before nat-ops tests it, so Nat.pow by an application answers unsupported where it must be invalid"
+
+[[fault]]
+id = "aw-kernel-second-only"
+file = "src/kernel/reduce-nat.fs"
+old = ''': lf-reduce-nat-binary ( a b i -- node outcome ) ['] lf-rn-binary lf-nat-lits-by ;'''
+new = ''': lf-reduce-nat-binary ( a b i -- node outcome ) over lf-lit-leaf? if lf-rn-binary exit then ['] lf-rn-binary lf-nat-lits-by ;'''
+test = "$GFORTH tests/core/reduce-nat.fs"
+reason = "AW review B1 (R5): the kernel tests only the second operand before get_count_arg's count, so Nat.pow of the constant Nat by 2^32 and Nat.shiftLeft of an application by 2^32 are rejected (92), a verdict, where they must be invalid"
+
+[[fault]]
+id = "aw-front-second-only"
+file = "src/front/reduce-nat.fs"
+old = '''  ['] rn-fold-op lf-nat-lits-by ;'''
+new = '''  over lf-lit-leaf? if rn-fold-op exit then ['] rn-fold-op lf-nat-lits-by ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
+reason = "AW review B1 (R6): the front end's fold tests only the second operand before checkExponent's threshold, so Nat.pow of the constant Nat or of Nat.succ fk by 257 answers unsupported where it must be invalid"
+
+[[fault]]
+id = "aw-kernel-pred-unchecked"
+file = "src/kernel/reduce-nat.fs"
+old = '''  dup lf-rn-positive? flag>outcome ['] lf-rn-pred ok-apply ;'''
+new = '''  lf-rn-pred ;'''
+test = "$GFORTH tests/core/reduce-nat.fs"
+reason = "AW review L1: the predecessor of a constant, an application or the literal 0 is computed on (ok, a made-up literal such as 2^64 - 1) where is_nat_succ gives none and the word must answer invalid"
+
+[[fault]]
+id = "aw-kernel-pred-of-zero"
+file = "src/kernel/reduce-nat.fs"
+old = ''': lf-rn-positive? ( a -- flag ) dup lf-lit-leaf? swap lf-term-second@ 0<> and ;'''
+new = ''': lf-rn-positive? ( a -- flag ) lf-lit-leaf? ;'''
+test = "$GFORTH tests/core/reduce-nat.fs"
+reason = "AW review L1: the predecessor of the literal 0 answers ok with the made-up literal 2^64 - 1, outside is_nat_succ's literal above 0, where it must be invalid"
+
+[[fault]]
+id = "aw-kernel-constructor-unchecked"
+file = "src/kernel/reduce-nat.fs"
+old = ''': lf-reduce-nat-constructor ( a -- node outcome ) ['] lf-rn-constructor lf-nat-lit-by ;'''
+new = ''': lf-reduce-nat-constructor ( a -- node outcome ) lf-rn-constructor ;'''
+test = "$GFORTH tests/core/reduce-nat.fs"
+reason = "AW review L1: the constructor form of a constant or an application reads its fields as a literal's (ok, Nat.zero or Nat.succ of a made-up literal) where nat_lit_to_constructor asserts a literal and the word must answer invalid"
+
+[[fault]]
+id = "aw-defeq-pred-caller-unchecked"
+file = "src/kernel/defeq.fs"
+old = '''  dup lf-lit-leaf? if lf-reduce-nat-pred else lf-term-second@ outcome-ok then ;'''
+new = '''  lf-reduce-nat-pred ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "AW review L1: is_def_eq_offset's predecessor of Nat.succ x is asked of reduce-nat.fs, which refuses a non-literal (invalid), instead of being x"
+
+[[fault]]
+id = "aw-defeq-pred-test-zero"
+file = "src/kernel/defeq.fs"
+old = '''  dup lf-lit-leaf? if lf-term-second@ 0<> else lf-dq-succ? then ;'''
+new = '''  dup lf-lit-leaf? if drop true else lf-dq-succ? then ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "AW review L1: is_def_eq_offset takes the literal 0 for a successor (is_nat_succ gives none for it), so its predecessor would be asked outside the predecessor's precondition"
+
+[[fault]]
+id = "aw-iota-literal-caller-unchecked"
+file = "src/kernel/iota.fs"
+old = '''  dup lf-lit-leaf? if lf-reduce-nat-constructor else outcome-ok then ;'''
+new = '''  lf-reduce-nat-constructor ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "AW review L1: iota asks the constructor form of any major premise, not only of a literal, and reduce-nat.fs refuses the others (invalid) where iota must keep them"
+
+[[fault]]
+id = "aw-nat-lit-by-unchecked"
+file = "src/core/nat-ops.fs"
+old = '''  over lf-lit-leaf? flag>outcome swap ok-apply ;'''
+new = '''  over lf-lit-leaf? drop true flag>outcome swap ok-apply ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "AW review B2: lf-nat-lit-by runs its step on any node, so Nat.succ of a constant or an application is computed on as a made-up literal (ok) where it must be invalid"

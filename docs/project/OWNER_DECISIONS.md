@@ -1802,3 +1802,22 @@ Later the same morning the owner answered the three remaining questions with "Ye
 - **The repository goes public for the talk: yes.** The licence stays MIT (the repository's `LICENSE`). Before
   the switch the assistant checks the history and the tree for anything that must not be public and reports;
   the switch itself is made when the owner says so, with the tag.
+
+### The gate record of `nat-ops` refusing a non-literal (2026-11-20)
+
+The four parts of the checker gate (`AGENTS.md`, "Review gates") for the change the owner approved above:
+
+1. Lean's rule: Lean's kernel tests both arguments for literals before anything else (`type_checker.cpp`,
+   `is_nat_lit_ext` before `get_count_arg`; `is_nat_succ` gives a predecessor only of a non-zero literal;
+   `nat_lit_to_constructor` asserts a literal). The new order of the kernel's word is Lean's.
+2. Comparisons: every literal case answers as before (8,823 lines of the kernel grid byte-identical on the
+   old and the new tree); the non-literal cases and the predecessor of 0, which no caller passes, answer
+   invalid where they answered a made-up literal; a counter on the new refusals fired in no test but those
+   written for them, over 146 unit test files, four export slices and four `by-decide` files; the tests reach
+   every outcome, with 16 planted faults, each caught.
+3. Independent review: [2026-11-20-nat-ops-fail-closed.md](../development/forth-reviews/2026-11-20-nat-ops-fail-closed.md),
+   merge after fixes, the fixes made, and its re-check: no unresolved finding.
+4. The owner's approval: "Yes to the new questions", 2026-11-20, on the question as put: the shared Nat
+   operation table refuses a non-number instead of returning a made-up answer, a small kernel behaviour change
+   on a path no caller reaches.
+

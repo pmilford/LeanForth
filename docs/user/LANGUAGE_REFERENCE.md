@@ -1427,7 +1427,7 @@ macros; owner, 2026-11-20). The talk's theorems, in three forms:
 | Form | Example |
 | --- | --- |
 | mathematics | $2^{32} + 1 = 641 \cdot 6700417$ (Euler: Fermat's $F_5$ is composite); $20 > 10 \land 10 \ge 10 \land 3 \ne 4$ |
-| LeanForth | `2 32 ^ 1 + 641 6700417 * =`; `20 10 > 10 10 ≥ 3 4 ≠ ∧ ∧`, typed `20 10 > 10 10 >= 3 4 Ne /\ /\`; proved by `by-decide` |
+| LeanForth | `2 32 ^ 1 + 641 6700417 * =`; `20 10 > 10 10 ≥ 3 4 ≠ ∧ ∧`, typed `20 10 > 10 10 >= 3 4 Ne /\ /\`; each with `by-decide` as its proof and checked by LeanForth's kernel |
 | Lean | `theorem sy_euler : 2 ^ 32 + 1 = 641 * 6700417 := by decide`; `theorem sy_compare : 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4 := by decide` |
 
 ```text

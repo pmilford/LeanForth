@@ -410,8 +410,8 @@
   },
   "src/front/lib-decode.fs": {
    "blocks": 754,
-   "never_run": 36,
-   "reason": "S1 merge B (lib-decode.fs, the library route) and S2; S2's debt paid by branch s2-debt (2026-11-19), measured over every target of make test that loads the file (tests/front/whnf.fs: a foreign constant, a borrowed mdata node, a lookup with no run library): never run are refusal paths the decodes do not reach (full at a store, slab or heap allocation: 281, 286, 290, 292, 297, 302, 307, 310, 474, 513, 515, 549, 550, 561, 562; a level parameter's name with no room: 336-338), a block's kind invalid (260, 316, 498-499, 560), number-tagged names (190), the library-route paths of a text run that make test does not take (353, 355, 359, 400, 402, 403, 405, 413, 415, 416, 484, 510)"
+   "never_run": 26,
+   "reason": "S1 merge B (lib-decode.fs, the library route) and S2; debt paid by branches s2-debt (2026-11-19) and lib-decode-cover (2026-11-20: a smart-unfolding body's forall, literals, projections, universe parameter and max level, lf-tier-kinds refused room, lf-libdec-domain beyond the library, a declaration's name refused room; tests/front/whnf.fs and menv-run.fs). Never run over make test (lines of 2026-11-20): refusal paths the decodes do not reach (full at a store, slab or heap allocation: 282, 287, 291, 293, 303, 308, 311, 516, 549, 550, 561, 562; a name with no room: 337-338, 360, 514), a staged kind outside the table (499-500), a level's kind invalid (261), a recursor's rules not whole (560), number-tagged names (191), a binder already named (354, 356), a declaration with no parameter tuple (511), lbd-level, which no word calls (339)"
   },
   "src/front/meta-check.fs": {
    "blocks": 154,

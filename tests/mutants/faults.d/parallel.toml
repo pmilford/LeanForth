@@ -146,6 +146,14 @@ new = '''export GFORTH_ENV=${GFORTH_ENV:-off}'''
 test = "python3 tests/cli/test_parallel_stress.py Stress.test_start_up_file_ignored"
 reason = "a start-up file named by GFORTH_ENV is loaded before src/main.fs and can define a test hook: --jobs above the cores"
 
+[[fault]]
+id = "parallel-start-up-file-read-checker"
+file = "bin/leanforth-checker"
+old = '''export GFORTH_ENV=off'''
+new = '''export GFORTH_ENV=${GFORTH_ENV:-off}'''
+test = "python3 tests/cli/test_parallel_stress.py Stress.test_start_up_file_ignored"
+reason = "the checker's launcher, like bin/leanforth, loads a start-up file named by GFORTH_ENV before src/load/cli-checker.fs, which can define the test hook: --jobs above the cores"
+
 # The library words the watch reads (lib/slab.fs slab-data, lib/htab.fs htab-base).
 
 [[fault]]

@@ -18,11 +18,10 @@ override). bin/leanforth defines no such word, takes no option or environment va
 for it and runs Gforth with its start-up file turned off (GFORTH_ENV=off: Gforth 1.0
 would otherwise load the file GFORTH_ENV names, or ~/.config/gforthrc0, before
 src/main.fs, which could define the word): a test sets GFORTH_ENV to a file that defines
-it and finds the workers still cut to the cores.
+it and finds the workers still cut to the cores, through bin/leanforth and through
+bin/leanforth-checker, each of which turns the file off itself.
 Run from the repository root with GFORTH naming the engine; unittest.
 """
-# Its texts name bin/leanforth, which shares what it tests with bin/leanforth-checker.
-# inputs: named only: bin/leanforth
 import os
 import pathlib
 import subprocess
@@ -95,8 +94,8 @@ def generated(count):
     return "\n".join(out.lines) + "\n"
 
 
-def leanforth(*args, **env):
-    result = subprocess.run([str(ROOT / "bin/leanforth-checker"), "check", *args], capture_output=True,
+def leanforth(*args, launcher="bin/leanforth-checker", **env):
+    result = subprocess.run([str(ROOT / launcher), "check", *args], capture_output=True,
                             text=True, stdin=subprocess.DEVNULL,
                             env=dict(os.environ, GFORTH=GFORTH, **env))
     return result.returncode, result.stdout
@@ -152,15 +151,19 @@ class Stress(unittest.TestCase):
 
     def test_start_up_file_ignored(self):
         """A Gforth start-up file (GFORTH_ENV) that defines the test hook changes nothing
-        a user runs: bin/leanforth turns it off, so --jobs is still cut to the cores."""
+        a user runs: each launcher, bin/leanforth and bin/leanforth-checker, turns it off
+        itself (neither leaves it to the other or to scripts/leanforth-run.sh), so --jobs is
+        still cut to the cores."""
         rc0 = os.path.join(self.dir.name, "rc0.fs")
         with open(rc0, "w", encoding="utf-8") as stream:
             stream.write(f"{self.workers} constant task-cores-test\n")
-        status, out = leanforth("--no-manifest", "--resources", "--jobs", str(self.workers),
-                                self.export, GFORTH_ENV=rc0)
-        self.assertEqual(status, 1)
-        self.assertNotIn(f"  workers: {self.workers} (--jobs)", out)
-        self.assertNotIn(f"on {self.workers} cores", out)
+        for launcher in ("bin/leanforth", "bin/leanforth-checker"):
+            status, out = leanforth("--no-manifest", "--resources", "--jobs", str(self.workers),
+                                    self.export, launcher=launcher, GFORTH_ENV=rc0)
+            self.assertEqual(status, 1, launcher)
+            self.assertIn("  workers: ", out, launcher)
+            self.assertNotIn(f"  workers: {self.workers} (--jobs)", out, launcher)
+            self.assertNotIn(f"on {self.workers} cores", out, launcher)
 
 
 if __name__ == "__main__":

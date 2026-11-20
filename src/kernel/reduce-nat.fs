@@ -19,6 +19,9 @@
 \ for the scratch arena is full (diagnostic 93, core/nat-ops.fs), never
 \ a verdict. Every computation runs in a scratch arena on the heap, sized
 \ from its operands, and freed before the word returns.
+\ An operand that is no literal, and the predecessor of the literal 0,
+\ answer invalid with -1 and no diagnostic (owner, 2026-11-20, plan 9.4.8l
+\ AW): no caller passes one, as Lean's callers test is_nat_lit_ext first.
 \ Untrusted [kernel] until the review gate of AGENTS.md.
 \ State: none of its own.
 
@@ -51,21 +54,36 @@ require ../core/terms.fs
   over lf-term-second@ 0= if lf-nat-op-shl lf-nat-lit-op exit then
   lf-nat-op-shl lf-rn-counted ;
 
-\ The public words. Binary operation i of core/nat-ops.fs's list on
-\ literals a and b; Nat.succ of a; a literal for Nat.zero (is_nat_lit_ext).
-: lf-reduce-nat-binary ( a b i -- node outcome )
+\ Lean's policies on literals: pow's count, shiftLeft's 0 and count, else the table.
+: lf-rn-binary ( a b i -- node outcome )
   dup lf-nat-op-pow = if lf-rn-counted exit then
   dup lf-nat-op-shl = if drop lf-rn-shl exit then lf-nat-lit-op ;
+
+\ The public words. Binary operation i of core/nat-ops.fs's list on
+\ literals a and b, an operand that is no literal invalid before any
+\ count is read (as is_nat_lit_ext comes before get_count_arg; whnf.fs
+\ passes only literals); Nat.succ of a, invalid for no literal; a literal
+\ for Nat.zero (is_nat_lit_ext).
+: lf-reduce-nat-binary ( a b i -- node outcome ) ['] lf-rn-binary lf-nat-lits-by ;
 : lf-reduce-nat-literal ( u -- node outcome ) lf-nat-lit ;
 : lf-reduce-nat-succ ( a -- node outcome ) lf-nat-lit-succ ;
-\ The predecessor of a literal above 0 (is_def_eq_offset's is_nat_succ).
-: lf-reduce-nat-pred ( a -- node outcome )
+\ The predecessor of a literal above 0 (is_def_eq_offset's is_nat_succ,
+\ type_checker.cpp:1029-1035, computes one only for a literal that is not
+\ 0); anything else, the literal 0 included, is invalid, never computed
+\ on (review L1 of plan 9.4.8l AW; defeq.fs's lf-dq-pred? tests first).
+: lf-rn-pred ( a -- node outcome )
   dup lf-lit-small? if lf-lit-cell 1- lf-reduce-nat-literal exit then
   1 lf-reduce-nat-literal ok-then? 0= if nip no-result exit then 1 lf-nat-lit-op ;
-\ nat_lit_to_constructor: 0 as Nat.zero, n + 1 as Nat.succ n.
+: lf-rn-positive? ( a -- flag ) dup lf-lit-leaf? swap lf-term-second@ 0<> and ;
+: lf-reduce-nat-pred ( a -- node outcome )
+  dup lf-rn-positive? flag>outcome ['] lf-rn-pred ok-apply ;
+\ nat_lit_to_constructor (inductive.cpp:1359-1366, which asserts a
+\ literal): 0 as Nat.zero, n + 1 as Nat.succ n; anything but a literal
+\ invalid, never computed on (iota.fs's lf-iota-lit tests first).
 : lf-rn-succ-of ( pred -- node outcome )
   lf-rn-succ ok-then? 0= if nip no-result exit then
   lf-term-handle rot lf-term-handle lf-hterm-app lf-made-term ;
-: lf-reduce-nat-constructor ( a -- node outcome )
+: lf-rn-constructor ( a -- node outcome )
   dup lf-term-second@ 0= if drop lf-rn-zero exit then
   lf-reduce-nat-pred ['] lf-rn-succ-of ok-apply ;
+: lf-reduce-nat-constructor ( a -- node outcome ) ['] lf-rn-constructor lf-nat-lit-by ;

@@ -10,7 +10,11 @@ and the exit status for every result the runner can give (caught, survived
 as listed, survived unexpectedly, caught though listed as surviving, stale,
 timed out, a failing control, a malformed list, a temporary directory inside
 the tree), and after every run that the tree is exactly as before: the same
-files with the same bytes and modification times. The last case checks that
+files with the same bytes and modification times. A test that changes or
+removes a file of its copy is an error of its fault (or of the controls), and
+the next test finds the copy, its scratch folder and its temporary folder as
+they were (2026-11-20: one fault's test wrote over a fixture of the copy and
+spoiled the 600 faults after it); new files are named and removed. The last case checks that
 the checked-in list, tests/mutants/faults.toml with tests/mutants/faults.d/, is well formed.
 The files of a faults.d folder beside a list are read as part of it: their faults run, an id
 given in two files and a malformed file refuse the whole list (fail closed), and the history
@@ -20,6 +24,7 @@ Python 3.11 and bash; runs no Forth.
 import contextlib
 import io
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -119,6 +124,182 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual(status, 0, output)
         status, output = self.run_list(CAUGHT, "--only", "nonesuch")
         self.assertEqual(status, 2, output)
+
+    def test_tools_path_in_a_test_fails_the_check(self):
+        """A relative .tools/ path exists only in the main checkout: --check refuses it."""
+        for test in ("LEAN=.tools/elan/bin/lean sh check.sh", "./.tools/gforth/bin/gforth x.fs",
+                     'sh $PWD/.tools/x', "cd . && .tools/a/b"):
+            status, output = self.run_list(entry("uses-tools", "alpha", "gamma", test=test), "--check")
+            self.assertEqual(status, 1, (test, output))
+            self.assertRegex(output, r"(?m)^TOOLS PATH +uses-tools")
+            self.assertIn("1 tests naming .tools/", output)
+        for test in ("sh check.sh", "/home/me/.tools/gforth/bin/gforth check.sh", "$GFORTH check.sh",
+                     "sh check.sh # not.tools/ here"):
+            status, output = self.run_list(entry("fine", "alpha", "gamma", test=test), "--check")
+            self.assertEqual(status, 0, (test, output))
+            self.assertIn("0 tests naming .tools/", output)
+
+    def test_the_checked_in_list_names_no_tools_path(self):
+        self.assertEqual(mutants.tools_path_faults(mutants.load_list(ROOT / mutants.DEFAULT_LIST)), [])
+
+    def list_with_slow_first(self):
+        """Four faults, the first slowest, with every kind of result, for the parallel runs."""
+        slow = entry("slow-first", "alpha", "gamma", test="sh slow-caught.sh")
+        return slow + CAUGHT + EQUIVALENT + SURVIVOR + GAP_CAUGHT
+
+    def write_slow_caught(self):
+        (self.root / "slow-caught.sh").write_text("#!/bin/sh\nsleep 1\ngrep -qx alpha src/word.txt\n")
+        self.before = snapshot(self.root)
+
+    @staticmethod
+    def without_times(output):
+        return re.sub(r" +\d+\.\ds$", "", output, flags=re.M)
+
+    def test_parallel_output_is_the_serial_output(self):
+        self.write_slow_caught()
+        text = self.list_with_slow_first()
+        serial = self.run_list(text, "--jobs", "1")
+        for jobs in ("2", "4", "9"):
+            parallel = self.run_list(text, "--jobs", jobs)
+            self.assertEqual(parallel[0], serial[0], (jobs, parallel))
+            self.assertEqual(self.without_times(parallel[1]), self.without_times(serial[1]), jobs)
+        self.assertEqual(serial[0], 1, serial)
+        self.assertRegex(serial[1], r"(?m)^slow-first|^caught +slow-first")
+        order = re.findall(r"(?m)^(?:caught|survived|SURVIVED|CAUGHT)[^\n]*?(\S+) +exit", serial[1])
+        self.assertEqual(order, ["slow-first", "drops-alpha", "changes-beta", "unseen", "gap-but-caught"])
+
+    def test_faults_run_at_once_each_in_its_own_copy(self):
+        """Two tests that both see their own fault planted, and each other's marker: only side
+        by side, in copies of their own, can both find the other's marker in time."""
+        folder = self.list.parent / "markers"
+        folder.mkdir()
+        script = ("#!/bin/sh\nif ! grep -qx alpha src/word.txt; then\n  touch \"$1/run-$2\"\n"
+                  "  for i in 1 2 3 4 5 6 7 8 9 10 11 12; do [ -e \"$1/run-$3\" ] && break; sleep 0.2; done\n"
+                  "  [ -e \"$1/run-$3\" ] && touch \"$1/both-$2\"\n  exit 1\nfi\nexit 0\n")
+        (self.root / "meet.sh").write_text(script)
+        self.before = snapshot(self.root)
+        text = (entry("first-one", "alpha", "gamma", test=f"sh meet.sh {folder} a b") +
+                entry("second-one", "alpha", "delta", test=f"sh meet.sh {folder} b a"))
+        status, output = self.run_list(text, "--jobs", "2", "--timeout", "20")
+        self.assertEqual(status, 0, output)
+        self.assertEqual(sorted(p.name for p in folder.iterdir()), ["both-a", "both-b", "run-a", "run-b"])
+
+    def test_serial_run_does_not_meet(self):
+        folder = self.list.parent / "markers"
+        folder.mkdir()
+        (self.root / "meet.sh").write_text("#!/bin/sh\nif ! grep -qx alpha src/word.txt; then\n"
+                                           f"  touch {folder}/run-$1\n  [ -e {folder}/run-$2 ] && touch {folder}/both-$1\nfi\n"
+                                           "grep -qx alpha src/word.txt\n")
+        self.before = snapshot(self.root)
+        text = (entry("first-one", "alpha", "gamma", test="sh meet.sh a b") +
+                entry("second-one", "alpha", "delta", test="sh meet.sh b a"))
+        status, output = self.run_list(text, "--jobs", "1")
+        self.assertEqual(status, 0, output)
+        self.assertEqual(sorted(p.name for p in folder.iterdir()), ["both-b", "run-a", "run-b"],
+                         "serial: the second fault's run finds the first's marker, never the reverse")
+
+    def test_controls_run_once_whatever_the_jobs(self):
+        folder = self.list.parent / "controls"
+        folder.mkdir()
+        (self.root / "count.sh").write_text(f"#!/bin/sh\necho x >> {folder}/log\ngrep -qx alpha src/word.txt\n")
+        self.before = snapshot(self.root)
+        text = entry("one", "alpha", "gamma", test="sh count.sh") + entry("two", "alpha", "delta", test="sh count.sh")
+        status, output = self.run_list(text, "--jobs", "2")
+        self.assertEqual(status, 0, output)
+        self.assertEqual(len((folder / "log").read_text().split()), 3, "one control and two faults")
+
+    def write_spoiler(self, action):
+        """src/other.txt, read by fixture.sh, and spoil.sh: a test that catches the planted fault
+        and, only then, does action to the copy (as cli-check-direct-unguarded's test wrote a run
+        record over tests/reference/composition.ndjson when the fault was planted)."""
+        (self.root / "src/other.txt").write_text("clean\n")
+        (self.root / "spoil.sh").write_text(
+            f"#!/bin/sh\ngrep -qx alpha src/word.txt && exit 0\n{action}\nexit 1\n")
+        (self.root / "fixture.sh").write_text(
+            "#!/bin/sh\ngrep -qx clean src/other.txt && test ! -e src/new.txt\n")
+        self.before = snapshot(self.root)
+        # The spoiler first; then a fault that survives, as listed, only on a clean copy.
+        return (entry("spoils", "alpha", "gamma", test="sh spoil.sh") +
+                entry("reads-fixture", "beta", "delta", test="sh fixture.sh",
+                      equivalent="fixture.sh reads src/other.txt only"))
+
+    def test_a_test_that_changes_its_copy_is_an_error(self):
+        for action in ("echo spoiled > src/other.txt", "rm src/other.txt",
+                       "chmod a+x src/other.txt", "echo x >> check.sh"):
+            text = self.write_spoiler(action)
+            for jobs in ("1", "2"):
+                status, output = self.run_list(text, "--jobs", jobs)
+                self.assertEqual(status, 1, (action, output))
+                self.assertRegex(output, r"(?m)^CHANGED THE COPY \(caught\) +spoils +exit 1", action)
+                changed = "check.sh" if "check.sh" in action else "src/other.txt"
+                self.assertIn(f"its test changed or removed files of its copy (rebuilt): {changed};",
+                              output)
+                self.assertRegex(output, r"(?m)^survived \(known equivalent\) +reads-fixture",
+                                 (action, jobs, "the next test must find the copy rebuilt"))
+                self.assertIn("1 not as listed (1 changed their copy)", output)
+
+    def test_new_files_are_named_and_removed(self):
+        text = self.write_spoiler("touch src/new.txt")
+        status, output = self.run_list(text, "--jobs", "1")
+        self.assertEqual(status, 0, output)
+        self.assertRegex(output, r"(?m)^caught +spoils +exit 1")
+        self.assertIn("note: its test left new files in its copy (removed): src/new.txt", output)
+        self.assertRegex(output, r"(?m)^survived \(known equivalent\) +reads-fixture")
+        self.assertIn("0 not as listed (0 changed their copy)", output)
+
+    def test_scratch_and_temporary_folders_start_empty(self):
+        (self.root / "leave.sh").write_text(
+            '#!/bin/sh\ntouch "$LF_TEST_SCRATCH/left" "$TMPDIR/left"\ngrep -qx alpha src/word.txt\n')
+        (self.root / "find.sh").write_text(
+            '#!/bin/sh\ntest -d "$LF_TEST_SCRATCH" && test -d "$TMPDIR" && '
+            'test -z "$(ls -A "$LF_TEST_SCRATCH")" && test -z "$(ls -A "$TMPDIR")"\n')
+        self.before = snapshot(self.root)
+        text = (entry("leaves", "alpha", "gamma", test="sh leave.sh") +
+                entry("finds-none", "beta", "delta", test="sh find.sh", equivalent="find.sh only looks"))
+        for jobs in ("1", "2"):
+            status, output = self.run_list(text, "--jobs", jobs)
+            self.assertEqual(status, 0, output)
+            self.assertRegex(output, r"(?m)^survived \(known equivalent\) +finds-none")
+            self.assertNotIn("note:", output)
+
+    def test_a_control_that_changes_its_copy_fails(self):
+        (self.root / "dirty.sh").write_text("#!/bin/sh\necho x >> src/word.txt\nexit 0\n")
+        self.before = snapshot(self.root)
+        status, output = self.run_list(entry("dirty", "alpha", "gamma", test="sh dirty.sh"))
+        self.assertEqual(status, 2, output)
+        self.assertIn("control FAILED (changed the copy) on the unchanged copy: sh dirty.sh", output)
+        self.assertIn("files of its copy (rebuilt): src/word.txt;", output)
+
+    def test_tree_state_sees_content_mode_links_and_folders(self):
+        top = Path(self.temporary.name) / "state"
+        (top / "a").mkdir(parents=True)
+        (top / "a/f").write_text("x")
+        (top / "link").symlink_to("a/f")
+        before = mutants.tree_state(top)
+        self.assertEqual(sorted(before), ["a", "a/f", "link"])
+        self.assertEqual(mutants.departures(before, before), ([], []))
+        for change, want in ((lambda: (top / "a/f").write_text("y"), (["a/f"], [])),
+                             (lambda: (top / "a/f").chmod(0o700), (["a/f"], [])),
+                             (lambda: ((top / "link").unlink(), (top / "link").symlink_to("a")),
+                              (["link"], [])),
+                             (lambda: (top / "a/g").mkdir(), ([], ["a/g"]))):
+            change()
+            self.assertEqual(mutants.departures(mutants.tree_state(top), before), want)
+            for path in ("a/f", "link", "a/g"):
+                target = top / path
+                if target.is_symlink():
+                    target.unlink()
+                elif target.is_dir():
+                    target.rmdir()
+            (top / "a/f").write_text("x")
+            (top / "a/f").chmod(before["a/f"][2])
+            (top / "link").symlink_to("a/f")
+            self.assertEqual(mutants.departures(mutants.tree_state(top), before), ([], []))
+
+    def test_parallel_failing_control_stops(self):
+        status, output = self.run_list(entry("broken", "alpha", "gamma", test="false"), "--jobs", "3")
+        self.assertEqual(status, 2, output)
+        self.assertIn("control FAILED", output)
 
     def test_timeout_counts_as_caught(self):
         status, output = self.run_list(entry("hangs", "alpha", "gamma", test="sh slow.sh"))

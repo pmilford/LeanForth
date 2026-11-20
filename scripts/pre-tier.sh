@@ -19,7 +19,7 @@ run "library callers"           python3 scripts/check-lib-callers.py
 run "outcome steps"             python3 scripts/check-outcome-steps.py
 run "progress"                  python3 scripts/check-progress.py
 run "agent sync"                python3 scripts/check-agent-sync.py
-run "planted faults table"      python3 scripts/mutants.py --check
+run "planted faults table"      python3 scripts/mutants.py --check   # also: no fault test names .tools/
 run "layers"                    python3 scripts/check-layers.py --gforth "$G"
 run "error catalogue"           env GFORTH="$G" python3 -c 'import importlib.util as u; s = u.spec_from_file_location("ca", "tests/author/check_author.py"); m = u.module_from_spec(s); s.loader.exec_module(m); m.check_catalogue()'
 run "docs links"                make -s check-docs GFORTH="$G"

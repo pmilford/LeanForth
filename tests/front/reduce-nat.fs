@@ -13,7 +13,10 @@
 \    argument has no value (a free variable first or second, a let
 \    variable whose value is a literal, a metavariable assigned one);
 \    unsupported for an exponent above 256 (257, two limbs);
-\ 2. malformed input: none here (the match reads any term);
+\ 2. malformed input: the fold given an operand that is no literal leaf,
+\    first, second or both, and Nat.succ of one: invalid, before the
+\    threshold is read (core/nat-ops.fs's lf-nat-lits-by; plan 9.4.8l
+\    AW); the match reads any term;
 \ 3. stack effects: each T{ }T checks the depth;
 \ 5. resources: whnf's fuel and the Meta budget run out (exhausted);
 \    each fold swept with every heap allocation and every term refused in
@@ -70,9 +73,10 @@ T{ 5 nat-lit lf-meta-nat-value? 5 lit= zero lf-meta-nat-value? 0 lit=
 T{ succ fk app lf-meta-nat-value? flag-of 3 ofnat lf-meta-nat-value? flag-of
    -> false outcome-ok false outcome-ok }T
 \ lf-meta-nat-value? is the front end's test before the fold (review
-\ s3a-decide M1: core/nat-ops.fs's lf-nat-lit-op does not check its
-\ operands, so its callers pass literals only): a free variable, a sort and
-\ a constant other than Nat.zero have no value either.
+\ s3a-decide M1: the fold refuses an operand that is no literal, plan
+\ 9.4.8l AW, but is given literals only, as Lean's withNatValue gives): a
+\ free variable, a sort and a constant other than Nat.zero have no value
+\ either.
 T{ fk lf-meta-nat-value? flag-of 0 sort lf-meta-nat-value? flag-of succ lf-meta-nat-value? flag-of
    -> false outcome-ok false outcome-ok false outcome-ok }T
 
@@ -92,6 +96,27 @@ T{ 4 nat-lit 4 nat-lit 7 lf-meta-nat-fold swap true? 5 nat-lit 3 nat-lit 8 lf-me
 T{ 2 nat-lit 256 nat-lit 3 lf-meta-nat-fold swap lf-lit-vector nip -> outcome-ok 5 }T
 T{ 2 nat-lit 257 nat-lit 3 lf-meta-nat-fold 2 nat-lit two64 3 lf-meta-nat-fold
    -> -1 outcome-unsupported -1 outcome-unsupported }T
+
+\ ---- 2. An operand that is no literal leaf (review s3a-decide M1, plan
+\ 9.4.8l AW): the constant Nat and the application Nat.succ fk, first,
+\ second or both, for each operation, and Nat.succ of one: invalid and -1,
+\ the cells under the call kept (111). The test comes before the
+\ threshold is read, so Nat.pow by Nat.succ fk, whose fields read as a
+\ literal of two limbs or more, is invalid, not unsupported.
+: sfk ( -- t ) succ fk app ;
+T{ sfk lf-term-second@ 1 > -> true }T
+: fold-refused? ( v1 v2 i -- flag ) lf-meta-nat-fold outcome-invalid = swap -1 = and ;
+: each-fold-refused? ( v1 v2 -- flag ) true 14 0 do >r 2dup i fold-refused? r> and loop nip nip ;
+T{ 111 3 nat-lit sfk 3 lf-meta-nat-fold 111 sfk nat 12 lf-meta-nat-fold
+   -> 111 -1 outcome-invalid 111 -1 outcome-invalid }T
+T{ 111 nat 3 nat-lit 0 lf-meta-nat-fold -> 111 -1 outcome-invalid }T
+T{ nat 3 nat-lit each-fold-refused? 3 nat-lit sfk each-fold-refused? sfk nat each-fold-refused?
+   -> true true true }T
+T{ 111 nat 0 lf-meta-nat-succ lf-meta-nat-fold 111 sfk 0 lf-meta-nat-succ lf-meta-nat-fold
+   -> 111 -1 outcome-invalid 111 -1 outcome-invalid }T
+\ The first operand no literal and an exponent above 256 (review B1 of
+\ AW): invalid, not unsupported, as the test comes before the threshold.
+T{ nat 257 nat-lit 3 fold-refused? sfk two64 3 fold-refused? -> true true }T
 
 \ ---- 1. whnf (default transparency): the arguments' whnf, then the fold.
 T{ 2 ofnat 3 ofnat s" Nat.add" nat2 5 nat-lit w= succ 3 ofnat app 4 nat-lit w=

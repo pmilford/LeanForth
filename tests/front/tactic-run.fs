@@ -25,6 +25,7 @@
 \    an open part or an error's detail cut where its slab is full;
 \    7. regression pins: the terms, positions and texts.
 \ Nothing here accepts a theorem except through the kernel's check.
+include ../support/scratch.fs   \ the step log's file (before heap-watch.fs, as it asks)
 include ../support/heap-watch.fs
 require ../support/tester.fs
 require ../../src/load/checker.fs
@@ -258,6 +259,13 @@ rw-action tac-k-rw lf-tactic-action!
 \ A let among the binders: not supported yet when the value is closed.
 ' let-x stating
 T{ s" by-sorry end t" proof nrun err -> outcome-unsupported 93 1 52 }T
+\ A goal whose level type inference cannot find (a constant the library
+\ does not hold): 93 at by-sorry, whose term is never made, so no open
+\ part is kept (review fe1g3 L8; the zero-add goal that showed it until S1
+\ merge B now has its level).
+: unknown-c ( -- type ) s" NoSuchConstant" 0 cst ;
+' unknown-c stating
+T{ s" by-sorry end t" proof nrun err lf-open-parts -> outcome-unsupported 93 1 43 0 }T
 
 \ ---- 5. Fuel: none left at a step is 91, exhausted, at that step with
 \ the goals; exactly enough runs.
@@ -646,7 +654,7 @@ T{ ' limit-after-header ' all-found ' no-axioms lf-steps-write max-n lsl-w jw-li
 \ here nothing, exit 3 with that said; a FILE whose writing fails at its
 \ close (/dev/full) may end inside a line, exit 3; the verdicts as
 \ without the log. A text that cannot be opened is malformed, exit 4.
-: steps-path ( -- c-addr u ) s" tests/front/steps-log.tmp" ;
+s" leanforth-tactic-run-steps.tmp" scratch-file 2constant steps-path
 : check-into ( lf-addr lf-u steps-addr steps-u -- code )
   2>r cli-options 2r> cli-state opt-steps 2! library cli-state opt-env 2! cli-check ;
 : sorry-into ( c-addr u -- code ) s" tests/front/06-sorry.lf" 2swap check-into ;

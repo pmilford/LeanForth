@@ -8,12 +8,16 @@
 \    constants), succ, the predecessor (one limb and several), the
 \    constructor form (Nat.zero, Nat.succ n) and the literals' type Nat:
 \    each ( node outcome ), the stack as before.
-\ 2. A node that is no literal: not called with one, its answer not
-\    defined (core/nat-ops.fs's lf-nat-lit-op does not check; review
-\    s3a-decide M1): the callers pass literals only, which
-\    tests/core/defeq.fs (lf-nat-ext) and tests/front/reduce-nat.fs
-\    (lf-meta-nat-value?) pin; failing closed is plan 9.4.8l (AW), the
-\    owner's gate.
+\ 2. An operand that is no literal leaf (review s3a-decide M1; plan
+\    9.4.8l AW, the owner's gate of 2026-11-20): invalid and -1 for each
+\    operation, the first operand or the second before Lean's count
+\    refusal is read, and for Nat.succ, the predecessor (the literal 0
+\    too) and the constructor form, never ok and never a verdict, the
+\    cells under the call kept (core/nat-ops.fs's lf-nat-lits-by). The
+\    callers pass literals only all the same (literals above 0 to the
+\    predecessor), which tests/core/defeq.fs (lf-nat-ext, lf-dq-pred?,
+\    lf-dq-pred, lf-iota-lit) and tests/front/reduce-nat.fs
+\    (lf-meta-nat-value?) pin.
 \ 5. Lean's fixed refusals (a count of 2^32 or more: rejected, diagnostic
 \    92) and its size limit (a result over 2^30 bits: full, diagnostic
 \    93), the shift of 0 by any count; each allocation of an operation
@@ -152,4 +156,52 @@ T{ ' ctor-op each-full? -> true }T   \ Nat.zero
   >r operands lf-term-capacity lf-term-count @ lf-term-capacity! drop
   -rot r> execute nip swap lf-term-capacity! drop ;
 T{ ' sub-op crowded ' beq-op crowded ' ctor-op crowded -> outcome-full outcome-full outcome-full }T
+
+\ ---------------------------------------------------------------------------
+\ 2. An operand that is no literal leaf (review s3a-decide M1, plan 9.4.8l
+\ AW): the constant Nat and the application Nat.succ 4, first, second or
+\ both, for each operation, and Nat.succ of either: invalid and -1 with no
+\ diagnostic, the cells under the call kept (111). The test comes before
+\ the count is read, so pow and shiftLeft by the application, whose fields
+\ read as a literal of two limbs or more, are invalid, not rejected (92).
+fresh
+: k-nat ( -- node ) lf-reduce-nat-type ok? must ;
+: k-app ( -- node ) 1 nat drop 2 nat drop 5 nat lf-reduce-nat-constructor ok? must ;
+T{ k-app lf-term-second@ 1 > -> true }T
+: kernel-refused? ( a b i -- flag )
+  lf-diag-clear lf-reduce-nat-binary outcome-invalid = swap -1 = and diag 0= and ;
+: each-refused? ( a b -- flag ) true 14 0 do >r 2dup i kernel-refused? r> and loop nip nip ;
+T{ 111 3 nat k-app 3 lf-reduce-nat-binary 111 3 nat k-app 12 lf-reduce-nat-binary
+   -> 111 -1 outcome-invalid 111 -1 outcome-invalid }T
+T{ 111 k-nat 3 nat 0 lf-reduce-nat-binary 111 k-app k-nat 7 lf-reduce-nat-binary
+   -> 111 -1 outcome-invalid 111 -1 outcome-invalid }T
+T{ k-nat 3 nat each-refused? 3 nat k-app each-refused? k-app k-nat each-refused? -> true true true }T
+T{ 111 k-nat lf-reduce-nat-succ 111 k-app lf-reduce-nat-succ
+   -> 111 -1 outcome-invalid 111 -1 outcome-invalid }T
+\ The first operand no literal and a count Lean refuses (review B1 of
+\ AW): invalid, not rejected (92), as the test comes before the count.
+T{ k-nat 4294967296 nat 3 kernel-refused? k-app big 3 kernel-refused?
+   k-app 4294967296 nat 12 kernel-refused? -> true true true }T
+\ The predecessor and the constructor form (review L1 of AW): is_nat_succ
+\ gives a predecessor only of a literal above 0 (type_checker.cpp:1029-
+\ 1035) and nat_lit_to_constructor asserts a literal (inductive.cpp:
+\ 1359-1366), so the constant Nat, the application Nat.succ 4 and, for
+\ the predecessor, the literal 0 are invalid and -1, with no diagnostic,
+\ no node made and the cells under the call kept (111). Their callers
+\ test first (tests/core/defeq.fs pins lf-dq-pred? and lf-iota-lit).
+: unary-refused? ( a xt -- flag )
+  lf-diag-clear lf-term-count @ >r execute outcome-invalid = swap -1 = and
+  diag 0= and lf-term-count @ r> = and ;
+T{ 111 k-nat lf-reduce-nat-pred 111 k-app lf-reduce-nat-pred 111 0 nat lf-reduce-nat-pred
+   -> 111 -1 outcome-invalid 111 -1 outcome-invalid 111 -1 outcome-invalid }T
+T{ 111 k-nat lf-reduce-nat-constructor 111 k-app lf-reduce-nat-constructor
+   -> 111 -1 outcome-invalid 111 -1 outcome-invalid }T
+T{ k-nat ' lf-reduce-nat-pred unary-refused? k-app ' lf-reduce-nat-pred unary-refused?
+   0 nat ' lf-reduce-nat-pred unary-refused? -> true true true }T
+T{ k-nat ' lf-reduce-nat-constructor unary-refused? k-app ' lf-reduce-nat-constructor unary-refused?
+   -> true true }T
+\ Literals still answer as before: the predecessor of 1 is 0, the
+\ constructor form of 1 Nat.succ 0, with the cell under the call kept.
+T{ 111 1 nat lf-reduce-nat-pred swap small -> 111 outcome-ok 0 }T
+T{ 111 1 nat lf-reduce-nat-constructor swap succ-form -> 111 outcome-ok 0 true }T
 bye

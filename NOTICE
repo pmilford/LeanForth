@@ -1,0 +1,34 @@
+LeanForth
+Copyright (c) 2026 Peter Milford
+Licensed under the MIT License (see LICENSE).
+
+This repository contains test data and short quotations derived from other
+projects. They keep their own licences:
+
+Lean 4 (https://github.com/leanprover/lean4), version 4.35.0
+  Copyright (c) Microsoft Corporation, Lean FRO, LLC, Amazon.com, Inc. and the
+  other Lean 4 contributors, as each of Lean's files states.
+  Licensed under the Apache License, Version 2.0
+  (https://www.apache.org/licenses/LICENSE-2.0).
+  Derived files: the exports, slices, snapshots and elaboration data of Lean's
+  core library (Init) under tests/ (the files named *.ndjson,
+  *.elab.ndjson and the snapshots under tests/snapshots/), written by Lean and
+  lean4export from Lean's sources; the Lean files under tests/ that restate
+  Lean's theorems for comparison; and the passages of Lean's sources quoted in
+  source comments and in docs/ to say which Lean function a LeanForth word
+  follows.
+
+lean4export (https://github.com/leanprover/lean4export)
+  Licensed under the Apache License, Version 2.0.
+  The export format (NDJSON, format 3.1.0) that LeanForth reads is its format.
+
+Mathlib (https://github.com/leanprover-community/mathlib4)
+  Copyright (c) the mathlib community and its contributors.
+  Licensed under the Apache License, Version 2.0.
+  No Mathlib file is included. docs/development/measurements/ records the
+  output of LeanForth's runs on Mathlib's export (counts, names and timings),
+  and tests/front/mathlib-slice.roots names Mathlib declarations.
+
+Tools the install scripts download, which are not part of this repository:
+  Gforth 1.0.0 (https://gforth.org), GNU General Public License version 3 or
+  later; Lean 4.35.0, as above.

@@ -1689,11 +1689,14 @@ constants (`Bool.true`, `Bool.false`), so it lives in `core/`, not `lib/`.
   `Nat.ble`), makes the result a new literal (or the Bool constant) and
   frees the arena. `lf-nat-op ( name -- i | -1 )` maps `Nat.add` ...
   `Nat.shiftRight` to the index (a `lib/texts.fs` table).
-- **Generic.** Any literals; the callers keep their policies: the kernel
-  refuses a count of 2^32 or more (`get_count_arg`), Meta answers an
-  exponent above 256 unsupported (`checkExponent`, plan S3b ports its
-  warning). A result over Lean's 2^30 bits, an estimate over it, or a
-  refused arena is full (diagnostic 93), never a value.
+- **Generic.** Any literals; an operand that is no literal leaf is
+  invalid, no node made (plan 9.4.8l AW, 2026-11-20). The callers keep
+  their policies, run through `lf-nat-lits-by ( a b i xt -- node outcome )`
+  only once both operands are literals: the kernel refuses a count of
+  2^32 or more (`get_count_arg`), Meta answers an exponent above 256
+  unsupported (`checkExponent`, plan S3b ports its warning). A result
+  over Lean's 2^30 bits, an estimate over it, or a refused arena is full
+  (diagnostic 93), never a value.
 - **Cost.** The arena is `8 (|a| + |b|) + 64` cells for an ordinary
   operation; `pow` and `shiftLeft` size it from the result's estimated
   bits (6 cells a limb, the operands twice, 4,096 more). Time is
@@ -1701,12 +1704,22 @@ constants (`Bool.true`, `Bool.false`), so it lives in `core/`, not `lib/`.
 - **Measured** (2026-11-19, this machine, Gforth 1.0 / gforth-fast): 10,000
   products of small literals 27 / 8 ms (about 2.7 / 0.8 µs each, the
   arena's allocation included); `3 ^ 100000` (158,497 bits) 9 / 2 ms, its
-  square 13 / 3 ms, its gcd with 1000 under 1 ms.
-- **Callers.** The kernel (`kernel/reduce-nat.fs`'s `lf-reduce-nat-binary`,
-  `lf-reduce-nat-succ`; `kernel/whnf.fs`'s name tests), every literal
-  operation of a check (the sizes a check of Init passes are not measured
-  yet); the front end's `reduceNat?` (by-decide's group A: one-limb
-  operands, `2 ^ 64` the largest result).
+  square 13 / 3 ms, its gcd with 1000 under 1 ms. The operands' test
+  (2026-11-20, plan 9.4.8l AW): two tag reads per test, made twice on the
+  kernel's path (`lf-reduce-nat-binary`, then `lf-nat-lit-op`); 100,000
+  kernel products of small literals, the least of 18 runs on a loaded
+  machine, 236 → 273 ms on Gforth 1.0 and 90 → 96 ms on gforth-fast
+  (lf-nat-lit-op alone and Nat.ble within the noise); end to end within
+  the noise (`make test-kernel-reduction`, the decide check, the demos).
+- **Callers.** The kernel (`kernel/reduce-nat.fs`'s `lf-reduce-nat-binary`
+  through `lf-nat-lits-by`, `lf-reduce-nat-succ`, and `lf-reduce-nat-pred`
+  for a literal of several limbs; that word refuses anything but a literal
+  above 0 before it reads it, and `lf-reduce-nat-constructor` anything
+  but a literal, review L1 of AW; `kernel/whnf.fs`'s name
+  tests), every literal operation of a check (the sizes a check of Init
+  passes are not measured yet); the front end's `reduceNat?`
+  (`lf-meta-nat-fold` through `lf-nat-lits-by`; by-decide's group A:
+  one-limb operands, `2 ^ 64` the largest result).
 
 ## Signed big integers
 

@@ -15,7 +15,8 @@
 \    unknown or invalid name, a number beyond the library, a kind beyond
 \    the four, an expression not supported yet (mdata), imax, a reflexive
 \    type, let and have, a big literal (the re-export library); facts without
-\    data unsupported; binder kinds of a library and a text declaration;
+\    data unsupported; binder kinds of a library and a text declaration, a
+\    binder's domain;
 \    getDecLevel's every case; the instance-typed flag and its rollback;
 \    the stage's tier unchanged by decoding (review s1-meta-b M1);
 \ 3. stack effects (every T{ }T checks the depth; a cell below a refused
@@ -28,8 +29,9 @@
 \    the same find again after each refusal decodes (a stopped walk
 \    forgets its nodes under way), and nothing refused stays allocated;
 \    a name's parts and its sought parts refused room: full, never
-\    "unknown constant" (L1); a text declaration refused room in turn:
-\    nothing kept.
+\    "unknown constant" (L1); a declaration's name refused room in the
+\    run's name store: full, the record given back; a text declaration
+\    refused room in turn: nothing kept.
 include ../support/heap-watch.fs
 require ../support/tester.fs
 require ../../src/load/checker.fs
@@ -127,6 +129,13 @@ T{ 0 ck-stage staged-kind@ 0 lf-libdec-decl -> kind-inductive -1 outcome-invalid
 T{ last-d lf-menv-kind last-d lf-libdec-decl drop lf-libdec-dname last-d lf-menv-name =
    -> lf-kind-definition true }T
 T{ lf-libdec-count lbd-parts lf-libdec-kinds lbd-parts slab-count -> outcome-invalid 0 }T
+\ A binder's domain in the stage's tier (lf-libdec-domain): Nat.add's
+\ first is the constant Nat; none past its two binders, none for a number
+\ beyond the library.
+: domain-of ( d k -- tag tier? true | false )
+  lf-libdec-domain dup if drop dup ck-stage stage-tier = >r expr-tag@ r> true then ;
+T{ s" Nat.add" d-of 0 domain-of s" Nat.add" d-of 2 domain-of lf-libdec-count 0 domain-of
+   -> tag-const true true false false }T
 \ The same record again: memoized, nothing decoded twice.
 : rec-of ( c-addr u -- r n ) d-of lf-libdec-decl drop lbd-records slab-count ;
 : alike ( r1 n1 r2 n2 -- f1 f2 ) rot = >r = r> ;
@@ -347,6 +356,21 @@ T{ one-room 777 s" Nat.add" nm refuse-one lf-menv-find 0 heap-refusals !
    -> 777 -1 outcome-full }T
 T{ 777 s" Nat.add" d-of ck-stage staged-name@ one-room refuse-one lf-libdec-run-name
    0 heap-refusals ! -> 777 -1 outcome-full }T
+\ A declaration whose name has a part the run's names lack (Nat.zero_add,
+\ sought in the tier, not by its run name), the run's name store given no
+\ room: full, the record given back; with the room back it decodes, named
+\ as the library names it.
+: tier-part ( n c-addr u -- n' )
+  ck-stage stage-tier name-seek-str made dup 0< abort" no tier part" ;
+: zero-add-decl ( -- r outcome )
+  0 s" Nat" tier-part s" zero_add" tier-part ck-stage stage-find 0= abort" no zero_add"
+  lf-libdec-decl ;
+: no-name-room ( xt -- i*x )
+  lf-name-capacity >r lf-names store-count @ lf-name-capacity! drop execute
+  r> lf-name-capacity! drop ;
+T{ lbd-records slab-count ' zero-add-decl no-name-room rot lbd-records slab-count =
+   -> -1 outcome-full true }T
+T{ zero-add-decl swap lf-libdec-dname s" Nat.zero_add" nm = -> outcome-ok true }T
 \ A sought part refused room (the parts' slab grown again, then the
 \ tier's names filled to their slab's capacity, by the test): full, not
 \ "unknown constant".
@@ -372,6 +396,11 @@ T{ 0 lf-term-bvar drop lf-meta-dec-level nip -> outcome-invalid }T
 : kinds-lib ( -- c-addr u ) s" tests/core/reexport/kinds.ndjson" ;
 T{ kinds-lib false lfc-library-open s" Nat.add" nm lf-menv-find
    -> outcome-ok -1 outcome-unsupported }T
+\ The decoder's own outcome names the mdata node not supported yet, never
+\ malformed (review s1-meta-b M3): the Meta env reads every refusal of a
+\ library declaration as unsupported (me-undecoded, since 2026-11-17), so
+\ only lf-libdec-decl tells the two apart.
+T{ s" Nat.add" nm lf-libdec-find made lf-libdec-decl -> -1 outcome-unsupported }T
 : codomain-level ( c-addr u -- level ) d-of lf-menv-type lf-term-second@ lf-term-second@
   lf-term-first@ ;
 T{ s" ReexportKinds.arrow" codomain-level lf-level-tag@ -> lf-level-tag-imax }T

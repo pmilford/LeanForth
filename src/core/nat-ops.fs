@@ -18,12 +18,28 @@
 \   lf-nat-lit-op ( a b i -- node outcome )  operation i on the literal
 \       leaves a and b (core/literals.fs) with lib/bignum.fs: a new
 \       literal, or the constant Bool.true or Bool.false for Nat.beq and
-\       Nat.ble. a and b must be literal leaves, which is not checked:
-\       the callers pass only literals (the kernel's whnf, kernel/whnf.fs's
-\       lf-nat-ext; the front end's lf-meta-nat-value?), and another node
-\       is the caller's error, its answer not defined (review s3a-decide
-\       M1; failing closed is plan 9.4.8l (AW), the owner's gate)
-\   lf-nat-lit-succ ( a -- node outcome )  the literal a + 1 (Nat.succ)
+\       Nat.ble; invalid (-1) when a or b is no literal leaf
+\   lf-nat-lits-by ( a b i xt -- node outcome )  xt ( a b i -- node
+\       outcome ) when a and b are literal leaves, else invalid (-1) with
+\       nothing run: a caller's policy (the kernel's count refusal, Meta's
+\       threshold) put after the test, as Lean tests for literals first
+\       (is_nat_lit_ext, withNatValue). Lean computes only on literals and
+\       every caller tests for them before calling (the kernel's whnf,
+\       kernel/whnf.fs's lf-nat-ext; the kernel's predecessor of a literal
+\       of several limbs, reduce-nat.fs's lf-reduce-nat-pred, for
+\       defeq.fs's is_def_eq_offset and iota.fs's literal major premise,
+\       after their tests and its own; the front end's
+\       lf-meta-nat-value?), so another node is a caller's error, refused,
+\       never computed (review s3a-decide M1; plan 9.4.8l AW, the owner's
+\       gate of 2026-11-20). The refusal assumes that a and b are valid
+\       term nodes and i an operation index 0-13: neither is checked
+\       (lf-lit-leaf? reads a node's tag unchecked, the table is indexed
+\       by i; plan 9.4.8l AY)
+\   lf-nat-lit-by ( a xt -- node outcome )  the same test for one operand:
+\       xt ( a -- node outcome ) when a is a literal leaf, else invalid
+\       (-1) with nothing run (Nat.succ here, the kernel's constructor form)
+\   lf-nat-lit-succ ( a -- node outcome )  the literal a + 1 (Nat.succ);
+\       invalid (-1) when a is no literal leaf
 \   lf-nat-lit ( u -- node outcome )  the literal of a cell's value
 \   lf-nat-named ( prefix c-addr u -- node outcome )  the constant
 \       prefix.c-addr u (prefix a name ID, 0 for the root) with no
@@ -32,7 +48,8 @@
 \       the constant prefix.part, prefix a root name (Nat.zero, Bool.true)
 \ Policies stay with the callers: the kernel's refusal of a count of 2^32
 \ or more (get_count_arg, 305-313), Meta's exponent threshold (256,
-\ Util/SafeExponentiation.lean). Here only resources: Lean's size limit,
+\ Util/SafeExponentiation.lean). Here only the operands' test (invalid,
+\ above) and resources: Lean's size limit,
 \ 2^30 bits by default (LEAN_NAT_MAX_SIZE, a setting), and the estimates
 \ against it are a resource: a result over 2^30 bits, an estimate over it
 \ for pow (a base of 2 or more) and shiftLeft (a nonzero number), or no
@@ -155,9 +172,17 @@ align here
   ' nop-div , ' nop-beq , ' nop-ble , ' nop-land , ' nop-lor , ' nop-xor ,
   ' nop-shl , ' nop-shr ,
 constant nop-ops
-: lf-nat-lit-op ( a b i -- node outcome ) cells nop-ops + @ execute ;
-: lf-nat-lit-succ ( a -- node outcome )
+\ The operands' test before any is read: both literal leaves, or invalid.
+: nop-lits? ( a b -- flag ) lf-lit-leaf? swap lf-lit-leaf? and ;
+: lf-nat-lits-by ( a b i xt -- node outcome )
+  2over nop-lits? flag>outcome swap ok-apply3 ;
+: nop-run ( a b i -- node outcome ) cells nop-ops + @ execute ;
+: lf-nat-lit-op ( a b i -- node outcome ) ['] nop-run lf-nat-lits-by ;
+: lf-nat-lit-by ( a xt -- node outcome )
+  over lf-lit-leaf? flag>outcome swap ok-apply ;
+: nop-succ ( a -- node outcome )
   1 lf-nat-lit ['] nop-add ok-apply2 ;
+: lf-nat-lit-succ ( a -- node outcome ) ['] nop-succ lf-nat-lit-by ;
 
 \ The names (lib/texts.fs), compared by their components (Lean's name
 \ equality), from the last.
