@@ -220,7 +220,8 @@ check-portable-forth:
 
 # Forth review log and style ratchet (docs/development/forth-reviews/LOG.md,
 # tests/forth-quality-baseline.json): fails on main for an unreviewed Forth change; also the lib-caller and
-# duplicate checks (plan 9.4.8f).
+# duplicate checks (plan 9.4.8f), and the shape of each step given to ok-apply, ok-apply2 or ok-apply3
+# (scripts/check-outcome-steps.py; review of cleanup-families-3, H1).
 check-forth-quality:
 	$(RUN) python3 tests/scripts/test_check_forth_quality.py
 	$(RUN) python3 tests/scripts/test_check_progress.py
@@ -230,6 +231,8 @@ check-forth-quality:
 	$(RUN) python3 tests/scripts/test_check_duplicates.py
 	$(RUN) python3 tests/scripts/test_duplicates_extract.py
 	$(RUN) python3 scripts/check-duplicates.py
+	$(RUN) python3 tests/scripts/test_check_outcome_steps.py
+	$(RUN) python3 scripts/check-outcome-steps.py
 
 # Report-only Forth style metrics (word length, globals, locals, shuffling);
 # see docs/development/FORTH_STYLE.md. Never fails on style.

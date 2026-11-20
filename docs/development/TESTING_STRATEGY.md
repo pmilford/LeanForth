@@ -906,7 +906,7 @@ per full tier, and every unit test now runs on one more engine than before.
 
 Four scripts keep the reuse rule of AGENTS.md ("Reuse first") from failing silently. `make test` runs them (the
 first three in `check-forth-quality`, the index in `check-docs`); each has unit tests on throw-away source trees in
-`tests/scripts/`.
+`tests/scripts/`. A fifth script in `check-forth-quality`, the last below, checks the steps of the outcome chains.
 
 - `scripts/check-lib-callers.py`: builds the require/include/needs graph of `src/**/*.fs` (paths relative to the
   requiring file) and fails for a `src/lib/` file that no file outside `lib/` reaches, unless
@@ -932,6 +932,13 @@ first three in `check-forth-quality`, the index in `check-docs`); each has unit 
   Findings or Open text proposes a new `lib/` file or library word without a plan row id (`9.4.8a`, `FE1i-4`, `S2`).
 - `scripts/lib-index.py` writes [LIBRARY_WORDS.md](LIBRARY_WORDS.md), the index of the public words of `src/lib/`;
   `make check-docs` fails when it is stale: run `python3 scripts/lib-index.py --write` and commit it.
+- `scripts/check-outcome-steps.py` (review of cleanup-families-3, H1, 2026-11-19; in `check-forth-quality`): for
+  every `['] X ok-apply`, `ok-apply2` or `ok-apply3` in `src/`, outside comments and strings, X's stack comment
+  (its `:` definition or `defer`) must take exactly the 1, 2 or 3 cells the chain passes and leave `result
+  outcome` in each alternative (the second cell `outcome` or `status`); otherwise a failure before the step
+  leaves a different stack from a success. A step with no definition in `src/`, a comment it cannot count
+  (`...`, `|` before `--`) or several disagreeing definitions is printed as "not checked" and does not fail;
+  a step whose xt is not named at the call is not seen.
 
 ### Removing a duplicate group (owner, 2026-11-19)
 
@@ -1339,7 +1346,7 @@ which is what `make mutants` asks. The 2026-11-02 review's figure (90.7% of
 
 `scripts/pre-tier.sh` (2026-11-19) runs every cheap whole-repository check in one keep-going pass of about two
 minutes and prints one line for each: a clean tree, the test classes, duplicates, the style ratchet and review
-log, library callers, the progress check, the agents' definitions, the planted-fault table, documentation links
+log, library callers, the steps of the outcome chains, the progress check, the agents' definitions, the planted-fault table, documentation links
 and examples, portable Forth, the Lean source citations, the export list, the standalone libraries, no runner
 falling back to an unpinned `lean`, and a scan of the Python scripts for undefined, shadowed or twice-defined
 names. An implementing agent runs it before handing a branch back, and it is run before every `make tier`: a

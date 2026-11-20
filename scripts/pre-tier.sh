@@ -15,6 +15,7 @@ run "test classes"              python3 scripts/test-classes.py
 run "duplicates"                python3 scripts/check-duplicates.py
 run "forth quality + review log" python3 scripts/check-forth-quality.py
 run "library callers"           python3 scripts/check-lib-callers.py
+run "outcome steps"             python3 scripts/check-outcome-steps.py
 run "progress"                  python3 scripts/check-progress.py
 run "agent sync"                python3 scripts/check-agent-sync.py
 run "planted faults table"      python3 scripts/mutants.py --check
