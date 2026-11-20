@@ -262,3 +262,65 @@ Not run:
 Uncertainty: H1 was shown on a model of the chain (the real `outcome.fs` with stubs), not on the real `ac-lam`, because no test drives `lf-meta-head-beta` to fail. Whether an end-to-end target catches the M2 and L1 survivors was not measured.
 
 The branch touches src/kernel, src/core and src/import, so the full tier applies. This AI review does not replace the human review AGENTS.md requires for checker changes.
+
+## Fixes
+
+Made by the implementer on branch `cleanup-families-3` after main was merged into it (`0f78c8e3`: rounds 1 and 2
+and the tactic batch), each its own commit:
+
+- **H1** (`f53dae2e`): `ac-lam-from ( e i type -- lam outcome )` abstracts and makes the lambda as one step, and
+  `ac-lam` chains it on `ok-apply3`, as the review wrote it. tests/front/defeq.fs runs a room sweep
+  (tests/support/meta-sweeps.fs) of `lf-meta-mk-lambda` over a binder whose type is the beta-redex
+  `(fun a : Type => a -> a) Nat`, with 55 under the call: every refusal ends full and the 55 stays. Fault
+  `cf3r-ac-lam-eats-cell` (round 3's chain), caught (`WRONG NUMBER OF RESULTS`).
+- **Prevention** (`3c39140a`): `scripts/check-outcome-steps.py`, in `check-forth-quality` (make test) with its 15
+  tests (tests/scripts/test_check_outcome_steps.py) and in `scripts/pre-tier.sh`. For every `['] X ok-apply`,
+  `ok-apply2` or `ok-apply3` in src/ outside comments and strings, X's stack comment (its `:` definition or
+  `defer`) must take exactly the 1, 2 or 3 cells the chain passes and leave two cells per alternative, the second
+  `outcome` or `status`. What it cannot count (no definition in src/, `...`, `|` before `--`, disagreeing
+  definitions) it prints as "not checked" and does not fail on; a step whose xt is not named at the call is not
+  seen. On src/ now: 121 sites, 121 right, 0 not checked; on the text before H1's fix it names `ac-abstract`.
+- **R1** (`fcccf762`): the five exact copies are on the shared words (`lf-pp-spend`, `lf-meta-spend?`,
+  `lfr-spend?` on `cell-spend?`; `lf-tex-angle?`, `pv-settled?` on `one-of2?`); proof-outline.fs's
+  `lf-ol-binders` (`one-of2?`) and whnf.fs's `wc-at-most-i` (`one-of3?`) converted; kernel `caches.fs` defines
+  `lf-short? ( outcome -- flag )`, which `lf-ci-short` calls and which replaces check-declaration.fs's
+  `lf-check-short?`. Faults re-targeted: `tex-guillemet-raw`, `fe-run-fuel-free`, `fe-whnf-at-most-i-implicit`.
+  The five negated forms are plan 9.4.8l item AT.
+- **L3** (`257e6f64`): `ly-fam-tagged` reads the tag from head on top, `-rot` in each arm.
+- **M2** (`46b237d3`, `ea70af70`): tests/core/environment.fs pins the axiom table's one shared row after
+  `lf-env-axiom-deps` (the main input has no axiom; F2 makes it 28), `lf-axd-row-for` of a shared row, and
+  `lf-axd-made` with the rows slab filled to its capacity and its growth refused (heap-watch.fs): `55 -1 full`.
+  tests/core/inductive-nested.fs (now with heap-watch.fs) grows nested.tree's translated constructors past the
+  declarations' capacity (each numbered in turn, ok, of kind constructor), then, both arrays full, refuses the
+  cells' growth and then the declarations': `-1 full`, the count unchanged, the cell under the call kept. The
+  review's F1-F6b are recorded (`cf3r-axd-made-keeps-j`, `cf3r-axd-row-never-shared`,
+  `cf3r-nest-ctor-written-first` (caught as an abort: the write past the block corrupts the heap),
+  `cf3r-nest-candidate-two-values`, `cf3r-sx-of-chars-keeps-list`, `cf3r-fam-expr-two-values`,
+  `cf3r-fam-let-other-swapped`), and one more fault on each other split step (`cf3r-str-expand-nil-two`,
+  `cf3r-str-expand-chars-two`, `cf3r-sx-applied-unswapped`, `cf3r-nest-occurrence-two`,
+  `cf3r-nest-new-key-no-result`, `cf3r-nest-instance-two`, `cf3r-fam-other-unswapped`): all caught.
+- **L1** (`735150e8`): the two probed lines (on `lf-short?`, which replaced `lf-check-short?`, in
+  tests/core/check-declaration.fs; `unrepeatable?` in tests/core/env-import.fs), `lf-ci-short` on every kind of
+  failure (the arm `make cover-changed` found never run), `lf-env-quot-open?` with the name store at its limit
+  (tests/core/environment.fs) and `lf-log-level-leaf`'s two leaves and a cut (tests/core/derivation-log.fs).
+  Faults `cf3r-short-without-full` (F8), `cf3r-quot-open-without-full` (F9), `cf3r-level-leaf-without-param`
+  (F12), `cf3r-unrepeatable-without-invalid` (F14) and `cf3r-ci-short-keeps-all`: all caught.
+- **L2** (`f1cc0c0a`): `de-nonrec?` is gone; `de-unit-data?` and `de-induct-nonrec?` call `lf-structure-like?`.
+  tests/front/defeq.fs runs the else arm: Prod.mk with its inductive's name made one no declaration has (put
+  back after) is false. Fault `cf3r-induct-unknown-structure`, caught.
+- **L4** (`9b47c679`): the accepted families' reason states the rule (plan 9.4.8l: a family stays as copies
+  when a shared word would be as long as each copy or would cost an EXECUTE on a hot path); groups 26354411 and
+  719a2248 have their own reasons, saying why their S2 merge B plan is dropped; the plan row says the same.
+- **M1** (`6207e804`): a wildcard refuses stack words, every defining word and the words that read the next
+  word as a name; a match right after such a word (`'`, `[']`, `postpone`, `to`, `is`, `:`, a defining word) is
+  left and listed; `s\"` and `.\"` strings end at their first unescaped quote; `[char]`/`char` join the next
+  word. Tests for each (test_duplicates_extract.py), failing on the old tool. The detector now reads
+  print-forth.fs's `s\"` strings right, so group 8c62bb32 gains `lf-pf-declarable?`. Left (plan 9.4.8l AU):
+  printing each wildcard's bindings with their kind and refusing a value or a variable unless asked; indirect
+  recursion.
+- **Item 3**: not changed. `scripts/pre-tier.sh` fails only on src/lib/bounds.fs's return-stack count (6
+  against a baseline of 3), which is the owner's decision (plan 9.4.8l AV).
+
+Checks on the final head (`GFORTH`, `LEAN` absolute, `ulimit -u 500`): `scripts/pre-tier.sh` exit 1, every line ok but "forth quality + review log" (bounds.fs, item 3); `make cover-changed BASE=main JOBS=4` exit 0 (every block on a changed line ran, 146 unit test files, 89.6 s); `make -k test-unit JOBS=4` on `gforth` and on `gforth-fast` exit 2 each, the one failing target `check-forth-quality` (its test of today's tree: bounds.fs's return-stack count), every other target passed. Each recorded fault was run with `scripts/mutants.py --only` and caught. Not run: `make tier`, the end-to-end targets, pinned Lean, Gforth 0.7.3.
+
+The fix commits that change Forth source (`f53dae2e`, `fcccf762`, `257e6f64`, `f1cc0c0a`) are covered by this report's log row, `3a5efff3..f1cc0c0a`, as the implementer's fixes of the findings above; no reviewer has read them yet.
