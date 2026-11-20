@@ -906,6 +906,15 @@ T{ 5 lf-axd-row-for 0 lf-axd-row-for -> 5 outcome-ok 0 outcome-ok }T
 : axd-refused ( j -- r outcome ) rows-filled 1 heap-refusals ! lf-axd-made 0 heap-refusals ! ;
 T{ 55 8 axd-refused lf-axd-rows dup slab-count swap slab-capacity =
    -> 55 -1 outcome-full true }T
+\ Whether a quotient name's holder is not final (lf-env-quot-open?; review
+\ of cleanup-families-3, L1): with no room in the name store for one of the
+\ four names (Quot.lift, made first here), its holders cannot be looked up,
+\ which counts as not final; with room, no slot of this input holds Quot.mk.
+: quot-mk ( -- name ) s" Quot.mk" lf-stmt-intern 0= abort" quot-mk" ;
+: names-crowded ( -- limit ) lf-name-capacity lf-name-count @ lf-name-capacity! drop ;
+: quot-open-crowded? ( name i -- flag )
+  names-crowded >r lf-env-quot-open? r> lf-name-capacity! drop ;
+T{ quot-mk 5 quot-open-crowded? quot-mk 5 lf-env-quot-open? -> true false }T
 env-free
 0 axiom-trial
 T{ 1 lf-env-outcome 8 lf-env-outcome 23 lf-env-outcome 11 lf-env-outcome 26 lf-env-outcome -> outcome-ok outcome-ok outcome-ok outcome-ok outcome-ok }T

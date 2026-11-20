@@ -844,5 +844,14 @@ T{ lf-meter-term-bytes lf-meter-local-bytes + 1- lctx-try -> outcome-full }T
 T{ lf-meter-term-bytes lf-meter-local-bytes + lctx-try -> outcome-ok }T
 lf-input-rollback drop lf-lctx-reset
 
+\ A resource refusal (caches.fs's lf-short?, shared with the quotient
+\ form's check; review of cleanup-families-3, R1 and L1): exhausted and
+\ full, no other outcome. A failed closing (lf-ci-short) hands a refusal
+\ on and turns any other failure into ok, a key the caches do without.
+T{ outcome-full lf-short? outcome-exhausted lf-short? outcome-invalid lf-short?
+   outcome-ok lf-short? -> true true false false }T
+T{ outcome-invalid lf-ci-short outcome-rejected lf-ci-short outcome-full lf-ci-short
+   outcome-exhausted lf-ci-short -> outcome-ok outcome-ok outcome-full outcome-exhausted }T
+
 cases-done
 bye

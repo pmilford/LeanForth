@@ -124,3 +124,43 @@ old = '''  dup head-tag let-tag? if -rot ly-fam-let else -rot ly-fam-other then 
 new = '''  dup head-tag let-tag? if -rot ly-fam-other else -rot ly-fam-let then ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "review of cleanup-families-3, F6b (M2): a let is read as another expression and every other as a let"
+
+[[fault]]
+id = "cf3r-short-without-full"
+file = "src/kernel/caches.fs"
+old = ''': lf-short? ( outcome -- flag ) outcome-exhausted outcome-full one-of2? ;'''
+new = ''': lf-short? ( outcome -- flag ) outcome-exhausted = ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "review of cleanup-families-3, F8 (L1): a full store is not a resource refusal, so a failed closing for want of room becomes ok and the quotient form's check goes on"
+
+[[fault]]
+id = "cf3r-ci-short-keeps-all"
+file = "src/kernel/caches.fs"
+old = ''': lf-ci-short ( outcome -- outcome ) dup lf-short? 0= if drop outcome-ok then ;'''
+new = ''': lf-ci-short ( outcome -- outcome ) ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "review of cleanup-families-3 (M2, the branch coverage check): a closing that fails for any reason fails the cache's key, where only a refusal should"
+
+[[fault]]
+id = "cf3r-quot-open-without-full"
+file = "src/kernel/environment.fs"
+old = '''  lf-env-quot-holding nip outcome-invalid outcome-full one-of2? ;'''
+new = '''  lf-env-quot-holding nip outcome-invalid = ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "review of cleanup-families-3, F9 (L1): a quotient name that cannot be made counts as final, so the scheduler may run a declaration before its quotient's holder"
+
+[[fault]]
+id = "cf3r-level-leaf-without-param"
+file = "src/core/derivation-log.fs"
+old = '''  2 pick lf-level-tag-zero lf-level-tag-param one-of2?'''
+new = '''  2 pick lf-level-tag-zero ='''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "review of cleanup-families-3, F12 (L1): a universe parameter is no leaf of the level copier, so the log is cut as unreadable at the first one"
+
+[[fault]]
+id = "cf3r-unrepeatable-without-invalid"
+file = "src/kernel/env-import.fs"
+old = '''  outcome-full outcome-invalid outcome-exhausted one-of3? ;'''
+new = '''  outcome-full outcome-exhausted one-of2? ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review of cleanup-families-3, F14 (L1): an invalid outcome counts as reproducible, so the import keeps a slot a re-run may not repeat"

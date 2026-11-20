@@ -183,6 +183,14 @@ lf-log-terms lf-log-start
 T{ shift-stale lf-log-cut lf-log-count -> -1 0 outcome-invalid 1 lf-bound-unreadable 0 }T
 lf-log-stop
 T{ lf-log? lf-log-level -> 0 0 }T
+\ The level copier's leaves (lf-log-level-leaf; review of
+\ cleanup-families-3, L1): the zero level and a parameter are kept as they
+\ are, true; any other tag cuts the log as unreadable, false.
+lf-log-terms lf-log-start
+T{ lf-level-tag-zero 0 0 lf-log-level-leaf lf-level-tag-param 7 0 lf-log-level-leaf lf-log-cut
+   -> lf-level-tag-zero 0 0 true lf-level-tag-param 7 0 true 0 0 }T
+T{ lf-level-tag-succ 1 0 lf-log-level-leaf lf-log-cut -> false 1 lf-bound-unreadable }T
+lf-log-stop
 
 \ A constant whose reference lies above the input marks, with one universe
 \ argument (the zero level): its copy keeps the name and the argument's
