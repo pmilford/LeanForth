@@ -1791,5 +1791,14 @@ Owner, 2026-11-20 (in the session, on the questions of the night's report):
 - **The tag's name for the talk of 2026-11-21: `svfig-prepre-alpha`.** The name is decided; making the tag
   still needs a daily run of that exact tree (`make tag-check`) and the owner's go-ahead for the tag itself.
 
-Still open: `^` as "to the power" (a new elaboration rule), `nat-ops` refusing a non-literal operand (plan
-9.4.8l AW), whether the repository goes public, and the licence.
+Later the same morning the owner answered the three remaining questions with "Yes to the new questions":
+
+- **`^` may mean "to the power" in theorem text: yes** (parser gate; a new elaboration rule, Lean's
+  `rightact%`: the exponent is elaborated apart and does not help choose the number type; word list step C4).
+- **`nat-ops` refuses a non-literal operand: yes** (kernel gate, plan 9.4.8l AW). `lf-nat-lit-op`
+  (`src/core/nat-ops.fs`) answers invalid when an operand is not a literal, where it answered ok with a made-up
+  literal; no caller passes one. The owner's approval is the gate's fourth part; the change still needs its
+  tests of every outcome, the pinned-Lean comparisons and an independent review with no open finding.
+- **The repository goes public for the talk: yes.** The licence stays MIT (the repository's `LICENSE`). Before
+  the switch the assistant checks the history and the tree for anything that must not be public and reports;
+  the switch itself is made when the owner says so, with the tag.
