@@ -18,6 +18,11 @@
 \   fvar, another local's type or (shown) value depends on it, or its type
 \   does (lf-depends-on?); else a new goal with the same type and tag in
 \   the context without fvar, the old goal assigned the new one.
+\ - lf-local-depends-on? ( lfvar fvar -- flag outcome ): Lean's
+\   localDeclDependsOn: lfvar's local's type, or its value when it is a
+\   let not hidden, depends on fvar (lf-depends-on?); MVarId.clear's test
+\   of each other local (meta-tactic/goal.fs's lf-goal-clear! names the
+\   first that does).
 \ - lf-goal-rename ( goal fvar name -- goal' outcome ): MVarId.rename,
 \   the same with fvar's local renamed (refused when assigned or absent).
 \ The proof state pst (Lean's Tactic.State, plus the root goal): the goal
@@ -81,11 +86,11 @@ end-structure
 : gl-value-dep ( lfvar fvar -- flag outcome )
   over lf-fvar-let? 0= if 2drop false outcome-ok exit then
   swap lf-fvar-value swap lf-depends-on? ;
-: gl-local-dep ( lfvar fvar -- flag outcome )
+: lf-local-depends-on? ( lfvar fvar -- flag outcome )
   2dup gl-type-dep gl-decided? if 2swap 2drop else gl-value-dep then ;
-: gl-fvar-at ( view i -- fvar ) lf-view-local lf-local-fvar ;
 : gl-dep-at ( view fvar i -- view fvar flag outcome )
-  >r over r> gl-fvar-at over 2dup = if 2drop false outcome-ok else gl-local-dep then ;
+  >r over r> lf-view-fvar over 2dup = if 2drop false outcome-ok exit then
+  lf-local-depends-on? ;
 : gl-others-dep ( view fvar -- flag outcome )
   over lf-view-count ['] gl-dep-at ok-any? 2swap 2drop ;
 : gl-none ( flag outcome -- outcome ) dup ok? if drop 0= flag>outcome else nip then ;

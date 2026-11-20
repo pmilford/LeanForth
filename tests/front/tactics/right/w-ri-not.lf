@@ -1,0 +1,10 @@
+\ A wrong twin (plan row TB1; tests/front/tactics/goal-layer-wrong.lean):
+\ ¬ a = b unfolds to a function type, no inductive type, and right fails
+\ with Lean's message (error 387) and the goal.
+\ Lean: theorem w_ri_not (a b : Nat) : ¬ a = b := by right
+theorem w_ri_not
+  Nat explicit: a  Nat explicit: b
+  a b = Not
+:= by
+  by-right
+end w_ri_not

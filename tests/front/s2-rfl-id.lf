@@ -1,0 +1,12 @@
+\ by-rfl on a goal that is an equation only after whnf (plan 9.4.8l, the
+\ rfl items; tests/front/s2-proofs.lean): Lean's rfl macro decides an
+\ equation by eq_refl, whose MVarId.refl reads the goal through whnf
+\ (getType'), so id (a = a) closes with @Eq.refl.{1} Nat a, node for node
+\ Lean's term.
+\ Lean: theorem rfl_id (a : Nat) : id (a = a) := by rfl
+theorem rfl_id
+  Nat explicit: a
+  a a = id
+:= by
+  by-rfl
+end rfl_id

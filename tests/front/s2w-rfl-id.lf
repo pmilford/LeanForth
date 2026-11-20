@@ -1,0 +1,13 @@
+\ A wrong twin of s2-rfl-id.lf (tests/front/check_s2.py, s2-wrong.lean's
+\ w_rfl_id): eq_refl fails on a = b, and applyRfl's whnfR keeps id, a
+\ relation of two arguments whose sides Prop and a = b differ, so rfl
+\ fails with Lean's message (error 97). The goal line differs: LeanForth's
+\ printer shows @id Prop (a = b) where Lean's hides the implicit argument
+\ (plan 8.6); the comparison takes the lines before it.
+\ Lean: theorem w_rfl_id (a b : Nat) : id (a = b) := by rfl
+theorem w_rfl_id
+  Nat explicit: a  Nat explicit: b
+  a b = id
+:= by
+  by-rfl
+end w_rfl_id

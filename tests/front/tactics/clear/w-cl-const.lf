@@ -1,0 +1,11 @@
+\ A wrong twin (plan row TB1; tests/front/tactics/goal-layer-wrong.lean):
+\ Nat.le_refl names a constant, not a hypothesis, and clear fails with
+\ Lean's message (getFVarId, error 389).
+\ Lean: theorem w_cl_const (a : Nat) (h : a ≤ a) : a ≤ a := by clear Nat.le_refl
+theorem w_cl_const
+  Nat explicit: a
+  a a ≤ explicit: h
+  a a ≤
+:= by
+  ' Nat.le_refl by-clear
+end w_cl_const

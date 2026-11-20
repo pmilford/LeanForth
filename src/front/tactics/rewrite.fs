@@ -67,8 +67,7 @@ require ../tactic-api.fs
 : trw-closed ( k new proof goals -- new proof )
   over swap trw-open? if 2drop lfa-e-tac-form trw-stop then rot drop ;
 : trw-replaced ( new proof -- )
-  tb tb-goal @ -rot lf-goal-replace-target-eq 0 swap run-push lf-tac-must lf-replace-main
-  lf-tac-must ;
+  tb tb-goal @ -rot lf-goal-replace-target-eq lf-goals1 lf-replace-main lf-tac-must ;
 : trw-rule-run ( k i -- ) drop ['] trw-inner lf-tac-with-synth trw-closed trw-replaced ;
 : trw-rule ( k i -- ) ['] trw-rule-run lf-tac-step-run ;
 : trw-rules ( i -- ) dup lf-tac-args# 0 ?do i over trw-rule loop drop ;

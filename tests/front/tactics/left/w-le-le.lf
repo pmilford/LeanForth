@@ -1,0 +1,12 @@
+\ A wrong twin (plan row TB1; tests/front/tactics/goal-layer-wrong.lean):
+\ a ≤ b is Nat.le a b, whose first constructor Nat.le.refl cannot close it,
+\ and apply's error passes through left with Lean's text (error 380),
+\ which names the constructor "the term" (nthConstructor gives apply no
+\ term?).
+\ Lean: theorem w_le_le (a b : Nat) : a ≤ b := by left
+theorem w_le_le
+  Nat explicit: a  Nat explicit: b
+  a b ≤
+:= by
+  by-left
+end w_le_le

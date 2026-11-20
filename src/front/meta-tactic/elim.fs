@@ -48,13 +48,12 @@
 \   lf-elim-set-motive ( goal motive target -- )  setMotiveArg: fun x =>
 \       goal's type with the target abstracted (telescope.fs's
 \       lf-mk-lambda-fvars: x named and of the kind of the target's local),
-\       its type defeq the motive's (else error 212 with the motive), the
-\       motive assigned
+\       its type defeq the motive's (else error 212 with the motive, its
+\       type and the motive's, Lean's text), the motive assigned
 \ Errors are thrown as authoring errors at the step running
 \ (tactic-run.fs's lf-tac-stop and lf-tac-fail), Meta failures as
 \ outcomes (meta-must.fs). Not ported: generalizeVars and index targets
-\ (99, plan FE5), mkHasTypeButIsExpectedMsg in 212's text (plan 9.4.8l-I's
-\ fidelity commit).
+\ (99, plan FE5).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: mea-frames and mes-frames (mkElimApp's and setMotiveArg's
 \ frames, one per call open, meta-must.fs's lf-with-record, in the
@@ -157,10 +156,7 @@ require ./goal.fs
   drop mel-explain. ['] mel-goal. ok-and ;
 : mel-not-inductive ( t induction? -- )
   2 ['] mel-major. lf-tac-detail-n lfa-e-tac-not-inductive lf-tac-stop ;
-: mel-inductive ( t -- d true | false )
-  lf-meta-head-name 0= if false exit then
-  lf-menv-find dup outcome-invalid = if 2drop false exit then
-  lf-must dup lf-menv-kind lf-kind-inductive = dup 0= if nip then ;
+: mel-inductive ( t -- d true | false ) lf-meta-head lf-match-const-induct ;
 \ Mutual or nested (209): Lean's text and its hint, under induction only
 \ (Induction.lean:833-836: cases takes C.casesOn of any inductive type).
 : mel-kind. ( t c-addr u -- outcome )
@@ -274,9 +270,14 @@ end-structure
 /mes context-slab: mes-frames
 : mes ( -- frame ) mes-frames slab-last ;
 : mes-lam ( goal -- lam ) lf-goal-type mes mes-target 1 lf-mk-lambda-fvars ;
+\ The motive's inferred type against the motive metavariable's: unequal
+\ is error 212 with the motive and Lean's mkHasTypeButIsExpectedMsg
+\ (Induction.lean:271-273; tactic-msg.fs's lf-tac-type-mismatch).
+: mes-types ( motive lam -- motive lam inferred expected )
+  over lf-goal-type over lf-infer! swap ;
 : mes-fits ( motive lam -- motive lam )
-  over lf-goal-type over lf-infer! swap lf-tac-defeq lf-must 0= if
-    dup ['] lf-tac-indented. lf-tac-detail lfa-e-tac-elim-motive lf-tac-stop then ;
+  mes-types 2dup lf-tac-defeq lf-must if 2drop exit then
+  2>r dup 2r> lfa-e-tac-elim-motive lf-tac-type-mismatch ;
 : mes-framed ( goal motive target -- )
   mes mes-target ! swap mes-lam mes-fits lf-mvar-assign lf-must ;
 : lf-elim-set-motive ( goal motive target -- ) mes-frames ['] mes-framed lf-with-record ;

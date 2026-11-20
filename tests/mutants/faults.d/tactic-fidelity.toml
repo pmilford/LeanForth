@@ -1,0 +1,277 @@
+# Planted faults of branch tactic-fidelity (plan 9.4.8l's fidelity items:
+# the tactics' differences from Lean 4.35.0 closed in the tactic library,
+# src/front/tactic-core.fs, meta-must.fs, meta-tactic/*.fs, and the Meta
+# core they meet, src/front/whnf.fs); read with faults.toml as one list
+# (scripts/mutants.py).
+
+# --- J: exact on apply's goals (elabTermEnsuringType, withNatValue) -------
+
+[[fault]]
+id = "tf-nat-value-not-instantiated"
+file = "src/front/whnf.fs"
+old = '''  lf-instantiate-mvars ok? if wm-open? else drop false then ;'''
+new = '''  drop false ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "9.4.8l J: withNatValue without its instantiateMVars, an assigned metavariable a possible value (Nat.add ?a k, ?a := x: unsupported where Lean gives none; exact on ?m ≤ ?k, error 139)"
+
+[[fault]]
+id = "tf-nat-value-refused-none"
+file = "src/front/whnf.fs"
+old = '''  lf-instantiate-mvars ok? if wm-open? else drop false then ;'''
+new = '''  lf-instantiate-mvars ok? if wm-open? else drop true then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "9.4.8l J: an instantiation the heap refuses read as no value (none, a guess) instead of unsupported"
+
+[[fault]]
+id = "tf-nat-value-ap-exact"
+file = "src/front/whnf.fs"
+old = '''  lf-instantiate-mvars ok? if wm-open? else drop false then ;'''
+new = '''  drop false ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/apply/check.py"
+reason = "9.4.8l J end to end: by-exact h2 on apply's goal ?m ≤ ?k, both assigned, refused (139) where Lean's exact closes it (ap-exact.lf)"
+
+[[fault]]
+id = "tf-exact-opaque-not-assignable"
+file = "src/front/tactic-core.fs"
+old = ''': tcr-defeq ( type expected -- flag outcome ) ['] lf-tac-defeq lf-with-assignable-opaque ;'''
+new = ''': tcr-defeq ( type expected -- flag outcome ) lf-tac-defeq ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "9.4.8l J: elabTermEnsuringType's isDefEq without withAssignableSyntheticOpaque (ElabTerm.lean:62): a goal ?o in the expected type is not assigned, Type mismatch where Lean closes"
+
+[[fault]]
+id = "tf-defeq-elab-flags-outright"
+file = "src/front/meta-must.fs"
+old = '''  ['] lf-meta-defeq lf-defeq-flags lf-defeq-elab or rot lf-meta-with outcome-sane ;'''
+new = '''  ['] lf-meta-defeq lf-defeq-elab rot lf-meta-with outcome-sane ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-move M2: the tactics' isDefEq sets the elaborator's flags outright, so a caller's withAssignableSyntheticOpaque bit is lost (opq9 not assigned)"
+
+[[fault]]
+id = "tf-defeq-elab-flags-outright-exact"
+file = "src/front/meta-must.fs"
+old = '''  ['] lf-meta-defeq lf-defeq-flags lf-defeq-elab or rot lf-meta-with outcome-sane ;'''
+new = '''  ['] lf-meta-defeq lf-defeq-elab rot lf-meta-with outcome-sane ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "review tactic-move M2 through exact: the opaque bit tcr-defeq sets lost inside lf-tac-defeq, Type mismatch where Lean closes ?o"
+
+# --- rfl: eq_refl's getType' and assignable goals, applyRfl's whnfR and
+# approxDefEq (Refl.lean:25, Rfl.lean:67-97, BuiltinTactic.lean:320) -------
+
+[[fault]]
+id = "tf-rfl-type-whnf-core"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mtg-eq-of ( goal -- t ) lf-goal-type lf-whnf! lf-instantiate! ;'''
+new = ''': mtg-eq-of ( goal -- t ) lf-goal-type lf-instantiate! lf-whnf-core lf-must ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l rfl: eq_refl's getType' by whnfCore, not whnf: id (r = r) answers 93 where Lean's rfl closes it"
+
+[[fault]]
+id = "tf-rfl-eq-refl-opaque-off"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mrf-equal? ( -- flag ) ['] mrf-sides-defeq lf-with-assignable-opaque lf-must ;'''
+new = ''': mrf-equal? ( -- flag ) mrf-sides-defeq lf-must ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l rfl: eq_refl without withAssignableSyntheticOpaque (BuiltinTactic.lean:320): ?o = r is 97 where Lean assigns ?o := r"
+
+[[fault]]
+id = "tf-rfl-apply-rfl-skipped"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mrf-equal? if mrf-closed else mrf-apply-rfl then ;'''
+new = '''  mrf-equal? if mrf-closed else mrf-unequal then ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l rfl: eq_refl's failure reported with its own sides, no applyRfl: id (r = s) prints r and s where Lean's message has Prop and r = s"
+
+[[fault]]
+id = "tf-rfl-apply-whnf-default"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mrf mrf-goal @ lf-goal-type lf-instantiate! lf-whnf-r! mrf-rel'''
+new = '''  mrf mrf-goal @ lf-goal-type lf-instantiate! lf-whnf! mrf-rel'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l rfl: applyRfl's whnfR made whnf (Rfl.lean:70): id unfolds, the message's sides r and s where Lean's are Prop and r = s"
+
+[[fault]]
+id = "tf-rfl-apply-whnf-default-e2e"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mrf mrf-goal @ lf-goal-type lf-instantiate! lf-whnf-r! mrf-rel'''
+new = '''  mrf mrf-goal @ lf-goal-type lf-instantiate! lf-whnf! mrf-rel'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
+reason = "9.4.8l rfl end to end: s2w-rfl-id.lf's message gives a and b where pinned Lean's gives Prop and a = b"
+
+[[fault]]
+id = "tf-rfl-no-approx"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mrf-approx? ( -- flag ) mrf mrf-sides 2@ lf-defeq-approx! ;'''
+new = ''': mrf-approx? ( -- flag ) mrf mrf-sides 2@ lf-defeq! ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l rfl: applyRfl without approxDefEq (Rfl.lean:89): the quasi pattern ?q r = s is 97 where Lean's applyRfl closes it (LeanForth: 93)"
+
+[[fault]]
+id = "tf-rfl-rel-unchecked"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mrf-rel ( t -- t ) dup lf-meta-app2? 0= if outcome-unsupported lf-must then ;'''
+new = ''': mrf-rel ( t -- t ) ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l rfl: a relation of fewer than two arguments read for sides (Lean's binary-relation error, not ported) instead of 93"
+
+[[fault]]
+id = "tf-rfl-other-rel-closed"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mrf-eq-closed ( -- ) mrf mrf-eq @ mtg-is-eq drop mrf-closed ;'''
+new = ''': mrf-eq-closed ( -- ) mrf-closed ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l rfl: equal sides of a relation other than Eq closed with Eq.refl where Lean looks for @[refl] lemmas (93; no slice goal reaches it, tactic-lib.fs drives mrf-eq-closed)"
+
+# --- 212: setMotiveArg's message with mkHasTypeButIsExpectedMsg
+# (Induction.lean:271-273) ------------------------------------------------
+
+[[fault]]
+id = "tf-motive-types-swapped"
+file = "src/front/meta-tactic/elim.fs"
+old = '''  2>r dup 2r> lfa-e-tac-elim-motive lf-tac-type-mismatch ;'''
+new = '''  2>r dup 2r> swap lfa-e-tac-elim-motive lf-tac-type-mismatch ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l 212: the motive's type and the motive metavariable's printed the other way round (Nat → Prop has type, Nat → Type expected)"
+
+[[fault]]
+id = "tf-type-mismatch-term-only"
+file = "src/front/tactic-msg.fs"
+old = '''  >r 3 ['] lf-has-type-but-expected. lf-tac-detail-n r> lf-tac-stop ;'''
+new = '''  >r 2drop ['] lf-tac-indented. lf-tac-detail r> lf-tac-stop ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l 212: the type mismatch's detail without mkHasTypeButIsExpectedMsg (212 shows only the motive, as before the fix)"
+
+[[fault]]
+id = "tf-type-mismatch-term-only-exact"
+file = "src/front/tactic-msg.fs"
+old = '''  >r 3 ['] lf-has-type-but-expected. lf-tac-detail-n r> lf-tac-stop ;'''
+new = '''  >r 2drop ['] lf-tac-indented. lf-tac-detail r> lf-tac-stop ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "9.4.8l: exact's Type mismatch (96) without its has type and expected type lines"
+
+# --- S: withSynthesize's failure carries the elaborator's error ----------
+
+[[fault]]
+id = "tf-synth-runner-code"
+file = "src/front/tactic-core.fs"
+old = '''  ['] tcr-under lf-postpone-no lf-elab-with-synth tcr-synthesized ;'''
+new = '''  ['] tcr-under lf-postpone-no lf-elab-with-synth lf-tac-must ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l S: a problem no instance fills reported as the runner's mapping of invalid (93) instead of the elaborator's recorded 125"
+
+[[fault]]
+id = "tf-synth-none-no-type"
+file = "src/front/elab-pending.fs"
+old = '''  lf-mvar-type 0= if -1 then lfa-e-elab-synth lf-elab-fail-term false swap ;'''
+new = '''  drop -1 lfa-e-elab-synth lf-elab-fail-term false swap ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l S: failed to synthesize (125) without the class type Lean indents below it"
+
+# --- O and R: a message's terms named as Lean's sanitizer names them ----
+
+[[fault]]
+id = "tf-message-plain-names"
+file = "src/front/tactic-msg.fs"
+old = ''': tmg-named ( term -- outcome ) ['] tmg-noted lf-mctx-view lf-with-names ;'''
+new = ''': tmg-named ( term -- outcome ) tmg-noted ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "9.4.8l O: rfl's sides print an inaccessible n as n where Lean prints n✝ (s2w-case-under.lf)"
+
+[[fault]]
+id = "tf-with-names-view-ignored"
+file = "src/front/goal-print.fs"
+old = '''  gp-names-on catch false gp gp-active ! throw ;'''
+new = '''  drop catch false gp gp-active ! throw ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "9.4.8l O: lf-with-names runs xt with the plain names, n where Lean's message has n✝"
+
+[[fault]]
+id = "tf-with-names-state-kept"
+file = "src/front/goal-print.fs"
+old = '''  gp-names-on catch false gp gp-active ! throw ;'''
+new = '''  gp-names-on catch throw ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "9.4.8l O: lf-with-names leaves the goal printer active, so later terms print with a stale context's names"
+
+[[fault]]
+id = "tf-mvar-tag-hygienic"
+file = "src/front/goal-print.fs"
+old = ''': gp-tag ( tag -- ) s" ?" gp-emit dup lf-pp-hygienic? if gp-erased else lf-pp-name then ;'''
+new = ''': gp-tag ( tag -- ) s" ?" gp-emit lf-pp-name ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "9.4.8l R: a metavariable tagged by an inaccessible binder prints ?a.«_@»._internal._hyg.0 where Lean prints ?a✝"
+
+[[fault]]
+id = "tf-mvar-tag-hygienic-e2e"
+file = "src/front/goal-print.fs"
+old = ''': gp-tag ( tag -- ) s" ?" gp-emit dup lf-pp-hygienic? if gp-erased else lf-pp-name then ;'''
+new = ''': gp-tag ( tag -- ) s" ?" gp-emit lf-pp-name ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
+reason = "9.4.8l R end to end: s2w-rw-lt.lf's 218 names Nat.lt_irrefl ?n ?a.«_@»._internal._hyg.0 where pinned Lean's names ?a✝"
+
+# --- AB: unfoldDefinition?'s smart frame resumed -------------------------
+
+[[fault]]
+id = "tf-unfold-smart-frame-kept"
+file = "src/front/whnf.fs"
+old = '''  wc-delta ok-then2? if wc-next ok-then2? else false then'''
+new = '''  wc-delta ok-then2?'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "9.4.8l AB: lf-meta-unfold gives the matcher application with false when the smart path's reduceMatcher? answers none at once, its frame never resumed"
+
+[[fault]]
+id = "tf-rfl-apply-rel-unchecked"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mrf-apply-rfl ( -- ) mrf-whnf-r mrf-approx? 0= if mrf-unequal then mrf-eq-closed ;'''
+new = ''': mrf-apply-rfl ( -- ) mrf-whnf-r mrf-approx? 0= if mrf-unequal then mrf-closed ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l rfl: applyRfl closes a relation other than Eq (R r r) with Eq.refl where Lean looks for @[refl] lemmas (93)"
+
+# --- The Forth review of the branch (2026-11-19-tactic-fidelity.md), its fixes --
+
+[[fault]]
+id = "tf-app2-any-application"
+file = "src/front/meta-spine.fs"
+old = '''  dup lf-meta-app? if lf-term-first@ lf-meta-app? else drop false then ;'''
+new = '''  dup lf-meta-app? if drop true else drop false then ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-fidelity L1 (its r1): a relation of one argument read for two sides (Lean's binary-relation error, 93 here)"
+
+[[fault]]
+id = "tf-args2-swapped"
+file = "src/front/meta-spine.fs"
+old = ''': lf-meta-args2 ( term -- a b ) dup lf-term-first@ lf-term-second@ swap lf-term-second@ ;'''
+new = ''': lf-meta-args2 ( term -- a b ) dup lf-term-second@ swap lf-term-first@ lf-term-second@ ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-fidelity B1: the last two arguments given in the wrong order (an equation's sides, a sum's summands swapped)"
+
+[[fault]]
+id = "tf-synth-failure-is-125"
+file = "src/front/tactic-core.fs"
+old = ''': tcr-synthesized ( outcome -- ) dup ok? 0= if lf-tac-elab-fail then drop ;'''
+new = ''': tcr-synthesized ( outcome -- ) dup ok? 0= if lf-tac-elab-detail drop lfa-e-elab-synth lf-tac-stop then drop ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-fidelity M1 (its r23b): an exhausted or unsupported synthesis reported as Lean's 125, which try catches as a Lean error"
+
+[[fault]]
+id = "tf-nat-value-fvar-only"
+file = "src/front/whnf.fs"
+old = '''  lf-instantiate-mvars ok? if wm-open? else drop false then ;'''
+new = '''  lf-instantiate-mvars ok? if lf-meta-has-fvar? else drop false then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review tactic-fidelity L7 (its r3): withNatValue reads an argument assigned Nat.succ ?n (no free variable, an open metavariable) as a value"
+
+[[fault]]
+id = "tf-elab-fail-no-see"
+file = "src/front/tactic-core.fs"
+old = ''': lf-tac-elab-fail ( outcome -- ) lf-tac-elab-detail lf-elab-code lfa-see! lf-tac-stop ;'''
+new = ''': lf-tac-elab-fail ( outcome -- ) lf-tac-elab-detail lf-elab-code drop lf-tac-stop ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "review tactic-fidelity L7 (its r24): a tactic term's elaboration error loses its second position (the term's place)"
+
+[[fault]]
+id = "tf-names-no-room-codes"
+file = "src/front/goal-print.fs"
+old = ''': gp-names-on ( view -- ) gp gp-view ! gp-codes! ok? gp gp-active ! ;'''
+new = ''': gp-names-on ( view -- ) gp gp-view ! gp-codes! drop true gp gp-active ! ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "review tactic-fidelity L4 (its r6): with no room for the codes, a message's terms read codes that were never made"

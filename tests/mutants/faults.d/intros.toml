@@ -1,0 +1,60 @@
+# Planted faults of by-intros and the goal layer's intros, and of introN's
+# names 0 and kinds 0 (plan row TB1; src/front/tactics/intros.fs,
+# src/front/meta-tactic/goal.fs's lf-intros-size, lf-goal-intros and
+# lf-goal-intro-n), read with faults.toml as one list (scripts/mutants.py).
+
+[[fault]]
+id = "tb1-intros-size-let-body"
+file = "src/front/meta-spine.fs"
+old = '''  over lf-let? if drop lf-let-body true exit then'''
+new = '''  over lf-let? if 2drop 0 false exit then'''
+test = "$GFORTH tests/front/tactics/intros/test.fs"
+reason = "TB1: getIntrosSize reads a let's binder (a lambda) for its body, so binders after a let are not counted"
+
+[[fault]]
+id = "tb1-intro-explicit-only"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mti-introduced ( kind -- kind ) dup lf-binder-instance < 0= if mti-refused then ;'''
+new = ''': mti-introduced ( kind -- kind ) dup lf-binder-default <> if mti-refused then ;'''
+test = "$GFORTH tests/front/tactics/intros/test.fs"
+reason = "TB1: kinds 0 back to explicit only: an implicit or strict-implicit binder refused (99) where Lean's intro and intros introduce it"
+
+[[fault]]
+id = "tb1-intro-instance-accepted"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mti-introduced ( kind -- kind ) dup lf-binder-instance < 0= if mti-refused then ;'''
+new = ''': mti-introduced ( kind -- kind ) dup lf-binder-instance 1+ < 0= if mti-refused then ;'''
+test = "$GFORTH tests/front/tactics/intros/test.fs"
+reason = "TB1: an instance binder introduced with no local instance (Lean adds one, plan FE3), never refused"
+
+[[fault]]
+id = "tb1-intro-names-zero-read"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mti-given ( addr -- x ) ?dup if mti-at @ else 0 then ;'''
+new = ''': mti-given ( addr -- x ) mti-at @ ;'''
+test = "$GFORTH tests/front/tactics/intros/test.fs"
+reason = "TB1: names 0 (none given, Lean's []) read as the address of the names"
+
+[[fault]]
+id = "tb1-intros-none-new-goal"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  dup lf-goal-type lf-instantiate! lf-intros-size ?dup 0= if exit then'''
+new = '''  dup lf-goal-type lf-instantiate! lf-intros-size'''
+test = "$GFORTH tests/front/tactics/intros/test.fs"
+reason = "TB1: intros with no binder makes a new goal and assigns the old (Lean returns the goal itself)"
+
+[[fault]]
+id = "tb1-intros-plain-lift"
+file = "src/front/tactics/intros.fs"
+old = ''': tis-run ( i -- ) ['] lf-goal-intros lf-lift-meta-tactic1 ;'''
+new = ''': tis-run ( i -- ) ['] lf-goal-intros lf-lift-meta-tactic ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/intros/check.py"
+reason = "TB1: intros' one goal handed to liftMetaTactic as a list"
+
+[[fault]]
+id = "tb1-intros-kind-not-kept"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  dup mti-dom swap mti-named mti mti-k @ or lf-local-decl-new lf-mctx-view! ;'''
+new = '''  dup mti-dom swap mti-named lf-local-decl-new lf-mctx-view! ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/intros/check.py"
+reason = "TB1: every local introduced explicit, whatever its binder's kind (the lambdas' kinds differ from pinned Lean's)"

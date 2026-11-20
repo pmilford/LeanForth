@@ -365,13 +365,23 @@ T{ s" HAdd.hAdd" types2 lf-synth-error abm-frames slab-count -> -4205 119 0 }T
 T{ id-nat nat lf-tr-default lf-defeq-elab-at id-nat nat lf-tr-reducible lf-defeq-elab-at config@
    -> true outcome-ok false outcome-ok lf-defeq-elab lf-tr-default }T
 T{ id-nat nat lf-tac-defeq -> true outcome-ok }T
+\ It adds the elaborator's flags to the configuration in force (review
+\ tactic-move M2, plan 9.4.8l J): a synthetic opaque ?o : Type is
+\ assigned Nat only under withAssignableSyntheticOpaque, which stays set.
+nat lf-infer! mv-opaque lf-mvar-new made constant opq9
+: opq9-defeq ( -- flag outcome ) opq9 nat lf-tac-defeq ;
+T{ opq9-defeq opq9 lf-goal-assigned? ' opq9-defeq lf-with-assignable-opaque config@
+   -> false outcome-ok false true outcome-ok lf-defeq-elab lf-tr-default }T
+T{ opq9 lf-instantiate! nat lf-meta-eqv -> true outcome-ok }T
 \ lf-tac-with-synth (Term.withSynthesize, review tactic-move M3): the
 \ stack passes through xt; the pending list is set aside while xt runs
 \ (none seen inside) and put back however xt ends; a problem xt leaves
-\ that no instance fills (Append Type: the elaborator records Lean's
-\ "failed to synthesize", 125) stops the run, as the runner's mapping of
-\ an invalid outcome gives it (93; the elaborator's own code is not
-\ carried, plan 9.4.8l), and the window is closed with the problem left.
+\ that no instance fills (Append Type) stops the run with the
+\ elaborator's own error, Lean's "failed to synthesize instance of type
+\ class" (125) with the type indented (plan 9.4.8l S: pinned Lean's text
+\ for example : Append Type := inferInstance; the printer shows @Append
+\ here, the slice's data giving it no binder kinds: plan 8.6), and the
+\ window is closed with the problem left.
 : type0 ( -- t ) nat lf-infer! ;
 : append-type ( -- mvar )
   s" Append" type0 lf-level! lf-mk-const1 type0 lf-mk-app mv-synthetic lf-mvar-new made ;
@@ -381,8 +391,37 @@ T{ id-nat nat lf-tac-defeq -> true outcome-ok }T
 : pend-throws ( -- ) pend-append -77 throw ;
 T{ lf-elab-pending-reset pend-append 3 4 ' sum-pends lf-tac-with-synth pends -> 7 0 1 }T
 T{ lf-elab-pending-reset lf-elab-error-reset ' pend-append ' lf-tac-with-synth catch nip lf-author-code
-   lf-elab-error drop pends -> lf-author-throw 93 125 1 }T
+   lf-elab-error drop pends -> lf-author-throw 125 125 1 }T
+T{ 0 lfa-detail slab-at lfa-detail slab-count s"   @Append Type" compare -> 0 }T
 lf-tac-forget
+\ A synthesis that runs out of fuel, or that LeanForth cannot finish, and
+\ records no error stops with its own class, never Lean's 125 (review
+\ tactic-fidelity M1): 138 exhausted, 139 unsupported (OfNat ?α 1, stuck
+\ until default instances, whose class lookup answers unsupported, standing
+\ in for elab-pending.fs's lf-elab-class?; with the real lookup the default
+\ instance fills it).
+: pend-starved ( -- ) pend-append 0 lf-meta-budget! ;
+T{ lf-elab-pending-reset lf-elab-error-reset ' pend-starved ' lf-tac-with-synth catch nip
+   lf-meta-default-budget lf-meta-budget! lf-author-code dup lf-author-outcome
+   -> lf-author-throw 138 outcome-exhausted }T
+lf-tac-forget
+: level0 ( -- u ) s" True" lf-mk-const0 lf-level! ;
+: ofnat-mv ( -- t ) s" OfNat" level0 lf-mk-const1 type0 mv-natural lf-mvar-new made lf-mk-app
+  1 et-lit made lf-mk-app ;
+: pend-ofnat ( -- ) ofnat-mv mv-synthetic lf-mvar-new made lf-elab-pend drop ;
+T{ lf-elab-pending-reset lf-elab-error-reset ' pend-ofnat lf-tac-with-synth pends -> 0 }T
+: class-gap ( type -- false outcome ) drop false outcome-unsupported ;
+: gap-synth ( -- code )
+  action-of lf-elab-class? >r ['] class-gap is lf-elab-class?
+  ['] pend-ofnat ['] lf-tac-with-synth catch nip r> is lf-elab-class? ;
+T{ lf-elab-pending-reset lf-elab-error-reset gap-synth lf-author-code dup lf-author-outcome
+   -> lf-author-throw 139 outcome-unsupported }T
+lf-tac-forget
+\ elab-pending.fs's 125 for a problem whose metavariable has no type (no
+\ live metavariable: a fault of the caller's): the error with no term.
+T{ lf-elab-error-reset -1 ep-none lf-elab-error drop lf-elab-error-term
+   -> false outcome-invalid 125 -1 }T
+lf-elab-error-reset
 T{ lf-elab-pending-reset pend-append ' pend-throws ' lf-tac-with-synth catch nip lf-author-code pends
    -> -77 0 2 }T
 lf-elab-pending-reset lf-elab-error-reset
@@ -500,6 +539,70 @@ T{ fr fs lf-mk-eq goal-of ' lf-goal-refl code1 lf-author-code -> lf-author-throw
 T{ s\" r\nis not definitionally equal to the right-hand side\n  s\n\n" detail-has? -> true }T
 lf-tac-forget
 T{ nat goal-of ' lf-goal-refl code1 -> -4205 }T
+\ The rfl macro's two Eq alternatives (plan 9.4.8l, the rfl items):
+\ eq_refl reads the type through whnf (getType'), so id (r = r), whose
+\ whnfCore is itself, closes with @Eq.refl.{1} Nat r; id (r = s) fails
+\ there, and applyRfl's whnfR keeps id, a relation of two arguments: its
+\ sides Prop and r = s, unequal, are 97 (pinned Lean's text, tests/front/
+\ s2-wrong.lean's w_rfl_id; the goal printed @id Prop, where Lean's
+\ printer hides the implicit argument: plan 8.6).
+: id-eq ( a b -- t ) lf-mk-eq >r s" id" r> 1 lf-mk-app-m ;
+fr fr id-eq goal-of constant gid
+T{ gid lf-goal-refl gid lf-mvar-value drop dup 2 s" Eq.refl" lf-meta-app-of? swap lf-term-second@
+   -> true fr }T
+T{ fr fs id-eq goal-of ' lf-goal-refl code1 lf-author-code mrf-frames slab-count
+   -> lf-author-throw 97 0 }T
+T{ s\"   Prop\nis not definitionally equal to the right-hand side\n  r = s\n\n" detail-has?
+   s\" ⊢ @id Prop (r = s)" detail-has? -> true true }T
+lf-tac-forget
+\ applyRfl compares by approxDefEq: ?q r = s (r in ?q's context, a quasi
+\ pattern) is false for eq_refl, and Lean's applyRfl assigns ?q :=
+\ fun _ => s; LeanForth's quasi-patterns need isTypeCorrect (defeq.fs:
+\ not ported), 93: never eq_refl's false as 97.
+nat nat lf-term-pi lf-made! mv-natural lf-mvar-new made constant fq9
+T{ fq9 fr lf-mk-app fs lf-mk-eq goal-of ' lf-goal-refl code1 mrf-frames slab-count
+   -> -4205 0 }T
+\ A metavariable left in a side: applyRfl's false is 97 with it (pinned
+\ Lean: 0 = ?n + 1 after refine), no longer 93.
+nat mv-natural lf-mvar-new made constant fn9q
+: zero-succ ( -- goal ) zero s" Nat.succ" lf-mk-const0 fn9q lf-mk-app lf-mk-eq goal-of ;
+T{ zero-succ ' lf-goal-refl code1 lf-author-code fn9q lf-goal-assigned? -> lf-author-throw 97 false }T
+T{ s\" right-hand side\n  Nat.succ ?m." detail-has? -> true }T
+lf-tac-forget
+\ eq_refl compares with synthetic opaque metavariables assignable
+\ (BuiltinTactic.lean:320): ?o = r assigns ?o := r and closes.
+nat mv-opaque lf-mvar-new made constant fo9
+T{ fo9 fr lf-mk-eq goal-of lf-goal-refl fo9 lf-instantiate! -> fr }T
+\ A relation of fewer than two arguments after whnfR (a definition of an
+\ equation that whnfR does not unfold: Lean's "binary relation" error,
+\ not ported): 93; two arguments: the term itself.
+: rel-code ( t -- code ) ['] mrf-rel code1 ;
+: rel-same ( t -- flag code ) dup rel-code >r = r> ;
+T{ fr rel-code fr fs lf-mk-eq rel-same -> -4205 true 0 }T
+\ One argument (Nat.succ r, review tactic-fidelity L1; pinned Lean's
+\ MyEq 1 := by rfl gives the binary-relation error): 93 too.
+T{ s" Nat.succ" lf-mk-const0 fr lf-mk-app rel-code -> -4205 }T
+\ meta-spine.fs's lf-meta-app2? and lf-meta-args2 (review tactic-fidelity
+\ B1): f a b and f x a b have two or more arguments, their last two a b;
+\ f a and a constant fewer.
+: succ-r ( -- e ) s" Nat.succ" lf-mk-const0 fr lf-mk-app ;
+T{ fr fs lf-mk-eq dup lf-meta-app2? swap lf-meta-args2 succ-r lf-meta-app2? nat lf-meta-app2?
+   -> true fr fs false false }T
+T{ s" Nat.add" lf-mk-const0 fr lf-mk-app fs lf-mk-app lf-meta-args2 -> fr fs }T
+\ Equal sides of a relation other than Eq (no slice goal reaches it after
+\ eq_refl's failure): Lean's @[refl] lemmas, not ported, 93, the frame freed.
+: other-rel ( t -- ) mrf mrf-eq ! mrf-eq-closed ;
+: other-code ( t -- code )
+  mrf-frames ['] other-rel ['] lf-with-record catch dup if nip nip nip then ;
+T{ fr fr id-eq other-code mrf-frames slab-count -> -4205 0 }T
+\ So does applyRfl itself on R r r (R a relation variable): its sides r
+\ and r equal by approxDefEq, the relation no Eq (driven directly: eq_refl
+\ stops such a goal first, its whnf no equation).
+nat nat prop lf-term-pi lf-made! lf-term-pi lf-made! s" R" binder constant frel9
+: apply-rfl-run ( goal -- ) mrf mrf-goal ! mrf-apply-rfl ;
+: apply-rfl-code ( goal -- code )
+  mrf-frames ['] apply-rfl-run ['] lf-with-record catch dup if nip nip nip then ;
+T{ frel9 fr lf-mk-app fr lf-mk-app goal-of apply-rfl-code mrf-frames slab-count -> -4205 0 }T
 \ checkNotAssigned first (review tactic-move M3): an assigned goal is
 \ refused, invalid, before its type is read, by introN (Nat: no binder,
 \ else 94) and by refl (Nat: no Eq, else 93's unsupported).
@@ -745,13 +848,20 @@ T{ hadd-info 99 kind-code lf-author-code -> lf-author-throw 99 }T
 lf-tac-forget
 \ setMotiveArg: fun x => x = x assigned to the motive; a motive of type
 \ Nat -> Prop against the goal Nat (fun x => Nat : Nat -> Type): 212 with
-\ the motive.
+\ the motive and Lean's mkHasTypeButIsExpectedMsg, sorts and all (plan
+\ 9.4.8l; pinned Lean's text for def f (n : Nat) : Nat := by induction n
+\ using an eliminator whose motive is Nat -> Prop: "Type mismatch when
+\ assigning motive\n  fun n => Nat\nhas type\n  Nat → Type\nof sort `Type
+\ 1` but is expected to have type\n  Nat → Prop\nof sort `Type`"; the
+\ printer's ↦ for Lean's => is plan 8.6's).
 T{ g9 motive9 fn9 lf-elim-set-motive motive9 lf-mvar-value drop lf-term-lam? frames9?
    -> true true }T
 nat prop lf-term-pi lf-made! mv-natural lf-mvar-new made constant motive-p
 : motive-code ( goal motive target -- code ) ['] lf-elim-set-motive catch dup if nip nip nip then ;
 T{ nat goal-of motive-p fn9 motive-code lf-author-code frames9? -> lf-author-throw 212 true }T
 T{ s" ↦ Nat" detail-has? -> true }T
+T{ s\" ↦ Nat\nhas type\n  Nat → Type\nof sort `Type 1` but is expected to have type\n  Nat → Prop\nof sort `Type`"
+   detail-has? -> true }T
 lf-tac-forget
 \ generalizeVars (tactics/induction.fs's tind-independent, in a step
 \ record whose context is the current one): hm : m = m holds m, so m is
@@ -946,6 +1056,51 @@ case-done
 T{ s" n by-induction by-case: succ a b c => by-sorry by-end by-case: zero => by-rfl by-end" case-ran
    at-col nip -> outcome-invalid 211 74 }T
 case-done
+\ ---- 11. Tactic batch 1's shared words (plan row TB1, commit C1).
+\ lf-tac-ex: the code at the current token, its detail the goal after a
+\ line break (the message's own line, then a blank one).
+lf-author-begin
+nat goal-of constant g11
+T{ g11 lfa-e-ctor-none ' lf-tac-ex catch nip nip lf-author-code -> lf-author-throw 383 }T
+T{ s" ⊢ Nat" detail-has? detail$ drop c@ 10 = -> true true }T
+lf-tac-forget
+\ lf-match-const-induct: an inductive type's constant gives its
+\ declaration; a constructor, a definition, a theorem and a term that is
+\ no constant (a sort, an application, a free variable) give false, as
+\ does a name no declaration has (Lean's find? none).
+: induct? ( c-addr u -- flag ) lf-mk-const0 lf-match-const-induct dup if nip then ;
+T{ nat lf-match-const-induct swap s" Nat" decl = -> true true }T
+T{ s" And" induct? s" Nat.zero" induct? s" Nat.add" induct? s" Nat.le_refl" induct?
+   -> true false false false }T
+T{ nat lf-infer! lf-match-const-induct zero-x lf-match-const-induct fw lf-match-const-induct
+   -> false false false }T
+T{ s" No.such" lfa-intern mm-declared s" Nat" lfa-intern mm-declared swap s" Nat" decl =
+   -> false true true }T
+\ A lookup the heap refuses (the library bound again, its decoded
+\ declarations forgotten) is thrown full, never read as false.
+: refused-induct ( -- code )
+  ck-stage lf-menv-library! 1 heap-refusals ! nat ['] lf-match-const-induct catch
+  0 heap-refusals ! dup if nip then ;
+T{ refused-induct -> -4206 }T
+ck-stage lf-menv-library!
+\ lf-goals1: the list [goal].
+T{ g11 lf-goals1 dup run-count swap 0 run@ -> 1 g11 }T
+\ lf-with-cells: n cells on top of the slab, the first's address to xt,
+\ the slab cut back however xt ends; a nested call claims above.
+create cell-slab /slab allot  1 cells 10000 cell-slab slab-init drop
+: cells-depth ( addr -- n ) drop cell-slab slab-count ;
+: cells-at? ( addr -- flag ) cell-slab slab-count 2 - cell-slab slab-at = ;
+: cells-fill ( addr -- x ) 7 over ! 8 over cell+ ! dup @ swap cell+ @ + ;
+: cells-fail ( addr -- ) drop outcome-full lf-must ;
+: cells-nested ( addr -- n m ) drop 2 cell-slab ['] cells-depth lf-with-cells cell-slab slab-count ;
+T{ 2 cell-slab ' cells-at? lf-with-cells 2 cell-slab ' cells-fill lf-with-cells cell-slab slab-count
+   -> true 15 0 }T
+T{ 3 cell-slab ' cells-fail ' lf-with-cells catch nip nip nip cell-slab slab-count -> -4206 0 }T
+T{ 1 cell-slab ' cells-nested lf-with-cells cell-slab slab-count -> 3 1 0 }T
+T{ 20000 cell-slab ' cells-depth ' lf-with-cells catch nip nip nip cell-slab slab-count
+   -> -4206 0 }T
+cell-slab slab-free
+
 \ ---- 10. A mutual type (209, Lean's text and hint): FE6.Even of
 \ tests/front/several.ndjson, a library of its own.
 T{ s" tests/front/several.ndjson" true lfc-library-open -> outcome-ok }T

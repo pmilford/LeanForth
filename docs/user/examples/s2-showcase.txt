@@ -85,7 +85,7 @@ A. The proof in LeanForth                         \ input: the text of tests/fro
     theorem zero_add_ex Nat explicit: n   0 n + n =   := by  n Nat.zero_add by-exact   end zero_add_ex
 
 B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
-                                                  -- copied from the note in tests/front/03-zero-add-exact.lf; no test compares it with Lean yet
+                                                  -- copied from tests/front/s2-proofs.lean, which the tests compare with
 
     theorem zero_add_ex (n : Nat) : 0 + n = n := by exact Nat.zero_add n
 

@@ -13,6 +13,14 @@
 \       goal's tag in goal's context; goal assigned
 \       Eq.mpr.{u} target new (id (target = new) h) goal', target goal's
 \       type as stored and u its level
+\   lf-goal-exfalso ( goal -- goal' )  MVarId.exfalso (Apply.lean:286-293),
+\       the term of Lean's exfalso macro (refine False.elim ?_, Init/
+\       Tactics.lean:276: refine's one new goal takes the main goal's tag,
+\       and Sort ?u =?= inferType target gives getLevel's level): in goal's
+\       context (the caller's; checkNotAssigned first), goal' a new
+\       synthetic opaque goal of type False with goal's tag; goal assigned
+\       @False.elim.{u} target goal', target goal's type instantiated, u
+\       its level (getLevel)
 \   lf-goal-head-beta-type ( goal -- goal' )  MVarId.headBetaType
 \       (Util.lean:94): goal's type head-beta reduced; Lean sets the
 \       declaration's type, LeanForth's metavariables keep theirs, so a
@@ -44,42 +52,68 @@
 \       of its domain (head-beta reduced), stored in the caller's cell at
 \       xs, its local pushed on the goal's context, named as the caller's
 \       cell at names says (0, Lean's _: the binder's own name, a when it
-\       has none, made inaccessible), of the kind at kinds (kinds 0: the
-\       node's, which must be explicit); goal' is a new synthetic opaque
-\       goal of the body (the variables put in, head-beta reduced) with
-\       goal's tag, and goal is assigned fun xs => ?n xs (telescope.fs's
-\       lf-mk-lambda-fvars). No pi is Lean's introN error 94 with the goal,
-\       or 93 where whnf's delta might still make one (infer.fs's
-\       lf-whnf-firm?); not supported yet (99): a let, a binder of no
-\       known kind (kinds 0), an implicit or instance one (a local
-\       instance is plan FE3). The current context is put back.
+\       has none, made inaccessible; names 0: none given, Lean's [], each
+\       so), of the kind at kinds (kinds 0: the node's, Lean's c,
+\       explicit, implicit or strict implicit: plan row TB1, by-intro and
+\       by-intros as Lean's intro and intros); goal' is a new synthetic
+\       opaque goal of the body (the variables put in, head-beta reduced)
+\       with goal's tag, and goal is assigned fun xs => ?n xs
+\       (telescope.fs's lf-mk-lambda-fvars). No pi is Lean's introN error
+\       94 with the goal, or 93 where whnf's delta might still make one
+\       (infer.fs's lf-whnf-firm?); not supported yet (99): a let
+\       (mkLambdaFVars has no let case), and with kinds 0 a binder of no
+\       known kind or an instance one (a local instance is plan FE3). The
+\       current context is put back.
+\   lf-intros-size ( type -- n )  getIntrosSize (Intro.lean:190): the
+\       leading pis and lets of type as it is (no delta, no
+\       instantiation; LeanForth's terms carry no mdata)
+\   lf-goal-intros ( goal -- goal' )  MVarId.intros (Intro.lean:199-206):
+\       n, lf-intros-size of goal's type instantiated; 0 gives goal itself
+\       (unassigned), else introN n with no names and the nodes' kinds, the
+\       n free variables in cells of mti-cells (meta-must.fs's
+\       lf-with-cells)
+\   lf-goal-clear! ( goal fvar -- goal' )  MVarId.clear (Clear.lean:20-41),
+\       the throwing face of goals.fs's lf-goal-clear: in goal's context
+\       (checkNotAssigned first), fvar must be a local of it (else error
+\       440, "Tactic `clear` failed: unknown variable 'x'"), no other
+\       local's declaration may depend on it (the oldest that does: 441,
+\       "variable 'h' depends on 'x'"), nor the goal's type (442, "target
+\       depends on 'x'"), each with the goal after a blank line; goal' a
+\       new goal of the same type and tag in the context without fvar,
+\       goal assigned it
 \   lf-goal-checked-assign ( goal e -- )  MVarId.checkedAssign
 \       (ExprDefEq.lean:1341) as closeMainGoal calls it: a free variable
 \       of e outside goal's context, or an assignment refused, is error 98
 \       with e, Lean's occurs-check line and the goal; an unassigned
 \       metavariable in e answers 93 (Lean's checkAssignment would
 \       restrict it, not ported)
-\   lf-goal-refl ( goal -- )  MVarId.refl (Refl.lean:25) as applyRfl's Eq
-\       path reaches it (Rfl.lean:67-97): goal's type, instantiated and
-\       put through whnfCore, must be Eq applied to three arguments (any
-\       other goal: 93, Lean's @[refl] lemmas are plan FE5); its sides,
-\       instantiated, definitionally equal at the transparency in force
-\       (the elaborator's flags) close goal with @Eq.refl.{u} α lhs (Eq's
-\       own level and type); unequal is error 97 with Lean's text (the
-\       sides, the goal), or 93 with a metavariable left in a side
-\       (apply_rfl's approximations might still unify them)
+\   lf-goal-refl ( goal -- )  the rfl macro on an equation (Init/
+\       Tactics.lean:477-482): eq_refl, MVarId.refl (Refl.lean:25) under
+\       withAssignableSyntheticOpaque: goal's type through whnf at the
+\       transparency in force, instantiated (getType'), must be Eq applied
+\       to three arguments (any other goal: 93, exact Iff.rfl, exact
+\       HEq.rfl and @[refl] lemmas are plan FE5); its sides instantiated
+\       and definitionally equal close goal with @Eq.refl.{u} α lhs (Eq's
+\       own level and type); else applyRfl (Rfl.lean:67-97): the type
+\       instantiated through whnfR, a relation of two arguments or more
+\       (else 93), its last two compared by approxDefEq
+\       isDefEqGuarded (meta-must.fs's lf-defeq-approx!): unequal is error
+\       97 with Lean's text (the sides, the goal); equal sides of Eq close
+\       goal as above, of another relation 93 (@[refl] lemmas)
 \ Errors are thrown as authoring errors at the step running
 \ (tactic-run.fs's lf-tac-stop and lf-tac-fail), Meta failures as
 \ outcomes (meta-must.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: mti-frames and mrf-frames (introN's and refl's frames, one per
-\ call open, meta-must.fs's lf-with-record, in the checker context, ADR
-\ 0009); no other. Loads in
+\ call open, meta-must.fs's lf-with-record) and mti-cells (intros' free
+\ variables, n cells a call, meta-must.fs's lf-with-cells), in the
+\ checker context (ADR 0009); no other. Loads in
 \ decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../../lib/lib.fs
 require ../../lib/slab.fs
+require ../../lib/find.fs
 require ../../lib/context.fs
 require ../../core/terms.fs
 require ../../core/let-terms.fs
@@ -96,6 +130,7 @@ require ../meta-config.fs
 require ../whnf.fs
 require ../infer.fs
 require ../defeq.fs
+require ../meta-spine.fs
 require ../term-eqv.fs
 require ../term-find.fs
 require ../tactic-run.fs
@@ -116,14 +151,25 @@ require ../telescope.fs
 : mtg-eq ( goal goal' -- eq ) lf-goal-type swap lf-goal-type swap lf-mk-eq ;
 : mtg-hint ( goal goal' h -- goal goal' h' )
   >r 2dup mtg-eq r> swap lf-mk-expected-prop-hint ;
-: mtg-mpr ( target -- f )   \ Eq.mpr.{u} target, u target's level
-  s" Eq.mpr" lfa-intern over lf-level! 1 lf-mk-const-id swap lf-mk-app ;
+\ The constant c-addr u at target's level, applied to target: C.{u} target.
+: mtg-at-level ( target c-addr u -- f )
+  lfa-intern over lf-level! 1 lf-mk-const-id swap lf-mk-app ;
+: mtg-mpr ( target -- f ) s" Eq.mpr" mtg-at-level ;
 : mtg-value ( goal goal' h' -- goal goal' value )
   >r 2dup lf-goal-type swap lf-goal-type mtg-mpr swap lf-mk-app r> lf-mk-app
   over lf-mk-app ;
 : mtg-assign ( goal goal' value -- goal' ) rot swap lf-mvar-assign lf-must ;
 : lf-goal-replace-target-eq ( goal new h -- goal' )
   >r mtg-fresh r> mtg-hint mtg-value mtg-assign ;
+
+\ ---- MVarId.exfalso (Apply.lean:286-293): goal' of type False in goal's
+\ context with goal's tag; goal assigned False.elim.{u} target goal'.
+: mtg-elim ( goal -- goal f )
+  dup lf-goal-type lf-instantiate! s" False.elim" mtg-at-level ;
+: mtg-false ( goal f -- goal goal' f )
+  over s" False" lf-mk-const0 swap mtg-goal-new swap ;
+: lf-goal-exfalso ( goal -- goal' )
+  lf-goal-not-assigned mtg-elim mtg-false over lf-mk-app mtg-assign ;
 
 \ ---- headBetaType.
 : mtg-tag-from ( goal' goal -- goal' ) lf-goal-tag over swap lf-mvar-tag! lf-must ;
@@ -166,6 +212,7 @@ begin-structure /mti
   field: mti-xs          \ the caller's n cells for the free variables
   field: mti-n           \ and their count
   field: mti-i           \ binders introduced
+  field: mti-k           \ the binder's kind (the caller's, else the node's)
 end-structure
 /mti context-slab: mti-frames
 : mti ( -- frame ) mti-frames slab-last ;
@@ -177,37 +224,40 @@ end-structure
 : mti-binding? ( t -- flag ) dup lf-term-pi? swap lf-let? or ;
 : mti-none ( t -- )
   lf-whnf-firm? lf-must 0= if outcome-unsupported lf-must then
-  mti mti-goal @ ['] lf-tac-goal-of. lf-tac-detail lfa-e-tac-no-intro lf-tac-stop ;
+  mti mti-goal @ lfa-e-tac-no-intro lf-tac-ex ;
 : mti-reduced ( t -- pi ) lf-whnf-core lf-must dup lf-term-pi? if exit then dup mti-none ;
 : mti-binder ( -- pi )
   mti mti-type @ dup mti-binding? if exit then lf-instantiate!
   dup mti-binding? if exit then mti-reduced ;
-\ Not supported yet (99): a let; with no kinds given, a binder not known
-\ explicit (the node's record, which a shared node may hide).
-: mti-explicit? ( pi -- flag )
-  lf-binder-of if nip lf-binder-default = else false then ;
-: mti-plain? ( pi -- flag )
-  dup lf-let? if drop false exit then
-  mti mti-kinds @ if drop true else mti-explicit? then ;
-\ The i-th of the caller's n cells at addr; the name given, else the
-\ binder's own (a when it has none) made inaccessible; the kind given,
-\ else explicit.
+\ The i-th of the caller's n cells at addr (none given: addr 0, the cell 0).
 : mti-at ( addr -- addr' ) mti mti-i @ cells + ;
+: mti-given ( addr -- x ) ?dup if mti-at @ else 0 then ;
+\ Not supported yet (99): a let (telescope.fs's mkLambdaFVars has no let
+\ case); with no kinds given, a binder whose kind is not known (the
+\ node's record, which a shared node may hide) or is instance implicit
+\ (a local instance, plan FE3). Else the binder's kind is the caller's,
+\ or the node's (Lean's c of introNImp's forallE case): explicit,
+\ implicit or strict implicit, kept in the frame.
+: mti-refused ( -- ) lfa-e-tac-form lf-tac-fail ;
+: mti-unlet ( pi -- pi ) dup lf-let? if mti-refused then ;
+: mti-introduced ( kind -- kind ) dup lf-binder-instance < 0= if mti-refused then ;
+: mti-node-kind ( pi -- kind ) lf-binder-of 0= if mti-refused then nip mti-introduced ;
+: mti-kind ( pi -- kind ) mti mti-kinds @ ?dup if nip mti-at @ else mti-node-kind then ;
+: mti-kind! ( pi -- pi ) dup mti-kind mti mti-k ! ;
+\ The name given, else the binder's own (a when it has none) made
+\ inaccessible (names 0: none given, Lean's []).
 : mti-own ( pi -- name ) lf-binder-name ?dup 0= if s" a" lfa-intern then ;
 : mti-named ( pi -- name flags )
-  mti mti-names @ mti-at @ ?dup if nip 0 exit then mti-own lf-local-inaccessible ;
-: mti-kind ( -- kind )
-  mti mti-kinds @ ?dup if mti-at @ else lf-binder-default then ;
+  mti mti-names @ mti-given ?dup if nip 0 exit then mti-own lf-local-inaccessible ;
 \ One binder: its free variable kept, its local pushed on the current view.
 : mti-dom ( pi -- dom ) lf-term-first@ lf-meta-head-beta lf-must ;
 : mti-local ( pi -- fvar )
-  dup mti-dom swap mti-named mti-kind or lf-local-decl-new lf-mctx-view! ;
+  dup mti-dom swap mti-named mti mti-k @ or lf-local-decl-new lf-mctx-view! ;
 : mti-x! ( fvar -- ) mti mti-xs @ mti-at ! 1 mti mti-i +! ;
 : mti-body ( pi fvar -- t )
   swap lf-term-second@ swap lf-meta-instantiate1 lf-must lf-meta-head-beta lf-must ;
 : mti-step ( -- )
-  mti-binder dup mti-plain? 0= if lfa-e-tac-form lf-tac-fail then
-  dup mti-local dup mti-x! mti-body mti mti-type ! ;
+  mti-binder mti-unlet mti-kind! dup mti-local dup mti-x! mti-body mti mti-type ! ;
 \ The new goal of the body in the new context, the goal assigned
 \ fun xs => ?n xs (mkLambdaFVars, telescope.fs).
 : mti-new ( -- goal' )
@@ -219,6 +269,47 @@ end-structure
 : mti-framed ( goal names kinds n xs -- goal' ) mti-fill ['] mti-run lf-with-goal ;
 : lf-goal-intro-n ( goal names kinds n xs -- goal' )
   mti-frames ['] mti-framed lf-with-record ;
+
+\ ---- getIntrosSize (Intro.lean:190) and MVarId.intros (:199): every
+\ leading pi and let of the type instantiated, as they are (no delta;
+\ LeanForth's terms carry no mdata), introduced at once with no names, in
+\ n cells of mti-cells (lf-with-cells, meta-must.fs).
+: lf-intros-size ( type -- n )
+  0 swap begin lf-tag-pi lf-meta-under while swap 1+ swap repeat drop ;
+1 cells context-slab: mti-cells
+: mti-intros ( goal n xs -- goal' ) 0 0 2swap lf-goal-intro-n ;
+: lf-goal-intros ( goal -- goal' )
+  dup lf-goal-type lf-instantiate! lf-intros-size ?dup 0= if exit then
+  dup mti-cells ['] mti-intros lf-with-cells ;
+
+\ ---- MVarId.clear (Clear.lean:20-41): its three refusals, each
+\ throwTacticEx `clear` with Lean's text and the goal, then goals.fs's
+\ lf-goal-clear (which checks again and makes the goal).
+440 outcome-invalid s" Tactic `clear` failed: unknown variable"
+  lfa-code: lfa-e-clear-unknown
+441 outcome-invalid s" Tactic `clear` failed: variable" lfa-code: lfa-e-clear-depends
+442 outcome-invalid s" Tactic `clear` failed: target depends on"
+  lfa-code: lfa-e-clear-target
+: mcl-fvar. ( fvar -- outcome ) s"  " lf-pp-emit lf-tac-quoted. ;
+: mcl-depends. ( fvar -- outcome ) s"  depends on" lf-pp-emit mcl-fvar. ;
+: mcl-refuse ( goal fvar code -- ) swap ['] mcl-fvar. lf-tac-inline lf-tac-ex ;
+: mcl-known ( goal fvar -- goal fvar )
+  over lf-goal-view over lf-view-has? 0= if lfa-e-clear-unknown mcl-refuse then ;
+\ localDeclDependsOn of local k, fvar's own passed over (lctx.forM: the
+\ oldest first).
+: mcl-dep? ( fvar k -- fvar flag )
+  lf-mctx-fvar 2dup = if drop false exit then
+  over lf-local-depends-on? lf-must ;
+: mcl-dependent ( goal fvar k -- )
+  lf-mctx-fvar ['] mcl-fvar. lf-tac-inline
+  ['] mcl-depends. lf-tac-inline lfa-e-clear-depends lf-tac-ex ;
+: mcl-locals ( goal fvar -- goal fvar )
+  dup lf-mctx-view lf-view-count ['] mcl-dep? find-index if mcl-dependent then ;
+: mcl-target ( goal fvar -- goal fvar )
+  over lf-goal-type over lf-depends-on? lf-must if lfa-e-clear-target mcl-refuse then ;
+: mcl-run ( goal fvar -- goal' ) mcl-known mcl-locals mcl-target lf-goal-clear lf-must ;
+: lf-goal-clear! ( goal fvar -- goal' )
+  over lf-goal-not-assigned drop over ['] mcl-run lf-with-goal ;
 
 \ ---- checkedAssign (ExprDefEq.lean:1341) as closeMainGoal calls it.
 : mtg-outside? ( view leaf -- view flag )
@@ -237,23 +328,39 @@ end-structure
   lf-must 2drop ;
 : lf-goal-checked-assign ( goal e -- ) mtg-holes-free mtg-in-scope mtg-assigned ;
 
-\ ---- MVarId.refl (Refl.lean:25) by applyRfl's Eq path (Rfl.lean:67-97):
-\ a frame per call (lf-with-record).
+\ ---- The rfl macro on an equation (Init/Tactics.lean:477-482): its
+\ alternatives exact Iff.rfl and exact HEq.rfl fail on a goal whose type
+\ is Eq after whnf (Iff, HEq and Eq: three inductive types, nothing
+\ unfolds), so eq_refl decides (MVarId.refl, Refl.lean:25, under
+\ withAssignableSyntheticOpaque, BuiltinTactic.lean:320), then on its
+\ failure applyRfl (Rfl.lean:67-97), whose error is the one Lean shows.
+\ A frame per call (lf-with-record).
 begin-structure /mrf
   field: mrf-goal        \ the goal
-  field: mrf-eq          \ its type, instantiated, through whnfCore
-  2 cells +field mrf-sides  \ its sides, instantiated: lhs rhs (2! and 2@)
+  field: mrf-eq          \ its type: getType' (eq_refl), then whnfR (applyRfl)
+  2 cells +field mrf-sides  \ that type's sides, instantiated: lhs rhs (2! and 2@)
 end-structure
 /mrf context-slab: mrf-frames
 : mrf ( -- frame ) mrf-frames slab-last ;
-: mtg-eq-of ( goal -- t ) lf-goal-type lf-instantiate! lf-whnf-core lf-must ;
+\ getType' (Util.lean:80): whnf at the transparency in force, instantiated.
+: mtg-eq-of ( goal -- t ) lf-goal-type lf-whnf! lf-instantiate! ;
 : mtg-is-eq ( t -- t ) dup lf-eq? if 2drop drop exit then outcome-unsupported lf-must ;
 : mtg-inst2 ( a b -- a' b' ) lf-instantiate! swap lf-instantiate! swap ;   \ b first
-: mrf-sides! ( -- ) mrf mrf-eq @ lf-eq? drop mtg-inst2 mrf mrf-sides 2! drop ;
-\ isDefEq at the transparency the step runs at (default; reducible under
-\ by-rw[ 's with_reducible), the elaborator's flags set outright
-\ (meta-must.fs's lf-defeq-elab-at: a fidelity gap, plan 9.4.8l I).
-: mrf-equal? ( -- flag ) mrf mrf-sides 2@ lf-defeq-mode lf-defeq-elab-at lf-must ;
+: mrf-eq! ( t -- ) dup mrf mrf-eq ! lf-eq? drop mtg-inst2 mrf mrf-sides 2! drop ;
+\ eq_refl's isDefEq: at the transparency the step runs at (default;
+\ reducible under by-rw[ 's with_reducible), the goals assignable.
+: mrf-sides-defeq ( -- flag outcome ) mrf mrf-sides 2@ lf-defeq-mode lf-defeq-elab-at ;
+: mrf-equal? ( -- flag ) ['] mrf-sides-defeq lf-with-assignable-opaque lf-must ;
+\ applyRfl's relation (Rfl.lean:69-86): t, the type instantiated through
+\ whnfR, applied to two arguments or more, its last two the sides (fewer:
+\ Lean's "binary relation" error, not ported, 93; HEq, whose HEq.refl
+\ path is not ported either, never comes here: its whnf is no Eq);
+\ approxDefEq isDefEqGuarded of the sides.
+: mrf-rel ( t -- t ) dup lf-meta-app2? 0= if outcome-unsupported lf-must then ;
+: mrf-whnf-r ( -- )
+  mrf mrf-goal @ lf-goal-type lf-instantiate! lf-whnf-r! mrf-rel
+  dup mrf mrf-eq ! lf-meta-args2 mrf mrf-sides 2! ;
+: mrf-approx? ( -- flag ) mrf mrf-sides 2@ lf-defeq-approx! ;
 : mrf-lhs ( -- lhs ) mrf mrf-sides 2@ drop ;
 \ @Eq.refl.{u} α lhs, u and α those of the goal's Eq (mkConst Eq.refl us,
 \ mkApp2).
@@ -263,21 +370,21 @@ end-structure
 : mrf-term ( -- e )
   mrf mrf-eq @ dup mtg-refl-const swap mtg-alpha lf-mk-app mrf-lhs lf-mk-app ;
 : mrf-closed ( -- ) mrf-term mrf mrf-goal @ mtg-set ;
-\ applyRfl's message: the two sides, then the goal; a metavariable left in
-\ a side answers 93 instead.
+\ applyRfl's message: the two sides, then the goal (addPPExplicitToExposeDiff
+\ not ported).
 : mtg-rhs. ( rhs -- outcome )
   s\" \nis not definitionally equal to the right-hand side\n" lf-pp-emit
   lf-tac-indented. ;
 : mrf-rfl. ( x -- outcome )
   drop mrf mrf-goal @ mrf mrf-sides 2@ swap ['] mtg-rhs. swap lf-tac-framed-with. ;
-: mrf-open? ( -- flag )
-  mrf mrf-sides 2@ swap lf-has-open-mvar? swap lf-has-open-mvar? or ;
-: mrf-unequal ( -- )
-  mrf-open? if outcome-unsupported lf-must then
-  0 ['] mrf-rfl. lf-tac-detail lfa-e-tac-rfl lf-tac-stop ;
+: mrf-unequal ( -- ) 0 ['] mrf-rfl. lf-tac-detail lfa-e-tac-rfl lf-tac-stop ;
+\ Equal sides of Eq close the goal; of another relation, Lean's @[refl]
+\ lemmas would (plan FE5): 93.
+: mrf-eq-closed ( -- ) mrf mrf-eq @ mtg-is-eq drop mrf-closed ;
+: mrf-apply-rfl ( -- ) mrf-whnf-r mrf-approx? 0= if mrf-unequal then mrf-eq-closed ;
 : mrf-run ( -- )
-  mrf mrf-goal @ mtg-eq-of mtg-is-eq mrf mrf-eq ! mrf-sides!
-  mrf-equal? if mrf-closed else mrf-unequal then ;
+  mrf mrf-goal @ mtg-eq-of mtg-is-eq mrf-eq!
+  mrf-equal? if mrf-closed else mrf-apply-rfl then ;
 : mrf-framed ( goal -- ) mrf mrf-goal ! mrf-run ;
 : lf-goal-refl ( goal -- ) lf-goal-not-assigned mrf-frames ['] mrf-framed lf-with-record ;
 base !   \ the BASE this file was loaded with

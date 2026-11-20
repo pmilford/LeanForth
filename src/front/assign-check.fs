@@ -179,7 +179,7 @@ end-structure
 \ isLet: not a have) between the first xi and the last; an xi the
 \ context lacks counts as one (unsupported).
 : ac-place ( fvar -- i true | false ) lf-mctx-view swap lf-view-find ;
-: ac-let-at? ( i -- flag ) lf-mctx-view swap lf-view-local lf-local-fvar lf-fvar-let? ;
+: ac-let-at? ( i -- flag ) lf-mctx-fvar lf-fvar-let? ;
 : ac-ranks ( -- lo hi true | false )
   0 ac-x ac-place 0= if false exit then
   ac ac-n @ 1- ac-x ac-place if true else drop false then ;

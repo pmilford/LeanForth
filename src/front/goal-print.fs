@@ -19,8 +19,9 @@
 \ hypothesis's name (this file installs the term printer's
 \ lf-pp-open-leaf; outside a goal print it names a free variable by the
 \ current local context, lf-mctx-view, and one in neither as _fvar.N), a
-\ metavariable as ?TAG when tagged, else ?m.N (N: its record's number + 1;
-\ Lean counts every metavariable it made, so its N differs). A let's value
+\ metavariable as ?TAG when tagged (a tag with macro scopes erased and ✝:
+\ ?a✝, as Lean's sanitizer gives it), else ?m.N (N: its record's number +
+\ 1; Lean counts every metavariable it made, so its N differs). A let's value
 \ prints when it is a leaf or, for a synthetic opaque goal, its depth
 \ (Lean's Expr.approxDepth) is at most 254; else as ⋯
 \ (ppGoal.shouldShowLetValue). Terms print with the term printer
@@ -34,7 +35,12 @@
 \ (the proof state's unsolved goals, a blank line between two, as a
 \ tactic error shows them: tactic-run.fs), lf-goals-print ( -- outcome )
 \ (the same, then the end of the line, for the word .goals), to the term
-\ printer's sink (lf-print-setup).
+\ printer's sink (lf-print-setup); lf-with-names ( i*x xt view -- j*x ):
+\ xt run with view's free variables named as a goal of view names its
+\ hypotheses (Lean prints a message's terms in its context, sanitized:
+\ n✝; tactic-msg.fs's terms); inside a goal print, that goal's names (the
+\ view given is not used); the plain names when the codes find no room;
+\ the state put back however xt ends.
 \ Outcomes: ok; invalid for a goal that is no live metavariable; what an
 \ instantiation or the printer answers (exhausted, full, unsupported). On
 \ a failure part of the text is written. Untrusted presentation.
@@ -122,9 +128,12 @@ end-structure
 : gp-anonymous ( mvar -- ) s" ?m." gp-emit lf-term-first@ 1+ lf-pp-number ;
 : gp-stale ( mvar -- outcome )
   s" ?_mvar." gp-emit lf-term-first@ lf-pp-number outcome-ok ;
+\ A tag with macro scopes (an inaccessible binder's) erased, then ✝.
+: gp-erased ( tag -- ) lf-pp-erase lf-pp-name 0 gp-suffix ;
+: gp-tag ( tag -- ) s" ?" gp-emit dup lf-pp-hygienic? if gp-erased else lf-pp-name then ;
 : gp-mvar ( mvar -- outcome )
   dup lf-mvar-tag 0= if gp-stale exit then
-  ?dup if nip s" ?" gp-emit lf-pp-name else gp-anonymous then outcome-ok ;
+  ?dup if nip gp-tag else gp-anonymous then outcome-ok ;
 : gp-leaf ( term -- outcome ) dup lf-mvar? if gp-mvar else gp-fvar then ;
 ' gp-leaf is lf-pp-open-leaf
 
@@ -208,4 +217,12 @@ end-structure
 : gp-all ( list -- outcome ) true swap ['] gp-one run-each nip ;
 : lf-goals-text ( -- outcome ) lf-goals-unsolved ok-then? if gp-all then ;
 : lf-goals-print ( -- outcome ) lf-goals-text dup ok? if s\" \n" gp-emit then ;
+
+\ ---- A message's terms in a context (Lean's ppExpr there, sanitized):
+\ the names a goal print of that context gives; inside a goal print, its
+\ own; no room for the codes, the plain ones.
+: gp-names-on ( view -- ) gp gp-view ! gp-codes! ok? gp gp-active ! ;
+: lf-with-names ( i*x xt view -- j*x )
+  gp gp-active @ if drop execute exit then
+  gp-names-on catch false gp gp-active ! throw ;
 base !   \ the BASE this file was loaded with

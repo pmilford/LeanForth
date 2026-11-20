@@ -109,11 +109,11 @@ reason = "review tactic-a2ii B1 (its tag-inst-not-skipped): appendParentTag tags
 
 [[fault]]
 id = "apply-approx-off"
-file = "src/front/meta-tactic/apply.fs"
-old = ''': ap-defeq ( t s -- flag ) ['] lf-meta-defeq-guarded lf-with-approx outcome-sane lf-must ;'''
-new = ''': ap-defeq ( t s -- flag ) lf-meta-defeq-guarded outcome-sane lf-must ;'''
+file = "src/front/meta-must.fs"
+old = '''  ['] lf-meta-defeq-guarded lf-with-approx outcome-sane lf-must ;'''
+new = '''  lf-meta-defeq-guarded outcome-sane lf-must ;'''
 test = "$GFORTH tests/front/tactics/apply/test.fs"
-reason = "review tactic-a2ii B2 (its approx-off): isDefEqApply without approxDefEq (congrArg on Nat.succ a = Nat.succ b fails)"
+reason = "review tactic-a2ii B2 (its approx-off): isDefEqApply without approxDefEq (congrArg on Nat.succ a = Nat.succ b fails); since plan 9.4.8l in meta-must.fs's lf-defeq-approx!, shared with rfl"
 
 [[fault]]
 id = "apply-elab-mvar-ok"

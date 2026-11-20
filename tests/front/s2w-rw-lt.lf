@@ -1,0 +1,12 @@
+\ A wrong proof for S2's tactics (tests/front/check_s2.py; its Lean twin is
+\ tests/front/s2-wrong.lean's w_rw_lt): Nat.lt_irrefl n is a proof of
+\ ¬n < n, which rw's telescope opens to False with a new metavariable for
+\ Not's anonymous binder, so rw refuses it with Lean's error 218, that
+\ metavariable printed ?a✝ as Lean's sanitizer gives it (plan 9.4.8l R).
+\ Lean: theorem w_rw_lt (n : Nat) : 0 + n = n := by rw [Nat.lt_irrefl]
+theorem w_rw_lt
+  Nat explicit: n
+  0 n + n =
+:= by
+  by-rw[ ' Nat.lt_irrefl ]
+end w_rw_lt

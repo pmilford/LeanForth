@@ -1,0 +1,35 @@
+# Planted faults of by-exfalso and the goal layer's exfalso (plan row TB1;
+# src/front/tactics/exfalso.fs, src/front/meta-tactic/goal.fs's
+# lf-goal-exfalso), read with faults.toml as one list (scripts/mutants.py).
+
+[[fault]]
+id = "tb1-exfalso-level-zero"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  dup lf-goal-type lf-instantiate! s" False.elim" mtg-at-level ;'''
+new = '''  dup lf-goal-type lf-instantiate! s" False.elim" lfa-intern s" True" lf-mk-const0 lf-level! 1 lf-mk-const-id swap lf-mk-app ;'''
+test = "$GFORTH tests/front/tactics/exfalso/test.fs"
+reason = "TB1: exfalso's False.elim always at level 0, whatever the target's sort (Lean: getLevel of the target)"
+
+[[fault]]
+id = "tb1-exfalso-tag-dropped"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  over s" False" lf-mk-const0 swap mtg-goal-new swap ;'''
+new = '''  over s" False" lf-mk-const0 0 rot lf-goal-view lf-goal-new lf-must swap ;'''
+test = "$GFORTH tests/front/tactics/exfalso/test.fs"
+reason = "TB1: exfalso's new goal loses the main goal's tag (Lean's refine gives its one new goal the main goal's tag)"
+
+[[fault]]
+id = "tb1-exfalso-plain-lift"
+file = "src/front/tactics/exfalso.fs"
+old = ''': tef-run ( i -- ) ['] lf-goal-exfalso lf-lift-meta-tactic1 ;'''
+new = ''': tef-run ( i -- ) ['] lf-goal-exfalso lf-lift-meta-tactic ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/exfalso/check.py"
+reason = "TB1: exfalso's one goal handed to liftMetaTactic as a list (liftMetaTactic1's [goal] is needed)"
+
+[[fault]]
+id = "tb1-exfalso-false-elim-target"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  lf-goal-not-assigned mtg-elim mtg-false over lf-mk-app mtg-assign ;'''
+new = '''  lf-goal-not-assigned mtg-elim mtg-false mtg-assign ;'''
+test = "$GFORTH tests/front/tactics/exfalso/test.fs"
+reason = "TB1: the goal assigned False.elim T without the new goal as its proof of False (an ill-typed term, and the new goal never used)"

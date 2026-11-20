@@ -82,8 +82,8 @@ def golden_part(write, finished):
     check(tactic == 14 and out.count("\\ step 1 (") == tactic, f"14 tactic theorems, each with its statement; got {tactic}")
     twins = out.count("-- copied from tests/front/")
     noted = out.count("no test compares it with Lean yet")
-    check(twins == 14 and noted == 1 and "no Lean twin is recorded" not in out,
-          f"each theorem shows its Lean form (14 twins, 1 from its file's note): got {twins}, {noted}")
+    check(twins == 15 and noted == 0 and "no Lean twin is recorded" not in out,
+          f"each theorem shows its Lean form (15 twins): got {twins}, {noted} from a file's note")
     check(out.count("Not LeanForth's output; Lean is not run") == 15, "the Lean part says it is not LeanForth's output")
     check("[Lean:" not in out and "as Lean prints" not in out, "no label says Lean did the work")
     check(not any(re.match(r"\s+\d+\s+(\||theorem|:=|end)\b", line) for line in lines),

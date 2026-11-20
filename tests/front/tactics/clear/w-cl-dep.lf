@@ -1,0 +1,11 @@
+\ A wrong twin (plan row TB1; tests/front/tactics/goal-layer-wrong.lean):
+\ the hypothesis h mentions a, and clear fails with Lean's message (error
+\ 441) and the goal.
+\ Lean: theorem w_cl_dep (a : Nat) (h : a ≤ a) : a ≤ a := by clear a
+theorem w_cl_dep
+  Nat explicit: a
+  a a ≤ explicit: h
+  a a ≤
+:= by
+  ' a by-clear
+end w_cl_dep

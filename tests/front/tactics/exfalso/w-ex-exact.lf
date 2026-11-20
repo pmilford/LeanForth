@@ -1,0 +1,14 @@
+\ A wrong twin (plan row TB1; tests/front/tactics/goal-layer-wrong.lean):
+\ after by-exfalso the goal is False, which h : a ≤ b does not prove, and
+\ exact fails with Lean's message (error 96).
+\ Lean: theorem w_ex_exact (a b : Nat) (h : a ≤ b) : a = b := by
+\         exfalso
+\         exact h
+theorem w_ex_exact
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b =
+:= by
+  by-exfalso
+  ' h by-exact
+end w_ex_exact
