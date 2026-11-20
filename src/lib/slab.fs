@@ -70,7 +70,7 @@
 \   40 todo slab-push drop  todo ' small? slab-all? . .   \ 0 (ok) -1 (true)
 \   todo slab-free                              \ prints: Nat8 7 0 0 -1
 \
-\ Interface: /slab slab-init slab-free slab-live? slab-valid? slab-count
+\ Interface: /slab slab-init slab-free slab-live? slab-valid? slab-count slab-since
 \ slab-capacity slab-limit slab-unit slab-at slab-base slab-data slab-top slab-room
 \ slab-reserve slab-hold slab-claim slab-commit slab-cut slab-remove
 \ slab-bad-cut slab-trim
