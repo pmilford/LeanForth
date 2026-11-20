@@ -870,6 +870,6 @@ wc-smatch-kind 1+ constant wc-srec-kind
 : wm-inst-at ( e k addr -- e' outcome ) swap cells + @ wm-inst ;
 : lf-meta-instantiate-forall ( e addr n -- e' outcome )
   dup 0< if drop 2drop outcome-invalid no-result exit then
-  swap ['] wm-inst-at ok-fold ['] outcome-ok ok-apply ;
+  swap ['] wm-inst-at ok-fold ok-or-none ;
 
 base !   \ the BASE this file was loaded with
