@@ -15620,8 +15620,8 @@ reason = "FE1g-1: a hypothesis shadowed by a newer one of its name prints plain,
 [[fault]]
 id = "fe-goal-tombstone-count"
 file = "src/front/goal-print.fs"
-old = '''  dup gp-local 0 rot gp-after ?do over i gp-renamed-as? if 1+ then loop nip ;'''
-new = '''  drop 0 ;'''
+old = ''': gp-like ( i -- n ) gp-view@ lf-view-count over - 1- ['] gp-later-like? count-index ;'''
+new = ''': gp-like ( i -- n ) drop 0 ;'''
 test = "python3 tests/front/check_goals.py"
 reason = "FE1g-1: every tombstone is a bare ✝, where Lean numbers the older ones x✝¹, x✝²"
 
@@ -21266,3 +21266,19 @@ old = ''': lf-walk-kind ( pi addr -- kind ) cell-pair@ lf-binder-kind! ;'''
 new = ''': lf-walk-kind ( pi addr -- kind ) 2@ lf-binder-kind! ;'''
 test = "$GFORTH tests/front/elab.fs"
 reason = "cleanup-families-2 (pair reads in memory order): a walk's declaration and binder number read crosswise"
+
+[[fault]]
+id = "cf2-lay-slot-inverted"
+file = "src/kernel/env-layers.fs"
+old = ''': lay-slot? ( ly k -- ly flag ) over ly-decl over ly-stage @ slot-record? ;'''
+new = ''': lay-slot? ( ly k -- ly flag ) over ly-decl over ly-stage @ slot-record? 0= ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "cleanup-families-2 (plan 9.4.8l Z, lay-count): a layer's slots count its block records instead of its declarations, so its snapshot is read against the wrong number of slots"
+
+[[fault]]
+id = "cf2-gp-like-inverted"
+file = "src/front/goal-print.fs"
+old = ''': gp-later-like? ( i k -- i flag ) over 1+ + over gp-local swap gp-renamed-as? ;'''
+new = ''': gp-later-like? ( i k -- i flag ) over 1+ + over gp-local swap gp-renamed-as? 0= ;'''
+test = "python3 tests/front/check_goals.py"
+reason = "cleanup-families-2 (gp-like on count-index): a tombstone's number counts the later locals not renamed like it, so Lean's x✝¹ and x✝² come out wrong"

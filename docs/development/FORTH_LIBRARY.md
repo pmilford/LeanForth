@@ -1226,7 +1226,8 @@ the test holds never or every other time. *Callers* and their sizes:
   the declarations checked here and taken from the snapshot
   (`ck-checked#`, `ck-saved#`, through `ck-inputs-passing#`); once per snapshot
   load, its stage's slots but block records (`ck-stage-slots`, x the
-  stage);
+  stage), and the kernel's `env-layers.fs` the same for each layer
+  loaded on it (`lay-count`, x the layer's reader; cleanup-families-2);
 - `cli/check-lf.fs`: a library constant's explicit binders, the zeros of
   its binder-kinds record (`lfc-zeros`, x the record; one per name the
   natural reader looks up, the constant's binders);
@@ -1234,7 +1235,12 @@ the test holds never or every other time. *Callers* and their sizes:
   (`lf-pf-inner#`, one per variable printed as `n var#`; the binders in
   scope) and `present/print-analysis.fs`: an application's shown
   arguments (`lf-pp-shown#`, x the application; one per application
-  printed, its arguments).
+  printed, its arguments);
+- `front/goal-print.fs`: the later locals renamed like local i, Lean's
+  number for a tombstone (`gp-like`, x the index i, the test
+  `gp-later-like?` reading local i+1+k; cleanup-families-2, replacing a
+  hand-written loop over i+1 to the view's count; a handful of locals in
+  a goal of `tests/front/`).
 
 The sizes of `kept-before`, `lfc-zeros`, `lf-pf-inner#` and
 `lf-pp-shown#` were not measured on a real run. Tested in

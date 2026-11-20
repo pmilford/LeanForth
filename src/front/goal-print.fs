@@ -45,6 +45,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
+require ../lib/find.fs
 require ../lib/runs.fs
 require ../core/let-terms.fs
 require ../present/term-printer.fs
@@ -96,8 +97,10 @@ end-structure
 : gp-shadowed? ( i -- flag )
   dup gp-local swap gp-after ?do dup i gp-shadows? if drop true unloop exit then loop
   drop false ;
-: gp-like ( i -- n )
-  dup gp-local 0 rot gp-after ?do over i gp-renamed-as? if 1+ then loop nip ;
+\ Lean's number for a renamed local i: the later locals renamed like it
+\ (count-index over the k locals after i, i carried as x).
+: gp-later-like? ( i k -- i flag ) over 1+ + over gp-local swap gp-renamed-as? ;
+: gp-like ( i -- n ) gp-view@ lf-view-count over - 1- ['] gp-later-like? count-index ;
 : gp-renamed? ( i -- flag )
   dup gp-local lf-local-inaccessible? if drop true else gp-shadowed? then ;
 : gp-code ( i -- code ) dup gp-renamed? if gp-like else drop gp-plain then ;
