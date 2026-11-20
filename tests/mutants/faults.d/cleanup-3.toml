@@ -164,3 +164,61 @@ old = '''  outcome-full outcome-invalid outcome-exhausted one-of3? ;'''
 new = '''  outcome-full outcome-exhausted one-of2? ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "review of cleanup-families-3, F14 (L1): an invalid outcome counts as reproducible, so the import keeps a slot a re-run may not repeat"
+
+# The other step words round 3 split out of kernel and import guards (review M2: none had a fault).
+
+[[fault]]
+id = "cf3r-str-expand-nil-two"
+file = "src/kernel/string-literals.fs"
+old = '''  s" nil" lf-sx-list ['] lf-sx-chars ok-apply ['] lf-sx-of-chars ok-apply ;'''
+new = '''  s" nil" lf-sx-list ['] lf-sx-chars ok-apply2 ['] lf-sx-of-chars ok-apply ;'''
+test = "$GFORTH tests/core/string-literals.fs"
+reason = "review of cleanup-families-3, M2: no room for List.nil drops a cell under the literal's expansion"
+
+[[fault]]
+id = "cf3r-str-expand-chars-two"
+file = "src/kernel/string-literals.fs"
+old = '''  s" nil" lf-sx-list ['] lf-sx-chars ok-apply ['] lf-sx-of-chars ok-apply ;'''
+new = '''  s" nil" lf-sx-list ['] lf-sx-chars ok-apply ['] lf-sx-of-chars ok-apply2 ;'''
+test = "$GFORTH tests/core/string-literals.fs"
+reason = "review of cleanup-families-3, M2: no room for the character list drops a cell under the literal's expansion"
+
+[[fault]]
+id = "cf3r-sx-applied-unswapped"
+file = "src/kernel/string-literals.fs"
+old = ''': lf-sx-applied ( list f -- node outcome ) swap lf-sx-app ;'''
+new = ''': lf-sx-applied ( list f -- node outcome ) lf-sx-app ;'''
+test = "$GFORTH tests/core/string-literals.fs"
+reason = "review of cleanup-families-3, M2: String.ofList applied the other way round, the list as the function"
+
+[[fault]]
+id = "cf3r-nest-occurrence-two"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-nest-take lf-nest-candidate? ['] lf-nest-if-candidate ok-apply ;'''
+new = '''  lf-nest-take lf-nest-candidate? ['] lf-nest-if-candidate ok-apply2 ;'''
+test = "$GFORTH tests/core/inductive-nested.fs"
+reason = "review of cleanup-families-3, M2: a refused candidate test drops a cell under the occurrence"
+
+[[fault]]
+id = "cf3r-nest-new-key-no-result"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-nest-keyed dup ok? if drop lf-nest-replace else no-result then ;'''
+new = '''  lf-nest-keyed dup ok? if drop lf-nest-replace then ;'''
+test = "$GFORTH tests/core/inductive-nested.fs"
+reason = "review of cleanup-families-3, M2: a refused key leaves the outcome alone, without -1 under it"
+
+[[fault]]
+id = "cf3r-nest-instance-two"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-nest-pi-params ['] lf-nest-wrap ok-apply ;'''
+new = '''  lf-nest-pi-params ['] lf-nest-wrap ok-apply2 ;'''
+test = "$GFORTH tests/core/inductive-nested.fs"
+reason = "review of cleanup-families-3, M2: refused parameters drop a cell under the instance"
+
+[[fault]]
+id = "cf3r-fam-other-unswapped"
+file = "src/import/snapshot-layer.fs"
+old = ''': ly-fam-other ( head j fam -- e outcome ) tuck ly-fam-rec swap ly-fam-plain ;'''
+new = ''': ly-fam-other ( head j fam -- e outcome ) tuck ly-fam-rec ly-fam-plain ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review of cleanup-families-3, M2: a family expression's operands read with the record and the family exchanged"
