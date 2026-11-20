@@ -768,7 +768,7 @@
   "words": 35
  },
  "src/front/reader.fs": {
-  "globals": 0,
+  "globals": 1,
   "long lines": 0,
   "long words": 0,
   "rstack": 18,

@@ -1821,3 +1821,17 @@ The four parts of the checker gate (`AGENTS.md`, "Review gates") for the change 
    operation table refuses a non-number instead of returning a made-up answer, a small kernel behaviour change
    on a path no caller reaches.
 
+### One counted table in the reader (2026-11-20)
+
+Owner, 2026-11-20, on the question whether `src/front/reader.fs` may hold one module-level table, its
+style baseline for globals going from 0 to 1: "Ok to do the table... I believe it is read only after
+creation and fully reentrant?" Yes to both, as checked by the independent re-check of the branch
+(`docs/development/forth-reviews/2026-11-20-ops-symbols.md`, "Re-check", point 2): the table
+`lfn-notations` holds the 22 symbol words and their Lean constants; it is written only while `reader.fs`
+loads; `lfn-open` refuses every registration once a context exists (`context-new`), through
+`lfn-operator:`, `lfn-notation-name:` and `lfn-entry,` alike, and a refused registration leaves the table
+as it was; after that every context only reads it, so runs in several contexts or threads share it safely.
+The first version of the branch held the same table in a form the counter did not see; the count is now
+honest. Not part of this table, and still open as plan 9.4.8l (BB): the older word `lfa-natural!`
+(`src/author/groups.fs`), which attaches a meaning to a syntax word, is not yet sealed the same way.
+
