@@ -54,7 +54,9 @@
 \   lf-meta-has-fvar? ( term -- flag ): it certainly holds one (a free
 \   variable leaf, or a data word that shows one).
 \ - lf-meta-tag? ( term tag -- flag ): the term's tag is tag;
-\   lf-meta-fvar? ( term -- flag ): a free variable.
+\   lf-meta-fvar? ( term -- flag ): a free variable;
+\   lf-meta-let-fvar? ( term -- flag ): a let variable (a free variable
+\   with a value; core/local-context.fs's lf-fvar-let?).
 \ - lf-meta-head-args ( term -- head n ): the head of its spine and the number
 \   of its arguments (Lean's getAppFn and getAppNumArgs);
 \   lf-meta-args# ( term -- n ): that number alone.
@@ -132,6 +134,8 @@ require ../core/let-terms.fs
   over lf-let? if drop lf-let-body true exit then
   over swap lf-meta-tag? if lf-term-second@ true else false then ;
 : lf-meta-fvar? ( term -- flag ) lf-tag-fvar lf-meta-tag? ;
+: lf-meta-let-fvar? ( term -- flag )
+  dup lf-meta-fvar? if lf-fvar-let? else drop false then ;
 : lf-meta-head-args ( term -- head n )
   0 swap begin dup lf-meta-app? while lf-term-first@ swap 1+ swap repeat swap ;
 : lf-meta-args# ( term -- n ) lf-meta-head-args nip ;

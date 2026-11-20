@@ -8,7 +8,12 @@
 \    constants), succ, the predecessor (one limb and several), the
 \    constructor form (Nat.zero, Nat.succ n) and the literals' type Nat:
 \    each ( node outcome ), the stack as before.
-\ 2. A node that is no literal: invalid, never ok.
+\ 2. A node that is no literal: not called with one, its answer not
+\    defined (core/nat-ops.fs's lf-nat-lit-op does not check; review
+\    s3a-decide M1): the callers pass literals only, which
+\    tests/core/defeq.fs (lf-nat-ext) and tests/front/reduce-nat.fs
+\    (lf-meta-nat-value?) pin; failing closed is plan 9.4.8l (AW), the
+\    owner's gate.
 \ 5. Lean's fixed refusals (a count of 2^32 or more: rejected, diagnostic
 \    92) and its size limit (a result over 2^30 bits: full, diagnostic
 \    93), the shift of 0 by any count; each allocation of an operation
@@ -112,6 +117,10 @@ T{ lf-diag-clear 2 2147483648 3 op diag -> -1 outcome-full lf-diag-nat-size }T
 T{ 0 4294967296 12 computes -> 0 outcome-ok }T
 T{ lf-diag-clear 1 4294967296 12 op diag -> -1 outcome-rejected lf-diag-nat-count }T
 T{ lf-diag-clear 1 1073741824 12 op diag -> -1 outcome-full lf-diag-nat-size }T
+\ A count of two limbs (2^64) is refused too (get_count_arg through
+\ core/literals.fs's lf-lit-u>, review s3a-decide B5).
+T{ lf-diag-clear 2 nat big 3 lf-reduce-nat-binary diag -> -1 outcome-rejected lf-diag-nat-count }T
+T{ lf-diag-clear 1 nat big 12 lf-reduce-nat-binary diag -> -1 outcome-rejected lf-diag-nat-count }T
 
 \ 5. Each allocation of an operation refused in turn (alloc-fail.fs), its
 \ operands made first: full with no node, never ok, the refusal reached
@@ -143,9 +152,4 @@ T{ ' ctor-op each-full? -> true }T   \ Nat.zero
   >r operands lf-term-capacity lf-term-count @ lf-term-capacity! drop
   -rot r> execute nip swap lf-term-capacity! drop ;
 T{ ' sub-op crowded ' beq-op crowded ' ctor-op crowded -> outcome-full outcome-full outcome-full }T
-\ Nat.beq's and Nat.ble's answer after a failed operation (lf-rn-truth,
-\ review of cleanup-families-2, M1): the failure is the answer, -1 and
-\ its outcome, never a Bool constant; on ok the flag picks it.
-T{ true outcome-full lf-rn-truth 0 outcome-exhausted lf-rn-truth -> -1 outcome-full -1 outcome-exhausted }T
-T{ true outcome-ok lf-rn-truth nip 0 outcome-ok lf-rn-truth nip -> outcome-ok outcome-ok }T
 bye

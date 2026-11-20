@@ -1192,9 +1192,9 @@ reason = "an argument with a loose bound variable is put under a lambda without 
 
 [[fault]]
 id = "whnf-k7-off"
-file = "src/kernel/whnf.fs"
-old = ''': lf-whnf-nat? ( name -- flag ) lf-name-prefix@ s" Nat" lf-name-top? ;'''
-new = ''': lf-whnf-nat? ( name -- flag ) drop false ;'''
+file = "src/core/nat-ops.fs"
+old = ''': lf-nat-name? ( name -- flag ) lf-name-prefix@ s" Nat" lf-name-top? ;'''
+new = ''': lf-nat-name? ( name -- flag ) drop false ;'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "K7 (ADR 0014 Q8): whnf unfolds a user's Nat.succ or Nat.add where Lean's reduce_nat looks at it by name"
 
@@ -6270,7 +6270,7 @@ reason = "lazy delta skips is_def_eq_offset, which compares two Nat.succ applica
 [[fault]]
 id = "dq-nat-zero-never"
 file = "src/kernel/whnf.fs"
-old = '''  lf-crec-name @ dup s" zero" lf-name-str-is? if lf-whnf-nat? else drop false then ;'''
+old = '''  lf-crec-name @ lf-nat-zero-name? ;'''
 new = '''  drop false ;'''
 test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
 reason = "reduce_nat is taken never to compute, so Nat operations on Nat.zero unfold where Lean computes a literal whose type is missing (k7.*)"
@@ -6494,9 +6494,8 @@ reason = "an inference aside (infer_proj's is_prop, defeq.fs's typer) logs appli
 [[fault]]
 id = "lit-count-unchecked"
 file = "src/kernel/reduce-nat.fs"
-old = '''  dup lf-rn-count? 0= if 2drop lf-rn-refuse exit then
-  over lf-rn-unit?'''
-new = '''  over lf-rn-unit?'''
+old = '''  dup lf-nat-op-pow = if lf-rn-counted exit then'''
+new = '''  dup lf-nat-op-pow = if lf-nat-lit-op exit then'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.3 L1: Nat.pow by 2^32 is computed (and is too large) instead of Lean's refusal; lit.pow-count-too-big is no longer rejected"
 
@@ -7368,8 +7367,8 @@ reason = "rvCONV B2: iota's structure eta takes any inductive type for a structu
 
 [[fault]]
 id = "rn-pow-scratch-small"
-file = "src/kernel/reduce-nat.fs"
-old = '''  limb-bits / 1+ 6 * >r >r lf-rn-operand-cells r> swap r> + 4096 +'''
+file = "src/core/nat-ops.fs"
+old = '''  limb-bits / 1+ 6 * >r >r nop-operand-cells r> swap r> + 4096 +'''
 new = '''  limb-bits / 4 * 16 +'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvCONV M1: Nat.pow's scratch is sized as before (4 cells per result limb): a 12,800-bit power of a three-limb base is full where Lean computes it (lit.pow-multi-limb-base)"
@@ -10382,24 +10381,24 @@ reason = "get_first_cnstr of a type Lean's environment does not hold is 'none' (
 
 [[fault]]
 id = "cov-rn-table-div-beq-swapped"
-file = "src/kernel/reduce-nat.fs"
-old = '''  ' lf-rn-div , ' lf-rn-beq , ' lf-rn-ble , ' lf-rn-land , ' lf-rn-lor , ' lf-rn-xor ,'''
-new = '''  ' lf-rn-beq , ' lf-rn-div , ' lf-rn-ble , ' lf-rn-land , ' lf-rn-lor , ' lf-rn-xor ,'''
-test = "$GFORTH tests/core/reduce-nat.fs"
+file = "src/core/nat-ops.fs"
+old = '''  ' nop-div , ' nop-beq , ' nop-ble , ' nop-land , ' nop-lor , ' nop-xor ,'''
+new = '''  ' nop-beq , ' nop-div , ' nop-ble , ' nop-land , ' nop-lor , ' nop-xor ,'''
+test = "$GFORTH tests/core/nat-ops.fs"
 reason = "whnf.fs's operation list out of step with the table: Nat.div computes Nat.beq and the other way round"
 
 [[fault]]
 id = "cov-rn-ble-as-beq"
-file = "src/kernel/reduce-nat.fs"
-old = ''': lf-rn-ble ( a b -- node outcome ) ['] lf-rn-le lf-rn-test ;'''
-new = ''': lf-rn-ble ( a b -- node outcome ) ['] lf-rn-eq lf-rn-test ;'''
-test = "$GFORTH tests/core/reduce-nat.fs"
+file = "src/core/nat-ops.fs"
+old = ''': nop-ble ( a b -- node outcome ) ['] nop-le nop-test ;'''
+new = ''': nop-ble ( a b -- node outcome ) ['] nop-eq nop-test ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
 reason = "Nat.ble decided as Nat.beq: Nat.ble 3 5 is false"
 
 [[fault]]
 id = "cov-rn-shl-zero-counted"
 file = "src/kernel/reduce-nat.fs"
-old = '''  over lf-term-second@ 0= if ['] big-lshift lf-rn-std exit then'''
+old = '''  over lf-term-second@ 0= if lf-nat-op-shl lf-nat-lit-op exit then'''
 new = ''''''
 test = "$GFORTH tests/core/reduce-nat.fs"
 reason = "0 shifted left by 2^32 refused (rejected) where Lean's reduce_shift_left gives 0 first"
@@ -13509,8 +13508,8 @@ reason = "FE1c: a domain whose type is no sort, where Lean throws type expected,
 [[fault]]
 id = "fe-whnf-succ-name-unchecked"
 file = "src/front/whnf.fs"
-old = '''  dup lf-term-const? if lf-const-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
-new = '''  dup dup if lf-const-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
+old = '''  dup lf-term-const? if lf-const-name lf-nat-succ-name? wc-margs slab-count 1 = and'''
+new = '''  dup dup if lf-const-name lf-nat-succ-name? wc-margs slab-count 1 = and'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "review fe1c-2 M2: a major premise's head that is no constant is read as a constant reference (an unchecked store read; a free variable with Nat.succ's reference number answers unsupported)"
 
@@ -13605,11 +13604,11 @@ reason = "review fe1c-2 L3: HEq.ndrec is taken for an auxiliary recursor by its 
 
 [[fault]]
 id = "fe-env-nat-succ-any-prefix"
-file = "src/front/meta-env.fs"
-old = '''  dup s" succ" me-str? if lf-name-prefix@ s" Nat" me-top? else drop false then ;'''
-new = '''  dup s" succ" me-str? if drop true else drop false then ;'''
-test = "$GFORTH tests/front/meta-env.fs"
-reason = "review fe1c-2 L3: Fin.succ is taken for Nat.succ"
+file = "src/core/nat-ops.fs"
+old = '''  2>r dup 2r> lf-name-str-is? if lf-nat-name? else drop false then ;'''
+new = '''  2>r dup 2r> lf-name-str-is? if drop true else drop false then ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "review fe1c-2 L3: Fin.succ is taken for Nat.succ (and Int.zero for Nat.zero; core/nat-ops.fs's one test since review s3a-decide B1)"
 
 [[fault]]
 id = "fe-env-other-stage"
@@ -16418,8 +16417,8 @@ reason = "S1 appendix D, S2: whnf ends at whnfCore's result, never asking unfold
 [[fault]]
 id = "fe-whnf-nat-folded"
 file = "src/front/whnf.fs"
-old = '''  dup lf-meta-args# 1 3 within over ['] lf-menv-nat-name? wm-head-named? and'''
-new = '''  drop false exit'''
+old = '''  wc-full? if dup lf-meta-nat-op? if wc-nat exit then then wc-unfold-spent ;'''
+new = '''  wc-unfold-spent ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S1 appendix D: Nat.succ 2 is whnf's result (reduceNat? folds it to 3)"
 
@@ -19729,10 +19728,10 @@ equivalent = "the publisher sets a slot's added flag only for a block rejected b
 
 [[fault]]
 id = "r3-rn-std-boolean"
-file = "src/kernel/reduce-nat.fs"
-old = ''': lf-rn-std ( a b op -- node outcome ) ['] lf-rn-literal lf-rn-by ;'''
-new = ''': lf-rn-std ( a b op -- node outcome ) ['] lf-rn-truth lf-rn-by ;'''
-test = "$GFORTH tests/core/reduce-nat.fs"
+file = "src/core/nat-ops.fs"
+old = ''': nop-std ( a b op -- node outcome ) ['] nop-literal nop-by ;'''
+new = ''': nop-std ( a b op -- node outcome ) ['] nop-truth nop-by ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
 reason = "an arithmetic result is made as a Boolean"
 
 [[fault]]
@@ -20445,24 +20444,24 @@ reason = "S2 merge B: a matcher's value naming dite is reduced at reducible with
 [[fault]]
 id = "fe-nat-guard-second-ignored"
 file = "src/front/whnf.fs"
-old = '''  lf-term-second@ wm-no-value? ;'''
-new = '''  drop false ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_unfold.py"
+old = '''  if true outcome-ok else drop wc-pop drop wc-term wc-unfold-spent then ;'''
+new = '''  drop true outcome-ok ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
 reason = "S2 merge B: reduceNat? reads Nat.add 0 (Nat.succ x) as foldable (unsupported) though its second argument has no value (withNatValue), where Lean goes on to unfold it"
 
 [[fault]]
 id = "fe-nat-guard-mvar-ignored"
-file = "src/front/whnf.fs"
-old = '''  dup wc-unassigned? if drop true exit then'''
-new = '''  dup wc-unassigned? if drop false exit then'''
-test = "$GFORTH tests/front/whnf.fs"
+file = "src/front/reduce-nat.fs"
+old = '''  dup lf-meta-mvar-free? 0= if rn-instantiated exit then'''
+new = '''  dup lf-meta-mvar-free? 0= if true outcome-ok exit then'''
+test = "$GFORTH tests/front/reduce-nat.fs"
 reason = "S2 merge B: an unassigned metavariable read as a possible value of reduceNat? (unsupported), where withNatValue gives none (re-targeted by plan 9.4.8l J: without the line the instantiation that follows gives the same none)"
 
 [[fault]]
 id = "fe-term-find-both-parts"
 file = "src/front/term-find.fs"
-old = '''  over lf-term-binary? if tf-images or else drop tf-leaf then ;'''
-new = '''  over lf-term-binary? if tf-images and else drop tf-leaf then ;'''
+old = '''  over lf-term-binary? if dw-part-images or else drop tf-leaf then ;'''
+new = '''  over lf-term-binary? if dw-part-images and else drop tf-leaf then ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "S2 merge B: a leaf found in one part of an application is missed unless both parts hold one"
 

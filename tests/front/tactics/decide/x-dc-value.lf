@@ -1,0 +1,7 @@
+\ A refusal of LeanForth's own (plan row S3, slice S3a): LeanForth's own refusal, no Lean twin: a value left over before the
+\ step (error 86).
+theorem x_dc_value
+  True
+:= by
+  5 by-decide
+end x_dc_value

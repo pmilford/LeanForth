@@ -18,3 +18,10 @@ nat nat tpi char u local constant fu   nat nat tpi char v local constant fv
 nat nat tpi fu fv eq1 char w local constant fw
 : .built ( outcome -- ) dup outcome-rejected = if drop ." rejected" else .outcome then ;
 : build-run ( xt -- ) 0 1 lf-meta-catch dup ok? if drop .t else nip .built then cr ;
+\ Plan S3a: the metavariable ?r := 2 (after w, as in pinned Lean's
+\ setup), whnfD's cases (reduceNat?), and decide (10 < 20)'s terms.
+nat mv-natural lf-mvar-new made constant ?r  ?r char r named
+0 ?r 2 nat-lit lf-mvar-assign made drop
+: whnfd-run ( term -- ) lf-meta-whnf-d dup ok? if drop .t else nip .outcome then cr ;
+: lt-10-20 ( -- t ) l0 1 s" LT.lt" cn nat app 0 s" instLTNat" cn app 10 nat-lit app 20 nat-lit app ;
+: declt-10-20 ( -- t ) 0 s" Nat.decLt" cn 10 nat-lit app 20 nat-lit app ;

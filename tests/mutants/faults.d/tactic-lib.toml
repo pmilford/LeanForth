@@ -8,16 +8,16 @@
 [[fault]]
 id = "lib-must-ok-thrown"
 file = "src/front/meta-must.fs"
-old = '''  dup ok? if drop exit then outcome-sane lf-meta-throw-base swap - throw ;'''
-new = '''  outcome-sane lf-meta-throw-base swap - throw ;'''
+old = '''  dup ok? if drop exit then 0 mmf mmf-code !'''
+new = '''  0 mmf mmf-code !'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i: lf-must throws for ok too, so every library word fails"
 
 [[fault]]
 id = "lib-must-unsupported-rejected"
 file = "src/front/meta-must.fs"
-old = '''  dup ok? if drop exit then outcome-sane lf-meta-throw-base swap - throw ;'''
-new = '''  dup ok? if drop exit then outcome-sane dup outcome-unsupported = if drop outcome-rejected then lf-meta-throw-base swap - throw ;'''
+old = '''  outcome-sane lf-meta-throw-base swap - throw ;'''
+new = '''  outcome-sane dup outcome-unsupported = if drop outcome-rejected then lf-meta-throw-base swap - throw ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i fail-closed rule: unsupported thrown as rejected (a gap of LeanForth's told as a wrong input)"
 
@@ -288,16 +288,16 @@ reason = "a2-i mkAppM: a call that fails leaves its frame"
 [[fault]]
 id = "lib-mpr-is-mp"
 file = "src/front/app-builder.fs"
-old = ''': lf-mk-eq-mpr ( h p -- e ) s" Eq.mpr" abl-decl -rot 2 lf-mk-app-m-of ;'''
-new = ''': lf-mk-eq-mpr ( h p -- e ) s" Eq.mp" abl-decl -rot 2 lf-mk-app-m-of ;'''
+old = ''': lf-mk-eq-mpr ( h p -- e ) s" Eq.mpr" abl-mp-by ;'''
+new = ''': lf-mk-eq-mpr ( h p -- e ) s" Eq.mp" abl-mp-by ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i mkEqMPR (AppBuilder.lean:447): Eq.mp where Lean applies Eq.mpr"
 
 [[fault]]
 id = "lib-app-m-no-instance-found"
 file = "src/front/app-builder.fs"
-old = '''  dup lf-mvar-type drop lf-meta-synth lf-must 0= if abl-fail then lf-mvar-assign lf-must ;'''
-new = '''  dup lf-mvar-type drop lf-meta-synth lf-must drop lf-mvar-assign lf-must ;'''
+old = ''': abm-synth ( mvar -- ) dup lf-mvar-type drop lf-synth-instance! lf-mvar-assign lf-must ;'''
+new = ''': abm-synth ( mvar -- ) dup lf-mvar-type drop lf-synth-instance? drop lf-mvar-assign lf-must ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i review F1: mkAppM takes \"no instance\" for found and assigns the instance binder (Lean: failed to synthesize); tactic-lib.fs's Append.append #[Nat, Nat] expects rejected"
 
@@ -378,8 +378,8 @@ reason = "9.4.8l-I approxDefEq (Basic.lean:2125) without quasiPatternApprox"
 [[fault]]
 id = "lib-holds-with-no-context"
 file = "src/front/term-find.fs"
-old = ''': tf-leaf ( leaf -- 0|1 ) tf tf-x @ swap tf tf-test @ execute nip 1 and ;'''
-new = ''': tf-leaf ( leaf -- 0|1 ) 0 swap tf tf-test @ execute nip 1 and ;'''
+old = ''': tf-leaf ( node -- 0|1 ) tf tf-x @ swap tf tf-test @ execute nip 1 and ;'''
+new = ''': tf-leaf ( node -- 0|1 ) 0 swap tf tf-test @ execute nip 1 and ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l-I plan L5: lf-term-holds-with?'s test gets no context, so apply's reorderGoals and exact's tests read the wrong value"
 

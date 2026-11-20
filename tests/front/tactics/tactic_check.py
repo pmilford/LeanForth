@@ -59,11 +59,32 @@ def check_steps(name, logs):
                       f"(--write-steps after a review)")
 
 
-def check_files(files, want):
+class Env:
+    """The library a tactic's files are checked against: the S2 slice by default (None), or
+    another export, its elaboration data and tests/front/elab-dump.fs's word that dumps
+    against them (decide's: plan S3a)."""
+
+    def __init__(self, export, data, dump_word):
+        self.export, self.data, self.dump_word = export, data, dump_word
+
+
+def check_argv(env, path, *more):
+    if env is None:
+        return s2.check_argv(path, *more)
+    return ["bin/leanforth", "check", "--env", env.export, "--elab-data", env.data, *more, path]
+
+
+def dump_argv(env, path):
+    if env is None:
+        return s2.dump_argv(path)
+    return [s2.GFORTH, "tests/front/elab-dump.fs", "-e", f's" {path}" {env.dump_word} bye']
+
+
+def check_files(files, want, env=None):
     """Each file's check and dump run side by side (LEANFORTH_TEST_JOBS), read in order."""
     logs = []
     finished = s2.run_many([argv for path, _ in files for argv in
-                            (s2.check_argv(path, "--steps", "-"), s2.dump_argv(path))])
+                            (check_argv(env, path, "--steps", "-"), dump_argv(env, path))])
     for path, names in files:
         code, out = s2.outcome(next(finished))
         if code != 0:
@@ -87,8 +108,8 @@ def check_files(files, want):
     return logs
 
 
-def check_refused(wrong, unsupported):
-    finished = s2.run_many([s2.check_argv(path) for path, *_ in list(wrong) + list(unsupported)])
+def check_refused(wrong, unsupported, env=None):
+    finished = s2.run_many([check_argv(env, path) for path, *_ in list(wrong) + list(unsupported)])
     for path, number, first, detail in wrong:
         code, out = s2.outcome(next(finished))
         if code != 4 or f"error {number} at " not in out or f"{first}\n{detail}" not in out:
@@ -117,17 +138,18 @@ def check_lean(wrong, write):
         raise Failure(f"goal-layer-wrong.lean: exit {wrong_done.returncode}, missing {missing}\n{out}")
 
 
-def main(name, files, wrong, unsupported, extra=None):
+def main(name, files, wrong, unsupported, extra=None, env=None):
     """EXTRA, when given, is a further plain-mode check: a function taking golden()'s map that
-    raises Failure or gives a phrase for the summary."""
+    raises Failure or gives a phrase for the summary. ENV, when given, is the library (Env)
+    the files are checked and dumped against, else the S2 slice."""
     try:
         if "--lean" in sys.argv:
             check_lean(wrong, "--write-golden" in sys.argv)
             print(f"{name} --lean: goal-layer.lean gives {GOLDEN.name}; pinned Lean prints "
                   f"the {len(wrong)} wrong twins' messages")
             return
-        check_steps(name, check_files(files, golden()))
-        check_refused(wrong, unsupported)
+        check_steps(name, check_files(files, golden(), env))
+        check_refused(wrong, unsupported, env)
         more = f"; {extra(golden())}" if extra else ""
         print(f"{name}: {len(files)} files accepted, their terms equal pinned Lean's node for "
               f"node and their step logs valid and as golden; {len(wrong)} wrong twins refused "

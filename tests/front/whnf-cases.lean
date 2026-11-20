@@ -36,6 +36,8 @@ def nat : Expr := mkConst ``Nat
 def buildCase (x : MetaM Expr) : MetaM Unit := do
   try IO.println (← sx (← x)) catch _ => IO.println "rejected"
 
+def whnfdCase (e : Expr) : MetaM Unit := do IO.println (← sx (← whnfD e))
+
 run_meta do
   withLocalDeclD `m nat fun m => do
   withLocalDeclD `z nat fun z => do
@@ -57,6 +59,8 @@ run_meta do
     withLocalDeclD `v (mkForall `y .default nat nat) fun v => do
     withLocalDeclD `w (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) (mkForall `y .default nat nat) u v)
       fun w => do
+    let r ← mkFreshExprMVar nat (userName := `r)
+    r.mvarId!.assign (mkRawNatLit 2)
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkApp (mkConst `Nat.succ []) k))
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkConst `Nat.zero []))
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) k)
@@ -181,3 +185,29 @@ run_meta do
     buildCase (mkAppM ``congrArg #[u])
     buildCase (mkAppM ``id #[])
     buildCase (mkAppM ``Nat.succ #[n])
+    whnfdCase (mkApp (mkApp (mkConst `Nat.add []) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 2)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 2)))) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 3)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 3))))
+    whnfdCase (mkApp (mkApp (mkConst `Nat.sub []) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 3)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 3)))) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 5)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 5))))
+    whnfdCase (mkApp (mkApp (mkConst `Nat.mul []) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 6)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 6)))) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 7)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 7))))
+    whnfdCase (mkApp (mkApp (mkConst `Nat.div []) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 17)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 17)))) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 5)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 5))))
+    whnfdCase (mkApp (mkApp (mkConst `Nat.div []) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 7)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 7)))) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 0)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 0))))
+    whnfdCase (mkApp (mkApp (mkConst `Nat.mod []) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 100)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 100)))) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 7)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 7))))
+    whnfdCase (mkApp (mkApp (mkConst `Nat.pow []) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 2)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 2)))) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 10)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 10))))
+    whnfdCase (mkApp (mkApp (mkConst `Nat.pow []) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 2)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 2)))) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 62)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 62))))
+    whnfdCase (mkApp (mkApp (mkConst `Nat.pow []) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 1)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 1)))) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 256)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 256))))
+    whnfdCase (mkApp (mkApp (mkConst `Nat.beq []) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 4)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 4)))) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 4)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 4))))
+    whnfdCase (mkApp (mkApp (mkConst `Nat.ble []) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 5)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 5)))) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 3)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 3))))
+    whnfdCase (mkApp (mkConst `Nat.succ []) (mkRawNatLit 3))
+    whnfdCase (mkApp (mkApp (mkConst `Nat.add []) (mkConst `Nat.zero [])) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 2)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 2))))
+    whnfdCase (mkApp (mkApp (mkConst `Nat.add []) (mkApp (mkApp (mkConst `Nat.add []) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 1)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 1)))) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 1)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 1))))) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 3)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 3))))
+    whnfdCase (mkApp (mkApp (mkConst `Nat.add []) r) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 3)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 3))))
+    whnfdCase (mkApp (mkApp (mkConst `Nat.add []) k) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 2)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 2))))
+    whnfdCase (mkApp (mkApp (mkConst `Nat.add []) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 2)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 2)))) k)
+    buildCase (mkDecide (mkApp4 (mkConst ``LT.lt [Level.zero]) nat (mkConst ``instLTNat) (mkRawNatLit 10) (mkRawNatLit 20)))
+    buildCase (do whnfD (← mkDecide (mkApp4 (mkConst ``LT.lt [Level.zero]) nat (mkConst ``instLTNat) (mkRawNatLit 10) (mkRawNatLit 20))))
+    buildCase (mkDecide (mkApp (mkConst ``Nonempty [mkLevelSucc .zero]) nat))
+    buildCase (mkAppOptM ``Decidable.decide #[some (mkApp4 (mkConst ``LT.lt [Level.zero]) nat (mkConst ``instLTNat) (mkRawNatLit 10) (mkRawNatLit 20)), some (mkApp2 (mkConst ``Nat.decLt) (mkRawNatLit 10) (mkRawNatLit 20))])
+    buildCase (mkAppOptM ``Eq.refl #[none, some a])
+    buildCase (mkAppOptM ``id #[some (mkForall `y .default nat nat), some u, some k])
+    buildCase (mkAppOptM ``Eq.refl #[some nat, some e])
+    buildCase (mkAppOptM ``Nat.succ #[some k, some k])
+    buildCase (mkAppOptM ``Eq.refl #[none])

@@ -8,27 +8,19 @@
 
 [[fault]]
 id = "tf-nat-value-not-instantiated"
-file = "src/front/whnf.fs"
-old = '''  lf-instantiate-mvars ok? if wm-open? else drop false then ;'''
-new = '''  drop false ;'''
+file = "src/front/reduce-nat.fs"
+old = '''  lf-instantiate-mvars ok-then? if dup lf-meta-open? 0= outcome-ok else rn-failed then ;'''
+new = '''  dup lf-meta-open? 0= outcome-ok ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "9.4.8l J: withNatValue without its instantiateMVars, an assigned metavariable a possible value (Nat.add ?a k, ?a := x: unsupported where Lean gives none; exact on ?m ≤ ?k, error 139)"
 
 [[fault]]
 id = "tf-nat-value-refused-none"
-file = "src/front/whnf.fs"
-old = '''  lf-instantiate-mvars ok? if wm-open? else drop false then ;'''
-new = '''  lf-instantiate-mvars ok? if wm-open? else drop true then ;'''
+file = "src/front/reduce-nat.fs"
+old = '''  lf-instantiate-mvars ok-then? if dup lf-meta-open? 0= outcome-ok else rn-failed then ;'''
+new = '''  lf-instantiate-mvars ok-then? if dup lf-meta-open? 0= outcome-ok else drop -1 false outcome-ok then ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "9.4.8l J: an instantiation the heap refuses read as no value (none, a guess) instead of unsupported"
-
-[[fault]]
-id = "tf-nat-value-ap-exact"
-file = "src/front/whnf.fs"
-old = '''  lf-instantiate-mvars ok? if wm-open? else drop false then ;'''
-new = '''  drop false ;'''
-test = "GFORTH=$GFORTH python3 tests/front/tactics/apply/check.py"
-reason = "9.4.8l J end to end: by-exact h2 on apply's goal ?m ≤ ?k, both assigned, refused (139) where Lean's exact closes it (ap-exact.lf)"
 
 [[fault]]
 id = "tf-exact-opaque-not-assignable"
@@ -254,10 +246,10 @@ reason = "review tactic-fidelity M1 (its r23b): an exhausted or unsupported synt
 
 [[fault]]
 id = "tf-nat-value-fvar-only"
-file = "src/front/whnf.fs"
-old = '''  lf-instantiate-mvars ok? if wm-open? else drop false then ;'''
-new = '''  lf-instantiate-mvars ok? if lf-meta-has-fvar? else drop false then ;'''
-test = "$GFORTH tests/front/whnf.fs"
+file = "src/front/reduce-nat.fs"
+old = '''  lf-instantiate-mvars ok-then? if dup lf-meta-open? 0= outcome-ok else rn-failed then ;'''
+new = '''  lf-instantiate-mvars ok-then? if dup lf-meta-has-fvar? 0= outcome-ok else rn-failed then ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
 reason = "review tactic-fidelity L7 (its r3): withNatValue reads an argument assigned Nat.succ ?n (no free variable, an open metavariable) as a value"
 
 [[fault]]

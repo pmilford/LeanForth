@@ -10,10 +10,12 @@ Meta.whnfCore's result, getStuckMVar?'s answer or inferType's type;
 LeanForth (tests/front/whnf-cases.fs through whnf-builds.fs: lf-whnf-core, lf-whnf-stuck,
 lf-infer) prints its own. Build cases (plan slice a2-i, the tactic
 library): Meta/AppBuilder.lean's builders (mkEq, mkEqRefl, mkEqSymm,
-mkEqTrans, mkExpectedPropHint, mkCongrArg, mkAppM) against
-src/front/app-builder.fs's, over the free
-variables e : a = b, u v : Nat -> Nat and w : u = v besides; an
-AppBuilder exception prints "rejected", as LeanForth's rejected outcome.
+mkEqTrans, mkExpectedPropHint, mkCongrArg, mkAppM; mkAppOptM and
+mkDecide since plan S3a) against src/front/app-builder.fs's, over the free
+variables e : a = b, u v : Nat -> Nat and w : u = v and the metavariable
+?r := 2 besides; an AppBuilder exception (or synthInstance's) prints
+"rejected", as LeanForth's rejected outcome. whnfd cases (plan S3a):
+whnfD's result, reduceNat? folding (LeanForth's lf-meta-whnf-d).
 The lines must be equal, except for the cases listed as gaps, where
 LeanForth must answer unsupported (a fact or step not ported; the plan
 item is named) and Lean's answer is shown. A harness self-test first checks
@@ -54,7 +56,7 @@ LEAN_FILE = ROOT / "tests/front/whnf-cases.lean"
 GOLDEN = ROOT / "tests/front/whnf-cases.golden"
 
 FVARS = "mzskxabpg"
-MVARS = {"?n": "n", "?h": "h", "?f": "f", "?q": "q"}
+MVARS = {"?n": "n", "?h": "h", "?f": "f", "?q": "q", "?r": "r"}
 
 
 def c(name, *levels):
@@ -103,7 +105,7 @@ CASES = [
     ("whnf", rec(apps(SUCC, apps(SUCC, apps(SUCC, "k")))), None),
     ("whnf", rec(("lit", 0)), None),
     ("whnf", rec(("lit", 3)), None),
-    ("whnf", rec(apps(SUCC, ("lit", 3))), "S3 reduceNat? folding literals (Nat.succ 3)"),
+    ("whnf", rec(apps(SUCC, ("lit", 3))), None),
     ("whnf", apps(PROD_REC, NAT, NAT, "m", "s", apps(PROD_MK, NAT, NAT, "a", "b")), None),
     ("whnf", apps(PROD_REC, NAT, NAT, "m", "s", "p"), "FE1c inferType (toCtorWhenStructure)"),
     ("whnf", apps((LAM, NAT, "#0"), "k"), None),
@@ -353,6 +355,65 @@ BUILDS = [
 CASES += BUILDS
 
 
+def ofnat(n):
+    return apps(c("OfNat.ofNat", 0), NAT, ("lit", n), apps(c("instOfNatNat"), ("lit", n)))
+
+
+def nat2(name, a, b):
+    return apps(c("Nat." + name), a, b)
+
+
+# reduceNat? (plan S3a, src/front/reduce-nat.fs): whnf at default transparency (Lean's whnfD,
+# LeanForth's lf-meta-whnf-d) of each operation the slice declares on numerals (Nat.gcd and the
+# bit operations' fold: tests/front/reduce-nat.fs), Nat.succ of a literal, Nat.zero as an
+# argument, an argument that folds, an assigned metavariable (?r := 2), the original term
+# unfolded when an argument has no value (a free variable first: the smart path's
+# Nat.succ (k + 1); second: stuck on it), and the exponent at the threshold (256; above it Lean
+# logs a warning, an error in this run: tests/front/reduce-nat.fs has 257).
+WHNFD = [
+    ("whnfd", nat2("add", ofnat(2), ofnat(3)), None),
+    ("whnfd", nat2("sub", ofnat(3), ofnat(5)), None),
+    ("whnfd", nat2("mul", ofnat(6), ofnat(7)), None),
+    ("whnfd", nat2("div", ofnat(17), ofnat(5)), None),
+    ("whnfd", nat2("div", ofnat(7), ofnat(0)), None),
+    ("whnfd", nat2("mod", ofnat(100), ofnat(7)), None),
+    ("whnfd", nat2("pow", ofnat(2), ofnat(10)), None),
+    ("whnfd", nat2("pow", ofnat(2), ofnat(62)), None),
+    ("whnfd", nat2("pow", ofnat(1), ofnat(256)), None),
+    ("whnfd", nat2("beq", ofnat(4), ofnat(4)), None),
+    ("whnfd", nat2("ble", ofnat(5), ofnat(3)), None),
+    ("whnfd", apps(SUCC, ("lit", 3)), None),
+    ("whnfd", nat2("add", ZERO, ofnat(2)), None),
+    ("whnfd", nat2("add", nat2("add", ofnat(1), ofnat(1)), ofnat(3)), None),
+    ("whnfd", nat2("add", "?r", ofnat(3)), None),
+    ("whnfd", nat2("add", "k", ofnat(2)), None),
+    ("whnfd", nat2("add", ofnat(2), "k"), None),
+]
+LT_10_20 = ("mkApp4 (mkConst ``LT.lt [Level.zero]) nat (mkConst ``instLTNat) (mkRawNatLit 10) "
+            "(mkRawNatLit 20)")
+# mkDecide and mkAppOptM (plan S3a, src/front/app-builder.fs): decide (10 < 20) with its
+# instance synthesized, then by whnfD (Bool.true); Nonempty Nat, no instance (rejected:
+# "failed to synthesize"); mkAppOptM's none and some, a pi made by instantiation, isDefEq's
+# mismatch, too many entries, and a result left with a metavariable (rejected).
+S3_BUILDS = [
+    build(f"mkDecide ({LT_10_20})", "lt-10-20 lf-mk-decide"),
+    build(f"do whnfD (← mkDecide ({LT_10_20}))", "lt-10-20 lf-mk-decide lf-whnf-d!"),
+    build("mkDecide (mkApp (mkConst ``Nonempty [mkLevelSucc .zero]) nat)",
+          'lv1 1 s" Nonempty" cn nat app lf-mk-decide'),
+    build(f"mkAppOptM ``Decidable.decide #[some ({LT_10_20}), "
+          "some (mkApp2 (mkConst ``Nat.decLt) (mkRawNatLit 10) (mkRawNatLit 20))]",
+          's" Decidable.decide" lt-10-20 declt-10-20 3 2 lf-mk-app-opt-m'),
+    build("mkAppOptM ``Eq.refl #[none, some a]", 's" Eq.refl" 0 fa 2 2 lf-mk-app-opt-m'),
+    build("mkAppOptM ``id #[some (mkForall `y .default nat nat), some u, some k]",
+          's" id" nat nat tpi fu fk 7 3 lf-mk-app-opt-m'),
+    build("mkAppOptM ``Eq.refl #[some nat, some e]", 's" Eq.refl" nat fe 3 2 lf-mk-app-opt-m'),
+    build("mkAppOptM ``Nat.succ #[some k, some k]", 's" Nat.succ" fk fk 3 2 lf-mk-app-opt-m'),
+    build("mkAppOptM ``Eq.refl #[none]", 's" Eq.refl" 0 0 1 lf-mk-app-opt-m'),
+]
+BUILDS += S3_BUILDS
+CASES += WHNFD + S3_BUILDS
+
+
 LEAN_HEAD = """import Lean
 open Lean Meta
 
@@ -413,12 +474,16 @@ LEAN_SETUP = """run_meta do
 BUILD_HEAD = """
 def buildCase (x : MetaM Expr) : MetaM Unit := do
   try IO.println (← sx (← x)) catch _ => IO.println "rejected"
+
+def whnfdCase (e : Expr) : MetaM Unit := do IO.println (← sx (← whnfD e))
 """
 BUILD_SETUP = """    withLocalDeclD `e (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) nat a b) fun e => do
     withLocalDeclD `u (mkForall `y .default nat nat) fun u => do
     withLocalDeclD `v (mkForall `y .default nat nat) fun v => do
     withLocalDeclD `w (mkApp3 (mkConst ``Eq [mkLevelSucc .zero]) (mkForall `y .default nat nat) u v)
       fun w => do
+    let r ← mkFreshExprMVar nat (userName := `r)
+    r.mvarId!.assign (mkRawNatLit 2)
 """
 
 

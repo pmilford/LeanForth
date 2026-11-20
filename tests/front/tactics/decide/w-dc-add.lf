@@ -1,0 +1,9 @@
+\ A wrong twin (plan row S3, slice S3a; tests/front/tactics/goal-layer-wrong.lean):
+\ decide reduces the statement to Bool.false: Lean's "proved that the
+\ proposition ... is false" (error 250).
+\ Lean: theorem w_dc_add : 2 + 2 = 5 := by decide
+theorem w_dc_add
+  2 2 + 5 =
+:= by
+  by-decide
+end w_dc_add

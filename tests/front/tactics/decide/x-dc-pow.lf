@@ -1,0 +1,8 @@
+\ A refusal of LeanForth's own (plan row S3, slice S3a): an exponent above 256: Lean warns (exponentiation.threshold) and
+\ unfolds Nat.pow; LeanForth answers not supported yet (error 93, exit 2,
+\ plan S3b), never a verdict.
+theorem x_dc_pow
+  0 2 300 Nat.pow LT.lt
+:= by
+  by-decide
+end x_dc_pow

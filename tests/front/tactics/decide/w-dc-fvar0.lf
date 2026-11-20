@@ -1,0 +1,10 @@
+\ A wrong twin (plan row S3, slice S3a; tests/front/tactics/goal-layer-wrong.lean):
+\ true, but over a free variable: refused all the same (error 251;
+\ omega or simp prove it, plan S4).
+\ Lean: theorem w_dc_fvar0 (n : Nat) : n + 0 = n := by decide
+theorem w_dc_fvar0
+  Nat explicit: n
+  n 0 + n =
+:= by
+  by-decide
+end w_dc_fvar0

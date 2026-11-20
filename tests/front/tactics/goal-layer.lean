@@ -105,6 +105,25 @@ theorem cl_hyp (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) : a ≤ b := by
 theorem cl_var (a b : Nat) (h : a ≤ a) : a ≤ a := by
   clear b
   exact h
+-- decide (plan row S3, slice S3a): closed decidable facts about Nat and
+-- Bool, Decidable.decide reduced to true by whnf (reduceNat? folding the
+-- numbers); a hypothesis is allowed, only the goal must be closed.
+theorem dc_add : 2 + 2 = 4 := by decide
+theorem dc_lt : 10 < 20 := by decide
+theorem dc_le : 3 ≤ 3 := by decide
+theorem dc_mul : Nat.mul 12345 6789 = 83810205 := by decide
+theorem dc_sub : 10 - 20 = 0 := by decide
+theorem dc_div : 17 / 5 = 3 := by decide
+theorem dc_mod : 100 % 7 = 2 := by decide
+theorem dc_not : ¬ (2 + 2 = 5) := by decide
+theorem dc_and : ¬ (7 = 8) ∧ 2 ≤ 2 := by decide
+theorem dc_or : 1 = 0 ∨ 2 + 2 = 4 := by decide
+theorem dc_true : True := by decide
+theorem dc_bool : Bool.and true false = false := by decide
+theorem dc_hyp (h : True) : 2 = 2 := by decide
+theorem dc_gcd : Nat.gcd 1071 462 = 21 := by decide
+theorem dc_pow : 2 ^ 10 = 1024 := by decide
+theorem dc_word : 2 ^ 64 = 2 ^ 32 * 2 ^ 32 := by decide
 
 def pl (l : Level) : String := match l.toNat with
   | some n => toString n
@@ -118,6 +137,9 @@ partial def sx : Expr → MetaM String
   | .forallE _ t b _ => return s!"(pi {← sx t} {← sx b})"
   | .sort l => return "Sort " ++ pl l
   | .lit (.natVal n) => return toString n
+  -- mdata (the `borrowed` mark @& of Nat.mul's and Nat.gcd's arguments), which lean4export
+  -- leaves out, so no LeanForth term has it: looked through, as check_whnf.py drops its <md>.
+  | .mdata _ e => sx e
   | e => return s!"?? {e}"
 
 def dump (n : Name) : MetaM Unit := do
@@ -140,7 +162,9 @@ def dumpBinders (n : Name) : MetaM Unit := do
   for n in [``ap_le_succ, ``ap_le_trans, ``ap_hyp, ``ap_partial, ``ap_tag, ``ap_tag_trans, ``ap_and, ``ap_exact, ``as_one, ``as_newest,
       ``as_defeq, ``co_and, ``co_true, ``co_or, ``co_le, ``le_or, ``le_le, ``ri_or, ``ri_le,
       ``ex_exact, ``ex_assumption, ``ex_tag, ``is_or, ``is_none, ``in_implicit, ``in_strict,
-      ``is_implicit, ``cl_hyp, ``cl_var] do
+      ``is_implicit, ``cl_hyp, ``cl_var, ``dc_add, ``dc_lt, ``dc_le, ``dc_mul, ``dc_sub,
+      ``dc_div, ``dc_mod, ``dc_not, ``dc_and, ``dc_or, ``dc_true, ``dc_bool, ``dc_hyp, ``dc_gcd,
+      ``dc_pow, ``dc_word] do
     dump n
   for n in [``in_implicit, ``in_strict, ``is_implicit] do
     dumpBinders n

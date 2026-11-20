@@ -1,0 +1,10 @@
+\ A wrong twin (plan row S3, slice S3a; tests/front/tactics/goal-layer-wrong.lean):
+\ the goal holds a free variable, n: Lean's preprocessPropToDecide
+\ refuses it with its hint (error 251).
+\ Lean: theorem w_dc_fvar (n : Nat) : n + 1 = n := by decide
+theorem w_dc_fvar
+  Nat explicit: n
+  n 1 + n =
+:= by
+  by-decide
+end w_dc_fvar

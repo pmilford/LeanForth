@@ -1,0 +1,8 @@
+\ A wrong twin (plan row S3, slice S3a; tests/front/tactics/goal-layer-wrong.lean):
+\ the negation of a true fact is false (error 250).
+\ Lean: theorem w_dc_lt : ¬ (10 < 20) := by decide
+theorem w_dc_lt
+  10 20 LT.lt Not
+:= by
+  by-decide
+end w_dc_lt

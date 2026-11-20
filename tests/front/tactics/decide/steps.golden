@@ -1,0 +1,24 @@
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"dc_add","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 2 + 2 = 4","goals_after":[],"parent":0,"source":"15:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"dc_lt","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 10 < 20","goals_after":[],"parent":0,"source":"21:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"dc_le","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 3 ≤ 3","goals_after":[],"parent":0,"source":"27:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"dc_mul","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ Nat.mul 12345 6789 = 83810205","goals_after":[],"parent":0,"source":"35:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"dc_mod","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 100 % 7 = 2","goals_after":[],"parent":0,"source":"42:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"dc_gcd","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ Nat.gcd 1071 462 = 21","goals_after":[],"parent":0,"source":"50:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"dc_not","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ ¬2 + 2 = 5","goals_after":[],"parent":0,"source":"17:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"dc_and","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ ¬7 = 8 ∧ 2 ≤ 2","goals_after":[],"parent":0,"source":"23:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"dc_or","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 1 = 0 ∨ 2 + 2 = 4","goals_after":[],"parent":0,"source":"29:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"dc_true","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ True","goals_after":[],"parent":0,"source":"35:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"dc_bool","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ Bool.and Bool.true Bool.false = Bool.false","goals_after":[],"parent":0,"source":"41:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"dc_hyp","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"h : True\n⊢ 2 = 2","goals_after":[],"parent":0,"source":"48:3","step":1,"tactic":"decide","word":"by-decide"}

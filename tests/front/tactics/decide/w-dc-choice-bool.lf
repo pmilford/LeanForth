@@ -1,0 +1,8 @@
+\ A wrong twin (plan row S3, slice S3a; tests/front/tactics/goal-layer-wrong.lean):
+\ the same for Bool (error 253).
+\ Lean: theorem w_dc_choice_bool : Classical.choice (Nonempty.intro true) = true := by decide
+theorem w_dc_choice_bool
+  Bool.true Nonempty.intro Classical.choice Bool.true =
+:= by
+  by-decide
+end w_dc_choice_bool

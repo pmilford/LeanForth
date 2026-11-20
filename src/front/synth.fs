@@ -82,6 +82,12 @@
 \   the last search that is not nested began, in order (Lean's
 \   trace.Meta.synthInstance apply lines); lf-synth-error ( -- code ):
 \   the code (src/author/errors.fs) the last failure set, 0 for none.
+\ - lf-synth-instance? ( type -- inst found? ), lf-synth-instance! ( type
+\   -- inst ): synthInstance (1026) for the tactic library, through the
+\   hook lf-meta-synth: a search stuck on a metavariable finds none; none
+\   found is false, or for the throwing face Lean's "failed to
+\   synthesize" (122) with the type (meta-must.fs's lf-meta-fail, thrown
+\   rejected); any other failure thrown with its outcome (lf-must).
 \ Loading sets defeq.fs's hooks lf-meta-synth and lf-meta-synth-pending.
 \ Not ported, unsupported with a code: a goal or subgoal whose type is or
 \ reduces to a pi (117: getInstances' and tryResolve's binders,
@@ -117,6 +123,7 @@ require ./goals.fs
 require ./meta-env.fs
 require ./instances.fs
 require ./defeq.fs
+require ./meta-must.fs
 
 128 constant lf-synth-max-size   \ synthInstance.maxSize
 1 constant lf-synth-max-pending  \ maxSynthPendingDepth
@@ -687,6 +694,14 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
 : lf-synth-instance ( type -- inst flag outcome )
   0 sy sy-error ! sy-enter dup ok? 0= if nip sy-none exit then drop
   ['] sy-core sy-flags lf-tr-instances lf-meta-with sy-leave ;
+
+\ ---- synthInstance (1026), throwing as the tactic library's words do
+\ (meta-must.fs): a search stuck on a metavariable (isDefEqStuck, caught
+\ there) finds none.
+: lf-synth-instance? ( type -- inst found? )
+  lf-meta-synth dup lf-meta-stuck = if 2drop false exit then lf-must ;
+: lf-synth-instance! ( type -- inst )
+  dup lf-synth-instance? if nip else drop lfa-e-synth-failed lf-meta-fail then ;
 
 \ ---- trySynthInstance and synthPendingImp.
 : lf-try-synth ( type -- inst code outcome )

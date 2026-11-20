@@ -78,7 +78,9 @@
 \ lf-tac-stop ( code -- ) (the same without the goals), lf-tac-must
 \ ( outcome -- ) (a Meta step's failure stops the run), lf-tac-detail
 \ ( x xt -- ) (xt's printing as the error's detail), lf-tac-detail-n
-\ ( i*x n xt -- ) (the same of n cells), lf-tac-later ( i -- )
+\ ( i*x n xt -- ) (the same of n cells), lf-tac-lean-fail ( term code
+\ -- ) (a Lean error with its term: the code at the step running, its
+\ detail the deferred lf-tac-lean-detail's), lf-tac-later ( i -- )
 \ (a step not ported yet), lf-tactic-end! ( xt kind -- ) (what
 \ a block of the kind does at its end, before done: xt ( i -- )),
 \ lf-tac-stop-at and lf-tac-fail-at ( j code -- ) (an error at step j's
@@ -115,7 +117,9 @@
 \ hand-over's 74-77. A failure the tactic library throws (meta-must.fs)
 \ out of a step or a try becomes, at once, the authoring error
 \ lf-tac-must makes of its outcome (lfr-authored: lfr-meta-code stays the
-\ one mapping); at the end of a proof, the closing's (lfr-close-code).
+\ one mapping), or, for a rejected one that carried a Lean error of its
+\ own (meta-must.fs's lf-meta-fail), that error; at the end of a proof,
+\ the closing's (lfr-close-code).
 \ Terms are built by the library (app-builder.fs, telescope.fs).
 \ Untrusted: only the kernel's check of the finished
 \ term decides anything.
@@ -369,10 +373,21 @@ s" sorry" tac-k-sorry lf-tactic-lean!
     outcome-rejected of lfa-e-app-builder endof lfa-e-tac-meta swap endcase ;
 : lfr-meta-must ( outcome -- ) dup ok? if drop else lfr-meta-code lf-tac-fail then ;
 : lf-tac-must ( outcome -- ) lfr-meta-must ;
-\ A library failure's THROW code made that authoring error's; any other
-\ code as it is.
+\ A Lean error with a message of its own (meta-must.fs's lf-meta-fail:
+\ synthInstance's "failed to synthesize", 122): its code at the step
+\ running, without the goals, its term's detail as lf-tac-lean-detail
+\ prints it (tactic-msg.fs, which the tactic library loads, sets it: the
+\ term indented and the code's hint).
+defer lf-tac-lean-detail ( term code -- outcome )
+: lf-tac-lean-fail ( term code -- )
+  tuck 2 ['] lf-tac-lean-detail lf-tac-detail-n lf-tac-stop ;
+\ A library failure's THROW code made that authoring error's (a rejected
+\ one that carried a Lean error, that error); any other code as it is.
+: lfr-carried? ( outcome -- flag ) outcome-rejected = lf-meta-failed nip 0<> and ;
+: lfr-thrown ( outcome -- )
+  dup lfr-carried? if drop lf-meta-failed lf-tac-lean-fail exit then lfr-meta-must ;
 : lfr-authored ( code -- code' )
-  dup lf-meta-thrown? 0= if exit then lf-meta-outcome ['] lfr-meta-must catch nip ;
+  dup lf-meta-thrown? 0= if exit then lf-meta-outcome ['] lfr-thrown catch nip ;
 \ At end NAME (the current token): making the root goal and closing the
 \ value, as the hand-over's errors (no room 60, a step not ported 77,
 \ else malformed 76).

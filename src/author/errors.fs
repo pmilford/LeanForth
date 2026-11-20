@@ -174,6 +174,9 @@ require ./source.fs
 119 constant lfa-e-synth-left-out  \ unsupported: a tried instance not exported
 120 constant lfa-e-synth-unchecked \ unsupported: a tried instance not verified (S2)
 121 constant lfa-e-synth-check     \ unsupported: check of a result with holes (FE1e5b)
+\ synthInstance (SynthInstance.lean:1023) found none: Meta's "failed to
+\ synthesize", the type and a hint (the tactic library's; plan S3a).
+122 constant lfa-e-synth-failed    \ failed to synthesize (Meta's synthInstance)
 
 \ Elaboration (S1, branch s1-elab; src/front/elab-pending.fs, elab-app.fs,
 \ elab-term.fs, elab-decl.fs; FE1E_APPLICATIONS.md 2). 125-130 are Lean's
@@ -455,6 +458,7 @@ create lfa-catalogue
   lfa-e-synth-check
   s" not supported yet: Lean's check of an instance that holds metavariables (FE1e5b)"
   lfa-unsupported,
+  lfa-e-synth-failed s" failed to synthesize" lfa-invalid,
   lfa-e-elab-synth s" failed to synthesize instance of type class" lfa-invalid,
   lfa-e-elab-stuck s" typeclass instance problem is stuck" lfa-invalid,
   lfa-e-elab-numeral

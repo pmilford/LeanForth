@@ -199,15 +199,15 @@ id = "whnf-stuck-let-shortcut"
 file = "src/front/whnf.fs"
 old = ''': ws-let? ( leaf -- flag )
   dup lf-meta-fvar? 0= if drop false exit then
-  dup lf-fvar-let? if lf-fvar-value wm-open? else drop false then ;'''
+  dup lf-fvar-let? if lf-fvar-value lf-meta-open? else drop false then ;'''
 new = ''': ws-let? ( leaf -- flag ) drop false ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "s2-rest review finding 4: a let variable whose value is a metavariable takes the shortcut (fy := ?n: none where Lean is stuck on ?n)"
 
 [[fault]]
 id = "whnf-stuck-let-value-closed"
-file = "src/front/whnf.fs"
-old = ''': wm-open? ( a -- flag ) dup lf-meta-mvar-free? 0= swap lf-meta-has-fvar? or ;'''
-new = ''': wm-open? ( a -- flag ) lf-meta-mvar-free? 0= ;'''
+file = "src/front/reduce-nat.fs"
+old = ''': lf-meta-open? ( e -- flag ) dup lf-meta-mvar-free? 0= swap lf-meta-has-fvar? or ;'''
+new = ''': lf-meta-open? ( e -- flag ) lf-meta-mvar-free? 0= ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "s2-rest review finding 4: a let whose value reaches another let is taken as closed (fyy := fy: none where Lean is stuck on ?n)"

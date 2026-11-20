@@ -1103,6 +1103,96 @@ T{ 20000 cell-slab ' cells-depth ' lf-with-cells catch nip nip nip cell-slab sla
    -> -4206 0 }T
 cell-slab slab-free
 
+\ ---- 12. Slice S3a's library words (commit C1): meta-config.fs's
+\ TransparencyMode.lt and withAtLeastTransparency; meta-must.fs's Lean
+\ error a failure carries and the runner's mapping of it (122, Lean's
+\ "failed to synthesize", the type and the hint, no goals); synth.fs's
+\ synthInstance faces; app-builder.fs's mkAppOptM and mkDecide over the
+\ S2 slice's data.
+lf-author-begin
+\ lt: none < reducible < instances < implicit < default < all, strict.
+: lt-chain? ( -- flag )
+  lf-tr-none lf-tr-reducible lf-tr-lt? lf-tr-reducible lf-tr-instances lf-tr-lt? and
+  lf-tr-instances lf-tr-implicit lf-tr-lt? and lf-tr-implicit lf-tr-default lf-tr-lt? and
+  lf-tr-default lf-tr-all lf-tr-lt? and ;
+T{ lt-chain? lf-tr-all lf-tr-default lf-tr-lt? lf-tr-default lf-tr-default lf-tr-lt?
+   lf-tr-none lf-tr-all lf-tr-lt? lf-tr-implicit lf-tr-reducible lf-tr-lt?
+   -> true false false true false }T
+\ withAtLeastTransparency default: below default, at default; at default
+\ or all, as it is; the mode in force put back, after a THROW too.
+: mode-in ( -- mode ) lf-defeq-mode ;
+: at-least-from ( mode -- inside after )
+  lf-defeq-mode >r lf-defeq-mode! ['] mode-in lf-tr-default lf-with-at-least lf-defeq-mode
+  r> lf-defeq-mode! ;
+T{ lf-tr-reducible at-least-from lf-tr-all at-least-from lf-tr-default at-least-from
+   -> lf-tr-default lf-tr-reducible lf-tr-all lf-tr-all lf-tr-default lf-tr-default }T
+: mode-throws ( -- ) 55 throw ;
+: at-least-thrown ( -- code mode )
+  lf-defeq-mode >r lf-tr-instances lf-defeq-mode! ['] mode-throws lf-tr-default
+  ['] lf-with-at-least catch nip nip lf-defeq-mode r> lf-defeq-mode! ;
+T{ at-least-thrown -> 55 lf-tr-instances }T
+\ lf-meta-fail: thrown rejected, its term and code kept; any other
+\ failure (lf-must) clears them.
+nat constant n12
+: fail-code ( term code -- code' ) ['] lf-meta-fail catch nip nip ;
+T{ n12 lfa-e-synth-failed fail-code lf-meta-failed -> -4204 n12 122 }T
+T{ outcome-full ' lf-must code1 lf-meta-failed nip -> -4206 0 }T
+\ The runner's mapping (tactic-run.fs's lfr-authored): a rejected failure
+\ that carries the error is that error, its term indented and Lean's
+\ hint, no goals, a Lean error try catches; a plain one 101.
+T{ n12 lfa-e-synth-failed fail-code lfr-authored dup lf-tac-lean-error? lf-author-code
+   -> lf-author-throw true 122 }T
+T{ s\"   Nat\n\nHint: Additional diagnostic information may be available using the `set_option diagnostics true` command."
+   detail$ compare -> 0 }T
+lf-tac-forget
+T{ outcome-rejected ' lf-must code1 lfr-authored lf-author-code -> lf-author-throw 101 }T
+lf-tac-forget
+\ synth.fs: Add Nat found (instAddNat); Append Type none: false, or 122
+\ thrown with the type; a search stuck on a metavariable finds none (a
+\ stand-in for the search, the hook lf-meta-synth); any other failure
+\ thrown with its outcome, carrying nothing.
+: add-nat ( -- t ) s" Add" 0 lf-mk-const1 nat lf-mk-app ;
+: inst-add ( -- t ) s" instAddNat" lf-mk-const0 ;
+: append-ty ( -- t ) s" Append" type0 lf-level! lf-mk-const1 type0 lf-mk-app ;
+: synth-code ( t -- code ) ['] lf-synth-instance! catch dup if nip then ;
+T{ add-nat lf-synth-instance? swap inst-add lf-meta-eqv made add-nat lf-synth-instance!
+   inst-add lf-meta-eqv made -> true true true }T
+T{ append-ty lf-synth-instance? nip append-ty synth-code lf-meta-failed swap append-ty
+   lf-meta-eqv made -> false -4204 122 true }T
+: stuck-search ( type -- inst flag outcome ) drop -1 false lf-meta-stuck ;
+: gap-search ( type -- inst flag outcome ) drop -1 false outcome-unsupported ;
+' stuck-search is lf-meta-synth
+T{ add-nat lf-synth-instance? nip add-nat synth-code lf-meta-failed nip -> false -4204 122 }T
+' gap-search is lf-meta-synth
+T{ add-nat synth-code lf-meta-failed nip -> -4205 0 }T
+' lf-synth-instance is lf-meta-synth
+\ mkAppOptM and mkDecide: decide (a < b) is @Decidable.decide (a < b)
+\ (Nat.decLt a b), its instance synthesized, or given (some on the
+\ instance binder); Eq.refl with α none (assigned by isDefEq) or some;
+\ some x of another type, too many entries and a result left with a
+\ metavariable rejected; no instance (Decidable (Nonempty Nat)): 122
+\ carried with the type, the frames given back.
+nat s" a" binder constant fa12   nat s" b" binder constant fb12
+: lt12 ( -- t ) s" LT.lt" 0 lf-mk-const1 nat lf-mk-app s" instLTNat" lf-mk-const0 lf-mk-app
+  fa12 lf-mk-app fb12 lf-mk-app ;
+: declt ( -- t ) s" Nat.decLt" lf-mk-const0 fa12 lf-mk-app fb12 lf-mk-app ;
+: decide-lt ( -- t ) s" Decidable.decide" lf-mk-const0 lt12 lf-mk-app declt lf-mk-app ;
+T{ lt12 lf-mk-decide decide-lt lf-meta-eqv made abm-frames slab-count -> true 0 }T
+T{ s" Decidable.decide" lt12 declt 3 2 lf-mk-app-opt-m decide-lt lf-meta-eqv made -> true }T
+: refl-a ( -- t ) s" Eq.refl" nat lf-level! lf-mk-const1 nat lf-mk-app fa12 lf-mk-app ;
+T{ s" Eq.refl" 0 fa12 2 2 lf-mk-app-opt-m refl-a lf-meta-eqv made -> true }T
+T{ s" Eq.refl" nat fa12 3 2 lf-mk-app-opt-m refl-a lf-meta-eqv made -> true }T
+: opt2-code ( c-addr u x1 x2 mask n -- code )
+  ['] lf-mk-app-opt-m catch dup if >r 2drop 2drop 2drop r> then ;
+T{ s" Eq.refl" nat nat 3 2 opt2-code s" Nat.succ" fa12 fa12 3 2 opt2-code -> -4204 -4204 }T
+: refl-open ( -- code )
+  s" Eq.refl" 0 0 1 ['] lf-mk-app-opt-m catch dup if >r 2drop 2drop drop r> then ;
+T{ refl-open abm-frames slab-count -> -4204 0 }T
+: nonempty-nat ( -- t ) s" Nonempty" nat lf-level! lf-mk-const1 nat lf-mk-app ;
+: decidable ( p -- t ) s" Decidable" lf-mk-const0 swap lf-mk-app ;
+T{ nonempty-nat ' lf-mk-decide code1 lf-meta-failed swap nonempty-nat decidable lf-meta-eqv made
+   abm-frames slab-count -> -4204 122 true 0 }T
+
 \ ---- 10. A mutual type (209, Lean's text and hint): FE6.Even of
 \ tests/front/several.ndjson, a library of its own.
 T{ s" tests/front/several.ndjson" true lfc-library-open -> outcome-ok }T

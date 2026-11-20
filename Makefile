@@ -903,6 +903,7 @@ DOC_EXAMPLE_PAGES += docs/user/FIRST_CHECK.md
 test-kernel-reduction:
 	$(RUN) $(GFORTH) tests/core/iota.fs
 	$(RUN) $(GFORTH) tests/core/reduce-nat.fs
+	$(RUN) $(GFORTH) tests/core/nat-ops.fs
 	$(RUN) $(GFORTH) tests/core/quot.fs
 	$(RUN) $(GFORTH) tests/core/infer-proj.fs
 	$(RUN) $(GFORTH) tests/core/env-signature.fs
@@ -1171,6 +1172,7 @@ test-front:
 	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "handover.fs: all tests passed"
 	$(RUN) $(GFORTH) tests/front/meta-env.fs
 	$(RUN) $(GFORTH) tests/front/whnf.fs
+	$(RUN) $(GFORTH) tests/front/reduce-nat.fs
 	$(RUN) $(GFORTH) tests/front/infer.fs
 	$(RUN) $(GFORTH) tests/front/defeq.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_defeq.py --golden

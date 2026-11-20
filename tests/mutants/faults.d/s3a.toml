@@ -1,0 +1,161 @@
+# Planted faults of slice S3a's library words (plan S3, by-decide; the
+# architect's word list .claude/work/briefs/S3-DECIDE-WORDLIST.md):
+# core/nat-ops.fs (C0), the tactic library's words (C1) and the front
+# end's reduceNat? (C2), read with faults.toml as one list
+# (scripts/mutants.py). by-decide's own are in decide.toml.
+
+[[fault]]
+id = "nat-ops-shl-zero-counted"
+file = "src/core/nat-ops.fs"
+old = '''  over lf-term-second@ 0= if ['] big-lshift nop-std exit then'''
+new = ''''''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "S3a C0: 0 shifted left by a count of two limbs is full where Lean's shiftLeft of 0 is 0 at once"
+
+[[fault]]
+id = "nat-ops-op-any-root"
+file = "src/core/nat-ops.fs"
+old = ''': lf-nat-op ( name -- i | -1 ) dup lf-nat-name? 0= if drop -1 exit then nop-index ;'''
+new = ''': lf-nat-op ( name -- i | -1 ) nop-index ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "S3a C0: Int.add (any name whose last component is an operation's) taken for Nat.add, where Lean compares the whole name"
+
+[[fault]]
+id = "nat-ops-apply-fail-drops-below"
+file = "src/core/nat-ops.fs"
+old = '''  swap >r dup >r nop-operands ok-then? 0= if 2r> 2drop exit then 2r> swap execute ;'''
+new = '''  swap >r dup >r nop-operands ok-then? 0= if r> r> 2drop >r 2drop -1 r> exit then 2r> swap execute ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "S3a C0: the operands' refusal in an arena too small for them (the code before the move) drops a cell of the caller's below its answer"
+
+[[fault]]
+id = "nat-ops-succ-fail-keeps-a"
+file = "src/core/nat-ops.fs"
+old = '''  1 lf-nat-lit ['] nop-add ok-apply2 ;'''
+new = '''  1 lf-nat-lit ['] nop-add ok-apply ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "S3a C0, at the merge of main: Nat.succ of a literal whose literal 1 the store refuses leaves a under its answer (one value dropped where ok-apply2 drops both)"
+
+# --- C1: the tactic library's words ----------------------------------------
+
+[[fault]]
+id = "s3a-at-least-always"
+file = "src/front/meta-config.fs"
+old = '''  lf-defeq-mode over lf-tr-lt? if lf-meta-at else drop execute then ;'''
+new = '''  lf-meta-at ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: withAtLeastTransparency lowers all to default, where Lean keeps a transparency at or above the mode"
+
+[[fault]]
+id = "s3a-tr-lt-reversed"
+file = "src/front/meta-config.fs"
+old = ''': lf-tr-lt? ( m1 m2 -- flag ) mcfg-rank swap mcfg-rank swap < ;'''
+new = ''': lf-tr-lt? ( m1 m2 -- flag ) mcfg-rank swap mcfg-rank < ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: TransparencyMode.lt read backwards, so default counts as below reducible"
+
+[[fault]]
+id = "s3a-meta-fail-uncarried"
+file = "src/front/meta-must.fs"
+old = ''': lf-meta-fail ( term code -- ) mmf 2! lf-meta-throw-base outcome-rejected - throw ;'''
+new = ''': lf-meta-fail ( term code -- ) 2drop lf-meta-throw-base outcome-rejected - throw ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: a Lean error with a message of its own is thrown without it, so the runner prints AppBuilder failed (101) for synthInstance's failed to synthesize"
+
+[[fault]]
+id = "s3a-must-keeps-carried"
+file = "src/front/meta-must.fs"
+old = '''  dup ok? if drop exit then 0 mmf mmf-code !'''
+new = '''  dup ok? if drop exit then'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: a later failure keeps the Lean error an earlier one carried, so it would be reported for a failure that is not it"
+
+[[fault]]
+id = "s3a-runner-carried-ignored"
+file = "src/front/tactic-run.fs"
+old = '''  dup lfr-carried? if drop lf-meta-failed lf-tac-lean-fail exit then lfr-meta-must ;'''
+new = '''  lfr-meta-must ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: the runner maps a carried failed to synthesize to AppBuilder failed (101) with the goals"
+
+[[fault]]
+id = "s3a-lean-detail-no-hint"
+file = "src/front/tactic-msg.fs"
+old = '''  swap lf-tac-indented. swap lfa-e-synth-failed = if ['] tmg-diagnostics. ok-and then ;'''
+new = '''  swap lf-tac-indented. nip ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: failed to synthesize printed without Lean's useDiagnosticMsg hint"
+
+[[fault]]
+id = "s3a-synth-bang-none-found"
+file = "src/front/synth.fs"
+old = '''  dup lf-synth-instance? if nip else drop lfa-e-synth-failed lf-meta-fail then ;'''
+new = '''  lf-synth-instance? drop ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: synthInstance's none taken for an instance (-1), never Lean's failed to synthesize"
+
+[[fault]]
+id = "s3a-opt-m-some-ignored"
+file = "src/front/app-builder.fs"
+old = ''': abo-some? ( -- flag ) abm abm-mask @ abm abm-i @ rshift 1 and ;'''
+new = ''': abo-some? ( -- flag ) false ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: mkAppOptM takes every entry for none, so its given arguments are new metavariables"
+
+[[fault]]
+id = "s3a-opt-m-instance-natural"
+file = "src/front/app-builder.fs"
+old = '''  abo-some? if abo-some else dup abm-kind abm-hole then 1 abm abm-i +! ;'''
+new = '''  abo-some? if abo-some else lf-binder-default abm-hole then 1 abm abm-i +! ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: a none entry of an instance binder is a natural metavariable, never synthesized (mkDecide's instance left open)"
+
+[[fault]]
+id = "s3a-apply-elab-synth"
+file = "src/front/meta-tactic/apply.fs"
+old = ''': ap-no-instance ( mvar -- ) lf-goal-type lfa-e-synth-failed lf-tac-lean-fail ;'''
+new = ''': ap-no-instance ( mvar -- ) lf-goal-type lfa-e-elab-synth lf-tac-lean-fail ;'''
+test = "$GFORTH tests/front/tactics/apply/test.fs"
+reason = "S3a C1: apply's synthAppInstances reports the elaborator's text (125) where Lean's Meta synthInstance says failed to synthesize (122)"
+
+# --- C2: the front end's reduceNat? ----------------------------------------
+
+[[fault]]
+id = "s3a-nat-op-index-shifted"
+file = "src/front/reduce-nat.fs"
+old = '''  lf-nat-op dup 0< if 2drop false exit then >r rn-args r> true ;'''
+new = '''  lf-nat-op dup 0< if 2drop false exit then >r rn-args r> 1+ true ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
+reason = "S3a C2: reduceNat?'s match gives the next operation's index, so Nat.add folds as Nat.sub"
+
+[[fault]]
+id = "s3a-nat-value-zero-none"
+file = "src/front/reduce-nat.fs"
+old = '''  rn-zero? if rn-zero else -1 false outcome-ok then ;'''
+new = '''  drop -1 false outcome-ok ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
+reason = "S3a C2: withNatValue's Nat.zero is no value, so Nat.add Nat.zero 2 unfolds where Lean folds it to 2"
+
+[[fault]]
+id = "s3a-nat-pow-no-threshold"
+file = "src/front/reduce-nat.fs"
+old = '''  rn-power? if drop 2drop outcome-unsupported no-result exit then lf-nat-lit-op ;'''
+new = '''  lf-nat-lit-op ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
+reason = "S3a C2: Nat.pow folds past checkExponent's threshold (256), where Lean warns and unfolds Nat.pow (unsupported until S3b)"
+
+[[fault]]
+id = "s3a-nat-none-not-unfolded"
+file = "src/front/whnf.fs"
+old = ''': wc-nat-none ( lit -- e' flag outcome ) drop wc-term wc-unfold-spent ;'''
+new = ''': wc-nat-none ( lit -- e' flag outcome ) drop wc-term wc-done ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
+reason = "S3a C2: an argument without a value ends whnf at the original term, where whnfImp's none goes on to unfoldDefinition? (k + 2 is Nat.succ (k + 1))"
+
+[[fault]]
+id = "s3a-nat-frames-swapped"
+file = "src/front/whnf.fs"
+old = '''  ' wc-nat1-resume , ' wc-nat2-resume ,'''
+new = '''  ' wc-nat2-resume , ' wc-nat1-resume ,'''
+test = "$GFORTH tests/front/reduce-nat.fs"
+reason = "S3a C2: the first argument's whnf resumed as the second's (its frame's aux read as a literal)"

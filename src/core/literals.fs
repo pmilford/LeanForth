@@ -52,6 +52,11 @@ lf-tag-lit tag-nat lf-term-input-leaf-tag
 : lf-lit-small? ( leaf -- flag ) lf-term-second@ 2 < ;
 : lf-lit-cell ( leaf -- u )
   dup lf-term-second@ if lf-term-first@ lf-lit-limbs slab-at @ else drop 0 then ;
+\ Whether a literal is above the cell value u (unsigned); one of more than
+\ one limb always is (review s3a-decide B5: the bounds of counts and
+\ exponents).
+: lf-lit-u> ( leaf u -- flag )
+  over lf-lit-small? if swap lf-lit-cell u< else 2drop true then ;
 
 \ A literal from n normalized limbs at addr: the first field, the limbs
 \ kept in the slab when n is 1 or more (ok, or full). The limbs are

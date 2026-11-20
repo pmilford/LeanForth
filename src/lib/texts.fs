@@ -15,20 +15,25 @@
 \
 \ texts-find ( x xt table -- entry | 0 ) runs xt ( x c-addr u -- flag ) on
 \ x and each text in order and gives the first entry (its counted text)
-\ for which it answers true, else 0. text-next ( entry -- entry' ) steps
-\ to the next entry (a zero count: the end). Cost: one call of xt per text
-\ up to the first hit, a linear search meant for tables of tens of texts;
-\ no memory beyond the table's bytes (one per text and per character, one
-\ for the end, then alignment).
+\ for which it answers true, else 0. texts-index ( x xt table -- i | -1 )
+\ is the same search giving that entry's index (0 for the first), else -1
+\ (review s3a-decide B4: a table of names standing for numbers). text-next
+\ ( entry -- entry' ) steps to the next entry (a zero count: the end).
+\ Cost: one call of xt per text up to the first hit, a linear search meant
+\ for tables of tens of texts; no memory beyond the table's bytes (one per
+\ text and per character, one for the end, then alignment).
 \
-\ Example: which of three words starts with a given character?
+\ Example: which of three words starts with a given character, and at
+\ which index?
 \   texts-begin texts+ dup drop swap
 \   texts-end constant stack-words
 \   : starts? ( char c-addr u -- flag ) drop c@ = ;
 \   char s ' starts? stack-words texts-find count type space
-\   char r ' starts? stack-words texts-find .   \ prints: swap 0
+\   char s ' starts? stack-words texts-index .
+\   char r ' starts? stack-words texts-find .   \ prints: swap 2 0
 \
-\ Interface: texts-begin texts+ text, texts-end text-next texts-find.
+\ Interface: texts-begin texts+ text, texts-end text-next texts-find
+\ texts-index.
 \ State: none of its own; a table is dictionary space laid down while
 \ loading. Requires portability.fs and module.fs; helpers are private in
 \ lf-lib-private (ADR 0010). Loads in decimal whatever BASE is.
@@ -57,6 +62,11 @@ lf-lib set-current
 : texts-find ( x xt table -- entry | 0 )
   begin dup c@ while texts-hit? if nip nip exit then text-next repeat
   2drop drop 0 ;
+\ The index of the first text xt accepts, or -1 (counted on top of x xt
+\ entry as the entries go by).
+: texts-index ( x xt table -- i | -1 )
+  0 begin over c@ while >r texts-hit? r> swap if nip nip nip exit then
+    1+ swap text-next swap repeat 2drop 2drop -1 ;
 
 module-close
 base !   \ the BASE this file was loaded with

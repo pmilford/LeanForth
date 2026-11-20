@@ -1,0 +1,142 @@
+# Planted faults of the fixes of the Forth review of slice S3a
+# (docs/development/forth-reviews/2026-11-19-s3a-decide.md), read with
+# faults.toml as one list (scripts/mutants.py). The slice's own are in
+# s3a.toml and decide.toml.
+
+# --- B4: lib/texts.fs's texts-index ------------------------------------------
+
+[[fault]]
+id = "s3a-texts-index-from-one"
+file = "src/lib/texts.fs"
+old = '''  0 begin over c@ while >r texts-hit? r> swap if nip nip nip exit then'''
+new = '''  1 begin over c@ while >r texts-hit? r> swap if nip nip nip exit then'''
+test = "$GFORTH tests/lib/texts.fs"
+reason = "review s3a-decide B4: the entries counted from 1, so every hit's index is one too many"
+
+[[fault]]
+id = "s3a-texts-index-miss-zero"
+file = "src/lib/texts.fs"
+old = '''    1+ swap text-next swap repeat 2drop 2drop -1 ;'''
+new = '''    1+ swap text-next swap repeat 2drop 2drop 0 ;'''
+test = "$GFORTH tests/lib/texts.fs"
+reason = "review s3a-decide B4: a search that finds no text answers 0, the first entry's index, instead of -1"
+
+# --- B1: one Nat.succ name test, core/nat-ops.fs's ---------------------------
+
+[[fault]]
+id = "s3a-kernel-succ-any-nat-name"
+file = "src/kernel/whnf.fs"
+old = '''  case 1 of lf-nat-succ-name? endof  2 of lf-whnf-binary? endof'''
+new = '''  case 1 of lf-nat-name? endof  2 of lf-whnf-binary? endof'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "review s3a-decide B1: the kernel's reduce_nat match takes any Nat.x of one argument (Nat.pred, Nat.zero) for Nat.succ"
+
+# --- B5: core/literals.fs's lf-lit-u> and its callers -------------------------
+
+[[fault]]
+id = "s3a-lit-u-signed"
+file = "src/core/literals.fs"
+old = '''  over lf-lit-small? if swap lf-lit-cell u< else 2drop true then ;'''
+new = '''  over lf-lit-small? if swap lf-lit-cell < else 2drop true then ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "review s3a-decide B5: a literal of one limb with the top bit set compared signed, so it is taken for one below 1"
+
+[[fault]]
+id = "s3a-lit-u-big-below"
+file = "src/core/literals.fs"
+old = '''  over lf-lit-small? if swap lf-lit-cell u< else 2drop true then ;'''
+new = '''  over lf-lit-small? if swap lf-lit-cell u< else 2drop false then ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "review s3a-decide B5: a literal of two limbs taken for one within the bound, so 1 shifted left by 2^64 is computed as a shift by its low limb, 0, instead of full"
+
+[[fault]]
+id = "s3a-kernel-count-bound-low"
+file = "src/kernel/reduce-nat.fs"
+old = '''-1 limb-bits 32 - rshift constant lf-rn-count-most'''
+new = '''-1 limb-bits 32 - rshift 1- constant lf-rn-count-most'''
+test = "$GFORTH tests/core/reduce-nat.fs"
+reason = "review s3a-decide B5: get_count_arg's bound one too low, so 1 ^ (2^32 - 1) is refused where Lean computes it"
+
+# --- B3: mkDecide through mkAppOptM ------------------------------------------
+
+[[fault]]
+id = "s3a-decide-p-dropped"
+file = "src/front/app-builder.fs"
+old = ''': lf-mk-decide ( p -- e ) s" Decidable.decide" rot 0 1 2 lf-mk-app-opt-m ;'''
+new = ''': lf-mk-decide ( p -- e ) s" Decidable.decide" rot 0 0 2 lf-mk-app-opt-m ;'''
+test = "$GFORTH tests/front/tactics/decide/test.fs"
+reason = "review s3a-decide B3: mkDecide's entries #[p, none] given as #[none, none], so P is dropped and decide's proposition is a new metavariable"
+
+# --- B2: a let expression in decide's goal; term-find.fs's node search ------
+
+[[fault]]
+id = "s3a-term-find-inner-unseen"
+file = "src/front/term-find.fs"
+old = '''  over lf-term-binary? if over tf-leaf >r dw-part-images r> or or else drop tf-leaf then ;'''
+new = '''  over lf-term-binary? if dw-part-images or else drop tf-leaf then ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "review s3a-decide B2: lf-term-holds-node? shows the test leaves only, so an application or a let node is never found"
+
+[[fault]]
+id = "s3a-decide-let-node-unseen"
+file = "src/front/tactics/decide.fs"
+old = '''  dup ['] tdc-let? lf-term-holds-node? lf-must if outcome-unsupported lf-must then ;'''
+new = '''  dup ['] tdc-let? lf-term-holds? lf-must if outcome-unsupported lf-must then ;'''
+test = "$GFORTH tests/front/tactics/decide/test.fs"
+reason = "review s3a-decide B2: a let expression with a free variable in P is not seen, so it gives 251 (invalid) where Lean's zetaReduce would remove it (not ported: unsupported)"
+
+[[fault]]
+id = "s3a-decide-let-variable-only"
+file = "src/front/tactics/decide.fs"
+old = ''': tdc-let? ( t -- flag ) dup lf-let? swap lf-meta-let-fvar? or ;'''
+new = ''': tdc-let? ( t -- flag ) lf-meta-let-fvar? ;'''
+test = "$GFORTH tests/front/tactics/decide/test.fs"
+reason = "review s3a-decide B2: only a let variable answers unsupported; a let or have expression with a free variable gives 251"
+
+# --- L2: preprocessPropToDecide's order of its two errors --------------------
+
+[[fault]]
+id = "s3a-decide-fvar-before-mvar"
+file = "src/front/tactics/decide.fs"
+old = '''  dup lf-meta-has-mvar? lf-must if ['] lf-tac-indented. lfa-e-decide-mvars tdc-fail then
+  dup lf-meta-has-fvar? if ['] tdc-revert. lfa-e-decide-fvars tdc-fail then ;'''
+new = '''  dup lf-meta-has-fvar? if ['] tdc-revert. lfa-e-decide-fvars tdc-fail then
+  dup lf-meta-has-mvar? lf-must if ['] lf-tac-indented. lfa-e-decide-mvars tdc-fail then ;'''
+test = "$GFORTH tests/front/tactics/decide/test.fs"
+reason = "review s3a-decide L2: a P with a metavariable and a free variable gives 251 where Lean reports the metavariable first (252)"
+
+# --- M1: the callers' literal tests before core/nat-ops.fs computes ----------
+
+[[fault]]
+id = "s3a-kernel-nat-ext-any-node"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-lit-leaf? if outcome-ok exit then'''
+new = '''  outcome-ok exit'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "review s3a-decide M1: the kernel's is_nat_lit_ext takes any whnf for a literal, so lf-nat-lit-op computes on a node that is none"
+
+[[fault]]
+id = "s3a-front-nat-value-any-node"
+file = "src/front/reduce-nat.fs"
+old = '''  rn-zero? if rn-zero else -1 false outcome-ok then ;'''
+new = '''  rn-zero? if rn-zero else 0 true outcome-ok then ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
+reason = "review s3a-decide M1: the front end's withNatValue gives a value for a node that is no literal and not Nat.zero, so the fold reads node 0 as a literal"
+
+# --- L4: whnf's frames resumed through a table by kind ------------------------
+
+[[fault]]
+id = "s3a-whnf-resume-proj-rec-swapped"
+file = "src/front/whnf.fs"
+old = '''  ' wc-resume-proj , ' wc-resume-rec , ' wc-resume-keep , ' wc-resume-none ,'''
+new = '''  ' wc-resume-rec , ' wc-resume-proj , ' wc-resume-keep , ' wc-resume-none ,'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s3a-decide L4: a projection's frame resumed as a recursor's and the converse (the table out of the kinds' order)"
+
+[[fault]]
+id = "s3a-whnf-resume-keep-none-swapped"
+file = "src/front/whnf.fs"
+old = '''  ' wc-resume-proj , ' wc-resume-rec , ' wc-resume-keep , ' wc-resume-none ,'''
+new = '''  ' wc-resume-proj , ' wc-resume-rec , ' wc-resume-none , ' wc-resume-keep ,'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s3a-decide L4: a class field's frame that keeps the unfolded term resumed as one that gives nothing, and the converse"

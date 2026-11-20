@@ -30,11 +30,12 @@
 \ reduction, by whnfAtMostI (instances transparency in place of all,
 \ default or implicit).
 \ lf-meta-whnf ( e -- e' outcome ) is whnf at the configured transparency
-\ (meta-config.fs): whnfCore, then reduceNat? (answered unsupported where
-\ it might fold: a constant of Nat's namespace with one or two arguments,
-\ except Nat.succ of a term whnf leaves; plan S2 merge B), then
-\ unfoldDefinition? (front/unfold.fs, lf-unfold-step): when it unfolds,
-\ whnf again on the result. lf-meta-unfold ( e -- e' flag outcome ) is
+\ (meta-config.fs): whnfCore, then reduceNat? (front/reduce-nat.fs, plan
+\ S3a: Nat.succ or one of the fourteen operations whose arguments pass
+\ withNatValue's test and whose whnf are literals or Nat.zero folds to a
+\ literal, or Bool.true or Bool.false; an exponent above 256 answers
+\ unsupported), then unfoldDefinition? (front/unfold.fs, lf-unfold-step):
+\ when it unfolds, whnf again on the result. lf-meta-unfold ( e -- e' flag outcome ) is
 \ unfoldDefinition? alone: the result and true, or e and false (none).
 \ Where unfold.fs asks for a class field (reduceProj? at instances
 \ transparency), the structure's whnf runs at instances and, when it is a
@@ -43,7 +44,8 @@
 \ or nothing unfolds (ask-none, unfoldProjInst?).
 \ Machine: an activation is whnfCore (lf-whnf-core's), whnf (every part:
 \ a projection's structure, a recursor's major premise, a class field's
-\ structure; lf-meta-whnf's) or unfoldDefinition? (lf-meta-unfold's).
+\ structure, reduceNat?'s arguments; lf-meta-whnf's) or unfoldDefinition?
+\ (lf-meta-unfold's).
 \ Where Lean calls whnf on a part, the step keeps (term, aux, kind, the
 \ activation, the transparency) on the heap stack wc-frames and goes on
 \ with the part in a whnf activation; when the part is done the frame
@@ -109,6 +111,7 @@ require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/let-terms.fs
 require ../core/literals.fs
+require ../core/nat-ops.fs
 require ../core/string-literals.fs
 require ../core/projections.fs
 require ../core/mvar-leaves.fs
@@ -124,6 +127,7 @@ require ./term-eqv.fs
 require ./nat-offset.fs
 require ./unfold.fs
 require ./term-find.fs
+require ./reduce-nat.fs
 
 100000 constant lf-whnf-default-fuel
 begin-structure /wc
@@ -272,7 +276,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
   dup wc-plain-fvar? over wc-plain-mvar? or over lf-term-binder? or swap lf-sort? or ;
 \ Nat.succ applied to one argument that whnf might fold (reduceNat?).
 : wc-succ? ( head -- flag )
-  dup lf-term-const? if lf-const-name lf-menv-nat-succ? wc-margs slab-count 1 = and
+  dup lf-term-const? if lf-const-name lf-nat-succ-name? wc-margs slab-count 1 = and
   else drop false then ;
 : wc-foldable? ( head -- flag )
   wc-succ? 0= if false exit then
@@ -526,40 +530,6 @@ wc-smatch-kind 1+ constant wc-srec-kind
   dup lf-let? if wc-zeta wc-go exit then
   dup lf-meta-app? if wc-app else dup lf-term-tag@ wc-leaf-step then ;
 
-\ ---- reduceNat?: a constant of Nat's namespace with one or two arguments
-\ (Lean's list, taken widely), except Nat.succ of a term whnf leaves.
-: wm-head-named? ( e xt -- flag )
-  swap lf-meta-head dup lf-term-const?
-  if lf-const-name swap execute else 2drop false then ;
-: wm-succ-inert? ( e -- flag )
-  dup ['] lf-menv-nat-succ? wm-head-named?
-  if lf-term-second@ wc-inert? else drop false then ;
-\ Lean's withNatValue (WHNF.lean:976) gives no value for an argument that
-\ holds a free variable and no metavariable, so reduceNat? folds nothing
-\ when either argument does: the first at once, the second after the
-\ first's value or none (branch s2-tactics: rewriting's kabstract
-\ compares k + 1 with 0 + Nat.succ k; S2 merge B: Nat.add 0 (Nat.succ x)
-\ as a discriminant at reducible). An argument holding a metavariable is
-\ instantiated first, and has no value when it then holds a metavariable
-\ or a free variable (plan 9.4.8l J: ?m ≤ ?k with both assigned free
-\ variables, Nat.le ?m ?k after delta); an unassigned one stays itself,
-\ with no instantiation. An instantiation refused (no room, a delayed
-\ assignment not ported) is a value perhaps: the caller's unsupported.
-: wm-open? ( a -- flag ) dup lf-meta-mvar-free? 0= swap lf-meta-has-fvar? or ;
-: wm-no-value? ( a -- flag )
-  dup wc-unassigned? if drop true exit then
-  dup lf-meta-mvar-free? if lf-meta-has-fvar? exit then
-  lf-instantiate-mvars ok? if wm-open? else drop false then ;
-: wm-args-none? ( e -- flag )
-  dup lf-term-first@ lf-term-second@ wm-no-value? if drop true exit then
-  lf-term-second@ wm-no-value? ;
-\ Called by wm-nat? only, for one or two arguments.
-: wm-none? ( e -- flag )
-  dup lf-meta-args# 2 = if wm-args-none? else lf-term-second@ wm-no-value? then ;
-: wm-nat? ( e -- flag )
-  dup lf-meta-args# 1 3 within over ['] lf-menv-nat-name? wm-head-named? and
-  if dup wm-none? if drop false else wm-succ-inert? 0= then else drop false then ;
-
 \ ---- Delta: whnf's step once whnfCore ends (reduceNat?, then
 \ unfoldDefinition?), and lf-meta-unfold's one step. An unfolding goes on
 \ in a whnf activation and ends lf-meta-unfold's (wc-unfolded); a class
@@ -681,7 +651,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ takes the walk below.
 : ws-let? ( leaf -- flag )
   dup lf-meta-fvar? 0= if drop false exit then
-  dup lf-fvar-let? if lf-fvar-value wm-open? else drop false then ;
+  dup lf-fvar-let? if lf-fvar-value lf-meta-open? else drop false then ;
 : ws-reaches-none? ( term -- flag outcome )
   dup lf-meta-mvar-free? 0= if drop false outcome-ok exit then
   dup lf-meta-has-fvar? 0= if drop true outcome-ok exit then
@@ -783,9 +753,38 @@ wc-smatch-kind 1+ constant wc-srec-kind
   dup lf-unfold-ask-smart = if drop wc-smart else wc-ask then ;
 : wc-unfold ( e -- e' flag outcome )
   dup lf-unfold-step ok-then2? if wc-unfold-code else wc-drop-fail then ;
-: wc-delta ( e -- e' flag outcome )
-  wc-full? if dup wm-nat? if outcome-unsupported wc-drop-fail exit then then
+: wc-unfold-spent ( e -- e' flag outcome )
   lf-meta-spend? if wc-unfold else outcome-exhausted wc-drop-fail then ;
+\ ---- reduceNat? (whnfImp, WHNF.lean:1068-1074; front/reduce-nat.fs):
+\ when whnfCore leaves e an application reduceNat? matches, each argument
+\ withNatValue's test lets through is put in whnf as a part (kind
+\ wc-nat1-kind, then wc-nat2-kind with the first's literal its frame's
+\ aux), and the literals fold: the result ends whnf (Lean reduces it no
+\ further). An argument without a value leaves e to unfoldDefinition?, as
+\ whnfImp's none does.
+wc-srec-kind 1+ constant wc-nat1-kind   wc-nat1-kind 1+ constant wc-nat2-kind
+\ The frame (e, x, kind) is kept first; an argument a that the test finds
+\ no value for gives it back at once (wc-pop) and e unfolds.
+: wc-nat-part ( a e x kind -- e' flag outcome )
+  wc-frame ok-then? 0= if wc-fail exit then
+  lf-meta-nat-guard ok-then2? 0= if wc-fail exit then
+  if true outcome-ok else drop wc-pop drop wc-term wc-unfold-spent then ;
+: wc-nat ( e a b i -- e' flag outcome ) 2drop swap 0 wc-nat1-kind wc-nat-part ;
+: wc-folded ( e outcome -- e' flag outcome ) ok-then? if wc-done else wc-fail then ;
+: wc-nat-none ( lit -- e' flag outcome ) drop wc-term wc-unfold-spent ;
+: wc-nat-args ( -- a b i ) wc-term lf-meta-nat-op? drop ;
+\ Resumed with the first argument's whnf w: Nat.succ folds; an operation
+\ goes on with its second argument.
+: wc-nat-second ( v1 b -- e' flag outcome ) swap wc-term swap wc-nat2-kind wc-nat-part ;
+: wc-nat-succ ( v1 a b i -- e' flag outcome ) nip nip 0 swap lf-meta-nat-fold wc-folded ;
+: wc-nat1-resume ( w -- e' flag outcome )
+  lf-meta-nat-value? ok-then2? 0= if wc-fail exit then 0= if wc-nat-none exit then
+  wc-nat-args dup lf-meta-nat-succ = if wc-nat-succ exit then drop nip wc-nat-second ;
+: wc-nat2-resume ( w -- e' flag outcome )
+  lf-meta-nat-value? ok-then2? 0= if wc-fail exit then 0= if wc-nat-none exit then
+  wc wc-aux @ swap wc-nat-args nip nip lf-meta-nat-fold wc-folded ;
+: wc-delta ( e -- e' flag outcome )
+  wc-full? if dup lf-meta-nat-op? if wc-nat exit then then wc-unfold-spent ;
 \ After a whnfCore step: when it ends, a whnf activation tries delta.
 : wc-then-delta ( e flag outcome -- e' flag' outcome )
   dup ok? 0= if exit then drop dup if outcome-ok exit then
@@ -809,16 +808,22 @@ wc-smatch-kind 1+ constant wc-srec-kind
   else drop wc-field-none then ;
 : wc-field-resume ( r kind -- e' flag outcome )
   swap wc-field-arg ok-then2? if wc-field-got else nip wc-fail then ;
-: wc-core-resume ( r kind -- e' flag outcome )
-  wc-rec-kind = if wc-rec-resume else wc-proj-resume then wc-then-delta ;
-: wc-resume-plain ( r kind -- e' flag outcome )
-  dup lf-unfold-ask-keep < if wc-core-resume else wc-field-resume then ;
-: wc-resume-smart ( r kind -- e' flag outcome )
-  dup wc-smart-kind = if drop wc-smart-resume exit then
-  wc-smatch-kind = if wc-smatch-resume else wc-srec-resume then ;
-: wc-resume ( r -- e' flag outcome )
-  wc-pop dup wc-match-kind = if drop wc-match-resume wc-then-delta exit then
-  dup wc-smart-kind < if wc-resume-plain else wc-resume-smart then ;
+: wc-resume-proj ( r -- e' flag outcome ) wc-proj-resume wc-then-delta ;
+: wc-resume-rec ( r -- e' flag outcome ) wc-rec-resume wc-then-delta ;
+: wc-resume-keep ( r -- e' flag outcome ) lf-unfold-ask-keep wc-field-resume ;
+: wc-resume-none ( r -- e' flag outcome ) lf-unfold-ask-none wc-field-resume ;
+: wc-resume-match ( r -- e' flag outcome ) wc-match-resume wc-then-delta ;
+\ The resumer of each frame kind, by kind (0 .. wc-nat2-kind; review
+\ s3a-decide L4): a kind added without its entry stops the load.
+align here
+  ' wc-resume-proj , ' wc-resume-rec , ' wc-resume-keep , ' wc-resume-none ,
+  ' wc-resume-match , ' wc-smart-resume , ' wc-smatch-resume , ' wc-srec-resume ,
+  ' wc-nat1-resume , ' wc-nat2-resume ,
+dup here swap - cell / wc-nat2-kind 1+ =
+lf-unfold-ask-keep 2 = and lf-unfold-ask-none 3 = and
+0= [if] .( whnf.fs: one resumer per frame kind, in their order) cr abort [then]
+constant wc-resumers
+: wc-resume ( r -- e' flag outcome ) wc-pop cells wc-resumers + @ execute ;
 
 \ ---- The loop.
 : wc-spend ( -- flag ) wc wc-fuel cell-spend? ;

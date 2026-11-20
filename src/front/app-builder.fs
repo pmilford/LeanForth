@@ -21,6 +21,13 @@
 \                                         ( d x1..xn n -- e ) of a declaration
 \   lf-mk-eq-mp ( h p -- e ), lf-mk-eq-mpr ( h p -- e )  mkEqMP, mkEqMPR
 \                                         (444-447)
+\   lf-mk-app-opt-m ( c-addr u x1..xn mask n -- e ) mkAppOptM (402): n
+\                                         entries (at most abl-most - 1, the
+\                                         mask stored beside them), entry i
+\                                         some x(i+1) when bit i of mask is
+\                                         set, else none (that cell ignored)
+\   lf-mk-decide ( p -- e )               mkDecide (570): Decidable.decide p
+\                                         with its instance synthesized
 \   lf-eq? ( t -- α a b true | false )     Expr.eq?: Eq α a b's arguments
 \   lf-match-eq? ( t -- α a b true | false ) matchEq? (MatchUtil.lean:28):
 \                                         the same after whnf when t is no Eq
@@ -31,16 +38,22 @@
 \ whnfD. mkAppM walks the constant's type in a new metavariable depth
 \ (withNewMCtxDepth): an implicit binder a natural metavariable, an
 \ instance binder a synthetic one filled at the end by instance search
-\ (defeq.fs's lf-meta-synth hook; none found: rejected), an explicit one
+\ (synth.fs's lf-synth-instance!, through defeq.fs's lf-meta-synth hook;
+\ none found: Lean's "failed to synthesize", error 122, thrown
+\ rejected), an explicit one
 \ the next argument, which isDefEq at default transparency at least must
 \ fit (else rejected); whnfD where the type shows no pi (none: rejected,
 \ too many arguments); the result instantiated must reach no assignable
 \ metavariable (rejected) nor any other one (unsupported: the level
 \ metavariables' assignability is not told apart). Binder kinds come
 \ from telescope.fs's lf-binder-kind-at (the declaration's, until whnf).
-\ Not ported yet (their slices): mkAppOptM (a2-iii), mkDecide,
-\ mkExpectedTypeHint (S3), mkCongr, mkCongrFun, mkEqNDRec, mkOfEqTrue,
-\ mkEqTrue (the simp core, which brings their first callers).
+\ mkAppOptM walks the same way, each binder taking the next entry: none a
+\ new metavariable (synthetic for an instance binder, filled as
+\ mkAppM's), some x, which plain isDefEq (the transparency in force) must
+\ fit; entries left at a type whnfD makes no pi: rejected.
+\ Not ported yet: mkExpectedTypeHint (no caller yet), mkCongr,
+\ mkCongrFun, mkEqNDRec, mkOfEqTrue, mkEqTrue (the simp core, which
+\ brings their first callers).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: abl-cells (one call's levels or arguments, read before any other
 \ builder runs) and abm-frames (a frame per mkAppM open, meta-must.fs's
@@ -67,6 +80,7 @@ require ./term-eqv.fs
 require ./term-find.fs
 require ./instantiate.fs
 require ./meta-must.fs
+require ./synth.fs
 require ./telescope.fs
 
 16 constant abl-most     \ levels or arguments a builder call takes
@@ -175,17 +189,19 @@ abl-most cells context-record: abl-cells
   lf-reach-open 0= if drop false outcome-full exit then
   lf-reach-term lf-reach-sweep lf-reach-holes? lf-reach-close outcome-ok ;
 
-\ ---- mkAppM: a frame per call open.
+\ ---- mkAppM and mkAppOptM: a frame per call open.
 begin-structure /abm
   field: abm-app         \ the application so far
   field: abm-type        \ the rest of its type
   field: abm-d           \ the declaration whose binder kinds are read, or -1
   field: abm-k           \ binders passed
-  field: abm-i           \ explicit arguments used
-  field: abm-n           \ explicit arguments given
+  field: abm-i           \ explicit arguments (mkAppOptM: entries) used
+  field: abm-n           \ explicit arguments (mkAppOptM: entries) given
   abl-most cells +field abm-xs
   field: abm-insts#      \ instance metavariables made
   abl-most cells +field abm-insts
+  field: abm-opt         \ true: mkAppOptM's entries, abm-mask their somes
+  field: abm-mask        \ bit i set: entry i is some x, else none
 end-structure
 /abm context-slab: abm-frames
 : abm ( -- addr ) abm-frames slab-last ;
@@ -202,22 +218,29 @@ end-structure
 : abm-hole ( pi kind -- )
   2dup lf-binder-mvar swap lf-binder-instance = if dup abm-inst+ then abm-enter ;
 \ isDefEq at default transparency at least (withAtLeastTransparency).
-: abl-defeq-d ( t s -- flag )
-  lf-defeq-mode lf-tr-all = if lf-defeq! exit then
-  ['] lf-defeq! lf-tr-default lf-meta-at ;
+: abl-defeq-d ( t s -- flag ) ['] lf-defeq! lf-tr-default lf-with-at-least ;
 : abm-explicit ( pi -- )
   dup lf-term-first@ abm-x lf-infer! abl-defeq-d 0= if abl-fail then
   abm-x abm-enter 1 abm abm-i +! ;
 : abm-kind ( pi -- kind ) abm abm-d lf-walk-kind ;
+\ mkAppOptMAux (370): some x, which plain isDefEq must fit; none, a new
+\ metavariable, synthetic for an instance binder.
+: abo-some? ( -- flag ) abm abm-mask @ abm abm-i @ rshift 1 and ;
+: abo-some ( pi -- )
+  dup lf-term-first@ abm-x lf-infer! lf-defeq! 0= if abl-fail then abm-x abm-enter ;
+: abo-entry ( pi -- )
+  abo-some? if abo-some else dup abm-kind abm-hole then 1 abm abm-i +! ;
 : abm-binder ( pi -- )
+  abm abm-opt @ if abo-entry exit then
   dup abm-kind dup lf-binder-default = if drop abm-explicit else abm-hole then ;
 : abm-reduce ( -- )
   abm abm-type @ lf-whnf-d! dup lf-term-pi? 0= if abl-fail then
   abm abm-type ! -1 abm abm-d ! ;
 : abm-step ( -- ) abm abm-type @ dup lf-term-pi? if abm-binder else drop abm-reduce then ;
-\ mkAppMFinal: the instances, the result instantiated and closed.
-: abm-synth ( mvar -- )
-  dup lf-mvar-type drop lf-meta-synth lf-must 0= if abl-fail then lf-mvar-assign lf-must ;
+\ mkAppMFinal: the instances (synthInstance: none is Lean's "failed to
+\ synthesize", synth.fs's lf-synth-instance!), the result instantiated
+\ and closed.
+: abm-synth ( mvar -- ) dup lf-mvar-type drop lf-synth-instance! lf-mvar-assign lf-must ;
 : abm-synths ( -- ) abm abm-insts# @ 0 ?do abm abm-insts i cells + @ abm-synth loop ;
 : abl-assignable? ( leaf -- flag )
   dup lf-mvar? if lf-mvar-assignable? else drop false then ;
@@ -234,9 +257,22 @@ end-structure
 : abm-framed ( d addr n -- e ) abm abm-open abm-deeper ;
 : abm-of ( d addr n -- e ) abm-frames ['] abm-framed lf-with-record ;
 : lf-mk-app-m-of ( d x1..xn n -- e ) abl-stored abm-of ;
-: lf-mk-app-m ( c-addr u x1..xn n -- e ) abl-stored 2>r abl-decl 2r> abm-of ;
-: lf-mk-eq-mp ( h p -- e ) s" Eq.mp" abl-decl -rot 2 lf-mk-app-m-of ;
-: lf-mk-eq-mpr ( h p -- e ) s" Eq.mpr" abl-decl -rot 2 lf-mk-app-m-of ;
+\ The constant c-addr u's declaration under a call's stored cells.
+: abl-decl-under ( c-addr u addr n -- d addr n ) 2>r abl-decl 2r> ;
+: lf-mk-app-m ( c-addr u x1..xn n -- e ) abl-stored abl-decl-under abm-of ;
+: abl-mp-by ( h p c-addr u -- e ) abl-decl -rot 2 lf-mk-app-m-of ;
+: lf-mk-eq-mp ( h p -- e ) s" Eq.mp" abl-mp-by ;
+: lf-mk-eq-mpr ( h p -- e ) s" Eq.mpr" abl-mp-by ;
+\ mkAppOptM (402): the mask stored after the entries, then kept in the
+\ frame, which it marks as mkAppOptM's.
+: abo-framed ( d addr n -- e )
+  2dup cells + @ abm tuck abm-mask ! true swap abm-opt ! abm-framed ;
+: abo-stored ( x1..xn mask n -- addr n ) 1+ abl-stored 1- ;
+: abo-of ( d addr n -- e ) abm-frames ['] abo-framed lf-with-record ;
+: lf-mk-app-opt-m ( c-addr u x1..xn mask n -- e ) abo-stored abl-decl-under abo-of ;
+\ mkDecide (570): mkAppOptM Decidable.decide #[p, none]: entry 0 some p
+\ (mask bit 0), entry 1 none (its cell 0 ignored).
+: lf-mk-decide ( p -- e ) s" Decidable.decide" rot 0 1 2 lf-mk-app-opt-m ;
 
 \ ---- matchEq? (Meta/MatchUtil.lean:28, matchHelper?): Expr.eq? of t,
 \ else of t put through whnf (the transparency in force; its failure

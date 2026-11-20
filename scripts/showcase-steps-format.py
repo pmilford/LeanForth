@@ -105,6 +105,12 @@ DOES = {
     "constructor": "reduces the goal to the parts its first constructor needs",
     "case": "turns to the goal of the case named",
     "sorry": "leaves the goal unproved (the theorem is then NOT PROVED)",
+    "left": "proves an  or  (or a two-case goal) by its first case",
+    "right": "proves an  or  (or a two-case goal) by its second case",
+    "exfalso": "turns the goal into False: a contradiction proves anything",
+    "intros": "moves every leading assumption and variable up among what is given",
+    "clear": "forgets the assumption named",
+    "decide": "works the closed statement out by computation and proves it when it comes out true",
 }
 
 

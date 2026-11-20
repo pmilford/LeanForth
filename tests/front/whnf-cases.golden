@@ -122,3 +122,29 @@ rejected
 rejected
 rejected
 (app Nat.succ.{} ?n)
+?? 5
+?? 0
+?? 42
+?? 3
+?? 0
+?? 2
+?? 1024
+?? 4611686018427387904
+?? 1
+Bool.true.{}
+Bool.false.{}
+?? 4
+?? 2
+?? 5
+?? 5
+(app Nat.succ.{} (app (app Nat.add.{} k) ?? 1))
+(app (app Nat.add.{} (app (app (app OfNat.ofNat.{0} Nat.{}) ?? 2) (app instOfNatNat.{} ?? 2))) k)
+(app (app Decidable.decide.{} (app (app (app (app LT.lt.{0} Nat.{}) instLTNat.{}) ?? 10) ?? 20)) (app (app Nat.decLt.{} ?? 10) ?? 20))
+Bool.true.{}
+rejected
+(app (app Decidable.decide.{} (app (app (app (app LT.lt.{0} Nat.{}) instLTNat.{}) ?? 10) ?? 20)) (app (app Nat.decLt.{} ?? 10) ?? 20))
+(app (app Eq.refl.{1} Nat.{}) a)
+(app (app (app id.{1} (pi Nat.{} Nat.{})) u) k)
+rejected
+rejected
+rejected

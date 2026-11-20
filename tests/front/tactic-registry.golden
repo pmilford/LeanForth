@@ -109,6 +109,7 @@
 119	5	not supported yet: the search tries an instance the export left out
 120	5	not supported yet: the search tries an instance whose keys could not be checked (S2)
 121	5	not supported yet: Lean's check of an instance that holds metavariables (FE1e5b)
+122	1	failed to synthesize
 125	1	failed to synthesize instance of type class
 126	1	typeclass instance problem is stuck
 127	1	numerals are data in Lean, but the expected type is a proposition
@@ -152,6 +153,11 @@
 381	1	Tactic `assumption` failed
 382	1	Tactic `constructor` failed: target is not an inductive datatype
 383	1	Tactic `constructor` failed: no applicable constructor found
+250	1	Tactic `decide` proved that the proposition
+251	1	Expected type must not contain free variables
+252	1	Expected type must not contain metavariables
+253	1	Tactic `decide` failed to reduce
+254	5	`native_decide` is not supported: it trusts Lean's compiler (`Lean.ofReduceBool`), never accepted (ADR 0021 D7)
 385	1	Tactic `left` failed: target is not an inductive datatype
 386	1	Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors
 387	1	Tactic `right` failed: target is not an inductive datatype
@@ -223,6 +229,8 @@ reserved by-apply word
 reserved by-assumption word
 reserved by-clear word
 reserved by-constructor word
+reserved by-decide word
+reserved by-native-decide word
 reserved by-exfalso word
 reserved by-intros word
 reserved by-left word
@@ -242,7 +250,9 @@ kind 12 by-apply 0 apply run
 kind 13 by-assumption 0 assumption run
 kind 14 by-clear 0 clear run
 kind 15 by-constructor 0 constructor run
-kind 16 by-exfalso 0 exfalso run
-kind 17 by-intros 0 intros run
-kind 18 by-left 0 left run
-kind 19 by-right 0 right run
+kind 16 by-decide 0 decide run
+kind 17 by-native-decide 0 native_decide run
+kind 18 by-exfalso 0 exfalso run
+kind 19 by-intros 0 intros run
+kind 20 by-left 0 left run
+kind 21 by-right 0 right run

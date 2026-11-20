@@ -108,6 +108,7 @@ require ../core/local-context.fs
 require ../core/mvar-leaves.fs
 require ../core/let-terms.fs
 require ../core/literals.fs
+require ../core/nat-ops.fs
 require ../core/projections.fs
 require ../core/input.fs
 require ../present/binder-table.fs
@@ -277,7 +278,7 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 \ inferType, at default transparency or above (withInferTypeConfig); a
 \ literal's type is Nat (infer.fs has no literal case).
 : de-infer-mode ( -- mode )
-  df df-mode @ lf-tr-all = if lf-tr-all else lf-tr-default then ;
+  df df-mode @ dup lf-tr-default lf-tr-lt? if drop lf-tr-default then ;
 : de-infer ( t -- type flag )
   dup lf-term-tag@ lf-tag-lit = if drop lf-meta-nat de-must exit then
   ['] lf-infer de-infer-mode lf-meta-at de-must ;
@@ -607,10 +608,9 @@ defer de-args-post ( -- )
 : de-pa-args ( -- addr n ) 0 de-pa-arg de-pa-n ;
 : de-mvar ( -- mvar ) de-t lf-meta-head ;
 : de-scope ( fvar -- flag ) de-mvar swap lf-mvar-sees? ;
-: de-let-fvar? ( t -- flag ) dup lf-meta-fvar? if lf-fvar-let? else drop false then ;
 : de-simp ( arg -- arg' flag )
   dup lf-meta-head lf-meta-mvar-free? 0= if de-inst de-aborted? if false exit then then
-  begin dup de-let-fvar? while lf-fvar-value repeat true ;
+  begin dup lf-meta-let-fvar? while lf-fvar-value repeat true ;
 : de-pa-simp ( i -- flag )
   de-pa-arg dup @ de-simp 0= if 2drop false exit then swap ! true ;
 : de-pa-dup? ( a i -- flag ) false swap 0 ?do over i de-pa-arg @ = or loop nip ;
@@ -774,7 +774,7 @@ defer de-args-post ( -- )
 : de-delta? ( t -- flag )
   lf-meta-head dup de-const? 0= if drop false exit then
   lf-const-name df df-mode @ lf-menv-unfoldable de-must if nip else 2drop true then ;
-: de-nat-name? ( const -- flag ) lf-const-name lf-menv-nat-name? ;
+: de-nat-name? ( const -- flag ) lf-const-name lf-nat-name? ;
 : de-nat-op? ( t -- flag )
   dup lf-meta-args# 1 3 within 0= if drop false exit then
   lf-meta-head dup de-const? if de-nat-name? else drop false then ;

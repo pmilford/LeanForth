@@ -1,0 +1,8 @@
+\ A refusal of LeanForth's own (plan row S3, slice S3a): native_decide trusts Lean's compiler (Lean.ofReduceBool), an axiom
+\ LeanForth never accepts: refused, not supported (error 254, exit 2; Lean
+\ would accept it with that axiom).
+theorem x_dc_native
+  True
+:= by
+  by-native-decide
+end x_dc_native

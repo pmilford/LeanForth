@@ -46,3 +46,7 @@ defer .t
 : s2-dump ( c-addr u -- )
   [: s" tests/front/s2-slice.ndjson" ;] is dump-lib
   [: s" tests/front/s2-slice.elab.ndjson" ;] is dump-data elab-dump ;
+\ by-decide's slice (tests/front/tactics/decide/check.py; plan S3a).
+: decide-dump ( c-addr u -- )
+  [: s" tests/front/decide-slice.ndjson" ;] is dump-lib
+  [: s" tests/front/decide-slice.elab.ndjson" ;] is dump-data elab-dump ;

@@ -113,6 +113,15 @@ require ./meta-must.fs
 : lf-tac-ex ( goal code -- ) swap ['] lf-tac-goal-of. lf-tac-detail lf-tac-stop ;
 : lf-tac-type-mismatch ( e type expected code -- )
   >r 3 ['] lf-has-type-but-expected. lf-tac-detail-n r> lf-tac-stop ;
+\ A Lean error's detail (tactic-run.fs's lf-tac-lean-detail): its term
+\ indented, then for synthInstance's (122) useDiagnosticMsg's hint
+\ (CoreM.lean:67).
+: tmg-diagnostics. ( -- outcome )
+  s\" \n\nHint: Additional diagnostic information may be available " lf-pp-emit
+  s" using the `set_option diagnostics true` command." lf-pp-emit outcome-ok ;
+: tmg-lean-detail ( term code -- outcome )
+  swap lf-tac-indented. swap lfa-e-synth-failed = if ['] tmg-diagnostics. ok-and then ;
+' tmg-lean-detail is lf-tac-lean-detail
 
 \ ---- Lean's errors, as try and observing? catch them.
 : tmg-authored? ( -- flag ) lf-author-code lf-author-outcome outcome-invalid = ;

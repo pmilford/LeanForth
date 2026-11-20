@@ -29,8 +29,12 @@ Library words of the tactic layer throw on failure, as Lean's do (`meta-must.fs`
 ## Not ported yet, by the slice that brings them
 
 - Moved by plan 9.4.8l-I (2026-11-19): intro, exact and rfl (C2, `tactic-basic.fs` deleted), rewrite (C3, `tactic-rewrite.fs` deleted), induction and case (C4: `meta-tactic/elim.fs`, `rename.fs`, `tactic-alts.fs`, `tactics/induction.fs`, `case.fs`; `tactic-induction.fs` and `tactic-case.fs` deleted). The fidelity fixes the moves kept (exact under assignable synthetic opaque, rfl's whnfR and approxDefEq, 212's mkHasTypeButIsExpectedMsg, error 125 for a failed synthesis) follow in their own branch.
-- `mkAppOptM` (no caller yet); `getMVarsNoDelayed` (apply refuses a term that keeps a metavariable, unsupported).
-- S3: `mkDecide`, `mkDecideProof`, `mkExpectedTypeHint`, `zetaReduce`. S4: `getLocalHyps`, `exfalso`, Int literals.
+- `getMVarsNoDelayed` (apply refuses a term that keeps a metavariable, unsupported).
+- Built by slice S3a (2026-11-19, `by-decide`): `mkAppOptM` and `mkDecide` (`app-builder.fs`), `withAtLeastTransparency`
+  (`meta-config.fs`'s `lf-with-at-least`), `synthInstance`'s failure (`synth.fs`'s `lf-synth-instance!`, error 122),
+  Meta's `reduceNat?` (`reduce-nat.fs`, on `core/nat-ops.fs`, which the kernel shares). S3b: `mkDecideProof`'s first
+  caller, `zetaReduce` (`transform.fs`), the diagnosis's blame and unfold trace, `isDefEqNat`. S4: `getLocalHyps`,
+  Int literals.
 - The simp core: `mkCongr`, `mkCongrFun`, `mkEqNDRec`, `mkOfEqTrue`, `mkEqTrue` (with their first callers).
 - `forallTelescope` and `lambdaTelescope` (no caller yet). `lf-mk-nat-lit` (mkNatLit) waits for the reuse pass of
   `nat-offset.fs`; the Meta files' own binder locals (`defeq.fs`, `whnf.fs`, `infer.fs`, `fun-info.fs`,

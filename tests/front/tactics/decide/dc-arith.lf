@@ -1,0 +1,51 @@
+\ by-decide on closed facts about natural numbers (plan row S3, slice S3a;
+\ tests/front/tactics/goal-layer.lean): Decidable.decide of the statement,
+\ its instance synthesized (instDecidableEqNat, Nat.decLt, Nat.decLe),
+\ reduces to Bool.true by whnf, Lean's reduceNat? folding the numbers.
+\ The term is of_decide_eq_true P I (id (decide P I = true) (Eq.refl true)).
+\ Lean: theorem dc_add : 2 + 2 = 4 := by decide
+\       theorem dc_lt : 10 < 20 := by decide
+\       theorem dc_le : 3 ≤ 3 := by decide
+\       theorem dc_mul : Nat.mul 12345 6789 = 83810205 := by decide
+\       theorem dc_mod : 100 % 7 = 2 := by decide
+\       theorem dc_gcd : Nat.gcd 1071 462 = 21 := by decide
+theorem dc_add
+  2 2 + 4 =
+:= by
+  by-decide
+end dc_add
+
+theorem dc_lt
+  10 20 LT.lt
+:= by
+  by-decide
+end dc_lt
+
+theorem dc_le
+  3 3 ≤
+:= by
+  by-decide
+end dc_le
+
+\ Nat.mul, written so because 6 7 * 42 = does not elaborate yet (error
+\ 120, docs/user/LANGUAGE_REFERENCE.md); a product past a cell's width.
+theorem dc_mul
+  12345 6789 Nat.mul 83810205 =
+:= by
+  by-decide
+end dc_mul
+
+\ 100 days after a Monday is a Wednesday.
+theorem dc_mod
+  100 7 HMod.hMod 2 =
+:= by
+  by-decide
+end dc_mod
+
+\ Euclid's own example: Nat.gcd, folded by reduceNat? with the Nat table
+\ the kernel shares (src/core/nat-ops.fs).
+theorem dc_gcd
+  1071 462 Nat.gcd 21 =
+:= by
+  by-decide
+end dc_gcd
