@@ -445,7 +445,7 @@
    "src/front/constructions.fs:cases",
    "src/front/lib-decode.fs:lbd-ctor-data"
   ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "reason": "false positive: a chain of three different steps on outcome.fs's ok-with (constructions.fs's recon and cases, lib-decode.fs's lbd-ctor-data), already the shared word (cleanup-families-2)",
   "tokens": 12
  },
  "3c14cb454f57": {
@@ -803,7 +803,7 @@
    "src/front/cases-several.fs:several-cases",
    "src/front/lib-decode.fs:lbd-rec-data"
   ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "reason": "false positive: a chain of six different steps on outcome.fs's ok-with (cases-several.fs's several-cases, lib-decode.fs's lbd-rec-data), already the shared word; a table for outcome-steps would add a CREATEd global per file and be no shorter (cleanup-families-2)",
   "tokens": 21
  },
  "692feec774bc": {
@@ -833,7 +833,7 @@
    "src/front/ctor-idx.fs:cases-app",
    "src/front/lib-decode.fs:lbd-type-data"
   ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "reason": "false positive: a chain of five different steps on outcome.fs's ok-with (ctor-idx.fs's cases-app, lib-decode.fs's lbd-type-data), already the shared word (cleanup-families-2)",
   "tokens": 18
  },
  "6a9dc387ee01": {
