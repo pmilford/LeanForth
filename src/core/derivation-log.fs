@@ -786,7 +786,7 @@ create lf-log-level-copier
 \ The next copy is written in place and counted only when complete.
 : lf-log-cref-next ( -- addr ) lf-log-cref-copies lf-log-cref-slot ;
 : lf-log-cref-head! ( name generation count -- )
-  lf-log-cref-next tuck logcref-count ! tuck logcref-generation ! logcref-name ! ;
+  lf-log-cref-next logcref-name cell-triple! ;
 : lf-log-cref-made ( offset -- ref )
   lf-log-cref-next logcref-args ! lf-log-cref-copies 1 lf-log-state lf-logs-crefs +!
   1+ negate ;
@@ -932,7 +932,7 @@ create lf-log-term-copier
   lf-rule-publish over logrec-rule ! lf-log-last-start over logrec-start !
   0 over logrec-depth ! lf-log-none swap logrec-out ! ;
 : lf-log-publish-fields ( slot deps outcome rec -- )
-  tuck logrec-outcome ! tuck logrec-b ! logrec-a ! ;
+  tuck logrec-outcome ! logrec-a cell-pair! ;
 : lf-log-publish-record ( slot deps outcome -- )
   lf-log-next dup lf-log-publish-head lf-log-publish-fields lf-log-counted ;
 : lf-log-rest ( -- )

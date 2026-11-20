@@ -13940,8 +13940,8 @@ reason = "refactor-present L2: level copies are recorded as made in the term cop
 [[fault]]
 id = "log-view-node-fields-swapped"
 file = "src/present/log-view.fs"
-old = '''  dup lv-node-tag @ swap dup lv-node-first @ swap lv-node-second @ ;'''
-new = '''  dup lv-node-tag @ swap dup lv-node-second @ swap lv-node-first @ ;'''
+old = '''  lv-node-tag cell-triple@ ;'''
+new = '''  lv-node-tag cell-triple@ swap ;'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "refactor-present I1: a rebuilt node's first and second fields are read swapped"
 
@@ -21298,3 +21298,131 @@ old = ''': cell-triple! ( x1 x2 x3 addr -- ) tuck 2 cells + ! cell-pair! ;'''
 new = ''': cell-triple! ( x1 x2 x3 addr -- ) tuck 2 cells + ! 2! ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "cleanup-families-2 (triple-field family): the first two of three fields stored crosswise"
+
+[[fault]]
+id = "cf2-instance-fields-turned"
+file = "src/front/elab-data.fs"
+old = '''  ed-inst ed-inst-decl cell-triple@ ;'''
+new = '''  ed-inst ed-inst-decl cell-triple@ swap ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "cleanup-families-2 (group eb75): an instance's class and priority read crosswise"
+
+[[fault]]
+id = "cf2-projection-fields-turned"
+file = "src/front/elab-data.fs"
+old = '''  ed-proj ed-proj-ctor cell-triple@ ;'''
+new = '''  ed-proj ed-proj-ctor cell-triple@ swap ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "cleanup-families-2 (group eb75): a projection's parameters and index read crosswise"
+
+[[fault]]
+id = "cf2-lp-set-turned"
+file = "src/front/level-params.fs"
+old = ''': lp-set ( names levels n -- ) lp-state lp-names-at cell-triple! ;'''
+new = ''': lp-set ( names levels n -- ) >r swap r> lp-state lp-names-at cell-triple! ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "cleanup-families-2 (group cc68): the universe parameters' names and levels stored crosswise"
+
+[[fault]]
+id = "cf2-steps-write-turned"
+file = "src/front/step-log.fs"
+old = '''  lsl lsl-sink cell-triple!'''
+new = '''  swap lsl lsl-sink cell-triple!'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "cleanup-families-2 (triple-field family): the step log's find and axioms words stored crosswise"
+
+[[fault]]
+id = "cf2-tl-fill-turned"
+file = "src/front/telescope.fs"
+old = '''  tuck tlf-xt ! tuck tlf-max ! tlf-acc cell-triple! ;'''
+new = '''  tuck tlf-xt ! tuck tlf-max ! tlf-acc 2! drop ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "cleanup-families-2 (group 571c's neighbour): a telescope frame's accumulator, type and declaration stored wrong"
+
+[[fault]]
+id = "cf2-remap-set-turned"
+file = "src/front/expr-remap.fs"
+old = ''': remap-set ( x y xt remap -- ) tuck remap-map ! remap-x cell-pair! ;'''
+new = ''': remap-set ( x y xt remap -- ) tuck remap-map ! remap-x 2! ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "cleanup-families-2 (group bf71): a remap's two numbers stored crosswise"
+
+[[fault]]
+id = "cf2-htab-stats-turned"
+file = "src/lib/htab.fs"
+old = '''  htab-finds cell-triple@ ;'''
+new = '''  htab-finds cell-triple@ swap ;'''
+test = "$GFORTH tests/lib/htab.fs"
+reason = "cleanup-families-2 (triple-field family): a table's compared and grows statistics read crosswise"
+
+[[fault]]
+id = "cf2-sought-store-turned"
+file = "src/core/terms.fs"
+old = '''  lf-sought-tag cell-triple! ;'''
+new = '''  >r swap r> lf-sought-tag cell-triple! ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "cleanup-families-2 (group bf71): the node sought is stored with its first and second fields crosswise"
+
+[[fault]]
+id = "cf2-log-cref-head-turned"
+file = "src/core/derivation-log.fs"
+old = '''  lf-log-cref-next logcref-name cell-triple! ;'''
+new = '''  lf-log-cref-next logcref-name 2! drop ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "cleanup-families-2 (group cc68): a copied constant reference's name, generation and count stored wrong"
+
+[[fault]]
+id = "cf2-publish-fields-turned"
+file = "src/core/derivation-log.fs"
+old = '''  tuck logrec-outcome ! logrec-a cell-pair! ;'''
+new = '''  tuck logrec-outcome ! logrec-a 2! ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "cleanup-families-2 (group bf71): a published record's slot and dependencies stored crosswise"
+
+[[fault]]
+id = "cf2-layer-decls-turned"
+file = "src/kernel/env-import.fs"
+old = '''  imp-ldecls cell-triple@ ;'''
+new = '''  imp-ldecls cell-triple@ swap ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "cleanup-families-2 (triple-field family): a layer's declaration count and lines read crosswise"
+
+[[fault]]
+id = "cf2-layer-slots-turned"
+file = "src/kernel/env-snapshot.fs"
+old = '''  snap-wn cell-triple! ;'''
+new = '''  >r swap r> snap-wn cell-triple! ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "cleanup-families-2 (group bf71): a layer's slot count and its which-xt stored crosswise"
+
+[[fault]]
+id = "cf2-envsig-actuals-turned"
+file = "src/kernel/env-signature.fs"
+old = '''  lf-envsig-request lf-esreq-pairs cell-triple@ ;'''
+new = '''  lf-envsig-request lf-esreq-pairs cell-triple@ swap ;'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "cleanup-families-2 (group eb75): a signature request's count and fuel read crosswise"
+
+[[fault]]
+id = "cf2-dq-doubt-turned"
+file = "src/kernel/defeq.fs"
+old = '''  lf-dq-state tuck lf-dqs-doubt ! lf-dqs-dt cell-pair! ;'''
+new = '''  lf-dq-state tuck lf-dqs-doubt ! lf-dqs-dt 2! ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "cleanup-families-2 (group bf71): a doubt's two terms stored crosswise"
+
+[[fault]]
+id = "cf2-lv-node-store-turned"
+file = "src/present/log-view.fs"
+old = '''  lv-node-tag cell-triple! ;'''
+new = '''  swap lv-node-tag cell-triple! ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "cleanup-families-2 (group bf71): a rebuilt node stored with its first and second fields crosswise"
+
+[[fault]]
+id = "cf2-dt-frame-turned"
+file = "src/front/discr-tree.fs"
+old = ''': dt-frame! ( todo node skip i -- ) dtf@ df-todo cell-triple! ;'''
+new = ''': dt-frame! ( todo node skip i -- ) dtf@ df-todo 2! drop ;'''
+test = "$GFORTH tests/front/discr-tree.fs"
+reason = "cleanup-families-2 (group cc68): a discrimination-tree frame stored wrong"

@@ -25,7 +25,8 @@ INCLUDED or REQUIRED counted as a load of the string before it:
    turns the log on for print, never writes a record. Every other file
    under src/ names no log word at all.
 4. Outside the log module, no field of a record, mark, copied reference,
-   the header, the pools or the options is followed by ! or +!.
+   the header, the pools or the options is followed by !, +!, 2!,
+   cell-pair! or cell-triple!.
 5. src/core/derivation-log.fs names only its own words and the words in
    LOG_USES: standard Forth words, the context words, and the stores'
    read-only accessors, every one of which gives values, not addresses
@@ -114,7 +115,13 @@ STORES = {
     # lib/bounds.fs's cell-counted, and cell-count (review reuse-out-2 rc3
     # B1): the rule table's names, laid down while loading and read back;
     # dictionary and stack words only, no state, no name looked up.
-    "cell-counted,", "cell-count", "lf-tag-sort", "lf-tag-symbolic-sort", "lf-tag-bvar", "lf-tag-constant",
+    "cell-counted,", "cell-count",
+    # lib/bounds.fs's cell-pair@, cell-pair! and cell-triple! (cleanup-families-2):
+    # @ and ! of two or three adjacent cells at the address given, the log's
+    # own header and records; no state, no name looked up. Rule 4 counts
+    # them (and 2!) as stores after a field, as ! and +!.
+    "cell-pair@", "cell-pair!", "cell-triple!",
+    "lf-tag-sort", "lf-tag-symbolic-sort", "lf-tag-bvar", "lf-tag-constant",
     "lf-tag-app", "lf-tag-lam", "lf-tag-pi", "lf-log-preset-level", "lf-log-preset-records",
     "lf-log-preset-marks", "lf-log-preset-terms", "lf-log-preset-levels",
     # The local context's (plan task 4.2.2a), read only, values: a free
@@ -220,8 +227,11 @@ def log_words(tokens):
     return {t for t in tokens if LOG_WORD.match(t)}
 
 
+FIELD_WRITES = ("!", "+!", "2!", "cell-pair!", "cell-triple!")
+
+
 def field_stores(tokens):
-    return {a for a, b in zip(tokens, tokens[1:]) if FIELD.match(a) and b in ("!", "+!")}
+    return {a for a, b in zip(tokens, tokens[1:]) if FIELD.match(a) and b in FIELD_WRITES}
 
 
 def loads(tokens):

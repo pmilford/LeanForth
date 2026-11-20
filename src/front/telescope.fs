@@ -114,7 +114,7 @@ end-structure
 /tlf context-slab: tl-frames
 : tl ( -- addr ) tl-frames slab-last ;
 : tl-fill ( acc type d max xt frame -- )
-  tuck tlf-xt ! tuck tlf-max ! tuck tlf-d ! tuck tlf-type ! tlf-acc ! ;
+  tuck tlf-xt ! tuck tlf-max ! tlf-acc cell-triple! ;
 : tl-kind ( pi -- kind ) tl tlf-d lf-walk-kind ;
 : tl-mv-kind ( kind -- mvkind )
   lf-binder-instance = if mv-synthetic else mv-natural then ;

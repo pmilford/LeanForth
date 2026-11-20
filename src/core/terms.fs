@@ -310,9 +310,9 @@ begin-structure /lf-sought
   field: lf-sought-second
 end-structure
 : lf-sought! ( tag first second key -- )
-  tuck lf-sought-second ! tuck lf-sought-first ! lf-sought-tag ! ;
+  lf-sought-tag cell-triple! ;
 : lf-sought@ ( key -- tag first second )
-  dup lf-sought-tag @ over lf-sought-first @ rot lf-sought-second @ ;
+  lf-sought-tag cell-triple@ ;
 : lf-sought= ( tag first second key -- flag )
   >r r@ lf-sought-second @ = swap r@ lf-sought-first @ = and
   swap r> lf-sought-tag @ = and ;

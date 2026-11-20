@@ -44,6 +44,7 @@
 
 require ./term-printer.fs
 require ./log-check.fs
+require ../lib/bounds.fs
 require ../lib/bytes.fs
 require ../lib/xt-table.fs
 require ../core/derivation-log.fs
@@ -56,9 +57,9 @@ begin-structure /lv-node
   field: lv-node-second
 end-structure
 : lv-node! ( tag first second node -- )
-  tuck lv-node-second ! tuck lv-node-first ! lv-node-tag ! ;
+  lv-node-tag cell-triple! ;
 : lv-node@ ( node -- tag first second )
-  dup lv-node-tag @ swap dup lv-node-first @ swap lv-node-second @ ;
+  lv-node-tag cell-triple@ ;
 
 begin-structure /lf-lv
   field: lf-lv-sink          \ xt ( c-addr u -- ) of the finished text

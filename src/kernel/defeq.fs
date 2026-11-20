@@ -469,7 +469,7 @@ defer lf-ap-arg ( frames -- ... frames next )
 \ unknown, recorded with it.
 : lf-dq-doubt ( t s code -- )
   lf-dq-state lf-dqs-doubt @ if 2drop drop exit then
-  lf-dq-state tuck lf-dqs-doubt ! tuck lf-dqs-ds ! lf-dqs-dt ! ;
+  lf-dq-state tuck lf-dqs-doubt ! lf-dqs-dt cell-pair! ;
 : lf-dq-doubted ( -- )
   lf-dq-state >r r@ lf-dqs-dt @ r@ lf-dqs-ds @ lf-dq-site r> lf-dqs-doubt @ lf-diag-note ;
 : lf-dq-settle ( flag outcome -- flag outcome )

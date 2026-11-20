@@ -271,6 +271,13 @@ T{ thrown-run -> outcome-invalid false 2 3 lf-bound-interrupted true 0 outcome-i
   lf-log-terms lf-log-start 1 2 rot lf-log-open outcome-invalid lf-log-decided drop
   0 0 outcome-invalid lf-log-publish lc-valid? lf-log-stop ;
 T{ lf-rule-declaration published-after lf-rule-fresh-name published-after -> true false }T
+\ The publish record keeps the slot (lf-log-a@) and the dependencies
+\ (lf-log-b@) apart, and the header the slot and outcome published.
+: published-fields ( -- slot deps outcome slot' outcome' )
+  lf-log-terms lf-log-start 1 2 lf-rule-declaration lf-log-open outcome-ok lf-log-decided drop
+  5 3 outcome-rejected lf-log-publish lf-log-count dup lf-log-a@ over lf-log-b@
+  rot lf-log-outcome@ lf-log-published lf-log-stop ;
+T{ published-fields -> 5 3 outcome-rejected 5 outcome-rejected }T
 \ Premise kinds: a declaration step that is ok without its premises (no
 \ fresh-name, formation or defeq step) fails part 9; one that failed is
 \ not checked.

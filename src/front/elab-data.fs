@@ -459,7 +459,7 @@ create ed-messages
 : ed-span@ ( span -- addr n ) dup @ elab-orders slab-at swap cell+ @ ;
 : ed-keys@ ( value -- k n ) ed-value-keys cell-pair@ ;
 : elab-instance@ ( i -- d class priority )
-  ed-inst dup ed-inst-decl @ over ed-inst-class @ rot ed-inst-priority @ ;
+  ed-inst ed-inst-decl cell-triple@ ;
 : elab-instance-order ( i -- addr n ) ed-inst ed-inst-order ed-span@ ;
 : elab-instance-keys ( i -- k n ) ed-inst ed-inst-value ed-keys@ ;
 : elab-instance-rank ( i -- rank ) ed-inst ed-inst-value ed-value-rank @ ;
@@ -467,7 +467,7 @@ create ed-messages
   ed-left dup ed-left-priority @ over ed-left-value ed-value-rank @ rot ed-left-reason @ ;
 : elab-left-out-keys ( j -- k n ) ed-left ed-left-value ed-keys@ ;
 : elab-default@ ( i -- class d priority )
-  ed-dflt dup ed-dflt-class @ over ed-dflt-decl @ rot ed-dflt-priority @ ;
+  ed-dflt ed-dflt-class cell-triple@ ;
 : elab-default-rank ( i -- rank ) ed-dflt ed-dflt-rank @ ;
 : elab-class@ ( k -- d ) ed-class ed-class-decl @ ;
 : elab-class-out-params ( k -- addr n ) ed-class ed-class-params ed-span@ ;
@@ -476,13 +476,13 @@ create ed-messages
 : elab-eliminator-types ( i -- addr n )
   ed-elim dup ed-elim-types @ swap ed-elim-types# @ ed-types ;
 : elab-matcher@ ( m -- d params discrs )
-  ed-match dup ed-match-decl @ over ed-match-params @ rot ed-match-discrs @ ;
+  ed-match ed-match-decl cell-triple@ ;
 : elab-matcher-elim ( m -- pos true | false ) ed-match ed-match-elim @ 1+ +1>number ;
 : elab-matcher-alts ( m -- a n ) ed-match ed-match-alts cell-pair@ ;
 : elab-alt@ ( a -- fields overlaps thunk? )
-  ed-alt dup ed-alt-fields @ over ed-alt-overlaps @ rot ed-alt-thunk @ ;
+  ed-alt ed-alt-fields cell-triple@ ;
 : elab-projection@ ( p -- ctor params idx )
-  ed-proj dup ed-proj-ctor @ over ed-proj-params @ rot ed-proj-idx @ ;
+  ed-proj ed-proj-ctor cell-triple@ ;
 : elab-projection-decl ( p -- d ) ed-proj ed-proj-decl @ ;
 : elab-projection-class? ( p -- flag ) ed-proj ed-proj-class @ ;
 : ed-sun ( s -- addr ) elab-suns slab-at ;

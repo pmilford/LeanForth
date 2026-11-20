@@ -581,6 +581,6 @@ kind-quot kind-axiom - 1+ constant reach-kinds#
 \ and snap-layer-decls! take them.
 : imp-layer-slots ( imp -- n which renum ) imp-ln @ ['] imp-which ['] imp-renumber ;
 : imp-layer-decls ( imp -- decls n lines )
-  dup imp-ldecls @ over imp-ldn @ rot imp-llines @ ;
+  imp-ldecls cell-triple@ ;
 
 base !   \ the BASE this file was loaded with

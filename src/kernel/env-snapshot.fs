@@ -537,7 +537,7 @@ create snap-outers /outers allot  snap-outers /outers erase
   firsts# 0 do over i cells + @ si-firsts i + 2 pick id! loop
   over swap snap-tf tf-from cell+ tp-decls 1- cells move drop ;
 : snap-layer-slots! ( n which renum snap -- )
-  tuck snap-renum ! tuck snap-which ! snap-wn ! ;
+  snap-wn cell-triple! ;
 : snap-layer-decls! ( decls n lines snap -- ) snap-tf tier-given! ;
 : snap-head! ( fuel snap -- )
   >r snap-mark sh-mark r@ head! snap-version sh-version r@ head!

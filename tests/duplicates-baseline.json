@@ -1382,16 +1382,6 @@
   "reason": "accepted: program/sha-words.fs is the text of lib/sha256.fs's helper words character for character, proved by tests/reference/program-ir.lean; plan row SHA-2 has the library load it (planned)",
   "tokens": 11
  },
- "aa7d81a10b99": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/core/terms.fs:lf-sought@",
-   "src/kernel/env-import.fs:imp-layer-decls"
-  ],
-  "reason": "false positive: three fields of a record read, different records",
-  "tokens": 9
- },
  "ac834e546fa9": {
   "copies": 4,
   "kind": "shape",
@@ -1520,20 +1510,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
- },
- "bf71d37d38f0": {
-  "copies": 6,
-  "kind": "shape",
-  "members": [
-   "src/core/derivation-log.fs:lf-log-publish-fields",
-   "src/core/terms.fs:lf-sought!",
-   "src/front/expr-remap.fs:remap-set",
-   "src/kernel/env-snapshot.fs:snap-layer-slots!",
-   "src/present/log-view.fs:lv-node!",
-   "src/present/notation-table.fs:lf-nt-places!"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 8
  },
  "bf88a9b691e8": {
   "copies": 4,
@@ -1705,18 +1681,6 @@
   ],
   "reason": "false positive: a flag's two outcomes, each module its own failure record",
   "tokens": 7
- },
- "cc681a2bd39b": {
-  "copies": 4,
-  "kind": "shape",
-  "members": [
-   "src/core/derivation-log.fs:lf-log-cref-head!",
-   "src/front/discr-tree.fs:dt-frame!",
-   "src/front/level-params.fs:lp-set",
-   "src/program/ir-run.fs:irx-effect!"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 9
  },
  "ccfa4020f3d4": {
   "copies": 2,
@@ -1911,20 +1875,6 @@
   ],
   "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with, already the shared word",
   "tokens": 11
- },
- "eb7510a045b4": {
-  "copies": 6,
-  "kind": "shape",
-  "members": [
-   "src/front/elab-data.fs:elab-instance@",
-   "src/front/elab-data.fs:elab-default@",
-   "src/front/elab-data.fs:elab-matcher@",
-   "src/front/elab-data.fs:elab-alt@",
-   "src/front/elab-data.fs:elab-projection@",
-   "src/kernel/env-signature.fs:lf-envsig-actuals"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 10
  },
  "eba24912d740": {
   "copies": 3,

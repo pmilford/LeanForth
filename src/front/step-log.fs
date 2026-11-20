@@ -124,7 +124,7 @@ end-structure
   lf-steps-decl dup lsl-accepted 0= if drop outcome-ok exit then
   over lsl-header ok-then? if lsl-steps then ;
 : lf-steps-write ( sink find axioms -- outcome )
-  lsl tuck lsl-axioms ! tuck lsl-find ! lsl-sink !
+  lsl lsl-sink cell-triple!
   lf-steps-decls 0 ?do i lsl-decl dup ok? 0= if unloop exit then drop loop outcome-ok ;
 
 base !   \ the BASE this file was loaded with
