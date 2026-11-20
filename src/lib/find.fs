@@ -14,23 +14,25 @@
 \ k = n-1 down to 0: the last k for which xt answers true (Lean's
 \ findRev?, findDeclRevM?), at the same cost from the end.
 \
-\ count-index ( n xt -- m ) runs xt ( k -- flag ) for every k = 0, 1, ...
-\ n-1, in order, and gives how many answered true (any nonzero flag);
-\ n <= 0 gives 0 (review tactic-move-c4 B4: the counts of a run's or a
-\ table's entries that pass a test). The count sits below k, so the test
-\ sees k alone; the same cost as a find that never hits: one call of xt
-\ per index, no memory, two loop frames on the return stack.
+\ count-index ( x n xt -- m ) runs xt ( x k -- x flag ) for every k = 0,
+\ 1, ... n-1, in order, and gives how many answered true (any nonzero
+\ flag); x is dropped; n <= 0 gives 0 (review tactic-move-c4 B4 and its
+\ re-check R1: the counts of a run's or a table's entries that pass a
+\ test, which may read one value x: a table, a record, a code). It is
+\ find-index's convention, so one test serves both; a test ( k -- flag )
+\ that reads no value is given any x, 0 by custom, which stays below k.
+\ The same cost as a find that never hits: one call of xt per index, no
+\ memory, two loop frames on the return stack.
 \
 \ Example: the first negative cell of a table 5 -2 -7 is at index 1; a
 \ search of no cells finds none; the last negative cell is at index 2;
 \ two of the three cells are negative.
 \   create sample 5 , -2 , -7 ,
 \   : cell-neg? ( addr k -- addr flag ) cells over + @ 0< ;
-\   : sample-neg? ( k -- flag ) sample swap cell-neg? nip ;
 \   sample 3 ' cell-neg? find-index . .
 \   sample 0 ' cell-neg? find-index .
 \   sample 3 ' cell-neg? find-last-index . .
-\   3 ' sample-neg? count-index .   \ prints: -1 1 0 -1 2 2
+\   sample 3 ' cell-neg? count-index .   \ prints: -1 1 0 -1 2 2
 \
 \ Interface: find-index, find-last-index, count-index.
 \ State: none. Requires module.fs (ADR 0010). Loads in decimal whatever
@@ -52,8 +54,9 @@ lf-lib set-current
   over 1 < if 2drop drop false exit then
   dup 1+ swap ?do 1- 0 swap do i j execute if drop i true unloop unloop exit then
   -1 +loop loop drop false ;
-\ How many k < n for which xt ( k -- flag ) answers true (n <= 0: none).
-: count-index ( n xt -- m )
-  dup 1+ swap ?do 0 max 0 swap 0 ?do i j execute 0<> - loop loop ;
+\ How many k < n for which xt ( x k -- x flag ) answers true, x dropped
+\ (n <= 0: none). The count sits below x; each test is given a copy.
+: count-index ( x n xt -- m )
+  dup 1+ swap ?do 0 max 0 swap 0 ?do over i j execute nip 0<> - loop nip loop ;
 module-close
 base !   \ the BASE this file was loaded with

@@ -116,7 +116,7 @@ end-structure
 : tal-named? ( name -- flag ) tal-info@ swap lf-elim-alt-find dup if nip then ;
 \ The alternatives no step names, as Lean's orList: x, x or y, x, y, or z.
 : tal-unhandled? ( k -- flag ) tal-case-name tal-written? 0= ;
-: tal-unhandled# ( -- n ) tal-info@ lf-elim-alts# ['] tal-unhandled? count-index ;
+: tal-unhandled# ( -- n ) 0 tal-info@ lf-elim-alts# ['] tal-unhandled? count-index ;
 : tal-sep ( m n -- c-addr u )
   over 0= if 2drop s" " exit then dup 2 = if 2drop s"  or " exit then
   1- = if s" , or " else s" , " then ;
@@ -146,7 +146,7 @@ end-structure
   cells + @ ;
 : tal-explicit? ( f -- flag ) tal-kind lf-binder-default = ;
 : tal-fields ( -- n ) tal-info@ tal-k@ lf-elim-alt-fields ;
-: tal-explicit# ( -- n ) tal-fields ['] tal-explicit? count-index ;
+: tal-explicit# ( -- n ) 0 tal-fields ['] tal-explicit? count-index ;
 : tal-given# ( -- n ) tal-i lf-tac-args# ;
 \ introN: the names given for the explicit fields, in order; 0 (the
 \ binder's own name, inaccessible) for the others and past the names.

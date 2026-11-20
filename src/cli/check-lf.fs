@@ -50,6 +50,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
+require ../lib/find.fs
 require ../core/input.fs
 require ../author/runner.fs
 require ../front/reader.fs
@@ -139,7 +140,8 @@ end-structure
 \ against the library has a binder_kinds record of d (format 3.2, plan
 \ FE1c-bk: lean4export may give d another declaration's kinds); the
 \ record has as many kinds as the telescope binders (elab-data.fs checks).
-: lfc-zeros ( addr n -- k ) 0 swap 0 ?do over i cells + @ 0= - loop nip ;
+: lfc-zero-at? ( addr k -- addr flag ) over cell-at@ 0= ;
+: lfc-zeros ( addr n -- k ) ['] lfc-zero-at? count-index ;
 : lfc-own-explicit ( n d -- n' )
   ck-stage elab-read-against? 0= if drop exit then
   elab-binder-kinds-of if nip elab-binder-kinds lfc-zeros then ;

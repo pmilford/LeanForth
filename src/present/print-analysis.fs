@@ -3,12 +3,14 @@
 \ term (for grouping {A B : Prop}), is a term a proposition (for ∀ against
 \ →), and which arguments of an application are explicit (hidden implicit
 \ arguments). Untrusted presentation code; every answer only chooses a
-\ spelling. Requires print-levels.fs. No state of its own: a comparison
-\ is a visit of the print's frames (print-job.fs), counting its binder
-\ depth in their context cell; it runs as a loop of its own from inside
-\ the step that asks for it (lf-pp-run), and asks for no other
-\ comparison, so that nests once on the host's stacks whatever the depth.
+\ spelling. Requires print-levels.fs and lib/find.fs. No state of its
+\ own: a comparison is a visit of the print's frames (print-job.fs),
+\ counting its binder depth in their context cell; it runs as a loop of
+\ its own from inside the step that asks for it (lf-pp-run), and asks
+\ for no other comparison, so that nests once on the host's stacks
+\ whatever the depth.
 
+require ../lib/find.fs
 require ./print-levels.fs
 require ../core/literals.fs
 require ../core/string-literals.fs
@@ -269,10 +271,11 @@ lf-tag-projection lf-tag-let lf-tag-let-nondep 3 lf-tags constant lf-pp-pair-kin
   swap lf-pp-head 2dup lf-pp-explicit? if 2drop drop true exit then
   drop lf-pp-params drop swap lf-pp-kind-at lf-binder-default = ;
 : lf-pp-arg-at ( app i -- arg ) over lf-pp-head nip 1- swap - lf-pp-fns lf-term-second@ ;
-: lf-pp-shown# ( app -- count )
-  0 over lf-pp-head nip 0 ?do over i lf-pp-visible? if 1+ then loop nip ;
+\ How many arguments are shown; the last one shown, else -1.
+: lf-pp-arg-shown? ( app i -- app flag ) over swap lf-pp-visible? ;
+: lf-pp-shown# ( app -- count ) dup lf-pp-head nip ['] lf-pp-arg-shown? count-index ;
 : lf-pp-last ( app -- i )
-  -1 over lf-pp-head nip 0 ?do over i lf-pp-visible? if drop i then loop nip ;
+  dup lf-pp-head nip ['] lf-pp-arg-shown? find-last-index 0= if -1 then ;
 \ Lean's needsExplicit: @ goes before a constant or variable head shown
 \ with all its arguments, except a constant without universe arguments
 \ whose parameters are unknown.

@@ -101,7 +101,7 @@ reason = "FE1c-bk: the natural reader counts a name's explicit arguments from th
 [[fault]]
 id = "fe-bk-arity-zeros"
 file = "src/cli/check-lf.fs"
-old = ''': lfc-zeros ( addr n -- k ) 0 swap 0 ?do over i cells + @ 0= - loop nip ;'''
+old = ''': lfc-zeros ( addr n -- k ) ['] lfc-zero-at? count-index ;'''
 new = ''': lfc-zeros ( addr n -- k ) nip ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "FE1c-bk: every binder of a record is counted explicit, implicit and instance ones too"
@@ -133,8 +133,8 @@ reason = "FE1c-bk review M1: the fed mode reads binder_kinds records of data not
 [[fault]]
 id = "fe-bk-arity-nonzero"
 file = "src/cli/check-lf.fs"
-old = ''': lfc-zeros ( addr n -- k ) 0 swap 0 ?do over i cells + @ 0= - loop nip ;'''
-new = ''': lfc-zeros ( addr n -- k ) 0 swap 0 ?do over i cells + @ 0<> - loop nip ;'''
+old = ''': lfc-zero-at? ( addr k -- addr flag ) over cell-at@ 0= ;'''
+new = ''': lfc-zero-at? ( addr k -- addr flag ) over cell-at@ 0<> ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "FE1c-bk review L1: the natural reader counts a record's implicit and instance binders as its explicit arguments, so Nat.rec (kinds 1 0 0 0) takes one value, not three"
 

@@ -1186,31 +1186,60 @@ never holds): 5 ns an index at 10 indices and 4 ns at 10^6 on `gforth`,
 takes (`front/meta-tactic/assumption.fs`, the goal's locals, newest first)
 and a local found by its name (`front/lctx-views.fs`'s `lf-view-named`);
 sizes: a goal's local context, a handful of locals in every checked
-`.lf` text (at most 6 in `tests/front/tactics/`). Tested in
+`.lf` text (at most 6 in `tests/front/tactics/`); and the last argument
+of an application the term printer shows (`present/print-analysis.fs`'s
+`lf-pp-last`, plan 9.4.8l Z, which replaced a forward loop that kept
+the last hit; sizes: an application's arguments, not measured). Tested in
 `tests/lib/lib.fs` (both engines); fault `lib-find-last-skips-last`.
 
-`count-index ( n xt -- m )` (`find.fs`, review tactic-move-c4 B4,
-2026-11-19) counts the k < n whose test xt ( k -- flag ) holds, any
-nonzero answer counting one; n <= 0 gives 0. It replaced four hand-written
-`0 n 0 ?do i test - loop` loops. *Algorithm*: the same one-pass outer
-loop holding xt as `find-index`'s, and a counted inner loop that runs
-every index, the count below k (so the test sees k alone, unlike
-`find-index`'s x). *Cost*: one test per index, always n; no memory; two
-loop frames on the return stack. *Speed* (2026-11-19, Gforth 1.0.0, WSL2
-on the development machine): 4 ns an index at 10 indices and 3 ns at
-10^6 on `gforth`, 2 ns at both on `gforth-fast`, whether the test holds
-never or every other time. *Callers*: an eliminator's alternatives no
-`|` wrote (`front/tactic-alts.fs`'s `tal-unhandled#`, for Lean's orList
-in errors 206 and 207: 2 for `Nat.rec`, `Nat.recAux` and `List.rec`,
-the only eliminators a checked text reaches) and an alternative's
-explicit fields (`tal-explicit#`, error 208's count: 0 to 2), the
-unsolved goals with a tag when `by-case:` finds none (`tactics/case.fs`'s
-`tcs-named#`, error 210's hint: 1 or 2 goals in
-`tests/front/s2w-case-*.lf`), and the declarations a carry run checks
-again (`cli/leanforth.fs`'s `cli-again#`: once per `check --snapshot`
-run, over the input's declarations, all of Init's 59,349 for a snapshot
-of Init). Tested in `tests/lib/lib.fs` (both engines); fault
-`lib-count-index-raw-flag`.
+`count-index ( x n xt -- m )` (`find.fs`, review tactic-move-c4 B4,
+2026-11-19; `find-index`'s convention since its re-check R1, plan 9.4.8l
+Z) counts the k < n whose test xt ( x k -- x flag ) holds, any nonzero
+answer counting one; x, one value the test reads (a table, a record, a
+code it compares with), is given to every test and dropped; n <= 0
+gives 0. A test that reads no value is ( k -- flag ) under any x (0 by
+custom), as for `find-index`. It replaced twelve hand-written
+`0 n 0 ?do … - loop` loops (the `- loop`, `1 and + loop` and
+`if 1+ then loop` spellings). *Algorithm*: the same one-pass outer loop
+holding xt as `find-index`'s, and a counted inner loop that runs every
+index, the count below x, each test given a copy of x (`over i j
+execute nip`). *Cost*: one test per index, always n; no memory; two loop
+frames on the return stack. *Speed* (2026-11-19, Gforth 1.0.0, WSL2 on
+the development machine, load about 1): 5 ns an index at 10 indices and
+3 to 4 ns at 10^6 on `gforth`, 2 ns at both on `gforth-fast`, whether
+the test holds never or every other time. *Callers* and their sizes:
+- `front/tactic-alts.fs`: an eliminator's alternatives no `|` wrote
+  (`tal-unhandled#`, for Lean's orList in errors 206 and 207: 2 for
+  `Nat.rec`, `Nat.recAux` and `List.rec`, the only eliminators a checked
+  text reaches) and an alternative's explicit fields (`tal-explicit#`,
+  error 208's count: 0 to 2);
+- `front/tactics/case.fs`: the unsolved goals with a tag when `by-case:`
+  finds none (`tcs-named#`, error 210's hint: 1 or 2 goals in
+  `tests/front/s2w-case-*.lf`);
+- `front/cases-several.fs`: the minor premises T keeps before minor i
+  (`kept-before`, x the job; a few times per casesOn of a mutual or
+  nested type, over the recursor's minor premises before i);
+- `cli/leanforth.fs` and `cli/check-run.fs`, once per `check` run's
+  report, over the input's declarations (all of Init's 59,349 for a
+  snapshot of Init): the declarations a carry run checks again
+  (`cli-again#`) and again for one reason (`ck-again#`, x the why code),
+  the declarations checked here and taken from the snapshot
+  (`ck-checked#`, `ck-saved#`, through `ck-verdicts#`); once per snapshot
+  load, its stage's slots but block records (`ck-stage-slots`, x the
+  stage);
+- `cli/check-lf.fs`: a library constant's explicit binders, the zeros of
+  its binder-kinds record (`lfc-zeros`, x the record; one per name the
+  natural reader looks up, the constant's binders);
+- `present/print-forth.fs`: the visible binders inside binder j
+  (`lf-pf-inner#`, one per variable printed as `n var#`; the binders in
+  scope) and `present/print-analysis.fs`: an application's shown
+  arguments (`lf-pp-shown#`, x the application; one per application
+  printed, its arguments).
+
+The sizes of `kept-before`, `lfc-zeros`, `lf-pf-inner#` and
+`lf-pp-shown#` were not measured on a real run. Tested in
+`tests/lib/lib.fs` (both engines); faults `lib-count-index-raw-flag` and
+`lib-count-index-count-as-x`.
 
 ## Tables of texts
 
