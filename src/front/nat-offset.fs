@@ -83,7 +83,7 @@ end-structure
   0 ?do 0 lf-level-identity 0=
   if unloop outcome-invalid exit then 0 i no-pair 2! loop outcome-ok ;
 : no-made ( index identity true | false -- term outcome )
-  if drop outcome-ok else -1 outcome-full then ;
+  lf-made-term ;
 : no-ref ( name -- term outcome )
   lf-name-generation @ 0 no-pair no no-k @ lf-cref-new 0= if -1 outcome-full exit then
   lf-cterm-new no-made ;

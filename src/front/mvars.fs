@@ -617,6 +617,8 @@ end-structure
 : lf-mvar-delayed ( mvar -- pending addr n true | false )
   mv-of 0= if false exit then dup mvd-pending @ dup 0< if 2drop false exit then
   swap dup mvd-fvars @ mv-fvars store-slot swap mvd-fvars# @ true ;
+\ Whether mvar is a delayed-assigned metavariable (Lean's isDelayedAssigned).
+: lf-mvar-delayed? ( mvar -- flag ) lf-mvar-delayed dup if nip nip nip then ;
 \ A metavariable leaf neither assigned nor delayed-assigned (the ones
 \ Lean's getMVarsNoDelayed keeps, elimMVar's case); any other term false.
 : lf-mvar-open? ( t -- flag )

@@ -54,9 +54,8 @@ begin-structure /pst
 end-structure
 /pst context-record: pst
 
-\ ---- Goals. A failure has no goal: -1 in its place.
-: gl-result ( goal outcome -- goal outcome ) dup ok? 0= if nip no-result then ;
-: gl-tagged ( tag goal -- goal outcome ) tuck swap lf-mvar-tag! gl-result ;
+\ ---- Goals. A failure has no goal: -1 in its place (ok-or-none).
+: gl-tagged ( tag goal -- goal outcome ) tuck swap lf-mvar-tag! ok-or-none ;
 : lf-goal-new ( type tag view -- goal outcome )
   over lf-user-name? 0= if drop 2drop -1 outcome-invalid exit then
   >r swap mv-opaque r> lf-mvar-new-at ok-then? if gl-tagged else nip no-result then ;
@@ -71,7 +70,7 @@ end-structure
   >r dup lf-mvar-type drop swap lf-mvar-tag drop r> lf-goal-new ;
 : gl-replace ( goal view -- goal' outcome )
   over swap gl-new-like ok-then? 0= if nip no-result exit then
-  tuck lf-mvar-assign gl-result ;
+  tuck lf-mvar-assign ok-or-none ;
 
 \ Clearing (Lean's MVarId.clear): no other local's type, nor a let's
 \ value that is not hidden, may depend on fvar (localDeclDependsOn), nor

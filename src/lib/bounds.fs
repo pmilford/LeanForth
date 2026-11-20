@@ -4,8 +4,8 @@
 \ bounded writers compare a length unsigned, so a length with the top bit
 \ set (a negative u) never fits. No state.
 \ Interface: between? upto? range-at in-ranges? cells-zero? cells= index?
-\ cells-index cells-has? cell-at@ pair-at record-at first-nonzero cell-tally epoch+
-\ cell-counted, cell-count cell-counted!
+\ cells-index cells-has? cell-at@ pair-at record-at first-nonzero first-or-second
+\ cell-tally epoch+ cell-counted, cell-count cell-counted!
 \ cell-counted+! cell-counted-left cell-counted+?. Requires portability.fs,
 \ outcome.fs (any?, 2dup-under) and module.fs;
 \ helpers are private in lf-lib-private (ADR 0010).
@@ -77,6 +77,8 @@ lf-lib set-current
 \ of two steps that give 0 for success (an ior, an image). The same code
 \ as outcome.fs's outcome-and, whose ok is 0; that one names outcomes.
 : first-nonzero ( x1 x2 -- x ) over if drop else nip then ;
+\ x1 when n is 1, else x2: one of two values by its place from 1.
+: first-or-second ( x1 x2 n -- x ) 1 = if drop else nip then ;
 \ One more in cell i of an array of counts at a-addr (unchecked, as
 \ cell-at@).
 : cell-tally ( i a-addr -- ) swap cells + 1 swap +! ;

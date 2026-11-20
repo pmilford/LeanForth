@@ -1,14 +1,4 @@
 {
- "0021e5f9ac0d": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/level-make.fs:lf-lmk-pick",
-   "src/present/log-view.fs:lf-lv-part-of"
-  ],
-  "reason": "accepted: a two-way choice of seven tokens; a shared word would be longer to read than it",
-  "tokens": 7
- },
  "01252feaf76d": {
   "copies": 3,
   "kind": "shape",
@@ -693,16 +683,6 @@
   "reason": "accepted: a row's precedence copied into its left or its right precedence, six tokens each",
   "tokens": 6
  },
- "59e7c676bb0c": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/assign-check.fs:lf-meta-delayed?",
-   "src/front/whnf.fs:wc-delayed?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 7
- },
  "5a5a01221e51": {
   "copies": 2,
   "kind": "shape",
@@ -1070,16 +1050,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
- },
- "86d5a40b9848": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/level-params.fs:lp-fixed?",
-   "src/kernel/mixed-level-substitute.fs:lf-mls-closed?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 7
  },
  "87fc6aa43754": {
   "copies": 2,
@@ -1854,16 +1824,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
  },
- "d6a4375d3890": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/nat-offset.fs:no-made",
-   "src/kernel/reduce-nat.fs:lf-rn-node"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 7
- },
  "d78a5d876abb": {
   "copies": 3,
   "kind": "shape",
@@ -1923,16 +1883,6 @@
    "src/front/tactic-run.fs:lfr-block-fail"
   ],
   "reason": "accepted: an error at a step's word and at a block's place, two readers of the record; a shared word would take both readers as arguments",
-  "tokens": 7
- },
- "dfdfa172bb14": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/goals.fs:gl-result",
-   "src/lib/outcome.fs:ok-or-none"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
  },
  "e1621cd366bb": {

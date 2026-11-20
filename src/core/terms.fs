@@ -543,6 +543,10 @@ lf-data-ranges 3 * constant lf-data-flags
 : lf-term-data@ ( node -- data true | false )
   dup lf-term-valid? 0= if drop false exit then
   lf-term-data-word dup lf-data-known? dup 0= if nip then ;
+\ Whether node's cached data says it holds no universe parameter (Lean's
+\ !hasLevelParam); false for a node without data.
+: lf-term-no-params? ( node -- flag )
+  lf-term-data@ if lf-data-params? 0= else false then ;
 \ Data of a leaf (tag first second -- data): bound variables here; the
 \ hook knows the other leaves of the checker (set while loading by
 \ core/constant-term-boundary.fs).

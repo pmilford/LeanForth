@@ -265,7 +265,7 @@ create lf-lmk-imax-rules
 
 \ The chosen argument; a new raw node can fail (full store or spent
 \ serial), recorded by lf-level-add.
-: lf-lmk-pick ( l1 l2 choice -- level ) 1 = if drop else nip then ;
+: lf-lmk-pick ( l1 l2 choice -- level ) first-or-second ;
 : lf-lmk-max ( l1 l2 -- level true | false )
   2dup lf-lmk-max-choice ?dup if lf-lmk-pick true else lf-level-max then ;
 : lf-lmk-imax ( l1 l2 -- level true | false )

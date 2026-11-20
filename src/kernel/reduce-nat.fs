@@ -37,7 +37,7 @@ require ../core/terms.fs
 : lf-rn-too-big ( -- -1 outcome )
   0 0 lf-rn-site lf-diag-nat-size lf-diag-note -1 outcome-full ;
 : lf-rn-node ( index identity true | false -- node outcome )
-  if drop outcome-ok else -1 outcome-full then ;
+  lf-made-term ;
 
 \ Constants without universe arguments, by name.
 : lf-rn-name ( prefix c-addr u -- id outcome ) lf-name-str room-result ;

@@ -203,7 +203,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 : wc-framed? ( -- flag ) wc-frames slab-count 0> ;
 
 \ ---- Leaves: metavariables, let variables, lets.
-: wc-delayed? ( mvar -- flag ) lf-mvar-delayed dup if nip nip nip then ;
+: wc-delayed? ( mvar -- flag ) lf-mvar-delayed? ;
 : wc-let-value ( fvar -- value true | false )
   dup lf-fvar-let? if lf-fvar-value true else drop false then ;
 : wc-zeta ( let -- term outcome )

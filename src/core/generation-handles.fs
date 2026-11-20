@@ -145,6 +145,9 @@ create lf-stamp-hooks /htab-hooks allot
   lf-tag-lam lf-hterm-binary ;
 : lf-hterm-pi ( domain did body bid -- index identity true | false )
   lf-tag-pi lf-hterm-binary ;
+\ A maker's answer as a term and an outcome: the index and ok, or -1 and full for false.
+: lf-made-term ( index identity true | false -- term outcome )
+  if drop outcome-ok else -1 outcome-full then ;
 
 \ Audit of a structurally checked term: each symbolic Sort must carry the
 \ stamps of this exact term allocation and a level that still has the

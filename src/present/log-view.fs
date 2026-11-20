@@ -228,7 +228,7 @@ lf-walk-room context-walk2: lf-lv-pairs
 \ (second) of it.
 : lf-lv-parts ( ref -- first second true | false )
   lf-lv-node 0= if false exit then rot lf-term-binary-tag? dup 0= if nip nip then ;
-: lf-lv-part-of ( first second part -- ref ) 1 = if drop else nip then ;
+: lf-lv-part-of ( first second part -- ref ) first-or-second ;
 : lf-lv-child-ref ( ref part -- ref' true | false )
   swap lf-lv-parts if rot lf-lv-part-of true else drop false then ;
 : lf-lv-both ( a out part -- a' out' true | false )

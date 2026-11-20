@@ -106,6 +106,9 @@ T{ 1 tallies cell-tally 1 tallies cell-tally 2 tallies cell-tally -> }T
 T{ 0 tallies cell-at@ 1 tallies cell-at@ 2 tallies cell-at@ -> 0 7 1 }T
 \ first-nonzero (reuse-d): the first of two that is not zero, else zero.
 T{ 3 4 first-nonzero 0 4 first-nonzero -2 0 first-nonzero 0 0 first-nonzero -> 3 4 -2 0 }T
+\ first-or-second (cleanup-families-1): x1 for place 1, x2 for any other.
+T{ 3 4 1 first-or-second 3 4 2 first-or-second 3 4 0 first-or-second 3 4 -1 first-or-second
+   -> 3 4 4 4 }T
 \ epoch+ (reuse-d; was store.fs's and slab.fs's): one step on, max-n
 \ saturates to -1, and a negative generation stays.
 T{ 0 epoch+ 41 epoch+ max-n 1- epoch+ max-n epoch+ -1 epoch+ -7 epoch+ -> 1 42 max-n -1 -1 -7 }T

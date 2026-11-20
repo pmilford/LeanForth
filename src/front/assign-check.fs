@@ -133,7 +133,7 @@ end-structure
 : ac-fvar-args? ( node -- flag )
   true swap begin dup lf-term-app? while dup lf-term-second@ lf-meta-fvar? rot and swap
   lf-term-first@ repeat drop ;
-: lf-meta-delayed? ( mvar -- flag ) lf-mvar-delayed dup if nip nip nip then ;
+: lf-meta-delayed? ( mvar -- flag ) lf-mvar-delayed? ;
 : ac-mvar-spine? ( node -- flag )
   ac-approx? 0= if drop false exit then
   dup lf-meta-head dup lf-mvar?

@@ -8766,7 +8766,7 @@ reason = "rvS12 L2: a full heap in lf-mls-prepare leaves two cells (an index and
 [[fault]]
 id = "s4-mls-closed-always"
 file = "src/kernel/mixed-level-substitute.fs"
-old = ''': lf-mls-closed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else false then ;'''
+old = ''': lf-mls-closed? ( node -- flag ) lf-term-no-params? ;'''
 new = ''': lf-mls-closed? ( node -- flag ) drop true ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
 reason = "S4: universe substitution skips every term, parameters or not"
@@ -12295,9 +12295,9 @@ reason = "a scan that stops at a loose variable answers closed: zeta puts an ope
 
 [[fault]]
 id = "cov2-mls-no-data-closed"
-file = "src/kernel/mixed-level-substitute.fs"
-old = ''': lf-mls-closed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else false then ;'''
-new = ''': lf-mls-closed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else true then ;'''
+file = "src/core/terms.fs"
+old = '''  lf-term-data@ if lf-data-params? 0= else false then ;'''
+new = '''  lf-term-data@ if lf-data-params? 0= else true then ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
 reason = "a term without a data word is taken as having no universe parameter: its levels are never substituted"
 quick = true
@@ -20936,3 +20936,29 @@ old = '''  rot if slab-restore else nip slab-forget outcome-ok then ;'''
 new = '''  rot drop slab-restore ;'''
 test = "$GFORTH tests/lib/slab.fs"
 reason = "fix-batch-3: a committed save puts its copy back, undoing the attempt that succeeded"
+
+# --- cleanup-families-1 (plan 9.4.8l): words extracted from exact groups ------
+
+[[fault]]
+id = "cf-mvar-delayed-never"
+file = "src/front/mvars.fs"
+old = ''': lf-mvar-delayed? ( mvar -- flag ) lf-mvar-delayed dup if nip nip nip then ;'''
+new = ''': lf-mvar-delayed? ( mvar -- flag ) lf-mvar-delayed dup if nip nip nip then drop false ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "cleanup-families-1 (group 59e7): a delayed-assigned metavariable reads as not delayed, so whnf and the assignment check treat it as a plain one"
+
+[[fault]]
+id = "cf-made-term-full-ok"
+file = "src/core/generation-handles.fs"
+old = '''  if drop outcome-ok else -1 outcome-full then ;'''
+new = '''  if drop outcome-ok else -1 outcome-ok then ;'''
+test = "$GFORTH tests/core/generation-handles.fs"
+reason = "cleanup-families-1 (group d6a4): a maker out of room gives -1 with ok, a term that is no node"
+
+[[fault]]
+id = "cf-first-or-second-swapped"
+file = "src/lib/bounds.fs"
+old = ''': first-or-second ( x1 x2 n -- x ) 1 = if drop else nip then ;'''
+new = ''': first-or-second ( x1 x2 n -- x ) 1 = if nip else drop then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-1 (group 0021): place 1 gives the second value, so the log view's part and the kernel's level choice take the other one"

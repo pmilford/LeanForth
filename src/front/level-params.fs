@@ -103,7 +103,7 @@ end-structure
 \ The term walk: a node's children are its parts, unless its data word
 \ shows no parameter.
 : lp-refuse ( outcome -- ) lp-state lp-dw dw-refuse ;
-: lp-fixed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else false then ;
+: lp-fixed? ( node -- flag ) lf-term-no-params? ;
 : lp-pending ( node walk -- child true | false )
   over dup lp-fixed? swap lf-term-binary? 0= or
   if 2drop false else dw-want-parts then ;
