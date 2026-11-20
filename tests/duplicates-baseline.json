@@ -189,7 +189,7 @@
    "src/front/tactic-syntax.fs:lft-w-bar",
    "src/front/tactic-syntax.fs:lft-w-by-end"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 7
  },
  "20086de961a5": {
@@ -219,7 +219,7 @@
    "src/front/mvars.fs:mv-own?",
    "src/front/mvars.fs:mvl-own?"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 14
  },
  "26354411e11f": {
@@ -229,7 +229,7 @@
    "src/front/whnf.fs:wc-matcher",
    "src/front/whnf.fs:wc-smatch-sizes"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: whnfCore's matcher step (wc-matcher) and the smart path's (wc-smatch-sizes) differ only in their answer for a partial application (wc-done, wc-sm-none) and their kind step (wc-match-kind, wc-smatch-kind); one word would take both as execution tokens, two EXECUTEs on every matcher reduction, whnf's hot path, to save one line, so the S2 merge B plan of 9.4.8k is dropped (the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 18
  },
  "26dd46e981f2": {
@@ -239,7 +239,7 @@
    "src/front/synth.fs:sy-wake-all",
    "src/front/synth.fs:sy-queue"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 7
  },
  "28f41f13b2d8": {
@@ -352,7 +352,7 @@
    "src/front/tactic-run.fs:lfr-must",
    "src/front/tactic-run.fs:lfr-meta-must"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 8
  },
  "33be8e78b50f": {
@@ -372,7 +372,7 @@
    "src/front/discr-keys.fs:dk-fvar",
    "src/front/discr-keys.fs:dk-const-plain"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 6
  },
  "3654229402ff": {
@@ -527,7 +527,7 @@
    "src/front/prop-quick.fs:pq-prop-leaf",
    "src/front/prop-quick.fs:pq-proof-leaf"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 14
  },
  "4ade1c7c68a9": {
@@ -558,7 +558,7 @@
    "src/front/constructions.fs:index-binder",
    "src/front/constructions.fs:minor-binder"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 9
  },
  "4c392c9044b8": {
@@ -589,7 +589,7 @@
    "src/front/level-simp.fs:lm-simp-max",
    "src/front/level-simp.fs:lm-simp-imax"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 12
  },
  "526a341cbecf": {
@@ -650,7 +650,7 @@
    "src/front/infer.fs:if-telescope",
    "src/front/infer.fs:if-pi-telescope"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 17
  },
  "5861f8e38f7b": {
@@ -721,7 +721,7 @@
    "src/front/instances.fs:lf-inst-candidates",
    "src/front/instances.fs:lf-default-instances"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 9
  },
  "6148e1238e9e": {
@@ -862,7 +862,7 @@
    "src/front/whnf.fs:wc-app",
    "src/front/whnf.fs:wc-smatch"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: wc-app and wc-smatch read an application's spine and then step from its head, each with its own step (wc-head-step, wc-smatch-head); a spine-then word would take the step as an execution token, an EXECUTE on every application whnf meets, its hottest path, to save three tokens, so the S2 merge B plan of 9.4.8k is dropped (the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 9
  },
  "73a7638b224b": {
@@ -872,7 +872,7 @@
    "src/front/mvars.fs:lf-mvar-assign",
    "src/front/mvars.fs:lf-level-mvar-assign"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 11
  },
  "74e0a562ad5c": {
@@ -894,7 +894,7 @@
    "src/front/elab-data.fs:ed-foreign-part",
    "src/front/elab-data.fs:ed-key-item"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 7
  },
  "7668d3dc0215": {
@@ -916,7 +916,7 @@
    "src/front/defeq.fs:de-args-rest-k",
    "src/front/defeq.fs:de-args-post-k"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 9
  },
  "7d12b0ba6d53": {
@@ -1010,7 +1010,7 @@
    "src/front/constructions.fs:aux-same?",
    "src/front/constructions.fs:aux-alike?"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 17
  },
  "88f478e20e33": {
@@ -1058,7 +1058,7 @@
    "src/front/mvars.fs:mvl-leaf-build",
    "src/front/mvars.fs:mv-leaf-build"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 9
  },
  "8bdc1df0007e": {
@@ -1236,7 +1236,7 @@
    "src/front/constructions.fs:type-alike?",
    "src/front/constructions.fs:value-alike?"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 6
  },
  "9dffbd6cddfc": {
@@ -1308,7 +1308,7 @@
    "src/front/expr-remap.fs:remap-app-second",
    "src/front/expr-remap.fs:remap-let-second"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 13
  },
  "a72de3b1764b": {
@@ -1500,7 +1500,7 @@
    "src/front/constructions.fs:apply-var",
    "src/front/constructions.fs:apply-proj"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 10
  },
  "c4a25193753b": {
@@ -1676,7 +1676,7 @@
    "src/front/prop-quick.fs:pq-head-arrow",
    "src/front/prop-quick.fs:pq-proof-arrow"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 9
  },
  "d5a43d664104": {
@@ -1769,7 +1769,7 @@
    "src/front/synth.fs:sy-expr-mvar?",
    "src/front/synth.fs:sy-deep-mvar?"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 6
  },
  "e60a6daee8de": {
@@ -1779,7 +1779,7 @@
    "src/front/defeq.fs:de-ckpt-assign",
    "src/front/defeq.fs:de-solve-entry"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 8
  },
  "e651e4bd5109": {
@@ -1851,7 +1851,7 @@
    "src/front/defeq.fs:de-abort",
    "src/front/defeq.fs:de-return"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 10
  },
  "ef642eccc390": {
@@ -1926,7 +1926,7 @@
    "src/front/constructions.fs:recon-body",
    "src/front/constructions.fs:cases-value"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 6
  },
  "fd7de67d1368": {
@@ -1937,7 +1937,7 @@
    "src/front/defeq.fs:de-es-k2",
    "src/front/defeq.fs:de-es-k1"
   ],
-  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3, plan 9.4.8l)",
+  "reason": "accepted: words of one file that differ in the steps, fields or continuations they call (a parallel store, a second test, the next state); one shared word would take those as execution tokens and be as long as each copy (cleanup-families-3; the clean-up's rule of 2026-11-19, plan 9.4.8l: a family stays as copies when a shared word would be as long as each copy or would cost an EXECUTE on a hot path)",
   "tokens": 8
  },
  "fe132db8322b": {
