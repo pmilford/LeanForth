@@ -22,8 +22,11 @@ and what the run stands for ("covers"): every target make built for its goals (m
 for make coverage-check also the coverage ratchet of every file, and make test's targets
 except those of the Makefile's COVERAGE_ENGINE_DIFFERS, whose Gforth changes under
 coverage; for make coverage-focus the ratchet of COVERAGE_FILES and its targets so; for
-make mutants each fault it ran (FAULTS, else all). A goal given any other variable stands
-only for that exact command. Make options other than -s and --no-print-directory (-n,
+make cover-changed (the branch coverage check of make tier, owner 2026-11-19) that check
+from the merge base of BASE (default main) and HEAD, one item per merge base, which no
+digest stands for: a record of this tree, or of an earlier commit whose change since is
+documentation only, is reused; for make mutants each fault it ran (FAULTS, else all). A
+goal given any other variable stands only for that exact command. Make options other than -s and --no-print-directory (-n,
 -k, -i ...) are refused.
 
 record runs the command and writes a record only when it exited 0 and the tree was the
@@ -36,7 +39,8 @@ Gforth and Lean and a cache mode at least as strong (0 or verify stand for 1, ve
 for, and prints them; else 1. Records of HEAD's tree count whole. A record of an earlier
 commit of HEAD's history counts for what the change since that commit cannot reach: the
 change gets scripts/test-tier.py's tier, and the record loses that tier's targets and
-faults (and all coverage, when the tier asks for coverage); a full tier leaves it nothing.
+faults (and all coverage, unless the change is documentation only); a full tier leaves it
+nothing.
 So a documentation commit after a tested merge needs only make check-docs and the targets
 that read its pages. once is lookup, then record of what is still missing (only the
 targets of make check or the faults that hold it; the whole command when coverage is
@@ -106,6 +110,8 @@ NARROWING = {"FAULTS", "COVERAGE_FILES", "COVERAGE_TARGETS"}  # a run with them 
 MAKE_OPTIONS = {"-s", "--silent", "--no-print-directory"}
 STRONGER = {"1": {"1", "0", "verify"}, "0": {"0", "verify"}, "verify": {"verify"}}
 COVERAGE_ALL = "coverage:all"
+# The branch coverage check (make cover-changed BASE=...; owner, 2026-11-19): one item per merge base.
+COVERAGE_CHANGED = "coverage-changed:"
 VARIABLE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$", re.DOTALL)
 
 
@@ -266,7 +272,7 @@ class Make:
         Inputs), or None when it cannot be known: then only a record of this tree, or of an
         earlier commit whose change since cannot reach it, stands for the item."""
         if any(k not in NEUTRAL for k in variables) or item in (COVERAGE_ALL, "coverage-check", "coverage-focus",
-                                                                "mutants"):
+                                                                "mutants") or item.startswith(COVERAGE_CHANGED):
             return None
         self.inputs = self.inputs or test_tier.Inputs()
         if item.startswith("fault:"):
@@ -288,8 +294,8 @@ class Make:
     def since(self, commit):
         """(what the change from COMMIT to HEAD reaches, its tier), or (None, tier) when it
         reaches everything (the full tier) or COMMIT is no ancestor of HEAD. What it reaches:
-        the targets of its tier, its faults, and every coverage item ("coverage") when the
-        tier asks for coverage."""
+        the targets of its tier, its faults, and every coverage item ("coverage") unless the
+        change is documentation only (test_tier.reaches_coverage)."""
         if commit not in self.deltas:
             if not self.ancestor(commit):
                 self.deltas[commit] = (None, "not an ancestor")
@@ -299,13 +305,15 @@ class Make:
                 reached = None
                 if result["tier"] != "full":
                     reached = self.built(result["targets"]) | {"fault:" + f for f in result["faults"]}
-                    reached |= {"coverage"} if result["coverage"] else set()
+                    reached |= {"coverage"} if test_tier.reaches_coverage(result) else set()
                 self.deltas[commit] = (reached, result["tier"])
         return self.deltas[commit]
 
     def covers(self, goals, variables):
         """Everything a pass of make GOALS VARIABLES stands for."""
         extra = {k: v for k, v in variables.items() if k not in NEUTRAL}
+        if goals == ["cover-changed"] and set(extra) <= {"BASE"}:
+            return {COVERAGE_CHANGED + merge_base_of(variables.get("BASE", "main"))}
         if extra:
             return {f"{g} {json.dumps(extra, sort_keys=True)}" for g in goals}
         out = set()
@@ -329,6 +337,13 @@ class Make:
 
 def all_faults():
     return list(test_tier.fault_list())
+
+
+def merge_base_of(base):
+    """The merge base of BASE and HEAD (the commit make cover-changed BASE=... measures from), or
+    BASE itself when git cannot find one (the run then fails, and nothing is recorded)."""
+    run = subprocess.run(["git", "merge-base", base, "HEAD"], capture_output=True, text=True)
+    return run.stdout.strip() if run.returncode == 0 and run.stdout.strip() else base
 
 
 # --- records --------------------------------------------------------------------------
@@ -711,6 +726,9 @@ def run_tier(args):
         lines.append(f"not run (tier {result['tier']} does not reach them): {', '.join(skipped)}")
     lines.append("not run in a tier (make daily runs them): make coverage-check of every file, "
                  "make test-unit on Gforth 0.7.3, make parallel-init")
+    if not result["coverage"]:
+        lines.append("branch coverage check (make cover-changed): not needed, no Forth file of src/ "
+                     "added or modified")
     if not args.no_progress:
         code = subprocess.run([sys.executable, os.path.join(HERE, "check-progress.py"), args.base]).returncode
         lines.append(f"progress check exit {code}")

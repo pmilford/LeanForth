@@ -6,6 +6,7 @@ Usage (from the repository root):
                               [--keep DIR] [--save-full PATH] [--check [--only FILE]... |
                               --update-baseline [--reason TEXT]] [-- COMMAND ...]
   python3 scripts/coverage.py --file FILE [--tests "TEST..."] [--all-tests] [--jobs N]
+  python3 scripts/coverage.py --changed [BASE] [--jobs N]
   python3 scripts/coverage.py --set-baseline FILE --blocks N [--total M] [--reason TEXT]
   python3 scripts/coverage.py --drop-baseline FILE
   python3 scripts/coverage.py --debt
@@ -41,13 +42,12 @@ baseline lacks has any never-run block. --update-baseline rewrites the baseline
 from this measurement; a new file with never-run blocks needs --reason TEXT, kept
 in the baseline, and the other files keep their reasons.
 
---only FILE (repeatable; make coverage-focus) limits --check to those files,
-for the change tiers (plan 9.4.6; scripts/test-tier.py): COMMAND is then
-every target of make test that loads or runs FILE (unit and end-to-end, as
-the input finder of the per-target reuse finds them), so FILE's counts are
-those of the whole make test. A FILE no run loaded is noted, not failed (make
-daily's full run measures it), and the checks of the run counts against the
-baseline's, which assume all of make test, are left out.
+--only FILE (repeatable; make coverage-focus) limits --check to those files: run
+by hand with COMMAND every target of make test that loads or runs FILE (unit and
+end-to-end), FILE's counts are those of the whole make test. A FILE no run loaded
+is noted, not failed (make daily's full run measures it), and the checks of the run
+counts against the baseline's, which assume all of make test, are left out. No
+change tier runs it since 2026-11-19 (owner): they run --changed instead.
 
 --per-target FILE writes, for each file, each make target's compiled and run
 blocks (JSON): a focused run of any set of targets can then be computed from
@@ -65,22 +65,41 @@ run of all of make test, for --file to compare with. The command must pass: a
 failure is reported and the exit status is 1. Needs Gforth 1.0 (Gforth 0.7.3
 has no coverage.fs) and the files under scripts/.
 
-Paying coverage debt (make cover, make cover-debt; TESTING_STRATEGY.md "Paying
-coverage debt"):
+Which unit tests (make cover and --changed; TESTING_STRATEGY.md "Paying coverage debt"):
+the Forth unit test files that load FILE are the Forth files under tests/ that the recipes
+of make test's unit targets name (make -n; tests/test-classes.txt) whose require closure
+holds FILE, directly or through src/main.fs or any other chain. When there are more than
+NARROW_ABOVE (8) of them, the narrowed set runs first: those that name a word FILE defines
+and those of FILE's module folders (tests/TOP directly for src/TOP/..., and all of
+tests/DIR/STEM/ for src/DIR/STEM.fs, a plug-in's own tests); when a block it asks about is
+left never run, every other one that loads FILE runs too before the report (so a test that
+reaches FILE only through text, a .lf file or a name built at run time, still counts).
+--tests names the tests instead (no widening), --all-tests runs them all at once. Each
+test file runs on its own under the counting wrapper, --jobs at a time (default JOBS or 4).
 
---file FILE (make cover FILE=...) runs only Forth unit test files under the
-counting wrapper, in seconds, and prints FILE's blocks, its never-run blocks
-now, the baseline's count and reason, and each never-run block: its lines,
-the word it is in, its source text, whether the baseline's reason names one
-of its lines, and whether the last saved full run (--save-full) left it
-never run too. The tests are --tests (paths, space-separated), else the
-Forth test files that the unit targets of make test which load FILE
-(scripts/test-tier.py's Reach.loaders and tests/test-classes.txt) name in
-their recipes and whose require closure holds FILE, narrowed to those that
-name a word FILE defines (--all-tests keeps them all). A unit-test-only run
-can show more never-run blocks than the ratchet, whose count is over all of
-make test (end-to-end targets run code too). Exit 0 when the count is not
-above the baseline's, 1 when it is or a test failed, 2 when no test loads FILE.
+Paying coverage debt (make cover, make cover-debt): --file FILE (make cover FILE=...) runs
+FILE's unit tests so, in seconds, and prints FILE's blocks, its never-run blocks now, the
+baseline's count and reason, and each never-run block: its lines, the word it is in, its
+source text, whether the baseline's reason names one of its lines, and whether the last
+saved full run (--save-full) left it never run too. A unit-test-only run can show more
+never-run blocks than the ratchet, whose count is over all of make test (end-to-end targets
+run code too). Exit 0 when the count is not above the baseline's, 1 when it is or a test
+failed, 2 when no test loads FILE.
+
+The branch coverage check (make cover-changed [BASE=...]; owner, 2026-11-19,
+OWNER_DECISIONS.md "Coverage in the branch in seconds, the whole-suite ratchet at night";
+make tier and scripts/push.sh run it, make daily the whole-suite ratchet): --changed [BASE]
+finds the merge base of BASE (default main) and HEAD, and the Forth files of src/ added or
+modified since (committed, uncommitted, new; deleted ones skipped), and for each the lines
+the branch added or changed: those of each hunk of git diff -U0 whose code differs, comment
+and blank lines left out (a hunk that edits only comments or white space changes no code). A
+file that defines no word, or whose changes are all comments, needs no run. The others' unit
+tests run as above (each test file once for all of them, widening for a file with a
+never-run block on a changed line), and every never-run block on a changed line is printed
+as file:line: word: source text. Exit 1 when there is one, when a touched file has no unit
+test that loads it, or when a test fails; 0 otherwise. The one exception: a block whose line
+the file's baseline entry names in a reason that starts with "unreachable:" (code no input
+can reach) is printed as accepted. The output is in a fixed order; the time goes to stderr.
 
 --set-baseline FILE --blocks N changes FILE's entry of the baseline alone,
 without a run: lowering needs nothing; raising needs --reason; a new entry
@@ -290,11 +309,11 @@ def ratchet(files, baseline):
 DEFINITION = re.compile(r"(?m)^[ \t]*:(noname)?[ \t\n]|[ \t]:noname[ \t\n]")
 
 
-def compiles_blocks(name):
+def compiles_blocks(name, root=ROOT):
     """Whether source NAME defines a word, so that a run that loads it counts blocks: a load
     list such as src/main.fs (requires only) has none and is never in the counts."""
     try:
-        return bool(DEFINITION.search((ROOT / name).read_text(encoding="utf-8", errors="replace")))
+        return bool(DEFINITION.search((Path(root) / name).read_text(encoding="utf-8", errors="replace")))
     except OSError:
         return True
 
@@ -475,14 +494,20 @@ def load_full(path):
         return None
 
 
+_scripts = {}
+
+
 def load_script(name, root=ROOT):
-    """A script of scripts/ as a module (their names have hyphens)."""
-    if str(root / "scripts") not in sys.path:
-        sys.path.insert(0, str(root / "scripts"))
-    spec = importlib.util.spec_from_file_location(name.replace("-", "_")[:-3], root / "scripts" / name)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    """A script of scripts/ as a module (their names have hyphens), loaded once."""
+    key = (str(root), name)
+    if key not in _scripts:
+        if str(root / "scripts") not in sys.path:
+            sys.path.insert(0, str(root / "scripts"))
+        spec = importlib.util.spec_from_file_location(name.replace("-", "_")[:-3], root / "scripts" / name)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _scripts[key] = module
+    return _scripts[key]
 
 
 def forth_words(text):
@@ -490,22 +515,26 @@ def forth_words(text):
     return load_script("check-duplicates.py").definitions_of_text(text)[1]
 
 
-def unit_tests_for(path):
-    """The Forth test files the change tiers run for PATH that are unit tests: the files under
-    tests/ named by the recipes of the unit targets of make test (tests/test-classes.txt) that
-    load PATH (scripts/test-tier.py's Reach.loaders), whose require closure holds PATH."""
-    tier = load_script("test-tier.py")
-    reach = tier.Reach(tier.make_database("check")[0])
-    e2e = tier.end_to_end()
-    found = set()
-    for target in reach.loaders(path):
-        if target in e2e:
-            continue
-        for name in tier.changed_tests.named_files(reach.text[target]):
-            if name.startswith("tests/") and name.endswith(".fs") and \
-                    path in tier.forth_closure([name], tier.read_worktree):
-                found.add(name)
-    return sorted(found)
+class UnitTests:
+    """The Forth unit test files of make test and what each loads (make cover, --changed): the
+    Forth files under tests/ that the recipes of make test's unit targets name (make -n;
+    tests/test-classes.txt classes the targets), each with its require closure through
+    src/main.fs or any other chain (scripts/test-tier.py's forth_closure), in the working tree.
+    Built from the repository's root, in about a second."""
+
+    def __init__(self, tier):
+        e2e = tier.end_to_end()
+        targets = [u for u in tier.units(tier.make_database("check")[0])[1] if u not in e2e]
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            texts = list(pool.map(tier.changed_tests.recipe, targets))
+        self.files = sorted({name for text in texts for name in tier.changed_tests.named_files(text)
+                             if name.startswith("tests/") and name.endswith(".fs")})
+        loads = {}
+        self.closure = {name: tier.forth_closure([name], tier.read_worktree, loads) for name in self.files}
+
+    def loading(self, path):
+        """The unit test files whose require closure holds PATH, sorted."""
+        return [name for name in self.files if path in self.closure[name]]
 
 
 def naming_tests(path, tests, root=ROOT):
@@ -522,19 +551,72 @@ def naming_tests(path, tests, root=ROOT):
     return chosen
 
 
-def run_tests(tests, gforth, directory, root=ROOT, jobs=4, timeout=1800):
-    """{test: exit status} of each Forth test file run under the counting wrapper in ROOT."""
-    env = {k: v for k, v in os.environ.items() if k not in MAKE_VARIABLES + ("LF_MAKE_TARGET",)}
-    env.update(LF_COVERAGE_GFORTH=gforth, LF_COVERAGE_DIR=str(directory))
+# The selection rule (make cover, --changed): a file that more unit test files load than this
+# first runs the narrowed set (narrowed_tests), and the rest only when blocks are left never run.
+NARROW_ABOVE = 8
 
-    def one(test):
+
+def module_folders(path):
+    """(the module's test folder or None, the file's own test folder) of a source file of src/:
+    tests/TOP for src/TOP/... (its test files directly in it: tests/front for src/front/x.fs and
+    src/front/tactics/case.fs), and tests/DIR/STEM/ for src/DIR/STEM.fs (all of it: a plug-in's
+    own tests, tests/front/tactics/case/ for src/front/tactics/case.fs)."""
+    parts = Path(path).with_suffix("").parts[1:]
+    return (f"tests/{parts[0]}" if len(parts) > 1 else None), "tests/" + "/".join(parts) + "/"
+
+
+def narrowed_tests(path, every, root=ROOT):
+    """The tests to run first of EVERY (the unit test files that load PATH): all of them when they
+    are NARROW_ABOVE or fewer; else those that name a word PATH defines and those of its module
+    folders (module_folders), or all when none is either. The caller runs the rest of EVERY when
+    a block it asks about is left never run, so a test that reaches PATH only through text (a .lf
+    file, a name built at run time) is still found."""
+    if len(every) <= NARROW_ABOVE:
+        return list(every)
+    top, own = module_folders(path)
+    chosen = set(naming_tests(path, every, root))
+    chosen |= {t for t in every if os.path.dirname(t) == top or t.startswith(own)}
+    return sorted(chosen) or list(every)
+
+
+Run = collections.namedtuple("Run", "status counted empty blocks")
+
+
+def run_each(tests, gforth, wanted, root=ROOT, jobs=4, timeout=1800):
+    """{test: Run(exit status, Gforth runs with counts, runs without, {(file, line, column): count}
+    of the files WANTED)} of each Forth test file run on its own under the counting wrapper in
+    ROOT, JOBS at a time (each run is a wrapper, the strict wrapper and Gforth: three processes)."""
+    env = {k: v for k, v in os.environ.items() if k not in MAKE_VARIABLES + ("LF_MAKE_TARGET",)}
+    env.update(LF_COVERAGE_GFORTH=gforth)
+    directory = Path(tempfile.mkdtemp(prefix="leanforth-cover-"))
+
+    def one(numbered):
+        number, test = numbered
+        own = directory / str(number)
+        own.mkdir()
         try:
-            return subprocess.run([str(WRAPPER), test], cwd=root, env=env, stdin=subprocess.DEVNULL,
-                                  capture_output=True, timeout=timeout).returncode
+            status = subprocess.run([str(WRAPPER), test], cwd=root, env=dict(env, LF_COVERAGE_DIR=str(own)),
+                                    stdin=subprocess.DEVNULL, capture_output=True, timeout=timeout).returncode
         except subprocess.TimeoutExpired:
-            return "timeout"
-    with ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
-        return dict(zip(tests, pool.map(one, tests)))
+            status = "timeout"
+        blocks, counted, empty = read_runs(own, root=root)
+        shutil.rmtree(own, ignore_errors=True)
+        return Run(status, counted, empty, {b: c for b, c in blocks.items() if b[0] in wanted})
+    try:
+        with ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
+            return dict(zip(tests, pool.map(one, enumerate(tests))))
+    finally:
+        shutil.rmtree(directory, ignore_errors=True)
+
+
+def joined(runs, path):
+    """{(line, column): count} of PATH's blocks summed over RUNS (run_each's)."""
+    total = {}
+    for run in runs.values():
+        for (name, line, column), count in run.blocks.items():
+            if name == path:
+                total[(line, column)] = total.get((line, column), 0) + count
+    return total
 
 
 def reason_lines(reason):
@@ -563,20 +645,28 @@ def full_run_marks(name, text, never, about, saved):
     return marks
 
 
-def cover(path, tests, gforth, root=ROOT, jobs=4, baseline=None, saved=None, chosen_how=""):
-    """Run TESTS under coverage and report PATH's never-run blocks: (exit status, report lines)."""
+def cover(path, tests, gforth, root=ROOT, jobs=4, baseline=None, saved=None, chosen_how="", wider=()):
+    """Run TESTS under coverage and report PATH's never-run blocks: (exit status, report lines).
+    When blocks are left never run (or none was loaded) and WIDER names more tests (the rest of the
+    unit test files that load PATH), those run too before the report."""
     started = time.time()
-    directory = Path(tempfile.mkdtemp(prefix="leanforth-cover-"))
-    try:
-        statuses = run_tests(tests, gforth, directory, root, jobs)
-        blocks, counted, empty = read_runs(directory, root=root)
-    finally:
-        shutil.rmtree(directory, ignore_errors=True)
+    runs = run_each(list(tests), gforth, {path}, root, jobs)
+    mine = joined(runs, path)
+    rest = [t for t in wider if t not in runs]
+    if rest and (not mine or 0 in mine.values()):
+        runs.update(run_each(rest, gforth, {path}, root, jobs))
+        mine = joined(runs, path)
+    else:
+        rest = []
     seconds = time.time() - started
-    lines = [f"cover {path}: {len(tests)} unit test file(s) in {seconds:.1f} s "
+    counted, empty = sum(r.counted for r in runs.values()), sum(r.empty for r in runs.values())
+    lines = [f"cover {path}: {len(runs)} unit test file(s) in {seconds:.1f} s "
              f"({counted} Gforth runs with counts, {empty} without){chosen_how}"]
-    lines += [f"  test: {t}" + ("" if statuses[t] == 0 else f"  FAILED (exit {statuses[t]})") for t in tests]
-    mine = {(line, column): count for (name, line, column), count in blocks.items() if name == path}
+    if rest:
+        lines.append(f"  widened: blocks were left never run, so the other {len(rest)} unit test files "
+                     "that load it ran too")
+    statuses = {t: r.status for t, r in runs.items()}
+    lines += [f"  test: {t}" + ("" if statuses[t] == 0 else f"  FAILED (exit {statuses[t]})") for t in runs]
     entry = ((baseline or {}).get("files") or {}).get(path)
     allowed = entry["never_run"] if entry else 0
     if not mine:
@@ -608,7 +698,7 @@ def cover(path, tests, gforth, root=ROOT, jobs=4, baseline=None, saved=None, cho
             notes.append(marks[place])
         lines.append(f"  {path}:{span}:{place[1]} in {word or '(no definition)'}: {words}")
         lines.append(f"      [{'; '.join(notes)}]")
-    failed = [t for t in tests if statuses[t] != 0]
+    failed = [t for t in runs if statuses[t] != 0]
     if failed:
         lines.append(f"FAILED: {len(failed)} test file(s) failed: {' '.join(failed)}")
         return 1, lines
@@ -617,6 +707,187 @@ def cover(path, tests, gforth, root=ROOT, jobs=4, baseline=None, saved=None, cho
                      "(the full ratchet may still pass: see the note above)")
         return 1, lines
     lines.append(f"not above the baseline: {len(never)} never-run blocks, the baseline allows {allowed}")
+    return 0, lines
+
+
+# --- the branch coverage check (owner, 2026-11-19): make cover-changed --------------------------
+
+UNREACHABLE = "unreachable:"
+
+
+def git_text(root, *args):
+    """git's output in ROOT; a failed git command raises Refused with its message."""
+    run = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
+    if run.returncode != 0:
+        raise Refused(f"git {' '.join(args)}: {run.stderr.strip()}")
+    return run.stdout
+
+
+def touched_sources(base, root=ROOT):
+    """([path], {untracked path}): the Forth files of src/ added or modified since commit BASE, in
+    the working tree (committed, uncommitted and new untracked files); a deleted file has no line
+    to run, and a rename counts as its new file, all of it added."""
+    found = {}
+    for line in git_text(root, "diff", "--name-status", "--no-renames", base, "--", "src").splitlines():
+        status, path = line.split("\t", 1)
+        found[path] = status[0]
+    untracked = set(git_text(root, "ls-files", "--others", "--exclude-standard", "--", "src").splitlines())
+    for path in untracked:
+        found.setdefault(path, "A")
+    return sorted(p for p, s in found.items() if s != "D" and p.endswith(".fs")), untracked
+
+
+def diff_hunks(diff):
+    """[(first, last, removed text, added text)] of the hunks of a `git diff -U0` text of one file:
+    the lines of the new file each hunk adds or changes (none for a pure deletion: last < first)
+    and the text it removes and adds (the hunk header as scripts/test-tier.py's HUNK reads it)."""
+    head, hunks = load_script("test-tier.py").HUNK, []
+    for line in diff.splitlines():
+        found = head.match(line)
+        if found:
+            first = int(found[1])
+            hunks.append((first, first + int(found[2] or "1") - 1, [], []))
+        elif hunks and line[:1] in ("-", "+"):
+            hunks[-1][2 if line[0] == "-" else 3].append(line[1:])
+    return [(first, last, "\n".join(old), "\n".join(new)) for first, last, old, new in hunks]
+
+
+def code_of(text):
+    """Forth TEXT's code: comments left out (blank_comments), white space collapsed."""
+    return " ".join(blank_comments(text).split())
+
+
+def changed_code_lines(path, text, base, untracked, root=ROOT):
+    """The lines of PATH (TEXT, its working-tree text) that the branch added or changed since BASE
+    and that hold code: the lines of each hunk of `git diff -U0` whose code differs (a hunk that
+    only edits comments or white space, an indentation or a stack comment, is no change), every
+    line of an untracked file; a line that is all comment or blank space never counts."""
+    if path in untracked:
+        lines = range(1, text.count("\n") + 2)
+    else:
+        diff = git_text(root, "diff", "-U0", "--no-renames", base, "--", path)
+        lines = sorted({n for first, last, old, new in diff_hunks(diff) if code_of(old) != code_of(new)
+                        for n in range(first, last + 1)})
+    clean = blank_comments(text).split("\n")
+    return [n for n in lines if n <= len(clean) and clean[n - 1].strip()]
+
+
+def changed_blocks(text, blocks, code):
+    """[((line, column), last line, word, text, count)] of the blocks (BLOCKS, {(line, column):
+    count}) of a source TEXT that hold a line of CODE (changed code lines), in order."""
+    about = describe_blocks(text, blocks)
+    code = set(code)
+    return [(place, *about[place], blocks[place]) for place in sorted(blocks)
+            if any(n in code for n in range(place[0], about[place][0] + 1))]
+
+
+def unreachable_lines(entry):
+    """The lines a baseline entry's reason excuses: those it names when it starts with
+    "unreachable:" (the convention for code no input can reach), else none."""
+    reason = ((entry or {}).get("reason") or "").strip()
+    return reason_lines(reason) if reason.lower().startswith(UNREACHABLE) else set()
+
+
+def changed_plan(files, base, untracked, root=ROOT):
+    """({path: (text, changed code lines)} of the FILES to measure, {path: note} of the others): a
+    file that defines no word compiles no block, and one whose changes are all comments or white
+    space has no changed block."""
+    measure, notes = {}, {}
+    for path in files:
+        text = (Path(root) / path).read_text(encoding="utf-8", errors="replace")
+        code = changed_code_lines(path, text, base, untracked, root)
+        if not compiles_blocks(path, root):
+            notes[path] = "defines no word: it compiles no block"
+        elif not code:
+            notes[path] = "only comments or white space changed: no block to run"
+        else:
+            measure[path] = (text, code)
+    return measure, notes
+
+
+def gaps_of(path, measured, runs):
+    """Whether PATH (MEASURED: its text and changed code lines) has a never-run block on a changed
+    line over RUNS, or no block at all (no run loaded it)."""
+    text, code = measured
+    blocks = joined(runs, path)
+    return not blocks or any(b[4] == 0 for b in changed_blocks(text, blocks, code))
+
+
+def measure_changed(measure, gforth, root=ROOT, jobs=4, units=None):
+    """({path: the unit test files that load it}, {test: Run}) of the files MEASURE names
+    (changed_plan's): each file's narrowed tests run first, each test file once for all of them;
+    then, for each file with a never-run block on a changed line, every other test that loads it."""
+    units = units or UnitTests(load_script("test-tier.py", root))
+    every = {p: units.loading(p) for p in measure}
+    first = sorted({t for p in measure for t in narrowed_tests(p, every[p], root)})
+    runs = run_each(first, gforth, set(measure), root, jobs)
+    widen = [p for p in measure if gaps_of(p, measure[p], runs)]
+    rest = sorted({t for p in widen for t in every[p]} - set(runs))
+    if rest:
+        runs.update(run_each(rest, gforth, set(measure), root, jobs))
+    return every, runs
+
+
+def block_line(path, block):
+    """file:line: word: text of a block of changed_blocks."""
+    (line, _), _, word, words, _ = block
+    return f"{path}:{line}: {word or '(no definition)'}: {words}"
+
+
+def file_verdict(path, measured, loading, runs, entry):
+    """(report lines, a file:line: word: text line for each never-run block on a changed line,
+    failed) of one measured file (MEASURED: its text and changed code lines; LOADING: the unit test
+    files that load it; ENTRY: its baseline entry, whose "unreachable:" reason may excuse a block)."""
+    text, code = measured
+    if not loading:
+        return [f"  {path}: FAILED: no unit test file loads it (no Forth file under tests/ that a unit target "
+                "of make test names requires it): add a unit test"], [], True
+    allowed = unreachable_lines(entry)
+    found = changed_blocks(text, joined(runs, path), code)
+    never = [b for b in found if b[4] == 0]
+    gaps = [b for b in never if not allowed & set(range(b[0][0], b[1] + 1))]
+    verdict = (f"{len(found)} block(s) on them, {len(gaps)} never run" if gaps else
+               f"{len(found)} block(s) on them, every one ran" if found else
+               "no block on them (code outside a definition)")
+    lines = [f"  {path}: {len(code)} changed code line(s), {verdict} "
+             f"({len([t for t in loading if t in runs])} of {len(loading)} unit test files that load it)"]
+    lines += [f"    {block_line(path, b)}  [accepted: the baseline's reason for {path} starts with "
+              f"\"{UNREACHABLE}\" and names line {b[0][0]}]" for b in never if b not in gaps]
+    return lines, [block_line(path, b) for b in gaps], bool(gaps)
+
+
+def check_changed(base, gforth, root=ROOT, jobs=4, baseline=None, units=None):
+    """The branch coverage check (make cover-changed): (exit status, report lines). For each Forth
+    file of src/ added or modified since commit BASE, the unit test files that load it run under
+    coverage (measure_changed), and each never-run block on a line the branch added or changed is
+    reported as file:line: word: text. Such a block passes only when the file's baseline entry
+    has a reason that starts with "unreachable:" and names its line. Exit 1 when a block is
+    reported, a touched file no unit test loads, or a test fails; else 0. UNITS (a UnitTests)
+    saves finding the tests again."""
+    files, untracked = touched_sources(base, root)
+    if not files:
+        return 0, [f"cover-changed: no Forth file of src/ added or modified since {base[:12]}: nothing to check"]
+    measure, notes = changed_plan(files, base, untracked, root)
+    every, runs = measure_changed(measure, gforth, root, jobs, units) if measure else ({}, {})
+    lines = [f"cover-changed: {len(files)} Forth file(s) of src/ added or modified since {base[:12]}"]
+    reported, files_failed = [], 0
+    for path in files:
+        if path in notes:
+            lines.append(f"  {path}: {notes[path]}")
+            continue
+        entry = ((baseline or {}).get("files") or {}).get(path)
+        report, gaps, failed = file_verdict(path, measure[path], every[path], runs, entry)
+        lines += report
+        reported += gaps
+        files_failed += failed
+    failed = sorted(t for t, r in runs.items() if r.status != 0)
+    lines += [f"  test FAILED: {t} (exit {runs[t].status})" for t in failed] + reported
+    if reported or files_failed or failed:
+        lines.append(f"cover-changed: FAILED: {len(reported)} never-run block(s) on changed lines, "
+                     f"{files_failed} file(s) failing, {len(failed)} test file(s) failed; write the tests "
+                     "(make cover FILE=... lists a file's blocks)")
+        return 1, lines
+    lines.append(f"cover-changed: every block on a changed line ran ({len(runs)} unit test file(s) run)")
     return 0, lines
 
 
@@ -707,19 +978,37 @@ def cover_command(args, gforth):
     if not path.startswith("src/") or not (ROOT / path).is_file():
         print(f"--file names a Forth file of src/: {args.file}")
         return 2
+    wider = []
     if args.tests:
         tests, how = args.tests.split(), "; named by --tests"
     else:
-        every = unit_tests_for(path)
-        named = [] if args.all_tests else naming_tests(path, every)
-        tests = named or every
-        how = (f"; of the {len(every)} Forth unit test files whose unit targets load it"
-               + (f", the {len(named)} that name one of its words (--all-tests runs all)" if named else ", all"))
+        every = UnitTests(load_script("test-tier.py")).loading(path)
+        tests = every if args.all_tests else narrowed_tests(path, every)
+        wider = [t for t in every if t not in tests]
+        how = (f"; of the {len(every)} Forth unit test files that load it, "
+               + (f"the {len(tests)} that name one of its words or sit in its module's test folders "
+                  "first (the rest when a block is left never run; --all-tests runs all)" if wider else "all"))
     if not tests:
         print(f"no Forth unit test file loads {path}: name its tests with --tests (make cover TESTS=...)")
         return 2
-    status, lines = cover(path, tests, gforth, ROOT, args.jobs, load_baseline(), load_full(default_save()), how)
+    status, lines = cover(path, tests, gforth, ROOT, args.jobs, load_baseline(), load_full(default_save()), how,
+                          wider)
     print("\n".join(lines))
+    return status
+
+
+def changed_command(args, gforth):
+    """--changed: the branch coverage check against the merge base of BASE and HEAD; the exit status."""
+    try:
+        base = git_text(ROOT, "merge-base", args.changed, "HEAD").strip()
+    except Refused as why:
+        print(f"cover-changed: {why}")
+        return 2
+    started = time.time()
+    status, lines = check_changed(base, gforth, ROOT, args.jobs, load_baseline())
+    print("\n".join(lines), flush=True)
+    print(f"cover-changed: {time.time() - started:.1f} s (merge base of {args.changed} and HEAD: {base[:12]})",
+          file=sys.stderr)
     return status
 
 
@@ -743,6 +1032,9 @@ def main(argv=None):
     parser.add_argument("--file", metavar="FILE", help="one file's never-run blocks over unit tests only")
     parser.add_argument("--tests", help="the Forth test files --file runs (space-separated)")
     parser.add_argument("--all-tests", action="store_true")
+    parser.add_argument("--changed", nargs="?", const="main", metavar="BASE",
+                        help="the branch coverage check of the source files changed since the merge base "
+                             "of BASE (default main) and HEAD")
     parser.add_argument("--jobs", type=int, default=int(os.environ.get("JOBS") or 4))
     parser.add_argument("--set-baseline", metavar="FILE")
     parser.add_argument("--drop-baseline", metavar="FILE")
@@ -765,8 +1057,9 @@ def main(argv=None):
         print(f"make coverage needs Gforth 1.0's coverage.fs; {gforth} cannot load "
               f"{PRELUDE.relative_to(ROOT)}")
         return 2
-    if args.file:
-        return cover_command(args, gforth)
+    if args.file or args.changed:
+        os.chdir(ROOT)   # the test finder (scripts/test-tier.py) works from the root
+        return cover_command(args, gforth) if args.file else changed_command(args, gforth)
     directory = Path(args.keep) if args.keep else Path(tempfile.mkdtemp(prefix="leanforth-cov-"))
     directory.mkdir(parents=True, exist_ok=True)
     try:
