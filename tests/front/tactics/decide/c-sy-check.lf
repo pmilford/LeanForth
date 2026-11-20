@@ -1,0 +1,11 @@
+\ #check of symbol words against all of Init (plan row S3, slice S3a-ops
+\ C2-C4): ∣ is Dvd.dvd applied (by-decide on it is not supported yet,
+\ x-sy-dvd.lf), ^ is rightact% (2 ^ 3 ^ 2 is 2 ^ (3 ^ 2)), and the ASCII
+\ /\ is ∧. tests/front/tactics/decide/check.py --init requires these
+\ lines printed as pinned Lean prints c-sy-check.lean's, exit 0, nothing
+\ checked by the kernel.
+3 12 ∣ #check
+3 12 Dvd.dvd #check
+2 10 ^ #check
+2 3 2 ^ ^ #check
+10 3 - 10 <  17 5 / 3 =  /\ #check

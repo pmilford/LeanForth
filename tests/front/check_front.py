@@ -7,8 +7,9 @@ every nested macro too: `0 + n = n` is `binrel% Eq (binop% HAdd.hAdd 0 n)
 n`); the natural reader builds a syntax tree from the LeanForth spelling
 (tests/front/trees.fs prints it). Both are parsed into the same nested
 form and must be equal, statement for statement: the operator words build
-Lean's macros of Lean's constants, and a name takes its explicit arguments
-in Lean's order. A harness self-test first checks that a wrong tree is
+Lean's macros of Lean's constants (rightact% for ^; the ASCII spellings
+<= >= /\\ the same as ≤ ≥ ∧; slice S3a-ops), a notation name such as ∧ the
+constant applied, and a name takes its explicit arguments in Lean's order. A harness self-test first checks that a wrong tree is
 told apart. Syntax only: nothing is elaborated or checked.
 
 It also checks that pinned Lean, through scripts/export.sh, reproduces the
@@ -49,7 +50,21 @@ CASES = [
     ("Nat.succ n = n + 1", "n Nat.succ n 1 + ="),
     ("n = 0 + (n + 0)", "n 0 n 0 + + ="),
     ("congrArg Nat.succ n = n", "' Nat.succ n congrArg n ="),
+    # Slice S3a-ops C2-C4 (owner, 2026-11-20): Lean's symbols and ASCII spellings as words.
+    ("n - m < n", "n m - n <"),
+    ("n / 2 % 3 = n", "n 2 / 3 % n ="),
+    ("n > m", "n m >"),
+    ("n ≥ m", "n m ≥"),
+    ("n >= m", "n m >="),
+    ("n <= m", "n m <="),
+    ("n ≠ m", "n m ≠"),
+    ("2 ^ 10 = n", "2 10 ^ n ="),
+    ("2 ^ 3 ^ 2 = n", "2 3 2 ^ ^ n ="),
+    ("2 ^ 10 * 3 = n", "2 10 ^ 3 * n ="),
+    ("n = n ∧ m = m", "n n = m m = ∧"),
+    ("n = n /\\ m = m", "n n = m m = /\\"),
 ]
+MACROS = ("binop%", "binrel%", "rightact%")
 
 
 class Failure(Exception):
@@ -63,16 +78,20 @@ def tokens(text):
 
 
 def parse(toks):
-    """binop%/binrel% NAME A B, ( HEAD ARGS... ), ( binop% ... ) or an atom,
-    as nested tuples; the whole line must be one expression."""
+    """binop%/binrel%/rightact% NAME A B, ( HEAD ARGS... ), ( binop% ... ) or an
+    atom, as nested tuples; the whole line must be one expression, or a head and
+    its arguments (an application at the top, as And✝ A B prints)."""
+    if toks and toks[0] not in MACROS and toks[0] != "(" and len(toks) > 1:
+        toks = ["(", *toks, ")"]
+
     def expr(i):
         tok = toks[i]
-        if tok in ("binop%", "binrel%"):
+        if tok in MACROS:
             a, j = expr(i + 2)
             b, k = expr(j)
             return (tok, toks[i + 1], a, b), k
         if tok == "(":
-            if toks[i + 1] in ("binop%", "binrel%"):
+            if toks[i + 1] in MACROS:
                 inner, j = expr(i + 1)
             else:
                 items, j = [], i + 1
@@ -122,7 +141,7 @@ def self_test():
     """The comparison tells a swapped operand and a missing macro apart."""
     good = parse(tokens("binrel% Eq✝ (binop% HAdd.hAdd✝ 0 n) n"))
     for wrong in ("binrel% Eq (binop% HAdd.hAdd n 0) n", "binrel% Eq (HAdd.hAdd 0 n) n",
-                  "binop% Eq (binop% HAdd.hAdd 0 n) n"):
+                  "binop% Eq (binop% HAdd.hAdd 0 n) n", "binrel% Eq (rightact% HAdd.hAdd 0 n) n"):
         if parse(tokens(wrong)) == good:
             raise Failure(f"harness self-test: {wrong} not told apart")
 
@@ -161,7 +180,7 @@ def main():
         print(f"check_front: {error}")
         return 1
     print(f"natural reader: {len(CASES)} statements read as pinned Lean expands them "
-          "(binop%, binrel%, applications); harness self-test passed; "
+          "(binop%, binrel%, rightact%, applications); harness self-test passed; "
           "tests/front/unfold-slice.ndjson reproduced byte for byte")
     return 0
 

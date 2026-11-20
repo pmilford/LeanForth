@@ -50,3 +50,17 @@ defer .t
 : decide-dump ( c-addr u -- )
   [: s" tests/front/decide-slice.ndjson" ;] is dump-lib
   [: s" tests/front/decide-slice.elab.ndjson" ;] is dump-data elab-dump ;
+\ The command line's own check, after src/main.fs, each declaration of
+\ the text printed as it is handed to the kernel (lf-front-closing runs
+\ with the type and value below it; decide's check.py --init, against
+\ Init's snapshot, plan S3a-ops); its exit code:
+\   gforth-fast src/main.fs tests/front/elab-dump.fs -e "cli-dump (bye)" check ...
+\ Only after src/main.fs, which has the command line.
+[defined] cli-line [if]
+variable dump-real
+: dump-handed ( type value -- type value )
+  lfa-this lf-fdecl-name @ dup .nm ."  type " 2 pick .t cr .nm ."  value " dup .t cr ;
+: dump-closing ( type value -- type value ) dump-real @ execute dump-handed ;
+: cli-dump ( -- code )
+  action-of lf-front-closing dump-real ! ['] dump-closing is lf-front-closing cli-line ;
+[then]

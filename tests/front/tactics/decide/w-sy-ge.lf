@@ -1,0 +1,9 @@
+\ A wrong twin with symbol words (plan row S3, slice S3a-ops C5 (Lean's ASCII spelling of ≥);
+\ tests/front/tactics/goal-layer-wrong.lean): decide reduces the statement to
+\ Bool.false (error 250).
+\ Lean: theorem w_sy_ge : 10 >= 11 := by decide
+theorem w_sy_ge
+  10 11 >=
+:= by
+  by-decide
+end w_sy_ge

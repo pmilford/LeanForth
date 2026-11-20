@@ -37,6 +37,13 @@ T{ s" theorem t Prop explicit: p p := p p over end t" fails -> 1 1 37 }T
 \ + is Lean's + (owner, 2026-11-12), a word of natural LeanForth only: in
 \ kernel-form text it is refused at its column (error 58), never Forth's +.
 T{ s" theorem t Prop explicit: p p := p p + end t" fails -> 58 1 37 }T
+\ So are the notation words of slice S3a-ops (words.fs's
+\ lfa-natural-words), their ASCII spellings too, never Forth's - or <=,
+\ and \/ is a word, not the comment word \.
+T{ s" theorem t Prop explicit: p p := p p - end t" fails -> 58 1 37 }T
+T{ s" theorem t Prop explicit: p p := p p <= end t" fails -> 58 1 37 }T
+T{ s" theorem t Prop explicit: p p := p p \/ end t" fails -> 58 1 37 }T
+T{ s" theorem t Prop explicit: p p := p p ∧ end t" fails -> 58 1 37 }T
 T{ s" theorem t Prop explicit: p p := swap p end t" fails -> 1 1 33 }T
 T{ s" : x ; theorem t" fails -> 1 1 1 }T
 T{ s\" theorem t\n  CHAR Prop" fails -> 1 2 3 }T
@@ -650,6 +657,12 @@ T{ 0 lf-author-decl lf-fdecl-type @ forth-text rot rot s" Prop explicit: x x fun
 T{ 0 lf-author-decl lf-fdecl-type @ -1 lf-print-forth-term -> outcome-invalid }T
 T{ 0 lf-author-decl lf-fdecl-type @ 1 lf-print-forth-term -> outcome-exhausted }T
 T{ 99 1000 lf-print-forth-term -> outcome-invalid }T
+\ A constant named like a notation word (slice S3a-ops) is written with
+\ root:, which reads back as that constant, not the word.
+T{ s" axiom ∧ Prop end ∧ def f Prop := root: ∧ end f" run -> outcome-ok }T
+T{ 1 lf-author-decl lf-fdecl-value @ forth-text rot rot s" root: ∧" compare -> outcome-ok 0 }T
+T{ s" axiom <= Prop end <= def f Prop := root: <= end f" run -> outcome-ok }T
+T{ 1 lf-author-decl lf-fdecl-value @ forth-text rot rot s" root: <=" compare -> outcome-ok 0 }T
 \ A term or level of a tag no step writes is invalid (refactor-present
 \ review L3): a metavariable leaf, and a Sort of a metavariable level.
 T{ 0 0 lf-mvar-leaf drop forth-text nip nip -> outcome-invalid }T

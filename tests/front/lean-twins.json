@@ -14,6 +14,12 @@
     "tests/front/01-zero-add.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
     "tests/front/s2-case.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
     "tests/front/04-nested-first.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
-    "tests/front/03-zero-add-exact.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}}
+    "tests/front/03-zero-add-exact.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
+    "tests/front/tactics/decide/dc-symbols.lf": {"lean": "tests/front/tactics/goal-layer.lean",
+                                                 "names": {}},
+    "tests/front/tactics/decide/dc-ascii.lf": {"lean": "tests/front/tactics/goal-layer.lean",
+                                               "names": {}},
+    "tests/front/tactics/decide/c-sy-check.lf": {"lean": "tests/front/tactics/decide/c-sy-check.lean",
+                                                 "names": {}}
   }
 }

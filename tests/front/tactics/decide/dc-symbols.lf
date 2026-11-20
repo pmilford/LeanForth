@@ -1,0 +1,115 @@
+\ The talk's ten theorems, written with Lean's symbols as LeanForth words
+\ (plan row S3, slice S3a-ops C2-C5; owner, 2026-11-20), and four more so
+\ that every symbol word occurs: - / % binop%, ≠ < > ≤ ≥ binrel%, ^ rightact%,
+\ ¬ ∧ ∨ ↔ the constants Not And Or Iff. dc-ascii.lf states them in the
+\ spellings a plain keyboard types; tests/front/tactics/decide/check.py
+\ --init checks both against Init's snapshot, each theorem accepted with
+\ no axiom, and both files' elaborated terms equal node for node to each
+\ other's and to pinned Lean's (tests/front/tactics/goal-layer.lean).
+\ Lean: theorem sy_mul : 6 * 7 = 42 := by decide
+\       theorem sy_pythag : 3 * 3 + 4 * 4 = 5 * 5 := by decide
+\       theorem sy_gauss : 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 = 55 := by decide
+\       theorem sy_divmod : 17 / 5 = 3 ∧ 17 % 5 = 2 := by decide
+\       theorem sy_gcd : Nat.gcd 1071 462 = 21 := by decide
+\       theorem sy_compare : 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4 := by decide
+\       theorem sy_leap : 2024 % 4 = 0 ∧ 2024 % 100 ≠ 0 := by decide
+\       theorem sy_mersenne : 2 ^ 11 - 1 = 23 * 89 := by decide
+\       theorem sy_euler : 2 ^ 32 + 1 = 641 * 6700417 := by decide
+\       theorem sy_taxicab : 1 ^ 3 + 12 ^ 3 = 1729 ∧ 9 ^ 3 + 10 ^ 3 = 1729 := by decide
+\       theorem sy_not : ¬ (2 + 2 = 5) := by decide
+\       theorem sy_or : 10 < 20 ∨ 20 < 10 := by decide
+\       theorem sy_iff : 2 + 2 = 4 ↔ 3 ≤ 3 := by decide
+\       theorem sy_pow_cmp : 2 ^ 10 = 1024 ∧ 2 ^ 10 > 1000 := by decide
+
+\ 6 · 7 = 42.
+theorem sy_mul
+  6 7 * 42 =
+:= by
+  by-decide
+end sy_mul
+
+\ Pythagoras: 3² + 4² = 5².
+theorem sy_pythag
+  3 3 * 4 4 * + 5 5 * =
+:= by
+  by-decide
+end sy_pythag
+
+\ Gauss: 1 + 2 + ... + 10 = 55.
+theorem sy_gauss
+  1 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 + 55 =
+:= by
+  by-decide
+end sy_gauss
+
+\ 17 = 3 · 5 + 2.
+theorem sy_divmod
+  17 5 / 3 =  17 5 % 2 =  ∧
+:= by
+  by-decide
+end sy_divmod
+
+\ Euclid: gcd(1071, 462) = 21.
+theorem sy_gcd
+  1071 462 Nat.gcd 21 =
+:= by
+  by-decide
+end sy_gcd
+
+theorem sy_compare
+  20 10 >  10 10 ≥  3 4 ≠  ∧ ∧
+:= by
+  by-decide
+end sy_compare
+
+\ 2024 is a leap year.
+theorem sy_leap
+  2024 4 % 0 =  2024 100 % 0 ≠  ∧
+:= by
+  by-decide
+end sy_leap
+
+\ 2¹¹ − 1 is a Mersenne number that is not prime.
+theorem sy_mersenne
+  2 11 ^ 1 -  23 89 * =
+:= by
+  by-decide
+end sy_mersenne
+
+\ Euler: Fermat's number F5 = 2³² + 1 is composite.
+theorem sy_euler
+  2 32 ^ 1 +  641 6700417 * =
+:= by
+  by-decide
+end sy_euler
+
+\ Ramanujan's taxicab number: 1729 = 1³ + 12³ = 9³ + 10³.
+theorem sy_taxicab
+  1 3 ^ 12 3 ^ + 1729 =  9 3 ^ 10 3 ^ + 1729 =  ∧
+:= by
+  by-decide
+end sy_taxicab
+
+theorem sy_not
+  2 2 + 5 = ¬
+:= by
+  by-decide
+end sy_not
+
+theorem sy_or
+  10 20 <  20 10 <  ∨
+:= by
+  by-decide
+end sy_or
+
+theorem sy_iff
+  2 2 + 4 =  3 3 ≤  ↔
+:= by
+  by-decide
+end sy_iff
+
+theorem sy_pow_cmp
+  2 10 ^ 1024 =  2 10 ^ 1000 >  ∧
+:= by
+  by-decide
+end sy_pow_cmp

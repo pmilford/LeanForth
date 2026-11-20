@@ -41,6 +41,15 @@ theorem w_dc_ne : 3 ≠ 3 := by decide
 theorem w_dc_ge : 10 ≥ 11 := by decide
 theorem w_dc_euler : 2 ^ 32 + 1 = 641 * 6700419 := by decide
 theorem w_dc_divmod : 17 / 5 = 3 ∧ 17 % 5 = 3 := by decide
+-- Plan row S3, slice S3a-ops C2-C5: the same with symbol words, some in Lean's ASCII spelling.
+theorem w_sy_lt : 20 < 10 := by decide
+theorem w_sy_ne : 3 ≠ 3 := by decide
+theorem w_sy_ge : 10 >= 11 := by decide
+theorem w_sy_or : 1 = 0 \/ 2 = 3 := by decide
+theorem w_sy_iff : 2 = 2 <-> 2 = 3 := by decide
+theorem w_sy_not : ¬ (2 = 2) := by decide
+theorem w_sy_euler : 2 ^ 32 + 1 = 641 * 6700419 := by decide
+theorem w_sy_divmod : 17 / 5 = 3 ∧ 17 % 5 = 3 := by decide
 theorem w_dc_none : True := by
   decide
   decide

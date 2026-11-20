@@ -16,3 +16,15 @@ elab "#expand " t:term : command => do
 #expand Nat.succ n = n + 1
 #expand n = 0 + (n + 0)
 #expand congrArg Nat.succ n = n
+#expand n - m < n
+#expand n / 2 % 3 = n
+#expand n > m
+#expand n ≥ m
+#expand n >= m
+#expand n <= m
+#expand n ≠ m
+#expand 2 ^ 10 = n
+#expand 2 ^ 3 ^ 2 = n
+#expand 2 ^ 10 * 3 = n
+#expand n = n ∧ m = m
+#expand n = n /\ m = m
