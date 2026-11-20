@@ -161,10 +161,6 @@ texts-end constant nop-names
 : lf-nat-name? ( name -- flag ) lf-name-prefix@ s" Nat" lf-name-top? ;
 : lf-nat-zero-name? ( name -- flag )
   dup s" zero" lf-name-str-is? if lf-nat-name? else drop false then ;
-\ The table's entry for a name (texts-find), then its index: the entries
-\ before it.
-: nop-steps ( entry -- i )
-  0 nop-names begin 2 pick over <> while text-next swap 1+ swap repeat drop nip ;
-: nop-index ( name -- i )
-  ['] lf-name-str-is? nop-names texts-find ?dup if nop-steps else -1 then ;
+\ The index of a name's last component in the table (lib/texts.fs), or -1.
+: nop-index ( name -- i | -1 ) ['] lf-name-str-is? nop-names texts-index ;
 : lf-nat-op ( name -- i | -1 ) dup lf-nat-name? 0= if drop -1 exit then nop-index ;

@@ -1,0 +1,22 @@
+# Planted faults of the fixes of the Forth review of slice S3a
+# (docs/development/forth-reviews/2026-11-19-s3a-decide.md), read with
+# faults.toml as one list (scripts/mutants.py). The slice's own are in
+# s3a.toml and decide.toml.
+
+# --- B4: lib/texts.fs's texts-index ------------------------------------------
+
+[[fault]]
+id = "s3a-texts-index-from-one"
+file = "src/lib/texts.fs"
+old = '''  0 begin over c@ while >r texts-hit? r> swap if nip nip nip exit then'''
+new = '''  1 begin over c@ while >r texts-hit? r> swap if nip nip nip exit then'''
+test = "$GFORTH tests/lib/texts.fs"
+reason = "review s3a-decide B4: the entries counted from 1, so every hit's index is one too many"
+
+[[fault]]
+id = "s3a-texts-index-miss-zero"
+file = "src/lib/texts.fs"
+old = '''    1+ swap text-next swap repeat 2drop 2drop -1 ;'''
+new = '''    1+ swap text-next swap repeat 2drop 2drop 0 ;'''
+test = "$GFORTH tests/lib/texts.fs"
+reason = "review s3a-decide B4: a search that finds no text answers 0, the first entry's index, instead of -1"
