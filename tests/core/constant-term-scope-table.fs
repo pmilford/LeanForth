@@ -2,7 +2,7 @@
 \ tests/reference/scope-table.lean (Lean's hasLooseBVars): every app, lambda
 \ and Pi pair of {Sort 0, #0, #1, #2}, then twelve nested lambdas. Status 0
 \ is closed, 1 has a loose variable. Syntax closure only; no typing.
-require ../../src/main.fs
+require ../../src/load/kernel.fs
 include ../support/plain-terms.fs
 
 \ Nodes 0..3 are Sort 0, #0, #1, #2; 4..51 the pairs; 52..63 the lambdas.

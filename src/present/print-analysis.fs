@@ -262,7 +262,7 @@ lf-tag-projection lf-tag-let lf-tag-let-nondep 3 lf-tags constant lf-pp-pair-kin
 \ Unchecked: app's spine was read by lf-pp-spine.
 : lf-pp-head ( app -- head n ) 0 begin over lf-term-tag@ lf-pp-app-tag? while swap
   lf-term-first@ swap 1+ repeat ;
-: lf-pp-loud? ( kind -- flag ) dup lf-binder-implicit = swap lf-binder-instance = or ;
+: lf-pp-loud? ( kind -- flag ) lf-binder-implicit lf-binder-instance one-of2? ;
 : lf-pp-explicit? ( head n -- flag )
   >r lf-pp-params over swap r@ 1+ lf-pp-avail
   dup r@ < if 2drop r> drop true exit then

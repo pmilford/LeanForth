@@ -477,8 +477,9 @@ names and, transitively, what those programs use: Forth `require` and
 Forth, Python and shell files (not in comments or docstrings); Lean files
 and data are used but not followed. A changed Forth source also selects
 `smoke` and `check-portable-forth`, a changed Markdown file `check-docs`, a
-changed Makefile everything. Most tests load `src/main.fs`, so a change to
-a checker module still selects 25–40 of the 77 targets; a changed test, Lean
+changed Makefile everything. Most tests loaded `src/main.fs` until the
+layer entries of 2026-11-19 (below), so a change to
+a checker module still selected 25–40 of the 77 targets; a changed test, Lean
 file, script or document selects a few (`tests/reference/clamp.lean`: 6,
 `src/author/runner.fs`: 4, `tests/core/names.fs`: 1). It is a heuristic,
 not a proof that the other targets are unaffected (a path built at run
@@ -564,7 +565,9 @@ of `src/` (the front tier too) runs the branch coverage check first
   of the 192 Forth files: every front-end file but `cases-several.fs`,
   `constructions.fs`, `ctor-idx.fs` and `expr-remap.fs`, every library but
   `bigint.fs` and `sort.fs`. So a change to a front-end file that
-  `src/main.fs` loads is full: `bin/leanforth` and most tests load it.
+  `src/main.fs` loads is full: `bin/leanforth` loads it. Since the layer
+  entries (2026-11-19, below) the full tier's per-target reuse re-runs only
+  the targets whose tests load the changed file's layer.
 - "The targets that use a file" are `make test-changed`'s
   (`scripts/changed-tests.py`): the files a target's recipe names, followed
   through Forth loads, Python imports and repository paths named in code.
@@ -695,6 +698,76 @@ each other).
   baseline entry and the coverage tool. The branch coverage check has no
   digest: its record stands on its own tree, and on a later commit only
   across documentation.
+- **Layer entries** (2026-11-19, branch `layered-loads`; [src/README.md](../../src/README.md#layer-entries)).
+  A target reads the closure of what its tests load, so a test that loads
+  `src/main.fs` reads every module and re-runs for any change. The tests now
+  load the smallest entry of `src/load/` that serves them: the kernel's unit
+  tests and pinned-Lean tables `src/load/kernel.fs` (the fed driver adds
+  `import.fs`), the snapshot tests `checker.fs` and `cli/check-run.fs`, the
+  import pass's `cli-checker.fs`, the front end's Meta tests `front.fs`, its
+  tests that open a library `checker.fs`, `front.fs` and `cli/check-lf.fs`,
+  and those that check a text through the command line `checker.fs`,
+  `present.fs`, `front.fs` and `cli.fs`; only `tests/smoke/smoke.fs` and
+  `tests/core/contexts-main.fs`, which test the whole load, load
+  `src/main.fs` (`scripts/check-layers.py`'s list). `test-core-whole` holds
+  the two data-model tests that look at every layer (`tag-sets.fs`,
+  `contexts-main.fs`), so `test-core` loads the kernel at most.
+  **The checker's command line.** `src/cli/leanforth.fs` is the command line
+  of exports and snapshots; the words of a LeanForth text's check, which use
+  the front end, are `src/cli/leanforth-text.fs`'s, which `src/main.fs`
+  loads (through `src/load/cli.fs`). `bin/leanforth-checker` runs
+  `src/load/cli-checker.fs` and prints what `bin/leanforth` prints for every
+  command of an export or a snapshot, `leanforth verify` included, byte for
+  byte (the two share `scripts/leanforth-run.sh`; a text it refuses, exit
+  4); `make test-cli-checker` compares them on every such command and, as it
+  runs `bin/leanforth`, re-runs on any change. The export-only tests and
+  comparisons run `bin/leanforth-checker`: the receipts
+  (`scripts/program_receipt.py`, so `program-clamp-record` and the program
+  references), `leanforth verify`'s references and driver tests, the clamp's
+  mutants, the SHA export, the demos, the run records, the start-limit
+  report and the parallel stress test. The CLI's own tests (`test-cli-*`,
+  `reference-cli`) keep `bin/leanforth`, the users' command.
+  **What the finder no longer takes for an input.** A listing of `/proc`,
+  `/sys` or `/dev` (`scripts/start-limit.sh` counts the user's threads in
+  `/proc`, which from 2026-11-18 left 31 targets without a digest) and a
+  Python import line; a program reached only through a tooling test that
+  declares `# inputs: fixtures only` (its git, home folder and exports are
+  those of repositories it makes; `test_check_layers.py`, so `check-layers`
+  has a digest); and a path a program declares `# inputs: named only: PATH
+  ...` (named in a message, a docstring or as a wrong argument: neither run
+  nor read from there). Targets of `make check` without a digest: 42 → 11.
+  What re-runs for a change (the full tier: the branch coverage check, `make
+  test`, `make test-unit` on gforth-fast, `make check-rest`, each target
+  reused while its inputs are unchanged), counted with
+  `scripts/test-tier.py`'s own `Inputs` on main (7117d1dc) and on this
+  branch:
+
+  | A change to | `make test` | `make test-unit` (gforth-fast) | `make check-rest` |
+  | --- | --- | --- | --- |
+  | a front-end module (`src/front/whnf.fs`) | 49 → 37 | 36 → 25 | 47 → 11 |
+  | a tactic (`src/front/tactics/rfl.fs`) | 48 → 36 | 35 → 24 | 45 → 9 |
+  | a kernel module (`src/kernel/whnf.fs`) | 54 → 56 | 41 → 42 | 48 → 48 |
+  | a library the kernel uses (`src/lib/sort.fs`) | 65 → 61 | 52 → 47 | 86 → 55 |
+
+  A front-end change no longer re-runs the kernel's pinned-Lean comparisons
+  (`tests/core/lean-differential.py`'s tables and the first-checker
+  driver's), `test-core`, `test-kernel-reduction`, `test-stage`,
+  `test-composition-fixture`, `test-environment`, the program references
+  (`program-clamp-record`, `reference-program-*`), the demos or the program
+  verify driver's tests; a kernel change re-runs what loads the kernel, the
+  front end's tests among them, which hand their declarations to it (the
+  added targets are `check-layers`, `test-core-whole` and
+  `test-cli-checker`). The library row also fell because the Lean cache's
+  scripts spelled `os.path.join(prefix, "lib", "lean")`, which the finder
+  reads as the repository's `lib` folders: every target read all of
+  `src/lib` and `tests/lib`; they spell `"lib/lean"` now
+  (`tests/scripts/test_check_layers.py` pins it). What still re-runs for a
+  front-end change: the front end's own targets, the CLI's (`bin/leanforth`
+  loads everything), the author's end-to-end runs, the checks that read all
+  of `src/` (`smoke`, `check-portable-forth`, `check-layers`, a planted
+  fault's copy of the tree, tests that name `whnf.fs`) and the 11 without a
+  digest. `make check-layers` (in `make test`) keeps the entries to their
+  layers and fails when a new test requires `src/main.fs`.
 - `make once GOALS="check"` runs `make check` unless records stand for it
   (or only the targets they do not stand for), and records the pass; `make tier` (`BASE=main`, `JOBS=2`, `DRY_RUN=1` to
   only print) runs every suite of the branch's tier so, then the progress
@@ -906,7 +979,7 @@ per full tier, and every unit test now runs on one more engine than before.
 
 Four scripts keep the reuse rule of AGENTS.md ("Reuse first") from failing silently. `make test` runs them (the
 first three in `check-forth-quality`, the index in `check-docs`); each has unit tests on throw-away source trees in
-`tests/scripts/`.
+`tests/scripts/`. A fifth script in `check-forth-quality`, the last below, checks the steps of the outcome chains.
 
 - `scripts/check-lib-callers.py`: builds the require/include/needs graph of `src/**/*.fs` (paths relative to the
   requiring file) and fails for a `src/lib/` file that no file outside `lib/` reaches, unless
@@ -932,6 +1005,13 @@ first three in `check-forth-quality`, the index in `check-docs`); each has unit 
   Findings or Open text proposes a new `lib/` file or library word without a plan row id (`9.4.8a`, `FE1i-4`, `S2`).
 - `scripts/lib-index.py` writes [LIBRARY_WORDS.md](LIBRARY_WORDS.md), the index of the public words of `src/lib/`;
   `make check-docs` fails when it is stale: run `python3 scripts/lib-index.py --write` and commit it.
+- `scripts/check-outcome-steps.py` (review of cleanup-families-3, H1, 2026-11-19; in `check-forth-quality`): for
+  every `['] X ok-apply`, `ok-apply2` or `ok-apply3` in `src/`, outside comments and strings, X's stack comment
+  (its `:` definition or `defer`) must take exactly the 1, 2 or 3 cells the chain passes and leave `result
+  outcome` in each alternative (the second cell `outcome` or `status`); otherwise a failure before the step
+  leaves a different stack from a success. A step with no definition in `src/`, a comment it cannot count
+  (`...`, `|` before `--`) or several disagreeing definitions is printed as "not checked" and does not fail;
+  a step whose xt is not named at the call is not seen.
 
 ### Removing a duplicate group (owner, 2026-11-19)
 
@@ -958,6 +1038,23 @@ merged by hand as before. `tests/scripts/test_duplicates_extract.py` tests the c
    and their unit tests (`make test-changed`), and paste its "EXACT EXTRACTION BY SCRIPT" list (the copies
    rewritten in `src/kernel`, `src/core`, `src/import`) into the report to the owner. The Forth review and the
    tier still run.
+
+A **family of one phrase** -- the same tokens inside many longer words, which no group shows because the
+words differ around it -- goes through one command (clean-up round 3, 2026-11-19): `python3
+scripts/check-duplicates.py --rewrite --from "TOKENS" --to "TOKENS" [--paths src/front ...] [--add-require
+[FILE]] [--dry-run]`. It matches tokens, not text (line breaks and case do not matter; comments and strings are
+never matched), with `$X`-style wildcards for one word name each (for example `--from "ok-then? if $X else
+no-result then" --to "['] $X ok-apply"`); it lists each site as `file:line word`, leaves (and lists) a match
+with a comment inside it or inside the definition of a word the new phrase calls, refuses a file that cannot
+see a new word unless `--add-require` may add the require, carries every planted fault whose quoted text held
+the phrase over to the new text (printing the ids: name each in the commit message, as the history rule below
+requires of a fault whose file, old or new text changes; a fault whose mutation lies inside the phrase keeps its `new` text, the old
+phrase mutated, in place of the rewritten line) and names those it cannot carry, refuses a rewrite that would make or grow
+a duplicate group, and drops the groups it removes from the baseline. Its "REWRITE BY SCRIPT" list gives the
+sites in `src/kernel`, `src/core` and `src/import` for the owner's report. A behaviour-preserving rewrite onto a
+shared word needs no new planted fault per site: the shared word has its own tests and faults, the carried
+faults keep guarding the callers, and their existing tests must still pass; add a fault for a caller only where
+no existing test would notice that caller going wrong.
 
 ## Re-running one root: the export slicer (`scripts/export-slice.py`)
 
@@ -1322,7 +1419,7 @@ which is what `make mutants` asks. The 2026-11-02 review's figure (90.7% of
 
 `scripts/pre-tier.sh` (2026-11-19) runs every cheap whole-repository check in one keep-going pass of about two
 minutes and prints one line for each: a clean tree, the test classes, duplicates, the style ratchet and review
-log, library callers, the progress check, the agents' definitions, the planted-fault table, documentation links
+log, library callers, the steps of the outcome chains, the progress check, the agents' definitions, the planted-fault table, documentation links
 and examples, portable Forth, the Lean source citations, the export list, the standalone libraries, no runner
 falling back to an unpinned `lean`, and a scan of the Python scripts for undefined, shadowed or twice-defined
 names. An implementing agent runs it before handing a branch back, and it is run before every `make tier`: a

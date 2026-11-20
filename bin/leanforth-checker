@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# leanforth-checker: bin/leanforth for exports and snapshots, on the checker's
+# load alone (src/load/cli-checker.fs: the checker, the presentation its
+# print uses and the command line, without the front end, the authoring
+# words or the verified-program track).
+#   bin/leanforth-checker COMMAND [OPTION]... [FILE]...
+# check, replay, print, count and reexport of an EXPORT, check and print
+# with --snapshot or --save-snapshot, version, capabilities and help print
+# what bin/leanforth prints, byte for byte, with the same exit code: the
+# engine, the files named twice, the commit and the run are its shared part
+# (scripts/leanforth-run.sh), leanforth verify included, whose driver checks
+# with bin/leanforth-checker in either. A LeanForth text (FILE.lf) is refused,
+# exit 4: it needs the front end.
+# The tests and pinned-Lean comparisons that check only exports run this,
+# so that scripts/tested-tree.py sees them depend on the checker's files
+# alone and reuses their passes across changes of the front end
+# (docs/development/TESTING_STRATEGY.md, "Layer entries"). bin/leanforth,
+# the users' command, loads everything (src/main.fs).
+set -u
+
+# A fork refused ends bash with status 254 and runs this trap, as
+# bin/leanforth's does (scripts/start-limit.sh; review lib-tidy, note 9).
+trap 'st=$?; if [ "$st" -eq 254 ]; then
+  command -v lf_start_report >/dev/null && lf_start_report "leanforth: internal fault" 254 ||
+    printf "leanforth: internal fault: could not start a process: resource limit\n" >&2
+  exit 5; fi' EXIT
+
+self=$0
+command -v readlink >/dev/null 2>&1 && self=$(readlink -f "$0" 2>/dev/null || printf '%s' "$0")
+root=$(cd "$(dirname "$self")/.." && pwd -P) || {
+  printf 'leanforth: internal fault: cannot find the LeanForth checkout\n' >&2
+  exit 5
+}
+. "$root/scripts/start-limit.sh"
+
+# As bin/leanforth: no Gforth start-up file (GFORTH_ENV=off).
+export GFORTH_ENV=off
+
+lf_entry=$root/src/load/cli-checker.fs
+. "$root/scripts/leanforth-run.sh" || {
+  printf 'leanforth: internal fault: cannot read scripts/leanforth-run.sh\n' >&2
+  exit 5
+}

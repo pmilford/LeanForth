@@ -21,9 +21,11 @@ a changed Makefile every target.
 
 This is a heuristic for an agent's inner loop, not a proof that the other
 targets are unaffected: at the end of a branch run its change tier's suites
-(make tier; scripts/test-tier.py builds the tiers on these functions). Most
-tests load src/main.fs, so a change to a checker module still selects most
-targets. Needs git, make and Python 3.
+(make tier; scripts/test-tier.py builds the tiers on these functions). Tests
+load the smallest layer entry of src/load/ that serves them (src/README.md,
+"Layer entries"), so a change to a module selects the targets of its layer and
+those above it; bin/leanforth and the tests that run the command line's own
+words load all of src/main.fs. Needs git, make and Python 3.
 """
 import argparse
 import glob
@@ -184,6 +186,15 @@ QUOTED = re.compile(r"""["']([\w.+-]+(?:/[\w.+-]+)*/?)["']""")
 BASENAME = re.compile(r"(?<![\w./+-])([\w+-][\w.+-]*\.[A-Za-z]\w*)(?![\w/+-])")
 GLOB_EXT = re.compile(r"""\*(\.\w+)|endswith\(\s*\(?\s*["'](\.\w+)["']""")
 LISTING = re.compile(r"\b(?:r?glob|os\.walk|listdir|iterdir|scandir)\b|\bfor \w+ in [^;\n]*\*")
+# A listing of the system's own folders (/proc, /sys, /dev) reads nothing of the checkout:
+# scripts/start-limit.sh counts the user's threads in /proc/*/status. Such a shell loop over
+# system paths only, or a listing call whose one argument is a system path, is left out before
+# LISTING looks (2026-11-19: 31 targets that run bin/leanforth had no digest because of it).
+SYSTEM_LISTING = re.compile(r"""\bfor\s+\w+\s+in(?:\s+/(?:proc|sys|dev)/[^\s;]*)+\s*(?=;|\n|$)"""
+                            r"""|(?:\b\w+\.)*\b(?:r?glob|walk|listdir|iterdir|scandir)\(\s*[rf]?["']/(?:proc|sys|dev)"""
+                            r"""(?:/[^"'\n]*)?["']\s*\)""")
+# A Python import line names a module, never lists a folder (import glob, from os import walk).
+IMPORT_LINE = re.compile(r"^[ \t]*(?:import|from)[ \t][^\n]*$", re.MULTILINE)
 TEMPLATE = re.compile(r"((?:src|tests|scripts|docs|bin)/(?:[\w.+-]+/)*)[\w.+-]*(?:\{|\$|%|[\"']\s*\+)")
 # What makes a program's inputs unknowable from the tree: git's index or history, files outside
 # the checkout (machine-local exports, the home folder), or an export named by the environment.
@@ -196,6 +207,21 @@ UNRESOLVED = (
      "reads files outside the checkout"),
     (re.compile(r"\b(?:INIT_EXPORT|MATHLIB|ENGINE_GATE_\w+)\b"), "reads an export the environment names"),
 )
+LISTED = "lists a folder the finder cannot name"
+# A test of the tooling that runs git, a home folder and exports only in repositories it makes
+# itself (tests/scripts/tier_fixture.py) says so in a line of its own; the UNRESOLVED readings of
+# the programs it reaches only through such tests are then the fixtures', not the checkout's
+# (2026-11-19). Everything it names or loads is still an input; a listing the finder cannot
+# name, or a program reached from the recipe some other way, still makes the inputs unknown.
+FIXTURES_ONLY = re.compile(r"^# inputs: fixtures only\b", re.MULTILINE)
+# A program that names a file or folder only in its text, neither running nor reading it (a
+# message telling the user which command to run, a docstring, a folder given as a wrong
+# argument), says so in a line of its own, "# inputs: named only: PATH ...": from this program
+# the paths listed are not followed, and no file under a folder listed is read, but for those
+# it names otherwise (2026-11-19: the receipts tell the user to check with bin/leanforth while
+# they check with bin/leanforth-checker; followed, the message made every receipt read all of
+# src/main.fs).
+NAMED_ONLY = re.compile(r"^# inputs: named only:[ \t]*(.+)$", re.MULTILINE)
 
 
 # When a quoted word with no path separator is used as a path (used_as_path): fail-safe, every
@@ -319,8 +345,9 @@ def program_inputs(path, text, tracked, index):
     for prefix in TEMPLATE.findall(code):
         found |= under(prefix, tracked)
         bounded = True
-    if LISTING.search(code) and not bounded and not path.startswith("tests/"):
-        reasons.append(f"{path} lists a folder the finder cannot name")
+    listing = SYSTEM_LISTING.sub(" ", IMPORT_LINE.sub("", code) if kind(path) == ".py" else code)
+    if LISTING.search(listing) and not bounded and not path.startswith("tests/"):
+        reasons.append(f"{path} {LISTED}")
     return runs, found - runs, reasons
 
 
@@ -340,35 +367,48 @@ def input_files(start, tracked, cache, index=None, followed=None):
     """(every tracked file the start files may read, [reasons they cannot be known]): closure()
     with the files program_inputs() says each program runs, to a fixed point, and the files it
     says they may read (read, not followed: a file found only by its name or folder is data).
-    CACHE maps a program to its (followed, read, reasons); INDEX is file_index(TRACKED); a set
-    FOLLOWED gets the files that are run or loaded (not only read as data)."""
+    CACHE maps a program to its (followed, read, reasons, declares FIXTURES_ONLY); INDEX is
+    file_index(TRACKED); a set FOLLOWED gets the files that are run or loaded (not only read as
+    data). A reason counts when some path from START reaches its program without passing through
+    a test that declares FIXTURES_ONLY (that test included); a LISTED reason always counts."""
     index = index or file_index(tracked)
-    seen, todo, reasons, read = set(), list(start), [], set()
+    seen, plain, todo, reasons, read = set(), set(), [(p, False) for p in start], [], set()
     while todo:
-        path = todo.pop()
-        if path in seen:
+        path, vouched = todo.pop()
+        if path in plain or (vouched and path in seen):
             continue
         seen.add(path)
+        if not vouched:
+            plain.add(path)
         if kind(path) not in COMMENT:
             continue
         if path not in cache:
-            try:
-                with open(path, encoding="utf-8", errors="replace") as stream:
-                    text = stream.read(TEXT_LIMIT)
-            except OSError:
-                cache[path] = (set(), set(), [f"{path} cannot be read"])
-            else:
-                runs, data, why = program_inputs(path, text, tracked, index)
-                uses = forth_loads(path, text) if path.startswith("src/") and path.endswith(".fs") \
-                    else used_files(path, text)
-                cache[path] = (uses | runs, data, why)
-        files, data, why = cache[path]
-        reasons += why
+            cache[path] = program_entry(path, tracked, index)
+        files, data, why, fixtures = cache[path]
+        vouched = vouched or fixtures
+        reasons += [w for w in why if not vouched or w.endswith(LISTED)]
         read |= data
-        todo += files - seen
+        todo += [(f, vouched) for f in files if f not in plain and (vouched is False or f not in seen)]
     if followed is not None:
         followed |= {p for p in seen if p in tracked}
     return {p for p in seen | read if p in tracked}, sorted(set(reasons))
+
+
+def program_entry(path, tracked, index):
+    """(files it runs or loads, files it may read, reasons, whether it declares FIXTURES_ONLY) of
+    one program, for input_files()'s cache; the paths of its NAMED_ONLY lines are neither
+    followed nor read."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as stream:
+            text = stream.read(TEXT_LIMIT)
+    except OSError:
+        return set(), set(), [f"{path} cannot be read"], False
+    runs, data, why = program_inputs(path, text, tracked, index)
+    uses = forth_loads(path, text) if path.startswith("src/") and path.endswith(".fs") else used_files(path, text)
+    named = {os.path.normpath(p) for line in NAMED_ONLY.findall(text) for p in line.split()}
+    follows = (uses | runs) - named
+    unread = {f for f in data for n in named if f == n or f.startswith(n + "/")} - follows
+    return follows, data - unread, why, path.startswith("tests/") and bool(FIXTURES_ONLY.search(text))
 
 
 def main():

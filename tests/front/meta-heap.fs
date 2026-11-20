@@ -10,7 +10,7 @@
 \ checks a theorem.
 require ../support/tester.fs
 require ../support/heap-watch.fs
-require ../../src/main.fs
+require ../../src/load/front.fs
 
 lf-author-begin lf-mctx-reset lf-lctx-reset
 100000 lf-term-capacity! drop  100000 lf-level-capacity! drop

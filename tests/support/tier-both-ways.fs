@@ -15,7 +15,8 @@
 \ The number is the jobs of the check (cli/check-run.fs ck-jobs!); the
 \ fuel is the CLI's default. The export is read with its manifest.
 
-require ../../src/main.fs
+require ../../src/load/checker.fs
+require ../../src/cli/check-run.fs
 decimal
 
 create tbw-tf /tier-file allot  tbw-tf tier-file-init

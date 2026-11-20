@@ -220,7 +220,8 @@ check-portable-forth:
 
 # Forth review log and style ratchet (docs/development/forth-reviews/LOG.md,
 # tests/forth-quality-baseline.json): fails on main for an unreviewed Forth change; also the lib-caller and
-# duplicate checks (plan 9.4.8f).
+# duplicate checks (plan 9.4.8f), and the shape of each step given to ok-apply, ok-apply2 or ok-apply3
+# (scripts/check-outcome-steps.py; review of cleanup-families-3, H1).
 check-forth-quality:
 	$(RUN) python3 tests/scripts/test_check_forth_quality.py
 	$(RUN) python3 tests/scripts/test_check_progress.py
@@ -230,6 +231,8 @@ check-forth-quality:
 	$(RUN) python3 tests/scripts/test_check_duplicates.py
 	$(RUN) python3 tests/scripts/test_duplicates_extract.py
 	$(RUN) python3 scripts/check-duplicates.py
+	$(RUN) python3 tests/scripts/test_check_outcome_steps.py
+	$(RUN) python3 scripts/check-outcome-steps.py
 
 # Report-only Forth style metrics (word length, globals, locals, shuffling);
 # see docs/development/FORTH_STYLE.md. Never fails on style.
@@ -286,6 +289,16 @@ smoke:
 	  out=$$($(RUN) $(GFORTH) $$f -e bye </dev/null 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	  if [ -n "$$out" ]; then printf '%s printed while loading on its own:\n%s\n' "$$f" "$$out" >&2; exit 1; fi; \
 	done; echo "Every source module loads on its own, silently."
+
+# The layer entries of src/load/ load their layers and nothing above them, each loaded alone
+# by Gforth within the closure scripts/tested-tree.py reads, and tests require src/main.fs
+# only when they run the command line's own words (scripts/check-layers.py, src/README.md
+# "Layer entries"); and what scripts/tested-tree.py reads through the entries, on a fixture.
+check-layers:
+	$(RUN) python3 tests/scripts/test_check_layers.py
+	$(RUN) python3 scripts/check-layers.py --gforth $(GFORTH)
+.PHONY: check-layers
+test: check-layers
 
 reference:
 	LEAN=$(LEAN) $(RUN) bash tests/reference/check.sh
@@ -387,7 +400,6 @@ test-lib:
 
 test-core:
 	$(RUN) $(GFORTH) tests/core/terms.fs
-	$(RUN) $(GFORTH) tests/core/tag-sets.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/infer_typed_trial.py
 	$(RUN) $(GFORTH) tests/core/tagged-sort-boundary.fs
 	$(RUN) $(GFORTH) tests/core/symbolic-session.fs
@@ -425,13 +437,23 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/infer-deep.fs
 	$(RUN) $(GFORTH) tests/core/contexts.fs
 	$(RUN) $(GFORTH) tests/core/contexts-serial.fs
-	$(RUN) $(GFORTH) tests/core/contexts-main.fs
 	$(RUN) $(GFORTH) tests/core/store-growth.fs
 	$(RUN) $(GFORTH) tests/core/diagnostics.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/check_diagnostics_catalogue.py
 	$(RUN) $(GFORTH) tests/core/load.fs
 	$(RUN) $(GFORTH) tests/core/ndjson.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_ndjson_reader.py
+
+# The data model's tests that load more than the checker: the term-tag sets of every layer,
+# the front end's among them (tests/core/tag-sets.fs: the kernel's and the front end's
+# entries), and the contexts of everything src/main.fs loads (tests/core/contexts-main.fs).
+# Apart from test-core, whose tests load the checker's entries at most (src/load/), so that
+# scripts/tested-tree.py does not re-run test-core for a change of the front end.
+test-core-whole:
+	$(RUN) $(GFORTH) tests/core/tag-sets.fs
+	$(RUN) $(GFORTH) tests/core/contexts-main.fs
+.PHONY: test-core-whole
+test: test-core-whole
 
 test-mixed-shift-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/core/mixed-shift-differential.sh
@@ -456,8 +478,9 @@ test-mixed-infer-differential:
 
 # Ports of the pinned-Lean comparisons of the legacy code (retired
 # 2026-11-02) onto the current passes; tests/core/lean-differential.py
-# documents each table.
-LEAN_TABLE := LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/core/lean-differential.py
+# documents each table. Expanded where it is used, so that each table's timing line names
+# its target (RUN's $@; scripts/push.sh's timing log).
+LEAN_TABLE = LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/core/lean-differential.py
 
 test-constant-term-scope-differential:
 	$(LEAN_TABLE) scope
@@ -1480,10 +1503,17 @@ DOC_EXAMPLE_PAGES += docs/user/PROOF_OUTLINE.md
 # test-cli-forth is the Forth side's unit tests; the others are end to end.
 test-cli: $(TEST_CLI_PARTS)
 test-cli-forth:
-	$(RUN) $(GFORTH) tests/cli/leanforth.fs
+	$(RUN) $(SCRATCH) $(GFORTH) tests/cli/leanforth.fs
+	$(RUN) $(GFORTH) tests/cli/checker-load.fs
 test-cli-1 test-cli-2 test-cli-3 test-cli-4 test-cli-engines:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/cli/run_group.py $(subst test-cli-,,$@)
 .PHONY: test-cli-forth test-cli-1 test-cli-2 test-cli-3 test-cli-4 test-cli-engines
+# bin/leanforth-checker (the checker's load alone, which the export-only tests and comparisons
+# run) prints what bin/leanforth prints on every export and snapshot command, byte for byte.
+test-cli-checker:
+	GFORTH=$(GFORTH) $(RUN) python3 tests/cli/test_checker_launcher.py
+.PHONY: test-cli-checker
+test: test-cli-checker
 # check --jobs with twice as many workers as cores (lib/task.fs's test-only
 # task-cores-test) on a generated export of 5,000 declarations, 5 runs (20 in
 # make parallel-init, the daily run), each the serial run's text and exit

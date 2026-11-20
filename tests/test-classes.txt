@@ -27,12 +27,14 @@ check-docs                         unit
 test-doc-facts                     unit    tests/docs/test_doc_facts.py: facts the pages restate, apart from the slow tests
 check-lean-sources                 unit
 check-portable-forth               unit
-check-forth-quality                unit    with tests/scripts/test_check_duplicates.py and test_duplicates_extract.py (--explain, --plan, --extract)
+check-forth-quality                unit    with tests/scripts/test_check_duplicates.py and test_duplicates_extract.py (--explain, --plan, --extract), and check-outcome-steps.py with its test
 check-test-classes                 unit
 smoke                              unit
+check-layers                       unit    scripts/check-layers.py: the layer entries of src/load/ keep to their layers
 test-harness                       unit
 test-lib                           unit
 test-core                          unit
+test-core-whole                    unit    tests/core/tag-sets.fs and contexts-main.fs: the tag sets and contexts of every layer
 test-composition-fixture           unit
 test-program                       unit
 test-present                       unit
@@ -77,6 +79,7 @@ test-cli-2                         e2e
 test-cli-3                         e2e
 test-cli-4                         e2e
 test-cli-engines                   e2e     also in make check-rest (COVERAGE_ENGINE_DIFFERS): gforth-fast against the checking engine
+test-cli-checker                   e2e     bin/leanforth-checker against bin/leanforth on every export command, byte for byte
 test-parallel-stress               e2e     check --jobs above the cores (test-only task-cores-test) on 5,000 generated declarations, 20 runs
 test-elab-data-e2e                 e2e     leanforth check --elab-data, damaged data refused
 test-author-e2e                    e2e     the example files through bin/leanforth check and print

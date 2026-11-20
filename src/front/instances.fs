@@ -185,7 +185,7 @@ end-structure
 \ ---- isClass? by isClassQuick? (an undefined answer is unsupported).
 : it-defn-temp? ( d -- flag )   \ getConstTemp? gives a definition
   dup lf-menv-kind lf-kind-definition <> if drop false exit then
-  lf-defeq-mode dup lf-tr-all = swap lf-tr-default = or if drop true exit then
+  lf-defeq-mode lf-tr-all lf-tr-default one-of2? if drop true exit then
   lf-menv-status drop elab-reducible = ;
 \ No class: getConstTemp? decides (none for a constant no declaration has;
 \ a declaration that could not be decoded passes its outcome on).

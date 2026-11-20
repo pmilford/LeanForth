@@ -23,7 +23,7 @@ docs/programming/PROGRAM_VC.md), the pipeline of plan 5.5.1 for any word:
     the program back (it must equal the IR) and reports `#print axioms`;
     scripts/export.sh exports the theorems with every declaration they use,
     and the manifest;
-  6 LeanForth's checker (bin/leanforth check --json, a final run, no
+  6 LeanForth's checker (bin/leanforth-checker check --json, a final run, no
     snapshot) checks the export: the only judge;
   7 each accepted theorem's axioms must be Lean's own;
   8 the receipt (schema 0.3, docs/programming/PROGRAM_RECEIPTS.md) is

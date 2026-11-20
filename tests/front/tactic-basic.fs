@@ -32,7 +32,10 @@
 \ 7. regression pins: the terms and texts.
 include ../support/heap-watch.fs
 require ../support/tester.fs
-require ../../src/main.fs
+require ../../src/load/checker.fs
+require ../../src/load/present.fs
+require ../../src/load/front.fs
+require ../../src/load/cli.fs
 decimal
 
 : library ( -- c-addr u ) s" tests/front/run-slice.ndjson" ;

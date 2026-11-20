@@ -15,7 +15,7 @@
 \ Test-only; nothing here accepts a theorem.
 require ../support/alloc-fail.fs
 include ../support/tester.fs
-require ../../src/main.fs
+require ../../src/load/kernel.fs
 decimal
 
 : must ( flag -- ) 0= abort" mixed-rebuild test: refused" ;

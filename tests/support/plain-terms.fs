@@ -3,7 +3,7 @@
 \ (n = 0..4) has the level succ^n zero, which is level index n; the
 \ parameters u and v are levels level-u and level-v. Every case starts a
 \ fresh session, so its node indices are predictable. Nothing here checks
-\ or accepts a theorem. Requires src/main.fs.
+\ or accepts a theorem. Requires the kernel's entry, src/load/kernel.fs.
 decimal
 5 constant level-u
 6 constant level-v

@@ -107,7 +107,9 @@ def lean_trees():
 
 def forth_trees():
     calls = " ".join(f's" {lf}" tree' for _, lf in CASES)
-    run = subprocess.run([GFORTH, "src/main.fs", "tests/front/trees.fs", "-e", calls + " bye"],
+    # trees.fs opens a library as the command line does (cli/check-lf.fs, on the checker).
+    run = subprocess.run([GFORTH, "src/load/checker.fs", "src/load/front.fs", "src/cli/check-lf.fs",
+                          "tests/front/trees.fs", "-e", calls + " bye"],
                          cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True, text=True,
                          timeout=LIMIT)
     lines = [line for line in run.stdout.splitlines() if line.strip()]

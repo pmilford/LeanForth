@@ -142,9 +142,14 @@ def run_many(commands):
     return run_all(commands, run=run_command)
 
 
+# What the dump needs: the front end and a library opened as the command line opens one
+# (cli/check-lf.fs, on the checker), in the whole load's order (src/README.md, "Layer entries").
+LIBRARY_LOAD = ["src/load/checker.fs", "src/load/front.fs", "src/cli/check-lf.fs"]
+
+
 def dump_argv():
     calls = " ".join(f's" {path}" tactic-dump-file' for path in FILES)
-    return [GFORTH, "src/main.fs", "tests/front/tactic-dump.fs", "-e", calls + " bye"]
+    return [GFORTH, *LIBRARY_LOAD, "tests/front/tactic-dump.fs", "-e", calls + " bye"]
 
 
 def dump_records(done):
@@ -173,7 +178,7 @@ def self_test(want):
 def catalogue_argv():
     codes = sorted(set(CODES.values()))
     calls = " ".join(f"{code} lf-author-message type cr" for code in codes)
-    return [GFORTH, "src/main.fs", "-e", calls + " bye"]
+    return [GFORTH, "src/load/front.fs", "-e", calls + " bye"]
 
 
 def catalogue_texts(done):

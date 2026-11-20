@@ -1,5 +1,5 @@
 \ The tactic registry's dump (tactic plug-in design, slice a2-ii,
-\ docs/design/TACTIC_PLUGINS.md 3.1 and 5): after src/main.fs, every
+\ docs/design/TACTIC_PLUGINS.md 3.1 and 5): after src/load/front.fs, every
 \ authoring error code with its outcome and message (the catalogue of
 \ author/errors.fs and the codes tactic files add with lfa-code:), every
 \ word of the printer's reserved list with whether LF-WORDS holds it, and
@@ -8,7 +8,7 @@
 \ word is set. tests/front/check_registry.py compares the lines with
 \ tests/front/tactic-registry.golden: a branch that moves tactics must
 \ leave every line as it was, and a new tactic only adds its own lines.
-\ Usage: gforth src/main.fs tests/front/tactic-registry.fs -e "registry-dump bye"
+\ Usage: gforth src/load/front.fs tests/front/tactic-registry.fs -e "registry-dump bye"
 \ Test-only; prints, decides nothing.
 
 decimal

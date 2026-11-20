@@ -15,7 +15,9 @@
 \ Every T{ }T checks the data stack's depth.
 include ../support/tester.fs
 include ../support/heap-watch.fs
-require ../../src/main.fs
+require ../../src/load/checker.fs
+require ../../src/load/front.fs
+require ../../src/cli/check-lf.fs
 decimal
 
 T{ s" tests/front/s2-slice.ndjson" true lfc-library-open -> outcome-ok }T

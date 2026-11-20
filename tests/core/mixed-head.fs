@@ -10,7 +10,7 @@
 \ tests/core/definite-rejection.fs uses the same kinds in its rules.
 \ Test-only; nothing here accepts a theorem.
 include ../support/tester.fs
-require ../../src/main.fs
+require ../../src/load/kernel.fs
 decimal
 
 : must ( flag -- ) 0= abort" mixed-head test: refused" ;

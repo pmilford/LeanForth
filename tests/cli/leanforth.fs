@@ -26,12 +26,13 @@
 \ Test-only; nothing here accepts a theorem outside the code under test.
 include ../support/tester.fs
 include ../support/checks.fs
+include ../support/scratch.fs
 require ../support/alloc-fail.fs
 \ The publisher's test-only fault hook, lf-env-before-final, to stop a run.
 : lf-env-fault-hooks ( -- ) ;
 \ The parallel scheduler's planted faults (kernel/env-schedule.fs).
 : lf-sched-fault-hooks ( -- ) ;
-require ../../src/cli/leanforth.fs
+require ../../src/load/cli.fs   \ the command line, LeanForth text included
 decimal
 
 : composition ( -- c-addr u ) s" tests/reference/composition.ndjson" ;
@@ -502,6 +503,39 @@ T{ fault-text cli-check lf-author-code room-text cli-check lf-author-code -> 5 4
   s" error: internal fault: the LeanForth text was not checked: error 41 at line:col 5:1" ;
 : room-said ( -- c-addr u ) s" error: full: the LeanForth text was not checked: error 300" ;
 T{ fault-text ' fault-said said room-text ' room-said said -> 5 true 3 true }T
+[then]
+cli-options
+
+\ A text's report and run (cli/leanforth-text.fs): elaboration data that
+\ is refused (exit 4; the text not checked), a text of only #check lines
+\ (nothing for the kernel, exit 0), --elab-fuel given, a step log that
+\ cannot be written (exit 3, the verdicts printed first), and a text
+\ checked against a snapshot (its declarations taken from it).
+: s1-library ( -- ) s" tests/front/s1-slice.ndjson" cli-state opt-env 2! ;
+: elab-refused ( -- code failed? )
+  cli-options s1-library s" tests/reference/composition.ndjson" cli-state opt-elab 2!
+  identity-text cli-check lfc-elab-failed? ;
+: checks-only ( -- code )
+  cli-options s1-library s" tests/front/s1-slice.elab.ndjson" cli-state opt-elab 2!
+  s" tests/front/s1-check.lf" cli-check ;
+: elab-fuel-given ( -- code fuel )
+  cli-options 5000 cli-state opt-elab-fuel ! true cli-state opt-elab-fuel-given !
+  identity-text cli-check lf-elab-fuel ;
+: steps-unwritable ( -- code )
+  cli-options s" /nonexistent-leanforth-folder/x.steps" cli-state opt-steps 2!
+  identity-text cli-check ;
+s" leanforth-cli-text-test.lfsnap" scratch-file 2constant text-snap
+: snapshot-text ( -- code code' )
+  cli-options text-snap cli-save! composition cli-check
+  cli-options text-snap cli-snapshot! identity-text cli-check ;
+T{ elab-refused -> 4 true }T
+T{ checks-only elab-fuel-given steps-unwritable -> 0 0 5000 3 }T
+T{ snapshot-text -> 0 0 }T
+[defined] >string-execute [if]
+: refused-said ( -- c-addr u ) s" the elaboration data was refused at line 1 (error 5)" ;
+T{ ' elab-refused >string-execute refused-said search nip nip -> 4 true true }T
+T{ ' checks-only >string-execute s" nothing checked by the kernel" search nip nip -> 0 true }T
+T{ ' steps-unwritable >string-execute s" step log could not be written" search nip nip -> 3 true }T
 [then]
 cli-options
 

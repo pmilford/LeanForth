@@ -1684,7 +1684,7 @@ reason = "review B2 of 2026-11-18: --steps is not counted as a file written, so 
 
 [[fault]]
 id = "cli-wrapper-no-same-files"
-file = "bin/leanforth"
+file = "scripts/leanforth-run.sh"
 old = '''       [ "${arguments[i]}" -ef "${arguments[j]}" ]; then same+="$i:$j "; fi'''
 new = '''       false; then :; fi'''
 test = "python3 tests/cli/test_leanforth.py Overwrites"
@@ -1740,7 +1740,7 @@ reason = "review R2 of 2026-11-18: FILE.partial is sought in the wrapper's pairs
 
 [[fault]]
 id = "cli-wrapper-no-partial-pairs"
-file = "bin/leanforth"
+file = "scripts/leanforth-run.sh"
 old = '''      same+="${i}p:$j "'''
 new = '''      :'''
 test = "python3 tests/cli/test_leanforth.py Overwrites.test_partial"
@@ -1748,7 +1748,7 @@ reason = "review R2 of 2026-11-18: the wrapper lists no FILE.partial one file wi
 
 [[fault]]
 id = "cli-wrapper-no-manifest-pairs"
-file = "bin/leanforth"
+file = "scripts/leanforth-run.sh"
 old = '''      same+="${i}m:$j "'''
 new = '''      :'''
 test = "python3 tests/cli/test_leanforth.py Overwrites.test_manifests"
@@ -3136,7 +3136,7 @@ reason = "a theorem is staged without its proof; the fixtures are no longer acce
 
 [[fault]]
 id = "wrapper-fault-exits-0"
-file = "bin/leanforth"
+file = "scripts/leanforth-run.sh"
 old = '''    printf 'leanforth: internal fault: Gforth ended with status %s\n' "$status" >&2
     exit 5'''
 new = '''    printf 'leanforth: internal fault: Gforth ended with status %s\n' "$status" >&2
@@ -3146,7 +3146,7 @@ reason = "a Gforth that fails on its own is reported with exit status 0"
 
 [[fault]]
 id = "wrapper-takes-host-status"
-file = "bin/leanforth"
+file = "scripts/leanforth-run.sh"
 old = '''  10[0-6]) code=$((status - 100)) ;;'''
 new = '''  10[0-6] | [0-6]) code=$((status % 100)) ;;'''
 test = "python3 tests/cli/test_leanforth.py ExitCodes.test_5_broken_gforth"
@@ -3230,7 +3230,7 @@ reason = "name-table-each visits every other entry"
 [[fault]]
 id = "tex-guillemet-raw"
 file = "src/present/latex-text.fs"
-old = ''': lf-tex-angle? ( code -- flag ) dup $ab = swap $bb = or ;'''
+old = ''': lf-tex-angle? ( code -- flag ) $ab $bb one-of2? ;'''
 new = ''': lf-tex-angle? ( code -- flag ) drop false ;'''
 test = "python3 tests/cli/test_leanforth.py Names.test_print_latex_odd_names"
 reason = "LaTeX gets the « » of a name part raw, which LaTeX's default font encoding cannot set: the fragment does not compile"
@@ -3296,7 +3296,7 @@ reason = "the schema takes exit status 6 from a run without --strict-axioms (re-
 
 [[fault]]
 id = "wrapper-checked-ignored"
-file = "bin/leanforth"
+file = "scripts/leanforth-run.sh"
 old = '''if $checked; then engine=gforth; fi'''
 new = '''true'''
 test = "python3 tests/cli/test_leanforth.py Engines.test_gforth_unset"
@@ -3304,7 +3304,7 @@ reason = "--checked does not select the checking engine when GFORTH is not set"
 
 [[fault]]
 id = "wrapper-fast-beside-ignored"
-file = "bin/leanforth"
+file = "scripts/leanforth-run.sh"
 old = '''      GFORTH=$candidate'''
 new = '''      :'''
 test = "python3 tests/cli/test_leanforth.py Engines.test_fast_same_reports"
@@ -5838,7 +5838,7 @@ reason = "L4: a text whose records the writer or the stage refused is reported a
 
 [[fault]]
 id = "lf-records-message-dropped"
-file = "src/cli/leanforth.fs"
+file = "src/cli/leanforth-text.fs"
 old = '''  lfc-failed? if cli-text-error exit then lfc-refused? if cli-records-error exit then'''
 new = '''  lfc-failed? if cli-text-error exit then'''
 test = "$GFORTH tests/cli/leanforth.fs"
@@ -5846,7 +5846,7 @@ reason = "L4: the refused records' message is lost (caught on Gforth 1.0, where 
 
 [[fault]]
 id = "lf-text-flags-stale"
-file = "src/cli/leanforth.fs"
+file = "src/cli/leanforth-text.fs"
 old = '''  lfc-fresh cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check'''
 new = '''  cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check'''
 test = "$GFORTH tests/cli/leanforth.fs"
@@ -9812,7 +9812,7 @@ reason = "SN4: a lookup that met a slot not taken (to be checked in this run) is
 [[fault]]
 id = "sn4-full-taken"
 file = "src/kernel/env-import.fs"
-old = '''  dup outcome-full = over outcome-invalid = or swap outcome-exhausted = or ;'''
+old = '''  outcome-full outcome-invalid outcome-exhausted one-of3? ;'''
 new = '''  dup outcome-invalid = swap outcome-exhausted = or ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
 reason = "SN4: a slot the snapshot saved full (no heap then) is taken instead of checked again"
@@ -11607,7 +11607,7 @@ reason = "a left-out instance's key naming a constant the slice lacks is refused
 [[fault]]
 id = "fe-ed2-arrow-arity"
 file = "src/front/elab-keys.fs"
-old = ''': ek-more ( tag -- n ) dup elab-key-arrow = swap elab-key-proj = or negate ;'''
+old = ''': ek-more ( tag -- n ) elab-key-arrow elab-key-proj one-of2? negate ;'''
 new = ''': ek-more ( tag -- n ) elab-key-proj = negate ;'''
 test = "$GFORTH tests/front/elab-data.fs"
 reason = "Lean 4.35's arrow key indexes its domain (Key.arity 1); read as 0, an arrow path is no longer one term"
@@ -12011,7 +12011,7 @@ reason = "review L2: a non-dependent let whose body is copied (stage-cases/marks
 [[fault]]
 id = "fri-l2-layer-opaque-kind"
 file = "src/import/stage-records.fs"
-old = ''': valued? ( kind -- flag ) dup kind-def = over kind-thm = or swap kind-opaque = or ;'''
+old = ''': valued? ( kind -- flag ) kind-def kind-thm kind-opaque one-of3? ;'''
 new = ''': valued? ( kind -- flag ) dup kind-def = swap kind-thm = or ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "review L2: an opaque declaration's data in a layer is refused as a kind with none"
@@ -12088,7 +12088,7 @@ reason = "6.2.5c3: C3 ignored: every result of an older snapshot carried, whatev
 [[fault]]
 id = "snapc-exhausted-carried"
 file = "src/kernel/env-import.fs"
-old = '''  dup outcome-full = over outcome-invalid = or swap outcome-exhausted = or ;'''
+old = '''  outcome-full outcome-invalid outcome-exhausted one-of3? ;'''
 new = '''  dup outcome-full = swap outcome-invalid = or ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "6.2.5c3 (C2, I1.2): a result that ran out of fuel carried or taken"
@@ -13329,7 +13329,7 @@ reason = "FE1c: iota drops the arguments after the major premise (Nat.rec m z s 
 [[fault]]
 id = "fe-whnf-structure-eta-guessed"
 file = "src/front/whnf.fs"
-old = ''': wc-eta? ( mhead data -- flag ) wc-structure-like? if wc-exact? 0= else drop false then ;'''
+old = ''': wc-eta? ( mhead data -- flag ) lf-structure-like? if wc-exact? 0= else drop false then ;'''
 new = ''': wc-eta? ( mhead data -- flag ) 2drop false ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "FE1c: a stuck major premise of a structure is left stuck, where Lean eta-expands it (toCtorWhenStructure)"
@@ -13362,7 +13362,7 @@ reason = "FE1c: a K-like recursor (Eq.rec) reduces or sticks without toCtorWhenK
 [[fault]]
 id = "fe-whnf-fuel-unspent"
 file = "src/front/whnf.fs"
-old = ''': wc-spend ( -- flag ) wc wc-fuel @ dup 0> if 1- wc wc-fuel ! true else drop false then ;'''
+old = ''': wc-spend ( -- flag ) wc wc-fuel cell-spend? ;'''
 new = ''': wc-spend ( -- flag ) true ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "FE1c: whnfCore runs without fuel, so a long reduction never ends exhausted"
@@ -13468,8 +13468,8 @@ reason = "FE1c: a function expected (Lean throws) answers unsupported instead of
 [[fault]]
 id = "fe-infer-lambda-domain-open"
 file = "src/front/infer.fs"
-old = '''  dup if-x lf-fvar-type over if-abstract ok-then? 0= if nip nip no-result exit then'''
-new = '''  dup if-x lf-fvar-type 0 if-abstract ok-then? 0= if nip nip no-result exit then'''
+old = '''  dup if-x lf-fvar-type over if-abstract ['] if-pi-made ok-apply3 ;'''
+new = '''  dup if-x lf-fvar-type 0 if-abstract ['] if-pi-made ok-apply3 ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a lambda's inferred pi keeps the earlier binders' free variables in a later domain instead of abstracting them"
 
@@ -15157,7 +15157,7 @@ reason = "FE1c: checkpointDefEq keeps the assignments of a false answer (Prod.mk
 [[fault]]
 id = "fe-defeq-fuel-unspent"
 file = "src/front/defeq.fs"
-old = ''': de-fuel? ( -- flag ) df df-fuel @ dup 0> if 1- df df-fuel ! true else drop false then ;'''
+old = ''': de-fuel? ( -- flag ) df df-fuel cell-spend? ;'''
 new = ''': de-fuel? ( -- flag ) true ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c: no comparison spends fuel, so a call never answers exhausted"
@@ -15478,7 +15478,7 @@ equivalent = "ifNatExpr tests the type of t, which isDefEqOffset reaches only as
 
 [[fault]]
 id = "fe-defeq-unit-recursive"
-file = "src/front/defeq.fs"
+file = "src/front/whnf.fs"
 old = '''  swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0= and ;'''
 new = '''  nip ;'''
 test = "$GFORTH tests/front/defeq.fs"
@@ -15850,7 +15850,7 @@ reason = "FE1g-3: a block (or the proof) ends with goals left and no unsolved-go
 [[fault]]
 id = "fe-run-fuel-free"
 file = "src/front/tactic-run.fs"
-old = '''  lf-tactic-fuel-left dup 0> if 1- trun trun-fuel ! lf-meta-spend? else drop false then ;'''
+old = '''  trun trun-fuel cell-spend? if lf-meta-spend? else false then ;'''
 new = '''  true ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "FE1g-3: a step spends no fuel, so a run never ends exhausted"
@@ -17018,7 +17018,7 @@ reason = "review s1-meta-b M3 (F11): the last library declaration read as a text
 [[fault]]
 id = "fe-declevel-imax"
 file = "src/front/infer.fs"
-old = '''  lf-level-tag@ dup lf-level-tag-max = swap lf-level-tag-imax = or ;'''
+old = '''  lf-level-tag@ lf-level-tag-max lf-level-tag-imax one-of2? ;'''
 new = '''  lf-level-tag@ lf-level-tag-max = ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b M3 (F14): getDecLevel's imax not processed as a max"
@@ -17262,7 +17262,7 @@ reason = "8.4.1c: --write-ir also makes the --out folder and removes an earlier 
 
 [[fault]]
 id = "leanforth-verify-status-passed"
-file = "bin/leanforth"
+file = "scripts/leanforth-run.sh"
 old = '''    *) printf 'error: internal: leanforth verify ended with status %s\n' "$status"; exit 5 ;;'''
 new = '''    *) exit "$status" ;;'''
 test = "python3 tests/program/test_program_verify.py Command"
@@ -17777,7 +17777,7 @@ reason = "s1-synth re-check M3' (reviewer's fault): a root only left-out values 
 [[fault]]
 id = "rc-strict-literal-kept"
 file = "src/front/discr-keys.fs"
-old = ''': dk-implicit? ( kind -- flag ) dup lf-binder-implicit = swap lf-binder-strict = or ;'''
+old = ''': dk-implicit? ( kind -- flag ) lf-binder-implicit lf-binder-strict one-of2? ;'''
 new = ''': dk-implicit? ( kind -- flag ) lf-binder-implicit = ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "s1-synth re-check M3' (reviewer's fault): a strict-implicit literal or non-type is indexed, not a star"
@@ -17906,7 +17906,7 @@ reason = "the budget is not given back per declaration (S1 8): after a declarati
 
 [[fault]]
 id = "fe-check-only-exit"
-file = "src/cli/leanforth.fs"
+file = "src/cli/leanforth-text.fs"
 old = '''  lfc-failed? lf-author-code lfa-e-nothing = and lf-elab-checks 0> and ;'''
 new = '''  false ;'''
 test = "python3 tests/front/check_elab.py"
@@ -18316,7 +18316,7 @@ reason = "S2: a constant with more universe arguments than parameters unfolds (L
 [[fault]]
 id = "fe-unfold-proj-inst-any-mode"
 file = "src/front/unfold.fs"
-old = ''': uf-inst-mode? ( -- flag ) lf-defeq-mode dup lf-tr-instances = swap lf-tr-implicit = or ;'''
+old = ''': uf-inst-mode? ( -- flag ) lf-defeq-mode lf-tr-instances lf-tr-implicit one-of2? ;'''
 new = ''': uf-inst-mode? ( -- flag ) true ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S2: unfoldProjInst? runs at reducible transparency (HAdd.hAdd becomes Add.add), where Lean's unfoldProjInstWhenInstances? runs only at instances and implicit"
@@ -19911,8 +19911,8 @@ reason = "review s2-unfold-a H1: every value counts as simple, so Nat.pred (heig
 [[fault]]
 id = "fe-whnf-at-most-i-implicit"
 file = "src/front/whnf.fs"
-old = '''  dup lf-tr-all = over lf-tr-default = or over lf-tr-implicit = or'''
-new = '''  dup lf-tr-all = over lf-tr-default = or'''
+old = '''  dup lf-tr-all lf-tr-default lf-tr-implicit one-of3? if drop lf-tr-instances then ;'''
+new = '''  dup lf-tr-all lf-tr-default one-of2? if drop lf-tr-instances then ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "review s2-unfold-a H1: whnfAtMostI keeps implicit transparency, so whnfCoreAtDefEq at implicit unfolds id under a projection (Lean lowers implicit to instances)"
 
@@ -19967,8 +19967,8 @@ reason = "review s2-unfold-a re-check L1: a failing step's half-made result is s
 [[fault]]
 id = "fe-ed3-entry-below-absolute"
 file = "src/front/elab-data.fs"
-old = '''  over - rot ed-u32 ok-then? 0= if nip nip no-result exit then'''
-new = '''  rot ed-u32 ok-then? 0= if nip nip no-result exit then'''
+old = '''  over - rot ed-u32 ['] ed-entry-in ok-apply3 ;'''
+new = '''  rot ed-u32 ['] ed-entry-in ok-apply3 ;'''
 test = "GFORTH=$GFORTH python3 tests/front/test_elab_data.py"
 reason = "review s2-unfold-a re-check M2-new: an index of a second smart-unfolding body is checked against the whole table, not the room past the body's first entry, so a root beyond its nodes, a node naming itself or a level beyond its table is read"
 
@@ -20802,7 +20802,7 @@ reason = "review F4 of 2026-11-18: a failed attempt that rolled back its save's 
 
 [[fault]]
 id = "cli-internal-fault-as-misuse"
-file = "src/cli/leanforth.fs"
+file = "src/cli/leanforth-text.fs"
 old = '''  ." : the LeanForth text was not checked: " lf-author-error. cr outcome>code cli-code! ;'''
 new = '''  ." : the LeanForth text was not checked: " lf-author-error. cr outcome-sane outcome>code cli-code! ;'''
 test = "$GFORTH tests/cli/leanforth.fs"

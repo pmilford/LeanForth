@@ -46,6 +46,8 @@ originals, unchanged, taken from it; every copy checked) and requires
 every original accepted and the verdicts of COPIES.
 Untrusted test tool: it never accepts anything.
 """
+# Its texts name bin/leanforth's check; it runs bin/leanforth-checker's.
+# inputs: named only: bin/leanforth
 import json
 import os
 from pathlib import Path
@@ -253,7 +255,7 @@ def copies(text):
 
 def leanforth(export, *options):
     """(exit status, the JSON report) of bin/leanforth check --json on an export."""
-    done = subprocess.run(["bash", str(ROOT / "bin" / "leanforth"), "check", "--json", *options,
+    done = subprocess.run(["bash", str(ROOT / "bin" / "leanforth-checker"), "check", "--json", *options,
                            str(export)], capture_output=True, text=True, stdin=subprocess.DEVNULL,
                           timeout=int(os.environ.get("TEST_TIMEOUT", "1800")),
                           env=toolchain.gforth_env())

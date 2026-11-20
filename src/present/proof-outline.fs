@@ -267,7 +267,7 @@ end-structure
   then lf-ol-rule lf-ol-end lf-ol-second ;
 : lf-ol-binders ( s -- )
   begin dup lf-ol-lambda? while dup lf-ol-class
-    dup lf-class-prop = over lf-class-type = or if lf-ol-group else lf-ol-single
+    dup lf-class-prop lf-class-type one-of2? if lf-ol-group else lf-ol-single
   then repeat drop ;
 
 \ The discharge line of the chain from s0: the binder lines, latest first,
@@ -631,7 +631,7 @@ lf-walk-room context-walk: lf-ol-premises
   s" Proof outline not available: the log was kept without formulas (level steps)."
   lf-ol-none ;
 : lf-ol-postulate? ( -- flag )
-  lf-ol-decl lf-idecl-kind @ dup lf-kind-axiom = swap lf-kind-quotient = or ;
+  lf-ol-decl lf-idecl-kind @ lf-kind-axiom lf-kind-quotient one-of2? ;
 : lf-ol-unproved ( -- )
   s" No proof outline: an axiom or a quotient constant has no proof; Lean's kernel takes it as given."
   lf-ol-none ;

@@ -14,6 +14,9 @@ forgotten, an acceptance after an injected failure, a stale "axioms: none",
 and the injection itself switched off or a THROW that no longer spends its
 context. Finite evidence about the suite; it never accepts a theorem.
 """
+# The copy holds all of src/, but the suite reads only what it loads (followed from SUITE)
+# and the files FAULTS change (named below): the rest of src/ is no input of this test.
+# inputs: named only: src
 import os
 import pathlib
 import shutil

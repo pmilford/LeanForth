@@ -1242,8 +1242,12 @@ end-structure
 \ How many input declarations pass xt ( d -- flag ); none before verdicts.
 : ck-inputs-passing# ( xt -- n )
   ck-verdicts? 0= if drop 0 exit then >r 0 lf-input-count r> count-index ;
-\ Declarations checked in this run: final, not taken from the snapshot
-\ (a stopped run checked fewer than it did not take; review rvSN4 m3).
+\ Declarations checked in an import run (an export checked against a
+\ snapshot): final, not taken from the snapshot (a stopped run checked
+\ fewer than it did not take; review rvSN4 m3). Outside an import run
+\ nothing is taken, so every final slot counts, also of a snapshot read
+\ alone; its readers, cli-import. and cj-import, print it only while
+\ importing (plan 9.4.8l AM).
 : ck-fresh? ( d -- flag ) dup lf-env-final? swap ck-taken? 0= and ;
 : ck-checked# ( -- n ) ['] ck-fresh? ck-inputs-passing# ;
 \ Verdicts taken from the snapshot (and its layers), not checked here.

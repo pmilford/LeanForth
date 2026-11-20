@@ -12,7 +12,7 @@
 \ data stack's depth. Nothing here checks or accepts a theorem.
 include ../support/tester.fs
 include ../support/heap-watch.fs
-require ../../src/main.fs
+require ../../src/load/front.fs
 
 lf-author-begin lf-mctx-reset lf-lctx-reset 100000 lf-term-capacity! drop
 : app ( f a -- t ) lf-term-app 0= abort" app" ;

@@ -715,7 +715,7 @@ end-structure
 
 \ One copy: tasks until none is left, each one unit of the copy's work.
 : lf-copier-spend ( copier -- flag )
-  0 copier-work lf-copier@ dup @ 0> if -1 swap +! true else drop false then ;
+  0 copier-work lf-copier@ cell-spend? ;
 : lf-copier-step ( copier -- flag )
   dup lf-copier-next rot 2 pick 0<
   if rot lf-combined -rot lf-copier-combine else lf-copier-expand then ;
@@ -742,7 +742,7 @@ end-structure
 : lf-log-level-arity ( tag -- n )
   dup lf-level-tag-succ = if drop 1 else lf-level-binary-tag? if 2 else 0 then then ;
 : lf-log-level-leaf ( tag first second -- tag first second true | false )
-  2 pick dup lf-level-tag-zero = swap lf-level-tag-param = or
+  2 pick lf-level-tag-zero lf-level-tag-param one-of2?
   if true else 2drop lf-log-unreadable then ;
 : lf-log-level-inner ( tag -- 0 ) drop 0 ;
 create lf-log-level-copier

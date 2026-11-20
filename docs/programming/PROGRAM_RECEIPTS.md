@@ -11,7 +11,7 @@ is generated** by `scripts/program_receipt.py` from the actual checks
 ([verification conditions and the clamp receipt](PROGRAM_VC.md)). Since
 plan task 5.5.1 (2026-11-12) its CHECK part is LeanForth's verdict: Lean
 wrote the proofs, its exporter wrote them with every declaration they use,
-and LeanForth's checker (`bin/leanforth check`) re-checked that export.
+and LeanForth's checker (`bin/leanforth-checker check`, the launcher that ran; `bin/leanforth check` prints the same) re-checked that export.
 Receipts for IR 0.2 programs (the SHA-256 helper words) will take version
 0.4 at the owner's [format] gate ([below](#schema-04-what-ir-02-receipts-need)).
 
@@ -87,7 +87,7 @@ Its generated receipt says:
   declaration they use, 4,277 in all, to an export of 23.6 MB that the
   committed manifest `tests/program/vc/lf-clamp.ndjson.manifest.json` pins
   (SHA-256 `b53290b4…`; `make check` makes it again, byte for byte).
-  LeanForth's checker (`bin/leanforth check --jobs 2`, LeanForth
+  LeanForth's checker (`bin/leanforth-checker check --jobs 2`, LeanForth
   0.1.0-dev, verdict version 9) re-checked that export and accepted all
   4,277 declarations: the status is LeanForth's verdict. Each theorem
   lists its axioms as LeanForth reports them (`O1`: propext and
@@ -458,7 +458,7 @@ The generated clamp receipt (`tests/program/receipts/generated/lf-clamp.json`):
     {
       "id": "A8",
       "kind": "trusted-leanforth",
-      "text": "LeanForth's checker (bin/leanforth check, 0.1.0-dev, verdict version 9) checked every declaration of the export correctly: it accepted all 4,277 of them, the contract theorem, its obligations and every definition, inductive type and lemma they use, directly or not, each with its axioms. It follows Lean 4.35.0's kernel rules; it has no tactics and wrote no proof."
+      "text": "LeanForth's checker (bin/leanforth-checker check, 0.1.0-dev, verdict version 9) checked every declaration of the export correctly: it accepted all 4,277 of them, the contract theorem, its obligations and every definition, inductive type and lemma they use, directly or not, each with its axioms. It follows Lean 4.35.0's kernel rules; it has no tactics and wrote no proof."
     }
   ],
   "tools": [
@@ -535,6 +535,14 @@ the reader keeps reading it.
   task 5.5.1, when its CHECK part became LeanForth's verdict; the 0.2
   receipt, checked by the Lean reference, is kept in
   `tests/program/receipts/0.2/`.
+- **Wording of A8 and the check step (2026-11-19, no version change):** the
+  `trusted-leanforth` assumption's text names the launcher that ran,
+  `bin/leanforth-checker check` (`LAUNCHER` in `scripts/program_receipt.py`, which
+  is also what the check step executes; `bin/leanforth check` prints the same,
+  `make test-cli-checker`), instead of `bin/leanforth check`. The text is free
+  text under the schema, so neither schema nor `schemaVersion` changed; the
+  clamp receipt and the golden receipts were rewritten (owner, 2026-11-19, "m2
+  option 2").
 
 ### Schema 0.4: what IR 0.2 receipts need
 

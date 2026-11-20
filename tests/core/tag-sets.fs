@@ -3,9 +3,11 @@
 \ it replaced, written out here as it stood (the [kernel]-in-form rule:
 \ identical results), on every tag from -2 to 40 and on extreme values;
 \ and each set's members pinned, so that a set that loses or gains a tag
-\ fails here (review of reuse-b, finding 5). Loads src/main.fs.
+\ fails here (review of reuse-b, finding 5). Loads the kernel's and the front
+\ end's entries (src/load/), whose modules make the sets.
 require ../support/tester.fs
-require ../../src/main.fs
+require ../../src/load/kernel.fs
+require ../../src/load/front.fs
 
 \ The old chains, one per set.
 : =any ( tag t1 t2 -- flag ) >r over = swap r> = or ;

@@ -64,7 +64,9 @@ class RefusedFork(unittest.TestCase):
             wrapper.chmod(0o755)
             env = dict(os.environ, GFORTH=str(wrapper))
             env.pop("LEANFORTH_STRICT_DEPTH", None)
-            run = subprocess.run([str(ROOT / "bin" / "leanforth"), "count", "--no-manifest",
+            # The launchers share this report (scripts/leanforth-run.sh): bin/leanforth-checker's run
+            # stands for bin/leanforth's and reads no front end.
+            run = subprocess.run([str(ROOT / "bin" / "leanforth-checker"), "count", "--no-manifest",
                                   str(ROOT / "tests" / "reference" / "composition.ndjson")],
                                  capture_output=True, text=True, env=env, timeout=300,
                                  stdin=subprocess.DEVNULL)

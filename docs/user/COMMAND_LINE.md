@@ -546,6 +546,14 @@ the run uses `gforth` and says so on standard error:
 leanforth: note: no /opt/forth/gforth-fast found; checking with /opt/forth/myforth
 ```
 
+`bin/leanforth-checker` is a launcher of the export-only tests, not a user
+command: use `bin/leanforth`. It takes the same commands and options for an
+export or a snapshot and prints the same bytes with the same exit status, on
+the checker's load alone (`src/load/cli-checker.fs`: no front end, authoring
+words or program track). Its help text is the product's, so it still lists
+`check ... FILE.lf`; it refuses a LeanForth text (exit 4). `make
+test-cli-checker` compares the two on every such command.
+
 `EXPORT` and `COPY` are file names relative to the current folder; the
 tool works from any folder, and gives the same bytes on every run:
 

@@ -23,7 +23,7 @@ require ../../src/import/checker-input.fs
 require ../../src/import/run-record.fs
 require ../../src/import/run-replay.fs
 
-64 constant ni-pool   \ dependencies the environment holds, as bin/leanforth gives it
+64 constant ni-pool   \ dependencies the environment holds, as the command line gives it
 
 \ Read and check the export file c-addr u, each declaration with fuel,
 \ and write its record into rr-text: ok, or the outcome of the first step

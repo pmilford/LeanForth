@@ -5,7 +5,7 @@
 \ more conservative than Lean (unknown) is marked as such.
 include ../support/tester.fs
 include ../support/checks.fs
-require ../../src/main.fs
+require ../../src/load/kernel.fs
 include ../support/plain-terms.fs
 include ../support/plain-cases.fs
 require ../support/store-faults.fs

@@ -15,7 +15,9 @@
 \ current context as it was; 7. regression pins: the texts.
 \ Nothing here accepts a theorem: only the kernel's check does.
 require ../../../support/tester.fs
-require ../../../../src/main.fs
+require ../../../../src/load/checker.fs
+require ../../../../src/load/front.fs
+require ../../../../src/cli/check-lf.fs
 require ../../../support/tactic-text.fs
 decimal
 

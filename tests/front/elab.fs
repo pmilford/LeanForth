@@ -29,7 +29,9 @@
 \    unfolding of outParam, as pinned Lean's isDefEq.delta trace).
 include ../support/heap-watch.fs
 require ../support/tester.fs
-require ../../src/main.fs
+require ../../src/load/checker.fs
+require ../../src/load/front.fs
+require ../../src/cli/check-lf.fs
 decimal
 
 : library ( -- c-addr u ) s" tests/front/s1-slice.ndjson" ;

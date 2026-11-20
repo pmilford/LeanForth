@@ -26,7 +26,7 @@ INCLUDED or REQUIRED counted as a load of the string before it:
    under src/ names no log word at all.
 4. Outside the log module, no field of a record, mark, copied reference,
    the header, the pools or the options is followed by !, +!, 2!,
-   cell-pair! or cell-triple!.
+   cell-pair!, cell-triple! or cell-spend?.
 5. src/core/derivation-log.fs names only its own words and the words in
    LOG_USES: standard Forth words, the context words, and the stores'
    read-only accessors, every one of which gives values, not addresses
@@ -121,6 +121,13 @@ STORES = {
     # own header and records; no state, no name looked up. Rule 4 counts
     # them (and 2!) as stores after a field, as ! and +!.
     "cell-pair@", "cell-pair!", "cell-triple!",
+    # lib/bounds.fs's one-of2? (cleanup-families-3): a value compared with two
+    # values on the stack; no state, no address, no name looked up.
+    "one-of2?",
+    # lib/bounds.fs's cell-spend? (cleanup-families-3): one unit taken from the
+    # count at the address given, the copier's own work count; no state, no
+    # name looked up. Rule 4 counts it as a store after a field.
+    "cell-spend?",
     "lf-tag-sort", "lf-tag-symbolic-sort", "lf-tag-bvar", "lf-tag-constant",
     "lf-tag-app", "lf-tag-lam", "lf-tag-pi", "lf-log-preset-level", "lf-log-preset-records",
     "lf-log-preset-marks", "lf-log-preset-terms", "lf-log-preset-levels",
@@ -227,7 +234,7 @@ def log_words(tokens):
     return {t for t in tokens if LOG_WORD.match(t)}
 
 
-FIELD_WRITES = ("!", "+!", "2!", "cell-pair!", "cell-triple!")
+FIELD_WRITES = ("!", "+!", "2!", "cell-pair!", "cell-triple!", "cell-spend?")
 
 
 def field_stores(tokens):

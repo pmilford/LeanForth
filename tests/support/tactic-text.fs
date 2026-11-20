@@ -5,7 +5,8 @@
 \ theorem t whose statement (binders and type) is the first text and whose
 \ proof, after := by, is the second, run in a new authoring run; its
 \ authoring error code, 0 when the kernel accepted it (the error is left
-\ recorded: lf-tac-forget clears it). Include after src/main.fs, with the
+\ recorded: lf-tac-forget clears it). Include after src/load/checker.fs,
+\ src/load/front.fs and src/cli/check-lf.fs (or src/main.fs), with the
 \ library and its elaboration data open. State: test-only buffer;
 \ single-threaded.
 create tt-text 1024 allot  variable tt-text#

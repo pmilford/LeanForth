@@ -688,7 +688,7 @@ class Checks:
             path = self.tmp / f"use-{code}.ndjson"
             path.write_bytes(data)
             Path(f"{path}.manifest.json").write_text(text)
-            command = [str(ROOT / "bin/leanforth"), "check", "--record", os.devnull, str(path)]
+            command = [str(ROOT / "bin/leanforth-checker"), "check", "--record", os.devnull, str(path)]
             status = subprocess.run(command, cwd=ROOT,
                                     stdin=subprocess.DEVNULL, capture_output=True,
                                     env=dict(os.environ, GFORTH=self.gforth), timeout=120)

@@ -18,7 +18,7 @@ known about one word, in three separate parts:
   CHECK  LeanForth's verdict on the contract theorem and the path
          obligations of scripts/program_vc.py: Lean wrote the proofs, its
          exporter wrote them with every declaration they use, and
-         LeanForth's checker (bin/leanforth check) checked that export;
+         LeanForth's checker (bin/leanforth-checker check) checked that export;
          each accepted theorem with its axioms;
   VERIFY whether the obligations generated from the IR and the contract
          are discharged, and by which check;
@@ -51,6 +51,9 @@ and 2 for a usage error. A receipt that verifies is
 consistent with the repository and the evidence; it is not an approval of
 anything, and it passes no review gate. Untrusted tooling.
 """
+# The receipts say which launcher ran (LAUNCHER, bin/leanforth-checker) and tell the user to check
+# with bin/leanforth.
+# inputs: named only: bin/leanforth tests/program/test_program_verify.py
 import argparse
 import datetime
 import functools
@@ -98,6 +101,7 @@ RUN_EVIDENCE = [TABLE, "src/program/ir-run.fs", "tests/program/ir_run_differenti
                 "tests/reference/program-ir-run.lean"]
 IR_WORDS = "src/program/verify.fs"   # the program words that write the IR (ADR 0019)
 VERDICT_VERSION = "src/kernel/verdict-version.fs"
+LAUNCHER = "bin/leanforth-checker"   # the one name of the launcher the check step runs, in LEANFORTH and in every text
 LEANFORTH_JOBS = "2"   # workers of LeanForth's check (owner's CPU rule, 2026-11-12)
 ALLOWED_AXIOMS = ["propext", "Classical.choice", "Quot.sound"]
 AXIOM_BITS = {1: "propext", 2: "Classical.choice", 4: "Quot.sound"}   # check report 0.4
@@ -272,7 +276,7 @@ def leanforth_assumption(leanforth, what="contract theorem, its obligations"):
     """The trusted-leanforth assumption of a receipt LeanForth's checker accepted; what names
     the theorems checked."""
     return {"id": "A8", "kind": "trusted-leanforth",
-            "text": f"LeanForth's checker (bin/leanforth check, {leanforth['version']}, verdict "
+            "text": f"LeanForth's checker ({LAUNCHER} check, {leanforth['version']}, verdict "
                     f"version {leanforth['verdictVersion']}) checked every declaration of the "
                     f"export correctly: it accepted all {leanforth['accepted']:,} of them, the "
                     f"{what} and every definition, inductive type "
@@ -633,7 +637,9 @@ def checked_lean():
     return lean
 
 
-LEANFORTH = ["bash", str(ROOT / "bin" / "leanforth")]   # the checker, as the CLI starts it
+# The checker, as the CLI starts it for an export: bin/leanforth-checker prints what
+# bin/leanforth prints for one, on the checker's load alone (tests/cli/test_checker_launcher.py).
+LEANFORTH = ["bash", str(ROOT / LAUNCHER)]
 
 
 def leanforth_args(export, options=("--jobs", LEANFORTH_JOBS)):
@@ -642,7 +648,7 @@ def leanforth_args(export, options=("--jobs", LEANFORTH_JOBS)):
 
 
 def leanforth_identity():
-    """LeanForth's version (bin/leanforth version) and verdict version."""
+    """LeanForth's version (LAUNCHER version) and verdict version."""
     version = command([*LEANFORTH, "version"]).split("\n")[0]
     return {"version": version.split()[-1],
             "verdictVersion": int(re.search(r"(\d+) constant lf-verdict-version",
@@ -658,7 +664,7 @@ def leanforth_theorems(report, theorems):
 
 
 def leanforth_check(export, theorems, snapshot=None):
-    """LeanForth's check of the export (bin/leanforth check --json): its version, the counts,
+    """LeanForth's check of the export (LAUNCHER check --json): its version, the counts,
     the exit status and the verdict and axioms of each theorem. With snapshot, a file name,
     the check also writes the checked environment there (--save-snapshot; the verdicts are
     the same), for a later check of the export with changed copies added (clamp_mutants.py)."""

@@ -20,7 +20,7 @@
 \ empty axiom set; any other must give no handle. A violation aborts.
 \ Nothing here accepts a theorem; it observes the kernel code under test.
 
-require ../../src/main.fs
+require ../../src/load/kernel.fs
 decimal
 
 : must ( flag -- ) 0= abort" first-checker driver: refused" ;

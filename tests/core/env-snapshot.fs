@@ -19,7 +19,8 @@
 
 create lf-env-i2-checks   \ compiles the I2 assertion into environment.fs
 include ../support/heap-watch.fs   \ the refusals at the end
-require ../../src/main.fs
+require ../../src/load/checker.fs
+require ../../src/cli/check-run.fs
 include ../support/tester.fs
 include ../support/checks.fs
 include ../support/scratch.fs

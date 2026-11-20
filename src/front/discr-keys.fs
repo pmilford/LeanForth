@@ -100,9 +100,9 @@ end-structure
 : dk-at ( list -- addr ) dk-cells slab-at ;
 : lf-dt-first ( list -- term ) dk-at tc-term @ ;
 : lf-dt-rest ( list -- list' ) dk-at tc-rest @ ;
-: lf-dt-cons ( term list -- list' outcome )
-  1 dk-cells slab-claim ok-then? 0= if nip nip no-result exit then
+: dk-cell! ( term list i -- i outcome )
   tuck dk-at tuck tc-rest ! rot swap tc-term ! outcome-ok ;
+: lf-dt-cons ( term list -- list' outcome ) 1 dk-cells slab-claim ['] dk-cell! ok-apply3 ;
 : lf-dt-mark ( -- keys texts cells ) elab-keys-mark dk-cells slab-count ;
 : lf-dt-release ( keys texts cells -- ) dk-cells slab-cut elab-keys-drop ;
 : lf-dt-scoped ( i*x xt -- j*x ) lf-dt-mark 2>r >r execute r> 2r> lf-dt-release ;
@@ -184,7 +184,7 @@ end-structure
   lf-meta-whnf-d ok-then? if lf-sort? outcome-ok else false swap then ;
 : dk-proof? ( a -- flag outcome ) lf-infer ok-then? if lf-meta-is-prop else false swap
   then ;
-: dk-implicit? ( kind -- flag ) dup lf-binder-implicit = swap lf-binder-strict = or ;
+: dk-implicit? ( kind -- flag ) lf-binder-implicit lf-binder-strict one-of2? ;
 : dk-not-type? ( a -- flag outcome ) dk-type? swap 0= swap ;
 \ A literal's type is Nat or String (inferType): no proof and no type,
 \ so ignored exactly under an implicit or strict-implicit binder.

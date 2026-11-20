@@ -213,7 +213,7 @@ lf-lib-private set-current
 : jw-room? ( n writer -- flag ) tuck jw-fits? swap jw-within ;
 
 \ Commas: one before every element or member after the first.
-: jw-listing? ( writer -- flag ) jw-state @ dup jw-want-element = swap jw-want-key = or ;
+: jw-listing? ( writer -- flag ) jw-state @ jw-want-element jw-want-key one-of2? ;
 : jw-comma? ( writer -- flag )
   dup jw-listing? if jw-nest jw-nest-items @ 0<> else drop false then ;
 : jw-comma ( writer -- ) dup jw-comma? if s" ," rot jw-type else drop then ;
@@ -234,7 +234,7 @@ lf-lib-private set-current
 \ Whether a value of n bytes may come next (else invalid), with room for
 \ it and a comma when one is due (else full).
 : jw-value-state? ( writer -- flag )
-  jw-state @ dup jw-want-value = swap jw-want-element = or ;
+  jw-state @ jw-want-value jw-want-element one-of2? ;
 : jw-value-next? ( writer -- flag )
   dup jw-ready? if dup jw-value-state? swap jw-expect else drop false then ;
 : jw-value? ( n writer -- flag )
@@ -247,7 +247,7 @@ lf-lib-private set-current
 lf-lib set-current
 : jw-null ( writer -- ) s" null" rot jw-scalar ;
 lf-lib-private set-current
-: jw-flag? ( x -- flag ) dup true = swap false = or ;
+: jw-flag? ( x -- flag ) true false one-of2? ;
 : jw-bool-text ( flag -- c-addr u ) if s" true" else s" false" then ;
 lf-lib set-current
 : jw-bool ( flag writer -- )

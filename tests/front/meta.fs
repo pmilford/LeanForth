@@ -5,7 +5,7 @@
 \ tests/front/check_meta.py compares the same cases with pinned Lean.
 \ Nothing here checks or accepts a theorem.
 require ../support/tester.fs
-require ../../src/main.fs
+require ../../src/load/front.fs
 require ../../src/front/level-defeq.fs
 require ../../src/front/instantiate.fs
 require ../../src/front/level-params.fs

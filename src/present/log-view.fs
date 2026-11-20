@@ -149,7 +149,7 @@ create lf-lv-blanks 64 allot lf-lv-blanks 64 bl fill
 : lf-lv-depth@ ( s -- d ) lf-log-depth@ ;
 : lf-lv-start ( s -- start ) lf-log-premise ;
 : lf-lv-outcome ( s -- outcome ) lf-log-outcome@ ;
-: lf-lv-binder-rule? ( rule -- flag ) dup lf-rule-lambda = swap lf-rule-pi = or ;
+: lf-lv-binder-rule? ( rule -- flag ) lf-rule-lambda lf-rule-pi one-of2? ;
 : lf-lv-infer-rule? ( rule -- flag ) lf-rule-sort lf-rule-form between? ;
 
 \ Premises: s-1, then each start of the last, while above s's start and
@@ -249,7 +249,7 @@ lf-walk-room context-walk2: lf-lv-pairs
   lf-lv lf-lv-fuel @ lf-lv-pairs walk-budget drop
   ['] lf-lv-pair-visit lf-lv-pairs walk-run-pair drop ;
 : lf-lv-rebuilt? ( rule -- flag )
-  dup lf-rule-shift = over lf-rule-instantiate = or swap lf-rule-instantiate-levels = or ;
+  lf-rule-shift lf-rule-instantiate lf-rule-instantiate-levels one-of3? ;
 \ A lambda's type: each Pi down its spine named from the lambda at the
 \ same place in the subject's, as Lean's mk_pi takes the binders' names
 \ (since plan task 4.2.2a each lambda's type is made afresh over its free

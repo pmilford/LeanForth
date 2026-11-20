@@ -9,7 +9,9 @@
 \ writer's refusal of a metavariable is in tests/author/author.fs.
 \ Nothing here checks or accepts a theorem.
 require ../support/tester.fs
-require ../../src/main.fs
+require ../../src/load/checker.fs
+require ../../src/load/front.fs
+require ../../src/cli/check-lf.fs
 
 : nrun ( c-addr u -- outcome ) lf-author-begin lf-author-text ;
 : err ( -- code line col ) lf-author-code lfa-error lfa-err-at @ lfa-pos> ;

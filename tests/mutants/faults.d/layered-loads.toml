@@ -1,0 +1,144 @@
+# Planted faults of the layer entries' check (branch layered-loads; scripts/check-layers.py,
+# make check-layers): tests/scripts/test_check_layers.py must catch each.
+
+[[fault]]
+id = "ll-entry-layers-ignored"
+file = "scripts/check-layers.py"
+old = '''            elif where not in allowed:'''
+new = '''            elif where not in allowed and where == "cli":'''
+test = "python3 tests/scripts/test_check_layers.py CheckLayers"
+reason = "an entry that loads a higher layer passes: the kernel's tests would re-run for front-end changes"
+
+[[fault]]
+id = "ll-checker-present-open"
+file = "scripts/check-layers.py"
+old = '''            elif entry == "src/load/checker.fs" and where == "present" and path not in CHECKER_PRESENT:'''
+new = '''            elif entry == "src/load/checker.fs" and where == "present" and path in CHECKER_PRESENT:'''
+test = "python3 tests/scripts/test_check_layers.py CheckLayers"
+reason = "the checker entry may load all of present/ (the term printer, the proof outline)"
+
+[[fault]]
+id = "ll-closure-one-level"
+file = "scripts/check-layers.py"
+old = '''            todo += loads(path)'''
+new = '''            todo += loads(path) if path == start else []'''
+test = "python3 tests/scripts/test_check_layers.py CheckLayers"
+reason = "only an entry's own requires are checked: a module two requires down may load any layer"
+
+[[fault]]
+id = "ll-main-tests-unchecked"
+file = "scripts/check-layers.py"
+old = '''        if MAIN_LOAD.search(read(path) or "") and path not in WHOLE_LOADS:'''
+new = '''        if MAIN_LOAD.search(read(path) or "") and path in WHOLE_LOADS:'''
+test = "python3 tests/scripts/test_check_layers.py CheckLayers"
+reason = "a new test may require src/main.fs, and every change re-runs it"
+
+[[fault]]
+id = "ll-gforth-loads-unchecked"
+file = "scripts/check-layers.py"
+old = '''        for path in sorted(loaded - closure(entry)):'''
+new = '''        for path in sorted(loaded - closure(entry) - loaded):'''
+test = "python3 tests/scripts/test_check_layers.py CheckLayers"
+reason = "a file Gforth loads that the static closure misses (so tested-tree.py's inputs miss it) passes"
+
+[[fault]]
+id = "ll-lean-cache-reads-lib"
+file = "scripts/lean-cache.py"
+old = '''    library = os.path.join(prefix, "lib/lean")'''
+new = '''    library = os.path.join(prefix, "lib", "lean")'''
+test = "python3 tests/scripts/test_check_layers.py GlobalInputs"
+reason = "every target under the Lean cache reads src/lib again: a library change re-runs all of make check"
+
+[[fault]]
+id = "ll-proc-listing-unknown"
+file = "scripts/changed-tests.py"
+old = '''    listing = SYSTEM_LISTING.sub(" ", IMPORT_LINE.sub("", code) if kind(path) == ".py" else code)'''
+new = '''    listing = IMPORT_LINE.sub("", code) if kind(path) == ".py" else code'''
+test = "python3 tests/scripts/test_check_layers.py Finder"
+reason = "a listing of /proc makes the inputs unknown again: the 31 targets that run bin/leanforth always re-run"
+
+[[fault]]
+id = "ll-vouched-first-hides-plain"
+file = "scripts/changed-tests.py"
+old = '''        if path in plain or (vouched and path in seen):'''
+new = '''        if path in seen:'''
+test = "python3 tests/scripts/test_check_layers.py Finder"
+reason = "a program reached through a fixtures-only test first and plainly after keeps no reason: its git reads are waived"
+
+[[fault]]
+id = "ll-vouched-listing-waived"
+file = "scripts/changed-tests.py"
+old = '''        reasons += [w for w in why if not vouched or w.endswith(LISTED)]'''
+new = '''        reasons += [w for w in why if not vouched]'''
+test = "python3 tests/scripts/test_check_layers.py Finder"
+reason = "a folder listing the finder cannot name is waived under a fixtures-only test: an input could be missed"
+
+[[fault]]
+id = "ll-fixtures-only-anywhere"
+file = "scripts/changed-tests.py"
+old = '''    return follows, data - unread, why, path.startswith("tests/") and bool(FIXTURES_ONLY.search(text))'''
+new = '''    return follows, data - unread, why, bool(FIXTURES_ONLY.search(text))'''
+test = "python3 tests/scripts/test_check_layers.py Finder"
+reason = "a script, not only a test, could declare its own git reads a fixture's"
+
+[[fault]]
+id = "ll-checker-launcher-loads-everything"
+file = "bin/leanforth-checker"
+old = '''lf_entry=$root/src/load/cli-checker.fs'''
+new = '''lf_entry=$root/src/main.fs'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_checker_launcher.py Text"
+reason = "bin/leanforth-checker loads the front end again: a LeanForth text runs, and the export-only tests depend on every file"
+
+[[fault]]
+id = "ll-text-refusal-accepts"
+file = "src/cli/leanforth.fs"
+old = '''  cr exit-malformed cli-code! ;'''
+new = '''  cr ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_checker_launcher.py Text"
+reason = "the command line of exports refuses a LeanForth text but exits 0, as if it were checked"
+
+[[fault]]
+id = "ll-text-run-unset"
+file = "src/cli/leanforth-text.fs"
+old = '''is cli-text-run'''
+new = '''drop'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_checker_launcher.py Text"
+reason = "the whole load keeps the refusal: bin/leanforth no longer checks a LeanForth text"
+
+[[fault]]
+id = "ll-named-only-followed"
+file = "scripts/changed-tests.py"
+old = '''    follows = (uses | runs) - named'''
+new = '''    follows = uses | runs'''
+test = "python3 tests/scripts/test_check_layers.py Finder"
+reason = "a program named only in a message is followed again: the receipts depend on all of src/main.fs"
+
+[[fault]]
+id = "ll-launcher-missing-run-script"
+file = "bin/leanforth-checker"
+old = '''. "$root/scripts/leanforth-run.sh" || {
+  printf 'leanforth: internal fault: cannot read scripts/leanforth-run.sh\n' >&2
+  exit 5
+}'''
+new = '''. "$root/scripts/leanforth-run.sh"'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_checker_launcher.py BrokenCheckout"
+reason = "a checkout without the shared launcher script exits 1, which reads as a rejection, not an internal fault"
+
+[[fault]]
+id = "ll-leanforth-missing-run-script"
+file = "bin/leanforth"
+old = '''. "$root/scripts/leanforth-run.sh" || {
+  printf 'leanforth: internal fault: cannot read scripts/leanforth-run.sh\n' >&2
+  exit 5
+}'''
+new = '''. "$root/scripts/leanforth-run.sh"'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_checker_launcher.py BrokenCheckout"
+reason = "bin/leanforth with the shared script missing exits 1, which reads as a rejection, not an internal fault"
+
+[[fault]]
+id = "ll-receipt-names-other-launcher"
+file = "scripts/program_receipt.py"
+old = '''"text": f"LeanForth's checker ({LAUNCHER} check, '''
+new = '''"text": f"LeanForth's checker (bin/leanforth check, '''
+test = "python3 tests/program/test_receipts.py StatedLauncher"
+reason = "a receipt says bin/leanforth ran while the check step ran another launcher"

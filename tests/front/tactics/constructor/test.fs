@@ -13,7 +13,9 @@
 \ (Or.inl when both apply) and the goals' tags.
 \ Nothing here accepts a theorem: only the kernel's check does.
 require ../../../support/tester.fs
-require ../../../../src/main.fs
+require ../../../../src/load/checker.fs
+require ../../../../src/load/front.fs
+require ../../../../src/cli/check-lf.fs
 decimal
 
 4000000 lf-term-capacity! drop  100000 lf-cref-capacity! drop

@@ -1,7 +1,7 @@
-\ LeanForth loader and command-line entry point. It requires only the top
-\ modules, the ones no other module requires; each module requires its own
-\ direct dependencies, so the whole data model, library and checker under
-\ development load with them.
+\ LeanForth loader and command-line entry point. It requires the layer
+\ entries of src/load/ and the command line, the modules no other module
+\ requires; each module requires its own direct dependencies, so the whole
+\ data model, library and checker under development load with them.
 \ Usage: gforth src/main.fs   (paths resolve relative to this file), or,
 \ as bin/leanforth runs it, gforth src/main.fs -e cli-main COMMAND ...
 \ (src/cli/leanforth.fs, docs/user/COMMAND_LINE.md).
@@ -9,114 +9,30 @@
 \ development and counts as trusted only once the owner declares it so after
 \ the review gate in AGENTS.md.
 \ Loading leaves both stacks empty and prints nothing; tests/smoke checks it.
+\ The entries load in this order, each after the layers below it, so every
+\ definition comes in the same order as when this file listed the modules
+\ itself; a test loads the smallest entry it needs, so that a change in a
+\ higher layer does not re-run it (scripts/tested-tree.py), and
+\ scripts/check-layers.py keeps each entry to its layers.
 
-\ The checker under development, through its outermost probe: definition
-\ checking, which requires inference, conversion, the rebuild passes,
-\ signatures, level algorithms and the Lean data model.
-require ./kernel/mixed-definition-probe.fs
-
-\ The first checker: check-declaration (plan task 2.2.3), which requires
-\ the checked environment v0 (ADR 0012: the input marks, write-once slots,
-\ snapshots and handles, and the single publisher) and inference in
-\ environment mode.
-require ./kernel/check-declaration.fs
-
-\ Staging of decoded Lean exports into the term store, and the reader of
-\ lean4export NDJSON files.
-require ./import/load.fs
-require ./import/ndjson.fs
-
-\ The importer stage (ADR 0016 C9 step 2): an export, checked against its
-\ manifest, staged into a compact input tier (core/compact*.fs) with its
-\ declarations; it declares no context member and allocates nothing while
-\ loading. The feed (C9 step 3, plan task 3.2.2) makes a sealed stage the
-\ checker's input in file order, its names read from the input tier.
-require ./import/stage.fs
-require ./import/feed.fs
-\ The input tier saved to and loaded from a sectioned file (ADR 0020, plan
-\ step SN2); a fresh check runs none of it.
-require ./import/snapshot-tier.fs
-\ The checked environment saved and loaded with it, its verdict version
-\ (ADR 0020, plan step SN3); a fresh check without --save-snapshot runs
-\ none of it.
-require ./kernel/verdict-version.fs
-require ./kernel/env-snapshot.fs
-require ./kernel/env-import.fs
+\ The checker: the kernel (src/load/kernel.fs), the importer
+\ (src/load/import.fs) and the checked environment's snapshots.
+require ./load/checker.fs
 
 \ Verified-program track: example words, the stack-depth analyzer and the
-\ program IR's interpreter. The IR 0.1 reader (program/ir-reader.fs) is
-\ the tests' oracle only and is not loaded here (review R1, 2026-11-18):
-\ leanforth verify reads Forth with program/verify.fs, which
-\ scripts/program_verify.py loads.
-require ./program/clamp.fs
-require ./program/examples.fs
-require ./program/program-depth.fs
-require ./program/ir-run.fs
+\ program IR's interpreter.
+require ./load/program.fs
 
 \ Presentation: the term printer and its side table, and the proof outline
-\ printed from the derivation log (untrusted output; the checker loads
-\ only the log itself, src/core/derivation-log.fs).
-require ./present/term-printer.fs
-require ./present/log-check.fs
-require ./present/proof-outline.fs
+\ printed from the derivation log.
+require ./load/present.fs
 
-\ The front end (ADR 0021, plan FE1; untrusted, never loaded by the
-\ kernel): the natural reader (front/reader.fs, which the command line
-\ loads through cli/check-lf.fs), the metavariable context, and the first
-\ pieces of the Meta layer (plan FE1c): level unification, bound-variable
-\ instantiation and abstraction, level simplification and normalization,
-\ universe-parameter instantiation, the view of the environment
-\ (reducibility and unfolding under each transparency), whnfCore and the
-\ first cases of type inference; the tactic framework's goals, each with
-\ its own local context, the goal list and their text (plan FE1g-1); the
-\ instance table and its discrimination-tree keys over the elaboration
-\ data (plans FE1e2, FE1e3); unfolding one definition (unfoldDefinition?)
-\ and lazy delta reduction in unification (isDefEqDelta, which sets
-\ defeq.fs's hook: plan S2).
-require ./front/level-map.fs
-require ./front/mvars.fs
-require ./front/meta-config.fs
-require ./front/level-defeq.fs
-require ./front/offset-walk.fs
-require ./front/instantiate.fs
-require ./front/level-simp.fs
-require ./front/level-params.fs
-require ./front/level-normalize.fs
-require ./front/lib-decode.fs
-require ./front/meta-env.fs
-require ./front/term-find.fs
-require ./front/unfold.fs
-require ./front/whnf.fs
-require ./front/beta-inst.fs
-require ./front/infer.fs
-require ./front/defeq-delta.fs
-require ./front/goal-print.fs
-require ./front/instances.fs
-\ Instance search (plan FE1e5), which sets defeq.fs's synthesis hooks.
-require ./front/synth.fs
-\ The elaborator (plan S1, FE1e6-7): pending instance problems and default
-\ instances, applications, terms, and the glue that elaborates natural
-\ declarations, by-exact's terms and #check (front/elab-decl.fs sets the
-\ reader's, the hand-over's and the tactics' hooks).
-require ./front/elab-pending.fs
-require ./front/elab-app.fs
-require ./front/elab-term.fs
-require ./front/elab-decl.fs
-\ S2's rewriting's Meta words (branch s2-tactics; its tactics, induction
-\ and case are files of front/tactics/ on the tactic library since plan
-\ 9.4.8l I).
-require ./front/kabstract.fs
-require ./front/meta-check.fs
-\ The step log the runner keeps (branch s2-steps), written by check --steps.
-require ./front/step-log.fs
-\ The tactics that register themselves (tactic plug-in design, slices
-\ a2-ii and a2-iii): by-apply, by-assumption, by-constructor, on the
-\ tactic library and its goal operations (front/meta-tactic/).
-require ./front/tactics/all.fs
+\ The front end (ADR 0021; untrusted, never loaded by the kernel): the Meta
+\ layer, the elaborator and the tactics.
+require ./load/front.fs
 
-\ The command line: check, replay, print, count, reexport, version,
-\ capabilities. It loads the staging of exports into the checker's input,
-\ the counter, the re-exporter, the manifest check and print's proof
-\ outlines (cli/print.fs).
-require ./cli/print.fs
-require ./cli/leanforth.fs
+\ The command line (src/load/cli.fs): check, replay, print, count,
+\ reexport, version, capabilities, and the check of LeanForth text. The
+\ command line of exports and snapshots alone, without the front end, is
+\ src/load/cli-checker.fs (bin/leanforth-checker).
+require ./load/cli.fs

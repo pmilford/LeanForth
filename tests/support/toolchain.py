@@ -10,6 +10,8 @@ another checkout's .tools.
 
 Run as a script: a self-test of the order above on made-up environments.
 """
+# Its texts name bin/leanforth, which its callers run.
+# inputs: named only: bin/leanforth
 import functools
 import os
 import pathlib

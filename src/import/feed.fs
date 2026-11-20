@@ -585,7 +585,7 @@ here feed-kinds - 1 cells / constant feed-kinds#
   feed-members! r> feed-emptied ;
 \ A member of the current block, or any other declaration.
 : feed-member? ( d feed -- flag )
-  feed-stage @ staged-kind@ dup kind-type = over kind-ctor = or swap kind-recursor = or ;
+  feed-stage @ staged-kind@ kind-type kind-ctor kind-recursor one-of3? ;
 : feed-member ( d feed -- outcome )
   dup feed-members @ 0= if 2drop outcome-invalid exit then
   -1 over feed-members +! dup feed-header @ over feed-decl lf-idecl-block ! feed-data ;

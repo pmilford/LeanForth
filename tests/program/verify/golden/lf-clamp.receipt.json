@@ -162,7 +162,7 @@
     {
       "id": "A8",
       "kind": "trusted-leanforth",
-      "text": "LeanForth's checker (bin/leanforth check, 0.1.0-dev, verdict version 9) checked every declaration of the export correctly: it accepted all 4,277 of them, the contract theorem, its obligations and every definition, inductive type and lemma they use, directly or not, each with its axioms. It follows Lean 4.35.0's kernel rules; it has no tactics and wrote no proof."
+      "text": "LeanForth's checker (bin/leanforth-checker check, 0.1.0-dev, verdict version 9) checked every declaration of the export correctly: it accepted all 4,277 of them, the contract theorem, its obligations and every definition, inductive type and lemma they use, directly or not, each with its axioms. It follows Lean 4.35.0's kernel rules; it has no tactics and wrote no proof."
     }
   ],
   "tools": [

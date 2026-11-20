@@ -115,8 +115,7 @@ align here 5 , 4 , 1 , 2 , 0 , 3 , constant mcfg-ranks
 : lf-with-at-least ( i*x xt mode -- j*x )
   lf-defeq-mode over lf-tr-lt? if lf-meta-at else drop execute then ;
 : lf-meta-budget ( -- n ) mcfg mcfg-budget @ ;
-: lf-meta-spend? ( -- flag )
-  lf-meta-budget dup 0> if 1- lf-meta-budget! true else drop false then ;
+: lf-meta-spend? ( -- flag ) mcfg mcfg-budget cell-spend? ;
 
 \ ---- The budget of each declaration (branch s1-elab; S1 §8; added at the
 \ end of this file, which branch s2-unfold also changes): --elab-fuel N

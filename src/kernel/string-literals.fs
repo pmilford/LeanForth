@@ -145,12 +145,13 @@ end-structure
   s" ofNat" s" Char" lf-sx-plain ok-then? 0= if exit then lf-sx lf-sx-ofnat !
   outcome-ok ;
 \ The constructor form of the string literal leaf, on frames' fuel.
+: lf-sx-chars ( nil -- list outcome ) lf-sx lf-sx-count @ lf-sx-list-of ;
+: lf-sx-applied ( list f -- node outcome ) swap lf-sx-app ;
+: lf-sx-of-chars ( list -- node outcome )
+  s" ofList" s" String" lf-sx-plain ['] lf-sx-applied ok-apply2 ;
 : lf-str-expand ( leaf frames -- node outcome )
   lf-sx-ready dup ok? 0= if no-result exit then drop
-  s" nil" lf-sx-list ok-then? 0= if no-result exit then
-  lf-sx lf-sx-count @ lf-sx-list-of ok-then? 0= if no-result exit then
-  s" ofList" s" String" lf-sx-plain ok-then? 0= if nip no-result exit then
-  swap lf-sx-app ;
+  s" nil" lf-sx-list ['] lf-sx-chars ok-apply ['] lf-sx-of-chars ok-apply ;
 
 \ The constructor form of leaf put in whnf, a child visit on frames that
 \ continues with cont ( node outcome frames -- ... frames next ); a failed

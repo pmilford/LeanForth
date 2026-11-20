@@ -21,7 +21,9 @@
 \ Nothing here accepts a theorem: only the kernel's check does.
 include ../support/heap-watch.fs
 require ../support/tester.fs
-require ../../src/main.fs
+require ../../src/load/checker.fs
+require ../../src/load/front.fs
+require ../../src/cli/check-lf.fs
 decimal
 
 \ Room as the command line gives it (a new context's term store is small).
