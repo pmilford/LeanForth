@@ -45,6 +45,27 @@
 \   lf-tac-defeq ( t s -- flag outcome ) the same at default transparency
 \   lf-found ( x true | false -- x )  a lookup's answer, none thrown invalid
 \                                     (a record LeanForth made is missing: a fault)
+\   lf-match-const-induct ( f -- d true | false ) matchConstInduct
+\                                     (MonadEnv.lean:64) of a head f: d
+\                                     its declaration when f is the
+\                                     constant of an inductive type; false
+\                                     for any other term, a name no
+\                                     declaration has (Lean's find? none)
+\                                     or a declaration of another kind; a
+\                                     lookup that cannot answer (no room, a
+\                                     library declaration not decoded)
+\                                     thrown. (Here, not in meta-env.fs,
+\                                     which lies below this file and
+\                                     throws nothing.)
+\   lf-with-cells ( i*x n slab xt -- j*x ) xt ( i*x addr -- j*x ) run
+\                                     with n cells claimed on slab (units
+\                                     of a cell; Lean's Array of n, such as
+\                                     introN's free variables), addr the
+\                                     first's, not erased, given back
+\                                     however xt ends; addr is valid while
+\                                     nothing else claims on slab
+\                                     (slab.fs), so xt never nests a claim
+\                                     on the same slab
 \   lf-goal-type lf-goal-tag lf-goal-view lf-goal-kind ( goal -- x )
 \                                     MVarId.getType (as stored), getTag, the
 \                                     goal's local context and kind (getDecl);
@@ -74,8 +95,11 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/slab.fs
+require ../core/input.fs
+require ../core/constant-term-boundary.fs
 require ./mvars.fs
 require ./meta-config.fs
+require ./meta-env.fs
 require ./whnf.fs
 require ./infer.fs
 require ./defeq.fs
@@ -147,6 +171,15 @@ require ./term-find.fs
 : lf-goal-kind ( goal -- kind ) lf-mvar-kind lf-found ;
 : lf-with-goal ( i*x goal xt -- j*x ) swap lf-goal-view lf-with-view ;
 
+\ ---- matchConstInduct: a head's declaration, when it is an inductive type.
+: mm-inductive ( d -- d true | false )
+  dup lf-menv-kind lf-kind-inductive = dup 0= if nip then ;
+: mm-declared ( name -- d true | false )
+  lf-menv-find dup outcome-invalid = if 2drop false exit then lf-must true ;
+: lf-match-const-induct ( f -- d true | false )
+  dup lf-term-const? 0= if drop false exit then
+  lf-const-name mm-declared dup if drop mm-inductive then ;
+
 \ ---- A call's working record: a frame per call open on the slab, so
 \ that a call inside another has its own (slice LA item 5), freed on both
 \ paths. Rule (review tactic-move M1): xt is given no address. A claim on
@@ -160,4 +193,9 @@ require ./term-find.fs
   1 over slab-claim lf-must over slab-at swap slab-unit erase ;
 : lf-with-record ( i*x slab xt -- j*x )
   over dup slab-count 2>r swap mm-frame catch 2r> swap slab-cut throw ;
+\ n cells claimed on top of slab, the first's address to xt, the slab cut
+\ back to its count before however xt ends.
+: mm-cells ( n slab -- addr ) tuck slab-claim lf-must swap slab-at ;
+: lf-with-cells ( i*x n slab xt -- j*x )
+  over dup slab-count 2>r -rot mm-cells swap catch 2r> swap slab-cut throw ;
 base !   \ the BASE this file was loaded with

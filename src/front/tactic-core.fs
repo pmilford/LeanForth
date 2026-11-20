@@ -22,6 +22,11 @@
 \       step i runs in a new step record, xt ( i*x goal -- goals ) gets the
 \       main goal and its new goals (a run) take the main goal's place
 \       (replaceMainGoal)
+\   lf-lift-meta-tactic1 ( i*x i xt -- )  liftMetaTactic1 (Basic.lean:586)
+\       as LeanForth's goal words give it: the same with xt ( i*x goal --
+\       goal' ), goal' alone in the main goal's place (a goal word that
+\       closes its goal is run by lf-lift-meta-tactic instead)
+\   lf-goals1 ( goal -- goals )  the goal list [goal] (a new run)
 \   lf-tac-args# ( i -- n ), lf-tac-arg ( i k -- x ), lf-tac-arg-at ( i k
 \       -- pos )  getArg: how many arguments step i has (names, rules),
 \       its argument k from 0 (a syntax node or a name, 0 for _) and that
@@ -127,23 +132,28 @@ end-structure
 : lf-tac-pop-main ( -- ) 0 lf-replace-main lf-tac-must ;
 : lf-tac-goal. ( -- outcome ) tb tb-goal @ lf-tac-goal-below. ;
 
-\ ---- liftMetaTactic.
-: tcr-lifted ( i*x xt i -- ) drop tb tb-goal @ swap execute lf-replace-main lf-tac-must ;
+\ ---- liftMetaTactic, liftMetaTactic1: xt on the main goal, its goals
+\ (one goal: [goal']) in the main goal's place.
+: lf-goals1 ( goal -- goals ) 0 swap run-push lf-tac-must ;
+: tcr-main ( i*x xt i -- j*x ) drop tb tb-goal @ swap execute ;
+: tcr-lifted ( i*x xt i -- ) tcr-main lf-replace-main lf-tac-must ;
 : lf-lift-meta-tactic ( i*x i xt -- ) swap ['] tcr-lifted lf-tac-step-run ;
+: tcr-lifted1 ( i*x xt i -- ) tcr-main lf-goals1 lf-replace-main lf-tac-must ;
+: lf-lift-meta-tactic1 ( i*x i xt -- ) swap ['] tcr-lifted1 lf-tac-step-run ;
 
 \ ---- introN of one binder: its name, kind and variable in tb's cells.
 : tcr-kinds ( -- kinds ) tb tb-kind dup @ 0< if drop 0 then ;
-: tcr-intro1 ( name kind goal -- goals )
+: tcr-intro1 ( name kind goal -- goal' )
   drop tb tb-kind ! tb tb-name ! tb tb-goal @ tb tb-name tcr-kinds 1 tb tb-x
-  lf-goal-intro-n 0 swap run-push lf-tac-must ;
-: lf-tac-intro1 ( name kind i -- ) ['] tcr-intro1 lf-lift-meta-tactic ;
+  lf-goal-intro-n ;
+: lf-tac-intro1 ( name kind i -- ) ['] tcr-intro1 lf-lift-meta-tactic1 ;
 
 \ ---- getArg, setGoals.
 : lf-tac-args# ( i -- n ) lf-tactic-step tac-count @ ;
 : tcr-arg ( i k -- x pos ) swap lf-tactic-step tac-first @ + lf-tactic-arg ;
 : lf-tac-arg ( i k -- x ) tcr-arg drop ;
 : lf-tac-arg-at ( i k -- pos ) tcr-arg nip ;
-: lf-tac-only ( goal -- ) 0 swap run-push lf-tac-must lf-goals! lf-tac-must ;
+: lf-tac-only ( goal -- ) lf-goals1 lf-goals! lf-tac-must ;
 
 \ ---- The elaborator's failure: its error, as Lean's throwError gives it.
 : lf-tac-elab-detail ( -- )

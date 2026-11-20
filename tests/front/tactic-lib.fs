@@ -1018,6 +1018,51 @@ case-done
 T{ s" n by-induction by-case: succ a b c => by-sorry by-end by-case: zero => by-rfl by-end" case-ran
    at-col nip -> outcome-invalid 211 74 }T
 case-done
+\ ---- 11. Tactic batch 1's shared words (plan row TB1, commit C1).
+\ lf-tac-ex: the code at the current token, its detail the goal after a
+\ line break (the message's own line, then a blank one).
+lf-author-begin
+nat goal-of constant g11
+T{ g11 lfa-e-ctor-none ' lf-tac-ex catch nip nip lf-author-code -> lf-author-throw 383 }T
+T{ s" ⊢ Nat" detail-has? detail$ drop c@ 10 = -> true true }T
+lf-tac-forget
+\ lf-match-const-induct: an inductive type's constant gives its
+\ declaration; a constructor, a definition, a theorem and a term that is
+\ no constant (a sort, an application, a free variable) give false, as
+\ does a name no declaration has (Lean's find? none).
+: induct? ( c-addr u -- flag ) lf-mk-const0 lf-match-const-induct dup if nip then ;
+T{ nat lf-match-const-induct swap s" Nat" decl = -> true true }T
+T{ s" And" induct? s" Nat.zero" induct? s" Nat.add" induct? s" Nat.le_refl" induct?
+   -> true false false false }T
+T{ nat lf-infer! lf-match-const-induct zero-x lf-match-const-induct fw lf-match-const-induct
+   -> false false false }T
+T{ s" No.such" lfa-intern mm-declared s" Nat" lfa-intern mm-declared swap s" Nat" decl =
+   -> false true true }T
+\ A lookup the heap refuses (the library bound again, its decoded
+\ declarations forgotten) is thrown full, never read as false.
+: refused-induct ( -- code )
+  ck-stage lf-menv-library! 1 heap-refusals ! nat ['] lf-match-const-induct catch
+  0 heap-refusals ! dup if nip then ;
+T{ refused-induct -> -4206 }T
+ck-stage lf-menv-library!
+\ lf-goals1: the list [goal].
+T{ g11 lf-goals1 dup run-count swap 0 run@ -> 1 g11 }T
+\ lf-with-cells: n cells on top of the slab, the first's address to xt,
+\ the slab cut back however xt ends; a nested call claims above.
+create cell-slab /slab allot  1 cells 10000 cell-slab slab-init drop
+: cells-depth ( addr -- n ) drop cell-slab slab-count ;
+: cells-at? ( addr -- flag ) cell-slab slab-count 2 - cell-slab slab-at = ;
+: cells-fill ( addr -- x ) 7 over ! 8 over cell+ ! dup @ swap cell+ @ + ;
+: cells-fail ( addr -- ) drop outcome-full lf-must ;
+: cells-nested ( addr -- n m ) drop 2 cell-slab ['] cells-depth lf-with-cells cell-slab slab-count ;
+T{ 2 cell-slab ' cells-at? lf-with-cells 2 cell-slab ' cells-fill lf-with-cells cell-slab slab-count
+   -> true 15 0 }T
+T{ 3 cell-slab ' cells-fail ' lf-with-cells catch nip nip nip cell-slab slab-count -> -4206 0 }T
+T{ 1 cell-slab ' cells-nested lf-with-cells cell-slab slab-count -> 3 1 0 }T
+T{ 20000 cell-slab ' cells-depth ' lf-with-cells catch nip nip nip cell-slab slab-count
+   -> -4206 0 }T
+cell-slab slab-free
+
 \ ---- 10. A mutual type (209, Lean's text and hint): FE6.Even of
 \ tests/front/several.ndjson, a library of its own.
 T{ s" tests/front/several.ndjson" true lfc-library-open -> outcome-ok }T

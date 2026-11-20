@@ -156,10 +156,7 @@ require ./goal.fs
   drop mel-explain. ['] mel-goal. ok-and ;
 : mel-not-inductive ( t induction? -- )
   2 ['] mel-major. lf-tac-detail-n lfa-e-tac-not-inductive lf-tac-stop ;
-: mel-inductive ( t -- d true | false )
-  lf-meta-head-name 0= if false exit then
-  lf-menv-find dup outcome-invalid = if 2drop false exit then
-  lf-must dup lf-menv-kind lf-kind-inductive = dup 0= if nip then ;
+: mel-inductive ( t -- d true | false ) lf-meta-head lf-match-const-induct ;
 \ Mutual or nested (209): Lean's text and its hint, under induction only
 \ (Induction.lean:833-836: cases takes C.casesOn of any inductive type).
 : mel-kind. ( t c-addr u -- outcome )

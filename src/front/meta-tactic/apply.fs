@@ -4,7 +4,12 @@
 \ same order, building the same proof term:
 \   lf-goal-apply ( goal e -- goals )  MVarId.apply (Apply.lean:169-232)
 \       with ApplyConfig's defaults (approx, synthAssignedInstances, no
-\       allowSynthFailures, newGoals nonDependentFirst). In goal's
+\       allowSynthFailures, newGoals nonDependentFirst) and no term?, so
+\       that its error names e "the term" (constructor's and
+\       nthConstructor's call)
+\   lf-goal-apply-named ( goal e -- goals )  the same with term? `e`, e
+\       printed between backquotes (evalApply's call, ElabTerm.lean:304).
+\       In goal's
 \       context: getExpectedNumArgsAux of e's type (telescope.fs's
 \       lf-expected-num-args) gives the range of argument counts: from
 \       numArgs less the target's own count (numArgs alone when the
@@ -91,6 +96,7 @@ begin-structure /ap
   field: ap-d            \ e's declaration when e is a constant, else -1
   field: ap-lower        \ the range of argument counts
   field: ap-upper
+  field: ap-named        \ term? given (`e`), else none ("the term")
 end-structure
 /ap context-record: ap
 2 cells context-slab: ap-news   \ (mvar, kind): Lean's newMVars and binderInfos
@@ -120,11 +126,13 @@ end-structure
 \ ---- throwApplyError (error 380).
 : ap-conclusion? ( -- flag ) ap ap-lower @ 0<> ;
 : ap-what ( -- c-addr u ) ap-conclusion? if s"  conclusion of " else s"  type of " then ;
-: ap-head. ( x -- outcome ) drop ap-what lf-pp-emit ap ap-e @ lf-tac-inline. ;
+\ term?.getD "the term".
+: ap-term. ( -- outcome )
+  ap ap-named @ if ap ap-e @ lf-tac-inline. exit then s" the term" lf-pp-emit outcome-ok ;
+: ap-head. ( x -- outcome ) drop ap-what lf-pp-emit ap-term. ;
 : ap-concl ( -- t ) ap-conclusion? if ap ap-lower @ ap-telescope else ap ap-etype @ then ;
 : ap-full. ( -- outcome ) s\"  is\n" ap ap-etype @ lf-tac-line. ;
-: ap-full-of. ( -- outcome )
-  s\" \n\nNote: The full type of " lf-pp-emit ap ap-e @ lf-tac-inline. ;
+: ap-full-of. ( -- outcome ) s\" \n\nNote: The full type of " lf-pp-emit ap-term. ;
 : ap-note. ( -- outcome )
   ap-conclusion? 0= if outcome-ok exit then ap-full-of. ['] ap-full. ok-and ;
 : ap-with. ( -- outcome ) s\" \nwith the goal\n" ap ap-target @ lf-tac-line. ;
@@ -143,8 +151,7 @@ end-structure
   ap-todo slab-clear ap-new# 0 ?do i ap-inst? if i ap-new drop ap-todo+ then loop ;
 : ap-type. ( mvar -- outcome ) lf-goal-type lf-tac-indented. ;
 : ap-no-instance ( mvar -- ) ['] ap-type. lf-tac-detail lfa-e-elab-synth lf-tac-stop ;
-: ap-inst-fail ( -- )
-  ap ap-goal @ ['] lf-tac-goal-of. lf-tac-detail lfa-e-apply-inst lf-tac-stop ;
+: ap-inst-fail ( -- ) ap ap-goal @ lfa-e-apply-inst lf-tac-ex ;
 : ap-assign-inst ( mvar inst -- ) lf-defeq! 0= if ap-inst-fail then ;
 \ synthInstance: a search stuck on a metavariable (Lean's isDefEqStuck)
 \ fails to synthesize, as a search that finds none (SynthInstance.lean:1026).
@@ -213,5 +220,7 @@ end-structure
   ap ap-e @ dup ap-d! lf-infer! lf-instantiate! ap ap-etype ! ap-range ap-search
   ap-synth-instances
   ap-assign ap-unassigned ap-parent-tag ap-alone ap-result ;
-: lf-goal-apply ( goal e -- goals ) ap ap-e ! ap ap-goal ! ap-run ;
+: ap-apply ( goal e -- goals ) ap ap-e ! ap ap-goal ! ap-run ;
+: lf-goal-apply ( goal e -- goals ) false ap ap-named ! ap-apply ;
+: lf-goal-apply-named ( goal e -- goals ) true ap ap-named ! ap-apply ;
 base !   \ the BASE this file was loaded with

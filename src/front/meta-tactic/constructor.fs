@@ -23,12 +23,12 @@
 \ Lean call list: withContext -> the caller's (tactic-core.fs);
 \ checkNotAssigned -> lf-goal-not-assigned (goal.fs); getType' -> lf-goal-type,
 \ lf-whnf! then lf-instantiate! (meta-must.fs); getAppFn -> lf-meta-head;
-\ matchConstInduct -> lf-menv-find, lf-menv-kind, lf-ity-ctors@ (meta-env.fs,
-\ core/input.fs); mkConst ctor us -> lf-mk-const-id with lf-const-levels
-\ (app-builder.fs); withoutModifyingState/observing? -> lf-commit-when
-\ answering false, with a CATCH and lf-tac-forget-lean (tactic-msg.fs);
-\ MVarId.apply -> lf-goal-apply
-\ (apply.fs); throwTacticEx -> lf-tac-detail, lf-tac-stop (tactic-msg.fs).
+\ matchConstInduct -> lf-match-const-induct (meta-must.fs), its constructors
+\ lf-menv-data and lf-ity-ctors@ (meta-env.fs, core/input.fs); mkConst ctor
+\ us -> lf-mk-const-id with lf-const-levels (app-builder.fs);
+\ withoutModifyingState/observing? -> lf-commit-when answering false, with
+\ a CATCH and lf-tac-forget-lean (tactic-msg.fs); MVarId.apply ->
+\ lf-goal-apply (apply.fs); throwTacticEx -> lf-tac-ex (tactic-msg.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own (apply's). Loads in decimal whatever BASE is,
 \ then restores it.
@@ -57,15 +57,13 @@ require ./apply.fs
 
 \ ---- matchConstInduct on getType''s head: the head constant and its
 \ inductive type's constructors, else error 382.
-: mco-failed ( goal code -- ) swap ['] lf-tac-goal-of. lf-tac-detail lf-tac-stop ;
-: mco-decl ( c -- d ) lf-const-name lf-menv-find lf-must ;
-: mco-inductive? ( head -- flag )
-  dup lf-term-const? if mco-decl lf-menv-kind lf-kind-inductive = else drop false then ;
-: mco-ctors ( head -- items n )
-  mco-decl lf-menv-data ?dup 0= if outcome-unsupported lf-must then lf-ity-ctors@ ;
+: mco-type ( goal -- t ) lf-goal-type lf-instantiate! lf-whnf! lf-instantiate! ;
 : mco-head ( goal -- head )
-  dup lf-goal-type lf-instantiate! lf-whnf! lf-instantiate! lf-meta-head
-  dup mco-inductive? if nip exit then drop lfa-e-ctor-target mco-failed 0 ;
+  dup mco-type lf-meta-head dup lf-match-const-induct if drop nip exit then
+  drop lfa-e-ctor-target lf-tac-ex 0 ;
+: mco-ctors ( head -- items n )
+  lf-match-const-induct lf-found lf-menv-data ?dup 0= if outcome-unsupported lf-must then
+  lf-ity-ctors@ ;
 \ Constructor k at the head's levels (mkConst ctor us).
 : mco-ctor ( head k -- name ) swap mco-ctors drop swap cells + @ ;
 : mco-const ( head name -- e ) swap lf-const-levels lf-mk-const-id ;
@@ -80,7 +78,7 @@ require ./apply.fs
 
 \ The first constructor that applies, applied again for real; none: error 383.
 : mco-apply ( head goal k -- goals ) rot swap mco-at lf-goal-apply ;
-: mco-none ( head goal -- 0 ) nip lfa-e-ctor-none mco-failed 0 ;
+: mco-none ( head goal -- 0 ) nip lfa-e-ctor-none lf-tac-ex 0 ;
 : lf-goal-constructor ( goal -- goals )
   lf-goal-not-assigned dup mco-head tuck dup mco-ctors nip ['] mco-tried? find-index
   if mco-apply else mco-none then ;

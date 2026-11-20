@@ -181,7 +181,7 @@ end-structure
 : mti-binding? ( t -- flag ) dup lf-term-pi? swap lf-let? or ;
 : mti-none ( t -- )
   lf-whnf-firm? lf-must 0= if outcome-unsupported lf-must then
-  mti mti-goal @ ['] lf-tac-goal-of. lf-tac-detail lfa-e-tac-no-intro lf-tac-stop ;
+  mti mti-goal @ lfa-e-tac-no-intro lf-tac-ex ;
 : mti-reduced ( t -- pi ) lf-whnf-core lf-must dup lf-term-pi? if exit then dup mti-none ;
 : mti-binder ( -- pi )
   mti mti-type @ dup mti-binding? if exit then lf-instantiate!

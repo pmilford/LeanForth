@@ -23,8 +23,8 @@ reason = "a2-iii: observing? reads every success as a failure (no constructor ap
 [[fault]]
 id = "constructor-no-whnf"
 file = "src/front/meta-tactic/constructor.fs"
-old = '''  dup lf-goal-type lf-instantiate! lf-whnf! lf-instantiate! lf-meta-head'''
-new = '''  dup lf-goal-type lf-instantiate! lf-instantiate! lf-meta-head'''
+old = ''': mco-type ( goal -- t ) lf-goal-type lf-instantiate! lf-whnf! lf-instantiate! ;'''
+new = ''': mco-type ( goal -- t ) lf-goal-type lf-instantiate! lf-instantiate! ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/constructor/check.py"
 reason = "a2-iii: getType' without whnf: n ≤ n is no inductive type (Lean's constructor gives Nat.le.refl)"
 

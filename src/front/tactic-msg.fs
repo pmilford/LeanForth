@@ -28,6 +28,11 @@
 \       the message's own line, unless an error is recorded already
 \   lf-tac-failed ( xt code -- )  an error at the step running whose
 \       detail xt ( 0 -- outcome ) prints
+\   lf-tac-ex ( goal code -- )  throwTacticEx (Meta/Tactic/Util.lean:
+\       43-49): the error code at the step running, its text Lean's
+\       "Tactic `t` failed" with or without ": msg", then the goal after a
+\       blank line (the goal layer's errors: assumption 381, constructor
+\       382 and 383, apply 384, introN 94, left and right 385-388)
 \   lf-tac-type-mismatch ( e type expected code -- )  an error at the
 \       step running whose detail is lf-has-type-but-expected.'s (exact's
 \       Type mismatch 96, setMotiveArg's 212)
@@ -101,6 +106,7 @@ require ./meta-must.fs
 \ ---- Details and errors (tactic-run.fs's lf-tac-detail, lf-tac-stop).
 : lf-tac-inline ( x xt -- ) lf-author-code if 2drop exit then lf-tac-detail lfa-inline ;
 : lf-tac-failed ( xt code -- ) >r 0 swap lf-tac-detail r> lf-tac-stop ;
+: lf-tac-ex ( goal code -- ) swap ['] lf-tac-goal-of. lf-tac-detail lf-tac-stop ;
 : lf-tac-type-mismatch ( e type expected code -- )
   >r 3 ['] lf-has-type-but-expected. lf-tac-detail-n r> lf-tac-stop ;
 
