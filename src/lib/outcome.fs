@@ -13,8 +13,8 @@
 \ outcome-first! keeps a first
 \ failure in a cell and ok-store a step's result only on ok; no-result,
 \ ok-or-none and room-result give a step's result with its outcome;
-\ ok-apply and ok-apply2 run a step on a result, or two values, made so
-\ far.
+\ ok-apply, ok-apply2 and ok-apply3 run a step on a result, or two or
+\ three values, made so far.
 \ No state, no dependencies.
 \ Example: each cell of a table checked, stopping at the first failure.
 \   create table 3 , 5 , -1 , 7 ,
@@ -96,6 +96,9 @@ get-current lf-lib set-current   \ every word below is public, in lf-lib
 \ so far: on any other outcome both are dropped, -1 and that outcome.
 : ok-apply2 ( x1 x2 outcome xt -- result outcome )
   over ok? if nip execute else drop nip nip no-result then ;
+\ The same for a step xt ( x1 x2 x3 -- result outcome ) of three values.
+: ok-apply3 ( x1 x2 x3 outcome xt -- result outcome )
+  over ok? if nip execute else drop nip nip nip no-result then ;
 \ A result that needed room, as a store gives it ( x true | false ): x and
 \ ok, or -1 and full.
 : room-result ( x true | false -- x outcome )

@@ -1,0 +1,19 @@
+# Planted faults of the third clean-up by family (cleanup-families-3, plan 9.4.8l):
+# the shared words it adds. Its callers' rewrites carry their existing faults over
+# (scripts/check-duplicates.py --rewrite); no fault is planted per converted site.
+
+[[fault]]
+id = "cf3-ok-apply3-keeps-one"
+file = "src/lib/outcome.fs"
+old = '''  over ok? if nip execute else drop nip nip nip no-result then ;'''
+new = '''  over ok? if nip execute else drop nip nip no-result then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-3 (mid-word guards): a failed step of three values leaves the first value under -1 and the outcome"
+
+[[fault]]
+id = "cf3-ok-apply3-runs-anyway"
+file = "src/lib/outcome.fs"
+old = '''  over ok? if nip execute else drop nip nip nip no-result then ;'''
+new = '''  nip execute ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-3 (mid-word guards): the step runs after a failure, on the failing outcome's values"
