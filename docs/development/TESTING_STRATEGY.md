@@ -459,8 +459,9 @@ names and, transitively, what those programs use: Forth `require` and
 Forth, Python and shell files (not in comments or docstrings); Lean files
 and data are used but not followed. A changed Forth source also selects
 `smoke` and `check-portable-forth`, a changed Markdown file `check-docs`, a
-changed Makefile everything. Most tests load `src/main.fs`, so a change to
-a checker module still selects 25–40 of the 77 targets; a changed test, Lean
+changed Makefile everything. Most tests loaded `src/main.fs` until the
+layer entries of 2026-11-19 (below), so a change to
+a checker module still selected 25–40 of the 77 targets; a changed test, Lean
 file, script or document selects a few (`tests/reference/clamp.lean`: 6,
 `src/author/runner.fs`: 4, `tests/core/names.fs`: 1). It is a heuristic,
 not a proof that the other targets are unaffected (a path built at run
@@ -538,7 +539,9 @@ every file: `make daily` runs both, and `make tag-check` requires them.
   of the 192 Forth files: every front-end file but `cases-several.fs`,
   `constructions.fs`, `ctor-idx.fs` and `expr-remap.fs`, every library but
   `bigint.fs` and `sort.fs`. So a change to a front-end file that
-  `src/main.fs` loads is full: `bin/leanforth` and most tests load it.
+  `src/main.fs` loads is full: `bin/leanforth` loads it. Since the layer
+  entries (2026-11-19, below) the full tier's per-target reuse re-runs only
+  the targets whose tests load the changed file's layer.
 - "The targets that use a file" are `make test-changed`'s
   (`scripts/changed-tests.py`): the files a target's recipe names, followed
   through Forth loads, Python imports and repository paths named in code.
@@ -676,6 +679,49 @@ coverage-check` the ratchet and `make test`'s targets but those of
   digest covers its entry, its file and what its test command reads; a
   coverage item's, the digests of the targets it ran over, the file's
   baseline entry and the coverage tool.
+- **Layer entries** (2026-11-19, branch `layered-loads`; [src/README.md](../../src/README.md#layer-entries)).
+  A target reads the closure of what its tests load, so a test that loads
+  `src/main.fs` reads every module and re-runs for any change. The tests now
+  load the smallest entry of `src/load/` that serves them: the kernel's unit
+  tests and pinned-Lean tables `src/load/kernel.fs` (the fed driver adds
+  `import.fs`), the snapshot tests `checker.fs` and `cli/check-run.fs`, the
+  front end's Meta tests `front.fs`, and the front end's tests that open a
+  library `checker.fs`, `front.fs` and `cli/check-lf.fs`; only the tests
+  that run the command line's own words, listed in
+  `scripts/check-layers.py`, load `src/main.fs`. `test-core-whole` holds the
+  two data-model tests that look at every layer (`tag-sets.fs`,
+  `contexts-main.fs`), so `test-core` loads the kernel at most. What re-runs
+  for a change (the full tier: the coverage of the file, `make test`, `make
+  test-unit` on gforth-fast, `make check-rest`, each target reused while its
+  inputs are unchanged), counted with `scripts/test-tier.py`'s own `Inputs`
+  on the tree of 2026-11-19:
+
+  | A change to | targets of `make check-rest` re-run, before → after | unit targets on gforth-fast, before → after |
+  | --- | --- | --- |
+  | a front-end module (`src/front/whnf.fs`) | 47 → 18 | 36 → 34 |
+  | a tactic (`src/front/tactics/rfl.fs`) | 45 → 16 | 35 → 33 |
+  | a kernel module (`src/kernel/whnf.fs`) | 48 → 48 | 41 → 43 |
+  | a library the kernel uses (`src/lib/sort.fs`) | 86 → 55 | 51 → 48 |
+
+  A front-end change no longer re-runs the kernel's 29 pinned-Lean
+  comparisons that `tests/core/lean-differential.py` and the first-checker
+  driver run (`test-first-checker-*`, `test-mixed-*-plain-*`, the depth,
+  universe and dependency tables ...), `test-core`, `test-kernel-reduction`, `test-stage` or
+  `test-composition-fixture`; a kernel change re-runs what loads the kernel,
+  the front end's tests among them, which hand their declarations to it (the
+  two added targets are `check-layers` and `test-core-whole`). The library
+  row also fell because the Lean cache's scripts (`scripts/lean-cache.py`,
+  `lean_pin.py`) spelled `os.path.join(prefix, "lib", "lean")`, which the
+  finder reads as the repository's `lib` folders: every target then read all
+  of `src/lib` and `tests/lib`; they spell `"lib/lean"` now, and
+  `tests/scripts/test_check_layers.py` pins it. What still re-runs for a
+  front-end change: the targets that run `bin/leanforth` (which loads
+  `src/main.fs`) or name `scripts/start-limit.sh` (whose `/proc` listing
+  makes their inputs unknown, so they always run), those that read `src/` as
+  data (a planted fault's copy of the tree, a test that names `whnf.fs`), and
+  the front end's own. `make check-layers` (in `make test`) keeps the entries
+  to their layers and fails when a new test requires `src/main.fs` without a
+  reason in its list.
 - `make once GOALS="check"` runs `make check` unless records stand for it
   (or only the targets they do not stand for), and records the pass; `make tier` (`BASE=main`, `JOBS=2`, `DRY_RUN=1` to
   only print) runs every suite of the branch's tier so, then the progress

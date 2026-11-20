@@ -112,7 +112,9 @@ against the coverage classes of [the coverage review](TEST_COVERAGE_REVIEW.md) a
    ordering, types and units, ownership, side effects, failures, resource limits,
    assumptions and non-obvious algorithms. Check that each module `require`s
    exactly the files whose words it uses (never `include`), so it loads on
-   its own, and that `main.fs` lists only the top modules. Keep internal
+   its own, that each layer entry of `src/load/` lists only its layer's top
+   modules and `main.fs` only the entries and the command line, and that a test
+   loads the smallest entry it needs (`make check-layers`). Keep internal
    helpers' preconditions visible. Comments must distinguish checked facts from
    unchecked inputs, structural validation and host/runtime assumptions.
 8. Read the tests and identify missing meaningful cases: positive and negative
