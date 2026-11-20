@@ -98,12 +98,11 @@ require ./terms.fs
 \ The bits of a literal, and whether it is 0 or 1.
 : nop-bits ( lit -- n )
   lf-lit-vector dup 0= if nip exit then 1- tuck cells + @ bit-length swap limb-bits * + ;
-: nop-unit? ( lit -- flag ) dup lf-lit-small? if lf-lit-cell 2 u< else drop false then ;
+: nop-unit? ( lit -- flag ) 1 lf-lit-u> 0= ;
 \ Bits estimated for a result, an estimate over the limit being full; a
 \ count of more than one cell or past the limit is over it at once.
 : nop-over? ( bits -- flag ) big-lean-bits u> ;
-: nop-count-over? ( lit -- flag )
-  dup lf-lit-small? if lf-lit-cell nop-over? else drop true then ;
+: nop-count-over? ( lit -- flag ) big-lean-bits lf-lit-u> ;
 \ Scratch for a result of at most bits (within the limit): 6 cells per
 \ result limb, the operands' limbs twice and 4096 cells. big-pow's peak
 \ is its last squaring of x, of m limbs, about half the result's: x, the

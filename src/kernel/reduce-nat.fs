@@ -39,9 +39,7 @@ require ../core/terms.fs
 : lf-rn-succ ( -- node outcome ) s" succ" s" Nat" lf-nat-in ;
 
 \ get_count_arg: a count below 2^32.
-: lf-rn-count? ( lit -- flag )
-  dup lf-lit-small? 0= if drop false exit then
-  lf-lit-cell limb-bits 32 > if 32 rshift 0= else drop true then ;
+: lf-rn-count? ( lit -- flag ) $FFFFFFFF lf-lit-u> 0= ;
 : lf-rn-counted ( a b i -- node outcome )
   over lf-rn-count? if lf-nat-lit-op else drop 2drop lf-rn-refuse then ;
 \ Nat.pow (reduce_pow, 633-648): the exponent's count first; Nat.shiftLeft

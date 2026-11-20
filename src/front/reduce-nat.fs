@@ -72,8 +72,7 @@ require ./term-eqv.fs
   rn-zero? if rn-zero else -1 false outcome-ok then ;
 
 \ ---- The operations (reduceBinNatOp, reduceBinNatPred, reducePow).
-: rn-over? ( v -- flag )
-  dup lf-lit-small? if lf-lit-cell rn-threshold u> else drop true then ;
+: rn-over? ( v -- flag ) rn-threshold lf-lit-u> ;
 : rn-power? ( v2 i -- v2 i flag ) dup lf-nat-op-pow = if over rn-over? else false then ;
 : lf-meta-nat-fold ( v1 v2 i -- e outcome )
   dup lf-meta-nat-succ = if 2drop lf-nat-lit-succ exit then

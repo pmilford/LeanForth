@@ -74,6 +74,14 @@ T{ two64 1 nlit 64 nlit 12 lf-nat-lit-op ok? made same? -> true }T
 T{ two64 dup 2 lf-nat-lit-op ok? made two64 6 lf-nat-lit-op ok? made two64 same? -> true }T
 T{ two64 2 nlit 6 lf-nat-lit-op ok? made 2 nlit 63 nlit 3 lf-nat-lit-op ok? made same? -> true }T
 
+\ ---- 1. core/literals.fs's lf-lit-u> (review s3a-decide B5: the bound
+\ of nat-ops.fs's counts, the kernel's count and Meta's threshold): a
+\ literal above a cell value, compared unsigned; one of two limbs always.
+T{ 0 nlit 0 lf-lit-u> 1 nlit 0 lf-lit-u> 5 nlit 5 lf-lit-u> 6 nlit 5 lf-lit-u>
+   -> false true false true }T
+T{ -1 nlit -1 lf-lit-u> -1 nlit 1 lf-lit-u> two64 -1 lf-lit-u> two64 0 lf-lit-u>
+   -> false true true true }T
+
 \ ---- 1. The names: each operation's index, any other name -1.
 : index-of ( c-addr u -- i ) s" Nat" 2swap dotted lf-nat-op ;
 T{ s" add" index-of s" sub" index-of s" mul" index-of s" pow" index-of -> 0 1 2 3 }T

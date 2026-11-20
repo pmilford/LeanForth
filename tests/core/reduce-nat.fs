@@ -112,6 +112,10 @@ T{ lf-diag-clear 2 2147483648 3 op diag -> -1 outcome-full lf-diag-nat-size }T
 T{ 0 4294967296 12 computes -> 0 outcome-ok }T
 T{ lf-diag-clear 1 4294967296 12 op diag -> -1 outcome-rejected lf-diag-nat-count }T
 T{ lf-diag-clear 1 1073741824 12 op diag -> -1 outcome-full lf-diag-nat-size }T
+\ A count of two limbs (2^64) is refused too (get_count_arg through
+\ core/literals.fs's lf-lit-u>, review s3a-decide B5).
+T{ lf-diag-clear 2 nat big 3 lf-reduce-nat-binary diag -> -1 outcome-rejected lf-diag-nat-count }T
+T{ lf-diag-clear 1 nat big 12 lf-reduce-nat-binary diag -> -1 outcome-rejected lf-diag-nat-count }T
 
 \ 5. Each allocation of an operation refused in turn (alloc-fail.fs), its
 \ operands made first: full with no node, never ok, the refusal reached
