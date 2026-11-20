@@ -30,7 +30,7 @@ Two pages show, theorem by theorem, the LeanForth text, the same proof in Lean, 
   - statements and `by-rfl` on all of `Init` ([S1](docs/development/done-checks/2026-11-14-s1.md));
   - proofs by induction and rewriting ([S2](docs/development/done-checks/2026-11-19-s2-done.md));
   - `by-decide` on closed facts about natural numbers and truth values ([S3a](docs/development/done-checks/2026-11-19-s3a-done.md), [operators](docs/development/done-checks/2026-11-20-ops-c1-done.md));
-  - Lean's symbols as words, each also in a spelling a plain keyboard can type ([symbols](docs/development/done-checks/2026-11-20-ops-symbols-done.md)).
+  - Lean's symbols as words, each also in a spelling a plain keyboard can type ([symbols](docs/development/done-checks/2026-11-20-ops-symbols-done.md)), and the word `divides` ([divides](docs/development/done-checks/2026-11-20-divides-done.md)).
 
   The tactic words on `main`: `by-intro`, `by-intros`, `by-exact`, `by-apply`, `by-rfl`, `by-rw[ ]`, `by-induction-with`, `by-case:`, `by-assumption`, `by-constructor`, `by-left`, `by-right`, `by-exfalso`, `by-clear`, `by-decide`, `by-sorry`. Each is a port of Lean's tactic, and its results are compared with Lean 4.35.0's, term by term, on true theorems and on deliberately wrong ones. [The language reference](docs/user/LANGUAGE_REFERENCE.md) describes every word.
 - **Verified Forth programs (second path).** `bin/leanforth verify SOURCE.fs --contract CONTRACT` checks one Forth word against a contract: pinned Lean writes the proofs and LeanForth's checker re-checks them ([manual](docs/programming/PROGRAM_VERIFY.md)). Its first slice is on `main`; the later slices are parked.
@@ -46,6 +46,8 @@ The symbols a statement may use, and how to type them:
 | `∧` `∨` `↔` | `/\` `\/` `<->` | `p ∧ q`, `p ∨ q`, `p ↔ q` |
 | `¬` | `Not` | `¬ p` |
 | `divides` | as written (or Lean's name `Dvd.dvd`) | "a divides b": b is a whole multiple of a. A statement, not the division `/`. Lean writes it with a sign that looks like the case bar; in LeanForth you type the word |
+
+LeanForth prints goals in Lean's notation, where "divides" is a bar between two values, as in `⊢ 3 ∣ 12`. A bar at the start of a line of a proof, as in `| zero => by-rfl`, starts a case of an induction. The two bars are different characters that look the same; tell them by where they stand, and write divisibility with the word `divides` ([the language reference](docs/user/LANGUAGE_REFERENCE.md), "Divides and the case bar").
 
 Correctness is relative to stated semantics and assumptions. The elaborator, parsers, tactics and printers are untrusted: whatever they build, the kernel checks, so they cannot make a wrong proof accepted. They can, if they have a fault, build a different statement than the text says; that is what the comparisons with Lean guard against.
 
