@@ -23,7 +23,8 @@ create tree-text 512 allot  variable tree-text#
 : .var ( slot -- ) if ." m" else ." n" then ;
 : .const ( decl -- ) lfa-decl-name lf-print-name drop ;
 defer .tree ( node -- )
-: compound? ( node -- flag ) syn-kind@ dup syn-k-app = swap syn-k-binop syn-k-binrel 1+ within or ;
+: compound? ( node -- flag )
+  syn-kind@ dup syn-k-app syn-k-rightact one-of2? swap syn-k-binop syn-k-binrel 1+ within or ;
 : .arg ( node -- ) space dup compound? if ." (" .tree ." )" else .tree then ;
 : .op ( node -- ) dup syn-a@ lf-print-name drop dup syn-b@ .arg syn-c@ .arg ;
 : .args ( app -- ) dup syn-b@ 0 ?do dup i syn-arg .arg loop drop ;
@@ -34,6 +35,7 @@ defer .tree ( node -- )
     syn-k-const of syn-a@ .const endof
     syn-k-binop of ." binop% " .op endof
     syn-k-binrel of ." binrel% " .op endof
+    syn-k-rightact of ." rightact% " .op endof
     syn-k-app of dup syn-a@ .tree .args endof
   endcase ;
 ' .node is .tree

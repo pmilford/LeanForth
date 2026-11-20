@@ -1,0 +1,11 @@
+\ Not supported yet (plan row S3; slice S3a-ops C3), against all of Init
+\ (check.py --init): the word ∣ builds Dvd.dvd 3 12 as Lean does
+\ (c-sy-check.lf), but decide on a divisibility needs Nat.decidable_dvd,
+\ whose keys need inferType of a lambda-headed application (plan FE1c;
+\ x-dc-dvd.lf), so it answers error 93, exit 2, never a verdict.
+\ Lean: theorem x_sy_dvd : 3 ∣ 12 := by decide
+theorem x_sy_dvd
+  3 12 ∣
+:= by
+  by-decide
+end x_sy_dvd

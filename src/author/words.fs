@@ -121,10 +121,10 @@ require ./library.fs
 : lfa-w-hole ( -- ) lfa-e-hole lfa-fail ;
 
 \ The form (form.fs): kernel-form, outside declarations, switches the run
-\ to the kernel form. Words of natural LeanForth only (' and the operator
-\ words, whose natural meaning src/front/reader.fs gives) are refused in
-\ kernel-form text; tactic words are not supported in kernel-form text,
-\ and in natural text until src/front/tactic-syntax.fs gives them meanings.
+\ to the kernel form. Words of natural LeanForth only (' and the notation
+\ words, lfa-natural-words below) are refused in kernel-form text;
+\ tactic words are not supported in kernel-form text, and in natural
+\ text until src/front/tactic-syntax.fs gives them meanings.
 : lfa-w-kernel-form ( -- ) lfa-inside? 0= lfa-e-form-here lfa-must lfa-kernel-form! ;
 : lfa-w-natural-only ( -- ) lfa-e-natural-only lfa-fail ;
 : lfa-w-tactic ( -- ) lfa-e-tactic lfa-fail ;
@@ -184,11 +184,14 @@ require ./library.fs
 ' lfa-w-sketch lfa-word-both s"
 ' lfa-w-sketch lfa-word-both import
 ' lfa-w-natural-only lfa-word '
-' lfa-w-natural-only lfa-word +
-' lfa-w-natural-only lfa-word =
-' lfa-w-natural-only lfa-word *
-' lfa-w-natural-only lfa-word ≤
 ' lfa-w-natural-only lfa-word #check
+\ The notation words (slice S3a-ops; src/front/reader.fs gives each its
+\ meaning with lfn-operator:), each reserved for the printer here.
+: lfa-natural-words ( "word ..." -- )
+  begin >in @ parse-name dup while
+    2dup lf-pf-reserved? abort" words.fs: reserved twice"
+    lf-pf-reserve-more >in ! ['] lfa-w-natural-only lfa-word repeat 2drop drop ;
+lfa-natural-words + - * / % = ≠ < > ≤ <= ≥ >= ¬ ∧ /\ ∨ \/ ↔ <-> ∣
 ' lfa-w-tactic lfa-word-both by-induction
 ' lfa-w-tactic lfa-word-both by-case:
 ' lfa-w-tactic lfa-word-both by-rfl

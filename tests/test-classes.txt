@@ -15,11 +15,17 @@
 #           runs all of Init, or plants faults in a copy of the tree: once, on Gforth 1.0 (make
 #           coverage-check for those of make test, make check-rest for the others).
 #   manual  a test program no target of make check runs: benchmarks and measurements run by hand.
+#   daily   a test target make daily runs (scripts/test-tier.py's DAILY_SUITES) and make check
+#           does not: once a night, on Gforth 1.0, after make parallel-init.
 
 # A tactic's own targets, found by the Makefile from tests/front/tactics/NAME/ (tactic plug-in
 # design, slice (a1)): a pattern row classes every one of them.
 test-tactic-*-e2e                  e2e     tests/front/tactics/NAME/check.py: its .lf runs
 test-tactic-*                      unit    tests/front/tactics/NAME/test.fs: its unit tests
+
+# make daily only (never make check or a tier)
+parallel-init                      daily   all of Init at --jobs 8 against --jobs 1 (plan 9.4.8p)
+reference-decide-init              daily   decide/check.py --init: symbol words on Init, node for node pinned Lean's
 
 # make test: unit
 check-tools-untracked              unit

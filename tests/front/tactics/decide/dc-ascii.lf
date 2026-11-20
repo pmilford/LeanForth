@@ -1,0 +1,72 @@
+\ dc-symbols.lf's nine theorems in the spellings a plain keyboard types
+\ (plan row S3, slice S3a-ops; owner's condition of 2026-11-20): Lean's own
+\ ASCII notation >= <= /\ \/ <-> for ≥ ≤ ∧ ∨ ↔, and the constant's name
+\ where Lean has none: Ne for ≠, Not for ¬. Every token of the theorems
+\ below is ASCII. tests/front/tactics/decide/check.py checks each against
+\ decide's slice, its elaborated type and value node for node pinned Lean's
+\ for the same text in Lean's ASCII notation (goal-layer.lean), which is
+\ also its dc-symbols.lf twin's (sy_ for as_; check.py --init compares the
+\ two files directly). dc-ascii-init.lf has the other five.
+\ Lean: theorem as_mul : 6 * 7 = 42 := by decide
+\       theorem as_pythag : 3 * 3 + 4 * 4 = 5 * 5 := by decide
+\       theorem as_gauss : 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 = 55 := by decide
+\       theorem as_gcd : Nat.gcd 1071 462 = 21 := by decide
+\       theorem as_compare : 20 > 10 /\ 10 >= 10 /\ Ne 3 4 := by decide
+\       theorem as_leap : 2024 % 4 = 0 /\ Ne (2024 % 100) 0 := by decide
+\       theorem as_not : Not (2 + 2 = 5) := by decide
+\       theorem as_or : 10 < 20 \/ 20 < 10 := by decide
+\       theorem as_iff : 2 + 2 = 4 <-> 3 <= 3 := by decide
+
+theorem as_mul
+  6 7 * 42 =
+:= by
+  by-decide
+end as_mul
+
+theorem as_pythag
+  3 3 * 4 4 * + 5 5 * =
+:= by
+  by-decide
+end as_pythag
+
+theorem as_gauss
+  1 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 + 55 =
+:= by
+  by-decide
+end as_gauss
+
+theorem as_gcd
+  1071 462 Nat.gcd 21 =
+:= by
+  by-decide
+end as_gcd
+
+theorem as_compare
+  20 10 >  10 10 >=  3 4 Ne  /\ /\
+:= by
+  by-decide
+end as_compare
+
+theorem as_leap
+  2024 4 % 0 =  2024 100 % 0 Ne  /\
+:= by
+  by-decide
+end as_leap
+
+theorem as_not
+  2 2 + 5 = Not
+:= by
+  by-decide
+end as_not
+
+theorem as_or
+  10 20 <  20 10 <  \/
+:= by
+  by-decide
+end as_or
+
+theorem as_iff
+  2 2 + 4 =  3 3 <=  <->
+:= by
+  by-decide
+end as_iff

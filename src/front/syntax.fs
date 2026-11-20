@@ -14,6 +14,9 @@
 \   syn-k-binrel  the same for a relation (Lean's binrel% f a b)
 \   syn-k-hyp     a: the name of a hypothesis a tactic introduces  b: its
 \                 argument in the tactic record (tactic-syntax.fs)
+\   syn-k-rightact  as binop% for Lean's rightact% f a b (x ^ n): the
+\                 right operand acts on the left one and is elaborated
+\                 apart (Elab/Extra.lean, toTree's processLeaf)
 \ So 0 n + n = is binrel% Eq (binop% HAdd.hAdd 0 n) n, and x y f, with f
 \ taking two explicit arguments, is app f [x, y]. An operator's name is
 \ Lean's hygienic one (HAdd.hAdd✝, Eq✝ in Lean's expansion): it always
@@ -40,6 +43,7 @@ require ../lib/lib.fs
 6 constant syn-k-binop
 7 constant syn-k-binrel
 8 constant syn-k-hyp
+9 constant syn-k-rightact
 
 begin-structure /syn
   field: syn-kind

@@ -42,3 +42,105 @@
 {"goal_before":"⊢ 1 + 2 + 4 + 7 + 14 = 28","goals_after":[],"parent":0,"source":"75:3","step":1,"tactic":"decide","word":"by-decide"}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"d_mul_big","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
 {"goal_before":"⊢ 12345 * 6789 = 83810205","goals_after":[],"parent":0,"source":"83:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sy_mul","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 6 * 7 = 42","goals_after":[],"parent":0,"source":"24:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sy_pythag","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 3 * 3 + 4 * 4 = 5 * 5","goals_after":[],"parent":0,"source":"31:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sy_gauss","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 = 55","goals_after":[],"parent":0,"source":"38:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sy_gcd","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ Nat.gcd 1071 462 = 21","goals_after":[],"parent":0,"source":"45:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sy_compare","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4","goals_after":[],"parent":0,"source":"51:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sy_leap","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 2024 % 4 = 0 ∧ 2024 % 100 ≠ 0","goals_after":[],"parent":0,"source":"58:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sy_not","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ ¬2 + 2 = 5","goals_after":[],"parent":0,"source":"64:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sy_or","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 10 < 20 ∨ 20 < 10","goals_after":[],"parent":0,"source":"70:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sy_iff","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 2 + 2 = 4 ↔ 3 ≤ 3","goals_after":[],"parent":0,"source":"76:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"as_mul","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 6 * 7 = 42","goals_after":[],"parent":0,"source":"23:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"as_pythag","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 3 * 3 + 4 * 4 = 5 * 5","goals_after":[],"parent":0,"source":"29:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"as_gauss","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 = 55","goals_after":[],"parent":0,"source":"35:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"as_gcd","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ Nat.gcd 1071 462 = 21","goals_after":[],"parent":0,"source":"41:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"as_compare","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4","goals_after":[],"parent":0,"source":"47:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"as_leap","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 2024 % 4 = 0 ∧ 2024 % 100 ≠ 0","goals_after":[],"parent":0,"source":"53:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"as_not","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ ¬2 + 2 = 5","goals_after":[],"parent":0,"source":"59:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"as_or","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 10 < 20 ∨ 20 < 10","goals_after":[],"parent":0,"source":"65:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"as_iff","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 2 + 2 = 4 ↔ 3 ≤ 3","goals_after":[],"parent":0,"source":"71:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p01","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n - m = m","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"17:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"18:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p02","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n / m = m","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"26:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"27:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p03","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n % m = m","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"35:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"36:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p04","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n < m","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"44:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"45:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p05","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n > m","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"53:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"54:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p06","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n ≥ m","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"62:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"63:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p07","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n ≤ m","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"71:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"72:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p08","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n ≠ m","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"80:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"81:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p09","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n ^ m = m","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"89:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"90:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p11","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n < m ∧ m < n","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"98:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"99:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p12","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n < m ∨ m < n","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"107:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"108:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p13","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n < m ↔ m ≤ n","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"116:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"117:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p14","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ ¬n < m","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"125:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"126:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p19","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ (n - m) / 2 + m = n","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"134:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"135:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p31","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n ^ m ≠ m ^ n","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"143:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"144:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p36","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n ≤ m","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"152:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"153:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p37","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n ≥ m","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"161:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"162:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p38","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n < m ∧ m < n","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"170:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"171:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p39","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n < m ∨ m < n","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"179:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"180:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p40","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n < m ↔ m ≤ n","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"188:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"189:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p48","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ n / m < m % n","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"197:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"198:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sv_p50","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : False\n⊢ ¬n ≠ m ↔ n = m","goals_after":["n m : Nat\nh : False\n⊢ False"],"parent":0,"source":"206:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"n m : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"207:3","step":2,"tactic":"assumption","word":"by-assumption"}

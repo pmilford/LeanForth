@@ -62,9 +62,11 @@ daily is the daily full run (owner, 2026-11-17: its own command, run once a nigh
 a tag, never forced by a push): the full tier of HEAD with LEAN_CACHE=0 and Gforth 0.7.3,
 each suite recorded per tree as tier records it. A daily run of a tree is complete when that
 tree has records of make coverage-check, make test-unit on gforth-fast, make check-rest (or
-make check) with LEAN_CACHE=0, make test-unit on Gforth 0.7.3 and make parallel-init (all of
+make check) with LEAN_CACHE=0, make test-unit on Gforth 0.7.3, make parallel-init (all of
 Init at --jobs 8 against --jobs 1, plan 9.4.8p; it needs the machine-local Init export and
-fails without it, so such a machine has no complete daily run), none narrowed by a variable.
+fails without it, so such a machine has no complete daily run) and make reference-decide-init
+(by-decide and the symbol words against the Init snapshot parallel-init wrote; it fails without
+it, REQUIRE_INIT_SNAPSHOT=1), none narrowed by a variable.
 daily-status prints the newest complete daily run (its date, commit and age) and, with
 --warn-hours H, a warning when there is none or it is older than H hours; it always exits 0
 (push.sh reports it, never refuses on it). tag-check exits 0 when HEAD's exact tree has a
@@ -547,6 +549,7 @@ def daily_needs():
         "make test-unit on Gforth 0.7.3": lambda r: r["suite"] in ("test-unit", "test")
         and r["gforth"] == engines["073"],
         "make parallel-init": lambda r: r["suite"] == "parallel-init",
+        "make reference-decide-init": lambda r: r["suite"] == "reference-decide-init",
     }, chain["lean"]
 
 
@@ -614,7 +617,8 @@ def run_daily(args):
     status, lines = 0, []
     need_of = {"coverage-check": "make coverage-check", "testfast": "make test-unit on gforth-fast",
                "check-rest": "make check-rest with LEAN_CACHE=0", "test073": "make test-unit on Gforth 0.7.3",
-               "parallel-init": "make parallel-init"}
+               "parallel-init": "make parallel-init",
+               "reference-decide-init": "make reference-decide-init"}
     for suite in test_tier.DAILY_SUITES:
         need = need_of[suite["label"]]
         argv = suite_argv(suite, args.make, args.jobs, "0")
@@ -725,7 +729,7 @@ def run_tier(args):
     if skipped and result["tier"] != "full":
         lines.append(f"not run (tier {result['tier']} does not reach them): {', '.join(skipped)}")
     lines.append("not run in a tier (make daily runs them): make coverage-check of every file, "
-                 "make test-unit on Gforth 0.7.3, make parallel-init")
+                 "make test-unit on Gforth 0.7.3, make parallel-init, make reference-decide-init")
     if not result["coverage"]:
         lines.append("branch coverage check (make cover-changed): not needed, no Forth file of src/ "
                      "added or modified")
@@ -756,7 +760,10 @@ def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     # A recorded run never skips the Mathlib slice comparison for want of the export
     # (tests/front/check_mathlib_slice.py skips it only for a user's plain make check).
-    os.environ.setdefault("REQUIRE_MATHLIB", "1")
+    os.environ["REQUIRE_MATHLIB"] = "1"
+    # Nor the decide check against Init for want of the snapshot (tests/front/tactics/decide/check.py
+    # --init skips only for a user's plain make reference-decide-init).
+    os.environ["REQUIRE_INIT_SNAPSHOT"] = "1"
     command = argv[argv.index("--") + 1:] if "--" in argv else []
     options = argv[:argv.index("--")] if "--" in argv else argv
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])

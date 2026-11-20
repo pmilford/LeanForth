@@ -52,6 +52,26 @@ class Rows(unittest.TestCase):
             "row tests/lib/run.fs: a target already runs it; its class is that target's (stale row)",
         ]))
 
+    def test_daily_rows(self):
+        """A daily row names a target make daily runs and make check does not (review of
+        ops-symbols B3 (c): make reference-decide-init)."""
+        rows = {"reference-decide-init": "daily", "gone-nightly": "daily", "test-lib": "daily",
+                "tests/lib/x.fs": "daily", "reference": "e2e"}
+        daily = {"coverage-check", "parallel-init", "reference-decide-init"}
+        found = tc.problems_of(rows, ["test-lib", "reference"], set(), ["tests/lib/x.fs"], daily)
+        self.assertEqual(sorted(found), sorted([
+            "row gone-nightly: class daily, but make daily runs no target of that name",
+            "row test-lib: a target of make check is unit or e2e, never daily",
+            "row tests/lib/x.fs: class daily names a target of make daily, never a test program",
+            "test file tests/lib/x.fs: in neither class: no target of make check runs it and no row "
+            "of tests/test-classes.txt names it",
+        ]))
+        self.assertEqual(tc.problems_of({"reference-decide-init": "daily"}, [], set(), [], daily), [])
+        self.assertEqual(tc.problems_of({"reference-decide-init": "daily"}, [], set(), []),
+                         ["row reference-decide-init: class daily, but make daily runs no target of "
+                          "that name"])
+        self.assertEqual(tc.of_class(rows, "daily"), ["reference-decide-init", "gone-nightly", "test-lib"])
+
     def test_no_problems(self):
         self.assertEqual(tc.problems_of({"a": "unit", "tests/x.fs": "manual"}, ["a"], {"tests/y.fs"},
                                         ["tests/x.fs", "tests/y.fs"]), [])

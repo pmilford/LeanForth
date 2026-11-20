@@ -1096,7 +1096,7 @@ old = '''  swap lf-cs-facts 0= if drop false exit then
 new = '''  swap lf-cs-facts 0= if drop true exit then
   over lf-open-abstract?'''
 test = "$GFORTH tests/core/no-data-terms.fs"
-reason = "instantiate keeps a node whose loose bound variable it should replace: the caches' hook lf-co-unchanged? answers unchanged for a node it has no facts of, so no-data-terms.fs's beta keeps the body x #(U+1), which has no data word, as it is (re-targeted 2026-11-20 from the hook's comparison of the loose range with the offset, which has decided nothing since e5b24ca8, mixed-open.fs's lf-open-word deciding every node with data first: plan 9.4.8l BB)"
+reason = "instantiate keeps a node whose loose bound variable it should replace: the caches' hook lf-co-unchanged? answers unchanged for a node it has no facts of, so no-data-terms.fs's beta keeps the body x #(U+1), which has no data word, as it is (re-targeted 2026-11-20 from the hook's comparison of the loose range with the offset, which has decided nothing since e5b24ca8, mixed-open.fs's lf-open-word deciding every node with data first: plan 9.4.8l BC)"
 
 [[fault]]
 id = "cache-scope-ignored"
@@ -7914,7 +7914,7 @@ file = "src/kernel/mixed-infer.fs"
 old = '''  if lf-minfer-scan walk-arg @ r@ 1- min 1+ r> drop else r> then ;'''
 new = '''  if lf-minfer-scan walk-arg @ r@ 1- min r> drop else r> then ;'''
 test = "$GFORTH tests/core/mixed-infer.fs"
-reason = "EX: a term read under the scope is closed with one free variable too few, so a bound variable stays loose: the scan of a term without a data word (lf-minfer-scanned) counts one less, and mixed-infer.fs's #1 #(U+1) under A, x is closed with x alone, #1 left loose where it becomes A (re-targeted 2026-11-20 from the caches' hook lf-ci-range, which since e5b24ca8 is asked only of a node without data, of which it has no facts: plan 9.4.8l BB)"
+reason = "EX: a term read under the scope is closed with one free variable too few, so a bound variable stays loose: the scan of a term without a data word (lf-minfer-scanned) counts one less, and mixed-infer.fs's #1 #(U+1) under A, x is closed with x alone, #1 left loose where it becomes A (re-targeted 2026-11-20 from the caches' hook lf-ci-range, which since e5b24ca8 is asked only of a node without data, of which it has no facts: plan 9.4.8l BC)"
 
 [[fault]]
 id = "ex-envsig-stored-no-fuel"

@@ -1,0 +1,77 @@
+\ The talk's theorems, written with Lean's symbols as LeanForth words
+\ (plan row S3, slice S3a-ops C2-C5; owner, 2026-11-20): the nine whose
+\ numerals elaborate on decide's slice of Init. The regular runs
+\ (tests/front/tactics/decide/check.py) check each against the slice,
+\ accepted with no axiom and its elaborated type and value node for node
+\ pinned Lean's (tests/front/tactics/goal-layer.lean). dc-symbols-init.lf
+\ holds the other five, whose - / ^ need all of Init; dc-ascii.lf states
+\ these nine in the spellings a plain keyboard types. Symbol words used:
+\ * + = > ≥ ≠ % ∧ ¬ ∨ ↔ < ≤.
+\ Lean: theorem sy_mul : 6 * 7 = 42 := by decide
+\       theorem sy_pythag : 3 * 3 + 4 * 4 = 5 * 5 := by decide
+\       theorem sy_gauss : 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 = 55 := by decide
+\       theorem sy_gcd : Nat.gcd 1071 462 = 21 := by decide
+\       theorem sy_compare : 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4 := by decide
+\       theorem sy_leap : 2024 % 4 = 0 ∧ 2024 % 100 ≠ 0 := by decide
+\       theorem sy_not : ¬ (2 + 2 = 5) := by decide
+\       theorem sy_or : 10 < 20 ∨ 20 < 10 := by decide
+\       theorem sy_iff : 2 + 2 = 4 ↔ 3 ≤ 3 := by decide
+
+\ 6 · 7 = 42.
+theorem sy_mul
+  6 7 * 42 =
+:= by
+  by-decide
+end sy_mul
+
+\ Pythagoras: 3² + 4² = 5².
+theorem sy_pythag
+  3 3 * 4 4 * + 5 5 * =
+:= by
+  by-decide
+end sy_pythag
+
+\ Gauss: 1 + 2 + ... + 10 = 55.
+theorem sy_gauss
+  1 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 + 55 =
+:= by
+  by-decide
+end sy_gauss
+
+\ Euclid: gcd(1071, 462) = 21.
+theorem sy_gcd
+  1071 462 Nat.gcd 21 =
+:= by
+  by-decide
+end sy_gcd
+
+theorem sy_compare
+  20 10 >  10 10 ≥  3 4 ≠  ∧ ∧
+:= by
+  by-decide
+end sy_compare
+
+\ 2024 is a leap year.
+theorem sy_leap
+  2024 4 % 0 =  2024 100 % 0 ≠  ∧
+:= by
+  by-decide
+end sy_leap
+
+theorem sy_not
+  2 2 + 5 = ¬
+:= by
+  by-decide
+end sy_not
+
+theorem sy_or
+  10 20 <  20 10 <  ∨
+:= by
+  by-decide
+end sy_or
+
+theorem sy_iff
+  2 2 + 4 =  3 3 ≤  ↔
+:= by
+  by-decide
+end sy_iff

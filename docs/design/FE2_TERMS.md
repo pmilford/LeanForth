@@ -251,7 +251,13 @@ has, so rule R1 of ADR 0017 holds. `:`, `@`, `^`, `-`, `/` and `<` are
 Forth words with other meanings, invisible in theorem text, which runs
 with only LeanForth's wordlists in the search order (ADR 0017 §3; the
 owner's answer 1 of 2026-11-12 for `+ = * ≤`); question 2 asks the owner
-to extend that answer to these.
+to extend that answer to these. **Answered for the operators (owner,
+2026-11-20, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) "Two
+answers of 2026-11-20, morning"):** `< > ≥ ≠ - / %`, `¬ ∧ ∨ ↔ ∣` and `^`
+are words, each also typed as Lean's ASCII notation (`<= >= /\ \/ <->`)
+or the constant's name (`Ne`, `Not`, `Dvd.dvd`); built in slice S3a-ops
+(plan row S3, FE2g in part). `@ : ⟨ ⟩ .name`, `∈ ∃ ×` and unary `-`
+remain open.
 
 ### 2.3 Operator words: the notation table, version 2
 

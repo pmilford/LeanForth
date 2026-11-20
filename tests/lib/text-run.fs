@@ -86,6 +86,20 @@ T{ s" " ' numeral? text-any? -> false }T
 T{ 0 tests-run ! s" a1b2" ' numeral? text-any? tests-run @ -> true 2 }T
 T{ 7 s" 1" ' numeral? text-any? -> 7 true }T
 
+\ text-trim (slice S3a-ops, the reader's notation check): the spaces at
+\ either end go, inner ones and other characters stay; an empty text and
+\ one of spaces only give an empty text; items below its inputs stay.
+: trimmed ( c-addr u -- c-addr' u' ) text-trim ;
+T{ s"  <= " trimmed s" <=" compare -> 0 }T
+T{ s" ¬" trimmed s" ¬" compare -> 0 }T
+T{ s" a b  " trimmed s" a b" compare -> 0 }T
+T{ s"   a b" trimmed s" a b" compare -> 0 }T
+T{ s"    " trimmed nip -> 0 }T
+T{ s" " trimmed nip -> 0 }T
+T{ s\" \tx\t" trimmed nip -> 3 }T
+T{ s"  x" drop dup 2 text-trim drop swap - -> 1 }T
+T{ 7 s" x " text-trim nip -> 7 1 }T
+
 \ Plain text: printable ASCII, spaces and tabs only.
 T{ s\" a b\tc~" text-plain-at -> 6 }T
 T{ s\" ab\x7f" text-plain-at -> 2 }T

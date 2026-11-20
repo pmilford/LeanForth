@@ -2,7 +2,10 @@
 \ ADR 0021): the natural reader's syntax trees, with positions, every
 \ refusal with its code, line and column, the kernel-form marker, numerals,
 \ ' and $, and the operator words (src/front/reader.fs, syntax.fs,
-\ author/form.fs); and the metavariable context: new, assign, the occurs
+\ author/form.fs), the notation words of slice S3a-ops (each word's node,
+\ the ASCII spellings, kernel form, registration refusals, and at the
+\ end, elaborated: rightact%'s exponent apart, a notation name at the
+\ root); and the metavariable context: new, assign, the occurs
 \ check, stale leaves, kinds and depth, level metavariables, delayed
 \ assignments and instantiation over deep terms (src/front/mvars.fs,
 \ dag-walk.fs). Every T{ }T checks the data stack's depth. The export
@@ -12,6 +15,7 @@ require ../support/tester.fs
 require ../../src/load/checker.fs
 require ../../src/load/front.fs
 require ../../src/cli/check-lf.fs
+require ../support/tactic-text.fs
 
 : nrun ( c-addr u -- outcome ) lf-author-begin lf-author-text ;
 : err ( -- code line col ) lf-author-code lfa-error lfa-err-at @ lfa-pos> ;
@@ -23,7 +27,10 @@ require ../../src/cli/check-lf.fs
 : last-node ( -- node ) syn-count 1- ;
 T{ s" tests/author/init-slice.ndjson" true lfc-library-open -> outcome-ok }T
 \ The reader alone: end NAME stops with 71 as before the elaborator
-\ (src/front/elab-decl.fs sets these hooks; tests/front/elab.fs tests it).
+\ (src/front/elab-decl.fs sets these hooks; tests/front/elab.fs tests it;
+\ the notation words' part at the end puts them back).
+action-of lf-front-elaborate constant real-elaborate
+action-of lf-front-by-statement constant real-by-statement
 ' lfh-later is lf-front-elaborate   ' lfr-unelaborated is lf-front-by-statement
 
 \ ---- FE1a. Natural form is the default: 0 n + n = is
@@ -70,6 +77,110 @@ T{ lf-front-statement syn-b@ dup kind swap syn-a@ s" HMul.hMul" named? -> syn-k-
 T{ lf-front-statement syn-c@ dup syn-a@ swap at -> 7 2 9 }T
 T{ lf-front-statement syn-b@ syn-b@ dup syn-a@ swap at -> 2 2 3 }T
 T{ lf-front-by lfa-pos> -> 3 4 }T
+\ The notation words (slice S3a-ops C2-C4; owner, 2026-11-20): each
+\ operator builds its macro of its constant, operands in order, Lean's
+\ ASCII spelling (<= >=) the same node as its symbol; ^ is rightact%.
+create op-text 256 allot  variable op-text#
+: op+ ( c-addr u -- ) tuck op-text op-text# @ + swap move op-text# +! ;
+: op-read ( c-addr u -- code )
+  0 op-text# ! s" theorem t Nat explicit: n Nat explicit: m " op+ op+ s"  := n end t" op+
+  op-text op-text# @ nfails 2drop ;
+: root-is ( c-addr u -- kind flag ) 2>r lf-front-statement dup kind swap syn-a@ 2r> named? ;
+T{ s" n m -" op-read s" HSub.hSub" root-is -> 71 syn-k-binop true }T
+T{ lf-front-statement dup syn-b@ syn-a@ swap syn-c@ syn-a@ -> 0 1 }T
+T{ s" n m /" op-read s" HDiv.hDiv" root-is -> 71 syn-k-binop true }T
+T{ s" n m %" op-read s" HMod.hMod" root-is -> 71 syn-k-binop true }T
+T{ s" n m ≠" op-read s" Ne" root-is -> 71 syn-k-binrel true }T
+T{ s" n m <" op-read s" LT.lt" root-is -> 71 syn-k-binrel true }T
+T{ s" n m >" op-read s" GT.gt" root-is -> 71 syn-k-binrel true }T
+T{ s" n m ≥" op-read s" GE.ge" root-is -> 71 syn-k-binrel true }T
+T{ s" n m >=" op-read s" GE.ge" root-is -> 71 syn-k-binrel true }T
+T{ s" n m <=" op-read s" LE.le" root-is -> 71 syn-k-binrel true }T
+\ Each operator's operands in order, as Lean's macro: n m > is GT.gt n m,
+\ never a flipped <, and n m ≥ is GE.ge n m (review ops-symbols L2).
+: operands ( -- a b ) lf-front-statement dup syn-b@ syn-a@ swap syn-c@ syn-a@ ;
+T{ s" n m >" op-read operands -> 71 0 1 }T
+T{ s" n m ≥" op-read operands -> 71 0 1 }T
+T{ s" n m <" op-read operands -> 71 0 1 }T
+T{ s" n m /" op-read operands -> 71 0 1 }T
+T{ s" n m %" op-read operands -> 71 0 1 }T
+T{ s" n m ^" op-read operands -> 71 0 1 }T
+T{ s" n m ^" op-read s" HPow.hPow" root-is -> 71 syn-k-rightact true }T
+T{ s" n 2 3 ^ ^" op-read lf-front-statement syn-c@ kind -> 71 syn-k-rightact }T
+\ ¬ ∧ ∨ ↔ ∣ and /\ \/ <->: the root constant applied as a name (And takes
+\ two values); a constant the library lacks is unknown (38: this slice
+\ has no Or, Not or Iff), \/ a word of its own, not the comment word \.
+: app-of ( -- f n ) lf-front-statement dup syn-a@ syn-a@ swap syn-b@ ;
+T{ s" n n = m m = ∧" op-read app-of swap lfa-decl-name s" And" named? -> 71 2 true }T
+T{ s" n n = m m = /\" op-read app-of swap lfa-decl-name s" And" named? -> 71 2 true }T
+T{ s" theorem t Nat explicit: n n n = n n = \/ := n end t" nfails -> 38 1 39 }T
+T{ s" theorem t Nat explicit: n n n = ¬ := n end t" nfails -> 38 1 33 }T
+T{ s" theorem t Nat explicit: n n n = n n = ↔ := n end t" nfails -> 38 1 39 }T
+T{ s" theorem t Nat explicit: n n n = n n = ∨ := n end t" nfails -> 38 1 39 }T
+T{ s" theorem t Nat explicit: n n n ∣ := n end t" nfails -> 38 1 31 }T
+T{ s" ∣" lfn-notations name-table-find lfn-entry-const s" Dvd.dvd" compare -> 0 }T
+\ Too few values: the frame's error 3 at the word.
+T{ s" theorem t Nat explicit: n 0 < := n end t" nfails -> 3 1 29 }T
+T{ s" theorem t Nat explicit: n n n = ∧ := n end t" nfails -> 3 1 33 }T
+\ In kernel-form text every notation word is error 58; ^ stays the
+\ kernel form's universe word.
+T{ s" kernel-form theorem t Prop explicit: p p p /\ := p end t" nfails -> 58 1 44 }T
+T{ s" kernel-form theorem t Prop explicit: p p p - := p end t" nfails -> 58 1 44 }T
+T{ s" kernel-form theorem t Prop explicit: p p p ≠ := p end t" nfails -> 58 1 44 }T
+T{ s" kernel-form theorem t Prop explicit: p p 1 ^ := p end t" nfails nip nip 58 <> -> true }T
+\ The words live in LF-WORDS only: Forth's own - / <= >= are unchanged
+\ outside a run, and the table holds one entry per spelling.
+T{ 7 3 - 7 3 / 3 7 <= 3 7 >= -> 4 2 true false }T
+T{ s" -" lf-words search-wordlist drop ' - <> s" <=" lf-words search-wordlist drop ' <= <>
+   -> true true }T
+T{ s" \/" lfn-notations name-table-find lfn-entry-const s" Or" compare -> 0 }T
+\ Every notation word has its entry, and the table no other (review
+\ ops-symbols L3: a word words.fs lists but reader.fs left out would be
+\ error 70 at its use).
+variable entries#
+: entry+ ( entry -- ) drop 1 entries# +! ;
+: entries ( -- n ) 0 entries# ! lfn-notations ['] entry+ name-table-each entries# @ ;
+: entered ( "word ..." -- n )   \ how many of the line's words have an entry
+  0 begin parse-name dup while lfn-notations name-table-find 0<> - repeat 2drop ;
+entered + - * / % ^ = ≠ < > ≤ <= ≥ >= ¬ ∧ /\ ∨ \/ ↔ <-> ∣
+constant entered#
+T{ entered# entries -> 22 22 }T
+\ And the other way round, from the syntax words themselves (re-check of
+\ ops-symbols R3): no natural-only syntax word is left without its natural
+\ meaning, whatever words.fs lists.
+[defined] traverse-wordlist [if]
+variable unmeant#
+: unmeant ( nt -- true )
+  name>interpret >body dup @ ['] lfa-w-natural-only =
+  swap cell+ @ ['] lfa-natural-later = and if 1 unmeant# +! then true ;
+T{ 0 unmeant# ! ' unmeant lf-words traverse-wordlist unmeant# @ -> 0 }T
+[then]
+\ A registration whose row is missing or lacks the spelling, whose word
+\ is no syntax word, or which is made twice aborts while loading, each
+\ with its own message, before anything is written: the table keeps its
+\ 22 entries and the word its meaning ($ keeps its own; review ops-symbols
+\ B1, L2). The message of abort" is Gforth's abort-string (1.0) or
+\ "error (0.7.3).
+[defined] abort-string [if]
+: abort-text ( -- c-addr u ) abort-string @ count ;
+[else]
+: abort-text ( -- c-addr u ) "error @ count ;
+[then]
+: reg ( c-addr u -- code ) ['] evaluate catch dup if nip nip then ;
+: says? ( c-addr u -- flag ) abort-text compare 0= ;
+: msg-lacks ( -- c-addr u ) s" reader.fs: a notation word its constant's row lacks" ;
+: msg-twice ( -- c-addr u ) s" reader.fs: a notation word twice" ;
+T{ s\" s\" Foo.bar\" syn-k-binop lfn-operator: zz" reg msg-lacks says? entries -> -2 true 22 }T
+T{ s\" s\" LT.lt\" syn-k-binrel lfn-operator: $" reg msg-lacks says? entries -> -2 true 22 }T
+T{ s" theorem t Nat explicit: n 0 n + n = := ' Nat.succ n $ end t" nfails -> 71 1 55 }T
+T{ s\" s\" LT.lt\" syn-k-binrel lfn-operator: <<" reg msg-lacks says? entries -> -2 true 22 }T
+T{ s\" s\" Not\" lfn-notation-name: !" reg msg-lacks says? entries -> -2 true 22 }T
+T{ s\" s\" HAdd.hAdd\" syn-k-binop lfn-operator: +" reg msg-twice says? entries -> -2 true 22 }T
+T{ s\" s\" Membership.mem\" syn-k-binrel lfn-operator: ∈" reg
+   s" reader.fs: not a syntax word" says? entries -> -2 true 22 }T
+T{ s" zz" lf-words search-wordlist s" <<" lf-words search-wordlist -> 0 0 }T
+\ The words.fs list: a word reserved already aborts.
+T{ s" lfa-natural-words +" reg s" words.fs: reserved twice" says? -> -2 true }T
 T{ s\" theorem t\n 123456789\n 1 = := by end t" nfails -> 71 3 12 }T
 T{ lf-front-statement syn-b@ dup syn-a@ swap at -> 123456789 2 2 }T
 
@@ -776,6 +887,48 @@ T{ 1 rd-bv 2 rd-bv app 3 rd-bv app lf-meta-app-head rd-leaf 6 rd-bv dup lf-meta-
 \ a metavariable's tag, no other tag from -2 to 40.
 : fm-others ( -- n ) 0 41 -2 do i lf-fvar-mvar-tag? - loop ;
 T{ lf-tag-fvar lf-fvar-mvar-tag? lf-tag-mvar lf-fvar-mvar-tag? fm-others -> true true 2 }T
+
+\ ---- The notation words elaborated (plan row S3, slice S3a-ops C3 and
+\ C4), with the elaborator back, over the S2 slice and its data, whose
+\ CoeT makes an uncomparable type the coercion error 131.
+\ rightact% (^) elaborates its exponent apart, as Lean's toTree does
+\ (processLeaf): analyze and applyCoe never see it, and its base has no
+\ operator above. A Bool exponent of a Nat base, at the root and below a
+\ binop%, reaches the search for HPow Nat Bool ?γ (119: the slice left
+\ out the instance it tries); an exponent b + b is a tree of its own,
+\ whose HAdd Bool has no homogeneous instance (139, elaborated apart in
+\ Lean); a binrel% exponent is a leaf anyway. Counting, coercing or
+\ entering the exponent would answer 131.
+real-elaborate is lf-front-elaborate   real-by-statement is lf-front-by-statement
+T{ lfc-library-close s" tests/front/s2-slice.ndjson" true lfc-library-open -> outcome-ok }T
+T{ s" tests/front/s2-slice.elab.ndjson" lfc-elab-file! lfc-elab-read lfc-rooms
+   -> outcome-ok outcome-ok }T
+: ran ( c-addr u -- code ) s" by-decide" tactic-ran lf-tac-forget ;
+T{ s" Nat explicit: n Bool explicit: b n b ^ n =" ran -> 119 }T
+T{ s" Nat explicit: n Bool explicit: b n n b ^ * n =" ran -> 119 }T
+T{ s" Nat explicit: n Bool explicit: b n b b + ^ n =" ran -> 139 }T
+T{ s" Nat explicit: n Bool explicit: b n b b = ^ n =" ran -> 119 }T
+\ Nor is ^ itself asked for a homogeneous instance (Lean's applyCoe never
+\ asks, Extra.lean:420): b ^ n with b : Bool reaches the instance search
+\ (119), never the coercion of a binop%'s tree (139; review ops-symbols B2).
+T{ s" Bool explicit: b Nat explicit: n b n ^ b =" ran -> 119 }T
+\ A notation name is the root constant: inside namespace Foo, with its own
+\ Foo.And (a Nat, no arguments), 2 = 2 ∧ 3 = 3 still elaborates with And
+\ and reaches by-decide, which this slice cannot run (93), as outside it.
+: text-code ( c-addr u -- code ) nrun drop lf-author-code lf-tac-forget ;
+T{ s" theorem t 2 2 = 3 3 = ∧ := by by-decide end t" text-code -> 93 }T
+T{ s" namespace Foo axiom And Nat end And theorem t 2 2 = 3 3 = ∧ := by by-decide end t end Foo"
+   text-code -> 93 }T
+\ Last, as a context made seals the table for the rest of the run: once
+\ a context exists every registration aborts, first, with its own
+\ message, and the table keeps its entries (review ops-symbols B1).
+: msg-sealed ( -- c-addr u ) s" reader.fs: a notation word after context-new" ;
+context-new throw constant sealed-context
+T{ s\" s\" Membership.mem\" syn-k-binrel lfn-operator: ∈" reg msg-sealed says? entries
+   -> -2 true 22 }T
+T{ s\" s\" HAdd.hAdd\" syn-k-binop lfn-operator: +" reg msg-sealed says? entries
+   -> -2 true 22 }T
+sealed-context context-free throw
 T{ depth -> 0 }T
 cr .( front.fs: all tests passed) cr
 bye

@@ -215,7 +215,7 @@ class Tier(Base):
         self.assertIn("targets ran: exit 0", out)
         self.assertIn("not run (tier docs does not reach them): test, testfast, check-rest", out)
         self.assertIn("not run in a tier (make daily runs them): make coverage-check of every file, "
-                      "make test-unit on Gforth 0.7.3, make parallel-init", out)
+                      "make test-unit on Gforth 0.7.3, make parallel-init, make reference-decide-init", out)
         self.assertEqual(self.repo.logged(), ["check-docs"])
         out = self.assertRan(self.tier())
         self.assertIn("targets reused: ", out)
@@ -363,13 +363,14 @@ class Tier(Base):
                      "testfast would run: make test-unit JOBS=2 LEAN_CACHE=0 GFORTH=",
                      "check-rest would run: make check-rest JOBS=2 LEAN_CACHE=0",
                      "test073 would run: make test-unit JOBS=2 LEAN_CACHE=0 GFORTH=",
-                     "parallel-init would run: make parallel-init JOBS=2 LEAN_CACHE=0"):
+                     "parallel-init would run: make parallel-init JOBS=2 LEAN_CACHE=0",
+                     "reference-decide-init would run: make reference-decide-init JOBS=2 LEAN_CACHE=0"):
             self.assertIn(text, out)
         self.assertEqual(self.records(), [])
         self.assertRan(self.records_tool("daily", "--jobs", "2"))
         self.assertEqual(sorted((r["suite"], r["lean_cache"]) for r in self.records()),
-                         [("check-rest", "0"), ("coverage-check", "0"), ("parallel-init", "0"), ("test-unit", "0"),
-                          ("test-unit", "0")])
+                         [("check-rest", "0"), ("coverage-check", "0"), ("parallel-init", "0"),
+                          ("reference-decide-init", "0"), ("test-unit", "0"), ("test-unit", "0")])
         self.assertIn("already recorded", self.assertRan(self.records_tool("daily", "--jobs", "2")))
 
     def test_daily_run_needs_every_suite_without_narrowing(self):
@@ -377,8 +378,12 @@ class Tier(Base):
         self.daily(["coverage-check"], ["test-unit", f"GFORTH={gforth073}"], ["test-unit", f"GFORTH={self.fast()}"],
                    ["check-rest", "LEAN_CACHE=1"], ["check-rest", "LEAN_CACHE=0", "FAULTS=free-one"])
         out = self.assertRan(self.records_tool("tag-check"), 1)
-        self.assertIn("missing make check-rest with LEAN_CACHE=0, make parallel-init", out)
+        self.assertIn("missing make check-rest with LEAN_CACHE=0, make parallel-init, "
+                      "make reference-decide-init", out)
         self.daily(["parallel-init"])
+        self.assertIn("missing make check-rest with LEAN_CACHE=0, make reference-decide-init",
+                      self.assertRan(self.records_tool("tag-check"), 1))
+        self.daily(["reference-decide-init"])
         self.daily(["check", "LEAN_CACHE=0"])
         self.assertIn("may be tagged", self.assertRan(self.records_tool("tag-check")))
 

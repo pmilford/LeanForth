@@ -146,8 +146,11 @@ is elaborated yet:
 | a number | `( -- n )` | a numeral (Lean's `OfNat`), at its own line and column |
 | `' NAME` | `( -- t )` | the function NAME, applied to nothing (59 when no name follows on the line) |
 | `$` | `( f a -- t )` | one more argument: an application made by a name takes it as its next one |
-| `+`, `*` | `( a b -- t )` | Lean's `binop% HAdd.hAdd a b`, `binop% HMul.hMul a b` |
-| `=`, `≤` | `( a b -- t )` | Lean's `binrel% Eq a b`, `binrel% LE.le a b` |
+| `+`, `-`, `*`, `/`, `%` | `( a b -- t )` | Lean's `binop% HAdd.hAdd a b`, and the same of `HSub.hSub`, `HMul.hMul`, `HDiv.hDiv`, `HMod.hMod` |
+| `^` | `( a n -- t )` | Lean's `rightact% HPow.hPow a n` (slice S3a-ops C4): the exponent is elaborated apart, analyze and applyCoe never see it (`src/front/elab-term.fs`) |
+| `=`, `≠`, `<`, `>`, `≤`, `≥`, and typed `<=`, `>=` | `( a b -- t )` | Lean's `binrel% Eq a b`, and the same of `Ne`, `LT.lt`, `GT.gt`, `LE.le`, `GE.ge` |
+| `¬`, `∧`, `∨`, `↔`, `∣`, and typed `/\`, `\/`, `<->` | `( p -- t )`, `( a b -- t )` | Lean's notations for the root constants `Not`, `And`, `Or`, `Iff`, `Dvd.dvd`, applied as their names are (38 when the library lacks one) |
+| registering a notation word | | `src/front/reader.fs`: `s" HSub.hSub" syn-k-binop lfn-operator: -`, `s" And" lfn-notation-name: ∧`, one line each, the notation table's Unicode or ASCII row checked while loading; the word itself is made and reserved by `src/author/words.fs`'s `lfa-natural-words` |
 | `explicit:` and the other binder words | `( t -- )` | a binder whose type is the tree as written |
 | `:=` | `( t -- )` | the statement, as in the kernel form |
 | `by` | `( -- )` | right after `:=`: a tactic proof follows (69 elsewhere or twice), read by `src/front/tactic-syntax.fs` |
@@ -167,7 +170,7 @@ is elaborated yet:
 | `=>` | | ends a header; alone, error 84 |
 | the tactic words in kernel-form text | | not supported (72) |
 | the other kernel-form words (`Prop`, `fun`, `var#`, `^`, ...) | | not supported yet in natural form (70) |
-| `'`, `+`, `=`, `*`, `≤` in kernel-form text | | refused (58) |
+| `'` and the notation words (`+`, `∧`, `<=`, ...; not `^`) in kernel-form text | | refused (58) |
 
 Each operator word is checked against the printer's notation table while
 the reader loads (`present/notation-table.fs`: the row of the constant

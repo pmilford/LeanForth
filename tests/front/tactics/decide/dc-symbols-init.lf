@@ -1,0 +1,48 @@
+\ The talk's other five theorems with symbol words (dc-symbols.lf has the
+\ first nine; plan row S3, slice S3a-ops C2-C5): their - / ^ elaborate only
+\ with the first instance candidates of all of Init (FilePath's HDiv,
+\ String's HSub, Fin's NatPow), which decide's slice cannot hold. So
+\ tests/front/tactics/decide/check.py --init (make reference-decide-init,
+\ part of make daily) checks them against Init's snapshot, each accepted
+\ with no axiom and its elaborated type and value node for node pinned
+\ Lean's (tests/front/tactics/goal-layer.lean). dc-ascii-init.lf states
+\ them in ASCII.
+\ Lean: theorem sy_divmod : 17 / 5 = 3 ∧ 17 % 5 = 2 := by decide
+\       theorem sy_mersenne : 2 ^ 11 - 1 = 23 * 89 := by decide
+\       theorem sy_euler : 2 ^ 32 + 1 = 641 * 6700417 := by decide
+\       theorem sy_taxicab : 1 ^ 3 + 12 ^ 3 = 1729 ∧ 9 ^ 3 + 10 ^ 3 = 1729 := by decide
+\       theorem sy_pow_cmp : 2 ^ 10 = 1024 ∧ 2 ^ 10 > 1000 := by decide
+
+\ 17 = 3 · 5 + 2.
+theorem sy_divmod
+  17 5 / 3 =  17 5 % 2 =  ∧
+:= by
+  by-decide
+end sy_divmod
+
+\ 2¹¹ − 1 is a Mersenne number that is not prime.
+theorem sy_mersenne
+  2 11 ^ 1 -  23 89 * =
+:= by
+  by-decide
+end sy_mersenne
+
+\ Euler: Fermat's number F5 = 2³² + 1 is composite.
+theorem sy_euler
+  2 32 ^ 1 +  641 6700417 * =
+:= by
+  by-decide
+end sy_euler
+
+\ Ramanujan's taxicab number: 1729 = 1³ + 12³ = 9³ + 10³.
+theorem sy_taxicab
+  1 3 ^ 12 3 ^ + 1729 =  9 3 ^ 10 3 ^ + 1729 =  ∧
+:= by
+  by-decide
+end sy_taxicab
+
+theorem sy_pow_cmp
+  2 10 ^ 1024 =  2 10 ^ 1000 >  ∧
+:= by
+  by-decide
+end sy_pow_cmp

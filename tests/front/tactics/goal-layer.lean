@@ -142,6 +142,100 @@ theorem d_euler : 2 ^ 32 + 1 = 641 * 6700417 := by decide
 theorem d_taxicab : 1 ^ 3 + 12 ^ 3 = 1729 ∧ 9 ^ 3 + 10 ^ 3 = 1729 := by decide
 theorem d_pow_cmp : 2 ^ 10 = 1024 ∧ 2 ^ 10 > 1000 := by decide
 theorem x_dc_dvd : 3 ∣ 12 := by decide
+-- Plan row S3, slice S3a-ops C2-C5 (tests/front/tactics/decide/dc-symbols.lf, dc-ascii.lf on
+-- decide's slice; dc-symbols-init.lf, dc-ascii-init.lf on Init: divmod, mersenne, euler,
+-- taxicab, pow_cmp): the talk's theorems with Lean's symbols, then in Lean's ASCII notation (Ne,
+-- Not where Lean has none); check.py compares LeanForth's terms of the files with these.
+theorem sy_mul : 6 * 7 = 42 := by decide
+theorem sy_pythag : 3 * 3 + 4 * 4 = 5 * 5 := by decide
+theorem sy_gauss : 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 = 55 := by decide
+theorem sy_divmod : 17 / 5 = 3 ∧ 17 % 5 = 2 := by decide
+theorem sy_gcd : Nat.gcd 1071 462 = 21 := by decide
+theorem sy_compare : 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4 := by decide
+theorem sy_leap : 2024 % 4 = 0 ∧ 2024 % 100 ≠ 0 := by decide
+theorem sy_mersenne : 2 ^ 11 - 1 = 23 * 89 := by decide
+theorem sy_euler : 2 ^ 32 + 1 = 641 * 6700417 := by decide
+theorem sy_taxicab : 1 ^ 3 + 12 ^ 3 = 1729 ∧ 9 ^ 3 + 10 ^ 3 = 1729 := by decide
+theorem sy_not : ¬ (2 + 2 = 5) := by decide
+theorem sy_or : 10 < 20 ∨ 20 < 10 := by decide
+theorem sy_iff : 2 + 2 = 4 ↔ 3 ≤ 3 := by decide
+theorem sy_pow_cmp : 2 ^ 10 = 1024 ∧ 2 ^ 10 > 1000 := by decide
+theorem as_mul : 6 * 7 = 42 := by decide
+theorem as_pythag : 3 * 3 + 4 * 4 = 5 * 5 := by decide
+theorem as_gauss : 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 = 55 := by decide
+theorem as_divmod : 17 / 5 = 3 /\ 17 % 5 = 2 := by decide
+theorem as_gcd : Nat.gcd 1071 462 = 21 := by decide
+theorem as_compare : 20 > 10 /\ 10 >= 10 /\ Ne 3 4 := by decide
+theorem as_leap : 2024 % 4 = 0 /\ Ne (2024 % 100) 0 := by decide
+theorem as_mersenne : 2 ^ 11 - 1 = 23 * 89 := by decide
+theorem as_euler : 2 ^ 32 + 1 = 641 * 6700417 := by decide
+theorem as_taxicab : 1 ^ 3 + 12 ^ 3 = 1729 /\ 9 ^ 3 + 10 ^ 3 = 1729 := by decide
+theorem as_not : Not (2 + 2 = 5) := by decide
+theorem as_or : 10 < 20 \/ 20 < 10 := by decide
+theorem as_iff : 2 + 2 = 4 <-> 3 <= 3 := by decide
+theorem as_pow_cmp : 2 ^ 10 = 1024 /\ 2 ^ 10 > 1000 := by decide
+theorem x_sy_dvd : 3 ∣ 12 := by decide
+-- Every symbol word on variables (review of ops-symbols B3, 2026-11-20): the statement's
+-- elaboration alone, proved from a hypothesis False. sv_ on decide's slice
+-- (tests/front/tactics/decide/sy-vars.lf, check.py), si_ on Init (sy-vars-init.lf,
+-- check.py --init: Int variables, numeral powers, ∣).
+theorem sv_p01 (n m : Nat) (h : False) : n - m = m := by exfalso; assumption
+theorem sv_p02 (n m : Nat) (h : False) : n / m = m := by exfalso; assumption
+theorem sv_p03 (n m : Nat) (h : False) : n % m = m := by exfalso; assumption
+theorem sv_p04 (n m : Nat) (h : False) : n < m := by exfalso; assumption
+theorem sv_p05 (n m : Nat) (h : False) : n > m := by exfalso; assumption
+theorem sv_p06 (n m : Nat) (h : False) : n ≥ m := by exfalso; assumption
+theorem sv_p07 (n m : Nat) (h : False) : n ≤ m := by exfalso; assumption
+theorem sv_p08 (n m : Nat) (h : False) : n ≠ m := by exfalso; assumption
+theorem sv_p09 (n m : Nat) (h : False) : n ^ m = m := by exfalso; assumption
+theorem sv_p11 (n m : Nat) (h : False) : n < m ∧ m < n := by exfalso; assumption
+theorem sv_p12 (n m : Nat) (h : False) : n < m ∨ m < n := by exfalso; assumption
+theorem sv_p13 (n m : Nat) (h : False) : n < m ↔ m ≤ n := by exfalso; assumption
+theorem sv_p14 (n m : Nat) (h : False) : ¬ (n < m) := by exfalso; assumption
+theorem sv_p19 (n m : Nat) (h : False) : (n - m) / 2 + m = n := by exfalso; assumption
+theorem sv_p31 (n m : Nat) (h : False) : n ^ m ≠ m ^ n := by exfalso; assumption
+theorem sv_p36 (n m : Nat) (h : False) : n <= m := by exfalso; assumption
+theorem sv_p37 (n m : Nat) (h : False) : n >= m := by exfalso; assumption
+theorem sv_p38 (n m : Nat) (h : False) : n < m /\ m < n := by exfalso; assumption
+theorem sv_p39 (n m : Nat) (h : False) : n < m \/ m < n := by exfalso; assumption
+theorem sv_p40 (n m : Nat) (h : False) : n < m <-> m ≤ n := by exfalso; assumption
+theorem sv_p48 (n m : Nat) (h : False) : n / m < m % n := by exfalso; assumption
+theorem sv_p50 (n m : Nat) (h : False) : ¬ (n ≠ m) ↔ n = m := by exfalso; assumption
+theorem si_p10 (n m : Nat) (i j : Int) (h : False) : n ∣ m := by exfalso; assumption
+theorem si_p15 (n m : Nat) (i j : Int) (h : False) : 2 ^ 3 * 4 + 5 = n := by exfalso; assumption
+theorem si_p16 (n m : Nat) (i j : Int) (h : False) : 2 ^ 3 < n := by exfalso; assumption
+theorem si_p17 (n m : Nat) (i j : Int) (h : False) : 2 ^ 3 ^ 2 = n := by exfalso; assumption
+theorem si_p18 (n m : Nat) (i j : Int) (h : False) : (2 ^ 3) ^ 2 = n := by exfalso; assumption
+theorem si_p20 (n m : Nat) (i j : Int) (h : False) : i ^ n = i := by exfalso; assumption
+theorem si_p21 (n m : Nat) (i j : Int) (h : False) : i ^ n * j = i := by exfalso; assumption
+theorem si_p22 (n m : Nat) (i j : Int) (h : False) : i ^ 2 = i := by exfalso; assumption
+theorem si_p23 (n m : Nat) (i j : Int) (h : False) : (i ^ n) ^ n = i := by exfalso; assumption
+theorem si_p24 (n m : Nat) (i j : Int) (h : False) : 2 ^ n = i := by exfalso; assumption
+theorem si_p25 (n m : Nat) (i j : Int) (h : False) : n ^ 2 = n * n := by exfalso; assumption
+theorem si_p26 (n m : Nat) (i j : Int) (h : False) : i - j < j - i := by exfalso; assumption
+theorem si_p27 (n m : Nat) (i j : Int) (h : False) : i >= 0 := by exfalso; assumption
+theorem si_p28 (n m : Nat) (i j : Int) (h : False) : n ^ (2 + 3) = n := by exfalso; assumption
+theorem si_p29 (n m : Nat) (i j : Int) (h : False) : i ^ (n + m) = i := by exfalso; assumption
+theorem si_p30 (n m : Nat) (i j : Int) (h : False) : i ^ n < j - i := by exfalso; assumption
+theorem si_p32 (n m : Nat) (i j : Int) (h : False) : (i ^ n) ^ 2 = i := by exfalso; assumption
+theorem si_p34 (n m : Nat) (i j : Int) (h : False) : (i * i) ^ n = i := by exfalso; assumption
+theorem si_p35 (n m : Nat) (i j : Int) (h : False) : ¬ (n ∣ m ∧ m ∣ n) := by exfalso; assumption
+theorem si_p41 (n m : Nat) (i j : Int) (h : False) : i ^ 2 + j ^ 3 = i := by exfalso; assumption
+theorem si_p42 (n m : Nat) (i j : Int) (h : False) : i ∣ j := by exfalso; assumption
+theorem si_p43 (n m : Nat) (i j : Int) (h : False) : i ≠ 0 := by exfalso; assumption
+theorem si_p44 (n m : Nat) (i j : Int) (h : False) : i ^ 2 - 1 ≥ 0 := by exfalso; assumption
+theorem si_p45 (n m : Nat) (i j : Int) (h : False) : (i ^ 2) ^ 2 > 0 := by exfalso; assumption
+theorem si_p46 (n m : Nat) (i j : Int) (h : False) : 2 ^ 2 ^ n = i := by exfalso; assumption
+theorem si_p47 (n m : Nat) (i j : Int) (h : False) : i ^ n = i ^ n := by exfalso; assumption
+theorem si_p49 (n m : Nat) (i j : Int) (h : False) : i / j ≤ j % i := by exfalso; assumption
+theorem si_r1 (n m : Nat) (i j : Int) (h : False) : Nat.succ (n ^ 2) = m := by exfalso; assumption
+theorem si_r2 (n m : Nat) (i j : Int) (h : False) : Int.natAbs (2 ^ n) = m := by exfalso; assumption
+theorem si_r3 (n m : Nat) (i j : Int) (h : False) : Int.natAbs (i ^ n) = m := by exfalso; assumption
+theorem si_r4 (n m : Nat) (i j : Int) (h : False) : Int.natAbs (2 ^ n) = 2 ^ n := by exfalso; assumption
+theorem si_r5 (n m : Nat) (i j : Int) (h : False) : Int.ofNat (n ^ m) = i := by exfalso; assumption
+theorem si_r6 (n m : Nat) (i j : Int) (h : False) : Int.ofNat (2 ^ n) = i := by exfalso; assumption
+theorem si_r7 (n m : Nat) (i j : Int) (h : False) : i ^ 2 ^ n = i := by exfalso; assumption
+theorem si_r8 (n m : Nat) (i j : Int) (h : False) : 2 * i ^ n = i := by exfalso; assumption
 
 def pl (l : Level) : String := match l.toNat with
   | some n => toString n
@@ -183,7 +277,19 @@ def dumpBinders (n : Name) : MetaM Unit := do
       ``is_implicit, ``cl_hyp, ``cl_var, ``dc_add, ``dc_lt, ``dc_le, ``dc_mul, ``dc_sub,
       ``dc_div, ``dc_mod, ``dc_not, ``dc_and, ``dc_or, ``dc_true, ``dc_bool, ``dc_hyp, ``dc_gcd,
       ``dc_pow, ``dc_word, ``d_mul, ``d_pythag, ``d_gauss, ``d_gt, ``d_ge, ``d_ne, ``d_compare,
-      ``d_leap, ``d_perfect, ``d_mul_big] do
+      ``d_leap, ``d_perfect, ``d_mul_big, ``d_divmod, ``d_mersenne, ``d_euler, ``d_taxicab,
+      ``d_pow_cmp, ``sy_mul, ``sy_pythag, ``sy_gauss, ``sy_divmod, ``sy_gcd, ``sy_compare,
+      ``sy_leap, ``sy_mersenne, ``sy_euler, ``sy_taxicab, ``sy_not, ``sy_or, ``sy_iff,
+      ``sy_pow_cmp, ``as_mul, ``as_pythag, ``as_gauss, ``as_divmod, ``as_gcd, ``as_compare,
+      ``as_leap, ``as_mersenne, ``as_euler, ``as_taxicab, ``as_not, ``as_or, ``as_iff,
+      ``as_pow_cmp,
+      ``sv_p01, ``sv_p02, ``sv_p03, ``sv_p04, ``sv_p05, ``sv_p06, ``sv_p07, ``sv_p08,
+      ``sv_p09, ``sv_p11, ``sv_p12, ``sv_p13, ``sv_p14, ``sv_p19, ``sv_p31, ``sv_p36,
+      ``sv_p37, ``sv_p38, ``sv_p39, ``sv_p40, ``sv_p48, ``sv_p50, ``si_p10, ``si_p15,
+      ``si_p16, ``si_p17, ``si_p18, ``si_p20, ``si_p21, ``si_p22, ``si_p23, ``si_p24,
+      ``si_p25, ``si_p26, ``si_p27, ``si_p28, ``si_p29, ``si_p30, ``si_p32, ``si_p34,
+      ``si_p35, ``si_p41, ``si_p42, ``si_p43, ``si_p44, ``si_p45, ``si_p46, ``si_p47,
+      ``si_p49, ``si_r1, ``si_r2, ``si_r3, ``si_r4, ``si_r5, ``si_r6, ``si_r7, ``si_r8] do
     dump n
   for n in [``in_implicit, ``in_strict, ``is_implicit] do
     dumpBinders n

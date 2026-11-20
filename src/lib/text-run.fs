@@ -29,7 +29,8 @@
 \
 \ Interface (lf-lib): /run-settings, run-settings-order-max,
 \ run-settings-save, run-settings-restore, text-file-slurp, text-scan,
-\ text-any?, text-line-end, text-cr-drop, text-plain-at, floats-depth, floats-drop-to.
+\ text-any?, text-trim, text-line-end, text-cr-drop, text-plain-at, floats-depth,
+\ floats-drop-to.
 \ src/program/verify-runner.fs
 \ is a complete user. Offsets into a text count characters (/STRING).
 \ State: none; every word takes its record or buffer. Loads in decimal
@@ -117,6 +118,13 @@ lf-lib set-current
 \ Whether xt ( char -- flag ) is true for any character of c-addr u
 \ (false for an empty text); text-any? 0= says it is true for none.
 : text-any? ( c-addr u xt -- flag ) text-from nip 0<> ;
+
+lf-lib-private set-current
+: text-filled? ( char -- flag ) bl <> ;
+lf-lib set-current
+\ c-addr u without the spaces at its start and at its end (other
+\ characters, tabs included, are kept; empty when it is all spaces).
+: text-trim ( c-addr u -- c-addr' u' ) ['] text-filled? text-from -trailing ;
 
 lf-lib-private set-current
 10 constant text-lf

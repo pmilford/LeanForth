@@ -1,0 +1,9 @@
+\ A wrong twin with symbol words (plan row S3, slice S3a-ops C5; its ^ and the numerals' first instances need all of Init (check.py --init);
+\ tests/front/tactics/goal-layer-wrong.lean): decide reduces the statement to
+\ Bool.false (error 250).
+\ Lean: theorem w_sy_euler : 2 ^ 32 + 1 = 641 * 6700419 := by decide
+theorem w_sy_euler
+  2 32 ^ 1 +  641 6700419 * =
+:= by
+  by-decide
+end w_sy_euler

@@ -1,0 +1,9 @@
+\ A wrong twin with symbol words (plan row S3, slice S3a-ops C5;
+\ tests/front/tactics/goal-layer-wrong.lean): decide reduces the statement to
+\ Bool.false (error 250).
+\ Lean: theorem w_sy_ne : 3 ≠ 3 := by decide
+theorem w_sy_ne
+  3 3 ≠
+:= by
+  by-decide
+end w_sy_ne

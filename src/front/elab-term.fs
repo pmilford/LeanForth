@@ -34,7 +34,11 @@
 \   isDefEqGuarded to the max type, else a coercion, 131), toExprCore
 \   (each operator elabAppArgs of its two operands, no out-parameter
 \   support), isDefEqGuarded of its type and the max type when no leaf
-\   was unknown, and ensureHasType. binrel% (elabBinRelCore): inside
+\   was unknown, and ensureHasType. rightact% (x ^ n) is an operator of
+\   the same tree whose right operand is always a leaf, elaborated apart,
+\   that analyze and applyCoe skip, its left operand coerced as if no
+\   operator were above it, and no homogeneous instance asked of it
+\   (Extra.lean:203, 269, 420). binrel% (elabBinRelCore): inside
 \   withSynthesizeLight, the two sides' trees, analyze with no expected
 \   type, then either both sides alone, the right one made to have the
 \   left one's type and the relation applied by elabAppArgs, or applyCoe
@@ -92,6 +96,7 @@ begin-structure /tn      \ a node of a binop% tree
   field: tn-node         \ the syntax
   field: tn-up           \ the operator above's function (applyCoe's f?), or -1
   field: tn-left         \ true: the left operand of the operator above
+  field: tn-act          \ true: a rightact% operator, or its right operand
 end-structure
 /tn context-slab: et-tree
 begin-structure /eo      \ an elabOp or elabBinRelCore in progress
@@ -204,9 +209,12 @@ end-structure
   lf-elab-app-syntax! et-app-call ;
 defer et-op ( node expected -- ... frames next )
 defer et-rel ( node expected -- ... frames next )
+\ binop% and rightact% are elabOp's (Extra.lean:182).
+: et-op-kind? ( node -- flag ) syn-kind@ syn-k-binop syn-k-rightact one-of2? ;
 : et-dispatch ( node expected -- ... frames next )
+  over et-op-kind? if et-op exit then
   over syn-kind@ case syn-k-num of et-num endof syn-k-app of et-app endof
-    syn-k-binop of et-op endof syn-k-binrel of et-rel endof >r et-atom r> endcase ;
+    syn-k-binrel of et-rel endof >r et-atom r> endcase ;
 : et-scoped ( node expected frames -- node expected ) drop swap et-at-scope swap ;
 : et-visit ( node expected frames -- ... frames next )
   et-scoped dup et-lambda? dup ok? 0= if nip nip et-failed exit then drop et-dispatch ;
@@ -236,9 +244,15 @@ is lf-elab-arg-call
   nip swap et-leaf. swap et-leaf-new et-fr 0 ;
 : et-go-leaf ( node -- ... frames next )
   dup et-fr frame-save -1 et-fr ['] et-leafed lf-elab-term-call ;
-: et-up! ( child parent -- ) tn tn-f @ swap tn tn-up ! ;
+\ rightact% (toTree's processBinOp .rightact; applyCoe, Extra.lean:420):
+\ its right operand is a leaf of its own, acting (analyze and applyCoe
+\ skip it), and its left one has no operator above (go lhs none).
+: et-act? ( i -- flag ) tn tn-act @ ;
+: et-act-op! ( node i -- node i ) over syn-kind@ syn-k-rightact = over tn tn-act ! ;
+: et-acting! ( child parent -- ) et-act? if true swap tn tn-act ! else drop then ;
+: et-up! ( child parent -- ) dup et-act? if 2drop exit then tn tn-f @ swap tn tn-up ! ;
 : et-lhs! ( child parent -- ) 2dup tn tn-lhs ! over tn true swap tn-left ! et-up! ;
-: et-rhs! ( child parent -- ) 2dup tn tn-rhs ! et-up! ;
+: et-rhs! ( child parent -- ) 2dup tn tn-rhs ! 2dup et-acting! et-up! ;
 : et-op-fail ( x outcome frames -- -1 outcome frames 0 ) 1 swap frame-drop nip et-failed ;
 : et-parent ( -- i ) 0 et-fr frame-pick ;
 defer et-go-call ( node x frames cont -- ... frames next )
@@ -246,16 +260,17 @@ defer et-go-call ( node x frames cont -- ... frames next )
   over ok? 0= if et-op-fail exit then frame-restore rot over et-rhs! swap et-fr 0 ;
 : et-op-lhs ( i outcome frames -- ... frames next )
   over ok? 0= if et-op-fail exit then 2drop et-parent et-lhs!
-  et-parent tn tn-node @ syn-c@ 0 et-fr ['] et-op-rhs et-go-call ;
+  et-parent tn tn-node @ syn-c@ et-parent et-act? et-fr ['] et-op-rhs et-go-call ;
 : et-op. ( f -- f ) s" binop " lf-elab-note dup lf-elab-term. lf-elab-nl ;
 : et-op-f ( node -- f outcome )
   syn-a@ et-resolve ['] lf-meta-const-fresh ok-apply ;
 : et-go-op ( node -- ... frames next )
   dup et-op-f ok-then? 0= if nip et-failed exit then et-op.
   over swap et-tn-new ok-then? 0= if nip et-failed exit then
-  et-fr frame-save syn-b@ 0 et-fr ['] et-op-lhs et-go-call ;
-: et-go ( node x frames -- ... frames next )
-  2drop dup syn-kind@ syn-k-binop = if et-go-op else et-go-leaf then ;
+  et-act-op! et-fr frame-save syn-b@ 0 et-fr ['] et-op-lhs et-go-call ;
+\ An operator is entered, unless it is a rightact%'s right operand (leaf?).
+: et-go ( node leaf? frames -- ... frames next )
+  drop 0= over et-op-kind? and if et-go-op else et-go-leaf then ;
 :noname ( node x frames cont -- ... frames next ) ['] et-go lf-elab-open ; is et-go-call
 \ toTree: go, then synthesizeSyntheticMVars (postponing).
 : et-tree-end ( i outcome frames -- i outcome frames 0 )
@@ -289,8 +304,9 @@ defer et-go-call ( node x frames cont -- ... frames next )
   et-leaf-type ok-then? 0= if exit then
   dup et-unknown? if drop true eo eo-unknown ! outcome-ok exit then
   eo eo-max @ 0< if eo eo-max ! outcome-ok else et-compared then ;
+: et-counted? ( i -- flag ) dup et-leaf? swap et-act? 0= and ;
 : et-analyze-at ( i -- outcome )
-  dup et-leaf? if et-analyze-leaf else drop outcome-ok then ;
+  dup et-counted? if et-analyze-leaf else drop outcome-ok then ;
 : et-analyzing? ( i -- flag ) et-tree slab-count < eo eo-uncomp @ 0= and ;
 : et-max. ( -- )
   eo eo-max @ dup 0< if drop s" none" lf-elab-note else lf-elab-term. then ;
@@ -380,7 +396,9 @@ defer et-go-call ( node x frames cont -- ... frames next )
   dup et-leaf-type ok-then? 0= if nip exit then
   2dup et-kept? ok-then? 0= if nip nip exit then
   if 2drop outcome-ok else nip et-coe-check then ;
-: et-coe-at ( i -- outcome ) dup et-leaf? if et-coe-leaf else et-coe-op then ;
+: et-coe-at ( i -- outcome )
+  dup et-act? if drop outcome-ok exit then
+  dup et-leaf? if et-coe-leaf else et-coe-op then ;
 : et-apply-coe ( -- outcome )
   et-tree slab-count eo eo-root @ ?do i et-coe-at dup ok? 0= if unloop exit then drop loop
   outcome-ok ;

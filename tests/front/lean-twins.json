@@ -19,6 +19,13 @@
     "tests/front/tactics/decide/dc-logic.lf": {"lean": "tests/front/tactics/goal-layer.lean", "names": {}},
     "tests/front/tactics/decide/dc-ops.lf": {"lean": "tests/front/tactics/goal-layer.lean", "names": {}},
     "tests/front/tactics/decide/dc-init.lf": {"lean": "tests/front/tactics/goal-layer.lean", "names": {}},
-    "tests/front/tactics/decide/dc-ops-init.lf": {"lean": "tests/front/tactics/goal-layer.lean", "names": {}}
+    "tests/front/tactics/decide/dc-ops-init.lf": {"lean": "tests/front/tactics/goal-layer.lean", "names": {}},
+    "tests/front/tactics/decide/dc-symbols.lf": {"lean": "tests/front/tactics/goal-layer.lean", "names": {}},
+    "tests/front/tactics/decide/dc-ascii.lf": {"lean": "tests/front/tactics/goal-layer.lean", "names": {}},
+    "tests/front/tactics/decide/dc-symbols-init.lf": {"lean": "tests/front/tactics/goal-layer.lean", "names": {}},
+    "tests/front/tactics/decide/dc-ascii-init.lf": {"lean": "tests/front/tactics/goal-layer.lean", "names": {}},
+    "tests/front/tactics/decide/sy-vars.lf": {"lean": "tests/front/tactics/goal-layer.lean", "names": {}},
+    "tests/front/tactics/decide/sy-vars-init.lf": {"lean": "tests/front/tactics/goal-layer.lean", "names": {}},
+    "tests/front/tactics/decide/c-sy-check.lf": {"lean": "tests/front/tactics/decide/c-sy-check.lean", "names": {}}
   }
 }
