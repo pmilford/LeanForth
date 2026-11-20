@@ -689,6 +689,19 @@ T{ s-stuck-let heap-sweep swept? s-smart-stuck heap-sweep swept? -> true true }T
 T{ s-match-r heap-sweep swept? s-match-wide heap-sweep swept? s-match-wide room-sweep swept?
    -> true true true }T
 T{ s-smart3 heap-sweep swept? s-smart3 room-sweep swept? -> true true }T
+\ unfoldDefinition? whose delta step leaves frames to resume: the smart
+\ path's match frame for Nat.add k (x + 1), and the smart frame alone
+\ when reduceMatcher? answers none at once (wide-unfold above, plan 9.4.8l
+\ AB). Each allocation and each term refused in turn, the resumed frames'
+\ among them, gives the answer or full, never another answer
+\ (wc-unfold-run's refused resume; plan row TB1).
+m1-alts constant m1-alts-at   \ (made here: a room sweep leaves no room to make it)
+: unf-pass ( e -- x outcome ) lf-meta-unfold nip ;
+: wide-pass ( e -- x outcome ) 1 m1-alts-at +! unf-pass -1 m1-alts-at +! ;
+: s-unfold-smart ( -- e xt ) fk x+1 nat-add ['] unf-pass ;
+: s-wide-unfold ( -- e xt ) fk succ fx app nat-add ['] wide-pass ;
+T{ s-unfold-smart heap-sweep swept? s-unfold-smart room-sweep swept? -> true true }T
+T{ s-wide-unfold heap-sweep swept? s-wide-unfold room-sweep swept? -> true true }T
 \ getStuckMVar? of a class's projection function applied to no instance
 \ argument (Add.add ?n: the instance would be its second): not supported
 \ yet, never none; of an explicit argument holding a metavariable under a

@@ -17,6 +17,7 @@
 \ Nothing here accepts a theorem: only the kernel's check does.
 require ../../../support/tester.fs
 require ../../../../src/main.fs
+require ../../../support/tactic-text.fs
 decimal
 
 4000000 lf-term-capacity! drop  100000 lf-cref-capacity! drop
@@ -100,5 +101,12 @@ T{ not-p goal 1 intro-code frames0? -> -4205 true }T
 T{ beta-pi goal 1 intro-code frames0? -> 0 true }T
 \ An assigned goal is a fault (checkNotAssigned): invalid, nothing left.
 T{ three goal dup nat lf-mvar-assign made intros-code frames0? -> -4201 true }T
+\ ---- by-intros's text (the plug-in's run word, tactics/intros.fs): apply
+\ Or.elim's two goals, each introduced and closed; ¬ a = b left as it is
+\ (assumption's 381).
+T{ s" Nat explicit: a Nat explicit: b a b ≤ a b ≤ Or explicit: h a b ≤"
+   s" ' Or.elim ' h $ by-apply by-intros by-assumption by-intros by-assumption" tactic-ran -> 0 }T
+T{ s" Nat explicit: a Nat explicit: b a b = Not" s" by-intros by-assumption" tactic-ran -> 381 }T
+lf-tac-forget
 .( intros test.fs: all tests passed) cr
 bye

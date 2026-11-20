@@ -417,6 +417,11 @@ T{ lf-elab-pending-reset lf-elab-error-reset ' pend-ofnat lf-tac-with-synth pend
 T{ lf-elab-pending-reset lf-elab-error-reset gap-synth lf-author-code dup lf-author-outcome
    -> lf-author-throw 139 outcome-unsupported }T
 lf-tac-forget
+\ elab-pending.fs's 125 for a problem whose metavariable has no type (no
+\ live metavariable: a fault of the caller's): the error with no term.
+T{ lf-elab-error-reset -1 ep-none lf-elab-error drop lf-elab-error-term
+   -> false outcome-invalid 125 -1 }T
+lf-elab-error-reset
 T{ lf-elab-pending-reset pend-append ' pend-throws ' lf-tac-with-synth catch nip lf-author-code pends
    -> -77 0 2 }T
 lf-elab-pending-reset lf-elab-error-reset

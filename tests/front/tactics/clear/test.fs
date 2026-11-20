@@ -16,6 +16,7 @@
 \ Nothing here accepts a theorem: only the kernel's check does.
 require ../../../support/tester.fs
 require ../../../../src/main.fs
+require ../../../support/tactic-text.fs
 decimal
 
 4000000 lf-term-capacity! drop  100000 lf-cref-capacity! drop
@@ -87,11 +88,8 @@ view4 lf-mctx-view!
 T{ nat goal dup fa lf-mvar-assign made fb clear-code -> -4201 }T
 
 \ ---- by-clear's text: getFVarId (389 for a constant), then clear.
-create text 512 allot  variable text#
-: text+ ( c-addr u -- ) tuck text text# @ + swap move text# +! ;
 : ran ( c-addr u -- code )
-  0 text# ! s" theorem t Nat explicit: a Nat explicit: b a a ≤ explicit: h a a ≤ := by "
-  text+ text+ s"  end t" text+ lf-author-begin text text# @ lf-author-text drop lf-author-code ;
+  s" Nat explicit: a Nat explicit: b a a ≤ explicit: h a a ≤" 2swap tactic-ran ;
 T{ s" ' b by-clear ' h by-exact" ran -> 0 }T
 T{ s" ' Nat.le_refl by-clear" ran -> 389 }T
 T{ s"  `Nat.le_refl`; expected single reference to variable" detail-has? -> true }T

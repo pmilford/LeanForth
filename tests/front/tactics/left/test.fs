@@ -16,6 +16,7 @@
 \ Nothing here accepts a theorem: only the kernel's check does.
 require ../../../support/tester.fs
 require ../../../../src/main.fs
+require ../../../support/tactic-text.fs
 decimal
 
 4000000 lf-term-capacity! drop  100000 lf-cref-capacity! drop
@@ -87,5 +88,11 @@ lf-tac-forget
 \ the type is read (a function type: without the check, error 385).
 : solved ( -- goal ) arrow goal dup fa lf-mvar-assign made ;
 T{ solved tle-nth nth-code -> -4201 }T
+\ ---- by-left's text (the plug-in's run words, tactics/left.fs): Or.inl,
+\ then exact; And refused (386).
+T{ s" Nat explicit: a Nat explicit: b a b ≤ explicit: h a b ≤ b a ≤ Or" s" by-left ' h by-exact"
+   tactic-ran -> 0 }T
+T{ s" Nat explicit: a Nat explicit: b a b ≤ b a ≤ And" s" by-left" tactic-ran -> 386 }T
+lf-tac-forget
 .( left test.fs: all tests passed) cr
 bye

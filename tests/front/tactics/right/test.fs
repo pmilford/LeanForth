@@ -9,6 +9,7 @@
 \ Nothing here accepts a theorem: only the kernel's check does.
 require ../../../support/tester.fs
 require ../../../../src/main.fs
+require ../../../support/tactic-text.fs
 decimal
 
 4000000 lf-term-capacity! drop  100000 lf-cref-capacity! drop
@@ -44,6 +45,12 @@ T{ fa fa succ le goal dup tri-nth lf-goal-nth-constructor run-count swap s" Nat.
 T{ nat nat lf-term-pi lf-made! goal tri-nth nth-code lf-author-code -> lf-author-throw 387 }T
 lf-tac-forget
 T{ s" True" lf-mk-const0 goal tri-nth nth-code lf-author-code -> lf-author-throw 388 }T
+lf-tac-forget
+\ ---- by-right's text (the plug-in's run words, tactics/right.fs): Or.inr,
+\ then exact; ¬ a = b refused (387).
+T{ s" Nat explicit: a Nat explicit: b b a ≤ explicit: h a b ≤ b a ≤ Or" s" by-right ' h by-exact"
+   tactic-ran -> 0 }T
+T{ s" Nat explicit: a Nat explicit: b a b = Not" s" by-right" tactic-ran -> 387 }T
 lf-tac-forget
 .( right test.fs: all tests passed) cr
 bye

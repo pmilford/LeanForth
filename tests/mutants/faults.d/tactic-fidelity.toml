@@ -213,8 +213,8 @@ reason = "9.4.8l R end to end: s2w-rw-lt.lf's 218 names Nat.lt_irrefl ?n ?a.«_@
 [[fault]]
 id = "tf-unfold-smart-frame-kept"
 file = "src/front/whnf.fs"
-old = '''  wc-next ok-then2? 0= if no-result exit then if wc-loop else outcome-ok then ;'''
-new = '''  if wc-loop else outcome-ok then ;'''
+old = '''  wc-delta ok-then2? if wc-next ok-then2? else false then'''
+new = '''  wc-delta ok-then2?'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "9.4.8l AB: lf-meta-unfold gives the matcher application with false when the smart path's reduceMatcher? answers none at once, its frame never resumed"
 

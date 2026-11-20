@@ -11,6 +11,7 @@
 \ Nothing here accepts a theorem: only the kernel's check does.
 require ../../../support/tester.fs
 require ../../../../src/main.fs
+require ../../../support/tactic-text.fs
 decimal
 
 4000000 lf-term-capacity! drop  100000 lf-cref-capacity! drop
@@ -59,5 +60,12 @@ fα exf constant gu' constant gu
 T{ gu gu' new-ok? gu elim? gu elim-level u = gu elim-args drop fα = -> true true true true }T
 \ An assigned goal is a fault (checkNotAssigned): invalid.
 T{ eq-ab goal dup fa lf-mvar-assign made ' lf-goal-exfalso code1 -> -4201 }T
+\ ---- by-exfalso's text (the plug-in's run word, tactics/exfalso.fs): False,
+\ closed by h; a proof of a ≤ b refused there (96).
+T{ s" Nat explicit: a Nat explicit: b False explicit: h a b =" s" by-exfalso ' h by-exact"
+   tactic-ran -> 0 }T
+T{ s" Nat explicit: a Nat explicit: b a b ≤ explicit: h a b =" s" by-exfalso ' h by-exact"
+   tactic-ran -> 96 }T
+lf-tac-forget
 .( exfalso test.fs: all tests passed) cr
 bye
