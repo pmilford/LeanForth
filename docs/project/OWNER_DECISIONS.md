@@ -1662,3 +1662,16 @@ explained proofs are built.
   faithful port of Lean's tactic, compared with pinned Lean with wrong twins, is added without asking and
   reported afterwards. Anything that differs from Lean, other kernel, core or import changes, new formats and new
   dependencies are still asked first.
+
+## Coverage debt ended (2026-11-19, evening)
+
+Asked whether to end the exception of 2026-11-17 (never-run failure branches of new words may merge as coverage
+debt and be paid before the slice's done check), the owner answered: "Yes end the deferred coverage issue."
+
+- Every never-run branch of a new or changed word is tested in the branch that adds it, before the merge. The
+  per-file tool (`make cover FILE=...`) lists the gaps in seconds; refusal paths are reached by the sweep harness
+  `tests/support/meta-sweeps.fs`, which refuses each request in turn and compares the answer.
+- Why: S2's deferred debt took a whole agent, a review and two tier runs to pay, found a real fault late
+  (`lf-whnf-stuck`, plan 9.4.8l AA) and held up S2's done check through three runs.
+- The assistant asked about front-end code; the owner's answer was general, and it is applied to all new code.
+- Debt recorded before this date is paid by the clean-up slot (`make cover-debt` lists it).

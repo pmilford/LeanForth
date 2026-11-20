@@ -1312,6 +1312,12 @@ tier is then never the first place such a failure shows. In a worktree without `
 
 ## Paying coverage debt (owner, 2026-11-19)
 
+**No new debt** (owner, 2026-11-19, evening; `docs/project/OWNER_DECISIONS.md` "Coverage debt ended"): a branch
+tests every never-run branch of its new or changed words before it merges; what follows is for finding those
+gaps while working and for paying debt recorded earlier. Refusal paths are reached with the sweep harness
+`tests/support/meta-sweeps.fs` (`heap-sweep`, `room-sweep`, `swept?`): one line per scenario refuses each
+request in turn and compares the answer with the normal run.
+
 Finding a file's never-run blocks used to need the 6-minute run of all of
 `make test`. Now, in order (`tests/scripts/test_coverage_debt.py` tests the
 commands on a tiny Forth file with a known never-run branch):
