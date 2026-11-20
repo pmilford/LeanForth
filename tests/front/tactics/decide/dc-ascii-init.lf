@@ -1,0 +1,40 @@
+\ dc-symbols-init.lf's five theorems in ASCII spellings (/\ for ∧; plan
+\ row S3, slice S3a-ops). tests/front/tactics/decide/check.py --init (make
+\ reference-decide-init) checks them against Init's snapshot: each term node
+\ for node pinned Lean's (goal-layer.lean) and its dc-symbols-init.lf
+\ twin's (sy_ for as_).
+\ Lean: theorem as_divmod : 17 / 5 = 3 /\ 17 % 5 = 2 := by decide
+\       theorem as_mersenne : 2 ^ 11 - 1 = 23 * 89 := by decide
+\       theorem as_euler : 2 ^ 32 + 1 = 641 * 6700417 := by decide
+\       theorem as_taxicab : 1 ^ 3 + 12 ^ 3 = 1729 /\ 9 ^ 3 + 10 ^ 3 = 1729 := by decide
+\       theorem as_pow_cmp : 2 ^ 10 = 1024 /\ 2 ^ 10 > 1000 := by decide
+
+theorem as_divmod
+  17 5 / 3 =  17 5 % 2 =  /\
+:= by
+  by-decide
+end as_divmod
+
+theorem as_mersenne
+  2 11 ^ 1 -  23 89 * =
+:= by
+  by-decide
+end as_mersenne
+
+theorem as_euler
+  2 32 ^ 1 +  641 6700417 * =
+:= by
+  by-decide
+end as_euler
+
+theorem as_taxicab
+  1 3 ^ 12 3 ^ + 1729 =  9 3 ^ 10 3 ^ + 1729 =  /\
+:= by
+  by-decide
+end as_taxicab
+
+theorem as_pow_cmp
+  2 10 ^ 1024 =  2 10 ^ 1000 >  /\
+:= by
+  by-decide
+end as_pow_cmp

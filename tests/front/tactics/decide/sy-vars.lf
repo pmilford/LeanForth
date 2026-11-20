@@ -1,0 +1,208 @@
+\ Every symbol word on variables, compared with pinned Lean node for node
+\ (review of ops-symbols B3 (b), 2026-11-20; plan row S3, slice S3a-ops):
+\ the reviewer's probes that elaborate on decide's slice of Init, among them
+\ - / % < > ≥ ≤ ≠ ^ (with a variable exponent), ∧ ∨ ↔ ¬ and the ASCII
+\ spellings <= >= /\ \/ <->. A hypothesis False proves any statement, true
+\ or false, by by-exfalso by-assumption, so only the statement's
+\ elaboration is under test: tests/front/tactics/decide/check.py requires
+\ each accepted with no axiom and its type and value equal to pinned Lean's
+\ (goal-layer.lean, theorem sv_ID, the Lean statement in the comment above
+\ each). sy-vars-init.lf has the probes that need all of Init.
+
+\ n - m = m
+theorem sv_p01
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m - m =
+:= by
+  by-exfalso
+  by-assumption
+end sv_p01
+
+\ n / m = m
+theorem sv_p02
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m / m =
+:= by
+  by-exfalso
+  by-assumption
+end sv_p02
+
+\ n % m = m
+theorem sv_p03
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m % m =
+:= by
+  by-exfalso
+  by-assumption
+end sv_p03
+
+\ n < m
+theorem sv_p04
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m <
+:= by
+  by-exfalso
+  by-assumption
+end sv_p04
+
+\ n > m
+theorem sv_p05
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m >
+:= by
+  by-exfalso
+  by-assumption
+end sv_p05
+
+\ n ≥ m
+theorem sv_p06
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m ≥
+:= by
+  by-exfalso
+  by-assumption
+end sv_p06
+
+\ n ≤ m
+theorem sv_p07
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m ≤
+:= by
+  by-exfalso
+  by-assumption
+end sv_p07
+
+\ n ≠ m
+theorem sv_p08
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m ≠
+:= by
+  by-exfalso
+  by-assumption
+end sv_p08
+
+\ n ^ m = m
+theorem sv_p09
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m ^ m =
+:= by
+  by-exfalso
+  by-assumption
+end sv_p09
+
+\ n < m ∧ m < n
+theorem sv_p11
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m <  m n <  ∧
+:= by
+  by-exfalso
+  by-assumption
+end sv_p11
+
+\ n < m ∨ m < n
+theorem sv_p12
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m <  m n <  ∨
+:= by
+  by-exfalso
+  by-assumption
+end sv_p12
+
+\ n < m ↔ m ≤ n
+theorem sv_p13
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m <  m n ≤  ↔
+:= by
+  by-exfalso
+  by-assumption
+end sv_p13
+
+\ ¬ (n < m)
+theorem sv_p14
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m < ¬
+:= by
+  by-exfalso
+  by-assumption
+end sv_p14
+
+\ (n - m) / 2 + m = n
+theorem sv_p19
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m - 2 / m +  n =
+:= by
+  by-exfalso
+  by-assumption
+end sv_p19
+
+\ n ^ m ≠ m ^ n
+theorem sv_p31
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m ^  m n ^  ≠
+:= by
+  by-exfalso
+  by-assumption
+end sv_p31
+
+\ n <= m
+theorem sv_p36
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m <=
+:= by
+  by-exfalso
+  by-assumption
+end sv_p36
+
+\ n >= m
+theorem sv_p37
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m >=
+:= by
+  by-exfalso
+  by-assumption
+end sv_p37
+
+\ n < m /\ m < n
+theorem sv_p38
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m <  m n <  /\
+:= by
+  by-exfalso
+  by-assumption
+end sv_p38
+
+\ n < m \/ m < n
+theorem sv_p39
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m <  m n <  \/
+:= by
+  by-exfalso
+  by-assumption
+end sv_p39
+
+\ n < m <-> m ≤ n
+theorem sv_p40
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m <  m n ≤  <->
+:= by
+  by-exfalso
+  by-assumption
+end sv_p40
+
+\ n / m < m % n
+theorem sv_p48
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m / m n % <
+:= by
+  by-exfalso
+  by-assumption
+end sv_p48
+
+\ ¬ (n ≠ m) ↔ n = m
+theorem sv_p50
+  Nat explicit: n  Nat explicit: m  False explicit: h
+  n m ≠ ¬  n m =  ↔
+:= by
+  by-exfalso
+  by-assumption
+end sv_p50

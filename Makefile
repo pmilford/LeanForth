@@ -1256,6 +1256,23 @@ test: $(TACTIC_UNIT_TARGETS) $(TACTIC_E2E_TARGETS)
 test-unit: $(TACTIC_UNIT_TARGETS)
 test-e2e: $(TACTIC_E2E_TARGETS)
 
+# by-decide and the symbol words against all of Init (review of ops-symbols B3 (c)): the
+# theorems whose numerals need Init's first instance candidates, the symbol words on Int
+# variables, numeral powers and ∣, and the slice's files, against Init's snapshot, each term
+# node for node pinned Lean's (tests/front/tactics/decide/check.py --init; about 80 s). Part
+# of make daily only (after make parallel-init, which writes the snapshot), never of make
+# check. INIT_SNAPSHOT and INIT_ELAB default to the main checkout's nightly files (their own
+# lookup: CHECKOUT is defined only with the Lean cache). Without them a user's run says
+# SKIPPED, NOT RUN and exits 0; a recorded run (REQUIRE_INIT_SNAPSHOT=1) fails.
+DECIDE_COMMON = $(shell git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+DECIDE_CHECKOUT = $(if $(filter %/.git,$(DECIDE_COMMON)),$(patsubst %/.git,%,$(DECIDE_COMMON)),$(CURDIR))
+INIT_SNAPSHOT ?= $(DECIDE_CHECKOUT)/.claude/work/parallel-init/init-1.lfsn
+INIT_ELAB ?= $(DECIDE_CHECKOUT)/.claude/work/IM/init.elab.ndjson
+reference-decide-init:
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/tactics/decide/check.py --init \
+	$(INIT_SNAPSHOT) $(INIT_ELAB)
+.PHONY: reference-decide-init
+
 .PHONY: test-front test-front-e2e test-showcase reference-front reference-constructions reference-binder-kinds
 test: test-front test-front-e2e test-showcase
 test-differential: reference-front

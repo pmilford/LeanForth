@@ -1,0 +1,326 @@
+\ Symbol words on variables that need all of Init (review of ops-symbols
+\ B3 (c), 2026-11-20; plan row S3, slice S3a-ops C4): Int variables (the
+\ max type of `^`: the exponent stays Nat, the base is coerced with no
+\ operator above, no homogeneous instance asked of rightact%), numeral bases
+\ and exponents of ^ (Init's first candidates) and ∣ (Dvd.dvd). Proved by
+\ by-exfalso by-assumption from a hypothesis False, so only the statement's
+\ elaboration is under test: tests/front/tactics/decide/check.py --init
+\ (make reference-decide-init, part of make daily) requires each accepted
+\ with no axiom and its type and value equal to pinned Lean's
+\ (goal-layer.lean, theorem si_ID, the Lean statement in the comment above
+\ each).
+
+\ n ∣ m
+theorem si_p10
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  n m ∣
+:= by
+  by-exfalso
+  by-assumption
+end si_p10
+
+\ 2 ^ 3 * 4 + 5 = n
+theorem si_p15
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  2 3 ^ 4 * 5 +  n =
+:= by
+  by-exfalso
+  by-assumption
+end si_p15
+
+\ 2 ^ 3 < n
+theorem si_p16
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  2 3 ^ n <
+:= by
+  by-exfalso
+  by-assumption
+end si_p16
+
+\ 2 ^ 3 ^ 2 = n
+theorem si_p17
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  2 3 2 ^ ^  n =
+:= by
+  by-exfalso
+  by-assumption
+end si_p17
+
+\ (2 ^ 3) ^ 2 = n
+theorem si_p18
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  2 3 ^ 2 ^  n =
+:= by
+  by-exfalso
+  by-assumption
+end si_p18
+
+\ i ^ n = i
+theorem si_p20
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i n ^ i =
+:= by
+  by-exfalso
+  by-assumption
+end si_p20
+
+\ i ^ n * j = i
+theorem si_p21
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i n ^ j *  i =
+:= by
+  by-exfalso
+  by-assumption
+end si_p21
+
+\ i ^ 2 = i
+theorem si_p22
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i 2 ^ i =
+:= by
+  by-exfalso
+  by-assumption
+end si_p22
+
+\ (i ^ n) ^ n = i
+theorem si_p23
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i n ^ n ^  i =
+:= by
+  by-exfalso
+  by-assumption
+end si_p23
+
+\ 2 ^ n = i
+theorem si_p24
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  2 n ^ i =
+:= by
+  by-exfalso
+  by-assumption
+end si_p24
+
+\ n ^ 2 = n * n
+theorem si_p25
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  n 2 ^  n n * =
+:= by
+  by-exfalso
+  by-assumption
+end si_p25
+
+\ i - j < j - i
+theorem si_p26
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i j -  j i -  <
+:= by
+  by-exfalso
+  by-assumption
+end si_p26
+
+\ i >= 0
+theorem si_p27
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i 0 >=
+:= by
+  by-exfalso
+  by-assumption
+end si_p27
+
+\ n ^ (2 + 3) = n
+theorem si_p28
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  n 2 3 + ^  n =
+:= by
+  by-exfalso
+  by-assumption
+end si_p28
+
+\ i ^ (n + m) = i
+theorem si_p29
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i n m + ^  i =
+:= by
+  by-exfalso
+  by-assumption
+end si_p29
+
+\ i ^ n < j - i
+theorem si_p30
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i n ^  j i -  <
+:= by
+  by-exfalso
+  by-assumption
+end si_p30
+
+\ (i ^ n) ^ 2 = i
+theorem si_p32
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i n ^ 2 ^  i =
+:= by
+  by-exfalso
+  by-assumption
+end si_p32
+
+\ (i * i) ^ n = i
+theorem si_p34
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i i * n ^  i =
+:= by
+  by-exfalso
+  by-assumption
+end si_p34
+
+\ ¬ (n ∣ m ∧ m ∣ n)
+theorem si_p35
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  n m ∣  m n ∣  ∧ ¬
+:= by
+  by-exfalso
+  by-assumption
+end si_p35
+
+\ i ^ 2 + j ^ 3 = i
+theorem si_p41
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i 2 ^ j 3 ^ +  i =
+:= by
+  by-exfalso
+  by-assumption
+end si_p41
+
+\ i ∣ j
+theorem si_p42
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i j ∣
+:= by
+  by-exfalso
+  by-assumption
+end si_p42
+
+\ i ≠ 0
+theorem si_p43
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i 0 ≠
+:= by
+  by-exfalso
+  by-assumption
+end si_p43
+
+\ i ^ 2 - 1 ≥ 0
+theorem si_p44
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i 2 ^ 1 -  0 ≥
+:= by
+  by-exfalso
+  by-assumption
+end si_p44
+
+\ (i ^ 2) ^ 2 > 0
+theorem si_p45
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i 2 ^ 2 ^  0 >
+:= by
+  by-exfalso
+  by-assumption
+end si_p45
+
+\ 2 ^ 2 ^ n = i
+theorem si_p46
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  2 2 n ^ ^  i =
+:= by
+  by-exfalso
+  by-assumption
+end si_p46
+
+\ i ^ n = i ^ n
+theorem si_p47
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i n ^  i n ^  =
+:= by
+  by-exfalso
+  by-assumption
+end si_p47
+
+\ i / j ≤ j % i
+theorem si_p49
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i j / j i % ≤
+:= by
+  by-exfalso
+  by-assumption
+end si_p49
+
+\ Nat.succ (n ^ 2) = m
+theorem si_r1
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  n 2 ^ Nat.succ m =
+:= by
+  by-exfalso
+  by-assumption
+end si_r1
+
+\ Int.natAbs (2 ^ n) = m
+theorem si_r2
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  2 n ^ Int.natAbs m =
+:= by
+  by-exfalso
+  by-assumption
+end si_r2
+
+\ Int.natAbs (i ^ n) = m
+theorem si_r3
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i n ^ Int.natAbs m =
+:= by
+  by-exfalso
+  by-assumption
+end si_r3
+
+\ Int.natAbs (2 ^ n) = 2 ^ n
+theorem si_r4
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  2 n ^ Int.natAbs  2 n ^  =
+:= by
+  by-exfalso
+  by-assumption
+end si_r4
+
+\ Int.ofNat (n ^ m) = i
+theorem si_r5
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  n m ^ Int.ofNat i =
+:= by
+  by-exfalso
+  by-assumption
+end si_r5
+
+\ Int.ofNat (2 ^ n) = i
+theorem si_r6
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  2 n ^ Int.ofNat  i =
+:= by
+  by-exfalso
+  by-assumption
+end si_r6
+
+\ i ^ 2 ^ n = i
+theorem si_r7
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i 2 n ^ ^ i =
+:= by
+  by-exfalso
+  by-assumption
+end si_r7
+
+\ 2 * i ^ n = i
+theorem si_r8
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  2 i n ^ * i =
+:= by
+  by-exfalso
+  by-assumption
+end si_r8

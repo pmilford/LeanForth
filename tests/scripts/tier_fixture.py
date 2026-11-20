@@ -53,9 +53,11 @@ sneaky:
 \techo changed >> ./docs/A.md
 parallel-init:
 \t$(NOTE)
+reference-decide-init:
+\t$(NOTE)
 .PHONY: test-unit test-e2e test check check-rest test-differential check-docs check-portable-forth check-forth-quality \\
 \treference-core mutants-check smoke test-lib test-front test-core test-cli reference-front \\
-\tcoverage-check coverage-focus cover-changed mutants sneaky parallel-init
+\tcoverage-check coverage-focus cover-changed mutants sneaky parallel-init reference-decide-init
 """
 
 GFORTH_STUB = """\

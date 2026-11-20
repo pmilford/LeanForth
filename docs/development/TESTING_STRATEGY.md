@@ -810,10 +810,10 @@ there is nothing to push.
 (`tested-tree.py daily`; `DRY_RUN=1` prints what would run), meant to run once
 a night by itself and before a tag: the full tier's four suites on HEAD with
 `LEAN_CACHE=0` — `make coverage-check`, `make test-unit` on gforth-fast, `make
-check-rest` and `make test-unit` on Gforth 0.7.3 — and `make parallel-init`
-(below), each recorded for HEAD's exact tree (records of other trees are not
-reused; a tree whose daily run is complete runs nothing). A daily run is
-complete when one tree has all five records, none narrowed by `FAULTS=` or
+check-rest` and `make test-unit` on Gforth 0.7.3 — then `make parallel-init`
+and `make reference-decide-init` (below), each recorded for HEAD's exact tree
+(records of other trees are not reused; a tree whose daily run is complete
+runs nothing). A daily run is complete when one tree has all six records, none narrowed by `FAULTS=` or
 another variable (`make check` with `LEAN_CACHE=0` stands for `make
 check-rest`). **Tags:** `make tag-check`
 exits 0 only when the tree to be tagged has a complete daily run, so a tag
@@ -915,7 +915,9 @@ since 2026-11-17 no longer at code pushes).
   gives every leaf target of `make check` its class (46 unit, 91 end to
   end on 2026-11-17), and names the test programs no target runs by a path
   it can see (`manual`: benchmarks, measurements by hand) or that a target runs
-  through a path built at run time. The Makefile reads it for `make
+  through a path built at run time; the class `daily` names a test target
+  that only `make daily` runs (`parallel-init`, `reference-decide-init`),
+  checked against `scripts/test-tier.py`'s `DAILY_SUITES`. The Makefile reads it for `make
   test-unit` and `make test-e2e`; `scripts/test-tier.py` for the suites of a
   tier; `scripts/test-classes.py` (`make check-test-classes`, part of `make
   test`) fails when a leaf target of `make check` or a tracked test program
@@ -1138,6 +1140,17 @@ kinds of test hold it:
   before `src/main.fs`, and such a file could define the word; Gforth 0.7.3
   reads none); a test sets `GFORTH_ENV` to such a file and finds `--jobs`
   still cut to the cores.
+- **`make reference-decide-init`** (`make daily` only, after `make
+  parallel-init`; review of ops-symbols B3, 2026-11-20): it checks the
+  `by-decide` files and the symbol words on Int variables, numeral powers and
+  `∣` against the Init snapshot that `make parallel-init` wrote, each theorem's
+  terms node for node pinned Lean's (`tests/front/tactics/decide/check.py
+  --init`, about 80 s; `INIT_SNAPSHOT=` and `INIT_ELAB=` name other files).
+  Without that snapshot a user's run prints "SKIPPED, NOT RUN" and exits 0,
+  but a recorded run (`scripts/tested-tree.py` sets `REQUIRE_INIT_SNAPSHOT=1`)
+  fails, and so does a run whose snapshot is not of this build's verdict
+  version. Its row in `tests/test-classes.txt` has the class `daily`, which
+  `make check-test-classes` checks against the daily list.
 - **`make parallel-init`** (`scripts/parallel-init.py`; `make daily` only,
   never `make check` or a tier): all of Lean's `Init` checked with gforth-fast
   at `--jobs 8` and at `--jobs 1`, each twice (text with `--resources` and

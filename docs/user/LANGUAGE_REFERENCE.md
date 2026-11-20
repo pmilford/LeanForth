@@ -266,11 +266,25 @@ statement (a false one, which no proof can establish).
 | `∣` | "divides" | `3 12 ∣` is "3 divides 12" (Lean's `Dvd.dvd`; not the bar `\|`) |
 
 **How to type each symbol.** Every symbol word that is not ASCII has a
-spelling a plain keyboard types, a word of its own that means the same
-thing and builds the same term node for node (checked:
-`tests/front/tactics/decide/dc-ascii.lf` against `dc-symbols.lf`). It is
-Lean's own ASCII notation where pinned Lean 4.35.0 has one, else the
-constant's name, which LeanForth already reads as a name:
+spelling a plain keyboard types. Where pinned Lean 4.35.0 has an ASCII
+notation (`<=` `>=` `/\` `\/` `<->`), it is the same notation as the
+symbol, so it means the same thing and builds the same term node for node
+(checked: `tests/front/tactics/decide/dc-ascii.lf` against
+`dc-symbols.lf`, and `sy-vars.lf` against pinned Lean). Elsewhere the
+spelling is the constant's name, which LeanForth already reads as a name.
+That is an ordinary use of the name, not the notation, and it differs in
+two cases, as in Lean:
+
+- `Ne` is a plain function, while `≠` compares like `=`: when the two sides
+  have different number types, Lean converts one for `n ≠ i` (`@Ne Int ↑n i`)
+  but refuses `Ne n i`. LeanForth refuses both today (error 131), so neither
+  builds a wrong term.
+- A typed `Not` (or `Dvd.dvd`) is looked up like any name, so inside a
+  namespace that has its own `Not` it means that one; `¬` always means the
+  root `Not`.
+
+Otherwise `Not` and `Dvd.dvd` build exactly what `¬` and `∣` stand for, and
+`Ne` what `≠` builds when both sides have one type:
 
 | Symbol | Type it as | Lean's definition (Lean 4.35.0 `src/lean/Init/`) |
 | --- | --- | --- |
@@ -1431,14 +1445,16 @@ macros; owner, 2026-11-20). The talk's theorems, in three forms:
 | Lean | `theorem sy_euler : 2 ^ 32 + 1 = 641 * 6700417 := by decide`; `theorem sy_compare : 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4 := by decide` |
 
 ```text
-\ tests/front/tactics/decide/dc-symbols.lf: accepted against all of Init,
-\ its term node for node pinned Lean's (check.py --init)
+\ tests/front/tactics/decide/dc-symbols.lf: accepted on decide's slice of
+\ Init and on all of Init, its term node for node pinned Lean's (check.py)
 theorem sy_compare
   20 10 >  10 10 ≥  3 4 ≠  ∧ ∧
 := by
   by-decide
 end sy_compare
 
+\ tests/front/tactics/decide/dc-symbols-init.lf: its ^ needs all of Init
+\ (check.py --init, make reference-decide-init)
 theorem sy_euler
   2 32 ^ 1 +  641 6700417 * =
 := by
@@ -1457,11 +1473,12 @@ end as_compare
 ```
 
 Each of these is checked by LeanForth's kernel: `by-decide` builds the
-proof term, and only the kernel's check accepts it. A user runs the talk
-file with `bin/leanforth check --snapshot INIT.lfsnap --elab-data
+proof term, and only the kernel's check accepts it. A user runs the talk's
+theorems with `bin/leanforth check --snapshot INIT.lfsnap --elab-data
 INIT.elab.ndjson tests/front/tactics/decide/dc-symbols.lf` (an Init
-snapshot and its elaboration data, [COMMAND_LINE.md](COMMAND_LINE.md)):
-each of its 14 theorems prints "accepted", axioms none.
+snapshot and its elaboration data, [COMMAND_LINE.md](COMMAND_LINE.md)), and
+the same with `dc-symbols-init.lf`: each of their 9 and 5 theorems prints
+"accepted", axioms none.
 
 More: `dc-arith.lf` and `dc-logic.lf` (`2 + 2 = 4`, `10 < 20`, `3 ≤ 3`,
 `Nat.mul 12345 6789 = 83810205`, `100 % 7 = 2`, `¬`, `∨`, `True`, Bool
@@ -1471,9 +1488,13 @@ Pythagoras, Gauss's `1 + ... + 10 = 55`, `20 > 10`, `10 ≥ 10`, `3 ≠ 4`,
 (`10 - 20 = 0`, `17 / 5 = 3`, `2 ^ 10 = 1024`, `2 ^ 64 = 2 ^ 32 * 2 ^ 32`)
 and `dc-ops-init.lf` (`17 / 5 = 3 ∧ 17 % 5 = 2`, `2 ^ 11 - 1 = 23 * 89`,
 Euler's `2 ^ 32 + 1 = 641 * 6700417`, the taxicab number 1729,
-`2 ^ 10 > 1000`), `dc-symbols.lf` and `dc-ascii.lf` (the talk's theorems
-with symbol words and typed in ASCII), checked against all of Init
-(`tests/front/tactics/decide/check.py --init`). Wrong twins:
+`2 ^ 10 > 1000`), `dc-symbols.lf`, `dc-symbols-init.lf`, `dc-ascii.lf` and
+`dc-ascii-init.lf` (the talk's theorems with symbol words and typed in
+ASCII), `sy-vars.lf` and `sy-vars-init.lf` (every symbol word on Nat and
+Int variables, proved from a hypothesis False so that only the statement
+is compared), checked against all of Init
+(`tests/front/tactics/decide/check.py --init`, `make reference-decide-init`)
+and, the files without `-init`, on decide's slice in every test run. Wrong twins:
 `w-dc-add.lf`, `w-dc-lt.lf`, `w-dc-and.lf`, `w-dc-mul.lf`, `w-dc-gt.lf`,
 `w-dc-ne.lf`, `w-dc-ge.lf`, `w-sy-lt.lf`, `w-sy-ne.lf`, `w-sy-ge.lf`,
 `w-sy-or.lf`, `w-sy-iff.lf`, `w-sy-not.lf`, and on Init `w-dc-euler.lf`,

@@ -1,0 +1,27 @@
+# Planted faults of the daily decide check against Init (review of ops-symbols B3 (c),
+# 2026-11-20): tests/front/tactics/decide/check.py --init's missing-snapshot and
+# stale-snapshot rules (make reference-decide-init) and scripts/test-classes.py's daily class.
+
+[[fault]]
+id = "decide-init-recorded-run-skips"
+file = "tests/front/tactics/decide/check.py"
+old = '''    if os.environ.get("REQUIRE_INIT_SNAPSHOT") == "1":'''
+new = '''    if os.environ.get("REQUIRE_INIT_SNAPSHOT") == "never":'''
+test = "python3 tests/scripts/test_mathlib_slice.py"
+reason = "a recorded run (REQUIRE_INIT_SNAPSHOT=1) without Init's snapshot passes unrun, so make daily records a pass of a comparison it never made"
+
+[[fault]]
+id = "decide-init-stale-unseen"
+file = "tests/front/tactics/decide/check.py"
+old = '''    return next((line for line in out.splitlines() if any(mark in line for mark in STALE)), None)'''
+new = '''    return None'''
+test = "python3 tests/scripts/test_mathlib_slice.py"
+reason = "a snapshot of an older verdict version is not told apart, so the run fails (if at all) without saying the snapshot is stale"
+
+[[fault]]
+id = "test-classes-daily-unchecked"
+file = "scripts/test-classes.py"
+old = '''        elif name not in daily:'''
+new = '''        elif False:'''
+test = "python3 tests/scripts/test_test_classes.py"
+reason = "a daily row naming no target of make daily passes make check-test-classes, so a renamed or dropped daily target leaves a stale row"

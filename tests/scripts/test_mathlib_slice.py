@@ -2,7 +2,11 @@
 """Unit tests of scripts/mathlib-slice.py's cache (review data-bk L3): a cold entry is
 built only when allowed, else SKIPPED (exit 3, never a pass); a run that loses the
 rename to another filling the same entry keeps the other's folder; a cached entry is
-not built again. No Mathlib, no Lean: the inputs are stand-ins.
+not built again. No Mathlib, no Lean: the inputs are stand-ins. Beside them, the same
+rule for the decide check against Init (tests/front/tactics/decide/check.py --init, make
+reference-decide-init; review of ops-symbols B3 (c)): without Init's snapshot a user's run
+skips and says so, a recorded run (REQUIRE_INIT_SNAPSHOT=1) fails, and a snapshot not of
+this build's verdict version is told apart.
 
 Usage: python3 tests/scripts/test_mathlib_slice.py
 """
@@ -95,6 +99,63 @@ class NoExport(unittest.TestCase):
     def test_tested_tree_requires_it(self):
         text = (ROOT / "scripts/tested-tree.py").read_text(encoding="utf-8")
         self.assertIn('os.environ.setdefault("REQUIRE_MATHLIB", "1")', text)
+
+
+DECIDE = ROOT / "tests/front/tactics/decide/check.py"
+
+
+class NoInitSnapshot(unittest.TestCase):
+    """tests/front/tactics/decide/check.py --init on a machine without Init's snapshot: a user's
+    make reference-decide-init skips it and says so; a recorded run (REQUIRE_INIT_SNAPSHOT=1)
+    fails."""
+
+    def run_check(self, require, snapshot="/nonexistent/init-1.lfsn"):
+        import subprocess
+        env = dict(os.environ)
+        env.pop("REQUIRE_INIT_SNAPSHOT", None)
+        if require:
+            env["REQUIRE_INIT_SNAPSHOT"] = "1"
+        return subprocess.run([sys.executable, str(DECIDE), "--init", snapshot, str(DECIDE)], cwd=ROOT,
+                              env=env, capture_output=True, text=True, timeout=120)
+
+    def test_a_users_run_skips_and_says_so(self):
+        done = self.run_check(False)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("check decide --init: SKIPPED, NOT RUN: no Init snapshot "
+                      "(INIT_SNAPSHOT=/nonexistent/init-1.lfsn)", done.stdout)
+
+    def test_a_recorded_run_fails(self):
+        done = self.run_check(True)
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("FAILED, NOT RUN: no Init snapshot", done.stderr)
+        self.assertNotIn("SKIPPED", done.stdout)
+
+    def test_missing_elaboration_data_is_named(self):
+        import subprocess
+        env = dict(os.environ)
+        env.pop("REQUIRE_INIT_SNAPSHOT", None)
+        done = subprocess.run([sys.executable, str(DECIDE), "--init", str(DECIDE), "/nonexistent/init.elab"],
+                              cwd=ROOT, env=env, capture_output=True, text=True, timeout=120)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("no Init elaboration data (INIT_ELAB=/nonexistent/init.elab)", done.stdout)
+
+    def test_tested_tree_requires_it(self):
+        text = (ROOT / "scripts/tested-tree.py").read_text(encoding="utf-8")
+        self.assertIn('os.environ.setdefault("REQUIRE_INIT_SNAPSHOT", "1")', text)
+
+    def test_a_stale_snapshot_is_told_apart(self):
+        spec = importlib.util.spec_from_file_location("decide_check", DECIDE)
+        decide = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(decide)
+        current = ("snapshot: init-1.lfsn (sha256 d964), export sha256 c1b2, verdict version 9, "
+                   "written by LeanForth b9ba: 59349 results taken from it")
+        older = ("snapshot: init-1.lfsn (sha256 d964), export sha256 c1b2, verdict version 8 (this build: "
+                 "9), written by LeanForth b9ba: 0 results carried from it")
+        refused = "note: this build reads snapshots of verdict versions 7 to 9: check the export"
+        self.assertIsNone(decide.stale_line("sy_mul: accepted\n" + current))
+        self.assertEqual(decide.stale_line("sy_mul: accepted\n" + older), older)
+        self.assertEqual(decide.stale_line("error: ...\n" + refused + "\n"), refused)
+        self.assertIn("carry:", decide.stale_line("carry: a snapshot of verdict version 8, this build's 9"))
 
 
 class Main(unittest.TestCase):
