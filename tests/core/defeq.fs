@@ -213,6 +213,16 @@ T{ s" pred" nat-name matched-at s" zero" nat-name matched-at
    -> false false false false false false false false }T
 T{ 0 s" Fin" lf-name-str must s" succ" lf-name-str must matched-at s" succ" name-of matched-at
    -> false false false false false false false false }T
+\ The kernel's test of an argument's whnf before reduce-nat.fs computes
+\ (is_nat_lit_ext; review s3a-decide M1: core/nat-ops.fs's lf-nat-lit-op
+\ does not check its operands, so its callers pass literals only): a
+\ literal is itself, Nat.zero the literal 0; a constant, a sort and an
+\ application are none, from which nothing is computed.
+: ext-same? ( node -- flag outcome ) dup lf-nat-ext >r = r> ;
+T{ 5 lf-reduce-nat-literal ok? must ext-same? -> true outcome-ok }T
+T{ s" zero" nat lf-nat-ext swap dup lf-lit-leaf? swap lf-lit-cell -> outcome-ok true 0 }T
+T{ s" add" nat lf-nat-ext 0 make-sort lf-nat-ext s" succ" nat 0 make-sort make-app lf-nat-ext
+   -> lf-whnf-none outcome-ok lf-whnf-none outcome-ok lf-whnf-none outcome-ok }T
 
 \ Step 6: the same constant with equivalent universe arguments; with
 \ universe arguments that differ (Sort 1 and Sort 2 levels) not shown

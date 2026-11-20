@@ -69,6 +69,12 @@ T{ 5 nat-lit lf-meta-nat-value? 5 lit= zero lf-meta-nat-value? 0 lit=
    -> true true outcome-ok true true outcome-ok }T
 T{ succ fk app lf-meta-nat-value? flag-of 3 ofnat lf-meta-nat-value? flag-of
    -> false outcome-ok false outcome-ok }T
+\ lf-meta-nat-value? is the front end's test before the fold (review
+\ s3a-decide M1: core/nat-ops.fs's lf-nat-lit-op does not check its
+\ operands, so its callers pass literals only): a free variable, a sort and
+\ a constant other than Nat.zero have no value either.
+T{ fk lf-meta-nat-value? flag-of 0 sort lf-meta-nat-value? flag-of succ lf-meta-nat-value? flag-of
+   -> false outcome-ok false outcome-ok false outcome-ok }T
 
 \ ---- 1. The folded-to.
 : folded-to ( a b i -- u outcome ) >r swap nat-lit swap nat-lit r> lf-meta-nat-fold swap lf-lit-cell swap ;

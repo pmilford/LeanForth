@@ -105,3 +105,21 @@ new = '''  dup lf-meta-has-fvar? if ['] tdc-revert. lfa-e-decide-fvars tdc-fail 
 test = "$GFORTH tests/front/tactics/decide/test.fs"
 reason = "review s3a-decide L2: a P with a metavariable and a free variable gives 251 where Lean reports the metavariable first (252)"
 equivalent = "a node above a metavariable leaf has no cached data (core/terms.fs: an unknown leaf's range), so meta-spine.fs's lf-meta-has-fvar? is false whenever lf-meta-has-mvar? is true, and the two tests never both hold: the order cannot be observed; decide/test.fs pins the answer 252 for such a P"
+
+# --- M1: the callers' literal tests before core/nat-ops.fs computes ----------
+
+[[fault]]
+id = "s3a-kernel-nat-ext-any-node"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-lit-leaf? if outcome-ok exit then'''
+new = '''  outcome-ok exit'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "review s3a-decide M1: the kernel's is_nat_lit_ext takes any whnf for a literal, so lf-nat-lit-op computes on a node that is none"
+
+[[fault]]
+id = "s3a-front-nat-value-any-node"
+file = "src/front/reduce-nat.fs"
+old = '''  rn-zero? if rn-zero else -1 false outcome-ok then ;'''
+new = '''  rn-zero? if rn-zero else 0 true outcome-ok then ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
+reason = "review s3a-decide M1: the front end's withNatValue gives a value for a node that is no literal and not Nat.zero, so the fold reads node 0 as a literal"

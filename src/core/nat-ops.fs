@@ -18,7 +18,11 @@
 \   lf-nat-lit-op ( a b i -- node outcome )  operation i on the literal
 \       leaves a and b (core/literals.fs) with lib/bignum.fs: a new
 \       literal, or the constant Bool.true or Bool.false for Nat.beq and
-\       Nat.ble; invalid when a or b is no literal
+\       Nat.ble. a and b must be literal leaves, which is not checked:
+\       the callers pass only literals (the kernel's whnf, kernel/whnf.fs's
+\       lf-nat-ext; the front end's lf-meta-nat-value?), and another node
+\       is the caller's error, its answer not defined (review s3a-decide
+\       M1; failing closed is plan 9.4.8l (AW), the owner's gate)
 \   lf-nat-lit-succ ( a -- node outcome )  the literal a + 1 (Nat.succ)
 \   lf-nat-lit ( u -- node outcome )  the literal of a cell's value
 \   lf-nat-lit-bool ( flag -- node outcome )  Bool.true or Bool.false

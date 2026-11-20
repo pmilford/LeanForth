@@ -8,7 +8,12 @@
 \    constants), succ, the predecessor (one limb and several), the
 \    constructor form (Nat.zero, Nat.succ n) and the literals' type Nat:
 \    each ( node outcome ), the stack as before.
-\ 2. A node that is no literal: invalid, never ok.
+\ 2. A node that is no literal: not called with one, its answer not
+\    defined (core/nat-ops.fs's lf-nat-lit-op does not check; review
+\    s3a-decide M1): the callers pass literals only, which
+\    tests/core/defeq.fs (lf-nat-ext) and tests/front/reduce-nat.fs
+\    (lf-meta-nat-value?) pin; failing closed is plan 9.4.8l (AW), the
+\    owner's gate.
 \ 5. Lean's fixed refusals (a count of 2^32 or more: rejected, diagnostic
 \    92) and its size limit (a result over 2^30 bits: full, diagnostic
 \    93), the shift of 0 by any count; each allocation of an operation
