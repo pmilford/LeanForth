@@ -108,6 +108,14 @@ T{ two-cells cell-pair@ two-cells 2@ -> 5 7 7 5 }T
 T{ 1 some-cells pair-at cell-pair@ 0 some-cells pair-at cell-pair@ -> 9 -1 4 -1 }T
 T{ -1 0 two-cells ' cell-pair! rs-checked two-cells ' cell-pair@ rs-checked -> -1 0 }T
 T{ two-cells @ two-cells cell+ @ -> -1 0 }T
+\ cell-triple@, cell-triple! (cleanup-families-2): three adjacent cells in
+\ memory order, x1 at addr.
+create three-cells 0 , 0 , 0 , 0 ,
+T{ 5 7 9 three-cells cell-triple! three-cells @ three-cells cell+ @ three-cells 2 cells + @
+   three-cells 3 cells + @ -> 5 7 9 0 }T
+T{ three-cells cell-triple@ -> 5 7 9 }T
+T{ 0 some-cells pair-at cell-triple@ 1 some-cells pair-at cell-triple@ -> 4 -1 9 9 -1 0 }T
+T{ -1 0 1 three-cells ' cell-triple! rs-checked three-cells ' cell-triple@ rs-checked -> -1 0 1 }T
 \ cell-tally (reuse-d): one more in cell i of an array of counts.
 create tallies 0 , 5 , 0 ,
 T{ 1 tallies cell-tally 1 tallies cell-tally 2 tallies cell-tally -> }T

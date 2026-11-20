@@ -3,13 +3,13 @@
 \ around; and cell-counted records, laid down and read back, whose
 \ bounded writers compare a length unsigned, so a length with the top bit
 \ set (a negative u) never fits. No state.
-\ Interface: cell-pair@ cell-pair! between? upto? range-at in-ranges?
-\ cells-zero? cells= index? cells-index cells-has? cell-at@ pair-at
-\ record-at first-nonzero first-or-second cell-tally epoch+ cell-counted,
-\ cell-count cell-counted! cell-counted+! cell-counted-left cell-counted+?.
-\ Requires portability.fs,
-\ outcome.fs (any?, 2dup-under) and module.fs;
-\ helpers are private in lf-lib-private (ADR 0010).
+\ Interface: cell-pair@ cell-pair! cell-triple@ cell-triple! between? upto?
+\ range-at in-ranges? cells-zero? cells= index? cells-index cells-has?
+\ cell-at@ pair-at record-at first-nonzero first-or-second cell-tally
+\ epoch+ cell-counted, cell-count cell-counted! cell-counted+!
+\ cell-counted-left cell-counted+?. Requires portability.fs, outcome.fs
+\ (any?, 2dup-under) and module.fs; helpers are private in lf-lib-private
+\ (ADR 0010).
 \ Example:
 \   create primes 2 , 3 , 5 , 7 ,   create odds 3 , 5 , 7 ,
 \   3 4 index? .  4 4 index? .  5 primes 4 cells-index . .
@@ -27,6 +27,8 @@
 \   create digits 48 , 57 ,  65 , 70 ,       \ 0-9 and A-F
 \   char 7 digits 2 in-ranges?  char G digits 2 in-ranges?   \ true false
 \   create two 0 , 0 ,   1 2 two cell-pair!  two @  two cell-pair@   \ 1 1 2
+\   create three 0 , 0 , 0 ,   4 5 6 three cell-triple!  three cell-triple@
+\                                                       \ 4 5 6
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./portability.fs
@@ -46,6 +48,10 @@ lf-lib set-current
 \ also used alone, or whose layout is fixed. Unchecked, as @ and !.
 : cell-pair@ ( addr -- x1 x2 ) 2@ swap ;
 : cell-pair! ( x1 x2 addr -- ) tuck cell+ ! ! ;
+\ The same for three adjacent cells, x1 at addr: a record's three
+\ neighbouring fields.
+: cell-triple@ ( addr -- x1 x2 x3 ) dup @ swap cell+ cell-pair@ ;
+: cell-triple! ( x1 x2 x3 addr -- ) tuck 2 cells + ! cell-pair! ;
 \ Whether lo <= x <= hi for one of the n pairs (lo, hi) of cells from
 \ a-addr (a table of ranges, such as a character class); n <= 0 holds
 \ none. range-at gives pair k; in-range-at? is in-ranges?'s test of it.

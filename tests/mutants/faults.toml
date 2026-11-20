@@ -21282,3 +21282,19 @@ old = ''': gp-later-like? ( i k -- i flag ) over 1+ + over gp-local swap gp-rena
 new = ''': gp-later-like? ( i k -- i flag ) over 1+ + over gp-local swap gp-renamed-as? 0= ;'''
 test = "python3 tests/front/check_goals.py"
 reason = "cleanup-families-2 (gp-like on count-index): a tombstone's number counts the later locals not renamed like it, so Lean's x✝¹ and x✝² come out wrong"
+
+[[fault]]
+id = "cf2-cell-triple-fetch-turned"
+file = "src/lib/bounds.fs"
+old = ''': cell-triple@ ( addr -- x1 x2 x3 ) dup @ swap cell+ cell-pair@ ;'''
+new = ''': cell-triple@ ( addr -- x1 x2 x3 ) dup @ swap cell+ 2@ ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-2 (triple-field family): the last two of three fields come back crosswise"
+
+[[fault]]
+id = "cf2-cell-triple-store-turned"
+file = "src/lib/bounds.fs"
+old = ''': cell-triple! ( x1 x2 x3 addr -- ) tuck 2 cells + ! cell-pair! ;'''
+new = ''': cell-triple! ( x1 x2 x3 addr -- ) tuck 2 cells + ! 2! ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-2 (triple-field family): the first two of three fields stored crosswise"
