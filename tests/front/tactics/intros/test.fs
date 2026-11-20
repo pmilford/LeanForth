@@ -16,7 +16,9 @@
 \ the current context put back; 7. regression pins: kinds, names, flags.
 \ Nothing here accepts a theorem: only the kernel's check does.
 require ../../../support/tester.fs
-require ../../../../src/main.fs
+require ../../../../src/load/checker.fs
+require ../../../../src/load/front.fs
+require ../../../../src/cli/check-lf.fs
 require ../../../support/tactic-text.fs
 decimal
 

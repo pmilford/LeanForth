@@ -141,7 +141,7 @@ def test_problems():
     for path in test_files():
         if MAIN_LOAD.search(read(path) or "") and path not in WHOLE_LOADS:
             problems.append(f"{path} requires src/main.fs: require the entries of src/load it needs "
-                            "(or, if it runs the command line's own words, list it in WHOLE_LOADS)")
+                            "(src/README.md, Layer entries); WHOLE_LOADS lists only the tests of the whole load")
     for path in sorted(WHOLE_LOADS):
         if not MAIN_LOAD.search(read(path) or ""):
             problems.append(f"{path} is listed in WHOLE_LOADS but is missing or does not require src/main.fs: "
