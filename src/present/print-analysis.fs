@@ -275,7 +275,7 @@ lf-tag-projection lf-tag-let lf-tag-let-nondep 3 lf-tags constant lf-pp-pair-kin
 : lf-pp-arg-shown? ( app i -- app flag ) over swap lf-pp-visible? ;
 : lf-pp-shown# ( app -- count ) dup lf-pp-head nip ['] lf-pp-arg-shown? count-index ;
 : lf-pp-last ( app -- i )
-  dup lf-pp-head nip ['] lf-pp-arg-shown? find-last-index 0= if -1 then ;
+  -1 swap dup lf-pp-head nip ['] lf-pp-arg-shown? find-last-index if nip then ;
 \ Lean's needsExplicit: @ goes before a constant or variable head shown
 \ with all its arguments, except a constant without universe arguments
 \ whose parameters are unknown.
