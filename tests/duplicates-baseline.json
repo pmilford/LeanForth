@@ -1103,7 +1103,7 @@
    "src/front/mvars.fs:mvl-open?",
    "src/kernel/environment.fs:lf-env-valid?"
   ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "reason": "false positive: the guarded test `dup a? if b else drop false then` of two different words each time (as group 0268), six members in four files; a word taking two xts would be no shorter (cleanup-families-2)",
   "tokens": 8
  },
  "8cf291e5b543": {
@@ -1389,7 +1389,7 @@
    "src/present/print-analysis.fs:lf-pp-applied?",
    "src/program/ir-reader.fs:ir-more?"
   ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "reason": "false positive: the short-circuit test `a if b else false then` (a && b), nine times with nine different tests and continuations in nine files; a word taking b's xt would be no shorter and would run an EXECUTE on every call (cleanup-families-2)",
   "tokens": 6
  },
  "ace13d66ceec": {
