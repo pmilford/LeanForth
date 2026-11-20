@@ -1,0 +1,21 @@
+\ by-exfalso under a tagged goal (plan row TB1; tests/front/tactics/
+\ goal-layer.lean): apply And.intro leaves the goals left and right, and
+\ each False goal keeps its tag (Lean's refine gives its one new goal the
+\ main goal's tag). The term is And.intro (False.elim h) (False.elim h).
+\ Lean: theorem ex_tag (a b : Nat) (h : False) : a = b ∧ b = a := by
+\         apply And.intro
+\         exfalso
+\         exact h
+\         exfalso
+\         exact h
+theorem ex_tag
+  Nat explicit: a  Nat explicit: b
+  False explicit: h
+  a b = b a = And
+:= by
+  ' And.intro by-apply
+  by-exfalso
+  ' h by-exact
+  by-exfalso
+  ' h by-exact
+end ex_tag

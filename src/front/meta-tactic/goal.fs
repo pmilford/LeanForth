@@ -13,6 +13,14 @@
 \       goal's tag in goal's context; goal assigned
 \       Eq.mpr.{u} target new (id (target = new) h) goal', target goal's
 \       type as stored and u its level
+\   lf-goal-exfalso ( goal -- goal' )  MVarId.exfalso (Apply.lean:286-293),
+\       the term of Lean's exfalso macro (refine False.elim ?_, Init/
+\       Tactics.lean:276: refine's one new goal takes the main goal's tag,
+\       and Sort ?u =?= inferType target gives getLevel's level): in goal's
+\       context (the caller's; checkNotAssigned first), goal' a new
+\       synthetic opaque goal of type False with goal's tag; goal assigned
+\       @False.elim.{u} target goal', target goal's type instantiated, u
+\       its level (getLevel)
 \   lf-goal-head-beta-type ( goal -- goal' )  MVarId.headBetaType
 \       (Util.lean:94): goal's type head-beta reduced; Lean sets the
 \       declaration's type, LeanForth's metavariables keep theirs, so a
@@ -121,14 +129,25 @@ require ../telescope.fs
 : mtg-eq ( goal goal' -- eq ) lf-goal-type swap lf-goal-type swap lf-mk-eq ;
 : mtg-hint ( goal goal' h -- goal goal' h' )
   >r 2dup mtg-eq r> swap lf-mk-expected-prop-hint ;
-: mtg-mpr ( target -- f )   \ Eq.mpr.{u} target, u target's level
-  s" Eq.mpr" lfa-intern over lf-level! 1 lf-mk-const-id swap lf-mk-app ;
+\ The constant c-addr u at target's level, applied to target: C.{u} target.
+: mtg-at-level ( target c-addr u -- f )
+  lfa-intern over lf-level! 1 lf-mk-const-id swap lf-mk-app ;
+: mtg-mpr ( target -- f ) s" Eq.mpr" mtg-at-level ;
 : mtg-value ( goal goal' h' -- goal goal' value )
   >r 2dup lf-goal-type swap lf-goal-type mtg-mpr swap lf-mk-app r> lf-mk-app
   over lf-mk-app ;
 : mtg-assign ( goal goal' value -- goal' ) rot swap lf-mvar-assign lf-must ;
 : lf-goal-replace-target-eq ( goal new h -- goal' )
   >r mtg-fresh r> mtg-hint mtg-value mtg-assign ;
+
+\ ---- MVarId.exfalso (Apply.lean:286-293): goal' of type False in goal's
+\ context with goal's tag; goal assigned False.elim.{u} target goal'.
+: mtg-elim ( goal -- goal f )
+  dup lf-goal-type lf-instantiate! s" False.elim" mtg-at-level ;
+: mtg-false ( goal f -- goal goal' f )
+  over s" False" lf-mk-const0 swap mtg-goal-new swap ;
+: lf-goal-exfalso ( goal -- goal' )
+  lf-goal-not-assigned mtg-elim mtg-false over lf-mk-app mtg-assign ;
 
 \ ---- headBetaType.
 : mtg-tag-from ( goal' goal -- goal' ) lf-goal-tag over swap lf-mvar-tag! lf-must ;

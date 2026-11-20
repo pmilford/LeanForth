@@ -7,6 +7,7 @@ require ./assumption.fs
 require ./case.fs
 require ./constructor.fs
 require ./exact.fs
+require ./exfalso.fs
 require ./induction.fs
 require ./intro.fs
 require ./left.fs

@@ -879,6 +879,14 @@
   "shuffles": 0,
   "words": 3
  },
+ "src/front/tactics/exfalso.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 1
+ },
  "src/front/tactics/left.fs": {
   "globals": 2,
   "long lines": 0,
