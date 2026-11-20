@@ -262,11 +262,12 @@ CHECK_FIRST := program-clamp-record reference-program-verify-clamp \
 # test, and the targets of make test whose Gforth changes under coverage
 # (COVERAGE_ENGINE_DIFFERS: test-cli-engines compares bin/leanforth's
 # gforth-fast with its checking engine, and make coverage replaces gforth-fast
-# by the counting Gforth 1.0). The full change tier (plan 9.4.6;
-# scripts/test-tier.py) runs make coverage-check, make test-unit on
-# gforth-fast and make check-rest, so make test runs once, instrumented, and
-# every end-to-end test of make test (test-cli's parts among them) only
-# there. tests/scripts/test_test_tier.py checks that check-rest holds no other
+# by the counting Gforth 1.0). make daily runs make coverage-check, make
+# test-unit on gforth-fast and make check-rest, so make test runs once,
+# instrumented; the full change tier (plan 9.4.6; scripts/test-tier.py) runs
+# the branch coverage check (make cover-changed), make test plain, make
+# test-unit on gforth-fast and make check-rest (owner, 2026-11-19).
+# tests/scripts/test_test_tier.py checks that check-rest holds no other
 # target of make test.
 COVERAGE_ENGINE_DIFFERS := test-cli-engines
 check: $(CHECK_FIRST)
@@ -1303,6 +1304,10 @@ coverage-check:
 # [TESTS="tests/a.fs ..."] runs only Forth unit tests under coverage, in seconds, and lists FILE's
 # never-run blocks with their lines, words and text against the baseline and the last full run
 # (kept by coverage and coverage-check, --save-full); make cover-debt lists the baseline's debt.
+# Its tests (TESTS= names others): the Forth unit test files that load FILE (named by a unit
+# target of make test, tests/test-classes.txt; require closure through any chain); when more
+# than 8, first those that name a word of FILE or sit in its module's test folders (tests/TOP/,
+# tests/DIR/STEM/), then all of them when a block is left never run.
 # One file's entry changes without a run: python3 scripts/coverage.py --set-baseline FILE --blocks N.
 cover:
 	$(if $(FILE),,$(error make cover needs FILE=src/...fs))
@@ -1312,23 +1317,36 @@ cover:
 cover-debt:
 	python3 scripts/coverage.py --debt
 
+# The branch coverage check (owner, 2026-11-19; OWNER_DECISIONS.md "Coverage in the branch in
+# seconds, the whole-suite ratchet at night"): make cover-changed [BASE=main] [JOBS=4] runs the
+# unit tests of every Forth file of src/ added or modified since the merge base of BASE and HEAD
+# (as make cover chooses them) under coverage and fails on a never-run block of a line the branch
+# added or changed, or a touched file no unit test loads; a block is excused only by the file's
+# baseline reason starting "unreachable:" and naming its line. make tier and scripts/push.sh run
+# it (scripts/test-tier.py's suite cover-changed); make daily runs make coverage-check instead.
+# JOBS test files at a time, 4 unless JOBS is given.
+cover-changed:
+	$(RUN) python3 scripts/coverage.py --gforth $(COVERAGE_GFORTH) \
+	--jobs $(if $(filter file,$(origin JOBS)),4,$(JOBS)) --changed $(BASE)
+
 test-coverage:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/support/test_coverage.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/scripts/test_coverage_debt.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/scripts/test_cover_changed.py
 
-# The ratchet for COVERAGE_FILES alone, over the targets COVERAGE_TARGETS only
-# (the smaller change tiers of scripts/test-tier.py name every target of make
-# test that loads the files, so their counts are those of the whole make test).
+# The ratchet for COVERAGE_FILES alone, over the targets COVERAGE_TARGETS only (name every
+# target of make test that loads the files, so that their counts are those of the whole make
+# test). A command run by hand: no change tier runs it since 2026-11-19 (cover-changed instead).
 coverage-focus:
 	$(if $(COVERAGE_FILES),,$(error coverage-focus needs COVERAGE_FILES and COVERAGE_TARGETS))
 	$(RUN) python3 scripts/coverage.py --gforth $(COVERAGE_GFORTH) --check \
 	$(addprefix --only ,$(COVERAGE_FILES)) -- make $(COVERAGE_TARGETS) JOBS=$(JOBS)
 
 .PHONY: mutants mutants-quick mutants-check test-mutants coverage coverage-check test-coverage cover cover-debt \
-	coverage-focus
-# The coverage ratchet runs in the full change tier (make tier, scripts/push.sh),
-# not in make check: it runs the whole of make test, instrumented (about 6 min at
-# JOBS=2), and stands in for make test there (check-rest above).
+	coverage-focus cover-changed
+# The whole-suite coverage ratchet runs in make daily (owner, 2026-11-17 and 2026-11-19), not in
+# make check or a tier: it runs the whole of make test, instrumented, and stands in for make test
+# there (check-rest above). A tier runs the branch coverage check (cover-changed) instead.
 test: test-coverage
 test: test-mutants
 
@@ -1583,5 +1601,9 @@ daily:
 tag-check:
 	@python3 scripts/tested-tree.py tag-check
 
-.PHONY: once tier test-tiers daily tag-check
-test: test-tiers
+# The helper that runs a runner's independent subprocess cases side by side, results in input
+# order (tests/support/parallel_runs.py; LEANFORTH_TEST_JOBS, default min(4, cores)).
+test-parallel-runs:
+	$(RUN) python3 tests/scripts/test_parallel_runs.py
+.PHONY: once tier test-tiers daily tag-check test-parallel-runs
+test: test-tiers test-parallel-runs

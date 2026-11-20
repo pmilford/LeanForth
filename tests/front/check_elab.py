@@ -39,6 +39,8 @@ import sys
 import tempfile
 import functools
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "tests/support"))
+from parallel_runs import run_all  # noqa: E402  independent runs side by side, results in order
 import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
 
 
@@ -86,13 +88,25 @@ def run(args, **kw):
                           text=True, timeout=LIMIT, env=dict(os.environ, GFORTH=GFORTH), **kw)
 
 
-def check(path, *extra):
-    done = run(["bin/leanforth", "check", "--env", SLICE, "--elab-data", DATA, *extra, path])
+def check_argv(path, *extra):
+    return ["bin/leanforth", "check", "--env", SLICE, "--elab-data", DATA, *extra, path]
+
+
+def outcome(done):
     return done.returncode, done.stdout + done.stderr
 
 
-def dump(path):
-    done = run([GFORTH, "tests/front/elab-dump.fs", "-e", f's" {path}" elab-dump bye'])
+def run_many(argvs):
+    """run of each argument list, side by side (tests/support/parallel_runs.py;
+    LEANFORTH_TEST_JOBS, 1 for one at a time): the finished runs in the order of argvs."""
+    return run_all(argvs, run=run)
+
+
+def dump_argv(path):
+    return [GFORTH, "tests/front/elab-dump.fs", "-e", f's" {path}" elab-dump bye']
+
+
+def dump_lines(path, done):
     if done.returncode != 0:
         raise Failure(f"elab-dump.fs {path}: exit {done.returncode}\n{done.stdout}{done.stderr}")
     return [line for line in done.stdout.splitlines() if " type " in line or " value " in line]
@@ -127,8 +141,12 @@ def self_test(want):
         raise Failure("harness self-test: a changed line is not told apart")
 
 
-def check_now(want):
-    code, out = check(NOW)
+def now_argvs():
+    return [check_argv(NOW), dump_argv(NOW)]
+
+
+def check_now(want, finished):
+    code, out = outcome(next(finished))
     if code != 0:
         raise Failure(f"{NOW}: exit {code}\n{out}")
     for name in THEOREMS:
@@ -138,46 +156,60 @@ def check_now(want):
     bad = differ(printed, checks_of(want))
     if bad:
         raise Failure(f"{NOW}: #check lines differ from pinned Lean's, {bad}")
-    bad = differ(dump(NOW), terms_of(want))
+    bad = differ(dump_lines(NOW, next(finished)), terms_of(want))
     if bad:
         raise Failure(f"{NOW}: elaborated terms differ from pinned Lean's, {bad}")
 
 
-def check_s1(want):
+def s1_argvs():
+    return [check_argv(path) for path, *_ in S1_FILES] + [dump_argv("tests/front/s1-rfl.lf")]
+
+
+def check_s1(want, finished):
+    """The S1 files' runs (the first two are s1-check.lf and s1-rfl.lf, read again below) and
+    the dump of s1-rfl.lf."""
+    seen = {}
     for path, _, exit_code, said in S1_FILES:
-        code, out = check(path)
+        code, out = outcome(next(finished))
+        seen[path] = out
         if code != exit_code or said not in out:
             raise Failure(f"{path}: exit {code}, expected {exit_code} with {said!r}\n{out}")
-    code, out = check("tests/front/s1-check.lf")
-    if "nothing checked by the kernel" not in out:
-        raise Failure(f"s1-check.lf: the kernel checked something\n{out}")
-    code, out = check("tests/front/s1-rfl.lf")
-    if "t: accepted" not in out:
-        raise Failure(f"s1-rfl.lf: t not accepted\n{out}")
+    if "nothing checked by the kernel" not in seen["tests/front/s1-check.lf"]:
+        raise Failure(f"s1-check.lf: the kernel checked something\n{seen['tests/front/s1-check.lf']}")
+    if "t: accepted" not in seen["tests/front/s1-rfl.lf"]:
+        raise Failure(f"s1-rfl.lf: t not accepted\n{seen['tests/front/s1-rfl.lf']}")
     mine = [line for line in terms_of(want) if line.startswith("t ")]
-    bad = differ(dump("tests/front/s1-rfl.lf"), mine)
+    bad = differ(dump_lines("tests/front/s1-rfl.lf", next(finished)), mine)
     if bad or len(mine) != 2:
         raise Failure(f"s1-rfl.lf: t differs from pinned Lean's, {bad}")
 
 
-def check_limits():
-    code, out = check(NOW, "--elab-fuel", "3")
+def limits_texts(work):
+    """The two texts check_limits writes: a #check only, and a #check inside a declaration."""
+    only = pathlib.Path(work) / "only.lf"
+    only.write_text("Nat.zero Nat.zero = #check\n", encoding="utf-8")
+    inside = pathlib.Path(work) / "inside.lf"
+    inside.write_text("theorem m Nat.zero Nat.zero = #check\nNat.zero Nat.zero = := by by-rfl "
+                      "end m\n", encoding="utf-8")
+    return only, inside
+
+
+def limits_argvs(only, inside):
+    return [check_argv(NOW, "--elab-fuel", "3"), check_argv(str(only)), check_argv(str(inside))] \
+        + [["bin/leanforth", "check", *args] for args, _ in MISUSES]
+
+
+def check_limits(finished):
+    code, out = outcome(next(finished))
     if code != 3 or "error 138 at" not in out:
         raise Failure(f"--elab-fuel 3: exit {code}, expected 3 with error 138\n{out}")
-    with tempfile.TemporaryDirectory() as work:
-        only = pathlib.Path(work) / "only.lf"
-        only.write_text("Nat.zero Nat.zero = #check\n", encoding="utf-8")
-        code, out = check(str(only))
-        if code != 0 or "nothing checked by the kernel" not in out:
-            raise Failure(f"#check only: exit {code}\n{out}")
-        inside = pathlib.Path(work) / "inside.lf"
-        inside.write_text("theorem m Nat.zero Nat.zero = #check\nNat.zero Nat.zero = := by by-rfl "
-                          "end m\n", encoding="utf-8")
-        code, out = check(str(inside))
-        if code != 4 or "error 140 at" not in out or "expected term" not in out:
-            raise Failure(f"#check inside a declaration: exit {code}, expected 4 with 140\n{out}")
-    for args, said in MISUSES:
-        done = run(["bin/leanforth", "check", *args])
+    code, out = outcome(next(finished))
+    if code != 0 or "nothing checked by the kernel" not in out:
+        raise Failure(f"#check only: exit {code}\n{out}")
+    code, out = outcome(next(finished))
+    if code != 4 or "error 140 at" not in out or "expected term" not in out:
+        raise Failure(f"#check inside a declaration: exit {code}, expected 4 with 140\n{out}")
+    for (args, said), done in zip(MISUSES, finished):
         if done.returncode != 4 or said not in done.stdout + done.stderr:
             raise Failure(f"leanforth check {' '.join(args)}: exit {done.returncode}, "
                           f"expected 4 with {said!r}\n{done.stdout}{done.stderr}")
@@ -197,25 +229,28 @@ REFUSED = ("error 115 at line:col 14:1 (token `end`): elaboration data refused: 
            "filed under another root key than its class")
 
 
-def refused_run(path):
-    done = run(["bin/leanforth", "check", "--env", REFUSED_ENV, "--elab-data", REFUSED_DATA, path])
-    return done.returncode, done.stdout + done.stderr
+def refused_texts(work):
+    first = pathlib.Path(work) / "first.lf"
+    first.write_text(FIRST, encoding="utf-8")
+    both = pathlib.Path(work) / "both.lf"
+    both.write_text(FIRST + SECOND, encoding="utf-8")
+    return first, both
 
 
-def check_refused():
-    with tempfile.TemporaryDirectory() as work:
-        first = pathlib.Path(work) / "first.lf"
-        first.write_text(FIRST, encoding="utf-8")
-        code, out = refused_run(str(first))
-        if code != 0 or "t1: accepted" not in out:
-            raise Failure(f"the first theorem alone on {REFUSED_DATA}: exit {code}, expected 0\n{out}")
-        both = pathlib.Path(work) / "both.lf"
-        both.write_text(FIRST + SECOND, encoding="utf-8")
-        code, out = refused_run(str(both))
-        named = REFUSED in out and "\n  instMulNat" in out
-        if code != 4 or not named or ": accepted" in out:
-            raise Failure(f"both theorems on {REFUSED_DATA}: exit {code}, expected 4 with "
-                          f"{REFUSED!r} naming instMulNat and nothing accepted\n{out}")
+def refused_argvs(first, both):
+    return [["bin/leanforth", "check", "--env", REFUSED_ENV, "--elab-data", REFUSED_DATA, str(path)]
+            for path in (first, both)]
+
+
+def check_refused(finished):
+    code, out = outcome(next(finished))
+    if code != 0 or "t1: accepted" not in out:
+        raise Failure(f"the first theorem alone on {REFUSED_DATA}: exit {code}, expected 0\n{out}")
+    code, out = outcome(next(finished))
+    named = REFUSED in out and "\n  instMulNat" in out
+    if code != 4 or not named or ": accepted" in out:
+        raise Failure(f"both theorems on {REFUSED_DATA}: exit {code}, expected 4 with "
+                      f"{REFUSED!r} naming instMulNat and nothing accepted\n{out}")
 
 
 # --elab-fuel's misuses: each refused before anything runs (exit 4).
@@ -267,10 +302,15 @@ def main():
               f"the S1 files' answers; outParam unfolded in C17 and C1 as the golden traces "
               f"say; harness self-test passed")
         return
-    check_now(want)
-    check_s1(want)
-    check_limits()
-    check_refused()
+    with tempfile.TemporaryDirectory() as work:
+        only, inside = limits_texts(work)
+        first, both = refused_texts(work)
+        finished = run_many(now_argvs() + s1_argvs() + limits_argvs(only, inside)
+                            + refused_argvs(first, both))
+        check_now(want, finished)
+        check_s1(want, finished)
+        check_limits(finished)
+        check_refused(finished)
     print(f"check_elab: {NOW}: {len(THEOREMS)} theorems accepted, their terms equal pinned "
           f"Lean's node for node, #check lines as Lean's ({len(PRINTER_GAPS)} printer gap); "
           f"{len(S1_FILES)} S1 files as Lean's (s1-rfl.lf's t node for node); --elab-fuel, "

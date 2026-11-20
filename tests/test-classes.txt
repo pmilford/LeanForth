@@ -62,7 +62,7 @@ test-elab-data                     unit
 test-instances                     unit
 test-author                        unit
 test-front                         unit
-test-coverage                      unit    tests/support/test_coverage.py and tests/scripts/test_coverage_debt.py (make cover, cover-debt)
+test-coverage                      unit    tests/support/test_coverage.py, tests/scripts/test_coverage_debt.py (make cover, cover-debt), test_cover_changed.py (cover-changed)
 test-mutants                       unit
 test-reexport                      unit
 test-compact                       unit
@@ -71,6 +71,7 @@ test-log                           unit
 test-cli-forth                     unit
 test-lean-cache                    unit
 test-tiers                         unit
+test-parallel-runs                 unit    tests/scripts/test_parallel_runs.py: the shared helper of the parallel runners
 
 # make test: end to end (once, in make coverage-check)
 test-cli-1                         e2e     bin/leanforth itself, every exit code, from other folders

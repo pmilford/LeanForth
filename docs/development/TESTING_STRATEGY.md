@@ -131,6 +131,24 @@ starting others; make waits for the running ones, prints
 `make: *** [Makefile:LINE: TARGET] Error N` naming the target, and exits
 with status 2. CI runs both suites with the default 8 jobs.
 
+**Parallel runners** (2026-11-19). Inside one target, the slow Python runners
+(`tests/front/check_s2.py`, `check_tactics.py`, `check_showcase.py` and the
+tactic runners `tests/front/tactics/*/check.py` through `tactic_check.py`) used
+to start one `bin/leanforth` or Gforth process for each `.lf` file, wrong proof
+or case, one after another. They now build the list of their independent
+commands and run them through `tests/support/parallel_runs.py` (`run_all`):
+at most `LEANFORTH_TEST_JOBS` at once (default `min(4, cores)`, because each case
+may start several processes and CI runs under `ulimit -u 500`), the results read
+back in the order of the list, so every message, golden comparison and failure
+report is the serial run's, and the first failure in order is the one
+reported. `LEANFORTH_TEST_JOBS=1` runs the cases one at a time in a plain loop,
+as before; `make test LEANFORTH_TEST_JOBS=1` passes it on. This is separate
+from make's `JOBS`, which counts targets: with `JOBS=8` a runner may run four
+processes per target. A case that shares a temporary file, or reads what an
+earlier case wrote, stays out of one `run_all` (the runners' comments say
+which); `tests/scripts/test_parallel_runs.py` (`make test-parallel-runs`) tests
+the helper.
+
 **The Lean cache.** Pinned Lean's verdicts are deterministic, and most of
 `make check`'s time was Lean re-checking unchanged files. Unless `LEAN_CACHE=0`, the
 recipes get `LEAN` set to `scripts/lean-cache.py` and `LEANEXPORT` to
@@ -496,14 +514,18 @@ and gives the range its largest file tier (`python3 scripts/test-tier.py
 | Tier | Files | Suites |
 | --- | --- | --- |
 | docs | Markdown anywhere, `docs/`, `.claude/`, `.codex/`, `prompts/`, `LICENSE`, `.gitignore` | `check-docs`, the targets that read the file (a page whose examples run, a catalogue a test compares), the progress check |
-| tests | any other file under `tests/` (a `tests/mutants/faults.d/*.toml` is part of the fault list) | the targets that use it, their unit tests also on gforth-fast; its planted faults; the block coverage of the source files the changed tests drive |
-| library | a Forth file of `src/lib/` that `src/main.fs` does not load | the targets that use it (their unit tests on gforth-fast), its faults, its coverage |
+| tests | any other file under `tests/` (a `tests/mutants/faults.d/*.toml` is part of the fault list) | the targets that use it, their unit tests also on gforth-fast; its planted faults |
+| library | a Forth file of `src/lib/` that `src/main.fs` does not load | the branch coverage check, the targets that use it (their unit tests on gforth-fast), its faults |
 | front | a Forth file of `src/front/` that `src/main.fs` does not load | the same, and `test-front`, `test-front-e2e`, `reference-front` |
-| tactic | only a branch `scripts/check-tactic-plugins.py` finds confined (below) | the front end's unit tests (on gforth-fast too), every end-to-end run of `.lf` files, `reference-front` (the S1/S2 pinned-Lean comparisons), the source rules, its coverage and faults |
-| full | any Forth file `src/main.fs` loads (at HEAD or at the base, so a library that becomes loaded is full), `src/main.fs`, `src/kernel`, `core`, `import`, `cli` and every other folder of `src/`, the Makefile, `scripts/`, `bin/`, `schemas/`, `lean-toolchain`, `.github/`, anything else | the coverage of the changed source files (`make coverage-focus`), `make test`, `make test-unit` on gforth-fast, `make check-rest`, each target reused while its inputs are unchanged |
+| tactic | only a branch `scripts/check-tactic-plugins.py` finds confined (below) | the branch coverage check, the front end's unit tests (on gforth-fast too), every end-to-end run of `.lf` files, `reference-front` (the S1/S2 pinned-Lean comparisons), the source rules, its faults |
+| full | any Forth file `src/main.fs` loads (at HEAD or at the base, so a library that becomes loaded is full), `src/main.fs`, `src/kernel`, `core`, `import`, `cli` and every other folder of `src/`, the Makefile, `scripts/`, `bin/`, `schemas/`, `lean-toolchain`, `.github/`, anything else | the branch coverage check of the changed source files (`make cover-changed`), `make test`, `make test-unit` on gforth-fast, `make check-rest`, each target reused while its inputs are unchanged |
 
 Since 2026-11-17 (owner) no tier runs Gforth 0.7.3 or `make coverage-check` of
-every file: `make daily` runs both, and `make tag-check` requires them.
+every file, and since 2026-11-19 (owner) none runs `make coverage-focus`:
+`make daily` runs the whole-suite ratchet and Gforth 0.7.3, and `make
+tag-check` requires them. Every tier whose range adds or modifies a Forth file
+of `src/` (the front tier too) runs the branch coverage check first
+(`cover-changed`, below).
 
 - Unit and end-to-end tests (owner, 2026-11-14): see "Unit and end-to-end
   tests" below. In a smaller tier the reached unit targets whose recipe runs
@@ -516,11 +538,15 @@ every file: `make daily` runs both, and `make tag-check` requires them.
   accepted and ignored with a note, and `scripts/push.sh` no longer passes
   it. A portability slip is caught by the next nightly run, and before any
   tag.
-- The full tier's coverage suite runs first; its record stands for the plain
-  runs of the same targets, so `make test` then runs only the rest. Only
-  `test-cli-engines` runs in both `make test` and `make check-rest`, on
-  purpose (COVERAGE_ENGINE_DIFFERS: it compares `gforth-fast` with the
-  checking engine, and coverage replaces `gforth-fast` by the counting Gforth).
+- The branch coverage check runs first in its tier: it takes seconds to a
+  minute and fails a branch before its longer suites run. It runs Forth unit
+  test files under coverage on their own, so its record stands only for
+  itself, and `make test` runs plain. `make daily`'s `make coverage-check`
+  runs `make test` instrumented and its record stands for `make test`'s
+  targets but `test-cli-engines`, which runs in both `make test` and `make
+  check-rest` on purpose (COVERAGE_ENGINE_DIFFERS: it compares `gforth-fast`
+  with the checking engine, and coverage replaces `gforth-fast` by the
+  counting Gforth).
 - The tactic tier (owner, 2026-11-17; the tactic plug-in design's decision 2
   and slice (a1), `TACTIC_PLUGINS.md` of its branch
   `tactic-plugin-design`): `scripts/check-tactic-plugins.py` finds a branch
@@ -557,41 +583,29 @@ every file: `make daily` runs both, and `make tag-check` requires them.
   in its file (`git diff -U0`); a fault of a changed file whose text was left
   alone still applies as before (the stale check confirms its old text) and
   is left to the daily full `make mutants`.
-- Coverage in every tier (owner, 2026-11-17; rule of 2026-11-18): `make
-  coverage-focus COVERAGE_FILES=... COVERAGE_TARGETS=...` measures the
-  touched files — every Forth file of `src/` the change touches, the files a
-  changed test drives (the source files its programs name or load first),
-  the files whose entry of `tests/coverage-baseline.json` changed — over
-  **every target of `make test` that loads or runs one of them**, unit and
-  end-to-end alike, as the per-target reuse's finder (`Inputs`, below) finds
-  them, and applies the ratchet to those files alone (`scripts/coverage.py
-  --only`). The baseline counts a file's never-run blocks over all of `make
-  test`, and only the targets that load a file run its blocks, so the
-  focused count equals the full run's: a focused run reports more never-run
-  blocks than the baseline only when `make coverage-check` would. (Until
-  2026-11-18 it took unit tests only, and failed correct branches and main
-  itself on `src/main.fs`, `src/front/elab-data.fs` and
-  `src/cli/leanforth.fs`, whose blocks end-to-end tests run.) A file no
-  target of `make test` reads is not measured: the plan prints a line that
-  `make daily`'s full run measures it, and `coverage.py` notes, never fails,
-  a named file no run loaded; a file that defines no word, such as
-  `src/main.fs` (a load list), compiles no block and gets no note. A test change that drives `src/main.fs` thus
-  measures most of `make test` under instrumentation, which stands in for
-  the plain runs of those targets. `make coverage-check` (every file) runs in
-  a tier only when the baseline's run count changes or a test program is
-  deleted (what it drove is known only from the base); otherwise in `make
-  daily`. `scripts/coverage.py --per-target FILE` writes each target's
-  compiled and run blocks of each file (each Gforth run attributed to its
-  target through `scripts/timed.sh`'s `LF_MAKE_TARGET`), so the focused
-  result of any set of targets can be computed from one full run (this is
-  how the rule was checked on 2026-11-18, for the three failing cases and
-  five past commits: every focused count equal to the full run's).
-- Left to the daily full run: (1) a change in file A that stops running part
-  of file B lowers B's coverage, which only the whole measurement sees; (2)
-  a file a target loads through a path the finder cannot see (a file name
-  built at run time), whose focused count may then be higher than the full
-  run's (a false alarm, never a miss); (3) the coverage of files a changed
-  library or test loads but does not drive; (4) Gforth 0.7.3.
+- Coverage in every tier (owner, 2026-11-19, `docs/project/OWNER_DECISIONS.md`
+  "Coverage in the branch in seconds, the whole-suite ratchet at night"):
+  the suite `cover-changed`, `make cover-changed BASE=<the range's merge
+  base>` (`scripts/coverage.py --changed`, "The branch coverage check" under
+  "Paying coverage debt" below), whenever the range adds or modifies a Forth
+  file of `src/`: those files' unit tests run under coverage, and the check
+  fails on a never-run block of a line the branch added or changed, or on a
+  touched file no unit test loads. A range that touches no source file (a
+  test, the baseline, a script) runs no coverage in its tier. It replaced
+  the focused ratchet (`make coverage-focus COVERAGE_FILES=...
+  COVERAGE_TARGETS=...`, owner 2026-11-17, rule of 2026-11-18), which ran
+  every target of `make test` that loads a touched file instrumented and
+  compared the file's never-run blocks with the baseline: 712-1,064 s of a
+  20-25 minute tier on 2026-11-19, and up to the whole `make test` for a
+  file `src/main.fs` loads. `make coverage-focus` stays a command one can
+  run by hand (name the targets), and `scripts/coverage.py --per-target
+  FILE` still writes each target's compiled and run blocks of each file.
+- Left to the daily full run (`make coverage-check`, the whole-suite ratchet
+  of every file over all of `make test`, unit and end-to-end): (1) a change
+  in file A that stops running part of file B, and a test change that stops
+  running a line; (2) a block only end-to-end tests run (the branch check
+  counts unit tests only, so such a changed block fails it until a unit test
+  runs it); (3) Gforth 0.7.3.
 
 **Toolchains** (2026-11-18). Every target takes Gforth and Lean the same
 way: `GFORTH=` and `LEAN=` given to make win; else the pinned copies in
@@ -614,9 +628,12 @@ passing scripted run, in the main checkout's `.claude/work/ci/tested/`
 committed). Its key is the tree (`git rev-parse HEAD^{tree}`), the
 Gforth and Lean versions (`--version`) and the `LEAN_CACHE` mode; it keeps the
 commit, branch, date, command and seconds, and what the run stands for:
-every target make built for its goals, each fault it ran, and for `make
+every target make built for its goals, each fault it ran, for `make
 coverage-check` the ratchet and `make test`'s targets but those of
-`COVERAGE_ENGINE_DIFFERS` (below).
+`COVERAGE_ENGINE_DIFFERS` (below), and for `make cover-changed BASE=...` the
+branch coverage check from the merge base of `BASE` and HEAD (one item per
+merge base; a record of `BASE=main` and one of `BASE=<that commit>` stand for
+each other).
 
 - Only a run that exited 0 writes a record. A worktree with uncommitted
   changes to tracked files, or new files under `src/`, `tests/`, `scripts/`,
@@ -631,8 +648,8 @@ coverage-check` the ratchet and `make test`'s targets but those of
   given another variable (`EXPORT=...`) stands only for that exact command.
 - A record of an earlier commit of HEAD's history stands for what the
   change since that commit cannot reach: the change gets its own tier, and
-  the record loses that tier's targets and faults (and all coverage when the
-  tier asks for coverage); a full-tier change leaves it nothing, a commit of
+  the record loses that tier's targets and faults (and all coverage items
+  unless the change is documentation only); a full-tier change leaves it nothing, a commit of
   another branch is never used. So a review log or progress commit after a
   tested merge needs only `check-docs` and the targets that read its pages,
   and a review fix to a test needs only that test's targets, faults and
@@ -678,7 +695,9 @@ coverage-check` the ratchet and `make test`'s targets but those of
   `test-mutants`, and three whose tests contain `${HOME}` text). A fault's
   digest covers its entry, its file and what its test command reads; a
   coverage item's, the digests of the targets it ran over, the file's
-  baseline entry and the coverage tool.
+  baseline entry and the coverage tool. The branch coverage check has no
+  digest: its record stands on its own tree, and on a later commit only
+  across documentation.
 - **Layer entries** (2026-11-19, branch `layered-loads`; [src/README.md](../../src/README.md#layer-entries)).
   A target reads the closure of what its tests load, so a test that loads
   `src/main.fs` reads every module and re-runs for any change. The tests now
@@ -1354,7 +1373,9 @@ and examples, portable Forth, the Lean source citations, the export list, the st
 falling back to an unpinned `lean`, and a scan of the Python scripts for undefined, shadowed or twice-defined
 names. An implementing agent runs it before handing a branch back, and it is run before every `make tier`: a
 tier is then never the first place such a failure shows. In a worktree without `.tools`, give `GFORTH=` and
-`LEAN=` as absolute paths.
+`LEAN=` as absolute paths. The branch coverage check (`make cover-changed`) is not part of it: it took 29-73 s
+on the three branches measured on 2026-11-19 (below), so the tier runs it; run it while working to see the
+untested lines early.
 
 ## Paying coverage debt (owner, 2026-11-19)
 
@@ -1376,23 +1397,99 @@ commands on a tiny Forth file with a known never-run branch):
    never-run blocks now, the baseline's count and reason, and each never-run
    block: `file:line:column`, the word it is in, its source text, whether the
    baseline's reason names its line, and, when a full run was kept
-   (`--save-full`), whether that run left it never run too. Without `TESTS` it
-   takes the Forth test files named by the unit targets of `make test` that
-   load the file (`scripts/test-tier.py`'s `Reach.loaders` and
-   `tests/test-classes.txt`) whose `require` closure holds it, narrowed to
-   those that name one of its words (`--all-tests` keeps all). Exit 0 when the
-   count is not above the baseline's. It counts unit tests only: end-to-end
-   targets run code too, so it can list more blocks than the ratchet; a block
-   the last full run also left never run is real debt. On 2026-11-19
-   `make cover FILE=src/front/tactic-induction.fs` (a file plan 9.4.8l I deleted the same day) took 14 s (5 of 29 test
-   files, 3.5 s of runs) and listed 168 blocks, the baseline 83.
+   (`--save-full`), whether that run left it never run too. Its tests are the
+   rule below ("Which unit tests"); `TESTS=` names others (no widening),
+   `--all-tests` runs all that load the file at once. Exit 0 when the count is
+   not above the baseline's. It counts unit tests only: end-to-end targets run
+   code too, so it can list more blocks than the ratchet; a block the last
+   full run also left never run is real debt. On 2026-11-19 `make cover
+   FILE=src/front/tactic-induction.fs` (a file plan 9.4.8l I deleted the same
+   day) took 14 s (5 of 29 test files, 3.5 s of runs) and listed 168 blocks,
+   the baseline 83; `make cover FILE=src/front/tactics/case.fs` ran only the
+   three test files that name one of its words and listed all 48 blocks never
+   run, though `tests/front/tactic-lib.fs` runs the `case` tactic from `.lf`
+   text: with the rule below it runs 12 of the 31 files that load it, in
+   15 s, and lists none.
 3. Write the tests, re-run step 2 until the block is gone.
 4. Lower the entry without a full run: `python3 scripts/coverage.py
    --set-baseline src/x/y.fs --blocks N` (it prints the old and new entry;
    raising needs `--reason`, and a file with no never-run block before needs a
    reason naming each new block by its line; `--total M` for a new entry;
-   `--drop-baseline FILE` removes one). The tier's `make coverage-focus` then
-   checks the count over every target that loads the file.
+   `--drop-baseline FILE` removes one). `make daily`'s `make coverage-check`
+   then checks the count over all of `make test`; a tier checks the branch's
+   own changed lines (`make cover-changed`, below).
+
+**Which unit tests** (`make cover` and `make cover-changed`; 2026-11-19). The
+unit test files that load a source file are the Forth files under `tests/`
+that the recipes of `make test`'s unit targets name (`make -n`;
+`tests/test-classes.txt` classes the targets), whose `require` closure holds
+the file, directly or through `src/main.fs` or any other chain
+(`scripts/coverage.py`'s `UnitTests`, about a second for the 150 files of
+2026-11-19). When more than 8 load it, a narrowed set runs first: those that
+name a word the file defines, and those of its module's test folders —
+`tests/TOP/`'s files for `src/TOP/...` (`tests/front/` for
+`src/front/whnf.fs` and for `src/front/tactics/case.fs`) and all of
+`tests/DIR/STEM/` for `src/DIR/STEM.fs` (a plug-in's own tests,
+`tests/front/tactics/case/`). When a block asked about is left never run
+(any block for `make cover`, a block on a changed line for `make
+cover-changed`), every other unit test file that loads the file runs too
+before the report, so a test that reaches the file only through text (a
+`.lf` file, a name built at run time) still counts, and the check never fails
+for lack of looking. Each test file runs on its own under the counting
+wrapper, `JOBS` at a time (three processes each).
+
+### The branch coverage check (owner, 2026-11-19)
+
+`make cover-changed [BASE=main] [JOBS=4]` (`python3 scripts/coverage.py
+--changed [BASE]`; owner, 2026-11-19, `docs/project/OWNER_DECISIONS.md`
+"Coverage in the branch in seconds, the whole-suite ratchet at night") is
+the rule "no new debt" checked directly, and the coverage step of every tier
+and push (the suite `cover-changed`, run with the range's merge base and
+recorded per tree like any suite). For the merge base of `BASE` and HEAD it
+takes the Forth files of `src/` added or modified since (committed,
+uncommitted and new; a deleted file is skipped, a renamed one is all new),
+and in each the lines the branch added or changed: the lines of each hunk of
+`git diff -U0` whose code differs, comment and blank lines left out (a hunk
+that only edits comments or white space, a stack comment or an indentation,
+changes no code). A file that defines no word (`src/main.fs`, a load list) or
+whose changes are all comments needs no run. The others' unit tests run (the
+rule above; each test file once for all the files), and every block on a
+changed line that never ran is printed as `file:line: word: source text`.
+It exits 1 when there is one, when a touched file has no unit test that
+loads it (an end-to-end test does not count), or when a test fails; else 0.
+The output is in a fixed order; the time goes to standard error.
+
+The one exception: a block no input can reach passes when the file's entry
+of `tests/coverage-baseline.json` has a reason that starts with
+`unreachable:` and names the block's line (it is printed as accepted). Any
+other reason, or one that does not name the line, does not excuse it.
+
+It is not part of `scripts/pre-tier.sh`: on three branches of 2026-11-18/19
+(each checked out at its head in a scratch worktree, JOBS=4, the machine
+shared with other runs) it took
+
+| Branch (range) | Touched source files | Unit test files run | Wall time | Result |
+| --- | --- | --- | --- | --- |
+| s2-debt (`11fa22e9..5a48eee4`) | 1 (`whnf.fs`, 2 changed code lines) | 21 of the 40 that load it | 29 s | passes |
+| tactic move C4 (`5ccafff0..2b7665df`) | 15 (11 measured) | all that load them (widened) | 73 s | fails: 54 blocks |
+| tactic-fidelity (`11fa22e9..b80169d3`) | 11 (10 measured) | all that load them (widened) | 58 s | fails: 2 blocks |
+
+against 712-1,064 s for the tier's earlier `make coverage-focus`. All three
+had passed the whole-suite ratchet; what fails are changed lines no unit
+test runs: in C4 all 48 blocks of `src/front/tactics/case.fs` (only `.lf`
+end-to-end runs reached the `case` tactic then; `tests/front/tactic-lib.fs`
+runs it since), five of `src/front/meta-tactic/rename.fs` (55, 56, 58, 60,
+68) and `src/cli/leanforth.fs:809` (`cli-again#`); in tactic-fidelity
+`src/front/elab-pending.fs:292` (`ep-none`'s metavariable without a type)
+and `src/front/whnf.fs:854` (`wc-unfold-run`'s `no-result exit`). Run it while
+working, and before handing a branch back. `tests/scripts/test_cover_changed.py`
+(in `make test-coverage`) tests it on a tiny Forth library in a throw-away
+repository: an untested new branch fails naming its line until its test is
+added, a changed line that runs passes and an old gap on an unchanged line is
+not reported, comment-only edits need no run, a file only an end-to-end test
+loads fails, a failing test fails, only an `unreachable:` reason naming the
+line excuses it, and a test that reaches the file only through included text
+counts after the widening.
 
 ## Self-verification
 

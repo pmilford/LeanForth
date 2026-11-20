@@ -70,6 +70,7 @@ GOLDEN = ROOT / "tests/front/s2-proofs.golden"
 STEPS_GOLDEN = ROOT / "tests/front/s2-steps.golden"
 sys.path.insert(0, str(ROOT / "tests/support"))
 from schema_subset import Validator, load_strict  # noqa: E402
+from parallel_runs import run_all  # noqa: E402  independent runs side by side, results in order
 import functools
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
 import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
@@ -201,9 +202,22 @@ def run(args):
                           text=True, timeout=LIMIT, env=dict(os.environ, GFORTH=GFORTH))
 
 
-def check(path, *more):
-    done = run(["bin/leanforth", "check", "--env", SLICE, "--elab-data", DATA, *more, path])
+def check_argv(path, *more):
+    return ["bin/leanforth", "check", "--env", SLICE, "--elab-data", DATA, *more, path]
+
+
+def outcome(done):
     return done.returncode, done.stdout + done.stderr
+
+
+def check(path, *more):
+    return outcome(run(check_argv(path, *more)))
+
+
+def run_many(argvs):
+    """run of each argument list, side by side (tests/support/parallel_runs.py;
+    LEANFORTH_TEST_JOBS, 1 for one at a time): the finished runs in the order of argvs."""
+    return run_all(argvs, run=run)
 
 
 def step_lines(out):
@@ -233,11 +247,19 @@ def check_log(path, lines):
         raise Failure(f"{path}: a step log missing, cut short or for no tactic proof: {lines}")
 
 
-def dump(path):
-    done = run([GFORTH, "tests/front/elab-dump.fs", "-e", f's" {path}" s2-dump bye'])
+def dump_argv(path):
+    return [GFORTH, "tests/front/elab-dump.fs", "-e", f's" {path}" s2-dump bye']
+
+
+def dump_lines(path, done):
+    """The type and value lines of a finished run of dump_argv(path)."""
     if done.returncode != 0:
         raise Failure(f"elab-dump.fs {path}: exit {done.returncode}\n{done.stdout}{done.stderr}")
     return [line for line in done.stdout.splitlines() if " type " in line or " value " in line]
+
+
+def dump(path):
+    return dump_lines(path, run(dump_argv(path)))
 
 
 def aliased(path, line):
@@ -276,10 +298,16 @@ def schema_self_test():
             raise Failure(f"harness self-test: the step schema takes {tactic!r} {word!r}")
 
 
-def check_files(want, files=FILES):
+def check_files(want, files=FILES, seen=None):
+    """Each file's check and dump, run side by side and read in order; seen, when given, gets
+    each file's (exit status, output) for the checks that run the same command again."""
     logs = []
+    argvs = [argv for path, _ in files for argv in (check_argv(path, "--steps", "-"), dump_argv(path))]
+    finished = run_many(argvs)
     for path, names in files:
-        code, out = check(path, "--steps", "-")
+        code, out = outcome(next(finished))
+        if seen is not None:
+            seen[path] = (code, out)
         if code != 0:
             raise Failure(f"{path}: exit {code}\n{out}")
         check_log(path, step_lines(out))
@@ -287,7 +315,7 @@ def check_files(want, files=FILES):
         for name in names:
             if f"\n{name}: accepted; axioms: none" not in "\n" + out:
                 raise Failure(f"{path}: {name} not accepted with no axiom\n{out}")
-        for line in dump(path):
+        for line in dump_lines(path, next(finished)):
             line = aliased(path, line)
             key = " ".join(line.split(" ", 2)[:2])
             if want.get(key) != line:
@@ -296,41 +324,48 @@ def check_files(want, files=FILES):
     return logs
 
 
-def check_steps(logs):
+def check_steps(logs, seen=None):
     """The log against its golden file; --jobs 2, --steps FILE, a wrong
-    proof and an export."""
+    proof and an export. seen: check_files' results, whose run of the same
+    command alone is not repeated."""
     if "--write-steps" in sys.argv:
         STEPS_GOLDEN.write_text("\n".join(logs) + "\n", encoding="utf-8")
     if logs != STEPS_GOLDEN.read_text(encoding="utf-8").splitlines():
         raise Failure("the step log differs from tests/front/s2-steps.golden "
                       "(python3 tests/front/check_s2.py --write-steps after a review)")
     path = FILES[1][0]
-    alone = [line for line in logs if line in step_lines(check(path, "--steps", "-")[1])]
-    code, out = check(path, "--jobs", "2", "--steps", "-")
-    if code != 0 or step_lines(out) != alone:
-        raise Failure(f"{path} with --jobs 2: exit {code}, another step log\n{out}")
+    shown = (seen or {}).get(path) or check(path, "--steps", "-")
+    alone = [line for line in logs if line in step_lines(shown[1])]
     with tempfile.TemporaryDirectory() as work:
         log = pathlib.Path(work) / "steps.ndjson"
-        code, out = check(path, "--steps", str(log))
+        finished = run_many([check_argv(path, "--jobs", "2", "--steps", "-"),
+                             check_argv(path, "--steps", str(log)),
+                             check_argv(WRONG[0][0], "--steps", "-"),
+                             ["bin/leanforth", "check", "--steps", "-", SLICE]])
+        code, out = outcome(next(finished))
+        if code != 0 or step_lines(out) != alone:
+            raise Failure(f"{path} with --jobs 2: exit {code}, another step log\n{out}")
+        code, out = outcome(next(finished))
         if code != 0 or step_lines(out) or log.read_text(encoding="utf-8").splitlines() != alone:
             raise Failure(f"{path} with --steps FILE: exit {code}, another step log\n{out}")
-    code, out = check(WRONG[0][0], "--steps", "-")
-    if code != 4 or step_lines(out):
-        raise Failure(f"{WRONG[0][0]}: exit {code}, a step log for a wrong proof\n{out}")
-    done = run(["bin/leanforth", "check", "--steps", "-", SLICE])
-    if done.returncode != 4 or "--steps goes only with a LeanForth text" not in done.stdout:
-        raise Failure(f"--steps with an export: exit {done.returncode}\n{done.stdout}")
+        code, out = outcome(next(finished))
+        if code != 4 or step_lines(out):
+            raise Failure(f"{WRONG[0][0]}: exit {code}, a step log for a wrong proof\n{out}")
+        done = next(finished)
+        if done.returncode != 4 or "--steps goes only with a LeanForth text" not in done.stdout:
+            raise Failure(f"--steps with an export: exit {done.returncode}\n{done.stdout}")
 
 
 def check_wrong(wrong=WRONG, unsupported=UNSUPPORTED):
+    finished = run_many([check_argv(path) for path, *_ in list(wrong) + list(unsupported)])
     for path, number, message, detail in wrong:
-        code, out = check(path)
+        code, out = outcome(next(finished))
         line = f"error {number} at "
         if code != 4 or line not in out or message not in out or detail not in out:
             raise Failure(f"{path}: exit {code}, expected 4 with {line}{message!r} "
                           f"and {detail!r}\n{out}")
     for path, number, message in unsupported:
-        code, out = check(path)
+        code, out = outcome(next(finished))
         if code != 2 or f"error {number} at " not in out or message not in out:
             raise Failure(f"{path}: exit {code}, expected 2 with error {number}, {message!r}\n{out}")
 
@@ -366,9 +401,9 @@ def check_inert():
     with tempfile.TemporaryDirectory() as work:
         data = pathlib.Path(work) / "inert.elab.ndjson"
         data.write_text(inert_data(), encoding="utf-8")
-        for path, want, text in INERT_RUNS:
-            done = run(["bin/leanforth", "check", "--no-manifest", "--env", SLICE,
-                        "--elab-data", str(data), path])
+        finished = run_many([["bin/leanforth", "check", "--no-manifest", "--env", SLICE,
+                              "--elab-data", str(data), path] for path, _, _ in INERT_RUNS])
+        for (path, want, text), done in zip(INERT_RUNS, finished):
             out = done.stdout + done.stderr
             if done.returncode != want or text not in out:
                 raise Failure(f"inert body, {path}: exit {done.returncode}, expected {want} "
@@ -376,16 +411,16 @@ def check_inert():
 
 
 def check_lambda():
-    for path, want, text in LAMBDA:
-        done = run(["bin/leanforth", "check", "--env", LAMBDA_ENV, "--elab-data", LAMBDA_DATA, path])
+    finished = run_many([["bin/leanforth", "check", "--env", LAMBDA_ENV, "--elab-data", LAMBDA_DATA,
+                          path] for path, _, _ in LAMBDA])
+    for (path, want, text), done in zip(LAMBDA, finished):
         out = done.stdout + done.stderr
         if done.returncode != want or text not in out:
             raise Failure(f"{path}: exit {done.returncode}, expected {want} with {text!r}\n{out}")
 
 
 def check_units():
-    for path in UNITS:
-        done = run([GFORTH, path])
+    for path, done in zip(UNITS, run_many([[GFORTH, path] for path in UNITS])):
         if done.returncode != 0 or "INCORRECT" in done.stdout + done.stderr \
                 or "WRONG" in done.stdout + done.stderr:
             raise Failure(f"{path}: exit {done.returncode}\n{done.stdout}{done.stderr}")
@@ -417,21 +452,21 @@ def check_boundary():
 
 
 def check_lean(write):
-    done = run([lean_binary(), "-DwarningAsError=true", "tests/front/s2-proofs.lean"])
-    if done.returncode != 0:
-        raise Failure(f"s2-proofs.lean: exit {done.returncode}\n{done.stdout}{done.stderr}")
+    sources = ["tests/front/s2-proofs.lean", "tests/front/s2-wrong.lean", LAMBDA_LEAN]
+    proofs, wrong, lam = run_many([[lean_binary(), "-DwarningAsError=true", source]
+                                   for source in sources])
+    if proofs.returncode != 0:
+        raise Failure(f"s2-proofs.lean: exit {proofs.returncode}\n{proofs.stdout}{proofs.stderr}")
     if write:
-        GOLDEN.write_text(done.stdout, encoding="utf-8")
-    elif done.stdout.splitlines() != GOLDEN.read_text(encoding="utf-8").splitlines():
+        GOLDEN.write_text(proofs.stdout, encoding="utf-8")
+    elif proofs.stdout.splitlines() != GOLDEN.read_text(encoding="utf-8").splitlines():
         raise Failure("s2-proofs.lean: pinned Lean's output is not s2-proofs.golden")
-    done = run([lean_binary(), "-DwarningAsError=true", "tests/front/s2-wrong.lean"])
-    out = done.stdout + done.stderr
+    out = wrong.stdout + wrong.stderr
     missing = [text for text in LEAN_WRONG if text not in out]
-    if done.returncode == 0 or missing:
-        raise Failure(f"s2-wrong.lean: exit {done.returncode}, missing {missing}\n{out}")
-    done = run([lean_binary(), "-DwarningAsError=true", LAMBDA_LEAN])
-    if done.returncode != 0:
-        raise Failure(f"{LAMBDA_LEAN}: exit {done.returncode}\n{done.stdout}{done.stderr}")
+    if wrong.returncode == 0 or missing:
+        raise Failure(f"s2-wrong.lean: exit {wrong.returncode}, missing {missing}\n{out}")
+    if lam.returncode != 0:
+        raise Failure(f"{LAMBDA_LEAN}: exit {lam.returncode}\n{lam.stdout}{lam.stderr}")
 
 
 def steps_of(path):
@@ -468,14 +503,15 @@ def main():
         return
     files = check_boundary()
     check_lambda()
-    logs = check_files(want)
+    seen = {}
+    logs = check_files(want, seen=seen)
     check_wrong()
     check_inert()
     if "--tactics" in sys.argv:
         print(f"check_s2 --tactics: {len(FILES)} files accepted as pinned Lean's, "
               f"{len(WRONG)} wrong proofs refused with Lean's messages")
         return
-    check_steps(logs)
+    check_steps(logs, seen)
     check_units()
     print(f"check_s2: no kernel or importer file ({files}) names the smart-unfolding marker; "
           f"{len(FILES)} files accepted, their {len(want)} type and value lines "
