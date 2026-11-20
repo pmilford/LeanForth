@@ -1741,6 +1741,19 @@ class Names(unittest.TestCase):
             self.assertEqual((status, out.splitlines()[-1], err),
                              (4, "error: no declaration named x\\u{A}y", ""))
 
+    def test_print_deep_name(self):
+        """print's title shows a declaration's name as check does (name-text.fs's nt-name,
+        through lf-outline-names!), at any depth: a name of 100 components whole, where the
+        term printer, which spells at most 64 (print-names.fs), would show ?."""
+        deep = [{"str": {"pre": 12 + i if i else 0, "str": f"a{i}"}} for i in range(100)]
+        name = ".".join(f"a{i}" for i in range(100))
+        with tempfile.TemporaryDirectory() as folder:
+            export = self.renamed(folder, deep)
+            status, out, err = run("print", "--no-manifest", export)
+            self.assertEqual((status, err), (0, ""))
+            self.assertIn(f"Theorem {name}", out.splitlines())
+            self.assertNotIn("Theorem ?", out.splitlines())
+
     def test_print_crafted_binder_and_constant(self):
         """A binder name and a referenced constant's name holding LF and U+202E (and
         an invalid byte) cannot forge an outline line, reorder text or reach the output

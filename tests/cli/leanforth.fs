@@ -27,6 +27,7 @@
 include ../support/tester.fs
 include ../support/checks.fs
 include ../support/scratch.fs
+include ../support/heap-watch.fs   \ a worker frees nothing it borrowed (lent-freed)
 require ../support/alloc-fail.fs
 \ The publisher's test-only fault hook, lf-env-before-final, to stop a run.
 : lf-env-fault-hooks ( -- ) ;
@@ -679,6 +680,44 @@ variable throw-at  -1 throw-at !
 : same? ( c-addr u -- flag )
   2dup 1 facts-of 2drop drop >r 3 facts-of 2drop drop r> = ;
 : nested ( -- c-addr u ) s" tests/cli/nested.ndjson" ;
+\ The parts of the driving context's input a worker reads in place
+\ (check-run.fs's ck-parts): the view's node, field and binder tables and
+\ its leaves, the declarations, their name index and inductive data, the
+\ references, their level pairs and their table; per part its header
+\ cells, the block's and the count's.
+lf-lib-private order+
+: htab-cells ( htab -- a c ) dup htab-block swap htab-entries ;
+: slab-cells ( slab -- a c ) dup slab-block swap slab-used ;
+: store-cells ( store -- a c ) dup store-block swap store-count ;
+order-
+: nodes-cells ( -- a c ) lf-term-view lf-tview-nodes htab-cells ;
+: fields-cells ( -- a c ) lf-term-view lf-tview-fields htab-cells ;
+: binders-cells ( -- a c ) lf-term-view lf-tview-binders htab-cells ;
+: leaves-cells ( -- a c ) lf-term-view lf-tview-leaves slab-cells ;
+: decls-cells ( -- a c ) lf-inputs store-cells ;
+: names-cells ( -- a c ) lf-input-names slab-cells ;
+: more-cells ( -- a c ) lf-input-more slab-cells ;
+: refs-cells ( -- a c ) lf-crefs store-cells ;
+: pairs-cells ( -- a c ) lf-cref-pool slab-cells ;
+: table-cells ( -- a c ) lf-cref-table htab-cells ;
+create part-cells ' nodes-cells , ' fields-cells , ' binders-cells , ' leaves-cells ,
+  ' decls-cells , ' names-cells , ' more-cells , ' refs-cells , ' pairs-cells , ' table-cells ,
+\ Freeing a worker frees none of those blocks (shared input, ADR 0016
+\ S8): while a worker is made and freed no FREE meets one of them
+\ (tests/support/heap-watch.fs). This runs before any run with workers,
+\ so that a worker's teardown that frees what it borrowed (planted faults
+\ sh-input-teardown-frees, sh-view-teardown-frees) fails here, by this
+\ assertion: in a parallel run the second FREE of such a block is glibc's
+\ double-free abort inside a worker task, after which the process only
+\ waits, with no CPU used, until the fault runner's 120 s timeout.
+: part-block ( k -- addr ) cells part-cells + @ execute drop @ ;
+: lent-watched ( -- ) heap-unwatch 10 0 do i part-block heap-watch-block loop ;
+variable lent-home
+: lent-freed ( -- n )
+  fresh lent-home ! 20000000 ck-start nested false ck-load drop lent-watched
+  ck-worker-new throw context-free throw heap-watched-frees @ heap-unwatch ;
+T{ lent-freed -> 0 }T
+ck-release lent-home @ back
 T{ composition same? kinds same? nested same? -> true true true }T
 \ Nothing refused by readiness, nothing run again: the readiness sets hold.
 T{ nested 3 facts-of drop rot drop -> 0 0 }T
@@ -795,6 +834,30 @@ previous
 T{ nested shared-run -> true 3 }T
 T{ kinds shared-run -> true 3 }T
 T{ horizon shared-run -> true 3 }T
+\ A worker finds an input reference in the source's table
+\ (constant-references.fs's lf-cref-under-find), as the driving context
+\ finds it in its own: made again from its fields in a worker, each of
+\ nested's input references gives its own number and identity back, and
+\ the worker's own store gains no record. Outside a check every reference
+\ counts as reached; the shadow path's ungated find would give the same
+\ number and identity, but only after making a shadow record, so the
+\ store's count is what shows a find that skipped the source's table.
+create ref-pairs 64 cells allot
+: ref-copy ( addr count -- addr' count )
+  dup 32 > abort" ref-copy: too many levels" tuck ref-pairs swap 2* cells move
+  ref-pairs swap ;
+: ref-fields ( n -- name generation addr count )
+  dup lf-cref-current 2dup lf-cref-levels 0= throw ref-copy 2swap lf-cref-read 0= throw
+  drop 2swap ;
+: refound? ( n -- flag ) dup ref-fields lf-cref-new 0= throw rot dup lf-cref-current d= ;
+: refound-misses ( -- n ) 0 lf-cref-base 0 ?do i refound? 0= - loop ;
+: refound-all ( -- read? misses grown )
+  lf-cref-base 0> lf-cref-count @ >r refound-misses lf-cref-count @ r> - ;
+: refound-in ( w -- read? misses grown w ) dup context-use >r refound-all fuel-back r> ;
+: worker-refound ( -- read? misses grown )
+  fresh dup fuel-home ! >r 20000000 ck-start nested false ck-load drop
+  ck-worker-new throw refound-in context-free throw ck-release r> back ;
+T{ worker-refound -> true 0 0 }T
 \ A pass that makes references in the driving context after the workers
 \ began to read them (as the import pass of a run against a snapshot may)
 \ can move their blocks: a reference of every name, given back, grows the
@@ -877,26 +940,9 @@ T{ last-moved -> true true true false }T
   never-file absent? ck-release r> back ;
 T{ moved-reports -> true true outcome-invalid true }T
 \ Every part the workers read is watched, both its block and its count
-\ (check-run.fs's ck-parts): each of the driving context's header cells,
-\ moved by one cell and back, is found moved, then not (no worker reads
-\ the driving context's headers: they hold copies).
-lf-lib-private order+
-: htab-cells ( htab -- a c ) dup htab-block swap htab-entries ;
-: slab-cells ( slab -- a c ) dup slab-block swap slab-used ;
-: store-cells ( store -- a c ) dup store-block swap store-count ;
-order-
-: nodes-cells ( -- a c ) lf-term-view lf-tview-nodes htab-cells ;
-: fields-cells ( -- a c ) lf-term-view lf-tview-fields htab-cells ;
-: binders-cells ( -- a c ) lf-term-view lf-tview-binders htab-cells ;
-: leaves-cells ( -- a c ) lf-term-view lf-tview-leaves slab-cells ;
-: decls-cells ( -- a c ) lf-inputs store-cells ;
-: names-cells ( -- a c ) lf-input-names slab-cells ;
-: more-cells ( -- a c ) lf-input-more slab-cells ;
-: refs-cells ( -- a c ) lf-crefs store-cells ;
-: pairs-cells ( -- a c ) lf-cref-pool slab-cells ;
-: table-cells ( -- a c ) lf-cref-table htab-cells ;
-create part-cells ' nodes-cells , ' fields-cells , ' binders-cells , ' leaves-cells ,
-  ' decls-cells , ' names-cells , ' more-cells , ' refs-cells , ' pairs-cells , ' table-cells ,
+\ (check-run.fs's ck-parts): each of the driving context's header cells
+\ (part-cells, above), moved by one cell and back, is found moved, then
+\ not (no worker reads the driving context's headers: they hold copies).
 : bumped? ( addr -- seen? ) 1 cells over +! ck-moved? swap -1 cells swap +! ck-moved? 0= and ;
 : part-seen? ( k -- flag ) cells part-cells + @ execute bumped? swap bumped? and ;
 : parts-seen ( -- n ) 0 10 0 do i part-seen? - loop ;

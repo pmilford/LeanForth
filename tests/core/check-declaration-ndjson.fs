@@ -528,6 +528,24 @@ T{ pages-kept rot 0> -> 0 true true }T
   s" tests/cli/jobs/horizon.ndjson" fed ok? must -12345 planted !
   fuel 64 lf-check-input swap the-env ! drop planted @ -12345 <> env-done unstage ;
 T{ plant-run -> true }T
+\ After the feed, every input unit lies in the directory: the leaves the
+\ feed entered take units after the records' (terms.fs's
+\ lf-term-input-unit), so the feed sizes the directory again once they
+\ are entered (feed.fs's lf-term-view-grown); a leaf beyond it would get
+\ the spare unit, never held, and be audited again at every visit (more
+\ fuel in place). In a new context the directory's first size is the
+\ records' pages, at least 16 (lib/slab.fs's slab-min-units), of 256
+\ units each: rec-missing-ih.ndjson's records need 18 pages, with its
+\ leaves 20, so only that second sizing covers them. (A context that fed
+\ a larger export before keeps its larger directory, so the run is in a
+\ context of its own.)
+: record-pages ( -- n ) lf-term-input-records lf-mark-page-mask + lf-mark-page-bits rshift ;
+: grows? ( -- flag ) record-pages 16 max lf-mark-pages# < ;
+: paged? ( -- grows? covered? ) grows? lf-mark-pages# lf-mark-pages slab-capacity > 0= ;
+: leaves-paged ( -- grows? covered? )
+  context-new throw dup context-use s" tests/cli/bugs/rec-missing-ih.ndjson" fed ok? must
+  paged? unstage context-main context-use rot context-free throw ;
+T{ leaves-paged -> true true }T
 
 cases-done
 bye

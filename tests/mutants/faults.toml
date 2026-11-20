@@ -5331,13 +5331,17 @@ reason = "a list of forms ending in a comma is accepted instead of refused"
 # tests/present/check_outline.py (the golden outlines of the pinned exports, fed through the
 # stage with print's hooks) and tests/cli/test_leanforth.py (print beyond the small reader).
 
+# Re-targeted 2026-11-20 (branch four-survivors): since c5e6ad5d print reads an input binder's
+# kind from its record (core/terms.fs's lf-tin-binder-kind); the feed's binder hook
+# (feed.fs's feed-binder-info) sees only binders above an mdata, whose declarations are
+# unsupported and whose terms no print form shows, so its kind is never printed (plan 9.4.8l BA).
 [[fault]]
 id = "feed-hook-binder-kind-wrong"
-file = "src/import/feed.fs"
-old = ''': feed-binder-info ( tag -- kind ) tag-lam - 3 and ;'''
-new = ''': feed-binder-info ( tag -- kind ) tag-lam - 1 and ;'''
+file = "src/core/terms.fs"
+old = '''  dup head-payload swap head-tag tag-lam - 3 and ;'''
+new = '''  dup head-payload swap head-tag tag-lam - 1 and ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Print"
-reason = "the binder hook gives a strict-implicit or instance binder the wrong kind, so an instance argument prints in braces"
+reason = "an input binder's kind is read wrong from its record, a strict-implicit or instance binder given another, so an instance argument prints in braces"
 quick = true
 
 [[fault]]
@@ -7281,8 +7285,8 @@ id = "quot-applied-at-mk"
 file = "src/kernel/quot.fs"
 old = ''': lf-quot-applied ( app mk -- mk|-1 ) swap lf-quot-n over > 0= if drop -1 then ;'''
 new = ''': lf-quot-applied ( app mk -- mk|-1 ) swap lf-quot-n over < if drop -1 then ;'''
-test = "$GFORTH tests/core/check-block.fs"
-reason = "Quot.lift with five arguments is taken to have its quotient (quot.lift-unapplied-eta)"
+test = "$GFORTH tests/core/quot.fs"
+reason = "Quot.lift with five arguments is taken to have its quotient (quot.fs's five-argument rule; check-block.fs's quot.lift-unapplied-eta then never ends: lf-quot-arg peels -1 times, plan 9.4.8l BA)"
 
 [[fault]]
 id = "quot-mk-any-arity"
@@ -9199,7 +9203,7 @@ id = "s5b-view-grown-skipped"
 file = "src/import/feed.fs"
 old = '''  dup ok? if drop lf-term-view-grown then ;'''
 new = ''' ;'''
-test = "python3 tests/cli/test_leanforth.py AsCopied"
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5B: the audit's units are not grown for the leaves the feed entered, so those leaves are audited again (more fuel in place)"
 
 [[fault]]
