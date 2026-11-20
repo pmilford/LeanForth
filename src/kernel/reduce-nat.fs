@@ -38,8 +38,11 @@ require ../core/terms.fs
 : lf-rn-zero ( -- node outcome ) s" zero" s" Nat" lf-nat-in ;
 : lf-rn-succ ( -- node outcome ) s" succ" s" Nat" lf-nat-in ;
 
-\ get_count_arg: a count below 2^32.
-: lf-rn-count? ( lit -- flag ) $FFFFFFFF lf-lit-u> 0= ;
+\ get_count_arg: a count below 2^32, at most lf-rn-count-most (2^32 - 1, or
+\ the largest cell where cells are 32 bits; written without a literal
+\ wider than 32 bits).
+-1 limb-bits 32 - rshift constant lf-rn-count-most
+: lf-rn-count? ( lit -- flag ) lf-rn-count-most lf-lit-u> 0= ;
 : lf-rn-counted ( a b i -- node outcome )
   over lf-rn-count? if lf-nat-lit-op else drop 2drop lf-rn-refuse then ;
 \ Nat.pow (reduce_pow, 633-648) is lf-rn-counted: the exponent's count
