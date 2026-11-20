@@ -45,7 +45,7 @@ command is run on the branch's final head (result and exit code).
 | --- | --- | --- | --- | --- |
 | 18 | Every planted fault of the batch caught, the table well formed and no fault changed without its id named | `python3 scripts/mutants.py --check` then `python3 scripts/mutants.py --gforth $G --only IDS` (the batch's ids) | exit 0, every one caught | |
 | 19 | No new never-run block in a new or changed file (no coverage debt) | `make cover FILE=F GFORTH=$G JOBS=3` for each new or changed `src/` file | each file's never-run count at or below its baseline | |
-| 20 | The coverage ratchet of the touched source files over every target that loads them | `make coverage-focus COVERAGE_FILES=… COVERAGE_TARGETS=… GFORTH=$G LEAN=$L JOBS=3` | exit 0 | |
+| 20 | Every line the branch added or changed in `src/` run by a unit test (the tier's check since the owner's decision of 2026-11-19, replacing the coverage-focus ratchet) | `make cover-changed BASE=main GFORTH=$G` (run as branch `branch-coverage`'s `scripts/coverage.py --changed main` until it reaches main) | exit 0, every block on a changed line ran | |
 | 21 | Existing tactics unchanged (S1/S2 goldens, earlier plug-ins) | `GFORTH=$G python3 tests/front/check_s2.py`, `--lean`; `check_tactics.py`, `--lean`; each `tests/front/tactics/*/check.py`, plain and `--lean` | exit 0 each | |
 | 22 | The showcase, with `zero_add_ex`'s new Lean twin | `make test-showcase GFORTH=$G` | exit 0 | |
 | 23 | Duplicates do not rise; style ratchet holds | `python3 scripts/check-duplicates.py`; `python3 scripts/forth-metrics.py` on each changed Forth file; `python3 scripts/check-forth-quality.py` | exit 0 | |
