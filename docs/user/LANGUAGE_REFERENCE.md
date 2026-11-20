@@ -992,6 +992,59 @@ order, and build the same proof term (each is compared with pinned Lean
   `case right` (`tests/front/tactics/constructor/co-and.lf`), and proves
   `n ≤ n` by `Nat.le.refl` (`co-le.lf`). Lean: `constructor`.
 
+**Left, right, exfalso, intros, clear.** Five more ports of Lean's tactics of
+the same names (tactic batch 1, plan row TB1), compared with pinned Lean in
+the same way (`tests/front/tactics/*/check.py`).
+
+- `by-left` and `by-right` are `by-constructor` for an inductive type with
+  exactly two constructors, taking the first or the second instead of the
+  first that fits. Mathematically: to prove "P or Q", prove P (left) or
+  prove Q (right). In LeanForth, with `h : a ≤ b`, the goal
+  `a ≤ b ∨ b ≤ a` (written `a b ≤ b a ≤ Or`) becomes `a ≤ b` after
+  `by-left` (the constructor `Or.inl`), which `' h by-exact` closes
+  (`tests/front/tactics/left/le-or.lf`). In Lean: `left` then `exact h`.
+  The goal is unfolded first: `a ≤ a + 1` unfolds to `Nat.le a (a + 1)`,
+  whose constructors are `Nat.le.refl` and `Nat.le.step`, so `by-right`
+  leaves `Nat.le a a` and `by-left` closes it
+  (`tests/front/tactics/right/ri-le.lf`). A goal that is no inductive type
+  is error 385 (`by-left`) or 387 (`by-right`); a type with another number
+  of constructors (`And` has one) is 386 or 388; a constructor that does
+  not fit the goal is apply's error 380, whose text names it "the term", as
+  Lean's does.
+- `False` is the proposition that has no proof: an inductive type with no
+  constructor. From a proof of `False` anything follows (Lean's
+  `False.elim`). `by-exfalso` replaces the goal, whatever it states, by
+  `False`, keeping its name; the proof of `False` given afterwards proves
+  the old goal through `False.elim`. Mathematically: a contradiction proves
+  anything. In LeanForth, with `h : False`, `by-exfalso ' h by-exact`
+  proves `a = b` (`tests/front/tactics/exfalso/ex-exact.lf`); in Lean,
+  `exfalso` then `exact h`. After `' And.intro by-apply`, each new `False`
+  goal keeps its name, `case left` and `case right`
+  (`tests/front/tactics/exfalso/ex-tag.lf`). It has no error of its own.
+- A *binder* is a `∀ x,` or an `A →` at the front of a goal: the goal
+  `a ≤ b → a ≤ b` has one. `by-intros` makes every binder at the front of
+  the goal a hypothesis. Each gets an *inaccessible* name, shown with a
+  dagger (`a✝`): the text cannot write it, but `by-assumption` finds it.
+  It unfolds nothing first, so `¬ a = b` (which unfolds to
+  `a = b → False`) has no binder for it, and a goal with none is left as
+  it is. In LeanForth, after `' Or.elim ' h $ by-apply` leaves the goals
+  `a ≤ b → a ≤ b`, `by-intros by-assumption` closes each
+  (`tests/front/tactics/intros/is-or.lf`); in Lean, `intros` then
+  `assumption`. On `¬ a = b`, `by-intros` then `by-assumption` is
+  assumption's error 381 (`tests/front/tactics/intros/w-is-not.lf`). A
+  `let` or an instance binder `[x : C]` is not supported yet (99); naming
+  the hypotheses, Lean's `intros x y`, is not either.
+- `' h by-clear` removes the hypothesis or variable `h` from the goal's
+  context. It is refused when another hypothesis mentions `h` (error 441,
+  Lean's "variable 'h2' depends on 'h'"), when the goal does (442, "target
+  depends on 'h'"), or when the term is no single hypothesis (389,
+  "Unexpected term ...; expected single reference to variable"). In
+  LeanForth, `' h2 by-clear` then `' h1 by-exact`
+  (`tests/front/tactics/clear/cl-hyp.lf`); in Lean, `clear h2` then
+  `exact h1`. `' a by-clear` with `h : a ≤ a` is error 441
+  (`tests/front/tactics/clear/w-cl-dep.lf`). One hypothesis a word: Lean's
+  `clear h1 h2` is two steps.
+
 A statement's hypothesis is written with a tick when it stands alone,
 `' h by-apply`, because its type is not unfolded to count its arguments
 (error 73).
@@ -1003,11 +1056,16 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by` | `( -- )` | ordinary; right after `:=` only (error 69 elsewhere; natural form; error 51 in kernel form) | read: records the proof's position and opens the tactic block (step 0) | Marks that a tactic proof follows `:=`. | `:= by` |
 | `by-rfl` | `( -- )` | ordinary | read: a step. Run: assigns the main goal `Eq.refl` and removes it from the goals | Closes the goal `a = b` when both sides are definitionally equal; otherwise error 97. | `rfl` |
 | `by-exact` | `( t -- )` | ordinary | read: a step holding the term. Run: elaborates t against the goal, assigns it, removes the goal | Closes the goal with the term t; a goal named in either type may be assigned, as Lean's `exact` does; a type mismatch is error 96, a wrong number of values 86 or 87. | `exact t` |
-| `by-intro: HYP-NAME` | `( -- )` | parsing: one name, or `_` | read: a step; HYP-NAME becomes a hypothesis word in the locals. Run: replaces the goal by one with the first binder introduced | Introduces one hypothesis HYP-NAME from the goal's first binder; `_` leaves it inaccessible (it cannot be written afterwards); error 94 when there is none, 84 when HYP-NAME is a LeanForth word. | `intro HYP-NAME` |
+| `by-intro: HYP-NAME` | `( -- )` | parsing: one name, or `_` | read: a step; HYP-NAME becomes a hypothesis word in the locals. Run: replaces the goal by one with the first binder introduced | Introduces one hypothesis HYP-NAME from the goal's first binder, of the binder's kind (explicit, implicit `{x}` or strict implicit `⦃x⦄`; an instance binder `[x]` is not supported yet, 99); `_` leaves it inaccessible (it cannot be written afterwards); error 94 when there is none, 84 when HYP-NAME is a LeanForth word. | `intro HYP-NAME` |
 | `by-sorry` | `( -- )` | ordinary | read: a step. Run: assigns the goal `sorryAx T Bool.false`, records an open part | Closes the goal with an open part; the declaration is accepted but reported NOT PROVED. | `sorry` |
 | `by-apply` | `( t -- )` | ordinary | read: a step holding t. Run: assigns the main goal t applied to new goals, which take its place | Closes the goal with t when t's conclusion fits it; t's arguments the goal does not fix become goals. No fit: error 380; an instance not found: 125; an instance found that differs from the one the goal fixes: 384; t still unknown after elaboration: 99 (not supported yet). | `apply t` |
 | `by-assumption` | `( -- )` | ordinary | read: a step. Run: assigns the main goal the newest hypothesis whose type is the goal's, removes the goal | Closes the goal with a hypothesis; none fits: error 381. | `assumption` |
 | `by-constructor` | `( -- )` | ordinary | read: a step. Run: as `by-apply` with the first constructor of the goal's inductive type that fits | Proves an `And`, `Or`, `True`, `≤`... goal by one of its constructors; the goal is no inductive type: 382; none fits: 383. | `constructor` |
+| `by-left` | `( -- )` | ordinary | read: a step. Run: as `by-apply` with the first of the goal's two constructors | Proves an `Or`, `≤`... goal by its first constructor; the goal is no inductive type: 385; it has not two constructors: 386; the constructor does not fit: 380. | `left` |
+| `by-right` | `( -- )` | ordinary | read: a step. Run: as `by-apply` with the second of the goal's two constructors | Proves an `Or`, `≤`... goal by its second constructor; the goal is no inductive type: 387; it has not two constructors: 388; the constructor does not fit: 380. | `right` |
+| `by-exfalso` | `( -- )` | ordinary | read: a step. Run: assigns the main goal `False.elim` of a new goal `False`, which takes its place with its name | Turns any goal into `False`; no error of its own. | `exfalso` |
+| `by-intros` | `( -- )` | ordinary | read: a step. Run: replaces the main goal by one with every leading binder introduced | Introduces all the goal's leading binders as inaccessible hypotheses, unfolding nothing; none leaves the goal as it is; a `let` or an instance binder: 99 (not supported yet). | `intros` |
+| `by-clear` | `( t -- )` | ordinary | read: a step holding t. Run: replaces the main goal by one whose context lacks t | Removes the hypothesis t; t no hypothesis: 389; another hypothesis depends on it: 441; the goal does: 442. | `clear t` |
 | `by-induction` | `( t -- )` | ordinary | read: a step holding t. Run: replaces the main goal by one goal per case | Induction on the variable t; the cases are left open (alone it ends in error 89). | `induction t` |
 | `by-induction-with` | `( t -- )` | ordinary; opens a block that `by-end` closes | read: a block step holding t. Run: as `by-induction`, each case taken by an alternative | Induction on t with the cases written as alternatives. | `induction t with` |
 | `\| CASE-TAG HYP-NAME ... =>` | `( -- )` | parsing: tokens of its line up to `=>`; only right inside `by-induction-with` (error 83 elsewhere) | read: an alternative block; the names become hypotheses until the alternative ends. Run: introduces the case's fields and runs the block | One alternative of an induction. CASE-TAG is the name of the case (`zero`, `succ`); each HYP-NAME becomes a new word for one of the case's variables or hypotheses (`k`, `ih` in `\| succ k ih =>`) until the alternative ends. The alternative ends at the next `\|` or at `by-end`. | `\| tag names =>` |
@@ -1062,7 +1120,9 @@ stack and closes the goal with it (`src/front/tactics/exact.fs`, on
 `lf-close-main-goal-using`); a type mismatch is
 error 96. `by-intro: HYP-NAME` reads NAME, makes it a hypothesis word and, when
 run, introduces the goal's first binder as a hypothesis named NAME, usable
-until the block ends; with no binder left it is error 94. `by-sorry` closes
+until the block ends, of the binder's own kind (explicit, implicit or strict
+implicit, as Lean's `intro` since plan row TB1); with no binder left it is
+error 94. `by-sorry` closes
 the goal with `sorryAx`; the declaration is then accepted but reported NOT
 PROVED, with each open part listed (`lfr-sorry`, `tactic-run.fs:391`).
 

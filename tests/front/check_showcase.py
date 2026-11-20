@@ -66,8 +66,8 @@ def golden_part(write):
     check(tactic == 14 and out.count("  Statement (LeanForth's reading of the text, written in Lean's notation):") == tactic,
           f"14 tactic theorems, each with its statement; got {tactic}")
     twins = out.count("  The same theorem in Lean (tests/front/")
-    check(twins + out.count("no Lean twin recorded") == 15 and twins == 14,
-          f"each theorem shows its Lean twin or says none is recorded (14 and 1): got {twins}")
+    check(twins + out.count("no Lean twin recorded") == 15 and twins == 15,
+          f"each theorem shows its Lean twin or says none is recorded (15 and 0): got {twins}")
     check("[Lean:" not in out and "as Lean prints" not in out, "no label says Lean did the work")
 
 

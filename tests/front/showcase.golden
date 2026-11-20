@@ -35,7 +35,8 @@ theorem zero_add_ex  (line 5)
          n : Nat
          ⊢ 0 + n = n
        goals after: none (this goal is proved)
-  The same theorem in Lean: no Lean twin recorded
+  The same theorem in Lean (tests/front/s2-proofs.lean):
+    theorem zero_add_ex (n : Nat) : 0 + n = n := by exact Nat.zero_add n
   Verdict (LeanForth's kernel): zero_add_ex: accepted; axioms: none
 
 580 declarations: 580 accepted

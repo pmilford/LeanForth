@@ -20,8 +20,9 @@
 \ setters lf-tactic-action!, lf-tactic-lean!, lf-tactic-plan!,
 \ lf-tactic-end! and lf-tac-eval (tactic-run.fs), lfa-code: for a
 \ tactic's own error codes (author/errors.fs), the messages
-\ (tactic-msg.fs), the step record, liftMetaTactic, elabTermForApply,
-\ getArg, withSynthesize and try (tactic-core.fs), and the tactic
+\ (tactic-msg.fs: throwTacticEx is lf-tac-ex), the step record,
+\ liftMetaTactic and liftMetaTactic1, elabTermForApply, getFVarId, getArg,
+\ withSynthesize and try (tactic-core.fs), and the tactic
 \ library: meta-must.fs, app-builder.fs,
 \ telescope.fs and the goal operations of meta-tactic/ (goal, apply,
 \ assumption, constructor, rewrite, elim, rename), and the alternatives'
