@@ -431,6 +431,19 @@ lf-defeq-elab lf-defeq-stuck or lf-defeq-flags!
 : intro? ( k -- flag ) elab-key-decl elab-decl-name s" Decidable.intro" menv-name = ;
 T{ 0 s" Decidable.isTrue" cn ?q app fx app false lf-dt-nil lf-dt-key nip swap intro?
    -> outcome-ok true }T
+\ isBadKey's heads (Main.lean:218-225), each pinned at a root (review
+\ ops-c1 B3): Prod.fst Nat Nat p unfolds to p.1, a projection key (Lean's
+\ projections are reducible, Meta/Structure.lean:116; pinned Lean's mkPath
+\ gives [Prod.0, p]); outParam ?m keeps its constant, as its unfolding ?m
+\ is a bad key, stuck under isDefEqStuckEx; below the root it is ?m, a
+\ star. The pi head: tests/front/tactics/decide/test.fs (DecidableEq).
+: fst-p ( -- t ) l0 l0 2 s" Prod.fst" cn nat app nat app fp app ;
+: root-r ( t -- k outcome ) true lf-dt-nil ['] lf-dt-key lf-tr-reducible lf-meta-at nip ;
+lf-defeq-elab lf-defeq-flags!
+T{ fst-p root-r swap elab-key-tag lv1 ?tv outp true key-tag lv1 ?tv outp false key-tag
+   -> outcome-ok elab-key-proj elab-key-const elab-key-star }T
+lf-defeq-elab lf-defeq-stuck or lf-defeq-flags!
+T{ lv1 ?tv outp root-r nip -> lf-meta-stuck }T
 \ Each refusal of unfoldDefinition? is passed on, never another answer:
 \ without smart unfolding's facts (no data's stage) unsupported; each
 \ budget from 0 exhausted until the path is made; each heap request and
@@ -438,11 +451,19 @@ T{ 0 s" Decidable.isTrue" cn ?q app fx app false lf-dt-nil lf-dt-key nip swap in
 0 lf-menv-stage!
 T{ ge-nat lf-dt-path nip nip -> outcome-unsupported }T
 menv-lib lf-menv-stage!
-: path-n ( t -- n outcome ) lf-dt-path rot drop ;
-: path-at ( t k -- n outcome )   \ the path made with a budget of k
-  lf-meta-budget! path-n lf-meta-default-budget lf-meta-budget! ;
+\ The path's first key's declaration, which the sweeps and budgets compare
+\ (review ops-c1 B2): LE.le once GE.ge is unfolded; both paths have 5
+\ keys, so a count would not see a refusal answered as "no unfolding".
+: path-head ( t -- d outcome )
+  lf-dt-path ok-then2? if drop elab-key-decl outcome-ok else no-result then ;
+le-nat path-head drop constant le-decl
+T{ le-decl elab-decl-name s" LE.le" menv-name = ge-nat path-head swap le-decl =
+   -> true outcome-ok true }T
+: path-at ( t k -- d outcome )   \ the path made with a budget of k
+  lf-meta-budget! path-head lf-meta-default-budget lf-meta-budget! ;
 : budget-step ( flag k -- flag' done? )
-  ge-nat swap path-at dup ok? if drop 5 = and true exit then nip outcome-exhausted = and false ;
+  ge-nat swap path-at dup ok? if drop le-decl = and true exit then
+  nip outcome-exhausted = and false ;
 : budgets-pass? ( -- flag ) true 200 0 do i budget-step if leave then loop ;
 T{ budgets-pass? ge-nat 0 path-at nip -> true outcome-exhausted }T
 : dk-slabs-anew ( -- )
@@ -450,7 +471,7 @@ T{ budgets-pass? ge-nat 0 path-at nip -> true outcome-exhausted }T
   wc-frames sweep-slab-anew wc-args sweep-slab-anew uf-args sweep-slab-anew
   uf-levels sweep-slab-anew ;
 ' dk-slabs-anew sweep-slabs-xt !
-T{ ge-nat ' path-n heap-sweep swept? ge-nat ' path-n room-sweep swept? -> true true }T
+T{ ge-nat ' path-head heap-sweep swept? ge-nat ' path-head room-sweep swept? -> true true }T
 ' noop sweep-slabs-xt !
 
 \ Literals beyond a cell, and a sum beyond one, are unsupported (S5),

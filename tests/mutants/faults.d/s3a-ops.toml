@@ -36,6 +36,38 @@ test = "$GFORTH tests/lib/lib.fs"
 reason = "review ops-c1 B1: lib/outcome.fs's no-result-flag gives the flag and the result in each other's places (false where -1 belongs), so a failed step hands on result 0, a value, and flag true"
 
 [[fault]]
+id = "dk-unfold-swallow"
+file = "src/front/discr-keys.fs"
+old = '''  dup lf-meta-unfold ok-then2? 0= if nip no-result-flag exit then'''
+new = '''  dup lf-meta-unfold ok-then2? 0= if drop false outcome-ok exit then'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "S3a-ops C1, review ops-c1 B2 (its M1): a refusal of unfoldDefinition? (heap or room full, budget spent) answered as no unfolding, ok: GE.ge Nat _ x z keyed GE.ge where Lean's first key is LE.le, a wrong answer in place of full or exhausted"
+
+[[fault]]
+id = "dk-bad-key-pi"
+file = "src/front/discr-keys.fs"
+old = '''lf-tag-lit lf-tag-str lf-tag-constant lf-tag-fvar lf-tag-projection lf-tag-pi 6 lf-tags'''
+new = '''lf-tag-lit lf-tag-str lf-tag-constant lf-tag-fvar lf-tag-projection 5 lf-tags'''
+test = "$GFORTH tests/front/tactics/decide/test.fs"
+reason = "S3a-ops C1, review ops-c1 B3 (its M2): a pi made a bad key (isBadKey, Main.lean:224): DecidableEq Nat at a root keeps DecidableEq where Lean's key is arrow"
+
+[[fault]]
+id = "dk-bad-key-proj"
+file = "src/front/discr-keys.fs"
+old = '''lf-tag-lit lf-tag-str lf-tag-constant lf-tag-fvar lf-tag-projection lf-tag-pi 6 lf-tags'''
+new = '''lf-tag-lit lf-tag-str lf-tag-constant lf-tag-fvar lf-tag-pi 5 lf-tags'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "S3a-ops C1, review ops-c1 B3 (its M3): a projection made a bad key (isBadKey, Main.lean:223): Prod.fst Nat Nat p at a root keeps Prod.fst where Lean's key is the projection Prod.0"
+
+[[fault]]
+id = "dk-key-head-mvar"
+file = "src/front/discr-keys.fs"
+old = '''lf-tag-lit lf-tag-str lf-tag-constant lf-tag-fvar lf-tag-projection lf-tag-pi 6 lf-tags'''
+new = '''lf-tag-lit lf-tag-str lf-tag-constant lf-tag-fvar lf-tag-projection lf-tag-pi lf-tag-mvar 7 lf-tags'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "S3a-ops C1, review ops-c1 B3 (its M6): a metavariable made a key head (isBadKey's `_ => true`, Main.lean:225): outParam ?m at a root unfolds to ?m, a star, where Lean keeps outParam"
+
+[[fault]]
 id = "fe-decide-skip-whnf-mul"
 file = "src/front/tactics/decide.fs"
 old = '''  dup lf-mk-decide dup tdc-whnf dup s" Bool.true" lf-meta-const-named?'''

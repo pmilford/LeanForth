@@ -134,5 +134,13 @@ lf-tac-forget
 T{ s" Lean.Omega.IntList.instHMulInt" inst-of lf-inst-check -> outcome-ok }T
 T{ s" 6 7 * 42 =" s" by-decide" tactic-ran -> 0 }T
 T{ s" 20 10 GT.gt" s" by-decide" tactic-ran s" 3 4 Ne" s" by-decide" tactic-ran -> 0 0 }T
+\ isBadKey's pi head (Main.lean:218-225, review ops-c1 B3): DecidableEq
+\ Nat, an abbreviation of (a b : Nat) → Decidable (a = b)
+\ (Prelude.lean:1206), unfolds at a root to a pi, whose key is arrow and
+\ its domain Nat, as pinned Lean's mkPath gives [∀, Nat].
+: dec-eq-nat ( -- t ) s" DecidableEq" nat lf-level! lf-mk-const1 nat lf-mk-app ;
+: dec-eq-keys ( -- n tag0 tag1 )
+  dec-eq-nat lf-dt-path made swap dup elab-key-tag swap 1+ elab-key-tag ;
+T{ dec-eq-keys -> 2 elab-key-arrow elab-key-const }T
 .( decide test.fs: all tests passed) cr
 bye
