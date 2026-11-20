@@ -114,6 +114,9 @@ T{ nat 3 nat-lit each-fold-refused? 3 nat-lit sfk each-fold-refused? sfk nat eac
    -> true true true }T
 T{ 111 nat 0 lf-meta-nat-succ lf-meta-nat-fold 111 sfk 0 lf-meta-nat-succ lf-meta-nat-fold
    -> 111 -1 outcome-invalid 111 -1 outcome-invalid }T
+\ The first operand no literal and an exponent above 256 (review B1 of
+\ AW): invalid, not unsupported, as the test comes before the threshold.
+T{ nat 257 nat-lit 3 fold-refused? sfk two64 3 fold-refused? -> true true }T
 
 \ ---- 1. whnf (default transparency): the arguments' whnf, then the fold.
 T{ 2 ofnat 3 ofnat s" Nat.add" nat2 5 nat-lit w= succ 3 ofnat app 4 nat-lit w=

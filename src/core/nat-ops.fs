@@ -24,11 +24,20 @@
 \       nothing run: a caller's policy (the kernel's count refusal, Meta's
 \       threshold) put after the test, as Lean tests for literals first
 \       (is_nat_lit_ext, withNatValue). Lean computes only on literals and
-\       both callers test for them before calling (the kernel's whnf,
-\       kernel/whnf.fs's lf-nat-ext; the front end's lf-meta-nat-value?),
-\       so another node is a caller's error, refused, never computed
-\       (review s3a-decide M1; plan 9.4.8l AW, the owner's gate of
-\       2026-11-20)
+\       every caller tests for them before calling (the kernel's whnf,
+\       kernel/whnf.fs's lf-nat-ext; the kernel's predecessor of a literal
+\       of several limbs, reduce-nat.fs's lf-reduce-nat-pred, for
+\       defeq.fs's is_def_eq_offset and iota.fs's literal major premise,
+\       after their tests and its own; the front end's
+\       lf-meta-nat-value?), so another node is a caller's error, refused,
+\       never computed (review s3a-decide M1; plan 9.4.8l AW, the owner's
+\       gate of 2026-11-20). The refusal assumes that a and b are valid
+\       term nodes and i an operation index 0-13: neither is checked
+\       (lf-lit-leaf? reads a node's tag unchecked, the table is indexed
+\       by i; plan 9.4.8l AY)
+\   lf-nat-lit-by ( a xt -- node outcome )  the same test for one operand:
+\       xt ( a -- node outcome ) when a is a literal leaf, else invalid
+\       (-1) with nothing run (Nat.succ here, the kernel's constructor form)
 \   lf-nat-lit-succ ( a -- node outcome )  the literal a + 1 (Nat.succ);
 \       invalid (-1) when a is no literal leaf
 \   lf-nat-lit ( u -- node outcome )  the literal of a cell's value
@@ -165,15 +174,15 @@ align here
 constant nop-ops
 \ The operands' test before any is read: both literal leaves, or invalid.
 : nop-lits? ( a b -- flag ) lf-lit-leaf? swap lf-lit-leaf? and ;
-: nop-not-lit ( x -- -1 outcome ) drop-invalid no-result ;
 : lf-nat-lits-by ( a b i xt -- node outcome )
-  2over nop-lits? if execute else 2drop drop nop-not-lit then ;
+  2over nop-lits? flag>outcome swap ok-apply3 ;
 : nop-run ( a b i -- node outcome ) cells nop-ops + @ execute ;
 : lf-nat-lit-op ( a b i -- node outcome ) ['] nop-run lf-nat-lits-by ;
+: lf-nat-lit-by ( a xt -- node outcome )
+  over lf-lit-leaf? flag>outcome swap ok-apply ;
 : nop-succ ( a -- node outcome )
   1 lf-nat-lit ['] nop-add ok-apply2 ;
-: lf-nat-lit-succ ( a -- node outcome )
-  dup lf-lit-leaf? if nop-succ else nop-not-lit then ;
+: lf-nat-lit-succ ( a -- node outcome ) ['] nop-succ lf-nat-lit-by ;
 
 \ The names (lib/texts.fs), compared by their components (Lean's name
 \ equality), from the last.

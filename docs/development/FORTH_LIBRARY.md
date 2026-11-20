@@ -1712,7 +1712,10 @@ constants (`Bool.true`, `Bool.false`), so it lives in `core/`, not `lib/`.
   (lf-nat-lit-op alone and Nat.ble within the noise); end to end within
   the noise (`make test-kernel-reduction`, the decide check, the demos).
 - **Callers.** The kernel (`kernel/reduce-nat.fs`'s `lf-reduce-nat-binary`
-  through `lf-nat-lits-by`, `lf-reduce-nat-succ`; `kernel/whnf.fs`'s name
+  through `lf-nat-lits-by`, `lf-reduce-nat-succ`, and `lf-reduce-nat-pred`
+  for a literal of several limbs; that word refuses anything but a literal
+  above 0 before it reads it, and `lf-reduce-nat-constructor` anything
+  but a literal, review L1 of AW; `kernel/whnf.fs`'s name
   tests), every literal operation of a check (the sizes a check of Init
   passes are not measured yet); the front end's `reduceNat?`
   (`lf-meta-nat-fold` through `lf-nat-lits-by`; by-decide's group A:

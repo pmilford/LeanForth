@@ -203,6 +203,11 @@ T{ k-nat succ-refused? k-app succ-refused? -> true true }T
 T{ 111 3 nlit 4 nlit 9 ' ran lf-nat-lits-by -> 111 77 outcome-ok }T
 T{ 111 k-nat 4 nlit 9 ' ran lf-nat-lits-by 3 nlit k-app 9 ' ran lf-nat-lits-by
    -> 111 -1 outcome-invalid -1 outcome-invalid }T
+\ lf-nat-lit-by, its one-operand form (review B2 of AW: Nat.succ and the
+\ kernel's constructor form share it): the step only on a literal.
+: ran1 ( a -- node outcome ) drop 77 outcome-ok ;
+T{ 111 3 nlit ' ran1 lf-nat-lit-by 111 k-nat ' ran1 lf-nat-lit-by 111 k-app ' ran1 lf-nat-lit-by
+   -> 111 77 outcome-ok 111 -1 outcome-invalid 111 -1 outcome-invalid }T
 
 \ ---- 5. The kernel's words on the table (kernel/reduce-nat.fs, whose own
 \ tests are tests/core/reduce-nat.fs): the predecessor of a literal of
