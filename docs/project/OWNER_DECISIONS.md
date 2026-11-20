@@ -1757,3 +1757,17 @@ tier 20-25 minutes. Asked whether the whole-suite coverage ratchet should leave 
   slow Python runners run their cases in parallel; one fast command checks one tactic; a scaffold makes a new
   tactic's files; kernel tests load a kernel-only file so a front-end change does not re-run them; a script
   checks that a plug-in is thin, and the Forth review of such a branch reads only new library words.
+
+## Two approvals of 2026-11-19, late evening
+
+- **Style baseline of `src/lib/bounds.fs`:** the owner: "raise the baseline from 3 to 6 for the file with
+  comparison words". The return-stack count of that file goes from 3 to 6 for `one-of2? ( x a b -- flag )` and
+  `one-of3?` (Forth review [2026-11-19-cleanup-families-3.md](../development/forth-reviews/2026-11-19-cleanup-families-3.md),
+  item 3: a test of one value against two needs the return stack or a deep shuffle). Asked whether that form is
+  also the fastest: measured the same evening, 10^8 calls, the return-stack form and the `rot` form take the same
+  time (2.4 ns a call on gforth-fast, 6.6 to 6.8 ns on gforth); the phrase written out in place is about 1 ns a
+  call faster (1.4 ns and 5.0 ns), which is why the hot paths of the kernel's reducer keep the phrase.
+- **What a verification receipt says ran ([format]):** the owner: "m2 option 2". A receipt of `leanforth verify`
+  names the launcher that actually checked its export (`bin/leanforth` or `bin/leanforth-checker`) instead of
+  always saying `bin/leanforth` (Forth review of branch `layered-loads`, finding M2). The verdict is the same; the
+  export-only tests then need not load the front end.
