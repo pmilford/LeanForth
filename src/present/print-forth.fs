@@ -54,6 +54,7 @@ require ./term-printer.fs
 require ./note-table.fs
 require ../lib/text-rule.fs
 require ../lib/text-run.fs
+require ../lib/find.fs
 require ../core/input.fs
 
 \ Declarations, as the authoring program records them.
@@ -246,7 +247,7 @@ create lf-pf-eol 10 c,
 
 \ Binders in scope: a variable's name, or n var#.
 : lf-pf-visible? ( j -- flag ) lf-pp-entry lf-pbind-domain @ 0< 0= ;
-: lf-pf-inner# ( j -- n ) 0 swap 0 ?do i lf-pf-visible? if 1+ then loop ;
+: lf-pf-inner# ( j -- n ) 0 swap ['] lf-pf-visible? count-index ;
 : lf-pf-shown ( j -- c-addr u ) lf-pp-entry lf-pp-text ;
 : lf-pf-hides? ( c-addr u k -- c-addr u flag )
   dup lf-pf-visible? if lf-pf-shown 2over compare 0= else drop false then ;

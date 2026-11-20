@@ -329,6 +329,16 @@ T{ lv1 1 s" List.append" cn sun-of pad 0 lf-libdec-sunfold -> -1 outcome-invalid
 T{ 0 s" motive" cn fk app smatch -> true false outcome-ok true }T
 T{ 0 s" Nat.succ" cn fk app smatch -> true false outcome-ok true }T
 T{ fk fx app smatch -> true false outcome-ok true }T
+\ unfoldDefinition? alone when the smart path's reduceMatcher? answers
+\ none at once (data no export gives: Nat.add.match_1's record made one
+\ alternative wider for the test, so the smart body's match is a partial
+\ application): e itself and false, as whnf leaves it (plan 9.4.8l AB:
+\ the smart frame resumed, not its matcher application given back).
+: m1-alts ( -- addr )
+  0 s" Nat.add.match_1" cn lf-meta-const-decl drop lf-menv-matcher drop ed-match ed-match-alts# ;
+: wide-unfold ( e -- e' flag outcome ) 1 m1-alts +! lf-meta-unfold -1 m1-alts +! ;
+T{ fk succ fx app nat-add dup wide-unfold kept? -> true false outcome-ok }T
+T{ fk succ fx app nat-add dup lf-meta-unfold kept? -> false true outcome-ok }T
 \ A body holding an inert node (format 3.1, MATHLIB_FRONT.md O1) is never
 \ used: decoding it and unfolding by it answer unsupported (the mark set
 \ on Nat.add's record here, then cleared: it unfolds again).
@@ -502,15 +512,36 @@ T{ id-ab fa whnf= id-ab dup lf-whnf-core-at-defeq same-out lf-defeq-mode
 \ At implicit transparency too (id is implicit-reducible: whnf at
 \ implicit would unfold it, whnfAtMostI does not; review s2-unfold-a H1).
 T{ id-ab dup lf-tr-implicit ' lf-whnf-core-at-defeq at-mode same-out -> true outcome-ok }T
-\ A part that fails (Nat.add ?f ?f by whnfAtMostI, ?f assigned:
-\ reduceNat?'s guard does not instantiate yet) still gives the caller its
-\ transparency back. reduceNat? gives none for an unassigned
-\ metavariable or a free variable as either argument (withNatValue).
+\ A part that fails (Nat.add ?f ?f by whnfAtMostI, ?f assigned: the
+\ smart path's getStuckMVar? on the match's major premise, unsupported)
+\ still gives the caller its transparency back. reduceNat? gives none for
+\ an unassigned metavariable or a free variable as either argument
+\ (withNatValue).
 T{ 0 s" Nat.add" cn ?f app ?f app 0 proj lf-whnf-core-at-defeq nip lf-defeq-mode
    -> outcome-unsupported lf-tr-default }T
 : nadd ( a b -- t ) >r >r 0 s" Nat.add" cn r> app r> app ;
 T{ ?n fx nadd dup lf-meta-whnf-r drop = zero fx nadd dup lf-meta-whnf-r drop =
    ?n ?h nadd lf-meta-whnf-r nip -> true true outcome-ok }T
+\ withNatValue instantiates an argument that holds a metavariable first
+\ (plan 9.4.8l J): ?a := x holds a free variable then, no value, so none
+\ (as ?f ?f, whose value holds s); ?c := 2 has one, which reduceNat?
+\ would fold: not ported, unsupported. ?a's instantiation refused (the
+\ run's second allocation, after the spine's) is a value perhaps beside
+\ ?c's: unsupported, never none.
+nat mv-natural lf-mvar-new made constant ?a   0 ?a fx lf-mvar-assign made drop
+nat mv-natural lf-mvar-new made constant ?c   0 ?c 2 nlit lf-mvar-assign made drop
+T{ ?a fk nadd dup lf-meta-whnf-r drop = fk ?a nadd dup lf-meta-whnf-r drop =
+   ?f ?f nadd dup lf-meta-whnf-r drop = ?a ?c nadd dup lf-meta-whnf-r drop =
+   -> true true true true }T
+T{ ?c ?c nadd lf-meta-whnf-r -> -1 outcome-unsupported }T
+\ ?sn := Nat.succ ?n holds an unassigned metavariable and no free variable
+\ once instantiated: no value either, so none, the term itself (review
+\ tactic-fidelity L7).
+nat mv-natural lf-mvar-new made constant ?sn   0 ?sn 0 s" Nat.succ" cn ?n app lf-mvar-assign made drop
+T{ ?sn 2 nlit nadd dup lf-meta-whnf-r drop = 2 nlit ?sn nadd dup lf-meta-whnf-r drop =
+   -> true true }T
+T{ 2 heap-refusals ! ?a ?c nadd lf-meta-whnf-r heap-refusals @ 0 heap-refusals !
+   -> -1 outcome-unsupported 0 }T
 \ toCtorIfLit (S2 merge B): the literal 5 is Nat.succ 4, 0 is Nat.zero.
 T{ lv1 1 s" id" cn nat app zero app recm fz whnf= 5 nlit recm fs 4 nlit app 4 nlit recm app
    whnf= 0 nlit recm fz whnf= -> true outcome-ok true outcome-ok true outcome-ok }T
@@ -658,6 +689,19 @@ T{ s-stuck-let heap-sweep swept? s-smart-stuck heap-sweep swept? -> true true }T
 T{ s-match-r heap-sweep swept? s-match-wide heap-sweep swept? s-match-wide room-sweep swept?
    -> true true true }T
 T{ s-smart3 heap-sweep swept? s-smart3 room-sweep swept? -> true true }T
+\ unfoldDefinition? whose delta step leaves frames to resume: the smart
+\ path's match frame for Nat.add k (x + 1), and the smart frame alone
+\ when reduceMatcher? answers none at once (wide-unfold above, plan 9.4.8l
+\ AB). Each allocation and each term refused in turn, the resumed frames'
+\ among them, gives the answer or full, never another answer
+\ (wc-unfold-run's refused resume; plan row TB1).
+m1-alts constant m1-alts-at   \ (made here: a room sweep leaves no room to make it)
+: unf-pass ( e -- x outcome ) lf-meta-unfold nip ;
+: wide-pass ( e -- x outcome ) 1 m1-alts-at +! unf-pass -1 m1-alts-at +! ;
+: s-unfold-smart ( -- e xt ) fk x+1 nat-add ['] unf-pass ;
+: s-wide-unfold ( -- e xt ) fk succ fx app nat-add ['] wide-pass ;
+T{ s-unfold-smart heap-sweep swept? s-unfold-smart room-sweep swept? -> true true }T
+T{ s-wide-unfold heap-sweep swept? s-wide-unfold room-sweep swept? -> true true }T
 \ getStuckMVar? of a class's projection function applied to no instance
 \ argument (Add.add ?n: the instance would be its second): not supported
 \ yet, never none; of an explicit argument holding a metavariable under a

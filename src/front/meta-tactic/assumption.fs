@@ -18,7 +18,7 @@
 \ find-last-index); isImplementationDetail
 \ -> lf-local-detail?; isDefEq -> lf-defeq! under lf-with-assignable-opaque
 \ (meta-config.fs);
-\ assign -> lf-mvar-assign; throwTacticEx -> lf-tac-detail, lf-tac-stop (tactic-msg.fs).
+\ assign -> lf-mvar-assign; throwTacticEx -> lf-tac-ex (tactic-msg.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own. Loads in decimal whatever BASE is, then
 \ restores it.
@@ -48,10 +48,9 @@ require ./goal.fs
   lf-local-fvar lf-fvar-type over swap mas-defeq ;
 : mas-find ( type -- k true | false )
   lf-mctx-view lf-view-count ['] mas-fits? find-last-index ;
-: mas-fvar ( k -- fvar ) lf-mctx-view swap lf-view-local lf-local-fvar ;
-: mas-none ( goal -- ) ['] lf-tac-goal-of. lf-tac-detail lfa-e-assumption lf-tac-stop ;
+: mas-none ( goal -- ) lfa-e-assumption lf-tac-ex ;
 : mas-run ( goal -- )
   lf-goal-not-assigned dup lf-goal-type lf-instantiate! mas-find
-  if mas-fvar lf-mvar-assign lf-must exit then mas-none ;
+  if lf-mctx-fvar lf-mvar-assign lf-must exit then mas-none ;
 : lf-goal-assumption ( goal -- ) dup ['] mas-run lf-with-goal ;
 base !   \ the BASE this file was loaded with

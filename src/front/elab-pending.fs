@@ -286,7 +286,10 @@ defer lf-elab-default-instances ( class -- addr n outcome )
   if drop true outcome-ok else lfa-e-elab-instance lf-elab-fail-term false swap then ;
 : ep-found ( mvar inst -- flag outcome )
   over ep-assigned? if ep-again else ep-assign then ;
-: ep-none ( mvar -- flag outcome ) drop false lfa-e-elab-synth lf-elab-fail ;
+\ None: Lean's "failed to synthesize instance of type class" with the
+\ class type indented (synthesizeSyntheticMVars' indentExpr).
+: ep-none ( mvar -- flag outcome )
+  lf-mvar-type 0= if -1 then lfa-e-elab-synth lf-elab-fail-term false swap ;
 : ep-answer-text ( code -- c-addr u )
   case lf-synth-some of s" : found" endof lf-synth-none of s" : none" endof
     >r s" : stuck" r> endcase ;
@@ -328,7 +331,7 @@ defer lf-elab-default-instances ( class -- addr n outcome )
   >r over r> ep-resumed. ep-keep ;
 : ep-resume ( first k -- first outcome ) over + ep-scratch-at 2@ ep-try-entry ;
 : ep-resume-all ( first n -- first n outcome ) 2dup ['] ep-resume ok-each nip ;
-: ep-kept ( first n -- from m ) + ep-scratch slab-count over - ;
+: ep-kept ( first n -- from m ) + dup ep-scratch slab-since ;
 : ep-to-window ( i -- outcome ) ep-scratch-at 2@ ep-pending slab-2push ;
 : ep-back ( from m -- outcome )
   over + swap ?do i ep-to-window dup ok? 0= if unloop exit then drop loop outcome-ok ;
@@ -338,7 +341,7 @@ defer lf-elab-default-instances ( class -- addr n outcome )
 : ep-abandon ( first outcome -- false outcome ) swap ep-scratch-cut false swap ;
 \ A step that fails part-way loses nothing (review N4 of 2026-11-18): the
 \ window becomes its n entries taken, then those made meanwhile.
-: ep-tail ( w -- from w ) ep-scratch slab-count over - swap ;
+: ep-tail ( w -- from w ) dup ep-scratch slab-since swap ;
 : ep-unstep ( first n -- outcome )
   lf-elab-pending# dup ['] ep-to-scratch ok-each dup ok? 0= if nip nip nip exit then
   drop ep-window-cut -rot ep-back ok-then? if ep-tail ep-back then ;
@@ -403,7 +406,7 @@ defer ep-c-call ( first x frames cont -- ... frames next )
 : ep-only? ( -- flag ) epb epb-only @ 0< 0= ;
 : ep-prio ( -- p ) ep-only? if epb epb-only @ else epb epb-p @ ep-prio@ then ;
 : ep-prios# ( -- n ) ep-only? if 1 else ep-prios slab-count then ;
-: ep-defs# ( -- n ) ep-defs slab-count epb epb-defs @ - ;
+: ep-defs# ( -- n ) epb epb-defs @ ep-defs slab-since ;
 : ep-b-wrap ( -- )
   epb epb-j @ ep-defs# < if exit then 0 epb epb-j ! 1 epb epb-p +! ;
 : ep-b-done? ( -- flag ) epb epb-p @ ep-prios# < 0= ;
@@ -452,7 +455,7 @@ defer ep-b-next ( frames -- ... frames next )
 : ep-b-lost ( frames -- frames next | flag outcome frames 0 )
   false ep-b-default. drop ep-b-undo dup ok? 0= if false swap rot ep-b-end exit then
   drop ['] ep-b-next ;
-: ep-goals# ( -- n ) ep-goals slab-count epb epb-goals @ - ;
+: ep-goals# ( -- n ) epb epb-goals @ ep-goals slab-since ;
 : ep-b-after ( flag outcome frames -- ... frames next )
   over ok? 0= if ep-b-failed exit then rot if nip ep-b-won else nip ep-b-lost then ;
 : ep-b-tried ( flag outcome frames -- ... frames next )
@@ -481,7 +484,7 @@ is ep-b-next
 \ a Lean error read as false), else the first a default instance fills.
 : epc ( -- addr ) ep-cs slab-last ;
 : ep-c-first ( -- first ) epc epc-first @ ;
-: ep-c# ( -- n ) ep-goals slab-count ep-c-first - ;
+: ep-c# ( -- n ) ep-c-first ep-goals slab-since ;
 : ep-c-at ( k -- i ) ep-goals slab-count 1- swap - ;   \ Lean's list: the newest first
 : ep-c-goal ( k -- mvar ) ep-c-at ep-goals slab-at @ ;
 : ep-c-remove ( k -- ) ep-c-at ep-goals slab-remove ;

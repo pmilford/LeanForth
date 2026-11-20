@@ -1,0 +1,11 @@
+\ by-left through whnf (plan row TB1; tests/front/tactics/goal-layer.lean):
+\ a ≤ a unfolds to Nat.le a a, whose two constructors are refl and step;
+\ left applies Nat.le.refl, which closes the goal. The term is
+\ @Nat.le.refl a.
+\ Lean: theorem le_le (a : Nat) : a ≤ a := by left
+theorem le_le
+  Nat explicit: a
+  a a ≤
+:= by
+  by-left
+end le_le

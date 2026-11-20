@@ -66,8 +66,7 @@ require ./terms.fs
 1 constant lf-stmt-level
 
 begin-structure /lf-stmt
-  field: lf-stmt-at       \ the text left: its address
-  field: lf-stmt-len      \ and length
+  2 cells +field lf-stmt-left  \ the text left: c-addr u, with 2@ 2!
   field: lf-stmt-decl     \ the declaration whose parameters uN names
   field: lf-stmt-budget   \ fuel left
   field: lf-stmt-depth    \ pending nodes
@@ -84,8 +83,8 @@ end-structure
 : lf-stmt-fuel ( -- addr ) lf-stmt-state lf-stmt-budget ;
 
 \ Texts: the next token, up to a space, each costing one unit of fuel.
-: lf-stmt-text ( -- c-addr u ) lf-stmt-state dup lf-stmt-at @ swap lf-stmt-len @ ;
-: lf-stmt-text! ( c-addr u -- ) lf-stmt-state tuck lf-stmt-len ! lf-stmt-at ! ;
+: lf-stmt-text ( -- c-addr u ) lf-stmt-state lf-stmt-left 2@ ;
+: lf-stmt-text! ( c-addr u -- ) lf-stmt-state lf-stmt-left 2! ;
 : lf-stmt-span ( c-addr u -- n ) tuck bl byte-scan nip - ;
 : lf-stmt-token ( -- c-addr u )
   -1 lf-stmt-fuel +!
@@ -284,8 +283,8 @@ end-structure
 \ are made as handles (generation-handles.fs), which the audit requires.
 : lf-stmt-sp@ ( -- addr ) lf-stmt-state lf-stmt-sp @ ;
 : lf-stmt-sp+ ( n -- ) cells lf-stmt-state lf-stmt-sp +! ;
-: lf-stmt-push2 ( node identity -- ) -2 lf-stmt-sp+ swap lf-stmt-sp@ 2! ;
-: lf-stmt-pop2 ( -- node identity ) lf-stmt-sp@ 2@ swap 2 lf-stmt-sp+ ;
+: lf-stmt-push2 ( node identity -- ) -2 lf-stmt-sp+ lf-stmt-sp@ cell-pair! ;
+: lf-stmt-pop2 ( -- node identity ) lf-stmt-sp@ cell-pair@ 2 lf-stmt-sp+ ;
 : lf-stmt-pop1 ( -- node ) lf-stmt-pop2 drop ;
 : lf-stmt-put ( node identity true | false -- flag ) dup if drop lf-stmt-push2 true then ;
 

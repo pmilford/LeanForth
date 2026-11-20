@@ -3,6 +3,11 @@
 \ beta-inst.fs), one copy of what each needed (Forth review of fe1c-2,
 \ S2). Untrusted.
 \ - lf-meta-app? ( term -- flag ): an application.
+\ - lf-meta-app2? ( term -- flag ): an application of two arguments or
+\   more (f .. a b; a relation's or an Eq's shape).
+\ - lf-meta-args2 ( term -- a b ): the last two arguments of such an
+\   application, unchecked (the caller has tested lf-meta-app2? or a
+\   head of known arity): an equation's sides, a sum's summands.
 \ - lf-meta-spine ( term slab -- head outcome ): the arguments of
 \   f a1 .. an into the slab, emptied first, an first; the head f. A
 \   refused cell gives -1 and full.
@@ -84,6 +89,9 @@ require ../present/binder-table.fs
 require ../core/let-terms.fs
 
 : lf-meta-app? ( term -- flag ) lf-term-tag@ lf-tag-app = ;
+: lf-meta-app2? ( term -- flag )
+  dup lf-meta-app? if lf-term-first@ lf-meta-app? else drop false then ;
+: lf-meta-args2 ( term -- a b ) dup lf-term-first@ lf-term-second@ swap lf-term-second@ ;
 \ The head of an application spine, down the first parts (Lean's
 \ Expr.getAppFn); a term that is no application is its own head.
 : lf-meta-app-head ( term -- head ) begin dup lf-meta-app? while lf-term-first@ repeat ;
@@ -130,7 +138,7 @@ require ../core/let-terms.fs
 : lf-meta-forall-body# ( term -- body n )
   0 swap begin dup lf-term-pi? while lf-term-second@ swap 1+ swap repeat swap ;
 : lf-meta-forall-body ( term -- body ) lf-meta-forall-body# drop ;
-: lf-meta-app ( f a -- f' outcome ) lf-term-app if outcome-ok else -1 outcome-full then ;
+: lf-meta-app ( f a -- f' outcome ) lf-term-app room-result ;
 : ms-app-down ( f k addr -- f' outcome ) swap cells - @ lf-meta-app ;
 : lf-meta-apply-from ( f n from slab -- f' outcome )
   lf-meta-arg-at ['] ms-app-down ok-fold ;

@@ -86,3 +86,8 @@ theorem w_alt_inner (n m : Nat) : 0 + n = n := by
     induction m with
     | zero => rfl
     | succ j ih => exact ih
+-- applyRfl's sides of id (a = b), Prop and a = b (plan 9.4.8l, s2w-rfl-id.lf).
+theorem w_rfl_id (a b : Nat) : id (a = b) := by rfl
+-- rw's new metavariable for Not's anonymous binder, printed ?a✝ (plan 9.4.8l R,
+-- s2w-rw-lt.lf).
+theorem w_rw_lt (n : Nat) : 0 + n = n := by rw [Nat.lt_irrefl]

@@ -5,9 +5,14 @@
 require ./apply.fs
 require ./assumption.fs
 require ./case.fs
+require ./clear.fs
 require ./constructor.fs
 require ./exact.fs
+require ./exfalso.fs
 require ./induction.fs
 require ./intro.fs
+require ./intros.fs
+require ./left.fs
 require ./rewrite.fs
 require ./rfl.fs
+require ./right.fs

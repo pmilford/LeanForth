@@ -1616,6 +1616,37 @@ efficient way and an easier way to fix unit-test coverage, and decided:
   is exactly a copied phrase and rewrites every member, the result is identical by construction; such a change in
   kernel, core or import files merges after the Forth review and the tier and is reported to the owner
   afterwards. Any other change to those files still needs the owner's approval first.
+  Reported under this rule (a record of its use, not a new decision): branch `cleanup-families-1` (2026-11-19,
+  commit "Extract the exact duplicate groups into shared words", plan 9.4.8l AH) rewrote three kernel members by
+  `check-duplicates.py --extract`: `mixed-level-substitute.fs`'s `lf-mls-closed?` onto `lf-term-no-params?`
+  (defined in `core/terms.fs`, its new line wrapped by hand to stay under 90 characters, tokens unchanged),
+  `reduce-nat.fs`'s `lf-rn-node` onto `lf-made-term` (defined in `core/generation-handles.fs`) and
+  `level-make.fs`'s `lf-lmk-pick` onto `first-or-second` (`lib/bounds.fs`).
+  Reported under the owner's rule of 2026-11-19 (kernel, core and import code is code like any other:
+  behaviour-preserving refactoring is ordinary work, with unit tests; nothing the checker accepts or rejects, no
+  rule, no file format or saved record layout changes): branch `cleanup-families-2` (2026-11-19), the fixes of
+  the Forth review of `cleanup-families-1` (B1): the kernel's last three copies of `lf-made-term`'s phrase,
+  in `mixed-infer.fs` (`lf-minfer-sort`), `iota.fs` (`lf-iota-ctor-const`, with a `require` of
+  `core/generation-handles.fs`) and `string-literals.fs` (`lf-sx-const`), now call it; and the pair-field family
+  (plan 9.4.8l AF): `caches.fs` (`lf-cache-stats`, `lf-cent!`), `env-snapshot.fs` (`start@`, `site-paired`),
+  `env-import.fs` (`entry-same?`), `env-layers.fs` (`lay-from`), `mixed-open.fs` (`lf-open-remember`),
+  `replace-memo.fs` (`lf-rmemo-kept`) and `mixed-definition-probe.fs` (its claim and value accessors) read and
+  write two adjacent cells with `lib/bounds.fs`'s `cell-pair@` and `cell-pair!`, every record's layout unchanged;
+  and the counting-loop family (plan 9.4.8l Z): `env-layers.fs`'s `lay-count` counts a layer's slots with
+  `lib/find.fs`'s `count-index` (its test `lay-slot?`, the same `slot-record?` call as the loop's); and the
+  triple-field family: `env-import.fs`'s `imp-layer-decls`, `env-snapshot.fs`'s `snap-layer-slots!` and
+  `env-signature.fs`'s `lf-envsig-actuals` read or write three adjacent cells with `cell-triple@` and
+  `cell-triple!`, and `defeq.fs`'s `lf-dq-doubt` writes the doubt's two terms with `cell-pair!`, layouts unchanged.
+  And the refusal-tail family: the tail `ok-then? if X else no-result then` (or `... else nip no-result then`)
+  becomes `lib/outcome.fs`'s `['] X ok-apply` (or `ok-apply2`, two values dropped on a failure), the same stack
+  for every outcome, in `iota.fs` (`lf-iota-typed`), `mixed-infer.fs` (`lf-minfer-put-closed`,
+  `lf-minfer-typed`), `reduce-nat.fs` (`lf-rn-truth`, `lf-reduce-nat-constructor`) and `whnf.fs`
+  (`lf-whnf-delta-of`, `lf-whnf-reapply`, `lf-nat-literal`). The fixes of its Forth review (branch
+  `cleanup-families-2-fixed`): `core/string-literals.fs`'s `lf-str-fields?` counts the bytes since its
+  first with `slab-since`; the kernel's `string-literals.fs` names `0 lf-sx-const` as `lf-sx-const0`, which
+  `lf-sx-plain`, `lf-sx-char` and `lf-str-type` call through `ok-apply`; and new kernel unit tests pin the
+  failing outcome of `lf-whnf-delta-of`, `lf-whnf-reapply`, `lf-iota-typed`, `lf-minfer-put-closed`,
+  `lf-minfer-typed` and `lf-rn-truth` and that the snapshot writer's `site-paired` finds a site again.
 - **Tools first:** the duplicates script gains a mode that replaces a group by a named word; a fast per-file
   coverage command lists a file's never-run blocks with line numbers, and a baseline entry can be updated per
   file. Then the remaining groups and coverage debt.

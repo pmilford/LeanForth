@@ -172,7 +172,7 @@ end-structure
 : lf-open-kept? ( addr -- node true | false )
   dup @ dup lf-term-identity if rot cell+ @ = dup 0= if nip then else 2drop false then ;
 : lf-open-remember ( node i -- node )
-  over dup lf-term-identity drop rot lf-open-slot tuck cell+ ! ! ;
+  over dup lf-term-identity drop rot lf-open-slot cell-pair! ;
 : lf-open-leaf-at ( i -- node outcome )
   dup 0 lf-open-leaves within 0= lf-term-sharing? or
   if lf-term-bvar lf-rebuild-allocated exit then

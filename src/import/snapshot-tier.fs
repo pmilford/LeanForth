@@ -279,7 +279,7 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
 \ Names: a string's bytes are the next ones of the pool; its prefix is an
 \ earlier name; its data word, the hash name-hash! computes, is compared.
 : tf-names-of ( stage -- names ) stage-tier tier-names ;
-: pool-left ( pool tf -- u ) tf-pos @ swap slab-count swap - ;
+: pool-left ( pool tf -- u ) tf-pos @ swap slab-since ;
 : pool-next? ( offset len pool tf -- flag )
   tuck pool-left >r tf-pos @ rot = swap r> u> 0= and ;
 : pool-advance ( len tf -- ) tf-pos +! ;

@@ -162,7 +162,7 @@ end-structure
   ['] remap-visit over frame-init remap-fuel over remap-limit ! remap-tier ! ;
 : remap-free ( remap -- ) frame-free ;
 : remap-fuel! ( visits remap -- ) remap-limit ! ;
-: remap-set ( x y xt remap -- ) tuck remap-map ! tuck remap-y ! remap-x ! ;
+: remap-set ( x y xt remap -- ) tuck remap-map ! remap-x cell-pair! ;
 : remap-shift! ( drop lift remap -- ) ['] shift-map swap remap-set ;
 : remap-swap! ( a h remap -- ) ['] swap-map swap remap-set ;
 \ The table map: n cells at addr, then delta (remap-delta!).

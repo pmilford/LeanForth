@@ -93,7 +93,7 @@ end-structure
 ' in-closed? ' ib-leaf ' ib-own ow-kind constant ib-kind
 : ib-run ( body -- term outcome ) ib-kind ib-state ib-replace ow-run ;
 \ The arguments: terms with no loose bound variable.
-: ib-xs! ( addr m -- ) ib-state tuck ib-xs# ! ib-xs ! ;
+: ib-xs! ( addr m -- ) ib-state ib-xs cell-pair! ;
 : ib-x-ok ( x -- outcome )
   dup lf-term-root? 0= if drop outcome-invalid exit then
   lf-meta-loose ok-then? if 0= if outcome-ok else outcome-unsupported then then ;

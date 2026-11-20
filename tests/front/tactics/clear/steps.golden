@@ -1,0 +1,6 @@
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"cl_hyp","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ a ≤ b","goals_after":["a b : Nat\nh1 : a ≤ b\n⊢ a ≤ b"],"parent":0,"source":"12:8","step":1,"tactic":"clear","word":"by-clear"}
+{"goal_before":"a b : Nat\nh1 : a ≤ b\n⊢ a ≤ b","goals_after":[],"parent":0,"source":"13:8","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"cl_var","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a ≤ a\n⊢ a ≤ a","goals_after":["a : Nat\nh : a ≤ a\n⊢ a ≤ a"],"parent":0,"source":"12:7","step":1,"tactic":"clear","word":"by-clear"}
+{"goal_before":"a : Nat\nh : a ≤ a\n⊢ a ≤ a","goals_after":[],"parent":0,"source":"13:7","step":2,"tactic":"exact","word":"by-exact"}

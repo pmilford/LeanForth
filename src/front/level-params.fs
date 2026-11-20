@@ -56,7 +56,7 @@ end-structure
 : lp-arg ( i -- level ) lp-state lp-levels-at @ cell-at@ ;
 : lp-index ( name -- i true | false )
   lp-count 0 ?do dup i lp-name = if drop i true unloop exit then loop drop false ;
-: lp-set ( names levels n -- ) lp-state tuck lp-n ! tuck lp-levels-at ! lp-names-at ! ;
+: lp-set ( names levels n -- ) lp-state lp-names-at cell-triple! ;
 
 \ Levels: Lean's substParams. A level's parts are visited when it holds
 \ a parameter (hasParam); a named parameter is its level.
@@ -103,7 +103,7 @@ end-structure
 \ The term walk: a node's children are its parts, unless its data word
 \ shows no parameter.
 : lp-refuse ( outcome -- ) lp-state lp-dw dw-refuse ;
-: lp-fixed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else false then ;
+: lp-fixed? ( node -- flag ) lf-term-no-params? ;
 : lp-pending ( node walk -- child true | false )
   over dup lp-fixed? swap lf-term-binary? 0= or
   if 2drop false else dw-want-parts then ;

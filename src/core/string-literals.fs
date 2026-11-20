@@ -69,5 +69,5 @@ lf-tag-lit lf-tag-str 2 lf-tags constant lf-literal-tags
 \ slab's units in use. Their UTF-8 is checked where they are read.
 : lf-str-fields? ( first second -- flag )
   over 0< over 0< or if 2drop false exit then
-  swap lf-str-bytes slab-count swap - swap - 0< 0= ;
+  swap lf-str-bytes slab-since swap - 0< 0= ;
 : lf-str-check ( first second walk -- outcome ) drop lf-str-fields? flag>outcome ;

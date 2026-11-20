@@ -349,5 +349,13 @@ T{ dead-app whnf dead-app core -> -1 outcome-invalid -1 outcome-invalid }T
 T{ ' whnf refused ' core refused -> -1 outcome-full 0 -1 outcome-full 0 }T
 T{ app3 app3 1 make-sort make-app trimmed defeq heap-refusals @ -> false outcome-full 0 }T
 T{ app3 whnf swap 0 make-sort same? -> outcome-ok true }T
+\ The doubt record (lf-dq-doubt, lf-dq-doubted; cleanup-families-2): the
+\ first doubt's two terms, in order, and its code become the diagnostic;
+\ a later doubt changes nothing.
+: doubted ( -- t s code )
+  lf-defeq-reset lf-diag-clear
+  11 22 lf-diag-structure-pending lf-dq-doubt 33 44 lf-diag-proof-pending lf-dq-doubt
+  lf-dq-doubted lf-diag@ nip lf-defeq-reset lf-diag-clear ;
+T{ doubted -> 11 22 lf-diag-structure-pending }T
 dq frame-free
 bye

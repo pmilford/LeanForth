@@ -910,6 +910,13 @@ T{ lf-author-code lf-author-outcome -> outcome-full }T
 T{ s" theorem t Prop explicit: p p := p end t" run -> outcome-ok }T
 \ The look-ahead stops there too, at the token that needs a new group word.
 T{ s" def t 0 Type := Lib.zz end t" lib-fails -> 66 1 17 }T
+\ The visible binders inside binder j (lf-pf-inner#, count-index since
+\ cleanup-families-1), a hidden one (a negative domain) not counted; in
+\ scope, innermost first: 7, hidden, 5.
+: pf-bind ( domain -- ) lf-pp-used @ lf-pp-bind drop ;
+T{ lf-pp-clear 5 pf-bind -1 pf-bind 7 pf-bind 1 lf-pf-inner# 2 lf-pf-inner# 3 lf-pf-inner#
+   -> 1 1 2 }T
+lf-pp-clear
 
 cr .( author.fs: all tests passed) cr
 bye

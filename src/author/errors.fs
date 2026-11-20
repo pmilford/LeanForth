@@ -614,7 +614,7 @@ end-structure
 : lfa-inline# ( -- n ) lfa-error lfa-err-inline @ lfa-detail slab-count min ;
 : lfa-.inline ( -- ) 0 lfa-detail slab-at lfa-inline# type ;
 : lfa-.detail ( -- )
-  lfa-detail slab-count lfa-inline# - ?dup if cr lfa-inline# lfa-detail slab-at swap type
+  lfa-inline# lfa-detail slab-since ?dup if cr lfa-inline# lfa-detail slab-at swap type
   then lfa-.cut ;
 : lfa-.message ( -- ) lf-author-code lf-author-message type lfa-.inline ;
 : lf-author-error. ( -- )

@@ -93,8 +93,7 @@ require ../core/tagged-sort-boundary.fs
 3 constant lf-class-assume    \ an assumption: its domain is a proposition
 
 begin-structure /lf-olin
-  field: lf-olin-source      \ the input's name, address
-  field: lf-olin-len         \ ... length; 0 for none
+  2 cells +field lf-olin-source  \ the input's name (2@: c-addr u; u 0 for none)
   field: lf-olin-line        \ the declaration's line in it
 end-structure
 /lf-olin context-record: lf-ol-input
@@ -535,7 +534,7 @@ lf-walk-room context-walk: lf-ol-premises
     lf-ol-theorem? if s"   Statement: " else s"   Type:      " then lf-lv-put
     s" none" lf-ol-line exit then
   lf-ol-decl lf-ol-kind-word lf-print-forms ;
-: lf-ol-source-name ( -- c-addr u ) lf-ol-input dup lf-olin-source @ swap lf-olin-len @ ;
+: lf-ol-source-name ( -- c-addr u ) lf-ol-input lf-olin-source 2@ ;
 \ The input's name: as it is, or escaped in the typewriter font (LaTeX).
 : lf-ol-source-name. ( c-addr u -- )
   lf-lv-tex? if s" \texttt{" lf-lv-put 0 lf-lv-flush lf-sf-tex s" }" lf-lv-put
@@ -651,7 +650,7 @@ lf-walk-room context-walk: lf-ol-premises
 \ header of the next outline (a length of 0 prints none). The name is not
 \ copied: it must stay where it is until then.
 : lf-outline-source ( c-addr u line -- )
-  lf-ol-input tuck lf-olin-line ! tuck lf-olin-len ! lf-olin-source ! ;
+  lf-ol-input tuck lf-olin-line ! lf-olin-source 2! ;
 
 \ Whether the log is the one the caller's verdict belongs to (see the
 \ header): the same intact input; the header's published slot and outcome

@@ -116,15 +116,14 @@ end-structure
 : if-at-levels ( const d -- type outcome )
   2dup swap lf-meta-arity? 0= if 2drop -1 outcome-invalid exit then
   if-const-type ;
-: if-const ( const -- type outcome )
-  dup lf-meta-const-decl ok-then? if if-at-levels else if-fail then ;
+: if-const ( const -- type outcome ) dup lf-meta-const-decl ['] if-at-levels ok-apply2 ;
 : if-fvar ( fvar -- type outcome )
   dup lf-fvar-live? if lf-fvar-type outcome-ok else outcome-invalid if-fail then ;
 : if-mvar ( mvar -- type outcome )
   lf-mvar-type if outcome-ok else -1 outcome-invalid then ;
 : if-sort-new ( level -- type outcome )
   dup lf-level-identity 0= if drop -1 outcome-full exit then
-  lf-hterm-sort if drop outcome-ok else -1 outcome-full then ;
+  lf-hterm-sort lf-made-term ;
 : if-sort ( sort -- type outcome )
   lf-term-first@ lf-level-succ if if-sort-new else -1 outcome-full then ;
 \ A number's type (Lean's Literal.type; branch s2-tactics: Meta.check of
@@ -171,14 +170,12 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
 \ InferType.lean:229): all stays all.
 : if-whnf-d ( type -- type' outcome )
   lf-defeq-mode lf-tr-all = if lf-meta-whnf else lf-meta-whnf-d then ;
-: if-delta ( type -- type' outcome )
-  dup if-unfolds? ok-then? 0= if nip no-result exit then
-  if if-whnf-d else outcome-ok then ;
+: if-delta-by ( type flag -- type' outcome ) if if-whnf-d else outcome-ok then ;
+: if-delta ( type -- type' outcome ) dup if-unfolds? ['] if-delta-by ok-apply2 ;
 : if-pi-of ( type -- pi outcome )
   dup if-pi? if outcome-ok else dup if-no-pi if-fail then ;
 : if-to-pi ( type -- pi outcome )
-  lf-whnf-core ok-then? 0= if no-result exit then
-  if-delta ok-then? if if-pi-of else no-result then ;
+  lf-whnf-core ['] if-delta ok-apply ['] if-pi-of ok-apply ;
 : if-n ( -- n ) if-args slab-count ;
 \ inferAppType's loop, j (the first argument not put in yet) on the stack:
 \ arguments j .. i-1 put into type (instantiateRevRange j i), its whnf a pi.
@@ -190,8 +187,9 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
 : if-enter ( type j i -- type' j' outcome )
   2 pick if-pi? if drop swap lf-term-second@ swap outcome-ok exit then
   dup >r swap if-flushed r> swap ;
+: if-flush-rest ( type j -- type' outcome ) if-n swap if-flush ;
 : if-args-in ( type -- type' outcome )
-  0 if-n ['] if-enter ok-each ok-then? if if-n swap if-flush else if-fail then ;
+  0 if-n ['] if-enter ok-each ['] if-flush-rest ok-apply2 ;
 \ A spine's head is no application; a lambda, pi or let there answers
 \ unsupported (if-leaf), a projection is inferred below. The head's type
 \ comes first, then the arguments fill if-args: inferring a projection's
@@ -202,7 +200,7 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
 \ A term, its head's type by xt ( head -- type outcome ).
 : if-body-by ( term xt -- type outcome )
   over lf-meta-app? 0= if execute exit then
-  over lf-meta-app-head swap execute ok-then? if if-app-of else nip no-result then ;
+  over lf-meta-app-head swap execute ['] if-app-of ok-apply2 ;
 
 \ ---- Projections (inferProjType, InferType.lean:128): e.i of the
 \ structure S has the type of field i of S's one constructor applied to
@@ -219,7 +217,7 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
 : if-s ( -- name ) if-p @ lf-proj-leaf lf-proj-name ;
 : if-e ( -- e ) if-p @ lf-proj-struct ;
 : if-e-type ( -- type outcome )
-  if-e ['] if-leaf-type if-body-by ok-then? if if-whnf-d else no-result then ;
+  if-e ['] if-leaf-type if-body-by ['] if-whnf-d ok-apply ;
 : if-named? ( d -- flag ) lf-menv-name if-s lf-name-same? ;
 : if-induct? ( d -- flag ) dup lf-menv-kind lf-kind-inductive = swap if-named? and ;
 : if-one-ctor ( data -- name true | false )
@@ -231,29 +229,27 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
   dup if-arity tuck + if-n <> if drop if-bad exit then
   if outcome-unsupported if-fail exit then
   if-one-ctor if outcome-ok else -1 outcome-invalid then ;
-: if-ctor ( name -- d outcome )
-  lf-menv-find ok-then? 0= if no-result exit then
+: if-ctor-kind ( d -- d outcome )
   dup lf-menv-kind lf-kind-constructor = if outcome-ok else if-bad then ;
+: if-ctor ( name -- d outcome ) lf-menv-find ['] if-ctor-kind ok-apply ;
 \ e's type's head, a constant naming S: S's constructor's declaration.
 : if-data ( d -- data outcome ) lf-menv-data dup if outcome-ok else if-bad then ;
+: if-induct-data ( d -- data outcome ) dup if-induct? if if-data else if-bad then ;
 : if-struct ( head -- d outcome )
-  lf-meta-const-decl ok-then? 0= if no-result exit then
-  dup if-induct? 0= if if-bad exit then
-  if-data ok-then? 0= if no-result exit then
-  if-shape ok-then? if if-ctor else no-result then ;
+  lf-meta-const-decl ['] if-induct-data ok-apply ['] if-shape ok-apply
+  ['] if-ctor ok-apply ;
 : if-ctor-type ( head -- type outcome )
   dup if-tag lf-tag-constant <> if if-bad exit then
-  dup if-struct ok-then? 0= if if-fail exit then if-at-levels ;
+  dup if-struct ['] if-at-levels ok-apply2 ;
 \ The constructor's type applied to the parameters, which if-args holds.
 : if-params-in ( type -- type' outcome )
-  if-spine ok-then? 0= if no-result exit then
-  if-ctor-type ok-then? if if-args-in else no-result then ;
-: if-pi-whnf ( type -- pi outcome )
-  if-whnf-d ok-then? 0= if no-result exit then dup if-pi? if outcome-ok else if-bad then ;
+  if-spine ['] if-ctor-type ok-apply ['] if-args-in ok-apply ;
+: if-pi-or-bad ( type -- pi outcome ) dup if-pi? if outcome-ok else if-bad then ;
+: if-pi-whnf ( type -- pi outcome ) if-whnf-d ['] if-pi-or-bad ok-apply ;
 : if-field ( j -- proj outcome ) if-e swap if-s swap lf-proj-of ;
-: if-skip ( type j -- type' outcome )
-  swap if-pi-whnf ok-then? 0= if nip no-result exit then lf-term-second@
-  swap if-field ok-then? if lf-meta-instantiate1 else nip no-result then ;
+: if-skip-body ( j pi -- type' outcome )
+  lf-term-second@ swap if-field ['] lf-meta-instantiate1 ok-apply2 ;
+: if-skip ( type j -- type' outcome ) swap if-pi-whnf ['] if-skip-body ok-apply2 ;
 : if-fields ( type -- type' outcome )
   if-p @ lf-proj-leaf lf-proj-idx 0 ?do
     i if-skip dup ok? 0= if unloop exit then drop
@@ -262,9 +258,8 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
   if-pi-whnf ok-then? if lf-term-first@ lf-meta-consume-annotations outcome-ok
   else no-result then ;
 : if-proj-type ( p -- type outcome )
-  if-p ! if-e-type ok-then? 0= if no-result exit then
-  if-params-in ok-then? 0= if no-result exit then
-  if-fields ok-then? if if-domain else no-result then ;
+  if-p ! if-e-type ['] if-params-in ok-apply ['] if-fields ok-apply
+  ['] if-domain ok-apply ;
 : if-head-type ( head -- type outcome )
   dup lf-proj? if if-proj-type else if-leaf-type then ;
 : if-app ( term -- type outcome ) ['] if-head-type if-body-by ;
@@ -301,8 +296,7 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
   drop outcome-ok ;
 : if-body ( term -- type outcome ) if-app ;
 : if-lambda ( lam -- type outcome )
-  if-telescope ok-then? 0= if no-result exit then
-  if-body ok-then? if if-close else no-result then ;
+  if-telescope ['] if-body ok-apply ['] if-close ok-apply ;
 
 \ ---- Pis (inferForallType): the binders opened (forallTelescope), the
 \ body's level and each domain's (getLevel: the type of the type, by
@@ -320,25 +314,22 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
   dup if-sort? if lf-term-first@ outcome-ok else dup if-no-sort if-fail then ;
 : if-sort-level ( T -- level outcome )
   dup if-sort? if lf-term-first@ outcome-ok exit then
-  lf-whnf-core ok-then? 0= if no-result exit then
-  if-delta ok-then? if if-sort-of else no-result then ;
+  lf-whnf-core ['] if-delta ok-apply ['] if-sort-of ok-apply ;
 : if-get-level ( type -- level outcome )
   if-body ['] if-sort-level ok-apply ;
 : if-pi-telescope ( term -- body outcome )
   if-xs slab-clear if-lams slab-clear
   begin dup if-pi? while if-open ok-then? 0= if no-result exit then repeat outcome-ok ;
+: if-imax-of ( lvl level -- lvl' outcome ) swap lf-meta-imax ;
 : if-imax-step ( lvl i -- lvl' outcome )
-  if-x lf-fvar-type if-get-level ok-then? 0= if nip no-result exit then
-  swap lf-meta-imax ;
+  if-x lf-fvar-type if-get-level ['] if-imax-of ok-apply2 ;
 : if-imaxes ( lvl -- lvl' outcome )
   if-xs slab-count begin dup 0> while
     1- tuck if-imax-step ok-then? 0= if nip no-result exit then swap
   repeat drop outcome-ok ;
 : if-forall ( pi -- type outcome )
-  if-pi-telescope ok-then? 0= if no-result exit then
-  if-get-level ok-then? 0= if no-result exit then
-  if-imaxes ok-then? 0= if no-result exit then
-  lf-meta-level-normalize ok-then? if if-sort-new else no-result then ;
+  if-pi-telescope ['] if-get-level ok-apply ['] if-imaxes ok-apply
+  ['] lf-meta-level-normalize ok-apply ['] if-sort-new ok-apply ;
 
 : lf-infer ( term -- type outcome )
   dup lf-term-root? 0= if outcome-invalid if-fail exit then
@@ -381,24 +372,22 @@ end-structure
 : idl-answer ( image -- level outcome ) ?dup if 1- outcome-ok else -1 outcome-invalid
   then ;
 : idl-dec ( level -- level' outcome )
-  lf-level-count @ idl-walk@ dw-size ! idl-walk@ dw-run ok-then? if idl-answer else
-    no-result then ;
+  lf-level-count @ idl-walk@ dw-size ! idl-walk@ dw-run ['] idl-answer ok-apply ;
 \ An assignable ?u at the root: ?u := succ ?w for a fresh ?w, the answer.
 \ Lean's assignment cannot fail; here the stores may have no room (full),
 \ and then ?w, made already, stays unassigned and named by no term.
 : idl-assign ( w mvar succ -- w outcome )
-  lf-level-mvar-assign dup ok? 0= if nip no-result then ;
+  lf-level-mvar-assign ok-or-none ;
 : idl-succ-of ( mvar w -- w outcome )
   tuck lf-level-succ if idl-assign else 2drop -1 outcome-full then ;
 : idl-fresh ( mvar -- w outcome )
-  lf-level-mvar-new ok-then? if idl-succ-of else nip no-result then ;
+  lf-level-mvar-new ['] idl-succ-of ok-apply2 ;
 : idl-open? ( level -- flag outcome )
   dup lf-level-mvar? if lf-level-assignable-mvar? else drop false outcome-ok then ;
-: idl-decrement ( level -- level' outcome )
-  dup idl-open? ok-then? 0= if nip no-result exit then if idl-fresh else idl-dec then ;
+: idl-by ( level flag -- level' outcome ) if idl-fresh else idl-dec then ;
+: idl-decrement ( level -- level' outcome ) dup idl-open? ['] idl-by ok-apply2 ;
 : lf-meta-dec-level ( type -- level outcome )
-  lf-get-level ok-then? 0= if no-result exit then
-  lf-level-instantiate-mvars ok-then? 0= if no-result exit then
-  lf-meta-level-normalize ok-then? if idl-decrement else no-result then ;
+  lf-get-level ['] lf-level-instantiate-mvars ok-apply
+  ['] lf-meta-level-normalize ok-apply ['] idl-decrement ok-apply ;
 
 base !   \ the BASE this file was loaded with

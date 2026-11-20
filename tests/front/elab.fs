@@ -215,6 +215,11 @@ T{ s" theorem e2 0 0 = := 0 Eq.refl end e2" nfails see-at -> 126 1 31 1 12 }T
 real-defaults
 \ numerals are data: 0 against the proposition Nat.zero = Nat.zero.
 T{ s" theorem e3 Nat.zero Nat.zero = := 0 end e3" nfails see-at -> 127 1 37 1 35 }T
+\ The same in a tactic's term (tactic-core.fs's lf-tac-elab-fail, review
+\ tactic-fidelity L7): the error at the step, the numeral the second
+\ position.
+T{ s" theorem e3t Nat.zero Nat.zero = := by 0 by-exact end e3t" nfails see-at
+   -> 127 1 41 1 39 }T
 \ A coercion Lean would look for: Nat.zero = Bool.true is uncomparable in
 \ analyze and CoeT is in the slice (131 there); Bool.true as a proof of
 \ Nat.zero = Nat.zero is ensureHasType's coercion (131 at end).
@@ -537,5 +542,17 @@ T{ refuse 0 lfa-error lfa-err-code ! -1 -1 ' lf-front-hand-over catch nip nip 0<
    -> true 115 }T
 lf-inst-reset lf-elab-error-reset
 T{ depth -> 0 }T
+\ elabNumLit's @OfNat.ofNat.{u} T lit i (elab-term.fs's et-of-nat-value)
+\ with room for one more term only, sharing off so that each node is new:
+\ its constant is made, its application refused: full, never a term (plan
+\ row TB1; with room, the term).
+0 et-u !
+s" Nat" lf-mk-const0 constant nat-c
+nat-c 2 et-lit drop et-of-nat-type drop constant ofnat-2
+: room1 ( -- limit ) lf-terms dup store-limit @ swap dup store-count @ 1+ swap store-limit! drop ;
+: ofnat-full ( type i -- term outcome )
+  lf-term-sharing? >r false lf-term-sharing! room1 >r et-of-nat-value
+  r> lf-terms store-limit! drop r> lf-term-sharing! ;
+T{ ofnat-2 nat-c ofnat-full ofnat-2 nat-c et-of-nat-value nip -> -1 outcome-full outcome-ok }T
 cr .( elab.fs: all tests passed) cr
 bye

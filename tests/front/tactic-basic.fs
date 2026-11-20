@@ -19,7 +19,8 @@
 \    by the kernel, on h1 = h2 (proofs of p) with the left side; errors 94
 \    (with Lean's text), 95, 96 (with Lean's text), 97 (with Lean's text),
 \    98, 99, 93, 71, and 91 when isDefEq or whnfCore runs out of fuel;
-\ 2. malformed: a binder with no known kind, an implicit binder, a let;
+\ 2. malformed: a binder with no known kind, an instance binder, a let
+\    (an implicit or strict-implicit binder is introduced, plan row TB1);
 \ 3. stack effects (every T{ }T checks the depth) and lf-term-holds?;
 \ 4. through cli-check: tests/front/07-intro-exact.lf, 08-rfl.lf;
 \ 5. resources: the heap refusing each allocation of an intro-exact run;
@@ -151,25 +152,42 @@ T{ s" by-intro: h end t" proof nrun err -> outcome-invalid 94 1 43 }T
 ' true-p stating
 T{ s" by-intro: h end t" proof nrun err -> outcome-unsupported 93 1 43 }T
 \ ---- 2. Not supported yet (99): the name rfl, a binder of no known kind,
-\ an implicit binder, a let.
+\ an instance-implicit binder (a local instance, plan FE3), a let. An
+\ implicit or strict-implicit binder is introduced with its kind, as
+\ Lean's intro does (plan row TB1, 2026-11-19; until then 99; its pinned
+\ comparison is tests/front/tactics/intros/implicit.fs).
 ' imp-p stating
 T{ s" by-intro: rfl end t" proof nrun err -> outcome-unsupported 99 1 43 }T
 ' bare-pi stating
 T{ s" by-intro: h end t" proof nrun err -> outcome-unsupported 99 1 43 }T
-' implicit-pi stating
+: instance-pi ( -- type ) p-prop p @ p @ s" a" lf-binder-instance pi-of ;
+' instance-pi stating
 T{ s" by-intro: h end t" proof nrun err -> outcome-unsupported 99 1 43 }T
+' implicit-pi stating
+T{ s" by-intro: h by-sorry end t" proof nrun new-local dup lf-local-name s" h" name=
+   swap lf-local-flags -> outcome-ok true lf-binder-implicit }T
+: strict-pi ( -- type ) p-prop p @ p @ s" a" lf-binder-strict pi-of ;
+' strict-pi stating
+T{ s" by-intro: _ by-sorry end t" proof nrun new-local dup lf-local-name s" a" name=
+   swap lf-local-flags -> outcome-ok true lf-binder-strict lf-local-inaccessible or }T
 ' let-p stating
 T{ s" by-intro: h end t" proof nrun err -> outcome-unsupported 99 1 43 }T
 \ An alternative's field (lf-tac-intro1 given a kind, as induction's
 \ eliminator gives it; review tactic-move M3): the kind given, here
-\ implicit, is the local's; the node's own kind is not read (the binder
-\ refused above, 99, is introduced). intro's row stands in for the call.
+\ implicit, is the local's; the node's own kind is not read. intro's row
+\ stands in for the call.
 tac-k-intro lfr-row trow-run @ constant intro-action
 : intro-implicit ( i -- ) dup 0 lf-tac-arg lf-binder-implicit rot lf-tac-intro1 ;
 ' intro-implicit tac-k-intro lf-tactic-action!
 ' implicit-pi stating
 T{ s" by-intro: h by-sorry end t" proof nrun new-local dup lf-local-name s" h" name=
    swap lf-local-flags -> outcome-ok true lf-binder-implicit }T
+\ The node's own kind is explicit here: the local still takes the kind
+\ given (since intro-n reads a node's own kind when none is given, only a
+\ node of another kind tells a dropped kind apart; TB1's tier).
+' imp-p stating
+T{ s" by-intro: h by-sorry end t" proof nrun new-local lf-local-flags
+   -> outcome-ok lf-binder-implicit }T
 intro-action tac-k-intro lf-tactic-action!
 
 \ ---- 1. exact: a term of another type, Lean's Type mismatch text (the
@@ -228,11 +246,21 @@ T{ s" by-rw[ 0 ] end t" proof nrun err see@ -> outcome-invalid 218 1 43 1 50 }T
 lf-tac-forget
 T{ 0 ' goal-x lf-tac-detail detail s\" \n\np : Prop\n⊢ p = p" compare -> 0 }T
 lf-tac-forget
-\ A goal type holding an open synthetic opaque metavariable (Lean compares
-\ with it assignable): 93 before isDefEq.
-: so-p ( -- type ) p-prop prop mv-opaque lf-mvar-new made ;
-' so-p stating  ' p-term chosen !
-T{ s" n by-exact end t" proof nrun err -> outcome-unsupported 93 1 45 }T
+\ A goal type holding an open synthetic opaque metavariable ?o : Prop:
+\ elabTermEnsuringType compares with it assignable (plan 9.4.8l J), so
+\ fun (x : p) => x assigns it p -> p and closes the goal; p, whose type
+\ Prop is no proposition, is Lean's Type mismatch with the sorts.
+variable so
+: so-p ( -- type ) p-prop prop mv-opaque lf-mvar-new made dup so ! ;
+: id-p ( -- t ) p @ 0 lf-term-bvar 0= abort" bvar" lf-term-lam 0= abort" lam" ;
+: so-value ( -- t ) so @ lf-instantiate-mvars made ;
+' so-p stating  ' id-p chosen !
+T{ s" n by-exact end t" proof nrun so-value lf-term-pi? -> outcome-ok true }T
+T{ so-value lf-term-first@ p @ = so-value lf-term-second@ p @ = -> true true }T
+' p-term chosen !
+T{ s" n by-exact end t" proof nrun err -> outcome-invalid 96 1 45 }T
+T{ detail s\"   p\nhas type\n  Prop\nof sort `Type` but is expected to have type\n  ?m.1\nof sort `Prop`"
+   compare -> 0 }T
 \ No term elaborator (plan FE1e): 71 at the word.
 ' imp-p stating
 ' tcr-unelaborated is lf-tac-elab
@@ -254,19 +282,31 @@ T{ refl-head lf-term-first@ lf-cref-slot lf-cref-pairs drop 0 lf-cref-pair@ drop
 T{ s" by-rfl end t" proof nrun err -> outcome-invalid 97 1 43 }T
 T{ detail s\"   p\nis not definitionally equal to the right-hand side\n  q\n\np q : Prop\n⊢ p = q"
    compare -> 0 }T
-\ Not an equation: 93 (p; Ne p q, a relation of three arguments too, which
-\ Lean's apply_rfl would try with @[refl] lemmas, plan FE5); not equal
-\ with a metavariable in a side: 93.
+\ Not an equation: 93 (p; Ne p q, whose whnf is p = q -> False and which
+\ Lean's applyRfl refuses as no binary relation, a message not ported:
+\ the macro's exact alternatives are not ported either, plan FE5); not
+\ equal with a metavariable in a side: applyRfl's approxDefEq says no too,
+\ 97 with the metavariable, as pinned Lean's 0 = ?n + 1 (plan 9.4.8l).
 ' just-p stating
 T{ s" by-rfl end t" proof nrun err -> outcome-unsupported 93 1 43 }T
 : ne-pq ( -- type )
   p-prop prop s" q" binder q ! level1 0 u! s" Ne" 1 cst prop app p @ app q @ app ;
 ' ne-pq stating
 T{ s" by-rfl end t" proof nrun err -> outcome-unsupported 93 1 43 }T
+\ A relation of three arguments other than Eq, which whnf leaves (R p p p,
+\ R a variable): Lean's applyRfl looks for @[refl] lemmas (plan FE5), 93.
+variable rr
+: r-ppp ( -- type )
+  p-prop prop prop prop prop arrow arrow arrow s" R" binder rr !
+  rr @ p @ app p @ app p @ app ;
+' r-ppp stating
+T{ s" by-rfl end t" proof nrun err -> outcome-unsupported 93 1 43 }T
 : eq-hole ( -- type )
   p-prop prop s" q" binder q ! p @ q @ prop mv-natural lf-mvar-new made arrow eq-of ;
 ' eq-hole stating
-T{ s" by-rfl end t" proof nrun err -> outcome-unsupported 93 1 43 }T
+T{ s" by-rfl end t" proof nrun err -> outcome-invalid 97 1 43 }T
+T{ detail s\"   p\nis not definitionally equal to the right-hand side\n  q → ?m.1\n\n"
+   search nip nip -> true }T
 
 \ Sides that differ but are definitionally equal (two proofs of p, by
 \ proof irrelevance): Lean's Eq.refl takes the left side (MVarId.refl,

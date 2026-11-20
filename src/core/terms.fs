@@ -310,9 +310,9 @@ begin-structure /lf-sought
   field: lf-sought-second
 end-structure
 : lf-sought! ( tag first second key -- )
-  tuck lf-sought-second ! tuck lf-sought-first ! lf-sought-tag ! ;
+  lf-sought-tag cell-triple! ;
 : lf-sought@ ( key -- tag first second )
-  dup lf-sought-tag @ over lf-sought-first @ rot lf-sought-second @ ;
+  lf-sought-tag cell-triple@ ;
 : lf-sought= ( tag first second key -- flag )
   >r r@ lf-sought-second @ = swap r@ lf-sought-first @ = and
   swap r> lf-sought-tag @ = and ;
@@ -543,6 +543,10 @@ lf-data-ranges 3 * constant lf-data-flags
 : lf-term-data@ ( node -- data true | false )
   dup lf-term-valid? 0= if drop false exit then
   lf-term-data-word dup lf-data-known? dup 0= if nip then ;
+\ Whether node's cached data says it holds no universe parameter (Lean's
+\ !hasLevelParam); false for a node without data.
+: lf-term-no-params? ( node -- flag )
+  lf-term-data@ if lf-data-params? 0= else false then ;
 \ Data of a leaf (tag first second -- data): bound variables here; the
 \ hook knows the other leaves of the checker (set while loading by
 \ core/constant-term-boundary.fs).

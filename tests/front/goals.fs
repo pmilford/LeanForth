@@ -297,6 +297,36 @@ T{ floose floose eq 0 0 goal goal-text 2drop s" ⊢ _fvar." cap-has? -> true }T
 T{ cap-reset fw fw eq fuel lf-print-term cap s" w = w" compare -> outcome-ok 0 }T
 lf-view-empty lf-mctx-view!
 T{ cap-reset fw fuel lf-print-term cap s" _fvar." search nip nip -> outcome-ok true }T
+\ A tag with macro scopes (an inaccessible binder's: apply's and rewrite's
+\ new metavariables) prints erased, with ✝, as Lean's sanitizer gives it
+\ (plan 9.4.8l R: ?a✝, not ?a.«_@»._internal._hyg.0).
+nat mv-natural lf-mvar-new made constant mh
+mh s" a._@._internal._hyg" nm 0 nm# lf-mvar-tag! must-ok
+T{ mh mq eq 0 0 goal goal-text 2drop s" ⊢ ?a✝ = ?q" cap-has? -> true }T
+\ lf-with-names: a message's term named as a goal of that context names
+\ it (plan 9.4.8l O): the inaccessible n prints n✝, the plain name
+\ outside; inside a goal print the goal's own names stay (here an empty
+\ context's: _fvar.N); a throw puts the printer's state back.
+0 nat s" n" hyp-hidden constant fhid9 constant vhid9
+: hidprint ( t -- outcome ) fuel lf-print-term ;
+T{ cap-reset fhid9 ' hidprint vhid9 lf-with-names cap s" n✝" compare gp gp-active @
+   -> outcome-ok 0 false }T
+T{ vhid9 lf-mctx-view! cap-reset fhid9 hidprint cap s" n" compare -> outcome-ok 0 }T
+lf-view-empty lf-mctx-view!
+: hidinside ( -- outcome )
+  lf-view-empty gp gp-view ! true gp gp-active ! fhid9 ['] hidprint vhid9 lf-with-names
+  false gp gp-active ! ;
+T{ cap-reset hidinside cap s" _fvar." search nip nip -> outcome-ok true }T
+: hidthrows ( t -- ) drop -77 throw ;
+T{ fhid9 ' hidthrows vhid9 ' lf-with-names catch nip nip nip gp gp-active @ -> -77 false }T
+\ No room for the names' codes (the heap refusing gp-codes' block, given
+\ back first): the plain names (n in its own context), never codes not
+\ made (review tactic-fidelity L4).
+: codes-anew ( -- ) gp-codes dup slab-unit over slab-limit rot dup slab-free slab-init drop ;
+T{ vhid9 lf-mctx-view! codes-anew 1 heap-refusals ! cap-reset fhid9 ' hidprint vhid9
+   lf-with-names heap-refusals @ 0 heap-refusals ! cap s" n" compare gp gp-active @
+   -> outcome-ok 0 0 false }T
+lf-view-empty lf-mctx-view!
 \ Failures: no goal, a stale one, an instantiation that is unsupported;
 \ the printer's notation flag is restored whatever happens.
 false lf-print-notation!
@@ -339,6 +369,16 @@ T{ lf-form-mdata lf-hterm-unsupported must drop dup fuel lf-print-same? nat nat 
 0 nat t-prop t-pi s" p" hyp constant fp constant vp
 T{ nat fp 0 t-var t-app t-pi s" x" ex. 0 vp goal goal-text s\" p : Nat → Prop\n⊢ ∀ (x : Nat), p x"
    compare -> 0 }T
+\ Tombstones numbered as Lean's sanitizeNames numbers them (review of
+\ cleanup-families-2, L3): each counts the later locals renamed like it,
+\ so three inaccessible x's print x✝² x✝¹ x✝, and two shadowed x's under
+\ an accessible one x✝¹ x✝ x.
+g-fresh
+: three-x ( xt -- view ) >r 0 nat s" x" r@ execute drop nat s" x" r@ execute drop
+  nat s" x" r> execute drop ;
+T{ ' hyp-hidden three-x true. 0 rot goal goal-text s\" x✝² x✝¹ x✝ : Nat\n⊢ True" compare
+   -> 0 }T
+T{ ' hyp three-x true. 0 rot goal goal-text s\" x✝¹ x✝ x : Nat\n⊢ True" compare -> 0 }T
 \ Many goals: unsolved ones printed in order, a blank line between two.
 g-fresh
 : goals-n ( n -- list ) 0 swap 0 ?do true. 0 0 goal run-push made loop ;

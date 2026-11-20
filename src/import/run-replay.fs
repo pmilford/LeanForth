@@ -146,7 +146,7 @@ begin-structure /rp
   rp-room 1+ +field rp-old-buf
   aligned rr-text-room +field rp-new-buf
   aligned field: rp-code              \ the code of a difference here
-  field: rp-path-size
+  field: rp-path-size                 \ with the code: rp-saved, rp-restore
   rp-path-room +field rp-path-buf
   aligned field: rp-total             \ findings, all counted
   rp-kept /rp-finding * +field rp-findings
@@ -174,8 +174,8 @@ rp-depth 0 run-replay rp-writer jw-init 0= [if] .( run-replay.fs: writer) cr abo
 : rp-cut ( c-addr u n -- c-addr u' ) 2 pick -rot rp-whole ;
 : rp-path+ ( c-addr u -- )   \ append, cut between characters at the path's room
   rp-path-room run-replay rp-path-size @ - rp-cut run-replay rp-path-size cell-counted+! ;
-: rp-saved ( -- size code ) run-replay dup rp-path-size @ swap rp-code @ ;
-: rp-restore ( size code -- ) run-replay tuck rp-code ! rp-path-size ! ;
+: rp-saved ( -- code size ) run-replay rp-code cell-pair@ ;
+: rp-restore ( code size -- ) run-replay rp-code cell-pair! ;
 : rp-key+ ( c-addr u -- ) s" ." rp-path+ rp-path+ ;
 : rp-index+ ( n -- ) s" [" rp-path+ 0 ud>decimal rp-path+ s" ]" rp-path+ ;
 

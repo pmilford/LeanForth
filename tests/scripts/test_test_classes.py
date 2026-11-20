@@ -173,11 +173,12 @@ class Discovery(unittest.TestCase):
             shutil.rmtree(top, ignore_errors=True)
 
     def test_the_project_s_tactics(self):
-        # The tactics of slice a2-iii (branch tactic-lib-a2ii), found from their folders.
+        # The tactics of slice a2-iii (branch tactic-lib-a2ii) and of tactic batch 1 (plan row
+        # TB1), found from their folders, sorted.
         run = tier_fixture.subprocess.run(["make", "-s", "--no-print-directory", "--eval",
                                            "p: ; @echo [$(TACTIC_UNIT_TARGETS)][$(TACTIC_E2E_TARGETS)]", "p"],
                                           cwd=ROOT, env=tier_fixture.make_env(), capture_output=True, text=True)
-        names = ["apply", "assumption", "constructor"]
+        names = ["apply", "assumption", "clear", "constructor", "exfalso", "intros", "left", "right"]
         self.assertEqual(run.stdout.strip(),
                          "[" + " ".join(f"test-tactic-{n}" for n in names) + "]["
                          + " ".join(f"test-tactic-{n}-e2e" for n in names) + "]")

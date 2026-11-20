@@ -849,5 +849,11 @@ T{ export-blocks ex export-init kind-app ex export-handler @ ' export-refused = 
 T{ ex export-map-bytes -> 0 }T
 T{ ex export-free ex export-json json-tape @ ex export-reader reader-buffer @ export-blocks
    -> 0 0 0 }T
+\ The failure's marks, the field and why (review of cleanup-families-2,
+\ L3): export-marks gives them in the order export-marks! took them, as
+\ the shape check's caller puts them back, the key in export-key.
+create mark-key 1 c, char k c,  create mark-why 1 c, char w c,
+T{ mark-key mark-why ex export-marks! ex export-marks ex export-key @ -> mark-key mark-why mark-key }T
+T{ ex export-unmark ex export-marks -> 0 0 }T
 cases-done
 bye

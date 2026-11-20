@@ -34,6 +34,8 @@ T{ 777 999 true lf-hterm-result -> 777 false }T
 T{ 0 lf-hterm-bvar -> 1 term-serial true }T
 T{ 0 old-term-identity @ 1 term-serial lf-hterm-app -> 2 term-serial true }T
 T{ 2 term-serial 100 lf-hterm-check -> outcome-ok }T
+\ lf-made-term: a maker's index and ok, or -1 and full for its false.
+T{ 5 6 true lf-made-term 7 false lf-made-term -> 5 outcome-ok 7 -1 outcome-full }T
 \ Reset both arenas and reuse their indices. Old handles must not be accepted
 \ by the new session even when their integer indices are currently allocated.
 lf-term-reset lf-level-reset

@@ -418,4 +418,12 @@ T{ inst-pair inst1 drop halves nip fields nip nip fields -> lf-tag-app 2 0 }T
 s" ab" lf-str-new ok? drop drop constant str-ab
 2 lit-five lf-term-app drop str-ab lf-term-app drop constant lit-term
 T{ lit-term inst1 drop halves swap halves -> str-ab 0 lit-five }T
+\ A replace memo that cannot keep a result (lf-rmemo-kept, cell-pair!
+\ since cleanup-families-2): memo-put refused by the heap keeps nothing
+\ and leaves the stack clean; with room the result is kept.
+create t-rmemo /lf-rmemo allot  t-rmemo /lf-rmemo erase
+0 t-rmemo lf-rmemo-begin
+T{ 1 heap-refusals ! 7 8 t-rmemo lf-rmemo-kept t-rmemo lf-rmemo-count heap-refusals @ -> 0 0 }T
+T{ 7 8 t-rmemo lf-rmemo-kept t-rmemo lf-rmemo-count -> 1 }T
+t-rmemo lf-rmemo-release
 bye

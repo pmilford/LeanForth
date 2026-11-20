@@ -94,7 +94,7 @@ end-structure
 : lf-envsig-root ( decl -- root identity true | false )
   lf-idecl-type @ dup lf-term-identity if true else drop false then ;
 : lf-envsig-actuals ( -- pairs count fuel )
-  lf-envsig-request dup lf-esreq-pairs @ over lf-esreq-count @ rot lf-esreq-fuel @ ;
+  lf-envsig-request lf-esreq-pairs cell-triple@ ;
 \ Without universe arguments, the stored type itself, unvisited and free
 \ of charge, as instantiate_type_lparams returns it (instantiate.cpp
 \ 251-252), and as whnf.fs unfolds such a constant to its stored value.

@@ -18,6 +18,11 @@
 \   fvar, another local's type or (shown) value depends on it, or its type
 \   does (lf-depends-on?); else a new goal with the same type and tag in
 \   the context without fvar, the old goal assigned the new one.
+\ - lf-local-depends-on? ( lfvar fvar -- flag outcome ): Lean's
+\   localDeclDependsOn: lfvar's local's type, or its value when it is a
+\   let not hidden, depends on fvar (lf-depends-on?); MVarId.clear's test
+\   of each other local (meta-tactic/goal.fs's lf-goal-clear! names the
+\   first that does).
 \ - lf-goal-rename ( goal fvar name -- goal' outcome ): MVarId.rename,
 \   the same with fvar's local renamed (refused when assigned or absent).
 \ The proof state pst (Lean's Tactic.State, plus the root goal): the goal
@@ -54,12 +59,11 @@ begin-structure /pst
 end-structure
 /pst context-record: pst
 
-\ ---- Goals. A failure has no goal: -1 in its place.
-: gl-result ( goal outcome -- goal outcome ) dup ok? 0= if nip no-result then ;
-: gl-tagged ( tag goal -- goal outcome ) tuck swap lf-mvar-tag! gl-result ;
+\ ---- Goals. A failure has no goal: -1 in its place (ok-or-none).
+: gl-tagged ( tag goal -- goal outcome ) tuck swap lf-mvar-tag! ok-or-none ;
 : lf-goal-new ( type tag view -- goal outcome )
   over lf-user-name? 0= if drop 2drop -1 outcome-invalid exit then
-  >r swap mv-opaque r> lf-mvar-new-at ok-then? if gl-tagged else nip no-result then ;
+  >r swap mv-opaque r> lf-mvar-new-at ['] gl-tagged ok-apply2 ;
 : lf-goal-assigned? ( goal -- flag ) lf-mvar-value dup if nip then ;
 : lf-goal-unassigned? ( goal -- flag ) lf-goal-assigned? 0= ;
 \ A goal tactics may change: live and not assigned (checkNotAssigned).
@@ -71,7 +75,7 @@ end-structure
   >r dup lf-mvar-type drop swap lf-mvar-tag drop r> lf-goal-new ;
 : gl-replace ( goal view -- goal' outcome )
   over swap gl-new-like ok-then? 0= if nip no-result exit then
-  tuck lf-mvar-assign gl-result ;
+  tuck lf-mvar-assign ok-or-none ;
 
 \ Clearing (Lean's MVarId.clear): no other local's type, nor a let's
 \ value that is not hidden, may depend on fvar (localDeclDependsOn), nor
@@ -82,11 +86,11 @@ end-structure
 : gl-value-dep ( lfvar fvar -- flag outcome )
   over lf-fvar-let? 0= if 2drop false outcome-ok exit then
   swap lf-fvar-value swap lf-depends-on? ;
-: gl-local-dep ( lfvar fvar -- flag outcome )
+: lf-local-depends-on? ( lfvar fvar -- flag outcome )
   2dup gl-type-dep gl-decided? if 2swap 2drop else gl-value-dep then ;
-: gl-fvar-at ( view i -- fvar ) lf-view-local lf-local-fvar ;
 : gl-dep-at ( view fvar i -- view fvar flag outcome )
-  >r over r> gl-fvar-at over 2dup = if 2drop false outcome-ok else gl-local-dep then ;
+  >r over r> lf-view-fvar over 2dup = if 2drop false outcome-ok exit then
+  lf-local-depends-on? ;
 : gl-others-dep ( view fvar -- flag outcome )
   over lf-view-count ['] gl-dep-at ok-any? 2swap 2drop ;
 : gl-none ( flag outcome -- outcome ) dup ok? if drop 0= flag>outcome else nip then ;
@@ -99,13 +103,13 @@ end-structure
   over gl-open? 0= if 2drop outcome-invalid exit then
   2dup gl-has? if gl-free-of else 2drop outcome-invalid then ;
 : gl-cleared ( goal fvar -- goal' outcome )
-  over gl-view swap lf-view-erase ok-then? if gl-replace else nip no-result then ;
+  over gl-view swap lf-view-erase ['] gl-replace ok-apply2 ;
 : lf-goal-clear ( goal fvar -- goal' outcome )
   2dup gl-clearable dup ok? if drop gl-cleared else nip nip no-result then ;
 
 \ Renaming (MVarId.rename).
 : gl-renamed ( goal fvar name -- goal' outcome )
-  >r over gl-view swap r> lf-view-rename ok-then? if gl-replace else nip no-result then ;
+  >r over gl-view swap r> lf-view-rename ['] gl-replace ok-apply2 ;
 : lf-goal-rename ( goal fvar name -- goal' outcome )
   rot dup gl-open? if -rot gl-renamed else drop 2drop -1 outcome-invalid then ;
 
@@ -133,7 +137,7 @@ end-structure
   dup run-count 0= if drop -1 outcome-invalid exit then
   dup gl-set 0 run@ outcome-ok ;
 : lf-main-goal ( -- goal outcome )
-  lf-goals dup gl-first-open run-after ok-then? if gl-main else no-result then ;
+  lf-goals dup gl-first-open run-after ['] gl-main ok-apply ;
 : gl-tail ( -- list outcome )
   lf-goals dup run-count 0= if drop -1 outcome-invalid else 1 run-after then ;
 : gl-set-ok ( list outcome -- outcome ) ok-then? if gl-set outcome-ok then ;

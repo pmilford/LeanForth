@@ -195,6 +195,11 @@ T{ 0 1 lf-term-pi 2drop  6 lf-term-data@ -> false }T
 T{ 1 20 lshift 2 - lf-term-bvar drop lf-term-data@ -> false }T
 T{ 1 20 lshift 3 - lf-term-bvar drop lf-term-data@ -> 1 20 lshift 2 - true }T
 T{ 99 lf-term-data@ -1 lf-term-data@ -> false false }T
+\ lf-term-no-params?: data without the parameter bit (node 1, a bound
+\ variable); none for a node without data (0, a Sort; 6, a Pi over it) or
+\ an index not allocated.
+T{ 1 lf-term-no-params? 0 lf-term-no-params? 6 lf-term-no-params? 99 lf-term-no-params?
+   -> true false false false }T
 lf-term-reset
 
 \ Hash-consing (compact-store plan step S3): an equal record is the node

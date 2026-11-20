@@ -2,8 +2,10 @@
 \ FE1G_TACTICS.md 5.1; moved onto the tactic library by plan 9.4.8l-I), a
 \ port of Lean 4.35.0's evalIntro (src/lean/Lean/Elab/Tactic/
 \ BuiltinTactic.lean) for one name: liftMetaTactic of MVarId.introN 1
-\ (meta-tactic/goal.fs's lf-goal-intro-n), the binder's kind the node's,
-\ which must be explicit. NAME is the hypothesis's name; _ gives the
+\ (meta-tactic/goal.fs's lf-goal-intro-n), the binder's kind the node's:
+\ explicit, implicit or strict implicit, as Lean's intro (plan row TB1,
+\ 2026-11-19; an instance binder needs a local instance, plan FE3, 99).
+\ NAME is the hypothesis's name; _ gives the
 \ binder's own, inaccessible. Not supported yet (99): the name rfl (Lean's
 \ intro rfl substitutes, plan FE5). The goal's errors (94, 93, 99) are
 \ lf-goal-intro-n's.

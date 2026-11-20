@@ -144,7 +144,7 @@ end-structure
 \ bindingBody!.instantiate1 x, the step of every telescope).
 : lf-meta-open ( binder x -- body outcome )
   swap lf-term-second@ swap lf-meta-instantiate1 ;
-: in-xs! ( addr n -- ) in-state tuck in-xs# ! in-xs ! ;
+: in-xs! ( addr n -- ) in-state in-xs cell-pair! ;
 : lf-meta-abstract ( term addr n -- term' outcome )
   dup 0< if 2drop drop -1 outcome-invalid exit then
   rot dup lf-term-root? 0= if drop 2drop -1 outcome-invalid exit then

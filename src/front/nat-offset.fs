@@ -53,6 +53,7 @@ require ../core/levels.fs
 require ../core/literals.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
+require ../core/generation-handles.fs
 require ../core/mvar-leaves.fs
 require ./meta-spine.fs
 require ./term-eqv.fs
@@ -72,7 +73,7 @@ end-structure
 : no-split ( c-addr u -- c-addr i rest u' )
   2dup s" ." search if 2>r r@ - 2r> 1 /string else 2drop 0 -1 then ;
 : no-seek ( prefix c-addr i -- name outcome )
-  lf-name-str if outcome-ok else -1 outcome-full then ;
+  lf-name-str room-result ;
 : no-name ( c-addr u -- name outcome )
   0 -rot begin no-split 2>r no-seek ok-then? 0= if 2r> 2drop no-result exit then
   2r> dup 0< until 2drop outcome-ok ;
@@ -82,19 +83,17 @@ end-structure
   no-zero? 0= if drop outcome-invalid exit then
   0 ?do 0 lf-level-identity 0=
   if unloop outcome-invalid exit then 0 i no-pair 2! loop outcome-ok ;
-: no-made ( index identity true | false -- term outcome )
-  if drop outcome-ok else -1 outcome-full then ;
 : no-ref ( name -- term outcome )
   lf-name-generation @ 0 no-pair no no-k @ lf-cref-new 0= if -1 outcome-full exit then
-  lf-cterm-new no-made ;
+  lf-cterm-new lf-made-term ;
 : no-const ( c-addr u k -- term outcome )
   no no-k ! no-name ok-then? 0= if no-result exit then
   no no-k @ no-zeros dup ok? if drop no-ref else nip no-result then ;
 : no-app ( f a outcome -- t outcome )
   dup ok? 0= if nip nip no-result exit then
-  drop lf-term-app if outcome-ok else -1 outcome-full then ;
+  drop lf-term-app room-result ;
 : lf-meta-nat ( -- term outcome ) s" Nat" 0 no-const ;
-: no-lit ( u -- term outcome ) lf-hterm-cell no-made ;
+: no-lit ( u -- term outcome ) lf-hterm-cell lf-made-term ;
 
 \ ---- mkNatLit and mkNatAdd.
 : no-app-nat ( f outcome -- t outcome )
@@ -139,8 +138,6 @@ texts-end constant no-ops6
 : no-unported? ( t -- flag )
   lf-meta-head-args no-ops ?dup if ['] lf-meta-const-named? swap texts-find 0<>
   else drop false then ;
-\ The last two arguments of an addition.
-: no-sides ( e -- a b ) dup lf-term-first@ lf-term-second@ swap lf-term-second@ ;
 
 \ ---- evalNat: the terms to evaluate on no-stack, the first argument on
 \ top; each value adds to no-acc. A step's code: 0 go on, 1 no value.
@@ -152,7 +149,7 @@ texts-end constant no-ops6
 : no-push-arg ( t i n -- outcome ) lf-meta-nth-arg no-push ;
 \ An addition's two summands, the first on top.
 : no-push-sides ( t -- code outcome )
-  no-sides swap >r no-push dup ok? if drop r> no-push else r> drop then 0 swap ;
+  lf-meta-args2 no-push swap no-push outcome-and 0 swap ;
 : no-lit-step ( lit -- code outcome )
   dup lf-lit-small? if lf-lit-cell no-add-acc 0 swap
   else drop 0 outcome-unsupported then ;
@@ -208,10 +205,10 @@ texts-end constant no-ops6
 : no-fail ( outcome -- 0 0 code ) no no-out ! 0 0 no-failed ;
 : no-inst-layer ( e n -- a b code )
   over swap no-inst-ok? dup ok? 0= if nip nip no-fail exit then drop
-  if no-sides no-sum-at else drop 0 0 no-foreign then ;
+  if lf-meta-args2 no-sum-at else drop 0 0 no-foreign then ;
 : no-layer ( e -- a b code )
   dup lf-meta-succ? if 0 1 lf-meta-nth-arg 0 no-succ-at exit then
-  dup 2 s" Nat.add" lf-meta-app-of? if no-sides no-sum-at exit then
+  dup 2 s" Nat.add" lf-meta-app-of? if lf-meta-args2 no-sum-at exit then
   dup 4 s" Add.add" lf-meta-app-of? if 4 no-inst-layer exit then
   dup 6 s" HAdd.hAdd" lf-meta-app-of? if 6 no-inst-layer else 0 no-plain then ;
 \ v more for the offset: false when it passes a cell.
@@ -245,7 +242,7 @@ texts-end constant no-ops6
   dup 0= if drop outcome-ok exit then
   over lf-meta-eval-nat ok-then2? 0= if nip nip no-result exit then
   swap 0= and if nip lf-meta-nat-lit exit then
-  lf-meta-nat-lit ok-then? if no-add else nip no-result then ;
+  lf-meta-nat-lit ['] no-add ok-apply2 ;
 
 \ ---- reduceRec's clean-up of a major premise (WHNF.lean:247-248, plan S2
 \ merge B): toCtorIfLit (23) and cleanupNatOffsetMajor (216).
@@ -255,11 +252,11 @@ texts-end constant no-ops6
 : no-lit-ctor ( lit -- e outcome )
   dup lf-lit-small? 0= if drop outcome-unsupported no-result exit then
   lf-lit-cell ?dup 0= if s" Nat.zero" 0 no-const exit then
-  1- no-lit ok-then? if no-succ else no-result then ;
+  1- no-lit ['] no-succ ok-apply ;
 : lf-meta-ctor-if-lit ( e -- e' outcome )
   dup lf-lit-leaf? if no-lit-ctor else outcome-ok then ;
 : no-plus ( s k -- t outcome )
-  lf-meta-nat-lit ok-then? if no-add else nip no-result then ;
+  lf-meta-nat-lit ['] no-add ok-apply2 ;
 : no-cleanup ( s k -- e' outcome )
   ?dup 0= if outcome-ok exit then
   1- ?dup if no-plus ok-then? 0= if no-result exit then then no-succ ;

@@ -12,6 +12,11 @@
 \   lf-infer! ( e -- type )           inferType
 \   lf-level! ( type -- level )       getLevel
 \   lf-defeq! ( t s -- flag )         isDefEq (the configuration in force)
+\   lf-defeq-approx! ( t s -- flag )  approxDefEq <| isDefEqGuarded
+\                                     (Basic.lean:2125): foApprox, ctxApprox
+\                                     and quasiPatternApprox added to the
+\                                     configuration in force (meta-config.fs's
+\                                     lf-with-approx); apply's and rfl's test
 \   lf-instantiate! ( e -- e' )       instantiateMVars
 \   lf-has-open-mvar? ( e -- flag )   whether e holds a metavariable
 \                                     neither assigned nor delayed-assigned
@@ -33,12 +38,34 @@
 \                                     after each word that may claim on slab
 \                                     (rule below)
 \   lf-defeq-elab-at ( t s mode -- flag outcome ) the tactics' isDefEq:
-\                                     the elaborator's flags at transparency
-\                                     mode, the stuck signal made invalid
-\                                     (outcome-sane); no THROW
+\                                     the elaborator's flags added to the
+\                                     configuration in force, at
+\                                     transparency mode, the stuck signal
+\                                     made invalid (outcome-sane); no THROW
 \   lf-tac-defeq ( t s -- flag outcome ) the same at default transparency
 \   lf-found ( x true | false -- x )  a lookup's answer, none thrown invalid
 \                                     (a record LeanForth made is missing: a fault)
+\   lf-match-const-induct ( f -- d true | false ) matchConstInduct
+\                                     (MonadEnv.lean:64) of a head f: d
+\                                     its declaration when f is the
+\                                     constant of an inductive type; false
+\                                     for any other term, a name no
+\                                     declaration has (Lean's find? none)
+\                                     or a declaration of another kind; a
+\                                     lookup that cannot answer (no room, a
+\                                     library declaration not decoded)
+\                                     thrown. (Here, not in meta-env.fs,
+\                                     which lies below this file and
+\                                     throws nothing.)
+\   lf-with-cells ( i*x n slab xt -- j*x ) xt ( i*x addr -- j*x ) run
+\                                     with n cells claimed on slab (units
+\                                     of a cell; Lean's Array of n, such as
+\                                     introN's free variables), addr the
+\                                     first's, not erased, given back
+\                                     however xt ends; addr is valid while
+\                                     nothing else claims on slab
+\                                     (slab.fs), so xt never nests a claim
+\                                     on the same slab
 \   lf-goal-type lf-goal-tag lf-goal-view lf-goal-kind ( goal -- x )
 \                                     MVarId.getType (as stored), getTag, the
 \                                     goal's local context and kind (getDecl);
@@ -68,8 +95,11 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/slab.fs
+require ../core/input.fs
+require ../core/constant-term-boundary.fs
 require ./mvars.fs
 require ./meta-config.fs
+require ./meta-env.fs
 require ./whnf.fs
 require ./infer.fs
 require ./defeq.fs
@@ -106,20 +136,23 @@ require ./term-find.fs
 : lf-infer! ( e -- type ) lf-infer lf-must ;
 : lf-level! ( type -- level ) lf-get-level lf-must ;
 : lf-defeq! ( t s -- flag ) lf-meta-defeq outcome-sane lf-must ;
+: lf-defeq-approx! ( t s -- flag )
+  ['] lf-meta-defeq-guarded lf-with-approx outcome-sane lf-must ;
 : lf-instantiate! ( e -- e' ) lf-instantiate-mvars lf-must ;
 : lf-has-open-mvar? ( e -- flag ) ['] lf-mvar-open? lf-term-holds? lf-must ;
-\ isDefEq in the elaborator's configuration at transparency mode
+\ isDefEq with the elaborator's flags (TermElabM's setElabConfig: foApprox
+\ and ctxApprox) added to the configuration in force, at transparency mode
 \ (lf-meta-with: defeq's own configuration and mode put back however it
-\ ends), an internal code such as the stuck signal made invalid.
-\ Fidelity gap, kept by the moves of plan 9.4.8l I and to be changed in
-\ its fidelity commit after them: the flags and the mode are set outright,
-\ as the moved code (tactic-basic.fs's lfb-defeq) set them, where Lean's
-\ scopes (withReducible, withAssignableSyntheticOpaque, approxDefEq) each
-\ change only their own part of the configuration in force; so a bit set
-\ around a caller, such as fix J's assignable synthetic opaque bit around
-\ tactic-core.fs's lf-tac-elab-ensuring, is lost here.
+\ ends), an internal code such as the stuck signal made invalid. A bit a
+\ caller's scope sets, as Lean's withAssignableSyntheticOpaque and
+\ approxDefEq do (meta-config.fs), stays set (plan 9.4.8l, review
+\ tactic-move M2: elabTermEnsuringType's, tactic-core.fs). Lean's
+\ setElabConfig (Elab/Config.lean:61-62) also clears constApprox and
+\ quasiPatternApprox, once, when TermElabM starts; OR-ing gives the same
+\ configuration: no caller of this word holds those bits, and inside
+\ TermElabM a scope's bits stay set in Lean too (review tactic-fidelity L5).
 : lf-defeq-elab-at ( t s mode -- flag outcome )
-  ['] lf-meta-defeq lf-defeq-elab rot lf-meta-with outcome-sane ;
+  ['] lf-meta-defeq lf-defeq-flags lf-defeq-elab or rot lf-meta-with outcome-sane ;
 : lf-tac-defeq ( t s -- flag outcome ) lf-tr-default lf-defeq-elab-at ;
 
 \ ---- commitWhen: the metavariable context marked, xt run; its changes
@@ -142,6 +175,15 @@ require ./term-find.fs
 : lf-goal-kind ( goal -- kind ) lf-mvar-kind lf-found ;
 : lf-with-goal ( i*x goal xt -- j*x ) swap lf-goal-view lf-with-view ;
 
+\ ---- matchConstInduct: a head's declaration, when it is an inductive type.
+: mm-inductive ( d -- d true | false )
+  dup lf-menv-kind lf-kind-inductive = dup 0= if nip then ;
+: mm-declared ( name -- d true | false )
+  lf-menv-find dup outcome-invalid = if 2drop false exit then lf-must true ;
+: lf-match-const-induct ( f -- d true | false )
+  dup lf-term-const? 0= if drop false exit then
+  lf-const-name mm-declared dup if drop mm-inductive then ;
+
 \ ---- A call's working record: a frame per call open on the slab, so
 \ that a call inside another has its own (slice LA item 5), freed on both
 \ paths. Rule (review tactic-move M1): xt is given no address. A claim on
@@ -155,4 +197,9 @@ require ./term-find.fs
   1 over slab-claim lf-must over slab-at swap slab-unit erase ;
 : lf-with-record ( i*x slab xt -- j*x )
   over dup slab-count 2>r swap mm-frame catch 2r> swap slab-cut throw ;
+\ n cells claimed on top of slab, the first's address to xt, the slab cut
+\ back to its count before however xt ends.
+: mm-cells ( n slab -- addr ) tuck slab-claim lf-must swap slab-at ;
+: lf-with-cells ( i*x n slab xt -- j*x )
+  over dup slab-count 2>r -rot mm-cells swap catch 2r> swap slab-cut throw ;
 base !   \ the BASE this file was loaded with

@@ -113,7 +113,7 @@ require ./term-eqv.fs
   swap uf-levels lf-meta-levels-fill ok-then? 0= if nip no-result exit then
   uf-sun-body ok-then? if swap uf-at-levels else nip no-result then ;
 : uf-sbeta ( body -- e1 outcome )
-  uf-args lf-meta-apply-all ok-then? if lf-meta-head-beta-keep else no-result then ;
+  uf-args lf-meta-apply-all ['] lf-meta-head-beta-keep ok-apply ;
 : uf-smart ( e d const s -- e1 code outcome )
   uf-body ok-then? 0= if nip uf-fail exit then
   uf-sbeta ok-then? if nip lf-unfold-ask-smart outcome-ok else nip uf-fail then ;

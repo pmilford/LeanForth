@@ -156,7 +156,8 @@ is elaborated yet:
 | `by-rfl`, `by-intro: NAME` | `( -- )` | a tactic step; `by-intro:`'s name (or `_`) is a hypothesis until its block ends |
 | `by-sorry` | `( -- )` | Lean's `sorry` tactic: closes the main goal with `sorryAx` (an open part; the declaration is NOT PROVED); 90 when no goal is left |
 | `t by-apply`, `by-assumption`, `by-constructor` | `( t -- )`, `( -- )`, `( -- )` | ports of Lean's `apply`, `assumption` and `constructor` (tactic plug-in design, slice a2-iii; `src/front/tactics/`, on the goal layer `src/front/meta-tactic/`): 380 no argument count makes t's conclusion fit, 125 an instance not found, 384 an instance found but not fitting, 381 no hypothesis has the goal's type, 382 the goal is no inductive type, 383 no constructor applies, 99 a case not ported |
-| `by-intro: NAME`, `t by-exact`, `by-rfl`, run | | as Lean's `intro`, `exact` and `rfl` (plan FE1g-4, `src/front/tactics/intro.fs`, `exact.fs`, `rfl.fs`): 94 no binder to introduce, 95 a metavariable left unassigned, 96 a type mismatch, 97 two sides not definitionally equal, 98 a term the goal cannot take, 99 a case not supported yet (`intro rfl`, a `let`, a binder not known explicit), 93 a step of the Meta layer not ported yet |
+| `by-left`, `by-right`, `by-exfalso`, `by-intros`, `t by-clear` | `( -- )`, `( -- )`, `( -- )`, `( -- )`, `( t -- )` | ports of Lean's `left`, `right`, `exfalso`, `intros` and `clear t` (tactic batch 1, plan row TB1; `src/front/tactics/`, on the goal layer `src/front/meta-tactic/`): 385 and 387 the goal is no inductive type, 386 and 388 it has not two constructors, 380 the constructor does not fit; `by-exfalso` none of its own; `by-intros` introduction's 99 (a `let`, an instance binder) and 93; 389 t is no single hypothesis, 441 another hypothesis depends on it, 442 the goal does, 440 a variable of no context of the goal's (no text reaches it) |
+| `by-intro: NAME`, `t by-exact`, `by-rfl`, run | | as Lean's `intro`, `exact` and `rfl` (plan FE1g-4, `src/front/tactics/intro.fs`, `exact.fs`, `rfl.fs`): 94 no binder to introduce, 95 a metavariable left unassigned, 96 a type mismatch, 97 two sides not definitionally equal, 98 a term the goal cannot take, 99 a case not supported yet (`intro rfl`, a `let`, a binder of no known kind, an instance binder; implicit and strict-implicit binders are introduced, plan row TB1), 93 a step of the Meta layer not ported yet |
 | `\| TAG NAMES… =>`, `by-case: TAG NAMES… =>` | `( -- )` | an alternative of the `by-induction-with` it is right inside (up to the next `\|` or `by-end`), a case block (up to its `by-end`); the header on one line, its names hypotheses of the block |
 | `by-end` | `( -- )` | closes the innermost `by-induction-with` or `by-case:` |
 | `by-rw[`, `by-rewrite[` … `]` | `( -- )`, `( r1 .. rn -- )` | the values built between the brackets are the rules, in order; a hypothesis there takes no values (applied with `$`: `ih k $`) |
@@ -504,11 +505,19 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 219 | invalid | Invalid rewrite argument: The pattern to be substituted is a metavariable |
 | 220 | invalid | Occurs check failed: Expression |
 | 300 | full | out of room: a Forth stack, the dictionary or the heap, with its THROW code |
+| 440 | invalid | Tactic `clear` failed: unknown variable |
+| 441 | invalid | Tactic `clear` failed: variable |
+| 442 | invalid | Tactic `clear` failed: target depends on |
+| 389 | invalid | Unexpected term |
 | 380 | invalid | Tactic `apply` failed: could not unify the |
 | 384 | invalid | Tactic `apply` failed: failed to assign synthesized instance |
 | 381 | invalid | Tactic `assumption` failed |
 | 382 | invalid | Tactic `constructor` failed: target is not an inductive datatype |
 | 383 | invalid | Tactic `constructor` failed: no applicable constructor found |
+| 385 | invalid | Tactic `left` failed: target is not an inductive datatype |
+| 386 | invalid | Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors |
+| 387 | invalid | Tactic `right` failed: target is not an inductive datatype |
+| 388 | invalid | Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors |
 
 Codes come in ranges (`src/author/errors.fs`): 1 to 73 the words, the
 runner, the stores and natural text read (FE1a); 74 to 79 elaboration and

@@ -100,12 +100,31 @@ T{ 0 some-cells pair-at some-cells = 2 some-cells pair-at some-cells 4 cells + =
 T{ 2 some-cells pair-at @ 1 some-cells pair-at 2@ -> 0 -1 9 }T
 T{ 0 24 some-cells record-at some-cells = 3 24 some-cells record-at some-cells 72 + = -> true true }T
 T{ 2 5 some-cells ' record-at rs-checked some-cells - -> 10 }T
+\ cell-pair@, cell-pair! (cleanup-families-2): two adjacent cells in the
+\ order they lie in memory, x1 at addr: the reverse of 2@'s and 2!'s.
+create two-cells 0 , 0 ,
+T{ 5 7 two-cells cell-pair! two-cells @ two-cells cell+ @ -> 5 7 }T
+T{ two-cells cell-pair@ two-cells 2@ -> 5 7 7 5 }T
+T{ 1 some-cells pair-at cell-pair@ 0 some-cells pair-at cell-pair@ -> 9 -1 4 -1 }T
+T{ -1 0 two-cells ' cell-pair! rs-checked two-cells ' cell-pair@ rs-checked -> -1 0 }T
+T{ two-cells @ two-cells cell+ @ -> -1 0 }T
+\ cell-triple@, cell-triple! (cleanup-families-2): three adjacent cells in
+\ memory order, x1 at addr.
+create three-cells 0 , 0 , 0 , 0 ,
+T{ 5 7 9 three-cells cell-triple! three-cells @ three-cells cell+ @ three-cells 2 cells + @
+   three-cells 3 cells + @ -> 5 7 9 0 }T
+T{ three-cells cell-triple@ -> 5 7 9 }T
+T{ 0 some-cells pair-at cell-triple@ 1 some-cells pair-at cell-triple@ -> 4 -1 9 9 -1 0 }T
+T{ -1 0 1 three-cells ' cell-triple! rs-checked three-cells ' cell-triple@ rs-checked -> -1 0 1 }T
 \ cell-tally (reuse-d): one more in cell i of an array of counts.
 create tallies 0 , 5 , 0 ,
 T{ 1 tallies cell-tally 1 tallies cell-tally 2 tallies cell-tally -> }T
 T{ 0 tallies cell-at@ 1 tallies cell-at@ 2 tallies cell-at@ -> 0 7 1 }T
 \ first-nonzero (reuse-d): the first of two that is not zero, else zero.
 T{ 3 4 first-nonzero 0 4 first-nonzero -2 0 first-nonzero 0 0 first-nonzero -> 3 4 -2 0 }T
+\ first-or-second (cleanup-families-1): x1 for place 1, x2 for any other.
+T{ 3 4 1 first-or-second 3 4 2 first-or-second 3 4 0 first-or-second 3 4 -1 first-or-second
+   -> 3 4 4 4 }T
 \ epoch+ (reuse-d; was store.fs's and slab.fs's): one step on, max-n
 \ saturates to -1, and a negative generation stays.
 T{ 0 epoch+ 41 epoch+ max-n 1- epoch+ max-n epoch+ -1 epoch+ -7 epoch+ -> 1 42 max-n -1 -1 -7 }T
@@ -538,6 +557,18 @@ T{ rd-at-same? rd-pair-same? -> true true }T
 T{ 5 outcome-ok ' rd-step ok-apply 5 outcome-rejected ' rd-step ok-apply
    -> 15 outcome-unknown -1 outcome-rejected }T
 T{ 4 5 outcome-ok ' rd-step ' ok-apply rs-checked -> 4 15 outcome-unknown }T
+\ ok-apply2 (cleanup-families-2) in place of `ok-then? if y else nip
+\ no-result then`, a step of two values: the old text, kept as the
+\ model, and the word leave the same stack for every outcome and one
+\ outside the vocabulary; both values are dropped on a failure.
+: rd-step2 ( x1 x2 -- x' outcome ) 10 * + outcome-unknown ;
+: rd-old-apply2 ( x1 x2 outcome -- x' outcome' ) ok-then? if rd-step2 else nip no-result then ;
+: rd-apply2-same? ( outcome -- flag )
+  >r 3 5 r@ rd-old-apply2 3 5 r> ['] rd-step2 ok-apply2 d= ;
+T{ ' rd-apply2-same? rd-all-same? -> true }T
+T{ 3 5 outcome-ok ' rd-step2 ok-apply2 3 5 outcome-full ' rd-step2 ok-apply2
+   -> 53 outcome-unknown -1 outcome-full }T
+T{ 4 3 5 outcome-ok ' rd-step2 ' ok-apply2 rs-checked -> 4 53 outcome-unknown }T
 \ room-result: a store's x true is x and ok, its false is -1 and full;
 \ any nonzero flag counts as true (IF's reading), the values below untouched.
 T{ 5 7 true room-result 5 false room-result -> 5 7 outcome-ok 5 -1 outcome-full }T
@@ -728,21 +759,28 @@ T{ neg-cells 5 ' cell-neg? find-last-index neg-cells 3 ' cell-neg? find-last-ind
 T{ neg-example 3 ' cell-neg? find-last-index neg-example 1 ' cell-neg? find-last-index
    -> 2 true false }T
 T{ find-base [defined] find-last-index -> 16 true }T
-\ count-index (review tactic-move-c4 B4): how many k < n pass the test
-\ ( k -- flag ), every k tried once in order; 0 for n <= 0; a true flag
-\ other than -1 counts one; the return stack balanced; a test that counts
-\ in turn (the inner loop's j its own); the header's example.
-: odd-k ( k -- flag ) dup step-trail @ 10 * + 1+ step-trail ! 1 and ;
-: counted ( n xt -- m trail ) 0 step-trail ! count-index step-trail @ ;
-T{ 5 ' odd-k counted 6 ' odd-k counted -> 2 12345 3 123456 }T
-T{ 0 ' odd-k counted -5 ' odd-k counted max-n invert ' odd-k counted -> 0 0 0 0 0 0 }T
-T{ 4 ' test-one count-index 3 ' below-3? count-index 6 ' below-3? count-index -> 4 3 3 }T
-T{ 7 ' odd-k ' count-index rs-checked -> 3 }T
+\ count-index (review tactic-move-c4 B4 and re-check R1, find-index's
+\ convention): how many k < n pass the test ( x k -- x flag ), every k
+\ tried once in order, each test given x, x dropped; 0 for n <= 0; a
+\ true answer other than -1 (1, a code 2) counts one; the return stack
+\ balanced; a test ( k -- flag ) that reads no x; a test that counts in
+\ turn (the inner loop's j its own); the header's example.
+: odd-k ( x k -- x flag ) dup step-trail @ 10 * + 1+ step-trail ! 1 and ;
+: counted ( x n xt -- m trail ) 0 step-trail ! count-index step-trail @ ;
+T{ 7 5 ' odd-k counted 7 6 ' odd-k counted 7 6 ' test-3 counted
+   -> 2 12345 3 123456 1 123456 }T
+T{ 7 0 ' odd-k counted 7 -5 ' odd-k counted 7 max-n invert ' odd-k counted
+   -> 0 0 0 0 0 0 }T
+: divides? ( d k -- d flag ) over mod 0= ;
+: even-code ( x k -- x code ) 1 and 0= 2 and ;
+T{ 3 10 ' divides? count-index 4 10 ' divides? count-index 5 9 ' test-r count-index -> 4 3 5 }T
+T{ 0 4 ' test-one count-index 0 5 ' even-code count-index -> 4 3 }T
+T{ 0 3 ' below-3? count-index 0 6 ' below-3? count-index -> 3 3 }T
+T{ 7 7 ' odd-k ' count-index rs-checked -> 3 }T
 : odd? ( k -- flag ) 1 and ;
-: two-odd-below? ( k -- flag ) ['] odd? count-index 2 = ;
-T{ 8 ' two-odd-below? count-index -> 2 }T
-: sample-neg? ( k -- flag ) neg-example swap cell-neg? nip ;
-T{ 3 ' sample-neg? count-index -> 2 }T
+: two-odd-below? ( k -- flag ) 0 swap ['] odd? count-index 2 = ;
+T{ 0 8 ' two-odd-below? count-index -> 2 }T
+T{ neg-example 3 ' cell-neg? count-index neg-cells 5 ' cell-neg? count-index -> 2 1 }T
 T{ find-base [defined] count-index -> 16 true }T
 \ A true flag other than -1 counts as true; the answer is a well-formed flag.
 T{ 4 ' test-one any? 0 ' test-one any? -> true false }T

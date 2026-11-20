@@ -1,0 +1,14 @@
+\ by-left on an Or (plan row TB1; tests/front/tactics/goal-layer.lean):
+\ Or has two constructors, and left applies the first, Or.inl, leaving the
+\ goal a ≤ b. The term is Or.inl h.
+\ Lean: theorem le_or (a b : Nat) (h : a ≤ b) : a ≤ b ∨ b ≤ a := by
+\         left
+\         exact h
+theorem le_or
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤ b a ≤ Or
+:= by
+  by-left
+  ' h by-exact
+end le_or

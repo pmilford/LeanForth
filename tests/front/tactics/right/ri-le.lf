@@ -1,0 +1,15 @@
+\ by-right, then by-left, through whnf (plan row TB1;
+\ tests/front/tactics/goal-layer.lean): a ≤ a + 1 unfolds to Nat.le a
+\ (a + 1); right applies its second constructor, Nat.le.step, leaving
+\ Nat.le a a, which left closes with Nat.le.refl. The term is
+\ @Nat.le.step a a (@Nat.le.refl a).
+\ Lean: theorem ri_le (a : Nat) : a ≤ a + 1 := by
+\         right
+\         left
+theorem ri_le
+  Nat explicit: a
+  a a 1 + ≤
+:= by
+  by-right
+  by-left
+end ri_le

@@ -17,6 +17,7 @@ require ../../../support/tester.fs
 require ../../../../src/load/checker.fs
 require ../../../../src/load/front.fs
 require ../../../../src/cli/check-lf.fs
+require ../../../support/tactic-text.fs
 decimal
 
 4000000 lf-term-capacity! drop  100000 lf-cref-capacity! drop
@@ -213,5 +214,13 @@ real-elab is lf-tac-elab
   nat lf-mk-app fa lf-mk-app fb lf-mk-app s" Nat.succ" lf-mk-const0 lf-mk-app r> lf-mk-app ;
 T{ fa succ fb succ eq-nat goal dup s" congrArg" c-fresh lf-goal-apply dup run-count swap
    0 run@ rot goal-value swap congr-lean lf-meta-eqv -> 1 true outcome-ok }T
+\ ---- by-apply's text: its error names its term between backquotes (the
+\ apply tactic's term? `e`, lf-goal-apply-named; lf-goal-apply, with no
+\ term?, says "the term": tests/front/tactics/left/test.fs, plan row TB1).
+: apply-detail-has? ( c-addr u -- flag )
+  0 lfa-detail slab-at lfa-detail slab-count 2swap search nip nip ;
+T{ s" Nat explicit: a a a ≤" s" ' Nat.le_succ by-apply" tactic-ran -> 380 }T
+T{ s"  conclusion of `Nat.le_succ`" apply-detail-has? -> true }T
+lf-tac-forget
 .( apply test.fs: all tests passed) cr
 bye

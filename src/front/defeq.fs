@@ -355,7 +355,7 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
   de-bind-fvar 0= if drop false exit then de-bind-local 0= if drop false exit then
   de-bind-push if de-bind-bodies else drop false then ;
 : de-pair-at ( -- addr ) de-x de-y 2* + 2 + de-cell ;
-: de-bind-n ( -- n ) de-cells slab-count de-x - 2 - 2/ ;
+: de-bind-n ( -- n ) de-x de-cells slab-since 2 - 2/ ;
 : de-restore ( view mark -- ) lf-lctx-drop lf-mctx-view! ;
 : de-bind-done ( r -- )
   de-x de-cell 2@ de-restore de-cells-return ;
@@ -467,7 +467,7 @@ defer lf-meta-synth ( type -- inst flag outcome )
 : de-pair ( i -- a1 a2 ) dup de-a1 swap de-a2 ;
 : de-info ( i -- kind prop ) 2* de-x 2 + de-a-n 2* + + dup de-cell @ swap 1+ de-cell @ ;
 : de-post0 ( -- i ) de-x 2 + de-a-n 2* + de-a-m 2* + ;
-: de-post# ( -- k ) de-cells slab-count de-post0 - ;
+: de-post# ( -- k ) de-post0 de-cells slab-since ;
 : de-infos ( -- flag )
   de-a-m 0 ?do i lf-meta-param swap de-push 0= if drop unloop false exit then
     de-push 0= if unloop false exit then loop true ;

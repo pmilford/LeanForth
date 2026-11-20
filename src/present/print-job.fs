@@ -51,8 +51,8 @@ end-structure
 \ address of the frames it is given (as mixed-shift.fs does).
 begin-structure /lf-pjob
   /frames +field lf-pjob-frames   \ fuel, visits, the steps' stack, a comparison's depth
-  field: lf-pjob-sink        \ xt ( c-addr u -- )
-  field: lf-pjob-options     \ mode and option bits
+  2 cells +field lf-pjob-setup  \ the sink, xt ( c-addr u -- ), and the mode and
+                                \ option bits: sink options, with 2@ 2!
   field: lf-pjob-limit       \ most nested visits in one print
   field: lf-pjob-binders     \ binders in scope
   field: lf-pjob-chain       \ binders in scope where the current fun began
@@ -84,14 +84,14 @@ end-structure
 \ print), and refuses while a print is in progress. Every context starts
 \ with TYPE, Unicode, no universes and no limit. The frames' visitor is
 \ never run: every visit names its own first step (lf-pp-call).
-: lf-print-setup ( sink options -- ) lf-pjob tuck lf-pjob-options ! lf-pjob-sink ! ;
+: lf-print-setup ( sink options -- ) lf-pjob lf-pjob-setup 2! ;
 \ The settings lf-print-setup made, for a caller that prints elsewhere for
 \ a while and then sets them back.
-: lf-print-settings ( -- sink options )
-  lf-pjob dup lf-pjob-sink @ swap lf-pjob-options @ ;
+: lf-print-settings ( -- sink options ) lf-pjob lf-pjob-setup 2@ ;
 \ The sink alone, for a caller that prints a part of its text through it
-\ (a message's term, to the message's sink).
-: lf-print-sink ( -- sink ) lf-pjob lf-pjob-sink @ ;
+\ (a message's term, to the message's sink); the options alone.
+: lf-print-sink ( -- sink ) lf-print-settings drop ;
+: lf-pp-options ( -- options ) lf-print-settings nip ;
 \ Notation (print-notation.fs): off until the caller turns it on; it
 \ survives lf-print-setup, which sets only the sink and the options.
 : lf-print-notation! ( flag -- ) lf-pjob lf-pjob-notation ! ;
@@ -111,16 +111,16 @@ end-structure
 \ the sink THROWs (CATCH only restores it, then the THROW goes on).
 : lf-pp-sinking ( -- addr ) lf-pjob lf-pjob-sinking ;
 : lf-pp-emit ( c-addr u -- )
-  lf-pp-sinking @ >r true lf-pp-sinking ! lf-pjob lf-pjob-sink @ catch
+  lf-pp-sinking @ >r true lf-pp-sinking ! lf-print-sink catch
   r> lf-pp-sinking ! throw ;
 \ The mode: the one set by lf-print-setup, or LaTeX during a Markdown math
 \ print, which leaves the options as they are.
 : lf-pp-math? ( -- flag ) lf-pjob lf-pjob-math @ ;
 : lf-pp-math! ( flag -- ) lf-pjob lf-pjob-math ! ;
-: lf-pp-setup-mode ( -- mode ) lf-pjob lf-pjob-options @ lf-print-mode-mask and ;
+: lf-pp-setup-mode ( -- mode ) lf-pp-options lf-print-mode-mask and ;
 : lf-pp-mode ( -- mode ) lf-pp-math? if lf-print-latex else lf-pp-setup-mode then ;
 : lf-pp-latex? ( -- flag ) lf-pp-mode lf-print-latex = ;
-: lf-pp-universes? ( -- flag ) lf-pjob lf-pjob-options @ lf-print-universes and 0<> ;
+: lf-pp-universes? ( -- flag ) lf-pp-options lf-print-universes and 0<> ;
 \ A number's decimal digits, whatever BASE is; BASE is kept. The digits
 \ are in the pictured numeric output buffer, so they are used at once.
 : lf-pp-number-to ( u xt -- ) >r u>decimal r> execute ;

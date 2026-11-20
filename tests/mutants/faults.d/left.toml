@@ -1,0 +1,60 @@
+# Planted faults of by-left and the goal layer's nthConstructor (plan row
+# TB1; src/front/tactics/left.fs, src/front/meta-tactic/constructor.fs's
+# lf-nth-constructor: and lf-goal-nth-constructor), read with faults.toml as
+# one list (scripts/mutants.py).
+
+[[fault]]
+id = "tb1-nth-count-unchecked"
+file = "src/front/meta-tactic/constructor.fs"
+old = '''  over nth-expected @ over mco-ctors nip = if exit then drop nth-count @ lf-tac-ex ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactics/left/test.fs"
+reason = "TB1: nthConstructor without its count test: left on And applies And.intro (Lean: works for inductive types with exactly 2 constructors)"
+
+[[fault]]
+id = "tb1-nth-target-code-ignored"
+file = "src/front/meta-tactic/constructor.fs"
+old = '''  drop lf-tac-ex 0 ;'''
+new = '''  drop drop lfa-e-ctor-target lf-tac-ex 0 ;'''
+test = "$GFORTH tests/front/tactics/left/test.fs"
+reason = "TB1: getType''s refusal always constructor's 382, never the record's code (left's 385 names the tactic)"
+
+[[fault]]
+id = "tb1-nth-not-assigned-off"
+file = "src/front/meta-tactic/constructor.fs"
+old = '''  over lf-goal-not-assigned drop 2dup nth-target @ mco-head mnc-counted'''
+new = '''  2dup nth-target @ mco-head mnc-counted'''
+test = "$GFORTH tests/front/tactics/left/test.fs"
+reason = "TB1: nthConstructor without checkNotAssigned: an assigned goal is searched (error 385, not the fault)"
+
+[[fault]]
+id = "tb1-nth-bound-unchecked"
+file = "src/front/meta-tactic/constructor.fs"
+old = '''  create , , , , here /nth - mnc-bounded ;'''
+new = '''  create , , , , ;'''
+test = "$GFORTH tests/front/tactics/left/test.fs"
+reason = "TB1: a record whose index is not below the count loads (Lean's out-of-bounds branch is not ported, so it must never run)"
+
+[[fault]]
+id = "tb1-left-second"
+file = "src/front/tactics/left.fs"
+old = '''0 2 lfa-e-left-target lfa-e-left-count lf-nth-constructor: tle-nth'''
+new = '''1 2 lfa-e-left-target lfa-e-left-count lf-nth-constructor: tle-nth'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/left/check.py"
+reason = "TB1: left applies the second constructor (Or.inr), Lean's left the first"
+
+[[fault]]
+id = "tb1-left-count-text-cut"
+file = "src/front/tactics/left.fs"
+old = '''lfa-e-left-count lfa-message-of s"  with exactly 2 constructors" lfa-more,'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/left/check.py"
+reason = "TB1: error 386's text cut before Lean's \"with exactly 2 constructors\""
+
+[[fault]]
+id = "tb1-apply-term-always-named"
+file = "src/front/meta-tactic/apply.fs"
+old = '''  ap ap-named @ if ap ap-e @ lf-tac-inline. exit then s" the term" lf-pp-emit outcome-ok ;'''
+new = '''  ap ap-e @ lf-tac-inline. ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/left/check.py"
+reason = "TB1: apply's error names nthConstructor's constructor between backquotes where Lean's says \"the term\" (no term?)"

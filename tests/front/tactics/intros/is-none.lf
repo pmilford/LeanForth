@@ -1,0 +1,15 @@
+\ by-intros with no binder to introduce (plan row TB1;
+\ tests/front/tactics/goal-layer.lean): the goal a ≤ a starts with no
+\ binder (intros unfolds no definition), so it stays as it is, and exact
+\ closes it. The term is h.
+\ Lean: theorem is_none (a : Nat) (h : a ≤ a) : a ≤ a := by
+\         intros
+\         exact h
+theorem is_none
+  Nat explicit: a
+  a a ≤ explicit: h
+  a a ≤
+:= by
+  by-intros
+  ' h by-exact
+end is_none

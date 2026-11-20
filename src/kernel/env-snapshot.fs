@@ -312,7 +312,7 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
   site-bytes slab-at swap site-text rot swap move outcome-ok ;
 : site-paired ( site n -- outcome )
   1 site-pairs slab-claim ok-then? 0= if nip nip exit then
-  seen-at tuck cell+ ! ! outcome-ok ;
+  seen-at cell-pair! outcome-ok ;
 : site-add ( site -- n outcome )
   site-bytes slab-count 1+ >r dup site-copied dup ok? 0= if nip r> drop 0 swap exit then
   drop r@ site-paired r> swap ;
@@ -537,7 +537,7 @@ create snap-outers /outers allot  snap-outers /outers erase
   firsts# 0 do over i cells + @ si-firsts i + 2 pick id! loop
   over swap snap-tf tf-from cell+ tp-decls 1- cells move drop ;
 : snap-layer-slots! ( n which renum snap -- )
-  tuck snap-renum ! tuck snap-which ! snap-wn ! ;
+  snap-wn cell-triple! ;
 : snap-layer-decls! ( decls n lines snap -- ) snap-tf tier-given! ;
 : snap-head! ( fuel snap -- )
   >r snap-mark sh-mark r@ head! snap-version sh-version r@ head!
@@ -840,7 +840,7 @@ create snap-outers /outers allot  snap-outers /outers erase
 : snap@ ( -- snap ) snap-loading @ ;
 : saved ( k d -- u ) snap@ snap-slot fld@ ;
 : saved2 ( k d -- n ) snap@ snap-slot fld2@ ;
-: start@ ( d -- dk lk ) 2* cells snap@ snap-starts @ + 2@ swap ;
+: start@ ( d -- dk lk ) 2* cells snap@ snap-starts @ + cell-pair@ ;
 : fill-looks ( d -- )
   dup start@ nip swap sl-looks swap saved 0 ?do
     dup i + snap@ look-answer over i + snap@ look-key lf-env-look!
