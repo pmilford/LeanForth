@@ -846,8 +846,12 @@ wc-smatch-kind 1+ constant wc-srec-kind
 
 \ ---- whnf (lf-meta-whnf) and unfoldDefinition? (lf-meta-unfold).
 : lf-meta-whnf ( e -- e' outcome ) wc-full-act false wc-run ;
+\ The delta step, then any frame it left resumed (the smart path's, when
+\ reduceMatcher? answers none at once: e itself, plan 9.4.8l AB), as
+\ the loop resumes them.
 : wc-unfold-run ( e -- e' outcome )
-  wc-delta ok-then2? 0= if no-result exit then if wc-loop else outcome-ok then ;
+  wc-delta ok-then2? 0= if no-result exit then
+  wc-next ok-then2? 0= if no-result exit then if wc-loop else outcome-ok then ;
 : wc-answer ( e' outcome -- e' flag outcome )
   dup ok? if wc wc-unfolded @ else false then swap ;
 : lf-meta-unfold ( e -- e' flag outcome )

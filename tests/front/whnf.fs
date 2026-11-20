@@ -325,6 +325,16 @@ T{ lv1 1 s" List.append" cn sun-of pad 0 lf-libdec-sunfold -> -1 outcome-invalid
 T{ 0 s" motive" cn fk app smatch -> true false outcome-ok true }T
 T{ 0 s" Nat.succ" cn fk app smatch -> true false outcome-ok true }T
 T{ fk fx app smatch -> true false outcome-ok true }T
+\ unfoldDefinition? alone when the smart path's reduceMatcher? answers
+\ none at once (data no export gives: Nat.add.match_1's record made one
+\ alternative wider for the test, so the smart body's match is a partial
+\ application): e itself and false, as whnf leaves it (plan 9.4.8l AB:
+\ the smart frame resumed, not its matcher application given back).
+: m1-alts ( -- addr )
+  0 s" Nat.add.match_1" cn lf-meta-const-decl drop lf-menv-matcher drop ed-match ed-match-alts# ;
+: wide-unfold ( e -- e' flag outcome ) 1 m1-alts +! lf-meta-unfold -1 m1-alts +! ;
+T{ fk succ fx app nat-add dup wide-unfold kept? -> true false outcome-ok }T
+T{ fk succ fx app nat-add dup lf-meta-unfold kept? -> false true outcome-ok }T
 \ A body holding an inert node (format 3.1, MATHLIB_FRONT.md O1) is never
 \ used: decoding it and unfolding by it answer unsupported (the mark set
 \ on Nat.add's record here, then cleared: it unfolds again).
