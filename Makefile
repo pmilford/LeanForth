@@ -1148,6 +1148,7 @@ test-front:
 	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "handover.fs: all tests passed"
 	$(RUN) $(GFORTH) tests/front/meta-env.fs
 	$(RUN) $(GFORTH) tests/front/whnf.fs
+	$(RUN) $(GFORTH) tests/front/reduce-nat.fs
 	$(RUN) $(GFORTH) tests/front/infer.fs
 	$(RUN) $(GFORTH) tests/front/defeq.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_defeq.py --golden

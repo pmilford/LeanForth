@@ -101,3 +101,45 @@ old = ''': ap-no-instance ( mvar -- ) lf-goal-type lfa-e-synth-failed lf-tac-lea
 new = ''': ap-no-instance ( mvar -- ) lf-goal-type lfa-e-elab-synth lf-tac-lean-fail ;'''
 test = "$GFORTH tests/front/tactics/apply/test.fs"
 reason = "S3a C1: apply's synthAppInstances reports the elaborator's text (125) where Lean's Meta synthInstance says failed to synthesize (122)"
+
+# --- C2: the front end's reduceNat? ----------------------------------------
+
+[[fault]]
+id = "s3a-nat-op-index-shifted"
+file = "src/front/reduce-nat.fs"
+old = '''  lf-nat-op dup 0< if 2drop false exit then >r rn-args r> true ;'''
+new = '''  lf-nat-op dup 0< if 2drop false exit then >r rn-args r> 1+ true ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
+reason = "S3a C2: reduceNat?'s match gives the next operation's index, so Nat.add folds as Nat.sub"
+
+[[fault]]
+id = "s3a-nat-value-zero-none"
+file = "src/front/reduce-nat.fs"
+old = '''  rn-zero? if rn-zero else -1 false outcome-ok then ;'''
+new = '''  drop -1 false outcome-ok ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
+reason = "S3a C2: withNatValue's Nat.zero is no value, so Nat.add Nat.zero 2 unfolds where Lean folds it to 2"
+
+[[fault]]
+id = "s3a-nat-pow-no-threshold"
+file = "src/front/reduce-nat.fs"
+old = '''  rn-power? if drop 2drop outcome-unsupported no-result exit then lf-nat-lit-op ;'''
+new = '''  lf-nat-lit-op ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
+reason = "S3a C2: Nat.pow folds past checkExponent's threshold (256), where Lean warns and unfolds Nat.pow (unsupported until S3b)"
+
+[[fault]]
+id = "s3a-nat-none-not-unfolded"
+file = "src/front/whnf.fs"
+old = ''': wc-nat-none ( lit -- e' flag outcome ) drop wc-term wc-unfold-spent ;'''
+new = ''': wc-nat-none ( lit -- e' flag outcome ) drop wc-term wc-done ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
+reason = "S3a C2: an argument without a value ends whnf at the original term, where whnfImp's none goes on to unfoldDefinition? (k + 2 is Nat.succ (k + 1))"
+
+[[fault]]
+id = "s3a-nat-frames-swapped"
+file = "src/front/whnf.fs"
+old = '''  wc-nat1-kind - if wc-nat2-resume else wc-nat1-resume then ;'''
+new = '''  wc-nat1-kind - if wc-nat1-resume else wc-nat2-resume then ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
+reason = "S3a C2: the first argument's whnf resumed as the second's (its frame's aux read as a literal)"

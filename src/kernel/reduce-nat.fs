@@ -55,8 +55,7 @@ require ../core/terms.fs
   dup lf-nat-op-pow = if lf-rn-pow exit then
   dup lf-nat-op-shl = if lf-rn-shl exit then lf-nat-lit-op ;
 : lf-reduce-nat-literal ( u -- node outcome ) lf-nat-lit ;
-: lf-reduce-nat-succ ( a -- node outcome )
-  1 lf-reduce-nat-literal ok-then? 0= if nip no-result exit then 0 lf-nat-lit-op ;
+: lf-reduce-nat-succ ( a -- node outcome ) lf-nat-lit-succ ;
 \ The predecessor of a literal above 0 (is_def_eq_offset's is_nat_succ).
 : lf-reduce-nat-pred ( a -- node outcome )
   dup lf-lit-small? if lf-lit-cell 1- lf-reduce-nat-literal exit then

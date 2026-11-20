@@ -79,8 +79,8 @@ reason = "plan 9.4.8l AA: a refused let-value walk in lf-whnf-stuck drops a cell
 
 [[fault]]
 id = "whnf-nat-one-argument-never-none"
-file = "src/front/whnf.fs"
-old = '''  dup lf-meta-args# 2 = if wm-args-none? else lf-term-second@ wm-no-value? then ;'''
-new = '''  dup lf-meta-args# 2 = if wm-args-none? else drop false then ;'''
-test = "$GFORTH tests/front/whnf.fs"
+file = "src/front/reduce-nat.fs"
+old = '''  lf-menv-nat-succ? if lf-term-second@ 0 lf-meta-nat-succ true else drop false then ;'''
+new = '''  drop lf-term-second@ 0 lf-meta-nat-succ true ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
 reason = "review s2-debt L5: a Nat function of one argument whose argument has no value is taken for one that has"

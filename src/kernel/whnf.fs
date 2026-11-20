@@ -422,7 +422,7 @@ defer lf-whnf-valued ( decl const frames -- value outcome )
 : lf-whnf-zero? ( node -- flag )
   dup lf-whnf-const? 0= if drop false exit then
   lf-const-slot dup lf-crec-arity @ if drop false exit then
-  lf-crec-name @ dup s" zero" lf-name-str-is? if lf-nat-name? else drop false then ;
+  lf-crec-name @ lf-nat-zero-name? ;
 
 \ ---------------------------------------------------------------------------
 \ The iota hook and its default (see the header).

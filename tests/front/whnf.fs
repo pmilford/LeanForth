@@ -379,8 +379,10 @@ T{ elab-node-have decoded swap true want-let same? -> outcome-ok true }T
 \ (Nat.add k x: reduceNat? gets no value for an operand that holds a free
 \ variable, Lean's withNatValue, and reducible leaves Nat.add; s2-tactics.)
 T{ 0 s" Nat.add" cn fk app fx app dup lf-meta-whnf-r drop same? -> true }T
-T{ succ 2 nlit app lf-meta-whnf succ fk app dup meta-whnf=
-   -> -1 outcome-unsupported true outcome-ok }T
+\ (Nat.succ 2 folds to 3 since plan S3a's reduceNat?, as Lean's whnf; it
+\ answered unsupported before. tests/front/reduce-nat.fs has the rest.)
+T{ succ 2 nlit app 3 nlit meta-whnf= succ fk app dup meta-whnf=
+   -> true outcome-ok true outcome-ok }T
 \ unfoldDefinition? by transparency: Nat.add alone stays (it has a
 \ `_sunfold`: a constant then never unfolds, WHNF.lean:918); Nat.div
 \ (irreducible) unfolds only at all, to its value; a theorem never (S2
@@ -525,15 +527,16 @@ T{ ?n fx nadd dup lf-meta-whnf-r drop = zero fx nadd dup lf-meta-whnf-r drop =
 \ withNatValue instantiates an argument that holds a metavariable first
 \ (plan 9.4.8l J): ?a := x holds a free variable then, no value, so none
 \ (as ?f ?f, whose value holds s); ?c := 2 has one, which reduceNat?
-\ would fold: not ported, unsupported. ?a's instantiation refused (the
-\ run's second allocation, after the spine's) is a value perhaps beside
-\ ?c's: unsupported, never none.
+\ folds (plan S3a; it answered unsupported before): ?c + ?c is 4. ?a's
+\ instantiation refused (the run's second allocation, after the spine's)
+\ passes its failure on (front/reduce-nat.fs's lf-meta-nat-guard), never
+\ none.
 nat mv-natural lf-mvar-new made constant ?a   0 ?a fx lf-mvar-assign made drop
 nat mv-natural lf-mvar-new made constant ?c   0 ?c 2 nlit lf-mvar-assign made drop
 T{ ?a fk nadd dup lf-meta-whnf-r drop = fk ?a nadd dup lf-meta-whnf-r drop =
    ?f ?f nadd dup lf-meta-whnf-r drop = ?a ?c nadd dup lf-meta-whnf-r drop =
    -> true true true true }T
-T{ ?c ?c nadd lf-meta-whnf-r -> -1 outcome-unsupported }T
+T{ ?c ?c nadd lf-meta-whnf-r swap 4 nlit same? -> outcome-ok true }T
 \ ?sn := Nat.succ ?n holds an unassigned metavariable and no free variable
 \ once instantiated: no value either, so none, the term itself (review
 \ tactic-fidelity L7).
@@ -541,7 +544,7 @@ nat mv-natural lf-mvar-new made constant ?sn   0 ?sn 0 s" Nat.succ" cn ?n app lf
 T{ ?sn 2 nlit nadd dup lf-meta-whnf-r drop = 2 nlit ?sn nadd dup lf-meta-whnf-r drop =
    -> true true }T
 T{ 2 heap-refusals ! ?a ?c nadd lf-meta-whnf-r heap-refusals @ 0 heap-refusals !
-   -> -1 outcome-unsupported 0 }T
+   -> -1 outcome-full 0 }T
 \ toCtorIfLit (S2 merge B): the literal 5 is Nat.succ 4, 0 is Nat.zero.
 T{ lv1 1 s" id" cn nat app zero app recm fz whnf= 5 nlit recm fs 4 nlit app 4 nlit recm app
    whnf= 0 nlit recm fz whnf= -> true outcome-ok true outcome-ok true outcome-ok }T

@@ -85,6 +85,8 @@ T{ s" Int" s" add" dotted lf-nat-op 0 s" add" named lf-nat-op -> -1 -1 }T
 \ Nat.add under another root (Foo.Nat.add) is no operation.
 T{ 0 s" Foo" named s" Nat" named s" add" named lf-nat-op -> -1 }T
 T{ s" Nat" s" zero" dotted lf-nat-name? 0 s" Nat" named lf-nat-name? -> true false }T
+T{ s" Nat" s" zero" dotted lf-nat-zero-name? s" Nat" s" succ" dotted lf-nat-zero-name?
+   0 s" zero" named lf-nat-zero-name? s" Int" s" zero" dotted lf-nat-zero-name? -> true false false false }T
 \ 7. The indices of the operations whose callers' policies differ.
 T{ lf-nat-op-pow lf-nat-op-shl s" pow" index-of s" shiftLeft" index-of -> 3 12 3 12 }T
 
@@ -153,6 +155,17 @@ fresh
   two64 lf-term-capacity lf-term-count @ lf-term-capacity! drop
   swap lf-reduce-nat-pred rot lf-term-capacity! drop ;
 T{ crowded-pred -> -1 outcome-full }T
+roomy
+\ lf-nat-lit-succ (Nat.succ of a literal, shared by the kernel's
+\ lf-reduce-nat-succ and the front end's fold): a + 1, beyond a cell too;
+\ a crowded store refuses its literal 1.
+T{ 41 nlit lf-nat-lit-succ swap small-of -> outcome-ok 42 }T
+T{ two64 lf-nat-lit-succ ok? made two64 1 nlit 0 lf-nat-lit-op ok? made same? -> true }T
+fresh
+: crowded-succ ( -- node outcome )
+  two64 lf-term-capacity lf-term-count @ lf-term-capacity! drop
+  swap lf-nat-lit-succ rot lf-term-capacity! drop ;
+T{ crowded-succ -> -1 outcome-full }T
 roomy
 .( nat-ops test: all tests passed) cr
 bye

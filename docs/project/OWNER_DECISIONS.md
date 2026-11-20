@@ -1693,8 +1693,9 @@ test. normal unit tests another big test, well factored libraries another good t
   an axiom, a file or record format, the trust boundary) still goes through the review gate of `AGENTS.md`
   (Lean's behaviour, differential tests, independent review, a short plain summary for the owner).
 - **[kernel], in form (branch `s3a-decide`, 2026-11-19, ordinary work under this rule):** the Nat operation table
-  of `src/kernel/reduce-nat.fs` (scratch arena, the fourteen operations, Bool answers) and the operation names of
-  `src/kernel/whnf.fs` moved to `src/core/nat-ops.fs`, which the front end's reduceNat? shares; the kernel keeps
+  of `src/kernel/reduce-nat.fs` (scratch arena, the fourteen operations, Bool answers, Nat.succ of a literal) and
+  the operation names and the name `Nat.zero` of `src/kernel/whnf.fs` moved to `src/core/nat-ops.fs`, which the
+  front end's reduceNat? shares; the kernel keeps
   its refusals (a count of 2^32 or more). Nothing the kernel accepts or rejects changes; one failure path no input
   reaches (an arena too small for the operands) no longer drops two cells too many.
 

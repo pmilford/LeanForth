@@ -6270,7 +6270,7 @@ reason = "lazy delta skips is_def_eq_offset, which compares two Nat.succ applica
 [[fault]]
 id = "dq-nat-zero-never"
 file = "src/kernel/whnf.fs"
-old = '''  lf-crec-name @ dup s" zero" lf-name-str-is? if lf-nat-name? else drop false then ;'''
+old = '''  lf-crec-name @ lf-nat-zero-name? ;'''
 new = '''  drop false ;'''
 test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
 reason = "reduce_nat is taken never to compute, so Nat operations on Nat.zero unfold where Lean computes a literal whose type is missing (k7.*)"
@@ -16417,8 +16417,8 @@ reason = "S1 appendix D, S2: whnf ends at whnfCore's result, never asking unfold
 [[fault]]
 id = "fe-whnf-nat-folded"
 file = "src/front/whnf.fs"
-old = '''  dup lf-meta-args# 1 3 within over ['] lf-menv-nat-name? wm-head-named? and'''
-new = '''  drop false exit'''
+old = '''  wc-full? if dup lf-meta-nat-op? if wc-nat exit then then wc-unfold-spent ;'''
+new = '''  wc-unfold-spent ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S1 appendix D: Nat.succ 2 is whnf's result (reduceNat? folds it to 3)"
 
@@ -20444,17 +20444,17 @@ reason = "S2 merge B: a matcher's value naming dite is reduced at reducible with
 [[fault]]
 id = "fe-nat-guard-second-ignored"
 file = "src/front/whnf.fs"
-old = '''  lf-term-second@ wm-no-value? ;'''
-new = '''  drop false ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_unfold.py"
+old = '''  if true outcome-ok else drop wc-pop drop wc-term wc-unfold-spent then ;'''
+new = '''  drop true outcome-ok ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
 reason = "S2 merge B: reduceNat? reads Nat.add 0 (Nat.succ x) as foldable (unsupported) though its second argument has no value (withNatValue), where Lean goes on to unfold it"
 
 [[fault]]
 id = "fe-nat-guard-mvar-ignored"
-file = "src/front/whnf.fs"
-old = '''  dup wc-unassigned? if drop true exit then'''
-new = '''  dup wc-unassigned? if drop false exit then'''
-test = "$GFORTH tests/front/whnf.fs"
+file = "src/front/reduce-nat.fs"
+old = '''  dup lf-meta-mvar-free? 0= if rn-instantiated exit then'''
+new = '''  dup lf-meta-mvar-free? 0= if true outcome-ok exit then'''
+test = "$GFORTH tests/front/reduce-nat.fs"
 reason = "S2 merge B: an unassigned metavariable read as a possible value of reduceNat? (unsupported), where withNatValue gives none (re-targeted by plan 9.4.8l J: without the line the instantiation that follows gives the same none)"
 
 [[fault]]

@@ -6,6 +6,7 @@
 \ those two kernel files, the kernel's behaviour unchanged).
 \ Public words:
 \   lf-nat-name? ( name -- flag )  whether a name is Nat.x, Nat a root name
+\   lf-nat-zero-name? ( name -- flag )  whether it is Nat.zero
 \   lf-nat-op ( name -- i | -1 )  the index of the operation a name names:
 \       Nat.add 0, sub 1, mul 2, pow 3, gcd 4, mod 5, div 6, beq 7, ble 8,
 \       land 9, lor 10, xor 11, shiftLeft 12, shiftRight 13; -1 for any
@@ -16,6 +17,7 @@
 \       leaves a and b (core/literals.fs) with lib/bignum.fs: a new
 \       literal, or the constant Bool.true or Bool.false for Nat.beq and
 \       Nat.ble; invalid when a or b is no literal
+\   lf-nat-lit-succ ( a -- node outcome )  the literal a + 1 (Nat.succ)
 \   lf-nat-lit ( u -- node outcome )  the literal of a cell's value
 \   lf-nat-lit-bool ( flag -- node outcome )  Bool.true or Bool.false
 \   lf-nat-named ( prefix c-addr u -- node outcome )  the constant
@@ -153,12 +155,16 @@ align here
   ' nop-shl , ' nop-shr ,
 constant nop-ops
 : lf-nat-lit-op ( a b i -- node outcome ) cells nop-ops + @ execute ;
+: lf-nat-lit-succ ( a -- node outcome )
+  1 lf-nat-lit ok-then? 0= if nip no-result exit then 0 lf-nat-lit-op ;
 
 \ The names (lib/texts.fs), compared by their components (Lean's name
 \ equality), from the last.
 texts-begin texts+ add sub mul pow gcd mod div beq ble land lor xor shiftLeft shiftRight
 texts-end constant nop-names
 : lf-nat-name? ( name -- flag ) lf-name-prefix@ s" Nat" lf-name-top? ;
+: lf-nat-zero-name? ( name -- flag )
+  dup s" zero" lf-name-str-is? if lf-nat-name? else drop false then ;
 : nop-index ( name -- i )
   0 nop-names begin dup c@ while
     2 pick over count lf-name-str-is? if drop nip exit then
