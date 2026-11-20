@@ -500,8 +500,8 @@ reason = "review tactic-move B1: no term holds an open metavariable, so checkedA
 [[fault]]
 id = "lib-defeq-elab-at-mode-dropped"
 file = "src/front/meta-must.fs"
-old = '''  ['] lf-meta-defeq lf-defeq-elab rot lf-meta-with outcome-sane ;'''
-new = '''  ['] lf-meta-defeq lf-defeq-elab rot drop lf-tr-all lf-meta-with outcome-sane ;'''
+old = '''  ['] lf-meta-defeq lf-defeq-flags lf-defeq-elab or rot lf-meta-with outcome-sane ;'''
+new = '''  ['] lf-meta-defeq lf-defeq-flags lf-defeq-elab or rot drop lf-tr-all lf-meta-with outcome-sane ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "review tactic-move B1: the tactics' isDefEq ignores the transparency asked for, so rfl under rw's with_reducible unfolds a definition Lean's would not"
 

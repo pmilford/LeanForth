@@ -365,6 +365,14 @@ T{ s" HAdd.hAdd" types2 lf-synth-error abm-frames slab-count -> -4205 119 0 }T
 T{ id-nat nat lf-tr-default lf-defeq-elab-at id-nat nat lf-tr-reducible lf-defeq-elab-at config@
    -> true outcome-ok false outcome-ok lf-defeq-elab lf-tr-default }T
 T{ id-nat nat lf-tac-defeq -> true outcome-ok }T
+\ It adds the elaborator's flags to the configuration in force (review
+\ tactic-move M2, plan 9.4.8l J): a synthetic opaque ?o : Type is
+\ assigned Nat only under withAssignableSyntheticOpaque, which stays set.
+nat lf-infer! mv-opaque lf-mvar-new made constant opq9
+: opq9-defeq ( -- flag outcome ) opq9 nat lf-tac-defeq ;
+T{ opq9-defeq opq9 lf-goal-assigned? ' opq9-defeq lf-with-assignable-opaque config@
+   -> false outcome-ok false true outcome-ok lf-defeq-elab lf-tr-default }T
+T{ opq9 lf-instantiate! nat lf-meta-eqv -> true outcome-ok }T
 \ lf-tac-with-synth (Term.withSynthesize, review tactic-move M3): the
 \ stack passes through xt; the pending list is set aside while xt runs
 \ (none seen inside) and put back however xt ends; a problem xt leaves

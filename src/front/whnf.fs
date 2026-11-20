@@ -538,12 +538,17 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ when either argument does: the first at once, the second after the
 \ first's value or none (branch s2-tactics: rewriting's kabstract
 \ compares k + 1 with 0 + Nat.succ k; S2 merge B: Nat.add 0 (Nat.succ x)
-\ as a discriminant at reducible). An unassigned metavariable stays one
-\ when instantiated: no value either. Not ported yet: an argument holding
-\ an assigned one (instantiateMVars first; unsupported).
+\ as a discriminant at reducible). An argument holding a metavariable is
+\ instantiated first, and has no value when it then holds a metavariable
+\ or a free variable (plan 9.4.8l J: ?m ≤ ?k with both assigned free
+\ variables, Nat.le ?m ?k after delta); an unassigned one stays itself,
+\ with no instantiation. An instantiation refused (no room, a delayed
+\ assignment not ported) is a value perhaps: the caller's unsupported.
+: wm-open? ( a -- flag ) dup lf-meta-mvar-free? 0= swap lf-meta-has-fvar? or ;
 : wm-no-value? ( a -- flag )
   dup wc-unassigned? if drop true exit then
-  dup lf-meta-mvar-free? if lf-meta-has-fvar? else drop false then ;
+  dup lf-meta-mvar-free? if lf-meta-has-fvar? exit then
+  lf-instantiate-mvars ok? if wm-open? else drop false then ;
 : wm-args-none? ( e -- flag )
   dup lf-term-first@ lf-term-second@ wm-no-value? if drop true exit then
   lf-term-second@ wm-no-value? ;
@@ -673,10 +678,9 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ WHNF.lean:400; a have keeps its value hidden). A value with a
 \ metavariable or a free variable (another let, perhaps) may; such a term
 \ takes the walk below.
-: ws-open? ( value -- flag ) dup lf-meta-mvar-free? 0= swap lf-meta-has-fvar? or ;
 : ws-let? ( leaf -- flag )
   dup lf-meta-fvar? 0= if drop false exit then
-  dup lf-fvar-let? if lf-fvar-value ws-open? else drop false then ;
+  dup lf-fvar-let? if lf-fvar-value wm-open? else drop false then ;
 : ws-reaches-none? ( term -- flag outcome )
   dup lf-meta-mvar-free? 0= if drop false outcome-ok exit then
   dup lf-meta-has-fvar? 0= if drop true outcome-ok exit then

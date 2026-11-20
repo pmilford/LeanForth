@@ -33,9 +33,10 @@
 \                                     after each word that may claim on slab
 \                                     (rule below)
 \   lf-defeq-elab-at ( t s mode -- flag outcome ) the tactics' isDefEq:
-\                                     the elaborator's flags at transparency
-\                                     mode, the stuck signal made invalid
-\                                     (outcome-sane); no THROW
+\                                     the elaborator's flags added to the
+\                                     configuration in force, at
+\                                     transparency mode, the stuck signal
+\                                     made invalid (outcome-sane); no THROW
 \   lf-tac-defeq ( t s -- flag outcome ) the same at default transparency
 \   lf-found ( x true | false -- x )  a lookup's answer, none thrown invalid
 \                                     (a record LeanForth made is missing: a fault)
@@ -108,18 +109,15 @@ require ./term-find.fs
 : lf-defeq! ( t s -- flag ) lf-meta-defeq outcome-sane lf-must ;
 : lf-instantiate! ( e -- e' ) lf-instantiate-mvars lf-must ;
 : lf-has-open-mvar? ( e -- flag ) ['] lf-mvar-open? lf-term-holds? lf-must ;
-\ isDefEq in the elaborator's configuration at transparency mode
+\ isDefEq with the elaborator's flags (TermElabM's setElabConfig: foApprox
+\ and ctxApprox) added to the configuration in force, at transparency mode
 \ (lf-meta-with: defeq's own configuration and mode put back however it
-\ ends), an internal code such as the stuck signal made invalid.
-\ Fidelity gap, kept by the moves of plan 9.4.8l I and to be changed in
-\ its fidelity commit after them: the flags and the mode are set outright,
-\ as the moved code (tactic-basic.fs's lfb-defeq) set them, where Lean's
-\ scopes (withReducible, withAssignableSyntheticOpaque, approxDefEq) each
-\ change only their own part of the configuration in force; so a bit set
-\ around a caller, such as fix J's assignable synthetic opaque bit around
-\ tactic-core.fs's lf-tac-elab-ensuring, is lost here.
+\ ends), an internal code such as the stuck signal made invalid. A bit a
+\ caller's scope sets, as Lean's withAssignableSyntheticOpaque and
+\ approxDefEq do (meta-config.fs), stays set (plan 9.4.8l, review
+\ tactic-move M2: elabTermEnsuringType's, tactic-core.fs).
 : lf-defeq-elab-at ( t s mode -- flag outcome )
-  ['] lf-meta-defeq lf-defeq-elab rot lf-meta-with outcome-sane ;
+  ['] lf-meta-defeq lf-defeq-flags lf-defeq-elab or rot lf-meta-with outcome-sane ;
 : lf-tac-defeq ( t s -- flag outcome ) lf-tr-default lf-defeq-elab-at ;
 
 \ ---- commitWhen: the metavariable context marked, xt run; its changes

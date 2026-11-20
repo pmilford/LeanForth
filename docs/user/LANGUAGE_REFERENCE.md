@@ -964,7 +964,13 @@ order, and build the same proof term (each is compared with pinned Lean
   `n ≤ n + 1` (`tests/front/tactics/apply/ap-le-succ.lf`); in
   `tests/front/tactics/apply/ap-and.lf`, `' And.intro by-apply` leaves the
   goals `case left` and `case right`. Mathematically: from n ≤ n + 1 for
-  every n, conclude it for this n. Lean: `apply Nat.le_succ`.
+  every n, conclude it for this n. Lean: `apply Nat.le_succ`. The goals
+  it leaves may be closed by `by-exact` as well: after
+  `' Nat.le_trans by-apply`, `' h1 by-exact` closes `a ≤ ?m` and so fixes
+  `m`, and `' h2 by-exact` closes `?m ≤ c`
+  (`tests/front/tactics/apply/ap-exact.lf`); `' h1 by-exact` on the
+  second goal is Lean's Type mismatch, error 96, with `b ≤ c` as the type
+  expected (`w-ap-exact.lf`).
 - A *hypothesis* is a fact the theorem assumes, such as `h : a ≤ b`.
   `by-assumption` closes the main goal with the newest hypothesis whose
   statement is the goal, up to unfolding (definitional equality). None is
@@ -993,7 +999,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | --- | --- | --- | --- | --- | --- |
 | `by` | `( -- )` | ordinary; right after `:=` only (error 69 elsewhere; natural form; error 51 in kernel form) | read: records the proof's position and opens the tactic block (step 0) | Marks that a tactic proof follows `:=`. | `:= by` |
 | `by-rfl` | `( -- )` | ordinary | read: a step. Run: assigns the main goal `Eq.refl` and removes it from the goals | Closes the goal `a = b` when both sides are definitionally equal; otherwise error 97. | `rfl` |
-| `by-exact` | `( t -- )` | ordinary | read: a step holding the term. Run: elaborates t against the goal, assigns it, removes the goal | Closes the goal with the term t; a type mismatch is error 96, a wrong number of values 86 or 87. | `exact t` |
+| `by-exact` | `( t -- )` | ordinary | read: a step holding the term. Run: elaborates t against the goal, assigns it, removes the goal | Closes the goal with the term t; a goal named in either type may be assigned, as Lean's `exact` does; a type mismatch is error 96, a wrong number of values 86 or 87. | `exact t` |
 | `by-intro: HYP-NAME` | `( -- )` | parsing: one name, or `_` | read: a step; HYP-NAME becomes a hypothesis word in the locals. Run: replaces the goal by one with the first binder introduced | Introduces one hypothesis HYP-NAME from the goal's first binder; `_` leaves it inaccessible (it cannot be written afterwards); error 94 when there is none, 84 when HYP-NAME is a LeanForth word. | `intro HYP-NAME` |
 | `by-sorry` | `( -- )` | ordinary | read: a step. Run: assigns the goal `sorryAx T Bool.false`, records an open part | Closes the goal with an open part; the declaration is accepted but reported NOT PROVED. | `sorry` |
 | `by-apply` | `( t -- )` | ordinary | read: a step holding t. Run: assigns the main goal t applied to new goals, which take its place | Closes the goal with t when t's conclusion fits it; t's arguments the goal does not fix become goals. No fit: error 380; an instance not found: 125; an instance found that differs from the one the goal fixes: 384; t still unknown after elaboration: 99 (not supported yet). | `apply t` |

@@ -16116,7 +16116,7 @@ reason = "FE1g-4 (design 8.3): the Eq head check dropped, so Ne p q reaches eq_r
 [[fault]]
 id = "fe-exact-mismatch-kept"
 file = "src/front/tactic-core.fs"
-old = '''  2dup lf-tac-defeq lf-tac-must if 2drop exit then tcr-mismatch ;'''
+old = '''  2dup tcr-defeq lf-tac-must if 2drop exit then tcr-mismatch ;'''
 new = '''  2drop ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: exact assigns a term whose type is not the goal's"
@@ -16182,8 +16182,8 @@ reason = "FE1g-4 review fe1g3 L10: a message's printing that throws leaves the p
 [[fault]]
 id = "fe-tac-defeq-settings-kept"
 file = "src/front/meta-must.fs"
-old = '''  ['] lf-meta-defeq lf-defeq-elab rot lf-meta-with outcome-sane ;'''
-new = '''  lf-defeq-elab lf-defeq-flags! lf-defeq-mode! lf-meta-defeq outcome-sane ;'''
+old = '''  ['] lf-meta-defeq lf-defeq-flags lf-defeq-elab or rot lf-meta-with outcome-sane ;'''
+new = '''  lf-defeq-flags lf-defeq-elab or lf-defeq-flags! lf-defeq-mode! lf-meta-defeq outcome-sane ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L10: the tactics' isDefEq leaves defeq's configuration and mode set to the elaborator's"
 
@@ -20454,9 +20454,9 @@ reason = "S2 merge B: reduceNat? reads Nat.add 0 (Nat.succ x) as foldable (unsup
 id = "fe-nat-guard-mvar-ignored"
 file = "src/front/whnf.fs"
 old = '''  dup wc-unassigned? if drop true exit then'''
-new = ''''''
+new = '''  dup wc-unassigned? if drop false exit then'''
 test = "$GFORTH tests/front/whnf.fs"
-reason = "S2 merge B: an unassigned metavariable read as a possible value of reduceNat? (unsupported), where withNatValue gives none"
+reason = "S2 merge B: an unassigned metavariable read as a possible value of reduceNat? (unsupported), where withNatValue gives none (re-targeted by plan 9.4.8l J: without the line the instantiation that follows gives the same none)"
 
 [[fault]]
 id = "fe-term-find-both-parts"

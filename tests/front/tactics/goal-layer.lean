@@ -32,6 +32,11 @@ theorem ap_and (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) : a ≤ b ∧ b ≤ a :
   apply And.intro
   exact h1
   exact h2
+-- exact on apply's goals, their types as stored (plan 9.4.8l J).
+theorem ap_exact (a b c : Nat) (h1 : a ≤ b) (h2 : b ≤ c) : a ≤ c := by
+  apply Nat.le_trans
+  exact h1
+  exact h2
 -- assumption: the newest hypothesis that fits, up to definitional equality.
 theorem as_one (a b : Nat) (h : a ≤ b) : a ≤ b := by assumption
 theorem as_newest (a b : Nat) (h1 : a ≤ b) (h2 : a ≤ b) : a ≤ b := by assumption
@@ -67,6 +72,6 @@ def dump (n : Name) : MetaM Unit := do
   IO.println s!"{n} value {← sx i.value}"
 
 #eval do
-  for n in [``ap_le_succ, ``ap_le_trans, ``ap_hyp, ``ap_partial, ``ap_tag, ``ap_tag_trans, ``ap_and, ``as_one, ``as_newest,
+  for n in [``ap_le_succ, ``ap_le_trans, ``ap_hyp, ``ap_partial, ``ap_tag, ``ap_tag_trans, ``ap_and, ``ap_exact, ``as_one, ``as_newest,
       ``as_defeq, ``co_and, ``co_true, ``co_or, ``co_le] do
     dump n

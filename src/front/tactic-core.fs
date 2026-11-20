@@ -42,11 +42,12 @@
 \       runner's error (Term codes 125-139, 71 without an elaborator)
 \   lf-tac-elab-ensuring ( node expected -- e )  elabTermEnsuringType
 \       (ElabTerm.lean:51) with no postponing: e's type inferred and
-\       compared with expected by isDefEq (meta-must.fs's lf-tac-defeq);
-\       false is error 96 with Lean's text (tactic-msg.fs's
-\       lf-has-type-but-expected.). Lean compares with synthetic opaque
-\       metavariables assignable; this does not, so either type holding an
-\       unassigned one answers 93 first (plan 9.4.8l-I fix J)
+\       compared with expected by isDefEq with synthetic opaque
+\       metavariables assignable (withAssignableSyntheticOpaque:
+\       meta-config.fs's lf-with-assignable-opaque over meta-must.fs's
+\       lf-tac-defeq; a goal in either type may be assigned, plan 9.4.8l
+\       J); false is error 96 with Lean's text (tactic-msg.fs's
+\       lf-has-type-but-expected.)
 \   lf-close-main-goal-using ( i*x i xt -- )  closeMainGoalUsing
 \       (ElabTerm.lean:85): step i runs in a new step record, xt ( i*x
 \       type tag -- e ) gets the main goal's type and tag; e instantiated
@@ -147,16 +148,12 @@ end-structure
 
 \ ---- Tactic.elabTerm, elabTermEnsuringType.
 : lf-tac-elab-term ( node expected postpone? -- e ) lf-tac-elab lf-tac-must ;
-: tcr-opaque? ( leaf -- flag )
-  dup lf-mvar-open? if lf-mvar-kind drop mv-opaque = else drop false then ;
-: tcr-opaque-free ( t -- t )
-  dup ['] tcr-opaque? lf-term-holds? lf-tac-must if lfa-e-tac-meta lf-tac-fail then ;
-: tcr-typed ( e expected -- e type expected )
-  over lf-infer lf-tac-must tcr-opaque-free swap tcr-opaque-free ;
+: tcr-typed ( e expected -- e type expected ) over lf-infer lf-tac-must swap ;
 : tcr-mismatch ( e type expected -- )
   3 ['] lf-has-type-but-expected. lf-tac-detail-n lfa-e-tac-mismatch lf-tac-stop ;
+: tcr-defeq ( type expected -- flag outcome ) ['] lf-tac-defeq lf-with-assignable-opaque ;
 : tcr-ensured ( e type expected -- e )
-  2dup lf-tac-defeq lf-tac-must if 2drop exit then tcr-mismatch ;
+  2dup tcr-defeq lf-tac-must if 2drop exit then tcr-mismatch ;
 : lf-tac-elab-ensuring ( node expected -- e )
   tuck false lf-tac-elab-term swap tcr-typed tcr-ensured ;
 

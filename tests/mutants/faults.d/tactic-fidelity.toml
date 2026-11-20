@@ -1,0 +1,55 @@
+# Planted faults of branch tactic-fidelity (plan 9.4.8l's fidelity items:
+# the tactics' differences from Lean 4.35.0 closed in the tactic library,
+# src/front/tactic-core.fs, meta-must.fs, meta-tactic/*.fs, and the Meta
+# core they meet, src/front/whnf.fs); read with faults.toml as one list
+# (scripts/mutants.py).
+
+# --- J: exact on apply's goals (elabTermEnsuringType, withNatValue) -------
+
+[[fault]]
+id = "tf-nat-value-not-instantiated"
+file = "src/front/whnf.fs"
+old = '''  lf-instantiate-mvars ok? if wm-open? else drop false then ;'''
+new = '''  drop false ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "9.4.8l J: withNatValue without its instantiateMVars, an assigned metavariable a possible value (Nat.add ?a k, ?a := x: unsupported where Lean gives none; exact on ?m ≤ ?k, error 139)"
+
+[[fault]]
+id = "tf-nat-value-refused-none"
+file = "src/front/whnf.fs"
+old = '''  lf-instantiate-mvars ok? if wm-open? else drop false then ;'''
+new = '''  lf-instantiate-mvars ok? if wm-open? else drop true then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "9.4.8l J: an instantiation the heap refuses read as no value (none, a guess) instead of unsupported"
+
+[[fault]]
+id = "tf-nat-value-ap-exact"
+file = "src/front/whnf.fs"
+old = '''  lf-instantiate-mvars ok? if wm-open? else drop false then ;'''
+new = '''  drop false ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/apply/check.py"
+reason = "9.4.8l J end to end: by-exact h2 on apply's goal ?m ≤ ?k, both assigned, refused (139) where Lean's exact closes it (ap-exact.lf)"
+
+[[fault]]
+id = "tf-exact-opaque-not-assignable"
+file = "src/front/tactic-core.fs"
+old = ''': tcr-defeq ( type expected -- flag outcome ) ['] lf-tac-defeq lf-with-assignable-opaque ;'''
+new = ''': tcr-defeq ( type expected -- flag outcome ) lf-tac-defeq ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "9.4.8l J: elabTermEnsuringType's isDefEq without withAssignableSyntheticOpaque (ElabTerm.lean:62): a goal ?o in the expected type is not assigned, Type mismatch where Lean closes"
+
+[[fault]]
+id = "tf-defeq-elab-flags-outright"
+file = "src/front/meta-must.fs"
+old = '''  ['] lf-meta-defeq lf-defeq-flags lf-defeq-elab or rot lf-meta-with outcome-sane ;'''
+new = '''  ['] lf-meta-defeq lf-defeq-elab rot lf-meta-with outcome-sane ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-move M2: the tactics' isDefEq sets the elaborator's flags outright, so a caller's withAssignableSyntheticOpaque bit is lost (opq9 not assigned)"
+
+[[fault]]
+id = "tf-defeq-elab-flags-outright-exact"
+file = "src/front/meta-must.fs"
+old = '''  ['] lf-meta-defeq lf-defeq-flags lf-defeq-elab or rot lf-meta-with outcome-sane ;'''
+new = '''  ['] lf-meta-defeq lf-defeq-elab rot lf-meta-with outcome-sane ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "review tactic-move M2 through exact: the opaque bit tcr-defeq sets lost inside lf-tac-defeq, Type mismatch where Lean closes ?o"

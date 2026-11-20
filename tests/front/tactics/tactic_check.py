@@ -94,7 +94,7 @@ def check_refused(wrong, unsupported):
 
 
 def check_lean(wrong, write):
-    done = s2.run([s2.LEAN, "tests/front/tactics/goal-layer.lean"])
+    done = s2.run([s2.lean_binary(), "tests/front/tactics/goal-layer.lean"])
     if done.returncode != 0:
         raise Failure(f"goal-layer.lean: exit {done.returncode}\n{done.stdout}{done.stderr}")
     lines = [line for line in done.stdout.splitlines() if DUMPED.match(line)]
@@ -102,7 +102,7 @@ def check_lean(wrong, write):
         GOLDEN.write_text("\n".join(lines) + "\n", encoding="utf-8")
     elif lines != GOLDEN.read_text(encoding="utf-8").splitlines():
         raise Failure("goal-layer.lean: pinned Lean's output is not goal-layer.golden")
-    done = s2.run([s2.LEAN, "tests/front/tactics/goal-layer-wrong.lean"])
+    done = s2.run([s2.lean_binary(), "tests/front/tactics/goal-layer-wrong.lean"])
     out = done.stdout + done.stderr
     missing = [first for _, _, first, detail in wrong if f"{first}\n{detail}" not in out]
     if done.returncode == 0 or missing:

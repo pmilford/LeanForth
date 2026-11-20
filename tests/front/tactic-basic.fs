@@ -225,11 +225,21 @@ T{ s" by-rw[ 0 ] end t" proof nrun err see@ -> outcome-invalid 218 1 43 1 50 }T
 lf-tac-forget
 T{ 0 ' goal-x lf-tac-detail detail s\" \n\np : Prop\n⊢ p = p" compare -> 0 }T
 lf-tac-forget
-\ A goal type holding an open synthetic opaque metavariable (Lean compares
-\ with it assignable): 93 before isDefEq.
-: so-p ( -- type ) p-prop prop mv-opaque lf-mvar-new made ;
-' so-p stating  ' p-term chosen !
-T{ s" n by-exact end t" proof nrun err -> outcome-unsupported 93 1 45 }T
+\ A goal type holding an open synthetic opaque metavariable ?o : Prop:
+\ elabTermEnsuringType compares with it assignable (plan 9.4.8l J), so
+\ fun (x : p) => x assigns it p -> p and closes the goal; p, whose type
+\ Prop is no proposition, is Lean's Type mismatch with the sorts.
+variable so
+: so-p ( -- type ) p-prop prop mv-opaque lf-mvar-new made dup so ! ;
+: id-p ( -- t ) p @ 0 lf-term-bvar 0= abort" bvar" lf-term-lam 0= abort" lam" ;
+: so-value ( -- t ) so @ lf-instantiate-mvars made ;
+' so-p stating  ' id-p chosen !
+T{ s" n by-exact end t" proof nrun so-value lf-term-pi? -> outcome-ok true }T
+T{ so-value lf-term-first@ p @ = so-value lf-term-second@ p @ = -> true true }T
+' p-term chosen !
+T{ s" n by-exact end t" proof nrun err -> outcome-invalid 96 1 45 }T
+T{ detail s\"   p\nhas type\n  Prop\nof sort `Type` but is expected to have type\n  ?m.1\nof sort `Prop`"
+   compare -> 0 }T
 \ No term elaborator (plan FE1e): 71 at the word.
 ' imp-p stating
 ' tcr-unelaborated is lf-tac-elab

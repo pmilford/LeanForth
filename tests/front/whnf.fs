@@ -498,15 +498,30 @@ T{ id-ab fa whnf= id-ab dup lf-whnf-core-at-defeq same-out lf-defeq-mode
 \ At implicit transparency too (id is implicit-reducible: whnf at
 \ implicit would unfold it, whnfAtMostI does not; review s2-unfold-a H1).
 T{ id-ab dup lf-tr-implicit ' lf-whnf-core-at-defeq at-mode same-out -> true outcome-ok }T
-\ A part that fails (Nat.add ?f ?f by whnfAtMostI, ?f assigned:
-\ reduceNat?'s guard does not instantiate yet) still gives the caller its
-\ transparency back. reduceNat? gives none for an unassigned
-\ metavariable or a free variable as either argument (withNatValue).
+\ A part that fails (Nat.add ?f ?f by whnfAtMostI, ?f assigned: the
+\ smart path's getStuckMVar? on the match's major premise, unsupported)
+\ still gives the caller its transparency back. reduceNat? gives none for
+\ an unassigned metavariable or a free variable as either argument
+\ (withNatValue).
 T{ 0 s" Nat.add" cn ?f app ?f app 0 proj lf-whnf-core-at-defeq nip lf-defeq-mode
    -> outcome-unsupported lf-tr-default }T
 : nadd ( a b -- t ) >r >r 0 s" Nat.add" cn r> app r> app ;
 T{ ?n fx nadd dup lf-meta-whnf-r drop = zero fx nadd dup lf-meta-whnf-r drop =
    ?n ?h nadd lf-meta-whnf-r nip -> true true outcome-ok }T
+\ withNatValue instantiates an argument that holds a metavariable first
+\ (plan 9.4.8l J): ?a := x holds a free variable then, no value, so none
+\ (as ?f ?f, whose value holds s); ?c := 2 has one, which reduceNat?
+\ would fold: not ported, unsupported. ?a's instantiation refused (the
+\ run's second allocation, after the spine's) is a value perhaps beside
+\ ?c's: unsupported, never none.
+nat mv-natural lf-mvar-new made constant ?a   0 ?a fx lf-mvar-assign made drop
+nat mv-natural lf-mvar-new made constant ?c   0 ?c 2 nlit lf-mvar-assign made drop
+T{ ?a fk nadd dup lf-meta-whnf-r drop = fk ?a nadd dup lf-meta-whnf-r drop =
+   ?f ?f nadd dup lf-meta-whnf-r drop = ?a ?c nadd dup lf-meta-whnf-r drop =
+   -> true true true true }T
+T{ ?c ?c nadd lf-meta-whnf-r -> -1 outcome-unsupported }T
+T{ 2 heap-refusals ! ?a ?c nadd lf-meta-whnf-r heap-refusals @ 0 heap-refusals !
+   -> -1 outcome-unsupported 0 }T
 \ toCtorIfLit (S2 merge B): the literal 5 is Nat.succ 4, 0 is Nat.zero.
 T{ lv1 1 s" id" cn nat app zero app recm fz whnf= 5 nlit recm fs 4 nlit app 4 nlit recm app
    whnf= 0 nlit recm fz whnf= -> true outcome-ok true outcome-ok true outcome-ok }T

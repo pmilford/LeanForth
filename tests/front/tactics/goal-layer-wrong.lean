@@ -3,6 +3,10 @@
 -- each message the LeanForth file must print is Lean's.
 theorem w_ap_le_succ (n : Nat) : n + 1 ≤ n := by apply Nat.le_succ
 theorem w_ap_hyp (a b : Nat) (h : a ≤ b) : b ≤ a := by apply h
+theorem w_ap_exact (a b c : Nat) (h1 : a ≤ b) (h2 : b ≤ c) : a ≤ c := by
+  apply Nat.le_trans
+  apply h1
+  exact h1
 theorem w_as (a b : Nat) (h : a ≤ b) : b ≤ a := by assumption
 theorem w_co_false : False := by constructor
 theorem w_co_not (a b : Nat) : ¬ a = b := by constructor
