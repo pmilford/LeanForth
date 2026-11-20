@@ -1,0 +1,14 @@
+\ by-right on an Or (plan row TB1; tests/front/tactics/goal-layer.lean):
+\ right applies the second constructor, Or.inr, leaving the goal b ≤ a.
+\ The term is Or.inr h.
+\ Lean: theorem ri_or (a b : Nat) (h : b ≤ a) : a ≤ b ∨ b ≤ a := by
+\         right
+\         exact h
+theorem ri_or
+  Nat explicit: a  Nat explicit: b
+  b a ≤ explicit: h
+  a b ≤ b a ≤ Or
+:= by
+  by-right
+  ' h by-exact
+end ri_or

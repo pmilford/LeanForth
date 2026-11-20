@@ -9,5 +9,7 @@ require ./constructor.fs
 require ./exact.fs
 require ./induction.fs
 require ./intro.fs
+require ./left.fs
 require ./rewrite.fs
 require ./rfl.fs
+require ./right.fs

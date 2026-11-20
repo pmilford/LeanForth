@@ -509,6 +509,10 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 381 | invalid | Tactic `assumption` failed |
 | 382 | invalid | Tactic `constructor` failed: target is not an inductive datatype |
 | 383 | invalid | Tactic `constructor` failed: no applicable constructor found |
+| 385 | invalid | Tactic `left` failed: target is not an inductive datatype |
+| 386 | invalid | Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors |
+| 387 | invalid | Tactic `right` failed: target is not an inductive datatype |
+| 388 | invalid | Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors |
 
 Codes come in ranges (`src/author/errors.fs`): 1 to 73 the words, the
 runner, the stores and natural text read (FE1a); 74 to 79 elaboration and

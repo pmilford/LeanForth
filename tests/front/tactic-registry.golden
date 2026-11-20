@@ -148,6 +148,10 @@
 381	1	Tactic `assumption` failed
 382	1	Tactic `constructor` failed: target is not an inductive datatype
 383	1	Tactic `constructor` failed: no applicable constructor found
+385	1	Tactic `left` failed: target is not an inductive datatype
+386	1	Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors
+387	1	Tactic `right` failed: target is not an inductive datatype
+388	1	Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors
 reserved \ word
 reserved ( word
 reserved theorem word
@@ -214,6 +218,8 @@ reserved #check word
 reserved by-apply word
 reserved by-assumption word
 reserved by-constructor word
+reserved by-left word
+reserved by-right word
 kind 1 by 0 by run
 kind 2 by-rfl 0 rfl run
 kind 3 by-exact 0 exact run
@@ -228,3 +234,5 @@ kind 11 by-sorry 0 sorry run
 kind 12 by-apply 0 apply run
 kind 13 by-assumption 0 assumption run
 kind 14 by-constructor 0 constructor run
+kind 15 by-left 0 left run
+kind 16 by-right 0 right run

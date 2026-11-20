@@ -1,0 +1,6 @@
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ri_or","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : b ≤ a\n⊢ a ≤ b ∨ b ≤ a","goals_after":["a b : Nat\nh : b ≤ a\n⊢ b ≤ a"],"parent":0,"source":"12:3","step":1,"tactic":"right","word":"by-right"}
+{"goal_before":"a b : Nat\nh : b ≤ a\n⊢ b ≤ a","goals_after":[],"parent":0,"source":"13:7","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ri_le","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a : Nat\n⊢ a ≤ a + 1","goals_after":["a : Nat\n⊢ Nat.le a a"],"parent":0,"source":"13:3","step":1,"tactic":"right","word":"by-right"}
+{"goal_before":"a : Nat\n⊢ Nat.le a a","goals_after":[],"parent":0,"source":"14:3","step":2,"tactic":"left","word":"by-left"}

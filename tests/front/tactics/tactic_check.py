@@ -14,6 +14,9 @@ slice a2-iii; tests/front/tactics/NAME/check.py calls main with its lists).
 2. Each wrong twin (WRONG): exit 4, the error code, Lean's first line and the
    detail given (as LeanForth prints them); each file not supported yet
    (UNSUPPORTED): exit 2 and the code, never accepted.
+3. A tactic's own further check (main's EXTRA), such as intros/check.py's terms of goals no
+   LeanForth text can state, whose lines (with a "NAME binders K ..." line of binder kinds)
+   are in the same golden.
 With --lean: pinned Lean writes the golden again (--write-golden keeps it)
 and it must be unchanged, and pinned Lean refuses each wrong twin of
 goal-layer-wrong.lean with the first line and detail the LeanForth file
@@ -33,7 +36,7 @@ import check_s2 as s2  # noqa: E402
 
 TACTICS = ROOT / "tests/front/tactics"
 GOLDEN = TACTICS / "goal-layer.golden"
-DUMPED = re.compile(r"^\S+ (type|value) ")
+DUMPED = re.compile(r"^\S+ (type|value|binders) ")
 
 
 class Failure(Exception):
@@ -109,7 +112,9 @@ def check_lean(wrong, write):
         raise Failure(f"goal-layer-wrong.lean: exit {done.returncode}, missing {missing}\n{out}")
 
 
-def main(name, files, wrong, unsupported):
+def main(name, files, wrong, unsupported, extra=None):
+    """EXTRA, when given, is a further plain-mode check: a function taking golden()'s map that
+    raises Failure or gives a phrase for the summary."""
     try:
         if "--lean" in sys.argv:
             check_lean(wrong, "--write-golden" in sys.argv)
@@ -118,10 +123,11 @@ def main(name, files, wrong, unsupported):
             return
         check_steps(name, check_files(files, golden()))
         check_refused(wrong, unsupported)
+        more = f"; {extra(golden())}" if extra else ""
         print(f"{name}: {len(files)} files accepted, their terms equal pinned Lean's node for "
               f"node and their step logs valid and as golden; {len(wrong)} wrong twins refused "
               f"with Lean's "
-              f"messages; {len(unsupported)} not supported yet (exit 2)")
+              f"messages; {len(unsupported)} not supported yet (exit 2){more}")
     except (Failure, subprocess.TimeoutExpired) as exc:
         print(f"{name}: {exc}", file=sys.stderr)
         sys.exit(1)

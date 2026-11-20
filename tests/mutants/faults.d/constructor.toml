@@ -63,7 +63,7 @@ reason = "a2-ii: a term-shaped word checks for no value above the frame (by-appl
 [[fault]]
 id = "constructor-not-assigned-off"
 file = "src/front/meta-tactic/constructor.fs"
-old = '''  lf-goal-not-assigned dup mco-head tuck dup mco-ctors nip ['] mco-tried? find-index'''
-new = '''  dup mco-head tuck dup mco-ctors nip ['] mco-tried? find-index'''
+old = '''  lf-goal-not-assigned dup lfa-e-ctor-target mco-head tuck dup mco-ctors nip'''
+new = '''  dup lfa-e-ctor-target mco-head tuck dup mco-ctors nip'''
 test = "$GFORTH tests/front/tactics/constructor/test.fs"
 reason = "review tactic-a2ii B2 (its ctor-not-assigned-off): no checkNotAssigned, so an assigned goal is searched (error 383, not the fault)"

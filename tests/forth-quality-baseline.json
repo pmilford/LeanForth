@@ -879,6 +879,22 @@
   "shuffles": 0,
   "words": 3
  },
+ "src/front/tactics/left.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 2
+ },
+ "src/front/tactics/right.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 2
+ },
  "src/front/telescope.fs": {
   "globals": 0,
   "long lines": 0,
