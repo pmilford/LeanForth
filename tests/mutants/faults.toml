@@ -21280,7 +21280,7 @@ id = "cf2-gp-like-inverted"
 file = "src/front/goal-print.fs"
 old = ''': gp-later-like? ( i k -- i flag ) over 1+ + over gp-local swap gp-renamed-as? ;'''
 new = ''': gp-later-like? ( i k -- i flag ) over 1+ + over gp-local swap gp-renamed-as? 0= ;'''
-test = "python3 tests/front/check_goals.py"
+test = "$GFORTH tests/front/goals.fs"
 reason = "cleanup-families-2 (gp-like on count-index): a tombstone's number counts the later locals not renamed like it, so Lean's x✝¹ and x✝² come out wrong"
 
 [[fault]]

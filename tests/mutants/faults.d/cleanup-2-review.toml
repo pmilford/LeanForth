@@ -74,3 +74,19 @@ old = '''  seen-at cell-pair! outcome-ok ;'''
 new = '''  seen-at 2! outcome-ok ;'''
 test = "$GFORTH tests/core/env-snapshot.fs"
 reason = "review cleanup-families-2 r3 (M2): the snapshot writer's site pair stored turned, so a site is never found again and its text is written once more for every slot"
+
+[[fault]]
+id = "cf2r-export-marks-read-swapped"
+file = "src/import/ndjson.fs"
+old = ''': export-marks ( export -- key why ) export-key cell-pair@ ;'''
+new = ''': export-marks ( export -- key why ) export-key 2@ ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "review cleanup-families-2 r23 (L3): the export's failure marks read turned, so the field and why come back exchanged after a shape failure"
+
+[[fault]]
+id = "cf2r-gp-like-one-short"
+file = "src/front/goal-print.fs"
+old = ''': gp-like ( i -- n ) gp-view@ lf-view-count over - 1- ['] gp-later-like? count-index ;'''
+new = ''': gp-like ( i -- n ) gp-view@ lf-view-count over - 2 - ['] gp-later-like? count-index ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "review cleanup-families-2 r26 (L3): a tombstone's number misses the newest like-named local, so Lean's x✝² prints x✝¹"
