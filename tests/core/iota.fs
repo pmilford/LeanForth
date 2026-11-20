@@ -256,5 +256,15 @@ T{ slot-whnf -> rec-d outcome-unknown }T
 T{ bool-true ' as-unsupported cs-probed noted
    -> outcome-unsupported 0 -1 outcome-unsupported lf-diag-dependency-unsupported }T
 T{ slot-whnf -> rec-d outcome-unsupported }T
+\ The same forged slot met by delta (lf-whnf-delta-of, review of
+\ cleanup-families-2, M1): the lookup's failure is the answer, -1 and its
+\ outcome, never "does not unfold" (-1 ok) or another failure.
+: failed-delta ( -- ) cs-type lf-whnf-head lf-whnf-delta-of swap cs-note cs-note ;
+: delta-early ( -- ) 0 rec-slot lf-slot-state ! failed-delta ;
+: delta-unsupported ( -- ) outcome-unsupported rec-slot lf-slot-outcome ! failed-delta ;
+: delta-noted ( -- answer outcome ) 0 cs-noted 1 cs-noted ;
+T{ bool-true ' delta-early cs-probed delta-noted -> outcome-invalid 0 -1 outcome-invalid }T
+T{ bool-true ' delta-unsupported cs-probed delta-noted
+   -> outcome-unsupported 0 -1 outcome-unsupported }T
 
 bye

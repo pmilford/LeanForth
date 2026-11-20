@@ -309,6 +309,16 @@ lf-open-forget
 T{ 0 7 lf-minfer-put-closed 500 lf-minfer-fuel @ - -> 0 outcome-ok 1 }T
 T{ 1 7 lf-minfer-put-closed 499 lf-minfer-fuel @ - -> lf-term-count @ 1- outcome-ok 6 }T
 T{ lf-term-count @ 1- lf-term-read -> lf-tag-app lf-term-count @ 2 - 1 lf-minfer-fvar-cell @ true }T
+\ The closing's failure is the answer (review of cleanup-families-2, M1):
+\ of lf-minfer-put-closed for a dependent body, and of lf-minfer-typed
+\ (inference aside on a frame's fuel), -1 and its outcome, the argument
+\ or the node dropped. With no fuel left a node not closed before (node
+\ 7's closing is remembered and costs nothing now) is not closed.
+: bvar-app ( i j -- node ) lf-term-bvar drop swap lf-term-bvar drop swap lf-term-app drop ;
+0 lf-minfer-fuel !
+T{ 1 0 1 bvar-app lf-minfer-put-closed -> -1 outcome-exhausted }T
+0 lf-minfer-frames frame-fuel !
+T{ 1 1 bvar-app lf-minfer-frames lf-minfer-typed -> -1 outcome-exhausted }T
 0 lf-minfer-context-depth !
 
 \ ---------------------------------------------------------------------------

@@ -143,4 +143,9 @@ T{ ' ctor-op each-full? -> true }T   \ Nat.zero
   >r operands lf-term-capacity lf-term-count @ lf-term-capacity! drop
   -rot r> execute nip swap lf-term-capacity! drop ;
 T{ ' sub-op crowded ' beq-op crowded ' ctor-op crowded -> outcome-full outcome-full outcome-full }T
+\ Nat.beq's and Nat.ble's answer after a failed operation (lf-rn-truth,
+\ review of cleanup-families-2, M1): the failure is the answer, -1 and
+\ its outcome, never a Bool constant; on ok the flag picks it.
+T{ true outcome-full lf-rn-truth 0 outcome-exhausted lf-rn-truth -> -1 outcome-full -1 outcome-exhausted }T
+T{ true outcome-ok lf-rn-truth nip 0 outcome-ok lf-rn-truth nip -> outcome-ok outcome-ok }T
 bye
