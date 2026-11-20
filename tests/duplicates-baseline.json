@@ -1345,12 +1345,11 @@
   "tokens": 6
  },
  "aca78af72b77": {
-  "copies": 9,
+  "copies": 8,
   "kind": "shape",
   "members": [
    "src/core/level-scope.fs:lf-lscope-context-valid?",
    "src/front/defeq-delta.fs:dd-packed-step",
-   "src/front/defeq.fs:de-induct-nonrec?",
    "src/front/elab-data.fs:ed-wrapped?",
    "src/front/mvars.fs:mv-free?",
    "src/kernel/environment.fs:lf-env-skipped?",
@@ -1740,16 +1739,6 @@
   ],
   "reason": "accepted: an error at a step's word and at a block's place, two readers of the record; a shared word would take both readers as arguments",
   "tokens": 7
- },
- "e1621cd366bb": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/defeq.fs:de-nonrec?",
-   "src/front/whnf.fs:wc-structure-like?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 17
  },
  "e16da60270e8": {
   "copies": 2,

@@ -748,9 +748,6 @@ defer de-args-post ( -- )
 : de-of-list? ( t -- flag ) lf-meta-head s" String.ofList" lf-meta-const-named? ;
 : de-str-list? ( a b -- flag ) de-of-list? swap de-str? and ;
 : de-string-lit? ( -- flag ) de-t de-s de-str-list? de-s de-t de-str-list? or ;
-: de-nonrec? ( data -- flag )
-  dup lf-ity-indices lf-more-field 0= over lf-ity-ctors@ nip 1 = and
-  swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0= and ;
 : de-data ( d -- data ) lf-menv-data ;
 \ The inductive data of a name's declaration; none (no such declaration,
 \ a library one not decoded for want of room) ends the comparison with
@@ -760,7 +757,7 @@ defer de-args-post ( -- )
 : de-ctor-fields ( name -- n|-1 )
   de-named-data if lf-ict-fields lf-more-field else -1 then ;
 : de-unit-data? ( data -- flag )
-  dup de-nonrec? if lf-ity-ctors@ drop @ de-ctor-fields 0= else drop false then ;
+  dup lf-structure-like? if lf-ity-ctors@ drop @ de-ctor-fields 0= else drop false then ;
 : de-unit-type? ( type -- flag )
   lf-meta-head dup lf-kind-inductive de-kind? if de-decl drop de-data de-unit-data?
   else drop false then ;
@@ -791,7 +788,7 @@ defer de-args-post ( -- )
   dup lf-ict-params lf-more-field swap lf-ict-fields lf-more-field + ;
 : de-ctor-induct ( ctor -- data true | false )
   de-decl drop de-data lf-ict-induct lf-more-field de-named-data ;
-: de-induct-nonrec? ( ctor -- flag ) de-ctor-induct if de-nonrec? else false then ;
+: de-induct-nonrec? ( ctor -- flag ) de-ctor-induct if lf-structure-like? else false then ;
 : de-ctor-fields-of ( ctor -- n ) de-decl drop de-data lf-ict-fields lf-more-field ;
 \ isDefEqEtaStruct a b with b a constructor application of a non-recursive
 \ structure and a none: code 1 when it has no fields (Lean then compares

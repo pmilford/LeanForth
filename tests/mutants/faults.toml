@@ -13330,7 +13330,7 @@ reason = "FE1c: iota drops the arguments after the major premise (Nat.rec m z s 
 [[fault]]
 id = "fe-whnf-structure-eta-guessed"
 file = "src/front/whnf.fs"
-old = ''': wc-eta? ( mhead data -- flag ) wc-structure-like? if wc-exact? 0= else drop false then ;'''
+old = ''': wc-eta? ( mhead data -- flag ) lf-structure-like? if wc-exact? 0= else drop false then ;'''
 new = ''': wc-eta? ( mhead data -- flag ) 2drop false ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "FE1c: a stuck major premise of a structure is left stuck, where Lean eta-expands it (toCtorWhenStructure)"
@@ -15479,7 +15479,7 @@ equivalent = "ifNatExpr tests the type of t, which isDefEqOffset reaches only as
 
 [[fault]]
 id = "fe-defeq-unit-recursive"
-file = "src/front/defeq.fs"
+file = "src/front/whnf.fs"
 old = '''  swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0= and ;'''
 new = '''  nip ;'''
 test = "$GFORTH tests/front/defeq.fs"

@@ -312,7 +312,9 @@ wc-smatch-kind 1+ constant wc-srec-kind
   wc wc-data @ lf-irc-all@ drop @ lf-menv-find
   ok-then? if lf-menv-data outcome-ok exit then
   dup outcome-invalid = if drop outcome-unsupported then 0 swap ;
-: wc-structure-like? ( data -- flag )
+\ Lean's isStructureLike: an inductive type of one constructor, no indices,
+\ not recursive (also defeq.fs's eta for structures).
+: lf-structure-like? ( data -- flag )
   dup lf-ity-indices lf-more-field 0= over lf-ity-ctors@ nip 1 = and
   swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0= and ;
 : wc-ctor? ( mhead -- flag ) wc-kind lf-kind-constructor = ;
@@ -324,7 +326,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
   swap lf-ict-fields lf-more-field + ;
 : wc-exact? ( mhead -- flag )
   dup wc-ctor? if wc-ctor-arity wc-margs slab-count = else drop false then ;
-: wc-eta? ( mhead data -- flag ) wc-structure-like? if wc-exact? 0= else drop false then ;
+: wc-eta? ( mhead data -- flag ) lf-structure-like? if wc-exact? 0= else drop false then ;
 \ Heads whose application whnf leaves as it is and no rule matches
 \ (getStuckMVar? below asks them).
 : wc-head-inert? ( mhead -- flag )
