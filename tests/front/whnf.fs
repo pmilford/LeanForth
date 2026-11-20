@@ -8,8 +8,9 @@
 \ and that a failed call leaves nothing that changes the next one; S2's
 \ steps (matchers, casesOn, the smart path, class fields, getStuckMVar?)
 \ each swept with every heap allocation and every term refused in turn,
-\ and the guards against data no export gives (S2's coverage debt).
-\ Every T{ }T checks the data stack's depth. tests/front/check_whnf.py
+\ and the guards against data no export gives (S2's coverage debt); the
+\ decoder's smart-unfolding node kinds and levels no body of the slice
+\ has, and the tier's binder kinds (lib-decode.fs). Every T{ }T checks the data stack's depth. tests/front/check_whnf.py
 \ compares the results with pinned Lean's.
 include ../support/tester.fs
 include ../support/heap-watch.fs
@@ -757,6 +758,79 @@ T{ hadd-kkx reducible-hadd rot k1kx same? -> true outcome-ok true }T
 T{ foreign-decode borrowed-decode nip -> -1 outcome-unsupported outcome-ok }T
 T{ fk zero nat-add dup lf-meta-unfold kept? -> false true outcome-ok }T
 T{ s" Nat" menv-name lf-libdec-find -> -1 outcome-invalid }T
+\ The decoder's other node kinds and levels of a smart-unfolding body
+\ (lib-decode.fs's lbd-ntag-low, lbd-ntag-high, lbd-proj, lbd-sparam and
+\ lbd-slchild; the coverage ratchet of 2026-11-20), which no body of the
+\ slice has: nodes, levels and keys made here, decoded alone, then given
+\ back. A forall is the Pi of its type and body; a natural literal the
+\ literal of its digits; a projection of Prod's field 1 the projection of
+\ its term, and one whose structure the export lacks (-1) unsupported; a
+\ string literal unsupported (plan S5); a sort of the definition's
+\ universe parameter 0, and of max of it and zero, the sort of that level.
+: made-counts ( -- n l ) elab-nodes slab-count elab-levels slab-count ;
+: given-back ( n l -- ) elab-levels slab-cut elab-nodes slab-cut lbd-sun-forget ;
+: sdecoded ( xt -- t outcome ) made-counts 2>r lbd-sun-forget execute lbd-snode 2r> given-back ;
+\ The outcome, and whether it is ok with t equal to t' (no term read else).
+: same-ok ( t outcome t' -- outcome flag ) over ok? if rot same? else drop nip false then ;
+: eforall ( -- n )
+  elab-node-forall enode 7 ebvar over ['] ed-node-b efield! 8 ebvar over ['] ed-node-c efield! ;
+T{ ' eforall sdecoded 7 lbv 8 lbv tpi same-ok -> outcome-ok true }T
+: texted-key ( c-addr u tag -- k )
+  elab-key-new drop dup elab-key-text-start >r dup elab-text-room drop swap move
+  r> dup elab-key-text-end ;
+: etexted ( kind tag -- n ) >r enode s" 123" r> texted-key over ['] ed-node-a efield! ;
+: elit ( -- n ) elab-node-lit elab-key-lit etexted ;
+: estr ( -- n ) elab-node-str elab-key-str etexted ;
+: keyed ( xt -- t outcome ) elab-keys-mark 2>r sdecoded 2r> elab-keys-drop ;
+T{ ' elit keyed 123 nat-lit same-ok ' estr keyed -> outcome-ok true -1 outcome-unsupported }T
+: eproj ( d -- n )
+  elab-node-proj enode tuck ['] ed-node-a efield! 1 over ['] ed-node-b efield!
+  7 ebvar over ['] ed-node-c efield! ;
+: stage-d ( c-addr u -- d ) menv-name menv-lib stage-find 0= abort" whnf.fs: no declaration" ;
+: prod-proj ( -- n ) s" Prod" stage-d eproj ;
+: foreign-proj ( -- n ) -1 eproj ;
+T{ ' prod-proj sdecoded 7 lbv 1 proj same-ok ' foreign-proj sdecoded
+   -> outcome-ok true -1 outcome-unsupported }T
+: elevel ( a b kind -- l )
+  1 elab-levels slab-claim drop tuck ed-level ed-node-kind ! tuck ed-level ed-node-b !
+  tuck ed-level ed-node-a ! ;
+: esort ( l -- n ) elab-node-sort enode tuck ['] ed-node-a efield! ;
+: eparam ( -- l ) 0 0 elab-level-param elevel ;
+0 s" u" lf-name-str must constant u-name
+create u-names u-name ,
+: u-named ( -- ) u-names 1 lbd lbd-snames# ! lbd lbd-snames ! ;
+: u-sorted ( xt -- t outcome ) u-named sdecoded ;
+: sort-u ( -- n ) eparam esort ;
+: sort-max ( -- n ) eparam 0 0 elab-level-zero elevel elab-level-max elevel esort ;
+: u-level ( -- l ) u-name lf-level-param must ;
+T{ ' sort-u u-sorted u-level sort same-ok -> outcome-ok true }T
+T{ ' sort-max u-sorted u-level l0 lf-level-max must sort same-ok -> outcome-ok true }T
+\ (The parameter's level refused room, and each heap allocation of the
+\ walks refused in turn: full, never another answer.)
+: u-pass ( n -- t outcome ) u-named lbd-sun-forget lbd-snode ;
+: u-swept ( -- flag flag )
+  made-counts 2>r sort-max ['] u-pass 2dup heap-sweep swept? >r
+  ['] lf-levels sweep-store-xt ! room-sweep swept? ['] lf-terms sweep-store-xt !
+  r> swap 2r> given-back ;
+T{ u-swept -> true true }T
+\ Binder kinds read from the tier (lf-tier-kinds, S1 §4): id's type
+\ {α : Sort u} → α → α gives implicit then default; a slab with room for
+\ one kind gives full, that kind kept; each heap allocation refused in
+\ turn gives full, never other kinds.
+: tier-kinds ( e slab -- n outcome )
+  dup >r menv-lib stage-tier swap lf-tier-kinds r> slab-count swap ;
+create kinds-slab /slab allot  1 cells 16 kinds-slab slab-init drop
+create one-kind /slab allot  1 cells 1 one-kind slab-init drop
+: id-type ( -- e ) s" id" stage-d menv-lib staged-type@ ;
+: kind@ ( i slab -- kind ) slab-at @ ;
+T{ id-type kinds-slab tier-kinds 0 kinds-slab kind@ 1 kinds-slab kind@ -> 2 outcome-ok 1 0 }T
+T{ id-type one-kind tier-kinds 0 one-kind kind@ -> 1 outcome-full 1 }T
+: kinds-pass ( e -- n outcome ) kinds-slab tier-kinds ;
+: kinds-anew ( -- ) kinds-slab sweep-slab-anew ;
+: kinds-swept ( -- flag )
+  sweep-slabs-xt @ >r ['] kinds-anew sweep-slabs-xt ! id-type ['] kinds-pass heap-sweep swept?
+  r> sweep-slabs-xt ! ;
+T{ kinds-swept -> true }T
 \ ---- Stale leaves: after the contexts are emptied, every metavariable
 \ and free variable made before is invalid.
 lf-mctx-reset

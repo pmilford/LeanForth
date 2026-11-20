@@ -1,0 +1,88 @@
+# Planted faults of branch lib-decode-cover (2026-11-20): the shapes of a
+# smart-unfolding body that no body of the slice has -- a forall, a
+# natural and a string literal, a projection, a universe parameter, a
+# max level -- and the binder kinds' refused push, each caught by a case
+# of tests/front/whnf.fs that decodes a node made for it; a library
+# declaration's name refused room in the run's store, caught by
+# tests/front/menv-run.fs; read with faults.toml as one list
+# (scripts/mutants.py).
+
+[[fault]]
+id = "fe-decode-forall-as-lam"
+file = "src/front/lib-decode.fs"
+old = '''    elab-node-forall of tag-pi endof  drop tag-let 0 endcase ;'''
+new = '''    elab-node-forall of tag-lam endof  drop tag-let 0 endcase ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "lib-decode-cover: a smart-unfolding body's forall is decoded as a lambda of its type and body, where it is their Pi"
+
+[[fault]]
+id = "fe-decode-lit-unsupported"
+file = "src/front/lib-decode.fs"
+old = '''  case elab-node-lit of tag-nat endof  elab-node-str of tag-str endof'''
+new = '''  case elab-node-lit of tag-str endof  elab-node-str of tag-str endof'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "lib-decode-cover: a smart-unfolding body's natural literal answers unsupported, where it is the literal of its digits"
+
+[[fault]]
+id = "fe-decode-lit-digit-lost"
+file = "src/front/lib-decode.fs"
+old = ''': lbd-ntext ( n -- c-addr u ) elab-node-a elab-key-text ;'''
+new = ''': lbd-ntext ( n -- c-addr u ) elab-node-a elab-key-text 1- ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "lib-decode-cover: a natural literal's last digit is lost (123 read as 12)"
+
+[[fault]]
+id = "fe-decode-str-as-nat"
+file = "src/front/lib-decode.fs"
+old = '''  case elab-node-lit of tag-nat endof  elab-node-str of tag-str endof'''
+new = '''  case elab-node-lit of tag-nat endof  elab-node-str of tag-nat endof'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "lib-decode-cover: a string literal (plan S5) is decoded as the natural literal of its bytes (\"123\" as 123), where it answers unsupported"
+
+[[fault]]
+id = "fe-decode-proj-as-mdata"
+file = "src/front/lib-decode.fs"
+old = '''    elab-node-proj of tag-proj endof  elab-node-mdata of tag-mdata endof'''
+new = '''    elab-node-proj of tag-mdata endof  elab-node-mdata of tag-mdata endof'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "lib-decode-cover: a projection is decoded as an annotation of its term, its structure read as the annotation's kind"
+
+[[fault]]
+id = "fe-decode-proj-field-from-term"
+file = "src/front/lib-decode.fs"
+old = '''  lbd-elab-walk ['] elab-node-b over lbs-field !'''
+new = '''  lbd-elab-walk ['] elab-node-c over lbs-field !'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "lib-decode-cover: a projection's field is read from its term's slot (c), not its index (b)"
+
+[[fault]]
+id = "fe-decode-sparam-place-as-name"
+file = "src/front/lib-decode.fs"
+old = '''  lbd-sname@ lf-level-param room-result ;'''
+new = '''  lf-level-param room-result ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "lib-decode-cover: a body's universe parameter k is made a parameter named by the number k, where it is the definition's k-th name"
+
+[[fault]]
+id = "fe-decode-max-right-as-left"
+file = "src/front/lib-decode.fs"
+old = ''': lbd-slchild ( l i -- l' ) if elab-level-b else elab-level-a then ;'''
+new = ''': lbd-slchild ( l i -- l' ) drop elab-level-a ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "lib-decode-cover: a body's max (or imax) level reads its left level twice (max u 0 as max u u)"
+
+[[fault]]
+id = "fe-tier-kinds-refusal-dropped"
+file = "src/front/lib-decode.fs"
+old = '''    r@ lbd-kind+ ok-then? 0= if nip r> drop exit then tuck expr-b@ swap'''
+new = '''    r@ lbd-kind+ drop tuck expr-b@ swap'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "lib-decode-cover: a binder kind refused room is skipped and the others read on, ok with too few kinds, where the refusal answers full"
+
+[[fault]]
+id = "fe-run-name-refusal-as-invalid"
+file = "src/front/lib-decode.fs"
+old = '''    lbd-parts slab-pop lbd-run-part 0= if -1 outcome-full exit then'''
+new = '''    lbd-parts slab-pop lbd-run-part 0= if -1 outcome-invalid exit then'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "lib-decode-cover: a tier name's part refused room in the run's name store answers invalid (no such name), where it is full"
