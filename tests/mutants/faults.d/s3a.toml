@@ -20,6 +20,14 @@ new = ''': lf-nat-op ( name -- i | -1 ) nop-index ;'''
 test = "$GFORTH tests/core/nat-ops.fs"
 reason = "S3a C0: Int.add (any name whose last component is an operation's) taken for Nat.add, where Lean compares the whole name"
 
+[[fault]]
+id = "nat-ops-succ-fail-keeps-a"
+file = "src/core/nat-ops.fs"
+old = '''  1 lf-nat-lit ['] nop-add ok-apply2 ;'''
+new = '''  1 lf-nat-lit ['] nop-add ok-apply ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "S3a C0, at the merge of main: Nat.succ of a literal whose literal 1 the store refuses leaves a under its answer (one value dropped where ok-apply2 drops both)"
+
 # --- C1: the tactic library's words ----------------------------------------
 
 [[fault]]

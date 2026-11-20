@@ -152,7 +152,7 @@ align here
 constant nop-ops
 : lf-nat-lit-op ( a b i -- node outcome ) cells nop-ops + @ execute ;
 : lf-nat-lit-succ ( a -- node outcome )
-  1 lf-nat-lit ok-then? 0= if nip no-result exit then 0 lf-nat-lit-op ;
+  1 lf-nat-lit ['] nop-add ok-apply2 ;
 
 \ The names (lib/texts.fs), compared by their components (Lean's name
 \ equality), from the last.
