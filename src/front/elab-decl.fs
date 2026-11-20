@@ -100,10 +100,9 @@ action-of lfa-run-fresh constant edc-run-before
 \ (A failure no step recorded, a print's, has no second position: -1.)
 \ An error whose message shows a term (129): the term, instantiated,
 \ indented on the next line (Lean's indentExpr), as the error's detail
-\ (lf-tac-detail drops a detail whose printing failed).
-: edc-detail ( -- )
-  lf-elab-error-term dup 0< if drop else ['] lf-tac-indented. lf-tac-detail then ;
-: edc-fail ( outcome -- ) edc-detail lf-elab-code swap lfa-fail-see ;
+\ (tactic-core.fs's lf-tac-elab-detail; lf-tac-detail drops a detail
+\ whose printing failed).
+: edc-fail ( outcome -- ) lf-tac-elab-detail lf-elab-code swap lfa-fail-see ;
 : edc-must ( outcome -- ) dup ok? if drop else edc-fail then ;
 
 \ ---- The header: parameters and statement.
@@ -147,9 +146,8 @@ action-of lfa-run-fresh constant edc-run-before
   >r lf-elab-term ok-then? 0= if r> drop no-result exit then
   r> edc-mode lf-elab-synthesize dup ok? 0= if nip no-result exit then drop
   lf-instantiate-mvars lf-elab-meta ;
-: edc-tac-fail ( outcome -- ) edc-detail lf-elab-code lfa-see! lf-tac-stop ;
 : edc-tac-elab ( node expected postpone? -- term outcome )
-  ['] edc-tac-run edc-configured dup ok? 0= if edc-tac-fail then ;
+  ['] edc-tac-run edc-configured dup ok? 0= if lf-tac-elab-fail then ;
 ' edc-tac-elab is lf-tac-elab
 \ The pending list in a tactic's saved state, as Lean's Term.saveState
 \ holds pendingMVars (tactic-run.fs's tac-state:; review N4 of 2026-11-18).

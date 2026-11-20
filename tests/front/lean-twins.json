@@ -13,6 +13,7 @@
                                        "names": {"add_zero'": "add_zero_rfl'"}},
     "tests/front/01-zero-add.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
     "tests/front/s2-case.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
-    "tests/front/04-nested-first.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}}
+    "tests/front/04-nested-first.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
+    "tests/front/03-zero-add-exact.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}}
   }
 }

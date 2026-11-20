@@ -143,11 +143,19 @@
 219	1	Invalid rewrite argument: The pattern to be substituted is a metavariable
 220	1	Occurs check failed: Expression
 300	6	out of room: a Forth stack, the dictionary or the heap, with its THROW code
+440	1	Tactic `clear` failed: unknown variable
+441	1	Tactic `clear` failed: variable
+442	1	Tactic `clear` failed: target depends on
+389	1	Unexpected term
 380	1	Tactic `apply` failed: could not unify the
 384	1	Tactic `apply` failed: failed to assign synthesized instance
 381	1	Tactic `assumption` failed
 382	1	Tactic `constructor` failed: target is not an inductive datatype
 383	1	Tactic `constructor` failed: no applicable constructor found
+385	1	Tactic `left` failed: target is not an inductive datatype
+386	1	Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors
+387	1	Tactic `right` failed: target is not an inductive datatype
+388	1	Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors
 reserved \ word
 reserved ( word
 reserved theorem word
@@ -213,7 +221,12 @@ reserved by-sorry word
 reserved #check word
 reserved by-apply word
 reserved by-assumption word
+reserved by-clear word
 reserved by-constructor word
+reserved by-exfalso word
+reserved by-intros word
+reserved by-left word
+reserved by-right word
 kind 1 by 0 by run
 kind 2 by-rfl 0 rfl run
 kind 3 by-exact 0 exact run
@@ -227,4 +240,9 @@ kind 10 by-rewrite[ 0 rewrite run
 kind 11 by-sorry 0 sorry run
 kind 12 by-apply 0 apply run
 kind 13 by-assumption 0 assumption run
-kind 14 by-constructor 0 constructor run
+kind 14 by-clear 0 clear run
+kind 15 by-constructor 0 constructor run
+kind 16 by-exfalso 0 exfalso run
+kind 17 by-intros 0 intros run
+kind 18 by-left 0 left run
+kind 19 by-right 0 right run

@@ -320,8 +320,8 @@ reason = "a2-i review F4: a result with a level or outer metavariable answered a
 [[fault]]
 id = "lib-eq-sides-swapped"
 file = "src/front/app-builder.fs"
-old = '''  lf-term-second@ r> true ;'''
-new = '''  lf-term-second@ swap r> true ;'''
+old = '''  dup lf-term-second@ >r lf-term-first@ lf-meta-args2 r> true ;'''
+new = '''  dup lf-term-second@ >r lf-term-first@ lf-meta-args2 swap r> true ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i review F10: Expr.eq? (lf-eq?) gives α and a swapped, so every builder and tactic reading an Eq takes the wrong argument"
 
@@ -458,8 +458,8 @@ reason = "9.4.8l-I C2 introN of n > 1: every binder takes the first name and cel
 [[fault]]
 id = "lib-intro-n-kinds-ignored"
 file = "src/front/meta-tactic/goal.fs"
-old = '''  mti mti-kinds @ ?dup if mti-at @ else lf-binder-default then ;'''
-new = '''  lf-binder-default ;'''
+old = ''': mti-kind ( pi -- kind ) mti mti-kinds @ ?dup if nip mti-at @ else mti-node-kind then ;'''
+new = ''': mti-kind ( pi -- kind ) mti-node-kind ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l-I C2 introN: the kinds an alternative's eliminator gives are dropped, every field explicit"
 
@@ -500,8 +500,8 @@ reason = "review tactic-move B1: no term holds an open metavariable, so checkedA
 [[fault]]
 id = "lib-defeq-elab-at-mode-dropped"
 file = "src/front/meta-must.fs"
-old = '''  ['] lf-meta-defeq lf-defeq-elab rot lf-meta-with outcome-sane ;'''
-new = '''  ['] lf-meta-defeq lf-defeq-elab rot drop lf-tr-all lf-meta-with outcome-sane ;'''
+old = '''  ['] lf-meta-defeq lf-defeq-flags lf-defeq-elab or rot lf-meta-with outcome-sane ;'''
+new = '''  ['] lf-meta-defeq lf-defeq-flags lf-defeq-elab or rot drop lf-tr-all lf-meta-with outcome-sane ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "review tactic-move B1: the tactics' isDefEq ignores the transparency asked for, so rfl under rw's with_reducible unfolds a definition Lean's would not"
 
@@ -532,7 +532,7 @@ reason = "review tactic-move M3: introN without checkNotAssigned (Intro.lean:15)
 [[fault]]
 id = "lib-with-synth-status-dropped"
 file = "src/front/tactic-core.fs"
-old = '''  ['] tcr-under lf-postpone-no lf-elab-with-synth lf-tac-must ;'''
+old = '''  ['] tcr-under lf-postpone-no lf-elab-with-synth tcr-synthesized ;'''
 new = '''  ['] tcr-under lf-postpone-no lf-elab-with-synth drop ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "review tactic-move M3: withSynthesize's failure dropped, so a problem no instance fills is left and the tactic goes on as if it had succeeded"
@@ -673,8 +673,8 @@ reason = "C4: a target whose type is not the eliminator's major premise's (b : B
 [[fault]]
 id = "lib-elim-motive-unchecked"
 file = "src/front/meta-tactic/elim.fs"
-old = '''  over lf-goal-type over lf-infer! swap lf-tac-defeq lf-must 0= if'''
-new = '''  over lf-goal-type over lf-infer! swap lf-tac-defeq lf-must drop false if'''
+old = '''  mes-types 2dup lf-tac-defeq lf-must if 2drop exit then'''
+new = '''  mes-types 2dup lf-tac-defeq lf-must drop true if 2drop exit then'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "C4: setMotiveArg assigns a motive whose type does not fit (Nat -> Type for Nat -> Prop), not 212"
 
@@ -815,3 +815,53 @@ old = ''': lfr-row-new ( kind -- ) lfr-open'''
 new = ''': lfr-row-new ( kind -- )'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "re-check tactic-move-c4 R2: a new kind's row is made after a context exists"
+
+# --- Tactic batch 1's shared words (plan row TB1, commit C1) ------------------
+
+[[fault]]
+id = "tb1-tac-ex-no-goal"
+file = "src/front/tactic-msg.fs"
+old = ''': lf-tac-ex ( goal code -- ) swap ['] lf-tac-goal-of. lf-tac-detail lf-tac-stop ;'''
+new = ''': lf-tac-ex ( goal code -- ) nip lf-tac-stop ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "TB1 C1: throwTacticEx without the goal below its message (Lean prints it after a blank line)"
+
+[[fault]]
+id = "tb1-induct-any-kind"
+file = "src/front/meta-must.fs"
+old = '''  dup lf-menv-kind lf-kind-inductive = dup 0= if nip then ;'''
+new = '''  true ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "TB1 C1: matchConstInduct takes a constructor, a definition or a theorem for an inductive type"
+
+[[fault]]
+id = "tb1-induct-gap-is-none"
+file = "src/front/meta-must.fs"
+old = '''  lf-menv-find dup outcome-invalid = if 2drop false exit then lf-must true ;'''
+new = '''  lf-menv-find ok? 0= if drop false exit then true ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "TB1 C1 fail-closed: a lookup the heap refuses read as 'no such constant' (false), so a tactic reports Lean's error instead of stopping"
+
+[[fault]]
+id = "tb1-goals1-empty"
+file = "src/front/tactic-core.fs"
+old = ''': lf-goals1 ( goal -- goals ) 0 swap run-push lf-tac-must ;'''
+new = ''': lf-goals1 ( goal -- goals ) drop 0 ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "TB1 C1: liftMetaTactic1's [goal] is the empty list, so the new goal is lost"
+
+[[fault]]
+id = "tb1-with-cells-not-cut"
+file = "src/front/meta-must.fs"
+old = '''  over dup slab-count 2>r -rot mm-cells swap catch 2r> swap slab-cut throw ;'''
+new = '''  -rot mm-cells swap execute ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "TB1 C1: lf-with-cells leaves its cells claimed on both paths (the slab grows with every call)"
+
+[[fault]]
+id = "tb1-apply-tactic-unnamed"
+file = "src/front/tactics/apply.fs"
+old = ''': tap-inner ( goal node -- goals ) lf-tac-elab-for-apply lf-goal-apply-named ;'''
+new = ''': tap-inner ( goal node -- goals ) lf-tac-elab-for-apply lf-goal-apply ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/apply/check.py"
+reason = "TB1 C1: the apply tactic's error names its term 'the term' (Lean's evalApply passes term? `e`)"

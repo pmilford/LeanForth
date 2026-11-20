@@ -740,7 +740,7 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 8,
-  "shuffles": 2,
+  "shuffles": 3,
   "words": 17
  },
  "src/front/mvars.fs": {
@@ -871,6 +871,14 @@
   "shuffles": 0,
   "words": 2
  },
+ "src/front/tactics/clear.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 2
+ },
  "src/front/tactics/constructor.fs": {
   "globals": 1,
   "long lines": 0,
@@ -878,6 +886,38 @@
   "rstack": 0,
   "shuffles": 0,
   "words": 3
+ },
+ "src/front/tactics/exfalso.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 1
+ },
+ "src/front/tactics/intros.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 1
+ },
+ "src/front/tactics/left.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 2
+ },
+ "src/front/tactics/right.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 2
  },
  "src/front/telescope.fs": {
   "globals": 0,

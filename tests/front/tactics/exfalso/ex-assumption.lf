@@ -1,0 +1,14 @@
+\ by-exfalso, then by-assumption (plan row TB1; tests/front/tactics/
+\ goal-layer.lean): the goal a ≤ b becomes False, the type of h. The
+\ term is @False.elim.{0} (a ≤ b) h.
+\ Lean: theorem ex_assumption (a b : Nat) (h : False) : a ≤ b := by
+\         exfalso
+\         assumption
+theorem ex_assumption
+  Nat explicit: a  Nat explicit: b
+  False explicit: h
+  a b ≤
+:= by
+  by-exfalso
+  by-assumption
+end ex_assumption

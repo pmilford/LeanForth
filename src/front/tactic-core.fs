@@ -22,6 +22,11 @@
 \       step i runs in a new step record, xt ( i*x goal -- goals ) gets the
 \       main goal and its new goals (a run) take the main goal's place
 \       (replaceMainGoal)
+\   lf-lift-meta-tactic1 ( i*x i xt -- )  liftMetaTactic1 (Basic.lean:586)
+\       as LeanForth's goal words give it: the same with xt ( i*x goal --
+\       goal' ), goal' alone in the main goal's place (a goal word that
+\       closes its goal is run by lf-lift-meta-tactic instead)
+\   lf-goals1 ( goal -- goals )  the goal list [goal] (a new run)
 \   lf-tac-args# ( i -- n ), lf-tac-arg ( i k -- x ), lf-tac-arg-at ( i k
 \       -- pos )  getArg: how many arguments step i has (names, rules),
 \       its argument k from 0 (a syntax node or a name, 0 for _) and that
@@ -31,7 +36,16 @@
 \       synthesizeSyntheticMVarsNoPostponing): xt run with the pending
 \       problems set aside, the ones it adds synthesized with no
 \       postponing (elab-pending.fs's lf-elab-with-synth), the list put
-\       back however it ends; the stack passes through to xt
+\       back however it ends; the stack passes through to xt. A problem
+\       no instance fills stops the step with the elaborator's own error
+\       (125 failed to synthesize, 126 stuck: Lean's), as lf-tac-elab's
+\       do (lf-tac-elab-fail; plan 9.4.8l S)
+\   lf-tac-elab-detail ( -- ), lf-tac-elab-fail ( outcome -- )  the
+\       elaborator's failure as an error: its recorded term indented as
+\       the detail (none: no detail), then its code with its position as
+\       the second one, else the outcome's code (elab-pending.fs's
+\       lf-elab-code: no room 60, fuel 138, a step not ported 139),
+\       stopping the step (elab-decl.fs's hook and #check use them too)
 \   lf-tac-try-lean ( xt -- flag )  try (observing?): xt ( -- ) from a
 \       saved state (lf-tac-try); true when it ran to its end; a Lean
 \       error (tactic-msg.fs's lf-tac-lean-error?) undone and forgotten,
@@ -42,11 +56,12 @@
 \       runner's error (Term codes 125-139, 71 without an elaborator)
 \   lf-tac-elab-ensuring ( node expected -- e )  elabTermEnsuringType
 \       (ElabTerm.lean:51) with no postponing: e's type inferred and
-\       compared with expected by isDefEq (meta-must.fs's lf-tac-defeq);
-\       false is error 96 with Lean's text (tactic-msg.fs's
-\       lf-has-type-but-expected.). Lean compares with synthetic opaque
-\       metavariables assignable; this does not, so either type holding an
-\       unassigned one answers 93 first (plan 9.4.8l-I fix J)
+\       compared with expected by isDefEq with synthetic opaque
+\       metavariables assignable (withAssignableSyntheticOpaque:
+\       meta-config.fs's lf-with-assignable-opaque over meta-must.fs's
+\       lf-tac-defeq; a goal in either type may be assigned, plan 9.4.8l
+\       J); false is error 96 with Lean's text (tactic-msg.fs's
+\       lf-has-type-but-expected.)
 \   lf-close-main-goal-using ( i*x i xt -- )  closeMainGoalUsing
 \       (ElabTerm.lean:85): step i runs in a new step record, xt ( i*x
 \       type tag -- e ) gets the main goal's type and tag; e instantiated
@@ -54,10 +69,11 @@
 \       (filterOldMVars and logUnassignedAndAbort: error 95), then closes
 \       the goal (meta-tactic/goal.fs's lf-goal-checked-assign) and leaves
 \       the list
-\   lf-tac-intro1 ( name kind i -- )  liftMetaTactic of introN 1
+\   lf-tac-intro1 ( name kind i -- )  liftMetaTactic1 of introN 1
 \       (meta-tactic/goal.fs's lf-goal-intro-n): step i's main goal's
 \       first binder introduced, named name (0: its own, inaccessible), of
-\       kind kind (-1: the node's, explicit only), in its place the new
+\       kind kind (-1: the node's: explicit, implicit or strict implicit,
+\       as Lean's intro; plan row TB1), in its place the new
 \       goal (intro NAME; an alternative's field, tactic-alts.fs)
 \   lf-tac-elab-for-apply ( node -- e )  elabTermForApply
 \       (ElabTerm.lean:264) as evalApplyLikeTactic calls it (:284-292): an
@@ -66,6 +82,12 @@
 \       postponing allowed (lf-tac-elab); the result instantiated; Lean
 \       then synthesizes when it is a metavariable, which LeanForth does
 \       not port (unsupported, error 99)
+\   lf-tac-get-fvar ( node -- fvar )  getFVarId (ElabTerm.lean:272-277): the
+\       term elaborated as elabTermForApply does with no postponing (an
+\       identifier with no argument inserted), instantiated; anything but
+\       a free variable is error 389, Lean's "Unexpected term `e`; expected
+\       single reference to variable" (a metavariable too: Lean prints its
+\       ?m.N, LeanForth's name differs, never accepted)
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: tb, the running step record's fields (tactic-run.fs's
 \ lf-tac-record, review fe1g3 M2), in the checker context (ADR 0009); no
@@ -77,6 +99,8 @@ require ../lib/runs.fs
 require ../author/errors.fs
 require ./syntax.fs
 require ./mvars.fs
+require ./meta-spine.fs
+require ./meta-config.fs
 require ./goals.fs
 require ./goal-print.fs
 require ./elab-term.fs
@@ -117,29 +141,40 @@ end-structure
 : lf-tac-pop-main ( -- ) 0 lf-replace-main lf-tac-must ;
 : lf-tac-goal. ( -- outcome ) tb tb-goal @ lf-tac-goal-below. ;
 
-\ ---- liftMetaTactic.
-: tcr-lifted ( i*x xt i -- ) drop tb tb-goal @ swap execute lf-replace-main lf-tac-must ;
+\ ---- liftMetaTactic, liftMetaTactic1: xt on the main goal, its goals
+\ (one goal: [goal']) in the main goal's place.
+: lf-goals1 ( goal -- goals ) 0 swap run-push lf-tac-must ;
+: tcr-main ( i*x xt i -- j*x ) drop tb tb-goal @ swap execute ;
+: tcr-lifted ( i*x xt i -- ) tcr-main lf-replace-main lf-tac-must ;
 : lf-lift-meta-tactic ( i*x i xt -- ) swap ['] tcr-lifted lf-tac-step-run ;
+: tcr-lifted1 ( i*x xt i -- ) tcr-main lf-goals1 lf-replace-main lf-tac-must ;
+: lf-lift-meta-tactic1 ( i*x i xt -- ) swap ['] tcr-lifted1 lf-tac-step-run ;
 
 \ ---- introN of one binder: its name, kind and variable in tb's cells.
 : tcr-kinds ( -- kinds ) tb tb-kind dup @ 0< if drop 0 then ;
-: tcr-intro1 ( name kind goal -- goals )
+: tcr-intro1 ( name kind goal -- goal' )
   drop tb tb-kind ! tb tb-name ! tb tb-goal @ tb tb-name tcr-kinds 1 tb tb-x
-  lf-goal-intro-n 0 swap run-push lf-tac-must ;
-: lf-tac-intro1 ( name kind i -- ) ['] tcr-intro1 lf-lift-meta-tactic ;
+  lf-goal-intro-n ;
+: lf-tac-intro1 ( name kind i -- ) ['] tcr-intro1 lf-lift-meta-tactic1 ;
 
 \ ---- getArg, setGoals.
 : lf-tac-args# ( i -- n ) lf-tactic-step tac-count @ ;
 : tcr-arg ( i k -- x pos ) swap lf-tactic-step tac-first @ + lf-tactic-arg ;
 : lf-tac-arg ( i k -- x ) tcr-arg drop ;
 : lf-tac-arg-at ( i k -- pos ) tcr-arg nip ;
-: lf-tac-only ( goal -- ) 0 swap run-push lf-tac-must lf-goals! lf-tac-must ;
+: lf-tac-only ( goal -- ) lf-goals1 lf-goals! lf-tac-must ;
+
+\ ---- The elaborator's failure: its error, as Lean's throwError gives it.
+: lf-tac-elab-detail ( -- )
+  lf-elab-error-term dup 0< if drop else ['] lf-tac-indented. lf-tac-detail then ;
+: lf-tac-elab-fail ( outcome -- ) lf-tac-elab-detail lf-elab-code lfa-see! lf-tac-stop ;
 
 \ ---- withSynthesize: xt run under the pending list's window, the
 \ window's mode (no postponing) given back above the caller's cells.
 : tcr-under ( i*x xt mode -- j*x mode ) drop execute lf-postpone-no ;
+: tcr-synthesized ( outcome -- ) dup ok? 0= if lf-tac-elab-fail then drop ;
 : lf-tac-with-synth ( i*x xt -- j*x )
-  ['] tcr-under lf-postpone-no lf-elab-with-synth lf-tac-must ;
+  ['] tcr-under lf-postpone-no lf-elab-with-synth tcr-synthesized ;
 
 \ ---- try.
 : lf-tac-try-lean ( xt -- flag )
@@ -147,16 +182,11 @@ end-structure
 
 \ ---- Tactic.elabTerm, elabTermEnsuringType.
 : lf-tac-elab-term ( node expected postpone? -- e ) lf-tac-elab lf-tac-must ;
-: tcr-opaque? ( leaf -- flag )
-  dup lf-mvar-open? if lf-mvar-kind drop mv-opaque = else drop false then ;
-: tcr-opaque-free ( t -- t )
-  dup ['] tcr-opaque? lf-term-holds? lf-tac-must if lfa-e-tac-meta lf-tac-fail then ;
-: tcr-typed ( e expected -- e type expected )
-  over lf-infer lf-tac-must tcr-opaque-free swap tcr-opaque-free ;
-: tcr-mismatch ( e type expected -- )
-  3 ['] lf-has-type-but-expected. lf-tac-detail-n lfa-e-tac-mismatch lf-tac-stop ;
+: tcr-typed ( e expected -- e type expected ) over lf-infer lf-tac-must swap ;
+: tcr-mismatch ( e type expected -- ) lfa-e-tac-mismatch lf-tac-type-mismatch ;
+: tcr-defeq ( type expected -- flag outcome ) ['] lf-tac-defeq lf-with-assignable-opaque ;
 : tcr-ensured ( e type expected -- e )
-  2dup lf-tac-defeq lf-tac-must if 2drop exit then tcr-mismatch ;
+  2dup tcr-defeq lf-tac-must if 2drop exit then tcr-mismatch ;
 : lf-tac-elab-ensuring ( node expected -- e )
   tuck false lf-tac-elab-term swap tcr-typed tcr-ensured ;
 
@@ -172,10 +202,22 @@ end-structure
   tcr-fresh-free tb tb-goal @ swap lf-goal-checked-assign lf-tac-pop-main ;
 : lf-close-main-goal-using ( i*x i xt -- ) swap ['] tcr-closing lf-tac-step-run ;
 
-\ ---- elabTermForApply.
-: tcr-ident ( node -- e ) lf-elab-ident lf-tac-must ;
-: tcr-term ( node -- e ) -1 true lf-tac-elab-term ;
+\ ---- elabTermForApply, with mayPostpone given.
+: tcr-ident ( node postpone? -- e ) drop lf-elab-ident lf-tac-must ;
+: tcr-term ( node postpone? -- e ) -1 swap lf-tac-elab-term ;
+: tcr-for-apply ( node postpone? -- e )
+  over lf-elab-ident? if tcr-ident else tcr-term then lf-instantiate! ;
 : tcr-not-mvar ( e -- e ) dup lf-mvar? if lfa-e-tac-form lf-tac-fail then ;
-: lf-tac-elab-for-apply ( node -- e )
-  dup lf-elab-ident? if tcr-ident else tcr-term then lf-instantiate! tcr-not-mvar ;
+: lf-tac-elab-for-apply ( node -- e ) true tcr-for-apply tcr-not-mvar ;
+
+\ ---- getFVarId: elabTermForApply with no postponing, a free variable.
+389 outcome-invalid s" Unexpected term" lfa-code: lfa-e-tac-not-fvar
+: tcr-expected. ( -- outcome )
+  s" ; expected single reference to variable" lf-pp-emit outcome-ok ;
+: tcr-unexpected. ( e -- outcome )
+  s"  " lf-pp-emit lf-tac-inline. ['] tcr-expected. ok-and ;
+: tcr-fvar ( e -- fvar )
+  dup lf-meta-fvar? if exit then
+  ['] tcr-unexpected. lf-tac-inline lfa-e-tac-not-fvar lf-tac-stop ;
+: lf-tac-get-fvar ( node -- fvar ) false tcr-for-apply tcr-fvar ;
 base !   \ the BASE this file was loaded with

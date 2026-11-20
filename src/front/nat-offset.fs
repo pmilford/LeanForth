@@ -138,8 +138,6 @@ texts-end constant no-ops6
 : no-unported? ( t -- flag )
   lf-meta-head-args no-ops ?dup if ['] lf-meta-const-named? swap texts-find 0<>
   else drop false then ;
-\ The last two arguments of an addition.
-: no-sides ( e -- a b ) dup lf-term-first@ lf-term-second@ swap lf-term-second@ ;
 
 \ ---- evalNat: the terms to evaluate on no-stack, the first argument on
 \ top; each value adds to no-acc. A step's code: 0 go on, 1 no value.
@@ -151,7 +149,7 @@ texts-end constant no-ops6
 : no-push-arg ( t i n -- outcome ) lf-meta-nth-arg no-push ;
 \ An addition's two summands, the first on top.
 : no-push-sides ( t -- code outcome )
-  no-sides swap >r no-push dup ok? if drop r> no-push else r> drop then 0 swap ;
+  lf-meta-args2 no-push swap no-push outcome-and 0 swap ;
 : no-lit-step ( lit -- code outcome )
   dup lf-lit-small? if lf-lit-cell no-add-acc 0 swap
   else drop 0 outcome-unsupported then ;
@@ -207,10 +205,10 @@ texts-end constant no-ops6
 : no-fail ( outcome -- 0 0 code ) no no-out ! 0 0 no-failed ;
 : no-inst-layer ( e n -- a b code )
   over swap no-inst-ok? dup ok? 0= if nip nip no-fail exit then drop
-  if no-sides no-sum-at else drop 0 0 no-foreign then ;
+  if lf-meta-args2 no-sum-at else drop 0 0 no-foreign then ;
 : no-layer ( e -- a b code )
   dup lf-meta-succ? if 0 1 lf-meta-nth-arg 0 no-succ-at exit then
-  dup 2 s" Nat.add" lf-meta-app-of? if no-sides no-sum-at exit then
+  dup 2 s" Nat.add" lf-meta-app-of? if lf-meta-args2 no-sum-at exit then
   dup 4 s" Add.add" lf-meta-app-of? if 4 no-inst-layer exit then
   dup 6 s" HAdd.hAdd" lf-meta-app-of? if 6 no-inst-layer else 0 no-plain then ;
 \ v more for the offset: false when it passes a cell.

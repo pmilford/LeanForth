@@ -1,0 +1,69 @@
+# Planted faults of by-clear, the goal layer's clear and getFVarId (plan row
+# TB1; src/front/tactics/clear.fs, src/front/meta-tactic/goal.fs's
+# lf-goal-clear!, src/front/tactic-core.fs's lf-tac-get-fvar), read with
+# faults.toml as one list (scripts/mutants.py).
+
+[[fault]]
+id = "tb1-clear-locals-unchecked"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mcl-run ( goal fvar -- goal' ) mcl-known mcl-locals mcl-target lf-goal-clear lf-must ;'''
+new = ''': mcl-run ( goal fvar -- goal' ) mcl-known mcl-target lf-goal-clear lf-must ;'''
+test = "$GFORTH tests/front/tactics/clear/test.fs"
+reason = "TB1: clear without its test of the other hypotheses: Lean's 'variable h depends on a' becomes the outcome face's bare refusal"
+
+[[fault]]
+id = "tb1-clear-newest-named"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  dup lf-mctx-view lf-view-count ['] mcl-dep? find-index if mcl-dependent then ;'''
+new = '''  dup lf-mctx-view lf-view-count ['] mcl-dep? find-last-index if mcl-dependent then ;'''
+test = "$GFORTH tests/front/tactics/clear/test.fs"
+reason = "TB1: the newest dependent hypothesis named where Lean's lctx.forM names the oldest (h2, not h1)"
+
+[[fault]]
+id = "tb1-clear-self-dependent"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  lf-mctx-fvar 2dup = if drop false exit then'''
+new = '''  lf-mctx-fvar'''
+test = "$GFORTH tests/front/tactics/clear/test.fs"
+equivalent = "a local's own type, or a let's own value, never holds its own free variable (the local context is built in order), so the test of itself always answers false: skipping it, as Lean's `unless localDecl.fvarId == fvarId` does, changes no answer"
+reason = "TB1: the variable cleared tested against itself (Lean passes over its own declaration)"
+
+[[fault]]
+id = "tb1-clear-target-unchecked"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  over lf-goal-type over lf-depends-on? lf-must if lfa-e-clear-target mcl-refuse then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactics/clear/test.fs"
+reason = "TB1: clear without its target test: Lean's 'target depends on a' becomes the outcome face's bare refusal"
+
+[[fault]]
+id = "tb1-clear-quote-backquote"
+file = "src/front/tactic-msg.fs"
+old = ''': lf-tac-quoted. ( term -- outcome ) s" '" drop tmg-in ;'''
+new = ''': lf-tac-quoted. ( term -- outcome ) s" `" drop tmg-in ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/clear/check.py"
+reason = "TB1: clear's variables between backquotes where Lean's messages quote them 'h'"
+
+[[fault]]
+id = "tb1-get-fvar-any-term"
+file = "src/front/tactic-core.fs"
+old = '''  dup lf-meta-fvar? if exit then'''
+new = '''  exit'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/clear/check.py"
+reason = "TB1: getFVarId takes a constant as a variable (Lean: Unexpected term ...; expected single reference to variable)"
+
+[[fault]]
+id = "tb1-get-fvar-postponing"
+file = "src/front/tactic-core.fs"
+old = ''': lf-tac-get-fvar ( node -- fvar ) false tcr-for-apply tcr-fvar ;'''
+new = ''': lf-tac-get-fvar ( node -- fvar ) lf-tac-elab-for-apply tcr-fvar ;'''
+test = "$GFORTH tests/front/tactics/clear/test.fs"
+reason = "TB1: getFVarId elaborates with postponing allowed (Lean: mayPostpone := false)"
+
+[[fault]]
+id = "tb1-clear-plain-lift"
+file = "src/front/tactics/clear.fs"
+old = ''': tcl-run ( i -- ) dup ['] tcl-tac lf-lift-meta-tactic1 ;'''
+new = ''': tcl-run ( i -- ) dup ['] tcl-tac lf-lift-meta-tactic ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/clear/check.py"
+reason = "TB1: clear's one goal handed to liftMetaTactic as a list"

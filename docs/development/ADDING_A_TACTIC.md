@@ -56,6 +56,15 @@ s" assumption" tac-k-assumption lf-tactic-lean!
   of the design's appendix C.
 - `lf-lift-meta-tactic` (Lean's liftMetaTactic): xt ( i*x goal -- goals )
   gets the main goal in its context; its goals (a run) take its place.
+  `lf-lift-meta-tactic1` (liftMetaTactic1): the same for a goal operation
+  that gives one goal, xt ( i*x goal -- goal' ) (`tactics/exfalso.fs`:
+  `' lf-goal-exfalso lf-lift-meta-tactic1`).
+- A goal operation's error with the goal below it (Lean's throwTacticEx) is
+  `lf-tac-ex ( goal code -- )` (`tactic-msg.fs`); a part of the message on
+  its own first line is `lf-tac-inline` before it (clear's `'h'`).
+- A tactic that takes a hypothesis by name gets its free variable with
+  `lf-tac-get-fvar ( node -- fvar )` (Lean's getFVarId: error 389 for any
+  other term).
 - Add the file to `src/front/tactics/all.fs`, sorted.
 
 What a tactic file may not do (`scripts/check-tactic-plugins.py`): write a

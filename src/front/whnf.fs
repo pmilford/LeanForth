@@ -540,12 +540,17 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ when either argument does: the first at once, the second after the
 \ first's value or none (branch s2-tactics: rewriting's kabstract
 \ compares k + 1 with 0 + Nat.succ k; S2 merge B: Nat.add 0 (Nat.succ x)
-\ as a discriminant at reducible). An unassigned metavariable stays one
-\ when instantiated: no value either. Not ported yet: an argument holding
-\ an assigned one (instantiateMVars first; unsupported).
+\ as a discriminant at reducible). An argument holding a metavariable is
+\ instantiated first, and has no value when it then holds a metavariable
+\ or a free variable (plan 9.4.8l J: ?m ≤ ?k with both assigned free
+\ variables, Nat.le ?m ?k after delta); an unassigned one stays itself,
+\ with no instantiation. An instantiation refused (no room, a delayed
+\ assignment not ported) is a value perhaps: the caller's unsupported.
+: wm-open? ( a -- flag ) dup lf-meta-mvar-free? 0= swap lf-meta-has-fvar? or ;
 : wm-no-value? ( a -- flag )
   dup wc-unassigned? if drop true exit then
-  dup lf-meta-mvar-free? if lf-meta-has-fvar? else drop false then ;
+  dup lf-meta-mvar-free? if lf-meta-has-fvar? exit then
+  lf-instantiate-mvars ok? if wm-open? else drop false then ;
 : wm-args-none? ( e -- flag )
   dup lf-term-first@ lf-term-second@ wm-no-value? if drop true exit then
   lf-term-second@ wm-no-value? ;
@@ -675,10 +680,9 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ WHNF.lean:400; a have keeps its value hidden). A value with a
 \ metavariable or a free variable (another let, perhaps) may; such a term
 \ takes the walk below.
-: ws-open? ( value -- flag ) dup lf-meta-mvar-free? 0= swap lf-meta-has-fvar? or ;
 : ws-let? ( leaf -- flag )
   dup lf-meta-fvar? 0= if drop false exit then
-  dup lf-fvar-let? if lf-fvar-value ws-open? else drop false then ;
+  dup lf-fvar-let? if lf-fvar-value wm-open? else drop false then ;
 : ws-reaches-none? ( term -- flag outcome )
   dup lf-meta-mvar-free? 0= if drop false outcome-ok exit then
   dup lf-meta-has-fvar? 0= if drop true outcome-ok exit then
@@ -844,8 +848,12 @@ wc-smatch-kind 1+ constant wc-srec-kind
 
 \ ---- whnf (lf-meta-whnf) and unfoldDefinition? (lf-meta-unfold).
 : lf-meta-whnf ( e -- e' outcome ) wc-full-act false wc-run ;
+\ The delta step, then any frame it left resumed (the smart path's, when
+\ reduceMatcher? answers none at once: e itself, plan 9.4.8l AB), as
+\ the loop resumes them; a failure of either is the answer.
 : wc-unfold-run ( e -- e' outcome )
-  wc-delta ok-then2? 0= if no-result exit then if wc-loop else outcome-ok then ;
+  wc-delta ok-then2? if wc-next ok-then2? else false then
+  0= if no-result exit then if wc-loop else outcome-ok then ;
 : wc-answer ( e' outcome -- e' flag outcome )
   dup ok? if wc wc-unfolded @ else false then swap ;
 : lf-meta-unfold ( e -- e' flag outcome )

@@ -1,0 +1,22 @@
+\ by-intros on apply's goals (plan row TB1; tests/front/tactics/
+\ goal-layer.lean): apply Or.elim h leaves the goals left and right, each
+\ a ≤ b → a ≤ b; intros introduces the one binder of each, named a✝ (an
+\ inaccessible name), which assumption then finds. The term is
+\ Or.elim h (fun a => a) (fun a => a).
+\ Lean: theorem is_or (a b : Nat) (h : a ≤ b ∨ a ≤ b) : a ≤ b := by
+\         apply Or.elim h
+\         intros
+\         assumption
+\         intros
+\         assumption
+theorem is_or
+  Nat explicit: a  Nat explicit: b
+  a b ≤ a b ≤ Or explicit: h
+  a b ≤
+:= by
+  ' Or.elim ' h $ by-apply
+  by-intros
+  by-assumption
+  by-intros
+  by-assumption
+end is_or

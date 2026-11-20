@@ -147,3 +147,5 @@
 {"goal_before":"case zero.succ\nj : Nat\nih : 0 + 0 = 0\n⊢ 0 + 0 = 0","goals_after":[],"parent":6,"source":"22:24","step":7,"tactic":"exact","word":"by-exact"}
 {"goal_before":null,"goals_after":["case succ\nm k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1"],"parent":1,"source":"24:3","step":8,"tactic":"alternative","word":"|"}
 {"goal_before":"case succ\nm k : Nat\nih : 0 + k = k\n⊢ 0 + (k + 1) = k + 1","goals_after":[],"parent":8,"source":"24:19","step":9,"tactic":"rw","word":"by-rw["}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"rfl_id","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a : Nat\n⊢ @id Prop (a = a)","goals_after":[],"parent":0,"source":"11:3","step":1,"tactic":"rfl","word":"by-rfl"}

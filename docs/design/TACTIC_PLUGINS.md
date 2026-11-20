@@ -353,7 +353,19 @@ All throw on failure unless marked `outcome`; "a2-i", "a2-ii", "a2-iii" or a sli
 | meta-tactic/apply.fs | `lf-goal-apply ( goal e -- goals )`, `lf-synth-app-instances ( mvars bis n -- )`, `lf-get-mvars-no-delayed ( e -- mvars n )` | `MVarId.apply`, `synthAppInstances`, `getMVarsNoDelayed` | a2-iii |
 | | `lf-goal-assumption ( goal -- )`, `lf-goal-constructor ( goal -- goals )` | `MVarId.assumption`, `constructor` | a2-iii |
 | tactic-core.fs | `lf-lift-meta-tactic ( xt -- )`, `lf-close-main-goal-using ( xt -- )`, `lf-with-main-context ( i*x xt -- j*x )` | `liftMetaTactic`, `closeMainGoalUsing`, `withMainContext` | a2-ii |
+| | `lf-lift-meta-tactic1 ( i*x i xt -- )`, `lf-goals1 ( goal -- goals )`, `lf-tac-get-fvar ( node -- fvar )` | `liftMetaTactic1`, `[g]`, `getFVarId` | TB1 |
+| tactic-msg.fs | `lf-tac-ex ( goal code -- )`, `lf-tac-quoted. ( term -- outcome )` | `throwTacticEx`, `m!"'{e}'"` | TB1 |
+| meta-must.fs | `lf-match-const-induct ( f -- d true \| false )`, `lf-with-cells ( i*x n slab xt -- j*x )` | `matchConstInduct`; n cells for a call (an `Array` of n) | TB1 |
+| meta-spine.fs | `lf-meta-app2? ( e -- flag )`, `lf-meta-args2 ( e -- a b )` (outcome-free) | an application of two arguments or more; its last two | review of tactic-fidelity (B1) |
+| meta-tactic/goal.fs | `lf-goal-exfalso ( goal -- goal' )`, `lf-intros-size ( type -- n )`, `lf-goal-intros ( goal -- goal' )`, `lf-goal-clear! ( goal fvar -- goal' )`; `lf-goal-intro-n`'s names 0 and kinds 0 | `MVarId.exfalso`, `getIntrosSize`, `MVarId.intros`, `MVarId.clear`; introN's `[]` and the binder's own kind | TB1 |
+| meta-tactic/constructor.fs | `lf-nth-constructor: ( idx expected target-code count-code "name" -- )`, `lf-goal-nth-constructor ( goal nth -- goals )` | `MVarId.nthConstructor` | TB1 |
+| meta-tactic/apply.fs | `lf-goal-apply-named ( goal e -- goals )` (`lf-goal-apply` gives no term?) | `MVarId.apply`'s `term?` | TB1 |
+| goals.fs, lctx-views.fs | `lf-local-depends-on? ( lfvar fvar -- flag outcome )` (outcome), `lf-view-fvar ( view i -- fvar )` | `localDeclDependsOn`; a local's free variable | TB1 |
 | | `lf-throw-type-mismatch ( e type expected -- )`, `tb`, `lf-tac-step-run`, the message words | `throwTypeMismatchError` | a2-ii (moved) |
+
+(Rows marked TB1: tactic batch 1, `by-left`, `by-right`, `by-exfalso`, `by-intros` and `by-clear`, plan row TB1,
+whose plug-ins are each a few lines over these words; the architect's word list is
+`.claude/work/briefs/TACTIC-BATCH1-WORDLIST.md`.)
 
 Unchanged and listed by `tactic-api.fs`: the runner's goals, blocks, choice points and records (`tactic-run.fs:322-541`),
 `lf-goal-new`, `lf-replace-main`, `lf-goal-clear`, `lf-goal-rename` (`goals.fs:59-140`), `lf-mvar-new` (`mvars.fs:280`),

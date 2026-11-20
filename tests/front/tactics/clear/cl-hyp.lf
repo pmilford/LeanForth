@@ -1,0 +1,14 @@
+\ by-clear of a hypothesis nothing else uses (plan row TB1;
+\ tests/front/tactics/goal-layer.lean): h2 leaves the context, and exact
+\ closes the goal with h1. The term is h1.
+\ Lean: theorem cl_hyp (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) : a ≤ b := by
+\         clear h2
+\         exact h1
+theorem cl_hyp
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1  b a ≤ explicit: h2
+  a b ≤
+:= by
+  ' h2 by-clear
+  ' h1 by-exact
+end cl_hyp

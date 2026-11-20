@@ -1,0 +1,12 @@
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ex_exact","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : False\n⊢ a = b","goals_after":["a b : Nat\nh : False\n⊢ False"],"parent":0,"source":"12:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"a b : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"13:7","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ex_assumption","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : False\n⊢ a ≤ b","goals_after":["a b : Nat\nh : False\n⊢ False"],"parent":0,"source":"12:3","step":1,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"a b : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"13:3","step":2,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ex_tag","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}
+{"goal_before":"a b : Nat\nh : False\n⊢ a = b ∧ b = a","goals_after":["case left\na b : Nat\nh : False\n⊢ a = b","case right\na b : Nat\nh : False\n⊢ b = a"],"parent":0,"source":"16:15","step":1,"tactic":"apply","word":"by-apply"}
+{"goal_before":"case left\na b : Nat\nh : False\n⊢ a = b","goals_after":["case left\na b : Nat\nh : False\n⊢ False","case right\na b : Nat\nh : False\n⊢ b = a"],"parent":0,"source":"17:3","step":2,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"case left\na b : Nat\nh : False\n⊢ False","goals_after":["case right\na b : Nat\nh : False\n⊢ b = a"],"parent":0,"source":"18:7","step":3,"tactic":"exact","word":"by-exact"}
+{"goal_before":"case right\na b : Nat\nh : False\n⊢ b = a","goals_after":["case right\na b : Nat\nh : False\n⊢ False"],"parent":0,"source":"19:3","step":4,"tactic":"exfalso","word":"by-exfalso"}
+{"goal_before":"case right\na b : Nat\nh : False\n⊢ False","goals_after":[],"parent":0,"source":"20:7","step":5,"tactic":"exact","word":"by-exact"}

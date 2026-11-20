@@ -1,0 +1,10 @@
+\ A wrong twin (plan row TB1; tests/front/tactics/goal-layer-wrong.lean):
+\ And has one constructor, and left fails with Lean's message (error 386)
+\ and the goal.
+\ Lean: theorem w_le_and (a b : Nat) : a ≤ b ∧ b ≤ a := by left
+theorem w_le_and
+  Nat explicit: a  Nat explicit: b
+  a b ≤ b a ≤ And
+:= by
+  by-left
+end w_le_and

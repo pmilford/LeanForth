@@ -13,7 +13,8 @@
 \ Lean call list: withMainContext, getMainGoal, replaceMainGoal ->
 \ lf-lift-meta-tactic (tactic-core.fs); elabTermForApply ->
 \ lf-tac-elab-for-apply (tactic-core.fs); instantiateMVars ->
-\ lf-instantiate!; MVarId.apply -> lf-goal-apply (meta-tactic/apply.fs);
+\ lf-instantiate!; MVarId.apply with term? `t` -> lf-goal-apply-named
+\ (meta-tactic/apply.fs);
 \ withSynthesize -> lf-tac-with-synth (tactic-core.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own. Loads in decimal whatever BASE is, then
@@ -25,7 +26,7 @@ require ../tactic-api.fs
 tac-shape-term lf-tactic: by-apply constant tac-k-apply
 s" apply" tac-k-apply lf-tactic-lean!
 
-: tap-inner ( goal node -- goals ) lf-tac-elab-for-apply lf-goal-apply ;
+: tap-inner ( goal node -- goals ) lf-tac-elab-for-apply lf-goal-apply-named ;
 : tap-tac ( i goal -- goals ) swap 0 lf-tac-arg ['] tap-inner lf-tac-with-synth ;
 : tap-run ( i -- ) dup ['] tap-tac lf-lift-meta-tactic ;
 ' tap-run tac-k-apply lf-tactic-action!

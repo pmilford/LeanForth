@@ -1,0 +1,14 @@
+\ by-clear of a variable no hypothesis and not the goal mentions (plan row
+\ TB1; tests/front/tactics/goal-layer.lean): b leaves the context. The term
+\ is h.
+\ Lean: theorem cl_var (a b : Nat) (h : a ≤ a) : a ≤ a := by
+\         clear b
+\         exact h
+theorem cl_var
+  Nat explicit: a  Nat explicit: b
+  a a ≤ explicit: h
+  a a ≤
+:= by
+  ' b by-clear
+  ' h by-exact
+end cl_var

@@ -136,7 +136,7 @@ end-structure
   et-vars slab-at @ outcome-ok ;
 : et-hyp ( name -- f outcome )
   lf-mctx-view swap lf-view-named 0= if -1 outcome-invalid exit then
-  lf-mctx-view swap lf-view-local lf-local-fvar outcome-ok ;
+  lf-mctx-fvar outcome-ok ;
 : et-head ( node -- f outcome )
   dup syn-a@ swap syn-kind@ case syn-k-const of et-const endof syn-k-var of et-var endof
     syn-k-hyp of et-hyp endof nip -1 outcome-invalid rot endcase ;
@@ -169,10 +169,9 @@ end-structure
 \ from it and the instance metavariable.
 : et-of-nat-type ( T lit -- type outcome )
   s" OfNat" et-at-u ok-then? if -rot et-app2 else nip nip no-result then ;
-: et-type-args ( type -- T lit ) dup lf-term-first@ lf-term-second@ swap lf-term-second@ ;
 : et-app-to ( i f -- term outcome ) swap lf-meta-app ;
 : et-of-nat-args ( type i c -- term outcome )
-  rot et-type-args et-app2 ['] et-app-to ok-apply2 ;
+  rot lf-meta-args2 et-app2 ['] et-app-to ok-apply2 ;
 : et-of-nat-value ( type i -- term outcome )
   s" OfNat.ofNat" et-at-u ['] et-of-nat-args ok-apply3 ;
 : et-of-nat ( T lit -- term outcome )

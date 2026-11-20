@@ -1,0 +1,27 @@
+# Planted faults of by-right (plan row TB1; src/front/tactics/right.fs, on
+# src/front/meta-tactic/constructor.fs's lf-goal-nth-constructor), read with
+# faults.toml as one list (scripts/mutants.py).
+
+[[fault]]
+id = "tb1-nth-index-ignored"
+file = "src/front/meta-tactic/constructor.fs"
+old = '''  swap nth-idx @ mco-at lf-goal-apply ;'''
+new = '''  swap drop 0 mco-at lf-goal-apply ;'''
+test = "$GFORTH tests/front/tactics/right/test.fs"
+reason = "TB1: nthConstructor applies the first constructor whatever the record's index (right gives Or.inl)"
+
+[[fault]]
+id = "tb1-right-first"
+file = "src/front/tactics/right.fs"
+old = '''1 2 lfa-e-right-target lfa-e-right-count lf-nth-constructor: tri-nth'''
+new = '''0 2 lfa-e-right-target lfa-e-right-count lf-nth-constructor: tri-nth'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/right/check.py"
+reason = "TB1: right applies the first constructor (Or.inl), Lean's right the second"
+
+[[fault]]
+id = "tb1-right-left-codes"
+file = "src/front/tactics/right.fs"
+old = '''1 2 lfa-e-right-target lfa-e-right-count lf-nth-constructor: tri-nth'''
+new = '''1 2 385 386 lf-nth-constructor: tri-nth'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/right/check.py"
+reason = "TB1: right's refusals give left's codes and texts (Lean names the tactic that failed)"
