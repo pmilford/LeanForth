@@ -109,6 +109,7 @@
 119	5	not supported yet: the search tries an instance the export left out
 120	5	not supported yet: the search tries an instance whose keys could not be checked (S2)
 121	5	not supported yet: Lean's check of an instance that holds metavariables (FE1e5b)
+122	1	failed to synthesize
 125	1	failed to synthesize instance of type class
 126	1	typeclass instance problem is stuck
 127	1	numerals are data in Lean, but the expected type is a proposition

@@ -35,6 +35,11 @@
 \   force: Lean's withReducible (Basic.lean:1225),
 \   withAssignableSyntheticOpaque (:1346, assignSyntheticOpaque) and
 \   approxDefEq (:2125, foApprox, ctxApprox and quasiPatternApprox).
+\   lf-tr-lt? ( m1 m2 -- flag ) is TransparencyMode.lt
+\   (TransparencyMode.lean:37): none < reducible < instances < implicit <
+\   default < all; lf-with-at-least ( i*x xt mode -- j*x ) is
+\   withAtLeastTransparency (Basic.lean:1341): xt at mode when the
+\   transparency in force is below it, else at the one in force.
 \ - The budget (S1 §8, Lean's maxHeartbeats): the steps of elaboration,
 \   synthesis, unification and whnf one context may take (per context
 \   until s1-elab resets it per declaration), default
@@ -102,6 +107,13 @@ end-structure
 : lf-with-assignable-opaque ( i*x xt -- j*x ) lf-defeq-opaque mcfg-with-bits ;
 : lf-with-approx ( i*x xt -- j*x )
   lf-defeq-fo lf-defeq-ctx or lf-defeq-quasi or mcfg-with-bits ;
+\ Each mode's rank in Lean's order, by its number: all default reducible
+\ instances none implicit.
+align here 5 , 4 , 1 , 2 , 0 , 3 , constant mcfg-ranks
+: mcfg-rank ( mode -- rank ) cells mcfg-ranks + @ ;
+: lf-tr-lt? ( m1 m2 -- flag ) mcfg-rank swap mcfg-rank swap < ;
+: lf-with-at-least ( i*x xt mode -- j*x )
+  lf-defeq-mode over lf-tr-lt? if lf-meta-at else drop execute then ;
 : lf-meta-budget ( -- n ) mcfg mcfg-budget @ ;
 : lf-meta-spend? ( -- flag )
   lf-meta-budget dup 0> if 1- lf-meta-budget! true else drop false then ;

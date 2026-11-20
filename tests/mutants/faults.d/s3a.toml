@@ -19,3 +19,85 @@ old = ''': lf-nat-op ( name -- i | -1 ) dup lf-nat-name? 0= if drop -1 exit then
 new = ''': lf-nat-op ( name -- i | -1 ) nop-index ;'''
 test = "$GFORTH tests/core/nat-ops.fs"
 reason = "S3a C0: Int.add (any name whose last component is an operation's) taken for Nat.add, where Lean compares the whole name"
+
+# --- C1: the tactic library's words ----------------------------------------
+
+[[fault]]
+id = "s3a-at-least-always"
+file = "src/front/meta-config.fs"
+old = '''  lf-defeq-mode over lf-tr-lt? if lf-meta-at else drop execute then ;'''
+new = '''  lf-meta-at ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: withAtLeastTransparency lowers all to default, where Lean keeps a transparency at or above the mode"
+
+[[fault]]
+id = "s3a-tr-lt-reversed"
+file = "src/front/meta-config.fs"
+old = ''': lf-tr-lt? ( m1 m2 -- flag ) mcfg-rank swap mcfg-rank swap < ;'''
+new = ''': lf-tr-lt? ( m1 m2 -- flag ) mcfg-rank swap mcfg-rank < ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: TransparencyMode.lt read backwards, so default counts as below reducible"
+
+[[fault]]
+id = "s3a-meta-fail-uncarried"
+file = "src/front/meta-must.fs"
+old = ''': lf-meta-fail ( term code -- ) mmf 2! lf-meta-throw-base outcome-rejected - throw ;'''
+new = ''': lf-meta-fail ( term code -- ) 2drop lf-meta-throw-base outcome-rejected - throw ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: a Lean error with a message of its own is thrown without it, so the runner prints AppBuilder failed (101) for synthInstance's failed to synthesize"
+
+[[fault]]
+id = "s3a-must-keeps-carried"
+file = "src/front/meta-must.fs"
+old = '''  dup ok? if drop exit then 0 mmf mmf-code !'''
+new = '''  dup ok? if drop exit then'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: a later failure keeps the Lean error an earlier one carried, so it would be reported for a failure that is not it"
+
+[[fault]]
+id = "s3a-runner-carried-ignored"
+file = "src/front/tactic-run.fs"
+old = '''  dup lfr-carried? if drop lf-meta-failed lf-tac-lean-fail exit then lfr-meta-must ;'''
+new = '''  lfr-meta-must ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: the runner maps a carried failed to synthesize to AppBuilder failed (101) with the goals"
+
+[[fault]]
+id = "s3a-lean-detail-no-hint"
+file = "src/front/tactic-msg.fs"
+old = '''  swap lf-tac-indented. swap lfa-e-synth-failed = if ['] tmg-diagnostics. ok-and then ;'''
+new = '''  swap lf-tac-indented. nip ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: failed to synthesize printed without Lean's useDiagnosticMsg hint"
+
+[[fault]]
+id = "s3a-synth-bang-none-found"
+file = "src/front/synth.fs"
+old = '''  dup lf-synth-instance? if nip else drop lfa-e-synth-failed lf-meta-fail then ;'''
+new = '''  lf-synth-instance? drop ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: synthInstance's none taken for an instance (-1), never Lean's failed to synthesize"
+
+[[fault]]
+id = "s3a-opt-m-some-ignored"
+file = "src/front/app-builder.fs"
+old = ''': abo-some? ( -- flag ) abm abm-mask @ abm abm-i @ rshift 1 and ;'''
+new = ''': abo-some? ( -- flag ) false ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: mkAppOptM takes every entry for none, so its given arguments are new metavariables"
+
+[[fault]]
+id = "s3a-opt-m-instance-natural"
+file = "src/front/app-builder.fs"
+old = '''  abo-some? if abo-some else dup abm-kind abm-hole then 1 abm abm-i +! ;'''
+new = '''  abo-some? if abo-some else lf-binder-default abm-hole then 1 abm abm-i +! ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "S3a C1: a none entry of an instance binder is a natural metavariable, never synthesized (mkDecide's instance left open)"
+
+[[fault]]
+id = "s3a-apply-elab-synth"
+file = "src/front/meta-tactic/apply.fs"
+old = ''': ap-no-instance ( mvar -- ) lf-goal-type lfa-e-synth-failed lf-tac-lean-fail ;'''
+new = ''': ap-no-instance ( mvar -- ) lf-goal-type lfa-e-elab-synth lf-tac-lean-fail ;'''
+test = "$GFORTH tests/front/tactics/apply/test.fs"
+reason = "S3a C1: apply's synthAppInstances reports the elaborator's text (125) where Lean's Meta synthInstance says failed to synthesize (122)"

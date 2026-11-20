@@ -76,12 +76,15 @@ lf-tac-forget
 T{ nat hadd goal dup s" instHAdd" c-fresh lf-goal-apply swap goal-value inst-lean lf-meta-eqv
    -> 0 true outcome-ok }T
 \ No instance: @instHAppendOfAppend {α} [Append α] on HAppend Nat Nat Nat
-\ needs Append Nat, which has none (Lean's "failed to synthesize"): error
-\ 125 (thrown: no step running). (Add Bool would try a candidate the
-\ slice's data leaves out: unsupported, synth.fs's 119.)
+\ needs Append Nat, which has none: Meta's synthInstance's "failed to
+\ synthesize" (122, plan S3a; it was the elaborator's 125 before) with the
+\ type and Lean's hint (thrown: no step running). (Add Bool would try a
+\ candidate the slice's data leaves out: unsupported, synth.fs's 119.)
 : happend ( t -- t' ) >r s" HAppend" 0 0 0 3 lf-mk-const r@ lf-mk-app r@ lf-mk-app r> lf-mk-app ;
 T{ nat happend goal s" instHAppendOfAppend" c-fresh ' lf-goal-apply catch nip nip
-   lf-author-code -> lf-author-throw 125 }T
+   lf-author-code -> lf-author-throw 122 }T
+: detail-has? ( c-addr u -- flag ) 0 lfa-detail slab-at lfa-detail slab-count 2swap search nip nip ;
+T{ s"   " detail-has? s\" Nat\n\nHint: Additional diagnostic information" detail-has? -> true true }T
 T{ s" Bool" lf-mk-const0 hadd goal s" instHAdd" c-fresh ' lf-goal-apply catch nip nip
    lf-synth-error -> -4205 119 }T
 lf-tac-forget

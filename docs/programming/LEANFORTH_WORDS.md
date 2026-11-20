@@ -471,6 +471,7 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 119 | unsupported | not supported yet: the search tries an instance the export left out |
 | 120 | unsupported | not supported yet: the search tries an instance whose keys could not be checked (S2) |
 | 121 | unsupported | not supported yet: Lean's check of an instance that holds metavariables (FE1e5b) |
+| 122 | invalid | failed to synthesize (Meta's synthInstance, the tactic library's: mkAppM's, mkAppOptM's and apply's instance binders, `by-decide`'s instance; the type indented and Lean's hint follow) |
 | 125 | invalid | failed to synthesize instance of type class |
 | 126 | invalid | typeclass instance problem is stuck |
 | 127 | invalid | numerals are data in Lean, but the expected type is a proposition |

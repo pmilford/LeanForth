@@ -93,10 +93,10 @@ reason = "review tactic-a2ii B1 (its no-second-round): synthAppInstances gives u
 
 [[fault]]
 id = "apply-stuck-not-failed"
-file = "src/front/meta-tactic/apply.fs"
-old = '''  lf-synth-instance dup lf-meta-stuck = if 2drop false exit then lf-must ;'''
-new = '''  lf-synth-instance lf-must ;'''
-test = "$GFORTH tests/front/tactics/apply/test.fs"
+file = "src/front/synth.fs"
+old = '''  lf-meta-synth dup lf-meta-stuck = if 2drop false exit then lf-must ;'''
+new = '''  lf-meta-synth lf-must ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "review tactic-a2ii B1: a search stuck on a metavariable is a fault, not Lean's failed to synthesize, so the second round never comes"
 
 [[fault]]

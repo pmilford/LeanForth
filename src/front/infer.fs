@@ -169,8 +169,7 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
   lf-meta-firm-const? ok-then? if 0= outcome-ok else false swap then ;
 \ At least default transparency (withAtLeastTransparency .default,
 \ InferType.lean:229): all stays all.
-: if-whnf-d ( type -- type' outcome )
-  lf-defeq-mode lf-tr-all = if lf-meta-whnf else lf-meta-whnf-d then ;
+: if-whnf-d ( type -- type' outcome ) ['] lf-meta-whnf lf-tr-default lf-with-at-least ;
 : if-delta ( type -- type' outcome )
   dup if-unfolds? ok-then? 0= if nip no-result exit then
   if if-whnf-d else outcome-ok then ;

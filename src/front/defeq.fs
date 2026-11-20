@@ -277,7 +277,7 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 \ inferType, at default transparency or above (withInferTypeConfig); a
 \ literal's type is Nat (infer.fs has no literal case).
 : de-infer-mode ( -- mode )
-  df df-mode @ lf-tr-all = if lf-tr-all else lf-tr-default then ;
+  df df-mode @ dup lf-tr-default lf-tr-lt? if drop lf-tr-default then ;
 : de-infer ( t -- type flag )
   dup lf-term-tag@ lf-tag-lit = if drop lf-meta-nat de-must exit then
   ['] lf-infer de-infer-mode lf-meta-at de-must ;

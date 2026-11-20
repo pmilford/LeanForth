@@ -26,7 +26,7 @@
 \       the type; the goal's type; the full type as a note; the goal).
 \       Then postprocessAppMVars (synthAppInstances: every instance
 \       metavariable's instance searched, rounds while one found after a
-\       failure; none: error 125 with the type, Lean's "failed to
+\       failure; none: error 122 with the type, Lean's "failed to
 \       synthesize"; found but not defeq the metavariable: 384), the goal
 \       assigned e (instantiated) applied to the new metavariables, the
 \       unassigned ones kept, appendParentTag (one: the goal's tag; more,
@@ -46,7 +46,7 @@
 \ lf-expected-num-args (telescope.fs); saveState/restore -> lf-commit-when;
 \ forallMetaTelescopeReducing -> lf-forall-meta-bounded-telescope;
 \ approxDefEq isDefEqGuarded -> lf-defeq-approx! (meta-must.fs);
-\ synthInstance -> lf-synth-instance (synth.fs); isDefEq -> lf-defeq!;
+\ synthInstance -> lf-synth-instance? (synth.fs); isDefEq -> lf-defeq!;
 \ instantiateMVars -> lf-instantiate!; mkAppN -> lf-mk-app-n's fold
 \ (app-builder.fs); assign -> lf-mvar-assign; isAssigned ->
 \ lf-goal-assigned?; getTag/setTag/appendTag -> lf-goal-tag-append
@@ -149,17 +149,17 @@ end-structure
 : ap-todo+ ( mvar -- ) ap-todo slab-push lf-must ;
 : ap-insts ( -- )
   ap-todo slab-clear ap-new# 0 ?do i ap-inst? if i ap-new drop ap-todo+ then loop ;
-: ap-type. ( mvar -- outcome ) lf-goal-type lf-tac-indented. ;
-: ap-no-instance ( mvar -- ) ['] ap-type. lf-tac-detail lfa-e-elab-synth lf-tac-stop ;
+\ Lean's throw of the last exception: synthInstance's "failed to
+\ synthesize" with the metavariable's type (122, tactic-run.fs's
+\ lf-tac-lean-fail).
+: ap-no-instance ( mvar -- ) lf-goal-type lfa-e-synth-failed lf-tac-lean-fail ;
 : ap-inst-fail ( -- ) ap ap-goal @ lfa-e-apply-inst lf-tac-ex ;
 : ap-assign-inst ( mvar inst -- ) lf-defeq! 0= if ap-inst-fail then ;
-\ synthInstance: a search stuck on a metavariable (Lean's isDefEqStuck)
-\ fails to synthesize, as a search that finds none (SynthInstance.lean:1026).
-: ap-synth ( type -- inst found? )
-  lf-synth-instance dup lf-meta-stuck = if 2drop false exit then lf-must ;
-\ One metavariable: found (true), else put off (false).
+\ One metavariable: found (true), else put off (false); synthInstance
+\ (synth.fs's lf-synth-instance?: a search stuck on a metavariable finds
+\ none, SynthInstance.lean:1026).
 : ap-synth-one ( mvar -- found? )
-  dup lf-infer! ap-synth if ap-assign-inst true exit then
+  dup lf-infer! lf-synth-instance? if ap-assign-inst true exit then
   drop ap-later slab-push lf-must false ;
 \ A round: ( failed progress ), Lean's ex? (the last metavariable not
 \ found, else 0) and progressAfterEx (one found after a failure).

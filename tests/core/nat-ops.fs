@@ -143,5 +143,16 @@ T{ 0 nlit nop-bits two64 nop-bits -> 0 65 }T
 T{ -1 outcome-invalid nop-literal -1 outcome-full lf-diag-clear nop-literal lf-diag-code@
    -> -1 outcome-invalid -1 outcome-full lf-diag-nat-size }T
 T{ -1 outcome-invalid nop-truth -> -1 outcome-invalid }T
+
+\ ---- 5. The kernel's words on the table (kernel/reduce-nat.fs, whose own
+\ tests are tests/core/reduce-nat.fs): the predecessor of a literal of
+\ two limbs needs a new literal 1, which a crowded term store refuses.
+require ../../src/kernel/reduce-nat.fs
+fresh
+: crowded-pred ( -- node outcome )
+  two64 lf-term-capacity lf-term-count @ lf-term-capacity! drop
+  swap lf-reduce-nat-pred rot lf-term-capacity! drop ;
+T{ crowded-pred -> -1 outcome-full }T
+roomy
 .( nat-ops test: all tests passed) cr
 bye

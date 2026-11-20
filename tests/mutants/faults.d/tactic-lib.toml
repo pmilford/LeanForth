@@ -8,16 +8,16 @@
 [[fault]]
 id = "lib-must-ok-thrown"
 file = "src/front/meta-must.fs"
-old = '''  dup ok? if drop exit then outcome-sane lf-meta-throw-base swap - throw ;'''
-new = '''  outcome-sane lf-meta-throw-base swap - throw ;'''
+old = '''  dup ok? if drop exit then 0 mmf mmf-code !'''
+new = '''  0 mmf mmf-code !'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i: lf-must throws for ok too, so every library word fails"
 
 [[fault]]
 id = "lib-must-unsupported-rejected"
 file = "src/front/meta-must.fs"
-old = '''  dup ok? if drop exit then outcome-sane lf-meta-throw-base swap - throw ;'''
-new = '''  dup ok? if drop exit then outcome-sane dup outcome-unsupported = if drop outcome-rejected then lf-meta-throw-base swap - throw ;'''
+old = '''  outcome-sane lf-meta-throw-base swap - throw ;'''
+new = '''  outcome-sane dup outcome-unsupported = if drop outcome-rejected then lf-meta-throw-base swap - throw ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i fail-closed rule: unsupported thrown as rejected (a gap of LeanForth's told as a wrong input)"
 
@@ -296,8 +296,8 @@ reason = "a2-i mkEqMPR (AppBuilder.lean:447): Eq.mp where Lean applies Eq.mpr"
 [[fault]]
 id = "lib-app-m-no-instance-found"
 file = "src/front/app-builder.fs"
-old = '''  dup lf-mvar-type drop lf-meta-synth lf-must 0= if abl-fail then lf-mvar-assign lf-must ;'''
-new = '''  dup lf-mvar-type drop lf-meta-synth lf-must drop lf-mvar-assign lf-must ;'''
+old = ''': abm-synth ( mvar -- ) dup lf-mvar-type drop lf-synth-instance! lf-mvar-assign lf-must ;'''
+new = ''': abm-synth ( mvar -- ) dup lf-mvar-type drop lf-synth-instance? drop lf-mvar-assign lf-must ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i review F1: mkAppM takes \"no instance\" for found and assigns the instance binder (Lean: failed to synthesize); tactic-lib.fs's Append.append #[Nat, Nat] expects rejected"
 

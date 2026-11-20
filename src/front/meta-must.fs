@@ -24,6 +24,14 @@
 \                                     mvars.fs's lf-mvar-open? on each leaf)
 \   lf-meta-thrown? ( code -- flag )  whether a THROW code is a failure's
 \   lf-meta-outcome ( code -- outcome ) the outcome a failure's code carries
+\   lf-meta-fail ( term code -- )     a Lean error with a message of its
+\                                     own (synthInstance's "failed to
+\                                     synthesize"), thrown as rejected: its
+\                                     authoring code and the term its message
+\                                     shows kept for the runner
+\   lf-meta-failed ( -- term code )   the error the last failure thrown
+\                                     carried; code 0 when it carried none
+\                                     (any lf-must failure clears it)
 \   lf-meta-catch ( i*x xt in out -- j*x outcome ) xt ( i*x -- j*x ) run
 \                                     from outcome code (Lean's try/catch)
 \   lf-commit-when ( i*x xt -- j*x flag ) commitWhen (Util/MonadBacktrack
@@ -89,7 +97,8 @@
 \ in lf-meta-catch. Every word above but lf-meta-thrown?, lf-meta-outcome
 \ and lf-meta-catch throws.
 \ Untrusted: only the kernel's check of the finished term decides.
-\ State: none of its own. Loads in decimal whatever BASE is, then
+\ State: the record mmf (the Lean error the last failure carried), in the
+\ checker context (ADR 0009). Loads in decimal whatever BASE is, then
 \ restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
@@ -111,8 +120,18 @@ require ./term-find.fs
 : lf-meta-thrown? ( code -- flag )
   lf-meta-throw-base swap - outcome-invalid outcome-full 1+ within ;
 : lf-meta-outcome ( code -- outcome ) lf-meta-throw-base swap - ;
+\ The Lean error a failure carries: set by lf-meta-fail, cleared by every
+\ other failure, so it always describes the last one thrown.
+begin-structure /mmf
+  field: mmf-code   \ its authoring code, or 0 (first: read and set with 2@ 2!)
+  field: mmf-term   \ the term its message shows
+end-structure
+/mmf context-record: mmf
+: lf-meta-failed ( -- term code ) mmf 2@ ;
+: lf-meta-fail ( term code -- ) mmf 2! lf-meta-throw-base outcome-rejected - throw ;
 : lf-must ( outcome -- )
-  dup ok? if drop exit then outcome-sane lf-meta-throw-base swap - throw ;
+  dup ok? if drop exit then 0 mmf mmf-code !
+  outcome-sane lf-meta-throw-base swap - throw ;
 : lf-made! ( flag -- ) 0= if outcome-full lf-must then ;
 \ A failure's outcome, any other code thrown on.
 : lfm-caught ( code -- outcome ) dup lf-meta-thrown? 0= if throw then lf-meta-outcome ;
