@@ -74,3 +74,79 @@ old = '''  dup lf-mk-decide dup tdc-whnf dup s" Bool.true" lf-meta-const-named?'
 new = '''  dup lf-mk-decide tdc-proof exit'''
 test = 'out=$(GFORTH=$GFORTH bin/leanforth check --env tests/front/decide-slice.ndjson --elab-data tests/front/decide-slice.elab.ndjson tests/front/tactics/decide/w-dc-mul.lf); echo "$out" | grep -q "error 250 " || ! echo "$out" | grep -q "w_dc_mul: rejected"'
 reason = "S3a-ops C1: fe-decide-skip-whnf on 6 * 7 = 43, whose `*` elaborates since C1: decide hands over of_decide_eq_true unreduced and the kernel, the judge, rejects it; caught only when the run prints w_dc_mul: rejected"
+
+# C2-C4 (branch ops-symbols; owner, 2026-11-20): the notation words'
+# registration and reading (src/front/reader.fs), rightact% (src/front/
+# elab-term.fs), and the library word the registration's row check uses.
+
+[[fault]]
+id = "rd-op-swaps-operands"
+file = "src/front/reader.fs"
+old = ''': lfn-operands ( lhs rhs node -- node ) swap syn-c! swap syn-b! ;'''
+new = ''': lfn-operands ( lhs rhs node -- node ) swap syn-b! swap syn-c! ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "S3a-ops C2: an operator's operands swapped (a > b built as Lean's b > a, the way > becomes a flipped <): n m - must have n on the left, as Lean's binop% HSub.hSub n m"
+
+[[fault]]
+id = "rd-sub-as-binrel"
+file = "src/front/reader.fs"
+old = '''s" HAdd.hAdd" syn-k-binop lfn-operator: +    s" HSub.hSub" syn-k-binop lfn-operator: -'''
+new = '''s" HAdd.hAdd" syn-k-binop lfn-operator: +    s" HSub.hSub" syn-k-binrel lfn-operator: -'''
+test = "$GFORTH tests/front/front.fs"
+reason = "S3a-ops C2: - builds binrel% HSub.hSub where Lean's macro is binop% (Notation.lean:306): n m - must be a binop% node"
+
+[[fault]]
+id = "rd-op-skips-row-check"
+file = "src/front/reader.fs"
+old = '''  >in @ >r parse-name lfn-entry, lfn-spelt? 0='''
+new = '''  >in @ >r parse-name lfn-entry, drop false'''
+test = "$GFORTH tests/front/front.fs"
+reason = "S3a-ops C2: a notation word registered without the notation table's row check: LT.lt's meaning given to the syntax word $ loads where it must abort"
+
+[[fault]]
+id = "rd-named-takes-spelling"
+file = "src/front/reader.fs"
+old = '''  lfn-entry lfn-entry-const lfn-root-const lfn-const-at lfn-apply ;'''
+new = '''  lfn-entry name-entry-name lfn-root-const lfn-const-at lfn-apply ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "S3a-ops C3: a notation name means the constant named like its spelling (∧, not And): n n = m m = ∧ must apply And"
+
+[[fault]]
+id = "rd-syn-namespace-resolve"
+file = "src/front/reader.fs"
+old = '''  lfa-const-named 0= if lfa-e-unknown-constant lfa-fail then ;'''
+new = '''  lfa-current-space lfa-joined lfa-const-named 0= if lfa-e-unknown-constant lfa-fail then ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "S3a-ops C3: a notation name resolved through the current namespace (Foo.And inside namespace Foo) where Lean's hygienic And✝ is the root constant"
+
+[[fault]]
+id = "et-rightact-enters-rhs"
+file = "src/front/elab-term.fs"
+old = '''  et-parent tn tn-node @ syn-c@ et-parent et-act? et-fr ['] et-op-rhs et-go-call ;'''
+new = '''  et-parent tn tn-node @ syn-c@ 0 et-fr ['] et-op-rhs et-go-call ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "S3a-ops C4: an operator exponent of ^ entered into the base's tree (Lean's toTree takes it as a leaf, processLeaf): n ^ (b + b) with b : Bool answers the coercion error 131, not its own tree's 139"
+
+[[fault]]
+id = "et-analyze-counts-exponent"
+file = "src/front/elab-term.fs"
+old = ''': et-counted? ( i -- flag ) dup et-leaf? swap et-act? 0= and ;'''
+new = ''': et-counted? ( i -- flag ) et-leaf? ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "S3a-ops C4: analyze counts ^'s exponent (Lean's analyze goes into the base only, Extra.lean:269): a Bool exponent of a Nat base is an uncomparable type, 131, where Lean reaches the instance search"
+
+[[fault]]
+id = "et-coe-exponent"
+file = "src/front/elab-term.fs"
+old = '''  dup et-act? if drop outcome-ok exit then'''
+new = '''  dup drop'''
+test = "$GFORTH tests/front/front.fs"
+reason = "S3a-ops C4: applyCoe visits ^'s exponent and asks ^ for a homogeneous instance (Lean's applyCoe leaves rightact%'s right operand alone, Extra.lean:420): a Bool exponent is coerced to Nat, 131"
+
+[[fault]]
+id = "lib-text-trim-keeps-start"
+file = "src/lib/text-run.fs"
+old = ''': text-trim ( c-addr u -- c-addr' u' ) ['] text-filled? text-from -trailing ;'''
+new = ''': text-trim ( c-addr u -- c-addr' u' ) -trailing ;'''
+test = "$GFORTH tests/lib/text-run.fs"
+reason = "S3a-ops C2: text-trim keeps the spaces at a text's start, so the notation table's ' <= ' never equals the word <="

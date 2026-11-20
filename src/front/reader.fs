@@ -16,10 +16,11 @@
 \ - ' NAME is the function NAME, applied to nothing; f a $ applies f to
 \   one more argument (an application made by a name gets it as its next
 \   argument, as Lean's id g x);
-\ - + * are Lean's binop% HAdd.hAdd and HMul.hMul, = and ≤ binrel% Eq and
-\   LE.le, each checked against the printer's notation table while
-\   loading (present/notation-table.fs), whose rows say how those
-\   constants print;
+\ - the operator words are Lean's macros of a constant: + - * / % binop%,
+\   = ≠ < > ≤ ≥ binrel%, ^ rightact%; ¬ ∧ ∨ ↔ ∣ are the constants Not, And,
+\   Or, Iff and Dvd.dvd applied as names; <= >= /\ \/ <-> are Lean's ASCII
+\   spellings of ≤ ≥ ∧ ∨ ↔; each word is checked against the printer's
+\   notation table while loading (present/notation-table.fs);
 \ - binder words take a type as written; := takes the statement; by right
 \   after := opens a tactic proof; end NAME of a declaration keeps the
 \   proof's node, runs the elaborator (lf-front-elaborate, which
@@ -37,6 +38,8 @@
 \ the checker context (ADR 0009); the syntax store's (syntax.fs).
 
 require ../lib/lib.fs
+require ../lib/name-table.fs
+require ../lib/text-run.fs
 require ../present/notation-table.fs
 require ../present/print-job.fs
 require ../author/runner.fs
@@ -135,33 +138,81 @@ defer lfn-library-arity ( name -- arity unfolds? true | false )
 : lfn-arg-add ( app arg -- app ) over lfn-arg-new over dup syn-b@ 1- rot syn-arg! ;
 : lfn-w-app ( f a -- t ) 2 lfa-args lfn-two >r lfn-function r> lfn-arg-add lfn-value ;
 
-\ Operator words: Lean's macro (binop% or binrel%) of a constant, over
-\ two values. An operator is a word op ( -- kind c-addr u ) that gives
-\ the macro's kind and the constant's name; the constant's row in the
-\ notation table must spell it as the word is spelt.
-: lfn-operands ( node lhs rhs -- node ) >r syn-b! r> syn-c! ;
-: lfn-operator ( a b op -- t )
-  >r lfn-two r> execute lfa-intern >r lfa-here lfn-new -rot lfn-operands
-  r> syn-a! lfn-value ;
-: lfn-op-add ( -- kind c-addr u ) syn-k-binop s" HAdd.hAdd" ;
-: lfn-op-mul ( -- kind c-addr u ) syn-k-binop s" HMul.hMul" ;
-: lfn-op-eq ( -- kind c-addr u ) syn-k-binrel s" Eq" ;
-: lfn-op-le ( -- kind c-addr u ) syn-k-binrel s" LE.le" ;
-: lfn-w-add ( a b -- t ) 2 lfa-args ['] lfn-op-add lfn-operator ;
-: lfn-w-mul ( a b -- t ) 2 lfa-args ['] lfn-op-mul lfn-operator ;
-: lfn-w-eq ( a b -- t ) 2 lfa-args ['] lfn-op-eq lfn-operator ;
-: lfn-w-le ( a b -- t ) 2 lfa-args ['] lfn-op-le lfn-operator ;
-\ An infix spelling is the operator with a blank on each side (" + ").
-: lfn-inner ( c-addr u -- c-addr' u' ) dup 2 < if exit then 1 /string 1- ;
-: lfn-spelt? ( c-addr u word-addr word-u -- flag )
-  2swap lf-nt-find dup 0= if drop 2drop false exit then
-  lf-print-unicode lf-nt-sym lfn-inner compare 0= ;
-: lfn-notation ( c-addr u "word" -- )
-  parse-name lfn-spelt? 0= abort" reader.fs: an operator word the notation table lacks" ;
-s" HAdd.hAdd" lfn-notation +
-s" HMul.hMul" lfn-notation *
-s" Eq" lfn-notation =
-s" LE.le" lfn-notation ≤
+
+\ Notation words (slice S3a-ops; owner, 2026-11-12 and 2026-11-20,
+\ docs/project/OWNER_DECISIONS.md): Lean's notations of a constant
+\ (Init/Notation.lean, Init/Core.lean), each building what Lean's macro
+\ builds. An operator takes two values and builds the macro (binop%,
+\ binrel% or rightact%, syntax.fs) of its constant; a notation name
+\ (¬ ∧ ∨ ↔ ∣) is the constant of exactly that full name (Lean's hygienic
+\ And✝: never a namespace's or the text's other And) applied as a name
+\ is. A word is spelt as its constant's row in the printer's notation
+\ table (present/notation-table.fs) in Unicode or in ASCII, so Lean's own
+\ ASCII notation (<= >= /\ \/ <->) is a second word of the same constant;
+\ where Lean has none (≠ ¬ ∣) the constant's name is the typed form. One
+\ line gives a word its meaning (lfn-operator:, lfn-notation-name:): the
+\ row is checked while loading (a missing or other spelling aborts), and
+\ the natural meaning finds the word's entry by the token run. The words
+\ are LF-WORDS's (author/words.fs, lfa-natural-words: reserved for the
+\ printer, error 58 in kernel-form text, where ^ is the universe word),
+\ the only syntax list a run searches (author/groups.fs): Forth's own
+\ - / <= >= are not shadowed outside a run, and \/ /\ are tokens of
+\ their own, never the comment word \.
+\ The table: per word, the macro's kind (0: a notation name), then the
+\ constant's name; two zero cells are an empty table (lib/name-table.fs),
+\ read-only once loaded.
+align here 0 , 0 , constant lfn-notations
+: lfn-entry-kind ( entry -- kind ) name-entry-data @ ;
+: lfn-entry-const ( entry -- c-addr u ) name-entry-data cell+ count ;
+\ The entry of the word being run: every word that runs these has one.
+: lfn-entry ( -- entry ) lfa-token lfn-notations name-table-find ;
+: lfn-operands ( lhs rhs node -- node ) swap syn-c! swap syn-b! ;
+: lfn-op-node ( entry -- node )
+  dup lfn-entry-kind lfa-here lfn-new swap lfn-entry-const lfa-intern syn-a! ;
+: lfn-w-operator ( a b -- t )
+  2 lfa-args lfn-two lfn-entry lfn-op-node lfn-operands lfn-value ;
+: lfn-root-const ( c-addr u -- decl )
+  lfa-const-named 0= if lfa-e-unknown-constant lfa-fail then ;
+: lfn-const-at ( decl -- node n )
+  syn-k-const lfa-here lfn-new swap syn-a! dup syn-a@ lfn-const-arity ;
+: lfn-w-named ( v1 .. vn -- t )
+  lfn-entry lfn-entry-const lfn-root-const lfn-const-at lfn-apply ;
+: lfn-w-notation ( v1 .. vn -- t )
+  lfn-entry lfn-entry-kind if lfn-w-operator else lfn-w-named then ;
+\ Registering (load-time words): the entry made (a word twice aborts);
+\ its constant's row must spell it, in Unicode or ASCII, blanks trimmed.
+: lfn-entry, ( c-addr u kind word-addr word-u -- entry )
+  2dup lfn-notations name-table-find abort" reader.fs: a notation word twice"
+  lfn-notations name-entry , counted, lfn-notations cell+ @ ;
+: lfn-row ( entry -- row | 0 ) lfn-entry-const lf-nt-find ;
+: lfn-mode-spells? ( entry mode -- flag )
+  over lfn-row swap lf-nt-sym text-trim rot name-entry-name compare 0= ;
+: lfn-spelt? ( entry -- flag )
+  dup lfn-row 0= if drop false exit then
+  dup lf-print-unicode lfn-mode-spells? swap lf-print-ascii lfn-mode-spells? or ;
+: lfn-operator: ( c-addr u kind "word" -- )
+  >in @ >r parse-name lfn-entry, lfn-spelt? 0=
+  abort" reader.fs: a notation word its constant's row lacks"
+  r> >in ! ['] lfn-w-notation lfa-natural! ;
+: lfn-notation-name: ( c-addr u "word" -- ) 0 lfn-operator: ;
+\ The meanings. Lean: infixl:65 + -, infixl:70 * / %, infix:50 = < >,
+\ unicode(" ≤ ", " <= "), unicode(" ≥ ", " >= ") (Init/Notation.lean:
+\ 284-288, 375-378), infix:50 ≠ (Init/Core.lean:880); notation ¬ and
+\ unicode(" ∧ ", " /\\ "), unicode(" ∨ ", " \\/ ") (Notation.lean:404-406),
+\ infix:20 ↔ and <-> (Core.lean:196-197), infix:50 ∣ (Notation.lean:280);
+\ ^ is rightact% HPow.hPow (Notation.lean:311; owner, 2026-11-20).
+s" HAdd.hAdd" syn-k-binop lfn-operator: +    s" HSub.hSub" syn-k-binop lfn-operator: -
+s" HMul.hMul" syn-k-binop lfn-operator: *    s" HDiv.hDiv" syn-k-binop lfn-operator: /
+s" HMod.hMod" syn-k-binop lfn-operator: %    s" HPow.hPow" syn-k-rightact lfn-operator: ^
+s" Eq" syn-k-binrel lfn-operator: =          s" Ne" syn-k-binrel lfn-operator: ≠
+s" LT.lt" syn-k-binrel lfn-operator: <       s" GT.gt" syn-k-binrel lfn-operator: >
+s" LE.le" syn-k-binrel lfn-operator: ≤       s" LE.le" syn-k-binrel lfn-operator: <=
+s" GE.ge" syn-k-binrel lfn-operator: ≥       s" GE.ge" syn-k-binrel lfn-operator: >=
+s" Not" lfn-notation-name: ¬       s" Dvd.dvd" lfn-notation-name: ∣
+s" And" lfn-notation-name: ∧       s" And" lfn-notation-name: /\
+s" Or" lfn-notation-name: ∨        s" Or" lfn-notation-name: \/
+s" Iff" lfn-notation-name: ↔       s" Iff" lfn-notation-name: <->
+
 
 \ Binders: the type as written.
 : lfn-binder ( t kind -- ) ['] lfn>syntax lfa-binder-of ;
@@ -197,10 +248,6 @@ s" LE.le" lfn-notation ≤
 \ The natural meanings (author/groups.fs, lfa-natural!).
 ' lfn-w-tick lfa-natural! '
 ' lfn-w-app lfa-natural! $
-' lfn-w-add lfa-natural! +
-' lfn-w-mul lfa-natural! *
-' lfn-w-eq lfa-natural! =
-' lfn-w-le lfa-natural! ≤
 ' lfn-w-explicit lfa-natural! explicit:
 ' lfn-w-implicit lfa-natural! implicit:
 ' lfn-w-strict lfa-natural! strict-implicit:
