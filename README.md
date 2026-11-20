@@ -165,4 +165,4 @@ GitHub CI (`.github/workflows/ci.yml`) is switched off at the owner's request
 0.7.3 as a portability check, and `make check` on the pinned Gforth 1.0.0 and
 Lean 4.35.0, which also runs every Lean comparison. See
 [project progress](docs/project/PROJECT_PROGRESS.md) for the recorded results.
-The project code is MIT licensed; Gforth is a separately licensed dependency.
+The project code is MIT licensed ([LICENSE](LICENSE)); the test data derived from Lean 4 keeps Lean's Apache-2.0 licence, and Gforth and Lean are separately licensed tools the install scripts download ([NOTICE](NOTICE)).
