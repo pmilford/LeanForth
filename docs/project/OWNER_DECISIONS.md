@@ -1641,7 +1641,12 @@ efficient way and an easier way to fix unit-test coverage, and decided:
   becomes `lib/outcome.fs`'s `['] X ok-apply` (or `ok-apply2`, two values dropped on a failure), the same stack
   for every outcome, in `iota.fs` (`lf-iota-typed`), `mixed-infer.fs` (`lf-minfer-put-closed`,
   `lf-minfer-typed`), `reduce-nat.fs` (`lf-rn-truth`, `lf-reduce-nat-constructor`) and `whnf.fs`
-  (`lf-whnf-delta-of`, `lf-whnf-reapply`, `lf-nat-literal`).
+  (`lf-whnf-delta-of`, `lf-whnf-reapply`, `lf-nat-literal`). The fixes of its Forth review (branch
+  `cleanup-families-2-fixed`): `core/string-literals.fs`'s `lf-str-fields?` counts the bytes since its
+  first with `slab-since`; the kernel's `string-literals.fs` names `0 lf-sx-const` as `lf-sx-const0`, which
+  `lf-sx-plain`, `lf-sx-char` and `lf-str-type` call through `ok-apply`; and new kernel unit tests pin the
+  failing outcome of `lf-whnf-delta-of`, `lf-whnf-reapply`, `lf-iota-typed`, `lf-minfer-put-closed`,
+  `lf-minfer-typed` and `lf-rn-truth` and that the snapshot writer's `site-paired` finds a site again.
 - **Tools first:** the duplicates script gains a mode that replaces a group by a named word; a fast per-file
   coverage command lists a file's never-run blocks with line numbers, and a baseline entry can be updated per
   file. Then the remaining groups and coverage debt.

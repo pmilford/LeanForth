@@ -80,9 +80,11 @@ end-structure
   0= if -1 outcome-full exit then
   lf-cterm-new lf-made-term ;
 : lf-sx-app ( f a -- node outcome ) lf-term-app room-result ;
+\ A constant without universe arguments.
+: lf-sx-const0 ( id -- node outcome ) 0 lf-sx-const ;
 \ prefix.part without universe arguments.
 : lf-sx-plain ( c-addr u prefix-addr prefix-u -- node outcome )
-  lf-sx-dotted ok-then? if 0 lf-sx-const else no-result then ;
+  lf-sx-dotted ['] lf-sx-const0 ok-apply ;
 \ The level zero as the one universe argument (Lean's level()).
 : lf-sx-zero! ( -- outcome )
   1 lf-sx-pairs slab-hold dup ok? 0= if exit then drop
@@ -92,7 +94,7 @@ end-structure
   ok-then? 0= if no-result exit then
   lf-sx-zero! ok-then? if 1 lf-sx-const else no-result then ;
 : lf-sx-char ( -- node outcome )
-  0 s" Char" lf-sx-name ok-then? if 0 lf-sx-const else no-result then ;
+  0 s" Char" lf-sx-name ['] lf-sx-const0 ok-apply ;
 \ List.cons.{0} Char or List.nil.{0} Char, for c-addr u cons or nil.
 : lf-sx-list ( c-addr u -- node outcome )
   s" List" lf-sx-dotted lf-sx-at-zero ok-then? 0= if no-result exit then
@@ -100,7 +102,7 @@ end-structure
 
 \ A literal's type (infer_lit): the constant String.
 : lf-str-type ( -- node outcome )
-  0 s" String" lf-sx-name ok-then? if 0 lf-sx-const else no-result then ;
+  0 s" String" lf-sx-name ['] lf-sx-const0 ok-apply ;
 
 \ ---------------------------------------------------------------------------
 \ string_lit_to_constructor. One unit of the frames' fuel per character.
