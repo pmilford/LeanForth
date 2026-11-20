@@ -1835,3 +1835,11 @@ The first version of the branch held the same table in a form the counter did no
 honest. Not part of this table, and still open as plan 9.4.8l (BB): the older word `lfa-natural!`
 (`src/author/groups.fs`), which attaches a meaning to a syntax word, is not yet sealed the same way.
 
+
+### Wrap up and tag (2026-11-20, late morning)
+
+Owner, 2026-11-20, with the week's usage at 90%: "wrap up current work, update the docs, especially readme, tag
+that build, probably in 2-4 hours". So: no new feature work or new agents; the work in flight is finished and
+pushed; the README and the documents are brought up to date; then the tag `svfig-prepre-alpha` (the name given
+the same morning) is put on that tree once `make daily` has passed on exactly it (`make tag-check`), and pushed.
+This is the owner's go-ahead for the tag. Making the repository public stays a separate step on the owner's word.

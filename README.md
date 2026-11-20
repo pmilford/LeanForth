@@ -1,14 +1,62 @@
 # LeanForth
 
-LeanForth is a checker for Lean 4 proofs, written in Forth (developed on Gforth 1.0), that gives Lean 4.35.0's verdicts. A second product path, verified executable Forth programs, is started.
+LeanForth is a checker for Lean 4 proofs, written in Forth (developed on Gforth 1.0). It has its own kernel, which gives Lean 4.35.0's verdicts, and its own front end, in which theorems and proofs are written as Forth words. A second product path, verified executable Forth programs, is started.
+
+This is early work. The kernel has not yet passed its human review gate (`AGENTS.md`), and only a small part of Lean's tactics exists. What is listed below as done has been checked by an independent done check that ran the command a user runs; each is linked.
+
+## A first look
+
+A theorem and its proof, written in LeanForth. The text is postfix, as in Forth: the operands first, then the operation.
+
+```
+theorem pythag
+  3 3 * 4 4 * + 5 5 * =
+:= by
+  by-decide
+end pythag
+```
+
+In Lean this is `theorem pythag : 3 * 3 + 4 * 4 = 5 * 5 := by decide`. LeanForth reads the statement, its tactic `by-decide` works it out by computation and builds a proof term, and LeanForth's kernel checks that term. A false statement is refused with Lean's own message: for `6 7 * 43 =`, "Tactic `decide` proved that the proposition 6 * 7 = 43 is false".
+
+Two pages show, theorem by theorem, the LeanForth text, the same proof in Lean, what LeanForth did and the kernel's verdict:
+
+- [by-decide](docs/user/examples/decide-showcase.txt): 23 closed facts about numbers, written with Lean's symbols, typed in ASCII, and with powers (Euler's factor of the fifth Fermat number, `2 32 ^ 1 +  641 6700417 * =`).
+- [induction and rewriting](docs/user/examples/s2-showcase.txt): 15 theorems such as 0 + n = n and the commutativity of addition, each tactic step with its goals.
 
 ## What it does today
 
-- **Re-checks Lean's exports.** `bin/leanforth check` reads a Lean 4.35.0 export (NDJSON) and checks each declaration with LeanForth's own kernel. It has accepted all of Lean's `Init`, and on build `d789e45f` (2026-11-13, the latest run [the progress page](docs/project/PROJECT_PROGRESS.md) records) all of Mathlib's export (729,263 of 729,263 declarations); later builds have not been run on all of Mathlib. The kernel has not yet passed its human review gate (`AGENTS.md`).
-- **Checks theorems written in LeanForth.** LeanForth's own elaborator turns LeanForth text into kernel terms, and the kernel checks them as it checks an export. Slice S1 is done ([done check](docs/development/done-checks/2026-11-14-s1.md)): `theorem t 0 0 + 0 = := by by-rfl end t` is elaborated and accepted on all of `Init`. Slice S2 is done ([done check](docs/development/done-checks/2026-11-19-s2-done.md)): proofs by induction and rewriting, such as `tests/front/01-zero-add-rw.lf` (0 + n = n) and the proof set `tests/front/ps-*.lf`, are accepted on all of `Init`. These tactic words are on `main` (`by-intro`, `by-intros`, `by-exact`, `by-apply`, `by-rfl`, `by-rw[ ]`, `by-induction-with`, `by-case:`, `by-assumption`, `by-constructor`, `by-left`, `by-right`, `by-exfalso`, `by-clear`, `by-decide`, `by-sorry`), each a port of Lean's tactic compared with pinned Lean. `by-decide` proves closed facts about numbers by computation ([done check](docs/development/done-checks/2026-11-19-s3a-done.md)): `6 7 * 42 =`, `3 3 * 4 4 * + 5 5 * =`. Two pages show what LeanForth does on each theorem, beside the same proof in Lean: [induction and rewriting](docs/user/examples/s2-showcase.txt) and [by-decide](docs/user/examples/decide-showcase.txt). Not yet written: most of Lean's tactics, pattern matching and recursion compilation, evaluation. See [the elaborator page](docs/user/ELABORATION.md).
-- **Verified Forth programs (second path).** `bin/leanforth verify SOURCE.fs --contract CONTRACT` checks one Forth word against a contract: pinned Lean writes the proofs and LeanForth's checker re-checks them ([manual](docs/programming/PROGRAM_VERIFY.md)). Its first slice (V1) is on `main`; the later slices are parked.
+- **Re-checks Lean's exports.** `bin/leanforth check FILE.ndjson` reads a Lean 4.35.0 export and checks each declaration with LeanForth's own kernel. It accepts all of Lean's `Init` (59,349 declarations; run every night, in parallel about five times faster on eight jobs than on one). On build `d789e45f` (2026-11-13, the latest run [the progress page](docs/project/PROJECT_PROGRESS.md) records) it accepted all of Mathlib's export, 729,263 of 729,263 declarations; later builds have not been run on all of Mathlib.
+- **Checks theorems written in LeanForth.** LeanForth's own elaborator turns LeanForth text into kernel terms, and the kernel checks them as it checks an export. Done, each with its done check:
+  - statements and `by-rfl` on all of `Init` ([S1](docs/development/done-checks/2026-11-14-s1.md));
+  - proofs by induction and rewriting ([S2](docs/development/done-checks/2026-11-19-s2-done.md));
+  - `by-decide` on closed facts about natural numbers and truth values ([S3a](docs/development/done-checks/2026-11-19-s3a-done.md), [operators](docs/development/done-checks/2026-11-20-ops-c1-done.md));
+  - Lean's symbols as words, each also in a spelling a plain keyboard can type (SYMBOLS_DONE).
 
-Correctness is relative to stated semantics and assumptions; the elaborator, parsers, tactics and printers are untrusted and can never make a wrong proof accepted. Current state, both tracks and limits: [project progress](docs/project/PROJECT_PROGRESS.md) (its "Now, next, later" list is the queue).
+  The tactic words on `main`: `by-intro`, `by-intros`, `by-exact`, `by-apply`, `by-rfl`, `by-rw[ ]`, `by-induction-with`, `by-case:`, `by-assumption`, `by-constructor`, `by-left`, `by-right`, `by-exfalso`, `by-clear`, `by-decide`, `by-sorry`. Each is a port of Lean's tactic, and its results are compared with Lean 4.35.0's, term by term, on true theorems and on deliberately wrong ones. [The language reference](docs/user/LANGUAGE_REFERENCE.md) describes every word.
+- **Verified Forth programs (second path).** `bin/leanforth verify SOURCE.fs --contract CONTRACT` checks one Forth word against a contract: pinned Lean writes the proofs and LeanForth's checker re-checks them ([manual](docs/programming/PROGRAM_VERIFY.md)). Its first slice is on `main`; the later slices are parked.
+
+The symbols a statement may use, and how to type them:
+
+| Written | Typed | Meaning in Lean |
+| --- | --- | --- |
+| `+ - * / % ^` | as written | `a + b`, `a - b`, `a * b`, `a / b`, `a % b`, `a ^ b` |
+| `= < >` | as written | `a = b`, `a < b`, `a > b` |
+| `≤` `≥` | `<=` `>=` | `a ≤ b`, `a ≥ b` |
+| `≠` | `Ne` | `a ≠ b` |
+| `∧` `∨` `↔` | `/\` `\/` `<->` | `p ∧ q`, `p ∨ q`, `p ↔ q` |
+| `¬` | `Not` | `¬ p` |
+| `∣` | `Dvd.dvd` | `a ∣ b` |
+
+Correctness is relative to stated semantics and assumptions. The elaborator, parsers, tactics and printers are untrusted: whatever they build, the kernel checks, so they cannot make a wrong proof accepted. They can, if they have a fault, build a different statement than the text says; that is what the comparisons with Lean guard against.
+
+## What is not there yet
+
+- Most of Lean's tactics (`simp`, `omega`, `cases` and many more), pattern matching, structural recursion, and evaluation.
+- In statements: implication (`->`), quantifiers and lambda in natural form, a minus sign in front of a number, numerals of more than nine digits.
+- `by-decide` on statements with variables, on divisibility (`∣`), and with exponents above 256.
+- The kernel's human review, and an outside audit.
+
+Current state, both tracks and limits: [project progress](docs/project/PROJECT_PROGRESS.md) (its "Now, next, later" list is the queue).
 
 ## Install
 
@@ -33,7 +81,7 @@ make check   # make test plus every pinned-Lean comparison (about 11 min at JOBS
 
 **Check a Lean export:** `bin/leanforth check FILE.ndjson` prints each declaration's verdict and a summary; see [the command line](docs/user/COMMAND_LINE.md) for options, exit statuses and how to export Init or Mathlib. `bin/leanforth help` lists every command.
 
-**Check a LeanForth file** on the small library slices in the repository. S1, the statement above (run on 2026-11-15: exit 0, `t: accepted; axioms: none`, ending `548 declarations: 548 accepted`):
+**Check a LeanForth file** on the small library slices in the repository. S1, 0 + 0 = 0 by `by-rfl` (run on 2026-11-15: exit 0, `t: accepted; axioms: none`, ending `548 declarations: 548 accepted`):
 
 ```bash
 bin/leanforth check --env tests/front/s1-slice.ndjson --elab-data tests/front/s1-slice.elab.ndjson tests/front/s1-rfl.lf
@@ -45,10 +93,10 @@ S2, 0 + n = n by induction and rewriting (run on 2026-11-15: exit 0, `zero_add''
 bin/leanforth check --env tests/front/s2-slice.ndjson --elab-data tests/front/s2-slice.elab.ndjson tests/front/01-zero-add-rw.lf
 ```
 
-`by-decide`, closed facts about numbers such as 6 * 7 = 42 and 3² + 4² = 5² (run on 2026-11-20 on a fresh clone: exit 0, each theorem `accepted; axioms: none`, ending `1273 declarations: 1273 accepted`, 5 s):
+`by-decide`, nine closed facts about numbers written with Lean's symbols, such as 3² + 4² = 5² and `20 10 >  10 10 ≥  3 4 ≠  ∧ ∧` (run on 2026-11-20: exit 0, each theorem `accepted; axioms: none`, ending `1272 declarations: 1272 accepted`, about 10 s); `dc-ascii.lf` beside it is the same file typed on a plain keyboard:
 
 ```bash
-bin/leanforth check --env tests/front/decide-slice.ndjson --elab-data tests/front/decide-slice.elab.ndjson tests/front/tactics/decide/dc-ops.lf
+bin/leanforth check --env tests/front/decide-slice.ndjson --elab-data tests/front/decide-slice.elab.ndjson tests/front/tactics/decide/dc-symbols.lf
 ```
 
 The output first lists the slice's library declarations, then yours. A `sorryAx` line in the S2 slice's list is part of the library and is marked NOT PROVED, as the summary says.
@@ -56,113 +104,41 @@ The output first lists the slice's library declarations, then yours. A `sorryAx`
 ## Where to go next
 
 - [docs/README.md](docs/README.md): every document, by folder and audience.
-- [User guide](docs/user/USER_GUIDE.md), [concepts in three forms](docs/user/CONCEPTS.md), [terms for new readers](docs/user/TERMS_FOR_NEW_READERS.md), [the elaborator](docs/user/ELABORATION.md), [the LeanForth syntax](docs/user/LEANFORTH_SYNTAX.md).
+- [The language reference](docs/user/LANGUAGE_REFERENCE.md), [user guide](docs/user/USER_GUIDE.md), [concepts in three forms](docs/user/CONCEPTS.md), [terms for new readers](docs/user/TERMS_FOR_NEW_READERS.md), [the elaborator](docs/user/ELABORATION.md), [the command line](docs/user/COMMAND_LINE.md).
 - [Demos](docs/user/DEMOS.md) and [running the checks](docs/user/RUNNING_THE_CHECKS.md).
-- [Project progress](docs/project/PROJECT_PROGRESS.md), [roadmap](docs/project/DEVELOPMENT_ROADMAP.md), [implementation plan](docs/project/IMPLEMENTATION_PLAN.md).
-- Coding agents follow [AGENTS.md](AGENTS.md) (Codex reads it directly, Claude Code through `.claude/CLAUDE.md`). Work up to the `pre-claude` tag was developed with Codex.
+- [Project progress](docs/project/PROJECT_PROGRESS.md), [the owner's decisions](docs/project/OWNER_DECISIONS.md), [roadmap](docs/project/DEVELOPMENT_ROADMAP.md).
+- Coding agents follow [AGENTS.md](AGENTS.md) (Codex reads it directly, Claude Code through `.claude/CLAUDE.md`). Work up to the `pre-claude` tag was developed with OpenAI Codex, the work since with Claude Code.
 
 ## Where the code is
 
-`bin/leanforth check
-FILE.ndjson` runs the checker on a Lean export of any size
-and prints each declaration's verdict, with its axioms when accepted,
-then a summary, with `--resources`
-the time, memory and fuel used, and with `--json` all of it as JSON
-([the command line](docs/user/COMMAND_LINE.md)). `src/main.fs` loads all
-current code (`gforth src/main.fs`) by requiring the top modules; every
-module and every test `require`s exactly the modules whose words it uses.
-What it loads is unverified code in progress, exercised by the tests.
-[`src/README.md`](src/README.md) gives the layout rules and the
-[architecture page](docs/development/ARCHITECTURE.md) draws them.
+`bin/leanforth` runs `gforth src/main.fs`, which loads every current module. Each module requires exactly the modules whose words it uses; [`src/README.md`](src/README.md) gives the layout rules and [the architecture page](docs/development/ARCHITECTURE.md) draws them. Nothing here is verified code; the kernel becomes trusted only when the owner declares it so after its review gate.
 
 | Path | Contents |
 | --- | --- |
-| `bin/leanforth` | The command line, version 0: `check` (with `--record`), `print`, `replay`, `count`, `reexport`, `version`, `capabilities`; exit statuses 0–6, 6 (NOT PROVED) only with `--strict-axioms`; `gforth-fast` is already the default engine (`--fast` is accepted and changes nothing). `check [--env EXPORT | --snapshot FILE] FILE.lf` checks LeanForth text, against a library export of Lean's such as `Init` ([manual](docs/user/COMMAND_LINE.md#checking-leanforth-text)). |
-| `src/main.fs` | The loader for all current code, and the command line's Forth entry point (`src/cli/`). |
-| `src/lib/` | General Forth tools with no Lean knowledge: bounded stores, tagged nodes, the shared outcome vocabulary, walk and frames records, per-task contexts, a worker pool, a line reader with UTF-8 checks and a JSON reader. |
-| `src/core/` | Lean's data model, 10 modules: the term store (`terms.fs`), names, universe levels, sessions and stale-handle checks, constant references. |
-| `src/kernel/` | The proof checker under development, 14 modules: universe substitution and comparison, signatures, and the `mixed-*` substitution, reduction, comparison, conversion and inference passes. Not verified until the owner declares it so after the review gate in `AGENTS.md`. |
-| `src/import/` | The Forth reader of Lean's NDJSON exports (it decodes all of the pinned Mathlib export), its manifest check, a record-counting tool, the byte-exact re-exporter, and staging of a small export into the checker's input. |
-| `src/program/` | The program track: six executable example words (clamp, checked add, abs, factorial, gcd, in-range), a stack-depth analyzer and the reader from Forth source to the program IR. |
-| `src/present/` | The term printer: Lean notation, ASCII and LaTeX. Presentation only; the checker never loads it. |
-| `tests/` | Forth unit tests (`lib/`, `core/`, `program/`, `present/`), Python tools that decode Lean exports for tests (`support/`), and Lean reference files (`reference/`). |
-| `schemas/` | JSON Schema of the program receipt, version 0.1. |
-| `scripts/` | Install scripts, documentation and Lean-source checks, Forth style metrics and profiling. |
+| `bin/leanforth` | The command line: `check` (an export, a snapshot, or a LeanForth text), `print`, `replay`, `count`, `reexport`, `verify`, `version`, `help`; exit statuses 0 accepted, 1 rejected, 2 not supported yet, 3 out of a resource, 4 invalid input, 5 internal fault, 6 (with `--strict-axioms`) not proved. |
+| `src/lib/` | General Forth libraries with no Lean knowledge (38 files): bounded stores, hash tables, sorting, big numbers, JSON, SHA-256, UTF-8, the shared outcome vocabulary, per-task contexts, a worker pool. Each loads alone and can be used by other Forth programs ([inventory](docs/development/FORTH_LIBRARY.md)). |
+| `src/core/` | Lean's data model (33 files): the term store, names, universe levels, literals, constant references. |
+| `src/kernel/` | The proof checker (42 files): type inference, definitional equality, reduction, inductive types and recursors, quotients, the checked environment. |
+| `src/import/` | The reader of Lean's NDJSON exports, its manifest check, snapshots of a checked environment (13 files). |
+| `src/author/` | The authoring layer (14 files): theorem text run line by line by Forth's own interpreter, its vocabulary and its error catalogue. |
+| `src/front/` | The front end (58 files and the tactics): the reader of statements, the elaborator (instance search, unification, the Meta-level reducer), the tactic library and one file per tactic in `tactics/`. Untrusted. |
+| `src/present/` | Printing (18 files): terms in Lean's notation, in LeanForth's postfix form, ASCII and LaTeX. Untrusted; the checker never loads it. |
+| `src/program/` | The program track (10 files): example words, the stack-depth analyzer, the program IR and its interpreter. |
+| `src/cli/`, `src/load/` | The command line's Forth side, and the layer entries that load one layer alone. |
+| `tests/` | Unit tests beside each module, end-to-end runs, the Lean files LeanForth is compared with, and the planted faults (`tests/mutants/`). |
+| `scripts/` | Install scripts, the checks run before every push, coverage, the planted-fault runner. |
+| `schemas/` | JSON Schemas of the check report, the elaboration data, the export manifest and the program receipt. |
 
-[The Forth library inventory](docs/development/FORTH_LIBRARY.md) describes
-each component, its maturity and what is still missing.
+## How it is tested
 
+- **Unit tests** of every module run on two Gforth engines, and nightly on Gforth 0.7.3.
+- **Comparisons with pinned Lean 4.35.0** (`make check`): the kernel's verdicts on accepted, rejected and deliberately broken declarations; the front end's terms node for node; tactic results and error messages.
+- **Planted faults**: about 3,200 deliberate one-line breaks of the source, each of which a named test must catch (`scripts/mutants.py`). All of them were run on 2026-11-20.
+- **Coverage**: every line a change adds must be run by a unit test before it is merged; a nightly run checks every file.
+- **Reviews**: every change to Forth source is reviewed by an independent reviewer before it reaches `main` ([reports](docs/development/forth-reviews/LOG.md)); changes to what the checker accepts need the owner's approval ([decisions](docs/project/OWNER_DECISIONS.md)).
 
-## Testing notes
+GitHub CI is switched off at the owner's request (2026-11-11); the same checks run locally before every push and are recorded in `docs/development/ci-results.log`. [The testing strategy](docs/development/TESTING_STRATEGY.md) and [running the checks](docs/user/RUNNING_THE_CHECKS.md) say what each target shows and what it does not.
 
-The Makefile uses `.tools/gforth/bin/gforth` and the Lean 4.35.0 toolchain
-binary under `.tools/elan` when present, otherwise `gforth` and `lean` on PATH;
-override with `GFORTH=...` or `LEAN=...`. It calls the toolchain binary
-directly, so no `ELAN_HOME` is needed. A Lean is taken only from a
-toolchain's own folder (its real path `.../toolchains/NAME/bin/lean`, with
-`NAME/lib/lean` beside it) and never when it is elan or a copy of it:
-`scripts/lean_pin.py check LEAN` judges it before anything runs it, since
-an elan proxy run without `ELAN_HOME` downloads a 3 GB toolchain.
-Individual targets such as
-`make reference` or `make test-constant-term-scope-differential` can also be
-run on their own; `make check` runs every one listed in `DIFFERENTIAL_TARGETS`.
-A missing or failing tool makes the command fail. Make runs 8 targets at a
-time (`JOBS=1` for one at a time) and replays pinned Lean's runs on unchanged
-inputs from a local cache (`LEAN_CACHE=0` runs Lean every time, as CI does);
-the [testing strategy](docs/development/TESTING_STRATEGY.md#running-the-suites-parallel-jobs-and-the-lean-cache)
-explains both.
-[Running the checks](docs/user/RUNNING_THE_CHECKS.md) says what each target
-shows and what it does not.
+## Licence
 
-`make test-program` includes clamp and [five additional executable Forth
-examples](docs/programming/PROGRAM_EXAMPLES.md). They are runtime tested, not verified.
-
-`make test-harness` evaluates Gforth's bundled test harness with a passing
-test and intentional wrong-value and wrong-stack-depth failures. It currently
-requires a Gforth installation containing `test/ttester.fs`; it has been tested
-locally with Gforth 1.0 and Ubuntu's Gforth 0.7.3. See
-[the testing strategy](docs/development/TESTING_STRATEGY.md).
-`make test-core` tests term storage, structural scope, and the
-`mixed-*` substitution, reduction, conversion and inference passes with the
-definition probe built on them. These untrusted prototypes cannot authorize a
-theorem; inferred types are mutable data, not checked theorem handles. Their
-limits are in [the prototype notes](docs/development/ARENA_PROTOTYPE.md).
-Application inference uses conservative beta-aware type comparison, so many
-valid Lean terms remain unsupported. The earlier plain and `tagged-*` variants
-of these passes and their tests were retired on 2026-11-02, once the current
-code had at least the same test coverage.
-The composition fixture test compares a manually built Forth DAG with 21
-expression records in a pinned Lean export. It uses Python 3 for this test-only
-inspection and stages the decoded nodes in Forth through a test-only data
-stream. It is not a general importer or proof checker.
-The development-only [NDJSON preview](docs/development/NDJSON_PREVIEW.md) decodes a bounded
-subset and reports unsupported records explicitly; its output is unchecked.
-A test-only bridge stages four pinned Lean exports (identity, composition,
-type identity and the universe-polymorphic identity) with symbolic universes
-and runs the untrusted definition probe on each type/value pair; it cannot
-register a theorem.
-Besides the original `mixed-*` comparisons, `make check` runs the ports of the
-retired comparisons, which compare the current passes with pinned Lean on
-small finite tables: binder scope (64 cases, against
-Lean's loose-variable analysis), shift (80), instantiation (25), weak-head
-beta (15), conversion (15), inference (52), the definition probe (9),
-universe substitution (48), constant specialization and inference (96), and
-the polymorphic identity export (4 signatures, 8 definitions). The
-[testing strategy](docs/development/TESTING_STRATEGY.md) lists each target.
-Two Lean-valid cases are knowingly answered unknown. None of these targets
-establishes proof-checker correctness or theorem validity.
-`make test-program` tests a host Forth clamp against sample cases and a small
-finite input domain; it is not a proof of the program or its runtime.
-The differential target additionally compares 686 small-domain and signed
-32-bit boundary triples against the Lean integer model; it does not establish
-Forth program correctness or execution on a 32-bit host.
-The stack-model differential also compares 686 executions against a Lean-proved
-finite stack-machine model; the handwritten model and host remain separate
-assumptions, as described in [the program example](docs/programming/PROGRAM_EXAMPLE.md).
-
-GitHub CI (`.github/workflows/ci.yml`) is switched off at the owner's request
-(2026-11-11). Its two jobs are run locally before every push: `make test` on Gforth
-0.7.3 as a portability check, and `make check` on the pinned Gforth 1.0.0 and
-Lean 4.35.0, which also runs every Lean comparison. See
-[project progress](docs/project/PROJECT_PROGRESS.md) for the recorded results.
-The project code is MIT licensed ([LICENSE](LICENSE)); the test data derived from Lean 4 keeps Lean's Apache-2.0 licence, and Gforth and Lean are separately licensed tools the install scripts download ([NOTICE](NOTICE)).
+The project code is MIT licensed ([LICENSE](LICENSE)). The test data derived from Lean 4 keeps Lean's Apache-2.0 licence, and Gforth and Lean are separately licensed tools the install scripts download ([NOTICE](NOTICE)).
