@@ -1637,6 +1637,11 @@ efficient way and an easier way to fix unit-test coverage, and decided:
   triple-field family: `env-import.fs`'s `imp-layer-decls`, `env-snapshot.fs`'s `snap-layer-slots!` and
   `env-signature.fs`'s `lf-envsig-actuals` read or write three adjacent cells with `cell-triple@` and
   `cell-triple!`, and `defeq.fs`'s `lf-dq-doubt` writes the doubt's two terms with `cell-pair!`, layouts unchanged.
+  And the refusal-tail family: the tail `ok-then? if X else no-result then` (or `... else nip no-result then`)
+  becomes `lib/outcome.fs`'s `['] X ok-apply` (or `ok-apply2`, two values dropped on a failure), the same stack
+  for every outcome, in `iota.fs` (`lf-iota-typed`), `mixed-infer.fs` (`lf-minfer-put-closed`,
+  `lf-minfer-typed`), `reduce-nat.fs` (`lf-rn-truth`, `lf-reduce-nat-constructor`) and `whnf.fs`
+  (`lf-whnf-delta-of`, `lf-whnf-reapply`, `lf-nat-literal`).
 - **Tools first:** the duplicates script gains a mode that replaces a group by a named word; a fast per-file
   coverage command lists a file's never-run blocks with line numbers, and a baseline entry can be updated per
   file. Then the remaining groups and coverage debt.

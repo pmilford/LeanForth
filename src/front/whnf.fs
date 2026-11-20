@@ -225,7 +225,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
   dup lf-fvar-live? 0= if outcome-invalid wc-2drop-fail exit then
   wc-let-value if nip wc-rebuild wc-go else wc-done then ;
 : wc-let-head ( e head -- e' flag outcome )
-  nip wc-zeta ok-then? if wc-rebuild else no-result then wc-go ;
+  nip wc-zeta ['] wc-rebuild ok-apply wc-go ;
 : wc-unsupported ( e head -- e' flag outcome ) outcome-unsupported wc-2drop-fail ;
 : wc-invalid ( e head -- e' flag outcome ) outcome-invalid wc-2drop-fail ;
 
@@ -298,7 +298,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
   dup lf-irule-nfields swap lf-irule-rhs wc-rhs-levels
   ok-then? 0= if nip no-result exit then
   wc-prefixed ok-then? 0= if nip no-result exit then
-  swap wc-fields ok-then? if wc-rest else no-result then ;
+  swap wc-fields ['] wc-rest ok-apply ;
 : wc-ctor-major ( mhead -- e' flag outcome )
   lf-const-name wc-rule 0= if wc-stay exit then
   wc-levels-ok? 0= if drop wc-stay exit then wc-fire wc-go ;
@@ -364,7 +364,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ toCtorIfLit reduces through String.ofList, answers unsupported (S5).
 : wc-clean ( r -- r' outcome )
   dup lf-str-leaf? if drop outcome-unsupported no-result exit then
-  lf-meta-ctor-if-lit ok-then? if lf-meta-cleanup-offset else no-result then ;
+  lf-meta-ctor-if-lit ['] lf-meta-cleanup-offset ok-apply ;
 : wc-rec-resume ( r -- e' flag outcome )
   wc-rec-frame dup ok? 0= if wc-drop-fail exit then drop
   wc-clean ok-then? 0= if wc-fail exit then
@@ -451,7 +451,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
   wc wc-malts @ 0 ['] wc-open-h ok-fold ;
 : wc-match-value ( -- value outcome )
   wc wc-aux @ wc wc-head @ lf-unfold-value
-  ok-then? if wc-nested-dite else no-result then ;
+  ['] wc-nested-dite ok-apply ;
 : wc-match-keep ( e head d kind -- kind )
   swap wc wc-aux ! swap wc wc-head ! swap wc wc-e ! ;
 : wc-match-part ( e head d kind -- e' flag outcome )
@@ -470,7 +470,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
   wc wc-mpre @ + wc-args lf-meta-arg wc-margs lf-meta-apply-all
   ok-then? 0= if no-result exit then
   wc wc-mpre @ wc wc-malts @ + wc-args slab-count over - swap wc-args lf-meta-apply-from
-  ok-then? if lf-meta-head-beta else no-result then ;
+  ['] lf-meta-head-beta ok-apply ;
 : wc-match-frame ( -- outcome )
   wc wc-aux @ wc-minfo! dup ok? 0= if exit then drop
   wc-term wc-args lf-meta-spine ok-then? if drop outcome-ok then ;
@@ -488,7 +488,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 : wc-aux-def ( e head d -- e' flag outcome )
   2dup swap lf-meta-arity? 0= if 2drop wc-done exit then
   swap lf-unfold-value ok-then? 0= if wc-drop-fail exit then
-  nip wc-rebuild ok-then? if lf-meta-head-beta else no-result then wc-go ;
+  nip wc-rebuild ['] lf-meta-head-beta ok-apply wc-go ;
 : wc-defn-head ( e head d -- e' flag outcome )
   dup lf-menv-matcher? ok-then? 0= if wc-defn-fail exit then if wc-matcher exit then
   dup lf-menv-aux-def? ok-then? 0= if wc-defn-fail exit then
@@ -796,7 +796,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
   wc wc-aux @ lf-meta-head wc-project if true else -1 false then outcome-ok ;
 : wc-field-apply ( x -- y outcome )
   wc wc-aux @ wc-args lf-meta-spine ok-then? 0= if nip no-result exit then drop
-  wc-rebuild ok-then? if lf-meta-head-beta else no-result then ;
+  wc-rebuild ['] lf-meta-head-beta ok-apply ;
 : wc-field-none ( kind -- e' flag outcome )
   lf-unfold-ask-keep = if wc wc-aux @ wc-advance else wc-stay then ;
 : wc-field-got ( kind x flag -- e' flag outcome )
@@ -863,13 +863,13 @@ wc-smatch-kind 1+ constant wc-srec-kind
   dup lf-term-pi? if outcome-ok else drop -1 outcome-invalid then ;
 : wm-pi ( e -- pi outcome )
   dup lf-term-pi? if outcome-ok exit then
-  lf-meta-whnf ok-then? if wm-to-pi else no-result then ;
+  lf-meta-whnf ['] wm-to-pi ok-apply ;
 : wm-inst ( e p -- e' outcome )
   swap wm-pi ok-then? 0= if nip no-result exit then
   lf-term-second@ swap lf-meta-instantiate1 ;
 : wm-inst-at ( e k addr -- e' outcome ) swap cells + @ wm-inst ;
 : lf-meta-instantiate-forall ( e addr n -- e' outcome )
   dup 0< if drop 2drop outcome-invalid no-result exit then
-  swap ['] wm-inst-at ok-fold ok-then? if outcome-ok else no-result then ;
+  swap ['] wm-inst-at ok-fold ['] outcome-ok ok-apply ;
 
 base !   \ the BASE this file was loaded with

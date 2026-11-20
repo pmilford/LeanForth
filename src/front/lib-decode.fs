@@ -211,7 +211,7 @@ end-structure
   lbd-stage@ stage-find if outcome-ok else -1 outcome-invalid then ;
 : lf-libdec-find ( name -- d outcome )
   lbd-stage@ 0= if drop -1 outcome-invalid exit then
-  lbd-tier-name ok-then? if lbd-staged else no-result then ;
+  lbd-tier-name ['] lbd-staged ok-apply ;
 
 \ ---- The walks kept for the run (dag-walk.fs): their tables made at the
 \ first use, for every node the tier holds; a walk that stops erases the
@@ -229,7 +229,7 @@ end-structure
   2dup dw-done? if dw-image outcome-ok else lbd-go then ;
 \ A walk over the n nodes of its family, its tables made at the first.
 : lbd-kept ( root n walk -- image outcome )
-  tuck lbd-tables ok-then? if lbd-walk else nip no-result then ;
+  tuck lbd-tables ['] lbd-walk ok-apply2 ;
 
 \ ---- One walk over either source: the images of x's children, made
 \ (dw-done?) before x is built; the pending tests, x's first child not
@@ -291,7 +291,7 @@ end-structure
   if lf-cterm-new if drop outcome-ok exit then then -1 outcome-full ;
 : lbd-const ( e src -- term outcome )
   2dup lbd-args dup ok? 0= if nip nip no-result exit then drop
-  src-name ok-then? if lbd-cterm else no-result then ;
+  src-name ['] lbd-cterm ok-apply ;
 \ A projection: its structure's image and field, then its name.
 : src-proj ( e src -- image i ) 2dup src-field >r src-a-img r> ;
 : lbd-proj ( e src -- term outcome )

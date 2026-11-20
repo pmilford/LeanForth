@@ -58,7 +58,7 @@ end-structure
 : gl-tagged ( tag goal -- goal outcome ) tuck swap lf-mvar-tag! ok-or-none ;
 : lf-goal-new ( type tag view -- goal outcome )
   over lf-user-name? 0= if drop 2drop -1 outcome-invalid exit then
-  >r swap mv-opaque r> lf-mvar-new-at ok-then? if gl-tagged else nip no-result then ;
+  >r swap mv-opaque r> lf-mvar-new-at ['] gl-tagged ok-apply2 ;
 : lf-goal-assigned? ( goal -- flag ) lf-mvar-value dup if nip then ;
 : lf-goal-unassigned? ( goal -- flag ) lf-goal-assigned? 0= ;
 \ A goal tactics may change: live and not assigned (checkNotAssigned).
@@ -98,13 +98,13 @@ end-structure
   over gl-open? 0= if 2drop outcome-invalid exit then
   2dup gl-has? if gl-free-of else 2drop outcome-invalid then ;
 : gl-cleared ( goal fvar -- goal' outcome )
-  over gl-view swap lf-view-erase ok-then? if gl-replace else nip no-result then ;
+  over gl-view swap lf-view-erase ['] gl-replace ok-apply2 ;
 : lf-goal-clear ( goal fvar -- goal' outcome )
   2dup gl-clearable dup ok? if drop gl-cleared else nip nip no-result then ;
 
 \ Renaming (MVarId.rename).
 : gl-renamed ( goal fvar name -- goal' outcome )
-  >r over gl-view swap r> lf-view-rename ok-then? if gl-replace else nip no-result then ;
+  >r over gl-view swap r> lf-view-rename ['] gl-replace ok-apply2 ;
 : lf-goal-rename ( goal fvar name -- goal' outcome )
   rot dup gl-open? if -rot gl-renamed else drop 2drop -1 outcome-invalid then ;
 
@@ -132,7 +132,7 @@ end-structure
   dup run-count 0= if drop -1 outcome-invalid exit then
   dup gl-set 0 run@ outcome-ok ;
 : lf-main-goal ( -- goal outcome )
-  lf-goals dup gl-first-open run-after ok-then? if gl-main else no-result then ;
+  lf-goals dup gl-first-open run-after ['] gl-main ok-apply ;
 : gl-tail ( -- list outcome )
   lf-goals dup run-count 0= if drop -1 outcome-invalid else 1 run-after then ;
 : gl-set-ok ( list outcome -- outcome ) ok-then? if gl-set outcome-ok then ;

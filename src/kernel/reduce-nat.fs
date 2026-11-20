@@ -67,7 +67,7 @@ require ../core/terms.fs
   ok-then? 0= if outcome-full = if lf-rn-too-big else -1 outcome-invalid then exit then
   lf-hterm-big lf-rn-node ;
 : lf-rn-truth ( flag outcome -- node outcome )
-  ok-then? if lf-rn-bool else no-result then ;
+  ['] lf-rn-bool ok-apply ;
 : lf-rn-in-arena ( a b op cells make -- node outcome )
   >r lf-lit-arena ok-then? 0= if r> drop drop 2drop drop lf-rn-too-big exit then
   dup >r lf-rn-apply r> r> swap >r execute r> lf-lit-arena-free ;
@@ -154,4 +154,4 @@ create lf-rn-binaries
   lf-term-handle rot lf-term-handle lf-hterm-app lf-rn-node ;
 : lf-reduce-nat-constructor ( a -- node outcome )
   dup lf-term-second@ 0= if drop lf-rn-zero exit then
-  lf-reduce-nat-pred ok-then? if lf-rn-succ-of else no-result then ;
+  lf-reduce-nat-pred ['] lf-rn-succ-of ok-apply ;

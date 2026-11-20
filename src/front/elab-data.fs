@@ -1287,7 +1287,7 @@ create ed-let-form  ed-let-members ,
   ed-name ['] ed-body-decl ok-apply ;
 : ed-nd-struct ( value -- outcome )
   c" struct" ed-member ed-body-name
-  ok-then? if ed-type-or-none else no-result then ['] ed-node-a ed-nd-put ;
+  ['] ed-type-or-none ok-apply ['] ed-node-a ed-nd-put ;
 : ed-nd-idx ( value -- outcome ) c" idx" ed-member ed-u32 ['] ed-node-b ed-nd-put ;
 : ed-nd-expr ( value -- outcome ) c" expr" ['] ed-node-c ed-nd-ref! ;
 create ed-proj-node-members

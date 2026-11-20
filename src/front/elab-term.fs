@@ -130,7 +130,7 @@ end-structure
 
 \ ---- Heads: a constant, a variable, a hypothesis.
 : et-const ( decl -- f outcome )
-  lfa-decl-name et-resolve ok-then? if lf-meta-const-fresh else no-result then ;
+  lfa-decl-name et-resolve ['] lf-meta-const-fresh ok-apply ;
 : et-var ( slot -- f outcome )
   dup et-vars slab-count index? 0= if drop -1 outcome-invalid exit then
   et-vars slab-at @ outcome-ok ;
@@ -175,12 +175,12 @@ end-structure
   rot et-type-args et-app2 ok-then? if swap lf-meta-app else nip no-result then ;
 : et-of-nat ( T lit -- term outcome )
   et-of-nat-type ok-then? 0= if no-result exit then
-  dup lf-elab-inst-mvar ok-then? if et-of-nat-value else nip no-result then ;
+  dup lf-elab-inst-mvar ['] et-of-nat-value ok-apply2 ;
 : et-num. ( node -- node ) s" num " lf-elab-note dup syn-a@ lf-elab-n. lf-elab-nl ;
 : et-numeral ( node expected -- term outcome )
   over et-num. drop dup et-type-for ok-then? 0= if nip nip no-result exit then
   tuck swap et-dec-level ok-then? 0= if nip nip no-result exit then
-  et-u ! swap syn-a@ et-lit ok-then? if et-of-nat else nip no-result then ;
+  et-u ! swap syn-a@ et-lit ['] et-of-nat ok-apply2 ;
 
 \ ---- elabTerm: the position (Lean's withRef) set for the visit and put
 \ back at its end; the implicit-lambda test; the elaborator by kind.
@@ -248,7 +248,7 @@ defer et-go-call ( node x frames cont -- ... frames next )
   et-parent tn tn-node @ syn-c@ 0 et-fr ['] et-op-rhs et-go-call ;
 : et-op. ( f -- f ) s" binop " lf-elab-note dup lf-elab-term. lf-elab-nl ;
 : et-op-f ( node -- f outcome )
-  syn-a@ et-resolve ok-then? if lf-meta-const-fresh else no-result then ;
+  syn-a@ et-resolve ['] lf-meta-const-fresh ok-apply ;
 : et-go-op ( node -- ... frames next )
   dup et-op-f ok-then? 0= if nip et-failed exit then et-op.
   over swap et-tn-new ok-then? 0= if nip et-failed exit then
@@ -422,9 +422,9 @@ defer et-x-call ( i x frames cont -- ... frames next )
   eo eo-max @ lf-elab-guarded lf-elab-meta nip ;
 : et-expected ( term -- term outcome ) eo eo-expected @ lf-elab-ensure ;
 : et-op-finish ( term -- term outcome )
-  et-record-max ok-then? if et-expected else no-result then ;
+  et-record-max ['] et-expected ok-apply ;
 : et-op-done ( term outcome frames -- term outcome frames 0 )
-  drop ok-then? if et-op-finish else no-result then et-eo-end ;
+  drop ['] et-op-finish ok-apply et-eo-end ;
 : et-root-call ( cont -- ... frames next ) >r eo eo-root @ 0 et-fr r> et-x-call ;
 \ applyCoe only with a max type and nothing uncomparable.
 : et-coerced ( -- outcome ) et-no-max? if outcome-ok else et-apply-coe then ;
@@ -445,7 +445,7 @@ is et-op
   drop dup ok? if drop lf-postpone-yes lf-elab-synthesize then et-window-back
   ok-or-none et-eo-end ;
 : et-rel-ensure ( rhs -- rhs' outcome )
-  eo eo-lhs @ lf-infer lf-elab-meta ok-then? if lf-elab-ensure else nip no-result then ;
+  eo eo-lhs @ lf-infer lf-elab-meta ['] lf-elab-ensure ok-apply2 ;
 : et-rel-app ( rhs -- outcome )
   eo eo-root @ tn tn-f @ eo eo-expected @ lf-elab-app-new dup ok? 0= if nip exit then
   drop lf-elab-app-plain eo eo-lhs @ lf-elab-app-term+ dup ok? 0= if nip exit then drop
@@ -495,7 +495,7 @@ is et-rel
   dup et-is-type? ok-then? 0= if exit then if outcome-ok else et-sorted then ;
 : lf-elab-type ( node -- type outcome )
   dup et-at! et-sort-mvar ok-then? 0= if nip no-result exit then
-  lf-elab-term ok-then? if et-ensure-type else no-result then ;
+  lf-elab-term ['] et-ensure-type ok-apply ;
 \ The ensureHasType at the term's own syntax (Lean's withRef stx).
 : lf-elab-ensuring ( node expected -- term outcome )
   over et-at! tuck lf-elab-term ok-then? if swap lf-elab-ensure else nip no-result then ;

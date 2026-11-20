@@ -751,7 +751,7 @@ reason = "4.2.2a: the top of a chain of lambdas under binders keeps the outer bi
 [[fault]]
 id = "infer-arg-unclosed"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-close ok-then? if lf-minfer-substitute else nip no-result then ;'''
+old = '''  lf-minfer-close ['] lf-minfer-substitute ok-apply2 ;'''
 new = '''  lf-minfer-substitute ;'''
 test = "python3 tests/core/infer_typed_trial.py"
 reason = "4.2.2a (review rvD2A): an application's argument, read under the scope, is put into the Pi body without being closed, so its loose bound variables end up in a closed type"
@@ -1168,7 +1168,7 @@ reason = "instantiate_value_lparams skipped: the value keeps the declaration's o
 [[fault]]
 id = "whnf-arguments-dropped"
 file = "src/kernel/whnf.fs"
-old = '''  lf-whnf-spine-args ok-then? if lf-whnf-apply else nip no-result then ;'''
+old = '''  lf-whnf-spine-args ['] lf-whnf-apply ok-apply2 ;'''
 new = '''  drop outcome-ok ;'''
 test = "$GFORTH tests/core/whnf.fs"
 reason = "unfold_definition does not apply the arguments again (tc 595)"
@@ -16435,7 +16435,7 @@ reason = "S1 appendix D: whnfR (lf-meta-at) leaves the transparency reducible (L
 id = "fe-whnf-forall-no-whnf"
 file = "src/front/whnf.fs"
 old = '''  dup lf-term-pi? if outcome-ok exit then
-  lf-meta-whnf ok-then? if wm-to-pi else no-result then ;'''
+  lf-meta-whnf ['] wm-to-pi ok-apply ;'''
 new = '''  wm-to-pi ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S1 appendix D: instantiateForall refuses a type that is a pi only after whnf"
@@ -16811,8 +16811,8 @@ reason = "S2 merge B: reduceRec takes a literal or Nat.succ (Nat.succ k) major p
 [[fault]]
 id = "fe-lit-ctor-off-by-one"
 file = "src/front/nat-offset.fs"
-old = '''  1- no-lit ok-then? if no-succ else no-result then ;'''
-new = '''  no-lit ok-then? if no-succ else no-result then ;'''
+old = '''  1- no-lit ['] no-succ ok-apply ;'''
+new = '''  no-lit ['] no-succ ok-apply ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S2 merge B: toCtorIfLit makes the literal 5 Nat.succ 5"
 
@@ -16884,7 +16884,7 @@ reason = "S1 §3: the instance-typed flag set past the trail, kept after a rollb
 id = "fe-libdec-parts-cell"
 file = "src/front/lib-decode.fs"
 old = '''  ['] lf-name-prefix@ lbd-parts! dup ok? if drop lbd-sought else no-result then ;'''
-new = '''  ['] lf-name-prefix@ lbd-parts! ok-then? if lbd-sought else no-result then ;'''
+new = '''  ['] lf-name-prefix@ lbd-parts! ['] lbd-sought ok-apply ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b H1: a run name's split refused room eats the caller's cell (ok-then? takes it as x)"
 
@@ -16892,7 +16892,7 @@ reason = "review s1-meta-b H1: a run name's split refused room eats the caller's
 id = "fe-libdec-run-parts-cell"
 file = "src/front/lib-decode.fs"
 old = '''  ['] lbd-tier-prefix lbd-parts! dup ok? if drop lbd-run-parts else no-result then ;'''
-new = '''  ['] lbd-tier-prefix lbd-parts! ok-then? if lbd-run-parts else no-result then ;'''
+new = '''  ['] lbd-tier-prefix lbd-parts! ['] lbd-run-parts ok-apply ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b H1: a tier name's split refused room eats the caller's cell"
 
@@ -17134,7 +17134,7 @@ reason = "review s1-meta-b B3: an application's function never decoded before th
 [[fault]]
 id = "fe-libdec-kept-walk"
 file = "src/front/lib-decode.fs"
-old = '''  tuck lbd-tables ok-then? if lbd-walk else nip no-result then ;'''
+old = '''  tuck lbd-tables ['] lbd-walk ok-apply2 ;'''
 new = '''  tuck lbd-tables ok-then? if 2drop 0 outcome-ok else nip no-result then ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b: a decoded expression or level is never walked (every term the same)"

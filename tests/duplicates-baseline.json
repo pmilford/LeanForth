@@ -725,16 +725,6 @@
   "reason": "family, table-driven later: the replace walks (mixed-instantiate.fs, mixed-shift.fs, mixed-open.fs, inductive-nested.fs) keep their visit, pair, memo and keep words per walk; one walk record of xts would serve them (9.4.8k follow-up 5); their shared leaf, clean and rebuild steps are in mixed-rebuild.fs",
   "tokens": 13
  },
- "5f044dad4e5f": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/reduce-nat.fs:lf-rn-truth",
-   "src/kernel/whnf.fs:lf-nat-literal"
-  ],
-  "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with/ok-and/ok-then?, already the shared words",
-  "tokens": 6
- },
  "5f89f8c2b904": {
   "copies": 2,
   "kind": "shape",
@@ -764,16 +754,6 @@
   ],
   "reason": "family, table-driven later: the term, level and constant-reference stores (terms.fs, levels.fs, constant-references.fs) keep parallel interfaces over their own store, table and columns; one store-family record would serve them (9.4.8k follow-up 4)",
   "tokens": 16
- },
- "6262f7e98086": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/nat-offset.fs:no-plus",
-   "src/kernel/whnf.fs:lf-whnf-reapply"
-  ],
-  "reason": "false positive: front-end Nat offset and kernel whnf rebuild an application in the same shape, different stores and meanings",
-  "tokens": 8
  },
  "63b55fabdfc5": {
   "copies": 2,
@@ -1524,6 +1504,16 @@
   "reason": "false positive: the guarded test `dup a? if b else drop false then` (or with 2dup/2drop) of two different words",
   "tokens": 8
  },
+ "c1e3afb8fe07": {
+  "copies": 2,
+  "kind": "copy",
+  "members": [
+   "src/front/meta-env.fs:lf-menv-sunfold",
+   "src/front/meta-env.fs:lf-menv-matcher"
+  ],
+  "reason": "accepted: two readers of different records (sunfold, matcher) of the data's declaration, both on lf-menv-elab; a shared word would take an xt and be no shorter",
+  "tokens": 6
+ },
  "c24c8ecb19c0": {
   "copies": 2,
   "kind": "shape",
@@ -1692,16 +1682,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 10
- },
- "cd86a7a73814": {
-  "copies": 2,
-  "kind": "copy",
-  "members": [
-   "src/front/meta-env.fs:lf-menv-sunfold",
-   "src/front/meta-env.fs:lf-menv-matcher"
-  ],
-  "reason": "accepted: two readers of different records (sunfold, matcher) of the data's declaration, both on lf-menv-elab; a shared word would take an xt and be no shorter",
-  "tokens": 6
  },
  "ce6289a7e339": {
   "copies": 3,

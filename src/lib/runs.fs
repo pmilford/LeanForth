@@ -172,7 +172,7 @@ lf-lib set-current
 \ run's).
 : run-filter ( run xt -- run' outcome )
   rn-cells slab-count -rot swap ['] rn-kept run-each nip
-  ok-then? if rn-from else no-result then ;
+  ['] rn-from ok-apply ;
 lf-lib-private set-current
 
 module-close

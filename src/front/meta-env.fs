@@ -210,7 +210,7 @@ end-structure
   dup lf-libdec-decl nip me-undecoded ok-or-none ;
 : me-run-find ( name -- d outcome )
   me-texts-current dup me-text-named if nip outcome-ok exit then
-  lf-libdec-find ok-then? if me-decoded else no-result then ;
+  lf-libdec-find ['] me-decoded ok-apply ;
 : lf-menv-find ( name -- d outcome )
   dup lf-name-valid? 0= if drop -1 outcome-invalid exit then
   me-run? if me-run-find else lf-input-newest me-found then ;

@@ -157,7 +157,7 @@ end-structure
 \ Erasing and renaming: the locals before place i, the changed one if
 \ any, and the locals after it.
 : lv-rest ( run1 view i -- view' outcome )
-  1+ run-after ok-then? if run-cat else nip no-result then ;
+  1+ run-after ['] run-cat ok-apply2 ;
 : lv-without ( view i -- view' outcome )
   2dup run-take ok-then? if -rot lv-rest else nip nip no-result then ;
 : lf-view-erase ( view fvar -- view' outcome )

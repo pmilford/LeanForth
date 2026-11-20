@@ -164,7 +164,7 @@ require ./quot.fs
 \ nothing (Lean's infer_type here is infer_only), so it runs inside a
 \ comparison too: is_prop of Prod Bool Bool, met in one (iota.prod-eta).
 : lf-iota-typed ( node -- Ty outcome )
-  lf-minfer-walk ok-then? if lf-minfer-whnf-job else no-result then ;
+  lf-minfer-walk ['] lf-minfer-whnf-job ok-apply ;
 : lf-iota-type-of ( node -- Ty outcome ) ['] lf-iota-typed lf-iproj-aside ;
 \ A failure of R3: unknown is the route not followed (diagnostic 81);
 \ any other (rejected, exhausted, full, invalid) ends the visit.

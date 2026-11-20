@@ -244,7 +244,7 @@ texts-end constant no-ops6
   dup 0= if drop outcome-ok exit then
   over lf-meta-eval-nat ok-then2? 0= if nip nip no-result exit then
   swap 0= and if nip lf-meta-nat-lit exit then
-  lf-meta-nat-lit ok-then? if no-add else nip no-result then ;
+  lf-meta-nat-lit ['] no-add ok-apply2 ;
 
 \ ---- reduceRec's clean-up of a major premise (WHNF.lean:247-248, plan S2
 \ merge B): toCtorIfLit (23) and cleanupNatOffsetMajor (216).
@@ -254,11 +254,11 @@ texts-end constant no-ops6
 : no-lit-ctor ( lit -- e outcome )
   dup lf-lit-small? 0= if drop outcome-unsupported no-result exit then
   lf-lit-cell ?dup 0= if s" Nat.zero" 0 no-const exit then
-  1- no-lit ok-then? if no-succ else no-result then ;
+  1- no-lit ['] no-succ ok-apply ;
 : lf-meta-ctor-if-lit ( e -- e' outcome )
   dup lf-lit-leaf? if no-lit-ctor else outcome-ok then ;
 : no-plus ( s k -- t outcome )
-  lf-meta-nat-lit ok-then? if no-add else nip no-result then ;
+  lf-meta-nat-lit ['] no-add ok-apply2 ;
 : no-cleanup ( s k -- e' outcome )
   ?dup 0= if outcome-ok exit then
   1- ?dup if no-plus ok-then? 0= if no-result exit then then no-succ ;
