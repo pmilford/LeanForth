@@ -21458,3 +21458,11 @@ old = '''  lf-term-second@ swap if-field ['] lf-meta-instantiate1 ok-apply2 ;'''
 new = '''  lf-term-second@ swap if-field drop drop outcome-ok ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "cleanup-families-2 (infer.fs's refusal tails): an earlier field j is not put into the next field's type"
+
+[[fault]]
+id = "cf2-slab-since-reversed"
+file = "src/lib/slab.fs"
+old = ''': slab-since ( k slab -- n ) slab-count swap - ;'''
+new = ''': slab-since ( k slab -- n ) slab-count - ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "cleanup-families-2 (count since a mark): the units since k come out as k less the count"

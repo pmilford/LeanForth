@@ -132,6 +132,9 @@ lf-lib-private set-current
 
 lf-lib set-current
 : slab-count ( slab -- n ) slab-used @ ;
+\ The units added since the slab held k (its count less k): a span's
+\ length from a mark kept as a count.
+: slab-since ( k slab -- n ) slab-count swap - ;
 : slab-capacity ( slab -- n ) slab-room-units @ ;
 : slab-limit ( slab -- n ) slab-most @ ;
 : slab-unit ( slab -- au ) slab-unit-size @ ;
@@ -449,7 +452,7 @@ lf-lib-private set-current
 \ Taking a unit out of the middle: the units after unit i move down one
 \ (to unit i's address from the next unit's, the bytes of those after).
 : slab-hole ( i slab -- from to ) tuck slab-at tuck swap slab-unit + swap ;
-: slab-rest ( i slab -- u ) tuck slab-count swap - 1- swap slab-unit * ;
+: slab-rest ( i slab -- u ) tuck slab-since 1- swap slab-unit * ;
 : slab-close-up ( i slab -- ) 2dup slab-rest >r slab-hole r> move ;
 
 lf-lib set-current
