@@ -454,14 +454,45 @@ class Rewrite(unittest.TestCase):
 
     def test_a_wildcard_binds_one_name_the_same_wherever_it_recurs(self):
         pattern = cd.Pattern("$X $X +", "$X 2*")
-        self.assertEqual(pattern.apply(": w dup DUP + ;")[0], ": w dup 2* ;")
-        self.assertEqual(pattern.apply(": w dup drop + ;"), (": w dup drop + ;", 0))
+        self.assertEqual(pattern.apply(": w n N + ;")[0], ": w n 2* ;")
+        self.assertEqual(pattern.apply(": w n m + ;"), (": w n m + ;", 0))
         for text in (": w exit exit + ;", ": w 7 7 + ;", ": w r> r> + ;", ": w ['] ['] + ;",
                      ": w s\" a\" s\" a\" + ;"):
             with self.subTest(text=text):
                 self.assertEqual(pattern.apply(text)[1], 0)
         two = cd.Pattern("ok-then? if $X else $Y then", "$Y $X")
         self.assertEqual(two.apply(": w ok-then? IF a-b else C-D then ;")[0], ": w C-D a-b ;")
+
+    def test_a_wildcard_never_binds_a_stack_defining_or_parsing_word(self):
+        pattern = cd.Pattern("dup $A = swap $B = or", "$A $B one-of2?")
+        self.assertEqual(pattern.apply(": w dup k1 = swap k2 = or ;")[0], ": w k1 k2 one-of2? ;")
+        for text in (": w dup over = swap k = or ;", ": w dup k = swap rot = or ;",
+                     ": w dup constant = swap create = or ;", ": w dup to = swap value = or ;",
+                     ": w dup ['] = swap k = or ;", ": w dup field: = swap k = or ;"):
+            with self.subTest(text=text):
+                self.assertEqual(pattern.apply(text), (text, 0))
+
+    def test_a_phrase_after_a_word_that_reads_a_name_is_left(self):
+        pattern = cd.Pattern("dup $A = swap $B = or", "$A $B one-of2?")
+        for before in ("[']", "'", "postpone", "to", "is", ":", "constant", "field:"):
+            text = f": w {before} dup k1 = swap k2 = or ;"
+            with self.subTest(before=before):
+                self.assertEqual(pattern.apply(text), (text, 0))
+                problems = [p for *_, p in pattern.sites(text)]
+                self.assertEqual(problems, [f"after `{before}`, which reads its first word as a name"])
+
+    def test_escaped_strings_and_char_words_are_one_token(self):
+        pattern = cd.Pattern("dup $A = swap $B = or", "$A $B one-of2?")
+        inside = ': w s\\" a\\" dup k1 = swap k2 = or \\" b" type ;'
+        self.assertEqual(pattern.apply(inside), (inside, 0))
+        after = ': w s\\" a\\"b" type dup k1 = swap k2 = or ;'
+        self.assertEqual(pattern.apply(after)[1], 1)
+        for char in ("[char] (", "[char] \\", "char ("):
+            text = f": w {char} drop dup k1 = swap k2 = or ;"
+            with self.subTest(char=char):
+                self.assertEqual(pattern.apply(text), (f": w {char} drop k1 k2 one-of2? ;", 1))
+        self.assertEqual([t for t, _ in cd.tokens(': w [char] ( s\\" x\\"y" 1 ;')],
+                         [":", "w", "[char] (", 's\\" x\\"y', "1", ";"])
 
     def test_a_comment_inside_the_phrase_leaves_the_site(self):
         tree = rewrite_tree(**{"src/core/c.fs": "require ../lib/o.fs\n: c-step 0 ;\n"

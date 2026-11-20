@@ -75,10 +75,13 @@ else it is a shape group. GROUP is a key or a unique prefix of one.
 Rewriting a phrase (2026-11-19, clean-up round 3): --rewrite --from "TOKENS" --to "TOKENS" replaces every
 occurrence of a phrase by another in the files of src/ (or of --paths, files or folders), token for token:
 whitespace and line breaks do not matter, case does not (the replacement is written as given), and nothing in a
-comment or a string is ever matched. $NAME in --from is a wildcard for one word name (never a number, a string,
-a control-flow, frame or defining word), the same word wherever it recurs; --to may use it, and the word's text
-is kept. A match with a comment between its tokens, or inside the definition of a word --to calls, is left and
-listed. A file that cannot see a word --to adds is refused with the require it needs; --add-require adds the
+comment or a string is ever matched (`s\\"` strings end at their first unescaped quote; `[char] (` is a
+character, not a comment). $NAME in --from is a wildcard for one word name (never a number, a string, a
+control-flow, frame, stack, defining or parsing word such as `dup`, `constant` or `[']`), the same word wherever
+it recurs; --to may use it, and the word's text is kept. A match with a comment between its tokens, right after
+a word that reads the next one as a name (`'`, `[']`, `postpone`, `to`, `is`, `:`, a defining word), or inside
+the definition of a word --to calls, is left and listed. A wildcard may still bind a value or a variable as
+well as a constant: the tool does not check that evaluating it in a new order changes nothing. A file that cannot see a word --to adds is refused with the require it needs; --add-require adds the
 require of the one file defining the word, or of FILE when given. Planted faults (tests/mutants/faults.toml and
 faults.d/*.toml) on a changed file whose old text no longer occurs once are carried over by the same rewrite of
 their old and new texts, and listed by id: name each in the commit message (mutants.py's history rule);
@@ -103,7 +106,7 @@ import tempfile
 
 DEFAULT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 MIN_TOKENS = 6
-STRING_OPENERS = {"s\"", ".\"", "c\"", "abort\"", "s\\\"", ".("}
+STRING_OPENERS = {"s\"", ".\"", "c\"", "abort\"", "s\\\"", ".\\\"", ".("}
 CHAR_WORDS = {"[char]", "char"}
 DEFINERS = {"constant", "variable", "2constant", "2variable", "value", "2value", "create", "defer",
             "fvariable", "fconstant", "buffer:", "+field", "begin-structure", "synonym"}
@@ -409,9 +412,18 @@ def spans(text):
             k = i + 1
             while k < n and text[k] != end:
                 line += text[k] == "\n"
-                k += 1
+                k += 2 if low.endswith("\\\"") and text[k] == "\\" else 1
+            k = min(k, n)
             out.append((low + " " + text[i + 1:k], start, begin, min(k + 1, n)))
             i = k + 1
+        elif low in CHAR_WORDS:
+            while i < n and text[i] in " \t":
+                i += 1
+            k = i
+            while k < n and not text[k].isspace():
+                k += 1
+            out.append((low + " " + text[i:k], start, begin, k))
+            i = k
         else:
             out.append((low, start, begin, j))
     return out
@@ -1045,12 +1057,24 @@ def extraction_report(done, texts, diff, root, dry_run=False):
 # --- rewrite ------------------------------------------------------------------------------------------
 
 WILDCARD = re.compile(r"\$[A-Za-z][A-Za-z0-9_]*")
-# What a wildcard never stands for: the caller's frame, control flow, defining and parsing words, as the
-# chained form would tick or move it.
-NOT_A_NAME = FRAME_WORDS | LOADERS | {
-    ":", ";", ":noname", "[:", ";]", "if", "else", "then", "endif", "ahead", "begin", "while", "repeat",
-    "until", "again", "do", "?do", "loop", "+loop", "case", "of", "endof", "endcase", "'", "[']", "[char]",
-    "char", "postpone", "literal", "[", "]", "does>", "immediate", "\\", "("}
+# Words that take the next word of the input as a name or a character, not as a call: a phrase may not
+# start right after one (`['] dup ...`, `postpone dup ...`), and a wildcard never binds one.
+PARSING_WORDS = {"'", "[']", "postpone", "[compile]", "char", "[char]", "to", "+to", "is", "[is]",
+                 "action-of", "defers", "[defined]", "[undefined]", "marker", ":"}
+# The stack words: a wildcard binding one would change the phrase's stack effect (`dup over = ...`).
+STACK_WORDS = {"dup", "drop", "swap", "over", "rot", "-rot", "nip", "tuck", "pick", "roll", "?dup",
+               "2dup", "2drop", "2swap", "2over", "2rot", "2nip", "2tuck", "3dup", "3drop", "depth"}
+# What a wildcard never stands for: the caller's frame, control flow, stack words, defining and parsing
+# words, as the chained form would tick or move it.
+NOT_A_NAME = FRAME_WORDS | LOADERS | PARSING_WORDS | STACK_WORDS | DEFINERS | {
+    ";", ":noname", "[:", ";]", "if", "else", "then", "endif", "ahead", "begin", "while", "repeat",
+    "until", "again", "do", "?do", "loop", "+loop", "case", "of", "endof", "endcase",
+    "literal", "[", "]", "does>", "immediate", "\\", "("}
+
+
+def names_next(word):
+    """True for a word after which the next word of the input is a name or a character, not a call."""
+    return word in PARSING_WORDS or definer(word)
 MEASURE_LIMIT = 90          # forth-metrics.py's long line
 
 
@@ -1082,7 +1106,7 @@ class Pattern:
             if not WILDCARD.fullmatch(p):
                 if tok != p:
                     return None
-            elif " " in tok or NUMBER.fullmatch(tok) or tok in NOT_A_NAME:
+            elif " " in tok or NUMBER.fullmatch(tok) or tok in NOT_A_NAME or definer(tok):
                 return None
             elif p in bound and toks[bound[p]][0] != tok:
                 return None
@@ -1106,6 +1130,8 @@ class Pattern:
             last = k + len(self.frm) - 1
             gaps = [text[toks[i][3]:toks[i + 1][2]] for i in range(k, last)]
             problem = "a comment inside the phrase" if any(g.strip() for g in gaps) else None
+            if k > 0 and names_next(toks[k - 1][0]):
+                problem = f"after `{toks[k - 1][0]}`, which reads its first word as a name"
             new = self.text(lambda i: text[toks[i][2]:toks[i][3]], bound)
             out.append((toks[k][2], toks[last][3], new, k, problem))
             k = last + 1

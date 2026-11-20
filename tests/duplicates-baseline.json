@@ -1072,7 +1072,7 @@
   "tokens": 6
  },
  "8c62bb325216": {
-  "copies": 6,
+  "copies": 7,
   "kind": "shape",
   "members": [
    "src/core/levels.fs:lf-level-child-params?",
@@ -1080,9 +1080,10 @@
    "src/front/mvars.fs:mv-value-of",
    "src/front/mvars.fs:mvl-value-of",
    "src/front/mvars.fs:mvl-open?",
-   "src/kernel/environment.fs:lf-env-valid?"
+   "src/kernel/environment.fs:lf-env-valid?",
+   "src/present/print-forth.fs:lf-pf-declarable?"
   ],
-  "reason": "false positive: the guarded test `dup a? if b else drop false then` of two different words each time (as group 0268), six members in four files; a word taking two xts would be no shorter (cleanup-families-2)",
+  "reason": "false positive: the guarded test `dup a? if b else drop false then` of two different words each time (as group 0268), seven members in five files; a word taking two xts would be no shorter (cleanup-families-2)",
   "tokens": 8
  },
  "8cf291e5b543": {
@@ -1345,12 +1346,11 @@
   "tokens": 6
  },
  "aca78af72b77": {
-  "copies": 9,
+  "copies": 8,
   "kind": "shape",
   "members": [
    "src/core/level-scope.fs:lf-lscope-context-valid?",
    "src/front/defeq-delta.fs:dd-packed-step",
-   "src/front/defeq.fs:de-induct-nonrec?",
    "src/front/elab-data.fs:ed-wrapped?",
    "src/front/mvars.fs:mv-free?",
    "src/kernel/environment.fs:lf-env-skipped?",
@@ -1358,7 +1358,7 @@
    "src/present/print-analysis.fs:lf-pp-applied?",
    "src/program/ir-reader.fs:ir-more?"
   ],
-  "reason": "false positive: the short-circuit test `a if b else false then` (a && b), nine times with nine different tests and continuations in nine files; a word taking b's xt would be no shorter and would run an EXECUTE on every call (cleanup-families-2)",
+  "reason": "false positive: the short-circuit test `a if b else false then` (a && b), eight times with eight different tests and continuations in eight files; a word taking b's xt would be no shorter and would run an EXECUTE on every call (cleanup-families-2)",
   "tokens": 6
  },
  "ace13d66ceec": {
@@ -1667,7 +1667,7 @@
    "src/program/verify-semantics.fs:pv-negative"
   ],
   "reason": "accepted: program/ir-reader.fs (today's IR reader) and the program-words verifier (verify-*.fs) are kept independent on purpose: tests/program/verify_check.py cross-checks the two designs, which a shared word would weaken",
-  "tokens": 15
+  "tokens": 14
  },
  "d3f40f96a6ee": {
   "copies": 2,
