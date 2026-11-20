@@ -402,6 +402,10 @@ T{ ck-taken# reach10 why# why-answers why# why-outcome why# -> 72 35 0 0 }T
 : first-taken ( flag -- d ) lf-input-count 0 ?do i ck-taken? over = if drop i unloop exit then
   loop drop -1 ;
 true ck-snap snap-carry !
+\ The report's count of those checked again for any why (cli-again#,
+\ count-index since cleanup-families-1), the run now a carry run as the
+\ command line sees it (snap-carry): the 35 inside the reach.
+T{ cli-again# -> 35 }T
 [defined] >string-execute [if]
 : says? ( d c-addr u -- flag ) rot ['] cli-verdict. >string-execute 2swap search nip nip ;
 T{ true first-taken s" (from snapshot of verdict version 9, carried: this build's changes"
@@ -420,6 +424,9 @@ T{ ck-outcome same-as-fresh2? ck-taken# reach10 why# lf-input-count =
 ck-release
 0 carried-run
 T{ ck-outcome same-as-fresh2? ck-taken# lf-input-count = whys# -> outcome-ok true true 0 }T
+\ Not a carry run as the command line sees it (snap-carry unset): none
+\ counted as checked again (cli-again#).
+T{ cli-again# -> 0 }T
 ck-release
 \ Definitions only: what looks one up is checked again for its answers.
 reach-kind-definition carried-run
@@ -501,6 +508,10 @@ variable first-carried
 true snap-stale-allowed ! reach-kind-definition pretended ! 20000000 ck-start 0 0 ck-layers!
 ' note-first ck-carried!
 T{ nested-snap carry-alone ck-rechecking? -> outcome-ok false }T
+\ Loaded, not yet checked: no verdicts, so no declaration passes any test
+\ (ck-inputs-passing#), none counts as checked.
+: any-d ( d -- true ) drop true ;
+T{ lf-input-count ck-verdicts? ' any-d ck-inputs-passing# ck-checked# -> 107 false 0 0 }T
 ck-check
 T{ ck-outcome ck-carried# first-carried @ = why-answers why# ck-stale? -> outcome-ok true 16 true }T
 T{ ck-stale# 0< -> false }T
@@ -599,6 +610,16 @@ nested-snap delete-file drop
 T{ layers 1 ck-layers! ck-uncarried? 0 0 ck-layers! ck-uncarried? -> true false }T
 T{ true ck-state ck-importing ! ck-uncarried? true snap-stale-allowed ! ck-uncarried? -> false true }T
 false snap-stale-allowed ! ck-release
+\ A saved lookup whose answer names a slot S does not hold here (neither
+\ taken from S nor checked here with S's answers, I3) matches no entry of
+\ S: entry-same? is false as soon as answer-taken is (coverage of
+\ cleanup-families-1's cell-pair@ line). The candidate's lookup 0, key 7,
+\ answers slot 3; both of the import record's arrays are empty.
+create t-imp /imp allot  t-imp /imp erase
+T{ 8 t-imp imp-from ua-new 8 t-imp imp-same-from ua-new 1 lf-cand-looks slab-hold
+   -> outcome-ok outcome-ok outcome-ok }T
+T{ 7 0 4 lf-look-reslot 0 lf-look-at cell-pair! 0 0 t-imp entry-same? -> false }T
+t-imp imp-from @ free drop  t-imp imp-same-from @ free drop
 T{ depth -> 0 }T
 T{ failures @ -> 0 }T
 failures @ 0= [if] ." The import pass, its I2 build and layers hold." cr [then]

@@ -21008,7 +21008,7 @@ id = "cf-pf-inner-one-short"
 file = "src/present/print-forth.fs"
 old = ''': lf-pf-inner# ( j -- n ) 0 swap ['] lf-pf-visible? count-index ;'''
 new = ''': lf-pf-inner# ( j -- n ) 0 swap ['] lf-pf-visible? count-index 1- ;'''
-test = "GFORTH=$GFORTH python3 tests/author/check_author.py"
+test = "$GFORTH tests/author/author.fs"
 reason = "review cleanup-families-1 M1 (r12): a hidden binder's printed number counts one visible binder too few"
 
 [[fault]]
