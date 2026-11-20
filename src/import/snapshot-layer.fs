@@ -295,7 +295,7 @@ end-structure
   r> ly-fam-tier expr-make ;
 : ly-fam-other ( head j fam -- e outcome ) tuck ly-fam-rec swap ly-fam-plain ;
 : ly-fam-tagged ( j fam head -- e outcome )
-  -rot 2 pick head-tag let-tag? if ly-fam-let else ly-fam-other then ;
+  dup head-tag let-tag? if -rot ly-fam-let else -rot ly-fam-other then ;
 : ly-fam-expr-of ( j fam -- e outcome ) 2dup ly-fam-head ['] ly-fam-tagged ok-apply3 ;
 : ly-fam-mdata ( j fam -- )
   tuck ly-fam-rec ly-head drop tag-mdata =
