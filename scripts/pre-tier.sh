@@ -13,12 +13,15 @@ run() { local name=$1; shift; local out; out=$("$@" 2>&1 </dev/null); local rc=$
 run "git tree clean"            bash -c 'test -z "$(git status --porcelain)"'
 run "test classes"              python3 scripts/test-classes.py
 run "duplicates"                python3 scripts/check-duplicates.py
+run "new small copies"          python3 scripts/check-duplicates.py --new-words --base main
 run "forth quality + review log" python3 scripts/check-forth-quality.py
 run "library callers"           python3 scripts/check-lib-callers.py
 run "outcome steps"             python3 scripts/check-outcome-steps.py
 run "progress"                  python3 scripts/check-progress.py
 run "agent sync"                python3 scripts/check-agent-sync.py
 run "planted faults table"      python3 scripts/mutants.py --check
+run "layers"                    python3 scripts/check-layers.py --gforth "$G"
+run "error catalogue"           env GFORTH="$G" python3 -c 'import importlib.util as u; s = u.spec_from_file_location("ca", "tests/author/check_author.py"); m = u.module_from_spec(s); s.loader.exec_module(m); m.check_catalogue()'
 run "docs links"                make -s check-docs GFORTH="$G"
 run "doc examples"              make -s check-doc-examples GFORTH="$G"
 run "portable Forth"            make -s check-portable-forth GFORTH="$G"

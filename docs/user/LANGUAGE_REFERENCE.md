@@ -1359,7 +1359,7 @@ a library constant's type can.
 | Form | Example |
 | --- | --- |
 | mathematics | $\gcd(1071, 462) = 21$; $\neg(2 + 2 = 5)$ |
-| LeanForth | `1071 462 Nat.gcd 21 =`, `2 2 + 5 = Not`, proved by `by-decide` |
+| LeanForth | `1071 462 Nat.gcd 21 =`, `2 2 + 5 = Not`, each with `by-decide` as its proof and checked by LeanForth's kernel |
 | Lean | `theorem dc_gcd : Nat.gcd 1071 462 = 21 := by decide` |
 
 ```text
