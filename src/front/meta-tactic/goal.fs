@@ -52,15 +52,26 @@
 \       of its domain (head-beta reduced), stored in the caller's cell at
 \       xs, its local pushed on the goal's context, named as the caller's
 \       cell at names says (0, Lean's _: the binder's own name, a when it
-\       has none, made inaccessible), of the kind at kinds (kinds 0: the
-\       node's, which must be explicit); goal' is a new synthetic opaque
-\       goal of the body (the variables put in, head-beta reduced) with
-\       goal's tag, and goal is assigned fun xs => ?n xs (telescope.fs's
-\       lf-mk-lambda-fvars). No pi is Lean's introN error 94 with the goal,
-\       or 93 where whnf's delta might still make one (infer.fs's
-\       lf-whnf-firm?); not supported yet (99): a let, a binder of no
-\       known kind (kinds 0), an implicit or instance one (a local
-\       instance is plan FE3). The current context is put back.
+\       has none, made inaccessible; names 0: none given, Lean's [], each
+\       so), of the kind at kinds (kinds 0: the node's, Lean's c,
+\       explicit, implicit or strict implicit: plan row TB1, by-intro and
+\       by-intros as Lean's intro and intros); goal' is a new synthetic
+\       opaque goal of the body (the variables put in, head-beta reduced)
+\       with goal's tag, and goal is assigned fun xs => ?n xs
+\       (telescope.fs's lf-mk-lambda-fvars). No pi is Lean's introN error
+\       94 with the goal, or 93 where whnf's delta might still make one
+\       (infer.fs's lf-whnf-firm?); not supported yet (99): a let
+\       (mkLambdaFVars has no let case), and with kinds 0 a binder of no
+\       known kind or an instance one (a local instance is plan FE3). The
+\       current context is put back.
+\   lf-intros-size ( type -- n )  getIntrosSize (Intro.lean:190): the
+\       leading pis and lets of type as it is (no delta, no
+\       instantiation; LeanForth's terms carry no mdata)
+\   lf-goal-intros ( goal -- goal' )  MVarId.intros (Intro.lean:199-206):
+\       n, lf-intros-size of goal's type instantiated; 0 gives goal itself
+\       (unassigned), else introN n with no names and the nodes' kinds, the
+\       n free variables in cells of mti-cells (meta-must.fs's
+\       lf-with-cells)
 \   lf-goal-checked-assign ( goal e -- )  MVarId.checkedAssign
 \       (ExprDefEq.lean:1341) as closeMainGoal calls it: a free variable
 \       of e outside goal's context, or an assignment refused, is error 98
@@ -85,8 +96,9 @@
 \ outcomes (meta-must.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: mti-frames and mrf-frames (introN's and refl's frames, one per
-\ call open, meta-must.fs's lf-with-record, in the checker context, ADR
-\ 0009); no other. Loads in
+\ call open, meta-must.fs's lf-with-record) and mti-cells (intros' free
+\ variables, n cells a call, meta-must.fs's lf-with-cells), in the
+\ checker context (ADR 0009); no other. Loads in
 \ decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
@@ -190,6 +202,7 @@ begin-structure /mti
   field: mti-xs          \ the caller's n cells for the free variables
   field: mti-n           \ and their count
   field: mti-i           \ binders introduced
+  field: mti-k           \ the binder's kind (the caller's, else the node's)
 end-structure
 /mti context-slab: mti-frames
 : mti ( -- frame ) mti-frames slab-last ;
@@ -206,32 +219,35 @@ end-structure
 : mti-binder ( -- pi )
   mti mti-type @ dup mti-binding? if exit then lf-instantiate!
   dup mti-binding? if exit then mti-reduced ;
-\ Not supported yet (99): a let; with no kinds given, a binder not known
-\ explicit (the node's record, which a shared node may hide).
-: mti-explicit? ( pi -- flag )
-  lf-binder-of if nip lf-binder-default = else false then ;
-: mti-plain? ( pi -- flag )
-  dup lf-let? if drop false exit then
-  mti mti-kinds @ if drop true else mti-explicit? then ;
-\ The i-th of the caller's n cells at addr; the name given, else the
-\ binder's own (a when it has none) made inaccessible; the kind given,
-\ else explicit.
+\ The i-th of the caller's n cells at addr (none given: addr 0, the cell 0).
 : mti-at ( addr -- addr' ) mti mti-i @ cells + ;
+: mti-given ( addr -- x ) ?dup if mti-at @ else 0 then ;
+\ Not supported yet (99): a let (telescope.fs's mkLambdaFVars has no let
+\ case); with no kinds given, a binder whose kind is not known (the
+\ node's record, which a shared node may hide) or is instance implicit
+\ (a local instance, plan FE3). Else the binder's kind is the caller's,
+\ or the node's (Lean's c of introNImp's forallE case): explicit,
+\ implicit or strict implicit, kept in the frame.
+: mti-refused ( -- ) lfa-e-tac-form lf-tac-fail ;
+: mti-unlet ( pi -- pi ) dup lf-let? if mti-refused then ;
+: mti-introduced ( kind -- kind ) dup lf-binder-instance < 0= if mti-refused then ;
+: mti-node-kind ( pi -- kind ) lf-binder-of 0= if mti-refused then nip mti-introduced ;
+: mti-kind ( pi -- kind ) mti mti-kinds @ ?dup if nip mti-at @ else mti-node-kind then ;
+: mti-kind! ( pi -- pi ) dup mti-kind mti mti-k ! ;
+\ The name given, else the binder's own (a when it has none) made
+\ inaccessible (names 0: none given, Lean's []).
 : mti-own ( pi -- name ) lf-binder-name ?dup 0= if s" a" lfa-intern then ;
 : mti-named ( pi -- name flags )
-  mti mti-names @ mti-at @ ?dup if nip 0 exit then mti-own lf-local-inaccessible ;
-: mti-kind ( -- kind )
-  mti mti-kinds @ ?dup if mti-at @ else lf-binder-default then ;
+  mti mti-names @ mti-given ?dup if nip 0 exit then mti-own lf-local-inaccessible ;
 \ One binder: its free variable kept, its local pushed on the current view.
 : mti-dom ( pi -- dom ) lf-term-first@ lf-meta-head-beta lf-must ;
 : mti-local ( pi -- fvar )
-  dup mti-dom swap mti-named mti-kind or lf-local-decl-new lf-mctx-view! ;
+  dup mti-dom swap mti-named mti mti-k @ or lf-local-decl-new lf-mctx-view! ;
 : mti-x! ( fvar -- ) mti mti-xs @ mti-at ! 1 mti mti-i +! ;
 : mti-body ( pi fvar -- t )
   swap lf-term-second@ swap lf-meta-instantiate1 lf-must lf-meta-head-beta lf-must ;
 : mti-step ( -- )
-  mti-binder dup mti-plain? 0= if lfa-e-tac-form lf-tac-fail then
-  dup mti-local dup mti-x! mti-body mti mti-type ! ;
+  mti-binder mti-unlet mti-kind! dup mti-local dup mti-x! mti-body mti mti-type ! ;
 \ The new goal of the body in the new context, the goal assigned
 \ fun xs => ?n xs (mkLambdaFVars, telescope.fs).
 : mti-new ( -- goal' )
@@ -243,6 +259,19 @@ end-structure
 : mti-framed ( goal names kinds n xs -- goal' ) mti-fill ['] mti-run lf-with-goal ;
 : lf-goal-intro-n ( goal names kinds n xs -- goal' )
   mti-frames ['] mti-framed lf-with-record ;
+
+\ ---- getIntrosSize (Intro.lean:190) and MVarId.intros (:199): every
+\ leading pi and let of the type instantiated, as they are (no delta;
+\ LeanForth's terms carry no mdata), introduced at once with no names, in
+\ n cells of mti-cells (lf-with-cells, meta-must.fs).
+: mti-inner ( t -- t' ) dup lf-let? if lf-let-body else lf-term-second@ then ;
+: lf-intros-size ( type -- n )
+  0 swap begin dup mti-binding? while mti-inner swap 1+ swap repeat drop ;
+1 cells context-slab: mti-cells
+: mti-intros ( goal n xs -- goal' ) 0 0 2swap lf-goal-intro-n ;
+: lf-goal-intros ( goal -- goal' )
+  dup lf-goal-type lf-instantiate! lf-intros-size ?dup 0= if exit then
+  dup mti-cells ['] mti-intros lf-with-cells ;
 
 \ ---- checkedAssign (ExprDefEq.lean:1341) as closeMainGoal calls it.
 : mtg-outside? ( view leaf -- view flag )

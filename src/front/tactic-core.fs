@@ -69,10 +69,11 @@
 \       (filterOldMVars and logUnassignedAndAbort: error 95), then closes
 \       the goal (meta-tactic/goal.fs's lf-goal-checked-assign) and leaves
 \       the list
-\   lf-tac-intro1 ( name kind i -- )  liftMetaTactic of introN 1
+\   lf-tac-intro1 ( name kind i -- )  liftMetaTactic1 of introN 1
 \       (meta-tactic/goal.fs's lf-goal-intro-n): step i's main goal's
 \       first binder introduced, named name (0: its own, inaccessible), of
-\       kind kind (-1: the node's, explicit only), in its place the new
+\       kind kind (-1: the node's: explicit, implicit or strict implicit,
+\       as Lean's intro; plan row TB1), in its place the new
 \       goal (intro NAME; an alternative's field, tactic-alts.fs)
 \   lf-tac-elab-for-apply ( node -- e )  elabTermForApply
 \       (ElabTerm.lean:264) as evalApplyLikeTactic calls it (:284-292): an

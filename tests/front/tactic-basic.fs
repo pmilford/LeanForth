@@ -19,7 +19,8 @@
 \    by the kernel, on h1 = h2 (proofs of p) with the left side; errors 94
 \    (with Lean's text), 95, 96 (with Lean's text), 97 (with Lean's text),
 \    98, 99, 93, 71, and 91 when isDefEq or whnfCore runs out of fuel;
-\ 2. malformed: a binder with no known kind, an implicit binder, a let;
+\ 2. malformed: a binder with no known kind, an instance binder, a let
+\    (an implicit or strict-implicit binder is introduced, plan row TB1);
 \ 3. stack effects (every T{ }T checks the depth) and lf-term-holds?;
 \ 4. through cli-check: tests/front/07-intro-exact.lf, 08-rfl.lf;
 \ 5. resources: the heap refusing each allocation of an intro-exact run;
@@ -148,19 +149,30 @@ T{ s" by-intro: h end t" proof nrun err -> outcome-invalid 94 1 43 }T
 ' true-p stating
 T{ s" by-intro: h end t" proof nrun err -> outcome-unsupported 93 1 43 }T
 \ ---- 2. Not supported yet (99): the name rfl, a binder of no known kind,
-\ an implicit binder, a let.
+\ an instance-implicit binder (a local instance, plan FE3), a let. An
+\ implicit or strict-implicit binder is introduced with its kind, as
+\ Lean's intro does (plan row TB1, 2026-11-19; until then 99; its pinned
+\ comparison is tests/front/tactics/intros/implicit.fs).
 ' imp-p stating
 T{ s" by-intro: rfl end t" proof nrun err -> outcome-unsupported 99 1 43 }T
 ' bare-pi stating
 T{ s" by-intro: h end t" proof nrun err -> outcome-unsupported 99 1 43 }T
-' implicit-pi stating
+: instance-pi ( -- type ) p-prop p @ p @ s" a" lf-binder-instance pi-of ;
+' instance-pi stating
 T{ s" by-intro: h end t" proof nrun err -> outcome-unsupported 99 1 43 }T
+' implicit-pi stating
+T{ s" by-intro: h by-sorry end t" proof nrun new-local dup lf-local-name s" h" name=
+   swap lf-local-flags -> outcome-ok true lf-binder-implicit }T
+: strict-pi ( -- type ) p-prop p @ p @ s" a" lf-binder-strict pi-of ;
+' strict-pi stating
+T{ s" by-intro: _ by-sorry end t" proof nrun new-local dup lf-local-name s" a" name=
+   swap lf-local-flags -> outcome-ok true lf-binder-strict lf-local-inaccessible or }T
 ' let-p stating
 T{ s" by-intro: h end t" proof nrun err -> outcome-unsupported 99 1 43 }T
 \ An alternative's field (lf-tac-intro1 given a kind, as induction's
 \ eliminator gives it; review tactic-move M3): the kind given, here
-\ implicit, is the local's; the node's own kind is not read (the binder
-\ refused above, 99, is introduced). intro's row stands in for the call.
+\ implicit, is the local's; the node's own kind is not read. intro's row
+\ stands in for the call.
 tac-k-intro lfr-row trow-run @ constant intro-action
 : intro-implicit ( i -- ) dup 0 lf-tac-arg lf-binder-implicit rot lf-tac-intro1 ;
 ' intro-implicit tac-k-intro lf-tactic-action!

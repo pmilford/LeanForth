@@ -219,6 +219,7 @@ reserved by-apply word
 reserved by-assumption word
 reserved by-constructor word
 reserved by-exfalso word
+reserved by-intros word
 reserved by-left word
 reserved by-right word
 kind 1 by 0 by run
@@ -236,5 +237,6 @@ kind 12 by-apply 0 apply run
 kind 13 by-assumption 0 assumption run
 kind 14 by-constructor 0 constructor run
 kind 15 by-exfalso 0 exfalso run
-kind 16 by-left 0 left run
-kind 17 by-right 0 right run
+kind 16 by-intros 0 intros run
+kind 17 by-left 0 left run
+kind 18 by-right 0 right run

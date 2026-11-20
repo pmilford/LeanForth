@@ -16092,8 +16092,8 @@ reason = "POOL: --resources does not say that the system refused worker tasks"
 [[fault]]
 id = "fe-intro-name-accessible"
 file = "src/front/meta-tactic/goal.fs"
-old = '''  mti mti-names @ mti-at @ ?dup if nip 0 exit then mti-own lf-local-inaccessible ;'''
-new = '''  mti mti-names @ mti-at @ ?dup if nip 0 exit then mti-own 0 ;'''
+old = '''  mti mti-names @ mti-given ?dup if nip 0 exit then mti-own lf-local-inaccessible ;'''
+new = '''  mti mti-names @ mti-given ?dup if nip 0 exit then mti-own 0 ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: intro _ makes an accessible hypothesis where Lean's is hygienic (printed a✝)"
 

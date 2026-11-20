@@ -458,8 +458,8 @@ reason = "9.4.8l-I C2 introN of n > 1: every binder takes the first name and cel
 [[fault]]
 id = "lib-intro-n-kinds-ignored"
 file = "src/front/meta-tactic/goal.fs"
-old = '''  mti mti-kinds @ ?dup if mti-at @ else lf-binder-default then ;'''
-new = '''  lf-binder-default ;'''
+old = ''': mti-kind ( pi -- kind ) mti mti-kinds @ ?dup if nip mti-at @ else mti-node-kind then ;'''
+new = ''': mti-kind ( pi -- kind ) mti-node-kind ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l-I C2 introN: the kinds an alternative's eliminator gives are dropped, every field explicit"
 
