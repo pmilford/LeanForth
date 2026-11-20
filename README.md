@@ -30,7 +30,7 @@ Two pages show, theorem by theorem, the LeanForth text, the same proof in Lean, 
   - statements and `by-rfl` on all of `Init` ([S1](docs/development/done-checks/2026-11-14-s1.md));
   - proofs by induction and rewriting ([S2](docs/development/done-checks/2026-11-19-s2-done.md));
   - `by-decide` on closed facts about natural numbers and truth values ([S3a](docs/development/done-checks/2026-11-19-s3a-done.md), [operators](docs/development/done-checks/2026-11-20-ops-c1-done.md));
-  - Lean's symbols as words, each also in a spelling a plain keyboard can type (SYMBOLS_DONE).
+  - Lean's symbols as words, each also in a spelling a plain keyboard can type ([symbols](docs/development/done-checks/2026-11-20-ops-symbols-done.md)).
 
   The tactic words on `main`: `by-intro`, `by-intros`, `by-exact`, `by-apply`, `by-rfl`, `by-rw[ ]`, `by-induction-with`, `by-case:`, `by-assumption`, `by-constructor`, `by-left`, `by-right`, `by-exfalso`, `by-clear`, `by-decide`, `by-sorry`. Each is a port of Lean's tactic, and its results are compared with Lean 4.35.0's, term by term, on true theorems and on deliberately wrong ones. [The language reference](docs/user/LANGUAGE_REFERENCE.md) describes every word.
 - **Verified Forth programs (second path).** `bin/leanforth verify SOURCE.fs --contract CONTRACT` checks one Forth word against a contract: pinned Lean writes the proofs and LeanForth's checker re-checks them ([manual](docs/programming/PROGRAM_VERIFY.md)). Its first slice is on `main`; the later slices are parked.
