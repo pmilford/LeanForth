@@ -42,7 +42,7 @@ pristine copy, every file, folder and link of it (content, mode, link
 target), and the test's scratch folder ($LF_TEST_SCRATCH) and temporary
 folder ($TMPDIR, one per copy) are emptied: the next test always starts
 from the pristine state (2026-11-20: a fault's test wrote a run record over
-tests/reference/composition.ndjson of the copy, and the 600 faults after it
+tests/reference/composition.ndjson of the copy, and the 681 faults after it
 ran against that). A copy that differs is rebuilt from the pristine copy. A
 test that changed or removed a file of the copy (a file of the root; the
 fault's own file is restored first) is an error of that test: the fault
