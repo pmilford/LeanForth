@@ -55,7 +55,8 @@ lf-lib set-current
   dup 1+ swap ?do 1- 0 swap do i j execute if drop i true unloop unloop exit then
   -1 +loop loop drop false ;
 \ How many k < n for which xt ( x k -- x flag ) answers true, x dropped
-\ (n <= 0: none). The count sits below x; each test is given a copy.
+\ (n <= 0: none). x stays below the count; each test is given a copy of x
+\ above it.
 : count-index ( x n xt -- m )
   dup 1+ swap ?do 0 max 0 swap 0 ?do over i j execute nip 0<> - loop nip loop ;
 module-close

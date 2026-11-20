@@ -1240,15 +1240,15 @@ end-structure
 : ck-again-for? ( why d -- why flag ) ck-reason over = ;
 : ck-again# ( why -- n ) lf-input-count ['] ck-again-for? count-index ;
 \ How many input declarations pass xt ( d -- flag ); none before verdicts.
-: ck-verdicts# ( xt -- n )
-  ck-verdicts? 0= if drop 0 exit then 0 swap lf-input-count swap count-index ;
+: ck-inputs-passing# ( xt -- n )
+  ck-verdicts? 0= if drop 0 exit then >r 0 lf-input-count r> count-index ;
 \ Declarations checked in this run: final, not taken from the snapshot
 \ (a stopped run checked fewer than it did not take; review rvSN4 m3).
 : ck-fresh? ( d -- flag ) dup lf-env-final? swap ck-taken? 0= and ;
-: ck-checked# ( -- n ) ['] ck-fresh? ck-verdicts# ;
+: ck-checked# ( -- n ) ['] ck-fresh? ck-inputs-passing# ;
 \ Verdicts taken from the snapshot (and its layers), not checked here.
 : ck-saved? ( d -- flag ) lf-env-origin lf-origin-saved = ;
-: ck-saved# ( -- n ) ['] ck-saved? ck-verdicts# ;
+: ck-saved# ( -- n ) ['] ck-saved? ck-inputs-passing# ;
 : ck-other# ( -- n ) ck-import imp-other# ;
 \ Results labelled stale: taken from the snapshot, not carried.
 : ck-stale# ( -- n ) ck-verdicts? if ck-saved# ck-carried# - else 0 then ;

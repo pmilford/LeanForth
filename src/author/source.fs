@@ -70,10 +70,10 @@ end-structure
 : lfa-invoked ( -- c-addr u )
   lfa-in lfa-skip-delimiter dup lfa-token-start tuck - >r source drop + r> ;
 
-\ Make c-addr u, a token of the line being run, the current token; and
-\ also mark the line as read up to its end.
+\ Make c-addr u, a token of the line being run, the current token.
 : lfa-token-at ( c-addr u -- )
   lfa-source lfa-source-length ! lfa-offset 1+ lfa-source lfa-source-column ! ;
+\ The same, and mark the line as read up to the token's end.
 : lfa-token! ( c-addr u -- ) 2dup + lfa-offset lfa-source lfa-source-end ! lfa-token-at ;
 \ The current token's text, while its line is kept; never beyond the line.
 : lfa-token ( -- c-addr u )

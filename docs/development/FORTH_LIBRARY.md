@@ -1202,8 +1202,8 @@ custom), as for `find-index`. It replaced twelve hand-written
 `0 n 0 ?do … - loop` loops (the `- loop`, `1 and + loop` and
 `if 1+ then loop` spellings). *Algorithm*: the same one-pass outer loop
 holding xt as `find-index`'s, and a counted inner loop that runs every
-index, the count below x, each test given a copy of x (`over i j
-execute nip`). *Cost*: one test per index, always n; no memory; two loop
+index, x staying below the count, each test given a copy of x above it
+(`over i j execute nip`). *Cost*: one test per index, always n; no memory; two loop
 frames on the return stack. *Speed* (2026-11-19, Gforth 1.0.0, WSL2 on
 the development machine, load about 1): 5 ns an index at 10 indices and
 3 to 4 ns at 10^6 on `gforth`, 2 ns at both on `gforth-fast`, whether
@@ -1224,7 +1224,7 @@ the test holds never or every other time. *Callers* and their sizes:
   snapshot of Init): the declarations a carry run checks again
   (`cli-again#`) and again for one reason (`ck-again#`, x the why code),
   the declarations checked here and taken from the snapshot
-  (`ck-checked#`, `ck-saved#`, through `ck-verdicts#`); once per snapshot
+  (`ck-checked#`, `ck-saved#`, through `ck-inputs-passing#`); once per snapshot
   load, its stage's slots but block records (`ck-stage-slots`, x the
   stage);
 - `cli/check-lf.fs`: a library constant's explicit binders, the zeros of
