@@ -1498,7 +1498,8 @@ DOC_EXAMPLE_PAGES += docs/user/PROOF_OUTLINE.md
 # test-cli-forth is the Forth side's unit tests; the others are end to end.
 test-cli: $(TEST_CLI_PARTS)
 test-cli-forth:
-	$(RUN) $(GFORTH) tests/cli/leanforth.fs
+	$(RUN) $(SCRATCH) $(GFORTH) tests/cli/leanforth.fs
+	$(RUN) $(GFORTH) tests/cli/checker-load.fs
 test-cli-1 test-cli-2 test-cli-3 test-cli-4 test-cli-engines:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/cli/run_group.py $(subst test-cli-,,$@)
 .PHONY: test-cli-forth test-cli-1 test-cli-2 test-cli-3 test-cli-4 test-cli-engines
