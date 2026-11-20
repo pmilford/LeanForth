@@ -6866,7 +6866,7 @@ file = "src/import/feed.fs"
 old = '''    tag-let-nondep of true feed-let feed-built endof'''
 new = '''    tag-let-nondep of false feed-let feed-built endof'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
-reason = "4.2.3: the feed drops a letE's nonDep flag, which Lean's == compares"
+reason = "4.2.3: the feed drops a letE's nonDep flag, which Lean's == compares (a let copied because an mdata lies under it; every other let is read in place)"
 
 # --- K-like reduction (plan task 5.2.1c, R2; src/kernel/iota.fs) -----------
 
@@ -18325,7 +18325,7 @@ old = '''  dup de-s dd-same-head? if de-s dd-compare exit then
   de-s dd-unfold if dd-heads-both'''
 new = '''  de-s dd-unfold if dd-heads-both'''
 test = "$GFORTH tests/front/defeq.fs"
-reason = "S2 §9: unfoldComparingHeadsDefEq unfolds both sides where Lean unfolds one (id Nat (Nat.add ?n x) against Nat.add k x then unfolds Nat.add)"
+reason = "S2 §9: unfoldComparingHeadsDefEq unfolds both sides where Lean unfolds one: id Nat (Nat.pred ?n) against Nat.pred k unfolds Nat.pred k too (three unfoldings, where pinned Lean's delta trace has unfoldLeft id alone)"
 
 [[fault]]
 id = "fe-delta-no-sunfold"
@@ -18398,7 +18398,7 @@ file = "src/front/defeq-delta.fs"
 old = '''  dd-mvars? if true exit then de-x dd-nontrivial? dup de-aborted? or if exit then'''
 new = '''  false exit de-x dd-nontrivial? dup de-aborted? or if exit then'''
 test = "$GFORTH tests/front/defeq.fs"
-reason = "S2: tryHeuristic never compares the arguments first, so Nat.add ?n x against Nat.add k x unfolds Nat.add (its `_sunfold`)"
+reason = "S2: tryHeuristic never compares the arguments first: id ?n against id k unfolds both sides, where pinned Lean unfolds nothing"
 
 [[fault]]
 id = "fe-delta-packed-skipped"
@@ -18406,7 +18406,7 @@ file = "src/front/defeq-delta.fs"
 old = '''  de-t de-s dd-packed if de-s dd-compare exit then de-aborted? if exit then'''
 new = '''  de-aborted? if exit then'''
 test = "$GFORTH tests/front/defeq.fs"
-reason = "S2: unfoldNonProjFnDefEq never unpacks a class projection toward the other side's head (k + x against Nat.add k x then unfolds Nat.add)"
+reason = "S2: unfoldNonProjFnDefEq never unpacks a class projection toward the other side's head: k + x against Add.add k x unfolds Add.add k x first (four unfoldings, where pinned Lean's delta trace has unfoldLeft HAdd.hAdd alone)"
 
 [[fault]]
 id = "fe-delta-levels-ignored"
@@ -18423,7 +18423,7 @@ old = '''  df df-mode @ lf-tr-reducible = if dd-defeq exit then
   de-x dd-red? de-y dd-red? dd-one-of ;'''
 new = '''  dd-defeq ;'''
 test = "$GFORTH tests/front/defeq.fs"
-reason = "S2: unfoldReducibleDefEq never unfolds the reducible side first (outParam ?n against Nat.add k x then unfolds Nat.add)"
+reason = "S2: unfoldReducibleDefEq never unfolds the reducible side first: outParam ?ty against id Type Nat unfolds id too and assigns ?ty := Nat, where pinned Lean assigns id Type Nat"
 
 [[fault]]
 id = "fe-ed3-sunfold-twice-error"

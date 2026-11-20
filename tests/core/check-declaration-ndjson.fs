@@ -386,9 +386,13 @@ lf-memo-auto lf-audit-memo!
 \ An input let and an equal let the store builds (same value, the same
 \ lambda) have the same data word, depth included, as Lean's letE gives
 \ (review rvS5B M1: the store once counted the lambda's level too, so
-\ == met the lets apart).
-: store-let ( -- let ) 0 lf-input-decl lf-idecl-value @ lf-let-value
-  lams nip lf-tag-let-nondep lf-term-binary 0= abort" store-let" ;
+\ == met the lets apart). The store's let is made with sharing off: since
+\ the let's lambda and idSort's are one node, sharing would give back the
+\ input let itself, whose data word the stage made.
+: store-let ( -- let )
+  lf-term-sharing? false lf-term-sharing! 0 lf-input-decl lf-idecl-value @ lf-let-value
+  lams nip lf-tag-let-nondep lf-term-binary 0= abort" store-let" swap lf-term-sharing! ;
+T{ store-let lf-term-base >= -> true }T
 T{ 0 lf-input-decl lf-idecl-value @ lf-term-data@ drop lf-data-depth
    store-let lf-term-data@ drop lf-data-depth = -> true }T
 T{ 0 lf-input-decl lf-idecl-value @ store-let 1000 lf-expr-equal -> true outcome-ok }T
@@ -407,13 +411,20 @@ T{ let-lam-file fed-checked verdicts unstage -> outcome-ok 2 true }T
 \ in place: in stage-cases/marks.ndjson an mdata, an application and a
 \ lambda over it, a let whose body it is and a projection of it (theorem
 \ t's value): five expressions, seven store nodes (the let's lambda and
-\ the projection's leaf besides).
+\ the projection's leaf besides). The copied let, the one let the store
+\ made, is dependent.
+: copied-let ( -- let )
+  -1 lf-term-base lf-term-count @ + lf-term-base ?do i lf-let? if drop i leave then loop ;
 T{ s" tests/core/stage-cases/marks.ndjson" fed lf-input-count 1- lf-input-decl lf-idecl-value @
-   dup lf-term-base >= swap lf-term-tag@ lf-term-count @ -> outcome-ok true lf-tag-projection 7 }T
+   dup lf-term-base >= swap lf-term-tag@ lf-term-count @ copied-let lf-let-nondep
+   -> outcome-ok true lf-tag-projection 7 false }T
 unstage
 \ The same with the let non-dependent (review of refactor-fri L2): its
-\ body copied, it is copied too, as the dependent one is.
-T{ s" tests/core/stage-cases/marks-nondep.ndjson" fed lf-term-count @ -> outcome-ok 7 }T
+\ body copied, it is copied too, as the dependent one is, and keeps its
+\ nonDep flag, which Lean's == compares (the feed's copy of a letE; an
+\ export without mdata has every let read in place, flag and all).
+T{ s" tests/core/stage-cases/marks-nondep.ndjson" fed lf-term-count @ copied-let lf-let-nondep
+   -> outcome-ok 7 true }T
 unstage
 \ A let and the nodes above it are read in place, nothing copied.
 T{ let-file fed 0 lf-input-decl lf-idecl-value @ lf-term-base < lf-term-count @

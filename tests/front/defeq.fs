@@ -418,6 +418,12 @@ T{ add-proj de-hint-key? 0 s" Nat.add" cn fk app de-hint-key? fk de-hint-key?
   rot with-flags shallower lf-tr-default lf-defeq-mode! ;
 T{ lf-defeq-elab lf-defeq-stuck or hint-twin lf-defeq-elab hint-twin
    -> false lf-meta-stuck false outcome-ok }T
+\ With data of another library (its modules counted two, then put back)
+\ the hints answer unsupported at Nat.add, so the twin shows that the
+\ stuck signal skips them, as Lean's throw does: stuck, where the hints
+\ alone answer unsupported.
+T{ 2 elab elab-modules# ! lf-defeq-elab lf-defeq-stuck or hint-twin lf-defeq-elab hint-twin
+   1 elab elab-modules# ! -> false lf-meta-stuck false outcome-unsupported }T
 \ synthPending's hook (S1 appendix D; branch s1-synth sets it) on the
 \ natural ?r : Nat, whose type might be a class, stuck in the same twin
 \ under isDefEqStuckEx: a hook that fills it asks for Lean's retry, not
@@ -443,16 +449,17 @@ T{ fp 0 0 2 s" Prod.mk" cn nat app nat app fa app dq -> false outcome-ok }T
 T{ fi fe app fi fp 0 proj app dq -> true outcome-ok }T
 
 \ ---- Lazy delta (S2 merge A, defeq-delta.fs; check_defeq.py compares the
-\ same cases with pinned Lean). One side unfolds (outParam Type, either
-\ side); a reducible side first (outParam ?n against Nat.add k x assigns
-\ ?n, never unfolding Nat.add, which has a `_sunfold`); two names: class
-\ projections unpacked to the other side's head (packedInstanceOf?),
-\ either side, through two of them, with an assignment; one name: two
-\ applications by their arguments first (tryHeuristic: Nat.add ?n x
-\ against Nat.add k x), two constants at other levels both unfolded
-\ (false); the side whose unfolding has the other's head alone (id Nat
+\ same cases with pinned Lean): the answers. One side unfolds (outParam
+\ Type, either side); a reducible side (outParam ?n against Nat.add k x
+\ assigns ?n); two names: class projections unpacked to the other side's
+\ head (packedInstanceOf?), either side, through two of them, with an
+\ assignment; one name: two applications by their arguments (tryHeuristic:
+\ Nat.add ?n x against Nat.add k x), two constants at other levels both
+\ unfolded (false); the side whose unfolding has the other's head (id Nat
 \ (Nat.add ?n x) against Nat.add k x); a false answer leaves nothing
-\ assigned; Nat.add's `_sunfold` reached: unsupported (merge B).
+\ assigned. Since smart unfolding (S2 merge B) Nat.add k x does not
+\ unfold (stuck on x), so these answers no longer tell lazy delta's
+\ orders apart: "Lazy delta's order" below pins them.
 : outp ( t -- t' ) >r lv1 1 s" outParam" cn r> app ;
 : outp2 ( t -- t' ) >r lv2 1 s" outParam" cn r> app ;
 : add-add ( a b -- t ) >r >r l0 1 s" Add.add" cn nat app 0 s" instAddNat" cn app r> app r> app ;
@@ -479,6 +486,44 @@ T{ 4 lf-defeq-fuel! ?n fx hadd fk fx add-add dq ?n free? clean? 0 lf-defeq-fuel!
    -> false outcome-exhausted true true }T
 T{ lf-tr-implicit lf-defeq-mode! lv1 sort outp2 lv1 sort dq lf-defeq-mode
    lf-tr-default lf-defeq-mode! -> true outcome-ok lf-tr-implicit }T
+
+\ ---- Lazy delta's order: which side unfolds, in what order, observed as
+\ the terms a call unfolds (defeq-delta.fs's lf-delta-unfolded, Meta's
+\ delta trace) and the term it assigns. Lean's steps
+\ (ExprDefEq.lean:1632-1849), each pair as pinned Lean 4.35.0's
+\ trace.Meta.isDefEq.delta showed it (run by hand, 2026-11-20; not part
+\ of check_defeq.py): tryHeuristic compares id ?n against
+\ id k by their arguments (a metavariable on a side), unfolding nothing,
+\ and Nat.pred x against Nat.pred (id x) (a non-trivial definition):
+\ only id x unfolds (unfoldRight id); unfoldComparingHeadsDefEq unfolds
+\ id (Nat.pred ?n) alone, whose unfolding has Nat.pred k's head
+\ (unfoldLeft id), never Nat.pred k; packedInstanceOf? unpacks k + x on
+\ the left (unfoldLeft HAdd.hAdd: one unfolding), never Add.add k x;
+\ unfoldReducibleDefEq unfolds the reducible outParam ?ty alone, on
+\ either side (unfoldLeft, unfoldRight outParam), so ?ty := id Type Nat,
+\ as Lean (unfolding id Type Nat too would assign Nat).
+create unfolds 4 cells allot  variable #unfolds
+: note-unfold ( e -- )
+  #unfolds @ 4 < if #unfolds @ cells unfolds + ! else drop then 1 #unfolds +! ;
+: traced ( t s -- flag outcome )
+  0 #unfolds ! action-of lf-delta-unfolded >r ['] note-unfold is lf-delta-unfolded
+  dq r> is lf-delta-unfolded ;
+: unfolded ( i -- e ) cells unfolds + @ ;
+: once? ( e -- flag ) #unfolds @ 1 = swap 0 unfolded same and ;
+: pred ( t -- t' ) >r 0 s" Nat.pred" cn r> app ;
+: id-type ( -- t ) lv2 1 s" id" cn lv1 sort app nat app ;
+lv1 sort mv-natural lf-mvar-new made constant ?ty
+T{ own-mark ?n id1 fk id1 traced ?n fk assigns? #unfolds @ own-back -> true outcome-ok true 0 }T
+T{ fx pred fx id1 pred traced fx id1 once? -> true outcome-ok true }T
+T{ own-mark ?n pred id1 fk pred traced ?n fk assigns? ?n pred id1 once? own-back
+   -> true outcome-ok true true }T
+T{ fk fx hadd fk fx add-add traced fk fx hadd once? -> true outcome-ok true }T
+T{ own-mark ?n fx hadd fk fx add-add traced ?n fx hadd once? own-back -> true outcome-ok true }T
+T{ own-mark ?ty outp id-type traced ?ty id-type assigns? ?ty outp once? own-back
+   -> true outcome-ok true true }T
+T{ own-mark id-type ?ty outp traced ?ty id-type assigns? ?ty outp once? own-back
+   -> true outcome-ok true true }T
+T{ clean? ?ty free? -> true true }T
 
 \ ---- Resources: each allocation refused in turn gives full or the
 \ answer, and leaves nothing behind.
