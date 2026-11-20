@@ -30,10 +30,10 @@ reason = "S3a-ops C1: an unfolding is not reduced again (Lean's reduce recurses)
 [[fault]]
 id = "oc-no-result-flag-order"
 file = "src/lib/outcome.fs"
-old = ''': no-result-flag ( outcome -- -1 false outcome ) -1 false rot ;'''
-new = ''': no-result-flag ( outcome -- -1 false outcome ) false -1 rot ;'''
+old = ''': no-result-flag ( outcome -- -1 false outcome ) no-result false swap ;'''
+new = ''': no-result-flag ( outcome -- -1 false outcome ) false no-result ;'''
 test = "$GFORTH tests/lib/lib.fs"
-reason = "review ops-c1 B1: lib/outcome.fs's no-result-flag gives the flag and the result in each other's places (false where -1 belongs), so a failed step hands on result 0, a value, and flag true"
+reason = "review ops-c1 B1: lib/outcome.fs's no-result-flag leaves the three values out of their places (the outcome where the result belongs, -1 as the flag, 0 as the outcome), so a failed step reads as ok with flag true"
 
 [[fault]]
 id = "dk-unfold-swallow"

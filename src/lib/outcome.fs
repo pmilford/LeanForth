@@ -86,7 +86,7 @@ get-current lf-lib set-current   \ every word below is public, in lf-lib
 \ A failure that has no result: -1 in the result's place.
 : no-result ( outcome -- -1 outcome ) -1 swap ;
 \ A failure with neither a result nor a flag: -1 and false in their places.
-: no-result-flag ( outcome -- -1 false outcome ) -1 false rot ;
+: no-result-flag ( outcome -- -1 false outcome ) no-result false swap ;
 \ A step's result kept only on ok: on any other outcome -1 takes its
 \ place, so a failure never hands on a half-made value.
 : ok-or-none ( x outcome -- x outcome | -1 outcome ) dup ok? 0= if nip no-result then ;
