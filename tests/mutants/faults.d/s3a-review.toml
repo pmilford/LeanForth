@@ -56,3 +56,13 @@ old = ''': lf-rn-count? ( lit -- flag ) $FFFFFFFF lf-lit-u> 0= ;'''
 new = ''': lf-rn-count? ( lit -- flag ) $FFFFFFFE lf-lit-u> 0= ;'''
 test = "$GFORTH tests/core/reduce-nat.fs"
 reason = "review s3a-decide B5: get_count_arg's bound one too low, so 1 ^ (2^32 - 1) is refused where Lean computes it"
+
+# --- B3: mkDecide through mkAppOptM ------------------------------------------
+
+[[fault]]
+id = "s3a-decide-p-dropped"
+file = "src/front/app-builder.fs"
+old = ''': lf-mk-decide ( p -- e ) s" Decidable.decide" rot 0 1 2 lf-mk-app-opt-m ;'''
+new = ''': lf-mk-decide ( p -- e ) s" Decidable.decide" rot 0 0 2 lf-mk-app-opt-m ;'''
+test = "$GFORTH tests/front/tactics/decide/test.fs"
+reason = "review s3a-decide B3: mkDecide's entries #[p, none] given as #[none, none], so P is dropped and decide's proposition is a new metavariable"

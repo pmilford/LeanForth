@@ -288,8 +288,8 @@ reason = "a2-i mkAppM: a call that fails leaves its frame"
 [[fault]]
 id = "lib-mpr-is-mp"
 file = "src/front/app-builder.fs"
-old = ''': lf-mk-eq-mpr ( h p -- e ) s" Eq.mpr" abl-decl -rot 2 lf-mk-app-m-of ;'''
-new = ''': lf-mk-eq-mpr ( h p -- e ) s" Eq.mp" abl-decl -rot 2 lf-mk-app-m-of ;'''
+old = ''': lf-mk-eq-mpr ( h p -- e ) s" Eq.mpr" abl-mp-by ;'''
+new = ''': lf-mk-eq-mpr ( h p -- e ) s" Eq.mp" abl-mp-by ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i mkEqMPR (AppBuilder.lean:447): Eq.mp where Lean applies Eq.mpr"
 

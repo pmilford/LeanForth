@@ -260,8 +260,9 @@ end-structure
 \ The constant c-addr u's declaration under a call's stored cells.
 : abl-decl-under ( c-addr u addr n -- d addr n ) 2>r abl-decl 2r> ;
 : lf-mk-app-m ( c-addr u x1..xn n -- e ) abl-stored abl-decl-under abm-of ;
-: lf-mk-eq-mp ( h p -- e ) s" Eq.mp" abl-decl -rot 2 lf-mk-app-m-of ;
-: lf-mk-eq-mpr ( h p -- e ) s" Eq.mpr" abl-decl -rot 2 lf-mk-app-m-of ;
+: abl-mp-by ( h p c-addr u -- e ) abl-decl -rot 2 lf-mk-app-m-of ;
+: lf-mk-eq-mp ( h p -- e ) s" Eq.mp" abl-mp-by ;
+: lf-mk-eq-mpr ( h p -- e ) s" Eq.mpr" abl-mp-by ;
 \ mkAppOptM (402): the mask stored after the entries, then kept in the
 \ frame, which it marks as mkAppOptM's.
 : abo-framed ( d addr n -- e )
@@ -269,8 +270,9 @@ end-structure
 : abo-stored ( x1..xn mask n -- addr n ) 1+ abl-stored 1- ;
 : abo-of ( d addr n -- e ) abm-frames ['] abo-framed lf-with-record ;
 : lf-mk-app-opt-m ( c-addr u x1..xn mask n -- e ) abo-stored abl-decl-under abo-of ;
-\ mkDecide (570): mkAppOptM Decidable.decide #[p, none].
-: lf-mk-decide ( p -- e ) s" Decidable.decide" abl-decl swap 0 1 2 abo-stored abo-of ;
+\ mkDecide (570): mkAppOptM Decidable.decide #[p, none]: entry 0 some p
+\ (mask bit 0), entry 1 none (its cell 0 ignored).
+: lf-mk-decide ( p -- e ) s" Decidable.decide" rot 0 1 2 lf-mk-app-opt-m ;
 
 \ ---- matchEq? (Meta/MatchUtil.lean:28, matchHelper?): Expr.eq? of t,
 \ else of t put through whnf (the transparency in force; its failure
