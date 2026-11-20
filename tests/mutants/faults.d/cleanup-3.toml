@@ -66,3 +66,61 @@ new = ''': ac-lam-from ( e i type -- type body outcome )
   ['] ac-lam-of ok-apply2 ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "review of cleanup-families-3, H1: round 3's chain, a step of two values and an outcome given to ok-apply3, so a refused head-beta of a binder's type eats the caller's cell"
+
+[[fault]]
+id = "cf3r-axd-made-keeps-j"
+file = "src/kernel/environment.fs"
+old = '''  lf-axd-width@ lf-axd-rows slab-room ['] lf-axd-add ok-apply2 ;'''
+new = '''  lf-axd-width@ lf-axd-rows slab-room ['] lf-axd-add ok-apply ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "review of cleanup-families-3, F1 (M2): no room for an axiom row drops one of the slot's two values, so -1 and full are left over the slot number"
+
+[[fault]]
+id = "cf3r-axd-row-never-shared"
+file = "src/kernel/environment.fs"
+old = ''': lf-axd-row-for ( r|-1 -- r outcome ) dup 0< if drop lf-axd-kept else outcome-ok then ;'''
+new = ''': lf-axd-row-for ( r|-1 -- r outcome ) drop lf-axd-kept ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "review of cleanup-families-3, F2 (M2): every slot keeps a new axiom row, equal rows never shared, so the table grows by a row per declaration"
+
+[[fault]]
+id = "cf3r-nest-ctor-written-first"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-ind-ctors@ dup 1+ lf-ind-ctor-cells slab-hold ['] lf-nest-ctor-room ok-apply
+  ['] lf-nest-ctor-new ok-apply ;'''
+new = '''  lf-ind-ctors@ dup 1+ lf-ind-ctor-cells slab-hold ['] lf-nest-ctor-new ok-apply
+  ['] lf-nest-ctor-room ok-apply ;'''
+test = "$GFORTH tests/core/inductive-nested.fs"
+reason = "review of cleanup-families-3, F3 (M2): a new constructor's declaration is written before its room is held, past the block when the array is full"
+
+[[fault]]
+id = "cf3r-nest-candidate-two-values"
+file = "src/kernel/inductive-nested.fs"
+old = '''  if lf-nest-is-type? ['] lf-nest-if-type ok-apply else lf-nest-no-change then ;'''
+new = '''  if lf-nest-is-type? ['] lf-nest-if-type ok-apply2 else lf-nest-no-change then ;'''
+test = "$GFORTH tests/core/inductive-nested.fs"
+reason = "review of cleanup-families-3, F4 (M2): a refused nested-type test drops a cell under the occurrence's flag"
+
+[[fault]]
+id = "cf3r-sx-of-chars-keeps-list"
+file = "src/kernel/string-literals.fs"
+old = '''  s" ofList" s" String" lf-sx-plain ['] lf-sx-applied ok-apply2 ;'''
+new = '''  s" ofList" s" String" lf-sx-plain ['] lf-sx-applied ok-apply ;'''
+test = "$GFORTH tests/core/string-literals.fs"
+reason = "review of cleanup-families-3, F5 (M2): no room for String.ofList leaves the character list under -1 and full"
+
+[[fault]]
+id = "cf3r-fam-expr-two-values"
+file = "src/import/snapshot-layer.fs"
+old = ''': ly-fam-expr-of ( j fam -- e outcome ) 2dup ly-fam-head ['] ly-fam-tagged ok-apply3 ;'''
+new = ''': ly-fam-expr-of ( j fam -- e outcome ) 2dup ly-fam-head ['] ly-fam-tagged ok-apply2 ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review of cleanup-families-3, F6 (M2): a family expression whose head cannot be read keeps the slot number under -1 and the outcome"
+
+[[fault]]
+id = "cf3r-fam-let-other-swapped"
+file = "src/import/snapshot-layer.fs"
+old = '''  dup head-tag let-tag? if -rot ly-fam-let else -rot ly-fam-other then ;'''
+new = '''  dup head-tag let-tag? if -rot ly-fam-other else -rot ly-fam-let then ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review of cleanup-families-3, F6b (M2): a let is read as another expression and every other as a let"

@@ -892,6 +892,20 @@ env-free
 1 axiom-trial
 T{ 1 lf-env-axioms 8 lf-env-axioms 23 lf-env-axioms 26 lf-env-axioms -> 1 outcome-ok 1 outcome-ok 1 outcome-ok 0 outcome-ok }T
 T{ 0 lf-env-axioms 11 lf-env-axioms -> 1 outcome-ok 0 outcome-ok }T
+\ The axiom table's rows (lf-env-axiom-deps; review of cleanup-families-3,
+\ M2): the main input has no axiom, so every slot's row is the empty one,
+\ row 0, shared, and the table holds one row (lf-axd-row-for keeps a row
+\ only when no equal one is there); a shared row r is r and ok.
+: axd-rows# ( -- n ) lf-axd-rows slab-count lf-axd-width@ / ;
+T{ 26 ' drop lf-env-axiom-deps axd-rows# -> outcome-ok 1 }T
+T{ 5 lf-axd-row-for 0 lf-axd-row-for -> 5 outcome-ok 0 outcome-ok }T
+\ No room for slot j's row: the rows slab filled to its capacity and its
+\ growth refused (heap-watch.fs) give -1 and full, the cells under the
+\ call kept.
+: rows-filled ( -- ) lf-axd-rows dup slab-capacity over slab-count - swap slab-claim 2drop ;
+: axd-refused ( j -- r outcome ) rows-filled 1 heap-refusals ! lf-axd-made 0 heap-refusals ! ;
+T{ 55 8 axd-refused lf-axd-rows dup slab-count swap slab-capacity =
+   -> 55 -1 outcome-full true }T
 env-free
 0 axiom-trial
 T{ 1 lf-env-outcome 8 lf-env-outcome 23 lf-env-outcome 11 lf-env-outcome 26 lf-env-outcome -> outcome-ok outcome-ok outcome-ok outcome-ok outcome-ok }T
