@@ -1692,3 +1692,21 @@ test. normal unit tests another big test, well factored libraries another good t
 - As the assistant reads it (not the owner's words): a change to what the checker accepts or rejects (a rule,
   an axiom, a file or record format, the trust boundary) still goes through the review gate of `AGENTS.md`
   (Lean's behaviour, differential tests, independent review, a short plain summary for the owner).
+
+## Coverage in the branch in seconds, the whole-suite ratchet at night (2026-11-19, evening)
+
+The owner, on a batch of five ten-line tactics taking hours: "we have to be more productive with both time and
+tokens. it is ridiculus that 5 tactics words will take hours, not minutes - we need better development and
+testing approach." Measured the same evening: loading all of the source 0.4 s, one tactic proof against the S2
+slice 1.5 s, but `check_s2.py` 464-516 s, the tier's coverage run (`make coverage-focus`) 712-1,064 s and a full
+tier 20-25 minutes. Asked whether the whole-suite coverage ratchet should leave the tier, the owner answered:
+"yes change item 4, the whole suite coverage ratchet."
+
+- A tier and a push no longer run `make coverage-focus`. They run the branch coverage check instead: for each
+  source file the branch touches, its unit tests under coverage (seconds a file), failing when a block on a line
+  the branch added or changed is never run. This is the rule of "Coverage debt ended" above, checked directly.
+- The whole-suite ratchet of every file (`make coverage-check`) stays in `make daily`, each night and before a tag.
+- The rest of the plan the owner was shown the same evening, done by the assistant without further questions: the
+  slow Python runners run their cases in parallel; one fast command checks one tactic; a scaffold makes a new
+  tactic's files; kernel tests load a kernel-only file so a front-end change does not re-run them; a script
+  checks that a plug-in is thin, and the Forth review of such a branch reads only new library words.
