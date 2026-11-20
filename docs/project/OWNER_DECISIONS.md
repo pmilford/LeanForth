@@ -1633,3 +1633,21 @@ line, in three forms) still unwritten, because the English line for each step is
 not started. Asked whether the page stays a condition of calling S2 done, the owner chose: **move it to plan
 8.6.12**. S2 is judged on its tactics working, tested and compared with pinned Lean; the page is written when
 explained proofs are built.
+
+
+## Tactics in batches, and the order after them (2026-11-19, evening)
+
+- **Parser gate, approved:** a first batch of five tactic words in one branch, each a port of Lean's tactic,
+  compared with pinned Lean with wrong twins, on the same terms as `by-apply`, `by-assumption` and
+  `by-constructor`: `by-left`, `by-right`, `by-exfalso`, `by-exists`, `by-intros`. Simple tactics are added several
+  to a branch from now on (one architect word list, one review, one tier); each further batch of new words is
+  still asked.
+- **After the batch:** "the most useful bigger tactic that is also good to implement", chosen by the assistant:
+  `by-decide` (S3, small, and omega's proofs use it) and then `by-omega` (S4: closes the linear arithmetic step of
+  most induction proofs on the naturals, and is the first caller of `lib/bigint.fs`). `simp` follows as the
+  library slot's work (LeanForth library 2).
+- **Slots:** one feature agent and one clean-up agent run side by side when their files are separate (the
+  "Libraries first" rule of 2026-11-18); this replaces "one implementing agent at a time" of the morning.
+- **Friday 2026-11-20 is a checkpoint, not a freeze:** documents and install scripts are brought up to date;
+  no refactoring, clean-up or feature work waits for it.
+- **S2's showcase page:** see the section above; moved to plan 8.6.12.
