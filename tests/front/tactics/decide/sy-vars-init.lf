@@ -19,6 +19,15 @@ theorem si_p10
   by-assumption
 end si_p10
 
+\ n ∣ m again, written with LeanForth's own word divides (owner, 2026-11-20)
+theorem si_d10
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  n m divides
+:= by
+  by-exfalso
+  by-assumption
+end si_d10
+
 \ 2 ^ 3 * 4 + 5 = n
 theorem si_p15
   Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
@@ -198,6 +207,15 @@ theorem si_p42
   by-exfalso
   by-assumption
 end si_p42
+
+\ i ∣ j again, with divides
+theorem si_d42
+  Nat explicit: n  Nat explicit: m  Int explicit: i  Int explicit: j  False explicit: h
+  i j divides
+:= by
+  by-exfalso
+  by-assumption
+end si_d42
 
 \ i ≠ 0
 theorem si_p43

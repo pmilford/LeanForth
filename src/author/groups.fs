@@ -179,6 +179,10 @@ end-structure
 : lfa-syntax ( xt "name" -- )
   get-current >r lf-words set-current >in @ create >in ! , ['] lfa-natural-later ,
   parse-name lfa-syntax-spelling, r> set-current does> lfa-syntax-run ;
+\ Whether the syntax word c-addr u has no natural meaning yet.
+: lfa-natural-later? ( c-addr u -- flag )
+  lf-words search-wordlist 0= abort" lfa-natural-later?: no such syntax word"
+  >body cell+ @ ['] lfa-natural-later = ;
 \ Give the syntax word name its meaning in natural form (a load-time word).
 : lfa-natural! ( xt "name" -- )
   parse-name lf-words search-wordlist 0= abort" lfa-natural!: no such syntax word"

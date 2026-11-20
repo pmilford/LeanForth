@@ -209,9 +209,12 @@ name-table: lfn-notations
 : lfn-operator: ( c-addr u kind "word" -- ) lfn-entry, ['] lfn-w-operator lfa-natural! ;
 : lfn-notation-name: ( c-addr u "word" -- ) 0 lfn-entry, ['] lfn-w-named lfa-natural! ;
 \ A word of LeanForth's own for a constant, one no row of Lean's spells:
-\ a syntax word, not in the table yet, applied as the constant's name is.
+\ a syntax word with no natural meaning yet (so no word's meaning is
+\ replaced), not in the table yet, applied as the constant's name is.
+: lfn-unmeant ( "word" -- )
+  lfn-peek lfa-natural-later? 0= abort" reader.fs: a word with a meaning of its own" ;
 : lfn-own-name: ( c-addr u "word" -- )
-  lfn-open lfn-syntax-word lfn-new-word 0 lfn-lay ['] lfn-w-named lfa-natural! ;
+  lfn-open lfn-syntax-word lfn-unmeant lfn-new-word 0 lfn-lay ['] lfn-w-named lfa-natural! ;
 \ The meanings. Lean: infixl:65 + -, infixl:70 * / %, infix:50 = < >,
 \ unicode(" ≤ ", " <= "), unicode(" ≥ ", " >= ") (Init/Notation.lean:
 \ 284-288, 375-378), infix:50 ≠ (Init/Core.lean:880); notation ¬ and

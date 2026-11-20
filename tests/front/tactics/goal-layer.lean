@@ -202,6 +202,7 @@ theorem sv_p40 (n m : Nat) (h : False) : n < m <-> m ≤ n := by exfalso; assump
 theorem sv_p48 (n m : Nat) (h : False) : n / m < m % n := by exfalso; assumption
 theorem sv_p50 (n m : Nat) (h : False) : ¬ (n ≠ m) ↔ n = m := by exfalso; assumption
 theorem si_p10 (n m : Nat) (i j : Int) (h : False) : n ∣ m := by exfalso; assumption
+theorem si_d10 (n m : Nat) (i j : Int) (h : False) : n ∣ m := by exfalso; assumption
 theorem si_p15 (n m : Nat) (i j : Int) (h : False) : 2 ^ 3 * 4 + 5 = n := by exfalso; assumption
 theorem si_p16 (n m : Nat) (i j : Int) (h : False) : 2 ^ 3 < n := by exfalso; assumption
 theorem si_p17 (n m : Nat) (i j : Int) (h : False) : 2 ^ 3 ^ 2 = n := by exfalso; assumption
@@ -222,6 +223,7 @@ theorem si_p34 (n m : Nat) (i j : Int) (h : False) : (i * i) ^ n = i := by exfal
 theorem si_p35 (n m : Nat) (i j : Int) (h : False) : ¬ (n ∣ m ∧ m ∣ n) := by exfalso; assumption
 theorem si_p41 (n m : Nat) (i j : Int) (h : False) : i ^ 2 + j ^ 3 = i := by exfalso; assumption
 theorem si_p42 (n m : Nat) (i j : Int) (h : False) : i ∣ j := by exfalso; assumption
+theorem si_d42 (n m : Nat) (i j : Int) (h : False) : i ∣ j := by exfalso; assumption
 theorem si_p43 (n m : Nat) (i j : Int) (h : False) : i ≠ 0 := by exfalso; assumption
 theorem si_p44 (n m : Nat) (i j : Int) (h : False) : i ^ 2 - 1 ≥ 0 := by exfalso; assumption
 theorem si_p45 (n m : Nat) (i j : Int) (h : False) : (i ^ 2) ^ 2 > 0 := by exfalso; assumption
@@ -289,7 +291,7 @@ def dumpBinders (n : Name) : MetaM Unit := do
       ``si_p16, ``si_p17, ``si_p18, ``si_p20, ``si_p21, ``si_p22, ``si_p23, ``si_p24,
       ``si_p25, ``si_p26, ``si_p27, ``si_p28, ``si_p29, ``si_p30, ``si_p32, ``si_p34,
       ``si_p35, ``si_p41, ``si_p42, ``si_p43, ``si_p44, ``si_p45, ``si_p46, ``si_p47,
-      ``si_p49, ``si_r1, ``si_r2, ``si_r3, ``si_r4, ``si_r5, ``si_r6, ``si_r7, ``si_r8] do
+      ``si_p49, ``si_d10, ``si_d42, ``si_r1, ``si_r2, ``si_r3, ``si_r4, ``si_r5, ``si_r6, ``si_r7, ``si_r8] do
     dump n
   for n in [``in_implicit, ``in_strict, ``is_implicit] do
     dumpBinders n

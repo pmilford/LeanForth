@@ -62,7 +62,7 @@ VARS = (D + "sy-vars.lf", ["sv_" + i for i in
 VARS_INIT = (D + "sy-vars-init.lf", ["si_" + i for i in
                                      "p10 p15 p16 p17 p18 p20 p21 p22 p23 p24 p25 p26 p27 p28 p29 "
                                      "p30 p32 p34 p35 p41 p42 p43 p44 p45 p46 p47 p49 r1 r2 r3 r4 "
-                                     "r5 r6 r7 r8".split()])
+                                     "r5 r6 r7 r8 d10 d42".split()])
 FILES = [(D + "dc-arith.lf", ["dc_add", "dc_lt", "dc_le", "dc_mul", "dc_mod", "dc_gcd"]),
          (D + "dc-logic.lf", ["dc_not", "dc_and", "dc_or", "dc_true", "dc_bool", "dc_hyp"]),
          (D + "dc-ops.lf", ["d_mul", "d_pythag", "d_gauss", "d_gt", "d_ge", "d_ne", "d_compare",

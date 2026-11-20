@@ -124,6 +124,8 @@ T{ s" ∣" lfn-notations name-table-find lfn-entry-const s" Dvd.dvd" compare -> 
 T{ s" divides" lfn-notations name-table-find lfn-entry-const s" Dvd.dvd" compare -> 0 }T
 T{ s" divides" lfn-notations name-table-find lfn-entry-kind -> 0 }T
 T{ s" theorem t Nat explicit: n n n divides := n end t" nfails -> 38 1 31 }T
+\ In kernel-form text it is refused like the other natural-only words (58).
+T{ s" kernel-form theorem t Prop explicit: p p p divides := p end t" nfails -> 58 1 44 }T
 \ Too few values: the frame's error 3 at the word.
 T{ s" theorem t Nat explicit: n 0 < := n end t" nfails -> 3 1 29 }T
 T{ s" theorem t Nat explicit: n n n = ∧ := n end t" nfails -> 3 1 33 }T
@@ -186,7 +188,13 @@ T{ s\" s\" Membership.mem\" syn-k-binrel lfn-operator: ∈" reg
 \ A word of LeanForth's own (lfn-own-name:, divides) needs no row, but is
 \ refused all the same when it is no syntax word or is in the table already.
 T{ s\" s\" Dvd.dvd\" lfn-own-name: zz" reg s" reader.fs: not a syntax word" says? entries -> -2 true 23 }T
-T{ s\" s\" Dvd.dvd\" lfn-own-name: divides" reg msg-twice says? entries -> -2 true 23 }T
+T{ s\" s\" Dvd.dvd\" lfn-own-name: divides" reg s" reader.fs: a word with a meaning of its own" says? entries
+   -> -2 true 23 }T
+\ Nor may it take a word that has its meaning already ($, a syntax word of
+\ another kind): the meaning stays (review of the divides word, M1).
+T{ s\" s\" Dvd.dvd\" lfn-own-name: $" reg s" reader.fs: a word with a meaning of its own" says? entries
+   -> -2 true 23 }T
+T{ s" theorem t Nat explicit: n 0 n + n = := ' Nat.succ n $ end t" nfails -> 71 1 55 }T
 T{ s" zz" lf-words search-wordlist s" <<" lf-words search-wordlist -> 0 0 }T
 \ The words.fs list: a word reserved already aborts.
 T{ s" lfa-natural-words +" reg s" words.fs: reserved twice" says? -> -2 true }T
