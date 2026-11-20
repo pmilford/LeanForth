@@ -557,6 +557,18 @@ T{ rd-at-same? rd-pair-same? -> true true }T
 T{ 5 outcome-ok ' rd-step ok-apply 5 outcome-rejected ' rd-step ok-apply
    -> 15 outcome-unknown -1 outcome-rejected }T
 T{ 4 5 outcome-ok ' rd-step ' ok-apply rs-checked -> 4 15 outcome-unknown }T
+\ ok-apply2 (cleanup-families-2) in place of `ok-then? if y else nip
+\ no-result then`, a step of two values: the old text, kept as the
+\ model, and the word leave the same stack for every outcome and one
+\ outside the vocabulary; both values are dropped on a failure.
+: rd-step2 ( x1 x2 -- x' outcome ) 10 * + outcome-unknown ;
+: rd-old-apply2 ( x1 x2 outcome -- x' outcome' ) ok-then? if rd-step2 else nip no-result then ;
+: rd-apply2-same? ( outcome -- flag )
+  >r 3 5 r@ rd-old-apply2 3 5 r> ['] rd-step2 ok-apply2 d= ;
+T{ ' rd-apply2-same? rd-all-same? -> true }T
+T{ 3 5 outcome-ok ' rd-step2 ok-apply2 3 5 outcome-full ' rd-step2 ok-apply2
+   -> 53 outcome-unknown -1 outcome-full }T
+T{ 4 3 5 outcome-ok ' rd-step2 ' ok-apply2 rs-checked -> 4 53 outcome-unknown }T
 \ room-result: a store's x true is x and ok, its false is -1 and full;
 \ any nonzero flag counts as true (IF's reading), the values below untouched.
 T{ 5 7 true room-result 5 false room-result -> 5 7 outcome-ok 5 -1 outcome-full }T

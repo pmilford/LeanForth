@@ -21426,3 +21426,19 @@ old = ''': dt-frame! ( todo node skip i -- ) dtf@ df-todo cell-triple! ;'''
 new = ''': dt-frame! ( todo node skip i -- ) dtf@ df-todo 2! drop ;'''
 test = "$GFORTH tests/front/discr-tree.fs"
 reason = "cleanup-families-2 (group cc68): a discrimination-tree frame stored wrong"
+
+[[fault]]
+id = "cf2-ok-apply2-keeps-one"
+file = "src/lib/outcome.fs"
+old = '''  over ok? if nip execute else drop nip nip no-result then ;'''
+new = '''  over ok? if nip execute else drop nip no-result then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-2 (refusal tails): a failed step of two values leaves the first value under -1 and the outcome"
+
+[[fault]]
+id = "cf2-ok-apply2-runs-anyway"
+file = "src/lib/outcome.fs"
+old = '''  over ok? if nip execute else drop nip nip no-result then ;'''
+new = '''  nip execute ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-2 (refusal tails): the step runs after a failure, on the failing outcome's values"
