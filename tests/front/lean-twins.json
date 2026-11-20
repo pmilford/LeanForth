@@ -1,0 +1,18 @@
+{
+  "comment": "The pinned-Lean twin of each LeanForth proof file: the Lean file that the tests compare against (check_elab.py for s1-rfl, check_s2.py --lean for s2-proofs.lean) and, where a theorem has another name there, that name. Read by tests/front/check_s2.py and scripts/showcase-steps-format.py. A file with no entry has no recorded twin.",
+  "twins": {
+    "tests/front/s1-rfl.lf": {"lean": "tests/front/s1-rfl.lean", "names": {}},
+    "tests/front/01-zero-add-rw.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
+    "tests/front/04-nested-ih.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
+    "tests/front/ps-succ-add.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
+    "tests/front/ps-add-comm.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
+    "tests/front/ps-mul-add.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
+    "tests/front/ps-length-append.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
+    "tests/front/00-add-zero.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
+    "tests/front/02-add-zero-rfl.lf": {"lean": "tests/front/s2-proofs.lean",
+                                       "names": {"add_zero'": "add_zero_rfl'"}},
+    "tests/front/01-zero-add.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
+    "tests/front/s2-case.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}},
+    "tests/front/04-nested-first.lf": {"lean": "tests/front/s2-proofs.lean", "names": {}}
+  }
+}
