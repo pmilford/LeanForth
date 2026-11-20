@@ -969,6 +969,55 @@ T{ 0 s" t.zero" goal-tag? 1 s" t.succ" goal-tag? -> true true }T
 lf-tac-forget
 tal-blocks slab-clear
 
+\ ---- 9c. by-case: (src/front/tactics/case.fs, Lean's evalCase; its
+\ end-to-end twin tests/front/s2-case.lf), on texts of the theorem above
+\ (0 + n = n with n and m), so that it runs under the unit tests on both
+\ engines: findTag?'s exact, suffix and prefix passes (the exact pass
+\ first: succ is the goal tagged succ, not zero.succ); renameInaccessibles
+\ with names and _; the other unsolved goals kept in their order; the
+\ block's end with its goal open (89 at its =>); a tag no goal has (210,
+\ Lean's message, its note or hint by the named goals: none, one, many);
+\ more names than inaccessible hypotheses (211). Each run's error is read,
+\ then forgotten.
+: case-ran ( c-addr u -- outcome code )
+  0 lf-text# ! s" theorem t Nat explicit: n Nat explicit: m 0 n + n = := by " lf-text+
+  lf-text+ s"  end t" lf-text+ lf-author-begin lf-text lf-text# @ lf-author-text lf-author-code ;
+: case-done ( -- ) lf-tac-forget tal-blocks slab-clear ;
+T{ s" n by-induction by-case: succ k ih => ' Nat.succ ih congrArg by-exact by-end by-case: zero => by-rfl by-end"
+   case-ran case-done -> outcome-ok 0 }T
+T{ s" n by-induction-with | zero => by-rfl | succ k ih => m by-induction by-case: zero => by-rw[ ' Nat.add_succ ih ] by-end by-case: succ j ih2 => ih2 by-exact by-end by-end"
+   case-ran case-done -> outcome-ok 0 }T
+T{ s" n by-induction-with | zero => by-rfl | succ k ih => m by-induction by-case: succ j ih2 => ih2 by-exact by-end by-case: succ => by-rw[ ' Nat.add_succ ih ] by-end by-end"
+   case-ran case-done -> outcome-ok 0 }T
+T{ s" n by-induction m by-induction by-case: succ k ih => ' Nat.succ ih congrArg by-exact by-end by-case: zero => by-rfl by-end by-case: zero j ih2 => ih2 by-exact by-end"
+   case-ran case-done -> outcome-ok 0 }T
+T{ s" n by-induction m by-induction by-case: zero.succ j ih2 => ih2 by-exact by-end by-rfl by-case: succ _ ih => ' Nat.succ ih congrArg by-exact by-end"
+   case-ran case-done -> outcome-ok 0 }T
+\ The block's end with its goal open (rw leaves succ's): 89 at its =>,
+\ the goal shown.
+T{ s" n by-induction by-case: zero => by-rfl by-end by-case: succ k ih => by-rw[ ' Nat.add_succ ] by-end"
+   case-ran at-col nip token$ s" =>" compare -> outcome-invalid 89 124 0 }T
+T{ s" ih : 0 + k = k" detail-has? -> true }T
+case-done
+\ No goal of the tag: 210 at by-case:, Lean's message and, by the named
+\ goals left, Lean's hint (two named), the only tag (one) or its note
+\ (none: the main goal's tag is anonymous).
+T{ s" n by-induction by-case: foo => by-rfl by-end" case-ran at-col nip -> outcome-invalid 210 74 }T
+T{ s" `foo` not found." detail-has? s" Hint: Available tags:" detail-has? token$ s" by-case:" compare
+   -> true true 0 }T
+case-done
+T{ s" n by-induction by-case: zero => by-rfl by-end by-case: foo => by-rfl by-end" case-ran
+   at-col nip -> outcome-invalid 210 105 }T
+T{ s" Hint: The only available case tag is `succ`." detail-has? -> true }T
+case-done
+T{ s" by-case: foo => by-rfl by-end" case-ran at-col nip -> outcome-invalid 210 59 }T
+T{ s" Note: There are no cases to select." detail-has? s" Hint" detail-has? -> true false }T
+case-done
+\ More names than the goal's inaccessible hypotheses (succ's k and ih):
+\ 211 at the by-case:.
+T{ s" n by-induction by-case: succ a b c => by-sorry by-end by-case: zero => by-rfl by-end" case-ran
+   at-col nip -> outcome-invalid 211 74 }T
+case-done
 \ ---- 10. A mutual type (209, Lean's text and hint): FE6.Even of
 \ tests/front/several.ndjson, a library of its own.
 T{ s" tests/front/several.ndjson" true lfc-library-open -> outcome-ok }T

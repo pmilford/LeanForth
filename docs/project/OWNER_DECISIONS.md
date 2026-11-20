@@ -1625,3 +1625,53 @@ efficient way and an easier way to fix unit-test coverage, and decided:
   next week. About 43% of the week's tokens remained on the morning of 2026-11-19: one implementing agent at a
   time unless files are fully separate.
 
+## S2's showcase page moves to plan 8.6.12 (2026-11-19, afternoon)
+
+S2's third done check ([2026-11-19-s2-recheck.md](../development/done-checks/2026-11-19-s2-recheck.md)) found the
+showcase page of S2's acceptance (owner, 2026-11-14: each proof printed step by step with the goal and an English
+line, in three forms) still unwritten, because the English line for each step is plan 8.6.12 (explained proofs),
+not started. Asked whether the page stays a condition of calling S2 done, the owner chose: **move it to plan
+8.6.12**. S2 is judged on its tactics working, tested and compared with pinned Lean; the page is written when
+explained proofs are built.
+
+
+## Tactics in batches, and the order after them (2026-11-19, evening)
+
+- **Parser gate, approved:** a first batch of five tactic words in one branch, each a port of Lean's tactic,
+  compared with pinned Lean with wrong twins, on the same terms as `by-apply`, `by-assumption` and
+  `by-constructor`: `by-left`, `by-right`, `by-exfalso`, `by-exists`, `by-intros`. Simple tactics are added several
+  to a branch from now on (one architect word list, one review, one tier); each further batch of new words is
+  still asked.
+- **After the batch:** "the most useful bigger tactic that is also good to implement", chosen by the assistant:
+  `by-decide` (S3, small, and omega's proofs use it) and then `by-omega` (S4: closes the linear arithmetic step of
+  most induction proofs on the naturals, and is the first caller of `lib/bigint.fs`). `simp` follows as the
+  library slot's work (LeanForth library 2).
+- **Slots:** one feature agent and one clean-up agent run side by side when their files are separate (the
+  "Libraries first" rule of 2026-11-18); this replaces "one implementing agent at a time" of the morning.
+- **Friday 2026-11-20 is a checkpoint, not a freeze:** documents and install scripts are brought up to date;
+  no refactoring, clean-up or feature work waits for it.
+- **S2's showcase page:** see the section above; moved to plan 8.6.12.
+- **The batch changed (2026-11-19, later):** the architect's word list
+  (`.claude/work/briefs/TACTIC-BATCH1-WORDLIST.md`) found Lean's `exists` is a macro over `refine`, `trivial` and
+  the anonymous-constructor syntax, none of which LeanForth has; `by-exists` moves to a batch after S3.
+  **Parser gate, approved:** `by-clear` (Lean's `clear h`, one hypothesis) takes its place. The batch is
+  `by-left`, `by-right`, `by-exfalso`, `by-intros`, `by-clear`. `by-intro` also gains Lean's implicit and
+  strict-implicit binders (a difference from Lean closed, with its own pinned test).
+- **No question for trivial changes (owner, 2026-11-19, on the `by-clear` question):** "I don't think you need to
+  ask for trivial changes like you just asked about." As the assistant reads it: a simple tactic word that is a
+  faithful port of Lean's tactic, compared with pinned Lean with wrong twins, is added without asking and
+  reported afterwards. Anything that differs from Lean, other kernel, core or import changes, new formats and new
+  dependencies are still asked first.
+
+## Coverage debt ended (2026-11-19, evening)
+
+Asked whether to end the exception of 2026-11-17 (never-run failure branches of new words may merge as coverage
+debt and be paid before the slice's done check), the owner answered: "Yes end the deferred coverage issue."
+
+- Every never-run branch of a new or changed word is tested in the branch that adds it, before the merge. The
+  per-file tool (`make cover FILE=...`) lists the gaps in seconds; refusal paths are reached by the sweep harness
+  `tests/support/meta-sweeps.fs`, which refuses each request in turn and compares the answer.
+- Why: S2's deferred debt took a whole agent, a review and two tier runs to pay, found a real fault late
+  (`lf-whnf-stuck`, plan 9.4.8l AA) and held up S2's done check through three runs.
+- The assistant asked about front-end code; the owner's answer was general, and it is applied to all new code.
+- Debt recorded before this date is paid by the clean-up slot (`make cover-debt` lists it).

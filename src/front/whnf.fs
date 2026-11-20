@@ -552,9 +552,9 @@ wc-smatch-kind 1+ constant wc-srec-kind
 : wm-args-none? ( e -- flag )
   dup lf-term-first@ lf-term-second@ wm-no-value? if drop true exit then
   lf-term-second@ wm-no-value? ;
+\ Called by wm-nat? only, for one or two arguments.
 : wm-none? ( e -- flag )
-  dup lf-meta-args# dup 2 = if drop wm-args-none? exit then
-  1 = if lf-term-second@ wm-no-value? else drop false then ;
+  dup lf-meta-args# 2 = if wm-args-none? else lf-term-second@ wm-no-value? then ;
 : wm-nat? ( e -- flag )
   dup lf-meta-args# 1 3 within over ['] lf-menv-nat-name? wm-head-named? and
   if dup wm-none? if drop false else wm-succ-inert? 0= then else drop false then ;
@@ -687,7 +687,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
   ['] ws-let? lf-term-holds? swap 0= swap ;
 : lf-whnf-stuck ( term -- mvar true outcome | false outcome )
   dup lf-term-root? 0= if drop false outcome-invalid exit then
-  dup ws-reaches-none? ok-then? 0= if nip nip false swap exit then
+  dup ws-reaches-none? ok-then? 0= if nip false swap exit then
   if drop false outcome-ok exit then
   outcome-ok wc wc-fault ! ws-run ws-checked ;
 

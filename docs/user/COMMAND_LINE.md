@@ -379,9 +379,11 @@ $ bin/leanforth check --env tests/front/s2-slice.ndjson --elab-data tests/front/
 `tests/front/s2-steps.golden` holds the logs of S2's proof set
 (`tests/front/check_s2.py` checks them, with the schema).
 `scripts/showcase-steps.sh` lays the log out for a person: for each
-theorem of the proof set, its LeanForth text, its statement as Lean prints
-the first goal, each checked step with the goal before and the goals after,
-and its verdict. By default it runs on S2's slice of `Init` (a second a
+theorem of the proof set, its LeanForth text, LeanForth's reading of its
+statement (the first goal, in Lean's notation), each step LeanForth's
+tactics took with the goal before and the goals after, the same theorem in
+Lean (its pinned-Lean twin, named in `tests/front/lean-twins.json`) and the
+verdict of LeanForth's kernel. Lean is not run. By default it runs on S2's slice of `Init` (a second a
 file; `make test-showcase` compares the output with
 `tests/front/showcase.golden`); with
 `SHOWCASE_LIBRARY="--snapshot INIT.lfsnap --elab-data INIT.elab.ndjson"`

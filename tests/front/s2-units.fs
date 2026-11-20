@@ -12,7 +12,8 @@
 \ wrong number of universe arguments; a let and a smart-unfolding marker
 \ (unsupported, in kabstract too); the budget
 \ spent (exhausted) and a refused allocation (full), each call after
-\ them answering as before. Every T{ }T checks the data stack's depth.
+\ them answering as before; a 10,000-deep target for both walks (class
+\ 5). Every T{ }T checks the data stack's depth.
 include ../support/tester.fs
 include ../support/heap-watch.fs
 require ./whnf-cases.fs
@@ -53,4 +54,21 @@ T{ lf-meta-budget 0 lf-meta-budget! sk chk swap lf-meta-budget! sk chk
    -> outcome-exhausted outcome-ok }T
 T{ 1 heap-refusals ! nat succ 0 bv app lam chk 0 heap-refusals ! -> outcome-full }T
 T{ nat succ 0 bv app lam chk -> outcome-ok }T
+
+\ ---- A 10,000-deep target (S2_INTERFACE.md 9, class 5): Nat.succ applied
+\ 10,000 times to Nat.add k k. Both walks keep their work on the heap
+\ (kabstract.fs's kab-todo, meta-check.fs's frames), never the host's
+\ stacks: kabstract of the pattern Nat.add k k gives the same tower over
+\ #0 (one occurrence, at the bottom), Meta.check accepts the tower, and
+\ an argument of the wrong type at the bottom (Nat.succ Nat) is found
+\ there and named.
+: kk ( -- t ) 0 s" Nat.add" cn fk app fk app ;
+: tower ( t n -- t' ) 0 ?do succ swap app loop ;
+10000 constant deep#
+kk deep# tower constant deep-kk
+0 bv deep# tower constant deep-bv
+succ nat app constant succ-nat
+succ-nat deep# tower constant deep-bad
+T{ deep-kk kk lf-meta-kabstract rot deep-bv = -> true outcome-ok true }T
+T{ deep-kk chk deep-bad chk lf-meta-check-bad succ-nat = -> outcome-ok outcome-invalid true }T
 bye

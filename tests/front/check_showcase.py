@@ -5,7 +5,8 @@ cannot break silently again (done check 2026-11-18-s2.md: it exited 1 and printe
 1. The script on its default files and S2's slice of Init: exit 0 and its output equal to
    tests/front/showcase.golden (reviewed by reading it; --write writes it again). Every
    theorem of the golden has a verdict "accepted; axioms: none", and every tactic theorem
-   its statement and steps.
+   its statement and steps, and every theorem the same theorem in Lean (from
+   tests/front/lean-twins.json) or "no Lean twin recorded"; no label says Lean did the work.
 2. A file whose check stops (tests/front/s2w-rw-definition.lf, rewriting by a definition,
    error 99): the script exits 1 and shows the error and exit 2.
 3. The formatter fails closed: a step-log line that is not JSON, or a step without its
@@ -57,13 +58,17 @@ def golden_part(write):
     check(differs(want + "x", want) is not None, "self-test: a changed golden line is told apart")
     problem = differs(out, want)
     check(problem is None, f"the output differs from {GOLDEN.name}: {problem}")
-    verdicts = [line for line in out.splitlines() if line.startswith("  Verdict: ")]
+    verdicts = [line for line in out.splitlines() if line.startswith("  Verdict (LeanForth's kernel): ")]
     check(len(verdicts) == 15, f"15 theorems shown, got {len(verdicts)}")
     check(all(line.endswith(": accepted; axioms: none") for line in verdicts),
           "every theorem accepted with no axiom")
-    tactic = out.count("  Steps (")
-    check(tactic == 14 and out.count("  Statement, as Lean prints the first goal:") == tactic,
+    tactic = out.count("  Steps LeanForth's tactics took (")
+    check(tactic == 14 and out.count("  Statement (LeanForth's reading of the text, written in Lean's notation):") == tactic,
           f"14 tactic theorems, each with its statement; got {tactic}")
+    twins = out.count("  The same theorem in Lean (tests/front/")
+    check(twins + out.count("no Lean twin recorded") == 15 and twins == 14,
+          f"each theorem shows its Lean twin or says none is recorded (14 and 1): got {twins}")
+    check("[Lean:" not in out and "as Lean prints" not in out, "no label says Lean did the work")
 
 
 def stopped_part():
@@ -71,7 +76,7 @@ def stopped_part():
     check(status == 1, f"a file whose check stops: script exit 1, got {status}")
     check("error 99 at line:col 8:3 (token `by-rw[`)" in out and "--- exit 2" in out,
           "the stopped file's error and exit 2 are shown")
-    check("Verdict: none (the run stopped before it)" in out, "a theorem with no verdict says so")
+    check("Verdict (LeanForth's kernel): none (the run stopped before it)" in out, "a theorem with no verdict says so")
 
 
 def formatter_part():

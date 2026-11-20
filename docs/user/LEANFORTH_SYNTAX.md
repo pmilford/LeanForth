@@ -60,8 +60,8 @@ theorem text are LeanForth words, never Forth's) build Lean's
 `binrel% Eq (binop% HAdd.hAdd 0 n) n`; a name takes as many arguments as
 its type has explicit binders (`n Eq.refl` is `Eq.refl n`), `' NAME` is
 the function itself, and `f a $` applies once more. At `end NAME` the
-elaborator (plan S1, branch `s1-elab`: written and tested alone; see
-[the elaborator](ELABORATION.md)) builds the declaration's terms as
+elaborator (plan S1, done: [done check](../development/done-checks/2026-11-14-s1.md)
+of 2026-11-14; see [the elaborator](ELABORATION.md)) builds the declaration's terms as
 Lean's elaborator does, and the checker checks them. Given the library's
 elaboration data (`--elab-data`), names, applications
 with their hidden arguments, numerals, `+`, `=`, binders, term proofs and

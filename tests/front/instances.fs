@@ -317,6 +317,17 @@ lf-defeq-elab lf-defeq-flags!
 T{ rec-q sub-key -> outcome-ok }T
 lf-defeq-elab lf-defeq-stuck or lf-defeq-flags!
 
+\ At reducible transparency (mkPath's), a matcher (Nat.add.match_1,
+\ which whnfCore reduces since S2 merge B, semireducible) stuck on a
+\ metavariable discriminant is stuck too; one whose metavariable is only
+\ in an alternative, its discriminants k and x stuck on free variables,
+\ is keyed (getUnifyKeyArgs' isMatcher test). (At default transparency
+\ reduceDT would unfold it: unsupported, plan S3.)
+: m1-of ( disc1 disc2 alt -- t )
+  >r >r >r lv1 1 s" Nat.add.match_1" cn fm app r> app r> app r> app fs app ;
+: sub-key-r ( t -- outcome ) ['] sub-key lf-tr-reducible lf-meta-at ;
+T{ fk ?n fz m1-of sub-key-r fk fx ?h m1-of sub-key-r fk ?n fz m1-of sub-key
+   -> lf-meta-stuck outcome-ok outcome-unsupported }T
 \ ---- toNatLit?: literals, Nat.zero, Nat.succ and OfNat.ofNat.
 T{ 5 num lf-dt-nat-lit -> 5 true outcome-ok }T
 T{ zero lf-dt-nat-lit -> 0 true outcome-ok }T

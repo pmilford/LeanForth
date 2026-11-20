@@ -26,7 +26,7 @@ end zero_add''
 (Lean: `induction n with | zero => rfl | succ k ih => rw [Nat.add_succ, ih]`; in words: by induction on $n$, $0 + 0 =
 0$ by computation, and $0 + (k + 1) = (0 + k) + 1 = k + 1$ by the definition of $+$ and the induction hypothesis.)
 `bin/leanforth check --snapshot init.lfsnap --elab-data init.elab.ndjson --steps - tests/front/01-zero-add-rw.lf` prints
-`zero_add'': accepted; axioms: none` and the proof's seven steps as data (what `leanforth print` will turn into English,
+`zero_add'': accepted; axioms: none` and the proof's five steps as data (what `leanforth print` will turn into English,
 plan 8.6.12). LeanForth builds Lean's proof term node for node and its kernel checks it; no Lean tool runs. The plan's
 other form of FE1 (`by-case:` and `by-exact` of `congrArg Nat.succ ih`) is accepted too. A wrong proof stops at the step
 where Lean stops, with Lean's message and the goals, and nothing is checked.
@@ -269,7 +269,7 @@ Merge A writes the sub-ranges into `author/errors.fs`'s header. A Meta step not 
   damaged `sunfold` records refused; a format-2 data file refused (stale data never read as "no `_sunfold`"); the
   annotation node refused by the writer and by each fail-closed walker; `--steps` validated by its schema,
   golden logs, no log for a refused declaration, the same log with `--jobs 2`; 1,000 nested `by-case:` blocks; a
-  10,000-deep target for `kabstract` and `Meta.check`; fuel exhausted, never accepted.
+  10,000-deep target for `kabstract` and `Meta.check` (`tests/front/s2-units.fs`); fuel exhausted, never accepted.
 - **Faults** (`tests/mutants/faults.toml`): FE1G §8.3's list (those not planted yet), plus `fe-delta-no-sunfold`
   (`Nat.add` by its `brecOn` value), `fe-delta-both-sides` (both unfolded where Lean unfolds one),
   `fe-offset-cleanup-skipped`, `fe-annotation-to-writer`, `fe-motive-unchecked` (p7's motive reaches the kernel, which

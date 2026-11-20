@@ -107,7 +107,10 @@ FILES = [("tests/front/01-zero-add.lf", ["zero_add'"]),
 CASE_FILES = ["tests/front/01-zero-add.lf", "tests/front/s2-case.lf"]
 # A file whose theorem has another name in tests/front/s2-proofs.lean,
 # which declares both add_zero' forms.
-ALIASES = {"tests/front/02-add-zero-rfl.lf": {"add_zero'": "add_zero_rfl'"}}
+# The mapping is tests/front/lean-twins.json's, shared with the showcase's formatter.
+ALIASES = {path: twin["names"] for path, twin in
+           json.loads((ROOT / "tests/front/lean-twins.json").read_text(encoding="utf-8"))["twins"].items()
+           if twin["names"]}
 ADD_ZERO_RFL = ("Tactic `rfl` failed: The left-hand side\n  n + 0\nis not definitionally equal "
                 "to the right-hand side\n  n + 1\n\nn : Nat\n\u22a2 n + 0 = n + 1")
 # case's messages (Lean's hint then previews each tag as an edit of the one

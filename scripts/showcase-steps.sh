@@ -1,10 +1,11 @@
 #!/bin/bash
 # The proof set, annotated (plan S2, branch s2-steps): each theorem file of
 # S1's and S2's proof set checked by `bin/leanforth check ... --steps -`, and
-# for each theorem its LeanForth text, its statement as Lean prints the first
-# goal, each checked step with the goal before and the goals after as the
-# step log gives them (docs/user/COMMAND_LINE.md "The step log"), and its
-# verdict; then the run's errors, summary line and exit status. The layout is
+# for each theorem its LeanForth text, LeanForth's reading of its statement
+# (the first goal, in Lean's notation), each step LeanForth's tactics took with
+# the goal before and the goals after as the step log gives them
+# (docs/user/COMMAND_LINE.md "The step log"), the same theorem in Lean (its twin
+# of tests/front/lean-twins.json) and the verdict of LeanForth's kernel; then the run's errors, summary line and exit status. The layout is
 # scripts/showcase-steps-format.py's; tests/front/showcase.golden is the
 # output on the S2 slice (make test-showcase).
 #
