@@ -4126,13 +4126,46 @@ reason = "a corrupted list length of 2^32 - 1 wraps its span on a 32-bit host, a
 [[fault]]
 id = "runner-plants-in-tree"
 file = "scripts/mutants.py"
-old = '''        copy = work / "tree"
-        copy.mkdir()
-        copy_tree(root, copy)'''
-new = '''        copy = root'''
+old = '''                verdict, how, output = plant(slot.copy, fault, slot.env, timeout)'''
+new = '''                verdict, how, output = plant(slot.reference, fault, slot.env, timeout)'''
 test = "python3 tests/mutants/test_mutants.py"
-reason = "the runner plants faults in the tree it was given instead of a copy"
+reason = "the runner plants faults and runs their tests in the pristine tree every copy is rebuilt from, not in a copy: what a test writes is never seen"
 quick = true
+
+[[fault]]
+id = "runner-copy-not-rebuilt"
+file = "scripts/mutants.py"
+old = '''        if changed or new:'''
+new = '''        if False:'''
+test = "python3 tests/mutants/test_mutants.py"
+reason = "a copy a fault's test wrote into is used again as it was left, so the faults after it are judged on a spoiled tree (2026-11-20)"
+
+[[fault]]
+id = "runner-scratch-kept"
+file = "scripts/mutants.py"
+old = '''            shutil.rmtree(folder)
+            folder.mkdir()'''
+new = '''            pass'''
+test = "python3 tests/mutants/test_mutants.py"
+reason = "the scratch and temporary folders keep what a test left there, so the next test does not start empty"
+
+[[fault]]
+id = "runner-copy-change-passes"
+file = "scripts/mutants.py"
+old = '''    good = (verdict != "broken" and not changed'''
+new = '''    good = (verdict != "broken"'''
+test = "python3 tests/mutants/test_mutants.py"
+reason = "a fault whose test changed files of its copy passes as caught, so the test that spoils the tree is never fixed"
+
+[[fault]]
+id = "runner-control-change-passes"
+file = "scripts/mutants.py"
+old = '''        if changed:
+            good = False'''
+new = '''        if False:
+            good = False'''
+test = "python3 tests/mutants/test_mutants.py"
+reason = "a control that changes the unchanged copy passes, so every fault runs after a test that writes into the tree"
 
 [[fault]]
 id = "runner-no-restore"

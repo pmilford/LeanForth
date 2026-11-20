@@ -1278,8 +1278,20 @@ before and after the run and fails if anything changed, and
 `make test-mutants` (part of `make test`) checks every verdict and exit
 status on a small tree, and that the tree is untouched after each run.
 
-`--jobs N` runs N faults at once, each in a copy of the tree of its own (the first copy is copied
-N-1 times, each with its own `LF_TEST_SCRATCH` folder). The controls run once, on the first copy,
+Nor may a test leave its copy changed for the next one (2026-11-20: the test of
+`cli-check-direct-unguarded`, with the refusal gone, wrote a run record over
+`tests/reference/composition.ndjson` of the copy, and the 681 faults after it ran against
+that). The root is first copied to a pristine copy that nothing
+runs in, and every copy a test runs in is made from it. After every test, a control's or a
+fault's, the runner empties the copy's scratch (`LF_TEST_SCRATCH`) and temporary (`TMPDIR`)
+folders and compares the copy with the pristine one, every file's content and mode, folder and
+link; a copy that differs is rebuilt from it. A file of the copy that the test changed or
+removed is an error of that test: the fault is reported `CHANGED THE COPY` whatever its verdict
+(and a control that does so fails the controls), so the test is fixed to write to its scratch
+folder; new files it left are named in a note and removed.
+
+`--jobs N` runs N faults at once, each in a copy of the tree of its own (the pristine copy is
+copied N times, each with its own `LF_TEST_SCRATCH` and `TMPDIR` folders). The controls run once, on the first copy,
 and the results are printed in the listed order, so the output and the exit status are those of a
 serial run. The default is `$LEANFORTH_TEST_JOBS`, else the smaller of 4 and the cores, as
 `tests/support/parallel_runs.py`; `make mutants` passes `JOBS` capped at 4 (`MUTANT_JOBS=N`
