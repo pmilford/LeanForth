@@ -136,11 +136,7 @@ require ./print-lf.fs
 require ./tally.fs
 require ../present/name-text.fs
 require ./check-run.fs
-require ./check-lf.fs
 require ./check-json.fs
-require ../front/meta-config.fs
-require ../front/elab-decl.fs
-require ../front/step-log.fs
 
 100000000 constant cli-default-fuel   \ fuel of each declaration's check
 : cli-version-text ( -- c-addr u ) s" 0.1.0-dev" ;   \ LeanForth's version
@@ -1059,35 +1055,10 @@ here cli-plain-chars - 2 cells / constant cli-plain-chars#
   0 cli-file dup 3 < if 2drop false exit then + 3 - 3 s" .lf" compare 0= ;
 : cli-library-file ( -- c-addr u ) cli-state opt-env 2@ ;
 : cli-elab-file ( -- c-addr u ) cli-state opt-elab 2@ ;
-: cli-elab-error ( -- )
-  ." error: " ck-read-outcome dup outcome-text type
-  ." : the elaboration data was refused at line " elab-error-line .decimal
-  ."  (error " elab-error-code .decimal ." ): " elab-error-why type
-  ." ; the LeanForth text was not checked" cr outcome>code cli-code! ;
-\ The elaboration data read, by kind, before the verdicts.
-: cli-elab-count. ( kind -- ) elab-count .decimal ;
-\ The kinds format 1 had, then the kinds formats 2 and 3 added.
-: cli-elab-format1 ( -- )
-  elab-instance cli-elab-count. ."  instances, " elab-default cli-elab-count.
-  ."  default instances, " elab-reducibility cli-elab-count.
-  ."  reducibility statuses, " elab-eliminator cli-elab-count. ."  eliminators" ;
-: cli-elab-format2 ( -- )
-  ." , " elab-left-out cli-elab-count. ."  instances left out, "
-  elab-class cli-elab-count. ."  classes, " elab-tag cli-elab-count. ."  tags, "
-  elab-matcher cli-elab-count. ."  matchers, " elab-projection cli-elab-count.
-  ."  projections" ;
-: cli-elab-format3 ( -- )
-  ." , " elab-sunfold cli-elab-count. ."  smart-unfolding bodies" ;
-: cli-elab-note ( -- )
-  cli-elab-file nip 0= if exit then ." elaboration data: " cli-elab-format1
-  cli-elab-format2 cli-elab-format3 cr ;
 \ An error's outcome as the line names it: error 41's is none of the
 \ vocabulary, an internal fault (exit 5, author/errors.fs lfa-internal).
 : cli-author-outcome. ( outcome -- )
   dup outcome? if outcome-text type else drop ." internal fault" then ;
-: cli-text-error ( -- )
-  ." error: " lf-author-code lf-author-outcome dup cli-author-outcome.
-  ." : the LeanForth text was not checked: " lf-author-error. cr outcome>code cli-code! ;
 \ The text ran, but its records did not reach the stage whole (review L4):
 \ the refusal's outcome, said of the text, never of an export line the
 \ user cannot see.
@@ -1095,15 +1066,9 @@ here cli-plain-chars - 2 cells / constant cli-plain-chars#
   ." error: " ck-read-outcome dup outcome-text type
   ." : the records written for the LeanForth text were refused; the text was not checked"
   cr outcome>code cli-code! ;
-\ After the verdicts, in the text report, the open parts by-sorry left
-\ (front/tactic-run.fs; ADR 0021 Amendment 1: the JSON report's fields
-\ wait for the owner's [format] decision).
-: cli-open-parts ( -- ) cli-json? 0= if lf-open-parts. then ;
 \ A text of only #check lines (plan S1; front/elab-decl.fs): nothing for
 \ the kernel to check, which a text with no declaration of its own is
 \ told (error 49); as Lean, exit 0, the terms printed as the text ran.
-: cli-checks-only? ( -- flag )
-  lfc-failed? lf-author-code lfa-e-nothing = and lf-elab-checks 0> and ;
 : cli-checks-only ( -- ) ." nothing checked by the kernel" cr ;
 \ --steps FILE or --steps - (plan S2, s2-steps; docs/design/S2_INTERFACE.md
 \ 6): the step log of the text's tactic proofs (front/step-log.fs), for
@@ -1151,31 +1116,14 @@ here cli-plain-chars - 2 cells / constant cli-plain-chars#
 : cli-steps-cut ( outcome -- outcome )
   dup ok? if exit then cli-steps-fid flush-file
   cli-state run-steps-whole 2@ cli-steps-fid resize-file or if cli-steps-uncut then ;
-: cli-steps-to ( sink -- outcome )
-  ['] cli-step-find ['] cli-step-axioms lf-steps-write cli-steps-bad ;
 : cli-steps-closed ( outcome -- outcome )
   cli-steps-fid close-file if drop cli-steps-uncut outcome-full then ;
-: cli-steps-file ( -- outcome )
-  cli-steps w/o create-file if drop outcome-full exit then cli-state run-steps-fid !
-  0 0 cli-state run-steps-whole 2! ['] cli-steps-put cli-steps-to cli-steps-cut
-  cli-steps-closed ;
 : cli-stdout? ( -- flag ) cli-steps s" -" compare 0= ;
-: cli-steps-out ( -- outcome )
-  cli-stdout? if ['] type cli-steps-to else cli-steps-file then ;
 \ What is left of a FILE: nothing when it could not be made.
 : cli-steps-left. ( -- )
   cli-stdout? cli-steps-fid 0= or if exit then
   cli-state run-steps-uncut @ if ." ; it may end inside a line" exit then
   ." ; it ends at its last whole line" ;
-: cli-steps-write ( -- )
-  cli-steps? 0= if exit then cli-steps-out ok? if exit then
-  ." error: the step log could not be written: " cli-steps type cli-steps-left. cr
-  outcome-full outcome>code cli-code! ;
-: cli-text-report ( -- )
-  lfc-elab-failed? if cli-elab-error exit then
-  cli-checks-only? if cli-checks-only exit then
-  lfc-failed? if cli-text-error exit then lfc-refused? if cli-records-error exit then
-  cli-fed-tally cli-fed-report cli-open-parts cli-steps-write ;
 \ --jobs N with a text: no worker can share the run's input (the words'
 \ run moved this context's stores on, see ck-workers-made), so the text
 \ is checked one declaration at a time, and a note says so first.
@@ -1185,20 +1133,14 @@ here cli-plain-chars - 2 cells / constant cli-plain-chars#
 : cli-text-lines ( -- )
   cli-json? if exit then cli-text-jobs-note true cli-state run-noted !
   ['] cli-stream ck-lines! ;
-: cli-text-load ( -- outcome )
-  cli-library-file lfc-env! cli-elab-file lfc-elab-file!
-  0 cli-file cli-checked? ck-lf-load ;
-: cli-text-loaded ( -- outcome )
-  cli-snapshot? 0= if cli-text-load exit then
-  cli-layers cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-import
-  dup ok? if drop cli-text-load then ;
-: cli-elab-fuel-set ( -- )
-  cli-state opt-elab-fuel-given @ if cli-state opt-elab-fuel @ else lf-meta-default-budget
-  then lf-elab-fuel! ;
-: cli-text-run ( -- )
-  cli-steps? lf-steps-record! cli-elab-fuel-set
-  lfc-fresh cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check
-  then cli-text-report ;
+\ The run of a text: its loading, check and report (cli/leanforth-text.fs, which
+\ sets this word and is loaded by src/main.fs). Without it, the command line of
+\ exports and snapshots (src/load/cli-checker.fs) refuses a text: exit 4.
+defer cli-text-run ( -- )
+:noname ( -- )
+  ." error: a LeanForth text is checked by bin/leanforth (src/main.fs), not by this load"
+  cr exit-malformed cli-code! ;
+is cli-text-run
 : cli-text-misused? ( -- flag )
   cli-record? cli-save? or cli-json? or cli-snapshot? cli-library-file nip 0<> and or ;
 : cli-text-misuse ( -- code )

@@ -253,7 +253,7 @@ def copies(text):
 
 def leanforth(export, *options):
     """(exit status, the JSON report) of bin/leanforth check --json on an export."""
-    done = subprocess.run(["bash", str(ROOT / "bin" / "leanforth"), "check", "--json", *options,
+    done = subprocess.run(["bash", str(ROOT / "bin" / "leanforth-checker"), "check", "--json", *options,
                            str(export)], capture_output=True, text=True, stdin=subprocess.DEVNULL,
                           timeout=int(os.environ.get("TEST_TIMEOUT", "1800")),
                           env=toolchain.gforth_env())

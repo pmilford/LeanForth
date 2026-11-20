@@ -79,6 +79,7 @@ test-cli-2                         e2e
 test-cli-3                         e2e
 test-cli-4                         e2e
 test-cli-engines                   e2e     also in make check-rest (COVERAGE_ENGINE_DIFFERS): gforth-fast against the checking engine
+test-cli-checker                   e2e     bin/leanforth-checker against bin/leanforth on every export command, byte for byte
 test-parallel-stress               e2e     check --jobs above the cores (test-only task-cores-test) on 5,000 generated declarations, 20 runs
 test-elab-data-e2e                 e2e     leanforth check --elab-data, damaged data refused
 test-author-e2e                    e2e     the example files through bin/leanforth check and print

@@ -28,7 +28,10 @@
 \ theorem except through the kernel's check.
 require ../support/tester.fs
 include ../support/heap-watch.fs
-require ../../src/main.fs
+require ../../src/load/checker.fs
+require ../../src/load/present.fs
+require ../../src/load/front.fs
+require ../../src/load/cli.fs
 decimal
 
 : library ( -- c-addr u ) s" tests/author/init-slice.ndjson" ;

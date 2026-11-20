@@ -1684,7 +1684,7 @@ reason = "review B2 of 2026-11-18: --steps is not counted as a file written, so 
 
 [[fault]]
 id = "cli-wrapper-no-same-files"
-file = "bin/leanforth"
+file = "scripts/leanforth-run.sh"
 old = '''       [ "${arguments[i]}" -ef "${arguments[j]}" ]; then same+="$i:$j "; fi'''
 new = '''       false; then :; fi'''
 test = "python3 tests/cli/test_leanforth.py Overwrites"
@@ -1740,7 +1740,7 @@ reason = "review R2 of 2026-11-18: FILE.partial is sought in the wrapper's pairs
 
 [[fault]]
 id = "cli-wrapper-no-partial-pairs"
-file = "bin/leanforth"
+file = "scripts/leanforth-run.sh"
 old = '''      same+="${i}p:$j "'''
 new = '''      :'''
 test = "python3 tests/cli/test_leanforth.py Overwrites.test_partial"
@@ -1748,7 +1748,7 @@ reason = "review R2 of 2026-11-18: the wrapper lists no FILE.partial one file wi
 
 [[fault]]
 id = "cli-wrapper-no-manifest-pairs"
-file = "bin/leanforth"
+file = "scripts/leanforth-run.sh"
 old = '''      same+="${i}m:$j "'''
 new = '''      :'''
 test = "python3 tests/cli/test_leanforth.py Overwrites.test_manifests"
@@ -3136,7 +3136,7 @@ reason = "a theorem is staged without its proof; the fixtures are no longer acce
 
 [[fault]]
 id = "wrapper-fault-exits-0"
-file = "bin/leanforth"
+file = "scripts/leanforth-run.sh"
 old = '''    printf 'leanforth: internal fault: Gforth ended with status %s\n' "$status" >&2
     exit 5'''
 new = '''    printf 'leanforth: internal fault: Gforth ended with status %s\n' "$status" >&2
@@ -3146,7 +3146,7 @@ reason = "a Gforth that fails on its own is reported with exit status 0"
 
 [[fault]]
 id = "wrapper-takes-host-status"
-file = "bin/leanforth"
+file = "scripts/leanforth-run.sh"
 old = '''  10[0-6]) code=$((status - 100)) ;;'''
 new = '''  10[0-6] | [0-6]) code=$((status % 100)) ;;'''
 test = "python3 tests/cli/test_leanforth.py ExitCodes.test_5_broken_gforth"
@@ -3296,7 +3296,7 @@ reason = "the schema takes exit status 6 from a run without --strict-axioms (re-
 
 [[fault]]
 id = "wrapper-checked-ignored"
-file = "bin/leanforth"
+file = "scripts/leanforth-run.sh"
 old = '''if $checked; then engine=gforth; fi'''
 new = '''true'''
 test = "python3 tests/cli/test_leanforth.py Engines.test_gforth_unset"
@@ -3304,7 +3304,7 @@ reason = "--checked does not select the checking engine when GFORTH is not set"
 
 [[fault]]
 id = "wrapper-fast-beside-ignored"
-file = "bin/leanforth"
+file = "scripts/leanforth-run.sh"
 old = '''      GFORTH=$candidate'''
 new = '''      :'''
 test = "python3 tests/cli/test_leanforth.py Engines.test_fast_same_reports"
@@ -5838,7 +5838,7 @@ reason = "L4: a text whose records the writer or the stage refused is reported a
 
 [[fault]]
 id = "lf-records-message-dropped"
-file = "src/cli/leanforth.fs"
+file = "src/cli/leanforth-text.fs"
 old = '''  lfc-failed? if cli-text-error exit then lfc-refused? if cli-records-error exit then'''
 new = '''  lfc-failed? if cli-text-error exit then'''
 test = "$GFORTH tests/cli/leanforth.fs"
@@ -5846,7 +5846,7 @@ reason = "L4: the refused records' message is lost (caught on Gforth 1.0, where 
 
 [[fault]]
 id = "lf-text-flags-stale"
-file = "src/cli/leanforth.fs"
+file = "src/cli/leanforth-text.fs"
 old = '''  lfc-fresh cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check'''
 new = '''  cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check'''
 test = "$GFORTH tests/cli/leanforth.fs"
@@ -17263,7 +17263,7 @@ reason = "8.4.1c: --write-ir also makes the --out folder and removes an earlier 
 
 [[fault]]
 id = "leanforth-verify-status-passed"
-file = "bin/leanforth"
+file = "scripts/leanforth-run.sh"
 old = '''    *) printf 'error: internal: leanforth verify ended with status %s\n' "$status"; exit 5 ;;'''
 new = '''    *) exit "$status" ;;'''
 test = "python3 tests/program/test_program_verify.py Command"
@@ -17907,7 +17907,7 @@ reason = "the budget is not given back per declaration (S1 8): after a declarati
 
 [[fault]]
 id = "fe-check-only-exit"
-file = "src/cli/leanforth.fs"
+file = "src/cli/leanforth-text.fs"
 old = '''  lfc-failed? lf-author-code lfa-e-nothing = and lf-elab-checks 0> and ;'''
 new = '''  false ;'''
 test = "python3 tests/front/check_elab.py"
@@ -20803,7 +20803,7 @@ reason = "review F4 of 2026-11-18: a failed attempt that rolled back its save's 
 
 [[fault]]
 id = "cli-internal-fault-as-misuse"
-file = "src/cli/leanforth.fs"
+file = "src/cli/leanforth-text.fs"
 old = '''  ." : the LeanForth text was not checked: " lf-author-error. cr outcome>code cli-code! ;'''
 new = '''  ." : the LeanForth text was not checked: " lf-author-error. cr outcome-sane outcome>code cli-code! ;'''
 test = "$GFORTH tests/cli/leanforth.fs"

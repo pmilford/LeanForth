@@ -80,3 +80,27 @@ old = '''    return uses | runs, data, why, path.startswith("tests/") and bool(F
 new = '''    return uses | runs, data, why, bool(FIXTURES_ONLY.search(text))'''
 test = "python3 tests/scripts/test_check_layers.py Finder"
 reason = "a script, not only a test, could declare its own git reads a fixture's"
+
+[[fault]]
+id = "ll-checker-launcher-loads-everything"
+file = "bin/leanforth-checker"
+old = '''lf_entry=$root/src/load/cli-checker.fs'''
+new = '''lf_entry=$root/src/main.fs'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_checker_launcher.py Text"
+reason = "bin/leanforth-checker loads the front end again: a LeanForth text runs, and the export-only tests depend on every file"
+
+[[fault]]
+id = "ll-text-refusal-accepts"
+file = "src/cli/leanforth.fs"
+old = '''  cr exit-malformed cli-code! ;'''
+new = '''  cr ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_checker_launcher.py Text"
+reason = "the command line of exports refuses a LeanForth text but exits 0, as if it were checked"
+
+[[fault]]
+id = "ll-text-run-unset"
+file = "src/cli/leanforth-text.fs"
+old = '''is cli-text-run'''
+new = '''drop'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_checker_launcher.py Text"
+reason = "the whole load keeps the refusal: bin/leanforth no longer checks a LeanForth text"

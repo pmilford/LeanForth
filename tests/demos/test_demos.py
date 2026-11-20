@@ -75,7 +75,7 @@ def export(demo, work):
 
 
 def leanforth(*arguments):
-    return run(["bash", "bin/leanforth", *arguments])
+    return run(["bash", "bin/leanforth-checker", *arguments])
 
 
 def header(text):

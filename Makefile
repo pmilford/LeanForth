@@ -1502,6 +1502,12 @@ test-cli-forth:
 test-cli-1 test-cli-2 test-cli-3 test-cli-4 test-cli-engines:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/cli/run_group.py $(subst test-cli-,,$@)
 .PHONY: test-cli-forth test-cli-1 test-cli-2 test-cli-3 test-cli-4 test-cli-engines
+# bin/leanforth-checker (the checker's load alone, which the export-only tests and comparisons
+# run) prints what bin/leanforth prints on every export and snapshot command, byte for byte.
+test-cli-checker:
+	GFORTH=$(GFORTH) $(RUN) python3 tests/cli/test_checker_launcher.py
+.PHONY: test-cli-checker
+test: test-cli-checker
 # check --jobs with twice as many workers as cores (lib/task.fs's test-only
 # task-cores-test) on a generated export of 5,000 declarations, 5 runs (20 in
 # make parallel-init, the daily run), each the serial run's text and exit

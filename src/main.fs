@@ -31,9 +31,8 @@ require ./load/present.fs
 \ layer, the elaborator and the tactics.
 require ./load/front.fs
 
-\ The command line: check, replay, print, count, reexport, version,
-\ capabilities. It loads the staging of exports into the checker's input,
-\ the counter, the re-exporter, the manifest check and print's proof
-\ outlines (cli/print.fs), and the check of LeanForth text (cli/check-lf.fs).
-require ./cli/print.fs
-require ./cli/leanforth.fs
+\ The command line (src/load/cli.fs): check, replay, print, count,
+\ reexport, version, capabilities, and the check of LeanForth text. The
+\ command line of exports and snapshots alone, without the front end, is
+\ src/load/cli-checker.fs (bin/leanforth-checker).
+require ./load/cli.fs

@@ -23,7 +23,7 @@
 include ../support/scratch.fs
 include ../support/heap-watch.fs
 create lf-env-i2-checks   \ compiles the I2 assertion into environment.fs
-require ../../src/main.fs
+require ../../src/load/cli-checker.fs
 include ../support/tester.fs
 decimal
 

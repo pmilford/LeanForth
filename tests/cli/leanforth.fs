@@ -31,7 +31,7 @@ require ../support/alloc-fail.fs
 : lf-env-fault-hooks ( -- ) ;
 \ The parallel scheduler's planted faults (kernel/env-schedule.fs).
 : lf-sched-fault-hooks ( -- ) ;
-require ../../src/cli/leanforth.fs
+require ../../src/load/cli.fs   \ the command line, LeanForth text included
 decimal
 
 : composition ( -- c-addr u ) s" tests/reference/composition.ndjson" ;

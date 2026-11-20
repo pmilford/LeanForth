@@ -15,9 +15,9 @@ stderr) when:
   2. a file of src/lib loads anything outside src/lib, or a file of src/core anything but lib
      and core (src/README.md's rules); or src/main.fs loads a module that no entry and no
      file of src/cli loads (every module comes in through a layer);
-  3. a test file under tests/ requires src/main.fs and is not in WHOLE_LOADS, which lists the
-     tests that use the command line's own words (cli/leanforth.fs) and so need everything:
-     any other test requires the entries it needs;
+  3. a test file under tests/ requires src/main.fs and is not in WHOLE_LOADS, the tests of the
+     whole load itself: any other test requires the entries it needs (the command line's are
+     src/load/cli-checker.fs for exports and src/load/cli.fs with a LeanForth text);
   4. with --gforth: Gforth loading an entry alone fails, writes to standard error, or loads a
      file of src/ the closure of check 1 lacks (Gforth's .included), so the closure is what
      Gforth really loads and scripts/tested-tree.py's inputs miss nothing. (make smoke loads
@@ -38,22 +38,20 @@ ENTRIES = {
     "src/load/program.fs": {"lib", "program"},
     "src/load/present.fs": {"lib", "core", "present"},
     "src/load/front.fs": {"lib", "core", "present", "author", "import", "front"},
+    "src/load/cli-checker.fs": {"lib", "core", "kernel", "import", "present", "cli"},
+    "src/load/cli.fs": {"lib", "core", "kernel", "import", "present", "author", "front", "cli"},
 }
 # The import pass names its run records' declarations with the presentation's name text
 # (import/run-record.fs): the only modules of present/ the checker loads.
 CHECKER_PRESENT = {"src/present/binder-table.fs", "src/present/name-text.fs", "src/present/print-job.fs",
                    "src/present/print-names.fs"}
 FOLDER_RULES = {"lib": {"lib"}, "core": {"lib", "core"}}
-# Tests that require src/main.fs, each because it runs a word of src/cli/leanforth.fs (or the
-# command line's check) itself; every other test requires the entries it needs.
+# Tests that require src/main.fs because the whole load is what they test; every other test
+# requires the entries it needs (the command line's: src/load/cli-checker.fs for exports,
+# src/load/cli.fs with a LeanForth text).
 WHOLE_LOADS = {
     "tests/smoke/smoke.fs": "the whole load is what it tests",
     "tests/core/contexts-main.fs": "the dictionary of everything src/main.fs loads",
-    "tests/core/env-import.fs": "prints verdicts with cli-verdict.",
-    "tests/front/handover.fs": "checks through cli-check",
-    "tests/front/menv-run.fs": "checks through cli-check",
-    "tests/front/tactic-basic.fs": "hands its theorems to the kernel through the command line's hooks",
-    "tests/front/tactic-run.fs": "hands its theorems to the kernel through the command line's hooks",
 }
 FORTH_LOAD = re.compile(r"\b(?:require|include|needs)\s+(\S+\.fs)\b", re.IGNORECASE)
 MAIN_LOAD = re.compile(r"^\s*require\s+(?:\.\./)+src/main\.fs\b", re.IGNORECASE | re.MULTILINE)

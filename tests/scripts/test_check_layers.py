@@ -47,7 +47,10 @@ TREE = {
     "src/author/a.fs": "require ../present/p.fs\n",
     "src/front/f.fs": "require ../author/a.fs\nrequire ../import/i.fs\n",
     "src/program/g.fs": "require ../lib/l.fs\n",
-    "src/cli/x.fs": "require ../load/checker.fs\nrequire ../front/f.fs\n",
+    "src/cli/x.fs": "require ../load/checker.fs\n",
+    "src/cli/t.fs": "require ./x.fs\nrequire ../front/f.fs\n",
+    "src/load/cli-checker.fs": "require ./checker.fs\nrequire ../cli/x.fs\n",
+    "src/load/cli.fs": "require ../cli/x.fs\nrequire ../cli/t.fs\n",
     "src/load/kernel.fs": "require ../kernel/k.fs\n",
     "src/load/import.fs": "require ../import/i.fs\n",
     "src/load/checker.fs": "require ./kernel.fs\nrequire ./import.fs\nrequire ../present/name-text.fs\n",
@@ -55,7 +58,7 @@ TREE = {
     "src/load/present.fs": "require ../present/p.fs\n",
     "src/load/front.fs": "require ../front/f.fs\n",
     "src/main.fs": "require ./load/checker.fs\nrequire ./load/program.fs\nrequire ./load/present.fs\n"
-                   "require ./load/front.fs\nrequire ./cli/x.fs\n",
+                   "require ./load/front.fs\nrequire ./load/cli.fs\n",
     "tests/core/t.fs": "require ../../src/load/kernel.fs\n",
 }
 TREE.update({path: "require ../../src/main.fs\n" for path in check_layers.WHOLE_LOADS})
@@ -91,12 +94,16 @@ class CheckLayers(unittest.TestCase):
     def test_clean_tree_passes(self):
         run = self.run_check()
         self.assertEqual(run.returncode, 0, run.stderr)
-        self.assertIn("6 layer entries keep to their layers", run.stdout)
+        self.assertIn("8 layer entries keep to their layers", run.stdout)
 
     def test_kernel_loading_the_front_end_fails(self):
         self.write("src/kernel/k.fs", "require ../core/c.fs\nrequire ../front/f.fs\n")
         err = self.fails("src/load/kernel.fs loads src/front/f.fs", "src/load/checker.fs loads src/author/a.fs")
         self.assertNotIn("src/load/front.fs", err)
+
+    def test_the_command_line_of_exports_loading_the_text_part_fails(self):
+        self.write("src/load/cli-checker.fs", "require ./checker.fs\nrequire ../cli/t.fs\n")
+        self.fails("src/load/cli-checker.fs loads src/front/f.fs", "src/load/cli-checker.fs loads src/author/a.fs")
 
     def test_a_require_in_a_comment_counts(self):
         self.write("src/program/g.fs", "require ../lib/l.fs\n\\ require ../core/c.fs\n")

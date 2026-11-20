@@ -633,7 +633,9 @@ def checked_lean():
     return lean
 
 
-LEANFORTH = ["bash", str(ROOT / "bin" / "leanforth")]   # the checker, as the CLI starts it
+# The checker, as the CLI starts it for an export: bin/leanforth-checker prints what
+# bin/leanforth prints for one, on the checker's load alone (tests/cli/test_checker_launcher.py).
+LEANFORTH = ["bash", str(ROOT / "bin" / "leanforth-checker")]
 
 
 def leanforth_args(export, options=("--jobs", LEANFORTH_JOBS)):
