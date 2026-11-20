@@ -1648,3 +1648,8 @@ efficient way and an easier way to fix unit-test coverage, and decided:
   **Parser gate, approved:** `by-clear` (Lean's `clear h`, one hypothesis) takes its place. The batch is
   `by-left`, `by-right`, `by-exfalso`, `by-intros`, `by-clear`. `by-intro` also gains Lean's implicit and
   strict-implicit binders (a difference from Lean closed, with its own pinned test).
+- **No question for trivial changes (owner, 2026-11-19, on the `by-clear` question):** "I don't think you need to
+  ask for trivial changes like you just asked about." As the assistant reads it: a simple tactic word that is a
+  faithful port of Lean's tactic, compared with pinned Lean with wrong twins, is added without asking and
+  reported afterwards. Anything that differs from Lean, other kernel, core or import changes, new formats and new
+  dependencies are still asked first.
