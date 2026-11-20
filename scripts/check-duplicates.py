@@ -1069,7 +1069,7 @@ class Pattern:
         if any(" " in t for t in self.frm + self.to):
             raise Refusal("a phrase may not hold a string literal")
         self.new_words = sorted({t for t in words_of(self.to) if not WILDCARD.fullmatch(t)}
-                                - set(self.frm))
+                                - set(self.frm) - NOT_A_NAME)
 
     def match(self, toks, k):
         """{wildcard: token index} when the phrase starts at toks[k], else None."""
@@ -1123,6 +1123,9 @@ class Rewrite:
     def __init__(self, ws, pattern, paths, home=None, allowed=False):
         self.ws, self.pattern = ws, pattern
         self.texts, self.sites, self.left, self.notes = {}, [], [], []
+        for word in pattern.new_words:
+            if not ws.where.get(word):
+                self.notes.append(f"`{word}` is defined nowhere in src/: taken as a Gforth word")
         for rel in sorted(ws.sources):
             if paths and not any(rel == p or rel.startswith(p.rstrip("/") + "/") for p in paths):
                 continue

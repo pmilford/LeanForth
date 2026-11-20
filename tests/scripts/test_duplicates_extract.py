@@ -521,6 +521,11 @@ class Rewrite(unittest.TestCase):
         finally:
             tree.close()
 
+    def test_a_new_word_src_does_not_define_is_named(self):
+        status, out = self.rewrite(GUARD + " $X ;", "['] $X ok-apply9 ;", "--dry-run")
+        self.assertEqual(status, 0, out)
+        self.assertIn("`ok-apply9` is defined nowhere in src/: taken as a Gforth word", out)
+
     def test_a_malformed_pattern_is_refused(self):
         for frm, to in (("", "x"), ("a $X", "$Y")):
             with self.subTest(frm=frm, to=to):
