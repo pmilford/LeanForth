@@ -17,6 +17,7 @@ Usage: GFORTH=... python3 tests/front/check_showcase.py [--write]
 """
 import os
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -58,25 +59,35 @@ def golden_part(write):
     check(differs(want + "x", want) is not None, "self-test: a changed golden line is told apart")
     problem = differs(out, want)
     check(problem is None, f"the output differs from {GOLDEN.name}: {problem}")
-    verdicts = [line for line in out.splitlines() if line.startswith("  Verdict (LeanForth's kernel): ")]
-    check(len(verdicts) == 15, f"15 theorems shown, got {len(verdicts)}")
-    check(all(line.endswith(": accepted; axioms: none") for line in verdicts),
-          "every theorem accepted with no axiom")
-    tactic = out.count("  Steps LeanForth's tactics took (")
-    check(tactic == 14 and out.count("  Statement (LeanForth's reading of the text, written in Lean's notation):") == tactic,
+    lines = out.splitlines()
+    theorems = [n for n, line in enumerate(lines) if line.startswith("Theorem ")]
+    check(len(theorems) == 15, f"15 theorems shown, got {len(theorems)}")
+    verdicts = [lines[n + 2] for n, line in enumerate(lines)
+                if line == "   LeanForth's kernel checked the finished proof and printed its verdict:"]
+    check(len(verdicts) == 15 and all(line.endswith(": accepted; axioms: none") for line in verdicts),
+          f"every theorem accepted with no axiom; got {len(verdicts)} verdicts")
+    for part in ("A. The proof as written in LeanForth", "B. The same proof as a Lean user would write it",
+                 "C. What LeanForth did with the LeanForth text", "D. The result"):
+        check(sum(line.startswith(part) for line in lines) == 15, f"each theorem has its part {part[:2]}")
+    tactic = out.count("   Then it ran the proof's ")
+    check(tactic == 14 and out.count("   First it read the statement.") == tactic,
           f"14 tactic theorems, each with its statement; got {tactic}")
-    twins = out.count("  The same theorem in Lean (tests/front/")
-    check(twins + out.count("no Lean twin recorded") == 15 and twins == 14,
-          f"each theorem shows its Lean twin or says none is recorded (14 and 1): got {twins}")
+    twins = out.count("      (copied from tests/front/")
+    noted = out.count("no test compares this one with Lean yet")
+    check(twins == 14 and noted == 1 and "no Lean twin recorded" not in out,
+          f"each theorem shows its Lean form (14 twins, 1 from its file's note): got {twins}, {noted}")
     check("[Lean:" not in out and "as Lean prints" not in out, "no label says Lean did the work")
+    check(not any(re.match(r"\s+\d+\s+(\||theorem|:=|end)\b", line) for line in lines),
+          "no line number is mixed into the LeanForth text")
 
 
 def stopped_part():
     status, out, _ = run(["bash", SCRIPT, "tests/front/s2w-rw-definition.lf"])
     check(status == 1, f"a file whose check stops: script exit 1, got {status}")
-    check("error 99 at line:col 8:3 (token `by-rw[`)" in out and "--- exit 2" in out,
-          "the stopped file's error and exit 2 are shown")
-    check("Verdict (LeanForth's kernel): none (the run stopped before it)" in out, "a theorem with no verdict says so")
+    check("error 99 at line:col 8:3 (token `by-rw[`)" in out and "   exit status 2" in out,
+          "the stopped file's error and exit status 2 are shown")
+    check("No verdict: the run stopped before the kernel was given this theorem." in out,
+          "a theorem with no verdict says so")
 
 
 def formatter_part():

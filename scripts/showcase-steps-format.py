@@ -6,14 +6,15 @@ Usage: python3 scripts/showcase-steps-format.py FILE.lf EXIT < OUTPUT
   OUTPUT   everything the run printed (verdict lines, errors and the step log's
            JSON lines, docs/user/COMMAND_LINE.md "The step log").
 
-For each theorem of the file it prints the LeanForth text with its line numbers,
-LeanForth's reading of the statement (the first goal, in Lean's notation), then each
-step LeanForth's tactics took: the step's own text from the file, the name of the
-same tactic in Lean, the goal before and the goals after exactly as the log gives
-them, indented under the step it belongs to; then the same theorem in Lean (its
-twin, which tests/front/lean-twins.json names, copied from the Lean file) and the
-verdict line of LeanForth's kernel. Last come the run's error lines, its summary
-line and the exit status. It reads FILE.lf, the twin file and the Lean source it
+For each theorem of the file it prints four parts: A, the LeanForth text; B, the
+same theorem in Lean (its twin, which tests/front/lean-twins.json names, copied from
+the Lean file); C, what LeanForth did: its reading of the statement (the first goal,
+in Lean's notation), then each step its tactics took, numbered as in the step log,
+with the step's own text from the file, Lean's name for the tactic, the goal before
+and the goals after exactly as the log gives them, a step inside another indented
+under it; D, the verdict line of LeanForth's kernel. Last come the run's error lines,
+its summary line and the exit status. It reads FILE.lf, the twin file and the Lean
+source it
 names, and standard input, and writes only standard output. Exit status 0, or 1 when a step-log
 line is not JSON or lacks a field (the formatter's own failure, not a verdict).
 """
@@ -66,27 +67,38 @@ def goal(text, lead):
     return "\n".join(lead + part for part in text.splitlines())
 
 
+LEAN_NAME = {"alternative": "one case of the induction above"}
+
+
+def lean_name(tactic):
+    return LEAN_NAME.get(tactic, f"Lean calls this tactic `{tactic}`")
+
+
 def show_step(record, depth, lines):
-    """The lines of one step, DEPTH steps deep."""
-    pad = "    " + "  " * depth
+    """The lines of one step, DEPTH steps deep: its number, its own text from the file,
+    Lean's name for it, the goal it met and what it left."""
+    pad = "   " + "      " * depth
+    body = pad + "         "
     row, column = (int(part) for part in record["source"].split(":"))
     source = lines[row - 1] if 0 < row <= len(lines) else ""
-    out = [f"{pad}{record['step']}. {step_text(source, column, record['word'])}"
-           f"   [the same tactic in Lean: {record['tactic']}; line {row}, column {column}]"]
+    out = ["", f"{pad}Step {record['step']}.  {step_text(source, column, record['word'])}",
+           f"{body}({lean_name(record['tactic'])})"]
     after = record["goals_after"]
     if record["goal_before"] is None:
-        out.append(f"{pad}   opens the case:")
-        out += [goal(text, pad + "     ") for text in after]
+        out.append(f"{body}The goal of this case:")
+        out += [goal(text, body + "    ") for text in after]
         return out
-    out.append(f"{pad}   goal before:")
-    out.append(goal(record["goal_before"], pad + "     "))
+    out.append(f"{body}Goal before this step:")
+    out.append(goal(record["goal_before"], body + "    "))
     if after:
-        out.append(f"{pad}   goals after ({len(after)}):")
-        out += [goal(text, pad + "     ") for text in after]
+        left = "1 goal is left:" if len(after) == 1 else f"{len(after)} goals are left:"
+        out.append(f"{body}After this step {left}")
+        for text in after:
+            out.append(goal(text, body + "    "))
     elif record["tactic"] == "induction":
-        out.append(f"{pad}   goals after: none listed here; each case's goal is on its alternative below")
+        out.append(f"{body}After this step: one goal for each case. The cases follow, indented.")
     else:
-        out.append(f"{pad}   goals after: none (this goal is proved)")
+        out.append(f"{body}After this step: nothing is left to prove here.")
     return out
 
 
@@ -117,43 +129,84 @@ def lean_source(lines, name):
     return [line.rstrip() for line in lines[start:end]]
 
 
+def lean_note(path, name):
+    """The Lean theorem NAME as a comment line `\\ Lean: theorem NAME ...` of the LeanForth
+    file PATH gives it, or None."""
+    mark = re.compile(r"^\\\s+Lean:\s+(theorem\s+" + re.escape(name) + r"\s.*)$")
+    for line in (ROOT / path).read_text(encoding="utf-8").splitlines():
+        found = mark.match(line)
+        if found:
+            return found.group(1).rstrip()
+    return None
+
+
 def lean_twin(path, name):
     """The lines that show theorem NAME of the LeanForth file PATH in Lean, from the twin
     file tests/front/lean-twins.json names, or a line saying none is recorded."""
     twin = json.loads(TWINS.read_text(encoding="utf-8"))["twins"].get(path)
     if twin is None:
-        return ["  The same theorem in Lean: no Lean twin recorded"]
+        note = lean_note(path, name)
+        if note is None:
+            return ["      (no Lean twin recorded for this theorem)"]
+        return ["      " + note, "", f"      (from the note in {path}; no test compares this one with Lean yet)"]
     source = (ROOT / twin["lean"]).read_text(encoding="utf-8").splitlines()
     text = lean_source(source, twin["names"].get(name, name))
-    return [f"  The same theorem in Lean ({twin['lean']}):"] + ["    " + line for line in text]
+    return ["      " + line for line in text] + ["", f"      (copied from {twin['lean']})"]
 
 
-def show_theorem(path, name, first, last, lines, logs, output):
-    where = f"line {first}" if first == last else f"lines {first}-{last}"
-    out = [f"theorem {name}  ({where})", "  LeanForth:"]
-    out += [f"    {n:3d}   {lines[n - 1].rstrip()}" for n in range(first, last + 1)]
+RULE = "-" * 78
+
+
+def unindented(lines):
+    """LINES without the indentation they all share."""
+    margin = min((len(line) - len(line.lstrip()) for line in lines if line.strip()), default=0)
+    return [line[margin:].rstrip() for line in lines]
+
+
+def show_work(name, first, last, lines, logs):
+    """Part C: how LeanForth read the statement and each step its tactics took."""
     head, steps = logs.get(name, (None, []))
     tactics = re.search(r":=\s+by\b", " ".join(lines[first - 1:last]))
     if head is None and not tactics:
-        out.append("  Proof: a term (after :=), not tactics; the step log has no steps for it.")
-    elif head is None:
-        out.append("  Steps: none in the step log for it (see the run's errors below).")
-    else:
-        if steps and steps[0]["goal_before"] is not None:
-            out.append("  Statement (LeanForth's reading of the text, written in Lean's notation):")
-            out.append(goal(steps[0]["goal_before"], "    "))
-        axioms = ", ".join(head["axioms"]) or "none"
-        out.append(f"  Steps LeanForth's tactics took ({head['steps']} in the step log; "
-                   f"axioms: {axioms}; open parts: {head['open_parts']}):")
-        if head["cut"]:
-            out.append("    (the step log ran out of room: its steps are left out)")
-        depth = {0: -1}
-        for record in steps:
-            depth[record["step"]] = depth.get(record["parent"], -1) + 1
-            out += show_step(record, depth[record["step"]], lines)
+        return ["   This proof is a term written out in full after := , not a list of tactics,",
+                "   so there are no tactic steps to show. The kernel checks the term as it stands."]
+    if head is None:
+        return ["   No tactic step was recorded: the run stopped first (see its error below)."]
+    out = []
+    if steps and steps[0]["goal_before"] is not None:
+        out += ["   First it read the statement. This is what has to be proved, in Lean's notation.",
+                "   Lines of the form  name : type  are what is given; the line after the mark \u22a2 is",
+                "   what must be shown.", "",
+                goal(steps[0]["goal_before"], "      "), ""]
+    count = "1 tactic step" if head["steps"] == 1 else f"{head['steps']} tactic steps"
+    out.append(f"   Then it ran the proof's {count}, in this order. A step that works inside")
+    out.append("   another step is indented under it.")
+    if head["cut"]:
+        out.append("   (The step log ran out of room: its steps are left out.)")
+    depth = {0: -1}
+    for record in steps:
+        depth[record["step"]] = depth.get(record["parent"], -1) + 1
+        out += show_step(record, depth[record["step"]], lines)
+    axioms = ", ".join(head["axioms"]) or "none"
+    out += ["", f"   Every step is done. Parts left unproved: {head['open_parts']}. Axioms used: {axioms}."]
+    return out
+
+
+def show_theorem(path, name, first, last, lines, logs, output):
+    out = [RULE, f"Theorem {name}        (from the file {path})", RULE, "",
+           "A. The proof as written in LeanForth", ""]
+    out += ["      " + line for line in unindented(lines[first - 1:last])]
+    out += ["", "B. The same proof as a Lean user would write it  (for comparison; Lean is not run)", ""]
     out += lean_twin(path, name)
+    out += ["", "C. What LeanForth did with the LeanForth text", ""]
+    out += show_work(name, first, last, lines, logs)
     verdicts = [line for line in output if line.startswith(f"{name}: ")]
-    out.append("  Verdict (LeanForth's kernel): " +(verdicts[-1] if verdicts else "none (the run stopped before it)"))
+    out += ["", "D. The result", ""]
+    if verdicts:
+        out += ["   LeanForth's kernel checked the finished proof and printed its verdict:", "",
+                "      " + verdicts[-1]]
+    else:
+        out.append("   No verdict: the run stopped before the kernel was given this theorem.")
     return out
 
 
@@ -170,7 +223,6 @@ def main(argv):
     except (ValueError, KeyError) as problem:
         print(f"showcase-steps-format: a step-log line is malformed: {problem}", file=sys.stderr)
         return 1
-    print(f"=== {path}")
     for name, first, last in blocks(lines):
         print()
         try:
@@ -179,10 +231,13 @@ def main(argv):
             print(f"showcase-steps-format: a step of {name} is malformed: {problem}", file=sys.stderr)
             return 1
     print()
+    print(f"End of the run on {path}. LeanForth's last lines and its exit status")
+    print("(0 means every theorem of the file was accepted):")
+    print()
     for line in output:
         if line.startswith("error") or re.match(r"^\d+ declarations: ", line):
-            print(line)
-    print(f"--- exit {status}")
+            print("   " + line)
+    print(f"   exit status {status}")
     return 0
 
 
