@@ -62,6 +62,7 @@ require ../core/literals.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/mvar-leaves.fs
 require ../core/constant-term-boundary.fs
+require ../core/generation-handles.fs
 require ../lib/bounds.fs
 require ../present/binder-table.fs
 require ../author/errors.fs
@@ -163,7 +164,7 @@ end-structure
   swap lf-meta-dec-level dup outcome-invalid = 0= if rot drop lf-elab-meta exit then
   2drop et-numeral-error no-result ;
 : et-lit ( n -- lit outcome )
-  lf-hterm-cell if drop outcome-ok else outcome-full no-result then ;
+  lf-hterm-cell lf-made-term ;
 \ OfNat.{u} ?T lit, the instance's type; @OfNat.ofNat.{u} ?T lit ?i
 \ from it and the instance metavariable.
 : et-of-nat-type ( T lit -- type outcome )
@@ -442,7 +443,7 @@ is et-op
   drop nip et-window-back et-eo-fail ;
 : et-rel-done ( term outcome frames -- term outcome frames 0 )
   drop dup ok? if drop lf-postpone-yes lf-elab-synthesize then et-window-back
-  dup ok? 0= if nip no-result then et-eo-end ;
+  ok-or-none et-eo-end ;
 : et-rel-ensure ( rhs -- rhs' outcome )
   eo eo-lhs @ lf-infer lf-elab-meta ok-then? if lf-elab-ensure else nip no-result then ;
 : et-rel-app ( rhs -- outcome )
@@ -479,7 +480,7 @@ is et-rel
 \ ---- elabType, ensureType, elabTermEnsuringType.
 : et-sort-mvar ( -- sort outcome )
   lf-level-mvar-new lf-elab-meta ok-then? 0= if no-result exit then
-  lf-term-symbolic-sort if outcome-ok else outcome-full no-result then ;
+  lf-term-symbolic-sort room-result ;
 : et-is-type? ( e -- flag outcome )
   lf-infer lf-elab-meta ok-then? 0= if false swap exit then lf-meta-whnf lf-elab-meta
   ok-then? if lf-sort? outcome-ok else false swap then ;

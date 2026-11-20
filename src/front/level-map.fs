@@ -40,7 +40,7 @@ end-structure
 \ then refuse it).
 : lmap-identity ( level -- identity ) lf-level-identity 0= if 0 then ;
 : lmap-sort-new ( level -- image outcome )
-  dup lmap-identity lf-hterm-sort if drop outcome-ok else -1 outcome-full then ;
+  dup lmap-identity lf-hterm-sort lf-made-term ;
 : lf-meta-sort-remap ( node xt -- image outcome )
   lmap lmap-xt ! dup lf-term-first@ dup lmap-image tuck =
   if drop outcome-ok else nip lmap-sort-new then ;
@@ -60,7 +60,6 @@ end-structure
 : lmap-const-new ( node -- image outcome )
   dup lf-const-slot lf-cref-pairs dup lmap-block
   0= if 2drop drop -1 outcome-full exit then
-  lmap-fill lf-const-slot lmap-ref-new lmap lmap-pairs heap-release
-  if outcome-ok else -1 outcome-full then ;
+  lmap-fill lf-const-slot lmap-ref-new lmap lmap-pairs heap-release room-result ;
 : lf-meta-const-remap ( node xt -- image outcome )
   lmap lmap-xt ! dup lmap-moved? if lmap-const-new else outcome-ok then ;

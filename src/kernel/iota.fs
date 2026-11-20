@@ -47,6 +47,7 @@
 require ../lib/lib.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
+require ../core/generation-handles.fs
 require ../core/input.fs
 require ../core/name-equal.fs
 require ../core/names.fs
@@ -178,7 +179,7 @@ require ./quot.fs
   lf-whnf-head lf-const-slot lf-cref-pairs lf-whnf-pairs!
   ok-then? 0= if nip nip no-result exit then
   >r >r lf-name-generation @ r> r> lf-cref-new 0= if -1 outcome-full exit then
-  lf-cterm-new if drop outcome-ok else -1 outcome-full then ;
+  lf-cterm-new lf-made-term ;
 : lf-iota-params ( node Ty p -- node' outcome )
   0 ?do dup dup lf-iota-n i lf-iota-arg rot swap lf-term-app
     0= if drop -1 outcome-full unloop exit then swap

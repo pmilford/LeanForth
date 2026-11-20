@@ -67,6 +67,7 @@ require ../core/levels.fs
 require ../core/terms.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
+require ../core/generation-handles.fs
 require ../core/let-terms.fs
 require ../core/literals.fs
 require ../core/projections.fs
@@ -274,7 +275,7 @@ end-structure
   tuck src-a swap src-level ok-then? if lf-term-symbolic-sort room-result else no-result
   then ;
 : lbd-nat ( e src -- term outcome )
-  src-text lf-hterm-decimal if drop outcome-ok else -1 outcome-full then ;
+  src-text lf-hterm-decimal lf-made-term ;
 \ A constant: its universe arguments as level pairs (index, identity),
 \ then its reference and its term.
 : lbd-pair, ( index -- outcome )

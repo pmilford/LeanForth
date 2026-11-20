@@ -207,7 +207,7 @@ end-structure
 : me-undecoded ( d outcome -- d outcome' )
   dup outcome-invalid = if over me-lib-d? if drop outcome-unsupported then then ;
 : me-decoded ( d -- d outcome )
-  dup lf-libdec-decl nip me-undecoded dup ok? 0= if nip no-result then ;
+  dup lf-libdec-decl nip me-undecoded ok-or-none ;
 : me-run-find ( name -- d outcome )
   me-texts-current dup me-text-named if nip outcome-ok exit then
   lf-libdec-find ok-then? if me-decoded else no-result then ;

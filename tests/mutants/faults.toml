@@ -12324,9 +12324,9 @@ reason = "a full term store while a string literal is expanded reads as undecide
 id = "cov2-str-const-refusal-rejected"
 file = "src/kernel/string-literals.fs"
 old = '''  0= if -1 outcome-full exit then
-  lf-cterm-new if drop outcome-ok else -1 outcome-full then ;'''
+  lf-cterm-new lf-made-term ;'''
 new = '''  0= if -1 outcome-rejected exit then
-  lf-cterm-new if drop outcome-ok else -1 outcome-full then ;'''
+  lf-cterm-new lf-made-term ;'''
 test = "$GFORTH tests/core/string-literals.fs"
 reason = "a reference store that cannot grow while the expansion's constants are made rejects the declaration: a resource failure stored as a verdict"
 quick = true
@@ -16899,7 +16899,7 @@ reason = "review s1-meta-b H1: a tier name's split refused room eats the caller'
 [[fault]]
 id = "fe-env-refused-handle"
 file = "src/front/meta-env.fs"
-old = '''  dup lf-libdec-decl nip me-undecoded dup ok? 0= if nip no-result then ;'''
+old = '''  dup lf-libdec-decl nip me-undecoded ok-or-none ;'''
 new = '''  dup lf-libdec-decl nip me-undecoded ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b H2: a refused decode gives its handle with full, which callers read as a decoded declaration"
@@ -17142,7 +17142,7 @@ reason = "review s1-meta-b: a decoded expression or level is never walked (every
 [[fault]]
 id = "fe-declevel-assign-kept"
 file = "src/front/infer.fs"
-old = '''  lf-level-mvar-assign dup ok? 0= if nip no-result then ;'''
+old = '''  lf-level-mvar-assign ok-or-none ;'''
 new = '''  lf-level-mvar-assign ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "getDecLevel's assignment refused room still answers the fresh ?w, not -1"

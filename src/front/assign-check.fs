@@ -215,7 +215,7 @@ end-structure
 : ac-lam ( e i -- lam outcome )
   dup ac-x lf-fvar-type lf-meta-head-beta ok-then? 0= if nip nip no-result exit then
   -rot cells ac ac-xs @ + 1 lf-meta-abstract ok-then? 0= if nip no-result exit then
-  lf-term-lam if outcome-ok else -1 outcome-full then ;
+  lf-term-lam room-result ;
 : ac-binder ( e i -- e' outcome )
   2dup ac-x ac-eta ok-then? 0= if >r 2drop drop r> no-result exit then
   if nip nip outcome-ok else drop ac-lam then ;

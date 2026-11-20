@@ -78,7 +78,7 @@ end-structure
 : lf-sx-const ( id n -- node outcome )
   >r lf-name-generation @ 0 lf-sx-pairs slab-at r> lf-cref-new
   0= if -1 outcome-full exit then
-  lf-cterm-new if drop outcome-ok else -1 outcome-full then ;
+  lf-cterm-new lf-made-term ;
 : lf-sx-app ( f a -- node outcome ) lf-term-app room-result ;
 \ prefix.part without universe arguments.
 : lf-sx-plain ( c-addr u prefix-addr prefix-u -- node outcome )

@@ -1580,16 +1580,6 @@
   "reason": "false positive: the guarded test `dup a? if b else drop false then` (or with 2dup/2drop) of two different words",
   "tokens": 8
  },
- "c0d6944876ba": {
-  "copies": 2,
-  "kind": "copy",
-  "members": [
-   "src/front/meta-env.fs:lf-menv-sunfold",
-   "src/front/meta-env.fs:lf-menv-matcher"
-  ],
-  "reason": "accepted: two readers of different records (sunfold, matcher) of the data's declaration, both on lf-menv-elab; a shared word would take an xt and be no shorter",
-  "tokens": 6
- },
  "c24c8ecb19c0": {
   "copies": 2,
   "kind": "shape",
@@ -1771,6 +1761,16 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 10
+ },
+ "cd86a7a73814": {
+  "copies": 2,
+  "kind": "copy",
+  "members": [
+   "src/front/meta-env.fs:lf-menv-sunfold",
+   "src/front/meta-env.fs:lf-menv-matcher"
+  ],
+  "reason": "accepted: two readers of different records (sunfold, matcher) of the data's declaration, both on lf-menv-elab; a shared word would take an xt and be no shorter",
+  "tokens": 6
  },
  "ce6289a7e339": {
   "copies": 3,

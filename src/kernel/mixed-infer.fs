@@ -351,7 +351,7 @@ defer lf-minfer-typer ( node frames -- type outcome )
 \ full store or a spent serial) is full and cannot yield a type.
 : lf-minfer-sort ( level -- type status )
   dup lf-level-identity 0= if drop -1 outcome-invalid exit then
-  lf-hterm-sort if drop outcome-ok else -1 outcome-full then ;
+  lf-hterm-sort lf-made-term ;
 \ A visited Sort's type. In environment mode, while deciding, its level
 \ must first use only the declaration's universe parameters (L2), checked
 \ with the job's fuel (env-signature.fs).

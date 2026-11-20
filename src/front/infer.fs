@@ -124,7 +124,7 @@ end-structure
   lf-mvar-type if outcome-ok else -1 outcome-invalid then ;
 : if-sort-new ( level -- type outcome )
   dup lf-level-identity 0= if drop -1 outcome-full exit then
-  lf-hterm-sort if drop outcome-ok else -1 outcome-full then ;
+  lf-hterm-sort lf-made-term ;
 : if-sort ( sort -- type outcome )
   lf-term-first@ lf-level-succ if if-sort-new else -1 outcome-full then ;
 \ A number's type (Lean's Literal.type; branch s2-tactics: Meta.check of
@@ -387,7 +387,7 @@ end-structure
 \ Lean's assignment cannot fail; here the stores may have no room (full),
 \ and then ?w, made already, stays unassigned and named by no term.
 : idl-assign ( w mvar succ -- w outcome )
-  lf-level-mvar-assign dup ok? 0= if nip no-result then ;
+  lf-level-mvar-assign ok-or-none ;
 : idl-succ-of ( mvar w -- w outcome )
   tuck lf-level-succ if idl-assign else 2drop -1 outcome-full then ;
 : idl-fresh ( mvar -- w outcome )
