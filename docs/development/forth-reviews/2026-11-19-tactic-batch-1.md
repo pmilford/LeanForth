@@ -5,6 +5,8 @@ Branch tactic-batch-1, range **b80169d3..70c32327**: the batch's 9 first-parent 
 Findings: 0 high, 2 medium, 8 low. Three are blocking (B1, B2, B3), and each is a few lines.
 
 **Verdict: merge after B1-B3.**
+
+**After the review: B1-B3 were fixed in 323a29e1 and the batch merged to main (4540a2c0); the Fixes section is at the end.**
 - I found no Lean-fidelity failure in left, right, exfalso, intros or clear, or in the behaviour changes (intro-n's kinds, apply's "the term").
 - No path reports success where Lean fails, or closes or leaves a goal Lean would not.
 - The fidelity-review fixes are closed as stated.
