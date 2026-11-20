@@ -54,7 +54,7 @@ Read `docs/project/CODEX_HANDOFF.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `do
 
 ## Review gates
 
-Kernel integrity, declaration import, proof certificate formats, new axioms, verifier bypasses, compiler/FFI assumptions and mathematical parser semantics require explicit human review. All malformed-input tests must fail closed. Maintain at least one acceptance test that constructs a valid proof and one that rejects an invalid proof, once the minimal kernel exists.
+Kernel integrity, declaration import, proof certificate formats, new axioms, verifier bypasses, compiler/FFI assumptions and mathematical parser semantics require explicit human review. The gate is for changes to what the checker accepts, rejects, reads or writes. Refactoring that keeps behaviour the same in `src/kernel`, `src/core` and `src/import` (clean-up, shared words and libraries, added unit tests) is ordinary work (owner, 2026-11-19, `docs/project/OWNER_DECISIONS.md` "The kernel is code like any other"): it needs the Forth review and the full tier with every pinned-Lean comparison, and is reported afterwards; a simple tactic word that is a faithful port of Lean's tactic, compared with pinned Lean with wrong twins, is likewise added and reported, not asked. All malformed-input tests must fail closed. Maintain at least one acceptance test that constructs a valid proof and one that rejects an invalid proof, once the minimal kernel exists.
 
 The project owner is not a Lean expert. Under the owner's decisions of 2026-11-02 (`docs/project/OWNER_DECISIONS.md`), human review of a checker change means all of:
 

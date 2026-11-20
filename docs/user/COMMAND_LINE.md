@@ -378,16 +378,19 @@ $ bin/leanforth check --env tests/front/s2-slice.ndjson --elab-data tests/front/
 
 `tests/front/s2-steps.golden` holds the logs of S2's proof set
 (`tests/front/check_s2.py` checks them, with the schema).
-`scripts/showcase-steps.sh` lays the log out for a person: for each
-theorem of the proof set, its LeanForth text, LeanForth's reading of its
-statement (the first goal, in Lean's notation), each step LeanForth's
-tactics took with the goal before and the goals after, the same theorem in
-Lean (its pinned-Lean twin, named in `tests/front/lean-twins.json`) and the
-verdict of LeanForth's kernel. Lean is not run. By default it runs on S2's slice of `Init` (a second a
+`scripts/showcase-steps.sh` lays the log out for a person, each theorem of
+the proof set in four parts: A, its LeanForth text; B, the same theorem in
+Lean (its pinned-Lean twin, named in `tests/front/lean-twins.json`; copied by
+the script, not LeanForth's output); C, what LeanForth did: its reading of
+the statement (the first goal, in Lean's notation) and each step its tactics
+took, with the goal before and the goals after; D, the verdict of LeanForth's
+kernel. Explanations are comments on the right (`\` or, in the Lean part,
+`--`). Lean is not run. By default it runs on S2's slice of `Init` (a second a
 file; `make test-showcase` compares the output with
 `tests/front/showcase.golden`); with
 `SHOWCASE_LIBRARY="--snapshot INIT.lfsnap --elab-data INIT.elab.ndjson"`
-it runs on all of `Init` (65-100 s a file).
+it runs on all of `Init` (11 to 17 s a file alone, nearly all of it loading the
+snapshot; measured 2026-11-19).
 [examples/s2-showcase.txt](examples/s2-showcase.txt) is its output on all
 of `Init`, run on 2026-11-19.
 
