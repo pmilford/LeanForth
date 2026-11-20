@@ -190,6 +190,9 @@ T{ s\" s\" Membership.mem\" syn-k-binrel lfn-operator: ∈" reg
 T{ s\" s\" Dvd.dvd\" lfn-own-name: zz" reg s" reader.fs: not a syntax word" says? entries -> -2 true 23 }T
 T{ s\" s\" Dvd.dvd\" lfn-own-name: divides" reg s" reader.fs: a word with a meaning of its own" says? entries
    -> -2 true 23 }T
+\ The question itself is asked of syntax words only: another word aborts.
+T{ s\" s\" zzq\" lfa-natural-later?" reg s" lfa-natural-later?: no such syntax word" says? -> -2 true }T
+T{ s" divides" lfa-natural-later? s" by" lfa-natural-later? -> false false }T
 \ Nor may it take a word that has its meaning already ($, a syntax word of
 \ another kind): the meaning stays (review of the divides word, M1).
 T{ s\" s\" Dvd.dvd\" lfn-own-name: $" reg s" reader.fs: a word with a meaning of its own" says? entries

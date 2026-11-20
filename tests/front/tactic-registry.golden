@@ -242,6 +242,7 @@ reserved \/ word
 reserved ↔ word
 reserved <-> word
 reserved ∣ word
+reserved divides word
 reserved by-apply word
 reserved by-assumption word
 reserved by-clear word

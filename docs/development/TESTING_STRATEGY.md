@@ -1463,7 +1463,8 @@ which is what `make mutants` asks. The 2026-11-02 review's figure (90.7% of
 `scripts/pre-tier.sh` (2026-11-19) runs every cheap whole-repository check in one keep-going pass of about two
 minutes and prints one line for each: a clean tree, the test classes, duplicates, new small copies, the style ratchet and review
 log, library callers, the steps of the outcome chains, the progress check, the agents' definitions, the planted-fault table (stale entries, unnamed replacements, and a fault test naming `.tools/`), the layer entries (`scripts/check-layers.py`), the error catalogue
-(`docs/programming/LEANFORTH_WORDS.md` against the messages of `src/author/errors.fs`), documentation links
+(`docs/programming/LEANFORTH_WORDS.md` against the messages of `src/author/errors.fs`), the tactic and word
+registry's golden dump (`tests/front/check_registry.py`), documentation links
 and examples, portable Forth, the Lean source citations, the export list, the standalone libraries, no runner
 falling back to an unpinned `lean`, and a scan of the Python scripts for undefined, shadowed or twice-defined
 names. An implementing agent runs it before handing a branch back, and it is run before every `make tier`: a
