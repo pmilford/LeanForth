@@ -1616,6 +1616,11 @@ efficient way and an easier way to fix unit-test coverage, and decided:
   is exactly a copied phrase and rewrites every member, the result is identical by construction; such a change in
   kernel, core or import files merges after the Forth review and the tier and is reported to the owner
   afterwards. Any other change to those files still needs the owner's approval first.
+  Reported under this rule (a record of its use, not a new decision): branch `cleanup-families-1` (2026-11-19,
+  commit "Extract the exact duplicate groups into shared words", plan 9.4.8l AH) rewrote three kernel members by
+  `check-duplicates.py --extract`: `mixed-level-substitute.fs`'s `lf-mls-closed?` onto `lf-term-no-params?`
+  (defined in `core/terms.fs`), `reduce-nat.fs`'s `lf-rn-node` onto `lf-made-term` (defined in
+  `core/generation-handles.fs`) and `level-make.fs`'s `lf-lmk-pick` onto `first-or-second` (`lib/bounds.fs`).
 - **Tools first:** the duplicates script gains a mode that replaces a group by a named word; a fast per-file
   coverage command lists a file's never-run blocks with line numbers, and a baseline entry can be updated per
   file. Then the remaining groups and coverage debt.
