@@ -170,8 +170,8 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
 \ InferType.lean:229): all stays all.
 : if-whnf-d ( type -- type' outcome )
   lf-defeq-mode lf-tr-all = if lf-meta-whnf else lf-meta-whnf-d then ;
-: if-delta-if ( type flag -- type' outcome ) if if-whnf-d else outcome-ok then ;
-: if-delta ( type -- type' outcome ) dup if-unfolds? ['] if-delta-if ok-apply2 ;
+: if-delta-by ( type flag -- type' outcome ) if if-whnf-d else outcome-ok then ;
+: if-delta ( type -- type' outcome ) dup if-unfolds? ['] if-delta-by ok-apply2 ;
 : if-pi-of ( type -- pi outcome )
   dup if-pi? if outcome-ok else dup if-no-pi if-fail then ;
 : if-to-pi ( type -- pi outcome )
