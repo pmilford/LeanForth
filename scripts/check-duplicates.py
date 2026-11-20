@@ -2,6 +2,7 @@
 """Ratchet on duplicated Forth code (owner, 2026-11-13, plans 9.4.8f and 9.4.8k). Part of `make test`.
 
 Usage: python3 scripts/check-duplicates.py [--update-baseline] [--report] [--counts] [ROOT]
+       python3 scripts/check-duplicates.py --new-words [--base main] [--head REF] [ROOT]
        python3 scripts/check-duplicates.py --explain GROUP | --plan [ROOT]
        python3 scripts/check-duplicates.py --extract GROUP --word NAME --stack "( a -- b )" --home FILE
                                            [--after WORD] [--comment TEXT] [--add-require] [--dry-run] [ROOT]
@@ -47,6 +48,25 @@ went), or a group has no reason or a planned one without a plan row. Fixing a gr
 baseline with --update-baseline only in a reviewed commit, as for tests/forth-quality-baseline.json; it keeps the
 reason of every group whose key or member list is unchanged, and leaves new ones without, so the check then fails
 until each has a reason. --report prints every group, cross-file groups first; --counts the groups by folder.
+
+New small copies (2026-11-20): --new-words [--base main] [--head REF] covers what the ratchet leaves out. It
+takes the colon definitions of src/**/*.fs that the branch adds or whose body it changes (the working tree, or
+the ref --head, against `git merge-base BASE HEAD`; the parser and normal forms above) and, for each of two to
+five tokens, reports every other definition of src/ with the same copy form:
+`file:line: NEW ( stack ) has the body of file:line OTHER: tokens`. Differences from the ratchet's copy form: the
+file's own data words (tables, variables) stay literal (`cells tab-a + @` and `cells tab-b + @` are different
+words), and the shape form is not used (alpha-renamed locals match any short body); a body of numbers, access
+words and stack shuffles only (`8 +`, `cell+ @`, `swap @`; GLUE) is skipped. Exit 1 on anything not excused by a
+line `file:word  reason` (the new word) in tests/small-copies-allowed.txt; nothing ahead of BASE reports nothing.
+Measured on 2026-11-20 against the tree of main e8d57b9c, each BASE being an older first-parent commit of main
+(so the report lists the words of that many commits): 10 commits back 2 reports (one pair, a true copy:
+`swap lf-meta-app` and `swap lf-sx-app`, two names of one body); 20 and 40 back 10 reports each, all true
+copies of a short body, except one family pair (tle-run, tri-run: left and right) that a reviewer may excuse.
+Without the data-word rule and with the shape form the same runs gave 9, 400 and 400 reports, nearly all
+noise (table reads, `['] x ok-apply`); with GLUE alone they were 3 and 37 after the shape form went. Against
+s3a-decide from dded8b85 (25 commits): 5 reports, 4 true (nop-name, lf-nat-lit twice, rn-args). Its
+`lf-nat-name?` is not reported: the old word it duplicated, `lf-menv-nat-name?`, has a longer body (it adds a
+`dup if ... else drop false then` guard), a near copy the text comparison does not see.
 
 Removing a group (owner, 2026-11-19; TESTING_STRATEGY.md "Removing a duplicate group"). A group is exact when
 its members are the same tokens and each word in them names the same definition from every member's file
@@ -101,6 +121,7 @@ import pathlib
 import re
 import shlex
 import shutil
+import subprocess
 import sys
 import tempfile
 
@@ -227,7 +248,9 @@ class Tree:
             self.busy.discard(ref)
         return self.roles[ref]
 
-    def copy_form(self, path, k):
+    def copy_form(self, path, k, literal=False):
+        """The copy form of definition k of path; literal keeps the file's data words as they are (a table
+        of this file and a table of another are different words)."""
         defs, names = self.parsed[path]
 
         def role(word):
@@ -235,7 +258,7 @@ class Tree:
                 return "=" + self.values[path][word]
             ref = self.callee(word, path)
             return None if ref is None or ref in self.busy else self.role(ref)
-        return normal_form(defs[k][2], names - self.shared, role)
+        return normal_form(defs[k][2], set() if literal else names - self.shared, role)
 
     def forms(self):
         """[(member, shape form, copy form)] for every colon definition; member = (file, line, name)."""
@@ -1377,7 +1400,7 @@ def option(argv, name):
 
 
 VALUED = ("--explain", "--extract", "--word", "--stack", "--home", "--after", "--comment", "--extract-table",
-          "--from", "--to")
+          "--from", "--to", "--base", "--head")
 
 
 def rewrite_options(argv):
@@ -1400,6 +1423,111 @@ def rewrite_options(argv):
     return rest, paths, home
 
 
+# --- the words a branch adds: small copies (owner, 2026-11-20) ---------------------------------------
+#
+# A branch that adds `: lf-nat-name? ... ;` of four tokens, equal to the body of an old word, is a copy the
+# ratchet cannot see (MIN_TOKENS).  Over all of src/ the short bodies match by accident; limited to the
+# words a branch adds or whose body it changes there are few enough to read.
+
+SMALL = range(2, MIN_TOKENS)
+ALLOWED = "tests/small-copies-allowed.txt"
+# Bodies that are only access glue or stack shuffling agree by accident: never a copy worth a word.
+GLUE = {"@", "!", "c@", "c!", "+", "-", "*", "cells", "cell+", "cell", "chars", "char+", "dup", "drop", "swap",
+        "over", "rot", "nip", "tuck", "2dup", "2drop", "0=", "0<>", "=", "<>", "not", "and", "or", "1+", "1-",
+        "exit", "true", "false", "?dup", "-rot", "2swap", "2over", "+!", "<", ">", "u<", "u>", "<=", ">=",
+        "invert", "negate", "within"}
+
+
+def git(root, *args):
+    done = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True)
+    if done.returncode:
+        raise SystemExit(f"git {' '.join(args)}: {done.stderr.strip()}")
+    return done.stdout
+
+
+def glue(body):
+    """True for a body of numbers, access words and stack shuffles only (`8 +`, `cell+ @`, `swap @`)."""
+    return all(t in GLUE or NUMBER.fullmatch(t) for t in body)
+
+
+def old_bodies(root, base):
+    """{(file, name): [body, ...]} of the colon definitions of src/**/*.fs at the commit BASE."""
+    out = collections.defaultdict(list)
+    for rel in git(root, "ls-tree", "-r", "--name-only", base, "src").split():
+        if rel.endswith(".fs"):
+            for name, _, body in definitions_of_text(git(root, "show", f"{base}:{rel}"))[0]:
+                out[(rel, name)].append(body)
+    return out
+
+
+def stack_comment(text, line, name):
+    """The `( ... )` after the name on the definition's line, else `( ? )`."""
+    lines = text.split("\n")
+    found = re.search(r"\(\s[^)]*\)", lines[line - 1].split(name, 1)[-1]) if line <= len(lines) else None
+    return found.group(0) if found else "( ? )"
+
+
+def excused(root):
+    """{file:word: reason} of ALLOWED (lines `file:word  reason`; a line starting with # is a comment)."""
+    path = root / ALLOWED
+    out = {}
+    for text in path.read_text().splitlines() if path.exists() else []:
+        if text.strip() and not text.startswith("#"):
+            key, _, why = text.strip().partition(" ")
+            out[key] = why.strip()
+    return out
+
+
+def body_of(tree, file, line, name):
+    """The body tokens of the definition at file:line named name."""
+    defs = tree.parsed[tree.root / file][0]
+    return next(body for n, l, body in defs if (l, n) == (line, name))
+
+
+def small_copies(root, base, head=None):
+    """[(problem line, file:word)] for the words the branch adds or changes (against the merge base of BASE and
+    HEAD, or of BASE and the ref HEAD) of 2 to MIN_TOKENS-1 tokens that another definition of src/ equals in
+    copy form, shape form or literal tokens."""
+    tmp = tempfile.mkdtemp() if head else None
+    try:
+        if head:
+            subprocess.run(f"git -C {shlex.quote(str(root))} archive {shlex.quote(head)} src | tar -x -C {tmp}",
+                           shell=True, check=True)
+        now = pathlib.Path(tmp) if head else root
+        fork = git(root, "merge-base", base, head or "HEAD").strip()
+        old, tree = old_bodies(root, fork), Tree(now)
+        forms = [((str(path.relative_to(tree.root)), line, name), tree.copy_form(path, k, True))
+                 for path, (defs, _) in tree.parsed.items() for k, (name, line, _) in enumerate(defs)]
+        found = []
+        for (file, line, name), cform in forms:
+            body = body_of(tree, file, line, name)
+            if len(cform) not in SMALL or glue(body) or body in old.get((file, name), []):
+                continue
+            text = (now / file).read_text(errors="replace")
+            for (f2, l2, n2), c2 in forms:
+                if (f2, n2) != (file, name) and c2 == cform:
+                    found.append((f"{file}:{line}: {name} {stack_comment(text, line, name)} has the body of "
+                                  f"{f2}:{l2} {n2}: {' '.join(body)}", f"{file}:{name}"))
+        return found
+    finally:
+        if tmp:
+            shutil.rmtree(tmp)
+
+
+def new_words(root, base, head=None):
+    found = small_copies(root, base, head)
+    allowed = excused(root)
+    problems = [text for text, key in found if key not in allowed]
+    problems += [f"{ALLOWED}: {key} has no reason" for key, why in allowed.items() if not why]
+    if problems:
+        print(f"new small copies: words added or changed against {base} with the body of another word (use "
+              f"that word, or excuse the new one as `file:word  reason` in {ALLOWED}):")
+        print("\n".join("  " + p for p in problems))
+        return 1
+    print(f"new small copies: none ({len(found)} excused) against {base}")
+    return 0
+
+
 def main(argv):
     argv, paths, home = rewrite_options(argv)
     values = {name: option(argv, name) for name in VALUED}
@@ -1413,6 +1541,8 @@ def main(argv):
     root = pathlib.Path(args[0]).resolve() if args else DEFAULT_ROOT
     path = root / "tests/duplicates-baseline.json"
     base = json.loads(path.read_text()) if path.exists() else {}
+    if "--new-words" in argv:
+        return new_words(root, values["--base"] or "main", values["--head"])
     if "--rewrite" in argv:
         if values["--from"] is None or values["--to"] is None:
             raise SystemExit("--rewrite needs --from \"TOKENS\" and --to \"TOKENS\"")

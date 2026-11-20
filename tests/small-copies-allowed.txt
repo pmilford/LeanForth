@@ -1,0 +1,4 @@
+# Words that scripts/check-duplicates.py --new-words may report and a branch keeps on purpose.
+# One line per word: `src/path/file.fs:word  reason` (the word the branch adds or changes, not the old one it
+# equals; the reason says why a second word is better than calling the first). Entries are added in the branch
+# that adds the word and removed when the word goes.

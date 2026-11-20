@@ -1418,7 +1418,7 @@ which is what `make mutants` asks. The 2026-11-02 review's figure (90.7% of
 ### Before a tier: the pre-tier check
 
 `scripts/pre-tier.sh` (2026-11-19) runs every cheap whole-repository check in one keep-going pass of about two
-minutes and prints one line for each: a clean tree, the test classes, duplicates, the style ratchet and review
+minutes and prints one line for each: a clean tree, the test classes, duplicates, new small copies, the style ratchet and review
 log, library callers, the steps of the outcome chains, the progress check, the agents' definitions, the planted-fault table, documentation links
 and examples, portable Forth, the Lean source citations, the export list, the standalone libraries, no runner
 falling back to an unpinned `lean`, and a scan of the Python scripts for undefined, shadowed or twice-defined
@@ -1427,6 +1427,13 @@ tier is then never the first place such a failure shows. In a worktree without `
 `LEAN=` as absolute paths. The branch coverage check (`make cover-changed`) is not part of it: it took 29-73 s
 on the three branches measured on 2026-11-19 (below), so the tier runs it; run it while working to see the
 untested lines early.
+
+The new-small-copies line is `python3 scripts/check-duplicates.py --new-words --base main`. The duplicate
+ratchet ignores bodies of fewer than six tokens, because over the whole tree they match by accident; this
+check looks only at the colon words the branch adds or whose body it changes and reports each of two to five
+tokens that another definition of `src/` equals (the same calls and the same data words), such as a new
+`lf-nat-node` that is `lf-made-term`. Use the old word, or excuse the new one with a line
+`file:word  reason` in `tests/small-copies-allowed.txt`.
 
 ## Paying coverage debt (owner, 2026-11-19)
 

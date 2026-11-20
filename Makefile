@@ -231,6 +231,7 @@ check-forth-quality:
 	$(RUN) python3 tests/scripts/test_check_duplicates.py
 	$(RUN) python3 tests/scripts/test_duplicates_extract.py
 	$(RUN) python3 scripts/check-duplicates.py
+	$(RUN) python3 tests/scripts/test_small_copies.py
 	$(RUN) python3 tests/scripts/test_check_outcome_steps.py
 	$(RUN) python3 scripts/check-outcome-steps.py
 

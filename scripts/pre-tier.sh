@@ -13,6 +13,7 @@ run() { local name=$1; shift; local out; out=$("$@" 2>&1 </dev/null); local rc=$
 run "git tree clean"            bash -c 'test -z "$(git status --porcelain)"'
 run "test classes"              python3 scripts/test-classes.py
 run "duplicates"                python3 scripts/check-duplicates.py
+run "new small copies"          python3 scripts/check-duplicates.py --new-words --base main
 run "forth quality + review log" python3 scripts/check-forth-quality.py
 run "library callers"           python3 scripts/check-lib-callers.py
 run "outcome steps"             python3 scripts/check-outcome-steps.py
