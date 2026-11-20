@@ -24,6 +24,8 @@ boundaries are. The detailed status is in
 | [Reading a Lean proof](READING_A_LEAN_PROOF.md) | For readers new to Lean and logic notation: every symbol, three small theorems read as textbook proofs, and each in all its forms (Lean source, `#print`, fully explicit, the kernel's nodes, the NDJSON export, LeanForth's Forth words, the term printer) |
 | [The command line](COMMAND_LINE.md) | `bin/leanforth check FILE.ndjson` on exports of any size and the other commands, what they print (text, the resource report, JSON), exit statuses 0–6, and the commands still limited to small exports |
 | [First check](FIRST_CHECK.md) | The first checker, experimental: a theorem read from Lean's export, checked and accepted; a broken copy rejected |
+| [The language reference](LANGUAGE_REFERENCE.md) | Every word of LeanForth's theorem language: statements, the symbols and how to type them, the tactic words (`by-rfl`, `by-rw[ ]`, `by-induction-with`, `by-decide` and the others), each with its Lean equivalent and checked examples |
+| [Two showcase pages](examples/decide-showcase.txt) | Theorems written in LeanForth beside the same proofs in Lean, what LeanForth did at each step and the kernel's verdict: [by-decide](examples/decide-showcase.txt) (closed facts about numbers) and [induction and rewriting](examples/s2-showcase.txt) |
 | [Concepts, in three forms](CONCEPTS.md) | Level, `Sort`, `Prop`/`Type`, term, binder, de Bruijn index, constant, declaration, theorem and definition, kernel, outcomes — each as mathematics, LeanForth Forth and Lean, with Forth you can run |
 | [Workflows](WORKFLOWS.md) | Diagrams of checking a theorem and verifying a program, marking what exists and what is planned |
 | [Running the checks](RUNNING_THE_CHECKS.md) | The `make` targets, what a pass shows and what it does not |
@@ -112,6 +114,12 @@ and *full* (out of room). Only *ok* is ever accepted. See
 
 ## What you can do today
 
+- Write a theorem and its proof in LeanForth and have LeanForth's kernel check it
+  (`bin/leanforth check --env LIBRARY --elab-data DATA FILE.lf`): statements about natural
+  numbers and truth values with Lean's symbols (`3 3 * 4 4 * + 5 5 * =`), proofs by
+  `by-rfl`, by rewriting and induction, and closed facts by `by-decide`
+  ([the language reference](LANGUAGE_REFERENCE.md); the repository's README gives three
+  commands to try). Most of Lean's tactics are not written yet.
 - Run the test suites and the comparisons with Lean
   ([running the checks](RUNNING_THE_CHECKS.md)).
 - Read and count any Lean 4.35.0 export, up to all of Mathlib, with the
