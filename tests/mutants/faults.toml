@@ -3230,7 +3230,7 @@ reason = "name-table-each visits every other entry"
 [[fault]]
 id = "tex-guillemet-raw"
 file = "src/present/latex-text.fs"
-old = ''': lf-tex-angle? ( code -- flag ) dup $ab = swap $bb = or ;'''
+old = ''': lf-tex-angle? ( code -- flag ) $ab $bb one-of2? ;'''
 new = ''': lf-tex-angle? ( code -- flag ) drop false ;'''
 test = "python3 tests/cli/test_leanforth.py Names.test_print_latex_odd_names"
 reason = "LaTeX gets the « » of a name part raw, which LaTeX's default font encoding cannot set: the fragment does not compile"
@@ -15851,7 +15851,7 @@ reason = "FE1g-3: a block (or the proof) ends with goals left and no unsolved-go
 [[fault]]
 id = "fe-run-fuel-free"
 file = "src/front/tactic-run.fs"
-old = '''  lf-tactic-fuel-left dup 0> if 1- trun trun-fuel ! lf-meta-spend? else drop false then ;'''
+old = '''  trun trun-fuel cell-spend? if lf-meta-spend? else false then ;'''
 new = '''  true ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "FE1g-3: a step spends no fuel, so a run never ends exhausted"
@@ -19912,8 +19912,8 @@ reason = "review s2-unfold-a H1: every value counts as simple, so Nat.pred (heig
 [[fault]]
 id = "fe-whnf-at-most-i-implicit"
 file = "src/front/whnf.fs"
-old = '''  dup lf-tr-all = over lf-tr-default = or over lf-tr-implicit = or'''
-new = '''  dup lf-tr-all = over lf-tr-default = or'''
+old = '''  dup lf-tr-all lf-tr-default lf-tr-implicit one-of3? if drop lf-tr-instances then ;'''
+new = '''  dup lf-tr-all lf-tr-default one-of2? if drop lf-tr-instances then ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "review s2-unfold-a H1: whnfAtMostI keeps implicit transparency, so whnfCoreAtDefEq at implicit unfolds id under a projection (Lean lowers implicit to instances)"
 

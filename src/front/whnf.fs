@@ -379,8 +379,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ whnfAtMostI (proj := yesWithDeltaI): all, default and implicit become
 \ instances.
 : wc-at-most-i ( mode -- mode' )
-  dup lf-tr-all = over lf-tr-default = or over lf-tr-implicit = or
-  if drop lf-tr-instances then ;
+  dup lf-tr-all lf-tr-default lf-tr-implicit one-of3? if drop lf-tr-instances then ;
 : wc-lower ( -- ) wc wc-proj-i @ if lf-defeq-mode wc-at-most-i lf-defeq-mode! then ;
 : wc-proj-at ( p -- k ) lf-proj-leaf lf-proj-idx ;
 \ Only after wc-ctor? (wc-project), as wc-ctor-arity.

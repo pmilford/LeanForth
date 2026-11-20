@@ -238,7 +238,7 @@ end-structure
 : lfr-fuel-start ( -- ) lfr-limit trun trun-fuel ! ;
 \ (A step also spends one of the declaration's budget, --elab-fuel: S1 8.)
 : lfr-spend? ( -- flag )
-  lf-tactic-fuel-left dup 0> if 1- trun trun-fuel ! lf-meta-spend? else drop false then ;
+  trun trun-fuel cell-spend? if lf-meta-spend? else false then ;
 
 \ ---- The record (tactic-syntax.fs). Step i's fields; unchecked.
 : lfr-kind ( i -- kind ) lf-tactic-step tac-kind @ ;

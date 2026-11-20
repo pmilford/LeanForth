@@ -1345,18 +1345,20 @@ does `program/ir-run.fs` (its SHA-256 is evidence of the clamp receipt, 9.4.8l
 T). *Callers*, each once per use, found and rewritten by `check-duplicates.py
 --rewrite`: `one-of2?` in core (`derivation-log.fs` `lf-log-level-leaf`, which
 check_log_isolation.py allows; `tagged-sort-boundary.fs` `lf-repr-mode?`), the
-kernel (`check-declaration.fs` `lf-check-short?`, `env-schedule.fs`
+kernel (`caches.fs` `lf-short?`, shared by `lf-ci-short` and `check-declaration.fs`, `env-schedule.fs`
 `lf-sch-waiting?`, `environment.fs` `lf-kind-bare?` and `lf-env-quot-open?`),
 the front end (`defeq.fs`, `discr-keys.fs`, `elab-app.fs`, `elab-keys.fs`,
 `infer.fs`, `instances.fs`, `lib-decode.fs` twice, `meta-env.fs`,
 `tactic-syntax.fs`, `unfold.fs`), `present/` (`log-check.fs` twice,
-`log-view.fs`, `print-analysis.fs`, `proof-outline.fs`), the library
-(`json-write.fs`'s `jw-listing?`, `jw-value-state?`, `jw-flag?`) and
-`program/ir-reader.fs` (`ir-blank?`, `ir-naming?`): 27; `one-of3?` in core
+`log-view.fs`, `print-analysis.fs`, `proof-outline.fs` twice, `latex-text.fs`
+`lf-tex-angle?`), the library (`json-write.fs`'s `jw-listing?`,
+`jw-value-state?`, `jw-flag?`) and `program/` (`ir-reader.fs` `ir-blank?`,
+`ir-naming?`; `verify-runner.fs` `pv-settled?`): 30; `one-of3?` in core
 (`input.fs` `lf-kind-valued?`), the kernel (`env-import.fs` `unrepeatable?`),
 import (`feed.fs` `feed-member?`, `stage-records.fs` `valued?`), the front end
 (`elab-keys.fs`, `elab-term.fs`, `lib-decode.fs`, `whnf.fs`
-`wc-const-inert?`) and `present/log-view.fs`: 9. Duplicate groups 361de2c5,
+`wc-const-inert?` and `wc-at-most-i`) and `present/log-view.fs`: 10 (the
+last four of each by hand after the review of 2026-11-19, R1). Duplicate groups 361de2c5,
 9daea91f and 1f0b6202 gone. Tested in `tests/lib/lib.fs` (both engines):
 each place, none, a value equal to both, the stack below kept; faults
 `cf3-one-of2-both` and `cf3-one-of3-third-lost`; the callers' own faults
@@ -1369,7 +1371,10 @@ step at a time. It replaced three copies of `X @ dup 0> if 1- X ! true else
 drop false then` (duplicate group d8a6e1b0): the front end's `wc-spend`
 (whnf.fs) and `de-fuel?` (defeq.fs), and core `derivation-log.fs`'s
 `lf-copier-spend` (allowed by check_log_isolation.py, whose rule 4 counts it
-as a store after a field). `lib/walk.fs`'s `walk-spend?` keeps its own test
+as a store after a field); after the review of 2026-11-19 (R1) also
+`present/print-job.fs`'s `lf-pp-spend` (the printer's fuel), the front end's
+`lf-meta-spend?` (meta-config.fs, a declaration's budget) and `lfr-spend?`
+(tactic-run.fs, a tactic run's fuel, then the declaration's): 6. `lib/walk.fs`'s `walk-spend?` keeps its own test
 (`0=`: a negative budget there is spent, not refused). *Algorithm*: fetch,
 test, `+!`. *Generic*: any cell holding a signed count. *Cost*: constant, no
 memory. *Speed* (2026-11-19, Gforth 1.0.0, WSL2, load about 7, 10^7 calls):

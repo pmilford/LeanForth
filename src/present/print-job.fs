@@ -180,7 +180,7 @@ end-structure
 \ The step of a visit that cannot print its node: invalid.
 : lf-pp-invalid-step ( a b frames -- outcome frames 0 ) >r 2drop outcome-invalid r> 0 ;
 \ One unit of fuel for a step along a spine or chain, false when none is left.
-: lf-pp-spend ( -- flag ) lf-print-fuel dup @ 0> if -1 swap +! true else drop false then ;
+: lf-pp-spend ( -- flag ) lf-print-fuel cell-spend? ;
 \ Steps along a spine or chain from k = 0, one unit of fuel each, while
 \ step ( x k -- x' k' true | x k false ) goes on: x and k where it
 \ stopped and ok, or exhausted when the fuel ran out first.

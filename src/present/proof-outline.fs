@@ -267,7 +267,7 @@ end-structure
   then lf-ol-rule lf-ol-end lf-ol-second ;
 : lf-ol-binders ( s -- )
   begin dup lf-ol-lambda? while dup lf-ol-class
-    dup lf-class-prop = over lf-class-type = or if lf-ol-group else lf-ol-single
+    dup lf-class-prop lf-class-type one-of2? if lf-ol-group else lf-ol-single
   then repeat drop ;
 
 \ The discharge line of the chain from s0: the binder lines, latest first,

@@ -150,7 +150,7 @@ end-structure
 
 \ After a THROW that is no diagnostic: the design's handler, which may
 \ record one; if it cannot, the run stopped by an exception.
-: pv-settled? ( code -- flag ) dup 0= swap pv-throw = or ;
+: pv-settled? ( code -- flag ) 0 pv-throw one-of2? ;
 : pv-try ( code xt -- code' ) catch dup if nip then ;
 : pv-interrupted ( code -- ) drop pv-no-token pv-why-interrupted pv-fail-here ;
 : pv-design-handles ( code -- ) pv-design@ pv-design-caught @ execute ;
