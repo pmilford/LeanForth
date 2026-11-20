@@ -387,7 +387,8 @@ verdict of LeanForth's kernel. Lean is not run. By default it runs on S2's slice
 file; `make test-showcase` compares the output with
 `tests/front/showcase.golden`); with
 `SHOWCASE_LIBRARY="--snapshot INIT.lfsnap --elab-data INIT.elab.ndjson"`
-it runs on all of `Init` (65-100 s a file).
+it runs on all of `Init` (11 to 17 s a file alone, nearly all of it loading the
+snapshot; measured 2026-11-19).
 [examples/s2-showcase.txt](examples/s2-showcase.txt) is its output on all
 of `Init`, run on 2026-11-19.
 
