@@ -54,7 +54,6 @@ WHOLE_LOADS = {
     "tests/front/menv-run.fs": "checks through cli-check",
     "tests/front/tactic-basic.fs": "hands its theorems to the kernel through the command line's hooks",
     "tests/front/tactic-run.fs": "hands its theorems to the kernel through the command line's hooks",
-    "tests/support/tier-both-ways.fs": "a hand-run driver of the command line's check (cli/check-run.fs)",
 }
 FORTH_LOAD = re.compile(r"\b(?:require|include|needs)\s+(\S+\.fs)\b", re.IGNORECASE)
 MAIN_LOAD = re.compile(r"^\s*require\s+(?:\.\./)+src/main\.fs\b", re.IGNORECASE | re.MULTILINE)
@@ -130,9 +129,18 @@ def folder_problems():
     return problems
 
 
+def test_files():
+    """Every Forth file under tests/: walked, not globbed, so that scripts/changed-tests.py does
+    not take this check for a run of every test (scripts/test-classes.py would call the hand-run
+    benchmarks' rows stale)."""
+    for top, folders, names in os.walk("tests"):
+        folders.sort()
+        yield from (os.path.join(top, name) for name in sorted(names) if name.endswith(".fs"))
+
+
 def test_problems():
     problems = []
-    for path in sorted(glob.glob("tests/**/*.fs", recursive=True)):
+    for path in test_files():
         if MAIN_LOAD.search(read(path) or "") and path not in WHOLE_LOADS:
             problems.append(f"{path} requires src/main.fs: require the entries of src/load it needs "
                             "(or, if it runs the command line's own words, list it in WHOLE_LOADS)")
