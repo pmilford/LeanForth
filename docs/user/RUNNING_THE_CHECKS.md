@@ -27,6 +27,11 @@ then fails. Run everything from the repository root.
 | `make test` | Gforth and Python 3 | about 8 s (36 s with `JOBS=1`) | Documentation, Lean-source and portability checks, the silent-load check of every module, the test harness's own tests, every Forth unit test, the NDJSON reader's file tests, the fixture bridge, the program examples, the term printer, the receipt schema and the IR reader |
 | `make check` | also Lean 4.35.0 | about 45 s with the Lean cache filled, about 70 s with an empty one, about 75 s without it (`LEAN_CACHE=0`, as CI) | `make test`, then every comparison with pinned Lean |
 
+On a fresh clone (2026-11-20, `JOBS=4`, nothing cached) `make test` took 4 min 42 s and `make check` about
+11 minutes. One comparison of `make check`, the front end on a slice of Mathlib, needs a Mathlib export,
+which is 6 GB and not in the repository: without one it prints `check_mathlib_slice: SKIPPED, NOT RUN`
+and `make check` goes on. The project's own recorded runs (a tier, a push, the nightly run) fail there instead.
+
 Make runs 8 targets at a time (`JOBS=1` runs one at a time) and prints each
 target's output in one piece. At the first failure it starts no more
 targets, lets the running ones finish, names the failing target

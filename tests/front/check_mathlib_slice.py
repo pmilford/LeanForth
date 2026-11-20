@@ -12,8 +12,11 @@ section 6). Never a run on all of Mathlib.
    S1's wrong twin 0 + 0 = 1 refused at by-rfl).
 
 Usage: GFORTH=... [LEANFORTH_LEAN=...] [MATHLIB_EXPORT=...] python3 tests/front/check_mathlib_slice.py
-The fixture's inputs are found as scripts/mathlib-slice.py finds them; without a
-Mathlib export the test fails (exit 1) and says so, never passing unrun. With the
+The fixture's inputs are found as scripts/mathlib-slice.py finds them. Without a
+Mathlib export a recorded run (a tier, a push, the daily run: scripts/tested-tree.py
+sets REQUIRE_MATHLIB=1) fails (exit 1) and says so, never passing unrun; a user's
+plain make check on a fresh clone prints "SKIPPED, NOT RUN" and goes on (exit 0),
+because the export is not in the repository (fresh-clone test of 2026-11-20). With the
 fixture's cache cold it never starts the Mathlib import unless MATHLIB_SLICE_BUILD=1:
 it prints "SKIPPED, NOT A PASS" and exits 3, which a tier counts as a failure
 (nothing recorded) until the cache is filled.
@@ -45,6 +48,16 @@ def fixture():
     if done.returncode == SKIPPED:
         print(f"check_mathlib_slice: SKIPPED, NOT A PASS (exit {SKIPPED}): {done.stderr.strip()}")
         sys.exit(SKIPPED)
+    if (done.returncode != 0 and "no Mathlib export" in done.stderr
+            and os.environ.get("REQUIRE_MATHLIB") != "1"):
+        # A checkout without a Mathlib export (a fresh clone: the export is 6 GB and not in the
+        # repository): a user's make check goes on. scripts/tested-tree.py sets REQUIRE_MATHLIB=1,
+        # so a tier, a push and the daily run still fail here.
+        print("check_mathlib_slice: SKIPPED, NOT RUN: this machine has no Mathlib export "
+              "(--export, $MATHLIB_EXPORT or .tools/mathlib/mathlib.ndjson), so the front end was "
+              "not compared on the Mathlib slice. Every other comparison of make check ran. "
+              "A tier, a push and the nightly run require the export (REQUIRE_MATHLIB=1).")
+        sys.exit(0)
     if done.returncode != 0:
         sys.exit(f"check_mathlib_slice: no fixture (exit {done.returncode}): {done.stderr.strip()}")
     return pathlib.Path(done.stdout.strip())

@@ -5,7 +5,7 @@ LeanForth is a checker for Lean 4 proofs, written in Forth (developed on Gforth 
 ## What it does today
 
 - **Re-checks Lean's exports.** `bin/leanforth check` reads a Lean 4.35.0 export (NDJSON) and checks each declaration with LeanForth's own kernel. It has accepted all of Lean's `Init`, and on build `d789e45f` (2026-11-13, the latest run [the progress page](docs/project/PROJECT_PROGRESS.md) records) all of Mathlib's export (729,263 of 729,263 declarations); later builds have not been run on all of Mathlib. The kernel has not yet passed its human review gate (`AGENTS.md`).
-- **Checks theorems written in LeanForth.** LeanForth's own elaborator turns LeanForth text into kernel terms, and the kernel checks them as it checks an export. Slice S1 is done ([done check](docs/development/done-checks/2026-11-14-s1.md)): `theorem t 0 0 + 0 = := by by-rfl end t` is elaborated and accepted on all of `Init`. Slice S2's tactics (`by-induction-with`, `by-rw[ ]`) are on `main`: `tests/front/01-zero-add-rw.lf` (0 + n = n, by induction and rewriting) and the proof set `tests/front/ps-*.lf` are accepted by the kernel. S2 is not done: the done check of 2026-11-19 ([report](docs/development/done-checks/2026-11-19-s2.md)) found it working end to end on all of `Init`, and not yet done because some documents were out of date and its test-coverage debt is unpaid. Not yet written: most of Lean's tactics, pattern matching and recursion compilation, evaluation. See [the elaborator page](docs/user/ELABORATION.md).
+- **Checks theorems written in LeanForth.** LeanForth's own elaborator turns LeanForth text into kernel terms, and the kernel checks them as it checks an export. Slice S1 is done ([done check](docs/development/done-checks/2026-11-14-s1.md)): `theorem t 0 0 + 0 = := by by-rfl end t` is elaborated and accepted on all of `Init`. Slice S2 is done ([done check](docs/development/done-checks/2026-11-19-s2-done.md)): proofs by induction and rewriting, such as `tests/front/01-zero-add-rw.lf` (0 + n = n) and the proof set `tests/front/ps-*.lf`, are accepted on all of `Init`. These tactic words are on `main` (`by-intro`, `by-intros`, `by-exact`, `by-apply`, `by-rfl`, `by-rw[ ]`, `by-induction-with`, `by-case:`, `by-assumption`, `by-constructor`, `by-left`, `by-right`, `by-exfalso`, `by-clear`, `by-decide`, `by-sorry`), each a port of Lean's tactic compared with pinned Lean. `by-decide` proves closed facts about numbers by computation ([done check](docs/development/done-checks/2026-11-19-s3a-done.md)): `6 7 * 42 =`, `3 3 * 4 4 * + 5 5 * =`. Two pages show what LeanForth does on each theorem, beside the same proof in Lean: [induction and rewriting](docs/user/examples/s2-showcase.txt) and [by-decide](docs/user/examples/decide-showcase.txt). Not yet written: most of Lean's tactics, pattern matching and recursion compilation, evaluation. See [the elaborator page](docs/user/ELABORATION.md).
 - **Verified Forth programs (second path).** `bin/leanforth verify SOURCE.fs --contract CONTRACT` checks one Forth word against a contract: pinned Lean writes the proofs and LeanForth's checker re-checks them ([manual](docs/programming/PROGRAM_VERIFY.md)). Its first slice (V1) is on `main`; the later slices are parked.
 
 Correctness is relative to stated semantics and assumptions; the elaborator, parsers, tactics and printers are untrusted and can never make a wrong proof accepted. Current state, both tracks and limits: [project progress](docs/project/PROJECT_PROGRESS.md) (its "Now, next, later" list is the queue).
@@ -25,9 +25,11 @@ The Makefile and `bin/leanforth` find these automatically (override with `GFORTH
 ## Run
 
 ```bash
-make test    # Forth and Python tests; needs only Gforth and Python 3 (several minutes; about 9 min at JOBS=2, 2026-11-14)
-make check   # make test plus every pinned-Lean comparison
+make test    # Forth and Python tests; needs only Gforth and Python 3 (4 min 42 s at JOBS=4 on a fresh clone, 2026-11-20)
+make check   # make test plus every pinned-Lean comparison (about 11 min at JOBS=4)
 ```
+
+`make check` compares the front end on a slice of Mathlib only where a Mathlib export is present (it is 6 GB and not in the repository); without one it prints `check_mathlib_slice: SKIPPED, NOT RUN` and goes on. Installing took 97 s for Gforth and 13 s for Lean on a fresh clone (2026-11-20); `.tools/` then holds 3 GB.
 
 **Check a Lean export:** `bin/leanforth check FILE.ndjson` prints each declaration's verdict and a summary; see [the command line](docs/user/COMMAND_LINE.md) for options, exit statuses and how to export Init or Mathlib. `bin/leanforth help` lists every command.
 
@@ -41,6 +43,12 @@ S2, 0 + n = n by induction and rewriting (run on 2026-11-15: exit 0, `zero_add''
 
 ```bash
 bin/leanforth check --env tests/front/s2-slice.ndjson --elab-data tests/front/s2-slice.elab.ndjson tests/front/01-zero-add-rw.lf
+```
+
+`by-decide`, closed facts about numbers such as 6 * 7 = 42 and 3² + 4² = 5² (run on 2026-11-20 on a fresh clone: exit 0, each theorem `accepted; axioms: none`, ending `1273 declarations: 1273 accepted`, 5 s):
+
+```bash
+bin/leanforth check --env tests/front/decide-slice.ndjson --elab-data tests/front/decide-slice.elab.ndjson tests/front/tactics/decide/dc-ops.lf
 ```
 
 The output first lists the slice's library declarations, then yours. A `sorryAx` line in the S2 slice's list is part of the library and is marked NOT PROVED, as the summary says.

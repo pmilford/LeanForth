@@ -754,6 +754,9 @@ def list_records(show_all):
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
+    # A recorded run never skips the Mathlib slice comparison for want of the export
+    # (tests/front/check_mathlib_slice.py skips it only for a user's plain make check).
+    os.environ.setdefault("REQUIRE_MATHLIB", "1")
     command = argv[argv.index("--") + 1:] if "--" in argv else []
     options = argv[:argv.index("--")] if "--" in argv else argv
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])

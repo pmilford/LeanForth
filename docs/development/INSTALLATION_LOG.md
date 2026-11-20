@@ -149,3 +149,23 @@ claiming it works for others. Do not require GitHub authentication for local use
   reported the pinned revision. The scratch installation was then removed.
 - After the reinstall, `make check` (every Forth, Python and pinned-Lean test)
   passed locally in about 69 seconds with Gforth 1.0.0 and Lean 4.35.0.
+
+## 2026-11-20: fresh-clone test of the install scripts and the README
+
+A new clone of `main` (`b9ba3243`) in a scratch folder, the README followed line by line
+(the `sudo apt-get` line not run: the machine already had those packages):
+
+- `scripts/install-gforth.sh .tools/gforth`: exit 0, 97 s; Gforth 1.0.0.
+- `scripts/install-lean.sh .tools/elan/toolchains/leanprover--lean4---v4.35.0`: exit 0, 13 s;
+  Lean 4.35.0. `.tools/` then holds 3.0 GB.
+- The README's S1 and S2 commands: exit 0, `548 declarations: 548 accepted` and
+  `580 accepted`, each in about a second; `tests/front/tactics/decide/dc-ops.lf` on the
+  decide slice: exit 0 in 5 s; `bin/leanforth --version` names Gforth 1.0.0, Lean 4.35.0
+  and the commit.
+- `make test JOBS=4`: exit 0, 4 min 42 s.
+- `make check JOBS=4`: exit 2 after 11 min 40 s. `make -k check` showed one failing
+  target, `reference-mathlib-slice`, which needs the Mathlib export (6 GB, not in the
+  repository); every other target passed. Fixed the same day: without an export a
+  user's `make check` prints `check_mathlib_slice: SKIPPED, NOT RUN` and goes on, and a
+  recorded run (a tier, a push, the daily run) still fails
+  (`tests/front/check_mathlib_slice.py`, `REQUIRE_MATHLIB=1` set by `scripts/tested-tree.py`).

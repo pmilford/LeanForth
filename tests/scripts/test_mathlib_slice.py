@@ -68,6 +68,35 @@ class Cached(unittest.TestCase):
         self.assertEqual(list(self.cache.iterdir()), [])
 
 
+class NoExport(unittest.TestCase):
+    """tests/front/check_mathlib_slice.py on a machine without a Mathlib export: a user's
+    make check skips it and says so; a recorded run (REQUIRE_MATHLIB=1) fails."""
+
+    def run_check(self, require):
+        import subprocess
+        env = dict(os.environ, MATHLIB_EXPORT="/nonexistent/mathlib.ndjson")
+        env.pop("REQUIRE_MATHLIB", None)
+        if require:
+            env["REQUIRE_MATHLIB"] = "1"
+        return subprocess.run([sys.executable, "tests/front/check_mathlib_slice.py"], cwd=ROOT, env=env,
+                              capture_output=True, text=True, timeout=120)
+
+    def test_a_users_run_skips_and_says_so(self):
+        done = self.run_check(False)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("SKIPPED, NOT RUN", done.stdout)
+        self.assertIn("no Mathlib export", done.stdout)
+
+    def test_a_recorded_run_fails(self):
+        done = self.run_check(True)
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("no fixture", done.stderr)
+
+    def test_tested_tree_requires_it(self):
+        text = (ROOT / "scripts/tested-tree.py").read_text(encoding="utf-8")
+        self.assertIn('os.environ.setdefault("REQUIRE_MATHLIB", "1")', text)
+
+
 class Main(unittest.TestCase):
     """main() on stand-in inputs and an empty cache: skipped without the opt-in."""
 
