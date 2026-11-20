@@ -328,7 +328,7 @@ defer lf-elab-default-instances ( class -- addr n outcome )
   >r over r> ep-resumed. ep-keep ;
 : ep-resume ( first k -- first outcome ) over + ep-scratch-at 2@ ep-try-entry ;
 : ep-resume-all ( first n -- first n outcome ) 2dup ['] ep-resume ok-each nip ;
-: ep-kept ( first n -- from m ) + ep-scratch slab-count over - ;
+: ep-kept ( first n -- from m ) + dup ep-scratch slab-since ;
 : ep-to-window ( i -- outcome ) ep-scratch-at 2@ ep-pending slab-2push ;
 : ep-back ( from m -- outcome )
   over + swap ?do i ep-to-window dup ok? 0= if unloop exit then drop loop outcome-ok ;
@@ -338,7 +338,7 @@ defer lf-elab-default-instances ( class -- addr n outcome )
 : ep-abandon ( first outcome -- false outcome ) swap ep-scratch-cut false swap ;
 \ A step that fails part-way loses nothing (review N4 of 2026-11-18): the
 \ window becomes its n entries taken, then those made meanwhile.
-: ep-tail ( w -- from w ) ep-scratch slab-count over - swap ;
+: ep-tail ( w -- from w ) dup ep-scratch slab-since swap ;
 : ep-unstep ( first n -- outcome )
   lf-elab-pending# dup ['] ep-to-scratch ok-each dup ok? 0= if nip nip nip exit then
   drop ep-window-cut -rot ep-back ok-then? if ep-tail ep-back then ;
@@ -481,7 +481,7 @@ is ep-b-next
 \ a Lean error read as false), else the first a default instance fills.
 : epc ( -- addr ) ep-cs slab-last ;
 : ep-c-first ( -- first ) epc epc-first @ ;
-: ep-c# ( -- n ) ep-goals slab-count ep-c-first - ;
+: ep-c# ( -- n ) ep-c-first ep-goals slab-since ;
 : ep-c-at ( k -- i ) ep-goals slab-count 1- swap - ;   \ Lean's list: the newest first
 : ep-c-goal ( k -- mvar ) ep-c-at ep-goals slab-at @ ;
 : ep-c-remove ( k -- ) ep-c-at ep-goals slab-remove ;

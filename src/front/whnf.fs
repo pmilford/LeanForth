@@ -292,7 +292,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 : wc-fields ( rhs nfields -- rhs' outcome )
   wc-margs slab-count tuck swap - 0 max tuck - swap wc-margs lf-meta-apply-from ;
 : wc-rest ( rhs -- rhs' outcome )
-  wc-major-at 1+ wc-args slab-count over - swap wc-args lf-meta-apply-from ;
+  wc-major-at 1+ dup wc-args slab-since swap wc-args lf-meta-apply-from ;
 : wc-prefixed ( rhs -- rhs' outcome ) wc-prefix 0 wc-args lf-meta-apply-from ;
 : wc-fire ( rule -- term outcome )
   dup lf-irule-nfields swap lf-irule-rhs wc-rhs-levels
@@ -469,7 +469,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 : wc-alt-apply ( i -- e' outcome )
   wc wc-mpre @ + wc-args lf-meta-arg wc-margs lf-meta-apply-all
   ok-then? 0= if no-result exit then
-  wc wc-mpre @ wc wc-malts @ + wc-args slab-count over - swap wc-args lf-meta-apply-from
+  wc wc-mpre @ wc wc-malts @ + dup wc-args slab-since swap wc-args lf-meta-apply-from
   ['] lf-meta-head-beta ok-apply ;
 : wc-match-frame ( -- outcome )
   wc wc-aux @ wc-minfo! dup ok? 0= if exit then drop

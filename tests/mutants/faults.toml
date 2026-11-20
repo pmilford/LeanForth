@@ -6538,7 +6538,7 @@ reason = "5.2.3 strings: Lean's == takes any two string literals for equal; \"ab
 [[fault]]
 id = "str-fields-any"
 file = "src/core/string-literals.fs"
-old = '''  swap lf-str-bytes slab-count swap - swap - 0< 0= ;'''
+old = '''  swap lf-str-bytes slab-since swap - 0< 0= ;'''
 new = '''  2drop true ;'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "5.2.3 strings: the audit passes a leaf whose bytes lie past the slab's units in use"
@@ -13322,7 +13322,7 @@ reason = "FE1c: iota applies the rule's right side without the recursor's parame
 [[fault]]
 id = "fe-whnf-iota-rest-dropped"
 file = "src/front/whnf.fs"
-old = '''  wc-major-at 1+ wc-args slab-count over - swap wc-args lf-meta-apply-from ;'''
+old = '''  wc-major-at 1+ dup wc-args slab-since swap wc-args lf-meta-apply-from ;'''
 new = '''  wc-major-at 1+ 0 swap wc-args lf-meta-apply-from ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "FE1c: iota drops the arguments after the major premise (Nat.rec m z s Nat.zero x gives z, not z x)"
@@ -16827,7 +16827,7 @@ reason = "S2 merge B: reduceMatcher? always takes the first alternative (Nat.add
 [[fault]]
 id = "fe-match-extra-args-dropped"
 file = "src/front/whnf.fs"
-old = '''  wc wc-mpre @ wc wc-malts @ + wc-args slab-count over - swap wc-args lf-meta-apply-from'''
+old = '''  wc wc-mpre @ wc wc-malts @ + dup wc-args slab-since swap wc-args lf-meta-apply-from'''
 new = '''  wc wc-mpre @ 0 swap wc-args lf-meta-apply-from'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S2 merge B: reduceMatcher? drops the arguments after the alternatives"
