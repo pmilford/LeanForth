@@ -72,6 +72,15 @@
 \       (unassigned), else introN n with no names and the nodes' kinds, the
 \       n free variables in cells of mti-cells (meta-must.fs's
 \       lf-with-cells)
+\   lf-goal-clear! ( goal fvar -- goal' )  MVarId.clear (Clear.lean:20-41),
+\       the throwing face of goals.fs's lf-goal-clear: in goal's context
+\       (checkNotAssigned first), fvar must be a local of it (else error
+\       440, "Tactic `clear` failed: unknown variable 'x'"), no other
+\       local's declaration may depend on it (the oldest that does: 441,
+\       "variable 'h' depends on 'x'"), nor the goal's type (442, "target
+\       depends on 'x'"), each with the goal after a blank line; goal' a
+\       new goal of the same type and tag in the context without fvar,
+\       goal assigned it
 \   lf-goal-checked-assign ( goal e -- )  MVarId.checkedAssign
 \       (ExprDefEq.lean:1341) as closeMainGoal calls it: a free variable
 \       of e outside goal's context, or an assignment refused, is error 98
@@ -104,6 +113,7 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../../lib/lib.fs
 require ../../lib/slab.fs
+require ../../lib/find.fs
 require ../../lib/context.fs
 require ../../core/terms.fs
 require ../../core/let-terms.fs
@@ -272,6 +282,35 @@ end-structure
 : lf-goal-intros ( goal -- goal' )
   dup lf-goal-type lf-instantiate! lf-intros-size ?dup 0= if exit then
   dup mti-cells ['] mti-intros lf-with-cells ;
+
+\ ---- MVarId.clear (Clear.lean:20-41): its three refusals, each
+\ throwTacticEx `clear` with Lean's text and the goal, then goals.fs's
+\ lf-goal-clear (which checks again and makes the goal).
+440 outcome-invalid s" Tactic `clear` failed: unknown variable"
+  lfa-code: lfa-e-clear-unknown
+441 outcome-invalid s" Tactic `clear` failed: variable" lfa-code: lfa-e-clear-depends
+442 outcome-invalid s" Tactic `clear` failed: target depends on"
+  lfa-code: lfa-e-clear-target
+: mcl-fvar. ( fvar -- outcome ) s"  " lf-pp-emit lf-tac-quoted. ;
+: mcl-depends. ( fvar -- outcome ) s"  depends on" lf-pp-emit mcl-fvar. ;
+: mcl-refuse ( goal fvar code -- ) swap ['] mcl-fvar. lf-tac-inline lf-tac-ex ;
+: mcl-known ( goal fvar -- goal fvar )
+  over lf-goal-view over lf-view-has? 0= if lfa-e-clear-unknown mcl-refuse then ;
+\ localDeclDependsOn of local k, fvar's own passed over (lctx.forM: the
+\ oldest first).
+: mcl-dep? ( fvar k -- fvar flag )
+  lf-mctx-view swap lf-view-fvar 2dup = if drop false exit then
+  over lf-local-depends-on? lf-must ;
+: mcl-dependent ( goal fvar k -- )
+  lf-mctx-view swap lf-view-fvar ['] mcl-fvar. lf-tac-inline
+  ['] mcl-depends. lf-tac-inline lfa-e-clear-depends lf-tac-ex ;
+: mcl-locals ( goal fvar -- goal fvar )
+  dup lf-mctx-view lf-view-count ['] mcl-dep? find-index if mcl-dependent then ;
+: mcl-target ( goal fvar -- goal fvar )
+  over lf-goal-type over lf-depends-on? lf-must if lfa-e-clear-target mcl-refuse then ;
+: mcl-run ( goal fvar -- goal' ) mcl-known mcl-locals mcl-target lf-goal-clear lf-must ;
+: lf-goal-clear! ( goal fvar -- goal' )
+  over lf-goal-not-assigned drop over ['] mcl-run lf-with-goal ;
 
 \ ---- checkedAssign (ExprDefEq.lean:1341) as closeMainGoal calls it.
 : mtg-outside? ( view leaf -- view flag )

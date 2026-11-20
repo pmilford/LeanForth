@@ -40,8 +40,9 @@
 \   with exceptFVars, the n free variables in the cells at addr, which
 \   view1's locals may hold without view2 holding them (checkAssignment's
 \   pattern variables); a negative n, or a view that names none, is false;
-\ - lf-view-count ( view -- n ), lf-view-local ( view i -- local )
-\   (unchecked: a valid view, 0 <= i < n), lf-view-valid? ( view -- flag ).
+\ - lf-view-count ( view -- n ), lf-view-local ( view i -- local ),
+\   lf-view-fvar ( view i -- fvar ) its free variable (unchecked: a valid
+\   view, 0 <= i < n), lf-view-valid? ( view -- flag ).
 \ Local instances (Lean's MetavarDecl.localInstances) are the view's
 \ locals with a class, in order. lf-views-reset ( -- ) empties all,
 \ with lf-mctx-reset; a local or view means nothing afterwards.
@@ -135,8 +136,8 @@ end-structure
 : lf-view-valid? ( view -- flag ) run-valid? ;
 : lf-view-count ( view -- n ) run-count ;
 : lf-view-local ( view i -- local ) run@ ;
-: lv-fvar-at ( view i -- fvar ) lf-view-local lf-local-fvar ;
-: lv-holds? ( view fvar i -- view fvar flag ) >r over r> lv-fvar-at over = ;
+: lf-view-fvar ( view i -- fvar ) lf-view-local lf-local-fvar ;
+: lv-holds? ( view fvar i -- view fvar flag ) >r over r> lf-view-fvar over = ;
 : lf-view-find ( view fvar -- i true | false )
   over lf-view-valid? 0= if 2drop false exit then
   over lf-view-count 0 ?do i lv-holds? if 2drop i true unloop exit then loop 2drop false ;
@@ -180,11 +181,11 @@ end-structure
 : lv-skip? ( fvar -- flag ) lv lv-except @ lv lv-except# @ cells-has? ;
 : lv-more? ( view1 k -- flag ) swap lf-view-count < ;
 : lv-skipped ( view1 k -- view1 k' )
-  begin 2dup lv-more? while 2dup lv-fvar-at lv-skip? 0= if exit then 1+ repeat ;
+  begin 2dup lv-more? while 2dup lf-view-fvar lv-skip? 0= if exit then 1+ repeat ;
 : lv-advance ( view1 k fvar -- view1 k' )
-  >r lv-skipped 2dup lv-more? if 2dup lv-fvar-at r@ = if 1+ then then r> drop ;
+  >r lv-skipped 2dup lv-more? if 2dup lf-view-fvar r@ = if 1+ then then r> drop ;
 : lv-scan ( view1 k view2 -- view1 k' )
-  dup lf-view-count 0 ?do dup i lv-fvar-at swap >r lv-advance r> loop drop ;
+  dup lf-view-count 0 ?do dup i lf-view-fvar swap >r lv-advance r> loop drop ;
 : lv-sub? ( view1 view2 -- flag )
   2dup lf-view-valid? swap lf-view-valid? and 0= if 2drop false exit then
   0 swap lv-scan lv-skipped swap lf-view-count = ;

@@ -82,6 +82,12 @@
 \       postponing allowed (lf-tac-elab); the result instantiated; Lean
 \       then synthesizes when it is a metavariable, which LeanForth does
 \       not port (unsupported, error 99)
+\   lf-tac-get-fvar ( node -- fvar )  getFVarId (ElabTerm.lean:272-277): the
+\       term elaborated as elabTermForApply does with no postponing (an
+\       identifier with no argument inserted), instantiated; anything but
+\       a free variable is error 389, Lean's "Unexpected term `e`; expected
+\       single reference to variable" (a metavariable too: Lean prints its
+\       ?m.N, LeanForth's name differs, never accepted)
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: tb, the running step record's fields (tactic-run.fs's
 \ lf-tac-record, review fe1g3 M2), in the checker context (ADR 0009); no
@@ -93,6 +99,7 @@ require ../lib/runs.fs
 require ../author/errors.fs
 require ./syntax.fs
 require ./mvars.fs
+require ./meta-spine.fs
 require ./meta-config.fs
 require ./goals.fs
 require ./goal-print.fs
@@ -195,10 +202,22 @@ end-structure
   tcr-fresh-free tb tb-goal @ swap lf-goal-checked-assign lf-tac-pop-main ;
 : lf-close-main-goal-using ( i*x i xt -- ) swap ['] tcr-closing lf-tac-step-run ;
 
-\ ---- elabTermForApply.
-: tcr-ident ( node -- e ) lf-elab-ident lf-tac-must ;
-: tcr-term ( node -- e ) -1 true lf-tac-elab-term ;
+\ ---- elabTermForApply, with mayPostpone given.
+: tcr-ident ( node postpone? -- e ) drop lf-elab-ident lf-tac-must ;
+: tcr-term ( node postpone? -- e ) -1 swap lf-tac-elab-term ;
+: tcr-for-apply ( node postpone? -- e )
+  over lf-elab-ident? if tcr-ident else tcr-term then lf-instantiate! ;
 : tcr-not-mvar ( e -- e ) dup lf-mvar? if lfa-e-tac-form lf-tac-fail then ;
-: lf-tac-elab-for-apply ( node -- e )
-  dup lf-elab-ident? if tcr-ident else tcr-term then lf-instantiate! tcr-not-mvar ;
+: lf-tac-elab-for-apply ( node -- e ) true tcr-for-apply tcr-not-mvar ;
+
+\ ---- getFVarId: elabTermForApply with no postponing, a free variable.
+389 outcome-invalid s" Unexpected term" lfa-code: lfa-e-tac-not-fvar
+: tcr-expected. ( -- outcome )
+  s" ; expected single reference to variable" lf-pp-emit outcome-ok ;
+: tcr-unexpected. ( e -- outcome )
+  s"  " lf-pp-emit lf-tac-inline. ['] tcr-expected. ok-and ;
+: tcr-fvar ( e -- fvar )
+  dup lf-meta-fvar? if exit then
+  ['] tcr-unexpected. lf-tac-inline lfa-e-tac-not-fvar lf-tac-stop ;
+: lf-tac-get-fvar ( node -- fvar ) false tcr-for-apply tcr-fvar ;
 base !   \ the BASE this file was loaded with

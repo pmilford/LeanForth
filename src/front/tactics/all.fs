@@ -5,6 +5,7 @@
 require ./apply.fs
 require ./assumption.fs
 require ./case.fs
+require ./clear.fs
 require ./constructor.fs
 require ./exact.fs
 require ./exfalso.fs

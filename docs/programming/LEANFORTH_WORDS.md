@@ -504,6 +504,10 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 219 | invalid | Invalid rewrite argument: The pattern to be substituted is a metavariable |
 | 220 | invalid | Occurs check failed: Expression |
 | 300 | full | out of room: a Forth stack, the dictionary or the heap, with its THROW code |
+| 440 | invalid | Tactic `clear` failed: unknown variable |
+| 441 | invalid | Tactic `clear` failed: variable |
+| 442 | invalid | Tactic `clear` failed: target depends on |
+| 389 | invalid | Unexpected term |
 | 380 | invalid | Tactic `apply` failed: could not unify the |
 | 384 | invalid | Tactic `apply` failed: failed to assign synthesized instance |
 | 381 | invalid | Tactic `assumption` failed |

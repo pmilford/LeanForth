@@ -8,6 +8,7 @@
 \   lf-tac-indented. ( term -- outcome )  indentExpr: the term
 \       instantiated, on its own line, indented, to the message's sink
 \   lf-tac-inline. ( term -- outcome )  inlineExpr: `term`
+\   lf-tac-quoted. ( term -- outcome )  m!"'{e}'": 'term' (clear's)
 \   lf-tac-line. ( c-addr u term -- outcome )  a label, then the term
 \       indented on the next line
 \   lf-tac-goal-of. ( goal -- outcome )  a goal after a line break (Lean's
@@ -66,7 +67,10 @@ require ./meta-must.fs
 : tmg-term. ( term -- outcome ) lf-instantiate-mvars ok-then? if tmg-named then ;
 : lf-tac-indented. ( term -- outcome ) s"   " lf-pp-emit tmg-term. ;
 : lf-tac-line. ( c-addr u term -- outcome ) >r lf-pp-emit r> lf-tac-indented. ;
-: lf-tac-inline. ( term -- outcome ) s" `" lf-pp-emit tmg-term. s" `" lf-pp-emit ;
+: tmg-mark ( c-addr -- ) 1 lf-pp-emit ;   \ one character
+: tmg-in ( term c-addr -- outcome ) dup tmg-mark swap tmg-term. swap tmg-mark ;
+: lf-tac-inline. ( term -- outcome ) s" `" drop tmg-in ;
+: lf-tac-quoted. ( term -- outcome ) s" '" drop tmg-in ;
 : lf-tac-goal-of. ( goal -- outcome ) s\" \n" lf-pp-emit lf-goal-print ;
 : lf-tac-goal-below. ( goal -- outcome ) s\" \n\n" lf-pp-emit lf-goal-print ;
 : lf-tac-.name ( name -- ) s" `" lf-pp-emit lf-pp-name s" `" lf-pp-emit ;

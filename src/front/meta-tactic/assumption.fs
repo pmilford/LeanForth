@@ -48,7 +48,7 @@ require ./goal.fs
   lf-local-fvar lf-fvar-type over swap mas-defeq ;
 : mas-find ( type -- k true | false )
   lf-mctx-view lf-view-count ['] mas-fits? find-last-index ;
-: mas-fvar ( k -- fvar ) lf-mctx-view swap lf-view-local lf-local-fvar ;
+: mas-fvar ( k -- fvar ) lf-mctx-view swap lf-view-fvar ;
 : mas-none ( goal -- ) lfa-e-assumption lf-tac-ex ;
 : mas-run ( goal -- )
   lf-goal-not-assigned dup lf-goal-type lf-instantiate! mas-find

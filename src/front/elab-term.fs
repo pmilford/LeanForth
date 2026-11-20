@@ -135,7 +135,7 @@ end-structure
   et-vars slab-at @ outcome-ok ;
 : et-hyp ( name -- f outcome )
   lf-mctx-view swap lf-view-named 0= if -1 outcome-invalid exit then
-  lf-mctx-view swap lf-view-local lf-local-fvar outcome-ok ;
+  lf-mctx-view swap lf-view-fvar outcome-ok ;
 : et-head ( node -- f outcome )
   dup syn-a@ swap syn-kind@ case syn-k-const of et-const endof syn-k-var of et-var endof
     syn-k-hyp of et-hyp endof nip -1 outcome-invalid rot endcase ;

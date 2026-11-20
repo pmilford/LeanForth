@@ -15604,7 +15604,7 @@ reason = "FE1g-1: a hypothesis renamed by the user stays inaccessible (printed n
 [[fault]]
 id = "fe-goal-sub-prefix-unordered"
 file = "src/front/lctx-views.fs"
-old = '''  >r lv-skipped 2dup lv-more? if 2dup lv-fvar-at r@ = if 1+ then then r> drop ;'''
+old = '''  >r lv-skipped 2dup lv-more? if 2dup lf-view-fvar r@ = if 1+ then then r> drop ;'''
 new = '''  drop ;'''
 test = "$GFORTH tests/front/goals.fs"
 reason = "FE1g-1: isSubPrefixOf never finds a variable in the second context, so only the empty context is a sub-prefix"
