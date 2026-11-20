@@ -1675,3 +1675,20 @@ debt and be paid before the slice's done check), the owner answered: "Yes end th
   (`lf-whnf-stuck`, plan 9.4.8l AA) and held up S2's done check through three runs.
 - The assistant asked about front-end code; the owner's answer was general, and it is applied to all new code.
 - Debt recorded before this date is paid by the clean-up slot (`make cover-debt` lists it).
+
+## The kernel is code like any other (2026-11-19, evening)
+
+Asked to approve mechanical clean-up of kernel, core and import files, the owner answered: "I think you are
+protecting the kernel too much by avoiding making changes - if it is poor code it needs fixing. the kernel to me
+isn't any different than other code - it is not done yet, it is perhaps closer to done, but it still needs edits,
+we are improving it, and will test the same as everything else after fixing it. it needs clear easy to maintain,
+well factored and well tested (unit) code. the mathlib import is a huge test of it. parallel import another big
+test. normal unit tests another big test, well factored libraries another good test."
+
+- Refactoring that keeps behaviour the same (clean-up, shared words and libraries, renaming, added unit tests)
+  in `src/kernel`, `src/core` and `src/import` is ordinary work: no question first; the Forth review, the full
+  tier with every pinned-Lean comparison, the nightly parallel run of Init, and a report afterwards. This
+  replaces the rule that only tool-made exact extractions could touch those folders without asking.
+- As the assistant reads it (not the owner's words): a change to what the checker accepts or rejects (a rule,
+  an axiom, a file or record format, the trust boundary) still goes through the review gate of `AGENTS.md`
+  (Lean's behaviour, differential tests, independent review, a short plain summary for the owner).
