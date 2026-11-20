@@ -704,43 +704,70 @@ each other).
   load the smallest entry of `src/load/` that serves them: the kernel's unit
   tests and pinned-Lean tables `src/load/kernel.fs` (the fed driver adds
   `import.fs`), the snapshot tests `checker.fs` and `cli/check-run.fs`, the
-  front end's Meta tests `front.fs`, and the front end's tests that open a
-  library `checker.fs`, `front.fs` and `cli/check-lf.fs`; only the tests
-  that run the command line's own words, listed in
-  `scripts/check-layers.py`, load `src/main.fs`. `test-core-whole` holds the
-  two data-model tests that look at every layer (`tag-sets.fs`,
-  `contexts-main.fs`), so `test-core` loads the kernel at most. What re-runs
-  for a change (the full tier: the coverage of the file, `make test`, `make
-  test-unit` on gforth-fast, `make check-rest`, each target reused while its
-  inputs are unchanged), counted with `scripts/test-tier.py`'s own `Inputs`
-  on the tree of 2026-11-19:
+  import pass's `cli-checker.fs`, the front end's Meta tests `front.fs`, its
+  tests that open a library `checker.fs`, `front.fs` and `cli/check-lf.fs`,
+  and those that check a text through the command line `checker.fs`,
+  `present.fs`, `front.fs` and `cli.fs`; only `tests/smoke/smoke.fs` and
+  `tests/core/contexts-main.fs`, which test the whole load, load
+  `src/main.fs` (`scripts/check-layers.py`'s list). `test-core-whole` holds
+  the two data-model tests that look at every layer (`tag-sets.fs`,
+  `contexts-main.fs`), so `test-core` loads the kernel at most.
+  **The checker's command line.** `src/cli/leanforth.fs` is the command line
+  of exports and snapshots; the words of a LeanForth text's check, which use
+  the front end, are `src/cli/leanforth-text.fs`'s, which `src/main.fs`
+  loads (through `src/load/cli.fs`). `bin/leanforth-checker` runs
+  `src/load/cli-checker.fs` and prints what `bin/leanforth` prints for every
+  command of an export or a snapshot, `leanforth verify` included, byte for
+  byte (the two share `scripts/leanforth-run.sh`; a text it refuses, exit
+  4); `make test-cli-checker` compares them on every such command and, as it
+  runs `bin/leanforth`, re-runs on any change. The export-only tests and
+  comparisons run `bin/leanforth-checker`: the receipts
+  (`scripts/program_receipt.py`, so `program-clamp-record` and the program
+  references), `leanforth verify`'s references and driver tests, the clamp's
+  mutants, the SHA export, the demos, the run records, the start-limit
+  report and the parallel stress test. The CLI's own tests (`test-cli-*`,
+  `reference-cli`) keep `bin/leanforth`, the users' command.
+  **What the finder no longer takes for an input.** A listing of `/proc`,
+  `/sys` or `/dev` (`scripts/start-limit.sh` counts the user's threads in
+  `/proc`, which from 2026-11-18 left 31 targets without a digest) and a
+  Python import line; a program reached only through a tooling test that
+  declares `# inputs: fixtures only` (its git, home folder and exports are
+  those of repositories it makes; `test_check_layers.py`, so `check-layers`
+  has a digest); and a path a program declares `# inputs: named only: PATH
+  ...` (named in a message, a docstring or as a wrong argument: neither run
+  nor read from there). Targets of `make check` without a digest: 42 → 11.
+  What re-runs for a change (the full tier: the branch coverage check, `make
+  test`, `make test-unit` on gforth-fast, `make check-rest`, each target
+  reused while its inputs are unchanged), counted with
+  `scripts/test-tier.py`'s own `Inputs` on main (7117d1dc) and on this
+  branch:
 
-  | A change to | targets of `make check-rest` re-run, before → after | unit targets on gforth-fast, before → after |
-  | --- | --- | --- |
-  | a front-end module (`src/front/whnf.fs`) | 47 → 18 | 36 → 34 |
-  | a tactic (`src/front/tactics/rfl.fs`) | 45 → 16 | 35 → 33 |
-  | a kernel module (`src/kernel/whnf.fs`) | 48 → 48 | 41 → 43 |
-  | a library the kernel uses (`src/lib/sort.fs`) | 86 → 55 | 51 → 48 |
+  | A change to | `make test` | `make test-unit` (gforth-fast) | `make check-rest` |
+  | --- | --- | --- | --- |
+  | a front-end module (`src/front/whnf.fs`) | 49 → 37 | 36 → 25 | 47 → 11 |
+  | a tactic (`src/front/tactics/rfl.fs`) | 48 → 36 | 35 → 24 | 45 → 9 |
+  | a kernel module (`src/kernel/whnf.fs`) | 54 → 56 | 41 → 42 | 48 → 48 |
+  | a library the kernel uses (`src/lib/sort.fs`) | 65 → 61 | 52 → 47 | 86 → 55 |
 
-  A front-end change no longer re-runs the kernel's 29 pinned-Lean
-  comparisons that `tests/core/lean-differential.py` and the first-checker
-  driver run (`test-first-checker-*`, `test-mixed-*-plain-*`, the depth,
-  universe and dependency tables ...), `test-core`, `test-kernel-reduction`, `test-stage` or
-  `test-composition-fixture`; a kernel change re-runs what loads the kernel,
-  the front end's tests among them, which hand their declarations to it (the
-  two added targets are `check-layers` and `test-core-whole`). The library
-  row also fell because the Lean cache's scripts (`scripts/lean-cache.py`,
-  `lean_pin.py`) spelled `os.path.join(prefix, "lib", "lean")`, which the
-  finder reads as the repository's `lib` folders: every target then read all
-  of `src/lib` and `tests/lib`; they spell `"lib/lean"` now, and
-  `tests/scripts/test_check_layers.py` pins it. What still re-runs for a
-  front-end change: the targets that run `bin/leanforth` (which loads
-  `src/main.fs`) or name `scripts/start-limit.sh` (whose `/proc` listing
-  makes their inputs unknown, so they always run), those that read `src/` as
-  data (a planted fault's copy of the tree, a test that names `whnf.fs`), and
-  the front end's own. `make check-layers` (in `make test`) keeps the entries
-  to their layers and fails when a new test requires `src/main.fs` without a
-  reason in its list.
+  A front-end change no longer re-runs the kernel's pinned-Lean comparisons
+  (`tests/core/lean-differential.py`'s tables and the first-checker
+  driver's), `test-core`, `test-kernel-reduction`, `test-stage`,
+  `test-composition-fixture`, `test-environment`, the program references
+  (`program-clamp-record`, `reference-program-*`), the demos or the program
+  verify driver's tests; a kernel change re-runs what loads the kernel, the
+  front end's tests among them, which hand their declarations to it (the
+  added targets are `check-layers`, `test-core-whole` and
+  `test-cli-checker`). The library row also fell because the Lean cache's
+  scripts spelled `os.path.join(prefix, "lib", "lean")`, which the finder
+  reads as the repository's `lib` folders: every target read all of
+  `src/lib` and `tests/lib`; they spell `"lib/lean"` now
+  (`tests/scripts/test_check_layers.py` pins it). What still re-runs for a
+  front-end change: the front end's own targets, the CLI's (`bin/leanforth`
+  loads everything), the author's end-to-end runs, the checks that read all
+  of `src/` (`smoke`, `check-portable-forth`, `check-layers`, a planted
+  fault's copy of the tree, tests that name `whnf.fs`) and the 11 without a
+  digest. `make check-layers` (in `make test`) keeps the entries to their
+  layers and fails when a new test requires `src/main.fs`.
 - `make once GOALS="check"` runs `make check` unless records stand for it
   (or only the targets they do not stand for), and records the pass; `make tier` (`BASE=main`, `JOBS=2`, `DRY_RUN=1` to
   only print) runs every suite of the branch's tier so, then the progress
