@@ -644,12 +644,17 @@ T{ s-match lctx-crowded s-match execute nip -> -1 outcome-full outcome-ok }T
 \ alternative's result).
 : s-stuck-rec2 ( -- e xt ) ?n fk app recm ['] stuck-pass ;
 : s-stuck-proj2 ( -- e xt ) ?q fk app 0 proj fk app ['] stuck-pass ;
+\ A let variable in the term: getStuckMVar?'s walk for let values is refused
+\ (plan 9.4.8l AA: the refusal once dropped a cell of its caller's).
+: s-stuck-let ( -- e xt ) 0 s" Nat.add" cn fg app fk app ['] stuck-pass ;
+: s-smart-stuck ( -- e xt ) fk fx nat-add ['] lf-meta-whnf ;
 
 : s-match-r ( -- e xt ) fk x+1 m1 ['] lf-meta-whnf-r ;
 : s-match-wide ( -- e xt ) fk x+1 m1 fa app ['] lf-whnf-core ;
 : s-smart3 ( -- e xt ) fk x+1 nat-add fa app ['] lf-meta-whnf ;
 
 T{ s-stuck-rec2 heap-sweep swept? s-stuck-proj2 heap-sweep swept? -> true true }T
+T{ s-stuck-let heap-sweep swept? s-smart-stuck heap-sweep swept? -> true true }T
 T{ s-match-r heap-sweep swept? s-match-wide heap-sweep swept? s-match-wide room-sweep swept?
    -> true true true }T
 T{ s-smart3 heap-sweep swept? s-smart3 room-sweep swept? -> true true }T

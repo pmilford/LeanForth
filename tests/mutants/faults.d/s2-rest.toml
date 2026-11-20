@@ -105,7 +105,7 @@ reason = "s2-rest: an explicit argument's declared explicit pi still refused as 
 [[fault]]
 id = "whnf-stuck-no-shortcut"
 file = "src/front/whnf.fs"
-old = '''  dup ws-reaches-none? ok-then? 0= if nip nip false swap exit then
+old = '''  dup ws-reaches-none? ok-then? 0= if nip false swap exit then
   if drop false outcome-ok exit then
   outcome-ok wc wc-fault ! ws-run ws-checked ;'''
 new = '''  outcome-ok wc wc-fault ! ws-run ws-checked ;'''
@@ -115,7 +115,7 @@ reason = "s2-rest: getStuckMVar? of a stuck match without metavariables answers 
 [[fault]]
 id = "whnf-stuck-shortcut-with-mvars"
 file = "src/front/whnf.fs"
-old = '''  dup ws-reaches-none? ok-then? 0= if nip nip false swap exit then
+old = '''  dup ws-reaches-none? ok-then? 0= if nip false swap exit then
   if drop false outcome-ok exit then
   outcome-ok wc wc-fault ! ws-run ws-checked ;'''
 new = '''  drop false outcome-ok ;'''

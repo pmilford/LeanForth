@@ -1625,3 +1625,11 @@ efficient way and an easier way to fix unit-test coverage, and decided:
   next week. About 43% of the week's tokens remained on the morning of 2026-11-19: one implementing agent at a
   time unless files are fully separate.
 
+## S2's showcase page moves to plan 8.6.12 (2026-11-19, afternoon)
+
+S2's third done check ([2026-11-19-s2-recheck.md](../development/done-checks/2026-11-19-s2-recheck.md)) found the
+showcase page of S2's acceptance (owner, 2026-11-14: each proof printed step by step with the goal and an English
+line, in three forms) still unwritten, because the English line for each step is plan 8.6.12 (explained proofs),
+not started. Asked whether the page stays a condition of calling S2 done, the owner chose: **move it to plan
+8.6.12**. S2 is judged on its tactics working, tested and compared with pinned Lean; the page is written when
+explained proofs are built.

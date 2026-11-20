@@ -68,3 +68,11 @@ old = '''  cli-state run-steps-bad @ if drop outcome-full then ;'''
 new = '''  ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "s2-debt: a step log whose file refused a write is reported as written when the writer itself succeeded"
+
+[[fault]]
+id = "whnf-stuck-refusal-drops-two"
+file = "src/front/whnf.fs"
+old = '''  dup ws-reaches-none? ok-then? 0= if nip false swap exit then'''
+new = '''  dup ws-reaches-none? ok-then? 0= if nip nip false swap exit then'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "plan 9.4.8l AA: a refused let-value walk in lf-whnf-stuck drops a cell of its caller's"

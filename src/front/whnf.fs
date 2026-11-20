@@ -683,7 +683,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
   ['] ws-let? lf-term-holds? swap 0= swap ;
 : lf-whnf-stuck ( term -- mvar true outcome | false outcome )
   dup lf-term-root? 0= if drop false outcome-invalid exit then
-  dup ws-reaches-none? ok-then? 0= if nip nip false swap exit then
+  dup ws-reaches-none? ok-then? 0= if nip false swap exit then
   if drop false outcome-ok exit then
   outcome-ok wc wc-fault ! ws-run ws-checked ;
 
