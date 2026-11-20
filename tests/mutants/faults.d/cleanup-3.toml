@@ -222,3 +222,11 @@ old = ''': ly-fam-other ( head j fam -- e outcome ) tuck ly-fam-rec swap ly-fam-
 new = ''': ly-fam-other ( head j fam -- e outcome ) tuck ly-fam-rec ly-fam-plain ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "review of cleanup-families-3, M2: a family expression's operands read with the record and the family exchanged"
+
+[[fault]]
+id = "cf3r-induct-unknown-structure"
+file = "src/front/defeq.fs"
+old = '''  de-ctor-induct if lf-structure-like? else false then ;'''
+new = '''  de-ctor-induct if lf-structure-like? else true then ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review of cleanup-families-3, L2: a constructor whose inductive has no declaration counts as a structure's, so isDefEqEtaStruct reads fields it does not have"
