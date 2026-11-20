@@ -1192,9 +1192,9 @@ reason = "an argument with a loose bound variable is put under a lambda without 
 
 [[fault]]
 id = "whnf-k7-off"
-file = "src/kernel/whnf.fs"
-old = ''': lf-whnf-nat? ( name -- flag ) lf-name-prefix@ s" Nat" lf-name-top? ;'''
-new = ''': lf-whnf-nat? ( name -- flag ) drop false ;'''
+file = "src/core/nat-ops.fs"
+old = ''': lf-nat-name? ( name -- flag ) lf-name-prefix@ s" Nat" lf-name-top? ;'''
+new = ''': lf-nat-name? ( name -- flag ) drop false ;'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "K7 (ADR 0014 Q8): whnf unfolds a user's Nat.succ or Nat.add where Lean's reduce_nat looks at it by name"
 
@@ -6270,7 +6270,7 @@ reason = "lazy delta skips is_def_eq_offset, which compares two Nat.succ applica
 [[fault]]
 id = "dq-nat-zero-never"
 file = "src/kernel/whnf.fs"
-old = '''  lf-crec-name @ dup s" zero" lf-name-str-is? if lf-whnf-nat? else drop false then ;'''
+old = '''  lf-crec-name @ dup s" zero" lf-name-str-is? if lf-nat-name? else drop false then ;'''
 new = '''  drop false ;'''
 test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
 reason = "reduce_nat is taken never to compute, so Nat operations on Nat.zero unfold where Lean computes a literal whose type is missing (k7.*)"
@@ -6494,9 +6494,8 @@ reason = "an inference aside (infer_proj's is_prop, defeq.fs's typer) logs appli
 [[fault]]
 id = "lit-count-unchecked"
 file = "src/kernel/reduce-nat.fs"
-old = '''  dup lf-rn-count? 0= if 2drop lf-rn-refuse exit then
-  over lf-rn-unit?'''
-new = '''  over lf-rn-unit?'''
+old = ''': lf-rn-pow ( a b i -- node outcome ) lf-rn-counted ;'''
+new = ''': lf-rn-pow ( a b i -- node outcome ) lf-nat-lit-op ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.3 L1: Nat.pow by 2^32 is computed (and is too large) instead of Lean's refusal; lit.pow-count-too-big is no longer rejected"
 
@@ -7368,8 +7367,8 @@ reason = "rvCONV B2: iota's structure eta takes any inductive type for a structu
 
 [[fault]]
 id = "rn-pow-scratch-small"
-file = "src/kernel/reduce-nat.fs"
-old = '''  limb-bits / 1+ 6 * >r >r lf-rn-operand-cells r> swap r> + 4096 +'''
+file = "src/core/nat-ops.fs"
+old = '''  limb-bits / 1+ 6 * >r >r nop-operand-cells r> swap r> + 4096 +'''
 new = '''  limb-bits / 4 * 16 +'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvCONV M1: Nat.pow's scratch is sized as before (4 cells per result limb): a 12,800-bit power of a three-limb base is full where Lean computes it (lit.pow-multi-limb-base)"
@@ -10382,25 +10381,25 @@ reason = "get_first_cnstr of a type Lean's environment does not hold is 'none' (
 
 [[fault]]
 id = "cov-rn-table-div-beq-swapped"
-file = "src/kernel/reduce-nat.fs"
-old = '''  ' lf-rn-div , ' lf-rn-beq , ' lf-rn-ble , ' lf-rn-land , ' lf-rn-lor , ' lf-rn-xor ,'''
-new = '''  ' lf-rn-beq , ' lf-rn-div , ' lf-rn-ble , ' lf-rn-land , ' lf-rn-lor , ' lf-rn-xor ,'''
-test = "$GFORTH tests/core/reduce-nat.fs"
+file = "src/core/nat-ops.fs"
+old = '''  ' nop-div , ' nop-beq , ' nop-ble , ' nop-land , ' nop-lor , ' nop-xor ,'''
+new = '''  ' nop-beq , ' nop-div , ' nop-ble , ' nop-land , ' nop-lor , ' nop-xor ,'''
+test = "$GFORTH tests/core/nat-ops.fs"
 reason = "whnf.fs's operation list out of step with the table: Nat.div computes Nat.beq and the other way round"
 
 [[fault]]
 id = "cov-rn-ble-as-beq"
-file = "src/kernel/reduce-nat.fs"
-old = ''': lf-rn-ble ( a b -- node outcome ) ['] lf-rn-le lf-rn-test ;'''
-new = ''': lf-rn-ble ( a b -- node outcome ) ['] lf-rn-eq lf-rn-test ;'''
-test = "$GFORTH tests/core/reduce-nat.fs"
+file = "src/core/nat-ops.fs"
+old = ''': nop-ble ( a b -- node outcome ) ['] nop-le nop-test ;'''
+new = ''': nop-ble ( a b -- node outcome ) ['] nop-eq nop-test ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
 reason = "Nat.ble decided as Nat.beq: Nat.ble 3 5 is false"
 
 [[fault]]
 id = "cov-rn-shl-zero-counted"
 file = "src/kernel/reduce-nat.fs"
-old = '''  over lf-term-second@ 0= if ['] big-lshift lf-rn-std exit then'''
-new = ''''''
+old = '''  2 pick lf-term-second@ 0= if lf-nat-lit-op else lf-rn-counted then ;'''
+new = '''  lf-rn-counted ;'''
 test = "$GFORTH tests/core/reduce-nat.fs"
 reason = "0 shifted left by 2^32 refused (rejected) where Lean's reduce_shift_left gives 0 first"
 
@@ -19729,10 +19728,10 @@ equivalent = "the publisher sets a slot's added flag only for a block rejected b
 
 [[fault]]
 id = "r3-rn-std-boolean"
-file = "src/kernel/reduce-nat.fs"
-old = ''': lf-rn-std ( a b op -- node outcome ) ['] lf-rn-literal lf-rn-by ;'''
-new = ''': lf-rn-std ( a b op -- node outcome ) ['] lf-rn-truth lf-rn-by ;'''
-test = "$GFORTH tests/core/reduce-nat.fs"
+file = "src/core/nat-ops.fs"
+old = ''': nop-std ( a b op -- node outcome ) ['] nop-literal nop-by ;'''
+new = ''': nop-std ( a b op -- node outcome ) ['] nop-truth nop-by ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
 reason = "an arithmetic result is made as a Boolean"
 
 [[fault]]

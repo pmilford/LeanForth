@@ -144,6 +144,7 @@ require ../core/terms.fs
 require ./environment.fs
 require ./env-signature.fs
 require ./mixed-head.fs
+require ../core/nat-ops.fs
 require ./reduce-nat.fs
 require ./mixed-instantiate.fs
 require ./mixed-level-substitute.fs
@@ -406,28 +407,12 @@ defer lf-whnf-valued ( decl const frames -- value outcome )
 \ as LeanForth does (a Nat.succ of a variable, say, which iota then takes
 \ as a constructor).
 \ The arguments are put in whnf by a visit of their own (lf-whnf-nat-call,
-\ below). Names are compared by their components (Lean's name equality),
-\ from the last.
-\ A table of texts: each entry its length in a cell and its characters,
-\ aligned; a length of 0 ends it. Shared and read-only.
-create lf-whnf-nat-binary
-  s" add" cell-counted,  s" sub" cell-counted,  s" mul" cell-counted,
-  s" pow" cell-counted,  s" gcd" cell-counted,  s" mod" cell-counted,
-  s" div" cell-counted,  s" beq" cell-counted,  s" ble" cell-counted,
-  s" land" cell-counted,  s" lor" cell-counted,  s" xor" cell-counted,
-  s" shiftLeft" cell-counted,  s" shiftRight" cell-counted,  0 ,
-\ Whether name is Nat.x for an anonymous root (names.fs's lf-name-top?).
-: lf-whnf-nat? ( name -- flag ) lf-name-prefix@ s" Nat" lf-name-top? ;
-\ The index of name's operation in the table, or -1.
-: lf-whnf-binary ( name -- i )
-  0 lf-whnf-nat-binary begin dup @ while
-    2 pick over cell-count lf-name-str-is? if drop nip exit then
-    swap 1+ swap cell-count + aligned
-  repeat 2drop drop -1 ;
-: lf-whnf-binary? ( name -- flag ) lf-whnf-binary 0< 0= ;
-: lf-whnf-op ( node -- i ) lf-whnf-head lf-const-name lf-whnf-binary ;
+\ below). The names and their operations' indices are core/nat-ops.fs's
+\ (lf-nat-name?, lf-nat-op), shared with the front end's reduceNat?.
+: lf-whnf-binary? ( name -- flag ) lf-nat-op 0< 0= ;
+: lf-whnf-op ( node -- i ) lf-whnf-head lf-const-name lf-nat-op ;
 : lf-whnf-matched? ( name n -- flag )
-  over lf-whnf-nat? 0= if 2drop false exit then
+  over lf-nat-name? 0= if 2drop false exit then
   case 1 of s" succ" lf-name-str-is? endof  2 of lf-whnf-binary? endof
     nip false swap endcase ;
 : lf-whnf-k7? ( node -- flag )
@@ -437,7 +422,7 @@ create lf-whnf-nat-binary
 : lf-whnf-zero? ( node -- flag )
   dup lf-whnf-const? 0= if drop false exit then
   lf-const-slot dup lf-crec-arity @ if drop false exit then
-  lf-crec-name @ dup s" zero" lf-name-str-is? if lf-whnf-nat? else drop false then ;
+  lf-crec-name @ dup s" zero" lf-name-str-is? if lf-nat-name? else drop false then ;
 
 \ ---------------------------------------------------------------------------
 \ The iota hook and its default (see the header).

@@ -1,0 +1,21 @@
+# Planted faults of slice S3a's library words (plan S3, by-decide; the
+# architect's word list .claude/work/briefs/S3-DECIDE-WORDLIST.md):
+# core/nat-ops.fs (C0), the tactic library's words (C1) and the front
+# end's reduceNat? (C2), read with faults.toml as one list
+# (scripts/mutants.py). by-decide's own are in decide.toml.
+
+[[fault]]
+id = "nat-ops-shl-zero-counted"
+file = "src/core/nat-ops.fs"
+old = '''  over lf-term-second@ 0= if ['] big-lshift nop-std exit then'''
+new = ''''''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "S3a C0: 0 shifted left by a count of two limbs is full where Lean's shiftLeft of 0 is 0 at once"
+
+[[fault]]
+id = "nat-ops-op-any-root"
+file = "src/core/nat-ops.fs"
+old = ''': lf-nat-op ( name -- i | -1 ) dup lf-nat-name? 0= if drop -1 exit then nop-index ;'''
+new = ''': lf-nat-op ( name -- i | -1 ) nop-index ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "S3a C0: Int.add (any name whose last component is an operation's) taken for Nat.add, where Lean compares the whole name"

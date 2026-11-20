@@ -748,7 +748,7 @@
   "copies": 2,
   "kind": "shape",
   "members": [
-   "src/kernel/reduce-nat.fs:lf-rn-truth",
+   "src/core/nat-ops.fs:nop-truth",
    "src/kernel/whnf.fs:lf-nat-literal"
   ],
   "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with/ok-and/ok-then?, already the shared words",
@@ -1874,8 +1874,8 @@
   "copies": 2,
   "kind": "shape",
   "members": [
-   "src/front/nat-offset.fs:no-made",
-   "src/kernel/reduce-nat.fs:lf-rn-node"
+   "src/core/nat-ops.fs:lf-nat-node",
+   "src/front/nat-offset.fs:no-made"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
