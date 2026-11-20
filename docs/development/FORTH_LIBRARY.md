@@ -1331,11 +1331,14 @@ cleanup-families-3, 2026-11-19): whether x equals a or b, or one of a, b and
 c, in place of the hand-written tests `dup a = swap b = or` and `dup a = over
 b = or swap c = or` of a kind, tag, mode or character against constants.
 *Algorithm*: the comparisons in turn, their flags or-ed (no early exit: two or
-three `=` cost less than a branch). *Generic*: any cells compared with `=`;
-the flag is well formed. *Cost*: constant, no memory. *Speed* (2026-11-19,
-Gforth 1.0.0, WSL2, load about 8, 10^7 calls): `one-of2?` 4-5 ns a call on
-`gforth` (the hand-written phrase 2-3 ns), 1.3 ns on `gforth-fast` (0.5 ns);
-`one-of3?` 5-6 ns (3.5-4 ns), 1.7 ns (0.9 ns). So the kernel's reducer and
+three `=` cost less than a branch); `one-of3?` is one comparison and
+`one-of2?`. *Generic*: any cells compared with `=`; the flag is well formed.
+*Cost*: constant, no memory. *Speed* (2026-11-19, Gforth 1.0.0, WSL2, load
+about 1.5, 10^7 calls): `one-of2?` 7.7 ns a call on `gforth` (the
+hand-written phrase 3.9 ns), 2.7 ns on `gforth-fast` (1.2 ns); `one-of3?` 15
+ns (6.7 ns), 6 ns (1.7 ns). *Style*: the two words hold four return-stack
+operations (`>r` ... `r>`, `2>r` ... `2r>`), which raise `bounds.fs`'s count
+in the style ratchet from 2 to 6 (its baseline 3: a reviewed raise). So the kernel's reducer and
 inner loops keep the phrase (`whnf.fs` `lf-whnf-valued?`, once per delta
 step; `mixed-open.fs` `lf-open-rev?`, once per bound variable opened), and so
 does `program/ir-run.fs` (its SHA-256 is evidence of the clamp receipt, 9.4.8l

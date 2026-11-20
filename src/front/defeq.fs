@@ -788,7 +788,8 @@ defer de-args-post ( -- )
   dup lf-ict-params lf-more-field swap lf-ict-fields lf-more-field + ;
 : de-ctor-induct ( ctor -- data true | false )
   de-decl drop de-data lf-ict-induct lf-more-field de-named-data ;
-: de-induct-nonrec? ( ctor -- flag ) de-ctor-induct if lf-structure-like? else false then ;
+: de-induct-nonrec? ( ctor -- flag )
+  de-ctor-induct if lf-structure-like? else false then ;
 : de-ctor-fields-of ( ctor -- n ) de-decl drop de-data lf-ict-fields lf-more-field ;
 \ isDefEqEtaStruct a b with b a constructor application of a non-recursive
 \ structure and a none: code 1 when it has no fields (Lean then compares

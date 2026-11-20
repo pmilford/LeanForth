@@ -6,10 +6,10 @@
 \ Interface: cell-pair@ cell-pair! cell-triple@ cell-triple! between? upto?
 \ range-at in-ranges? cells-zero? cells= index? cells-index cells-has?
 \ cell-at@ pair-at record-at first-nonzero first-or-second one-of2?
-\ one-of3? cell-tally cell-spend? epoch+ cell-counted, cell-count cell-counted! cell-counted+!
-\ cell-counted-left cell-counted+?. Requires portability.fs, outcome.fs
-\ (any?, 2dup-under) and module.fs; helpers are private in lf-lib-private
-\ (ADR 0010).
+\ one-of3? cell-tally cell-spend? epoch+ cell-counted, cell-count
+\ cell-counted! cell-counted+! cell-counted-left cell-counted+?. Requires
+\ portability.fs, outcome.fs (any?, 2dup-under) and module.fs; helpers are
+\ private in lf-lib-private (ADR 0010).
 \ Example:
 \   create primes 2 , 3 , 5 , 7 ,   create odds 3 , 5 , 7 ,
 \   3 4 index? .  4 4 index? .  5 primes 4 cells-index . .
@@ -97,13 +97,14 @@ lf-lib set-current
 \ Whether x equals a or b (one-of2?), or one of a, b and c (one-of3?):
 \ a kind, tag, mode or character tested against two or three values.
 : one-of2? ( x a b -- flag ) >r over = swap r> = or ;
-: one-of3? ( x a b c -- flag ) >r >r over = over r> = or swap r> = or ;
+: one-of3? ( x a b c -- flag ) 2>r over = swap 2r> one-of2? or ;
 \ One more in cell i of an array of counts at a-addr (unchecked, as
 \ cell-at@).
 : cell-tally ( i a-addr -- ) swap cells + 1 swap +! ;
 \ One unit spent from the count at a-addr when it is above zero: true;
 \ else false and the count unchanged (a fuel or work budget).
-: cell-spend? ( a-addr -- flag ) dup @ 0> if -1 swap +! true else drop false then ;
+: cell-spend? ( a-addr -- flag )
+  dup @ 0> if -1 swap +! true else drop false then ;
 \ A generation counter one step on: 1+, saturating to -1 (poisoned)
 \ instead of wrapping at max-n, and once negative it stays.
 : epoch+ ( generation -- generation' )

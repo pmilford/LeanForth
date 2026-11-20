@@ -29,23 +29,23 @@ reason = "cleanup-families-3 (one-of family): x must equal both values, so a kin
 [[fault]]
 id = "cf3-one-of3-third-lost"
 file = "src/lib/bounds.fs"
-old = ''': one-of3? ( x a b c -- flag ) >r >r over = over r> = or swap r> = or ;'''
-new = ''': one-of3? ( x a b c -- flag ) >r >r over = over r> = or nip r> drop ;'''
+old = ''': one-of3? ( x a b c -- flag ) 2>r over = swap 2r> one-of2? or ;'''
+new = ''': one-of3? ( x a b c -- flag ) 2>r over = swap 2r> drop = or ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "cleanup-families-3 (one-of family): the third value is never compared"
 
 [[fault]]
 id = "cf3-cell-spend-at-zero"
 file = "src/lib/bounds.fs"
-old = ''': cell-spend? ( a-addr -- flag ) dup @ 0> if -1 swap +! true else drop false then ;'''
-new = ''': cell-spend? ( a-addr -- flag ) dup @ 0< 0= if -1 swap +! true else drop false then ;'''
+old = '''  dup @ 0> if -1 swap +! true else drop false then ;'''
+new = '''  dup @ 0< 0= if -1 swap +! true else drop false then ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "cleanup-families-3 (spend family): a budget at zero is spent once more, so fuel goes negative instead of running out"
 
 [[fault]]
 id = "cf3-cell-spend-unspent"
 file = "src/lib/bounds.fs"
-old = ''': cell-spend? ( a-addr -- flag ) dup @ 0> if -1 swap +! true else drop false then ;'''
-new = ''': cell-spend? ( a-addr -- flag ) @ 0> ;'''
+old = '''  dup @ 0> if -1 swap +! true else drop false then ;'''
+new = '''  @ 0> ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "cleanup-families-3 (spend family): a step is allowed but nothing is spent, so a budget never runs out"
