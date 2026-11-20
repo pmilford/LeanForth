@@ -1,0 +1,60 @@
+# Planted faults of plan 9.4.8l AW (review s3a-decide M1; the owner's gate of 2026-11-20):
+# core/nat-ops.fs refuses an operand that is no literal leaf as invalid, and the kernel's
+# reduce_nat and the front end's fold test for literals before their policies read a count.
+# Read with faults.toml as one list (scripts/mutants.py).
+
+[[fault]]
+id = "aw-nat-ops-first-unchecked"
+file = "src/core/nat-ops.fs"
+old = ''': nop-lits? ( a b -- flag ) lf-lit-leaf? swap lf-lit-leaf? and ;'''
+new = ''': nop-lits? ( a b -- flag ) lf-lit-leaf? nip ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "AW: the first operand is not tested, so a constant or an application in its place is computed on as a made-up literal (ok) where it must be invalid"
+
+[[fault]]
+id = "aw-nat-ops-second-unchecked"
+file = "src/core/nat-ops.fs"
+old = ''': nop-lits? ( a b -- flag ) lf-lit-leaf? swap lf-lit-leaf? and ;'''
+new = ''': nop-lits? ( a b -- flag ) drop lf-lit-leaf? ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "AW: the second operand is not tested, so a constant or an application in its place is computed on as a made-up literal (ok) where it must be invalid"
+
+[[fault]]
+id = "aw-nat-ops-invalid-as-ok"
+file = "src/core/nat-ops.fs"
+old = ''': nop-not-lit ( x -- -1 outcome ) drop-invalid no-result ;'''
+new = ''': nop-not-lit ( x -- -1 outcome ) drop outcome-ok no-result ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "AW: an operand that is no literal is refused with ok and node -1, a failure reported as success"
+
+[[fault]]
+id = "aw-nat-ops-refusal-keeps-a-cell"
+file = "src/core/nat-ops.fs"
+old = '''  2over nop-lits? if execute else 2drop drop nop-not-lit then ;'''
+new = '''  2over nop-lits? if execute else 2drop nop-not-lit then ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "AW: lf-nat-lits-by's refusal leaves the first operand under its answer, one cell of the caller's too many"
+
+[[fault]]
+id = "aw-nat-ops-succ-unchecked"
+file = "src/core/nat-ops.fs"
+old = '''  dup lf-lit-leaf? if nop-succ else nop-not-lit then ;'''
+new = '''  nop-succ ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "AW: Nat.succ of a constant or an application is computed on as a made-up literal (ok) where it must be invalid"
+
+[[fault]]
+id = "aw-kernel-binary-unchecked"
+file = "src/kernel/reduce-nat.fs"
+old = ''': lf-reduce-nat-binary ( a b i -- node outcome ) ['] lf-rn-binary lf-nat-lits-by ;'''
+new = ''': lf-reduce-nat-binary ( a b i -- node outcome ) lf-rn-binary ;'''
+test = "$GFORTH tests/core/reduce-nat.fs"
+reason = "AW: the kernel reads get_count_arg's count of an operand that is no literal before nat-ops tests it, so pow and shiftLeft by an application are rejected (92), a verdict, where they must be invalid"
+
+[[fault]]
+id = "aw-front-fold-unchecked"
+file = "src/front/reduce-nat.fs"
+old = '''  ['] rn-fold-op lf-nat-lits-by ;'''
+new = '''  rn-fold-op ;'''
+test = "$GFORTH tests/front/reduce-nat.fs"
+reason = "AW: the front end's fold reads checkExponent's threshold on an exponent that is no literal before nat-ops tests it, so Nat.pow by an application answers unsupported where it must be invalid"

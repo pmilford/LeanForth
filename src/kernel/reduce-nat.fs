@@ -51,11 +51,16 @@ require ../core/terms.fs
   over lf-term-second@ 0= if lf-nat-op-shl lf-nat-lit-op exit then
   lf-nat-op-shl lf-rn-counted ;
 
-\ The public words. Binary operation i of core/nat-ops.fs's list on
-\ literals a and b; Nat.succ of a; a literal for Nat.zero (is_nat_lit_ext).
-: lf-reduce-nat-binary ( a b i -- node outcome )
+: lf-rn-binary ( a b i -- node outcome )
   dup lf-nat-op-pow = if lf-rn-counted exit then
   dup lf-nat-op-shl = if drop lf-rn-shl exit then lf-nat-lit-op ;
+
+\ The public words. Binary operation i of core/nat-ops.fs's list on
+\ literals a and b, an operand that is no literal invalid before any
+\ count is read (as is_nat_lit_ext comes before get_count_arg; whnf.fs
+\ passes only literals); Nat.succ of a, invalid for no literal; a literal
+\ for Nat.zero (is_nat_lit_ext).
+: lf-reduce-nat-binary ( a b i -- node outcome ) ['] lf-rn-binary lf-nat-lits-by ;
 : lf-reduce-nat-literal ( u -- node outcome ) lf-nat-lit ;
 : lf-reduce-nat-succ ( a -- node outcome ) lf-nat-lit-succ ;
 \ The predecessor of a literal above 0 (is_def_eq_offset's is_nat_succ).

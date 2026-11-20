@@ -22,7 +22,10 @@
 \       literal: full
 \   lf-meta-nat-fold ( v1 v2 i -- e outcome )  the operation on the
 \       literals: a raw literal, or Bool.true or Bool.false for Nat.beq and
-\       Nat.ble (Lean's toExpr); Nat.succ adds 1 to v1 (v2 unused)
+\       Nat.ble (Lean's toExpr); Nat.succ adds 1 to v1 (v2 unused); an
+\       operand that is no literal leaf invalid (-1), before the threshold
+\       is read (core/nat-ops.fs's lf-nat-lits-by; lf-meta-nat-value?
+\       gives only literals)
 \ Not ported yet: Nat.pow with an exponent above 256 (checkExponent,
 \ Util/SafeExponentiation.lean:29: Lean logs a warning and unfolds Nat.pow)
 \ answers unsupported (plan S3b), never a value.
@@ -74,6 +77,8 @@ require ./term-eqv.fs
 \ ---- The operations (reduceBinNatOp, reduceBinNatPred, reducePow).
 : rn-over? ( v -- flag ) rn-threshold lf-lit-u> ;
 : rn-power? ( v2 i -- v2 i flag ) dup lf-nat-op-pow = if over rn-over? else false then ;
+: rn-fold-op ( v1 v2 i -- e outcome )
+  rn-power? if drop 2drop outcome-unsupported no-result exit then lf-nat-lit-op ;
 : lf-meta-nat-fold ( v1 v2 i -- e outcome )
   dup lf-meta-nat-succ = if 2drop lf-nat-lit-succ exit then
-  rn-power? if drop 2drop outcome-unsupported no-result exit then lf-nat-lit-op ;
+  ['] rn-fold-op lf-nat-lits-by ;
