@@ -940,6 +940,22 @@ merged by hand as before. `tests/scripts/test_duplicates_extract.py` tests the c
    rewritten in `src/kernel`, `src/core`, `src/import`) into the report to the owner. The Forth review and the
    tier still run.
 
+A **family of one phrase** -- the same tokens inside many longer words, which no group shows because the
+words differ around it -- goes through one command (clean-up round 3, 2026-11-19): `python3
+scripts/check-duplicates.py --rewrite --from "TOKENS" --to "TOKENS" [--paths src/front ...] [--add-require
+[FILE]] [--dry-run]`. It matches tokens, not text (line breaks and case do not matter; comments and strings are
+never matched), with `$X`-style wildcards for one word name each (for example `--from "ok-then? if $X else
+no-result then" --to "['] $X ok-apply"`); it lists each site as `file:line word`, leaves (and lists) a match
+with a comment inside it or inside the definition of a word the new phrase calls, refuses a file that cannot
+see a new word unless `--add-require` may add the require, carries every planted fault whose quoted text held
+the phrase over to the new text (printing the ids: name those whose `new` text changed in the commit message,
+as the history rule below requires) and names those it cannot carry, refuses a rewrite that would make or grow
+a duplicate group, and drops the groups it removes from the baseline. Its "REWRITE BY SCRIPT" list gives the
+sites in `src/kernel`, `src/core` and `src/import` for the owner's report. A behaviour-preserving rewrite onto a
+shared word needs no new planted fault per site: the shared word has its own tests and faults, the carried
+faults keep guarding the callers, and their existing tests must still pass; add a fault for a caller only where
+no existing test would notice that caller going wrong.
+
 ## Re-running one root: the export slicer (`scripts/export-slice.py`)
 
 A failing declaration of a library run is re-run in seconds, not hours, by

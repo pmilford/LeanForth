@@ -6,6 +6,8 @@ Usage: python3 scripts/check-duplicates.py [--update-baseline] [--report] [--cou
        python3 scripts/check-duplicates.py --extract GROUP --word NAME --stack "( a -- b )" --home FILE
                                            [--after WORD] [--comment TEXT] [--add-require] [--dry-run] [ROOT]
        python3 scripts/check-duplicates.py --extract-table FILE [--add-require] [--dry-run] [ROOT]
+       python3 scripts/check-duplicates.py --rewrite --from "TOKENS" --to "TOKENS" [--paths PATH ...]
+                                           [--add-require [FILE]] [--dry-run] [ROOT]
 
 Parses the colon definitions of ROOT/src/**/*.fs (comments `\\ ...` and `( ... )` dropped; strings after `s"`, `."`,
 `c"`, `abort"`, `s\\"`, `.(` and the word after `[char]`/`char` are single tokens) and lower-cases them. Words
@@ -69,6 +71,21 @@ else it is a shape group. GROUP is a key or a unique prefix of one.
   src/import under "EXACT EXTRACTION BY SCRIPT", for the owner's report. --dry-run prints the diff only.
 - --extract-table FILE applies one extraction per line (`group word "( stack )" home [after|-] ["comment"]`,
   shell quoting, # comments), all or none.
+
+Rewriting a phrase (2026-11-19, clean-up round 3): --rewrite --from "TOKENS" --to "TOKENS" replaces every
+occurrence of a phrase by another in the files of src/ (or of --paths, files or folders), token for token:
+whitespace and line breaks do not matter, case does not (the replacement is written as given), and nothing in a
+comment or a string is ever matched. $NAME in --from is a wildcard for one word name (never a number, a string,
+a control-flow, frame or defining word), the same word wherever it recurs; --to may use it, and the word's text
+is kept. A match with a comment between its tokens, or inside the definition of a word --to calls, is left and
+listed. A file that cannot see a word --to adds is refused with the require it needs; --add-require adds the
+require of the one file defining the word, or of FILE when given. Planted faults (tests/mutants/faults.toml and
+faults.d/*.toml) on a changed file whose old text no longer occurs once are carried over by the same rewrite of
+their old and new texts, and listed by id (those whose new text changed must be named in the commit message);
+one the rewrite cannot carry is named for a hand re-target. The result is checked with the detector on a
+scratch copy first: a new or grown duplicate group refuses the whole (nothing written); groups it removes leave
+the baseline. It prints each site as file:line word and, under "REWRITE BY SCRIPT", the sites in src/kernel,
+src/core and src/import for the owner's report. --dry-run prints the diff only.
 """
 import collections
 import difflib
@@ -1024,6 +1041,278 @@ def extraction_report(done, texts, diff, root, dry_run=False):
         print("- none")
 
 
+# --- rewrite ------------------------------------------------------------------------------------------
+
+WILDCARD = re.compile(r"\$[A-Za-z][A-Za-z0-9_]*")
+# What a wildcard never stands for: the caller's frame, control flow, defining and parsing words, as the
+# chained form would tick or move it.
+NOT_A_NAME = FRAME_WORDS | LOADERS | {
+    ":", ";", ":noname", "[:", ";]", "if", "else", "then", "endif", "ahead", "begin", "while", "repeat",
+    "until", "again", "do", "?do", "loop", "+loop", "case", "of", "endof", "endcase", "'", "[']", "[char]",
+    "char", "postpone", "literal", "[", "]", "does>", "immediate", "\\", "("}
+MEASURE_LIMIT = 90          # forth-metrics.py's long line
+
+
+class Pattern:
+    """A phrase rewrite: --from tokens (lower case; $NAME a wildcard for one word name, the same word
+    wherever it recurs) and the --to tokens, which may use the wildcards of --from."""
+
+    def __init__(self, frm, to):
+        self.frm = [t if WILDCARD.fullmatch(t) else t.lower() for t in frm.split()]
+        self.to = [t if WILDCARD.fullmatch(t) else t.lower() for t in to.split()]
+        if not self.frm:
+            raise Refusal("--from is empty")
+        slots = {t for t in self.frm if WILDCARD.fullmatch(t)}
+        unknown = sorted({t for t in self.to if WILDCARD.fullmatch(t)} - slots)
+        if unknown:
+            raise Refusal(f"--to uses {', '.join(unknown)}, which --from does not bind")
+        if any(" " in t for t in self.frm + self.to):
+            raise Refusal("a phrase may not hold a string literal")
+        self.new_words = sorted({t for t in words_of(self.to) if not WILDCARD.fullmatch(t)}
+                                - set(self.frm))
+
+    def match(self, toks, k):
+        """{wildcard: token index} when the phrase starts at toks[k], else None."""
+        bound = {}
+        if k + len(self.frm) > len(toks):
+            return None
+        for i, p in enumerate(self.frm):
+            tok = toks[k + i][0]
+            if not WILDCARD.fullmatch(p):
+                if tok != p:
+                    return None
+            elif " " in tok or NUMBER.fullmatch(tok) or tok in NOT_A_NAME:
+                return None
+            elif p in bound and toks[bound[p]][0] != tok:
+                return None
+            else:
+                bound.setdefault(p, k + i)
+        return bound
+
+    def text(self, raw, bound):
+        """The replacement, each wildcard by the raw source text of the token it bound."""
+        return " ".join(raw(bound[t]) if t in bound else t for t in self.to)
+
+    def sites(self, text):
+        """[(start, end, replacement, first token index, problem or None)] of the non-overlapping matches
+        in TEXT; a match with a comment between its tokens is a site with a problem, not rewritten."""
+        toks, out, k = spans(text), [], 0
+        while k < len(toks):
+            bound = self.match(toks, k)
+            if bound is None:
+                k += 1
+                continue
+            last = k + len(self.frm) - 1
+            gaps = [text[toks[i][3]:toks[i + 1][2]] for i in range(k, last)]
+            problem = "a comment inside the phrase" if any(g.strip() for g in gaps) else None
+            new = self.text(lambda i: text[toks[i][2]:toks[i][3]], bound)
+            out.append((toks[k][2], toks[last][3], new, k, problem))
+            k = last + 1
+        return out
+
+    def apply(self, text):
+        """TEXT rewritten at every site without a problem, and the number of such sites."""
+        good = [(s, e, new) for s, e, new, _, problem in self.sites(text) if problem is None]
+        return apply_edits(text, good), len(good)
+
+
+class Rewrite:
+    """A phrase rewrite worked out on a Workspace: the new texts of the src/ files it changes, the
+    sites, the sites left and the requires added."""
+
+    def __init__(self, ws, pattern, paths, home=None, allowed=False):
+        self.ws, self.pattern = ws, pattern
+        self.texts, self.sites, self.left, self.notes = {}, [], [], []
+        for rel in sorted(ws.sources):
+            if paths and not any(rel == p or rel.startswith(p.rstrip("/") + "/") for p in paths):
+                continue
+            src = ws.sources[rel]
+            edits = []
+            for start, end, new, k, problem in pattern.sites(src.text):
+                where = self.definition_at(src, k)
+                place = f"{rel}:{src.toks[k][1]} {where.name if where else '(outside a definition)'}"
+                if problem is None and where is not None and where.name in pattern.to:
+                    problem = f"inside the definition of {where.name}, which the new phrase calls"
+                if problem:
+                    self.left.append(f"{place}: {problem}")
+                    continue
+                edits.append((start, end, new))
+                self.sites.append(place)
+            if edits:
+                edits += self.requires(rel, edits, home, allowed)
+                self.texts[rel] = apply_edits(src.text, edits)
+
+    @staticmethod
+    def definition_at(src, k):
+        return next((d for d in src.defs if d.colon < k < d.semi), None)
+
+    def requires(self, rel, edits, given, allowed):
+        """The require edits REL needs to see each new word of the phrase; refuses a word it cannot see."""
+        out, first = [], min(s for s, _, _ in edits)
+        for word in self.pattern.new_words:
+            where = self.ws.resolve(word, rel)
+            if where is None:
+                continue                      # a Gforth or standard word
+            if isinstance(where, tuple):
+                raise Refusal(f"{rel}: `{word}` is defined by several files it loads ({', '.join(where)})")
+            src = self.ws.sources[rel]
+            if where == rel:
+                if src.toks[src.defined[word]][2] > first:
+                    raise Refusal(f"{rel}: `{word}` is defined below the first place it would be used")
+                continue
+            if where != "?":
+                continue
+            home = given or self.home_of(word)
+            if not allowed:
+                raise Refusal(f"{rel} does not load the definition of `{word}`: it needs "
+                              f"`{require_text(rel, home)}` (give --add-require to add it)")
+            if rel in self.ws.closure(home) or rel == home:
+                raise Refusal(f"{home} loads {rel}, so {rel} cannot load it")
+            line = require_text(rel, home)
+            if any(t == line + "\n" for _, _, t in out):
+                continue
+            at = add_require(self.ws.sources[rel], line)[0]
+            out.append((at, at, line + "\n"))
+            self.notes.append(f"added `{line}` to {rel}")
+        return out
+
+    def home_of(self, word):
+        files = self.ws.where.get(word, [])
+        if len(files) != 1:
+            raise Refusal(f"`{word}` is defined in {len(files)} files ({', '.join(files)}): "
+                          "name the one to load with --add-require FILE")
+        return files[0]
+
+
+FAULT_HEAD = re.compile(r"^\[\[fault\]\]\s*$", re.M)
+
+
+def fault_files(root):
+    folder = pathlib.Path(root) / "tests/mutants"
+    return [p for p in [folder / "faults.toml"] + sorted((folder / "faults.d").glob("*.toml")) if p.exists()]
+
+
+def fault_rewrites(root, pattern, texts):
+    """({toml path: new text}, [(id, new changed?)], [problems]): the planted faults on a changed file whose
+    old text the new file no longer holds, re-targeted by the same rewrite of their old and new texts."""
+    import tomllib
+    changed, done, problems = {}, [], []
+    for path in fault_files(root):
+        text = path.read_text(encoding="utf-8")
+        entries = tomllib.loads(text).get("fault", [])
+        heads = [m.start() for m in FAULT_HEAD.finditer(text)] + [len(text)]
+        if len(heads) - 1 != len(entries):
+            problems.append(f"{path.relative_to(root)}: its [[fault]] heads and entries disagree; not read")
+            continue
+        out, cursor = [], 0
+        for k, fault in enumerate(entries):
+            new_file = texts.get(fault.get("file"))
+            if new_file is None or new_file.count(fault["old"]) == 1:
+                continue
+            old, n_old = pattern.apply(fault["old"])
+            new, n_new = pattern.apply(fault["new"])
+            if n_old == 0 or n_old != n_new or new_file.count(old) != 1:
+                problems.append(f"fault {fault['id']} ({fault['file']}): its old text no longer occurs once "
+                                "and the rewrite cannot carry it over; re-target it by hand")
+                continue
+            block = text[heads[k]:heads[k + 1]]
+            for key, before, after in (("old", fault["old"], old), ("new", fault["new"], new)):
+                if before == after:
+                    continue
+                quoted = f"{key} = '''{before}'''"
+                if block.count(quoted) != 1 or "'''" in after:
+                    problems.append(f"fault {fault['id']}: its {key} text is not one '''-quoted string; "
+                                    "re-target it by hand")
+                    break
+                block = block.replace(quoted, f"{key} = '''{after}'''")
+            else:
+                out.append((heads[k], heads[k + 1], block))
+                done.append((fault["id"], new != fault["new"]))
+        if out:
+            new_text = apply_edits(text, out)
+            parsed = tomllib.loads(new_text).get("fault", [])
+            if len(parsed) != len(entries):
+                problems.append(f"{path.relative_to(root)}: the re-targeted list does not parse back")
+                continue
+            changed[path] = new_text
+    return changed, done, problems
+
+
+def rewrite(root, frm, to, paths, home=None, allowed=False, dry_run=False):
+    """Rewrite every occurrence of the phrase FRM by TO in ROOT/src (or PATHS), worked out on a scratch copy
+    and checked with the detector, then written with the planted faults it moved; a file that cannot see a
+    new word of TO gets the require of HOME (else of the one file defining the word) when ALLOWED. The exit
+    status."""
+    root = pathlib.Path(root)
+    try:
+        pattern = Pattern(frm, to)
+        if home:
+            home = os.path.normpath(home)
+            if not (root / home).is_file():
+                raise Refusal(f"--add-require {home}: no such file")
+        one = Rewrite(Workspace(root), pattern, paths, home, allowed or bool(home))
+    except Refusal as why:
+        print(f"refused: {why}")
+        return 1
+    for left in one.left:
+        print(f"  left: {left}")
+    if not one.texts:
+        print("rewrote nothing: the phrase occurs nowhere it may be rewritten")
+        return 0 if not one.left else 1
+    before = groups(root)
+    with tempfile.TemporaryDirectory(prefix="leanforth-rewrite-") as scratch:
+        shutil.copytree(root / "src", pathlib.Path(scratch) / "src")
+        write_texts(scratch, one.texts)
+        after = groups(pathlib.Path(scratch))
+    path = root / "tests/duplicates-baseline.json"
+    base = json.loads(path.read_text()) if path.exists() else {}
+    new_base = baseline_of(after, base)
+    unexplained = [k for k, v in new_base.items() if reason_problem(v.get("reason")) and k not in base]
+    grown = [k for k, g in after.items() if k in base and added_members(g, base[k])]
+    if unexplained or grown:
+        print("refused: the rewrite would make a duplicate group or add a member to one (nothing written):")
+        for k in unexplained + grown:
+            print("  " + label(k, after[k]) + ": " + ", ".join(names_of(after[k])))
+        return 1
+    faults, moved, problems = fault_rewrites(root, pattern, one.texts)
+    gone = sorted(set(base) - set(new_base))
+    diff = diff_lines(root, one.texts)
+    if dry_run:
+        print("".join(diff), end="")
+    else:
+        write_texts(root, one.texts)
+        for fpath, text in faults.items():
+            fpath.write_text(text, encoding="utf-8")
+        path.write_text(json.dumps(new_base, indent=1, sort_keys=True) + "\n")
+    rewrite_report(one, diff, moved, problems, gone, dry_run)
+    return 0
+
+
+def rewrite_report(one, diff, moved, problems, gone, dry_run):
+    added = sum(1 for d in diff if d.startswith("+") and not d.startswith("+++"))
+    removed = sum(1 for d in diff if d.startswith("-") and not d.startswith("---"))
+    print(f"{'would rewrite' if dry_run else 'rewrote'} {len(one.sites)} site(s) in {len(one.texts)} file(s), "
+          f"+{added} -{removed} lines:")
+    for site in one.sites:
+        print(f"  {site}")
+    for note in one.notes:
+        print(f"  {note}")
+    long = [d[1:].rstrip("\n") for d in diff if d.startswith("+") and not d.startswith("+++")
+            and len(d.rstrip("\n")) - 1 > MEASURE_LIMIT]
+    for line in long:
+        print(f"  warning: a line over {MEASURE_LIMIT} characters: {line.strip()[:60]}...")
+    if gone:
+        print(f"  duplicate groups gone: {', '.join(gone)}")
+    print("  planted faults re-targeted: " + (", ".join(f"{i}{' (new text changed)' if n else ''}"
+                                                       for i, n in moved) or "none"))
+    for problem in problems:
+        print("  warning: " + problem)
+    print("REWRITE BY SCRIPT (scripts/check-duplicates.py --rewrite): sites in src/kernel, src/core and "
+          "src/import:")
+    reviewed = [s for s in one.sites if s.startswith(REVIEWED)]
+    print("\n".join(f"- {s}" for s in reviewed) or "- none")
+
+
 def table_specs(path):
     """The extractions of an --extract-table file: one per line, `group word "( stack )" home [after]
     ["comment"]` (shell quoting), blank lines and # comments skipped."""
@@ -1050,10 +1339,32 @@ def option(argv, name):
     return argv[k + 1]
 
 
-VALUED = ("--explain", "--extract", "--word", "--stack", "--home", "--after", "--comment", "--extract-table")
+VALUED = ("--explain", "--extract", "--word", "--stack", "--home", "--after", "--comment", "--extract-table",
+          "--from", "--to")
+
+
+def rewrite_options(argv):
+    """(argv without --paths' values and --add-require's file, the paths, the file or None): --paths takes
+    every relative path after it, --add-require one argument ending in .fs when one follows."""
+    rest, paths, home, k = [], [], None, 0
+    while k < len(argv):
+        a = argv[k]
+        if a == "--paths":
+            k += 1
+            while k < len(argv) and not argv[k].startswith("--") and not os.path.isabs(argv[k]):
+                paths.append(os.path.normpath(argv[k]))
+                k += 1
+            continue
+        rest.append(a)
+        if a == "--add-require" and k + 1 < len(argv) and argv[k + 1].endswith(".fs"):
+            home = argv[k + 1]
+            k += 1
+        k += 1
+    return rest, paths, home
 
 
 def main(argv):
+    argv, paths, home = rewrite_options(argv)
     values = {name: option(argv, name) for name in VALUED}
     args, skip = [], False
     for a in argv:
@@ -1065,6 +1376,11 @@ def main(argv):
     root = pathlib.Path(args[0]).resolve() if args else DEFAULT_ROOT
     path = root / "tests/duplicates-baseline.json"
     base = json.loads(path.read_text()) if path.exists() else {}
+    if "--rewrite" in argv:
+        if values["--from"] is None or values["--to"] is None:
+            raise SystemExit("--rewrite needs --from \"TOKENS\" and --to \"TOKENS\"")
+        return rewrite(root, values["--from"], values["--to"], paths, home, "--add-require" in argv,
+                       "--dry-run" in argv)
     if values["--explain"]:
         return explain(root, values["--explain"], base)
     if "--plan" in argv:

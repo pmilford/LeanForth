@@ -8,7 +8,12 @@ with the missing require named, and accepted with --add-require; a member in a p
 whose place is private (the new word compiled public); a phrase twice in one body; a name that exists with
 another body refused, a member in the home used as the word; the dry run writes nothing; an extraction that
 would make a new group is refused with nothing written, and a written tree that differs from the checked
-copy is restored; the table form, all or nothing; the layering and the plan's ranking."""
+copy is restored; the table form, all or nothing; the layering and the plan's ranking.
+--rewrite: a phrase replaced across line breaks but never in comments or strings; wildcards (one name, the
+same wherever it recurs, never a control or frame word, a number or a string); a comment inside the phrase
+and the definition of a word the new phrase calls left; a missing require refused or added; planted faults
+re-targeted or named; --paths; the dry run; a rewrite that would make a duplicate group refused, a group it
+removes dropped from the baseline."""
 import contextlib
 import importlib.util
 import io
@@ -351,6 +356,177 @@ class Table(unittest.TestCase):
         with self.assertRaises(SystemExit) as caught:
             cd.table_specs(self.table)
         self.assertIn("table.txt:1", str(caught.exception))
+
+
+GUARD = "ok-then? 0= if nip no-result exit then"
+STEP_LIB = (": ok-then? ( x o -- x t | o f ) dup 0= if drop true else nip false then ;\n"
+            ": no-result ( o -- -1 o ) -1 swap ;\n"
+            ": ok-apply2 ( a b o xt -- r o ) over 0= if nip execute else drop nip nip no-result then ;\n")
+
+
+def rewrite_tree(**more):
+    """A tree for --rewrite: the step words in src/lib/o.fs, two callers of the guard (one across a line
+    break), the phrase in a comment and a string, and two faults quoting the callers' lines."""
+    files = {"src/lib/o.fs": STEP_LIB,
+             "src/core/a.fs": "require ../lib/o.fs\n: a-step ( x -- y ) 1+ 0 ;\n"
+                              ": a-run ( a x o -- y o ) " + GUARD + " a-step ;  \\ kept\n",
+             "src/core/b.fs": "require ../lib/o.fs\n: b-step ( x -- y ) 2* 0 ;\n"
+                              ": b-run ( a x o -- y o ) \\ " + GUARD + " b-step ;\n"
+                              "  ok-then? 0= if nip\n  no-result exit then b-step ;\n"
+                              ": b-note ( -- ) .\" ok-then? 0= if nip no-result exit then b-step ;\" ;\n"}
+    files.update(more)
+    tree = Tree(files)
+    (tree.root / "tests/mutants").mkdir(parents=True)
+    (tree.root / "tests/mutants/faults.toml").write_text(
+        "[[fault]]\nid = \"a-run-drops-first\"\nfile = \"src/core/a.fs\"\n"
+        "old = ''': a-run ( a x o -- y o ) " + GUARD + " a-step ;'''\n"
+        "new = ''': a-run ( a x o -- y o ) drop " + GUARD + " a-step ;'''\n"
+        "test = \"true\"\nreason = \"r\"\n\n"
+        "[[fault]]\nid = \"a-step-off\"\nfile = \"src/core/a.fs\"\n"
+        "old = ''': a-step ( x -- y ) 1+ 0 ;'''\nnew = ''': a-step ( x -- y ) 1- 0 ;'''\n"
+        "test = \"true\"\nreason = \"r\"\n\n"
+        "[[fault]]\nid = \"b-run-no-drop\"\nfile = \"src/core/b.fs\"\n"
+        "old = '''  no-result exit then b-step ;'''\n"
+        "new = '''  -1 exit then b-step ;'''\n"
+        "test = \"true\"\nreason = \"r\"\n")
+    return tree
+
+
+class Rewrite(unittest.TestCase):
+    """--rewrite: a phrase replaced token for token in every file, wildcards, requires, faults."""
+
+    def setUp(self):
+        self.tree = rewrite_tree()
+
+    def tearDown(self):
+        self.tree.close()
+
+    def rewrite(self, frm, to, *more):
+        return self.tree.run("--rewrite", "--from", frm, "--to", to, *more)
+
+    def test_every_site_is_rewritten_across_line_breaks_but_not_in_comments_or_strings(self):
+        status, out = self.rewrite(GUARD + " $X ;", "['] $X ok-apply2 ;")
+        self.assertEqual(status, 0, out)
+        self.assertEqual(self.tree.text("src/core/a.fs"), "require ../lib/o.fs\n: a-step ( x -- y ) 1+ 0 ;\n"
+                         ": a-run ( a x o -- y o ) ['] a-step ok-apply2 ;  \\ kept\n")
+        b = self.tree.text("src/core/b.fs")
+        self.assertIn(": b-run ( a x o -- y o ) \\ " + GUARD + " b-step ;\n  ['] b-step ok-apply2 ;\n", b)
+        self.assertIn(".\" ok-then? 0= if nip no-result exit then b-step ;\"", b)
+        self.assertIn("rewrote 2 site(s) in 2 file(s)", out)
+        self.assertIn("src/core/a.fs:3 a-run", out)
+        self.assertIn("src/core/b.fs:4 b-run", out)
+        self.assertIn("- src/core/a.fs:3 a-run", out.split("REWRITE BY SCRIPT")[1])
+
+    def test_planted_faults_on_the_phrase_follow_it_or_are_named(self):
+        status, out = self.rewrite(GUARD + " $X ;", "['] $X ok-apply2 ;")
+        self.assertEqual(status, 0, out)
+        faults = self.tree.text("tests/mutants/faults.toml")
+        self.assertIn("old = ''': a-run ( a x o -- y o ) ['] a-step ok-apply2 ;'''", faults)
+        self.assertIn("new = ''': a-run ( a x o -- y o ) drop ['] a-step ok-apply2 ;'''", faults)
+        self.assertIn("planted faults re-targeted: a-run-drops-first (new text changed)\n", out)
+        self.assertIn("old = ''': a-step ( x -- y ) 1+ 0 ;'''", faults)
+        self.assertIn("fault b-run-no-drop (src/core/b.fs): its old text no longer occurs once", out)
+        self.assertIn("old = '''  no-result exit then b-step ;'''", faults)
+
+    def test_paths_limit_the_rewrite_and_the_dry_run_writes_nothing(self):
+        before = self.tree.snapshot()
+        status, out = self.rewrite(GUARD + " $X ;", "['] $X ok-apply2 ;", "--paths", "src/core/b.fs",
+                                   "--dry-run")
+        self.assertEqual(status, 0, out)
+        self.assertEqual(self.tree.snapshot(), before)
+        self.assertIn("would rewrite 1 site(s) in 1 file(s)", out)
+        self.assertNotIn("a-run", out.split("REWRITE BY SCRIPT")[0].split("would rewrite")[1])
+        self.assertIn("+  ['] b-step ok-apply2 ;", out)
+
+    def test_a_wildcard_binds_one_name_the_same_wherever_it_recurs(self):
+        pattern = cd.Pattern("$X $X +", "$X 2*")
+        self.assertEqual(pattern.apply(": w dup DUP + ;")[0], ": w dup 2* ;")
+        self.assertEqual(pattern.apply(": w dup drop + ;"), (": w dup drop + ;", 0))
+        for text in (": w exit exit + ;", ": w 7 7 + ;", ": w r> r> + ;", ": w ['] ['] + ;",
+                     ": w s\" a\" s\" a\" + ;"):
+            with self.subTest(text=text):
+                self.assertEqual(pattern.apply(text)[1], 0)
+        two = cd.Pattern("ok-then? if $X else $Y then", "$Y $X")
+        self.assertEqual(two.apply(": w ok-then? IF a-b else C-D then ;")[0], ": w C-D a-b ;")
+
+    def test_a_comment_inside_the_phrase_leaves_the_site(self):
+        tree = rewrite_tree(**{"src/core/c.fs": "require ../lib/o.fs\n: c-step 0 ;\n"
+                                                ": c-run ok-then? 0= ( why ) if nip no-result exit then c-step ;\n"})
+        try:
+            status, out = tree.run("--rewrite", "--from", GUARD + " $X ;", "--to", "['] $X ok-apply2 ;")
+            self.assertEqual(status, 0, out)
+            self.assertIn("left: src/core/c.fs:3 c-run: a comment inside the phrase", out)
+            self.assertIn("( why )", tree.text("src/core/c.fs"))
+        finally:
+            tree.close()
+
+    def test_the_definition_of_a_new_word_is_left_alone(self):
+        status, out = self.rewrite("over 0= if nip execute else drop nip nip no-result then",
+                                   "['] execute ok-apply2")
+        self.assertIn("left: src/lib/o.fs:3 ok-apply2: inside the definition of ok-apply2", out)
+        self.assertEqual(self.tree.text("src/lib/o.fs"), STEP_LIB)
+
+    def test_a_file_that_cannot_see_a_new_word_is_refused_or_given_the_require(self):
+        tree = rewrite_tree(**{"src/core/d.fs": ": d-step 0 ;\n: d-run " + GUARD + " d-step ;\n"})
+        try:
+            before = tree.snapshot()
+            status, out = tree.run("--rewrite", "--from", GUARD + " $X ;", "--to", "['] $X ok-apply2 ;")
+            self.assertEqual(status, 1)
+            self.assertIn("src/core/d.fs does not load the definition of `ok-apply2`: it needs "
+                          "`require ../lib/o.fs`", out)
+            self.assertEqual(tree.snapshot(), before)
+            status, out = tree.run("--rewrite", "--from", GUARD + " $X ;", "--to", "['] $X ok-apply2 ;",
+                                   "--add-require")
+            self.assertEqual(status, 0, out)
+            self.assertEqual(tree.text("src/core/d.fs"), "require ../lib/o.fs\n: d-step 0 ;\n"
+                                                         ": d-run ['] d-step ok-apply2 ;\n")
+            self.assertIn("added `require ../lib/o.fs` to src/core/d.fs", out)
+        finally:
+            tree.close()
+
+    def test_add_require_names_the_file_to_load(self):
+        tree = rewrite_tree(**{"src/core/d.fs": ": d-step 0 ;\n: d-run " + GUARD + " d-step ;\n",
+                               "src/core/e.fs": "require ../lib/o.fs\n"})
+        try:
+            status, out = tree.run("--rewrite", "--from", GUARD + " $X ;", "--to", "['] $X ok-apply2 ;",
+                                   "--add-require", "src/core/e.fs", "--paths", "src/core/d.fs")
+            self.assertEqual(status, 0, out)
+            self.assertTrue(tree.text("src/core/d.fs").startswith("require ./e.fs\n"))
+        finally:
+            tree.close()
+
+    def test_a_rewrite_that_makes_a_duplicate_group_writes_nothing(self):
+        tree = rewrite_tree(**{"src/core/f.fs": "require ../lib/o.fs\n: f-step 0 ;\n"
+                                                ": f-one 1 2 3 4 5 swap-it f-step ;\n"
+                                                ": f-two 1 2 3 4 5 other f-step ;\n"})
+        try:
+            before = tree.snapshot()
+            status, out = tree.run("--rewrite", "--from", "other", "--to", "swap-it")
+            self.assertEqual(status, 1)
+            self.assertIn("would make a duplicate group", out)
+            self.assertEqual(tree.snapshot(), before)
+        finally:
+            tree.close()
+
+    def test_a_group_the_rewrite_removes_leaves_the_baseline(self):
+        tree = rewrite_tree(**{"src/core/g.fs": ": old-a 0 ;\n: old-b 1 ;\n"
+                                                ": g-one 1 2 3 4 5 6 old-a ;\n: g-two 1 2 3 4 5 6 old-b ;\n"})
+        try:
+            key = tree.key("g-one")
+            status, out = tree.run("--rewrite", "--from", "4 5 6 old-a", "--to", "old-a")
+            self.assertEqual(status, 0, out)
+            self.assertNotIn(key, json.loads(tree.baseline().read_text()))
+            self.assertIn("duplicate groups gone:", out)
+            self.assertEqual(tree.run()[0], 0)
+        finally:
+            tree.close()
+
+    def test_a_malformed_pattern_is_refused(self):
+        for frm, to in (("", "x"), ("a $X", "$Y")):
+            with self.subTest(frm=frm, to=to):
+                status, out = self.rewrite(frm, to)
+                self.assertEqual(status, 1)
+                self.assertIn("refused:", out)
 
 
 class Plan(unittest.TestCase):
