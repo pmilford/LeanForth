@@ -27,6 +27,7 @@
 \ tests/front/constructions-init.sh.
 \ State: none of its own; the job record (/aux) holds everything.
 
+require ../lib/find.fs
 require ./constructions.fs
 
 \ ---- T's motive and the minor premises it keeps.
@@ -41,7 +42,8 @@ require ./constructions.fs
 : main-slot ( job -- x ) dup aux-motives @ 1- swap aux-main @ - ;
 : minor-slot ( i job -- x ) 2dup minor-type over target rot - nip ;
 : minor-main? ( i job -- flag ) tuck minor-slot swap main-slot = ;
-: kept-before ( i job -- n ) 0 rot 0 ?do over i swap minor-main? - loop nip ;
+: kept-at? ( job i -- job flag ) over minor-main? ;
+: kept-before ( i job -- n ) swap ['] kept-at? count-index ;
 : kept-count ( job -- n ) dup aux-minors @ swap kept-before ;
 \ T's motive's variable in casesOn's value: past the kept minor premises,
 \ the major premise and the indices.

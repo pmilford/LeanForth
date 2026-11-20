@@ -85,7 +85,7 @@ T{ s"  'c' depends on 'b'" detail-has? -> true }T
 lf-tac-forget
 view4 lf-mctx-view!
 \ An assigned goal is a fault (checkNotAssigned): invalid.
-T{ nat goal dup fa lf-mvar-assign made fb clear-code -> -4201 }T
+T{ nat goal dup fa lf-mvar-assign made fa clear-code -> -4201 }T
 
 \ ---- by-clear's text: getFVarId (389 for a constant), then clear.
 : ran ( c-addr u -- code )
@@ -100,6 +100,12 @@ lf-tac-forget
 \ caller, by-apply, on an identifier and on an application (postponing
 \ allowed), which give no metavariable.
 T{ s" ' Nat.succ ' a $ by-clear" ran -> 389 }T
+lf-tac-forget
+\ getFVarId elaborates without postponing (mayPostpone := false): a term
+\ that is not a hypothesis is printed with its numeral's type settled
+\ (review tactic-batch-1 B3).
+T{ s" ' id 0 $ by-clear" ran -> 389 }T
+T{ s" `@id Nat 0`" detail-has? -> true }T
 lf-tac-forget
 T{ s" ' Nat.le_refl by-apply" ran s" ' Nat.le_refl ' a $ by-apply" ran -> 0 0 }T
 .( clear test.fs: all tests passed) cr

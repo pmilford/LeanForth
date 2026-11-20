@@ -329,5 +329,14 @@ T{ snap-file -1 hs-sha hs-firsts hs snap-layer-open s" base snapshot of the laye
 T{ s" /nonexistent/leanforth.lfsnap" -1 hs snap-open -> outcome-invalid }T  hs snap-free
 T{ depth -> 0 }T
 snap-file delete-file drop
+\ The writer's site texts (review of cleanup-families-2, M2): a site seen
+\ before is found by its pair (site, number) and its text kept once, so
+\ the bytes hold "abc" and "xy" with their counts, 7, not "abc" twice.
+create st1 3 c, char a c, char b c, char c c,
+create st2 2 c, char x c, char y c,
+T{ sites-init -> outcome-ok }T
+T{ st1 site-of st2 site-of st1 site-of site-bytes slab-count
+   -> 1 outcome-ok 5 outcome-ok 1 outcome-ok 7 }T
+sites-free
 failures @ 0= [if] ." The lookup lists, I2 and the snapshot round trip hold." cr [then]
 bye

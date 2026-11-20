@@ -25,8 +25,6 @@
 \       universe arguments, its name interned in this context
 \   lf-nat-in ( part-addr part-u prefix-addr prefix-u -- node outcome )
 \       the constant prefix.part, prefix a root name (Nat.zero, Bool.true)
-\   lf-nat-node ( index identity true | false -- node outcome )  a term
-\       store's answer as a node, or -1 and full
 \ Policies stay with the callers: the kernel's refusal of a count of 2^32
 \ or more (get_count_arg, 305-313), Meta's exponent threshold (256,
 \ Util/SafeExponentiation.lean). Here only resources: Lean's size limit,
@@ -52,21 +50,19 @@ require ./terms.fs
 : nop-site ( -- site ) c" nat-ops lf-nat-lit-op" ;
 : nop-too-big ( -- -1 outcome )
   0 0 nop-site lf-diag-nat-size lf-diag-note -1 outcome-full ;
-: lf-nat-node ( index identity true | false -- node outcome )
-  if drop outcome-ok else -1 outcome-full then ;
 
 \ Constants without universe arguments, by name.
 : nop-name ( prefix c-addr u -- id outcome ) lf-name-str room-result ;
 : nop-const ( id -- node outcome )
   lf-name-generation @ 0 0 lf-cref-new 0= if -1 outcome-full exit then
-  lf-cterm-new lf-nat-node ;
+  lf-cterm-new lf-made-term ;
 : lf-nat-named ( prefix c-addr u -- node outcome )
   nop-name ['] nop-const ok-apply ;
 : lf-nat-in ( part-addr part-u prefix-addr prefix-u -- node outcome )
   0 -rot nop-name ok-then? 0= if nip nip no-result exit then -rot lf-nat-named ;
 : lf-nat-lit-bool ( flag -- node outcome )
   if s" true" else s" false" then s" Bool" lf-nat-in ;
-: lf-nat-lit ( u -- node outcome ) lf-hterm-cell lf-nat-node ;
+: lf-nat-lit ( u -- node outcome ) lf-hterm-cell lf-made-term ;
 
 \ Operations in a scratch arena: the literals a and b as numbers, op
 \ ( x y arena -- z outcome ) on them, the result made a new literal (or,
@@ -81,9 +77,9 @@ require ./terms.fs
   swap >r dup >r nop-operands ok-then? 0= if 2r> 2drop exit then 2r> swap execute ;
 : nop-literal ( z outcome -- node outcome )
   ok-then? 0= if outcome-full = if nop-too-big else -1 outcome-invalid then exit then
-  lf-hterm-big lf-nat-node ;
+  lf-hterm-big lf-made-term ;
 : nop-truth ( flag outcome -- node outcome )
-  ok-then? if lf-nat-lit-bool else no-result then ;
+  ['] lf-nat-lit-bool ok-apply ;
 : nop-in-arena ( a b op cells make -- node outcome )
   >r lf-lit-arena ok-then? 0= if r> 2drop 2drop drop nop-too-big exit then
   dup >r nop-apply 2r> >r execute r> lf-lit-arena-free ;

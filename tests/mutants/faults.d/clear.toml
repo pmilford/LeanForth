@@ -22,8 +22,8 @@ reason = "TB1: the newest dependent hypothesis named where Lean's lctx.forM name
 [[fault]]
 id = "tb1-clear-self-dependent"
 file = "src/front/meta-tactic/goal.fs"
-old = '''  lf-mctx-view swap lf-view-fvar 2dup = if drop false exit then'''
-new = '''  lf-mctx-view swap lf-view-fvar'''
+old = '''  lf-mctx-fvar 2dup = if drop false exit then'''
+new = '''  lf-mctx-fvar'''
 test = "$GFORTH tests/front/tactics/clear/test.fs"
 equivalent = "a local's own type, or a let's own value, never holds its own free variable (the local context is built in order), so the test of itself always answers false: skipping it, as Lean's `unless localDecl.fvarId == fvarId` does, changes no answer"
 reason = "TB1: the variable cleared tested against itself (Lean passes over its own declaration)"
@@ -58,7 +58,6 @@ file = "src/front/tactic-core.fs"
 old = ''': lf-tac-get-fvar ( node -- fvar ) false tcr-for-apply tcr-fvar ;'''
 new = ''': lf-tac-get-fvar ( node -- fvar ) lf-tac-elab-for-apply tcr-fvar ;'''
 test = "$GFORTH tests/front/tactics/clear/test.fs"
-equivalent = "elabTermForApply's mayPostpone only changes a term that is not an identifier and leaves postponed problems; every term a hypothesis can be is an identifier, resolved with no elaboration, so no test can tell the two apart (Lean's getFVarId passes false)"
 reason = "TB1: getFVarId elaborates with postponing allowed (Lean: mayPostpone := false)"
 
 [[fault]]

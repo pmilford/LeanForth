@@ -73,8 +73,7 @@ lfa-entry-capacity /lfa-entry 0 context-store: lfa-entries
 
 \ What an entry search seeks: a spelling, a group and a kind.
 begin-structure /lfa-key
-  field: lfa-key-addr
-  field: lfa-key-length
+  2 cells +field lfa-key-text  \ the spelling: c-addr u, with 2@ 2!
   field: lfa-key-group
   field: lfa-key-kind
 end-structure
@@ -111,9 +110,9 @@ end-structure
 
 \ The newest entry with the key's spelling, group and kind.
 : lfa-key! ( c-addr u group kind -- key )
-  lfa-groups lfa-groups-key >r r@ lfa-key-kind ! r@ lfa-key-group ! r@ lfa-key-length !
-  r@ lfa-key-addr ! r> ;
-: lfa-key-spelling ( key -- c-addr u ) dup lfa-key-addr @ swap lfa-key-length @ ;
+  lfa-groups lfa-groups-key >r r@ lfa-key-kind ! r@ lfa-key-group !
+  r@ lfa-key-text 2! r> ;
+: lfa-key-spelling ( key -- c-addr u ) lfa-key-text 2@ ;
 : lfa-entry-is? ( key entry -- flag )
   over lfa-key-group @ over lfa-entry-group @ = >r
   over lfa-key-kind @ over lfa-entry-kind @ = r> and

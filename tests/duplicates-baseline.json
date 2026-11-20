@@ -1,14 +1,4 @@
 {
- "0021e5f9ac0d": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/level-make.fs:lf-lmk-pick",
-   "src/present/log-view.fs:lf-lv-part-of"
-  ],
-  "reason": "accepted: a two-way choice of seven tokens; a shared word would be longer to read than it",
-  "tokens": 7
- },
  "01252feaf76d": {
   "copies": 3,
   "kind": "shape",
@@ -455,7 +445,7 @@
    "src/front/constructions.fs:cases",
    "src/front/lib-decode.fs:lbd-ctor-data"
   ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "reason": "false positive: a chain of three different steps on outcome.fs's ok-with (constructions.fs's recon and cases, lib-decode.fs's lbd-ctor-data), already the shared word (cleanup-families-2)",
   "tokens": 12
  },
  "3c14cb454f57": {
@@ -498,6 +488,16 @@
   "reason": "false positive: the guarded test `x-tag if zero = else false then` of a view and of a level, different readers",
   "tokens": 7
  },
+ "3f63b99889cd": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/infer.fs:if-params-in",
+   "src/front/infer.fs:if-lambda"
+  ],
+  "reason": "false positive: a chain of two different steps after a first on outcome.fs's ok-apply (infer.fs's if-params-in and if-lambda), already the shared word",
+  "tokens": 7
+ },
  "41c780bc6e5c": {
   "copies": 2,
   "kind": "shape",
@@ -529,11 +529,12 @@
   "tokens": 17
  },
  "465b1376b48b": {
-  "copies": 4,
+  "copies": 5,
   "kind": "shape",
   "members": [
    "src/cli/check-run.fs:ck-left",
    "src/front/elab-term.fs:et-coe-at",
+   "src/front/infer.fs:if-induct-data",
    "src/kernel/defeq.fs:lf-lz-unknown",
    "src/present/log-check.fs:lf-lc-declaration?"
   ],
@@ -633,16 +634,6 @@
   "reason": "false positive: the guarded test `dup a? if b else drop true then`, each store's own two tests (terms, levels, references)",
   "tokens": 8
  },
- "55851178c722": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/infer.fs:if-params-in",
-   "src/front/infer.fs:if-lambda"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 14
- },
  "56076e76423f": {
   "copies": 2,
   "kind": "shape",
@@ -693,16 +684,6 @@
   "reason": "accepted: a row's precedence copied into its left or its right precedence, six tokens each",
   "tokens": 6
  },
- "59e7c676bb0c": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/assign-check.fs:lf-meta-delayed?",
-   "src/front/whnf.fs:wc-delayed?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 7
- },
  "5a5a01221e51": {
   "copies": 2,
   "kind": "shape",
@@ -744,16 +725,6 @@
   "reason": "family, table-driven later: the replace walks (mixed-instantiate.fs, mixed-shift.fs, mixed-open.fs, inductive-nested.fs) keep their visit, pair, memo and keep words per walk; one walk record of xts would serve them (9.4.8k follow-up 5); their shared leaf, clean and rebuild steps are in mixed-rebuild.fs",
   "tokens": 13
  },
- "5f044dad4e5f": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/core/nat-ops.fs:nop-truth",
-   "src/kernel/whnf.fs:lf-nat-literal"
-  ],
-  "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with/ok-and/ok-then?, already the shared words",
-  "tokens": 6
- },
  "5f89f8c2b904": {
   "copies": 2,
   "kind": "shape",
@@ -783,16 +754,6 @@
   ],
   "reason": "family, table-driven later: the term, level and constant-reference stores (terms.fs, levels.fs, constant-references.fs) keep parallel interfaces over their own store, table and columns; one store-family record would serve them (9.4.8k follow-up 4)",
   "tokens": 16
- },
- "6262f7e98086": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/nat-offset.fs:no-plus",
-   "src/kernel/whnf.fs:lf-whnf-reapply"
-  ],
-  "reason": "false positive: front-end Nat offset and kernel whnf rebuild an application in the same shape, different stores and meanings",
-  "tokens": 8
  },
  "63b55fabdfc5": {
   "copies": 2,
@@ -842,7 +803,7 @@
    "src/front/cases-several.fs:several-cases",
    "src/front/lib-decode.fs:lbd-rec-data"
   ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "reason": "false positive: a chain of six different steps on outcome.fs's ok-with (cases-several.fs's several-cases, lib-decode.fs's lbd-rec-data), already the shared word; a table for outcome-steps would add a CREATEd global per file and be no shorter (cleanup-families-2)",
   "tokens": 21
  },
  "692feec774bc": {
@@ -872,7 +833,7 @@
    "src/front/ctor-idx.fs:cases-app",
    "src/front/lib-decode.fs:lbd-type-data"
   ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "reason": "false positive: a chain of five different steps on outcome.fs's ok-with (ctor-idx.fs's cases-app, lib-decode.fs's lbd-type-data), already the shared word (cleanup-families-2)",
   "tokens": 18
  },
  "6a9dc387ee01": {
@@ -1011,28 +972,13 @@
   "tokens": 9
  },
  "8085ebdd787c": {
-  "copies": 17,
+  "copies": 2,
   "kind": "shape",
   "members": [
-   "src/author/runner.fs:lfa-rest",
-   "src/author/source.fs:lfa-the-line",
-   "src/core/derivation-log.fs:lf-log-cut",
-   "src/core/derivation-log.fs:lf-log-published",
-   "src/core/statement-match.fs:lf-stmt-text",
-   "src/front/elab-data.fs:elab-eliminator@",
-   "src/front/elab-data.fs:elab-matcher-alts",
-   "src/front/lib-decode.fs:lf-libdec-hint",
-   "src/front/lib-decode.fs:lf-libdec-params",
    "src/front/synth.fs:sy-goal-val",
-   "src/import/run-replay.fs:rp-saved",
-   "src/present/print-job.fs:lf-print-settings",
-   "src/present/proof-outline.fs:lf-ol-source-name",
-   "src/program/ir-reader.fs:ir-mark",
-   "src/program/ir-run.fs:irx-def-block",
-   "src/program/verify-report.fs:pv-text",
-   "src/program/verify-runner.fs:pv-rest"
+   "src/program/ir-run.fs:irx-def-block"
   ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "reason": "planned: 9.4.8l pair-field family (rounds 1 and 2 read every other pair with 2@ or cell-pair@): synth.fs sy-goal-val reads sc-mvar and sc-val, which are not adjacent (sc-val is also the first of the pair sy-val! writes with sc-ibody); ir-run.fs irx-def-block waits for the next recording of the clamp receipt, which hashes the file (9.4.8l T)",
   "tokens": 7
  },
  "82ea3a350107": {
@@ -1078,16 +1024,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
  },
- "86d5a40b9848": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/level-params.fs:lp-fixed?",
-   "src/kernel/mixed-level-substitute.fs:lf-mls-closed?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 7
- },
  "87fc6aa43754": {
   "copies": 2,
   "kind": "shape",
@@ -1109,29 +1045,14 @@
   "tokens": 7
  },
  "894e2526d85d": {
-  "copies": 18,
+  "copies": 3,
   "kind": "shape",
   "members": [
-   "src/author/runner.fs:lfa-rest!",
-   "src/core/derivation-log.fs:lf-log-at!",
-   "src/core/derivation-log.fs:lf-log-published!",
-   "src/core/statement-match.fs:lf-stmt-text!",
-   "src/front/assign-check.fs:ac-set",
-   "src/front/beta-inst.fs:ib-xs!",
-   "src/front/instantiate.fs:in-xs!",
-   "src/front/lctx-views.fs:lv-except!",
-   "src/front/synth.fs:sy-val!",
-   "src/front/tactic-run.fs:lfr-set",
-   "src/import/run-replay.fs:rp-restore",
-   "src/present/print-job.fs:lf-print-setup",
-   "src/program/ir-reader.fs:ir-mark!",
    "src/program/ir-run.fs:irx-row-returns",
    "src/program/ir-run.fs:irx-where!",
-   "src/program/ir-run.fs:irx-bases!",
-   "src/program/verify-report.fs:pv-text!",
-   "src/program/verify-runner.fs:pv-rest!"
+   "src/program/ir-run.fs:irx-bases!"
   ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "reason": "planned: 9.4.8l pair-field family (rounds 1 and 2 wrote every other pair with 2! or cell-pair!): the three left are in ir-run.fs (irx-row-returns, irx-where!, irx-bases!), whose SHA-256 the committed clamp receipt holds; they wait for its next recording (9.4.8l T)",
   "tokens": 6
  },
  "89bc67ef61cd": {
@@ -1182,7 +1103,7 @@
    "src/front/mvars.fs:mvl-open?",
    "src/kernel/environment.fs:lf-env-valid?"
   ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "reason": "false positive: the guarded test `dup a? if b else drop false then` of two different words each time (as group 0268), six members in four files; a word taking two xts would be no shorter (cleanup-families-2)",
   "tokens": 8
  },
  "8cf291e5b543": {
@@ -1442,16 +1363,6 @@
   "reason": "accepted: program/sha-words.fs is the text of lib/sha256.fs's helper words character for character, proved by tests/reference/program-ir.lean; plan row SHA-2 has the library load it (planned)",
   "tokens": 11
  },
- "aa7d81a10b99": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/core/terms.fs:lf-sought@",
-   "src/kernel/env-import.fs:imp-layer-decls"
-  ],
-  "reason": "false positive: three fields of a record read, different records",
-  "tokens": 9
- },
  "ac834e546fa9": {
   "copies": 4,
   "kind": "shape",
@@ -1478,7 +1389,7 @@
    "src/present/print-analysis.fs:lf-pp-applied?",
    "src/program/ir-reader.fs:ir-more?"
   ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "reason": "false positive: the short-circuit test `a if b else false then` (a && b), nine times with nine different tests and continuations in nine files; a word taking b's xt would be no shorter and would run an EXECUTE on every call (cleanup-families-2)",
   "tokens": 6
  },
  "ace13d66ceec": {
@@ -1511,24 +1422,6 @@
   "reason": "family, table-driven later: 9.4.8k follow-up 8, one text pool (texts as offset and length into a growable byte slab) for namespaces.fs, note-table.fs, names.fs and print-job.fs",
   "tokens": 10
  },
- "b380e2991a4d": {
-  "copies": 10,
-  "kind": "shape",
-  "members": [
-   "src/author/groups.fs:lfa-key-spelling",
-   "src/core/constant-references.fs:lf-cref-name@",
-   "src/front/elab-data.fs:ed-keys@",
-   "src/front/meta-env.fs:me-kinds-span",
-   "src/import/ndjson-emit.fs:buffer-text",
-   "src/import/ndjson.fs:export-marks",
-   "src/kernel/caches.fs:lf-cache-stats",
-   "src/kernel/mixed-definition-probe.fs:lf-mdreq-claim@",
-   "src/kernel/mixed-definition-probe.fs:lf-mdreq-value@",
-   "src/program/ir-reader.fs:ir-token-where"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 6
- },
  "b441222231c7": {
   "copies": 21,
   "kind": "shape",
@@ -1555,7 +1448,7 @@
    "src/program/verify-semantics.fs:pv-call",
    "src/program/verify-semantics.fs:pv-prim"
   ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "reason": "false positive: the idiom `a? if b else c then`, a two-way choice between different words in every copy (21 copies in 14 files, each test and each arm its own); a shared word taking three xts would be longer to read than the choice itself (cleanup-families-1)",
   "tokens": 6
  },
  "b4a319894071": {
@@ -1599,20 +1492,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
  },
- "bf71d37d38f0": {
-  "copies": 6,
-  "kind": "shape",
-  "members": [
-   "src/core/derivation-log.fs:lf-log-publish-fields",
-   "src/core/terms.fs:lf-sought!",
-   "src/front/expr-remap.fs:remap-set",
-   "src/kernel/env-snapshot.fs:snap-layer-slots!",
-   "src/present/log-view.fs:lv-node!",
-   "src/present/notation-table.fs:lf-nt-places!"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 8
- },
  "bf88a9b691e8": {
   "copies": 4,
   "kind": "shape",
@@ -1625,7 +1504,7 @@
   "reason": "false positive: the guarded test `dup a? if b else drop false then` (or with 2dup/2drop) of two different words",
   "tokens": 8
  },
- "c0d6944876ba": {
+ "c1e3afb8fe07": {
   "copies": 2,
   "kind": "copy",
   "members": [
@@ -1727,20 +1606,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after the front branches merge; came with main's s2-unfold and s1-synth-b)",
   "tokens": 7
  },
- "c785f98ba48a": {
-  "copies": 6,
-  "kind": "shape",
-  "members": [
-   "src/front/elab-app.fs:ea-xn",
-   "src/front/elab-app.fs:ea-paramidx",
-   "src/front/elab-app.fs:ea-insts#",
-   "src/front/elab-data.fs:ed-params-read",
-   "src/front/elab-pending.fs:ep-defs#",
-   "src/front/elab-pending.fs:ep-goals#"
-  ],
-  "reason": "planned: 9.4.8k front batch (s1-elab's words, came with main's merge of s1-elab)",
-  "tokens": 6
- },
  "c8ab582adafb": {
   "copies": 2,
   "kind": "shape",
@@ -1793,20 +1658,6 @@
   ],
   "reason": "false positive: a flag's two outcomes, each module its own failure record",
   "tokens": 7
- },
- "cc681a2bd39b": {
-  "copies": 6,
-  "kind": "shape",
-  "members": [
-   "src/core/derivation-log.fs:lf-log-cref-head!",
-   "src/front/assign-check.fs:ac-xs!",
-   "src/front/discr-tree.fs:dt-frame!",
-   "src/front/level-params.fs:lp-set",
-   "src/present/proof-outline.fs:lf-outline-source",
-   "src/program/ir-run.fs:irx-effect!"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 9
  },
  "ccfa4020f3d4": {
   "copies": 2,
@@ -1866,16 +1717,6 @@
    "src/front/cases-several.fs:punit",
    "src/front/cases-several.fs:unit-body",
    "src/front/constructions.fs:generic-body"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 7
- },
- "d6a4375d3890": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/core/nat-ops.fs:lf-nat-node",
-   "src/front/nat-offset.fs:no-made"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
@@ -1941,16 +1782,6 @@
   "reason": "accepted: an error at a step's word and at a block's place, two readers of the record; a shared word would take both readers as arguments",
   "tokens": 7
  },
- "dfdfa172bb14": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/goals.fs:gl-result",
-   "src/lib/outcome.fs:ok-or-none"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 7
- },
  "e1621cd366bb": {
   "copies": 2,
   "kind": "shape",
@@ -2011,20 +1842,6 @@
   ],
   "reason": "false positive: an outcome chain of different steps on outcome.fs's ok-with, already the shared word",
   "tokens": 11
- },
- "eb7510a045b4": {
-  "copies": 6,
-  "kind": "shape",
-  "members": [
-   "src/front/elab-data.fs:elab-instance@",
-   "src/front/elab-data.fs:elab-default@",
-   "src/front/elab-data.fs:elab-matcher@",
-   "src/front/elab-data.fs:elab-alt@",
-   "src/front/elab-data.fs:elab-projection@",
-   "src/kernel/env-signature.fs:lf-envsig-actuals"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 10
  },
  "eba24912d740": {
   "copies": 3,

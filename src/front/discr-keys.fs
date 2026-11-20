@@ -134,7 +134,7 @@ end-structure
   outcome-ok then ;
 : dk-nat-end ( acc e -- u outcome )
   dup dk-zero? if drop outcome-ok exit then
-  dk-lit-small ok-then? if dk-sum else nip no-result then ;
+  dk-lit-small ['] dk-sum ok-apply2 ;
 : dk-nat-value ( e -- u outcome )
   0 swap begin dup dk-end? 0= while dk-nat-step drop repeat dk-nat-end ;
 : lf-dt-nat-lit ( e -- u flag outcome )
@@ -243,7 +243,7 @@ end-structure
 : dk-fvar ( -- k outcome ) dk-head dk dk-n @ dk-fvar-key dk-args-key ;
 : dk-lit ( leaf -- k outcome )
   dup lf-tag-str lf-term-tag? if drop -1 outcome-unsupported exit then
-  dk-lit-small ok-then? if dk-lit-key else no-result then ;
+  dk-lit-small ['] dk-lit-key ok-apply ;
 \ A projection (Main.lean:290-299): its structure goes on before the
 \ arguments; under mkPath a class's structure is no_index, a star.
 : dk-class-struct? ( leaf -- flag )

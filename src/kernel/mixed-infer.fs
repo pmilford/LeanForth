@@ -342,7 +342,7 @@ defer lf-minfer-typer ( node frames -- type outcome )
   lf-term-data@ if lf-data-loose 0= else false then ;
 : lf-minfer-put-closed ( body argument -- type status )
   over lf-minfer-closed-body? if lf-minfer-substitute exit then
-  lf-minfer-close ok-then? if lf-minfer-substitute else nip no-result then ;
+  lf-minfer-close ['] lf-minfer-substitute ok-apply2 ;
 : lf-minfer-instantiate ( body argument -- type status )
   lf-log? if 2dup lf-rule-instantiate lf-log-open lf-minfer-put-closed lf-log-close
   else lf-minfer-put-closed then ;
@@ -351,7 +351,7 @@ defer lf-minfer-typer ( node frames -- type outcome )
 \ full store or a spent serial) is full and cannot yield a type.
 : lf-minfer-sort ( level -- type status )
   dup lf-level-identity 0= if drop -1 outcome-invalid exit then
-  lf-hterm-sort if drop outcome-ok else -1 outcome-full then ;
+  lf-hterm-sort lf-made-term ;
 \ A visited Sort's type. In environment mode, while deciding, its level
 \ must first use only the declaration's universe parameters (L2), checked
 \ with the job's fuel (env-signature.fs).
@@ -1006,7 +1006,7 @@ defer lf-minfer-fresh ( -- )
 \ makes (the comparison's caller discards it).
 : lf-minfer-typed ( node frames -- type outcome )
   >r r@ frame-fuel @ lf-minfer-fuel ! lf-minfer-aside @ >r true lf-minfer-aside !
-  lf-minfer-close ok-then? if lf-minfer-walk else no-result then
+  lf-minfer-close ['] lf-minfer-walk ok-apply
   r> lf-minfer-aside ! lf-minfer-fuel @ r> frame-fuel ! ;
 ' lf-minfer-typed is lf-minfer-typer
 

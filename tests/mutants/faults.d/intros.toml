@@ -5,9 +5,9 @@
 
 [[fault]]
 id = "tb1-intros-size-let-body"
-file = "src/front/meta-tactic/goal.fs"
-old = ''': mti-inner ( t -- t' ) dup lf-let? if lf-let-body else lf-term-second@ then ;'''
-new = ''': mti-inner ( t -- t' ) lf-term-second@ ;'''
+file = "src/front/meta-spine.fs"
+old = '''  over lf-let? if drop lf-let-body true exit then'''
+new = '''  over lf-let? if 2drop 0 false exit then'''
 test = "$GFORTH tests/front/tactics/intros/test.fs"
 reason = "TB1: getIntrosSize reads a let's binder (a lambda) for its body, so binders after a let are not counted"
 

@@ -123,7 +123,7 @@ action-of lfa-run-fresh constant edc-run-before
 : edc-statement ( -- type outcome )
   lf-front-statement lf-elab-type ok-then? 0= if no-result exit then
   lf-postpone-no lf-elab-synthesize dup ok? 0= if nip no-result exit then drop
-  lf-instantiate-mvars lf-elab-meta ok-then? if edc-holes else no-result then ;
+  lf-instantiate-mvars lf-elab-meta ['] edc-holes ok-apply ;
 : edc-header ( -- type ) edc-binders edc-must edc-statement edc-must ;
 : edc-by-statement ( -- type ) ['] edc-header edc-configured ;
 ' edc-by-statement is lf-front-by-statement
@@ -162,7 +162,7 @@ action-of lfa-run-fresh constant edc-run-before
 : edc-check-term ( node -- term outcome )
   -1 lf-elab-term ok-then? 0= if no-result exit then
   lf-postpone-check lf-elab-synthesize dup ok? 0= if nip no-result exit then drop
-  lf-instantiate-mvars lf-elab-meta ok-then? if edc-printable else no-result then ;
+  lf-instantiate-mvars lf-elab-meta ['] edc-printable ok-apply ;
 : edc-check-type ( term -- term type outcome )
   dup lf-infer lf-elab-meta ok-then? 0= if no-result exit then
   lf-instantiate-mvars lf-elab-meta ;

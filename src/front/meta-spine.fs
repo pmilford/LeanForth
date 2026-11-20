@@ -142,7 +142,7 @@ require ../core/let-terms.fs
 : lf-meta-forall-body# ( term -- body n )
   0 swap begin dup lf-term-pi? while lf-term-second@ swap 1+ swap repeat swap ;
 : lf-meta-forall-body ( term -- body ) lf-meta-forall-body# drop ;
-: lf-meta-app ( f a -- f' outcome ) lf-term-app if outcome-ok else -1 outcome-full then ;
+: lf-meta-app ( f a -- f' outcome ) lf-term-app room-result ;
 : ms-app-down ( f k addr -- f' outcome ) swap cells - @ lf-meta-app ;
 : lf-meta-apply-from ( f n from slab -- f' outcome )
   lf-meta-arg-at ['] ms-app-down ok-fold ;

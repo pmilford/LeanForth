@@ -21,7 +21,7 @@ reason = "a2-iii: the oldest local that fits is taken, not the newest (as_newest
 [[fault]]
 id = "assumption-not-assigned"
 file = "src/front/meta-tactic/assumption.fs"
-old = '''  if mas-fvar lf-mvar-assign lf-must exit then mas-none ;'''
+old = '''  if lf-mctx-fvar lf-mvar-assign lf-must exit then mas-none ;'''
 new = '''  if 2drop exit then mas-none ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/assumption/check.py"
 reason = "a2-iii: the goal is left open when a hypothesis fits (the hand-over refuses the hole)"

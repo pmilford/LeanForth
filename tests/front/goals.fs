@@ -369,6 +369,16 @@ T{ lf-form-mdata lf-hterm-unsupported must drop dup fuel lf-print-same? nat nat 
 0 nat t-prop t-pi s" p" hyp constant fp constant vp
 T{ nat fp 0 t-var t-app t-pi s" x" ex. 0 vp goal goal-text s\" p : Nat → Prop\n⊢ ∀ (x : Nat), p x"
    compare -> 0 }T
+\ Tombstones numbered as Lean's sanitizeNames numbers them (review of
+\ cleanup-families-2, L3): each counts the later locals renamed like it,
+\ so three inaccessible x's print x✝² x✝¹ x✝, and two shadowed x's under
+\ an accessible one x✝¹ x✝ x.
+g-fresh
+: three-x ( xt -- view ) >r 0 nat s" x" r@ execute drop nat s" x" r@ execute drop
+  nat s" x" r> execute drop ;
+T{ ' hyp-hidden three-x true. 0 rot goal goal-text s\" x✝² x✝¹ x✝ : Nat\n⊢ True" compare
+   -> 0 }T
+T{ ' hyp three-x true. 0 rot goal goal-text s\" x✝¹ x✝ x : Nat\n⊢ True" compare -> 0 }T
 \ Many goals: unsolved ones printed in order, a blank line between two.
 g-fresh
 : goals-n ( n -- list ) 0 swap 0 ?do true. 0 0 goal run-push made loop ;

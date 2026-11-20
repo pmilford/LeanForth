@@ -1023,7 +1023,9 @@ the same way (`tests/front/tactics/*/check.py`).
   (`tests/front/tactics/exfalso/ex-tag.lf`). It has no error of its own.
 - A *binder* is a `∀ x,` or an `A →` at the front of a goal: the goal
   `a ≤ b → a ≤ b` has one. `by-intros` makes every binder at the front of
-  the goal a hypothesis. Each gets an *inaccessible* name, shown with a
+  the goal a hypothesis. (A statement cannot contain `→` yet, so such a
+  goal arises only inside a proof, as in the example below.) Each gets an
+  *inaccessible* name, shown with a
   dagger (`a✝`): the text cannot write it, but `by-assumption` finds it.
   It unfolds nothing first, so `¬ a = b` (which unfolds to
   `a = b → False`) has no binder for it, and a goal with none is left as

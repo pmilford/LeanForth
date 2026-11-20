@@ -136,7 +136,7 @@ defer lf-elab-arg-call ( node expected frames cont -- ... frames next )
 
 \ ---- The arguments left: a syntax application's, or elaborated terms.
 : ea-syntax? ( -- flag ) ea ea-stx @ 0< 0= ;
-: ea-xn ( -- n ) ea-xargs slab-count ea ea-xs @ - ;
+: ea-xn ( -- n ) ea ea-xs @ ea-xargs slab-since ;
 : ea-left ( -- n )
   ea-syntax? if ea ea-stx @ syn-b@ ea ea-next @ - else ea-xn ea ea-xi @ - then ;
 : ea-left? ( -- flag ) ea-left 0> ;
@@ -144,7 +144,7 @@ defer lf-elab-arg-call ( node expected frames cont -- ... frames next )
 : ea-take-term ( -- term ) ea ea-xi @ ea ea-xs @ + ea-xargs slab-at @ 1 ea ea-xi +! ;
 
 \ ---- The arguments so far (getFType), binders' kinds by index.
-: ea-paramidx ( -- k ) ea-args slab-count ea ea-fargs @ - ;
+: ea-paramidx ( -- k ) ea ea-fargs @ ea-args slab-since ;
 : ea-fargs-at ( -- addr n ) ea ea-fargs @ ea-args slab-at ea-paramidx ;
 \ instantiateBetaRevRange: the last argument for #0 (beta-inst.fs takes
 \ #k from cell k: the arguments reversed into ea-rev first).
@@ -245,7 +245,7 @@ defer lf-elab-arg-call ( node expected frames cont -- ... frames next )
   dup 0< if drop outcome-ok else ea-against then ;
 
 \ ---- The instance metavariables (Lean's instMVars).
-: ea-insts# ( -- n ) ea-insts slab-count ea ea-inst0 @ - ;
+: ea-insts# ( -- n ) ea ea-inst0 @ ea-insts slab-since ;
 : ea-inst ( k -- mvar ) ea ea-inst0 @ + ea-insts slab-at @ ;
 : ea-inst-drop ( k -- ) ea ea-inst0 @ + ea-insts slab-remove ;
 \ synthesizeAppInstMVars: each by synthesizeInstMVarCore, those not

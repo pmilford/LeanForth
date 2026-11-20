@@ -62,6 +62,7 @@ require ../core/literals.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/mvar-leaves.fs
 require ../core/constant-term-boundary.fs
+require ../core/generation-handles.fs
 require ../lib/bounds.fs
 require ../present/binder-table.fs
 require ../author/errors.fs
@@ -129,13 +130,13 @@ end-structure
 
 \ ---- Heads: a constant, a variable, a hypothesis.
 : et-const ( decl -- f outcome )
-  lfa-decl-name et-resolve ok-then? if lf-meta-const-fresh else no-result then ;
+  lfa-decl-name et-resolve ['] lf-meta-const-fresh ok-apply ;
 : et-var ( slot -- f outcome )
   dup et-vars slab-count index? 0= if drop -1 outcome-invalid exit then
   et-vars slab-at @ outcome-ok ;
 : et-hyp ( name -- f outcome )
   lf-mctx-view swap lf-view-named 0= if -1 outcome-invalid exit then
-  lf-mctx-view swap lf-view-fvar outcome-ok ;
+  lf-mctx-fvar outcome-ok ;
 : et-head ( node -- f outcome )
   dup syn-a@ swap syn-kind@ case syn-k-const of et-const endof syn-k-var of et-var endof
     syn-k-hyp of et-hyp endof nip -1 outcome-invalid rot endcase ;
@@ -163,7 +164,7 @@ end-structure
   swap lf-meta-dec-level dup outcome-invalid = 0= if rot drop lf-elab-meta exit then
   2drop et-numeral-error no-result ;
 : et-lit ( n -- lit outcome )
-  lf-hterm-cell if drop outcome-ok else outcome-full no-result then ;
+  lf-hterm-cell lf-made-term ;
 \ OfNat.{u} ?T lit, the instance's type; @OfNat.ofNat.{u} ?T lit ?i
 \ from it and the instance metavariable.
 : et-of-nat-type ( T lit -- type outcome )
@@ -173,12 +174,12 @@ end-structure
   rot lf-meta-args2 et-app2 ok-then? if swap lf-meta-app else nip no-result then ;
 : et-of-nat ( T lit -- term outcome )
   et-of-nat-type ok-then? 0= if no-result exit then
-  dup lf-elab-inst-mvar ok-then? if et-of-nat-value else nip no-result then ;
+  dup lf-elab-inst-mvar ['] et-of-nat-value ok-apply2 ;
 : et-num. ( node -- node ) s" num " lf-elab-note dup syn-a@ lf-elab-n. lf-elab-nl ;
 : et-numeral ( node expected -- term outcome )
   over et-num. drop dup et-type-for ok-then? 0= if nip nip no-result exit then
   tuck swap et-dec-level ok-then? 0= if nip nip no-result exit then
-  et-u ! swap syn-a@ et-lit ok-then? if et-of-nat else nip no-result then ;
+  et-u ! swap syn-a@ et-lit ['] et-of-nat ok-apply2 ;
 
 \ ---- elabTerm: the position (Lean's withRef) set for the visit and put
 \ back at its end; the implicit-lambda test; the elaborator by kind.
@@ -246,7 +247,7 @@ defer et-go-call ( node x frames cont -- ... frames next )
   et-parent tn tn-node @ syn-c@ 0 et-fr ['] et-op-rhs et-go-call ;
 : et-op. ( f -- f ) s" binop " lf-elab-note dup lf-elab-term. lf-elab-nl ;
 : et-op-f ( node -- f outcome )
-  syn-a@ et-resolve ok-then? if lf-meta-const-fresh else no-result then ;
+  syn-a@ et-resolve ['] lf-meta-const-fresh ok-apply ;
 : et-go-op ( node -- ... frames next )
   dup et-op-f ok-then? 0= if nip et-failed exit then et-op.
   over swap et-tn-new ok-then? 0= if nip et-failed exit then
@@ -420,9 +421,9 @@ defer et-x-call ( i x frames cont -- ... frames next )
   eo eo-max @ lf-elab-guarded lf-elab-meta nip ;
 : et-expected ( term -- term outcome ) eo eo-expected @ lf-elab-ensure ;
 : et-op-finish ( term -- term outcome )
-  et-record-max ok-then? if et-expected else no-result then ;
+  et-record-max ['] et-expected ok-apply ;
 : et-op-done ( term outcome frames -- term outcome frames 0 )
-  drop ok-then? if et-op-finish else no-result then et-eo-end ;
+  drop ['] et-op-finish ok-apply et-eo-end ;
 : et-root-call ( cont -- ... frames next ) >r eo eo-root @ 0 et-fr r> et-x-call ;
 \ applyCoe only with a max type and nothing uncomparable.
 : et-coerced ( -- outcome ) et-no-max? if outcome-ok else et-apply-coe then ;
@@ -441,9 +442,9 @@ is et-op
   drop nip et-window-back et-eo-fail ;
 : et-rel-done ( term outcome frames -- term outcome frames 0 )
   drop dup ok? if drop lf-postpone-yes lf-elab-synthesize then et-window-back
-  dup ok? 0= if nip no-result then et-eo-end ;
+  ok-or-none et-eo-end ;
 : et-rel-ensure ( rhs -- rhs' outcome )
-  eo eo-lhs @ lf-infer lf-elab-meta ok-then? if lf-elab-ensure else nip no-result then ;
+  eo eo-lhs @ lf-infer lf-elab-meta ['] lf-elab-ensure ok-apply2 ;
 : et-rel-app ( rhs -- outcome )
   eo eo-root @ tn tn-f @ eo eo-expected @ lf-elab-app-new dup ok? 0= if nip exit then
   drop lf-elab-app-plain eo eo-lhs @ lf-elab-app-term+ dup ok? 0= if nip exit then drop
@@ -478,7 +479,7 @@ is et-rel
 \ ---- elabType, ensureType, elabTermEnsuringType.
 : et-sort-mvar ( -- sort outcome )
   lf-level-mvar-new lf-elab-meta ok-then? 0= if no-result exit then
-  lf-term-symbolic-sort if outcome-ok else outcome-full no-result then ;
+  lf-term-symbolic-sort room-result ;
 : et-is-type? ( e -- flag outcome )
   lf-infer lf-elab-meta ok-then? 0= if false swap exit then lf-meta-whnf lf-elab-meta
   ok-then? if lf-sort? outcome-ok else false swap then ;
@@ -493,7 +494,7 @@ is et-rel
   dup et-is-type? ok-then? 0= if exit then if outcome-ok else et-sorted then ;
 : lf-elab-type ( node -- type outcome )
   dup et-at! et-sort-mvar ok-then? 0= if nip no-result exit then
-  lf-elab-term ok-then? if et-ensure-type else no-result then ;
+  lf-elab-term ['] et-ensure-type ok-apply ;
 \ The ensureHasType at the term's own syntax (Lean's withRef stx).
 : lf-elab-ensuring ( node expected -- term outcome )
   over et-at! tuck lf-elab-term ok-then? if swap lf-elab-ensure else nip no-result then ;

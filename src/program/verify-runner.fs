@@ -36,8 +36,7 @@ require ./verify-semantics.fs
 512 constant pv-block-chars      \ characters read from a file at a time
 10 constant pv-lf
 begin-structure /pv-flow
-  field: pv-flow-rest            \ text not run yet: address
-  field: pv-flow-rest#           \ and length
+  2 cells +field pv-flow-rest    \ text not run yet: c-addr u, with 2@ 2!
   field: pv-flow-reading         \ true: the run reads the file named by the path
   field: pv-flow-file            \ that file once open, or 0
   field: pv-flow-at              \ the next character of the block
@@ -52,8 +51,8 @@ begin-structure /pv-flow
 end-structure
 /pv-flow context-record: pv-flow
 
-: pv-rest ( -- c-addr u ) pv-flow dup pv-flow-rest @ swap pv-flow-rest# @ ;
-: pv-rest! ( c-addr u -- ) pv-flow tuck pv-flow-rest# ! pv-flow-rest ! ;
+: pv-rest ( -- c-addr u ) pv-flow pv-flow-rest 2@ ;
+: pv-rest! ( c-addr u -- ) pv-flow pv-flow-rest 2! ;
 : pv-reading ( -- addr ) pv-flow pv-flow-reading ;
 : pv-fid ( -- addr ) pv-flow pv-flow-file ;
 : pv-block-at ( -- addr ) pv-flow pv-flow-at ;

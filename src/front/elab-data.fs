@@ -457,9 +457,9 @@ create ed-messages
 : ed-types ( first n -- addr n ) swap elab-types slab-at swap ;
 \ A span: two fields, the first number and the count, of numbers in elab-orders.
 : ed-span@ ( span -- addr n ) dup @ elab-orders slab-at swap cell+ @ ;
-: ed-keys@ ( value -- k n ) dup ed-value-keys @ swap ed-value-keys# @ ;
+: ed-keys@ ( value -- k n ) ed-value-keys cell-pair@ ;
 : elab-instance@ ( i -- d class priority )
-  ed-inst dup ed-inst-decl @ over ed-inst-class @ rot ed-inst-priority @ ;
+  ed-inst ed-inst-decl cell-triple@ ;
 : elab-instance-order ( i -- addr n ) ed-inst ed-inst-order ed-span@ ;
 : elab-instance-keys ( i -- k n ) ed-inst ed-inst-value ed-keys@ ;
 : elab-instance-rank ( i -- rank ) ed-inst ed-inst-value ed-value-rank @ ;
@@ -467,22 +467,22 @@ create ed-messages
   ed-left dup ed-left-priority @ over ed-left-value ed-value-rank @ rot ed-left-reason @ ;
 : elab-left-out-keys ( j -- k n ) ed-left ed-left-value ed-keys@ ;
 : elab-default@ ( i -- class d priority )
-  ed-dflt dup ed-dflt-class @ over ed-dflt-decl @ rot ed-dflt-priority @ ;
+  ed-dflt ed-dflt-class cell-triple@ ;
 : elab-default-rank ( i -- rank ) ed-dflt ed-dflt-rank @ ;
 : elab-class@ ( k -- d ) ed-class ed-class-decl @ ;
 : elab-class-out-params ( k -- addr n ) ed-class ed-class-params ed-span@ ;
 : elab-class-out-levels ( k -- addr n ) ed-class ed-class-levels ed-span@ ;
-: elab-eliminator@ ( i -- kind d ) ed-elim dup ed-elim-kind @ swap ed-elim-decl @ ;
+: elab-eliminator@ ( i -- kind d ) ed-elim ed-elim-kind cell-pair@ ;
 : elab-eliminator-types ( i -- addr n )
   ed-elim dup ed-elim-types @ swap ed-elim-types# @ ed-types ;
 : elab-matcher@ ( m -- d params discrs )
-  ed-match dup ed-match-decl @ over ed-match-params @ rot ed-match-discrs @ ;
+  ed-match ed-match-decl cell-triple@ ;
 : elab-matcher-elim ( m -- pos true | false ) ed-match ed-match-elim @ 1+ +1>number ;
-: elab-matcher-alts ( m -- a n ) ed-match dup ed-match-alts @ swap ed-match-alts# @ ;
+: elab-matcher-alts ( m -- a n ) ed-match ed-match-alts cell-pair@ ;
 : elab-alt@ ( a -- fields overlaps thunk? )
-  ed-alt dup ed-alt-fields @ over ed-alt-overlaps @ rot ed-alt-thunk @ ;
+  ed-alt ed-alt-fields cell-triple@ ;
 : elab-projection@ ( p -- ctor params idx )
-  ed-proj dup ed-proj-ctor @ over ed-proj-params @ rot ed-proj-idx @ ;
+  ed-proj ed-proj-ctor cell-triple@ ;
 : elab-projection-decl ( p -- d ) ed-proj ed-proj-decl @ ;
 : elab-projection-class? ( p -- flag ) ed-proj ed-proj-class @ ;
 : ed-sun ( s -- addr ) elab-suns slab-at ;
@@ -727,7 +727,7 @@ end-structure
   dup ed-form-claim ok-then? if swap ed-form-steps ed-steps else nip nip then ;
 \ A span's first number and count, the units of slab claimed between.
 : ed-span-open ( span slab -- ) slab-count swap ! ;
-: ed-span-close ( span slab -- ) slab-count over @ - swap cell+ ! ;
+: ed-span-close ( span slab -- ) over @ swap slab-since swap cell+ ! ;
 \ An array of naturals of 32 bits into elab-orders, as the span at addr.
 : ed-number-item ( item -- outcome ) ed-u32 elab-orders ed-push-ok ;
 \ The items of an array read by xt ( item -- outcome ), each pushing its
@@ -1013,7 +1013,7 @@ create ed-elim-keys  s" kind" counted, s" name" counted, s" types" counted, 0 0 
 : ed-elim-decl! ( value i -- outcome ) ed-elim swap ['] ed-elim-decl ed-decl-into ;
 : ed-type-item ( item -- outcome ) ed-decl elab-types ed-push-ok ;
 : ed-types-span ( addr -- )
-  elab-types slab-count over ed-elim-types @ - swap ed-elim-types# ! ;
+  dup ed-elim-types @ elab-types slab-since swap ed-elim-types# ! ;
 : ed-elim-types! ( value i -- outcome )
   ed-elim elab-types slab-count over ed-elim-types ! swap c" types" ed-member
   ['] ed-type-item ed-array-items swap ed-types-span ;
@@ -1199,7 +1199,7 @@ create ed-sun-members
 
 \ The universe parameters: their names in elab-orders, each f's next one.
 : ed-sun-decl@ ( -- d ) ed-sun-now ed-sun-decl @ ;
-: ed-params-read ( -- k ) elab-orders slab-count ed-sun-now ed-sun-params @ - ;
+: ed-params-read ( -- k ) ed-sun-now ed-sun-params @ elab-orders slab-since ;
 : ed-f-param ( k -- n )
   ed-sun-decl@ ed-stage staged-params@ ed-stage stage-tuples tuple-item ;
 : ed-next-param? ( n -- flag )
@@ -1287,7 +1287,7 @@ create ed-let-form  ed-let-members ,
   ed-name ['] ed-body-decl ok-apply ;
 : ed-nd-struct ( value -- outcome )
   c" struct" ed-member ed-body-name
-  ok-then? if ed-type-or-none else no-result then ['] ed-node-a ed-nd-put ;
+  ['] ed-type-or-none ok-apply ['] ed-node-a ed-nd-put ;
 : ed-nd-idx ( value -- outcome ) c" idx" ed-member ed-u32 ['] ed-node-b ed-nd-put ;
 : ed-nd-expr ( value -- outcome ) c" expr" ['] ed-node-c ed-nd-ref! ;
 create ed-proj-node-members

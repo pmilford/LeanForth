@@ -160,7 +160,7 @@ require ./replace-memo.fs
 begin-structure /lf-cache
   /memo +field lf-cache-table
   field: lf-cache-hits
-  field: lf-cache-misses
+  field: lf-cache-misses          \ with the hits: lf-cache-stats
 end-structure
 8 constant lf-caches#
 begin-structure /lf-caches
@@ -179,7 +179,7 @@ end-structure
 : lf-cache-success ( -- cache ) 5 lf-cache-nth ;      \ m_success
 : lf-cache-failure ( -- cache ) 6 lf-cache-nth ;      \ m_failure
 : lf-cache-memo ( -- cache ) 7 lf-cache-nth ;         \ node -> free variables live
-: lf-cache-stats ( cache -- hits misses ) dup lf-cache-hits @ swap lf-cache-misses @ ;
+: lf-cache-stats ( cache -- hits misses ) lf-cache-hits cell-pair@ ;
 
 \ Each cache's value cells, by its number.
 create lf-cache-values 2 , 2 , 2 , 2 , 2 , 0 , 0 , 1 ,
@@ -345,7 +345,7 @@ create lf-cache-values 2 , 2 , 2 , 2 , 2 , 0 , 0 , 1 ,
 \ Keep r with its identity under key (k1 k2), into the entry found or a new
 \ one; nothing for a node without an identity, or when the table cannot
 \ grow or the check's memory limit refuses (a miss).
-: lf-cent! ( r id a-addr -- ) tuck cell+ ! ! ;
+: lf-cent! ( r id a-addr -- ) cell-pair! ;
 : lf-cache-value! ( r k1 k2 cache -- )
   3 pick lf-term-identity 0= if 2drop 2drop exit then
   >r lf-cache-table memo-claim ok-then? if r> swap lf-cent! else r> 2drop drop then ;

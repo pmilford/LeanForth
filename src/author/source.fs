@@ -34,8 +34,7 @@ require ../lib/text-rule.fs
 
 begin-structure /lfa-source
   field: lfa-source-line     \ number of the line being run, from 1; 0 before the first
-  field: lfa-source-text     \ the line being run: its address
-  field: lfa-source-text#    \ and length
+  2 cells +field lfa-source-text  \ the line being run (2@: c-addr u)
   field: lfa-source-column   \ column of the current token, from 1
   field: lfa-source-length   \ its length in characters
   field: lfa-source-end      \ characters of the line read up to the last token read
@@ -47,10 +46,11 @@ end-structure
 : lfa-lines-restart ( -- ) 0 lfa-source lfa-source-line ! ;
 \ The line c-addr u starts: nothing of it has been read.
 : lfa-line! ( c-addr u -- )
-  lfa-source tuck lfa-source-text# ! tuck lfa-source-text ! 1 over lfa-source-line +!
+  lfa-source lfa-source-text 2! lfa-source 1 over lfa-source-line +!
   0 over lfa-source-end ! 1 over lfa-source-column ! 0 swap lfa-source-length ! ;
 : lfa-line ( -- n ) lfa-source lfa-source-line @ ;
-: lfa-the-line ( -- c-addr u ) lfa-source dup lfa-source-text @ swap lfa-source-text# @ ;
+: lfa-the-line ( -- c-addr u ) lfa-source lfa-source-text 2@ ;
+: lfa-offset ( c-addr -- n ) lfa-the-line drop - ;
 
 \ Positions.
 : lfa-pos ( line column -- pos ) 65535 min swap lfa-line-unit * + ;
@@ -70,12 +70,11 @@ end-structure
 : lfa-invoked ( -- c-addr u )
   lfa-in lfa-skip-delimiter dup lfa-token-start tuck - >r source drop + r> ;
 
-\ Make c-addr u, a token of the line being run, the current token, and
-\ mark the line as read up to its end.
-: lfa-token! ( c-addr u -- )
-  2dup + lfa-source lfa-source-text @ - lfa-source lfa-source-end !
-  lfa-source lfa-source-length ! lfa-source lfa-source-text @ - 1+ lfa-source
-    lfa-source-column ! ;
+\ Make c-addr u, a token of the line being run, the current token.
+: lfa-token-at ( c-addr u -- )
+  lfa-source lfa-source-length ! lfa-offset 1+ lfa-source lfa-source-column ! ;
+\ The same, and mark the line as read up to the token's end.
+: lfa-token! ( c-addr u -- ) 2dup + lfa-offset lfa-source lfa-source-end ! lfa-token-at ;
 \ The current token's text, while its line is kept; never beyond the line.
 : lfa-token ( -- c-addr u )
   lfa-the-line lfa-source lfa-source-column @ 1- 0 max over min /string
@@ -91,7 +90,6 @@ end-structure
   lfa-the-line rot min 0 max lfa-source lfa-source-end @ 0 max over min /string ;
 \ Is c-addr in the line being run (its end included)?
 : lfa-on-line? ( c-addr -- flag ) lfa-the-line over + 1+ within ;
-: lfa-offset ( c-addr -- n ) lfa-source lfa-source-text @ - ;
 
 \ Tokens of a text, split at blanks.
 : lfa-skip-blanks ( c-addr u -- c-addr' u' )

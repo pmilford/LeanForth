@@ -76,6 +76,13 @@ create cbefore /lf-scratch allot
 T{ cbefore lf-scratch-mark -> outcome-ok }T
 3 cb constant cval
 T{ ckey cval lf-cache-whnf lf-cache-node!  ckey lf-cache-whnf lf-cache-node@ -> cval true }T
+\ The counts (lf-cache-stats ( cache -- hits misses )): a key kept is one
+\ more hit, a key not kept one more miss.
+: cdelta ( xt -- dhits dmisses )
+  lf-cache-whnf lf-cache-stats 2>r execute lf-cache-whnf lf-cache-stats 2r> rot swap - >r - r> ;
+: chit ( -- ) ckey lf-cache-whnf lf-cache-node@ 2drop ;
+: cmiss ( -- ) 9 cb lf-cache-whnf lf-cache-node@ drop ;
+T{ ' chit cdelta ' cmiss cdelta -> 1 0 0 1 }T
 T{ cbefore lf-scratch-rollback -> outcome-ok }T  4 cb constant cnew
 T{ cnew cval =  ckey lf-cache-whnf lf-cache-node@ -> true false }T
 T{ ckey cnew lf-cache-whnf lf-cache-node!  lf-caches-clear  ckey lf-cache-whnf lf-cache-node@

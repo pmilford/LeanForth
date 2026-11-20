@@ -751,7 +751,7 @@ reason = "4.2.2a: the top of a chain of lambdas under binders keeps the outer bi
 [[fault]]
 id = "infer-arg-unclosed"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-close ok-then? if lf-minfer-substitute else nip no-result then ;'''
+old = '''  lf-minfer-close ['] lf-minfer-substitute ok-apply2 ;'''
 new = '''  lf-minfer-substitute ;'''
 test = "python3 tests/core/infer_typed_trial.py"
 reason = "4.2.2a (review rvD2A): an application's argument, read under the scope, is put into the Pi body without being closed, so its loose bound variables end up in a closed type"
@@ -1168,7 +1168,7 @@ reason = "instantiate_value_lparams skipped: the value keeps the declaration's o
 [[fault]]
 id = "whnf-arguments-dropped"
 file = "src/kernel/whnf.fs"
-old = '''  lf-whnf-spine-args ok-then? if lf-whnf-apply else nip no-result then ;'''
+old = '''  lf-whnf-spine-args ['] lf-whnf-apply ok-apply2 ;'''
 new = '''  drop outcome-ok ;'''
 test = "$GFORTH tests/core/whnf.fs"
 reason = "unfold_definition does not apply the arguments again (tc 595)"
@@ -6537,7 +6537,7 @@ reason = "5.2.3 strings: Lean's == takes any two string literals for equal; \"ab
 [[fault]]
 id = "str-fields-any"
 file = "src/core/string-literals.fs"
-old = '''  swap lf-str-bytes slab-count swap - swap - 0< 0= ;'''
+old = '''  swap lf-str-bytes slab-since swap - 0< 0= ;'''
 new = '''  2drop true ;'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "5.2.3 strings: the audit passes a leaf whose bytes lie past the slab's units in use"
@@ -8765,7 +8765,7 @@ reason = "rvS12 L2: a full heap in lf-mls-prepare leaves two cells (an index and
 [[fault]]
 id = "s4-mls-closed-always"
 file = "src/kernel/mixed-level-substitute.fs"
-old = ''': lf-mls-closed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else false then ;'''
+old = ''': lf-mls-closed? ( node -- flag ) lf-term-no-params? ;'''
 new = ''': lf-mls-closed? ( node -- flag ) drop true ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
 reason = "S4: universe substitution skips every term, parameters or not"
@@ -12294,9 +12294,9 @@ reason = "a scan that stops at a loose variable answers closed: zeta puts an ope
 
 [[fault]]
 id = "cov2-mls-no-data-closed"
-file = "src/kernel/mixed-level-substitute.fs"
-old = ''': lf-mls-closed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else false then ;'''
-new = ''': lf-mls-closed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else true then ;'''
+file = "src/core/terms.fs"
+old = '''  lf-term-data@ if lf-data-params? 0= else false then ;'''
+new = '''  lf-term-data@ if lf-data-params? 0= else true then ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
 reason = "a term without a data word is taken as having no universe parameter: its levels are never substituted"
 quick = true
@@ -12323,9 +12323,9 @@ reason = "a full term store while a string literal is expanded reads as undecide
 id = "cov2-str-const-refusal-rejected"
 file = "src/kernel/string-literals.fs"
 old = '''  0= if -1 outcome-full exit then
-  lf-cterm-new if drop outcome-ok else -1 outcome-full then ;'''
+  lf-cterm-new lf-made-term ;'''
 new = '''  0= if -1 outcome-rejected exit then
-  lf-cterm-new if drop outcome-ok else -1 outcome-full then ;'''
+  lf-cterm-new lf-made-term ;'''
 test = "$GFORTH tests/core/string-literals.fs"
 reason = "a reference store that cannot grow while the expansion's constants are made rejects the declaration: a resource failure stored as a verdict"
 quick = true
@@ -13321,7 +13321,7 @@ reason = "FE1c: iota applies the rule's right side without the recursor's parame
 [[fault]]
 id = "fe-whnf-iota-rest-dropped"
 file = "src/front/whnf.fs"
-old = '''  wc-major-at 1+ wc-args slab-count over - swap wc-args lf-meta-apply-from ;'''
+old = '''  wc-major-at 1+ dup wc-args slab-since swap wc-args lf-meta-apply-from ;'''
 new = '''  wc-major-at 1+ 0 swap wc-args lf-meta-apply-from ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "FE1c: iota drops the arguments after the major premise (Nat.rec m z s Nat.zero x gives z, not z x)"
@@ -13410,8 +13410,8 @@ reason = "FE1c: a constant with the wrong number of universe levels gets a type,
 [[fault]]
 id = "fe-infer-args-left-loose"
 file = "src/front/infer.fs"
-old = '''  0 if-n ['] if-enter ok-each ok-then? if if-n swap if-flush else if-fail then ;'''
-new = '''  0 if-n ['] if-enter ok-each ok-then? if drop outcome-ok else if-fail then ;'''
+old = ''': if-flush-rest ( type j -- type' outcome ) if-n swap if-flush ;'''
+new = ''': if-flush-rest ( type j -- type' outcome ) drop outcome-ok ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: the arguments after the last whnf point are never put in, so the type keeps loose bound variables"
 
@@ -13451,9 +13451,9 @@ reason = "FE1c: an argument with a loose bound variable is put in without the li
 id = "fe-infer-no-whnf"
 file = "src/front/infer.fs"
 old = ''': if-to-pi ( type -- pi outcome )
-  lf-whnf-core ok-then? 0= if no-result exit then'''
+  lf-whnf-core ['] if-delta ok-apply'''
 new = ''': if-to-pi ( type -- pi outcome )
-  outcome-ok ok-then? 0= if no-result exit then'''
+  outcome-ok ['] if-delta ok-apply'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a function type that is no pi (a let variable, a metavariable) is not reduced by whnfCore first"
 
@@ -13492,8 +13492,8 @@ reason = "FE1c: only the innermost binder of a lambda is closed into a pi"
 [[fault]]
 id = "fe-infer-pi-imax-skipped"
 file = "src/front/infer.fs"
-old = '''  swap lf-meta-imax ;'''
-new = '''  drop outcome-ok ;'''
+old = ''': if-imax-of ( lvl level -- lvl' outcome ) swap lf-meta-imax ;'''
+new = ''': if-imax-of ( lvl level -- lvl' outcome ) drop outcome-ok ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a pi's sort leaves out its domains' levels (Type -> Nat would be Sort 1, not Sort 2)"
 
@@ -13939,8 +13939,8 @@ reason = "refactor-present L2: level copies are recorded as made in the term cop
 [[fault]]
 id = "log-view-node-fields-swapped"
 file = "src/present/log-view.fs"
-old = '''  dup lv-node-tag @ swap dup lv-node-first @ swap lv-node-second @ ;'''
-new = '''  dup lv-node-tag @ swap dup lv-node-second @ swap lv-node-first @ ;'''
+old = '''  lv-node-tag cell-triple@ ;'''
+new = '''  lv-node-tag cell-triple@ swap ;'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "refactor-present I1: a rebuilt node's first and second fields are read swapped"
 
@@ -15619,8 +15619,8 @@ reason = "FE1g-1: a hypothesis shadowed by a newer one of its name prints plain,
 [[fault]]
 id = "fe-goal-tombstone-count"
 file = "src/front/goal-print.fs"
-old = '''  dup gp-local 0 rot gp-after ?do over i gp-renamed-as? if 1+ then loop nip ;'''
-new = '''  drop 0 ;'''
+old = ''': gp-like ( i -- n ) gp-view@ lf-view-count over - 1- ['] gp-later-like? count-index ;'''
+new = ''': gp-like ( i -- n ) drop 0 ;'''
 test = "python3 tests/front/check_goals.py"
 reason = "FE1g-1: every tombstone is a bare ✝, where Lean numbers the older ones x✝¹, x✝²"
 
@@ -15675,7 +15675,7 @@ reason = "FE1g-1: two equal literals made apart compare different, so h1 h2 : 0 
 [[fault]]
 id = "fe-goal-except-ignored"
 file = "src/front/lctx-views.fs"
-old = ''': lv-skip? ( fvar -- flag ) lv lv-except @ lv lv-except# @ cells-has? ;'''
+old = ''': lv-skip? ( fvar -- flag ) lv lv-except 2@ cells-has? ;'''
 new = ''': lv-skip? ( fvar -- flag ) drop false ;'''
 test = "$GFORTH tests/front/goals.fs"
 reason = "FE1g-1: isSubPrefixOf skips none of exceptFVars, so checkAssignment's pattern variables count against the assignment"
@@ -16434,7 +16434,7 @@ reason = "S1 appendix D: whnfR (lf-meta-at) leaves the transparency reducible (L
 id = "fe-whnf-forall-no-whnf"
 file = "src/front/whnf.fs"
 old = '''  dup lf-term-pi? if outcome-ok exit then
-  lf-meta-whnf ok-then? if wm-to-pi else no-result then ;'''
+  lf-meta-whnf ['] wm-to-pi ok-apply ;'''
 new = '''  wm-to-pi ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S1 appendix D: instantiateForall refuses a type that is a pi only after whnf"
@@ -16810,8 +16810,8 @@ reason = "S2 merge B: reduceRec takes a literal or Nat.succ (Nat.succ k) major p
 [[fault]]
 id = "fe-lit-ctor-off-by-one"
 file = "src/front/nat-offset.fs"
-old = '''  1- no-lit ok-then? if no-succ else no-result then ;'''
-new = '''  no-lit ok-then? if no-succ else no-result then ;'''
+old = '''  1- no-lit ['] no-succ ok-apply ;'''
+new = '''  no-lit ['] no-succ ok-apply ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S2 merge B: toCtorIfLit makes the literal 5 Nat.succ 5"
 
@@ -16826,7 +16826,7 @@ reason = "S2 merge B: reduceMatcher? always takes the first alternative (Nat.add
 [[fault]]
 id = "fe-match-extra-args-dropped"
 file = "src/front/whnf.fs"
-old = '''  wc wc-mpre @ wc wc-malts @ + wc-args slab-count over - swap wc-args lf-meta-apply-from'''
+old = '''  wc wc-mpre @ wc wc-malts @ + dup wc-args slab-since swap wc-args lf-meta-apply-from'''
 new = '''  wc wc-mpre @ 0 swap wc-args lf-meta-apply-from'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S2 merge B: reduceMatcher? drops the arguments after the alternatives"
@@ -16850,8 +16850,8 @@ reason = "S1 §4: a text binder's name recorded as its kind"
 [[fault]]
 id = "fe-declevel-assign"
 file = "src/front/infer.fs"
-old = '''  dup idl-open? ok-then? 0= if nip no-result exit then if idl-fresh else idl-dec then ;'''
-new = '''  dup idl-open? ok-then? 0= if nip no-result exit then drop idl-dec ;'''
+old = ''': idl-by ( level flag -- level' outcome ) if idl-fresh else idl-dec then ;'''
+new = ''': idl-by ( level flag -- level' outcome ) drop idl-dec ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "S1 appendix D: decLevel never assigns ?u := succ ?w"
 
@@ -16883,7 +16883,7 @@ reason = "S1 §3: the instance-typed flag set past the trail, kept after a rollb
 id = "fe-libdec-parts-cell"
 file = "src/front/lib-decode.fs"
 old = '''  ['] lf-name-prefix@ lbd-parts! dup ok? if drop lbd-sought else no-result then ;'''
-new = '''  ['] lf-name-prefix@ lbd-parts! ok-then? if lbd-sought else no-result then ;'''
+new = '''  ['] lf-name-prefix@ lbd-parts! ['] lbd-sought ok-apply ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b H1: a run name's split refused room eats the caller's cell (ok-then? takes it as x)"
 
@@ -16891,14 +16891,14 @@ reason = "review s1-meta-b H1: a run name's split refused room eats the caller's
 id = "fe-libdec-run-parts-cell"
 file = "src/front/lib-decode.fs"
 old = '''  ['] lbd-tier-prefix lbd-parts! dup ok? if drop lbd-run-parts else no-result then ;'''
-new = '''  ['] lbd-tier-prefix lbd-parts! ok-then? if lbd-run-parts else no-result then ;'''
+new = '''  ['] lbd-tier-prefix lbd-parts! ['] lbd-run-parts ok-apply ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b H1: a tier name's split refused room eats the caller's cell"
 
 [[fault]]
 id = "fe-env-refused-handle"
 file = "src/front/meta-env.fs"
-old = '''  dup lf-libdec-decl nip me-undecoded dup ok? 0= if nip no-result then ;'''
+old = '''  dup lf-libdec-decl nip me-undecoded ok-or-none ;'''
 new = '''  dup lf-libdec-decl nip me-undecoded ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b H2: a refused decode gives its handle with full, which callers read as a decoded declaration"
@@ -17133,7 +17133,7 @@ reason = "review s1-meta-b B3: an application's function never decoded before th
 [[fault]]
 id = "fe-libdec-kept-walk"
 file = "src/front/lib-decode.fs"
-old = '''  tuck lbd-tables ok-then? if lbd-walk else nip no-result then ;'''
+old = '''  tuck lbd-tables ['] lbd-walk ok-apply2 ;'''
 new = '''  tuck lbd-tables ok-then? if 2drop 0 outcome-ok else nip no-result then ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b: a decoded expression or level is never walked (every term the same)"
@@ -17141,7 +17141,7 @@ reason = "review s1-meta-b: a decoded expression or level is never walked (every
 [[fault]]
 id = "fe-declevel-assign-kept"
 file = "src/front/infer.fs"
-old = '''  lf-level-mvar-assign dup ok? 0= if nip no-result then ;'''
+old = '''  lf-level-mvar-assign ok-or-none ;'''
 new = '''  lf-level-mvar-assign ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "getDecLevel's assignment refused room still answers the fresh ?w, not -1"
@@ -18214,10 +18214,10 @@ reason = "review s1-elab re-check L2: a forgotten error's term shown under a lat
 [[fault]]
 id = "pr-print-sink-type"
 file = "src/present/print-job.fs"
-old = ''': lf-print-sink ( -- sink ) lf-pjob lf-pjob-sink @ ;'''
+old = ''': lf-print-sink ( -- sink ) lf-print-settings drop ;'''
 new = ''': lf-print-sink ( -- sink ) ['] type ;'''
 test = "$GFORTH tests/present/term-printer.fs"
-reason = "review s1-elab re-check L4: a message's term printed to TYPE instead of the message's sink"
+reason = "review s1-elab re-check L4: a message's term printed to TYPE instead of the message's sink (since cleanup-families-1 every piece lf-pp-emit sends goes there too)"
 
 [[fault]]
 id = "pr-print-with-kept"
@@ -20396,7 +20396,7 @@ reason = "S2 merge B: an earlier field in a later field's type is put in as the 
 [[fault]]
 id = "fe-infer-proj-type-not-whnf"
 file = "src/front/infer.fs"
-old = '''  if-e ['] if-leaf-type if-body-by ok-then? if if-whnf-d else no-result then ;'''
+old = '''  if-e ['] if-leaf-type if-body-by ['] if-whnf-d ok-apply ;'''
 new = '''  if-e ['] if-leaf-type if-body-by ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "S2 merge B: the structure's type is not whnf'd (outParam (Prod Nat Nat)), so the projection is refused where Lean infers it"
@@ -20935,3 +20935,557 @@ old = '''  rot if slab-restore else nip slab-forget outcome-ok then ;'''
 new = '''  rot drop slab-restore ;'''
 test = "$GFORTH tests/lib/slab.fs"
 reason = "fix-batch-3: a committed save puts its copy back, undoing the attempt that succeeded"
+
+# --- cleanup-families-1 (plan 9.4.8l): words extracted from exact groups ------
+
+[[fault]]
+id = "cf-mvar-delayed-never"
+file = "src/front/mvars.fs"
+old = ''': lf-mvar-delayed? ( mvar -- flag ) lf-mvar-delayed dup if nip nip nip then ;'''
+new = ''': lf-mvar-delayed? ( mvar -- flag ) lf-mvar-delayed dup if nip nip nip then drop false ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "cleanup-families-1 (group 59e7): a delayed-assigned metavariable reads as not delayed, so whnf and the assignment check treat it as a plain one"
+
+[[fault]]
+id = "cf-made-term-full-ok"
+file = "src/core/generation-handles.fs"
+old = '''  if drop outcome-ok else -1 outcome-full then ;'''
+new = '''  if drop outcome-ok else -1 outcome-ok then ;'''
+test = "$GFORTH tests/core/generation-handles.fs"
+reason = "cleanup-families-1 (group d6a4): a maker out of room gives -1 with ok, a term that is no node"
+
+[[fault]]
+id = "cf-first-or-second-swapped"
+file = "src/lib/bounds.fs"
+old = ''': first-or-second ( x1 x2 n -- x ) 1 = if drop else nip then ;'''
+new = ''': first-or-second ( x1 x2 n -- x ) 1 = if nip else drop then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-1 (group 0021): place 1 gives the second value, so the log view's part and the kernel's level choice take the other one"
+
+[[fault]]
+id = "cf-ck-slot-inverted"
+file = "src/cli/check-run.fs"
+old = ''': ck-slot? ( stage k -- stage flag ) over staged-at over slot-record? ;'''
+new = ''': ck-slot? ( stage k -- stage flag ) over staged-at over slot-record? 0= ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review cleanup-families-1 M1 (r4): the snapshot's slot count counts the stage's other declarations, so the snapshot is read against the wrong number of slots"
+
+[[fault]]
+id = "cf-ck-fresh-counts-taken"
+file = "src/cli/check-run.fs"
+old = ''': ck-fresh? ( d -- flag ) dup lf-env-final? swap ck-taken? 0= and ;'''
+new = ''': ck-fresh? ( d -- flag ) lf-env-final? ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review cleanup-families-1 M1 (r6): declarations checked in this run count those taken from the snapshot too"
+
+[[fault]]
+id = "cf-ck-saved-inverted"
+file = "src/cli/check-run.fs"
+old = ''': ck-saved? ( d -- flag ) lf-env-origin lf-origin-saved = ;'''
+new = ''': ck-saved? ( d -- flag ) lf-env-origin lf-origin-saved <> ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review cleanup-families-1 M1 (r7): verdicts taken from the snapshot count the ones checked here"
+
+[[fault]]
+id = "cf-ck-again-any-why"
+file = "src/cli/check-run.fs"
+old = ''': ck-again-for? ( why d -- why flag ) ck-reason over = ;'''
+new = ''': ck-again-for? ( why d -- why flag ) ck-reason 0<> ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review cleanup-families-1 M1 (r9): the count checked again for one why counts every declaration checked again, whatever its why"
+
+[[fault]]
+id = "cf-kept-at-inverted"
+file = "src/front/cases-several.fs"
+old = ''': kept-at? ( job i -- job flag ) over minor-main? ;'''
+new = ''': kept-at? ( job i -- job flag ) over minor-main? 0= ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "review cleanup-families-1 M1 (r10): the minors kept before a place count the dropped ones, so casesOn's minors are numbered wrong"
+
+[[fault]]
+id = "cf-pf-inner-one-short"
+file = "src/present/print-forth.fs"
+old = ''': lf-pf-inner# ( j -- n ) 0 swap ['] lf-pf-visible? count-index ;'''
+new = ''': lf-pf-inner# ( j -- n ) 0 swap ['] lf-pf-visible? count-index 1- ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "review cleanup-families-1 M1 (r12): a hidden binder's printed number counts one visible binder too few"
+
+[[fault]]
+id = "cf-pp-last-first"
+file = "src/present/print-analysis.fs"
+old = '''  -1 swap dup lf-pp-head nip ['] lf-pp-arg-shown? find-last-index if nip then ;'''
+new = '''  -1 swap dup lf-pp-head nip ['] lf-pp-arg-shown? find-index if nip then ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_golden.py"
+reason = "review cleanup-families-1 M1 (r14): the last argument shown is found from the front, so the first shown argument is taken for the last (print-cases.golden)"
+
+[[fault]]
+id = "cf-pp-shown-one-short"
+file = "src/present/print-analysis.fs"
+old = ''': lf-pp-shown# ( app -- count ) dup lf-pp-head nip ['] lf-pp-arg-shown? count-index ;'''
+new = ''': lf-pp-shown# ( app -- count ) dup lf-pp-head nip ['] lf-pp-arg-shown? count-index 1- ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "review cleanup-families-1 M1 (r16): an application's shown arguments count one too few"
+
+[[fault]]
+id = "cf2-cell-pair-fetch-as-2at"
+file = "src/lib/bounds.fs"
+old = ''': cell-pair@ ( addr -- x1 x2 ) 2@ swap ;'''
+new = ''': cell-pair@ ( addr -- x1 x2 ) 2@ ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-2 (pair-field family): the pair comes back in 2@'s order, the second field first"
+
+[[fault]]
+id = "cf2-cell-pair-store-as-2bang"
+file = "src/lib/bounds.fs"
+old = ''': cell-pair! ( x1 x2 addr -- ) tuck cell+ ! ! ;'''
+new = ''': cell-pair! ( x1 x2 addr -- ) 2! ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-2 (pair-field family): the pair is stored in 2!'s order, x2 in the first field"
+
+[[fault]]
+id = "cf2-log-published-swapped"
+file = "src/core/derivation-log.fs"
+old = ''': lf-log-published ( -- slot outcome ) lf-log-state lf-logs-slot cell-pair@ ;'''
+new = ''': lf-log-published ( -- slot outcome ) lf-log-state lf-logs-slot 2@ ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "cleanup-families-2 (group 8085): the published slot and outcome read crosswise, so the outline matches a check by its outcome as its slot"
+
+[[fault]]
+id = "cf2-log-cut-swapped"
+file = "src/core/derivation-log.fs"
+old = ''': lf-log-cut ( -- step bound ) lf-log-state lf-logs-cut cell-pair@ ;'''
+new = ''': lf-log-cut ( -- step bound ) lf-log-state lf-logs-cut 2@ ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "cleanup-families-2 (group 8085): a truncated log's step and bound read crosswise"
+
+[[fault]]
+id = "cf2-log-at-swapped"
+file = "src/core/derivation-log.fs"
+old = ''': lf-log-at! ( n c -- ) lf-log-state lf-logs-at-node cell-pair! ;'''
+new = ''': lf-log-at! ( n c -- ) lf-log-state lf-logs-at-node 2! ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "cleanup-families-2 (group 894e): the copier's node and context stored crosswise, so a free variable's depth is read from the node"
+
+[[fault]]
+id = "cf2-stmt-text-swapped"
+file = "src/core/statement-match.fs"
+old = ''': lf-stmt-text! ( c-addr u -- ) lf-stmt-state lf-stmt-left 2! ;'''
+new = ''': lf-stmt-text! ( c-addr u -- ) lf-stmt-state lf-stmt-left cell-pair! ;'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "cleanup-families-2 (group 894e): the statement's text left is stored in the other order than lf-stmt-text reads it"
+
+[[fault]]
+id = "cf2-stmt-push2-swapped"
+file = "src/core/statement-match.fs"
+old = ''': lf-stmt-push2 ( node identity -- ) -2 lf-stmt-sp+ lf-stmt-sp@ cell-pair! ;'''
+new = ''': lf-stmt-push2 ( node identity -- ) -2 lf-stmt-sp+ lf-stmt-sp@ 2! ;'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "cleanup-families-2 (pair reads in memory order): a built value is pushed crosswise, so pop2 gives its identity as the node"
+
+[[fault]]
+id = "cf2-cref-name-swapped"
+file = "src/core/constant-references.fs"
+old = ''': lf-cref-name@ ( slot -- name generation ) lf-crec-name cell-pair@ ;'''
+new = ''': lf-cref-name@ ( slot -- name generation ) lf-crec-name 2@ ;'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "cleanup-families-2 (group b380): a reference's name and generation read crosswise"
+
+[[fault]]
+id = "cf2-cref-name-store-swapped"
+file = "src/core/constant-references.fs"
+old = ''': lf-cref-name! ( name generation slot -- ) lf-crec-name cell-pair! ;'''
+new = ''': lf-cref-name! ( name generation slot -- ) lf-crec-name 2! ;'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "cleanup-families-2 (group b380): a reference's name and generation stored crosswise in the fixed record"
+
+[[fault]]
+id = "cf2-cref-pair-swapped"
+file = "src/core/constant-references.fs"
+old = ''': lf-cref-pair@ ( addr i -- index identity ) lf-cref-pair cell-pair@ ;'''
+new = ''': lf-cref-pair@ ( addr i -- index identity ) lf-cref-pair 2@ ;'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "cleanup-families-2 (pair reads in memory order): a level pair read as identity and index"
+
+[[fault]]
+id = "cf2-rp-restore-swapped"
+file = "src/import/run-replay.fs"
+old = ''': rp-restore ( code size -- ) run-replay rp-code cell-pair! ;'''
+new = ''': rp-restore ( code size -- ) run-replay rp-code 2! ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "cleanup-families-2 (group 894e): the replay's path size and code restored crosswise after a nested key"
+
+[[fault]]
+id = "cf2-export-marks-swapped"
+file = "src/import/ndjson.fs"
+old = ''': export-marks! ( key why export -- ) export-key cell-pair! ;'''
+new = ''': export-marks! ( key why export -- ) export-key 2! ;'''
+test = "$GFORTH tests/core/manifest.fs"
+reason = "cleanup-families-2 (group b380): the failed field and the reason stored crosswise, so a manifest's failure names its reason as the field"
+
+[[fault]]
+id = "cf2-buffer-text-swapped"
+file = "src/import/ndjson-emit.fs"
+old = ''': buffer-text ( buffer -- c-addr u ) buffer-addr cell-pair@ ;'''
+new = ''': buffer-text ( buffer -- c-addr u ) buffer-addr 2@ ;'''
+test = "$GFORTH tests/core/ndjson-emit.fs"
+reason = "cleanup-families-2 (group b380): a re-export buffer's text read as length and address"
+
+[[fault]]
+id = "cf2-cache-stats-swapped"
+file = "src/kernel/caches.fs"
+old = ''': lf-cache-stats ( cache -- hits misses ) lf-cache-hits cell-pair@ ;'''
+new = ''': lf-cache-stats ( cache -- hits misses ) lf-cache-hits 2@ ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "cleanup-families-2 (group b380): a cache's hits and misses reported crosswise"
+
+[[fault]]
+id = "cf2-cent-swapped"
+file = "src/kernel/caches.fs"
+old = ''': lf-cent! ( r id a-addr -- ) cell-pair! ;'''
+new = ''': lf-cent! ( r id a-addr -- ) 2! ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "cleanup-families-2 (pair writes in memory order): a cache entry keeps the identity where the result belongs"
+
+[[fault]]
+id = "cf2-mdreq-claim-swapped"
+file = "src/kernel/mixed-definition-probe.fs"
+old = ''': lf-mdreq-claim! ( type tid req -- ) lf-mdreq-claim-root cell-pair! ;'''
+new = ''': lf-mdreq-claim! ( type tid req -- ) lf-mdreq-claim-root 2! ;'''
+test = "$GFORTH tests/core/mixed-definition-probe.fs"
+reason = "cleanup-families-2 (group b380): the claimed type's root and identity stored crosswise"
+
+[[fault]]
+id = "cf2-mdreq-value-swapped"
+file = "src/kernel/mixed-definition-probe.fs"
+old = ''': lf-mdreq-value@ ( req -- value id ) lf-mdreq-value-root cell-pair@ ;'''
+new = ''': lf-mdreq-value@ ( req -- value id ) lf-mdreq-value-root 2@ ;'''
+test = "$GFORTH tests/core/mixed-definition-probe.fs"
+reason = "cleanup-families-2 (group b380): the value's root and identity read crosswise"
+
+[[fault]]
+id = "cf2-snap-start-swapped"
+file = "src/kernel/env-snapshot.fs"
+old = ''': start@ ( d -- dk lk ) 2* cells snap@ snap-starts @ + cell-pair@ ;'''
+new = ''': start@ ( d -- dk lk ) 2* cells snap@ snap-starts @ + 2@ ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "cleanup-families-2 (pair reads in memory order): a declaration's dependency and look starts read crosswise"
+
+[[fault]]
+id = "cf2-open-remember-swapped"
+file = "src/kernel/mixed-open.fs"
+old = '''  over dup lf-term-identity drop rot lf-open-slot cell-pair! ;'''
+new = '''  over dup lf-term-identity drop rot lf-open-slot 2! ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "cleanup-families-2 (pair writes in memory order): an opened leaf kept with its identity first, so it is never found again"
+
+[[fault]]
+id = "cf2-ed-keys-swapped"
+file = "src/front/elab-data.fs"
+old = ''': ed-keys@ ( value -- k n ) ed-value-keys cell-pair@ ;'''
+new = ''': ed-keys@ ( value -- k n ) ed-value-keys 2@ ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "cleanup-families-2 (group b380): an instance value's keys read as count and first"
+
+[[fault]]
+id = "cf2-eliminator-swapped"
+file = "src/front/elab-data.fs"
+old = ''': elab-eliminator@ ( i -- kind d ) ed-elim ed-elim-kind cell-pair@ ;'''
+new = ''': elab-eliminator@ ( i -- kind d ) ed-elim ed-elim-kind 2@ ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "cleanup-families-2 (group 8085): an eliminator's kind and declaration read crosswise"
+
+[[fault]]
+id = "cf2-libdec-hint-swapped"
+file = "src/front/lib-decode.fs"
+old = ''': lf-libdec-hint ( r -- hint height ) lbr@ lbr-hint cell-pair@ ;'''
+new = ''': lf-libdec-hint ( r -- hint height ) lbr@ lbr-hint 2@ ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "cleanup-families-2 (group 8085): a decoded definition's hint and height read crosswise"
+
+[[fault]]
+id = "cf2-sy-val-swapped"
+file = "src/front/synth.fs"
+old = ''': sy-val! ( val body c -- ) scn@ sc-val cell-pair! ;'''
+new = ''': sy-val! ( val body c -- ) scn@ sc-val 2! ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "cleanup-families-2 (group 894e): an instance's value and its type's body stored crosswise"
+
+[[fault]]
+id = "cf2-ac-set-swapped"
+file = "src/front/assign-check.fs"
+old = ''': ac-set ( addr n -- ) ac ac-xs cell-pair! ;'''
+new = ''': ac-set ( addr n -- ) ac ac-xs 2! ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "cleanup-families-2 (group 894e): the assignment check's variables stored as count and address"
+
+[[fault]]
+id = "cf2-ib-xs-swapped"
+file = "src/front/beta-inst.fs"
+old = ''': ib-xs! ( addr m -- ) ib-state ib-xs cell-pair! ;'''
+new = ''': ib-xs! ( addr m -- ) ib-state ib-xs 2! ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "cleanup-families-2 (group 894e): headBeta's arguments stored as count and address"
+
+[[fault]]
+id = "cf2-in-xs-swapped"
+file = "src/front/instantiate.fs"
+old = ''': in-xs! ( addr n -- ) in-state in-xs cell-pair! ;'''
+new = ''': in-xs! ( addr n -- ) in-state in-xs 2! ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "cleanup-families-2 (group 894e): abstract's terms stored as count and address"
+
+[[fault]]
+id = "cf2-kinds-span-swapped"
+file = "src/front/meta-env.fs"
+old = ''': me-kinds-span ( mtx -- first n ) mtx-kinds cell-pair@ ;'''
+new = ''': me-kinds-span ( mtx -- first n ) mtx-kinds 2@ ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "cleanup-families-2 (group b380): a text declaration's binder kinds read as count and first"
+
+[[fault]]
+id = "cf2-lfr-set-swapped"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-set ( xt plan kind -- ) lfr-row! trow-run cell-pair! ;'''
+new = ''': lfr-set ( xt plan kind -- ) lfr-row! trow-run 2! ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "cleanup-families-2 (group 894e): a tactic's action and plan step stored crosswise"
+
+[[fault]]
+id = "cf2-meta-param-swapped"
+file = "src/front/fun-info.fs"
+old = ''': lf-meta-param ( i -- kind prop ) fi-params slab-at cell-pair@ ;'''
+new = ''': lf-meta-param ( i -- kind prop ) fi-params slab-at 2@ ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "cleanup-families-2 (pair reads in memory order): a parameter's binder kind and prop flag read crosswise"
+
+[[fault]]
+id = "cf2-walk-kind-swapped"
+file = "src/front/telescope.fs"
+old = ''': lf-walk-kind ( pi addr -- kind ) cell-pair@ lf-binder-kind! ;'''
+new = ''': lf-walk-kind ( pi addr -- kind ) 2@ lf-binder-kind! ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "cleanup-families-2 (pair reads in memory order): a walk's declaration and binder number read crosswise"
+
+[[fault]]
+id = "cf2-lay-slot-inverted"
+file = "src/kernel/env-layers.fs"
+old = ''': lay-slot? ( ly k -- ly flag ) over ly-decl over ly-stage @ slot-record? ;'''
+new = ''': lay-slot? ( ly k -- ly flag ) over ly-decl over ly-stage @ slot-record? 0= ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "cleanup-families-2 (plan 9.4.8l Z, lay-count): a layer's slots count its block records instead of its declarations, so its snapshot is read against the wrong number of slots"
+
+[[fault]]
+id = "cf2-gp-like-inverted"
+file = "src/front/goal-print.fs"
+old = ''': gp-later-like? ( i k -- i flag ) over 1+ + over gp-local swap gp-renamed-as? ;'''
+new = ''': gp-later-like? ( i k -- i flag ) over 1+ + over gp-local swap gp-renamed-as? 0= ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "cleanup-families-2 (gp-like on count-index): a tombstone's number counts the later locals not renamed like it, so Lean's x✝¹ and x✝² come out wrong"
+
+[[fault]]
+id = "cf2-cell-triple-fetch-turned"
+file = "src/lib/bounds.fs"
+old = ''': cell-triple@ ( addr -- x1 x2 x3 ) dup @ swap cell+ cell-pair@ ;'''
+new = ''': cell-triple@ ( addr -- x1 x2 x3 ) dup @ swap cell+ 2@ ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-2 (triple-field family): the last two of three fields come back crosswise"
+
+[[fault]]
+id = "cf2-cell-triple-store-turned"
+file = "src/lib/bounds.fs"
+old = ''': cell-triple! ( x1 x2 x3 addr -- ) tuck 2 cells + ! cell-pair! ;'''
+new = ''': cell-triple! ( x1 x2 x3 addr -- ) tuck 2 cells + ! 2! ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-2 (triple-field family): the first two of three fields stored crosswise"
+
+[[fault]]
+id = "cf2-instance-fields-turned"
+file = "src/front/elab-data.fs"
+old = '''  ed-inst ed-inst-decl cell-triple@ ;'''
+new = '''  ed-inst ed-inst-decl cell-triple@ swap ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "cleanup-families-2 (group eb75): an instance's class and priority read crosswise"
+
+[[fault]]
+id = "cf2-projection-fields-turned"
+file = "src/front/elab-data.fs"
+old = '''  ed-proj ed-proj-ctor cell-triple@ ;'''
+new = '''  ed-proj ed-proj-ctor cell-triple@ swap ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "cleanup-families-2 (group eb75): a projection's parameters and index read crosswise"
+
+[[fault]]
+id = "cf2-lp-set-turned"
+file = "src/front/level-params.fs"
+old = ''': lp-set ( names levels n -- ) lp-state lp-names-at cell-triple! ;'''
+new = ''': lp-set ( names levels n -- ) >r swap r> lp-state lp-names-at cell-triple! ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "cleanup-families-2 (group cc68): the universe parameters' names and levels stored crosswise"
+
+[[fault]]
+id = "cf2-steps-write-turned"
+file = "src/front/step-log.fs"
+old = '''  lsl lsl-sink cell-triple!'''
+new = '''  swap lsl lsl-sink cell-triple!'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "cleanup-families-2 (triple-field family): the step log's find and axioms words stored crosswise"
+
+[[fault]]
+id = "cf2-tl-fill-turned"
+file = "src/front/telescope.fs"
+old = '''  tuck tlf-xt ! tuck tlf-max ! tlf-acc cell-triple! ;'''
+new = '''  tuck tlf-xt ! tuck tlf-max ! tlf-acc 2! drop ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "cleanup-families-2 (group 571c's neighbour): a telescope frame's accumulator, type and declaration stored wrong"
+
+[[fault]]
+id = "cf2-remap-set-turned"
+file = "src/front/expr-remap.fs"
+old = ''': remap-set ( x y xt remap -- ) tuck remap-map ! remap-x cell-pair! ;'''
+new = ''': remap-set ( x y xt remap -- ) tuck remap-map ! remap-x 2! ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "cleanup-families-2 (group bf71): a remap's two numbers stored crosswise"
+
+[[fault]]
+id = "cf2-htab-stats-turned"
+file = "src/lib/htab.fs"
+old = '''  htab-finds cell-triple@ ;'''
+new = '''  htab-finds cell-triple@ swap ;'''
+test = "$GFORTH tests/lib/htab.fs"
+reason = "cleanup-families-2 (triple-field family): a table's compared and grows statistics read crosswise"
+
+[[fault]]
+id = "cf2-sought-store-turned"
+file = "src/core/terms.fs"
+old = '''  lf-sought-tag cell-triple! ;'''
+new = '''  >r swap r> lf-sought-tag cell-triple! ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "cleanup-families-2 (group bf71): the node sought is stored with its first and second fields crosswise"
+
+[[fault]]
+id = "cf2-log-cref-head-turned"
+file = "src/core/derivation-log.fs"
+old = '''  lf-log-cref-next logcref-name cell-triple! ;'''
+new = '''  lf-log-cref-next logcref-name 2! drop ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "cleanup-families-2 (group cc68): a copied constant reference's name, generation and count stored wrong"
+
+[[fault]]
+id = "cf2-publish-fields-turned"
+file = "src/core/derivation-log.fs"
+old = '''  tuck logrec-outcome ! logrec-a cell-pair! ;'''
+new = '''  tuck logrec-outcome ! logrec-a 2! ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "cleanup-families-2 (group bf71): a published record's slot and dependencies stored crosswise"
+
+[[fault]]
+id = "cf2-layer-decls-turned"
+file = "src/kernel/env-import.fs"
+old = '''  imp-ldecls cell-triple@ ;'''
+new = '''  imp-ldecls cell-triple@ swap ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "cleanup-families-2 (triple-field family): a layer's declaration count and lines read crosswise"
+
+[[fault]]
+id = "cf2-layer-slots-turned"
+file = "src/kernel/env-snapshot.fs"
+old = '''  snap-wn cell-triple! ;'''
+new = '''  >r swap r> snap-wn cell-triple! ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "cleanup-families-2 (group bf71): a layer's slot count and its which-xt stored crosswise"
+
+[[fault]]
+id = "cf2-envsig-actuals-turned"
+file = "src/kernel/env-signature.fs"
+old = '''  lf-envsig-request lf-esreq-pairs cell-triple@ ;'''
+new = '''  lf-envsig-request lf-esreq-pairs cell-triple@ swap ;'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "cleanup-families-2 (group eb75): a signature request's count and fuel read crosswise"
+
+[[fault]]
+id = "cf2-dq-doubt-turned"
+file = "src/kernel/defeq.fs"
+old = '''  lf-dq-state tuck lf-dqs-doubt ! lf-dqs-dt cell-pair! ;'''
+new = '''  lf-dq-state tuck lf-dqs-doubt ! lf-dqs-dt 2! ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "cleanup-families-2 (group bf71): a doubt's two terms stored crosswise"
+
+[[fault]]
+id = "cf2-lv-node-store-turned"
+file = "src/present/log-view.fs"
+old = '''  lv-node-tag cell-triple! ;'''
+new = '''  swap lv-node-tag cell-triple! ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "cleanup-families-2 (group bf71): a rebuilt node stored with its first and second fields crosswise"
+
+[[fault]]
+id = "cf2-dt-frame-turned"
+file = "src/front/discr-tree.fs"
+old = ''': dt-frame! ( todo node skip i -- ) dtf@ df-todo cell-triple! ;'''
+new = ''': dt-frame! ( todo node skip i -- ) dtf@ df-todo 2! drop ;'''
+test = "$GFORTH tests/front/discr-tree.fs"
+reason = "cleanup-families-2 (group cc68): a discrimination-tree frame stored wrong"
+
+[[fault]]
+id = "cf2-ok-apply2-keeps-one"
+file = "src/lib/outcome.fs"
+old = '''  over ok? if nip execute else drop nip nip no-result then ;'''
+new = '''  over ok? if nip execute else drop nip no-result then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-2 (refusal tails): a failed step of two values leaves the first value under -1 and the outcome"
+
+[[fault]]
+id = "cf2-ok-apply2-runs-anyway"
+file = "src/lib/outcome.fs"
+old = '''  over ok? if nip execute else drop nip nip no-result then ;'''
+new = '''  nip execute ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-2 (refusal tails): the step runs after a failure, on the failing outcome's values"
+
+[[fault]]
+id = "cf2-if-ctor-kind-any"
+file = "src/front/infer.fs"
+old = '''  dup lf-menv-kind lf-kind-constructor = if outcome-ok else if-bad then ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "cleanup-families-2 (infer.fs's refusal tails): a projection's structure whose constructor record names no constructor is taken as one"
+
+[[fault]]
+id = "cf2-if-skip-body-no-field"
+file = "src/front/infer.fs"
+old = '''  lf-term-second@ swap if-field ['] lf-meta-instantiate1 ok-apply2 ;'''
+new = '''  lf-term-second@ swap if-field drop drop outcome-ok ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "cleanup-families-2 (infer.fs's refusal tails): an earlier field j is not put into the next field's type"
+
+[[fault]]
+id = "cf2-slab-since-reversed"
+file = "src/lib/slab.fs"
+old = ''': slab-since ( k slab -- n ) slab-count swap - ;'''
+new = ''': slab-since ( k slab -- n ) slab-count - ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "cleanup-families-2 (count since a mark): the units since k come out as k less the count"
+
+[[fault]]
+id = "cf2-span-close-whole"
+file = "src/front/elab-data.fs"
+old = ''': ed-span-close ( span slab -- ) over @ swap slab-since swap cell+ ! ;'''
+new = ''': ed-span-close ( span slab -- ) slab-count swap cell+ ! ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "cleanup-families-2 (count since a mark): an elaboration-data span's count is the whole slab's, not the units claimed since it opened"
+
+[[fault]]
+id = "cf2-rn-from-whole"
+file = "src/lib/runs.fs"
+old = ''': rn-from ( first -- run outcome ) dup rn-cells slab-since rn-new ;'''
+new = ''': rn-from ( first -- run outcome ) rn-cells slab-count rn-new ;'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "cleanup-families-2 (count since a mark): a run made from the cells pushed since first counts every cell of the slab"
+
+[[fault]]
+id = "cf2-pool-left-one-short"
+file = "src/import/snapshot-tier.fs"
+old = ''': pool-left ( pool tf -- u ) tf-pos @ swap slab-since ;'''
+new = ''': pool-left ( pool tf -- u ) tf-pos @ swap slab-since 1- ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "cleanup-families-2 (count since a mark): a tier pool's bytes left one short, so the last name, which ends the pool, is refused"

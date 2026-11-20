@@ -326,6 +326,7 @@ T{ dm pend 1 lf-mvar-delay -> outcome-ok }T
 T{ dm lf-mvar-delayed first-fvar -> pend x 1 true }T
 T{ dm prop lf-mvar-assign dm pend 1 lf-mvar-delay -> outcome-invalid outcome-invalid }T
 T{ pend lf-mvar-delayed -> false }T
+T{ dm lf-mvar-delayed? pend lf-mvar-delayed? -> true false }T
 T{ dm lf-instantiate-mvars -> dm outcome-ok }T
 \ Once the pending one is assigned (?pend := Prop), ?dm alone stays (as
 \ in Lean's instantiate_mvars) and ?dm x is the value with x abstracted
@@ -622,29 +623,28 @@ mv-natural new constant t1  mv-natural new constant t2  mv-natural new constant 
 variable s0  variable s1  variable s2  variable sc  variable inner
 : snap ( -- snap ) lf-mctx-snapshot ok? 0= abort" snap" ;
 : kind@ ( mvar -- kind ) lf-mvar-kind drop ;
-: delayed? ( mvar -- flag ) lf-mvar-delayed dup if nip nip nip then ;
 : pending ( mvar -- pending n ) lf-mvar-delayed drop nip ;
 T{ lf-mctx-snapshot 0 lf-mctx-switch -> 0 outcome-invalid outcome-invalid }T
 T{ mark sc ! snap s0 ! t1 prop lf-mvar-assign la one lf-level-mvar-assign
    t3 mv-synthetic lf-mvar-kind! -> outcome-ok outcome-ok outcome-ok }T
 T{ snap s1 ! s0 @ lf-mctx-switch t1 tfree? la lfree? t3 kind@ -> outcome-ok true true mv-natural }T
 T{ t2 t3 0 lf-mvar-delay lb one lf-level-mvar-assign snap s2 ! -> outcome-ok outcome-ok }T
-T{ s1 @ lf-mctx-switch t1 tfree? la lfree? t3 kind@ t2 delayed? lb lfree?
+T{ s1 @ lf-mctx-switch t1 tfree? la lfree? t3 kind@ t2 lf-mvar-delayed? lb lfree?
    -> outcome-ok false false mv-synthetic false true }T
 T{ s2 @ lf-mctx-switch t1 tfree? la lfree? t3 kind@ t2 pending lb lfree?
    -> outcome-ok true true mv-natural t3 0 false }T
-T{ s2 @ lf-mctx-switch s1 @ lf-mctx-switch s1 @ lf-mctx-switch t1 tfree? t2 delayed?
-   mv-trail slab-count -> outcome-ok outcome-ok outcome-ok false false 7 }T
+T{ s2 @ lf-mctx-switch s1 @ lf-mctx-switch s1 @ lf-mctx-switch t1 tfree?
+   t2 lf-mvar-delayed? mv-trail slab-count -> outcome-ok outcome-ok outcome-ok false false 7 }T
 \ An inner dscope: an outer snapshot is no target, the inner's entry is;
 \ after the inner commit its snapshots are stale, the outer's are not.
 T{ mark inner ! snap s0 ! s2 @ lf-mctx-switch -> outcome-invalid }T
 T{ t2 prop lf-mvar-assign s0 @ lf-mctx-switch t2 tfree? t1 tfree? -> outcome-ok outcome-ok true false }T
-T{ inner @ lf-mctx-commit s0 @ lf-mctx-switch s2 @ lf-mctx-switch t1 tfree? t2 delayed?
-   -> outcome-ok outcome-invalid outcome-ok true true }T
+T{ inner @ lf-mctx-commit s0 @ lf-mctx-switch s2 @ lf-mctx-switch t1 tfree?
+   t2 lf-mvar-delayed? -> outcome-ok outcome-invalid outcome-ok true true }T
 \ Rolling the dscope back undoes every branch from wherever it stands; its
 \ snapshots are stale and the trail is empty.
-T{ sc @ lf-mctx-rollback t1 tfree? la lfree? lb lfree? t3 kind@ t2 delayed? mv-trail slab-count
-   -> outcome-ok true true true mv-natural false 0 }T
+T{ sc @ lf-mctx-rollback t1 tfree? la lfree? lb lfree? t3 kind@ t2 lf-mvar-delayed?
+   mv-trail slab-count -> outcome-ok true true true mv-natural false 0 }T
 T{ s1 @ lf-mctx-switch s2 @ lf-mctx-switch -> outcome-invalid outcome-invalid }T
 \ A depth dscope keeps snapshots like a mark; at its end all is rolled back.
 T{ false lf-mctx-depth{ drop sc ! snap s0 ! lb one lf-level-mvar-assign t1 prop lf-mvar-assign

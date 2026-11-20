@@ -178,6 +178,20 @@ T{ bad-let infer-of bad-let-nd infer-of leaf infer-of
    -> outcome-invalid outcome-invalid outcome-invalid }T
 T{ bad-let audit-of bad-let-nd audit-of bad-proj audit-of good-proj audit-of
    -> outcome-invalid outcome-invalid outcome-invalid outcome-ok }T
+\ A step's failure is the answer, -1 and its outcome, its inputs dropped
+\ (review of cleanup-families-2, M1): structure eta's inference
+\ (lf-iota-typed) of a malformed let; and unfold_definition's arguments
+\ applied again (lf-whnf-reapply) when lf-whnf-args has no room for the
+\ spine's one argument (the slab made again with limit 0, then as before).
+: iota-typed-of ( node -- type outcome ) 1000 lf-minfer-start-env lf-iota-typed ;
+T{ bad-let iota-typed-of bad-let-nd iota-typed-of -> -1 outcome-invalid -1 outcome-invalid }T
+lf-whnf-args slab-limit constant args-limit
+: args-room ( n -- ) lf-whnf-args slab-free 1 cells swap lf-whnf-args slab-init drop ;
+: sort-app ( -- node ) sort0 sort0 lf-tag-app fc-binary ;
+0 args-room
+T{ sort1 sort-app lf-whnf-reapply -> -1 outcome-full }T
+args-limit args-room
+T{ sort1 sort-app lf-whnf-reapply nip -> outcome-ok }T
 \ Inference (infer_let): the type of let x : Sort 1 := Sort 0; fun y : x
 \ => y is the let term let x := Sort 0; x -> x (mk_pi keeps a variable
 \ the type mentions); of let x : Sort 1 := Sort 0; Sort 0 it is Sort 1

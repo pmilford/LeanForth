@@ -29,6 +29,10 @@ T{ 3 s1 ' slab-claim rs-checked s1 slab-count s1 slab-capacity -> 0 outcome-ok 3
 \ The limit: room for 7 more, not 8; a claim at the limit, then one past.
 T{ 7 s1 slab-room 8 s1 slab-room -> outcome-ok outcome-full }T
 T{ 7 s1 slab-claim s1 slab-count -> 3 outcome-ok 10 }T
+\ slab-since (cleanup-families-2): the units added since a count, 0 at
+\ the count itself, negative for a count above the slab's.
+T{ 3 s1 slab-since 0 s1 slab-since 10 s1 slab-since 12 s1 ' slab-since rs-checked
+   -> 7 10 0 -2 }T
 T{ 1 s1 slab-claim s1 slab-count -> -1 outcome-full 10 }T
 T{ 0 s1 slab-room -1 s1 slab-room -1 s1 slab-claim -> outcome-ok outcome-invalid -1 outcome-invalid }T
 T{ 0 s1 slab-valid? 9 s1 slab-valid? 10 s1 slab-valid? -1 s1 slab-valid? -> true true false false }T

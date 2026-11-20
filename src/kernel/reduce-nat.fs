@@ -26,6 +26,7 @@ require ../lib/lib.fs
 require ../core/literals.fs   \ first: it loads lib/bignum.fs (see there)
 require ../core/nat-ops.fs
 require ../core/diagnostics.fs
+require ../core/generation-handles.fs
 require ../core/terms.fs
 
 : lf-rn-site ( -- site ) c" reduce-nat lf-reduce-nat" ;
@@ -63,7 +64,7 @@ require ../core/terms.fs
 \ nat_lit_to_constructor: 0 as Nat.zero, n + 1 as Nat.succ n.
 : lf-rn-succ-of ( pred -- node outcome )
   lf-rn-succ ok-then? 0= if nip no-result exit then
-  lf-term-handle rot lf-term-handle lf-hterm-app lf-nat-node ;
+  lf-term-handle rot lf-term-handle lf-hterm-app lf-made-term ;
 : lf-reduce-nat-constructor ( a -- node outcome )
   dup lf-term-second@ 0= if drop lf-rn-zero exit then
-  lf-reduce-nat-pred ok-then? if lf-rn-succ-of else no-result then ;
+  lf-reduce-nat-pred ['] lf-rn-succ-of ok-apply ;

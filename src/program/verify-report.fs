@@ -140,8 +140,7 @@ begin-structure /pv-run
   field: pv-run-where            \ where it stopped: line and column, as lfa-pos
   field: pv-run-token            \ the current token: offset in the line, -1 for none
   field: pv-run-token#           \ and its length
-  field: pv-run-text             \ the line being run: address
-  field: pv-run-text#            \ and length
+  2 cells +field pv-run-text     \ the line being run: c-addr u, with 2@ 2!
   field: pv-run-prefix#          \ characters before the line in pv-run-source
   field: pv-run-out#
   pv-out-chars chars aligned +field pv-run-out
@@ -170,8 +169,8 @@ end-structure
 : pv-where ( -- addr ) pv-run pv-run-where ;
 : pv-token ( -- addr ) pv-run pv-run-token ;
 : pv-token# ( -- addr ) pv-run pv-run-token# ;
-: pv-text ( -- c-addr u ) pv-run dup pv-run-text @ swap pv-run-text# @ ;
-: pv-text! ( c-addr u -- ) pv-run tuck pv-run-text# ! pv-run-text ! ;
+: pv-text ( -- c-addr u ) pv-run pv-run-text 2@ ;
+: pv-text! ( c-addr u -- ) pv-run pv-run-text 2! ;
 : pv-prefix# ( -- addr ) pv-run pv-run-prefix# ;
 : pv-out# ( -- addr ) pv-run pv-run-out# ;
 : pv-out ( -- c-addr ) pv-run pv-run-out ;

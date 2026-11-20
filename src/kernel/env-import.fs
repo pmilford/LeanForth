@@ -323,7 +323,7 @@ variable imp-current
   lf-look-reslot true ;
 \ The candidate's entry i against S's entry j.
 : entry-same? ( i j imp -- flag )
-  rot lf-look-at 2@ swap rot answer-taken 0= if 2drop false exit then
+  rot lf-look-at cell-pair@ rot answer-taken 0= if 2drop false exit then
   rot dup >r snap@ look-answer = swap r> snap@ look-key = and ;
 : answers-same? ( d imp -- flag )
   swap saved-looks dup lf-cand-looked@ <> if 2drop drop false exit then
@@ -581,6 +581,6 @@ kind-quot kind-axiom - 1+ constant reach-kinds#
 \ and snap-layer-decls! take them.
 : imp-layer-slots ( imp -- n which renum ) imp-ln @ ['] imp-which ['] imp-renumber ;
 : imp-layer-decls ( imp -- decls n lines )
-  dup imp-ldecls @ over imp-ldn @ rot imp-llines @ ;
+  imp-ldecls cell-triple@ ;
 
 base !   \ the BASE this file was loaded with

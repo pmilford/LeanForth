@@ -109,6 +109,7 @@ require ../lib/bits.fs
 require ../lib/sha256.fs
 require ../lib/xt-table.fs
 require ../lib/name-table.fs
+require ../lib/find.fs
 require ../core/input.fs
 require ../core/diagnostics.fs
 require ../kernel/environment.fs
@@ -1082,8 +1083,8 @@ create ck-lay /lay allot  ck-lay /lay erase   \ the layer being loaded
 : ck-snap-read ( -- outcome )
   12 ck-stage stage-init dup ok? 0= if exit then drop
   ck-any-version? ck-stage stage-any-version! ck-stage ck-snap snap-tier ;
-: ck-stage-slots ( -- n )
-  0 ck-stage stage-decls 0 ?do i ck-stage staged-at ck-stage slot-record? 1 and + loop ;
+: ck-slot? ( stage k -- stage flag ) over staged-at over slot-record? ;
+: ck-stage-slots ( -- n ) ck-stage dup stage-decls ['] ck-slot? count-index ;
 : ck-firsts! ( -- )
   8 0 do i 1+ ck-stage tier-slab slab-count ck-firsts i cells + ! loop ;
 \ The layers to load on the base, as (c-addr u) pairs (ck-layers!).
@@ -1236,16 +1237,18 @@ end-structure
 : ck-carried? ( d -- flag ) ck-carrying? if ck-taken? else drop false then ;
 : ck-carried# ( -- n ) ck-carrying? if ck-taken# else 0 then ;
 : ck-reason ( d -- why ) ck-carrying? if ck-import imp-reason else drop 0 then ;
-: ck-again# ( why -- n ) 0 lf-input-count 0 ?do over i ck-reason = - loop nip ;
+: ck-again-for? ( why d -- why flag ) ck-reason over = ;
+: ck-again# ( why -- n ) lf-input-count ['] ck-again-for? count-index ;
+\ How many input declarations pass xt ( d -- flag ); none before verdicts.
+: ck-inputs-passing# ( xt -- n )
+  ck-verdicts? 0= if drop 0 exit then >r 0 lf-input-count r> count-index ;
 \ Declarations checked in this run: final, not taken from the snapshot
 \ (a stopped run checked fewer than it did not take; review rvSN4 m3).
-: ck-checked# ( -- n )
-  ck-verdicts? 0= if 0 exit then
-  0 lf-input-count 0 ?do i lf-env-final? i ck-taken? 0= and 1 and + loop ;
+: ck-fresh? ( d -- flag ) dup lf-env-final? swap ck-taken? 0= and ;
+: ck-checked# ( -- n ) ['] ck-fresh? ck-inputs-passing# ;
 \ Verdicts taken from the snapshot (and its layers), not checked here.
-: ck-saved# ( -- n )
-  ck-verdicts? 0= if 0 exit then
-  0 lf-input-count 0 ?do i lf-env-origin lf-origin-saved = - loop ;
+: ck-saved? ( d -- flag ) lf-env-origin lf-origin-saved = ;
+: ck-saved# ( -- n ) ['] ck-saved? ck-inputs-passing# ;
 : ck-other# ( -- n ) ck-import imp-other# ;
 \ Results labelled stale: taken from the snapshot, not carried.
 : ck-stale# ( -- n ) ck-verdicts? if ck-saved# ck-carried# - else 0 then ;

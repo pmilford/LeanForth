@@ -276,6 +276,12 @@ lf-mctx-reset
 T{ ?n lf-infer ?n fk app lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
 lf-lctx-reset
 T{ fk lf-infer fs fk app lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
+\ inferProjType's constructor check (if-ctor-kind, split out of if-ctor
+\ by cleanup-families-2): a constructor's declaration passes as it is,
+\ any other is invalid (Lean's "invalid projection"), which data no
+\ export gives reaches only here.
+T{ s" Nat.succ" menv-decl dup if-ctor-kind swap rot = s" Nat" menv-decl if-ctor-kind
+   -> outcome-ok true -1 outcome-invalid }T
 \ The fed input as loading left it (S1 §1, trust point 3).
 T{ lf-input-intact? -> true }T
 

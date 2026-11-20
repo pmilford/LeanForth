@@ -161,7 +161,7 @@ create lf-mls-set-hooks /htab-hooks allot
 \ levels need no check against the formals (none is a parameter); their
 \ shape, and the rest of its graph, the graph audit (lf-cterm-check)
 \ checked before.
-: lf-mls-closed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else false then ;
+: lf-mls-closed? ( node -- flag ) lf-term-no-params? ;
 : lf-mls-children ( first second walk -- outcome )
   ['] lf-mls-closed? walk-children-unless ;
 \ The first visit of a term: mark it, check it, push its children.

@@ -81,7 +81,7 @@ end-structure
 \ A binder: its type a type and checked, then the body under a new free
 \ variable (kind: a pi's body or a lambda's).
 : mck-open ( binder -- body outcome )
-  dup lf-term-first@ lf-lctx-local ok-then? if lf-meta-open else nip no-result then ;
+  dup lf-term-first@ lf-lctx-local ['] lf-meta-open ok-apply2 ;
 : mck-domain+ ( binder -- outcome )
   lf-term-first@ dup mck-k-check mck-todo+ if mck-k-ensure mck-push else mck-full then ;
 : mck-binder ( e kind -- outcome )
@@ -114,11 +114,11 @@ lf-tag-projection lf-tag-annotation 2 lf-tags constant mck-unported
 \ ---- checkApp: the function's type made a pi by whnf, its domain
 \ isDefEq the argument's type.
 : mck-fn-type ( f -- type outcome )
-  lf-infer ok-then? if lf-meta-whnf else no-result then ;
+  lf-infer ['] lf-meta-whnf ok-apply ;
 : mck-pi-domain ( type -- d outcome )
   dup lf-term-pi? if lf-term-first@ outcome-ok else drop outcome-invalid no-result then ;
 : mck-domain ( e -- d outcome )
-  lf-term-first@ mck-fn-type ok-then? if mck-pi-domain else no-result then ;
+  lf-term-first@ mck-fn-type ['] mck-pi-domain ok-apply ;
 : mck-fits? ( d e -- flag outcome )
   lf-term-second@ lf-infer ok-then? 0= if nip false swap exit then
   lf-meta-defeq outcome-sane ;

@@ -76,7 +76,7 @@ end-structure
 : lf-nt-blank ( -- row ) here /lf-nt dup allot over swap erase ;
 : lf-nt-precs! ( prec row -- )
   2dup lf-nt-prec ! >r 1+ dup r@ lf-nt-lprec ! r> lf-nt-rprec ! ;
-: lf-nt-places! ( arity a b row -- ) tuck lf-nt-b ! tuck lf-nt-a ! lf-nt-arity ! ;
+: lf-nt-places! ( arity a b row -- ) lf-nt-arity cell-triple! ;
 : lf-nt-new ( arity a b prec kind -- row )
   lf-nt-blank tuck lf-nt-kind ! tuck lf-nt-precs! dup >r lf-nt-places! r> ;
 : lf-nt-keep ( c-addr u -- c-addr' u ) here >r dup allot tuck r@ swap move r> swap ;

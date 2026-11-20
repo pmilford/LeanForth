@@ -37,6 +37,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
+require ../lib/find.fs
 require ../lib/u32.fs
 require ../lib/bytes.fs
 require ../import/stage.fs
@@ -92,10 +93,8 @@ end-structure
   dup lay-snap snap-tf tf-start dup ok? 0= if nip exit then drop
   dup lay-ly-start lay-ly ly-load snap-damaged ;
 \ The layer's slots: its declarations but block records.
-: lay-count ( lay -- n )
-  lay-ly 0 over ly-decls# 0 ?do
-    i 2 pick ly-decl 2 pick ly-stage @ slot-record? 1 and +
-  loop nip ;
+: lay-slot? ( ly k -- ly flag ) over ly-decl over ly-stage @ slot-record? ;
+: lay-count ( lay -- n ) lay-ly dup ly-decls# ['] lay-slot? count-index ;
 : lay-sections ( lay -- outcome )
   dup lay-sn @ over lay-snap snap-first !
   dup lay-names @ lp-names 2 pick lay-ly ly-units + over lay-snap snap-names !
@@ -131,7 +130,7 @@ end-structure
   >r dup lf-look-name r> lay-ly ly-name
   ok? if lf-look-renumber else 2drop lf-look-outside then ;
 : lay-answer ( answer lay -- answer' ) ['] lay-slot# answer-renum-by ;
-: lay-from ( j lay -- dk lk ) lay-snap snap-starts @ swap 2* cells + 2@ swap ;
+: lay-from ( j lay -- dk lk ) lay-snap snap-starts @ swap 2* cells + cell-pair@ ;
 : lay-entry ( j lay -- key answer )
   2dup lay-snap look-key over lay-key >r
   tuck lay-snap look-answer swap lay-answer r> swap ;

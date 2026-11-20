@@ -160,7 +160,7 @@ begin-structure /scon       \ a consumer node
   field: sc-size
   field: sc-body            \ while tryResolve runs: the goal's body,
   field: sc-val             \ the instance's value
-  field: sc-ibody           \ and its type's body
+  field: sc-ibody           \ and its type's body (sy-val! writes the two)
 end-structure
 begin-structure /sent  field: se-key  field: se-waiters  field: se-answers  end-structure
 begin-structure /sans  field: sa-expr  field: sa-type  field: sa-size  end-structure
@@ -268,7 +268,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
     nip outcome-ok swap endcase ;
 : sy-placed ( t -- key outcome )
   0 sy sy-keyed ! 0 sy sy-lkeyed ! sy-found slab-count ['] sy-key-leaf ok-each
-  ok-then? if lf-instantiate-mvars else no-result then ;
+  ['] lf-instantiate-mvars ok-apply ;
 : sy-key-marked ( t mark -- key outcome ) >r sy-placed r> lf-mctx-rollback outcome-and ;
 : sy-key-made ( t -- key outcome ) lf-mctx-mark ok-then? if sy-key-marked else nip
   no-result
@@ -276,7 +276,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
 : lf-synth-key ( type -- key outcome ) dup sy-scan ok-then? if sy-key-made else
   no-result then ;
 : sy-key-for ( mvar -- key outcome )
-  lf-mvar-type-instantiated ok-then? if lf-synth-key else no-result then ;
+  lf-mvar-type-instantiated ['] lf-synth-key ok-apply ;
 
 \ ---- The table: this search's entries (Lean's tableEntries), each a
 \ goal's key with its waiters and answers as runs (lib/runs.fs), found by
@@ -435,7 +435,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
   then ;
 : sy-inst-type ( i -- val type outcome ) sy-inst-val ok-then? if dup lf-infer else
   sy-no2 then ;
-: sy-val! ( val body c -- ) scn@ tuck sc-ibody ! sc-val ! ;
+: sy-val! ( val body c -- ) scn@ sc-val cell-pair! ;
 : sy-inst! ( c i -- outcome )   \ getSubgoals: the value and the type's body
   sy-mvars slab-clear sy-inst-type ok-then? if sy-telescope ok-then? if
     rot sy-val! outcome-ok exit then then nip nip ;
@@ -546,7 +546,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
 : sy-new-head ( head k xt -- head' outcome )
   >r over sy-lv lf-meta-levels-fill ok-then? 0= if
     r> drop nip no-result exit then
-  r> sy-relevel ok-then? if sy-renamed else no-result then ;
+  r> sy-relevel ['] sy-renamed ok-apply ;
 \ preprocessOutParam's arguments: the class's type walked with whnf, an
 \ out-parameter a new metavariable of its binder's type (invalid 111 when
 \ the type has no binder left).
@@ -586,17 +586,17 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
 : sy-wild-key ( type k -- ckey outcome )
   swap sy-args lf-meta-spine ok-then? 0= if nip no-result exit then
   over ['] sy-wild-level sy-new-head ok-then? 0= if nip no-result exit then
-  swap sy-wild-args ok-then? if sy-rebuild else no-result then ;
+  swap sy-wild-args ['] sy-rebuild ok-apply ;
 
 \ ---- preprocess: the goal whnf (no pi: 117), its kind and cache key.
 : sy-goal-whnf ( type -- type' outcome )
-  dup sy-pi-free ok-then? if lf-meta-whnf else no-result then ;
+  dup sy-pi-free ['] lf-meta-whnf ok-apply ;
 : sy-kinded ( ckey kind -- outcome ) sy-c syc-kind ! sy-c syc-ckey ! outcome-ok ;
 : sy-mvar-kind ( type -- outcome )
   dup sy-head-class if dup sy-outs? if sy-wild-key ok-then? if sy-outs sy-kinded then exit
   then drop then sy-plain sy-kinded ;
 : sy-preprocess ( type -- outcome )
-  lf-instantiate-mvars ok-then? if sy-goal-whnf else no-result then ok-then? 0= if exit
+  lf-instantiate-mvars ['] sy-goal-whnf ok-apply ok-then? 0= if exit
   then
   dup sy-c syc-type ! dup sy-mvar? ok-then? 0= if nip exit then
   if sy-mvar-kind else sy-no-mvars sy-kinded then ;

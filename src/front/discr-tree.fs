@@ -261,14 +261,14 @@ create dt-edge-hooks /htab-hooks allot
 \ visit puts its first new frame in the slot its pop freed (dt-refill:
 \ the room is there), any second one on top (dt-push, which may find no
 \ room).
-: dt-frame! ( todo node skip i -- ) dtf@ tuck df-skip ! tuck df-node ! df-todo ! ;
+: dt-frame! ( todo node skip i -- ) dtf@ df-todo cell-triple! ;
 : dt-refill ( todo node skip -- )
   over 0< if drop 2drop exit then dts slab-count dt-frame! 1 dts slab-commit ;
 : dt-push ( todo node skip -- outcome )
   over 0< if drop 2drop outcome-ok exit then
   1 dts slab-claim ok-then? 0= if nip nip nip exit then dt-frame! outcome-ok ;
 : dt-pop ( -- todo node skip )
-  dts slab-last dup df-todo @ over df-node @ rot df-skip @ dts slab-drop ;
+  dts slab-last df-todo cell-triple@ dts slab-drop ;
 : dt-values-out ( node -- outcome )   \ none for a node below 0
   dup 0< if drop outcome-ok exit then dn@ dn-first @ begin dup 0< 0= while
     dup dv@ dv-value @ dq dq-out @ slab-push dup ok? 0= if nip exit then drop

@@ -723,10 +723,18 @@ reason = "C4: renameInaccessibles leaves a frame behind on its slab"
 [[fault]]
 id = "lib-count-index-raw-flag"
 file = "src/lib/find.fs"
-old = '''  dup 1+ swap ?do 0 max 0 swap 0 ?do i j execute 0<> - loop loop ;'''
-new = '''  dup 1+ swap ?do 0 max 0 swap 0 ?do i j execute - loop loop ;'''
+old = '''  dup 1+ swap ?do 0 max 0 swap 0 ?do over i j execute nip 0<> - loop nip loop ;'''
+new = '''  dup 1+ swap ?do 0 max 0 swap 0 ?do over i j execute nip - loop nip loop ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "review tactic-move-c4 B4: count-index subtracts the test's answer itself, so a true flag other than -1 (a why code of cli-again#) counts wrong"
+
+[[fault]]
+id = "lib-count-index-count-as-x"
+file = "src/lib/find.fs"
+old = '''  dup 1+ swap ?do 0 max 0 swap 0 ?do over i j execute nip 0<> - loop nip loop ;'''
+new = '''  dup 1+ swap ?do 0 max 0 swap 0 ?do dup i j execute nip 0<> - loop nip loop ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-1 (plan 9.4.8l Z): count-index gives each test the count so far instead of x, so a test reading x (a table, a why code, a record) counts against the wrong value"
 
 # --- review tactic-move-c4: meta-spine.fs's lf-meta-forall-body# (B3) ---------
 

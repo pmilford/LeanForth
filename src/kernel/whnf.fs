@@ -354,7 +354,7 @@ defer lf-whnf-known ( node visit -- flag true | false )
   if outcome-ok else drop lf-whnf-none outcome-ok then ;
 : lf-whnf-delta-of ( const -- decl outcome )
   lf-whnf-env? 0= if lf-whnf-k1 exit then
-  dup lf-whnf-lookup ok-then? if lf-whnf-slot-delta else nip no-result then ;
+  dup lf-whnf-lookup ['] lf-whnf-slot-delta ok-apply2 ;
 
 \ instantiate_value_lparams: the declaration's value itself when the
 \ constant has no universe arguments (no copy, as Lean), else the value
@@ -385,7 +385,7 @@ defer lf-whnf-valued ( decl const frames -- value outcome )
 \ unfold_definition (589-602) of node, whose head is a constant: (node'
 \ ok) unfolded, (-1 ok) when the head does not unfold, or the failure.
 : lf-whnf-reapply ( value node -- node' outcome )
-  lf-whnf-spine-args ok-then? if lf-whnf-apply else nip no-result then ;
+  lf-whnf-spine-args ['] lf-whnf-apply ok-apply2 ;
 : lf-whnf-unfold-head ( node frames const decl -- node' outcome )
   swap rot lf-whnf-valued ok-then? if swap lf-whnf-reapply else nip no-result then ;
 : lf-whnf-unfold ( node frames -- node' outcome )
@@ -598,7 +598,7 @@ defer lf-whnf-entry ( node frames -- ... frames next )
 : lf-nat-ext ( w -- lit outcome )
   dup lf-lit-leaf? if outcome-ok exit then
   lf-whnf-zero? if 0 lf-reduce-nat-literal else lf-whnf-none outcome-ok then ;
-: lf-nat-literal ( w outcome -- lit outcome ) ok-then? if lf-nat-ext else no-result then ;
+: lf-nat-literal ( w outcome -- lit outcome ) ['] lf-nat-ext ok-apply ;
 : lf-nat-second ( w outcome frames -- ... frames next )
   >r lf-nat-literal ok-then? 0= if no-result r> lf-nat-end2 exit then
   dup lf-whnf-none = if outcome-ok r> lf-nat-end2 exit then

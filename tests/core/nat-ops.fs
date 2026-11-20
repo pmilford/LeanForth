@@ -90,12 +90,11 @@ T{ s" Nat" s" zero" dotted lf-nat-zero-name? s" Nat" s" succ" dotted lf-nat-zero
 \ 7. The indices of the operations whose callers' policies differ.
 T{ lf-nat-op-pow lf-nat-op-shl s" pow" index-of s" shiftLeft" index-of -> 3 12 3 12 }T
 
-\ ---- 1. The constants and the node maker.
+\ ---- 1. The constants (each maker here ends with core/generation-handles.fs's
+\ lf-made-term, tested there).
 T{ true lf-nat-lit-bool swap true bool? -> outcome-ok true }T
 T{ s" zero" s" Nat" lf-nat-in swap const-name s" Nat" s" zero" dotted lf-name-same? -> outcome-ok true }T
 T{ 0 s" Nat" lf-nat-named swap const-name 0 s" Nat" named lf-name-same? -> outcome-ok true }T
-T{ 5 7 true lf-nat-node -> 5 outcome-ok }T
-T{ false lf-nat-node -> -1 outcome-full }T
 
 \ ---- 5. Over Lean's limit: full with diagnostic 93, never a verdict.
 : full93? ( node outcome -- flag ) outcome-full = swap -1 = and lf-diag-code@ lf-diag-nat-size = and ;
@@ -145,6 +144,12 @@ T{ 0 nlit nop-bits two64 nop-bits -> 0 65 }T
 T{ -1 outcome-invalid nop-literal -1 outcome-full lf-diag-clear nop-literal lf-diag-code@
    -> -1 outcome-invalid -1 outcome-full lf-diag-nat-size }T
 T{ -1 outcome-invalid nop-truth -> -1 outcome-invalid }T
+\ Nat.beq's and Nat.ble's answer after a failed operation (nop-truth,
+\ before plan S3a the kernel's lf-rn-truth; review of cleanup-families-2,
+\ M1): the failure is the answer, -1 and its outcome, never a Bool
+\ constant; on ok the flag picks it.
+T{ true outcome-full nop-truth 0 outcome-exhausted nop-truth -> -1 outcome-full -1 outcome-exhausted }T
+T{ true outcome-ok nop-truth nip 0 outcome-ok nop-truth nip -> outcome-ok outcome-ok }T
 
 \ ---- 5. The kernel's words on the table (kernel/reduce-nat.fs, whose own
 \ tests are tests/core/reduce-nat.fs): the predecessor of a literal of

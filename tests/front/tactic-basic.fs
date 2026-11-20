@@ -179,6 +179,12 @@ tac-k-intro lfr-row trow-run @ constant intro-action
 ' implicit-pi stating
 T{ s" by-intro: h by-sorry end t" proof nrun new-local dup lf-local-name s" h" name=
    swap lf-local-flags -> outcome-ok true lf-binder-implicit }T
+\ The node's own kind is explicit here: the local still takes the kind
+\ given (since intro-n reads a node's own kind when none is given, only a
+\ node of another kind tells a dropped kind apart; TB1's tier).
+' imp-p stating
+T{ s" by-intro: h by-sorry end t" proof nrun new-local lf-local-flags
+   -> outcome-ok lf-binder-implicit }T
 intro-action tac-k-intro lf-tactic-action!
 
 \ ---- 1. exact: a term of another type, Lean's Type mismatch text (the

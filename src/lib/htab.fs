@@ -102,7 +102,7 @@ lf-lib set-current
 \ Finds, occupied slots compared by them, and doublings so far (a frozen
 \ table counts nothing).
 : htab-stats ( htab -- finds compared grows )
-  dup htab-finds @ over htab-compared @ rot htab-grows @ ;
+  htab-finds cell-triple@ ;
 : htab-frozen? ( htab -- flag ) htab-frozen @ ;
 lf-lib-private set-current
 \ Whether the size fields agree: 2^log2 slots, log2 within the host's.

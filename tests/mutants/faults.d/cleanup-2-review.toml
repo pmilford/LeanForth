@@ -1,0 +1,92 @@
+# Planted faults of the Forth review of cleanup-families-2 (2026-11-19,
+# docs/development/forth-reviews/2026-11-19-cleanup-families-2.md) that no unit test
+# caught before its fixes, named after the reviewer's r-numbers; each is caught by a
+# unit test the fixes added.
+
+[[fault]]
+id = "cf2r-delta-of-failure-ok"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-whnf-lookup ['] lf-whnf-slot-delta ok-apply2 ;'''
+new = '''  dup lf-whnf-lookup ok-then? if lf-whnf-slot-delta else 2drop -1 outcome-ok then ;'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "review cleanup-families-2 r10: a failed lookup of a delta head (a slot not final, undecided or unsupported) is taken as a constant that does not unfold"
+
+[[fault]]
+id = "cf2r-delta-of-failure-unknown"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-whnf-lookup ['] lf-whnf-slot-delta ok-apply2 ;'''
+new = '''  dup lf-whnf-lookup ok-then? if lf-whnf-slot-delta else 2drop -1 outcome-unknown then ;'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "review cleanup-families-2 r20: a failed lookup of a delta head answers unknown whatever the lookup's own outcome"
+
+[[fault]]
+id = "cf2r-reapply-failure-ok"
+file = "src/kernel/whnf.fs"
+old = '''  lf-whnf-spine-args ['] lf-whnf-apply ok-apply2 ;'''
+new = '''  lf-whnf-spine-args ok-then? if lf-whnf-apply else 2drop -1 outcome-ok then ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "review cleanup-families-2 r11: unfold_definition's arguments that find no room are taken as applied (-1 ok)"
+
+[[fault]]
+id = "cf2r-reapply-keeps-value"
+file = "src/kernel/whnf.fs"
+old = '''  lf-whnf-spine-args ['] lf-whnf-apply ok-apply2 ;'''
+new = '''  lf-whnf-spine-args ['] lf-whnf-apply ok-apply ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "review cleanup-families-2 r12: ok-apply where ok-apply2 belongs leaves the unfolded value under -1 and the outcome"
+
+[[fault]]
+id = "cf2r-put-closed-failure-ok"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-close ['] lf-minfer-substitute ok-apply2 ;'''
+new = '''  lf-minfer-close ok-then? if lf-minfer-substitute else 2drop -1 outcome-ok then ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "review cleanup-families-2 r14: an argument the scope cannot close gives an application's type -1 and ok"
+
+[[fault]]
+id = "cf2r-typed-failure-ok"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-close ['] lf-minfer-walk ok-apply'''
+new = '''  lf-minfer-close ok-then? if lf-minfer-walk else drop -1 outcome-ok then'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "review cleanup-families-2 r15: inference aside of a node the scope cannot close answers -1 and ok"
+
+[[fault]]
+id = "cf2r-iota-typed-failure-ok"
+file = "src/kernel/iota.fs"
+old = '''  lf-minfer-walk ['] lf-minfer-whnf-job ok-apply ;'''
+new = '''  lf-minfer-walk ok-then? if lf-minfer-whnf-job else drop -1 outcome-ok then ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "review cleanup-families-2 r16: structure eta's failed inference of the major premise's type answers -1 and ok"
+
+[[fault]]
+id = "cf2r-rn-truth-failure-ok"
+file = "src/core/nat-ops.fs"
+old = '''  ['] lf-nat-lit-bool ok-apply ;'''
+new = '''  ok-then? if lf-nat-lit-bool else drop -1 outcome-ok then ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "review cleanup-families-2 r17: Nat.beq's or Nat.ble's failed operation answers -1 and ok"
+
+[[fault]]
+id = "cf2-site-paired-swapped"
+file = "src/kernel/env-snapshot.fs"
+old = '''  seen-at cell-pair! outcome-ok ;'''
+new = '''  seen-at 2! outcome-ok ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "review cleanup-families-2 r3 (M2): the snapshot writer's site pair stored turned, so a site is never found again and its text is written once more for every slot"
+
+[[fault]]
+id = "cf2r-export-marks-read-swapped"
+file = "src/import/ndjson.fs"
+old = ''': export-marks ( export -- key why ) export-key cell-pair@ ;'''
+new = ''': export-marks ( export -- key why ) export-key 2@ ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "review cleanup-families-2 r23 (L3): the export's failure marks read turned, so the field and why come back exchanged after a shape failure"
+
+[[fault]]
+id = "cf2r-gp-like-one-short"
+file = "src/front/goal-print.fs"
+old = ''': gp-like ( i -- n ) gp-view@ lf-view-count over - 1- ['] gp-later-like? count-index ;'''
+new = ''': gp-like ( i -- n ) gp-view@ lf-view-count over - 2 - ['] gp-later-like? count-index ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "review cleanup-families-2 r26 (L3): a tombstone's number misses the newest like-named local, so Lean's x✝² prints x✝¹"
