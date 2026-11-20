@@ -275,9 +275,12 @@ Forth: the parts come first, then the word that combines them.
   `$`, `^`), so they never clash with a name. The name of a theorem,
   universe or namespace may not look like a number (`1`, `N.1`, `-x`), so
   a name never hides a number. Forth's own words, such as `dup` or `+`,
-  are not visible while a proof runs; `+`, `=`, `*` and `≤` are words of
-  natural LeanForth (Lean's operators), refused in kernel-form text
-  (error 58).
+  are not visible while a proof runs; Lean's operators `+ - * / % ^`,
+  `= ≠ < > ≤ ≥`, `¬ ∧ ∨ ↔ ∣` and their typed spellings `<= >= /\ \/ <->`
+  are words of natural LeanForth, refused in kernel-form text (error 58;
+  `^` is the universe word there). The table "How to type each symbol" of
+  [LANGUAGE_REFERENCE.md](LANGUAGE_REFERENCE.md) gives the typed form of
+  every symbol (`Ne`, `Not`, `Dvd.dvd` where Lean has no ASCII notation).
 - Comments are Forth's: `\` to the end of the line, `( … )` within a line
   (a `(` must be closed on its line).
 

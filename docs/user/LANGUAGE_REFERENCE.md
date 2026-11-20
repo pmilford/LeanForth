@@ -258,6 +258,35 @@ statement (a false one, which no proof can establish).
 | `⊢` | "proves" or "turnstile" | in a printed goal, separates the hypotheses (left) from what is still to prove (right) |
 | `$` | "apply" | gives a function one more argument |
 | `≤` | "is at most" | builds the proposition "a is at most b" |
+| `<` `>` `≥` | "is less than", "is greater than", "is at least" | build the proposition comparing a and b |
+| `≠` | "is not equal to" | builds the proposition "a is not b" (Lean's `Ne`) |
+| `-` `/` `%` | "minus", "divided by (rounding down)", "remainder" | arithmetic of two values; on `Nat`, `10 20 -` is 0 |
+| `^` | "to the power" | `2 10 ^` is 2¹⁰; the exponent does not help choose the number type |
+| `¬` `∧` `∨` `↔` | "not", "and", "or", "if and only if" | build propositions from propositions |
+| `∣` | "divides" | `3 12 ∣` is "3 divides 12" (Lean's `Dvd.dvd`; not the bar `\|`) |
+
+**How to type each symbol.** Every symbol word that is not ASCII has a
+spelling a plain keyboard types, a word of its own that means the same
+thing and builds the same term node for node (checked:
+`tests/front/tactics/decide/dc-ascii.lf` against `dc-symbols.lf`). It is
+Lean's own ASCII notation where pinned Lean 4.35.0 has one, else the
+constant's name, which LeanForth already reads as a name:
+
+| Symbol | Type it as | Lean's definition (Lean 4.35.0 `src/lean/Init/`) |
+| --- | --- | --- |
+| `≤` | `<=` | `infix:50 unicode(" ≤ ", " <= ") => LE.le` (Notation.lean:375) |
+| `≥` | `>=` | `infix:50 unicode(" ≥ ", " >= ") => GE.ge` (Notation.lean:377) |
+| `∧` | `/\` | `infixr:35 unicode(" ∧ ", " /\\ ") => And` (Notation.lean:404) |
+| `∨` | `\/` | `infixr:30 unicode(" ∨ ", " \\/ ") => Or` (Notation.lean:405) |
+| `↔` | `<->` | `infix:20 " <-> " => Iff` beside `infix:20 " ↔ " => Iff` (Core.lean:196-197) |
+| `≠` | `Ne` (`3 4 Ne`) | `infix:50 " ≠ " => Ne` (Core.lean:880); Lean has no ASCII form (`!=` is Bool's `bne`) |
+| `¬` | `Not` (`p Not`) | `notation:max "¬" p:40 => Not p` (Notation.lean:406); no ASCII form |
+| `∣` | `Dvd.dvd` (`3 12 Dvd.dvd`) | `infix:50 " ∣ " => Dvd.dvd` (Notation.lean:280); no ASCII form |
+
+`< > - / % ^ + * =` are ASCII already. The words are LeanForth's only
+while a text runs (the runner searches only LeanForth's word lists), so
+they never change Forth's own `-`, `/` or `<=`, and `\/` is a word of its
+own, never the comment word `\`.
 
 ### Stack comments, parsed text and placeholders
 
@@ -647,7 +676,11 @@ Errors named in the "Function" cells are codes of `src/author/errors.fs`.
 | `' NAME` | `( -- v )` | reads the next token without consuming it; natural form only | the next name takes no arguments from the stack | The function or theorem NAME itself, applied to nothing ("tick NAME"); error 59 when no name follows on the line. |
 | `$` | `( f a -- v )` | none | takes two values, leaves the application | One more argument: `f a $` is Lean's `f a`. |
 | `+` `*` | `( a b -- v )` | none; natural form only (error 58 in kernel form) | takes two values, leaves the sum or product | Lean's `a + b` and `a * b`, as `binop%` of `HAdd.hAdd` and `HMul.hMul`. |
-| `=` `≤` | `( a b -- v )` | none; natural form only | takes two values, leaves the *proposition* "a equals b" or "a is at most b" | Lean's `a = b` and `a ≤ b`, as `binrel%` of `Eq` and `LE.le`. `=` is never assignment. |
+| `-` `/` `%` | `( a b -- v )` | none; natural form only (58 in kernel form) | takes two values, leaves the difference, quotient or remainder | Lean's `a - b`, `a / b`, `a % b`, as `binop%` of `HSub.hSub`, `HDiv.hDiv`, `HMod.hMod` (on `Nat`: `10 20 -` is 0, `17 5 /` is 3). Binary minus only; unary minus is not a word yet. |
+| `^` | `( a n -- v )` | none; in natural form "to the power", in kernel form still the universe word | takes the base and the exponent, leaves the power | Lean's `a ^ n`, as `rightact%` of `HPow.hPow`: the exponent is elaborated on its own and does not help choose the number type (owner, 2026-11-20). `2 3 2 ^ ^` is `2 ^ 3 ^ 2`, that is 2⁹. |
+| `=` `≤` | `( a b -- v )` | none; natural form only | takes two values, leaves the *proposition* "a equals b" or "a is at most b" | Lean's `a = b` and `a ≤ b`, as `binrel%` of `Eq` and `LE.le`. `=` is never assignment. Typed `≤`: `<=`. |
+| `<` `>` `≥` `≠` | `( a b -- v )` | none; natural form only (58 in kernel form) | takes two values, leaves the proposition comparing them | Lean's `a < b`, `a > b`, `a ≥ b`, `a ≠ b`, as `binrel%` of `LT.lt`, `GT.gt`, `GE.ge`, `Ne`. Typed: `>=` for `≥`, `Ne` for `≠`. |
+| `¬` `∧` `∨` `↔` `∣` | `( p -- v )` for `¬`, `( a b -- v )` the others | none; natural form only (58 in kernel form) | takes one or two values, leaves the proposition | Lean's notations `¬p`, `p ∧ q`, `p ∨ q`, `p ↔ q`, `a ∣ b`: exactly the constants `Not`, `And`, `Or`, `Iff`, `Dvd.dvd` (the root ones, as Lean's hygiene gives) applied to the values, as their names would be. Typed: `Not`, `/\`, `\/`, `<->`, `Dvd.dvd`. A library without the constant: error 38. |
 | `#check` | `( v -- )` | none; natural form; outside declarations only | counts the check; prints one line `EXPRESSION : TYPE`; adds no declaration | Elaborates the expression with no expected type and prints it with its type; inside a declaration it is error 140 (141 in a tactic block). |
 | `kernel-form` | `( -- )` | none; acts outside declarations | switches the rest of the run to the kernel form | Error 57 inside a declaration. |
 | `\ TEXT` | `( -- )` | the rest of the line | nothing | A comment to the end of the line. |
@@ -773,7 +806,13 @@ n Nat.succ n Nat.succ =
 ```
 
 (Each line is a statement of `tests/front/s1-now.lf`: `two_add_two`,
-`add_self`, `succ_eq`.) Other operator words (`<`, `∧`, `∨`, `¬`, ...), `→`, `∀` and `∃` are
+`add_self`, `succ_eq`.) The other symbols of Lean's arithmetic and logic
+are words too (slice S3a-ops; owner, 2026-11-20): `-` `/` `%` (`binop%`),
+`<` `>` `≥` `≠` (`binrel%`), `^` (`rightact%`), and `¬` `∧` `∨` `↔` `∣`,
+the constants `Not`, `And`, `Or`, `Iff`, `Dvd.dvd` applied; each has a
+typed spelling (`<=` `>=` `/\` `\/` `<->`, or the name), in the table
+"How to type each symbol" above. `tests/front/check_front.py` compares the
+trees they build with pinned Lean's macro expansion. `→`, `∀` and `∃` are
 **`**: natural spellings are designed in
 [FE2_TERMS.md §2.2-2.3](../design/FE2_TERMS.md); natural-form `fun`,
 `forall`, `Prop`, `->` stop with error 70 today.
@@ -1380,27 +1419,49 @@ theorem dc_and
 end dc_and
 ```
 
-`*` on numerals, and Lean's `>`, `≥` and `≠` written by their names
-`GT.gt`, `GE.ge` and `Ne`, work as in Lean (plan S3a-ops C1: the instance
-search unfolds reducible definitions in its keys, as Lean's does):
+`*` on numerals and the symbol words `-` `/` `%` `^` `<` `>` `≥` `≠` `¬`
+`∧` `∨` `↔` work as in Lean (plan S3a-ops: the instance search unfolds
+reducible definitions in its keys, as Lean's does; the words build Lean's
+macros; owner, 2026-11-20). The talk's theorems, in three forms:
 
 | Form | Example |
 | --- | --- |
-| mathematics | $3^2 + 4^2 = 5^2$; $20 > 10 \land 10 \ge 10 \land 3 \ne 4$ |
-| LeanForth | `3 3 * 4 4 * + 5 5 * =`, `20 10 GT.gt 10 10 GE.ge 3 4 Ne And And`, proved by `by-decide` |
-| Lean | `theorem d_compare : 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4 := by decide` |
+| mathematics | $2^{32} + 1 = 641 \cdot 6700417$ (Euler: Fermat's $F_5$ is composite); $20 > 10 \land 10 \ge 10 \land 3 \ne 4$ |
+| LeanForth | `2 32 ^ 1 + 641 6700417 * =`; `20 10 > 10 10 ≥ 3 4 ≠ ∧ ∧`, typed `20 10 > 10 10 >= 3 4 Ne /\ /\`; proved by `by-decide` |
+| Lean | `theorem sy_euler : 2 ^ 32 + 1 = 641 * 6700417 := by decide`; `theorem sy_compare : 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4 := by decide` |
 
 ```text
-\ tests/front/tactics/decide/dc-ops.lf: accepted, term equal to Lean's
-theorem d_compare
-  20 10 GT.gt 10 10 GE.ge 3 4 Ne And And
+\ tests/front/tactics/decide/dc-symbols.lf: accepted against all of Init,
+\ its term node for node pinned Lean's (check.py --init)
+theorem sy_compare
+  20 10 >  10 10 ≥  3 4 ≠  ∧ ∧
 := by
   by-decide
-end d_compare
+end sy_compare
+
+theorem sy_euler
+  2 32 ^ 1 +  641 6700417 * =
+:= by
+  by-decide
+end sy_euler
+```
+
+```text
+\ tests/front/tactics/decide/dc-ascii.lf: the same theorem typed in ASCII,
+\ its term node for node sy_compare's
+theorem as_compare
+  20 10 >  10 10 >=  3 4 Ne  /\ /\
+:= by
+  by-decide
+end as_compare
 ```
 
 Each of these is checked by LeanForth's kernel: `by-decide` builds the
-proof term, and only the kernel's check accepts it.
+proof term, and only the kernel's check accepts it. A user runs the talk
+file with `bin/leanforth check --snapshot INIT.lfsnap --elab-data
+INIT.elab.ndjson tests/front/tactics/decide/dc-symbols.lf` (an Init
+snapshot and its elaboration data, [COMMAND_LINE.md](COMMAND_LINE.md)):
+each of its 14 theorems prints "accepted", axioms none.
 
 More: `dc-arith.lf` and `dc-logic.lf` (`2 + 2 = 4`, `10 < 20`, `3 ≤ 3`,
 `Nat.mul 12345 6789 = 83810205`, `100 % 7 = 2`, `¬`, `∨`, `True`, Bool
@@ -1410,19 +1471,21 @@ Pythagoras, Gauss's `1 + ... + 10 = 55`, `20 > 10`, `10 ≥ 10`, `3 ≠ 4`,
 (`10 - 20 = 0`, `17 / 5 = 3`, `2 ^ 10 = 1024`, `2 ^ 64 = 2 ^ 32 * 2 ^ 32`)
 and `dc-ops-init.lf` (`17 / 5 = 3 ∧ 17 % 5 = 2`, `2 ^ 11 - 1 = 23 * 89`,
 Euler's `2 ^ 32 + 1 = 641 * 6700417`, the taxicab number 1729,
-`2 ^ 10 > 1000`), checked against all of Init
+`2 ^ 10 > 1000`), `dc-symbols.lf` and `dc-ascii.lf` (the talk's theorems
+with symbol words and typed in ASCII), checked against all of Init
 (`tests/front/tactics/decide/check.py --init`). Wrong twins:
 `w-dc-add.lf`, `w-dc-lt.lf`, `w-dc-and.lf`, `w-dc-mul.lf`, `w-dc-gt.lf`,
-`w-dc-ne.lf`, `w-dc-ge.lf`, and on Init `w-dc-euler.lf` and
-`w-dc-divmod.lf` (250), `w-dc-fvar.lf`, `w-dc-fvar0.lf` (251),
-`w-dc-nonempty.lf` (122), `w-dc-choice.lf`, `w-dc-choice-bool.lf` (253),
-`w-dc-none.lf` (90), each refused with Lean's first message. Not yet:
-`3 12 Dvd.dvd` (`3 ∣ 12`) stops with error 93, never a verdict
-(`x-dc-dvd.lf`: the keys of `Nat.decidable_dvd` need the type of an
-application whose head is a function literal, plan FE1c); a hypothesis
-whose type has numerals (`1 1 = explicit: h`) stops with 139 (plan FE2);
-`**` the words `<` `>` `≥` `≠` `-` `/` `%` (plan S3a-ops C2): write
-`LT.lt`, `GT.gt`, `GE.ge`, `Ne`, `HSub.hSub`, `HDiv.hDiv`, `HMod.hMod`.
+`w-dc-ne.lf`, `w-dc-ge.lf`, `w-sy-lt.lf`, `w-sy-ne.lf`, `w-sy-ge.lf`,
+`w-sy-or.lf`, `w-sy-iff.lf`, `w-sy-not.lf`, and on Init `w-dc-euler.lf`,
+`w-dc-divmod.lf`, `w-sy-euler.lf`, `w-sy-divmod.lf` (250), `w-dc-fvar.lf`,
+`w-dc-fvar0.lf` (251), `w-dc-nonempty.lf` (122), `w-dc-choice.lf`,
+`w-dc-choice-bool.lf` (253), `w-dc-none.lf` (90), each refused with Lean's
+first message. Not yet: `3 12 ∣` (`3 ∣ 12`, also `3 12 Dvd.dvd`) stops
+with error 93, never a verdict (`x-sy-dvd.lf`, `x-dc-dvd.lf`: the keys of
+`Nat.decidable_dvd` need the type of an application whose head is a
+function literal, plan FE1c); `3 12 ∣ #check` prints `3 ∣ 12 : Prop` as
+Lean does (`c-sy-check.lf`); a hypothesis whose type has numerals
+(`1 1 = explicit: h`) stops with 139 (plan FE2).
 
 `by-native-decide` is Lean's `native_decide`. Lean runs the compiled
 decision procedure and trusts it through the axiom `Lean.ofReduceBool`,

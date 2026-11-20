@@ -266,8 +266,8 @@ defer et-go-call ( node x frames cont -- ... frames next )
   syn-a@ et-resolve ['] lf-meta-const-fresh ok-apply ;
 : et-go-op ( node -- ... frames next )
   dup et-op-f ok-then? 0= if nip et-failed exit then et-op.
-  over swap et-tn-new ok-then? 0= if nip et-failed exit then et-act-op!
-  et-fr frame-save syn-b@ 0 et-fr ['] et-op-lhs et-go-call ;
+  over swap et-tn-new ok-then? 0= if nip et-failed exit then
+  et-act-op! et-fr frame-save syn-b@ 0 et-fr ['] et-op-lhs et-go-call ;
 \ An operator is entered, unless it is a rightact%'s right operand (leaf?).
 : et-go ( node leaf? frames -- ... frames next )
   drop 0= over et-op-kind? and if et-go-op else et-go-leaf then ;
