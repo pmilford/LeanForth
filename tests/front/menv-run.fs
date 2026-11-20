@@ -396,6 +396,11 @@ T{ 0 lf-term-bvar drop lf-meta-dec-level nip -> outcome-invalid }T
 : kinds-lib ( -- c-addr u ) s" tests/core/reexport/kinds.ndjson" ;
 T{ kinds-lib false lfc-library-open s" Nat.add" nm lf-menv-find
    -> outcome-ok -1 outcome-unsupported }T
+\ The decoder's own outcome names the mdata node not supported yet, never
+\ malformed (review s1-meta-b M3): the Meta env reads every refusal of a
+\ library declaration as unsupported (me-undecoded, since 2026-11-17), so
+\ only lf-libdec-decl tells the two apart.
+T{ s" Nat.add" nm lf-libdec-find made lf-libdec-decl -> -1 outcome-unsupported }T
 : codomain-level ( c-addr u -- level ) d-of lf-menv-type lf-term-second@ lf-term-second@
   lf-term-first@ ;
 T{ s" ReexportKinds.arrow" codomain-level lf-level-tag@ -> lf-level-tag-imax }T

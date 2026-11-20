@@ -1179,7 +1179,7 @@ test-front:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_unfold.py --golden
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_whnf.py --golden
 	$(RUN) $(GFORTH) tests/front/tactic-syntax.fs
-	@out=$$($(RUN) $(GFORTH) tests/front/tactic-run.fs 2>&1) || \
+	@out=$$($(RUN) $(SCRATCH) $(GFORTH) tests/front/tactic-run.fs 2>&1) || \
 	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "tactic-run.fs: all tests passed"
 	@out=$$($(RUN) $(GFORTH) tests/front/tactic-basic.fs 2>&1) || \
 	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "tactic-basic.fs: all tests passed"
