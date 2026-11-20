@@ -217,3 +217,11 @@ old = '''  wc-next ok-then2? 0= if no-result exit then if wc-loop else outcome-o
 new = '''  if wc-loop else outcome-ok then ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "9.4.8l AB: lf-meta-unfold gives the matcher application with false when the smart path's reduceMatcher? answers none at once, its frame never resumed"
+
+[[fault]]
+id = "tf-rfl-apply-rel-unchecked"
+file = "src/front/meta-tactic/goal.fs"
+old = ''': mrf-apply-rfl ( -- ) mrf-whnf-r mrf-approx? 0= if mrf-unequal then mrf-eq-closed ;'''
+new = ''': mrf-apply-rfl ( -- ) mrf-whnf-r mrf-approx? 0= if mrf-unequal then mrf-closed ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l rfl: applyRfl closes a relation other than Eq (R r r) with Eq.refl where Lean looks for @[refl] lemmas (93)"

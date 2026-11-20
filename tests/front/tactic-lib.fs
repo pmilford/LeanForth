@@ -557,6 +557,14 @@ T{ fr rel-code fr fs lf-mk-eq rel-same -> -4205 true 0 }T
 : other-code ( t -- code )
   mrf-frames ['] other-rel ['] lf-with-record catch dup if nip nip nip then ;
 T{ fr fr id-eq other-code mrf-frames slab-count -> -4205 0 }T
+\ So does applyRfl itself on R r r (R a relation variable): its sides r
+\ and r equal by approxDefEq, the relation no Eq (driven directly: eq_refl
+\ stops such a goal first, its whnf no equation).
+nat nat prop lf-term-pi lf-made! lf-term-pi lf-made! s" R" binder constant frel9
+: apply-rfl-run ( goal -- ) mrf mrf-goal ! mrf-apply-rfl ;
+: apply-rfl-code ( goal -- code )
+  mrf-frames ['] apply-rfl-run ['] lf-with-record catch dup if nip nip nip then ;
+T{ frel9 fr lf-mk-app fr lf-mk-app goal-of apply-rfl-code mrf-frames slab-count -> -4205 0 }T
 \ checkNotAssigned first (review tactic-move M3): an assigned goal is
 \ refused, invalid, before its type is read, by introN (Nat: no binder,
 \ else 94) and by refl (Nat: no Eq, else 93's unsupported).
