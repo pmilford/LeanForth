@@ -1777,3 +1777,28 @@ tier 20-25 minutes. Asked whether the whole-suite coverage ratchet should leave 
   names the launcher that actually checked its export (`bin/leanforth` or `bin/leanforth-checker`) instead of
   always saying `bin/leanforth` (Forth review of branch `layered-loads`, finding M2). The verdict is the same; the
   export-only tests then need not load the front end.
+
+## Two answers of 2026-11-20, morning
+
+Owner, 2026-11-20 (in the session, on the questions of the night's report):
+
+- **Symbols as words: yes** (FE2's question 2, parser gate). `< > ≥ ≠ - / %` and `¬ ∧ ∨ ↔ ∣` may be words in
+  theorem text, each meaning exactly what it means in Lean and building what the spelled-out name builds
+  (word list `.claude/work/briefs/OPS-WORDLIST.md`, steps C2 and C3). Condition, in the owner's words: "make
+  sure they can be entered, I've never typed the non ASCII ones": every symbol that is not ASCII must also
+  have a spelling a plain keyboard can type (Lean's own ASCII form where Lean has one, else the name), and
+  the language reference must show it beside the symbol.
+- **The tag's name for the talk of 2026-11-21: `svfig-prepre-alpha`.** The name is decided; making the tag
+  still needs a daily run of that exact tree (`make tag-check`) and the owner's go-ahead for the tag itself.
+
+Later the same morning the owner answered the three remaining questions with "Yes to the new questions":
+
+- **`^` may mean "to the power" in theorem text: yes** (parser gate; a new elaboration rule, Lean's
+  `rightact%`: the exponent is elaborated apart and does not help choose the number type; word list step C4).
+- **`nat-ops` refuses a non-literal operand: yes** (kernel gate, plan 9.4.8l AW). `lf-nat-lit-op`
+  (`src/core/nat-ops.fs`) answers invalid when an operand is not a literal, where it answered ok with a made-up
+  literal; no caller passes one. The owner's approval is the gate's fourth part; the change still needs its
+  tests of every outcome, the pinned-Lean comparisons and an independent review with no open finding.
+- **The repository goes public for the talk: yes.** The licence stays MIT (the repository's `LICENSE`). Before
+  the switch the assistant checks the history and the tree for anything that must not be public and reports;
+  the switch itself is made when the owner says so, with the tag.
