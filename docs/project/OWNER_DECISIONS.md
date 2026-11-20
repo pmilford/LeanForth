@@ -1777,3 +1777,19 @@ tier 20-25 minutes. Asked whether the whole-suite coverage ratchet should leave 
   names the launcher that actually checked its export (`bin/leanforth` or `bin/leanforth-checker`) instead of
   always saying `bin/leanforth` (Forth review of branch `layered-loads`, finding M2). The verdict is the same; the
   export-only tests then need not load the front end.
+
+## Two answers of 2026-11-20, morning
+
+Owner, 2026-11-20 (in the session, on the questions of the night's report):
+
+- **Symbols as words: yes** (FE2's question 2, parser gate). `< > ≥ ≠ - / %` and `¬ ∧ ∨ ↔ ∣` may be words in
+  theorem text, each meaning exactly what it means in Lean and building what the spelled-out name builds
+  (word list `.claude/work/briefs/OPS-WORDLIST.md`, steps C2 and C3). Condition, in the owner's words: "make
+  sure they can be entered, I've never typed the non ASCII ones": every symbol that is not ASCII must also
+  have a spelling a plain keyboard can type (Lean's own ASCII form where Lean has one, else the name), and
+  the language reference must show it beside the symbol.
+- **The tag's name for the talk of 2026-11-21: `svfig-prepre-alpha`.** The name is decided; making the tag
+  still needs a daily run of that exact tree (`make tag-check`) and the owner's go-ahead for the tag itself.
+
+Still open: `^` as "to the power" (a new elaboration rule), `nat-ops` refusing a non-literal operand (plan
+9.4.8l AW), whether the repository goes public, and the licence.
