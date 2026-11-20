@@ -66,3 +66,11 @@ old = '''  ['] lf-rn-bool ok-apply ;'''
 new = '''  ok-then? if lf-rn-bool else drop -1 outcome-ok then ;'''
 test = "$GFORTH tests/core/reduce-nat.fs"
 reason = "review cleanup-families-2 r17: Nat.beq's or Nat.ble's failed operation answers -1 and ok"
+
+[[fault]]
+id = "cf2-site-paired-swapped"
+file = "src/kernel/env-snapshot.fs"
+old = '''  seen-at cell-pair! outcome-ok ;'''
+new = '''  seen-at 2! outcome-ok ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "review cleanup-families-2 r3 (M2): the snapshot writer's site pair stored turned, so a site is never found again and its text is written once more for every slot"
