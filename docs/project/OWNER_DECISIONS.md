@@ -1693,3 +1693,51 @@ explained proofs are built.
   faithful port of Lean's tactic, compared with pinned Lean with wrong twins, is added without asking and
   reported afterwards. Anything that differs from Lean, other kernel, core or import changes, new formats and new
   dependencies are still asked first.
+
+## Coverage debt ended (2026-11-19, evening)
+
+Asked whether to end the exception of 2026-11-17 (never-run failure branches of new words may merge as coverage
+debt and be paid before the slice's done check), the owner answered: "Yes end the deferred coverage issue."
+
+- Every never-run branch of a new or changed word is tested in the branch that adds it, before the merge. The
+  per-file tool (`make cover FILE=...`) lists the gaps in seconds; refusal paths are reached by the sweep harness
+  `tests/support/meta-sweeps.fs`, which refuses each request in turn and compares the answer.
+- Why: S2's deferred debt took a whole agent, a review and two tier runs to pay, found a real fault late
+  (`lf-whnf-stuck`, plan 9.4.8l AA) and held up S2's done check through three runs.
+- The assistant asked about front-end code; the owner's answer was general, and it is applied to all new code.
+- Debt recorded before this date is paid by the clean-up slot (`make cover-debt` lists it).
+
+## The kernel is code like any other (2026-11-19, evening)
+
+Asked to approve mechanical clean-up of kernel, core and import files, the owner answered: "I think you are
+protecting the kernel too much by avoiding making changes - if it is poor code it needs fixing. the kernel to me
+isn't any different than other code - it is not done yet, it is perhaps closer to done, but it still needs edits,
+we are improving it, and will test the same as everything else after fixing it. it needs clear easy to maintain,
+well factored and well tested (unit) code. the mathlib import is a huge test of it. parallel import another big
+test. normal unit tests another big test, well factored libraries another good test."
+
+- Refactoring that keeps behaviour the same (clean-up, shared words and libraries, renaming, added unit tests)
+  in `src/kernel`, `src/core` and `src/import` is ordinary work: no question first; the Forth review, the full
+  tier with every pinned-Lean comparison, the nightly parallel run of Init, and a report afterwards. This
+  replaces the rule that only tool-made exact extractions could touch those folders without asking.
+- As the assistant reads it (not the owner's words): a change to what the checker accepts or rejects (a rule,
+  an axiom, a file or record format, the trust boundary) still goes through the review gate of `AGENTS.md`
+  (Lean's behaviour, differential tests, independent review, a short plain summary for the owner).
+
+## Coverage in the branch in seconds, the whole-suite ratchet at night (2026-11-19, evening)
+
+The owner, on a batch of five ten-line tactics taking hours: "we have to be more productive with both time and
+tokens. it is ridiculus that 5 tactics words will take hours, not minutes - we need better development and
+testing approach." Measured the same evening: loading all of the source 0.4 s, one tactic proof against the S2
+slice 1.5 s, but `check_s2.py` 464-516 s, the tier's coverage run (`make coverage-focus`) 712-1,064 s and a full
+tier 20-25 minutes. Asked whether the whole-suite coverage ratchet should leave the tier, the owner answered:
+"yes change item 4, the whole suite coverage ratchet."
+
+- A tier and a push no longer run `make coverage-focus`. They run the branch coverage check instead: for each
+  source file the branch touches, its unit tests under coverage (seconds a file), failing when a block on a line
+  the branch added or changed is never run. This is the rule of "Coverage debt ended" above, checked directly.
+- The whole-suite ratchet of every file (`make coverage-check`) stays in `make daily`, each night and before a tag.
+- The rest of the plan the owner was shown the same evening, done by the assistant without further questions: the
+  slow Python runners run their cases in parallel; one fast command checks one tactic; a scaffold makes a new
+  tactic's files; kernel tests load a kernel-only file so a front-end change does not re-run them; a script
+  checks that a plug-in is thin, and the Forth review of such a branch reads only new library words.

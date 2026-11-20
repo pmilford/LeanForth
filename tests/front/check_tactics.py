@@ -47,6 +47,8 @@ import sys
 import tempfile
 import functools
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "tests/support"))
+from parallel_runs import run_all  # noqa: E402  independent runs side by side, results in order
 import lean_pin  # noqa: E402  $LEAN or the pinned Lean, refused unrun when an elan proxy
 
 
@@ -126,14 +128,29 @@ class Failure(Exception):
     pass
 
 
-def dump():
+def run_command(command):
+    """A finished run of (argument list, environment or None)."""
+    argv, env = command
+    return subprocess.run(argv, cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                          timeout=LIMIT, env=env)
+
+
+def run_many(commands):
+    """run of each (argument list, environment or None), side by side
+    (tests/support/parallel_runs.py; LEANFORTH_TEST_JOBS, 1 for one at a time): the finished
+    runs in the order of commands."""
+    return run_all(commands, run=run_command)
+
+
+def dump_argv():
     calls = " ".join(f's" {path}" tactic-dump-file' for path in FILES)
-    run = subprocess.run([GFORTH, "src/main.fs", "tests/front/tactic-dump.fs", "-e", calls + " bye"],
-                         cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                         timeout=LIMIT)
-    if run.returncode != 0 or run.stderr:
-        raise Failure(f"tactic-dump.fs: exit {run.returncode}\n{run.stdout}{run.stderr}")
-    return run.stdout.splitlines()
+    return [GFORTH, "src/main.fs", "tests/front/tactic-dump.fs", "-e", calls + " bye"]
+
+
+def dump_records(done):
+    if done.returncode != 0 or done.stderr:
+        raise Failure(f"tactic-dump.fs: exit {done.returncode}\n{done.stdout}{done.stderr}")
+    return done.stdout.splitlines()
 
 
 def differ(got, want):
@@ -153,51 +170,79 @@ def self_test(want):
         raise Failure("harness self-test: a changed record is not told apart")
 
 
-def catalogue():
-    """errors.fs's message for each code of CODES, as LeanForth prints it."""
+def catalogue_argv():
     codes = sorted(set(CODES.values()))
     calls = " ".join(f"{code} lf-author-message type cr" for code in codes)
-    run = subprocess.run([GFORTH, "src/main.fs", "-e", calls + " bye"], cwd=ROOT,
-                         stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                         timeout=LIMIT)
-    lines = run.stdout.splitlines()
-    if run.returncode != 0 or run.stderr or len(lines) != len(codes):
-        raise Failure(f"the catalogue: exit {run.returncode}\n{run.stdout}{run.stderr}")
+    return [GFORTH, "src/main.fs", "-e", calls + " bye"]
+
+
+def catalogue_texts(done):
+    """errors.fs's message for each code of CODES, as LeanForth prints it, from a finished run."""
+    codes = sorted(set(CODES.values()))
+    lines = done.stdout.splitlines()
+    if done.returncode != 0 or done.stderr or len(lines) != len(codes):
+        raise Failure(f"the catalogue: exit {done.returncode}\n{done.stdout}{done.stderr}")
     return dict(zip(codes, lines))
 
 
-def check_catalogue():
-    texts = catalogue()
+def catalogue():
+    return catalogue_texts(run_command((catalogue_argv(), None)))
+
+
+def check_catalogue(texts):
     for name, code in CODES.items():
         if texts[code] != LEAN_MESSAGES[name]:
             raise Failure(f"error {code}: errors.fs says {texts[code]!r}, pinned Lean on "
                           f"{name} {LEAN_MESSAGES[name]!r}")
 
 
-def check(path, slice_=SLICE):
-    run = subprocess.run(["bin/leanforth", "check", "--env", slice_, str(path)], cwd=ROOT,
-                         stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                         timeout=LIMIT, env=dict(os.environ, GFORTH=GFORTH))
-    return run.returncode, run.stdout + run.stderr
+def check_argv(path, slice_=SLICE):
+    return ["bin/leanforth", "check", "--env", slice_, str(path)]
 
 
-def check_files():
-    for path, slice_ in [(f, SLICE) for f in FILES] + [(f, RUN_SLICE) for f in RUN_FILES]:
-        code, out = check(path, slice_)
+def check_command(path, slice_=SLICE):
+    """The run of bin/leanforth check on path, as (argument list, environment)."""
+    return check_argv(path, slice_), dict(os.environ, GFORTH=GFORTH)
+
+
+def outcomes(finished):
+    """(exit status, output) of each finished bin/leanforth run."""
+    for done in finished:
+        yield done.returncode, done.stdout + done.stderr
+
+
+CHECKED = [(f, SLICE) for f in FILES] + [(f, RUN_SLICE) for f in RUN_FILES]
+
+
+def read_files(finished):
+    """The runs of CHECKED, in order: exit 2 with error 139, nothing accepted."""
+    for path, _ in CHECKED:
+        code, out = next(finished)
         if code != 2 or "error 139 at" not in out or "accepted" in out:
             raise Failure(f"{path}: exit {code}, expected 2 with error 139\n{out}")
 
 
-def check_twins():
-    with tempfile.TemporaryDirectory() as work:
-        for what, old, new, error in TWINS:
-            if MAIN.count(old) != 1:
-                raise Failure(f"twin {what}: {old!r} is not in {FILES[0]} once")
-            path = pathlib.Path(work) / "twin.lf"
+def write_twins(work):
+    """Each twin's file (None for a twin whose text to change is not in MAIN once)."""
+    paths = []
+    for number, (what, old, new, error) in enumerate(TWINS):
+        folder = pathlib.Path(work) / str(number)
+        folder.mkdir()
+        path = folder / "twin.lf"
+        once = MAIN.count(old) == 1
+        if once:
             path.write_text(MAIN.replace(old, new), encoding="utf-8")
-            code, out = check(path)
-            if code != 4 or error not in out or "accepted" in out:
-                raise Failure(f"twin {what}: exit {code}, expected 4 with {error}\n{out}")
+        paths.append(path if once else None)
+    return paths
+
+
+def read_twins(paths, finished):
+    for (what, old, new, error), path in zip(TWINS, paths):
+        if path is None:
+            raise Failure(f"twin {what}: {old!r} is not in {FILES[0]} once")
+        code, out = next(finished)
+        if code != 4 or error not in out or "accepted" in out:
+            raise Failure(f"twin {what}: exit {code}, expected 4 with {error}\n{out}")
 
 
 def check_slice(slice_=SLICE, names=SLICE_NAMES):
@@ -336,12 +381,19 @@ def main():
     try:
         want = GOLDEN.read_text(encoding="utf-8").splitlines()
         self_test(want)
-        problem = differ(dump(), want)
-        if problem:
-            raise Failure(f"the records differ from {GOLDEN.relative_to(ROOT)}, {problem}")
-        check_catalogue()
-        check_files()
-        check_twins()
+        with tempfile.TemporaryDirectory() as work:
+            twins = write_twins(work)
+            finished = run_many([(dump_argv(), None), (catalogue_argv(), None)]
+                                + [check_command(path, slice_) for path, slice_ in CHECKED]
+                                + [check_command(path) for path in twins if path is not None])
+            records, texts = next(finished), next(finished)
+            checked = outcomes(finished)
+            problem = differ(dump_records(records), want)
+            if problem:
+                raise Failure(f"the records differ from {GOLDEN.relative_to(ROOT)}, {problem}")
+            check_catalogue(catalogue_texts(texts))
+            read_files(checked)
+            read_twins(twins, checked)
     except Failure as error:
         print(f"check_tactics: {error}")
         return 1

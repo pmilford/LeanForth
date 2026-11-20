@@ -1,10 +1,11 @@
 #!/bin/bash
 # The proof set, annotated (plan S2, branch s2-steps): each theorem file of
 # S1's and S2's proof set checked by `bin/leanforth check ... --steps -`, and
-# for each theorem its LeanForth text, its statement as Lean prints the first
-# goal, each checked step with the goal before and the goals after as the
-# step log gives them (docs/user/COMMAND_LINE.md "The step log"), and its
-# verdict; then the run's errors, summary line and exit status. The layout is
+# for each theorem its LeanForth text, LeanForth's reading of its statement
+# (the first goal, in Lean's notation), each step LeanForth's tactics took with
+# the goal before and the goals after as the step log gives them
+# (docs/user/COMMAND_LINE.md "The step log"), the same theorem in Lean (its twin
+# of tests/front/lean-twins.json) and the verdict of LeanForth's kernel; then the run's errors, summary line and exit status. The layout is
 # scripts/showcase-steps-format.py's; tests/front/showcase.golden is the
 # output on the S2 slice (make test-showcase).
 #
@@ -31,11 +32,35 @@ if [ $# -eq 0 ]; then
     tests/front/ps-mul-add.lf tests/front/ps-length-append.lf tests/front/00-add-zero.lf \
     tests/front/02-add-zero-rfl.lf
 fi
-status=0
-for file in "$@"; do
+# The checks of the files are independent: SHOWCASE_JOBS (else LEANFORTH_TEST_JOBS, else 4;
+# 1 = one at a time) of them run at once, each saving its output and exit status, and the
+# report is written file by file in the order given, so it is the same as a serial run's.
+jobs=${SHOWCASE_JOBS:-${LEANFORTH_TEST_JOBS:-4}}
+case $jobs in ''|*[!0-9]*|0) jobs=1 ;; esac
+work=$(mktemp -d) || exit 1
+trap 'rm -r "$work"' EXIT
+check_one() { # n file
   # shellcheck disable=SC2086
-  out=$(bin/leanforth check $library --steps - "$file" </dev/null 2>&1)
-  code=$?
+  bin/leanforth check $library --steps - "$2" </dev/null >"$work/$1.out" 2>&1
+  echo $? >"$work/$1.code"
+}
+n=0
+for file in "$@"; do
+  n=$((n + 1))
+  if [ "$jobs" -gt 1 ]; then
+    while [ "$(jobs -rp | wc -l)" -ge "$jobs" ]; do wait -n; done
+    check_one "$n" "$file" &
+  else
+    check_one "$n" "$file"
+  fi
+done
+wait
+status=0
+n=0
+for file in "$@"; do
+  n=$((n + 1))
+  out=$(cat "$work/$n.out")
+  code=$(cat "$work/$n.code")
   printf '%s\n' "$out" | python3 scripts/showcase-steps-format.py "$file" "$code" || status=1
   echo
   [ "$code" -eq 0 ] || status=1
