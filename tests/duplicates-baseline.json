@@ -1345,11 +1345,12 @@
   "tokens": 6
  },
  "aca78af72b77": {
-  "copies": 8,
+  "copies": 9,
   "kind": "shape",
   "members": [
    "src/core/level-scope.fs:lf-lscope-context-valid?",
    "src/front/defeq-delta.fs:dd-packed-step",
+   "src/front/defeq.fs:de-induct-nonrec?",
    "src/front/elab-data.fs:ed-wrapped?",
    "src/front/mvars.fs:mv-free?",
    "src/kernel/environment.fs:lf-env-skipped?",

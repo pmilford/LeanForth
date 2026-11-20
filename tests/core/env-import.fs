@@ -572,6 +572,10 @@ ck-facts drop ck-env drop lf-sched-init drop lf-sched-plan ok? s" hook plan" mus
 ' stops lf-sched-pre!
 T{ lf-sched-stop 2 lf-sch-pre-done? lf-sched-stop 2 lf-sch-state@ lf-sch-done =
    -> lf-input-count true 2 true }T
+\ A unit still waits (lf-sch-waiting?, one-of2? since cleanup-families-3)
+\ in the states waiting and later, not once done.
+T{ 2 lf-sch-waiting? lf-sch-later 3 lf-sch-state! 3 lf-sch-waiting?
+   lf-sch-waiting 3 lf-sch-state! 3 lf-sch-waiting? -> false true true }T
 T{ 4 outcome-invalid ck-pre-failed ck-faulted? -> 3 true }T
 0 lf-sched-pre! ck-release
 \ ---- Out of room in a carry run's load (review of snap-compat): every
