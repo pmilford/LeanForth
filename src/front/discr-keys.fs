@@ -141,7 +141,7 @@ end-structure
   0 swap begin dup dk-end? 0= while dk-nat-step drop repeat dk-nat-end ;
 : lf-dt-nat-lit ( e -- u flag outcome )
   dup dk-numeral? 0= if drop 0 false outcome-ok exit then
-  dk-nat-value ok-then? if true outcome-ok else -1 false rot then ;
+  dk-nat-value ok-then? if true outcome-ok else no-result-flag then ;
 
 \ ---- Making keys.
 : dk-new ( tag -- k outcome ) lf-meta-spend? if elab-key-new else drop -1
@@ -209,21 +209,22 @@ end-structure
 \ ---- reduceDT (Main.lean:203-245): whnfCore, unfoldDefinition?, strict
 \ eta, until none acts; at a root (reduceUntilBadKey) an unfolding whose
 \ head is a bad key is not taken: the term before it stays.
-\ isBadKey (Main.lean:217): a head that is no literal, constant, free
+\ isBadKey (Main.lean:218): a head that is no literal, constant, free
 \ variable, projection or pi.
 lf-tag-lit lf-tag-str lf-tag-constant lf-tag-fvar lf-tag-projection lf-tag-pi 6 lf-tags
 constant dk-key-heads
 : dk-bad-key? ( e -- flag ) lf-meta-head lf-term-tag@ dk-key-heads lf-tag-in? 0= ;
-: dk-keep? ( e' -- flag ) dk dk-root @ if dk-bad-key? else drop false then ;
+: dk-root? ( -- flag ) dk dk-root @ ;
+: dk-keep? ( e' -- flag ) dk-bad-key? dk-root? and ;
 : dk-unfolded ( e e' -- e'' flag ) dup dk-keep? if drop false else nip true then ;
 : dk-unfold ( e -- e' flag outcome )   \ unfoldDefinition? (lf-meta-unfold)
-  dup lf-meta-unfold ok-then2? 0= if nip no-result false swap exit then
+  dup lf-meta-unfold ok-then2? 0= if nip no-result-flag exit then
   if dk-unfolded else drop false then outcome-ok ;
 : dk-eta ( e -- e' flag outcome )
   dup lf-term-lam? if lf-meta-eta-expanded else false outcome-ok then ;
 : dk-reduce-step ( e -- e' again? outcome )
-  lf-whnf-core ok-then? 0= if -1 false rot exit then
-  dk-unfold ok-then2? 0= if no-result false swap exit then
+  lf-whnf-core ok-then? 0= if no-result-flag exit then
+  dk-unfold ok-then2? 0= if no-result-flag exit then
   if true outcome-ok else dk-eta then ;
 : dk-reduce ( e -- e' outcome )
   begin dk-reduce-step ok-then? 0= if nip no-result exit then 0= until outcome-ok ;
@@ -245,7 +246,7 @@ constant dk-key-heads
 \ ---- The keys of each head.
 : dk-star ( -- k outcome ) elab-key-star dk-new ;
 : dk-other ( -- k outcome ) elab-key-other dk-new ;
-: dk-nested? ( -- flag ) dk dk-root @ 0= ;
+: dk-nested? ( -- flag ) dk-root? 0= ;
 : dk-args-key ( k outcome -- k outcome ) dup ok? if drop dk-head dk-push-args then ;
 : dk-fvar ( -- k outcome ) dk-head dk dk-n @ dk-fvar-key dk-args-key ;
 : dk-lit ( leaf -- k outcome )
@@ -291,9 +292,9 @@ constant dk-key-heads
   dk-stuck-const? ok-then? if if lf-meta-stuck else outcome-ok then then ;
 : dk-const-plain ( -- k outcome ) dk-head dk dk-n @ dk-const-key dk-args-key ;
 : dk-path-nested ( -- k flag outcome )
-  dk-e lf-dt-nat-lit ok-then? 0= if nip -1 false rot exit then
+  dk-e lf-dt-nat-lit ok-then? 0= if nip no-result-flag exit then
   if dk-lit-key true swap exit then drop
-  dk-e dk-offset? ok-then? 0= if -1 false rot exit then
+  dk-e dk-offset? ok-then? 0= if no-result-flag exit then
   if dk-star true swap else -1 false outcome-ok then ;
 : dk-const-path ( -- k outcome )
   dk-nested? if dk-path-nested ok-then? 0= if nip no-result exit then
@@ -314,7 +315,7 @@ constant dk-key-heads
 \ getUnifyKeyArgs' nested numeral (Main.lean:353-355), before the head.
 : dk-unify-lit ( -- k flag outcome )
   dk dk-path @ dk-nested? 0= or if -1 false outcome-ok exit then
-  dk-e lf-dt-nat-lit ok-then? 0= if nip -1 false rot exit then
+  dk-e lf-dt-nat-lit ok-then? 0= if nip no-result-flag exit then
   if dk-lit-key true swap else drop -1 false outcome-ok then ;
 : dk-keyed ( -- k outcome )
   dk-unify-lit ok-then? 0= if nip no-result exit then if outcome-ok exit then drop

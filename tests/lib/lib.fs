@@ -523,6 +523,15 @@ T{ 6 7 8 outcome-ok ' ok-keep2? rs-checked 7 8 outcome-unknown ' ok-keep? rs-che
   6 7 8 true 8 outcome-unknown false }T
 T{ outcome-exhausted no-result outcome-ok no-result ->
   -1 outcome-exhausted -1 outcome-ok }T
+\ no-result-flag: -1 and false under the outcome, for every outcome and one
+\ outside the vocabulary, the values below untouched (review ops-c1 B1:
+\ in place of whnf.fs's wc-fail, kabstract.fs's kab-none, reduce-nat.fs's
+\ rn-failed, synth.fs's sy-none and the inline `-1 false rot`).
+T{ 7 outcome-full no-result-flag 7 outcome-unsupported no-result-flag ->
+  7 -1 false outcome-full 7 -1 false outcome-unsupported }T
+T{ outcome-exhausted no-result-flag outcome-invalid no-result-flag 99 no-result-flag ->
+  -1 false outcome-exhausted -1 false outcome-invalid -1 false 99 }T
+T{ 5 6 outcome-unknown ' no-result-flag rs-checked -> 5 6 -1 false outcome-unknown }T
 \ ok-or-none: the result kept on ok, -1 in its place on every other
 \ outcome, a value outside the vocabulary too.
 T{ 7 outcome-ok ok-or-none 7 outcome-full ok-or-none 7 outcome-invalid ok-or-none

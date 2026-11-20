@@ -56,17 +56,17 @@ require ./term-eqv.fs
   2 = if rn-binary else drop false then ;
 
 \ ---- withNatValue: the test before whnf, then the value of the whnf.
-: rn-failed ( outcome -- -1 false outcome ) -1 false rot ;
 : lf-meta-open? ( e -- flag ) dup lf-meta-mvar-free? 0= swap lf-meta-has-fvar? or ;
 : rn-instantiated ( a -- a' flag outcome )
-  lf-instantiate-mvars ok-then? if dup lf-meta-open? 0= outcome-ok else rn-failed then ;
+  lf-instantiate-mvars ok-then? 0= if no-result-flag exit then
+  dup lf-meta-open? 0= outcome-ok ;
 : lf-meta-nat-guard ( a -- a' flag outcome )
   dup lf-meta-mvar-free? 0= if rn-instantiated exit then
   dup lf-meta-has-fvar? 0= outcome-ok ;
 : rn-zero? ( w -- flag )
   dup lf-term-const? if lf-const-name lf-nat-zero-name? else drop false then ;
 : rn-zero ( -- lit flag outcome )
-  0 lf-nat-lit ok-then? if true outcome-ok else rn-failed then ;
+  0 lf-nat-lit ok-then? if true outcome-ok else no-result-flag then ;
 : lf-meta-nat-value? ( w -- lit flag outcome )
   dup lf-lit-leaf? if true outcome-ok exit then
   rn-zero? if rn-zero else -1 false outcome-ok then ;

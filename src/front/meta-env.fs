@@ -404,7 +404,7 @@ texts-end constant me-uint-op-texts
   over me-defn? if over swap lf-menv-can-unfold else drop false outcome-ok then ;
 : lf-menv-unfoldable ( name mode -- d flag outcome )
   dup lf-tr-modes u< 0= if 2drop -1 false outcome-invalid exit then
-  swap lf-menv-find ok-then? if swap me-unfoldable else nip -1 false rot then ;
+  swap lf-menv-find ok-then? if swap me-unfoldable else nip no-result-flag then ;
 \ ---- Binder kinds (S1 §4), into me-kinds. A library declaration's are
 \ the export's tags, but where the elaboration data has a binder_kinds
 \ record (format 3.2, plan FE1c-bk), Lean's own: lean4export writes one

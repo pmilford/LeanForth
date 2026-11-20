@@ -12,6 +12,7 @@
 \ test); 2dup-under gives a step of these loops a copy of its two values;
 \ outcome-first! keeps a first
 \ failure in a cell and ok-store a step's result only on ok; no-result,
+\ no-result-flag (a failure of a step that gives a result and a flag),
 \ ok-or-none and room-result give a step's result with its outcome;
 \ ok-apply, ok-apply2 and ok-apply3 run a step on a result, or two or
 \ three values, made so far.
@@ -84,6 +85,8 @@ get-current lf-lib set-current   \ every word below is public, in lf-lib
   dup ok? if drop true else 2swap 2drop false then ;
 \ A failure that has no result: -1 in the result's place.
 : no-result ( outcome -- -1 outcome ) -1 swap ;
+\ A failure with neither a result nor a flag: -1 and false in their places.
+: no-result-flag ( outcome -- -1 false outcome ) -1 false rot ;
 \ A step's result kept only on ok: on any other outcome -1 takes its
 \ place, so a failure never hands on a half-made value.
 : ok-or-none ( x outcome -- x outcome | -1 outcome ) dup ok? 0= if nip no-result then ;

@@ -13524,7 +13524,7 @@ reason = "review fe1c-2 M1: getStuckMVar? of a projection applied to arguments a
 [[fault]]
 id = "fe-whnf-proj-literal-final"
 file = "src/front/whnf.fs"
-old = '''  dup lf-lit-leaf? if drop outcome-unsupported wc-fail exit then
+old = '''  dup lf-lit-leaf? if drop outcome-unsupported no-result-flag exit then
   wc-proj-frame'''
 new = '''  wc-proj-frame'''
 test = "$GFORTH tests/front/whnf.fs"
@@ -16802,8 +16802,8 @@ reason = "S1 merge B: whnfCore leaves a recursor as an inert definition"
 [[fault]]
 id = "fe-offset-cleanup-skipped"
 file = "src/front/whnf.fs"
-old = '''  wc-clean ok-then? 0= if wc-fail exit then'''
-new = '''  outcome-ok ok-then? 0= if wc-fail exit then'''
+old = '''  wc-clean ok-then? 0= if no-result-flag exit then'''
+new = '''  outcome-ok ok-then? 0= if no-result-flag exit then'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S2 merge B: reduceRec takes a literal or Nat.succ (Nat.succ k) major premise as it is (toCtorIfLit, cleanupNatOffsetMajor skipped)"
 
@@ -18493,7 +18493,7 @@ reason = "s1-meta-b re-check (plan S2): a library declaration that could not be 
 [[fault]]
 id = "fe-whnf-fault-dropped"
 file = "src/front/whnf.fs"
-old = '''  wc-faulted dup ok? if drop else nip nip nip wc-fail then ;'''
+old = '''  wc-faulted dup ok? if drop else nip nip nip no-result-flag then ;'''
 new = '''  ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "s1-meta-b re-check (plan S2): a major premise's head that could not be decoded reads as no constructor: the recursor stays, ok"
@@ -20356,8 +20356,8 @@ reason = "S2 merge B: a smart-unfolding body decoded without its sunfoldMatch ma
 [[fault]]
 id = "fe-smart-stuck-as-reduced"
 file = "src/front/whnf.fs"
-old = '''  else wc-sm-stuck then wc-sm! wc-done ;'''
-new = '''  else wc-sm-reduced then wc-sm! wc-done ;'''
+old = '''  wc-sm-stuck wc-sm! wc-done ;'''
+new = '''  wc-sm-reduced wc-sm! wc-done ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S2 merge B: a stuck match (Nat.add k x) read as reduced"
 
@@ -20566,7 +20566,7 @@ reason = "review s2-finish M5 (P5): a recursion argument past e1's arguments rea
 [[fault]]
 id = "fe-smart-stuck-mvar-none"
 file = "src/front/whnf.fs"
-old = '''  if drop outcome-unsupported wc-fail else wc-sfail then ;'''
+old = '''  if drop outcome-unsupported no-result-flag else wc-sfail then ;'''
 new = '''  if drop wc-sfail else wc-sfail then ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "review s2-finish M5 (P8): a smart match stuck on a metavariable gives none, not unsupported"

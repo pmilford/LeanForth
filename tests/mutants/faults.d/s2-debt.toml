@@ -23,7 +23,7 @@ reason = "s2-debt: reduceMatcher?'s value with fewer lambdas than the matcher's 
 [[fault]]
 id = "fe-field-literal-read"
 file = "src/front/whnf.fs"
-old = '''  dup lf-lit-leaf? if drop outcome-unsupported wc-fail exit then
+old = '''  dup lf-lit-leaf? if drop outcome-unsupported no-result-flag exit then
   wc wc-aux @ lf-meta-head wc-project if true else -1 false then outcome-ok ;'''
 new = '''  wc wc-aux @ lf-meta-head wc-project if true else -1 false then outcome-ok ;'''
 test = "$GFORTH tests/front/whnf.fs"

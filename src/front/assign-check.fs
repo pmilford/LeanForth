@@ -165,7 +165,7 @@ end-structure
 : ac-verdict ( v image outcome -- v' flag outcome )
   dup ok? 0= if nip false swap exit then drop 0= ac ac-hit @ 0= and outcome-ok ;
 : ac-run ( v -- v' flag outcome )
-  lf-instantiate-mvars ok-then? 0= if -1 false rot exit then
+  lf-instantiate-mvars ok-then? 0= if no-result-flag exit then
   ac-locals? ac ac-locals !  false ac ac-hit !
   dup ['] ac-pending-child ['] ac-build ac-walk-set dw-run ac-verdict ;
 : lf-meta-pattern! ( mvar addr n -- ) ac-xs! ;

@@ -14,7 +14,7 @@ reason = "S3a-ops C1: reduceDT never takes unfoldDefinition?'s answer (the old g
 [[fault]]
 id = "dk-root-ignores-badkey"
 file = "src/front/discr-keys.fs"
-old = ''': dk-keep? ( e' -- flag ) dk dk-root @ if dk-bad-key? else drop false then ;'''
+old = ''': dk-keep? ( e' -- flag ) dk-bad-key? dk-root? and ;'''
 new = ''': dk-keep? ( e' -- flag ) drop false ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "S3a-ops C1: a root takes an unfolding into a bad key (reduceUntilBadKey's isBadKey test skipped): GE.ge Nat _ alone keyed other where Lean keeps GE.ge"
@@ -26,6 +26,14 @@ old = '''  if true outcome-ok else dk-eta then ;'''
 new = '''  if dk-eta else dk-eta then ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "S3a-ops C1: an unfolding is not reduced again (Lean's reduce recurses): outParam (outParam Nat) keyed outParam where Lean's key is Nat"
+
+[[fault]]
+id = "oc-no-result-flag-order"
+file = "src/lib/outcome.fs"
+old = ''': no-result-flag ( outcome -- -1 false outcome ) -1 false rot ;'''
+new = ''': no-result-flag ( outcome -- -1 false outcome ) false -1 rot ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "review ops-c1 B1: lib/outcome.fs's no-result-flag gives the flag and the result in each other's places (false where -1 belongs), so a failed step hands on result 0, a value, and flag true"
 
 [[fault]]
 id = "fe-decide-skip-whnf-mul"

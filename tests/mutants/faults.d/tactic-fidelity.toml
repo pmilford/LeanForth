@@ -9,7 +9,8 @@
 [[fault]]
 id = "tf-nat-value-not-instantiated"
 file = "src/front/reduce-nat.fs"
-old = '''  lf-instantiate-mvars ok-then? if dup lf-meta-open? 0= outcome-ok else rn-failed then ;'''
+old = '''  lf-instantiate-mvars ok-then? 0= if no-result-flag exit then
+  dup lf-meta-open? 0= outcome-ok ;'''
 new = '''  dup lf-meta-open? 0= outcome-ok ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "9.4.8l J: withNatValue without its instantiateMVars, an assigned metavariable a possible value (Nat.add ?a k, ?a := x: unsupported where Lean gives none; exact on ?m ≤ ?k, error 139)"
@@ -17,8 +18,8 @@ reason = "9.4.8l J: withNatValue without its instantiateMVars, an assigned metav
 [[fault]]
 id = "tf-nat-value-refused-none"
 file = "src/front/reduce-nat.fs"
-old = '''  lf-instantiate-mvars ok-then? if dup lf-meta-open? 0= outcome-ok else rn-failed then ;'''
-new = '''  lf-instantiate-mvars ok-then? if dup lf-meta-open? 0= outcome-ok else drop -1 false outcome-ok then ;'''
+old = '''  lf-instantiate-mvars ok-then? 0= if no-result-flag exit then'''
+new = '''  lf-instantiate-mvars ok-then? 0= if drop -1 false outcome-ok exit then'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "9.4.8l J: an instantiation the heap refuses read as no value (none, a guess) instead of unsupported"
 
@@ -247,8 +248,8 @@ reason = "review tactic-fidelity M1 (its r23b): an exhausted or unsupported synt
 [[fault]]
 id = "tf-nat-value-fvar-only"
 file = "src/front/reduce-nat.fs"
-old = '''  lf-instantiate-mvars ok-then? if dup lf-meta-open? 0= outcome-ok else rn-failed then ;'''
-new = '''  lf-instantiate-mvars ok-then? if dup lf-meta-has-fvar? 0= outcome-ok else rn-failed then ;'''
+old = '''  dup lf-meta-open? 0= outcome-ok ;'''
+new = '''  dup lf-meta-has-fvar? 0= outcome-ok ;'''
 test = "$GFORTH tests/front/reduce-nat.fs"
 reason = "review tactic-fidelity L7 (its r3): withNatValue reads an argument assigned Nat.succ ?n (no free variable, an open metavariable) as a value"
 

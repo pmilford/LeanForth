@@ -153,10 +153,9 @@ lf-tag-let lf-tag-let-nondep lf-tag-annotation 3 lf-tags constant kab-unported
   dup ok? if drop kab-images slab-pop outcome-ok else no-result then ;
 : kab-fvar ( e p -- e' outcome ) kab kab-pattern ! kab kab-pattern 1 lf-meta-abstract ;
 : kab-abstract ( e p -- e' outcome ) dup lf-meta-fvar? if kab-fvar else kab-walk then ;
-: kab-none ( outcome -- -1 false outcome ) -1 false rot ;
 : kab-found ( e' -- e' flag outcome )
-  dup lf-meta-loose ok-then? if 0<> outcome-ok else nip kab-none then ;
+  dup lf-meta-loose ok-then? if 0<> outcome-ok else nip no-result-flag then ;
 : lf-meta-kabstract ( e p -- e' flag outcome )
-  swap lf-instantiate-mvars ok-then? 0= if nip kab-none exit then
-  swap kab-abstract ok-then? if kab-found else kab-none then ;
+  swap lf-instantiate-mvars ok-then? 0= if nip no-result-flag exit then
+  swap kab-abstract ok-then? if kab-found else no-result-flag then ;
 base !   \ the BASE this file was loaded with
