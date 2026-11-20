@@ -4,7 +4,8 @@ how LeanForth read its statement (written in Lean's notation), each step LeanFor
 took, the same theorem as a Lean user would write it (copied from the Lean file the tests
 compare it with) and the verdict of LeanForth's kernel.
 Run on 2026-11-19 with gforth-fast on branch showcase-clear, commit 54debddc (it changes nothing
-under src/: the checker is main 729f5d1d's). Time: 7 min 30 s in all (7m29.6s), about 45 s a file:
+under src/: the checker is main 729f5d1d's). Time: about 12 s a file when the machine is otherwise idle, nearly all of it loading the snapshot (120 s for
+the ten files, measured the same afternoon); this run shared the machine with other jobs and took 7 min 30 s:
   SHOWCASE_LIBRARY="--snapshot init.lfsnap --elab-data init.elab.ndjson" scripts/showcase-steps.sh
 init.lfsnap is a saved snapshot of Lean's Init library (59,349 declarations), already checked by
 LeanForth's kernel and loaded so that a new theorem can use them. init.elab.ndjson, the
