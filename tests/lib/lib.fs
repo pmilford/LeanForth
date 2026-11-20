@@ -529,6 +529,7 @@ T{ outcome-exhausted no-result outcome-ok no-result ->
 \ rn-failed, synth.fs's sy-none and the inline `-1 false rot`).
 T{ 7 outcome-full no-result-flag 7 outcome-unsupported no-result-flag ->
   7 -1 false outcome-full 7 -1 false outcome-unsupported }T
+T{ outcome-ok no-result-flag outcome-rejected no-result-flag -> -1 false outcome-ok -1 false outcome-rejected }T
 T{ outcome-exhausted no-result-flag outcome-invalid no-result-flag 99 no-result-flag ->
   -1 false outcome-exhausted -1 false outcome-invalid -1 false 99 }T
 T{ 5 6 outcome-unknown ' no-result-flag rs-checked -> 5 6 -1 false outcome-unknown }T
