@@ -100,6 +100,14 @@ T{ 0 some-cells pair-at some-cells = 2 some-cells pair-at some-cells 4 cells + =
 T{ 2 some-cells pair-at @ 1 some-cells pair-at 2@ -> 0 -1 9 }T
 T{ 0 24 some-cells record-at some-cells = 3 24 some-cells record-at some-cells 72 + = -> true true }T
 T{ 2 5 some-cells ' record-at rs-checked some-cells - -> 10 }T
+\ cell-pair@, cell-pair! (cleanup-families-2): two adjacent cells in the
+\ order they lie in memory, x1 at addr: the reverse of 2@'s and 2!'s.
+create two-cells 0 , 0 ,
+T{ 5 7 two-cells cell-pair! two-cells @ two-cells cell+ @ -> 5 7 }T
+T{ two-cells cell-pair@ two-cells 2@ -> 5 7 7 5 }T
+T{ 1 some-cells pair-at cell-pair@ 0 some-cells pair-at cell-pair@ -> 9 -1 4 -1 }T
+T{ -1 0 two-cells ' cell-pair! rs-checked two-cells ' cell-pair@ rs-checked -> -1 0 }T
+T{ two-cells @ two-cells cell+ @ -> -1 0 }T
 \ cell-tally (reuse-d): one more in cell i of an array of counts.
 create tallies 0 , 5 , 0 ,
 T{ 1 tallies cell-tally 1 tallies cell-tally 2 tallies cell-tally -> }T

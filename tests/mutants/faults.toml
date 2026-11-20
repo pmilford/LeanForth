@@ -21026,3 +21026,19 @@ old = ''': lf-pp-shown# ( app -- count ) dup lf-pp-head nip ['] lf-pp-arg-shown?
 new = ''': lf-pp-shown# ( app -- count ) dup lf-pp-head nip ['] lf-pp-arg-shown? count-index 1- ;'''
 test = "$GFORTH tests/present/term-printer.fs"
 reason = "review cleanup-families-1 M1 (r16): an application's shown arguments count one too few"
+
+[[fault]]
+id = "cf2-cell-pair-fetch-as-2at"
+file = "src/lib/bounds.fs"
+old = ''': cell-pair@ ( addr -- x1 x2 ) 2@ swap ;'''
+new = ''': cell-pair@ ( addr -- x1 x2 ) 2@ ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-2 (pair-field family): the pair comes back in 2@'s order, the second field first"
+
+[[fault]]
+id = "cf2-cell-pair-store-as-2bang"
+file = "src/lib/bounds.fs"
+old = ''': cell-pair! ( x1 x2 addr -- ) tuck cell+ ! ! ;'''
+new = ''': cell-pair! ( x1 x2 addr -- ) 2! ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-2 (pair-field family): the pair is stored in 2!'s order, x2 in the first field"
