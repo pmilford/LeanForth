@@ -312,6 +312,10 @@ class Finder(unittest.TestCase):
                                   'subprocess.run(["python3", "scripts/folder.py"])\n',
         "scripts/marked.py": "# inputs: fixtures only\nimport subprocess\n"
                              'subprocess.run(["python3", "scripts/git.py"])\n',
+        "scripts/tells.py": "# inputs: named only: scripts/git.py\nprint('run scripts/git.py yourself')\n",
+        "scripts/tells-wrong.py": "# inputs: named only: scripts/other.py\nprint('run scripts/git.py yourself')\n",
+        "tests/scripts/folder.py": 'import subprocess\n# inputs: named only: scripts\nsubprocess.run(["verify", "scripts"])\n',
+        "tests/scripts/folder-read.py": 'import subprocess\nsubprocess.run(["verify", "scripts"])\n',
     }
 
     def setUp(self):
@@ -327,12 +331,23 @@ class Finder(unittest.TestCase):
         os.chdir(self.here)
         shutil.rmtree(self.top, ignore_errors=True)
 
-    def reasons(self, *start):
+    def found(self, *start):
         ct = test_tier.changed_tests
         tracked = {name: "0" for name in self.TREE}
         files, reasons = ct.input_files(list(start), tracked, {}, ct.file_index(tracked))
         self.assertTrue(set(start) <= files)
-        return reasons
+        return files, reasons
+
+    def reasons(self, *start):
+        return self.found(*start)[1]
+
+    def test_a_path_named_only_is_neither_followed_nor_read(self):
+        files, reasons = self.found("scripts/tells.py")
+        self.assertEqual((reasons, "scripts/git.py" in files), ([], False))
+        files, reasons = self.found("scripts/tells-wrong.py")
+        self.assertEqual(reasons, ["scripts/git.py reads git's index or history"], "only the paths listed")
+        self.assertNotIn("scripts/proc.sh", self.found("tests/scripts/folder.py")[0])
+        self.assertIn("scripts/proc.sh", self.found("tests/scripts/folder-read.py")[0], "a folder named is read")
 
     def test_system_folders_are_no_listing(self):
         self.assertEqual(self.reasons("scripts/proc.sh"), [])

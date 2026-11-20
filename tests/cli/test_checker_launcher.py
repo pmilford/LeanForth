@@ -50,7 +50,8 @@ COMMANDS = [
                                                                             "OUT/s.lfsnap", B],
     ["print", C], ["print", "--detail", C], ["print", "--latex", C], ["print", "--lf", B],
     ["print", "--name", "nosuch", C], ["count", B], ["reexport", C, "OUT/copy.ndjson"], ["reexport", C, C],
-    ["check", "--steps", "-", C], ["check", "--env", C, C],
+    ["check", "--steps", "-", C], ["check", "--env", C, C], ["verify"], ["verify", "--help"],
+    ["verify", "src/program/clamp.fs"],
 ]
 # Commands that read what an earlier command of the same run wrote.
 FOLLOW_ON = [(["check", "--record", "OUT/r.rec", C], ["replay", C, "OUT/r.rec"]),

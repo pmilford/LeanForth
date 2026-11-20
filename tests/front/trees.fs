@@ -1,7 +1,8 @@
 \ Prints the syntax tree the natural reader builds for a statement, in
 \ Lean's syntax after macro expansion (binop%, binrel%, application),
 \ for tests/front/check_front.py, which compares it with pinned Lean's
-\ expansion of the same statement. Test-only. Usage, after src/main.fs:
+\ expansion of the same statement. Test-only. Usage, after
+\ src/load/checker.fs, src/load/front.fs and src/cli/check-lf.fs:
 \   s" 0 n + n =" tree   \ prints binrel% Eq (binop% HAdd.hAdd 0 n) n
 \ The statement runs in a theorem with the variables n and m of type Nat,
 \ against the Init slice's constants (tests/author/init-slice.ndjson).

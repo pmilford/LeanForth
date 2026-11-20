@@ -76,8 +76,8 @@ reason = "a folder listing the finder cannot name is waived under a fixtures-onl
 [[fault]]
 id = "ll-fixtures-only-anywhere"
 file = "scripts/changed-tests.py"
-old = '''    return uses | runs, data, why, path.startswith("tests/") and bool(FIXTURES_ONLY.search(text))'''
-new = '''    return uses | runs, data, why, bool(FIXTURES_ONLY.search(text))'''
+old = '''    return follows, data - unread, why, path.startswith("tests/") and bool(FIXTURES_ONLY.search(text))'''
+new = '''    return follows, data - unread, why, bool(FIXTURES_ONLY.search(text))'''
 test = "python3 tests/scripts/test_check_layers.py Finder"
 reason = "a script, not only a test, could declare its own git reads a fixture's"
 
@@ -104,3 +104,11 @@ old = '''is cli-text-run'''
 new = '''drop'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_checker_launcher.py Text"
 reason = "the whole load keeps the refusal: bin/leanforth no longer checks a LeanForth text"
+
+[[fault]]
+id = "ll-named-only-followed"
+file = "scripts/changed-tests.py"
+old = '''    follows = (uses | runs) - named'''
+new = '''    follows = uses | runs'''
+test = "python3 tests/scripts/test_check_layers.py Finder"
+reason = "a program named only in a message is followed again: the receipts depend on all of src/main.fs"

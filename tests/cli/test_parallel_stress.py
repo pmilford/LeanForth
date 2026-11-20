@@ -4,14 +4,15 @@ re-entrancy audit of 2026-11-18): make test-parallel-stress.
 An export of 5,000 tiny declarations is generated here (never committed): two axioms,
 then theorems that use an earlier theorem (so most wait for one), definitions, and
 theorems whose type unfolds a definition, with a rejected theorem every 500. It is
-checked once at --jobs 1 through bin/leanforth, then STRESS_REPEATS times (default 5,
+checked once at --jobs 1 through bin/leanforth-checker (bin/leanforth's check of an export
+on the checker's load alone, tests/cli/test_checker_launcher.py), then STRESS_REPEATS times (default 5,
 make test-parallel-stress; 20 in make parallel-init, the daily run) with twice as many
 workers as the machine has cores, and each run's text and exit status must be the
 serial run's.
 
 Workers above the cores: bin/leanforth cuts --jobs to the cores (lib/task.fs's
 task-cores, check-run.fs's ck-jobs-most), so the parallel runs start Gforth on
-src/main.fs themselves, as bin/leanforth does, after defining task-cores-test, a
+src/load/cli-checker.fs themselves, as bin/leanforth-checker does, after defining task-cores-test, a
 word lib/task.fs reads only when it is defined before the file loads (the test-only
 override). bin/leanforth defines no such word, takes no option or environment variable
 for it and runs Gforth with its start-up file turned off (GFORTH_ENV=off: Gforth 1.0
@@ -20,6 +21,8 @@ src/main.fs, which could define the word): a test sets GFORTH_ENV to a file that
 it and finds the workers still cut to the cores.
 Run from the repository root with GFORTH naming the engine; unittest.
 """
+# Its texts name bin/leanforth, which shares what it tests with bin/leanforth-checker.
+# inputs: named only: bin/leanforth
 import os
 import pathlib
 import subprocess
@@ -93,7 +96,7 @@ def generated(count):
 
 
 def leanforth(*args, **env):
-    result = subprocess.run([str(ROOT / "bin/leanforth"), "check", *args], capture_output=True,
+    result = subprocess.run([str(ROOT / "bin/leanforth-checker"), "check", *args], capture_output=True,
                             text=True, stdin=subprocess.DEVNULL,
                             env=dict(os.environ, GFORTH=GFORTH, **env))
     return result.returncode, result.stdout
@@ -103,7 +106,7 @@ def oversubscribed(workers, *args):
     """check --jobs workers, Gforth started as bin/leanforth starts it but with the
     test-only task-cores-test defined first: (exit code, text)."""
     result = subprocess.run([GFORTH, "-e", f"{workers} constant task-cores-test",
-                             str(ROOT / "src/main.fs"), "-e", "cli-main", "check",
+                             str(ROOT / "src/load/cli-checker.fs"), "-e", "cli-main", "check",
                              "--jobs", str(workers), *args], capture_output=True, text=True,
                             stdin=subprocess.DEVNULL, env=dict(os.environ, GFORTH_ENV="off"))
     return result.returncode - 100, result.stdout

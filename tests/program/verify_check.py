@@ -51,6 +51,8 @@ which today's reader no longer gives its test's verdict (the extraction
 would be wrong). --list prints every difference with its rule. Finite tests
 on the Gforth that GFORTH names.
 """
+# It gives verify the folder src as a wrong argument, which verify refuses unread.
+# inputs: named only: src
 import os
 from pathlib import Path
 import re

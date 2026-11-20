@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The tactic registry (tactic plug-in design 3.1-3.5 and 4; slice a2-ii).
 
-1. tests/front/tactic-registry.fs after src/main.fs dumps every authoring
+1. tests/front/tactic-registry.fs after src/load/front.fs dumps every authoring
    error code (the catalogue and the codes tactic files add with lfa-code:),
    every reserved word with whether LF-WORDS holds it, and every tactic
    kind's row; the lines must equal tests/front/tactic-registry.golden
@@ -35,7 +35,7 @@ class Failure(Exception):
 
 
 def forth(*words):
-    return subprocess.run([GFORTH, "src/main.fs", *words], cwd=ROOT, stdin=subprocess.DEVNULL,
+    return subprocess.run([GFORTH, "src/load/front.fs", *words], cwd=ROOT, stdin=subprocess.DEVNULL,
                           capture_output=True, text=True, timeout=300)
 
 

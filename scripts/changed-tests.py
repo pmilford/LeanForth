@@ -214,6 +214,14 @@ LISTED = "lists a folder the finder cannot name"
 # (2026-11-19). Everything it names or loads is still an input; a listing the finder cannot
 # name, or a program reached from the recipe some other way, still makes the inputs unknown.
 FIXTURES_ONLY = re.compile(r"^# inputs: fixtures only\b", re.MULTILINE)
+# A program that names a file or folder only in its text, neither running nor reading it (a
+# message telling the user which command to run, a docstring, a folder given as a wrong
+# argument), says so in a line of its own, "# inputs: named only: PATH ...": from this program
+# the paths listed are not followed, and no file under a folder listed is read, but for those
+# it names otherwise (2026-11-19: the receipts tell the user to check with bin/leanforth while
+# they check with bin/leanforth-checker; followed, the message made every receipt read all of
+# src/main.fs).
+NAMED_ONLY = re.compile(r"^# inputs: named only:[ \t]*(.+)$", re.MULTILINE)
 
 
 # When a quoted word with no path separator is used as a path (used_as_path): fail-safe, every
@@ -388,7 +396,8 @@ def input_files(start, tracked, cache, index=None, followed=None):
 
 def program_entry(path, tracked, index):
     """(files it runs or loads, files it may read, reasons, whether it declares FIXTURES_ONLY) of
-    one program, for input_files()'s cache."""
+    one program, for input_files()'s cache; the paths of its NAMED_ONLY lines are neither
+    followed nor read."""
     try:
         with open(path, encoding="utf-8", errors="replace") as stream:
             text = stream.read(TEXT_LIMIT)
@@ -396,7 +405,10 @@ def program_entry(path, tracked, index):
         return set(), set(), [f"{path} cannot be read"], False
     runs, data, why = program_inputs(path, text, tracked, index)
     uses = forth_loads(path, text) if path.startswith("src/") and path.endswith(".fs") else used_files(path, text)
-    return uses | runs, data, why, path.startswith("tests/") and bool(FIXTURES_ONLY.search(text))
+    named = {os.path.normpath(p) for line in NAMED_ONLY.findall(text) for p in line.split()}
+    follows = (uses | runs) - named
+    unread = {f for f in data for n in named if f == n or f.startswith(n + "/")} - follows
+    return follows, data - unread, why, path.startswith("tests/") and bool(FIXTURES_ONLY.search(text))
 
 
 def main():

@@ -51,6 +51,8 @@ and 2 for a usage error. A receipt that verifies is
 consistent with the repository and the evidence; it is not an approval of
 anything, and it passes no review gate. Untrusted tooling.
 """
+# The receipts tell the user to check with bin/leanforth; they check with bin/leanforth-checker.
+# inputs: named only: bin/leanforth tests/program/test_program_verify.py
 import argparse
 import datetime
 import functools

@@ -2,7 +2,7 @@
 \ src/front/tactic-syntax.fs) and the error its run ends with, for
 \ tests/front/check_tactics.py, which compares the lines with
 \ tests/front/tactics.golden, and for the unit tests. Test-only. Usage,
-\ after src/main.fs:
+\ after src/load/checker.fs, src/load/front.fs and src/cli/check-lf.fs:
 \   s" tests/front/01-zero-add-rw.lf" tactic-dump-file
 \ The text runs against tests/front/tactic-slice.ndjson's constants (an
 \ export of Nat.add_succ, Nat.zero_add and congrArg from Init).

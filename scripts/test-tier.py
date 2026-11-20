@@ -275,7 +275,7 @@ def category(path, loaded):
         return "tests", "a test or test data"
     if path.startswith("src/") and path.endswith(".fs"):
         if path == MAIN or path in loaded:
-            return "full", "src/main.fs loads it (bin/leanforth and most tests load src/main.fs)"
+            return "full", "src/main.fs loads it (bin/leanforth runs it; a target re-runs if it reads it)"
         if path.startswith("src/lib/"):
             return "library", "a library src/main.fs does not load"
         if path.startswith("src/front/"):
