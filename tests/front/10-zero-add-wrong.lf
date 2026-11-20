@@ -2,7 +2,7 @@
 \ Lean: theorem zero_add_one : 0 + 0 = 1 := by rfl
 \ fails with "Tactic `rfl` failed: The left-hand side ..." and nothing is
 \ checked. tests/front/menv-run.fs runs it with a stand-in that gives
-\ 0 + 0 = 1 as Lean elaborates it: error 97 at by-rfl, exit 2.
+\ 0 + 0 = 1 as Lean elaborates it: error 97 at by-rfl, exit 4 (exit 2 without --elab-data).
 theorem zero_add_one
   0 0 + 1 =
 := by

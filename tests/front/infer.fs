@@ -11,6 +11,7 @@
 \ pinned Lean's.
 include ../support/tester.fs
 include ../support/heap-watch.fs
+include ../support/meta-sweeps.fs
 require ./whnf-cases.fs
 
 : leaf= ( t1 t2 -- flag )
@@ -223,6 +224,52 @@ T{ 1 heap-refusals ! 0 bv fk x1 lf-meta-instantiate-rev-beta heap-refusals @
    -> -1 outcome-full 0 }T
 T{ 0 bv fk x1 fk rb= -> true outcome-ok }T
 
+\ ---- Resources (class 5) of inferType's paths (S2's coverage debt,
+\ 2026-11-19; tests/support/meta-sweeps.fs): a projection's type
+\ (inferProjType: the structure's type, the constructor's parameters and
+\ fields), a lambda's (its telescope closed into pis), a pi's and a
+\ sort's (their levels), an application's, each with every heap
+\ allocation refused in turn (infer's and whnf's slabs given back first)
+\ and with every term refused in turn: the answer or full, never another
+\ answer; a sort's and a pi's type whose level finds no room: full.
+: infer-slabs-anew ( -- )
+  if-args sweep-slab-anew if-levels sweep-slab-anew if-xs sweep-slab-anew if-lams sweep-slab-anew
+  wc-frames sweep-slab-anew wc-args sweep-slab-anew wc-margs sweep-slab-anew wc-levels sweep-slab-anew
+  wc-hs sweep-slab-anew uf-args sweep-slab-anew uf-levels sweep-slab-anew ;
+' infer-slabs-anew sweep-slabs-xt !
+: i-proj ( -- e xt ) fin-mk 1 s" Fin" projn ['] lf-infer ;
+: i-lam ( -- e xt ) nat nat 1 bv lam lam ['] lf-infer ;
+: i-pi ( -- e xt ) nat nat>nat lf-term-pi must ['] lf-infer ;
+: i-sort ( -- e xt ) lv1 sort ['] lf-infer ;
+: i-app ( -- e xt ) add fk app fk app ['] lf-infer ;
+T{ i-proj heap-sweep swept? i-proj room-sweep swept? -> true true }T
+T{ i-lam heap-sweep swept? i-lam room-sweep swept? -> true true }T
+T{ i-pi heap-sweep swept? i-pi room-sweep swept? -> true true }T
+T{ i-app heap-sweep swept? i-sort room-sweep swept? -> true true }T
+: lvl ( n -- level ) 0 swap 0 ?do lf-level-succ must loop ;
+: levels-crowded ( e xt -- x outcome )
+  lf-levels store-limit @ >r lf-levels store-count @ lf-levels store-limit! drop execute
+  r> lf-levels store-limit! drop ;
+9 lvl sort constant sort9
+T{ sort9 ' lf-infer levels-crowded sort9 sort9 lf-term-pi must ' lf-infer levels-crowded
+   -> -1 outcome-full -1 outcome-full }T
+\ The budget of the whnf steps inferProjType takes (the structure's
+\ type, the constructor's type and each field's pi): every budget below
+\ the least that suffices is exhausted, that one gives the type.
+: budget-run ( b -- outcome )
+  lf-meta-budget >r lf-meta-budget! fin-mk 1 s" Fin" projn lf-infer nip r> lf-meta-budget! ;
+: budget-sweep ( -- n outcome ) 0 begin dup budget-run dup outcome-exhausted = while drop 1+ repeat ;
+T{ budget-sweep swap 0> -> outcome-ok true }T
+\ A structure's type with fewer arguments than the structure's
+\ parameters (Prod Nat): Lean's "invalid projection", invalid.
+l0 l0 2 s" Prod" cn nat app lf-lctx-local made in-view constant f-prod1
+T{ f-prod1 0 proj lf-infer -> -1 outcome-invalid }T
+\ At transparency all, a head whose type is a definition's application
+\ (outParam (Nat -> Nat)) is made a pi by whnf at all (withAtLeast-
+\ Transparency .default keeps all).
+lv1 1 s" outParam" cn nat>nat app lf-lctx-local made in-view constant f-outp
+: at-all ( t -- type outcome ) lf-defeq-mode >r lf-tr-all lf-defeq-mode! lf-infer r> lf-defeq-mode! ;
+T{ f-outp fk app at-all swap nat same? lf-defeq-mode -> outcome-ok true lf-tr-default }T
 \ ---- Stale leaves: after the contexts are emptied, a metavariable and a
 \ free variable made before are invalid.
 lf-mctx-reset

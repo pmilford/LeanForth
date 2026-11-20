@@ -274,6 +274,9 @@ T{ 1 bv lf-annot-match ann lf-meta-loose -> 2 outcome-ok }T
 T{ x lf-annot-match ann x xs1 abst dup lf-annot? swap lf-annot-child bvar# -> true 0 }T
 T{ prop 0 bv lf-annot-match-alt ann lam x app lf-meta-head-beta swap
    lf-annot-match-alt lf-annot-keyed? -> outcome-ok x true }T
+\ A marker of the other key, and a term that is no marker, are not keyed.
+T{ x lf-annot-match ann lf-annot-match-alt lf-annot-keyed? x lf-annot-match lf-annot-keyed?
+   -> false false }T
 prop prop 0 bv lam lf-annot-match ann lam constant ann-k
 T{ ann-k x app y app lf-meta-head-beta -> y outcome-ok }T
 T{ ann-k x app y app lf-meta-head-beta-keep swap parts swap lf-annot? -> outcome-ok y true }T

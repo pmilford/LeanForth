@@ -5,11 +5,15 @@
 \ (definition, projection, quotient and K-like heads, literal and
 \ non-inert major premises), invalid (no term, a loose bound variable, a
 \ malformed let), exhausted (the fuel), full (a refused allocation) --
-\ and that a failed call leaves nothing that changes the next one.
+\ and that a failed call leaves nothing that changes the next one; S2's
+\ steps (matchers, casesOn, the smart path, class fields, getStuckMVar?)
+\ each swept with every heap allocation and every term refused in turn,
+\ and the guards against data no export gives (S2's coverage debt).
 \ Every T{ }T checks the data stack's depth. tests/front/check_whnf.py
 \ compares the results with pinned Lean's.
 include ../support/tester.fs
 include ../support/heap-watch.fs
+include ../support/meta-sweeps.fs
 require ./whnf-cases.fs
 
 \ Terms equal node for node (test only: recursion on the host stack).
@@ -546,6 +550,166 @@ T{ 1 2 range fk fx app same? 2 2 range fk = 3 1 range fk = -> true true true }T
 T{ spine wc-args lf-meta-apply-all drop fk fk app fx app fa app same? -> true }T
 T{ 2 wc-args lf-meta-arg fa = 0 wc-args lf-meta-arg-at 1 wc-args lf-meta-arg-at - -> true cell }T
 
+
+\ ---- S2's paths that the cases above do not meet (S2 coverage debt,
+\ paid in the slice's batch test pass, 2026-11-19).
+\ A malformed let at an application's head is invalid, as at the top.
+T{ fk fs fk app 0 lf-let-make must fk app lf-whnf-core -> -1 outcome-invalid }T
+\ reduceRec's clean-up: a string literal as a recursor's major premise
+\ (toCtorIfLit reduces it through String.ofList: S5) and a literal past a
+\ cell (toCtorIfLit's Nat.succ of n - 1 not made yet) answer unsupported.
+: str ( -- t ) s" abc" lf-str-new made drop ;
+: huge ( -- t ) s" 123456789012345678901234567890" lf-hterm-decimal must drop ;
+T{ str recm lf-whnf-core huge recm lf-whnf-core -> -1 outcome-unsupported -1 outcome-unsupported }T
+\ An auxiliary recursor (Nat.casesOn) with more universe arguments than
+\ its parameters stays (deltaBetaDefinition is not applied).
+T{ lv1 lv1 2 s" Nat.casesOn" cn fk app dup whnf= -> true outcome-ok }T
+\ getStuckMVar? of an application whose head is a constructor, a constant
+\ no declaration has or a free variable: none, a metavariable in its
+\ arguments or not; of a definition's application with no metavariable
+\ that the shortcut does not take (its let variable fg's value holds a
+\ free variable): none (Lean's `unless e.hasExprMVar`).
+T{ succ ?n app lf-whnf-stuck unknown ?n app lf-whnf-stuck fk ?n app lf-whnf-stuck
+   -> false outcome-ok false outcome-ok false outcome-ok }T
+T{ 0 s" Nat.add" cn fg app fk app lf-whnf-stuck -> false outcome-ok }T
+\ A class field whose instance is a literal (HAdd.hAdd Nat Nat Nat 5 k x
+\ at instances): toCtorIfLit would turn the structure into constructors,
+\ not ported: unsupported.
+T{ hadd-nnn 5 nlit app fk app fx app lf-tr-instances unf -> -1 false outcome-unsupported }T
+\ The smart path's refusals of what is not ported: an e1 whose head is no
+\ sunfoldMatch marker (Lean's go walks into it), a marker in e1's
+\ arguments (wc-smart-ok), a reduced result whose top is no
+\ sunfoldMatchAlt marker.
+T{ fk fk wc-smart fk marked fk app fx marked app wc-smart-ok nip -> -1 false outcome-unsupported
+   outcome-unsupported }T
+T{ fk wc-sreduced -> -1 false outcome-unsupported }T
+\ The recursion argument (rec_arg, getStructuralRecArgPos?) decides: made
+\ the first argument k for the test, its whnf is no constructor and the
+\ smart unfolding of Nat.add k (x + 1) gives none; made none (-1), the
+\ match's alternative is the answer without a look at it.
+: x+1 ( -- t ) succ fx app ;
+: with-rec ( k xt -- i*x ) add-rec @ >r swap add-rec ! execute r> add-rec ! ;
+: kept-kx1 ( -- e e' flag outcome ) fk x+1 nat-add dup lf-meta-unfold ;
+: unf-kx1 ( -- e' flag outcome ) fk x+1 nat-add lf-meta-unfold ;
+T{ 0 ' kept-kx1 with-rec kept? -> true false outcome-ok }T
+T{ -1 ' unf-kx1 with-rec rot unf-kx1 2drop same? -> true outcome-ok true }T
+
+\ ---- Resources (class 5) on S2's paths (tests/support/meta-sweeps.fs):
+\ each scenario below -- iota, a projection, a matcher, an auxiliary
+\ recursor, the smart path, a class field, getStuckMVar? of a recursor
+\ and of a class projection -- is run with each heap allocation refused in
+\ turn, whnf's and unfold.fs's slabs given back to the heap before each
+\ run so that each slab's first claim allocates (a frame, a spine, the
+\ levels, the alternatives' variables), and with each term refused in
+\ turn: the scenario's answer or full, never another answer (a frame
+\ refused room read as a stuck term, say), and some runs full.
+: whnf-slabs-anew ( -- )
+  wc-frames sweep-slab-anew wc-args sweep-slab-anew wc-margs sweep-slab-anew wc-levels sweep-slab-anew
+  wc-hs sweep-slab-anew uf-args sweep-slab-anew uf-levels sweep-slab-anew ;
+' whnf-slabs-anew sweep-slabs-xt !
+\ The scenarios ( -- e xt ).
+: field-pass ( e -- x outcome ) lf-tr-instances unf nip ;
+\ getStuckMVar?'s answer as one cell: the metavariable, or 0 for none.
+: stuck-pass ( e -- x outcome ) lf-whnf-stuck >r if else 0 then r> ;
+: s-iota ( -- e xt ) fk succ swap app recm ['] lf-whnf-core ;
+: s-proj ( -- e xt ) sfun fb pair 0 proj fk app ['] lf-whnf-core ;
+: s-match ( -- e xt ) fk x+1 m1 ['] lf-whnf-core ;
+: s-cases ( -- e xt ) lv1 1 s" Nat.casesOn" cn fm app fk app ['] lf-whnf-core ;
+: s-smart ( -- e xt ) fk x+1 nat-add ['] lf-meta-whnf ;
+: s-field ( -- e xt ) hadd-kx ['] field-pass ;
+: s-stuck-rec ( -- e xt ) ?n recm ['] stuck-pass ;
+: s-stuck-class ( -- e xt ) nat ?q fk fk add-of ['] stuck-pass ;
+: s-stuck-proj ( -- e xt ) ?q 0 proj fk app ['] stuck-pass ;
+T{ s-iota heap-sweep swept? s-iota room-sweep swept? -> true true }T
+T{ s-proj heap-sweep swept? s-proj room-sweep swept? -> true true }T
+T{ s-match heap-sweep swept? s-match room-sweep swept? -> true true }T
+T{ s-cases heap-sweep swept? s-cases room-sweep swept? -> true true }T
+T{ s-smart heap-sweep swept? s-smart room-sweep swept? -> true true }T
+T{ s-field heap-sweep swept? s-field room-sweep swept? -> true true }T
+\ (getStuckMVar? makes no term: the heap only, its walk's first claim.)
+T{ s-stuck-rec heap-sweep swept? s-stuck-class heap-sweep swept? s-stuck-proj heap-sweep swept?
+   -> true true true }T
+\ A matcher's alternatives' variables find no room in the local context:
+\ full (wc-new-h).
+: lctx-crowded ( e xt -- x outcome )
+  lf-lctx-capacity >r lf-lctx-count @ lf-lctx-capacity! drop execute r> lf-lctx-capacity! drop ;
+T{ s-match lctx-crowded s-match execute nip -> -1 outcome-full outcome-ok }T
+\ More scenarios for the sweeps: getStuckMVar? of a recursor whose major
+\ premise and of a projection whose structure are applications (their
+\ spines' first claims); a
+\ matcher at reducible transparency (unfoldNestedDIte's walk for dite)
+\ and with an argument past its alternatives (applied to the
+\ alternative's result); the smart path with an argument past Nat.add's
+\ two (e1's arguments walked for markers, then applied to the
+\ alternative's result).
+: s-stuck-rec2 ( -- e xt ) ?n fk app recm ['] stuck-pass ;
+: s-stuck-proj2 ( -- e xt ) ?q fk app 0 proj fk app ['] stuck-pass ;
+\ A let variable in the term: getStuckMVar?'s walk for let values is refused
+\ (plan 9.4.8l AA: the refusal once dropped a cell of its caller's).
+: s-stuck-let ( -- e xt ) 0 s" Nat.add" cn fg app fk app ['] stuck-pass ;
+: s-smart-stuck ( -- e xt ) fk fx nat-add ['] lf-meta-whnf ;
+
+: s-match-r ( -- e xt ) fk x+1 m1 ['] lf-meta-whnf-r ;
+: s-match-wide ( -- e xt ) fk x+1 m1 fa app ['] lf-whnf-core ;
+: s-smart3 ( -- e xt ) fk x+1 nat-add fa app ['] lf-meta-whnf ;
+
+T{ s-stuck-rec2 heap-sweep swept? s-stuck-proj2 heap-sweep swept? -> true true }T
+T{ s-stuck-let heap-sweep swept? s-smart-stuck heap-sweep swept? -> true true }T
+T{ s-match-r heap-sweep swept? s-match-wide heap-sweep swept? s-match-wide room-sweep swept?
+   -> true true true }T
+T{ s-smart3 heap-sweep swept? s-smart3 room-sweep swept? -> true true }T
+\ getStuckMVar? of a class's projection function applied to no instance
+\ argument (Add.add ?n: the instance would be its second): not supported
+\ yet, never none; of an explicit argument holding a metavariable under a
+\ constant no declaration has: not passed as none, unsupported.
+T{ l0 1 s" Add.add" cn ?n app lf-whnf-stuck -> false outcome-unsupported }T
+T{ nat inst-add unknown ?n app fk add-of lf-whnf-stuck -> false outcome-unsupported }T
+\ Data that no export gives, made for the test and put back (the guards
+\ against it): Nat.add.match_1's record with more discriminants than its
+\ value has lambdas, and no alternative left to open (wc-take), and with
+\ more alternatives (wc-open-h):
+\ unsupported, never a guess; with one more alternative than the smart
+\ body's match applies, reduceMatcher? sees a partial application and the
+\ smart path gives none: whnf leaves Nat.add k (x + 1) as it is.
+: m1-rec ( -- addr ) 0 s" Nat.add.match_1" cn lf-meta-const-decl drop lf-menv-matcher drop ed-match ;
+: discrs+ ( n -- ) m1-rec ed-match-discrs +! ;
+: alts+ ( n -- ) m1-rec ed-match-alts# +! ;
+: wide ( -- e ) fk x+1 m1 fa app fa app fa app ;
+T{ 3 discrs+ -2 alts+ wide lf-whnf-core 2 alts+ -3 discrs+ -> -1 outcome-unsupported }T
+T{ 3 alts+ wide lf-whnf-core -3 alts+ -> -1 outcome-unsupported }T
+T{ 1 alts+ fk x+1 nat-add dup lf-meta-whnf -1 alts+ same-term? -> true outcome-ok }T
+T{ wide lf-whnf-core nip kept-kx1 kept? -> outcome-ok false true outcome-ok }T
+\ The recursion argument a literal past a cell (rec_arg made 0, the
+\ first argument): toCtorIfLit of it is not ported, unsupported.
+: huge-kx1 ( -- e' flag outcome ) huge x+1 nat-add lf-meta-unfold ;
+T{ 0 ' huge-kx1 with-rec -> -1 false outcome-unsupported }T
+\ A reducible class projection function at reducible transparency
+\ (backward.whnf.reducibleClassField; HAdd.hAdd made reducible in the
+\ data for the test): its unfolding's projection is reduced at instances
+\ when its structure is a constructor (instHAdd: Add.add Nat instAddNat k
+\ x), and the unfolding stands when it is none (k: k.1 k x).
+: hadd-bits ( -- addr )
+  0 s" HAdd.hAdd" cn lf-meta-const-decl drop me-staged drop ed-fact ed-fact-bits ;
+: reducible-hadd ( t -- e' flag outcome )
+  elab-reducible hadd-bits +! lf-tr-reducible unf elab-reducible negate hadd-bits +! ;
+T{ hadd-kx reducible-hadd rot add-kx same? -> true outcome-ok true }T
+T{ hadd-kkx reducible-hadd rot k1kx same? -> true outcome-ok true }T
+\ The decoder's guards on a smart-unfolding body (lib-decode.fs, S2's
+\ coverage debt; the record changed for the test, then put back): a
+\ constant the export lacks (a foreign `_proof_` lemma, its declaration
+\ -1 in the data) is unsupported at use; an mdata node Lean borrows (no
+\ smart-unfolding marker) is read through. Without a run's library the
+\ decoder finds no declaration by name: invalid.
+: add-first ( kind -- n )
+  >r add-s ed-sun ed-sun-nodes @ begin dup elab-node-kind r@ <> while 1+ repeat r> drop ;
+: const-a ( -- addr ) elab-node-const add-first ed-node ed-node-a ;
+: add-decoded ( -- body outcome ) lbd-sun-forget add-s pad 0 lf-libdec-sunfold ;
+: foreign-decode ( -- body outcome ) const-a @ >r -1 const-a ! add-decoded r> const-a ! lbd-sun-forget ;
+: borrowed-decode ( -- body outcome )
+  add-mark @ >r elab-borrowed add-mark ! add-decoded r> add-mark ! lbd-sun-forget ;
+T{ foreign-decode borrowed-decode nip -> -1 outcome-unsupported outcome-ok }T
+T{ fk zero nat-add dup lf-meta-unfold kept? -> false true outcome-ok }T
+T{ s" Nat" menv-name lf-libdec-find -> -1 outcome-invalid }T
 \ ---- Stale leaves: after the contexts are emptied, every metavariable
 \ and free variable made before is invalid.
 lf-mctx-reset

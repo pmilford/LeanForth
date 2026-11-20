@@ -631,6 +631,36 @@ T{ s\" \"open_parts\":1,\"steps\":1}}" sorry-header? -> true }T
 : null-steps ( -- c-addr u ) ['] type ['] all-found ['] axioms-full lf-steps-write drop ;
 T{ ' null-steps >string-execute s\" \"axioms\":null," search nip nip -> true }T
 [then]
+\ The writer refused mid-declaration (S2's coverage debt): the JSON
+\ writer's limit made 50 bytes once the header is written, so the step's
+\ line does not fit: the declaration's steps stop there and the writer
+\ answers full.
+: limit-after-header ( c-addr u -- ) s\" \n" compare 0= if 50 lsl-w jw-limit ! then ;
+T{ ' limit-after-header ' all-found ' no-axioms lf-steps-write max-n lsl-w jw-limit !
+   -> outcome-full }T
+\ --steps FILE (cli/leanforth.fs): a log the writer refuses (its limit
+\ made 100 bytes, below the header's) is cut back to its last whole line,
+\ here nothing, exit 3 with that said; a FILE whose writing fails at its
+\ close (/dev/full) may end inside a line, exit 3; the verdicts as
+\ without the log. A text that cannot be opened is malformed, exit 4.
+: steps-path ( -- c-addr u ) s" tests/front/steps-log.tmp" ;
+: check-into ( lf-addr lf-u steps-addr steps-u -- code )
+  2>r cli-options 2r> cli-state opt-steps 2! library cli-state opt-env 2! cli-check ;
+: sorry-into ( c-addr u -- code ) s" tests/front/06-sorry.lf" 2swap check-into ;
+: limited-log ( -- code ) 100 lsl-w jw-limit ! steps-path sorry-into max-n lsl-w jw-limit ! ;
+: log-size ( -- u ) steps-path r/o open-file throw dup file-size throw drop swap close-file throw ;
+T{ limited-log log-size outcome-ok tally -> 3 0 49 }T
+steps-path delete-file throw
+T{ s" /dev/full" sorry-into outcome-ok tally -> 3 49 }T
+T{ s" tests/front/no-such-text.lf" check -> 4 }T
+[defined] >string-execute [if]
+: limited-said ( -- c-addr u ) [: limited-log drop ;] >string-execute ;
+T{ limited-said s" ; it ends at its last whole line" search nip nip -> true }T
+steps-path delete-file throw
+: full-said ( -- c-addr u ) [: s" /dev/full" sorry-into drop ;] >string-execute ;
+T{ full-said s" ; it may end inside a line" search nip nip -> true }T
+[then]
+
 \ Without --steps nothing is kept.
 T{ s" tests/front/06-sorry.lf" check lf-steps-decls -> 0 0 }T
 \ A front-end fault that closes the goal with a wrong term (Bool.false,
