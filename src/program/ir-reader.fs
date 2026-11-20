@@ -228,8 +228,7 @@ ir-def-capacity /ir-slot store-size constant /ir-defs
 begin-structure /ir-token
   field: ir-token-kind
   field: ir-token-value
-  field: ir-token-line
-  field: ir-token-column
+  2 cells +field ir-token-place  \ where it was read: line column, with 2@ 2!
 end-structure
 
 \ What the next token is.
@@ -254,9 +253,8 @@ begin-structure /lf-ir-reader
   2 cells +field irr-rest  \ the part of the line not read yet: c-addr u, with 2@ 2!
   field: irr-mode
   field: irr-current       \ definition being compiled, or -1
-  field: irr-mark-line     \ where it started
-  field: irr-mark-column
-  field: irr-depth         \ open control structures
+  2 cells +field irr-mark  \ where it started: line column, with 2@ 2!
+  field: irr-depth        \ open control structures
   ir-control-capacity cells +field irr-control
   field: irr-kept#
   field: irr-values        \ cells the kept tokens leave on the data stack
@@ -285,10 +283,8 @@ end-structure
 : ir-rest! ( c-addr u -- ) lf-ir-reader irr-rest 2! ;
 : ir-mode ( -- addr ) lf-ir-reader irr-mode ;
 : ir-current ( -- addr ) lf-ir-reader irr-current ;
-: ir-mark ( -- line column )
-  lf-ir-reader dup irr-mark-line @ swap irr-mark-column @ ;
-: ir-mark! ( line column -- )
-  lf-ir-reader tuck irr-mark-column ! irr-mark-line ! ;
+: ir-mark ( -- line column ) lf-ir-reader irr-mark 2@ ;
+: ir-mark! ( line column -- ) lf-ir-reader irr-mark 2! ;
 : ir-depth ( -- addr ) lf-ir-reader irr-depth ;
 : ir-control ( -- addr ) lf-ir-reader irr-control ;
 : ir-kept# ( -- addr ) lf-ir-reader irr-kept# ;
@@ -524,7 +520,7 @@ ir-body-actions ir-classes ir-filled? 0= [if] .( lf-ir: body actions ) abort [th
 : ir-take ( taken given -- )
   over ir-values @ > if 2drop ir-why-borrowed ir-unsupported exit then
   swap - ir-values +! ;
-: ir-token-at! ( token -- ) ir-here rot tuck ir-token-column ! ir-token-line ! ;
+: ir-token-at! ( token -- ) ir-here rot ir-token-place 2! ;
 : ir-keep! ( value kind token -- )
   tuck ir-token-kind ! tuck ir-token-value ! ir-token-at! ;
 : ir-keep ( value kind -- )
@@ -594,7 +590,7 @@ ir-top-actions ir-classes ir-filled? 0= [if] .( lf-ir: top actions ) abort [then
     ir-kept-lit of s" lit " ir-append ir-number endof
     ir-kept-call of s" call " ir-append ir-def-append endof
     true abort" lf-ir: kept kind" endcase ;
-: ir-token-where ( token -- line column ) dup ir-token-line @ swap ir-token-column @ ;
+: ir-token-where ( token -- line column ) ir-token-place 2@ ;
 : ir-replay ( token -- )
   0 ir-indent dup ir-token-value @ over ir-token-kind @ ir-kept-text
   ir-token-where ir-location ir-flush ;

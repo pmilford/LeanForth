@@ -56,8 +56,7 @@ require ./export.fs
 1024 constant lfa-line-capacity
 
 begin-structure /lfa-run
-  field: lfa-run-rest        \ text not yet run: address
-  field: lfa-run-rest#       \ and length
+  2 cells +field lfa-run-rest  \ text not yet run (2@: c-addr u)
   field: lfa-run-file        \ the file being run, or 0
   field: lfa-run-floats      \ floating-point stack depth when the line began
   field: lfa-run-recognizer  \ the host's recognizer (Gforth 1.0)
@@ -99,8 +98,8 @@ end-structure
 : lfa-floats-clear ( -- ) lfa-run lfa-run-floats @ floats-drop-to ;
 
 \ Lines of text, split at LF; a CR before it is dropped (lib/text-run.fs).
-: lfa-rest ( -- c-addr u ) lfa-run dup lfa-run-rest @ swap lfa-run-rest# @ ;
-: lfa-rest! ( c-addr u -- ) lfa-run tuck lfa-run-rest# ! lfa-run-rest ! ;
+: lfa-rest ( -- c-addr u ) lfa-run lfa-run-rest 2@ ;
+: lfa-rest! ( c-addr u -- ) lfa-run lfa-run-rest 2! ;
 : lfa-text-line ( -- c-addr u true | false )
   lfa-rest dup 0= if 2drop false exit then
   2dup text-line-end drop >r over r@ text-cr-drop 2swap r> 1+ over min /string
@@ -144,11 +143,9 @@ end-structure
   2dup lf-locals lfa-has-word? if 2drop true exit then lf-consts lfa-has-word? ;
 : lfa-ahead? ( c-addr u -- flag )
   2dup lfa-number-like? if 2drop false else lfa-worded? 0= then ;
-\ The token an error of the look-ahead points at; the line counts as read
-\ only as far as before, so its numbers are still checked.
-: lfa-token-at ( c-addr u -- )
-  lfa-source lfa-source-length ! lfa-source lfa-source-text @ - 1+ lfa-source
-  lfa-source-column ! ;
+\ The token an error of the look-ahead points at (source.fs lfa-token-at);
+\ the line counts as read only as far as before, so its numbers are still
+\ checked.
 : lfa-group-ahead ( c-addr u -- )
   2dup lfa-ahead? if 2dup lfa-token-at lf-consts lfa-group drop else 2drop then ;
 \ The text a parsing word reads is no token (review M1): \ ends the line's

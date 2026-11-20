@@ -72,8 +72,7 @@ begin-structure /loc
 end-structure
 /loc context-slab: lv-locals
 begin-structure /lv
-  field: lv-except     \ the free variables a comparison skips: their cells
-  field: lv-except#    \ and how many
+  2 cells +field lv-except  \ the free variables a comparison skips: addr n, with 2@ 2!
 end-structure
 /lv context-record: lv
 : lf-views-reset ( -- ) lv-locals slab-clear runs-reset ;
@@ -176,8 +175,8 @@ end-structure
 
 \ Lean's isSubPrefixOf: walking view2, each of view1's free variables in
 \ turn is found (k of them so far), view1's exceptions passed over.
-: lv-except! ( addr n -- ) lv tuck lv-except# ! lv-except ! ;
-: lv-skip? ( fvar -- flag ) lv lv-except @ lv lv-except# @ cells-has? ;
+: lv-except! ( addr n -- ) lv lv-except 2! ;
+: lv-skip? ( fvar -- flag ) lv lv-except 2@ cells-has? ;
 : lv-more? ( view1 k -- flag ) swap lf-view-count < ;
 : lv-skipped ( view1 k -- view1 k' )
   begin 2dup lv-more? while 2dup lv-fvar-at lv-skip? 0= if exit then 1+ repeat ;

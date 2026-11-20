@@ -15676,7 +15676,7 @@ reason = "FE1g-1: two equal literals made apart compare different, so h1 h2 : 0 
 [[fault]]
 id = "fe-goal-except-ignored"
 file = "src/front/lctx-views.fs"
-old = ''': lv-skip? ( fvar -- flag ) lv lv-except @ lv lv-except# @ cells-has? ;'''
+old = ''': lv-skip? ( fvar -- flag ) lv lv-except 2@ cells-has? ;'''
 new = ''': lv-skip? ( fvar -- flag ) drop false ;'''
 test = "$GFORTH tests/front/goals.fs"
 reason = "FE1g-1: isSubPrefixOf skips none of exceptFVars, so checkAssignment's pattern variables count against the assignment"
@@ -18215,10 +18215,10 @@ reason = "review s1-elab re-check L2: a forgotten error's term shown under a lat
 [[fault]]
 id = "pr-print-sink-type"
 file = "src/present/print-job.fs"
-old = ''': lf-print-sink ( -- sink ) lf-pjob lf-pjob-sink @ ;'''
+old = ''': lf-print-sink ( -- sink ) lf-print-settings drop ;'''
 new = ''': lf-print-sink ( -- sink ) ['] type ;'''
 test = "$GFORTH tests/present/term-printer.fs"
-reason = "review s1-elab re-check L4: a message's term printed to TYPE instead of the message's sink"
+reason = "review s1-elab re-check L4: a message's term printed to TYPE instead of the message's sink (since cleanup-families-1 every piece lf-pp-emit sends goes there too)"
 
 [[fault]]
 id = "pr-print-with-kept"
