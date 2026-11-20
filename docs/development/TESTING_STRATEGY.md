@@ -131,6 +131,24 @@ starting others; make waits for the running ones, prints
 `make: *** [Makefile:LINE: TARGET] Error N` naming the target, and exits
 with status 2. CI runs both suites with the default 8 jobs.
 
+**Parallel runners** (2026-11-19). Inside one target, the slow Python runners
+(`tests/front/check_s2.py`, `check_tactics.py`, `check_showcase.py` and the
+tactic runners `tests/front/tactics/*/check.py` through `tactic_check.py`) used
+to start one `bin/leanforth` or Gforth process for each `.lf` file, wrong proof
+or case, one after another. They now build the list of their independent
+commands and run them through `tests/support/parallel_runs.py` (`run_all`):
+at most `LEANFORTH_TEST_JOBS` at once (default `min(4, cores)`, because each case
+may start several processes and CI runs under `ulimit -u 500`), the results read
+back in the order of the list, so every message, golden comparison and failure
+report is the serial run's, and the first failure in order is the one
+reported. `LEANFORTH_TEST_JOBS=1` runs the cases one at a time in a plain loop,
+as before; `make test LEANFORTH_TEST_JOBS=1` passes it on. This is separate
+from make's `JOBS`, which counts targets: with `JOBS=8` a runner may run four
+processes per target. A case that shares a temporary file, or reads what an
+earlier case wrote, stays out of one `run_all` (the runners' comments say
+which); `tests/scripts/test_parallel_runs.py` (`make test-parallel-runs`) tests
+the helper.
+
 **The Lean cache.** Pinned Lean's verdicts are deterministic, and most of
 `make check`'s time was Lean re-checking unchanged files. Unless `LEAN_CACHE=0`, the
 recipes get `LEAN` set to `scripts/lean-cache.py` and `LEANEXPORT` to
