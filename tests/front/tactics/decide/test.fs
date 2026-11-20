@@ -3,8 +3,10 @@
 \ authoring run, by the classes of docs/development/TEST_COVERAGE_REVIEW.md:
 \ 1. outcomes: preprocessPropToDecide's tests called directly (a closed
 \    type passes, instantiated; a free variable 251 with Lean's hint; a
-\    metavariable 252, which no text reaches before FE2's holes; a let
-\    variable unsupported, zetaReduce not ported); doElab's (Bool.true's
+\    metavariable 252, which no text reaches before FE2's holes, and 252
+\    first when both are there; a let variable, or a let or have
+\    expression with a free variable, unsupported, zetaReduce not ported;
+\    a let expression without one passes); doElab's (Bool.true's
 \    proof, its nodes as Lean's: of_decide_eq_true P I (id (decide P I =
 \    true) (Eq.refl true)); Bool.false 250 with the proposition; anything
 \    else 253 with the decide term; whnf's unsupported passed on, never 250
@@ -54,6 +56,20 @@ lf-tac-forget
 \ step answers unsupported (thrown, -4205), never 251.
 nat 2 num lf-lctx-let made constant fg
 T{ fg 2 num eq-nat ' tdc-pre code1 -> -4205 }T
+\ Lean's order (L2 of the review of S3a): a metavariable (252) is reported
+\ before a free variable (251) when P holds both.
+T{ ?m fn eq-nat ' tdc-pre code1 lf-author-code -> lf-author-throw 252 }T
+lf-tac-forget
+\ A let or have expression in P with a free variable (review s3a-decide B2):
+\ zetaReduce would remove or substitute it, so the step answers
+\ unsupported, never 251, at the root and inside; without a free variable
+\ P is left as it is, for whnf.
+: let-over ( v body nondep -- t )
+  >r nat swap lf-term-lam 0= abort" decide test: no lambda"
+  r> lf-let-make 0= abort" decide test: no let" ;
+T{ fn two=two 0 let-over ' tdc-pre code1 fn two=two 1 let-over ' tdc-pre code1 -> -4205 -4205 }T
+T{ 2 num fn 2 num 0 let-over eq-nat ' tdc-pre code1 -> -4205 }T
+T{ 2 num two=two 0 let-over dup tdc-pre eqv -> true }T
 \ ---- doElab: Bool.true's proof, node for node.
 \ Pinned Lean's term (pp.all) for True, written out node by node.
 : true-p ( -- t ) s" True" lf-mk-const0 ;

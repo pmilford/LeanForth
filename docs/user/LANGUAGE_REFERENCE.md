@@ -1077,7 +1077,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-rewrite[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, no `by-rfl` | The same without the closing `rfl`. | `rewrite [` |
 | `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules, in order; closes it | Ends the rule list of `by-rw[` or `by-rewrite[`; with none open, error 83. | `]` |
 | `by-case: CASE-TAG HYP-NAME ...  =>` | `( -- )` | parsing: as `\|`; closed by `by-end` | read: a case block. Run: takes the goal of that tag (or whose tag ends or starts with it), renames its hidden hypotheses with the names, newest first | Works on one case after `by-induction`; errors 210 (no such tag), 211 (too many names), 89 (goal left at `=>`). | `case tag names =>` |
-| `by-decide` | `( -- )` | ordinary | read: a step. Run: assigns the main goal `of_decide_eq_true P I h` after `Decidable.decide P I` reduced to `true`, removes the goal | Proves a closed decidable statement (`2 + 2 = 4`, `10 < 20`, `¬`, `∧`, `∨`, Bool equality) by evaluation; false: error 250; a free variable in the goal: 251; a metavariable: 252; evaluation stuck: 253; no `Decidable` instance: 122; an exponent above 256: 93 (not supported yet). | `decide` |
+| `by-decide` | `( -- )` | ordinary | read: a step. Run: assigns the main goal `of_decide_eq_true P I h` after `Decidable.decide P I` reduced to `true`, removes the goal | Proves a closed decidable statement (`2 + 2 = 4`, `10 < 20`, `¬`, `∧`, `∨`, Bool equality) by evaluation; false: error 250; a free variable in the goal: 251; a metavariable: 252; evaluation stuck: 253; no `Decidable` instance: 122; an exponent above 256, or a `let` in a goal with a free variable: 93 (not supported yet). | `decide` |
 | `**` `by-omega` | `( -- )` | designed | n/a | Linear arithmetic over `Nat` and `Int`. | `omega` |
 | `by-native-decide` | `( -- )` | ordinary; always refused, not supported (error 254, exit 2): it rests on `Lean.ofReduceBool` | read: a step. Run: error 254 | Never proves anything: Lean's `native_decide` trusts the compiler through an axiom LeanForth does not accept. | `native_decide` |
 | `**` `by-try`, `by-first`, `<;>` | | combinators; sketched in FE1G §4 and S2 §3 (the trail), no word fixed | n/a | n/a | `try`, `first`, `<;>` |
@@ -1346,8 +1346,15 @@ is 253, "failed to reduce" (Lean's further explanation, the unfolded
 instances and the hint, is plan S3b). A proposition with no `Decidable`
 instance (`Nonempty Nat`) is 122, "failed to synthesize". `2 ^ 300`
 answers not supported yet (93): Lean prints a warning and works out the
-power another way, plan S3b. A goal with a metavariable is 252; no text
-reaches it before FE2's holes.
+power another way, plan S3b. A goal with a metavariable is 252, before
+251 when it has both; no text reaches it before FE2's holes. A goal with
+a free variable that also holds a `let` (or `have`) expression or a
+let-bound hypothesis answers not supported yet (93), never 251: Lean
+first removes or substitutes those (`zetaReduce`), which LeanForth does
+not do yet (plan S3b; since review s3a-decide B2 a `let` expression is
+caught too, where before only a let-bound hypothesis was). No LeanForth
+text reaches this yet (`let:` gives errors 51 and 52); a goal built from
+a library constant's type can.
 
 | Form | Example |
 | --- | --- |

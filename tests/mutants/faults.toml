@@ -20460,8 +20460,8 @@ reason = "S2 merge B: an unassigned metavariable read as a possible value of red
 [[fault]]
 id = "fe-term-find-both-parts"
 file = "src/front/term-find.fs"
-old = '''  over lf-term-binary? if tf-images or else drop tf-leaf then ;'''
-new = '''  over lf-term-binary? if tf-images and else drop tf-leaf then ;'''
+old = '''  over lf-term-binary? if dw-part-images or else drop tf-leaf then ;'''
+new = '''  over lf-term-binary? if dw-part-images and else drop tf-leaf then ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "S2 merge B: a leaf found in one part of an application is missed unless both parts hold one"
 

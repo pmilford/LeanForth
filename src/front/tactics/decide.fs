@@ -3,8 +3,10 @@
 \ evalDecide with its default configuration (src/lean/Lean/Elab/Tactic/
 \ Decide.lean:83-115, 198-200): closeMainGoalUsing of doElab on the main
 \ goal's type P, made ready by preprocessPropToDecide (24-33): P
-\ instantiated; a free variable that is a let variable is zetaReduce's (not
-\ ported: unsupported, 93, plan S3b); a metavariable left is error 252, a
+\ instantiated; when it has a free variable, zetaReduce (Meta/Transform.lean:
+\ 198-215) is the identity unless P holds a let or have expression or a let
+\ variable, which it would remove or substitute (not ported: unsupported,
+\ 93, plan S3b; review s3a-decide B2); a metavariable left is error 252, a
 \ free variable 251 (with Lean's hint). Then mkDecide P (app-builder.fs's
 \ lf-mk-decide: Decidable.decide P I, the instance I synthesized, else
 \ synthInstance's "failed to synthesize", 122), put in whnf at default
@@ -13,8 +15,8 @@
 \ Bool.false is error 250, anything else 253 (Lean's first lines; the
 \ blame of the reduction, the unfolded instances and the hints are plan
 \ S3b). A whnf that answers unsupported or runs out is that outcome (93,
-\ 91), never 250 or 253. Not ported (plan S3b): zetaReduce of a let
-\ expression in P that holds a free variable; P is used as it is.
+\ 91), never 250 or 253. A let expression in a P without free variables is
+\ left to whnf, as Lean leaves it (zetaReduce runs only with one).
 \ by-native-decide: Lean's native_decide trusts the compiler
 \ (Lean.ofReduceBool, an axiom LeanForth never accepts: ADR 0021 D7), so
 \ it is refused, error 254 (unsupported).
@@ -53,10 +55,12 @@ s" native_decide" tac-k-native-decide lf-tactic-lean!
   s" free variables" lf-pp-emit outcome-ok ;
 : tdc-revert. ( p -- outcome ) lf-tac-indented. ['] tdc-hint. ok-and ;
 : tdc-fail ( p xt code -- ) >r lf-tac-detail r> lf-tac-stop ;
-\ zetaReduce (Meta/Transform.lean:198) is the identity unless P reaches a
-\ let variable (meta-spine.fs's lf-meta-let-fvar?): not ported, unsupported.
+\ zetaReduce (Meta/Transform.lean:198-215) is the identity unless some node
+\ of P is a let (or have) expression or a let variable (meta-spine.fs's
+\ lf-meta-let-fvar?): not ported, unsupported.
+: tdc-let? ( t -- flag ) dup lf-let? swap lf-meta-let-fvar? or ;
 : tdc-zeta ( p -- p )
-  dup ['] lf-meta-let-fvar? lf-term-holds? lf-must if outcome-unsupported lf-must then ;
+  dup ['] tdc-let? lf-term-holds-node? lf-must if outcome-unsupported lf-must then ;
 : tdc-pre ( type -- p )
   lf-instantiate! dup lf-meta-has-fvar? if tdc-zeta then
   dup lf-meta-has-mvar? lf-must if ['] lf-tac-indented. lfa-e-decide-mvars tdc-fail then

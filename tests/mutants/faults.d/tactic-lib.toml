@@ -378,8 +378,8 @@ reason = "9.4.8l-I approxDefEq (Basic.lean:2125) without quasiPatternApprox"
 [[fault]]
 id = "lib-holds-with-no-context"
 file = "src/front/term-find.fs"
-old = ''': tf-leaf ( leaf -- 0|1 ) tf tf-x @ swap tf tf-test @ execute nip 1 and ;'''
-new = ''': tf-leaf ( leaf -- 0|1 ) 0 swap tf tf-test @ execute nip 1 and ;'''
+old = ''': tf-leaf ( node -- 0|1 ) tf tf-x @ swap tf tf-test @ execute nip 1 and ;'''
+new = ''': tf-leaf ( node -- 0|1 ) 0 swap tf tf-test @ execute nip 1 and ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l-I plan L5: lf-term-holds-with?'s test gets no context, so apply's reorderGoals and exact's tests read the wrong value"
 

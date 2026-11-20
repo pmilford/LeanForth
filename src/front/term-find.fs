@@ -10,11 +10,16 @@
 \ flag ): the same with a context x the test reads (Lean's findMVar? or
 \ getMVars with a closure, plan 9.4.8l L5), so that no test reads a
 \ register set for it.
+\ lf-term-holds-node? ( term xt -- flag outcome ), xt ( node -- flag ):
+\ the same with every node shown to the test, the term itself and each
+\ binary node too (Lean's Expr.find? with a predicate on any expression,
+\ for instance a let node; review s3a-decide B2), each node once.
 \ Users: meta-tactic/goal.fs and tactic-core.fs (open holes, outside variables),
 \ meta-tactic/rewrite.fs, meta-tactic/apply.fs, telescope.fs,
 \ app-builder.fs, front/whnf.fs (dite in a matcher's value,
-\ unfoldNestedDIte). Moved from tactic-basic.fs (S2 merge B) so that
-\ whnf.fs, loaded before it, can use it.
+\ unfoldNestedDIte), tactics/decide.fs (a let in decide's goal, every
+\ node). Moved from tactic-basic.fs (S2 merge B) so that whnf.fs, loaded
+\ before it, can use it.
 \ Not re-entrant: one walk at a time per context (the test must not
 \ start another).
 \ Untrusted front-end code.
@@ -37,15 +42,20 @@ end-structure
   over lf-term-binary? 0= if 2drop false exit then
   over lf-term-first@ over tf-undone if nip nip true exit then
   swap lf-term-second@ swap tf-undone ;
-: tf-images ( node walk -- i1 i2 )
-  over lf-term-first@ over dw-image >r swap lf-term-second@ swap dw-image r> swap ;
-: tf-leaf ( leaf -- 0|1 ) tf tf-x @ swap tf tf-test @ execute nip 1 and ;
+\ The test's answer on a node (a leaf, or any node for lf-term-holds-node?).
+: tf-leaf ( node -- 0|1 ) tf tf-x @ swap tf tf-test @ execute nip 1 and ;
 : tf-build ( node walk -- 0|1 )
-  over lf-term-binary? if tf-images or else drop tf-leaf then ;
-: tf-walk@ ( -- walk )
-  tf tf-walk ['] tf-build over dw-build ! ['] tf-pending over dw-pending !
-  lf-term-base lf-term-count @ + over dw-size ! ;
-: lf-term-holds-with? ( term x xt -- flag outcome )
-  tf tf-test ! tf tf-x ! tf-walk@ dw-run swap 0<> swap ;
+  over lf-term-binary? if dw-part-images or else drop tf-leaf then ;
+\ The same with every node shown to the test once: a binary node's image
+\ is its own answer or its parts'.
+: tf-build-node ( node walk -- 0|1 )
+  over lf-term-binary? if over tf-leaf >r dw-part-images r> or or else drop tf-leaf then ;
+: tf-walk! ( build -- )
+  tf tf-walk tuck dw-build ! ['] tf-pending over dw-pending !
+  lf-term-base lf-term-count @ + swap dw-size ! ;
+: tf-run ( term x xt build -- flag outcome )
+  tf-walk! tf tf-test ! tf tf-x ! tf tf-walk dw-run swap 0<> swap ;
+: lf-term-holds-with? ( term x xt -- flag outcome ) ['] tf-build tf-run ;
 : tf-bare ( xt leaf -- xt flag ) over execute ;
 : lf-term-holds? ( term xt -- flag outcome ) ['] tf-bare lf-term-holds-with? ;
+: lf-term-holds-node? ( term xt -- flag outcome ) ['] tf-bare ['] tf-build-node tf-run ;

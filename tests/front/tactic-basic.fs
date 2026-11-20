@@ -21,7 +21,8 @@
 \    98, 99, 93, 71, and 91 when isDefEq or whnfCore runs out of fuel;
 \ 2. malformed: a binder with no known kind, an instance binder, a let
 \    (an implicit or strict-implicit binder is introduced, plan row TB1);
-\ 3. stack effects (every T{ }T checks the depth) and lf-term-holds?;
+\ 3. stack effects (every T{ }T checks the depth), lf-term-holds? and
+\    lf-term-holds-node? (every node shown, once);
 \ 4. through cli-check: tests/front/07-intro-exact.lf, 08-rfl.lf;
 \ 5. resources: the heap refusing each allocation of an intro-exact run;
 \ 6. state: an intro undone at a choice point leaves no assignment, the
@@ -364,6 +365,21 @@ T{ 1 lf-whnf-fuel! s" by-intro: h end t" proof nrun err 0 lf-whnf-fuel!
 : fvar? ( leaf -- flag ) lf-term-tag@ lf-tag-fvar = ;
 T{ prop ' fvar? lf-term-holds? p @ ' fvar? lf-term-holds? -> false outcome-ok true outcome-ok }T
 T{ 1 heap-refusals ! p @ prop app ' fvar? lf-term-holds? nip -> outcome-full }T
+\ lf-term-holds-node? (review s3a-decide B2): the root and every inner node
+\ are shown too, where lf-term-holds? shows leaves only; an inner node
+\ found under the root; each node once, a shared part too; the outcome.
+: app? ( node -- flag ) lf-term-tag@ lf-tag-app = ;
+T{ p @ prop app ' app? lf-term-holds-node? p @ prop app ' app? lf-term-holds?
+   -> true outcome-ok false outcome-ok }T
+T{ p @ ' app? lf-term-holds-node? p @ ' fvar? lf-term-holds-node? -> false outcome-ok true outcome-ok }T
+: fvar-app? ( node -- flag ) dup app? if lf-term-first@ fvar? else drop false then ;
+T{ p @ prop app prop app ' fvar-app? lf-term-holds-node? prop p @ app ' fvar-app? lf-term-holds-node?
+   -> true outcome-ok false outcome-ok }T
+variable shown
+: shown+ ( node -- flag ) drop 1 shown +! false ;
+T{ 0 shown ! p @ prop app ' shown+ lf-term-holds-node? shown @ -> false outcome-ok 3 }T
+T{ 0 shown ! p @ p @ app ' shown+ lf-term-holds-node? shown @ -> false outcome-ok 2 }T
+T{ 1 heap-refusals ! p @ prop app ' app? lf-term-holds-node? nip -> outcome-full }T
 
 \ ---- 5. The heap refusing each allocation of an intro-exact run in turn:
 \ never accepted, ok or full each time; past the last one, made.

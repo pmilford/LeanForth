@@ -37,10 +37,10 @@ reason = "S3a: a goal with a metavariable goes on, where Lean refuses it (252)"
 [[fault]]
 id = "decide-let-not-zeta"
 file = "src/front/tactics/decide.fs"
-old = '''  dup ['] lf-meta-let-fvar? lf-term-holds? lf-must if outcome-unsupported lf-must then ;'''
+old = '''  dup ['] tdc-let? lf-term-holds-node? lf-must if outcome-unsupported lf-must then ;'''
 new = '''  ;'''
 test = "$GFORTH tests/front/tactics/decide/test.fs"
-reason = "S3a: a let variable is taken for a free variable (251) where Lean's zetaReduce unfolds it first (not ported: unsupported)"
+reason = "S3a: a let variable or let expression is taken for a free variable (251) where Lean's zetaReduce unfolds it first (not ported: unsupported)"
 
 [[fault]]
 id = "decide-proof-instance-wrong"

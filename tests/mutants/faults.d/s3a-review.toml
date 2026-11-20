@@ -66,3 +66,42 @@ old = ''': lf-mk-decide ( p -- e ) s" Decidable.decide" rot 0 1 2 lf-mk-app-opt-
 new = ''': lf-mk-decide ( p -- e ) s" Decidable.decide" rot 0 0 2 lf-mk-app-opt-m ;'''
 test = "$GFORTH tests/front/tactics/decide/test.fs"
 reason = "review s3a-decide B3: mkDecide's entries #[p, none] given as #[none, none], so P is dropped and decide's proposition is a new metavariable"
+
+# --- B2: a let expression in decide's goal; term-find.fs's node search ------
+
+[[fault]]
+id = "s3a-term-find-inner-unseen"
+file = "src/front/term-find.fs"
+old = '''  over lf-term-binary? if over tf-leaf >r dw-part-images r> or or else drop tf-leaf then ;'''
+new = '''  over lf-term-binary? if dw-part-images or else drop tf-leaf then ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "review s3a-decide B2: lf-term-holds-node? shows the test leaves only, so an application or a let node is never found"
+
+[[fault]]
+id = "s3a-decide-let-node-unseen"
+file = "src/front/tactics/decide.fs"
+old = '''  dup ['] tdc-let? lf-term-holds-node? lf-must if outcome-unsupported lf-must then ;'''
+new = '''  dup ['] tdc-let? lf-term-holds? lf-must if outcome-unsupported lf-must then ;'''
+test = "$GFORTH tests/front/tactics/decide/test.fs"
+reason = "review s3a-decide B2: a let expression with a free variable in P is not seen, so it gives 251 (invalid) where Lean's zetaReduce would remove it (not ported: unsupported)"
+
+[[fault]]
+id = "s3a-decide-let-variable-only"
+file = "src/front/tactics/decide.fs"
+old = ''': tdc-let? ( t -- flag ) dup lf-let? swap lf-meta-let-fvar? or ;'''
+new = ''': tdc-let? ( t -- flag ) lf-meta-let-fvar? ;'''
+test = "$GFORTH tests/front/tactics/decide/test.fs"
+reason = "review s3a-decide B2: only a let variable answers unsupported; a let or have expression with a free variable gives 251"
+
+# --- L2: preprocessPropToDecide's order of its two errors --------------------
+
+[[fault]]
+id = "s3a-decide-fvar-before-mvar"
+file = "src/front/tactics/decide.fs"
+old = '''  dup lf-meta-has-mvar? lf-must if ['] lf-tac-indented. lfa-e-decide-mvars tdc-fail then
+  dup lf-meta-has-fvar? if ['] tdc-revert. lfa-e-decide-fvars tdc-fail then ;'''
+new = '''  dup lf-meta-has-fvar? if ['] tdc-revert. lfa-e-decide-fvars tdc-fail then
+  dup lf-meta-has-mvar? lf-must if ['] lf-tac-indented. lfa-e-decide-mvars tdc-fail then ;'''
+test = "$GFORTH tests/front/tactics/decide/test.fs"
+reason = "review s3a-decide L2: a P with a metavariable and a free variable gives 251 where Lean reports the metavariable first (252)"
+equivalent = "a node above a metavariable leaf has no cached data (core/terms.fs: an unknown leaf's range), so meta-spine.fs's lf-meta-has-fvar? is false whenever lf-meta-has-mvar? is true, and the two tests never both hold: the order cannot be observed; decide/test.fs pins the answer 252 for such a P"
