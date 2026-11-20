@@ -14,6 +14,8 @@ the entry, the module and the module's own requires) and its test files, never t
 layers; a recorded pass of the kernel's test is reused after a front-end change and not after
 a change of its module, of a file two requires down or of its entry, and the front end's test
 is not reused after a front-end change."""
+# inputs: fixtures only: git, the home folder and the scripts' records here are those of the
+# repositories tier_fixture.Repo makes (scripts/changed-tests.py, FIXTURES_ONLY).
 import importlib.util
 import os
 import pathlib
@@ -218,7 +220,11 @@ class Tracing(unittest.TestCase):
         os.environ.clear()
         os.environ.update(self.repo.env)
         try:
-            return test_tier.Inputs().read(target)
+            inputs = test_tier.Inputs()
+            files, reasons = inputs.files(test_tier.changed_tests.named_files(inputs.recipe(target)))
+            self.assertEqual(reasons, [], target)
+            self.assertIsNotNone(inputs.target(target), target)
+            return files
         finally:
             os.environ.clear()
             os.environ.update(saved)
@@ -263,6 +269,85 @@ class Tracing(unittest.TestCase):
             self.change(name, text)
             code, out = self.lookup("test-core")
             self.assertEqual(code, 1, f"{name}: {out}")
+
+    def test_a_listing_of_proc_keeps_the_digest(self):
+        """scripts/start-limit.sh's count of the user's threads (/proc/*/status) is no input of
+        the checkout: a target whose test runs such a script is reused when nothing it reads
+        changed (31 targets that run bin/leanforth had no digest from 2026-11-18 to 11-19)."""
+        self.change("scripts/limit.sh", "n=0\nfor f in /proc/[0-9]*/status; do n=$((n+1)); done\n")
+        self.change("tests/front/check_front.py", 'import subprocess\nsubprocess.run(["sh", "scripts/limit.sh"])\n'
+                    'DATA = "tests/front/data.txt"\n')
+        run = self.tool("record", "--", "make", "reference-front")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.change("scripts/check.py", "print('unrelated')\n")
+        code, out = self.lookup("reference-front")
+        self.assertEqual(code, 0, out)
+        self.assertIn("inputs unchanged", out)
+        self.change("scripts/limit.sh", "n=0\nfor f in /proc/[0-9]*/status; do n=$((n+2)); done\n")
+        self.assertEqual(self.lookup("reference-front")[0], 1, "the script itself is still an input")
+
+
+class Finder(unittest.TestCase):
+    """scripts/changed-tests.py's input_files on small trees of its own: the system's folders are
+    no input of the checkout, and a test that declares FIXTURES_ONLY vouches for the git, home
+    folder and export readings of what it runs, never for a program reached otherwise."""
+
+    TREE = {
+        "scripts/proc.sh": "for f in /proc/[0-9]*/status; do :; done\n",
+        "scripts/proc.py": 'import glob, os\nos.listdir("/proc")\nglob.glob("/sys/class/*")\n',
+        "scripts/mixed.sh": "for f in /proc/x tests/*; do :; done\n",
+        "scripts/folder.py": "import os\nos.listdir(folder)\n",
+        "scripts/git.py": 'import subprocess\nsubprocess.run(["git", "ls-files"])\n',
+        "tests/scripts/marked.py": "# inputs: fixtures only: its repositories\nimport subprocess\n"
+                                   'subprocess.run(["python3", "scripts/git.py"])\n',
+        "tests/scripts/unmarked.py": 'import subprocess\nsubprocess.run(["python3", "scripts/git.py"])\n',
+        "tests/scripts/lists.py": "# inputs: fixtures only\nimport subprocess\n"
+                                  'subprocess.run(["python3", "scripts/folder.py"])\n',
+        "scripts/marked.py": "# inputs: fixtures only\nimport subprocess\n"
+                             'subprocess.run(["python3", "scripts/git.py"])\n',
+    }
+
+    def setUp(self):
+        self.top = tempfile.mkdtemp(prefix="lf-finder-test-")
+        for name, text in self.TREE.items():
+            path = pathlib.Path(self.top, name)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+        self.here = os.getcwd()
+        os.chdir(self.top)
+
+    def tearDown(self):
+        os.chdir(self.here)
+        shutil.rmtree(self.top, ignore_errors=True)
+
+    def reasons(self, *start):
+        ct = test_tier.changed_tests
+        tracked = {name: "0" for name in self.TREE}
+        files, reasons = ct.input_files(list(start), tracked, {}, ct.file_index(tracked))
+        self.assertTrue(set(start) <= files)
+        return reasons
+
+    def test_system_folders_are_no_listing(self):
+        self.assertEqual(self.reasons("scripts/proc.sh"), [])
+        self.assertEqual(self.reasons("scripts/proc.py"), [])
+
+    def test_other_listings_still_count(self):
+        self.assertEqual(self.reasons("scripts/mixed.sh"), ["scripts/mixed.sh lists a folder the finder cannot name"])
+        self.assertEqual(self.reasons("scripts/folder.py"), ["scripts/folder.py lists a folder the finder cannot name"])
+
+    def test_a_declared_test_vouches_for_what_it_runs(self):
+        self.assertEqual(self.reasons("tests/scripts/marked.py"), [])
+        self.assertEqual(self.reasons("tests/scripts/unmarked.py"), ["scripts/git.py reads git's index or history"])
+
+    def test_a_program_reached_otherwise_still_counts(self):
+        # Each order: the program reached first through the declared test, then plainly, and back.
+        for pair in (("tests/scripts/marked.py", "scripts/git.py"), ("tests/scripts/marked.py", "tests/scripts/unmarked.py")):
+            for start in (pair, pair[::-1]):
+                self.assertEqual(self.reasons(*start), ["scripts/git.py reads git's index or history"], start)
+
+    def test_only_a_test_declares_and_a_listing_always_counts(self):
+        self.assertEqual(self.reasons("scripts/marked.py"), ["scripts/git.py reads git's index or history"])
+        self.assertEqual(self.reasons("tests/scripts/lists.py"), ["scripts/folder.py lists a folder the finder cannot name"])
 
 
 if __name__ == "__main__":

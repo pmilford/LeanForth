@@ -130,9 +130,9 @@ def folder_problems():
 
 
 def test_files():
-    """Every Forth file under tests/: walked, not globbed, so that scripts/changed-tests.py does
-    not take this check for a run of every test (scripts/test-classes.py would call the hand-run
-    benchmarks' rows stale)."""
+    """Every Forth file under tests/: walked, not globbed, so that the finder (changed-tests.py)
+    does not take this check for a run of every test (test-classes.py would call the hand-run
+    benchmarks' rows stale). Named without their folder: a path in a docstring is followed."""
     for top, folders, names in os.walk("tests"):
         folders.sort()
         yield from (os.path.join(top, name) for name in sorted(names) if name.endswith(".fs"))

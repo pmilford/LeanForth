@@ -48,3 +48,35 @@ old = '''    library = os.path.join(prefix, "lib/lean")'''
 new = '''    library = os.path.join(prefix, "lib", "lean")'''
 test = "python3 tests/scripts/test_check_layers.py GlobalInputs"
 reason = "every target under the Lean cache reads src/lib again: a library change re-runs all of make check"
+
+[[fault]]
+id = "ll-proc-listing-unknown"
+file = "scripts/changed-tests.py"
+old = '''    listing = SYSTEM_LISTING.sub(" ", IMPORT_LINE.sub("", code) if kind(path) == ".py" else code)'''
+new = '''    listing = IMPORT_LINE.sub("", code) if kind(path) == ".py" else code'''
+test = "python3 tests/scripts/test_check_layers.py Finder"
+reason = "a listing of /proc makes the inputs unknown again: the 31 targets that run bin/leanforth always re-run"
+
+[[fault]]
+id = "ll-vouched-first-hides-plain"
+file = "scripts/changed-tests.py"
+old = '''        if path in plain or (vouched and path in seen):'''
+new = '''        if path in seen:'''
+test = "python3 tests/scripts/test_check_layers.py Finder"
+reason = "a program reached through a fixtures-only test first and plainly after keeps no reason: its git reads are waived"
+
+[[fault]]
+id = "ll-vouched-listing-waived"
+file = "scripts/changed-tests.py"
+old = '''        reasons += [w for w in why if not vouched or w.endswith(LISTED)]'''
+new = '''        reasons += [w for w in why if not vouched]'''
+test = "python3 tests/scripts/test_check_layers.py Finder"
+reason = "a folder listing the finder cannot name is waived under a fixtures-only test: an input could be missed"
+
+[[fault]]
+id = "ll-fixtures-only-anywhere"
+file = "scripts/changed-tests.py"
+old = '''    return uses | runs, data, why, path.startswith("tests/") and bool(FIXTURES_ONLY.search(text))'''
+new = '''    return uses | runs, data, why, bool(FIXTURES_ONLY.search(text))'''
+test = "python3 tests/scripts/test_check_layers.py Finder"
+reason = "a script, not only a test, could declare its own git reads a fixture's"
