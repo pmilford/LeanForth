@@ -23,13 +23,14 @@
 \ for tables of tens of texts; no memory beyond the table's bytes (one per
 \ text and per character, one for the end, then alignment).
 \
-\ Example: which of three words starts with a given character?
+\ Example: which of three words starts with a given character, and at
+\ which index?
 \   texts-begin texts+ dup drop swap
 \   texts-end constant stack-words
 \   : starts? ( char c-addr u -- flag ) drop c@ = ;
 \   char s ' starts? stack-words texts-find count type space
-\   char r ' starts? stack-words texts-find .   \ prints: swap 0
-\   char s ' starts? stack-words texts-index .   \ prints: 2
+\   char s ' starts? stack-words texts-index .
+\   char r ' starts? stack-words texts-find .   \ prints: swap 2 0
 \
 \ Interface: texts-begin texts+ text, texts-end text-next texts-find
 \ texts-index.
