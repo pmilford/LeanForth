@@ -1,1235 +1,982 @@
-LeanForth's showcase: ten proof files, fifteen theorems.
-
-What this is. LeanForth checks proofs written in LeanForth text, with its own tactics and its own
-kernel. Lean is not run at all by this command. For each theorem the page shows four parts:
-
-  A. the proof as written in LeanForth;
-  B. the same proof as a Lean user would write it, for comparison (copied from the Lean file
-     that the tests compare LeanForth's result with);
-  C. what LeanForth did: how it read the statement, then each tactic step with the goal before
-     the step and what was left after it;
-  D. the verdict of LeanForth's kernel on the finished proof.
-
-How to read a goal. A goal is what remains to be proved. Lines of the form  name : type  say what
-is given (for example  n : Nat , "n is a natural number"); the line after the mark ⊢ is what must
-be shown. "case zero" names the case of an induction that the goal belongs to.
-Not yet as short as Lean: in goals about lists (the theorem ps_length_append) LeanForth's printer
-writes every hidden argument out, marked with @, where Lean would print  (xs ++ ys).length .
-
-The command, and its two input files:
-  SHOWCASE_LIBRARY="--snapshot init.lfsnap --elab-data init.elab.ndjson" scripts/showcase-steps.sh
-- init.lfsnap is a saved snapshot of Lean's Init library (59,349 declarations), already checked by
-  LeanForth's kernel. It is loaded so that a new theorem can use what Init proves.
-- init.elab.ndjson is the "elaboration data": facts about Init that are not part of its proofs but
-  are needed to read a new theorem as Lean would: which arguments are implicit, the type-class
-  instances (such as "+ on Nat"), notation and reducibility settings. Lean exported it once.
-  LeanForth uses it to build the proof term, and the kernel then checks that term, so wrong data
-  cannot make a false theorem accepted.
-
-This run: 2026-11-19, gforth-fast, commit 106e01c2 (the checker is main 76c4c93e's). Every file exited
-with status 0. Time: 369 s for the ten files while other jobs shared the machine; one file alone
-took 11 to 17 s in two runs the same day, nearly all of it loading the snapshot.
+\ LeanForth's showcase: ten proof files, fifteen theorems.
+\ What this is. LeanForth checks proofs written in LeanForth text, with its own tactics and its own
+\ kernel. Lean is not run at all by this command. Each theorem is shown in four parts:
+\   A. the proof in LeanForth: the input, the text of the proof file;
+\   B. the same proof in Lean, for comparison. This is NOT LeanForth's output: the showcase script
+\      copies it from the Lean file that the tests compare LeanForth's result with;
+\   C. what LeanForth did: LeanForth's output (its step log), laid out by the showcase script: how
+\      it read the statement, then each tactic step with the goal before it and what was left;
+\   D. the verdict of LeanForth's kernel on the finished proof: LeanForth's output, as printed.
+\ Comments. Explanations are comments on the right: after a backslash, LeanForth's comment mark,
+\ or after -- , Lean's, in the Lean part. Everything else is proof text, goals or output.
+\ How to read a goal. A goal is what remains to be proved. Lines of the form  name : type  say what
+\ is given (for example  n : Nat , "n is a natural number"); the line after the mark ⊢ is what must
+\ be shown. "case zero" names the case of an induction that the goal belongs to.
+\ Not yet as short as Lean: in goals about lists (the theorem ps_length_append) LeanForth's printer
+\ writes every hidden argument out, marked with @, where Lean would print  (xs ++ ys).length .
+\ The command, and its two input files:
+\   SHOWCASE_LIBRARY="--snapshot init.lfsnap --elab-data init.elab.ndjson" scripts/showcase-steps.sh
+\ - init.lfsnap is a saved snapshot of Lean's Init library (59,349 declarations), already checked by
+\   LeanForth's kernel. It is loaded so that a new theorem can use what Init proves.
+\ - init.elab.ndjson is the "elaboration data": facts about Init that are not part of its proofs but
+\   are needed to read a new theorem as Lean would: which arguments are implicit, the type-class
+\   instances (such as "+ on Nat"), notation and reducibility settings. Lean exported it once.
+\   LeanForth uses it to build the proof term, and the kernel then checks that term, so wrong data
+\   cannot make a false theorem accepted.
+\ This run: 2026-11-19, gforth-fast, commit 469ad40f (the checker is main d3fbb315's). Every file exited
+\ with status 0. Time: 373 s for the ten files while other jobs shared the machine; one file alone
+\ took 11 to 17 s in two runs the same day, nearly all of it loading the snapshot.
 
 
-------------------------------------------------------------------------------
-Theorem t        (from the file tests/front/s1-rfl.lf)
-------------------------------------------------------------------------------
+====================================================================================================
+Theorem t
+====================================================================================================
 
-A. The proof as written in LeanForth
+A. The proof in LeanForth                         \ input: the text of tests/front/s1-rfl.lf
 
-      theorem t
-        0 0 + 0 =
-      := by
-        by-rfl
-      end t
+    theorem t
+      0 0 + 0 =
+    := by
+      by-rfl
+    end t
 
-B. The same proof as a Lean user would write it  (for comparison; Lean is not run)
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/s1-rfl.lean, which the tests compare with
 
-      theorem t : 0 + 0 = 0 := by rfl
+    theorem t : 0 + 0 = 0 := by rfl
 
-      (copied from tests/front/s1-rfl.lean)
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ Each step is the tactic as written in A; a step inside another is indented.
+                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
 
-C. What LeanForth did with the LeanForth text
+    ⊢ 0 + 0 = 0                                   \ the statement as LeanForth read it: the first goal
 
-   First it read the statement. This is what has to be proved, in Lean's notation.
-   Lines of the form  name : type  are what is given; the line after the mark ⊢ is
-   what must be shown.
+    by-rfl                                        \ step 1: Lean's rfl
+        ⊢ 0 + 0 = 0                               \ the goal before this step
+                                                  \ after it: nothing is left to prove here
 
-      ⊢ 0 + 0 = 0
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
 
-   Then it ran the proof's 1 tactic step, in this order. A step that works inside
-   another step is indented under it.
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
 
-   Step 1.  by-rfl
-            (Lean calls this tactic `rfl`)
-            Goal before this step:
+    t: accepted (checked in this run, uses results from the snapshot); axioms: none
+
+\ End of the run on tests/front/s1-rfl.lf: LeanForth's closing lines, as printed, and its exit
+\ status (0: every theorem of the file was accepted).
+    59350 declarations: 59350 accepted; 59349 from the snapshot, 1 checked in this run
+    exit status 0
+
+
+====================================================================================================
+Theorem zero_add_ex
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/03-zero-add-exact.lf
+
+    theorem zero_add_ex Nat explicit: n   0 n + n =   := by  n Nat.zero_add by-exact   end zero_add_ex
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from the note in tests/front/03-zero-add-exact.lf; no test compares it with Lean yet
+
+    theorem zero_add_ex (n : Nat) : 0 + n = n := by exact Nat.zero_add n
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ Each step is the tactic as written in A; a step inside another is indented.
+                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+
+    n : Nat                                       \ the statement as LeanForth read it: the first goal
+    ⊢ 0 + n = n
+
+    n Nat.zero_add by-exact                       \ step 1: Lean's exact
+        n : Nat                                   \ the goal before this step
+        ⊢ 0 + n = n
+                                                  \ after it: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    zero_add_ex: accepted (checked in this run, uses results from the snapshot); axioms: none
+
+\ End of the run on tests/front/03-zero-add-exact.lf: LeanForth's closing lines, as printed, and its exit
+\ status (0: every theorem of the file was accepted).
+    59350 declarations: 59350 accepted; 59349 from the snapshot, 1 checked in this run
+    exit status 0
+
+
+====================================================================================================
+Theorem zero_add''
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/01-zero-add-rw.lf
+
+    theorem zero_add''
+      Nat explicit: n
+      0 n + n =
+    := by
+      n by-induction-with
+      | zero =>       by-rfl
+      | succ k ih =>  by-rw[ ' Nat.add_succ ih ]
+      by-end
+    end zero_add''
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/s2-proofs.lean, which the tests compare with
+
+    theorem zero_add'' (n : Nat) : 0 + n = n := by
+      induction n with
+      | zero => rfl
+      | succ k ih => rw [Nat.add_succ, ih]
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ Each step is the tactic as written in A; a step inside another is indented.
+                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+
+    n : Nat                                       \ the statement as LeanForth read it: the first goal
+    ⊢ 0 + n = n
+
+    n by-induction-with                           \ step 1: Lean's induction
+        n : Nat                                   \ the goal before this step
+        ⊢ 0 + n = n
+                                                  \ after it: one goal for each case; the cases follow
+
+        | zero =>                                 \ step 2: a case of the induction above
+            case zero                             \ the goal of this case
+            ⊢ 0 + 0 = 0
+
+            by-rfl                                \ step 3: Lean's rfl
+                case zero                         \ the goal before this step
                 ⊢ 0 + 0 = 0
-            After this step: nothing is left to prove here.
+                                                  \ after it: nothing is left to prove here
 
-   Every step is done. Parts left unproved: 0. Axioms used: none.
+        | succ k ih =>                            \ step 4: a case of the induction above
+            case succ                             \ the goal of this case
+            k : Nat
+            ih : 0 + k = k
+            ⊢ 0 + (k + 1) = k + 1
 
-D. The result
+            by-rw[ ' Nat.add_succ ih ]            \ step 5: Lean's rw
+                case succ                         \ the goal before this step
+                k : Nat
+                ih : 0 + k = k
+                ⊢ 0 + (k + 1) = k + 1
+                                                  \ after it: nothing is left to prove here
 
-   LeanForth's kernel checked the finished proof and printed its verdict:
+\ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
 
-      t: accepted (checked in this run, uses results from the snapshot); axioms: none
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
 
-End of the run on tests/front/s1-rfl.lf. LeanForth's last lines and its exit status
-(0 means every theorem of the file was accepted):
+    zero_add'': accepted (checked in this run, uses results from the snapshot); axioms: none
 
-   59350 declarations: 59350 accepted; 59349 from the snapshot, 1 checked in this run
-   exit status 0
+\ End of the run on tests/front/01-zero-add-rw.lf: LeanForth's closing lines, as printed, and its exit
+\ status (0: every theorem of the file was accepted).
+    59350 declarations: 59350 accepted; 59349 from the snapshot, 1 checked in this run
+    exit status 0
 
 
-------------------------------------------------------------------------------
-Theorem zero_add_ex        (from the file tests/front/03-zero-add-exact.lf)
-------------------------------------------------------------------------------
+====================================================================================================
+Theorem zero_add_nested
+====================================================================================================
 
-A. The proof as written in LeanForth
+A. The proof in LeanForth                         \ input: the text of tests/front/04-nested-ih.lf
 
-      theorem zero_add_ex Nat explicit: n   0 n + n =   := by  n Nat.zero_add by-exact   end zero_add_ex
-
-B. The same proof as a Lean user would write it  (for comparison; Lean is not run)
-
-      theorem zero_add_ex (n : Nat) : 0 + n = n := by exact Nat.zero_add n
-
-      (from the note in tests/front/03-zero-add-exact.lf; no test compares this one with Lean yet)
-
-C. What LeanForth did with the LeanForth text
-
-   First it read the statement. This is what has to be proved, in Lean's notation.
-   Lines of the form  name : type  are what is given; the line after the mark ⊢ is
-   what must be shown.
-
-      n : Nat
-      ⊢ 0 + n = n
-
-   Then it ran the proof's 1 tactic step, in this order. A step that works inside
-   another step is indented under it.
-
-   Step 1.  n Nat.zero_add by-exact
-            (Lean calls this tactic `exact`)
-            Goal before this step:
-                n : Nat
-                ⊢ 0 + n = n
-            After this step: nothing is left to prove here.
-
-   Every step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The result
-
-   LeanForth's kernel checked the finished proof and printed its verdict:
-
-      zero_add_ex: accepted (checked in this run, uses results from the snapshot); axioms: none
-
-End of the run on tests/front/03-zero-add-exact.lf. LeanForth's last lines and its exit status
-(0 means every theorem of the file was accepted):
-
-   59350 declarations: 59350 accepted; 59349 from the snapshot, 1 checked in this run
-   exit status 0
-
-
-------------------------------------------------------------------------------
-Theorem zero_add''        (from the file tests/front/01-zero-add-rw.lf)
-------------------------------------------------------------------------------
-
-A. The proof as written in LeanForth
-
-      theorem zero_add''
-        Nat explicit: n
-        0 n + n =
-      := by
-        n by-induction-with
-        | zero =>       by-rfl
-        | succ k ih =>  by-rw[ ' Nat.add_succ ih ]
-        by-end
-      end zero_add''
-
-B. The same proof as a Lean user would write it  (for comparison; Lean is not run)
-
-      theorem zero_add'' (n : Nat) : 0 + n = n := by
-        induction n with
-        | zero => rfl
-        | succ k ih => rw [Nat.add_succ, ih]
-
-      (copied from tests/front/s2-proofs.lean)
-
-C. What LeanForth did with the LeanForth text
-
-   First it read the statement. This is what has to be proved, in Lean's notation.
-   Lines of the form  name : type  are what is given; the line after the mark ⊢ is
-   what must be shown.
-
-      n : Nat
-      ⊢ 0 + n = n
-
-   Then it ran the proof's 5 tactic steps, in this order. A step that works inside
-   another step is indented under it.
-
-   Step 1.  n by-induction-with
-            (Lean calls this tactic `induction`)
-            Goal before this step:
-                n : Nat
-                ⊢ 0 + n = n
-            After this step: one goal for each case. The cases follow, indented.
-
-         Step 2.  | zero =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case zero
-                      ⊢ 0 + 0 = 0
-
-               Step 3.  by-rfl
-                        (Lean calls this tactic `rfl`)
-                        Goal before this step:
-                            case zero
-                            ⊢ 0 + 0 = 0
-                        After this step: nothing is left to prove here.
-
-         Step 4.  | succ k ih =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case succ
-                      k : Nat
-                      ih : 0 + k = k
-                      ⊢ 0 + (k + 1) = k + 1
-
-               Step 5.  by-rw[ ' Nat.add_succ ih ]
-                        (Lean calls this tactic `rw`)
-                        Goal before this step:
-                            case succ
-                            k : Nat
-                            ih : 0 + k = k
-                            ⊢ 0 + (k + 1) = k + 1
-                        After this step: nothing is left to prove here.
-
-   Every step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The result
-
-   LeanForth's kernel checked the finished proof and printed its verdict:
-
-      zero_add'': accepted (checked in this run, uses results from the snapshot); axioms: none
-
-End of the run on tests/front/01-zero-add-rw.lf. LeanForth's last lines and its exit status
-(0 means every theorem of the file was accepted):
-
-   59350 declarations: 59350 accepted; 59349 from the snapshot, 1 checked in this run
-   exit status 0
-
-
-------------------------------------------------------------------------------
-Theorem zero_add_nested        (from the file tests/front/04-nested-ih.lf)
-------------------------------------------------------------------------------
-
-A. The proof as written in LeanForth
-
-      theorem zero_add_nested
-        Nat explicit: n  Nat explicit: m
-        0 n + n =
-      := by
-        n by-induction-with
-        | zero =>       by-rfl
-        | succ k ih =>
-          m by-induction-with
-          | zero =>       by-rw[ ' Nat.add_succ ih ]
-          | succ j ih =>  ih by-exact
-          by-end
-        by-end
-      end zero_add_nested
-
-B. The same proof as a Lean user would write it  (for comparison; Lean is not run)
-
-      theorem zero_add_nested (n m : Nat) : 0 + n = n := by
-        induction n with
-        | zero => rfl
-        | succ k ih =>
-          induction m with
-          | zero => rw [Nat.add_succ, ih]
-          | succ j ih => exact ih
-
-      (copied from tests/front/s2-proofs.lean)
-
-C. What LeanForth did with the LeanForth text
-
-   First it read the statement. This is what has to be proved, in Lean's notation.
-   Lines of the form  name : type  are what is given; the line after the mark ⊢ is
-   what must be shown.
-
-      n m : Nat
-      ⊢ 0 + n = n
-
-   Then it ran the proof's 9 tactic steps, in this order. A step that works inside
-   another step is indented under it.
-
-   Step 1.  n by-induction-with
-            (Lean calls this tactic `induction`)
-            Goal before this step:
-                n m : Nat
-                ⊢ 0 + n = n
-            After this step: one goal for each case. The cases follow, indented.
-
-         Step 2.  | zero =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case zero
-                      m : Nat
-                      ⊢ 0 + 0 = 0
-
-               Step 3.  by-rfl
-                        (Lean calls this tactic `rfl`)
-                        Goal before this step:
-                            case zero
-                            m : Nat
-                            ⊢ 0 + 0 = 0
-                        After this step: nothing is left to prove here.
-
-         Step 4.  | succ k ih =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case succ
-                      m k : Nat
-                      ih : 0 + k = k
-                      ⊢ 0 + (k + 1) = k + 1
-
-               Step 5.  m by-induction-with
-                        (Lean calls this tactic `induction`)
-                        Goal before this step:
-                            case succ
-                            m k : Nat
-                            ih : 0 + k = k
-                            ⊢ 0 + (k + 1) = k + 1
-                        After this step: one goal for each case. The cases follow, indented.
-
-                     Step 6.  | zero =>
-                              (one case of the induction above)
-                              The goal of this case:
-                                  case succ.zero
-                                  k : Nat
-                                  ih : 0 + k = k
-                                  ⊢ 0 + (k + 1) = k + 1
-
-                           Step 7.  by-rw[ ' Nat.add_succ ih ]
-                                    (Lean calls this tactic `rw`)
-                                    Goal before this step:
-                                        case succ.zero
-                                        k : Nat
-                                        ih : 0 + k = k
-                                        ⊢ 0 + (k + 1) = k + 1
-                                    After this step: nothing is left to prove here.
-
-                     Step 8.  | succ j ih =>
-                              (one case of the induction above)
-                              The goal of this case:
-                                  case succ.succ
-                                  k : Nat
-                                  ih✝ : 0 + k = k
-                                  j : Nat
-                                  ih : 0 + (k + 1) = k + 1
-                                  ⊢ 0 + (k + 1) = k + 1
-
-                           Step 9.  ih by-exact
-                                    (Lean calls this tactic `exact`)
-                                    Goal before this step:
-                                        case succ.succ
-                                        k : Nat
-                                        ih✝ : 0 + k = k
-                                        j : Nat
-                                        ih : 0 + (k + 1) = k + 1
-                                        ⊢ 0 + (k + 1) = k + 1
-                                    After this step: nothing is left to prove here.
-
-   Every step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The result
-
-   LeanForth's kernel checked the finished proof and printed its verdict:
-
-      zero_add_nested: accepted (checked in this run, uses results from the snapshot); axioms: none
-
-End of the run on tests/front/04-nested-ih.lf. LeanForth's last lines and its exit status
-(0 means every theorem of the file was accepted):
-
-   59350 declarations: 59350 accepted; 59349 from the snapshot, 1 checked in this run
-   exit status 0
-
-
-------------------------------------------------------------------------------
-Theorem ps_succ_add        (from the file tests/front/ps-succ-add.lf)
-------------------------------------------------------------------------------
-
-A. The proof as written in LeanForth
-
-      theorem ps_succ_add
-        Nat explicit: n  Nat explicit: m
-        n Nat.succ m + n m + Nat.succ =
-      := by
+    theorem zero_add_nested
+      Nat explicit: n  Nat explicit: m
+      0 n + n =
+    := by
+      n by-induction-with
+      | zero =>       by-rfl
+      | succ k ih =>
         m by-induction-with
-        | zero =>       by-rfl
-        | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
+        | zero =>       by-rw[ ' Nat.add_succ ih ]
+        | succ j ih =>  ih by-exact
         by-end
-      end ps_succ_add
+      by-end
+    end zero_add_nested
 
-B. The same proof as a Lean user would write it  (for comparison; Lean is not run)
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/s2-proofs.lean, which the tests compare with
 
-      theorem ps_succ_add (n m : Nat) : Nat.succ n + m = Nat.succ (n + m) := by
+    theorem zero_add_nested (n m : Nat) : 0 + n = n := by
+      induction n with
+      | zero => rfl
+      | succ k ih =>
         induction m with
-        | zero => rfl
-        | succ k ih => rw [Nat.add_succ, ih, Nat.add_succ]
+        | zero => rw [Nat.add_succ, ih]
+        | succ j ih => exact ih
 
-      (copied from tests/front/s2-proofs.lean)
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ Each step is the tactic as written in A; a step inside another is indented.
+                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
 
-C. What LeanForth did with the LeanForth text
+    n m : Nat                                     \ the statement as LeanForth read it: the first goal
+    ⊢ 0 + n = n
 
-   First it read the statement. This is what has to be proved, in Lean's notation.
-   Lines of the form  name : type  are what is given; the line after the mark ⊢ is
-   what must be shown.
+    n by-induction-with                           \ step 1: Lean's induction
+        n m : Nat                                 \ the goal before this step
+        ⊢ 0 + n = n
+                                                  \ after it: one goal for each case; the cases follow
 
-      n m : Nat
-      ⊢ Nat.succ n + m = Nat.succ (n + m)
+        | zero =>                                 \ step 2: a case of the induction above
+            case zero                             \ the goal of this case
+            m : Nat
+            ⊢ 0 + 0 = 0
 
-   Then it ran the proof's 5 tactic steps, in this order. A step that works inside
-   another step is indented under it.
+            by-rfl                                \ step 3: Lean's rfl
+                case zero                         \ the goal before this step
+                m : Nat
+                ⊢ 0 + 0 = 0
+                                                  \ after it: nothing is left to prove here
 
-   Step 1.  m by-induction-with
-            (Lean calls this tactic `induction`)
-            Goal before this step:
-                n m : Nat
-                ⊢ Nat.succ n + m = Nat.succ (n + m)
-            After this step: one goal for each case. The cases follow, indented.
+        | succ k ih =>                            \ step 4: a case of the induction above
+            case succ                             \ the goal of this case
+            m k : Nat
+            ih : 0 + k = k
+            ⊢ 0 + (k + 1) = k + 1
 
-         Step 2.  | zero =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case zero
-                      n : Nat
-                      ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
+            m by-induction-with                   \ step 5: Lean's induction
+                case succ                         \ the goal before this step
+                m k : Nat
+                ih : 0 + k = k
+                ⊢ 0 + (k + 1) = k + 1
+                                                  \ after it: one goal for each case; the cases follow
 
-               Step 3.  by-rfl
-                        (Lean calls this tactic `rfl`)
-                        Goal before this step:
-                            case zero
-                            n : Nat
-                            ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
-                        After this step: nothing is left to prove here.
+                | zero =>                         \ step 6: a case of the induction above
+                    case succ.zero                \ the goal of this case
+                    k : Nat
+                    ih : 0 + k = k
+                    ⊢ 0 + (k + 1) = k + 1
 
-         Step 4.  | succ k ih =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case succ
-                      n k : Nat
-                      ih : Nat.succ n + k = Nat.succ (n + k)
-                      ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
+                    by-rw[ ' Nat.add_succ ih ]    \ step 7: Lean's rw
+                        case succ.zero            \ the goal before this step
+                        k : Nat
+                        ih : 0 + k = k
+                        ⊢ 0 + (k + 1) = k + 1
+                                                  \ after it: nothing is left to prove here
 
-               Step 5.  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
-                        (Lean calls this tactic `rw`)
-                        Goal before this step:
-                            case succ
-                            n k : Nat
-                            ih : Nat.succ n + k = Nat.succ (n + k)
-                            ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
-                        After this step: nothing is left to prove here.
+                | succ j ih =>                    \ step 8: a case of the induction above
+                    case succ.succ                \ the goal of this case
+                    k : Nat
+                    ih✝ : 0 + k = k
+                    j : Nat
+                    ih : 0 + (k + 1) = k + 1
+                    ⊢ 0 + (k + 1) = k + 1
 
-   Every step is done. Parts left unproved: 0. Axioms used: none.
+                    ih by-exact                   \ step 9: Lean's exact
+                        case succ.succ            \ the goal before this step
+                        k : Nat
+                        ih✝ : 0 + k = k
+                        j : Nat
+                        ih : 0 + (k + 1) = k + 1
+                        ⊢ 0 + (k + 1) = k + 1
+                                                  \ after it: nothing is left to prove here
 
-D. The result
+\ All 9 steps are done. Parts left unproved: 0. Axioms used: none.
 
-   LeanForth's kernel checked the finished proof and printed its verdict:
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
 
-      ps_succ_add: accepted (checked in this run, uses results from the snapshot); axioms: none
+    zero_add_nested: accepted (checked in this run, uses results from the snapshot); axioms: none
 
-End of the run on tests/front/ps-succ-add.lf. LeanForth's last lines and its exit status
-(0 means every theorem of the file was accepted):
+\ End of the run on tests/front/04-nested-ih.lf: LeanForth's closing lines, as printed, and its exit
+\ status (0: every theorem of the file was accepted).
+    59350 declarations: 59350 accepted; 59349 from the snapshot, 1 checked in this run
+    exit status 0
 
-   59350 declarations: 59350 accepted; 59349 from the snapshot, 1 checked in this run
-   exit status 0
 
+====================================================================================================
+Theorem ps_succ_add
+====================================================================================================
 
-------------------------------------------------------------------------------
-Theorem ps_zero_add        (from the file tests/front/ps-add-comm.lf)
-------------------------------------------------------------------------------
+A. The proof in LeanForth                         \ input: the text of tests/front/ps-succ-add.lf
 
-A. The proof as written in LeanForth
+    theorem ps_succ_add
+      Nat explicit: n  Nat explicit: m
+      n Nat.succ m + n m + Nat.succ =
+    := by
+      m by-induction-with
+      | zero =>       by-rfl
+      | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
+      by-end
+    end ps_succ_add
 
-      theorem ps_zero_add
-        Nat explicit: n
-        0 n + n =
-      := by
-        n by-induction-with
-        | zero =>       by-rfl
-        | succ k ih =>  by-rw[ ' Nat.add_succ ih ]
-        by-end
-      end ps_zero_add
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/s2-proofs.lean, which the tests compare with
 
-B. The same proof as a Lean user would write it  (for comparison; Lean is not run)
+    theorem ps_succ_add (n m : Nat) : Nat.succ n + m = Nat.succ (n + m) := by
+      induction m with
+      | zero => rfl
+      | succ k ih => rw [Nat.add_succ, ih, Nat.add_succ]
 
-      theorem ps_zero_add (n : Nat) : 0 + n = n := by
-        induction n with
-        | zero => rfl
-        | succ k ih => rw [Nat.add_succ, ih]
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ Each step is the tactic as written in A; a step inside another is indented.
+                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
 
-      (copied from tests/front/s2-proofs.lean)
+    n m : Nat                                     \ the statement as LeanForth read it: the first goal
+    ⊢ Nat.succ n + m = Nat.succ (n + m)
 
-C. What LeanForth did with the LeanForth text
+    m by-induction-with                           \ step 1: Lean's induction
+        n m : Nat                                 \ the goal before this step
+        ⊢ Nat.succ n + m = Nat.succ (n + m)
+                                                  \ after it: one goal for each case; the cases follow
 
-   First it read the statement. This is what has to be proved, in Lean's notation.
-   Lines of the form  name : type  are what is given; the line after the mark ⊢ is
-   what must be shown.
+        | zero =>                                 \ step 2: a case of the induction above
+            case zero                             \ the goal of this case
+            n : Nat
+            ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
 
-      n : Nat
-      ⊢ 0 + n = n
-
-   Then it ran the proof's 5 tactic steps, in this order. A step that works inside
-   another step is indented under it.
-
-   Step 1.  n by-induction-with
-            (Lean calls this tactic `induction`)
-            Goal before this step:
+            by-rfl                                \ step 3: Lean's rfl
+                case zero                         \ the goal before this step
                 n : Nat
-                ⊢ 0 + n = n
-            After this step: one goal for each case. The cases follow, indented.
-
-         Step 2.  | zero =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case zero
-                      ⊢ 0 + 0 = 0
-
-               Step 3.  by-rfl
-                        (Lean calls this tactic `rfl`)
-                        Goal before this step:
-                            case zero
-                            ⊢ 0 + 0 = 0
-                        After this step: nothing is left to prove here.
-
-         Step 4.  | succ k ih =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case succ
-                      k : Nat
-                      ih : 0 + k = k
-                      ⊢ 0 + (k + 1) = k + 1
-
-               Step 5.  by-rw[ ' Nat.add_succ ih ]
-                        (Lean calls this tactic `rw`)
-                        Goal before this step:
-                            case succ
-                            k : Nat
-                            ih : 0 + k = k
-                            ⊢ 0 + (k + 1) = k + 1
-                        After this step: nothing is left to prove here.
-
-   Every step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The result
-
-   LeanForth's kernel checked the finished proof and printed its verdict:
-
-      ps_zero_add: accepted (checked in this run, uses results from the snapshot); axioms: none
-
-------------------------------------------------------------------------------
-Theorem ps_succ_add        (from the file tests/front/ps-add-comm.lf)
-------------------------------------------------------------------------------
-
-A. The proof as written in LeanForth
-
-      theorem ps_succ_add
-        Nat explicit: n  Nat explicit: m
-        n Nat.succ m + n m + Nat.succ =
-      := by
-        m by-induction-with
-        | zero =>       by-rfl
-        | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
-        by-end
-      end ps_succ_add
-
-B. The same proof as a Lean user would write it  (for comparison; Lean is not run)
-
-      theorem ps_succ_add (n m : Nat) : Nat.succ n + m = Nat.succ (n + m) := by
-        induction m with
-        | zero => rfl
-        | succ k ih => rw [Nat.add_succ, ih, Nat.add_succ]
-
-      (copied from tests/front/s2-proofs.lean)
-
-C. What LeanForth did with the LeanForth text
-
-   First it read the statement. This is what has to be proved, in Lean's notation.
-   Lines of the form  name : type  are what is given; the line after the mark ⊢ is
-   what must be shown.
-
-      n m : Nat
-      ⊢ Nat.succ n + m = Nat.succ (n + m)
-
-   Then it ran the proof's 5 tactic steps, in this order. A step that works inside
-   another step is indented under it.
-
-   Step 1.  m by-induction-with
-            (Lean calls this tactic `induction`)
-            Goal before this step:
-                n m : Nat
-                ⊢ Nat.succ n + m = Nat.succ (n + m)
-            After this step: one goal for each case. The cases follow, indented.
-
-         Step 2.  | zero =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case zero
-                      n : Nat
-                      ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
-
-               Step 3.  by-rfl
-                        (Lean calls this tactic `rfl`)
-                        Goal before this step:
-                            case zero
-                            n : Nat
-                            ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
-                        After this step: nothing is left to prove here.
-
-         Step 4.  | succ k ih =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case succ
-                      n k : Nat
-                      ih : Nat.succ n + k = Nat.succ (n + k)
-                      ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
-
-               Step 5.  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
-                        (Lean calls this tactic `rw`)
-                        Goal before this step:
-                            case succ
-                            n k : Nat
-                            ih : Nat.succ n + k = Nat.succ (n + k)
-                            ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
-                        After this step: nothing is left to prove here.
-
-   Every step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The result
-
-   LeanForth's kernel checked the finished proof and printed its verdict:
-
-      ps_succ_add: accepted (checked in this run, uses results from the snapshot); axioms: none
-
-------------------------------------------------------------------------------
-Theorem ps_add_comm        (from the file tests/front/ps-add-comm.lf)
-------------------------------------------------------------------------------
-
-A. The proof as written in LeanForth
-
-      theorem ps_add_comm
-        Nat explicit: n  Nat explicit: m
-        n m + m n + =
-      := by
-        m by-induction-with
-        | zero =>       by-rw[ ' ps_zero_add ] by-rfl
-        | succ k ih =>  by-rw[ ' Nat.add_succ ih ' ps_succ_add ]
-        by-end
-      end ps_add_comm
-
-B. The same proof as a Lean user would write it  (for comparison; Lean is not run)
-
-      theorem ps_add_comm (n m : Nat) : n + m = m + n := by
-        induction m with
-        | zero => rw [ps_zero_add]; rfl
-        | succ k ih => rw [Nat.add_succ, ih, ps_succ_add]
-
-      (copied from tests/front/s2-proofs.lean)
-
-C. What LeanForth did with the LeanForth text
-
-   First it read the statement. This is what has to be proved, in Lean's notation.
-   Lines of the form  name : type  are what is given; the line after the mark ⊢ is
-   what must be shown.
-
-      n m : Nat
-      ⊢ n + m = m + n
-
-   Then it ran the proof's 6 tactic steps, in this order. A step that works inside
-   another step is indented under it.
-
-   Step 1.  m by-induction-with
-            (Lean calls this tactic `induction`)
-            Goal before this step:
-                n m : Nat
-                ⊢ n + m = m + n
-            After this step: one goal for each case. The cases follow, indented.
-
-         Step 2.  | zero =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case zero
-                      n : Nat
-                      ⊢ n + 0 = 0 + n
-
-               Step 3.  by-rw[ ' ps_zero_add ]
-                        (Lean calls this tactic `rw`)
-                        Goal before this step:
-                            case zero
-                            n : Nat
-                            ⊢ n + 0 = 0 + n
-                        After this step 1 goal is left:
-                            case zero
-                            n : Nat
-                            ⊢ n + 0 = n
-
-               Step 4.  by-rw[ ' ps_zero_add ] by-rfl
-                        (Lean calls this tactic `rfl`)
-                        Goal before this step:
-                            case zero
-                            n : Nat
-                            ⊢ n + 0 = n
-                        After this step: nothing is left to prove here.
-
-         Step 5.  | succ k ih =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case succ
-                      n k : Nat
-                      ih : n + k = k + n
-                      ⊢ n + (k + 1) = k + 1 + n
-
-               Step 6.  by-rw[ ' Nat.add_succ ih ' ps_succ_add ]
-                        (Lean calls this tactic `rw`)
-                        Goal before this step:
-                            case succ
-                            n k : Nat
-                            ih : n + k = k + n
-                            ⊢ n + (k + 1) = k + 1 + n
-                        After this step: nothing is left to prove here.
-
-   Every step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The result
-
-   LeanForth's kernel checked the finished proof and printed its verdict:
-
-      ps_add_comm: accepted (checked in this run, uses results from the snapshot); axioms: none
-
-End of the run on tests/front/ps-add-comm.lf. LeanForth's last lines and its exit status
-(0 means every theorem of the file was accepted):
-
-   59352 declarations: 59352 accepted; 59349 from the snapshot, 3 checked in this run
-   exit status 0
-
-
-------------------------------------------------------------------------------
-Theorem ps_add_assoc        (from the file tests/front/ps-mul-add.lf)
-------------------------------------------------------------------------------
-
-A. The proof as written in LeanForth
-
-      theorem ps_add_assoc
-        Nat explicit: n  Nat explicit: m  Nat explicit: k
-        n m k + + n m + k + =
-      := by
-        k by-induction-with
-        | zero =>       by-rfl
-        | succ j ih =>  by-rw[ ' Nat.add_succ ' Nat.add_succ ih ' Nat.add_succ ]
-        by-end
-      end ps_add_assoc
-
-B. The same proof as a Lean user would write it  (for comparison; Lean is not run)
-
-      theorem ps_add_assoc (n m k : Nat) : n + (m + k) = (n + m) + k := by
-        induction k with
-        | zero => rfl
-        | succ j ih => rw [Nat.add_succ, Nat.add_succ, ih, Nat.add_succ]
-
-      (copied from tests/front/s2-proofs.lean)
-
-C. What LeanForth did with the LeanForth text
-
-   First it read the statement. This is what has to be proved, in Lean's notation.
-   Lines of the form  name : type  are what is given; the line after the mark ⊢ is
-   what must be shown.
-
-      n m k : Nat
-      ⊢ n + (m + k) = n + m + k
-
-   Then it ran the proof's 5 tactic steps, in this order. A step that works inside
-   another step is indented under it.
-
-   Step 1.  k by-induction-with
-            (Lean calls this tactic `induction`)
-            Goal before this step:
-                n m k : Nat
-                ⊢ n + (m + k) = n + m + k
-            After this step: one goal for each case. The cases follow, indented.
-
-         Step 2.  | zero =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case zero
-                      n m : Nat
-                      ⊢ n + (m + 0) = n + m + 0
-
-               Step 3.  by-rfl
-                        (Lean calls this tactic `rfl`)
-                        Goal before this step:
-                            case zero
-                            n m : Nat
-                            ⊢ n + (m + 0) = n + m + 0
-                        After this step: nothing is left to prove here.
-
-         Step 4.  | succ j ih =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case succ
-                      n m j : Nat
-                      ih : n + (m + j) = n + m + j
-                      ⊢ n + (m + (j + 1)) = n + m + (j + 1)
-
-               Step 5.  by-rw[ ' Nat.add_succ ' Nat.add_succ ih ' Nat.add_succ ]
-                        (Lean calls this tactic `rw`)
-                        Goal before this step:
-                            case succ
-                            n m j : Nat
-                            ih : n + (m + j) = n + m + j
-                            ⊢ n + (m + (j + 1)) = n + m + (j + 1)
-                        After this step: nothing is left to prove here.
-
-   Every step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The result
-
-   LeanForth's kernel checked the finished proof and printed its verdict:
-
-      ps_add_assoc: accepted (checked in this run, uses results from the snapshot); axioms: none
-
-------------------------------------------------------------------------------
-Theorem ps_mul_add        (from the file tests/front/ps-mul-add.lf)
-------------------------------------------------------------------------------
-
-A. The proof as written in LeanForth
-
-      theorem ps_mul_add
-        Nat explicit: n  Nat explicit: m  Nat explicit: k
-        n m k + * n m * n k * + =
-      := by
-        k by-induction-with
-        | zero =>       by-rfl
-        | succ j ih =>  by-rw[ ' Nat.add_succ ' Nat.mul_succ ih ' Nat.mul_succ ' ps_add_assoc ]
-        by-end
-      end ps_mul_add
-
-B. The same proof as a Lean user would write it  (for comparison; Lean is not run)
-
-      theorem ps_mul_add (n m k : Nat) : n * (m + k) = n * m + n * k := by
-        induction k with
-        | zero => rfl
-        | succ j ih => rw [Nat.add_succ, Nat.mul_succ, ih, Nat.mul_succ, ps_add_assoc]
-
-      (copied from tests/front/s2-proofs.lean)
-
-C. What LeanForth did with the LeanForth text
-
-   First it read the statement. This is what has to be proved, in Lean's notation.
-   Lines of the form  name : type  are what is given; the line after the mark ⊢ is
-   what must be shown.
-
-      n m k : Nat
-      ⊢ n * (m + k) = n * m + n * k
-
-   Then it ran the proof's 5 tactic steps, in this order. A step that works inside
-   another step is indented under it.
-
-   Step 1.  k by-induction-with
-            (Lean calls this tactic `induction`)
-            Goal before this step:
-                n m k : Nat
-                ⊢ n * (m + k) = n * m + n * k
-            After this step: one goal for each case. The cases follow, indented.
-
-         Step 2.  | zero =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case zero
-                      n m : Nat
-                      ⊢ n * (m + 0) = n * m + n * 0
-
-               Step 3.  by-rfl
-                        (Lean calls this tactic `rfl`)
-                        Goal before this step:
-                            case zero
-                            n m : Nat
-                            ⊢ n * (m + 0) = n * m + n * 0
-                        After this step: nothing is left to prove here.
-
-         Step 4.  | succ j ih =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case succ
-                      n m j : Nat
-                      ih : n * (m + j) = n * m + n * j
-                      ⊢ n * (m + (j + 1)) = n * m + n * (j + 1)
-
-               Step 5.  by-rw[ ' Nat.add_succ ' Nat.mul_succ ih ' Nat.mul_succ ' ps_add_assoc ]
-                        (Lean calls this tactic `rw`)
-                        Goal before this step:
-                            case succ
-                            n m j : Nat
-                            ih : n * (m + j) = n * m + n * j
-                            ⊢ n * (m + (j + 1)) = n * m + n * (j + 1)
-                        After this step: nothing is left to prove here.
-
-   Every step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The result
-
-   LeanForth's kernel checked the finished proof and printed its verdict:
-
-      ps_mul_add: accepted (checked in this run, uses results from the snapshot); axioms: none
-
-End of the run on tests/front/ps-mul-add.lf. LeanForth's last lines and its exit status
-(0 means every theorem of the file was accepted):
-
-   59351 declarations: 59351 accepted; 59349 from the snapshot, 2 checked in this run
-   exit status 0
-
-
-------------------------------------------------------------------------------
-Theorem ps_zero_add        (from the file tests/front/ps-length-append.lf)
-------------------------------------------------------------------------------
-
-A. The proof as written in LeanForth
-
-      theorem ps_zero_add
-        Nat explicit: n
-        0 n + n =
-      := by
-        n by-induction-with
-        | zero =>       by-rfl
-        | succ k ih =>  by-rw[ ' Nat.add_succ ih ]
-        by-end
-      end ps_zero_add
-
-B. The same proof as a Lean user would write it  (for comparison; Lean is not run)
-
-      theorem ps_zero_add (n : Nat) : 0 + n = n := by
-        induction n with
-        | zero => rfl
-        | succ k ih => rw [Nat.add_succ, ih]
-
-      (copied from tests/front/s2-proofs.lean)
-
-C. What LeanForth did with the LeanForth text
-
-   First it read the statement. This is what has to be proved, in Lean's notation.
-   Lines of the form  name : type  are what is given; the line after the mark ⊢ is
-   what must be shown.
-
-      n : Nat
-      ⊢ 0 + n = n
-
-   Then it ran the proof's 5 tactic steps, in this order. A step that works inside
-   another step is indented under it.
-
-   Step 1.  n by-induction-with
-            (Lean calls this tactic `induction`)
-            Goal before this step:
+                ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
+                                                  \ after it: nothing is left to prove here
+
+        | succ k ih =>                            \ step 4: a case of the induction above
+            case succ                             \ the goal of this case
+            n k : Nat
+            ih : Nat.succ n + k = Nat.succ (n + k)
+            ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
+
+            by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]  \ step 5: Lean's rw
+                case succ                         \ the goal before this step
+                n k : Nat
+                ih : Nat.succ n + k = Nat.succ (n + k)
+                ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
+                                                  \ after it: nothing is left to prove here
+
+\ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    ps_succ_add: accepted (checked in this run, uses results from the snapshot); axioms: none
+
+\ End of the run on tests/front/ps-succ-add.lf: LeanForth's closing lines, as printed, and its exit
+\ status (0: every theorem of the file was accepted).
+    59350 declarations: 59350 accepted; 59349 from the snapshot, 1 checked in this run
+    exit status 0
+
+
+====================================================================================================
+Theorem ps_zero_add
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/ps-add-comm.lf
+
+    theorem ps_zero_add
+      Nat explicit: n
+      0 n + n =
+    := by
+      n by-induction-with
+      | zero =>       by-rfl
+      | succ k ih =>  by-rw[ ' Nat.add_succ ih ]
+      by-end
+    end ps_zero_add
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/s2-proofs.lean, which the tests compare with
+
+    theorem ps_zero_add (n : Nat) : 0 + n = n := by
+      induction n with
+      | zero => rfl
+      | succ k ih => rw [Nat.add_succ, ih]
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ Each step is the tactic as written in A; a step inside another is indented.
+                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+
+    n : Nat                                       \ the statement as LeanForth read it: the first goal
+    ⊢ 0 + n = n
+
+    n by-induction-with                           \ step 1: Lean's induction
+        n : Nat                                   \ the goal before this step
+        ⊢ 0 + n = n
+                                                  \ after it: one goal for each case; the cases follow
+
+        | zero =>                                 \ step 2: a case of the induction above
+            case zero                             \ the goal of this case
+            ⊢ 0 + 0 = 0
+
+            by-rfl                                \ step 3: Lean's rfl
+                case zero                         \ the goal before this step
+                ⊢ 0 + 0 = 0
+                                                  \ after it: nothing is left to prove here
+
+        | succ k ih =>                            \ step 4: a case of the induction above
+            case succ                             \ the goal of this case
+            k : Nat
+            ih : 0 + k = k
+            ⊢ 0 + (k + 1) = k + 1
+
+            by-rw[ ' Nat.add_succ ih ]            \ step 5: Lean's rw
+                case succ                         \ the goal before this step
+                k : Nat
+                ih : 0 + k = k
+                ⊢ 0 + (k + 1) = k + 1
+                                                  \ after it: nothing is left to prove here
+
+\ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    ps_zero_add: accepted (checked in this run, uses results from the snapshot); axioms: none
+
+====================================================================================================
+Theorem ps_succ_add
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/ps-add-comm.lf
+
+    theorem ps_succ_add
+      Nat explicit: n  Nat explicit: m
+      n Nat.succ m + n m + Nat.succ =
+    := by
+      m by-induction-with
+      | zero =>       by-rfl
+      | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
+      by-end
+    end ps_succ_add
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/s2-proofs.lean, which the tests compare with
+
+    theorem ps_succ_add (n m : Nat) : Nat.succ n + m = Nat.succ (n + m) := by
+      induction m with
+      | zero => rfl
+      | succ k ih => rw [Nat.add_succ, ih, Nat.add_succ]
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ Each step is the tactic as written in A; a step inside another is indented.
+                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+
+    n m : Nat                                     \ the statement as LeanForth read it: the first goal
+    ⊢ Nat.succ n + m = Nat.succ (n + m)
+
+    m by-induction-with                           \ step 1: Lean's induction
+        n m : Nat                                 \ the goal before this step
+        ⊢ Nat.succ n + m = Nat.succ (n + m)
+                                                  \ after it: one goal for each case; the cases follow
+
+        | zero =>                                 \ step 2: a case of the induction above
+            case zero                             \ the goal of this case
+            n : Nat
+            ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
+
+            by-rfl                                \ step 3: Lean's rfl
+                case zero                         \ the goal before this step
                 n : Nat
-                ⊢ 0 + n = n
-            After this step: one goal for each case. The cases follow, indented.
-
-         Step 2.  | zero =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case zero
-                      ⊢ 0 + 0 = 0
-
-               Step 3.  by-rfl
-                        (Lean calls this tactic `rfl`)
-                        Goal before this step:
-                            case zero
-                            ⊢ 0 + 0 = 0
-                        After this step: nothing is left to prove here.
-
-         Step 4.  | succ k ih =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case succ
-                      k : Nat
-                      ih : 0 + k = k
-                      ⊢ 0 + (k + 1) = k + 1
-
-               Step 5.  by-rw[ ' Nat.add_succ ih ]
-                        (Lean calls this tactic `rw`)
-                        Goal before this step:
-                            case succ
-                            k : Nat
-                            ih : 0 + k = k
-                            ⊢ 0 + (k + 1) = k + 1
-                        After this step: nothing is left to prove here.
-
-   Every step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The result
-
-   LeanForth's kernel checked the finished proof and printed its verdict:
-
-      ps_zero_add: accepted (checked in this run, uses results from the snapshot); axioms: none
-
-------------------------------------------------------------------------------
-Theorem ps_succ_add        (from the file tests/front/ps-length-append.lf)
-------------------------------------------------------------------------------
-
-A. The proof as written in LeanForth
-
-      theorem ps_succ_add
-        Nat explicit: n  Nat explicit: m
-        n Nat.succ m + n m + Nat.succ =
-      := by
-        m by-induction-with
-        | zero =>       by-rfl
-        | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
-        by-end
-      end ps_succ_add
-
-B. The same proof as a Lean user would write it  (for comparison; Lean is not run)
-
-      theorem ps_succ_add (n m : Nat) : Nat.succ n + m = Nat.succ (n + m) := by
-        induction m with
-        | zero => rfl
-        | succ k ih => rw [Nat.add_succ, ih, Nat.add_succ]
-
-      (copied from tests/front/s2-proofs.lean)
-
-C. What LeanForth did with the LeanForth text
-
-   First it read the statement. This is what has to be proved, in Lean's notation.
-   Lines of the form  name : type  are what is given; the line after the mark ⊢ is
-   what must be shown.
-
-      n m : Nat
-      ⊢ Nat.succ n + m = Nat.succ (n + m)
-
-   Then it ran the proof's 5 tactic steps, in this order. A step that works inside
-   another step is indented under it.
-
-   Step 1.  m by-induction-with
-            (Lean calls this tactic `induction`)
-            Goal before this step:
-                n m : Nat
-                ⊢ Nat.succ n + m = Nat.succ (n + m)
-            After this step: one goal for each case. The cases follow, indented.
-
-         Step 2.  | zero =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case zero
-                      n : Nat
-                      ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
-
-               Step 3.  by-rfl
-                        (Lean calls this tactic `rfl`)
-                        Goal before this step:
-                            case zero
-                            n : Nat
-                            ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
-                        After this step: nothing is left to prove here.
-
-         Step 4.  | succ k ih =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case succ
-                      n k : Nat
-                      ih : Nat.succ n + k = Nat.succ (n + k)
-                      ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
-
-               Step 5.  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
-                        (Lean calls this tactic `rw`)
-                        Goal before this step:
-                            case succ
-                            n k : Nat
-                            ih : Nat.succ n + k = Nat.succ (n + k)
-                            ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
-                        After this step: nothing is left to prove here.
-
-   Every step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The result
-
-   LeanForth's kernel checked the finished proof and printed its verdict:
-
-      ps_succ_add: accepted (checked in this run, uses results from the snapshot); axioms: none
-
-------------------------------------------------------------------------------
-Theorem ps_length_append        (from the file tests/front/ps-length-append.lf)
-------------------------------------------------------------------------------
-
-A. The proof as written in LeanForth
-
-      theorem ps_length_append
-        Nat List explicit: xs  Nat List explicit: ys
-        xs ys HAppend.hAppend List.length  xs List.length ys List.length + =
-      := by
-        xs by-induction-with
-        | nil =>           by-rw[ ' List.nil_append ' List.length_nil ' ps_zero_add ]
-        | cons x t ih =>   by-rw[ ' List.cons_append ' List.length_cons ' List.length_cons ih ' ps_succ_add ]
-        by-end
-      end ps_length_append
-
-B. The same proof as a Lean user would write it  (for comparison; Lean is not run)
-
-      theorem ps_length_append (xs ys : List Nat) : (xs ++ ys).length = xs.length + ys.length := by
-        induction xs with
-        | nil => rw [List.nil_append, List.length_nil, ps_zero_add]
-        | cons x t ih => rw [List.cons_append, List.length_cons, List.length_cons, ih, ps_succ_add]
-
-      (copied from tests/front/s2-proofs.lean)
-
-C. What LeanForth did with the LeanForth text
-
-   First it read the statement. This is what has to be proved, in Lean's notation.
-   Lines of the form  name : type  are what is given; the line after the mark ⊢ is
-   what must be shown.
-
-      xs ys : @List Nat
-      ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) xs ys) = @List.length Nat xs + @List.length Nat ys
-
-   Then it ran the proof's 5 tactic steps, in this order. A step that works inside
-   another step is indented under it.
-
-   Step 1.  xs by-induction-with
-            (Lean calls this tactic `induction`)
-            Goal before this step:
-                xs ys : @List Nat
-                ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) xs ys) = @List.length Nat xs + @List.length Nat ys
-            After this step: one goal for each case. The cases follow, indented.
-
-         Step 2.  | nil =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case nil
-                      ys : @List Nat
-                      ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) (@List.nil Nat) ys) = @List.length Nat (@List.nil Nat) + @List.length Nat ys
-
-               Step 3.  by-rw[ ' List.nil_append ' List.length_nil ' ps_zero_add ]
-                        (Lean calls this tactic `rw`)
-                        Goal before this step:
-                            case nil
-                            ys : @List Nat
-                            ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) (@List.nil Nat) ys) = @List.length Nat (@List.nil Nat) + @List.length Nat ys
-                        After this step: nothing is left to prove here.
-
-         Step 4.  | cons x t ih =>
-                  (one case of the induction above)
-                  The goal of this case:
-                      case cons
-                      ys : @List Nat
-                      x : Nat
-                      t : @List Nat
-                      ih : @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) t ys) = @List.length Nat t + @List.length Nat ys
-                      ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) (@List.cons Nat x t) ys) = @List.length Nat (@List.cons Nat x t) + @List.length Nat ys
-
-               Step 5.  by-rw[ ' List.cons_append ' List.length_cons ' List.length_cons ih ' ps_succ_add ]
-                        (Lean calls this tactic `rw`)
-                        Goal before this step:
-                            case cons
-                            ys : @List Nat
-                            x : Nat
-                            t : @List Nat
-                            ih : @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) t ys) = @List.length Nat t + @List.length Nat ys
-                            ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) (@List.cons Nat x t) ys) = @List.length Nat (@List.cons Nat x t) + @List.length Nat ys
-                        After this step: nothing is left to prove here.
-
-   Every step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The result
-
-   LeanForth's kernel checked the finished proof and printed its verdict:
-
-      ps_length_append: accepted (checked in this run, uses results from the snapshot); axioms: none
-
-End of the run on tests/front/ps-length-append.lf. LeanForth's last lines and its exit status
-(0 means every theorem of the file was accepted):
-
-   59352 declarations: 59352 accepted; 59349 from the snapshot, 3 checked in this run
-   exit status 0
-
-
-------------------------------------------------------------------------------
-Theorem add_zero'        (from the file tests/front/00-add-zero.lf)
-------------------------------------------------------------------------------
-
-A. The proof as written in LeanForth
-
-      theorem add_zero'
-        Nat explicit: n
-        n 0 + n =
-      :=
-        n Eq.refl
-      end add_zero'
-
-B. The same proof as a Lean user would write it  (for comparison; Lean is not run)
-
-      theorem add_zero' (n : Nat) : n + 0 = n := Eq.refl n
-
-      (copied from tests/front/s2-proofs.lean)
-
-C. What LeanForth did with the LeanForth text
-
-   This proof is a term written out in full after := , not a list of tactics,
-   so there are no tactic steps to show. The kernel checks the term as it stands.
-
-D. The result
-
-   LeanForth's kernel checked the finished proof and printed its verdict:
-
-      add_zero': accepted (checked in this run, uses results from the snapshot); axioms: none
-
-End of the run on tests/front/00-add-zero.lf. LeanForth's last lines and its exit status
-(0 means every theorem of the file was accepted):
-
-   59350 declarations: 59350 accepted; 59349 from the snapshot, 1 checked in this run
-   exit status 0
-
-
-------------------------------------------------------------------------------
-Theorem add_zero'        (from the file tests/front/02-add-zero-rfl.lf)
-------------------------------------------------------------------------------
-
-A. The proof as written in LeanForth
-
-      theorem add_zero'   Nat explicit: n   n 0 + n =   := by  by-rfl   end add_zero'
-
-B. The same proof as a Lean user would write it  (for comparison; Lean is not run)
-
-      theorem add_zero_rfl' (n : Nat) : n + 0 = n := by rfl
-
-      (copied from tests/front/s2-proofs.lean)
-
-C. What LeanForth did with the LeanForth text
-
-   First it read the statement. This is what has to be proved, in Lean's notation.
-   Lines of the form  name : type  are what is given; the line after the mark ⊢ is
-   what must be shown.
-
-      n : Nat
-      ⊢ n + 0 = n
-
-   Then it ran the proof's 1 tactic step, in this order. A step that works inside
-   another step is indented under it.
-
-   Step 1.  by-rfl
-            (Lean calls this tactic `rfl`)
-            Goal before this step:
+                ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
+                                                  \ after it: nothing is left to prove here
+
+        | succ k ih =>                            \ step 4: a case of the induction above
+            case succ                             \ the goal of this case
+            n k : Nat
+            ih : Nat.succ n + k = Nat.succ (n + k)
+            ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
+
+            by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]  \ step 5: Lean's rw
+                case succ                         \ the goal before this step
+                n k : Nat
+                ih : Nat.succ n + k = Nat.succ (n + k)
+                ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
+                                                  \ after it: nothing is left to prove here
+
+\ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    ps_succ_add: accepted (checked in this run, uses results from the snapshot); axioms: none
+
+====================================================================================================
+Theorem ps_add_comm
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/ps-add-comm.lf
+
+    theorem ps_add_comm
+      Nat explicit: n  Nat explicit: m
+      n m + m n + =
+    := by
+      m by-induction-with
+      | zero =>       by-rw[ ' ps_zero_add ] by-rfl
+      | succ k ih =>  by-rw[ ' Nat.add_succ ih ' ps_succ_add ]
+      by-end
+    end ps_add_comm
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/s2-proofs.lean, which the tests compare with
+
+    theorem ps_add_comm (n m : Nat) : n + m = m + n := by
+      induction m with
+      | zero => rw [ps_zero_add]; rfl
+      | succ k ih => rw [Nat.add_succ, ih, ps_succ_add]
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ Each step is the tactic as written in A; a step inside another is indented.
+                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+
+    n m : Nat                                     \ the statement as LeanForth read it: the first goal
+    ⊢ n + m = m + n
+
+    m by-induction-with                           \ step 1: Lean's induction
+        n m : Nat                                 \ the goal before this step
+        ⊢ n + m = m + n
+                                                  \ after it: one goal for each case; the cases follow
+
+        | zero =>                                 \ step 2: a case of the induction above
+            case zero                             \ the goal of this case
+            n : Nat
+            ⊢ n + 0 = 0 + n
+
+            by-rw[ ' ps_zero_add ]                \ step 3: Lean's rw
+                case zero                         \ the goal before this step
+                n : Nat
+                ⊢ n + 0 = 0 + n
+                case zero                         \ left after it: goal 1 of 1
                 n : Nat
                 ⊢ n + 0 = n
-            After this step: nothing is left to prove here.
 
-   Every step is done. Parts left unproved: 0. Axioms used: none.
+            by-rw[ ' ps_zero_add ] by-rfl         \ step 4: Lean's rfl
+                case zero                         \ the goal before this step
+                n : Nat
+                ⊢ n + 0 = n
+                                                  \ after it: nothing is left to prove here
 
-D. The result
+        | succ k ih =>                            \ step 5: a case of the induction above
+            case succ                             \ the goal of this case
+            n k : Nat
+            ih : n + k = k + n
+            ⊢ n + (k + 1) = k + 1 + n
 
-   LeanForth's kernel checked the finished proof and printed its verdict:
+            by-rw[ ' Nat.add_succ ih ' ps_succ_add ]  \ step 6: Lean's rw
+                case succ                         \ the goal before this step
+                n k : Nat
+                ih : n + k = k + n
+                ⊢ n + (k + 1) = k + 1 + n
+                                                  \ after it: nothing is left to prove here
 
-      add_zero': accepted (checked in this run, uses results from the snapshot); axioms: none
+\ All 6 steps are done. Parts left unproved: 0. Axioms used: none.
 
-End of the run on tests/front/02-add-zero-rfl.lf. LeanForth's last lines and its exit status
-(0 means every theorem of the file was accepted):
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
 
-   59350 declarations: 59350 accepted; 59349 from the snapshot, 1 checked in this run
-   exit status 0
+    ps_add_comm: accepted (checked in this run, uses results from the snapshot); axioms: none
+
+\ End of the run on tests/front/ps-add-comm.lf: LeanForth's closing lines, as printed, and its exit
+\ status (0: every theorem of the file was accepted).
+    59352 declarations: 59352 accepted; 59349 from the snapshot, 3 checked in this run
+    exit status 0
+
+
+====================================================================================================
+Theorem ps_add_assoc
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/ps-mul-add.lf
+
+    theorem ps_add_assoc
+      Nat explicit: n  Nat explicit: m  Nat explicit: k
+      n m k + + n m + k + =
+    := by
+      k by-induction-with
+      | zero =>       by-rfl
+      | succ j ih =>  by-rw[ ' Nat.add_succ ' Nat.add_succ ih ' Nat.add_succ ]
+      by-end
+    end ps_add_assoc
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/s2-proofs.lean, which the tests compare with
+
+    theorem ps_add_assoc (n m k : Nat) : n + (m + k) = (n + m) + k := by
+      induction k with
+      | zero => rfl
+      | succ j ih => rw [Nat.add_succ, Nat.add_succ, ih, Nat.add_succ]
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ Each step is the tactic as written in A; a step inside another is indented.
+                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+
+    n m k : Nat                                   \ the statement as LeanForth read it: the first goal
+    ⊢ n + (m + k) = n + m + k
+
+    k by-induction-with                           \ step 1: Lean's induction
+        n m k : Nat                               \ the goal before this step
+        ⊢ n + (m + k) = n + m + k
+                                                  \ after it: one goal for each case; the cases follow
+
+        | zero =>                                 \ step 2: a case of the induction above
+            case zero                             \ the goal of this case
+            n m : Nat
+            ⊢ n + (m + 0) = n + m + 0
+
+            by-rfl                                \ step 3: Lean's rfl
+                case zero                         \ the goal before this step
+                n m : Nat
+                ⊢ n + (m + 0) = n + m + 0
+                                                  \ after it: nothing is left to prove here
+
+        | succ j ih =>                            \ step 4: a case of the induction above
+            case succ                             \ the goal of this case
+            n m j : Nat
+            ih : n + (m + j) = n + m + j
+            ⊢ n + (m + (j + 1)) = n + m + (j + 1)
+
+            by-rw[ ' Nat.add_succ ' Nat.add_succ ih ' Nat.add_succ ]  \ step 5: Lean's rw
+                case succ                         \ the goal before this step
+                n m j : Nat
+                ih : n + (m + j) = n + m + j
+                ⊢ n + (m + (j + 1)) = n + m + (j + 1)
+                                                  \ after it: nothing is left to prove here
+
+\ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    ps_add_assoc: accepted (checked in this run, uses results from the snapshot); axioms: none
+
+====================================================================================================
+Theorem ps_mul_add
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/ps-mul-add.lf
+
+    theorem ps_mul_add
+      Nat explicit: n  Nat explicit: m  Nat explicit: k
+      n m k + * n m * n k * + =
+    := by
+      k by-induction-with
+      | zero =>       by-rfl
+      | succ j ih =>  by-rw[ ' Nat.add_succ ' Nat.mul_succ ih ' Nat.mul_succ ' ps_add_assoc ]
+      by-end
+    end ps_mul_add
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/s2-proofs.lean, which the tests compare with
+
+    theorem ps_mul_add (n m k : Nat) : n * (m + k) = n * m + n * k := by
+      induction k with
+      | zero => rfl
+      | succ j ih => rw [Nat.add_succ, Nat.mul_succ, ih, Nat.mul_succ, ps_add_assoc]
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ Each step is the tactic as written in A; a step inside another is indented.
+                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+
+    n m k : Nat                                   \ the statement as LeanForth read it: the first goal
+    ⊢ n * (m + k) = n * m + n * k
+
+    k by-induction-with                           \ step 1: Lean's induction
+        n m k : Nat                               \ the goal before this step
+        ⊢ n * (m + k) = n * m + n * k
+                                                  \ after it: one goal for each case; the cases follow
+
+        | zero =>                                 \ step 2: a case of the induction above
+            case zero                             \ the goal of this case
+            n m : Nat
+            ⊢ n * (m + 0) = n * m + n * 0
+
+            by-rfl                                \ step 3: Lean's rfl
+                case zero                         \ the goal before this step
+                n m : Nat
+                ⊢ n * (m + 0) = n * m + n * 0
+                                                  \ after it: nothing is left to prove here
+
+        | succ j ih =>                            \ step 4: a case of the induction above
+            case succ                             \ the goal of this case
+            n m j : Nat
+            ih : n * (m + j) = n * m + n * j
+            ⊢ n * (m + (j + 1)) = n * m + n * (j + 1)
+
+            by-rw[ ' Nat.add_succ ' Nat.mul_succ ih ' Nat.mul_succ ' ps_add_assoc ]  \ step 5: Lean's rw
+                case succ                         \ the goal before this step
+                n m j : Nat
+                ih : n * (m + j) = n * m + n * j
+                ⊢ n * (m + (j + 1)) = n * m + n * (j + 1)
+                                                  \ after it: nothing is left to prove here
+
+\ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    ps_mul_add: accepted (checked in this run, uses results from the snapshot); axioms: none
+
+\ End of the run on tests/front/ps-mul-add.lf: LeanForth's closing lines, as printed, and its exit
+\ status (0: every theorem of the file was accepted).
+    59351 declarations: 59351 accepted; 59349 from the snapshot, 2 checked in this run
+    exit status 0
+
+
+====================================================================================================
+Theorem ps_zero_add
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/ps-length-append.lf
+
+    theorem ps_zero_add
+      Nat explicit: n
+      0 n + n =
+    := by
+      n by-induction-with
+      | zero =>       by-rfl
+      | succ k ih =>  by-rw[ ' Nat.add_succ ih ]
+      by-end
+    end ps_zero_add
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/s2-proofs.lean, which the tests compare with
+
+    theorem ps_zero_add (n : Nat) : 0 + n = n := by
+      induction n with
+      | zero => rfl
+      | succ k ih => rw [Nat.add_succ, ih]
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ Each step is the tactic as written in A; a step inside another is indented.
+                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+
+    n : Nat                                       \ the statement as LeanForth read it: the first goal
+    ⊢ 0 + n = n
+
+    n by-induction-with                           \ step 1: Lean's induction
+        n : Nat                                   \ the goal before this step
+        ⊢ 0 + n = n
+                                                  \ after it: one goal for each case; the cases follow
+
+        | zero =>                                 \ step 2: a case of the induction above
+            case zero                             \ the goal of this case
+            ⊢ 0 + 0 = 0
+
+            by-rfl                                \ step 3: Lean's rfl
+                case zero                         \ the goal before this step
+                ⊢ 0 + 0 = 0
+                                                  \ after it: nothing is left to prove here
+
+        | succ k ih =>                            \ step 4: a case of the induction above
+            case succ                             \ the goal of this case
+            k : Nat
+            ih : 0 + k = k
+            ⊢ 0 + (k + 1) = k + 1
+
+            by-rw[ ' Nat.add_succ ih ]            \ step 5: Lean's rw
+                case succ                         \ the goal before this step
+                k : Nat
+                ih : 0 + k = k
+                ⊢ 0 + (k + 1) = k + 1
+                                                  \ after it: nothing is left to prove here
+
+\ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    ps_zero_add: accepted (checked in this run, uses results from the snapshot); axioms: none
+
+====================================================================================================
+Theorem ps_succ_add
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/ps-length-append.lf
+
+    theorem ps_succ_add
+      Nat explicit: n  Nat explicit: m
+      n Nat.succ m + n m + Nat.succ =
+    := by
+      m by-induction-with
+      | zero =>       by-rfl
+      | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
+      by-end
+    end ps_succ_add
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/s2-proofs.lean, which the tests compare with
+
+    theorem ps_succ_add (n m : Nat) : Nat.succ n + m = Nat.succ (n + m) := by
+      induction m with
+      | zero => rfl
+      | succ k ih => rw [Nat.add_succ, ih, Nat.add_succ]
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ Each step is the tactic as written in A; a step inside another is indented.
+                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+
+    n m : Nat                                     \ the statement as LeanForth read it: the first goal
+    ⊢ Nat.succ n + m = Nat.succ (n + m)
+
+    m by-induction-with                           \ step 1: Lean's induction
+        n m : Nat                                 \ the goal before this step
+        ⊢ Nat.succ n + m = Nat.succ (n + m)
+                                                  \ after it: one goal for each case; the cases follow
+
+        | zero =>                                 \ step 2: a case of the induction above
+            case zero                             \ the goal of this case
+            n : Nat
+            ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
+
+            by-rfl                                \ step 3: Lean's rfl
+                case zero                         \ the goal before this step
+                n : Nat
+                ⊢ Nat.succ n + 0 = Nat.succ (n + 0)
+                                                  \ after it: nothing is left to prove here
+
+        | succ k ih =>                            \ step 4: a case of the induction above
+            case succ                             \ the goal of this case
+            n k : Nat
+            ih : Nat.succ n + k = Nat.succ (n + k)
+            ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
+
+            by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]  \ step 5: Lean's rw
+                case succ                         \ the goal before this step
+                n k : Nat
+                ih : Nat.succ n + k = Nat.succ (n + k)
+                ⊢ Nat.succ n + (k + 1) = Nat.succ (n + (k + 1))
+                                                  \ after it: nothing is left to prove here
+
+\ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    ps_succ_add: accepted (checked in this run, uses results from the snapshot); axioms: none
+
+====================================================================================================
+Theorem ps_length_append
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/ps-length-append.lf
+
+    theorem ps_length_append
+      Nat List explicit: xs  Nat List explicit: ys
+      xs ys HAppend.hAppend List.length  xs List.length ys List.length + =
+    := by
+      xs by-induction-with
+      | nil =>           by-rw[ ' List.nil_append ' List.length_nil ' ps_zero_add ]
+      | cons x t ih =>   by-rw[ ' List.cons_append ' List.length_cons ' List.length_cons ih ' ps_succ_add ]
+      by-end
+    end ps_length_append
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/s2-proofs.lean, which the tests compare with
+
+    theorem ps_length_append (xs ys : List Nat) : (xs ++ ys).length = xs.length + ys.length := by
+      induction xs with
+      | nil => rw [List.nil_append, List.length_nil, ps_zero_add]
+      | cons x t ih => rw [List.cons_append, List.length_cons, List.length_cons, ih, ps_succ_add]
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ Each step is the tactic as written in A; a step inside another is indented.
+                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+
+    xs ys : @List Nat                             \ the statement as LeanForth read it: the first goal
+    ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) xs ys) = @List.length Nat xs + @List.length Nat ys
+
+    xs by-induction-with                          \ step 1: Lean's induction
+        xs ys : @List Nat                         \ the goal before this step
+        ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) xs ys) = @List.length Nat xs + @List.length Nat ys
+                                                  \ after it: one goal for each case; the cases follow
+
+        | nil =>                                  \ step 2: a case of the induction above
+            case nil                              \ the goal of this case
+            ys : @List Nat
+            ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) (@List.nil Nat) ys) = @List.length Nat (@List.nil Nat) + @List.length Nat ys
+
+            by-rw[ ' List.nil_append ' List.length_nil ' ps_zero_add ]  \ step 3: Lean's rw
+                case nil                          \ the goal before this step
+                ys : @List Nat
+                ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) (@List.nil Nat) ys) = @List.length Nat (@List.nil Nat) + @List.length Nat ys
+                                                  \ after it: nothing is left to prove here
+
+        | cons x t ih =>                          \ step 4: a case of the induction above
+            case cons                             \ the goal of this case
+            ys : @List Nat
+            x : Nat
+            t : @List Nat
+            ih : @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) t ys) = @List.length Nat t + @List.length Nat ys
+            ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) (@List.cons Nat x t) ys) = @List.length Nat (@List.cons Nat x t) + @List.length Nat ys
+
+            by-rw[ ' List.cons_append ' List.length_cons ' List.length_cons ih ' ps_succ_add ]  \ step 5: Lean's rw
+                case cons                         \ the goal before this step
+                ys : @List Nat
+                x : Nat
+                t : @List Nat
+                ih : @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) t ys) = @List.length Nat t + @List.length Nat ys
+                ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) (@List.cons Nat x t) ys) = @List.length Nat (@List.cons Nat x t) + @List.length Nat ys
+                                                  \ after it: nothing is left to prove here
+
+\ All 5 steps are done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    ps_length_append: accepted (checked in this run, uses results from the snapshot); axioms: none
+
+\ End of the run on tests/front/ps-length-append.lf: LeanForth's closing lines, as printed, and its exit
+\ status (0: every theorem of the file was accepted).
+    59352 declarations: 59352 accepted; 59349 from the snapshot, 3 checked in this run
+    exit status 0
+
+
+====================================================================================================
+Theorem add_zero'
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/00-add-zero.lf
+
+    theorem add_zero'
+      Nat explicit: n
+      n 0 + n =
+    :=
+      n Eq.refl
+    end add_zero'
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/s2-proofs.lean, which the tests compare with
+
+    theorem add_zero' (n : Nat) : n + 0 = n := Eq.refl n
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ Each step is the tactic as written in A; a step inside another is indented.
+                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+
+\ The proof is a term written out in full after := , not tactics: there are no steps.
+\ The kernel checks the term as it stands.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    add_zero': accepted (checked in this run, uses results from the snapshot); axioms: none
+
+\ End of the run on tests/front/00-add-zero.lf: LeanForth's closing lines, as printed, and its exit
+\ status (0: every theorem of the file was accepted).
+    59350 declarations: 59350 accepted; 59349 from the snapshot, 1 checked in this run
+    exit status 0
+
+
+====================================================================================================
+Theorem add_zero'
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/02-add-zero-rfl.lf
+
+    theorem add_zero'   Nat explicit: n   n 0 + n =   := by  by-rfl   end add_zero'
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/s2-proofs.lean, which the tests compare with
+
+    theorem add_zero_rfl' (n : Nat) : n + 0 = n := by rfl
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ Each step is the tactic as written in A; a step inside another is indented.
+                                                  \ Goals are in Lean's notation:  name : type  is given,  ⊢  marks what must be shown.
+
+    n : Nat                                       \ the statement as LeanForth read it: the first goal
+    ⊢ n + 0 = n
+
+    by-rfl                                        \ step 1: Lean's rfl
+        n : Nat                                   \ the goal before this step
+        ⊢ n + 0 = n
+                                                  \ after it: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    add_zero': accepted (checked in this run, uses results from the snapshot); axioms: none
+
+\ End of the run on tests/front/02-add-zero-rfl.lf: LeanForth's closing lines, as printed, and its exit
+\ status (0: every theorem of the file was accepted).
+    59350 declarations: 59350 accepted; 59349 from the snapshot, 1 checked in this run
+    exit status 0
 
