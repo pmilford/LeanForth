@@ -19,6 +19,9 @@
 \ for the scratch arena is full (diagnostic 93, core/nat-ops.fs), never
 \ a verdict. Every computation runs in a scratch arena on the heap, sized
 \ from its operands, and freed before the word returns.
+\ An operand that is no literal, and the predecessor of the literal 0,
+\ answer invalid with -1 and no diagnostic (owner, 2026-11-20, plan 9.4.8l
+\ AW): no caller passes one, as Lean's callers test is_nat_lit_ext first.
 \ Untrusted [kernel] until the review gate of AGENTS.md.
 \ State: none of its own.
 

@@ -358,3 +358,160 @@ All four findings are fixed in one commit, `9f1b95d4`. Every fault named below i
 - `scripts/mutants.py --only`: the 41 faults on core/nat-ops.fs, kernel/reduce-nat.fs and front/reduce-nat.fs plus
   the `aw-` faults on defeq.fs and iota.fs. All 41 caught.
 - `check-forth-quality.py`, `check-duplicates.py` (no new or grown group) and `check-progress.py`.
+
+## Re-check (2026-11-20, fix commit 9f1b95d4)
+
+Range re-checked: `fbe5de3e..9f1b95d4` (the fix commit, `src` and `tests`), on the tree of `3e54c00f`
+(its log commit; `src` and `tests` are the same as at `9f1b95d4`). It was compared with main, `8b6272c1`. Both trees came
+from `git archive` into `scratchpad/aw-recheck/{old,new}`. No worktree was edited. No make and no suite was run.
+Findings: 0 high, 0 medium, 0 low, 2 info. Nothing blocks.
+
+**Verdict: merge.** The fixes answer B1, B2, L1 and L2 of the review. The gate gets "no unresolved finding" from me for
+the fix commit.
+
+**For the owner:** No input the checker can reach gets a different verdict: **yes**. Every literal case in the kernel
+grid and the two non-literal probes is answered byte for byte as on main. The only answers that changed belong to
+inputs no caller passes: non-literal operands, and the predecessor of the literal 0. Both now get "invalid" instead of a
+made-up number. A tripwire over 146 test files, 4 export slices and 4 decide `.lf` files fired only in the tests
+written to trigger it.
+
+### 1. Kernel verdicts, old (8b6272c1) against new (3e54c00f), Gforth 1.0.0
+
+- **kgrid** (8,823 lines, the 14 operations over 25 literal values, with succ, pred and constructor): byte-identical.
+- **k2** (745 lines): 661 identical. The 84 that differ are all non-literal cases, and each is now invalid with node -1
+  and the sentinel kept. Before, 68 were a made-up literal, 12 a Bool constant and 4 rejected 92.
+- **k3** (1,899 lines): 1,047 identical. The 852 that differ are all non-literal cases, and each is now invalid with -1
+  and the sentinel kept. Before: 710 made-up literal, 120 Bool, 9 full 93, 6 rejected 92, 7 unsupported.
+  `aw-tools/compare.py` exits 0 on both. All three outputs are byte-identical to the implementer's
+  `aw-fix-probe/new-*.out`.
+- **k4**, my own probe (56 lines; `aw-recheck/{old,new}/probe/k4.fs`). It runs `lf-reduce-nat-pred`,
+  `lf-reduce-nat-constructor`, `lf-reduce-nat-succ` and `lf-nat-lit-succ` on 4 non-literals (the constant Nat,
+  Nat.zero, Nat.succ 4, Bool.true) and on 10 literals (0, 1, 2, 1000, 2^63-1, 2^64-1 made two ways, 2^64, 2^64+1,
+  2^128), with a sentinel under each call.
+  - The non-literal lines differ, as intended: invalid, -1, sentinel kept, no diagnostic.
+  - **One literal line differs:** `lf-reduce-nat-pred` of the literal 0. Main answered ok with the one-limb literal
+    2^64-1, a made-up number. The fix answers invalid with -1. This is review L1's intended change.
+  - Every other literal line is identical, including pred of 2^64 (2^64-1), of 2^64+1 and of 2^128, and the
+    constructor form of 0 (Nat.zero) and of every literal above 0 (an application).
+- **Pred of 0 is unreachable, and Lean agrees.**
+  - The only kernel callers of `lf-reduce-nat-pred` are these two:
+    - `src/kernel/defeq.fs:495` `lf-dq-pred`. It is called only from `lf-lz-offset` (`defeq.fs:970-971`), which runs
+      only after `2dup lf-dq-pred? swap lf-dq-pred? and` on the same two nodes (`defeq.fs:1001`). `lf-dq-pred?`
+      (`defeq.fs:493`) is `lf-term-second@ 0<>` for a literal. Literals are normalized, so the limb count is 0
+      exactly when n = 0 (`src/core/literals.fs` header).
+    - `src/kernel/reduce-nat.fs:85` inside `lf-rn-constructor`, after `lf-term-second@ 0= if ... lf-rn-zero exit`
+      (`:84`).
+  - The only caller of `lf-reduce-nat-constructor` is `src/kernel/iota.fs:283` `lf-iota-lit`. It tests
+    `lf-lit-leaf?` first, the same test the new refusal makes.
+  - The front end calls neither word.
+  - Lean's `is_nat_succ` (type_checker.cpp:1029-1040, read in `.claude/work/lean-src`) gives a predecessor only for a
+    literal that is not zero, or for `Nat.succ x` with one argument. `nat_lit_to_constructor` (inductive.cpp:1359-1366)
+    asserts a literal, and its only caller tests `is_nat_lit(major)` (inductive.h:94-95). LeanForth's tests match both.
+- **Tripwire** (`aw-recheck/trip`, a copy of `3e54c00f`). Each refusal path writes a marker to stderr: `TRIPPRED` when
+  `lf-reduce-nat-pred` refuses, `TRIPCTOR` when `lf-reduce-nat-constructor` refuses, plus `TRIPBY` (`lf-nat-lit-by`)
+  and `TRIPLITS` (`lf-nat-lits-by`).
+  - The same 146 test files as the review ran on it (Gforth 1.0.0, stdin /dev/null). The same 9 exit nonzero as
+    before; they are fragments that need a caller.
+  - Markers appear in only three files:
+    - `tests/core/reduce-nat.fs`: 6 TRIPPRED, 4 TRIPCTOR, 6 TRIPBY, 49 TRIPLITS. Six and four are exactly the new
+      calls at `:197-201`.
+    - `tests/core/nat-ops.fs`: 5 TRIPBY, 89 TRIPLITS.
+    - `tests/front/reduce-nat.fs`: 2 TRIPBY, 47 TRIPLITS.
+  - `tests/core/defeq.fs`, which pins the callers' tests, fires none.
+  - End to end, `bin/leanforth check` ran on gforth-fast:
+    - on `tests/front/{decide,s1,s2,whnf}-slice.ndjson`;
+    - with `--env decide-slice.ndjson --elab-data decide-slice.elab.ndjson`, on `dc-arith`, `dc-logic`, `dc-ops` and
+      `w-dc-add` from `tests/front/tactics/decide/`.
+  - Results: 0 trips. All 8 stdouts are byte-identical to main's outputs from the review (`aw-review/e2e-old-*`,
+    `lf-old-*`). `w-dc-add` exits 4 with error 250 (2 + 2 = 5 is false), as on main.
+  - A counting copy shows the refusal tests were actually exercised: 350 constructor and 206 predecessor calls per
+    decide run, and 47/28, 64/37 and 52/31 on s1, s2 and whnf.
+
+### 2. The new words
+
+The stack comments hold on every path, traced against `lib/outcome.fs`:
+- `flag>outcome` is ok only for `true`.
+- `ok-apply` and `ok-apply3` drop the step and the operands on refusal and leave `-1 outcome`.
+
+The words:
+- `lf-nat-lits-by` (`src/core/nat-ops.fs:177`): `a b i xt` becomes `a b i outcome xt`, then `ok-apply3`.
+- `lf-nat-lit-by` (`:181`): `over lf-lit-leaf? flag>outcome swap ok-apply`.
+- `lf-nat-lit-succ` (`:185`).
+- `lf-rn-positive?` (`src/kernel/reduce-nat.fs:74`). Both flags are well formed. It reads the second field of a
+  non-literal; that is harmless on a valid node, which the header's L2 assumption covers.
+- `lf-reduce-nat-pred` (`:75`) and `lf-reduce-nat-constructor` (`:86`): `( a -- node outcome )` in both arms.
+
+The kept cells were measured: the k3 and k4 probes show `dd=2` and the sentinel kept on all 1,955 lines, and the unit
+tests check `111` and `lf-term-count`.
+
+`scripts/check-outcome-steps.py`: 123 sites, 123 right, 0 wrong, 0 not checked (main: 122/122).
+
+There is no new Gforth-only word, and no new VARIABLE, VALUE or CREATE (re-entrancy: no new module-level state).
+
+### 3. Faults (each test file run alone, Gforth 1.0.0)
+
+- R5 `aw-kernel-second-only` is caught by `tests/core/reduce-nat.fs` at `k-app 4294967296 nat 12 kernel-refused?`
+  (`:183`).
+- R6 `aw-front-second-only` is caught by `tests/front/reduce-nat.fs:119` (`fold-refused? sfk two64`).
+- Five of my own, all caught:
+  - `positive?`'s `and` turned to `or` (non-literal pred computed): `tests/core/reduce-nat.fs:197`.
+  - pred refusing with the operand left as the node: `tests/core/reduce-nat.fs:197`.
+  - constructor refusing as unknown: `tests/core/reduce-nat.fs:201`.
+  - `lf-nat-lit-by` with `ok-and` (node kept on refusal): `tests/core/nat-ops.fs` and `tests/core/reduce-nat.fs`.
+  - `lf-nat-lits-by` testing only the first operand: `tests/core/nat-ops.fs`, `tests/core/reduce-nat.fs` and
+    `tests/front/reduce-nat.fs`.
+- All 16 faults of `tests/mutants/faults.d/nat-ops-aw.toml`: the old text is found once, and each is caught by its
+  named test.
+
+### 4. Reuse and style
+
+- `scripts/check-duplicates.py`: 187 baseline groups, none new or grown (same as main).
+- `scripts/check-lib-callers.py`: passes.
+- `forth-metrics.py --words 10` on `src/core/nat-ops.fs`, `src/kernel/reduce-nat.fs` and `src/front/reduce-nat.fs`:
+
+  | | Words | Over 5 lines | Deep shuffles | Return-stack ops | Globals |
+  |---|---|---|---|---|---|
+  | Total | 85 | 0 | 6 | 24 | 0 |
+  | nat-ops.fs | 53 | | 5 | 22 | |
+  | kernel reduce-nat.fs | 18 | | 1 | 0 | |
+  | front reduce-nat.fs | 14 | | 0 | 2 | |
+
+  The longest words are `nop-pow` and `nop-shl`, at 5 lines. The fix commit adds no deep shuffle and no
+  return-stack operation (fbe5de3e: nat-ops 53 words and 5 deep shuffles; kernel reduce-nat 15 words and 1 deep
+  shuffle). There is no PICK or ROLL in the new words.
+- Searched: `src/lib/outcome.fs`, `src/core/literals.fs`, and all of `src/` for literal zero and positive tests
+  (`lf-term-second@ 0=`/`0<>` on a literal) and for `flag>outcome ... ok-apply` shapes. The commit removes a copy
+  (`nop-not-lit`) and uses the library's chain.
+
+### Findings
+
+- **I1 (info, documentation).** The header of `src/kernel/reduce-nat.fs:12-21` lists the module's answers as
+  rejected 92 and full 93. It does not list the new answer, invalid -1, for a non-literal operand and for the
+  predecessor of 0. The words' own comments say it (`:67-70`, `:76-78`), and so does `nat-ops.fs`'s header.
+  Suggested sentence: "A non-literal operand, or the predecessor of the literal 0, is a caller's error: invalid (-1),
+  never a verdict (plan 9.4.8l AW)."
+- **I2 (info, reuse; below the duplicate checker's 6-token threshold).** `lf-rn-positive?` (`reduce-nat.fs:74`)
+  repeats the literal arm of `lf-dq-pred?` (`defeq.fs:493`). The literal-zero phrase `lf-term-second@ 0=` recurs at
+  `reduce-nat.fs:51` and `:84` and at `defeq.fs:491`. Each of these hard-codes the representation fact "limb count 0
+  exactly when n = 0", which `core/literals.fs` states in its header but does not name as a word. No existing word is
+  re-implemented, and the factoring is the one review L1 proposed. Suggested addition to the AZ clean-up row:
+  ```forth
+  \ core/literals.fs: whether a literal leaf is 0 (normalized limbs: no limb).
+  : lf-lit-zero? ( leaf -- flag ) lf-term-second@ 0= ;
+  \ reduce-nat.fs
+  : lf-rn-positive? ( a -- flag ) dup lf-lit-leaf? if lf-lit-zero? 0= else drop false then ;
+  \ defeq.fs
+  : lf-dq-nat-zero? ( node -- flag ) dup lf-lit-leaf? if lf-lit-zero? else lf-whnf-zero? then ;
+  ```
+
+### Remaining gaps and uncertainties
+
+- Gforth 0.7.3 was not run.
+- No pinned-Lean comparison was run; Lean's C++ was compared by reading it.
+- The end-to-end runs used gforth-fast; the unit files and probes used Gforth 1.0.0.
+- Mathlib-scale inputs were not run.
+- The counting run does not separate the predecessor calls that come from defeq from those that come through the
+  constructor form. The static argument (`defeq.fs:1001`) covers defeq.
+- This AI re-check does not replace the owner's approval in the kernel gate.
+
+After the re-check: I1 (the header of `src/kernel/reduce-nat.fs` now names the invalid answer) is in the commit that adds this section; I2 (`lf-lit-zero?`) joins plan 9.4.8l (AZ).
