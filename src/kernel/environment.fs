@@ -1396,12 +1396,12 @@ end-structure
 : lf-axd-kept ( -- r outcome )
   lf-axd-width@ lf-axd-rows slab-claim ok-then?
   if lf-axd-width@ / outcome-ok else no-result then ;
+: lf-axd-row-for ( r|-1 -- r outcome ) dup 0< if drop lf-axd-kept else outcome-ok then ;
+: lf-axd-add ( j slot -- r outcome ) tuck swap lf-axd-join lf-axd-shared lf-axd-row-for ;
 : lf-axd-made ( j -- r outcome )
   dup lf-env-readable 0= if drop 0 outcome-ok exit then
   dup lf-slot-accepted? 0= if 2drop 0 outcome-ok exit then
-  lf-axd-width@ lf-axd-rows slab-room ok-then? 0= if nip no-result exit then
-  dup >r swap lf-axd-join r> lf-axd-shared
-  dup 0< if drop lf-axd-kept else outcome-ok then ;
+  lf-axd-width@ lf-axd-rows slab-room ['] lf-axd-add ok-apply2 ;
 : lf-axd-unnumbered? ( j -- flag )
   dup lf-axd-axiom? if lf-axd-number slab-at @ 0< else drop false then ;
 : lf-axd-stale! ( -- outcome ) true lf-axd-state lf-axd-stale ! outcome-invalid ;

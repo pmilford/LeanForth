@@ -314,7 +314,7 @@ end-structure
   lf-nest-p 0 ?do lf-nest-p 1- i - lf-nest-dom @ swap lf-rcr-pi loop lf-nest-built ;
 : lf-nest-instance ( decl -- root outcome )
   lf-nest-at-levels ok-then? 0= if no-result exit then
-  lf-nest-pi-params ok-then? 0= if no-result exit then lf-nest-wrap ;
+  lf-nest-pi-params ['] lf-nest-wrap ok-apply ;
 \ The occurrence J Ds an auxiliary type stands for: J at I's levels
 \ applied to the lowered Ds.
 : lf-nest-key-of ( J -- key outcome )
@@ -328,12 +328,15 @@ end-structure
   dup lf-ind-in-types@ - 1+ lf-ind-aux-decls slab-hold ok-then? 0= if no-result exit then
   dup lf-ind-ty /lf-ty erase dup lf-ind-aux-decl lf-nest-template outcome-ok ;
 : lf-nest-ctor-decl ( j -- decl ) lf-ind-ctor-decls slab-at ;
-: lf-nest-grow-ctor ( -- j outcome )
-  lf-ind-ctors@ dup 1+ lf-ind-ctor-cells slab-hold ok-then? 0= if no-result exit then
-  dup 1+ lf-ind-ctor-decls slab-hold ok-then? 0= if no-result exit then
+: lf-nest-ctor-room ( j -- j outcome ) dup 1+ lf-ind-ctor-decls slab-hold ;
+: lf-nest-ctor-blank ( j -- j )
   dup lf-ind-ctor-cells slab-at /lf-ind-ctor erase dup lf-nest-ctor-decl lf-nest-template
-  lf-kind-constructor over lf-nest-ctor-decl lf-idecl-kind !
-  1 lf-ind-state lf-ind-ctors +! outcome-ok ;
+  lf-kind-constructor over lf-nest-ctor-decl lf-idecl-kind ! ;
+: lf-nest-ctor-new ( j -- j outcome )
+  lf-nest-ctor-blank 1 lf-ind-state lf-ind-ctors +! outcome-ok ;
+: lf-nest-grow-ctor ( -- j outcome )
+  lf-ind-ctors@ dup 1+ lf-ind-ctor-cells slab-hold ['] lf-nest-ctor-room ok-apply
+  ['] lf-nest-ctor-new ok-apply ;
 \ A constructor c of J: _nested.J_k.c, its type made as J's.
 : lf-nest-ctor-name ( c -- name true | false )
   lf-nest-j@ lf-idecl-name @ lf-nest-a@ lf-ind-tname lf-nest-replace-prefix ;
@@ -446,12 +449,15 @@ end-structure
   dup 0< if drop false outcome-ok exit then
   lf-nest-k! 0= if false outcome-ok exit then
   lf-nest-node@ lf-nest-n@ lf-nest-k@ lf-nest-mentions? ;
+: lf-nest-no-change ( -- result outcome ) lf-nest-none outcome-ok ;
+: lf-nest-new-key ( -- result outcome )
+  lf-nest-keyed dup ok? if drop lf-nest-replace else no-result then ;
+: lf-nest-if-type ( flag -- result outcome )
+  if lf-nest-new-key else lf-nest-no-change then ;
+: lf-nest-if-candidate ( flag -- result outcome )
+  if lf-nest-is-type? ['] lf-nest-if-type ok-apply else lf-nest-no-change then ;
 : lf-nest-occurrence ( node c -- result outcome )
-  lf-nest-take lf-nest-candidate? ok-then? 0= if no-result exit then
-  0= if lf-nest-none outcome-ok exit then
-  lf-nest-is-type? ok-then? 0= if no-result exit then
-  0= if lf-nest-none outcome-ok exit then
-  lf-nest-keyed dup ok? 0= if no-result exit then drop lf-nest-replace ;
+  lf-nest-take lf-nest-candidate? ['] lf-nest-if-candidate ok-apply ;
 \ The visit: an application replaced or its children visited; a binder's
 \ children; any other leaf kept. A binary node met before at this offset
 \ gives its result again.

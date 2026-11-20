@@ -1647,6 +1647,15 @@ efficient way and an easier way to fix unit-test coverage, and decided:
   `lf-sx-plain`, `lf-sx-char` and `lf-str-type` call through `ok-apply`; and new kernel unit tests pin the
   failing outcome of `lf-whnf-delta-of`, `lf-whnf-reapply`, `lf-iota-typed`, `lf-minfer-put-closed`,
   `lf-minfer-typed` and `lf-rn-truth` and that the snapshot writer's `site-paired` finds a site again.
+  Branch `cleanup-families-3` (2026-11-19), the mid-word refusal guards: the kernel's `environment.fs`
+  (`lf-axd-made` on `ok-apply2` with `lf-axd-add` and `lf-axd-row-for`), `inductive-nested.fs` (`lf-nest-instance`
+  by `check-duplicates.py --rewrite`; `lf-nest-grow-ctor` on `lf-nest-ctor-room`, `lf-nest-ctor-blank` and
+  `lf-nest-ctor-new`; `lf-nest-occurrence` on `lf-nest-if-candidate`, `lf-nest-if-type`, `lf-nest-new-key` and
+  `lf-nest-no-change`) and `string-literals.fs` (`lf-str-expand` on `lf-sx-chars`, `lf-sx-of-chars` and
+  `lf-sx-applied`), and the import's `snapshot-layer.fs` (`ly-fam-expr-of` on `ok-apply3`), steps chained with
+  `lib/outcome.fs`'s `ok-apply`, `ok-apply2` and `ok-apply3`, the same stack for every outcome; the kernel's
+  reducer and inner loops (whnf, iota, Nat literals, inference of projections, instantiation) keep their guards
+  inline, as a chain adds an EXECUTE per step there.
 - **Tools first:** the duplicates script gains a mode that replaces a group by a named word; a fast per-file
   coverage command lists a file's never-run blocks with line numbers, and a baseline entry can be updated per
   file. Then the remaining groups and coverage debt.

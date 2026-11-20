@@ -878,6 +878,9 @@ main-input
   true main-count 0 ?do i expected@ ok? if i lf-env-axioms outcome-ok = swap 0= and and then loop ;
 lf-env-view drop
 T{ axioms-none? 2 lf-env-axioms 3 lf-env-axioms -> true 0 outcome-invalid 0 outcome-invalid }T
+\ An axiom row for a declaration the snapshot cannot read (lf-axd-made,
+\ chained by cleanup-families-3): none, row 0, and ok.
+T{ 100000 lf-axd-made -> 0 outcome-ok }T
 env-free
 \ With a test-only allowlist bit on a synthetic record, the union reaches
 \ every user, directly or not; without it in the allowlist, every user is

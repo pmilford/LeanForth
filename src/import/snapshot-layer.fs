@@ -293,10 +293,10 @@ end-structure
 : ly-fam-plain ( head addr fam -- e outcome )
   dup >r ly-fam-ly ly-operands ok-then? 0= if r> drop ly-none2 exit then
   r> ly-fam-tier expr-make ;
-: ly-fam-expr-of ( j fam -- e outcome )
-  2dup ly-fam-head ok-then? 0= if nip nip no-result exit then
-  dup head-tag let-tag? if -rot ly-fam-let exit then
-  -rot tuck ly-fam-rec swap ly-fam-plain ;
+: ly-fam-other ( head j fam -- e outcome ) tuck ly-fam-rec swap ly-fam-plain ;
+: ly-fam-tagged ( j fam head -- e outcome )
+  -rot 2 pick head-tag let-tag? if ly-fam-let else ly-fam-other then ;
+: ly-fam-expr-of ( j fam -- e outcome ) 2dup ly-fam-head ['] ly-fam-tagged ok-apply3 ;
 : ly-fam-mdata ( j fam -- )
   tuck ly-fam-rec ly-head drop tag-mdata =
   if ly-fam-ly ly-stage @ 1 swap stage-mdata +! else drop then ;

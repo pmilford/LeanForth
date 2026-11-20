@@ -27,4 +27,8 @@ T{ s" nested.non-positive" 19 block-swept -> true true outcome-full outcome-reje
 \ allocates anything (no refusal to sweep: false): crowded, it is still
 \ rejected.
 T{ s" nested.local-variable" 23 block-swept -> true false outcome-rejected outcome-rejected }T
+\ An occurrence's last test (lf-nest-if-type, split out of
+\ lf-nest-occurrence by cleanup-families-3): a candidate whose head is
+\ not a nested inductive type is kept as it is, none and ok.
+T{ false lf-nest-if-type -> lf-nest-none outcome-ok }T
 bye
