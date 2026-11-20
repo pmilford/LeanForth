@@ -1091,10 +1091,12 @@ reason = "entries outlive their check and their job's local context"
 [[fault]]
 id = "cache-skip-early"
 file = "src/kernel/caches.fs"
-old = '''  lf-bits-loose swap frame-context @ > 0= ;'''
-new = '''  lf-bits-loose swap frame-context @ 1+ > 0= ;'''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "instantiate keeps a node whose loose bound variable it should replace"
+old = '''  swap lf-cs-facts 0= if drop false exit then
+  over lf-open-abstract?'''
+new = '''  swap lf-cs-facts 0= if drop true exit then
+  over lf-open-abstract?'''
+test = "$GFORTH tests/core/no-data-terms.fs"
+reason = "instantiate keeps a node whose loose bound variable it should replace: the caches' hook lf-co-unchanged? answers unchanged for a node it has no facts of, so no-data-terms.fs's beta keeps the body x #(U+1), which has no data word, as it is (re-targeted 2026-11-20 from the hook's comparison of the loose range with the offset, which has decided nothing since e5b24ca8, mixed-open.fs's lf-open-word deciding every node with data first: plan 9.4.8l BC)"
 
 [[fault]]
 id = "cache-scope-ignored"
@@ -5331,13 +5333,17 @@ reason = "a list of forms ending in a comma is accepted instead of refused"
 # tests/present/check_outline.py (the golden outlines of the pinned exports, fed through the
 # stage with print's hooks) and tests/cli/test_leanforth.py (print beyond the small reader).
 
+# Re-targeted 2026-11-20 (branch four-survivors): since c5e6ad5d print reads an input binder's
+# kind from its record (core/terms.fs's lf-tin-binder-kind); the feed's binder hook
+# (feed.fs's feed-binder-info) sees only binders above an mdata, whose declarations are
+# unsupported and whose terms no print form shows, so its kind is never printed (plan 9.4.8l BA).
 [[fault]]
 id = "feed-hook-binder-kind-wrong"
-file = "src/import/feed.fs"
-old = ''': feed-binder-info ( tag -- kind ) tag-lam - 3 and ;'''
-new = ''': feed-binder-info ( tag -- kind ) tag-lam - 1 and ;'''
+file = "src/core/terms.fs"
+old = '''  dup head-payload swap head-tag tag-lam - 3 and ;'''
+new = '''  dup head-payload swap head-tag tag-lam - 1 and ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Print"
-reason = "the binder hook gives a strict-implicit or instance binder the wrong kind, so an instance argument prints in braces"
+reason = "an input binder's kind is read wrong from its record, a strict-implicit or instance binder given another, so an instance argument prints in braces"
 quick = true
 
 [[fault]]
@@ -6038,8 +6044,7 @@ file = "src/kernel/inductive-recursor.fs"
 old = '''  lf-rcr-frames frame-fuel @ lf-ind-fuel ! dup ok? if drop else nip lf-rcr-failing then ;'''
 new = '''  lf-rcr-frames frame-fuel @ lf-ind-fuel ! drop ;'''
 test = "$GFORTH tests/core/check-block.fs"
-reason = "rvN1 L2: a refused allocation in the builder's whnf ignored; the refusal test (part 5) finds the block not full"
-equivalent = "the builder's whnf only revisits fields positivity already put in whnf, so it allocates no new term (none in 13 ind.* cases: no refused allocation reaches it, part 5 sweeps) and a fuel exhaustion in it ends the block exhausted either way (identical outcomes for every budget 0-1499 on 11 recursive cases); found by a sweep, not proved"
+reason = "rvN1 L2: a failure of the builder's whnf ignored: check-block.fs's k.field-variable, whose whnf in the builder is undecided (K on a variable of a binder no scope holds: unknown, diagnostic 81, step 12), is built on and rejected as a recursor that differs from Lean's (74, step 13; pinned Lean accepts). Listed equivalent from fe161324 (2026-11-10, when the builder's whnf could only run out of fuel or room) until 2026-11-20; the row came with 1dfb20ff (2026-11-11)"
 
 [[fault]]
 id = "rv-positivity-whnf-failure-ignored"
@@ -6140,8 +6145,8 @@ id = "rv-k7-off"
 file = "src/kernel/whnf.fs"
 old = '''  over lf-whnf-k7? if 2dup frame-save ['] lf-whnf-nat-back lf-whnf-nat-call exit then'''
 new = ''''''
-test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
-reason = "whnf never asks reduce_nat: Nat.succ Nat.zero, which Lean's reduce_nat turns into a literal, unfolds (review rvU4 L5)"
+test = "$GFORTH tests/core/check-block.fs"
+reason = "whnf never asks reduce_nat (review rvU4 L5): check-block.fs's lit.free-variable-pow-refused, 0 ^ 2^32 under a variable, which Lean's reduce_nat refuses, is accepted. Its test was tests/core/inductive-table.py until 2026-11-20, which fails only after about two minutes under the fault: pinned Lean's export of the 456 cases (31 s) and their check (35 s, 95 s under the fault, where several rows unfold Nat.pow and Nat.shiftLeft of large literals until the check's fuel is spent) come before the 22 differences are reported"
 
 [[fault]]
 id = "dq-whnf-core-skipped"
@@ -6862,7 +6867,7 @@ file = "src/import/feed.fs"
 old = '''    tag-let-nondep of true feed-let feed-built endof'''
 new = '''    tag-let-nondep of false feed-let feed-built endof'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
-reason = "4.2.3: the feed drops a letE's nonDep flag, which Lean's == compares"
+reason = "4.2.3: the feed drops a letE's nonDep flag, which Lean's == compares (a let copied because an mdata lies under it; every other let is read in place)"
 
 # --- K-like reduction (plan task 5.2.1c, R2; src/kernel/iota.fs) -----------
 
@@ -7281,8 +7286,8 @@ id = "quot-applied-at-mk"
 file = "src/kernel/quot.fs"
 old = ''': lf-quot-applied ( app mk -- mk|-1 ) swap lf-quot-n over > 0= if drop -1 then ;'''
 new = ''': lf-quot-applied ( app mk -- mk|-1 ) swap lf-quot-n over < if drop -1 then ;'''
-test = "$GFORTH tests/core/check-block.fs"
-reason = "Quot.lift with five arguments is taken to have its quotient (quot.lift-unapplied-eta)"
+test = "$GFORTH tests/core/quot.fs"
+reason = "Quot.lift with five arguments is taken to have its quotient (quot.fs's five-argument rule; check-block.fs's quot.lift-unapplied-eta then never ends: lf-quot-arg peels -1 times, plan 9.4.8l BA)"
 
 [[fault]]
 id = "quot-mk-any-arity"
@@ -7449,7 +7454,7 @@ old = '''  dup lf-minfer-source? 0= if lf-ci-none exit then
   lf-ci-skeleton if 0 true else false then ;'''
 new = '''  lf-ci-skeleton if 0 true else false then ;'''
 test = "$GFORTH tests/core/whnf.fs"
-reason = "rvCACHE L2: a node inference refuses as no source node gets a cached type in deciding mode (whnf.fs's fresh-node probe)"
+reason = "rvCACHE L2: a node inference refuses as no source node is looked up in the inference cache in deciding mode, where a closed copy that inference keyed would give its cached type (whnf.fs's fresh-node probe: one lookup where there must be none; since b6975eea keyed the caches by node identity, the fresh node's own identity has no entry, so its refusal alone no longer shows the fault)"
 
 [[fault]]
 id = "feed-room-not-raised"
@@ -7905,11 +7910,11 @@ reason = "EX: every pass after the first shares one number, so a pass with y get
 
 [[fault]]
 id = "ex-range-one-short"
-file = "src/kernel/caches.fs"
-old = '''  lf-cs-facts if lf-bits-loose true else false then ;'''
-new = '''  lf-cs-facts if lf-bits-loose 1- 0 max true else false then ;'''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "EX: a term read under the scope is closed with one free variable too few, so a bound variable stays loose"
+file = "src/kernel/mixed-infer.fs"
+old = '''  if lf-minfer-scan walk-arg @ r@ 1- min 1+ r> drop else r> then ;'''
+new = '''  if lf-minfer-scan walk-arg @ r@ 1- min r> drop else r> then ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "EX: a term read under the scope is closed with one free variable too few, so a bound variable stays loose: the scan of a term without a data word (lf-minfer-scanned) counts one less, and mixed-infer.fs's #1 #(U+1) under A, x is closed with x alone, #1 left loose where it becomes A (re-targeted 2026-11-20 from the caches' hook lf-ci-range, which since e5b24ca8 is asked only of a node without data, of which it has no facts: plan 9.4.8l BC)"
 
 [[fault]]
 id = "ex-envsig-stored-no-fuel"
@@ -8301,7 +8306,7 @@ file = "src/core/constant-term-boundary.fs"
 old = '''  dup ok? lf-audit-state lf-aud-active @ and if lf-audit-keep then'''
 new = '''  lf-audit-state lf-aud-active @ if lf-audit-keep then'''
 test = "$GFORTH tests/core/constant-term-boundary.fs"
-reason = "S6C: a run that ran out of fuel keeps the nodes it reached, whose graphs were not all checked"
+reason = "S6C: a run that ran out of fuel keeps the nodes it reached, whose graphs were not all checked: the root over an unstamped constant with a data word, reached by a run of one unit, passes the next run, which must find the forgery (the old row's forgery has no data word since afc3828c, so its root was never kept)"
 
 [[fault]]
 id = "s6c-memo-open-as-closed"
@@ -9119,8 +9124,7 @@ file = "src/kernel/inductive-block.fs"
 old = '''    lf-tag-let of lf-c1-same endof  lf-tag-let-nondep of lf-c1-same endof'''
 new = ''''''
 test = "$GFORTH tests/core/check-block.fs"
-reason = "S5B: the parameter-uniformity walk does not look inside a let in a constructor's type"
-gap = "no table row has a let in a constructor's type that hides a nonuniform occurrence; Lean rejects such a block (C1)"
+reason = "S5B: the parameter-uniformity walk does not look inside a let in a constructor's type: check-block.fs's uniform.let-other-argument, whose let value hides a nonuniform occurrence, is accepted where pinned Lean rejects it (C1). Listed a gap from b3c96bd2 until 2026-11-20; d12c93a5 (2026-11-11) added the row"
 
 [[fault]]
 id = "s5b-author-proj-as-app"
@@ -9199,7 +9203,7 @@ id = "s5b-view-grown-skipped"
 file = "src/import/feed.fs"
 old = '''  dup ok? if drop lf-term-view-grown then ;'''
 new = ''' ;'''
-test = "python3 tests/cli/test_leanforth.py AsCopied"
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5B: the audit's units are not grown for the leaves the feed entered, so those leaves are audited again (more fuel in place)"
 
 [[fault]]
@@ -18321,7 +18325,7 @@ old = '''  dup de-s dd-same-head? if de-s dd-compare exit then
   de-s dd-unfold if dd-heads-both'''
 new = '''  de-s dd-unfold if dd-heads-both'''
 test = "$GFORTH tests/front/defeq.fs"
-reason = "S2 §9: unfoldComparingHeadsDefEq unfolds both sides where Lean unfolds one (id Nat (Nat.add ?n x) against Nat.add k x then unfolds Nat.add)"
+reason = "S2 §9: unfoldComparingHeadsDefEq unfolds both sides where Lean unfolds one: id Nat (Nat.pred ?n) against Nat.pred k unfolds Nat.pred k too (three unfoldings, where pinned Lean's delta trace has unfoldLeft id alone)"
 
 [[fault]]
 id = "fe-delta-no-sunfold"
@@ -18394,7 +18398,7 @@ file = "src/front/defeq-delta.fs"
 old = '''  dd-mvars? if true exit then de-x dd-nontrivial? dup de-aborted? or if exit then'''
 new = '''  false exit de-x dd-nontrivial? dup de-aborted? or if exit then'''
 test = "$GFORTH tests/front/defeq.fs"
-reason = "S2: tryHeuristic never compares the arguments first, so Nat.add ?n x against Nat.add k x unfolds Nat.add (its `_sunfold`)"
+reason = "S2: tryHeuristic never compares the arguments first: id ?n against id k unfolds both sides, where pinned Lean unfolds nothing"
 
 [[fault]]
 id = "fe-delta-packed-skipped"
@@ -18402,7 +18406,7 @@ file = "src/front/defeq-delta.fs"
 old = '''  de-t de-s dd-packed if de-s dd-compare exit then de-aborted? if exit then'''
 new = '''  de-aborted? if exit then'''
 test = "$GFORTH tests/front/defeq.fs"
-reason = "S2: unfoldNonProjFnDefEq never unpacks a class projection toward the other side's head (k + x against Nat.add k x then unfolds Nat.add)"
+reason = "S2: unfoldNonProjFnDefEq never unpacks a class projection toward the other side's head: k + x against Add.add k x unfolds Add.add k x first (four unfoldings, where pinned Lean's delta trace has unfoldLeft HAdd.hAdd alone)"
 
 [[fault]]
 id = "fe-delta-levels-ignored"
@@ -18419,7 +18423,7 @@ old = '''  df df-mode @ lf-tr-reducible = if dd-defeq exit then
   de-x dd-red? de-y dd-red? dd-one-of ;'''
 new = '''  dd-defeq ;'''
 test = "$GFORTH tests/front/defeq.fs"
-reason = "S2: unfoldReducibleDefEq never unfolds the reducible side first (outParam ?n against Nat.add k x then unfolds Nat.add)"
+reason = "S2: unfoldReducibleDefEq never unfolds the reducible side first: outParam ?ty against id Type Nat unfolds id too and assigns ?ty := Nat, where pinned Lean assigns id Type Nat"
 
 [[fault]]
 id = "fe-ed3-sunfold-twice-error"
@@ -19907,8 +19911,8 @@ id = "fe-dd-keys-swapped"
 file = "src/front/defeq-delta.fs"
 old = '''  2dup > if 2drop dd-first-t exit then < if dd-first-s else dd-heads then ;'''
 new = '''  2dup < if 2drop dd-first-t exit then > if dd-first-s else dd-heads then ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
-reason = "review s2-unfold-a H1: unfoldDefEq unfolds the side of the smaller height first (id before Nat.mul), so id Nat (Nat.mul k x) =?= Nat.mul k x answers true where Lean's order reaches Nat.mul's smart unfolding (a gap: unsupported)"
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review s2-unfold-a H1: unfoldDefEq unfolds the side of the smaller height first: id x against Nat.pred (Nat.succ x) unfolds id x first, where pinned Lean's delta trace has unfoldRight Nat.pred, then unfoldLeft id (defeq.fs's lazy delta order). check_defeq.py's id Nat (Nat.mul k x) =?= Nat.mul k x answers true either way since c340afc6 (Nat.mul k x stuck on x)"
 
 [[fault]]
 id = "fe-dd-abbrev-rank-opaque"
@@ -19932,16 +19936,16 @@ id = "fe-dd-heads-both-unchecked"
 file = "src/front/defeq-delta.fs"
 old = '''  de-t over dd-same-head? if nip de-t swap then dd-compare ;'''
 new = '''  dd-compare ;'''
-test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
-reason = "review s2-unfold-a H1: after both sides unfold, the unfolded left side is compared where Lean keeps it (sameHeadSymbol t sNew), so id Nat (Nat.add k x) =?= Function.comp (id Nat) (Nat.add k) x reaches Nat.add's smart unfolding: unsupported, not true"
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review s2-unfold-a H1: after both sides unfold, the unfolded left side is compared where Lean keeps it (sameHeadSymbol t sNew), so id Nat (Nat.add k x) =?= Function.comp (id Nat) (Nat.add k) x unfolds id a third time, where pinned Lean's delta trace has unfoldRight Function.comp alone (defeq.fs's lazy delta order); the answer is true either way since c340afc6 (Nat.add k x stuck on x, no longer unsupported)"
 
 [[fault]]
 id = "fe-dd-simple-always"
 file = "src/front/defeq-delta.fs"
 old = '''  dup outcome-rejected = if drop false exit then'''
 new = '''  dup outcome-rejected = if drop true exit then'''
-test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
-reason = "review s2-unfold-a H1: every value counts as simple, so Nat.pred (height 2) is trivial, tryHeuristic skips its arguments and Nat.pred x =?= Nat.pred (id Nat x) unfolds both into a matcher: unsupported, not true"
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review s2-unfold-a H1: every value counts as simple, so Nat.pred (height 2) is trivial, tryHeuristic skips its arguments and Nat.pred x =?= Nat.pred (id Nat x) unfolds Nat.pred x and Nat.pred (id x) (three unfoldings, where pinned Lean's delta trace has unfoldRight id alone: defeq.fs's lazy delta order); the answer is true either way since fd4bb3be (whnfCore reduces the matcher Nat.pred unfolds to, no longer unsupported)"
 
 [[fault]]
 id = "fe-whnf-at-most-i-implicit"

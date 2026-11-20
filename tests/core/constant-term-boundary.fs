@@ -252,7 +252,21 @@ T{ 0 0 term-identity@ 10 lf-cterm-check -> outcome-invalid }T
 T{ 1 xid @ 10 lf-cterm-check -> outcome-invalid }T
 \ A run that does not end ok keeps nothing: the root a run out of fuel
 \ reached is checked in full by the next run (here an unstamped constant
-\ below it is found).
+\ below it is found). The memo keeps only a node with a data word, so the
+\ forgery is one with cid's fields (0 0), which has one, and so has the
+\ root above it (asserted); raw-constant's fields (0 rid) have none since
+\ a constant's second field must be 0 (afc3828c), and a root above it is
+\ never kept, whether its run ends ok or not.
+: unstamped-constant ( -- )
+  false lf-term-sharing! lf-tag-constant 0 0 lf-term-add 0= abort" unstamped" drop
+  true lf-term-sharing! ;
+: has-data? ( node -- flag ) lf-term-data@ dup if nip then ;
+fresh
+unstamped-constant
+0 cid @ 1 1 term-identity@ app!
+T{ 1 has-data? 2 has-data? -> true true }T
+T{ 2 xid @ 1 lf-cterm-check -> outcome-exhausted }T
+T{ 2 xid @ 10 lf-cterm-check -> outcome-invalid }T
 fresh
 raw-constant
 0 cid @ 1 1 term-identity@ app!

@@ -309,6 +309,17 @@ lf-open-forget
 T{ 0 7 lf-minfer-put-closed 500 lf-minfer-fuel @ - -> 0 outcome-ok 1 }T
 T{ 1 7 lf-minfer-put-closed 499 lf-minfer-fuel @ - -> lf-term-count @ 1- outcome-ok 6 }T
 T{ lf-term-count @ 1- lf-term-read -> lf-tag-app lf-term-count @ 2 - 1 lf-minfer-fvar-cell @ true }T
+\ A term without a data word (a bound variable of index lf-data-unknown or
+\ more, and every node above it: core/terms.fs) is scanned for how many of
+\ the scope's free variables it names (lf-minfer-scanned): #1 #(U+1)
+\ names both, A and x (the variable beyond the scope is lowered by two),
+\ so #1 becomes A. One free variable too few would close it with x alone
+\ and leave #1 loose (#0).
+: no-data-app ( -- node )
+  1 lf-term-bvar drop lf-data-unknown 1+ lf-term-bvar drop lf-term-app drop ;
+: no-data? ( node -- node flag ) dup lf-term-data@ dup if nip then 0= ;
+T{ no-data-app no-data? swap lf-minfer-close swap lf-term-first@ 0 lf-minfer-fvar-cell @ =
+   -> true outcome-ok true }T
 \ The closing's failure is the answer (review of cleanup-families-2, M1):
 \ of lf-minfer-put-closed for a dependent body, and of lf-minfer-typed
 \ (inference aside on a frame's fuel), -1 and its outcome, the argument

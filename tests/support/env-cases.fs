@@ -158,8 +158,11 @@ defer syn-pause
 : syn-uses ( -- flag )
   my-plan plan-count @ 0 ?do i use-step 0= if false unloop exit then loop true ;
 \ The check allocates a scratch term in its context's term store, as a
-\ real check would, which the driver must roll back.
-: make-scratch ( -- ) 0 lf-term-sort if drop then ;
+\ real check would, which the driver must roll back: a node of its own,
+\ made with sharing off, since the hash-consed store would give back the
+\ input's Sort 0 and allocate nothing.
+: make-scratch ( -- )
+  lf-term-sharing? false lf-term-sharing! 0 lf-term-sort if drop then lf-term-sharing! ;
 : syn-check ( -- )
   make-scratch my-plan plan-fuel @ syn syn-fuel !
   my-plan plan-audit @ step 0= if exit then

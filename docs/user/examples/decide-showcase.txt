@@ -1,4 +1,4 @@
-\ LeanForth's showcase of by-decide: three proof files, twenty-two theorems.
+\ LeanForth's showcase of by-decide: twenty-three theorems, written with Lean's symbols and typed in ASCII.
 \
 \ What this is. LeanForth checks proofs written in LeanForth text, with its own tactics and its own
 \ kernel. Lean is not run at all by this command. Every theorem here is a closed fact about natural
@@ -7,8 +7,14 @@
 \ result, and its kernel checks that term. A false statement is refused: for  6 7 * 43 =  LeanForth
 \ prints Lean's own message, "Tactic `decide` proved that the proposition 6 * 7 = 43 is false".
 \
-\ Each theorem is shown in four parts:
+\ The page has three parts:
+\   Part 1. Nine theorems written with Lean's symbols:  * + = > ≥ ≠ % ∧ ¬ ∨ ↔ < ≤
+\   Part 2. The same nine typed on a plain keyboard:    >=  Ne  /\  Not  \/  <->  <=
+\   Part 3. Five theorems with powers ( ^ ), subtraction and division, checked against all of
+\           Lean's Init library: a Mersenne number that is not prime, Euler's factor of the fifth
+\           Fermat number, Ramanujan's 1729.
 \
+\ Each theorem is shown in four parts:
 \   A. the proof in LeanForth: the input, the text of the proof file;
 \   B. the same proof in Lean, for comparison. This is NOT LeanForth's output: the showcase script
 \      copies it from the Lean file that the tests compare LeanForth's result with;
@@ -19,49 +25,66 @@
 \ Comments. Explanations are comments on the right: after a backslash, LeanForth's comment mark,
 \ or after -- , Lean's, in the Lean part. Everything else is proof text, goals or output.
 \
-\ How to read the LeanForth text. It is postfix, as in Forth: the numbers first, then the operation.
-\   6 7 * 42 =                 is  6 * 7 = 42
-\   3 3 * 4 4 * + 5 5 * =      is  3 * 3 + 4 * 4 = 5 * 5
-\   20 10 GT.gt                is  20 > 10   (the symbols > ≥ ≠ ∧ are not LeanForth words yet, so
-\                              the page writes Lean's names for them: GT.gt, GE.ge, Ne, And)
+\ How to read the LeanForth text. It is postfix, as in Forth: the operands first, then the operation.
+\   6 7 * 42 =                    is  6 * 7 = 42
+\   3 3 * 4 4 * + 5 5 * =         is  3 * 3 + 4 * 4 = 5 * 5
+\   20 10 >  10 10 ≥  3 4 ≠  ∧ ∧  is  20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4
+\   2 32 ^ 1 +  641 6700417 * =   is  2 ^ 32 + 1 = 641 * 6700417
+\ Each symbol means exactly what it means in Lean and builds the term Lean builds: the tests compare
+\ the terms node for node with Lean 4.35.0's.
+\
+\ How to type each symbol. Every symbol that is not on a plain keyboard has a typed spelling, Lean's
+\ own where Lean has one:
+\   ≤  <=       ≥  >=       ∧  /\       ∨  \/       ↔  <->
+\   ≠  Ne       ¬  Not      ∣  Dvd.dvd      (Lean has no typed symbol for these: the names are Lean's)
+\ and  + - * / % ^ = < >  are typed as they are. Part 2 is Part 1 typed this way; the two build the
+\ same terms. Not yet: a minus sign in front of a number, and by-decide on a divisibility statement
+\ ( ∣ ), which stops as "not supported yet".
 \
 \ How to read a goal. LeanForth prints goals in Lean's notation. A goal is what is still to be
 \ proved: after the mark ⊢ ("show that"), the statement to prove.
 \
-\ The command, and its two input files:
-\   SHOWCASE_LIBRARY="--env tests/front/decide-slice.ndjson --elab-data tests/front/decide-slice.elab.ndjson" \
-\     scripts/showcase-steps.sh tests/front/tactics/decide/dc-ops.lf \
-\     tests/front/tactics/decide/dc-arith.lf tests/front/tactics/decide/dc-logic.lf
+\ The commands, and their input files:
+\   Parts 1 and 2 (12 s for both files):
+\     SHOWCASE_LIBRARY="--env tests/front/decide-slice.ndjson --elab-data tests/front/decide-slice.elab.ndjson" \
+\       scripts/showcase-steps.sh tests/front/tactics/decide/dc-symbols.lf tests/front/tactics/decide/dc-ascii.lf
+\   Part 3 (35 s, nearly all of it loading the snapshot):
+\     SHOWCASE_LIBRARY="--snapshot init.lfsnap --elab-data init.elab.ndjson" \
+\       scripts/showcase-steps.sh tests/front/tactics/decide/dc-symbols-init.lf
 \ - decide-slice.ndjson is a small part of Lean's Init library (about 1,260 declarations: the
 \   natural numbers, their operations and the facts by-decide needs), exported by Lean. LeanForth's
 \   kernel checks every one of them again in each run, before the file's own theorems: that is the
-\   line "N declarations: N accepted" at the end of each file. The same theorems are also accepted
-\   against all of Init (59,349 declarations, loaded from a snapshot): the done check of 2026-11-20 ran that.
-\ - decide-slice.elab.ndjson is the "elaboration data": facts about those declarations that are
-\   not part of their proofs but are needed to read a new theorem as Lean would: which arguments
-\   are implicit, the type-class instances (such as "* on Nat"), notation and reducibility
-\   settings. LeanForth uses it to build the proof term, and the kernel then checks that term, so
-\   wrong data cannot make a false theorem accepted.
+\   line "N declarations: N accepted" at the end of each file.
+\ - init.lfsnap is a saved snapshot of all of Init (59,349 declarations), already checked by
+\   LeanForth's kernel; Part 3 needs it because powers use parts of Init the small slice leaves out.
+\ - The .elab.ndjson files are the "elaboration data": facts about those declarations that are not
+\   part of their proofs but are needed to read a new theorem as Lean would: which arguments are
+\   implicit, the type-class instances (such as "* on Nat"), notation and reducibility settings.
+\   LeanForth uses it to build the proof term, and the kernel then checks that term, so wrong data
+\   cannot make a false theorem accepted.
 \
-\ This run: 2026-11-20, gforth, commit b9ba3243. Every file exited with status 0.
-\ Time: 5 s for the three files together.
+\ This run: 2026-11-20, gforth, commit a35f8d00. Every file exited with status 0.
+
+\ ##################################################################################################
+\ PART 1. Written with Lean's symbols (tests/front/tactics/decide/dc-symbols.lf)
+\ ##################################################################################################
 
 ====================================================================================================
-Theorem d_mul
+Theorem sy_mul
 ====================================================================================================
 
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ops.lf
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-symbols.lf
 
-    theorem d_mul
+    theorem sy_mul
       6 7 * 42 =
     := by
       by-decide
-    end d_mul
+    end sy_mul
 
 B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
                                                   -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
 
-    theorem d_mul : 6 * 7 = 42 := by decide
+    theorem sy_mul : 6 * 7 = 42 := by decide
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
                                                   \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
@@ -79,24 +102,24 @@ C. What LeanForth did                             \ LeanForth's output: its step
 
 D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
 
-    d_mul: accepted; axioms: none
+    sy_mul: accepted; axioms: none
 
 ====================================================================================================
-Theorem d_pythag
+Theorem sy_pythag
 ====================================================================================================
 
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ops.lf
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-symbols.lf
 
-    theorem d_pythag
+    theorem sy_pythag
       3 3 * 4 4 * + 5 5 * =
     := by
       by-decide
-    end d_pythag
+    end sy_pythag
 
 B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
                                                   -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
 
-    theorem d_pythag : 3 * 3 + 4 * 4 = 5 * 5 := by decide
+    theorem sy_pythag : 3 * 3 + 4 * 4 = 5 * 5 := by decide
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
                                                   \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
@@ -114,24 +137,24 @@ C. What LeanForth did                             \ LeanForth's output: its step
 
 D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
 
-    d_pythag: accepted; axioms: none
+    sy_pythag: accepted; axioms: none
 
 ====================================================================================================
-Theorem d_gauss
+Theorem sy_gauss
 ====================================================================================================
 
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ops.lf
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-symbols.lf
 
-    theorem d_gauss
+    theorem sy_gauss
       1 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 + 55 =
     := by
       by-decide
-    end d_gauss
+    end sy_gauss
 
 B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
                                                   -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
 
-    theorem d_gauss : 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 = 55 := by decide
+    theorem sy_gauss : 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 = 55 := by decide
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
                                                   \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
@@ -149,450 +172,24 @@ C. What LeanForth did                             \ LeanForth's output: its step
 
 D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
 
-    d_gauss: accepted; axioms: none
+    sy_gauss: accepted; axioms: none
 
 ====================================================================================================
-Theorem d_gt
+Theorem sy_gcd
 ====================================================================================================
 
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ops.lf
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-symbols.lf
 
-    theorem d_gt
-      20 10 GT.gt
-    := by
-      by-decide
-    end d_gt
-
-B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
-                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
-
-    theorem d_gt : 20 > 10 := by decide
-
-C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
-                                                  \ Each step is a tactic as written in A; a step inside another is indented.
-
-                                                  \ The statement of A as LeanForth read it. This is the first goal:
-    ⊢ 20 > 10                                     \ to prove (the mark ⊢ reads "show that")
-
-    by-decide                                     \ step 1 (Lean's decide)
-                                                  \ works the closed statement out by computation and proves it when it comes out true
-        ⊢ 20 > 10                                 \ the goal before this step: to prove
-                                                  \ after the step: nothing is left to prove here
-
-\ The one step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
-
-    d_gt: accepted; axioms: none
-
-====================================================================================================
-Theorem d_ge
-====================================================================================================
-
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ops.lf
-
-    theorem d_ge
-      10 10 GE.ge
-    := by
-      by-decide
-    end d_ge
-
-B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
-                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
-
-    theorem d_ge : 10 ≥ 10 := by decide
-
-C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
-                                                  \ Each step is a tactic as written in A; a step inside another is indented.
-
-                                                  \ The statement of A as LeanForth read it. This is the first goal:
-    ⊢ 10 ≥ 10                                     \ to prove (the mark ⊢ reads "show that")
-
-    by-decide                                     \ step 1 (Lean's decide)
-                                                  \ works the closed statement out by computation and proves it when it comes out true
-        ⊢ 10 ≥ 10                                 \ the goal before this step: to prove
-                                                  \ after the step: nothing is left to prove here
-
-\ The one step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
-
-    d_ge: accepted; axioms: none
-
-====================================================================================================
-Theorem d_ne
-====================================================================================================
-
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ops.lf
-
-    theorem d_ne
-      3 4 Ne
-    := by
-      by-decide
-    end d_ne
-
-B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
-                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
-
-    theorem d_ne : 3 ≠ 4 := by decide
-
-C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
-                                                  \ Each step is a tactic as written in A; a step inside another is indented.
-
-                                                  \ The statement of A as LeanForth read it. This is the first goal:
-    ⊢ 3 ≠ 4                                       \ to prove (the mark ⊢ reads "show that")
-
-    by-decide                                     \ step 1 (Lean's decide)
-                                                  \ works the closed statement out by computation and proves it when it comes out true
-        ⊢ 3 ≠ 4                                   \ the goal before this step: to prove
-                                                  \ after the step: nothing is left to prove here
-
-\ The one step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
-
-    d_ne: accepted; axioms: none
-
-====================================================================================================
-Theorem d_compare
-====================================================================================================
-
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ops.lf
-
-    theorem d_compare
-      20 10 GT.gt 10 10 GE.ge 3 4 Ne And And
-    := by
-      by-decide
-    end d_compare
-
-B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
-                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
-
-    theorem d_compare : 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4 := by decide
-
-C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
-                                                  \ Each step is a tactic as written in A; a step inside another is indented.
-
-                                                  \ The statement of A as LeanForth read it. This is the first goal:
-    ⊢ 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4                   \ to prove (the mark ⊢ reads "show that")
-
-    by-decide                                     \ step 1 (Lean's decide)
-                                                  \ works the closed statement out by computation and proves it when it comes out true
-        ⊢ 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4               \ the goal before this step: to prove
-                                                  \ after the step: nothing is left to prove here
-
-\ The one step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
-
-    d_compare: accepted; axioms: none
-
-====================================================================================================
-Theorem d_leap
-====================================================================================================
-
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ops.lf
-
-    theorem d_leap
-      2024 4 HMod.hMod 0 = 2024 100 HMod.hMod 0 Ne And
-    := by
-      by-decide
-    end d_leap
-
-B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
-                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
-
-    theorem d_leap : 2024 % 4 = 0 ∧ 2024 % 100 ≠ 0 := by decide
-
-C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
-                                                  \ Each step is a tactic as written in A; a step inside another is indented.
-
-                                                  \ The statement of A as LeanForth read it. This is the first goal:
-    ⊢ 2024 % 4 = 0 ∧ 2024 % 100 ≠ 0               \ to prove (the mark ⊢ reads "show that")
-
-    by-decide                                     \ step 1 (Lean's decide)
-                                                  \ works the closed statement out by computation and proves it when it comes out true
-        ⊢ 2024 % 4 = 0 ∧ 2024 % 100 ≠ 0           \ the goal before this step: to prove
-                                                  \ after the step: nothing is left to prove here
-
-\ The one step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
-
-    d_leap: accepted; axioms: none
-
-====================================================================================================
-Theorem d_perfect
-====================================================================================================
-
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ops.lf
-
-    theorem d_perfect
-      1 2 + 4 + 7 + 14 + 28 =
-    := by
-      by-decide
-    end d_perfect
-
-B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
-                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
-
-    theorem d_perfect : 1 + 2 + 4 + 7 + 14 = 28 := by decide
-
-C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
-                                                  \ Each step is a tactic as written in A; a step inside another is indented.
-
-                                                  \ The statement of A as LeanForth read it. This is the first goal:
-    ⊢ 1 + 2 + 4 + 7 + 14 = 28                     \ to prove (the mark ⊢ reads "show that")
-
-    by-decide                                     \ step 1 (Lean's decide)
-                                                  \ works the closed statement out by computation and proves it when it comes out true
-        ⊢ 1 + 2 + 4 + 7 + 14 = 28                 \ the goal before this step: to prove
-                                                  \ after the step: nothing is left to prove here
-
-\ The one step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
-
-    d_perfect: accepted; axioms: none
-
-====================================================================================================
-Theorem d_mul_big
-====================================================================================================
-
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ops.lf
-
-    theorem d_mul_big
-      12345 6789 * 83810205 =
-    := by
-      by-decide
-    end d_mul_big
-
-B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
-                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
-
-    theorem d_mul_big : 12345 * 6789 = 83810205 := by decide
-
-C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
-                                                  \ Each step is a tactic as written in A; a step inside another is indented.
-
-                                                  \ The statement of A as LeanForth read it. This is the first goal:
-    ⊢ 12345 * 6789 = 83810205                     \ to prove (the mark ⊢ reads "show that")
-
-    by-decide                                     \ step 1 (Lean's decide)
-                                                  \ works the closed statement out by computation and proves it when it comes out true
-        ⊢ 12345 * 6789 = 83810205                 \ the goal before this step: to prove
-                                                  \ after the step: nothing is left to prove here
-
-\ The one step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
-
-    d_mul_big: accepted; axioms: none
-
-\ End of the run on tests/front/tactics/decide/dc-ops.lf: LeanForth's closing lines, as printed, and its exit
-\ status (0: every theorem of the file was accepted).
-    1273 declarations: 1273 accepted
-    exit status 0
-
-
-====================================================================================================
-Theorem dc_add
-====================================================================================================
-
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-arith.lf
-
-    theorem dc_add
-      2 2 + 4 =
-    := by
-      by-decide
-    end dc_add
-
-B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
-                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
-
-    theorem dc_add : 2 + 2 = 4 := by decide
-
-C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
-                                                  \ Each step is a tactic as written in A; a step inside another is indented.
-
-                                                  \ The statement of A as LeanForth read it. This is the first goal:
-    ⊢ 2 + 2 = 4                                   \ to prove (the mark ⊢ reads "show that")
-
-    by-decide                                     \ step 1 (Lean's decide)
-                                                  \ works the closed statement out by computation and proves it when it comes out true
-        ⊢ 2 + 2 = 4                               \ the goal before this step: to prove
-                                                  \ after the step: nothing is left to prove here
-
-\ The one step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
-
-    dc_add: accepted; axioms: none
-
-====================================================================================================
-Theorem dc_lt
-====================================================================================================
-
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-arith.lf
-
-    theorem dc_lt
-      10 20 LT.lt
-    := by
-      by-decide
-    end dc_lt
-
-B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
-                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
-
-    theorem dc_lt : 10 < 20 := by decide
-
-C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
-                                                  \ Each step is a tactic as written in A; a step inside another is indented.
-
-                                                  \ The statement of A as LeanForth read it. This is the first goal:
-    ⊢ 10 < 20                                     \ to prove (the mark ⊢ reads "show that")
-
-    by-decide                                     \ step 1 (Lean's decide)
-                                                  \ works the closed statement out by computation and proves it when it comes out true
-        ⊢ 10 < 20                                 \ the goal before this step: to prove
-                                                  \ after the step: nothing is left to prove here
-
-\ The one step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
-
-    dc_lt: accepted; axioms: none
-
-====================================================================================================
-Theorem dc_le
-====================================================================================================
-
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-arith.lf
-
-    theorem dc_le
-      3 3 ≤
-    := by
-      by-decide
-    end dc_le
-
-B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
-                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
-
-    theorem dc_le : 3 ≤ 3 := by decide
-
-C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
-                                                  \ Each step is a tactic as written in A; a step inside another is indented.
-
-                                                  \ The statement of A as LeanForth read it. This is the first goal:
-    ⊢ 3 ≤ 3                                       \ to prove (the mark ⊢ reads "show that")
-
-    by-decide                                     \ step 1 (Lean's decide)
-                                                  \ works the closed statement out by computation and proves it when it comes out true
-        ⊢ 3 ≤ 3                                   \ the goal before this step: to prove
-                                                  \ after the step: nothing is left to prove here
-
-\ The one step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
-
-    dc_le: accepted; axioms: none
-
-====================================================================================================
-Theorem dc_mul
-====================================================================================================
-
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-arith.lf
-
-    theorem dc_mul
-      12345 6789 Nat.mul 83810205 =
-    := by
-      by-decide
-    end dc_mul
-
-B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
-                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
-
-    theorem dc_mul : Nat.mul 12345 6789 = 83810205 := by decide
-
-C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
-                                                  \ Each step is a tactic as written in A; a step inside another is indented.
-
-                                                  \ The statement of A as LeanForth read it. This is the first goal:
-    ⊢ Nat.mul 12345 6789 = 83810205               \ to prove (the mark ⊢ reads "show that")
-
-    by-decide                                     \ step 1 (Lean's decide)
-                                                  \ works the closed statement out by computation and proves it when it comes out true
-        ⊢ Nat.mul 12345 6789 = 83810205           \ the goal before this step: to prove
-                                                  \ after the step: nothing is left to prove here
-
-\ The one step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
-
-    dc_mul: accepted; axioms: none
-
-====================================================================================================
-Theorem dc_mod
-====================================================================================================
-
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-arith.lf
-
-    theorem dc_mod
-      100 7 HMod.hMod 2 =
-    := by
-      by-decide
-    end dc_mod
-
-B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
-                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
-
-    theorem dc_mod : 100 % 7 = 2 := by decide
-
-C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
-                                                  \ Each step is a tactic as written in A; a step inside another is indented.
-
-                                                  \ The statement of A as LeanForth read it. This is the first goal:
-    ⊢ 100 % 7 = 2                                 \ to prove (the mark ⊢ reads "show that")
-
-    by-decide                                     \ step 1 (Lean's decide)
-                                                  \ works the closed statement out by computation and proves it when it comes out true
-        ⊢ 100 % 7 = 2                             \ the goal before this step: to prove
-                                                  \ after the step: nothing is left to prove here
-
-\ The one step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
-
-    dc_mod: accepted; axioms: none
-
-====================================================================================================
-Theorem dc_gcd
-====================================================================================================
-
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-arith.lf
-
-    theorem dc_gcd
+    theorem sy_gcd
       1071 462 Nat.gcd 21 =
     := by
       by-decide
-    end dc_gcd
+    end sy_gcd
 
 B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
                                                   -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
 
-    theorem dc_gcd : Nat.gcd 1071 462 = 21 := by decide
+    theorem sy_gcd : Nat.gcd 1071 462 = 21 := by decide
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
                                                   \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
@@ -610,30 +207,94 @@ C. What LeanForth did                             \ LeanForth's output: its step
 
 D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
 
-    dc_gcd: accepted; axioms: none
-
-\ End of the run on tests/front/tactics/decide/dc-arith.lf: LeanForth's closing lines, as printed, and its exit
-\ status (0: every theorem of the file was accepted).
-    1269 declarations: 1269 accepted
-    exit status 0
-
+    sy_gcd: accepted; axioms: none
 
 ====================================================================================================
-Theorem dc_not
+Theorem sy_compare
 ====================================================================================================
 
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-logic.lf
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-symbols.lf
 
-    theorem dc_not
-      2 2 + 5 = Not
+    theorem sy_compare
+      20 10 >  10 10 ≥  3 4 ≠  ∧ ∧
     := by
       by-decide
-    end dc_not
+    end sy_compare
 
 B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
                                                   -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
 
-    theorem dc_not : ¬ (2 + 2 = 5) := by decide
+    theorem sy_compare : 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4 := by decide
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
+
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    ⊢ 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4                   \ to prove (the mark ⊢ reads "show that")
+
+    by-decide                                     \ step 1 (Lean's decide)
+                                                  \ works the closed statement out by computation and proves it when it comes out true
+        ⊢ 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4               \ the goal before this step: to prove
+                                                  \ after the step: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    sy_compare: accepted; axioms: none
+
+====================================================================================================
+Theorem sy_leap
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-symbols.lf
+
+    theorem sy_leap
+      2024 4 % 0 =  2024 100 % 0 ≠  ∧
+    := by
+      by-decide
+    end sy_leap
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
+
+    theorem sy_leap : 2024 % 4 = 0 ∧ 2024 % 100 ≠ 0 := by decide
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
+
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    ⊢ 2024 % 4 = 0 ∧ 2024 % 100 ≠ 0               \ to prove (the mark ⊢ reads "show that")
+
+    by-decide                                     \ step 1 (Lean's decide)
+                                                  \ works the closed statement out by computation and proves it when it comes out true
+        ⊢ 2024 % 4 = 0 ∧ 2024 % 100 ≠ 0           \ the goal before this step: to prove
+                                                  \ after the step: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    sy_leap: accepted; axioms: none
+
+====================================================================================================
+Theorem sy_not
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-symbols.lf
+
+    theorem sy_not
+      2 2 + 5 = ¬
+    := by
+      by-decide
+    end sy_not
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
+
+    theorem sy_not : ¬ (2 + 2 = 5) := by decide
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
                                                   \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
@@ -651,188 +312,591 @@ C. What LeanForth did                             \ LeanForth's output: its step
 
 D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
 
-    dc_not: accepted; axioms: none
+    sy_not: accepted; axioms: none
 
 ====================================================================================================
-Theorem dc_and
+Theorem sy_or
 ====================================================================================================
 
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-logic.lf
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-symbols.lf
 
-    theorem dc_and
-      7 8 = Not 2 2 ≤ And
+    theorem sy_or
+      10 20 <  20 10 <  ∨
     := by
       by-decide
-    end dc_and
+    end sy_or
 
 B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
                                                   -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
 
-    theorem dc_and : ¬ (7 = 8) ∧ 2 ≤ 2 := by decide
+    theorem sy_or : 10 < 20 ∨ 20 < 10 := by decide
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
                                                   \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
                                                   \ Each step is a tactic as written in A; a step inside another is indented.
 
                                                   \ The statement of A as LeanForth read it. This is the first goal:
-    ⊢ ¬7 = 8 ∧ 2 ≤ 2                              \ to prove (the mark ⊢ reads "show that")
+    ⊢ 10 < 20 ∨ 20 < 10                           \ to prove (the mark ⊢ reads "show that")
 
     by-decide                                     \ step 1 (Lean's decide)
                                                   \ works the closed statement out by computation and proves it when it comes out true
-        ⊢ ¬7 = 8 ∧ 2 ≤ 2                          \ the goal before this step: to prove
+        ⊢ 10 < 20 ∨ 20 < 10                       \ the goal before this step: to prove
                                                   \ after the step: nothing is left to prove here
 
 \ The one step is done. Parts left unproved: 0. Axioms used: none.
 
 D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
 
-    dc_and: accepted; axioms: none
+    sy_or: accepted; axioms: none
 
 ====================================================================================================
-Theorem dc_or
+Theorem sy_iff
 ====================================================================================================
 
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-logic.lf
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-symbols.lf
 
-    theorem dc_or
-      1 0 = 2 2 + 4 = Or
+    theorem sy_iff
+      2 2 + 4 =  3 3 ≤  ↔
     := by
       by-decide
-    end dc_or
+    end sy_iff
 
 B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
                                                   -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
 
-    theorem dc_or : 1 = 0 ∨ 2 + 2 = 4 := by decide
+    theorem sy_iff : 2 + 2 = 4 ↔ 3 ≤ 3 := by decide
 
 C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
                                                   \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
                                                   \ Each step is a tactic as written in A; a step inside another is indented.
 
                                                   \ The statement of A as LeanForth read it. This is the first goal:
-    ⊢ 1 = 0 ∨ 2 + 2 = 4                           \ to prove (the mark ⊢ reads "show that")
+    ⊢ 2 + 2 = 4 ↔ 3 ≤ 3                           \ to prove (the mark ⊢ reads "show that")
 
     by-decide                                     \ step 1 (Lean's decide)
                                                   \ works the closed statement out by computation and proves it when it comes out true
-        ⊢ 1 = 0 ∨ 2 + 2 = 4                       \ the goal before this step: to prove
+        ⊢ 2 + 2 = 4 ↔ 3 ≤ 3                       \ the goal before this step: to prove
                                                   \ after the step: nothing is left to prove here
 
 \ The one step is done. Parts left unproved: 0. Axioms used: none.
 
 D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
 
-    dc_or: accepted; axioms: none
+    sy_iff: accepted; axioms: none
 
-====================================================================================================
-Theorem dc_true
-====================================================================================================
-
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-logic.lf
-
-    theorem dc_true
-      True
-    := by
-      by-decide
-    end dc_true
-
-B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
-                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
-
-    theorem dc_true : True := by decide
-
-C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
-                                                  \ Each step is a tactic as written in A; a step inside another is indented.
-
-                                                  \ The statement of A as LeanForth read it. This is the first goal:
-    ⊢ True                                        \ to prove (the mark ⊢ reads "show that")
-
-    by-decide                                     \ step 1 (Lean's decide)
-                                                  \ works the closed statement out by computation and proves it when it comes out true
-        ⊢ True                                    \ the goal before this step: to prove
-                                                  \ after the step: nothing is left to prove here
-
-\ The one step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
-
-    dc_true: accepted; axioms: none
-
-====================================================================================================
-Theorem dc_bool
-====================================================================================================
-
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-logic.lf
-
-    theorem dc_bool
-      Bool.true Bool.false Bool.and Bool.false =
-    := by
-      by-decide
-    end dc_bool
-
-B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
-                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
-
-    theorem dc_bool : Bool.and true false = false := by decide
-
-C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
-                                                  \ Each step is a tactic as written in A; a step inside another is indented.
-
-                                                  \ The statement of A as LeanForth read it. This is the first goal:
-    ⊢ Bool.and Bool.true Bool.false = Bool.false  \ to prove (the mark ⊢ reads "show that")
-
-    by-decide                                     \ step 1 (Lean's decide)
-                                                  \ works the closed statement out by computation and proves it when it comes out true
-        ⊢ Bool.and Bool.true Bool.false = Bool.false  \ the goal before this step: to prove
-                                                  \ after the step: nothing is left to prove here
-
-\ The one step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
-
-    dc_bool: accepted; axioms: none
-
-====================================================================================================
-Theorem dc_hyp
-====================================================================================================
-
-A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-logic.lf
-
-    theorem dc_hyp
-      True explicit: h
-      2 2 =
-    := by
-      by-decide
-    end dc_hyp
-
-B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
-                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
-
-    theorem dc_hyp (h : True) : 2 = 2 := by decide
-
-C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
-                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
-                                                  \ Each step is a tactic as written in A; a step inside another is indented.
-
-                                                  \ The statement of A as LeanForth read it. This is the first goal:
-    h : True                                      \ given: a variable of the theorem
-    ⊢ 2 = 2                                       \ to prove (the mark ⊢ reads "show that")
-
-    by-decide                                     \ step 1 (Lean's decide)
-                                                  \ works the closed statement out by computation and proves it when it comes out true
-        h : True                                  \ the goal before this step
-        ⊢ 2 = 2                                   \ to prove
-                                                  \ after the step: nothing is left to prove here
-
-\ The one step is done. Parts left unproved: 0. Axioms used: none.
-
-D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
-
-    dc_hyp: accepted; axioms: none
-
-\ End of the run on tests/front/tactics/decide/dc-logic.lf: LeanForth's closing lines, as printed, and its exit
+\ End of the run on tests/front/tactics/decide/dc-symbols.lf: LeanForth's closing lines, as printed, and its exit
 \ status (0: every theorem of the file was accepted).
-    1269 declarations: 1269 accepted
+    1272 declarations: 1272 accepted
+    exit status 0
+
+
+
+\ ##################################################################################################
+\ PART 2. The same nine theorems typed on a plain keyboard (tests/front/tactics/decide/dc-ascii.lf)
+\ Compare each A with Part 1's; B, C and D come out the same, because the terms are the same.
+\ ##################################################################################################
+====================================================================================================
+Theorem as_mul
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ascii.lf
+
+    theorem as_mul
+      6 7 * 42 =
+    := by
+      by-decide
+    end as_mul
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
+
+    theorem as_mul : 6 * 7 = 42 := by decide
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
+
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    ⊢ 6 * 7 = 42                                  \ to prove (the mark ⊢ reads "show that")
+
+    by-decide                                     \ step 1 (Lean's decide)
+                                                  \ works the closed statement out by computation and proves it when it comes out true
+        ⊢ 6 * 7 = 42                              \ the goal before this step: to prove
+                                                  \ after the step: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    as_mul: accepted; axioms: none
+
+====================================================================================================
+Theorem as_pythag
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ascii.lf
+
+    theorem as_pythag
+      3 3 * 4 4 * + 5 5 * =
+    := by
+      by-decide
+    end as_pythag
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
+
+    theorem as_pythag : 3 * 3 + 4 * 4 = 5 * 5 := by decide
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
+
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    ⊢ 3 * 3 + 4 * 4 = 5 * 5                       \ to prove (the mark ⊢ reads "show that")
+
+    by-decide                                     \ step 1 (Lean's decide)
+                                                  \ works the closed statement out by computation and proves it when it comes out true
+        ⊢ 3 * 3 + 4 * 4 = 5 * 5                   \ the goal before this step: to prove
+                                                  \ after the step: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    as_pythag: accepted; axioms: none
+
+====================================================================================================
+Theorem as_gauss
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ascii.lf
+
+    theorem as_gauss
+      1 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 + 55 =
+    := by
+      by-decide
+    end as_gauss
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
+
+    theorem as_gauss : 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 = 55 := by decide
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
+
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    ⊢ 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 = 55  \ to prove (the mark ⊢ reads "show that")
+
+    by-decide                                     \ step 1 (Lean's decide)
+                                                  \ works the closed statement out by computation and proves it when it comes out true
+        ⊢ 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 = 55  \ the goal before this step: to prove
+                                                  \ after the step: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    as_gauss: accepted; axioms: none
+
+====================================================================================================
+Theorem as_gcd
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ascii.lf
+
+    theorem as_gcd
+      1071 462 Nat.gcd 21 =
+    := by
+      by-decide
+    end as_gcd
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
+
+    theorem as_gcd : Nat.gcd 1071 462 = 21 := by decide
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
+
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    ⊢ Nat.gcd 1071 462 = 21                       \ to prove (the mark ⊢ reads "show that")
+
+    by-decide                                     \ step 1 (Lean's decide)
+                                                  \ works the closed statement out by computation and proves it when it comes out true
+        ⊢ Nat.gcd 1071 462 = 21                   \ the goal before this step: to prove
+                                                  \ after the step: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    as_gcd: accepted; axioms: none
+
+====================================================================================================
+Theorem as_compare
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ascii.lf
+
+    theorem as_compare
+      20 10 >  10 10 >=  3 4 Ne  /\ /\
+    := by
+      by-decide
+    end as_compare
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
+
+    theorem as_compare : 20 > 10 /\ 10 >= 10 /\ Ne 3 4 := by decide
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
+
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    ⊢ 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4                   \ to prove (the mark ⊢ reads "show that")
+
+    by-decide                                     \ step 1 (Lean's decide)
+                                                  \ works the closed statement out by computation and proves it when it comes out true
+        ⊢ 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4               \ the goal before this step: to prove
+                                                  \ after the step: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    as_compare: accepted; axioms: none
+
+====================================================================================================
+Theorem as_leap
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ascii.lf
+
+    theorem as_leap
+      2024 4 % 0 =  2024 100 % 0 Ne  /\
+    := by
+      by-decide
+    end as_leap
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
+
+    theorem as_leap : 2024 % 4 = 0 /\ Ne (2024 % 100) 0 := by decide
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
+
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    ⊢ 2024 % 4 = 0 ∧ 2024 % 100 ≠ 0               \ to prove (the mark ⊢ reads "show that")
+
+    by-decide                                     \ step 1 (Lean's decide)
+                                                  \ works the closed statement out by computation and proves it when it comes out true
+        ⊢ 2024 % 4 = 0 ∧ 2024 % 100 ≠ 0           \ the goal before this step: to prove
+                                                  \ after the step: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    as_leap: accepted; axioms: none
+
+====================================================================================================
+Theorem as_not
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ascii.lf
+
+    theorem as_not
+      2 2 + 5 = Not
+    := by
+      by-decide
+    end as_not
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
+
+    theorem as_not : Not (2 + 2 = 5) := by decide
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
+
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    ⊢ ¬2 + 2 = 5                                  \ to prove (the mark ⊢ reads "show that")
+
+    by-decide                                     \ step 1 (Lean's decide)
+                                                  \ works the closed statement out by computation and proves it when it comes out true
+        ⊢ ¬2 + 2 = 5                              \ the goal before this step: to prove
+                                                  \ after the step: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    as_not: accepted; axioms: none
+
+====================================================================================================
+Theorem as_or
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ascii.lf
+
+    theorem as_or
+      10 20 <  20 10 <  \/
+    := by
+      by-decide
+    end as_or
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
+
+    theorem as_or : 10 < 20 \/ 20 < 10 := by decide
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
+
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    ⊢ 10 < 20 ∨ 20 < 10                           \ to prove (the mark ⊢ reads "show that")
+
+    by-decide                                     \ step 1 (Lean's decide)
+                                                  \ works the closed statement out by computation and proves it when it comes out true
+        ⊢ 10 < 20 ∨ 20 < 10                       \ the goal before this step: to prove
+                                                  \ after the step: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    as_or: accepted; axioms: none
+
+====================================================================================================
+Theorem as_iff
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-ascii.lf
+
+    theorem as_iff
+      2 2 + 4 =  3 3 <=  <->
+    := by
+      by-decide
+    end as_iff
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
+
+    theorem as_iff : 2 + 2 = 4 <-> 3 <= 3 := by decide
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
+
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    ⊢ 2 + 2 = 4 ↔ 3 ≤ 3                           \ to prove (the mark ⊢ reads "show that")
+
+    by-decide                                     \ step 1 (Lean's decide)
+                                                  \ works the closed statement out by computation and proves it when it comes out true
+        ⊢ 2 + 2 = 4 ↔ 3 ≤ 3                       \ the goal before this step: to prove
+                                                  \ after the step: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    as_iff: accepted; axioms: none
+
+\ End of the run on tests/front/tactics/decide/dc-ascii.lf: LeanForth's closing lines, as printed, and its exit
+\ status (0: every theorem of the file was accepted).
+    1272 declarations: 1272 accepted
+    exit status 0
+
+
+\ ##################################################################################################
+\ PART 3. Powers, subtraction and division, against all of Init (tests/front/tactics/decide/dc-symbols-init.lf)
+\ ##################################################################################################
+
+====================================================================================================
+Theorem sy_divmod
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-symbols-init.lf
+
+    theorem sy_divmod
+      17 5 / 3 =  17 5 % 2 =  ∧
+    := by
+      by-decide
+    end sy_divmod
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
+
+    theorem sy_divmod : 17 / 5 = 3 ∧ 17 % 5 = 2 := by decide
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
+
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    ⊢ 17 / 5 = 3 ∧ 17 % 5 = 2                     \ to prove (the mark ⊢ reads "show that")
+
+    by-decide                                     \ step 1 (Lean's decide)
+                                                  \ works the closed statement out by computation and proves it when it comes out true
+        ⊢ 17 / 5 = 3 ∧ 17 % 5 = 2                 \ the goal before this step: to prove
+                                                  \ after the step: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    sy_divmod: accepted (checked in this run, uses results from the snapshot); axioms: none
+
+====================================================================================================
+Theorem sy_mersenne
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-symbols-init.lf
+
+    theorem sy_mersenne
+      2 11 ^ 1 -  23 89 * =
+    := by
+      by-decide
+    end sy_mersenne
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
+
+    theorem sy_mersenne : 2 ^ 11 - 1 = 23 * 89 := by decide
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
+
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    ⊢ 2 ^ 11 - 1 = 23 * 89                        \ to prove (the mark ⊢ reads "show that")
+
+    by-decide                                     \ step 1 (Lean's decide)
+                                                  \ works the closed statement out by computation and proves it when it comes out true
+        ⊢ 2 ^ 11 - 1 = 23 * 89                    \ the goal before this step: to prove
+                                                  \ after the step: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    sy_mersenne: accepted (checked in this run, uses results from the snapshot); axioms: none
+
+====================================================================================================
+Theorem sy_euler
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-symbols-init.lf
+
+    theorem sy_euler
+      2 32 ^ 1 +  641 6700417 * =
+    := by
+      by-decide
+    end sy_euler
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
+
+    theorem sy_euler : 2 ^ 32 + 1 = 641 * 6700417 := by decide
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
+
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    ⊢ 2 ^ 32 + 1 = 641 * 6700417                  \ to prove (the mark ⊢ reads "show that")
+
+    by-decide                                     \ step 1 (Lean's decide)
+                                                  \ works the closed statement out by computation and proves it when it comes out true
+        ⊢ 2 ^ 32 + 1 = 641 * 6700417              \ the goal before this step: to prove
+                                                  \ after the step: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    sy_euler: accepted (checked in this run, uses results from the snapshot); axioms: none
+
+====================================================================================================
+Theorem sy_taxicab
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-symbols-init.lf
+
+    theorem sy_taxicab
+      1 3 ^ 12 3 ^ + 1729 =  9 3 ^ 10 3 ^ + 1729 =  ∧
+    := by
+      by-decide
+    end sy_taxicab
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
+
+    theorem sy_taxicab : 1 ^ 3 + 12 ^ 3 = 1729 ∧ 9 ^ 3 + 10 ^ 3 = 1729 := by decide
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
+
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    ⊢ 1 ^ 3 + 12 ^ 3 = 1729 ∧ 9 ^ 3 + 10 ^ 3 = 1729  \ to prove (the mark ⊢ reads "show that")
+
+    by-decide                                     \ step 1 (Lean's decide)
+                                                  \ works the closed statement out by computation and proves it when it comes out true
+        ⊢ 1 ^ 3 + 12 ^ 3 = 1729 ∧ 9 ^ 3 + 10 ^ 3 = 1729  \ the goal before this step: to prove
+                                                  \ after the step: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    sy_taxicab: accepted (checked in this run, uses results from the snapshot); axioms: none
+
+====================================================================================================
+Theorem sy_pow_cmp
+====================================================================================================
+
+A. The proof in LeanForth                         \ input: the text of tests/front/tactics/decide/dc-symbols-init.lf
+
+    theorem sy_pow_cmp
+      2 10 ^ 1024 =  2 10 ^ 1000 >  ∧
+    := by
+      by-decide
+    end sy_pow_cmp
+
+B. The same proof in Lean                         -- for comparison only. Not LeanForth's output; Lean is not run:
+                                                  -- copied from tests/front/tactics/goal-layer.lean, which the tests compare with
+
+    theorem sy_pow_cmp : 2 ^ 10 = 1024 ∧ 2 ^ 10 > 1000 := by decide
+
+C. What LeanForth did                             \ LeanForth's output: its step log, laid out by the showcase script.
+                                                  \ LeanForth prints goals in Lean's notation. A goal is what is still to be proved.
+                                                  \ Each step is a tactic as written in A; a step inside another is indented.
+
+                                                  \ The statement of A as LeanForth read it. This is the first goal:
+    ⊢ 2 ^ 10 = 1024 ∧ 2 ^ 10 > 1000               \ to prove (the mark ⊢ reads "show that")
+
+    by-decide                                     \ step 1 (Lean's decide)
+                                                  \ works the closed statement out by computation and proves it when it comes out true
+        ⊢ 2 ^ 10 = 1024 ∧ 2 ^ 10 > 1000           \ the goal before this step: to prove
+                                                  \ after the step: nothing is left to prove here
+
+\ The one step is done. Parts left unproved: 0. Axioms used: none.
+
+D. The verdict of LeanForth's kernel              \ LeanForth's output, as printed
+
+    sy_pow_cmp: accepted (checked in this run, uses results from the snapshot); axioms: none
+
+\ End of the run on tests/front/tactics/decide/dc-symbols-init.lf: LeanForth's closing lines, as printed, and its exit
+\ status (0: every theorem of the file was accepted).
+    59354 declarations: 59354 accepted; 59349 from the snapshot, 5 checked in this run
     exit status 0
 

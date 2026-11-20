@@ -386,9 +386,13 @@ lf-memo-auto lf-audit-memo!
 \ An input let and an equal let the store builds (same value, the same
 \ lambda) have the same data word, depth included, as Lean's letE gives
 \ (review rvS5B M1: the store once counted the lambda's level too, so
-\ == met the lets apart).
-: store-let ( -- let ) 0 lf-input-decl lf-idecl-value @ lf-let-value
-  lams nip lf-tag-let-nondep lf-term-binary 0= abort" store-let" ;
+\ == met the lets apart). The store's let is made with sharing off: since
+\ the let's lambda and idSort's are one node, sharing would give back the
+\ input let itself, whose data word the stage made.
+: store-let ( -- let )
+  lf-term-sharing? false lf-term-sharing! 0 lf-input-decl lf-idecl-value @ lf-let-value
+  lams nip lf-tag-let-nondep lf-term-binary 0= abort" store-let" swap lf-term-sharing! ;
+T{ store-let lf-term-base >= -> true }T
 T{ 0 lf-input-decl lf-idecl-value @ lf-term-data@ drop lf-data-depth
    store-let lf-term-data@ drop lf-data-depth = -> true }T
 T{ 0 lf-input-decl lf-idecl-value @ store-let 1000 lf-expr-equal -> true outcome-ok }T
@@ -407,13 +411,20 @@ T{ let-lam-file fed-checked verdicts unstage -> outcome-ok 2 true }T
 \ in place: in stage-cases/marks.ndjson an mdata, an application and a
 \ lambda over it, a let whose body it is and a projection of it (theorem
 \ t's value): five expressions, seven store nodes (the let's lambda and
-\ the projection's leaf besides).
+\ the projection's leaf besides). The copied let, the one let the store
+\ made, is dependent.
+: copied-let ( -- let )
+  -1 lf-term-base lf-term-count @ + lf-term-base ?do i lf-let? if drop i leave then loop ;
 T{ s" tests/core/stage-cases/marks.ndjson" fed lf-input-count 1- lf-input-decl lf-idecl-value @
-   dup lf-term-base >= swap lf-term-tag@ lf-term-count @ -> outcome-ok true lf-tag-projection 7 }T
+   dup lf-term-base >= swap lf-term-tag@ lf-term-count @ copied-let lf-let-nondep
+   -> outcome-ok true lf-tag-projection 7 false }T
 unstage
 \ The same with the let non-dependent (review of refactor-fri L2): its
-\ body copied, it is copied too, as the dependent one is.
-T{ s" tests/core/stage-cases/marks-nondep.ndjson" fed lf-term-count @ -> outcome-ok 7 }T
+\ body copied, it is copied too, as the dependent one is, and keeps its
+\ nonDep flag, which Lean's == compares (the feed's copy of a letE; an
+\ export without mdata has every let read in place, flag and all).
+T{ s" tests/core/stage-cases/marks-nondep.ndjson" fed lf-term-count @ copied-let lf-let-nondep
+   -> outcome-ok 7 true }T
 unstage
 \ A let and the nodes above it are read in place, nothing copied.
 T{ let-file fed 0 lf-input-decl lf-idecl-value @ lf-term-base < lf-term-count @
@@ -528,6 +539,24 @@ T{ pages-kept rot 0> -> 0 true true }T
   s" tests/cli/jobs/horizon.ndjson" fed ok? must -12345 planted !
   fuel 64 lf-check-input swap the-env ! drop planted @ -12345 <> env-done unstage ;
 T{ plant-run -> true }T
+\ After the feed, every input unit lies in the directory: the leaves the
+\ feed entered take units after the records' (terms.fs's
+\ lf-term-input-unit), so the feed sizes the directory again once they
+\ are entered (feed.fs's lf-term-view-grown); a leaf beyond it would get
+\ the spare unit, never held, and be audited again at every visit (more
+\ fuel in place). In a new context the directory's first size is the
+\ records' pages, at least 16 (lib/slab.fs's slab-min-units), of 256
+\ units each: rec-missing-ih.ndjson's records need 18 pages, with its
+\ leaves 20, so only that second sizing covers them. (A context that fed
+\ a larger export before keeps its larger directory, so the run is in a
+\ context of its own.)
+: record-pages ( -- n ) lf-term-input-records lf-mark-page-mask + lf-mark-page-bits rshift ;
+: grows? ( -- flag ) record-pages 16 max lf-mark-pages# < ;
+: paged? ( -- grows? covered? ) grows? lf-mark-pages# lf-mark-pages slab-capacity > 0= ;
+: leaves-paged ( -- grows? covered? )
+  context-new throw dup context-use s" tests/cli/bugs/rec-missing-ih.ndjson" fed ok? must
+  paged? unstage context-main context-use rot context-free throw ;
+T{ leaves-paged -> true true }T
 
 cases-done
 bye
