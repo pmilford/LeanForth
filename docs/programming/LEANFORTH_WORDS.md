@@ -472,7 +472,7 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 119 | unsupported | not supported yet: the search tries an instance the export left out |
 | 120 | unsupported | not supported yet: the search tries an instance whose keys could not be checked (S2) |
 | 121 | unsupported | not supported yet: Lean's check of an instance that holds metavariables (FE1e5b) |
-| 122 | invalid | failed to synthesize (Meta's synthInstance, the tactic library's: mkAppM's, mkAppOptM's and apply's instance binders, `by-decide`'s instance; the type indented and Lean's hint follow) |
+| 122 | invalid | failed to synthesize |
 | 125 | invalid | failed to synthesize instance of type class |
 | 126 | invalid | typeclass instance problem is stuck |
 | 127 | invalid | numerals are data in Lean, but the expected type is a proposition |
@@ -516,15 +516,23 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 381 | invalid | Tactic `assumption` failed |
 | 382 | invalid | Tactic `constructor` failed: target is not an inductive datatype |
 | 383 | invalid | Tactic `constructor` failed: no applicable constructor found |
-| 250 | invalid | Tactic `decide` proved that the proposition (the proposition indented, then "is false") |
-| 251 | invalid | Expected type must not contain free variables (the type indented, then Lean's `+revert` hint) |
-| 252 | invalid | Expected type must not contain metavariables (the type indented) |
-| 253 | invalid | Tactic `decide` failed to reduce (the decide term indented, then "to `true` or `false`.") |
+| 250 | invalid | Tactic `decide` proved that the proposition |
+| 251 | invalid | Expected type must not contain free variables |
+| 252 | invalid | Expected type must not contain metavariables |
+| 253 | invalid | Tactic `decide` failed to reduce |
 | 254 | unsupported | `native_decide` is not supported: it trusts Lean's compiler (`Lean.ofReduceBool`), never accepted (ADR 0021 D7) |
 | 385 | invalid | Tactic `left` failed: target is not an inductive datatype |
 | 386 | invalid | Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors |
 | 387 | invalid | Tactic `right` failed: target is not an inductive datatype |
 | 388 | invalid | Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors |
+
+What follows the first line of five of these messages (the table gives the first line, as `src/author/errors.fs` holds it):
+
+- 122: Meta's synthInstance, the tactic library's: mkAppM's, mkAppOptM's and apply's instance binders, `by-decide`'s instance; the type indented and Lean's hint follow.
+- 250: the proposition indented, then "is false".
+- 251: the type indented, then Lean's `+revert` hint.
+- 252: the type indented.
+- 253: the decide term indented, then "to `true` or `false`.".
 
 Codes come in ranges (`src/author/errors.fs`): 1 to 73 the words, the
 runner, the stores and natural text read (FE1a); 74 to 79 elaboration and

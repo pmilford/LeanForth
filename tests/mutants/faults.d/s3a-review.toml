@@ -104,7 +104,6 @@ new = '''  dup lf-meta-has-fvar? if ['] tdc-revert. lfa-e-decide-fvars tdc-fail 
   dup lf-meta-has-mvar? lf-must if ['] lf-tac-indented. lfa-e-decide-mvars tdc-fail then ;'''
 test = "$GFORTH tests/front/tactics/decide/test.fs"
 reason = "review s3a-decide L2: a P with a metavariable and a free variable gives 251 where Lean reports the metavariable first (252)"
-equivalent = "a node above a metavariable leaf has no cached data (core/terms.fs: an unknown leaf's range), so meta-spine.fs's lf-meta-has-fvar? is false whenever lf-meta-has-mvar? is true, and the two tests never both hold: the order cannot be observed; decide/test.fs pins the answer 252 for such a P"
 
 # --- M1: the callers' literal tests before core/nat-ops.fs computes ----------
 

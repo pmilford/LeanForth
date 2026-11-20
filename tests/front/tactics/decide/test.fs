@@ -17,7 +17,9 @@
 \ 6. state: a refused goal is left unassigned.
 \ Nothing here accepts a theorem: only the kernel's check does.
 require ../../../support/tester.fs
-require ../../../../src/main.fs
+require ../../../../src/load/checker.fs
+require ../../../../src/load/front.fs
+require ../../../../src/cli/check-lf.fs
 require ../../../support/tactic-text.fs
 decimal
 
@@ -59,6 +61,12 @@ T{ fg 2 num eq-nat ' tdc-pre code1 -> -4205 }T
 \ Lean's order (L2 of the review of S3a): a metavariable (252) is reported
 \ before a free variable (251) when P holds both.
 T{ ?m fn eq-nat ' tdc-pre code1 lf-author-code -> lf-author-throw 252 }T
+lf-tac-forget
+\ A universe level metavariable makes the order visible (re-check of the
+\ S3a fixes, R1): Sort ?u applied to n holds a metavariable (hasMVar counts
+\ a level's) and a free variable both, and Lean reports 252.
+: sort-?u ( -- t ) lf-level-mvar-new made lf-term-symbolic-sort 0= abort" decide test: no sort" ;
+T{ sort-?u fn lf-term-app drop ' tdc-pre code1 lf-author-code -> lf-author-throw 252 }T
 lf-tac-forget
 \ A let or have expression in P with a free variable (review s3a-decide B2):
 \ zetaReduce would remove or substitute it, so the step answers
