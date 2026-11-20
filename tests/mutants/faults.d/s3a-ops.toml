@@ -190,3 +190,29 @@ old = ''': text-trim ( c-addr u -- c-addr' u' ) ['] text-filled? text-from -trai
 new = ''': text-trim ( c-addr u -- c-addr' u' ) -trailing ;'''
 test = "$GFORTH tests/lib/text-run.fs"
 reason = "S3a-ops C2: text-trim keeps the spaces at a text's start, so the notation table's ' <= ' never equals the word <="
+
+# --- the re-check of ops-symbols (R1-R3) --------------------------------------
+
+[[fault]]
+id = "rd-natural-word-unmeant"
+file = "src/author/words.fs"
+old = '''lfa-natural-words + - * / % = ≠ < > ≤ <= ≥ >= ¬ ∧ /\ ∨ \/ ↔ <-> ∣'''
+new = '''lfa-natural-words + - * / % = ≠ < > ≤ <= ≥ >= ¬ ∧ /\ ∨ \/ ↔ <-> ∣ ⊆'''
+test = "$GFORTH tests/front/front.fs"
+reason = "re-check of ops-symbols R3: a syntax word words.fs lists and reader.fs gives no meaning would answer error 70 at its use; front.fs walks the syntax words themselves"
+
+[[fault]]
+id = "decide-init-axiom-unseen"
+file = "tests/front/tactics/decide/check.py"
+old = '''    return re.search(rf"^{re.escape(name)}: accepted \(checked in this run[^)]*\); axioms: none$", out,'''
+new = '''    return re.search(rf"^{re.escape(name)}: accepted \(checked in this run[^)]*\); axioms: ", out,'''
+test = "python3 tests/scripts/test_mathlib_slice.py"
+reason = "re-check of ops-symbols R1: a theorem accepted with an axiom passes the Init comparison, as it did while the check read any line's \"axioms: none\""
+
+[[fault]]
+id = "decide-init-require-preset"
+file = "scripts/tested-tree.py"
+old = '''    os.environ["REQUIRE_INIT_SNAPSHOT"] = "1"'''
+new = '''    os.environ.setdefault("REQUIRE_INIT_SNAPSHOT", "1")'''
+test = "python3 tests/scripts/test_mathlib_slice.py"
+reason = "re-check of ops-symbols R2: a recorded run whose environment already holds another value of the variable skips the comparison and passes"

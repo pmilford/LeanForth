@@ -34,6 +34,7 @@ Usage: GFORTH=... python3 tests/front/tactics/decide/check.py
 """
 import os
 import pathlib
+import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
@@ -190,6 +191,13 @@ STALE = ("(this build: ", "carry: a snapshot of verdict version",
          "the snapshot was refused")
 
 
+def clean(out, name):
+    """Whether NAME's own verdict line says accepted in this run with no axiom (re-check of
+    ops-symbols R1: a snapshot run prints thousands of other lines that end "axioms: none")."""
+    return re.search(rf"^{re.escape(name)}: accepted \(checked in this run[^)]*\); axioms: none$", out,
+                     re.M) is not None
+
+
 def missing_input(snapshot, data):
     """Why the Init run cannot start (a missing snapshot or elaboration data), else None."""
     for what, name, path in (("Init snapshot", "INIT_SNAPSHOT", snapshot),
@@ -242,8 +250,7 @@ def init_mode(snapshot, data):
                   f"build's snapshot ({stale.strip()}); write it again (make parallel-init) or "
                   f"give a current one (INIT_SNAPSHOT=...)", file=sys.stderr)
             sys.exit(1)
-        missing = [n for n in names if f"\n{n}: accepted (checked in this run" not in "\n" + out
-                   or "axioms: none" not in out]
+        missing = [n for n in names if not clean(out, n)]
         if code != 0 or missing:
             print(f"decide --init: {path}: exit {code}, not accepted: {missing}\n{out}",
                   file=sys.stderr)

@@ -196,7 +196,7 @@ name-table: lfn-notations
   2dup lf-nt-find dup if lfn-row-spells? then
   0= abort" reader.fs: a notation word its constant's row lacks" ;
 : lfn-syntax-word ( "word" -- )
-  lfn-peek lf-words search-wordlist 0= abort" reader.fs: not a syntax word" drop ;
+  lfn-peek lf-words lfa-has-word? 0= abort" reader.fs: not a syntax word" ;
 : lfn-new-word ( "word" -- c-addr u )
   lfn-peek 2dup lfn-notations name-table-find abort" reader.fs: a notation word twice" ;
 : lfn-checked ( c-addr u "word" -- c-addr u w-addr w-u )

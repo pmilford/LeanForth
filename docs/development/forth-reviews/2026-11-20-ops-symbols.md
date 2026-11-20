@@ -377,3 +377,227 @@ Checks after the fixes (2026-11-20, `26761ac1`): `python3 tests/front/tactics/de
 block on a changed line ran); `python3 scripts/mutants.py --check` exit 0; `make check-test-classes
 check-docs` exit 0. `scripts/pre-tier.sh` fails on one line only, "forth quality + review log", for the
 open L1 baseline point above.
+
+## Re-check (2026-11-20, fix commits ccbe966a and 26761ac1)
+
+Range re-checked: **054c4fae..21f64a1d** (ccbe966a, 26761ac1 and the review record 21f64a1d), with the
+notation table also compared against eab85b83, the head of the first review.
+
+**Findings: 0 high, 0 medium, 4 low.** B1, B2 and B3 (a, b, c) are fixed, and so are L1, L2, L4 and L5.
+L3 is fixed only in part (R3 below). Each of the review's surviving faults (F1, F1b, F1c, F7) is now
+caught by a unit file the tier runs.
+
+**Verdict: fix first, small.** R4 is a one-line reuse fix, and reuse findings block a merge. R1-R3
+are each a few lines: fix them or give each a plan row. No difference from pinned Lean was found.
+After the fixes, a glance at the diff and its planted fault is enough; this re-check does not need
+repeating. The owner's baseline decision (point 5) is separate and also needed before the merge,
+because `check-forth-quality` fails until it is made.
+
+Method:
+- Worked on `git archive 21f64a1d` and `git archive eab85b83`, extracted into the scratchpad; no
+  worktree was edited.
+- Faults were planted in hard-linked copies, with the planted file unlinked before it was written.
+- Tools: Gforth 1.0.0 (`gforth` and `gforth-fast`), Gforth 0.7.3 (`.claude/work/A/gforth073.sh`,
+  front.fs only) and pinned Lean 4.35.0's `lean` binary. Every run used `ulimit -u 500` and stdin
+  from /dev/null.
+- Not run: make, any suite or tier, `make cover-changed`, `scripts/mutants.py`, plain `check.py` on
+  the unmodified head (the implementer recorded it).
+- One slip: I overwrote the scratchpad's `tools/plant.py` from the first review with my own. A copy
+  of that file is in `.claude/work/sym-review-probes/tools/plant.py`.
+
+### 1. Fidelity unchanged
+
+- **Probes.** The first review's probe files (probe.lf, probe2.lf, probe3.lf) ran on 21f64a1d
+  against Init's snapshot (`gforth-fast src/main.fs tests/front/elab-dump.fs -e "cli-dump (bye)"
+  check --snapshot … --elab-data … --steps -`), and their `.lean` twins ran through pinned Lean.
+  The 73 statements give 146 terms (98 + 32 + 16), and **146 of 146 are identical** to pinned
+  Lean's (tools/cmp.py: "same 98/32/16, differ 0"). All three exited 0.
+- **Table.** I dumped `lfn-notations` at eab85b83 and at 21f64a1d (spelling, kind, constant, the
+  syntax word's natural xt). The two dumps are **byte-identical, order included**:
+  - 22 entries;
+  - `+ - * / %` → H*.h* binop (6), `^` → HPow.hPow rightact (9);
+  - `= ≠ < > ≤ <= ≥ >=` → Eq Ne LT.lt GT.gt LE.le LE.le GE.ge GE.ge binrel (7);
+  - `¬ ∣ ∧ /\ ∨ \/ ↔ <->` → Not Dvd.dvd And And Or Or Iff Iff, named (0);
+  - every entry has its meaning (`lfn-w-operator` or `lfn-w-named`).
+- **Golden.** `tests/front/tactics/goal-layer.lean` run through pinned Lean prints 293 lines that
+  are byte-identical to `goal-layer.golden`, including all 176 `sy_/as_/sv_/si_` lines.
+
+### 2. B1 (the seal and rollback)
+
+A probe (`seal.fs`: load checker.fs and front.fs) checked the entry count, `here` and `$`'s
+natural xt before and after every registration attempt.
+
+- **Before `context-new`.** Each refusal aborts with its own message:
+  - row lacks: `zz`, `$`, `!`;
+  - not a syntax word: `∈`;
+  - twice: `+`, `¬`, `<->`.
+
+  Each leaves 22 entries, `here` unchanged and `$`'s meaning unchanged.
+- **After `context-new throw context-use`** (`context-sealed?` = -1). `lfn-operator:` (∈, +),
+  `lfn-notation-name:` (¬, <->, zz) and a direct `lfn-entry,` all abort first with "reader.fs: a
+  notation word after context-new". The table keeps 22 entries.
+- **No bypass through `lfn-notation-name:`.** Its only path to the table is `lfn-entry,`, which
+  runs `lfn-open` first. The table's only writer is reader.fs:205.
+- **Planted `rd-notation-after-context`.** Caught by tests/front/front.fs on Gforth 1.0 and on
+  0.7.3, at the sealed block front.fs:916-921 (`-> -2 true 22`; ∈ then aborts with "not a syntax
+  word").
+- **Fault-free head.** front.fs passes on gforth, gforth-fast and Gforth 0.7.3. `abort-text`'s
+  0.7.3 branch really compares the text: the seal fault is caught there too.
+
+### 3. B2 and the surviving faults
+
+Each was planted on 21f64a1d and run against tests/front/front.fs (Gforth 1.0). Every one is caught:
+
+| fault | caught at |
+|---|---|
+| `et-coe-rightact-op` (F7, B2) | `Bool explicit: b Nat explicit: n b n ^ b = … -> 119` |
+| `rd-gt-operands-swapped` (F1) | `n m > operands -> 71 0 1` |
+| F1b, `<` swapped (my own text, not in faults.toml) | `n m < operands -> 71 0 1` |
+| `rd-ge-operands-swapped` (F1c) | `n m ≥ operands -> 71 0 1` |
+| `rd-notation-no-syntax-check` | the ∈ line |
+| `rd-op-skips-row-check` (re-pointed) | the zz line |
+| `decide-init-recorded-run-skips` | tests/scripts/test_mathlib_slice.py |
+| `decide-init-stale-unseen` | tests/scripts/test_mathlib_slice.py |
+| `test-classes-daily-unchecked` | tests/scripts/test_test_classes.py |
+
+front.fs is the `test-front` target, class unit: every tier that reaches the front end runs it, on
+both engines, and `make daily` runs it on 0.7.3 too. The Python unit tests run in every tier that
+reaches the scripts.
+
+### 4. B3 (the comparisons)
+
+**Plain mode compares node for node.** I corrupted one golden line at a time in a copy:
+- `sv_p12 type`, `Or` → `And`: plain check.py exits 1 with "sy-vars.lf: sv_p12 type differs from
+  pinned Lean's";
+- `sy_or value`, the first `LT.lt` → `GT.gt`: exits 1 with "dc-symbols.lf: sy_or value differs".
+
+Each run took 24-25 s. `check_files` also requires exactly 2 dump lines per theorem.
+
+**`check.py --init` once**, on the real snapshot and data (81 s, exit 0): "116 theorems of 11 files
+accepted against Init's snapshot, axioms none, their terms node for node pinned Lean's (each ASCII
+file's its symbol file's); 4 wrong twins refused with Lean's messages; 2 not supported yet (exit
+2); 5 #check lines as pinned Lean's".
+
+**Can a recorded run pass without comparing anything?**
+- A missing snapshot or missing elaboration data fails (exit 1 with `REQUIRE_INIT_SNAPSHOT=1`).
+  Without the variable it is SKIPPED with exit 0, as intended.
+- An empty or damaged snapshot fails: exit 1, "STALE SNAPSHOT, NOT A PASS … the snapshot was refused".
+- A stale snapshot whose run stops before the report fails through the exit code or the
+  missing-name check.
+- A missing dump line fails `same_terms` (`key not in lines`).
+- The file lists are static, so an empty list cannot happen at run time.
+- The daily records the target for its exact tree; other trees' records are not reused.
+- **Two gaps (R1, R2):** a preset `REQUIRE_INIT_SNAPSHOT` other than "1" lets a recorded run skip,
+  and the per-theorem axiom check is vacuous.
+
+**L4 claim checked:** on Init, `n i ≠` and `n i Ne` (n : Nat, i : Int) both answer error 131, exit
+2. The claim holds.
+
+### Findings
+
+**R1 (low, tests: a vacuous check). `check.py --init`'s "accepted with no axiom" check is always true.**
+- Where: tests/front/tactics/decide/check.py:245-246:
+  `missing = [n for n in names if … or "axioms: none" not in out]`.
+- Every snapshot run prints thousands of lines such as `dite: accepted (from snapshot, …); axioms:
+  none`, so the condition never fires. A theorem accepted with an axiom would pass. The summary still
+  prints "axioms none".
+- The line predates this branch, but B3 (c) now rests on it.
+- Risk is low: a term identical to Lean's has Lean's constants, and plain mode checks its 62
+  theorems exactly.
+- Fix:
+  ```python
+  def clean(out, name):
+      return re.search(rf"^{re.escape(name)}: accepted \(checked in this run[^)]*\); axioms: none$", out, re.M)
+  missing = [n for n in names if not clean(out, n)]
+  ```
+  Add a stand-in case to `NoInitSnapshot`: the theorem's own line says "axioms: propext" and a
+  snapshot line says none, and `clean` must answer false.
+
+**R2 (low, process). A preset `REQUIRE_INIT_SNAPSHOT` lets a recorded run pass unrun.**
+- Where: scripts/tested-tree.py:766 uses `os.environ.setdefault("REQUIRE_INIT_SNAPSHOT", "1")`, and
+  check.py:210 fails only on exactly "1".
+- Reproduction: `REQUIRE_INIT_SNAPSHOT=true check.py --init /missing E` gives exit 0, "SKIPPED, NOT
+  RUN". So `make daily` in such an environment records a pass of a comparison it never made. That is
+  exactly the failure `decide-init-recorded-run-skips` guards.
+- Fix: `os.environ["REQUIRE_INIT_SNAPSHOT"] = "1"` in tested-tree.py; the unit test
+  `test_tested_tree_requires_it` changes to match. REQUIRE_MATHLIB at :763 has the same pattern and
+  predates this branch.
+
+**R3 (low, tests: L3 only partly closed). A notation word added to words.fs without a reader meaning still goes unnoticed.**
+- Where: front.fs:143-147 counts a hand-written copy of the 22 spellings, so it only checks those
+  22. The first review suggested that loop itself.
+- Reproduction: append `⊆` to `lfa-natural-words` (words.fs:194). front.fs and author.fs both still
+  pass, and `⊆` would answer error 70 at use.
+- Fix: derive the check from LF-WORDS itself, in front.fs, guarded for 0.7.3:
+  ```forth
+  [defined] traverse-wordlist [if]
+  \ Every natural-only syntax word has its natural meaning (review ops-symbols L3).
+  variable unmeant#
+  : unmeant ( nt -- true )
+    name>interpret >body dup @ ['] lfa-w-natural-only =
+    swap cell+ @ ['] lfa-natural-later = and if 1 unmeant# +! then true ;
+  T{ 0 unmeant# ! ' unmeant lf-words traverse-wordlist unmeant# @ -> 0 }T
+  [then]
+  ```
+  Tried as a probe: the head gives 0, and the planted `⊆` gives 1 and names it.
+- Add the planted line as a fault.
+
+**R4 (low, reuse). `lfn-syntax-word` re-states `lfa-has-word?`.**
+- Where: src/front/reader.fs:198-199 writes
+  `lfn-peek lf-words search-wordlist 0= abort" …" drop` inline.
+- `lfa-has-word? ( c-addr u wid -- flag )` at src/author/runner.fs:140 already does this, and
+  reader.fs requires runner.fs (reader.fs:48).
+- Fix:
+  ```forth
+  : lfn-syntax-word ( "word" -- ) lfn-peek lf-words lfa-has-word? 0= abort" reader.fs: not a syntax word" ;
+  ```
+- `check-duplicates --new-words` finds nothing: the shared phrase is below its size threshold.
+
+**Pre-existing, outside the diff (not counted). `lfa-natural!` is not sealed.**
+- Where: src/author/groups.fs:183.
+- Probe: after `context-new throw context-use`, `' noop lfa-natural! +` returns 0, and `+`'s natural
+  meaning becomes `noop`.
+- The notation table is sealed now, but the other half of a notation word, its LF-WORDS body, can
+  still be rewritten after a context exists. This is not the table bypass B1 named.
+- Suggest a plan row, or a one-line fix in this branch (`context-sealed? abort" …"` first, as
+  terms.fs:257 and tactic-run.fs:290 do), with a fault.
+
+### 5. The open point: reader.fs's one global
+
+Yes: 22 fixed notation entries shared read-only by every context are language data. They belong in
+one table written only at load and sealed by `lfn-open`, the same pattern as tactic-run.fs's rows
+(baseline 2) and terms.fs's tag table; a per-context copy would add memory and code for nothing.
+Raising reader.fs's globals baseline from 0 to 1 is the honest fix: the old 0 hid the table as a
+`constant`. The commit raising it should give that reason and name the seal, and the pre-existing
+`lfa-natural!` point shows that "sealed" should cover the meanings too.
+
+### 6. Style and reuse (ccbe966a's Forth)
+
+- forth-metrics on reader.fs (the review asked for `--words 10`):
+  - before (eab85b83): 67 words; 83% of one or two lines, 16% of three to five; globals 0,
+    constants 1; deep shuffles 5; return-stack ops 16;
+  - after (21f64a1d): 70 words; 87% of one or two lines, 12% of three to five, none longer; no
+    missing stack comment; globals 1 (NAME-TABLE), context members 1, constants 0; deep shuffles 4;
+    return-stack ops 14; no line over 90 characters.
+- The longest new word is `lfn-spelt` (3 lines). `lfn-meaning` (4 items, `>r` juggling of `>in`) is
+  gone; `lfn-entry,` uses a single `>r … r>`.
+- The stack comments of `lfn-open`, `lfn-spells?`, `lfn-row-spells?`, `lfn-spelt`,
+  `lfn-syntax-word`, `lfn-new-word`, `lfn-checked`, `lfn-entry,`, `lfn-operator:` and
+  `lfn-notation-name:` are accurate. `"word"` there means peeked, which the block comment above them
+  says. The header's State line names the table and who writes it.
+- Reuse (searched src/lib, src/author, src/front by name and shape):
+  - `name-table:`, `name-entry` and `lfn-peek` are reused;
+  - no private offset is read;
+  - `python3 scripts/check-duplicates.py --new-words --base main --head 21f64a1d` (run from the main
+    checkout, read-only) reports "new small copies: none (0 excused) against main";
+  - the one phrase-level overlap is R4.
+- New global: `lfn-notations` (reader.fs:169). `lfn-entry,` writes it while reader.fs loads; it is
+  sealed after `context-new` and read in place by `lfn-entry` in every run.
+
+Remaining gaps and uncertainties:
+- Not traced: how `make once` digests `reference-decide-init`'s inputs. The snapshot lies outside
+  the checkout; the daily path records per exact tree, so a reused record cannot satisfy it.
+- F1b is not a planted fault in faults.toml: `rd-op-swaps-operands` and the new `<` line cover it.
+- Gforth 0.7.3 ran front.fs only.
+
+After the re-check: R1 (each theorem's own line must say no axiom: `clean` in `tests/front/tactics/decide/check.py`, fault `decide-init-axiom-unseen`), R2 (`scripts/tested-tree.py` sets both REQUIRE variables whatever the environment holds, fault `decide-init-require-preset`), R3 (`tests/front/front.fs` walks the syntax words themselves, fault `rd-natural-word-unmeant`) and R4 (`lfn-syntax-word` calls `lfa-has-word?`) are fixed in the commit that adds this section. The point outside the diff, `lfa-natural!` writable after `context-new` (`src/author/groups.fs`), is plan 9.4.8l (BB).

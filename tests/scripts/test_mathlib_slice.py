@@ -98,7 +98,7 @@ class NoExport(unittest.TestCase):
 
     def test_tested_tree_requires_it(self):
         text = (ROOT / "scripts/tested-tree.py").read_text(encoding="utf-8")
-        self.assertIn('os.environ.setdefault("REQUIRE_MATHLIB", "1")', text)
+        self.assertIn('os.environ["REQUIRE_MATHLIB"] = "1"', text)
 
 
 DECIDE = ROOT / "tests/front/tactics/decide/check.py"
@@ -117,6 +117,21 @@ class NoInitSnapshot(unittest.TestCase):
             env["REQUIRE_INIT_SNAPSHOT"] = "1"
         return subprocess.run([sys.executable, str(DECIDE), "--init", snapshot, str(DECIDE)], cwd=ROOT,
                               env=env, capture_output=True, text=True, timeout=120)
+
+    def test_a_theorems_own_line_must_say_no_axiom(self):
+        # Re-check of ops-symbols R1: other lines of a snapshot run end "axioms: none".
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("decide_check", DECIDE)
+        check = importlib.util.module_from_spec(spec)
+        sys.path.insert(0, str(DECIDE.parent.parent))
+        spec.loader.exec_module(check)
+        other = "dite: accepted (from snapshot, block 3); axioms: none\n"
+        good = other + "t: accepted (checked in this run, 0.1 s); axioms: none\n"
+        with_axiom = other + "t: accepted (checked in this run, 0.1 s); axioms: propext\n"
+        self.assertTrue(check.clean(good, "t"))
+        self.assertFalse(check.clean(with_axiom, "t"))
+        self.assertFalse(check.clean(other, "t"))
+        self.assertFalse(check.clean(good.replace("t: accepted", "tt: accepted"), "t"))
 
     def test_a_users_run_skips_and_says_so(self):
         done = self.run_check(False)
@@ -141,7 +156,7 @@ class NoInitSnapshot(unittest.TestCase):
 
     def test_tested_tree_requires_it(self):
         text = (ROOT / "scripts/tested-tree.py").read_text(encoding="utf-8")
-        self.assertIn('os.environ.setdefault("REQUIRE_INIT_SNAPSHOT", "1")', text)
+        self.assertIn('os.environ["REQUIRE_INIT_SNAPSHOT"] = "1"', text)
 
     def test_a_stale_snapshot_is_told_apart(self):
         spec = importlib.util.spec_from_file_location("decide_check", DECIDE)

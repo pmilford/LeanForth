@@ -145,6 +145,16 @@ variable entries#
 entered + - * / % ^ = ≠ < > ≤ <= ≥ >= ¬ ∧ /\ ∨ \/ ↔ <-> ∣
 constant entered#
 T{ entered# entries -> 22 22 }T
+\ And the other way round, from the syntax words themselves (re-check of
+\ ops-symbols R3): no natural-only syntax word is left without its natural
+\ meaning, whatever words.fs lists.
+[defined] traverse-wordlist [if]
+variable unmeant#
+: unmeant ( nt -- true )
+  name>interpret >body dup @ ['] lfa-w-natural-only =
+  swap cell+ @ ['] lfa-natural-later = and if 1 unmeant# +! then true ;
+T{ 0 unmeant# ! ' unmeant lf-words traverse-wordlist unmeant# @ -> 0 }T
+[then]
 \ A registration whose row is missing or lacks the spelling, whose word
 \ is no syntax word, or which is made twice aborts while loading, each
 \ with its own message, before anything is written: the table keeps its
