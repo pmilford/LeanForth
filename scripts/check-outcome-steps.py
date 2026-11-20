@@ -17,7 +17,8 @@ as Gforth does) and requires:
 
 A site whose X has no definition with a stack comment in src/, a stack comment it cannot count (`...`, `..`,
 `|` before `--`, brackets or no `--`), or several definitions that disagree, is reported as "not checked" and
-does not fail: the check is only as good as the comments it reads. A step whose xt is not named where the chain
+does not fail: the check is only as good as the comments it reads. It never reads a word's body: a wrong body
+under a right stack comment passes, and only the tests and planted faults prove a body. A step whose xt is not named where the chain
 is called (`xt ok-apply`) is not seen at all. Exit 1 when a checked site is wrong, else 0.
 """
 import pathlib

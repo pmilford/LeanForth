@@ -850,6 +850,8 @@ lf-input-rollback drop lf-lctx-reset
 \ on and turns any other failure into ok, a key the caches do without.
 T{ outcome-full lf-short? outcome-exhausted lf-short? outcome-invalid lf-short?
    outcome-ok lf-short? -> true true false false }T
+T{ outcome-unknown lf-short? outcome-rejected lf-short? outcome-unsupported lf-short?
+   -> false false false }T
 T{ outcome-invalid lf-ci-short outcome-rejected lf-ci-short outcome-full lf-ci-short
    outcome-exhausted lf-ci-short -> outcome-ok outcome-ok outcome-full outcome-exhausted }T
 

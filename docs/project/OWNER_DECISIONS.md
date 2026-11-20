@@ -1657,7 +1657,7 @@ efficient way and an easier way to fix unit-test coverage, and decided:
   reducer and inner loops (whnf, iota, Nat literals, inference of projections, instantiation) keep their guards
   inline, as a chain adds an EXECUTE per step there. Then the comparison and budget families, rewritten by
   `check-duplicates.py --rewrite` onto `lib/bounds.fs`'s `one-of2?`, `one-of3?` and `cell-spend?`, the same flag
-  for every input: the kernel's `check-declaration.fs` (`lf-check-short?`), `env-schedule.fs`
+  for every input: the kernel's `check-declaration.fs` (`lf-check-short?`; since `fcccf762` it is `caches.fs`'s `lf-short?`), `env-schedule.fs`
   (`lf-sch-waiting?`), `environment.fs` (`lf-kind-bare?`, `lf-env-quot-open?`) and `env-import.fs`
   (`unrepeatable?`); core `derivation-log.fs` (`lf-log-level-leaf`, `lf-copier-spend`; check_log_isolation.py
   allows the two words), `tagged-sort-boundary.fs` (`lf-repr-mode?`) and `input.fs` (`lf-kind-valued?`); import

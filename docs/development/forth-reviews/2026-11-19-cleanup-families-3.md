@@ -324,3 +324,83 @@ and the tactic batch), each its own commit:
 Checks on the final head (`GFORTH`, `LEAN` absolute, `ulimit -u 500`): `scripts/pre-tier.sh` exit 1, every line ok but "forth quality + review log" (bounds.fs, item 3); `make cover-changed BASE=main JOBS=4` exit 0 (every block on a changed line ran, 146 unit test files, 89.6 s); `make -k test-unit JOBS=4` on `gforth` and on `gforth-fast` exit 2 each, the one failing target `check-forth-quality` (its test of today's tree: bounds.fs's return-stack count), every other target passed. Each recorded fault was run with `scripts/mutants.py --only` and caught. Not run: `make tier`, the end-to-end targets, pinned Lean, Gforth 0.7.3.
 
 The fix commits that change Forth source (`f53dae2e`, `fcccf762`, `257e6f64`, `f1cc0c0a`) are covered by this report's log row, `3a5efff3..f1cc0c0a`, as the implementer's fixes of the findings above; no reviewer has read them yet.
+
+## Re-check (2026-11-19, head e8edd629)
+
+Range: the review-fix commits f53dae2e, fcccf762, f1cc0c0a, 257e6f64 and 3c39140a on `cleanup-families-3`
+(the source part only). Findings: 0 blocking, 0 high, 0 medium, 1 low, plus 2 notes.
+Verdict: **merge**.
+
+What I ran: `git archive cleanup-families-3` (e8edd629) into a new folder,
+scratchpad/cf3-recheck/tree. Gforth 1.0.0 (`.tools/gforth/bin/gforth`, absolute path), `ulimit -u 500`,
+stdin `/dev/null`. I did not run make, a suite or pinned Lean.
+
+1. **H1 (f53dae2e), src/front/assign-check.fs:216-219.** Every step now leaves `( -- result outcome )`.
+   `ac-lam-from ( e i type -- lam outcome )` goes to ok-apply3. Inside it, `lf-meta-abstract` leaves
+   `type body outcome`, which goes to ok-apply2 with `ac-lam-of ( type body -- lam outcome )`. A refusal at
+   any stage gives `-1 outcome` and keeps the caller's cells. Probe: I added prints to a copy and ran
+   `55 j room-runs` on the new test's scenario:
+   - j=0: head-beta refuses (6), stack `55 -1 6`;
+   - j=1: head-beta and abstract succeed, ac-lam-of refuses, stack `55 -1 6`;
+   - j>=2: `55 lam 0`.
+
+   So the new test (tests/front/defeq.fs:561-569) really makes `lf-meta-head-beta` refuse, and 55 survives.
+   This scenario never makes `lf-meta-abstract` refuse, because `fk` does not contain the variable. I planted
+   my own fault for that arm (`ok-apply` in place of `ok-apply2` in `ac-lam-from`). The earlier test
+   `abs-pair refusals-sound?` in the same file caught it (WRONG NUMBER OF RESULTS). The unchanged
+   tests/front/defeq.fs passes (exit 0).
+2. **R1 (fcccf762).** `lf-short?` (src/kernel/caches.fs:481) has the same body as the removed
+   `lf-check-short?`. `lf-ci-short` (caches.fs:482) matches its old inline form. I checked both against the
+   old definitions for every value from -3 to 8, which covers all seven outcomes and values outside them:
+   no difference. No caller of `lf-check-short?` is left in src/, tests/ or scripts/.
+   check-declaration.fs:253 uses `lf-short?` and requires caches.fs at line 77.
+   - `one-of2?` and `one-of3?` match the expanded `=`/`or` forms on full grids: -5..4 for one-of2?,
+     -2..2 for one-of3?.
+   - `cell-spend?` matches the old phrase at -3, -1, 0, 1, 2, max-n and min-n, in both the flag and the
+     count left.
+   - The converted words themselves give the old answers: `lf-tex-angle?` on 0..299, `pv-settled?` on
+     -10..9 and on pv-throw, `lf-meta-spend?` at budgets -2, 0, 1, 2 (budget 1 goes to 0, then false;
+     -4 is left unchanged), and `lf-pp-spend` at -1, 0, 1.
+   - `lfr-spend?` is identical by substitution (`lf-tactic-fuel-left` is `trun trun-fuel @`).
+   - `lf-ol-binders` and `wc-at-most-i` keep their `dup`.
+
+   This is a kernel edit with no change in behaviour, so it puts the branch on the kernel tier.
+3. **L2 (f1cc0c0a), src/front/defeq.fs.** `de-nonrec?` was the alias `: de-nonrec? lf-structure-like? ;`.
+   `de-unit-data?` and `de-induct-nonrec?` now call `lf-structure-like?` directly, so they are identical.
+4. **L3 (257e6f64), src/import/snapshot-layer.fs:297-298.** The new code is
+   `dup head-tag let-tag? if -rot ly-fam-let else -rot ly-fam-other then`. Each arm gets `head j fam`, the
+   same as the old `-rot 2 pick ...` gave, and the flag comes from the same head.
+5. **scripts/check-outcome-steps.py (3c39140a).** On the head: 121 sites, 121 right, exit 0.
+   - I changed `ac-lam-from`'s comment to `( e i type -- type body outcome )`. The script exits 1 and names
+     assign-check.fs:219.
+   - I put the old H1 body back (the two-value step on ok-apply3 with ac-lam-of chained after it) under the
+     correct comment. The script **passes**: 121 right, exit 0.
+
+   So it checks only the declared stack comments, never the bodies. The tests and faults are what prove a
+   body; the script only stops a step whose comment is wrong. Its docstring says "only as good as the
+   comments it reads". Saying "it does not check bodies" outright would be clearer.
+
+### Findings
+- **Low**: docs/project/OWNER_DECISIONS.md:1660 still describes round 3 as
+  "the kernel's `check-declaration.fs` (`lf-check-short?`)". fcccf762 removed that word, and it is now
+  kernel/caches.fs's `lf-short?`. Suggested fix: add "(since fcccf762, caches.fs's `lf-short?`)" and keep
+  the approval record as it is. This does not block.
+- Note (test gap, not blocking): tests/core/check-declaration.fs:851-852 pins `lf-short?` on 4 of the 7
+  outcomes (full, exhausted, invalid, ok). The probe above covered all of them. Adding unknown, rejected
+  and unsupported would make the pin complete.
+- Note: see item 5. A wrong body under a correct comment passes check-outcome-steps.py.
+
+### Reuse
+I searched src/ for other words that test for exhausted or full, by name (`*short?`, `*refus*?`,
+`*resource*?`) and by shape (`outcome-exhausted … outcome-full` with `=`/`or` or one-of2?). `lf-short?` is
+the only such word. The other places that read both outcomes are CASE tables (elab-pending.fs:189,
+tactic-run.fs:368) or a three-way set (env-import.fs:291), not copies. No new module-level state.
+
+### Style
+`forth-metrics.py --words 10` on assign-check.fs, kernel/caches.fs, kernel/check-declaration.fs,
+front/defeq.fs and import/snapshot-layer.fs gives 669 words. Of these, 64% are 1-2 lines, 34% are 3-5 and
+4 are 6-10, none longer. There are 0 locals and 0 words without a stack comment. The one line over 90 characters
+(caches.fs:79) was already there before fcccf762. L3 removes one `2 pick`. No style findings on the fixed
+words.
+
+After the re-check: its low finding (the stale word name in OWNER_DECISIONS.md) and its two notes (`lf-short?` now tested on all seven outcomes; `check-outcome-steps.py` says it never reads a body) are fixed in the commit that adds this section.
