@@ -20962,3 +20962,67 @@ old = ''': first-or-second ( x1 x2 n -- x ) 1 = if drop else nip then ;'''
 new = ''': first-or-second ( x1 x2 n -- x ) 1 = if nip else drop then ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "cleanup-families-1 (group 0021): place 1 gives the second value, so the log view's part and the kernel's level choice take the other one"
+
+[[fault]]
+id = "cf-ck-slot-inverted"
+file = "src/cli/check-run.fs"
+old = ''': ck-slot? ( stage k -- stage flag ) over staged-at over slot-record? ;'''
+new = ''': ck-slot? ( stage k -- stage flag ) over staged-at over slot-record? 0= ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review cleanup-families-1 M1 (r4): the snapshot's slot count counts the stage's other declarations, so the snapshot is read against the wrong number of slots"
+
+[[fault]]
+id = "cf-ck-fresh-counts-taken"
+file = "src/cli/check-run.fs"
+old = ''': ck-fresh? ( d -- flag ) dup lf-env-final? swap ck-taken? 0= and ;'''
+new = ''': ck-fresh? ( d -- flag ) lf-env-final? ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review cleanup-families-1 M1 (r6): declarations checked in this run count those taken from the snapshot too"
+
+[[fault]]
+id = "cf-ck-saved-inverted"
+file = "src/cli/check-run.fs"
+old = ''': ck-saved? ( d -- flag ) lf-env-origin lf-origin-saved = ;'''
+new = ''': ck-saved? ( d -- flag ) lf-env-origin lf-origin-saved <> ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review cleanup-families-1 M1 (r7): verdicts taken from the snapshot count the ones checked here"
+
+[[fault]]
+id = "cf-ck-again-any-why"
+file = "src/cli/check-run.fs"
+old = ''': ck-again-for? ( why d -- why flag ) ck-reason over = ;'''
+new = ''': ck-again-for? ( why d -- why flag ) ck-reason 0<> ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review cleanup-families-1 M1 (r9): the count checked again for one why counts every declaration checked again, whatever its why"
+
+[[fault]]
+id = "cf-kept-at-inverted"
+file = "src/front/cases-several.fs"
+old = ''': kept-at? ( job i -- job flag ) over minor-main? ;'''
+new = ''': kept-at? ( job i -- job flag ) over minor-main? 0= ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "review cleanup-families-1 M1 (r10): the minors kept before a place count the dropped ones, so casesOn's minors are numbered wrong"
+
+[[fault]]
+id = "cf-pf-inner-one-short"
+file = "src/present/print-forth.fs"
+old = ''': lf-pf-inner# ( j -- n ) 0 swap ['] lf-pf-visible? count-index ;'''
+new = ''': lf-pf-inner# ( j -- n ) 0 swap ['] lf-pf-visible? count-index 1- ;'''
+test = "GFORTH=$GFORTH python3 tests/author/check_author.py"
+reason = "review cleanup-families-1 M1 (r12): a hidden binder's printed number counts one visible binder too few"
+
+[[fault]]
+id = "cf-pp-last-first"
+file = "src/present/print-analysis.fs"
+old = '''  -1 swap dup lf-pp-head nip ['] lf-pp-arg-shown? find-last-index if nip then ;'''
+new = '''  -1 swap dup lf-pp-head nip ['] lf-pp-arg-shown? find-index if nip then ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_golden.py"
+reason = "review cleanup-families-1 M1 (r14): the last argument shown is found from the front, so the first shown argument is taken for the last (print-cases.golden)"
+
+[[fault]]
+id = "cf-pp-shown-one-short"
+file = "src/present/print-analysis.fs"
+old = ''': lf-pp-shown# ( app -- count ) dup lf-pp-head nip ['] lf-pp-arg-shown? count-index ;'''
+new = ''': lf-pp-shown# ( app -- count ) dup lf-pp-head nip ['] lf-pp-arg-shown? count-index 1- ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "review cleanup-families-1 M1 (r16): an application's shown arguments count one too few"

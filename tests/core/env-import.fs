@@ -504,6 +504,7 @@ T{ nested-snap carry-alone ck-rechecking? -> outcome-ok false }T
 ck-check
 T{ ck-outcome ck-carried# first-carried @ = why-answers why# ck-stale? -> outcome-ok true 16 true }T
 T{ ck-stale# 0< -> false }T
+T{ why-answers ck-again# ck-checked# ck-saved# -> 16 56 107 }T
 [defined] >string-execute [if]
 : first-user ( -- d )
   lf-input-count 0 ?do i ck-import imp-reason why-answers = if i unloop exit then loop -1 ;
