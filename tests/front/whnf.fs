@@ -604,8 +604,8 @@ T{ -1 ' unf-kx1 with-rec rot unf-kx1 2drop same? -> true outcome-ok true }T
 \ turn: the scenario's answer or full, never another answer (a frame
 \ refused room read as a stuck term, say), and some runs full.
 : whnf-slabs-anew ( -- )
-  wc-frames slab-anew wc-args slab-anew wc-margs slab-anew wc-levels slab-anew
-  wc-hs slab-anew uf-args slab-anew uf-levels slab-anew ;
+  wc-frames sweep-slab-anew wc-args sweep-slab-anew wc-margs sweep-slab-anew wc-levels sweep-slab-anew
+  wc-hs sweep-slab-anew uf-args sweep-slab-anew uf-levels sweep-slab-anew ;
 ' whnf-slabs-anew sweep-slabs-xt !
 \ The scenarios ( -- e xt ).
 : field-pass ( e -- x outcome ) lf-tr-instances unf nip ;

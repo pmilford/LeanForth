@@ -76,3 +76,11 @@ old = '''  dup ws-reaches-none? ok-then? 0= if nip false swap exit then'''
 new = '''  dup ws-reaches-none? ok-then? 0= if nip nip false swap exit then'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "plan 9.4.8l AA: a refused let-value walk in lf-whnf-stuck drops a cell of its caller's"
+
+[[fault]]
+id = "whnf-nat-one-argument-never-none"
+file = "src/front/whnf.fs"
+old = '''  dup lf-meta-args# 2 = if wm-args-none? else lf-term-second@ wm-no-value? then ;'''
+new = '''  dup lf-meta-args# 2 = if wm-args-none? else drop false then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review s2-debt L5: a Nat function of one argument whose argument has no value is taken for one that has"

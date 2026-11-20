@@ -233,9 +233,9 @@ T{ 0 bv fk x1 fk rb= -> true outcome-ok }T
 \ and with every term refused in turn: the answer or full, never another
 \ answer; a sort's and a pi's type whose level finds no room: full.
 : infer-slabs-anew ( -- )
-  if-args slab-anew if-levels slab-anew if-xs slab-anew if-lams slab-anew
-  wc-frames slab-anew wc-args slab-anew wc-margs slab-anew wc-levels slab-anew
-  wc-hs slab-anew uf-args slab-anew uf-levels slab-anew ;
+  if-args sweep-slab-anew if-levels sweep-slab-anew if-xs sweep-slab-anew if-lams sweep-slab-anew
+  wc-frames sweep-slab-anew wc-args sweep-slab-anew wc-margs sweep-slab-anew wc-levels sweep-slab-anew
+  wc-hs sweep-slab-anew uf-args sweep-slab-anew uf-levels sweep-slab-anew ;
 ' infer-slabs-anew sweep-slabs-xt !
 : i-proj ( -- e xt ) fin-mk 1 s" Fin" projn ['] lf-infer ;
 : i-lam ( -- e xt ) nat nat 1 bv lam lam ['] lf-infer ;

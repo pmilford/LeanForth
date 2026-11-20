@@ -26,9 +26,9 @@ require ../../src/core/scratch-marks.fs
 require ../../src/front/term-eqv.fs
 
 \ A slab given back to the heap, empty, its unit and limit kept.
-: slab-anew ( slab -- )
-  dup slab-unit over slab-limit rot dup slab-free slab-init ok? 0= abort" slab-anew" ;
-variable sweep-slabs-xt   \ ( -- ) gives the pass's slabs back (slab-anew)
+: sweep-slab-anew ( slab -- )
+  dup slab-unit over slab-limit rot dup slab-free slab-init ok? 0= abort" sweep-slab-anew" ;
+variable sweep-slabs-xt   \ ( -- ) gives the pass's slabs back (sweep-slab-anew)
 variable sweep-store-xt   \ ( -- store ) the store a room sweep limits
 ' noop sweep-slabs-xt !  ' lf-terms sweep-store-xt !
 variable sweep-e  variable sweep-xt
@@ -52,11 +52,14 @@ variable sweep-x  variable sweep-out  variable sweep-fulls  variable sweep-bad
 
 \ Room for j more records in the store, the old limit given back after.
 create sweep-mark /lf-scratch allot
-: store-room! ( j store -- limit ) dup store-limit @ >r tuck store-count @ + swap store-limit!
-  ok? 0= abort" store-room!" r> ;
+: sweep-room! ( j store -- limit ) dup store-limit @ >r tuck store-count @ + swap store-limit!
+  ok? 0= abort" sweep-room!" r> ;
+\ The caller's sharing setting and the store's old limit are put back.
+: sweep-limit-back ( limit -- )
+  sweep-store-xt @ execute store-limit! ok? 0= abort" room-runs: limit" ;
 : room-runs ( j -- x outcome )
-  false lf-term-sharing! sweep-store-xt @ execute store-room! >r sweep-run
-  r> sweep-store-xt @ execute store-limit! drop true lf-term-sharing! ;
+  lf-term-sharing? >r false lf-term-sharing!
+  sweep-store-xt @ execute sweep-room! >r sweep-run r> sweep-limit-back r> lf-term-sharing! ;
 \ True when the run gave its answer.
 : room-run ( j -- done? )
   sweep-mark lf-scratch-mark ok? 0= abort" room-run: mark"
