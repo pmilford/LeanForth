@@ -2,7 +2,9 @@
 \ 9.4.8l-I), below the goal operations of meta-tactic/, so that the goal
 \ layer needs no tactic file for its errors. Terms print as the goals
 \ print them (notation on, the printer's flag put back however printing
-\ ends), after Lean 4.35.0's MessageData helpers:
+\ ends; the current context's names as a goal there shows them, n✝ for
+\ an inaccessible n, goal-print.fs's lf-with-names), after Lean 4.35.0's
+\ MessageData helpers:
 \   lf-tac-indented. ( term -- outcome )  indentExpr: the term
 \       instantiated, on its own line, indented, to the message's sink
 \   lf-tac-inline. ( term -- outcome )  inlineExpr: `term`
@@ -53,7 +55,10 @@ require ./meta-must.fs
 
 \ ---- Terms and names.
 : tmg-noted ( term -- outcome ) lf-print-sink true lf-print-to ;
-: tmg-term. ( term -- outcome ) lf-instantiate-mvars ok-then? if tmg-noted then ;
+\ Named in the current context as its goals print it (goal-print.fs's
+\ lf-with-names: n✝ for an inaccessible n, plan 9.4.8l O).
+: tmg-named ( term -- outcome ) ['] tmg-noted lf-mctx-view lf-with-names ;
+: tmg-term. ( term -- outcome ) lf-instantiate-mvars ok-then? if tmg-named then ;
 : lf-tac-indented. ( term -- outcome ) s"   " lf-pp-emit tmg-term. ;
 : lf-tac-line. ( c-addr u term -- outcome ) >r lf-pp-emit r> lf-tac-indented. ;
 : lf-tac-inline. ( term -- outcome ) s" `" lf-pp-emit tmg-term. s" `" lf-pp-emit ;

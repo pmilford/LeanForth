@@ -597,7 +597,10 @@ The first error stops the run. Every error prints:
 - the **token** where it stopped (the word or name being read);
 - a **message in plain English**. For errors about the mathematics (a
   proof step that does not work), the message is Lean's own text; the goals
-  are printed below it, as Lean prints them.
+  are printed below it, as Lean prints them. Terms in the message name
+  things as those goals do: a hypothesis that cannot be written (an
+  inaccessible `n`) prints as `n✝`, a metavariable made for an unnamed
+  binder as `?a✝` (`tests/front/s2w-case-under.lf`, `s2w-rw-lt.lf`).
 
 Example, from the done-check `docs/development/done-checks/2026-11-14-s1.md`
 (file `tests/front/s1-rfl-wrong.lf`, which claims `0 + 0 = 1` by `rfl`):

@@ -165,3 +165,45 @@ old = '''  lf-mvar-type 0= if -1 then lfa-e-elab-synth lf-elab-fail-term false s
 new = '''  drop -1 lfa-e-elab-synth lf-elab-fail-term false swap ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l S: failed to synthesize (125) without the class type Lean indents below it"
+
+# --- O and R: a message's terms named as Lean's sanitizer names them ----
+
+[[fault]]
+id = "tf-message-plain-names"
+file = "src/front/tactic-msg.fs"
+old = ''': tmg-named ( term -- outcome ) ['] tmg-noted lf-mctx-view lf-with-names ;'''
+new = ''': tmg-named ( term -- outcome ) tmg-noted ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
+reason = "9.4.8l O: rfl's sides print an inaccessible n as n where Lean prints n✝ (s2w-case-under.lf)"
+
+[[fault]]
+id = "tf-with-names-view-ignored"
+file = "src/front/goal-print.fs"
+old = '''  gp-names-on catch false gp gp-active ! throw ;'''
+new = '''  drop catch false gp gp-active ! throw ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "9.4.8l O: lf-with-names runs xt with the plain names, n where Lean's message has n✝"
+
+[[fault]]
+id = "tf-with-names-state-kept"
+file = "src/front/goal-print.fs"
+old = '''  gp-names-on catch false gp gp-active ! throw ;'''
+new = '''  gp-names-on catch throw ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "9.4.8l O: lf-with-names leaves the goal printer active, so later terms print with a stale context's names"
+
+[[fault]]
+id = "tf-mvar-tag-hygienic"
+file = "src/front/goal-print.fs"
+old = ''': gp-tag ( tag -- ) s" ?" gp-emit dup lf-pp-hygienic? if gp-erased else lf-pp-name then ;'''
+new = ''': gp-tag ( tag -- ) s" ?" gp-emit lf-pp-name ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "9.4.8l R: a metavariable tagged by an inaccessible binder prints ?a.«_@»._internal._hyg.0 where Lean prints ?a✝"
+
+[[fault]]
+id = "tf-mvar-tag-hygienic-e2e"
+file = "src/front/goal-print.fs"
+old = ''': gp-tag ( tag -- ) s" ?" gp-emit dup lf-pp-hygienic? if gp-erased else lf-pp-name then ;'''
+new = ''': gp-tag ( tag -- ) s" ?" gp-emit lf-pp-name ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
+reason = "9.4.8l R end to end: s2w-rw-lt.lf's 218 names Nat.lt_irrefl ?n ?a.«_@»._internal._hyg.0 where pinned Lean's names ?a✝"

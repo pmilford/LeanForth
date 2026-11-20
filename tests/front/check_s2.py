@@ -118,9 +118,15 @@ CASE_TAGS = "Case tag `suc` not found.\n\nHint: Available tags:"
 CASE_NONE = "Case tag `zero` not found.\n\nNote: There are no cases to select."
 CASE_UNSOLVED = "unsolved goals\nk : Nat\nih : 0 + k = k\n⊢ "
 CASE_SUFFIX = "Case tag `foo.zero` not found.\n\nHint: Available tags:"
-# Names all _ rename nothing (no 211); rfl's goal shows n✝ as Lean's does
-# (its left and right sides print n where Lean prints n✝: plan 9.4.8l).
-CASE_UNDER = "m n\u271d : Nat\na\u271d : 0 + n\u271d = n\u271d\n\u22a2 0 + (n\u271d + 1) = n\u271d + 1"
+# Names all _ rename nothing (no 211); rfl's sides and goal show n✝ as
+# Lean's do (the sides in the goal's context, plan 9.4.8l O).
+CASE_UNDER = ("Tactic `rfl` failed: The left-hand side\n  0 + (n\u271d + 1)\nis not definitionally "
+              "equal to the right-hand side\n  n\u271d + 1\n\nm n\u271d : Nat\na\u271d : 0 + n\u271d = "
+              "n\u271d\n\u22a2 0 + (n\u271d + 1) = n\u271d + 1")
+# rw's metavariable for Not's anonymous binder, sanitized as Lean's
+# (plan 9.4.8l R; LeanForth puts its second position after the first line).
+RW_LT = ("Invalid rewrite argument: Expected an equality or iff proof or definition name, "
+         "but `Nat.lt_irrefl ?n ?a\u271d` is a proof of")
 # applyRfl's sides of id (a = b) (plan 9.4.8l): the goal line after them
 # differs (LeanForth prints @id Prop (a = b), Lean id (a = b): plan 8.6).
 RFL_ID = ("Tactic `rfl` failed: The left-hand side\n  Prop\nis not definitionally equal "
@@ -154,11 +160,11 @@ WRONG = [("tests/front/s2w-pattern.lf", 215,
          ("tests/front/s2w-case-unsolved.lf", 89, CASE_UNSOLVED, ""),
          ("tests/front/s2w-case-suffix.lf", 210, CASE_SUFFIX, ""),
          ("tests/front/s2w-case-shadow.lf", 89, CASE_SHADOW, ""),
-         ("tests/front/s2w-case-under.lf", 97, "Tactic `rfl` failed: The left-hand side",
-          CASE_UNDER),
+         ("tests/front/s2w-case-under.lf", 97, CASE_UNDER, ""),
          ("tests/front/s2w-case-newer.lf", 211, "too many variable names provided", ""),
          ("tests/front/s2w-alt-inner.lf", 207, "Alternative `succ` has not been provided", ""),
-         ("tests/front/s2w-rfl-id.lf", 97, RFL_ID, "")]
+         ("tests/front/s2w-rfl-id.lf", 97, RFL_ID, ""),
+         ("tests/front/s2w-rw-lt.lf", 218, RW_LT, "\n  False")]
 # useImplicitLambda (4): the export, its data, each file, its exit, code and text.
 LAMBDA_ENV = "tests/front/implicit-lambda.ndjson"
 LAMBDA_DATA = "tests/front/implicit-lambda.elab.ndjson"
@@ -194,7 +200,7 @@ LEAN_WRONG = ["Tactic `rewrite` failed: Did not find an occurrence of the patter
               CASE_SUFFIX, CASE_SHADOW, CASE_UNDER,
               ":82:2: error: too many variable names provided",  # w_case_newer's case
               ":84:2: error: Alternative `succ` has not been provided",  # w_alt_inner's
-              RFL_ID]
+              RFL_ID, RW_LT + "\n  False"]
 
 
 class Failure(Exception):

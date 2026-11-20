@@ -297,6 +297,28 @@ T{ floose floose eq 0 0 goal goal-text 2drop s" ⊢ _fvar." cap-has? -> true }T
 T{ cap-reset fw fw eq fuel lf-print-term cap s" w = w" compare -> outcome-ok 0 }T
 lf-view-empty lf-mctx-view!
 T{ cap-reset fw fuel lf-print-term cap s" _fvar." search nip nip -> outcome-ok true }T
+\ A tag with macro scopes (an inaccessible binder's: apply's and rewrite's
+\ new metavariables) prints erased, with ✝, as Lean's sanitizer gives it
+\ (plan 9.4.8l R: ?a✝, not ?a.«_@»._internal._hyg.0).
+nat mv-natural lf-mvar-new made constant mh
+mh s" a._@._internal._hyg" nm 0 nm# lf-mvar-tag! must-ok
+T{ mh mq eq 0 0 goal goal-text 2drop s" ⊢ ?a✝ = ?q" cap-has? -> true }T
+\ lf-with-names: a message's term named as a goal of that context names
+\ it (plan 9.4.8l O): the inaccessible n prints n✝, the plain name
+\ outside; inside a goal print the goal's own names stay (here an empty
+\ context's: _fvar.N); a throw puts the printer's state back.
+0 nat s" n" hyp-hidden constant fhid9 constant vhid9
+: hidprint ( t -- outcome ) fuel lf-print-term ;
+T{ cap-reset fhid9 ' hidprint vhid9 lf-with-names cap s" n✝" compare gp gp-active @
+   -> outcome-ok 0 false }T
+T{ vhid9 lf-mctx-view! cap-reset fhid9 hidprint cap s" n" compare -> outcome-ok 0 }T
+lf-view-empty lf-mctx-view!
+: hidinside ( -- outcome )
+  lf-view-empty gp gp-view ! true gp gp-active ! fhid9 ['] hidprint vhid9 lf-with-names
+  false gp gp-active ! ;
+T{ cap-reset hidinside cap s" _fvar." search nip nip -> outcome-ok true }T
+: hidthrows ( t -- ) drop -77 throw ;
+T{ fhid9 ' hidthrows vhid9 ' lf-with-names catch nip nip nip gp gp-active @ -> -77 false }T
 \ Failures: no goal, a stale one, an instantiation that is unsupported;
 \ the printer's notation flag is restored whatever happens.
 false lf-print-notation!
