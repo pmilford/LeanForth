@@ -607,10 +607,9 @@ defer de-args-post ( -- )
 : de-pa-args ( -- addr n ) 0 de-pa-arg de-pa-n ;
 : de-mvar ( -- mvar ) de-t lf-meta-head ;
 : de-scope ( fvar -- flag ) de-mvar swap lf-mvar-sees? ;
-: de-let-fvar? ( t -- flag ) dup lf-meta-fvar? if lf-fvar-let? else drop false then ;
 : de-simp ( arg -- arg' flag )
   dup lf-meta-head lf-meta-mvar-free? 0= if de-inst de-aborted? if false exit then then
-  begin dup de-let-fvar? while lf-fvar-value repeat true ;
+  begin dup lf-meta-let-fvar? while lf-fvar-value repeat true ;
 : de-pa-simp ( i -- flag )
   de-pa-arg dup @ de-simp 0= if 2drop false exit then swap ! true ;
 : de-pa-dup? ( a i -- flag ) false swap 0 ?do over i de-pa-arg @ = or loop nip ;

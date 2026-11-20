@@ -1,0 +1,9 @@
+\ A wrong twin (plan row S3, slice S3a; tests/front/tactics/goal-layer-wrong.lean):
+\ no Decidable instance: mkDecide's synthInstance fails with Lean's
+\ "failed to synthesize" and its hint (error 122).
+\ Lean: theorem w_dc_nonempty : Nonempty Nat := by decide
+theorem w_dc_nonempty
+  Nat Nonempty
+:= by
+  by-decide
+end w_dc_nonempty

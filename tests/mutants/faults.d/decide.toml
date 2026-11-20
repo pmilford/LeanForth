@@ -1,0 +1,75 @@
+# Planted faults of by-decide and by-native-decide (plan row S3, slice S3a;
+# src/front/tactics/decide.fs), read with faults.toml as one list
+# (scripts/mutants.py). The library words' are in s3a.toml.
+
+[[fault]]
+id = "fe-decide-skip-whnf"
+file = "src/front/tactics/decide.fs"
+old = '''  dup lf-mk-decide dup tdc-whnf dup s" Bool.true" tdc-bool? if drop tdc-proof exit then'''
+new = '''  dup lf-mk-decide tdc-proof exit'''
+test = 'GFORTH=$GFORTH bin/leanforth check --env tests/front/decide-slice.ndjson --elab-data tests/front/decide-slice.elab.ndjson tests/front/tactics/decide/w-dc-add.lf | grep -q "error 250 "'
+reason = "S3a: decide hands over of_decide_eq_true without reducing decide P to true, so 2 + 2 = 5 gets a proof term: the kernel is the judge and rejects it (the run reports no error 250)"
+
+[[fault]]
+id = "decide-false-as-stuck"
+file = "src/front/tactics/decide.fs"
+old = '''  s" Bool.false" tdc-bool? if drop ['] tdc-false. lfa-e-decide-false tdc-fail exit then'''
+new = '''  drop'''
+test = "$GFORTH tests/front/tactics/decide/test.fs"
+reason = "S3a: a statement decide reduces to false is reported as failed to reduce (253), not Lean's proved ... is false (250)"
+
+[[fault]]
+id = "decide-fvar-allowed"
+file = "src/front/tactics/decide.fs"
+old = '''  dup lf-meta-has-fvar? if ['] tdc-revert. lfa-e-decide-fvars tdc-fail then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactics/decide/test.fs"
+reason = "S3a: a goal with a free variable goes on to mkDecide, where Lean's preprocessPropToDecide refuses it (251)"
+
+[[fault]]
+id = "decide-mvar-allowed"
+file = "src/front/tactics/decide.fs"
+old = '''  dup lf-meta-has-mvar? lf-must if ['] lf-tac-indented. lfa-e-decide-mvars tdc-fail then'''
+new = ''''''
+test = "$GFORTH tests/front/tactics/decide/test.fs"
+reason = "S3a: a goal with a metavariable goes on, where Lean refuses it (252)"
+
+[[fault]]
+id = "decide-let-not-zeta"
+file = "src/front/tactics/decide.fs"
+old = '''  dup ['] lf-meta-let-fvar? lf-term-holds? lf-must if outcome-unsupported lf-must then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactics/decide/test.fs"
+reason = "S3a: a let variable is taken for a free variable (251) where Lean's zetaReduce unfolds it first (not ported: unsupported)"
+
+[[fault]]
+id = "decide-proof-instance-wrong"
+file = "src/front/tactics/decide.fs"
+old = '''  s" of_decide_eq_true" lf-mk-const0 -rot dup lf-term-second@ swap tdc-refl'''
+new = '''  s" of_decide_eq_true" lf-mk-const0 -rot over swap tdc-refl'''
+test = "$GFORTH tests/front/tactics/decide/test.fs"
+reason = "S3a: the proof's instance argument is the proposition, not mkDecide's instance"
+
+[[fault]]
+id = "decide-whnf-reducible"
+file = "src/front/tactics/decide.fs"
+old = ''': tdc-whnf ( dec -- r ) ['] lf-whnf! lf-tr-default lf-with-at-least ;'''
+new = ''': tdc-whnf ( dec -- r ) lf-whnf-r! ;'''
+test = "$GFORTH tests/front/tactics/decide/test.fs"
+reason = "S3a: decide P reduced at reducible transparency, where Lean's withAtLeastTransparency .default unfolds the instances"
+
+[[fault]]
+id = "decide-native-accepted"
+file = "src/front/tactics/decide.fs"
+old = ''': tnd-run ( i -- ) drop lfa-e-native-decide lf-tac-stop ;'''
+new = ''': tnd-run ( i -- ) drop ;'''
+test = "$GFORTH tests/front/tactics/decide/test.fs"
+reason = "S3a: by-native-decide runs as a step that does nothing instead of the refusal 254 (Lean.ofReduceBool is never accepted)"
+
+[[fault]]
+id = "decide-revert-hint-dropped"
+file = "src/front/tactics/decide.fs"
+old = ''': tdc-revert. ( p -- outcome ) lf-tac-indented. ['] tdc-hint. ok-and ;'''
+new = ''': tdc-revert. ( p -- outcome ) lf-tac-indented. ;'''
+test = "$GFORTH tests/front/tactics/decide/test.fs"
+reason = "S3a: error 251 printed without Lean's hint about +revert"

@@ -1,0 +1,8 @@
+\ A wrong twin (plan row S3, slice S3a; tests/front/tactics/goal-layer-wrong.lean):
+\ a conjunction with a false part is false (error 250).
+\ Lean: theorem w_dc_and : 3 ≤ 3 ∧ 2 + 2 = 5 := by decide
+theorem w_dc_and
+  3 3 ≤ 2 2 + 5 = And
+:= by
+  by-decide
+end w_dc_and

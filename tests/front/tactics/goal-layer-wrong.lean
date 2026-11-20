@@ -25,3 +25,15 @@ theorem w_is_not (a b : Nat) : ¬ a = b := by
 theorem w_cl_dep (a : Nat) (h : a ≤ a) : a ≤ a := by clear a
 theorem w_cl_target (a : Nat) : a ≤ a := by clear a
 theorem w_cl_const (a : Nat) (h : a ≤ a) : a ≤ a := by clear Nat.le_refl
+-- Plan row S3, slice S3a: decide.
+theorem w_dc_add : 2 + 2 = 5 := by decide
+theorem w_dc_lt : ¬ (10 < 20) := by decide
+theorem w_dc_and : 3 ≤ 3 ∧ 2 + 2 = 5 := by decide
+theorem w_dc_fvar (n : Nat) : n + 1 = n := by decide
+theorem w_dc_fvar0 (n : Nat) : n + 0 = n := by decide
+theorem w_dc_nonempty : Nonempty Nat := by decide
+theorem w_dc_choice : Classical.choice (Nonempty.intro 0) = 0 := by decide
+theorem w_dc_choice_bool : Classical.choice (Nonempty.intro true) = true := by decide
+theorem w_dc_none : True := by
+  decide
+  decide

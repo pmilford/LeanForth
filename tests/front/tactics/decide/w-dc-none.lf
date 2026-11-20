@@ -1,0 +1,10 @@
+\ A wrong twin (plan row S3, slice S3a; tests/front/tactics/goal-layer-wrong.lean):
+\ the first decide closes the goal; the second finds none: Lean's
+\ "No goals to be solved" (error 90).
+\ Lean: theorem w_dc_none : True := by decide; decide
+theorem w_dc_none
+  True
+:= by
+  by-decide
+  by-decide
+end w_dc_none

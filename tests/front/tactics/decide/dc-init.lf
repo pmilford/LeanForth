@@ -1,0 +1,35 @@
+\ by-decide on facts whose statements elaborate only against all of Init
+\ (plan row S3, slice S3a; tests/front/tactics/goal-layer.lean): the
+\ instance searches of their numerals try first instances a test slice
+\ cannot hold (FilePath's HDiv, Grind's Sub and NatPow), so
+\ tests/front/tactics/decide/check.py runs this file against Init's
+\ snapshot (--init), as the done checker does.
+\ Lean: theorem dc_sub : 10 - 20 = 0 := by decide
+\       theorem dc_div : 17 / 5 = 3 := by decide
+\       theorem dc_pow : 2 ^ 10 = 1024 := by decide
+\       theorem dc_word : 2 ^ 64 = 2 ^ 32 * 2 ^ 32 := by decide
+\ Natural subtraction stops at 0.
+theorem dc_sub
+  10 20 HSub.hSub 0 =
+:= by
+  by-decide
+end dc_sub
+
+theorem dc_div
+  17 5 HDiv.hDiv 3 =
+:= by
+  by-decide
+end dc_div
+
+theorem dc_pow
+  2 10 HPow.hPow 1024 =
+:= by
+  by-decide
+end dc_pow
+
+\ A power past a 64-bit word: 2^64 folded with lib/bignum.fs.
+theorem dc_word
+  2 64 HPow.hPow 2 32 HPow.hPow 2 32 HPow.hPow * =
+:= by
+  by-decide
+end dc_word

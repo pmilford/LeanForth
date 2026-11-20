@@ -1,0 +1,9 @@
+\ A wrong twin (plan row S3, slice S3a; tests/front/tactics/goal-layer-wrong.lean):
+\ reduction stops at Classical.choice, an axiom: Lean's "failed to
+\ reduce" (error 253; its stuck term and hint are plan S3b).
+\ Lean: theorem w_dc_choice : Classical.choice (Nonempty.intro 0) = 0 := by decide
+theorem w_dc_choice
+  0 Nonempty.intro Classical.choice 0 =
+:= by
+  by-decide
+end w_dc_choice

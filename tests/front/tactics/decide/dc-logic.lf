@@ -1,0 +1,49 @@
+\ by-decide on the connectives (plan row S3, slice S3a;
+\ tests/front/tactics/goal-layer.lean): instDecidableNot, instDecidableAnd,
+\ instDecidableOr reduce through Bool's not, and, or; True has
+\ instDecidableTrue; Bool equality instDecidableEqBool. A hypothesis is
+\ allowed: only the goal's type must be closed.
+\ Lean: theorem dc_not : ¬ (2 + 2 = 5) := by decide
+\       theorem dc_and : ¬ (7 = 8) ∧ 2 ≤ 2 := by decide
+\       theorem dc_or : 1 = 0 ∨ 2 + 2 = 4 := by decide
+\       theorem dc_true : True := by decide
+\       theorem dc_bool : Bool.and true false = false := by decide
+\       theorem dc_hyp (h : True) : 2 = 2 := by decide
+\ (A hypothesis 1 = 1, the word list's, stops before the tactic: numerals
+\ in a binder's type give error 139, plan FE2.)
+theorem dc_not
+  2 2 + 5 = Not
+:= by
+  by-decide
+end dc_not
+
+theorem dc_and
+  7 8 = Not 2 2 ≤ And
+:= by
+  by-decide
+end dc_and
+
+theorem dc_or
+  1 0 = 2 2 + 4 = Or
+:= by
+  by-decide
+end dc_or
+
+theorem dc_true
+  True
+:= by
+  by-decide
+end dc_true
+
+theorem dc_bool
+  Bool.true Bool.false Bool.and Bool.false =
+:= by
+  by-decide
+end dc_bool
+
+theorem dc_hyp
+  True explicit: h
+  2 2 =
+:= by
+  by-decide
+end dc_hyp
