@@ -376,10 +376,12 @@ T{ opq9 lf-instantiate! nat lf-meta-eqv -> true outcome-ok }T
 \ lf-tac-with-synth (Term.withSynthesize, review tactic-move M3): the
 \ stack passes through xt; the pending list is set aside while xt runs
 \ (none seen inside) and put back however xt ends; a problem xt leaves
-\ that no instance fills (Append Type: the elaborator records Lean's
-\ "failed to synthesize", 125) stops the run, as the runner's mapping of
-\ an invalid outcome gives it (93; the elaborator's own code is not
-\ carried, plan 9.4.8l), and the window is closed with the problem left.
+\ that no instance fills (Append Type) stops the run with the
+\ elaborator's own error, Lean's "failed to synthesize instance of type
+\ class" (125) with the type indented (plan 9.4.8l S: pinned Lean's text
+\ for example : Append Type := inferInstance; the printer shows @Append
+\ here, the slice's data giving it no binder kinds: plan 8.6), and the
+\ window is closed with the problem left.
 : type0 ( -- t ) nat lf-infer! ;
 : append-type ( -- mvar )
   s" Append" type0 lf-level! lf-mk-const1 type0 lf-mk-app mv-synthetic lf-mvar-new made ;
@@ -389,7 +391,8 @@ T{ opq9 lf-instantiate! nat lf-meta-eqv -> true outcome-ok }T
 : pend-throws ( -- ) pend-append -77 throw ;
 T{ lf-elab-pending-reset pend-append 3 4 ' sum-pends lf-tac-with-synth pends -> 7 0 1 }T
 T{ lf-elab-pending-reset lf-elab-error-reset ' pend-append ' lf-tac-with-synth catch nip lf-author-code
-   lf-elab-error drop pends -> lf-author-throw 93 125 1 }T
+   lf-elab-error drop pends -> lf-author-throw 125 125 1 }T
+T{ 0 lfa-detail slab-at lfa-detail slab-count s"   @Append Type" compare -> 0 }T
 lf-tac-forget
 T{ lf-elab-pending-reset pend-append ' pend-throws ' lf-tac-with-synth catch nip lf-author-code pends
    -> -77 0 2 }T

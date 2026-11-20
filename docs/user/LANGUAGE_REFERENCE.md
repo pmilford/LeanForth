@@ -1175,7 +1175,11 @@ applied hypothesis is written with `$`: `ih k $` is Lean's `ih k`. No tactic
 word may stand inside the brackets (error 82). Errors: 215 no occurrence of
 the pattern, 216 motive not type correct, 217 dependent motive, 218 no
 equation, 219 a metavariable pattern, 220 the occurs check, 99 a form not
-ported (a definition as a rule, `Iff`, an instance binder). Not yet (`**`, S2
+ported (a definition as a rule, `Iff`, an instance binder). An instance a
+rule's term leaves open that none fills is Lean's own error, as for a
+term anywhere: 125 "failed to synthesize instance of type class" with the
+class below it, or 126 when the problem is stuck (`by-apply` and
+`by-constructor` the same). Not yet (`**`, S2
 merge B and later): `←`, `at h`, `using`, `generalizing`, and `++` as a word.
 
 ```text

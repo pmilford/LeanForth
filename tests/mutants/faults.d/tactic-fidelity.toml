@@ -147,3 +147,21 @@ old = '''  >r 3 ['] lf-has-type-but-expected. lf-tac-detail-n r> lf-tac-stop ;''
 new = '''  >r 2drop ['] lf-tac-indented. lf-tac-detail r> lf-tac-stop ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "9.4.8l: exact's Type mismatch (96) without its has type and expected type lines"
+
+# --- S: withSynthesize's failure carries the elaborator's error ----------
+
+[[fault]]
+id = "tf-synth-runner-code"
+file = "src/front/tactic-core.fs"
+old = '''  ['] tcr-under lf-postpone-no lf-elab-with-synth tcr-synthesized ;'''
+new = '''  ['] tcr-under lf-postpone-no lf-elab-with-synth lf-tac-must ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l S: a problem no instance fills reported as the runner's mapping of invalid (93) instead of the elaborator's recorded 125"
+
+[[fault]]
+id = "tf-synth-none-no-type"
+file = "src/front/elab-pending.fs"
+old = '''  lf-mvar-type 0= if -1 then lfa-e-elab-synth lf-elab-fail-term false swap ;'''
+new = '''  drop -1 lfa-e-elab-synth lf-elab-fail-term false swap ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l S: failed to synthesize (125) without the class type Lean indents below it"

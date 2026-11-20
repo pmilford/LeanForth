@@ -286,7 +286,10 @@ defer lf-elab-default-instances ( class -- addr n outcome )
   if drop true outcome-ok else lfa-e-elab-instance lf-elab-fail-term false swap then ;
 : ep-found ( mvar inst -- flag outcome )
   over ep-assigned? if ep-again else ep-assign then ;
-: ep-none ( mvar -- flag outcome ) drop false lfa-e-elab-synth lf-elab-fail ;
+\ None: Lean's "failed to synthesize instance of type class" with the
+\ class type indented (synthesizeSyntheticMVars' indentExpr).
+: ep-none ( mvar -- flag outcome )
+  lf-mvar-type 0= if -1 then lfa-e-elab-synth lf-elab-fail-term false swap ;
 : ep-answer-text ( code -- c-addr u )
   case lf-synth-some of s" : found" endof lf-synth-none of s" : none" endof
     >r s" : stuck" r> endcase ;

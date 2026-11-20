@@ -31,7 +31,16 @@
 \       synthesizeSyntheticMVarsNoPostponing): xt run with the pending
 \       problems set aside, the ones it adds synthesized with no
 \       postponing (elab-pending.fs's lf-elab-with-synth), the list put
-\       back however it ends; the stack passes through to xt
+\       back however it ends; the stack passes through to xt. A problem
+\       no instance fills stops the step with the elaborator's own error
+\       (125 failed to synthesize, 126 stuck: Lean's), as lf-tac-elab's
+\       do (lf-tac-elab-fail; plan 9.4.8l S)
+\   lf-tac-elab-detail ( -- ), lf-tac-elab-fail ( outcome -- )  the
+\       elaborator's failure as an error: its recorded term indented as
+\       the detail (none: no detail), then its code with its position as
+\       the second one, else the outcome's code (elab-pending.fs's
+\       lf-elab-code: no room 60, fuel 138, a step not ported 139),
+\       stopping the step (elab-decl.fs's hook and #check use them too)
 \   lf-tac-try-lean ( xt -- flag )  try (observing?): xt ( -- ) from a
 \       saved state (lf-tac-try); true when it ran to its end; a Lean
 \       error (tactic-msg.fs's lf-tac-lean-error?) undone and forgotten,
@@ -136,11 +145,17 @@ end-structure
 : lf-tac-arg-at ( i k -- pos ) tcr-arg nip ;
 : lf-tac-only ( goal -- ) 0 swap run-push lf-tac-must lf-goals! lf-tac-must ;
 
+\ ---- The elaborator's failure: its error, as Lean's throwError gives it.
+: lf-tac-elab-detail ( -- )
+  lf-elab-error-term dup 0< if drop else ['] lf-tac-indented. lf-tac-detail then ;
+: lf-tac-elab-fail ( outcome -- ) lf-tac-elab-detail lf-elab-code lfa-see! lf-tac-stop ;
+
 \ ---- withSynthesize: xt run under the pending list's window, the
 \ window's mode (no postponing) given back above the caller's cells.
 : tcr-under ( i*x xt mode -- j*x mode ) drop execute lf-postpone-no ;
+: tcr-synthesized ( outcome -- ) dup ok? 0= if lf-tac-elab-fail then drop ;
 : lf-tac-with-synth ( i*x xt -- j*x )
-  ['] tcr-under lf-postpone-no lf-elab-with-synth lf-tac-must ;
+  ['] tcr-under lf-postpone-no lf-elab-with-synth tcr-synthesized ;
 
 \ ---- try.
 : lf-tac-try-lean ( xt -- flag )

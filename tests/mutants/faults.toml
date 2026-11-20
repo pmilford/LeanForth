@@ -18191,16 +18191,16 @@ reason = "review s1-elab re-check L1: #check in a tactic block reported with the
 [[fault]]
 id = "fe-elab-129-no-detail"
 file = "src/front/elab-decl.fs"
-old = ''': edc-fail ( outcome -- ) edc-detail lf-elab-code swap lfa-fail-see ;'''
+old = ''': edc-fail ( outcome -- ) lf-tac-elab-detail lf-elab-code swap lfa-fail-see ;'''
 new = ''': edc-fail ( outcome -- ) lf-elab-code swap lfa-fail-see ;'''
 test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
 reason = "review s1-elab re-check L2: 129 without Lean's indentExpr of the instance"
 
 [[fault]]
 id = "fe-elab-129-tactic-no-detail"
-file = "src/front/elab-decl.fs"
-old = ''': edc-tac-fail ( outcome -- ) edc-detail lf-elab-code lfa-see! lf-tac-stop ;'''
-new = ''': edc-tac-fail ( outcome -- ) lf-elab-code lfa-see! lf-tac-stop ;'''
+file = "src/front/tactic-core.fs"
+old = ''': lf-tac-elab-fail ( outcome -- ) lf-tac-elab-detail lf-elab-code lfa-see! lf-tac-stop ;'''
+new = ''': lf-tac-elab-fail ( outcome -- ) lf-elab-code lfa-see! lf-tac-stop ;'''
 test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
 reason = "review s1-elab re-check L2: 129 in a tactic's term without Lean's indentExpr of the instance"
 
