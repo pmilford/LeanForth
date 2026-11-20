@@ -27,7 +27,7 @@ check-docs                         unit
 test-doc-facts                     unit    tests/docs/test_doc_facts.py: facts the pages restate, apart from the slow tests
 check-lean-sources                 unit
 check-portable-forth               unit
-check-forth-quality                unit    with tests/scripts/test_check_duplicates.py and test_duplicates_extract.py (--explain, --plan, --extract)
+check-forth-quality                unit    with tests/scripts/test_check_duplicates.py and test_duplicates_extract.py (--explain, --plan, --extract), and check-outcome-steps.py with its test
 check-test-classes                 unit
 smoke                              unit
 check-layers                       unit    scripts/check-layers.py: the layer entries of src/load/ keep to their layers

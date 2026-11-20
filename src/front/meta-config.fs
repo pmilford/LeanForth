@@ -103,8 +103,7 @@ end-structure
 : lf-with-approx ( i*x xt -- j*x )
   lf-defeq-fo lf-defeq-ctx or lf-defeq-quasi or mcfg-with-bits ;
 : lf-meta-budget ( -- n ) mcfg mcfg-budget @ ;
-: lf-meta-spend? ( -- flag )
-  lf-meta-budget dup 0> if 1- lf-meta-budget! true else drop false then ;
+: lf-meta-spend? ( -- flag ) mcfg mcfg-budget cell-spend? ;
 
 \ ---- The budget of each declaration (branch s1-elab; S1 §8; added at the
 \ end of this file, which branch s2-unfold also changes): --elab-fuel N

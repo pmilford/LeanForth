@@ -97,7 +97,7 @@ require ../core/input.fs
 : lf-lc-start-of ( s -- start ) dup 0> if lf-log-premise else drop 0 then ;
 : lf-lc-check-step? ( s -- flag )
   1- dup 0= if drop true exit then
-  lf-log-rule@ dup lf-rule-declaration = swap lf-rule-inductive-block = or ;
+  lf-log-rule@ lf-rule-declaration lf-rule-inductive-block one-of2? ;
 : lf-lc-publish? ( s -- flag )
   dup lf-log-rule@ lf-rule-publish <> if drop true exit then
   dup lf-lc-check-step? over lf-log-count = and
@@ -124,7 +124,7 @@ require ../core/input.fs
 : lf-lc-other? ( rule -- flag ) lf-rule-shift <> ;
 : lf-lc-unparameter? ( rule -- flag ) lf-rule-universe-parameter <> ;
 : lf-lc-fresh? ( rule -- flag ) lf-rule-fresh-name = ;
-: lf-lc-formation? ( rule -- flag ) dup lf-rule-proposition = swap lf-rule-type = or ;
+: lf-lc-formation? ( rule -- flag ) lf-rule-proposition lf-rule-type one-of2? ;
 : lf-lc-one? ( s xt -- flag ) lf-lc-count 1 = ;
 : lf-lc-none? ( s xt -- flag ) lf-lc-count 0= ;
 : lf-lc-inferences ( s -- n ) ['] lf-lc-infer? lf-lc-count ;

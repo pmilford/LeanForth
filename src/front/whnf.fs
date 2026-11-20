@@ -312,7 +312,9 @@ wc-smatch-kind 1+ constant wc-srec-kind
   wc wc-data @ lf-irc-all@ drop @ lf-menv-find
   ok-then? if lf-menv-data outcome-ok exit then
   dup outcome-invalid = if drop outcome-unsupported then 0 swap ;
-: wc-structure-like? ( data -- flag )
+\ Lean's isStructureLike: an inductive type of one constructor, no indices,
+\ not recursive (also defeq.fs's eta for structures).
+: lf-structure-like? ( data -- flag )
   dup lf-ity-indices lf-more-field 0= over lf-ity-ctors@ nip 1 = and
   swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0= and ;
 : wc-ctor? ( mhead -- flag ) wc-kind lf-kind-constructor = ;
@@ -324,7 +326,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
   swap lf-ict-fields lf-more-field + ;
 : wc-exact? ( mhead -- flag )
   dup wc-ctor? if wc-ctor-arity wc-margs slab-count = else drop false then ;
-: wc-eta? ( mhead data -- flag ) wc-structure-like? if wc-exact? 0= else drop false then ;
+: wc-eta? ( mhead data -- flag ) lf-structure-like? if wc-exact? 0= else drop false then ;
 \ Heads whose application whnf leaves as it is and no rule matches
 \ (getStuckMVar? below asks them).
 : wc-head-inert? ( mhead -- flag )
@@ -332,7 +334,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 : wc-leaf-inert? ( mhead -- flag )
   wc-margs slab-count 0= if lf-term-binder? else drop false then ;
 : wc-const-inert? ( mhead -- flag )
-  wc-kind dup lf-kind-inductive = over lf-kind-axiom = or swap lf-kind-theorem = or ;
+  wc-kind lf-kind-inductive lf-kind-axiom lf-kind-theorem one-of3? ;
 : wc-inert-major? ( mhead -- flag )
   dup wc-head-inert? over wc-leaf-inert? or swap wc-const-inert? or ;
 \ The major premise's whnf, cleaned up: a constructor fires its rule,
@@ -377,8 +379,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ whnfAtMostI (proj := yesWithDeltaI): all, default and implicit become
 \ instances.
 : wc-at-most-i ( mode -- mode' )
-  dup lf-tr-all = over lf-tr-default = or over lf-tr-implicit = or
-  if drop lf-tr-instances then ;
+  dup lf-tr-all lf-tr-default lf-tr-implicit one-of3? if drop lf-tr-instances then ;
 : wc-lower ( -- ) wc wc-proj-i @ if lf-defeq-mode wc-at-most-i lf-defeq-mode! then ;
 : wc-proj-at ( p -- k ) lf-proj-leaf lf-proj-idx ;
 \ Only after wc-ctor? (wc-project), as wc-ctor-arity.
@@ -820,7 +821,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
   dup wc-smart-kind < if wc-resume-plain else wc-resume-smart then ;
 
 \ ---- The loop.
-: wc-spend ( -- flag ) wc wc-fuel @ dup 0> if 1- wc wc-fuel ! true else drop false then ;
+: wc-spend ( -- flag ) wc wc-fuel cell-spend? ;
 : wc-next ( e flag -- e' flag' outcome )
   begin dup 0= wc-framed? and while drop wc-resume dup ok? 0= if exit then drop repeat
   outcome-ok ;

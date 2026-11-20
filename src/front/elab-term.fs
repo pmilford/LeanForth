@@ -145,7 +145,7 @@ end-structure
 \ argument inserted, a variable or a hypothesis; lf-elab-ident? says
 \ whether a node is one.
 : lf-elab-ident? ( node -- flag )
-  syn-kind@ dup syn-k-const = over syn-k-var = or swap syn-k-hyp = or ;
+  syn-kind@ syn-k-const syn-k-var syn-k-hyp one-of3? ;
 : lf-elab-ident ( node -- e outcome ) et-head ;
 
 \ ---- elabNumLit.
@@ -169,9 +169,11 @@ end-structure
 \ from it and the instance metavariable.
 : et-of-nat-type ( T lit -- type outcome )
   s" OfNat" et-at-u ok-then? if -rot et-app2 else nip nip no-result then ;
+: et-app-to ( i f -- term outcome ) swap lf-meta-app ;
+: et-of-nat-args ( type i c -- term outcome )
+  rot lf-meta-args2 et-app2 ['] et-app-to ok-apply2 ;
 : et-of-nat-value ( type i -- term outcome )
-  s" OfNat.ofNat" et-at-u ok-then? 0= if nip nip no-result exit then
-  rot lf-meta-args2 et-app2 ok-then? if swap lf-meta-app else nip no-result then ;
+  s" OfNat.ofNat" et-at-u ['] et-of-nat-args ok-apply3 ;
 : et-of-nat ( T lit -- term outcome )
   et-of-nat-type ok-then? 0= if no-result exit then
   dup lf-elab-inst-mvar ['] et-of-nat-value ok-apply2 ;

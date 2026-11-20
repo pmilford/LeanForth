@@ -476,8 +476,10 @@ create lf-cache-values 2 , 2 , 2 , 2 , 2 , 0 , 0 , 1 ,
 \ (infer_fvar, 93-99), as Lean's would after opening. A node without a
 \ key gives ( ok false ), a failed closing ( outcome false ).
 defer lf-ci-room? ( -- flag )
-: lf-ci-short ( outcome -- outcome )
-  dup outcome-exhausted = over outcome-full = or 0= if drop outcome-ok then ;
+\ Whether an outcome is a resource refusal, exhausted or full, which a
+\ check hands on unchanged (also check-declaration.fs's quotient form).
+: lf-short? ( outcome -- flag ) outcome-exhausted outcome-full one-of2? ;
+: lf-ci-short ( outcome -- outcome ) dup lf-short? 0= if drop outcome-ok then ;
 \ The key of a node closed just now is its closed copy's identity, which
 \ is read with its bits from the copy's data word, as Lean reads has_fvar
 \ from the node, without the free-variable memo's walk (agent PF: the

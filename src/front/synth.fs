@@ -263,11 +263,8 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
   0 sy sy-keyed ! 0 sy sy-lkeyed ! sy-found slab-count ['] sy-key-leaf ok-each
   ['] lf-instantiate-mvars ok-apply ;
 : sy-key-marked ( t mark -- key outcome ) >r sy-placed r> lf-mctx-rollback outcome-and ;
-: sy-key-made ( t -- key outcome ) lf-mctx-mark ok-then? if sy-key-marked else nip
-  no-result
-  then ;
-: lf-synth-key ( type -- key outcome ) dup sy-scan ok-then? if sy-key-made else
-  no-result then ;
+: sy-key-made ( t -- key outcome ) lf-mctx-mark ['] sy-key-marked ok-apply2 ;
+: lf-synth-key ( type -- key outcome ) dup sy-scan ['] sy-key-made ok-apply ;
 : sy-key-for ( mvar -- key outcome )
   lf-mvar-type-instantiated ['] lf-synth-key ok-apply ;
 
@@ -424,8 +421,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
 : sy-telescope ( val type -- val' body outcome )
   begin sy-inst-step ok-then? 0= if exit then while repeat outcome-ok ;
 : sy-inst-val ( i -- val outcome )
-  elab-instance@ 2drop lf-menv-of-data ok-then? if lf-meta-const-fresh else no-result
-  then ;
+  elab-instance@ 2drop lf-menv-of-data ['] lf-meta-const-fresh ok-apply ;
 : sy-inst-type ( i -- val type outcome ) sy-inst-val ok-then? if dup lf-infer else
   sy-no2 then ;
 : sy-val! ( val body c -- ) scn@ sc-val cell-pair! ;
@@ -553,9 +549,9 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
   else nip no-result then ;
 : sy-arg-for ( pi i k -- arg outcome )
   over swap sy-out? if sy-out-mvar else nip sy-args lf-meta-arg outcome-ok then ;
-: sy-out-arg ( ctype i k -- ctype' outcome )
-  rot sy-pi-whnf ok-then? 0= if nip nip no-result exit then
-  dup >r -rot sy-arg-for ok-then? if r> swap lf-meta-open else r> drop no-result then ;
+: sy-out-for ( i k pi -- ctype' outcome )
+  dup 2swap sy-arg-for ['] lf-meta-open ok-apply2 ;
+: sy-out-arg ( ctype i k -- ctype' outcome ) rot sy-pi-whnf ['] sy-out-for ok-apply3 ;
 : sy-out-args ( head k -- t outcome )
   over lf-infer ok-then? 0= if nip nip no-result exit then
   swap sy-args slab-count swap ['] sy-out-arg ok-fold ok-then? if drop sy-rebuild else nip

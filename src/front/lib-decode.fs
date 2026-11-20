@@ -247,7 +247,7 @@ end-structure
 : lbd-run ( x src -- image outcome ) dup src-count swap lbd-kept ;
 
 \ Levels: zero is the store's 0, a parameter what the source says.
-: lbd-max-tag? ( tag -- flag ) dup tag-level-max = swap tag-level-imax = or ;
+: lbd-max-tag? ( tag -- flag ) tag-level-max tag-level-imax one-of2? ;
 : lbd-l-pending ( l src -- child true | false )
   2dup src-tag dup tag-level-succ = if drop lbd-a? exit then
   lbd-max-tag? if lbd-ab? else 2drop false then ;
@@ -265,7 +265,7 @@ end-structure
 
 \ Expressions: children first.
 : lbd-pair-tag? ( tag -- flag ) dup tag-app = swap binder-tag? or ;
-: lbd-one-tag? ( tag -- flag ) dup tag-proj = swap tag-mdata = or ;
+: lbd-one-tag? ( tag -- flag ) tag-proj tag-mdata one-of2? ;
 : lbd-x-pending ( e src -- child true | false )
   2dup src-tag dup lbd-pair-tag? if drop lbd-ab? exit then
   dup let-tag? if drop lbd-abc? exit then lbd-one-tag? if lbd-a? else 2drop false then ;
@@ -524,8 +524,7 @@ kind-recursor kind-axiom - 1+ lbd-kinds# <>
 : lbd-s-type ( r -- outcome )
   dup lbd-d lbd-stage@ staged-type@ swap ['] lbr-type lbd-term! ;
 : lbd-valued? ( r -- flag )
-  lbr@ lbr-kind @ dup lf-kind-definition = over lf-kind-theorem = or swap lf-kind-opaque =
-    or ;
+  lbr@ lbr-kind @ lf-kind-definition lf-kind-theorem lf-kind-opaque one-of3? ;
 : lbd-s-value ( r -- outcome )
   dup lbd-valued? if dup lbd-d lbd-stage@ staged-value@ swap ['] lbr-value lbd-term! else
     drop outcome-ok then ;

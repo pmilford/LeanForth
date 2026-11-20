@@ -187,7 +187,7 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 : lft-open-at ( -- pos ) lft-open lft-rec tac-at @ ;
 : lft-proof? ( -- flag ) lft-open 0< 0= lfa-inside? and ;
 : lf-tactic-proof? ( -- flag ) lft-proof? ;
-: lft-bracket? ( kind -- flag ) dup tac-k-rw = swap tac-k-rewrite = or ;
+: lft-bracket? ( kind -- flag ) tac-k-rw tac-k-rewrite one-of2? ;
 \ Block i is open: the next step's text begins past the current token.
 : lft-opened ( i -- ) lft-open! lft-from! ;
 \ The open block ends at pos; the block around it is open again.

@@ -91,7 +91,7 @@ require ./constant-references.fs
 9 constant lf-kind-block         \ an empty inductive block (ADR 0016 amendment 1)
 \ The kinds with a value: definition, theorem, opaque.
 : lf-kind-valued? ( kind -- flag )
-  dup lf-kind-definition = over lf-kind-theorem = or swap lf-kind-opaque = or ;
+  lf-kind-definition lf-kind-theorem lf-kind-opaque one-of3? ;
 \ Safety and reducibility hints, coded as the NDJSON reader codes them.
 0 constant lf-safety-safe
 1 constant lf-safety-unsafe

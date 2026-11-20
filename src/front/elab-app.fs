@@ -425,7 +425,7 @@ defer ea-main ( frames -- ... frames next )
   ea ea-head @ dup 0< if drop false exit then ea-paramidx lf-menv-kinds-in
   dup 0= if 2drop false exit then drop @ true ;
 : ea-no-lambda? ( -- flag )
-  ea-dom-kind 0= if false exit then dup lf-binder-default = swap lf-binder-strict = or ;
+  ea-dom-kind 0= if false exit then lf-binder-default lf-binder-strict one-of2? ;
 : ea-arg-call ( node expected frames cont -- ... frames next )
   ea-no-lambda? if lf-elab-arg-call exit then lf-elab-term-call ;
 : ea-explicit ( frames -- ... frames next )

@@ -265,7 +265,7 @@ end-structure
   me-newest lf-cref-new
   if lf-cterm-new if drop outcome-ok exit then then -1 outcome-full ;
 : me-finish ( name gen n outcome -- term outcome )
-  ok-then? if me-made else nip nip no-result then ;
+  ['] me-made ok-apply3 ;
 : me-scope ( i*x xt -- term outcome )
   me-pairs slab-count >r execute r> me-pairs slab-cut ;
 : me-at ( name gen addr n -- term outcome )   \ n < 0: no levels, as ok-each runs none
@@ -378,7 +378,7 @@ texts-end constant me-uint-op-texts
   case lf-tr-all of me-every endof lf-tr-default of me-default endof
     lf-tr-reducible of me-reducible endof lf-tr-instances of me-instances endof
     lf-tr-implicit of me-implicit endof 0 swap endcase ;
-: me-status-free? ( mode -- flag ) dup lf-tr-all = swap lf-tr-none = or ;
+: me-status-free? ( mode -- flag ) lf-tr-all lf-tr-none one-of2? ;
 : me-unfolds? ( status mode -- flag ) me-mask swap rshift 1 and 0<> ;
 : me-by-status ( d mode -- flag outcome )
   swap lf-menv-status ok-then? if swap me-unfolds? outcome-ok else nip false swap then ;

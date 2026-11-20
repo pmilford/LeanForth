@@ -69,7 +69,7 @@ end-structure
 \ « and », which name-text.fs puts around a name part that is no
 \ identifier, as math symbols in either mode: LaTeX's default font
 \ encoding (OT1) has no guillemets.
-: lf-tex-angle? ( code -- flag ) dup $ab = swap $bb = or ;
+: lf-tex-angle? ( code -- flag ) $ab $bb one-of2? ;
 : lf-tex-angle ( code -- c-addr u )
   $ab = if s" \ensuremath{\ll}" else s" \ensuremath{\gg}" then ;
 \ A character of n > 1 bytes at c-addr: the bytes it takes and its text.

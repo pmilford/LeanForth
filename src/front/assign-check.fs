@@ -212,10 +212,11 @@ end-structure
   over lf-term-second@ over <> if drop false outcome-ok exit then
   over lf-term-first@ lf-mvar-occurs? ok-then? 0= if false swap exit then
   if false else lf-term-first@ true then outcome-ok ;
+: ac-lam-of ( type body -- lam outcome ) lf-term-lam room-result ;
+: ac-lam-from ( e i type -- lam outcome )
+  -rot cells ac ac-xs @ + 1 lf-meta-abstract ['] ac-lam-of ok-apply2 ;
 : ac-lam ( e i -- lam outcome )
-  dup ac-x lf-fvar-type lf-meta-head-beta ok-then? 0= if nip nip no-result exit then
-  -rot cells ac ac-xs @ + 1 lf-meta-abstract ok-then? 0= if nip no-result exit then
-  lf-term-lam room-result ;
+  dup ac-x lf-fvar-type lf-meta-head-beta ['] ac-lam-from ok-apply3 ;
 : ac-binder ( e i -- e' outcome )
   2dup ac-x ac-eta ok-then? 0= if >r 2drop drop r> no-result exit then
   if nip nip outcome-ok else drop ac-lam then ;

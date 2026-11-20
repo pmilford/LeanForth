@@ -133,7 +133,7 @@ reason = "s2-rest: renameInaccessibles takes an implementation detail (Lean's co
 [[fault]]
 id = "elab-lambda-any-kind"
 file = "src/front/elab-app.fs"
-old = '''  ea-dom-kind 0= if false exit then dup lf-binder-default = swap lf-binder-strict = or ;'''
+old = '''  ea-dom-kind 0= if false exit then lf-binder-default lf-binder-strict one-of2? ;'''
 new = '''  ea-dom-kind 0= if false exit then drop true ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --lambda"
 reason = "s2-rest review F3: an implicit pi domain skips the implicit-lambda refusal (s2-lambda-impl.lf: 131, not 133)"
@@ -141,7 +141,7 @@ reason = "s2-rest review F3: an implicit pi domain skips the implicit-lambda ref
 [[fault]]
 id = "elab-lambda-strict-refused"
 file = "src/front/elab-app.fs"
-old = '''  ea-dom-kind 0= if false exit then dup lf-binder-default = swap lf-binder-strict = or ;'''
+old = '''  ea-dom-kind 0= if false exit then lf-binder-default lf-binder-strict one-of2? ;'''
 new = '''  ea-dom-kind 0= if false exit then lf-binder-default = ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --lambda"
 reason = "s2-rest: a strict-implicit pi domain refused as an implicit lambda (s2-lambda-strict.lf: 133 where Lean accepts)"

@@ -132,7 +132,7 @@ require ./term-eqv.fs
 
 \ ---- unfoldProjInstWhenInstances? and unfoldProjInst?: isProjInst, then
 \ getUnfoldableConst? at default transparency.
-: uf-inst-mode? ( -- flag ) lf-defeq-mode dup lf-tr-instances = swap lf-tr-implicit = or ;
+: uf-inst-mode? ( -- flag ) lf-defeq-mode lf-tr-instances lf-tr-implicit one-of2? ;
 : uf-class-field ( const -- d flag outcome )
   lf-const-name dup lf-menv-find ok-then? 0= if nip -1 false rot exit then
   lf-menv-proj-class? ok-then? 0= if nip -1 false rot exit then

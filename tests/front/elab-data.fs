@@ -403,6 +403,11 @@ T{ elab-generation elab-reset elab-generation swap -
 T{ elab-reset outcome-ok ed-e-room ed-failed elab-error-code -> outcome-ok 0 }T
 T{ outcome-full ed-e-room ed-failed elab-error-code -> outcome-full ed-e-room }T
 T{ outcome-invalid ed-e-lookup ed-failed elab-error-code -> outcome-invalid ed-e-lookup }T
+\ An entry's number checked against the room left (ed-entry-in, split out
+\ of ed-entry-below by cleanup-families-3): inside it, first + number;
+\ at or past it, invalid with the code ed-e-order.
+T{ 10 3 2 ed-entry-in 10 3 3 ed-entry-in nip elab-error-code
+   -> 12 outcome-ok outcome-invalid ed-e-order }T
 T{ elab-reset -> }T
 T{ lib stage-free sealed stage-free -> }T
 bye
