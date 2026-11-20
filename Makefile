@@ -1563,5 +1563,9 @@ daily:
 tag-check:
 	@python3 scripts/tested-tree.py tag-check
 
-.PHONY: once tier test-tiers daily tag-check
-test: test-tiers
+# The helper that runs a runner's independent subprocess cases side by side, results in input
+# order (tests/support/parallel_runs.py; LEANFORTH_TEST_JOBS, default min(4, cores)).
+test-parallel-runs:
+	$(RUN) python3 tests/scripts/test_parallel_runs.py
+.PHONY: once tier test-tiers daily tag-check test-parallel-runs
+test: test-tiers test-parallel-runs

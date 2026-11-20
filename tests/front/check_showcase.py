@@ -21,6 +21,9 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "tests/support"))
+from parallel_runs import run_all  # noqa: E402  independent runs side by side, results in order
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 GOLDEN = ROOT / "tests/front/showcase.golden"
 SCRIPT = "scripts/showcase-steps.sh"
@@ -40,6 +43,12 @@ def run(argv, stdin=""):
     return done.returncode, done.stdout, done.stderr
 
 
+def run_many(commands):
+    """run(argv, stdin) of each (argv, stdin), side by side (LEANFORTH_TEST_JOBS, 1 for one at a
+    time): the (status, stdout, stderr) in the order of commands."""
+    return run_all(commands, run=lambda command: run(*command))
+
+
 def differs(got, want):
     """The first line where GOT and WANT differ, or None."""
     a, b = got.splitlines(), want.splitlines()
@@ -49,8 +58,8 @@ def differs(got, want):
     return None if len(a) == len(b) else f"{len(a)} lines, golden {len(b)}"
 
 
-def golden_part(write):
-    status, out, err = run(["bash", SCRIPT])
+def golden_part(write, finished):
+    status, out, err = next(finished)
     check(status == 0, f"{SCRIPT} on the slice: exit {status}; {err.strip()[-300:]}")
     if write:
         GOLDEN.write_text(out)
@@ -83,8 +92,11 @@ def golden_part(write):
     check(not explained, f"explanations are comments on the right, not lines of their own: {explained[:1]}")
 
 
-def stopped_part():
-    status, out, _ = run(["bash", SCRIPT, "tests/front/s2w-rw-definition.lf"])
+STOPPED = ["bash", SCRIPT, "tests/front/s2w-rw-definition.lf"]
+
+
+def stopped_part(finished):
+    status, out, _ = next(finished)
     check(status == 1, f"a file whose check stops: script exit 1, got {status}")
     check("error 99 at line:col 8:3 (token `by-rw[`)" in out and "    exit status 2" in out,
           "the stopped file's error and exit status 2 are shown")
@@ -92,17 +104,21 @@ def stopped_part():
           "a theorem with no verdict says so")
 
 
-def formatter_part():
-    lf = "tests/front/s1-rfl.lf"
-    head = ('{"tactic_steps":{"axioms":[],"cut":false,"declaration":"t",'
-            '"format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}\n')
-    for name, text in (("a line that is not JSON", head + "{not json\n"),
-                       ("a step without its source",
-                        head + '{"goal_before":"⊢ 0 = 0","goals_after":[],"parent":0,"step":1,'
-                               '"tactic":"rfl","word":"by-rfl"}\n')):
-        status, _, err = run([sys.executable, FORMAT, lf, "0"], text)
+LF = "tests/front/s1-rfl.lf"
+HEAD = ('{"tactic_steps":{"axioms":[],"cut":false,"declaration":"t",'
+        '"format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}\n')
+BAD_INPUTS = (("a line that is not JSON", HEAD + "{not json\n"),
+              ("a step without its source",
+               HEAD + '{"goal_before":"\u22a2 0 = 0","goals_after":[],"parent":0,"step":1,'
+                      '"tactic":"rfl","word":"by-rfl"}\n'))
+FORMATTER = [([sys.executable, FORMAT, LF, "0"], text) for _, text in BAD_INPUTS] \
+    + [([sys.executable, FORMAT, LF], "")]
+
+
+def formatter_part(finished):
+    for (name, _), (status, _, err) in zip(BAD_INPUTS, finished):
         check(status == 1 and "malformed" in err, f"the formatter refuses {name}: exit {status}")
-    status, _, _ = run([sys.executable, FORMAT, lf])
+    status, _, _ = next(finished)
     check(status == 1, f"the formatter refuses a wrong usage: exit {status}")
 
 
@@ -111,9 +127,10 @@ def main():
     if sys.argv[1:] and not write:
         print(__doc__.split("Usage: ")[1].strip())
         return 2
-    golden_part(write)
-    stopped_part()
-    formatter_part()
+    finished = run_many([(["bash", SCRIPT], ""), (STOPPED, "")] + FORMATTER)
+    golden_part(write, finished)
+    stopped_part(finished)
+    formatter_part(finished)
     if failures:
         print(f"check_showcase: {len(failures)} failed")
         return 1
