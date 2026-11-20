@@ -217,13 +217,13 @@ constant dk-key-heads
 : dk-keep? ( e' -- flag ) dk dk-root @ if dk-bad-key? else drop false then ;
 : dk-unfolded ( e e' -- e'' flag ) dup dk-keep? if drop false else nip true then ;
 : dk-unfold ( e -- e' flag outcome )   \ unfoldDefinition? (lf-meta-unfold)
-  dup lf-meta-unfold ok-then2? 0= if nip -1 false rot exit then
+  dup lf-meta-unfold ok-then2? 0= if nip no-result false swap exit then
   if dk-unfolded else drop false then outcome-ok ;
 : dk-eta ( e -- e' flag outcome )
   dup lf-term-lam? if lf-meta-eta-expanded else false outcome-ok then ;
 : dk-reduce-step ( e -- e' again? outcome )
   lf-whnf-core ok-then? 0= if -1 false rot exit then
-  dk-unfold ok-then2? 0= if -1 false rot exit then
+  dk-unfold ok-then2? 0= if no-result false swap exit then
   if true outcome-ok else dk-eta then ;
 : dk-reduce ( e -- e' outcome )
   begin dk-reduce-step ok-then? 0= if nip no-result exit then 0= until outcome-ok ;
