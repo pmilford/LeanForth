@@ -131,7 +131,7 @@ def lean_twin(path, name):
 def show_theorem(path, name, first, last, lines, logs, output):
     where = f"line {first}" if first == last else f"lines {first}-{last}"
     out = [f"theorem {name}  ({where})", "  LeanForth:"]
-    out += [f"    {n:3d} | {lines[n - 1].rstrip()}" for n in range(first, last + 1)]
+    out += [f"    {n:3d}   {lines[n - 1].rstrip()}" for n in range(first, last + 1)]
     head, steps = logs.get(name, (None, []))
     tactics = re.search(r":=\s+by\b", " ".join(lines[first - 1:last]))
     if head is None and not tactics:

@@ -2,11 +2,11 @@
 
 theorem t  (lines 9-13)
   LeanForth:
-      9 | theorem t
-     10 |   0 0 + 0 =
-     11 | := by
-     12 |   by-rfl
-     13 | end t
+      9   theorem t
+     10     0 0 + 0 =
+     11   := by
+     12     by-rfl
+     13   end t
   Statement (LeanForth's reading of the text, written in Lean's notation):
     ⊢ 0 + 0 = 0
   Steps LeanForth's tactics took (1 in the step log; axioms: none; open parts: 0):
@@ -25,7 +25,7 @@ theorem t  (lines 9-13)
 
 theorem zero_add_ex  (line 5)
   LeanForth:
-      5 | theorem zero_add_ex Nat explicit: n   0 n + n =   := by  n Nat.zero_add by-exact   end zero_add_ex
+      5   theorem zero_add_ex Nat explicit: n   0 n + n =   := by  n Nat.zero_add by-exact   end zero_add_ex
   Statement (LeanForth's reading of the text, written in Lean's notation):
     n : Nat
     ⊢ 0 + n = n
@@ -45,15 +45,15 @@ theorem zero_add_ex  (line 5)
 
 theorem zero_add''  (lines 9-17)
   LeanForth:
-      9 | theorem zero_add''
-     10 |   Nat explicit: n
-     11 |   0 n + n =
-     12 | := by
-     13 |   n by-induction-with
-     14 |   | zero =>       by-rfl
-     15 |   | succ k ih =>  by-rw[ ' Nat.add_succ ih ]
-     16 |   by-end
-     17 | end zero_add''
+      9   theorem zero_add''
+     10     Nat explicit: n
+     11     0 n + n =
+     12   := by
+     13     n by-induction-with
+     14     | zero =>       by-rfl
+     15     | succ k ih =>  by-rw[ ' Nat.add_succ ih ]
+     16     by-end
+     17   end zero_add''
   Statement (LeanForth's reading of the text, written in Lean's notation):
     n : Nat
     ⊢ 0 + n = n
@@ -99,19 +99,19 @@ theorem zero_add''  (lines 9-17)
 
 theorem zero_add_nested  (lines 13-25)
   LeanForth:
-     13 | theorem zero_add_nested
-     14 |   Nat explicit: n  Nat explicit: m
-     15 |   0 n + n =
-     16 | := by
-     17 |   n by-induction-with
-     18 |   | zero =>       by-rfl
-     19 |   | succ k ih =>
-     20 |     m by-induction-with
-     21 |     | zero =>       by-rw[ ' Nat.add_succ ih ]
-     22 |     | succ j ih =>  ih by-exact
-     23 |     by-end
-     24 |   by-end
-     25 | end zero_add_nested
+     13   theorem zero_add_nested
+     14     Nat explicit: n  Nat explicit: m
+     15     0 n + n =
+     16   := by
+     17     n by-induction-with
+     18     | zero =>       by-rfl
+     19     | succ k ih =>
+     20       m by-induction-with
+     21       | zero =>       by-rw[ ' Nat.add_succ ih ]
+     22       | succ j ih =>  ih by-exact
+     23       by-end
+     24     by-end
+     25   end zero_add_nested
   Statement (LeanForth's reading of the text, written in Lean's notation):
     n m : Nat
     ⊢ 0 + n = n
@@ -192,15 +192,15 @@ theorem zero_add_nested  (lines 13-25)
 
 theorem ps_succ_add  (lines 6-14)
   LeanForth:
-      6 | theorem ps_succ_add
-      7 |   Nat explicit: n  Nat explicit: m
-      8 |   n Nat.succ m + n m + Nat.succ =
-      9 | := by
-     10 |   m by-induction-with
-     11 |   | zero =>       by-rfl
-     12 |   | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
-     13 |   by-end
-     14 | end ps_succ_add
+      6   theorem ps_succ_add
+      7     Nat explicit: n  Nat explicit: m
+      8     n Nat.succ m + n m + Nat.succ =
+      9   := by
+     10     m by-induction-with
+     11     | zero =>       by-rfl
+     12     | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
+     13     by-end
+     14   end ps_succ_add
   Statement (LeanForth's reading of the text, written in Lean's notation):
     n m : Nat
     ⊢ Nat.succ n + m = Nat.succ (n + m)
@@ -248,15 +248,15 @@ theorem ps_succ_add  (lines 6-14)
 
 theorem ps_zero_add  (lines 8-16)
   LeanForth:
-      8 | theorem ps_zero_add
-      9 |   Nat explicit: n
-     10 |   0 n + n =
-     11 | := by
-     12 |   n by-induction-with
-     13 |   | zero =>       by-rfl
-     14 |   | succ k ih =>  by-rw[ ' Nat.add_succ ih ]
-     15 |   by-end
-     16 | end ps_zero_add
+      8   theorem ps_zero_add
+      9     Nat explicit: n
+     10     0 n + n =
+     11   := by
+     12     n by-induction-with
+     13     | zero =>       by-rfl
+     14     | succ k ih =>  by-rw[ ' Nat.add_succ ih ]
+     15     by-end
+     16   end ps_zero_add
   Statement (LeanForth's reading of the text, written in Lean's notation):
     n : Nat
     ⊢ 0 + n = n
@@ -297,15 +297,15 @@ theorem ps_zero_add  (lines 8-16)
 
 theorem ps_succ_add  (lines 17-25)
   LeanForth:
-     17 | theorem ps_succ_add
-     18 |   Nat explicit: n  Nat explicit: m
-     19 |   n Nat.succ m + n m + Nat.succ =
-     20 | := by
-     21 |   m by-induction-with
-     22 |   | zero =>       by-rfl
-     23 |   | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
-     24 |   by-end
-     25 | end ps_succ_add
+     17   theorem ps_succ_add
+     18     Nat explicit: n  Nat explicit: m
+     19     n Nat.succ m + n m + Nat.succ =
+     20   := by
+     21     m by-induction-with
+     22     | zero =>       by-rfl
+     23     | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
+     24     by-end
+     25   end ps_succ_add
   Statement (LeanForth's reading of the text, written in Lean's notation):
     n m : Nat
     ⊢ Nat.succ n + m = Nat.succ (n + m)
@@ -348,15 +348,15 @@ theorem ps_succ_add  (lines 17-25)
 
 theorem ps_add_comm  (lines 26-34)
   LeanForth:
-     26 | theorem ps_add_comm
-     27 |   Nat explicit: n  Nat explicit: m
-     28 |   n m + m n + =
-     29 | := by
-     30 |   m by-induction-with
-     31 |   | zero =>       by-rw[ ' ps_zero_add ] by-rfl
-     32 |   | succ k ih =>  by-rw[ ' Nat.add_succ ih ' ps_succ_add ]
-     33 |   by-end
-     34 | end ps_add_comm
+     26   theorem ps_add_comm
+     27     Nat explicit: n  Nat explicit: m
+     28     n m + m n + =
+     29   := by
+     30     m by-induction-with
+     31     | zero =>       by-rw[ ' ps_zero_add ] by-rfl
+     32     | succ k ih =>  by-rw[ ' Nat.add_succ ih ' ps_succ_add ]
+     33     by-end
+     34   end ps_add_comm
   Statement (LeanForth's reading of the text, written in Lean's notation):
     n m : Nat
     ⊢ n + m = m + n
@@ -413,15 +413,15 @@ theorem ps_add_comm  (lines 26-34)
 
 theorem ps_add_assoc  (lines 6-14)
   LeanForth:
-      6 | theorem ps_add_assoc
-      7 |   Nat explicit: n  Nat explicit: m  Nat explicit: k
-      8 |   n m k + + n m + k + =
-      9 | := by
-     10 |   k by-induction-with
-     11 |   | zero =>       by-rfl
-     12 |   | succ j ih =>  by-rw[ ' Nat.add_succ ' Nat.add_succ ih ' Nat.add_succ ]
-     13 |   by-end
-     14 | end ps_add_assoc
+      6   theorem ps_add_assoc
+      7     Nat explicit: n  Nat explicit: m  Nat explicit: k
+      8     n m k + + n m + k + =
+      9   := by
+     10     k by-induction-with
+     11     | zero =>       by-rfl
+     12     | succ j ih =>  by-rw[ ' Nat.add_succ ' Nat.add_succ ih ' Nat.add_succ ]
+     13     by-end
+     14   end ps_add_assoc
   Statement (LeanForth's reading of the text, written in Lean's notation):
     n m k : Nat
     ⊢ n + (m + k) = n + m + k
@@ -464,15 +464,15 @@ theorem ps_add_assoc  (lines 6-14)
 
 theorem ps_mul_add  (lines 15-23)
   LeanForth:
-     15 | theorem ps_mul_add
-     16 |   Nat explicit: n  Nat explicit: m  Nat explicit: k
-     17 |   n m k + * n m * n k * + =
-     18 | := by
-     19 |   k by-induction-with
-     20 |   | zero =>       by-rfl
-     21 |   | succ j ih =>  by-rw[ ' Nat.add_succ ' Nat.mul_succ ih ' Nat.mul_succ ' ps_add_assoc ]
-     22 |   by-end
-     23 | end ps_mul_add
+     15   theorem ps_mul_add
+     16     Nat explicit: n  Nat explicit: m  Nat explicit: k
+     17     n m k + * n m * n k * + =
+     18   := by
+     19     k by-induction-with
+     20     | zero =>       by-rfl
+     21     | succ j ih =>  by-rw[ ' Nat.add_succ ' Nat.mul_succ ih ' Nat.mul_succ ' ps_add_assoc ]
+     22     by-end
+     23   end ps_mul_add
   Statement (LeanForth's reading of the text, written in Lean's notation):
     n m k : Nat
     ⊢ n * (m + k) = n * m + n * k
@@ -520,15 +520,15 @@ theorem ps_mul_add  (lines 15-23)
 
 theorem ps_zero_add  (lines 11-19)
   LeanForth:
-     11 | theorem ps_zero_add
-     12 |   Nat explicit: n
-     13 |   0 n + n =
-     14 | := by
-     15 |   n by-induction-with
-     16 |   | zero =>       by-rfl
-     17 |   | succ k ih =>  by-rw[ ' Nat.add_succ ih ]
-     18 |   by-end
-     19 | end ps_zero_add
+     11   theorem ps_zero_add
+     12     Nat explicit: n
+     13     0 n + n =
+     14   := by
+     15     n by-induction-with
+     16     | zero =>       by-rfl
+     17     | succ k ih =>  by-rw[ ' Nat.add_succ ih ]
+     18     by-end
+     19   end ps_zero_add
   Statement (LeanForth's reading of the text, written in Lean's notation):
     n : Nat
     ⊢ 0 + n = n
@@ -569,15 +569,15 @@ theorem ps_zero_add  (lines 11-19)
 
 theorem ps_succ_add  (lines 20-28)
   LeanForth:
-     20 | theorem ps_succ_add
-     21 |   Nat explicit: n  Nat explicit: m
-     22 |   n Nat.succ m + n m + Nat.succ =
-     23 | := by
-     24 |   m by-induction-with
-     25 |   | zero =>       by-rfl
-     26 |   | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
-     27 |   by-end
-     28 | end ps_succ_add
+     20   theorem ps_succ_add
+     21     Nat explicit: n  Nat explicit: m
+     22     n Nat.succ m + n m + Nat.succ =
+     23   := by
+     24     m by-induction-with
+     25     | zero =>       by-rfl
+     26     | succ k ih =>  by-rw[ ' Nat.add_succ ih ' Nat.add_succ ]
+     27     by-end
+     28   end ps_succ_add
   Statement (LeanForth's reading of the text, written in Lean's notation):
     n m : Nat
     ⊢ Nat.succ n + m = Nat.succ (n + m)
@@ -620,15 +620,15 @@ theorem ps_succ_add  (lines 20-28)
 
 theorem ps_length_append  (lines 29-37)
   LeanForth:
-     29 | theorem ps_length_append
-     30 |   Nat List explicit: xs  Nat List explicit: ys
-     31 |   xs ys HAppend.hAppend List.length  xs List.length ys List.length + =
-     32 | := by
-     33 |   xs by-induction-with
-     34 |   | nil =>           by-rw[ ' List.nil_append ' List.length_nil ' ps_zero_add ]
-     35 |   | cons x t ih =>   by-rw[ ' List.cons_append ' List.length_cons ' List.length_cons ih ' ps_succ_add ]
-     36 |   by-end
-     37 | end ps_length_append
+     29   theorem ps_length_append
+     30     Nat List explicit: xs  Nat List explicit: ys
+     31     xs ys HAppend.hAppend List.length  xs List.length ys List.length + =
+     32   := by
+     33     xs by-induction-with
+     34     | nil =>           by-rw[ ' List.nil_append ' List.length_nil ' ps_zero_add ]
+     35     | cons x t ih =>   by-rw[ ' List.cons_append ' List.length_cons ' List.length_cons ih ' ps_succ_add ]
+     36     by-end
+     37   end ps_length_append
   Statement (LeanForth's reading of the text, written in Lean's notation):
     xs ys : @List Nat
     ⊢ @List.length Nat (@HAppend.hAppend (@List Nat) (@List Nat) (@List Nat) (@instHAppendOfAppend (@List Nat) (@List.instAppend Nat)) xs ys) = @List.length Nat xs + @List.length Nat ys
@@ -680,12 +680,12 @@ theorem ps_length_append  (lines 29-37)
 
 theorem add_zero'  (lines 8-13)
   LeanForth:
-      8 | theorem add_zero'
-      9 |   Nat explicit: n
-     10 |   n 0 + n =
-     11 | :=
-     12 |   n Eq.refl
-     13 | end add_zero'
+      8   theorem add_zero'
+      9     Nat explicit: n
+     10     n 0 + n =
+     11   :=
+     12     n Eq.refl
+     13   end add_zero'
   Proof: a term (after :=), not tactics; the step log has no steps for it.
   The same theorem in Lean (tests/front/s2-proofs.lean):
     theorem add_zero' (n : Nat) : n + 0 = n := Eq.refl n
@@ -698,7 +698,7 @@ theorem add_zero'  (lines 8-13)
 
 theorem add_zero'  (line 5)
   LeanForth:
-      5 | theorem add_zero'   Nat explicit: n   n 0 + n =   := by  by-rfl   end add_zero'
+      5   theorem add_zero'   Nat explicit: n   n 0 + n =   := by  by-rfl   end add_zero'
   Statement (LeanForth's reading of the text, written in Lean's notation):
     n : Nat
     ⊢ n + 0 = n
