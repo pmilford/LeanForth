@@ -57,17 +57,23 @@ OpenAI Codex. Codex-era docs (`docs/project/CODEX_HANDOFF.md`, `prompts/FIRST_CO
   its jobs locally under `ulimit -u 500` and record the exit codes, as
   `AGENTS.md` requires: `scripts/push.sh` does this by change tier, its own
   tier only (a documentation push: the documentation and progress checks).
-  Its full tier (owner, 2026-11-17) is the coverage ratchet of the touched
-  source files over every target of `make test` that loads them
-  (`make coverage-focus`, 2026-11-18), `make test`,
+  Its full tier (owner, 2026-11-17) is the branch coverage check of the
+  touched source files (`make cover-changed`, owner 2026-11-19; it replaced
+  `make coverage-focus`, 12-18 minutes, in every tier and push), `make test`,
   `make test-unit` on gforth-fast and `make check-rest`, with the Lean cache,
   and each target's recorded pass is reused while the files it reads are
   unchanged (`scripts/tested-tree.py`); it picks `JOBS` (5, or 2 when other
   heavy runs are going or in CPU mode day; `JOBS=N` overrides).
   `scripts/push.sh --dry-run` shows the plan with estimated times.
+- `make cover-changed [BASE=main] [JOBS=4]` (owner, 2026-11-19): the unit
+  tests of every Forth file of `src/` the branch adds or modifies, under
+  coverage; fails on a never-run block of a line the branch added or changed
+  (`file:line: word: text`) or a touched file no unit test loads. About
+  30-75 s on three branches of 2026-11-18/19, so it runs in the tier, not in
+  `scripts/pre-tier.sh`; run it while working to find the gaps early.
 - The cache-off full run is `make daily` (owner, 2026-11-17): once a night,
   by itself, and before a tag; it alone runs `make coverage-check` of every
-  file and `make test-unit` on Gforth 0.7.3
+  file (the whole-suite ratchet, owner 2026-11-19) and `make test-unit` on Gforth 0.7.3
   (`GFORTH=$PWD/.claude/work/A/gforth073.sh`); `make tag-check` must pass for
   the tree to be tagged. `scripts/push.sh` only reports its age and warns past
   36 hours.

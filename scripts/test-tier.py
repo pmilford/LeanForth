@@ -19,33 +19,40 @@ Each file gets a tier; the range gets the largest:
            make tier itself, the progress check.
   tests    any other file under tests/: the targets that use it on Gforth
            1.0, and those of them that are unit tests (tests/test-classes.txt)
-           and run Gforth also on gforth-fast and Gforth 0.7.3; its planted
-           faults (those whose test command names it, and fault entries new
-           or changed in tests/mutants/faults.toml) and the block coverage of
-           the source files the changed tests drive (make coverage-check when
-           one of them is loaded by src/main.fs). A test file no target uses
-           selects the targets that use a file of its folder; with none, the
-           range is full.
+           and run Gforth also on gforth-fast; its planted faults (those whose
+           test command names it, and fault entries new or changed in
+           tests/mutants/faults.toml). A test file no target uses selects the
+           targets that use a file of its folder; with none, the range is full.
   library  a Forth file of src/lib/ that src/main.fs does not load: the
-           targets that use it (the unit tests on all three engines), its
-           faults and its coverage.
+           targets that use it (the unit tests on gforth-fast too), its
+           faults and the branch coverage check.
   front    a Forth file of src/front/ that src/main.fs does not load: the
            same, and make test-front, reference-front and reference-mathlib-slice.
+  tactic   a branch scripts/check-tactic-plugins.py finds confined: the front
+           end's unit tests, every end-to-end run of .lf files and
+           reference-front, its faults and the branch coverage check.
   full     everything else: any file src/main.fs loads, at HEAD or at the
            base (so a library that becomes loaded is full), src/main.fs,
            src/kernel, core, import, cli and every other folder of src/,
            the Makefile, scripts/, bin/, schemas/, lean-toolchain, .github/
            any deleted or renamed-away file but documents (what used it is
-           known only from the base tree) and any file not named above. Suites: make coverage-check (make
-           test once, instrumented, and the coverage ratchet: every unit
-           test on Gforth 1.0 and every end-to-end test of make test), make
+           known only from the base tree) and any file not named above.
+           Suites: the branch coverage check, make test on Gforth 1.0, make
            test-unit on gforth-fast, make check-rest (the rest of make check,
-           every pinned-Lean comparison included), make test-unit on Gforth
-           0.7.3 (at the push), and the planted faults
+           every pinned-Lean comparison included), and the planted faults
            whose entries are new or changed, or whose old text lies on or
            next to a changed line of its file (plan 9.4.8j); a fault of a
            changed file whose text was left alone is left to the stale
            check and the daily full run of make mutants.
+
+The branch coverage check (owner, 2026-11-19, OWNER_DECISIONS.md "Coverage in
+the branch in seconds, the whole-suite ratchet at night") is the suite
+cover-changed, make cover-changed BASE=<the range's merge base>, in every tier
+whose range adds or modifies a Forth file of src/: scripts/coverage.py
+--changed runs those files' unit tests under coverage and fails on a never-run
+block of a line the branch added or changed. No tier runs make coverage-focus
+or make coverage-check (the whole-suite ratchet of every file): make daily runs
+make coverage-check, each night and before a tag.
 
 src/main.fs's closure follows Forth's require, include and needs, also in
 comments (more is loaded, never less). A target uses what
@@ -54,13 +61,14 @@ Forth loads, Python imports and named repository paths); every changed
 Forth source also selects smoke, check-portable-forth and
 check-forth-quality. A target of make test that runs Gforth (its recipe
 names it) and is no end-to-end test (tests/test-classes.txt; owner,
-2026-11-14) runs on gforth-fast and Gforth 0.7.3 too; plan() fails (exit 2)
-when a suite would drop such a unit test from an engine or run an end-to-end
-test on one. A smaller tier is a heuristic over
-named files: when in doubt the tier is the larger one. What it leaves to
-the daily full run: block coverage of files a changed library or test loads
-but does not test, and documents a test reads through a path built at run
-time. Exit status 0, or 2 for a usage or git error.
+2026-11-14) runs on gforth-fast too; plan() fails (exit 2) when a suite
+would drop such a unit test from gforth-fast, run an end-to-end test on an
+engine, or run Gforth 0.7.3 (make daily alone does). A smaller tier is a
+heuristic over named files: when in doubt the tier is the larger one. What it
+leaves to the daily full run: the whole-suite coverage of every file (a change
+in one file that stops running part of another, a test change that stops
+running a line), and documents a test reads through a path built at run time.
+Exit status 0, or 2 for a usage or git error.
 """
 import argparse
 import hashlib
@@ -84,8 +92,6 @@ _spec = importlib.util.spec_from_file_location("tactic_plugins", os.path.join(HE
 tactic_plugins = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(tactic_plugins)
 
-PROGRAMS = (".fs", ".py", ".sh")
-TOOL_TESTS = ("tests/scripts/", "tests/mutants/", "tests/lean-cache/", "tests/test-classes.txt")
 TIERS = ("none", "docs", "tests", "library", "front", "tactic", "full")
 # The tactic tier (owner, 2026-11-17, the tactic plug-in design's decision 2): only for a branch
 # scripts/check-tactic-plugins.py finds confined. Its S1/S2 pinned-Lean comparisons:
@@ -107,10 +113,10 @@ ENGINES = {"fast": "gforth-fast", "073": "Gforth 0.7.3"}
 # The engines of a tier (make tier, scripts/push.sh): gforth-fast only. Gforth 0.7.3 runs in
 # make daily and make tag-check alone (owner, 2026-11-17).
 TIER_ENGINES = ("fast",)
-# The full tier (owner, 2026-11-17): make test on Gforth 1.0 (plain; the coverage of the changed
-# files runs first, as a coverage-focus suite, and stands for its own targets), make test-unit
-# on gforth-fast and make check-rest; tested-tree.py reuses each target whose inputs are
-# unchanged. The whole coverage ratchet (make coverage-check) runs in make daily.
+# The full tier (owner, 2026-11-17): make test on Gforth 1.0, make test-unit on gforth-fast and
+# make check-rest, after the branch coverage check of the changed source files (cover-changed,
+# owner 2026-11-19); tested-tree.py reuses each target whose inputs are unchanged. The whole-suite
+# coverage ratchet (make coverage-check) runs in make daily only.
 FULL_SUITES = (
     {"label": "test", "goals": ["test"]},
     {"label": "testfast", "goals": ["test-unit"], "engine": "fast"},
@@ -186,25 +192,39 @@ def units(rules):
 
 # --- what a file reaches -------------------------------------------------------
 
-def forth_closure(start, read):
+def forth_closure(start, read, loads=None):
     """The Forth files START loads through require, include and needs (comments too).
-    READ ( path -- text or None ) reads one file of the tree in question."""
+    READ ( path -- text or None ) reads one file of the tree in question. LOADS, a dict, keeps
+    each file's own loads ({path: [loaded path] or None when unreadable}) for the next call, so
+    the closures of many files of one tree cost one reading of each file."""
+    loads = {} if loads is None else loads
     seen, todo = set(), list(start)
     while todo:
         path = todo.pop()
         if path in seen:
             continue
-        text = read(path)
-        if text is None:
+        if path not in loads:
+            loads[path] = direct_loads(path, read)
+        if loads[path] is None:
             continue
         seen.add(path)
-        for name in FORTH_LOAD.findall(text):
-            for base in (os.path.dirname(path), "."):
-                candidate = os.path.normpath(os.path.join(base, name))
-                if read(candidate) is not None:
-                    todo.append(candidate)
-                    break
+        todo += loads[path]
     return seen
+
+
+def direct_loads(path, read):
+    """The files PATH itself loads (beside it, else from the root), or None when READ cannot read it."""
+    text = read(path)
+    if text is None:
+        return None
+    found = []
+    for name in FORTH_LOAD.findall(text):
+        for base in (os.path.dirname(path), "."):
+            candidate = os.path.normpath(os.path.join(base, name))
+            if read(candidate) is not None:
+                found.append(candidate)
+                break
+    return found
 
 
 def read_worktree(path):
@@ -274,19 +294,6 @@ class Reach:
         self.cache = {}
         self.uses = {u: changed_tests.closure(changed_tests.named_files(self.text[u]), self.cache)
                      for u in self.every}
-        self.inputs = None
-
-    def loaders(self, path):
-        """The targets of make test that may load or run PATH: those whose programs, as the finder
-        of the per-target reuse (Inputs) follows them, run or load it, unit and end-to-end alike,
-        and any whose recipe make -n cannot print. A target that only reads PATH as data (a style
-        check's glob) runs none of its blocks. A file's block counts over them are those of all of
-        make test (checked on 2026-11-18 for every file: each target that compiled a file in a full
-        run was chosen)."""
-        if self.inputs is None:
-            self.inputs = Inputs()
-            self.inputs.prefetch(self.of_test)
-        return [u for u in self.of_test if self.inputs.read(u, True) is None or path in self.inputs.read(u, True)]
 
     def users(self, path):
         return [u for u in self.every if path in self.uses[u]]
@@ -313,29 +320,6 @@ class Reach:
 
     def runs_gforth(self, unit):
         return "gforth" in self.text[unit]
-
-    def driven(self, path):
-        """The source files a test file drives: the files of src/ its programs name or load
-        without passing through another source file; for a data file, those of every
-        program that names it."""
-        if os.path.splitext(path)[1] in changed_tests.COMMENT:
-            programs = [path]
-        else:
-            programs = [p for p, used in self.cache.items() if path in used]
-        found, seen, todo = set(), set(), list(programs)
-        while todo:
-            current = todo.pop()
-            if current in seen:
-                continue
-            seen.add(current)
-            if current.startswith("src/"):
-                found.add(current)
-                continue
-            if current.startswith("tests/") and os.path.splitext(current)[1] in changed_tests.COMMENT:
-                if current not in self.cache:
-                    self.cache[current] = changed_tests.used_files(current, read_worktree(current) or "")
-                todo += self.cache[current]
-        return found
 
 
 # --- what a target reads: per-target reuse (owner, 2026-11-17) ------------------------
@@ -379,7 +363,7 @@ class Inputs:
         self.top = os.getcwd()
         self.tracked = changed_tests.tracked_files()
         self.index = changed_tests.file_index(self.tracked)
-        self.cache, self.recipes, self.digests, self.reasons, self.reads = {}, {}, {}, {}, {}
+        self.cache, self.recipes, self.digests, self.reasons = {}, {}, {}, {}
         exported = self.environment()
         makefile = read_worktree("Makefile") or ""
         self.global_text = exported + "\n".join(MAKE_SPECIAL.findall(makefile))
@@ -406,29 +390,10 @@ class Inputs:
             self.recipes[target] = self._recipe(target)
         return self.recipes[target]
 
-    def prefetch(self, targets):
-        """make -n of every target of TARGETS, eight at a time (each takes a fraction of a second)."""
-        todo = [t for t in targets if t not in self.recipes]
-        with ThreadPoolExecutor(max_workers=8) as pool:
-            for name, text in zip(todo, pool.map(self._recipe, todo)):
-                self.recipes[name] = text
-
     def _recipe(self, target):
         run = subprocess.run(["make", "-n", "--no-print-directory", "-j1", target, *PLACEHOLDERS],
                              capture_output=True, text=True, env=clean_env())
         return self.normal(run.stdout) if run.returncode == 0 else None
-
-    def read(self, name, loaded_only=False):
-        """The files target NAME may read (the files its digest covers), or with LOADED_ONLY
-        those it may run or load (not those it only reads as data); None when make -n fails."""
-        if name not in self.reads:
-            text = self.recipe(name)
-            followed = set()
-            files = None if text is None else changed_tests.input_files(
-                changed_tests.named_files(text), self.tracked, self.cache, self.index, followed)[0]
-            self.reads[name] = None if files is None else (files | self.global_files, followed)
-        found = self.reads[name]
-        return None if found is None else found[1 if loaded_only else 0]
 
     def files(self, start):
         """(input files, reasons) of programs and files START, the exported ones included."""
@@ -587,12 +552,12 @@ def touched_faults(changed, base_rev):
     return chosen
 
 
-def full_result(result, changed, base_rev, reach=None, loaded=()):
-    """The full tier's suites, and its faults (none for an empty range): the coverage of the
-    changed source files first, then FULL_SUITES, then the faults."""
+def full_result(result, changed, base_rev):
+    """The full tier's suites, and its faults (none for an empty range): the branch coverage check
+    of the changed source files first (seconds), then FULL_SUITES, then the faults."""
     if result["tier"] == "full":
         result["faults"] = touched_faults(changed, base_rev)
-        result["coverage"] = coverage_need(result["files"], reach or Reach(make_database()[0]), loaded, base_rev)
+        result["coverage"] = coverage_need(result["files"], base_rev)
         result["suites"] = coverage_suites(result["coverage"]) + [dict(s) for s in FULL_SUITES]
         if result["faults"]:
             result["suites"].append({"label": "faults", "goals": ["mutants"],
@@ -636,9 +601,9 @@ def plan(changed, merge_base, full=False, reach=None):
               "faults": [], "coverage": None, "suites": [], "tactic_check": tactic}
     if tier == "none":
         return result
-    reach_ = reach or Reach(make_database()[0])
     if tier == "full":
-        return full_result(result, changed, base_rev, reach_, loaded)
+        return full_result(result, changed, base_rev)
+    reach_ = reach or Reach(make_database()[0])
     chosen = set()
     for f in files:
         path, users = f["path"], reach_.users(f["path"])
@@ -668,13 +633,13 @@ def plan(changed, merge_base, full=False, reach=None):
     tier = max((f["tier"] for f in files), key=TIERS.index)
     result["tier"] = tier
     if tier == "full":
-        return full_result(result, changed, base_rev, reach_, loaded)
+        return full_result(result, changed, base_rev)
     result["targets"] = [u for u in reach_.every if u in chosen] + sorted(chosen - set(reach_.every))
     engine_unit = engine_units(reach_)
     result["engine_targets"] = [u for u in reach_.of_test if u in chosen and engine_unit(u)]
     if tier != "docs":
         result["faults"] = selected_faults(changed, base_rev)
-        result["coverage"] = coverage_need(files, reach_, loaded, base_rev)
+        result["coverage"] = coverage_need(files, base_rev)
     result["suites"] = suites_of(result)
     problems = engine_problems(result, engine_unit, end_to_end())
     if problems:
@@ -724,81 +689,37 @@ def engine_problems(result, engine_unit, e2e):
     return problems
 
 
-def runs_forth(path):
-    """Whether a changed test file can run Forth code: a Forth file, data, or a program that
-    names Gforth (a Python test of a script that only names source files as text runs none).
-    The tests of the test tooling (TOOL_TESTS: the scripts' tests on throw-away repositories,
-    the fault runner's, the Lean cache's, the class table) run no Forth of src/."""
-    if path.startswith(TOOL_TESTS):
-        return False
-    if os.path.splitext(path)[1] not in (".py", ".sh"):
-        return True
-    return re.search(r"gforth|\.fs\b.*(?:run|include|require)|leanforth", read_worktree(path) or "",
-                     re.IGNORECASE) is not None
-
-
-def baseline_changes(base_rev):
-    """The files whose entries of tests/coverage-baseline.json differ from BASE_REV's, or None
-    when the run count differs or either side does not parse (then all of make coverage-check)."""
-    try:
-        now = json.loads(read_worktree(COVERAGE_BASELINE) or "")
-        before = json.loads(git("show", f"{base_rev}:{COVERAGE_BASELINE}", check=False) or "")
-        if now.get("runs") != before.get("runs"):
-            return None
-        a, b = now.get("files", {}), before.get("files", {})
-        return {p for p in set(a) | set(b) if a.get(p) != b.get(p)}
-    except (ValueError, AttributeError):
-        return None
-
-
-def coverage_need(files, reach_, loaded, base_rev="HEAD"):
-    """None, {"kind": "all"} (make coverage-check) or {"kind": "focus", files, targets, skipped}:
-    the ratchet of the changed source files (owner, 2026-11-17): every Forth file of src/ the
-    change touches, the files a changed test drives and the files whose baseline entry changed,
-    over every target of make test that loads or runs one of them, unit and end-to-end
-    (Reach.loaders, 2026-11-18): tests/coverage-baseline.json counts a file's never-run blocks
-    over all of make test, and only these targets run its blocks, so the focused count is the
-    full run's. A file no target of make test reads ("skipped") is left to make daily's full
-    run. Only a change of the baseline's run count needs all of make coverage-check, which make
-    daily runs. LOADED is kept for the callers."""
-    focus = set()
-    for f in files:
-        if f["status"] == "D" and f["path"].startswith("tests/") and f["path"].endswith(PROGRAMS):
-            return {"kind": "all", "why": f"{f['path']} was deleted: what it drove is known only from the base"}
-        if f["status"] == "D":
-            continue
-        if f["path"] == COVERAGE_BASELINE:
-            changed = baseline_changes(base_rev)
-            if changed is None:
-                return {"kind": "all", "why": f"{COVERAGE_BASELINE}'s run count changed"}
-            focus |= {p for p in changed if os.path.isfile(p)}
-        elif f["path"].startswith("src/") and f["path"].endswith(".fs"):
-            focus.add(f["path"])
-        elif f["tier"] == "tests" and runs_forth(f["path"]):
-            focus |= reach_.driven(f["path"])
-    focus = {p for p in focus if p.endswith(".fs")}
-    if not focus:
-        return None
-    loaders = {p: reach_.loaders(p) for p in sorted(focus)}
-    measured = sorted(p for p in focus if loaders[p])
-    targets = [u for u in reach_.of_test if any(u in loaders[p] for p in measured)]
-    return {"kind": "focus", "files": measured, "targets": targets,
-            "skipped": sorted(p for p in focus if not loaders[p])}
+def coverage_need(files, base_rev="HEAD"):
+    """None or {"kind": "changed", "base", "files"}: the branch coverage check (owner, 2026-11-19,
+    OWNER_DECISIONS.md "Coverage in the branch in seconds"; make cover-changed, scripts/coverage.py
+    --changed) of every Forth file of src/ the change adds or modifies (a deleted file has no line
+    to run). It runs those files' unit tests under coverage and fails on a never-run block of a line
+    the branch added or changed. The whole-suite ratchet of every file (make coverage-check) runs in
+    make daily only."""
+    touched = sorted(f["path"] for f in files
+                     if f["status"] != "D" and f["path"].startswith("src/") and f["path"].endswith(".fs"))
+    return {"kind": "changed", "base": base_rev, "files": touched} if touched else None
 
 
 def coverage_suites(cover):
-    if cover and cover["kind"] == "all":
-        return [{"label": "coverage-check", "goals": ["coverage-check"]}]
+    """The branch coverage check's suite: make cover-changed against the range's base commit, so
+    that its record stands for exactly that range (scripts/tested-tree.py)."""
     if cover and cover["files"]:
-        return [{"label": "coverage-focus", "goals": ["coverage-focus"],
-                 "vars": {"COVERAGE_FILES": " ".join(cover["files"]),
-                          "COVERAGE_TARGETS": " ".join(cover["targets"])}}]
+        return [{"label": "cover-changed", "goals": ["cover-changed"], "vars": {"BASE": cover["base"]}}]
     return []
 
 
+def reaches_coverage(result):
+    """Whether a change's plan can change what the branch coverage check finds: any change but
+    documentation (a source file's lines, a test that runs them). scripts/tested-tree.py drops
+    the coverage items of an earlier record across such a change."""
+    return result["tier"] not in ("none", "docs")
+
+
 def suites_of(result):
-    """The suites of a tier smaller than full, the instrumented run first (its record then
-    stands in for the plain runs of the same targets)."""
+    """The suites of a tier smaller than full: the branch coverage check first (seconds, and it
+    fails a branch before its longer suites run), then the targets, on gforth-fast too, and the
+    faults."""
     suites = coverage_suites(result["coverage"])
     if result["targets"]:
         suites.append({"label": "targets", "goals": result["targets"]})
@@ -818,8 +739,6 @@ def describe(result):
     if tactic:
         lines.append("tactic plug-in check: " + ("confined" if tactic["confined"] else
                                                  "; ".join(tactic["problems"] + tactic["reasons"])))
-    for path in (result.get("coverage") or {}).get("skipped", []):
-        lines.append(f"coverage of {path}: no target of make test reads it; make daily's full run measures it")
     for s in result["suites"]:
         extra = " ".join(f"{k}='{v}'" for k, v in s.get("vars", {}).items())
         gforth = f" ({ENGINES[s['engine']]})" if s.get("engine") else ""

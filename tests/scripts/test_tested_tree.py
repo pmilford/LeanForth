@@ -246,16 +246,72 @@ class Tier(Base):
         summary = self.repo.path.parent / "summary.txt"
         self.assertRan(self.tier("--summary", str(summary)))
         log = self.repo.logged()
-        self.assertIn("gforth10 coverage-focus src/lib/free.fs over smoke test-lib test-front", log)
+        base = self.repo.git("rev-parse", "base")
+        self.assertEqual(log[0], f"gforth10 cover-changed {base}", "the branch coverage check runs first")
+        self.assertFalse([e for e in log if "coverage-focus" in e or "coverage-check" in e],
+                         "no tier runs the whole-suite ratchet (owner, 2026-11-19)")
         self.assertNotIn("gforth073 tests/lib/a.fs", log)
         self.assertIn("gforthfast tests/lib/a.fs", log)
         self.assertIn("gforth10 mutants free-one,alone-one", log)
-        self.assertNotIn("gforth10 tests/lib/a.fs", log, "the instrumented run stands for the plain one")
+        self.assertIn("gforth10 tests/lib/a.fs", log, "the unit tests run plain on Gforth 1.0")
         self.assertIn("check-portable-forth", log)
         line = summary.read_text()
         self.assertIn("tier library of base...HEAD", line)
-        self.assertIn("coverage-focus ran: exit 0", line)
+        self.assertIn("cover-changed ran: exit 0", line)
         self.assertEqual(len(line.splitlines()), 1)
+
+    def test_branch_coverage_check_is_recorded_and_reused(self):
+        """make cover-changed's record stands for its merge base: on the same tree, and across a
+        documentation commit; never across a source or test change, or another merge base."""
+        self.repo.write("src/lib/free.fs", ": free-word 1 ;\n")
+        self.repo.commit("library")
+        base = self.repo.git("rev-parse", "base")
+        out = self.assertRan(self.tier("--dry-run"))
+        self.assertIn(f"suite cover-changed: make cover-changed BASE='{base}'", out)
+        self.assertIn(f"cover-changed would run: make cover-changed BASE={base} JOBS=2 LEAN_CACHE=1", out)
+        self.assertNotIn("coverage-focus", out)
+        self.assertRan(self.tier())
+        self.assertEqual(self.ran_checks(), 1)
+        [record] = [r for r in self.records() if r["suite"] == "cover-changed"]
+        self.assertEqual(record["covers"], [f"coverage-changed:{base}"])
+        self.assertEqual(record["inputs"], {}, "no digest stands for it: only a tree or a docs change")
+        self.assertIn("cover-changed reused", self.assertRan(self.tier()))
+        # A symbolic BASE stands for its merge base with HEAD: the tag's is the record's, HEAD's not.
+        self.assertRan(self.records_tool("lookup", "--", "make", "cover-changed", "BASE=base"))
+        self.assertRan(self.records_tool("lookup", "--", "make", "cover-changed", "BASE=HEAD"), 1)
+        self.assertRan(self.records_tool("lookup", "--", "make", "cover-changed", "BASE=base", "EXTRA=1"), 1)
+        self.repo.write("./docs/A.md", "# the review log\n")
+        self.repo.commit("docs")
+        out = self.assertRan(self.tier())
+        self.assertIn("cover-changed reused", out)
+        self.assertIn("changes since are tier docs", out)
+        self.assertEqual(self.ran_checks(), 1)
+        self.repo.write("tests/lib/a.fs", "require ../../src/lib/free.fs\n\\ a test changed\n")
+        self.repo.commit("a test")
+        self.assertIn("cover-changed ran: exit 0", self.assertRan(self.tier()))
+        self.assertEqual(self.ran_checks(), 2, "a test change can change what the check finds")
+        self.repo.write("src/lib/free.fs", ": free-word 2 ;\n")
+        self.repo.commit("library again")
+        self.assertIn("cover-changed ran: exit 0", self.assertRan(self.tier()))
+        self.assertEqual(self.ran_checks(), 3)
+
+    def test_branch_coverage_failure_fails_the_tier(self):
+        self.repo.write("src/lib/free.fs", ": free-word 1 ;\n")
+        self.repo.commit("library")
+        out = self.assertRan(self.tier(STUB_FAIL_ON="cover-changed"), 1)
+        self.assertIn("cover-changed ran: exit 2", out)
+        self.assertFalse([r for r in self.records() if r["suite"] == "cover-changed"])
+
+    def test_no_branch_coverage_check_without_a_source_change(self):
+        self.repo.write("tests/lib/a.fs", "require ../../src/lib/free.fs\n\\ more\n")
+        self.repo.commit("a test")
+        out = self.assertRan(self.tier("--dry-run"))
+        self.assertNotIn("cover-changed would run", out)
+        self.assertIn("branch coverage check (make cover-changed): not needed, no Forth file of src/ added or "
+                      "modified", out)
+
+    def ran_checks(self):
+        return len([e for e in self.repo.logged() if e.startswith("gforth10 cover-changed")])
 
     def test_no_tier_runs_073(self):
         # Owner, 2026-11-17: Gforth 0.7.3 runs only in make daily and make tag-check; --with-073
@@ -559,6 +615,9 @@ class Push(Base):
         out = self.assertRan(self.push("--dry-run"))
         self.assertNotIn("gforth073", out)
         self.assertNotIn("073 would run", out)
+        # Owner, 2026-11-19: the branch coverage check, never the whole-suite ratchet, at a push.
+        self.assertIn("cover-changed would run: make cover-changed BASE=", out)
+        self.assertNotIn("coverage-focus", out)
 
     def test_jobs_follow_the_load(self):
         """Owner, 2026-11-17: 5 jobs when at most two heavy processes run, else 2; CPU mode day 2;

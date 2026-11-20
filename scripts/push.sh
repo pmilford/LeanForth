@@ -5,12 +5,13 @@
 #   2. the Forth review log and style ratchet, strict (scripts/check-forth-quality.py --strict)
 #   3. the suites of the change tier of origin/main..HEAD (owner, 2026-11-13, plan 9.4.6; scripts/test-tier.py), run
 #      and recorded by scripts/tested-tree.py tier, which reuses a recorded pass of each target whose inputs are
-#      unchanged (owner, 2026-11-17: per-target reuse). The full tier (tests/test-classes.txt): the coverage
-#      ratchet of the changed source files over every target of make test that loads them (make coverage-focus),
-#      make test on Gforth 1.0,
-#      make test-unit on gforth-fast and make check-rest (every pinned-Lean comparison). A push runs only its own
-#      tier: a documentation push the documentation and progress checks, a code push its tier once, with the Lean
-#      cache. Gforth 0.7.3 and the coverage of every file run only in make daily (owner, 2026-11-17).
+#      unchanged (owner, 2026-11-17: per-target reuse). Every tier whose range adds or modifies a Forth file of
+#      src/ first runs the branch coverage check (make cover-changed, owner 2026-11-19: the changed files' unit
+#      tests under coverage, failing on a never-run block of a changed line); the full tier (tests/test-classes.txt)
+#      then runs make test on Gforth 1.0, make test-unit on gforth-fast and make check-rest (every pinned-Lean
+#      comparison). A push runs only its own tier: a documentation push the documentation and progress checks, a
+#      code push its tier once, with the Lean cache. Gforth 0.7.3 and the whole-suite coverage ratchet of every
+#      file (make coverage-check) run only in make daily (owner, 2026-11-17 and 2026-11-19).
 #   4. the age of the last daily full run (make daily: LEAN_CACHE=0, Gforth 0.7.3 and make coverage-check, run
 #      once a night and before a tag): reported, with a warning when none is recorded or it is older than 36
 #      hours; a push never runs it and never refuses for it. A tag needs one for its exact tree (make tag-check).

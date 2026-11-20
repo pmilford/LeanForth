@@ -60,7 +60,7 @@ test-elab-data                     unit
 test-instances                     unit
 test-author                        unit
 test-front                         unit
-test-coverage                      unit    tests/support/test_coverage.py and tests/scripts/test_coverage_debt.py (make cover, cover-debt)
+test-coverage                      unit    tests/support/test_coverage.py, tests/scripts/test_coverage_debt.py (make cover, cover-debt), test_cover_changed.py (cover-changed)
 test-mutants                       unit
 test-reexport                      unit
 test-compact                       unit
