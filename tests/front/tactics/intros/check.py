@@ -20,11 +20,12 @@ FILES = [(D + "is-or.lf", ["is_or"]), (D + "is-none.lf", ["is_none"])]
 WRONG = [(D + "w-is-not.lf", 381, "Tactic `assumption` failed", "\na b : Nat\n⊢ ¬a = b")]
 UNSUPPORTED = []
 IMPLICIT = ["in_implicit", "in_strict", "is_implicit"]
+IMPLICIT_FS = "tests/front/tactics/intros/implicit.fs"
 
 
 def implicit(want):
     """implicit.fs's lines against pinned Lean's, three per theorem."""
-    done = s2.run([s2.GFORTH, D + "implicit.fs"])
+    done = s2.run([s2.GFORTH, IMPLICIT_FS])
     lines = [line for line in done.stdout.splitlines() if tactic_check.DUMPED.match(line)]
     if done.returncode != 0 or len(lines) != 3 * len(IMPLICIT):
         raise tactic_check.Failure(f"implicit.fs: exit {done.returncode}\n{done.stdout}{done.stderr}")
