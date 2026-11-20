@@ -131,7 +131,7 @@ end-structure
   >r dup lf-look-name r> lay-ly ly-name
   ok? if lf-look-renumber else 2drop lf-look-outside then ;
 : lay-answer ( answer lay -- answer' ) ['] lay-slot# answer-renum-by ;
-: lay-from ( j lay -- dk lk ) lay-snap snap-starts @ swap 2* cells + 2@ swap ;
+: lay-from ( j lay -- dk lk ) lay-snap snap-starts @ swap 2* cells + cell-pair@ ;
 : lay-entry ( j lay -- key answer )
   2dup lay-snap look-key over lay-key >r
   tuck lay-snap look-answer swap lay-answer r> swap ;

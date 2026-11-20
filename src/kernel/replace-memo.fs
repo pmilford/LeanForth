@@ -107,7 +107,7 @@ end-structure
 
 \ Keeping: a result with an identity, into the entry found or a new one.
 : lf-rmemo-kept ( result id memo -- )
-  lf-rmemo-entry memo-put ok-then? if tuck cell+ ! ! else drop 2drop then ;
+  lf-rmemo-entry memo-put ok-then? if cell-pair! else drop 2drop then ;
 : lf-rmemo! ( result node offset memo -- )
   dup >r lf-rmemo-key! 0= if r> 2drop exit then
   dup lf-term-identity if r> lf-rmemo-kept else r> 2drop then ;

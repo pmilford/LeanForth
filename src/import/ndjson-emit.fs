@@ -72,14 +72,14 @@ require ./ndjson.fs
 \ its start. A buffer grows by doubling, up to reexport-buffer-limit.
 begin-structure /buffer
   field: buffer-addr               \ the heap block, or 0
+  field: buffer-used               \ bytes held (with the block: buffer-text)
   field: buffer-size               \ its size
-  field: buffer-used               \ bytes held
 end-structure
 1048576 constant reexport-buffer-start   \ first size; and how much output waits
 \ 256 MiB: four times the reader's longest line, since Lean's escapes make
 \ a string at most three times as long as the JSON text it was read from.
 268435456 constant reexport-buffer-limit
-: buffer-text ( buffer -- c-addr u ) dup buffer-addr @ swap buffer-used @ ;
+: buffer-text ( buffer -- c-addr u ) buffer-addr cell-pair@ ;
 : buffer-end ( buffer -- addr ) buffer-text + ;
 : buffer-left ( buffer -- n ) dup buffer-size @ swap buffer-used @ - ;
 : buffer-empty ( buffer -- ) 0 swap buffer-used ! ;

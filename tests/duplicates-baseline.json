@@ -991,21 +991,13 @@
   "tokens": 9
  },
  "8085ebdd787c": {
-  "copies": 10,
+  "copies": 2,
   "kind": "shape",
   "members": [
-   "src/core/derivation-log.fs:lf-log-cut",
-   "src/core/derivation-log.fs:lf-log-published",
-   "src/core/statement-match.fs:lf-stmt-text",
-   "src/front/elab-data.fs:elab-eliminator@",
-   "src/front/elab-data.fs:elab-matcher-alts",
-   "src/front/lib-decode.fs:lf-libdec-hint",
-   "src/front/lib-decode.fs:lf-libdec-params",
    "src/front/synth.fs:sy-goal-val",
-   "src/import/run-replay.fs:rp-saved",
    "src/program/ir-run.fs:irx-def-block"
   ],
-  "reason": "planned: 9.4.8l pair-field family (cleanup-families-1 made the pairs written and read only together one 2 cells +field read with 2@): the rest are a reader's table and spans written field by field (elab-data.fs), a hint and height written apart (lib-decode.fs), overlapping pairs (synth.fs), ir-run.fs (the clamp receipt hashes it) and core and import copies (the owner's approval)",
+  "reason": "planned: 9.4.8l pair-field family (rounds 1 and 2 read every other pair with 2@ or cell-pair@): synth.fs sy-goal-val reads sc-mvar and sc-val, which are not adjacent (sc-val is also the first of the pair sy-val! writes with sc-ibody); ir-run.fs irx-def-block waits for the next recording of the clamp receipt, which hashes the file (9.4.8l T)",
   "tokens": 7
  },
  "82ea3a350107": {
@@ -1072,23 +1064,14 @@
   "tokens": 7
  },
  "894e2526d85d": {
-  "copies": 12,
+  "copies": 3,
   "kind": "shape",
   "members": [
-   "src/core/derivation-log.fs:lf-log-at!",
-   "src/core/derivation-log.fs:lf-log-published!",
-   "src/core/statement-match.fs:lf-stmt-text!",
-   "src/front/assign-check.fs:ac-set",
-   "src/front/beta-inst.fs:ib-xs!",
-   "src/front/instantiate.fs:in-xs!",
-   "src/front/synth.fs:sy-val!",
-   "src/front/tactic-run.fs:lfr-set",
-   "src/import/run-replay.fs:rp-restore",
    "src/program/ir-run.fs:irx-row-returns",
    "src/program/ir-run.fs:irx-where!",
    "src/program/ir-run.fs:irx-bases!"
   ],
-  "reason": "planned: 9.4.8l pair-field family (cleanup-families-1 made the pairs written and read only together one 2 cells +field written with 2!): the rest have a half read alone on a hot path or often (beta-inst.fs, instantiate.fs, assign-check.fs), overlapping or apart fields (synth.fs, tactic-run.fs), ir-run.fs (the clamp receipt hashes it) and core and import copies (the owner's approval)",
+  "reason": "planned: 9.4.8l pair-field family (rounds 1 and 2 wrote every other pair with 2! or cell-pair!): the three left are in ir-run.fs (irx-row-returns, irx-where!, irx-bases!), whose SHA-256 the committed clamp receipt holds; they wait for its next recording (9.4.8l T)",
   "tokens": 6
  },
  "89bc67ef61cd": {
@@ -1468,22 +1451,6 @@
   "reason": "family, table-driven later: 9.4.8k follow-up 8, one text pool (texts as offset and length into a growable byte slab) for namespaces.fs, note-table.fs, names.fs and print-job.fs",
   "tokens": 10
  },
- "b380e2991a4d": {
-  "copies": 8,
-  "kind": "shape",
-  "members": [
-   "src/core/constant-references.fs:lf-cref-name@",
-   "src/front/elab-data.fs:ed-keys@",
-   "src/front/meta-env.fs:me-kinds-span",
-   "src/import/ndjson-emit.fs:buffer-text",
-   "src/import/ndjson.fs:export-marks",
-   "src/kernel/caches.fs:lf-cache-stats",
-   "src/kernel/mixed-definition-probe.fs:lf-mdreq-claim@",
-   "src/kernel/mixed-definition-probe.fs:lf-mdreq-value@"
-  ],
-  "reason": "planned: 9.4.8l pair-field family (cleanup-families-1 made the pairs written and read only together one 2 cells +field read with 2@): the rest are a reader's span (elab-data.fs), a span written in two steps (meta-env.fs) and core, import and kernel copies (the owner's approval)",
-  "tokens": 6
- },
  "b441222231c7": {
   "copies": 21,
   "kind": "shape",
@@ -1740,11 +1707,10 @@
   "tokens": 7
  },
  "cc681a2bd39b": {
-  "copies": 5,
+  "copies": 4,
   "kind": "shape",
   "members": [
    "src/core/derivation-log.fs:lf-log-cref-head!",
-   "src/front/assign-check.fs:ac-xs!",
    "src/front/discr-tree.fs:dt-frame!",
    "src/front/level-params.fs:lp-set",
    "src/program/ir-run.fs:irx-effect!"

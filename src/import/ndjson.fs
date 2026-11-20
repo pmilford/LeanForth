@@ -285,7 +285,7 @@ begin-structure /export
   field: export-cursor             \ the token of that list's next element
   field: export-list-end           \ the token after that list
   field: export-key                \ counted string: the field at a failure, or 0
-  field: export-why                \ counted string: why reading failed, or 0
+  field: export-why                \ counted string: why reading failed, or 0 (cell-pair@)
   field: export-at                 \ lines so far: the current line's number
   kind-count 1+ cells +field export-kinds   \ records handed over and accepted,
                                    \ by kind; the last cell takes a kind out of range
@@ -871,8 +871,8 @@ here families - cell / constant #families
   >r r@ over record-export !  r@ export-at @ over record-line !
   r> export-generation @ swap record-generation ! ;
 \ The failed field and the reason, and setting them.
-: export-marks ( export -- key why ) dup export-key @ swap export-why @ ;
-: export-marks! ( key why export -- ) tuck export-why ! export-key ! ;
+: export-marks ( export -- key why ) export-key cell-pair@ ;
+: export-marks! ( key why export -- ) export-key cell-pair! ;
 : export-unmark ( export -- ) 0 0 rot export-marks! ;
 : export-handed ( record export -- outcome )
   2dup record-stamp dup export-unmark 2dup record-handler ?dup 0=

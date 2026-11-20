@@ -261,8 +261,8 @@ end-structure
 24 constant lfr-room              \ characters of a spelling or a Lean name
 begin-structure /trow
   field: trow-run
+  field: trow-plan                \ with the action: lfr-set
   field: trow-end                 \ ( i -- ) at its block's end, before done
-  field: trow-plan
   field: trow-length
   lfr-room chars +field trow-chars
   lfr-room 1+ chars +field trow-lean   \ Lean's name, counted
@@ -293,7 +293,7 @@ create lfr-rows lfr-kinds cells allot   lfr-rows lfr-kinds cells erase
 : lfr-spell ( c-addr u kind -- )
   >r lfr-roomy r@ lfr-row-new r> lfr-row ['] drop over trow-end ! 2dup trow-length !
   trow-chars swap chars move ;
-: lfr-set ( xt plan kind -- ) lfr-row! tuck trow-plan ! trow-run ! ;
+: lfr-set ( xt plan kind -- ) lfr-row! trow-run cell-pair! ;
 : lf-tactic-action! ( xt kind -- ) 0 swap lfr-set ;
 : lf-tactic-end! ( xt kind -- ) lfr-row! trow-end ! ;
 : lf-tactic-plan! ( plan kind -- ) lfr-row! trow-plan ! ;

@@ -26,9 +26,9 @@ require ./mixed-signature-audit.fs
 
 begin-structure /lf-mdreq
   field: lf-mdreq-token     \ signature index token
-  field: lf-mdreq-claim-root  \ claimed type: root and identity
+  field: lf-mdreq-claim-root  \ claimed type: root and identity (cell-pair@)
   field: lf-mdreq-claim-id
-  field: lf-mdreq-value-root  \ value: root and identity
+  field: lf-mdreq-value-root  \ value: root and identity (cell-pair@)
   field: lf-mdreq-value-id
   field: lf-mdreq-fuel        \ fuel left; the result once a call returns
   field: lf-mdreq-theorem     \ true for a theorem: its type must be a proposition
@@ -40,10 +40,10 @@ end-structure
 \ any failure.
 : lf-mdefinition-fuel ( -- addr ) lf-mdefinition-request lf-mdreq-fuel ;
 
-: lf-mdreq-claim! ( type tid req -- ) tuck lf-mdreq-claim-id ! lf-mdreq-claim-root ! ;
-: lf-mdreq-value! ( value vid req -- ) tuck lf-mdreq-value-id ! lf-mdreq-value-root ! ;
-: lf-mdreq-claim@ ( req -- type tid ) dup lf-mdreq-claim-root @ swap lf-mdreq-claim-id @ ;
-: lf-mdreq-value@ ( req -- value id ) dup lf-mdreq-value-root @ swap lf-mdreq-value-id @ ;
+: lf-mdreq-claim! ( type tid req -- ) lf-mdreq-claim-root cell-pair! ;
+: lf-mdreq-value! ( value vid req -- ) lf-mdreq-value-root cell-pair! ;
+: lf-mdreq-claim@ ( req -- type tid ) lf-mdreq-claim-root cell-pair@ ;
+: lf-mdreq-value@ ( req -- value id ) lf-mdreq-value-root cell-pair@ ;
 
 \ A scratch mark (core/scratch-marks.fs) when the check begins: ok, or
 \ invalid (nothing run); the stores go back to it once inference is done,

@@ -62,7 +62,7 @@ require ./term-eqv.fs
 begin-structure /ac
   field: ac-target    \ ?m
   field: ac-xs        \ the xi: the address of their cells
-  field: ac-n         \ and how many
+  field: ac-n         \ and how many (ac-set writes the two)
   field: ac-locals    \ hasCtxLocals: an xi in ?m's scope
   field: ac-hit       \ typeOccursCheck: ?m in a metavariable's type
   /dw +field ac-walk
@@ -148,7 +148,8 @@ end-structure
   ac-wk tuck dw-build ! tuck dw-pending ! lf-term-base lf-term-count @ + over dw-size ! ;
 
 \ ---- checkAssignment.
-: ac-xs! ( mvar addr n -- ) ac tuck ac-n ! tuck ac-xs ! ac-target ! ;
+: ac-set ( addr n -- ) ac ac-xs cell-pair! ;
+: ac-xs! ( mvar addr n -- ) ac-set ac ac-target ! ;
 \ A test's answer or-ed into the answer so far; false on a failure.
 : ac-or ( flag flag2 outcome -- flag' outcome )
   ok-then? if or outcome-ok else nip false swap then ;
@@ -174,7 +175,6 @@ end-structure
   dup ac-solid? if true outcome-ok else ac-run then ;
 
 \ ---- mkLambdaFVars xs v (etaReduce), from the last xi to the first.
-: ac-set ( addr n -- ) ac tuck ac-n ! ac-xs ! ;
 \ hasLetDeclsInBetween: a let local of the current context (Lean's
 \ isLet: not a have) between the first xi and the last; an xi the
 \ context lacks counts as one (unsupported).

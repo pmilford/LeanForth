@@ -457,7 +457,7 @@ create ed-messages
 : ed-types ( first n -- addr n ) swap elab-types slab-at swap ;
 \ A span: two fields, the first number and the count, of numbers in elab-orders.
 : ed-span@ ( span -- addr n ) dup @ elab-orders slab-at swap cell+ @ ;
-: ed-keys@ ( value -- k n ) dup ed-value-keys @ swap ed-value-keys# @ ;
+: ed-keys@ ( value -- k n ) ed-value-keys cell-pair@ ;
 : elab-instance@ ( i -- d class priority )
   ed-inst dup ed-inst-decl @ over ed-inst-class @ rot ed-inst-priority @ ;
 : elab-instance-order ( i -- addr n ) ed-inst ed-inst-order ed-span@ ;
@@ -472,13 +472,13 @@ create ed-messages
 : elab-class@ ( k -- d ) ed-class ed-class-decl @ ;
 : elab-class-out-params ( k -- addr n ) ed-class ed-class-params ed-span@ ;
 : elab-class-out-levels ( k -- addr n ) ed-class ed-class-levels ed-span@ ;
-: elab-eliminator@ ( i -- kind d ) ed-elim dup ed-elim-kind @ swap ed-elim-decl @ ;
+: elab-eliminator@ ( i -- kind d ) ed-elim ed-elim-kind cell-pair@ ;
 : elab-eliminator-types ( i -- addr n )
   ed-elim dup ed-elim-types @ swap ed-elim-types# @ ed-types ;
 : elab-matcher@ ( m -- d params discrs )
   ed-match dup ed-match-decl @ over ed-match-params @ rot ed-match-discrs @ ;
 : elab-matcher-elim ( m -- pos true | false ) ed-match ed-match-elim @ 1+ +1>number ;
-: elab-matcher-alts ( m -- a n ) ed-match dup ed-match-alts @ swap ed-match-alts# @ ;
+: elab-matcher-alts ( m -- a n ) ed-match ed-match-alts cell-pair@ ;
 : elab-alt@ ( a -- fields overlaps thunk? )
   ed-alt dup ed-alt-fields @ over ed-alt-overlaps @ rot ed-alt-thunk @ ;
 : elab-projection@ ( p -- ctor params idx )

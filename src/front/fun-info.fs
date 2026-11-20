@@ -105,7 +105,7 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam lf-tag-pi lf-tag-lit
   lf-whnf-core ok-then? if fi-sort-prop else false swap then ;
 
 \ ---- The telescope: per parameter (kind, prop, free variable).
-: lf-meta-param ( i -- kind prop ) fi-params slab-at dup @ swap cell+ @ ;
+: lf-meta-param ( i -- kind prop ) fi-params slab-at cell-pair@ ;
 : fi-x ( i -- x ) fi-params slab-at 2 cells + @ ;
 : fi-push ( x kind prop -- outcome )
   1 fi-params slab-claim ok-then? 0= if >r 2drop drop r> exit then

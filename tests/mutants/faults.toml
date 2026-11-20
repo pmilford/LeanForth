@@ -21042,3 +21042,227 @@ old = ''': cell-pair! ( x1 x2 addr -- ) tuck cell+ ! ! ;'''
 new = ''': cell-pair! ( x1 x2 addr -- ) 2! ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "cleanup-families-2 (pair-field family): the pair is stored in 2!'s order, x2 in the first field"
+
+[[fault]]
+id = "cf2-log-published-swapped"
+file = "src/core/derivation-log.fs"
+old = ''': lf-log-published ( -- slot outcome ) lf-log-state lf-logs-slot cell-pair@ ;'''
+new = ''': lf-log-published ( -- slot outcome ) lf-log-state lf-logs-slot 2@ ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "cleanup-families-2 (group 8085): the published slot and outcome read crosswise, so the outline matches a check by its outcome as its slot"
+
+[[fault]]
+id = "cf2-log-cut-swapped"
+file = "src/core/derivation-log.fs"
+old = ''': lf-log-cut ( -- step bound ) lf-log-state lf-logs-cut cell-pair@ ;'''
+new = ''': lf-log-cut ( -- step bound ) lf-log-state lf-logs-cut 2@ ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "cleanup-families-2 (group 8085): a truncated log's step and bound read crosswise"
+
+[[fault]]
+id = "cf2-log-at-swapped"
+file = "src/core/derivation-log.fs"
+old = ''': lf-log-at! ( n c -- ) lf-log-state lf-logs-at-node cell-pair! ;'''
+new = ''': lf-log-at! ( n c -- ) lf-log-state lf-logs-at-node 2! ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "cleanup-families-2 (group 894e): the copier's node and context stored crosswise, so a free variable's depth is read from the node"
+
+[[fault]]
+id = "cf2-stmt-text-swapped"
+file = "src/core/statement-match.fs"
+old = ''': lf-stmt-text! ( c-addr u -- ) lf-stmt-state lf-stmt-left 2! ;'''
+new = ''': lf-stmt-text! ( c-addr u -- ) lf-stmt-state lf-stmt-left cell-pair! ;'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "cleanup-families-2 (group 894e): the statement's text left is stored in the other order than lf-stmt-text reads it"
+
+[[fault]]
+id = "cf2-stmt-push2-swapped"
+file = "src/core/statement-match.fs"
+old = ''': lf-stmt-push2 ( node identity -- ) -2 lf-stmt-sp+ lf-stmt-sp@ cell-pair! ;'''
+new = ''': lf-stmt-push2 ( node identity -- ) -2 lf-stmt-sp+ lf-stmt-sp@ 2! ;'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "cleanup-families-2 (pair reads in memory order): a built value is pushed crosswise, so pop2 gives its identity as the node"
+
+[[fault]]
+id = "cf2-cref-name-swapped"
+file = "src/core/constant-references.fs"
+old = ''': lf-cref-name@ ( slot -- name generation ) lf-crec-name cell-pair@ ;'''
+new = ''': lf-cref-name@ ( slot -- name generation ) lf-crec-name 2@ ;'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "cleanup-families-2 (group b380): a reference's name and generation read crosswise"
+
+[[fault]]
+id = "cf2-cref-name-store-swapped"
+file = "src/core/constant-references.fs"
+old = ''': lf-cref-name! ( name generation slot -- ) lf-crec-name cell-pair! ;'''
+new = ''': lf-cref-name! ( name generation slot -- ) lf-crec-name 2! ;'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "cleanup-families-2 (group b380): a reference's name and generation stored crosswise in the fixed record"
+
+[[fault]]
+id = "cf2-cref-pair-swapped"
+file = "src/core/constant-references.fs"
+old = ''': lf-cref-pair@ ( addr i -- index identity ) lf-cref-pair cell-pair@ ;'''
+new = ''': lf-cref-pair@ ( addr i -- index identity ) lf-cref-pair 2@ ;'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "cleanup-families-2 (pair reads in memory order): a level pair read as identity and index"
+
+[[fault]]
+id = "cf2-rp-restore-swapped"
+file = "src/import/run-replay.fs"
+old = ''': rp-restore ( code size -- ) run-replay rp-code cell-pair! ;'''
+new = ''': rp-restore ( code size -- ) run-replay rp-code 2! ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "cleanup-families-2 (group 894e): the replay's path size and code restored crosswise after a nested key"
+
+[[fault]]
+id = "cf2-export-marks-swapped"
+file = "src/import/ndjson.fs"
+old = ''': export-marks! ( key why export -- ) export-key cell-pair! ;'''
+new = ''': export-marks! ( key why export -- ) export-key 2! ;'''
+test = "$GFORTH tests/core/manifest.fs"
+reason = "cleanup-families-2 (group b380): the failed field and the reason stored crosswise, so a manifest's failure names its reason as the field"
+
+[[fault]]
+id = "cf2-buffer-text-swapped"
+file = "src/import/ndjson-emit.fs"
+old = ''': buffer-text ( buffer -- c-addr u ) buffer-addr cell-pair@ ;'''
+new = ''': buffer-text ( buffer -- c-addr u ) buffer-addr 2@ ;'''
+test = "$GFORTH tests/core/ndjson-emit.fs"
+reason = "cleanup-families-2 (group b380): a re-export buffer's text read as length and address"
+
+[[fault]]
+id = "cf2-cache-stats-swapped"
+file = "src/kernel/caches.fs"
+old = ''': lf-cache-stats ( cache -- hits misses ) lf-cache-hits cell-pair@ ;'''
+new = ''': lf-cache-stats ( cache -- hits misses ) lf-cache-hits 2@ ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "cleanup-families-2 (group b380): a cache's hits and misses reported crosswise"
+
+[[fault]]
+id = "cf2-cent-swapped"
+file = "src/kernel/caches.fs"
+old = ''': lf-cent! ( r id a-addr -- ) cell-pair! ;'''
+new = ''': lf-cent! ( r id a-addr -- ) 2! ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "cleanup-families-2 (pair writes in memory order): a cache entry keeps the identity where the result belongs"
+
+[[fault]]
+id = "cf2-mdreq-claim-swapped"
+file = "src/kernel/mixed-definition-probe.fs"
+old = ''': lf-mdreq-claim! ( type tid req -- ) lf-mdreq-claim-root cell-pair! ;'''
+new = ''': lf-mdreq-claim! ( type tid req -- ) lf-mdreq-claim-root 2! ;'''
+test = "$GFORTH tests/core/mixed-definition-probe.fs"
+reason = "cleanup-families-2 (group b380): the claimed type's root and identity stored crosswise"
+
+[[fault]]
+id = "cf2-mdreq-value-swapped"
+file = "src/kernel/mixed-definition-probe.fs"
+old = ''': lf-mdreq-value@ ( req -- value id ) lf-mdreq-value-root cell-pair@ ;'''
+new = ''': lf-mdreq-value@ ( req -- value id ) lf-mdreq-value-root 2@ ;'''
+test = "$GFORTH tests/core/mixed-definition-probe.fs"
+reason = "cleanup-families-2 (group b380): the value's root and identity read crosswise"
+
+[[fault]]
+id = "cf2-snap-start-swapped"
+file = "src/kernel/env-snapshot.fs"
+old = ''': start@ ( d -- dk lk ) 2* cells snap@ snap-starts @ + cell-pair@ ;'''
+new = ''': start@ ( d -- dk lk ) 2* cells snap@ snap-starts @ + 2@ ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "cleanup-families-2 (pair reads in memory order): a declaration's dependency and look starts read crosswise"
+
+[[fault]]
+id = "cf2-open-remember-swapped"
+file = "src/kernel/mixed-open.fs"
+old = '''  over dup lf-term-identity drop rot lf-open-slot cell-pair! ;'''
+new = '''  over dup lf-term-identity drop rot lf-open-slot 2! ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "cleanup-families-2 (pair writes in memory order): an opened leaf kept with its identity first, so it is never found again"
+
+[[fault]]
+id = "cf2-ed-keys-swapped"
+file = "src/front/elab-data.fs"
+old = ''': ed-keys@ ( value -- k n ) ed-value-keys cell-pair@ ;'''
+new = ''': ed-keys@ ( value -- k n ) ed-value-keys 2@ ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "cleanup-families-2 (group b380): an instance value's keys read as count and first"
+
+[[fault]]
+id = "cf2-eliminator-swapped"
+file = "src/front/elab-data.fs"
+old = ''': elab-eliminator@ ( i -- kind d ) ed-elim ed-elim-kind cell-pair@ ;'''
+new = ''': elab-eliminator@ ( i -- kind d ) ed-elim ed-elim-kind 2@ ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "cleanup-families-2 (group 8085): an eliminator's kind and declaration read crosswise"
+
+[[fault]]
+id = "cf2-libdec-hint-swapped"
+file = "src/front/lib-decode.fs"
+old = ''': lf-libdec-hint ( r -- hint height ) lbr@ lbr-hint cell-pair@ ;'''
+new = ''': lf-libdec-hint ( r -- hint height ) lbr@ lbr-hint 2@ ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "cleanup-families-2 (group 8085): a decoded definition's hint and height read crosswise"
+
+[[fault]]
+id = "cf2-sy-val-swapped"
+file = "src/front/synth.fs"
+old = ''': sy-val! ( val body c -- ) scn@ sc-val cell-pair! ;'''
+new = ''': sy-val! ( val body c -- ) scn@ sc-val 2! ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "cleanup-families-2 (group 894e): an instance's value and its type's body stored crosswise"
+
+[[fault]]
+id = "cf2-ac-set-swapped"
+file = "src/front/assign-check.fs"
+old = ''': ac-set ( addr n -- ) ac ac-xs cell-pair! ;'''
+new = ''': ac-set ( addr n -- ) ac ac-xs 2! ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "cleanup-families-2 (group 894e): the assignment check's variables stored as count and address"
+
+[[fault]]
+id = "cf2-ib-xs-swapped"
+file = "src/front/beta-inst.fs"
+old = ''': ib-xs! ( addr m -- ) ib-state ib-xs cell-pair! ;'''
+new = ''': ib-xs! ( addr m -- ) ib-state ib-xs 2! ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "cleanup-families-2 (group 894e): headBeta's arguments stored as count and address"
+
+[[fault]]
+id = "cf2-in-xs-swapped"
+file = "src/front/instantiate.fs"
+old = ''': in-xs! ( addr n -- ) in-state in-xs cell-pair! ;'''
+new = ''': in-xs! ( addr n -- ) in-state in-xs 2! ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "cleanup-families-2 (group 894e): abstract's terms stored as count and address"
+
+[[fault]]
+id = "cf2-kinds-span-swapped"
+file = "src/front/meta-env.fs"
+old = ''': me-kinds-span ( mtx -- first n ) mtx-kinds cell-pair@ ;'''
+new = ''': me-kinds-span ( mtx -- first n ) mtx-kinds 2@ ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "cleanup-families-2 (group b380): a text declaration's binder kinds read as count and first"
+
+[[fault]]
+id = "cf2-lfr-set-swapped"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-set ( xt plan kind -- ) lfr-row! trow-run cell-pair! ;'''
+new = ''': lfr-set ( xt plan kind -- ) lfr-row! trow-run 2! ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "cleanup-families-2 (group 894e): a tactic's action and plan step stored crosswise"
+
+[[fault]]
+id = "cf2-meta-param-swapped"
+file = "src/front/fun-info.fs"
+old = ''': lf-meta-param ( i -- kind prop ) fi-params slab-at cell-pair@ ;'''
+new = ''': lf-meta-param ( i -- kind prop ) fi-params slab-at 2@ ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "cleanup-families-2 (pair reads in memory order): a parameter's binder kind and prop flag read crosswise"
+
+[[fault]]
+id = "cf2-walk-kind-swapped"
+file = "src/front/telescope.fs"
+old = ''': lf-walk-kind ( pi addr -- kind ) cell-pair@ lf-binder-kind! ;'''
+new = ''': lf-walk-kind ( pi addr -- kind ) 2@ lf-binder-kind! ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "cleanup-families-2 (pair reads in memory order): a walk's declaration and binder number read crosswise"

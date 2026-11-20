@@ -347,12 +347,12 @@ begin-structure /lf-logs
   field: lf-logs-decl        \ the declaration that check checked
   field: lf-logs-input       \ the input's fingerprint when the log started
   field: lf-logs-slot        \ the slot the check published; -1 before
-  field: lf-logs-outcome     \ the outcome it published
+  field: lf-logs-outcome     \ the outcome it published (with the slot: cell-pair@)
   field: lf-logs-pools       \ the heap block of pools, or 0
   field: lf-logs-count       \ records written
   field: lf-logs-opens       \ rules open now
   field: lf-logs-cut         \ the step that could not be written; 0 while complete
-  field: lf-logs-bound       \ the bound that stopped it
+  field: lf-logs-bound       \ the bound that stopped it (with the step: cell-pair@)
   field: lf-logs-terms       \ term copies made
   field: lf-logs-levels      \ level copies made
   field: lf-logs-crefs       \ constant references copied
@@ -365,7 +365,7 @@ begin-structure /lf-logs
   field: lf-logs-level-mark  \ input levels lie below
   field: lf-logs-cref-mark   \ input constant references lie below
   field: lf-logs-copy-depth  \ the context a record's terms are copied in
-  field: lf-logs-at-node     \ the node the copier combines now
+  field: lf-logs-at-node     \ the node the copier combines now (lf-log-at! sets both)
   field: lf-logs-at-context  \ the binders around it (the record's and its own)
   field: lf-logs-term-work   \ work left in the current term copy
   field: lf-logs-level-work  \ work left in the current level copy
@@ -409,13 +409,12 @@ end-structure
 : lf-log-count ( -- n ) lf-log-state lf-logs-count @ ;
 : lf-log-level ( -- level ) lf-log-state lf-logs-level @ ;
 : lf-log-decl ( -- i ) lf-log-state lf-logs-decl @ ;
-: lf-log-cut ( -- step bound ) lf-log-state dup lf-logs-cut @ swap lf-logs-bound @ ;
+: lf-log-cut ( -- step bound ) lf-log-state lf-logs-cut cell-pair@ ;
 : lf-log-complete? ( -- flag ) lf-log-cut drop 0= ;
 \ The input's fingerprint when the log started; the slot and outcome the
 \ check published (slot -1 when none has been published since).
 : lf-log-input ( -- h ) lf-log-state lf-logs-input @ ;
-: lf-log-published ( -- slot outcome )
-  lf-log-state dup lf-logs-slot @ swap lf-logs-outcome @ ;
+: lf-log-published ( -- slot outcome ) lf-log-state lf-logs-slot cell-pair@ ;
 \ Record of step s, 1 <= s <= lf-log-count. Unchecked.
 : lf-log-record ( step -- rec ) 1- /lf-logrec * lf-log-pools lf-logp-records + ;
 \ Statistics for tests and measurements: records written in this context
@@ -706,7 +705,7 @@ end-structure
 \ The node being combined and its context, for a leaf that needs them (a
 \ free variable's); a nested copy (a constant's levels) runs only after
 \ the leaf that reads them.
-: lf-log-at! ( n c -- ) lf-log-state tuck lf-logs-at-context ! lf-logs-at-node ! ;
+: lf-log-at! ( n c -- ) lf-log-state lf-logs-at-node cell-pair! ;
 : lf-copier-combine ( n c copier -- flag )
   dup lf-copier-room? 0= if nip nip copier-bound @ lf-log-truncate false exit then
   >r 2dup lf-log-at! r> swap >r 2dup copier-read @ execute
@@ -939,8 +938,7 @@ create lf-log-term-copier
 : lf-log-rest ( -- )
   false lf-log-state lf-logs-held !
   lf-log-state lf-logs-auto @ 0= if 0 lf-logs-active lf-log-zero then ;
-: lf-log-published! ( slot outcome -- )
-  lf-log-state tuck lf-logs-outcome ! lf-logs-slot ! ;
+: lf-log-published! ( slot outcome -- ) lf-log-state lf-logs-slot cell-pair! ;
 : lf-log-interrupted ( -- )
   lf-log-opens @ 0<> lf-log-level 0<> and if lf-bound-interrupted lf-log-truncate then ;
 : lf-log-publish ( slot deps outcome -- )

@@ -59,7 +59,7 @@ require ./scratch-meter.fs
 begin-structure /lf-crec
   field: lf-crec-identity
   field: lf-crec-name
-  field: lf-crec-generation
+  field: lf-crec-generation   \ with the name: cell-pair@ cell-pair!
   field: lf-crec-arity
   field: lf-crec-offset
 end-structure
@@ -128,8 +128,8 @@ end-structure
   dup lf-cref-under? if lf-cref-under lf-cunder-store store-slot exit then
   lf-cref-base - lf-crefs store-slot ;
 : lf-cref-pair ( addr i -- addr' ) 2* cells + ;
-: lf-cref-pair@ ( addr i -- index identity ) lf-cref-pair 2@ swap ;
-: lf-cref-name@ ( slot -- name generation ) dup lf-crec-name @ swap lf-crec-generation @ ;
+: lf-cref-pair@ ( addr i -- index identity ) lf-cref-pair cell-pair@ ;
+: lf-cref-name@ ( slot -- name generation ) lf-crec-name cell-pair@ ;
 : lf-cref-pool-at ( offset -- addr )
   dup lf-cref-under-top u< if lf-cref-under lf-cunder-pool slab-at exit then
   lf-cref-under-top - lf-cref-pool slab-at ;
@@ -272,7 +272,7 @@ create lf-cref-hooks /htab-hooks allot
 \ change nothing.
 : lf-cref-levels! ( addr count offset slot -- )
   tuck lf-crec-offset ! 2dup lf-crec-arity ! lf-cref-pairs drop swap 2* cells move ;
-: lf-cref-name! ( name generation slot -- ) tuck lf-crec-generation ! lf-crec-name ! ;
+: lf-cref-name! ( name generation slot -- ) lf-crec-name cell-pair! ;
 : lf-cref-stamp ( slot -- identity ) lf-cref-serial @ tuck swap lf-crec-identity ! ;
 \ Unchecked input; refuses only when the store has no free record or its
 \ serial is spent, or the pool has no room for the pairs (a top outside

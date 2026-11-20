@@ -429,7 +429,7 @@ texts-end constant me-uint-op-texts
 : me-lib-kinds ( d -- )
   dup me-kinds lf-libdec-kinds drop me-run-data? if me-data-kinds else drop then ;
 : me-kinds-copy ( first n -- ) swap me-tkinds slab-at swap me-kinds-move ;
-: me-kinds-span ( mtx -- first n ) dup mtx-kinds @ swap mtx-kinds# @ ;
+: me-kinds-span ( mtx -- first n ) mtx-kinds cell-pair@ ;
 : me-text-kinds ( d -- ) me-text me-kinds-span me-kinds-copy ;
 ' me-fed-kinds ' me-lib-kinds ' me-text-kinds me-table me-binders
 : lf-menv-kinds ( d -- addr n ) me-binders me-ask me-kinds-out ;

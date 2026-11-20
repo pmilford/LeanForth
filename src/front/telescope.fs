@@ -90,7 +90,7 @@ require ./meta-must.fs
 : lf-binder-kind! ( pi d k -- kind )
   lf-binder-kind-at 0= if outcome-unsupported lf-must then ;
 \ A walk's binder kind: d and k in two cells at addr (d first).
-: lf-walk-kind ( pi addr -- kind ) 2@ swap lf-binder-kind! ;
+: lf-walk-kind ( pi addr -- kind ) cell-pair@ lf-binder-kind! ;
 : lf-binder-name ( pi -- name ) lf-binder-of if drop else 0 then ;
 
 \ ---- withLocalDecl.

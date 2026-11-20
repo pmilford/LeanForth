@@ -1627,7 +1627,11 @@ efficient way and an easier way to fix unit-test coverage, and decided:
   rule, no file format or saved record layout changes): branch `cleanup-families-2` (2026-11-19), the fixes of
   the Forth review of `cleanup-families-1` (B1): the kernel's last three copies of `lf-made-term`'s phrase,
   in `mixed-infer.fs` (`lf-minfer-sort`), `iota.fs` (`lf-iota-ctor-const`, with a `require` of
-  `core/generation-handles.fs`) and `string-literals.fs` (`lf-sx-const`), now call it.
+  `core/generation-handles.fs`) and `string-literals.fs` (`lf-sx-const`), now call it; and the pair-field family
+  (plan 9.4.8l AF): `caches.fs` (`lf-cache-stats`, `lf-cent!`), `env-snapshot.fs` (`start@`, `site-paired`),
+  `env-import.fs` (`entry-same?`), `env-layers.fs` (`lay-from`), `mixed-open.fs` (`lf-open-remember`),
+  `replace-memo.fs` (`lf-rmemo-kept`) and `mixed-definition-probe.fs` (its claim and value accessors) read and
+  write two adjacent cells with `lib/bounds.fs`'s `cell-pair@` and `cell-pair!`, every record's layout unchanged.
 - **Tools first:** the duplicates script gains a mode that replaces a group by a named word; a fast per-file
   coverage command lists a file's never-run blocks with line numbers, and a baseline entry can be updated per
   file. Then the remaining groups and coverage debt.

@@ -139,7 +139,7 @@ begin-structure /lbr
   field: lbr-type
   field: lbr-value        \ a term, or -1
   field: lbr-hint
-  field: lbr-height
+  field: lbr-height       \ with the hint: lf-libdec-hint
   field: lbr-params       \ heap: the universe parameters' run names
   field: lbr-params#
   field: lbr-data         \ heap: inductive data as core/input.fs's, or 0
@@ -632,8 +632,8 @@ create lbd-steps   \ ( r -- outcome ) each, in order (outcome-steps); 0 ends the
 : lf-libdec-dname ( r -- name ) lbr@ lbr-name @ ;
 : lf-libdec-type ( r -- term ) lbr@ lbr-type @ ;
 : lf-libdec-value ( r -- term ) lbr@ lbr-value @ ;
-: lf-libdec-hint ( r -- hint height ) lbr@ dup lbr-hint @ swap lbr-height @ ;
-: lf-libdec-params ( r -- addr n ) lbr@ dup lbr-params @ swap lbr-params# @ ;
+: lf-libdec-hint ( r -- hint height ) lbr@ lbr-hint cell-pair@ ;
+: lf-libdec-params ( r -- addr n ) lbr@ lbr-params cell-pair@ ;
 : lf-libdec-data ( r -- addr|0 ) lbr@ lbr-data @ ;
 
 base !   \ the BASE this file was loaded with

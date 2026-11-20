@@ -323,7 +323,7 @@ variable imp-current
   lf-look-reslot true ;
 \ The candidate's entry i against S's entry j.
 : entry-same? ( i j imp -- flag )
-  rot lf-look-at 2@ swap rot answer-taken 0= if 2drop false exit then
+  rot lf-look-at cell-pair@ rot answer-taken 0= if 2drop false exit then
   rot dup >r snap@ look-answer = swap r> snap@ look-key = and ;
 : answers-same? ( d imp -- flag )
   swap saved-looks dup lf-cand-looked@ <> if 2drop drop false exit then

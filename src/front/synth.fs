@@ -153,7 +153,7 @@ begin-structure /scon       \ a consumer node
   field: sc-size
   field: sc-body            \ while tryResolve runs: the goal's body,
   field: sc-val             \ the instance's value
-  field: sc-ibody           \ and its type's body
+  field: sc-ibody           \ and its type's body (sy-val! writes the two)
 end-structure
 begin-structure /sent  field: se-key  field: se-waiters  field: se-answers  end-structure
 begin-structure /sans  field: sa-expr  field: sa-type  field: sa-size  end-structure
@@ -428,7 +428,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
   then ;
 : sy-inst-type ( i -- val type outcome ) sy-inst-val ok-then? if dup lf-infer else
   sy-no2 then ;
-: sy-val! ( val body c -- ) scn@ tuck sc-ibody ! sc-val ! ;
+: sy-val! ( val body c -- ) scn@ sc-val cell-pair! ;
 : sy-inst! ( c i -- outcome )   \ getSubgoals: the value and the type's body
   sy-mvars slab-clear sy-inst-type ok-then? if sy-telescope ok-then? if
     rot sy-val! outcome-ok exit then then nip nip ;
