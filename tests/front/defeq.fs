@@ -524,6 +524,30 @@ T{ own-mark ?ty outp id-type traced ?ty id-type assigns? ?ty outp once? own-back
 T{ own-mark id-type ?ty outp traced ?ty id-type assigns? ?ty outp once? own-back
    -> true outcome-ok true true }T
 T{ clean? ?ty free? -> true true }T
+\ unfoldDefEq without metavariables (ExprDefEq.lean:1748-1767): the side
+\ of the greater definitional height unfolds first (ReducibilityHints.lt:
+\ Nat.pred, 2, before id, 1), on either side, then the other: id x against
+\ Nat.pred (Nat.succ x) unfolds Nat.pred (Nat.succ x), then id x (pinned
+\ Lean's trace: unfoldRight Nat.pred, then unfoldLeft id; the sides
+\ swapped, unfoldLeft Nat.pred, then unfoldRight id). After both sides
+\ unfold, unfoldComparingHeadsDefEq (1726-1745) compares the left side as
+\ it is with the right side's unfolding when that has the left side's
+\ head: Function.comp (id Nat) (Nat.add k) x unfolds to id (Nat.add k x),
+\ which is the left side itself, so two unfoldings (Lean: unfoldRight
+\ Function.comp alone); comparing the two unfoldings would unfold id a
+\ third time. Every answer is true either way (run by hand with pinned
+\ Lean 4.35.0, 2026-11-20).
+: twice? ( e0 e1 -- flag )
+  1 unfolded same swap 0 unfolded same and #unfolds @ 2 = and ;
+: succ-pred ( -- t ) succ fx app pred ;
+: comp-id-add ( -- t )
+  lv1 lv1 lv1 3 s" Function.comp" cn nat app nat app nat app
+  lv1 1 s" id" cn nat app app 0 s" Nat.add" cn fk app app fx app ;
+T{ fx id1 succ-pred traced succ-pred fx id1 twice? -> true outcome-ok true }T
+T{ succ-pred fx id1 traced succ-pred fx id1 twice? -> true outcome-ok true }T
+T{ fk fx nat-add id1 comp-id-add traced fk fx nat-add id1 comp-id-add twice?
+   -> true outcome-ok true }T
+T{ clean? -> true }T
 
 \ ---- Resources: each allocation refused in turn gives full or the
 \ answer, and leaves nothing behind.

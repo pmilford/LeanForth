@@ -36,16 +36,27 @@ variable probe-node  variable probe-outcome  variable probe-same  variable probe
 \ made during its job (no source node) as invalid, even when a source node
 \ of the same skeleton, the probe's value Sort 0, already has a cached type.
 \ With sharing on the store would give the source node back (compact-store
-\ plan step S4), so the fresh node is made with it off.
-variable fresh-out
+\ plan step S4), so the fresh node is made with it off. Since the caches
+\ key a node by its identity (b6975eea, 2026-11-11), not by its skeleton,
+\ the fresh node's own identity has no entry, so the refusal alone no
+\ longer shows that a node inference refuses is never looked up: the
+\ inference cache's count of lookups (hits and misses) does. The source
+\ node's walk looks the cache up (so it counts here); the fresh node's,
+\ never (a lookup would count one miss, and a closed copy that inference
+\ keyed, met so, would hit).
+variable fresh-out  variable value-looked  variable fresh-looked
+: lookups ( -- n ) lf-cache-infer lf-cache-stats + ;
+: looked ( xt addr -- ) lookups >r swap execute lookups r> - swap ! ;
 : fresh-sort ( -- node )
   false lf-term-sharing! 0 lf-term-symbolic-sort must true lf-term-sharing! ;
+: value-walk ( -- ) lf-env-limit value-of lf-minfer-walk nip probe-outcome ! ;
+: fresh-walk ( -- ) fresh-sort lf-minfer-walk nip fresh-out ! ;
 : probe-fresh ( -- )
-  100000 lf-minfer-start-env lf-env-limit value-of lf-minfer-walk nip probe-outcome !
-  fresh-sort lf-minfer-walk nip fresh-out ! ;
+  100000 lf-minfer-start-env
+  ['] value-walk value-looked looked  ['] fresh-walk fresh-looked looked ;
 : fresh-probing ( -- ) lf-env-limit fc-last = if probe-fresh then lf-check-declaration ;
 : fresh-run ( -- )
-  outcome-invalid probe-outcome ! outcome-ok fresh-out !
+  outcome-invalid probe-outcome ! outcome-ok fresh-out ! 0 value-looked ! -1 fresh-looked !
   lf-input-end ok? must 64 lf-env-new ok? must dup lf-env-use ok? must
   ['] fresh-probing ['] fc-no-maker lf-env-run ok? must lf-env-free ok? must ;
 \ The probe's result: whether it unfolded (another node), and whether it
@@ -116,6 +127,7 @@ T{ probe-run unfolds? probe-diag @ -> false outcome-ok lf-diag-none }T
 fc-case fresh-node
 fc-decl check def safe probe 0 TYPE S s z VALUE S z
 T{ fresh-run probe-outcome @ fresh-out @ -> outcome-ok outcome-invalid }T
+T{ value-looked @ 0> fresh-looked @ -> true 0 }T
 
 \ ensure_sort and ensure_pi through whnf, with the rows' verdicts:
 \ sort.after-unfolding (A : dqProp, accepted), sort.not-after-unfolding
