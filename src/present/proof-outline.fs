@@ -631,7 +631,7 @@ lf-walk-room context-walk: lf-ol-premises
   s" Proof outline not available: the log was kept without formulas (level steps)."
   lf-ol-none ;
 : lf-ol-postulate? ( -- flag )
-  lf-ol-decl lf-idecl-kind @ dup lf-kind-axiom = swap lf-kind-quotient = or ;
+  lf-ol-decl lf-idecl-kind @ lf-kind-axiom lf-kind-quotient one-of2? ;
 : lf-ol-unproved ( -- )
   s" No proof outline: an axiom or a quotient constant has no proof; Lean's kernel takes it as given."
   lf-ol-none ;

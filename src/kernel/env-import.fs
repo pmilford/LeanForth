@@ -288,7 +288,7 @@ variable imp-current
 \ (measured on a Mathlib prefix against Init's snapshot) also depends on
 \ the tier's numbering, not only on content and lookups.
 : unrepeatable? ( outcome -- flag )
-  dup outcome-full = over outcome-invalid = or swap outcome-exhausted = or ;
+  outcome-full outcome-invalid outcome-exhausted one-of3? ;
 : reproducible? ( d -- flag ) d-outcome unrepeatable? 0= ;
 : d-trailing? ( d -- flag ) sl-marks swap saved mark-with and 0<> ;
 \ Slots k .. k+n-1 in the input and not final.

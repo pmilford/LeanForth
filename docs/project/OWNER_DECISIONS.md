@@ -1655,7 +1655,14 @@ efficient way and an easier way to fix unit-test coverage, and decided:
   `lf-sx-applied`), and the import's `snapshot-layer.fs` (`ly-fam-expr-of` on `ok-apply3`), steps chained with
   `lib/outcome.fs`'s `ok-apply`, `ok-apply2` and `ok-apply3`, the same stack for every outcome; the kernel's
   reducer and inner loops (whnf, iota, Nat literals, inference of projections, instantiation) keep their guards
-  inline, as a chain adds an EXECUTE per step there.
+  inline, as a chain adds an EXECUTE per step there. Then the comparison and budget families, rewritten by
+  `check-duplicates.py --rewrite` onto `lib/bounds.fs`'s `one-of2?`, `one-of3?` and `cell-spend?`, the same flag
+  for every input: the kernel's `check-declaration.fs` (`lf-check-short?`), `env-schedule.fs`
+  (`lf-sch-waiting?`), `environment.fs` (`lf-kind-bare?`, `lf-env-quot-open?`) and `env-import.fs`
+  (`unrepeatable?`); core `derivation-log.fs` (`lf-log-level-leaf`, `lf-copier-spend`; check_log_isolation.py
+  allows the two words), `tagged-sort-boundary.fs` (`lf-repr-mode?`) and `input.fs` (`lf-kind-valued?`); import
+  `feed.fs` (`feed-member?`) and `stage-records.fs` (`valued?`). The kernel's `whnf.fs` (`lf-whnf-valued?`, once
+  per delta step) and `mixed-open.fs` (`lf-open-rev?`, once per bound variable opened) keep the phrase.
 - **Tools first:** the duplicates script gains a mode that replaces a group by a named word; a fast per-file
   coverage command lists a file's never-run blocks with line numbers, and a baseline entry can be updated per
   file. Then the remaining groups and coverage debt.

@@ -432,7 +432,7 @@ create kind-steps axiom-steps , def-steps , thm-steps , opaque-steps , quot-step
 : none? ( u -- flag ) staged-none = ;
 : tuple-ok? ( t stage -- flag ) stage-tuples cons-entry? ;
 : expr-ok? ( e stage -- flag ) stage-tier expr-valid? ;
-: valued? ( kind -- flag ) dup kind-def = over kind-thm = or swap kind-opaque = or ;
+: valued? ( kind -- flag ) kind-def kind-thm kind-opaque one-of3? ;
 : more? ( kind -- flag ) dup kind-axiom <> swap kind-quot <> and ;
 : either-ok? ( u stage need? xt -- flag ) swap if execute else 2drop none? then ;
 : value-ok? ( stage -- flag )

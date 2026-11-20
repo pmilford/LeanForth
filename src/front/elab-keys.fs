@@ -77,10 +77,10 @@ end-structure
 : elab-key-decl ( k -- d ) ek ek-ref @ ;
 : elab-key-idx ( k -- i ) ek ek-extra @ ;
 \ Arrow (its domain) and a projection (its structure) add one term.
-: ek-more ( tag -- n ) dup elab-key-arrow = swap elab-key-proj = or negate ;
+: ek-more ( tag -- n ) elab-key-arrow elab-key-proj one-of2? negate ;
 : elab-key-arity ( k -- n ) ek dup ek-arity @ swap ek-tag @ ek-more + ;
 : ek-texted? ( tag -- flag )
-  dup elab-key-lit = over elab-key-str = or swap elab-key-foreign = or ;
+  elab-key-lit elab-key-str elab-key-foreign one-of3? ;
 : elab-key-text ( k -- c-addr u ) ek dup ek-ref @ elab-texts slab-at swap ek-extra @ ;
 
 \ Equality: the heads (tag, arity field), then the texts of a texted key,

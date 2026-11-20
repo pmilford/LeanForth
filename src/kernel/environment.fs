@@ -178,7 +178,7 @@ end-structure
 \ The kinds a declaration's own check covers (check-declaration.fs): with
 \ a value (definition, theorem, opaque: core/input.fs's lf-kind-valued?)
 \ or without (axiom, quotient).
-: lf-kind-bare? ( kind -- flag ) dup lf-kind-axiom = swap lf-kind-quotient = or ;
+: lf-kind-bare? ( kind -- flag ) lf-kind-axiom lf-kind-quotient one-of2? ;
 1 constant lf-recipe-raw
 2 constant lf-recipe-large
 \ A nested block's recipe (plan task 5.2.5b) is its number of auxiliary
@@ -879,7 +879,7 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
   swap lf-env-type-name ?dup 0= if drop false exit then
   swap ['] lf-slot-type-open? lf-env-any? ;
 : lf-env-quot-open? ( name i -- flag )
-  lf-env-quot-holding nip dup outcome-invalid = swap outcome-full = or ;
+  lf-env-quot-holding nip outcome-invalid outcome-full one-of2? ;
 : lf-env-held-open? ( name i -- flag )
   2dup lf-env-quot-open? >r lf-env-type-open? r> or ;
 

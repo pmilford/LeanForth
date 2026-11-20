@@ -184,7 +184,7 @@ end-structure
   lf-meta-whnf-d ok-then? if lf-sort? outcome-ok else false swap then ;
 : dk-proof? ( a -- flag outcome ) lf-infer ok-then? if lf-meta-is-prop else false swap
   then ;
-: dk-implicit? ( kind -- flag ) dup lf-binder-implicit = swap lf-binder-strict = or ;
+: dk-implicit? ( kind -- flag ) lf-binder-implicit lf-binder-strict one-of2? ;
 : dk-not-type? ( a -- flag outcome ) dk-type? swap 0= swap ;
 \ A literal's type is Nat or String (inferType): no proof and no type,
 \ so ignored exactly under an implicit or strict-implicit binder.

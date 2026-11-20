@@ -378,7 +378,7 @@ texts-end constant me-uint-op-texts
   case lf-tr-all of me-every endof lf-tr-default of me-default endof
     lf-tr-reducible of me-reducible endof lf-tr-instances of me-instances endof
     lf-tr-implicit of me-implicit endof 0 swap endcase ;
-: me-status-free? ( mode -- flag ) dup lf-tr-all = swap lf-tr-none = or ;
+: me-status-free? ( mode -- flag ) lf-tr-all lf-tr-none one-of2? ;
 : me-unfolds? ( status mode -- flag ) me-mask swap rshift 1 and 0<> ;
 : me-by-status ( d mode -- flag outcome )
   swap lf-menv-status ok-then? if swap me-unfolds? outcome-ok else nip false swap then ;

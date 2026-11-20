@@ -145,7 +145,7 @@ end-structure
 \ argument inserted, a variable or a hypothesis; lf-elab-ident? says
 \ whether a node is one.
 : lf-elab-ident? ( node -- flag )
-  syn-kind@ dup syn-k-const = over syn-k-var = or swap syn-k-hyp = or ;
+  syn-kind@ syn-k-const syn-k-var syn-k-hyp one-of3? ;
 : lf-elab-ident ( node -- e outcome ) et-head ;
 
 \ ---- elabNumLit.

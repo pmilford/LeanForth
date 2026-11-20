@@ -247,7 +247,7 @@ lf-walk-room context-walk: lf-check-walker
 \ only warn: Lean's replay ignores the record, so its parameters are not
 \ checked either); no inference, as Lean's kernel infers nothing there.
 : lf-check-quot-eq ( -- outcome ) ['] lf-quot-eq lf-check-matched ;
-: lf-check-short? ( outcome -- flag ) dup outcome-exhausted = swap outcome-full = or ;
+: lf-check-short? ( outcome -- flag ) outcome-exhausted outcome-full one-of2? ;
 : lf-check-quot-form ( -- outcome )
   lf-diag@ 2>r 2>r lf-check-claim lf-check-forms
   dup ok? if drop lf-check-claim lf-check-closed then

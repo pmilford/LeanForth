@@ -73,7 +73,7 @@ lf-tag-sort lf-tag-symbolic-sort 2 lf-tags constant lf-sort-tags
   ['] lf-repr-visit lf-repr-walker lf-repr-site lf-diag-run ;
 
 \ Set an explicit mode and budget; false means a bad mode or negative fuel.
-: lf-repr-mode? ( mode -- flag ) dup lf-repr-concrete = swap lf-repr-symbolic = or ;
+: lf-repr-mode? ( mode -- flag ) lf-repr-concrete lf-repr-symbolic one-of2? ;
 : lf-repr-start ( mode fuel -- flag )
   lf-repr-walker walk-budget 0= if drop false exit then
   dup lf-repr-mode? if lf-repr-walker walk-arg ! true else drop false then ;

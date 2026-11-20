@@ -332,7 +332,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 : wc-leaf-inert? ( mhead -- flag )
   wc-margs slab-count 0= if lf-term-binder? else drop false then ;
 : wc-const-inert? ( mhead -- flag )
-  wc-kind dup lf-kind-inductive = over lf-kind-axiom = or swap lf-kind-theorem = or ;
+  wc-kind lf-kind-inductive lf-kind-axiom lf-kind-theorem one-of3? ;
 : wc-inert-major? ( mhead -- flag )
   dup wc-head-inert? over wc-leaf-inert? or swap wc-const-inert? or ;
 \ The major premise's whnf, cleaned up: a constructor fires its rule,
@@ -816,7 +816,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
   dup wc-smart-kind < if wc-resume-plain else wc-resume-smart then ;
 
 \ ---- The loop.
-: wc-spend ( -- flag ) wc wc-fuel @ dup 0> if 1- wc wc-fuel ! true else drop false then ;
+: wc-spend ( -- flag ) wc wc-fuel cell-spend? ;
 : wc-next ( e flag -- e' flag' outcome )
   begin dup 0= wc-framed? and while drop wc-resume dup ok? 0= if exit then drop repeat
   outcome-ok ;

@@ -356,7 +356,7 @@ end-structure
 /idl context-record: idl
 : idl-walk@ ( -- walk ) idl idl-walk ;
 : idl-max? ( l -- flag )
-  lf-level-tag@ dup lf-level-tag-max = swap lf-level-tag-imax = or ;
+  lf-level-tag@ lf-level-tag-max lf-level-tag-imax one-of2? ;
 : idl-pending ( l walk -- child true | false )
   over idl-max? 0= if 2drop false exit then
   >r dup lf-level-first@ swap lf-level-second@ r> dw-want2 ;

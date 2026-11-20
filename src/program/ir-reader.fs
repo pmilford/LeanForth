@@ -399,7 +399,7 @@ end-structure
 \ Characters. Tokens are separated by spaces and tabs; every other
 \ character of a line must be printable ASCII, ! to ~.
 9 constant ir-tab
-: ir-blank? ( char -- flag ) dup bl = swap ir-tab = or ;
+: ir-blank? ( char -- flag ) bl ir-tab one-of2? ;
 : ir-printable? ( char -- flag ) [char] ! [char] ~ 1+ within ;
 : ir-plain? ( char -- flag ) dup ir-printable? swap ir-blank? or ;
 : ir-inside? ( char -- flag ) ir-blank? 0= ;
@@ -625,7 +625,7 @@ ir-mode-actions ir-modes ir-filled? 0= [if] .( lf-ir: mode actions ) abort [then
 : ir-odd ( c-addr -- ) ir-column! ir-why-character ir-unsupported ir-diagnose ;
 : ir-plain-line? ( -- flag )
   ir-rest ['] ir-plain? ir-skip if ir-odd false else drop true then ;
-: ir-naming? ( -- flag ) ir-mode @ dup ir-mode-word = swap ir-mode-constant = or ;
+: ir-naming? ( -- flag ) ir-mode @ ir-mode-word ir-mode-constant one-of2? ;
 : ir-end-of-line ( -- )
   ir-ok? ir-naming? and if ir-why-no-name ir-invalid ir-diagnose then ;
 : ir-scan-line ( c-addr u -- )

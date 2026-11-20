@@ -192,16 +192,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
  },
- "1f0b62026cc7": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/core/input.fs:lf-kind-valued?",
-   "src/front/elab-keys.fs:ek-texted?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 11
- },
  "20086de961a5": {
   "copies": 2,
   "kind": "shape",
@@ -384,17 +374,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
- },
- "361de2c5b4ff": {
-  "copies": 3,
-  "kind": "shape",
-  "members": [
-   "src/core/tagged-sort-boundary.fs:lf-repr-mode?",
-   "src/front/tactic-syntax.fs:lft-bracket?",
-   "src/program/ir-run.fs:irx-ended?"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 7
  },
  "3654229402ff": {
   "copies": 2,
@@ -1260,16 +1239,6 @@
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 6
  },
- "9daea91f04f2": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/kernel/env-schedule.fs:lf-sch-waiting?",
-   "src/kernel/mixed-open.fs:lf-open-rev?"
-  ],
-  "reason": "false positive: `x dup a = swap b = or`, different constants",
-  "tokens": 8
- },
  "9dffbd6cddfc": {
   "copies": 2,
   "kind": "shape",
@@ -1741,16 +1710,6 @@
   ],
   "reason": "false positive: two htab same-hooks of different records (a stamp unit's term, a leaf's node)",
   "tokens": 6
- },
- "d8a6e1b0cde9": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/defeq.fs:de-fuel?",
-   "src/front/whnf.fs:wc-spend"
-  ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
-  "tokens": 15
  },
  "dabc4e74d286": {
   "copies": 2,

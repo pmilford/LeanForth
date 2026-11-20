@@ -187,7 +187,7 @@ end-structure
 : de-invoke ( t s entry -- )
   de-aborted? if drop 2drop exit then
   de-save dup ok? 0= if de-abort drop 2drop exit then drop 0 df df-m ! de-regs! ;
-: de-fuel? ( -- flag ) df df-fuel @ dup 0> if 1- df df-fuel ! true else drop false then ;
+: de-fuel? ( -- flag ) df df-fuel cell-spend? ;
 : de-spend? ( -- flag )
   de-fuel? dup if drop lf-meta-spend? then dup 0= if outcome-exhausted de-abort then ;
 : de-goto ( t s entry -- ) de-aborted? de-spend? 0= or if drop 2drop exit then de-regs! ;
@@ -743,7 +743,7 @@ defer de-args-post ( -- )
 \ ---- isDefEqLateSpecialCases: isDefEqProjInst (unsupported where it
 \ might unfold), isDefEqStringLit (a string literal against
 \ String.ofList cs: not ported), isDefEqUnitLike.
-: de-mode-inst? ( -- flag ) df df-mode @ dup lf-tr-instances = swap lf-tr-implicit = or ;
+: de-mode-inst? ( -- flag ) df df-mode @ lf-tr-instances lf-tr-implicit one-of2? ;
 : de-str? ( t -- flag ) lf-term-tag@ lf-tag-str = ;
 : de-of-list? ( t -- flag ) lf-meta-head s" String.ofList" lf-meta-const-named? ;
 : de-str-list? ( a b -- flag ) de-of-list? swap de-str? and ;

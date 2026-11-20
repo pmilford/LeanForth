@@ -619,7 +619,7 @@ variable lf-sched-faults  0 lf-sched-faults !
   dup lf-input-decl lf-idecl-header ?dup 0= if exit then
   over lf-sch-state@ lf-sch-trailing = if nip lf-hdr-first lf-more-field else drop then ;
 : lf-sch-waiting? ( u -- flag )
-  lf-sch-state@ dup lf-sch-waiting = swap lf-sch-later = or ;
+  lf-sch-state@ lf-sch-waiting lf-sch-later one-of2? ;
 : lf-sch-stuck ( -- d|-1 )
   lf-sch-front@ dup lf-sched-stop < 0= if drop -1 exit then
   lf-sch-owner dup lf-sch-waiting? 0= if drop -1 then ;
