@@ -294,7 +294,7 @@ constant dk-key-heads
 : dk-path-nested ( -- k flag outcome )
   dk-e lf-dt-nat-lit ok-then? 0= if nip no-result-flag exit then
   if dk-lit-key true swap exit then drop
-  dk-e dk-offset? ok-then? 0= if no-result-flag exit then
+  dk-e dk-offset? ok-then? 0= if -1 false rot exit then
   if dk-star true swap else -1 false outcome-ok then ;
 : dk-const-path ( -- k outcome )
   dk-nested? if dk-path-nested ok-then? 0= if nip no-result exit then

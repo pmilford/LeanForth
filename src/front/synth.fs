@@ -282,7 +282,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
 \ holds (the xt kept as an outer loop's index, read with J): i and true;
 \ -1 and false when none does, or with the first failing test's outcome.
 : sy-hit ( key lo hi xt -- i found? outcome )
-  dup 1+ swap ?do swap ?do i j execute ok-then? 0= if nip no-result-flag unloop unloop
+  dup 1+ swap ?do swap ?do i j execute ok-then? 0= if nip -1 false rot unloop unloop
     exit then if drop i true outcome-ok unloop unloop exit then
   loop loop drop -1 false outcome-ok ;
 : sen@ ( e -- addr ) sy-entries slab-at ;
@@ -629,6 +629,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
 \ check where it may have effects (checkMayHaveSideEffects: a
 \ metavariable in the result or in the types or values of its free
 \ variables, followed through them): not ported (121).
+: sy-none ( outcome -- -1 false outcome ) -1 false rot ;
 : sy-assign-outs ( result -- flag outcome )
   lf-infer ok-then? 0= if false swap exit then
   sy-c syc-type @ swap ['] lf-meta-defeq lf-defeq-flags lf-defeq-opaque or lf-tr-default
@@ -654,8 +655,8 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
   0= if drop -1 false outcome-ok exit then
   lf-instantiate-mvars ok-then? if sy-checked else no-result-flag then ;
 : sy-apply-cached ( r -- inst flag outcome )
-  dup 0< if false outcome-ok exit then
-  dup sy-assign-outs ok-then? 0= if nip no-result-flag exit then
+  dup 0< if false outcome-ok exit then dup sy-assign-outs ok-then? 0= if nip sy-none
+  exit then
   if true outcome-ok else drop -1 false outcome-ok then ;
 : sy-cache-after ( inst flag outcome -- inst flag outcome )
   dup ok? 0= if exit then drop over sy-cache-value sy-cache-put ;
@@ -673,7 +674,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
   sy-cache-after ;
 : sy-core ( type -- inst flag outcome )
   sy-preprocess dup ok? 0= if no-result-flag exit then drop
-  sy-cache-lookup ok-then? 0= if nip no-result-flag exit then
+  sy-cache-lookup ok-then? 0= if nip sy-none exit then
   if sy-cache-result sy-apply-cached else drop sy-miss then ;
 
 \ ---- A search's call: its record, the slabs' counts at its start; at
@@ -691,7 +692,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
   lf-defeq-flags lf-defeq-stuck or lf-defeq-fo or lf-defeq-ctx or
   lf-defeq-const lf-defeq-univ or invert and ;
 : lf-synth-instance ( type -- inst flag outcome )
-  0 sy sy-error ! sy-enter dup ok? 0= if nip no-result-flag exit then drop
+  0 sy sy-error ! sy-enter dup ok? 0= if nip sy-none exit then drop
   ['] sy-core sy-flags lf-tr-instances lf-meta-with sy-leave ;
 
 \ ---- synthInstance (1026), throwing as the tactic library's words do

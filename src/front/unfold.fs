@@ -134,8 +134,8 @@ require ./term-eqv.fs
 \ getUnfoldableConst? at default transparency.
 : uf-inst-mode? ( -- flag ) lf-defeq-mode lf-tr-instances lf-tr-implicit one-of2? ;
 : uf-class-field ( const -- d flag outcome )
-  lf-const-name dup lf-menv-find ok-then? 0= if nip no-result-flag exit then
-  lf-menv-proj-class? ok-then? 0= if nip no-result-flag exit then
+  lf-const-name dup lf-menv-find ok-then? 0= if nip -1 false rot exit then
+  lf-menv-proj-class? ok-then? 0= if nip -1 false rot exit then
   if lf-tr-default lf-menv-unfoldable else drop -1 false outcome-ok then ;
 : uf-ready ( e d const -- e' code outcome )
   2dup lf-meta-arity? 0= if 2drop uf-none-of exit then

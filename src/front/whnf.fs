@@ -173,6 +173,7 @@ end-structure
 
 \ ---- Results of a step ( -- term flag outcome ): flag true goes on.
 : wc-done ( term -- term false outcome ) false outcome-ok ;
+: wc-fail ( outcome -- -1 false outcome ) -1 swap false swap ;
 : wc-go ( term outcome -- term flag outcome )
   ok-then? if true outcome-ok else no-result-flag then ;
 : wc-drop-fail ( x outcome -- -1 false outcome ) nip no-result-flag ;
@@ -482,7 +483,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
   wc-term wc-args lf-meta-spine ok-then? if drop outcome-ok then ;
 : wc-match-resume ( r -- e' flag outcome )
   wc-match-frame dup ok? 0= if wc-drop-fail exit then drop
-  wc-margs lf-meta-spine ok-then? 0= if no-result-flag exit then
+  wc-margs lf-meta-spine ok-then? 0= if wc-fail exit then
   wc-alt-of wc-hs-drop if wc-alt-apply wc-go else wc-stay then ;
 
 \ A definition at the head (whnfCore, WHNF.lean:659-675): a matcher
@@ -839,7 +840,7 @@ constant wc-resumers
 \ After a step, a fault (wc-kind's, the first failure) ends the call with
 \ its outcome, whatever the step gave.
 : wc-checked ( e flag outcome -- e' flag outcome )
-  wc-faulted dup ok? if drop else nip nip nip no-result-flag then ;
+  wc-faulted dup ok? if drop else nip nip nip wc-fail then ;
 : wc-turn ( e -- e' flag outcome ) wc-step dup ok? if drop wc-next then wc-checked ;
 : wc-loop ( e -- e' outcome )
   begin wc-spend 0= if drop -1 outcome-exhausted exit then
