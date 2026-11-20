@@ -721,11 +721,13 @@ each other).
   byte (the two share `scripts/leanforth-run.sh`; a text it refuses, exit
   4); `make test-cli-checker` compares them on every such command and, as it
   runs `bin/leanforth`, re-runs on any change. The export-only tests and
-  comparisons run `bin/leanforth-checker`: the receipts
-  (`scripts/program_receipt.py`, so `program-clamp-record` and the program
-  references), `leanforth verify`'s references and driver tests, the clamp's
+  comparisons run `bin/leanforth-checker`: the clamp's
   mutants, the SHA export, the demos, the run records, the start-limit
-  report and the parallel stress test. The CLI's own tests (`test-cli-*`,
+  report and the parallel stress test. The receipts
+  (`scripts/program_receipt.py`, so `program-clamp-record` and the program
+  references) and `leanforth verify`'s references and driver tests run
+  `bin/leanforth`: a receipt says that `bin/leanforth` ran, so it must have
+  (owner-safe option, 2026-11-19, review M2 of layered-loads). The CLI's own tests (`test-cli-*`,
   `reference-cli`) keep `bin/leanforth`, the users' command.
   **What the finder no longer takes for an input.** A listing of `/proc`,
   `/sys` or `/dev` (`scripts/start-limit.sh` counts the user's threads in

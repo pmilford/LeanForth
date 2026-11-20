@@ -17,7 +17,7 @@ T{ text-check -> 4 }T
 T{ text-check cli-options composition cli-check -> 4 0 }T
 [defined] >string-execute [if]
 : text-refusal ( -- c-addr u )
-  s" error: a LeanForth text is checked by bin/leanforth (src/main.fs), not by this load" ;
+  s" error: bin/leanforth-checker checks exports and snapshots only; check a LeanForth text with bin/leanforth" ;
 T{ ' text-check >string-execute text-refusal search nip nip -> 4 true }T
 [then]
 cli-options

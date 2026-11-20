@@ -59,4 +59,7 @@ export GFORTH_ENV=off
 # verify, the engine, the files named twice, the commit and the run of the
 # whole command line (src/main.fs).
 lf_entry=$root/src/main.fs
-. "$root/scripts/leanforth-run.sh"
+. "$root/scripts/leanforth-run.sh" || {
+  printf 'leanforth: internal fault: cannot read scripts/leanforth-run.sh\n' >&2
+  exit 5
+}

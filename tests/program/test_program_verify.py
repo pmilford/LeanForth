@@ -41,9 +41,6 @@ checker). tests/program/verify_lean_check.py runs it with the real tools.
    not write; a receipt and its evidence changed together replay clean and
    --rerun refuses them; replay exits with the receipt's own status.
 """
-# It reads src/main.fs only to see that --write-ir leaves it alone, whatever it holds, and
-# names bin/leanforth in its texts; it runs bin/leanforth-checker, which shares verify.
-# inputs: named only: src/main.fs bin/leanforth tests/cli/test_checker_launcher.py
 import contextlib
 import copy
 import io
@@ -1093,12 +1090,11 @@ class WriteIr(unittest.TestCase):
 
 
 class Command(unittest.TestCase):
-    """bin/leanforth verify (plan 8.4.1c), run as bin/leanforth-checker verify: the two launchers
-    share it (scripts/leanforth-run.sh; tests/cli/test_checker_launcher.py compares them)."""
+    """bin/leanforth verify (plan 8.4.1c)."""
 
     def leanforth(self, argv, env=None):
         variables = {**os.environ, "GFORTH": GFORTH, **(env or {})}
-        done = subprocess.run(["bash", str(ROOT / "bin" / "leanforth-checker"), "verify", *map(str, argv)],
+        done = subprocess.run(["bash", str(ROOT / "bin" / "leanforth"), "verify", *map(str, argv)],
                               cwd=ROOT, env=variables, capture_output=True, text=True,
                               timeout=600, stdin=subprocess.DEVNULL)
         return done.returncode, done.stdout + done.stderr

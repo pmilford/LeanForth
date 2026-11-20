@@ -70,7 +70,7 @@ def run(name, write):
     """The problems of one contract's run."""
     source, word, status, verify = EXPECTED[name]
     out = OUT / name   # the driver removes an earlier run's files there, by name
-    done = subprocess.run(["bash", "bin/leanforth-checker", "verify", source,
+    done = subprocess.run(["bash", "bin/leanforth", "verify", source,
                            "--contract", f"tests/program/contracts/{name}.contract", "--out",
                            str(out.relative_to(ROOT))], cwd=ROOT, capture_output=True,
                           text=True, timeout=TEST_LIMIT, stdin=subprocess.DEVNULL)

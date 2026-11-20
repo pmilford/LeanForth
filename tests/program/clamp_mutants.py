@@ -46,8 +46,6 @@ originals, unchanged, taken from it; every copy checked) and requires
 every original accepted and the verdicts of COPIES.
 Untrusted test tool: it never accepts anything.
 """
-# Its texts name bin/leanforth's check; it runs bin/leanforth-checker's.
-# inputs: named only: bin/leanforth
 import json
 import os
 from pathlib import Path

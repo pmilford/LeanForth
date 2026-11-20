@@ -37,4 +37,7 @@ root=$(cd "$(dirname "$self")/.." && pwd -P) || {
 export GFORTH_ENV=off
 
 lf_entry=$root/src/load/cli-checker.fs
-. "$root/scripts/leanforth-run.sh"
+. "$root/scripts/leanforth-run.sh" || {
+  printf 'leanforth: internal fault: cannot read scripts/leanforth-run.sh\n' >&2
+  exit 5
+}

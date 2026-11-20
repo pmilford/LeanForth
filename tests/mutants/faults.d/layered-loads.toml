@@ -112,3 +112,25 @@ old = '''    follows = (uses | runs) - named'''
 new = '''    follows = uses | runs'''
 test = "python3 tests/scripts/test_check_layers.py Finder"
 reason = "a program named only in a message is followed again: the receipts depend on all of src/main.fs"
+
+[[fault]]
+id = "ll-launcher-missing-run-script"
+file = "bin/leanforth-checker"
+old = '''. "$root/scripts/leanforth-run.sh" || {
+  printf 'leanforth: internal fault: cannot read scripts/leanforth-run.sh\n' >&2
+  exit 5
+}'''
+new = '''. "$root/scripts/leanforth-run.sh"'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_checker_launcher.py BrokenCheckout"
+reason = "a checkout without the shared launcher script exits 1, which reads as a rejection, not an internal fault"
+
+[[fault]]
+id = "ll-leanforth-missing-run-script"
+file = "bin/leanforth"
+old = '''. "$root/scripts/leanforth-run.sh" || {
+  printf 'leanforth: internal fault: cannot read scripts/leanforth-run.sh\n' >&2
+  exit 5
+}'''
+new = '''. "$root/scripts/leanforth-run.sh"'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_checker_launcher.py BrokenCheckout"
+reason = "bin/leanforth with the shared script missing exits 1, which reads as a rejection, not an internal fault"

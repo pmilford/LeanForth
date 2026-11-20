@@ -3,8 +3,7 @@
 
 bin/leanforth-checker runs the command line on the checker's load alone
 (src/load/cli-checker.fs), and the export-only tests and pinned-Lean comparisons run it
-(scripts/program_receipt.py's LEANFORTH, the demos, the clamp's mutants, leanforth verify's
-references), so that scripts/tested-tree.py reuses them across changes of the front end. This
+(the demos, the clamp's mutants, the run records; not the receipts, which run bin/leanforth), so that scripts/tested-tree.py reuses them across changes of the front end. This
 test is what makes that sound: on every command below, exports and snapshots only, both
 launchers give the same exit code, the same standard output and standard error and write the
 same files, byte for byte; only the JSON report's "measured" part (wall and CPU time, peak
@@ -97,10 +96,30 @@ class Text(unittest.TestCase):
     def test_a_text_is_refused_by_the_checker_and_checked_by_leanforth(self):
         [(code, out, err, _)] = run(CHECKER, [["check", LF]])
         self.assertEqual(code, 4, out + err)
-        self.assertEqual(out, "error: a LeanForth text is checked by bin/leanforth (src/main.fs), not by this load\n")
+        self.assertEqual(out, "error: bin/leanforth-checker checks exports and snapshots only; check a LeanForth text with bin/leanforth\n")
         [(code, out, err, _)] = run(FULL, [["check", LF]])
         self.assertEqual(code, 0, out + err)
         self.assertIn("identity: accepted", out)
+
+
+class BrokenCheckout(unittest.TestCase):
+    """A checkout without scripts/leanforth-run.sh is an internal fault (exit 5), never a
+    verdict (exit 1; review M1 of layered-loads)."""
+
+    def test_a_missing_shared_script_is_an_internal_fault(self):
+        folder = tempfile.mkdtemp(prefix="lf-broken-checkout-")
+        try:
+            shutil.copytree(ROOT / "bin", pathlib.Path(folder) / "bin")
+            (pathlib.Path(folder) / "scripts").mkdir()
+            shutil.copy(ROOT / "scripts" / "start-limit.sh", pathlib.Path(folder) / "scripts")
+            for name in ("leanforth", "leanforth-checker"):
+                done = subprocess.run(["bash", str(pathlib.Path(folder) / "bin" / name), "version"],
+                                      cwd=folder, capture_output=True, text=True, timeout=TEST_LIMIT,
+                                      stdin=subprocess.DEVNULL)
+                self.assertEqual(done.returncode, 5, name + done.stdout + done.stderr)
+                self.assertIn("leanforth: internal fault: cannot read scripts/leanforth-run.sh", done.stderr)
+        finally:
+            shutil.rmtree(folder, ignore_errors=True)
 
 
 if __name__ == "__main__":

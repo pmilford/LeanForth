@@ -51,8 +51,6 @@ and 2 for a usage error. A receipt that verifies is
 consistent with the repository and the evidence; it is not an approval of
 anything, and it passes no review gate. Untrusted tooling.
 """
-# The receipts tell the user to check with bin/leanforth; they check with bin/leanforth-checker.
-# inputs: named only: bin/leanforth tests/program/test_program_verify.py
 import argparse
 import datetime
 import functools
@@ -635,9 +633,7 @@ def checked_lean():
     return lean
 
 
-# The checker, as the CLI starts it for an export: bin/leanforth-checker prints what
-# bin/leanforth prints for one, on the checker's load alone (tests/cli/test_checker_launcher.py).
-LEANFORTH = ["bash", str(ROOT / "bin" / "leanforth-checker")]
+LEANFORTH = ["bash", str(ROOT / "bin" / "leanforth")]   # the checker, as the CLI starts it
 
 
 def leanforth_args(export, options=("--jobs", LEANFORTH_JOBS)):

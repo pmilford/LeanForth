@@ -13,6 +13,10 @@
 \ (src/load/cli-checker.fs, bin/leanforth-checker); src/main.fs loads this
 \ file after cli/leanforth.fs. Untrusted, like the rest of the command line.
 require ../lib/lib.fs
+require ../lib/decimal.fs
+require ../lib/outcome.fs
+require ./tally.fs
+require ./check-run.fs
 require ./check-lf.fs
 require ../front/meta-config.fs
 require ../front/elab-decl.fs
@@ -50,6 +54,8 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 \ (front/tactic-run.fs; ADR 0021 Amendment 1: the JSON report's fields
 \ wait for the owner's [format] decision).
 : cli-open-parts ( -- ) cli-json? 0= if lf-open-parts. then ;
+\ True for a text of only #check lines (the comment above cli-checks-only in
+\ cli/leanforth.fs: error 49 there, exit 0 here).
 : cli-checks-only? ( -- flag )
   lfc-failed? lf-author-code lfa-e-nothing = and lf-elab-checks 0> and ;
 : cli-steps-to ( sink -- outcome )
