@@ -1540,7 +1540,7 @@
    "src/program/verify-semantics.fs:pv-call",
    "src/program/verify-semantics.fs:pv-prim"
   ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "reason": "false positive: the idiom `a? if b else c then`, a two-way choice between different words in every copy (21 copies in 14 files, each test and each arm its own); a shared word taking three xts would be longer to read than the choice itself (cleanup-families-1)",
   "tokens": 6
  },
  "b4a319894071": {
