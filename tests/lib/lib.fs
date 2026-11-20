@@ -120,11 +120,26 @@ T{ -1 0 1 three-cells ' cell-triple! rs-checked three-cells ' cell-triple@ rs-ch
 create tallies 0 , 5 , 0 ,
 T{ 1 tallies cell-tally 1 tallies cell-tally 2 tallies cell-tally -> }T
 T{ 0 tallies cell-at@ 1 tallies cell-at@ 2 tallies cell-at@ -> 0 7 1 }T
+\ cell-spend? (cleanup-families-3): a unit spent while the count is above
+\ zero; at zero, or below (a corrupted budget), nothing spent and false.
+variable budget  2 budget !
+T{ budget cell-spend? budget cell-spend? budget cell-spend? budget @ -> true true false 0 }T
+-3 budget !
+T{ budget cell-spend? budget @ -> false -3 }T
+1 budget !
+T{ 5 budget ' cell-spend? rs-checked budget @ -> 5 true 0 }T
 \ first-nonzero (reuse-d): the first of two that is not zero, else zero.
 T{ 3 4 first-nonzero 0 4 first-nonzero -2 0 first-nonzero 0 0 first-nonzero -> 3 4 -2 0 }T
 \ first-or-second (cleanup-families-1): x1 for place 1, x2 for any other.
 T{ 3 4 1 first-or-second 3 4 2 first-or-second 3 4 0 first-or-second 3 4 -1 first-or-second
    -> 3 4 4 4 }T
+\ one-of2? and one-of3? (cleanup-families-3), in place of `dup a = swap b
+\ = or` and `dup a = over b = or swap c = or`: true at each place, false
+\ when none matches, a well-formed flag either way; the values below kept.
+T{ 5 5 7 one-of2? 7 5 7 one-of2? 6 5 7 one-of2? 5 5 5 one-of2? -> true true false true }T
+T{ 1 1 2 3 one-of3? 2 1 2 3 one-of3? 3 1 2 3 one-of3? 4 1 2 3 one-of3? -1 0 1 -1 one-of3?
+   -> true true true false true }T
+T{ 9 7 5 7 ' one-of2? rs-checked 9 4 1 2 3 ' one-of3? rs-checked -> 9 true 9 false }T
 \ epoch+ (reuse-d; was store.fs's and slab.fs's): one step on, max-n
 \ saturates to -1, and a negative generation stays.
 T{ 0 epoch+ 41 epoch+ max-n 1- epoch+ max-n epoch+ -1 epoch+ -7 epoch+ -> 1 42 max-n -1 -1 -7 }T

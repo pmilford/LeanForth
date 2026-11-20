@@ -17,3 +17,35 @@ old = '''  over ok? if nip execute else drop nip nip nip no-result then ;'''
 new = '''  nip execute ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "cleanup-families-3 (mid-word guards): the step runs after a failure, on the failing outcome's values"
+
+[[fault]]
+id = "cf3-one-of2-both"
+file = "src/lib/bounds.fs"
+old = ''': one-of2? ( x a b -- flag ) >r over = swap r> = or ;'''
+new = ''': one-of2? ( x a b -- flag ) >r over = swap r> = and ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-3 (one-of family): x must equal both values, so a kind matching one of two is refused"
+
+[[fault]]
+id = "cf3-one-of3-third-lost"
+file = "src/lib/bounds.fs"
+old = ''': one-of3? ( x a b c -- flag ) >r >r over = over r> = or swap r> = or ;'''
+new = ''': one-of3? ( x a b c -- flag ) >r >r over = over r> = or nip r> drop ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-3 (one-of family): the third value is never compared"
+
+[[fault]]
+id = "cf3-cell-spend-at-zero"
+file = "src/lib/bounds.fs"
+old = ''': cell-spend? ( a-addr -- flag ) dup @ 0> if -1 swap +! true else drop false then ;'''
+new = ''': cell-spend? ( a-addr -- flag ) dup @ 0< 0= if -1 swap +! true else drop false then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-3 (spend family): a budget at zero is spent once more, so fuel goes negative instead of running out"
+
+[[fault]]
+id = "cf3-cell-spend-unspent"
+file = "src/lib/bounds.fs"
+old = ''': cell-spend? ( a-addr -- flag ) dup @ 0> if -1 swap +! true else drop false then ;'''
+new = ''': cell-spend? ( a-addr -- flag ) @ 0> ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cleanup-families-3 (spend family): a step is allowed but nothing is spent, so a budget never runs out"
