@@ -230,15 +230,15 @@ reason = "divides: the word names another constant than Lean's Dvd.dvd, so n m d
 [[fault]]
 id = "rd-own-name-unsealed"
 file = "src/front/reader.fs"
-old = '''  lfn-open lfn-syntax-word lfn-unmeant lfn-new-word 0 lfn-lay ['] lfn-w-named lfa-natural! ;'''
-new = '''  lfn-syntax-word lfn-unmeant lfn-new-word 0 lfn-lay ['] lfn-w-named lfa-natural! ;'''
+old = '''  lfn-open lfn-syntax-word lfn-unmeant lfn-new-word 0 lfn-lay'''
+new = '''  lfn-syntax-word lfn-unmeant lfn-new-word 0 lfn-lay'''
 test = "$GFORTH tests/front/front.fs"
 reason = "divides: a word of LeanForth's own can be registered after a context exists, writing the table runs read in place"
 
 [[fault]]
 id = "rd-own-name-meant"
 file = "src/front/reader.fs"
-old = '''  lfn-open lfn-syntax-word lfn-unmeant lfn-new-word 0 lfn-lay ['] lfn-w-named lfa-natural! ;'''
-new = '''  lfn-open lfn-syntax-word lfn-new-word 0 lfn-lay ['] lfn-w-named lfa-natural! ;'''
+old = '''  lfn-open lfn-syntax-word lfn-unmeant lfn-new-word 0 lfn-lay'''
+new = '''  lfn-open lfn-syntax-word lfn-new-word 0 lfn-lay'''
 test = "$GFORTH tests/front/front.fs"
 reason = "divides, review M1: a word of LeanForth's own may take a syntax word that has its meaning already ($, theorem, by-rfl), silently replacing it"

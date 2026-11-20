@@ -214,7 +214,8 @@ name-table: lfn-notations
 : lfn-unmeant ( "word" -- )
   lfn-peek lfa-natural-later? 0= abort" reader.fs: a word with a meaning of its own" ;
 : lfn-own-name: ( c-addr u "word" -- )
-  lfn-open lfn-syntax-word lfn-unmeant lfn-new-word 0 lfn-lay ['] lfn-w-named lfa-natural! ;
+  lfn-open lfn-syntax-word lfn-unmeant lfn-new-word 0 lfn-lay
+  ['] lfn-w-named lfa-natural! ;
 \ The meanings. Lean: infixl:65 + -, infixl:70 * / %, infix:50 = < >,
 \ unicode(" ≤ ", " <= "), unicode(" ≥ ", " >= ") (Init/Notation.lean:
 \ 284-288, 375-378), infix:50 ≠ (Init/Core.lean:880); notation ¬ and
