@@ -98,8 +98,8 @@ reason = "S3a-ops C2: - builds binrel% HSub.hSub where Lean's macro is binop% (N
 [[fault]]
 id = "rd-op-skips-row-check"
 file = "src/front/reader.fs"
-old = '''  >in @ >r parse-name lfn-entry, lfn-spelt? 0='''
-new = '''  >in @ >r parse-name lfn-entry, drop false'''
+old = '''  >r >in @ >r parse-name lfn-entry, lfn-spelt? 0='''
+new = '''  >r >in @ >r parse-name lfn-entry, drop false'''
 test = "$GFORTH tests/front/front.fs"
 reason = "S3a-ops C2: a notation word registered without the notation table's row check: LT.lt's meaning given to the syntax word $ loads where it must abort"
 

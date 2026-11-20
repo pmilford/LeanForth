@@ -177,10 +177,9 @@ align here 0 , 0 , constant lfn-notations
   syn-k-const lfa-here lfn-new swap syn-a! dup syn-a@ lfn-const-arity ;
 : lfn-w-named ( v1 .. vn -- t )
   lfn-entry lfn-entry-const lfn-root-const lfn-const-at lfn-apply ;
-: lfn-w-notation ( v1 .. vn -- t )
-  lfn-entry lfn-entry-kind if lfn-w-operator else lfn-w-named then ;
 \ Registering (load-time words): the entry made (a word twice aborts);
-\ its constant's row must spell it, in Unicode or ASCII, blanks trimmed.
+\ its constant's row must spell it, in Unicode or ASCII, blanks trimmed;
+\ then the word's natural meaning, an operator's or a name's.
 : lfn-entry, ( c-addr u kind word-addr word-u -- entry )
   2dup lfn-notations name-table-find abort" reader.fs: a notation word twice"
   lfn-notations name-entry , counted, lfn-notations cell+ @ ;
@@ -190,11 +189,12 @@ align here 0 , 0 , constant lfn-notations
 : lfn-spelt? ( entry -- flag )
   dup lfn-row 0= if drop false exit then
   dup lf-print-unicode lfn-mode-spells? swap lf-print-ascii lfn-mode-spells? or ;
-: lfn-operator: ( c-addr u kind "word" -- )
-  >in @ >r parse-name lfn-entry, lfn-spelt? 0=
+: lfn-meaning ( c-addr u kind xt "word" -- )
+  >r >in @ >r parse-name lfn-entry, lfn-spelt? 0=
   abort" reader.fs: a notation word its constant's row lacks"
-  r> >in ! ['] lfn-w-notation lfa-natural! ;
-: lfn-notation-name: ( c-addr u "word" -- ) 0 lfn-operator: ;
+  r> >in ! r> lfa-natural! ;
+: lfn-operator: ( c-addr u kind "word" -- ) ['] lfn-w-operator lfn-meaning ;
+: lfn-notation-name: ( c-addr u "word" -- ) 0 ['] lfn-w-named lfn-meaning ;
 \ The meanings. Lean: infixl:65 + -, infixl:70 * / %, infix:50 = < >,
 \ unicode(" ≤ ", " <= "), unicode(" ≥ ", " >= ") (Init/Notation.lean:
 \ 284-288, 375-378), infix:50 ≠ (Init/Core.lean:880); notation ¬ and
