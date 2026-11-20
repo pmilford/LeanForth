@@ -49,3 +49,20 @@ old = '''  dup @ 0> if -1 swap +! true else drop false then ;'''
 new = '''  @ 0> ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "cleanup-families-3 (spend family): a step is allowed but nothing is spent, so a budget never runs out"
+
+# The Forth review's faults (docs/development/forth-reviews/2026-11-19-cleanup-families-3.md).
+
+[[fault]]
+id = "cf3r-ac-lam-eats-cell"
+file = "src/front/assign-check.fs"
+old = ''': ac-lam-from ( e i type -- lam outcome )
+  -rot cells ac ac-xs @ + 1 lf-meta-abstract ['] ac-lam-of ok-apply2 ;
+: ac-lam ( e i -- lam outcome )
+  dup ac-x lf-fvar-type lf-meta-head-beta ['] ac-lam-from ok-apply3 ;'''
+new = ''': ac-lam-from ( e i type -- type body outcome )
+  -rot cells ac ac-xs @ + 1 lf-meta-abstract ;
+: ac-lam ( e i -- lam outcome )
+  dup ac-x lf-fvar-type lf-meta-head-beta ['] ac-lam-from ok-apply3
+  ['] ac-lam-of ok-apply2 ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review of cleanup-families-3, H1: round 3's chain, a step of two values and an outcome given to ok-apply3, so a refused head-beta of a binder's type eats the caller's cell"

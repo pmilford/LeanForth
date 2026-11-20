@@ -10,6 +10,7 @@
 \ tests/front/check_defeq.py compares the answers with pinned Lean's.
 include ../support/tester.fs
 include ../support/heap-watch.fs
+include ../support/meta-sweeps.fs
 require ./defeq-cases.fs
 
 : dq ( t s -- flag outcome ) lf-meta-defeq ;
@@ -556,5 +557,15 @@ T{ 0 ssort 0 ssort heads-apart 0 csort 0 ssort kab-heads= 0 ssort 0 csort kab-he
 T{ 0 csort 1 csort heads-apart 0 csort 0 lit-of kab-heads= 2 lit-of 1 ssort kab-heads=
    -> true true false false }T
 true lf-term-sharing!
+
+\ mkLambdaFVars's refusals keep the caller's cells (review of
+\ cleanup-families-3, H1): a binder whose type is a beta-redex,
+\ (fun a : Type => a -> a) Nat, swept over every room for new terms. The
+\ first run has no room for its type's head-beta; every refusal ends full
+\ with the cell under the call in place.
+lv1 sort 0 bv 1 bv tpi lam nat app lf-lctx-local made constant fbeta
+create xbeta 1 cells allot  fbeta xbeta !
+: lam-beta ( e -- lam outcome ) >r xbeta 1 r> lf-meta-mk-lambda ;
+T{ 55 fk ' lam-beta room-sweep swept? -> 55 true }T
 
 bye
