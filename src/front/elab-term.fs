@@ -170,9 +170,11 @@ end-structure
 : et-of-nat-type ( T lit -- type outcome )
   s" OfNat" et-at-u ok-then? if -rot et-app2 else nip nip no-result then ;
 : et-type-args ( type -- T lit ) dup lf-term-first@ lf-term-second@ swap lf-term-second@ ;
+: et-app-to ( i f -- term outcome ) swap lf-meta-app ;
+: et-of-nat-args ( type i c -- term outcome )
+  rot et-type-args et-app2 ['] et-app-to ok-apply2 ;
 : et-of-nat-value ( type i -- term outcome )
-  s" OfNat.ofNat" et-at-u ok-then? 0= if nip nip no-result exit then
-  rot et-type-args et-app2 ok-then? if swap lf-meta-app else nip no-result then ;
+  s" OfNat.ofNat" et-at-u ['] et-of-nat-args ok-apply3 ;
 : et-of-nat ( T lit -- term outcome )
   et-of-nat-type ok-then? 0= if no-result exit then
   dup lf-elab-inst-mvar ['] et-of-nat-value ok-apply2 ;

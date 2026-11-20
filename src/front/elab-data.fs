@@ -1165,9 +1165,10 @@ create ed-sun-members
 \ An entry of the record's table at index (from first) below the limit
 \ (a number): its number. The index is checked against the room left
 \ (limit - first), so first + index cannot wrap.
-: ed-entry-below ( index first limit -- n outcome )
-  over - rot ed-u32 ok-then? 0= if nip nip no-result exit then
+: ed-entry-in ( first room n -- n' outcome )
   tuck swap index? if + outcome-ok else drop ed-e-order ed-bad then ;
+: ed-entry-below ( index first limit -- n outcome )
+  over - rot ed-u32 ['] ed-entry-in ok-apply3 ;
 \ An earlier node or level of the record; its root; any of its levels.
 : ed-node-ref ( index -- n outcome )
   ed-nodes-first elab-nodes slab-count 1- ed-entry-below ;

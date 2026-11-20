@@ -265,7 +265,7 @@ end-structure
   me-newest lf-cref-new
   if lf-cterm-new if drop outcome-ok exit then then -1 outcome-full ;
 : me-finish ( name gen n outcome -- term outcome )
-  ok-then? if me-made else nip nip no-result then ;
+  ['] me-made ok-apply3 ;
 : me-scope ( i*x xt -- term outcome )
   me-pairs slab-count >r execute r> me-pairs slab-cut ;
 : me-at ( name gen addr n -- term outcome )   \ n < 0: no levels, as ok-each runs none

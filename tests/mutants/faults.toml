@@ -13469,8 +13469,8 @@ reason = "FE1c: a function expected (Lean throws) answers unsupported instead of
 [[fault]]
 id = "fe-infer-lambda-domain-open"
 file = "src/front/infer.fs"
-old = '''  dup if-x lf-fvar-type over if-abstract ok-then? 0= if nip nip no-result exit then'''
-new = '''  dup if-x lf-fvar-type 0 if-abstract ok-then? 0= if nip nip no-result exit then'''
+old = '''  dup if-x lf-fvar-type over if-abstract ['] if-pi-made ok-apply3 ;'''
+new = '''  dup if-x lf-fvar-type 0 if-abstract ['] if-pi-made ok-apply3 ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a lambda's inferred pi keeps the earlier binders' free variables in a later domain instead of abstracting them"
 
@@ -19968,8 +19968,8 @@ reason = "review s2-unfold-a re-check L1: a failing step's half-made result is s
 [[fault]]
 id = "fe-ed3-entry-below-absolute"
 file = "src/front/elab-data.fs"
-old = '''  over - rot ed-u32 ok-then? 0= if nip nip no-result exit then'''
-new = '''  rot ed-u32 ok-then? 0= if nip nip no-result exit then'''
+old = '''  over - rot ed-u32 ['] ed-entry-in ok-apply3 ;'''
+new = '''  rot ed-u32 ['] ed-entry-in ok-apply3 ;'''
 test = "GFORTH=$GFORTH python3 tests/front/test_elab_data.py"
 reason = "review s2-unfold-a re-check M2-new: an index of a second smart-unfolding body is checked against the whole table, not the room past the body's first entry, so a root beyond its nodes, a node naming itself or a level beyond its table is read"
 

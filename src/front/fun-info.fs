@@ -196,10 +196,10 @@ lf-tag-sort lf-tag-symbolic-sort lf-tag-fvar lf-tag-lit lf-tag-bvar 5 lf-tags
 : fi-declared ( f type -- )
   over fi-head-decl swap lf-term-const?
   if drop fi-state fi-decl @ dup 0< 0= if lf-menv-type then then fi-src ! ;
-: fi-run ( f n -- m outcome )
-  fi-params slab-clear over lf-infer ok-then? 0= if nip nip no-result exit then
+: fi-kinds ( f n type -- m outcome )
   rot over fi-declared swap fi-telescope dup ok? if drop fi-props then
   fi-params slab-count swap ;
+: fi-run ( f n -- m outcome ) fi-params slab-clear over lf-infer ['] fi-kinds ok-apply3 ;
 \ The telescope's free variables (and inferType's) go again at the end.
 : fi-mark ( -- mark ) lf-term-base lf-term-count @ + ;
 : lf-meta-fun-info ( f n -- m outcome ) fi-mark >r fi-run r> lf-lctx-drop ;

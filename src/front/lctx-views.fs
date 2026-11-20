@@ -168,8 +168,7 @@ end-structure
 : lv-replaced ( view i local -- view' outcome )
   lv-front ok-then? if -rot lv-rest else nip nip no-result then ;
 : lv-renamed-at ( view i name -- view' outcome )
-  >r 2dup lf-view-local r> lf-local-renamed ok-then?
-  if lv-replaced else nip nip no-result then ;
+  >r 2dup lf-view-local r> lf-local-renamed ['] lv-replaced ok-apply3 ;
 : lf-view-rename ( view fvar name -- view' outcome )
   >r over swap lf-view-find if r> lv-renamed-at else r> 2drop -1 outcome-invalid then ;
 

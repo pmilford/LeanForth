@@ -286,10 +286,11 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
 : if-abstract ( term n -- term' outcome )
   over if-holes? if 2drop -1 outcome-unsupported exit then
   if-xs-at swap lf-meta-abstract ;
+: if-pi-named ( i pi -- pi outcome ) swap if-lams slab-at @ lf-meta-named ;
+: if-pi-made ( body i dom -- pi outcome )
+  rot lf-term-pi room-result ['] if-pi-named ok-apply2 ;
 : if-pi ( body i -- pi outcome )
-  dup if-x lf-fvar-type over if-abstract ok-then? 0= if nip nip no-result exit then
-  rot lf-term-pi 0= if drop -1 outcome-full exit then
-  swap if-lams slab-at @ lf-meta-named ;
+  dup if-x lf-fvar-type over if-abstract ['] if-pi-made ok-apply3 ;
 : if-close ( type -- type' outcome )
   if-xs slab-count tuck if-abstract ok-then? 0= if nip no-result exit then
   swap begin dup 0> while 1- tuck if-pi ok-then? 0= if nip no-result exit then swap repeat

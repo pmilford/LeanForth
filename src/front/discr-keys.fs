@@ -100,9 +100,9 @@ end-structure
 : dk-at ( list -- addr ) dk-cells slab-at ;
 : lf-dt-first ( list -- term ) dk-at tc-term @ ;
 : lf-dt-rest ( list -- list' ) dk-at tc-rest @ ;
-: lf-dt-cons ( term list -- list' outcome )
-  1 dk-cells slab-claim ok-then? 0= if nip nip no-result exit then
+: dk-cell! ( term list i -- i outcome )
   tuck dk-at tuck tc-rest ! rot swap tc-term ! outcome-ok ;
+: lf-dt-cons ( term list -- list' outcome ) 1 dk-cells slab-claim ['] dk-cell! ok-apply3 ;
 : lf-dt-mark ( -- keys texts cells ) elab-keys-mark dk-cells slab-count ;
 : lf-dt-release ( keys texts cells -- ) dk-cells slab-cut elab-keys-drop ;
 : lf-dt-scoped ( i*x xt -- j*x ) lf-dt-mark 2>r >r execute r> 2r> lf-dt-release ;
