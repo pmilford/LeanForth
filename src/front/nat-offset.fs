@@ -150,7 +150,7 @@ texts-end constant no-ops6
 : no-push-arg ( t i n -- outcome ) lf-meta-nth-arg no-push ;
 \ An addition's two summands, the first on top.
 : no-push-sides ( t -- code outcome )
-  lf-meta-args2 swap >r no-push dup ok? if drop r> no-push else r> drop then 0 swap ;
+  lf-meta-args2 no-push swap no-push outcome-and 0 swap ;
 : no-lit-step ( lit -- code outcome )
   dup lf-lit-small? if lf-lit-cell no-add-acc 0 swap
   else drop 0 outcome-unsupported then ;
