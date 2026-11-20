@@ -266,8 +266,11 @@ def golden():
 
 
 def self_test(want):
-    if len(want) != 40:
-        raise Failure(f"harness self-test: {len(want)} golden lines, expected 40")
+    # 42: the 40 lines of the files checked here and zero_add_ex's two (plan row TB1: the
+    # Lean twin of tests/front/03-zero-add-exact.lf, which the slice cannot check, its search
+    # needing an instance the slice leaves out; checked on all of Init).
+    if len(want) != 42:
+        raise Failure(f"harness self-test: {len(want)} golden lines, expected 42")
     wrong = dict(want)
     key = next(iter(wrong))
     wrong[key] = wrong[key].replace("#0", "#1", 1)
