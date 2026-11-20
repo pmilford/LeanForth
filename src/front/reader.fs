@@ -35,7 +35,10 @@
 \ lfn-library-arity ( name -- arity unfolds? true | false ), a deferred
 \ word the command line sets (cli/check-lf.fs).
 \ State: one context record, lfn-decl (the declaration being read), in
-\ the checker context (ADR 0009); the syntax store's (syntax.fs).
+\ the checker context (ADR 0009); the syntax store's (syntax.fs); the
+\ notation words' table lfn-notations, written only while the modules
+\ load (lfn-open refuses it after context-new) and read in place by
+\ every context.
 
 require ../lib/lib.fs
 require ../lib/name-table.fs
@@ -159,9 +162,12 @@ defer lfn-library-arity ( name -- arity unfolds? true | false )
 \ - / <= >= are not shadowed outside a run, and \/ /\ are tokens of
 \ their own, never the comment word \.
 \ The table: per word, the macro's kind (0: a notation name), then the
-\ constant's name; two zero cells are an empty table (lib/name-table.fs),
-\ read-only once loaded.
-align here 0 , 0 , constant lfn-notations
+\ constant's name. It is written only while the modules load, before any
+\ context is made (lib/context.fs's context-sealed?): runs and workers
+\ read it in place (review ops-symbols B1). Every writer goes through
+\ lfn-open.
+name-table: lfn-notations
+: lfn-open ( -- ) context-sealed? abort" reader.fs: a notation word after context-new" ;
 : lfn-entry-kind ( entry -- kind ) name-entry-data @ ;
 : lfn-entry-const ( entry -- c-addr u ) name-entry-data cell+ count ;
 \ The entry of the word being run: every word that runs these has one.
@@ -177,24 +183,28 @@ align here 0 , 0 , constant lfn-notations
   syn-k-const lfa-here lfn-new swap syn-a! dup syn-a@ lfn-const-arity ;
 : lfn-w-named ( v1 .. vn -- t )
   lfn-entry lfn-entry-const lfn-root-const lfn-const-at lfn-apply ;
-\ Registering (load-time words): the entry made (a word twice aborts);
-\ its constant's row must spell it, in Unicode or ASCII, blanks trimmed;
-\ then the word's natural meaning, an operator's or a name's.
-: lfn-entry, ( c-addr u kind word-addr word-u -- entry )
-  2dup lfn-notations name-table-find abort" reader.fs: a notation word twice"
-  lfn-notations name-entry , counted, lfn-notations cell+ @ ;
-: lfn-row ( entry -- row | 0 ) lfn-entry-const lf-nt-find ;
-: lfn-mode-spells? ( entry mode -- flag )
-  over lfn-row swap lf-nt-sym text-trim rot name-entry-name compare 0= ;
-: lfn-spelt? ( entry -- flag )
-  dup lfn-row 0= if drop false exit then
-  dup lf-print-unicode lfn-mode-spells? swap lf-print-ascii lfn-mode-spells? or ;
-: lfn-meaning ( c-addr u kind xt "word" -- )
-  >r >in @ >r parse-name lfn-entry, lfn-spelt? 0=
-  abort" reader.fs: a notation word its constant's row lacks"
-  r> >in ! r> lfa-natural! ;
-: lfn-operator: ( c-addr u kind "word" -- ) ['] lfn-w-operator lfn-meaning ;
-: lfn-notation-name: ( c-addr u "word" -- ) 0 ['] lfn-w-named lfn-meaning ;
+\ Registering (load-time words). The next word, peeked, is checked
+\ before anything is written: its constant's row (present/notation-
+\ table.fs) spells it, in Unicode or ASCII, blanks trimmed; it is a
+\ syntax word (author/words.fs); it is not in the table yet. Then its
+\ entry is laid down and it gets its natural meaning, an operator's or a
+\ name's, so a refused registration leaves nothing behind.
+: lfn-spells? ( row mode -- flag ) lf-nt-sym text-trim lfn-peek compare 0= ;
+: lfn-row-spells? ( row -- flag )
+  dup lf-print-unicode lfn-spells? swap lf-print-ascii lfn-spells? or ;
+: lfn-spelt ( c-addr u "word" -- c-addr u )
+  2dup lf-nt-find dup if lfn-row-spells? then
+  0= abort" reader.fs: a notation word its constant's row lacks" ;
+: lfn-syntax-word ( "word" -- )
+  lfn-peek lf-words search-wordlist 0= abort" reader.fs: not a syntax word" drop ;
+: lfn-new-word ( "word" -- c-addr u )
+  lfn-peek 2dup lfn-notations name-table-find abort" reader.fs: a notation word twice" ;
+: lfn-checked ( c-addr u "word" -- c-addr u w-addr w-u )
+  lfn-spelt lfn-syntax-word lfn-new-word ;
+: lfn-entry, ( c-addr u kind "word" -- )
+  lfn-open >r lfn-checked lfn-notations name-entry r> , counted, ;
+: lfn-operator: ( c-addr u kind "word" -- ) lfn-entry, ['] lfn-w-operator lfa-natural! ;
+: lfn-notation-name: ( c-addr u "word" -- ) 0 lfn-entry, ['] lfn-w-named lfa-natural! ;
 \ The meanings. Lean: infixl:65 + -, infixl:70 * / %, infix:50 = < >,
 \ unicode(" ≤ ", " <= "), unicode(" ≥ ", " >= ") (Init/Notation.lean:
 \ 284-288, 375-378), infix:50 ≠ (Init/Core.lean:880); notation ¬ and

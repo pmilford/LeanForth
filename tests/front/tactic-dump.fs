@@ -11,7 +11,8 @@
 \ tactics; then its arguments, each a term or a name @ line:col. A term is
 \ a numeral, a constant, vN (the binder in slot N), a hypothesis as
 \ name#j (j: the argument that gave it its name), ( f a .. ) an
-\ application, or [ binop% f a b ] and [ binrel% f a b ].
+\ application, or [ binop% f a b ], [ binrel% f a b ] and
+\ [ rightact% f a b ].
 
 : dump-library ( -- )
   s" tests/front/tactic-slice.ndjson" true lfc-library-open ok? 0= abort" dump: no library" ;
@@ -40,6 +41,7 @@ defer .term ( node -- )
     syn-k-app of ." ( " dup syn-a@ .term .args ."  )" endof
     syn-k-binop of ." [ binop% " .op ."  ]" endof
     syn-k-binrel of ." [ binrel% " .op ."  ]" endof
+    syn-k-rightact of ." [ rightact% " .op ."  ]" endof
     ." ?" endcase ;
 ' .node is .term
 

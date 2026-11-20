@@ -98,10 +98,42 @@ reason = "S3a-ops C2: - builds binrel% HSub.hSub where Lean's macro is binop% (N
 [[fault]]
 id = "rd-op-skips-row-check"
 file = "src/front/reader.fs"
-old = '''  >r >in @ >r parse-name lfn-entry, lfn-spelt? 0='''
-new = '''  >r >in @ >r parse-name lfn-entry, drop false'''
+old = '''  0= abort" reader.fs: a notation word its constant's row lacks" ;'''
+new = '''  drop ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "S3a-ops C2: a notation word registered without the notation table's row check: LT.lt's meaning given to the syntax word $ loads where it must abort"
+
+[[fault]]
+id = "rd-notation-after-context"
+file = "src/front/reader.fs"
+old = ''': lfn-open ( -- ) context-sealed? abort" reader.fs: a notation word after context-new" ;'''
+new = ''': lfn-open ( -- ) ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "review ops-symbols B1: the notation table, read in place by every context, is written after context-new: a registration then gets past the seal (∈ aborts only at its syntax word, + only as made twice)"
+
+[[fault]]
+id = "rd-notation-no-syntax-check"
+file = "src/front/reader.fs"
+old = '''  lfn-spelt lfn-syntax-word lfn-new-word ;'''
+new = '''  lfn-spelt lfn-new-word ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "review ops-symbols B1: a registration whose word no syntax word has (∈, Membership.mem's row) lays its entry down before lfa-natural! aborts: the table keeps a 23rd entry"
+
+[[fault]]
+id = "rd-gt-operands-swapped"
+file = "src/front/reader.fs"
+old = '''  2 lfa-args lfn-two lfn-entry lfn-op-node lfn-operands lfn-value ;'''
+new = '''  2 lfa-args lfn-two lfa-token s" >" compare 0= if swap then lfn-entry lfn-op-node lfn-operands lfn-value ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "review ops-symbols L2: > alone takes its operands swapped (n m > built as GT.gt m n, Lean's m > n), a slip the kernel cannot see when the swapped statement is also true"
+
+[[fault]]
+id = "rd-ge-operands-swapped"
+file = "src/front/reader.fs"
+old = '''  2 lfa-args lfn-two lfn-entry lfn-op-node lfn-operands lfn-value ;'''
+new = '''  2 lfa-args lfn-two lfa-token s" ≥" compare 0= if swap then lfn-entry lfn-op-node lfn-operands lfn-value ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "review ops-symbols L2: ≥ alone takes its operands swapped (n m ≥ built as GE.ge m n, Lean's m ≥ n)"
 
 [[fault]]
 id = "rd-named-takes-spelling"
@@ -142,6 +174,14 @@ old = '''  dup et-act? if drop outcome-ok exit then'''
 new = '''  dup drop'''
 test = "$GFORTH tests/front/front.fs"
 reason = "S3a-ops C4: applyCoe visits ^'s exponent and asks ^ for a homogeneous instance (Lean's applyCoe leaves rightact%'s right operand alone, Extra.lean:420): a Bool exponent is coerced to Nat, 131"
+
+[[fault]]
+id = "et-coe-rightact-op"
+file = "src/front/elab-term.fs"
+old = '''  dup et-act? if drop outcome-ok exit then'''
+new = '''  dup et-act? over et-leaf? and if drop outcome-ok exit then'''
+test = "$GFORTH tests/front/front.fs"
+reason = "S3a-ops C4: rightact% asked for a homogeneous instance (Lean's applyCoe never asks, Extra.lean:420): b ^ n with b : Bool answers 139, not the instance search's 119"
 
 [[fault]]
 id = "lib-text-trim-keeps-start"

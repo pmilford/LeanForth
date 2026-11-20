@@ -96,6 +96,15 @@ T{ s" n m >" op-read s" GT.gt" root-is -> 71 syn-k-binrel true }T
 T{ s" n m ≥" op-read s" GE.ge" root-is -> 71 syn-k-binrel true }T
 T{ s" n m >=" op-read s" GE.ge" root-is -> 71 syn-k-binrel true }T
 T{ s" n m <=" op-read s" LE.le" root-is -> 71 syn-k-binrel true }T
+\ Each operator's operands in order, as Lean's macro: n m > is GT.gt n m,
+\ never a flipped <, and n m ≥ is GE.ge n m (review ops-symbols L2).
+: operands ( -- a b ) lf-front-statement dup syn-b@ syn-a@ swap syn-c@ syn-a@ ;
+T{ s" n m >" op-read operands -> 71 0 1 }T
+T{ s" n m ≥" op-read operands -> 71 0 1 }T
+T{ s" n m <" op-read operands -> 71 0 1 }T
+T{ s" n m /" op-read operands -> 71 0 1 }T
+T{ s" n m %" op-read operands -> 71 0 1 }T
+T{ s" n m ^" op-read operands -> 71 0 1 }T
 T{ s" n m ^" op-read s" HPow.hPow" root-is -> 71 syn-k-rightact true }T
 T{ s" n 2 3 ^ ^" op-read lf-front-statement syn-c@ kind -> 71 syn-k-rightact }T
 \ ¬ ∧ ∨ ↔ ∣ and /\ \/ <->: the root constant applied as a name (And takes
@@ -107,6 +116,9 @@ T{ s" n n = m m = /\" op-read app-of swap lfa-decl-name s" And" named? -> 71 2 t
 T{ s" theorem t Nat explicit: n n n = n n = \/ := n end t" nfails -> 38 1 39 }T
 T{ s" theorem t Nat explicit: n n n = ¬ := n end t" nfails -> 38 1 33 }T
 T{ s" theorem t Nat explicit: n n n = n n = ↔ := n end t" nfails -> 38 1 39 }T
+T{ s" theorem t Nat explicit: n n n = n n = ∨ := n end t" nfails -> 38 1 39 }T
+T{ s" theorem t Nat explicit: n n n ∣ := n end t" nfails -> 38 1 31 }T
+T{ s" ∣" lfn-notations name-table-find lfn-entry-const s" Dvd.dvd" compare -> 0 }T
 \ Too few values: the frame's error 3 at the word.
 T{ s" theorem t Nat explicit: n 0 < := n end t" nfails -> 3 1 29 }T
 T{ s" theorem t Nat explicit: n n n = ∧ := n end t" nfails -> 3 1 33 }T
@@ -122,19 +134,43 @@ T{ 7 3 - 7 3 / 3 7 <= 3 7 >= -> 4 2 true false }T
 T{ s" -" lf-words search-wordlist drop ' - <> s" <=" lf-words search-wordlist drop ' <= <>
    -> true true }T
 T{ s" \/" lfn-notations name-table-find lfn-entry-const s" Or" compare -> 0 }T
-\ A registration whose row is missing, whose spelling the row lacks, or
-\ which is made twice aborts while loading, before the word gets its
-\ meaning ($ keeps its own); one with no syntax word (zz) cannot load.
+\ Every notation word has its entry, and the table no other (review
+\ ops-symbols L3: a word words.fs lists but reader.fs left out would be
+\ error 70 at its use).
+variable entries#
+: entry+ ( entry -- ) drop 1 entries# +! ;
+: entries ( -- n ) 0 entries# ! lfn-notations ['] entry+ name-table-each entries# @ ;
+: entered ( "word ..." -- n )   \ how many of the line's words have an entry
+  0 begin parse-name dup while lfn-notations name-table-find 0<> - repeat 2drop ;
+entered + - * / % ^ = ≠ < > ≤ <= ≥ >= ¬ ∧ /\ ∨ \/ ↔ <-> ∣
+constant entered#
+T{ entered# entries -> 22 22 }T
+\ A registration whose row is missing or lacks the spelling, whose word
+\ is no syntax word, or which is made twice aborts while loading, each
+\ with its own message, before anything is written: the table keeps its
+\ 22 entries and the word its meaning ($ keeps its own; review ops-symbols
+\ B1, L2). The message of abort" is Gforth's abort-string (1.0) or
+\ "error (0.7.3).
+[defined] abort-string [if]
+: abort-text ( -- c-addr u ) abort-string @ count ;
+[else]
+: abort-text ( -- c-addr u ) "error @ count ;
+[then]
 : reg ( c-addr u -- code ) ['] evaluate catch dup if nip nip then ;
-T{ s\" s\" Foo.bar\" syn-k-binop lfn-operator: zz" reg -> -2 }T
-T{ s\" s\" LT.lt\" syn-k-binrel lfn-operator: $" reg -> -2 }T
+: says? ( c-addr u -- flag ) abort-text compare 0= ;
+: msg-lacks ( -- c-addr u ) s" reader.fs: a notation word its constant's row lacks" ;
+: msg-twice ( -- c-addr u ) s" reader.fs: a notation word twice" ;
+T{ s\" s\" Foo.bar\" syn-k-binop lfn-operator: zz" reg msg-lacks says? entries -> -2 true 22 }T
+T{ s\" s\" LT.lt\" syn-k-binrel lfn-operator: $" reg msg-lacks says? entries -> -2 true 22 }T
 T{ s" theorem t Nat explicit: n 0 n + n = := ' Nat.succ n $ end t" nfails -> 71 1 55 }T
-T{ s\" s\" LT.lt\" syn-k-binrel lfn-operator: <<" reg -> -2 }T
-T{ s\" s\" Not\" lfn-notation-name: !" reg -> -2 }T
-T{ s\" s\" HAdd.hAdd\" syn-k-binop lfn-operator: +" reg -> -2 }T
+T{ s\" s\" LT.lt\" syn-k-binrel lfn-operator: <<" reg msg-lacks says? entries -> -2 true 22 }T
+T{ s\" s\" Not\" lfn-notation-name: !" reg msg-lacks says? entries -> -2 true 22 }T
+T{ s\" s\" HAdd.hAdd\" syn-k-binop lfn-operator: +" reg msg-twice says? entries -> -2 true 22 }T
+T{ s\" s\" Membership.mem\" syn-k-binrel lfn-operator: ∈" reg
+   s" reader.fs: not a syntax word" says? entries -> -2 true 22 }T
 T{ s" zz" lf-words search-wordlist s" <<" lf-words search-wordlist -> 0 0 }T
 \ The words.fs list: a word reserved already aborts.
-T{ s" lfa-natural-words +" reg -> -2 }T
+T{ s" lfa-natural-words +" reg s" words.fs: reserved twice" says? -> -2 true }T
 T{ s\" theorem t\n 123456789\n 1 = := by end t" nfails -> 71 3 12 }T
 T{ lf-front-statement syn-b@ dup syn-a@ swap at -> 123456789 2 2 }T
 
@@ -862,6 +898,10 @@ T{ s" Nat explicit: n Bool explicit: b n b ^ n =" ran -> 119 }T
 T{ s" Nat explicit: n Bool explicit: b n n b ^ * n =" ran -> 119 }T
 T{ s" Nat explicit: n Bool explicit: b n b b + ^ n =" ran -> 139 }T
 T{ s" Nat explicit: n Bool explicit: b n b b = ^ n =" ran -> 119 }T
+\ Nor is ^ itself asked for a homogeneous instance (Lean's applyCoe never
+\ asks, Extra.lean:420): b ^ n with b : Bool reaches the instance search
+\ (119), never the coercion of a binop%'s tree (139; review ops-symbols B2).
+T{ s" Bool explicit: b Nat explicit: n b n ^ b =" ran -> 119 }T
 \ A notation name is the root constant: inside namespace Foo, with its own
 \ Foo.And (a Nat, no arguments), 2 = 2 ∧ 3 = 3 still elaborates with And
 \ and reaches by-decide, which this slice cannot run (93), as outside it.
@@ -869,6 +909,16 @@ T{ s" Nat explicit: n Bool explicit: b n b b = ^ n =" ran -> 119 }T
 T{ s" theorem t 2 2 = 3 3 = ∧ := by by-decide end t" text-code -> 93 }T
 T{ s" namespace Foo axiom And Nat end And theorem t 2 2 = 3 3 = ∧ := by by-decide end t end Foo"
    text-code -> 93 }T
+\ Last, as a context made seals the table for the rest of the run: once
+\ a context exists every registration aborts, first, with its own
+\ message, and the table keeps its entries (review ops-symbols B1).
+: msg-sealed ( -- c-addr u ) s" reader.fs: a notation word after context-new" ;
+context-new throw constant sealed-context
+T{ s\" s\" Membership.mem\" syn-k-binrel lfn-operator: ∈" reg msg-sealed says? entries
+   -> -2 true 22 }T
+T{ s\" s\" HAdd.hAdd\" syn-k-binop lfn-operator: +" reg msg-sealed says? entries
+   -> -2 true 22 }T
+sealed-context context-free throw
 T{ depth -> 0 }T
 cr .( front.fs: all tests passed) cr
 bye
