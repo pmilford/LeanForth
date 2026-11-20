@@ -169,3 +169,14 @@ A new clone of `main` (`b9ba3243`) in a scratch folder, the README followed line
   user's `make check` prints `check_mathlib_slice: SKIPPED, NOT RUN` and goes on, and a
   recorded run (a tier, a push, the daily run) still fails
   (`tests/front/check_mathlib_slice.py`, `REQUIRE_MATHLIB=1` set by `scripts/tested-tree.py`).
+
+Second fresh-clone test the same day, of `main` `996f686b` (the tree with the symbol words, `divides` and the
+rewritten README), before the tag `svfig-prepre-alpha`:
+
+- `scripts/install-gforth.sh`: exit 0, 101 s; `scripts/install-lean.sh`: exit 0, 13 s.
+- The README's three `bin/leanforth check` commands: exit 0 each, ending `548 declarations: 548 accepted`,
+  `580 accepted` and `1272 declarations: 1272 accepted` as the README states (1 s, 1 s and 6 s).
+- `make test JOBS=4`: exit 0, 5 min 21 s.
+- The two targets that need files a clone does not have say so and go on, exit 0:
+  `make reference-mathlib-slice` ("SKIPPED, NOT RUN: this machine has no Mathlib export") and
+  `make reference-decide-init` ("SKIPPED, NOT RUN: no Init snapshot").
