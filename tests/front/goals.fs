@@ -319,6 +319,14 @@ lf-view-empty lf-mctx-view!
 T{ cap-reset hidinside cap s" _fvar." search nip nip -> outcome-ok true }T
 : hidthrows ( t -- ) drop -77 throw ;
 T{ fhid9 ' hidthrows vhid9 ' lf-with-names catch nip nip nip gp gp-active @ -> -77 false }T
+\ No room for the names' codes (the heap refusing gp-codes' block, given
+\ back first): the plain names (n in its own context), never codes not
+\ made (review tactic-fidelity L4).
+: codes-anew ( -- ) gp-codes dup slab-unit over slab-limit rot dup slab-free slab-init drop ;
+T{ vhid9 lf-mctx-view! codes-anew 1 heap-refusals ! cap-reset fhid9 ' hidprint vhid9
+   lf-with-names heap-refusals @ 0 heap-refusals ! cap s" n" compare gp gp-active @
+   -> outcome-ok 0 0 false }T
+lf-view-empty lf-mctx-view!
 \ Failures: no goal, a stale one, an instantiation that is unsupported;
 \ the printer's notation flag is restored whatever happens.
 false lf-print-notation!

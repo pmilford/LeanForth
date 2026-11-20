@@ -62,6 +62,7 @@ require ../author/declarations.fs
 require ./mvars.fs
 require ./meta-config.fs
 require ./meta-env.fs
+require ./meta-spine.fs
 require ./term-eqv.fs
 require ./term-find.fs
 require ./instantiate.fs
@@ -96,8 +97,7 @@ abl-most cells context-record: abl-cells
 : abl-eq-app? ( t -- flag ) 3 s" Eq" lf-meta-app-of? ;
 : lf-eq? ( t -- α a b true | false )
   dup abl-eq-app? 0= if drop false exit then
-  dup lf-term-second@ >r lf-term-first@ dup lf-term-first@ lf-term-second@ swap
-  lf-term-second@ r> true ;
+  dup lf-term-second@ >r lf-term-first@ lf-meta-args2 r> true ;
 : abl-eq ( t -- α a b ) lf-eq? 0= if abl-fail then ;
 : abl-refl? ( h -- flag ) lf-meta-head s" Eq.refl" lf-meta-const-named? ;   \ isAppOf
 : abl-refl-arg? ( h -- a true | h false )   \ isRefl?

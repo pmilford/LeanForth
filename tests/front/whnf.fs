@@ -534,6 +534,12 @@ T{ ?a fk nadd dup lf-meta-whnf-r drop = fk ?a nadd dup lf-meta-whnf-r drop =
    ?f ?f nadd dup lf-meta-whnf-r drop = ?a ?c nadd dup lf-meta-whnf-r drop =
    -> true true true true }T
 T{ ?c ?c nadd lf-meta-whnf-r -> -1 outcome-unsupported }T
+\ ?sn := Nat.succ ?n holds an unassigned metavariable and no free variable
+\ once instantiated: no value either, so none, the term itself (review
+\ tactic-fidelity L7).
+nat mv-natural lf-mvar-new made constant ?sn   0 ?sn 0 s" Nat.succ" cn ?n app lf-mvar-assign made drop
+T{ ?sn 2 nlit nadd dup lf-meta-whnf-r drop = 2 nlit ?sn nadd dup lf-meta-whnf-r drop =
+   -> true true }T
 T{ 2 heap-refusals ! ?a ?c nadd lf-meta-whnf-r heap-refusals @ 0 heap-refusals !
    -> -1 outcome-unsupported 0 }T
 \ toCtorIfLit (S2 merge B): the literal 5 is Nat.succ 4, 0 is Nat.zero.

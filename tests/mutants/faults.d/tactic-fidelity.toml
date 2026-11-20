@@ -108,7 +108,7 @@ reason = "9.4.8l rfl: applyRfl without approxDefEq (Rfl.lean:89): the quasi patt
 [[fault]]
 id = "tf-rfl-rel-unchecked"
 file = "src/front/meta-tactic/goal.fs"
-old = ''': mrf-rel ( t -- t ) dup mrf-binary? 0= if outcome-unsupported lf-must then ;'''
+old = ''': mrf-rel ( t -- t ) dup lf-meta-app2? 0= if outcome-unsupported lf-must then ;'''
 new = ''': mrf-rel ( t -- t ) ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l rfl: a relation of fewer than two arguments read for sides (Lean's binary-relation error, not ported) instead of 93"
@@ -225,3 +225,53 @@ old = ''': mrf-apply-rfl ( -- ) mrf-whnf-r mrf-approx? 0= if mrf-unequal then mr
 new = ''': mrf-apply-rfl ( -- ) mrf-whnf-r mrf-approx? 0= if mrf-unequal then mrf-closed ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l rfl: applyRfl closes a relation other than Eq (R r r) with Eq.refl where Lean looks for @[refl] lemmas (93)"
+
+# --- The Forth review of the branch (2026-11-19-tactic-fidelity.md), its fixes --
+
+[[fault]]
+id = "tf-app2-any-application"
+file = "src/front/meta-spine.fs"
+old = '''  dup lf-meta-app? if lf-term-first@ lf-meta-app? else drop false then ;'''
+new = '''  dup lf-meta-app? if drop true else drop false then ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-fidelity L1 (its r1): a relation of one argument read for two sides (Lean's binary-relation error, 93 here)"
+
+[[fault]]
+id = "tf-args2-swapped"
+file = "src/front/meta-spine.fs"
+old = ''': lf-meta-args2 ( term -- a b ) dup lf-term-first@ lf-term-second@ swap lf-term-second@ ;'''
+new = ''': lf-meta-args2 ( term -- a b ) dup lf-term-second@ swap lf-term-first@ lf-term-second@ ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-fidelity B1: the last two arguments given in the wrong order (an equation's sides, a sum's summands swapped)"
+
+[[fault]]
+id = "tf-synth-failure-is-125"
+file = "src/front/tactic-core.fs"
+old = ''': tcr-synthesized ( outcome -- ) dup ok? 0= if lf-tac-elab-fail then drop ;'''
+new = ''': tcr-synthesized ( outcome -- ) dup ok? 0= if lf-tac-elab-detail drop lfa-e-elab-synth lf-tac-stop then drop ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "review tactic-fidelity M1 (its r23b): an exhausted or unsupported synthesis reported as Lean's 125, which try catches as a Lean error"
+
+[[fault]]
+id = "tf-nat-value-fvar-only"
+file = "src/front/whnf.fs"
+old = '''  lf-instantiate-mvars ok? if wm-open? else drop false then ;'''
+new = '''  lf-instantiate-mvars ok? if lf-meta-has-fvar? else drop false then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review tactic-fidelity L7 (its r3): withNatValue reads an argument assigned Nat.succ ?n (no free variable, an open metavariable) as a value"
+
+[[fault]]
+id = "tf-elab-fail-no-see"
+file = "src/front/tactic-core.fs"
+old = ''': lf-tac-elab-fail ( outcome -- ) lf-tac-elab-detail lf-elab-code lfa-see! lf-tac-stop ;'''
+new = ''': lf-tac-elab-fail ( outcome -- ) lf-tac-elab-detail lf-elab-code drop lf-tac-stop ;'''
+test = "$GFORTH tests/front/elab.fs"
+reason = "review tactic-fidelity L7 (its r24): a tactic term's elaboration error loses its second position (the term's place)"
+
+[[fault]]
+id = "tf-names-no-room-codes"
+file = "src/front/goal-print.fs"
+old = ''': gp-names-on ( view -- ) gp gp-view ! gp-codes! ok? gp gp-active ! ;'''
+new = ''': gp-names-on ( view -- ) gp gp-view ! gp-codes! drop true gp gp-active ! ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "review tactic-fidelity L4 (its r6): with no room for the codes, a message's terms read codes that were never made"

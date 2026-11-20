@@ -146,7 +146,11 @@ require ./term-find.fs
 \ ends), an internal code such as the stuck signal made invalid. A bit a
 \ caller's scope sets, as Lean's withAssignableSyntheticOpaque and
 \ approxDefEq do (meta-config.fs), stays set (plan 9.4.8l, review
-\ tactic-move M2: elabTermEnsuringType's, tactic-core.fs).
+\ tactic-move M2: elabTermEnsuringType's, tactic-core.fs). Lean's
+\ setElabConfig (Elab/Config.lean:61-62) also clears constApprox and
+\ quasiPatternApprox, once, when TermElabM starts; OR-ing gives the same
+\ configuration: no caller of this word holds those bits, and inside
+\ TermElabM a scope's bits stay set in Lean too (review tactic-fidelity L5).
 : lf-defeq-elab-at ( t s mode -- flag outcome )
   ['] lf-meta-defeq lf-defeq-flags lf-defeq-elab or rot lf-meta-with outcome-sane ;
 : lf-tac-defeq ( t s -- flag outcome ) lf-tr-default lf-defeq-elab-at ;

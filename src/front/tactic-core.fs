@@ -92,6 +92,7 @@ require ../lib/runs.fs
 require ../author/errors.fs
 require ./syntax.fs
 require ./mvars.fs
+require ./meta-config.fs
 require ./goals.fs
 require ./goal-print.fs
 require ./elab-term.fs

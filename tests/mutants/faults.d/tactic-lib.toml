@@ -320,8 +320,8 @@ reason = "a2-i review F4: a result with a level or outer metavariable answered a
 [[fault]]
 id = "lib-eq-sides-swapped"
 file = "src/front/app-builder.fs"
-old = '''  lf-term-second@ r> true ;'''
-new = '''  lf-term-second@ swap r> true ;'''
+old = '''  dup lf-term-second@ >r lf-term-first@ lf-meta-args2 r> true ;'''
+new = '''  dup lf-term-second@ >r lf-term-first@ lf-meta-args2 swap r> true ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i review F10: Expr.eq? (lf-eq?) gives α and a swapped, so every builder and tactic reading an Eq takes the wrong argument"
 

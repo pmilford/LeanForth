@@ -100,6 +100,7 @@ require ../meta-config.fs
 require ../whnf.fs
 require ../infer.fs
 require ../defeq.fs
+require ../meta-spine.fs
 require ../term-eqv.fs
 require ../term-find.fs
 require ../tactic-run.fs
@@ -269,13 +270,10 @@ end-structure
 \ Lean's "binary relation" error, not ported, 93; HEq, whose HEq.refl
 \ path is not ported either, never comes here: its whnf is no Eq);
 \ approxDefEq isDefEqGuarded of the sides.
-: mrf-binary? ( t -- flag )
-  dup lf-term-app? if lf-term-first@ lf-term-app? else drop false then ;
-: mrf-rel ( t -- t ) dup mrf-binary? 0= if outcome-unsupported lf-must then ;
-: mrf-rel-sides ( t -- lhs rhs ) dup lf-term-first@ lf-term-second@ swap lf-term-second@ ;
+: mrf-rel ( t -- t ) dup lf-meta-app2? 0= if outcome-unsupported lf-must then ;
 : mrf-whnf-r ( -- )
   mrf mrf-goal @ lf-goal-type lf-instantiate! lf-whnf-r! mrf-rel
-  dup mrf mrf-eq ! mrf-rel-sides mrf mrf-sides 2! ;
+  dup mrf mrf-eq ! lf-meta-args2 mrf mrf-sides 2! ;
 : mrf-approx? ( -- flag ) mrf mrf-sides 2@ lf-defeq-approx! ;
 : mrf-lhs ( -- lhs ) mrf mrf-sides 2@ drop ;
 \ @Eq.refl.{u} α lhs, u and α those of the goal's Eq (mkConst Eq.refl us,

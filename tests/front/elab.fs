@@ -213,6 +213,11 @@ T{ s" theorem e2 0 0 = := 0 Eq.refl end e2" nfails see-at -> 126 1 31 1 12 }T
 real-defaults
 \ numerals are data: 0 against the proposition Nat.zero = Nat.zero.
 T{ s" theorem e3 Nat.zero Nat.zero = := 0 end e3" nfails see-at -> 127 1 37 1 35 }T
+\ The same in a tactic's term (tactic-core.fs's lf-tac-elab-fail, review
+\ tactic-fidelity L7): the error at the step, the numeral the second
+\ position.
+T{ s" theorem e3t Nat.zero Nat.zero = := by 0 by-exact end e3t" nfails see-at
+   -> 127 1 41 1 39 }T
 \ A coercion Lean would look for: Nat.zero = Bool.true is uncomparable in
 \ analyze and CoeT is in the slice (131 there); Bool.true as a proof of
 \ Nat.zero = Nat.zero is ensureHasType's coercion (131 at end).

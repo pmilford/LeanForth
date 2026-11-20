@@ -38,8 +38,9 @@
 \ printer's sink (lf-print-setup); lf-with-names ( i*x xt view -- j*x ):
 \ xt run with view's free variables named as a goal of view names its
 \ hypotheses (Lean prints a message's terms in its context, sanitized:
-\ n✝; tactic-msg.fs's terms), the plain names when the codes find no room
-\ or a goal is printing, the state put back however xt ends.
+\ n✝; tactic-msg.fs's terms); inside a goal print, that goal's names (the
+\ view given is not used); the plain names when the codes find no room;
+\ the state put back however xt ends.
 \ Outcomes: ok; invalid for a goal that is no live metavariable; what an
 \ instantiation or the printer answers (exhausted, full, unsupported). On
 \ a failure part of the text is written. Untrusted presentation.

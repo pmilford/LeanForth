@@ -394,6 +394,29 @@ T{ lf-elab-pending-reset lf-elab-error-reset ' pend-append ' lf-tac-with-synth c
    lf-elab-error drop pends -> lf-author-throw 125 125 1 }T
 T{ 0 lfa-detail slab-at lfa-detail slab-count s"   @Append Type" compare -> 0 }T
 lf-tac-forget
+\ A synthesis that runs out of fuel, or that LeanForth cannot finish, and
+\ records no error stops with its own class, never Lean's 125 (review
+\ tactic-fidelity M1): 138 exhausted, 139 unsupported (OfNat ?α 1, stuck
+\ until default instances, whose class lookup answers unsupported, standing
+\ in for elab-pending.fs's lf-elab-class?; with the real lookup the default
+\ instance fills it).
+: pend-starved ( -- ) pend-append 0 lf-meta-budget! ;
+T{ lf-elab-pending-reset lf-elab-error-reset ' pend-starved ' lf-tac-with-synth catch nip
+   lf-meta-default-budget lf-meta-budget! lf-author-code dup lf-author-outcome
+   -> lf-author-throw 138 outcome-exhausted }T
+lf-tac-forget
+: level0 ( -- u ) s" True" lf-mk-const0 lf-level! ;
+: ofnat-mv ( -- t ) s" OfNat" level0 lf-mk-const1 type0 mv-natural lf-mvar-new made lf-mk-app
+  1 et-lit made lf-mk-app ;
+: pend-ofnat ( -- ) ofnat-mv mv-synthetic lf-mvar-new made lf-elab-pend drop ;
+T{ lf-elab-pending-reset lf-elab-error-reset ' pend-ofnat lf-tac-with-synth pends -> 0 }T
+: class-gap ( type -- false outcome ) drop false outcome-unsupported ;
+: gap-synth ( -- code )
+  action-of lf-elab-class? >r ['] class-gap is lf-elab-class?
+  ['] pend-ofnat ['] lf-tac-with-synth catch nip r> is lf-elab-class? ;
+T{ lf-elab-pending-reset lf-elab-error-reset gap-synth lf-author-code dup lf-author-outcome
+   -> lf-author-throw 139 outcome-unsupported }T
+lf-tac-forget
 T{ lf-elab-pending-reset pend-append ' pend-throws ' lf-tac-with-synth catch nip lf-author-code pends
    -> -77 0 2 }T
 lf-elab-pending-reset lf-elab-error-reset
@@ -551,6 +574,16 @@ T{ fo9 fr lf-mk-eq goal-of lf-goal-refl fo9 lf-instantiate! -> fr }T
 : rel-code ( t -- code ) ['] mrf-rel code1 ;
 : rel-same ( t -- flag code ) dup rel-code >r = r> ;
 T{ fr rel-code fr fs lf-mk-eq rel-same -> -4205 true 0 }T
+\ One argument (Nat.succ r, review tactic-fidelity L1; pinned Lean's
+\ MyEq 1 := by rfl gives the binary-relation error): 93 too.
+T{ s" Nat.succ" lf-mk-const0 fr lf-mk-app rel-code -> -4205 }T
+\ meta-spine.fs's lf-meta-app2? and lf-meta-args2 (review tactic-fidelity
+\ B1): f a b and f x a b have two or more arguments, their last two a b;
+\ f a and a constant fewer.
+: succ-r ( -- e ) s" Nat.succ" lf-mk-const0 fr lf-mk-app ;
+T{ fr fs lf-mk-eq dup lf-meta-app2? swap lf-meta-args2 succ-r lf-meta-app2? nat lf-meta-app2?
+   -> true fr fs false false }T
+T{ s" Nat.add" lf-mk-const0 fr lf-mk-app fs lf-mk-app lf-meta-args2 -> fr fs }T
 \ Equal sides of a relation other than Eq (no slice goal reaches it after
 \ eq_refl's failure): Lean's @[refl] lemmas, not ported, 93, the frame freed.
 : other-rel ( t -- ) mrf mrf-eq ! mrf-eq-closed ;
