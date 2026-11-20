@@ -1012,9 +1012,16 @@ def changed_command(args, gforth):
     return status
 
 
+def help_rules():
+    """The selection rule and the branch check, as this file's docstring states them (for --help)."""
+    return "\n\n".join(__doc__[__doc__.index(start):].split("\n\n", 1)[0]
+                       for start in ("Which unit tests", "The branch coverage check"))
+
+
 def main(argv=None):
     global BASELINE
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0], epilog=help_rules(),
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--gforth", default=os.environ.get("GFORTH", "gforth"))
     parser.add_argument("--files", action="store_true")
     parser.add_argument("--uncovered", metavar="OUTPUT",
@@ -1030,8 +1037,8 @@ def main(argv=None):
     parser.add_argument("--save-full", nargs="?", const="default", metavar="PATH",
                         help="keep each file's never-run blocks of this run of all of make test")
     parser.add_argument("--file", metavar="FILE", help="one file's never-run blocks over unit tests only")
-    parser.add_argument("--tests", help="the Forth test files --file runs (space-separated)")
-    parser.add_argument("--all-tests", action="store_true")
+    parser.add_argument("--tests", help="the Forth test files --file runs (space-separated), instead of the rule below")
+    parser.add_argument("--all-tests", action="store_true", help="--file runs every unit test file that loads FILE")
     parser.add_argument("--changed", nargs="?", const="main", metavar="BASE",
                         help="the branch coverage check of the source files changed since the merge base "
                              "of BASE (default main) and HEAD")

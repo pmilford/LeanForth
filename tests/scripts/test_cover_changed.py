@@ -15,12 +15,14 @@ on the real tree, the selection that was missing tests/front/tactic-lib.fs for
 src/front/tactics/case.fs. The end-to-end cases need Gforth 1.0 with coverage.fs
 ($LEANFORTH_GFORTH, .tools or PATH)."""
 import importlib.util
+import io
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -183,8 +185,8 @@ class Changed(unittest.TestCase):
         # Uncommitted and untracked files count too: every line of a new file is the branch's.
         self.repo.write("src/lib/lonely.fs", ": lonely ( -- n ) 2 ;\n")
         self.repo.write("tests/lib/lonely.fs", "require ../../src/lib/lonely.fs\nlonely drop bye\n")
-        self.repo.write("Makefile", MAKEFILE.replace("\t$(GFORTH) tests/lib/tiny.fs\n",
-                                                     "\t$(GFORTH) tests/lib/tiny.fs\n\t$(GFORTH) tests/lib/lonely.fs\n"))
+        lonely = "\t$(GFORTH) tests/lib/tiny.fs\n\t$(GFORTH) tests/lib/lonely.fs\n"
+        self.repo.write("Makefile", MAKEFILE.replace("\t$(GFORTH) tests/lib/tiny.fs\n", lonely))
         status, out = self.repo.check()
         self.assertEqual(status, 0, out)
         self.repo.write("src/lib/new.fs", ": new-word ( -- ) 1 if 2 drop then ;\n")
@@ -266,6 +268,14 @@ class Rules(unittest.TestCase):
         self.assertEqual(tool.module_folders("src/front/tactics/case.fs"), ("tests/front", "tests/front/tactics/case/"))
         self.assertEqual(tool.module_folders("src/lib/sort.fs"), ("tests/lib", "tests/lib/sort/"))
         self.assertEqual(tool.module_folders("src/main.fs"), (None, "tests/main/"))
+
+    def test_help_states_the_rule(self):
+        out = io.StringIO()
+        with redirect_stdout(out), self.assertRaises(SystemExit):
+            tool.main(["--help"])
+        for text in ("Which unit tests", "NARROW_ABOVE (8)", "module folders", "every other one that loads FILE",
+                     "The branch coverage check", "--changed [BASE]", '"unreachable:"'):
+            self.assertIn(text, out.getvalue())
 
     def test_few_tests_all_run_first(self):
         every = [f"tests/core/t{n}.fs" for n in range(tool.NARROW_ABOVE)]

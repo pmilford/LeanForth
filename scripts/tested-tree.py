@@ -26,8 +26,8 @@ make cover-changed (the branch coverage check of make tier, owner 2026-11-19) th
 from the merge base of BASE (default main) and HEAD, one item per merge base, which no
 digest stands for: a record of this tree, or of an earlier commit whose change since is
 documentation only, is reused; for make mutants each fault it ran (FAULTS, else all). A
-goal given any other variable stands only for that exact command. Make options other than -s and --no-print-directory (-n,
--k, -i ...) are refused.
+goal given any other variable stands only for that exact command. Make options other than
+-s and --no-print-directory (-n, -k, -i ...) are refused.
 
 record runs the command and writes a record only when it exited 0 and the tree was the
 same, with nothing uncommitted, before and after the run. A worktree with changes to
