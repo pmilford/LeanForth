@@ -213,7 +213,8 @@ instances: 2,321 equal, 0 refused, 617 unverified (616 need a definition unfolde
 an exporter task); getInstances gives pinned Lean's candidates in order on all 13 problems compared. Re-run after the
 s1-synth review's fixes (2026-11-13: every record's class and root key and every default instance's class checked at
 the first query, FE1E §4 "When"; a literal under an implicit binder a star): unchanged, 2,321 equal, 0 refused, 617
-unverified, 13 of 13 problems in Lean's order.
+unverified, 13 of 13 problems in Lean's order. Later counts: 538 unverified after S2 merge A; 430 after plan S3a-ops
+C1 (2026-11-20, the keys' reduceDT unfolds definitions: 2,508 equal, 0 refused, 16 of 16 problems in Lean's order).
 
 ## 10. `by-exact` (M1)
 

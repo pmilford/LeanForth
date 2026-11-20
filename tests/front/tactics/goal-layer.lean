@@ -124,6 +124,24 @@ theorem dc_hyp (h : True) : 2 = 2 := by decide
 theorem dc_gcd : Nat.gcd 1071 462 = 21 := by decide
 theorem dc_pow : 2 ^ 10 = 1024 := by decide
 theorem dc_word : 2 ^ 64 = 2 ^ 32 * 2 ^ 32 := by decide
+-- Plan row S3, slice S3a-ops C1 (tests/front/tactics/decide/dc-ops.lf, dc-ops-init.lf):
+-- Lean's operators, once instance keys unfold reducible definitions (DiscrTree's reduceDT).
+theorem d_mul : 6 * 7 = 42 := by decide
+theorem d_pythag : 3 * 3 + 4 * 4 = 5 * 5 := by decide
+theorem d_gauss : 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 = 55 := by decide
+theorem d_gt : 20 > 10 := by decide
+theorem d_ge : 10 ≥ 10 := by decide
+theorem d_ne : 3 ≠ 4 := by decide
+theorem d_compare : 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4 := by decide
+theorem d_leap : 2024 % 4 = 0 ∧ 2024 % 100 ≠ 0 := by decide
+theorem d_perfect : 1 + 2 + 4 + 7 + 14 = 28 := by decide
+theorem d_mul_big : 12345 * 6789 = 83810205 := by decide
+theorem d_divmod : 17 / 5 = 3 ∧ 17 % 5 = 2 := by decide
+theorem d_mersenne : 2 ^ 11 - 1 = 23 * 89 := by decide
+theorem d_euler : 2 ^ 32 + 1 = 641 * 6700417 := by decide
+theorem d_taxicab : 1 ^ 3 + 12 ^ 3 = 1729 ∧ 9 ^ 3 + 10 ^ 3 = 1729 := by decide
+theorem d_pow_cmp : 2 ^ 10 = 1024 ∧ 2 ^ 10 > 1000 := by decide
+theorem x_dc_dvd : 3 ∣ 12 := by decide
 
 def pl (l : Level) : String := match l.toNat with
   | some n => toString n
@@ -164,7 +182,8 @@ def dumpBinders (n : Name) : MetaM Unit := do
       ``ex_exact, ``ex_assumption, ``ex_tag, ``is_or, ``is_none, ``in_implicit, ``in_strict,
       ``is_implicit, ``cl_hyp, ``cl_var, ``dc_add, ``dc_lt, ``dc_le, ``dc_mul, ``dc_sub,
       ``dc_div, ``dc_mod, ``dc_not, ``dc_and, ``dc_or, ``dc_true, ``dc_bool, ``dc_hyp, ``dc_gcd,
-      ``dc_pow, ``dc_word] do
+      ``dc_pow, ``dc_word, ``d_mul, ``d_pythag, ``d_gauss, ``d_gt, ``d_ge, ``d_ne, ``d_compare,
+      ``d_leap, ``d_perfect, ``d_mul_big] do
     dump n
   for n in [``in_implicit, ``in_strict, ``is_implicit] do
     dumpBinders n

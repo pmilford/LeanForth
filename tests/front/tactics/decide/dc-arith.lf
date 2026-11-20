@@ -27,8 +27,8 @@ theorem dc_le
   by-decide
 end dc_le
 
-\ Nat.mul, written so because 6 7 * 42 = does not elaborate yet (error
-\ 120, docs/user/LANGUAGE_REFERENCE.md); a product past a cell's width.
+\ Nat.mul by name, a product past a cell's width (the same with `*` is
+\ dc-ops.lf's d_mul_big, plan S3a-ops C1).
 theorem dc_mul
   12345 6789 Nat.mul 83810205 =
 := by

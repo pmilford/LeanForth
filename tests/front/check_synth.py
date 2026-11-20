@@ -10,8 +10,10 @@ Usage: python3 tests/front/check_synth.py EXPORT DATA
 1. Every Init instance's class and keys, recomputed by LeanForth from its
    type (src/front/instances.fs, lf-inst-check), equal the data's: no
    instance is refused (error 112 or 113). Those whose check cannot finish
-   (unverified: a definition the keys would unfold, plan S2) are counted
-   and listed; S1's six tried candidates must be verified.
+   (unverified: a Meta step the keys need is not ported yet, such as
+   inferType of a lambda-headed application or nested lambdas, plan FE1c, or
+   a string literal's key, S5) are counted and listed; S1's six tried
+   candidates must be verified.
 2. For each problem below, pinned Lean's getInstances list (the root
    goal's `[Meta.synthInstance.instances]` trace of `#synth`) equals
    LeanForth's lf-inst-candidates, name for name, in order: the stuck
@@ -52,6 +54,12 @@ PROBLEMS = [  # (LeanForth's label, Lean's #synth argument)
     ("Inhabited Nat", "Inhabited Nat"),
     ("BEq Nat", "BEq Nat"),
     ("HMul Nat Nat ?c", "HMul Nat Nat _"),
+    # Plan S3a-ops C1: found after reduceDT unfolds the reducible GT.gt, and the first
+    # candidates of a numeral `*` (Lean.Omega.IntList.instHMulInt's keys unfold IntList).
+    # Raw literals, as LeanForth's goal: elaborating `20 > 10` would trace OfNat searches first.
+    ("Decidable (20 > 10)", "Decidable (@GT.gt Nat instLTNat (nat_lit 20) (nat_lit 10))"),
+    ("HMul ?a ?b ?c", "HMul _ _ _"),
+    ("Mul ?a", "Mul _"),
 ]
 TRIED = ["Lean.Grind.CommRing.OfCommSemiring.instOfNatQ", "instOfNatNat",
          "String.instHAddCharRaw", "instHAdd", "Lean.Grind.CommRing.OfCommSemiring.instAddQ",

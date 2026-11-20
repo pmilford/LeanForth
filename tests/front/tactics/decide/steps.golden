@@ -22,3 +22,23 @@
 {"goal_before":"⊢ Bool.and Bool.true Bool.false = Bool.false","goals_after":[],"parent":0,"source":"41:3","step":1,"tactic":"decide","word":"by-decide"}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"dc_hyp","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
 {"goal_before":"h : True\n⊢ 2 = 2","goals_after":[],"parent":0,"source":"48:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"d_mul","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 6 * 7 = 42","goals_after":[],"parent":0,"source":"23:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"d_pythag","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 3 * 3 + 4 * 4 = 5 * 5","goals_after":[],"parent":0,"source":"30:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"d_gauss","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 = 55","goals_after":[],"parent":0,"source":"37:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"d_gt","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 20 > 10","goals_after":[],"parent":0,"source":"43:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"d_ge","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 10 ≥ 10","goals_after":[],"parent":0,"source":"49:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"d_ne","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 3 ≠ 4","goals_after":[],"parent":0,"source":"55:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"d_compare","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4","goals_after":[],"parent":0,"source":"61:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"d_leap","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 2024 % 4 = 0 ∧ 2024 % 100 ≠ 0","goals_after":[],"parent":0,"source":"68:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"d_perfect","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 1 + 2 + 4 + 7 + 14 = 28","goals_after":[],"parent":0,"source":"75:3","step":1,"tactic":"decide","word":"by-decide"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"d_mul_big","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 12345 * 6789 = 83810205","goals_after":[],"parent":0,"source":"83:3","step":1,"tactic":"decide","word":"by-decide"}

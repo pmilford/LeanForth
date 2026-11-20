@@ -34,6 +34,13 @@ theorem w_dc_fvar0 (n : Nat) : n + 0 = n := by decide
 theorem w_dc_nonempty : Nonempty Nat := by decide
 theorem w_dc_choice : Classical.choice (Nonempty.intro 0) = 0 := by decide
 theorem w_dc_choice_bool : Classical.choice (Nonempty.intro true) = true := by decide
+-- Plan row S3, slice S3a-ops C1: Lean's operators.
+theorem w_dc_mul : 6 * 7 = 43 := by decide
+theorem w_dc_gt : 10 > 20 := by decide
+theorem w_dc_ne : 3 ≠ 3 := by decide
+theorem w_dc_ge : 10 ≥ 11 := by decide
+theorem w_dc_euler : 2 ^ 32 + 1 = 641 * 6700419 := by decide
+theorem w_dc_divmod : 17 / 5 = 3 ∧ 17 % 5 = 3 := by decide
 theorem w_dc_none : True := by
   decide
   decide

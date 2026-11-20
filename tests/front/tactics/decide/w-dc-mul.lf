@@ -1,0 +1,8 @@
+\ A wrong twin (plan row S3, slice S3a-ops C1; tests/front/tactics/goal-layer-wrong.lean):
+\ decide reduces the statement to Bool.false (error 250).
+\ Lean: theorem w_dc_mul : 6 * 7 = 43 := by decide
+theorem w_dc_mul
+  6 7 * 43 =
+:= by
+  by-decide
+end w_dc_mul

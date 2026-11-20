@@ -76,3 +76,8 @@ instPowUSizeNat
 Lean.Grind.Ring.OfSemiring.instLTQOfOrderedAdd
 Lean.Grind.Ring.OfSemiring.instLEQOfOrderedAdd
 Lean.Grind.CommRing.OfCommSemiring.instMulQ
+GT.gt
+GE.ge
+Ne
+Lean.Omega.IntList.instHMulInt
+Vector.instHMul

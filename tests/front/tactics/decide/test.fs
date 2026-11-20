@@ -12,7 +12,9 @@
 \    else 253 with the decide term; whnf's unsupported passed on, never 250
 \    or 253; no instance 122); the plug-in's run words through LeanForth
 \    text (tests/support/tactic-text.fs: accepted, 251, 122, 90 after a
-\    first decide, 254 by-native-decide);
+\    first decide, 254 by-native-decide); instance keys that unfold
+\    (plan S3a-ops C1): IntList's instance verified, `*`, GT.gt and Ne
+\    goals accepted through text;
 \ 3. stack effects: each T{ }T checks the depth;
 \ 6. state: a refused goal is left unassigned.
 \ Nothing here accepts a theorem: only the kernel's check does.
@@ -119,5 +121,18 @@ T{ s" True" s" by-decide by-decide" tactic-ran -> 90 }T
 lf-tac-forget
 T{ s" True" s" by-native-decide" tactic-ran lf-author-code lf-author-outcome -> 254 outcome-unsupported }T
 lf-tac-forget
+
+\ ---- Instance keys that unfold (plan S3a-ops C1, DiscrTree's reduceDT):
+\ the abbreviation IntList is unfolded in the keys of
+\ Lean.Omega.IntList.instHMulInt, the first candidate Lean tries for a
+\ numeral `*`, so its check passes and `6 7 *` elaborates; the reducible
+\ GT.gt is unfolded in the goal Decidable (20 > 10), keyed as 10 < 20,
+\ where Nat.decLt is found; Ne gives Not (Eq ..), instDecidableNot.
+: inst-of ( c-addr u -- i )
+  lf-mk-const0 lf-dt-const-decl 0= abort" decide test: no declaration"
+  elab-instance-of 0= abort" decide test: no instance" ;
+T{ s" Lean.Omega.IntList.instHMulInt" inst-of lf-inst-check -> outcome-ok }T
+T{ s" 6 7 * 42 =" s" by-decide" tactic-ran -> 0 }T
+T{ s" 20 10 GT.gt" s" by-decide" tactic-ran s" 3 4 Ne" s" by-decide" tactic-ran -> 0 0 }T
 .( decide test.fs: all tests passed) cr
 bye

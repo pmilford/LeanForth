@@ -1,0 +1,9 @@
+\ A wrong twin against all of Init (plan row S3, slice S3a-ops C1;
+\ tests/front/tactics/goal-layer-wrong.lean; check.py --init): the
+\ remainder of 17 by 5 is 2, not 3 (error 250).
+\ Lean: theorem w_dc_divmod : 17 / 5 = 3 ∧ 17 % 5 = 3 := by decide
+theorem w_dc_divmod
+  17 5 HDiv.hDiv 3 = 17 5 HMod.hMod 3 = And
+:= by
+  by-decide
+end w_dc_divmod

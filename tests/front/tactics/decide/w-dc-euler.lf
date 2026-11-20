@@ -1,0 +1,9 @@
+\ A wrong twin against all of Init (plan row S3, slice S3a-ops C1;
+\ tests/front/tactics/goal-layer-wrong.lean; check.py --init): Euler's
+\ factor with a wrong cofactor is false (error 250).
+\ Lean: theorem w_dc_euler : 2 ^ 32 + 1 = 641 * 6700419 := by decide
+theorem w_dc_euler
+  2 32 HPow.hPow 1 + 641 6700419 * =
+:= by
+  by-decide
+end w_dc_euler

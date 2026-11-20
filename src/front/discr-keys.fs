@@ -37,12 +37,14 @@
 \ - lf-dt-const? ( head -- const true | false ): a constant head;
 \   lf-dt-const-decl ( const -- d true | false ): its declaration in the
 \   data's stage (meta-env.fs's lf-menv-data-decl, fed or run mode).
-\ reduceDT (Main.lean:200-244) is whnfCore, unfoldDefinition? and strict
-\ eta, repeated. unfoldDefinition? acts on a definition the transparency
-\ unfolds, which needs smart unfolding's facts (S1 appendix D, plan S2):
-\ there the answer is unsupported, never a guess. Also unsupported: a
-\ literal beyond one cell and a string literal (S5), and where the Meta
-\ words the keys read (whnf, inferType, getFunInfoNArgs) are.
+\ reduceDT (Main.lean:203-245) is whnfCore, unfoldDefinition? (whnf.fs's
+\ lf-meta-unfold, at the configured transparency) and strict eta,
+\ repeated; at a root (reduceUntilBadKey) an unfolding whose head is a
+\ bad key (isBadKey: no literal, constant, free variable, projection or
+\ pi) is not taken, so `List.map f ∘ List.map g` keeps its constant key.
+\ Unsupported: a literal beyond one cell and a string literal (S5), and
+\ where the Meta words the keys read (whnf, unfoldDefinition?,
+\ inferType, getFunInfoNArgs) are.
 \ Outcomes: ok; lf-meta-stuck as above (Meta layer only); unsupported;
 \ exhausted when meta-config.fs's budget runs out (one step a key);
 \ invalid for a constant the data's stage lacks or a term that is not
@@ -204,20 +206,25 @@ end-structure
   dk dk-path @ 0= if drop dk-push-all exit then
   dk dk-n @ dk-kinds-make dup ok? if drop dk-push-indexed then ;
 
-\ ---- reduceDT: whnfCore, unfoldDefinition? (unsupported where it would
-\ act), strict eta, until none acts.
-: dk-const-head ( e -- const true | false ) lf-meta-head lf-dt-const? ;
-: dk-unfolds? ( e -- flag outcome )
-  dk-const-head 0= if false outcome-ok exit then
-  lf-const-name lf-defeq-mode lf-menv-unfoldable ok-then? if nip outcome-ok else nip false
-  swap then ;
-: dk-unfold-check ( e -- outcome )   \ a definition it would unfold: unsupported
-  dk-unfolds? ok-true? if outcome-unsupported else nip then ;
+\ ---- reduceDT (Main.lean:203-245): whnfCore, unfoldDefinition?, strict
+\ eta, until none acts; at a root (reduceUntilBadKey) an unfolding whose
+\ head is a bad key is not taken: the term before it stays.
+\ isBadKey (Main.lean:217): a head that is no literal, constant, free
+\ variable, projection or pi.
+lf-tag-lit lf-tag-str lf-tag-constant lf-tag-fvar lf-tag-projection lf-tag-pi 6 lf-tags
+constant dk-key-heads
+: dk-bad-key? ( e -- flag ) lf-meta-head lf-term-tag@ dk-key-heads lf-tag-in? 0= ;
+: dk-keep? ( e' -- flag ) dk dk-root @ if dk-bad-key? else drop false then ;
+: dk-unfolded ( e e' -- e'' flag ) dup dk-keep? if drop false else nip true then ;
+: dk-unfold ( e -- e' flag outcome )   \ unfoldDefinition? (lf-meta-unfold)
+  dup lf-meta-unfold ok-then2? 0= if nip -1 false rot exit then
+  if dk-unfolded else drop false then outcome-ok ;
 : dk-eta ( e -- e' flag outcome )
   dup lf-term-lam? if lf-meta-eta-expanded else false outcome-ok then ;
 : dk-reduce-step ( e -- e' again? outcome )
   lf-whnf-core ok-then? 0= if -1 false rot exit then
-  dup dk-unfold-check ok-then? if dk-eta else -1 false rot then ;
+  dk-unfold ok-then2? 0= if -1 false rot exit then
+  if true outcome-ok else dk-eta then ;
 : dk-reduce ( e -- e' outcome )
   begin dk-reduce-step ok-then? 0= if nip no-result exit then 0= until outcome-ok ;
 

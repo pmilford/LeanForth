@@ -1,0 +1,36 @@
+# Planted faults of slice S3a-ops (plan S3, Lean's operators in decide
+# statements; the architect's word list .claude/work/briefs/OPS-WORDLIST.md),
+# read with faults.toml as one list (scripts/mutants.py). C1: reduceDT's
+# unfoldDefinition? in the discrimination-tree keys (src/front/discr-keys.fs).
+
+[[fault]]
+id = "dk-unfold-never"
+file = "src/front/discr-keys.fs"
+old = '''  if dk-unfolded else drop false then outcome-ok ;'''
+new = '''  2drop false outcome-ok ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "S3a-ops C1: reduceDT never takes unfoldDefinition?'s answer (the old gap): GE.ge Nat _ x z keeps its own key where Lean's is LE.le's"
+
+[[fault]]
+id = "dk-root-ignores-badkey"
+file = "src/front/discr-keys.fs"
+old = ''': dk-keep? ( e' -- flag ) dk dk-root @ if dk-bad-key? else drop false then ;'''
+new = ''': dk-keep? ( e' -- flag ) drop false ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "S3a-ops C1: a root takes an unfolding into a bad key (reduceUntilBadKey's isBadKey test skipped): GE.ge Nat _ alone keyed other where Lean keeps GE.ge"
+
+[[fault]]
+id = "dk-unfold-once"
+file = "src/front/discr-keys.fs"
+old = '''  if true outcome-ok else dk-eta then ;'''
+new = '''  if dk-eta else dk-eta then ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "S3a-ops C1: an unfolding is not reduced again (Lean's reduce recurses): outParam (outParam Nat) keyed outParam where Lean's key is Nat"
+
+[[fault]]
+id = "fe-decide-skip-whnf-mul"
+file = "src/front/tactics/decide.fs"
+old = '''  dup lf-mk-decide dup tdc-whnf dup s" Bool.true" lf-meta-const-named?'''
+new = '''  dup lf-mk-decide tdc-proof exit'''
+test = 'out=$(GFORTH=$GFORTH bin/leanforth check --env tests/front/decide-slice.ndjson --elab-data tests/front/decide-slice.elab.ndjson tests/front/tactics/decide/w-dc-mul.lf); echo "$out" | grep -q "error 250 " || ! echo "$out" | grep -q "w_dc_mul: rejected"'
+reason = "S3a-ops C1: fe-decide-skip-whnf on 6 * 7 = 43, whose `*` elaborates since C1: decide hands over of_decide_eq_true unreduced and the kernel, the judge, rejects it; caught only when the run prints w_dc_mul: rejected"

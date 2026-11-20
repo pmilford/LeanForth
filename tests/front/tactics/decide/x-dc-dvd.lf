@@ -1,0 +1,13 @@
+\ Not supported yet (plan row S3, slice S3a-ops C1), against all of Init
+\ (check.py --init): the keys of Nat.decidable_dvd, whose type is a
+\ DecidableRel, hold the application (fun a b => a ∣ b) ?a ?b, and
+\ ignoreArg's isProof needs inferType of an application whose head is a
+\ lambda, which src/front/infer.fs does not port yet (plan FE1c), so the
+\ instance stays unverified and decide on a divisibility answers error
+\ 93, exit 2, never a verdict.
+\ Lean: theorem x_dc_dvd : 3 ∣ 12 := by decide
+theorem x_dc_dvd
+  3 12 Dvd.dvd
+:= by
+  by-decide
+end x_dc_dvd

@@ -1,0 +1,44 @@
+\ by-decide on Lean's operators against all of Init (plan row S3, slice
+\ S3a-ops, step C1; tests/front/tactics/goal-layer.lean): as dc-ops.lf,
+\ with `/`, `-` and `^` (named HDiv.hDiv, HSub.hSub and HPow.hPow),
+\ whose first instance candidates a test slice cannot hold (dc-init.lf),
+\ so tests/front/tactics/decide/check.py runs this file against Init's
+\ snapshot (--init).
+\ Lean: theorem d_divmod : 17 / 5 = 3 ∧ 17 % 5 = 2 := by decide
+\       theorem d_mersenne : 2 ^ 11 - 1 = 23 * 89 := by decide
+\       theorem d_euler : 2 ^ 32 + 1 = 641 * 6700417 := by decide
+\       theorem d_taxicab : 1 ^ 3 + 12 ^ 3 = 1729 ∧ 9 ^ 3 + 10 ^ 3 = 1729 := by decide
+\       theorem d_pow_cmp : 2 ^ 10 = 1024 ∧ 2 ^ 10 > 1000 := by decide
+\ 17 = 3 · 5 + 2.
+theorem d_divmod
+  17 5 HDiv.hDiv 3 = 17 5 HMod.hMod 2 = And
+:= by
+  by-decide
+end d_divmod
+
+\ 2^11 - 1 is a Mersenne number that is not prime.
+theorem d_mersenne
+  2 11 HPow.hPow 1 HSub.hSub 23 89 * =
+:= by
+  by-decide
+end d_mersenne
+
+\ Euler: Fermat's number F5 = 2^32 + 1 is composite.
+theorem d_euler
+  2 32 HPow.hPow 1 + 641 6700417 * =
+:= by
+  by-decide
+end d_euler
+
+\ Ramanujan's taxicab number: 1729 = 1³ + 12³ = 9³ + 10³.
+theorem d_taxicab
+  1 3 HPow.hPow 12 3 HPow.hPow + 1729 = 9 3 HPow.hPow 10 3 HPow.hPow + 1729 = And
+:= by
+  by-decide
+end d_taxicab
+
+theorem d_pow_cmp
+  2 10 HPow.hPow 1024 = 2 10 HPow.hPow 1000 GT.gt And
+:= by
+  by-decide
+end d_pow_cmp

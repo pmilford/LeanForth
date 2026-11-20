@@ -1380,18 +1380,49 @@ theorem dc_and
 end dc_and
 ```
 
+`*` on numerals, and Lean's `>`, `≥` and `≠` written by their names
+`GT.gt`, `GE.ge` and `Ne`, work as in Lean (plan S3a-ops C1: the instance
+search unfolds reducible definitions in its keys, as Lean's does):
+
+| Form | Example |
+| --- | --- |
+| mathematics | $3^2 + 4^2 = 5^2$; $20 > 10 \land 10 \ge 10 \land 3 \ne 4$ |
+| LeanForth | `3 3 * 4 4 * + 5 5 * =`, `20 10 GT.gt 10 10 GE.ge 3 4 Ne And And`, proved by `by-decide` |
+| Lean | `theorem d_compare : 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4 := by decide` |
+
+```text
+\ tests/front/tactics/decide/dc-ops.lf: accepted, term equal to Lean's
+theorem d_compare
+  20 10 GT.gt 10 10 GE.ge 3 4 Ne And And
+:= by
+  by-decide
+end d_compare
+```
+
+Each of these is checked by LeanForth's kernel: `by-decide` builds the
+proof term, and only the kernel's check accepts it.
+
 More: `dc-arith.lf` and `dc-logic.lf` (`2 + 2 = 4`, `10 < 20`, `3 ≤ 3`,
 `Nat.mul 12345 6789 = 83810205`, `100 % 7 = 2`, `¬`, `∨`, `True`, Bool
-`and`, a hypothesis beside a closed goal); `dc-init.lf` (`10 - 20 = 0`,
-`17 / 5 = 3`, `2 ^ 10 = 1024`, `2 ^ 64 = 2 ^ 32 * 2 ^ 32`), checked
-against all of Init (`tests/front/tactics/decide/check.py --init`). Wrong
-twins: `w-dc-add.lf`, `w-dc-lt.lf`, `w-dc-and.lf` (250), `w-dc-fvar.lf`,
-`w-dc-fvar0.lf` (251), `w-dc-nonempty.lf` (122), `w-dc-choice.lf`,
-`w-dc-choice-bool.lf` (253), `w-dc-none.lf` (90), each refused with
-Lean's first message. Not yet: `6 7 * 42 =` with `*` on numerals alone
-stops in elaboration (error 120), so `Nat.mul` is written there; a
-hypothesis whose type has numerals (`1 1 = explicit: h`) stops with 139
-(plan FE2).
+`and`, a hypothesis beside a closed goal); `dc-ops.lf` (`6 * 7 = 42`,
+Pythagoras, Gauss's `1 + ... + 10 = 55`, `20 > 10`, `10 ≥ 10`, `3 ≠ 4`,
+2024 a leap year, 28 perfect, `12345 * 6789 = 83810205`); `dc-init.lf`
+(`10 - 20 = 0`, `17 / 5 = 3`, `2 ^ 10 = 1024`, `2 ^ 64 = 2 ^ 32 * 2 ^ 32`)
+and `dc-ops-init.lf` (`17 / 5 = 3 ∧ 17 % 5 = 2`, `2 ^ 11 - 1 = 23 * 89`,
+Euler's `2 ^ 32 + 1 = 641 * 6700417`, the taxicab number 1729,
+`2 ^ 10 > 1000`), checked against all of Init
+(`tests/front/tactics/decide/check.py --init`). Wrong twins:
+`w-dc-add.lf`, `w-dc-lt.lf`, `w-dc-and.lf`, `w-dc-mul.lf`, `w-dc-gt.lf`,
+`w-dc-ne.lf`, `w-dc-ge.lf`, and on Init `w-dc-euler.lf` and
+`w-dc-divmod.lf` (250), `w-dc-fvar.lf`, `w-dc-fvar0.lf` (251),
+`w-dc-nonempty.lf` (122), `w-dc-choice.lf`, `w-dc-choice-bool.lf` (253),
+`w-dc-none.lf` (90), each refused with Lean's first message. Not yet:
+`3 12 Dvd.dvd` (`3 ∣ 12`) stops with error 93, never a verdict
+(`x-dc-dvd.lf`: the keys of `Nat.decidable_dvd` need the type of an
+application whose head is a function literal, plan FE1c); a hypothesis
+whose type has numerals (`1 1 = explicit: h`) stops with 139 (plan FE2);
+`**` the words `<` `>` `≥` `≠` `-` `/` `%` (plan S3a-ops C2): write
+`LT.lt`, `GT.gt`, `GE.ge`, `Ne`, `HSub.hSub`, `HDiv.hDiv`, `HMod.hMod`.
 
 `by-native-decide` is Lean's `native_decide`. Lean runs the compiled
 decision procedure and trusts it through the axiom `Lean.ofReduceBool`,

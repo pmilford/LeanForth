@@ -1,0 +1,84 @@
+\ by-decide on Lean's operators (plan row S3, slice S3a-ops, step C1;
+\ tests/front/tactics/goal-layer.lean): statements that elaborate since
+\ the instance keys unfold reducible definitions as Lean's DiscrTree does
+\ (reduceDT): a numeral product `*` (Lean's first HMul candidate,
+\ Lean.Omega.IntList.instHMulInt, has keys only once IntList is
+\ unfolded) and the reducible GT.gt, GE.ge and Ne (the goal
+\ Decidable (20 > 10) is keyed as Decidable (10 < 20)). `>`, `≥` and `≠`
+\ are not LeanForth words yet: the statements name GT.gt, GE.ge and Ne.
+\ Lean: theorem d_mul : 6 * 7 = 42 := by decide
+\       theorem d_pythag : 3 * 3 + 4 * 4 = 5 * 5 := by decide
+\       theorem d_gauss : 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 = 55 := by decide
+\       theorem d_gt : 20 > 10 := by decide
+\       theorem d_ge : 10 ≥ 10 := by decide
+\       theorem d_ne : 3 ≠ 4 := by decide
+\       theorem d_compare : 20 > 10 ∧ 10 ≥ 10 ∧ 3 ≠ 4 := by decide
+\       theorem d_leap : 2024 % 4 = 0 ∧ 2024 % 100 ≠ 0 := by decide
+\       theorem d_perfect : 1 + 2 + 4 + 7 + 14 = 28 := by decide
+\       theorem d_mul_big : 12345 * 6789 = 83810205 := by decide
+
+theorem d_mul
+  6 7 * 42 =
+:= by
+  by-decide
+end d_mul
+
+\ Pythagoras: 3² + 4² = 5².
+theorem d_pythag
+  3 3 * 4 4 * + 5 5 * =
+:= by
+  by-decide
+end d_pythag
+
+\ Gauss: 1 + 2 + ... + 10 = 55.
+theorem d_gauss
+  1 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 + 55 =
+:= by
+  by-decide
+end d_gauss
+
+theorem d_gt
+  20 10 GT.gt
+:= by
+  by-decide
+end d_gt
+
+theorem d_ge
+  10 10 GE.ge
+:= by
+  by-decide
+end d_ge
+
+theorem d_ne
+  3 4 Ne
+:= by
+  by-decide
+end d_ne
+
+theorem d_compare
+  20 10 GT.gt 10 10 GE.ge 3 4 Ne And And
+:= by
+  by-decide
+end d_compare
+
+\ 2024 is a leap year.
+theorem d_leap
+  2024 4 HMod.hMod 0 = 2024 100 HMod.hMod 0 Ne And
+:= by
+  by-decide
+end d_leap
+
+\ 28 is perfect: the sum of its proper divisors.
+theorem d_perfect
+  1 2 + 4 + 7 + 14 + 28 =
+:= by
+  by-decide
+end d_perfect
+
+\ A product past a cell's width, with `*` (dc-arith.lf's dc_mul names
+\ Nat.mul).
+theorem d_mul_big
+  12345 6789 * 83810205 =
+:= by
+  by-decide
+end d_mul_big

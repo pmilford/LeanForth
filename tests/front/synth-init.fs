@@ -68,6 +68,9 @@ variable cn-k  variable cn-name
   lf-defeq-elab lf-defeq-stuck or lf-defeq-flags! lf-tr-instances lf-defeq-mode!
   lf-inst-candidates dup ok? if drop .values else nip nip ." outcome " .outcome-name then cr
   lf-meta-default lf-tr-default lf-meta-config! r> }lf-mctx-depth drop ;
+\ GT.gt Nat instLTNat 20 10, reducible: its keys are those of 10 < 20
+\ (reduceDT's unfoldDefinition?, plan S3a-ops C1).
+: gt-20-10 ( -- t ) nat s" GT.gt" c1z 0 s" instLTNat" cn app 20 num app 10 num app ;
 : problems ( -- )
   type? s" OfNat" c1 0 num app s" OfNat ?T 0" problem
   nat s" OfNat" c1z 0 num app s" OfNat Nat 0" problem
@@ -81,7 +84,10 @@ variable cn-k  variable cn-name
   nat s" LT" c1z s" LT Nat" problem
   nat s" Inhabited" c1 s" Inhabited Nat" problem
   nat s" BEq" c1z s" BEq Nat" problem
-  s" HMul" nat nat type? hop s" HMul Nat Nat ?c" problem ;
+  s" HMul" nat nat type? hop s" HMul Nat Nat ?c" problem
+  0 s" Decidable" cn gt-20-10 app s" Decidable (20 > 10)" problem
+  s" HMul" type? type? type? hop s" HMul ?a ?b ?c" problem
+  type? s" Mul" c1 s" Mul ?a" problem ;
 
 \ ---- (3) The searches (src/front/synth.fs, lf-synth-instance), each goal
 \ as pinned Lean's #synth elaborates it: its result printed as Lean's

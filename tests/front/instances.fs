@@ -19,6 +19,7 @@
 \ depth or a mark open. Every T{ }T checks the data stack's depth.
 include ../support/tester.fs
 include ../support/heap-watch.fs
+include ../support/meta-sweeps.fs
 \ Every module first: a context member declared after menv-load would
 \ move the context under the loaded slice.
 require ../../src/front/instances.fs
@@ -321,13 +322,14 @@ lf-defeq-elab lf-defeq-stuck or lf-defeq-flags!
 \ which whnfCore reduces since S2 merge B, semireducible) stuck on a
 \ metavariable discriminant is stuck too; one whose metavariable is only
 \ in an alternative, its discriminants k and x stuck on free variables,
-\ is keyed (getUnifyKeyArgs' isMatcher test). (At default transparency
-\ reduceDT would unfold it: unsupported, plan S3.)
+\ is keyed (getUnifyKeyArgs' isMatcher test). At default transparency
+\ too: unfoldDefinition? leaves a matcher to whnfCore (WHNF.lean:908),
+\ so reduceDT keeps it and the stuck test sees it (plan S3a-ops C1).
 : m1-of ( disc1 disc2 alt -- t )
   >r >r >r lv1 1 s" Nat.add.match_1" cn fm app r> app r> app r> app fs app ;
 : sub-key-r ( t -- outcome ) ['] sub-key lf-tr-reducible lf-meta-at ;
 T{ fk ?n fz m1-of sub-key-r fk fx ?h m1-of sub-key-r fk ?n fz m1-of sub-key
-   -> lf-meta-stuck outcome-ok outcome-unsupported }T
+   -> lf-meta-stuck outcome-ok lf-meta-stuck }T
 \ ---- toNatLit?: literals, Nat.zero, Nat.succ and OfNat.ofNat.
 T{ 5 num lf-dt-nat-lit -> 5 true outcome-ok }T
 T{ zero lf-dt-nat-lit -> 0 true outcome-ok }T
@@ -382,17 +384,74 @@ T{ fx 0 cproj true lf-dt-nil lf-dt-key drop nip lf-dt-first fx = -> true }T
 T{ fx 0 cproj lf-dt-path nip nip -> outcome-invalid }T
 nat add0 char i local constant f-add
 T{ f-add 0 cproj lf-dt-path nip nip -> outcome-ok }T
-\ Unsupported: a string literal (S5); a definition reduceDT would
-\ unfold (GE.ge, reducible: plan S2's delta).
+\ Unsupported: a string literal (S5).
 : str-hi ( -- t ) s" hi" lf-str-new made drop ;
-: ge-nat ( -- t ) l0 1 s" GE.ge" cn nat app 0 s" instLENat" cn app fx app fz app ;
-T{ str-hi lf-dt-path nip nip ge-nat lf-dt-path nip nip
-   -> outcome-unsupported outcome-unsupported }T
-\ A reducible definition with a metavariable (Decidable.isTrue) never
-\ reaches getUnifyKeyArgs' stuck test: reduceDT would unfold it, which is
-\ unsupported until plan S2's delta.
+T{ str-hi lf-dt-path nip nip -> outcome-unsupported }T
+
+\ ---- reduceDT's unfoldDefinition? (Main.lean:203-245, plan S3a-ops C1):
+\ lf-meta-unfold at the configured transparency (mkPath's reducible). A
+\ reducible definition is unfolded: GE.ge Nat _ x z has the keys of
+\ LE.le Nat _ z x, and Decidable (20 ≥ 10) those of Decidable (10 ≤ 20),
+\ under which Lean finds Nat.decLe (as Nat.decLt for 20 > 10).
+: key-same? ( k1 k2 i -- k1 k2 flag ) >r 2dup r@ + swap r> + elab-key= ;
+: same-keys? ( k1 n1 k2 n2 -- flag )
+  rot over <> if 2drop drop false exit then ['] key-same? all? nip nip ;
+: le-rel ( a b c-addr u -- t )   \ C Nat instLENat a b
+  l0 1 2swap cn nat app 0 s" instLENat" cn app rot app swap app ;
+: ge-nat ( -- t ) fx fz s" GE.ge" le-rel ;
+: le-nat ( -- t ) fz fx s" LE.le" le-rel ;
+: decidable ( p -- t ) >r 0 s" Decidable" cn r> app ;
+: ge-20-10 ( -- t ) 20 num 10 num s" GE.ge" le-rel decidable ;
+: le-10-20 ( -- t ) 10 num 20 num s" LE.le" le-rel decidable ;
+T{ ge-nat keys-of le-nat keys-of same-keys? ge-nat keys-of tag0 -> true elab-key-const 5 }T
+T{ ge-20-10 keys-of le-10-20 keys-of same-keys? -> true }T
+\ Each unfolding is reduced again (reduce e): outParam (outParam Nat)
+\ is Nat after two.
+: outp ( t -- t' ) >r lv1 1 s" outParam" cn r> app ;
+T{ nat outp outp add0 keys-of nat add0 keys-of same-keys? -> true }T
+\ At a root (reduceUntilBadKey) an unfolding whose head is a bad key is
+\ not taken: GE.ge Nat _ alone unfolds to a lambda (Lean's example is
+\ List.map f ∘ List.map g, Main.lean:212), so its key stays GE.ge with
+\ its two arguments; below the root the lambda is taken: other.
+: ge-part ( -- t ) l0 1 s" GE.ge" cn nat app 0 s" instLENat" cn app ;
+T{ ge-part true key-tag ge-part false key-tag ge-part keys-of tag0
+   -> elab-key-const elab-key-other elab-key-const 3 }T
+\ An abbreviation below the root is unfolded (Lean.SyntaxNodeKind is
+\ Lean.Name, as Lean.Omega.IntList is List Int).
+: kind-add ( -- t ) 0 s" Lean.SyntaxNodeKind" cn add0 ;
+T{ kind-add keys-of 0 s" Lean.Name" cn add0 keys-of same-keys? -> true }T
+\ A definition the transparency does not unfold stays: id at mkPath's
+\ reducible keeps its key; getUnifyKeyArgs at default unfolds it to x.
+: id-x ( -- t ) lv1 1 s" id" cn nat app fx app ;
+T{ id-x keys-of tag0 id-x true key-tag -> elab-key-const 3 elab-key-fvar }T
+\ A reducible definition with a metavariable is unfolded before
+\ getUnifyKeyArgs' stuck test: Decidable.isTrue (an abbreviation in Lean
+\ 4.35) gives the key of Decidable.intro, a constructor: not stuck.
 lf-defeq-elab lf-defeq-stuck or lf-defeq-flags!
-T{ 0 s" Decidable.isTrue" cn ?q app fx app sub-key -> outcome-unsupported }T
+: intro? ( k -- flag ) elab-key-decl elab-decl-name s" Decidable.intro" menv-name = ;
+T{ 0 s" Decidable.isTrue" cn ?q app fx app false lf-dt-nil lf-dt-key nip swap intro?
+   -> outcome-ok true }T
+\ Each refusal of unfoldDefinition? is passed on, never another answer:
+\ without smart unfolding's facts (no data's stage) unsupported; each
+\ budget from 0 exhausted until the path is made; each heap request and
+\ each new term refused in turn full (tests/support/meta-sweeps.fs).
+0 lf-menv-stage!
+T{ ge-nat lf-dt-path nip nip -> outcome-unsupported }T
+menv-lib lf-menv-stage!
+: path-n ( t -- n outcome ) lf-dt-path rot drop ;
+: path-at ( t k -- n outcome )   \ the path made with a budget of k
+  lf-meta-budget! path-n lf-meta-default-budget lf-meta-budget! ;
+: budget-step ( flag k -- flag' done? )
+  ge-nat swap path-at dup ok? if drop 5 = and true exit then nip outcome-exhausted = and false ;
+: budgets-pass? ( -- flag ) true 200 0 do i budget-step if leave then loop ;
+T{ budgets-pass? ge-nat 0 path-at nip -> true outcome-exhausted }T
+: dk-slabs-anew ( -- )
+  dk-cells sweep-slab-anew dk-args sweep-slab-anew dk-kinds sweep-slab-anew
+  wc-frames sweep-slab-anew wc-args sweep-slab-anew uf-args sweep-slab-anew
+  uf-levels sweep-slab-anew ;
+' dk-slabs-anew sweep-slabs-xt !
+T{ ge-nat ' path-n heap-sweep swept? ge-nat ' path-n room-sweep swept? -> true true }T
+' noop sweep-slabs-xt !
 
 \ Literals beyond a cell, and a sum beyond one, are unsupported (S5),
 \ as a numeral, at the root, below it in a path or a query.
@@ -439,12 +498,12 @@ T{ fp 0 proj add0 lf-dt-path nip nip -> outcome-ok }T
 T{ sfun keys-of tag0 nat 0 bv lam keys-of tag0 -> elab-key-fvar 1 elab-key-other 1 }T
 T{ lv1 1 s" Nat.add.match_1" cn fk app lf-dt-path nip nip -> outcome-ok }T
 T{ 0 s" Nat.add.match_1" cn fk app lf-dt-path nip nip -> outcome-invalid }T
-\ isOffset: Add.add of no numeral is its constant; at a type whnf cannot
-\ tell (Lean.SyntaxNodeKind, a reducible definition: S2) unsupported; a
-\ numeral below the root (Nat.succ Nat.zero) a literal.
+\ isOffset: Add.add of no numeral is its constant; at a type whose whnf
+\ is no Nat (Lean.SyntaxNodeKind, an abbreviation of Lean.Name, unfolded
+\ by reduceDT too) its constant; a numeral below the root (Nat.succ
+\ Nat.zero) a literal.
 T{ nat fx fz add-add add0 keys-of tag1 nip -> elab-key-const }T
-T{ 0 s" Lean.SyntaxNodeKind" cn fx 2 num add-add add0 lf-dt-path nip nip
-   -> outcome-unsupported }T
+T{ 0 s" Lean.SyntaxNodeKind" cn fx 2 num add-add add0 keys-of tag1 nip -> elab-key-const }T
 T{ succ zero app add0 keys-of tag1 nip -> elab-key-lit }T
 \ getUnifyKeyArgs without isDefEqStuckEx: a read-only metavariable (one
 \ depth deeper) is other.
