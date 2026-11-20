@@ -1642,3 +1642,9 @@ efficient way and an easier way to fix unit-test coverage, and decided:
 - **Friday 2026-11-20 is a checkpoint, not a freeze:** documents and install scripts are brought up to date;
   no refactoring, clean-up or feature work waits for it.
 - **S2's showcase page:** see the section above; moved to plan 8.6.12.
+- **The batch changed (2026-11-19, later):** the architect's word list
+  (`.claude/work/briefs/TACTIC-BATCH1-WORDLIST.md`) found Lean's `exists` is a macro over `refine`, `trivial` and
+  the anonymous-constructor syntax, none of which LeanForth has; `by-exists` moves to a batch after S3.
+  **Parser gate, approved:** `by-clear` (Lean's `clear h`, one hypothesis) takes its place. The batch is
+  `by-left`, `by-right`, `by-exfalso`, `by-intros`, `by-clear`. `by-intro` also gains Lean's implicit and
+  strict-implicit binders (a difference from Lean closed, with its own pinned test).
