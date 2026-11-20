@@ -21,6 +21,14 @@ test = "$GFORTH tests/core/nat-ops.fs"
 reason = "S3a C0: Int.add (any name whose last component is an operation's) taken for Nat.add, where Lean compares the whole name"
 
 [[fault]]
+id = "nat-ops-apply-fail-drops-below"
+file = "src/core/nat-ops.fs"
+old = '''  swap >r dup >r nop-operands ok-then? 0= if 2r> 2drop exit then 2r> swap execute ;'''
+new = '''  swap >r dup >r nop-operands ok-then? 0= if r> r> 2drop >r 2drop -1 r> exit then 2r> swap execute ;'''
+test = "$GFORTH tests/core/nat-ops.fs"
+reason = "S3a C0: the operands' refusal in an arena too small for them (the code before the move) drops a cell of the caller's below its answer"
+
+[[fault]]
 id = "nat-ops-succ-fail-keeps-a"
 file = "src/core/nat-ops.fs"
 old = '''  1 lf-nat-lit ['] nop-add ok-apply2 ;'''

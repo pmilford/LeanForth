@@ -71,8 +71,8 @@ require ./terms.fs
   tuck lf-lit>big ok-then? 0= if >r 2drop -1 -1 r> exit then
   -rot lf-lit>big ok-then? 0= if >r drop -1 -1 r> exit then swap outcome-ok ;
 \ (The operands' failure, -1 and the outcome after ok-then?, is the answer;
-\ before the move it dropped two cells too many, never run: the callers'
-\ arenas always hold the operands.)
+\ before the move it dropped one cell of its caller's too many, never run:
+\ the callers' arenas always hold the operands.)
 : nop-apply ( a b op arena -- z outcome )
   swap >r dup >r nop-operands ok-then? 0= if 2r> 2drop exit then 2r> swap execute ;
 : nop-literal ( z outcome -- node outcome )

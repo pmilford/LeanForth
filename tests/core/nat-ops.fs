@@ -140,6 +140,9 @@ roomy
   lf-lit-arena ok? made dup >r ['] big+ swap nop-apply r> lf-lit-arena-free
   outcome-full = swap -1 = and ;
 T{ two64 two64 1 short? two64 1 nlit 4 short? -> true true }T
+\ nop-apply's answer to the operands' refusal takes the four cells it is
+\ given and no more (before plan S3a it dropped one of its caller's too).
+T{ 111 222 two64 two64 1 short? -> 111 222 true }T
 T{ 0 nlit nop-bits two64 nop-bits -> 0 65 }T
 T{ -1 outcome-invalid nop-literal -1 outcome-full lf-diag-clear nop-literal lf-diag-code@
    -> -1 outcome-invalid -1 outcome-full lf-diag-nat-size }T
