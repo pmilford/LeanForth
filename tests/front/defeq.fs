@@ -557,4 +557,10 @@ T{ 0 csort 1 csort heads-apart 0 csort 0 lit-of kab-heads= 2 lit-of 1 ssort kab-
    -> true true false false }T
 true lf-term-sharing!
 
+\ simpAssignmentArg follows a let variable to its value (plan S3a moved
+\ the let test to meta-spine.fs's lf-meta-let-fvar?): ?t gj =?= Nat.succ j
+\ with gj := j is ?t j's pattern, ?t := Nat.succ (eta), as for ?t j above.
+nat fj lf-lctx-let made in-view constant fgj
+T{ own-mark ?t fgj app succ fj app dq ?t inst succ = own-back -> true outcome-ok true }T
+
 bye
