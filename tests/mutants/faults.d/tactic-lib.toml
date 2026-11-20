@@ -673,8 +673,8 @@ reason = "C4: a target whose type is not the eliminator's major premise's (b : B
 [[fault]]
 id = "lib-elim-motive-unchecked"
 file = "src/front/meta-tactic/elim.fs"
-old = '''  over lf-goal-type over lf-infer! swap lf-tac-defeq lf-must 0= if'''
-new = '''  over lf-goal-type over lf-infer! swap lf-tac-defeq lf-must drop false if'''
+old = '''  mes-types 2dup lf-tac-defeq lf-must if 2drop exit then'''
+new = '''  mes-types 2dup lf-tac-defeq lf-must drop true if 2drop exit then'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "C4: setMotiveArg assigns a motive whose type does not fit (Nat -> Type for Nat -> Prop), not 212"
 

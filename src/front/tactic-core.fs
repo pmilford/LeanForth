@@ -149,8 +149,7 @@ end-structure
 \ ---- Tactic.elabTerm, elabTermEnsuringType.
 : lf-tac-elab-term ( node expected postpone? -- e ) lf-tac-elab lf-tac-must ;
 : tcr-typed ( e expected -- e type expected ) over lf-infer lf-tac-must swap ;
-: tcr-mismatch ( e type expected -- )
-  3 ['] lf-has-type-but-expected. lf-tac-detail-n lfa-e-tac-mismatch lf-tac-stop ;
+: tcr-mismatch ( e type expected -- ) lfa-e-tac-mismatch lf-tac-type-mismatch ;
 : tcr-defeq ( type expected -- flag outcome ) ['] lf-tac-defeq lf-with-assignable-opaque ;
 : tcr-ensured ( e type expected -- e )
   2dup tcr-defeq lf-tac-must if 2drop exit then tcr-mismatch ;

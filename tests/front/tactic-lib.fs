@@ -799,13 +799,20 @@ T{ hadd-info 99 kind-code lf-author-code -> lf-author-throw 99 }T
 lf-tac-forget
 \ setMotiveArg: fun x => x = x assigned to the motive; a motive of type
 \ Nat -> Prop against the goal Nat (fun x => Nat : Nat -> Type): 212 with
-\ the motive.
+\ the motive and Lean's mkHasTypeButIsExpectedMsg, sorts and all (plan
+\ 9.4.8l; pinned Lean's text for def f (n : Nat) : Nat := by induction n
+\ using an eliminator whose motive is Nat -> Prop: "Type mismatch when
+\ assigning motive\n  fun n => Nat\nhas type\n  Nat → Type\nof sort `Type
+\ 1` but is expected to have type\n  Nat → Prop\nof sort `Type`"; the
+\ printer's ↦ for Lean's => is plan 8.6's).
 T{ g9 motive9 fn9 lf-elim-set-motive motive9 lf-mvar-value drop lf-term-lam? frames9?
    -> true true }T
 nat prop lf-term-pi lf-made! mv-natural lf-mvar-new made constant motive-p
 : motive-code ( goal motive target -- code ) ['] lf-elim-set-motive catch dup if nip nip nip then ;
 T{ nat goal-of motive-p fn9 motive-code lf-author-code frames9? -> lf-author-throw 212 true }T
 T{ s" ↦ Nat" detail-has? -> true }T
+T{ s\" ↦ Nat\nhas type\n  Nat → Type\nof sort `Type 1` but is expected to have type\n  Nat → Prop\nof sort `Type`"
+   detail-has? -> true }T
 lf-tac-forget
 \ generalizeVars (tactics/induction.fs's tind-independent, in a step
 \ record whose context is the current one): hm : m = m holds m, so m is

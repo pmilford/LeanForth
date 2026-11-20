@@ -26,6 +26,9 @@
 \       the message's own line, unless an error is recorded already
 \   lf-tac-failed ( xt code -- )  an error at the step running whose
 \       detail xt ( 0 -- outcome ) prints
+\   lf-tac-type-mismatch ( e type expected code -- )  an error at the
+\       step running whose detail is lf-has-type-but-expected.'s (exact's
+\       Type mismatch 96, setMotiveArg's 212)
 \   lf-tac-lean-error? ( code -- flag )  whether a THROW code is a Lean
 \       error that try and observing? catch: an authoring error whose
 \       outcome is invalid, or a library rejection; never unsupported, no
@@ -93,6 +96,8 @@ require ./meta-must.fs
 \ ---- Details and errors (tactic-run.fs's lf-tac-detail, lf-tac-stop).
 : lf-tac-inline ( x xt -- ) lf-author-code if 2drop exit then lf-tac-detail lfa-inline ;
 : lf-tac-failed ( xt code -- ) >r 0 swap lf-tac-detail r> lf-tac-stop ;
+: lf-tac-type-mismatch ( e type expected code -- )
+  >r 3 ['] lf-has-type-but-expected. lf-tac-detail-n r> lf-tac-stop ;
 
 \ ---- Lean's errors, as try and observing? catch them.
 : tmg-authored? ( -- flag ) lf-author-code lf-author-outcome outcome-invalid = ;

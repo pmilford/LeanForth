@@ -121,3 +121,29 @@ new = ''': mrf-eq-closed ( -- ) mrf-closed ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l rfl: equal sides of a relation other than Eq closed with Eq.refl where Lean looks for @[refl] lemmas (93; no slice goal reaches it, tactic-lib.fs drives mrf-eq-closed)"
 
+# --- 212: setMotiveArg's message with mkHasTypeButIsExpectedMsg
+# (Induction.lean:271-273) ------------------------------------------------
+
+[[fault]]
+id = "tf-motive-types-swapped"
+file = "src/front/meta-tactic/elim.fs"
+old = '''  2>r dup 2r> lfa-e-tac-elim-motive lf-tac-type-mismatch ;'''
+new = '''  2>r dup 2r> swap lfa-e-tac-elim-motive lf-tac-type-mismatch ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l 212: the motive's type and the motive metavariable's printed the other way round (Nat → Prop has type, Nat → Type expected)"
+
+[[fault]]
+id = "tf-type-mismatch-term-only"
+file = "src/front/tactic-msg.fs"
+old = '''  >r 3 ['] lf-has-type-but-expected. lf-tac-detail-n r> lf-tac-stop ;'''
+new = '''  >r 2drop ['] lf-tac-indented. lf-tac-detail r> lf-tac-stop ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "9.4.8l 212: the type mismatch's detail without mkHasTypeButIsExpectedMsg (212 shows only the motive, as before the fix)"
+
+[[fault]]
+id = "tf-type-mismatch-term-only-exact"
+file = "src/front/tactic-msg.fs"
+old = '''  >r 3 ['] lf-has-type-but-expected. lf-tac-detail-n r> lf-tac-stop ;'''
+new = '''  >r 2drop ['] lf-tac-indented. lf-tac-detail r> lf-tac-stop ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "9.4.8l: exact's Type mismatch (96) without its has type and expected type lines"
