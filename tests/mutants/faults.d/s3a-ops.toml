@@ -216,3 +216,29 @@ old = '''    os.environ["REQUIRE_INIT_SNAPSHOT"] = "1"'''
 new = '''    os.environ.setdefault("REQUIRE_INIT_SNAPSHOT", "1")'''
 test = "python3 tests/scripts/test_mathlib_slice.py"
 reason = "re-check of ops-symbols R2: a recorded run whose environment already holds another value of the variable skips the comparison and passes"
+
+# --- divides, LeanForth's own word for Dvd.dvd (owner, 2026-11-20) -------------
+
+[[fault]]
+id = "rd-divides-other-constant"
+file = "src/front/reader.fs"
+old = '''s" Dvd.dvd" lfn-own-name: divides'''
+new = '''s" Or" lfn-own-name: divides'''
+test = "$GFORTH tests/front/front.fs"
+reason = "divides: the word names another constant than Lean's Dvd.dvd, so n m divides would be read as another statement"
+
+[[fault]]
+id = "rd-own-name-unsealed"
+file = "src/front/reader.fs"
+old = '''  lfn-open lfn-syntax-word lfn-new-word 0 lfn-lay ['] lfn-w-named lfa-natural! ;'''
+new = '''  lfn-syntax-word lfn-new-word 0 lfn-lay ['] lfn-w-named lfa-natural! ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "divides: a word of LeanForth's own can be registered after a context exists, writing the table runs read in place"
+
+[[fault]]
+id = "rd-own-name-twice"
+file = "src/front/reader.fs"
+old = '''  lfn-open lfn-syntax-word lfn-new-word 0 lfn-lay ['] lfn-w-named lfa-natural! ;'''
+new = '''  lfn-open lfn-syntax-word lfn-peek 0 lfn-lay ['] lfn-w-named lfa-natural! ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "divides: a word already in the table gets a second entry instead of the abort"

@@ -37,7 +37,7 @@ Two pages show, theorem by theorem, the LeanForth text, the same proof in Lean, 
 
 The symbols a statement may use, and how to type them:
 
-| Written | Typed | Meaning in Lean |
+| Written | Typed | Meaning |
 | --- | --- | --- |
 | `+ - * / % ^` | as written | `a + b`, `a - b`, `a * b`, `a / b`, `a % b`, `a ^ b` |
 | `= < >` | as written | `a = b`, `a < b`, `a > b` |
@@ -45,7 +45,7 @@ The symbols a statement may use, and how to type them:
 | `≠` | `Ne` | `a ≠ b` |
 | `∧` `∨` `↔` | `/\` `\/` `<->` | `p ∧ q`, `p ∨ q`, `p ↔ q` |
 | `¬` | `Not` | `¬ p` |
-| `∣` | `Dvd.dvd` | `a ∣ b` |
+| `divides` | as written (or Lean's name `Dvd.dvd`) | "a divides b": b is a whole multiple of a. A statement, not the division `/`. Lean writes it with a sign that looks like the case bar; in LeanForth you type the word |
 
 Correctness is relative to stated semantics and assumptions. The elaborator, parsers, tactics and printers are untrusted: whatever they build, the kernel checks, so they cannot make a wrong proof accepted. They can, if they have a fault, build a different statement than the text says; that is what the comparisons with Lean guard against.
 
@@ -53,7 +53,7 @@ Correctness is relative to stated semantics and assumptions. The elaborator, par
 
 - Most of Lean's tactics (`simp`, `omega`, `cases` and many more), pattern matching, structural recursion, and evaluation.
 - In statements: implication (`->`), quantifiers and lambda in natural form, a minus sign in front of a number, numerals of more than nine digits.
-- `by-decide` on statements with variables, on divisibility (`∣`), and with exponents above 256.
+- `by-decide` on statements with variables, on divisibility (`divides`), and with exponents above 256.
 - The kernel's human review, and an outside audit.
 
 Current state, both tracks and limits: [project progress](docs/project/PROJECT_PROGRESS.md) (its "Now, next, later" list is the queue).

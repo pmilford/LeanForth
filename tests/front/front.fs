@@ -119,6 +119,11 @@ T{ s" theorem t Nat explicit: n n n = n n = ↔ := n end t" nfails -> 38 1 39 }T
 T{ s" theorem t Nat explicit: n n n = n n = ∨ := n end t" nfails -> 38 1 39 }T
 T{ s" theorem t Nat explicit: n n n ∣ := n end t" nfails -> 38 1 31 }T
 T{ s" ∣" lfn-notations name-table-find lfn-entry-const s" Dvd.dvd" compare -> 0 }T
+\ divides, LeanForth's own word for Dvd.dvd (owner, 2026-11-20): the same
+\ constant as ∣, applied as its name, so the same answers as ∣ gives.
+T{ s" divides" lfn-notations name-table-find lfn-entry-const s" Dvd.dvd" compare -> 0 }T
+T{ s" divides" lfn-notations name-table-find lfn-entry-kind -> 0 }T
+T{ s" theorem t Nat explicit: n n n divides := n end t" nfails -> 38 1 31 }T
 \ Too few values: the frame's error 3 at the word.
 T{ s" theorem t Nat explicit: n 0 < := n end t" nfails -> 3 1 29 }T
 T{ s" theorem t Nat explicit: n n n = ∧ := n end t" nfails -> 3 1 33 }T
@@ -142,9 +147,9 @@ variable entries#
 : entries ( -- n ) 0 entries# ! lfn-notations ['] entry+ name-table-each entries# @ ;
 : entered ( "word ..." -- n )   \ how many of the line's words have an entry
   0 begin parse-name dup while lfn-notations name-table-find 0<> - repeat 2drop ;
-entered + - * / % ^ = ≠ < > ≤ <= ≥ >= ¬ ∧ /\ ∨ \/ ↔ <-> ∣
+entered + - * / % ^ = ≠ < > ≤ <= ≥ >= ¬ ∧ /\ ∨ \/ ↔ <-> ∣ divides
 constant entered#
-T{ entered# entries -> 22 22 }T
+T{ entered# entries -> 23 23 }T
 \ And the other way round, from the syntax words themselves (re-check of
 \ ops-symbols R3): no natural-only syntax word is left without its natural
 \ meaning, whatever words.fs lists.
@@ -158,7 +163,7 @@ T{ 0 unmeant# ! ' unmeant lf-words traverse-wordlist unmeant# @ -> 0 }T
 \ A registration whose row is missing or lacks the spelling, whose word
 \ is no syntax word, or which is made twice aborts while loading, each
 \ with its own message, before anything is written: the table keeps its
-\ 22 entries and the word its meaning ($ keeps its own; review ops-symbols
+\ 23 entries and the word its meaning ($ keeps its own; review ops-symbols
 \ B1, L2). The message of abort" is Gforth's abort-string (1.0) or
 \ "error (0.7.3).
 [defined] abort-string [if]
@@ -170,14 +175,18 @@ T{ 0 unmeant# ! ' unmeant lf-words traverse-wordlist unmeant# @ -> 0 }T
 : says? ( c-addr u -- flag ) abort-text compare 0= ;
 : msg-lacks ( -- c-addr u ) s" reader.fs: a notation word its constant's row lacks" ;
 : msg-twice ( -- c-addr u ) s" reader.fs: a notation word twice" ;
-T{ s\" s\" Foo.bar\" syn-k-binop lfn-operator: zz" reg msg-lacks says? entries -> -2 true 22 }T
-T{ s\" s\" LT.lt\" syn-k-binrel lfn-operator: $" reg msg-lacks says? entries -> -2 true 22 }T
+T{ s\" s\" Foo.bar\" syn-k-binop lfn-operator: zz" reg msg-lacks says? entries -> -2 true 23 }T
+T{ s\" s\" LT.lt\" syn-k-binrel lfn-operator: $" reg msg-lacks says? entries -> -2 true 23 }T
 T{ s" theorem t Nat explicit: n 0 n + n = := ' Nat.succ n $ end t" nfails -> 71 1 55 }T
-T{ s\" s\" LT.lt\" syn-k-binrel lfn-operator: <<" reg msg-lacks says? entries -> -2 true 22 }T
-T{ s\" s\" Not\" lfn-notation-name: !" reg msg-lacks says? entries -> -2 true 22 }T
-T{ s\" s\" HAdd.hAdd\" syn-k-binop lfn-operator: +" reg msg-twice says? entries -> -2 true 22 }T
+T{ s\" s\" LT.lt\" syn-k-binrel lfn-operator: <<" reg msg-lacks says? entries -> -2 true 23 }T
+T{ s\" s\" Not\" lfn-notation-name: !" reg msg-lacks says? entries -> -2 true 23 }T
+T{ s\" s\" HAdd.hAdd\" syn-k-binop lfn-operator: +" reg msg-twice says? entries -> -2 true 23 }T
 T{ s\" s\" Membership.mem\" syn-k-binrel lfn-operator: ∈" reg
-   s" reader.fs: not a syntax word" says? entries -> -2 true 22 }T
+   s" reader.fs: not a syntax word" says? entries -> -2 true 23 }T
+\ A word of LeanForth's own (lfn-own-name:, divides) needs no row, but is
+\ refused all the same when it is no syntax word or is in the table already.
+T{ s\" s\" Dvd.dvd\" lfn-own-name: zz" reg s" reader.fs: not a syntax word" says? entries -> -2 true 23 }T
+T{ s\" s\" Dvd.dvd\" lfn-own-name: divides" reg msg-twice says? entries -> -2 true 23 }T
 T{ s" zz" lf-words search-wordlist s" <<" lf-words search-wordlist -> 0 0 }T
 \ The words.fs list: a word reserved already aborts.
 T{ s" lfa-natural-words +" reg s" words.fs: reserved twice" says? -> -2 true }T
@@ -925,9 +934,10 @@ T{ s" namespace Foo axiom And Nat end And theorem t 2 2 = 3 3 = ∧ := by by-dec
 : msg-sealed ( -- c-addr u ) s" reader.fs: a notation word after context-new" ;
 context-new throw constant sealed-context
 T{ s\" s\" Membership.mem\" syn-k-binrel lfn-operator: ∈" reg msg-sealed says? entries
-   -> -2 true 22 }T
+   -> -2 true 23 }T
 T{ s\" s\" HAdd.hAdd\" syn-k-binop lfn-operator: +" reg msg-sealed says? entries
-   -> -2 true 22 }T
+   -> -2 true 23 }T
+T{ s\" s\" Dvd.dvd\" lfn-own-name: zzz" reg msg-sealed says? entries -> -2 true 23 }T
 sealed-context context-free throw
 T{ depth -> 0 }T
 cr .( front.fs: all tests passed) cr

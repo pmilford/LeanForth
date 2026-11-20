@@ -36,10 +36,11 @@
 \ How to type each symbol. Every symbol that is not on a plain keyboard has a typed spelling, Lean's
 \ own where Lean has one:
 \   ≤  <=       ≥  >=       ∧  /\       ∨  \/       ↔  <->
-\   ≠  Ne       ¬  Not      ∣  Dvd.dvd      (Lean has no typed symbol for these: the names are Lean's)
+\   ≠  Ne       ¬  Not                      (Lean has no typed symbol for these: the names are Lean's)
+\ "a divides b" is written with the word  divides  ( 3 12 divides ), never with a bar.
 \ and  + - * / % ^ = < >  are typed as they are. Part 2 is Part 1 typed this way; the two build the
 \ same terms. Not yet: a minus sign in front of a number, and by-decide on a divisibility statement
-\ ( ∣ ), which stops as "not supported yet".
+\ ( divides ), which stops as "not supported yet".
 \
 \ How to read a goal. LeanForth prints goals in Lean's notation. A goal is what is still to be
 \ proved: after the mark ⊢ ("show that"), the statement to prove.

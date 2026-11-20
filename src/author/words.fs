@@ -191,7 +191,7 @@ require ./library.fs
   begin >in @ parse-name dup while
     2dup lf-pf-reserved? abort" words.fs: reserved twice"
     lf-pf-reserve-more >in ! ['] lfa-w-natural-only lfa-word repeat 2drop drop ;
-lfa-natural-words + - * / % = ≠ < > ≤ <= ≥ >= ¬ ∧ /\ ∨ \/ ↔ <-> ∣
+lfa-natural-words + - * / % = ≠ < > ≤ <= ≥ >= ¬ ∧ /\ ∨ \/ ↔ <-> ∣ divides
 ' lfa-w-tactic lfa-word-both by-induction
 ' lfa-w-tactic lfa-word-both by-case:
 ' lfa-w-tactic lfa-word-both by-rfl

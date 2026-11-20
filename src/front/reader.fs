@@ -152,7 +152,10 @@ defer lfn-library-arity ( name -- arity unfolds? true | false )
 \ is. A word is spelt as its constant's row in the printer's notation
 \ table (present/notation-table.fs) in Unicode or in ASCII, so Lean's own
 \ ASCII notation (<= >= /\ \/ <->) is a second word of the same constant;
-\ where Lean has none (≠ ¬ ∣) the constant's name is the typed form. One
+\ where Lean has none (≠ ¬ ∣) the constant's name is the typed form; and
+\ one word is LeanForth's own, divides for Dvd.dvd (owner, 2026-11-20:
+\ Lean's sign for it and the bar that starts a case look the same), which
+\ no row of Lean's spells (lfn-own-name:). One
 \ line gives a word its meaning (lfn-operator:, lfn-notation-name:): the
 \ row is checked while loading (a missing or other spelling aborts), and
 \ the natural meaning finds the word's entry by the token run. The words
@@ -201,10 +204,14 @@ name-table: lfn-notations
   lfn-peek 2dup lfn-notations name-table-find abort" reader.fs: a notation word twice" ;
 : lfn-checked ( c-addr u "word" -- c-addr u w-addr w-u )
   lfn-spelt lfn-syntax-word lfn-new-word ;
-: lfn-entry, ( c-addr u kind "word" -- )
-  lfn-open >r lfn-checked lfn-notations name-entry r> , counted, ;
+: lfn-lay ( c-addr u w-addr w-u kind -- ) >r lfn-notations name-entry r> , counted, ;
+: lfn-entry, ( c-addr u kind "word" -- ) lfn-open >r lfn-checked r> lfn-lay ;
 : lfn-operator: ( c-addr u kind "word" -- ) lfn-entry, ['] lfn-w-operator lfa-natural! ;
 : lfn-notation-name: ( c-addr u "word" -- ) 0 lfn-entry, ['] lfn-w-named lfa-natural! ;
+\ A word of LeanForth's own for a constant, one no row of Lean's spells:
+\ a syntax word, not in the table yet, applied as the constant's name is.
+: lfn-own-name: ( c-addr u "word" -- )
+  lfn-open lfn-syntax-word lfn-new-word 0 lfn-lay ['] lfn-w-named lfa-natural! ;
 \ The meanings. Lean: infixl:65 + -, infixl:70 * / %, infix:50 = < >,
 \ unicode(" ≤ ", " <= "), unicode(" ≥ ", " >= ") (Init/Notation.lean:
 \ 284-288, 375-378), infix:50 ≠ (Init/Core.lean:880); notation ¬ and
@@ -222,6 +229,7 @@ s" Not" lfn-notation-name: ¬       s" Dvd.dvd" lfn-notation-name: ∣
 s" And" lfn-notation-name: ∧       s" And" lfn-notation-name: /\
 s" Or" lfn-notation-name: ∨        s" Or" lfn-notation-name: \/
 s" Iff" lfn-notation-name: ↔       s" Iff" lfn-notation-name: <->
+s" Dvd.dvd" lfn-own-name: divides
 
 
 \ Binders: the type as written.

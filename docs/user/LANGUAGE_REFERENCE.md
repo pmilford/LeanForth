@@ -263,7 +263,21 @@ statement (a false one, which no proof can establish).
 | `-` `/` `%` | "minus", "divided by (rounding down)", "remainder" | arithmetic of two values; on `Nat`, `10 20 -` is 0 |
 | `^` | "to the power" | `2 10 ^` is 2¹⁰; the exponent does not help choose the number type |
 | `¬` `∧` `∨` `↔` | "not", "and", "or", "if and only if" | build propositions from propositions |
-| `∣` | "divides" | `3 12 ∣` is "3 divides 12" (Lean's `Dvd.dvd`; not the bar `\|`) |
+| `divides` | "divides" | `3 12 divides` is "3 divides 12": 12 is a whole multiple of 3. A proposition, true or false; not the division `/`, which gives a number. Lean's `Dvd.dvd`, which Lean writes `3 ∣ 12` |
+
+**Divides and the case bar.** Write divisibility with the word `divides`. Lean
+writes it with a sign of its own, and that sign looks the same as the bar that
+starts a case of an induction; they are two different characters that the eye
+cannot tell apart, so do not try to: tell them by where they stand.
+
+- A bar **between two values in a goal**, as in `⊢ 3 ∣ 12`, is always "divides".
+  LeanForth prints goals in Lean's notation, so you will see it there.
+- A bar **at the start of a line of a proof**, as in `| zero => by-rfl`, always
+  starts a case. That one you type, with the bar key.
+- For "divides" you never type a bar. `divides` is LeanForth's own word (Lean
+  has none); `Dvd.dvd`, Lean's name, means the same; Lean's sign is read too,
+  so text copied from Lean works. The bar key where "divides" was meant
+  (`3 12 |`) is refused (error 81), never read as divisibility.
 
 **How to type each symbol.** Every symbol word that is not ASCII has a
 spelling a plain keyboard types. Where pinned Lean 4.35.0 has an ASCII
@@ -295,7 +309,7 @@ Otherwise `Not` and `Dvd.dvd` build exactly what `¬` and `∣` stand for, and
 | `↔` | `<->` | `infix:20 " <-> " => Iff` beside `infix:20 " ↔ " => Iff` (Core.lean:196-197) |
 | `≠` | `Ne` (`3 4 Ne`) | `infix:50 " ≠ " => Ne` (Core.lean:880); Lean has no ASCII form (`!=` is Bool's `bne`) |
 | `¬` | `Not` (`p Not`) | `notation:max "¬" p:40 => Not p` (Notation.lean:406); no ASCII form |
-| `∣` | `Dvd.dvd` (`3 12 Dvd.dvd`) | `infix:50 " ∣ " => Dvd.dvd` (Notation.lean:280); no ASCII form |
+| "divides" (Lean's sign `∣`) | `divides` (`3 12 divides`), or Lean's name `Dvd.dvd` | `infix:50 " ∣ " => Dvd.dvd` (Notation.lean:280); Lean has no ASCII form, and `divides` is LeanForth's own word for the same constant (owner, 2026-11-20) |
 
 `< > - / % ^ + * =` are ASCII already. The words are LeanForth's only
 while a text runs (the runner searches only LeanForth's word lists), so
@@ -694,7 +708,7 @@ Errors named in the "Function" cells are codes of `src/author/errors.fs`.
 | `^` | `( a n -- v )` | none; in natural form "to the power", in kernel form still the universe word | takes the base and the exponent, leaves the power | Lean's `a ^ n`, as `rightact%` of `HPow.hPow`: the exponent is elaborated on its own and does not help choose the number type (owner, 2026-11-20). `2 3 2 ^ ^` is `2 ^ 3 ^ 2`, that is 2⁹. |
 | `=` `≤` | `( a b -- v )` | none; natural form only | takes two values, leaves the *proposition* "a equals b" or "a is at most b" | Lean's `a = b` and `a ≤ b`, as `binrel%` of `Eq` and `LE.le`. `=` is never assignment. Typed `≤`: `<=`. |
 | `<` `>` `≥` `≠` | `( a b -- v )` | none; natural form only (58 in kernel form) | takes two values, leaves the proposition comparing them | Lean's `a < b`, `a > b`, `a ≥ b`, `a ≠ b`, as `binrel%` of `LT.lt`, `GT.gt`, `GE.ge`, `Ne`. Typed: `>=` for `≥`, `Ne` for `≠`. |
-| `¬` `∧` `∨` `↔` `∣` | `( p -- v )` for `¬`, `( a b -- v )` the others | none; natural form only (58 in kernel form) | takes one or two values, leaves the proposition | Lean's notations `¬p`, `p ∧ q`, `p ∨ q`, `p ↔ q`, `a ∣ b`: exactly the constants `Not`, `And`, `Or`, `Iff`, `Dvd.dvd` (the root ones, as Lean's hygiene gives) applied to the values, as their names would be. Typed: `Not`, `/\`, `\/`, `<->`, `Dvd.dvd`. A library without the constant: error 38. |
+| `¬` `∧` `∨` `↔` `∣` `divides` | `( p -- v )` for `¬`, `( a b -- v )` the others (`divides` is LeanForth's own word for `∣`'s constant) | none; natural form only (58 in kernel form) | takes one or two values, leaves the proposition | Lean's notations `¬p`, `p ∧ q`, `p ∨ q`, `p ↔ q`, `a ∣ b`: exactly the constants `Not`, `And`, `Or`, `Iff`, `Dvd.dvd` (the root ones, as Lean's hygiene gives) applied to the values, as their names would be. Typed: `Not`, `/\`, `\/`, `<->`, `Dvd.dvd`. A library without the constant: error 38. |
 | `#check` | `( v -- )` | none; natural form; outside declarations only | counts the check; prints one line `EXPRESSION : TYPE`; adds no declaration | Elaborates the expression with no expected type and prints it with its type; inside a declaration it is error 140 (141 in a tactic block). |
 | `kernel-form` | `( -- )` | none; acts outside declarations | switches the rest of the run to the kernel form | Error 57 inside a declaration. |
 | `\ TEXT` | `( -- )` | the rest of the line | nothing | A comment to the end of the line. |
@@ -823,7 +837,8 @@ n Nat.succ n Nat.succ =
 `add_self`, `succ_eq`.) The other symbols of Lean's arithmetic and logic
 are words too (slice S3a-ops; owner, 2026-11-20): `-` `/` `%` (`binop%`),
 `<` `>` `≥` `≠` (`binrel%`), `^` (`rightact%`), and `¬` `∧` `∨` `↔` `∣`,
-the constants `Not`, `And`, `Or`, `Iff`, `Dvd.dvd` applied; each has a
+the constants `Not`, `And`, `Or`, `Iff`, `Dvd.dvd` applied (the last also
+as LeanForth's own word `divides`); each has a
 typed spelling (`<=` `>=` `/\` `\/` `<->`, or the name), in the table
 "How to type each symbol" above. `tests/front/check_front.py` compares the
 trees they build with pinned Lean's macro expansion. `→`, `∀` and `∃` are
@@ -1501,7 +1516,7 @@ and, the files without `-init`, on decide's slice in every test run. Wrong twins
 `w-dc-divmod.lf`, `w-sy-euler.lf`, `w-sy-divmod.lf` (250), `w-dc-fvar.lf`,
 `w-dc-fvar0.lf` (251), `w-dc-nonempty.lf` (122), `w-dc-choice.lf`,
 `w-dc-choice-bool.lf` (253), `w-dc-none.lf` (90), each refused with Lean's
-first message. Not yet: `3 12 ∣` (`3 ∣ 12`, also `3 12 Dvd.dvd`) stops
+first message. Not yet: `3 12 divides` (`3 ∣ 12` in Lean; also `3 12 Dvd.dvd`) stops
 with error 93, never a verdict (`x-sy-dvd.lf`, `x-dc-dvd.lf`: the keys of
 `Nat.decidable_dvd` need the type of an application whose head is a
 function literal, plan FE1c); `3 12 ∣ #check` prints `3 ∣ 12 : Prop` as

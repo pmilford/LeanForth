@@ -1843,3 +1843,16 @@ that build, probably in 2-4 hours". So: no new feature work or new agents; the w
 pushed; the README and the documents are brought up to date; then the tag `svfig-prepre-alpha` (the name given
 the same morning) is put on that tree once `make daily` has passed on exactly it (`make tag-check`), and pushed.
 This is the owner's go-ahead for the tag. Making the repository public stays a separate step on the owner's word.
+
+### The word `divides` (2026-11-20, late morning)
+
+Owner, 2026-11-20, on seeing that Lean's sign for "divides" and the bar that starts a case look alike: "Add the
+divides word, the two vertical bars look identical, so saying | is or isn't the one on the keyboard is not helpful.
+Find a better description." The owner's own alternatives (`||` for a case and `|` for divides, or `/` for divides)
+were set aside after discussion: `/` is division, `||` is Lean's boolean or, and a bar meaning divides would look
+like Lean's case bar. Decided (parser gate): `divides` is a word of LeanForth's own in theorem text, a synonym of
+Lean's constant `Dvd.dvd` (`3 12 divides` is Lean's `3 ∣ 12`), building the same term; Lean's sign stays readable
+for copied text and the bar key stays the case word only. The documents tell the two bars apart by where they
+stand (between two values in a goal: divides; at the start of a line of a proof: a case), never by how they look,
+and write divisibility with the word.
+
