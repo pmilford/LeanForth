@@ -276,6 +276,14 @@ CHECK_FIRST := program-clamp-record reference-program-verify-clamp \
 COVERAGE_ENGINE_DIFFERS := test-cli-engines
 check: $(CHECK_FIRST)
 check: test check-rest
+# A plain last line, so that a pass can be told from the thousands of lines above it, many of
+# which begin "error:" because they are the output of tests that feed LeanForth bad input (the
+# install trace of 2026-11-20). Each recipe runs only when every prerequisite passed; after a
+# failure make's own last lines name the failed target ("make: *** [Makefile:N: TARGET] Error").
+test:
+	@echo "make test: PASSED. Every test target exited 0. (Lines above that begin 'error:' are tests of refused input.)"
+check:
+	@echo "make check: PASSED. make test and every comparison with pinned Lean exited 0."
 check-rest: $(filter-out $(TEST_CLI_PARTS),$(CHECK_FIRST)) $(COVERAGE_ENGINE_DIFFERS)
 check-rest: test-differential mutants-check test-depth-deep-differential
 .PHONY: check-rest

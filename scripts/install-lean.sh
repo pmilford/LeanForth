@@ -23,8 +23,10 @@ fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
+printf 'install-lean: downloading Lean %s (about 600 MB)\n' "$version"
 curl -fsSL --retry 3 -o "$work/$asset" "$url"
 printf '%s  %s\n' "$sha256" "$work/$asset" | sha256sum -c --quiet -
 mkdir -p "$prefix"
 tar --zstd -xf "$work/$asset" -C "$prefix" --strip-components=1
-"$prefix/bin/lean" --version
+found=$("$prefix/bin/lean" --version)
+printf 'install-lean: OK: %s is installed at %s\n' "$found" "$prefix/bin/lean"

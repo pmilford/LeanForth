@@ -19,11 +19,28 @@ case $prefix in /*) ;; *) prefix=$PWD/$prefix ;; esac
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-curl -fsSL --retry 3 -o "$work/gforth.tar.xz" "$url"
-printf '%s  %s\n' "$sha256" "$work/gforth.tar.xz" | sha256sum -c --quiet -
+# Gforth's build prints several thousand lines, among them warnings and "Error" lines of
+# optional parts (its manual, an Emacs start file in /etc) that do not matter here. They go
+# to a log; this script prints its own steps and, last, a line that says whether it worked.
+mkdir -p "$prefix"
+log=$prefix/install-gforth.log
+: > "$log"
+step() { printf 'install-gforth: %s\n' "$1"; }
+failed() {
+  printf '\ninstall-gforth: FAILED while %s. The last lines of %s:\n' "$1" "$log" >&2
+  tail -n 25 "$log" >&2
+  exit 1
+}
+step "downloading Gforth $version"
+curl -fsSL --retry 3 -o "$work/gforth.tar.xz" "$url" || failed "downloading $url"
+printf '%s  %s\n' "$sha256" "$work/gforth.tar.xz" | sha256sum -c --quiet - || failed "checking the download's SHA-256"
 tar -xJf "$work/gforth.tar.xz" -C "$work"
 cd "$work/gforth-$version"
-./configure --prefix="$prefix" --with-lispdir="$prefix/share/emacs/site-lisp"
-make -j"$(nproc)"
-make install
-"$prefix/bin/gforth" --version
+step "configuring (the full output is in $log)"
+./configure --prefix="$prefix" --with-lispdir="$prefix/share/emacs/site-lisp" >> "$log" 2>&1 || failed "configuring"
+step "building, one to five minutes"
+make -j"$(nproc)" >> "$log" 2>&1 || failed "building"
+step "installing into $prefix"
+make install >> "$log" 2>&1 || failed "installing"
+found=$("$prefix/bin/gforth" --version 2>&1) || failed "running the installed gforth"
+printf 'install-gforth: OK: %s is installed at %s\n' "$found" "$prefix/bin/gforth"

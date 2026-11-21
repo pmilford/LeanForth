@@ -70,6 +70,8 @@ scripts/install-gforth.sh .tools/gforth     # Gforth 1.0.0, built from source: .
 scripts/install-lean.sh .tools/elan/toolchains/leanprover--lean4---v4.35.0   # Lean 4.35.0 toolchain
 ```
 
+Each script prints a few lines and ends with `install-gforth: OK: gforth 1.0.0 amd64 is installed at ...` or `install-lean: OK: Lean (version 4.35.0, ...) is installed at ...`; on a failure it says `FAILED while ...` and shows the end of its log. Gforth's own build output, several thousand lines with harmless warnings, goes to `.tools/gforth/install-gforth.log`. Run the three commands one at a time: `sudo` asks for a password and would swallow lines pasted after it.
+
 The Makefile and `bin/leanforth` find these automatically (override with `GFORTH=...` and `LEAN=...`). Lean is needed only for `make check` and `verify`; checking exports needs only Gforth. An existing elan installation under `.tools/elan` also works ([installation log](docs/development/INSTALLATION_LOG.md)).
 
 ## Run
@@ -78,6 +80,8 @@ The Makefile and `bin/leanforth` find these automatically (override with `GFORTH
 make test    # Forth and Python tests; needs only Gforth and Python 3 (4 min 42 s at JOBS=4 on a fresh clone, 2026-11-20)
 make check   # make test plus every pinned-Lean comparison (about 11 min at JOBS=4)
 ```
+
+**What you should see.** Both commands print thousands of lines. Many begin `error:`; those are the output of tests that feed LeanForth bad input on purpose and check that it refuses. What counts is the last line: `make test: PASSED. ...` or `make check: PASSED. ...`. After a failure there is no such line, and make's last lines name the failed target (`make: *** [Makefile:N: TARGET] Error ...`); `make -k test 2>&1 | grep '\*\*\*'` lists every failed target. On a machine with less than about 16 GB of memory or few cores add `JOBS=2`.
 
 `make check` compares the front end on a slice of Mathlib only where a Mathlib export is present (it is 6 GB and not in the repository); without one it prints `check_mathlib_slice: SKIPPED, NOT RUN` and goes on. Installing took 97 s for Gforth and 13 s for Lean on a fresh clone (2026-11-20); `.tools/` then holds 3 GB.
 
