@@ -1856,3 +1856,11 @@ for copied text and the bar key stays the case word only. The documents tell the
 stand (between two values in a goal: divides; at the start of a line of a proof: a case), never by how they look,
 and write divisibility with the word.
 
+
+### A second tag (2026-11-20, evening)
+
+Owner, 2026-11-20, after the install scripts and `make test` were given plain last lines (an install on the owner's
+laptop had worked but did not say so): "Let's make second tag, svfig-preprealfa2, don't run overnight, we are at 94%
+tokens". The tag `svfig-preprealfa2` (the owner's spelling) goes on the tree that holds those endings, the large-runs
+page and the Mathlib record, once `make daily` has passed on exactly it; `svfig-prepre-alpha` stays on `677800d7`.
+No nightly run tonight.
