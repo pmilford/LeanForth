@@ -1,0 +1,163 @@
+LeanForth on two large bodies of proof: all of Mathlib, and the Navier-Stokes and Euler formalization
+====================================================================================================
+
+Both runs below were made on 2026-11-20 with the build tagged svfig-prepre-alpha (Mathlib on the
+tagged commit 677800d7; Navier-Stokes on 1b136d73, the same source with two later documentation
+commits). In both, LeanForth accepted every declaration.
+
+What LeanForth did here is CHECK proofs. It did not find them. People and Lean wrote and built the
+proofs; LeanForth's own kernel then checked every one again, independently of Lean's program.
+
+
+PART 1. THE PATH OF A PROOF, FROM AN IDEA TO LEANFORTH'S VERDICT
+----------------------------------------------------------------
+
+Steps 1 to 6 are done by people and by Lean. Steps 7 and 8 are LeanForth's.
+
+ 1. The idea.
+    A mathematician has a claim and an argument for it, on paper. Nothing is checked yet.
+
+ 2. The Lean theorem.
+    The claim is written as a statement in Lean's language. Every notion in it must already be
+    defined in Lean (real numbers, derivatives, "smooth", ...), usually by the library Mathlib.
+    Example (the first Navier-Stokes result below):
+
+        theorem navier_stokes_breakdown_R3 (nu : ℝ) (hnu : nu > 0) :
+            ∃ (u₀ : ℝ³ → ℝ³) (f : ℝ³ → ℝ → ℝ³),
+            InitialVelocityConditionDecay u₀ ∧ ForceConditionDecay f ∧
+            ¬ (∃ v p, NavierStokesExistenceAndSmoothnessRn nu u₀ f v p)
+
+    In words: for every viscosity nu above 0 there are a starting velocity u₀ and a force f, both
+    well behaved, for which no smooth solution v, p exists for all time.
+
+ 3. The tactic steps.
+    The argument is written as a proof script: lines such as  intro ,  rw [...] ,  induction ,
+    simp ,  exact ... . Each line is a tactic: an instruction that changes what is left to prove.
+    A large proof is thousands of smaller theorems (lemmas), each with its own script.
+
+ 4. Elaboration.
+    Lean reads statement and script and fills in everything a person leaves out: the types of the
+    variables, which "+" is meant (on naturals? on reals?), the hidden arguments. Then it runs the
+    tactics. The result is one fully explicit term per theorem: the proof term. A proof term is
+    much larger than its script and is not meant to be read.
+
+ 5. Lean's proof.
+    Lean's kernel, a small program, checks each proof term against its statement by a few fixed
+    rules. Only what the kernel accepts counts as proved in Lean. The tactics and the elaborator
+    are not trusted: whatever they build, the kernel checks.
+
+ 6. The export.
+    A tool (lean4export) writes every checked declaration (definitions, theorems, their proof
+    terms) into one text file, one JSON record per line: names, universe levels, expressions,
+    declarations. This file holds the proofs in the form Lean's kernel saw them.
+
+ 7. The import into LeanForth.
+    LeanForth, a program written in Forth, reads that file with its own reader and builds its own
+    copy of every expression. It uses no part of Lean for this.
+
+ 8. LeanForth's kernel.
+    LeanForth's own kernel checks every declaration again, by Lean's rules, written independently
+    in Forth. For each it prints a verdict: accepted, rejected, not supported yet, or out of a
+    resource. A second, different program agreeing with Lean is the point of the exercise.
+
+For small theorems LeanForth now also does steps 2 to 5 itself: a statement and tactic steps written
+in LeanForth text are elaborated by LeanForth and checked by its kernel. See the two pages beside
+this one, decide-showcase.txt and s2-showcase.txt. The two runs below are steps 7 and 8 only.
+
+
+PART 2. THE TWO RUNS, WITH THE SIZE AND TIME OF EVERY STEP
+-----------------------------------------------------------
+
+Machine for all times: one desktop, 10 cores, 39 GB of memory, Linux under WSL2.
+
+A. "Finite time blowup for Navier-Stokes and Euler equations" (OpenAI)
+   Source: https://github.com/openai/NavierStokesAndEuler , commit f9e8bc5b, built with Lean
+   4.34.0-rc2. It is one of the large tests of the Lean Kernel Arena, whose description of it is:
+   "OpenAI's Lean formalization of finite-time blowup for the three-dimensional incompressible
+   Navier-Stokes equations with smooth forcing (on Euclidean space and on the periodic torus), and
+   of unforced Euler blowup."
+
+   The four main theorems, each accepted by LeanForth with Lean's three standard axioms
+   (propext, Classical.choice, Quot.sound) and no other:
+       NavierStokes.Comparator.navier_stokes_breakdown_R3
+       NavierStokes.Comparator.navier_stokes_breakdown_periodic
+       Euler.euler_breakdown_R3
+       Euler.exists_compact_smooth_euler_singularity
+   What these statements mean for mathematics is the authors' claim and is described in their
+   papers. LeanForth's verdict says one thing: the proof terms check.
+
+   Step                               Size                                   Time           Memory
+   ---------------------------------  -------------------------------------  -------------  --------
+   1. Idea                            two papers by the authors              (not ours to measure)
+   2-3. Lean statements and scripts   2,660 Lean files, 641,334 lines,       (the authors' work)
+                                      33.7 MB of source
+   4-5. Elaboration and Lean's check  the project built by Lean (lake        73 min         8.1 GB
+        (building the project)        build), after fetching Mathlib's       (4,373 s)
+                                      prebuilt files (108 s)
+   6. Export to JSON                  one file, 1.56 GB (1,559,685,706       124 s          9.5 GB
+                                      bytes), 129,845 declarations
+      Lean's own kernel on that file  the same 129,845 declarations          1,110 s        2.6 GB
+      (the arena's reference check)
+   7. Import into LeanForth           55,619,507 expression nodes,           96 s           (in 8)
+                                      691,466 names, 269,551 references      (60 s reading
+                                      to constants                           the file, 36 s
+                                                                             loading it)
+   8. LeanForth's kernel              129,845 of 129,845 accepted;           2,983 s        4.9 GB
+                                      10.7 billion kernel steps              (8 workers)    at peak
+   LeanForth in all (steps 7 and 8)   exit status 0                          3,080 s = 51 min
+
+   Of the 129,845 declarations about 54,000 are the project's own (their names begin with
+   NavierStokes or Euler). The others are the parts of Mathlib and of Lean's library that the four
+   theorems depend on; the export carries them along, and LeanForth checks them too.
+   The declaration that needed the most work: NavierStokes.FiveProfileMoments.quadraticBilin._proof_6,
+   26.8 million kernel steps.
+   An earlier build of LeanForth made the same run on 2026-11-12: 129,845 accepted, 3,157 s, 5.3 GB.
+
+B. Mathlib, Lean's mathematics library
+   Source: https://github.com/leanprover-community/mathlib4 , tag v4.35.0, commit 56a0058, with
+   Lean 4.35.0.
+
+   Step                               Size                                   Time           Memory
+   ---------------------------------  -------------------------------------  -------------  --------
+   2-3. Lean statements and scripts   8,624 Lean files, 2,340,927 lines,     (the Mathlib community's, over
+                                      98.9 MB of source                      years)
+   4-5. Elaboration and Lean's check  not run here: Mathlib's prebuilt       45 s to fetch
+                                      files were fetched (455 MB packed,
+                                      7.1 GB unpacked)
+   6. Export to JSON                  one file, 6.26 GB (6,258,342,501       6 min 33 s     13.8 GB
+                                      bytes), 110,895,826 lines,
+                                      729,263 declarations (517,916
+                                      theorems, 184,355 definitions,
+                                      7,046 inductive types, ...)
+   7. Import into LeanForth           212,278,457 expression nodes,          391 s          (in 8)
+                                      4,241,559 names, 1,426,722             (240 s reading
+                                      references to constants                the file, 152 s
+                                                                             loading it)
+   8. LeanForth's kernel              729,263 of 729,263 accepted;           6,836 s        22.2 GB
+                                      27.1 billion kernel steps              (8 workers)    at peak
+   LeanForth in all (steps 7 and 8)   exit status 0; a snapshot of the       7,358 s = 2 h 3 min
+                                      checked library saved, 2.30 GB
+
+   The declaration that needed the most work: CategoryTheory.instIsIsoIndCoimageImageComparison,
+   226 million kernel steps (the limit set for one declaration was 250 million).
+   One declaration is counted "not proved": sorryAx itself, the placeholder axiom that Lean's
+   library declares for unfinished proofs. LeanForth reports it so and counts it apart; no other
+   declaration of the export depends on it, and every other one uses at most the three standard
+   axioms.
+   Lean's own kernel was not timed on this file here.
+
+The commands (bin/leanforth is LeanForth's command line):
+
+   bin/leanforth check --no-manifest --any-lean-version --resources --jobs 8 --fuel 250000000 \
+       --memory-per-check 8192 navier-stokes-euler.ndjson
+   bin/leanforth check --no-manifest --resources --jobs 8 --fuel 250000000 --memory-per-check 8192 \
+       --save-snapshot mathlib.lfsnap mathlib.ndjson
+
+   --any-lean-version: the Navier-Stokes file was written by Lean 4.34.0-rc2; LeanForth's verdicts
+   are by the rules of Lean 4.35.0 and it says so in a note. --no-manifest: these two files have no
+   signed list of contents beside them. Neither file is in the repository (1.6 GB and 6.3 GB);
+   docs/user/COMMAND_LINE.md says how to make such exports.
+
+What these runs do not show. LeanForth's kernel has not yet passed its human review, and no outside
+expert has audited it. Agreement with Lean on 859,108 declarations is strong evidence that it follows
+Lean's rules; it is not a proof that it does.
