@@ -21534,5 +21534,5 @@ id = "tier-announce-any-recipe"
 file = "scripts/test-tier.py"
 old = '''    return bool(recipe) and all(line.startswith("@echo ") for line in recipe)'''
 new = '''    return bool(recipe)'''
-test = "python3 tests/scripts/test_test_tier.py"
+test = "python3 tests/scripts/test_test_tier.py RealTree.test_a_rule_that_only_announces_is_no_test_target"
 reason = "clear endings, 2026-11-20: every rule with a recipe counts as only announcing, so no target is a test target and a tier would run nothing"
