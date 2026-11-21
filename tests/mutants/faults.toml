@@ -21528,3 +21528,11 @@ old = ''': pool-left ( pool tf -- u ) tf-pos @ swap slab-since ;'''
 new = ''': pool-left ( pool tf -- u ) tf-pos @ swap slab-since 1- ;'''
 test = "$GFORTH tests/core/snapshot-tier.fs"
 reason = "cleanup-families-2 (count since a mark): a tier pool's bytes left one short, so the last name, which ends the pool, is refused"
+
+[[fault]]
+id = "tier-announce-any-recipe"
+file = "scripts/test-tier.py"
+old = '''    return bool(recipe) and all(line.startswith("@echo ") for line in recipe)'''
+new = '''    return bool(recipe)'''
+test = "python3 tests/scripts/test_test_tier.py"
+reason = "clear endings, 2026-11-20: every rule with a recipe counts as only announcing, so no target is a test target and a tier would run nothing"

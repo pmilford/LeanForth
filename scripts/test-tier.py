@@ -153,6 +153,14 @@ def make_database(goal="check"):
     return parse_database(text)
 
 
+def announces_only(lines):
+    """Whether a rule's recipe only prints: every recipe line is an "@echo ...". Such a rule (make
+    test's and make check's closing "PASSED" line) tests nothing, so it is no test target: it
+    keeps no record and needs no class."""
+    recipe = [line.strip() for line in lines if line.startswith("\t")]
+    return bool(recipe) and all(line.startswith("@echo ") for line in recipe)
+
+
 def parse_database(text):
     """The rules and simple variables of a make -p listing (its "# Files" blocks)."""
     rules, recipes, variables = {}, set(), {}
@@ -169,7 +177,8 @@ def parse_database(text):
             continue
         name = heads[0][1]
         rules.setdefault(name, []).extend(p for p in heads[0][2].split() if p != "|")
-        if any(line.startswith("\t") or line.startswith("#  recipe to execute") for line in lines[1:]):
+        if (any(line.startswith("\t") or line.startswith("#  recipe to execute") for line in lines[1:])
+                and not announces_only(lines[1:])):
             recipes.add(name)
     return rules, recipes, variables
 

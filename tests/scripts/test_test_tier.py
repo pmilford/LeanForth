@@ -563,6 +563,16 @@ class RealTree(unittest.TestCase):
     def built(self, goals):
         return tt.reach(goals, self.rules) & self.recipes
 
+    def test_a_rule_that_only_announces_is_no_test_target(self):
+        """make test and make check end with an "@echo ... PASSED" line; that is not a test."""
+        self.assertNotIn("test", self.recipes)
+        self.assertNotIn("check", self.recipes)
+        listing = ("# Files\n\nsay: one\n#  recipe to execute (from 'Makefile', line 3):\n\t@echo \"said\"\n\n"
+                   "one:\n#  recipe to execute (from 'Makefile', line 5):\n\t@echo start\n\tpython3 t.py\n")
+        rules, recipes, _ = tt.parse_database(listing)
+        self.assertEqual(recipes, {"one"})
+        self.assertEqual(rules["say"], ["one"])
+
     def test_check_is_test_and_check_rest(self):
         self.assertEqual(self.built(["check"]), self.built(["test"]) | self.built(["check-rest"]))
 
