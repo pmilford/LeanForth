@@ -131,6 +131,7 @@ See also [obsolete/README.md](obsolete/README.md) for documents that a newer one
 - [Compact-store measurements](development/measurements/compact-store-2026-11-02/README.md) — a prototype of ADR 0016 loaded all of `Init`, `Std` and Mathlib into 16-byte hash-consed nodes, verified by re-emission: 2.94 GB for Mathlib's input, 4.2 GB peak (2026-11-02).
 - [OWNER_DECISIONS.md](project/OWNER_DECISIONS.md) — the owner's plain-language policy decisions.
 - [MINIFORTH_REVIEW.md](development/MINIFORTH_REVIEW.md) — review of MiniForth, a Forth written in Lean (related work, plan W9): what to adopt and what not; no code copied (no licence).
+- [TACTIC_INVENTORY.md](development/TACTIC_INVENTORY.md) — which Lean tactics Mathlib's source uses and how often (2026-11-21), each classed as present, small, simp family or engine; the order and the batch process for the tactic work (plan TB2).
 - [BEYOND_LEAN.md](project/BEYOND_LEAN.md) — places where Lean's kernel rejects or cannot decide something true, recorded for a later opt-in improved mode; compatibility mode is unaffected.
 - [DECISIONS.md](project/DECISIONS.md) — running decision log with rejected alternatives.
 - [IMPLEMENTATION_PLAN.md](project/IMPLEMENTATION_PLAN.md) — staged implementation plan.
