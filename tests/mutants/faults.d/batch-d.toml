@@ -448,7 +448,7 @@ reason = "TB2 3a review: a binder named by a reserved word (at[) is read, hiding
 [[fault]]
 id = "tb3a-binder-hole-refused"
 file = "src/author/declarations.fs"
-old = '''  2dup s" _" compare if lf-pf-reserved? else 2drop false then ;'''
+old = '''  2dup lfa-underscore? if 2drop false else lf-pf-reserved? then ;'''
 new = '''  lf-pf-reserved? ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "TB2 3a review: a binder named _ (Lean's match binders, as printed) refused as a reserved word"

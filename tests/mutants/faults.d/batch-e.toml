@@ -109,7 +109,7 @@ reason = "TB2 3b: * after a name in at[ ] read as the wildcard (not 454)"
 [[fault]]
 id = "tb3b-hole-name-underscore"
 file = "src/front/reader.fs"
-old = '''  2dup lfn-underscore? if 2drop 0 exit then lfn-name-id ;'''
+old = '''  2dup lfa-underscore? if 2drop 0 exit then lfn-name-id ;'''
 new = '''  lfn-name-id ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: ?: _ names its goal _ instead of being ?_"

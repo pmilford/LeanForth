@@ -123,7 +123,7 @@ end-structure
 \ (78); _ stays a name, as Lean's own _ binders (a match's Unit argument)
 \ are written and read back.
 : lfa-reserved-binder? ( c-addr u -- flag )
-  2dup s" _" compare if lf-pf-reserved? else 2drop false then ;
+  2dup lfa-underscore? if 2drop false else lf-pf-reserved? then ;
 : lfa-binder-token ( -- c-addr u )
   lfa-name-token 2dup lfa-reserved-binder? 0= lfa-e-reserved-name lfa-must ;
 : lfa-name-binder ( binder -- )

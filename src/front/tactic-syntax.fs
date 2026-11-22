@@ -218,7 +218,7 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 : lft-inner+ ( -- ) 1 lft-open lft-rec tac-inner +! ;
 : lft-tactic-new ( kind -- i ) lft-inner+ lft-new ;
 
-\ Names given to hypotheses: _ (reader.fs's lfn-underscore?), or a name
+\ Names given to hypotheses: _ (namespaces.fs's lfa-underscore?), or a name
 \ that is no LeanForth word, which the block's text can use until the
 \ block ends (groups.fs). The LeanForth words are the printer's reserved
 \ list (words.fs checks each against it), which needs no name lookup in
@@ -230,7 +230,7 @@ action-of lfa-declaration-fresh constant lft-fresh-before
   lfa-word-name 2dup targ# lft-entry! lfa-intern lfa-here lft-arg+ ;
 : lft-inaccessible ( i -- i ) 0 lfa-here lft-arg+ ;
 : lft-given ( i c-addr u -- i )
-  2dup lfn-underscore? if 2drop lft-inaccessible exit then lft-no-word lft-hypothesis ;
+  2dup lfa-underscore? if 2drop lft-inaccessible exit then lft-no-word lft-hypothesis ;
 \ k names after the word, each on its line (a missing one: error 2).
 : lft-names-after ( i k -- i ) 0 ?do lfa-name-token lft-given loop ;
 \ The next token on the line, current (none: an empty string).
@@ -395,7 +395,7 @@ end-structure
 \ The tag: a name. Lean's wildcard _ and @TAG (every field explicit) are
 \ not supported yet.
 : lft-at-sign? ( c-addr u -- flag ) drop 1 s" @" lfa-token= ;
-: lft-tag-later? ( c-addr u -- flag ) 2dup lfn-underscore? -rot lft-at-sign? or ;
+: lft-tag-later? ( c-addr u -- flag ) 2dup lfa-underscore? -rot lft-at-sign? or ;
 : lft-tag ( c-addr u -- name )
   2dup lft-tag-later? if lfa-e-tactic lfa-fail then lft-no-word lfn-name-id ;
 \ The names: | before => is a second tag (| a | b =>), not supported yet.
@@ -406,7 +406,7 @@ end-structure
 : lft-name! ( i name -- i ) over lft-rec tac-name ! ;
 : lft-tag! ( i -- i ) lft-header-token lft-tag lft-name! ;
 \ by-case:'s tag may be _ (Lean's case _: the main goal), kept as 0.
-: lft-case-tag ( c-addr u -- name ) 2dup lfn-underscore? 0= if lft-tag exit then 2drop 0 ;
+: lft-case-tag ( c-addr u -- name ) 2dup lfa-underscore? 0= if lft-tag exit then 2drop 0 ;
 : lft-case-tag! ( i -- i ) lft-header-token lft-case-tag lft-name! ;
 : lft-arrow! ( i -- i ) lfa-here over lft-rec tac-arrow ! ;
 : lft-headed ( i -- ) lft-names lft-arrow! lft-opened ;

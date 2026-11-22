@@ -29,6 +29,8 @@
 require ../lib/lib.fs
 require ./groups.fs
 
+\ The token _ (a binder or hypothesis without a name, a hole).
+: lfa-underscore? ( c-addr u -- flag ) s" _" compare 0= ;
 \ The name after a word, made the current token; a word with no name after
 \ it on its line stops with the error at the word.
 : lfa-name-token ( -- c-addr u ) parse-name dup 0<> lfa-e-no-name lfa-must 2dup

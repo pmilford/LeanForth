@@ -246,11 +246,10 @@ s" Dvd.dvd" lfn-own-name: divides
 : lfn-hole ( kind -- t ) lfa-here lfn-new lfn-value ;
 : lfn-w-hole ( -- t ) syn-k-hole lfn-hole ;
 : lfn-w-synthetic ( -- t ) syn-k-synthetic lfn-hole ;
-\ The token _, and a name's interned id (tactic-syntax.fs's too).
-: lfn-underscore? ( c-addr u -- flag ) s" _" lfa-token= ;
+\ A name's interned id (tactic-syntax.fs's too).
 : lfn-name-id ( c-addr u -- name ) lfa-word-name lfa-intern ;
 : lfn-hole-name ( c-addr u -- name|0 )
-  2dup lfn-underscore? if 2drop 0 exit then lfn-name-id ;
+  2dup lfa-underscore? if 2drop 0 exit then lfn-name-id ;
 : lfn-w-named-hole ( -- t )
   syn-k-synthetic lfa-here lfn-new lfa-name-token lfn-hole-name syn-a! lfn-value ;
 

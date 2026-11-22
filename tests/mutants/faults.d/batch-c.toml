@@ -58,7 +58,7 @@ reason = "TB2: every word read by a shape counts as a bracket, so by-exact is re
 [[fault]]
 id = "tb2c-case-hole-refused"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-case-tag ( c-addr u -- name ) 2dup lfn-underscore? 0= if lft-tag exit then 2drop 0 ;'''
+old = ''': lft-case-tag ( c-addr u -- name ) 2dup lfa-underscore? 0= if lft-tag exit then 2drop 0 ;'''
 new = ''': lft-case-tag ( c-addr u -- name ) lft-tag ;'''
 test = "$GFORTH tests/front/tactics/batch-c/test.fs"
 reason = "TB2: by-case: _ refused (72) where Lean's case _ takes the main goal"
