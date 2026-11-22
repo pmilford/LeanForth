@@ -145,6 +145,13 @@ T{ s" a b = explicit: h a c ≤ explicit: h2 a c ≤" st s\" by-rwa[ ' h ] at: h
    -> 381 }T
 T{ s" a b ≤ ¬ explicit: k False" st s\" by-rwa[ ] at: k\n" tactic-ran -> 456 }T
 T{ s" a b = explicit: h b c ≤ ¬ explicit: h2 a c ≤ ¬" st s" by-rwa[ ' h ]" tactic-ran -> 0 }T
+\ rwa at h whose goal rfl closes (c = c): the hypothesis is never used.
+T{ s" a b = explicit: h a c ≤ explicit: h2 c c =" st s\" by-rwa[ ' h ] at: h2\n" tactic-ran -> 0 }T
+lf-tac-forget
+\ A hypothesis a tactic introduced, then cleared, is named in no goal's
+\ context (elab-term.fs's et-hyp): refused, 76 (plan row TB2's task 9
+\ of batch 2a: Lean's "Unknown identifier").
+T{ hac s\" ' h2 by-revert by-intro: k\n ' k by-clear\n ' k by-exact" tactic-ran -> 76 }T
 lf-tac-forget
 \ change, symm, delta at a hypothesis.
 T{ s" a 0 + b = explicit: h a b =" st s\" a b = by-change at: h\n ' h by-exact" tactic-ran -> 0 }T
