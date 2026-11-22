@@ -26,13 +26,14 @@
 \ lf-forall-meta-telescope-reducing; isDefEq -> lf-tac-defeq; assign ->
 \ lf-mvar-assign; setTag -> lf-mvar-tag!.
 \ Untrusted: only the kernel's check of the finished term decides.
-\ State: none (the table msy-pairs is set while the file loads and
-\ read-only afterwards). Loads in decimal whatever
-\ BASE is, then restores it.
+\ State: none (the table msy-pairs, lib/xt-table.fs's, is set while the
+\ file loads and read-only afterwards). Loads in decimal whatever BASE
+\ is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../../lib/lib.fs
 require ../../lib/find.fs
+require ../../lib/xt-table.fs
 require ../../core/terms.fs
 require ../../author/errors.fs
 require ../../author/declarations.fs
@@ -57,9 +58,12 @@ require ./goal.fs
 : msy-heq ( -- c-addr u c-addr' u' ) s" HEq" s" HEq.symm" ;
 : msy-and ( -- c-addr u c-addr' u' ) s" And" s" And.symm" ;
 : msy-or ( -- c-addr u c-addr' u' ) s" Or" s" Or.symm" ;
-create msy-pairs ' msy-eq , ' msy-iff , ' msy-ne , ' msy-heq , ' msy-and , ' msy-or ,
 6 constant msy-pairs#
-: msy-pair ( k -- c-addr u c-addr' u' ) cells msy-pairs + @ execute ;
+msy-pairs# 0 xt-table: msy-pairs
+' msy-eq 0 msy-pairs xt-table!    ' msy-iff 1 msy-pairs xt-table!
+' msy-ne 2 msy-pairs xt-table!    ' msy-heq 3 msy-pairs xt-table!
+' msy-and 4 msy-pairs xt-table!   ' msy-or 5 msy-pairs xt-table!
+: msy-pair ( k -- c-addr u c-addr' u' ) msy-pairs xt-table@ execute ;
 : msy-rel? ( head k -- head flag ) over swap msy-pair 2drop lf-meta-const-named? ;
 : msy-lemma ( head -- c-addr u true | false )
   msy-pairs# ['] msy-rel? find-index if msy-pair 2swap 2drop true else false then ;

@@ -8,8 +8,9 @@
 \       by_cases' open Classical in finds: instance search (synth.fs's
 \       lf-synth-instance?), else Classical.propDecidable p, the scoped
 \       instance of priority low that open Classical adds, tried last
-\       (Classical.propDecidable depends on the axiom Classical.choice,
-\       which the checker's axiom report then shows)
+\       (Classical.propDecidable depends on the axioms propext,
+\       Classical.choice and Quot.sound, which the checker's axiom report
+\       then lists)
 \   lf-goal-by-cases ( goal name p inst -- pos neg )  in goal's context
 \       (checkNotAssigned first) two new synthetic opaque goals of goal's
 \       target instantiated (refine's getMainTarget), pos in the context

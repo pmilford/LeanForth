@@ -95,12 +95,12 @@
 {"goal_before":"case right\na b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ a ≤ b","goals_after":[],"parent":0,"source":"55:8","step":5,"tactic":"exact","word":"by-exact"}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"nx_basic","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}
 {"goal_before":"a b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ a ≤ b ∧ b ≤ a","goals_after":["case left\na b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ a ≤ b","case right\na b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ b ≤ a"],"parent":0,"source":"69:15","step":1,"tactic":"apply","word":"by-apply"}
-{"goal_before":"case left\na b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ a ≤ b","goals_after":["a b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ a ≤ b"],"parent":0,"source":"70:3","step":2,"tactic":"case","word":"by-case:"}
+{"goal_before":"case left\na b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ a ≤ b","goals_after":["a b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ a ≤ b"],"parent":0,"source":"70:3","step":2,"tactic":"case","word":"by-next"}
 {"goal_before":"a b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ a ≤ b","goals_after":[],"parent":2,"source":"71:10","step":3,"tactic":"exact","word":"by-exact"}
 {"goal_before":"case right\na b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ b ≤ a","goals_after":["a b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ b ≤ a"],"parent":0,"source":"73:3","step":4,"tactic":"case","word":"by-case:"}
 {"goal_before":"a b : Nat\nh1 : a ≤ b\nh2 : b ≤ a\n⊢ b ≤ a","goals_after":[],"parent":4,"source":"74:10","step":5,"tactic":"exact","word":"by-exact"}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"nx_name","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":4}}
 {"goal_before":"a b : Nat\nh : a ≤ b\n⊢ a ≤ b","goals_after":["a b : Nat\n⊢ a ≤ b → a ≤ b"],"parent":0,"source":"88:7","step":1,"tactic":"revert","word":"by-revert"}
 {"goal_before":"a b : Nat\n⊢ a ≤ b → a ≤ b","goals_after":["a b : Nat\nh✝ : a ≤ b\n⊢ a ≤ b"],"parent":0,"source":"89:3","step":2,"tactic":"intro","word":"by-intro:"}
-{"goal_before":"a b : Nat\nh✝ : a ≤ b\n⊢ a ≤ b","goals_after":["a b : Nat\nk : a ≤ b\n⊢ a ≤ b"],"parent":0,"source":"90:3","step":3,"tactic":"case","word":"by-case:"}
+{"goal_before":"a b : Nat\nh✝ : a ≤ b\n⊢ a ≤ b","goals_after":["a b : Nat\nk : a ≤ b\n⊢ a ≤ b"],"parent":0,"source":"90:3","step":3,"tactic":"case","word":"by-next"}
 {"goal_before":"a b : Nat\nk : a ≤ b\n⊢ a ≤ b","goals_after":[],"parent":3,"source":"91:9","step":4,"tactic":"exact","word":"by-exact"}

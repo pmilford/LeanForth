@@ -104,6 +104,14 @@ T{ s" a b ≤ explicit: h1 a b ≤" st s" by-case: _ => ' h1 by-exact by-end" ta
 \ by-next with no =>: the line ends first (84); an alternative's | _ is
 \ still Lean's wildcard alternative, not supported yet (72).
 T{ hab s" by-next" tactic-ran -> 84 }T
+\ A by-next step's error names by-next, the word written (review
+\ tb2-batch2b 6), and by-case: _'s by-case:: no goal left, 90.
+: h1ab ( -- c-addr u ) s" a b ≤ explicit: h1 a b ≤" st ;
+: token ( -- c-addr u ) lfa-error lfa-err-token lfa-error lfa-err-length @ ;
+T{ h1ab s" ' h1 by-exact by-next => ' h1 by-exact by-end" tactic-ran token s" by-next" compare
+   -> 90 0 }T
+T{ h1ab s" ' h1 by-exact by-case: _ => ' h1 by-exact by-end" tactic-ran token s" by-case:" compare
+   -> 90 0 }T
 T{ s" Nat explicit: n n n =" st s" n by-induction-with | _ => by-rfl by-end" tactic-ran
    -> 72 }T
 \ The shapes: by-exacts[ a bracket of values, by-rwa[ of rules.
@@ -206,9 +214,14 @@ T{ dite-c 1 arg-k dup lf-term-lam? swap lf-term-first@ ab-le eqv? -> true true }
 T{ dite-c 0 arg-k dup lf-term-lam? swap lf-term-first@ ab-le lf-mk-not eqv? -> true true }T
 T{ dite-c 0 arg-k lf-binder-name s" h" nm = dite-c 1 arg-k lf-binder-name s" h" nm =
    -> true true }T
-\ An assigned goal: invalid, before any branch is made.
-: cases-again ( -- ) gc s" h" nm ab-le dup lf-decidable-instance lf-goal-by-cases 2drop ;
-T{ ' cases-again catch mbc-frames slab-count -> thrown-invalid 0 }T
+\ An assigned goal: invalid, before any branch is made (checkNotAssigned
+\ first: no metavariable and no term made, so no local either).
+ab-le lf-decidable-instance constant inst-c
+s" h" nm constant name-h
+: cases-again ( -- ) gc name-h ab-le inst-c lf-goal-by-cases 2drop ;
+: made-so-far ( -- mvars terms ) lf-mvar-count lf-term-count @ ;
+T{ made-so-far ' cases-again catch -rot made-so-far d= mbc-frames slab-count
+   -> thrown-invalid true 0 }T
 
 \ ---- lf-goals-repeat with and_intros' f (tactics/and-intros.fs's
 \ tai-in): a ∧ (b ∧ c) gives the goals a, b, c depth first; at most one
@@ -242,12 +255,22 @@ T{ gdone fa lf-mvar-assign 0 gdone run-push made ' tai-in lf-goals-repeat run-co
 \ assigned ones)
 T{ 0 gdone run-push made ' tai-in 0 lf-goals-repeat-n run-count -> 0 }T
 : f-full ( goal -- goals true | false ) drop outcome-full lf-must 0 true ;
-T{ ab-le goals1 ' f-full ' lf-goals-repeat catch nip nip -> thrown-full }T
-\ f assigns its goal, then fails: the assignment undone, the goal kept.
+T{ 7 ab-le goals1 ' f-full ' lf-goals-repeat catch nip nip -> 7 thrown-full }T
+\ f assigns its goal, then fails: the assignment undone, the goal kept
+\ (lf-commit-when's rollback leaves the goal and the flag, the values
+\ below untouched).
 : f-undone ( goal -- false ) fa lf-mvar-assign drop false ;
 ab-le goal constant gu
-T{ 0 gu run-push made ' f-undone lf-goals-repeat dup run-count swap 0 run@ gu = gu open?
-   mrp-frames slab-count -> 1 true true 0 }T
+T{ 7 0 gu run-push made ' f-undone lf-goals-repeat dup run-count swap 0 run@ gu = gu open?
+   mrp-frames slab-count -> 7 1 true true 0 }T
+\ An assigned goal is passed over before the calls left are counted
+\ (Lean's go tests isAssigned before it matches n): with one call, over
+\ [assigned, open], f runs once, on the open goal.
+variable f-calls  variable f-last
+: f-count ( goal -- false ) f-last ! 1 f-calls +! false ;
+ab-le goal constant gopen
+T{ 0 f-calls ! 0 gdone run-push made gopen run-push made ' f-count 1 lf-goals-repeat-n
+   run-count f-calls @ f-last @ gopen = -> 1 1 true }T
 
 \ ---- 5. Resources: each goal operation on a new goal with every heap
 \ allocation refused in turn (the frame slabs given back first) and with

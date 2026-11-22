@@ -98,7 +98,7 @@
 \ current view's binders, as a tactic proof's, front/elab-decl.fs).
 \ The step log (S2 6, s2-steps): lf-steps-record! ( flag -- ) keeps one
 \ (cli: check --steps); then each step the loop runs gets an entry
-\ (/tlg: its kind, position, the entry of its block, the main goal before
+\ (/tlg: its kind and word, position, the entry of its block, the main goal before
 \ and the goals after, printed), a restore drops those made since its
 \ save, and a declaration handed over records its name, entries and open
 \ parts (/tld); a log record or text that finds no room cuts the log
@@ -215,6 +215,7 @@ end-structure
 1 chars context-slab: trun-text
 begin-structure /tlg      \ a step-log entry (S2 6): one per step run
   field: tlg-kind         \ its step's kind (tactic-syntax.fs)
+  2 cells +field tlg-word \ its step's word (lfr-spelling; 2@: c-addr u)
   field: tlg-at           \ its position
   field: tlg-parent       \ the entry of the block it runs in, or -1
   2 cells +field tlg-before  \ the main goal before, printed: a span of
@@ -301,7 +302,11 @@ create lfr-rows lfr-kinds cells allot   lfr-rows lfr-kinds cells erase
 : lf-tactic-end! ( xt kind -- ) lfr-row! trow-end ! ;
 : lf-tactic-plan! ( plan kind -- ) lfr-row! trow-plan ! ;
 : lf-tactic-lean! ( c-addr u kind -- ) >r lfr-roomy r> lfr-row! trow-lean place ;
-: lfr-spelling ( i -- c-addr u ) lfr-kind lfr-row dup trow-chars swap trow-length @ ;
+: lf-tac-word ( kind -- c-addr u ) lfr-row dup trow-chars swap trow-length @ ;
+\ Step i's word: the one written when its kind's is another (tac-word,
+\ by-next's), else its kind's.
+: lfr-spelling ( i -- c-addr u )
+  lf-tactic-step dup tac-word @ ?dup if nip count else tac-kind @ lf-tac-word then ;
 \ The registry read (tests/front/tactic-registry.fs, front/step-log.fs).
 lfr-kinds constant lf-tactic-kinds#
 : lf-tactic-row? ( kind -- flag ) lfr-kind? ;
@@ -486,9 +491,10 @@ defer lf-tac-lean-detail ( term code -- outcome )
 : lfg-before ( -- )
   lf-main-goal ok-then? if lfr-goal+ else drop -1 0 outcome-ok then
   lfg-kept? if lfg-entry tlg-before 2! else 2drop then ;
+: lfg-word! ( i addr -- ) tlg-word >r lfr-spelling r> 2! ;
 : lfg-fill ( i addr -- )
-  0 over tlg-after# ! over lfr-kind over tlg-kind ! swap lfr-at over tlg-at !
-  lfr-top tfr-log @ swap tlg-parent ! ;
+  2dup lfg-word! 0 over tlg-after# ! over lfr-kind over tlg-kind !
+  swap lfr-at over tlg-at ! lfr-top tfr-log @ swap tlg-parent ! ;
 : lfg-open ( i -- )
   lfg-on? 0= if drop exit then
   1 trun-log slab-claim ok-then? 0= if 2drop lfg-cut exit then
@@ -747,11 +753,11 @@ action-of lfa-run-fresh constant lfr-run-fresh-before
 
 \ ---- The step log's records, read by front/step-log.fs after the
 \ verdicts: the declarations logged, an entry, a goal's span, a span's
-\ text, a kind's word. Unchecked: indexes below the counts.
+\ text (a kind's word: lf-tac-word, above). Unchecked: indexes below the
+\ counts.
 : lf-steps-decls ( -- n ) trun-log-decls slab-count ;
 : lf-steps-decl ( k -- addr ) trun-log-decls slab-at ;
 : lf-steps-entry ( k -- addr ) trun-log slab-at ;
 : lf-steps-span ( k -- first n ) trun-log-spans slab-at 2@ ;
 : lf-steps-text ( first n -- c-addr u ) lfr-chars ;
-: lf-tac-word ( kind -- c-addr u ) lfr-row dup trow-chars swap trow-length @ ;
 base !   \ the BASE this file was loaded with

@@ -19,9 +19,10 @@
 \ K counts from 1; P is the step of the block it ran in (an alternative,
 \ a case, an induction's with), 0 for the proof's own; T is rfl, exact,
 \ intro, induction, alternative, case, rewrite, rw or sorry, W the
-\ LeanForth word; TEXT a goal as .goals prints it (goal-print.fs, Lean's
-\ trace_state), null before a step with no goal; goals_after the goals in
-\ focus once the step took effect. Keys sorted, no whitespace, one line
+\ LeanForth word written (by-next for a case written so); TEXT a goal as
+\ .goals prints it (goal-print.fs, Lean's trace_state), null before a
+\ step with no goal; goals_after the goals in focus once the step took
+\ effect. Keys sorted, no whitespace, one line
 \ each (lib/json-write.fs). Not built yet of appendix C: each tactic's
 \ rule fields, the constants and hypotheses it used and the goals in
 \ kernel form (a later version adds them).
@@ -108,7 +109,7 @@ end-structure
 : lsl-goals ( entry -- )
   s" goal_before" lsl-key dup tlg-before 2@ lsl-span lsl-afters ;
 : lsl-kind ( entry -- )
-  tlg-kind @ dup lsl-tactic s" tactic" lsl-text lf-tac-word s" word" lsl-text ;
+  dup tlg-kind @ lsl-tactic s" tactic" lsl-text tlg-word 2@ s" word" lsl-text ;
 : lsl-step ( k -- outcome )
   lsl-begin dup lf-steps-entry dup lsl-goals
   dup tlg-parent @ lsl-number-of s" parent" lsl-number

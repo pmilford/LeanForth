@@ -20,7 +20,7 @@
 \     122), the goal assigned @Decidable.byContradiction p inst ?g, ?g a
 \     new synthetic opaque goal of ¬p → False with the goal's tag;
 \   refine @Classical.byContradiction _ ?_: the same with no instance
-\     (the axiom report then names Classical.choice).
+\     (the axiom report then lists propext, Classical.choice, Quot.sound).
 \ - by-contra: h: by_contra_core, then rintro h, Lean's macro (by_contra_core;
 \   rintro h): a sequence of rows (tactic-api.fs's lf-tactic-seq:),
 \   by-contra-core's, then by-intro:'s on the same step (rintro of one

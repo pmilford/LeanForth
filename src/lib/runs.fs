@@ -17,6 +17,10 @@
 \   copy when run2 begins where run1 ends.
 \ - run-count ( run -- n ), run@ ( run i -- x ) (unchecked: a valid run,
 \   0 <= i < n), run-valid? ( run -- flag ).
+\ - A run as a stack, its top the last cell: run-push, run-last ( run --
+\   x ) (unchecked, as run@: a valid run of one cell or more) and
+\   run-drop-last ( run -- run' outcome ), the run less its last cell (no
+\   copy; invalid for the empty run and for a handle that names no run).
 \ - run-each ( i*x run xt -- i*x outcome ): xt ( i*x x -- i*x outcome )
 \   on each cell x of the run, in order, while it gives ok: ok, or the
 \   first outcome that is not ok (no step after it). The values below x
@@ -101,6 +105,10 @@ lf-lib set-current
 : run-after ( run n -- run' outcome )
   2dup rn-within? 0= if 2drop -1 outcome-invalid exit then
   dup 0= if drop outcome-ok else rn-tail rn-new then ;
+\ A run as a stack: its top, and the run without it.
+: run-last ( run -- x ) dup run-count 1- run@ ;
+: run-drop-last ( run -- run' outcome )
+  dup run-valid? if dup run-count 1- run-take else drop -1 outcome-invalid then ;
 lf-lib-private set-current
 
 \ Copies. The run's cells copied to the top of rn-cells: where they begin.

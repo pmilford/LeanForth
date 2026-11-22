@@ -9,7 +9,7 @@
 \ answers the application's type mismatch); its Decidable instance by
 \ search, else Classical.propDecidable (open Classical's scoped instance:
 \ meta-tactic/by-cases.fs's lf-decidable-instance; the axiom report then
-\ names Classical.choice and what it depends on); the main goal assigned
+\ lists propext, Classical.choice and Quot.sound); the main goal assigned
 \ the dite (lf-goal-by-cases) and the goals pos (h : p) and neg (h : ¬p)
 \ in its place, in that order (refine's new goals, tagged as the holes
 \ name them). Not supported yet: _ for the name (99), and the form with

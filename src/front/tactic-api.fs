@@ -105,15 +105,19 @@ require ./tactic-alts.fs
   tap-again ['] lfa-w-tactic lfa-word >in ! ['] tap-read lfa-natural! r> ;
 
 \ ---- Macros: rows run in order on one step. The kinds are kept in the
-\ dictionary, n then kindn first, and the run word made for them is a
-\ nameless word that hands their address to tap-seq-run.
+\ dictionary as the stack gives them, n then kindn first (tap-seq# and
+\ tap-seq-kind@ read them), and the run word made for them is a nameless
+\ word that hands their address to tap-seq-run.
 : tap-seq-kind ( kind -- kind )
   dup lf-tactic-row? 0= abort" lf-tactic-seq: not a tactic kind" ;
 : tap-seq-kinds ( kind1..kindn n -- addr )
   dup 0> 0= abort" lf-tactic-seq: no tactic"
   align here over , swap 0 ?do swap tap-seq-kind , loop ;
-: tap-nth ( addr j -- kind ) over @ swap - cells + @ ;   \ the j-th to run, from 0
-: tap-seq-run ( i addr -- ) dup @ 0 ?do 2dup i tap-nth lf-tac-eval loop 2drop ;
+: tap-seq# ( addr -- n ) @ ;
+\ The j-th kind to run, from 0: kind1 is the last cell, kindn the first.
+: tap-seq-kind@ ( addr j -- kind ) over tap-seq# swap - cells + @ ;
+: tap-seq-run ( i addr -- )
+  dup tap-seq# 0 ?do 2dup i tap-seq-kind@ lf-tac-eval loop 2drop ;
 : tap-seq-xt ( addr -- xt )
   >r :noname r> postpone literal postpone tap-seq-run postpone ; ;
 : lf-tactic-seq: ( kind1..kindn n shape "spelling" -- kind )

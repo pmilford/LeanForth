@@ -13,8 +13,8 @@
 \       false only for Lean's failure, so not supported is never a
 \       failure)
 \   lf-goals-repeat-n ( goals xt n -- goals' )  the same with maxIters n
-\ The goals to visit are a stack (lib/runs.fs, the next one last), so the
-\ walk is not recursive; f may call lf-goals-repeat itself (a frame per
+\ The goals to visit are a stack (a run of lib/runs.fs, the next one
+\ last), so the walk is not recursive; f may call lf-goals-repeat itself (a frame per
 \ call open).
 \ Lean call list: isAssigned -> lf-goal-assigned?; observing? ->
 \ lf-commit-when; filterM isAssigned -> run-filter of
@@ -41,28 +41,23 @@ begin-structure /mrp
   field: mrp-todo        \ the goals to visit, the next one last (a run)
   field: mrp-acc         \ the goals f failed on (a run)
   field: mrp-left        \ the calls of f left
-  field: mrp-goal        \ the goal f runs on
-  field: mrp-new         \ and the goals it gave
 end-structure
 /mrp context-slab: mrp-frames
 : mrp ( -- frame ) mrp-frames slab-last ;
 
-\ ---- The stack of goals to visit, and the goals kept.
-\ The run held at addr, then goal.
+\ ---- The stack of goals to visit (run-push, run-last, run-drop-last),
+\ and the goals kept. The run held at addr, then goal.
 : mrp-onto ( addr goal -- ) over @ swap run-push lf-must swap ! ;
 : mrp-push1 ( goal -- ) mrp mrp-todo swap mrp-onto ;
 : mrp-push ( goals -- )
   dup run-count begin ?dup while 1- 2dup run@ mrp-push1 repeat drop ;
-: mrp-last ( -- n ) mrp mrp-todo @ run-count 1- ;
-: mrp-pop ( -- goal )
-  mrp mrp-todo @ mrp-last 2dup run@ >r run-take lf-must mrp mrp-todo ! r> ;
+: mrp-pop ( -- goal ) mrp mrp-todo @ dup run-drop-last lf-must mrp mrp-todo ! run-last ;
 : mrp-keep ( goal -- ) mrp mrp-acc swap mrp-onto ;
 
-\ ---- One visit: f from a saved state, its goals visited next.
-: mrp-f ( -- flag ) mrp mrp-goal @ mrp mrp-xt @ execute dup if swap mrp mrp-new ! then ;
-: mrp-step ( goal -- )
-  dup mrp mrp-goal ! -1 mrp mrp-left +! ['] mrp-f lf-commit-when
-  if drop mrp mrp-new @ mrp-push else mrp-keep then ;
+\ ---- One visit: f from a saved state (lf-commit-when hands it the goal
+\ and gives back its answer, the goal below), its goals visited next.
+: mrp-try ( goal -- goal goals true | goal false ) dup mrp mrp-xt @ lf-commit-when ;
+: mrp-step ( goal -- ) -1 mrp mrp-left +! mrp-try if nip mrp-push else mrp-keep then ;
 : mrp-visit ( goal -- ) dup lf-goal-assigned? if drop else mrp-step then ;
 : mrp-more? ( -- flag ) mrp mrp-todo @ run-count 0<> mrp mrp-left @ 0> and ;
 : mrp-loop ( -- ) begin mrp-more? while mrp-pop mrp-visit repeat ;

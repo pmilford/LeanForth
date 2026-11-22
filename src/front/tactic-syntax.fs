@@ -60,7 +60,9 @@
 \ inside a block; tac-entries, the names in scope before a header's (an
 \ index of the reader's entry store, for this run only: no serialized
 \ form, FE1g-7, carries it); tac-shape, the shape its word was read by
-\ (below; 0 for by, a header and by-induction-with).
+\ (below; 0 for by, a header and by-induction-with); tac-word, the word
+\ it was written with when that is not its kind's (a counted string:
+\ by-next's, a by-case: step; else 0), for its errors and the step log.
 \ Argument fields: targ-x, the syntax node of a term (by-exact's,
 \ by-induction's, a rule) or the name ID of a hypothesis (0 for _),
 \ targ-at, its position, and targ-symm, true for a rule written right to
@@ -117,6 +119,7 @@ begin-structure /tac
   field: tac-inner
   field: tac-entries
   field: tac-shape        \ the shape it was read by (lft-read-as), else 0
+  field: tac-word         \ its word when not its kind's (a counted string), else 0
 end-structure
 begin-structure /targ
   field: targ-x
@@ -376,8 +379,10 @@ end-structure
 : lft-case-new ( -- i ) 0 lft-tactic lft-inner+ tac-k-case lft-new lft-entries! ;
 : lft-w-case ( -- ) lft-case-new lft-case-tag! lft-headed ;
 \ by-next NAMES... => : Lean's next, the macro case _ NAMES => (Init/
-\ Tactics.lean:348), a by-case: step whose tag is _ (0).
-: lft-w-next ( -- ) lft-case-new lft-headed ;
+\ Tactics.lean:348), a by-case: step whose tag is _ (0), spelt by-next.
+: lft-next-word ( -- c-addr ) c" by-next" ;
+: lft-word! ( i c-addr -- i ) over lft-rec tac-word ! ;
+: lft-w-next ( -- ) lft-case-new lft-next-word lft-word! lft-headed ;
 : lft-block-end ( kind -- )
   case tac-k-with of lft-past lft-close endof tac-k-case of lft-past lft-names-end endof
     lfa-e-tac-closer lfa-fail endcase ;

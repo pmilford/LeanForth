@@ -2,9 +2,9 @@
 # tac-shape-list, by-next and by-case: _, src/front/tactic-api.fs's lf-tactic-seq:,
 # src/front/tactic-core.fs's lf-tac-arg-symm?, src/front/meta-tactic/rewrite.fs's symm,
 # symm.fs, by-cases.fs, repeat.fs, src/front/tactics/rwa.fs, exacts.fs, by-cases.fs,
-# by-contra.fs, and-intros.fs, case.fs), read with faults.toml as one list
-# (scripts/mutants.py). Each is caught by tests/front/tactics/batch-c/test.fs, or by
-# tests/front/tactic-lib.fs.
+# by-contra.fs, and-intros.fs, case.fs; src/lib/runs.fs's run-last and run-drop-last),
+# read with faults.toml as one list (scripts/mutants.py). Each is caught by
+# tests/front/tactics/batch-c/test.fs, by tests/front/tactic-lib.fs, or by tests/lib/runs.fs.
 
 # ---- tactic-syntax.fs: <- and the brackets
 [[fault]]
@@ -66,10 +66,26 @@ reason = "TB2: by-case: _ refused (72) where Lean's case _ takes the main goal"
 [[fault]]
 id = "tb2c-next-reads-tag"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-w-next ( -- ) lft-case-new lft-headed ;'''
-new = ''': lft-w-next ( -- ) lft-case-new lft-case-tag! lft-headed ;'''
+old = ''': lft-w-next ( -- ) lft-case-new lft-next-word lft-word! lft-headed ;'''
+new = ''': lft-w-next ( -- ) lft-case-new lft-next-word lft-word! lft-case-tag! lft-headed ;'''
 test = "$GFORTH tests/front/tactics/batch-c/test.fs"
 reason = "TB2: by-next reads its first name as a tag (by-next k => looks for the case k)"
+
+[[fault]]
+id = "tb2c-next-spelt-case"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-w-next ( -- ) lft-case-new lft-next-word lft-word! lft-headed ;'''
+new = ''': lft-w-next ( -- ) lft-case-new lft-headed ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "review tb2-batch2b 6: by-next's errors and step log name by-case:, a word the text does not have"
+
+[[fault]]
+id = "tb2c-step-word-ignored"
+file = "src/front/tactic-run.fs"
+old = '''  lf-tactic-step dup tac-word @ ?dup if nip count else tac-kind @ lf-tac-word then ;'''
+new = '''  lf-tactic-step tac-kind @ lf-tac-word ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "review tb2-batch2b 6: a step's error names its kind's word, not the one written (by-next's)"
 
 # ---- tactic-core.fs, tactic-api.fs
 [[fault]]
@@ -83,16 +99,16 @@ reason = "TB2: every rule takes the first rule's direction"
 [[fault]]
 id = "tb2c-seq-reversed"
 file = "src/front/tactic-api.fs"
-old = ''': tap-nth ( addr j -- kind ) over @ swap - cells + @ ;   \ the j-th to run, from 0'''
-new = ''': tap-nth ( addr j -- kind ) 1+ cells + @ ;   \ the j-th to run, from 0'''
+old = ''': tap-seq-kind@ ( addr j -- kind ) over tap-seq# swap - cells + @ ;'''
+new = ''': tap-seq-kind@ ( addr j -- kind ) 1+ cells + @ ;'''
 test = "$GFORTH tests/front/tactics/batch-c/test.fs"
 reason = "TB2: a macro's rows run last first (by-contra: introduces before by_contra_core)"
 
 [[fault]]
 id = "tb2c-seq-first-only"
 file = "src/front/tactic-api.fs"
-old = ''': tap-seq-run ( i addr -- ) dup @ 0 ?do 2dup i tap-nth lf-tac-eval loop 2drop ;'''
-new = ''': tap-seq-run ( i addr -- ) 0 tap-nth lf-tac-eval ;'''
+old = '''  dup tap-seq# 0 ?do 2dup i tap-seq-kind@ lf-tac-eval loop 2drop ;'''
+new = '''  0 tap-seq-kind@ lf-tac-eval ;'''
 test = "$GFORTH tests/front/tactics/batch-c/test.fs"
 reason = "TB2: a macro runs its first row only"
 
@@ -228,6 +244,14 @@ test = "$GFORTH tests/front/tactics/batch-c/test.fs"
 reason = "TB2: dite's proposition and instance arguments swapped"
 
 [[fault]]
+id = "tb2c-cases-assigned-unchecked"
+file = "src/front/meta-tactic/by-cases.fs"
+old = '''  lf-goal-not-assigned >r mbc-head mbc-pos mbc-neg r> swap lf-mvar-assign lf-must ;'''
+new = '''  >r mbc-head mbc-pos mbc-neg r> swap lf-mvar-assign lf-must ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "review tb2-batch2b 4: by_cases on an assigned goal makes both branches' goals and locals before it fails (Lean's checkNotAssigned comes first)"
+
+[[fault]]
 id = "tb2c-cases-any-type"
 file = "src/front/tactics/by-cases.fs"
 old = '''  dup lf-meta-is-prop lf-tac-must 0= if lfa-e-tac-form lf-tac-fail then ;'''
@@ -304,10 +328,51 @@ reason = "TB2: repeat' gives back goals assigned since (Lean filters them)"
 [[fault]]
 id = "tb2c-repeat-not-undone"
 file = "src/front/meta-tactic/repeat.fs"
-old = '''  dup mrp mrp-goal ! -1 mrp mrp-left +! ['] mrp-f lf-commit-when'''
-new = '''  dup mrp mrp-goal ! -1 mrp mrp-left +! mrp-f'''
+old = ''': mrp-try ( goal -- goal goals true | goal false ) dup mrp mrp-xt @ lf-commit-when ;'''
+new = ''': mrp-try ( goal -- goal goals true | goal false ) dup mrp mrp-xt @ execute ;'''
 test = "$GFORTH tests/front/tactics/batch-c/test.fs"
 reason = "TB2: a failed f's assignments stay (Lean's observing? undoes them)"
+
+[[fault]]
+id = "tb2c-repeat-assigned-visited"
+file = "src/front/meta-tactic/repeat.fs"
+old = ''': mrp-visit ( goal -- ) dup lf-goal-assigned? if drop else mrp-step then ;'''
+new = ''': mrp-visit ( goal -- ) mrp-step ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "review tb2-batch2b 5: repeat' calls f on an assigned goal, spending a call (Lean's go skips it before it matches n)"
+
+[[fault]]
+id = "tb2c-repeat-pop-first"
+file = "src/front/meta-tactic/repeat.fs"
+old = ''': mrp-pop ( -- goal ) mrp mrp-todo @ dup run-drop-last lf-must mrp mrp-todo ! run-last ;'''
+new = ''': mrp-pop ( -- goal ) mrp mrp-todo @ dup run-drop-last lf-must mrp mrp-todo ! 0 run@ ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "review tb2-batch2b 1: repeat' visits the stack's bottom goal while it drops its top"
+
+# ---- lib/runs.fs: a run as a stack (review tb2-batch2b 1)
+[[fault]]
+id = "tb2c-run-last-first"
+file = "src/lib/runs.fs"
+old = ''': run-last ( run -- x ) dup run-count 1- run@ ;'''
+new = ''': run-last ( run -- x ) 0 run@ ;'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "review tb2-batch2b 1: run-last gives the run's first cell, not its last"
+
+[[fault]]
+id = "tb2c-run-drop-last-first"
+file = "src/lib/runs.fs"
+old = '''  dup run-valid? if dup run-count 1- run-take else drop -1 outcome-invalid then ;'''
+new = '''  dup run-valid? if 1 run-after else drop -1 outcome-invalid then ;'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "review tb2-batch2b 1: run-drop-last drops the first cell, not the last"
+
+[[fault]]
+id = "tb2c-run-drop-last-empty-ok"
+file = "src/lib/runs.fs"
+old = '''  dup run-valid? if dup run-count 1- run-take else drop -1 outcome-invalid then ;'''
+new = '''  dup run-valid? if dup run-count 1- 0 max run-take else drop -1 outcome-invalid then ;'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "review tb2-batch2b 1: a pop of the empty run answers ok (the empty run), not invalid"
 
 # ---- tactics/and-intros.fs, by-contra.fs, case.fs
 [[fault]]
