@@ -146,6 +146,10 @@ T{ ab s" ?_ by-exact" tactic-ran holes# 0 hole@ eh-mvar @ dup kind@ swap tag@
    0 hole@ eh-arg @ -> 461 1 mv-opaque 0 0 }T
 T{ and2 s" ' And.intro ?: left $ ?_ $ by-refine" tactic-ran holes# 0 hole@ eh-mvar @ tag@
    s" left" nm = 1 hole@ eh-mvar @ tag@ s" refine" nm = -> 89 2 true false }T
+\ With no expected type (specialize's term): a natural ?T : Sort ?u for
+\ the hole's type first; the hole synthetic opaque under specialize.
+T{ aa s" _ by-specialize" tactic-ran holes# 0 hole@ eh-mvar @ dup kind@ swap lf-mvar-type drop
+   dup lf-mvar? swap kind@ -> 447 1 mv-opaque true mv-natural }T
 \ A name some metavariable has already: not ported (139), and the second
 \ hole is never made.
 T{ and2 s" ' And.intro ?: x $ ?: x $ by-refine" tactic-ran holes# -> 139 1 }T
@@ -210,6 +214,8 @@ nat mv-natural lf-mvar-new made constant n2
 : run3 ( a b c -- run ) >r >r 0 swap run-push made r> run-push made r> run-push made ;
 T{ n1 m1 n2 run3 lf-natural-mvars dup run-count over 0 run@ rot 1 run@ -> 2 n1 n2 }T
 T{ m1 m2 m1 run3 lf-natural-mvars run-count -> 0 }T
+\ (a term that is no metavariable has no kind: left out)
+T{ nat n1 m1 run3 lf-natural-mvars dup run-count swap 0 run@ -> 1 n1 }T
 
 \ ---- lf-tag-untagged: one anonymous goal takes the parent's tag; more,
 \ parent ++ suffix_1, .. in order, the tagged ones left; no parent:
@@ -260,6 +266,21 @@ lf-tac-forget
 T{ flags? ' flags? lf-with-holes-as-goals flags? -> false false true true false false }T
 : thrower ( -- ) 7 throw ;
 T{ ' thrower ' lf-with-holes-as-goals catch nip flags? -> 7 false false }T
+
+\ ---- 5. Resources: a hole refused for room before anything is recorded:
+\ no room for a term metavariable (the hole), or for a level one (?T :
+\ Sort ?u of a hole with no expected type): full, no hole record.
+: hole-node ( kind -- node ) 0 syn-new 0= abort" batch-e test: no node" ;
+: full-at ( store -- limit )
+  dup store-limit @ swap dup store-count @ swap store-limit! drop ;
+: limit-back ( x outcome limit store -- x outcome ) store-limit! drop ;
+holes# constant holes0
+T{ mv-exprs full-at syn-k-hole hole-node nat et-hole rot mv-exprs limit-back holes#
+   -> -1 outcome-full holes0 }T
+T{ mv-levels full-at syn-k-hole hole-node -1 et-hole rot mv-levels limit-back holes#
+   -> -1 outcome-full holes0 }T
+T{ mv-exprs full-at syn-k-hole hole-node -1 et-hole rot mv-exprs limit-back holes#
+   -> -1 outcome-full holes0 }T
 
 \ ---- 5. Resources: the new goals' words with every heap allocation
 \ refused in turn, and the words through their text: the answer or full.

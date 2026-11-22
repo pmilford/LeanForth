@@ -234,7 +234,10 @@ T{ 3 0 arg-node dup kind swap syn-a@ s" a.b" named? -> syn-k-hyp true }T
 T{ 2 0 arg-name s" a.b" named? 2 1 arg-name s" ih" named? -> true true }T
 T{ s" n by-induction-with | succ _ ih => ih by-exact by-end end t" proof nfails -> 71 1 97 }T
 T{ 2 0 arg-name 2 1 arg-name s" ih" named? -> 0 true }T
-T{ s" by-intro: _ _ by-exact end t" proof nfails -> 52 1 55 }T
+\ (_ as a value is a hole, batch 3b: read, then the elaborator this test
+\ lacks, 71)
+T{ s" by-intro: _ _ by-exact end t" proof nfails -> 71 1 66 }T
+T{ 2 0 arg-node kind -> syn-k-hole }T
 T{ 1 0 arg-name -> 0 }T
 \ Names are case-sensitive: IH is not ih.
 T{ s" n by-induction-with | succ k IH => ih by-exact by-end end t" proof nfails -> 1 1 78 }T

@@ -249,7 +249,8 @@ defer lf-elab-arg-call ( node expected frames cont -- ... frames next )
   s"  arg " lf-elab-note ea-paramidx lf-elab-n. s" : " lf-elab-note dup lf-elab-term.
   lf-elab-nl ;
 : ea-add ( arg -- outcome )
-  ea-arg. ea-arg-hole! ea ea-f @ over lf-meta-app ok-then? 0= if nip exit then ea ea-f !
+  ea-arg-hole!
+  ea-arg. ea ea-f @ over lf-meta-app ok-then? 0= if nip exit then ea ea-f !
   ea-args slab-push dup ok? if ea ea-ftype @ lf-term-second@ ea ea-ftype ! then ;
 
 \ ---- fTypeIsForall: a pi, its domain instantiated, with its outParam,

@@ -219,12 +219,13 @@ end-structure
 : et-hole-new ( node expected -- node mvar outcome )
   et-hole-type ok-then? 0= if no-result exit then
   over et-hole-kind lf-mvar-new lf-elab-meta ;
-: et-tagged ( node mvar -- node mvar outcome )
-  over syn-a@ ?dup if over swap lf-mvar-tag! else outcome-ok then ;
+\ (The metavariable just made is live, so its tag is never refused:
+\ lf-must throws only on a fault.)
+: et-tagged ( node mvar -- node mvar )
+  over syn-a@ ?dup if over swap lf-mvar-tag! lf-must then ;
 : et-recorded ( node mvar -- mvar outcome ) tuck swap syn-at@ lf-elab-hole+ ;
 : et-hole-made ( node expected -- mvar outcome )
-  et-hole-new ok-then? 0= if nip no-result exit then
-  et-tagged ok-then? 0= if nip no-result exit then et-recorded ;
+  et-hole-new ok-then? 0= if nip no-result exit then et-tagged et-recorded ;
 : et-taken? ( name -- flag ) ?dup if lf-mvar-named dup if nip then else false then ;
 : et-unported ( -- -1 outcome ) lfa-e-elab-step lf-elab-fail no-result ;
 : et-hole ( node expected -- mvar outcome )
