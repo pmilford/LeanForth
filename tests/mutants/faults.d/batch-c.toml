@@ -376,12 +376,20 @@ reason = "review tb2-batch2b 1: a pop of the empty run answers ok (the empty run
 
 # ---- tactics/and-intros.fs, by-contra.fs, case.fs
 [[fault]]
-id = "tb2c-and-tags-swapped"
+id = "tb2c-and-tags-lost"
 file = "src/front/tactics/and-intros.fs"
-old = ''': tai-left ( goal a -- goal l ) over dup s" refine_1" tai-tag swap tai-hole ;'''
-new = ''': tai-left ( goal a -- goal l ) over dup s" refine_2" tai-tag swap tai-hole ;'''
+old = '''  over swap lf-goal-tag c" refine" swap lf-tag-untagged ;'''
+new = '''  drop ;'''
 test = "$GFORTH tests/front/tactics/batch-c/test.fs"
-reason = "TB2: and_intros' first goal tagged refine_2 (refine's tagUntaggedGoals counts from 1)"
+reason = "TB2: and_intros' goals left anonymous, not refine_1 and refine_2 (refine's tagUntaggedGoals not run; review tb2-batch3b 1 replaced tb2c-and-tags-swapped, whose hand-written tags are gone)"
+
+[[fault]]
+id = "tb2c-and-tags-parent-lost"
+file = "src/front/tactics/and-intros.fs"
+old = '''  over swap lf-goal-tag c" refine" swap lf-tag-untagged ;'''
+new = '''  over swap drop 0 c" refine" swap lf-tag-untagged ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-c/check.py"
+reason = "TB2: and_intros' goals tagged refine_1 and refine_2 without the parent goal's tag (left.refine_1 under constructor)"
 
 [[fault]]
 id = "tb2c-contra-guard-open"
