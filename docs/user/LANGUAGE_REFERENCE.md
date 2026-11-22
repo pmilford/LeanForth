@@ -1230,9 +1230,13 @@ written.
   83. The pattern b not found: 215. An `Iff` rule either way: 99.
 - `by-rwa[ r1 .. rn ]`: rewrite, then close the goal by `rfl` or by a
   hypothesis. With `h : a = b`, `h2 : b = c`: `by-rwa[ ' h ]` proves
-  `a = c` (`ra_basic`); Lean: `rwa [h]`. Neither closes it: 381. After the
-  rewrite a goal of another relation than `=` (such as `≤`) is not
-  supported yet (93: `by-rfl` stops there).
+  `a = c` (`ra_basic`); Lean: `rwa [h]`. Neither closes it: 381. Limit:
+  `by-rwa[ ]` closes only goals `by-rfl` can judge. After the rewrite a
+  goal that is no `=` (such as `≤`, or `¬c = b` with `h2 : c ≠ b` in the
+  context) is not supported yet (93, exit 2), never refused, even when a
+  hypothesis matches it: Lean's `rwa` tries `assumption` after any failure
+  of `rfl`, `by-rfl` does not yet port Lean's failure for such a goal and
+  its `@[refl]` lemmas (plan row TB2).
 - `by-exacts[ e1 .. en ]`: `e1 by-exact`, .., `en by-exact`, then no goal
   may be left (89). After `' And.intro by-apply`, `by-exacts[ ' h1 ' h2 ]`
   (`ex_two`); Lean (Batteries): `exacts [h1, h2]`. No `<-` inside (83).
@@ -1240,16 +1244,20 @@ written.
   NAME : p and `neg` with NAME : ¬p. Mathematically: either p holds or it
   does not. `a b ≤ by-cases: h ' h by-exact ' h by-absurd ' h1 by-exact`
   (`bc_dec`); Lean: `by_cases h : a ≤ b`. The proof uses p's `Decidable`
-  instance, or, when none exists, `Classical.propDecidable`, which needs
-  the axiom `Classical.choice` (`bc_classical` on `Nonempty Nat`: the
-  report names it). p no proposition (`a by-cases: h` with `a : Nat`): 99.
+  instance (`bc_dec`: axioms none), or, when none exists,
+  `Classical.propDecidable`, with which the kernel's report lists the
+  axioms `propext`, `Classical.choice` and `Quot.sound` (`bc_classical` on
+  `Nonempty Nat`). All three are on the allowlist, so `--strict-axioms`
+  accepts the theorem: it refuses only axioms outside the allowlist.
+  p no proposition (`a by-cases: h` with `a : Nat`): 99.
 - `by-contra: NAME` and `by-contra`: proof by contradiction, NAME (or
   `this`) the negation of the goal, the new goal `False`; for a goal ¬q,
   NAME : q. `by-contra: k ' k by-absurd ' h by-exact` (`bk_dec`); Lean
   (Batteries): `by_contra k`. `by-contra-core` is its first part alone
   (Lean's `by_contra_core`), the goal p → False, `by-intro:` naming it.
-  A classical goal uses `Classical.byContradiction` (axiom
-  `Classical.choice`).
+  A classical goal uses `Classical.byContradiction`, with which the
+  kernel's report lists `propext`, `Classical.choice` and `Quot.sound`
+  (`bk_classical`), all three accepted by `--strict-axioms`.
 - `by-symm`: the goal a = b becomes b = a; also for `↔`, `≠`, `HEq`, `∧`
   and `∨` (Init's `@[symm]` lemmas). `by-symm ' h by-exact` proves `b = a`
   from `h : a = b` (`sy_eq`); Lean: `symm`. No relation of two arguments
@@ -1308,9 +1316,9 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-rewrite[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, no `by-rfl` | The same without the closing `rfl`. | `rewrite [` |
 | `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules (or terms), in order; closes it | Ends the list of `by-rw[`, `by-rewrite[`, `by-rwa[` or `by-exacts[`; with none open, error 83. | `]` |
 | `<-` | `( r -- )` (top: the rule just written) | ordinary; only inside `by-rw[`, `by-rewrite[` or `by-rwa[` (83 elsewhere), after a rule (86) | read: the values so far become the bracket's rules, the last one marked right to left | Rewrites with r from right to left. | `← r` |
-| `by-rwa[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, then `rfl` (reducible) or else `assumption` | Rewrites, then closes the goal; neither closes it: 381; after the rewrite a relation other than `=`: 93. | `rwa [` |
+| `by-rwa[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, then `rfl` (reducible) or else `assumption` | Rewrites, then closes the goal; neither closes it: 381; after the rewrite a goal that is no `=` (a `≤`, a negation): 93, even when a hypothesis matches it (`by-rfl`'s limit, plan row TB2). | `rwa [` |
 | `by-exacts[` | `( -- )` | ordinary; opens a term block that `]` closes (no `<-`) | read: a step whose terms are the values up to `]`. Run: `by-exact` of each, then no goal may be left | Closes the goals one term each; a mismatch: 96; a goal left: 89. | `exacts [` (Batteries) |
-| `by-cases: HYP-NAME` | `( p -- )` (top: p) | parsing: one name after it, on its line | read: a step holding p; HYP-NAME a hypothesis word. Run: assigns the main goal `dite p` of two new goals, `pos` (HYP-NAME : p) and `neg` (HYP-NAME : ¬p), which take its place | Splits on whether p holds; p's `Decidable` instance, else `Classical.propDecidable` (axiom `Classical.choice`); p no proposition or `_`: 99. | `by_cases HYP-NAME : p` |
+| `by-cases: HYP-NAME` | `( p -- )` (top: p) | parsing: one name after it, on its line | read: a step holding p; HYP-NAME a hypothesis word. Run: assigns the main goal `dite p` of two new goals, `pos` (HYP-NAME : p) and `neg` (HYP-NAME : ¬p), which take its place | Splits on whether p holds; p's `Decidable` instance, else `Classical.propDecidable` (the report's axioms then `propext`, `Classical.choice`, `Quot.sound`, which `--strict-axioms` accepts); p no proposition or `_`: 99. | `by_cases HYP-NAME : p` |
 | `by-contra: HYP-NAME` | `( -- )` | parsing: one name after it, on its line | read: a step; HYP-NAME a hypothesis word. Run: `by-contra-core`, then `by-intro:` of HYP-NAME on the same step | Proves the goal p from HYP-NAME : ¬p and the goal `False` (for p = ¬q, HYP-NAME : q); `rfl`: 99. | `by_contra HYP-NAME` (Batteries) |
 | `by-contra` | `( -- )` | ordinary; `this` a hypothesis word | read: a step. Run: as `by-contra: this` | The same, the hypothesis named `this`. | `by_contra` (Batteries) |
 | `by-contra-core` | `( -- )` | ordinary | read: a step. Run: the goal ¬q becomes q → False, else p becomes ¬p → False (`Decidable.byContradiction`, else `Classical.byContradiction`) | The first half of `by-contra:`; p no proposition: 99. | `by_contra_core` (Batteries) |
