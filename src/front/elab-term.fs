@@ -72,7 +72,12 @@ require ../core/mvar-leaves.fs
 require ../core/constant-term-boundary.fs
 require ../core/generation-handles.fs
 require ../lib/bounds.fs
+require ../lib/find.fs
+require ../lib/decimal.fs
+require ../core/input.fs
 require ../present/binder-table.fs
+require ../present/print-job.fs
+require ../present/print-names.fs
 require ../author/errors.fs
 require ../author/declarations.fs
 require ../author/constants.fs
@@ -253,6 +258,131 @@ end-structure
   swap dup et-fn ok-then? 0= if nip nip et-failed exit then
   rot lf-elab-app-new dup ok? 0= if nip et-failed exit then drop
   lf-elab-app-syntax! et-app-call ;
+\ ---- elabAnonymousConstructor (Elab/BuiltinNotation.lean:43-102; plan
+\ row TB2, tactic batch 3c), Lean's ⟨a, b⟩, reader.fs's << a b >>: the
+\ expected type known (none, or one whose whnfR is a metavariable's
+\ application: Lean postpones, which is not ported, 132; lf-elab-final
+\ gives Lean's error 462 where the term would be resumed at once with its
+\ type still unknown), its whnf headed by no metavariable (462), by an
+\ inductive type's constant (matchConstInduct; else 463) with exactly one
+\ constructor (none 464, more 465; a private one, whose accessibility
+\ Lean checks, not ported: 139). Its explicit fields after its
+\ parameters (numExplicitFields: the declared type's binder kinds,
+\ lf-menv-kinds) take the items: fewer items 466, items where it has
+\ none 467; as many, the constructor (mkCIdentFrom: new level
+\ metavariables) applied to them (elabApp) against the expected type as
+\ given; more, the last field takes the rest as a nested ⟨ ⟩ (newStx:
+\ new nodes at the bracket's place, where Lean reports their errors).
+\ The messages are Lean's, the type shown as inlineExpr shows a short one
+\ (Lean indents one longer than 30 characters: not ported, the message
+\ differs).
+462 outcome-invalid
+  s" Invalid `⟨...⟩` notation: The expected type of this term could not be determined"
+  lfa-code: lfa-e-anon-unknown
+463 outcome-invalid s" Invalid `⟨...⟩` notation: The expected type"
+  lfa-code: lfa-e-anon-type
+464 outcome-invalid s" Invalid `⟨...⟩` notation: The expected type"
+  lfa-code: lfa-e-anon-none
+465 outcome-invalid s" Invalid `⟨...⟩` notation: The expected type"
+  lfa-code: lfa-e-anon-ctors
+466 outcome-invalid s" Insufficient number of fields for `⟨...⟩` constructor: Constructor"
+  lfa-code: lfa-e-anon-few
+467 outcome-invalid s" Insufficient number of fields for `⟨...⟩` constructor: Constructor"
+  lfa-code: lfa-e-anon-fields
+: et-usage. ( -- outcome )
+  s\" \nNote: This notation can only be used when the expected type is an " lf-pp-emit
+  s" inductive type with a single constructor" lf-pp-emit outcome-ok ;
+\ The expected type: known, else Lean postpones (132).
+: et-postponed ( -- -1 outcome ) lfa-e-elab-postpone lf-elab-fail no-result ;
+: et-whnf-r-mvar? ( t -- flag outcome )
+  lf-meta-whnf-r lf-elab-meta ok-then? if lf-elab-mvar-app? outcome-ok else false swap then ;
+: et-known ( expected -- t outcome )
+  dup 0< if drop et-postponed exit then lf-instantiate-mvars lf-elab-meta ;
+: et-settled ( t -- t outcome )
+  dup et-whnf-r-mvar? ok-then? 0= if nip no-result exit then if drop et-postponed exit then
+  outcome-ok ;
+: et-anon-whnf ( t -- t' outcome )
+  lf-meta-whnf lf-elab-meta ok-then? 0= if no-result exit then dup lf-meta-head lf-mvar?
+  if drop lfa-e-anon-unknown lf-elab-fail no-result else outcome-ok then ;
+: et-anon-type ( expected -- t outcome )
+  et-known ['] et-settled ok-apply ['] et-anon-whnf ok-apply ;
+\ Its inductive type's one constructor.
+: et-type-error ( t code -- -1 outcome ) lf-elab-fail-term no-result ;
+: et-not-inductive ( t -- -1 outcome )
+  s" is not an inductive type" lf-elab-rest+ ['] et-usage. lf-elab-below!
+  lfa-e-anon-type et-type-error ;
+: et-no-ctor ( t -- -1 outcome ) s" has no constructors" lf-elab-rest+ lfa-e-anon-none et-type-error ;
+: et-ctors-error ( t -- -1 outcome )
+  s" has more than one constructor" lf-elab-rest+ ['] et-usage. lf-elab-below!
+  lfa-e-anon-ctors et-type-error ;
+: et-ctor-of ( t items n -- name outcome )
+  dup 1 = if drop nip @ outcome-ok exit then nip 0= if et-no-ctor else et-ctors-error then ;
+: et-anon-name ( t -- name outcome )
+  dup lf-meta-head lf-match-const-induct 0= if et-not-inductive exit then
+  lf-menv-data ?dup 0= if drop et-unported exit then lf-ity-ctors@ et-ctor-of ;
+: et-private? ( name -- flag ) lf-name-root s" _private" lf-name-str-is? ;
+: et-ctor-decl ( name -- c outcome )
+  dup et-private? if drop et-unported exit then lf-menv-find lf-elab-meta ;
+: et-anon-ctor ( expected -- c outcome )
+  et-anon-type ['] et-anon-name ok-apply ['] et-ctor-decl ok-apply ;
+\ numExplicitFields.
+: et-params ( c -- p outcome )
+  lf-menv-data ?dup if lf-ict-params lf-more-field outcome-ok else et-unported then ;
+: et-past ( addr n k -- addr' n' ) tuck - >r cells + r> ;
+: et-explicit? ( addr k -- addr flag ) over swap cells + @ lf-binder-default = ;
+: et-fields-past ( c p -- n outcome )
+  swap lf-menv-kinds rot 2dup < if 2drop drop et-unported exit then
+  et-past ['] et-explicit? count-index outcome-ok ;
+: et-fields ( c -- n outcome ) dup et-params ok-then? if et-fields-past else nip no-result then ;
+\ The messages of too few items: Lean's words, its plural as it writes it
+\ (fieldsStr "fields" for one field, else "field": BuiltinNotation.lean:72).
+: et-name+ ( name -- )
+  s"  `" lf-elab-rest+ ['] lf-elab-rest+ lf-pp-name-to s" ` " lf-elab-rest+ ;
+: et-n+ ( n -- ) u>decimal lf-elab-rest+ ;
+: et-field-word ( n -- c-addr u ) 1 = if s" fields" else s" field" then ;
+: et-has ( n -- ) s" has " lf-elab-rest+ dup et-n+ s"  explicit " lf-elab-rest+ et-field-word
+  lf-elab-rest+ ;
+: et-provided ( k -- )
+  case 0 of s" none were" lf-elab-rest+ endof 1 of s" only 1 was" lf-elab-rest+ endof
+    s" only " lf-elab-rest+ dup et-n+ s"  were" lf-elab-rest+ endcase ;
+: et-too-few ( c n k -- -1 outcome )
+  rot lf-menv-name et-name+ swap et-has s" , but " lf-elab-rest+ et-provided
+  s"  provided" lf-elab-rest+ lfa-e-anon-few lf-elab-fail no-result ;
+: et-was ( k -- c-addr u ) 1 = if s"  was" else s"  were" then ;
+: et-no-fields ( c k -- -1 outcome )
+  swap lf-menv-name et-name+ s" does not have explicit fields, but " lf-elab-rest+ dup et-n+
+  et-was lf-elab-rest+ s"  provided" lf-elab-rest+ lfa-e-anon-fields lf-elab-fail no-result ;
+\ The items as the constructor's arguments: new ⟨ ⟩ nodes at the node's
+\ place (an argument node's place is its node's) of m slots, filled from
+\ from' (a node whose item i is the one wanted, i from 0).
+: et-anon-like ( node m -- new outcome )
+  >r syn-k-anon swap syn-at@ r> syn-node-new room-result ;
+: et-copy ( from' to m -- ) 0 ?do over i syn-arg over i rot syn-arg! loop 2drop ;
+: et-copied ( from' new m -- new outcome ) >r tuck r> et-copy outcome-ok ;
+: et-rest# ( node n -- m ) swap syn-b@ swap - 1+ ;
+: et-nested ( node n -- nested outcome )
+  2dup et-rest# >r + 1- dup r@ et-anon-like ok-then? 0= if nip r> drop no-result exit then
+  r> et-copied ;
+: et-outer ( node n nested -- stx outcome )
+  >r 2dup et-anon-like ok-then? 0= if nip nip r> drop no-result exit then
+  dup >r swap 1- et-copy r> r> syn-last! outcome-ok ;
+: et-split ( node n -- stx outcome )
+  2dup et-nested ok-then? if et-outer else nip nip no-result then ;
+: et-exact? ( node n -- flag ) swap syn-b@ = ;
+: et-few? ( node n -- flag ) swap syn-b@ > ;
+: et-anon-stx ( c node n -- stx outcome )
+  2dup et-exact? if drop nip outcome-ok exit then 2dup et-few? if swap syn-b@ et-too-few exit then
+  dup 0= if drop syn-b@ et-no-fields exit then rot drop et-split ;
+: et-anon-built ( node c -- stx outcome )
+  dup et-fields ok-then? 0= if nip nip no-result exit then >r swap r> et-anon-stx ;
+\ The constructor applied to the items (elabApp), against the expected type.
+: et-anon-app ( stx c expected -- ... frames next )
+  >r lf-meta-const-fresh ok-then? 0= if nip r> drop et-failed exit then
+  r> lf-elab-app-new dup ok? 0= if nip et-failed exit then drop
+  lf-elab-app-syntax! et-app-call ;
+: et-anon ( node expected -- ... frames next )
+  dup et-anon-ctor ok-then? 0= if nip nip et-failed exit then
+  rot over et-anon-built ok-then? 0= if nip nip et-failed exit then swap rot et-anon-app ;
 defer et-op ( node expected -- ... frames next )
 defer et-rel ( node expected -- ... frames next )
 \ binop% and rightact% are elabOp's (Extra.lean:182).
@@ -260,7 +390,7 @@ defer et-rel ( node expected -- ... frames next )
 : et-dispatch ( node expected -- ... frames next )
   over syn-hole? if et-holed exit then over et-op-kind? if et-op exit then
   over syn-kind@ case syn-k-num of et-num endof syn-k-app of et-app endof
-    syn-k-binrel of et-rel endof >r et-atom r> endcase ;
+    syn-k-binrel of et-rel endof syn-k-anon of et-anon endof >r et-atom r> endcase ;
 : et-scoped ( node expected frames -- node expected ) drop swap et-at-scope swap ;
 \ (blockImplicitLambda: never for a hole, TermElabM.lean:1744.)
 : et-visit ( node expected frames -- ... frames next )
@@ -275,6 +405,20 @@ is lf-elab-term-call
 is lf-elab-arg-call
 : et-term-call ( node expected frames cont -- ... frames next ) lf-elab-term-call ;
 : lf-elab-term ( node expected -- term outcome ) ['] et-term-call lf-elab-visit ;
+\ Term.elabTerm where synthesis with no postponing follows at once (a
+\ tactic's term with mayPostpone false, #check): a ⟨ ⟩ at the root whose
+\ expected type is unknown (none, or its whnfR a metavariable's
+\ application) is postponed by Lean and resumed there with its type
+\ still unknown: Lean's error 462 at it; anything else lf-elab-term.
+: et-type-unknown? ( expected -- flag outcome )
+  dup 0< if drop true outcome-ok exit then
+  lf-instantiate-mvars lf-elab-meta ok-then? if et-whnf-r-mvar? else false swap then ;
+: et-root-unknown? ( node expected -- flag outcome )
+  over syn-kind@ syn-k-anon = if nip et-type-unknown? else 2drop false outcome-ok then ;
+: et-root-unknown ( node -- -1 outcome ) et-at! lfa-e-anon-unknown lf-elab-fail no-result ;
+: lf-elab-final ( node expected -- term outcome )
+  2dup et-root-unknown? ok-then? 0= if nip nip no-result exit then
+  if drop et-root-unknown else lf-elab-term then ;
 
 \ ---- binop% trees: toTree's go, a node per operator (pre-order) and per
 \ leaf (its term elaborated with no expected type).

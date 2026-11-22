@@ -18,6 +18,7 @@ require ./delta.fs
 require ./exact.fs
 require ./exacts.fs
 require ./exfalso.fs
+require ./exists.fs
 require ./have.fs
 require ./induction.fs
 require ./intro.fs

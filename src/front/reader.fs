@@ -15,6 +15,9 @@
 \ - a number is a numeral (Lean's OfNat), at its own position (form.fs);
 \ - _ , ?_ and ?: NAME are holes (plan row TB2, batch 3b; syntax.fs's
 \   syn-k-hole and syn-k-synthetic), each a value taking none;
+\ - << a b >> (or ⟨ a b ⟩) is Lean's anonymous constructor ⟨a, b⟩ (plan
+\   row TB2, batch 3c; syntax.fs's syn-k-anon), its items the complete
+\   terms between the brackets, one value;
 \ - ' NAME is the function NAME, applied to nothing; f a $ applies f to
 \   one more argument (an application made by a name gets it as its next
 \   argument, as Lean's id g x);
@@ -110,7 +113,7 @@ defer lfn-library-arity ( name -- arity unfolds? true | false )
 \ The application of node to the n values below it: a node and n
 \ argument slots, filled from the last, which is on top.
 : lfn-app-new ( node -- app ) syn-k-app over syn-at@ lfn-new swap syn-a! ;
-: lfn-slots ( app n -- app ) 0 ?do dup lfn-arg-new loop ;
+: lfn-slots ( app n -- app ) over swap syn-slots lfa-e-syntax-full lfa-must ;
 : lfn-take-arg ( v app i -- app ) rot lfn>syntax >r over swap r> syn-arg! ;
 : lfn-fill ( v1 .. vn app n -- app ) ?dup if 0 swap 1- do i lfn-take-arg -1 +loop then ;
 : lfn-args ( v1 .. vn node n -- app ) >r lfn-app-new r@ lfn-slots r> lfn-fill ;
@@ -253,6 +256,21 @@ s" Dvd.dvd" lfn-own-name: divides
 : lfn-w-named-hole ( -- t )
   syn-k-synthetic lfa-here lfn-new lfa-name-token lfn-hole-name syn-a! lfn-value ;
 
+\ Anonymous constructors (plan row TB2, tactic batch 3c; owner,
+\ 2026-11-22, "Lists sit between bracket words"): << opens a list, an
+\ author bracket (author/scopes.fs) whose items are complete terms one
+\ after another, on as many lines as it needs; >> closes it as one value,
+\ a node of kind syn-k-anon at <<'s place with the items, in order, as
+\ its arguments (Lean's ⟨a, b⟩; front/elab-term.fs elaborates it). ⟨ and
+\ ⟩ are the same two words in Lean's spelling. >> with no << open is 83;
+\ a word that is never an item, end NAME or := before >> is 458 at <<.
+: lfn-anon-closer ( -- closer ) c" >>" ;
+: lfn-w-anon ( -- ) lfn-anon-closer lfa-bracket-open ;
+: lfn-anon-node ( v1 .. vn n pos -- node )
+  syn-k-anon swap lfn-new over lfn-slots swap lfn-fill ;
+: lfn-w-anon-end ( v1 .. vn -- t )
+  lfn-anon-closer lfa-e-tac-closer lfa-bracket-close lfn-anon-node lfn-value ;
+
 \ Binders: the type as written.
 : lfn-binder ( t kind -- ) ['] lfn>syntax lfa-binder-of ;
 : lfn-w-explicit ( t -- ) 1 lfa-args lf-binder-default lfn-binder ;
@@ -290,6 +308,10 @@ s" Dvd.dvd" lfn-own-name: divides
 ' lfn-w-hole lfa-natural! _
 ' lfn-w-synthetic lfa-natural! ?_
 ' lfn-w-named-hole lfa-natural! ?:
+' lfn-w-anon lfa-natural! <<
+' lfn-w-anon lfa-natural! ⟨
+' lfn-w-anon-end lfa-natural! >>
+' lfn-w-anon-end lfa-natural! ⟩
 ' lfn-w-explicit lfa-natural! explicit:
 ' lfn-w-implicit lfa-natural! implicit:
 ' lfn-w-strict lfa-natural! strict-implicit:

@@ -14,9 +14,10 @@
 \ it opened (they must be the same when it closes), its word's place and
 \ spelling, and its closer, an address its closing words give. Words:
 \ lfa-bracket-open ( closer -- ) opens one at the current token;
-\ lfa-bracket-close ( closer code -- n ) closes the innermost one, which
-\ must be closer's (else 458 at its word), with the same binders open
-\ (else 21), n its items; none open is error code at the current token;
+\ lfa-bracket-close ( closer code -- n pos ) closes the innermost one,
+\ which must be closer's (else 458 at its word), with the same binders
+\ open (else 21), n its items and pos its word's place; none open is
+\ error code at the current token;
 \ lfa-bracket-drop ( -- ) closes it, its items not counted (a list of
 \ names, read whole); lfa-bracketed? ( -- flag ) whether one is open;
 \ lfa-list-closer ( -- closer|0 ) the innermost one's; lfa-list-unclosed
@@ -126,8 +127,9 @@ end-structure
 : lfa-bracket-binders? ( -- )
   lfa-depth lfa-bracket lfa-bracket-binders @ = if exit then
   lfa-innermost lfa-binder-at @ lfa-e-open-binder lfa-fail-see ;
-: lfa-bracket-items ( -- n ) depth lfa-bracket lfa-bracket-mark @ - ;
-: lfa-bracket-close ( closer code -- n )
+: lfa-bracket-items ( -- n pos )
+  depth lfa-bracket lfa-bracket-mark @ - lfa-bracket lfa-bracket-at @ ;
+: lfa-bracket-close ( closer code -- n pos )
   lfa-bracket-own lfa-bracket-binders? lfa-bracket-items lfa-bracket-drop ;
 
 \ The frame: the innermost bracket's, binder's or declaration's.

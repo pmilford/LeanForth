@@ -20,6 +20,10 @@
 \   syn-k-hole    _, Lean's hole (plan row TB2, batch 3b): no field
 \   syn-k-synthetic  ?_ or ?: NAME, Lean's syntheticHole  a: the name
 \                 (a name ID), 0 for ?_
+\   syn-k-anon    << a b >>, Lean's anonymous constructor ⟨a, b⟩ (plan
+\                 row TB2, batch 3c)  b: the number of items, which are
+\                 the a fields of the syn-k-arg nodes right after it, as
+\                 an application's arguments
 \ So 0 n + n = is binrel% Eq (binop% HAdd.hAdd 0 n) n, and x y f, with f
 \ taking two explicit arguments, is app f [x, y]. An operator's name is
 \ Lean's hygienic one (HAdd.hAdd✝, Eq✝ in Lean's expansion): it always
@@ -30,7 +34,12 @@
 \ addresses until the next node. Untrusted: a tree says what was written,
 \ never what it means; the kernel checks whatever the elaborator makes.
 \ Words: syn-reset, syn-new ( kind pos -- node true | false ), syn-arg-new
-\ ( node -- true | false ), the setters syn-a! syn-b! syn-c! ( node x --
+\ ( node -- true | false ), syn-slots ( node n -- flag ) n more argument
+\ slots made (false when the heap refuses one), syn-node-new ( kind pos n
+\ -- node true | false ) a node and its n slots, syn-arg! ( node i arg -- )
+\ fills slot i, syn-last! ( node arg -- node ) its last slot (plan row
+\ TB2, batch 3c: ⟨ ⟩ nodes the elaborator and by-exists[ make), the
+\ setters syn-a! syn-b! syn-c! ( node x --
 \ node ), the readers syn-kind@ syn-a@ syn-b@ syn-c@ syn-at@ ( node -- x ),
 \ syn-arg ( node i -- arg ), syn-count ( -- n ), syn-valid? ( node -- flag ),
 \ syn-hole? ( node -- flag ) (a hole of either kind: Lean's isHole).
@@ -50,6 +59,7 @@ require ../lib/lib.fs
 9 constant syn-k-rightact
 10 constant syn-k-hole
 11 constant syn-k-synthetic
+12 constant syn-k-anon
 
 begin-structure /syn
   field: syn-kind
@@ -98,3 +108,8 @@ max-n store-header - /syn cell+ / constant syn-limit
   drop dup syn-b@ 1+ syn-b! drop true ;
 : syn-arg ( app i -- arg ) + 1+ syn-a@ ;
 : syn-arg! ( app i arg -- ) >r + 1+ r> syn-a! drop ;
+: syn-slots ( node n -- flag )
+  0 ?do dup syn-arg-new 0= if drop false unloop exit then loop drop true ;
+: syn-node-new ( kind pos n -- node true | false )
+  >r syn-new 0= if r> drop false exit then dup r> syn-slots dup 0= if nip then ;
+: syn-last! ( node arg -- node ) over dup syn-b@ 1- rot syn-arg! ;

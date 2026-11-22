@@ -158,6 +158,16 @@
 \       lf-tag-untagged); allow? elaborates
 \       with holes synthetic opaque and assignable
 \       (lf-with-holes-as-goals: refine', specialize)
+\   lf-tac-refine ( node goal -- goals )  refineCore (ElabTerm.lean:209-
+\       222) with the suffix refine and natural holes refused, as refine
+\       and the macros over it call it (plan row TB2, batch 3c:
+\       tactics/refine.fs, exists.fs): in goal's context, node elaborated
+\       against goal's type, instantiated, with its new goals
+\       (lf-tac-elab-holes, lf-tac-tag-new), goal assigned the value;
+\       the goals the result (the main goal's place is the caller's)
+\   lf-tac-elab-detail's message with a rest (elab-pending.fs's
+\       lf-elab-rest+, batch 3c): the term inline, then the rest, on the
+\       message's line, and what lf-elab-below! gave as the detail
 \   lf-with-location ( i*x i xt-local xt-target -- i*x )  withLocation
 \       (Location.lean:58-77) of step i's location: each hypothesis name
 \       in order resolved (lf-tac-loc-fvar) in the main goal's context and
@@ -261,8 +271,19 @@ end-structure
 : lf-tac-rfl-reducible ( -- ) tac-k-rfl ['] lf-tac-row lf-with-reducible ;
 
 \ ---- The elaborator's failure: its error, as Lean's throwError gives it.
+\ One with a rest (elab-pending.fs's lf-elab-rest+, plan row TB2 batch
+\ 3c): its term, when it has one, inline between blanks (inlineExpr),
+\ then the rest, on the message's line; the text below it as the detail.
+: tcr-rest. ( x -- outcome ) drop lf-elab-rest lf-pp-emit outcome-ok ;
+: tcr-blank. ( -- outcome ) s"  " lf-pp-emit outcome-ok ;
+: tcr-inline. ( term -- outcome )
+  dup 0< if tcr-rest. exit then
+  s"  " lf-pp-emit lf-tac-inline. ['] tcr-blank. ok-and 0 swap ['] tcr-rest. ok-with nip ;
+: tcr-rest-detail ( term -- )
+  ['] tcr-inline. lf-tac-inline lf-elab-below ?dup if ['] execute lf-tac-detail then ;
+: tcr-term-detail ( term -- ) dup 0< if drop else ['] lf-tac-indented. lf-tac-detail then ;
 : lf-tac-elab-detail ( -- )
-  lf-elab-error-term dup 0< if drop else ['] lf-tac-indented. lf-tac-detail then ;
+  lf-elab-error-term lf-elab-rest nip if tcr-rest-detail else tcr-term-detail then ;
 : lf-tac-elab-fail ( outcome -- ) lf-tac-elab-detail lf-elab-code lfa-see! lf-tac-stop ;
 
 \ ---- withSynthesize: xt run under the pending list's window, the
@@ -314,6 +335,14 @@ end-structure
   dup >r tcr-holes-elab dup r> tcr-goals ;
 : lf-tac-tag-new ( goals suffix -- goals )
   over swap lf-tac-main lf-goal-tag lf-tag-untagged ;
+\ refineCore stx `refine false (ElabTerm.lean:209-222), refine's and the
+\ macros' that expand to it: node elaborated against goal's type with its
+\ holes (natural ones refused), tagged refine, goal assigned the value.
+: tcr-refine-holes ( node goal -- goal e goals )
+  tuck lf-goal-type lf-instantiate! false lf-tac-elab-holes ;
+: tcr-assign ( goal e -- ) lf-instantiate! lf-mvar-assign lf-must ;
+: lf-tac-refine ( node goal -- goals )
+  tcr-refine-holes c" refine" lf-tac-tag-new >r tcr-assign r> ;
 
 \ ---- closeMainGoalUsing: the step's new metavariables (numbered from
 \ tb-from) that the term leaves unassigned, logUnassignedAndAbort's

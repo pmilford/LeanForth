@@ -53,7 +53,13 @@
 \   same for an error whose message shows a term (129's instance, Lean's
 \   indentExpr), kept with the first error; lf-elab-error ( -- code pos )
 \   (0 -1: none); lf-elab-error-term ( -- term ) the first error's term
-\   (-1: none); lf-elab-error-reset; lf-elab-meta ( outcome -- outcome ) records a
+\   (-1: none); lf-elab-rest+ ( c-addr u -- ) and lf-elab-below! ( xt
+\   -- ), before the error is recorded, its message's rest after its
+\   term on the line (the term then shown inline, Lean's inlineExpr) and
+\   what prints below it, xt ( -- outcome ) (Lean's .note), lf-elab-rest
+\   ( -- c-addr u ) and lf-elab-below ( -- xt|0 ) read back (plan row
+\   TB2, batch 3c: the ⟨ ⟩ errors);
+\   lf-elab-error-reset; lf-elab-meta ( outcome -- outcome ) records a
 \   Meta step's failure: no room 60, fuel 138, unsupported 139, else 76.
 \   Elaboration data the instance table refused (instances.fs's
 \   lf-inst-refusal, MF2's rule) is recorded instead, its code with the
@@ -98,6 +104,7 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/sort.fs
+require ../lib/bounds.fs
 require ../core/terms.fs
 require ../core/levels.fs
 require ../core/names.fs
@@ -127,6 +134,7 @@ require ./telescope.fs
 
 0 constant lf-postpone-yes   1 constant lf-postpone-partial   2 constant lf-postpone-no
 3 constant lf-postpone-check   \ no, a stuck problem left (#check's ignoreStuckTC)
+160 constant ep-rest#   \ characters of an error's rest on its line (more are cut)
 
 begin-structure /ep
   field: ep-base      \ the window's first pending entry
@@ -134,6 +142,8 @@ begin-structure /ep
   field: ep-code      \ the first error's code, 0: none
   field: ep-where     \ and its position
   field: ep-term      \ and the term its message shows, -1: none
+  field: ep-below     \ and what prints below the message ( -- outcome ), or 0
+  cell ep-rest# chars + +field ep-rest   \ and its rest on its line, cell-counted
   field: ep-tracing   \ true: events go to ep-trace
   /sorter +field ep-sorter   \ the priorities, highest first
 end-structure
@@ -178,7 +188,18 @@ end-structure
 : lf-elab-at! ( pos -- ) ep ep-at ! ;
 : lf-elab-at ( -- pos ) ep ep-at @ ;
 : lf-elab-error ( -- code pos ) ep ep-code @ ep ep-where @ ;
-: lf-elab-error-reset ( -- ) 0 ep ep-code ! -1 ep ep-where ! -1 ep ep-term ! ;
+: lf-elab-error-reset ( -- )
+  0 ep ep-code ! -1 ep ep-where ! -1 ep ep-term ! 0 ep ep-below ! 0 ep ep-rest ! ;
+\ A message that goes on after its term (plan row TB2, batch 3c; Lean's
+\ m!"..{inlineExpr e}.." and .note): its rest on the line, appended
+\ (cut at ep-rest# characters), and what prints below it, kept only
+\ while no error is recorded, for the error recorded next.
+: ep-free? ( -- flag ) ep ep-code @ 0= ;
+: ep-rest+ ( c-addr u -- ) ep ep-rest ep-rest# cell-counted-left min ep ep-rest cell-counted+! ;
+: lf-elab-rest+ ( c-addr u -- ) ep-free? if ep-rest+ else 2drop then ;
+: lf-elab-below! ( xt -- ) ep-free? if ep ep-below ! else drop then ;
+: lf-elab-rest ( -- c-addr u ) ep ep-rest cell-count ;
+: lf-elab-below ( -- xt|0 ) ep ep-below @ ;
 : ep-error. ( code -- code ) s" error " lf-elab-note dup lf-elab-n. lf-elab-nl ;
 : ep-record ( code -- )
   ep ep-code @ if drop exit then ep-error. ep ep-code ! lf-elab-at ep ep-where ! ;

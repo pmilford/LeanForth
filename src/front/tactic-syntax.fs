@@ -258,7 +258,8 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 \       values up to ] are its rules, in order (by-rw['s), each one left to
 \       right or, followed by <-, right to left;
 \   tac-shape-list  by-x[ ... ]: the same, its values terms (no <-:
-\       Lean's exacts [e1, e2]);
+\       Lean's exacts [e1, e2]); tac-shape-list+ the same with one term at
+\       least (460; Lean's term,+: by-exists['s, batch 3c);
 \   tac-shape-binders  by-x[ NAMES ]: no value; the names up to ], each a
 \       hypothesis as by-intro:'s (_ an inaccessible one), none at all
 \       allowed (by-intro['s; Lean's bare intro); tac-shape-binders+ the
@@ -281,6 +282,7 @@ begin-structure /lft-shape
   field: shape-names     \ the names after it
   field: shape-build     \ ( v1 .. vn i shape -- )
   field: shape-at        \ true: a trailing at[ may follow (tac-shape-at)
+  field: shape-some      \ true: a list of one item at least (tac-shape-list+)
 end-structure
 : lft-shape ( n k xt -- shape )
   align here /lft-shape allot dup /lft-shape erase
@@ -308,7 +310,7 @@ end-structure
 \ its word (scopes.fs's lfa-list-unclosed).
 459 outcome-invalid s" by-revert[ and by-clear[ take names of hypotheses up to ]"
   lfa-code: lfa-e-tac-hyp-names
-460 outcome-invalid s" this list takes one name at least" lfa-code: lfa-e-tac-list-empty
+460 outcome-invalid s" this list takes one item at least" lfa-code: lfa-e-tac-list-empty
 : lft-closer? ( c-addr u -- flag ) s" ]" lfa-token= ;
 : lft-star? ( c-addr u -- flag ) s" *" lfa-token= ;
 : lft-item-word? ( c-addr u -- flag )
@@ -340,6 +342,7 @@ end-structure
 2 1 tac-shape-term-names constant tac-shape-decl
 0 0 ' lft-build-rules lft-shape tac-shape-at constant tac-shape-rules
 0 0 ' lft-build-rules lft-shape constant tac-shape-list
+0 0 ' lft-build-rules lft-shape true over shape-some ! constant tac-shape-list+
 0 0 ' lft-build-binders lft-shape constant tac-shape-binders
 0 0 ' lft-build-binders+ lft-shape constant tac-shape-binders+
 0 0 ' lft-build-hyps lft-shape constant tac-shape-hyps
@@ -386,9 +389,12 @@ end-structure
 \ after those a <- took: the innermost bracket's items (none open: 83;
 \ a << open inside: 458 at <<).
 : lft-rules ( v1 .. vn n -- ) lft-open swap lft-terms ;
+\ A list of one item at least (tac-shape-list+) with none is 460.
+: lft-some? ( n -- n )
+  dup 0= lft-open lft-shape@ shape-some @ and 0= lfa-e-tac-list-empty lfa-must ;
 : lft-w-bracket-end ( v1 .. vn -- )
-  lft-in-proof lft-close-square lfa-e-tac-closer lfa-bracket-close lft-rules lft-past
-  lft-close lft-from! ;
+  lft-in-proof lft-close-square lfa-e-tac-closer lfa-bracket-close drop lft-some? lft-rules
+  lft-past lft-close lft-from! ;
 \ <- : the values so far the bracket's rules, the last one right to left
 \ (Lean's ←, rwRule's symm flag): right inside a bracket of rules (83),
 \ after a rule (86).

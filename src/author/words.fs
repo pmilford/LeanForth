@@ -197,6 +197,8 @@ require ./library.fs
     2dup lf-pf-reserved? abort" words.fs: reserved twice"
     lf-pf-reserve-more >in ! ['] lfa-w-natural-only lfa-word repeat 2drop drop ;
 lfa-natural-words + - * / % = ≠ < > ≤ <= ≥ >= ¬ ∧ /\ ∨ \/ ↔ <-> ∣ divides
+\ The anonymous constructor's brackets (plan row TB2, batch 3c; reader.fs).
+lfa-natural-words << >> ⟨ ⟩
 ' lfa-w-tactic lfa-word-both by-induction
 ' lfa-w-tactic lfa-word-both by-case:
 ' lfa-w-tactic lfa-word-both by-next

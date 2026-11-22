@@ -152,8 +152,11 @@ action-of lfa-run-fresh constant edc-run-before
 
 \ ---- The tactics' hook (Tactic.elabTerm).
 : edc-mode ( postpone? -- mode ) if lf-postpone-yes else lf-postpone-no then ;
+\ (With no postponing after it: elab-term.fs's lf-elab-final, a ⟨ ⟩ of
+\ unknown type at the root Lean's error 462.)
+: edc-elab ( node expected postpone? -- term outcome ) if lf-elab-term else lf-elab-final then ;
 : edc-tac-run ( node expected postpone? -- term outcome )
-  >r lf-elab-term ok-then? 0= if r> drop no-result exit then r> edc-mode edc-finish ;
+  dup >r edc-elab ok-then? 0= if r> drop no-result exit then r> edc-mode edc-finish ;
 : edc-tac-with ( i*x xt -- term outcome )
   edc-configured dup ok? 0= if lf-tac-elab-fail then ;
 : edc-tac-elab ( node expected postpone? -- term outcome ) ['] edc-tac-run edc-tac-with ;
@@ -174,7 +177,7 @@ action-of lfa-run-fresh constant edc-run-before
 : edc-signature? ( node -- flag ) syn-kind@ syn-k-const = ;
 : edc-printable ( term -- term outcome ) lfa-e-elab-print lf-elab-closed ;
 : edc-check-term ( node -- term outcome )
-  -1 lf-elab-term ok-then? 0= if no-result exit then
+  -1 lf-elab-final ok-then? 0= if no-result exit then
   lf-postpone-check lf-elab-synthesize dup ok? 0= if nip no-result exit then drop
   lf-instantiate-mvars lf-elab-meta ['] edc-printable ok-apply ;
 : edc-check-type ( term -- term type outcome )

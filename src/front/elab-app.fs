@@ -227,11 +227,12 @@ defer lf-elab-arg-call ( node expected frames cont -- ... frames next )
   ea ea-f @ lf-infer lf-elab-meta ok-then? 0= if exit then
   lf-instantiate-mvars lf-elab-meta ok-then? if ea ea-ftype ! outcome-ok then ;
 \ tryPostponeIfMVar (TermElabM.lean:1379): with arguments left, whnfR of
-\ f's type headed by a metavariable (isMVarApp).
-: ea-mvar-app? ( t -- flag ) lf-meta-head dup lf-mvar? swap lf-meta-unassigned? and ;
+\ f's type headed by a metavariable (isMVarApp; lf-elab-mvar-app? ( t --
+\ flag ) of t after whnfR, elab-term.fs's ⟨ ⟩ too).
+: lf-elab-mvar-app? ( t -- flag ) lf-meta-head dup lf-mvar? swap lf-meta-unassigned? and ;
 : ea-postpone? ( -- flag outcome )
   ea-left? 0= if false outcome-ok exit then
-  ea ea-ftype @ lf-meta-whnf-r lf-elab-meta ok-then? if ea-mvar-app? outcome-ok
+  ea ea-ftype @ lf-meta-whnf-r lf-elab-meta ok-then? if lf-elab-mvar-app? outcome-ok
   else false swap then ;
 : ea-facts ( -- outcome )
   ea ea-head @ dup 0< if drop outcome-ok exit then

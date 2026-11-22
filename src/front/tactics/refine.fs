@@ -12,21 +12,16 @@
 \ only way to name the main goal is a ?: NAME that finds a metavariable
 \ already (findUserName?), which is not supported yet (139).
 \ Lean call list: withMainContext, getMainGoal, replaceMainGoal ->
-\ lf-lift-meta-tactic (tactic-core.fs); getMainTarget -> lf-goal-target
-\ (meta-tactic/assert.fs); elabTermWithHoles -> lf-tac-elab-holes,
-\ lf-tac-tag-new;
-\ instantiateMVars -> lf-instantiate!; assign -> lf-mvar-assign.
+\ lf-lift-meta-tactic (tactic-core.fs); refineCore -> lf-tac-refine
+\ (tactic-core.fs since batch 3c, shared with tactics/exists.fs: getMainTarget,
+\ elabTermWithHoles, instantiateMVars, assign).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own.
 
 require ../tactic-api.fs
-require ../meta-tactic/assert.fs
 
 tac-shape-term lf-tactic: by-refine constant tac-k-refine
 s" refine" tac-k-refine lf-tactic-lean!
-: tre-holes ( i goal -- goal e goals )
-  swap 0 lf-tac-arg over lf-goal-target drop false lf-tac-elab-holes ;
-: tre-assign ( goal e -- ) lf-instantiate! lf-mvar-assign lf-must ;
-: tre-tac ( i goal -- goals ) tre-holes c" refine" lf-tac-tag-new >r tre-assign r> ;
+: tre-tac ( i goal -- goals ) swap 0 lf-tac-arg swap lf-tac-refine ;
 : tre-run ( i -- ) dup ['] tre-tac lf-lift-meta-tactic ;
 ' tre-run tac-k-refine lf-tactic-action!
