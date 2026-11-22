@@ -1,0 +1,70 @@
+\ by-swap, by-revert and by-specialize (plan row TB2, tactic batch 1;
+\ tests/front/tactics/batch-a/batch-a.lean).
+\ swap: apply And.intro leaves left and right; swap puts right first.
+\ Lean: theorem sw_and (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) :
+\           a ≤ b ∧ b ≤ a := by
+\         apply And.intro
+\         swap
+\         exact h2
+\         exact h1
+theorem sw_and
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1  b a ≤ explicit: h2
+  a b ≤ b a ≤ ∧
+:= by
+  ' And.intro by-apply
+  by-swap
+  ' h2 by-exact
+  ' h1 by-exact
+end sw_and
+
+\ revert h, then intro h: the goal a ≤ b → a ≤ b and back; the term is h.
+\ Lean: theorem rv_hyp (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         revert h
+\         intro h
+\         exact h
+theorem rv_hyp
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  ' h by-revert
+  by-intro: k
+  ' k by-exact
+end rv_hyp
+
+\ revert a takes h with it (h depends on a): ∀ a, a ≤ b → a ≤ b.
+\ Lean: theorem rv_dep (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         revert a
+\         intro x
+\         intro hx
+\         exact hx
+theorem rv_dep
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  ' a by-revert
+  by-intro: x
+  by-intro: hx
+  ' hx by-exact
+end rv_dep
+
+\ specialize h, h alone: h asserted again after itself, h2 (after it)
+\ reverted and introduced again, the old h cleared; assumption finds the
+\ new h. (h applied to a term needs a hypothesis of a function type: a
+\ statement cannot hold → yet, and ¬ p applied is the elaborator's 136,
+\ x-sp-not.lf; test.fs applies one. A statement's name after specialize
+\ still names the declaration's own hypothesis, which Lean would look up
+\ in the goal: assumption, not exact h, here.)
+\ Lean: theorem sp_self (a b : Nat) (h : a ≤ b) (h2 : b ≤ a) : a ≤ b := by
+\         specialize h
+\         assumption
+theorem sp_self
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h  b a ≤ explicit: h2
+  a b ≤
+:= by
+  ' h by-specialize
+  by-assumption
+end sp_self

@@ -1,0 +1,14 @@
+\ A wrong twin (plan row TB2; batch-a-wrong.lean): after specialize h the
+\ goal is still a ≤ b, which h2 : b ≤ a (before h, so not reverted) does
+\ not prove: exact's Type mismatch, 96.
+\ Lean: theorem w_sp_exact (a b : Nat) (h2 : b ≤ a) (h : a ≤ b) : a ≤ b := by
+\         specialize h
+\         exact h2
+theorem w_sp_exact
+  Nat explicit: a  Nat explicit: b
+  b a ≤ explicit: h2  a b ≤ explicit: h
+  a b ≤
+:= by
+  ' h by-specialize
+  ' h2 by-exact
+end w_sp_exact

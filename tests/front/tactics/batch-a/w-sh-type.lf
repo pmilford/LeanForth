@@ -1,0 +1,11 @@
+\ A wrong twin (plan row TB2; batch-a-wrong.lean): the pattern a is a
+\ number, not a proposition: elabTermEnsuringType's Type mismatch, 96.
+\ Lean: theorem w_sh_type (a b : Nat) (h : b ≤ a) : a ≥ b := by
+\         show a
+theorem w_sh_type
+  Nat explicit: a  Nat explicit: b
+  b a ≤ explicit: h
+  a b ≥
+:= by
+  a by-show
+end w_sh_type

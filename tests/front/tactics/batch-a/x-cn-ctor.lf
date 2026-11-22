@@ -1,0 +1,12 @@
+\ Not supported yet (plan row TB2, tactic batch 1): h : true = false
+\ equates two constructors, Bool.true and Bool.false; Lean closes the goal
+\ with noConfusion, which LeanForth does not port (99, exit 2).
+\ Lean: theorem x_cn_ctor (a b : Nat) (h : true = false) : a = b := by
+\         contradiction
+theorem x_cn_ctor
+  Nat explicit: a  Nat explicit: b
+  Bool.true Bool.false = explicit: h
+  a b =
+:= by
+  by-contradiction
+end x_cn_ctor

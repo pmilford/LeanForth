@@ -1,0 +1,11 @@
+\ A wrong twin (plan row TB2; batch-a-wrong.lean): Nat.le_refl is no
+\ hypothesis, error 389.
+\ Lean: theorem w_rv (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         revert Nat.le_refl
+theorem w_rv
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  ' Nat.le_refl by-revert
+end w_rv

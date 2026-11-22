@@ -1,0 +1,112 @@
+\ Reverting hypotheses of a goal (plan row TB2, tactic batch 1): Lean
+\ 4.35.0's src/lean/Lean/Meta/Tactic/Revert.lean, with the part of
+\ MetavarContext.lean's revert (collectForwardDeps, elimMVarDeps on the
+\ goal) that a goal of the tactics' needs. Each word throws on failure
+\ (meta-must.fs), as Lean's do.
+\ Public words:
+\   lf-goal-revert ( goal fvars -- goal' n )  MVarId.revert (Revert.lean:
+\       18-48, preserveOrder false): fvars a run (lib/runs.fs) of free
+\       variables of goal's context; none gives goal itself and 0 (Lean
+\       asks nothing then, not even checkNotAssigned). Else in goal's
+\       context (checkNotAssigned first) the reverted are the locals asked
+\       and every later local whose type or value depends on one reverted
+\       (collectForwardDeps, oldest first; goals.fs's
+\       lf-local-depends-on?, Lean's localDeclDependsOn), n of them, x1 ..
+\       xn in the context's order; goal' a new synthetic opaque goal of
+\       type (x1 : T1) -> .. -> (xn : Tn) -> T (telescope.fs's
+\       lf-mk-forall-fvars of goal's type as stored: each binder named and
+\       of the kind of its local), with goal's tag, in goal's context
+\       without them (Lean's reduceLocalContext); goal assigned
+\       goal' x1 .. xn (elimMVar's mkAppN of the new metavariable)
+\   lf-goal-revert-after ( goal fvar -- goal' n )  MVarId.revertAfter
+\       (Revert.lean:51-56): every local after fvar in goal's context
+\       reverted so, oldest first (preserveOrder true asks the same order)
+\ A local asked that is not in goal's context is thrown invalid (Lean's
+\ unknown free variable: a fault here, no tactic asks one). Not supported
+\ yet (thrown unsupported: the runner's 93): an implementation detail
+\ among the reverted (Lean refuses an auxiliary declaration asked by name
+\ and clears one that depends); a let among them and a metavariable of
+\ goal's type that sees one (telescope.fs's mkBinding: Lean's
+\ elimMVarDeps would revert it).
+\ Lean call list: withContext -> lf-with-goal (meta-must.fs);
+\ checkNotAssigned -> lf-goal-not-assigned (goal.fs); collectForwardDeps ->
+\ mrv-collect over lf-local-depends-on? (goals.fs); mkAuxMVarType ->
+\ lf-mk-forall-fvars (telescope.fs); reduceLocalContext -> lf-view-erase
+\ (lctx-views.fs); mkFreshExprMVarAt, setKind, setTag -> lf-goal-new
+\ (goals.fs); assign -> lf-mvar-assign; mkAppN -> lf-mk-app (app-builder.fs).
+\ Untrusted: only the kernel's check of the finished term decides.
+\ State: mrv-frames (a frame per call open, meta-must.fs's
+\ lf-with-record) and mrv-cells (the reverted free variables, n cells a
+\ call, lf-with-cells), in the checker context (ADR 0009); no other.
+\ Loads in decimal whatever BASE is, then restores it.
+
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
+require ../../lib/lib.fs
+require ../../lib/runs.fs
+require ../../lib/slab.fs
+require ../../lib/find.fs
+require ../../lib/context.fs
+require ../mvars.fs
+require ../lctx-views.fs
+require ../goals.fs
+require ../meta-must.fs
+require ../app-builder.fs
+require ../telescope.fs
+require ./goal.fs
+
+begin-structure /mrv
+  field: mrv-goal        \ the goal
+  field: mrv-in          \ the free variables asked for, a run
+  field: mrv-out         \ the reverted, a run, oldest first
+end-structure
+/mrv context-slab: mrv-frames
+: mrv ( -- frame ) mrv-frames slab-last ;
+1 cells context-slab: mrv-cells
+: mrv-out# ( -- n ) mrv mrv-out @ run-count ;
+: mrv-out@ ( i -- fvar ) mrv mrv-out @ swap run@ ;
+
+\ ---- collectForwardDeps: a local asked, or one whose type or value
+\ depends on one reverted before it, is reverted.
+: mrv-in# ( -- n ) mrv mrv-in @ run-count ;
+: mrv-in@ ( i -- fvar ) mrv mrv-in @ swap run@ ;
+: mrv-found ( k true | false -- flag ) dup if nip then ;
+: mrv-is? ( fvar k -- fvar flag ) mrv-in@ over = ;
+: mrv-asked? ( fvar -- flag ) mrv-in# ['] mrv-is? find-index mrv-found ;
+: mrv-dep? ( lfvar k -- lfvar flag ) mrv-out@ over swap lf-local-depends-on? lf-must ;
+: mrv-depends? ( fvar -- flag ) mrv-out# ['] mrv-dep? find-index mrv-found ;
+: mrv-reverted? ( fvar -- flag ) dup mrv-asked? if drop true else mrv-depends? then ;
+: mrv-plain ( k -- k ) dup lf-local-detail-at? if outcome-unsupported lf-must then ;
+: mrv-push ( fvar -- ) mrv mrv-out @ swap run-push lf-must mrv mrv-out ! ;
+: mrv-local ( k -- )
+  dup lf-mctx-fvar mrv-reverted? if mrv-plain lf-mctx-fvar mrv-push else drop then ;
+: mrv-in-view ( i -- )
+  mrv-in@ lf-mctx-view swap lf-view-has? 0= if outcome-invalid lf-must then ;
+: mrv-collect ( -- )
+  mrv-in# 0 ?do i mrv-in-view loop lf-mctx-view lf-view-count 0 ?do i mrv-local loop ;
+
+\ ---- The new goal: (x1 : T1) -> .. -> T in the context without them, its
+\ tag the goal's; the goal assigned it applied to x1 .. xn.
+: mrv-fill ( addr -- addr ) mrv-out# 0 ?do i mrv-out@ over i cells + ! loop ;
+: mrv-bound ( type addr -- type' ) mrv-fill mrv-out# lf-mk-forall-fvars ;
+: mrv-type ( -- type )
+  mrv mrv-goal @ lf-goal-type mrv-out# mrv-cells ['] mrv-bound lf-with-cells ;
+: mrv-erase ( view i -- view' ) mrv-out@ lf-view-erase lf-must ;
+: mrv-view ( -- view ) mrv mrv-goal @ lf-goal-view mrv-out# 0 ?do i mrv-erase loop ;
+: mrv-new ( -- goal' ) mrv-type mrv mrv-goal @ lf-goal-tag mrv-view lf-goal-new lf-must ;
+: mrv-applied ( goal' -- e ) mrv-out# 0 ?do i mrv-out@ lf-mk-app loop ;
+: mrv-assign ( e -- ) mrv mrv-goal @ swap lf-mvar-assign lf-must ;
+: mrv-run ( -- goal' n ) mrv-collect mrv-new dup mrv-applied mrv-assign mrv-out# ;
+: mrv-framed ( goal fvars -- goal' n )
+  mrv mrv-in ! dup mrv mrv-goal ! ['] mrv-run lf-with-goal ;
+: lf-goal-revert ( goal fvars -- goal' n )
+  dup run-count 0= if drop 0 exit then
+  over lf-goal-not-assigned drop mrv-frames ['] mrv-framed lf-with-record ;
+
+\ ---- revertAfter: the locals after fvar, a run.
+: mrv-fvar+ ( run view i -- run' view )
+  over swap lf-view-fvar rot swap run-push lf-must swap ;
+: mrv-tail ( view k -- run ) 0 -rot over lf-view-count swap ?do i mrv-fvar+ loop drop ;
+: mrv-after ( goal fvar -- goal run )
+  over lf-goal-view tuck swap lf-view-find lf-found 1+ mrv-tail ;
+: lf-goal-revert-after ( goal fvar -- goal' n ) mrv-after lf-goal-revert ;
+base !   \ the BASE this file was loaded with

@@ -100,6 +100,18 @@
 \       isDefEqGuarded (meta-must.fs's lf-defeq-approx!): unequal is error
 \       97 with Lean's text (the sides, the goal); equal sides of Eq close
 \       goal as above, of another relation 93 (@[refl] lemmas)
+\   lf-goal-fresh ( type goal -- goal' )  mkFreshExprSyntheticOpaqueMVar
+\       type (getTag goal) in goal's context: a new synthetic opaque goal
+\       of type with goal's tag (the goal words' new goals)
+\   lf-local-detail-at? ( k -- flag )  LocalDecl.isImplementationDetail of
+\       local k of the current context
+\   lf-goal-replace-target-defeq ( goal new -- goal' )
+\       MVarId.replaceTargetDefEq (Replace.lean:44-61): goal itself when
+\       new equals its type, as stored or both instantiated; else goal' a
+\       new synthetic opaque goal of type new with goal's tag in goal's
+\       context, goal assigned @id.{u} target goal' (mkExpectedTypeHint,
+\       app-builder.fs: target instantiated, u its level); show's,
+\       change's and delta's (plan row TB2)
 \ Errors are thrown as authoring errors at the step running
 \ (tactic-run.fs's lf-tac-stop and lf-tac-fail), Meta failures as
 \ outcomes (meta-must.fs).
@@ -148,6 +160,12 @@ require ../telescope.fs
 : mtg-goal-new ( type goal -- goal' )
   dup lf-goal-tag swap lf-goal-view lf-goal-new lf-must ;
 : mtg-fresh ( goal new -- goal goal' ) over lf-goal-not-assigned mtg-goal-new ;
+\ mkFreshExprSyntheticOpaqueMVar type tag in goal's context, the goal
+\ words' new goal (here and meta-tactic/assert.fs's).
+: lf-goal-fresh ( type goal -- goal' ) mtg-goal-new ;
+\ Whether local k of the current context is an implementation detail
+\ (isImplementationDetail: revert's and contradiction's test).
+: lf-local-detail-at? ( k -- flag ) lf-mctx-view swap lf-view-local lf-local-detail? ;
 : mtg-eq ( goal goal' -- eq ) lf-goal-type swap lf-goal-type swap lf-mk-eq ;
 : mtg-hint ( goal goal' h -- goal goal' h' )
   >r 2dup mtg-eq r> swap lf-mk-expected-prop-hint ;
@@ -319,14 +337,13 @@ end-structure
 : mtg-assign. ( goal e -- outcome ) 0 swap ['] mtg-occurs. swap lf-tac-framed-with. ;
 : mtg-unassignable ( goal e -- )
   2 ['] mtg-assign. lf-tac-detail-n lfa-e-tac-assign lf-tac-stop ;
-: mtg-holes-free ( e -- e ) dup lf-has-open-mvar? if outcome-unsupported lf-must then ;
 : mtg-in-scope ( goal e -- goal e )
   2dup swap lf-goal-view ['] mtg-outside? lf-term-holds-with? lf-must
   if 2dup mtg-unassignable then ;
 : mtg-assigned ( goal e -- )
   2dup lf-mvar-assign dup outcome-invalid = if drop mtg-unassignable exit then
   lf-must 2drop ;
-: lf-goal-checked-assign ( goal e -- ) mtg-holes-free mtg-in-scope mtg-assigned ;
+: lf-goal-checked-assign ( goal e -- ) lf-open-mvar-free mtg-in-scope mtg-assigned ;
 
 \ ---- The rfl macro on an equation (Init/Tactics.lean:477-482): its
 \ alternatives exact Iff.rfl and exact HEq.rfl fail on a goal whose type
@@ -387,4 +404,24 @@ end-structure
   mrf-equal? if mrf-closed else mrf-apply-rfl then ;
 : mrf-framed ( goal -- ) mrf mrf-goal ! mrf-run ;
 : lf-goal-refl ( goal -- ) lf-goal-not-assigned mrf-frames ['] mrf-framed lf-with-record ;
+
+\ ---- replaceTargetDefEq (Replace.lean:44-61): goal itself when new is
+\ its type as stored, or both instantiated are, compared node for node
+\ (Expr.equal; term-eqv.fs's lf-meta-eqv, Lean's ==, differs only on
+\ binder names, which LeanForth's terms keep apart and no text writes);
+\ else goal' of type new with goal's tag in its context, and goal
+\ assigned @id.{u} target goal' (mkExpectedTypeHint of the target
+\ instantiated). LeanForth keeps a goal's type as made, so the type
+\ Lean caches on the second test stays as it was (the same term once
+\ instantiated).
+: mtg-same? ( a b -- flag ) lf-meta-eqv lf-must ;
+: mtg-unchanged? ( goal new -- goal new flag ) over lf-goal-type over mtg-same? ;
+: mtg-inst-same? ( goal new -- goal new' flag )
+  lf-instantiate! over lf-goal-type lf-instantiate! over mtg-same? ;
+: mtg-hinted ( goal new -- goal' )
+  over mtg-goal-new over lf-goal-type lf-instantiate! over swap lf-mk-expected-type-hint
+  mtg-assign ;
+: lf-goal-replace-target-defeq ( goal new -- goal' )
+  over lf-goal-not-assigned drop mtg-unchanged? if drop exit then
+  mtg-inst-same? if drop exit then mtg-hinted ;
 base !   \ the BASE this file was loaded with

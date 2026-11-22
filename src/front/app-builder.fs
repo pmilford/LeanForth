@@ -15,6 +15,15 @@
 \   lf-mk-eq-symm ( h -- h' )             mkEqSymm (98)
 \   lf-mk-eq-trans ( h1 h2 -- h )         mkEqTrans (110)
 \   lf-mk-expected-prop-hint ( h p -- h' ) mkExpectedPropHint (29)
+\   lf-mk-expected-type-hint ( e type -- e' ) mkExpectedTypeHint (35):
+\                                         id.{u} type e, u type's level
+\   lf-mk-absurd ( e hp hnp -- e' )       mkAbsurd (77): absurd.{u} p e hp
+\                                         hnp, p hp's type, u e's level
+\   lf-mk-false-elim ( e h -- e' )        mkFalseElim (83): False.elim.{u} e h
+\   lf-binder-named ( t name -- t )       a binder node t named name, of the
+\                                         default kind (present/binder-table.fs;
+\                                         see below: not for name 0 nor an input
+\                                         node); assert.fs's pi
 \   lf-mk-congr-arg ( f h -- h' )         mkCongrArg (212), with congrArg?
 \                                         (199) fusing nested congrArg
 \   lf-mk-app-m ( c-addr u x1..xn n -- e ) mkAppM (345), lf-mk-app-m-of
@@ -31,6 +40,10 @@
 \   lf-eq? ( t -- α a b true | false )     Expr.eq?: Eq α a b's arguments
 \   lf-match-eq? ( t -- α a b true | false ) matchEq? (MatchUtil.lean:28):
 \                                         the same after whnf when t is no Eq
+\   lf-match-not? ( t -- p true | false ), lf-match-ne? ( t -- α a b true
+\       | false ), lf-match-heq? ( t -- α a β b true | false )  matchNot?,
+\       matchNe?, matchHEq? (MatchUtil.lean:62, 71, 31): t, else t after
+\       whnf, is Not p or p -> False; Ne α a b or a negated equation; HEq
 \   lf-meta-has-mvar? ( e -- flag outcome ) Expr.hasMVar: a term or level
 \                                         metavariable reached (core/reach.fs)
 \ Levels pass on the stack (never through a global); at most abl-most
@@ -51,7 +64,7 @@
 \ new metavariable (synthetic for an instance binder, filled as
 \ mkAppM's), some x, which plain isDefEq (the transparency in force) must
 \ fit; entries left at a type whnfD makes no pi: rejected.
-\ Not ported yet: mkExpectedTypeHint (no caller yet), mkCongr,
+\ Not ported yet: mkCongr,
 \ mkCongrFun, mkEqNDRec, mkOfEqTrue, mkEqTrue (the simp core, which
 \ brings their first callers).
 \ Untrusted: only the kernel's check of the finished term decides.
@@ -134,6 +147,7 @@ abl-most cells context-record: abl-cells
 : abl-named ( t name -- t )
   over lf-term-input? if drop exit then
   ?dup if over swap lf-binder-default lf-pres-binder! lf-must then ;
+: lf-binder-named ( t name -- t ) abl-named ;   \ the same, for the goal operations
 : abl-lam-x ( dom body -- e ) lf-term-lam lf-made! s" x" lfa-intern abl-named ;
 
 \ ---- mkEq, mkEqRefl, mkEqSymm, mkEqTrans, mkExpectedPropHint.
@@ -152,6 +166,16 @@ abl-most cells context-record: abl-cells
   over abl-infer-d over abl-infer-d >r abl-eq r> abl-eq >r 2drop r> abl-trans ;
 : lf-mk-expected-prop-hint ( h p -- h' )
   s" id" abl-level-zero lf-mk-const1 swap lf-mk-app swap lf-mk-app ;
+
+\ ---- mkExpectedTypeHint (35), mkAbsurd (77), mkFalseElim (83): the
+\ constant at the level of the type it proves (getLevel).
+: lf-mk-expected-type-hint ( e type -- e' )
+  dup s" id" abl-const-of swap lf-mk-app swap lf-mk-app ;
+: lf-mk-false-elim ( e h -- e' )
+  swap dup s" False.elim" abl-const-of swap lf-mk-app swap lf-mk-app ;
+: abl-absurd ( e hp -- f )   \ absurd.{u} p e hp, p hp's type
+  over s" absurd" abl-const-of over lf-infer! lf-mk-app rot lf-mk-app swap lf-mk-app ;
+: lf-mk-absurd ( e hp hnp -- e' ) -rot abl-absurd swap lf-mk-app ;
 
 \ ---- mkCongrArg (a loop: congrArg? fuses a nested congrArg).
 \ congrArg?: congrArg's α, f and h; congrFun's made into one.
@@ -278,4 +302,44 @@ end-structure
 \ else of t put through whnf (the transparency in force; its failure
 \ thrown). Rewriting's equation; omega and simp later (plan 9.4.8l-I).
 : lf-match-eq? ( t -- α a b true | false ) dup abl-eq-app? 0= if lf-whnf! then lf-eq? ;
+
+\ ---- matchNot? (62), matchNe? (71) and matchHEq? (31), each tried on t,
+\ then on t put through whnf (matchHelper?, 22): Not p, or an arrow
+\ p -> False (Expr.arrow?, its body False or False after whnf:
+\ matchFalse); Ne α a b, or a negation of an equation (matchNot?, then
+\ matchEq?); HEq α a β b. contradiction's tests (meta-tactic/
+\ contradiction.fs). Each X-at word leaves t below false, for the retry.
+: abl-false? ( t -- flag )
+  dup s" False" lf-meta-const-named? if drop true exit then
+  lf-whnf! s" False" lf-meta-const-named? ;
+: abl-closed-body? ( pi -- flag ) lf-term-second@ lf-meta-loose lf-must 0= ;
+: abl-arrow? ( t -- dom body true | false )   \ Expr.arrow?
+  dup lf-term-pi? if dup abl-closed-body? else false then
+  if dup lf-term-first@ swap lf-term-second@ true else drop false then ;
+: abl-arrow-false? ( t -- p true | false )
+  abl-arrow? 0= if false exit then abl-false? if true else drop false then ;
+\ matchHelper?: xt ( t -- i*x true | t false ) on t, then on t after whnf.
+: abl-helper ( t xt -- i*x true | false )
+  >r r@ execute ?dup if r> drop exit then
+  lf-whnf! r> execute ?dup if exit then drop false ;
+: abl-not-at ( t -- p true | t false )
+  dup 1 s" Not" lf-meta-app-of? if lf-term-second@ true exit then
+  dup abl-arrow-false? if nip true else false then ;
+: lf-match-not? ( t -- p true | false ) ['] abl-not-at abl-helper ;
+\ An application's last argument and its function (abl-peel); the three
+\ arguments of Ne α a b and the four of HEq α a β b, in order.
+: abl-peel ( t -- a f ) dup lf-term-second@ swap lf-term-first@ ;
+: abl-args3 ( t -- x y z ) abl-peel abl-peel lf-term-second@ swap rot ;
+: abl-args4 ( t -- w x y z ) abl-peel abl-peel abl-peel lf-term-second@ swap 2swap swap ;
+: abl-not-eq ( t -- α a b true | t false )
+  dup lf-match-not? 0= if false exit then
+  lf-match-eq? 0= if false exit then 3 roll drop true ;
+: abl-ne-at ( t -- α a b true | t false )
+  dup 3 s" Ne" lf-meta-app-of? if abl-args3 true else abl-not-eq then ;
+\ (matchHelper?'s retry on t after whnf finds nothing more here: whnf
+\ unfolds Ne, and matchNot? retries after whnf itself.)
+: lf-match-ne? ( t -- α a b true | false ) abl-ne-at dup 0= if nip then ;
+: abl-heq-at ( t -- α a β b true | t false )
+  dup 4 s" HEq" lf-meta-app-of? if abl-args4 true else false then ;
+: lf-match-heq? ( t -- α a β b true | false ) ['] abl-heq-at abl-helper ;
 base !   \ the BASE this file was loaded with

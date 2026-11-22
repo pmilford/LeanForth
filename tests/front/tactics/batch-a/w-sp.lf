@@ -1,0 +1,11 @@
+\ A wrong twin (plan row TB2; batch-a-wrong.lean): Nat.le_refl a is no
+\ hypothesis applied, error 447.
+\ Lean: theorem w_sp (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         specialize Nat.le_refl a
+theorem w_sp
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  ' Nat.le_refl a $ by-specialize
+end w_sp

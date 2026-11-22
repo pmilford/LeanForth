@@ -1,0 +1,118 @@
+\ by-delta, by-contradiction, by-trivial and by-absurd (plan row TB2,
+\ tactic batch 1; tests/front/tactics/batch-a/batch-a.lean).
+\ delta GE.ge: a ≥ b becomes b ≤ a, the goal assigned @id (a ≥ b) ?g.
+\ Lean: theorem de_ge (a b : Nat) (h : b ≤ a) : a ≥ b := by
+\         delta GE.ge
+\         exact h
+theorem de_ge
+  Nat explicit: a  Nat explicit: b
+  b a ≤ explicit: h
+  a b ≥
+:= by
+  ' GE.ge by-delta
+  ' h by-exact
+end de_ge
+
+\ contradiction from h : False: decide False reduces to false, so
+\ absurd h (of_decide_eq_false (Eq.refl (decide False))).
+\ Lean: theorem cn_false (a b : Nat) (h : False) : a = b := by contradiction
+theorem cn_false
+  Nat explicit: a  Nat explicit: b
+  False explicit: h
+  a b =
+:= by
+  by-contradiction
+end cn_false
+
+\ contradiction from h : ¬ a ≤ b and h2 : a ≤ b: False.elim (h h2).
+\ Lean: theorem cn_not (a b : Nat) (h : ¬ a ≤ b) (h2 : a ≤ b) : a = b := by
+\         contradiction
+theorem cn_not
+  Nat explicit: a  Nat explicit: b
+  a b ≤ ¬ explicit: h  a b ≤ explicit: h2
+  a b =
+:= by
+  by-contradiction
+end cn_not
+
+\ contradiction from h : a ≠ a: absurd (Eq.refl a) h.
+\ Lean: theorem cn_ne (a b : Nat) (h : a ≠ a) : a = b := by contradiction
+theorem cn_ne
+  Nat explicit: a  Nat explicit: b
+  a a ≠ explicit: h
+  a b =
+:= by
+  by-contradiction
+end cn_ne
+
+\ trivial: rfl (its fifth rule) closes a = a.
+\ Lean: theorem tr_rfl (a : Nat) : a = a := by trivial
+theorem tr_rfl
+  Nat explicit: a
+  a a =
+:= by
+  by-trivial
+end tr_rfl
+
+\ trivial: apply And.intro, then trivial on each goal (apply True.intro).
+\ Lean: theorem tr_and : True ∧ True := by trivial
+theorem tr_and
+  True True ∧
+:= by
+  by-trivial
+end tr_and
+
+\ trivial: decide closes 2 + 2 = 4.
+\ Lean: theorem tr_decide : 2 + 2 = 4 := by trivial
+theorem tr_decide
+  2 2 + 4 =
+:= by
+  by-trivial
+end tr_decide
+
+\ trivial: contradiction closes a = b from h : False.
+\ Lean: theorem tr_false (a b : Nat) (h : False) : a = b := by trivial
+theorem tr_false
+  Nat explicit: a  Nat explicit: b
+  False explicit: h
+  a b =
+:= by
+  by-trivial
+end tr_false
+
+\ trivial: assumption, the last rule, closes a = b from h : a = b.
+\ Lean: theorem tr_assumption (a b : Nat) (h : a = b) : a = b := by trivial
+theorem tr_assumption
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  by-trivial
+end tr_assumption
+
+\ absurd h with h : ¬ a ≤ b: the goal becomes a ≤ b (absurd ?g h).
+\ Lean: theorem ab_neg (a b : Nat) (h : ¬ a ≤ b) (h2 : a ≤ b) : a = b := by
+\         absurd h
+\         exact h2
+theorem ab_neg
+  Nat explicit: a  Nat explicit: b
+  a b ≤ ¬ explicit: h  a b ≤ explicit: h2
+  a b =
+:= by
+  ' h by-absurd
+  ' h2 by-exact
+end ab_neg
+
+\ absurd h with h : a ≤ b: the goal becomes ¬ a ≤ b (absurd h ?g), which
+\ h2 closes (assumption: exact against ¬ is the elaborator's 133, plan FE2).
+\ Lean: theorem ab_pos (a b : Nat) (h : a ≤ b) (h2 : ¬ a ≤ b) : a = b := by
+\         absurd h
+\         assumption
+theorem ab_pos
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h  a b ≤ ¬ explicit: h2
+  a b =
+:= by
+  ' h by-absurd
+  by-assumption
+end ab_pos

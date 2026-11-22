@@ -1,0 +1,14 @@
+\ Not supported yet (plan row TB2, tactic batch 1): trivial on a ≤ a with
+\ h : a ≤ a. Its rules apply And.intro, apply True.intro and decide fail
+\ with Lean's errors; contradiction meets h, whose cases it does not port
+\ (99), so trivial ends unsupported (exit 2) where Lean goes on and closes
+\ the goal (assumption).
+\ Lean: theorem x_tr_le (a : Nat) (h : a ≤ a) : a ≤ a := by
+\         trivial
+theorem x_tr_le
+  Nat explicit: a
+  a a ≤ explicit: h
+  a a ≤
+:= by
+  by-trivial
+end x_tr_le

@@ -11,6 +11,11 @@
 \       opaque metavariables assignable); the goal assigned its free
 \       variable. None: Lean's throwTacticEx with no message, error 381,
 \       "Tactic `assumption` failed" and the goal.
+\   lf-local-index-with-type? ( type -- k true | false )
+\       findLocalDeclWithType? (:15-23) itself, in the current context,
+\       with plain isDefEq (the configuration in force): the place k of
+\       the newest local, no implementation detail, whose type is defeq
+\       type (contradiction's search for h : p beside h' : ¬ p)
 \ Lean call list: withContext -> lf-with-goal (meta-must.fs);
 \ checkNotAssigned -> lf-goal-not-assigned (goal.fs); getType ->
 \ lf-goal-type; getLCtx/findDeclRevM? -> the goal's view (lctx-views.fs,
@@ -39,15 +44,16 @@ require ./goal.fs
 
 381 outcome-invalid s" Tactic `assumption` failed" lfa-code: lfa-e-assumption
 
-\ isDefEq with synthetic opaque metavariables assignable.
-: mas-defeq ( t s -- flag ) ['] lf-defeq! lf-with-assignable-opaque ;
-\ Local k of the goal's context fits type: no implementation detail, its
+\ Local k of the current context fits type: no implementation detail, its
 \ type defeq; findDeclRevM?: the last k that fits.
 : mas-fits? ( type k -- type flag )
   lf-mctx-view swap lf-view-local dup lf-local-detail? if drop false exit then
-  lf-local-fvar lf-fvar-type over swap mas-defeq ;
-: mas-find ( type -- k true | false )
+  lf-local-fvar lf-fvar-type over swap lf-defeq! ;
+: lf-local-index-with-type? ( type -- k true | false )
   lf-mctx-view lf-view-count ['] mas-fits? find-last-index ;
+\ assumption's search, with synthetic opaque metavariables assignable.
+: mas-find ( type -- k true | false )
+  ['] lf-local-index-with-type? lf-with-assignable-opaque ;
 : mas-none ( goal -- ) lfa-e-assumption lf-tac-ex ;
 : mas-run ( goal -- )
   lf-goal-not-assigned dup lf-goal-type lf-instantiate! mas-find

@@ -1,0 +1,18 @@
+\ Not supported yet (plan row TB2, tactic batch 1): specialize h h2 with
+\ h : ¬ a ≤ b. Lean replaces h by h h2 : False; LeanForth's elaborator
+\ cannot apply h, whose function type comes from unfolding Not (error 136,
+\ a binder whose kind the declaration's type does not give, plan S5), so
+\ the run ends unsupported (exit 2), never accepted.
+\ Lean: theorem x_sp_not (a b : Nat) (h : ¬ a ≤ b) (h2 : a ≤ b) : a = b := by
+\         specialize h h2
+\         exfalso
+\         exact h
+theorem x_sp_not
+  Nat explicit: a  Nat explicit: b
+  a b ≤ ¬ explicit: h  a b ≤ explicit: h2
+  a b =
+:= by
+  ' h ' h2 $ by-specialize
+  by-exfalso
+  ' h by-exact
+end x_sp_not

@@ -182,7 +182,7 @@ constant dd-false-tags
 : dd-simple? ( e -- flag )
   df df-fuel @ dd-walker walk-budget drop ['] dd-visit dd-walker walk-run
   dd-walker walk-fuel @ df df-fuel ! dd-verdict ;
-: dd-preamble ( v -- e ) begin dup lf-term-lam? while lf-term-second@ repeat ;
+: dd-preamble ( v -- e ) lf-meta-lambda-body ;
 : dd-regular ( d height -- flag )
   2 > if drop true exit then
   lf-menv-value if dd-preamble dd-simple? 0= else outcome-invalid de-abort false then ;

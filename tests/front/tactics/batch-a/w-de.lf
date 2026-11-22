@@ -1,0 +1,11 @@
+\ A wrong twin (plan row TB2; batch-a-wrong.lean): a ≥ b holds no Ne,
+\ error 448 with the goal.
+\ Lean: theorem w_de (a b : Nat) (h : b ≤ a) : a ≥ b := by
+\         delta Ne
+theorem w_de
+  Nat explicit: a  Nat explicit: b
+  b a ≤ explicit: h
+  a b ≥
+:= by
+  ' Ne by-delta
+end w_de

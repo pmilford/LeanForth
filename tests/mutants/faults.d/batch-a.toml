@@ -1,0 +1,501 @@
+# Planted faults of tactic batch 1 (plan row TB2; src/front/tactics/{change,swap,specialize,
+# revert,delta,contradiction,trivial,absurd}.fs, their goal operations in src/front/meta-tactic/,
+# app-builder.fs's builders and matchers, tactic-core.fs's first), read with faults.toml as one
+# list (scripts/mutants.py). Each is caught by tests/front/tactics/batch-a/test.fs (seconds) or
+# check.py (terms node for node against pinned Lean's, the wrong twins' messages).
+
+# ---- app-builder.fs
+[[fault]]
+id = "tb2-hint-level-zero"
+file = "src/front/app-builder.fs"
+old = '''  dup s" id" abl-const-of swap lf-mk-app swap lf-mk-app ;'''
+new = '''  s" id" abl-level-zero lf-mk-const1 swap lf-mk-app swap lf-mk-app ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: mkExpectedTypeHint's id at level 0 whatever the type's level (Lean: getLevel)"
+
+[[fault]]
+id = "tb2-false-elim-level-zero"
+file = "src/front/app-builder.fs"
+old = '''  swap dup s" False.elim" abl-const-of swap lf-mk-app swap lf-mk-app ;'''
+new = '''  swap s" False.elim" abl-level-zero lf-mk-const1 swap lf-mk-app swap lf-mk-app ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: mkFalseElim at level 0 whatever the target's level"
+
+[[fault]]
+id = "tb2-absurd-swapped"
+file = "src/front/app-builder.fs"
+old = ''': lf-mk-absurd ( e hp hnp -- e' ) -rot abl-absurd swap lf-mk-app ;'''
+new = ''': lf-mk-absurd ( e hp hnp -- e' ) swap -rot abl-absurd swap lf-mk-app ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: mkAbsurd's proof and refutation swapped (absurd p e hnp hp, ill-typed)"
+
+[[fault]]
+id = "tb2-match-not-no-whnf"
+file = "src/front/app-builder.fs"
+old = '''  lf-whnf! r> execute ?dup if exit then drop false ;'''
+new = '''  r> drop false ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: matchNot? without matchHelper?'s whnf retry (a ≠ b is no negation then)"
+
+[[fault]]
+id = "tb2-match-ne-no-not"
+file = "src/front/app-builder.fs"
+old = '''  dup 3 s" Ne" lf-meta-app-of? if abl-args3 true else abl-not-eq then ;'''
+new = '''  dup 3 s" Ne" lf-meta-app-of? if abl-args3 true else false then ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: matchNe? without its matchNot? then matchEq? case (¬ a = b is no disequality then)"
+
+[[fault]]
+id = "tb2-match-heq-order"
+file = "src/front/app-builder.fs"
+old = ''': abl-args4 ( t -- w x y z ) abl-peel abl-peel abl-peel lf-term-second@ swap 2swap swap ;'''
+new = ''': abl-args4 ( t -- w x y z ) abl-peel abl-peel abl-peel lf-term-second@ swap 2swap ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: matchHEq?'s arguments out of order"
+
+# ---- meta-tactic/goal.fs: replaceTargetDefEq
+[[fault]]
+id = "tb2-rtd-no-instantiate"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mtg-inst-same? if drop exit then mtg-hinted ;'''
+new = '''  mtg-hinted ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: replaceTargetDefEq's second test (both types instantiated) skipped"
+
+[[fault]]
+id = "tb2-rtd-no-id"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  over mtg-goal-new over lf-goal-type lf-instantiate! over swap lf-mk-expected-type-hint'''
+new = '''  over mtg-goal-new dup'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: the goal assigned the new goal itself, not @id target goal' (mkExpectedTypeHint)"
+
+# ---- meta-tactic/assumption.fs (the search shared with contradiction)
+[[fault]]
+id = "tb2-local-with-type-oldest"
+file = "src/front/meta-tactic/assumption.fs"
+old = '''  lf-mctx-view lf-view-count ['] mas-fits? find-last-index ;'''
+new = '''  lf-mctx-view lf-view-count ['] mas-fits? find-index ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: findLocalDeclWithType? takes the oldest local that fits, not the newest"
+
+# ---- meta-tactic/revert.fs
+[[fault]]
+id = "tb2-revert-no-deps"
+file = "src/front/meta-tactic/revert.fs"
+old = ''': mrv-reverted? ( fvar -- flag ) dup mrv-asked? if drop true else mrv-depends? then ;'''
+new = ''': mrv-reverted? ( fvar -- flag ) mrv-asked? ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: revert leaves the locals that depend on the reverted one (collectForwardDeps skipped)"
+
+[[fault]]
+id = "tb2-revert-not-applied"
+file = "src/front/meta-tactic/revert.fs"
+old = ''': mrv-run ( -- goal' n ) mrv-collect mrv-new dup mrv-applied mrv-assign mrv-out# ;'''
+new = ''': mrv-run ( -- goal' n ) mrv-collect mrv-new dup mrv-assign mrv-out# ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: the goal assigned the new goal not applied to the reverted variables"
+
+[[fault]]
+id = "tb2-revert-view-kept"
+file = "src/front/meta-tactic/revert.fs"
+old = ''': mrv-view ( -- view ) mrv mrv-goal @ lf-goal-view mrv-out# 0 ?do i mrv-erase loop ;'''
+new = ''': mrv-view ( -- view ) mrv mrv-goal @ lf-goal-view ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: the new goal's context still holds the reverted locals"
+
+[[fault]]
+id = "tb2-revert-after-self"
+file = "src/front/meta-tactic/revert.fs"
+old = '''  over lf-goal-view tuck swap lf-view-find lf-found 1+ mrv-tail ;'''
+new = '''  over lf-goal-view tuck swap lf-view-find lf-found mrv-tail ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: revertAfter reverts fvar itself too"
+
+# ---- meta-tactic/assert.fs
+[[fault]]
+id = "tb2-assert-no-value"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  >r rot lf-goal-not-assigned -rot mat-pi over lf-goal-fresh tuck r> lf-mk-app'''
+new = '''  >r rot lf-goal-not-assigned -rot mat-pi over lf-goal-fresh tuck r> drop dup'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: assert's goal assigned the new goal, not the new goal applied to the value"
+
+[[fault]]
+id = "tb2-replace-no-clear"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  mat-fill mat-ready mat-max mat-after mat-cleared ;'''
+new = '''  mat-fill mat-ready mat-max mat-after ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: replace keeps the old hypothesis (tryClear skipped)"
+
+[[fault]]
+id = "tb2-replace-no-max"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  mat-fill mat-ready mat-max mat-after mat-cleared ;'''
+new = '''  mat-fill mat-ready mat-after mat-cleared ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: assertAfter' without findMaxFVar: the new hypothesis before a local its type names"
+
+[[fault]]
+id = "tb2-replace-names-lost"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  dup lf-local-flags lf-local-inaccessible and if drop 0 else lf-local-name then ;'''
+new = '''  drop 0 ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: the reverted locals introduced again inaccessible (introNP keeps their names)"
+
+[[fault]]
+id = "tb2-replace-holes-taken"
+file = "src/front/meta-must.fs"
+old = ''': lf-open-mvar-free ( e -- e ) dup lf-has-open-mvar? if outcome-unsupported lf-must then ;'''
+new = ''': lf-open-mvar-free ( e -- e ) ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: a type with an open metavariable taken (findMaxFVar would look at its context)"
+
+# ---- meta-tactic/delta.fs
+[[fault]]
+id = "tb2-delta-no-args"
+file = "src/front/meta-tactic/delta.fs"
+old = '''  mdl-args lf-meta-spine ['] mdl-value ok-apply ['] mdl-beta ok-apply mdl-made ;'''
+new = '''  mdl-args lf-meta-spine ['] mdl-value ok-apply mdl-made ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: delta? puts in the value without the application's arguments"
+
+[[fault]]
+id = "tb2-delta-no-beta"
+file = "src/front/meta-tactic/delta.fs"
+old = '''  mdl-args lf-meta-apply-all ['] lf-meta-head-beta ok-apply ['] mdl-zeta ok-apply ;'''
+new = '''  mdl-args lf-meta-apply-all ['] mdl-zeta ok-apply ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: delta? without betaRev (the value's lambdas left applied)"
+
+[[fault]]
+id = "tb2-delta-any-levels"
+file = "src/front/meta-tactic/delta.fs"
+old = '''  if mdl mdl-decl @ swap lf-meta-arity? else drop false then ;'''
+new = '''  if drop true else drop false then ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: delta? without its universe-argument count test"
+
+[[fault]]
+id = "tb2-delta-theorem"
+file = "src/front/meta-tactic/delta.fs"
+old = ''': mdl-theorem ( kind -- kind ) dup lf-kind-theorem = if outcome-unsupported lf-must then ;'''
+new = ''': mdl-theorem ( kind -- kind ) ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: a theorem's name leaves the term as it is, where Lean would put the proof in"
+
+# ---- meta-tactic/contradiction.fs
+[[fault]]
+id = "tb2-cn-no-pair"
+file = "src/front/meta-tactic/contradiction.fs"
+old = '''  mcd-not-pair if drop true exit then mcd-bit mcd-ne if drop true exit then'''
+new = '''  mcd-bit mcd-ne if drop true exit then'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: contradiction's rule h : ¬p with h' : p skipped"
+
+[[fault]]
+id = "tb2-cn-ne-no-defeq"
+file = "src/front/meta-tactic/contradiction.fs"
+old = '''  rot drop over swap lf-defeq! if mcd-refl else drop false then ;'''
+new = '''  rot drop drop mcd-refl ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: h : x ≠ y closes the goal without x and y defeq"
+
+[[fault]]
+id = "tb2-cn-empty-skipped"
+file = "src/front/meta-tactic/contradiction.fs"
+old = '''  dup mcd-type mcd-candidate? if lfa-e-tac-form lf-tac-fail then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: an indexed family passed over where Lean tries cases (a wrong verdict is possible)"
+
+[[fault]]
+id = "tb2-cn-ctor-same"
+file = "src/front/meta-tactic/contradiction.fs"
+old = '''  lf-name-same? 0= if lfa-e-tac-form lf-tac-fail then ;'''
+new = '''  lf-name-same? if lfa-e-tac-form lf-tac-fail then ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: the constructor test inverted (same constructors refused, different passed on)"
+
+[[fault]]
+id = "tb2-cn-decide-any"
+file = "src/front/meta-tactic/contradiction.fs"
+old = '''  s" Bool.false" lf-meta-const-named? 0= if drop false exit then mcd-refuted ;'''
+new = '''  drop mcd-refuted ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: decide's rule closes the goal whatever decide p reduces to"
+
+[[fault]]
+id = "tb2-cn-nested-skipped"
+file = "src/front/meta-tactic/contradiction.fs"
+old = '''  mcd-target ['] mcd-elim? lf-term-holds? lf-must if lfa-e-tac-form lf-tac-fail then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: nestedFalseElim, not ported, passed over instead of not supported"
+
+[[fault]]
+id = "tb2-cn-detail-taken"
+file = "src/front/meta-tactic/contradiction.fs"
+old = ''': mcd-local? ( x k -- x flag ) dup lf-local-detail-at? if drop false else mcd-rules then ;'''
+new = ''': mcd-local? ( x k -- x flag ) mcd-rules ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: an implementation detail used as a hypothesis"
+
+[[fault]]
+id = "tb2-cn-heq-not-equation"
+file = "src/front/meta-tactic/contradiction.fs"
+old = '''  dup mcd-type lf-match-heq? 0= if exit then nip rot drop true mcd-equation! mcd-ctors ;'''
+new = '''  dup mcd-type lf-match-heq? 0= if exit then nip rot drop mcd-ctors ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: an HEq hypothesis not marked (isHEq), so the empty-type rule runs on it"
+
+[[fault]]
+id = "tb2-cn-bit-skipped"
+file = "src/front/meta-tactic/contradiction.fs"
+old = '''  dup mcd-type 2 s" Nat.hasNotBit" lf-meta-app-of? if lfa-e-tac-form lf-tac-fail then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: Nat.hasNotBit, not ported, passed over instead of not supported"
+
+# ---- tactic-core.fs: first
+[[fault]]
+id = "tb2-first-last-only"
+file = "src/front/tactic-core.fs"
+old = '''  begin dup 1 > while swap lf-tac-try-lean if 1- ndrop exit then 1- repeat drop execute ;'''
+new = '''  1- ndrop execute ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: first runs only its last alternative"
+
+[[fault]]
+id = "tb2-first-keeps-failure"
+file = "src/front/tactic-core.fs"
+old = '''  begin dup 1 > while swap lf-tac-try-lean if 1- ndrop exit then 1- repeat drop execute ;'''
+new = '''  begin dup 1 > while swap execute 1- ndrop exit repeat drop execute ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: first runs its first alternative bare (no saved state: its error stops the step)"
+
+# ---- tactics/change.fs: change and show
+[[fault]]
+id = "tb2-change-not-replaced"
+file = "src/front/tactics/change.fs"
+old = '''  tch-elab lf-goal-replace-target-defeq ;'''
+new = '''  tch-elab drop ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-a/check.py"
+reason = "TB2: change keeps the goal (no @id T goal'): the term differs from Lean's"
+
+[[fault]]
+id = "tb2-change-show-code"
+file = "src/front/tactics/change.fs"
+old = '''  swap 0 lf-tac-arg over lf-goal-type lf-instantiate! ['] tch-pair. lfa-e-change'''
+new = '''  swap 0 lf-tac-arg over lf-goal-type lf-instantiate! ['] tch-pair. lfa-e-show'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: change refused with show's error"
+
+[[fault]]
+id = "tb2-change-no-unify"
+file = "src/front/tactics/change.fs"
+old = '''  2>r 2dup tch-unified? if drop 2r> 2drop exit then 2r> tch-fail 0 ;'''
+new = '''  2r> 2drop drop ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: elabChange takes the pattern without isDefEq (a wrong pattern accepted until the kernel)"
+
+[[fault]]
+id = "tb2-show-not-front"
+file = "src/front/tactics/change.fs"
+old = '''  0 swap run-push lf-tac-must tsh tsh-goals @ tsh tsh-k @ run-take lf-tac-must tsh-cat ;'''
+new = '''  0 swap run-push lf-tac-must tsh tsh-goals @ tsh tsh-k @ run-take lf-tac-must swap tsh-cat ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: show leaves the goal it found after the goals before it"
+
+[[fault]]
+id = "tb2-show-first-only"
+file = "src/front/tactics/change.fs"
+old = ''': tsh-search ( -- ) tsh-count 0 ?do i tsh-try if unloop exit then loop tsh-none ;'''
+new = ''': tsh-search ( -- ) tsh-none ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: show tries no goal but the first"
+
+[[fault]]
+id = "tb2-show-one-many"
+file = "src/front/tactics/change.fs"
+old = '''  tsh-count 1 = if 0 tsh-simple else tsh-search then ;'''
+new = '''  tsh-search ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: one goal refused with the several goals' message (Lean: the simple one)"
+
+# ---- tactics/swap.fs
+[[fault]]
+id = "tb2-swap-noop"
+file = "src/front/tactics/swap.fs"
+old = '''  tsw-front lf-goals! lf-tac-must ;'''
+new = '''  lf-goals! lf-tac-must ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: swap leaves the goals as they are"
+
+[[fault]]
+id = "tb2-swap-one-goal"
+file = "src/front/tactics/swap.fs"
+old = '''  drop lf-goals dup run-count 2 < if lfa-e-swap-bounds lf-tac-stop then'''
+new = '''  drop lf-goals dup run-count 1 < if lfa-e-swap-bounds lf-tac-stop then'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: swap of one goal not refused (goal index 2 out of bounds)"
+
+[[fault]]
+id = "tb2-swap-first-twice"
+file = "src/front/tactics/swap.fs"
+old = '''  0 over 1 run@ run-push lf-tac-must over 0 run@ run-push lf-tac-must ;'''
+new = '''  0 over 1 run@ run-push lf-tac-must over 1 run@ run-push lf-tac-must ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: swap puts the second goal twice and loses the first"
+
+# ---- tactics/specialize.fs
+[[fault]]
+id = "tb2-specialize-any-head"
+file = "src/front/tactics/specialize.fs"
+old = '''  dup tsp-head dup lf-meta-fvar? 0= if lfa-e-specialize lf-tac-stop then ;'''
+new = '''  dup tsp-head ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: specialize takes a term whose head is no hypothesis (Lean: its error 447)"
+
+[[fault]]
+id = "tb2-specialize-type-is-term"
+file = "src/front/tactics/specialize.fs"
+old = '''  swap 0 lf-tac-arg -1 false lf-tac-elab-term tsp-fvar swap lf-open-mvar-free dup tsp-type'''
+new = '''  swap 0 lf-tac-arg -1 false lf-tac-elab-term tsp-fvar swap lf-open-mvar-free dup'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-a/check.py"
+reason = "TB2: the new hypothesis's type is the term itself, not its type"
+
+[[fault]]
+id = "tb2-specialize-plain-lift"
+file = "src/front/tactics/specialize.fs"
+old = ''': tsp-run ( i -- ) dup ['] tsp-tac lf-lift-meta-tactic1 ;'''
+new = ''': tsp-run ( i -- ) dup ['] tsp-tac lf-lift-meta-tactic ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: specialize's one goal handed to liftMetaTactic as a list"
+
+# ---- tactics/revert.fs
+[[fault]]
+id = "tb2-revert-tac-noop"
+file = "src/front/tactics/revert.fs"
+old = '''  swap 0 lf-tac-arg lf-tac-get-fvar 0 swap run-push lf-tac-must lf-goal-revert drop ;'''
+new = '''  swap drop ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: revert leaves the goal as it is"
+
+[[fault]]
+id = "tb2-revert-plain-lift"
+file = "src/front/tactics/revert.fs"
+old = ''': trv-run ( i -- ) dup ['] trv-tac lf-lift-meta-tactic1 ;'''
+new = ''': trv-run ( i -- ) dup ['] trv-tac lf-lift-meta-tactic ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: revert's one goal handed to liftMetaTactic as a list"
+
+[[fault]]
+id = "tb2-revert-any-term"
+file = "src/front/tactics/revert.fs"
+old = '''  swap 0 lf-tac-arg lf-tac-get-fvar 0 swap run-push lf-tac-must lf-goal-revert drop ;'''
+new = '''  swap 0 lf-tac-arg lf-tac-elab-for-apply 0 swap run-push lf-tac-must lf-goal-revert drop ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: revert takes any term, not only a hypothesis (Lean's getFVarId: error 389)"
+
+# ---- tactics/delta.fs
+[[fault]]
+id = "tb2-delta-same-taken"
+file = "src/front/tactics/delta.fs"
+old = '''  swap 0 lf-tac-arg tdl-name tdl-expand tuck lf-meta-eqv lf-tac-must if tdl-same then'''
+new = '''  swap 0 lf-tac-arg tdl-name tdl-expand tuck 2drop'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: delta of a name the goal does not hold not refused (Lean: did not delta reduce)"
+
+[[fault]]
+id = "tb2-delta-names-printed"
+file = "src/front/tactics/delta.fs"
+old = '''  s"  [" lf-pp-emit lf-pp-name s" ]" lf-pp-emit outcome-ok ;'''
+new = '''  s"  #[" lf-pp-emit lf-pp-name s" ]" lf-pp-emit outcome-ok ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-a/check.py"
+reason = "TB2: delta's message prints the names as an array literal, not as Lean does"
+
+[[fault]]
+id = "tb2-delta-plain-lift"
+file = "src/front/tactics/delta.fs"
+old = ''': tdl-run ( i -- ) dup ['] tdl-tac lf-lift-meta-tactic1 ;'''
+new = ''': tdl-run ( i -- ) dup ['] tdl-tac lf-lift-meta-tactic ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: delta's one goal handed to liftMetaTactic as a list"
+
+# ---- tactics/contradiction.fs
+[[fault]]
+id = "tb2-contradiction-no-rules"
+file = "src/front/tactics/contradiction.fs"
+old = ''': tcn-tac ( goal -- goals ) lf-goal-contradiction 0 ;'''
+new = ''': tcn-tac ( goal -- goals ) drop 0 ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: contradiction drops the goal without closing it"
+
+[[fault]]
+id = "tb2-contradiction-plain-lift"
+file = "src/front/tactics/contradiction.fs"
+old = ''': tcn-run ( i -- ) ['] tcn-tac lf-lift-meta-tactic ;'''
+new = ''': tcn-run ( i -- ) drop ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: contradiction's step does nothing"
+
+# ---- tactics/trivial.fs
+[[fault]]
+id = "tb2-trivial-no-and"
+file = "src/front/tactics/trivial.fs"
+old = '''  ['] ttr-and 6 lf-tac-first-of ;'''
+new = '''  ['] ttr-true 6 lf-tac-first-of ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: trivial without its newest rule, apply And.intro <;> trivial"
+
+[[fault]]
+id = "tb2-trivial-no-depth"
+file = "src/front/tactics/trivial.fs"
+old = ''': ttr-deeper ( xt -- ) ttr-room 1 ttr ttr-depth +! catch -1 ttr ttr-depth +! throw ;'''
+new = ''': ttr-deeper ( xt -- ) execute ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: trivial's nesting not bounded (Lean's maxRecDepth; LeanForth's: not supported)"
+
+[[fault]]
+id = "tb2-trivial-first-goal"
+file = "src/front/tactics/trivial.fs"
+old = ''': ttr-all ( goals -- ) 0 swap ['] ttr-goal run-each lf-tac-must lf-goals! lf-tac-must ;'''
+new = ''': ttr-all ( goals -- ) 0 swap 0 run@ ttr-goal lf-tac-must lf-goals! lf-tac-must ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: all_goals runs trivial on apply's first goal only"
+
+[[fault]]
+id = "tb2-trivial-order"
+file = "src/front/tactics/trivial.fs"
+old = '''  ['] ttr-assumption ['] ttr-rfl ['] ttr-contradiction ['] ttr-decide ['] ttr-true'''
+new = '''  ['] ttr-rfl ['] ttr-assumption ['] ttr-contradiction ['] ttr-decide ['] ttr-true'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: assumption tried before rfl, so the failure reported is rfl's (Lean: assumption's 381)"
+
+# ---- tactics/absurd.fs
+[[fault]]
+id = "tb2-absurd-order"
+file = "src/front/tactics/absurd.fs"
+old = ''': tab-run ( i -- ) drop ['] tab-pos ['] tab-neg 2 lf-tac-first-of ;'''
+new = ''': tab-run ( i -- ) drop ['] tab-neg ['] tab-pos 2 lf-tac-first-of ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: absurd tries refine @absurd _ _ h ?_ first (h : ¬p then gives the goal ¬¬p)"
+
+[[fault]]
+id = "tb2-absurd-roles"
+file = "src/front/tactics/absurd.fs"
+old = '''  tb tb-want @ -rot lf-mk-absurd tb tb-goal @ swap lf-mvar-assign lf-tac-must ;'''
+new = '''  tb tb-want @ -rot swap lf-mk-absurd tb tb-goal @ swap lf-mvar-assign lf-tac-must ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-a/check.py"
+reason = "TB2: absurd's proof and refutation swapped (an ill-typed term the kernel refuses)"
+
+[[fault]]
+id = "tb2-absurd-pos-not-negated"
+file = "src/front/tactics/absurd.fs"
+old = '''  drop tab-prop tab-node over lf-tac-elab-ensuring swap lf-instantiate! tab-not tab-new'''
+new = '''  drop tab-prop tab-node over lf-tac-elab-ensuring swap lf-instantiate! tab-new'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2: absurd h with h : p leaves the goal p, not ¬p"

@@ -1,0 +1,13 @@
+\ Not supported yet (plan row TB2, tactic batch 1): contradiction meets
+\ h : a ≤ b before h2 : False. Nat.le has an index, so Lean tries cases on
+\ h (elimEmptyInductive), which fails here, then closes the goal from h2;
+\ LeanForth ports no cases, so the run ends at h unsupported (99, exit 2).
+\ Lean: theorem x_cn_le (a b : Nat) (h : a ≤ b) (h2 : False) : a = b := by
+\         contradiction
+theorem x_cn_le
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h  False explicit: h2
+  a b =
+:= by
+  by-contradiction
+end x_cn_le

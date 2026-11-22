@@ -153,15 +153,22 @@
 381	1	Tactic `assumption` failed
 382	1	Tactic `constructor` failed: target is not an inductive datatype
 383	1	Tactic `constructor` failed: no applicable constructor found
+443	1	'change' tactic failed, pattern
+444	1	'show' tactic failed, pattern
+445	1	'show' tactic failed, no goals unify with the given pattern.
+449	1	Tactic `contradiction` failed
 250	1	Tactic `decide` proved that the proposition
 251	1	Expected type must not contain free variables
 252	1	Expected type must not contain metavariables
 253	1	Tactic `decide` failed to reduce
 254	5	`native_decide` is not supported: it trusts Lean's compiler (`Lean.ofReduceBool`), never accepted (ADR 0021 D7)
+448	1	Tactic `delta` failed: did not delta reduce
 385	1	Tactic `left` failed: target is not an inductive datatype
 386	1	Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors
 387	1	Tactic `right` failed: target is not an inductive datatype
 388	1	Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors
+447	1	'specialize' requires a term of the form `h x_1 .. x_n` where `h` appears in the local context
+446	1	goal index `2` is out of bounds
 reserved \ word
 reserved ( word
 reserved theorem word
@@ -243,16 +250,25 @@ reserved ↔ word
 reserved <-> word
 reserved ∣ word
 reserved divides word
+reserved by-absurd word
 reserved by-apply word
 reserved by-assumption word
+reserved by-change word
+reserved by-show word
 reserved by-clear word
 reserved by-constructor word
+reserved by-contradiction word
 reserved by-decide word
 reserved by-native-decide word
+reserved by-delta word
 reserved by-exfalso word
 reserved by-intros word
 reserved by-left word
+reserved by-revert word
 reserved by-right word
+reserved by-specialize word
+reserved by-swap word
+reserved by-trivial word
 kind 1 by 0 by run
 kind 2 by-rfl 0 rfl run
 kind 3 by-exact 0 exact run
@@ -264,13 +280,22 @@ kind 8 by-case: 0 case run
 kind 9 by-rw[ 0 rw run
 kind 10 by-rewrite[ 0 rewrite run
 kind 11 by-sorry 0 sorry run
-kind 12 by-apply 0 apply run
-kind 13 by-assumption 0 assumption run
-kind 14 by-clear 0 clear run
-kind 15 by-constructor 0 constructor run
-kind 16 by-decide 0 decide run
-kind 17 by-native-decide 0 native_decide run
-kind 18 by-exfalso 0 exfalso run
-kind 19 by-intros 0 intros run
-kind 20 by-left 0 left run
-kind 21 by-right 0 right run
+kind 12 by-absurd 0 absurd run
+kind 13 by-apply 0 apply run
+kind 14 by-assumption 0 assumption run
+kind 15 by-change 0 change run
+kind 16 by-show 0 show run
+kind 17 by-clear 0 clear run
+kind 18 by-constructor 0 constructor run
+kind 19 by-contradiction 0 contradiction run
+kind 20 by-decide 0 decide run
+kind 21 by-native-decide 0 native_decide run
+kind 22 by-delta 0 delta run
+kind 23 by-exfalso 0 exfalso run
+kind 24 by-intros 0 intros run
+kind 25 by-left 0 left run
+kind 26 by-revert 0 revert run
+kind 27 by-right 0 right run
+kind 28 by-specialize 0 specialize run
+kind 29 by-swap 0 swap run
+kind 30 by-trivial 0 trivial run

@@ -1,0 +1,13 @@
+\ A wrong twin (plan row TB2; batch-a-wrong.lean): absurd h with
+\ h : a ≤ b leaves ¬ a ≤ b, which no hypothesis proves: assumption's 381.
+\ Lean: theorem w_ab (a b : Nat) (h : a ≤ b) (h2 : a ≤ b) : a = b := by
+\         absurd h
+\         assumption
+theorem w_ab
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h  a b ≤ explicit: h2
+  a b =
+:= by
+  ' h by-absurd
+  by-assumption
+end w_ab

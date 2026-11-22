@@ -419,9 +419,9 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 34,
-  "shuffles": 9,
-  "words": 69
+  "rstack": 38,
+  "shuffles": 14,
+  "words": 101
  },
  "src/front/assign-check.fs": {
   "globals": 0,
@@ -847,6 +847,14 @@
   "shuffles": 3,
   "words": 109
  },
+ "src/front/tactics/absurd.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 1,
+  "words": 11
+ },
  "src/front/tactics/all.fs": {
   "globals": 0,
   "long lines": 0,
@@ -871,6 +879,14 @@
   "shuffles": 0,
   "words": 2
  },
+ "src/front/tactics/change.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 7,
+  "shuffles": 0,
+  "words": 32
+ },
  "src/front/tactics/clear.fs": {
   "globals": 1,
   "long lines": 0,
@@ -887,6 +903,14 @@
   "shuffles": 0,
   "words": 3
  },
+ "src/front/tactics/contradiction.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 2
+ },
  "src/front/tactics/decide.fs": {
   "globals": 2,
   "long lines": 0,
@@ -894,6 +918,14 @@
   "rstack": 2,
   "shuffles": 1,
   "words": 16
+ },
+ "src/front/tactics/delta.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 6
  },
  "src/front/tactics/exfalso.fs": {
   "globals": 1,
@@ -919,6 +951,14 @@
   "shuffles": 0,
   "words": 2
  },
+ "src/front/tactics/revert.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 2
+ },
  "src/front/tactics/right.fs": {
   "globals": 2,
   "long lines": 0,
@@ -926,6 +966,30 @@
   "rstack": 0,
   "shuffles": 0,
   "words": 2
+ },
+ "src/front/tactics/specialize.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 7
+ },
+ "src/front/tactics/swap.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 3
+ },
+ "src/front/tactics/trivial.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 16
  },
  "src/front/telescope.fs": {
   "globals": 0,

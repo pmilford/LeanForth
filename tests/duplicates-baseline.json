@@ -1250,6 +1250,16 @@
   "reason": "false positive: two stores into a record, different fields",
   "tokens": 7
  },
+ "9f2b5e2a7f90": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/cli/leanforth.fs:cli-same-file?",
+   "src/front/tactics/change.fs:tch-unified?"
+  ],
+  "reason": "false positive: `2dup p if 2drop true else q then`, one test or another (two files the same, a pattern unified with or without opaque goals assignable)",
+  "tokens": 8
+ },
  "9f563b7c6bf9": {
   "copies": 3,
   "kind": "shape",
@@ -1431,13 +1441,14 @@
   "tokens": 11
  },
  "b69e73b09f8a": {
-  "copies": 2,
+  "copies": 3,
   "kind": "shape",
   "members": [
    "src/cli/leanforth.fs:cli-seen",
-   "src/front/elab-pending.fs:lf-elab-error"
+   "src/front/elab-pending.fs:lf-elab-error",
+   "src/front/tactics/change.fs:tsh-error"
   ],
-  "reason": "false positive: two fields of one record read (the arguments seen, an elaboration error); equal shape, unrelated meaning",
+  "reason": "false positive: two fields of one record read (the arguments seen, an elaboration error, show's error printer and code); equal shape, unrelated meaning",
   "tokens": 6
  },
  "bb4de2499c6d": {

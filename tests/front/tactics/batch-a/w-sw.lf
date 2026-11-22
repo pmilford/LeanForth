@@ -1,0 +1,11 @@
+\ A wrong twin (plan row TB2; batch-a-wrong.lean): one goal, so goal 2
+\ is out of bounds, error 446.
+\ Lean: theorem w_sw (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         swap
+theorem w_sw
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  by-swap
+end w_sw

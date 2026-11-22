@@ -1115,6 +1115,67 @@ the same way (`tests/front/tactics/*/check.py`).
   (`tests/front/tactics/clear/w-cl-dep.lf`). One hypothesis a word: Lean's
   `clear h1 h2` is two steps.
 
+**Change, show, swap, specialize, revert, delta, contradiction, trivial,
+absurd.** Nine more ports of Lean's tactics (plan row TB2, batch 1; `swap`
+and `absurd` are Batteries' macros), each compared with
+pinned Lean 4.35.0 node for node by `tests/front/tactics/batch-a/check.py`,
+on decide's slice of Init (`--env tests/front/decide-slice.ndjson
+--elab-data tests/front/decide-slice.elab.ndjson`). The examples are from
+`tests/front/tactics/batch-a/` (`change.lf`, `goals.lf`, `close.lf`).
+
+- *Definitional equality*: two statements that unfold to the same one.
+  `a ≥ b` is defined as `b ≤ a`. `T by-change` replaces the goal by `T`
+  when `T` is definitionally equal to it; the proof of `T` given afterwards
+  proves the old goal (through `id`). Mathematically: to prove a ≥ b, prove
+  b ≤ a. In LeanForth, with `h : b ≤ a`: `b a ≤ by-change ' h by-exact`
+  proves `a b ≥`; in Lean, `change b ≤ a` then `exact h`. A pattern that is
+  not definitionally equal is error 443 with Lean's text; one that is no
+  proposition (`a by-show` with `a : Nat`) is 96. `T by-show` is the same
+  for the first goal `T` fits, which it brings to the front: after
+  `' And.intro by-apply` on `a ≤ b ∧ b ≤ a`, `b a ≤ by-show` makes
+  `case right` the main goal (`sh_second`); Lean: `show b ≤ a`. No goal
+  fits: 444 (one goal) or 445 (several). The `at h` form is not written yet.
+- `by-swap` swaps the first two goals (Lean, with Batteries: `swap`).
+  After `' And.intro by-apply`, `by-swap ' h2 by-exact ' h1 by-exact`
+  proves `b ≤ a` first (`sw_and`). Fewer than two goals: 446.
+- `' h by-revert` puts the hypothesis `h` back into the goal, with every
+  hypothesis that mentions it: `h : a ≤ b ⊢ a ≤ b` becomes
+  `⊢ a ≤ b → a ≤ b` (`rv_hyp`, then `by-intro: k ' k by-exact`); reverting
+  the variable `a` takes `h` too, `⊢ ∀ a, a ≤ b → a ≤ b` (`rv_dep`). Lean:
+  `revert h`. A term that is no hypothesis: 389. One name a word.
+- `t by-specialize` replaces the hypothesis at the head of `t` by `t`
+  itself: Lean's `specialize h x` turns `h : ∀ n, P n` into `h : P x`. In
+  LeanForth `' h by-specialize by-assumption` (`sp_self`); a term whose head
+  is no hypothesis (`' Nat.le_refl a $`) is 447. Today a hypothesis applied
+  to a term is out of reach of the text: a statement cannot hold `→` or
+  `∀` yet, and a hypothesis `¬ p` applied is the elaborator's 136
+  (`x-sp-not.lf`, not supported yet); after `by-specialize` (and
+  `by-revert`) a statement's own name still names the declaration's
+  hypothesis, where Lean would name the new one: use `by-assumption` or a
+  `by-intro:` name.
+- `' f by-delta` unfolds the definition `f` everywhere in the goal: `' GE.ge
+  by-delta` turns `a ≥ b` into `b ≤ a` (`de_ge`); Lean: `delta GE.ge`.
+  Nothing to unfold: 448, "did not delta reduce [f]". A theorem's name is
+  not supported yet (93).
+- `by-contradiction` closes any goal from contradictory hypotheses:
+  `h : False` (`cn_false`), `h : ¬ p` beside `h2 : p` (`cn_not`, the
+  hypotheses `a b ≤ ¬` and `a b ≤`), `h : a ≠ a` (`cn_ne`), or a closed
+  statement `decide` refutes. Mathematically: from a contradiction anything
+  follows. Lean: `contradiction`. None found: 449. Not supported yet (99,
+  exit 2): a hypothesis that is an indexed family such as `a ≤ b`, met
+  before the contradiction (Lean tries a case split there, which LeanForth
+  does not port: `x-cn-le.lf`), and two different constructors equated
+  (`true = false`: `x-cn-ctor.lf`).
+- `by-trivial` tries Lean's rules for `trivial` in Lean's order: `apply
+  And.intro` with `trivial` on each part, `apply True.intro`, `by-decide`,
+  `by-contradiction`, `by-rfl`, `by-assumption`. `True True ∧` (`tr_and`),
+  `a a =` (`tr_rfl`), `2 2 + 4 =` (`tr_decide`); Lean: `trivial`. Every rule
+  failing gives assumption's error 381; a rule not supported yet (as
+  contradiction on `h : a ≤ a`) makes trivial not supported (99).
+- `' h by-absurd` turns the goal into the statement that contradicts `h`:
+  with `h : ¬ (a ≤ b)` the new goal is `a ≤ b` (`ab_neg`), with `h : a ≤ b`
+  it is `¬ (a ≤ b)` (`ab_pos`). Lean, with Batteries: `absurd h`.
+
 A statement's hypothesis is written with a tick when it stands alone,
 `' h by-apply`, because its type is not unfolded to count its arguments
 (error 73).
@@ -1136,6 +1197,15 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-exfalso` | `( -- )` | ordinary | read: a step. Run: assigns the main goal `False.elim` of a new goal `False`, which takes its place with its name | Turns any goal into `False`; no error of its own. | `exfalso` |
 | `by-intros` | `( -- )` | ordinary | read: a step. Run: replaces the main goal by one with every leading binder introduced | Introduces all the goal's leading binders as inaccessible hypotheses, unfolding nothing; none leaves the goal as it is; a `let` or an instance binder: 99 (not supported yet). | `intros` |
 | `by-clear` | `( t -- )` | ordinary | read: a step holding t. Run: replaces the main goal by one whose context lacks t | Removes the hypothesis t; t no hypothesis: 389; another hypothesis depends on it: 441; the goal does: 442. | `clear t` |
+| `by-change` | `( T -- )` | ordinary | read: a step holding T. Run: replaces the main goal by one of type T, the old one assigned `id` of it (the same goal when T is its type) | Restates the goal as a definitionally equal T; not equal: 443; T no proposition: 96. | `change T` |
+| `by-show` | `( T -- )` | ordinary | read: a step holding T. Run: as `by-change` on the first goal T fits, which becomes the main goal | Picks and restates the goal T fits; none: 444 (one goal), 445 (several); no goal: 90. | `show T` |
+| `by-swap` | `( -- )` | ordinary | read: a step. Run: the second goal becomes the first | Swaps the first two goals; fewer than two: 446. | `swap` (Batteries) |
+| `by-specialize` | `( t -- )` | ordinary | read: a step holding t. Run: a new hypothesis of t's type, named as t's head hypothesis, which goes when nothing depends on it | Replaces the hypothesis h by t = h applied; t's head no hypothesis: 447; t leaving a metavariable: 93. | `specialize t` |
+| `by-revert` | `( h -- )` | ordinary | read: a step holding h. Run: replaces the main goal by one with h, and the hypotheses that depend on it, as binders | Puts h back into the goal; h no hypothesis: 389; a `let` among them: 93. | `revert h` |
+| `by-delta` | `( f -- )` | ordinary | read: a step holding f. Run: replaces the main goal by one with f unfolded, assigned `id` of it | Unfolds the definition f in the goal; nothing to unfold: 448; f no constant: 99; a theorem: 93. | `delta f` |
+| `by-contradiction` | `( -- )` | ordinary | read: a step. Run: assigns the main goal a proof from contradictory hypotheses, removes it | Closes the goal from `False`, `¬p` and `p`, `a ≠ a`, or a statement `decide` refutes; none: 449; a case split or `noConfusion` it would need: 99 (not supported yet). | `contradiction` |
+| `by-trivial` | `( -- )` | ordinary | read: a step. Run: the first of Lean's rules for `trivial` that closes the goal | Closes simple goals (`True`, `a = a`, `∧` of such, closed decidable ones, contradictions, a hypothesis); all fail: 381; a rule not supported yet: 99. | `trivial` |
+| `by-absurd` | `( h -- )` | ordinary | read: a step holding h. Run: assigns the main goal `absurd` of h and a new goal, which takes its place | Leaves the goal `p` for `h : ¬p`, else `¬p` for `h : p`. | `absurd h` (Batteries) |
 | `by-induction` | `( t -- )` | ordinary | read: a step holding t. Run: replaces the main goal by one goal per case | Induction on the variable t; the cases are left open (alone it ends in error 89). | `induction t` |
 | `by-induction-with` | `( t -- )` | ordinary; opens a block that `by-end` closes | read: a block step holding t. Run: as `by-induction`, each case taken by an alternative | Induction on t with the cases written as alternatives. | `induction t with` |
 | `\| CASE-TAG HYP-NAME ... =>` | `( -- )` | parsing: tokens of its line up to `=>`; only right inside `by-induction-with` (error 83 elsewhere) | read: an alternative block; the names become hypotheses until the alternative ends. Run: introduces the case's fields and runs the block | One alternative of an induction. CASE-TAG is the name of the case (`zero`, `succ`); each HYP-NAME becomes a new word for one of the case's variables or hypotheses (`k`, `ih` in `\| succ k ih =>`) until the alternative ends. The alternative ends at the next `\|` or at `by-end`. | `\| tag names =>` |
@@ -1150,7 +1220,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-native-decide` | `( -- )` | ordinary; always refused, not supported (error 254, exit 2): it rests on `Lean.ofReduceBool` | read: a step. Run: error 254 | Never proves anything: Lean's `native_decide` trusts the compiler through an axiom LeanForth does not accept. | `native_decide` |
 | `**` `by-try`, `by-first`, `<;>` | | combinators; sketched in FE1G §4 and S2 §3 (the trail), no word fixed | n/a | n/a | `try`, `first`, `<;>` |
 | `**` `by-alt: CASE-TAG HYP-NAME ... =>` | | an open question of the design: spelling alternatives without `\|` | n/a | n/a | `\| tag names =>` |
-| `**` `by-refine`, `by-subst`, `by-cases` and others | | named in FE2 §3/FE5 as later tactics; no spelling is fixed | n/a | n/a | `refine`, `subst`, ... |
+| `**` `by-refine`, `by-subst`, `by-cases` and others | | named in FE2 §3/FE5 as later tactics; no spelling is fixed (plan row TB2 lists the batches) | n/a | n/a | `refine`, `subst`, ... |
 
 Designs: [FE1G_TACTICS.md](../design/FE1G_TACTICS.md) (the first tactics,
 §3.2 words, §7 FE1i hook), [FE1I_AUTOMATION.md](../design/FE1I_AUTOMATION.md)

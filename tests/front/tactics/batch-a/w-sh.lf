@@ -1,0 +1,13 @@
+\ A wrong twin (plan row TB2; batch-a-wrong.lean): with one goal, show's
+\ own message, error 444.
+\ Lean: theorem w_sh (a b : Nat) (h : b ≤ a) : a ≥ b := by
+\         show a ≤ b
+\         exact h
+theorem w_sh
+  Nat explicit: a  Nat explicit: b
+  b a ≤ explicit: h
+  a b ≥
+:= by
+  a b ≤ by-show
+  ' h by-exact
+end w_sh

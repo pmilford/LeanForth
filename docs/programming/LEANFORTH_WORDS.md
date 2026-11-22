@@ -161,6 +161,7 @@ is elaborated yet:
 | `t by-apply`, `by-assumption`, `by-constructor` | `( t -- )`, `( -- )`, `( -- )` | ports of Lean's `apply`, `assumption` and `constructor` (tactic plug-in design, slice a2-iii; `src/front/tactics/`, on the goal layer `src/front/meta-tactic/`): 380 no argument count makes t's conclusion fit, 125 an instance not found, 384 an instance found but not fitting, 381 no hypothesis has the goal's type, 382 the goal is no inductive type, 383 no constructor applies, 99 a case not ported |
 | `by-decide`, `by-native-decide` | `( -- )`, `( -- )` | ports of Lean's `decide` and `native_decide` (plan row S3, slice S3a; `src/front/tactics/decide.fs`): 250 the statement is false, 251 the goal has a free variable, 252 a metavariable, 253 the evaluation is stuck, 122 no `Decidable` instance (synthInstance), 93 an exponent above 256 or a let variable (not supported yet); `by-native-decide` is always 254 (not supported: `Lean.ofReduceBool`) |
 | `by-left`, `by-right`, `by-exfalso`, `by-intros`, `t by-clear` | `( -- )`, `( -- )`, `( -- )`, `( -- )`, `( t -- )` | ports of Lean's `left`, `right`, `exfalso`, `intros` and `clear t` (tactic batch 1, plan row TB1; `src/front/tactics/`, on the goal layer `src/front/meta-tactic/`): 385 and 387 the goal is no inductive type, 386 and 388 it has not two constructors, 380 the constructor does not fit; `by-exfalso` none of its own; `by-intros` introduction's 99 (a `let`, an instance binder) and 93; 389 t is no single hypothesis, 441 another hypothesis depends on it, 442 the goal does, 440 a variable of no context of the goal's (no text reaches it) |
+| `T by-change`, `T by-show`, `by-swap`, `t by-specialize`, `h by-revert`, `f by-delta`, `by-contradiction`, `by-trivial`, `h by-absurd` | `( T -- )`, `( T -- )`, `( -- )`, `( t -- )`, `( h -- )`, `( f -- )`, `( -- )`, `( -- )`, `( h -- )` | ports of Lean's `change T`, `show T`, Batteries' `swap`, `specialize t`, `revert h`, `delta f`, `contradiction`, `trivial` and Batteries' `absurd h` (tactic batch 1, plan row TB2; `src/front/tactics/`, on the goal layer `src/front/meta-tactic/`): 443 change's pattern not definitionally equal to the goal, 444 show's (one goal), 445 show's (no goal fits), 96 a pattern that is no proposition, 446 swap with fewer than two goals, 447 specialize's term no hypothesis applied, 389 revert's term no hypothesis, 448 delta found nothing to unfold, 449 contradiction found no contradiction, 381 every rule of trivial failed (assumption's), 99 a case not ported (contradiction's cases, noConfusion, `Nat.hasNotBit`; delta of no constant; trivial nested past 32), 93 a type with an open metavariable, a `let` reverted, delta of a theorem |
 | `by-intro: NAME`, `t by-exact`, `by-rfl`, run | | as Lean's `intro`, `exact` and `rfl` (plan FE1g-4, `src/front/tactics/intro.fs`, `exact.fs`, `rfl.fs`): 94 no binder to introduce, 95 a metavariable left unassigned, 96 a type mismatch, 97 two sides not definitionally equal, 98 a term the goal cannot take, 99 a case not supported yet (`intro rfl`, a `let`, a binder of no known kind, an instance binder; implicit and strict-implicit binders are introduced, plan row TB1), 93 a step of the Meta layer not ported yet |
 | `\| TAG NAMES… =>`, `by-case: TAG NAMES… =>` | `( -- )` | an alternative of the `by-induction-with` it is right inside (up to the next `\|` or `by-end`), a case block (up to its `by-end`); the header on one line, its names hypotheses of the block |
 | `by-end` | `( -- )` | closes the innermost `by-induction-with` or `by-case:` |
@@ -519,28 +520,42 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 381 | invalid | Tactic `assumption` failed |
 | 382 | invalid | Tactic `constructor` failed: target is not an inductive datatype |
 | 383 | invalid | Tactic `constructor` failed: no applicable constructor found |
+| 443 | invalid | 'change' tactic failed, pattern |
+| 444 | invalid | 'show' tactic failed, pattern |
+| 445 | invalid | 'show' tactic failed, no goals unify with the given pattern. |
+| 449 | invalid | Tactic `contradiction` failed |
 | 250 | invalid | Tactic `decide` proved that the proposition |
 | 251 | invalid | Expected type must not contain free variables |
 | 252 | invalid | Expected type must not contain metavariables |
 | 253 | invalid | Tactic `decide` failed to reduce |
 | 254 | unsupported | `native_decide` is not supported: it trusts Lean's compiler (`Lean.ofReduceBool`), never accepted (ADR 0021 D7) |
+| 448 | invalid | Tactic `delta` failed: did not delta reduce |
 | 385 | invalid | Tactic `left` failed: target is not an inductive datatype |
 | 386 | invalid | Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors |
 | 387 | invalid | Tactic `right` failed: target is not an inductive datatype |
 | 388 | invalid | Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors |
+| 447 | invalid | 'specialize' requires a term of the form `h x_1 .. x_n` where `h` appears in the local context |
+| 446 | invalid | goal index `2` is out of bounds |
 
-What follows the first line of five of these messages (the table gives the first line, as `src/author/errors.fs` holds it):
+What follows the first line of eight of these messages (the table gives the first line, as `src/author/errors.fs` holds it):
 
 - 122: Meta's synthInstance, the tactic library's: mkAppM's, mkAppOptM's and apply's instance binders, `by-decide`'s instance; the type indented and Lean's hint follow.
 - 250: the proposition indented, then "is false".
 - 251: the type indented, then Lean's `+revert` hint.
 - 252: the type indented.
 - 253: the decide term indented, then "to `true` or `false`.".
+- 443 and 444: the pattern indented, "is not definitionally equal to target", the target indented.
+- 445: a blank line, "In the first goal, the pattern", the pattern indented, "is not definitionally equal to the target", the target indented, "(Errors for other goals omitted)".
+- 448: the names on the message's own line, ` [f]`, then the goal after a blank line.
 
 Codes come in ranges (`src/author/errors.fs`): 1 to 73 the words, the
 runner, the stores and natural text read (FE1a); 74 to 79 elaboration and
 the hand-over (FE1c, FE1e, FE1f; 74 to 77 used); 80 to 99 tactic proofs
-(FE1g; all used); 250 to 254 `by-decide` and `by-native-decide`
+(FE1g; all used); 440 to 449 the tactics of batches TB1 and TB2
+(`clear`'s 440 to 442 in `src/front/meta-tactic/goal.fs`; 443 to 445
+`change` and `show`, `tactics/change.fs`; 446 `swap`; 447 `specialize`;
+448 `delta`; 449 `contradiction`, `meta-tactic/contradiction.fs`);
+250 to 254 `by-decide` and `by-native-decide`
 (`src/front/tactics/decide.fs`, plan S3a; 255 to 269 kept for S3b); 122
 Meta's synthInstance found none (the tactic library's "failed to
 synthesize", with the type and Lean's hint: mkAppM's, mkAppOptM's,

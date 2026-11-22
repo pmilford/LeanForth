@@ -1,0 +1,11 @@
+\ A wrong twin (plan row TB2; batch-a-wrong.lean): nothing contradicts
+\ h : a = b, error 449 with the goal.
+\ Lean: theorem w_cn (a b : Nat) (h : a = b) : b = a := by
+\         contradiction
+theorem w_cn
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a =
+:= by
+  by-contradiction
+end w_cn

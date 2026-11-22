@@ -60,6 +60,9 @@
 \ - lf-meta-head-args ( term -- head n ): the head of its spine and the number
 \   of its arguments (Lean's getAppFn and getAppNumArgs);
 \   lf-meta-args# ( term -- n ): that number alone.
+\ - lf-meta-lambda-body ( e -- body ): what is under its leading lambdas
+\   (Lean's Expr.getLambdaBody: e itself when it is no lambda; defeq-delta's
+\   value preamble, specialize's head).
 \ - lf-meta-forall-body ( term -- body ): what is under its leading pis
 \   (the term itself when it is no pi), its loose bound variables those
 \   binders' (Lean's getForallBody of each, unreduced);
@@ -149,4 +152,6 @@ require ../core/let-terms.fs
 : lf-meta-apply-all ( f slab -- f' outcome )
   dup slab-count swap 0 swap lf-meta-apply-from ;
 
+\ getLambdaBody (defeq-delta.fs's and specialize's; check-duplicates.py --extract).
+: lf-meta-lambda-body ( e -- body ) begin dup lf-term-lam? while lf-term-second@ repeat ;
 base !   \ the BASE this file was loaded with

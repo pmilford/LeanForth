@@ -18,6 +18,11 @@
 \                                     configuration in force (meta-config.fs's
 \                                     lf-with-approx); apply's and rfl's test
 \   lf-instantiate! ( e -- e' )       instantiateMVars
+\   lf-open-mvar-free ( e -- e )      e, which holds no such metavariable,
+\                                     else unsupported thrown (the goal
+\                                     words' and tactics' holes LeanForth
+\                                     does not port: new goals, Lean's
+\                                     natural-hole errors)
 \   lf-has-open-mvar? ( e -- flag )   whether e holds a metavariable
 \                                     neither assigned nor delayed-assigned
 \                                     (getMVarsNoDelayed e not empty;
@@ -159,6 +164,7 @@ end-structure
   ['] lf-meta-defeq-guarded lf-with-approx outcome-sane lf-must ;
 : lf-instantiate! ( e -- e' ) lf-instantiate-mvars lf-must ;
 : lf-has-open-mvar? ( e -- flag ) ['] lf-mvar-open? lf-term-holds? lf-must ;
+: lf-open-mvar-free ( e -- e ) dup lf-has-open-mvar? if outcome-unsupported lf-must then ;
 \ isDefEq with the elaborator's flags (TermElabM's setElabConfig: foApprox
 \ and ctxApprox) added to the configuration in force, at transparency mode
 \ (lf-meta-with: defeq's own configuration and mode put back however it

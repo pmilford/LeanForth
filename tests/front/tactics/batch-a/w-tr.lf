@@ -1,0 +1,11 @@
+\ A wrong twin (plan row TB2; batch-a-wrong.lean): every rule of trivial
+\ fails; the error is that of the last tried, assumption's 381.
+\ Lean: theorem w_tr (a b : Nat) (h : a = b) : b = a := by
+\         trivial
+theorem w_tr
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a =
+:= by
+  by-trivial
+end w_tr

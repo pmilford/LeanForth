@@ -1,0 +1,58 @@
+\ by-change and by-show (plan row TB2, tactic batch 1; tests/front/tactics/
+\ batch-a/batch-a.lean): the goal a ≥ b changed to b ≤ a, which unfolds
+\ from it (GE.ge a b is LE.le b a), so the goal is assigned
+\ @id (a ≥ b) ?g; a pattern equal to the goal changes nothing (no id);
+\ show takes the second goal when the first does not fit, and puts it
+\ first.
+\ Lean: theorem ch_target (a b : Nat) (h : b ≤ a) : a ≥ b := by
+\         change b ≤ a
+\         exact h
+theorem ch_target
+  Nat explicit: a  Nat explicit: b
+  b a ≤ explicit: h
+  a b ≥
+:= by
+  b a ≤ by-change
+  ' h by-exact
+end ch_target
+
+\ Lean: theorem ch_same (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         change a ≤ b
+\         exact h
+theorem ch_same
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  a b ≤ by-change
+  ' h by-exact
+end ch_same
+
+\ Lean: theorem sh_target (a b : Nat) (h : b ≤ a) : a ≥ b := by
+\         show b ≤ a
+\         exact h
+theorem sh_target
+  Nat explicit: a  Nat explicit: b
+  b a ≤ explicit: h
+  a b ≥
+:= by
+  b a ≤ by-show
+  ' h by-exact
+end sh_target
+
+\ Lean: theorem sh_second (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) :
+\           a ≤ b ∧ b ≤ a := by
+\         apply And.intro
+\         show b ≤ a
+\         exact h2
+\         exact h1
+theorem sh_second
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1  b a ≤ explicit: h2
+  a b ≤ b a ≤ ∧
+:= by
+  ' And.intro by-apply
+  b a ≤ by-show
+  ' h2 by-exact
+  ' h1 by-exact
+end sh_second

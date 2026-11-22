@@ -1,0 +1,14 @@
+\ A wrong twin (plan row TB2; batch-a-wrong.lean): two goals, neither
+\ a = b; the first is tried again for Lean's message, error 445.
+\ Lean: theorem w_sh_many (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) :
+\           a ≤ b ∧ b ≤ a := by
+\         apply And.intro
+\         show a = b
+theorem w_sh_many
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1  b a ≤ explicit: h2
+  a b ≤ b a ≤ ∧
+:= by
+  ' And.intro by-apply
+  a b = by-show
+end w_sh_many

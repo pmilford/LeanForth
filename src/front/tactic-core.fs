@@ -51,6 +51,18 @@
 \       error (tactic-msg.fs's lf-tac-lean-error?) undone and forgotten,
 \       false; anything else (not supported, no room, no fuel, a fault)
 \       thrown on, never turned into success
+\   lf-tac-first-of ( xtn .. xt1 n -- )  first | t1 | .. | tn
+\       (BuiltinTactic.lean:631-641, evalFirst's loop), the first
+\       alternative on top, n >= 1 (else a fault, invalid), each xt ( -- )
+\       a tactic on the step running (lf-tac-step): xt1 .. xtn-1 tried in
+\       turn from a saved state (lf-tac-try-lean), the first that runs to
+\       its end kept and the rest not run; a Lean error undone and
+\       forgotten; anything else thrown on at once; xtn, the deepest, when
+\       all before it failed, runs bare, so its error is the one reported,
+\       as Lean's. Also an extensible macro's rules (Elab/Tactic/
+\       Basic.lean's expandEval: tried newest first, the error of the last
+\       tried, the first registered, reported, Lean issue #3770): trivial's
+\       (tactics/trivial.fs)
 \   lf-tac-elab-term ( node expected postpone? -- e )  Tactic.elabTerm
 \       (ElabTerm.lean:45): lf-tac-elab, its failure thrown as the
 \       runner's error (Term codes 125-139, 71 without an elaborator)
@@ -62,6 +74,10 @@
 \       lf-tac-defeq; a goal in either type may be assigned, plan 9.4.8l
 \       J); false is error 96 with Lean's text (tactic-msg.fs's
 \       lf-has-type-but-expected.)
+\   lf-tac-ensure-type ( e expected -- e )  that check alone, of a term
+\       elaborated already (ensureHasType's isDefEq; by-absurd's, whose
+\       expected ¬?a the elaborator cannot take: an expected pi is its
+\       error 133, elab-term.fs)
 \   lf-close-main-goal-using ( i*x i xt -- )  closeMainGoalUsing
 \       (ElabTerm.lean:85): step i runs in a new step record, xt ( i*x
 \       type tag -- e ) gets the main goal's type and tag; e instantiated
@@ -180,6 +196,13 @@ end-structure
 : lf-tac-try-lean ( xt -- flag )
   lf-tac-try ?dup 0= if true exit then lf-tac-forget-lean false ;
 
+\ ---- first: the alternative on top tried first (lf-tac-try-lean); one
+\ that ends is kept and the rest dropped; the deepest, the last, runs bare,
+\ so its error is the one thrown.
+: tcr-alts ( xtn..xt1 n -- )
+  begin dup 1 > while swap lf-tac-try-lean if 1- ndrop exit then 1- repeat drop execute ;
+: lf-tac-first-of ( xtn..xt1 n -- ) dup 0> 0= if outcome-invalid lf-must then tcr-alts ;
+
 \ ---- Tactic.elabTerm, elabTermEnsuringType.
 : lf-tac-elab-term ( node expected postpone? -- e ) lf-tac-elab lf-tac-must ;
 : tcr-typed ( e expected -- e type expected ) over lf-infer lf-tac-must swap ;
@@ -187,8 +210,9 @@ end-structure
 : tcr-defeq ( type expected -- flag outcome ) ['] lf-tac-defeq lf-with-assignable-opaque ;
 : tcr-ensured ( e type expected -- e )
   2dup tcr-defeq lf-tac-must if 2drop exit then tcr-mismatch ;
+: lf-tac-ensure-type ( e expected -- e ) tcr-typed tcr-ensured ;
 : lf-tac-elab-ensuring ( node expected -- e )
-  tuck false lf-tac-elab-term swap tcr-typed tcr-ensured ;
+  tuck false lf-tac-elab-term swap lf-tac-ensure-type ;
 
 \ ---- closeMainGoalUsing: the step's new metavariables (numbered from
 \ tb-from) that the term leaves unassigned are Lean's logUnassigned.
