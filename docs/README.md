@@ -132,6 +132,7 @@ See also [obsolete/README.md](obsolete/README.md) for documents that a newer one
 - [OWNER_DECISIONS.md](project/OWNER_DECISIONS.md) — the owner's plain-language policy decisions.
 - [MINIFORTH_REVIEW.md](development/MINIFORTH_REVIEW.md) — review of MiniForth, a Forth written in Lean (related work, plan W9): what to adopt and what not; no code copied (no licence).
 - [TACTIC_INVENTORY.md](development/TACTIC_INVENTORY.md) — which Lean tactics Mathlib's source uses and how often (2026-11-21), each classed as present, small, simp family or engine; the order and the batch process for the tactic work (plan TB2).
+- [TACTIC_STATUS.md](development/TACTIC_STATUS.md) — the ledger of tactic words: what each covers, what it still lacks, what LeanForth answers there and which piece of work removes the gap (owner, 2026-11-22); updated in every tactic branch.
 - [BEYOND_LEAN.md](project/BEYOND_LEAN.md) — places where Lean's kernel rejects or cannot decide something true, recorded for a later opt-in improved mode; compatibility mode is unaffected.
 - [DECISIONS.md](project/DECISIONS.md) — running decision log with rejected alternatives.
 - [IMPLEMENTATION_PLAN.md](project/IMPLEMENTATION_PLAN.md) — staged implementation plan.
