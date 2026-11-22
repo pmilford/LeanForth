@@ -53,8 +53,9 @@ require ./meta-tactic/goal.fs
 \ ---- collectFreshMVars: metavariable n kept when open and held by e.
 : tng-sought? ( mvar leaf -- mvar flag ) over = ;
 : tng-in? ( e mvar -- flag ) ['] tng-sought? lf-term-holds-with? lf-must ;
-: tng-holds? ( e n -- flag )
-  lf-mvar-at dup lf-mvar-open? if tng-in? else 2drop false then ;
+\ (e is instantiated and holds no delayed-assigned metavariable, which is
+\ refused first: every metavariable it holds is open.)
+: tng-holds? ( e n -- flag ) lf-mvar-at tng-in? ;
 : tng-add ( e run n -- e run' )
   >r over r@ tng-holds? r> swap if lf-mvar-at run-push lf-must else drop then ;
 : tng-collect ( e from -- mvars ) 0 swap lf-mvar-count swap ?do i tng-add loop nip ;

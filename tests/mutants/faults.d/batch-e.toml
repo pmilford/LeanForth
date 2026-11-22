@@ -1,0 +1,597 @@
+# Planted faults of tactic batch 3b (plan row TB2: src/front/tactic-syntax.fs's lists of
+# names and at[ ], src/front/reader.fs's and elab-term.fs's holes, elab-app.fs's hole
+# records and lf-elab-record+, mvars.fs's lf-mvar-at and lf-mvar-named, meta-config.fs's
+# lf-with-holes-as-goals, elab-decl.fs's edc-kept, src/front/new-goals.fs, tactic-core.fs's
+# name words and lf-tac-elab-with-holes, src/front/tactics/intro.fs, revert.fs, clear.fs,
+# rename-i.fs, refine.fs), read with faults.toml as one list (scripts/mutants.py). Each is
+# caught by the test it names (tests/front/tactics/batch-e/test.fs or its check.py).
+
+# ---- tactic-syntax.fs: lists of names
+[[fault]]
+id = "tb3b-list-no-end"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-list-token ( -- c-addr u ) lft-next dup 0<> lfa-e-tac-list-end lfa-must ;'''
+new = ''': lft-list-token ( -- c-addr u ) lft-next ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: a list that reaches the end of its line goes on as if closed (not 458)"
+
+[[fault]]
+id = "tb3b-list-closer-never"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-closer? ( c-addr u -- flag ) s" ]" lfa-token= ;'''
+new = ''': lft-closer? ( c-addr u -- flag ) 2drop false ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: ] never ends a list, so every list runs to its line's end"
+
+[[fault]]
+id = "tb3b-list-name-inverted"
+file = "src/front/tactic-syntax.fs"
+old = '''  lft-list-token 2dup lft-closer? if 2drop false else true then ;'''
+new = '''  lft-list-token 2dup lft-closer? 0= if 2drop false else true then ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: the list stops at its first name and reads ] as a name"
+
+[[fault]]
+id = "tb3b-hyp-ref-any"
+file = "src/front/tactic-syntax.fs"
+old = '''  2dup lft-loc-name? lfa-e-tac-hyp-names lfa-must lft-name-id lfa-here lft-arg+ ;'''
+new = '''  lft-name-id lfa-here lft-arg+ ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: _ or a LeanForth word read as a hypothesis's name in by-revert[ (not 459)"
+
+[[fault]]
+id = "tb3b-hyp-ref-uncounted"
+file = "src/front/tactic-syntax.fs"
+old = '''  2dup lft-loc-name? lfa-e-tac-hyp-names lfa-must lft-name-id lfa-here lft-arg+ ;'''
+new = '''  2dup lft-loc-name? lfa-e-tac-hyp-names lfa-must lft-name-id lfa-here lft-arg! ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: the names are stored but not counted as the step's arguments"
+
+[[fault]]
+id = "tb3b-some-none"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-some ( i -- i ) dup lft-rec tac-count @ 0> lfa-e-tac-list-empty lfa-must ;'''
+new = ''': lft-some ( i -- i ) ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: an empty by-revert[ ], by-clear[ ] or by-rename-i[ ] is read (not 460)"
+
+[[fault]]
+id = "tb3b-binders-plus-empty"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-build-binders+ ( i shape -- ) drop lft-binders] lft-some lft-done ;'''
+new = ''': lft-build-binders+ ( i shape -- ) drop lft-binders] lft-done ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: an empty by-rename-i[ ] is read, which Lean's parser refuses (not 460)"
+
+[[fault]]
+id = "tb3b-binders-text-end"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-build-binders ( i shape -- ) drop lft-binders] lft-done ;'''
+new = ''': lft-build-binders ( i shape -- ) drop lft-binders] drop ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: the step's text does not reach its list's ]"
+
+[[fault]]
+id = "tb3b-hyps-as-binders"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-build-hyps ( i shape -- ) drop lft-hyps] lft-some lft-done ;'''
+new = ''': lft-build-hyps ( i shape -- ) drop lft-binders] lft-some lft-done ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: by-revert['s names read as new hypotheses, _ among them (not 459)"
+
+[[fault]]
+id = "tb3b-loc-fresh-goal"
+file = "src/front/tactic-syntax.fs"
+old = '''  dup lft-loc@ tac-loc-given = swap lft-rec tac-loc# @ 0= and ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3b: * after |- or a name, and an empty at[ ], read (not 454)"
+
+[[fault]]
+id = "tb3b-loc-some-none"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-loc-some ( i -- i ) dup lft-loc-fresh? 0= lfa-e-tac-at-names lfa-must ;'''
+new = ''': lft-loc-some ( i -- i ) ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3b: at[ ] with no name read as no location (not 454)"
+
+[[fault]]
+id = "tb3b-loc-star-any"
+file = "src/front/tactic-syntax.fs"
+old = '''  dup lft-loc-fresh? lfa-e-tac-at-names lfa-must tac-loc-all lft-loc! ;'''
+new = '''  tac-loc-all lft-loc! ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3b: * after a name in at[ ] read as the wildcard (not 454)"
+
+# ---- reader.fs: the hole words
+[[fault]]
+id = "tb3b-hole-name-underscore"
+file = "src/front/reader.fs"
+old = '''  2dup s" _" lfa-token= if 2drop 0 else lfa-word-name lfa-intern then ;'''
+new = '''  lfa-word-name lfa-intern ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: ?: _ names its goal _ instead of being ?_"
+
+[[fault]]
+id = "tb3b-named-hole-unnamed"
+file = "src/front/reader.fs"
+old = '''  syn-k-synthetic lfa-here lfn-new lfa-name-token lfn-hole-name syn-a! lfn-value ;'''
+new = '''  syn-k-synthetic lfa-here lfn-new lfa-name-token 2drop 0 syn-a! lfn-value ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: ?: NAME makes an anonymous hole: the goal is not tagged NAME"
+
+[[fault]]
+id = "tb3b-hole-kind-swapped"
+file = "src/front/reader.fs"
+old = ''': lfn-w-hole ( -- t ) syn-k-hole lfn-hole ;'''
+new = ''': lfn-w-hole ( -- t ) syn-k-synthetic lfn-hole ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: _ read as ?_, a goal refine keeps instead of a hole unification fills"
+
+# ---- elab-term.fs: elabHole, elabSyntheticHole
+[[fault]]
+id = "tb3b-hole-type-inverted"
+file = "src/front/elab-term.fs"
+old = '''  dup 0< 0= if outcome-ok exit then
+  drop et-sort-mvar ok-then?'''
+new = '''  dup 0< if outcome-ok exit then
+  drop et-sort-mvar ok-then?'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: the hole's type is ?T when an expected type is given, and -1 when none is"
+
+[[fault]]
+id = "tb3b-natural-always"
+file = "src/front/elab-term.fs"
+old = ''': et-natural? ( node -- flag ) syn-kind@ syn-k-hole = lf-holes-opaque? 0= and ;'''
+new = ''': et-natural? ( node -- flag ) syn-kind@ syn-k-hole = ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: _ stays natural under allowNaturalHoles (specialize's holesAsSyntheticOpaque)"
+
+[[fault]]
+id = "tb3b-synthetic-natural"
+file = "src/front/elab-term.fs"
+old = ''': et-hole-kind ( node -- kind ) et-natural? if mv-natural else mv-opaque then ;'''
+new = ''': et-hole-kind ( node -- kind ) drop mv-natural ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: ?_ made natural, so refine refuses it as an unfilled hole"
+
+[[fault]]
+id = "tb3b-tag-lost"
+file = "src/front/elab-term.fs"
+old = '''  over syn-a@ ?dup if over swap lf-mvar-tag! lf-must then ;'''
+new = '''  over syn-a@ ?dup if drop then ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: ?: NAME's goal is not tagged NAME"
+
+[[fault]]
+id = "tb3b-hole-unrecorded"
+file = "src/front/elab-term.fs"
+old = ''': et-recorded ( node mvar -- mvar outcome ) tuck swap syn-at@ lf-elab-hole+ ;'''
+new = ''': et-recorded ( node mvar -- mvar outcome ) nip outcome-ok ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: a hole not recorded: its error is 95, not Lean's placeholder message"
+
+[[fault]]
+id = "tb3b-taken-ignored"
+file = "src/front/elab-term.fs"
+old = ''': et-taken? ( name -- flag ) ?dup if lf-mvar-named dup if nip then else false then ;'''
+new = ''': et-taken? ( name -- flag ) drop false ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: a name some metavariable has makes a second goal (not 139)"
+
+[[fault]]
+id = "tb3b-hole-head"
+file = "src/front/elab-term.fs"
+old = '''  syn-a@ dup syn-hole? if drop et-unported else et-head then ;'''
+new = '''  syn-a@ et-head ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: a hole applied to arguments elaborated as a head (not 139)"
+
+[[fault]]
+id = "tb3b-lambda-for-holes"
+file = "src/front/elab-term.fs"
+old = '''  et-scoped over syn-hole? if et-dispatch exit then'''
+new = '''  et-scoped'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: a hole takes the implicit-lambda test (133 on a negation, not 461)"
+
+[[fault]]
+id = "tb3b-dispatch-no-hole"
+file = "src/front/elab-term.fs"
+old = '''  over syn-hole? if et-holed exit then over et-op-kind? if et-op exit then'''
+new = '''  over et-op-kind? if et-op exit then'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: a hole elaborated as an atom"
+
+# ---- elab-app.fs: records
+[[fault]]
+id = "tb3b-record-unfilled"
+file = "src/front/elab-app.fs"
+old = '''  swap slab-at swap execute outcome-ok ;'''
+new = '''  2drop 2drop drop outcome-ok ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: lf-elab-record+ claims the record and never fills it"
+
+[[fault]]
+id = "tb3b-record-refusal-kept"
+file = "src/front/elab-app.fs"
+old = '''  swap 1 over slab-claim ok-then? 0= if nip nip nip nip exit then'''
+new = '''  swap 1 over slab-claim ok-then? 0= if nip nip exit then'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: a refused claim leaves its values on the stack"
+
+[[fault]]
+id = "tb3b-eh-arg-stale"
+file = "src/front/elab-app.fs"
+old = ''': eh-fill ( mvar pos addr -- ) false over eh-arg ! tuck eh-at ! eh-mvar ! ;'''
+new = ''': eh-fill ( mvar pos addr -- ) tuck eh-at ! eh-mvar ! ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: a hole record's argument flag left from an earlier record (a field not written)"
+
+[[fault]]
+id = "tb3b-eh-at-lost"
+file = "src/front/elab-app.fs"
+old = ''': eh-fill ( mvar pos addr -- ) false over eh-arg ! tuck eh-at ! eh-mvar ! ;'''
+new = ''': eh-fill ( mvar pos addr -- ) false over eh-arg ! nip eh-mvar ! ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: a hole record's place not written"
+
+[[fault]]
+id = "tb3b-arg-not-marked"
+file = "src/front/elab-app.fs"
+old = ''': ea-arg-hole! ( arg -- arg ) dup eh-find if true swap eh-arg ! then ;'''
+new = ''': ea-arg-hole! ( arg -- arg ) dup eh-find if drop then ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: a hole argument left open answers 461 without its argument's name (not 99)"
+
+[[fault]]
+id = "tb3b-hole-arg-lost"
+file = "src/front/elab-app.fs"
+old = '''  eh-find dup if drop dup eh-at @ swap eh-arg @ true then ;'''
+new = '''  eh-find dup if drop eh-at @ false true then ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: lf-elab-hole says no hole is an argument"
+
+[[fault]]
+id = "tb3b-propagate-before-hole"
+file = "src/front/elab-app.fs"
+old = '''  ea ea-propagate @ ea ea-expected @ 0< 0= and ea-next-hole? 0= and ;'''
+new = '''  ea ea-propagate @ ea ea-expected @ 0< 0= and ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-e/check.py"
+reason = "TB2 3b: the expected type propagated before a hole argument (shouldPropagateExpectedTypeFor)"
+gap = "the hole's type is its binder's domain either way and finalize unifies the same types after it, so no term LeanForth text can write differs; a difference needs a later argument whose elaboration reads the propagated type (a numeral of a type only propagation fixes), which no batch case has"
+
+# ---- mvars.fs
+[[fault]]
+id = "tb3b-mvar-at-next"
+file = "src/front/mvars.fs"
+old = ''': lf-mvar-at ( n -- mvar ) mv-decl mvd-leaf @ ;'''
+new = ''': lf-mvar-at ( n -- mvar ) 1+ mv-decl mvd-leaf @ ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: lf-mvar-at gives the metavariable after the one asked"
+
+[[fault]]
+id = "tb3b-named-oldest"
+file = "src/front/mvars.fs"
+old = '''  lf-mvar-count ['] mv-tagged? find-last-index dup if swap lf-mvar-at swap then ;'''
+new = '''  lf-mvar-count ['] mv-tagged? find-index dup if swap lf-mvar-at swap then ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: findUserName? gives the oldest metavariable of the tag, not the newest"
+
+[[fault]]
+id = "tb3b-named-any"
+file = "src/front/mvars.fs"
+old = ''': mv-tagged? ( name n -- name flag ) mv-decl mvd-tag @ over = ;'''
+new = ''': mv-tagged? ( name n -- name flag ) mv-decl mvd-tag @ 0<> ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: findUserName? finds any tagged metavariable for any name"
+
+# ---- meta-config.fs, elab-decl.fs: holesAsSyntheticOpaque
+[[fault]]
+id = "tb3b-holes-flag-only"
+file = "src/front/meta-config.fs"
+old = '''  lf-holes-opaque lf-defeq-opaque or mcfg-with-bits ;'''
+new = '''  lf-holes-opaque mcfg-with-bits ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: allowNaturalHoles without withAssignableSyntheticOpaque"
+
+[[fault]]
+id = "tb3b-holes-flag-none"
+file = "src/front/meta-config.fs"
+old = '''  lf-holes-opaque lf-defeq-opaque or mcfg-with-bits ;'''
+new = '''  lf-defeq-opaque mcfg-with-bits ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: allowNaturalHoles leaves holes natural"
+
+[[fault]]
+id = "tb3b-edc-drops"
+file = "src/front/elab-decl.fs"
+old = ''': edc-kept ( -- flags ) lf-defeq-flags lf-holes-opaque lf-defeq-opaque or and ;'''
+new = ''': edc-kept ( -- flags ) 0 ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: the elaborator's configuration drops the caller's holesAsSyntheticOpaque"
+
+# ---- new-goals.fs
+[[fault]]
+id = "tb3b-fresh-old"
+file = "src/front/new-goals.fs"
+old = ''': tng-collect ( e from -- mvars ) 0 swap lf-mvar-count swap ?do i tng-add loop nip ;'''
+new = ''': tng-collect ( e from -- mvars ) 0 swap lf-mvar-count swap drop 0 ?do i tng-add loop nip ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: metavariables made before `from` counted as new (filterOldMVars lost)"
+
+[[fault]]
+id = "tb3b-fresh-not-in"
+file = "src/front/new-goals.fs"
+old = ''': tng-holds? ( e n -- flag ) lf-mvar-at tng-in? ;'''
+new = ''': tng-holds? ( e n -- flag ) 2drop true ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: every new metavariable is a goal, held by the term or not"
+
+[[fault]]
+id = "tb3b-fresh-unpushed"
+file = "src/front/new-goals.fs"
+old = '''  >r over r@ tng-holds? r> swap if lf-mvar-at run-push lf-must else drop then ;'''
+new = '''  >r over r@ tng-holds? r> swap if drop else drop then ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: no new metavariable collected"
+
+[[fault]]
+id = "tb3b-delayed-allowed"
+file = "src/front/new-goals.fs"
+old = '''  dup ['] lf-mvar-delayed? lf-term-holds? lf-must if lfa-e-tac-form lf-tac-fail then ;'''
+new = '''  dup ['] lf-mvar-delayed? lf-term-holds? lf-must drop ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: a delayed-assigned metavariable's pending holes are missed (not 99)"
+
+[[fault]]
+id = "tb3b-natural-any"
+file = "src/front/new-goals.fs"
+old = ''': tng-natural? ( mvar -- flag ) lf-mvar-kind if mv-natural = else false then ;'''
+new = ''': tng-natural? ( mvar -- flag ) lf-mvar-kind if drop true else false then ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: synthetic opaque goals refused as natural holes (?_ in refine)"
+
+[[fault]]
+id = "tb3b-log-empty"
+file = "src/front/new-goals.fs"
+old = '''  dup run-count 0= if drop exit then
+  dup tng-others?'''
+new = '''  dup tng-others?'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: logUnassignedAndAbort of no metavariable reports one"
+
+[[fault]]
+id = "tb3b-log-others-ignored"
+file = "src/front/new-goals.fs"
+old = '''  dup tng-others? if drop lfa-e-tac-unassigned lf-tac-fail then run-last tng-placeholder ;'''
+new = '''  run-last tng-placeholder ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: a metavariable that is no hole reported as a hole (not 95)"
+
+[[fault]]
+id = "tb3b-log-arg-placeholder"
+file = "src/front/new-goals.fs"
+old = '''  dup lf-elab-hole drop nip if drop lfa-e-tac-form lf-tac-fail then'''
+new = '''  dup lf-elab-hole drop 2drop'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: an argument hole answers Lean's message without the argument's name (not 99)"
+
+[[fault]]
+id = "tb3b-placeholder-code"
+file = "src/front/new-goals.fs"
+old = '''  ['] tng-context. lf-tac-detail lfa-e-tac-placeholder lf-tac-stop ;'''
+new = '''  ['] tng-context. lf-tac-detail lfa-e-tac-unassigned lf-tac-stop ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-e/check.py"
+reason = "TB2 3b: an open hole answers 95, LeanForth's message, not Lean's (461)"
+
+[[fault]]
+id = "tb3b-context-missing"
+file = "src/front/new-goals.fs"
+old = ''': tng-context. ( mvar -- outcome ) s" context:" lf-pp-emit lf-tac-goal-of. ;'''
+new = ''': tng-context. ( mvar -- outcome ) lf-tac-goal-of. ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: the placeholder error's detail lacks Lean's context: line"
+
+[[fault]]
+id = "tb3b-tag-one-indexed"
+file = "src/front/new-goals.fs"
+old = '''  tng tng-parent ! tng tng-suffix ! dup tng-anonymous# 1 = tng tng-one !'''
+new = '''  tng tng-parent ! tng tng-suffix ! false tng tng-one !'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: a single new goal tagged parent.suffix_1 instead of parent"
+
+[[fault]]
+id = "tb3b-tag-overwrites"
+file = "src/front/new-goals.fs"
+old = '''  dup lf-goal-tag if drop outcome-ok exit then tng-next-tag lf-mvar-tag! ;'''
+new = '''  tng-next-tag lf-mvar-tag! ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: a tagged goal (?: NAME) retagged"
+
+[[fault]]
+id = "tb3b-tag-index-fixed"
+file = "src/front/new-goals.fs"
+old = '''  1 tng tng-idx +! tng tng-parent @ tng tng-one @ if exit then'''
+new = '''  tng tng-parent @ tng tng-one @ if exit then'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: every anonymous goal tagged suffix_0"
+
+[[fault]]
+id = "tb3b-index-no-underscore"
+file = "src/front/new-goals.fs"
+old = '''  0 tng tng-len ! swap tng-suffix-text tng-put s" _" tng-put u>decimal tng-put'''
+new = '''  0 tng tng-len ! swap tng-suffix-text tng-put u>decimal tng-put'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: appendIndexAfter without its _ (refine1)"
+
+[[fault]]
+id = "tb3b-index-len-kept"
+file = "src/front/new-goals.fs"
+old = '''  0 tng tng-len ! swap tng-suffix-text tng-put s" _" tng-put u>decimal tng-put'''
+new = '''  swap tng-suffix-text tng-put s" _" tng-put u>decimal tng-put'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: the second goal's tag appended to the first's text"
+
+[[fault]]
+id = "tb3b-suffix-long"
+file = "src/front/new-goals.fs"
+old = '''  count dup tng-suffix# > if outcome-invalid lf-must then ;'''
+new = '''  count ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: a suffix too long for the frame's text accepted"
+
+# ---- tactic-core.fs: names and elabTermWithHoles
+[[fault]]
+id = "tb3b-name-fvar-unknown"
+file = "src/front/tactic-core.fs"
+old = '''  dup lf-tac-main lf-goal-view swap lf-view-named-fvar if nip else tcr-unknown then ;'''
+new = '''  dup lf-tac-main lf-goal-view swap lf-view-named-fvar if nip else drop 0 then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-e/check.py"
+reason = "TB2 3b: a name no local has passed on as a variable (not Lean's Unknown identifier)"
+
+[[fault]]
+id = "tb3b-arg-names-first"
+file = "src/front/tactic-core.fs"
+old = '''  0 over lf-tac-args# 0 ?do over i lf-tac-arg run-push lf-tac-must loop nip ;'''
+new = '''  0 over lf-tac-args# 0 ?do over 0 lf-tac-arg run-push lf-tac-must loop nip ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: every name of the list read as its first"
+
+[[fault]]
+id = "tb3b-arg-fvars-none"
+file = "src/front/tactic-core.fs"
+old = '''  0 swap lf-tac-arg-names ['] tcr-fvar+ run-each lf-tac-must ;'''
+new = '''  drop 0 ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: getFVarIds gives no variable: by-revert[ ] reverts nothing"
+
+[[fault]]
+id = "tb3b-holes-allow-ignored"
+file = "src/front/tactic-core.fs"
+old = '''  if ['] tcr-ensuring lf-with-holes-as-goals else tcr-ensuring then ;'''
+new = '''  drop tcr-ensuring ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: allowNaturalHoles ignored: specialize's _ stays natural"
+
+[[fault]]
+id = "tb3b-goals-natural-allowed"
+file = "src/front/tactic-core.fs"
+old = '''  dup lf-natural-mvars lf-tac-log-unassigned ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: refine keeps a natural hole as a goal (not 461)"
+
+[[fault]]
+id = "tb3b-goals-from-zero"
+file = "src/front/tactic-core.fs"
+old = '''  swap tb tb-from @ lf-fresh-mvars swap if exit then'''
+new = '''  swap 0 lf-fresh-mvars swap if exit then'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: metavariables made before the step counted as its new goals"
+gap = "no LeanForth tactic leaves a goal whose type holds an older open metavariable (apply refuses one, 99) and no text names an older goal (?: NAME finding one is 139), so no term a step elaborates holds one"
+
+[[fault]]
+id = "tb3b-tagged-parent-lost"
+file = "src/front/tactic-core.fs"
+old = ''': tcr-tagged ( goals suffix -- goals ) over swap lf-tac-main lf-goal-tag lf-tag-untagged ;'''
+new = ''': tcr-tagged ( goals suffix -- goals ) over swap 0 lf-tag-untagged ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: the new goals tagged without the main goal's tag"
+
+[[fault]]
+id = "tb3b-ensuring-always"
+file = "src/front/tactic-core.fs"
+old = '''  dup 0< if false lf-tac-elab-term else lf-tac-elab-ensuring then ;'''
+new = '''  lf-tac-elab-ensuring ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: specialize's term made to have the type -1 (no expected type)"
+
+# ---- the tactics
+[[fault]]
+id = "tb3b-intro-bare-none"
+file = "src/front/tactics/intro.fs"
+old = ''': tin-list ( i -- ) dup lf-tac-args# ?dup if tin-names else tin-bare then ;'''
+new = ''': tin-list ( i -- ) dup lf-tac-args# ?dup if tin-names else drop then ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: by-intro[ ] introduces nothing (Lean's bare intro is intro _)"
+
+[[fault]]
+id = "tb3b-intro-first-name"
+file = "src/front/tactics/intro.fs"
+old = ''': tin-names ( i n -- ) 0 ?do i tin-one loop drop ;'''
+new = ''': tin-names ( i n -- ) 0 ?do 0 tin-one loop drop ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-e/check.py"
+reason = "TB2 3b: every hypothesis by-intro[ ] introduces takes the first name"
+
+[[fault]]
+id = "tb3b-intro-rfl"
+file = "src/front/tactics/intro.fs"
+old = ''': tin-name ( i k -- name ) lf-tac-arg dup tin-rfl? if lfa-e-tac-form lf-tac-fail then ;'''
+new = ''': tin-name ( i k -- name ) lf-tac-arg ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: intro rfl introduces a hypothesis named rfl (not 99)"
+
+[[fault]]
+id = "tb3b-revert-list-first"
+file = "src/front/tactics/revert.fs"
+old = ''': trv-list-tac ( i goal -- goal' ) swap lf-tac-arg-fvars lf-goal-revert drop ;'''
+new = ''': trv-list-tac ( i goal -- goal' ) swap lf-tac-arg-fvars 1 run-take lf-must lf-goal-revert drop ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: by-revert[ ] reverts its first name only"
+
+[[fault]]
+id = "tb3b-clear-oldest-first"
+file = "src/front/tactics/clear.fs"
+old = '''  dup lf-view-count begin dup while 1- 2dup lf-view-fvar tcl-clears repeat 2drop ;'''
+new = '''  dup lf-view-count 0 ?do dup i lf-view-fvar tcl-clears loop drop ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: clear of several clears oldest first (Lean: newest first, after sortFVarIds)"
+
+[[fault]]
+id = "tb3b-clear-none"
+file = "src/front/tactics/clear.fs"
+old = ''': tcl-clears ( fvar -- ) tcl tcl-fvars @ ['] tcl-if run-each lf-tac-must drop ;'''
+new = ''': tcl-clears ( fvar -- ) drop ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: by-clear[ ] clears nothing"
+
+[[fault]]
+id = "tb3b-clear-any-local"
+file = "src/front/tactics/clear.fs"
+old = '''  over = if dup tcl tcl-step @ ['] tcl-cleared lf-lift-meta-tactic1 then outcome-ok ;'''
+new = '''  drop dup tcl tcl-step @ ['] tcl-cleared lf-lift-meta-tactic1 outcome-ok ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: by-clear[ ] clears locals it does not name"
+
+[[fault]]
+id = "tb3b-rename-names-lost"
+file = "src/front/tactics/rename-i.fs"
+old = ''': trz-tac ( i goal -- goal' ) swap lf-tac-arg-names lf-goal-rename-inaccessibles ;'''
+new = ''': trz-tac ( i goal -- goal' ) nip 0 lf-goal-rename-inaccessibles ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-e/check.py"
+reason = "TB2 3b: by-rename-i[ ] renames nothing"
+
+[[fault]]
+id = "tb3b-refine-unassigned"
+file = "src/front/tactics/refine.fs"
+old = ''': tre-assign ( goal e -- ) lf-instantiate! lf-mvar-assign lf-must ;'''
+new = ''': tre-assign ( goal e -- ) 2drop ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-e/check.py"
+reason = "TB2 3b: refine leaves the main goal unassigned"
+
+[[fault]]
+id = "tb3b-refine-natural-allowed"
+file = "src/front/tactics/refine.fs"
+old = '''  swap 0 lf-tac-arg over lf-goal-target drop c" refine" false lf-tac-elab-with-holes ;'''
+new = '''  swap 0 lf-tac-arg over lf-goal-target drop c" refine" true lf-tac-elab-with-holes ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: refine is refine' (natural holes become goals, not 461)"
+
+[[fault]]
+id = "tb3b-refine-no-expected"
+file = "src/front/tactics/refine.fs"
+old = '''  swap 0 lf-tac-arg over lf-goal-target drop c" refine" false lf-tac-elab-with-holes ;'''
+new = '''  swap 0 lf-tac-arg -1 c" refine" false lf-tac-elab-with-holes ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "TB2 3b: refine's term elaborated with no expected type (no mismatch 96)"

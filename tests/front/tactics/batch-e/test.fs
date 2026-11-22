@@ -172,6 +172,10 @@ T{ and2 s" ' And.intro ' h1 $ ?_ $ by-refine" tactic-ran lf-goals dup run-count 
 T{ aa s" _ by-refine" tactic-ran and2 s" ' And.intro ' h1 $ _ $ by-refine" tactic-ran
    -> 461 99 }T
 T{ ab s" ' Eq.trans ?_ $ ?_ $ by-refine" tactic-ran -> 95 }T
+\ One new goal under a tagged main goal takes its tag (left, from
+\ constructor's And.intro).
+T{ and2 s" by-constructor ' Eq.trans ' h1 $ ?_ $ by-refine" tactic-ran lf-goals dup run-count
+   over 0 run@ tag@ s" left" nm = rot 1 run@ tag@ s" right" nm = -> 89 2 true true }T
 T{ aa s" ' Nat.le_refl _ $ by-refine" tactic-ran lf-goals run-count -> 0 0 }T
 \ The goal's own type: refine of a term of another fails (96), nothing
 \ assigned.
@@ -281,6 +285,11 @@ T{ mv-levels full-at syn-k-hole hole-node -1 et-hole rot mv-levels limit-back ho
    -> -1 outcome-full holes0 }T
 T{ mv-exprs full-at syn-k-hole hole-node -1 et-hole rot mv-exprs limit-back holes#
    -> -1 outcome-full holes0 }T
+
+\ A hole's record refused by the heap: the claim's outcome alone, the
+\ values dropped, nothing recorded.
+: refuse-first ( -- ) ea-holes sweep-slab-anew 1 heap-refusals ! ;
+T{ refuse-first h1 0 lf-elab-hole+ 0 heap-refusals ! holes# -> outcome-full 0 }T
 
 \ ---- 5. Resources: the new goals' words with every heap allocation
 \ refused in turn, and the words through their text: the answer or full.
