@@ -29,7 +29,7 @@ context that can hold one variable at two types (replaceLocalDeclDefEq).
 | `by-change at[ ]` | `change … at h` (Lean) | Lean | another hypothesis depends on `h` | 93 | LC |
 | `by-swap` | `swap` (Batteries) | `rotate_left`-style core twin | `pick_goal n`, `rotate_left/right` not built | no word | small batch |
 | `by-specialize` | `specialize` (Lean) | Lean | holes are collected as goals (allowNaturalHoles, batch 3b), but a hypothesis applied to a term cannot be written yet (136) and a function hypothesis cannot be stated | 136 / untestable end to end | FE2 |
-| `by-revert`, `by-revert[ ]` | `revert` (Lean) | Lean | a `let` variable (several names: `by-revert[ ]`, batch 3b) | 93 | LC |
+| `by-revert`, `by-revert[ ]` | `revert` (Lean) | Lean | a `let` variable (several names: `by-revert[ ]`, batch 3b); an unknown name in the list (455) reported at `by-revert[`, where Lean reports it at the name (its own place is recorded, and shown by `--steps`) | 93 / 455 (place differs) | LC; place: small batch |
 | `by-delta` | `delta` (Lean) | Lean | several constants; a theorem's name; a let between the value's lambdas | 93 / 99 | small batch |
 | `by-delta at[ ]` | `delta … at h` (Lean) | Lean | a hypothesis it would change | 99 | LC |
 | `by-contradiction` | `contradiction` (Lean) | Lean | an empty or indexed-family hypothesis (any `≤` met first); two different constructors equated; `Nat.hasNotBit` | 99 | E |
@@ -40,7 +40,7 @@ context that can hold one variable at two types (replaceLocalDeclDefEq).
 | `by-have-goal:` | `have h : T` (Mathlib's `have` without a value) | core `refine` twin | as `by-have:` | | |
 | `' r <-` in `by-rw[ ]` | `rw [← r]` (Lean) | Lean | `<-` on an `↔` rule | 99 | small batch |
 | `by-rw[ ]`, `by-rewrite[ ]` | `rw`, `rewrite` (Lean) | Lean | a rule that leaves new goals or metavariables; a rule naming a definition (equation lemmas); `occs`/config; rw leaving `R x x` for a relation other than `=`, `↔` (Lean leaves the goal) | 99 / 93 | B, FE8, REFL |
-| `at[ ]` | location (Lean) | Lean | `at[ * ]`; a constant's name among the names (Lean: error) | 99 | small batch |
+| `at[ ]` | location (Lean) | Lean | `at[ * ]`; a constant's name among the names (Lean: error); an unknown name (455) reported at the tactic's word, where Lean reports it at the name | 99 / 455 (place differs) | small batch |
 | `by-rwa[ ]` | `rwa` (Lean) | Lean | what `by-rw[ ]` and `by-rfl` lack | 93 | REFL |
 | `by-rfl` | `rfl` (Lean) | Lean | `x R x` for a relation other than `=`, `↔` (`@[refl]` lemmas); the `HEq` branch | 93 | REFL |
 | `by-exacts[ ]` | `exacts` (Batteries) | core `exact` steps | none known beyond `by-exact`'s terms | | FE2 |
@@ -50,7 +50,7 @@ context that can hold one variable at two types (replaceLocalDeclDefEq).
 | `by-and-intros` | `and_intros` (Lean) | Lean | none known | | |
 | `by-next`, `by-case: _` | `next`, `case _` (Lean) | Lean | names after `next`; `case a \| b`; `@tag` | no form | NL, F |
 | `by-intro:`, `by-intro[ ]` | `intro` (Lean) | Lean | patterns; type ascriptions `(h : T)` (several names and bare `intro`: `by-intro[ ]`, batch 3b) | no form | E |
-| `by-intros`, `by-clear`, `by-clear[ ]` | `intros`, `clear` (Lean) | Lean | names for intros (several names for clear: `by-clear[ ]`, batch 3b) | no form | small batch |
+| `by-intros`, `by-clear`, `by-clear[ ]` | `intros`, `clear` (Lean) | Lean | names for intros (several names for clear: `by-clear[ ]`, batch 3b); an unknown name in `by-clear[ ]` (455) reported at `by-clear[`, where Lean reports it at the name | no form / 455 (place differs) | small batch |
 | `by-rename-i[ ]` | `rename_i` (Lean) | Lean | Lean logs "too many variable names provided" and goes on; LeanForth stops (211; both refuse the proof) | 211 | none needed |
 | `by-exact`, `by-apply` | `exact`, `apply` (Lean) | Lean | terms with `fun`, nested `by`, coercions; an expected type that unfolds to a function (a negation): 133/136; apply with a hole it leaves open (Lean: a new goal, otherMVarIds); a hole that is an argument left open (Lean's message names the argument); an implicit argument left open (LeanForth's 95, Lean's "don't know how to synthesize implicit argument"); a hole left open in exact (461, Lean's message) reported at the step's word, where Lean reports it at the hole | 93 / 133 / 136 / 99 / 95 (message differs) / 461 (place differs) | FE2; otherMVarIds; mvarArgNames |
 | `by-induction` | `induction` (Lean) | Lean | several targets; `generalizing`, `using`; a hypothesis depending on the target | 99 | E |

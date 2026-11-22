@@ -690,7 +690,7 @@ Errors named in the "Function" cells are codes of `src/author/errors.fs`.
 
 | Word | Takes from the stack | How it reads the line | What it creates or changes | What it does |
 | --- | --- | --- | --- | --- |
-| `theorem NAME` | `( -- )` | reads one name from its line | opens a new [declaration](#declaration) of kind theorem, with no binders yet; the word NAME exists only after `end NAME` | Starts a theorem named NAME inside the current namespace; errors 2 no name, 14 inside a declaration, 15 values on the stack, 28 name already declared (also by the library), 30 bad name, 53 `_root_` in the name. |
+| `theorem NAME` | `( -- )` | reads one name from its line | opens a new [declaration](#declaration) of kind theorem, with no binders yet; the word NAME exists only after `end NAME` | Starts a theorem named NAME inside the current namespace; errors 458 inside a list (at the list's word), 2 no name, 14 inside a declaration, 15 values on the stack, 28 name already declared (also by the library), 30 bad name, 53 `_root_` in the name. |
 | `def NAME` | `( -- )` | one name | as `theorem`, kind def | Starts a definition: the same, with a value instead of a proof. |
 | `axiom NAME` | `( -- )` | one name | as `theorem`, kind axiom | Starts an axiom: binders and one statement, no `:=`; `end NAME` takes the statement. |
 | `import-stub NAME` | `( -- )` | one name | as `theorem`, kind stub | Stands for a library constant; `bin/leanforth check` refuses it (error 48). |
@@ -700,7 +700,7 @@ Errors named in the "Function" cells are codes of `src/author/errors.fs`.
 | `implicit: VAR-NAME` | `( v -- )` | one name | the same entry and word, with kind implicit | Lean's `{name : T}`: Lean infers the argument from the other ones. |
 | `strict-implicit: VAR-NAME` | `( v -- )` | one name | as `implicit:`, kind strict implicit | Lean's `⦃name : T⦄`: inferred only once a later explicit argument is given. |
 | `instance: VAR-NAME` | `( v -- )` | one name | as `implicit:`, kind instance | Lean's `[name : T]`: found by instance search. |
-| `:=` | `( s -- )`: the statement | reads nothing; acts once per declaration | takes the statement off the stack and stores it in the declaration (in natural form as syntax, in kernel form as the finished type); the binders open now become the declaration's parameters | Ends the statement and starts the proof ("is proved by"; in a `def`, "is defined as"). Errors 17 not allowed here (outside a declaration, in an axiom, or a second `:=`), 18 the statement is not exactly one expression or a value sits between binders. |
+| `:=` | `( s -- )`: the statement | reads nothing; acts once per declaration | takes the statement off the stack and stores it in the declaration (in natural form as syntax, in kernel form as the finished type); the binders open now become the declaration's parameters | Ends the statement and starts the proof ("is proved by"; in a `def`, "is defined as"). Errors 458 a list still open (at its word), 17 not allowed here (outside a declaration, in an axiom, or a second `:=`), 18 the statement is not exactly one expression or a value sits between binders. |
 | `end NAME` | `( -- )` | one name; inside a declaration it completes it, outside it leaves a namespace | completes the declaration: closes its binders around statement and proof, records its type and value, and makes the word NAME for later declarations; or leaves the namespaces | NAME must repeat the declaration's name (error 22) or name the namespaces to leave (22, 23). In natural form it runs the elaborator and the tactics (errors 19 `:=` missing, 20 proof not one expression, 21 binder still open, 82 block open, 86 value left over). |
 | `namespace NAME` | `( -- )` | one name, may be dotted | enters one [namespace](#namespace) per part | Between declarations only (error 24); `namespace A.B` enters `A`, then `A.B`; more than 16 namespaces entered and opened together is error 25. |
 | `open NAME` | `( -- )` | one name | marks the namespace opened (until the enclosing `end`) | Makes the names of namespace NAME findable by their short names; unknown namespace is error 26. |
@@ -714,7 +714,7 @@ Errors named in the "Function" cells are codes of `src/author/errors.fs`.
 | `=` `≤` | `( a b -- v )` | none; natural form only | takes two values, leaves the *proposition* "a equals b" or "a is at most b" | Lean's `a = b` and `a ≤ b`, as `binrel%` of `Eq` and `LE.le`. `=` is never assignment. Typed `≤`: `<=`. |
 | `<` `>` `≥` `≠` | `( a b -- v )` | none; natural form only (58 in kernel form) | takes two values, leaves the proposition comparing them | Lean's `a < b`, `a > b`, `a ≥ b`, `a ≠ b`, as `binrel%` of `LT.lt`, `GT.gt`, `GE.ge`, `Ne`. Typed: `>=` for `≥`, `Ne` for `≠`. |
 | `¬` `∧` `∨` `↔` `∣` `divides` | `( p -- v )` for `¬`, `( a b -- v )` the others (`divides` is LeanForth's own word for `∣`'s constant) | none; natural form only (58 in kernel form) | takes one or two values, leaves the proposition | Lean's notations `¬p`, `p ∧ q`, `p ∨ q`, `p ↔ q`, `a ∣ b`: exactly the constants `Not`, `And`, `Or`, `Iff`, `Dvd.dvd` (the root ones, as Lean's hygiene gives) applied to the values, as their names would be. Typed: `Not`, `/\`, `\/`, `<->`, `Dvd.dvd`. A library without the constant: error 38. |
-| `#check` | `( v -- )` | none; natural form; outside declarations only | counts the check; prints one line `EXPRESSION : TYPE`; adds no declaration | Elaborates the expression with no expected type and prints it with its type; inside a declaration it is error 140 (141 in a tactic block). |
+| `#check` | `( v -- )` | none; natural form; outside declarations only | counts the check; prints one line `EXPRESSION : TYPE`; adds no declaration | Elaborates the expression with no expected type and prints it with its type; inside a declaration it is error 140 (141 in a tactic block); inside a list (`<< 1 2 #check`) 458 at the list's word. |
 | `kernel-form` | `( -- )` | none; acts outside declarations | switches the rest of the run to the kernel form | Error 57 inside a declaration. |
 | `\ TEXT` | `( -- )` | the rest of the line | nothing | A comment to the end of the line. |
 | `( TEXT)` | `( -- )` | text up to `)` on the same line | nothing | A comment; without `)` on its line it is error 42. |
@@ -1472,8 +1472,9 @@ done until its review and done check).
   ```
   A forgotten closing word does not swallow the proof: a LeanForth word
   that is never an item (in a list of names any but `_` and `*`; in a list
-  of terms a tactic word), `end NAME`, `:=` or the text's end stops the
-  list with 458, "this list is never closed", at the word that opened it.
+  of terms a tactic word, a declaration's word such as `theorem`, or
+  `#check`), `end NAME`, `:=` or the text's end stops the list with 458,
+  "this list is never closed", at the word that opened it.
 
 Narrower than Lean (each an answer, never a wrong acceptance): a ⟨ ⟩
 where Lean postpones its elaboration (no expected type, or one that is a
@@ -1482,7 +1483,10 @@ expected type that is a pi (a negation): 133, where Lean's message is
 "not an inductive type"; an item of another type: 131 where Lean reports
 an application type mismatch; a private constructor: 139; a type longer
 than 30 characters in the message: Lean indents it on its own line,
-LeanForth keeps it inline. `use` (Mathlib) is not built yet.
+LeanForth keeps it inline. A name in `by-revert[ ]`, `by-clear[ ]` or
+`at[ ]` that is no hypothesis (455) is reported at the list's word, where
+Lean reports it at the name; the name's own place is recorded and shown by
+`--steps`. `use` (Mathlib) is not built yet.
 
 A worked theorem, checked with
 `bin/leanforth check --env tests/front/decide-slice.ndjson --elab-data
@@ -1549,12 +1553,12 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-end` | `( -- )` | ordinary | read: closes the innermost `by-induction-with` or `by-case:` block | Closes the block; with none open, error 83. | indentation |
 | `by-rw[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: a block step. Run: rewrites the goal with each rule, then tries `by-rfl` | Starts a list of rewrite rules; every value built until `]` is a rule. | `rw [` |
 | `by-rewrite[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, no `by-rfl` | The same without the closing `rfl`. | `rewrite [` |
-| `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules (or terms), in order; closes it | Ends the list of `by-rw[`, `by-rewrite[`, `by-rwa[` or `by-exacts[`; with none open, error 83. | `]` |
+| `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules (or terms), in order; closes it | Ends the list of `by-rw[`, `by-rewrite[`, `by-rwa[`, `by-exacts[` or `by-exists[`; with none open, error 83; with a `<<` open inside the list, 458 at `<<` (its `>>` is missing). | `]` |
 | `<-` | `( r -- )` (top: the rule just written) | ordinary; only inside `by-rw[`, `by-rewrite[` or `by-rwa[` (83 elsewhere), after a rule (86) | read: the values so far become the bracket's rules, the last one marked right to left | Rewrites with r from right to left. | `← r` |
 | `by-rwa[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, then `rfl` (reducible) or else `assumption` | Rewrites, then closes the goal; neither closes it: 381; `rfl` failing on a goal that is no `=` (a `≤`, a negation) falls to the hypothesis, as Lean's. With `at[ h ]`, rewrites h and closes the goal with it (456 when its type differs). | `rwa [` |
-| `at[ HYP-NAME ... ]` | `( -- )` | parsing: names up to `]` on its line (458 when the line ends first); right after `by-rw[ ]`, `by-rewrite[ ]`, `by-rwa[ ]`, `by-change`, `by-symm`, `by-delta` (453 elsewhere) | read: the names (and `\|-` or `⊢` for the goal, or `*` alone) become the step's location | Runs the tactic at each hypothesis named, then at the goal when named (455 unknown name; `*`: 99; no name, a word, `*` among names: 454). | `at h ⊢` |
-| `by-intro[ HYP-NAME ... ]` | `( -- )` | parsing: names up to `]` on its line (458), `_` an inaccessible one, none allowed | read: a step; each name a hypothesis word. Run: `by-intro:`'s step for each name in turn; none: one inaccessible | Introduces the goal's first binders as the names; too many: 94; `rfl`: 99; a LeanForth word: 84. | `intro a b c` |
-| `by-revert[ HYP-NAME ... ]` | `( -- )` | parsing: names of hypotheses up to `]` on its line (459 for `_` or a word; 460 for none) | read: a step. Run: the main goal's locals so named reverted at once, with those depending on them | Puts the hypotheses back into the goal in the context's order; unknown name: 455; a constant: 99. | `revert h k` |
+| `at[ HYP-NAME ... ]` | `( -- )` | parsing: names up to `]`, over lines (458 at `at[` when a LeanForth word other than `_` and `*`, or the text's end, comes first); right after `by-rw[ ]`, `by-rewrite[ ]`, `by-rwa[ ]`, `by-change`, `by-symm`, `by-delta` (453 elsewhere) | read: the names (and `\|-` or `⊢` for the goal, or `*` alone) become the step's location | Runs the tactic at each hypothesis named, then at the goal when named (455 unknown name, reported at the tactic's word; `*`: 99; no name, `_`, `*` among names: 454). | `at h ⊢` |
+| `by-intro[ HYP-NAME ... ]` | `( -- )` | parsing: names up to `]`, over lines (458 at `by-intro[` when a LeanForth word other than `_` and `*`, or the text's end, comes first), `_` an inaccessible one, none allowed | read: a step; each name a hypothesis word. Run: `by-intro:`'s step for each name in turn; none: one inaccessible | Introduces the goal's first binders as the names; too many: 94; `rfl`: 99; `*`: 84. | `intro a b c` |
+| `by-revert[ HYP-NAME ... ]` | `( -- )` | parsing: names of hypotheses up to `]`, over lines (458 at `by-revert[` when a LeanForth word other than `_` and `*`, or the text's end, comes first; 459 for `_` or `*`; 460 for none) | read: a step. Run: the main goal's locals so named reverted at once, with those depending on them | Puts the hypotheses back into the goal in the context's order; unknown name: 455 (at `by-revert[`; Lean reports it at the name); a constant: 99. | `revert h k` |
 | `by-clear[ HYP-NAME ... ]` | `( -- )` | as `by-revert[` | read: a step. Run: each named local cleared from the main goal, newest first | Removes the hypotheses; 440, 441, 442 as `by-clear`; names as `by-revert[`. | `clear h k` |
 | `by-rename-i[ HYP-NAME ... ]` | `( -- )` | as `by-intro[`, one name at least (460) | read: a step; each name a hypothesis word. Run: renameInaccessibles of the main goal | Names the newest inaccessible hypotheses; too many names: 211. | `rename_i x y` |
 | `by-refine` | `( t -- )` (top: t) | ordinary | read: a step holding t. Run: elaborates t against the goal, assigns it, its `?_` and `?: NAME` new goals in its place, tagged as Lean's | Closes the goal with t up to its holes; a `_` left open: 461 (99 as an argument); an implicit argument left: 95; a mismatch: 96; a NAME taken: 139. | `refine t` |
