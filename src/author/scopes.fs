@@ -22,7 +22,8 @@
 \ names, read whole); lfa-bracketed? ( -- flag ) whether one is open;
 \ lfa-list-closer ( -- closer|0 ) the innermost one's; lfa-list-unclosed
 \ ( -- ) error 458 at the innermost one's word: its closing word never
-\ came (a word that never is an item, end NAME, :=, the text's end);
+\ came (a word that never is an item, end NAME, :=, a declaration's
+\ word, #check, the text's end);
 \ lfa-brackets-closed ( -- ) that error when one is open.
 \ State: the binder store lfa-binders, the slab lfa-brackets and one
 \ record, lfa-scope, all in
@@ -103,7 +104,8 @@ end-structure
   lfa-depth if lfa-innermost lfa-binder-mark @ else lfa-outer then ;
 
 \ Brackets (see the header).
-458 outcome-invalid s" this list is never closed: its ] or >> is missing"
+458 outcome-invalid
+  s" this list is never closed: its closing word (], >> or ⟩) is missing"
   lfa-code: lfa-e-list-open
 : lfa-bracketed? ( -- flag ) lfa-brackets slab-count 0<> ;
 : lfb ( -- addr ) lfa-brackets slab-last ;   \ the innermost one (unchecked)

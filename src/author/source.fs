@@ -96,8 +96,11 @@ end-structure
 : lfa-skip-blanks ( c-addr u -- c-addr' u' )
   begin dup while over c@ lfa-blank? while 1 /string repeat then ;
 : lfa-word-end ( c-addr u -- n ) ['] lfa-blank? text-scan ;
+\ The first token of a text (empty when it is blank); lfa-next-token, the
+\ text after it too.
+: lfa-token-of ( c-addr u -- token-addr token-u ) lfa-skip-blanks over swap lfa-word-end ;
 : lfa-next-token ( c-addr u -- c-addr' u' token-addr token-u )
-  lfa-skip-blanks 2dup lfa-word-end >r over r@ 2swap r> /string 2swap ;
+  lfa-skip-blanks 2dup lfa-token-of dup >r 2swap r> /string 2swap ;
 
 \ Names in token text: parts between dots.
 : lfa-dot-at? ( c-addr i -- flag ) chars + c@ [char] . = ;

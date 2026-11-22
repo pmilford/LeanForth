@@ -76,6 +76,18 @@ T{ hk s" << ' h by-exact" tactic-ran token s" <<" compare -> 458 0 }T
 T{ hk s" << ' h" tactic-ran token s" <<" compare -> 458 0 }T
 T{ hk s\" ⟨ ' h\n ' k by-rfl" tactic-ran token s" ⟨" compare at@ drop -> 458 0 1 }T
 T{ s" theorem t Nat explicit: a << a := by by-rfl end t" ran token s" <<" compare -> 458 0 }T
+\ (:= alone stops it: >> after by would close the << inside the proof)
+T{ s" theorem t Nat explicit: a << a := by >> by-exact end t" ran token s" <<" compare
+   -> 458 0 }T
+\ A list of terms at the text's end, in a proof with no end line and in
+\ natural text; before another declaration; before #check.
+T{ s" theorem t Nat explicit: a a a = := by by-rw[ ' a" ran token s" by-rw[" compare
+   -> 458 0 }T
+T{ s" << 1 2" ran token s" <<" compare -> 458 0 }T
+T{ s" theorem t Nat explicit: a a a = := by by-rw[ ' a theorem u" ran token
+   s" by-rw[" compare -> 458 0 }T
+T{ s" << 1 2 def u" ran token s" <<" compare -> 458 0 }T
+T{ s" << 1 2 #check >>" ran token s" <<" compare -> 458 0 }T
 T{ hk s" ' h ' k << + >> by-exact" tactic-ran -> lfa-e-missing }T
 T{ hk s" << Nat explicit: x >> by-exact" tactic-ran -> 21 }T
 \ (in a statement, where no tactic word checks the binders again)
@@ -195,6 +207,10 @@ lf-elab-reset
 : ctor ( c-addr u -- d ) nm lf-menv-find made ;
 T{ s" And.intro" ctor et-fields s" Eq.refl" ctor et-fields s" Exists.intro" ctor et-fields
    -> 2 outcome-ok 0 outcome-ok 2 outcome-ok }T
+\ Fields of other kinds not counted: Nat.le.step's {m} (1 parameter, then
+\ {m} and h), Std.Identity.mk's (no explicit field).
+T{ s" Nat.le.step" ctor et-fields s" Std.Identity.mk" ctor et-fields
+   -> 1 outcome-ok 0 outcome-ok }T
 T{ s" _private.X.0.Foo.mk" nm et-private? s" And.intro" nm et-private? -> true false }T
 T{ s" _private.X.0.Foo.mk" nm et-ctor-decl nip lf-elab-error drop -> outcome-unsupported 139 }T
 lf-elab-error-reset
@@ -210,9 +226,16 @@ T{ items3 1 et-split made dup syn-b@ swap 0 syn-arg dup syn-b@ swap 2 syn-arg ->
 \ step refused (a term no store holds: -5, invalid), a declaration with no
 \ inductive data (a theorem's: not ported, 139), kinds fewer than the
 \ parameters, a whnf at a metavariable (462), the plural words.
-T{ -5 et-whnf-r-mvar? nip ok? -5 et-settled nip ok? -5 et-anon-whnf nip ok? -> false false false }T
+T{ -5 lf-elab-whnf-r-mvar? nip ok? -5 et-anon-whnf nip ok? -> false false }T
 lf-elab-error-reset
 : nat ( -- t ) s" Nat" lf-mk-const0 ;
+\ The expected type: none unknown; Nat known, instantiated; the heap
+\ refusing the instantiation: full, neither.
+T{ -1 et-type? nat dup et-type? 2>r = 2r> -> -1 true outcome-ok true false outcome-ok }T
+T{ nat 1 heap-refusals ! et-type? 0 heap-refusals ! -> -1 false outcome-full }T
+T{ nat 1 heap-refusals ! et-type-unknown? 0 heap-refusals ! -> false outcome-full }T
+T{ nat mv-natural lf-mvar-new made et-type? rot drop -> true outcome-ok }T
+lf-elab-error-reset
 T{ nat mv-natural lf-mvar-new made et-anon-whnf nip lf-elab-error drop -> outcome-invalid 462 }T
 lf-elab-error-reset
 : thm ( -- d ) s" Nat.le_refl" ctor ;

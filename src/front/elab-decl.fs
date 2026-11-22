@@ -189,11 +189,13 @@ action-of lfa-run-fresh constant edc-run-before
   dup syn-at@ lf-elab-at! edc-check-term edc-must edc-check-type edc-must edc-check-line ;
 : edc-w-check ( value -- )
   lf-elab-reset 1 edc edc-checks +! lfn>syntax ['] edc-checked edc-configured ;
-\ Inside a declaration: in its tactic block (after by) 141, else 140.
+\ Inside a list (author/scopes.fs's brackets: a command is never an item)
+\ 458 at the list's word; inside a declaration: in its tactic block
+\ (after by) 141, else 140.
 : edc-check-here ( -- code )
   lf-front-by 0< if lfa-e-check-here else lfa-e-check-in-by then ;
 : edc-w-check-natural ( -- )
-  lfa-inside? 0= edc-check-here lfa-must 1 lfa-args edc-w-check ;
+  lfa-brackets-closed lfa-inside? 0= edc-check-here lfa-must 1 lfa-args edc-w-check ;
 ' edc-w-check-natural lfa-natural! #check
 
 base !   \ the BASE this file was loaded with

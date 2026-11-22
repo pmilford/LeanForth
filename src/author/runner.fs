@@ -203,7 +203,7 @@ end-structure
 : lfa-in! ( c-addr -- ) lfa-on? if drop else source drop - >in ! then ;
 : lfa-skip-to ( c-addr -- ) dup lfa-in! lfa-offset lfa-source lfa-source-end ! ;
 : lfa-next-on ( -- c-addr u )
-  lfa-line-rest lfa-skip-blanks over swap lfa-word-end 2dup lfa-token! 2dup + lfa-in! ;
+  lfa-line-rest lfa-token-of 2dup lfa-token! 2dup + lfa-in! ;
 \ Comments: \ to the line's end, ( past its ) on the line (else error 42).
 : lfa-comment-on? ( c-addr u -- flag )
   2dup s" (" lfa-token= if 2drop true else lfa-comment? then ;
@@ -215,7 +215,9 @@ end-structure
   begin lfa-next-on 2dup lfa-comment-on? while lfa-skip-on repeat ;
 : lfa-token-on ( -- c-addr u )
   begin lfa-blank-on dup 0= while 2drop lfa-refill 0= if 0 0 exit then repeat ;
-: lfa-ended ( -- ) depth lfa-floor = lfa-inside? 0= and lfa-e-unfinished lfa-must ;
+\ The text's end: no list (else 458 at its word), declaration or value open.
+: lfa-ended ( -- )
+  lfa-brackets-closed depth lfa-floor = lfa-inside? 0= and lfa-e-unfinished lfa-must ;
 : lfa-lines ( -- ) begin lfa-next-line? while lfa-eval-line repeat lfa-ended ;
 
 \ After a THROW: Forth's -13 for a token no word has and no plain

@@ -18055,8 +18055,8 @@ reason = "review s1-elab L: the stuck error at the newest pending problem, not t
 [[fault]]
 id = "fe-elab-check-inside"
 file = "src/front/elab-decl.fs"
-old = '''  lfa-inside? 0= edc-check-here lfa-must 1 lfa-args edc-w-check ;'''
-new = '''  1 lfa-args edc-w-check ;'''
+old = '''lfa-inside? 0= edc-check-here lfa-must 1 lfa-args edc-w-check ;'''
+new = '''1 lfa-args edc-w-check ;'''
 test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
 reason = "review s1-elab M1: #check runs inside a declaration or a tactic block, where Lean refuses it"
 

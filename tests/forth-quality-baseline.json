@@ -91,7 +91,7 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 22,
+  "rstack": 15,
   "shuffles": 5,
   "words": 35
  },
@@ -548,7 +548,7 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 8,
-  "shuffles": 20,
+  "shuffles": 19,
   "words": 151
  },
  "src/front/expr-remap.fs": {

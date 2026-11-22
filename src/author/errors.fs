@@ -119,7 +119,7 @@ require ./source.fs
 62 constant lfa-e-names-full     \ the name store is full, or a name too long
 63 constant lfa-e-references-full \ the constant-reference store is full
 64 constant lfa-e-values-full    \ too many values in one declaration
-65 constant lfa-e-binders-full   \ too many binders open
+65 constant lfa-e-binders-full   \ too many binders or lists open
 66 constant lfa-e-entries-full   \ too many names, namespaces or declarations
 67 constant lfa-e-notes-full     \ too many labels and notes
 68 constant lfa-e-syntax-full    \ the syntax store is full
@@ -354,7 +354,7 @@ create lfa-catalogue
   lfa-e-names-full s" out of room: the name store is full or the name too long" lfa-full,
   lfa-e-references-full s" out of room: the constant-reference store is full" lfa-full,
   lfa-e-values-full s" out of room: too many values in one declaration" lfa-full,
-  lfa-e-binders-full s" out of room: too many binders open" lfa-full,
+  lfa-e-binders-full s" out of room: too many binders or lists open" lfa-full,
   lfa-e-entries-full s" out of room: too many names, namespaces or declarations" lfa-full,
   lfa-e-notes-full s" out of room: too many labels and notes" lfa-full,
   lfa-e-syntax-full s" out of room: the syntax store is full" lfa-full,

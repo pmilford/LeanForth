@@ -87,8 +87,11 @@ end-structure
   2dup lfa-root-name? 0= lfa-e-root-name lfa-must lfa-word-name
   2dup lfa-end-token! lfa-full! lfa-full lfa-library-free
   lfa-full lfa-intern dup lfa-declared? 0= lfa-e-declared lfa-must ;
+\ A declaration starts outside every list (else 458 at its word) and
+\ declaration.
+: lfa-not-nested ( -- ) lfa-brackets-closed lfa-inside? 0= lfa-e-nested lfa-must ;
 : lfa-declare ( kind -- )
-  lfa-inside? 0= lfa-e-nested lfa-must depth 1- lfa-floor = lfa-e-not-empty lfa-must
+  lfa-not-nested depth 1- lfa-floor = lfa-e-not-empty lfa-must
   lfa-here >r lfa-name-token lfa-decl-name! r> lfa-new-decl depth lfa-open-scope ;
 \ protected KIND NAME: the declaration being made is protected, which
 \ needs a namespace (Lean: "protected declarations must be in a

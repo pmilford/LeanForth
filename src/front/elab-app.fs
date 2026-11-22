@@ -38,7 +38,9 @@
 \   expected type is propagated before a hole argument
 \   (shouldPropagateExpectedTypeFor).
 \ - Not ported, unsupported: postponing at a function whose type's whnfR has
-\   a metavariable at its head (isMVarApp, 132), an optParam or autoParam
+\   a metavariable at its head (isMVarApp, 132; the test of a type t,
+\   lf-elab-whnf-r-mvar? ( t -- flag outcome ), elab-term.fs's ⟨ ⟩ shares
+\   it), an optParam or autoParam
 \   binder or eta argument (134), a recursor, casesOn, recOn, brecOn or
 \   elab_as_elim head (135), a function that is no pi even after synthesis
 \   (a coercion to a function, 131). getResultingType? and hasOptAutoParams
@@ -227,13 +229,13 @@ defer lf-elab-arg-call ( node expected frames cont -- ... frames next )
   ea ea-f @ lf-infer lf-elab-meta ok-then? 0= if exit then
   lf-instantiate-mvars lf-elab-meta ok-then? if ea ea-ftype ! outcome-ok then ;
 \ tryPostponeIfMVar (TermElabM.lean:1379): with arguments left, whnfR of
-\ f's type headed by a metavariable (isMVarApp; lf-elab-mvar-app? ( t --
-\ flag ) of t after whnfR, elab-term.fs's ⟨ ⟩ too).
-: lf-elab-mvar-app? ( t -- flag ) lf-meta-head dup lf-mvar? swap lf-meta-unassigned? and ;
+\ f's type headed by a metavariable (isMVarApp). lf-elab-whnf-r-mvar? ( t
+\ -- flag outcome ) is its test of a type t (elab-term.fs's ⟨ ⟩ too).
+: ea-mvar-app? ( t -- flag ) lf-meta-head dup lf-mvar? swap lf-meta-unassigned? and ;
+: lf-elab-whnf-r-mvar? ( t -- flag outcome )
+  lf-meta-whnf-r lf-elab-meta ok-then? if ea-mvar-app? outcome-ok else false swap then ;
 : ea-postpone? ( -- flag outcome )
-  ea-left? 0= if false outcome-ok exit then
-  ea ea-ftype @ lf-meta-whnf-r lf-elab-meta ok-then? if lf-elab-mvar-app? outcome-ok
-  else false swap then ;
+  ea-left? 0= if false outcome-ok exit then ea ea-ftype @ lf-elab-whnf-r-mvar? ;
 : ea-facts ( -- outcome )
   ea ea-head @ dup 0< if drop outcome-ok exit then
   dup ea-elim? ok-then? 0= if nip exit then if drop lfa-e-elab-elim lf-elab-fail exit then

@@ -1,5 +1,6 @@
 # Planted faults of tactic batch 3c (plan row TB2: src/author/scopes.fs's brackets,
-# runner.fs's reading on and source.fs's lfa-read!, src/front/tactic-syntax.fs's lists,
+# runner.fs's reading on and source.fs's lfa-read!, declarations.fs's and elab-decl.fs's
+# checks for an open list, src/front/tactic-syntax.fs's lists,
 # reader.fs's << >>, elab-term.fs's anonymous constructor and lf-elab-final,
 # elab-pending.fs's message rest, tactic-core.fs's detail, src/front/tactics/exists.fs),
 # read with faults.toml as one list (scripts/mutants.py). Each is caught by the test it
@@ -47,6 +48,31 @@ new = ''': lfb-items ( -- n pos ) depth lfb lfb-mark @ - 1+ lfb lfb-at @ ;'''
 test = "$GFORTH tests/front/tactics/batch-f/test.fs"
 reason = "TB2 3c: a list's items counted one too many (a value from before it taken)"
 
+# ---- declarations.fs and elab-decl.fs: a list open before :=, a declaration, #check
+[[fault]]
+id = "tb3c-define-open-list"
+file = "src/author/declarations.fs"
+old = '''  lfa-brackets-closed lfa-definable? lfa-e-define-here lfa-must'''
+new = '''  lfa-definable? lfa-e-define-here lfa-must'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: := with a << open takes a value before it as the statement, >> then closing the << inside the proof (not 458 at <<)"
+
+[[fault]]
+id = "tb3c-declare-open-list"
+file = "src/author/declarations.fs"
+old = ''': lfa-not-nested ( -- ) lfa-brackets-closed lfa-inside? 0= lfa-e-nested lfa-must ;'''
+new = ''': lfa-not-nested ( -- ) lfa-inside? 0= lfa-e-nested lfa-must ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: a declaration word with a list of terms open is 14 or 16 at it (not 458 at the list's word)"
+
+[[fault]]
+id = "tb3c-check-open-list"
+file = "src/front/elab-decl.fs"
+old = '''  lfa-brackets-closed lfa-inside? 0= edc-check-here lfa-must 1 lfa-args edc-w-check ;'''
+new = '''  lfa-inside? 0= edc-check-here lfa-must 1 lfa-args edc-w-check ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: #check inside an open << takes the list's item and prints it (not 458 at <<)"
+
 # ---- runner.fs and source.fs: reading on
 [[fault]]
 id = "tb3c-no-refill"
@@ -88,6 +114,22 @@ new = ''': lfa-read! ( -- ) >in @ lfa-source lfa-source-end ! ;'''
 test = "$GFORTH tests/front/tactics/batch-f/test.fs"
 reason = "TB2 3c: a comment in the rest of a line read on into marks the line read only so far as the rest's own length, and its text is checked as stray numbers"
 
+[[fault]]
+id = "tb3c-in-always"
+file = "src/author/runner.fs"
+old = ''': lfa-in! ( c-addr -- ) lfa-on? if drop else source drop - >in ! then ;'''
+new = ''': lfa-in! ( c-addr -- ) source drop - >in ! ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: reading on from a file's line buffer sets >IN of the line EVALUATE ran, which the next line has replaced (lines.lf: an internal fault)"
+
+[[fault]]
+id = "tb3c-ended-open-list"
+file = "src/author/runner.fs"
+old = '''  lfa-brackets-closed depth lfa-floor = lfa-inside? 0= and lfa-e-unfinished lfa-must ;'''
+new = '''  depth lfa-floor = lfa-inside? 0= and lfa-e-unfinished lfa-must ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: a list of terms open at the text's end is 33 at the last token (not 458 at its word)"
+
 # ---- tactic-syntax.fs: lists
 [[fault]]
 id = "tb3c-empty-token-item"
@@ -126,8 +168,8 @@ reason = "TB2 3c: >> makes a node of no item, the items left on the stack"
 [[fault]]
 id = "tb3c-mvar-app-not-postponed"
 file = "src/front/elab-term.fs"
-old = '''  if drop et-postponed else outcome-ok then ;'''
-new = '''  drop outcome-ok ;'''
+old = '''  dup lf-elab-whnf-r-mvar? ;'''
+new = '''  false outcome-ok ;'''
 test = "$GFORTH tests/front/tactics/batch-f/test.fs"
 reason = "TB2 3c: an expected type whose whnfR is a metavariable's application is not postponed (Lean's), so its error is 462, not 132"
 
@@ -154,6 +196,14 @@ old = '''  et-past ['] et-explicit? count-index outcome-ok ;'''
 new = '''  drop ['] et-explicit? count-index outcome-ok ;'''
 test = "$GFORTH tests/front/tactics/batch-f/test.fs"
 reason = "TB2 3c: the explicit fields counted from the parameters on (Eq.refl's a counted: 1, not 0)"
+
+[[fault]]
+id = "tb3c-explicit-any"
+file = "src/front/elab-term.fs"
+old = ''': et-explicit? ( addr k -- addr flag ) over cell-at@ lf-binder-default = ;'''
+new = ''': et-explicit? ( addr k -- addr flag ) drop true ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: every field after the parameters counted explicit (Nat.le.step's {m}: 2, not 1)"
 
 [[fault]]
 id = "tb3c-few-never"

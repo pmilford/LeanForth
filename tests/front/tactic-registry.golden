@@ -62,7 +62,7 @@
 62	6	out of room: the name store is full or the name too long
 63	6	out of room: the constant-reference store is full
 64	6	out of room: too many values in one declaration
-65	6	out of room: too many binders open
+65	6	out of room: too many binders or lists open
 66	6	out of room: too many names, namespaces or declarations
 67	6	out of room: too many labels and notes
 68	6	out of room: the syntax store is full
@@ -145,7 +145,7 @@
 219	1	Invalid rewrite argument: The pattern to be substituted is a metavariable
 220	1	Occurs check failed: Expression
 300	6	out of room: a Forth stack, the dictionary or the heap, with its THROW code
-458	1	this list is never closed: its ] or >> is missing
+458	1	this list is never closed: its closing word (], >> or ⟩) is missing
 462	1	Invalid `⟨...⟩` notation: The expected type of this term could not be determined
 463	1	Invalid `⟨...⟩` notation: The expected type
 464	1	Invalid `⟨...⟩` notation: The expected type

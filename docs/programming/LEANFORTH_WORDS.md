@@ -430,7 +430,7 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 62 | full | out of room: the name store is full or the name too long |
 | 63 | full | out of room: the constant-reference store is full |
 | 64 | full | out of room: too many values in one declaration |
-| 65 | full | out of room: too many binders open |
+| 65 | full | out of room: too many binders or lists open |
 | 66 | full | out of room: too many names, namespaces or declarations |
 | 67 | full | out of room: too many labels and notes |
 | 68 | full | out of room: the syntax store is full |
@@ -513,7 +513,7 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 219 | invalid | Invalid rewrite argument: The pattern to be substituted is a metavariable |
 | 220 | invalid | Occurs check failed: Expression |
 | 300 | full | out of room: a Forth stack, the dictionary or the heap, with its THROW code |
-| 458 | invalid | this list is never closed: its ] or >> is missing |
+| 458 | invalid | this list is never closed: its closing word (], >> or ⟩) is missing |
 | 462 | invalid | Invalid `⟨...⟩` notation: The expected type of this term could not be determined |
 | 463 | invalid | Invalid `⟨...⟩` notation: The expected type |
 | 464 | invalid | Invalid `⟨...⟩` notation: The expected type |

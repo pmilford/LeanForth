@@ -254,10 +254,12 @@ end-structure
 : et-atom ( node expected -- ... frames next )
   swap et-head dup ok? 0= if nip nip et-failed exit then drop
   swap lf-elab-app-new dup ok? 0= if et-failed exit then drop et-app-call ;
-: et-app ( node expected -- ... frames next )
-  swap dup et-fn ok-then? 0= if nip nip et-failed exit then
-  rot lf-elab-app-new dup ok? 0= if nip et-failed exit then drop
+\ f applied to node's arguments against the expected type (elabApp).
+: et-app-with ( node f expected -- ... frames next )
+  lf-elab-app-new dup ok? 0= if nip et-failed exit then drop
   lf-elab-app-syntax! et-app-call ;
+: et-app ( node expected -- ... frames next )
+  over et-fn ok-then? 0= if nip nip et-failed exit then swap et-app-with ;
 \ ---- elabAnonymousConstructor (Elab/BuiltinNotation.lean:43-102; plan
 \ row TB2, tactic batch 3c), Lean's ⟨a, b⟩, reader.fs's << a b >>: the
 \ expected type known (none, or one whose whnfR is a metavariable's
@@ -292,16 +294,16 @@ end-structure
 : et-usage. ( -- outcome )
   s\" \nNote: This notation can only be used when the expected type is an " lf-pp-emit
   s" inductive type with a single constructor" lf-pp-emit outcome-ok ;
-\ The expected type: known, else Lean postpones (132).
+\ The expected type (tryPostponeIfNoneOrMVar's test): none, or one whose
+\ whnfR is headed by a metavariable, is unknown; t is it instantiated.
+: et-type? ( expected -- t unknown? outcome )
+  dup 0< if true outcome-ok exit then
+  lf-instantiate-mvars lf-elab-meta ok-then? 0= if no-result-flag exit then
+  dup lf-elab-whnf-r-mvar? ;
+\ Known, else Lean postpones (132).
 : et-postponed ( -- -1 outcome ) lfa-e-elab-postpone lf-elab-fail no-result ;
-: et-whnf-r-mvar? ( t -- flag outcome )
-  lf-meta-whnf-r lf-elab-meta ok-then?
-  if lf-elab-mvar-app? outcome-ok else false swap then ;
 : et-known ( expected -- t outcome )
-  dup 0< if drop et-postponed exit then lf-instantiate-mvars lf-elab-meta ;
-: et-settled ( t -- t outcome )
-  dup et-whnf-r-mvar? ok-then? 0= if nip no-result exit then
-  if drop et-postponed else outcome-ok then ;
+  et-type? ok-then2? 0= if no-result exit then if drop et-postponed else outcome-ok then ;
 : et-anon-whnf ( t -- t' outcome )
   lf-meta-whnf lf-elab-meta ok-then? 0= if no-result exit then
   dup lf-meta-head lf-mvar? 0= if outcome-ok exit then
@@ -329,13 +331,13 @@ end-structure
 \ The steps in turn, each on the result of the one before (the type, then
 \ its whnf, the constructor's name, its declaration).
 : et-anon-ctor ( expected -- c outcome )
-  et-known ['] et-settled ok-apply ['] et-anon-whnf ok-apply
+  et-known ['] et-anon-whnf ok-apply
   ['] et-anon-name ok-apply ['] et-ctor-decl ok-apply ;
 \ numExplicitFields.
 : et-params ( c -- p outcome )
   lf-menv-data ?dup if lf-ict-params lf-more-field outcome-ok else et-unported then ;
 : et-past ( addr n k -- addr' n' ) tuck - -rot cells + swap ;
-: et-explicit? ( addr k -- addr flag ) over swap cells + @ lf-binder-default = ;
+: et-explicit? ( addr k -- addr flag ) over cell-at@ lf-binder-default = ;
 : et-fields-past ( c p -- n outcome )
   swap lf-menv-kinds rot 2dup < if 2drop drop et-unported exit then
   et-past ['] et-explicit? count-index outcome-ok ;
@@ -392,9 +394,7 @@ end-structure
   dup et-fields ok-then? if rot swap et-anon-stx else nip nip no-result then ;
 \ The constructor applied to the items (elabApp), against the expected type.
 : et-anon-app ( stx expected c -- ... frames next )
-  lf-meta-const-fresh ok-then? 0= if nip nip et-failed exit then
-  swap lf-elab-app-new dup ok? 0= if nip et-failed exit then drop
-  lf-elab-app-syntax! et-app-call ;
+  lf-meta-const-fresh ok-then? 0= if nip nip et-failed exit then swap et-app-with ;
 : et-anon ( node expected -- ... frames next )
   tuck et-anon-ctor ok-then? 0= if nip nip et-failed exit then
   tuck et-anon-built ok-then? 0= if nip nip et-failed exit then -rot et-anon-app ;
@@ -426,8 +426,7 @@ is lf-elab-arg-call
 \ application) is postponed by Lean and resumed there with its type
 \ still unknown: Lean's error 462 at it; anything else lf-elab-term.
 : et-type-unknown? ( expected -- flag outcome )
-  dup 0< if drop true outcome-ok exit then
-  lf-instantiate-mvars lf-elab-meta ok-then? if et-whnf-r-mvar? else false swap then ;
+  et-type? ok-then2? if nip outcome-ok else false swap then ;
 : et-root-unknown? ( node expected -- flag outcome )
   over syn-kind@ syn-k-anon = if nip et-type-unknown? else 2drop false outcome-ok then ;
 : et-root-unknown ( node -- -1 outcome )
