@@ -1,6 +1,6 @@
 # Planted faults of tactic batch 2a (plan row TB2; src/front/tactic-syntax.fs's shapes,
 # src/front/telescope.fs's mkLetDecl and mkLetFVars, src/front/meta-tactic/assert.fs's
-# lf-goal-let, lf-goal-let-with and lf-goal-try-clear, src/front/elab-decl.fs's elabType hook,
+# lf-goal-have, lf-goal-let, lf-goal-have-with and lf-goal-try-clear, src/front/elab-decl.fs's elabType hook,
 # src/author/export.fs's letE record, src/front/tactics/have.fs and replace.fs), read with
 # faults.toml as one list (scripts/mutants.py). Each is caught by tests/front/tactics/batch-b/
 # test.fs (seconds), tests/author/author.fs, or check.py (terms node for node against pinned
@@ -10,16 +10,16 @@
 [[fault]]
 id = "tb2b-shape-names-skipped"
 file = "src/front/tactic-syntax.fs"
-old = '''  lft-values lft-last dup lft-shape@ shape-names @ lft-names-after lft-done ;'''
-new = '''  lft-values lft-last lft-done ;'''
+old = '''  lft-values shape-names @ lft-names-after lft-done ;'''
+new = '''  lft-values drop lft-done ;'''
 test = "$GFORTH tests/front/tactics/batch-b/test.fs"
 reason = "TB2: the names after a word not read (by-have: k leaves k to be read as a term)"
 
 [[fault]]
 id = "tb2b-this-name-lost"
 file = "src/front/tactic-syntax.fs"
-old = '''  lft-values lft-last s" this" lft-hypothesis lft-done ;'''
-new = '''  lft-values lft-last lft-inaccessible lft-done ;'''
+old = '''  lft-values drop s" this" lft-hypothesis lft-done ;'''
+new = '''  lft-values drop lft-inaccessible lft-done ;'''
 test = "$GFORTH tests/front/tactics/batch-b/test.fs"
 reason = "TB2: have := e's hypothesis not named this (later steps cannot name it)"
 
@@ -88,7 +88,31 @@ new = ''': tl-aux-mode ( -- mode ) tl-auxes ;'''
 test = "$GFORTH tests/front/tactics/batch-b/test.fs"
 reason = "TB2: a natural metavariable's type over a let made as a synthetic opaque one's"
 
-# ---- assert.fs: lf-goal-let, lf-goal-let-with, lf-goal-try-clear
+[[fault]]
+id = "tb2b-let-value-unabstracted"
+file = "src/front/telescope.fs"
+old = ''': tl-value ( i -- v ) dup tl-x lf-fvar-value lf-instantiate! swap tl-abstract ;'''
+new = ''': tl-value ( i -- v ) tl-x lf-fvar-value lf-instantiate! ;'''
+test = "$GFORTH tests/front/tactics/batch-b/test.fs"
+reason = "TB2: a let's value not abstracted over the variables before it (let y := x keeps the free x)"
+
+[[fault]]
+id = "tb2b-let-decl-implicit"
+file = "src/front/telescope.fs"
+old = '''  swap >r tl-let-fvar r> lf-binder-default tl-pushed ;'''
+new = '''  swap >r tl-let-fvar r> lf-binder-implicit tl-pushed ;'''
+test = "$GFORTH tests/front/tactics/batch-b/test.fs"
+reason = "TB2: mkLetDecl's local implicit (Lean's let and have locals are explicit)"
+
+[[fault]]
+id = "tb2b-no-vars-instantiated"
+file = "src/front/telescope.fs"
+old = '''  over 0= if drop 2drop exit then lf-mctx-view swap tl-binding ;'''
+new = '''  lf-mctx-view swap tl-binding ;'''
+test = "$GFORTH tests/front/tactics/batch-b/test.fs"
+reason = "TB2: mkLambdaFVars, mkForallFVars and mkLetFVars of no variable instantiate e (Lean gives e as it is)"
+
+# ---- assert.fs: lf-goal-have, lf-goal-let, lf-goal-have-with, lf-goal-try-clear
 [[fault]]
 id = "tb2b-try-clear-throws"
 file = "src/front/meta-tactic/assert.fs"
@@ -104,6 +128,30 @@ old = '''  over swap lf-goal-clear dup outcome-invalid = if 2drop exit then lf-m
 new = '''  drop ;'''
 test = "$GFORTH tests/front/tactics/batch-b/test.fs"
 reason = "TB2: tryClear never clears"
+
+[[fault]]
+id = "tb2b-try-clear-swallows"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  over swap lf-goal-clear dup outcome-invalid = if 2drop exit then lf-must nip ;'''
+new = '''  over swap lf-goal-clear dup ok? 0= if 2drop exit then nip ;'''
+test = "$GFORTH tests/front/tactics/batch-b/test.fs"
+reason = "TB2: tryClear keeps the goal on every refusal (a full store read as cannot clear; the sweep sees the context unchanged)"
+
+[[fault]]
+id = "tb2b-target-uninstantiated"
+file = "src/front/meta-tactic/assert.fs"
+old = ''': lf-goal-target ( goal -- type tag ) dup lf-goal-type lf-instantiate! swap lf-goal-tag ;'''
+new = ''': lf-goal-target ( goal -- type tag ) dup lf-goal-type swap lf-goal-tag ;'''
+test = "$GFORTH tests/front/tactics/batch-b/test.fs"
+reason = "TB2: have's new goal typed by the target as stored, not instantiated (refine's getMainTarget)"
+
+[[fault]]
+id = "tb2b-let-assigned-unchecked"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  mat-let-fill mat mat-goal @ lf-goal-not-assigned ['] mat-let-run lf-with-goal ;'''
+new = '''  mat-let-fill mat mat-goal @ ['] mat-let-run lf-with-goal ;'''
+test = "$GFORTH tests/front/tactics/batch-b/test.fs"
+reason = "TB2: an assigned goal's body made before the refusal (checkNotAssigned skipped: the body maker runs)"
 
 [[fault]]
 id = "tb2b-let-body-tag"
@@ -133,8 +181,8 @@ reason = "TB2: the goal never assigned let x := v; body"
 [[fault]]
 id = "tb2b-have-dep"
 file = "src/front/tactics/have.fs"
-old = ''': thv-have ( i goal -- goal' ) thv-decl true lf-goal-let ;'''
-new = ''': thv-have ( i goal -- goal' ) thv-decl false lf-goal-let ;'''
+old = ''': thv-have ( i goal -- goal' ) thv-decl lf-goal-have ;'''
+new = ''': thv-have ( i goal -- goal' ) thv-decl lf-goal-let ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-b/check.py"
 reason = "TB2: have h : T := e builds a let, not Lean's nondependent one"
 
@@ -166,16 +214,16 @@ reason = "TB2: a cleared hypothesis named in have's value taken (Lean: unknown i
 [[fault]]
 id = "tb2b-this-dep"
 file = "src/front/tactics/have.fs"
-old = '''  1 thv-named thv-untyped dup lf-infer! swap true lf-goal-let ;'''
-new = '''  1 thv-named thv-untyped dup lf-infer! swap false lf-goal-let ;'''
+old = '''  1 thv-named thv-untyped dup lf-infer! swap lf-goal-have ;'''
+new = '''  1 thv-named thv-untyped dup lf-infer! swap lf-goal-let ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-b/check.py"
 reason = "TB2: have := e builds a let, not Lean's nondependent one"
 
 [[fault]]
 id = "tb2b-this-type-is-value"
 file = "src/front/tactics/have.fs"
-old = '''  1 thv-named thv-untyped dup lf-infer! swap true lf-goal-let ;'''
-new = '''  1 thv-named thv-untyped dup true lf-goal-let ;'''
+old = '''  1 thv-named thv-untyped dup lf-infer! swap lf-goal-have ;'''
+new = '''  1 thv-named thv-untyped dup lf-goal-have ;'''
 test = "$GFORTH tests/front/tactics/batch-b/test.fs"
 reason = "TB2: have := e's hypothesis typed by e itself, not e's type"
 
@@ -191,16 +239,16 @@ reason = "TB2: a value left with open metavariables taken (Lean's refine refuses
 [[fault]]
 id = "tb2b-let-nondep"
 file = "src/front/tactics/have.fs"
-old = ''': tlt-let ( i goal -- goal' ) thv-decl false lf-goal-let ;'''
-new = ''': tlt-let ( i goal -- goal' ) thv-decl true lf-goal-let ;'''
+old = ''': tlt-let ( i goal -- goal' ) thv-decl lf-goal-let ;'''
+new = ''': tlt-let ( i goal -- goal' ) thv-decl lf-goal-have ;'''
 test = "$GFORTH tests/front/tactics/batch-b/test.fs"
 reason = "TB2: let x : T := e builds a have, whose value later steps cannot unfold"
 
 [[fault]]
 id = "tb2b-let-value-swapped"
 file = "src/front/tactics/have.fs"
-old = ''': tlt-let ( i goal -- goal' ) thv-decl false lf-goal-let ;'''
-new = ''': tlt-let ( i goal -- goal' ) thv-decl drop dup false lf-goal-let ;'''
+old = ''': tlt-let ( i goal -- goal' ) thv-decl lf-goal-let ;'''
+new = ''': tlt-let ( i goal -- goal' ) thv-decl drop dup lf-goal-let ;'''
 test = "$GFORTH tests/front/tactics/batch-b/test.fs"
 reason = "TB2: the let's value is its type T, not e"
 
@@ -223,9 +271,9 @@ reason = "TB2: suffices' e not elaborated against the main goal's type (96 lost)
 
 [[fault]]
 id = "tb2b-suffices-dep"
-file = "src/front/tactics/have.fs"
-old = '''  tsf-decl dup >r true ['] tsf-body lf-goal-let-with drop r> ;'''
-new = '''  tsf-decl dup >r false ['] tsf-body lf-goal-let-with drop r> ;'''
+file = "src/front/meta-tactic/assert.fs"
+old = ''': lf-goal-have-with ( goal name type val xt -- body ) true swap mat-let-with ;'''
+new = ''': lf-goal-have-with ( goal name type val xt -- body ) false swap mat-let-with ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-b/check.py"
 reason = "TB2: suffices builds a let, not Lean's have (nondependent)"
 
@@ -311,6 +359,14 @@ old = '''  dup lf-let-well? if lfx-let-record else drop outcome-unsupported lfx-
 new = '''  lfx-let-record ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "TB2: a let whose second part is no lambda written as a record"
+
+[[fault]]
+id = "tb2b-lete-name-zero"
+file = "src/author/export.fs"
+old = '''  dup lf-let-binder lf-pres-binder-name drop s" name" lfx-member'''
+new = '''  0 s" name" lfx-member'''
+test = "$GFORTH tests/author/author.fs"
+reason = "TB2: the letE record's name written as anonymous (0), not its binder's"
 
 # ---- elab-decl.fs: elabType's hook
 [[fault]]

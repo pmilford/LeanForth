@@ -20328,10 +20328,9 @@ reason = "review s2-tactics re-check M2: an explicit argument headed by a metava
 
 [[fault]]
 id = "s2-induction-clear-full-kept"
-file = "src/front/tactic-alts.fs"
-old = '''  lf-tac-main tal tal-target @ lf-goal-clear dup outcome-invalid = if 2drop exit then
-  lf-tac-must lf-tac-only ;'''
-new = '''  lf-tac-main tal tal-target @ lf-goal-clear ok? if lf-tac-only else drop then ;'''
+file = "src/front/meta-tactic/assert.fs"
+old = '''  over swap lf-goal-clear dup outcome-invalid = if 2drop exit then lf-must nip ;'''
+new = '''  over swap lf-goal-clear ok? if nip else drop then ;'''
 test = "$GFORTH tests/front/s2-sweeps.fs"
 reason = "review s2-tactics re-check M4: tryClear's full or exhausted read as cannot clear, a runtime failure swallowed (Lean's <|> never catches one)"
 

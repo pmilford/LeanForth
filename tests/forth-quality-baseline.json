@@ -936,7 +936,7 @@
   "words": 1
  },
  "src/front/tactics/have.fs": {
-  "globals": 1,
+  "globals": 4,
   "long lines": 0,
   "long words": 0,
   "rstack": 9,
@@ -960,7 +960,7 @@
   "words": 2
  },
  "src/front/tactics/replace.fs": {
-  "globals": 0,
+  "globals": 1,
   "long lines": 0,
   "long words": 0,
   "rstack": 0,

@@ -183,6 +183,11 @@ begin-structure /tlb
   field: tlb-view        \ the context their locals are read in
   field: tlb-mode        \ the binding's mode (tl-mode, below)
 end-structure
+\ A binding's mode: how a variable and a let variable are bound.
+begin-structure /tlm
+  field: tlm-binder      \ a variable's binder ( dom body -- t flag )
+  field: tlm-let         \ a let variable's ( body i -- t )
+end-structure
 /tlb context-record: tlb
 : tl-cell ( addr i -- x ) cells + @ ;
 : tl-x ( i -- x ) tlb tlb-xs @ swap tl-cell ;
@@ -196,9 +201,9 @@ end-structure
   over swap dup lf-local-name swap lf-local-binder lf-pres-binder! lf-must ;
 \ x_i's binder over body (the mode's lambda or pi), named as its local.
 : tl-wrapped ( body i -- t )
-  dup tl-x tlb tlb-view @ tl-local-of >r tl-domain swap tlb tlb-mode @ @ execute
-  lf-made! r> tl-named ;
-: tl-let ( body i -- t ) tlb tlb-mode @ cell+ @ execute ;
+  dup tl-x tlb tlb-view @ tl-local-of >r tl-domain swap tlb tlb-mode @ tlm-binder @
+  execute lf-made! r> tl-named ;
+: tl-let ( body i -- t ) tlb tlb-mode @ tlm-let @ execute ;
 : tl-wrap ( body i -- t ) dup tl-x lf-fvar-ldecl? if tl-let else tl-wrapped then ;
 : tl-binders ( e n -- e' ) begin dup while 1- tuck tl-wrap swap repeat drop ;
 : tl-bound ( e addr n view mode -- e' )   \ e instantiated, elimMVar's case done
@@ -224,8 +229,8 @@ end-structure
 : tl-pi-let ( body i -- t ) tuck tl-wrapped tuck tl-relam tl-let-of tl-over ;
 : tl-aux-let ( body i -- t )
   dup tl-x lf-fvar-nondep? if tl-wrapped exit then dup if tl-unported then tl-pi-let ;
-\ Modes: a variable's binder ( dom body -- t flag ) and a let's ( body i -- t ).
-: tl-mode ( binder let -- mode ) align here 2 cells allot tuck cell+ ! tuck ! ;
+\ The four modes (/tlm records, made once at load).
+: tl-mode ( binder let -- mode ) align here /tlm allot tuck tlm-let ! tuck tlm-binder ! ;
 ' lf-term-lam ' tl-unported tl-mode constant tl-lambdas
 ' lf-term-pi ' tl-unported tl-mode constant tl-foralls
 ' lf-term-lam ' tl-let-bound tl-mode constant tl-lets

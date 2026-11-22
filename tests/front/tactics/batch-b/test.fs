@@ -2,7 +2,7 @@
 \ in an authoring run, by the classes of docs/development/
 \ TEST_COVERAGE_REVIEW.md: the shapes of tactic-syntax.fs (read as
 \ records), telescope.fs's mkLetDecl and mkLetFVars, meta-tactic/
-\ assert.fs's lf-goal-let, lf-goal-let-with and lf-goal-try-clear,
+\ assert.fs's lf-goal-have, lf-goal-let, lf-goal-have-with and lf-goal-try-clear,
 \ tactic-core.fs's elabType hook, and each tactic word of tactics/have.fs
 \ and replace.fs through LeanForth text (tests/support/tactic-text.fs):
 \ 1. outcomes: each word accepted, each refusal with its code (96, 130,
@@ -13,11 +13,21 @@
 \    the first variable and a let over a natural metavariable
 \    (unsupported);
 \ 3. stack effects: each T{ }T checks the depth; the shapes' fields;
-\ 6. state: the goal assigned, the new local's kind (let, have), the
-\    cleared or kept hypothesis, the hook put back; the terms are checked
-\    node for node with pinned Lean by check.py.
+\ 5. resources (tests/support/meta-sweeps.fs): lf-goal-have, lf-goal-let,
+\    lf-goal-have-with, lf-goal-try-clear and lf-let-decl-new with every
+\    heap allocation refused in turn and with room for every count of
+\    terms (and local context entries) in turn, by-have-goal: through
+\    its text with every heap allocation refused: the answer or full,
+\    never another answer (tryClear passes full on);
+\ 6. state: the goal assigned, the new local's kind (let, have) and
+\    binder, the cleared or kept hypothesis, the hook put back, the body
+\    of an assigned goal never made; two lets bound at once, with no
+\    variable e itself; the terms are checked node for node with pinned
+\    Lean by check.py.
 \ Nothing here accepts a theorem: only the kernel's check does.
 require ../../../support/tester.fs
+include ../../../support/heap-watch.fs
+include ../../../support/meta-sweeps.fs
 require ../../../../src/load/checker.fs
 require ../../../../src/load/front.fs
 require ../../../../src/cli/check-lf.fs
@@ -48,6 +58,7 @@ lf-meta-throw-base outcome-unsupported - constant thrown-unsupported
 
 \ ---- 3. The shapes: their fields, as made.
 T{ 2 1 tac-shape-term-names dup shape-want @ swap shape-names @ -> 2 1 }T
+T{ tac-shape-decl dup shape-want @ swap shape-names @ -> 2 1 }T
 T{ 1 tac-shape-term-this dup shape-want @ swap shape-names @ -> 1 0 }T
 T{ 3 tac-shape-terms dup shape-want @ swap shape-names @ -> 3 0 }T
 T{ tac-shape-plain shape-want @ tac-shape-term shape-want @ tac-shape-name shape-names @
@@ -65,7 +76,7 @@ create stmt 512 allot  variable stmt#
 : arg@ ( i k -- x ) swap step@ tac-first @ + lf-tactic-arg drop ;
 T{ hab s" a b ≤ ' h by-have: k ' k by-exact" tactic-ran -> 0 }T
 T{ 1 step@ tac-kind @ 1 step@ tac-count @ 1 2 arg@ s" k" nm = -> tac-k-have 3 true }T
-T{ 1 step@ tac-shape @ shape-want @ 1 step@ tac-shape @ shape-names @ -> 2 1 }T
+T{ 1 step@ tac-shape @ tac-shape-decl = -> true }T
 T{ 1 1 arg@ syn-kind@ 2 step@ tac-kind @ -> syn-k-var tac-k-exact }T
 T{ hab s" ' h by-have ' this by-exact" tactic-ran -> 0 }T
 T{ 1 step@ tac-count @ 1 1 arg@ s" this" nm = -> 2 true }T
@@ -95,11 +106,15 @@ T{ nat fa s" x" nm false lf-let-decl-new lf-view-count swap dup lf-fvar-let? swa
    lf-fvar-nondep? -> 4 true false }T
 T{ ab-le fh s" k" nm true lf-let-decl-new drop dup lf-fvar-let? over lf-fvar-nondep?
    rot lf-fvar-value fh = -> false true true }T
+\ Its local explicit, named as given.
+: newest-local ( view -- local ) dup lf-view-count 1- lf-view-local ;
+T{ ab-le fh s" k" nm true lf-let-decl-new nip newest-local dup lf-local-binder
+   swap lf-local-name s" k" nm = -> lf-binder-default true }T
 
-\ ---- assert.fs: lf-goal-let, a have and a let; the goal assigned
+\ ---- assert.fs: lf-goal-have and lf-goal-let; the goal assigned
 \ let k : T := v; ?_ (the binder over ?n k, delayed-assigned ?_).
 ab-le tagged constant g1
-g1 s" k" nm ab-le fh true lf-goal-let constant g1'
+g1 s" k" nm ab-le fh lf-goal-have constant g1'
 T{ g1' lf-goal-type ab-le = g1' lf-goal-tag g1 lf-goal-tag = g1' view# g1 view# 1+ =
    g1' lf-goal-kind mv-opaque = -> true true true true }T
 T{ g1' newest dup lf-fvar-nondep? swap lf-fvar-type ab-le = g1 open? -> true true false }T
@@ -108,19 +123,26 @@ T{ g1' fh lf-mvar-assign g1 lf-instantiate! dup lf-let? swap dup lf-let-nondep s
 T{ g1 lf-instantiate! dup lf-let-type ab-le lf-meta-eqv made swap lf-let-body fh =
    -> true true }T
 ab-le tagged constant g2
-g2 s" x" nm nat fa false lf-goal-let constant g2'
+g2 s" x" nm nat fa lf-goal-let constant g2'
 T{ g2' newest dup lf-fvar-let? swap lf-fvar-value fa = -> true true }T
 T{ g2' fh lf-mvar-assign g2 lf-instantiate! dup lf-let-nondep swap lf-let-value fa =
    -> outcome-ok false true }T
-\ 2. An assigned goal is refused (invalid).
-: let-again ( goal -- ) s" k" nm ab-le fh true lf-goal-let drop ;
+\ 2. An assigned goal is refused (invalid), before the body is made.
+: let-again ( goal -- ) s" k" nm ab-le fh lf-goal-have drop ;
 T{ g1 ' let-again code1 -> thrown-invalid }T
-\ lf-goal-let-with: a closed body (suffices' e), still bound by the let.
+variable body-made
+: body-noted ( goal -- e ) drop true body-made ! fh ;
+: with-again ( goal -- ) s" k" nm ab-le fh ['] body-noted lf-goal-have-with drop ;
+T{ false body-made ! g1 ' with-again code1 body-made @ -> thrown-invalid false }T
+\ lf-goal-have-with: a closed body (suffices' e), still bound by the let.
 : body-fh ( goal -- e ) drop fh ;
 ba-le tagged constant g3
-T{ g3 s" k" nm ab-le fh true ' body-fh lf-goal-let-with fh = -> true }T
+T{ g3 s" k" nm ab-le fh ' body-fh lf-goal-have-with fh = -> true }T
 T{ g3 lf-instantiate! dup lf-let? swap lf-let-body fh = -> true true }T
 T{ ab-le tagged lf-goal-target swap ab-le = swap s" t" nm = -> true true }T
+\ A target that is an assigned metavariable: instantiated (getMainTarget).
+ab-le lf-infer! mv-natural lf-mvar-new made constant m1
+T{ m1 ab-le lf-mvar-assign m1 tagged lf-goal-target drop ab-le = -> outcome-ok true }T
 
 \ ---- lf-goal-try-clear: h cleared; a, which h's type names, kept.
 ab-le tagged constant g4
@@ -128,10 +150,46 @@ T{ g4 fh lf-goal-try-clear dup g4 = swap view# -> false 2 }T
 ab-le tagged constant g5
 T{ g5 fa lf-goal-try-clear g5 = g5 open? -> true true }T
 
+\ ---- 5. Resources: each goal operation on a new goal of ab-le, with
+\ every heap allocation refused in turn (the frame slabs given back
+\ first) and with room for every count of terms in turn: the answer (the
+\ new goal's context's size, the body) or full, never another answer.
+\ tryClear keeps the goal only when clear refuses invalid: full is
+\ passed on, never read as "cannot clear".
+: frames-anew ( -- ) mat-frames sweep-slab-anew tl-frames sweep-slab-anew ;
+' frames-anew sweep-slabs-xt !
+s" k" nm constant nk  s" x" nm constant nx
+: new-goal ( type -- goal ) 0 lf-mctx-view lf-goal-new lf-must ;
+: s-have ( type -- n ) new-goal nk ab-le fh lf-goal-have view# ;
+: s-let ( type -- n ) new-goal nx nat fa lf-goal-let view# ;
+: s-with ( type -- e ) new-goal nk ab-le fh ['] body-fh lf-goal-have-with ;
+: s-clear ( type -- n ) new-goal fh lf-goal-try-clear view# ;
+: s-let-decl ( type -- n ) drop ab-le fh nk true lf-let-decl-new nip lf-view-count ;
+: caught ( type xt -- x outcome ) 1 1 lf-meta-catch ;
+: p-have ( type -- n outcome ) ['] s-have caught ;
+: p-let ( type -- n outcome ) ['] s-let caught ;
+: p-with ( type -- e outcome ) ['] s-with caught ;
+: p-clear ( type -- n outcome ) ['] s-clear caught ;
+: p-let-decl ( type -- n outcome ) ['] s-let-decl caught ;
+: both-swept ( type xt -- heap? room? )
+  2dup heap-sweep swept? >r room-sweep swept? r> swap ;
+T{ ab-le ' p-have both-swept ab-le ' p-let both-swept -> true true true true }T
+T{ ab-le ' p-with both-swept ab-le ' p-clear both-swept -> true true true true }T
+\ mkLetDecl makes no heap block: its terms, and its local context entry.
+T{ ab-le ' p-let-decl room-sweep swept? -> true }T
+' lf-lctx sweep-store-xt !
+T{ ab-le ' p-let-decl room-sweep swept? ab-le ' p-have room-sweep swept? -> true true }T
+' lf-terms sweep-store-xt !
+
 \ ---- mkLetFVars: none gives e; a let past the first variable, or over a
 \ natural metavariable, is not supported (unsupported thrown).
 create xs 2 cells allot
 T{ fh xs 0 lf-mk-let-fvars fh = -> true }T
+\ With none, e itself, not instantiated (Lean's mkLambdaFVars,
+\ mkForallFVars and mkLetFVars of #[]): m1 is assigned ab-le.
+: none-bound? ( xt -- flag ) >r m1 xs 0 r> execute m1 = ;
+T{ ' lf-mk-lambda-fvars none-bound? ' lf-mk-forall-fvars none-bound?
+   ' lf-mk-let-fvars none-bound? -> true true true }T
 : two-lets ( -- e ) ab-le goal xs 2 lf-mk-let-fvars ;
 fresh
 nat s" a" local+ drop
@@ -142,6 +200,18 @@ T{ ' two-lets catch -> thrown-unsupported }T
 T{ ' natural-let catch -> thrown-unsupported }T
 : lambda-let ( -- e ) fa xs cell+ 1 lf-mk-lambda-fvars ;
 T{ ' lambda-let catch -> thrown-unsupported }T
+\ Two lets, the second's value naming the first: let x : Nat := a;
+\ let y : Nat := #0; #0, each value abstracted over the variables before it.
+fresh
+nat s" a" local+ constant fa3
+nat fa3 s" x" nm false lf-let-decl-new lf-mctx-view! constant fx
+nat fx s" y" nm false lf-let-decl-new lf-mctx-view! constant fy
+create xy fx , fy ,
+0 lf-term-bvar drop constant bv0
+: two-bound ( -- e ) fy xy 2 lf-mk-let-fvars ;
+: bv0? ( t -- flag ) bv0 lf-meta-eqv made ;
+T{ two-bound dup lf-let-value fa3 = swap lf-let-body dup lf-let-value bv0?
+   swap lf-let-body bv0? -> true true true }T
 
 \ ---- elabType's hook: without the elaborator, 71; put back after.
 action-of lf-tac-elab-as-type constant real-type
@@ -180,5 +250,14 @@ T{ hab s" b a ≤ ' h by-replace: h" tactic-ran -> 96 }T
 \ The replaced h is gone: only the new one, b ≥ a, is left to name.
 T{ hab2 s" b a ≥ ' h by-replace: h ' h by-exact" tactic-ran -> 0 }T
 T{ hab2 s" b a ≤ ' h2 by-replace: h ' h by-exact" tactic-ran -> 96 }T
+lf-tac-forget
+\ 5. by-have-goal: through the text (its new goals, run-push), every heap
+\ allocation of the run refused in turn: accepted, or full (error 60, 88
+\ or another out of room), never another error.
+: full-code? ( code -- flag ) dup if lf-author-outcome outcome-full = then ;
+: p-have-goal ( type -- code outcome )
+  drop hab s" a b ≤ by-have-goal: k ' h by-exact ' k by-exact" tactic-ran
+  dup full-code? if drop -1 outcome-full else outcome-ok then ;
+T{ 0 ' p-have-goal heap-sweep swept? -> true }T
 lf-tac-forget
 .( batch-b test.fs: all tests passed) cr

@@ -23,22 +23,25 @@
 \   lf-goal-try-clear ( goal fvar -- goal' )  MVarId.tryClear
 \       (Clear.lean:48-51): goals.fs's lf-goal-clear, or goal itself when
 \       it refuses (replace's, specialize's)
-\   lf-goal-let-with ( goal name type val nondep xt -- body )  the have
-\       and let terms as refine elaborates them (Elab/Binders.lean:745-860,
+\   lf-goal-have-with ( goal name type val xt -- body )  the have term
+\       as refine elaborates it (Elab/Binders.lean:745-860,
 \       elabLetDeclAux: withLetDecl, the body, mkLetFVars #[x] body
 \       with generalizeNondepLet false): in goal's context
-\       (checkNotAssigned first) a new local name : type := val, a have
-\       (its value hidden) when nondep is true; xt ( goal -- body ) makes
-\       the body in the context with it (current while xt runs); goal
-\       assigned let name : type := val; body (nondep kept; telescope.fs's
-\       lf-mk-let-fvars, whose elimMVar makes a body that is a goal ?b
-\       into ?n x, delayed-assigned ?b); the body given back
-\   lf-goal-let ( goal name type val nondep -- goal' )  refine's
-\       have/let name : type := val; ?_ (Init/Tactics.lean:942, 980,
-\       refine_lift): lf-goal-let-with whose body is goal', a new
-\       synthetic opaque goal of goal's type instantiated
-\       (lf-goal-target: getMainTarget) with goal's tag (refine's one new
-\       goal, tagUntaggedGoals)
+\       (checkNotAssigned first, before xt runs) a new local name : type
+\       := val, a have (its value hidden: Lean's nondep); xt ( goal --
+\       body ) makes the body in the context with it (current while xt
+\       runs); goal assigned have name : type := val; body
+\       (telescope.fs's lf-mk-let-fvars, whose elimMVar makes a body that
+\       is a goal ?b into ?n x, delayed-assigned ?b); the body given back
+\       (suffices', whose body is its e)
+\   lf-goal-have ( goal name type val -- goal' )  refine's
+\       have name : type := val; ?_ (Init/Tactics.lean:942, refine_lift):
+\       the same whose body is goal', a new synthetic opaque goal of
+\       goal's type instantiated (lf-goal-target: getMainTarget) with
+\       goal's tag (refine's one new goal, tagUntaggedGoals)
+\   lf-goal-let ( goal name type val -- goal' )  refine's
+\       let name : type := val; ?_ (Init/Tactics.lean:980): the same with
+\       a let local, whose value later steps see
 \   lf-goal-target ( goal -- type tag )  goal's type instantiated and tag
 \ Not supported yet (thrown unsupported: the runner's 93): a type that
 \ still holds an open metavariable
@@ -92,7 +95,7 @@ begin-structure /mat
   field: mat-type        \ its type, instantiated
   field: mat-val         \ its proof
   field: mat-n           \ the locals after mat-fvar
-  field: mat-nondep      \ lf-goal-let-with's: true for a have
+  field: mat-nondep      \ mat-let-with's: true for a have
   field: mat-xt          \ and its body's maker ( goal -- body )
 end-structure
 /mat context-slab: mat-frames
@@ -166,11 +169,15 @@ end-structure
 : mat-let-run ( -- body ) mat-let-local ['] mat-let-bind swap lf-with-view ;
 : mat-let ( goal name type val nondep xt -- body )
   mat-let-fill mat mat-goal @ lf-goal-not-assigned ['] mat-let-run lf-with-goal ;
-: lf-goal-let-with ( goal name type val nondep xt -- body )
+\ The have (nondep true) or let of xt's body.
+: mat-let-with ( goal name type val nondep xt -- body )
   mat-frames ['] mat-let lf-with-record ;
+: lf-goal-have-with ( goal name type val xt -- body ) true swap mat-let-with ;
 \ ?_ elaborated against the target instantiated (refine's getMainTarget);
 \ refine's one new goal takes the goal's tag (tagUntaggedGoals).
 : lf-goal-target ( goal -- type tag ) dup lf-goal-type lf-instantiate! swap lf-goal-tag ;
 : mat-hole ( goal -- goal' ) lf-goal-target lf-mctx-view lf-goal-new lf-must ;
-: lf-goal-let ( goal name type val nondep -- goal' ) ['] mat-hole lf-goal-let-with ;
+: mat-holed ( goal name type val nondep -- goal' ) ['] mat-hole mat-let-with ;
+: lf-goal-have ( goal name type val -- goal' ) true mat-holed ;
+: lf-goal-let ( goal name type val -- goal' ) false mat-holed ;
 base !   \ the BASE this file was loaded with

@@ -822,14 +822,24 @@ T{ 20 lfx lfx-writer jw-limit ! export-now -> outcome-full }T
 lfx-line-capacity lfx lfx-writer jw-limit !
 T{ 0 0 lf-tag-let lf-term-binary nip export-now -> true outcome-unsupported }T
 \ A let and a have (the tactics' let and have, plan row TB2): Lean's letE
-\ record with its nondep flag, after the record of its binder's lambda.
+\ record with its nondep flag and its binder's name, after the record of
+\ its binder's lambda: let k : Prop := Prop; Prop, k a name of its own.
+: a-lam ( -- lam )
+  0 lf-term-symbolic-sort drop dup lf-term-lam drop
+  dup 0 s" k" lf-name-str drop lf-binder-default lf-pres-binder! drop ;
 : a-let ( nondep -- flag outcome )
-  >r 0 lf-term-symbolic-sort drop dup 0 lf-term-bvar drop lf-term-lam drop r> lf-let-make
-  nip export-now ;
+  >r 0 lf-term-symbolic-sort drop a-lam r> lf-let-make nip export-now ;
 T{ s" theorem t Prop explicit: p p := p end t" run true a-let -> outcome-ok true outcome-ok }T
-T{ s\" ,\"letE\":{\"body\":" holds? s\" \"nondep\":true,\"type\":" holds? -> true true }T
+T{ s\" {\"in\":3,\"str\":{\"pre\":0,\"str\":\"k\"}}" holds? -> true }T
+\ The whole line pinned: Lean's own form of it (keys and order as in
+\ tests/core/check-declaration-cases/let-nondep.ndjson, line 8, made by
+\ Lean 4.35.0: {"ie":3,"letE":{"body":2,"name":2,"nondep":true,"type":0,
+\ "value":1}}), here value 4 (Prop), the lambda 6's type and body 5 and
+\ its name 3 (k).
+T{ s\" {\"ie\":7,\"letE\":{\"body\":5,\"name\":3,\"nondep\":true,\"type\":5,\"value\":4}}"
+   holds? -> true }T
 T{ s" theorem t Prop explicit: p p := p end t" run false a-let -> outcome-ok true outcome-ok }T
-T{ s\" \"nondep\":false,\"type\":" holds? -> true }T
+T{ s\" \"name\":3,\"nondep\":false,\"type\":5," holds? -> true }T
 \ A projection, a binder without a recorded name (made by hand) and the
 \ heights: an axiom named in a value counts 0, so does a constant whose
 \ record is gone (renamed by hand), a definition its own height.

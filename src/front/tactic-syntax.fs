@@ -197,9 +197,6 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 : lft-done ( i -- ) lft-to! lft-from! ;
 : lft-inner+ ( -- ) 1 lft-open lft-rec tac-inner +! ;
 : lft-tactic-new ( kind -- i ) lft-inner+ lft-new ;
-\ The step just made: a new step is the record's last until the next.
-: lft-last ( -- i ) lf-tactic-count 1- ;
-: lft-ended ( -- ) lft-last lft-done ;
 
 \ Names given to hypotheses: _, or a name that is no LeanForth word,
 \ which the block's text can use until the block ends (groups.fs).
@@ -227,8 +224,9 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 \       by-rfl's; tac-shape-term one, by-exact's), the last on top;
 \   tac-shape-term-names ( n k -- shape )  n values, then k names after
 \       the word on its line (Lean's binder names; tac-shape-name, 0 1,
-\       is by-intro:'s; _ an inaccessible one), each a hypothesis until
-\       the block ends, as by-intro:'s;
+\       is by-intro:'s, tac-shape-decl, 2 1, by-have:'s: T e by-have: h;
+\       _ an inaccessible one), each a hypothesis until the block ends,
+\       as by-intro:'s;
 \   tac-shape-term-this ( n -- shape )  n values, and the hypothesis
 \       this (Lean's name when none is given: have := e);
 \   tac-shape-rules  by-x[ ... ]: no value; the word opens a bracket whose
@@ -244,12 +242,13 @@ end-structure
 : lft-shape ( n k xt -- shape )
   align here /lft-shape allot tuck shape-build ! tuck shape-names ! tuck shape-want ! ;
 : lft-shape@ ( i -- shape ) lft-rec tac-shape @ ;
-: lft-values ( v1 .. vn i shape -- ) shape-want @ lft-terms ;
-: lft-build-terms ( v1 .. vn i shape -- ) lft-values lft-ended ;
+\ The values made step i's arguments, i and its shape kept.
+: lft-values ( v1 .. vn i shape -- i shape ) 2dup 2>r shape-want @ lft-terms 2r> ;
+: lft-build-terms ( v1 .. vn i shape -- ) lft-values drop lft-done ;
 : lft-build-names ( v1 .. vn i shape -- )
-  lft-values lft-last dup lft-shape@ shape-names @ lft-names-after lft-done ;
+  lft-values shape-names @ lft-names-after lft-done ;
 : lft-build-this ( v1 .. vn i shape -- )
-  lft-values lft-last s" this" lft-hypothesis lft-done ;
+  lft-values drop s" this" lft-hypothesis lft-done ;
 : lft-build-rules ( i shape -- ) drop lft-opened ;
 : tac-shape-terms ( n -- shape ) 0 ['] lft-build-terms lft-shape ;
 : tac-shape-term-names ( n k -- shape ) ['] lft-build-names lft-shape ;
@@ -257,6 +256,8 @@ end-structure
 0 tac-shape-terms constant tac-shape-plain
 1 tac-shape-terms constant tac-shape-term
 0 1 tac-shape-term-names constant tac-shape-name
+\ T e word: name, have's and let's.
+2 1 tac-shape-term-names constant tac-shape-decl
 0 0 ' lft-build-rules lft-shape constant tac-shape-rules
 \ Whether the open block is a word's rules.
 : lft-bracket? ( -- flag ) lft-open lft-shape@ tac-shape-rules = ;
@@ -285,8 +286,7 @@ end-structure
 \ Tactics. A word is read by its shape (lf-tactic: keeps a registered
 \ word's in its row): the values above the frame checked before the
 \ kind and shape are put on the stack, then the new step built.
-: lft-checked ( kind shape -- kind shape )
-  swap >r >r r@ shape-want @ lft-tactic r> r> swap ;
+: lft-checked ( kind shape -- kind shape ) 2>r 2r@ nip shape-want @ lft-tactic 2r> ;
 : lft-shaped ( kind shape -- i shape ) swap lft-tactic-new 2dup lft-rec tac-shape ! swap ;
 : lft-read-as ( v1 .. vn kind shape -- )
   lft-checked lft-shaped dup shape-build @ execute ;

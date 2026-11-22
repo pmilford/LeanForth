@@ -20,7 +20,7 @@ require ../tactic-api.fs
 require ../meta-tactic/assert.fs
 require ./have.fs
 
-2 1 tac-shape-term-names lf-tactic: by-replace: constant tac-k-replace
+tac-shape-decl lf-tactic: by-replace: constant tac-k-replace
 s" replace" tac-k-replace lf-tactic-lean!
 
 : trp-named ( view name -- fvar|0 )

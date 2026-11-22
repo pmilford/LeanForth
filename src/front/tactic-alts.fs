@@ -26,7 +26,8 @@
 \       fields, the binder's own, inaccessible, for the rest; one
 \       tactic-core.fs lf-tac-intro1 per field, each through
 \       meta-tactic/goal.fs's lf-goal-intro-n), the target cleared
-\       (tryClear: a refusal keeps the goal; fuel, room or a gap is thrown,
+\       (tryClear, meta-tactic/assert.fs's lf-goal-try-clear: a refusal
+\       keeps the goal; fuel, room or a gap is thrown,
 \       as Lean's <|> never catches a runtime exception), then j runs as a
 \       block (unsolved goals at its =>)
 \   lf-alts-missing ( i -- )  at block i's end (lf-tactic-end!'s xt): an
@@ -66,6 +67,7 @@ require ./tactic-run.fs
 require ./tactic-msg.fs
 require ./tactic-core.fs
 require ./meta-tactic/elim.fs
+require ./meta-tactic/assert.fs
 
 \ ---- The open blocks, in a tactic's saved state (tactic-run.fs's
 \ tac-state:; review C2 of 2026-11-18: a failed block left them open).
@@ -156,9 +158,7 @@ end-structure
 : tal-name-for ( kind -- name ) lf-binder-default = if tal-next-name else 0 then ;
 : tal-field ( f -- ) tal-kind dup tal-name-for swap tal-i lf-tac-intro1 ;
 : tal-intros ( -- ) tal-fields 0 ?do i tal-field loop ;
-: tal-cleared ( -- )
-  lf-tac-main tal tal-target @ lf-goal-clear dup outcome-invalid = if 2drop exit then
-  lf-tac-must lf-tac-only ;
+: tal-cleared ( -- ) lf-tac-main tal tal-target @ lf-goal-try-clear lf-tac-only ;
 : tal-case ( goal -- ) lf-tac-only tal-intros tal-cleared ;
 
 \ ---- evalAlts: with alternatives, the block's record; without, every

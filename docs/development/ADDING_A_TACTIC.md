@@ -50,14 +50,15 @@ s" assumption" tac-k-assumption lf-tactic-lean!
   by-rfl's), `tac-shape-term` (one term, by-exact's), `n tac-shape-terms`
   (n values), `n k tac-shape-term-names` (n values before the word, then
   k names after it on its line, each a hypothesis word until the block
-  ends; `tac-shape-name`, `0 1`, is by-intro:'s), `n tac-shape-term-this`
+  ends; `tac-shape-name`, `0 1`, is by-intro:'s, `tac-shape-decl`, `2 1`,
+  by-have:'s, by-let:'s, by-suffices:'s and by-replace:'s), `n tac-shape-term-this`
   (n values and the hypothesis `this`, Lean's name when none is given),
   `tac-shape-rules` (`by-x[ ... ]`: the values up to `]` are the rules,
   by-rw['s). The step's arguments are the values, then the names
   (`lf-tac-arg`; a name is 0 for `_`). Lean's `have k : T := e` is
   `T e by-have: k`:
   ```forth
-  2 1 tac-shape-term-names lf-tactic: by-have: constant tac-k-have
+  tac-shape-decl lf-tactic: by-have: constant tac-k-have
   ```
   Several names to the end of the line are not a shape: a one-line text
   writes the next step's values there (`by-intro: h h by-exact`).

@@ -7,7 +7,7 @@
 \   elabTermEnsuringType T (elabLetDeclAux, Elab/Binders.lean:745-800),
 \   then the main goal assigned have h : T := e; ?_ (a nondependent let,
 \   elabHaveDecl :942) and ?_ in its place (meta-tactic/assert.fs's
-\   lf-goal-let: refine's one new goal, with the main goal's tag).
+\   lf-goal-have: refine's one new goal, with the main goal's tag).
 \ - e by-have  Lean's have := e: the same with no type (Lean's hole, which
 \   e's type fills: e elaborated with no expected type, T its type) and
 \   the name this, a hypothesis later steps may name (the reader gives it).
@@ -40,9 +40,9 @@
 \ Term.elabType -> lf-tac-elab-type; elabTermEnsuringType ->
 \ lf-tac-elab-ensuring; Tactic.elabTerm -> lf-tac-elab-term; inferType ->
 \ lf-infer!; refine's new goals -> lf-open-mvar-free; withLetDecl and
-\ mkLetFVars -> lf-goal-let, lf-goal-let-with (meta-tactic/assert.fs);
-\ mkFreshExprSyntheticOpaqueMVar -> lf-goal-fresh, lf-goal-new; MVarId.assert
-\ -> lf-goal-assert; intro1P -> lf-goal-intro-n.
+\ mkLetFVars -> lf-goal-have, lf-goal-let, lf-goal-have-with
+\ (meta-tactic/assert.fs); mkFreshExprSyntheticOpaqueMVar -> lf-goal-fresh,
+\ lf-goal-new; MVarId.assert -> lf-goal-assert; intro1P -> lf-goal-intro-n.
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own (intro1P's name and free variable in the step
 \ record's cells, tactic-core.fs's tb).
@@ -50,13 +50,13 @@
 require ../tactic-api.fs
 require ../meta-tactic/assert.fs
 
-2 1 tac-shape-term-names lf-tactic: by-have: constant tac-k-have
+tac-shape-decl lf-tactic: by-have: constant tac-k-have
 s" have" tac-k-have lf-tactic-lean!
 1 tac-shape-term-this lf-tactic: by-have constant tac-k-have-this
 s" have" tac-k-have-this lf-tactic-lean!
-2 1 tac-shape-term-names lf-tactic: by-let: constant tac-k-let
+tac-shape-decl lf-tactic: by-let: constant tac-k-let
 s" let" tac-k-let lf-tactic-lean!
-2 1 tac-shape-term-names lf-tactic: by-suffices: constant tac-k-suffices
+tac-shape-decl lf-tactic: by-suffices: constant tac-k-suffices
 s" suffices" tac-k-suffices lf-tactic-lean!
 1 1 tac-shape-term-names lf-tactic: by-have-goal: constant tac-k-have-goal
 s" have" tac-k-have-goal lf-tactic-lean!
@@ -75,19 +75,19 @@ s" have" tac-k-have-goal lf-tactic-lean!
 : thv-ensuring ( node T -- e ) lf-tac-elab-ensuring thv-closed ;
 : thv-value ( i T -- e ) swap 1 lf-tac-arg swap thv-ensuring ;
 : thv-decl ( i goal -- goal name T e ) 2 thv-named dup thv-type tuck thv-value ;
-: thv-have ( i goal -- goal' ) thv-decl true lf-goal-let ;
+: thv-have ( i goal -- goal' ) thv-decl lf-goal-have ;
 : thv-run ( i -- ) dup ['] thv-have lf-lift-meta-tactic1 ;
 ' thv-run tac-k-have lf-tactic-action!
 
 \ ---- have := e: no type; the name this.
 : thv-untyped ( i -- e ) 0 lf-tac-elab-arg thv-closed ;
 : thv-this ( i goal -- goal' )
-  1 thv-named thv-untyped dup lf-infer! swap true lf-goal-let ;
+  1 thv-named thv-untyped dup lf-infer! swap lf-goal-have ;
 : thv-this-run ( i -- ) dup ['] thv-this lf-lift-meta-tactic1 ;
 ' thv-this-run tac-k-have-this lf-tactic-action!
 
 \ ---- let.
-: tlt-let ( i goal -- goal' ) thv-decl false lf-goal-let ;
+: tlt-let ( i goal -- goal' ) thv-decl lf-goal-let ;
 : tlt-run ( i -- ) dup ['] tlt-let lf-lift-meta-tactic1 ;
 ' tlt-run tac-k-let lf-tactic-action!
 
@@ -96,7 +96,7 @@ s" have" tac-k-have-goal lf-tactic-lean!
   over thv-type 2dup swap lf-goal-fresh 2>r 2 thv-named drop 2r> ;
 : tsf-body ( goal -- e ) lf-goal-target drop lf-tac-step 1 lf-tac-arg swap thv-ensuring ;
 : tsf-suffices ( i goal -- goal' )
-  tsf-decl dup >r true ['] tsf-body lf-goal-let-with drop r> ;
+  tsf-decl dup >r ['] tsf-body lf-goal-have-with drop r> ;
 : tsf-run ( i -- ) dup ['] tsf-suffices lf-lift-meta-tactic1 ;
 ' tsf-run tac-k-suffices lf-tactic-action!
 
