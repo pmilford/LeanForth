@@ -18,6 +18,9 @@
 \         ' run-word tac-k-assumption lf-tactic-action!
 \       A tactic that Lean writes as another one run first (replace runs
 \       have) runs that row on its own step: lf-tac-eval ( i kind -- ).
+\   lf-tactic-sign: ( shape "spelling" -- kind )  the same for a tactic
+\       Lean writes as a sign, any spelling not reserved yet (plan row
+\       TB2, blocks slice 1: { of tactics/blocks.fs)
 \   lf-tactic-seq: ( kind1 .. kindn n shape "spelling" -- kind )  a
 \       tactic Lean writes as a macro of other tactics run one after the
 \       other (t1; t2): a new tactic word as lf-tactic: makes it, whose run
@@ -87,10 +90,11 @@ require ./tactic-alts.fs
 \ A tactic word is spelt by- and at least one more character.
 : tap-by? ( c-addr u -- flag )
   dup 3 > if drop 3 s" by-" compare 0= else 2drop false then ;
-: tap-row ( in c-addr u -- in kind )
-  2dup tap-by? 0= abort" lf-tactic: a tactic word is spelt by-..."
+: tap-new-row ( in c-addr u -- in kind )
   2dup lf-pf-reserved? abort" lf-tactic: a word reserved already"
   2dup lf-pf-reserve-more tap-kind ;
+: tap-row ( in c-addr u -- in kind )
+  2dup tap-by? 0= abort" lf-tactic: a tactic word is spelt by-..." tap-new-row ;
 \ Every registered word's natural meaning: the row whose spelling is the
 \ token run (the words are few and a row's spelling is unique, lf-tactic:).
 : tap-spelled? ( c-addr u kind -- flag ) lf-tac-word compare 0= ;
@@ -100,9 +104,12 @@ require ./tactic-alts.fs
   lf-tactic-kinds# 1+ tac-k-sorry 1+ ?do 2dup i tap-row? if 2drop i unloop exit then loop
   2drop lfa-e-tactic lfa-fail 0 ;
 : tap-read ( -- ) lfa-token tap-kind-of dup lf-tactic-shape@ lft-read-as ;
-: lf-tactic: ( shape "spelling" -- kind )
-  >in @ parse-name tap-row rot over lf-tactic-shape! >r
-  tap-again ['] lfa-w-tactic lfa-word >in ! ['] tap-read lfa-natural! r> ;
+: tap-register ( shape in kind -- kind )
+  rot over lf-tactic-shape! >r tap-again ['] lfa-w-tactic lfa-word >in !
+  ['] tap-read lfa-natural! r> ;
+: lf-tactic: ( shape "spelling" -- kind ) >in @ parse-name tap-row tap-register ;
+\ A tactic written as a sign, not a by- word: { (blocks slice 1).
+: lf-tactic-sign: ( shape "spelling" -- kind ) >in @ parse-name tap-new-row tap-register ;
 
 \ ---- Macros: rows run in order on one step. The kinds are kept in the
 \ dictionary as the stack gives them, n then kindn first (tap-seq# and

@@ -283,6 +283,7 @@ begin-structure /lft-shape
   field: shape-build     \ ( v1 .. vn i shape -- )
   field: shape-at        \ true: a trailing at[ may follow (tac-shape-at)
   field: shape-some      \ true: a list of one item at least (tac-shape-list+)
+  field: shape-block     \ a block's flags (tac-shape-block, below), else 0
 end-structure
 : lft-shape ( n k xt -- shape )
   align here /lft-shape allot dup /lft-shape erase
@@ -438,8 +439,8 @@ end-structure
 \ second place (pinned Lean's parser reports just past =>).
 : lft-held ( addr -- addr )
   dup tac-inner @ 0> if exit then dup tac-arrow @ lfa-e-tac-empty lfa-fail-see ;
-: lft-names-end ( pos -- )
-  lft-open lft-rec lft-held tac-entries @ lfa-entries-cut lft-close ;
+: lft-cut-names ( addr -- ) tac-entries @ lfa-entries-cut ;
+: lft-names-end ( pos -- ) lft-open lft-rec lft-held lft-cut-names lft-close ;
 \ An alternative ends with its last tactic, at the next | or by-end.
 : lft-alt-end ( -- ) lft-kind tac-k-alt = if lft-read-from lft-names-end then ;
 : lft-in-with ( -- ) lft-kind tac-k-with = lfa-e-tac-closer lfa-must ;
@@ -451,9 +452,50 @@ end-structure
 : lft-next-word ( -- c-addr ) c" by-next" ;
 : lft-word! ( i c-addr -- i ) over lft-rec tac-word ! ;
 : lft-w-next ( -- ) lft-case-new lft-next-word lft-word! lft-headed ;
+
+\ Blocks a word opens (plan row TB2, blocks slice 1; docs/design/
+\ TACTIC_BLOCKS.md 2): tac-shape-block ( n k flags -- shape ), n values
+\ and k names as tac-shape-term-names takes them, then the steps after
+\ it are its block, up to by-end or, with tac-block-self, its own }
+\ ({ ... }, Lean's tacticSeqBracketed). With tac-block-cuts the names
+\ given inside it go at its end (Lean's done and nested blocks: { },
+\ by-have-by:, whose own name stays after it), else they stay to the
+\ end of the block around it (by-focus). An empty one is 85 at by-end
+\ (Lean's parser wants a tactic after by and focus); { } is read, as
+\ Lean's parser reads it, and its run is Lean's unsolved goals (89) or
+\ no goals (90). lft-block-shape? ( shape|0 -- flag ) and
+\ lft-self-closing? ( shape -- flag ) tell them (the runner's record
+\ check and errors).
+1 constant tac-block
+2 constant tac-block-cuts
+4 constant tac-block-self
+: lft-block-shape? ( shape|0 -- flag ) dup if shape-block @ 0<> then ;
+: lft-self-closing? ( shape -- flag ) shape-block @ tac-block-self and 0<> ;
+: lft-build-block ( v1 .. vn i shape -- )
+  lft-values shape-names @ lft-names-after lft-entries! lft-opened ;
+: tac-shape-block ( n k flags -- shape )
+  0 0 ['] lft-build-block lft-shape swap tac-block or over shape-block !
+  tuck shape-names ! tuck shape-want ! ;
+: lft-open-flags ( -- flags ) lft-open lft-shape@ dup if shape-block @ then ;
+\ } closes the innermost block, which must be a brace (else 83, the open
+\ block's place second); its place is the brace's tac-arrow (where its
+\ unsolved goals are told, as Lean's withRef stx[2]), and its names go.
+: lft-closer-at ( -- ) lft-open-at lfa-e-tac-closer lfa-fail-see ;
+: lft-in-brace ( -- ) lft-open-flags tac-block-self and 0= if lft-closer-at then ;
+: lft-brace-close ( -- )
+  lft-open lft-arrow! drop lft-past lft-open lft-rec lft-cut-names lft-close ;
+: lft-w-brace-end ( -- ) lft-ready 0 lft-takes lft-in-brace lft-brace-close lft-from! ;
+\ by-end at a block a word opened: 83 at none (the proof's by) and at a
+\ brace (its { second); else the block's end, its names cut when its
+\ shape says so.
+: lft-kept-end ( pos -- ) lft-open lft-rec lft-held drop lft-close ;
+: lft-not-brace ( flags -- flags ) dup tac-block-self and if lft-closer-at then ;
+: lft-word-end ( -- )
+  lft-open-flags dup 0<> lfa-e-tac-closer lfa-must lft-not-brace
+  lft-past swap tac-block-cuts and if lft-names-end else lft-kept-end then ;
 : lft-block-end ( kind -- )
   case tac-k-with of lft-past lft-close endof tac-k-case of lft-past lft-names-end endof
-    lfa-e-tac-closer lfa-fail endcase ;
+    lft-word-end endcase ;
 : lft-w-by-end ( -- ) lft-ready 0 lft-takes lft-alt-end lft-kind lft-block-end lft-from! ;
 : lft-w-arrow ( -- ) lft-in-proof lfa-e-tac-header lfa-fail ;
 
@@ -558,6 +600,7 @@ defer lf-tactic-proof-end ( -- )
 ' lft-w-bar lfa-natural! |
 ' lft-w-arrow lfa-natural! =>
 ' lft-w-by-end lfa-natural! by-end
+' lft-w-brace-end lfa-natural! }
 ' lft-w-rw lfa-natural! by-rw[
 ' lft-w-rewrite lfa-natural! by-rewrite[
 ' lft-w-bracket-end lfa-natural! ]

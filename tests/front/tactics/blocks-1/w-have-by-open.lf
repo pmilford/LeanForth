@@ -1,0 +1,18 @@
+\ A wrong twin (the design review's, finding 1): a have-by whose block
+\ leaves its goal open, Lean's unsolved goals (89) at by-have-by: (Lean's
+\ at by), always reported (plan row TB2, blocks slice 1;
+\ blocks-1-wrong.lean).
+\ Lean: theorem w_have_by_open (a b : Nat) (h : a = b) : b = a := by
+\         have k : b = a := by
+\           have x : a = b := h
+\         exact k
+theorem w_have_by_open
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a =
+:= by
+  b a = by-have-by: k
+    a b = ' h by-have: x
+  by-end
+  ' k by-exact
+end w_have_by_open

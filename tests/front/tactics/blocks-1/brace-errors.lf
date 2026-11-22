@@ -1,0 +1,12 @@
+\ A brace's reading error end to end (plan row TB2, blocks slice 1): } with
+\ no brace open is 83, LeanForth's own (Lean's parser: unexpected token).
+\ A text stops at its first error, so the other reading errors of braces
+\ (by-end in a brace, { open at end, { as a name, | in a brace, ...) are
+\ test.fs's, one text each.
+theorem e_brace_stray
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  ' h by-exact }
+end e_brace_stray

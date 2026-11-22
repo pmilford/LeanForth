@@ -78,10 +78,10 @@
 78	1	-	a reserved word: a syntax word cannot name a binder
 80	5	-	not supported yet: running this tactic
 81	1	-	a tactic word belongs in a tactic proof, after := by
-82	1	-	a block is still open: by-end closes by-induction-with and by-case:
-83	1	-	no block of this word's kind is open (| belongs right inside by-induction-with)
+82	1	-	a block is still open: by-end closes by-induction-with, by-case: and the by- blocks, } closes {
+83	1	-	no block of this word's kind is open (| belongs right inside by-induction-with, } closes {)
 84	1	-	a header is TAG NAMES... => on one line, after | or by-case:; names are no words
-85	1	-	an alternative or a by-case: block needs at least one tactic
+85	1	-	this block needs at least one tactic (an alternative, by-case: or a by- block)
 86	1	-	wrong number of values: by-exact and by-induction take one, the others none
 87	5	-	not supported yet: how many values a hypothesis takes is known when tactics run
 88	6	-	out of room: the tactic store is full
@@ -250,6 +250,7 @@ reserved at[ word
 reserved | word
 reserved => word
 reserved by-sorry word
+reserved } word
 reserved #check word
 reserved + word
 reserved - word
@@ -281,11 +282,14 @@ reserved by-absurd word
 reserved by-and-intros word
 reserved by-apply word
 reserved by-assumption word
+reserved { word
+reserved by-focus word
 reserved by-have: word
 reserved by-have word
 reserved by-let: word
 reserved by-suffices: word
 reserved by-have-goal: word
+reserved by-have-by: word
 reserved by-cases: word
 reserved by-intro[ word
 reserved by-contra-core word
@@ -331,38 +335,41 @@ kind 12 by-absurd 0 absurd run
 kind 13 by-and-intros 0 and_intros run
 kind 14 by-apply 0 apply run
 kind 15 by-assumption 0 assumption run
-kind 16 by-have: 0 have run
-kind 17 by-have 0 have run
-kind 18 by-let: 0 let run
-kind 19 by-suffices: 0 suffices run
-kind 20 by-have-goal: 0 have run
-kind 21 by-cases: 0 by_cases run
-kind 22 by-intro[ 0 intro run
-kind 23 by-contra-core 0 by_contra_core run
-kind 24 by-contra: 0 by_contra run
-kind 25 by-contra 0 by_contra run
-kind 26 by-change 0 change run
-kind 27 by-show 0 show run
-kind 28 by-clear 0 clear run
-kind 29 by-clear[ 0 clear run
-kind 30 by-constructor 0 constructor run
-kind 31 by-contradiction 0 contradiction run
-kind 32 by-decide 0 decide run
-kind 33 by-native-decide 0 native_decide run
-kind 34 by-delta 0 delta run
-kind 35 by-exacts[ 0 exacts run
-kind 36 by-exfalso 0 exfalso run
-kind 37 by-trivial 0 trivial run
-kind 38 by-exists[ 0 exists run
-kind 39 by-intros 0 intros run
-kind 40 by-left 0 left run
-kind 41 by-refine 0 refine run
-kind 42 by-rename-i[ 0 rename_i run
-kind 43 by-replace: 0 replace run
-kind 44 by-revert 0 revert run
-kind 45 by-revert[ 0 revert run
-kind 46 by-right 0 right run
-kind 47 by-rwa[ 0 rwa run
-kind 48 by-specialize 0 specialize run
-kind 49 by-swap 0 swap run
-kind 50 by-symm 0 symm run
+kind 16 { 0 braces run
+kind 17 by-focus 0 focus run
+kind 18 by-have: 0 have run
+kind 19 by-have 0 have run
+kind 20 by-let: 0 let run
+kind 21 by-suffices: 0 suffices run
+kind 22 by-have-goal: 0 have run
+kind 23 by-have-by: 0 have run
+kind 24 by-cases: 0 by_cases run
+kind 25 by-intro[ 0 intro run
+kind 26 by-contra-core 0 by_contra_core run
+kind 27 by-contra: 0 by_contra run
+kind 28 by-contra 0 by_contra run
+kind 29 by-change 0 change run
+kind 30 by-show 0 show run
+kind 31 by-clear 0 clear run
+kind 32 by-clear[ 0 clear run
+kind 33 by-constructor 0 constructor run
+kind 34 by-contradiction 0 contradiction run
+kind 35 by-decide 0 decide run
+kind 36 by-native-decide 0 native_decide run
+kind 37 by-delta 0 delta run
+kind 38 by-exacts[ 0 exacts run
+kind 39 by-exfalso 0 exfalso run
+kind 40 by-trivial 0 trivial run
+kind 41 by-exists[ 0 exists run
+kind 42 by-intros 0 intros run
+kind 43 by-left 0 left run
+kind 44 by-refine 0 refine run
+kind 45 by-rename-i[ 0 rename_i run
+kind 46 by-replace: 0 replace run
+kind 47 by-revert 0 revert run
+kind 48 by-revert[ 0 revert run
+kind 49 by-right 0 right run
+kind 50 by-rwa[ 0 rwa run
+kind 51 by-specialize 0 specialize run
+kind 52 by-swap 0 swap run
+kind 53 by-symm 0 symm run

@@ -104,7 +104,7 @@
   "words": 31
  },
  "src/author/words.fs": {
-  "globals": 64,
+  "globals": 65,
   "long lines": 1,
   "long words": 0,
   "rstack": 12,
@@ -979,7 +979,7 @@
   "globals": 4,
   "long lines": 0,
   "long words": 0,
-  "rstack": 9,
+  "rstack": 11,
   "shuffles": 3,
   "words": 28
  },

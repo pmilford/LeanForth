@@ -1,0 +1,12 @@
+\ A wrong twin: { } over a goal, Lean's unsolved goals (89; Lean's parser
+\ reads { }, as LeanForth does; plan row TB2, blocks slice 1;
+\ blocks-1-wrong.lean).
+\ Lean: theorem w_brace_empty (a b : Nat) (h : a = b) : a = b := by
+\         { }
+theorem w_brace_empty
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  { }
+end w_brace_empty

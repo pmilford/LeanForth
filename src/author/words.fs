@@ -208,6 +208,7 @@ lfa-natural-words + - * / % = ≠ < > ≤ <= ≥ >= ¬ ∧ /\ ∨ \/ ↔ <-> ∣
 ' lfa-w-tactic lfa-word-both by-intro:
 ' lfa-w-tactic lfa-word-both by-induction-with
 ' lfa-w-tactic lfa-word-both by-end
+' lfa-w-tactic lfa-word-both }
 ' lfa-w-tactic lfa-word-both by-rw[
 ' lfa-w-tactic lfa-word-both by-rewrite[
 ' lfa-w-tactic lfa-word-both ]

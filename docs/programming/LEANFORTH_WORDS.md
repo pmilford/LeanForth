@@ -446,10 +446,10 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 78 | invalid | a reserved word: a syntax word cannot name a binder |
 | 80 | unsupported | not supported yet: running this tactic |
 | 81 | invalid | a tactic word belongs in a tactic proof, after := by |
-| 82 | invalid | a block is still open: by-end closes by-induction-with and by-case: |
-| 83 | invalid | no block of this word's kind is open (\| belongs right inside by-induction-with) |
+| 82 | invalid | a block is still open: by-end closes by-induction-with, by-case: and the by- blocks, } closes { |
+| 83 | invalid | no block of this word's kind is open (\| belongs right inside by-induction-with, } closes {) |
 | 84 | invalid | a header is TAG NAMES... => on one line, after \| or by-case:; names are no words |
-| 85 | invalid | an alternative or a by-case: block needs at least one tactic |
+| 85 | invalid | this block needs at least one tactic (an alternative, by-case: or a by- block) |
 | 86 | invalid | wrong number of values: by-exact and by-induction take one, the others none |
 | 87 | unsupported | not supported yet: how many values a hypothesis takes is known when tactics run |
 | 88 | full | out of room: the tactic store is full |

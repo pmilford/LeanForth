@@ -53,17 +53,23 @@
 \       the detail (none: no detail), then its code with its position as
 \       the second one, else the outcome's code (elab-pending.fs's
 \       lf-elab-code: no room 60, fuel 138, a step not ported 139),
-\       stopping the step (elab-decl.fs's hook and #check use them too)
+\       stopping the step (elab-decl.fs's hook and #check use them too);
+\       Lean's logged class (tactic-run.fs's lf-tac-log-fail): final in a
+\       block that recovers, as Lean's errToSorry logs it
 \   lf-tac-try-lean ( xt -- flag )  try (observing?): xt ( -- ) from a
-\       saved state (lf-tac-try); true when it ran to its end; a Lean
-\       error (tactic-msg.fs's lf-tac-lean-error?) undone and forgotten,
-\       false; anything else (not supported, no room, no fuel, a fault)
-\       thrown on, never turned into success
+\       saved state (lf-tac-try) with recover false (withoutRecover, as
+\       Lean's try is first | xt | skip; tactic-run.fs's
+\       lf-tac-no-recover, plan row TB2 blocks slice 1); true when it ran
+\       to its end; a Lean error (tactic-run.fs's lf-tac-lean-error?)
+\       undone and forgotten, false; anything else (not supported, no
+\       room, no fuel, a malformed record, a fault) thrown on, never
+\       turned into success
 \   lf-tac-first-of ( xtn .. xt1 n -- )  first | t1 | .. | tn
 \       (BuiltinTactic.lean:631-641, evalFirst's loop), the first
 \       alternative on top, n >= 1 (else a fault, invalid), each xt ( -- )
 \       a tactic on the step running (lf-tac-step): xt1 .. xtn-1 tried in
-\       turn from a saved state (lf-tac-try-lean), the first that runs to
+\       turn from a saved state with recover false (lf-tac-try-lean,
+\       orElse's withoutRecover, Basic.lean:437), the first that runs to
 \       its end kept and the rest not run; a Lean error undone and
 \       forgotten; anything else thrown on at once; xtn, the deepest, when
 \       all before it failed, runs bare, so its error is the one reported,
@@ -286,7 +292,10 @@ end-structure
   dup 0< if drop else ['] lf-tac-indented. lf-tac-detail then ;
 : lf-tac-elab-detail ( -- )
   lf-elab-error-term lf-elab-rest nip if tcr-rest-detail else tcr-term-detail then ;
-: lf-tac-elab-fail ( outcome -- ) lf-tac-elab-detail lf-elab-code lfa-see! lf-tac-stop ;
+\ (Lean's logged class, tactic-run.fs's lf-tac-log-fail: final when the
+\ block recovers, Elab/Tactic/ElabTerm.lean:31-39's errToSorry.)
+: lf-tac-elab-fail ( outcome -- )
+  lf-tac-elab-detail lf-elab-code lfa-see! lf-tac-log-fail ;
 
 \ ---- withSynthesize: xt run under the pending list's window, the
 \ window's mode (no postponing) given back above the caller's cells.
@@ -295,9 +304,10 @@ end-structure
 : lf-tac-with-synth ( i*x xt -- j*x )
   ['] tcr-under lf-postpone-no lf-elab-with-synth tcr-synthesized ;
 
-\ ---- try.
+\ ---- try: first | xt | skip (Init/Tactics.lean:445), xt a non-last
+\ alternative, run withoutRecover (Basic.lean:436-437's orElse).
 : lf-tac-try-lean ( xt -- flag )
-  lf-tac-try ?dup 0= if true exit then lf-tac-forget-lean false ;
+  ['] lf-tac-try lf-tac-no-recover ?dup 0= if true exit then lf-tac-forget-lean false ;
 
 \ ---- first: the alternative on top tried first (lf-tac-try-lean); one
 \ that ends is kept and the rest dropped; the deepest, the last, runs bare,

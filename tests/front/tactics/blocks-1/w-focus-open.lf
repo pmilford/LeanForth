@@ -1,0 +1,15 @@
+\ A wrong twin: by-focus need not close its goal, so the goal it leaves
+\ comes back first and the proof's end is Lean's unsolved goals (89) at
+\ by, with both goals (plan row TB2, blocks slice 1; blocks-1-wrong.lean).
+\ Lean: theorem w_focus_open (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor
+\         focus
+\           have x : a = b := h
+theorem w_focus_open
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor
+  by-focus a b = ' h by-have: x by-end
+end w_focus_open

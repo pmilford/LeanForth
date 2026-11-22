@@ -37,16 +37,9 @@
 \   lf-tac-type-mismatch ( e type expected code -- )  an error at the
 \       step running whose detail is lf-has-type-but-expected.'s (exact's
 \       Type mismatch 96, setMotiveArg's 212)
-\   lf-tac-lean-error? ( code -- flag )  whether a THROW code is a Lean
-\       error that try and observing? catch: an authoring error whose code
-\       is Lean's own (author/errors.fs's lf-author-lean?, registered with
-\       lfa-lean; plan row TB2, blocks slice 1), or a library rejection;
-\       never unsupported, no room, no fuel, a malformed record (92) or
-\       another refusal of LeanForth's own, or a fault (Lean's try never
-\       catches a runtime exception, CoreM.lean:806-810, and a gap of
-\       LeanForth's stays one)
-\   lf-tac-forget-lean ( code -- )  a Lean error forgotten (the message
-\       dropped), any other code thrown on
+\ (lf-tac-lean-error? and lf-tac-forget-lean, the gate of try and
+\ observing?, are tactic-run.fs's since plan row TB2, blocks slice 1: its
+\ loop takes errors back by them.)
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own. Loads in decimal whatever BASE is, then
 \ restores it.
@@ -125,13 +118,4 @@ require ./meta-must.fs
 : tmg-lean-detail ( term code -- outcome )
   swap lf-tac-indented. swap lfa-e-synth-failed = if ['] tmg-diagnostics. ok-and then ;
 ' tmg-lean-detail is lf-tac-lean-detail
-
-\ ---- Lean's errors, as try and observing? catch them.
-: tmg-authored? ( -- flag ) lf-author-code lf-author-lean? ;
-: tmg-rejected? ( code -- flag )
-  dup lf-meta-thrown? if lf-meta-outcome outcome-rejected = else drop false then ;
-: lf-tac-lean-error? ( code -- flag )
-  dup lf-author-throw = if drop tmg-authored? else tmg-rejected? then ;
-: lf-tac-forget-lean ( code -- )
-  dup lf-tac-lean-error? 0= if throw then drop lf-tac-forget ;
 base !   \ the BASE this file was loaded with

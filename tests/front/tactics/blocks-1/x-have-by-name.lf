@@ -1,0 +1,13 @@
+\ Not supported yet: _ as have-by's name (Lean's inaccessible hypothesis;
+\ 99, as by-have:'s; plan row TB2, blocks slice 1).
+\ Lean: theorem x_have_by_name (a b : Nat) (h : a = b) : b = a := by
+\         have _ : b = a := by exact Eq.symm h
+\         assumption
+theorem x_have_by_name
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a =
+:= by
+  b a = by-have-by: _  ' Eq.symm ' h $ by-exact by-end
+  by-assumption
+end x_have_by_name

@@ -1,0 +1,111 @@
+\ Braces { tacs } (plan row TB2, blocks slice 1; Lean's bullet · tacs and
+\ its { tacs }, Elab/Tactic/BuiltinTactic.lean:167-185; blocks-1.lean):
+\ the first goal alone, its tactics, no goal left at }, then the others.
+
+\ Lean: theorem br_and (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor
+\         · exact h
+\         · exact k
+theorem br_and
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor
+  { ' h by-exact }
+  { ' k by-exact }
+end br_and
+
+\ Two deep, over several lines, the inner braces inside the outer one.
+\ Lean: theorem br_two (a b : Nat) (h : a = b) (k : b = a) :
+\           a = b ∧ (b = a ∧ a = b) := by
+\         constructor
+\         · exact h
+\         · constructor
+\           · exact k
+\           · exact h
+theorem br_two
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = a b = ∧ ∧
+:= by
+  by-constructor
+  { ' h by-exact }
+  { by-constructor
+    { ' k by-exact }
+    { ' h by-exact } }
+end br_two
+
+\ Three deep.
+\ Lean: theorem br_three (a b : Nat) (h : a = b) (k : b = a) :
+\           a = b ∧ (b = a ∧ (a = b ∧ b = a)) := by
+\         constructor
+\         · exact h
+\         · constructor
+\           · exact k
+\           · constructor
+\             · exact h
+\             · exact k
+theorem br_three
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = a b = b a = ∧ ∧ ∧
+:= by
+  by-constructor
+  { ' h by-exact }
+  { by-constructor
+    { ' k by-exact }
+    { by-constructor
+      { ' h by-exact }
+      { ' k by-exact } } }
+end br_three
+
+\ A name given inside a brace is its own: the same name again in the next.
+\ Lean: theorem br_names (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor
+\         · have x : a = b := h
+\           exact x
+\         · have x : b = a := k
+\           exact x
+theorem br_names
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor
+  { a b = ' h by-have: x  ' x by-exact }
+  { b a = ' k by-have: x  ' x by-exact }
+end br_names
+
+\ Inside an induction's alternatives and a case's block.
+\ Lean: theorem br_ind (n : Nat) : n + 0 = n ∧ 0 + 0 = 0 := by
+\         induction n with
+\         | zero => · constructor
+\                    · rfl
+\                    · rfl
+\         | succ m ih => · constructor
+\                         · rfl
+\                         · rfl
+theorem br_ind
+  Nat explicit: n
+  n 0 + n = 0 0 + 0 = ∧
+:= by
+  n by-induction-with
+  | zero => { by-constructor { by-rfl } { by-rfl } }
+  | succ m ih => { by-constructor { by-rfl } { by-rfl } }
+  by-end
+end br_ind
+
+\ Lean: theorem br_case (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor
+\         case right => · exact k
+\         case left => · exact h
+theorem br_case
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor
+  by-case: right => { ' k by-exact } by-end
+  by-case: left => { ' h by-exact } by-end
+end br_case

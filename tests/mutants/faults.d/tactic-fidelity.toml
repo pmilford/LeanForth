@@ -256,8 +256,8 @@ reason = "review tactic-fidelity L7 (its r3): withNatValue reads an argument ass
 [[fault]]
 id = "tf-elab-fail-no-see"
 file = "src/front/tactic-core.fs"
-old = ''': lf-tac-elab-fail ( outcome -- ) lf-tac-elab-detail lf-elab-code lfa-see! lf-tac-stop ;'''
-new = ''': lf-tac-elab-fail ( outcome -- ) lf-tac-elab-detail lf-elab-code drop lf-tac-stop ;'''
+old = '''  lf-tac-elab-detail lf-elab-code lfa-see! lf-tac-log-fail ;'''
+new = '''  lf-tac-elab-detail lf-elab-code drop lf-tac-log-fail ;'''
 test = "$GFORTH tests/front/elab.fs"
 reason = "review tactic-fidelity L7 (its r24): a tactic term's elaboration error loses its second position (the term's place)"
 

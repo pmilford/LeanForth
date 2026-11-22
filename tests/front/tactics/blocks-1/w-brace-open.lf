@@ -1,0 +1,15 @@
+\ A wrong twin: a brace that leaves its goal open, Lean's unsolved goals
+\ (89) at its } (plan row TB2, blocks slice 1; blocks-1-wrong.lean).
+\ Lean: theorem w_brace_open (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor
+\         · exact h
+\         · have x : b = a := k
+theorem w_brace_open
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor
+  { ' h by-exact }
+  { b a = ' k by-have: x }
+end w_brace_open

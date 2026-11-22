@@ -1,0 +1,58 @@
+\ by-focus tacs by-end (plan row TB2, blocks slice 1): Lean's focus tacs
+\ (blocks-1.lean): the main goal alone, the tactics, then the goals they
+\ leave before the others; no goal need be closed, names stay.
+
+\ Lean: theorem fo_and (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor
+\         focus
+\           exact h
+\         exact k
+theorem fo_and
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor
+  by-focus ' h by-exact by-end
+  ' k by-exact
+end fo_and
+
+\ A goal left open in by-focus comes back first, before the other goal;
+\ a name given inside stays.
+\ Lean: theorem fo_open (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor
+\         focus
+\           have x : a = b := h
+\         exact x
+\         exact k
+theorem fo_open
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor
+  by-focus a b = ' h by-have: x by-end
+  ' x by-exact
+  ' k by-exact
+end fo_open
+
+\ by-focus around a constructor: its two goals before the rest.
+\ Lean: theorem fo_split (a b : Nat) (h : a = b) (k : b = a) :
+\           (a = b ∧ b = a) ∧ a = b := by
+\         constructor
+\         focus
+\           constructor
+\         exact h
+\         exact k
+\         exact h
+theorem fo_split
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧ a b = ∧
+:= by
+  by-constructor
+  by-focus by-constructor by-end
+  ' h by-exact
+  ' k by-exact
+  ' h by-exact
+end fo_split

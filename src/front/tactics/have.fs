@@ -29,12 +29,23 @@
 \   goal of T tagged h; MVarId.assert h T p, then intro1P (h's binder
 \   name kept); the goals p, then the main one with h (replaceMainGoal
 \   [goal1, goal2]).
+\ - T by-have-by: h tacs by-end  Lean's have h : T := by tacs (plan row
+\   TB2, blocks slice 1; the macro refine_lift have h : T := by tacs; ?_,
+\   whose by block Term.runTactic runs, Elab/SyntheticMVars.lean:474-537):
+\   T as by-have:'s; p a new goal of T in the main goal's context,
+\   untagged (by's metavariable); the main goal assigned have h : T := p;
+\   ?_ and ?_ in its place; then the block's tactics run on p alone, in a
+\   fresh Tactic.run (recover true), and at by-end no goal may be left
+\   (89 at by-have-by:, Lean's at by, always reported: final), the goals
+\   after it the main one with h and the others. h is not in p's context
+\   (a name h inside the block is the one the context has, as Lean's);
+\   names given inside the block go at by-end, h stays.
 \ Errors are the elaborator's (130 type expected, 96 type mismatch, with
 \ Lean's text). Not supported yet: _ for the name (99; Lean's
 \ inaccessible hypothesis), a type or term that leaves a metavariable
 \ open (93: Lean's natural holes, which refine refuses, and Mathlib's
 \ type holes; a written _ is plan TB2 batch 3), a type or value binders
-\ (have h (x : A) : T := e), patterns and the := by block (plan F).
+\ (have h (x : A) : T := e) and patterns.
 \ Lean call list: withMainContext, getMainGoal, replaceMainGoal ->
 \ lf-lift-meta-tactic, lf-lift-meta-tactic1 (tactic-core.fs);
 \ Term.elabType -> lf-tac-elab-type; elabTermEnsuringType ->
@@ -60,6 +71,9 @@ tac-shape-decl lf-tactic: by-suffices: constant tac-k-suffices
 s" suffices" tac-k-suffices lf-tactic-lean!
 1 1 tac-shape-term-names lf-tactic: by-have-goal: constant tac-k-have-goal
 s" have" tac-k-have-goal lf-tactic-lean!
+1 1 tac-block-cuts tac-shape-block lf-tactic: by-have-by: constant tac-k-have-by
+s" have" tac-k-have-by lf-tactic-lean!
+lf-mode-nested tac-k-have-by lf-tactic-mode!
 
 \ ---- The declaration: its name (_ not supported yet), type and value.
 : thv-name ( i k -- name ) lf-tac-arg dup 0= if lfa-e-tac-form lf-tac-fail then ;
@@ -112,3 +126,17 @@ s" have" tac-k-have-goal lf-tactic-lean!
   1 thv-named over >r thg-type thg-assert r> thg-intro lf-goals2 ;
 : thg-run ( i -- ) dup ['] thg-tac lf-lift-meta-tactic ;
 ' thg-run tac-k-have-goal lf-tactic-action!
+
+\ ---- have h : T := by tacs: p, T's proof, a new goal in the main goal's
+\ context, untagged (the metavariable of Lean's by); the main goal
+\ assigned have h : T := p; ?_, ?_ in its place; then the block runs on
+\ p alone, the goals after it outside (Term.runTactic: the runner's mode
+\ lf-mode-nested).
+\ (p in the main goal's context, tb's, with no tag; lf-goal-have takes p,
+\ which the block needs after it.)
+: thb-proof ( T -- T p ) dup 0 tb tb-view @ lf-goal-new lf-must ;
+: thb-decl ( i goal -- goal name T p ) 1 thv-named thv-type thb-proof ;
+: thb-tac ( i goal -- p goals ) thb-decl dup >r lf-goal-have r> swap lf-goals1 ;
+: thb-run ( i -- )
+  dup dup ['] thb-tac lf-lift-meta-tactic lf-goals swap lf-tac-only lf-tac-block ;
+' thb-run tac-k-have-by lf-tactic-action!

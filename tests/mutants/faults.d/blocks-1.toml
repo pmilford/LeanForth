@@ -24,8 +24,8 @@ reason = "TB2 blocks 1: every invalid code Lean's (the bit set by default): tact
 
 [[fault]]
 id = "tb2b1-authored-by-outcome"
-file = "src/front/tactic-msg.fs"
-old = ''': tmg-authored? ( -- flag ) lf-author-code lf-author-lean? ;'''
-new = ''': tmg-authored? ( -- flag ) lf-author-code lf-author-outcome outcome-invalid = ;'''
+file = "src/front/tactic-run.fs"
+old = ''': lfr-lean-authored? ( -- flag ) lf-author-code lf-author-lean? lf-author-final? 0= and ;'''
+new = ''': lfr-lean-authored? ( -- flag ) lf-author-code lf-author-outcome outcome-invalid = ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "TB2 blocks 1: try's gate by outcome again (the hole on main): tactic-run.fs's own-try catches 92 (false) and own-first runs the second alternative"

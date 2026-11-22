@@ -131,7 +131,11 @@ end-structure
 : tal-name. ( a -- outcome ) s"  " lf-pp-emit tal-tag-at lf-tac-.name outcome-ok ;
 : tal-invalid. ( a -- outcome )
   tal-name. drop s" : " lf-pp-emit tal-expected. outcome-ok ;
-: tal-refused ( a xt code -- ) >r over swap lf-tac-inline tal-j r> lf-tac-stop-at ;
+\ Induction's checks are Lean's throwOrLogErrorAt (Induction.lean:293-312,
+\ 493, 505): logged when the block recovers (tactic-run.fs's
+\ lf-tac-logged), at step j's word.
+: tal-logged ( j code -- ) ['] lf-tac-stop-at lf-tac-logged ;
+: tal-refused ( a xt code -- ) >r over swap lf-tac-inline tal-j r> tal-logged ;
 : tal-twice ( -- )
   tal-js slab-count 0 ?do i tal-earlier? if
     i ['] tal-name. lfa-e-tac-alt-twice tal-refused then loop ;
@@ -190,7 +194,7 @@ end-structure
   tal-explicit# lf-pp-number s"  expected" lf-pp-emit outcome-ok ;
 : tal-names-fit ( -- )
   tal-explicit# tal-given# < if 0 ['] tal-too-many. lf-tac-inline
-    tal-i lfa-e-tac-alt-names lf-tac-stop-at then ;
+    tal-i lfa-e-tac-alt-names tal-logged then ;
 : tal-k! ( -- )
   tal-info@ tal-i tal-tag lf-elim-alt-find 0= if
     lfa-e-tac-record lf-tac-stop 0 then tal tal-k ! ;
@@ -205,7 +209,7 @@ end-structure
   s"  " lf-pp-emit lf-tac-.name s"  has not been provided" lf-pp-emit outcome-ok ;
 : tal-unused ( i info k -- i info )
   over swap lf-elim-alt-name dup tal-written? if drop exit then
-  ['] tal-missing. lf-tac-inline over lfa-e-tac-alt-missing lf-tac-stop-at ;
+  ['] tal-missing. lf-tac-inline over lfa-e-tac-alt-missing tal-logged ;
 : lf-alts-missing ( i -- )
   dup tal-alts-of tal-block tab-info @ dup lf-elim-alts# 0 ?do i tal-unused loop 2drop
   tal-blocks slab-drop ;

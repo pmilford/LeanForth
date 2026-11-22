@@ -6,7 +6,7 @@
 
 [[fault]]
 id = "constructor-gap-is-no"
-file = "src/front/tactic-msg.fs"
+file = "src/front/tactic-run.fs"
 old = '''  dup lf-meta-thrown? if lf-meta-outcome outcome-rejected = else drop false then ;'''
 new = '''  dup lf-meta-thrown? if drop true else drop false then ;'''
 test = "$GFORTH tests/front/tactics/constructor/test.fs"

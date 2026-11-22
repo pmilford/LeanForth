@@ -397,17 +397,17 @@ create lfa-catalogue
   lfa-e-reserved-name s" a reserved word: a syntax word cannot name a binder" lfa-invalid,
   lfa-e-tac-run s" not supported yet: running this tactic" lfa-unsupported,
   lfa-e-tac-outside s" a tactic word belongs in a tactic proof, after := by" lfa-invalid,
-  lfa-e-tac-open
-  s" a block is still open: by-end closes by-induction-with and by-case:"
-  lfa-invalid,
-  lfa-e-tac-closer
-  s" no block of this word's kind is open (| belongs right inside by-induction-with)"
-  lfa-invalid,
+  here lfa-e-tac-open
+  s" a block is still open: by-end closes by-induction-with, by-case: and the by- blocks"
+  lfa-invalid, s" , } closes {" lfa-more,
+  here lfa-e-tac-closer
+  s" no block of this word's kind is open (| belongs right inside by-induction-with,"
+  lfa-invalid, s"  } closes {)" lfa-more,
   lfa-e-tac-header
   s" a header is TAG NAMES... => on one line, after | or by-case:; names are no words"
   lfa-invalid,
-  lfa-e-tac-empty s" an alternative or a by-case: block needs at least one tactic"
-  lfa-invalid,
+  here lfa-e-tac-empty s" this block needs at least one tactic (an alternative, by-case:"
+  lfa-invalid, s"  or a by- block)" lfa-more,
   lfa-e-tac-values
   s" wrong number of values: by-exact and by-induction take one, the others none"
   lfa-invalid,
@@ -579,6 +579,7 @@ begin-structure /lfa-err
   field: lfa-err-length      \ characters of the token kept
   field: lfa-err-cut         \ true when the detail could not be kept whole
   field: lfa-err-inline      \ characters of the detail that end the message's line
+  field: lfa-err-final       \ true: no handler may take it back (lfa-final)
   lfa-token-keep +field lfa-err-token
 end-structure
 /lfa-err context-record: lfa-error
@@ -594,6 +595,12 @@ end-structure
 : lfa-record ( c-addr u pos code -- )
   lf-author-code if 2drop 2drop exit then
   lfa-error tuck lfa-err-code ! lfa-err-at ! lfa-keep-token ;
+\ The recorded error made final: a handler (a tactic's try, front/
+\ tactic-run.fs's loop) never takes it back, as Lean never takes back an
+\ error it logged (plan row TB2, blocks slice 1); nothing with none
+\ recorded. lf-author-final? tells; the reset clears it.
+: lfa-final ( -- ) lf-author-code if true lfa-error lfa-err-final ! then ;
+: lf-author-final? ( -- flag ) lfa-error lfa-err-final @ ;
 \ A second position for the message, and a number.
 : lfa-see! ( pos -- ) lfa-error lfa-err-see ! ;
 : lfa-number! ( n -- ) lfa-error lfa-err-number ! ;

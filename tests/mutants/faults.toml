@@ -14216,8 +14216,8 @@ quick = true
 [[fault]]
 id = "fe-tac-hypothesis-scope-leak"
 file = "src/front/tactic-syntax.fs"
-old = '''  lft-open lft-rec lft-held tac-entries @ lfa-entries-cut lft-close ;'''
-new = '''  lft-open lft-rec lft-held drop lft-close ;'''
+old = ''': lft-names-end ( pos -- ) lft-open lft-rec lft-held lft-cut-names lft-close ;'''
+new = ''': lft-names-end ( pos -- ) lft-open lft-rec lft-held drop lft-close ;'''
 test = "$GFORTH tests/front/tactic-syntax.fs"
 reason = "FE1g-2: an alternative's or case's hypotheses stay in scope after its block ends (ih after by-end: error 1 expected)"
 
@@ -18233,8 +18233,8 @@ reason = "review s1-elab re-check L2: 129 without Lean's indentExpr of the insta
 [[fault]]
 id = "fe-elab-129-tactic-no-detail"
 file = "src/front/tactic-core.fs"
-old = ''': lf-tac-elab-fail ( outcome -- ) lf-tac-elab-detail lf-elab-code lfa-see! lf-tac-stop ;'''
-new = ''': lf-tac-elab-fail ( outcome -- ) lf-elab-code lfa-see! lf-tac-stop ;'''
+old = '''  lf-tac-elab-detail lf-elab-code lfa-see! lf-tac-log-fail ;'''
+new = '''  lf-elab-code lfa-see! lf-tac-log-fail ;'''
 test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
 reason = "review s1-elab re-check L2: 129 in a tactic's term without Lean's indentExpr of the instance"
 
@@ -20276,7 +20276,7 @@ reason = "review s2-tactics M3: kabstract walks a let's parts in its own order, 
 
 [[fault]]
 id = "s2-rw-try-forgets-fuel"
-file = "src/front/tactic-msg.fs"
+file = "src/front/tactic-run.fs"
 old = '''  dup lf-tac-lean-error? 0= if throw then drop lf-tac-forget ;'''
 new = '''  drop lf-tac-forget ;'''
 test = "$GFORTH tests/front/s2-sweeps.fs"
@@ -20558,8 +20558,8 @@ reason = "S2 s2-steps: the step log holds a declaration the kernel rejected"
 [[fault]]
 id = "fe-steps-parent-lost"
 file = "src/front/tactic-run.fs"
-old = '''  trun trun-entry @ over tfr-log ! tuck tfr-rest ! over 1+ over tfr-next ! tfr-step ! ;'''
-new = '''  -1 over tfr-log ! tuck tfr-rest ! over 1+ over tfr-next ! tfr-step ! ;'''
+old = '''  trun trun-entry @ over tfr-log ! tuck tfr-rest ! over 1+ over tfr-next !'''
+new = '''  -1 over tfr-log ! tuck tfr-rest ! over 1+ over tfr-next !'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --steps-of tests/front/04-nested-ih.lf"
 reason = "S2 s2-steps: every step's parent is the proof (0), not the alternative or induction it ran in"
 

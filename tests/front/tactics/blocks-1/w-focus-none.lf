@@ -1,0 +1,14 @@
+\ A wrong twin: by-focus with no goal left, Lean's No goals to be solved
+\ (90; plan row TB2, blocks slice 1; blocks-1-wrong.lean).
+\ Lean: theorem w_focus_none (a b : Nat) (h : a = b) : a = b := by
+\         exact h
+\         focus
+\           exact h
+theorem w_focus_none
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  ' h by-exact
+  by-focus ' h by-exact by-end
+end w_focus_none

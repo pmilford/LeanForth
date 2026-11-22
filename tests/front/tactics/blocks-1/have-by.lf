@@ -1,0 +1,57 @@
+\ have with a by block (plan row TB2, blocks slice 1): T by-have-by: h
+\ tacs by-end is Lean's have h : T := by tacs (blocks-1.lean): T's proof
+\ by its own tactics, from the main goal's context; then h in the goal.
+
+\ Lean: theorem hb_symm (a b : Nat) (h : a = b) : b = a := by
+\         have k : b = a := by exact Eq.symm h
+\         exact k
+theorem hb_symm
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a =
+:= by
+  b a = by-have-by: k  ' Eq.symm ' h $ by-exact by-end
+  ' k by-exact
+end hb_symm
+
+\ Several tactics in the block, a brace inside it, the block's own names
+\ gone after by-end while k stays.
+\ Lean: theorem hb_inner (a b : Nat) (h : a = b) (k : b = a) : b = a ∧ a = b := by
+\         have j : a = b ∧ b = a := by
+\           constructor
+\           · have x : a = b := h
+\             exact x
+\           · exact k
+\         exact And.intro (And.right j) (And.left j)
+theorem hb_inner
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  b a = a b = ∧
+:= by
+  a b = b a = ∧ by-have-by: j
+    by-constructor
+    { a b = ' h by-have: x  ' x by-exact }
+    { ' k by-exact }
+  by-end
+  ' And.intro ' And.right ' j $ $ ' And.left ' j $ $ by-exact
+end hb_inner
+
+\ have-by inside a brace, and two in a row.
+\ Lean: theorem hb_twice (a b : Nat) (h : a = b) : a = b ∧ b = a := by
+\         constructor
+\         · have x : a = b := by exact h
+\           exact x
+\         · have y : b = a := by exact Eq.symm h
+\           have z : b = a := by exact y
+\           exact z
+theorem hb_twice
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b = b a = ∧
+:= by
+  by-constructor
+  { a b = by-have-by: x ' h by-exact by-end  ' x by-exact }
+  { b a = by-have-by: y ' Eq.symm ' h $ by-exact by-end
+    b a = by-have-by: z ' y by-exact by-end
+    ' z by-exact }
+end hb_twice

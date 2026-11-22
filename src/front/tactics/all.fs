@@ -6,6 +6,7 @@ require ./absurd.fs
 require ./and-intros.fs
 require ./apply.fs
 require ./assumption.fs
+require ./blocks.fs
 require ./by-cases.fs
 require ./by-contra.fs
 require ./case.fs
