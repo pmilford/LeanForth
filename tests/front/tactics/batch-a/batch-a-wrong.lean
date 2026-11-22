@@ -38,7 +38,7 @@ theorem w_sw (a b : Nat) (h : a ≤ b) : a ≤ b := by
   swap
 theorem w_sp (a b : Nat) (h : a ≤ b) : a ≤ b := by
   specialize Nat.le_refl a
-theorem w_sp_exact (a b : Nat) (h2 : b ≤ a) (h : a ≤ b) : a ≤ b := by
+theorem w_sp_exact (a b : Nat) (h : a ≤ b) (h2 : b ≤ a) : a ≤ b := by
   specialize h
   exact h2
 theorem w_rv (a b : Nat) (h : a ≤ b) : a ≤ b := by

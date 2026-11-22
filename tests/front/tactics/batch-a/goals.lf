@@ -54,9 +54,7 @@ end rv_dep
 \ reverted and introduced again, the old h cleared; assumption finds the
 \ new h. (h applied to a term needs a hypothesis of a function type: a
 \ statement cannot hold → yet, and ¬ p applied is the elaborator's 136,
-\ x-sp-not.lf; test.fs applies one. A statement's name after specialize
-\ still names the declaration's own hypothesis, which Lean would look up
-\ in the goal: assumption, not exact h, here.)
+\ x-sp-not.lf; test.fs applies one.)
 \ Lean: theorem sp_self (a b : Nat) (h : a ≤ b) (h2 : b ≤ a) : a ≤ b := by
 \         specialize h
 \         assumption
@@ -68,3 +66,48 @@ theorem sp_self
   ' h by-specialize
   by-assumption
 end sp_self
+
+\ After specialize h the name h means the new h, as Lean looks names up in
+\ the goal (elab-term.fs's et-var-named); the old h is cleared.
+\ Lean: theorem sp_exact (a b : Nat) (h : a ≤ b) (h2 : b ≤ a) : a ≤ b := by
+\         specialize h
+\         exact h
+theorem sp_exact
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h  b a ≤ explicit: h2
+  a b ≤
+:= by
+  ' h by-specialize
+  ' h by-exact
+end sp_exact
+
+\ A local after h, reverted and introduced again: h2 names the new h2.
+\ Lean: theorem sp_later (a b : Nat) (h : a ≤ b) (h2 : b ≤ a) : b ≤ a := by
+\         specialize h
+\         exact h2
+theorem sp_later
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h  b a ≤ explicit: h2
+  b a ≤
+:= by
+  ' h by-specialize
+  ' h2 by-exact
+end sp_later
+
+\ revert a takes h with it; intro a and intro h give them back under their
+\ names, which later steps then mean (the newest local of each name).
+\ Lean: theorem rv_reuse (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         revert a
+\         intro a
+\         intro h
+\         exact h
+theorem rv_reuse
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  ' a by-revert
+  by-intro: a
+  by-intro: h
+  ' h by-exact
+end rv_reuse

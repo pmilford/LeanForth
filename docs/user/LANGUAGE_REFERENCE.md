@@ -1145,14 +1145,14 @@ on decide's slice of Init (`--env tests/front/decide-slice.ndjson
   `revert h`. A term that is no hypothesis: 389. One name a word.
 - `t by-specialize` replaces the hypothesis at the head of `t` by `t`
   itself: Lean's `specialize h x` turns `h : ∀ n, P n` into `h : P x`. In
-  LeanForth `' h by-specialize by-assumption` (`sp_self`); a term whose head
-  is no hypothesis (`' Nat.le_refl a $`) is 447. Today a hypothesis applied
-  to a term is out of reach of the text: a statement cannot hold `→` or
-  `∀` yet, and a hypothesis `¬ p` applied is the elaborator's 136
-  (`x-sp-not.lf`, not supported yet); after `by-specialize` (and
-  `by-revert`) a statement's own name still names the declaration's
-  hypothesis, where Lean would name the new one: use `by-assumption` or a
-  `by-intro:` name.
+  LeanForth `' h by-specialize ' h by-exact` (`sp_exact`); a term whose
+  head is no hypothesis (`' Nat.le_refl a $`) is 447. Today a hypothesis
+  applied to a term is out of reach of the text: a statement cannot hold
+  `→` or `∀` yet, and a hypothesis `¬ p` applied is the elaborator's 136
+  (`x-sp-not.lf`, not supported yet). As in Lean, a name means the newest
+  hypothesis of that name in the goal: after `by-specialize` the new `h`,
+  and every hypothesis after it, reverted and introduced again, under its
+  own name (`sp_later`).
 - `' f by-delta` unfolds the definition `f` everywhere in the goal: `' GE.ge
   by-delta` turns `a ≥ b` into `b ≤ a` (`de_ge`); Lean: `delta GE.ge`.
   Nothing to unfold: 448, "did not delta reduce [f]". A theorem's name is

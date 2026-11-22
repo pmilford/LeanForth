@@ -17,7 +17,8 @@ D = "tests/front/tactics/batch-a/"
 ENV = tactic_check.Env("tests/front/decide-slice.ndjson", "tests/front/decide-slice.elab.ndjson",
                        "decide-dump")
 FILES = [(D + "change.lf", ["ch_target", "ch_same", "sh_target", "sh_second"]),
-         (D + "goals.lf", ["sw_and", "rv_hyp", "rv_dep", "sp_self"]),
+         (D + "goals.lf", ["sw_and", "rv_hyp", "rv_dep", "sp_self", "sp_exact", "sp_later",
+                           "rv_reuse"]),
          (D + "close.lf", ["de_ge", "cn_false", "cn_not", "cn_ne", "tr_rfl", "tr_and", "tr_decide",
                            "tr_false", "tr_assumption", "ab_neg", "ab_pos"])]
 NOT_EQUAL = "is not definitionally equal to target\n  a ≥ b"

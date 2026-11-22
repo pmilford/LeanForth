@@ -59,6 +59,17 @@ theorem rv_dep (a b : Nat) (h : a ≤ b) : a ≤ b := by
 theorem sp_self (a b : Nat) (h : a ≤ b) (h2 : b ≤ a) : a ≤ b := by
   specialize h
   assumption
+theorem sp_exact (a b : Nat) (h : a ≤ b) (h2 : b ≤ a) : a ≤ b := by
+  specialize h
+  exact h
+theorem sp_later (a b : Nat) (h : a ≤ b) (h2 : b ≤ a) : b ≤ a := by
+  specialize h
+  exact h2
+theorem rv_reuse (a b : Nat) (h : a ≤ b) : a ≤ b := by
+  revert a
+  intro a
+  intro h
+  exact h
 -- delta, contradiction, trivial, absurd.
 theorem de_ge (a b : Nat) (h : b ≤ a) : a ≥ b := by
   delta GE.ge
@@ -100,6 +111,6 @@ def dump (n : Name) : MetaM Unit := do
 
 #eval do
   for n in [``ch_target, ``ch_same, ``sh_target, ``sh_second, ``sw_and, ``rv_hyp, ``rv_dep,
-      ``sp_self, ``de_ge, ``cn_false, ``cn_not, ``cn_ne, ``tr_rfl, ``tr_and, ``tr_decide,
+      ``sp_self, ``sp_exact, ``sp_later, ``rv_reuse, ``de_ge, ``cn_false, ``cn_not, ``cn_ne, ``tr_rfl, ``tr_and, ``tr_decide,
       ``tr_false, ``tr_assumption, ``ab_neg, ``ab_pos] do
     dump n
