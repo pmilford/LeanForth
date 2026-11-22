@@ -1889,3 +1889,19 @@ Spellings the owner accepted ("follow your spelling suggestions"; "bars ok"):
 Wording (owner, same day): describe a word by stack position, top and second, never "first" alone, and write a
 stack comment that shows what comes out, as `$ ( func value -- func(value) )`.
 
+
+### Lists sit between bracket words (2026-11-22)
+
+Owner, 2026-11-22, asked whether `at: h1 h2` needs the end of the line to stop, and how Forth-like `by-rwa[ ... ]`
+and the proposed name lists and `<< >>` are. Answer given: values before a word are postfix; a fixed number of names
+after a word is Forth's defining-word pattern (`by-have: h`); a list up to a closing word is Forth's parsing-word
+pattern (`by-rw[ ... ]`); a list to the end of the line was the odd one, built for `at:` in batch 3a by my mistake.
+Decision ("Fix at["): a list of variable length always sits between a bracket word and its closing word and never
+depends on the line. So `at[ h1 h2 ]` replaces `at: h1 h2`; my reading, from the same answer and the earlier
+recommendations the owner did not object to, and reported back to the owner: several names are `by-intro[ a b c ]`
+(`by-intro: h` stays for one name) and the anonymous constructor is `<< p q >>` beside Lean's `⟨ p q ⟩`, no comma.
+
+Also: partly complete tactics are tracked in [TACTIC_STATUS.md](../development/TACTIC_STATUS.md), updated in every
+tactic branch ("be sure to track those carefully"). Batteries and Mathlib tactics are ported from their source; nothing
+of them is loaded at run time.
+

@@ -171,6 +171,12 @@ status changes when this date is older than them. Stages are those of the
   check is owed.
 
 **Later**
+- Move the pins (owner, 2026-11-22; long term, not started): bring LeanForth's compatibility up to Lean 4.37 or the
+  version then current, with the matching Mathlib, and measure the port effort (kernel and import against the new
+  export format, the front end's ported functions, every tactic's twins); a tool that lists the tactic files whose
+  cited Lean, Batteries or Mathlib source changed between two pins comes first.
+- Run the twins of Batteries and Mathlib tactics inside the built Mathlib checkout, on the tactic itself, where
+  today they run on core Lean in an equivalent form (2026-11-22; not started).
 - Lean-beam for connecting AI tools to LeanForth (owner, 2026-11-21; long term, not started): investigate it, and
   whether LeanForth should aim to be compatible with its interface, so tools written for Lean work with LeanForth.
 - Automated proof generation (owner, 2026-11-21; long term, not started): review SMT solvers (external tools, whose
