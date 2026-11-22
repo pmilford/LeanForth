@@ -1,0 +1,12 @@
+\ A wrong twin (plan row TB2; batch-b-wrong.lean): suffices k : a ≤ b
+\ from h2, h2 : b ≤ a against the goal a ≤ b: Type mismatch, 96.
+\ Lean: theorem w_sf (a b : Nat) (h : a ≤ b) (h2 : b ≤ a) : a ≤ b := by
+\         suffices k : a ≤ b from h2
+theorem w_sf
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h  b a ≤ explicit: h2
+  a b ≤
+:= by
+  a b ≤ ' h2 by-suffices: k
+  ' h by-exact
+end w_sf

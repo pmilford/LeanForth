@@ -1,0 +1,80 @@
+\ by-let:, by-suffices: and by-replace: (plan row TB2, tactic batch 2;
+\ tests/front/tactics/batch-b/batch-b.lean).
+\ let x : Nat := a: let Nat a h, x unused.
+\ Lean: theorem lt_basic (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         let x : Nat := a
+\         exact h
+theorem lt_basic
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  Nat a by-let: x
+  ' h by-exact
+end lt_basic
+
+\ x names the let, which whnf unfolds: Nat.le_refl x closes a ≤ a.
+\ Lean: theorem lt_use (a : Nat) : a ≤ a := by
+\         let x : Nat := a
+\         exact Nat.le_refl x
+theorem lt_use
+  Nat explicit: a
+  a a ≤
+:= by
+  Nat a by-let: x
+  ' Nat.le_refl x $ by-exact
+end lt_use
+
+\ suffices k : b ≤ a from h: have k : b ≤ a := ?_; h, the goal b ≤ a.
+\ Lean: theorem sf_basic (a b : Nat) (h : a ≤ b) (h2 : b ≤ a) : a ≤ b := by
+\         suffices k : b ≤ a from h
+\         exact h2
+theorem sf_basic
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h  b a ≤ explicit: h2
+  a b ≤
+:= by
+  b a ≤ ' h by-suffices: k
+  ' h2 by-exact
+end sf_basic
+
+\ suffices h : b ≥ a from h: e's h is the new h (the newest local of the
+\ name), the goal b ≥ a, which the old h closes.
+\ Lean: theorem sf_shadow (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         suffices h : b ≥ a from h
+\         exact h
+theorem sf_shadow
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  b a ≥ ' h by-suffices: h
+  ' h by-exact
+end sf_shadow
+
+\ replace h : b ≥ a := h: the new h after h2, the old one cleared (its
+\ value does not count as a dependency).
+\ Lean: theorem rp_ge (a b : Nat) (h : a ≤ b) (h2 : b ≤ a) : b ≥ a := by
+\         replace h : b ≥ a := h
+\         exact h
+theorem rp_ge
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h  b a ≤ explicit: h2
+  b a ≥
+:= by
+  b a ≥ ' h by-replace: h
+  ' h by-exact
+end rp_ge
+
+\ replace with a name no hypothesis has: have alone.
+\ Lean: theorem rp_new (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         replace k : a ≤ b := h
+\         exact k
+theorem rp_new
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  a b ≤ ' h by-replace: k
+  ' k by-exact
+end rp_new

@@ -426,8 +426,8 @@ reason = "TB2: specialize takes a term whose head is no hypothesis (Lean: its er
 [[fault]]
 id = "tb2-specialize-type-is-term"
 file = "src/front/tactics/specialize.fs"
-old = '''  swap 0 lf-tac-arg -1 false lf-tac-elab-term tsp-fvar swap lf-open-mvar-free dup tsp-type'''
-new = '''  swap 0 lf-tac-arg -1 false lf-tac-elab-term tsp-fvar swap lf-open-mvar-free dup'''
+old = '''  swap 0 lf-tac-elab-arg tsp-fvar swap lf-open-mvar-free dup tsp-type'''
+new = '''  swap 0 lf-tac-elab-arg tsp-fvar swap lf-open-mvar-free dup'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-a/check.py"
 reason = "TB2: the new hypothesis's type is the term itself, not its type"
 

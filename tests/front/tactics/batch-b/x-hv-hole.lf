@@ -1,0 +1,13 @@
+\ Not supported yet (plan row TB2): have _ : a ≤ b := h, Lean's
+\ inaccessible hypothesis, is 99 (exit 2), never accepted.
+\ Lean: theorem x_hv_hole (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         have _ : a ≤ b := h
+\         exact h
+theorem x_hv_hole
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  a b ≤ ' h by-have: _
+  ' h by-exact
+end x_hv_hole

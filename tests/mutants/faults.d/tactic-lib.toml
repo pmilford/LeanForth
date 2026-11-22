@@ -138,8 +138,8 @@ reason = "a2-i: a telescope that fails leaves its frame, and the next telescope 
 [[fault]]
 id = "fe-run-no-abstract"
 file = "src/front/telescope.fs"
-old = '''  tlb tlb-xt ! tlb tlb-view ! over tlb tlb-xs ! dup >r lf-meta-abstract lf-must r>'''
-new = '''  tlb tlb-xt ! tlb tlb-view ! over tlb tlb-xs ! nip'''
+old = '''  tlb tlb-mode ! tlb tlb-view ! over tlb tlb-xs ! dup >r lf-meta-abstract lf-must r>'''
+new = '''  tlb tlb-mode ! tlb tlb-view ! over tlb tlb-xs ! nip'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "FE1g-3 (moved to the library's mkBinding, a2-i): mkLambdaFVars without the abstraction: the binders' free variables stay free in the value and the type"
 
@@ -229,8 +229,8 @@ reason = "a2-i review note 12: mkBinding keeps a binder type's head beta-redex (
 [[fault]]
 id = "lib-domain-unabstracted"
 file = "src/front/telescope.fs"
-old = '''  tlb tlb-xs @ rot lf-meta-abstract lf-must ;'''
-new = '''  nip ;'''
+old = '''  dup tl-x lf-fvar-type lf-instantiate! lf-meta-head-beta lf-must swap tl-abstract ;'''
+new = '''  tl-x lf-fvar-type lf-instantiate! lf-meta-head-beta lf-must ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "a2-i mkBinding: a binder's domain not abstracted over the variables before it (a dependent binder keeps a free variable)"
 
@@ -394,8 +394,8 @@ reason = "9.4.8l-I matchEq? (MatchUtil.lean:28) without matchHelper?'s whnf: an 
 [[fault]]
 id = "lib-local-decl-current"
 file = "src/front/telescope.fs"
-old = '''  lf-mctx-view swap lf-view-push lf-must r> swap ;'''
-new = '''  lf-mctx-view swap lf-view-push lf-must dup lf-mctx-view! r> swap ;'''
+old = '''  2>r dup 2r> lf-local-new lf-must lf-mctx-view swap lf-view-push lf-must ;'''
+new = '''  2>r dup 2r> lf-local-new lf-must lf-mctx-view swap lf-view-push lf-must dup lf-mctx-view! ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l-I lf-local-decl-new: the new view made current, so a caller's context changes behind it (withLocalDecl's scope then puts back the wrong one)"
 

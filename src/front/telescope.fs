@@ -34,10 +34,20 @@
 \       given to xt ( acc mvar kind -- acc' ) in order; a body that is no
 \       pi is put through whnf (the transparency in force) and walked on
 \       when that gives a pi, else returned as it was before whnf
+\   lf-let-decl-new ( type val name nondep -- fvar view' )  mkFreshFVarId
+\       and LocalContext.mkLetDecl: a new let variable of type and value
+\       val (with nondep a have, its value hidden: Lean's nondep := true),
+\       its local named name, explicit, pushed on the current view (view'
+\       not made current)
 \   lf-mk-lambda-fvars ( e fvars n -- e' ), lf-mk-forall-fvars  mkLambdaFVars
 \       and mkForallFVars (Basic.lean:1174-1180; MetavarContext.lean's
 \       mkBinding and elimMVar): fvars the address of n free variables,
 \       oldest first, each a local of the current view
+\   lf-mk-let-fvars ( e fvars n -- e' )  mkLetFVars (Basic.lean:1183,
+\       usedLetOnly and generalizeNondepLet false) as elabLetDeclAux
+\       (Elab/Binders.lean:832) calls it: the same, a
+\       let or have variable bound by let x : T := v (nondep kept), every
+\       one whether e uses it or not
 \ Binder kinds: lf-binder-kind-at reads declaration d's own kinds
 \ (meta-env.fs's lf-menv-kind@, the tier's or the text's binder tags)
 \ while k is one of its type's binders, else the node's record
@@ -53,8 +63,11 @@
 \ variables (intro's fun x => ?n x): a new metavariable ?n of type
 \ (xs : types) -> e's type in the context before them (synthetic opaque
 \ when e's is not assignable, else e's kind) and e := ?n xs, delayed
-\ when e is synthetic opaque, else assigned. Not ported: a let variable
-\ among the xs, a context where locals follow the xs or that holds only
+\ when e is synthetic opaque, else assigned; with a let variable among
+\ the xs (mkLetFVars only) ?n's type as mkAuxMVarType makes it for a
+\ synthetic opaque ?n (a let past the first variable, or another kind of
+\ ?n, unsupported). Not ported: a let variable among mkLambdaFVars' or
+\ mkForallFVars' xs, a context where locals follow the xs or that holds only
 \ some of them, and any other metavariable left in e (delayed-assigned,
 \ or inside e) whose context holds one of the xs: all unsupported
 \ (Lean's elimMVarDeps would revert it).
@@ -71,6 +84,7 @@ require ../lib/runs.fs
 require ../lib/slab.fs
 require ../lib/find.fs
 require ../core/terms.fs
+require ../core/let-terms.fs
 require ../core/local-context.fs
 require ../present/binder-table.fs
 require ./mvars.fs
@@ -95,9 +109,15 @@ require ./meta-must.fs
 
 \ ---- withLocalDecl.
 : tl-mark ( -- mark ) lf-term-base lf-term-count @ + ;   \ lf-lctx-drop's
+\ The local of fvar, named name, of kind flags, pushed on the current view.
+: tl-pushed ( fvar name flags -- fvar view' )
+  2>r dup 2r> lf-local-new lf-must lf-mctx-view swap lf-view-push lf-must ;
 : lf-local-decl-new ( type name bi -- fvar view' )
-  rot lf-lctx-local lf-must dup >r -rot lf-local-new lf-must
-  lf-mctx-view swap lf-view-push lf-must r> swap ;
+  rot lf-lctx-local lf-must -rot tl-pushed ;
+\ mkLetDecl: a let variable, or with nondep a have (its value hidden).
+: tl-let-fvar ( type val nondep -- fvar ) if lf-lctx-have else lf-lctx-let then lf-must ;
+: lf-let-decl-new ( type val name nondep -- fvar view' )
+  swap >r tl-let-fvar r> lf-binder-default tl-pushed ;
 : tl-opened ( i*x type name bi xt -- j*x ) >r lf-local-decl-new r> swap lf-with-view ;
 : lf-with-local-decl ( i*x type name bi xt -- j*x )
   tl-mark >r ['] tl-opened catch r> lf-lctx-drop throw ;
@@ -157,32 +177,59 @@ end-structure
 : tl-expected-at ( e -- n mvar-head? false ) ['] tl-expected lf-tr-default lf-meta-at ;
 : lf-expected-num-args ( e -- n mvar-head? ) ['] tl-expected-at lf-commit-when drop ;
 
-\ ---- mkBinding (mkLambdaFVars, mkForallFVars).
+\ ---- mkBinding (mkLambdaFVars, mkForallFVars, mkLetFVars).
 begin-structure /tlb
   field: tlb-xs          \ the variables' address
   field: tlb-view        \ the context their locals are read in
-  field: tlb-xt          \ lf-term-lam or lf-term-pi ( dom body -- t flag )
+  field: tlb-mode        \ the binding's mode (tl-mode, below)
 end-structure
 /tlb context-record: tlb
 : tl-cell ( addr i -- x ) cells + @ ;
 : tl-x ( i -- x ) tlb tlb-xs @ swap tl-cell ;
-: tl-plain ( x -- x )
-  dup dup lf-fvar-let? swap lf-fvar-nondep? or if outcome-unsupported lf-must then ;
 : tl-local-of ( fvar view -- local ) dup rot lf-view-find lf-found lf-view-local ;
 \ Binder i's domain: x_i's type instantiated, head-beta reduced and
-\ abstracted over x_0 .. x_i-1.
+\ abstracted over x_0 .. x_i-1 (tl-abstract).
+: tl-abstract ( t i -- t' ) tlb tlb-xs @ swap lf-meta-abstract lf-must ;
 : tl-domain ( i -- dom )
-  dup tl-x lf-fvar-type lf-instantiate! lf-meta-head-beta lf-must
-  tlb tlb-xs @ rot lf-meta-abstract lf-must ;
+  dup tl-x lf-fvar-type lf-instantiate! lf-meta-head-beta lf-must swap tl-abstract ;
 : tl-named ( t local -- t )
   over swap dup lf-local-name swap lf-local-binder lf-pres-binder! lf-must ;
-: tl-wrap ( body i -- t )
-  dup tl-x tl-plain tlb tlb-view @ tl-local-of >r tl-domain swap tlb tlb-xt @ execute
+\ x_i's binder over body (the mode's lambda or pi), named as its local.
+: tl-wrapped ( body i -- t )
+  dup tl-x tlb tlb-view @ tl-local-of >r tl-domain swap tlb tlb-mode @ @ execute
   lf-made! r> tl-named ;
+: tl-let ( body i -- t ) tlb tlb-mode @ cell+ @ execute ;
+: tl-wrap ( body i -- t ) dup tl-x lf-fvar-ldecl? if tl-let else tl-wrapped then ;
 : tl-binders ( e n -- e' ) begin dup while 1- tuck tl-wrap swap repeat drop ;
-: tl-bound ( e addr n view xt -- e' )   \ e instantiated, elimMVar's case done
-  tlb tlb-xt ! tlb tlb-view ! over tlb tlb-xs ! dup >r lf-meta-abstract lf-must r>
+: tl-bound ( e addr n view mode -- e' )   \ e instantiated, elimMVar's case done
+  tlb tlb-mode ! tlb tlb-view ! over tlb tlb-xs ! dup >r lf-meta-abstract lf-must r>
   tl-binders ;
+
+\ A let variable x_i (a let, or a have: Lean's ldecl, nondep or not),
+\ mkBinding's ldecl case with usedLetOnly false: let x : T := v; body, T
+\ as a binder's domain, v instantiated and abstracted over x_0 .. x_i-1,
+\ nondep kept (the let's binder named as x_i's local). In ?n's type
+\ (mkAuxMVarType) for a synthetic opaque ?n, a have is a pi as a variable
+\ is and a let is (x : T) -> let x : T := v; body (Lean's "gruesome
+\ details", MetavarContext.lean), for x_0 only, whose let needs no lift
+\ (else unsupported). mkLambdaFVars' and mkForallFVars' callers give none:
+\ unsupported, as for ?n of any other kind.
+: tl-unported ( body i -- t ) outcome-unsupported lf-must ;
+: tl-value ( i -- v ) dup tl-x lf-fvar-value lf-instantiate! swap tl-abstract ;
+: tl-let-of ( i lam -- let )
+  swap dup tl-x lf-fvar-nondep? swap tl-value -rot lf-let-make lf-made! ;
+: tl-let-bound ( body i -- t ) tuck tl-wrapped tl-let-of ;
+: tl-relam ( pi -- lam ) dup lf-term-first@ swap lf-term-second@ lf-term-lam lf-made! ;
+: tl-over ( pi t -- pi' ) swap lf-term-first@ swap lf-term-pi lf-made! ;
+: tl-pi-let ( body i -- t ) tuck tl-wrapped tuck tl-relam tl-let-of tl-over ;
+: tl-aux-let ( body i -- t )
+  dup tl-x lf-fvar-nondep? if tl-wrapped exit then dup if tl-unported then tl-pi-let ;
+\ Modes: a variable's binder ( dom body -- t flag ) and a let's ( body i -- t ).
+: tl-mode ( binder let -- mode ) align here 2 cells allot tuck cell+ ! tuck ! ;
+' lf-term-lam ' tl-unported tl-mode constant tl-lambdas
+' lf-term-pi ' tl-unported tl-mode constant tl-foralls
+' lf-term-lam ' tl-let-bound tl-mode constant tl-lets
+' lf-term-pi ' tl-aux-let tl-mode constant tl-auxes
 
 \ elimMVar's case: e an unassigned metavariable whose context holds some
 \ of the n variables, all at its end (else unsupported).
@@ -215,9 +262,10 @@ end-structure
 : tl-settle ( aux r -- r )
   tle tle-mvar @ lf-mvar-kind drop mv-opaque =
   if swap tl-delayed else nip tl-assigned then ;
-defer tl-bind-in ( e addr n view xt -- e' )
+defer tl-bind-in ( e addr n view mode -- e' )
+: tl-aux-mode ( -- mode ) tl-aux-kind mv-opaque = if tl-auxes else tl-foralls then ;
 : tl-aux-type ( mvar addr n -- type )
-  >r >r dup lf-goal-type swap lf-goal-view r> r> rot ['] lf-term-pi tl-bind-in ;
+  >r >r dup lf-goal-type swap lf-goal-view r> r> rot tl-aux-mode tl-bind-in ;
 : tl-revert ( mvar addr n -- r )
   2>r dup 2r@ tl-aux-type swap 2r> tle! tl-aux dup tl-applied tl-settle ;
 : tl-elim ( e addr n -- e' )
@@ -233,12 +281,14 @@ defer tl-bind-in ( e addr n view xt -- e' )
   dup lf-mvar? 0= if drop false exit then lf-mvar-view 0= if true exit then tle-sees? ;
 : tl-closed ( e -- e )
   dup 0 ['] tl-sees-xs? lf-term-holds-with? lf-must if outcome-unsupported lf-must then ;
-: tl-binding ( e addr n view xt -- e' )
+: tl-binding ( e addr n view mode -- e' )
   2>r 2>r lf-instantiate! 2r@ tl-elim tl-closed 2r> 2r> tl-bound ;
 ' tl-binding is tl-bind-in
-\ (Lean's mkLambdaFVars and mkForallFVars give e as it is for no variable.)
-: lf-mk-lambda-fvars ( e fvars n -- e' )
-  dup 0= if 2drop exit then lf-mctx-view ['] lf-term-lam tl-binding ;
-: lf-mk-forall-fvars ( e fvars n -- e' )
-  dup 0= if 2drop exit then lf-mctx-view ['] lf-term-pi tl-binding ;
+\ (Lean's mkLambdaFVars, mkForallFVars and mkLetFVars give e as it is
+\ for no variable.)
+: tl-made ( e fvars n mode -- e' )
+  over 0= if drop 2drop exit then lf-mctx-view swap tl-binding ;
+: lf-mk-lambda-fvars ( e fvars n -- e' ) tl-lambdas tl-made ;
+: lf-mk-forall-fvars ( e fvars n -- e' ) tl-foralls tl-made ;
+: lf-mk-let-fvars ( e fvars n -- e' ) tl-lets tl-made ;
 base !   \ the BASE this file was loaded with

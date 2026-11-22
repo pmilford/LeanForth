@@ -2,7 +2,7 @@
 \ (src/front/elab-decl.fs) builds them: for each, "NAME type SX" and
 \ "NAME value SX", SX the S-expression of tests/front/s1-now.lean's
 \ printer ((app F A), (lam T B), (pi T B), #i, Name.{levels}, Sort l, a
-\ literal's value), so tests/front/check_elab.py compares them with pinned
+\ literal's value; (let T V B) and (let-nd T V B), batch-b.lean's), so tests/front/check_elab.py compares them with pinned
 \ Lean's node for node. The library and its elaboration data are the S1
 \ slice's (run mode, as the command line binds them).
 \ Usage: gforth tests/front/elab-dump.fs -e 's" FILE.lf" elab-dump bye'
@@ -26,10 +26,16 @@ defer dump-data ( -- c-addr u )
 : .const ( t -- ) lf-term-first@ lf-cref-slot dup lf-cref-name@ drop .nm ." .{" .levels ." }" ;
 defer .t
 : .pair ( t c-addr u -- ) ." (" type space dup lf-term-first@ .t space lf-term-second@ .t ." )" ;
+\ A let, LET (v, fun x : T => b), as Lean's letE x T v b: (let T v b),
+\ (let-nd T v b) for a have (tests/front/tactics/batch-b/batch-b.lean).
+: .let ( t c-addr u -- )
+  ." (" type space dup lf-term-second@ dup lf-term-first@ .t space swap lf-term-first@ .t
+  space lf-term-second@ .t ." )" ;
 :noname ( t -- )
   dup lf-term-tag@ lf-tag-symbolic-sort = if ." Sort " lf-term-first@ .lv exit then
   dup lf-lit-leaf? if lf-lit-cell 0 .r exit then
   dup lf-term-tag@ case
+    lf-tag-let of s" let" .let endof  lf-tag-let-nondep of s" let-nd" .let endof
     lf-tag-app of s" app" .pair endof  lf-tag-lam of s" lam" .pair endof
     lf-tag-pi of s" pi" .pair endof  lf-tag-bvar of ." #" lf-term-first@ 0 .r endof
     lf-tag-constant of .const endof  >r drop ." ??" r> endcase ; is .t

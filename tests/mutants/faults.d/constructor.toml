@@ -55,8 +55,8 @@ reason = "a2-ii: a tactic file's word is not reserved (the printer would write a
 [[fault]]
 id = "registry-shape-takes-none"
 file = "src/front/tactic-syntax.fs"
-old = '''create tac-shape-term 1 , ' lft-term-done ,'''
-new = '''create tac-shape-term 0 , ' lft-term-done ,'''
+old = '''1 tac-shape-terms constant tac-shape-term'''
+new = '''0 tac-shape-terms constant tac-shape-term'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/apply/check.py"
 reason = "a2-ii: a term-shaped word checks for no value above the frame (by-apply's term counted as a value left over)"
 

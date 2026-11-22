@@ -682,9 +682,8 @@ lfr-states# 2* 0 xt-table: lfr-states
 \ telescope.fs): the binders' free variables (Lean's xs) are the current
 \ view's locals but its details (a let among them: 93), oldest first;
 \ the term instantiated, then closed over them.
-: lfr-let? ( fvar -- flag ) dup lf-fvar-let? swap lf-fvar-nondep? or ;
 : lfr-x+ ( local -- )
-  lf-local-fvar dup lfr-let? if drop lfa-e-tac-meta lfa-fail then
+  lf-local-fvar dup lf-fvar-ldecl? if drop lfa-e-tac-meta lfa-fail then
   trun-xs slab-push lfr-ok ;
 : lfr-binder+ ( view i -- ) lf-view-local dup lf-local-detail? if drop else lfr-x+ then ;
 : lfr-xs ( -- )

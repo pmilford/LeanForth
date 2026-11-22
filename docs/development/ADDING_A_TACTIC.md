@@ -43,9 +43,30 @@ s" assumption" tac-k-assumption lf-tactic-lean!
 
 - `lf-tactic:` ( shape "spelling" -- kind ) registers the word: a new kind
   and row, the spelling reserved for the printer and added to LF-WORDS,
-  its reader made for the shape (`tac-shape-plain`: no value;
-  `tac-shape-term`: one term). A spelling reserved already, or one not
+  its reader made for the shape. A spelling reserved already, or one not
   spelt `by-` and at least one more character, aborts the load.
+- Shapes are data (`src/front/tactic-syntax.fs`, plan row TB2), the same
+  ones the built-in words are read by: `tac-shape-plain` (no value,
+  by-rfl's), `tac-shape-term` (one term, by-exact's), `n tac-shape-terms`
+  (n values), `n k tac-shape-term-names` (n values before the word, then
+  k names after it on its line, each a hypothesis word until the block
+  ends; `tac-shape-name`, `0 1`, is by-intro:'s), `n tac-shape-term-this`
+  (n values and the hypothesis `this`, Lean's name when none is given),
+  `tac-shape-rules` (`by-x[ ... ]`: the values up to `]` are the rules,
+  by-rw['s). The step's arguments are the values, then the names
+  (`lf-tac-arg`; a name is 0 for `_`). Lean's `have k : T := e` is
+  `T e by-have: k`:
+  ```forth
+  2 1 tac-shape-term-names lf-tactic: by-have: constant tac-k-have
+  ```
+  Several names to the end of the line are not a shape: a one-line text
+  writes the next step's values there (`by-intro: h h by-exact`).
+- A tactic that Lean writes as another tactic run first runs that row on
+  its own step with `lf-tac-eval ( i kind -- )`: `tactics/replace.fs`
+  runs by-have:'s row, then clears the old hypothesis (Lean's
+  evalReplace). A word that would only run existing rows in order (a
+  pure macro) has no defining word yet: no tactic ported so far is one
+  in pinned Lean (`rwa` has its own elaborator in 4.35.0).
 - `lf-tactic-lean!` gives Lean's name for the step log; `lf-tactic-action!`
   the run word ( i -- ), step i of the record; `lf-tactic-plan!` a plan
   step to name while the word is not ported (error 80).

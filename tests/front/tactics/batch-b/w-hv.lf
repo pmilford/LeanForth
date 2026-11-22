@@ -1,0 +1,12 @@
+\ A wrong twin (plan row TB2; batch-b-wrong.lean): have k : b ≤ a := h
+\ with h : a ≤ b, the value against the type written: Type mismatch, 96.
+\ Lean: theorem w_hv (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         have k : b ≤ a := h
+theorem w_hv
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  b a ≤ ' h by-have: k
+  ' h by-exact
+end w_hv

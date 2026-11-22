@@ -52,7 +52,8 @@
 \ tac-first and tac-count, its arguments; tac-inner, the tactics right
 \ inside a block; tac-entries, the names in scope before a header's (an
 \ index of the reader's entry store, for this run only: no serialized
-\ form, FE1g-7, carries it).
+\ form, FE1g-7, carries it); tac-shape, the shape its word was read by
+\ (below; 0 for by, a header and by-induction-with).
 \ Argument fields: targ-x, the syntax node of a term (by-exact's,
 \ by-induction's, a rule) or the name ID of a hypothesis (0 for _), and
 \ targ-at, its position. Positions are author/source.fs's. The parent
@@ -105,6 +106,7 @@ begin-structure /tac
   field: tac-count
   field: tac-inner
   field: tac-entries
+  field: tac-shape        \ the shape it was read by (lft-read-as), else 0
 end-structure
 begin-structure /targ
   field: targ-x
@@ -187,7 +189,6 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 : lft-open-at ( -- pos ) lft-open lft-rec tac-at @ ;
 : lft-proof? ( -- flag ) lft-open 0< 0= lfa-inside? and ;
 : lf-tactic-proof? ( -- flag ) lft-proof? ;
-: lft-bracket? ( kind -- flag ) tac-k-rw tac-k-rewrite one-of2? ;
 \ Block i is open: the next step's text begins past the current token.
 : lft-opened ( i -- ) lft-open! lft-from! ;
 \ The open block ends at pos; the block around it is open again.
@@ -196,12 +197,75 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 : lft-done ( i -- ) lft-to! lft-from! ;
 : lft-inner+ ( -- ) 1 lft-open lft-rec tac-inner +! ;
 : lft-tactic-new ( kind -- i ) lft-inner+ lft-new ;
+\ The step just made: a new step is the record's last until the next.
+: lft-last ( -- i ) lf-tactic-count 1- ;
+: lft-ended ( -- ) lft-last lft-done ;
+
+\ Names given to hypotheses: _, or a name that is no LeanForth word,
+\ which the block's text can use until the block ends (groups.fs).
+: lft-hole? ( c-addr u -- flag ) s" _" lfa-token= ;
+\ The LeanForth words are the printer's reserved list (words.fs checks
+\ each against it), which needs no name lookup in the front end.
+: lft-no-word ( c-addr u -- c-addr u ) 2dup lf-pf-reserved? 0= lfa-e-tac-header lfa-must ;
+: lft-entry! ( c-addr u j -- )
+  >r lf-locals lfa-entry-new lfa-entry-hypothesis r> rot lfa-entry-set ;
+: lft-hypothesis ( i c-addr u -- i )
+  lfa-word-name 2dup targ# lft-entry! lfa-intern lfa-here lft-arg+ ;
+: lft-inaccessible ( i -- i ) 0 lfa-here lft-arg+ ;
+: lft-given ( i c-addr u -- i )
+  2dup lft-hole? if 2drop lft-inaccessible exit then lft-no-word lft-hypothesis ;
+\ k names after the word, each on its line (a missing one: error 2).
+: lft-names-after ( i k -- i ) 0 ?do lfa-name-token lft-given loop ;
+
+\ Shapes (tactic plug-in design 3.2; plan row TB2, tactic batch 2): how a
+\ tactic word is read, as data, by the built-in words and by those a
+\ tactic file registers (tactic-api.fs's lf-tactic:). A shape is a
+\ record: the values the word takes before it, the names it takes after
+\ it, and its builder ( v1 .. vn i shape -- ), which fills the new step
+\ i (the record's last, its kind and shape set, in the open block):
+\   tac-shape-terms ( n -- shape )  n values (tac-shape-plain none,
+\       by-rfl's; tac-shape-term one, by-exact's), the last on top;
+\   tac-shape-term-names ( n k -- shape )  n values, then k names after
+\       the word on its line (Lean's binder names; tac-shape-name, 0 1,
+\       is by-intro:'s; _ an inaccessible one), each a hypothesis until
+\       the block ends, as by-intro:'s;
+\   tac-shape-term-this ( n -- shape )  n values, and the hypothesis
+\       this (Lean's name when none is given: have := e);
+\   tac-shape-rules  by-x[ ... ]: no value; the word opens a bracket whose
+\       values up to ] are its rules, in order (by-rw['s).
+\ Arguments, in order: the values, then the names. Several names to the
+\ end of the line are not a shape yet: a one-line text writes the next
+\ tactic's values there (by-intro: h h by-exact).
+begin-structure /lft-shape
+  field: shape-want      \ the values before the word
+  field: shape-names     \ the names after it
+  field: shape-build     \ ( v1 .. vn i shape -- )
+end-structure
+: lft-shape ( n k xt -- shape )
+  align here /lft-shape allot tuck shape-build ! tuck shape-names ! tuck shape-want ! ;
+: lft-shape@ ( i -- shape ) lft-rec tac-shape @ ;
+: lft-values ( v1 .. vn i shape -- ) shape-want @ lft-terms ;
+: lft-build-terms ( v1 .. vn i shape -- ) lft-values lft-ended ;
+: lft-build-names ( v1 .. vn i shape -- )
+  lft-values lft-last dup lft-shape@ shape-names @ lft-names-after lft-done ;
+: lft-build-this ( v1 .. vn i shape -- )
+  lft-values lft-last s" this" lft-hypothesis lft-done ;
+: lft-build-rules ( i shape -- ) drop lft-opened ;
+: tac-shape-terms ( n -- shape ) 0 ['] lft-build-terms lft-shape ;
+: tac-shape-term-names ( n k -- shape ) ['] lft-build-names lft-shape ;
+: tac-shape-term-this ( n -- shape ) 0 ['] lft-build-this lft-shape ;
+0 tac-shape-terms constant tac-shape-plain
+1 tac-shape-terms constant tac-shape-term
+0 1 tac-shape-term-names constant tac-shape-name
+0 0 ' lft-build-rules lft-shape constant tac-shape-rules
+\ Whether the open block is a word's rules.
+: lft-bracket? ( -- flag ) lft-open lft-shape@ tac-shape-rules = ;
 
 \ Before a tactic word: in a tactic proof, outside by-rw[ ] (the error
 \ names the word, and by-rw[ as the second place), no binder open.
 : lft-in-proof ( -- ) lft-proof? lfa-e-tac-outside lfa-must ;
 : lft-unbracketed ( -- )
-  lft-kind lft-bracket? if lft-open-at lfa-e-tac-open lfa-fail-see then ;
+  lft-bracket? if lft-open-at lfa-e-tac-open lfa-fail-see then ;
 : lft-ready ( -- ) lft-in-proof lft-unbracketed lfa-same-binders ;
 \ Right inside by-induction-with comes an alternative; a tactic there is
 \ Lean's pre-tactic (induction t with tac | ...), not supported yet.
@@ -218,59 +282,29 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 : lft-takes ( want -- ) >r lfa-above r> lft-count false lft-hyp! ;
 : lft-tactic ( want -- ) lft-ready lft-not-pre lft-takes ;
 
-\ Tactics.
+\ Tactics. A word is read by its shape (lf-tactic: keeps a registered
+\ word's in its row): the values above the frame checked before the
+\ kind and shape are put on the stack, then the new step built.
+: lft-checked ( kind shape -- kind shape )
+  swap >r >r r@ shape-want @ lft-tactic r> r> swap ;
+: lft-shaped ( kind shape -- i shape ) swap lft-tactic-new 2dup lft-rec tac-shape ! swap ;
+: lft-read-as ( v1 .. vn kind shape -- )
+  lft-checked lft-shaped dup shape-build @ execute ;
+: lft-w-rfl ( -- ) tac-k-rfl tac-shape-plain lft-read-as ;
+: lft-w-sorry ( -- ) tac-k-sorry tac-shape-plain lft-read-as ;
+: lft-w-exact ( t -- ) tac-k-exact tac-shape-term lft-read-as ;
+: lft-w-induction ( t -- ) tac-k-induction tac-shape-term lft-read-as ;
+: lft-w-intro ( -- ) tac-k-intro tac-shape-name lft-read-as ;
+: lft-w-rw ( -- ) tac-k-rw tac-shape-rules lft-read-as ;
+: lft-w-rewrite ( -- ) tac-k-rewrite tac-shape-rules lft-read-as ;
 : lft-term-step ( t kind -- i ) lft-tactic-new tuck 1 lft-terms ;
-\ (A word checks the values above the frame before it puts anything on
-\ the stack, so the kind comes after lft-tactic.)
-: lft-plain ( kind -- ) lft-tactic-new lft-done ;
-: lft-w-rfl ( -- ) 0 lft-tactic tac-k-rfl lft-plain ;
-: lft-w-sorry ( -- ) 0 lft-tactic tac-k-sorry lft-plain ;
-: lft-w-exact ( t -- ) 1 lft-tactic tac-k-exact lft-term-step lft-done ;
-: lft-w-induction ( t -- ) 1 lft-tactic tac-k-induction lft-term-step lft-done ;
 : lft-w-with ( t -- ) 1 lft-tactic tac-k-with lft-term-step lft-opened ;
-: lft-bracket ( kind -- ) lft-tactic-new lft-opened ;
-: lft-w-rw ( -- ) 0 lft-tactic tac-k-rw lft-bracket ;
-: lft-w-rewrite ( -- ) 0 lft-tactic tac-k-rewrite lft-bracket ;
-\ ] : the rules are the values built since by-rw[ (or by-rewrite[).
+\ ] : the rules are the values built since the bracket's word (by-rw[).
 : lft-in-bracket ( -- )
-  lft-in-proof lft-kind lft-bracket? lfa-e-tac-closer lfa-must lfa-same-binders ;
+  lft-in-proof lft-bracket? lfa-e-tac-closer lfa-must lfa-same-binders ;
 : lft-rules ( v1 .. vn -- ) lfa-above lft-open swap lft-terms ;
 : lft-w-bracket-end ( v1 .. vn -- )
   lft-in-bracket lft-rules lft-past lft-close lft-from! ;
-
-\ Shapes (tactic plug-in design 3.2): how the word of a tactic that
-\ registers itself (tactic-api.fs's lf-tactic:) is read. A shape is a
-\ record: the values the word takes, then its builder ( v1 .. vn kind
-\ -- ), which records the step. tac-shape-plain takes none (by-rfl's
-\ shape), tac-shape-term one term (by-exact's). Shapes with headers,
-\ names, rules or blocks are core work of their own branch.
-begin-structure /lft-shape
-  field: shape-want
-  field: shape-build
-end-structure
-: lft-term-done ( t kind -- ) lft-term-step lft-done ;
-create tac-shape-plain 0 , ' lft-plain ,
-create tac-shape-term 1 , ' lft-term-done ,
-\ A registered word of kind and shape is read so: the values above the
-\ frame checked before the kind is put on the stack (as lft-w-exact does).
-: lft-read-as ( kind shape -- )
-  swap >r >r r@ shape-want @ lft-tactic r> r> swap shape-build @ execute ;
-
-\ Names given to hypotheses: _, or a name that is no LeanForth word,
-\ which the block's text can use until the block ends (groups.fs).
-: lft-hole? ( c-addr u -- flag ) s" _" lfa-token= ;
-\ The LeanForth words are the printer's reserved list (words.fs checks
-\ each against it), which needs no name lookup in the front end.
-: lft-no-word ( c-addr u -- c-addr u ) 2dup lf-pf-reserved? 0= lfa-e-tac-header lfa-must ;
-: lft-entry! ( c-addr u j -- )
-  >r lf-locals lfa-entry-new lfa-entry-hypothesis r> rot lfa-entry-set ;
-: lft-hypothesis ( i c-addr u -- i )
-  lfa-word-name 2dup targ# lft-entry! lfa-intern lfa-here lft-arg+ ;
-: lft-inaccessible ( i -- i ) 0 lfa-here lft-arg+ ;
-: lft-given ( i c-addr u -- i )
-  2dup lft-hole? if 2drop lft-inaccessible exit then lft-no-word lft-hypothesis ;
-: lft-w-intro ( -- )
-  0 lft-tactic tac-k-intro lft-tactic-new lfa-name-token lft-given lft-done ;
 
 \ Headers: TAG NAMES... => on the opener's line. A line that ends first
 \ stops the run at the last token read (=> is missing).
@@ -342,7 +376,7 @@ defer lf-tactic-proof-end ( -- )
 : lft-entry-of ( body kind -- entry|0 ) lfa-token-find 0= if 0 then ;
 : lft-newer ( body -- entry|0 )
   dup lfa-entry-hypothesis lft-entry-of swap lfa-entry-variable lft-entry-of over u< and ;
-: lft-bracketed? ( -- flag ) lft-proof? if lft-kind lft-bracket? else false then ;
+: lft-bracketed? ( -- flag ) lft-proof? dup if lft-bracket? and then ;
 : lft-may-take? ( -- flag ) lfa-above 0> lft-bracketed? 0= and ;
 : lft-doubt ( -- ) lft-may-take? lft-hyp? or lft-hyp! ;
 : lft-hyp-node ( j -- node )

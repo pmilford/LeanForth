@@ -1,0 +1,12 @@
+\ Not supported yet (plan row TB2): have := Nat.le_trans leaves its
+\ implicit arguments open (Lean's refine refuses natural holes, "don't
+\ know how to synthesize implicit argument"); LeanForth says not
+\ supported yet (exit 2), never accepted.
+theorem x_hv_mvar
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  ' Nat.le_trans by-have
+  ' h by-exact
+end x_hv_mvar

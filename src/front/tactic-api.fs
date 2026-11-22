@@ -8,12 +8,16 @@
 \       80, not supported yet), the spelling added to the printer's
 \       reserved words (present/print-forth.fs) and to LF-WORDS
 \       (author/words.fs: error 72 in the kernel form), its shape
-\       (tactic-syntax.fs's tac-shape-plain, tac-shape-term) kept in the
+\       (tactic-syntax.fs's tac-shape-plain, tac-shape-term,
+\       tac-shape-terms, tac-shape-term-names, tac-shape-term-this,
+\       tac-shape-rules) kept in the
 \       row, its natural meaning tap-read, which finds the row by the
 \       token's spelling and reads the shape. Usage:
 \         tac-shape-plain lf-tactic: by-assumption constant tac-k-assumption
 \         s" assumption" tac-k-assumption lf-tactic-lean!
 \         ' run-word tac-k-assumption lf-tactic-action!
+\       A tactic that Lean writes as another one run first (replace runs
+\       have) runs that row on its own step: lf-tac-eval ( i kind -- ).
 \ The rest of the interface is the words of the files below: the
 \ general library (lib/lib.fs, and lib/find.fs's find-index,
 \ find-last-index and count-index), the row

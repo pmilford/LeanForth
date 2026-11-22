@@ -81,6 +81,9 @@
 \       depends on 'x'"), each with the goal after a blank line; goal' a
 \       new goal of the same type and tag in the context without fvar,
 \       goal assigned it
+\   lf-view-scoped? ( e view -- flag )  whether every free variable of e
+\       is a local of the context view (checkAssignment's fvar test;
+\       have's terms, tactics/have.fs)
 \   lf-goal-checked-assign ( goal e -- )  MVarId.checkedAssign
 \       (ExprDefEq.lean:1341) as closeMainGoal calls it: a free variable
 \       of e outside goal's context, or an assignment refused, is error 98
@@ -336,9 +339,9 @@ end-structure
 : mtg-assign. ( goal e -- outcome ) 0 swap ['] mtg-occurs. swap lf-tac-framed-with. ;
 : mtg-unassignable ( goal e -- )
   2 ['] mtg-assign. lf-tac-detail-n lfa-e-tac-assign lf-tac-stop ;
+: lf-view-scoped? ( e view -- flag ) ['] mtg-outside? lf-term-holds-with? lf-must 0= ;
 : mtg-in-scope ( goal e -- goal e )
-  2dup swap lf-goal-view ['] mtg-outside? lf-term-holds-with? lf-must
-  if 2dup mtg-unassignable then ;
+  2dup swap lf-goal-view lf-view-scoped? 0= if 2dup mtg-unassignable then ;
 : mtg-assigned ( goal e -- )
   2dup lf-mvar-assign dup outcome-invalid = if drop mtg-unassignable exit then
   lf-must 2drop ;

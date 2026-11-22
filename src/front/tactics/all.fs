@@ -14,10 +14,12 @@ require ./decide.fs
 require ./delta.fs
 require ./exact.fs
 require ./exfalso.fs
+require ./have.fs
 require ./induction.fs
 require ./intro.fs
 require ./intros.fs
 require ./left.fs
+require ./replace.fs
 require ./revert.fs
 require ./rewrite.fs
 require ./rfl.fs

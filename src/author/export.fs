@@ -69,6 +69,7 @@ require ../lib/blocks.fs
 require ../lib/json-write.fs
 require ../lib/decimal.fs
 require ../core/terms.fs
+require ../core/let-terms.fs
 require ../core/levels.fs
 require ../core/names.fs
 require ../core/literals.fs
@@ -227,6 +228,18 @@ end-structure
   lfx-inner dup lf-pres-binder-name lfx-info s" binderInfo" lfx-text
   over lf-term-second@ s" body" lfx-ref s" name" lfx-member
   lf-term-first@ s" type" lfx-ref lfx-close ;
+\ A let, LET (v, fun x : T => b) (core/let-terms.fs): Lean's letE record,
+\ body, name, nondep, type and value, the name its binder's (the tactics'
+\ have and let, plan row TB2; the binder's own record is written too). A
+\ let whose second part is no lambda is malformed: no record holds it.
+: lfx-flag ( flag c-addr u -- ) lfx-key lfx-w jw-bool ;
+: lfx-let-record ( term -- )
+  s" letE" lfx-inner dup lf-let-body s" body" lfx-ref
+  dup lf-let-binder lf-pres-binder-name drop s" name" lfx-member
+  dup lf-let-nondep s" nondep" lfx-flag dup lf-let-type s" type" lfx-ref
+  lf-let-value s" value" lfx-ref lfx-close ;
+: lfx-let ( term -- )
+  dup lf-let-well? if lfx-let-record else drop outcome-unsupported lfx-refuse then ;
 : lfx-levels-of ( addr count -- )
   s" us" lfx-key lfx-w jw-open-array
   0 ?do dup i lf-cref-pair@ drop lfx-level-ref lfx-u loop drop lfx-w jw-close-array ;
@@ -241,7 +254,8 @@ end-structure
 \ Two CASEs, one arm per tag the words build.
 : lfx-other ( term tag -- )
   case lf-tag-constant of lfx-const endof lf-tag-lit of lfx-lit endof
-    lf-tag-projection of lfx-proj endof
+    lf-tag-projection of lfx-proj endof lf-tag-let of lfx-let endof
+    lf-tag-let-nondep of lfx-let endof
     >r drop outcome-unsupported lfx-refuse r> endcase ;
 : lfx-body ( term -- )
   dup lf-term-tag@ case

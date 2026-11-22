@@ -14248,7 +14248,7 @@ reason = "FE1g-2: a tactic right after by-induction-with (Lean's pre-tactic, wit
 [[fault]]
 id = "fe-tac-bracket-open"
 file = "src/front/tactic-syntax.fs"
-old = '''  lft-kind lft-bracket? if lft-open-at lfa-e-tac-open lfa-fail-see then ;'''
+old = '''  lft-bracket? if lft-open-at lfa-e-tac-open lfa-fail-see then ;'''
 new = '''  ;'''
 test = "$GFORTH tests/front/tactic-syntax.fs"
 reason = "FE1g-2: a tactic word inside by-rw[ ] is read as a step of the rewrite (error 82 expected)"
@@ -16172,8 +16172,7 @@ reason = "FE1g-4: a metavariable exact's term made and left unassigned is not re
 [[fault]]
 id = "fe-exact-scope-ignored"
 file = "src/front/meta-tactic/goal.fs"
-old = '''  2dup swap lf-goal-view ['] mtg-outside? lf-term-holds-with? lf-must
-  if 2dup mtg-unassignable then ;'''
+old = '''  2dup swap lf-goal-view lf-view-scoped? 0= if 2dup mtg-unassignable then ;'''
 new = '''  ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: exact assigns a term with a free variable outside the goal's context (Lean's checkAssignment refuses it)"

@@ -1,0 +1,90 @@
+\ by-have:, by-have and by-have-goal: (plan row TB2, tactic batch 2;
+\ tests/front/tactics/batch-b/batch-b.lean).
+\ have k : a ≤ b := h: let-nd (a ≤ b) h k, and k names the new local.
+\ Lean: theorem hv_named (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         have k : a ≤ b := h
+\         exact k
+theorem hv_named
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  a b ≤ ' h by-have: k
+  ' k by-exact
+end hv_named
+
+\ have := h: the name this.
+\ Lean: theorem hv_this (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         have := h
+\         exact this
+theorem hv_this
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  ' h by-have
+  ' this by-exact
+end hv_this
+
+\ The type written, not e's: b ≥ a for h : a ≤ b (definitionally equal),
+\ and the new local's type is b ≥ a.
+\ Lean: theorem hv_type (a b : Nat) (h : a ≤ b) : b ≥ a := by
+\         have k : b ≥ a := h
+\         exact k
+theorem hv_type
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  b a ≥
+:= by
+  b a ≥ ' h by-have: k
+  ' k by-exact
+end hv_type
+
+\ have in the first of two goals keeps its tag (left); right is untouched.
+\ Lean: theorem hv_case (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) :
+\           a ≤ b ∧ b ≤ a := by
+\         apply And.intro
+\         have k : a ≤ b := h1
+\         exact k
+\         exact h2
+theorem hv_case
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1  b a ≤ explicit: h2
+  a b ≤ b a ≤ ∧
+:= by
+  ' And.intro by-apply
+  a b ≤ ' h1 by-have: k
+  ' k by-exact
+  ' h2 by-exact
+end hv_case
+
+\ Mathlib's have k : a ≤ b: the goals k (tagged k), then the main one
+\ with k; (fun k => k) h, which instantiation reduces to h.
+\ Lean: theorem hg_goal (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         have_goal k : a ≤ b
+\         exact h
+\         exact k
+theorem hg_goal
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  a b ≤ by-have-goal: k
+  ' h by-exact
+  ' k by-exact
+end hg_goal
+
+\ The main goal closed with h, k left unused: (fun k => h) h2.
+\ Lean: theorem hg_unused (a b : Nat) (h : a ≤ b) (h2 : b ≤ a) : a ≤ b := by
+\         have_goal k : b ≤ a
+\         exact h2
+\         exact h
+theorem hg_unused
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h  b a ≤ explicit: h2
+  a b ≤
+:= by
+  b a ≤ by-have-goal: k
+  ' h2 by-exact
+  ' h by-exact
+end hg_unused

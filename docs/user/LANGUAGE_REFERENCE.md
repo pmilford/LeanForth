@@ -1178,6 +1178,43 @@ on decide's slice of Init (`--env tests/front/decide-slice.ndjson
   with `h : ¬ (a ≤ b)` the new goal is `a ≤ b` (`ab_neg`), with `h : a ≤ b`
   it is `¬ (a ≤ b)` (`ab_pos`). Lean, with Batteries: `absurd h`.
 
+**Tactic batch 2a: have and its family** (plan row TB2, 2026-11-21;
+`src/front/tactics/have.fs`, `replace.fs`; tested on the branch, compared
+with pinned Lean node for node by `tests/front/tactics/batch-b/check.py`,
+examples from `tests/front/tactics/batch-b/have.lf` and `let.lf`). Each
+word takes its values before it, as every LeanForth word, and the new
+hypothesis's name after it, on the same line; the name is then a
+hypothesis word for the rest of the block. A value can name the new
+hypothesis only when its name already means something (the value is read
+first). Mathematically each adds a fact to what is known: having proved
+k : a ≤ b, use k.
+
+- `T e by-have: NAME` (stack: second `T`, top `e`; nothing left) adds the
+  hypothesis NAME : T proved by e, e checked against T. With
+  `h : a ≤ b`: `b a ≥ ' h by-have: k ' k by-exact` proves `b ≥ a`
+  (`hv_type`, k of the type written); Lean: `have k : b ≥ a := h`, a
+  nondependent `let` in the proof term. e not of type T: 96; T no type
+  (`a ' h by-have: k`): 130; NAME `_`: 99 (not supported yet).
+- `e by-have` (top `e`) adds `this : T`, T the type of e: `' h by-have
+  ' this by-exact` (`hv_this`); Lean: `have := h`. An e that leaves a
+  metavariable open (`' Nat.le_trans by-have`): 93.
+- `T e by-let: NAME` (second `T`, top `e`) adds NAME : T := e, whose
+  value later steps may unfold: `Nat a by-let: x ' Nat.le_refl x $
+  by-exact` proves `a ≤ a` (`lt_use`); Lean: `let x : Nat := a`. e not of
+  type T: 96 with both sorts.
+- `T e by-suffices: NAME` (second `T`, top `e`) closes the goal with e,
+  using NAME : T, and leaves T to prove: with `h : a ≤ b` and `h2 : b ≤ a`,
+  `b a ≤ ' h by-suffices: k ' h2 by-exact` (`sf_basic`); Lean: `suffices
+  k : b ≤ a from h`. e not of the goal's type: 96.
+- `T by-have-goal: NAME` (top `T`) leaves two goals: first T, tagged
+  NAME, then the old goal with NAME : T: `a b ≤ by-have-goal: k ' h
+  by-exact ' k by-exact` (`hg_goal`); Mathlib: `have k : a ≤ b` (no
+  value).
+- `T e by-replace: NAME` (second `T`, top `e`) is `by-have:`, then the old
+  hypothesis NAME is removed when nothing else needs it: `b a ≥ ' h
+  by-replace: h ' h by-exact` (`rp_ge`: the new h is b ≥ a, the old one
+  gone); Lean: `replace h : b ≥ a := h`.
+
 A statement's hypothesis is written with a tick when it stands alone,
 `' h by-apply`, because its type is not unfolded to count its arguments
 (error 73).
@@ -1208,6 +1245,12 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-contradiction` | `( -- )` | ordinary | read: a step. Run: assigns the main goal a proof from contradictory hypotheses, removes it | Closes the goal from `False`, `¬p` and `p`, `a ≠ a`, or a statement `decide` refutes; none: 449; a case split or `noConfusion` it would need: 99 (not supported yet). | `contradiction` |
 | `by-trivial` | `( -- )` | ordinary | read: a step. Run: the first of Lean's rules for `trivial` that closes the goal | Closes simple goals (`True`, `a = a`, `∧` of such, closed decidable ones, contradictions, a hypothesis); all fail: 381; a rule not supported yet: 99. | `trivial` |
 | `by-absurd` | `( h -- )` | ordinary | read: a step holding h. Run: assigns the main goal `absurd` of h and a new goal, which takes its place | Leaves the goal `p` for `h : ¬p`, else `¬p` for `h : p`. | `absurd h` (Batteries) |
+| `by-have: HYP-NAME` | `( T e -- )` | parsing: one name after it, on its line | read: a step holding T and e; HYP-NAME a hypothesis word. Run: assigns the main goal `have HYP-NAME : T := e; ?g`, the new goal ?g in its place | Adds HYP-NAME : T proved by e; e not of type T: 96; T no type: 130; `_`: 99; a value leaving a metavariable: 93. | `have HYP-NAME : T := e` |
+| `by-have` | `( e -- )` | ordinary | read: a step holding e; `this` a hypothesis word. Run: as `by-have:` with T the type of e | Adds `this` proved by e; e leaving a metavariable: 93. | `have := e` |
+| `by-let: HYP-NAME` | `( T e -- )` | parsing: one name after it, on its line | read: as `by-have:`. Run: as `by-have:` with a `let`, whose value later steps unfold | Adds HYP-NAME : T := e; e not of type T: 96. | `let HYP-NAME : T := e` |
+| `by-suffices: HYP-NAME` | `( T e -- )` | parsing: one name after it, on its line | read: as `by-have:`. Run: assigns the main goal `have HYP-NAME : T := ?g; e`, ?g of type T in its place | Proves the goal by e from HYP-NAME : T, leaving T; e not of the goal's type: 96. | `suffices HYP-NAME : T from e` |
+| `by-have-goal: HYP-NAME` | `( T -- )` | parsing: one name after it, on its line | read: a step holding T; HYP-NAME a hypothesis word. Run: two goals, T (tag HYP-NAME), then the main goal with HYP-NAME : T | States HYP-NAME : T to be proved first; T no type: 130. | `have HYP-NAME : T` (Mathlib) |
+| `by-replace: HYP-NAME` | `( T e -- )` | parsing: one name after it, on its line | read: as `by-have:`. Run: `by-have:`, then the old hypothesis of that name removed when nothing depends on it | Replaces HYP-NAME by a new one of type T; errors as `by-have:`. | `replace HYP-NAME : T := e` |
 | `by-induction` | `( t -- )` | ordinary | read: a step holding t. Run: replaces the main goal by one goal per case | Induction on the variable t; the cases are left open (alone it ends in error 89). | `induction t` |
 | `by-induction-with` | `( t -- )` | ordinary; opens a block that `by-end` closes | read: a block step holding t. Run: as `by-induction`, each case taken by an alternative | Induction on t with the cases written as alternatives. | `induction t with` |
 | `\| CASE-TAG HYP-NAME ... =>` | `( -- )` | parsing: tokens of its line up to `=>`; only right inside `by-induction-with` (error 83 elsewhere) | read: an alternative block; the names become hypotheses until the alternative ends. Run: introduces the case's fields and runs the block | One alternative of an induction. CASE-TAG is the name of the case (`zero`, `succ`); each HYP-NAME becomes a new word for one of the case's variables or hypotheses (`k`, `ih` in `\| succ k ih =>`) until the alternative ends. The alternative ends at the next `\|` or at `by-end`. | `\| tag names =>` |

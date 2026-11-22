@@ -65,7 +65,9 @@
 \       (tactics/trivial.fs)
 \   lf-tac-elab-term ( node expected postpone? -- e )  Tactic.elabTerm
 \       (ElabTerm.lean:45): lf-tac-elab, its failure thrown as the
-\       runner's error (Term codes 125-139, 71 without an elaborator)
+\       runner's error (Term codes 125-139, 71 without an elaborator);
+\       lf-tac-elab-arg ( i k -- e ) the same of step i's argument k with
+\       no expected type and no postponing (elabTerm stx none)
 \   lf-tac-elab-ensuring ( node expected -- e )  elabTermEnsuringType
 \       (ElabTerm.lean:51) with no postponing: e's type inferred and
 \       compared with expected by isDefEq with synthetic opaque
@@ -74,6 +76,17 @@
 \       lf-tac-defeq; a goal in either type may be assigned, plan 9.4.8l
 \       J); false is error 96 with Lean's text (tactic-msg.fs's
 \       lf-has-type-but-expected.)
+\   lf-tac-elab-as-type ( node -- type outcome )  a deferred word
+\       front/elab-decl.fs sets: Term.elabType (against a new Sort ?u,
+\       then ensureType: elab-term.fs's lf-elab-type; error 130 "type
+\       expected" for a term that is no type) under withSynthesize
+\       (postpone := .partial), as Lean's have, let and suffices
+\       elaborate their type (Elab/Binders.lean:775), the result
+\       instantiated; its failure stops the step as lf-tac-elab's does;
+\       error 71 without front/elab-decl.fs. lf-tac-elab-type ( node --
+\       type ) the same with the outcome thrown (lf-tac-must); inside
+\       lf-tac-with-synth, synthesized with no postponing after it
+\       (Mathlib's have h : T)
 \   lf-tac-ensure-type ( e expected -- e )  that check alone, of a term
 \       elaborated already (ensureHasType's isDefEq; by-absurd's, whose
 \       expected ¬?a the elaborator cannot take: an expected pi is its
@@ -129,11 +142,14 @@ require ./term-find.fs
 require ./infer.fs
 require ./meta-tactic/goal.fs
 
-\ ---- The elaborator's hook.
+\ ---- The elaborator's hooks.
 defer lf-tac-elab ( node expected postpone? -- term outcome )
 : tcr-unelaborated ( node expected postpone? -- term outcome )
   2drop drop lfa-e-elaborate lf-tac-fail -1 outcome-unsupported ;
 ' tcr-unelaborated is lf-tac-elab
+defer lf-tac-elab-as-type ( node -- type outcome )
+: tcr-untyped ( node -- type outcome ) -1 false tcr-unelaborated ;
+' tcr-untyped is lf-tac-elab-as-type
 
 \ ---- The step record: the main goal's fields, then a tactic's cells.
 begin-structure /tb
@@ -203,8 +219,10 @@ end-structure
   begin dup 1 > while swap lf-tac-try-lean if 1- ndrop exit then 1- repeat drop execute ;
 : lf-tac-first-of ( xtn..xt1 n -- ) dup 0> 0= if outcome-invalid lf-must then tcr-alts ;
 
-\ ---- Tactic.elabTerm, elabTermEnsuringType.
+\ ---- Tactic.elabTerm, elabTermEnsuringType, elabType.
 : lf-tac-elab-term ( node expected postpone? -- e ) lf-tac-elab lf-tac-must ;
+: lf-tac-elab-arg ( i k -- e ) lf-tac-arg -1 false lf-tac-elab-term ;
+: lf-tac-elab-type ( node -- type ) lf-tac-elab-as-type lf-tac-must ;
 : tcr-typed ( e expected -- e type expected ) over lf-infer lf-tac-must swap ;
 : tcr-mismatch ( e type expected -- ) lfa-e-tac-mismatch lf-tac-type-mismatch ;
 : tcr-defeq ( type expected -- flag outcome ) ['] lf-tac-defeq lf-with-assignable-opaque ;

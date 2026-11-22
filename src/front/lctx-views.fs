@@ -19,6 +19,7 @@
 \   lf-local-name, lf-local-flags, lf-local-binder, lf-local-class
 \   ( local -- x ), lf-local-inaccessible?, lf-local-detail? (Lean's
 \   isImplementationDetail: not of the default kind) ( local -- flag );
+\   lf-fvar-ldecl? ( fvar -- flag ) a let or a have (LocalDecl.ldecl);
 \   lf-local-renamed ( local name -- local' outcome ) (setUserName: the
 \   new name is the user's, accessible); lf-local-instance ( local class
 \   -- local' outcome ); lf-local-valid? ( local -- flag ).
@@ -95,6 +96,9 @@ end-structure
 : lf-local-binder ( local -- kind ) lf-local-flags lf-local-binder-mask and ;
 : lf-local-inaccessible? ( local -- flag ) lf-local-flags lf-local-inaccessible and 0<> ;
 : lf-local-detail? ( local -- flag ) lf-local-flags lf-local-kind-mask and 0<> ;
+\ Whether a live free variable has a value: a let or a have (Lean's
+\ LocalDecl.ldecl, nondep or not).
+: lf-fvar-ldecl? ( fvar -- flag ) dup lf-fvar-let? swap lf-fvar-nondep? or ;
 
 \ Making one: a live free variable, a name ID or 0, flags of one kind at
 \ most; a record filled field by field (four cells: a record's filler).

@@ -33,7 +33,7 @@ s" specialize" tac-k-specialize lf-tactic-lean!
   dup tsp-head dup lf-meta-fvar? 0= if lfa-e-specialize lf-tac-stop then ;
 : tsp-type ( e -- type ) lf-infer! lf-meta-head-beta lf-must ;
 : tsp-tac ( i goal -- goal' )
-  swap 0 lf-tac-arg -1 false lf-tac-elab-term tsp-fvar swap lf-open-mvar-free dup tsp-type
+  swap 0 lf-tac-elab-arg tsp-fvar swap lf-open-mvar-free dup tsp-type
   lf-goal-replace ;
 : tsp-run ( i -- ) dup ['] tsp-tac lf-lift-meta-tactic1 ;
 ' tsp-run tac-k-specialize lf-tactic-action!

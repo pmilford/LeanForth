@@ -1,0 +1,12 @@
+\ A wrong twin (plan row TB2; batch-b-wrong.lean): let x : Nat := h, a
+\ proof where a number is wanted: Type mismatch with the sorts, 96.
+\ Lean: theorem w_lt (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         let x : Nat := h
+theorem w_lt
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  Nat ' h by-let: x
+  ' h by-exact
+end w_lt

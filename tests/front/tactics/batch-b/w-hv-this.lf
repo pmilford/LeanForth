@@ -1,0 +1,13 @@
+\ A wrong twin (plan row TB2; batch-b-wrong.lean): this names have's
+\ hypothesis, of type a ≤ b, which the goal b ≤ a does not take: 96.
+\ Lean: theorem w_hv_this (a b : Nat) (h : a ≤ b) : b ≤ a := by
+\         have := h
+\         exact this
+theorem w_hv_this
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  b a ≤
+:= by
+  ' h by-have
+  ' this by-exact
+end w_hv_this

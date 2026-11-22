@@ -27,6 +27,11 @@
 \   at the tactic's word with the elaboration error (its position as the
 \   second one). Term.withSynthesize's end, which S2's rewriting needs,
 \   is elab-pending.fs's }lf-elab-synth.
+\ - lf-tac-elab-as-type ( node -- type outcome ) (tactic-core.fs's hook):
+\   Term.elabType (lf-elab-type), then synthesizeSyntheticMVars with
+\   postpone := .partial, the type instantiated, a failure stopping the
+\   run as lf-tac-elab's does (have's, let's and suffices' type, plan row
+\   TB2).
 \ - #check (BuiltinCommand.lean:434), a natural word outside declarations
 \   (Lean has #check only as a command, Parser/Command.lean: inside a
 \   declaration in a term position it is error 140, Lean's "unexpected
@@ -120,10 +125,13 @@ action-of lfa-run-fresh constant edc-run-before
 : edc-params ( -- n ) lfa-params dup 0< if drop lfa-depth then ;
 : edc-binders ( -- outcome ) edc-params ['] edc-binder ok-each ;
 : edc-holes ( type -- type outcome ) lfa-e-elab-step lf-elab-closed ;
+\ The synthetic metavariables synthesized in mode, then the term instantiated.
+: edc-finish ( term mode -- term outcome )
+  lf-elab-synthesize dup ok? 0= if nip no-result exit then drop
+  lf-instantiate-mvars lf-elab-meta ;
 : edc-statement ( -- type outcome )
   lf-front-statement lf-elab-type ok-then? 0= if no-result exit then
-  lf-postpone-no lf-elab-synthesize dup ok? 0= if nip no-result exit then drop
-  lf-instantiate-mvars lf-elab-meta ['] edc-holes ok-apply ;
+  lf-postpone-no edc-finish ['] edc-holes ok-apply ;
 : edc-header ( -- type ) edc-binders edc-must edc-statement edc-must ;
 : edc-by-statement ( -- type ) ['] edc-header edc-configured ;
 ' edc-by-statement is lf-front-by-statement
@@ -131,8 +139,7 @@ action-of lfa-run-fresh constant edc-run-before
 \ ---- A term proof (elabFunValues), or an axiom's statement alone.
 : edc-value ( type -- value outcome )
   lf-front-proof swap lf-elab-ensuring ok-then? 0= if no-result exit then
-  lf-postpone-no lf-elab-synthesize dup ok? 0= if nip no-result exit then drop
-  lf-instantiate-mvars lf-elab-meta ;
+  lf-postpone-no edc-finish ;
 : edc-axiom? ( -- flag ) lf-front-proof 0< ;
 : edc-whole ( -- type value )
   edc-header edc-axiom? if lf-front-close-type -1 exit then
@@ -143,12 +150,16 @@ action-of lfa-run-fresh constant edc-run-before
 \ ---- The tactics' hook (Tactic.elabTerm).
 : edc-mode ( postpone? -- mode ) if lf-postpone-yes else lf-postpone-no then ;
 : edc-tac-run ( node expected postpone? -- term outcome )
-  >r lf-elab-term ok-then? 0= if r> drop no-result exit then
-  r> edc-mode lf-elab-synthesize dup ok? 0= if nip no-result exit then drop
-  lf-instantiate-mvars lf-elab-meta ;
-: edc-tac-elab ( node expected postpone? -- term outcome )
-  ['] edc-tac-run edc-configured dup ok? 0= if lf-tac-elab-fail then ;
+  >r lf-elab-term ok-then? 0= if r> drop no-result exit then r> edc-mode edc-finish ;
+: edc-tac-with ( i*x xt -- term outcome )
+  edc-configured dup ok? 0= if lf-tac-elab-fail then ;
+: edc-tac-elab ( node expected postpone? -- term outcome ) ['] edc-tac-run edc-tac-with ;
 ' edc-tac-elab is lf-tac-elab
+\ Term.elabType, then synthesis with postpone := .partial (have's type).
+: edc-finish-partial ( type -- type outcome ) lf-postpone-partial edc-finish ;
+: edc-tac-type ( node -- type outcome ) lf-elab-type ['] edc-finish-partial ok-apply ;
+: edc-tac-elab-type ( node -- type outcome ) ['] edc-tac-type edc-tac-with ;
+' edc-tac-elab-type is lf-tac-elab-as-type
 \ The pending list in a tactic's saved state, as Lean's Term.saveState
 \ holds pendingMVars (tactic-run.fs's tac-state:; review N4 of 2026-11-18).
 ' lf-elab-pending-keep ' lf-elab-pending-kept tac-state:

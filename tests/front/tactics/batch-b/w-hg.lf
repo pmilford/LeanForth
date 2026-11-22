@@ -1,0 +1,14 @@
+\ A wrong twin (plan row TB2; batch-b-wrong.lean): have_goal k : b ≤ a
+\ makes k's goal b ≤ a the first, which h : a ≤ b does not prove: 96.
+\ Lean: theorem w_hg (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         have_goal k : b ≤ a
+\         exact h
+theorem w_hg
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  b a ≤ by-have-goal: k
+  ' h by-exact
+  ' k by-exact
+end w_hg

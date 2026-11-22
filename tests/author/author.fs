@@ -821,6 +821,15 @@ T{ s" theorem t Prop explicit: p p := p end t" run 0 calls ! ' refusing lf-autho
 T{ 20 lfx lfx-writer jw-limit ! export-now -> outcome-full }T
 lfx-line-capacity lfx lfx-writer jw-limit !
 T{ 0 0 lf-tag-let lf-term-binary nip export-now -> true outcome-unsupported }T
+\ A let and a have (the tactics' let and have, plan row TB2): Lean's letE
+\ record with its nondep flag, after the record of its binder's lambda.
+: a-let ( nondep -- flag outcome )
+  >r 0 lf-term-symbolic-sort drop dup 0 lf-term-bvar drop lf-term-lam drop r> lf-let-make
+  nip export-now ;
+T{ s" theorem t Prop explicit: p p := p end t" run true a-let -> outcome-ok true outcome-ok }T
+T{ s\" ,\"letE\":{\"body\":" holds? s\" \"nondep\":true,\"type\":" holds? -> true true }T
+T{ s" theorem t Prop explicit: p p := p end t" run false a-let -> outcome-ok true outcome-ok }T
+T{ s\" \"nondep\":false,\"type\":" holds? -> true }T
 \ A projection, a binder without a recorded name (made by hand) and the
 \ heights: an axiom named in a value counts 0, so does a constant whose
 \ record is gone (renamed by hand), a definition its own height.

@@ -1,0 +1,12 @@
+\ A wrong twin (plan row TB2; batch-b-wrong.lean): replace h : b ≤ a := h
+\ with h : a ≤ b: have's Type mismatch, 96.
+\ Lean: theorem w_rp (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         replace h : b ≤ a := h
+theorem w_rp
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  b a ≤ ' h by-replace: h
+  ' h by-exact
+end w_rp

@@ -262,8 +262,14 @@ reserved by-decide word
 reserved by-native-decide word
 reserved by-delta word
 reserved by-exfalso word
+reserved by-have: word
+reserved by-have word
+reserved by-let: word
+reserved by-suffices: word
+reserved by-have-goal: word
 reserved by-intros word
 reserved by-left word
+reserved by-replace: word
 reserved by-revert word
 reserved by-right word
 reserved by-specialize word
@@ -292,10 +298,16 @@ kind 20 by-decide 0 decide run
 kind 21 by-native-decide 0 native_decide run
 kind 22 by-delta 0 delta run
 kind 23 by-exfalso 0 exfalso run
-kind 24 by-intros 0 intros run
-kind 25 by-left 0 left run
-kind 26 by-revert 0 revert run
-kind 27 by-right 0 right run
-kind 28 by-specialize 0 specialize run
-kind 29 by-swap 0 swap run
-kind 30 by-trivial 0 trivial run
+kind 24 by-have: 0 have run
+kind 25 by-have 0 have run
+kind 26 by-let: 0 let run
+kind 27 by-suffices: 0 suffices run
+kind 28 by-have-goal: 0 have run
+kind 29 by-intros 0 intros run
+kind 30 by-left 0 left run
+kind 31 by-replace: 0 replace run
+kind 32 by-revert 0 revert run
+kind 33 by-right 0 right run
+kind 34 by-specialize 0 specialize run
+kind 35 by-swap 0 swap run
+kind 36 by-trivial 0 trivial run

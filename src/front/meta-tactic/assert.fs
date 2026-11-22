@@ -20,6 +20,26 @@
 \       it and they introduced again (intro1P, introNP: introN keeping
 \       each binder's name, an inaccessible local's made inaccessible
 \       again), goal' the result (specialize's goal operation)
+\   lf-goal-try-clear ( goal fvar -- goal' )  MVarId.tryClear
+\       (Clear.lean:48-51): goals.fs's lf-goal-clear, or goal itself when
+\       it refuses (replace's, specialize's)
+\   lf-goal-let-with ( goal name type val nondep xt -- body )  the have
+\       and let terms as refine elaborates them (Elab/Binders.lean:745-860,
+\       elabLetDeclAux: withLetDecl, the body, mkLetFVars #[x] body
+\       with generalizeNondepLet false): in goal's context
+\       (checkNotAssigned first) a new local name : type := val, a have
+\       (its value hidden) when nondep is true; xt ( goal -- body ) makes
+\       the body in the context with it (current while xt runs); goal
+\       assigned let name : type := val; body (nondep kept; telescope.fs's
+\       lf-mk-let-fvars, whose elimMVar makes a body that is a goal ?b
+\       into ?n x, delayed-assigned ?b); the body given back
+\   lf-goal-let ( goal name type val nondep -- goal' )  refine's
+\       have/let name : type := val; ?_ (Init/Tactics.lean:942, 980,
+\       refine_lift): lf-goal-let-with whose body is goal', a new
+\       synthetic opaque goal of goal's type instantiated
+\       (lf-goal-target: getMainTarget) with goal's tag (refine's one new
+\       goal, tagUntaggedGoals)
+\   lf-goal-target ( goal -- type tag )  goal's type instantiated and tag
 \ Not supported yet (thrown unsupported: the runner's 93): a type that
 \ still holds an open metavariable
 \ once instantiated (findMaxFVar would place the hypothesis after the
@@ -52,6 +72,7 @@ require ../goals.fs
 require ../term-find.fs
 require ../meta-must.fs
 require ../app-builder.fs
+require ../telescope.fs
 require ./goal.fs
 require ./revert.fs
 
@@ -71,6 +92,8 @@ begin-structure /mat
   field: mat-type        \ its type, instantiated
   field: mat-val         \ its proof
   field: mat-n           \ the locals after mat-fvar
+  field: mat-nondep      \ lf-goal-let-with's: true for a have
+  field: mat-xt          \ and its body's maker ( goal -- body )
 end-structure
 /mat context-slab: mat-frames
 : mat ( -- frame ) mat-frames slab-last ;
@@ -109,9 +132,12 @@ end-structure
 : mat-run ( addr -- goal' ) mat-revert mat-assert swap mat-intro ;
 : mat-after ( -- goal' ) mat-count mat-binders 2* mat-cells ['] mat-run lf-with-cells ;
 
+\ ---- tryClear (Clear.lean:48): clear, or goal itself when clear refuses.
+: lf-goal-try-clear ( goal fvar -- goal' )
+  over swap lf-goal-clear dup outcome-invalid = if 2drop exit then lf-must nip ;
+
 \ ---- replace: the old hypothesis's name, assertAfter', tryClear.
-: mat-cleared ( goal' -- goal'' )
-  dup mat mat-old @ lf-goal-clear dup outcome-invalid = if 2drop exit then lf-must nip ;
+: mat-cleared ( goal' -- goal'' ) mat mat-old @ lf-goal-try-clear ;
 : mat-user-name ( -- name )
   mat mat-old @ mat-at mat-view swap lf-view-local lf-local-name ;
 : mat-ready ( -- )
@@ -123,4 +149,28 @@ end-structure
   mat-fill mat-ready mat-max mat-after mat-cleared ;
 : lf-goal-replace ( goal fvar e type -- goal' )
   mat-frames ['] mat-replaced lf-with-record ;
+
+\ ---- The have and let terms as refine elaborates them (elabLetDeclAux):
+\ a let local in goal's context, the body made in the new context, goal
+\ assigned mkLetFVars #[x] body.
+: mat-decl! ( name type val nondep -- )
+  mat mat-nondep ! mat mat-val ! mat mat-type ! mat mat-name ! ;
+: mat-let-fill ( goal name type val nondep xt -- ) mat mat-xt ! mat-decl! mat mat-goal ! ;
+: mat-decl ( -- type val name nondep )
+  mat mat-type @ mat mat-val @ mat mat-name @ mat mat-nondep @ ;
+: mat-let-local ( -- view' ) mat-decl lf-let-decl-new swap mat mat-fvar ! ;
+\ goal assigned let x := v; body (mkLetFVars over the frame's cell).
+: mat-bound ( goal body -- body )
+  tuck mat mat-fvar 1 lf-mk-let-fvars lf-mvar-assign lf-must ;
+: mat-let-bind ( -- body ) mat mat-goal @ dup mat mat-xt @ execute mat-bound ;
+: mat-let-run ( -- body ) mat-let-local ['] mat-let-bind swap lf-with-view ;
+: mat-let ( goal name type val nondep xt -- body )
+  mat-let-fill mat mat-goal @ lf-goal-not-assigned ['] mat-let-run lf-with-goal ;
+: lf-goal-let-with ( goal name type val nondep xt -- body )
+  mat-frames ['] mat-let lf-with-record ;
+\ ?_ elaborated against the target instantiated (refine's getMainTarget);
+\ refine's one new goal takes the goal's tag (tagUntaggedGoals).
+: lf-goal-target ( goal -- type tag ) dup lf-goal-type lf-instantiate! swap lf-goal-tag ;
+: mat-hole ( goal -- goal' ) lf-goal-target lf-mctx-view lf-goal-new lf-must ;
+: lf-goal-let ( goal name type val nondep -- goal' ) ['] mat-hole lf-goal-let-with ;
 base !   \ the BASE this file was loaded with
