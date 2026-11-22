@@ -8,8 +8,13 @@ Usage (from the repository root):
 A branch that adds a tactic file (a new src/front/tactics/NAME.fs) is confined when every file it
 changes is one of: a file of src/front/tactics/ (the tactic files and the list all.fs), a file of
 tests/front/tactics/NAME/ for a tactic NAME it adds or changes, the fault file
-tests/mutants/faults.d/NAME.toml of such a tactic, or documentation (scripts/test-tier.py's docs
-tier: Markdown, docs/, ...); and every tactic file it adds or changes
+tests/mutants/faults.d/NAME.toml of such a tactic, a batch's own tests and faults
+(tests/front/tactics/batch-*/ and tests/mutants/faults.d/batch-*.toml; plan row TB2, one test
+directory for several tactics), a goal operation of src/front/meta-tactic/ that is new or only
+gains lines (git's count of deleted lines 0) and whose definitions shadow no word (none defined
+twice in it, none another Forth file of src/ defines: what loaded before it means what it meant),
+or documentation (scripts/test-tier.py's docs tier: Markdown, docs/, ...); and every tactic file
+it adds or changes
   - writes no hook: no `is` and no `defer!`,
   - writes no data word another file defines: no `W !`, `W +!`, `W c!`, `W 2!` or `to W` for a W
     that a variable, value, create, buffer: or 2variable of another Forth file of src/ defines,
@@ -37,8 +42,10 @@ import subprocess
 import sys
 
 TACTICS = "src/front/tactics/"
+META_TACTIC = "src/front/meta-tactic/"
 TACTIC_TESTS = "tests/front/tactics/"
 FAULTS_DIR = "tests/mutants/faults.d/"
+BATCH = re.compile(r"^(tests/front/tactics/batch-[\w-]+/|tests/mutants/faults\.d/batch-[\w-]+\.toml$)")
 DOC_FOLDERS = ("docs/", ".claude/", ".codex/", "prompts/")
 DATA_WORD = re.compile(r"(?i)(?:^|\s)(?:2?variable|2?value|create|buffer:|fvariable)\s+(\S+)")
 DEFINES = re.compile(r"(?i)^(?::|2?variable|2?value|2?constant|create|defer|buffer:|fvariable|value|"
@@ -127,6 +134,20 @@ def defined_in(toks):
     return {toks[k + 1] for k in range(len(toks) - 1) if DEFINES.match(toks[k])}
 
 
+def outside_colons(toks):
+    """TOKS without the bodies of colon definitions: a create inside one (a defining word's, as
+    portability.fs's +field: create over ,) defines no data word of the file."""
+    out, inside = [], False
+    for word in toks:
+        if word == ":":
+            inside = True
+        elif word == ";":
+            inside = False
+        elif not inside:
+            out.append(word)
+    return out
+
+
 def data_words(skip):
     """The data words (variable, value, create, buffer:) the Forth files of src/ define, but SKIP."""
     found = set()
@@ -134,10 +155,43 @@ def data_words(skip):
         if path.endswith(".fs") and path not in skip:
             try:
                 with open(path, encoding="utf-8", errors="replace") as stream:
-                    found |= {w.lower() for w in DATA_WORD.findall(" ".join(tokens(stream.read())))}
+                    text = " ".join(outside_colons(tokens(stream.read())))
+                    found |= {w.lower() for w in DATA_WORD.findall(text)}
             except OSError:
                 continue
     return found
+
+
+def definitions(skip):
+    """The words the Forth files of src/ define (lower case), but SKIP: what a goal operation's
+    file may not define again."""
+    found = set()
+    for path in subprocess.run(["git", "ls-files", "src"], capture_output=True, text=True).stdout.split():
+        if path.endswith(".fs") and path != skip:
+            try:
+                with open(path, encoding="utf-8", errors="replace") as stream:
+                    found |= defined_in(tokens(stream.read()))
+            except OSError:
+                continue
+    return found
+
+
+def shadowed(text, elsewhere):
+    """The words TEXT defines twice, or that ELSEWHERE (other files' definitions) holds."""
+    toks = tokens(text)
+    names = [toks[k + 1] for k in range(len(toks) - 1) if DEFINES.match(toks[k])]
+    return sorted({n for n in names if names.count(n) > 1 or n in elsewhere})
+
+
+def meta_reason(status, path, text, deleted, elsewhere):
+    """Why the goal operation PATH (status, its text, its deleted-line count or None) keeps the
+    branch from being confined, or None: new, or added lines only, and shadowing nothing."""
+    if status != "A" and deleted != 0:
+        return f"{path} changes or removes lines of a goal operation (only new lines confine a branch)"
+    words = shadowed(text, elsewhere(path))
+    if words:
+        return f"{path} defines {', '.join(words)} again (a word of another file or of its own)"
+    return None
 
 
 def rule_problems(path, text, foreign):
@@ -169,10 +223,23 @@ def changed_files(base):
     return sorted((s, p) for p, s in found.items())
 
 
-def check(changed, read=None):
+def deleted_lines(*revs):
+    """{path: lines git's diff of REVS (a base and the worktree, or two commits) deletes}."""
+    found = {}
+    for line in git("diff", "--numstat", "--no-renames", *revs).splitlines():
+        added, removed, path = line.split("\t", 2)
+        found[path] = int(removed) if removed.isdigit() else None
+    return found
+
+
+def check(changed, read=None, deleted=None, elsewhere=None):
     """{"confined": bool, "problems": [rule breaks], "reasons": [why not confined], "tactics": [names]}
-    for CHANGED ([(status, path)]). READ ( path -- text or None ) reads the worktree."""
+    for CHANGED ([(status, path)]). READ ( path -- text or None ) reads the worktree. DELETED
+    ({path: deleted lines}) tells a goal operation that only gains lines; without it a changed
+    one is refused. ELSEWHERE ( path -- set ) gives the words other Forth files define."""
     read = read or (lambda p: open(p, encoding="utf-8", errors="replace").read() if os.path.isfile(p) else None)
+    deleted = deleted or {}
+    elsewhere = elsewhere or definitions
     tactic_files = [(s, p) for s, p in changed if p.startswith(TACTICS) and p.endswith(".fs")]
     names = {os.path.splitext(os.path.basename(p))[0] for s, p in tactic_files if s != "D"} - {"all"}
     added = [p for s, p in tactic_files if s == "A" and not p.endswith("/all.fs")]
@@ -182,14 +249,22 @@ def check(changed, read=None):
     for status, path in changed:
         allowed = (path.startswith(TACTICS) or is_doc(path)
                    or any(path.startswith(f"{TACTIC_TESTS}{n}/") for n in names)
-                   or path in {f"{FAULTS_DIR}{n}.toml" for n in names})
+                   or path in {f"{FAULTS_DIR}{n}.toml" for n in names}
+                   or bool(added and BATCH.match(path)))
+        if status != "D" and path.startswith(META_TACTIC) and path.endswith(".fs"):
+            why = meta_reason(status, path, read(path) or "", deleted.get(path), elsewhere)
+            if why:
+                reasons.append(why)
+            continue
         if status == "D" and not is_doc(path):
             allowed = False
         if not allowed:
             reasons.append(f"{path} lies outside the tactic's own files")
+    # A goal operation that confines keeps the tactic files' rules too (no hook, no other file's data).
+    plug_ins = tactic_files + [(s, p) for s, p in changed if p.startswith(META_TACTIC) and p.endswith(".fs")]
     if tactic_files:
-        foreign = data_words({p for _, p in tactic_files})
-        for status, path in tactic_files:
+        foreign = data_words({p for _, p in plug_ins})
+        for status, path in plug_ins:
             if status != "D":
                 problems += rule_problems(path, read(path) or "", foreign)
     return {"confined": not reasons and not problems, "problems": problems, "reasons": reasons,
@@ -204,7 +279,8 @@ def main(argv=None):
     os.chdir(git("rev-parse", "--show-toplevel").strip())
     changed = [("A" if os.path.exists(p) else "D", os.path.normpath(p)) for p in args.files] if args.files \
         else changed_files(args.base)
-    result = check(changed)
+    deleted = {} if args.files else deleted_lines(git("merge-base", args.base, "HEAD").strip())
+    result = check(changed, deleted=deleted)
     for problem in result["problems"]:
         print(f"check-tactic-plugins: {problem}", file=sys.stderr)
     if result["problems"]:

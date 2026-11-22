@@ -93,12 +93,79 @@ class Tokens(unittest.TestCase):
         text = "variable lf-max-goals\n3 lf-max-goals !\n"
         self.assertEqual(tp.rule_problems("t.fs", text, {"lf-max-goals"}), [])
 
+    def test_create_inside_a_colon_definition_defines_no_data_word(self):
+        # portability.fs's +field: create over , inside a defining word (plan row TB2).
+        toks = tp.tokens(": +field ( n1 n2 -- n3 ) create over , + does> @ + ;\ncreate table 8 ,\n")
+        self.assertEqual(tp.outside_colons(toks), ["create", "table", "8", ","])
+        self.assertEqual(tp.DATA_WORD.findall(" ".join(tp.outside_colons(toks))), ["table"])
+
+
+META_NEW = "\\ a goal operation\n: mgo-step ( goal -- goal' ) ;\n: lf-goal-new-op ( goal -- goal' ) mgo-step ;\n"
+TACTIC_NEW = "tac-shape-plain lf-tactic: by-new constant tac-k-new\n"
+
+
+class Batches(unittest.TestCase):
+    """Plan row TB2: a batch's tests and faults, and goal operations that only gain lines."""
+
+    def run_check(self, changed, texts, deleted=None, elsewhere=frozenset()):
+        return tp.check(changed, read=lambda p: texts.get(p), deleted=deleted,
+                        elsewhere=lambda path: set(elsewhere))
+
+    def test_batch_files_with_a_tactic_added(self):
+        changed = [("A", "src/front/tactics/new.fs"), ("A", "tests/front/tactics/batch-a/check.py"),
+                   ("A", "tests/front/tactics/batch-a/x.lf"), ("A", "tests/mutants/faults.d/batch-a.toml")]
+        result = self.run_check(changed, {"src/front/tactics/new.fs": TACTIC_NEW})
+        self.assertEqual(result["reasons"], [])
+        self.assertTrue(result["confined"])
+
+    def test_batch_files_without_a_tactic_added(self):
+        result = self.run_check([("M", "tests/front/tactics/batch-a/check.py")], {})
+        self.assertFalse(result["confined"])
+        self.assertIn("no tactic file is added (src/front/tactics/NAME.fs)", result["reasons"])
+        for path in ("tests/front/tactics/batchy/check.py", "tests/mutants/faults.d/batch.toml"):
+            with self.subTest(path=path):
+                changed = [("A", "src/front/tactics/new.fs"), ("A", path)]
+                result = self.run_check(changed, {"src/front/tactics/new.fs": TACTIC_NEW})
+                self.assertIn(f"{path} lies outside the tactic's own files", result["reasons"])
+
+    def test_goal_operations_new_or_gaining_lines(self):
+        tactic = [("A", "src/front/tactics/new.fs")]
+        texts = {"src/front/tactics/new.fs": TACTIC_NEW, "src/front/meta-tactic/new.fs": META_NEW,
+                 "src/front/meta-tactic/goal.fs": META_NEW}
+        for changed, deleted in (([("A", "src/front/meta-tactic/new.fs")], None),
+                                 ([("M", "src/front/meta-tactic/goal.fs")], {"src/front/meta-tactic/goal.fs": 0})):
+            with self.subTest(changed=changed):
+                self.assertTrue(self.run_check(tactic + changed, texts, deleted)["confined"])
+
+    def test_goal_operations_losing_lines_or_shadowing(self):
+        tactic = [("A", "src/front/tactics/new.fs")]
+        texts = {"src/front/tactics/new.fs": TACTIC_NEW, "src/front/meta-tactic/goal.fs": META_NEW,
+                 "src/front/meta-tactic/twice.fs": META_NEW + ": mgo-step ( goal -- goal ) ;\n",
+                 "src/front/meta-tactic/hook.fs": META_NEW + "' mgo-step is lf-run-hook\n"}
+        cases = [
+            ([("M", "src/front/meta-tactic/goal.fs")], {"src/front/meta-tactic/goal.fs": 2}, set(),
+             "changes or removes lines of a goal operation"),
+            ([("M", "src/front/meta-tactic/goal.fs")], None, set(), "changes or removes lines"),
+            ([("A", "src/front/meta-tactic/goal.fs")], None, {"lf-goal-new-op"},
+             "defines lf-goal-new-op again"),
+            ([("A", "src/front/meta-tactic/twice.fs")], None, set(), "defines mgo-step again"),
+        ]
+        for changed, deleted, elsewhere, wanted in cases:
+            with self.subTest(wanted=wanted):
+                result = self.run_check(tactic + changed, texts, deleted, elsewhere)
+                self.assertFalse(result["confined"])
+                self.assertTrue(any(wanted in r for r in result["reasons"]), result["reasons"])
+        result = self.run_check(tactic + [("A", "src/front/meta-tactic/hook.fs")], texts)
+        self.assertFalse(result["confined"])
+        self.assertTrue(any("writes a hook (is)" in p for p in result["problems"]), result["problems"])
+
 
 FILES = dict(tier_fixture.FILES)
 FILES["src/main.fs"] = "require ./core/c.fs\nrequire ./front/loaded.fs\nrequire ./front/tactics/all.fs\n"
 FILES["src/front/tactics/all.fs"] = "require ./rfl.fs\n"
 FILES["src/front/tactics/rfl.fs"] = "tac-shape-plain lf-tactic: by-rfl constant tac-k-rfl\n"
 FILES["src/front/runner.fs"] = "variable lf-run-hook\n: lf-run ;\n"
+FILES["src/front/meta-tactic/goal.fs"] = ": lf-goal-op ( -- ) ;\n"
 FILES["tests/front/f.fs"] = "require ../../src/front/alone.fs\nrequire ../../src/main.fs\n"
 
 
@@ -178,6 +245,21 @@ class Tier(unittest.TestCase):
         tier = self.repo.script("tested-tree.py", "tier", "--base", "base", "--no-progress", "--dry-run")
         self.assertEqual(tier.returncode, 1, tier.stdout + tier.stderr)
         self.assertIn("tactic plug-in check failed", tier.stdout)
+
+    def test_goal_operation_gaining_lines_keeps_the_tactic_tier(self):
+        # Plan row TB2: lines added to a goal operation and a batch's own tests and faults.
+        self.tactic_branch({"src/front/meta-tactic/goal.fs": ": lf-goal-op ( -- ) ;\n: lf-goal-more ( -- ) ;\n",
+                            "tests/front/tactics/batch-a/check.py": "", "tests/mutants/faults.d/batch-a.toml": ""})
+        run = self.check()
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertEqual(self.plan()["tier"], "tactic")
+
+    def test_goal_operation_losing_lines_gets_the_full_tier(self):
+        self.tactic_branch({"src/front/meta-tactic/goal.fs": ": lf-goal-op ( -- ) 1 ;\n"})
+        run = self.check()
+        self.assertEqual(run.returncode, 3, run.stdout + run.stderr)
+        self.assertIn("changes or removes lines of a goal operation", run.stdout)
+        self.assertEqual(self.plan()["tier"], "full")
 
     def test_no_tactic_added_is_no_tactic_branch(self):
         self.repo.write("src/front/tactics/rfl.fs", "tac-shape-plain lf-tactic: by-rfl constant tac-k-rfl \\ x\n")

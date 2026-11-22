@@ -21,6 +21,10 @@ With --lean: pinned Lean writes the golden again (--write-golden keeps it)
 and it must be unchanged, and pinned Lean refuses each wrong twin of
 goal-layer-wrong.lean with the first line and detail the LeanForth file
 must print (LEAN_SAME: the wrong twins whose text both print alike).
+A batch of tactics (plan row TB2: tests/front/tactics/batch-*/) keeps its own
+Lean twins and golden: main's lean=, lean_wrong= and golden= name them (the
+defaults are goal-layer.lean, goal-layer-wrong.lean and goal-layer.golden), so
+batches edit no shared file.
 
 Usage: GFORTH=... python3 tests/front/tactics/NAME/check.py
        LEAN=... python3 tests/front/tactics/NAME/check.py --lean [--write-golden]
@@ -36,6 +40,8 @@ import check_s2 as s2  # noqa: E402
 
 TACTICS = ROOT / "tests/front/tactics"
 GOLDEN = TACTICS / "goal-layer.golden"
+LEAN_TWINS = "tests/front/tactics/goal-layer.lean"
+LEAN_WRONG = "tests/front/tactics/goal-layer-wrong.lean"
 DUMPED = re.compile(r"^\S+ (type|value|binders) ")
 
 
@@ -43,9 +49,13 @@ class Failure(Exception):
     pass
 
 
-def golden():
+def golden(path=GOLDEN):
+    """The golden's lines by their first two words (NAME type, NAME value, NAME binders)."""
     return {" ".join(line.split(" ", 2)[:2]): line
-            for line in GOLDEN.read_text(encoding="utf-8").splitlines()}
+            for line in pathlib.Path(path).read_text(encoding="utf-8").splitlines()}
+
+
+read_golden = golden   # main's own name for it, whose golden= argument is a path
 
 
 def check_steps(name, logs):
@@ -121,36 +131,41 @@ def check_refused(wrong, unsupported, env=None):
             raise Failure(f"{path}: exit {code}, expected 2 with error {number}, {text!r}\n{out}")
 
 
-def check_lean(wrong, write):
-    done, wrong_done = s2.run_many([[s2.lean_binary(), source] for source in
-                                    ("tests/front/tactics/goal-layer.lean",
-                                     "tests/front/tactics/goal-layer-wrong.lean")])
+def check_lean(wrong, write, lean=LEAN_TWINS, lean_wrong=LEAN_WRONG, golden_path=GOLDEN):
+    """Pinned Lean runs LEAN (its dump must be GOLDEN_PATH, or becomes it with WRITE) and
+    LEAN_WRONG (it must fail, printing each wrong twin's first line and detail)."""
+    golden_path = pathlib.Path(golden_path)
+    done, wrong_done = s2.run_many([[s2.lean_binary(), source] for source in (lean, lean_wrong)])
     if done.returncode != 0:
-        raise Failure(f"goal-layer.lean: exit {done.returncode}\n{done.stdout}{done.stderr}")
+        raise Failure(f"{lean}: exit {done.returncode}\n{done.stdout}{done.stderr}")
     lines = [line for line in done.stdout.splitlines() if DUMPED.match(line)]
     if write:
-        GOLDEN.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    elif lines != GOLDEN.read_text(encoding="utf-8").splitlines():
-        raise Failure("goal-layer.lean: pinned Lean's output is not goal-layer.golden")
+        golden_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    elif lines != golden_path.read_text(encoding="utf-8").splitlines():
+        raise Failure(f"{lean}: pinned Lean's output is not {golden_path.name}")
     out = wrong_done.stdout + wrong_done.stderr
     missing = [first for _, _, first, detail in wrong if f"{first}\n{detail}" not in out]
     if wrong_done.returncode == 0 or missing:
-        raise Failure(f"goal-layer-wrong.lean: exit {wrong_done.returncode}, missing {missing}\n{out}")
+        raise Failure(f"{lean_wrong}: exit {wrong_done.returncode}, missing {missing}\n{out}")
 
 
-def main(name, files, wrong, unsupported, extra=None, env=None):
+def main(name, files, wrong, unsupported, extra=None, env=None, lean=LEAN_TWINS,
+         lean_wrong=LEAN_WRONG, golden=GOLDEN):
     """EXTRA, when given, is a further plain-mode check: a function taking golden()'s map that
     raises Failure or gives a phrase for the summary. ENV, when given, is the library (Env)
-    the files are checked and dumped against, else the S2 slice."""
+    the files are checked and dumped against, else the S2 slice. LEAN, LEAN_WRONG and GOLDEN
+    name the Lean twins, the wrong twins and the golden (a batch's own; goal-layer's by
+    default)."""
     try:
         if "--lean" in sys.argv:
-            check_lean(wrong, "--write-golden" in sys.argv)
-            print(f"{name} --lean: goal-layer.lean gives {GOLDEN.name}; pinned Lean prints "
-                  f"the {len(wrong)} wrong twins' messages")
+            check_lean(wrong, "--write-golden" in sys.argv, lean, lean_wrong, golden)
+            print(f"{name} --lean: {pathlib.Path(lean).name} gives {pathlib.Path(golden).name}; "
+                  f"pinned Lean prints the {len(wrong)} wrong twins' messages")
             return
-        check_steps(name, check_files(files, golden(), env))
+        want = read_golden(golden)
+        check_steps(name, check_files(files, want, env))
         check_refused(wrong, unsupported, env)
-        more = f"; {extra(golden())}" if extra else ""
+        more = f"; {extra(want)}" if extra else ""
         print(f"{name}: {len(files)} files accepted, their terms equal pinned Lean's node for "
               f"node and their step logs valid and as golden; {len(wrong)} wrong twins refused "
               f"with Lean's "

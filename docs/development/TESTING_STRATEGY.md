@@ -552,7 +552,12 @@ of `src/` (the front tier too) runs the branch coverage check first
   `tactic-plugin-design`): `scripts/check-tactic-plugins.py` finds a branch
   confined when it adds `src/front/tactics/NAME.fs` and changes nothing but
   `src/front/tactics/`, `tests/front/tactics/NAME/`,
-  `tests/mutants/faults.d/NAME.toml` and documentation, and its tactic files
+  `tests/mutants/faults.d/NAME.toml`, a batch's `tests/front/tactics/batch-*/`
+  and `tests/mutants/faults.d/batch-*.toml`, goal operations of
+  `src/front/meta-tactic/` that are new or only gain lines (git counts no
+  deleted line) and define no word twice nor one another Forth file of
+  `src/` defines (plan row TB2: what loaded before them means what it meant),
+  and documentation, and its tactic files and goal operations
   write no hook (`is`, `defer!`), no data word (variable, value, create,
   buffer:) another file defines, and call `lf-tactic-...!` only for a kind
   they define (comments and strings left out). Only then is the tier

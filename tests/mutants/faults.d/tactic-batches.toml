@@ -1,0 +1,30 @@
+# Planted faults of the tactic batches' plumbing (plan row TB2): scripts/check-tactic-plugins.py's
+# batch directories and goal operations that only gain lines, and tests/front/tactics/
+# tactic_check.py's lean=, lean_wrong= and golden=; read with faults.toml as one list
+# (scripts/mutants.py).
+
+# ---- scripts/check-tactic-plugins.py: batches and goal operations
+[[fault]]
+id = "tb2-plugins-deletions-ignored"
+file = "scripts/check-tactic-plugins.py"
+old = '''    if status != "A" and deleted != 0:'''
+new = '''    if False:'''
+test = "python3 tests/scripts/test_check_tactic_plugins.py"
+reason = "TB2: a goal operation whose lines change confines the branch (its callers may change)"
+
+[[fault]]
+id = "tb2-plugins-twice-taken"
+file = "scripts/check-tactic-plugins.py"
+old = '''    return sorted({n for n in names if names.count(n) > 1 or n in elsewhere})'''
+new = '''    return sorted({n for n in names if n in elsewhere})'''
+test = "python3 tests/scripts/test_check_tactic_plugins.py"
+reason = "TB2: a goal operation that defines a word twice (the later shadows the earlier) confines"
+
+# ---- tests/front/tactics/tactic_check.py: a batch's own twins and golden
+[[fault]]
+id = "tb2-tactic-check-default-twins"
+file = "tests/front/tactics/tactic_check.py"
+old = '''    done, wrong_done = s2.run_many([[s2.lean_binary(), source] for source in (lean, lean_wrong)])'''
+new = '''    done, wrong_done = s2.run_many([[s2.lean_binary(), source] for source in (LEAN_TWINS, LEAN_WRONG)])'''
+test = "python3 tests/front/tactics/test_tactic_check.py"
+reason = "TB2: --lean runs goal-layer's twins whatever lean= and lean_wrong= name"

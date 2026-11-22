@@ -90,6 +90,16 @@ pattern row of `tests/test-classes.txt`):
 - `tests/front/check_registry.py --write` after a review: the registry's
   dump gains the new word's lines only.
 
+A batch of tactics (plan row TB2) keeps one test directory,
+`tests/front/tactics/batch-NAME/`, for all of them: one `check.py` passing
+`main` its own Lean twins and golden (`lean=`, `lean_wrong=`, `golden=`,
+`tests/front/tactics/batch-a/check.py`), one `test.fs`, one `steps.golden`,
+and one fault file `tests/mutants/faults.d/batch-NAME.toml`. Its goal
+operations go into `src/front/meta-tactic/` as new files, or as lines added
+to an existing one: such a branch stays confined (the tactic tier) when no
+line of an existing goal operation changes or goes and no word is defined
+again (`scripts/check-tactic-plugins.py`).
+
 ## Documentation
 
 A row and a paragraph in [LANGUAGE_REFERENCE.md](../user/LANGUAGE_REFERENCE.md)
