@@ -72,7 +72,7 @@
 \
 \ Interface: /slab slab-init slab-free slab-live? slab-valid? slab-count slab-since
 \ slab-capacity slab-limit slab-unit slab-at slab-base slab-data slab-top slab-room
-\ slab-reserve slab-hold slab-claim slab-commit slab-cut slab-remove
+\ slab-reserve slab-hold slab-claim slab-claim-one slab-commit slab-cut slab-remove
 \ slab-bad-cut slab-trim
 \ slab-clear slab-bytes slab-used-bytes slab-limit-max slab-offset
 \ slab-push slab-pop slab-2push slab-2pop slab-last slab-drop
@@ -245,14 +245,16 @@ lf-lib set-current
   dup slab-count 1 max swap slab-resize ;
 -4132 constant slab-underflow   \ THROW code: no newest unit to pop, drop or read
 -4133 constant slab-bad-cut     \ THROW code: a cut outside 0 .. count, or of a dead slab
+\ One unit claimed, for a record filled in place at once: its address and
+\ ok; or -1 and slab-claim's outcome (full, or invalid for a slab not
+\ live), nothing claimed. The address is valid until the next claim.
+: slab-claim-one ( slab -- addr outcome )
+  1 over slab-claim ok-then? if swap slab-at outcome-ok else nip no-result then ;
 lf-lib-private set-current
 
 \ A stack on a slab: the newest unit is the top, one value or pair to a
-\ unit. A unit claimed for a push: its address and ok; or -1 and full (as
-\ slab-claim), or invalid for a slab not live (slab-claim checks) or too
-\ narrow.
-: slab-claim-one ( slab -- addr outcome )
-  1 over slab-claim ok-then? if swap slab-at outcome-ok else nip no-result then ;
+\ unit. A unit claimed for a push (slab-claim-one), or invalid for units
+\ too narrow.
 : slab-claim-wide ( u slab -- addr outcome )
   tuck slab-unit u> if drop outcome-invalid no-result else slab-claim-one then ;
 \ Whether the slab has a newest unit of at least u address units: units

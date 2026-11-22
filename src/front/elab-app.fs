@@ -135,12 +135,12 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 defer lf-elab-arg-call ( node expected frames cont -- ... frames next )
 
 \ ---- The holes' records.
-\ A record of two values on top of a slab: one unit claimed and filled
-\ by xt ( x1 x2 addr -- ); ok, or the claim's refusal with x1 x2 dropped
-\ (the elaborator's activations, binop% records and holes).
+\ A record of two values on top of a slab: one unit claimed (lib/slab.fs's
+\ slab-claim-one) and filled by xt ( x1 x2 addr -- ); ok, or the claim's
+\ refusal with x1 x2 dropped (the elaborator's activations, binop%
+\ records and holes).
 : lf-elab-record+ ( x1 x2 slab xt -- outcome )
-  swap 1 over slab-claim ok-then? 0= if nip nip nip nip exit then
-  swap slab-at swap execute outcome-ok ;
+  swap slab-claim-one ok-then? if swap execute outcome-ok else nip nip nip then ;
 : eh-fill ( mvar pos addr -- ) false over eh-arg ! tuck eh-at ! eh-mvar ! ;
 : lf-elab-hole+ ( mvar pos -- outcome ) ea-holes ['] eh-fill lf-elab-record+ ;
 : eh-is? ( mvar k -- mvar flag ) ea-holes slab-at eh-mvar @ over = ;

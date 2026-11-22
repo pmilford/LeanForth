@@ -1,6 +1,6 @@
 # Planted faults of tactic batch 3b (plan row TB2: src/front/tactic-syntax.fs's lists of
 # names and at[ ], src/front/reader.fs's and elab-term.fs's holes, elab-app.fs's hole
-# records and lf-elab-record+, mvars.fs's lf-mvar-at and lf-mvar-named, meta-config.fs's
+# records and lf-elab-record+ (over src/lib/slab.fs's slab-claim-one), mvars.fs's lf-mvar-at and lf-mvar-named, meta-config.fs's
 # lf-with-holes-as-goals, elab-decl.fs's edc-kept, src/front/new-goals.fs, tactic-core.fs's
 # name words and lf-tac-elab-with-holes, src/front/tactics/intro.fs, revert.fs, clear.fs,
 # rename-i.fs, refine.fs), read with faults.toml as one list (scripts/mutants.py). Each is
@@ -207,16 +207,32 @@ reason = "TB2 3b: a hole elaborated as an atom"
 [[fault]]
 id = "tb3b-record-unfilled"
 file = "src/front/elab-app.fs"
-old = '''  swap slab-at swap execute outcome-ok ;'''
-new = '''  2drop 2drop drop outcome-ok ;'''
+old = '''  swap slab-claim-one ok-then? if swap execute outcome-ok else nip nip nip then ;'''
+new = '''  swap slab-claim-one ok-then? if 2drop 2drop outcome-ok else nip nip nip then ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: lf-elab-record+ claims the record and never fills it"
 
 [[fault]]
+id = "tb3b-claim-one-next"
+file = "src/lib/slab.fs"
+old = '''  1 over slab-claim ok-then? if swap slab-at outcome-ok else nip no-result then ;'''
+new = '''  1 over slab-claim ok-then? if 1+ swap slab-at outcome-ok else nip no-result then ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review tb2-batch3b 3: slab-claim-one gives the unit after the one it claimed"
+
+[[fault]]
+id = "tb3b-claim-one-refusal-ok"
+file = "src/lib/slab.fs"
+old = '''  1 over slab-claim ok-then? if swap slab-at outcome-ok else nip no-result then ;'''
+new = '''  1 over slab-claim ok-then? if swap slab-at outcome-ok else drop slab-top outcome-ok then ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review tb2-batch3b 3: a refused claim answers ok and the free unit's address"
+
+[[fault]]
 id = "tb3b-record-refusal-kept"
 file = "src/front/elab-app.fs"
-old = '''  swap 1 over slab-claim ok-then? 0= if nip nip nip nip exit then'''
-new = '''  swap 1 over slab-claim ok-then? 0= if nip nip exit then'''
+old = '''  swap slab-claim-one ok-then? if swap execute outcome-ok else nip nip nip then ;'''
+new = '''  swap slab-claim-one ok-then? if swap execute outcome-ok else nip then ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: a refused claim leaves its values on the stack"
 
@@ -420,26 +436,26 @@ reason = "TB2 3b: every anonymous goal tagged suffix_0"
 [[fault]]
 id = "tb3b-index-no-underscore"
 file = "src/front/new-goals.fs"
-old = '''  0 tng tng-len ! swap tng-suffix-text tng-put s" _" tng-put u>decimal tng-put'''
-new = '''  0 tng tng-len ! swap tng-suffix-text tng-put u>decimal tng-put'''
+old = '''  0 tng tng-text ! swap count tng-put s" _" tng-put u>decimal tng-put'''
+new = '''  0 tng tng-text ! swap count tng-put u>decimal tng-put'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: appendIndexAfter without its _ (refine1)"
 
 [[fault]]
 id = "tb3b-index-len-kept"
 file = "src/front/new-goals.fs"
-old = '''  0 tng tng-len ! swap tng-suffix-text tng-put s" _" tng-put u>decimal tng-put'''
-new = '''  swap tng-suffix-text tng-put s" _" tng-put u>decimal tng-put'''
+old = '''  0 tng tng-text ! swap count tng-put s" _" tng-put u>decimal tng-put'''
+new = '''  swap count tng-put s" _" tng-put u>decimal tng-put'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: the second goal's tag appended to the first's text"
 
 [[fault]]
 id = "tb3b-suffix-long"
 file = "src/front/new-goals.fs"
-old = '''  count dup tng-suffix# > if outcome-invalid lf-must then ;'''
-new = '''  count ;'''
+old = ''': tng-put ( c-addr u -- ) tng tng-text tng-text# cell-counted+? flag>outcome lf-must ;'''
+new = ''': tng-put ( c-addr u -- ) tng tng-text tng-text# cell-counted+? drop ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
-reason = "TB2 3b: a suffix too long for the frame's text accepted"
+reason = "TB2 3b: a suffix_idx too long for the frame's text cut short, not a fault (cell-counted+?'s refusal dropped)"
 
 # ---- tactic-core.fs: names and elabTermWithHoles
 [[fault]]

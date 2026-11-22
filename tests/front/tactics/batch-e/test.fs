@@ -240,15 +240,21 @@ T{ u4 u2 run2 c-specialize s" q" nm lf-tag-untagged u4 tag@ -> s" q" nm }T
 nat goal constant u5
 nat goal constant u6
 T{ u6 u5 run2 c-refine 0 lf-tag-untagged u5 tag@ u6 tag@ -> s" refine_2" nm s" refine_1" nm }T
-\ A suffix longer than 40 characters: a fault (invalid), nothing tagged,
-\ the frame given back.
+\ suffix_idx longer than the frame's 64 characters (cell-counted+?'s
+\ refusal): a fault (invalid), nothing tagged, the frame given back; 64
+\ characters exactly fit.
 lf-meta-throw-base outcome-invalid - constant thrown-invalid
 nat goal constant u7
 nat goal constant u8
-: c-long ( -- c-addr ) c" a-suffix-of-forty-one-characters-at-least" ;
+: c-long ( -- c-addr )
+  c" a-suffix-of-sixty-three-characters-one-too-many-for-the-frame-x" ;
+: c-fits ( -- c-addr )
+  c" a-suffix-of-sixty-two-characters-that-just-fits-in-the-frame-x" ;
 : tag-long ( -- ) u7 u8 run2 c-long 0 lf-tag-untagged ;
 T{ ' tag-long catch tng-frames slab-count u7 tag@ u8 tag@ -> thrown-invalid 0 0 0 }T
 T{ tng-frames slab-count -> 0 }T
+T{ u7 u8 run2 c-fits 0 lf-tag-untagged u8 tag@
+   s" a-suffix-of-sixty-two-characters-that-just-fits-in-the-frame-x_2" nm = -> true }T
 
 \ ---- lf-tac-log-unassigned: none, nothing; each a hole: Lean's
 \ placeholder error (461); a hole that is an argument (99); another

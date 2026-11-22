@@ -37,6 +37,15 @@ T{ 1 s1 slab-claim s1 slab-count -> -1 outcome-full 10 }T
 T{ 0 s1 slab-room -1 s1 slab-room -1 s1 slab-claim -> outcome-ok outcome-invalid -1 outcome-invalid }T
 T{ 0 s1 slab-valid? 9 s1 slab-valid? 10 s1 slab-valid? -1 s1 slab-valid? -> true true false false }T
 T{ 1 s1 slab-at 0 s1 slab-at - s1 slab-top 10 s1 slab-at = -> 1 cells true }T
+\ slab-claim-one (review tb2-batch3b 3): the claimed unit's address, each
+\ claim the next unit; at the limit -1 and full, nothing claimed; a slab
+\ not live -1 and invalid.
+1 cells 2 s2 slab-init drop
+T{ s2 ' slab-claim-one rs-checked s2 slab-count rot 0 s2 slab-at = -> outcome-ok 1 true }T
+T{ s2 slab-claim-one swap 1 s2 slab-at = s2 slab-count -> outcome-ok true 2 }T
+T{ s2 slab-claim-one s2 slab-count -> -1 outcome-full 2 }T
+s2 slab-free
+T{ s2 slab-claim-one s2 slab-count -> -1 outcome-invalid 0 }T
 
 \ Growth keeps the contents: 1,000 cells claimed one at a time.
 1 cells 1000 s2 slab-init drop

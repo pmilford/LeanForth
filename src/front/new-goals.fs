@@ -38,6 +38,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
+require ../lib/bounds.fs
 require ../lib/runs.fs
 require ../lib/find.fs
 require ../lib/decimal.fs
@@ -81,29 +82,26 @@ require ./meta-tactic/goal.fs
   dup tng-others? if drop lfa-e-tac-unassigned lf-tac-fail then run-last tng-placeholder ;
 
 \ ---- tagUntaggedGoals, a frame per call: the parent's tag, the suffix,
-\ whether one goal is anonymous, and how many were tagged so far.
-40 constant tng-suffix#   \ the longest suffix
-64 constant tng-text#     \ room for suffix_idx
+\ whether one goal is anonymous, how many were tagged so far, and the
+\ text of suffix_idx.
+64 constant tng-text#     \ room for suffix_idx, in characters
 begin-structure /tng
   field: tng-parent
   field: tng-suffix
   field: tng-one
   field: tng-idx
-  field: tng-len          \ the text of suffix_idx so far
-  tng-text# +field tng-text
+  cell tng-text# chars + +field tng-text   \ a cell-counted text (lib/bounds.fs)
 end-structure
 /tng context-slab: tng-frames
 : tng ( -- frame ) tng-frames slab-last ;
 : tng-untagged? ( run k -- run flag ) over swap run@ lf-goal-tag 0= ;
 : tng-anonymous# ( run -- n ) dup run-count ['] tng-untagged? count-index ;
-\ suffix_idx (appendIndexAfter), written in the frame's text; a suffix
-\ longer than tng-suffix# is a fault (invalid).
-: tng-put ( c-addr u -- ) tng tng-text tng tng-len @ + over tng tng-len +! swap move ;
-: tng-suffix-text ( c-addr -- c-addr u )
-  count dup tng-suffix# > if outcome-invalid lf-must then ;
+\ suffix_idx (appendIndexAfter), written in the frame's text; one longer
+\ than tng-text# characters is a fault (invalid).
+: tng-put ( c-addr u -- ) tng tng-text tng-text# cell-counted+? flag>outcome lf-must ;
 : tng-index-name ( suffix idx -- name )
-  0 tng tng-len ! swap tng-suffix-text tng-put s" _" tng-put u>decimal tng-put
-  tng tng-text tng tng-len @ lfa-intern ;
+  0 tng tng-text ! swap count tng-put s" _" tng-put u>decimal tng-put
+  tng tng-text cell-count lfa-intern ;
 : tng-next-tag ( -- tag )
   1 tng tng-idx +! tng tng-parent @ tng tng-one @ if exit then
   tng tng-suffix @ tng tng-idx @ tng-index-name lf-name-append-tag ;
