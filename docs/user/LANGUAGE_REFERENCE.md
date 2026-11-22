@@ -1140,6 +1140,32 @@ and b ≤ c, a ≤ c.
 | `  ' h2 by-exact` | `  exact h2` | closes the goal |
 | `end sy_rw_at` | | **end** |
 
+Put in a file `my.lf`, it is checked by `bin/leanforth check --env
+tests/front/decide-slice.ndjson --elab-data
+tests/front/decide-slice.elab.ndjson my.lf` (exit 0, `sy_rw_at: accepted;
+axioms: none`). A statement in this form cannot hold `→` yet, so a goal for
+`by-intro[ ]` is made by `by-revert[ ]` first.
+
+A second one, with named holes (batch 3b; the done checker's own theorem,
+accepted): from a = b and b = a, a = b ∧ b = a. Each `?: NAME` becomes a
+goal with that tag, closed by a `by-case:` block, in any order.
+
+| LeanForth | Lean | Part |
+| --- | --- | --- |
+| `theorem t5` | `theorem t5` | start, **name** |
+| `  Nat explicit: a  Nat explicit: b` | `(a b : Nat)` | two **binders** |
+| `  a b = explicit: h  b a = explicit: k` | `(h : a = b) (k : b = a)` | two **hypotheses** |
+| `  a b = b a = ∧` | `: a = b ∧ b = a` | **statement** |
+| `:= by` | `:= by` | `:=`, `by` |
+| `  ' And.intro ?: left $ ?: right $ by-refine` | `  refine And.intro ?left ?right` | two goals, tagged left and right |
+| `  by-case: right =>` | `  case right =>` | the second goal first |
+| `    ' k by-exact` | `    exact k` | closes it |
+| `  by-end` | | end of the block |
+| `  by-case: left =>` | `  case left =>` | the other goal |
+| `    ' h by-exact` | `    exact h` | closes it |
+| `  by-end` | | end of the block |
+| `end t5` | | **end** |
+
 **Change, show, swap, specialize, revert, delta, contradiction, trivial,
 absurd.** Nine more ports of Lean's tactics (plan row TB2, batch 1; `swap`
 and `absurd` are Batteries' macros), each compared with
@@ -1326,7 +1352,8 @@ value written.
 **Tactic batch 3b: lists of names and holes** (plan row TB2, 2026-11-22;
 `src/front/tactics/intro.fs`, `revert.fs`, `clear.fs`, `rename-i.fs`,
 `refine.fs`, the holes in `src/front/reader.fs`, `elab-term.fs` and
-`new-goals.fs`; tested on branch `tb2-batch3b`, not done: compared with
+`new-goals.fs`; on main, done check
+[2026-11-22-tb2-batch3b-done.md](../development/done-checks/2026-11-22-tb2-batch3b-done.md): compared with
 pinned Lean node for node by `tests/front/tactics/batch-e/check.py`,
 examples from `tests/front/tactics/batch-e/names.lf` and `holes.lf`). A
 list of names, like a list of rules, sits between its bracket word and
