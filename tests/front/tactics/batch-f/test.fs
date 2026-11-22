@@ -231,7 +231,8 @@ lf-elab-error-reset
 : nat ( -- t ) s" Nat" lf-mk-const0 ;
 \ The expected type: none unknown; Nat known, instantiated; the heap
 \ refusing the instantiation: full, neither.
-T{ -1 et-type? nat dup et-type? 2>r = 2r> -> -1 true outcome-ok true false outcome-ok }T
+: type-same? ( t -- flag unknown? outcome ) dup et-type? 2>r = 2r> ;
+T{ -1 et-type? nat type-same? -> -1 true outcome-ok true false outcome-ok }T
 T{ nat 1 heap-refusals ! et-type? 0 heap-refusals ! -> -1 false outcome-full }T
 T{ nat 1 heap-refusals ! et-type-unknown? 0 heap-refusals ! -> false outcome-full }T
 T{ nat mv-natural lf-mvar-new made et-type? rot drop -> true outcome-ok }T
