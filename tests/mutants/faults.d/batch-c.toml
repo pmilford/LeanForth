@@ -18,8 +18,8 @@ reason = "TB2: <- marks the slot after the rule, so the rule stays left to right
 [[fault]]
 id = "tb2c-symm-no-rule"
 file = "src/front/tactic-syntax.fs"
-old = '''  lft-in-rules lfa-above 0> lfa-e-tac-values lfa-must lft-rules lft-symm! ;'''
-new = '''  lft-in-rules lft-rules lft-symm! ;'''
+old = '''  lft-in-rules lfa-above dup 0> lfa-e-tac-values lfa-must lft-rules lft-symm! ;'''
+new = '''  lft-in-rules lfa-above lft-rules lft-symm! ;'''
 test = "$GFORTH tests/front/tactics/batch-c/test.fs"
 reason = "TB2: <- with no rule before it is read (marking another step's argument), not error 86"
 
@@ -34,8 +34,8 @@ reason = "TB2: the rules after a <- overwrite those before it (filled from the s
 [[fault]]
 id = "tb2c-symm-in-list"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-in-rules ( -- ) lft-in-bracket lft-rules? lfa-e-tac-closer lfa-must ;'''
-new = ''': lft-in-rules ( -- ) lft-in-bracket ;'''
+old = '''  lft-in-proof lfa-list-closer lft-close-square = lft-rules? and lfa-e-tac-closer lfa-must'''
+new = '''  lft-in-proof lfa-list-closer lft-close-square = drop true lfa-e-tac-closer lfa-must'''
 test = "$GFORTH tests/front/tactics/batch-c/test.fs"
 reason = "TB2: <- read inside by-exacts[ (Lean's exacts takes no ←), not error 83"
 
@@ -50,10 +50,10 @@ reason = "TB2: a new argument keeps the symm flag its slot had in an earlier dec
 [[fault]]
 id = "tb2c-bracket-shape-zero"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-bracket-shape? ( shape|0 -- flag ) dup if shape-build @ ['] lft-build-rules = then ;'''
-new = ''': lft-bracket-shape? ( shape|0 -- flag ) 0<> ;'''
+old = ''': lft-build-terms ( v1 .. vn i shape -- ) lft-values drop lft-done ;'''
+new = ''': lft-build-terms ( v1 .. vn i shape -- ) lft-values drop lft-done c" ]" lfa-bracket-open ;'''
 test = "$GFORTH tests/front/tactics/batch-c/test.fs"
-reason = "TB2: every word read by a shape counts as a bracket, so by-exact is refused after by-apply's step"
+reason = "TB2: every word read by a shape of values opens a bracket, so by-exact is refused after by-apply's step (458)"
 
 [[fault]]
 id = "tb2c-case-hole-refused"

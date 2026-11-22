@@ -78,7 +78,7 @@
 78	1	a reserved word: a syntax word cannot name a binder
 80	5	not supported yet: running this tactic
 81	1	a tactic word belongs in a tactic proof, after := by
-82	1	a block is still open: by-end closes by-induction-with and by-case:, ] closes by-rw[
+82	1	a block is still open: by-end closes by-induction-with and by-case:
 83	1	no block of this word's kind is open (| belongs right inside by-induction-with)
 84	1	a header is TAG NAMES... => on one line, after | or by-case:; names are no words
 85	1	an alternative or a by-case: block needs at least one tactic
@@ -145,9 +145,15 @@
 219	1	Invalid rewrite argument: The pattern to be substituted is a metavariable
 220	1	Occurs check failed: Expression
 300	6	out of room: a Forth stack, the dictionary or the heap, with its THROW code
-458	1	a list of names ends with ] on its line
+458	1	this list is never closed: its ] or >> is missing
+462	1	Invalid `⟨...⟩` notation: The expected type of this term could not be determined
+463	1	Invalid `⟨...⟩` notation: The expected type
+464	1	Invalid `⟨...⟩` notation: The expected type
+465	1	Invalid `⟨...⟩` notation: The expected type
+466	1	Insufficient number of fields for `⟨...⟩` constructor: Constructor
+467	1	Insufficient number of fields for `⟨...⟩` constructor: Constructor
 459	1	by-revert[ and by-clear[ take names of hypotheses up to ]
-460	1	this list takes one name at least
+460	1	this list takes one item at least
 453	1	at[ follows no tactic word that takes a location
 454	1	at[ takes hypothesis names and |-, or * alone, up to ]
 440	1	Tactic `clear` failed: unknown variable
@@ -267,6 +273,10 @@ reserved ↔ word
 reserved <-> word
 reserved ∣ word
 reserved divides word
+reserved << word
+reserved >> word
+reserved ⟨ word
+reserved ⟩ word
 reserved by-absurd word
 reserved by-and-intros word
 reserved by-apply word
@@ -292,6 +302,8 @@ reserved by-native-decide word
 reserved by-delta word
 reserved by-exacts[ word
 reserved by-exfalso word
+reserved by-trivial word
+reserved by-exists[ word
 reserved by-intros word
 reserved by-left word
 reserved by-refine word
@@ -304,7 +316,6 @@ reserved by-rwa[ word
 reserved by-specialize word
 reserved by-swap word
 reserved by-symm word
-reserved by-trivial word
 kind 1 by 0 by run
 kind 2 by-rfl 0 rfl run
 kind 3 by-exact 0 exact run
@@ -341,16 +352,17 @@ kind 33 by-native-decide 0 native_decide run
 kind 34 by-delta 0 delta run
 kind 35 by-exacts[ 0 exacts run
 kind 36 by-exfalso 0 exfalso run
-kind 37 by-intros 0 intros run
-kind 38 by-left 0 left run
-kind 39 by-refine 0 refine run
-kind 40 by-rename-i[ 0 rename_i run
-kind 41 by-replace: 0 replace run
-kind 42 by-revert 0 revert run
-kind 43 by-revert[ 0 revert run
-kind 44 by-right 0 right run
-kind 45 by-rwa[ 0 rwa run
-kind 46 by-specialize 0 specialize run
-kind 47 by-swap 0 swap run
-kind 48 by-symm 0 symm run
-kind 49 by-trivial 0 trivial run
+kind 37 by-trivial 0 trivial run
+kind 38 by-exists[ 0 exists run
+kind 39 by-intros 0 intros run
+kind 40 by-left 0 left run
+kind 41 by-refine 0 refine run
+kind 42 by-rename-i[ 0 rename_i run
+kind 43 by-replace: 0 replace run
+kind 44 by-revert 0 revert run
+kind 45 by-revert[ 0 revert run
+kind 46 by-right 0 right run
+kind 47 by-rwa[ 0 rwa run
+kind 48 by-specialize 0 specialize run
+kind 49 by-swap 0 swap run
+kind 50 by-symm 0 symm run

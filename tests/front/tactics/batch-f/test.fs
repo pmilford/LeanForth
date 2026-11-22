@@ -74,8 +74,11 @@ T{ hk s" << ' h by-exact" tactic-ran token s" <<" compare -> 458 0 }T
 T{ hk s" << ' h" tactic-ran token s" <<" compare -> 458 0 }T
 T{ hk s\" ⟨ ' h\n ' k by-rfl" tactic-ran token s" ⟨" compare at@ drop -> 458 0 1 }T
 T{ s" theorem t Nat explicit: a << a := by by-rfl end t" ran token s" <<" compare -> 458 0 }T
-T{ hk s" ' h << + >> by-exact" tactic-ran -> lfa-e-missing }T
+T{ hk s" ' h ' k << + >> by-exact" tactic-ran -> lfa-e-missing }T
 T{ hk s" << Nat explicit: x >> by-exact" tactic-ran -> 21 }T
+\ (in a statement, where no tactic word checks the binders again)
+T{ s" theorem t << Nat explicit: x >> := by by-rfl end t" ran token s" >>" compare
+   -> 21 0 }T
 \ A bracket of rules closed by >>, a << closed by ]: the other's closing
 \ word is missing (458); <- right inside << (83).
 T{ hk s" by-rw[ << ' h >> by-exact" tactic-ran token s" by-rw[" compare -> 458 0 }T
@@ -153,7 +156,13 @@ T{ s" a b = explicit: h a b = b a = ∨" st s" << ' h >> by-exact" tactic-ran ->
 T{ hk s" << ' h >> by-exact" tactic-ran -> 466 }T
 T{ s" a b = explicit: h a b =" st s" << ' h >> by-exact" tactic-ran -> 467 }T
 T{ s" a b = explicit: h a b =" st s" << >> a + a = by-have" tactic-ran -> 132 }T
+\ (an argument whose type is a metavariable: whnfR at it, Lean postpones)
+T{ s" a b = explicit: h a b =" st s" ' And.intro << >> $ << >> $ by-have" tactic-ran -> 132 }T
 lf-tac-forget
+\ After a list read on into the next line, the rest of that line runs: a
+\ comment there is read to its end (source.fs's lfa-read! by address), so
+\ a number-like token in it is no stray number.
+T{ hk1 s\" by-revert[\n h k ] \\ see 0x10\n by-intro[ x y ] x by-exact" tactic-ran -> 0 }T
 \ The message's rest and the type, kept for the detail: Prop (which
 \ natural text cannot write yet) is no inductive type (463), with the
 \ note below.

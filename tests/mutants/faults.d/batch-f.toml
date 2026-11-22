@@ -1,0 +1,231 @@
+# Planted faults of tactic batch 3c (plan row TB2: src/author/scopes.fs's brackets,
+# runner.fs's reading on and source.fs's lfa-read!, src/front/tactic-syntax.fs's lists,
+# reader.fs's << >>, elab-term.fs's anonymous constructor and lf-elab-final,
+# elab-pending.fs's message rest, tactic-core.fs's detail, src/front/tactics/exists.fs),
+# read with faults.toml as one list (scripts/mutants.py). Each is caught by the test it
+# names (tests/front/tactics/batch-f/test.fs or its check.py), unless it says why not
+# (gap, equivalent).
+
+# ---- scopes.fs: brackets
+[[fault]]
+id = "tb3c-frame-no-bracket"
+file = "src/author/scopes.fs"
+old = ''': lfa-frame ( -- depth ) lfa-binder-frame lfa-bracketed? if lfb lfb-mark @ max then ;'''
+new = ''': lfa-frame ( -- depth ) lfa-binder-frame ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: a word inside << >> takes values from before << (not missing values)"
+
+[[fault]]
+id = "tb3c-closer-any"
+file = "src/author/scopes.fs"
+old = '''  drop lfa-list-closer <> if lfa-list-unclosed then ;'''
+new = '''  2drop ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: ] closes a << and >> a by-rw[ (not 458 at the open list's word)"
+
+[[fault]]
+id = "tb3c-bracket-binders-any"
+file = "src/author/scopes.fs"
+old = '''  lfa-depth lfb lfb-binders @ = if exit then'''
+new = '''  exit'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: a binder opened inside << >> stays open past >> (not error 21)"
+
+[[fault]]
+id = "tb3c-brackets-never-open"
+file = "src/author/scopes.fs"
+old = ''': lfa-brackets-closed ( -- ) lfa-bracketed? if lfa-list-unclosed then ;'''
+new = ''': lfa-brackets-closed ( -- ) ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: a tactic word, end or := inside a list is read (not 458 at the list's word)"
+
+[[fault]]
+id = "tb3c-items-one-more"
+file = "src/author/scopes.fs"
+old = ''': lfb-items ( -- n pos ) depth lfb lfb-mark @ - lfb lfb-at @ ;'''
+new = ''': lfb-items ( -- n pos ) depth lfb lfb-mark @ - 1+ lfb lfb-at @ ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: a list's items counted one too many (a value from before it taken)"
+
+# ---- runner.fs and source.fs: reading on
+[[fault]]
+id = "tb3c-no-refill"
+file = "src/author/runner.fs"
+old = '''  lfa-next-line? 0= if false exit then lfa-line-start true lfa-run lfa-run-on ! true ;'''
+new = '''  false ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: a list of names never goes on into the next line (458 at its word)"
+
+[[fault]]
+id = "tb3c-rest-not-run"
+file = "src/author/runner.fs"
+old = ''': lfa-eval-on ( -- ) begin lfa-on? while lfa-line-rest lfa-eval repeat ;'''
+new = ''': lfa-eval-on ( -- ) ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: after a list read on into a line, the rest of that line is never run"
+
+[[fault]]
+id = "tb3c-comment-as-name"
+file = "src/author/runner.fs"
+old = '''  2dup s" (" lfa-token= if 2drop true else lfa-comment? then ;'''
+new = '''  2drop false ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: \\ and ( inside a list over lines are read as names (458)"
+
+[[fault]]
+id = "tb3c-paren-unclosed"
+file = "src/author/runner.fs"
+old = '''  lfa-line-rest [char] ) byte-scan 0<> lfa-e-comment-end lfa-must 1+ ;'''
+new = '''  lfa-line-rest [char] ) byte-scan drop 1+ ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: a ( comment in a list that never closes on its line is skipped (not 42)"
+
+[[fault]]
+id = "tb3c-read-by-in"
+file = "src/author/source.fs"
+old = ''': lfa-read! ( -- ) source drop lfa-in + lfa-offset lfa-source lfa-source-end ! ;'''
+new = ''': lfa-read! ( -- ) >in @ lfa-source lfa-source-end ! ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: a comment in the rest of a line read on into marks the line read only so far as the rest's own length, and its text is checked as stray numbers"
+
+# ---- tactic-syntax.fs: lists
+[[fault]]
+id = "tb3c-empty-token-item"
+file = "src/front/tactic-syntax.fs"
+old = '''  dup 0= if 2drop true exit then'''
+new = '''  dup 0= if 2drop false exit then'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: the text's end inside a list of names is read as a name (not 458)"
+
+[[fault]]
+id = "tb3c-some-ignored"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-some? ( n -- n ) dup 0= lft-some-wanted? and 0= lfa-e-tac-list-empty lfa-must ;'''
+new = ''': lft-some? ( n -- n ) ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: an empty by-exists[ ] is read, which Lean's term,+ refuses (not 460)"
+
+[[fault]]
+id = "tb3c-symm-in-anon"
+file = "src/front/tactic-syntax.fs"
+old = '''  lft-in-proof lfa-list-closer lft-close-square = lft-rules? and lfa-e-tac-closer lfa-must'''
+new = '''  lft-in-proof lft-rules? lfa-e-tac-closer lfa-must'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: <- right inside a << of a by-rw[ marks the rule before << (not 83)"
+
+# ---- reader.fs: << >>
+[[fault]]
+id = "tb3c-anon-no-items"
+file = "src/front/reader.fs"
+old = '''  lfn-anon-closer lfa-e-tac-closer lfa-bracket-close lfn-anon-node lfn-value ;'''
+new = '''  lfn-anon-closer lfa-e-tac-closer lfa-bracket-close nip 0 swap lfn-anon-node lfn-value ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: >> makes a node of no item, the items left on the stack"
+
+# ---- elab-term.fs: the anonymous constructor
+[[fault]]
+id = "tb3c-mvar-app-not-postponed"
+file = "src/front/elab-term.fs"
+old = '''  if drop et-postponed else outcome-ok then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: an expected type whose whnfR is a metavariable's application is not postponed (Lean's), so its error is 462, not 132"
+
+[[fault]]
+id = "tb3c-whnf-mvar-unchecked"
+file = "src/front/elab-term.fs"
+old = '''  dup et-head-mvar? 0= if outcome-ok exit then'''
+new = '''  outcome-ok exit'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: an expected type whose whnf is a metavariable's application is 463, not Lean's 462"
+gap = "no text reaches it: an expected type whose whnfR is no metavariable's application while its whnf is one (a definition that unfolds to a metavariable at default transparency only) is in no slice the tests read; the root case of an unknown type is lf-elab-final's, tested"
+
+[[fault]]
+id = "tb3c-one-ctor-unchecked"
+file = "src/front/elab-term.fs"
+old = '''  dup 1 = if drop nip @ outcome-ok exit then'''
+new = '''  dup 0> if drop nip @ outcome-ok exit then'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-f/check.py"
+reason = "TB2 3c: an inductive type of several constructors takes its first (Or.inl: not 465)"
+
+[[fault]]
+id = "tb3c-fields-from-zero"
+file = "src/front/elab-term.fs"
+old = '''  et-past ['] et-explicit? count-index outcome-ok ;'''
+new = '''  drop ['] et-explicit? count-index outcome-ok ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: the explicit fields counted from the parameters on (Eq.refl's a counted: 1, not 0)"
+
+[[fault]]
+id = "tb3c-few-never"
+file = "src/front/elab-term.fs"
+old = ''': et-few? ( node n -- flag ) swap syn-b@ > ;'''
+new = ''': et-few? ( node n -- flag ) 2drop false ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: too few items are elaborated as an application short of arguments (not 466)"
+
+[[fault]]
+id = "tb3c-rest-not-nested"
+file = "src/front/elab-term.fs"
+old = '''  et-anon-of ok-then? if swap syn-last! outcome-ok else nip no-result then ;'''
+new = '''  et-anon-of ok-then? if nip outcome-ok else nip no-result then ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: the last field takes the next item alone, the rest dropped (⟨h, k, h⟩ is ⟨h, k⟩)"
+
+[[fault]]
+id = "tb3c-final-plain"
+file = "src/front/elab-term.fs"
+old = '''  if drop et-root-unknown else lf-elab-term then ;'''
+new = '''  drop lf-elab-term ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: have := ⟨⟩ answers not supported (132) where Lean's error is certain (462)"
+
+[[fault]]
+id = "tb3c-private-ported"
+file = "src/front/elab-term.fs"
+old = ''': et-private? ( name -- flag ) lf-name-root s" _private" lf-name-str-is? ;'''
+new = ''': et-private? ( name -- flag ) drop false ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: a private constructor is used, where Lean checks its accessibility (not ported: 139)"
+
+# ---- elab-pending.fs and tactic-core.fs: the message's rest
+[[fault]]
+id = "tb3c-rest-after-error"
+file = "src/front/elab-pending.fs"
+old = ''': lf-elab-rest+ ( c-addr u -- ) ep-free? if ep-rest+ else 2drop then ;'''
+new = ''': lf-elab-rest+ ( c-addr u -- ) ep-rest+ ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: a later error's text is appended to the first error's message"
+
+[[fault]]
+id = "tb3c-rest-uncut"
+file = "src/front/elab-pending.fs"
+old = '''  ep ep-rest ep-rest# cell-counted-left min ep ep-rest cell-counted+! ;'''
+new = '''  ep ep-rest ep-rest# cell-counted-left max ep ep-rest cell-counted+! ;'''
+test = "$GFORTH tests/front/tactics/batch-f/test.fs"
+reason = "TB2 3c: a message's rest is not cut at its room"
+
+[[fault]]
+id = "tb3c-detail-no-rest"
+file = "src/front/tactic-core.fs"
+old = '''  lf-elab-error-term lf-elab-rest nip if tcr-rest-detail else tcr-term-detail then ;'''
+new = '''  lf-elab-error-term tcr-term-detail ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-f/check.py"
+reason = "TB2 3c: the ⟨ ⟩ errors print their type indented and lose their rest and note (Lean's message differs)"
+
+# ---- tactics/exists.fs
+[[fault]]
+id = "tb3c-exists-no-hole"
+file = "src/front/tactics/exists.fs"
+old = ''': txs-anon ( i -- node ) dup txs-hole swap dup txs-outer txs-fill nip swap syn-last! ;'''
+new = ''': txs-anon ( i -- node ) dup txs-hole swap dup txs-outer txs-fill nip nip ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-f/check.py"
+reason = "TB2 3c: exists' ⟨es, ?_⟩ has an empty last item (the ?_ lost)"
+
+[[fault]]
+id = "tb3c-exists-no-trivial"
+file = "src/front/tactics/exists.fs"
+old = '''  dup ['] txs-tac lf-lift-meta-tactic ['] txs-trivial lf-tac-try-lean drop ;'''
+new = '''  dup ['] txs-tac lf-lift-meta-tactic drop ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-f/check.py"
+reason = "TB2 3c: exists leaves the goal trivial closes (Lean's try trivial skipped)"

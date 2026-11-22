@@ -5655,8 +5655,8 @@ reason = "a line that ends with Forth compiling goes on unnoticed (A5 row 5)"
 [[fault]]
 id = "author-line-characters-unchecked"
 file = "src/author/runner.fs"
-old = '''  2dup lfa-line! lfa-line-chars lfa-order! 2dup lfa-ahead lfa-floats! evaluate'''
-new = '''  2dup lfa-line! lfa-order! 2dup lfa-ahead lfa-floats! evaluate'''
+old = ''': lfa-line-start ( c-addr u -- ) 2dup lfa-line! lfa-line-chars lfa-order! lfa-ahead ;'''
+new = ''': lfa-line-start ( c-addr u -- ) 2dup lfa-line! lfa-order! lfa-ahead ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "control and format characters and bytes that are not UTF-8 reach Forth's interpreter, which splits tokens differently from an editor (A5 row 7)"
 quick = true
@@ -14248,10 +14248,10 @@ reason = "FE1g-2: a tactic right after by-induction-with (Lean's pre-tactic, wit
 [[fault]]
 id = "fe-tac-bracket-open"
 file = "src/front/tactic-syntax.fs"
-old = '''  lft-bracket? if lft-open-at lfa-e-tac-open lfa-fail-see then ;'''
-new = '''  ;'''
+old = ''': lft-ready ( -- ) lft-in-proof lfa-brackets-closed lfa-same-binders ;'''
+new = ''': lft-ready ( -- ) lft-in-proof lfa-same-binders ;'''
 test = "$GFORTH tests/front/tactic-syntax.fs"
-reason = "FE1g-2: a tactic word inside by-rw[ ] is read as a step of the rewrite (error 82 expected)"
+reason = "FE1g-2, TB2 3c: a tactic word inside by-rw[ ] is read as a step of the rewrite (error 458 at by-rw[ expected)"
 
 [[fault]]
 id = "fe-tac-rules-reversed"
@@ -14288,7 +14288,7 @@ reason = "FE1g-2, review fe1g2 L2: a hypothesis's node no longer says which head
 [[fault]]
 id = "fe-tac-bracket-doubt"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-may-take? ( -- flag ) lfa-above 0> lft-bracketed? 0= and ;'''
+old = ''': lft-may-take? ( -- flag ) lfa-above 0> lfa-bracketed? 0= and ;'''
 new = ''': lft-may-take? ( -- flag ) lfa-above 0> ;'''
 test = "$GFORTH tests/front/tactic-syntax.fs"
 reason = "FE1g-2, review fe1g2 L1/L2: a hypothesis inside by-rw[ ] is taken as maybe applied to the values below it, though every value there is a rule, and the doubt outlives ] (by-rw[ n ih ] n n by-exact: 87 where 86 is due)"
@@ -14296,8 +14296,8 @@ reason = "FE1g-2, review fe1g2 L1/L2: a hypothesis inside by-rw[ ] is taken as m
 [[fault]]
 id = "fe-tac-doubt-anywhere"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-may-take? ( -- flag ) lfa-above 0> lft-bracketed? 0= and ;'''
-new = ''': lft-may-take? ( -- flag ) lft-bracketed? 0= ;'''
+old = ''': lft-may-take? ( -- flag ) lfa-above 0> lfa-bracketed? 0= and ;'''
+new = ''': lft-may-take? ( -- flag ) lfa-bracketed? 0= ;'''
 test = "$GFORTH tests/front/tactic-syntax.fs"
 reason = "FE1g-2, review fe1g2 L1: a hypothesis read with nothing below it still leaves a doubt, so ih n by-exact (two values for certain) is 87, not the mistake 86"
 
@@ -18243,8 +18243,8 @@ reason = "review s1-elab re-check L2: 129 in a tactic's term without Lean's inde
 [[fault]]
 id = "fe-elab-error-term-kept"
 file = "src/front/elab-pending.fs"
-old = ''': lf-elab-error-reset ( -- ) 0 ep ep-code ! -1 ep ep-where ! -1 ep ep-term ! ;'''
-new = ''': lf-elab-error-reset ( -- ) 0 ep ep-code ! -1 ep ep-where ! ;'''
+old = '''  0 ep ep-code ! -1 ep ep-where ! -1 ep ep-term ! 0 ep ep-below ! 0 ep ep-rest ! ;'''
+new = '''  0 ep ep-code ! -1 ep ep-where ! 0 ep ep-below ! 0 ep ep-rest ! ;'''
 test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
 reason = "review s1-elab re-check L2: a forgotten error's term shown under a later error"
 

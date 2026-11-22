@@ -12,10 +12,10 @@
 [[fault]]
 id = "tb3b-list-no-end"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-list-token ( -- c-addr u ) lft-next dup 0<> lfa-e-tac-list-end lfa-must ;'''
-new = ''': lft-list-token ( -- c-addr u ) lft-next ;'''
+old = ''': lft-list-token ( -- c-addr u ) lfa-token-on 2dup lft-stops? if lfa-list-unclosed then ;'''
+new = ''': lft-list-token ( -- c-addr u ) lfa-token-on ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
-reason = "TB2 3b: a list that reaches the end of its line goes on as if closed (not 458)"
+reason = "TB2 3b, 3c: a list that meets a word never its item, or the text's end, goes on (not 458 at its word)"
 
 [[fault]]
 id = "tb3b-list-closer-never"
@@ -28,8 +28,8 @@ reason = "TB2 3b: ] never ends a list, so every list runs to its line's end"
 [[fault]]
 id = "tb3b-list-name-inverted"
 file = "src/front/tactic-syntax.fs"
-old = '''  lft-list-token 2dup lft-closer? if 2drop false else true then ;'''
-new = '''  lft-list-token 2dup lft-closer? 0= if 2drop false else true then ;'''
+old = '''  lft-list-token 2dup lft-closer? if 2drop lfa-bracket-drop false else true then ;'''
+new = '''  lft-list-token 2dup lft-closer? 0= if 2drop lfa-bracket-drop false else true then ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: the list stops at its first name and reads ] as a name"
 
@@ -60,24 +60,24 @@ reason = "TB2 3b: an empty by-revert[ ], by-clear[ ] or by-rename-i[ ] is read (
 [[fault]]
 id = "tb3b-binders-plus-empty"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-build-binders+ ( i shape -- ) drop lft-binders] lft-some lft-done ;'''
-new = ''': lft-build-binders+ ( i shape -- ) drop lft-binders] lft-done ;'''
+old = ''': lft-build-binders+ ( i shape -- ) drop lft-list-open lft-binders] lft-some lft-done ;'''
+new = ''': lft-build-binders+ ( i shape -- ) drop lft-list-open lft-binders] lft-done ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: an empty by-rename-i[ ] is read, which Lean's parser refuses (not 460)"
 
 [[fault]]
 id = "tb3b-binders-text-end"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-build-binders ( i shape -- ) drop lft-binders] lft-done ;'''
-new = ''': lft-build-binders ( i shape -- ) drop lft-binders] drop ;'''
+old = ''': lft-build-binders ( i shape -- ) drop lft-list-open lft-binders] lft-done ;'''
+new = ''': lft-build-binders ( i shape -- ) drop lft-list-open lft-binders] drop ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: the step's text does not reach its list's ]"
 
 [[fault]]
 id = "tb3b-hyps-as-binders"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-build-hyps ( i shape -- ) drop lft-hyps] lft-some lft-done ;'''
-new = ''': lft-build-hyps ( i shape -- ) drop lft-binders] lft-some lft-done ;'''
+old = ''': lft-build-hyps ( i shape -- ) drop lft-list-open lft-hyps] lft-some lft-done ;'''
+new = ''': lft-build-hyps ( i shape -- ) drop lft-list-open lft-binders] lft-some lft-done ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: by-revert['s names read as new hypotheses, _ among them (not 459)"
 
@@ -608,24 +608,24 @@ gap = "no text reaches it: error 136 (a local hypothesis applied to a term, h _,
 
 [[fault]]
 id = "tb3b-refine-unassigned"
-file = "src/front/tactics/refine.fs"
-old = ''': tre-assign ( goal e -- ) lf-instantiate! lf-mvar-assign lf-must ;'''
-new = ''': tre-assign ( goal e -- ) 2drop ;'''
+file = "src/front/tactic-core.fs"
+old = ''': tcr-assign ( goal e -- ) lf-instantiate! lf-mvar-assign lf-must ;'''
+new = ''': tcr-assign ( goal e -- ) 2drop ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-e/check.py"
 reason = "TB2 3b: refine leaves the main goal unassigned"
 
 [[fault]]
 id = "tb3b-refine-natural-allowed"
-file = "src/front/tactics/refine.fs"
-old = '''  swap 0 lf-tac-arg over lf-goal-target drop false lf-tac-elab-holes ;'''
-new = '''  swap 0 lf-tac-arg over lf-goal-target drop true lf-tac-elab-holes ;'''
+file = "src/front/tactic-core.fs"
+old = '''  tuck lf-goal-type lf-instantiate! false lf-tac-elab-holes ;'''
+new = '''  tuck lf-goal-type lf-instantiate! true lf-tac-elab-holes ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: refine is refine' (natural holes become goals, not 461)"
 
 [[fault]]
 id = "tb3b-refine-no-expected"
-file = "src/front/tactics/refine.fs"
-old = '''  swap 0 lf-tac-arg over lf-goal-target drop false lf-tac-elab-holes ;'''
-new = '''  swap 0 lf-tac-arg -1 false lf-tac-elab-holes ;'''
+file = "src/front/tactic-core.fs"
+old = '''  tuck lf-goal-type lf-instantiate! false lf-tac-elab-holes ;'''
+new = '''  tuck drop -1 false lf-tac-elab-holes ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: refine's term elaborated with no expected type (no mismatch 96)"
