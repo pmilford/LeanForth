@@ -414,30 +414,36 @@ end-structure
 1 constant tac-loc-given     \ at: was written
 2 constant tac-loc-goal      \ |- or ⊢ among its names
 4 constant tac-loc-all       \ at: *
-453 outcome-invalid s" at: follows no tactic word that takes a location" lfa-code: lfa-e-tac-at
+453 outcome-invalid s" at: follows no tactic word that takes a location"
+  lfa-code: lfa-e-tac-at
 454 outcome-invalid s" at: takes hypothesis names and |-, or * alone, on its line"
   lfa-code: lfa-e-tac-at-names
 : lft-at-shape? ( shape|0 -- flag ) dup if shape-at @ then ;
 : lft-own? ( addr -- flag ) tac-parent @ lft-open = ;
 : lft-locatable? ( addr -- flag )
   dup lft-own? over tac-loc @ 0= and swap tac-shape @ lft-at-shape? and ;
-: lft-located ( -- i ) lf-tactic-count 1- dup lft-rec lft-locatable? lfa-e-tac-at lfa-must ;
+: lft-located ( -- i )
+  lf-tactic-count 1- dup lft-rec lft-locatable? lfa-e-tac-at lfa-must ;
 : lft-loc! ( i flag -- i ) over lft-rec tac-loc tuck @ or swap ! ;
-: lft-turnstile? ( c-addr u -- flag ) 2dup s" |-" lfa-token= -rot s" ⊢" lfa-token= or ;
+: lft-turnstile? ( c-addr u -- flag )
+  2dup s" |-" lfa-token= if 2drop true else s" ⊢" lfa-token= then ;
 \ (_ is a reserved word too)
 : lft-loc-name? ( c-addr u -- flag ) lf-pf-reserved? 0= ;
+: lft-hyp-name ( c-addr u -- name )
+  2dup lft-loc-name? lfa-e-tac-at-names lfa-must lfa-word-name lfa-intern ;
 : lft-loc-hyp ( i c-addr u -- i )
-  2dup lft-loc-name? lfa-e-tac-at-names lfa-must lfa-word-name lfa-intern lfa-here lft-arg!
-  1 over lft-rec tac-loc# +! ;
+  lft-hyp-name lfa-here lft-arg! 1 over lft-rec tac-loc# +! ;
 : lft-loc-token ( i c-addr u -- i )
   2dup lft-turnstile? if 2drop tac-loc-goal lft-loc! exit then lft-loc-hyp ;
 : lft-loc-rest ( i -- i ) begin lft-next dup while lft-loc-token repeat 2drop ;
-: lft-loc-all ( i -- i ) tac-loc-all lft-loc! lft-next nip if lfa-e-tac-at-names lfa-fail then ;
+: lft-loc-all ( i -- i )
+  tac-loc-all lft-loc! lft-next nip if lfa-e-tac-at-names lfa-fail then ;
 : lft-loc-first ( i c-addr u -- i )
   2dup s" *" lfa-token= if 2drop lft-loc-all exit then lft-loc-token lft-loc-rest ;
 : lft-loc-token1 ( -- c-addr u ) lft-next dup 0<> lfa-e-tac-at-names lfa-must ;
 : lft-w-at ( -- )
-  lft-ready 0 lft-takes lft-located tac-loc-given lft-loc! lft-loc-token1 lft-loc-first lft-done ;
+  lft-ready 0 lft-takes lft-located tac-loc-given lft-loc!
+  lft-loc-token1 lft-loc-first lft-done ;
 
 \ := by opens the proof; its end NAME needs every block closed and no
 \ value left, and then the tactics run (lf-tactic-proof-end; without the

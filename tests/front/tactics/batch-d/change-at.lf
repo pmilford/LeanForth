@@ -73,3 +73,23 @@ theorem rf_rw_iff
 := by
   by-rw[ ' h ]
 end rf_rw_iff
+
+\ by-rfl on a goal that unfolds to an equation or an Iff (id is unfolded
+\ at default transparency, as Lean's rules do: review tb2-batch3a).
+\ Lean: theorem rf_id (a : Nat) : id (a = a) := by
+\         rfl
+theorem rf_id
+  Nat explicit: a
+  a a = id
+:= by
+  by-rfl
+end rf_id
+
+\ Lean: theorem rf_id_iff (a b : Nat) : id (a ≤ b ↔ a ≤ b) := by
+\         rfl
+theorem rf_id_iff
+  Nat explicit: a  Nat explicit: b
+  a b ≤ a b ≤ ↔ id
+:= by
+  by-rfl
+end rf_id_iff

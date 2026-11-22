@@ -330,8 +330,8 @@ reason = "TB2: the old hypothesis cleared before have runs (its value can no lon
 [[fault]]
 id = "tb2b-replace-wrong-name"
 file = "src/front/tactics/replace.fs"
-old = ''': trp-old ( i -- fvar|0 ) lf-tac-main lf-goal-view swap 2 lf-tac-arg trp-named ;'''
-new = ''': trp-old ( i -- fvar|0 ) drop 0 ;'''
+old = '''  lf-tac-main lf-goal-view swap 2 lf-tac-arg lf-view-named-fvar 0= if 0 then ;'''
+new = '''  drop 0 ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-b/check.py"
 reason = "TB2: no hypothesis found under the name (findFromUserName? lost)"
 

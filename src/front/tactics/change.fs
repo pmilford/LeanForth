@@ -34,7 +34,8 @@
 \   pattern and target. No goal: error 90. Lean tries the goal list as it
 \   is (getGoals); LeanForth tries the unsolved ones, the same goals less
 \   the assigned ones, which Lean's tries always refuse (checkNotAssigned).
-\ Lean call list: liftMetaTactic -> lf-lift-meta-tactic1 (tactic-core.fs);
+\ Lean call list: liftMetaTactic -> lf-lift-target1, lf-lift-local1
+\ (tactic-core.fs);
 \ Term.elabTermEnsuringType -> lf-tac-elab-ensuring; isDefEq ->
 \ lf-tac-defeq; withAssignableSyntheticOpaque -> lf-with-assignable-opaque
 \ (meta-config.fs); instantiateMVars -> lf-instantiate!; replaceTargetDefEq
@@ -87,11 +88,12 @@ s" show" tac-k-show lf-tactic-lean!
 
 \ ---- change: the main goal's target, or a hypothesis's type (at:).
 : tch-pattern ( i e -- p ) swap 0 lf-tac-arg swap ['] tch-pair. lfa-e-change tch-elab ;
-: tch-tac ( i goal -- goal' ) tuck lf-goal-type lf-instantiate! tch-pattern lf-goal-replace-target-defeq ;
-: tch-local ( i fvar goal -- goal' )
-  >r tuck lf-fvar-type tch-pattern r> -rot lf-goal-change-local-decl ;
-: tch-at-target ( i -- i ) dup dup ['] tch-tac lf-lift-meta-tactic1 ;
-: tch-at-local ( i fvar -- i ) over tuck ['] tch-local lf-lift-meta-tactic1 ;
+: tch-tac ( i goal -- goal' )
+  tuck lf-goal-type lf-instantiate! tch-pattern lf-goal-replace-target-defeq ;
+: tch-new-type ( i fvar -- fvar type ) tuck lf-fvar-type tch-pattern ;
+: tch-local ( i fvar goal -- goal' ) -rot tch-new-type lf-goal-change-local-decl ;
+: tch-at-target ( i -- i ) ['] tch-tac lf-lift-target1 ;
+: tch-at-local ( i fvar -- i ) ['] tch-local lf-lift-local1 ;
 : tch-run ( i -- ) ['] tch-at-local ['] tch-at-target lf-at-location ;
 ' tch-run tac-k-change lf-tactic-action!
 

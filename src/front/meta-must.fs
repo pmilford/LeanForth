@@ -83,6 +83,10 @@
 \                                     MVarId.getType (as stored), getTag, the
 \                                     goal's local context and kind (getDecl);
 \                                     a goal with no record thrown invalid
+\   lf-view-local-of ( view fvar -- local )  a free variable's local in a
+\                                     view (getLocalDecl), none thrown invalid
+\   lf-fvar-user-name ( fvar -- name )  its user name in the context in
+\                                     force (FVarId.getUserName)
 \ Fail-closed (the design's rule): a failure is thrown as the code
 \ lf-meta-throw-base - outcome (-4201 to -4206), never for ok, so CATCH
 \ gives 0 only when the code ran to its end; lf-meta-catch hands back
@@ -197,6 +201,8 @@ end-structure
 : lf-goal-type ( goal -- type ) lf-mvar-type lf-found ;
 : lf-goal-tag ( goal -- tag ) lf-mvar-tag lf-found ;
 : lf-goal-view ( goal -- view ) lf-mvar-view lf-found ;
+: lf-view-local-of ( view fvar -- local ) over swap lf-view-find lf-found lf-view-local ;
+: lf-fvar-user-name ( fvar -- name ) lf-mctx-view swap lf-view-local-of lf-local-name ;
 : lf-goal-kind ( goal -- kind ) lf-mvar-kind lf-found ;
 : lf-with-goal ( i*x goal xt -- j*x ) swap lf-goal-view lf-with-view ;
 

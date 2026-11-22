@@ -119,9 +119,12 @@ end-structure
   >r lf-locals lfa-entry-new lfa-entry-variable r> rot lfa-entry-set ;
 \ A variable gets a word unless it is anonymous or its name is number-like.
 : lfa-named? ( c-addr u name -- flag ) 0<> -rot lfa-number-like? 0= and ;
+\ A binder's name is no syntax word, whose word its variable would hide (78).
+: lfa-binder-token ( -- c-addr u )
+  lfa-name-token 2dup lf-pf-reserved? 0= lfa-e-reserved-name lfa-must ;
 : lfa-name-binder ( binder -- )
-  >r lfa-name-token 2dup lfa-binder-name-of dup r> lfa-binder-name ! 2dup-under lfa-named?
-  if lfa-depth 1- lfa-local! else 2drop then ;
+  >r lfa-binder-token 2dup lfa-binder-name-of dup r> lfa-binder-name !
+  2dup-under lfa-named? if lfa-depth 1- lfa-local! else 2drop then ;
 \ value kind: the binder word; its frame starts below the domain, which
 \ is a term in the kernel form and a syntax node in natural form
 \ (src/front/reader.fs gives the word that makes it).

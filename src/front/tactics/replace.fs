@@ -10,7 +10,7 @@
 \ value). With no such hypothesis, the have alone. Errors and cases not
 \ supported yet are by-have:'s.
 \ Lean call list: withMainContext, getLCtx -> lf-tac-main, lf-goal-view;
-\ getLetDeclVars and findFromUserName? -> lf-tac-arg, lf-view-named;
+\ getLetDeclVars and findFromUserName? -> lf-tac-arg, lf-view-named-fvar;
 \ evalTactic have -> lf-tac-eval of tac-k-have; liftMetaTactic1
 \ tryClearMany -> lf-lift-meta-tactic1 of lf-goal-try-clear.
 \ Untrusted: only the kernel's check of the finished term decides.
@@ -23,9 +23,8 @@ require ./have.fs
 tac-shape-decl lf-tactic: by-replace: constant tac-k-replace
 s" replace" tac-k-replace lf-tactic-lean!
 
-: trp-named ( view name -- fvar|0 )
-  over swap lf-view-named if lf-view-fvar else drop 0 then ;
-: trp-old ( i -- fvar|0 ) lf-tac-main lf-goal-view swap 2 lf-tac-arg trp-named ;
+: trp-old ( i -- fvar|0 )
+  lf-tac-main lf-goal-view swap 2 lf-tac-arg lf-view-named-fvar 0= if 0 then ;
 : trp-cleared ( old goal -- goal' ) swap lf-goal-try-clear ;
 : trp-clear ( old i -- ) over if ['] trp-cleared lf-lift-meta-tactic1 else 2drop then ;
 : trp-run ( i -- ) dup trp-old swap dup tac-k-have lf-tac-eval trp-clear ;

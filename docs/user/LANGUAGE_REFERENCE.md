@@ -428,7 +428,11 @@ are error 30). For the name of a declaration, universe, namespace or
 hypothesis, a first character that is a digit, or one of `+ - # $ % & '`
 with more text after it, is refused (error 30; error 35 for such a token
 that is no name at all). A binder's name may look like a number: it then
-gets no word, and `n var#` refers to the binder. A part that is only digits
+gets no word, and `n var#` refers to the binder. A binder's name is never a
+reserved word, one of LeanForth's own words (`fun`, `Prop`, `:=`, `at:`,
+`by-exact` and every other tactic word: `src/present/print-forth.fs`'s
+list and the tactic files' words), whose word its variable would hide
+(error 78). A part that is only digits
 is a number part (no leading zero; at most 18 digits on a 64-bit host, 9 on
 a 32-bit one); `«123»` (with the guillemets) is the string `123`. Names are
 case-sensitive: `n` and `N` differ. A declaration's full name may be 256

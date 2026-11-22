@@ -443,6 +443,7 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 75 | invalid | unused universe parameter: the statement (or a definition's value) must use it |
 | 76 | invalid | malformed elaboration: a term that is no node, or a value unfit for the declaration |
 | 77 | unsupported | not supported yet: this step of instantiating metavariables (plan FE1c) |
+| 78 | invalid | a reserved word: a syntax word cannot name a binder |
 | 80 | unsupported | not supported yet: running this tactic |
 | 81 | invalid | a tactic word belongs in a tactic proof, after := by |
 | 82 | invalid | a block is still open: by-end closes by-induction-with and by-case:, ] closes by-rw[ |

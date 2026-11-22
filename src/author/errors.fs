@@ -132,6 +132,7 @@ require ./source.fs
 75 constant lfa-e-unused-universe \ a universe parameter nothing uses (FE1f)
 76 constant lfa-e-malformed      \ the elaborator's terms are malformed (FE1f)
 77 constant lfa-e-instantiate    \ unsupported: an instantiation step (FE1c)
+78 constant lfa-e-reserved-name  \ a binder named by a syntax word
 \ Tactic proofs read (src/front/tactic-syntax.fs, plan FE1g-2) and run
 \ (src/front/tactic-run.fs, plan FE1g-3).
 80 constant lfa-e-tac-run        \ unsupported: running this tactic (its number: FE1g-N)
@@ -379,6 +380,7 @@ create lfa-catalogue
   lfa-e-instantiate
   s" not supported yet: this step of instantiating metavariables (plan FE1c)"
   lfa-unsupported,
+  lfa-e-reserved-name s" a reserved word: a syntax word cannot name a binder" lfa-invalid,
   lfa-e-tac-run s" not supported yet: running this tactic" lfa-unsupported,
   lfa-e-tac-outside s" a tactic word belongs in a tactic proof, after := by" lfa-invalid,
   lfa-e-tac-open

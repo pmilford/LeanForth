@@ -148,6 +148,12 @@
 \       targets case has no failure rule of its own). The wildcard, which
 \       tries the goal and then every hypothesis newest first from saved
 \       states, is not supported yet (99).
+\   lf-at-location ( i xt-local xt-target -- )  the same for actions of
+\       step i alone, xt-local ( i fvar -- i ) and xt-target ( i -- i );
+\       lf-lift-target1 ( i xt -- i ) and lf-lift-local1 ( i fvar xt -- i )
+\       make such actions of a goal operation, xt ( i goal -- goal' ) at
+\       the goal and ( i fvar goal -- goal' ) at a hypothesis, each lifted
+\       to the main goal (lf-lift-meta-tactic1)
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: tb, the running step record's fields (tactic-run.fs's
 \ lf-tac-record, review fe1g3 M2), and tlc-frames (lf-with-location's
@@ -315,17 +321,14 @@ end-structure
 \ Lean's 389, not ported here (99), and no name at all Lean's unknown
 \ identifier, 455 (at the step's word, as getFVarId's 389 is).
 455 outcome-invalid s" Unknown identifier" lfa-code: lfa-e-tac-unknown-id
-: tcr-quoted. ( name -- outcome )
-  s"  `" lf-pp-emit lf-pp-name s" `" lf-pp-emit outcome-ok ;
+: tcr-quoted. ( name -- outcome ) s"  " lf-pp-emit lf-tac-.name outcome-ok ;
 : tcr-constant? ( name -- flag ) lf-menv-find nip ok? ;
 : tcr-unknown ( i k -- )
   lf-tac-loc-hyp dup tcr-constant? if lfa-e-tac-form lf-tac-fail then
   ['] tcr-quoted. lf-tac-inline lfa-e-tac-unknown-id lf-tac-stop ;
-: tcr-named ( view name -- fvar true | false )
-  over swap lf-view-named if lf-view-fvar true else drop false then ;
-: lf-tac-loc-fvar ( i k -- fvar )
-  lf-tac-main lf-goal-view >r 2dup lf-tac-loc-hyp r> swap tcr-named 0= if tcr-unknown then
-  nip nip ;
+: tcr-loc-named ( i k -- fvar true | false )
+  lf-tac-loc-hyp lf-tac-main lf-goal-view swap lf-view-named-fvar ;
+: lf-tac-loc-fvar ( i k -- fvar ) 2dup tcr-loc-named 0= if tcr-unknown then nip nip ;
 \ withLocation's targets case, a frame per call (xt-local and xt-target
 \ take and give the caller's values, which the stack holds beneath):
 \ each name in order resolved in the main goal's context then given to
@@ -350,4 +353,7 @@ end-structure
 \ The same for a run word whose actions take step i alone: ( i -- i ) and
 \ ( i fvar -- i ).
 : lf-at-location ( i xt-local xt-target -- ) rot dup 2swap lf-with-location drop ;
+\ Such actions of a goal operation (the header gives their xts).
+: lf-lift-target1 ( i xt -- i ) over tuck swap lf-lift-meta-tactic1 ;
+: lf-lift-local1 ( i fvar xt -- i ) >r over tuck r> lf-lift-meta-tactic1 ;
 base !   \ the BASE this file was loaded with

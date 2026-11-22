@@ -72,7 +72,11 @@ s" assumption" tac-k-assumption lf-tactic-lean!
   xt-local xt-target -- i*x )` (Lean's withLocation): xt-local ( i*x fvar
   -- i*x ) for each hypothesis named, resolved by name in the main goal's
   context, then xt-target ( i*x -- i*x ) when the goal is named or no
-  `at:` was written (`tactics/symm.fs`); `lf-tac-located?`,
+  `at:` was written (`tactics/symm.fs`); `lf-at-location ( i xt-local
+  xt-target -- )` is the same for actions of step i alone, which
+  `lf-lift-target1 ( i xt -- i )` and `lf-lift-local1 ( i fvar xt -- i )`
+  make from a goal operation, xt ( i goal -- goal' ) and ( i fvar goal --
+  goal' ) (`tactics/change.fs`, `delta.fs`); `lf-tac-located?`,
   `lf-tac-loc#`, `lf-tac-loc-fvar` read the location directly (rwa's
   single hypothesis). A hypothesis's new type goes in with
   `lf-goal-replace-local-decl` (replaceLocalDecl, an equality proof),

@@ -20,7 +20,8 @@ ENV = tactic_check.Env("tests/front/decide-slice.ndjson", "tests/front/decide-sl
 FILES = [(D + "rw-at.lf", ["at_hyp", "at_closes", "at_two", "at_goal", "at_rules",
                            "at_turnstile"]),
          (D + "rwa-at.lf", ["rwa_at", "rwa_none", "rwa_legacy", "rwa_le", "rwa_not"]),
-         (D + "change-at.lf", ["ch_at", "ch_goal", "sy_at", "sy_at_ne", "rf_iff", "rf_rw_iff"])]
+         (D + "change-at.lf", ["ch_at", "ch_goal", "sy_at", "sy_at_ne", "rf_iff", "rf_rw_iff",
+                                "rf_id", "rf_id_iff"])]
 
 
 def mismatch(term, has, want):

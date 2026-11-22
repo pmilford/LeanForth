@@ -165,7 +165,7 @@ end-structure
 \ ---- replace: the old hypothesis's name, assertAfter', tryClear; the
 \ new goal and the new hypothesis (AssertAfterResult's mvarId, fvarId).
 : mat-cleared ( goal' fvar' -- goal'' fvar' ) swap mat mat-old @ lf-goal-try-clear swap ;
-: mat-old-local ( -- local ) mat mat-old @ mat-at mat-view swap lf-view-local ;
+: mat-old-local ( -- local ) mat-view mat mat-old @ lf-view-local-of ;
 : mat-ready ( -- )
   mat mat-goal @ lf-goal-not-assigned drop mat-old-local lf-local-name mat mat-name !
   mat mat-type @ lf-instantiate! lf-open-mvar-free mat mat-type ! ;

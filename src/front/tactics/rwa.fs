@@ -17,8 +17,8 @@
 \   rule rewriting that hypothesis in turn, each rule given the one the
 \   rule before made (foldRWRulesSeq over rewriteLocalDeclCore:
 \   tactics/rewrite.fs's trw-local), and in assumption's place
-\   closeUsingFVar (:59-68): the hypothesis named again (the newest local
-\   of its name: the last rule's), its type defeq the goal's with
+\   closeUsingFVar (:59-68) of the free variable the fold gave (the last
+\   rule's), its type defeq the goal's with
 \   synthetic opaque metavariables assignable (else error 456, "Type
 \   mismatch: The rewritten hypothesis", with it, its type and the
 \   target), closeMainGoal with it.
@@ -28,7 +28,8 @@
 \   changes no term and is not printed.
 \ Lean call list: Tactic.focus -> lf-tac-focus, lf-tac-unfocus
 \ (tactic-run.fs); evalTactic rewrite -> lf-tac-eval of tac-k-rewrite;
-\ with_reducible rfl -> lf-tac-rfl-reducible; <|> -> lf-tac-first-of;
+\ with_reducible rfl -> lf-tac-rfl-reducible; <|> -> lf-tac-first-of, and
+\ at h lf-tac-try-lean (closeUsingFVar takes the fold's free variable);
 \ assumption -> tactics/assumption.fs's tas-row; getFVarId ->
 \ lf-tac-loc-fvar; rewriteLocalDeclCore -> trw-local; inferType ->
 \ lf-infer; isDefEq under withAssignableSyntheticOpaque, the mismatch ->
@@ -49,22 +50,23 @@ s" rwa" tac-k-rwa lf-tactic-lean!
 
 : trwa-close ( -- ) ['] tas-row ['] lf-tac-rfl-reducible 2 lf-tac-first-of ;
 : trwa-core ( i -- ) tac-k-rewrite lf-tac-eval trwa-close ;
-: trwa-focused ( i xt -- ) lf-tac-focus -rot execute lf-tac-unfocus ;
 
 \ ---- at h: the rules folded over the hypothesis, closeUsingFVar.
-: trwa-using ( i -- )
-  0 lf-tac-loc-fvar tb tb-want @ lfa-e-rwa-mismatch lf-tac-ensure-type-as
+: trwa-using ( fvar i -- )
+  drop tb tb-want @ lfa-e-rwa-mismatch lf-tac-ensure-type-as
   tb tb-goal @ swap lf-goal-checked-assign lf-tac-pop-main ;
-: trwa-close-fvar ( -- ) lf-tac-step ['] trwa-using lf-tac-step-run ;
-: trwa-close-at ( -- ) ['] trwa-close-fvar ['] lf-tac-rfl-reducible 2 lf-tac-first-of ;
-: trwa-rule ( fvar i k -- fvar' i ) swap dup >r trw-local r> ;
-: trwa-rules ( fvar i -- ) dup lf-tac-args# 0 ?do i trwa-rule loop 2drop ;
+: trwa-close-fvar ( fvar -- ) lf-tac-step ['] trwa-using lf-tac-step-run ;
+: trwa-close-at ( fvar -- )
+  ['] lf-tac-rfl-reducible lf-tac-try-lean if drop exit then trwa-close-fvar ;
+: trwa-rule ( fvar k -- fvar' ) lf-tac-step trw-local ;
+: trwa-rules ( fvar i -- fvar' ) lf-tac-args# 0 ?do i trwa-rule loop ;
 : trwa-at ( i -- ) dup 0 lf-tac-loc-fvar swap trwa-rules trwa-close-at ;
 \ One hypothesis named, alone: evalRwaAt; any other location the legacy macro.
 : trwa-one? ( i -- flag )
   dup lf-tac-loc# 1 = over lf-tac-loc-goal? 0= and swap lf-tac-loc-all? 0= and ;
+: trwa-legacy? ( i -- flag ) dup lf-tac-located? swap trwa-one? 0= and ;
 : trwa-legacy ( i -- ) tac-k-rw lf-tac-eval tas-row ;
-: trwa-located ( i -- ) dup trwa-one? if ['] trwa-at trwa-focused else trwa-legacy then ;
+: trwa-inner ( i -- ) dup lf-tac-located? if trwa-at else trwa-core then ;
 : trwa-run ( i -- )
-  dup lf-tac-located? if trwa-located else ['] trwa-core trwa-focused then ;
+  dup trwa-legacy? if trwa-legacy else lf-tac-focus swap trwa-inner lf-tac-unfocus then ;
 ' trwa-run tac-k-rwa lf-tactic-action!

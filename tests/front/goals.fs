@@ -76,6 +76,10 @@ v12 l2y lf-view-push nip drop
 x2 nx 0 lf-local-new made constant l2x
 T{ v1 l2x lf-view-push made nx lf-view-named -> 1 true }T
 T{ v123 99999 lf-view-named 99 nx lf-view-named -> false false }T
+\ The same as a free variable (lf-view-named-fvar): lc1's x1; none false.
+T{ v123 nx lf-view-named-fvar v123 ny lf-view-named-fvar v1 l2x lf-view-push made nx
+   lf-view-named-fvar -> x1 true false x2 true }T
+T{ v123 99999 lf-view-named-fvar 99 nx lf-view-named-fvar -> false false }T
 \ Erased: the others in order; a variable it lacks changes nothing.
 v123 x2 lf-view-erase made constant v13
 T{ v13 lf-view-count v13 0 lf-view-local v13 1 lf-view-local v123 lf-view-count -> 2 lc1 l3 3 }T

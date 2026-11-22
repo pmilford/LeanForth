@@ -18,7 +18,7 @@
 \ identifier only), several names (Lean's delta f g: a shape with several
 \ terms) and at: *.
 \ Lean call list: getMainGoal, getMainTarget, replaceMainGoal ->
-\ lf-lift-meta-tactic1 (tactic-core.fs) and lf-instantiate!;
+\ lf-lift-target1, lf-lift-local1 (tactic-core.fs) and lf-instantiate!;
 \ realizeGlobalConstNoOverloadWithInfo -> tdl-name; deltaExpand ->
 \ lf-delta-expand; == -> lf-meta-eqv (term-eqv.fs); throwTacticEx ->
 \ lf-tac-ex (tactic-msg.fs); replaceTargetDefEq ->
@@ -44,16 +44,17 @@ s" delta" tac-k-delta lf-tactic-lean!
 : tdl-tac ( i goal -- goal' )
   swap 0 lf-tac-arg tdl-name tdl-expand tuck lf-meta-eqv lf-tac-must if tdl-same then
   nip lf-goal-replace-target-defeq ;
-: tdl-at-target ( i -- i ) dup dup ['] tdl-tac lf-lift-meta-tactic1 ;
+: tdl-at-target ( i -- i ) ['] tdl-tac lf-lift-target1 ;
 \ deltaLocalDecl: did not delta reduce [f] at h, else not supported yet.
-: tdl-user ( fvar -- name ) lf-mctx-view tuck swap lf-view-find lf-found lf-view-local lf-local-name ;
 : tdl-at. ( fvar -- outcome )
-  lf-tac-step 0 lf-tac-arg tdl-name tdl-array s"  at " lf-pp-emit tdl-user lf-pp-name outcome-ok ;
+  lf-tac-step 0 lf-tac-arg tdl-name tdl-array s"  at " lf-pp-emit
+  lf-fvar-user-name lf-pp-name outcome-ok ;
 : tdl-unchanged? ( i fvar -- fvar flag )
-  swap 0 lf-tac-arg tdl-name over lf-fvar-type tuck swap lf-delta-expand lf-meta-eqv lf-tac-must ;
+  swap 0 lf-tac-arg tdl-name over lf-fvar-type tuck swap lf-delta-expand
+  lf-meta-eqv lf-tac-must ;
 : tdl-local ( i fvar goal -- goal' )
   -rot tdl-unchanged? if ['] tdl-at. lf-tac-inline lfa-e-delta lf-tac-ex then
   lfa-e-tac-form lf-tac-fail ;
-: tdl-at-local ( i fvar -- i ) over tuck ['] tdl-local lf-lift-meta-tactic1 ;
+: tdl-at-local ( i fvar -- i ) ['] tdl-local lf-lift-local1 ;
 : tdl-run ( i -- ) ['] tdl-at-local ['] tdl-at-target lf-at-location ;
 ' tdl-run tac-k-delta lf-tactic-action!

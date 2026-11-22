@@ -191,7 +191,7 @@ end-structure
 /tlb context-record: tlb
 : tl-cell ( addr i -- x ) cells + @ ;
 : tl-x ( i -- x ) tlb tlb-xs @ swap tl-cell ;
-: tl-local-of ( fvar view -- local ) dup rot lf-view-find lf-found lf-view-local ;
+: tl-local ( i -- local ) tlb tlb-view @ swap tl-x lf-view-local-of ;
 \ Binder i's domain: x_i's type instantiated, head-beta reduced and
 \ abstracted over x_0 .. x_i-1 (tl-abstract).
 : tl-abstract ( t i -- t' ) tlb tlb-xs @ swap lf-meta-abstract lf-must ;
@@ -201,7 +201,7 @@ end-structure
   over swap dup lf-local-name swap lf-local-binder lf-pres-binder! lf-must ;
 \ x_i's binder over body (the mode's lambda or pi), named as its local.
 : tl-wrapped ( body i -- t )
-  dup tl-x tlb tlb-view @ tl-local-of >r tl-domain swap tlb tlb-mode @ tlm-binder @
+  dup tl-local >r tl-domain swap tlb tlb-mode @ tlm-binder @
   execute lf-made! r> tl-named ;
 : tl-let ( body i -- t ) tlb tlb-mode @ tlm-let @ execute ;
 : tl-wrap ( body i -- t ) dup tl-x lf-fvar-ldecl? if tl-let else tl-wrapped then ;

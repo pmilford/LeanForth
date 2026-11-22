@@ -41,3 +41,7 @@
 {"goal_before":"a b : Nat\n⊢ a ≤ b ↔ a ≤ b","goals_after":[],"parent":0,"source":"64:3","step":1,"tactic":"rfl","word":"by-rfl"}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"rf_rw_iff","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
 {"goal_before":"a b : Nat\nh : a = b\n⊢ a ≤ b ↔ b ≤ b","goals_after":[],"parent":0,"source":"74:3","step":1,"tactic":"rw","word":"by-rw["}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"rf_id","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a : Nat\n⊢ @id Prop (a = a)","goals_after":[],"parent":0,"source":"85:3","step":1,"tactic":"rfl","word":"by-rfl"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"rf_id_iff","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\n⊢ @id Prop (a ≤ b ↔ a ≤ b)","goals_after":[],"parent":0,"source":"94:3","step":1,"tactic":"rfl","word":"by-rfl"}

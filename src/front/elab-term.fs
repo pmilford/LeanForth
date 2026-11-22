@@ -143,13 +143,12 @@ end-structure
 \ the context lacks (cleared, inaccessible) leaves the binder's own free
 \ variable, out of the goal's scope, which the tactic then refuses.
 : et-var-named ( fvar slot -- fvar' )
-  lfa-binder lfa-binder-name @ lf-mctx-view swap lf-view-named if nip lf-mctx-fvar then ;
+  lfa-binder lfa-binder-name @ lf-mctx-view swap lf-view-named-fvar if nip then ;
 : et-var ( slot -- f outcome )
   dup et-vars slab-count index? 0= if drop -1 outcome-invalid exit then
   dup et-vars slab-at @ swap et-var-named outcome-ok ;
 : et-hyp ( name -- f outcome )
-  lf-mctx-view swap lf-view-named 0= if -1 outcome-invalid exit then
-  lf-mctx-fvar outcome-ok ;
+  lf-mctx-view swap lf-view-named-fvar if outcome-ok else -1 outcome-invalid then ;
 : et-head ( node -- f outcome )
   dup syn-a@ swap syn-kind@ case syn-k-const of et-const endof syn-k-var of et-var endof
     syn-k-hyp of et-hyp endof nip -1 outcome-invalid rot endcase ;

@@ -34,7 +34,8 @@
 \ - lf-view-find ( view fvar -- i true | false ): its place;
 \   lf-view-has? ( view fvar -- flag ): whether it holds it (contains);
 \   lf-view-named ( view name -- i true | false ): the newest accessible
-\   local of that name (findFromUserName?);
+\   local of that name (findFromUserName?); lf-view-named-fvar ( view
+\   name -- fvar true | false ) its free variable;
 \ - lf-view-sub-prefix? ( view1 view2 -- flag ): isSubPrefixOf, view1's
 \   free variables found in view2 in the same order (others between);
 \   lf-view-sub-prefix-except? ( view1 view2 addr n -- flag ): the same
@@ -158,6 +159,8 @@ end-structure
 : lf-view-named ( view name -- i true | false )
   over lf-view-valid? over lf-user-name? and 0= if 2drop false exit then
   over lf-view-count ['] lv-named? find-last-index if nip true else drop false then ;
+: lf-view-named-fvar ( view name -- fvar true | false )
+  over swap lf-view-named if lf-view-fvar true else drop false then ;
 
 \ Erasing and renaming: the locals before place i, the changed one if
 \ any, and the locals after it.

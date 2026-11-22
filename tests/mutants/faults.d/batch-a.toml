@@ -483,11 +483,11 @@ reason = "TB2: delta's message prints the names as an array literal, not as Lean
 
 [[fault]]
 id = "tb2-delta-plain-lift"
-file = "src/front/tactics/delta.fs"
-old = ''': tdl-at-target ( i -- i ) dup dup ['] tdl-tac lf-lift-meta-tactic1 ;'''
-new = ''': tdl-at-target ( i -- i ) dup dup ['] tdl-tac lf-lift-meta-tactic ;'''
+file = "src/front/tactic-core.fs"
+old = ''': lf-lift-target1 ( i xt -- i ) over tuck swap lf-lift-meta-tactic1 ;'''
+new = ''': lf-lift-target1 ( i xt -- i ) over tuck swap lf-lift-meta-tactic ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
-reason = "TB2: delta's one goal handed to liftMetaTactic as a list"
+reason = "TB2: delta's (and change's) one goal handed to liftMetaTactic as a list (lf-lift-target1)"
 
 # ---- tactics/contradiction.fs
 [[fault]]
@@ -576,7 +576,7 @@ reason = "TB2 review 1: a variable is its binder's slot whatever the goal holds 
 [[fault]]
 id = "tb2-var-name-kept-old"
 file = "src/front/elab-term.fs"
-old = '''  lfa-binder lfa-binder-name @ lf-mctx-view swap lf-view-named if nip lf-mctx-fvar then ;'''
-new = '''  lfa-binder lfa-binder-name @ lf-mctx-view swap lf-view-named if drop then ;'''
+old = '''  lfa-binder lfa-binder-name @ lf-mctx-view swap lf-view-named-fvar if nip then ;'''
+new = '''  lfa-binder lfa-binder-name @ lf-mctx-view swap lf-view-named-fvar if drop then ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-a/check.py"
 reason = "TB2 review 1: the goal's local of the name found but the binder's own variable kept (sp_later: the old h2)"

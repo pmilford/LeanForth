@@ -54,6 +54,10 @@ theorem rf_iff (a b : Nat) : a ≤ b ↔ a ≤ b := by
   rfl
 theorem rf_rw_iff (a b : Nat) (h : a = b) : a ≤ b ↔ b ≤ b := by
   rw [h]
+theorem rf_id (a : Nat) : id (a = a) := by
+  rfl
+theorem rf_id_iff (a b : Nat) : id (a ≤ b ↔ a ≤ b) := by
+  rfl
 
 def pl (l : Level) : String := match l.toNat with
   | some n => toString n
@@ -79,5 +83,5 @@ def dump (n : Name) : MetaM Unit := do
 #eval do
   for n in [``at_hyp, ``at_closes, ``at_two, ``at_goal, ``at_rules, ``at_turnstile, ``rwa_at,
       ``rwa_none, ``rwa_legacy, ``rwa_le, ``rwa_not, ``ch_at, ``ch_goal, ``sy_at, ``sy_at_ne,
-      ``rf_iff, ``rf_rw_iff] do
+      ``rf_iff, ``rf_rw_iff, ``rf_id, ``rf_id_iff] do
     dump n

@@ -113,6 +113,10 @@ T{ hac s\" by-rw[ ' h ] ' h at: h2\n" tactic-ran -> 86 }T
 T{ hac s\" at: h2\n" tactic-ran -> 453 }T
 T{ hac s\" by-case: _ => by-rw[ ' h ] by-end at: h2\n" tactic-ran -> 453 }T
 lf-tac-forget
+\ A hypothesis named at: is refused where it is named (78, a reserved
+\ word), not later at ' at: (review tb2-batch3a finding 5).
+T{ s" a b = explicit: at: a b =" st s" ' at: by-exact" tactic-ran token s" at:" compare
+   -> 78 0 }T
 \ A second at: on the next line: the step has one already (453).
 T{ hac s\" by-rw[ ' h ] at: h2\n at: h" tactic-ran -> 453 }T
 lf-tac-forget
@@ -149,6 +153,10 @@ T{ s" a b = explicit: h b a =" st s\" by-symm at: h\n ' h by-exact" tactic-ran -
 T{ s" a b ≤ ¬ explicit: h a b ≤ ¬" st s\" by-symm at: h\n" tactic-ran -> 451 }T
 T{ s" a b ≤ explicit: h a b ≤" st s\" ' Nat.le by-delta at: h\n" tactic-ran -> 448 }T
 T{ s" ] at h" detail-has? -> true }T
+lf-tac-forget
+\ At the goal (no at:, or |- alone): symm and change act on the target.
+T{ s" a b = explicit: h b a =" st s\" by-symm\n ' h by-exact" tactic-ran -> 0 }T
+T{ s" a b = explicit: h a b =" st s\" b a = by-change at: |-\n" tactic-ran -> 443 }T
 lf-tac-forget
 T{ s" a b ≠ explicit: h a b ≠" st s\" ' Ne by-delta at: h\n" tactic-ran -> 99 }T
 T{ s" a b = explicit: h a b =" st s\" by-symm at: *\n" tactic-ran -> 99 }T
@@ -204,6 +212,14 @@ T{ vr lf-term-first@ dup lf-goal-type dup lf-term-pi? swap lf-term-first@ bc-le 
 \ its metavariables, as Lean's order is), its value untouched.
 : replace-again ( -- ) gr fh2 new-t pr lf-goal-replace-local-decl 2drop ;
 T{ ' replace-again catch gr val@ vr = mat-frames slab-count -> thrown-invalid true 0 }T
+
+\ ---- lf-view-local-of, lf-fvar-user-name: a free variable's local in a
+\ view, its user name in the view in force; a view without it is invalid
+\ thrown (a valid view, a dead variable).
+T{ view-d fh2 lf-view-local-of lf-local-fvar fh2 lf-fvar-user-name s" h2" nm = -> fh2 true }T
+T{ fb lf-fvar-user-name s" b" nm = gr' lf-goal-view fr' lf-view-local-of lf-local-fvar -> true fr' }T
+T{ lf-view-empty fh2 ' lf-view-local-of catch nip nip -> thrown-invalid }T
+T{ gr' lf-goal-view fh2 ' lf-view-local-of catch nip nip -> thrown-invalid }T
 
 \ ---- lf-goal-change-local-decl: h2 : a ≤ c to Nat.le a c, defeq.
 s" Nat.le" fa fc 2 lf-mk-app-m constant nle-ac
