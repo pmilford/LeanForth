@@ -19,12 +19,22 @@
 \       lemma found for", cannot come from Init's lemmas (each one's
 \       conclusion fits any target of its relation): a conclusion that
 \       does not fit is not supported (99), never an answer.
+\   lf-symm-expr ( e -- e' )  Expr.applySymm (:61-73; plan row TB2 batch
+\       3a): e's type instantiated must be such a relation (451), its
+\       lemma as above, whose last argument must be defeq e (else 99, as
+\       above), e' @id.{u} body (lemma args), body the conclusion
+\       instantiated (mkExpectedTypeHint)
+\   lf-goal-symm-at ( goal fvar -- goal' )  MVarId.applySymmAt
+\       (:105-108): in goal's context, the hypothesis fvar replaced
+\       (assert.fs's lf-goal-replace) by lf-symm-expr of it, of its type
+\       inferred: symm at h
 \ Lean call list: instantiateMVars -> lf-instantiate!; getSymmLems ->
 \ msy-lemma (lib/find.fs's find-index over msy-pairs);
-\ mkConstWithFreshMVarLevels -> lf-meta-const-fresh;
-\ withReducible -> lf-with-reducible; forallMetaTelescopeReducing ->
-\ lf-forall-meta-telescope-reducing; isDefEq -> lf-tac-defeq; assign ->
-\ lf-mvar-assign; setTag -> lf-mvar-tag!.
+\ mkConstWithFreshMVarLevels, forallMetaTelescopeReducing, mkAppN ->
+\ app-builder.fs's lf-const-meta-applied; withReducible ->
+\ lf-with-reducible; isDefEq -> lf-tac-defeq; assign -> lf-mvar-assign;
+\ setTag -> lf-mvar-tag!; mkExpectedTypeHint -> lf-mk-expected-type-hint;
+\ MVarId.replace -> lf-goal-replace (assert.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none (the table msy-pairs, lib/xt-table.fs's, is set while the
 \ file loads and read-only afterwards). Loads in decimal whatever BASE
@@ -46,6 +56,7 @@ require ../meta-must.fs
 require ../app-builder.fs
 require ../telescope.fs
 require ./goal.fs
+require ./assert.fs
 
 451 outcome-invalid s" Symmetry lemmas only apply to binary relations, not"
   lfa-code: lfa-e-symm-binary
@@ -71,19 +82,16 @@ msy-pairs# 0 xt-table: msy-pairs
 \ ---- The target: r x y, and its lemma.
 : msy-binary? ( t -- flag )
   dup lf-term-app? if lf-term-first@ lf-term-app? else drop false then ;
-: msy-target ( goal -- t )
-  lf-goal-type lf-instantiate! dup msy-binary? if exit then
+: msy-relation ( t -- t )
+  lf-instantiate! dup msy-binary? if exit then
   dup ['] lf-tac-indented. lf-tac-detail lfa-e-symm-binary lf-tac-stop ;
+: msy-target ( goal -- t ) lf-goal-type msy-relation ;
 : msy-fit ( flag -- ) 0= if lfa-e-tac-form lf-tac-fail then ;
 : msy-decl ( t -- d )
   lf-meta-head msy-lemma dup msy-fit drop lfa-intern lf-menv-find lf-must ;
 
 \ ---- The lemma applied to a metavariable per binder; its conclusion fits.
-: msy-arg ( app mvar kind -- app' ) drop lf-mk-app ;
-: msy-telescope ( d -- app body )
-  dup lf-meta-const-fresh lf-must dup lf-infer! rot ['] msy-arg
-  lf-forall-meta-telescope-reducing ;
-: msy-applied ( d -- app body ) ['] msy-telescope lf-with-reducible ;
+: msy-applied ( d -- app body ) ['] lf-const-meta-applied lf-with-reducible ;
 : msy-assigned ( goal app -- goal' )
   2dup lf-mvar-assign lf-must lf-term-second@ swap lf-goal-tag over swap lf-mvar-tag!
   lf-must ;
@@ -91,4 +99,14 @@ msy-pairs# 0 xt-table: msy-pairs
   >r over lf-goal-type r> lf-tac-defeq lf-must msy-fit ;
 : msy-run ( goal -- goal' ) dup msy-target msy-decl msy-applied msy-fits msy-assigned ;
 : lf-goal-symm ( goal -- goal' ) dup ['] msy-run lf-with-goal ;
+
+\ ---- Expr.applySymm (:61-73): e's type instantiated a relation, its
+\ lemma's last argument e, @id body (lemma args); applySymmAt (:105-108):
+\ goal's hypothesis fvar replaced by it, its type inferred.
+: msy-of ( e app body -- e' )
+  >r tuck lf-term-second@ swap lf-tac-defeq lf-must msy-fit r> lf-instantiate!
+  lf-mk-expected-type-hint ;
+: lf-symm-expr ( e -- e' ) dup lf-infer! msy-relation msy-decl msy-applied msy-of ;
+: msy-at ( goal fvar -- goal' ) dup lf-symm-expr dup lf-infer! lf-goal-replace ;
+: lf-goal-symm-at ( goal fvar -- goal' ) over ['] msy-at lf-with-goal ;
 base !   \ the BASE this file was loaded with

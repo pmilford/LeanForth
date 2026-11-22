@@ -1,0 +1,12 @@
+\ A wrong twin (plan row TB2, tactic batch 3a; batch-d-wrong.lean): b = a
+\ is not h's type a = b up to definitions: elabChange's 443 for the
+\ hypothesis, the same text as for the goal.
+\ Lean: theorem w_change_at (a b : Nat) (h : a = b) : a = b := by
+\         change b = a at h
+theorem w_change_at
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  b a = by-change at: h
+end w_change_at

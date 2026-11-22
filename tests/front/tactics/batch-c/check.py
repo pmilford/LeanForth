@@ -25,7 +25,8 @@ FILES = [(D + "rw.lf", ["rs_hyp", "rs_lemma", "rs_two", "rs_rewrite"]),
          (D + "cases.lf", ["bc_dec", "bc_tags", "bc_classical" + CLASSICAL]),
          (D + "contra.lf", ["bk_not", "bk_dec", "bk_classical" + CLASSICAL, "bk_ne"]),
          (D + "symm.lf", ["sy_eq", "sy_iff", "sy_ne", "sy_and", "sy_heq"]),
-         (D + "intros.lf", ["ai_two", "ai_nested", "ai_all", "nx_basic", "nx_name"])]
+         (D + "intros.lf", ["ai_two", "ai_nested", "ai_all", "nx_basic", "nx_name"]),
+         (D + "x-ra-le.lf", ["x_ra_le"])]
 
 
 def mismatch(term, has, want):
@@ -45,8 +46,7 @@ WRONG = [(D + "w-rs.lf", 215, "  b", "in the target expression\n  a + 0 = a"),
          (D + "w-nx.lf", 96, "Type mismatch", mismatch("h2", "b ≤ a", "a ≤ b"))]
 UNSUPPORTED = [(D + "x-rs-iff.lf", 99, "not supported yet: this case of the tactic"),
                (D + "x-bc-type.lf", 99, "not supported yet: this case of the tactic"),
-               (D + "x-sy-le.lf", 99, "not supported yet: this case of the tactic"),
-               (D + "x-ra-le.lf", 93, "not supported yet")]
+               (D + "x-sy-le.lf", 99, "not supported yet: this case of the tactic")]
 
 if __name__ == "__main__":
     tactic_check.main("batch-c", FILES, WRONG, UNSUPPORTED, env=ENV, lean=D + "batch-c.lean",

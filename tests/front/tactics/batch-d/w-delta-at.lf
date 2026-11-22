@@ -1,0 +1,14 @@
+\ A wrong twin (plan row TB2, tactic batch 3a; batch-d-wrong.lean): h2's
+\ type a ≤ b is LE.le's, which holds no Nat.le to unfold:
+\ deltaLocalDecl's 448, "... did not delta reduce [Nat.le] at h2".
+\ Lean: theorem w_delta_at (a b : Nat) (h2 : a ≤ b) : a ≤ b := by
+\         delta Nat.le at h2
+\         exact h2
+theorem w_delta_at
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h2
+  a b ≤
+:= by
+  ' Nat.le by-delta at: h2
+  ' h2 by-exact
+end w_delta_at

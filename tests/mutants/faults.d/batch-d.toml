@@ -1,0 +1,380 @@
+# Planted faults of tactic batch 3a (plan row TB2: src/front/tactic-syntax.fs's at:,
+# src/front/tactic-core.fs's locations and lf-with-location, src/front/app-builder.fs's
+# lf-const-meta-applied, src/front/meta-tactic/assert.fs's lf-goal-replace-local-decl and
+# lf-goal-change-local-decl, symm.fs's lf-symm-expr and lf-goal-symm-at, goal.fs's rfl,
+# src/front/tactics/rewrite.fs, rwa.fs, change.fs, symm.fs, delta.fs, rfl.fs), read with
+# faults.toml as one list (scripts/mutants.py). Each is caught by
+# tests/front/tactics/batch-d/test.fs or its check.py.
+
+# ---- tactic-syntax.fs: at:
+[[fault]]
+id = "tb3a-at-any-parent"
+file = "src/front/tactic-syntax.fs"
+old = '''  dup lft-own? over tac-loc @ 0= and swap tac-shape @ lft-at-shape? and ;'''
+new = '''  dup tac-loc @ 0= swap tac-shape @ lft-at-shape? and ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: at: after a block's end amends the block's last tactic (not 453)"
+
+[[fault]]
+id = "tb3a-at-twice"
+file = "src/front/tactic-syntax.fs"
+old = '''  dup lft-own? over tac-loc @ 0= and swap tac-shape @ lft-at-shape? and ;'''
+new = '''  dup lft-own? swap tac-shape @ lft-at-shape? and ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: a second at: on the same step is read (not 453)"
+
+[[fault]]
+id = "tb3a-at-any-shape"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-at-shape? ( shape|0 -- flag ) dup if shape-at @ then ;'''
+new = ''': lft-at-shape? ( shape|0 -- flag ) 0<> ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: at: after by-exact, which takes no location, is read (not 453)"
+
+[[fault]]
+id = "tb3a-at-turnstile-name"
+file = "src/front/tactic-syntax.fs"
+old = '''  2dup lft-turnstile? if 2drop tac-loc-goal lft-loc! exit then lft-loc-hyp ;'''
+new = '''  lft-loc-hyp ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: |- read as a hypothesis's name, so the goal is never a location"
+
+[[fault]]
+id = "tb3a-at-star-more"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-loc-all ( i -- i ) tac-loc-all lft-loc! lft-next nip if lfa-e-tac-at-names lfa-fail then ;'''
+new = ''': lft-loc-all ( i -- i ) tac-loc-all lft-loc! lft-loc-rest ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: at: * h2 reads h2 too (not 454 at h2)"
+
+[[fault]]
+id = "tb3a-at-word-name"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-loc-name? ( c-addr u -- flag ) lf-pf-reserved? 0= ;'''
+new = ''': lft-loc-name? ( c-addr u -- flag ) 2drop true ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: at: _ or at: by-rfl read as a hypothesis's name (not 454)"
+
+[[fault]]
+id = "tb3a-at-count-lost"
+file = "src/front/tactic-syntax.fs"
+old = '''  1 over lft-rec tac-loc# +! ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: the names are stored but not counted: no hypothesis is a location"
+
+[[fault]]
+id = "tb3a-at-flag-replaced"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-loc! ( i flag -- i ) over lft-rec tac-loc tuck @ or swap ! ;'''
+new = ''': lft-loc! ( i flag -- i ) over lft-rec tac-loc ! ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: |- overwrites the given flag (a field written without the others)"
+
+[[fault]]
+id = "tb3a-at-text-end"
+file = "src/front/tactic-syntax.fs"
+old = '''  lft-ready 0 lft-takes lft-located tac-loc-given lft-loc! lft-loc-token1 lft-loc-first lft-done ;'''
+new = '''  lft-ready 0 lft-takes lft-located tac-loc-given lft-loc! lft-loc-token1 lft-loc-first drop ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: the step's text does not reach its at: names"
+
+# ---- tactic-core.fs: locations
+[[fault]]
+id = "tb3a-loc-no-goal-default"
+file = "src/front/tactic-core.fs"
+old = ''': lf-tac-loc-goal? ( i -- flag ) tcr-loc dup 0= swap tac-loc-goal and 0<> or ;'''
+new = ''': lf-tac-loc-goal? ( i -- flag ) tcr-loc tac-loc-goal and 0<> ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: with no at: the goal is no location (Lean's targets #[] true)"
+
+[[fault]]
+id = "tb3a-loc-all-ignored"
+file = "src/front/tactic-core.fs"
+old = ''': tlc-all ( -- ) tlc tlc-step @ lf-tac-loc-all? if lfa-e-tac-form lf-tac-fail then ;'''
+new = ''': tlc-all ( -- ) ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: at: * runs as no location at all instead of 99"
+
+[[fault]]
+id = "tb3a-loc-k-offset"
+file = "src/front/tactic-core.fs"
+old = ''': tcr-loc-k ( i k -- i k' ) over lf-tac-args# + ;'''
+new = ''': tcr-loc-k ( i k -- i k' ) ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: a location name read from the step's own arguments (a rule)"
+
+[[fault]]
+id = "tb3a-loc-constant-unknown"
+file = "src/front/tactic-core.fs"
+old = '''  lf-tac-loc-hyp dup tcr-constant? if lfa-e-tac-form lf-tac-fail then'''
+new = '''  lf-tac-loc-hyp'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: a constant's name answers Unknown identifier (rejected where Lean says 389)"
+
+[[fault]]
+id = "tb3a-loc-unknown-code"
+file = "src/front/tactic-core.fs"
+old = '''  ['] tcr-quoted. lf-tac-inline lfa-e-tac-unknown-id lf-tac-stop ;'''
+new = '''  ['] tcr-quoted. lf-tac-inline lfa-e-tac-form lf-tac-stop ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: an unknown hypothesis is not supported instead of Lean's Unknown identifier"
+
+[[fault]]
+id = "tb3a-loc-hyps-skipped"
+file = "src/front/tactic-core.fs"
+old = ''': tlc-hyps ( i*x -- i*x ) tlc tlc-step @ lf-tac-loc# 0 ?do i tlc-hyp loop ;'''
+new = ''': tlc-hyps ( i*x -- i*x ) ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: withLocation runs no hypothesis"
+
+[[fault]]
+id = "tb3a-loc-goal-always"
+file = "src/front/tactic-core.fs"
+old = '''  tlc tlc-step @ lf-tac-loc-goal? if tlc tlc-target @ execute then ;'''
+new = '''  tlc tlc-target @ execute ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: the goal rewritten even when at: names only hypotheses"
+
+[[fault]]
+id = "tb3a-ensure-code-lost"
+file = "src/front/tactic-core.fs"
+old = ''': lf-tac-ensure-type-as ( e expected code -- e ) >r tcr-typed r> tcr-ensured ;'''
+new = ''': lf-tac-ensure-type-as ( e expected code -- e ) drop tcr-typed lfa-e-tac-mismatch tcr-ensured ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: rwa's mismatch reported as exact's (96), not Lean's 456"
+
+# ---- meta-tactic/assert.fs
+[[fault]]
+id = "tb3a-replace-fvar-names"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  dup >r mat-revert mat-assert swap mat-intro r> mat-xs @ ;'''
+new = '''  dup >r mat-revert mat-assert swap mat-intro r> @ ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: the new hypothesis given back is its name's cell, not its free variable"
+
+[[fault]]
+id = "tb3a-replace-not-cleared"
+file = "src/front/meta-tactic/assert.fs"
+old = ''': mat-cleared ( goal' fvar' -- goal'' fvar' ) swap mat mat-old @ lf-goal-try-clear swap ;'''
+new = ''': mat-cleared ( goal' fvar' -- goal'' fvar' ) ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: the replaced hypothesis stays in the context"
+
+[[fault]]
+id = "tb3a-replace-proof-plain"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  rot tuck lf-mk-eq-mp rot mat-replace ;'''
+new = '''  rot tuck nip rot mat-replace ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: the new hypothesis's proof is the old one, not Eq.mp proof h"
+
+[[fault]]
+id = "tb3a-change-dependents"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  1 <> outcome-unsupported and lf-must ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: a hypothesis another depends on is changed and only it reintroduced"
+
+[[fault]]
+id = "tb3a-change-unchecked"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  0= outcome-unsupported and lf-must ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: a type not defeq the hypothesis's is put in (changeLocalDecl's check gone)"
+
+[[fault]]
+id = "tb3a-change-domain-kept"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  dup lf-goal-type mat-checked mat-domain lf-goal-replace-target-defeq ;'''
+new = '''  dup lf-goal-type mat-checked lf-goal-replace-target-defeq ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: the hypothesis's type is not changed (the pi's domain kept)"
+
+[[fault]]
+id = "tb3a-change-name-lost"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  mat-old-local mat-own over ! dup >r 0 1 r> cell+ lf-goal-intro-n ;'''
+new = '''  0 over ! dup >r 0 1 r> cell+ lf-goal-intro-n ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: the changed hypothesis comes back inaccessible, so a later step cannot name it"
+
+# ---- meta-tactic/symm.fs, app-builder.fs
+[[fault]]
+id = "tb3a-symm-expr-unfit"
+file = "src/front/meta-tactic/symm.fs"
+old = '''  >r tuck lf-term-second@ swap lf-tac-defeq lf-must msy-fit r> lf-instantiate!'''
+new = '''  >r nip r> lf-instantiate!'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: the lemma's last argument never made the hypothesis: an open metavariable"
+
+[[fault]]
+id = "tb3a-symm-expr-no-hint"
+file = "src/front/meta-tactic/symm.fs"
+old = '''  lf-mk-expected-type-hint ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: applySymm's mkExpectedTypeHint (@id body) left out: the term differs from Lean's"
+
+[[fault]]
+id = "tb3a-symm-at-old-type"
+file = "src/front/meta-tactic/symm.fs"
+old = ''': msy-at ( goal fvar -- goal' ) dup lf-symm-expr dup lf-infer! lf-goal-replace ;'''
+new = ''': msy-at ( goal fvar -- goal' ) dup lf-symm-expr over lf-infer! lf-goal-replace ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: the symmetric hypothesis given the old type a = b"
+
+[[fault]]
+id = "tb3a-const-applied-levels"
+file = "src/front/app-builder.fs"
+old = '''  dup lf-meta-const-fresh lf-must dup lf-infer! rot ['] abl-apply-mvar'''
+new = '''  dup lf-meta-const-fresh lf-must dup lf-infer! rot ['] abl-apply-mvar 2drop 0 0'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: lf-const-meta-applied applies no metavariable"
+
+# ---- tactics: rewrite.fs, rwa.fs, change.fs, delta.fs, rfl.fs; goal.fs's rfl
+[[fault]]
+id = "tb3a-rw-local-target-type"
+file = "src/front/tactics/rewrite.fs"
+old = '''  over lf-fvar-type swap ['] trw-inner lf-tac-with-synth trw-closed ;'''
+new = '''  tb tb-want @ swap ['] trw-inner lf-tac-with-synth trw-closed ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: rw at h rewrites the goal's type and gives it to h"
+
+[[fault]]
+id = "tb3a-rw-target-only"
+file = "src/front/tactics/rewrite.fs"
+old = ''': trw-rule ( k i -- ) dup ['] trw-at-local ['] trw-at-target lf-with-location 2drop ;'''
+new = ''': trw-rule ( k i -- ) trw-at-target 2drop ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: rw's at: ignored, the goal rewritten instead"
+
+[[fault]]
+id = "tb3a-rw-local-goal-kept"
+file = "src/front/tactics/rewrite.fs"
+old = '''  2>r tb tb-goal @ swap 2r> lf-goal-replace-local-decl swap trw-main! ;'''
+new = '''  2>r tb tb-goal @ swap 2r> lf-goal-replace-local-decl nip ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: the goal replaceLocalDecl made never takes the main goal's place"
+
+[[fault]]
+id = "tb3a-rwa-one-legacy"
+file = "src/front/tactics/rwa.fs"
+old = ''': trwa-located ( i -- ) dup trwa-one? if ['] trwa-at trwa-focused else trwa-legacy then ;'''
+new = ''': trwa-located ( i -- ) trwa-legacy ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: rwa at h runs the legacy rw ..; assumption, not closeUsingFVar (456 lost)"
+
+[[fault]]
+id = "tb3a-rwa-one-goal"
+file = "src/front/tactics/rwa.fs"
+old = '''  dup lf-tac-loc# 1 = over lf-tac-loc-goal? 0= and swap lf-tac-loc-all? 0= and ;'''
+new = '''  lf-tac-loc# 1 = ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: rwa at h |- taken as rwa at h (the goal not rewritten)"
+
+[[fault]]
+id = "tb3a-rwa-using-code"
+file = "src/front/tactics/rwa.fs"
+old = '''  0 lf-tac-loc-fvar tb tb-want @ lfa-e-rwa-mismatch lf-tac-ensure-type-as'''
+new = '''  0 lf-tac-loc-fvar tb tb-want @ lf-tac-ensure-type'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: closeUsingFVar's mismatch is exact's 96 instead of Lean's rwa message"
+
+[[fault]]
+id = "tb3a-rwa-rules-skipped"
+file = "src/front/tactics/rwa.fs"
+old = ''': trwa-rules ( fvar i -- ) dup lf-tac-args# 0 ?do i trwa-rule loop 2drop ;'''
+new = ''': trwa-rules ( fvar i -- ) 2drop ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: rwa at h closes with h unrewritten"
+
+[[fault]]
+id = "tb3a-change-local-target"
+file = "src/front/tactics/change.fs"
+old = '''  >r tuck lf-fvar-type tch-pattern r> -rot lf-goal-change-local-decl ;'''
+new = '''  nip swap 0 lf-tac-arg drop >r drop r> ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: change at h does nothing to h"
+
+[[fault]]
+id = "tb3a-change-local-pattern"
+file = "src/front/tactics/change.fs"
+old = ''': tch-pattern ( i e -- p ) swap 0 lf-tac-arg swap ['] tch-pair. lfa-e-change tch-elab ;'''
+new = ''': tch-pattern ( i e -- p ) nip ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: change's pattern never elaborated: the old type kept, b = a accepted"
+
+[[fault]]
+id = "tb3a-delta-local-same"
+file = "src/front/tactics/delta.fs"
+old = '''  swap 0 lf-tac-arg tdl-name over lf-fvar-type tuck swap lf-delta-expand lf-meta-eqv lf-tac-must ;'''
+new = '''  nip false ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: delta at h that changes nothing answers 99, not Lean's 448"
+
+[[fault]]
+id = "tb3a-delta-local-accepted"
+file = "src/front/tactics/delta.fs"
+old = '''  lfa-e-tac-form lf-tac-fail ;'''
+new = '''  drop ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: delta at h that would change h keeps the goal (accepted with h unchanged)"
+
+[[fault]]
+id = "tb3a-delta-at-name"
+file = "src/front/tactics/delta.fs"
+old = '''  lf-tac-step 0 lf-tac-arg tdl-name tdl-array s"  at " lf-pp-emit tdl-user lf-pp-name outcome-ok ;'''
+new = '''  lf-tac-step 0 lf-tac-arg tdl-name tdl-array drop outcome-ok ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: delta's message at h lacks Lean's at h2"
+
+[[fault]]
+id = "tb3a-rfl-heq-sides"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mrf-binary dup 4 s" HEq" lf-meta-app-of? if outcome-unsupported lf-must then ;'''
+new = '''  mrf-binary ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: HEq's last two arguments taken for sides (Lean special-cases HEq first)"
+
+[[fault]]
+id = "tb3a-rfl-noneq-unsupported"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mrf-eq-of? 0= if mrf-apply-rfl exit then'''
+new = '''  mrf-eq-of? 0= if outcome-unsupported lf-must then'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: rfl on a goal that is no Eq not supported (rwa on a ≤ c stays unsupported)"
+
+[[fault]]
+id = "tb3a-rfl-hint-lost"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  mrf mrf-goal @ ['] mrf-hint. lf-tac-detail lfa-e-rfl-binary lf-tac-stop ;'''
+new = '''  mrf mrf-goal @ lfa-e-rfl-binary lf-tac-ex ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: rfl's binary-relation error without Lean's hint"
+
+[[fault]]
+id = "tb3a-rfl-unknown-thrown"
+file = "src/front/tactics/rfl.fs"
+old = '''  lfa-intern lf-menv-find dup outcome-invalid = if lfa-e-unknown-constant lf-tac-stop then'''
+new = '''  lfa-intern lf-menv-find'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "TB2 3a: Iff.rfl missing from the environment stops rfl (not a Lean error the next rule follows)"
+
+[[fault]]
+id = "tb3a-rfl-iff-unchecked"
+file = "src/front/tactics/rfl.fs"
+old = '''  trf-decl lf-const-meta-applied drop swap lf-tac-ensure-type ;'''
+new = '''  trf-decl lf-const-meta-applied drop nip ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "TB2 3a: exact Iff.rfl assigned without the type check: a ≤ b's rfl closes with Iff.rfl"
+
+[[fault]]
+id = "tb3a-rfl-iff-missing"
+file = "src/front/tactics/rfl.fs"
+old = ''': trf-rules ( -- ) ['] trf-refl ['] trf-heq-rfl ['] trf-iff-rfl 3 lf-tac-first-of ;'''
+new = ''': trf-rules ( -- ) ['] trf-refl ['] trf-heq-rfl 2 lf-tac-first-of ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
+reason = "TB2 3a: rfl's exact Iff.rfl rule left out: p ↔ p not closed"

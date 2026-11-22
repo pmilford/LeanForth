@@ -205,5 +205,6 @@ lfa-natural-words + - * / % = ≠ < > ≤ <= ≥ >= ¬ ∧ /\ ∨ \/ ↔ <-> ∣
 ' lfa-w-tactic lfa-word-both by-rewrite[
 ' lfa-w-tactic lfa-word-both ]
 ' lfa-w-tactic lfa-word-both <-
+' lfa-w-tactic lfa-word-both at:
 ' lfa-w-tactic lfa-word-both |
 ' lfa-w-tactic lfa-word-both =>

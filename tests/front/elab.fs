@@ -138,8 +138,11 @@ false lf-elab-trace!
   ty 0 num 0 num hadd 0 num eq-nat same? va 0 num 0 num hadd refl-nat same? and ;
 : t-refused ( k -- outcome refused? )
   heap-refusals ! t-text nrun heap-refusals @ 0= 0 heap-refusals ! ;
+\ (no room for the run's saves, 88: rfl's alternatives each try from a
+\ saved state, plan row TB2 batch 3a)
+: t-full? ( -- flag ) lf-author-code dup 60 = swap 88 = or ;
 : t-good? ( outcome refused? -- flag )
-  swap ok? if drop t-made? else lf-author-code 60 = and then ;
+  swap ok? if drop t-made? else t-full? and then ;
 variable sweep-good
 : sweep-step ( k -- k' more? )
   61 + dup t-refused dup >r t-good? sweep-good @ and sweep-good ! r> ;

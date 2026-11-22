@@ -120,6 +120,8 @@ begin-structure /tac
   field: tac-entries
   field: tac-shape        \ the shape it was read by (lft-read-as), else 0
   field: tac-word         \ its word when not its kind's (a counted string), else 0
+  field: tac-loc          \ its at: (lft-w-at): 0 none, else tac-loc-* flags
+  field: tac-loc#         \ the hypothesis names of its at:, after its arguments
 end-structure
 begin-structure /targ
   field: targ-x
@@ -189,8 +191,8 @@ action-of lfa-declaration-fresh constant lft-fresh-before
   tac-steps lft-claim >r lft-blank lft-where targ# over tac-first ! tac-kind ! r> ;
 \ A new argument record, its fields 0 (a rule left to right).
 : lft-arg-new ( -- addr ) tac-args lft-claim drop dup /targ erase ;
-: lft-arg+ ( i x pos -- i )
-  lft-arg-new tuck targ-at ! targ-x ! 1 over lft-rec tac-count +! ;
+: lft-arg! ( x pos -- ) lft-arg-new targ-x cell-pair! ;
+: lft-arg+ ( i x pos -- i ) lft-arg! 1 over lft-rec tac-count +! ;
 
 \ Term arguments: the values v1 .. vn, as syntax nodes, are step i's next
 \ n arguments, in order (the last value is on top), after those it has.
@@ -251,7 +253,11 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 \       values up to ] are its rules, in order (by-rw['s), each one left to
 \       right or, followed by <-, right to left;
 \   tac-shape-list  by-x[ ... ]: the same, its values terms (no <-:
-\       Lean's exacts [e1, e2]).
+\       Lean's exacts [e1, e2]);
+\   tac-shape-at ( shape -- shape )  the shape made to take a trailing
+\       at: as well (below): tac-shape-plain-at and tac-shape-term-at are
+\       tac-shape-plain's and tac-shape-term's so (by-symm's, by-change's,
+\       by-delta's), and tac-shape-rules takes one (rw's, rwa's).
 \ Arguments, in order: the values, then the names. Several names to the
 \ end of the line are not a shape yet: a one-line text writes the next
 \ tactic's values there (by-intro: h h by-exact).
@@ -259,9 +265,13 @@ begin-structure /lft-shape
   field: shape-want      \ the values before the word
   field: shape-names     \ the names after it
   field: shape-build     \ ( v1 .. vn i shape -- )
+  field: shape-at        \ true: a trailing at: may follow (tac-shape-at)
 end-structure
 : lft-shape ( n k xt -- shape )
-  align here /lft-shape allot tuck shape-build ! tuck shape-names ! tuck shape-want ! ;
+  align here /lft-shape allot dup /lft-shape erase
+  tuck shape-build ! tuck shape-names ! tuck shape-want ! ;
+\ The shape made to take a location too (Lean's (location)? after it).
+: tac-shape-at ( shape -- shape ) true over shape-at ! ;
 : lft-shape@ ( i -- shape ) lft-rec tac-shape @ ;
 \ The values made step i's arguments, i and its shape kept.
 : lft-values ( v1 .. vn i shape -- i shape ) 2dup 2>r shape-want @ lft-terms 2r> ;
@@ -276,10 +286,12 @@ end-structure
 : tac-shape-term-this ( n -- shape ) 0 ['] lft-build-this lft-shape ;
 0 tac-shape-terms constant tac-shape-plain
 1 tac-shape-terms constant tac-shape-term
+0 tac-shape-terms tac-shape-at constant tac-shape-plain-at
+1 tac-shape-terms tac-shape-at constant tac-shape-term-at
 0 1 tac-shape-term-names constant tac-shape-name
 \ T e word: name, have's and let's.
 2 1 tac-shape-term-names constant tac-shape-decl
-0 0 ' lft-build-rules lft-shape constant tac-shape-rules
+0 0 ' lft-build-rules lft-shape tac-shape-at constant tac-shape-rules
 0 0 ' lft-build-rules lft-shape constant tac-shape-list
 \ Whether the open block is a word's bracket, and one of rules.
 \ (A block read by no shape, by's or a header's, has shape 0.)
@@ -389,6 +401,44 @@ end-structure
 : lft-w-by-end ( -- ) lft-ready 0 lft-takes lft-alt-end lft-kind lft-block-end lft-from! ;
 : lft-w-arrow ( -- ) lft-in-proof lfa-e-tac-header lfa-fail ;
 
+\ Locations (plan row TB2, tactic batch 3a; Lean's location, " at"
+\ (locationWildcard <|> locationHyp), Elab/Tactic/Location.lean:32-40's
+\ expandLocation): at: amends the step read just before it, which must
+\ be a tactic of the open block whose shape takes a location and that has
+\ none yet (else 453), with no value left (86). Its tokens to the end of
+\ the line: * alone (Lean's wildcard), or hypothesis names in order with
+\ |- or ⊢ among them for the goal (Lean's locationType), one at least
+\ (else 454, as for _, a LeanForth word or * among others). The names,
+\ name IDs at their places, follow the step's arguments (tac-loc# of
+\ them), its flags are tac-loc's, and its text ends past the last token.
+1 constant tac-loc-given     \ at: was written
+2 constant tac-loc-goal      \ |- or ⊢ among its names
+4 constant tac-loc-all       \ at: *
+453 outcome-invalid s" at: follows no tactic word that takes a location" lfa-code: lfa-e-tac-at
+454 outcome-invalid s" at: takes hypothesis names and |-, or * alone, on its line"
+  lfa-code: lfa-e-tac-at-names
+: lft-at-shape? ( shape|0 -- flag ) dup if shape-at @ then ;
+: lft-own? ( addr -- flag ) tac-parent @ lft-open = ;
+: lft-locatable? ( addr -- flag )
+  dup lft-own? over tac-loc @ 0= and swap tac-shape @ lft-at-shape? and ;
+: lft-located ( -- i ) lf-tactic-count 1- dup lft-rec lft-locatable? lfa-e-tac-at lfa-must ;
+: lft-loc! ( i flag -- i ) over lft-rec tac-loc tuck @ or swap ! ;
+: lft-turnstile? ( c-addr u -- flag ) 2dup s" |-" lfa-token= -rot s" ⊢" lfa-token= or ;
+\ (_ is a reserved word too)
+: lft-loc-name? ( c-addr u -- flag ) lf-pf-reserved? 0= ;
+: lft-loc-hyp ( i c-addr u -- i )
+  2dup lft-loc-name? lfa-e-tac-at-names lfa-must lfa-word-name lfa-intern lfa-here lft-arg!
+  1 over lft-rec tac-loc# +! ;
+: lft-loc-token ( i c-addr u -- i )
+  2dup lft-turnstile? if 2drop tac-loc-goal lft-loc! exit then lft-loc-hyp ;
+: lft-loc-rest ( i -- i ) begin lft-next dup while lft-loc-token repeat 2drop ;
+: lft-loc-all ( i -- i ) tac-loc-all lft-loc! lft-next nip if lfa-e-tac-at-names lfa-fail then ;
+: lft-loc-first ( i c-addr u -- i )
+  2dup s" *" lfa-token= if 2drop lft-loc-all exit then lft-loc-token lft-loc-rest ;
+: lft-loc-token1 ( -- c-addr u ) lft-next dup 0<> lfa-e-tac-at-names lfa-must ;
+: lft-w-at ( -- )
+  lft-ready 0 lft-takes lft-located tac-loc-given lft-loc! lft-loc-token1 lft-loc-first lft-done ;
+
 \ := by opens the proof; its end NAME needs every block closed and no
 \ value left, and then the tactics run (lf-tactic-proof-end; without the
 \ runner, error 80 names end, and by as the second place). A declaration
@@ -448,3 +498,4 @@ defer lf-tactic-proof-end ( -- )
 ' lft-w-rewrite lfa-natural! by-rewrite[
 ' lft-w-bracket-end lfa-natural! ]
 ' lft-w-symm lfa-natural! <-
+' lft-w-at lfa-natural! at:

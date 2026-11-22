@@ -551,14 +551,17 @@ T{ s\" this is often due to an occurs-check failure\n\n" detail-has? -> true }T
 lf-tac-forget
 T{ nat goal-of nat mv-natural lf-mvar-new made assign-code -> -4205 }T
 \ MVarId.refl: 0 = 0 closed by Eq.refl; r = s, two variables: 97 with
-\ Lean's text; Nat: no Eq, 93's unsupported.
+\ Lean's text; Nat: no Eq, so applyRfl, whose whnfR finds no relation:
+\ Lean's 457 with its hint (plan row TB2 batch 3a).
 zero zero lf-mk-eq goal-of constant gr
 T{ gr lf-goal-refl gr lf-mvar-value drop 2 s" Eq.refl" lf-meta-app-of? -> true }T
 nat s" r" binder constant fr  nat s" s" binder constant fs
 T{ fr fs lf-mk-eq goal-of ' lf-goal-refl code1 lf-author-code -> lf-author-throw 97 }T
 T{ s\" r\nis not definitionally equal to the right-hand side\n  s\n\n" detail-has? -> true }T
 lf-tac-forget
-T{ nat goal-of ' lf-goal-refl code1 -> -4205 }T
+T{ nat goal-of ' lf-goal-refl code1 lf-author-code -> lf-author-throw 457 }T
+T{ s" Hint: Reflexivity tactics can only be used on goals of the form" detail-has? -> true }T
+lf-tac-forget
 \ The rfl macro's two Eq alternatives (plan 9.4.8l, the rfl items):
 \ eq_refl reads the type through whnf (getType'), so id (r = r), whose
 \ whnfCore is itself, closes with @Eq.refl.{1} Nat r; id (r = s) fails
@@ -594,14 +597,18 @@ lf-tac-forget
 nat mv-opaque lf-mvar-new made constant fo9
 T{ fo9 fr lf-mk-eq goal-of lf-goal-refl fo9 lf-instantiate! -> fr }T
 \ A relation of fewer than two arguments after whnfR (a definition of an
-\ equation that whnfR does not unfold: Lean's "binary relation" error,
-\ not ported): 93; two arguments: the term itself.
-: rel-code ( t -- code ) ['] mrf-rel code1 ;
+\ equation that whnfR does not unfold): Lean's "binary relation" error,
+\ 457 (plan row TB2 batch 3a); two arguments: the term itself.
+: rel-run ( t -- t ) gr mrf mrf-goal ! mrf-rel ;
+: rel-code ( t -- t 0 | code )
+  mrf-frames ['] rel-run ['] lf-with-record catch dup if nip nip nip then ;
 : rel-same ( t -- flag code ) dup rel-code >r = r> ;
-T{ fr rel-code fr fs lf-mk-eq rel-same -> -4205 true 0 }T
+T{ fr rel-code lf-author-code fr fs lf-mk-eq rel-same -> lf-author-throw 457 true 0 }T
+lf-tac-forget
 \ One argument (Nat.succ r, review tactic-fidelity L1; pinned Lean's
-\ MyEq 1 := by rfl gives the binary-relation error): 93 too.
-T{ s" Nat.succ" lf-mk-const0 fr lf-mk-app rel-code -> -4205 }T
+\ MyEq 1 := by rfl gives the binary-relation error): 457 too.
+T{ s" Nat.succ" lf-mk-const0 fr lf-mk-app rel-code lf-author-code -> lf-author-throw 457 }T
+lf-tac-forget
 \ meta-spine.fs's lf-meta-app2? and lf-meta-args2 (review tactic-fidelity
 \ B1): f a b and f x a b have two or more arguments, their last two a b;
 \ f a and a constant fewer.

@@ -64,6 +64,21 @@ s" assumption" tac-k-assumption lf-tactic-lean!
   ```
   Several names to the end of the line are not a shape: a one-line text
   writes the next step's values there (`by-intro: h h by-exact`).
+- A tactic that takes Lean's location (`at h ⊢`) is registered with a
+  located shape (`tac-shape-at ( shape -- shape )`: `tac-shape-plain-at`,
+  `tac-shape-term-at`, and `tac-shape-rules` takes one already); a trailing
+  `at: h1 h2 |-` then amends its step, and any other tactic refuses `at:`
+  (453). Its run word passes its two actions to `lf-with-location ( i*x i
+  xt-local xt-target -- i*x )` (Lean's withLocation): xt-local ( i*x fvar
+  -- i*x ) for each hypothesis named, resolved by name in the main goal's
+  context, then xt-target ( i*x -- i*x ) when the goal is named or no
+  `at:` was written (`tactics/symm.fs`); `lf-tac-located?`,
+  `lf-tac-loc#`, `lf-tac-loc-fvar` read the location directly (rwa's
+  single hypothesis). A hypothesis's new type goes in with
+  `lf-goal-replace-local-decl` (replaceLocalDecl, an equality proof),
+  `lf-goal-change-local-decl` (changeLocalDecl, defeq) or
+  `lf-goal-replace` (MVarId.replace, a new proof), all in
+  `meta-tactic/assert.fs`.
 - A tactic that Lean writes as another tactic run first runs that row on
   its own step with `lf-tac-eval ( i kind -- )`: `tactics/replace.fs`
   runs by-have:'s row, then clears the old hypothesis (Lean's

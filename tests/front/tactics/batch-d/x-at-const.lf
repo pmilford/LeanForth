@@ -1,0 +1,14 @@
+\ Not supported yet (plan row TB2, tactic batch 3a): at: names a
+\ constant, which pinned Lean refuses with 389, "Unexpected term
+\ `Nat.le_refl`; expected single reference to variable" after
+\ elaborating it: LeanForth does not elaborate a location's name, so 99,
+\ never accepted.
+\ Lean: theorem x_at_const (a b c : Nat) (h : a = b) (h2 : a ≤ c) : b ≤ c := by
+\         rw [h] at Nat.le_refl
+theorem x_at_const
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  a c ≤ explicit: h2
+  b c ≤
+:= by
+  by-rw[ ' h ] at: Nat.le_refl
+end x_at_const

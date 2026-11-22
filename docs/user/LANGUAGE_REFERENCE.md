@@ -1134,7 +1134,8 @@ on decide's slice of Init (`--env tests/front/decide-slice.ndjson
   for the first goal `T` fits, which it brings to the front: after
   `' And.intro by-apply` on `a ≤ b ∧ b ≤ a`, `b a ≤ by-show` makes
   `case right` the main goal (`sh_second`); Lean: `show b ≤ a`. No goal
-  fits: 444 (one goal) or 445 (several). The `at h` form is not written yet.
+  fits: 444 (one goal) or 445 (several). `by-change` takes `at: h` (below,
+  with `by-rwa[`).
 - `by-swap` swaps the first two goals (Lean, with Batteries: `swap`).
   After `' And.intro by-apply`, `by-swap ' h2 by-exact ' h1 by-exact`
   proves `b ≤ a` first (`sw_and`). Fewer than two goals: 446.
@@ -1230,13 +1231,29 @@ written.
   83. The pattern b not found: 215. An `Iff` rule either way: 99.
 - `by-rwa[ r1 .. rn ]`: rewrite, then close the goal by `rfl` or by a
   hypothesis. With `h : a = b`, `h2 : b = c`: `by-rwa[ ' h ]` proves
-  `a = c` (`ra_basic`); Lean: `rwa [h]`. Neither closes it: 381. Limit:
-  `by-rwa[ ]` closes only goals `by-rfl` can judge. After the rewrite a
-  goal that is no `=` (such as `≤`, or `¬c = b` with `h2 : c ≠ b` in the
-  context) is not supported yet (93, exit 2), never refused, even when a
-  hypothesis matches it: Lean's `rwa` tries `assumption` after any failure
-  of `rfl`, `by-rfl` does not yet port Lean's failure for such a goal and
-  its `@[refl]` lemmas (plan row TB2).
+  `a = c` (`ra_basic`); Lean: `rwa [h]`. Neither closes it: 381. A goal
+  `by-rfl` cannot close (`a ≤ c`, `¬a ≤ c`) falls to the hypothesis, as
+  in Lean (`rwa_le`, `rwa_not`, plan row TB2 batch 3a); one of the form
+  `x R x` for a relation R other than `=` and `↔` is not supported yet
+  (93), since its `@[refl]` lemmas are not known.
+- A trailing `at: h1 h2` (Lean's location `at h1 h2`, plan row TB2 batch
+  3a) amends the tactic just before it: `by-rw[`, `by-rewrite[`,
+  `by-rwa[`, `by-change`, `by-symm`, `by-delta`. The names run to the end
+  of the line; `|-` (or `⊢`) among them is the goal; `at: *` is read but
+  not supported yet (99). Each rule rewrites each hypothesis in turn, then
+  the goal when `|-` is named; the hypothesis keeps its name, so a later
+  step names the new one. With `h : a = b`, `h2 : a ≤ c`:
+  `by-rw[ ' h ] at: h2` then `' h2 by-exact` proves `b ≤ c` (`at_hyp`);
+  Lean: `rw [h] at h2; exact h2`. `by-rwa[ ' h ] at: h2` proves it at once
+  (`rwa_at`; Lean's `rwa [h] at h2`: the hypothesis, rewritten, must have
+  the goal's type, else 456); with several names, `|-` or `*`, Lean's
+  legacy `rw ..; assumption`. `a b = by-change at: h` changes
+  `h : a + 0 = b` (`ch_at`; Lean: `change a = b at h`); `by-symm at: h`
+  turns `h : b = a` into `a = b` (`sy_at`); `' f by-delta at: h` refuses
+  a hypothesis it does not change (448, "... at h") and is not supported
+  yet where it would (99). A name that is no hypothesis: 455, "Unknown
+  identifier"; a constant's name: 99. After a tactic that takes no
+  location: 453; no name, `_`, a word or `*` among names: 454.
 - `by-exacts[ e1 .. en ]`: `e1 by-exact`, .., `en by-exact`, then no goal
   may be left (89). After `' And.intro by-apply`, `by-exacts[ ' h1 ' h2 ]`
   (`ex_two`); Lean (Batteries): `exacts [h1, h2]`. No `<-` inside (83).
@@ -1280,7 +1297,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | Word | Takes from the stack | How it reads the line | What it creates or changes | What it does | Lean |
 | --- | --- | --- | --- | --- | --- |
 | `by` | `( -- )` | ordinary; right after `:=` only (error 69 elsewhere; natural form; error 51 in kernel form) | read: records the proof's position and opens the tactic block (step 0) | Marks that a tactic proof follows `:=`. | `:= by` |
-| `by-rfl` | `( -- )` | ordinary | read: a step. Run: assigns the main goal `Eq.refl` and removes it from the goals | Closes the goal `a = b` when both sides are definitionally equal; otherwise error 97. | `rfl` |
+| `by-rfl` | `( -- )` | ordinary | read: a step. Run: assigns the main goal `Eq.refl` and removes it from the goals | Closes the goal `a = b` when both sides are definitionally equal (otherwise error 97), and `p ↔ p` by `Iff.rfl` (`rf_iff`); a goal that is no relation (`¬p`): 457 with Lean's hint; `x R x` for another relation R: 93 (its `@[refl]` lemmas not known). | `rfl` |
 | `by-exact` | `( t -- )` | ordinary | read: a step holding the term. Run: elaborates t against the goal, assigns it, removes the goal | Closes the goal with the term t; a goal named in either type may be assigned, as Lean's `exact` does; a type mismatch is error 96, a wrong number of values 86 or 87. | `exact t` |
 | `by-intro: HYP-NAME` | `( -- )` | parsing: one name, or `_` | read: a step; HYP-NAME becomes a hypothesis word in the locals. Run: replaces the goal by one with the first binder introduced | Introduces one hypothesis HYP-NAME from the goal's first binder, of the binder's kind (explicit, implicit `{x}` or strict implicit `⦃x⦄`; an instance binder `[x]` is not supported yet, 99); `_` leaves it inaccessible (it cannot be written afterwards); error 94 when there is none, 84 when HYP-NAME is a LeanForth word. | `intro HYP-NAME` |
 | `by-sorry` | `( -- )` | ordinary | read: a step. Run: assigns the goal `sorryAx T Bool.false`, records an open part | Closes the goal with an open part; the declaration is accepted but reported NOT PROVED. | `sorry` |
@@ -1316,7 +1333,8 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-rewrite[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, no `by-rfl` | The same without the closing `rfl`. | `rewrite [` |
 | `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules (or terms), in order; closes it | Ends the list of `by-rw[`, `by-rewrite[`, `by-rwa[` or `by-exacts[`; with none open, error 83. | `]` |
 | `<-` | `( r -- )` (top: the rule just written) | ordinary; only inside `by-rw[`, `by-rewrite[` or `by-rwa[` (83 elsewhere), after a rule (86) | read: the values so far become the bracket's rules, the last one marked right to left | Rewrites with r from right to left. | `← r` |
-| `by-rwa[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, then `rfl` (reducible) or else `assumption` | Rewrites, then closes the goal; neither closes it: 381; after the rewrite a goal that is no `=` (a `≤`, a negation): 93, even when a hypothesis matches it (`by-rfl`'s limit, plan row TB2). | `rwa [` |
+| `by-rwa[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, then `rfl` (reducible) or else `assumption` | Rewrites, then closes the goal; neither closes it: 381; `rfl` failing on a goal that is no `=` (a `≤`, a negation) falls to the hypothesis, as Lean's. With `at: h`, rewrites h and closes the goal with it (456 when its type differs). | `rwa [` |
+| `at:` | `( -- )`, then names to the end of the line | ordinary; right after `by-rw[ ]`, `by-rewrite[ ]`, `by-rwa[ ]`, `by-change`, `by-symm`, `by-delta` (453 elsewhere) | read: the names (and `\|-` or `⊢` for the goal, or `*` alone) become the step's location | Runs the tactic at each hypothesis named, then at the goal when named (455 unknown name; `*`: 99). | `at h ⊢` |
 | `by-exacts[` | `( -- )` | ordinary; opens a term block that `]` closes (no `<-`) | read: a step whose terms are the values up to `]`. Run: `by-exact` of each, then no goal may be left | Closes the goals one term each; a mismatch: 96; a goal left: 89. | `exacts [` (Batteries) |
 | `by-cases: HYP-NAME` | `( p -- )` (top: p) | parsing: one name after it, on its line | read: a step holding p; HYP-NAME a hypothesis word. Run: assigns the main goal `dite p` of two new goals, `pos` (HYP-NAME : p) and `neg` (HYP-NAME : ¬p), which take its place | Splits on whether p holds; p's `Decidable` instance, else `Classical.propDecidable` (the report's axioms then `propext`, `Classical.choice`, `Quot.sound`, which `--strict-axioms` accepts); p no proposition or `_`: 99. | `by_cases HYP-NAME : p` |
 | `by-contra: HYP-NAME` | `( -- )` | parsing: one name after it, on its line | read: a step; HYP-NAME a hypothesis word. Run: `by-contra-core`, then `by-intro:` of HYP-NAME on the same step | Proves the goal p from HYP-NAME : ¬p and the goal `False` (for p = ¬q, HYP-NAME : q); `rfl`: 99. | `by_contra HYP-NAME` (Batteries) |

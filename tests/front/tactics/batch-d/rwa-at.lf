@@ -1,0 +1,60 @@
+\ by-rwa[ ] (plan row TB2, tactic batch 3a; batch-d.lean): Lean's rwa at
+\ one hypothesis (evalRwaAt: the rules folded over it, then rfl or the
+\ hypothesis itself), its legacy form at any other location (rw ..;
+\ assumption), and rwa on goals rfl does not close: a ≤ c and ¬ a ≤ c,
+\ where by-rfl now fails as Lean's does and assumption closes.
+\ Lean: theorem rwa_at (a b c : Nat) (h : a = b) (h2 : a ≤ c) : b ≤ c := by
+\         rwa [h] at h2
+theorem rwa_at
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  a c ≤ explicit: h2
+  b c ≤
+:= by
+  by-rwa[ ' h ] at: h2
+end rwa_at
+
+\ No rule: the hypothesis closes the goal as it is.
+\ Lean: theorem rwa_none (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         rwa [] at h
+theorem rwa_none
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  by-rwa[ ] at: h
+end rwa_none
+
+\ The legacy location: rw [h] at h2 ⊢; assumption.
+\ Lean: theorem rwa_legacy (a b c : Nat) (h : a = b) (h2 : a ≤ c) : a ≤ c := by
+\         rwa [h] at h2 ⊢
+theorem rwa_legacy
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  a c ≤ explicit: h2
+  a c ≤
+:= by
+  by-rwa[ ' h ] at: h2 |-
+end rwa_legacy
+
+\ The review's x-ra-le (2026-11-21-tb2-batch2b.md, finding 7): b ≤ c is
+\ left, rfl fails, assumption closes it.
+\ Lean: theorem rwa_le (a b c : Nat) (h : a = b) (h2 : b ≤ c) : a ≤ c := by
+\         rwa [h]
+theorem rwa_le
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  b c ≤ explicit: h2
+  a c ≤
+:= by
+  by-rwa[ ' h ]
+end rwa_le
+
+\ The review's p4 shape: a negation, which rfl does not take for a
+\ relation (Lean's binary-relation error, undone).
+\ Lean: theorem rwa_not (a b c : Nat) (h : a = b) (h2 : ¬b ≤ c) : ¬a ≤ c := by
+\         rwa [h]
+theorem rwa_not
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  b c ≤ ¬ explicit: h2
+  a c ≤ ¬
+:= by
+  by-rwa[ ' h ]
+end rwa_not

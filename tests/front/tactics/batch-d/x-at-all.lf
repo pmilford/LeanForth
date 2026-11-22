@@ -1,0 +1,14 @@
+\ Not supported yet (plan row TB2, tactic batch 3a): the wildcard
+\ location, at: * (withLocation's own failure rule, every hypothesis
+\ newest first from saved states): 99, never accepted. Lean accepts it.
+\ Lean: theorem x_at_all (a b c : Nat) (h : a = b) (h2 : a ≤ c) : b ≤ c := by
+\         rw [h] at *
+\         exact h2
+theorem x_at_all
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  a c ≤ explicit: h2
+  b c ≤
+:= by
+  by-rw[ ' h ] at: *
+  ' h2 by-exact
+end x_at_all

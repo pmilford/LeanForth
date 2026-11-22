@@ -31,6 +31,13 @@
 \                                         ( d x1..xn n -- e ) of a declaration
 \   lf-mk-eq-mp ( h p -- e ), lf-mk-eq-mpr ( h p -- e )  mkEqMP, mkEqMPR
 \                                         (444-447)
+\   lf-const-meta-applied ( d -- app body ) the constant d at new level
+\                                         metavariables applied to a new
+\                                         metavariable per binder (telescope.fs's
+\                                         lf-forall-meta-telescope-reducing,
+\                                         the transparency in force), and
+\                                         the body (symm's lemma, rfl's
+\                                         Iff.rfl and HEq.rfl)
 \   lf-mk-app-opt-m ( c-addr u x1..xn mask n -- e ) mkAppOptM (402): n
 \                                         entries (at most abl-most - 1, the
 \                                         mask stored beside them), entry i
@@ -172,6 +179,13 @@ abl-most cells context-record: abl-cells
 \ constant at the level of the type it proves (getLevel).
 : lf-mk-expected-type-hint ( e type -- e' )
   dup s" id" abl-const-of swap lf-mk-app swap lf-mk-app ;
+\ ---- A constant at new level metavariables applied to a new metavariable
+\ per binder of its type (mkConstWithFreshMVarLevels, then
+\ forallMetaTelescopeReducing and mkAppN): symm's lemma, rfl's Iff.rfl.
+: abl-apply-mvar ( app mvar kind -- app' ) drop lf-mk-app ;
+: lf-const-meta-applied ( d -- app body )
+  dup lf-meta-const-fresh lf-must dup lf-infer! rot ['] abl-apply-mvar
+  lf-forall-meta-telescope-reducing ;
 : lf-mk-false-elim ( e h -- e' )
   swap dup s" False.elim" abl-const-of swap lf-mk-app swap lf-mk-app ;
 : abl-absurd ( e hp -- f )   \ absurd.{u} p e hp, p hp's type

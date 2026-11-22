@@ -512,10 +512,14 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 219 | invalid | Invalid rewrite argument: The pattern to be substituted is a metavariable |
 | 220 | invalid | Occurs check failed: Expression |
 | 300 | full | out of room: a Forth stack, the dictionary or the heap, with its THROW code |
+| 453 | invalid | at: follows no tactic word that takes a location |
+| 454 | invalid | at: takes hypothesis names and \|-, or * alone, on its line |
 | 440 | invalid | Tactic `clear` failed: unknown variable |
 | 441 | invalid | Tactic `clear` failed: variable |
 | 442 | invalid | Tactic `clear` failed: target depends on |
+| 457 | invalid | Tactic `rfl` failed: Expected the goal to be a binary relation |
 | 389 | invalid | Unexpected term |
+| 455 | invalid | Unknown identifier |
 | 380 | invalid | Tactic `apply` failed: could not unify the |
 | 384 | invalid | Tactic `apply` failed: failed to assign synthesized instance |
 | 381 | invalid | Tactic `assumption` failed |
@@ -536,6 +540,7 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 386 | invalid | Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors |
 | 387 | invalid | Tactic `right` failed: target is not an inductive datatype |
 | 388 | invalid | Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors |
+| 456 | invalid | Type mismatch: The rewritten hypothesis |
 | 447 | invalid | 'specialize' requires a term of the form `h x_1 .. x_n` where `h` appears in the local context |
 | 446 | invalid | goal index `2` is out of bounds |
 | 451 | invalid | Symmetry lemmas only apply to binary relations, not |

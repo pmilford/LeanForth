@@ -125,10 +125,34 @@
 \       a free variable is error 389, Lean's "Unexpected term `e`; expected
 \       single reference to variable" (a metavariable too: Lean prints its
 \       ?m.N, LeanForth's name differs, never accepted)
+\   lf-tac-ensure-type-as ( e expected code -- e )  lf-tac-ensure-type
+\       with another code for its mismatch (rwa's 456)
+\   lf-tac-located? ( i -- flag ), lf-tac-loc# ( i -- n ), lf-tac-loc-hyp
+\       ( i k -- name ), lf-tac-loc-goal? ( i -- flag ), lf-tac-loc-all?
+\       ( i -- flag )  expandOptLocation (Location.lean:32-46) of step i's
+\       at: (tactic-syntax.fs, plan row TB2 batch 3a): whether one was
+\       written, its hypothesis names (name IDs, in order), whether the
+\       goal is a location (|- written, or no at:: Lean's targets #[]
+\       true) and whether it is the wildcard (at: *)
+\   lf-tac-loc-fvar ( i k -- fvar )  getFVarId of step i's location name k
+\       in the main goal's context: the newest accessible local of the
+\       name (resolveLocalName), so a hypothesis an earlier location
+\       replaced is found again; none is Lean's 455, "Unknown identifier
+\       `h`", or, when a constant has the name (Lean's 389 for it), not
+\       supported yet (99)
+\   lf-with-location ( i*x i xt-local xt-target -- i*x )  withLocation
+\       (Location.lean:58-77) of step i's location: each hypothesis name
+\       in order resolved (lf-tac-loc-fvar) in the main goal's context and
+\       given to xt-local ( i*x fvar -- i*x ), then, when the goal is a
+\       location, xt-target ( i*x -- i*x ); a failure stops at once (the
+\       targets case has no failure rule of its own). The wildcard, which
+\       tries the goal and then every hypothesis newest first from saved
+\       states, is not supported yet (99).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: tb, the running step record's fields (tactic-run.fs's
-\ lf-tac-record, review fe1g3 M2), in the checker context (ADR 0009); no
-\ other. Loads in decimal whatever BASE is, then restores it.
+\ lf-tac-record, review fe1g3 M2), and tlc-frames (lf-with-location's
+\ frame per call open, meta-must.fs's lf-with-record), in the checker
+\ context (ADR 0009); no other. Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -239,11 +263,11 @@ end-structure
 : lf-tac-elab-arg ( i k -- e ) lf-tac-arg -1 false lf-tac-elab-term ;
 : lf-tac-elab-type ( node -- type ) lf-tac-elab-as-type lf-tac-must ;
 : tcr-typed ( e expected -- e type expected ) over lf-infer lf-tac-must swap ;
-: tcr-mismatch ( e type expected -- ) lfa-e-tac-mismatch lf-tac-type-mismatch ;
 : tcr-defeq ( type expected -- flag outcome ) ['] lf-tac-defeq lf-with-assignable-opaque ;
-: tcr-ensured ( e type expected -- e )
-  2dup tcr-defeq lf-tac-must if 2drop exit then tcr-mismatch ;
-: lf-tac-ensure-type ( e expected -- e ) tcr-typed tcr-ensured ;
+: tcr-ensured ( e type expected code -- e )
+  >r 2dup tcr-defeq lf-tac-must if r> drop 2drop exit then r> lf-tac-type-mismatch ;
+: lf-tac-ensure-type-as ( e expected code -- e ) >r tcr-typed r> tcr-ensured ;
+: lf-tac-ensure-type ( e expected -- e ) lfa-e-tac-mismatch lf-tac-ensure-type-as ;
 : lf-tac-elab-ensuring ( node expected -- e )
   tuck false lf-tac-elab-term swap lf-tac-ensure-type ;
 
@@ -277,4 +301,53 @@ end-structure
   dup lf-meta-fvar? if exit then
   ['] tcr-unexpected. lf-tac-inline lfa-e-tac-not-fvar lf-tac-stop ;
 : lf-tac-get-fvar ( node -- fvar ) false tcr-for-apply tcr-fvar ;
+
+\ ---- Locations: step i's at: (tactic-syntax.fs), expandOptLocation.
+: tcr-loc ( i -- flags ) lf-tactic-step tac-loc @ ;
+: lf-tac-located? ( i -- flag ) tcr-loc 0<> ;
+: lf-tac-loc# ( i -- n ) lf-tactic-step tac-loc# @ ;
+: lf-tac-loc-goal? ( i -- flag ) tcr-loc dup 0= swap tac-loc-goal and 0<> or ;
+: lf-tac-loc-all? ( i -- flag ) tcr-loc tac-loc-all and 0<> ;
+: tcr-loc-k ( i k -- i k' ) over lf-tac-args# + ;
+: lf-tac-loc-hyp ( i k -- name ) tcr-loc-k lf-tac-arg ;
+\ getFVarId of name k: the newest accessible local so named in the main
+\ goal's context (resolveLocalName); else a constant of that name is
+\ Lean's 389, not ported here (99), and no name at all Lean's unknown
+\ identifier, 455 (at the step's word, as getFVarId's 389 is).
+455 outcome-invalid s" Unknown identifier" lfa-code: lfa-e-tac-unknown-id
+: tcr-quoted. ( name -- outcome )
+  s"  `" lf-pp-emit lf-pp-name s" `" lf-pp-emit outcome-ok ;
+: tcr-constant? ( name -- flag ) lf-menv-find nip ok? ;
+: tcr-unknown ( i k -- )
+  lf-tac-loc-hyp dup tcr-constant? if lfa-e-tac-form lf-tac-fail then
+  ['] tcr-quoted. lf-tac-inline lfa-e-tac-unknown-id lf-tac-stop ;
+: tcr-named ( view name -- fvar true | false )
+  over swap lf-view-named if lf-view-fvar true else drop false then ;
+: lf-tac-loc-fvar ( i k -- fvar )
+  lf-tac-main lf-goal-view >r 2dup lf-tac-loc-hyp r> swap tcr-named 0= if tcr-unknown then
+  nip nip ;
+\ withLocation's targets case, a frame per call (xt-local and xt-target
+\ take and give the caller's values, which the stack holds beneath):
+\ each name in order resolved in the main goal's context then given to
+\ xt-local, then the goal to xt-target when named or at: is absent. The
+\ wildcard (at: *) is not supported yet (99).
+begin-structure /tlc
+  field: tlc-step        \ the step whose at: is read
+  field: tlc-local       \ ( i*x fvar -- i*x )
+  field: tlc-target      \ ( i*x -- i*x )
+end-structure
+/tlc context-slab: tlc-frames
+: tlc ( -- frame ) tlc-frames slab-last ;
+: tlc-hyp ( i*x k -- i*x ) tlc tlc-step @ swap lf-tac-loc-fvar tlc tlc-local @ execute ;
+: tlc-hyps ( i*x -- i*x ) tlc tlc-step @ lf-tac-loc# 0 ?do i tlc-hyp loop ;
+: tlc-goal ( i*x -- i*x )
+  tlc tlc-step @ lf-tac-loc-goal? if tlc tlc-target @ execute then ;
+: tlc-all ( -- ) tlc tlc-step @ lf-tac-loc-all? if lfa-e-tac-form lf-tac-fail then ;
+: tlc-run ( i*x i xt-local xt-target -- i*x )
+  tlc tlc-target ! tlc tlc-local ! tlc tlc-step ! tlc-all tlc-hyps tlc-goal ;
+: lf-with-location ( i*x i xt-local xt-target -- i*x )
+  tlc-frames ['] tlc-run lf-with-record ;
+\ The same for a run word whose actions take step i alone: ( i -- i ) and
+\ ( i fvar -- i ).
+: lf-at-location ( i xt-local xt-target -- ) rot dup 2swap lf-with-location drop ;
 base !   \ the BASE this file was loaded with

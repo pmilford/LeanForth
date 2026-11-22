@@ -1,0 +1,12 @@
+\ A wrong twin (plan row TB2, tactic batch 3a; batch-d-wrong.lean): symm
+\ at a negation: Expr.applySymm's 451, "Symmetry lemmas only apply to
+\ binary relations, not", with h's type.
+\ Lean: theorem w_symm_at (a b : Nat) (h : ¬a ≤ b) : ¬a ≤ b := by
+\         symm at h
+theorem w_symm_at
+  Nat explicit: a  Nat explicit: b
+  a b ≤ ¬ explicit: h
+  a b ≤ ¬
+:= by
+  by-symm at: h
+end w_symm_at

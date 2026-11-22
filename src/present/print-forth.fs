@@ -97,7 +97,7 @@ lf-pf-reserve Prop Type Sort level+ level-max level-imax var# root:
 lf-pf-reserve label: note" ai-note" _ let: let have field-at by s" import
 lf-pf-reserve protected export lit# proj#
 lf-pf-reserve kernel-form ' by-induction by-case: by-next by-rfl by-exact
-lf-pf-reserve by-intro: by-induction-with by-end by-rw[ by-rewrite[ ] <- | => by-sorry
+lf-pf-reserve by-intro: by-induction-with by-end by-rw[ by-rewrite[ ] <- at: | => by-sorry
 lf-pf-reserve #check
 0 c, align
 : lf-pf-next ( c-addr -- c-addr' ) count chars + ;

@@ -283,13 +283,15 @@ T{ refl-head lf-term-first@ lf-cref-slot lf-cref-pairs drop 0 lf-cref-pair@ drop
 T{ s" by-rfl end t" proof nrun err -> outcome-invalid 97 1 43 }T
 T{ detail s\"   p\nis not definitionally equal to the right-hand side\n  q\n\np q : Prop\n⊢ p = q"
    compare -> 0 }T
-\ Not an equation: 93 (p; Ne p q, whose whnf is p = q -> False and which
-\ Lean's applyRfl refuses as no binary relation, a message not ported:
-\ the macro's exact alternatives are not ported either, plan FE5); not
+\ Not an equation: Lean's applyRfl refuses p as no binary relation, 457
+\ (plan row TB2 batch 3a; the macro's exact Iff.rfl and HEq.rfl, which
+\ this environment lacks, fail first); Ne p q too (whnfR ¬(p = q), 457
+\ with Init's data: batch-d's w-rfl-not), but this environment carries no
+\ elaboration data, so a step on Ne is not supported here, 93; not
 \ equal with a metavariable in a side: applyRfl's approxDefEq says no too,
 \ 97 with the metavariable, as pinned Lean's 0 = ?n + 1 (plan 9.4.8l).
 ' just-p stating
-T{ s" by-rfl end t" proof nrun err -> outcome-unsupported 93 1 43 }T
+T{ s" by-rfl end t" proof nrun err -> outcome-invalid 457 1 43 }T
 : ne-pq ( -- type )
   p-prop prop s" q" binder q ! level1 0 u! s" Ne" 1 cst prop app p @ app q @ app ;
 ' ne-pq stating

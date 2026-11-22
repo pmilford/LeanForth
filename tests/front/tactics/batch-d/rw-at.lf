@@ -1,0 +1,81 @@
+\ by-rw[ ] and by-rewrite[ ] at: (plan row TB2, tactic batch 3a;
+\ batch-d.lean): Lean's rw and rewrite with a location. Each rule runs
+\ at each hypothesis named, in order, then at the goal when |- is named;
+\ the rewritten hypothesis keeps its name, so a later step (and a later
+\ rule) names the new one. rw's with_reducible rfl then fails on b ≤ c
+\ as Lean's does (two sides unequal), and the goal stays.
+\ Lean: theorem at_hyp (a b c : Nat) (h : a = b) (h2 : a ≤ c) : b ≤ c := by
+\         rw [h] at h2
+\         exact h2
+theorem at_hyp
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  a c ≤ explicit: h2
+  b c ≤
+:= by
+  by-rw[ ' h ] at: h2
+  ' h2 by-exact
+end at_hyp
+
+\ rw's with_reducible rfl closes the goal, which no rule touched.
+\ Lean: theorem at_closes (a b : Nat) (h : a = b) (h2 : a + 0 = b) : b = b := by
+\         rw [h] at h2
+theorem at_closes
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  a 0 + b = explicit: h2
+  b b =
+:= by
+  by-rw[ ' h ] at: h2
+end at_closes
+
+\ Two hypotheses in order, rewrite (no rfl after).
+\ Lean: theorem at_two (a b c : Nat) (h : a = b) (h2 : a ≤ c) (h3 : c ≤ a) : b ≤ c := by
+\         rewrite [h] at h2 h3
+\         exact h2
+theorem at_two
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  a c ≤ explicit: h2  c a ≤ explicit: h3
+  b c ≤
+:= by
+  by-rewrite[ ' h ] at: h2 h3
+  ' h2 by-exact
+end at_two
+
+\ A hypothesis and the goal (|-).
+\ Lean: theorem at_goal (a b c : Nat) (h : a = b) (h2 : a ≤ c) : a ≤ c := by
+\         rw [h] at h2 ⊢
+\         exact h2
+theorem at_goal
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  a c ≤ explicit: h2
+  a c ≤
+:= by
+  by-rw[ ' h ] at: h2 |-
+  ' h2 by-exact
+end at_goal
+
+\ Two rules: the second finds the hypothesis the first made, by its name;
+\ the second right to left.
+\ Lean: theorem at_rules (a b c d : Nat) (h : a = b) (k : c = b) (h2 : a ≤ d) : c ≤ d := by
+\         rw [h, ← k] at h2
+\         exact h2
+theorem at_rules
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  Nat explicit: d
+  a b = explicit: h  c b = explicit: k  a d ≤ explicit: h2
+  c d ≤
+:= by
+  by-rw[ ' h ' k <- ] at: h2
+  ' h2 by-exact
+end at_rules
+
+\ ⊢ for the goal, Lean's own spelling beside |-.
+\ Lean: theorem at_turnstile (a b c : Nat) (h : a = b) (k : c ≤ a) : c ≤ a := by
+\         rw [h] at k ⊢
+\         exact k
+theorem at_turnstile
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  c a ≤ explicit: k
+  c a ≤
+:= by
+  by-rw[ ' h ] at: k ⊢
+  ' k by-exact
+end at_turnstile

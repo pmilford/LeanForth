@@ -344,16 +344,16 @@ reason = "TB2: first runs its first alternative bare (no saved state: its error 
 [[fault]]
 id = "tb2-change-not-replaced"
 file = "src/front/tactics/change.fs"
-old = '''  tch-elab lf-goal-replace-target-defeq ;'''
-new = '''  tch-elab drop ;'''
+old = '''tch-pattern lf-goal-replace-target-defeq ;'''
+new = '''tch-pattern drop ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-a/check.py"
 reason = "TB2: change keeps the goal (no @id T goal'): the term differs from Lean's"
 
 [[fault]]
 id = "tb2-change-show-code"
 file = "src/front/tactics/change.fs"
-old = '''  swap 0 lf-tac-arg over lf-goal-type lf-instantiate! ['] tch-pair. lfa-e-change'''
-new = '''  swap 0 lf-tac-arg over lf-goal-type lf-instantiate! ['] tch-pair. lfa-e-show'''
+old = '''swap ['] tch-pair. lfa-e-change tch-elab ;'''
+new = '''swap ['] tch-pair. lfa-e-show tch-elab ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: change refused with show's error"
 
@@ -476,16 +476,16 @@ reason = "TB2: delta of a name the goal does not hold not refused (Lean: did not
 [[fault]]
 id = "tb2-delta-names-printed"
 file = "src/front/tactics/delta.fs"
-old = '''  s"  [" lf-pp-emit lf-pp-name s" ]" lf-pp-emit outcome-ok ;'''
-new = '''  s"  #[" lf-pp-emit lf-pp-name s" ]" lf-pp-emit outcome-ok ;'''
+old = '''  s"  [" lf-pp-emit lf-pp-name s" ]" lf-pp-emit ;'''
+new = '''  s"  #[" lf-pp-emit lf-pp-name s" ]" lf-pp-emit ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-a/check.py"
 reason = "TB2: delta's message prints the names as an array literal, not as Lean does"
 
 [[fault]]
 id = "tb2-delta-plain-lift"
 file = "src/front/tactics/delta.fs"
-old = ''': tdl-run ( i -- ) dup ['] tdl-tac lf-lift-meta-tactic1 ;'''
-new = ''': tdl-run ( i -- ) dup ['] tdl-tac lf-lift-meta-tactic ;'''
+old = ''': tdl-at-target ( i -- i ) dup dup ['] tdl-tac lf-lift-meta-tactic1 ;'''
+new = ''': tdl-at-target ( i -- i ) dup dup ['] tdl-tac lf-lift-meta-tactic ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: delta's one goal handed to liftMetaTactic as a list"
 

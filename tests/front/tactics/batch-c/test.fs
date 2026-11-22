@@ -303,7 +303,8 @@ T{ ab-le ' p-inst heap-sweep swept? -> true }T
 
 \ ---- 1. The tactics through LeanForth text.
 \ rwa: rfl closes (h, then ← h); assumption closes (b = c by h2);
-\ assumption's 381 (c = b is no b = c); a rule's 215; rfl on ≤, 93.
+\ assumption's 381 (c = b is no b = c); a rule's 215; rfl on ≤ fails as
+\ Lean's (plan row TB2 batch 3a), so assumption closes it.
 T{ s" a b = explicit: h a b =" st s" by-rwa[ ' h ]" tactic-ran -> 0 }T
 T{ s" a b = explicit: h b b = explicit: h2 b a =" st s" by-rwa[ ' h <- ]" tactic-ran -> 0 }T
 T{ s" Nat explicit: c a b = explicit: h b c = explicit: h2 a c =" st s" by-rwa[ ' h ]"
@@ -312,7 +313,7 @@ T{ s" Nat explicit: c a b = explicit: h c b = explicit: h2 a c =" st s" by-rwa[ 
    tactic-ran -> 381 }T
 T{ s" a b = explicit: h a 0 + a =" st s" by-rwa[ ' h <- ]" tactic-ran -> 215 }T
 T{ s" Nat explicit: c a b = explicit: h b c ≤ explicit: h2 a c ≤" st s" by-rwa[ ' h ]"
-   tactic-ran -> 93 }T
+   tactic-ran -> 0 }T
 lf-tac-forget
 \ exacts: two terms, none, too few (89), a mismatch (96), no goal (90).
 T{ hand s" ' And.intro by-apply by-exacts[ ' h1 ' h2 ]" tactic-ran -> 0 }T

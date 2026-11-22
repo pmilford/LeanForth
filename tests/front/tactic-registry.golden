@@ -144,10 +144,14 @@
 219	1	Invalid rewrite argument: The pattern to be substituted is a metavariable
 220	1	Occurs check failed: Expression
 300	6	out of room: a Forth stack, the dictionary or the heap, with its THROW code
+453	1	at: follows no tactic word that takes a location
+454	1	at: takes hypothesis names and |-, or * alone, on its line
 440	1	Tactic `clear` failed: unknown variable
 441	1	Tactic `clear` failed: variable
 442	1	Tactic `clear` failed: target depends on
+457	1	Tactic `rfl` failed: Expected the goal to be a binary relation
 389	1	Unexpected term
+455	1	Unknown identifier
 380	1	Tactic `apply` failed: could not unify the
 384	1	Tactic `apply` failed: failed to assign synthesized instance
 381	1	Tactic `assumption` failed
@@ -168,6 +172,7 @@
 386	1	Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors
 387	1	Tactic `right` failed: target is not an inductive datatype
 388	1	Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors
+456	1	Type mismatch: The rewritten hypothesis
 447	1	'specialize' requires a term of the form `h x_1 .. x_n` where `h` appears in the local context
 446	1	goal index `2` is out of bounds
 451	1	Symmetry lemmas only apply to binary relations, not
@@ -228,6 +233,7 @@ reserved by-rw[ word
 reserved by-rewrite[ word
 reserved ] word
 reserved <- word
+reserved at: word
 reserved | word
 reserved => word
 reserved by-sorry word

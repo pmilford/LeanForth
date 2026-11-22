@@ -15,6 +15,14 @@
 \   unassigned, or any other metavariable left in the proof (Lean's new
 \   goals), not supported yet (99, slice LA); replaceTargetEq (meta-
 \   tactic/goal.fs) and the new goal in the main goal's place.
+\   With a trailing at: (plan row TB2 batch 3a), each rule runs at each
+\   location in turn (withLocation, tactic-core.fs's lf-with-location):
+\   a hypothesis named (getFVarId by its name, so one an earlier rule
+\   replaced is found again) is rewritten as above with its local's type
+\   as stored (rewriteLocalDeclCore), then replaceLocalDecl (meta-tactic/
+\   assert.fs: the new hypothesis of the same name where its type allows,
+\   the old one cleared unless something depends on it); then the goal
+\   when |- is named. at: * is not supported yet (99).
 \ - by-rw[: the same, then try (with_reducible rfl): by-rfl's row
 \   (lf-tac-rfl-reducible) at reducible transparency, a Lean error undone and
 \   forgotten (lf-tac-try-lean), anything else thrown on.
@@ -28,13 +36,17 @@
 \ lf-tac-arg-symm?; MVarId.rewrite -> lf-goal-rewrite;
 \ replaceTargetEq -> lf-goal-replace-target-eq; replaceMainGoal ->
 \ lf-replace-main; try (with_reducible rfl) -> lf-tac-try-lean,
-\ lf-tac-rfl-reducible.
+\ lf-tac-rfl-reducible; withLocation -> lf-with-location; getFVarId ->
+\ lf-tac-loc-fvar; replaceLocalDecl -> lf-goal-replace-local-decl.
+\ trw-local ( fvar k i -- fvar' ) is rewriteLocalDeclCore of rule k of
+\ step i (tactics/rwa.fs's at h).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own. Its kinds are the runner's tac-k-rewrite and
 \ tac-k-rw (fixed kinds, scripts/check-tactic-plugins.py's ownership
 \ table).
 
 require ../tactic-api.fs
+require ../meta-tactic/assert.fs
 
 \ ---- Errors at the rule k: its place second, unless one is set.
 : trw-at ( k -- pos ) lf-tac-step swap lf-tac-arg-at ;
@@ -58,12 +70,14 @@ require ../tactic-api.fs
 \ ---- MVarId.rewrite of the target, right to left for a rule written
 \ with <- (Lean's ←, symm), its errors at the rule.
 : trw-symm? ( k -- flag ) lf-tac-step swap lf-tac-arg-symm? ;
-: trw-call ( heq k -- new proof goals code )
-  trw-symm? >r >r tb tb-goal @ tb tb-want @ r> r> ['] lf-goal-rewrite catch ;
-: trw-rewrite ( k heq -- new proof goals )
+: trw-call ( e heq k -- new proof goals code )
+  trw-symm? >r >r tb tb-goal @ swap r> r> ['] lf-goal-rewrite catch ;
+: trw-rewrite ( e k heq -- new proof goals )
   over >r swap trw-call ?dup if >r 2drop 2drop r> r> trw-placed then r> drop ;
-: trw-inner ( k -- k new proof goals )
-  dup dup trw-elaborated trw-occurs-free trw-rewrite ;
+\ Rule k rewriting e: the goal's type (rewriteTarget) or a hypothesis's
+\ (rewriteLocalDeclCore: its local's type as stored).
+: trw-inner ( e k -- k new proof goals )
+  tuck dup trw-elaborated trw-occurs-free trw-rewrite ;
 \ finishElabRewrite: new goals, or another metavariable left in the
 \ proof, not supported yet (99).
 : trw-open? ( proof goals -- flag )
@@ -71,10 +85,23 @@ require ../tactic-api.fs
   swap lf-instantiate-mvars lf-tac-must lf-has-open-mvar? or ;
 : trw-closed ( k new proof goals -- new proof )
   over swap trw-open? if 2drop lfa-e-tac-form trw-stop then rot drop ;
-: trw-replaced ( new proof -- )
-  tb tb-goal @ -rot lf-goal-replace-target-eq lf-goals1 lf-replace-main lf-tac-must ;
-: trw-rule-run ( k i -- ) drop ['] trw-inner lf-tac-with-synth trw-closed trw-replaced ;
-: trw-rule ( k i -- ) ['] trw-rule-run lf-tac-step-run ;
+: trw-main! ( goal' -- ) lf-goals1 lf-replace-main lf-tac-must ;
+: trw-replaced ( new proof -- ) tb tb-goal @ -rot lf-goal-replace-target-eq trw-main! ;
+: trw-target-run ( k i -- )
+  drop tb tb-want @ swap ['] trw-inner lf-tac-with-synth trw-closed trw-replaced ;
+\ rewriteLocalDeclCore: replaceLocalDecl outside withSynthesize, the new
+\ goal in the main goal's place; the new hypothesis given (rwa's).
+: trw-local-replaced ( fvar new proof -- fvar' )
+  2>r tb tb-goal @ swap 2r> lf-goal-replace-local-decl swap trw-main! ;
+: trw-local-inner ( fvar k -- fvar new proof )
+  over lf-fvar-type swap ['] trw-inner lf-tac-with-synth trw-closed ;
+: trw-local-run ( fvar k i -- fvar' ) drop trw-local-inner trw-local-replaced ;
+: trw-local ( fvar k i -- fvar' ) ['] trw-local-run lf-tac-step-run ;
+\ withLocation per rule (evalRewriteSeq): each hypothesis named, then the
+\ goal (named, or no at:).
+: trw-at-local ( k i fvar -- k i ) -rot 2dup 2>r trw-local drop 2r> ;
+: trw-at-target ( k i -- k i ) 2dup ['] trw-target-run lf-tac-step-run ;
+: trw-rule ( k i -- ) dup ['] trw-at-local ['] trw-at-target lf-with-location 2drop ;
 : trw-rules ( i -- ) dup lf-tac-args# 0 ?do i over trw-rule loop drop ;
 
 \ ---- try (with_reducible rfl).

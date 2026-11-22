@@ -1,0 +1,12 @@
+\ A wrong twin (plan row TB2, tactic batch 3a; batch-d-wrong.lean): the
+\ hypothesis holds no a: MVarId.rewrite's 215 on its type, the same text
+\ Lean gives for the goal ("in the target expression").
+\ Lean: theorem w_rw_at (a b c d : Nat) (h : a = b) (h2 : c ≤ d) : c ≤ d := by
+\         rw [h] at h2
+theorem w_rw_at
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  Nat explicit: d
+  a b = explicit: h  c d ≤ explicit: h2
+  c d ≤
+:= by
+  by-rw[ ' h ] at: h2
+end w_rw_at

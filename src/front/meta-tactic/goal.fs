@@ -90,19 +90,23 @@
 \       with e, Lean's occurs-check line and the goal; an unassigned
 \       metavariable in e answers 93 (Lean's checkAssignment would
 \       restrict it, not ported)
-\   lf-goal-refl ( goal -- )  the rfl macro on an equation (Init/
-\       Tactics.lean:477-482): eq_refl, MVarId.refl (Refl.lean:25) under
+\   lf-goal-refl ( goal -- )  the rfl macro's last two rules (Init/
+\       Tactics.lean:477-480; tactics/rfl.fs tries exact Iff.rfl and
+\       exact HEq.rfl first): eq_refl, MVarId.refl (Refl.lean:25) under
 \       withAssignableSyntheticOpaque: goal's type through whnf at the
-\       transparency in force, instantiated (getType'), must be Eq applied
-\       to three arguments (any other goal: 93, exact Iff.rfl, exact
-\       HEq.rfl and @[refl] lemmas are plan FE5); its sides instantiated
-\       and definitionally equal close goal with @Eq.refl.{u} α lhs (Eq's
-\       own level and type); else applyRfl (Rfl.lean:67-97): the type
-\       instantiated through whnfR, a relation of two arguments or more
-\       (else 93), its last two compared by approxDefEq
-\       isDefEqGuarded (meta-must.fs's lf-defeq-approx!): unequal is error
-\       97 with Lean's text (the sides, the goal); equal sides of Eq close
-\       goal as above, of another relation 93 (@[refl] lemmas)
+\       transparency in force, instantiated (getType'), Eq applied to
+\       three arguments (any other goal: applyRfl at once); its sides
+\       instantiated and definitionally equal close goal with
+\       @Eq.refl.{u} α lhs (Eq's own level and type); else applyRfl
+\       (Rfl.lean:67-97): the type instantiated through whnfR, a relation
+\       of two arguments or more (else error 457, "Tactic `rfl` failed:
+\       Expected the goal to be a binary relation", its hint and the goal;
+\       HEq of four 93, its HEq.refl path not ported), its last two
+\       compared by approxDefEq isDefEqGuarded (meta-must.fs's
+\       lf-defeq-approx!): unequal is error 97 with Lean's text (the
+\       sides, the goal); equal sides of Eq close goal as above, of
+\       another relation 93 (its @[refl] lemmas, Init's Iff.refl and the
+\       Perm lemmas, are not in the elaboration data)
 \   lf-goal-fresh ( type goal -- goal' )  mkFreshExprSyntheticOpaqueMVar
 \       type (getTag goal) in goal's context: a new synthetic opaque goal
 \       of type with goal's tag (the goal words' new goals)
@@ -372,10 +376,19 @@ end-structure
 : mrf-equal? ( -- flag ) ['] mrf-sides-defeq lf-with-assignable-opaque lf-must ;
 \ applyRfl's relation (Rfl.lean:69-86): t, the type instantiated through
 \ whnfR, applied to two arguments or more, its last two the sides (fewer:
-\ Lean's "binary relation" error, not ported, 93; HEq, whose HEq.refl
-\ path is not ported either, never comes here: its whnf is no Eq);
+\ Lean's error 457 with its hint and the goal, rfl's own on a goal that
+\ is no relation; HEq of four, whose HEq.refl path is not ported, 93);
 \ approxDefEq isDefEqGuarded of the sides.
-: mrf-rel ( t -- t ) dup lf-meta-app2? 0= if outcome-unsupported lf-must then ;
+457 outcome-invalid s" Tactic `rfl` failed: Expected the goal to be a binary relation"
+  lfa-code: lfa-e-rfl-binary
+: mrf-hint. ( goal -- outcome )
+  s\" \nHint: Reflexivity tactics can only be used on goals of the form " lf-pp-emit
+  s\" `x ~ x` or `R x x`\n" lf-pp-emit lf-tac-goal-of. ;
+: mrf-binary ( t -- t )
+  dup lf-meta-app2? if exit then
+  mrf mrf-goal @ ['] mrf-hint. lf-tac-detail lfa-e-rfl-binary lf-tac-stop ;
+: mrf-rel ( t -- t )
+  mrf-binary dup 4 s" HEq" lf-meta-app-of? if outcome-unsupported lf-must then ;
 : mrf-whnf-r ( -- )
   mrf mrf-goal @ lf-goal-type lf-instantiate! lf-whnf-r! mrf-rel
   dup mrf mrf-eq ! lf-meta-args2 mrf mrf-sides 2! ;
@@ -401,8 +414,13 @@ end-structure
 \ lemmas would (plan FE5): 93.
 : mrf-eq-closed ( -- ) mrf mrf-eq @ mtg-is-eq drop mrf-closed ;
 : mrf-apply-rfl ( -- ) mrf-whnf-r mrf-approx? 0= if mrf-unequal then mrf-eq-closed ;
+\ eq_refl on a goal that is no Eq (Lean's "equality expected", never the
+\ error shown) gives way to apply_rfl at once.
+: mtg-eq-app? ( t -- flag ) lf-eq? dup if nip nip nip then ;
+: mrf-eq-of? ( -- flag )
+  mrf mrf-goal @ mtg-eq-of dup mtg-eq-app? if mrf-eq! true else drop false then ;
 : mrf-run ( -- )
-  mrf mrf-goal @ mtg-eq-of mtg-is-eq mrf-eq!
+  mrf-eq-of? 0= if mrf-apply-rfl exit then
   mrf-equal? if mrf-closed else mrf-apply-rfl then ;
 : mrf-framed ( goal -- ) mrf mrf-goal ! mrf-run ;
 : lf-goal-refl ( goal -- ) lf-goal-not-assigned mrf-frames ['] mrf-framed lf-with-record ;

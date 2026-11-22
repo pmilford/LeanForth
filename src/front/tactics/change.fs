@@ -17,7 +17,13 @@
 \   type instantiated, then MVarId.replaceTargetDefEq (meta-tactic/
 \   goal.fs: the goal itself when nothing changed, else @id T goal') and
 \   the new goal in the main goal's place. Error 443, "'change' tactic
-\   failed, pattern". The at h form (Lean's location) is plan TB2 batch 3.
+\   failed, pattern". With a trailing at: (plan row TB2 batch 3a; Lean's
+\   withLocation, tactic-core.fs's lf-with-location): each hypothesis
+\   named, elabChange of its local's type as stored (h.getType), then
+\   MVarId.changeLocalDecl (meta-tactic/assert.fs: reverted, its type
+\   replaced, introduced again under its name, so later steps name the
+\   new one), then the goal when |- is named. at: * is not supported yet
+\   (99).
 \ - by-show: the unsolved goals in order, each tried in its own context
 \   (elabChange of its type as stored, then replaceTargetDefEq) from a
 \   saved state; the first that succeeds is the new main goal, the goals
@@ -32,7 +38,9 @@
 \ Term.elabTermEnsuringType -> lf-tac-elab-ensuring; isDefEq ->
 \ lf-tac-defeq; withAssignableSyntheticOpaque -> lf-with-assignable-opaque
 \ (meta-config.fs); instantiateMVars -> lf-instantiate!; replaceTargetDefEq
-\ -> lf-goal-replace-target-defeq (meta-tactic/goal.fs); getGoals ->
+\ -> lf-goal-replace-target-defeq (meta-tactic/goal.fs); withLocation ->
+\ lf-with-location; FVarId.getType -> lf-fvar-type; changeLocalDecl ->
+\ lf-goal-change-local-decl (meta-tactic/assert.fs); getGoals ->
 \ lf-goals-unsolved; saveState and restore -> lf-tac-try-lean;
 \ setGoals -> lf-goals!.
 \ Untrusted: only the kernel's check of the finished term decides.
@@ -40,12 +48,13 @@
 \ lf-tac-in-record); no other.
 
 require ../tactic-api.fs
+require ../meta-tactic/assert.fs
 
 443 outcome-invalid s" 'change' tactic failed, pattern" lfa-code: lfa-e-change
 444 outcome-invalid s" 'show' tactic failed, pattern" lfa-code: lfa-e-show
 445 outcome-invalid s" 'show' tactic failed, no goals unify with the given pattern."
   lfa-code: lfa-e-show-none
-tac-shape-term lf-tactic: by-change constant tac-k-change
+tac-shape-term-at lf-tactic: by-change constant tac-k-change
 s" change" tac-k-change lf-tactic-lean!
 tac-shape-term lf-tactic: by-show constant tac-k-show
 s" show" tac-k-show lf-tactic-lean!
@@ -76,11 +85,14 @@ s" show" tac-k-show lf-tactic-lean!
 : tch-elab ( node e xt code -- p )
   2>r tuck tch-type swap 2r> tch-unify lf-instantiate! lf-open-mvar-free ;
 
-\ ---- change: the main goal's target.
-: tch-tac ( i goal -- goal' )
-  swap 0 lf-tac-arg over lf-goal-type lf-instantiate! ['] tch-pair. lfa-e-change
-  tch-elab lf-goal-replace-target-defeq ;
-: tch-run ( i -- ) dup ['] tch-tac lf-lift-meta-tactic1 ;
+\ ---- change: the main goal's target, or a hypothesis's type (at:).
+: tch-pattern ( i e -- p ) swap 0 lf-tac-arg swap ['] tch-pair. lfa-e-change tch-elab ;
+: tch-tac ( i goal -- goal' ) tuck lf-goal-type lf-instantiate! tch-pattern lf-goal-replace-target-defeq ;
+: tch-local ( i fvar goal -- goal' )
+  >r tuck lf-fvar-type tch-pattern r> -rot lf-goal-change-local-decl ;
+: tch-at-target ( i -- i ) dup dup ['] tch-tac lf-lift-meta-tactic1 ;
+: tch-at-local ( i fvar -- i ) over tuck ['] tch-local lf-lift-meta-tactic1 ;
+: tch-run ( i -- ) ['] tch-at-local ['] tch-at-target lf-at-location ;
 ' tch-run tac-k-change lf-tactic-action!
 
 \ ---- show: the first goal the pattern fits, brought to the front.

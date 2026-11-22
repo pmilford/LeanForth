@@ -101,10 +101,10 @@ reason = "9.4.8l rfl: applyRfl without approxDefEq (Rfl.lean:89): the quasi patt
 [[fault]]
 id = "tf-rfl-rel-unchecked"
 file = "src/front/meta-tactic/goal.fs"
-old = ''': mrf-rel ( t -- t ) dup lf-meta-app2? 0= if outcome-unsupported lf-must then ;'''
-new = ''': mrf-rel ( t -- t ) ;'''
+old = '''  dup lf-meta-app2? if exit then'''
+new = '''  exit'''
 test = "$GFORTH tests/front/tactic-lib.fs"
-reason = "9.4.8l rfl: a relation of fewer than two arguments read for sides (Lean's binary-relation error, not ported) instead of 93"
+reason = "9.4.8l rfl: a relation of fewer than two arguments read for sides instead of Lean's binary-relation error (457 since TB2 batch 3a)"
 
 [[fault]]
 id = "tf-rfl-other-rel-closed"

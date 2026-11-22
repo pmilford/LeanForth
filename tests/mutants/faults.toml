@@ -16155,8 +16155,8 @@ reason = "FE1g-4 (design 8.3): the Eq head check dropped, so a relation of three
 [[fault]]
 id = "fe-exact-mismatch-kept"
 file = "src/front/tactic-core.fs"
-old = '''  2dup tcr-defeq lf-tac-must if 2drop exit then tcr-mismatch ;'''
-new = '''  2drop ;'''
+old = '''  >r 2dup tcr-defeq lf-tac-must if r> drop 2drop exit then r> lf-tac-type-mismatch ;'''
+new = '''  drop 2drop ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: exact assigns a term whose type is not the goal's"
 

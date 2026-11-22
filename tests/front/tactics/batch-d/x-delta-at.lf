@@ -1,0 +1,15 @@
+\ Not supported yet (plan row TB2, tactic batch 3a): delta at a
+\ hypothesis it does change (Lean's replaceLocalDeclDefEq gives the same
+\ free variable another type in the new goal's context; LeanForth keeps
+\ a free variable's type with the variable): 99, never accepted.
+\ Lean: theorem x_delta_at (a b : Nat) (h : a ≠ b) : a ≠ b := by
+\         delta Ne at h
+\         exact h
+theorem x_delta_at
+  Nat explicit: a  Nat explicit: b
+  a b ≠ explicit: h
+  a b ≠
+:= by
+  ' Ne by-delta at: h
+  by-assumption
+end x_delta_at

@@ -1,0 +1,14 @@
+\ Not supported yet (plan row TB2, tactic batch 3a): change at a local
+\ another one depends on (k mentions n), which changeLocalDecl reverts
+\ and reintroduces with it: 93, never accepted. Lean accepts it.
+\ Lean: theorem x_change_dep (n : Nat) (k : n = n) : n = n := by
+\         change Nat at n
+\         exact k
+theorem x_change_dep
+  Nat explicit: n
+  n n = explicit: k
+  n n =
+:= by
+  Nat by-change at: n
+  ' k by-exact
+end x_change_dep

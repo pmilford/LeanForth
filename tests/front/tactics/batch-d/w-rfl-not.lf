@@ -1,0 +1,13 @@
+\ A wrong twin (plan row TB2, tactic batch 3a; batch-d-wrong.lean): rfl
+\ on a negation, no relation: every rule of the macro fails and
+\ apply_rfl's error is the one shown, 457, "Tactic `rfl` failed:
+\ Expected the goal to be a binary relation", with its hint.
+\ Lean: theorem w_rfl_not (a b : Nat) (h : ¬a ≤ b) : ¬a ≤ b := by
+\         rfl
+theorem w_rfl_not
+  Nat explicit: a  Nat explicit: b
+  a b ≤ ¬ explicit: h
+  a b ≤ ¬
+:= by
+  by-rfl
+end w_rfl_not

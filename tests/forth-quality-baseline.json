@@ -420,7 +420,7 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 38,
-  "shuffles": 13,
+  "shuffles": 14,
   "words": 99
  },
  "src/front/assign-check.fs": {
@@ -747,7 +747,7 @@
   "globals": 1,
   "long lines": 0,
   "long words": 0,
-  "rstack": 2,
+  "rstack": 4,
   "shuffles": 2,
   "words": 20
  },
@@ -819,8 +819,8 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 0,
-  "shuffles": 0,
+  "rstack": 7,
+  "shuffles": 2,
   "words": 6
  },
  "src/front/tactic-induction.fs": {
@@ -849,10 +849,10 @@
  },
  "src/front/tactic-syntax.fs": {
   "globals": 2,
-  "long lines": 0,
+  "long lines": 5,
   "long words": 0,
   "rstack": 19,
-  "shuffles": 3,
+  "shuffles": 4,
   "words": 109
  },
  "src/front/tactics/absurd.fs": {
@@ -905,10 +905,10 @@
  },
  "src/front/tactics/change.fs": {
   "globals": 2,
-  "long lines": 0,
+  "long lines": 1,
   "long words": 0,
-  "rstack": 7,
-  "shuffles": 0,
+  "rstack": 9,
+  "shuffles": 1,
   "words": 32
  },
  "src/front/tactics/clear.fs": {
@@ -945,10 +945,10 @@
  },
  "src/front/tactics/delta.fs": {
   "globals": 1,
-  "long lines": 0,
+  "long lines": 3,
   "long words": 0,
   "rstack": 0,
-  "shuffles": 0,
+  "shuffles": 1,
   "words": 6
  },
  "src/front/tactics/exacts.fs": {
@@ -1019,8 +1019,8 @@
   "globals": 1,
   "long lines": 0,
   "long words": 0,
-  "rstack": 0,
-  "shuffles": 0,
+  "rstack": 2,
+  "shuffles": 1,
   "words": 3
  },
  "src/front/tactics/specialize.fs": {

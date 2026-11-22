@@ -137,6 +137,9 @@ theorem nx_name (a b : Nat) (h : a ≤ b) : a ≤ b := by
   revert h
   intro _
   next k => exact k
+-- rwa on a ≤ c (accepted since tactic batch 3a).
+theorem x_ra_le (a b c : Nat) (h : a = b) (h2 : b ≤ c) : a ≤ c := by
+  rwa [h]
 
 def pl (l : Level) : String := match l.toNat with
   | some n => toString n
@@ -163,5 +166,5 @@ def dump (n : Name) : MetaM Unit := do
   for n in [``rs_hyp, ``rs_lemma, ``rs_two, ``rs_rewrite, ``ra_basic, ``ra_rfl, ``ra_symm,
       ``ra_focus, ``ex_two, ``ex_none, ``ex_app, ``bc_dec, ``bc_tags, ``bc_classical, ``bk_not,
       ``bk_dec, ``bk_classical, ``bk_ne, ``sy_eq, ``sy_iff, ``sy_ne, ``sy_and, ``sy_heq,
-      ``ai_two, ``ai_nested, ``ai_all, ``nx_basic, ``nx_name] do
+      ``ai_two, ``ai_nested, ``ai_all, ``nx_basic, ``nx_name, ``x_ra_le] do
     dump n

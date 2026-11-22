@@ -20,6 +20,25 @@
 \       it and they introduced again (intro1P, introNP: introN keeping
 \       each binder's name, an inaccessible local's made inaccessible
 \       again), goal' the result (specialize's goal operation)
+\   lf-goal-replace-local-decl ( goal fvar new proof -- goal' fvar' )
+\       MVarId.replaceLocalDecl (Replace.lean:94-97; plan row TB2 batch
+\       3a, rw at h): proof : T = new, T fvar's type; MVarId.replace of
+\       fvar by Eq.mp.{u} T new proof fvar (app-builder.fs's lf-mk-eq-mp)
+\       of type new, as above (the new hypothesis where new allows, fvar
+\       cleared unless something depends on it); fvar' the new hypothesis
+\       (AssertAfterResult.fvarId: rwa's)
+\   lf-goal-change-local-decl ( goal fvar type -- goal' )
+\       MVarId.changeLocalDecl (Replace.lean:200-217, checkDefEq true;
+\       change at h): fvar reverted (revert.fs; checkNotAssigned there);
+\       the pi's domain must be definitionally equal to type (isDefEq at
+\       the transparency in force; unequal is Lean's changeLocalDecl
+\       error, which elabChange's check before it leaves unreachable: not
+\       supported, thrown unsupported); the target that pi with domain
+\       type, its binder's name and kind kept (replaceTargetDefEq: @id),
+\       then introNP 1: the hypothesis again under its own name (an
+\       inaccessible one stays so), goal' the result. Not supported yet
+\       (thrown unsupported): a hypothesis another local depends on, which
+\       revert takes along (Lean reintroduces them all)
 \   lf-goal-try-clear ( goal fvar -- goal' )  MVarId.tryClear
 \       (Clear.lean:48-51): goals.fs's lf-goal-clear, or goal itself when
 \       it refuses (replace's, specialize's)
@@ -55,7 +74,9 @@
 \ -> lf-goal-fresh (goal.fs); assign -> lf-mvar-assign; revertAfter ->
 \ lf-goal-revert-after (revert.fs); intro1P, introNP -> lf-goal-intro-n
 \ (goal.fs); instantiateMVars -> lf-instantiate!; findMaxFVar -> mat-max;
-\ tryClear -> lf-goal-clear (goals.fs).
+\ tryClear -> lf-goal-clear (goals.fs); mkEqMP -> lf-mk-eq-mp; revert ->
+\ lf-goal-revert; isDefEq -> lf-tac-defeq; replaceTargetDefEq ->
+\ lf-goal-replace-target-defeq (goal.fs); introNP -> lf-goal-intro-n.
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: mat-frames (a frame per call open, meta-must.fs's lf-with-record)
 \ and mat-cells (introN's names and free variables, lf-with-cells), in
@@ -132,26 +153,54 @@ end-structure
   mat mat-name @ mat mat-type @ mat mat-val @ lf-goal-assert ;
 : mat-intro ( goal2 addr -- goal3 )
   mat-names dup 0 swap mat-binders swap mat-xs lf-goal-intro-n ;
-: mat-run ( addr -- goal' ) mat-revert mat-assert swap mat-intro ;
-: mat-after ( -- goal' ) mat-count mat-binders 2* mat-cells ['] mat-run lf-with-cells ;
+: mat-run ( addr -- goal' fvar' )
+  dup >r mat-revert mat-assert swap mat-intro r> mat-xs @ ;
+: mat-after ( -- goal' fvar' )
+  mat-count mat-binders 2* mat-cells ['] mat-run lf-with-cells ;
 
 \ ---- tryClear (Clear.lean:48): clear, or goal itself when clear refuses.
 : lf-goal-try-clear ( goal fvar -- goal' )
   over swap lf-goal-clear dup outcome-invalid = if 2drop exit then lf-must nip ;
 
-\ ---- replace: the old hypothesis's name, assertAfter', tryClear.
-: mat-cleared ( goal' -- goal'' ) mat mat-old @ lf-goal-try-clear ;
-: mat-user-name ( -- name )
-  mat mat-old @ mat-at mat-view swap lf-view-local lf-local-name ;
+\ ---- replace: the old hypothesis's name, assertAfter', tryClear; the
+\ new goal and the new hypothesis (AssertAfterResult's mvarId, fvarId).
+: mat-cleared ( goal' fvar' -- goal'' fvar' ) swap mat mat-old @ lf-goal-try-clear swap ;
+: mat-old-local ( -- local ) mat mat-old @ mat-at mat-view swap lf-view-local ;
 : mat-ready ( -- )
-  mat mat-goal @ lf-goal-not-assigned drop mat-user-name mat mat-name !
+  mat mat-goal @ lf-goal-not-assigned drop mat-old-local lf-local-name mat mat-name !
   mat mat-type @ lf-instantiate! lf-open-mvar-free mat mat-type ! ;
 : mat-fill ( goal fvar e type -- )
   mat mat-type ! mat mat-val ! dup mat mat-old ! mat mat-fvar ! mat mat-goal ! ;
-: mat-replaced ( goal fvar e type -- goal' )
+: mat-replaced ( goal fvar e type -- goal' fvar' )
   mat-fill mat-ready mat-max mat-after mat-cleared ;
-: lf-goal-replace ( goal fvar e type -- goal' )
+: mat-replace ( goal fvar e type -- goal' fvar' )
   mat-frames ['] mat-replaced lf-with-record ;
+: lf-goal-replace ( goal fvar e type -- goal' ) mat-replace drop ;
+\ replaceLocalDecl: replace with Eq.mp proof fvar of type new.
+: lf-goal-replace-local-decl ( goal fvar new proof -- goal' fvar' )
+  rot tuck lf-mk-eq-mp rot mat-replace ;
+
+\ ---- changeLocalDecl of a hypothesis nothing else depends on: revert
+\ it, the pi's domain made type (isDefEq first, unequal not supported),
+\ replaceTargetDefEq, introNP 1 with its own name (0 when inaccessible).
+: mat-revert1 ( -- goal1 )
+  mat mat-goal @ 0 mat mat-old @ run-push lf-must lf-goal-revert
+  1 <> outcome-unsupported and lf-must ;
+: mat-checked ( pi -- pi )
+  mat mat-type @ over lf-term-first@ lf-tac-defeq lf-must
+  0= outcome-unsupported and lf-must ;
+: mat-domain ( pi -- pi' )
+  mat mat-type @ over lf-term-second@ lf-term-pi lf-made! swap lf-meta-named lf-must ;
+: mat-retyped ( goal1 -- goal2 )
+  dup lf-goal-type mat-checked mat-domain lf-goal-replace-target-defeq ;
+: mat-reintro ( goal2 addr -- goal3 )
+  mat-old-local mat-own over ! dup >r 0 1 r> cell+ lf-goal-intro-n ;
+: mat-change-run ( addr -- goal' ) mat-revert1 mat-retyped swap mat-reintro ;
+: mat-changed ( goal fvar type -- goal' )
+  mat mat-type ! mat mat-old ! mat mat-goal !
+  2 mat-cells ['] mat-change-run lf-with-cells ;
+: lf-goal-change-local-decl ( goal fvar type -- goal' )
+  mat-frames ['] mat-changed lf-with-record ;
 
 \ ---- The have and let terms as refine elaborates them (elabLetDeclAux):
 \ a let local in goal's context, the body made in the new context, goal

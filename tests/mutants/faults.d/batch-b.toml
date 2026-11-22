@@ -26,8 +26,8 @@ reason = "TB2: have := e's hypothesis not named this (later steps cannot name it
 [[fault]]
 id = "tb2b-shape-fields-swapped"
 file = "src/front/tactic-syntax.fs"
-old = '''  align here /lft-shape allot tuck shape-build ! tuck shape-names ! tuck shape-want ! ;'''
-new = '''  align here /lft-shape allot tuck shape-build ! tuck shape-want ! tuck shape-names ! ;'''
+old = '''  tuck shape-build ! tuck shape-names ! tuck shape-want ! ;'''
+new = '''  tuck shape-build ! tuck shape-want ! tuck shape-names ! ;'''
 test = "$GFORTH tests/front/tactics/batch-b/test.fs"
 reason = "TB2: a shape's value count and name count swapped"
 

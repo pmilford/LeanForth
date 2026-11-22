@@ -1,0 +1,13 @@
+\ Not supported yet (plan row TB2, tactic batch 3a): rfl on a ≤ a, a
+\ relation other than Eq with equal sides, whose @[refl] lemmas the
+\ elaboration data does not hold (Init has none for LE.le, so pinned
+\ Lean refuses it, "No `[refl]` lemma registered"; Mathlib tags le_refl,
+\ so Lean accepts it there): 93, never accepted, never rejected.
+\ Lean: theorem x_rfl_le (a : Nat) : a ≤ a := by
+\         rfl
+theorem x_rfl_le
+  Nat explicit: a
+  a a ≤
+:= by
+  by-rfl
+end x_rfl_le

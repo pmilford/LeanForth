@@ -104,3 +104,5 @@
 {"goal_before":"a b : Nat\n⊢ a ≤ b → a ≤ b","goals_after":["a b : Nat\nh✝ : a ≤ b\n⊢ a ≤ b"],"parent":0,"source":"89:3","step":2,"tactic":"intro","word":"by-intro:"}
 {"goal_before":"a b : Nat\nh✝ : a ≤ b\n⊢ a ≤ b","goals_after":["a b : Nat\nk : a ≤ b\n⊢ a ≤ b"],"parent":0,"source":"90:3","step":3,"tactic":"case","word":"by-next"}
 {"goal_before":"a b : Nat\nk : a ≤ b\n⊢ a ≤ b","goals_after":[],"parent":3,"source":"91:9","step":4,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"x_ra_le","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b c : Nat\nh : a = b\nh2 : b ≤ c\n⊢ a ≤ c","goals_after":[],"parent":0,"source":"12:3","step":1,"tactic":"rwa","word":"by-rwa["}

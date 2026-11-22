@@ -1,0 +1,12 @@
+\ A wrong twin (plan row TB2, tactic batch 3a; batch-d-wrong.lean): rwa
+\ at k, whose type is no False: rfl fails (False is no relation), then
+\ closeUsingFVar's 456, "Type mismatch: The rewritten hypothesis".
+\ Lean: theorem w_rwa_at (a b : Nat) (k : ¬a ≤ b) : False := by
+\         rwa [] at k
+theorem w_rwa_at
+  Nat explicit: a  Nat explicit: b
+  a b ≤ ¬ explicit: k
+  False
+:= by
+  by-rwa[ ] at: k
+end w_rwa_at
