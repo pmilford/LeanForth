@@ -95,10 +95,12 @@ A batch of tactics (plan row TB2) keeps one test directory,
 `main` its own Lean twins and golden (`lean=`, `lean_wrong=`, `golden=`,
 `tests/front/tactics/batch-a/check.py`), one `test.fs`, one `steps.golden`,
 and one fault file `tests/mutants/faults.d/batch-NAME.toml`. Its goal
-operations go into `src/front/meta-tactic/` as new files, or as lines added
-to an existing one: such a branch stays confined (the tactic tier) when no
-line of an existing goal operation changes or goes and no word is defined
-again (`scripts/check-tactic-plugins.py`).
+operations go into `src/front/meta-tactic/` as new files, or as new colon
+definitions between an existing one's definitions: such a branch stays
+confined (the tactic tier) when every definition of an existing goal
+operation stays token for token the same and in order, and no new word is
+defined elsewhere or already used by a Forth file, a Gforth host word such
+as `ndrop` included (`scripts/check-tactic-plugins.py`).
 
 ## Documentation
 

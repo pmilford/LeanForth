@@ -615,10 +615,9 @@ def plan(changed, merge_base, full=False, reach=None):
     files = []
     tactic = None
     if not full and any(p.startswith(tactic_plugins.TACTICS) for _, p in changed):
-        # A goal operation of meta-tactic/ that only gains lines may confine the branch: the
-        # lines each changed file loses, from git (none for a list of files).
-        deleted = tactic_plugins.deleted_lines(merge_base, "HEAD") if merge_base else {}
-        tactic = tactic_plugins.check(changed, deleted=deleted)
+        # A goal operation of meta-tactic/ that only gains colon definitions may confine the
+        # branch: its text at the merge base (none for a list of files: a changed one refused).
+        tactic = tactic_plugins.check(changed, base=reader_at(merge_base) if merge_base else None)
     for status, path in changed:
         tier, why = category(path, loaded)
         if tactic and tactic["confined"] and tier != "docs":

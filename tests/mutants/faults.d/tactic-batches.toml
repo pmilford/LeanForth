@@ -1,24 +1,56 @@
 # Planted faults of the tactic batches' plumbing (plan row TB2): scripts/check-tactic-plugins.py's
-# batch directories and goal operations that only gain lines, and tests/front/tactics/
+# batch directories and goal operations that only gain definitions, and tests/front/tactics/
 # tactic_check.py's lean=, lean_wrong= and golden=; read with faults.toml as one list
 # (scripts/mutants.py).
 
-# ---- scripts/check-tactic-plugins.py: batches and goal operations
+# ---- scripts/check-tactic-plugins.py: batches and goal operations (review of 2026-11-21, finding 2)
 [[fault]]
 id = "tb2-plugins-deletions-ignored"
 file = "scripts/check-tactic-plugins.py"
-old = '''    if status != "A" and deleted != 0:'''
+old = '''    if status != "A" and not only_added(tokens(base_text), tokens(text)):'''
 new = '''    if False:'''
 test = "python3 tests/scripts/test_check_tactic_plugins.py"
-reason = "TB2: a goal operation whose lines change confines the branch (its callers may change)"
+reason = "TB2: a goal operation whose definitions change (a word put inside one deletes no line) confines the branch"
 
 [[fault]]
 id = "tb2-plugins-twice-taken"
 file = "scripts/check-tactic-plugins.py"
-old = '''    return sorted({n for n in names if names.count(n) > 1 or n in elsewhere})'''
-new = '''    return sorted({n for n in names if n in elsewhere})'''
+old = '''    again = {n for n in names if names.count(n) > 1} | (new & set(elsewhere))'''
+new = '''    again = new & set(elsewhere)'''
 test = "python3 tests/scripts/test_check_tactic_plugins.py"
 reason = "TB2: a goal operation that defines a word twice (the later shadows the earlier) confines"
+
+[[fault]]
+id = "tb2-plugins-used-word-taken"
+file = "scripts/check-tactic-plugins.py"
+old = '''    return sorted(again), sorted((new & set(used)) - again)'''
+new = '''    return sorted(again), []'''
+test = "python3 tests/scripts/test_check_tactic_plugins.py"
+reason = "TB2 review 2 (b): a new goal-operation word named as a host word other files use (ndrop) confines"
+
+[[fault]]
+id = "tb2-plugins-defining-words-not-grown"
+file = "scripts/check-tactic-plugins.py"
+old = '''            if name not in found and body & found:'''
+new = '''            if False:'''
+test = "python3 tests/scripts/test_check_tactic_plugins.py"
+reason = "TB2 review 2 (c): context-slab: (through member: and member-colon) is no defining word"
+
+[[fault]]
+id = "tb2-plugins-char-literal-kept"
+file = "scripts/check-tactic-plugins.py"
+old = '''            if word.lower() in ("char", "[char]"):'''
+new = '''            if False:'''
+test = "python3 tests/scripts/test_check_tactic_plugins.py"
+reason = "TB2 review 2 (c): [char] : starts a definition (json-colon a defining word, a segment cut short)"
+
+[[fault]]
+id = "tb2-plugins-immediate-apart"
+file = "scripts/check-tactic-plugins.py"
+old = '''        while end < len(toks) and toks[end] in TRAILERS:'''
+new = '''        while False:'''
+test = "python3 tests/scripts/test_check_tactic_plugins.py"
+reason = "TB2 review 2: a definition put between ; and immediate (which then marks the new word) confines"
 
 # ---- tests/front/tactics/tactic_check.py: a batch's own twins and golden
 [[fault]]

@@ -100,16 +100,21 @@ class Tokens(unittest.TestCase):
         self.assertEqual(tp.DATA_WORD.findall(" ".join(tp.outside_colons(toks))), ["table"])
 
 
-META_NEW = "\\ a goal operation\n: mgo-step ( goal -- goal' ) ;\n: lf-goal-new-op ( goal -- goal' ) mgo-step ;\n"
+META_BASE = "\\ a goal operation\n: mgo-step ( goal -- goal' )\n  dup drop ;\n"
+META_NEW = META_BASE + ": lf-goal-new-op ( goal -- goal' ) mgo-step ;\n"
 TACTIC_NEW = "tac-shape-plain lf-tactic: by-new constant tac-k-new\n"
+GOAL = "src/front/meta-tactic/goal.fs"
 
 
 class Batches(unittest.TestCase):
-    """Plan row TB2: a batch's tests and faults, and goal operations that only gain lines."""
+    """Plan row TB2: a batch's tests and faults, and goal operations that only gain definitions
+    (review of 2026-11-21, finding 2: every definition of the base kept token for token, no new
+    word another file defines or uses, the project's defining words found)."""
 
-    def run_check(self, changed, texts, deleted=None, elsewhere=frozenset()):
-        return tp.check(changed, read=lambda p: texts.get(p), deleted=deleted,
-                        elsewhere=lambda path: set(elsewhere))
+    def run_check(self, changed, texts, base=None, elsewhere=frozenset(), used=frozenset(),
+                  defining=frozenset()):
+        return tp.check(changed, read=lambda p: texts.get(p), base=lambda p: (base or {}).get(p),
+                        elsewhere=lambda path: set(elsewhere), used=set(used), defining=set(defining))
 
     def test_batch_files_with_a_tactic_added(self):
         changed = [("A", "src/front/tactics/new.fs"), ("A", "tests/front/tactics/batch-a/check.py"),
@@ -128,44 +133,107 @@ class Batches(unittest.TestCase):
                 result = self.run_check(changed, {"src/front/tactics/new.fs": TACTIC_NEW})
                 self.assertIn(f"{path} lies outside the tactic's own files", result["reasons"])
 
-    def test_goal_operations_new_or_gaining_lines(self):
+    def test_goal_operations_new_or_gaining_definitions(self):
         tactic = [("A", "src/front/tactics/new.fs")]
-        texts = {"src/front/tactics/new.fs": TACTIC_NEW, "src/front/meta-tactic/new.fs": META_NEW,
-                 "src/front/meta-tactic/goal.fs": META_NEW}
-        for changed, deleted in (([("A", "src/front/meta-tactic/new.fs")], None),
-                                 ([("M", "src/front/meta-tactic/goal.fs")], {"src/front/meta-tactic/goal.fs": 0})):
-            with self.subTest(changed=changed):
-                self.assertTrue(self.run_check(tactic + changed, texts, deleted)["confined"])
+        between = ": mgo-first ( -- ) ;\n" + META_BASE + ": mgo-last ( -- ) ;\n"
+        cases = [([("A", "src/front/meta-tactic/new.fs")], META_NEW, None),
+                 ([("M", GOAL)], META_NEW, META_BASE),
+                 ([("M", GOAL)], between.replace("( goal -- goal' )", "( g -- g' ) \\ new comment"), META_BASE),
+                 ([("M", GOAL)], META_BASE + "\n\n\\ only a comment more\n", META_BASE)]
+        for changed, text, base in cases:
+            with self.subTest(changed=changed, text=text):
+                texts = {"src/front/tactics/new.fs": TACTIC_NEW, changed[0][1]: text}
+                result = self.run_check(tactic + changed, texts, {GOAL: base} if base else None)
+                self.assertEqual(result["reasons"], [])
+                self.assertTrue(result["confined"])
 
-    def test_goal_operations_losing_lines_or_shadowing(self):
+    def test_goal_operations_changing_definitions(self):
         tactic = [("A", "src/front/tactics/new.fs")]
-        texts = {"src/front/tactics/new.fs": TACTIC_NEW, "src/front/meta-tactic/goal.fs": META_NEW,
+        two = META_BASE + ": mgo-other ( -- ) ;\n"
+        immediate = META_BASE + ": mgo-imm ( -- ) ; immediate\n"
+        cases = {
+            # Finding 2 (a): a line put inside an existing definition deletes no line.
+            "a word inside a definition": META_BASE.replace("  dup drop ;", "  dup\n  drop false exit\n  drop ;"),
+            "a definition removed": META_BASE,
+            "definitions moved": ": mgo-other ( -- ) ;\n" + META_BASE,
+            "a constant added": two + "5 constant mgo-five\n",
+            "a :noname added": two + ":noname ( -- ) ; drop\n",
+            "a definition put before immediate": immediate.replace("; immediate", "; : mgo-new ( -- ) ; immediate"),
+        }
+        for what, text in cases.items():
+            with self.subTest(what=what):
+                base = immediate if "immediate" in what else two
+                result = self.run_check(tactic + [("M", GOAL)], {"src/front/tactics/new.fs": TACTIC_NEW, GOAL: text},
+                                        {GOAL: base})
+                self.assertFalse(result["confined"])
+                self.assertTrue(any("changes, moves or removes a definition" in r for r in result["reasons"]),
+                                result["reasons"])
+        result = self.run_check(tactic + [("M", GOAL)], {"src/front/tactics/new.fs": TACTIC_NEW, GOAL: META_NEW})
+        self.assertTrue(any("its text at the merge base is not known" in r for r in result["reasons"]),
+                        result["reasons"])
+
+    def test_goal_operations_shadowing(self):
+        tactic = [("A", "src/front/tactics/new.fs")]
+        texts = {"src/front/tactics/new.fs": TACTIC_NEW, GOAL: META_NEW,
                  "src/front/meta-tactic/twice.fs": META_NEW + ": mgo-step ( goal -- goal ) ;\n",
+                 "src/front/meta-tactic/host.fs": META_NEW + ": ndrop ( x*n n -- ) 0 ?do drop loop ;\n",
+                 "src/front/meta-tactic/slab.fs": META_NEW + "1 cells context-slab: lf-goal-op\n",
                  "src/front/meta-tactic/hook.fs": META_NEW + "' mgo-step is lf-run-hook\n"}
         cases = [
-            ([("M", "src/front/meta-tactic/goal.fs")], {"src/front/meta-tactic/goal.fs": 2}, set(),
-             "changes or removes lines of a goal operation"),
-            ([("M", "src/front/meta-tactic/goal.fs")], None, set(), "changes or removes lines"),
-            ([("A", "src/front/meta-tactic/goal.fs")], None, {"lf-goal-new-op"},
-             "defines lf-goal-new-op again"),
-            ([("A", "src/front/meta-tactic/twice.fs")], None, set(), "defines mgo-step again"),
+            ("A", GOAL, {"lf-goal-new-op"}, set(), set(), "defines lf-goal-new-op again"),
+            ("A", "src/front/meta-tactic/twice.fs", set(), set(), set(), "defines mgo-step again"),
+            # Finding 2 (b): a Gforth host word another file uses (tactic-core.fs's ndrop).
+            ("A", "src/front/meta-tactic/host.fs", set(), {"ndrop", "drop"}, set(),
+             "defines ndrop, which Forth files already use"),
+            # Finding 2 (c): a word the project's defining word context-slab: makes.
+            ("A", "src/front/meta-tactic/slab.fs", {"lf-goal-op"}, set(), {"context-slab:"},
+             "defines lf-goal-op again"),
+            ("M", GOAL, set(), {"lf-goal-new-op"}, set(), "defines lf-goal-new-op, which Forth files already use"),
         ]
-        for changed, deleted, elsewhere, wanted in cases:
+        for status, path, elsewhere, used, defining, wanted in cases:
             with self.subTest(wanted=wanted):
-                result = self.run_check(tactic + changed, texts, deleted, elsewhere)
+                result = self.run_check(tactic + [(status, path)], texts, {GOAL: META_BASE}, elsewhere, used,
+                                        defining)
                 self.assertFalse(result["confined"])
                 self.assertTrue(any(wanted in r for r in result["reasons"]), result["reasons"])
+        # The base's own words, used by other files, are no new ones.
+        result = self.run_check(tactic + [("M", GOAL)], texts, {GOAL: META_BASE}, used={"mgo-step"})
+        self.assertTrue(result["confined"], result["reasons"])
         result = self.run_check(tactic + [("A", "src/front/meta-tactic/hook.fs")], texts)
         self.assertFalse(result["confined"])
         self.assertTrue(any("writes a hook (is)" in p for p in result["problems"]), result["problems"])
+
+    def test_defining_words(self):
+        text = (': member-colon ( o "name" -- o ) dup >r : r> member-body ;\n'
+                ': member: ( s i "name" -- m ) swap member-colon swap member, ;\n'
+                ': context-slab: ( w "name" -- ) /slab [\'] member-slab member: drop ;\n'
+                ': lfa-code: ( n "name" -- ) constant ;\n'
+                ': lf-tactic: ( shape "spelling" -- kind ) >in @ parse-name 2drop ;\n'
+                ': json-colon ( -- ) [char] : emit ;\n: plain ( -- ) dup drop ;\n')
+        found = tp.defining_words([tp.tokens(text)])
+        self.assertEqual(found, {"member-colon", "member:", "context-slab:", "lfa-code:", "lf-tactic:"})
+        toks = tp.tokens("1 cells context-slab: et-vars\n5 0 s\" x\" lfa-code: lfa-e-x\n: a ( -- ) ;\n")
+        self.assertEqual(tp.names_defined(toks, found), ["et-vars", "lfa-e-x", "a"])
+        self.assertEqual(tp.names_defined(toks), ["a"])
+        # The project's own, found in its files.
+        sources = [tp.tokens((ROOT / p).read_text()) for p in
+                   ("src/lib/context.fs", "src/author/errors.fs", "src/front/tactic-api.fs")]
+        self.assertTrue({"context-slab:", "context-record:", "lfa-code:", "lf-tactic:"} <= tp.defining_words(sources))
+
+    def test_segments_and_char_literals(self):
+        toks = tp.tokens(": a ( -- ) [char] ; emit ; immediate\nvariable v\n: b ( -- ) ;\n")
+        self.assertEqual(tp.segments(toks), [(":", "a", "[char]", "emit", ";", "immediate"), ("variable", "v"),
+                                             (":", "b", ";")])
+        self.assertTrue(tp.only_added(toks, toks))
+        self.assertFalse(tp.only_added(toks, toks[:-3]))
 
 
 FILES = dict(tier_fixture.FILES)
 FILES["src/main.fs"] = "require ./core/c.fs\nrequire ./front/loaded.fs\nrequire ./front/tactics/all.fs\n"
 FILES["src/front/tactics/all.fs"] = "require ./rfl.fs\n"
 FILES["src/front/tactics/rfl.fs"] = "tac-shape-plain lf-tactic: by-rfl constant tac-k-rfl\n"
-FILES["src/front/runner.fs"] = "variable lf-run-hook\n: lf-run ;\n"
-FILES["src/front/meta-tactic/goal.fs"] = ": lf-goal-op ( -- ) ;\n"
+FILES["src/front/runner.fs"] = "variable lf-run-hook\n: lf-run ( x -- ) 1 ndrop ;\n"
+FILES["src/front/meta-tactic/goal.fs"] = ": lf-goal-op ( -- )\n  dup\n  drop ;\n"
 FILES["tests/front/f.fs"] = "require ../../src/front/alone.fs\nrequire ../../src/main.fs\n"
 
 
@@ -247,18 +315,32 @@ class Tier(unittest.TestCase):
         self.assertIn("tactic plug-in check failed", tier.stdout)
 
     def test_goal_operation_gaining_lines_keeps_the_tactic_tier(self):
-        # Plan row TB2: lines added to a goal operation and a batch's own tests and faults.
-        self.tactic_branch({"src/front/meta-tactic/goal.fs": ": lf-goal-op ( -- ) ;\n: lf-goal-more ( -- ) ;\n",
+        # Plan row TB2: a definition added to a goal operation and a batch's own tests and faults.
+        goal = FILES["src/front/meta-tactic/goal.fs"] + ": lf-goal-more ( -- ) ;\n"
+        self.tactic_branch({"src/front/meta-tactic/goal.fs": goal,
                             "tests/front/tactics/batch-a/check.py": "", "tests/mutants/faults.d/batch-a.toml": ""})
         run = self.check()
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
         self.assertEqual(self.plan()["tier"], "tactic")
 
-    def test_goal_operation_losing_lines_gets_the_full_tier(self):
-        self.tactic_branch({"src/front/meta-tactic/goal.fs": ": lf-goal-op ( -- ) 1 ;\n"})
+    def test_goal_operation_changed_gets_the_full_tier(self):
+        # Review of 2026-11-21, finding 2 (a): a line put inside a definition deletes no line.
+        for goal in (": lf-goal-op ( -- ) 1 ;\n", ": lf-goal-op ( -- )\n  dup\n  drop false exit\n  drop ;\n"):
+            with self.subTest(goal=goal):
+                base = self.repo.git("rev-parse", "HEAD")
+                self.tactic_branch({"src/front/meta-tactic/goal.fs": goal})
+                run = self.check()
+                self.assertEqual(run.returncode, 3, run.stdout + run.stderr)
+                self.assertIn("changes, moves or removes a definition of a goal operation", run.stdout)
+                self.assertEqual(self.plan()["tier"], "full")
+                self.repo.git("reset", "-q", "--hard", base)
+
+    def test_goal_operation_taking_a_used_word_gets_the_full_tier(self):
+        # Finding 2 (b): a new word named as a Gforth host word another file uses (runner.fs's ndrop).
+        self.tactic_branch({"src/front/meta-tactic/host.fs": ": ndrop ( x*n n -- ) 0 ?do drop loop ;\n"})
         run = self.check()
         self.assertEqual(run.returncode, 3, run.stdout + run.stderr)
-        self.assertIn("changes or removes lines of a goal operation", run.stdout)
+        self.assertIn("defines ndrop, which Forth files already use", run.stdout)
         self.assertEqual(self.plan()["tier"], "full")
 
     def test_no_tactic_added_is_no_tactic_branch(self):

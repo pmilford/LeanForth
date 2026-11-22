@@ -554,10 +554,16 @@ of `src/` (the front tier too) runs the branch coverage check first
   `src/front/tactics/`, `tests/front/tactics/NAME/`,
   `tests/mutants/faults.d/NAME.toml`, a batch's `tests/front/tactics/batch-*/`
   and `tests/mutants/faults.d/batch-*.toml`, goal operations of
-  `src/front/meta-tactic/` that are new or only gain lines (git counts no
-  deleted line) and define no word twice nor one another Forth file of
-  `src/` defines (plan row TB2: what loaded before them means what it meant),
-  and documentation, and its tactic files and goal operations
+  `src/front/meta-tactic/` that are new or only gain colon definitions
+  (every definition of the merge base token for token the same and in
+  order, comments aside; a word put inside a definition, a moved one, a new
+  constant or `:noname` refuses) and whose new words are defined nowhere
+  else in `src/`, not twice, and used by no Forth file of `src/` or `tests/`
+  at the merge base (Gforth's host words, such as `ndrop`, among them; the
+  defining words are Forth's, Gforth's and the project's own, such as
+  `context-slab:` and `lf-tactic:`; plan row TB2 and its review of
+  2026-11-21: what loaded before them means what it meant), and
+  documentation, and its tactic files and goal operations
   write no hook (`is`, `defer!`), no data word (variable, value, create,
   buffer:) another file defines, and call `lf-tactic-...!` only for a kind
   they define (comments and strings left out). Only then is the tier
