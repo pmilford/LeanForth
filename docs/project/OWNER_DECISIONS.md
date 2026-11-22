@@ -1919,3 +1919,20 @@ on the recommendations below, "Yes I agree, continue".
 6. LeanForth stops at the first error where Lean logs it and goes on; the verdict is the same.
 The design review comes before code; a finding against any of these returns to the owner.
 
+
+## Case patterns (2026-11-22, afternoon)
+
+Owner, 2026-11-22, on the one page of [TACTIC_PATTERNS.md](../design/TACTIC_PATTERNS.md) (second version, after its
+[review](../development/design-reviews/2026-11-22-tactic-patterns.md)): "Case patterns are ok."
+1. Lean's `cases h` is `' h by-cases` (with alternatives `' h by-cases-with | ... by-end`), beside `p by-cases: h`
+   (Lean's `by_cases`).
+2. Both `' h by-rcases[ pat ]` and `' h by-obtain[ pat ]` exist, the value first.
+3. A pattern is Lean's pattern without commas or parentheses: a bar binds tighter than a space
+   (`<< a b | c rfl >>` is Lean's `⟨a, b | c, rfl⟩`), Lean's left-nested group `(a | b) | c` is `<< a | b >> | c`,
+   `by-rintro[ a | b c ]` is Lean's `rintro (a | b) c`. Inside an open bracket list a bar is that list's item, also
+   at a line's start; outside brackets a bar at a line's start begins an alternative. `(` stays Forth's comment
+   everywhere, so `( a | b )` inside a pattern is a comment; the language reference says so.
+4. Typed pieces, `@` patterns and obtain's typed forms get their spelling in slice E5, with a measured count.
+The owner also asked (same day) whether the line estimates are well factored and build reusable tactic-library
+words; the E1 brief asks its review whether the existing eliminator (`elim.fs`) can be rebuilt on the new
+low-level induction step, removing code.
