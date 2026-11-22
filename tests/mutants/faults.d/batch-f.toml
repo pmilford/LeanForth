@@ -63,7 +63,7 @@ file = "src/author/declarations.fs"
 old = ''': lfa-not-nested ( -- ) lfa-brackets-closed lfa-inside? 0= lfa-e-nested lfa-must ;'''
 new = ''': lfa-not-nested ( -- ) lfa-inside? 0= lfa-e-nested lfa-must ;'''
 test = "$GFORTH tests/front/tactics/batch-f/test.fs"
-reason = "TB2 3c: a declaration word with a list of terms open is 14 or 16 at it (not 458 at the list's word)"
+reason = "TB2 3c: a declaration word with a list of terms open is 14 or 15 at it (not 458 at the list's word)"
 
 [[fault]]
 id = "tb3c-check-open-list"
@@ -120,7 +120,7 @@ file = "src/author/runner.fs"
 old = ''': lfa-in! ( c-addr -- ) lfa-on? if drop else source drop - >in ! then ;'''
 new = ''': lfa-in! ( c-addr -- ) source drop - >in ! ;'''
 test = "$GFORTH tests/front/tactics/batch-f/test.fs"
-reason = "TB2 3c: reading on from a file's line buffer sets >IN of the line EVALUATE ran, which the next line has replaced (lines.lf: an internal fault)"
+reason = "TB2 3c: reading on from a file's line buffer sets >IN of the line EVALUATE ran, which the next line has replaced (test.fs's reading-on tests; in lines.lf an internal fault)"
 
 [[fault]]
 id = "tb3c-ended-open-list"
@@ -128,7 +128,7 @@ file = "src/author/runner.fs"
 old = '''  lfa-brackets-closed depth lfa-floor = lfa-inside? 0= and lfa-e-unfinished lfa-must ;'''
 new = '''  depth lfa-floor = lfa-inside? 0= and lfa-e-unfinished lfa-must ;'''
 test = "$GFORTH tests/front/tactics/batch-f/test.fs"
-reason = "TB2 3c: a list of terms open at the text's end is 33 at the last token (not 458 at its word)"
+reason = "TB2 3c: a list of terms open at the text's end is 33, the text unfinished (not 458 at its word)"
 
 # ---- tactic-syntax.fs: lists
 [[fault]]
