@@ -206,7 +206,7 @@ end-structure
 \ Comments: \ to the line's end, ( past its ) on the line (else error 28).
 : lfa-comment-on? ( c-addr u -- flag ) 2dup lfa-comment? -rot s" (" lfa-token= or ;
 : lfa-paren-end ( -- c-addr )
-  lfa-line-rest [char] ) byte-scan 0= lfa-e-comment-end lfa-must 1+ ;
+  lfa-line-rest [char] ) byte-scan 0<> lfa-e-comment-end lfa-must 1+ ;
 : lfa-skip-on ( c-addr u -- )
   lfa-comment? if lfa-the-line + else lfa-paren-end then lfa-skip-to ;
 : lfa-blank-on ( -- c-addr u )

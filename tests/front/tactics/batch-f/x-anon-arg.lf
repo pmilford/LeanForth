@@ -1,0 +1,10 @@
+\ Not supported yet: an item of another type, which Lean reports as an
+\ application type mismatch (LeanForth's 131, a coercion).
+\ (plan row TB2, tactic batch 3c)
+theorem x_anon_arg
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧ a b = ∧
+:= by
+  << ' h ' k >> by-exact
+end x_anon_arg

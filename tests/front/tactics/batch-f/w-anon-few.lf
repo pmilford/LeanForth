@@ -1,0 +1,11 @@
+\ A wrong twin: one item for And.intro's two explicit fields (466).
+\ (plan row TB2, tactic batch 3c; batch-f-wrong.lean)
+\ Lean: theorem w_anon_few (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         exact ⟨h⟩
+theorem w_anon_few
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  << ' h >> by-exact
+end w_anon_few

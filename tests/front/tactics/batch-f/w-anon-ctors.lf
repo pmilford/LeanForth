@@ -1,0 +1,11 @@
+\ A wrong twin: Or has two constructors (465).
+\ (plan row TB2, tactic batch 3c; batch-f-wrong.lean)
+\ Lean: theorem w_anon_ctors (a b : Nat) (h : a = b) : a = b ∨ b = a := by
+\         exact ⟨h⟩
+theorem w_anon_ctors
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b = b a = ∨
+:= by
+  << ' h >> by-exact
+end w_anon_ctors

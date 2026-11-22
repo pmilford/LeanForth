@@ -1,0 +1,11 @@
+\ A wrong twin: trivial cannot close b = a, the goal stays (89).
+\ (plan row TB2, tactic batch 3c; batch-f-wrong.lean)
+\ Lean: theorem w_exists_open (a b : Nat) (h : a = b) : Exists (Eq b) := by
+\         exists a
+theorem w_exists_open
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  ' Eq b $ Exists
+:= by
+  by-exists[ a ]
+end w_exists_open

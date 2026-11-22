@@ -1,0 +1,115 @@
+\ The anonymous constructor << >> (plan row TB2, tactic batch 3c; Lean's
+\ ⟨ ⟩, Elab/BuiltinNotation.lean:43-102; batch-f.lean): the expected
+\ type's one constructor applied to the items, wherever a term is read.
+
+\ Lean: theorem an_and (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         exact ⟨h, k⟩
+theorem an_and
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  << ' h ' k >> by-exact
+end an_and
+
+\ More items than fields: the last field takes the rest, as ⟨k, h⟩; ⟨ ⟩
+\ is the same pair of words.
+\ Lean: theorem an_three (a b : Nat) (h : a = b) (k : b = a) :
+\           a = b ∧ b = a ∧ a = b := by
+\         exact ⟨h, k, h⟩
+theorem an_three
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = a b = ∧ ∧
+:= by
+  ⟨ ' h ' k ' h ⟩ by-exact
+end an_three
+
+\ The same term written nested.
+\ Lean: theorem an_nested (a b : Nat) (h : a = b) (k : b = a) :
+\           a = b ∧ b = a ∧ a = b := by
+\         exact ⟨h, ⟨k, h⟩⟩
+theorem an_nested
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = a b = ∧ ∧
+:= by
+  << ' h << ' k ' h >> >> by-exact
+end an_nested
+
+\ The expected type after whnf: id (A ∧ B) is And's.
+\ Lean: theorem an_id (a b : Nat) (h : a = b) (k : b = a) : id (a = b ∧ b = a) := by
+\         exact ⟨h, k⟩
+theorem an_id
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧ id
+:= by
+  << ' h ' k >> by-exact
+end an_id
+
+\ No explicit field and no item: True.intro.
+\ Lean: theorem an_true (a : Nat) : True := by
+\         exact ⟨⟩
+theorem an_true
+  Nat explicit: a
+  True
+:= by
+  << >> by-exact
+end an_true
+
+\ A witness and its proof: Exists.intro, its predicate from the type.
+\ Lean: theorem an_exists (a : Nat) : Exists (Eq a) := by
+\         exact ⟨a, Eq.refl a⟩
+theorem an_exists
+  Nat explicit: a
+  ' Eq a $ Exists
+:= by
+  << a a Eq.refl >> by-exact
+end an_exists
+
+\ In by-have:'s value, and over several lines with a comment.
+\ Lean: theorem an_have (a b : Nat) (h : a = b) (k : b = a) : b = a ∧ a = b := by
+\         have x : a = b ∧ b = a := ⟨h, k⟩
+\         exact ⟨x.2, x.1⟩
+theorem an_have
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  b a = a b = ∧
+:= by
+  a b = b a = ∧
+  << ' h     \ the left side
+     ' k >>  by-have: x
+  << ' x And.right
+     ' x And.left >> by-exact
+end an_have
+
+\ refine with two holes: the goals Lean's refine ⟨?_, ?_⟩ gives, tagged
+\ refine_1 and refine_2.
+\ Lean: theorem an_refine (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         refine ⟨?_, ?_⟩
+\         exact h
+\         exact k
+theorem an_refine
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  << ?_ ?_ >> by-refine
+  ' h by-exact
+  ' k by-exact
+end an_refine
+
+\ Lean: theorem an_case (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         refine ⟨?_, ?_⟩
+\         case refine_2 => exact k
+\         case refine_1 => exact h
+theorem an_case
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  << ?_ ?_ >> by-refine
+  by-case: refine_2 => ' k by-exact by-end
+  by-case: refine_1 => ' h by-exact by-end
+end an_case

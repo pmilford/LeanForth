@@ -1,0 +1,44 @@
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"an_and","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ a = b ∧ b = a","goals_after":[],"parent":0,"source":"12:17","step":1,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"an_three","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ a = b ∧ b = a ∧ a = b","goals_after":[],"parent":0,"source":"25:23","step":1,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"an_nested","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ a = b ∧ b = a ∧ a = b","goals_after":[],"parent":0,"source":"37:27","step":1,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"an_id","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ @id Prop (a = b ∧ b = a)","goals_after":[],"parent":0,"source":"48:17","step":1,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"an_true","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a : Nat\n⊢ True","goals_after":[],"parent":0,"source":"58:9","step":1,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"an_exists","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a : Nat\n⊢ @Exists Nat (@Eq Nat a)","goals_after":[],"parent":0,"source":"68:21","step":1,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"an_have","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ b = a ∧ a = b","goals_after":["a b : Nat\nh : a = b\nk : b = a\nx : a = b ∧ b = a\n⊢ b = a ∧ a = b"],"parent":0,"source":"82:14","step":1,"tactic":"have","word":"by-have:"}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\nx : a = b ∧ b = a\n⊢ b = a ∧ a = b","goals_after":[],"parent":0,"source":"84:22","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"an_refine","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":3}}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ a = b ∧ b = a","goals_after":["case refine_1\na b : Nat\nh : a = b\nk : b = a\n⊢ a = b","case refine_2\na b : Nat\nh : a = b\nk : b = a\n⊢ b = a"],"parent":0,"source":"98:15","step":1,"tactic":"refine","word":"by-refine"}
+{"goal_before":"case refine_1\na b : Nat\nh : a = b\nk : b = a\n⊢ a = b","goals_after":["case refine_2\na b : Nat\nh : a = b\nk : b = a\n⊢ b = a"],"parent":0,"source":"99:7","step":2,"tactic":"exact","word":"by-exact"}
+{"goal_before":"case refine_2\na b : Nat\nh : a = b\nk : b = a\n⊢ b = a","goals_after":[],"parent":0,"source":"100:7","step":3,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"an_case","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ a = b ∧ b = a","goals_after":["case refine_1\na b : Nat\nh : a = b\nk : b = a\n⊢ a = b","case refine_2\na b : Nat\nh : a = b\nk : b = a\n⊢ b = a"],"parent":0,"source":"112:15","step":1,"tactic":"refine","word":"by-refine"}
+{"goal_before":"case refine_1\na b : Nat\nh : a = b\nk : b = a\n⊢ a = b","goals_after":["a b : Nat\nh : a = b\nk : b = a\n⊢ b = a"],"parent":0,"source":"113:3","step":2,"tactic":"case","word":"by-case:"}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ b = a","goals_after":[],"parent":2,"source":"113:28","step":3,"tactic":"exact","word":"by-exact"}
+{"goal_before":"case refine_1\na b : Nat\nh : a = b\nk : b = a\n⊢ a = b","goals_after":["a b : Nat\nh : a = b\nk : b = a\n⊢ a = b"],"parent":0,"source":"114:3","step":4,"tactic":"case","word":"by-case:"}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ a = b","goals_after":[],"parent":4,"source":"114:28","step":5,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ex_eq","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a : Nat\n⊢ @Exists Nat (@Eq Nat a)","goals_after":[],"parent":0,"source":"11:3","step":1,"tactic":"exists","word":"by-exists["}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ex_and","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ a = b ∧ b = a","goals_after":[],"parent":0,"source":"22:3","step":1,"tactic":"exists","word":"by-exists["}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ex_and3","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ a = b ∧ b = a ∧ a = b","goals_after":[],"parent":0,"source":"34:3","step":1,"tactic":"exists","word":"by-exists["}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ex_open","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a = b\n⊢ @Exists Nat (@Eq Nat b)","goals_after":["a b : Nat\nh : a = b\n⊢ b = a"],"parent":0,"source":"47:3","step":1,"tactic":"exists","word":"by-exists["}
+{"goal_before":"a b : Nat\nh : a = b\n⊢ b = a","goals_after":[],"parent":0,"source":"48:15","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ml_names","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":3}}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ a = b","goals_after":["a b : Nat\n⊢ a = b → b = a → a = b"],"parent":0,"source":"15:3","step":1,"tactic":"revert","word":"by-revert["}
+{"goal_before":"a b : Nat\n⊢ a = b → b = a → a = b","goals_after":["a b : Nat\nx : a = b\ny : b = a\n⊢ a = b"],"parent":0,"source":"17:3","step":2,"tactic":"intro","word":"by-intro["}
+{"goal_before":"a b : Nat\nx : a = b\ny : b = a\n⊢ a = b","goals_after":[],"parent":0,"source":"18:33","step":3,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ml_rw","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b c : Nat\nh : a = b\nh2 : a ≤ c\nh3 : c ≤ a\n⊢ b ≤ c","goals_after":["a b c : Nat\nh : a = b\nh2 : b ≤ c\nh3 : c ≤ b\n⊢ b ≤ c"],"parent":0,"source":"30:3","step":1,"tactic":"rewrite","word":"by-rewrite["}
+{"goal_before":"a b c : Nat\nh : a = b\nh2 : b ≤ c\nh3 : c ≤ b\n⊢ b ≤ c","goals_after":[],"parent":0,"source":"34:8","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ml_exacts","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ a = b ∧ b = a","goals_after":["case left\na b : Nat\nh : a = b\nk : b = a\n⊢ a = b","case right\na b : Nat\nh : a = b\nk : b = a\n⊢ b = a"],"parent":0,"source":"46:3","step":1,"tactic":"constructor","word":"by-constructor"}
+{"goal_before":"case left\na b : Nat\nh : a = b\nk : b = a\n⊢ a = b","goals_after":[],"parent":0,"source":"47:3","step":2,"tactic":"exacts","word":"by-exacts["}

@@ -44,6 +44,7 @@ GOLDEN = TACTICS / "goal-layer.golden"
 LEAN_TWINS = "tests/front/tactics/goal-layer.lean"
 LEAN_WRONG = "tests/front/tactics/goal-layer-wrong.lean"
 DUMPED = re.compile(r"^\S+ (type|value|binders) ")
+SEE = re.compile(r"; see line:col \d+:\d+")
 
 
 class Failure(Exception):
@@ -128,9 +129,13 @@ def check_files(files, want, env=None):
 
 
 def check_refused(wrong, unsupported, env=None):
+    """A wrong twin's message is compared without LeanForth's second place (an elaborator's
+    error inside a tactic: "; see line:col L:C" at the first line's end, which Lean's
+    message has not; tactic batch 3c's ⟨ ⟩ errors)."""
     finished = s2.run_many([check_argv(env, path) for path, *_ in list(wrong) + list(unsupported)])
     for path, number, first, detail in wrong:
         code, out = s2.outcome(next(finished))
+        out = SEE.sub("", out)
         if code != 4 or f"error {number} at " not in out or f"{first}\n{detail}" not in out:
             raise Failure(f"{path}: exit {code}, expected 4, error {number} and "
                           f"{first!r}\n{detail!r}\n{out}")

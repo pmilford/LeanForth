@@ -1,0 +1,49 @@
+\ by-exists[ ] (plan row TB2, tactic batch 3c; Lean's exists, the macro
+\ refine ⟨es, ?_⟩; try trivial of Init/Tactics.lean:1293; batch-f.lean).
+
+\ trivial closes the goal left (rfl).
+\ Lean: theorem ex_eq (a : Nat) : Exists (Eq a) := by
+\         exists a
+theorem ex_eq
+  Nat explicit: a
+  ' Eq a $ Exists
+:= by
+  by-exists[ a ]
+end ex_eq
+
+\ (assumption)
+\ Lean: theorem ex_and (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         exists h
+theorem ex_and
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-exists[ ' h ]
+end ex_and
+
+\ Two terms over two lines: And.intro h ⟨k, ?_⟩.
+\ Lean: theorem ex_and3 (a b : Nat) (h : a = b) (k : b = a) :
+\           a = b ∧ b = a ∧ a = b := by
+\         exists h, k
+theorem ex_and3
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = a b = ∧ ∧
+:= by
+  by-exists[ ' h
+             ' k ]
+end ex_and3
+
+\ trivial fails: the goal stays, try forgets the failure.
+\ Lean: theorem ex_open (a b : Nat) (h : a = b) : Exists (Eq b) := by
+\         exists a
+\         exact Eq.symm h
+theorem ex_open
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  ' Eq b $ Exists
+:= by
+  by-exists[ a ]
+  ' h Eq.symm by-exact
+end ex_open

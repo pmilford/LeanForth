@@ -1,0 +1,51 @@
+\ Bracket lists over several lines (plan row TB2, tactic batch 3c; the
+\ owner's wish of 2026-11-22, "a more vertical structure is better";
+\ batch-f.lean): a list goes on in the next lines up to its ], a \ or
+\ ( comment between its items, each item at its own line.
+
+\ Lean: theorem ml_names (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         revert h k
+\         intro x y
+\         exact x
+theorem ml_names
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-revert[ h
+             k ]
+  by-intro[ x       \ the first
+            ( a comment ) y ] x by-exact
+end ml_names
+
+\ Rules over lines, a location over lines.
+\ Lean: theorem ml_rw (a b c : Nat) (h : a = b) (h2 : a ≤ c) (h3 : c ≤ a) : b ≤ c := by
+\         rewrite [h] at h2 h3
+\         exact h2
+theorem ml_rw
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  a c ≤ explicit: h2  c a ≤ explicit: h3
+  b c ≤
+:= by
+  by-rewrite[
+    ' h
+  ] at[ h2
+        h3 ]
+  ' h2 by-exact
+end ml_rw
+
+\ A term list over lines (Batteries' exacts; its core twin exact h, exact k).
+\ Lean: theorem ml_exacts (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor
+\         exacts [h, k]
+theorem ml_exacts
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor
+  by-exacts[
+    ' h
+    ' k
+  ]
+end ml_exacts

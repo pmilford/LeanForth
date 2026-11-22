@@ -1,0 +1,9 @@
+\ Not supported yet: an expected type that is a negation (a pi: 133).
+\ (plan row TB2, tactic batch 3c)
+theorem x_anon_pi
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b = ¬
+:= by
+  << >> by-exact
+end x_anon_pi

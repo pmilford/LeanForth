@@ -1,0 +1,11 @@
+\ A wrong twin: an item where Eq.refl has no explicit field (467).
+\ (plan row TB2, tactic batch 3c; batch-f-wrong.lean)
+\ Lean: theorem w_anon_fields (a b : Nat) (h : a = b) : a = b := by
+\         exact ⟨h⟩
+theorem w_anon_fields
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  << ' h >> by-exact
+end w_anon_fields

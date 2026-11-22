@@ -1,0 +1,11 @@
+\ A wrong twin: the rest, ⟨k, h⟩, against b = a, at the outer ⟨ (467).
+\ (plan row TB2, tactic batch 3c; batch-f-wrong.lean)
+\ Lean: theorem w_anon_nested (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         exact ⟨h, k, h⟩
+theorem w_anon_nested
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  << ' h ' k ' h >> by-exact
+end w_anon_nested

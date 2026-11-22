@@ -1,0 +1,13 @@
+\ A wrong twin: have := ⟨h, h⟩ has no expected type (462).
+\ (plan row TB2, tactic batch 3c; batch-f-wrong.lean)
+\ Lean: theorem w_anon_unknown (a b : Nat) (h : a = b) : a = b := by
+\         have := ⟨h, h⟩
+\         exact h
+theorem w_anon_unknown
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  << ' h ' h >> by-have
+  ' h by-exact
+end w_anon_unknown

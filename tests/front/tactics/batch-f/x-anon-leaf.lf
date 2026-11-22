@@ -1,0 +1,10 @@
+\ Not supported yet: ⟨⟩ as an operand of +, which Lean postpones (132).
+\ (plan row TB2, tactic batch 3c)
+theorem x_anon_leaf
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  << >> a + a = by-have
+  ' h by-exact
+end x_anon_leaf

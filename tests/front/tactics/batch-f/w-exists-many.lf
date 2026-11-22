@@ -1,0 +1,12 @@
+\ A wrong twin: exists h, k makes ⟨h, k, ?_⟩, its rest against b = a (467,
+\ at the exists word, where the macro puts it).
+\ (plan row TB2, tactic batch 3c; batch-f-wrong.lean)
+\ Lean: theorem w_exists_many (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         exists h, k
+theorem w_exists_many
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-exists[ ' h ' k ]
+end w_exists_many

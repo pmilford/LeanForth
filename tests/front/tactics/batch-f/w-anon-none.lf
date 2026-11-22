@@ -1,0 +1,11 @@
+\ A wrong twin: False has no constructor (464).
+\ (plan row TB2, tactic batch 3c; batch-f-wrong.lean)
+\ Lean: theorem w_anon_none (a b : Nat) (h : a = b) : False := by
+\         exact ⟨h⟩
+theorem w_anon_none
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  False
+:= by
+  << ' h >> by-exact
+end w_anon_none
