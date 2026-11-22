@@ -1,4 +1,4 @@
-\ T by-change at: and by-symm at: (plan row TB2, tactic batch 3a;
+\ T by-change at[ ] and by-symm at[ ] (plan row TB2, tactic batch 3a;
 \ batch-d.lean): Lean's change T at h (changeLocalDecl: the hypothesis
 \ reverted, its type replaced, introduced again under its name) and symm
 \ at h (applySymmAt: the hypothesis replaced by its symmetric form), then
@@ -11,7 +11,7 @@ theorem ch_at
   a 0 + b = explicit: h
   a b =
 := by
-  a b = by-change at: h
+  a b = by-change at[ h ]
   ' h by-exact
 end ch_at
 
@@ -24,7 +24,7 @@ theorem ch_goal
   a 0 + b = explicit: h
   a 0 + b =
 := by
-  a b = by-change at: h |-
+  a b = by-change at[ h |- ]
   ' h by-exact
 end ch_goal
 
@@ -36,7 +36,7 @@ theorem sy_at
   a b = explicit: h  b a = explicit: h2
   a b =
 := by
-  by-symm at: h2
+  by-symm at[ h2 ]
   ' h2 by-exact
 end sy_at
 
@@ -49,7 +49,7 @@ theorem sy_at_ne
   a b ≠ explicit: h
   a b ≠
 := by
-  by-symm at: h |-
+  by-symm at[ h |- ]
   by-assumption
 end sy_at_ne
 
@@ -106,7 +106,7 @@ theorem sy_rw_at
   a b = explicit: h  b c ≤ explicit: h2
   a c ≤
 := by
-  by-symm at: h
-  by-rw[ ' h ] at: h2
+  by-symm at[ h ]
+  by-rw[ ' h ] at[ h2 ]
   ' h2 by-exact
 end sy_rw_at

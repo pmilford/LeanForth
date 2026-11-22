@@ -8,5 +8,5 @@ theorem w_symm_at
   a b ≤ ¬ explicit: h
   a b ≤ ¬
 := by
-  by-symm at: h
+  by-symm at[ h ]
 end w_symm_at

@@ -31,6 +31,12 @@
 \ - lf-elab-ensure ( e expected -- e outcome ), ensureHasType: isDefEq of
 \   e's type and the expected type (-1: none, ok); false is a coercion
 \   Lean would insert, not ported: 131 (plan FE4).
+\ - The holes (plan row TB2, batch 3b): lf-elab-hole+ ( mvar pos --
+\   outcome ) records one elab-term.fs made (registerMVarErrorHoleInfo);
+\   lf-elab-hole ( mvar -- pos arg? true | false ) finds it, arg? true
+\   once addNewArg took it as an argument (registerMVarArgName). No
+\   expected type is propagated before a hole argument
+\   (shouldPropagateExpectedTypeFor).
 \ - Not ported, unsupported: postponing at a function whose type's whnfR has
 \   a metavariable at its head (isMVarApp, 132), an optParam or autoParam
 \   binder or eta argument (134), a recursor, casesOn, recOn, brecOn or
@@ -49,11 +55,13 @@
 \ State: the frames ea-frames and the slabs ea-acts (activations),
 \ ea-args (their arguments), ea-insts (their instance metavariables),
 \ ea-xargs (their elaborated arguments), a range of each per open
-\ activation, ea-spine and ea-rev, in the checker context (ADR 0009).
+\ activation, ea-spine, ea-rev and ea-holes (the holes, per declaration),
+\ in the checker context (ADR 0009).
 \ Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
+require ../lib/find.fs
 require ../core/terms.fs
 require ../core/input.fs
 require ../core/constant-references.fs
@@ -107,11 +115,36 @@ end-structure
 : lf-elab-visit ( a b xt -- result outcome )
   >r ea-frames lf-elab-frames-ready r> frame-through drop ;
 \ For a new declaration: no activation open, the frames idle.
+\ The holes elaborated (plan row TB2, batch 3b; Lean's mvarErrorInfos of
+\ kind hole, registerMVarErrorHoleInfo, BuiltinTerm.lean:67): each hole's
+\ metavariable, its place, and whether it became an application's
+\ argument (addNewArg's registerMVarArgName, App.lean:427, whose name
+\ Lean's error then gives). Newest last. A record made in a state rolled
+\ back stays: it names a metavariable no term holds, and a metavariable's
+\ record is never reused within a declaration.
+begin-structure /eh
+  field: eh-mvar
+  field: eh-at         \ the hole's place in the text
+  field: eh-arg        \ true: an application's argument
+end-structure
+/eh context-slab: ea-holes
 : lf-elab-app-reset ( -- )
   ea-acts slab-clear ea-args slab-clear ea-insts slab-clear ea-xargs slab-clear
-  ea-frames frame-reset ;
+  ea-holes slab-clear ea-frames frame-reset ;
 defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 defer lf-elab-arg-call ( node expected frames cont -- ... frames next )
+
+\ ---- The holes' records.
+: eh-fill ( mvar pos addr -- ) dup /eh erase tuck eh-at ! eh-mvar ! ;
+: lf-elab-hole+ ( mvar pos -- outcome )
+  1 ea-holes slab-claim ok-then? 0= if nip nip exit then
+  ea-holes slab-at eh-fill outcome-ok ;
+: eh-is? ( mvar k -- mvar flag ) ea-holes slab-at eh-mvar @ over = ;
+: eh-find ( mvar -- addr true | false )
+  ea-holes slab-count ['] eh-is? find-last-index dup if swap ea-holes slab-at swap then ;
+: lf-elab-hole ( mvar -- pos arg? true | false )
+  eh-find dup if drop dup eh-at @ swap eh-arg @ true then ;
+: ea-arg-hole! ( arg -- arg ) dup eh-find if true swap eh-arg ! then ;
 
 \ ---- Activations.
 : ea ( -- addr ) ea-acts slab-last ;
@@ -214,7 +247,7 @@ defer lf-elab-arg-call ( node expected frames cont -- ... frames next )
   s"  arg " lf-elab-note ea-paramidx lf-elab-n. s" : " lf-elab-note dup lf-elab-term.
   lf-elab-nl ;
 : ea-add ( arg -- outcome )
-  ea-arg. ea ea-f @ over lf-meta-app ok-then? 0= if nip exit then ea ea-f !
+  ea-arg. ea-arg-hole! ea ea-f @ over lf-meta-app ok-then? 0= if nip exit then ea ea-f !
   ea-args slab-push dup ok? if ea ea-ftype @ lf-term-second@ ea ea-ftype ! then ;
 
 \ ---- fTypeIsForall: a pi, its domain instantiated, with its outParam,
@@ -382,8 +415,12 @@ defer lf-elab-arg-call ( node expected frames cont -- ... frames next )
   dup ea-prop? ok-then? 0= if nip exit then if drop ea-prop-off exit then
   ea-resulting ok-then? 0= if nip exit then
   dup 0< if 2drop outcome-ok else ea-prop-try then ;
+\ shouldPropagateExpectedTypeFor (App.lean:518): never before a hole.
+: ea-next-hole? ( -- flag ) ea ea-stx @ ea ea-next @ syn-arg syn-hole? ;
+: ea-propagating? ( -- flag )
+  ea ea-propagate @ ea ea-expected @ 0< 0= and ea-next-hole? 0= and ;
 : ea-propagate-arg ( -- outcome )
-  ea ea-propagate @ ea ea-expected @ 0< 0= and 0= if outcome-ok exit then
+  ea-propagating? 0= if outcome-ok exit then
   ea ea-expected @ lf-instantiate-mvars lf-elab-meta ok-then? if ea-prop-with then ;
 
 \ ---- finalize (App.lean:610).

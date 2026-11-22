@@ -1,18 +1,18 @@
 \ Unit tests of tactic batch 3a (plan row TB2) over decide's slice of Init
 \ in an authoring run, by the classes of docs/development/
-\ TEST_COVERAGE_REVIEW.md: the reader's at: (tactic-syntax.fs, read as
+\ TEST_COVERAGE_REVIEW.md: the reader's at[ ] (tactic-syntax.fs, read as
 \ records), tactic-core.fs's location words and lf-with-location,
 \ app-builder.fs's lf-const-meta-applied, the goal operations
 \ meta-tactic/assert.fs's lf-goal-replace-local-decl and
 \ lf-goal-change-local-decl, symm.fs's lf-symm-expr and lf-goal-symm-at,
-\ goal.fs's rfl changes, and each tactic word with at: through LeanForth
+\ goal.fs's rfl changes, and each tactic word with at[ ] through LeanForth
 \ text (tests/support/tactic-text.fs):
 \ 1. outcomes: each word at a hypothesis accepted, each refusal with its
 \    code (455, 215, 456, 448, 457, 443, 451), each case not ported (99,
 \    93);
-\ 2. malformed input: at: with no name, _, a word, * among names, after
+\ 2. malformed input: at[ ] with no name, _, a word, * among names, after
 \    a tactic that takes none, twice, inside a bracket, after a value,
-\    after a block's end (453, 454, 82, 86);
+\    after a block's end, a list with no ] on its line (453, 454, 458, 82, 86);
 \ 3. stack effects and records: each T{ }T checks the depth; the step's
 \    tac-loc flags, tac-loc# and each name's ID and place, its text's end;
 \    every field of each goal and hypothesis made;
@@ -63,7 +63,7 @@ lf-meta-throw-base outcome-unsupported - constant thrown-unsupported
 : type@ ( goal k -- type ) local@ lf-local-fvar lf-fvar-type ;
 : count@ ( goal -- n ) lf-goal-view lf-view-count ;
 
-\ ---- 3. Records: at: on the step before it.
+\ ---- 3. Records: at[ ] on the step before it.
 : vars ( -- c-addr u ) s" Nat explicit: a Nat explicit: b Nat explicit: c " ;
 create stmt 512 allot  variable stmt#
 : stmt+ ( c-addr u -- ) tuck stmt stmt# @ + swap move stmt# +! ;
@@ -72,7 +72,7 @@ create stmt 512 allot  variable stmt#
 : hac ( -- c-addr u ) s" a b = explicit: h a c ≤ explicit: h2 b c ≤" st ;
 \ (h2 and h rewritten; at the goal the rule h, elaborated again, is the
 \ new h : b = b, as in Lean, so b ≤ c stays: unsolved, 89)
-T{ hac s\" by-rw[ ' h ] at: h2 h |-\n" tactic-ran -> 89 }T
+T{ hac s\" by-rw[ ' h ] at[ h2 h |- ]\n" tactic-ran -> 89 }T
 T{ 1 step@ tac-loc @ 1 step@ tac-loc# @ 1 step@ tac-count @
    -> tac-loc-given tac-loc-goal or 2 1 }T
 T{ 1 0 lf-tac-loc-hyp s" h2" nm = 1 1 lf-tac-loc-hyp s" h" nm = 1 lf-tac-loc# -> true true 2 }T
@@ -84,11 +84,11 @@ T{ 1 0 loc-arg dup targ-x @ s" h2" nm = swap targ-symm @ -> true 0 }T
 T{ 1 0 loc-arg targ-at @ 1 1 loc-arg targ-at @ < 1 step@ tac-to @ 1 1 loc-arg targ-at @ >
    -> true true }T
 lf-tac-forget
-\ No at:: the goal alone (targets #[] true); * the wildcard alone.
+\ No at[ ]: the goal alone (targets #[] true); * the wildcard alone.
 T{ s" a b = explicit: h b c ≤ explicit: h2 a c ≤" st s" by-rw[ ' h ] ' h2 by-exact" tactic-ran
    1 lf-tac-located? 1 lf-tac-loc-goal?
    1 lf-tac-loc-all? 1 lf-tac-loc# -> 0 false true false 0 }T
-T{ hac s\" by-rw[ ' h ] at: *\n" tactic-ran 1 step@ tac-loc @ 1 lf-tac-loc# 1 lf-tac-loc-goal?
+T{ hac s\" by-rw[ ' h ] at[ * ]\n" tactic-ran 1 step@ tac-loc @ 1 lf-tac-loc# 1 lf-tac-loc-goal?
    -> 99 tac-loc-given tac-loc-all or 0 false }T
 lf-tac-forget
 \ The shapes: located ones and not.
@@ -98,55 +98,64 @@ T{ tac-shape-plain-at shape-at @ tac-shape-term-at shape-at @ tac-shape-rules sh
 T{ tac-k-change lf-tactic-shape@ tac-k-symm lf-tactic-shape@ tac-k-delta lf-tactic-shape@
    -> tac-shape-term-at tac-shape-plain-at tac-shape-term-at }T
 
-\ ---- 2. Malformed at:.
+\ ---- 2. Malformed at[ ] (batch 3b: a list up to ], on its line).
 : token ( -- c-addr u ) lfa-error lfa-err-token lfa-error lfa-err-length @ ;
-T{ hac s\" by-rw[ ' h ] at:\n" tactic-ran -> 454 }T
-T{ hac s\" by-rw[ ' h ] at: _\n" tactic-ran -> 454 }T
-T{ hac s\" by-rw[ ' h ] at: by-rfl\n" tactic-ran -> 454 }T
-T{ hac s\" by-rw[ ' h ] at: * h2\n" tactic-ran token s" h2" compare -> 454 0 }T
-T{ hac s\" by-rw[ ' h ] at: h2 *\n" tactic-ran -> 454 }T
-T{ hac s\" ' h2 by-exact at: h2\n" tactic-ran token s" at:" compare -> 453 0 }T
-\ (the names run to the end of the line: by-rw[ there is a LeanForth word)
-T{ hac s\" by-rw[ ' h ] at: h2 by-rw[ ' h ] at: h2\n" tactic-ran -> 454 }T
-T{ hac s\" by-rw[ ' h at: h2 ]\n" tactic-ran -> 82 }T
-T{ hac s\" by-rw[ ' h ] ' h at: h2\n" tactic-ran -> 86 }T
-T{ hac s\" at: h2\n" tactic-ran -> 453 }T
-T{ hac s\" by-case: _ => by-rw[ ' h ] by-end at: h2\n" tactic-ran -> 453 }T
+T{ hac s\" by-rw[ ' h ] at[ ]\n" tactic-ran token s" ]" compare -> 454 0 }T
+T{ hac s\" by-rw[ ' h ] at[ _ ]\n" tactic-ran -> 454 }T
+T{ hac s\" by-rw[ ' h ] at[ by-rfl ]\n" tactic-ran -> 454 }T
+T{ hac s\" by-rw[ ' h ] at[ * h2 ]\n" tactic-ran token s" h2" compare -> 454 0 }T
+T{ hac s\" by-rw[ ' h ] at[ * |- ]\n" tactic-ran token s" |-" compare -> 454 0 }T
+T{ hac s\" by-rw[ ' h ] at[ h2 * ]\n" tactic-ran -> 454 }T
+T{ hac s\" by-rw[ ' h ] at[ |- * ]\n" tactic-ran -> 454 }T
+T{ hac s\" by-rw[ ' h ] at[ * * ]\n" tactic-ran -> 454 }T
+T{ hac s\" ' h2 by-exact at[ h2 ]\n" tactic-ran token s" at[" compare -> 453 0 }T
+\ (a LeanForth word in the list, its own word too)
+T{ hac s\" by-rw[ ' h ] at[ h2 by-rw[ ]\n" tactic-ran token s" by-rw[" compare -> 454 0 }T
+\ The line ends before ]: 458 at the last token read; the list never
+\ goes on on the next line.
+T{ hac s\" by-rw[ ' h ] at[ h2\n ]" tactic-ran token s" h2" compare -> 458 0 }T
+T{ hac s\" by-rw[ ' h ] at[\n" tactic-ran token s" at[" compare -> 458 0 }T
+T{ hac s\" by-rw[ ' h at[ h2 ]\n" tactic-ran -> 82 }T
+T{ hac s\" by-rw[ ' h ] ' h at[ h2 ]\n" tactic-ran -> 86 }T
+T{ hac s\" at[ h2 ]\n" tactic-ran -> 453 }T
+T{ hac s\" by-case: _ => by-rw[ ' h ] by-end at[ h2 ]\n" tactic-ran -> 453 }T
 lf-tac-forget
-\ A hypothesis named at: is refused where it is named (78, a reserved
-\ word), not later at ' at: (review tb2-batch3a finding 5).
-T{ s" a b = explicit: at: a b =" st s" ' at: by-exact" tactic-ran token s" at:" compare
+\ A hypothesis named at[ is refused where it is named (78, a reserved
+\ word), not later at ' at[ (review tb2-batch3a finding 5); at: is no
+\ longer a LeanForth word (batch 3b), so it names a hypothesis.
+T{ s" a b = explicit: at[ a b =" st s" ' at[ by-exact" tactic-ran token s" at[" compare
    -> 78 0 }T
-\ A second at: on the next line: the step has one already (453).
-T{ hac s\" by-rw[ ' h ] at: h2\n at: h" tactic-ran -> 453 }T
+T{ s" a b = explicit: at: a b =" st s" ' at: by-exact" tactic-ran -> 0 }T
+\ A second at[ on the next line: the step has one already (453).
+T{ hac s\" by-rw[ ' h ] at[ h2 ]\n at[ h ]" tactic-ran -> 453 }T
 lf-tac-forget
 
 \ ---- 1. The tactics through the text.
-T{ hac s\" by-rw[ ' h ] at: h2\n ' h2 by-exact" tactic-ran -> 0 }T
-T{ hac s\" by-rewrite[ ' h ] at: h2\n ' h2 by-exact" tactic-ran -> 0 }T
+T{ hac s\" by-rw[ ' h ] at[ h2 ]\n ' h2 by-exact" tactic-ran -> 0 }T
+T{ hac s\" by-rewrite[ ' h ] at[ h2 ]\n ' h2 by-exact" tactic-ran -> 0 }T
 \ (a later step names the new hypothesis; the old one would not fit)
-T{ hac s\" by-rw[ ' h ] at: h2\n ' h2 by-revert by-intro: k ' k by-exact" tactic-ran -> 0 }T
-T{ hac s\" by-rw[ ' h ] at: foo\n" tactic-ran -> 455 }T
+T{ hac s\" by-rw[ ' h ] at[ h2 ]\n ' h2 by-revert by-intro: k ' k by-exact" tactic-ran -> 0 }T
+T{ hac s\" by-rw[ ' h ] at[ foo ]\n" tactic-ran -> 455 }T
 T{ s"   foo" detail-has? s" Unknown identifier `foo`" detail-has? -> false false }T
 lf-tac-forget
-T{ hac s\" by-rw[ ' h ] at: Nat.le_refl\n" tactic-ran -> 99 }T
+T{ hac s\" by-rw[ ' h ] at[ Nat.le_refl ]\n" tactic-ran -> 99 }T
 \ (the rule's own hypothesis first: h becomes b = b, and the rule,
 \ elaborated again at h2, is that new h, whose b a ≤ c lacks: 215)
-T{ hac s\" by-rw[ ' h ] at: h h2\n" tactic-ran -> 215 }T
-T{ s" a b = explicit: h c c ≤ explicit: h2 c c ≤" st s\" by-rw[ ' h ] at: h2\n" tactic-ran -> 215 }T
+T{ hac s\" by-rw[ ' h ] at[ h h2 ]\n" tactic-ran -> 215 }T
+T{ s" a b = explicit: h c c ≤ explicit: h2 c c ≤" st s\" by-rw[ ' h ] at[ h2 ]\n" tactic-ran -> 215 }T
 lf-tac-forget
 \ rwa: at one hypothesis, at none (the hypothesis as it is), the legacy
 \ form, 456; rfl on a ≤ c and ¬ fails as Lean's, assumption closes.
-T{ hac s\" by-rwa[ ' h ] at: h2\n" tactic-ran -> 0 }T
-T{ s" a b ≤ explicit: h a b ≤" st s\" by-rwa[ ] at: h\n" tactic-ran -> 0 }T
-T{ s" a b = explicit: h a c ≤ explicit: h2 a c ≤" st s\" by-rwa[ ' h ] at: h2 |-\n" tactic-ran -> 0 }T
+T{ hac s\" by-rwa[ ' h ] at[ h2 ]\n" tactic-ran -> 0 }T
+T{ s" a b ≤ explicit: h a b ≤" st s\" by-rwa[ ] at[ h ]\n" tactic-ran -> 0 }T
+T{ s" a b = explicit: h a c ≤ explicit: h2 a c ≤" st s\" by-rwa[ ' h ] at[ h2 |- ]\n" tactic-ran -> 0 }T
 \ (the legacy form's assumption finds no a ≤ c once h2 is b ≤ c: 381)
-T{ s" a b = explicit: h a c ≤ explicit: h2 a c ≤" st s\" by-rwa[ ' h ] at: h2 h\n" tactic-ran
+T{ s" a b = explicit: h a c ≤ explicit: h2 a c ≤" st s\" by-rwa[ ' h ] at[ h2 h ]\n" tactic-ran
    -> 381 }T
-T{ s" a b ≤ ¬ explicit: k False" st s\" by-rwa[ ] at: k\n" tactic-ran -> 456 }T
+T{ s" a b ≤ ¬ explicit: k False" st s\" by-rwa[ ] at[ k ]\n" tactic-ran -> 456 }T
 T{ s" a b = explicit: h b c ≤ ¬ explicit: h2 a c ≤ ¬" st s" by-rwa[ ' h ]" tactic-ran -> 0 }T
 \ rwa at h whose goal rfl closes (c = c): the hypothesis is never used.
-T{ s" a b = explicit: h a c ≤ explicit: h2 c c =" st s\" by-rwa[ ' h ] at: h2\n" tactic-ran -> 0 }T
+T{ s" a b = explicit: h a c ≤ explicit: h2 c c =" st s\" by-rwa[ ' h ] at[ h2 ]\n" tactic-ran -> 0 }T
 lf-tac-forget
 \ A hypothesis a tactic introduced, then cleared, is named in no goal's
 \ context (elab-term.fs's et-hyp): refused, 76 (plan row TB2's task 9
@@ -154,19 +163,19 @@ lf-tac-forget
 T{ hac s\" ' h2 by-revert by-intro: k\n ' k by-clear\n ' k by-exact" tactic-ran -> 76 }T
 lf-tac-forget
 \ change, symm, delta at a hypothesis.
-T{ s" a 0 + b = explicit: h a b =" st s\" a b = by-change at: h\n ' h by-exact" tactic-ran -> 0 }T
-T{ s" a b = explicit: h a b =" st s\" b a = by-change at: h\n" tactic-ran -> 443 }T
-T{ s" a b = explicit: h b a =" st s\" by-symm at: h\n ' h by-exact" tactic-ran -> 0 }T
-T{ s" a b ≤ ¬ explicit: h a b ≤ ¬" st s\" by-symm at: h\n" tactic-ran -> 451 }T
-T{ s" a b ≤ explicit: h a b ≤" st s\" ' Nat.le by-delta at: h\n" tactic-ran -> 448 }T
+T{ s" a 0 + b = explicit: h a b =" st s\" a b = by-change at[ h ]\n ' h by-exact" tactic-ran -> 0 }T
+T{ s" a b = explicit: h a b =" st s\" b a = by-change at[ h ]\n" tactic-ran -> 443 }T
+T{ s" a b = explicit: h b a =" st s\" by-symm at[ h ]\n ' h by-exact" tactic-ran -> 0 }T
+T{ s" a b ≤ ¬ explicit: h a b ≤ ¬" st s\" by-symm at[ h ]\n" tactic-ran -> 451 }T
+T{ s" a b ≤ explicit: h a b ≤" st s\" ' Nat.le by-delta at[ h ]\n" tactic-ran -> 448 }T
 T{ s" ] at h" detail-has? -> true }T
 lf-tac-forget
-\ At the goal (no at:, or |- alone): symm and change act on the target.
+\ At the goal (no at[ ], or |- alone): symm and change act on the target.
 T{ s" a b = explicit: h b a =" st s\" by-symm\n ' h by-exact" tactic-ran -> 0 }T
-T{ s" a b = explicit: h a b =" st s\" b a = by-change at: |-\n" tactic-ran -> 443 }T
+T{ s" a b = explicit: h a b =" st s\" b a = by-change at[ |- ]\n" tactic-ran -> 443 }T
 lf-tac-forget
-T{ s" a b ≠ explicit: h a b ≠" st s\" ' Ne by-delta at: h\n" tactic-ran -> 99 }T
-T{ s" a b = explicit: h a b =" st s\" by-symm at: *\n" tactic-ran -> 99 }T
+T{ s" a b ≠ explicit: h a b ≠" st s\" ' Ne by-delta at[ h ]\n" tactic-ran -> 99 }T
+T{ s" a b = explicit: h a b =" st s\" by-symm at[ * ]\n" tactic-ran -> 99 }T
 lf-tac-forget
 \ rfl: Iff.rfl closes; ¬ is no relation (457); a ≤ a has no refl lemma
 \ known (93); an assumption inside rw's try is untouched.
@@ -296,10 +305,10 @@ T{ bc-le ' p-symm-at both-swept -> true true }T
 : full-code? ( code -- flag ) dup if lf-author-outcome outcome-full = then ;
 : text-full ( c-addr u c-addr' u' -- code outcome )
   tactic-ran dup full-code? if drop -1 outcome-full else outcome-ok then ;
-: p-rw-text ( x -- code outcome ) drop hac s\" by-rw[ ' h ] at: h2\n ' h2 by-exact" text-full ;
-: p-rwa-text ( x -- code outcome ) drop hac s\" by-rwa[ ' h ] at: h2\n" text-full ;
+: p-rw-text ( x -- code outcome ) drop hac s\" by-rw[ ' h ] at[ h2 ]\n ' h2 by-exact" text-full ;
+: p-rwa-text ( x -- code outcome ) drop hac s\" by-rwa[ ' h ] at[ h2 ]\n" text-full ;
 : p-change-text ( x -- code outcome )
-  drop s" a 0 + b = explicit: h a b =" st s\" a b = by-change at: h\n ' h by-exact" text-full ;
+  drop s" a 0 + b = explicit: h a b =" st s\" a b = by-change at[ h ]\n ' h by-exact" text-full ;
 T{ 0 ' p-rw-text heap-sweep swept? 0 ' p-rwa-text heap-sweep swept? -> true true }T
 T{ 0 ' p-change-text heap-sweep swept? tlc-frames slab-count -> true 0 }T
 lf-tac-forget

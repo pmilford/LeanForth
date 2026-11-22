@@ -1,0 +1,115 @@
+\ Holes in terms and refine (plan row TB2, tactic batch 3b, mechanism B;
+\ batch-e.lean): ?_ is a new goal, ?: NAME a new goal tagged NAME, _ a
+\ hole that unification must fill (refine, exact, apply, have), or a new
+\ goal where the tactic allows one (specialize).
+\ Lean: theorem rf_and (a b : Nat) (h1 : a = b) (h2 : b = a) : a = b ∧ b = a := by
+\         refine And.intro ?_ ?_
+\         exact h1
+\         exact h2
+theorem rf_and
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h1  b a = explicit: h2
+  a b = b a = ∧
+:= by
+  ' And.intro ?_ $ ?_ $ by-refine
+  ' h1 by-exact
+  ' h2 by-exact
+end rf_and
+
+\ The same written postfix; the goals taken in the other order by case.
+\ Lean: theorem rf_and_case (a b : Nat) (h1 : a = b) (h2 : b = a) : a = b ∧ b = a := by
+\         refine And.intro ?_ ?_
+\         case refine_2 => exact h2
+\         case refine_1 => exact h1
+theorem rf_and_case
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h1  b a = explicit: h2
+  a b = b a = ∧
+:= by
+  ?_ ?_ And.intro by-refine
+  by-case: refine_2 => ' h2 by-exact by-end
+  by-case: refine_1 => ' h1 by-exact by-end
+end rf_and_case
+
+\ Named holes: the goals tagged left and right.
+\ Lean: theorem rf_named (a b : Nat) (h1 : a = b) (h2 : b = a) : a = b ∧ b = a := by
+\         refine And.intro ?left ?right
+\         case right => exact h2
+\         case left => exact h1
+theorem rf_named
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h1  b a = explicit: h2
+  a b = b a = ∧
+:= by
+  ' And.intro ?: left $ ?: right $ by-refine
+  by-case: right => ' h2 by-exact by-end
+  by-case: left => ' h1 by-exact by-end
+end rf_named
+
+\ One new goal: it takes the main goal's tag (none here).
+\ Lean: theorem rf_one (a b : Nat) (h1 : a = b) (h2 : b = a) : a = b ∧ b = a := by
+\         refine And.intro h1 ?_
+\         exact h2
+theorem rf_one
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h1  b a = explicit: h2
+  a b = b a = ∧
+:= by
+  ' And.intro ' h1 $ ?_ $ by-refine
+  ' h2 by-exact
+end rf_one
+
+\ No expected type is given to Or.inl before its hole (Lean's
+\ shouldPropagateExpectedTypeFor); the goal's type comes from the
+\ application's own.
+\ Lean: theorem rf_or (a b : Nat) (h : a = b) : a = b ∨ b = a := by
+\         refine Or.inl ?_
+\         exact h
+theorem rf_or
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b = b a = ∨
+:= by
+  ?_ Or.inl by-refine
+  ' h by-exact
+end rf_or
+
+\ A natural hole that unification fills: no new goal.
+\ Lean: theorem rf_natural (a : Nat) : a = a := by
+\         refine Eq.refl _
+theorem rf_natural
+  Nat explicit: a
+  a a =
+:= by
+  _ Eq.refl by-refine
+end rf_natural
+
+\ exact, apply and have with a hole unification fills.
+\ Lean: theorem ex_hole (a : Nat) : a = a := by
+\         exact Eq.refl _
+theorem ex_hole
+  Nat explicit: a
+  a a =
+:= by
+  _ Eq.refl by-exact
+end ex_hole
+
+\ Lean: theorem ap_hole (a : Nat) : a ≤ a := by
+\         apply Nat.le_refl _
+theorem ap_hole
+  Nat explicit: a
+  a a ≤
+:= by
+  ' Nat.le_refl _ $ by-apply
+end ap_hole
+
+\ Lean: theorem hv_hole (a : Nat) : a ≤ a := by
+\         have h : a ≤ a := Nat.le_refl _
+\         exact h
+theorem hv_hole
+  Nat explicit: a
+  a a ≤
+:= by
+  a a ≤ ' Nat.le_refl _ $ by-have: h
+  ' h by-exact
+end hv_hole

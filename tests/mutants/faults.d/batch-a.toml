@@ -426,18 +426,18 @@ reason = "TB2: specialize takes a term whose head is no hypothesis (Lean: its er
 [[fault]]
 id = "tb2-specialize-type-is-term"
 file = "src/front/tactics/specialize.fs"
-old = '''  swap 0 lf-tac-elab-arg tsp-fvar swap lf-open-mvar-free dup tsp-type'''
-new = '''  swap 0 lf-tac-elab-arg tsp-fvar swap lf-open-mvar-free dup'''
+old = ''': tsp-replaced ( goal e -- goal' ) tsp-fvar swap dup tsp-type lf-goal-replace ;'''
+new = ''': tsp-replaced ( goal e -- goal' ) tsp-fvar swap dup lf-goal-replace ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-a/check.py"
 reason = "TB2: the new hypothesis's type is the term itself, not its type"
 
 [[fault]]
 id = "tb2-specialize-plain-lift"
 file = "src/front/tactics/specialize.fs"
-old = ''': tsp-run ( i -- ) dup ['] tsp-tac lf-lift-meta-tactic1 ;'''
-new = ''': tsp-run ( i -- ) dup ['] tsp-tac lf-lift-meta-tactic ;'''
+old = ''': tsp-run ( i -- ) dup ['] tsp-tac lf-lift-meta-tactic ;'''
+new = ''': tsp-run ( i -- ) dup ['] tsp-tac lf-lift-meta-tactic1 ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
-reason = "TB2: specialize's one goal handed to liftMetaTactic as a list"
+reason = "TB2: specialize's goals (batch 3b: the holes, then the new goal) handed to liftMetaTactic1 as one goal"
 
 # ---- tactics/revert.fs
 [[fault]]

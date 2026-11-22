@@ -16163,9 +16163,8 @@ reason = "FE1g-4: exact assigns a term whose type is not the goal's"
 [[fault]]
 id = "fe-exact-new-holes-ignored"
 file = "src/front/tactic-core.fs"
-old = '''  dup tb tb-from @ ['] tcr-new? lf-term-holds-with? lf-tac-must
-  if lfa-e-tac-unassigned lf-tac-fail then ;'''
-new = '''  ;'''
+old = ''': tcr-fresh-free ( e -- e ) dup tb tb-from @ lf-fresh-mvars lf-tac-log-unassigned ;'''
+new = ''': tcr-fresh-free ( e -- e ) ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4: a metavariable exact's term made and left unassigned is not reported as Lean's don't know how to synthesize"
 

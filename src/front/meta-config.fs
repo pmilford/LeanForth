@@ -18,7 +18,11 @@
 \   .atMatcher (withCanUnfoldAtMatcherPred, Basic.lean:1207), set by
 \   whnf.fs while it reduces a matcher at reducible, instances or implicit
 \   transparency (whnfMatcher): meta-env.fs's canUnfold then also unfolds
-\   canUnfoldAtMatcher's definitions (S2 merge B).
+\   canUnfoldAtMatcher's definitions (S2 merge B). lf-holes-opaque (256)
+\   is the elaborator's holesAsSyntheticOpaque (plan row TB2, batch 3b):
+\   lf-holes-opaque? reads it (elab-term.fs's holes), and
+\   lf-with-holes-as-goals ( i*x xt -- j*x ) sets it with
+\   assignSyntheticOpaque (refine' and specialize's elabTermWithHoles).
 \   lf-defeq-flags! sets them; lf-meta-flag? ( bit -- flag ) reads one.
 \ - Transparency, numbered as Lean's TransparencyMode constructors:
 \   lf-tr-all, lf-tr-default (the default), lf-tr-reducible,
@@ -69,6 +73,7 @@ require ../lib/lib.fs
 1 constant lf-defeq-fo   2 constant lf-defeq-ctx   4 constant lf-defeq-quasi
 8 constant lf-defeq-const   16 constant lf-defeq-stuck   32 constant lf-defeq-univ
 64 constant lf-defeq-opaque   128 constant lf-meta-at-matcher
+256 constant lf-holes-opaque
 lf-defeq-univ constant lf-meta-default
 lf-meta-default lf-defeq-fo or lf-defeq-ctx or constant lf-defeq-elab
 16 constant lf-meta-stuck
@@ -107,6 +112,14 @@ end-structure
 : lf-with-assignable-opaque ( i*x xt -- j*x ) lf-defeq-opaque mcfg-with-bits ;
 : lf-with-approx ( i*x xt -- j*x )
   lf-defeq-fo lf-defeq-ctx or lf-defeq-quasi or mcfg-with-bits ;
+\ The elaborator's holesAsSyntheticOpaque (Term.Context, TermElabM.lean:
+\ 371), kept among the flags so that a THROW gives it back too:
+\ lf-with-holes-as-goals is withCollectingNewGoalsFrom's scope with
+\ allowNaturalHoles (Tactic/ElabTerm.lean:155-166), the reader setting
+\ and withAssignableSyntheticOpaque at once.
+: lf-holes-opaque? ( -- flag ) lf-holes-opaque lf-meta-flag? ;
+: lf-with-holes-as-goals ( i*x xt -- j*x )
+  lf-holes-opaque lf-defeq-opaque or mcfg-with-bits ;
 \ Each mode's rank in Lean's order, by its number: all default reducible
 \ instances none implicit.
 align here 5 , 4 , 1 , 2 , 0 , 3 , constant mcfg-ranks

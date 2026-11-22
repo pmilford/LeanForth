@@ -1,4 +1,4 @@
-\ A wrong twin (plan row TB2, tactic batch 3a; batch-d-wrong.lean): at:
+\ A wrong twin (plan row TB2, tactic batch 3a; batch-d-wrong.lean): at[ ]
 \ names no hypothesis of the goal and no constant: Lean's getFVarId,
 \ "Unknown identifier `foo`" (455), at the name.
 \ Lean: theorem w_at_unknown (a b c : Nat) (h : a = b) (h2 : a ≤ c) : b ≤ c := by
@@ -8,5 +8,5 @@ theorem w_at_unknown
   a b = explicit: h  a c ≤ explicit: h2
   b c ≤
 := by
-  by-rw[ ' h ] at: foo
+  by-rw[ ' h ] at[ foo ]
 end w_at_unknown

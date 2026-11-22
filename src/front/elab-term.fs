@@ -15,7 +15,10 @@
 \   @OfNat.ofNat.{u} ?T n ?i); a constant (at new universe
 \   metavariables), a declaration's variable or a tactic's hypothesis is
 \   elabAtom, an application elabApp: elabAppArgs (elab-app.fs); binop%
-\   and binrel% are Extra.lean's, their operator resolved at the root. An
+\   and binrel% are Extra.lean's, their operator resolved at the root; a
+\   hole (_, ?_, ?: NAME; plan row TB2, batch 3b) is elabHole or
+\   elabSyntheticHole (see there), with no implicit-lambda test (Lean's
+\   blockImplicitLambda). An
 \   expected type whose whnfForall is a pi is unsupported (133: Lean's
 \   implicit lambda reads its binder's kind, plan FE2), but for an
 \   application's explicit argument whose binder's declared kind is
@@ -75,6 +78,7 @@ require ../author/declarations.fs
 require ../author/constants.fs
 require ./syntax.fs
 require ./mvars.fs
+require ./meta-config.fs
 require ./lctx-views.fs
 require ./meta-env.fs
 require ./meta-spine.fs
@@ -195,6 +199,40 @@ end-structure
   tuck swap et-dec-level ok-then? 0= if nip nip no-result exit then
   et-u ! swap syn-a@ et-lit ['] et-of-nat ok-apply2 ;
 
+\ ---- elabHole and elabSyntheticHole (Elab/BuiltinTerm.lean:64-109; plan
+\ row TB2, batch 3b): mkFreshExprMVar of the expected type (none: a
+\ natural ?T : Sort ?u), natural for _ unless holes are synthetic opaque
+\ (meta-config.fs's lf-holes-opaque?: refine', specialize), synthetic
+\ opaque for ?_ and ?: NAME, that one tagged NAME, then recorded for its
+\ error (registerMVarErrorHoleInfo: elab-app.fs's lf-elab-hole+). A NAME
+\ some metavariable has already (findUserName?, which Lean reuses,
+\ assigns or refuses by the contexts) is not ported (139), nor a hole
+\ applied to arguments (139).
+: et-sort-mvar ( -- sort outcome )   \ Sort ?u, a new level metavariable
+  lf-level-mvar-new lf-elab-meta ok-then? 0= if no-result exit then
+  lf-term-symbolic-sort room-result ;
+: et-hole-type ( expected -- type outcome )
+  dup 0< 0= if outcome-ok exit then
+  drop et-sort-mvar ok-then? if mv-natural lf-mvar-new lf-elab-meta else no-result then ;
+: et-natural? ( node -- flag ) syn-kind@ syn-k-hole = lf-holes-opaque? 0= and ;
+: et-hole-kind ( node -- kind ) et-natural? if mv-natural else mv-opaque then ;
+: et-hole-new ( node expected -- node mvar outcome )
+  et-hole-type ok-then? 0= if no-result exit then
+  over et-hole-kind lf-mvar-new lf-elab-meta ;
+: et-tagged ( node mvar -- node mvar outcome )
+  over syn-a@ ?dup if over swap lf-mvar-tag! else outcome-ok then ;
+: et-recorded ( node mvar -- mvar outcome ) tuck swap syn-at@ lf-elab-hole+ ;
+: et-hole-made ( node expected -- mvar outcome )
+  et-hole-new ok-then? 0= if nip no-result exit then
+  et-tagged ok-then? 0= if nip no-result exit then et-recorded ;
+: et-taken? ( name -- flag ) ?dup if lf-mvar-named dup if nip then else false then ;
+: et-unported ( -- -1 outcome ) lfa-e-elab-step lf-elab-fail no-result ;
+: et-hole ( node expected -- mvar outcome )
+  over syn-a@ et-taken? if 2drop et-unported exit then et-hole-made ;
+: et-holed ( node expected -- mvar outcome frames 0 ) et-hole et-fr 0 ;
+: et-fn ( app -- f outcome )
+  syn-a@ dup syn-hole? if drop et-unported else et-head then ;
+
 \ ---- elabTerm: the position (Lean's withRef) set for the visit and put
 \ back at its end; the implicit-lambda test; the elaborator by kind.
 : et-at-back ( result outcome frames -- result outcome frames 0 )
@@ -211,7 +249,7 @@ end-structure
   swap et-head dup ok? 0= if nip nip et-failed exit then drop
   swap lf-elab-app-new dup ok? 0= if et-failed exit then drop et-app-call ;
 : et-app ( node expected -- ... frames next )
-  swap dup syn-a@ et-head ok-then? 0= if nip nip et-failed exit then
+  swap dup et-fn ok-then? 0= if nip nip et-failed exit then
   rot lf-elab-app-new dup ok? 0= if nip et-failed exit then drop
   lf-elab-app-syntax! et-app-call ;
 defer et-op ( node expected -- ... frames next )
@@ -219,12 +257,14 @@ defer et-rel ( node expected -- ... frames next )
 \ binop% and rightact% are elabOp's (Extra.lean:182).
 : et-op-kind? ( node -- flag ) syn-kind@ syn-k-binop syn-k-rightact one-of2? ;
 : et-dispatch ( node expected -- ... frames next )
-  over et-op-kind? if et-op exit then
+  over syn-hole? if et-holed exit then over et-op-kind? if et-op exit then
   over syn-kind@ case syn-k-num of et-num endof syn-k-app of et-app endof
     syn-k-binrel of et-rel endof >r et-atom r> endcase ;
 : et-scoped ( node expected frames -- node expected ) drop swap et-at-scope swap ;
+\ (blockImplicitLambda: never for a hole, TermElabM.lean:1744.)
 : et-visit ( node expected frames -- ... frames next )
-  et-scoped dup et-lambda? dup ok? 0= if nip nip et-failed exit then drop et-dispatch ;
+  et-scoped over syn-hole? if et-dispatch exit then
+  dup et-lambda? dup ok? 0= if nip nip et-failed exit then drop et-dispatch ;
 :noname ( node expected frames cont -- ... frames next ) ['] et-visit lf-elab-open ;
 is lf-elab-term-call
 \ An argument whose binder's declared kind makes no implicit lambda
@@ -504,9 +544,6 @@ is et-op
 is et-rel
 
 \ ---- elabType, ensureType, elabTermEnsuringType.
-: et-sort-mvar ( -- sort outcome )
-  lf-level-mvar-new lf-elab-meta ok-then? 0= if no-result exit then
-  lf-term-symbolic-sort room-result ;
 : et-is-type? ( e -- flag outcome )
   lf-infer lf-elab-meta ok-then? 0= if false swap exit then lf-meta-whnf lf-elab-meta
   ok-then? if lf-sort? outcome-ok else false swap then ;

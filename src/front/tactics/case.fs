@@ -71,10 +71,9 @@ end-structure
 : tcs-missing. ( x -- outcome ) drop tcs-not-found. tcs-named# tcs-hint. outcome-ok ;
 : tcs-not-found ( -- ) 0 ['] tcs-missing. lf-tac-inline lfa-e-tac-case-tag lf-tac-stop ;
 
-\ ---- renameInaccessibles with the step's arguments (0 for _), a run.
-: tcs-name+ ( run i k -- run' i )
-  over swap lf-tac-arg rot swap run-push lf-tac-must swap ;
-: tcs-names ( -- run ) 0 tc tcs-step @ dup lf-tac-args# 0 ?do i tcs-name+ loop drop ;
+\ ---- renameInaccessibles with the step's arguments (0 for _), a run
+\ (tactic-core.fs's lf-tac-arg-names).
+: tcs-names ( -- names ) tc tcs-step @ lf-tac-arg-names ;
 : tcs-rename ( -- ) tc tcs-goal @ tcs-names lf-goal-rename-inaccessibles tc tcs-goal ! ;
 
 \ ---- evalCase: the goal found and renamed, alone in the list, its tag

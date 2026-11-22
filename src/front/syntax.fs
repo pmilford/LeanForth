@@ -17,6 +17,9 @@
 \   syn-k-rightact  as binop% for Lean's rightact% f a b (x ^ n): the
 \                 right operand acts on the left one and is elaborated
 \                 apart (Elab/Extra.lean, toTree's processLeaf)
+\   syn-k-hole    _, Lean's hole (plan row TB2, batch 3b): no field
+\   syn-k-synthetic  ?_ or ?: NAME, Lean's syntheticHole  a: the name
+\                 (a name ID), 0 for ?_
 \ So 0 n + n = is binrel% Eq (binop% HAdd.hAdd 0 n) n, and x y f, with f
 \ taking two explicit arguments, is app f [x, y]. An operator's name is
 \ Lean's hygienic one (HAdd.hAdd✝, Eq✝ in Lean's expansion): it always
@@ -29,7 +32,8 @@
 \ Words: syn-reset, syn-new ( kind pos -- node true | false ), syn-arg-new
 \ ( node -- true | false ), the setters syn-a! syn-b! syn-c! ( node x --
 \ node ), the readers syn-kind@ syn-a@ syn-b@ syn-c@ syn-at@ ( node -- x ),
-\ syn-arg ( node i -- arg ), syn-count ( -- n ), syn-valid? ( node -- flag ).
+\ syn-arg ( node i -- arg ), syn-count ( -- n ), syn-valid? ( node -- flag ),
+\ syn-hole? ( node -- flag ) (a hole of either kind: Lean's isHole).
 \ State: the store header syn-store, a member of the checker context
 \ (ADR 0009) whose block is on the heap, freed by its teardown word.
 
@@ -44,6 +48,8 @@ require ../lib/lib.fs
 7 constant syn-k-binrel
 8 constant syn-k-hyp
 9 constant syn-k-rightact
+10 constant syn-k-hole
+11 constant syn-k-synthetic
 
 begin-structure /syn
   field: syn-kind
@@ -80,6 +86,7 @@ max-n store-header - /syn cell+ / constant syn-limit
 : syn-b@ ( node -- x ) syn-node syn-b @ ;
 : syn-c@ ( node -- x ) syn-node syn-c @ ;
 : syn-at@ ( node -- pos ) syn-node syn-at @ ;
+: syn-hole? ( node -- flag ) syn-kind@ syn-k-hole syn-k-synthetic one-of2? ;
 : syn-a! ( node x -- node ) over syn-node syn-a ! ;
 : syn-b! ( node x -- node ) over syn-node syn-b ! ;
 : syn-c! ( node x -- node ) over syn-node syn-c ! ;

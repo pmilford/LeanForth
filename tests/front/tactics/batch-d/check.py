@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tactic batch 3a end to end against pinned Lean (plan row TB2: the location at: after
+"""Tactic batch 3a end to end against pinned Lean (plan row TB2: the location at[ ] after
 by-rw[ ], by-rewrite[ ], by-rwa[ ], by-change, by-symm and by-delta, and by-rfl's exact
 Iff.rfl and its Lean failure on a goal that is no relation; src/front/tactic-syntax.fs,
 tactic-core.fs's lf-with-location, src/front/tactics/rewrite.fs, rwa.fs, change.fs, symm.fs,

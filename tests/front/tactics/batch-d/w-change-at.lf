@@ -8,5 +8,5 @@ theorem w_change_at
   a b = explicit: h
   a b =
 := by
-  b a = by-change at: h
+  b a = by-change at[ h ]
 end w_change_at

@@ -10,6 +10,6 @@ theorem x_delta_at
   a b ≠ explicit: h
   a b ≠
 := by
-  ' Ne by-delta at: h
+  ' Ne by-delta at[ h ]
   by-assumption
 end x_delta_at

@@ -236,6 +236,19 @@ s" Iff" lfn-notation-name: ↔       s" Iff" lfn-notation-name: <->
 s" Dvd.dvd" lfn-own-name: divides
 
 
+\ Holes (plan row TB2, tactic batch 3b): _ is Lean's hole (a metavariable
+\ unification fills, or a new goal where the tactic allows one), ?_ its
+\ synthetic hole and ?: NAME the named one (Lean's ?NAME, a new goal
+\ tagged NAME; ?: _ is ?_). Each is a value of its own node at its word's
+\ place and takes none; front/elab-term.fs elaborates it.
+: lfn-hole ( kind -- t ) lfa-here lfn-new lfn-value ;
+: lfn-w-hole ( -- t ) syn-k-hole lfn-hole ;
+: lfn-w-synthetic ( -- t ) syn-k-synthetic lfn-hole ;
+: lfn-hole-name ( c-addr u -- name|0 )
+  2dup s" _" lfa-token= if 2drop 0 else lfa-word-name lfa-intern then ;
+: lfn-w-named-hole ( -- t )
+  syn-k-synthetic lfa-here lfn-new lfa-name-token lfn-hole-name syn-a! lfn-value ;
+
 \ Binders: the type as written.
 : lfn-binder ( t kind -- ) ['] lfn>syntax lfa-binder-of ;
 : lfn-w-explicit ( t -- ) 1 lfa-args lf-binder-default lfn-binder ;
@@ -270,6 +283,9 @@ s" Dvd.dvd" lfn-own-name: divides
 \ The natural meanings (author/groups.fs, lfa-natural!).
 ' lfn-w-tick lfa-natural! '
 ' lfn-w-app lfa-natural! $
+' lfn-w-hole lfa-natural! _
+' lfn-w-synthetic lfa-natural! ?_
+' lfn-w-named-hole lfa-natural! ?:
 ' lfn-w-explicit lfa-natural! explicit:
 ' lfn-w-implicit lfa-natural! implicit:
 ' lfn-w-strict lfa-natural! strict-implicit:

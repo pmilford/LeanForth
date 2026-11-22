@@ -93,7 +93,9 @@
 \ ( -- mark ), lf-mctx-snapshot, lf-mctx-switch, lf-mctx-depth{,
 \ }lf-mctx-depth, lf-mvar-depth ( mvar -- depth true | false );
 \ lf-mvar-new ( type kind -- mvar outcome ), lf-mvar-new-at
-\ ( type kind view -- mvar outcome ), lf-mvar-count ( -- n ), lf-mvar-live?,
+\ ( type kind view -- mvar outcome ), lf-mvar-count ( -- n ), lf-mvar-at
+\ ( n -- mvar ) (the n-th made), lf-mvar-named ( name -- mvar true | false
+\ ) (findUserName?), lf-mvar-live?,
 \ lf-mvar-type,
 \ lf-mvar-kind, lf-mvar-value, lf-mvar-view, lf-mvar-tag ( mvar -- x true
 \ | false ), lf-mvar-sees? ( mvar fvar -- flag ), lf-mvar-tag! ( mvar name
@@ -290,6 +292,15 @@ end-structure
 \ How many term metavariables the context has made (Lean's mvarCounter:
 \ a metavariable whose record number is at least an earlier count is new).
 : lf-mvar-count ( -- n ) mv-exprs store-count @ ;
+\ Metavariable n, below lf-mvar-count (unchecked): its record's leaf.
+: lf-mvar-at ( n -- mvar ) mv-decl mvd-leaf @ ;
+\ Lean's findUserName? (MetavarContext.lean, the userNames map): the
+\ newest metavariable tagged name (not 0), assigned or not. Where Lean's
+\ map has dropped a name a later tag replaced, this still finds the
+\ older metavariable of that tag (its callers then answer unsupported).
+: mv-tagged? ( name n -- name flag ) mv-decl mvd-tag @ over = ;
+: lf-mvar-named ( name -- mvar true | false )
+  lf-mvar-count ['] mv-tagged? find-last-index dup if swap lf-mvar-at swap then ;
 : lf-mvar-assignable? ( mvar -- flag )
   mv-of 0= if false exit then
   dup mvd-kind @ mv-opaque <> swap mvd-depth @ lf-mctx-depth = and ;

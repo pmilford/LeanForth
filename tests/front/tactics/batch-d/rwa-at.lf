@@ -10,7 +10,7 @@ theorem rwa_at
   a b = explicit: h  a c ≤ explicit: h2
   b c ≤
 := by
-  by-rwa[ ' h ] at: h2
+  by-rwa[ ' h ] at[ h2 ]
 end rwa_at
 
 \ No rule: the hypothesis closes the goal as it is.
@@ -21,7 +21,7 @@ theorem rwa_none
   a b ≤ explicit: h
   a b ≤
 := by
-  by-rwa[ ] at: h
+  by-rwa[ ] at[ h ]
 end rwa_none
 
 \ The legacy location: rw [h] at h2 ⊢; assumption.
@@ -32,7 +32,7 @@ theorem rwa_legacy
   a b = explicit: h  a c ≤ explicit: h2
   a c ≤
 := by
-  by-rwa[ ' h ] at: h2 |-
+  by-rwa[ ' h ] at[ h2 |- ]
 end rwa_legacy
 
 \ The review's x-ra-le (2026-11-21-tb2-batch2b.md, finding 7): b ≤ c is

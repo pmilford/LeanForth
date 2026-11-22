@@ -98,8 +98,11 @@ action-of lfa-run-fresh constant edc-run-before
 : edc-run-fresh ( -- ) edc-run-before execute 0 edc edc-checks ! ;
 ' edc-run-fresh is lfa-run-fresh
 
-\ ---- The elaborator's configuration while xt runs, given back after.
-: edc-configured ( i*x xt -- j*x ) lf-defeq-elab lf-tr-default lf-meta-with ;
+\ ---- The elaborator's configuration while xt runs, given back after;
+\ the caller's holesAsSyntheticOpaque and assignSyntheticOpaque kept
+\ (tactic-core.fs's elabTermWithHoles sets both around Tactic.elabTerm).
+: edc-kept ( -- flags ) lf-defeq-flags lf-holes-opaque lf-defeq-opaque or and ;
+: edc-configured ( i*x xt -- j*x ) edc-kept lf-defeq-elab or lf-tr-default lf-meta-with ;
 
 \ ---- Errors: the run stops at the current token (end NAME, #check).
 \ (A failure no step recorded, a print's, has no second position: -1.)

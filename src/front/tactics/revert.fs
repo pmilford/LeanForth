@@ -5,8 +5,10 @@
 \ term that is no free variable), then MVarId.revert of the main goal
 \ (meta-tactic/revert.fs's lf-goal-revert: h and every later hypothesis
 \ that depends on it become binders of the goal again), the new goal in
-\ the main goal's place. Several hypotheses (Lean's revert h1 h2) need a
-\ shape with several terms (plan TB2 batch 2).
+\ the main goal's place. by-revert[ h1 h2 ] (plan row TB2, tactic batch
+\ 3b): Lean's revert h1 h2, the names getFVarIds resolves in the main
+\ goal's context (tactic-core.fs's lf-tac-arg-fvars: 455 for a name no
+\ local has), all reverted at once (Lean's order: the context's).
 \ Lean call list: getFVarIds -> lf-tac-get-fvar; getMainGoal,
 \ replaceMainGoal [mvarId] -> lf-lift-meta-tactic1 (tactic-core.fs);
 \ MVarId.revert -> lf-goal-revert.
@@ -22,3 +24,8 @@ s" revert" tac-k-revert lf-tactic-lean!
   swap 0 lf-tac-arg lf-tac-get-fvar 0 swap run-push lf-tac-must lf-goal-revert drop ;
 : trv-run ( i -- ) dup ['] trv-tac lf-lift-meta-tactic1 ;
 ' trv-run tac-k-revert lf-tactic-action!
+tac-shape-hyps lf-tactic: by-revert[ constant tac-k-revert-list
+s" revert" tac-k-revert-list lf-tactic-lean!
+: trv-list-tac ( i goal -- goal' ) swap lf-tac-arg-fvars lf-goal-revert drop ;
+: trv-list ( i -- ) dup ['] trv-list-tac lf-lift-meta-tactic1 ;
+' trv-list tac-k-revert-list lf-tactic-action!

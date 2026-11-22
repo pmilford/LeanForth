@@ -1,4 +1,4 @@
-# Planted faults of tactic batch 3a (plan row TB2: src/front/tactic-syntax.fs's at:,
+# Planted faults of tactic batch 3a (plan row TB2: src/front/tactic-syntax.fs's at[,
 # src/front/tactic-core.fs's locations and lf-with-location, src/front/app-builder.fs's
 # lf-const-meta-applied, src/front/meta-tactic/assert.fs's lf-goal-replace-local-decl and
 # lf-goal-change-local-decl, symm.fs's lf-symm-expr and lf-goal-symm-at, goal.fs's rfl,
@@ -6,14 +6,14 @@
 # faults.toml as one list (scripts/mutants.py). Each is caught by the test it names
 # (tests/front/tactics/batch-d/test.fs or its check.py, else goals.fs or author.fs).
 
-# ---- tactic-syntax.fs: at:
+# ---- tactic-syntax.fs: at[ ]
 [[fault]]
 id = "tb3a-at-any-parent"
 file = "src/front/tactic-syntax.fs"
 old = '''  dup lft-own? over tac-loc @ 0= and swap tac-shape @ lft-at-shape? and ;'''
 new = '''  dup tac-loc @ 0= swap tac-shape @ lft-at-shape? and ;'''
 test = "$GFORTH tests/front/tactics/batch-d/test.fs"
-reason = "TB2 3a: at: after a block's end amends the block's last tactic (not 453)"
+reason = "TB2 3a: at[ after a block's end amends the block's last tactic (not 453)"
 
 [[fault]]
 id = "tb3a-at-twice"
@@ -21,7 +21,7 @@ file = "src/front/tactic-syntax.fs"
 old = '''  dup lft-own? over tac-loc @ 0= and swap tac-shape @ lft-at-shape? and ;'''
 new = '''  dup lft-own? swap tac-shape @ lft-at-shape? and ;'''
 test = "$GFORTH tests/front/tactics/batch-d/test.fs"
-reason = "TB2 3a: a second at: on the same step is read (not 453)"
+reason = "TB2 3a: a second at[ on the same step is read (not 453)"
 
 [[fault]]
 id = "tb3a-at-any-shape"
@@ -29,23 +29,23 @@ file = "src/front/tactic-syntax.fs"
 old = ''': lft-at-shape? ( shape|0 -- flag ) dup if shape-at @ then ;'''
 new = ''': lft-at-shape? ( shape|0 -- flag ) 0<> ;'''
 test = "$GFORTH tests/front/tactics/batch-d/test.fs"
-reason = "TB2 3a: at: after by-exact, which takes no location, is read (not 453)"
+reason = "TB2 3a: at[ after by-exact, which takes no location, is read (not 453)"
 
 [[fault]]
 id = "tb3a-at-turnstile-name"
 file = "src/front/tactic-syntax.fs"
-old = '''  2dup lft-turnstile? if 2drop tac-loc-goal lft-loc! exit then lft-loc-hyp ;'''
-new = '''  lft-loc-hyp ;'''
+old = '''  2dup lft-turnstile? if 2drop tac-loc-goal lft-loc! exit then'''
+new = '''  2dup lft-turnstile? if lft-loc-hyp exit then'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
 reason = "TB2 3a: |- read as a hypothesis's name, so the goal is never a location"
 
 [[fault]]
 id = "tb3a-at-star-more"
 file = "src/front/tactic-syntax.fs"
-old = '''  tac-loc-all lft-loc! lft-next nip if lfa-e-tac-at-names lfa-fail then ;'''
-new = '''  tac-loc-all lft-loc! lft-loc-rest ;'''
+old = ''': lft-loc-open ( i -- i ) dup lft-loc@ tac-loc-all and 0= lfa-e-tac-at-names lfa-must ;'''
+new = ''': lft-loc-open ( i -- i ) ;'''
 test = "$GFORTH tests/front/tactics/batch-d/test.fs"
-reason = "TB2 3a: at: * h2 reads h2 too (not 454 at h2)"
+reason = "TB2 3a: at[ * h2 ] reads h2 too (not 454 at h2)"
 
 [[fault]]
 id = "tb3a-at-word-name"
@@ -53,31 +53,31 @@ file = "src/front/tactic-syntax.fs"
 old = ''': lft-loc-name? ( c-addr u -- flag ) lf-pf-reserved? 0= ;'''
 new = ''': lft-loc-name? ( c-addr u -- flag ) 2drop true ;'''
 test = "$GFORTH tests/front/tactics/batch-d/test.fs"
-reason = "TB2 3a: at: _ or at: by-rfl read as a hypothesis's name (not 454)"
+reason = "TB2 3a: at[ _ ] or at[ by-rfl ] read as a hypothesis's name (not 454)"
 
 [[fault]]
 id = "tb3a-at-count-lost"
 file = "src/front/tactic-syntax.fs"
-old = '''  lft-hyp-name lfa-here lft-arg! 1 over lft-rec tac-loc# +! ;'''
-new = '''  lft-hyp-name lfa-here lft-arg! ;'''
+old = '''  lft-loc-open 1 over lft-rec tac-loc# +! ;'''
+new = '''  lft-loc-open ;'''
 test = "$GFORTH tests/front/tactics/batch-d/test.fs"
 reason = "TB2 3a: the names are stored but not counted: no hypothesis is a location"
 
 [[fault]]
 id = "tb3a-at-flag-replaced"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-loc! ( i flag -- i ) over lft-rec tac-loc tuck @ or swap ! ;'''
-new = ''': lft-loc! ( i flag -- i ) over lft-rec tac-loc ! ;'''
+old = ''': lft-loc! ( i flag -- i ) swap lft-loc-open swap over lft-rec tac-loc tuck @ or swap ! ;'''
+new = ''': lft-loc! ( i flag -- i ) swap lft-loc-open swap over lft-rec tac-loc ! ;'''
 test = "$GFORTH tests/front/tactics/batch-d/test.fs"
 reason = "TB2 3a: |- overwrites the given flag (a field written without the others)"
 
 [[fault]]
 id = "tb3a-at-text-end"
 file = "src/front/tactic-syntax.fs"
-old = '''  lft-loc-token1 lft-loc-first lft-done ;'''
-new = '''  lft-loc-token1 lft-loc-first drop ;'''
+old = '''  lft-loc-names lft-loc-some lft-done ;'''
+new = '''  lft-loc-names lft-loc-some drop ;'''
 test = "$GFORTH tests/front/tactics/batch-d/test.fs"
-reason = "TB2 3a: the step's text does not reach its at: names"
+reason = "TB2 3a: the step's text does not reach its at[ names"
 
 # ---- tactic-core.fs: locations
 [[fault]]
@@ -86,7 +86,7 @@ file = "src/front/tactic-core.fs"
 old = ''': lf-tac-loc-goal? ( i -- flag ) tcr-loc dup 0= swap tac-loc-goal and 0<> or ;'''
 new = ''': lf-tac-loc-goal? ( i -- flag ) tcr-loc tac-loc-goal and 0<> ;'''
 test = "$GFORTH tests/front/tactics/batch-d/test.fs"
-reason = "TB2 3a: with no at: the goal is no location (Lean's targets #[] true)"
+reason = "TB2 3a: with no at[ the goal is no location (Lean's targets #[] true)"
 
 [[fault]]
 id = "tb3a-loc-all-ignored"
@@ -94,7 +94,7 @@ file = "src/front/tactic-core.fs"
 old = ''': tlc-all ( -- ) tlc tlc-step @ lf-tac-loc-all? if lfa-e-tac-form lf-tac-fail then ;'''
 new = ''': tlc-all ( -- ) ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
-reason = "TB2 3a: at: * runs as no location at all instead of 99"
+reason = "TB2 3a: at[ * ] runs as no location at all instead of 99"
 
 [[fault]]
 id = "tb3a-loc-k-offset"
@@ -107,8 +107,8 @@ reason = "TB2 3a: a location name read from the step's own arguments (a rule)"
 [[fault]]
 id = "tb3a-loc-constant-unknown"
 file = "src/front/tactic-core.fs"
-old = '''  lf-tac-loc-hyp dup tcr-constant? if lfa-e-tac-form lf-tac-fail then'''
-new = '''  lf-tac-loc-hyp'''
+old = '''  dup tcr-constant? if lfa-e-tac-form lf-tac-fail then'''
+new = '''  '''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
 reason = "TB2 3a: a constant's name answers Unknown identifier (rejected where Lean says 389)"
 
@@ -134,7 +134,7 @@ file = "src/front/tactic-core.fs"
 old = '''  tlc tlc-step @ lf-tac-loc-goal? if tlc tlc-target @ execute then ;'''
 new = '''  tlc tlc-target @ execute ;'''
 test = "$GFORTH tests/front/tactics/batch-d/test.fs"
-reason = "TB2 3a: the goal rewritten even when at: names only hypotheses"
+reason = "TB2 3a: the goal rewritten even when at[ names only hypotheses"
 
 [[fault]]
 id = "tb3a-ensure-code-lost"
@@ -249,7 +249,7 @@ file = "src/front/tactics/rewrite.fs"
 old = ''': trw-rule ( k i -- ) dup ['] trw-at-local ['] trw-at-target lf-with-location 2drop ;'''
 new = ''': trw-rule ( k i -- ) trw-at-target 2drop ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
-reason = "TB2 3a: rw's at: ignored, the goal rewritten instead"
+reason = "TB2 3a: rw's at[ ignored, the goal rewritten instead"
 
 [[fault]]
 id = "tb3a-rw-local-goal-kept"
@@ -443,7 +443,7 @@ file = "src/author/declarations.fs"
 old = '''  lfa-name-token 2dup lfa-reserved-binder? 0= lfa-e-reserved-name lfa-must ;'''
 new = '''  lfa-name-token ;'''
 test = "$GFORTH tests/author/author.fs"
-reason = "TB2 3a review: a binder named by a reserved word (at:) is read, hiding the word"
+reason = "TB2 3a review: a binder named by a reserved word (at[) is read, hiding the word"
 
 [[fault]]
 id = "tb3a-binder-hole-refused"

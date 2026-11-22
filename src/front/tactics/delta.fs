@@ -6,7 +6,7 @@
 \ the target (Lean's ==) is error 448, "Tactic `delta` failed: did not
 \ delta reduce [f]" with the goal; else MVarId.replaceTargetDefEq
 \ (meta-tactic/goal.fs: @id T goal') and the new goal in the main goal's
-\ place. With a trailing at: (plan row TB2 batch 3a, withLocation:
+\ place. With a trailing at[ ] (plan row TB2 batch 3a, withLocation:
 \ tactic-core.fs's lf-with-location), each hypothesis named first
 \ (deltaLocalDecl): its local's type expanded, and a result equal to it
 \ is error 448 with " [f] at h"; a hypothesis that does change is not
@@ -16,7 +16,7 @@
 \ the goal when |- is named. Not supported yet (99) either: a term that is
 \ no constant (Lean's realizeGlobalConstNoOverloadWithInfo resolves an
 \ identifier only), several names (Lean's delta f g: a shape with several
-\ terms) and at: *.
+\ terms) and at[ * ].
 \ Lean call list: getMainGoal, getMainTarget, replaceMainGoal ->
 \ lf-lift-target1, lf-lift-local1 (tactic-core.fs) and lf-instantiate!;
 \ realizeGlobalConstNoOverloadWithInfo -> tdl-name; deltaExpand ->

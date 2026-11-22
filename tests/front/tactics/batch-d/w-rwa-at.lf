@@ -8,5 +8,5 @@ theorem w_rwa_at
   a b ≤ ¬ explicit: k
   False
 := by
-  by-rwa[ ] at: k
+  by-rwa[ ] at[ k ]
 end w_rwa_at

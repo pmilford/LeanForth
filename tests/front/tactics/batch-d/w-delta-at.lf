@@ -9,6 +9,6 @@ theorem w_delta_at
   a b ≤ explicit: h2
   a b ≤
 := by
-  ' Nat.le by-delta at: h2
+  ' Nat.le by-delta at[ h2 ]
   ' h2 by-exact
 end w_delta_at

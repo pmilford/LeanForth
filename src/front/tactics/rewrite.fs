@@ -15,14 +15,14 @@
 \   unassigned, or any other metavariable left in the proof (Lean's new
 \   goals), not supported yet (99, slice LA); replaceTargetEq (meta-
 \   tactic/goal.fs) and the new goal in the main goal's place.
-\   With a trailing at: (plan row TB2 batch 3a), each rule runs at each
+\   With a trailing at[ ] (plan row TB2 batch 3a), each rule runs at each
 \   location in turn (withLocation, tactic-core.fs's lf-with-location):
 \   a hypothesis named (getFVarId by its name, so one an earlier rule
 \   replaced is found again) is rewritten as above with its local's type
 \   as stored (rewriteLocalDeclCore), then replaceLocalDecl (meta-tactic/
 \   assert.fs: the new hypothesis of the same name where its type allows,
 \   the old one cleared unless something depends on it); then the goal
-\   when |- is named. at: * is not supported yet (99).
+\   when |- is named. at[ * ] is not supported yet (99).
 \ - by-rw[: the same, then try (with_reducible rfl): by-rfl's row
 \   (lf-tac-rfl-reducible) at reducible transparency, a Lean error undone and
 \   forgotten (lf-tac-try-lean), anything else thrown on.
@@ -98,7 +98,7 @@ require ../meta-tactic/assert.fs
 : trw-local-run ( fvar k i -- fvar' ) drop trw-local-inner trw-local-replaced ;
 : trw-local ( fvar k i -- fvar' ) ['] trw-local-run lf-tac-step-run ;
 \ withLocation per rule (evalRewriteSeq): each hypothesis named, then the
-\ goal (named, or no at:).
+\ goal (named, or no at[ ]).
 : trw-at-local ( k i fvar -- k i ) -rot 2dup 2>r trw-local drop 2r> ;
 : trw-at-target ( k i -- k i ) 2dup ['] trw-target-run lf-tac-step-run ;
 : trw-rule ( k i -- ) dup ['] trw-at-local ['] trw-at-target lf-with-location 2drop ;

@@ -1,5 +1,5 @@
 \ by-rwa[ r1 .. rn ], Lean's rwa [r1, ..., rn] (plan row TB2, tactic
-\ batch 2b; at: batch 3a), a port of Lean 4.35.0's evalRwa and evalRwaAt
+\ batch 2b; at[ ] batch 3a), a port of Lean 4.35.0's evalRwa and evalRwaAt
 \ (src/lean/Lean/Elab/Tactic/Rwa.lean:70-90 over evalRwaCore :42-57; its
 \ own elaborator, not the macro rw rs; assumption of earlier versions):
 \ focus on the main goal; rewrite rs (by-rewrite['s row on this step: its
@@ -12,7 +12,7 @@
 \ refuses (99), so they find none here; its linter's warning that rw
 \ alone closes the goal ("`rw` already closes the goal") changes no term
 \ and is not printed.
-\ - by-rwa[ rs ] at: h, one hypothesis alone (evalRwaAt, Init/
+\ - by-rwa[ rs ] at[ h ], one hypothesis alone (evalRwaAt, Init/
 \   Tactics.lean:656): the same with the rewrite getFVarId h, then each
 \   rule rewriting that hypothesis in turn, each rule given the one the
 \   rule before made (foldRWRulesSeq over rewriteLocalDeclCore:
@@ -22,8 +22,8 @@
 \   synthetic opaque metavariables assignable (else error 456, "Type
 \   mismatch: The rewritten hypothesis", with it, its type and the
 \   target), closeMainGoal with it.
-\ - any other at: (several names, |-, *: Lean's deprecated legacy macro,
-\   Init/Tactics.lean:659-661): rw rs at: ..; assumption, by-rw['s row on
+\ - any other at[ ] (several names, |-, *: Lean's deprecated legacy macro,
+\   Init/Tactics.lean:659-661): rw rs at[ .. ]; assumption, by-rw['s row on
 \   this step and then assumption's, no focus; the deprecation warning
 \   changes no term and is not printed.
 \ Lean call list: Tactic.focus -> lf-tac-focus, lf-tac-unfocus

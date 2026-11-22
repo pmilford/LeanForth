@@ -1,0 +1,99 @@
+\ Lists of names (plan row TB2, tactic batch 3b; batch-e.lean): Lean's
+\ intro, revert, clear and rename_i of several names, each list between
+\ its bracket word and ], on its line.
+\ Lean: theorem nl_intro (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         revert h k
+\         intro x y
+\         exact x
+theorem nl_intro
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-revert[ h k ]
+  by-intro[ x y ]
+  x by-exact
+end nl_intro
+
+\ intro with _ (an inaccessible hypothesis) and the bare intro (an empty
+\ list: Lean's intro, which is intro _); assumption finds them.
+\ Lean: theorem nl_holes (a b : Nat) (h : a = b) (k : b = a) : b = a := by
+\         revert h k
+\         intro _
+\         intro
+\         assumption
+theorem nl_holes
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  b a =
+:= by
+  by-revert[ h k ]
+  by-intro[ _ ]
+  by-intro[ ]
+  by-assumption
+end nl_holes
+
+\ revert takes the later locals that depend on those named (Lean's
+\ order: the context's), here k with h.
+\ Lean: theorem nl_revert_dep (a b : Nat) (h : a = b) (k : h = h) : a = b := by
+\         revert a
+\         intro x y z
+\         exact y
+theorem nl_revert_dep
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  ' h ' h = explicit: k
+  a b =
+:= by
+  by-revert[ a ]
+  by-intro[ x y z ]
+  y by-exact
+end nl_revert_dep
+
+\ clear of several: newest first in the context, so k, which depends on
+\ h, goes before h, whatever the order written.
+\ Lean: theorem nl_clear (a b : Nat) (h : a = b) (k : h = h) (j : b = a) : b = a := by
+\         clear h k
+\         exact j
+theorem nl_clear
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  ' h ' h = explicit: k  b a = explicit: j
+  b a =
+:= by
+  by-clear[ h k ]
+  ' j by-exact
+end nl_clear
+
+\ rename_i: the inaccessible hypotheses named, the newest last.
+\ Lean: theorem nl_rename (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         revert h k
+\         intro _ _
+\         rename_i x y
+\         exact x
+theorem nl_rename
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-revert[ h k ]
+  by-intro[ _ _ ]
+  by-rename-i[ x y ]
+  x by-exact
+end nl_rename
+
+\ rename_i with _: the newest stays inaccessible, the one before it is
+\ named.
+\ Lean: theorem nl_rename_hole (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         revert h k
+\         intro _ _
+\         rename_i x _
+\         exact x
+theorem nl_rename_hole
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-revert[ h k ]
+  by-intro[ _ _ ]
+  by-rename-i[ x _ ]
+  x by-exact
+end nl_rename_hole

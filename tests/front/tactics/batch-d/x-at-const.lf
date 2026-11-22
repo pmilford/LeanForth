@@ -1,4 +1,4 @@
-\ Not supported yet (plan row TB2, tactic batch 3a): at: names a
+\ Not supported yet (plan row TB2, tactic batch 3a): at[ ] names a
 \ constant, which pinned Lean refuses with 389, "Unexpected term
 \ `Nat.le_refl`; expected single reference to variable" after
 \ elaborating it: LeanForth does not elaborate a location's name, so 99,
@@ -10,5 +10,5 @@ theorem x_at_const
   a b = explicit: h  a c ≤ explicit: h2
   b c ≤
 := by
-  by-rw[ ' h ] at: Nat.le_refl
+  by-rw[ ' h ] at[ Nat.le_refl ]
 end x_at_const

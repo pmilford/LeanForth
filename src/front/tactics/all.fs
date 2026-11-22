@@ -23,6 +23,8 @@ require ./induction.fs
 require ./intro.fs
 require ./intros.fs
 require ./left.fs
+require ./refine.fs
+require ./rename-i.fs
 require ./replace.fs
 require ./revert.fs
 require ./rewrite.fs

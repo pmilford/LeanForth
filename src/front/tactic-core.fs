@@ -105,7 +105,8 @@
 \       must hold no metavariable the step made and left unassigned
 \       (filterOldMVars and logUnassignedAndAbort: error 95), then closes
 \       the goal (meta-tactic/goal.fs's lf-goal-checked-assign) and leaves
-\       the list
+\       the list (since batch 3b the check is new-goals.fs's: a hole left
+\       open is Lean's placeholder error, 461)
 \   lf-tac-intro1 ( name kind i -- )  liftMetaTactic1 of introN 1
 \       (meta-tactic/goal.fs's lf-goal-intro-n): step i's main goal's
 \       first binder introduced, named name (0: its own, inaccessible), of
@@ -130,16 +131,31 @@
 \   lf-tac-located? ( i -- flag ), lf-tac-loc# ( i -- n ), lf-tac-loc-hyp
 \       ( i k -- name ), lf-tac-loc-goal? ( i -- flag ), lf-tac-loc-all?
 \       ( i -- flag )  expandOptLocation (Location.lean:32-46) of step i's
-\       at: (tactic-syntax.fs, plan row TB2 batch 3a): whether one was
+\       at[ ] (tactic-syntax.fs, plan row TB2 batch 3a): whether one was
 \       written, its hypothesis names (name IDs, in order), whether the
-\       goal is a location (|- written, or no at:: Lean's targets #[]
-\       true) and whether it is the wildcard (at: *)
-\   lf-tac-loc-fvar ( i k -- fvar )  getFVarId of step i's location name k
-\       in the main goal's context: the newest accessible local of the
-\       name (resolveLocalName), so a hypothesis an earlier location
-\       replaced is found again; none is Lean's 455, "Unknown identifier
-\       `h`", or, when a constant has the name (Lean's 389 for it), not
-\       supported yet (99)
+\       goal is a location (|- written, or no at[ ]: Lean's targets #[]
+\       true) and whether it is the wildcard (at[ * ])
+\   lf-tac-name-fvar ( name -- fvar )  getFVarId of a name in the main
+\       goal's context: the newest accessible local of the name
+\       (resolveLocalName), so a hypothesis an earlier location replaced
+\       is found again; none is Lean's 455, "Unknown identifier `h`", or,
+\       when a constant has the name (Lean's 389 for it), not supported
+\       yet (99); lf-tac-loc-fvar ( i k -- fvar ) that of step i's
+\       location name k; lf-tac-arg-names ( i -- names ) step i's
+\       arguments in order, a run (a header's or a list's names: case's,
+\       rename_i's); lf-tac-arg-fvars ( i -- fvars ) getFVarIds of them,
+\       a run (by-revert[, by-clear[)
+\   lf-tac-elab-with-holes ( node expected suffix allow? -- e goals )
+\       elabTermWithHoles (ElabTerm.lean:150-205; plan row TB2, batch 3b):
+\       the term elaborated, ensuring expected (-1: none), with no
+\       postponing; goals (a run) its new metavariables still open, the
+\       step's (numbered from tb-from), oldest first (new-goals.fs's
+\       lf-fresh-mvars); unless allow? a natural one among them is
+\       logUnassignedAndAbort's error (lf-tac-log-unassigned: 461, 95,
+\       99); each anonymous one tagged from the main goal's tag with the
+\       suffix, a counted string (lf-tag-untagged); allow? elaborates
+\       with holes synthetic opaque and assignable
+\       (lf-with-holes-as-goals: refine', specialize)
 \   lf-with-location ( i*x i xt-local xt-target -- i*x )  withLocation
 \       (Location.lean:58-77) of step i's location: each hypothesis name
 \       in order resolved (lf-tac-loc-fvar) in the main goal's context and
@@ -179,6 +195,7 @@ require ./meta-must.fs
 require ./term-find.fs
 require ./infer.fs
 require ./meta-tactic/goal.fs
+require ./new-goals.fs
 
 \ ---- The elaborator's hooks.
 defer lf-tac-elab ( node expected postpone? -- term outcome )
@@ -277,13 +294,28 @@ end-structure
 : lf-tac-elab-ensuring ( node expected -- e )
   tuck false lf-tac-elab-term swap lf-tac-ensure-type ;
 
+\ ---- elabTermWithHoles (ElabTerm.lean:150-205, withCollectingNewGoalsFrom):
+\ elabTermEnsuringType (no expected type: elabTerm), its new
+\ metavariables collected (numbered from tb-from: the step's own), the
+\ natural ones refused unless allowed (logUnassignedAndAbort), each
+\ anonymous one tagged from the main goal's tag (tagUntaggedGoals);
+\ allowed, the elaboration runs with holes synthetic opaque and those
+\ assignable (meta-config.fs's lf-with-holes-as-goals).
+: tcr-ensuring ( node expected -- e )
+  dup 0< if false lf-tac-elab-term else lf-tac-elab-ensuring then ;
+: tcr-holes-elab ( node expected allow? -- e )
+  if ['] tcr-ensuring lf-with-holes-as-goals else tcr-ensuring then ;
+: tcr-goals ( e allow? -- goals )
+  swap tb tb-from @ lf-fresh-mvars swap if exit then
+  dup lf-natural-mvars lf-tac-log-unassigned ;
+: tcr-tagged ( goals suffix -- goals ) over swap lf-tac-main lf-goal-tag lf-tag-untagged ;
+: lf-tac-elab-with-holes ( node expected suffix allow? -- e goals )
+  swap >r dup >r tcr-holes-elab dup r> tcr-goals r> tcr-tagged ;
+
 \ ---- closeMainGoalUsing: the step's new metavariables (numbered from
-\ tb-from) that the term leaves unassigned are Lean's logUnassigned.
-: tcr-new? ( from leaf -- from flag )
-  dup lf-mvar-open? if lf-term-first@ over < 0= else drop false then ;
-: tcr-fresh-free ( e -- e )
-  dup tb tb-from @ ['] tcr-new? lf-term-holds-with? lf-tac-must
-  if lfa-e-tac-unassigned lf-tac-fail then ;
+\ tb-from) that the term leaves unassigned, logUnassignedAndAbort's
+\ (new-goals.fs).
+: tcr-fresh-free ( e -- e ) dup tb tb-from @ lf-fresh-mvars lf-tac-log-unassigned ;
 : tcr-closing ( i*x xt i -- )
   drop tb tb-want @ swap tb tb-goal @ lf-goal-tag swap execute lf-instantiate!
   tcr-fresh-free tb tb-goal @ swap lf-goal-checked-assign lf-tac-pop-main ;
@@ -308,7 +340,7 @@ end-structure
   ['] tcr-unexpected. lf-tac-inline lfa-e-tac-not-fvar lf-tac-stop ;
 : lf-tac-get-fvar ( node -- fvar ) false tcr-for-apply tcr-fvar ;
 
-\ ---- Locations: step i's at: (tactic-syntax.fs), expandOptLocation.
+\ ---- Locations: step i's at[ ] (tactic-syntax.fs), expandOptLocation.
 : tcr-loc ( i -- flags ) lf-tactic-step tac-loc @ ;
 : lf-tac-located? ( i -- flag ) tcr-loc 0<> ;
 : lf-tac-loc# ( i -- n ) lf-tactic-step tac-loc# @ ;
@@ -323,19 +355,26 @@ end-structure
 455 outcome-invalid s" Unknown identifier" lfa-code: lfa-e-tac-unknown-id
 : tcr-quoted. ( name -- outcome ) s"  " lf-pp-emit lf-tac-.name outcome-ok ;
 : tcr-constant? ( name -- flag ) lf-menv-find nip ok? ;
-: tcr-unknown ( i k -- )
-  lf-tac-loc-hyp dup tcr-constant? if lfa-e-tac-form lf-tac-fail then
+: tcr-unknown ( name -- )
+  dup tcr-constant? if lfa-e-tac-form lf-tac-fail then
   ['] tcr-quoted. lf-tac-inline lfa-e-tac-unknown-id lf-tac-stop ;
-: tcr-loc-named ( i k -- fvar true | false )
-  lf-tac-loc-hyp lf-tac-main lf-goal-view swap lf-view-named-fvar ;
-: lf-tac-loc-fvar ( i k -- fvar ) 2dup tcr-loc-named 0= if tcr-unknown then nip nip ;
+: lf-tac-name-fvar ( name -- fvar )
+  dup lf-tac-main lf-goal-view swap lf-view-named-fvar if nip else tcr-unknown then ;
+: lf-tac-loc-fvar ( i k -- fvar ) lf-tac-loc-hyp lf-tac-name-fvar ;
+\ Step i's arguments as a run (a header's or a list's names, 0 for _),
+\ and getFVarIds of them (by-revert[ and by-clear['s).
+: lf-tac-arg-names ( i -- names )
+  0 over lf-tac-args# 0 ?do over i lf-tac-arg run-push lf-tac-must loop nip ;
+: tcr-fvar+ ( run name -- run' outcome ) lf-tac-name-fvar run-push ;
+: lf-tac-arg-fvars ( i -- fvars )
+  0 swap lf-tac-arg-names ['] tcr-fvar+ run-each lf-tac-must ;
 \ withLocation's targets case, a frame per call (xt-local and xt-target
 \ take and give the caller's values, which the stack holds beneath):
 \ each name in order resolved in the main goal's context then given to
-\ xt-local, then the goal to xt-target when named or at: is absent. The
-\ wildcard (at: *) is not supported yet (99).
+\ xt-local, then the goal to xt-target when named or at[ ] is absent. The
+\ wildcard (at[ * ]) is not supported yet (99).
 begin-structure /tlc
-  field: tlc-step        \ the step whose at: is read
+  field: tlc-step        \ the step whose at[ ] is read
   field: tlc-local       \ ( i*x fvar -- i*x )
   field: tlc-target      \ ( i*x -- i*x )
 end-structure

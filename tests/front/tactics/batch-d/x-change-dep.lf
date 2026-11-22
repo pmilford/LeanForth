@@ -9,6 +9,6 @@ theorem x_change_dep
   n n = explicit: k
   n n =
 := by
-  Nat by-change at: n
+  Nat by-change at[ n ]
   ' k by-exact
 end x_change_dep

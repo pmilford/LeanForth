@@ -17,12 +17,12 @@
 \   type instantiated, then MVarId.replaceTargetDefEq (meta-tactic/
 \   goal.fs: the goal itself when nothing changed, else @id T goal') and
 \   the new goal in the main goal's place. Error 443, "'change' tactic
-\   failed, pattern". With a trailing at: (plan row TB2 batch 3a; Lean's
+\   failed, pattern". With a trailing at[ ] (plan row TB2 batch 3a; Lean's
 \   withLocation, tactic-core.fs's lf-with-location): each hypothesis
 \   named, elabChange of its local's type as stored (h.getType), then
 \   MVarId.changeLocalDecl (meta-tactic/assert.fs: reverted, its type
 \   replaced, introduced again under its name, so later steps name the
-\   new one), then the goal when |- is named. at: * is not supported yet
+\   new one), then the goal when |- is named. at[ * ] is not supported yet
 \   (99).
 \ - by-show: the unsolved goals in order, each tried in its own context
 \   (elabChange of its type as stored, then replaceTargetDefEq) from a
@@ -86,7 +86,7 @@ s" show" tac-k-show lf-tactic-lean!
 : tch-elab ( node e xt code -- p )
   2>r tuck tch-type swap 2r> tch-unify lf-instantiate! lf-open-mvar-free ;
 
-\ ---- change: the main goal's target, or a hypothesis's type (at:).
+\ ---- change: the main goal's target, or a hypothesis's type (at[ ]).
 : tch-pattern ( i e -- p ) swap 0 lf-tac-arg swap ['] tch-pair. lfa-e-change tch-elab ;
 : tch-tac ( i goal -- goal' )
   tuck lf-goal-type lf-instantiate! tch-pattern lf-goal-replace-target-defeq ;

@@ -1,4 +1,4 @@
-\ by-rw[ ] and by-rewrite[ ] at: (plan row TB2, tactic batch 3a;
+\ by-rw[ ] and by-rewrite[ ] at[ ] (plan row TB2, tactic batch 3a;
 \ batch-d.lean): Lean's rw and rewrite with a location. Each rule runs
 \ at each hypothesis named, in order, then at the goal when |- is named;
 \ the rewritten hypothesis keeps its name, so a later step (and a later
@@ -12,7 +12,7 @@ theorem at_hyp
   a b = explicit: h  a c ≤ explicit: h2
   b c ≤
 := by
-  by-rw[ ' h ] at: h2
+  by-rw[ ' h ] at[ h2 ]
   ' h2 by-exact
 end at_hyp
 
@@ -24,7 +24,7 @@ theorem at_closes
   a b = explicit: h  a 0 + b = explicit: h2
   b b =
 := by
-  by-rw[ ' h ] at: h2
+  by-rw[ ' h ] at[ h2 ]
 end at_closes
 
 \ Two hypotheses in order, rewrite (no rfl after).
@@ -36,7 +36,7 @@ theorem at_two
   a b = explicit: h  a c ≤ explicit: h2  c a ≤ explicit: h3
   b c ≤
 := by
-  by-rewrite[ ' h ] at: h2 h3
+  by-rewrite[ ' h ] at[ h2 h3 ]
   ' h2 by-exact
 end at_two
 
@@ -49,7 +49,7 @@ theorem at_goal
   a b = explicit: h  a c ≤ explicit: h2
   a c ≤
 := by
-  by-rw[ ' h ] at: h2 |-
+  by-rw[ ' h ] at[ h2 |- ]
   ' h2 by-exact
 end at_goal
 
@@ -63,7 +63,7 @@ theorem at_rules
   a b = explicit: h  c b = explicit: k  a d ≤ explicit: h2
   c d ≤
 := by
-  by-rw[ ' h ' k <- ] at: h2
+  by-rw[ ' h ' k <- ] at[ h2 ]
   ' h2 by-exact
 end at_rules
 
@@ -76,6 +76,6 @@ theorem at_turnstile
   a b = explicit: h  c a ≤ explicit: k
   c a ≤
 := by
-  by-rw[ ' h ] at: k ⊢
+  by-rw[ ' h ] at[ k ⊢ ]
   ' k by-exact
 end at_turnstile

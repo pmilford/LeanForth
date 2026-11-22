@@ -8,5 +8,5 @@ theorem w_rw_at
   a b = explicit: h  c d ≤ explicit: h2
   c d ≤
 := by
-  by-rw[ ' h ] at: h2
+  by-rw[ ' h ] at[ h2 ]
 end w_rw_at

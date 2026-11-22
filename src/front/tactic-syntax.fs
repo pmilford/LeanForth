@@ -120,8 +120,8 @@ begin-structure /tac
   field: tac-entries
   field: tac-shape        \ the shape it was read by (lft-read-as), else 0
   field: tac-word         \ its word when not its kind's (a counted string), else 0
-  field: tac-loc          \ its at: (lft-w-at): 0 none, else tac-loc-* flags
-  field: tac-loc#         \ the hypothesis names of its at:, after its arguments
+  field: tac-loc          \ its at[ ] (lft-w-at): 0 none, else tac-loc-* flags
+  field: tac-loc#         \ the hypothesis names of its at[ ], after its arguments
 end-structure
 begin-structure /targ
   field: targ-x
@@ -233,6 +233,8 @@ action-of lfa-declaration-fresh constant lft-fresh-before
   2dup lft-hole? if 2drop lft-inaccessible exit then lft-no-word lft-hypothesis ;
 \ k names after the word, each on its line (a missing one: error 2).
 : lft-names-after ( i k -- i ) 0 ?do lfa-name-token lft-given loop ;
+\ The next token on the line, current (none: an empty string).
+: lft-next ( -- c-addr u ) parse-name dup if 2dup lfa-token! then ;
 
 \ Shapes (tactic plug-in design 3.2; plan row TB2, tactic batch 2): how a
 \ tactic word is read, as data, by the built-in words and by those a
@@ -254,18 +256,27 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 \       right or, followed by <-, right to left;
 \   tac-shape-list  by-x[ ... ]: the same, its values terms (no <-:
 \       Lean's exacts [e1, e2]);
+\   tac-shape-binders  by-x[ NAMES ]: no value; the names up to ], each a
+\       hypothesis as by-intro:'s (_ an inaccessible one), none at all
+\       allowed (by-intro['s; Lean's bare intro); tac-shape-binders+ the
+\       same with one name at least (by-rename-i['s);
+\   tac-shape-hyps  by-x[ NAMES ]: no value; the names up to ] of
+\       hypotheses the goal has, one at least, _ and LeanForth words
+\       refused (459; by-revert['s, by-clear['s);
 \   tac-shape-at ( shape -- shape )  the shape made to take a trailing
-\       at: as well (below): tac-shape-plain-at and tac-shape-term-at are
+\       at[ as well (below): tac-shape-plain-at and tac-shape-term-at are
 \       tac-shape-plain's and tac-shape-term's so (by-symm's, by-change's,
 \       by-delta's), and tac-shape-rules takes one (rw's, rwa's).
-\ Arguments, in order: the values, then the names. Several names to the
-\ end of the line are not a shape yet: a one-line text writes the next
-\ tactic's values there (by-intro: h h by-exact).
+\ Arguments, in order: the values, then the names. A list of names sits
+\ between its bracket word and ], on the word's line (the owner's rule,
+\ 2026-11-22: a list never ends at the end of a line; one that reaches
+\ it before its ] stops the run there, 458, as a ( comment must end on
+\ its line); an empty list Lean's parser refuses is 460.
 begin-structure /lft-shape
   field: shape-want      \ the values before the word
   field: shape-names     \ the names after it
   field: shape-build     \ ( v1 .. vn i shape -- )
-  field: shape-at        \ true: a trailing at: may follow (tac-shape-at)
+  field: shape-at        \ true: a trailing at[ may follow (tac-shape-at)
 end-structure
 : lft-shape ( n k xt -- shape )
   align here /lft-shape allot dup /lft-shape erase
@@ -281,6 +292,29 @@ end-structure
 : lft-build-this ( v1 .. vn i shape -- )
   lft-values drop s" this" lft-hypothesis lft-done ;
 : lft-build-rules ( i shape -- ) drop lft-opened ;
+\ Lists of names (plan row TB2, tactic batch 3b): the tokens after the
+\ word up to ], read by lft-list-name: on the word's line (458 at the
+\ last token read when the line ends first).
+458 outcome-invalid s" a list of names ends with ] on its line"
+  lfa-code: lfa-e-tac-list-end
+459 outcome-invalid s" by-revert[ and by-clear[ take names of hypotheses up to ]"
+  lfa-code: lfa-e-tac-hyp-names
+460 outcome-invalid s" this list takes one name at least" lfa-code: lfa-e-tac-list-empty
+: lft-closer? ( c-addr u -- flag ) s" ]" lfa-token= ;
+: lft-list-token ( -- c-addr u ) lft-next dup 0<> lfa-e-tac-list-end lfa-must ;
+: lft-list-name ( -- c-addr u true | false )
+  lft-list-token 2dup lft-closer? if 2drop false else true then ;
+\ A hypothesis named: no LeanForth word (_ is a reserved word too).
+: lft-loc-name? ( c-addr u -- flag ) lf-pf-reserved? 0= ;
+: lft-name-id ( c-addr u -- name ) lfa-word-name lfa-intern ;
+: lft-hyp-ref ( i c-addr u -- i )
+  2dup lft-loc-name? lfa-e-tac-hyp-names lfa-must lft-name-id lfa-here lft-arg+ ;
+: lft-binders] ( i -- i ) begin lft-list-name while lft-given repeat ;
+: lft-hyps] ( i -- i ) begin lft-list-name while lft-hyp-ref repeat ;
+: lft-some ( i -- i ) dup lft-rec tac-count @ 0> lfa-e-tac-list-empty lfa-must ;
+: lft-build-binders ( i shape -- ) drop lft-binders] lft-done ;
+: lft-build-binders+ ( i shape -- ) drop lft-binders] lft-some lft-done ;
+: lft-build-hyps ( i shape -- ) drop lft-hyps] lft-some lft-done ;
 : tac-shape-terms ( n -- shape ) 0 ['] lft-build-terms lft-shape ;
 : tac-shape-term-names ( n k -- shape ) ['] lft-build-names lft-shape ;
 : tac-shape-term-this ( n -- shape ) 0 ['] lft-build-this lft-shape ;
@@ -293,6 +327,9 @@ end-structure
 2 1 tac-shape-term-names constant tac-shape-decl
 0 0 ' lft-build-rules lft-shape tac-shape-at constant tac-shape-rules
 0 0 ' lft-build-rules lft-shape constant tac-shape-list
+0 0 ' lft-build-binders lft-shape constant tac-shape-binders
+0 0 ' lft-build-binders+ lft-shape constant tac-shape-binders+
+0 0 ' lft-build-hyps lft-shape constant tac-shape-hyps
 \ Whether the open block is a word's bracket, and one of rules.
 \ (A block read by no shape, by's or a header's, has shape 0.)
 : lft-bracket-shape? ( shape|0 -- flag ) dup if shape-build @ ['] lft-build-rules = then ;
@@ -353,7 +390,6 @@ end-structure
 
 \ Headers: TAG NAMES... => on the opener's line. A line that ends first
 \ stops the run at the last token read (=> is missing).
-: lft-next ( -- c-addr u ) parse-name dup if 2dup lfa-token! then ;
 : lft-header-token ( -- c-addr u ) lft-next dup 0<> lfa-e-tac-header lfa-must ;
 : lft-arrow? ( c-addr u -- flag ) s" =>" lfa-token= ;
 : lft-bar? ( c-addr u -- flag ) s" |" lfa-token= ;
@@ -401,22 +437,23 @@ end-structure
 : lft-w-by-end ( -- ) lft-ready 0 lft-takes lft-alt-end lft-kind lft-block-end lft-from! ;
 : lft-w-arrow ( -- ) lft-in-proof lfa-e-tac-header lfa-fail ;
 
-\ Locations (plan row TB2, tactic batch 3a; Lean's location, " at"
-\ (locationWildcard <|> locationHyp), Elab/Tactic/Location.lean:32-40's
-\ expandLocation): at: amends the step read just before it, which must
-\ be a tactic of the open block whose shape takes a location and that has
-\ none yet (else 453), with no value left (86). Its tokens to the end of
-\ the line: * alone (Lean's wildcard), or hypothesis names in order with
-\ |- or ⊢ among them for the goal (Lean's locationType), one at least
-\ (else 454, as for _, a LeanForth word or * among others). The names,
-\ name IDs at their places, follow the step's arguments (tac-loc# of
-\ them), its flags are tac-loc's, and its text ends past the last token.
-1 constant tac-loc-given     \ at: was written
+\ Locations (plan row TB2, tactic batch 3a, written at[ ... ] since
+\ batch 3b; Lean's location, " at" (locationWildcard <|> locationHyp),
+\ Elab/Tactic/Location.lean:32-40's expandLocation): at[ amends the step
+\ read just before it, which must be a tactic of the open block whose
+\ shape takes a location and that has none yet (else 453), with no value
+\ left (86). Its list up to ] (lft-list-name: on its line, else 458): *
+\ alone (Lean's wildcard), or hypothesis names in order with |- or ⊢
+\ among them for the goal (Lean's locationType), one at least (else 454,
+\ as for _, a LeanForth word, a token after * or * after another). The
+\ names, name IDs at their places, follow the step's arguments (tac-loc#
+\ of them), its flags are tac-loc's, and its text ends past the ].
+1 constant tac-loc-given     \ at[ was written
 2 constant tac-loc-goal      \ |- or ⊢ among its names
-4 constant tac-loc-all       \ at: *
-453 outcome-invalid s" at: follows no tactic word that takes a location"
+4 constant tac-loc-all       \ at[ * ]
+453 outcome-invalid s" at[ follows no tactic word that takes a location"
   lfa-code: lfa-e-tac-at
-454 outcome-invalid s" at: takes hypothesis names and |-, or * alone, on its line"
+454 outcome-invalid s" at[ takes hypothesis names and |-, or * alone, up to ]"
   lfa-code: lfa-e-tac-at-names
 : lft-at-shape? ( shape|0 -- flag ) dup if shape-at @ then ;
 : lft-own? ( addr -- flag ) tac-parent @ lft-open = ;
@@ -424,26 +461,29 @@ end-structure
   dup lft-own? over tac-loc @ 0= and swap tac-shape @ lft-at-shape? and ;
 : lft-located ( -- i )
   lf-tactic-count 1- dup lft-rec lft-locatable? lfa-e-tac-at lfa-must ;
-: lft-loc! ( i flag -- i ) over lft-rec tac-loc tuck @ or swap ! ;
+\ Step i's flags; nothing may follow a *.
+: lft-loc@ ( i -- flags ) lft-rec tac-loc @ ;
+: lft-loc-open ( i -- i ) dup lft-loc@ tac-loc-all and 0= lfa-e-tac-at-names lfa-must ;
+: lft-loc! ( i flag -- i ) swap lft-loc-open swap over lft-rec tac-loc tuck @ or swap ! ;
 : lft-turnstile? ( c-addr u -- flag )
   2dup s" |-" lfa-token= if 2drop true else s" ⊢" lfa-token= then ;
-\ (_ is a reserved word too)
-: lft-loc-name? ( c-addr u -- flag ) lf-pf-reserved? 0= ;
-: lft-hyp-name ( c-addr u -- name )
-  2dup lft-loc-name? lfa-e-tac-at-names lfa-must lfa-word-name lfa-intern ;
+: lft-star? ( c-addr u -- flag ) s" *" lfa-token= ;
 : lft-loc-hyp ( i c-addr u -- i )
-  lft-hyp-name lfa-here lft-arg! 1 over lft-rec tac-loc# +! ;
+  2dup lft-loc-name? lfa-e-tac-at-names lfa-must lft-name-id lfa-here lft-arg!
+  lft-loc-open 1 over lft-rec tac-loc# +! ;
+\ * only first: nothing named yet.
+: lft-loc-fresh? ( i -- flag )
+  dup lft-loc@ tac-loc-given = swap lft-rec tac-loc# @ 0= and ;
+: lft-loc-star ( i -- i )
+  dup lft-loc-fresh? lfa-e-tac-at-names lfa-must tac-loc-all lft-loc! ;
 : lft-loc-token ( i c-addr u -- i )
-  2dup lft-turnstile? if 2drop tac-loc-goal lft-loc! exit then lft-loc-hyp ;
-: lft-loc-rest ( i -- i ) begin lft-next dup while lft-loc-token repeat 2drop ;
-: lft-loc-all ( i -- i )
-  tac-loc-all lft-loc! lft-next nip if lfa-e-tac-at-names lfa-fail then ;
-: lft-loc-first ( i c-addr u -- i )
-  2dup s" *" lfa-token= if 2drop lft-loc-all exit then lft-loc-token lft-loc-rest ;
-: lft-loc-token1 ( -- c-addr u ) lft-next dup 0<> lfa-e-tac-at-names lfa-must ;
+  2dup lft-turnstile? if 2drop tac-loc-goal lft-loc! exit then
+  2dup lft-star? if 2drop lft-loc-star exit then lft-loc-hyp ;
+: lft-loc-names ( i -- i ) begin lft-list-name while lft-loc-token repeat ;
+: lft-loc-some ( i -- i ) dup lft-loc-fresh? 0= lfa-e-tac-at-names lfa-must ;
 : lft-w-at ( -- )
   lft-ready 0 lft-takes lft-located tac-loc-given lft-loc!
-  lft-loc-token1 lft-loc-first lft-done ;
+  lft-loc-names lft-loc-some lft-done ;
 
 \ := by opens the proof; its end NAME needs every block closed and no
 \ value left, and then the tactics run (lf-tactic-proof-end; without the
@@ -504,4 +544,4 @@ defer lf-tactic-proof-end ( -- )
 ' lft-w-rewrite lfa-natural! by-rewrite[
 ' lft-w-bracket-end lfa-natural! ]
 ' lft-w-symm lfa-natural! <-
-' lft-w-at lfa-natural! at:
+' lft-w-at lfa-natural! at[
