@@ -48,12 +48,15 @@ end-structure
 : mrp ( -- frame ) mrp-frames slab-last ;
 
 \ ---- The stack of goals to visit, and the goals kept.
-: mrp-push1 ( goal -- ) mrp mrp-todo @ swap run-push lf-must mrp mrp-todo ! ;
-: mrp-push ( goals -- ) dup run-count begin ?dup while 1- 2dup run@ mrp-push1 repeat drop ;
+\ The run held at addr, then goal.
+: mrp-onto ( addr goal -- ) over @ swap run-push lf-must swap ! ;
+: mrp-push1 ( goal -- ) mrp mrp-todo swap mrp-onto ;
+: mrp-push ( goals -- )
+  dup run-count begin ?dup while 1- 2dup run@ mrp-push1 repeat drop ;
 : mrp-last ( -- n ) mrp mrp-todo @ run-count 1- ;
 : mrp-pop ( -- goal )
   mrp mrp-todo @ mrp-last 2dup run@ >r run-take lf-must mrp mrp-todo ! r> ;
-: mrp-keep ( goal -- ) mrp mrp-acc @ swap run-push lf-must mrp mrp-acc ! ;
+: mrp-keep ( goal -- ) mrp mrp-acc swap mrp-onto ;
 
 \ ---- One visit: f from a saved state, its goals visited next.
 : mrp-f ( -- flag ) mrp mrp-goal @ mrp mrp-xt @ execute dup if swap mrp mrp-new ! then ;
@@ -65,8 +68,10 @@ end-structure
 : mrp-loop ( -- ) begin mrp-more? while mrp-pop mrp-visit repeat ;
 \ What is left unvisited follows, then the goals assigned since go.
 : mrp-rest ( -- ) begin mrp mrp-todo @ run-count while mrp-pop mrp-keep repeat ;
-: mrp-result ( -- goals ) mrp-rest mrp mrp-acc @ ['] lf-meta-unassigned? run-filter lf-must ;
-: mrp-fill ( goals xt n -- ) mrp mrp-left ! mrp mrp-xt ! 0 mrp mrp-todo ! 0 mrp mrp-acc ! mrp-push ;
+: mrp-result ( -- goals )
+  mrp-rest mrp mrp-acc @ ['] lf-meta-unassigned? run-filter lf-must ;
+: mrp-fill ( goals xt n -- )
+  mrp mrp-left ! mrp mrp-xt ! 0 mrp mrp-todo ! 0 mrp mrp-acc ! mrp-push ;
 : mrp-run ( goals xt n -- goals' ) mrp-fill mrp-loop mrp-result ;
 : lf-goals-repeat-n ( goals xt n -- goals' ) mrp-frames ['] mrp-run lf-with-record ;
 : lf-goals-repeat ( goals xt -- goals' ) lf-repeat-iters lf-goals-repeat-n ;

@@ -574,8 +574,8 @@ reason = "9.4.8l-I C3 MVarId.rewrite: an Iff rule is not refused (99) though pro
 [[fault]]
 id = "lib-rw-symm-ignored"
 file = "src/front/meta-tactic/rewrite.fs"
-old = ''': mrw-symm-refused ( -- ) mrw mrw-symm @ if lfa-e-tac-form lf-tac-stop then ;'''
-new = ''': mrw-symm-refused ( -- ) ;'''
+old = ''': mrw-symmetric ( -- ) mrw mrw-symm @ if mrw-reversed then ;'''
+new = ''': mrw-symmetric ( -- ) ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l-I C3 MVarId.rewrite: symm? is ignored, so a right-to-left rewrite asked for rewrites left to right"
 

@@ -1215,6 +1215,54 @@ k : a ≤ b, use k.
   by-replace: h ' h by-exact` (`rp_ge`: the new h is b ≥ a, the old one
   gone); Lean: `replace h : b ≥ a := h`.
 
+**Tactic batch 2b** (plan row TB2, 2026-11-21; `src/front/tactics/rwa.fs`,
+`exacts.fs`, `by-cases.fs`, `by-contra.fs`, `symm.fs`, `and-intros.fs`,
+`case.fs`, `rewrite.fs`; tested on the branch, compared with pinned Lean
+node for node by `tests/front/tactics/batch-c/check.py`, examples from
+`tests/front/tactics/batch-c/`). Stack positions: top is the last value
+written.
+
+- `' r <-` inside `by-rw[ ]` or `by-rewrite[ ]`: the rule r right to left.
+  Mathematically, from a = b rewrite b into a. With `h : a = b`,
+  `by-rw[ ' Nat.add_zero ' h <- ]` proves `b + 0 = a` (`rs_hyp`); Lean:
+  `rw [Nat.add_zero, ← h]`. `<-` takes the rule just written (top) and
+  leaves nothing; with no rule before it, 86; outside a bracket of rules,
+  83. The pattern b not found: 215. An `Iff` rule either way: 99.
+- `by-rwa[ r1 .. rn ]`: rewrite, then close the goal by `rfl` or by a
+  hypothesis. With `h : a = b`, `h2 : b = c`: `by-rwa[ ' h ]` proves
+  `a = c` (`ra_basic`); Lean: `rwa [h]`. Neither closes it: 381. After the
+  rewrite a goal of another relation than `=` (such as `≤`) is not
+  supported yet (93: `by-rfl` stops there).
+- `by-exacts[ e1 .. en ]`: `e1 by-exact`, .., `en by-exact`, then no goal
+  may be left (89). After `' And.intro by-apply`, `by-exacts[ ' h1 ' h2 ]`
+  (`ex_two`); Lean (Batteries): `exacts [h1, h2]`. No `<-` inside (83).
+- `p by-cases: NAME` (top `p`, a proposition): two goals, `pos` with
+  NAME : p and `neg` with NAME : ¬p. Mathematically: either p holds or it
+  does not. `a b ≤ by-cases: h ' h by-exact ' h by-absurd ' h1 by-exact`
+  (`bc_dec`); Lean: `by_cases h : a ≤ b`. The proof uses p's `Decidable`
+  instance, or, when none exists, `Classical.propDecidable`, which needs
+  the axiom `Classical.choice` (`bc_classical` on `Nonempty Nat`: the
+  report names it). p no proposition (`a by-cases: h` with `a : Nat`): 99.
+- `by-contra: NAME` and `by-contra`: proof by contradiction, NAME (or
+  `this`) the negation of the goal, the new goal `False`; for a goal ¬q,
+  NAME : q. `by-contra: k ' k by-absurd ' h by-exact` (`bk_dec`); Lean
+  (Batteries): `by_contra k`. `by-contra-core` is its first part alone
+  (Lean's `by_contra_core`), the goal p → False, `by-intro:` naming it.
+  A classical goal uses `Classical.byContradiction` (axiom
+  `Classical.choice`).
+- `by-symm`: the goal a = b becomes b = a; also for `↔`, `≠`, `HEq`, `∧`
+  and `∨` (Init's `@[symm]` lemmas). `by-symm ' h by-exact` proves `b = a`
+  from `h : a = b` (`sy_eq`); Lean: `symm`. No relation of two arguments
+  (`¬ p`): 451; another relation (`≤`): 99.
+- `by-and-intros`: every goal that is an `∧` split into its parts, again
+  and again, the new goals named `refine_1`, `refine_2`. `by-and-intros
+  ' h1 by-exact ' h2 by-exact ' h3 by-exact` proves `a ≤ b ∧ b ≤ a ∧ a ≤
+  a` (`ai_nested`); Lean: `and_intros`.
+- `by-next NAMES... =>` .. `by-end`: the block works on the main goal, its
+  newest hidden hypotheses named NAMES; Lean: `next k => ...`. It is
+  `by-case: _ NAMES... =>` (the tag `_` means the main goal, Lean's `case
+  _`), and its step is a `by-case:` step in the step log. No goal: 90.
+
 A statement's hypothesis is written with a tick when it stands alone,
 `' h by-apply`, because its type is not unfolded to count its arguments
 (error 73).
@@ -1258,14 +1306,24 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-end` | `( -- )` | ordinary | read: closes the innermost `by-induction-with` or `by-case:` block | Closes the block; with none open, error 83. | indentation |
 | `by-rw[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: a block step. Run: rewrites the goal with each rule, then tries `by-rfl` | Starts a list of rewrite rules; every value built until `]` is a rule. | `rw [` |
 | `by-rewrite[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, no `by-rfl` | The same without the closing `rfl`. | `rewrite [` |
-| `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules, in order; closes it | Ends the rule list of `by-rw[` or `by-rewrite[`; with none open, error 83. | `]` |
-| `by-case: CASE-TAG HYP-NAME ...  =>` | `( -- )` | parsing: as `\|`; closed by `by-end` | read: a case block. Run: takes the goal of that tag (or whose tag ends or starts with it), renames its hidden hypotheses with the names, newest first | Works on one case after `by-induction`; errors 210 (no such tag), 211 (too many names), 89 (goal left at `=>`). | `case tag names =>` |
+| `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules (or terms), in order; closes it | Ends the list of `by-rw[`, `by-rewrite[`, `by-rwa[` or `by-exacts[`; with none open, error 83. | `]` |
+| `<-` | `( r -- )` (top: the rule just written) | ordinary; only inside `by-rw[`, `by-rewrite[` or `by-rwa[` (83 elsewhere), after a rule (86) | read: the values so far become the bracket's rules, the last one marked right to left | Rewrites with r from right to left. | `← r` |
+| `by-rwa[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, then `rfl` (reducible) or else `assumption` | Rewrites, then closes the goal; neither closes it: 381; after the rewrite a relation other than `=`: 93. | `rwa [` |
+| `by-exacts[` | `( -- )` | ordinary; opens a term block that `]` closes (no `<-`) | read: a step whose terms are the values up to `]`. Run: `by-exact` of each, then no goal may be left | Closes the goals one term each; a mismatch: 96; a goal left: 89. | `exacts [` (Batteries) |
+| `by-cases: HYP-NAME` | `( p -- )` (top: p) | parsing: one name after it, on its line | read: a step holding p; HYP-NAME a hypothesis word. Run: assigns the main goal `dite p` of two new goals, `pos` (HYP-NAME : p) and `neg` (HYP-NAME : ¬p), which take its place | Splits on whether p holds; p's `Decidable` instance, else `Classical.propDecidable` (axiom `Classical.choice`); p no proposition or `_`: 99. | `by_cases HYP-NAME : p` |
+| `by-contra: HYP-NAME` | `( -- )` | parsing: one name after it, on its line | read: a step; HYP-NAME a hypothesis word. Run: `by-contra-core`, then `by-intro:` of HYP-NAME on the same step | Proves the goal p from HYP-NAME : ¬p and the goal `False` (for p = ¬q, HYP-NAME : q); `rfl`: 99. | `by_contra HYP-NAME` (Batteries) |
+| `by-contra` | `( -- )` | ordinary; `this` a hypothesis word | read: a step. Run: as `by-contra: this` | The same, the hypothesis named `this`. | `by_contra` (Batteries) |
+| `by-contra-core` | `( -- )` | ordinary | read: a step. Run: the goal ¬q becomes q → False, else p becomes ¬p → False (`Decidable.byContradiction`, else `Classical.byContradiction`) | The first half of `by-contra:`; p no proposition: 99. | `by_contra_core` (Batteries) |
+| `by-symm` | `( -- )` | ordinary | read: a step. Run: assigns the main goal the relation's `@[symm]` lemma applied to a new goal, which takes its place | Turns a = b into b = a (also `↔`, `≠`, `HEq`, `∧`, `∨`); no relation of two arguments: 451; another relation: 99. | `symm` |
+| `by-and-intros` | `( -- )` | ordinary | read: a step. Run: every goal that is an `∧`, and each part in turn, assigned `And.intro` of two new goals tagged `refine_1` and `refine_2` | Splits every `∧` goal into its parts; no error of its own. | `and_intros` |
+| `by-next HYP-NAME ... =>` | `( -- )` | parsing: as `by-case:` with no tag; closed by `by-end` | read: a `by-case:` step whose tag is `_`. Run: as `by-case: _` | Works on the main goal, its hidden hypotheses renamed; no goal: 90. | `next names =>` |
+| `by-case: CASE-TAG HYP-NAME ...  =>` | `( -- )` | parsing: as `\|`; closed by `by-end` | read: a case block. Run: takes the goal of that tag (or whose tag ends or starts with it; `_`: the main goal), renames its hidden hypotheses with the names, newest first | Works on one case after `by-induction`; errors 210 (no such tag), 211 (too many names), 89 (goal left at `=>`), 90 (`_` with no goal). | `case tag names =>` |
 | `by-decide` | `( -- )` | ordinary | read: a step. Run: assigns the main goal `of_decide_eq_true P I h` after `Decidable.decide P I` reduced to `true`, removes the goal | Proves a closed decidable statement (`2 + 2 = 4`, `10 < 20`, `¬`, `∧`, `∨`, Bool equality) by evaluation; false: error 250; a free variable in the goal: 251; a metavariable: 252; evaluation stuck: 253; no `Decidable` instance: 122; an exponent above 256, or a `let` in a goal with a free variable: 93 (not supported yet). | `decide` |
 | `**` `by-omega` | `( -- )` | designed | n/a | Linear arithmetic over `Nat` and `Int`. | `omega` |
 | `by-native-decide` | `( -- )` | ordinary; always refused, not supported (error 254, exit 2): it rests on `Lean.ofReduceBool` | read: a step. Run: error 254 | Never proves anything: Lean's `native_decide` trusts the compiler through an axiom LeanForth does not accept. | `native_decide` |
 | `**` `by-try`, `by-first`, `<;>` | | combinators; sketched in FE1G §4 and S2 §3 (the trail), no word fixed | n/a | n/a | `try`, `first`, `<;>` |
 | `**` `by-alt: CASE-TAG HYP-NAME ... =>` | | an open question of the design: spelling alternatives without `\|` | n/a | n/a | `\| tag names =>` |
-| `**` `by-refine`, `by-subst`, `by-cases` and others | | named in FE2 §3/FE5 as later tactics; no spelling is fixed (plan row TB2 lists the batches) | n/a | n/a | `refine`, `subst`, ... |
+| `**` `by-refine`, `by-subst` and others | | named in FE2 §3/FE5 as later tactics; no spelling is fixed (plan row TB2 lists the batches) | n/a | n/a | `refine`, `subst`, ... |
 
 Designs: [FE1G_TACTICS.md](../design/FE1G_TACTICS.md) (the first tactics,
 §3.2 words, §7 FE1i hook), [FE1I_AUTOMATION.md](../design/FE1I_AUTOMATION.md)

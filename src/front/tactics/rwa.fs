@@ -15,7 +15,7 @@
 \ Lean call list: Tactic.focus -> lf-tac-focus, lf-tac-unfocus
 \ (tactic-run.fs); evalTactic rewrite -> lf-tac-eval of tac-k-rewrite;
 \ with_reducible rfl -> lf-tac-rfl-reducible; <|> -> lf-tac-first-of;
-\ assumption -> lf-tac-row of tac-k-assumption.
+\ assumption -> tactics/assumption.fs's tas-row.
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own.
 
@@ -27,8 +27,7 @@ require ./rfl.fs
 tac-shape-rules lf-tactic: by-rwa[ constant tac-k-rwa
 s" rwa" tac-k-rwa lf-tactic-lean!
 
-: trwa-assumption ( -- ) tac-k-assumption lf-tac-row ;
-: trwa-close ( -- ) ['] trwa-assumption ['] lf-tac-rfl-reducible 2 lf-tac-first-of ;
+: trwa-close ( -- ) ['] tas-row ['] lf-tac-rfl-reducible 2 lf-tac-first-of ;
 : trwa-core ( i -- ) tac-k-rewrite lf-tac-eval trwa-close ;
 : trwa-run ( i -- ) lf-tac-focus swap trwa-core lf-tac-unfocus ;
 ' trwa-run tac-k-rwa lf-tactic-action!

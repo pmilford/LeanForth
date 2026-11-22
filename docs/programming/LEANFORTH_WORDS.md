@@ -521,6 +521,7 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 381 | invalid | Tactic `assumption` failed |
 | 382 | invalid | Tactic `constructor` failed: target is not an inductive datatype |
 | 383 | invalid | Tactic `constructor` failed: no applicable constructor found |
+| 450 | invalid | The main goal is |
 | 443 | invalid | 'change' tactic failed, pattern |
 | 444 | invalid | 'show' tactic failed, pattern |
 | 445 | invalid | 'show' tactic failed, no goals unify with the given pattern. |
@@ -537,8 +538,9 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 388 | invalid | Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors |
 | 447 | invalid | 'specialize' requires a term of the form `h x_1 .. x_n` where `h` appears in the local context |
 | 446 | invalid | goal index `2` is out of bounds |
+| 451 | invalid | Symmetry lemmas only apply to binary relations, not |
 
-What follows the first line of eight of these messages (the table gives the first line, as `src/author/errors.fs` holds it):
+What follows the first line of ten of these messages (the table gives the first line, as `src/author/errors.fs` holds it):
 
 - 122: Meta's synthInstance, the tactic library's: mkAppM's, mkAppOptM's and apply's instance binders, `by-decide`'s instance; the type indented and Lean's hint follow.
 - 250: the proposition indented, then "is false".
@@ -548,6 +550,9 @@ What follows the first line of eight of these messages (the table gives the firs
 - 443 and 444: the pattern indented, "is not definitionally equal to target", the target indented.
 - 445: a blank line, "In the first goal, the pattern", the pattern indented, "is not definitionally equal to the target", the target indented, "(Errors for other goals omitted)".
 - 448: the names on the message's own line, ` [f]`, then the goal after a blank line.
+- 450: guard_target's, inside by-contra-core's first alternative, which the next alternative
+  replaces (never reported: the last alternative's error is).
+- 451: the target indented.
 
 Codes come in ranges (`src/author/errors.fs`): 1 to 73 the words, the
 runner, the stores and natural text read (FE1a); 74 to 79 elaboration and
@@ -555,7 +560,9 @@ the hand-over (FE1c, FE1e, FE1f; 74 to 77 used); 80 to 99 tactic proofs
 (FE1g; all used); 440 to 449 the tactics of batches TB1 and TB2
 (`clear`'s 440 to 442 in `src/front/meta-tactic/goal.fs`; 443 to 445
 `change` and `show`, `tactics/change.fs`; 446 `swap`; 447 `specialize`;
-448 `delta`; 449 `contradiction`, `meta-tactic/contradiction.fs`);
+448 `delta`; 449 `contradiction`, `meta-tactic/contradiction.fs`; 450
+`by-contra-core`'s guard, `tactics/by-contra.fs`, and 451 `symm`,
+`meta-tactic/symm.fs`, from batch 2b);
 250 to 254 `by-decide` and `by-native-decide`
 (`src/front/tactics/decide.fs`, plan S3a; 255 to 269 kept for S3b); 122
 Meta's synthInstance found none (the tactic library's "failed to

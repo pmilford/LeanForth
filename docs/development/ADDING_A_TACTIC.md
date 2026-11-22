@@ -54,7 +54,9 @@ s" assumption" tac-k-assumption lf-tactic-lean!
   by-have:'s, by-let:'s, by-suffices:'s and by-replace:'s), `n tac-shape-term-this`
   (n values and the hypothesis `this`, Lean's name when none is given),
   `tac-shape-rules` (`by-x[ ... ]`: the values up to `]` are the rules,
-  by-rw['s). The step's arguments are the values, then the names
+  by-rw['s; a rule followed by `<-` is right to left, which
+  `lf-tac-arg-symm? ( i k -- flag )` tells), `tac-shape-list` (the same
+  bracket of terms, no `<-`: by-exacts['s). The step's arguments are the values, then the names
   (`lf-tac-arg`; a name is 0 for `_`). Lean's `have k : T := e` is
   `T e by-have: k`:
   ```forth
@@ -65,9 +67,21 @@ s" assumption" tac-k-assumption lf-tactic-lean!
 - A tactic that Lean writes as another tactic run first runs that row on
   its own step with `lf-tac-eval ( i kind -- )`: `tactics/replace.fs`
   runs by-have:'s row, then clears the old hypothesis (Lean's
-  evalReplace). A word that would only run existing rows in order (a
-  pure macro) has no defining word yet: no tactic ported so far is one
-  in pinned Lean (`rwa` has its own elaborator in 4.35.0).
+  evalReplace); `lf-tac-row ( kind -- )` is the same on the step running
+  (an alternative of `lf-tac-first-of`: `tactics/rwa.fs`).
+- A tactic Lean writes as a macro of other tactics run one after the other
+  (`t1; t2`), each reading the step's own arguments, is one line:
+  `lf-tactic-seq: ( kind1 .. kindn n shape "spelling" -- kind )` registers
+  the word as `lf-tactic:` does and gives it a run word that runs kind1's
+  row, then kind2's, .. kindn's, on its step (`tactics/by-contra.fs`,
+  Batteries' `by_contra h`, the macro `by_contra_core; rintro h`):
+  ```forth
+  tac-k-by-contra-core tac-k-intro 2 tac-shape-name
+    lf-tactic-seq: by-contra: constant tac-k-by-contra
+  ```
+  by-intro:'s row reads the step's argument 0, the name after the word. A
+  macro of alternatives (`first | t1 | t2`) is `lf-tac-first-of` in a run
+  word; one whose parts take other arguments is a run word of its own.
 - `lf-tactic-lean!` gives Lean's name for the step log; `lf-tactic-action!`
   the run word ( i -- ), step i of the record; `lf-tactic-plan!` a plan
   step to name while the word is not ported (error 80).

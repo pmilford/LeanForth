@@ -70,10 +70,10 @@ end-structure
 : ttr-decide ( -- ) tac-k-decide lf-tac-row ;
 : ttr-contradiction ( -- ) tac-k-contradiction lf-tac-row ;
 : ttr-rfl ( -- ) tac-k-rfl lf-tac-row ;
-: ttr-assumption ( -- ) tac-k-assumption lf-tac-row ;
-\ The rules, the first registered deepest: Lean tries the newest first.
+\ The rules, the first registered deepest: Lean tries the newest first
+\ (assumption: tactics/assumption.fs's tas-row).
 : ttr-rules ( -- )
-  ['] ttr-assumption ['] ttr-rfl ['] ttr-contradiction ['] ttr-decide ['] ttr-true
+  ['] tas-row ['] ttr-rfl ['] ttr-contradiction ['] ttr-decide ['] ttr-true
   ['] ttr-and 6 lf-tac-first-of ;
 : ttr-run ( i -- ) drop ['] ttr-rules ttr-deeper ;
 ' ttr-run tac-k-trivial lf-tactic-action!

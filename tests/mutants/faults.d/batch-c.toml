@@ -1,0 +1,359 @@
+# Planted faults of tactic batch 2b (plan row TB2; src/front/tactic-syntax.fs's <-,
+# tac-shape-list, by-next and by-case: _, src/front/tactic-api.fs's lf-tactic-seq:,
+# src/front/tactic-core.fs's lf-tac-arg-symm?, src/front/meta-tactic/rewrite.fs's symm,
+# symm.fs, by-cases.fs, repeat.fs, src/front/tactics/rwa.fs, exacts.fs, by-cases.fs,
+# by-contra.fs, and-intros.fs, case.fs), read with faults.toml as one list
+# (scripts/mutants.py). Each is caught by tests/front/tactics/batch-c/test.fs, or by
+# tests/front/tactic-lib.fs.
+
+# ---- tactic-syntax.fs: <- and the brackets
+[[fault]]
+id = "tb2c-symm-mark-next"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-symm! ( -- ) true lft-open lft-arg-next 1- tac-args store-slot targ-symm ! ;'''
+new = ''': lft-symm! ( -- ) true lft-open lft-arg-next tac-args store-slot targ-symm ! ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: <- marks the slot after the rule, so the rule stays left to right"
+
+[[fault]]
+id = "tb2c-symm-no-rule"
+file = "src/front/tactic-syntax.fs"
+old = '''  lft-in-rules lfa-above 0> lfa-e-tac-values lfa-must lft-rules lft-symm! ;'''
+new = '''  lft-in-rules lft-rules lft-symm! ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: <- with no rule before it is read (marking another step's argument), not error 86"
+
+[[fault]]
+id = "tb2c-terms-from-first"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-terms ( v1 .. vn i n -- ) tuck lft-blanks lft-arg-next over - swap lft-fill ;'''
+new = ''': lft-terms ( v1 .. vn i n -- ) tuck lft-blanks lft-rec tac-first @ swap lft-fill ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: the rules after a <- overwrite those before it (filled from the step's first argument)"
+
+[[fault]]
+id = "tb2c-symm-in-list"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-in-rules ( -- ) lft-in-bracket lft-rules? lfa-e-tac-closer lfa-must ;'''
+new = ''': lft-in-rules ( -- ) lft-in-bracket ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: <- read inside by-exacts[ (Lean's exacts takes no ←), not error 83"
+
+[[fault]]
+id = "tb2c-arg-not-blank"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-arg-new ( -- addr ) tac-args lft-claim drop dup /targ erase ;'''
+new = ''': lft-arg-new ( -- addr ) tac-args lft-claim drop ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: a new argument keeps the symm flag its slot had in an earlier declaration"
+
+[[fault]]
+id = "tb2c-bracket-shape-zero"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-bracket-shape? ( shape|0 -- flag ) dup if shape-build @ ['] lft-build-rules = then ;'''
+new = ''': lft-bracket-shape? ( shape|0 -- flag ) 0<> ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: every word read by a shape counts as a bracket, so by-exact is refused after by-apply's step"
+
+[[fault]]
+id = "tb2c-case-hole-refused"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-case-tag ( c-addr u -- name ) 2dup lft-hole? 0= if lft-tag exit then 2drop 0 ;'''
+new = ''': lft-case-tag ( c-addr u -- name ) lft-tag ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: by-case: _ refused (72) where Lean's case _ takes the main goal"
+
+[[fault]]
+id = "tb2c-next-reads-tag"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-w-next ( -- ) lft-case-new lft-headed ;'''
+new = ''': lft-w-next ( -- ) lft-case-new lft-case-tag! lft-headed ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: by-next reads its first name as a tag (by-next k => looks for the case k)"
+
+# ---- tactic-core.fs, tactic-api.fs
+[[fault]]
+id = "tb2c-arg-symm-first"
+file = "src/front/tactic-core.fs"
+old = ''': lf-tac-arg-symm? ( i k -- flag ) tcr-arg-index lf-tactic-arg-symm? ;'''
+new = ''': lf-tac-arg-symm? ( i k -- flag ) drop 0 tcr-arg-index lf-tactic-arg-symm? ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: every rule takes the first rule's direction"
+
+[[fault]]
+id = "tb2c-seq-reversed"
+file = "src/front/tactic-api.fs"
+old = ''': tap-nth ( addr j -- kind ) over @ swap - cells + @ ;   \ the j-th to run, from 0'''
+new = ''': tap-nth ( addr j -- kind ) 1+ cells + @ ;   \ the j-th to run, from 0'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: a macro's rows run last first (by-contra: introduces before by_contra_core)"
+
+[[fault]]
+id = "tb2c-seq-first-only"
+file = "src/front/tactic-api.fs"
+old = ''': tap-seq-run ( i addr -- ) dup @ 0 ?do 2dup i tap-nth lf-tac-eval loop 2drop ;'''
+new = ''': tap-seq-run ( i addr -- ) 0 tap-nth lf-tac-eval ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: a macro runs its first row only"
+
+[[fault]]
+id = "tb2c-seq-kind-unchecked"
+file = "src/front/tactic-api.fs"
+old = '''  dup lf-tactic-row? 0= abort" lf-tactic-seq: not a tactic kind" ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: a macro of a number that is no tactic kind loads (and fails when it runs)"
+
+# ---- meta-tactic/rewrite.fs: symm
+[[fault]]
+id = "tb2c-rw-symm-unswapped"
+file = "src/front/meta-tactic/rewrite.fs"
+old = '''  mrw-sides swap lf-mk-eq mrw mrw-htype ! mrw-swap ;'''
+new = '''  mrw-sides swap lf-mk-eq mrw mrw-htype ! ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "TB2: ← h proves Eq.symm h but still looks for h's left side"
+
+[[fault]]
+id = "tb2c-rw-symm-type-kept"
+file = "src/front/meta-tactic/rewrite.fs"
+old = '''  mrw-sides swap lf-mk-eq mrw mrw-htype ! mrw-swap ;'''
+new = '''  mrw-swap ;'''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "TB2: ← h's 219 message shows h's own equation, not Lean's swapped one"
+
+[[fault]]
+id = "tb2c-rw-symm-heq-kept"
+file = "src/front/meta-tactic/rewrite.fs"
+old = '''  mrw mrw-heq @ lf-mk-eq-symm mrw mrw-heq !'''
+new = '''  '''
+test = "$GFORTH tests/front/tactic-lib.fs"
+reason = "TB2: ← h rewrites with the sides swapped but proves it by h, not Eq.symm h"
+
+# ---- tactics/rewrite.fs, rwa.fs, exacts.fs
+[[fault]]
+id = "tb2c-rw-symm-flag-lost"
+file = "src/front/tactics/rewrite.fs"
+old = ''': trw-symm? ( k -- flag ) lf-tac-step swap lf-tac-arg-symm? ;'''
+new = ''': trw-symm? ( k -- flag ) drop false ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: by-rw[ ' h <- ] rewrites left to right"
+
+[[fault]]
+id = "tb2c-rwa-no-rfl"
+file = "src/front/tactics/rwa.fs"
+old = ''': trwa-close ( -- ) ['] tas-row ['] lf-tac-rfl-reducible 2 lf-tac-first-of ;'''
+new = ''': trwa-close ( -- ) tas-row ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: rwa never tries rfl, so b = b after the rewrite is assumption's 381"
+
+[[fault]]
+id = "tb2c-rwa-order"
+file = "src/front/tactics/rwa.fs"
+old = ''': trwa-close ( -- ) ['] tas-row ['] lf-tac-rfl-reducible 2 lf-tac-first-of ;'''
+new = ''': trwa-close ( -- ) ['] lf-tac-rfl-reducible ['] tas-row 2 lf-tac-first-of ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: assumption tried first, so rwa's failure is rfl's 97, not assumption's 381"
+
+[[fault]]
+id = "tb2c-rwa-rw"
+file = "src/front/tactics/rwa.fs"
+old = ''': trwa-core ( i -- ) tac-k-rewrite lf-tac-eval trwa-close ;'''
+new = ''': trwa-core ( i -- ) tac-k-rw lf-tac-eval trwa-close ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: rwa rewrites with rw, whose rfl closes the goal before rwa's own closing (90)"
+
+[[fault]]
+id = "tb2c-exacts-no-done"
+file = "src/front/tactics/exacts.fs"
+old = ''': tes-run ( i -- ) dup lf-tac-args# 0 ?do dup i tex-exact loop lf-tac-done ;'''
+new = ''': tes-run ( i -- ) dup lf-tac-args# 0 ?do dup i tex-exact loop drop ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: exacts leaves goals open instead of done's 89"
+
+[[fault]]
+id = "tb2c-exacts-first-term"
+file = "src/front/tactics/exacts.fs"
+old = ''': tes-run ( i -- ) dup lf-tac-args# 0 ?do dup i tex-exact loop lf-tac-done ;'''
+new = ''': tes-run ( i -- ) dup lf-tac-args# 0 ?do dup 0 tex-exact loop lf-tac-done ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: exacts closes every goal with its first term"
+
+[[fault]]
+id = "tb2c-exacts-one-short"
+file = "src/front/tactics/exacts.fs"
+old = ''': tes-run ( i -- ) dup lf-tac-args# 0 ?do dup i tex-exact loop lf-tac-done ;'''
+new = ''': tes-run ( i -- ) dup lf-tac-args# 1 ?do dup i tex-exact loop lf-tac-done ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: exacts skips its first term"
+
+# ---- meta-tactic/by-cases.fs, tactics/by-cases.fs
+[[fault]]
+id = "tb2c-cases-always-classical"
+file = "src/front/meta-tactic/by-cases.fs"
+old = '''  dup lf-mk-decidable lf-synth-instance? if nip else drop mbc-classical then ;'''
+new = '''  mbc-classical ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: by_cases uses Classical.propDecidable even where an instance exists"
+
+[[fault]]
+id = "tb2c-cases-never-classical"
+file = "src/front/meta-tactic/by-cases.fs"
+old = '''  dup lf-mk-decidable lf-synth-instance? if nip else drop mbc-classical then ;'''
+new = '''  lf-mk-decidable lf-synth-instance! ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: by_cases on a proposition with no instance is 122, not open Classical's propDecidable"
+
+[[fault]]
+id = "tb2c-cases-neg-not-negated"
+file = "src/front/meta-tactic/by-cases.fs"
+old = '''  mbc mbc-p @ lf-mk-not s" neg" mbc-branch rot swap lf-mk-app ;'''
+new = '''  mbc mbc-p @ s" neg" mbc-branch rot swap lf-mk-app ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: the goal neg's hypothesis is p, not ¬p"
+
+[[fault]]
+id = "tb2c-cases-tags-swapped"
+file = "src/front/meta-tactic/by-cases.fs"
+old = ''': mbc-pos ( e -- pos e' ) mbc mbc-p @ s" pos" mbc-branch rot swap lf-mk-app ;'''
+new = ''': mbc-pos ( e -- pos e' ) mbc mbc-p @ s" neg" mbc-branch rot swap lf-mk-app ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: the goal pos is tagged neg"
+
+[[fault]]
+id = "tb2c-cases-args-swapped"
+file = "src/front/meta-tactic/by-cases.fs"
+old = '''  mbc-target dup mbc-dite swap lf-mk-app mbc mbc-p @ lf-mk-app mbc mbc-inst @ lf-mk-app ;'''
+new = '''  mbc-target dup mbc-dite swap lf-mk-app mbc mbc-inst @ lf-mk-app mbc mbc-p @ lf-mk-app ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: dite's proposition and instance arguments swapped"
+
+[[fault]]
+id = "tb2c-cases-any-type"
+file = "src/front/tactics/by-cases.fs"
+old = '''  dup lf-meta-is-prop lf-tac-must 0= if lfa-e-tac-form lf-tac-fail then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: by_cases on a term that is no proposition is not refused (99)"
+
+# ---- meta-tactic/symm.fs
+[[fault]]
+id = "tb2c-symm-tag-lost"
+file = "src/front/meta-tactic/symm.fs"
+old = '''  2dup lf-mvar-assign lf-must lf-term-second@ swap lf-goal-tag over swap lf-mvar-tag!'''
+new = '''  2dup lf-mvar-assign lf-must lf-term-second@ swap drop 0 over swap lf-mvar-tag!'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: symm's new goal loses the goal's tag (setTag)"
+
+[[fault]]
+id = "tb2c-symm-unary"
+file = "src/front/meta-tactic/symm.fs"
+old = '''  dup lf-term-app? if lf-term-first@ lf-term-app? else drop false then ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: ¬p is taken for a relation of two arguments (99 for its head, not Lean's 451)"
+
+[[fault]]
+id = "tb2c-symm-iff-lemma"
+file = "src/front/meta-tactic/symm.fs"
+old = ''': msy-iff ( -- c-addr u c-addr' u' ) s" Iff" s" Iff.symm" ;'''
+new = ''': msy-iff ( -- c-addr u c-addr' u' ) s" Iff" s" Eq.symm" ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: Iff's symmetry lemma taken to be Eq.symm"
+
+[[fault]]
+id = "tb2c-symm-fit-ignored"
+file = "src/front/meta-tactic/symm.fs"
+old = ''': msy-fit ( flag -- ) 0= if lfa-e-tac-form lf-tac-fail then ;'''
+new = ''': msy-fit ( flag -- ) drop ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: a relation with no lemma, or a conclusion that does not fit, answered as if it did"
+
+[[fault]]
+id = "tb2c-symm-first-arg"
+file = "src/front/meta-tactic/symm.fs"
+old = '''  2dup lf-mvar-assign lf-must lf-term-second@ swap lf-goal-tag over swap lf-mvar-tag!'''
+new = '''  2dup lf-mvar-assign lf-must lf-term-first@ lf-term-second@ swap lf-goal-tag over swap lf-mvar-tag!'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: the new goal is the lemma's second-last argument, not its last (the proof)"
+
+# ---- meta-tactic/repeat.fs
+[[fault]]
+id = "tb2c-repeat-push-order"
+file = "src/front/meta-tactic/repeat.fs"
+old = '''  dup run-count begin ?dup while 1- 2dup run@ mrp-push1 repeat drop ;'''
+new = '''  dup run-count 0 ?do dup i run@ mrp-push1 loop drop ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: repeat' visits a goal's new goals last first (and_intros' goals out of Lean's order)"
+
+[[fault]]
+id = "tb2c-repeat-no-limit"
+file = "src/front/meta-tactic/repeat.fs"
+old = ''': mrp-more? ( -- flag ) mrp mrp-todo @ run-count 0<> mrp mrp-left @ 0> and ;'''
+new = ''': mrp-more? ( -- flag ) mrp mrp-todo @ run-count 0<> ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: repeat' ignores maxIters"
+
+[[fault]]
+id = "tb2c-repeat-assigned-kept"
+file = "src/front/meta-tactic/repeat.fs"
+old = '''  mrp-rest mrp mrp-acc @ ['] lf-meta-unassigned? run-filter lf-must ;'''
+new = '''  mrp-rest mrp mrp-acc @ ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: repeat' gives back goals assigned since (Lean filters them)"
+
+[[fault]]
+id = "tb2c-repeat-not-undone"
+file = "src/front/meta-tactic/repeat.fs"
+old = '''  dup mrp mrp-goal ! -1 mrp mrp-left +! ['] mrp-f lf-commit-when'''
+new = '''  dup mrp mrp-goal ! -1 mrp mrp-left +! mrp-f'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: a failed f's assignments stay (Lean's observing? undoes them)"
+
+# ---- tactics/and-intros.fs, by-contra.fs, case.fs
+[[fault]]
+id = "tb2c-and-tags-swapped"
+file = "src/front/tactics/and-intros.fs"
+old = ''': tai-left ( goal a -- goal l ) over dup s" refine_1" tai-tag swap tai-hole ;'''
+new = ''': tai-left ( goal a -- goal l ) over dup s" refine_2" tai-tag swap tai-hole ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: and_intros' first goal tagged refine_2 (refine's tagUntaggedGoals counts from 1)"
+
+[[fault]]
+id = "tb2c-contra-guard-open"
+file = "src/front/tactics/by-contra.fs"
+old = ''': tbc-guard ( t -- t ) dup tbc-not? 0= if lfa-e-guard-target lf-tac-stop then ;'''
+new = ''': tbc-guard ( t -- t ) ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: guard_target = Not _ passes every goal, so a ≤ b is changed, not refuted by Decidable.byContradiction"
+
+[[fault]]
+id = "tb2c-contra-order"
+file = "src/front/tactics/by-contra.fs"
+old = '''  drop ['] tbc-classical ['] tbc-decidable ['] tbc-change 3 lf-tac-first-of ;'''
+new = '''  drop ['] tbc-change ['] tbc-decidable ['] tbc-classical 3 lf-tac-first-of ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: by_contra_core tries Classical.byContradiction first (a decidable goal's proof takes an axiom)"
+
+[[fault]]
+id = "tb2c-contra-no-intro"
+file = "src/front/tactics/by-contra.fs"
+old = '''tac-k-by-contra-core tac-k-intro 2 tac-shape-name'''
+new = '''tac-k-by-contra-core 1 tac-shape-name'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: by_contra h does not introduce h (rintro h)"
+
+[[fault]]
+id = "tb2c-next-second-goal"
+file = "src/front/tactics/case.fs"
+old = ''': tcs-find ( -- k true | false ) tcs-tag if tcs-tagged else lf-tac-main drop 0 true then ;'''
+new = ''': tcs-find ( -- k true | false ) tcs-tag if tcs-tagged else lf-tac-main drop 1 true then ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: case _ (next) takes the second goal, not getMainGoal's"
+
+[[fault]]
+id = "tb2c-next-no-goal"
+file = "src/front/tactics/case.fs"
+old = ''': tcs-find ( -- k true | false ) tcs-tag if tcs-tagged else lf-tac-main drop 0 true then ;'''
+new = ''': tcs-find ( -- k true | false ) tcs-tag if tcs-tagged else 0 true then ;'''
+test = "$GFORTH tests/front/tactics/batch-c/test.fs"
+reason = "TB2: case _ with no goal left is not Lean's 'no goals' (90)"

@@ -186,7 +186,8 @@ action-of lfa-declaration-fresh constant lft-fresh-before
   tac-steps lft-claim >r lft-blank lft-where targ# over tac-first ! tac-kind ! r> ;
 \ A new argument record, its fields 0 (a rule left to right).
 : lft-arg-new ( -- addr ) tac-args lft-claim drop dup /targ erase ;
-: lft-arg+ ( i x pos -- i ) lft-arg-new tuck targ-at ! targ-x ! 1 over lft-rec tac-count +! ;
+: lft-arg+ ( i x pos -- i )
+  lft-arg-new tuck targ-at ! targ-x ! 1 over lft-rec tac-count +! ;
 
 \ Term arguments: the values v1 .. vn, as syntax nodes, are step i's next
 \ n arguments, in order (the last value is on top), after those it has.
@@ -196,7 +197,7 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 : lft-fill ( v1 .. vn first n -- )
   ?dup if over + 1- do i lft-term! -1 +loop else drop then ;
 : lft-arg-next ( i -- j ) lft-rec dup tac-first @ swap tac-count @ + ;
-: lft-terms ( v1 .. vn i n -- ) over lft-arg-next >r tuck lft-blanks drop r> swap lft-fill ;
+: lft-terms ( v1 .. vn i n -- ) tuck lft-blanks lft-arg-next over - swap lft-fill ;
 
 \ The open block.
 : lft-kind ( -- kind ) lft-open lft-rec tac-kind @ ;
@@ -278,7 +279,8 @@ end-structure
 0 0 ' lft-build-rules lft-shape constant tac-shape-rules
 0 0 ' lft-build-rules lft-shape constant tac-shape-list
 \ Whether the open block is a word's bracket, and one of rules.
-: lft-bracket-shape? ( shape -- flag ) dup tac-shape-rules = swap tac-shape-list = or ;
+\ (A block read by no shape, by's or a header's, has shape 0.)
+: lft-bracket-shape? ( shape|0 -- flag ) dup if shape-build @ ['] lft-build-rules = then ;
 : lft-bracket? ( -- flag ) lft-open lft-shape@ lft-bracket-shape? ;
 : lft-rules? ( -- flag ) lft-open lft-shape@ tac-shape-rules = ;
 
@@ -351,10 +353,11 @@ end-structure
 : lft-names ( i -- i )
   begin lft-header-token 2dup lft-arrow? 0= while lft-name repeat 2drop ;
 : lft-entries! ( i -- i ) lfa-entry# over lft-rec tac-entries ! ;
-: lft-tag! ( i -- i ) lft-header-token lft-tag over lft-rec tac-name ! ;
+: lft-name! ( i name -- i ) over lft-rec tac-name ! ;
+: lft-tag! ( i -- i ) lft-header-token lft-tag lft-name! ;
 \ by-case:'s tag may be _ (Lean's case _: the main goal), kept as 0.
-: lft-case-tag ( c-addr u -- name ) 2dup lft-hole? if 2drop 0 else lft-tag then ;
-: lft-case-tag! ( i -- i ) lft-header-token lft-case-tag over lft-rec tac-name ! ;
+: lft-case-tag ( c-addr u -- name ) 2dup lft-hole? 0= if lft-tag exit then 2drop 0 ;
+: lft-case-tag! ( i -- i ) lft-header-token lft-case-tag lft-name! ;
 : lft-arrow! ( i -- i ) lfa-here over lft-rec tac-arrow ! ;
 : lft-headed ( i -- ) lft-names lft-arrow! lft-opened ;
 : lft-header ( kind -- ) lft-new lft-entries! lft-tag! lft-headed ;

@@ -11,6 +11,7 @@
 \       (Expr.constLevels! is core/constant-term-boundary.fs's lf-const-levels)
 \   lf-mk-app ( f a -- e ), lf-mk-app-n ( f a1..an n -- e )  mkApp, mkAppN
 \   lf-mk-eq ( a b -- e )                 mkEq (40)
+\   lf-mk-not ( p -- e )                  mkNot (Expr.lean): Not p
 \   lf-mk-eq-refl ( a -- h )              mkEqRefl (65)
 \   lf-mk-eq-symm ( h -- h' )             mkEqSymm (98)
 \   lf-mk-eq-trans ( h1 h2 -- h )         mkEqTrans (110)
@@ -153,6 +154,7 @@ abl-most cells context-record: abl-cells
 : abl-typed ( a c-addr u -- a c' )   \ c.{u} T, T a's type of level u
   2>r dup lf-infer! dup 2r> abl-const-of swap lf-mk-app ;
 : lf-mk-eq ( a b -- e ) swap s" Eq" abl-typed swap lf-mk-app swap lf-mk-app ;
+: lf-mk-not ( p -- e ) s" Not" lf-mk-const0 swap lf-mk-app ;
 : lf-mk-eq-refl ( a -- h ) s" Eq.refl" abl-typed swap lf-mk-app ;
 : lf-mk-eq-symm ( h -- h' )
   dup abl-refl? if exit then

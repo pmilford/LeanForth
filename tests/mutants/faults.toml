@@ -20190,7 +20190,7 @@ reason = "S2 5 (replaceTargetEq): Eq.mpr's first argument the new target where L
 [[fault]]
 id = "s2-rw-rfl-skipped"
 file = "src/front/tactics/rewrite.fs"
-old = ''': trw-w-rw ( i -- ) trw-rules ['] trw-rfl lf-tac-try-lean drop ;'''
+old = ''': trw-w-rw ( i -- ) trw-rules ['] lf-tac-rfl-reducible lf-tac-try-lean drop ;'''
 new = ''': trw-w-rw ( i -- ) trw-rules ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --tactics"
 reason = "S2 5 (rw's macro): rw never tries rfl after rewriting, so a goal rw closes in Lean is left open (moved to tactics/rewrite.fs by plan 9.4.8l-I C3)"

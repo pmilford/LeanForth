@@ -19,3 +19,6 @@ s" assumption" tac-k-assumption lf-tactic-lean!
 : tas-tac ( goal -- goals ) lf-goal-assumption 0 ;
 : tas-run ( i -- ) ['] tas-tac lf-lift-meta-tactic ;
 ' tas-run tac-k-assumption lf-tactic-action!
+\ assumption on the step running: an alternative of a tactic Lean writes
+\ over it (trivial's last rule, rwa's closing; lf-tac-first-of).
+: tas-row ( -- ) tac-k-assumption lf-tac-row ;

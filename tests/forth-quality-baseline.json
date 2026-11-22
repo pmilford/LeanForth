@@ -743,6 +743,14 @@
   "shuffles": 3,
   "words": 17
  },
+ "src/front/meta-tactic/symm.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 2,
+  "shuffles": 2,
+  "words": 20
+ },
  "src/front/mvars.fs": {
   "globals": 0,
   "long lines": 0,
@@ -795,9 +803,9 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 4,
+  "rstack": 8,
   "shuffles": 1,
-  "words": 10
+  "words": 16
  },
  "src/front/tactic-basic.fs": {
   "globals": 0,
@@ -863,6 +871,14 @@
   "shuffles": 0,
   "words": 0
  },
+ "src/front/tactics/and-intros.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 6,
+  "shuffles": 2,
+  "words": 14
+ },
  "src/front/tactics/apply.fs": {
   "globals": 1,
   "long lines": 0,
@@ -878,6 +894,14 @@
   "rstack": 0,
   "shuffles": 0,
   "words": 2
+ },
+ "src/front/tactics/by-contra.fs": {
+  "globals": 3,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 1,
+  "words": 14
  },
  "src/front/tactics/change.fs": {
   "globals": 2,
@@ -926,6 +950,14 @@
   "rstack": 0,
   "shuffles": 0,
   "words": 6
+ },
+ "src/front/tactics/exacts.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 1
  },
  "src/front/tactics/exfalso.fs": {
   "globals": 1,
@@ -983,6 +1015,14 @@
   "shuffles": 0,
   "words": 2
  },
+ "src/front/tactics/rwa.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 3
+ },
  "src/front/tactics/specialize.fs": {
   "globals": 1,
   "long lines": 0,
@@ -998,6 +1038,14 @@
   "rstack": 0,
   "shuffles": 0,
   "words": 3
+ },
+ "src/front/tactics/symm.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 1
  },
  "src/front/tactics/trivial.fs": {
   "globals": 1,

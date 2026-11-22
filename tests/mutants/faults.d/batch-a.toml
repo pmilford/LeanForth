@@ -534,8 +534,8 @@ reason = "TB2: all_goals runs trivial on apply's first goal only"
 [[fault]]
 id = "tb2-trivial-order"
 file = "src/front/tactics/trivial.fs"
-old = '''  ['] ttr-assumption ['] ttr-rfl ['] ttr-contradiction ['] ttr-decide ['] ttr-true'''
-new = '''  ['] ttr-rfl ['] ttr-assumption ['] ttr-contradiction ['] ttr-decide ['] ttr-true'''
+old = '''  ['] tas-row ['] ttr-rfl ['] ttr-contradiction ['] ttr-decide ['] ttr-true'''
+new = '''  ['] ttr-rfl ['] tas-row ['] ttr-contradiction ['] ttr-decide ['] ttr-true'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: assumption tried before rfl, so the failure reported is rfl's (Lean: assumption's 381)"
 
@@ -559,7 +559,7 @@ reason = "TB2: absurd's proof and refutation swapped (an ill-typed term the kern
 [[fault]]
 id = "tb2-absurd-pos-not-negated"
 file = "src/front/tactics/absurd.fs"
-old = '''  drop tab-prop tab-node over lf-tac-elab-ensuring swap lf-instantiate! tab-not tab-new'''
+old = '''  drop tab-prop tab-node over lf-tac-elab-ensuring swap lf-instantiate! lf-mk-not tab-new'''
 new = '''  drop tab-prop tab-node over lf-tac-elab-ensuring swap lf-instantiate! tab-new'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: absurd h with h : p leaves the goal p, not ¬p"

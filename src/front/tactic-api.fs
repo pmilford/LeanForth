@@ -10,7 +10,7 @@
 \       (author/words.fs: error 72 in the kernel form), its shape
 \       (tactic-syntax.fs's tac-shape-plain, tac-shape-term,
 \       tac-shape-terms, tac-shape-term-names, tac-shape-term-this,
-\       tac-shape-rules) kept in the
+\       tac-shape-rules, tac-shape-list) kept in the
 \       row, its natural meaning tap-read, which finds the row by the
 \       token's spelling and reads the shape. Usage:
 \         tac-shape-plain lf-tactic: by-assumption constant tac-k-assumption
@@ -114,6 +114,7 @@ require ./tactic-alts.fs
   align here over , swap 0 ?do swap tap-seq-kind , loop ;
 : tap-nth ( addr j -- kind ) over @ swap - cells + @ ;   \ the j-th to run, from 0
 : tap-seq-run ( i addr -- ) dup @ 0 ?do 2dup i tap-nth lf-tac-eval loop 2drop ;
-: tap-seq-xt ( addr -- xt ) >r :noname r> postpone literal postpone tap-seq-run postpone ; ;
+: tap-seq-xt ( addr -- xt )
+  >r :noname r> postpone literal postpone tap-seq-run postpone ; ;
 : lf-tactic-seq: ( kind1..kindn n shape "spelling" -- kind )
   >r tap-seq-kinds tap-seq-xt r> lf-tactic: tuck lf-tactic-action! ;

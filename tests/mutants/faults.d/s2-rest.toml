@@ -181,8 +181,8 @@ reason = "s2-rest review F6: the other goals after the case's goal first (c_rest
 [[fault]]
 id = "tac-arg-first-only"
 file = "src/front/tactic-core.fs"
-old = ''': tcr-arg ( i k -- x pos ) swap lf-tactic-step tac-first @ + lf-tactic-arg ;'''
-new = ''': tcr-arg ( i k -- x pos ) swap lf-tactic-step tac-first @ nip lf-tactic-arg ;'''
+old = ''': tcr-arg-index ( i k -- j ) swap lf-tactic-step tac-first @ + ;'''
+new = ''': tcr-arg-index ( i k -- j ) swap lf-tactic-step tac-first @ nip ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "s2-rest review finding 2: lf-tac-arg reads the step's first argument whatever k is (by-case:'s second name)"
 

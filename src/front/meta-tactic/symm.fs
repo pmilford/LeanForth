@@ -20,20 +20,22 @@
 \       conclusion fits any target of its relation): a conclusion that
 \       does not fit is not supported (99), never an answer.
 \ Lean call list: instantiateMVars -> lf-instantiate!; getSymmLems ->
-\ msy-lemma; mkConstWithFreshMVarLevels -> lf-meta-const-fresh;
+\ msy-lemma (lib/find.fs's find-index over msy-pairs);
+\ mkConstWithFreshMVarLevels -> lf-meta-const-fresh;
 \ withReducible -> lf-with-reducible; forallMetaTelescopeReducing ->
 \ lf-forall-meta-telescope-reducing; isDefEq -> lf-tac-defeq; assign ->
 \ lf-mvar-assign; setTag -> lf-mvar-tag!.
 \ Untrusted: only the kernel's check of the finished term decides.
-\ State: none (the lemma table is read-only). Loads in decimal whatever
+\ State: none (the table msy-pairs is set while the file loads and
+\ read-only afterwards). Loads in decimal whatever
 \ BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../../lib/lib.fs
+require ../../lib/find.fs
 require ../../core/terms.fs
 require ../../author/errors.fs
 require ../../author/declarations.fs
-require ../../present/print-forth.fs
 require ../mvars.fs
 require ../meta-config.fs
 require ../term-eqv.fs
@@ -47,25 +49,30 @@ require ./goal.fs
 451 outcome-invalid s" Symmetry lemmas only apply to binary relations, not"
   lfa-code: lfa-e-symm-binary
 
-\ ---- getSymmLems: the relations and their lemmas, counted strings in
-\ pairs, 0 at the end.
-: msy-pair, ( "relation" "lemma" -- ) parse-name lf-pf-word, parse-name lf-pf-word, ;
-create msy-lemmas
-msy-pair, Eq Eq.symm  msy-pair, Iff Iff.symm  msy-pair, Ne Ne.symm
-msy-pair, HEq HEq.symm  msy-pair, And And.symm  msy-pair, Or Or.symm
-0 c, align
-: msy-rel? ( head addr -- head addr flag ) 2dup count lf-meta-const-named? ;
+\ ---- getSymmLems: a table of the relations, each word giving the
+\ relation's name and its lemma's.
+: msy-eq ( -- c-addr u c-addr' u' ) s" Eq" s" Eq.symm" ;
+: msy-iff ( -- c-addr u c-addr' u' ) s" Iff" s" Iff.symm" ;
+: msy-ne ( -- c-addr u c-addr' u' ) s" Ne" s" Ne.symm" ;
+: msy-heq ( -- c-addr u c-addr' u' ) s" HEq" s" HEq.symm" ;
+: msy-and ( -- c-addr u c-addr' u' ) s" And" s" And.symm" ;
+: msy-or ( -- c-addr u c-addr' u' ) s" Or" s" Or.symm" ;
+create msy-pairs ' msy-eq , ' msy-iff , ' msy-ne , ' msy-heq , ' msy-and , ' msy-or ,
+6 constant msy-pairs#
+: msy-pair ( k -- c-addr u c-addr' u' ) cells msy-pairs + @ execute ;
+: msy-rel? ( head k -- head flag ) over swap msy-pair 2drop lf-meta-const-named? ;
 : msy-lemma ( head -- c-addr u true | false )
-  msy-lemmas begin dup c@ while msy-rel? if nip lf-pf-next count true exit then
-    lf-pf-next lf-pf-next repeat 2drop false ;
+  msy-pairs# ['] msy-rel? find-index if msy-pair 2swap 2drop true else false then ;
 
 \ ---- The target: r x y, and its lemma.
-: msy-binary? ( t -- flag ) dup lf-term-app? if lf-term-first@ lf-term-app? else drop false then ;
+: msy-binary? ( t -- flag )
+  dup lf-term-app? if lf-term-first@ lf-term-app? else drop false then ;
 : msy-target ( goal -- t )
   lf-goal-type lf-instantiate! dup msy-binary? if exit then
   dup ['] lf-tac-indented. lf-tac-detail lfa-e-symm-binary lf-tac-stop ;
-: msy-unported ( -- ) lfa-e-tac-form lf-tac-fail ;
-: msy-decl ( t -- d ) lf-meta-head msy-lemma 0= if msy-unported then lfa-intern lf-menv-find lf-must ;
+: msy-fit ( flag -- ) 0= if lfa-e-tac-form lf-tac-fail then ;
+: msy-decl ( t -- d )
+  lf-meta-head msy-lemma dup msy-fit drop lfa-intern lf-menv-find lf-must ;
 
 \ ---- The lemma applied to a metavariable per binder; its conclusion fits.
 : msy-arg ( app mvar kind -- app' ) drop lf-mk-app ;
@@ -73,12 +80,11 @@ msy-pair, HEq HEq.symm  msy-pair, And And.symm  msy-pair, Or Or.symm
   dup lf-meta-const-fresh lf-must dup lf-infer! rot ['] msy-arg
   lf-forall-meta-telescope-reducing ;
 : msy-applied ( d -- app body ) ['] msy-telescope lf-with-reducible ;
-: msy-fit ( flag -- ) 0= if msy-unported then ;
 : msy-assigned ( goal app -- goal' )
   2dup lf-mvar-assign lf-must lf-term-second@ swap lf-goal-tag over swap lf-mvar-tag!
   lf-must ;
-: msy-run ( goal -- goal' )
-  dup msy-target msy-decl msy-applied >r over lf-goal-type r> lf-tac-defeq lf-must msy-fit
-  msy-assigned ;
+: msy-fits ( goal app body -- goal app )
+  >r over lf-goal-type r> lf-tac-defeq lf-must msy-fit ;
+: msy-run ( goal -- goal' ) dup msy-target msy-decl msy-applied msy-fits msy-assigned ;
 : lf-goal-symm ( goal -- goal' ) dup ['] msy-run lf-with-goal ;
 base !   \ the BASE this file was loaded with

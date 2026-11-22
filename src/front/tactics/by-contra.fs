@@ -37,6 +37,7 @@
 
 require ../tactic-api.fs
 require ../meta-tactic/by-cases.fs
+require ./by-cases.fs
 require ./intro.fs
 
 450 outcome-invalid s" The main goal is" lfa-code: lfa-e-guard-target
@@ -51,22 +52,22 @@ s" by_contra_core" tac-k-by-contra-core lf-tactic-lean!
   dup lf-goal-target drop tbc-guard lf-whnf! lf-goal-replace-target-defeq ;
 
 \ ---- refine @C _ ?_: goal assigned e ?g, ?g of the domain of e's type.
-: tbc-target ( goal -- goal p ) dup lf-goal-target drop ;
-: tbc-prop ( p -- p ) dup lf-meta-is-prop lf-tac-must 0= if lfa-e-tac-form lf-tac-fail then ;
+: tbc-target ( goal -- goal p ) dup lf-goal-target drop tbs-prop ;
 : tbc-hole ( goal e -- goal e g ) 2dup lf-infer! lf-term-first@ swap lf-goal-fresh ;
 : tbc-refined ( goal e -- g ) tbc-hole tuck lf-mk-app rot swap lf-mvar-assign lf-must ;
 : tbc-dec-term ( p -- e )
   s" Decidable.byContradiction" lf-mk-const0 over lf-mk-app swap lf-mk-decidable
   lf-synth-instance! lf-mk-app ;
-: tbc-dec-tac ( goal -- g ) tbc-target tbc-prop tbc-dec-term tbc-refined ;
+: tbc-dec-tac ( goal -- g ) tbc-target tbc-dec-term tbc-refined ;
 : tbc-cls-term ( p -- e ) s" Classical.byContradiction" lf-mk-const0 swap lf-mk-app ;
-: tbc-cls-tac ( goal -- g ) tbc-target tbc-prop tbc-cls-term tbc-refined ;
+: tbc-cls-tac ( goal -- g ) tbc-target tbc-cls-term tbc-refined ;
 
 \ ---- The alternatives, the first on top.
 : tbc-change ( -- ) lf-tac-step ['] tbc-change-tac lf-lift-meta-tactic1 ;
 : tbc-decidable ( -- ) lf-tac-step ['] tbc-dec-tac lf-lift-meta-tactic1 ;
 : tbc-classical ( -- ) lf-tac-step ['] tbc-cls-tac lf-lift-meta-tactic1 ;
-: tbc-run ( i -- ) drop ['] tbc-classical ['] tbc-decidable ['] tbc-change 3 lf-tac-first-of ;
+: tbc-run ( i -- )
+  drop ['] tbc-classical ['] tbc-decidable ['] tbc-change 3 lf-tac-first-of ;
 ' tbc-run tac-k-by-contra-core lf-tactic-action!
 
 \ ---- by_contra h and by_contra: the core, then intro of the name.

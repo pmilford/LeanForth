@@ -1442,14 +1442,15 @@
   "tokens": 11
  },
  "b69e73b09f8a": {
-  "copies": 3,
+  "copies": 4,
   "kind": "shape",
   "members": [
    "src/cli/leanforth.fs:cli-seen",
    "src/front/elab-pending.fs:lf-elab-error",
+   "src/front/meta-tactic/rewrite.fs:mrw-sides",
    "src/front/tactics/change.fs:tsh-error"
   ],
-  "reason": "false positive: two fields of one record read (the arguments seen, an elaboration error, show's error printer and code); equal shape, unrelated meaning",
+  "reason": "false positive: two fields of one record read (the arguments seen, an elaboration error, show's error printer and code, a rewrite's two sides); equal shape, unrelated meaning",
   "tokens": 6
  },
  "bb4de2499c6d": {

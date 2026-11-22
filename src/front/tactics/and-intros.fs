@@ -26,17 +26,22 @@ tac-shape-plain lf-tactic: by-and-intros constant tac-k-and-intros
 s" and_intros" tac-k-and-intros lf-tactic-lean!
 
 \ ---- refine And.intro ?_ ?_ on one goal.
+: tai-and? ( t -- flag ) 2 s" And" lf-meta-app-of? ;
 : tai-and ( goal -- a b true | false )
-  lf-goal-target drop lf-whnf! dup 2 s" And" lf-meta-app-of? if lf-meta-args2 true else
-    drop false then ;
+  lf-goal-target drop lf-whnf! dup tai-and? if lf-meta-args2 true else drop false then ;
+\ A hole of type in goal's context, tagged goal's tag ++ the suffix.
 : tai-tag ( goal c-addr u -- tag ) lfa-intern swap lf-goal-tag swap lf-name-append-tag ;
-: tai-hole ( type goal c-addr u -- g ) 2>r dup 2r> tai-tag swap lf-goal-view lf-goal-new lf-must ;
-: tai-holes ( goal a b -- l r ) >r over s" refine_1" tai-hole swap r> swap s" refine_2" tai-hole ;
-: tai-term ( a b l r -- e ) 2>r 2>r s" And.intro" lf-mk-const0 2r> 2r> 4 lf-mk-app-n ;
-: tai-refine ( goal a b -- l r )
-  rot >r 2dup r@ -rot tai-holes 2dup 2>r tai-term 2r> rot r> swap lf-mvar-assign lf-must ;
+: tai-hole ( type tag goal -- g ) lf-goal-view lf-goal-new lf-must ;
+: tai-left ( goal a -- goal l ) over dup s" refine_1" tai-tag swap tai-hole ;
+: tai-right ( goal b -- goal r ) over dup s" refine_2" tai-tag swap tai-hole ;
+: tai-split ( goal a b -- goal l r ) >r tai-left r> swap >r tai-right r> swap ;
+\ @And.intro a b l r, a and b the holes' types.
+: tai-intro ( a b -- f ) s" And.intro" lf-mk-const0 rot lf-mk-app swap lf-mk-app ;
+: tai-types ( l r -- a b ) lf-goal-type swap lf-goal-type swap ;
+: tai-term ( l r -- e ) 2dup tai-types tai-intro rot lf-mk-app swap lf-mk-app ;
+: tai-assign ( goal l r -- l r ) 2dup 2>r tai-term lf-mvar-assign lf-must 2r> ;
 : tai-f ( goal -- goals true | false )
-  dup tai-and if tai-refine lf-goals2 true else drop false then ;
+  dup tai-and if tai-split tai-assign lf-goals2 true else drop false then ;
 : tai-in ( goal -- goals true | false ) dup ['] tai-f lf-with-goal ;
 : tai-run ( i -- ) drop lf-goals ['] tai-in lf-goals-repeat lf-goals! lf-tac-must ;
 ' tai-run tac-k-and-intros lf-tactic-action!

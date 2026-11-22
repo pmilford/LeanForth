@@ -26,7 +26,6 @@ s" absurd" tac-k-absurd lf-tactic-lean!
 
 : tab-prop ( -- mvar )   \ ?a : Prop
   0 lf-term-symbolic-sort lf-made! mv-natural lf-mvar-new lf-tac-must ;
-: tab-not ( p -- t ) s" Not" lf-mk-const0 swap lf-mk-app ;
 \ The step's term; the main goal and its type (tactic-core.fs's tb); a new
 \ goal in its place; the main goal assigned absurd.{u} p T hp hnp.
 : tab-node ( -- node ) lf-tac-step 0 lf-tac-arg ;
@@ -43,10 +42,10 @@ s" absurd" tac-k-absurd lf-tactic-lean!
 \ refine @absurd _ _ ?_ h: the new goal ?a; then refine @absurd _ _ h ?_:
 \ the new goal ¬?a, ?a h's type.
 : tab-neg-tac ( goal -- goal' )
-  drop tab-prop dup tab-not tab-node swap tab-against-not swap lf-instantiate! tab-new
+  drop tab-prop dup lf-mk-not tab-node swap tab-against-not swap lf-instantiate! tab-new
   tuck swap tab-close ;
 : tab-pos-tac ( goal -- goal' )
-  drop tab-prop tab-node over lf-tac-elab-ensuring swap lf-instantiate! tab-not tab-new
+  drop tab-prop tab-node over lf-tac-elab-ensuring swap lf-instantiate! lf-mk-not tab-new
   tuck tab-close ;
 : tab-neg ( -- ) lf-tac-step ['] tab-neg-tac lf-lift-meta-tactic1 ;
 : tab-pos ( -- ) lf-tac-step ['] tab-pos-tac lf-lift-meta-tactic1 ;

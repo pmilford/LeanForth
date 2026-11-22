@@ -60,10 +60,6 @@ begin-structure /mbc
   field: mbc-p           \ the proposition
   field: mbc-inst        \ its Decidable instance
   field: mbc-fvar        \ the branch's variable (mkLambdaFVars' cell)
-  field: mbc-pos         \ the goals, then the funs over them
-  field: mbc-neg
-  field: mbc-fun-pos
-  field: mbc-fun-neg
 end-structure
 /mbc context-slab: mbc-frames
 : mbc ( -- frame ) mbc-frames slab-last ;
@@ -75,21 +71,22 @@ end-structure
   mbc-target swap lf-mctx-view lf-goal-new lf-must dup mbc mbc-fvar 1 lf-mk-lambda-fvars ;
 : mbc-local ( type -- view )
   mbc mbc-name @ lf-binder-default lf-local-decl-new swap mbc mbc-fvar ! ;
-: mbc-branch ( type c-addr u -- g fun ) lfa-intern swap mbc-local ['] mbc-bind swap lf-with-view ;
-: mbc-not ( p -- t ) s" Not" lf-mk-const0 swap lf-mk-app ;
-: mbc-branches ( -- )
-  mbc mbc-p @ s" pos" mbc-branch mbc mbc-fun-pos ! mbc mbc-pos !
-  mbc mbc-p @ mbc-not s" neg" mbc-branch mbc mbc-fun-neg ! mbc mbc-neg ! ;
+: mbc-branch ( type c-addr u -- g fun )
+  lfa-intern swap mbc-local ['] mbc-bind swap lf-with-view ;
 
-\ ---- @dite.{u} T p inst (fun h => pos) (fun h => neg).
-: mbc-dite ( T -- f ) lf-level! >r s" dite" r> 1 lf-mk-const ;
-: mbc-args ( -- p inst fun1 fun2 )
-  mbc mbc-p @ mbc mbc-inst @ mbc mbc-fun-pos @ mbc mbc-fun-neg @ ;
-: mbc-term ( -- e ) mbc-target dup mbc-dite swap mbc-args 5 lf-mk-app-n ;
-: mbc-goals ( -- pos neg ) mbc mbc-pos @ mbc mbc-neg @ ;
-: mbc-run ( -- pos neg )
-  mbc mbc-goal @ lf-goal-not-assigned mbc-branches mbc-term lf-mvar-assign lf-must mbc-goals ;
-: mbc-fill ( goal name p inst -- ) mbc mbc-inst ! mbc mbc-p ! mbc mbc-name ! mbc mbc-goal ! ;
-: mbc-framed ( goal name p inst -- pos neg ) mbc-fill mbc mbc-goal @ ['] mbc-run lf-with-goal ;
-: lf-goal-by-cases ( goal name p inst -- pos neg ) mbc-frames ['] mbc-framed lf-with-record ;
+\ ---- @dite.{u} T p inst (fun h => pos) (fun h => neg), applied a branch
+\ at a time.
+: mbc-dite ( T -- f ) >r s" dite" r> lf-level! lf-mk-const1 ;
+: mbc-head ( -- e )
+  mbc-target dup mbc-dite swap lf-mk-app mbc mbc-p @ lf-mk-app mbc mbc-inst @ lf-mk-app ;
+: mbc-pos ( e -- pos e' ) mbc mbc-p @ s" pos" mbc-branch rot swap lf-mk-app ;
+: mbc-neg ( pos e -- pos neg e' )
+  mbc mbc-p @ lf-mk-not s" neg" mbc-branch rot swap lf-mk-app ;
+: mbc-run ( goal -- pos neg )
+  lf-goal-not-assigned >r mbc-head mbc-pos mbc-neg r> swap lf-mvar-assign lf-must ;
+: mbc-framed ( goal name p inst -- pos neg )
+  mbc mbc-inst ! mbc mbc-p ! mbc mbc-name ! dup mbc mbc-goal !
+  dup ['] mbc-run lf-with-goal ;
+: lf-goal-by-cases ( goal name p inst -- pos neg )
+  mbc-frames ['] mbc-framed lf-with-record ;
 base !   \ the BASE this file was loaded with

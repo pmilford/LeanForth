@@ -112,7 +112,8 @@ end-structure
 : mrw-sides ( -- lhs rhs ) mrw mrw-lhs @ mrw mrw-rhs @ ;
 : mrw-swap ( -- ) mrw-sides mrw mrw-lhs ! mrw mrw-rhs ! ;
 : mrw-reversed ( -- )
-  mrw mrw-heq @ lf-mk-eq-symm mrw mrw-heq ! mrw-sides swap lf-mk-eq mrw mrw-htype ! mrw-swap ;
+  mrw mrw-heq @ lf-mk-eq-symm mrw mrw-heq !
+  mrw-sides swap lf-mk-eq mrw mrw-htype ! mrw-swap ;
 : mrw-symmetric ( -- ) mrw mrw-symm @ if mrw-reversed then ;
 \ A pattern whose head is a metavariable (219).
 : mrw-lhs. ( x -- outcome )

@@ -58,10 +58,10 @@ require ../tactic-api.fs
 \ ---- MVarId.rewrite of the target, right to left for a rule written
 \ with <- (Lean's ←, symm), its errors at the rule.
 : trw-symm? ( k -- flag ) lf-tac-step swap lf-tac-arg-symm? ;
-: trw-call ( heq symm? -- new proof goals code )
-  2>r tb tb-goal @ tb tb-want @ 2r> ['] lf-goal-rewrite catch ;
+: trw-call ( heq k -- new proof goals code )
+  trw-symm? >r >r tb tb-goal @ tb tb-want @ r> r> ['] lf-goal-rewrite catch ;
 : trw-rewrite ( k heq -- new proof goals )
-  over trw-symm? rot >r trw-call ?dup if >r 2drop 2drop r> r> trw-placed then r> drop ;
+  over >r swap trw-call ?dup if >r 2drop 2drop r> r> trw-placed then r> drop ;
 : trw-inner ( k -- k new proof goals )
   dup dup trw-elaborated trw-occurs-free trw-rewrite ;
 \ finishElabRewrite: new goals, or another metavariable left in the
