@@ -46,6 +46,19 @@
 \   lf-author-print ( fuel -- outcome )     every declaration as words, through
 \                                           the printer's sink (lf-print-setup)
 \   lf-author-error. ( -- )  lf-author-code ( -- code )  (errors.fs)
+\   lfa-token-on ( -- c-addr u )  the next token after the last one a word
+\       read, reading on into the text's next lines when the line ends
+\       (plan row TB2, batch 3c: a list over several lines, the owner's
+\       wish of 2026-11-22), made the current token; an empty string at
+\       the text's end. A \ skips the rest of its line and a ( comment
+\       its text, as Forth's own words do.
+\ Reading on (lfa-refill): the next line becomes the line being run, its
+\ characters checked and its look-ahead made as for any line; the line
+\ whose EVALUATE was running is spent, so when that EVALUATE ends the
+\ runner runs the rest of the new line, after the last token a word read
+\ (lfa-eval-on), and so on, with no nesting of EVALUATE. A file's line
+\ buffer is reused: the spent line's text is gone, which nothing reads,
+\ since its EVALUATE has reached its end.
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
@@ -60,6 +73,7 @@ begin-structure /lfa-run
   field: lfa-run-file        \ the file being run, or 0
   field: lfa-run-floats      \ floating-point stack depth when the line began
   field: lfa-run-recognizer  \ the host's recognizer (Gforth 1.0)
+  field: lfa-run-on          \ true: a word read on into the next line (lfa-refill)
   /run-settings +field lfa-run-settings  \ the caller's BASE, order and current
   lfa-line-capacity +field lfa-run-line
 end-structure
@@ -170,9 +184,35 @@ end-structure
 \ the end, no declaration may be open and no value left.
 : lfa-line-end ( -- )
   lfa-interpreting? lfa-e-compiling lfa-must lfa-the-line nip lfa-read-to ;
+\ A line starts: the line being run, its characters checked, its look-ahead.
+: lfa-line-start ( c-addr u -- ) 2dup lfa-line! lfa-line-chars lfa-order! lfa-ahead ;
+: lfa-on? ( -- flag ) lfa-run lfa-run-on @ ;
+: lfa-eval ( c-addr u -- ) false lfa-run lfa-run-on ! evaluate ;
+\ The rest of the line being run, after the last token a word read.
+: lfa-line-rest ( -- c-addr u ) lfa-the-line nip lfa-unread-to ;
+: lfa-eval-on ( -- ) begin lfa-on? while lfa-line-rest lfa-eval repeat ;
 : lfa-eval-line ( c-addr u -- )
-  2dup lfa-line! lfa-line-chars lfa-order! 2dup lfa-ahead lfa-floats! evaluate
-  lfa-line-end ;
+  2dup lfa-line-start lfa-floats! lfa-eval lfa-eval-on lfa-line-end ;
+
+\ Reading on (see the header): the next line, run once the EVALUATE
+\ running now ends; false at the text's end.
+: lfa-refill ( -- flag )
+  lfa-next-line? 0= if false exit then lfa-line-start true lfa-run lfa-run-on ! true ;
+\ The line read up to c-addr; on the line EVALUATE runs, >IN with it.
+: lfa-in! ( c-addr -- ) lfa-on? if drop else source drop - >in ! then ;
+: lfa-skip-to ( c-addr -- ) dup lfa-in! lfa-offset lfa-source lfa-source-end ! ;
+: lfa-next-on ( -- c-addr u )
+  lfa-line-rest lfa-next-token 2swap 2drop 2dup lfa-token! 2dup + lfa-in! ;
+\ Comments: \ to the line's end, ( past its ) on the line (else error 28).
+: lfa-comment-on? ( c-addr u -- flag ) 2dup lfa-comment? -rot s" (" lfa-token= or ;
+: lfa-paren-end ( -- c-addr )
+  lfa-line-rest [char] ) byte-scan 0= lfa-e-comment-end lfa-must 1+ ;
+: lfa-skip-on ( c-addr u -- )
+  lfa-comment? if lfa-the-line + else lfa-paren-end then lfa-skip-to ;
+: lfa-blank-on ( -- c-addr u )
+  begin lfa-next-on 2dup lfa-comment-on? while lfa-skip-on repeat ;
+: lfa-token-on ( -- c-addr u )
+  begin lfa-blank-on dup 0= while 2drop lfa-refill 0= if 0 0 exit then repeat ;
 : lfa-ended ( -- ) depth lfa-floor = lfa-inside? 0= and lfa-e-unfinished lfa-must ;
 : lfa-lines ( -- ) begin lfa-next-line? while lfa-eval-line repeat lfa-ended ;
 

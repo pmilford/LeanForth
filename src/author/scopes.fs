@@ -7,12 +7,30 @@
 \ above it. Outside every binder the declaration's own depth is the frame.
 \ A variable is the binder's position (its slot); its de Bruijn index is
 \ counted when it is used. Untrusted authoring code.
-\ State: the binder store lfa-binders and one record, lfa-scope, both in
+\ Brackets (plan row TB2, batch 3c): a list between its word and its
+\ closing word (<< >>, by-rw[ ], a list of names), each open one a frame
+\ as a binder's is, the innermost frame of the two: its words take only
+\ its items, the values after its word. Each keeps the binders open when
+\ it opened (they must be the same when it closes), its word's place and
+\ spelling, and its closer, an address its closing words give. Words:
+\ lfa-bracket-open ( closer -- ) opens one at the current token;
+\ lfa-bracket-close ( closer code -- n ) closes the innermost one, which
+\ must be closer's (else 458 at its word), with the same binders open
+\ (else 21), n its items; none open is error code at the current token;
+\ lfa-bracket-drop ( -- ) closes it, its items not counted (a list of
+\ names, read whole); lfa-bracketed? ( -- flag ) whether one is open;
+\ lfa-list-closer ( -- closer|0 ) the innermost one's; lfa-list-unclosed
+\ ( -- ) error 458 at the innermost one's word: its closing word never
+\ came (a word that never is an item, end NAME, :=, the text's end);
+\ lfa-brackets-closed ( -- ) that error when one is open.
+\ State: the binder store lfa-binders, the slab lfa-brackets and one
+\ record, lfa-scope, all in
 \ the checker context (ADR 0009). The binder store is a heap store that
 \ grows as binders open, limited only by the heap (plan task 6.2.0); a
 \ binder's address is valid until the next one opens.
 
 require ../lib/lib.fs
+require ../lib/bounds.fs
 require ../core/terms.fs
 require ./errors.fs
 require ./form.fs
@@ -39,10 +57,18 @@ begin-structure /lfa-scope
   field: lfa-scope-floor      \ data-stack depth where the run began
 end-structure
 /lfa-scope context-record: lfa-scope
+begin-structure /lfa-bracket
+  field: lfa-bracket-mark     \ data-stack depth when it opened
+  field: lfa-bracket-binders  \ binders open then
+  field: lfa-bracket-at       \ position of its word
+  field: lfa-bracket-closer   \ its closing words' address
+  cell lfa-token-keep chars + +field lfa-bracket-word   \ its spelling, cell-counted
+end-structure
+/lfa-bracket context-slab: lfa-brackets
 
-\ Outside every declaration and binder.
+\ Outside every declaration, binder and bracket.
 : lfa-scope-close ( -- ) lfa-binders store-clear -1 lfa-scope lfa-scope-base !
-  -1 lfa-scope lfa-scope-params ! ;
+  -1 lfa-scope lfa-scope-params ! lfa-brackets slab-clear ;
 ' lfa-scope-close context-setup
 \ The depth of the data stack below the author's values.
 : lfa-floor ( -- depth ) lfa-scope lfa-scope-floor @ ;
@@ -72,8 +98,41 @@ end-structure
 \ (natural text between declarations, where a command such as #check
 \ takes a term: plan S1) the run's floor.
 : lfa-outer ( -- depth ) lfa-base dup 0< if drop lfa-floor then ;
-: lfa-frame ( -- depth )
+: lfa-binder-frame ( -- depth )
   lfa-depth if lfa-innermost lfa-binder-mark @ else lfa-outer then ;
+
+\ Brackets (see the header).
+458 outcome-invalid s" this list is never closed: its ] or >> is missing"
+  lfa-code: lfa-e-list-open
+: lfa-bracketed? ( -- flag ) lfa-brackets slab-count 0<> ;
+: lfa-bracket ( -- addr ) lfa-brackets slab-last ;
+: lfa-list-closer ( -- closer|0 )
+  lfa-bracketed? if lfa-bracket lfa-bracket-closer @ else 0 then ;
+\ (No room for one is full, as for a binder: 65.)
+: lfa-bracket-new ( -- addr ) lfa-brackets slab-claim-one ok? lfa-e-binders-full lfa-must ;
+: lfa-bracket-word! ( addr -- )
+  lfa-token lfa-token-keep min rot lfa-bracket-word lfa-token-keep cell-counted! drop ;
+: lfa-bracket-place ( addr -- addr )
+  lfa-depth over lfa-bracket-binders ! lfa-here over lfa-bracket-at ! dup lfa-bracket-word! ;
+: lfa-bracket-fill ( mark closer addr -- )
+  tuck lfa-bracket-closer ! tuck lfa-bracket-mark ! lfa-bracket-place drop ;
+: lfa-bracket-open ( closer -- ) depth 1- swap lfa-bracket-new lfa-bracket-fill ;
+: lfa-bracket-drop ( -- ) lfa-brackets slab-drop ;
+: lfa-list-unclosed ( -- )
+  lfa-bracket dup lfa-bracket-word cell-count rot lfa-bracket-at @ lfa-e-list-open lfa-fail-at ;
+: lfa-brackets-closed ( -- ) lfa-bracketed? if lfa-list-unclosed then ;
+: lfa-bracket-own ( closer code -- )
+  lfa-bracketed? 0= if nip lfa-fail then drop lfa-list-closer <> if lfa-list-unclosed then ;
+: lfa-bracket-binders? ( -- )
+  lfa-depth lfa-bracket lfa-bracket-binders @ = if exit then
+  lfa-innermost lfa-binder-at @ lfa-e-open-binder lfa-fail-see ;
+: lfa-bracket-items ( -- n ) depth lfa-bracket lfa-bracket-mark @ - ;
+: lfa-bracket-close ( closer code -- n )
+  lfa-bracket-own lfa-bracket-binders? lfa-bracket-items lfa-bracket-drop ;
+
+\ The frame: the innermost bracket's, binder's or declaration's.
+: lfa-frame ( -- depth )
+  lfa-binder-frame lfa-bracketed? if lfa-bracket lfa-bracket-mark @ max then ;
 \ Terms stand inside a declaration, or in natural text anywhere.
 : lfa-terms? ( -- flag ) lfa-inside? lfa-kernel-form? 0= or ;
 \ Stop unless n values are above the frame, where terms may stand. Called

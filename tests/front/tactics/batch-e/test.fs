@@ -79,14 +79,14 @@ lf-tac-forget
 
 \ ---- 2. Malformed lists.
 T{ ab s" by-revert[ _ ]" tactic-ran token s" _" compare -> 459 0 }T
-T{ ab s" by-clear[ h by-rfl ]" tactic-ran token s" by-rfl" compare -> 459 0 }T
+\ A LeanForth word that is never a list's item, or end, ends the list:
+\ its ] is missing, 458 at the list's word (batch 3c).
+T{ ab s" by-clear[ h by-rfl ]" tactic-ran token s" by-clear[" compare -> 458 0 }T
 T{ ab s" by-revert[ ]" tactic-ran token s" ]" compare -> 460 0 }T
 T{ ab s" by-clear[ ]" tactic-ran ab s" by-rename-i[ ]" tactic-ran -> 460 460 }T
-T{ ab s\" by-intro[ x\n ]" tactic-ran token s" x" compare -> 458 0 }T
-T{ ab s\" by-revert[ h\n" tactic-ran token s" h" compare -> 458 0 }T
-\ (on the theorem's one line, end is a name of the list: a LeanForth word)
-T{ ab s" by-revert[ h" tactic-ran token s" end" compare -> 459 0 }T
-T{ ab s" by-intro[ by-rfl ]" tactic-ran ab s" ' a by-intro[ x ]" tactic-ran -> 84 86 }T
+T{ ab s\" by-revert[ h\n" tactic-ran token s" by-revert[" compare -> 458 0 }T
+T{ ab s" by-revert[ h" tactic-ran token s" by-revert[" compare -> 458 0 }T
+T{ ab s" by-intro[ by-rfl ]" tactic-ran ab s" ' a by-intro[ x ]" tactic-ran -> 458 86 }T
 T{ ab s" by-revert[ h ] by-intro[ x ] ]" tactic-ran -> 83 }T
 lf-tac-forget
 \ The new words are reserved: no binder takes their names (78), and the

@@ -98,24 +98,27 @@ T{ tac-shape-plain-at shape-at @ tac-shape-term-at shape-at @ tac-shape-rules sh
 T{ tac-k-change lf-tactic-shape@ tac-k-symm lf-tactic-shape@ tac-k-delta lf-tactic-shape@
    -> tac-shape-term-at tac-shape-plain-at tac-shape-term-at }T
 
-\ ---- 2. Malformed at[ ] (batch 3b: a list up to ], on its line).
+\ ---- 2. Malformed at[ ] (batch 3b: a list up to ]; over lines since
+\ batch 3c).
 : token ( -- c-addr u ) lfa-error lfa-err-token lfa-error lfa-err-length @ ;
 T{ hac s\" by-rw[ ' h ] at[ ]\n" tactic-ran token s" ]" compare -> 454 0 }T
 T{ hac s\" by-rw[ ' h ] at[ _ ]\n" tactic-ran -> 454 }T
-T{ hac s\" by-rw[ ' h ] at[ by-rfl ]\n" tactic-ran -> 454 }T
+T{ hac s\" by-rw[ ' h ] at[ by-rfl ]\n" tactic-ran token s" at[" compare -> 458 0 }T
 T{ hac s\" by-rw[ ' h ] at[ * h2 ]\n" tactic-ran token s" h2" compare -> 454 0 }T
 T{ hac s\" by-rw[ ' h ] at[ * |- ]\n" tactic-ran token s" |-" compare -> 454 0 }T
 T{ hac s\" by-rw[ ' h ] at[ h2 * ]\n" tactic-ran -> 454 }T
 T{ hac s\" by-rw[ ' h ] at[ |- * ]\n" tactic-ran -> 454 }T
 T{ hac s\" by-rw[ ' h ] at[ * * ]\n" tactic-ran -> 454 }T
 T{ hac s\" ' h2 by-exact at[ h2 ]\n" tactic-ran token s" at[" compare -> 453 0 }T
-\ (a LeanForth word in the list, its own word too)
-T{ hac s\" by-rw[ ' h ] at[ h2 by-rw[ ]\n" tactic-ran token s" by-rw[" compare -> 454 0 }T
-\ The line ends before ]: 458 at the last token read; the list never
-\ goes on on the next line.
-T{ hac s\" by-rw[ ' h ] at[ h2\n ]" tactic-ran token s" h2" compare -> 458 0 }T
+\ (a LeanForth word in the list, its own word too: its ] is missing, 458
+\ at at[)
+T{ hac s\" by-rw[ ' h ] at[ h2 by-rw[ ]\n" tactic-ran token s" at[" compare -> 458 0 }T
+\ The list goes on in the next line, each name at its own line; end
+\ before ] is 458 at at[.
+T{ hac s\" by-rw[ ' h ] at[\n h2 ] ' h2 by-exact" tactic-ran 1 1 lf-tac-arg-at lfa-pos> drop
+   -> 0 2 }T
 T{ hac s\" by-rw[ ' h ] at[\n" tactic-ran token s" at[" compare -> 458 0 }T
-T{ hac s\" by-rw[ ' h at[ h2 ]\n" tactic-ran -> 82 }T
+T{ hac s\" by-rw[ ' h at[ h2 ]\n" tactic-ran token s" by-rw[" compare -> 458 0 }T
 T{ hac s\" by-rw[ ' h ] ' h at[ h2 ]\n" tactic-ran -> 86 }T
 T{ hac s\" at[ h2 ]\n" tactic-ran -> 453 }T
 T{ hac s\" by-case: _ => by-rw[ ' h ] by-end at[ h2 ]\n" tactic-ran -> 453 }T

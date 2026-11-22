@@ -165,9 +165,9 @@ end-structure
   lfa-inside? if lfa-statement-only? 0= lfa-params 0< and else false then ;
 \ lfa-define-check, first thing, with the statement on top; then the
 \ statement taken (a term here, a syntax node in src/front/reader.fs);
-\ then lfa-define-done.
+\ then lfa-define-done. (A list still open there never closed: 458.)
 : lfa-define-check ( -- )
-  lfa-definable? lfa-e-define-here lfa-must 1 lfa-e-statement lfa-exactly
+  lfa-brackets-closed lfa-definable? lfa-e-define-here lfa-must 1 lfa-e-statement lfa-exactly
   lfa-params-tight ;
 : lfa-define-done ( -- ) lfa-depth lfa-params! ;
 : lfa-define ( -- ) lfa-define-check lfa>term lfa-this lf-fdecl-type ! lfa-define-done ;

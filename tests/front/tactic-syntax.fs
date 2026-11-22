@@ -113,15 +113,17 @@ T{ s" n by-induction by-case: zero => | succ => by-rfl by-end end t" proof nfail
 \ A block left open at end: the error names end and the block by-end
 \ would close (an alternative's is its by-induction-with).
 T{ s" n by-induction-with | zero => by-rfl end t" proof nfails see-at -> 82 1 80 1 45 }T
-T{ s" by-rw[ n end t" proof nfails see-at -> 82 1 52 1 43 }T
+\ (a list left open: 458 at its word, batch 3c)
+T{ s" by-rw[ n end t" proof nfails -> 458 1 43 }T
 T{ s" n by-induction by-case: zero => by-case: succ => by-rfl by-end end t" proof nfails
    see-at -> 82 1 106 1 58 }T
 T{ s" n by-induction by-case: zero => by-case: succ => by-rfl by-end by-end end t" proof
    nfails -> 71 1 113 }T
-\ A tactic word inside by-rw[ ]: the word, and by-rw[.
-T{ s" by-rw[ n by-rfl ] end t" proof nfails see-at -> 82 1 52 1 43 }T
-T{ s" by-rewrite[ by-end end t" proof nfails see-at -> 82 1 55 1 43 }T
-T{ s" by-rw[ | end t" proof nfails -> 82 1 50 }T
+\ A tactic word inside by-rw[ ]: its ] is missing, 458 at by-rw[ (batch
+\ 3c; 82 at the word before).
+T{ s" by-rw[ n by-rfl ] end t" proof nfails -> 458 1 43 }T
+T{ s" by-rewrite[ by-end end t" proof nfails -> 458 1 43 }T
+T{ s" by-rw[ | end t" proof nfails -> 458 1 43 }T
 \ Headers: => without a tag, => alone, a word where a name is due, the
 \ line ending before =>.
 T{ s" n by-induction-with | => by-rfl by-end end t" proof nfails -> 84 1 65 }T

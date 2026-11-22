@@ -82,8 +82,9 @@ end-structure
 \ Read the name after a word, on the same line, as the current token; an
 \ empty string when the line has no more tokens.
 : lfa-parse-name ( -- c-addr u ) parse-name 2dup lfa-token! ;
-\ The line has been read up to >IN (after a comment or a note's text).
-: lfa-read! ( -- ) >in @ lfa-source lfa-source-end ! ;
+\ The line has been read up to >IN (after a comment or a note's text),
+\ by address: the input may be the rest of the line (runner.fs's reading on).
+: lfa-read! ( -- ) source drop lfa-in + lfa-offset lfa-source lfa-source-end ! ;
 \ The part of the line after the last token a LeanForth word read, up to
 \ offset n (clamped into the line).
 : lfa-unread-to ( n -- c-addr u )

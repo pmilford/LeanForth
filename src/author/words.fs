@@ -44,8 +44,9 @@ require ./library.fs
 \ Errors of end point at end itself, so its name is not made current.
 \ Inside a declaration xt ( above c-addr u -- ) ends it, the kernel form's
 \ or natural form's (src/front/reader.fs); outside, end closes a namespace.
+\ (A list still open at end never closed: 458, scopes.fs.)
 : lfa-end-head ( -- above c-addr u )
-  lfa-above parse-name dup 0<> lfa-e-no-name lfa-must lfa-read! ;
+  lfa-brackets-closed lfa-above parse-name dup 0<> lfa-e-no-name lfa-must lfa-read! ;
 : lfa-end-tail ( above c-addr u xt -- )
   lfa-inside? if execute else drop rot drop lfa-end-namespace then ;
 : lfa-w-end ( -- ) lfa-end-head ['] lfa-end-declaration lfa-end-tail ;

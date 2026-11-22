@@ -119,7 +119,7 @@ TWINS = [
     ("| outside by-induction-with", "n by-induction-with", "n by-induction",
      "error 83 at line:col 14:3"),
     ("=> missing", "| zero =>  ", "| zero ", "error 84 at line:col 14:15"),
-    ("] missing", "ih ]", "ih", "error 82 at line:col 16:3"),
+    ("] missing", "ih ]", "ih", "error 458 at line:col 15:19"),
     ("an empty alternative", "by-rfl\n", "\n", "error 85 at line:col 15:3"),
 ]
 

@@ -137,7 +137,7 @@ require ./source.fs
 \ (src/front/tactic-run.fs, plan FE1g-3).
 80 constant lfa-e-tac-run        \ unsupported: running this tactic (its number: FE1g-N)
 81 constant lfa-e-tac-outside    \ a tactic word outside a tactic proof
-82 constant lfa-e-tac-open       \ a block still open: by-end or ] missing
+82 constant lfa-e-tac-open       \ a block still open: by-end missing (a list: 458)
 83 constant lfa-e-tac-closer     \ by-end, ] or | with no block of its kind open
 84 constant lfa-e-tac-header     \ a | or by-case: header not TAG NAMES.. => on a line
 85 constant lfa-e-tac-empty      \ an alternative or case block with no tactic
@@ -384,7 +384,7 @@ create lfa-catalogue
   lfa-e-tac-run s" not supported yet: running this tactic" lfa-unsupported,
   lfa-e-tac-outside s" a tactic word belongs in a tactic proof, after := by" lfa-invalid,
   lfa-e-tac-open
-  s" a block is still open: by-end closes by-induction-with and by-case:, ] closes by-rw["
+  s" a block is still open: by-end closes by-induction-with and by-case:"
   lfa-invalid,
   lfa-e-tac-closer
   s" no block of this word's kind is open (| belongs right inside by-induction-with)"
